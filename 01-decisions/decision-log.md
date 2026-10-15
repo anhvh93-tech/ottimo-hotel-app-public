@@ -116,3 +116,20 @@
 | 2026-10-15 | 1 | Thang mức lỗi P0–P3 cho sản phẩm và tài liệu (test-strategy mục 8); lỗi tiền, tồn phòng, C3 mặc định là P0 | QA | Protocol – quyền QA |
 | 2026-10-15 | 1 | Tiêu chí ra R2: 100% TC ưu tiên Cao đạt, ≥ 95% TC TB đã chạy, 0 lỗi P0/P1 | QA | test-strategy |
 | 2026-10-15 | 1 | Bộ dữ liệu test DS-E/DS-0 (T0 = 15/10/2026); tài khoản test `qa.*`, mật khẩu chỉ nằm trong file seed; ma trận truy vết chỉ sinh bằng script | QA | test-strategy |
+| 2026-10-15 | 1 | Màn mặc định của `front_desk` và `front_desk_lead` là "Hôm nay" (sửa US-001 AC1, rbac, TC-NT-001/006) | PO | QA #8 |
+| 2026-10-15 | 1 | 10 story Must R2 thiếu wireframe được vẽ ở bước 4 Round 1; riêng nhật ký tiền (US-006) được trễ sang tuần đầu R2 | PO | QA #9, QC C1 |
+| 2026-10-15 | 1 | Lễ tân nhập tay đơn OTA vào căn đã kín: server không tự đổi căn mà không báo – trả 409 kèm gợi ý căn trống, lễ tân chọn; hết căn thì vào làn "Chưa gán căn"; phần tối thiểu US-139 kéo lên Must R2 | PO | QA #2 |
+| 2026-10-15 | 1 | US-023 AC2 (gộp hồ sơ) chuyển sang US-074 (R3); US-087 AC2 thu hẹp ở R2, màn tổng hợp hoa hồng sang US-089 (R3); "Chốt số liệu tháng" là Could R3 | PO | QA #6, #7 |
+| 2026-10-15 | 1 | Kênh đặt phòng R2 = danh sách BR-901 + trường "nguồn" cho đơn trực tiếp; Traveloka chỉ thêm khi INV xác nhận có dùng | PO | Brief mục 1 (Traveloka chờ duyệt) |
+| 2026-10-15 | 1 | THAY dòng DOM trước về BR-603: [GIẢ ĐỊNH – chờ luật sư qua ESC-001] Hạn khai báo khách nước ngoài = giờ đến + 12 giờ (bỏ mốc 23:00 cho khách NN); khách VN giữ mốc 23:00 | DOM | ARC M1, BA-DOM-01 |
+| 2026-10-15 | 1 | THAY dòng INT về mã sinh nhật: mã cửa theo ngày sinh = ddmm + ≥ 3 số ngẫu nhiên (theo SEC), chỉ khi khách muốn | DOM + SEC | SEC TM-38 |
+| 2026-10-15 | 1 | Khối OOO lưu nửa mở [bắt đầu, ngày mở bán lại); mở bán lại mặc định = ngày xong + 1 (cùng cách tính đơn BR-002) | DOM | QA #1, PO-DOM-01 |
+| 2026-10-15 | 1 | Sức chứa là thuộc tính từng căn; mã bill dạng `F26-000123` liên tục theo cơ sở; BR-607 thêm `void` | DOM | ARC M6, M7; QA #10 |
+| 2026-10-15 | 1 | BR-411: nhận trước 06:00 = đêm bán; BR-215: phân bổ dài hạn chia theo số đêm của tháng hợp đồng | DOM | Đề nghị DATA |
+| 2026-10-15 | 1 | Tự gán căn đơn OTA: căn ánh xạ → căn trống cùng nhóm; sang nhóm cao hơn chỉ gợi ý, không tự gán; thứ tự nhóm theo cấu hình | DOM | ARC Pha B |
+| 2026-10-15 | 1 | Lễ tân được tự miễn (FOC) minibar trong hạn mức, có hạn mức tháng và báo cáo cảnh báo thất thoát; [GIẢ ĐỊNH – chờ INV qua ESC-007] 500.000 đ/người/tháng | DOM | BA SQ-3 |
+| 2026-10-15 | 1 | Ngày nghiệp vụ đổi lúc 06:00 (khách đến sau nửa đêm vẫn thuộc ngày hôm trước) | DOM | DOM-BA-01 |
+| 2026-10-15 | 1 | Ưu tiên khi đơn OTA và trực tiếp trùng căn: không tự hủy đơn OTA; tự gán chỉ trong nhóm; đơn ghi nhận trước giữ căn; đồng bộ lỗi > 15 phút thì cảnh báo đỏ và đóng bán thủ công trên extranet | DOM | DOM-INT-01 |
+| 2026-10-15 | 1 | PHÂN XỬ ORC – nhận phòng khuya / ca tối (UXR-UXD-01, ARC-BA-01): giữ nguyên quy tắc SEC "C3 chỉ trên thiết bị được cấp, PWA điện thoại cá nhân không bao giờ được cấp". Người trực đêm dùng **thiết bị của cơ sở** (máy quầy hoặc máy tính bảng của cơ sở) đã được owner cấp quyền, mở admin-web; khuyến khích khách đến khuya check-in online trước. Ai trực tối và bằng thiết bị gì → câu hỏi bổ sung vào ESC-010 | ORC | SEC quyền bảo mật; DOM/BA quy trình; tránh vượt quyền |
+| 2026-10-15 | 1 | PHÂN XỬ ORC – khách không có email (ARC-SEC-03, UXR-UXD-02): cho phép gửi mã xác minh do lễ tân cấp qua kênh nhắn tin OTA hoặc Zalo, MẶC ĐỊNH TẮT, owner bật theo từng kênh; thêm ô email (không bắt buộc) ở form đặt phòng mới; rủi ro còn lại ghi trong threat-model và báo INV ở round-summary | ORC | Cân bằng SEC (TM-21) và vận hành thực tế |
+| 2026-10-15 | 1 | PHÂN XỬ ORC – ước lượng R2 lệch (ARC 9–11 vs BE 20–25 tuần-người): PO lập plan R2 theo thứ tự ưu tiên PRD D6 và bổ sung phương án thu hẹp R2 vào ESC-012 cho INV quyết | ORC | Phạm vi/mốc phát hành thuộc INV |
