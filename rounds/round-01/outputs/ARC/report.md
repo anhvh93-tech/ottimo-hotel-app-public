@@ -128,3 +128,39 @@ Ghi chú cho review OPS (không phải mâu thuẫn): file compose dev nằm ở
 
 ## 8. ESC mới
 Không có. Các vấn đề cần INV quyết định đều đã nằm trong ESC hiện có: hạn khai báo khách NN thuộc ESC-001, channel manager thuộc ESC-009, phạm vi thuộc ESC-012. Pha B không phát sinh chi phí định kỳ mới.
+
+---
+
+# Bước 4 – Phản hồi & sửa (16/10/2026)
+
+## 1. Đã làm gì
+- Trả lời **55/55 thẻ** (SEC 26, BE 18, DATA 11): 55 Done, 0 Rejected, 0 Deferred, 0 Escalated → **Blocker/Major còn Open: 0**. Xử lý thêm 24 mục ARC tự nhận (ARC-on-SEC) và yêu cầu ORC chuyển tiếp từ SEC v0.2, DATA v0.2, INT, BA, QA, PO, UXD (`responses/ARC-responses.md` mục 4–5).
+- **App khách mức 2**: bỏ 4 số cuối SĐT/mã đặt phòng; OTP email + mã lễ tân (kênh OTA/Zalo mặc định tắt); đếm sai theo token; trang QR căn chỉ gửi lại link; sau trả phòng chỉ bill + phát sinh.
+- **Thiết bị tin cậy cho C3** (`trusted_device`, máy quầy/thiết bị di động của cơ sở ≤ 30 ngày), xác nhận lại 15 phút, thu hồi phiên khi đổi vai/khóa/đổi mật khẩu, 2FA (R3), đổi mật khẩu, PIN.
+- **RLS chạy được thật**: 4 vai DB, `NULLIF` + `set_config`, 7 hàm `SECURITY DEFINER` cho đường vào, test kết nối tái sử dụng; FK cặp cơ sở; EXCLUDE DEFERRABLE + đổi chéo căn.
+- **Job đúng một lần**: mẫu handler, tick + so mốc theo `Clock`, `MutableClock` + `/__test__` chỉ ngoài production (`openapi.test.yaml`).
+- **Dữ liệu cho chỉ số**: cột DATA v0.2 cho `stay_night`/`reservation`, R-06a/R-06b, `user_activity_day`, từ điển `commission`.
+- **Bảng mới**: `trusted_device`, `guest_verification_code`, `staff_notification`, `push_subscription` (R3), `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `payment_allocation`, `group_bill`, `shift`.
+- Backup ≤ 35 ngày + `purge_journal`; ADR-013 sửa câu crypto-shredding; KEK qua tệp; chiến lược migration (erd 16); đóng gói ESM/CJS (ADR-012); ước lượng R2 nhận theo BE (20–25 tuần-người).
+- OpenAPI 0.2.0-draft: **VALID** theo `openapi-spec-validator` 0.7.2 (140 path, 164 operation, 164/164 có `x-roles`, 0 UUID ví dụ sai, 0 schema thừa).
+
+## 2. File tạo/sửa
+- Sửa: `product/docs/architecture.md`, `product/docs/erd.md`, `product/docs/api/openapi.yaml`, `product/docs/coding-standards.md`, `product/docs/adr/ADR-002, 003, 005, 006, 007, 008, 009, 010, 011, 012, 013`.
+- Mới: `product/docs/api/openapi.test.yaml`, `rounds/round-01/responses/ARC-responses.md`.
+- Không sửa: decision-log, 02-escalations, file của OPS/INT/SEC/BA/DATA/DOM/QA/PO/UXD.
+
+## 3. Giả định
+- [GIẢ ĐỊNH – đội tự chốt] Giá đêm niêm yết đã làm tròn là cơ sở mọi phép tính; làm tròn điểm giữa lên theo trị tuyệt đối (DOM sửa ví dụ BR-107).
+- [GIẢ ĐỊNH – chờ DOM] Nhận và trả cùng ngày đến: giữ đêm đầu là đêm bán.
+- Mã lý do hủy theo BR-308 v0.2 (DOM); DATA đổi tên tương ứng trong K-22a.
+- Xung đột OTA lưu ở `overbooking_incident` mở rộng (không thêm `booking_conflict`).
+
+## 4. Rủi ro / vướng mắc
+- Hiệu lực của RLS/K8/CI phụ thuộc OPS sửa init/compose/CI (yêu cầu ở responses mục 6); nếu chưa sửa, test RLS trên dev/CI không đo được gì.
+- `redocly lint` chưa chạy (máy ARC không có Node) – OPS chạy trong CI.
+- API 0.2 đổi phá vỡ so với 0.1 – MOB/FE/BE/INT cần cập nhật trước khi code R2.
+- Phạm vi R2 (77 Must) vẫn lớn so với ước 20–25 tuần-người BE – chờ INV qua ESC-012.
+
+## 5. Việc chưa xong (chuyển R2, đã ghi trong responses)
+- Endpoint nhóm đơn (SM-16) và đóng ca (SM-17) – ERD đã có, API thêm khi PO chốt phạm vi.
+- Rà hết 20 operation lệch rbac ↔ x-roles với `rbac-matrix.json` và phủ `x-rbac-field` cho mọi thuộc tính (cùng QA, tuần đầu R2).

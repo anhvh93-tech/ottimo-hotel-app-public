@@ -54,7 +54,7 @@
 
 **Đã làm gì**
 - Đã trả lời đủ 17 thẻ (BA 10, PO 7) trong `rounds/round-01/responses/QA-responses.md`. Kết quả: 17 Done, 0 Rejected, 0 Deferred, 0 Escalated. Không còn thẻ Major nào ở trạng thái Open (4/4 Major đã Done).
-- Test case v0.2 tăng từ 313 lên **373 TC** (thêm 60). Có 38 ca gắn nhãn Smoke (S). Mục 10a mới gồm 20 ca bảo mật SR-SES, SR-DEV, SR-GST. Đã thêm ca cho các nhánh chuyển trạng thái còn thiếu (SM-10 A5/A6/A2, SM-02 O4/O5, SM-08 Q5, SM-14 hủy việc, SM-03 R9 từ CL, SM-13 settled→closed, SM-12 đối soát, B7a/B7b/B7c/B9a…). Đã thêm ca cho các AC mới mà PO viết ở bước 4 (US-141, US-142, US-001 AC4, US-018 AC5, US-139 AC3…) và 5 ca kiểm trường chỉ số.
+- Test case v0.2 tăng từ 313 lên **374 TC** (thêm 61). Có 38 ca gắn nhãn Smoke (S). Mục 10a mới gồm 20 ca bảo mật SR-SES, SR-DEV, SR-GST. Đã thêm ca cho các nhánh chuyển trạng thái còn thiếu (SM-10 A5/A6/A2, SM-02 O4/O5, SM-08 Q5, SM-14 hủy việc, SM-03 R9 từ CL, SM-13 settled→closed, SM-12 đối soát, B7a/B7b/B7c/B9a…). Đã thêm ca cho các AC mới mà PO viết ở bước 4 (US-141, US-142, US-001 AC4, US-018 AC5, US-139 AC3…) và 5 ca kiểm trường chỉ số.
 - Đã áp các quyết định mới vào test case: khối OOO nửa mở; BR-603 khách nước ngoài +12 giờ; ngày nghiệp vụ đổi lúc 06:00; đơn OTA nhập tay vào căn đã kín → 409 kèm gợi ý; màn mặc định là "Hôm nay"; OTP hoặc mã lễ tân thay cho mã đặt phòng; thiết bị được cấp; MutableClock; xóa ảnh ngay khi `confirmed`; FOC minibar tự áp trong hạn mức tháng.
 - Test-strategy v0.2:
   - tầng R/C lấy rbac-matrix làm chuẩn và có thêm bước kiểm tĩnh;
@@ -71,11 +71,13 @@
   - thêm cột ESC, đếm Smoke, tùy chọn `--out`;
   - đọc được AC dạng "AC3 *(bước 4…)*:" và mã chuyển có hậu tố chữ (B7a).
 - Chạy thử script (xuất ra scratchpad, **chưa** ghi đè `traceability.md`):
-  - 77 story Must R2; AC 265/265; AC chạy được ở R2 265/265;
+  - 145 story trong backlog, trong đó 77 Must R2; AC 267/267; AC chạy được ở R2 267/267;
   - chuyển trạng thái 101/121;
   - 0 operationId lạ, 0 tham chiếu AC sai, 0 mã TC trùng;
   - 20 operation lệch rbac ↔ OpenAPI, chờ BA/ARC xác nhận;
   - 1 tham chiếu chuyển `SM-05 review→partial` chưa có trong SM-05, đã đề nghị BA thêm.
+
+- Đã áp tin ORC chuyển từ PO (16/10): TC-NT-023 chuyển sang US-074; ca khách đến 01:30 (BR-010, BR-602); US-141, US-142, US-139, US-119 AC5/AC6; US-136 theo BR-315 (TC-L2-074 viết lại, TC-L2-075 mới); TC-L2-053 và L4-025 áp BR-011.
 
 **File đã sửa**
 - `product/docs/qa/test-strategy.md`

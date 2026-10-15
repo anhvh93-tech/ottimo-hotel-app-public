@@ -57,7 +57,7 @@ g("Trạng thái đơn (BR-301)", [
     ("status.booking.long_term", "Hợp đồng dài hạn", "Long-term lease", None, "Loại đơn, không phải trạng thái"),
 ])
 g("Trạng thái buồng (BR-801) – giao diện quản lý", [
-    ("status.room.VC", "VC · Trống, sạch", "VC · Vacant clean"),
+    ("status.room.VC", "VC · Đã dọn, chờ kiểm", "VC · Cleaned, awaiting inspection", None, "Bước 4 – thống nhất với hk.status.VC"),
     ("status.room.VI", "VI · Đã kiểm, sẵn sàng", "VI · Inspected, ready"),
     ("status.room.VD", "VD · Trống, cần dọn", "VD · Vacant dirty"),
     ("status.room.CL", "CL · Đang dọn", "CL · Cleaning"),

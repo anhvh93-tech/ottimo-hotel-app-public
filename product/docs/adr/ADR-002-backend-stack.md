@@ -13,7 +13,9 @@
 | Runtime | **Node.js 22 LTS** | LTS đến 2027; image `node:22-alpine` nhỏ |
 | Ngôn ngữ | **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) | Chung với FE/PWA; giảm lỗi kiểu ở logic tiền |
 | Framework | **NestJS** (adapter Fastify) | Module rõ ràng hợp modular monolith; DI giúp thay `Clock`, adapter tích hợp khi test; Fastify nhanh, ít RAM hơn Express |
-| ORM / truy vấn | **Drizzle ORM** + migration SQL do `drizzle-kit` sinh, **được phép viết SQL tay** cho constraint/RLS | Gần SQL, hỗ trợ `for('update')`, transaction có isolation level, kiểu TS sinh từ schema; không giấu SQL |
+| ORM / truy vấn | **Drizzle ORM** cho kiểu + truy vấn; **migration SQL là nguồn sự thật của schema**: `drizzle-kit generate` sinh nháp được sửa tay, đối tượng drizzle-kit không biết nằm trong file `--custom`; cấm `drizzle-kit push`; CI kiểm schema.ts khớp migration (erd mục 16, BE-ARC-07) | Gần SQL, hỗ trợ `for('update')`, transaction có isolation level; không giấu SQL |
+| Số lớn | `pg` `setTypeParser(20, parseSafeBigint)`; Drizzle `bigint({ mode: 'number' })` | Tiền an toàn ≤ 2^53 |
+| UUIDv7 | `uuid@^11` (`v7()`) | Node 22/PG 17 chưa có sẵn |
 | Kiểm dữ liệu vào | **zod** (qua `nestjs-zod`) | Một schema dùng cho validate request và sinh kiểu |
 | Tiền | `bigint`/`integer` VND trong DB, `number` nguyên trong TS (≤ 2^53), helper làm tròn theo BR-005 | VND không có số lẻ; cấm `float` cho tiền (lint rule) |
 | Ngày giờ | `date-fns` + `@date-fns/tz` sau lớp `Clock` (ADR-008) | Nhẹ, có múi giờ |

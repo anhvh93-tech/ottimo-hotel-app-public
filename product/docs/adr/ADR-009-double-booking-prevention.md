@@ -23,7 +23,7 @@
 6. **Khóa tồn theo nhóm cho kênh**: số phòng trống đẩy lên kênh = số căn trong nhóm không có dòng `active` giao khoảng ngày – tính từ chính bảng này, không có bảng đếm riêng (tránh lệch).
 7. **Mức giờ trong ngày** (trả muộn 17:00 vs khách mới đến 14:00 cùng căn – BR-416, S6): constraint ở mức ngày không bắt được → kiểm ở tầng ứng dụng trong cùng giao dịch, khóa hàng căn bằng `SELECT … FROM room WHERE id = $1 FOR UPDATE`.
 8. **Idempotency** cho mọi POST tạo đơn/giữ chỗ/thu tiền/nhận-trả phòng/đổi trạng thái từ PWA: header `Idempotency-Key` (UUID), bảng `idempotency_key(key, user_id, method, path, request_hash, response_status, response_body, created_at)` giữ 48 giờ; gửi lại cùng key + cùng body → trả lại response cũ; cùng key khác body → `422 IDEMPOTENCY_KEY_REUSED`.
-9. **Sửa đơn đồng thời**: cột `version` (khóa lạc quan); PATCH phải gửi `If-Match: <version>`; lệch → `409 VERSION_CONFLICT`.
+9. **Sửa đơn đồng thời**: cột `version` (khóa lạc quan); PATCH/hành động phải gửi `If-Match: <version>`; lệch → **`412 VERSION_CONFLICT`** (khớp OpenAPI, coding-standards, BA – QA #3, BE-ARC-12); thiếu → `428 PRECONDITION_REQUIRED`.
 
 ## Phương án đã cân nhắc
 | Phương án | Vì sao không chọn |
@@ -40,3 +40,9 @@
 ## Cập nhật Pha B (15/10/2026)
 - Điểm 5 chốt theo BA (`state-machines.md` 1.3): **không** thêm trạng thái; đơn OTA không còn căn được tạo `confirmed` với `reservation.conflict_state = 'open'`, segment `room_id = NULL`, không chèn `room_occupancy`; xử lý bằng B7/B14 (`erd.md` mục 7). Câu "đơn OTA chưa gán căn không tồn tại" ở phần Hệ quả được thay bằng: chỉ đơn kênh OTA xung đột mới được tồn tại ở trạng thái chưa gán căn, và không nhận phòng được cho tới khi gán.
 - Tên bảng chốt: `room_occupancy`, `reservation_segment`, `idempotency_key` (erd mục 4.5, 4.12).
+
+## Cập nhật R1 bước 4 (16/10/2026)
+- Constraint `room_occupancy_no_overlap` khai `DEFERRABLE INITIALLY IMMEDIATE`; chỉ `swapRoom` (đổi chéo căn 2 đơn) dùng `SET CONSTRAINTS … DEFERRED` (BE-ARC-08). Thêm `CHECK (NOT isempty(stay_range))`.
+- Thứ tự khóa chống deadlock: đơn → các dòng `room` theo `room_id` tăng dần → `folio`. Sau `23P01`: rollback rồi truy vấn dựng `conflicts[]`/`suggestions[]`.
+- Đơn OTA lễ tân nhập tay vào căn kín → `409` kèm gợi ý, lễ tân chọn hoặc lưu "chưa gán căn" rồi gán bằng `assignRoom` (B7a) – decision-log PO 15/10, US-018 AC5, US-139; đơn OTA tự động (R3) tự gán trong nhóm, nhóm cao hơn chỉ gợi ý (DOM).
+- Thứ tự kiểm idempotency trước `If-Match` (OpenAPI info).

@@ -1,7 +1,7 @@
 # Kiến trúc hệ thống – OTTIMO Desk (Pha A)
 
-- Người viết: ARC | Round 1 – Bước 2 – Đợt 2 (Pha A) | Ngày: 15/10/2026 | Phiên bản: 0.1
-- Trạng thái: **Bản nháp Pha A + bổ sung Pha B** (job theo lịch mục 9.1, mã chứng từ mục 9a, đơn OTA xung đột mục 8) – chờ review bắt buộc BE, SEC; khuyến nghị OPS, INT, MOB, DATA (plan R1 mục 5)
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 16/10/2026 | Phiên bản: 0.2
+- Trạng thái: **Đã sửa theo review bước 3** (SEC, BE, DATA – `rounds/round-01/responses/ARC-responses.md`) và decision-log 15/10 (SEC, DOM, PO, DATA, phân xử ORC)
 - Đầu vào: `00-brief/investor-brief.md`, `01-decisions/decision-log.md`, `rounds/round-01/plan.md`, `product/docs/PRD.md`, `03-backlog/backlog.md`, `product/docs/business-rules.md` (BR, mục 13 tham số), `product/docs/integrations.md`, `product/docs/integrations/channel-manager-comparison.md`, `product/integrations/README.md`, `product/docs/security/data-risk-assessment.md`, `02-escalations/ESC-002.md`, `product/docs/round-0-baseline.md` (gọi tắt **BL**)
 - Quyết định chi tiết: `product/docs/adr/` (ADR-001 … ADR-013)
 - **Pha B (Đợt 3) đã làm**: `erd.md`, `api/openapi.yaml`, `coding-standards.md`, danh sách job đầy đủ (mục 9.1), sinh mã chứng từ (mục 9a + erd mục 10). Mục 18 giữ lại để truy vết đầu vào.
@@ -164,7 +164,8 @@ Cùng image với `api`, entrypoint khác (`node dist/worker.js`). Chạy: job t
 - `timestamptz` (UTC) cho thời điểm; `date` cho ngày lưu trú/kỳ thu; `time` cho giờ cấu hình (14:00, 12:00, 23:00).
 - Khoảng lưu trú `[arrival, departure)` (BR-002). Đêm gắn ngày bắt đầu ngủ; nhận phòng trước 06:00 tính đêm trước (BR-003) – logic ở module `frontdesk`, dùng `Clock.atLocal`.
 - Server/DB chạy `TZ=UTC`; API trả thời điểm có offset `+07:00`; client hiển thị theo `property.timezone`.
-- `Clock` là nguồn thời gian duy nhất; dev/staging cho đặt giờ giả để QA test mốc 23:00, 12 giờ khai báo NN, hết hạn giữ chỗ.
+- **Ngày nghiệp vụ đổi lúc 06:00** (BR-010): 00:00–05:59 thuộc ngày hôm trước cho "hôm nay", KPI đêm nay, nhận phòng, phạm vi T; hạn pháp lý (BR-602/603) tính theo giờ thực.
+- `Clock` là nguồn thời gian duy nhất: `SystemClock` (production), `MutableClock` (dev/test/staging – offset trong bảng `dev_clock` dùng chung api + worker, `NOTIFY clock_changed`); đặt/tua giờ và chạy job theo yêu cầu qua `/__test__/*` (`docs/api/openapi.test.yaml`), không bao giờ đăng ký ở production (ADR-008).
 
 ## 8. Tồn phòng và chống đặt trùng (ADR-009)
 
@@ -204,16 +205,16 @@ sequenceDiagram
 ### 9.1 Danh sách job theo lịch (Pha B)
 
 Nguyên tắc chung cho mọi job:
-1. Chạy trong `worker` bằng pg-boss; mỗi job lặp theo từng cơ sở, đặt context RLS của cơ sở đó (erd mục 2) và đọc giờ qua `Clock` (dev/staging dùng `CLOCK_OVERRIDE` để QA thử mốc 23:00, 12:00, 18:00…).
+1. Chạy trong `worker` bằng pg-boss; pg-boss chỉ là "chuông" **tick mỗi phút** – handler lấy danh sách cơ sở bằng `worker_list_properties()` (erd 2.4), lặp theo từng cơ sở, đặt ngữ cảnh RLS và **so mốc theo `Clock.now()` + `property.timezone`** (không dùng cron theo tz). QA chạy job theo yêu cầu bằng `POST /__test__/jobs/{jobKey}/run` với `MutableClock`.
 2. **Mốc giờ đọc từ tham số tại thời điểm chạy** (erd mục 9), không viết cứng – đổi tham số không cần deploy (rủi ro T8).
-3. **Đúng một lần**: job theo mốc giờ ghi `job_run(job_key, property_id, business_date, slot)` có UK; job theo thời điểm lưu trên bản ghi (hạn giữ chỗ, hạn khai báo) dùng `SELECT … FOR UPDATE SKIP LOCKED` và kiểm lại điều kiện trong giao dịch.
+3. **Đúng một lần** – theo **mẫu handler** ở cuối mục này: `job_run` + hiệu ứng nghiệp vụ + outbox trong **cùng một** giao dịch của pool app; job theo thời điểm lưu trên bản ghi (hạn giữ chỗ, hạn khai báo) dùng `SELECT … FOR UPDATE SKIP LOCKED` và kiểm lại điều kiện theo `$now` trong giao dịch.
 4. **Bắt kịp sau khi worker dừng**: job theo thời điểm luôn chạy bù; job nhắc theo mốc chỉ chạy bù nếu trễ ≤ `job_catchup_minutes` (mặc định 60), quá thì ghi `skipped` vào `job_run.stats` (không gửi nhắc "20:00 hôm trước" vào sáng hôm sau).
 5. Không job nào **tự đánh dấu no-show** hay tự đổi tiền – chỉ tạo nhắc/"Cần chú ý" (BR-311). Mọi chuyển trạng thái do SYS ghi `state_transition` với `actor_type='system'`.
-6. Kết quả hiển thị cho người dùng qua bảng nghiệp vụ + SSE `attention.changed`; lỗi job → log + cảnh báo OPS (R2 cấu hình giám sát).
+6. Kết quả hiển thị cho người dùng qua bảng nghiệp vụ, `attention_event` (mục sự kiện), `staff_notification` ("báo người tạo / nhắc bộ phận") + SSE `attention.changed`, `notification.created`; lỗi job → log + cảnh báo OPS (R2 cấu hình giám sát).
 
 | # | Job (`job_key`) | Kích hoạt (giờ cơ sở) | Việc làm | Tham số | BR / US | R |
 |---|---|---|---|---|---|---|
-| J1 | `hold.expire` | Job hẹn giờ tại `hold_expires_at` (pg-boss `startAfter`, `singletonKey` = id đơn) **+** quét dự phòng mỗi 1 phút | B6: đơn `hold` quá hạn mà **không** có giao dịch cọc `succeeded` nhận trước hạn → `cancelled` (lý do `hold_expired`), `room_occupancy.active=false`, `stay_night` void, khai báo `void`, lead → `quoted`, outbox mở phòng, báo người tạo. Tiền về sau khi đã hủy → cảnh báo "Tiền về cho đơn đã hủy" (không tự khôi phục) | `hold_hours_*` (đã chép vào đơn) | BR-302/303; US-085 AC1, AC4; DATA S7 (≤ 5 phút – thiết kế đạt ≤ 1–2 phút) | R2 |
+| J1 | `hold.expire` | Job hẹn giờ tại `hold_expires_at` (pg-boss `startAfter`, `singletonKey` = `reservationId:hold_expires_at` để gia hạn B3 sinh job mới) **+** quét mỗi 1 phút (nguồn đúng đắn) | B6: đơn `hold` quá hạn mà **không** có giao dịch cọc `succeeded` nhận trước hạn → `cancelled` (lý do `hold_expired`), `room_occupancy.active=false`, `stay_night` void, khai báo `void`, lead → `quoted`, outbox mở phòng, báo người tạo. Tiền về sau khi đã hủy → cảnh báo "Tiền về cho đơn đã hủy" (không tự khôi phục) | `hold_hours_*` (đã chép vào đơn) | BR-302/303; US-085 AC1, AC4; DATA S7 (≤ 5 phút – thiết kế đạt ≤ 1–2 phút) | R2 |
 | J2 | `hold.remind` | Hẹn giờ tại `hold_expires_at − hold_expiry_reminder_hours` | Nhắc người tạo + mục "Cần chú ý" `hold_expiring` | `hold_expiry_reminder_hours` | BR-303; US-085 AC2 | R2 |
 | J3 | `quote.expire` | Hằng ngày 00:05 | Q3: báo giá `active` có `expires_at` đã qua → `expired` | `quote_validity_days` (đã chép) | BR-304 | R2 |
 | J4 | `checkout.reminders` | Tick mỗi 1 phút, so với từng mốc của `checkout_reminders` | Mốc "tối hôm trước": tạo nhắc (mẫu tin `checkout_reminder` để sao chép – R2; gửi Zalo/email – R3); mốc sáng: nhắc lần 2; mốc "cần gọi": đơn chưa phản hồi → `call_needed` + báo lễ tân; mốc giờ trả: `overdue` → báo đỏ FD + MGR, đẩy căn có khách đến hôm nay lên đầu. Ghi `checkout_reminder_log`. Dài hạn: nhắc trước 7 và 1 ngày | `checkout_reminders`, `checkout_time` | BR-425; US-030, US-031 | R2 |
@@ -228,8 +229,8 @@ Nguyên tắc chung cho mọi job:
 | J13 | `lease.renewal_offer` | Hằng ngày 08:00 | HĐ hết hạn trong `lease_renewal_offer_days` → "Cần chú ý" chào gia hạn | `lease_renewal_offer_days` | BR-211, 907 | R2 |
 | J14 | `visa.warning` | Hằng ngày 06:00 | Giấy tờ có `visa_alert_on ≤ hôm nay` của đơn `confirmed`/`in_house` → `visa_expiring` | `visa_expiry_warning_days` | BR-605; US-044 AC3, US-012 AC3 | R2 |
 | J15 | `folio.close` | Mỗi giờ | Folio `settled` quá `post_checkout_window_until` và còn phải thu = 0 (hoặc công nợ đã ghi) → `closed` | `post_checkout_charge_window_hours` | BR-427; SM-13 | R2 |
-| J16 | `retention.purge` | Hằng ngày 03:00 | Xóa/ẩn danh theo T01–T18 (erd mục 12), hủy DEK, bỏ qua `legal_hold`, ghi `retention_run`; dọn `user_session`, `guest_session`, `guest_access_token`, `idempotency_key` hết hạn | `retention.*`, `id_image_retention_days_after_checkout`, `idempotency_ttl_hours` | BR-609, 610; SEC mục 7; US-049 AC1 | R2 (ảnh T01/T02, mã cửa T11, phiên); R3 (phần còn lại) |
-| J17 | `data.integrity` | Hằng ngày 04:00 | Kiểm DATA R-04, R-05, R-06; kiểm không có 2 dòng `room_occupancy` active giao nhau (phòng thủ cho S1); lệch → `data_quality` cho OWN | – | metrics mục 6; PRD S1 | R2 |
+| J16 | `retention.purge` | Hằng ngày 03:00 | Xóa/ẩn danh theo T01–T18 (erd mục 12), hủy DEK, bỏ qua `legal_hold`, ghi `retention_run` **và `purge_journal`**; tạo phân vùng nhật ký tháng tới, xóa phân vùng quá hạn; xóa `inbox_message.filtered_payload` > 90 ngày; dọn `user_session`, `guest_session`, `guest_access_token`, `guest_verification_code`, `idempotency_key` hết hạn | `retention.*`, `id_image_retention_days_after_checkout`, `idempotency_ttl_hours` | BR-609, 610; SEC mục 7; US-049 AC1 | R2 (ảnh T01/T02, mã cửa T11, phiên); R3 (phần còn lại) |
+| J17 | `data.integrity` | Hằng ngày 04:00 | Kiểm DATA R-04, R-05, **R-06a** (đêm sold đã gán + OOO + trống = số căn), **R-06b** (đơn xung đột chưa gán mà còn căn trống phù hợp → `unassigned_with_free_room`); kiểm không có 2 dòng `room_occupancy` active giao nhau (phòng thủ S1); lệch → `attention_event data_quality` cho OWN | – | metrics mục 6; PRD S1; DATA FB-03 | R2 |
 | J18 | `outbox.dispatch` | Liên tục (LISTEN/NOTIFY + quét 5 giây) | Gửi qua adapter (Mock ở R2); retry 5 lần lùi cấp số nhân → `dead` + "Cần chú ý" `channel_sync_error` | – | BR-905; ADR-011 | R2 |
 | J19 | `inbox.process` | Liên tục | Xử lý webhook/IPN idempotent; webhook kênh = tín hiệu → kéo lại đơn (ADR-011 B4); đơn OTA trùng → luồng xung đột (erd mục 7) | – | BR-312, 905 | R3 |
 | J20 | `channel.reconcile` | Hằng ngày 02:00 | So tồn Desk với channel manager, đẩy lại chênh lệch, báo lệch | – | BR-905 | R3 |
@@ -237,23 +238,46 @@ Nguyên tắc chung cho mọi job:
 | J22 | `commission.cycle` | Ngày 1 hằng tháng | SM-11 `earned → payable` gộp theo tháng (chờ DOM SQ-4); đợt 2 dài hạn khi qua mốc thời hạn | `commission_payout` | BR-212, 903 | R3 |
 | J23 | `maintenance.plan` / `meter.reminder` | Hằng ngày 07:30 | Bảo trì định kỳ sắp đến hạn; công tơ chưa chốt quanh `meter_reading_day` | `meter_reading_day` | BR-502, 810 | R3 |
 
+**Mẫu handler job chạy đúng một lần** (BE-ARC-05 – bắt buộc cho mọi job J1–J23):
+```
+for property in worker_list_properties():                 -- hàm SECURITY DEFINER (erd 2.4)
+  now  = clock.now(); slot = slotFor(jobKey, now, property.timezone)
+  if slot is None or (slot is reminder and now - slot > job_catchup_minutes): continue / ghi skipped_catchup
+  BEGIN                                                   -- kết nối từ pool APP, không dùng kết nối pg-boss
+    SELECT set_config('app.property_id', …, true) …       -- ngữ cảnh RLS
+    INSERT INTO job_run(job_key, property_id, business_date, slot, run_at, status)
+      VALUES (…, 'done') ON CONFLICT DO NOTHING RETURNING id
+    -- không ra dòng → slot đã chạy xong → COMMIT, sang cơ sở kế
+    ... làm việc: SELECT … FOR UPDATE (SKIP LOCKED) theo thứ tự khóa đơn → room (id tăng dần) → folio,
+        kiểm lại điều kiện theo $now, ghi nghiệp vụ, state_transition, attention_event/staff_notification, outbox
+    UPDATE job_run SET stats = …
+  COMMIT                                                  -- lỗi → ROLLBACK cả job_run → pg-boss retry
+```
+- Không có trạng thái `started`: rollback xóa luôn dấu `job_run`, nên worker chết giữa chừng không "mất" slot; hai worker chồng lấn khi deploy thì một bên chờ UK rồi không ra dòng.
+- **J1 đua với `confirm-deposit`**: cả hai `SELECT … FROM reservation WHERE id=$1 FOR UPDATE` trước, rồi kiểm lại `status='hold'` và `hold_expires_at <= $now` (J1) / chưa hết hạn hoặc có giao dịch `succeeded` nhận trước hạn (B4).
+- **LISTEN/NOTIFY**: api giữ 1 kết nối riêng ngoài pool để `LISTEN` (`config_changed`, `clock_changed`, `sse_event`), tự nối lại (lùi tối đa 30 giây) và refetch sau khi nối lại.
+
 **Công thức hạn khai báo** (tính một lần khi nhận phòng, lưu `registration.deadline_at` + `deadline_basis`; `t` = giờ nhận phòng thực tế theo giờ cơ sở):
 - `vn(t)` = 23:00 cùng ngày nếu `t` trước 23:00; ngược lại 08:00 ngày hôm sau (`registration_deadline_vn`, BR-602).
-- Hồ sơ có người nước ngoài: `registration_deadline_foreigner_mode = earlier_of` → `min(t + registration_deadline_foreigner_hours, vn(t))`; `hours_only` → `t + giờ`. Hồ sơ hỗn hợp lấy hạn sớm nhất.
-- Trước khi nhận phòng, danh sách hiển thị "Khi nhận phòng" (US-042). Ví dụ BR-603 "nhận 21:30 → 09:30 hôm sau" **không khớp** chế độ `earlier_of` (cho 23:00) – đã đưa vào report ARC mục 4 để DOM/luật sư chốt (ESC-001); đổi chế độ chỉ là đổi tham số.
+- Hồ sơ có người nước ngoài: **mặc định `hours_only`** → `t + registration_deadline_foreigner_hours` (12 giờ) – decision-log DOM 15/10 THAY dòng cũ, [GIẢ ĐỊNH – chờ luật sư qua ESC-001]; chế độ `earlier_of` (`min(t + giờ, vn(t))`) giữ làm tham số dự phòng. Hồ sơ hỗn hợp lấy hạn sớm nhất. Hạn pháp lý tính theo giờ thực, không theo ngày nghiệp vụ 06:00.
+- Trước khi nhận phòng, danh sách hiển thị "Khi nhận phòng" (US-042). Ví dụ BR-603 "nhận 21:30 → 09:30 hôm sau" khớp chế độ `hours_only`.
 
 ## 9a. Mã chứng từ do server cấp (BR-007, BL 8.2 #18)
-Bộ đếm `doc_sequence` theo `(cơ sở hoặc tổ chức, loại mã, kỳ)`, cấp trong **cùng giao dịch** tạo bản ghi bằng `UPDATE … SET next_value = next_value + 1 RETURNING` (khóa hàng) – không hở số khi rollback, không trùng, không dùng thời gian/số ngẫu nhiên/`SEQUENCE`. Bill cấp số khi folio `settled` (đánh lại theo ngày `F-yymmdd-nnnn`). Chi tiết định dạng, thuật toán, seed nối tiếp prototype: `erd.md` mục 10. Test bắt buộc: 50 request song song → 50 mã liên tiếp, không trùng (US-023).
+Bộ đếm `doc_sequence` theo `(cơ sở hoặc tổ chức, loại mã, kỳ)`, cấp trong **cùng giao dịch** tạo bản ghi bằng `UPDATE … SET next_value = next_value + 1 RETURNING` (khóa hàng) – không hở số khi rollback, không trùng, không dùng thời gian/số ngẫu nhiên/`SEQUENCE`. Bill cấp số khi folio `settled`, dạng **`F26-000123`** – liên tục theo cơ sở trong năm, đặt lại 1/1 (BR-007 v0.2). Chi tiết định dạng, thuật toán, seed nối tiếp prototype: `erd.md` mục 10. Test bắt buộc: 50 request song song → 50 mã liên tiếp, không trùng (US-023).
 
 ## 10. Bảo mật ở mức kiến trúc (SEC Phần 2 sẽ chi tiết trong `threat-model.md`, `security-requirements.md`)
-- **Xác thực nhân viên**: phiên phía server (bảng `session` trong Postgres), cookie `HttpOnly; Secure; SameSite=Lax`, mật khẩu argon2id, khóa tạm sau nhiều lần sai; 2FA (TOTP) cho chủ đầu tư/quản lý – R3. Phê duyệt FOC bằng tài khoản người duyệt (BR-432), xác nhận lại mật khẩu/PIN (R3).
+- **Xác thực nhân viên**: phiên phía server (`user_session`), cookie `__Host-ottimo_sid` (`HttpOnly; Secure; SameSite=Lax; Path=/`), mật khẩu argon2id, khóa tạm sau nhiều lần sai; `username` duy nhất toàn hệ thống; mật khẩu tạm buộc đổi (`POST /v1/me/password`). **Thu hồi ngay mọi phiên** khi đổi vai/khóa/đặt lại hoặc đổi mật khẩu/tắt 2FA; quyền đọc theo `user_property_role` mỗi request (cache ≤ 60 giây theo `roles_version`). Phiên admin 30 phút không hoạt động – tối đa 12 giờ; PWA 72 giờ – tối đa 30 ngày. 2FA TOTP bắt buộc owner/manager – R3 trước khi đưa dữ liệu thật. Phê duyệt FOC bằng tài khoản người duyệt (BR-432): **R2 nhập lại mật khẩu**, R3 PIN duyệt/2FA.
+- **Thiết bị tin cậy cho C3** (SR-DEV): bảng `trusted_device`, cookie `__Host-ottimo_did`, `x-requires-trusted-device` trên mọi endpoint C3 → `403 DEVICE_NOT_TRUSTED`. Loại `desk` (máy quầy, 180 ngày) và `facility_mobile` (máy tính bảng/điện thoại **của cơ sở** mở admin-web, ≤ 30 ngày); không bao giờ cấp cho máy cá nhân hay PWA. **Trực đêm dùng thiết bị của cơ sở** (phân xử ORC 15/10). Thao tác C3 cần thêm xác nhận lại trong cửa sổ trượt 15 phút (SR-C3-09).
 - **Phân quyền**: kiểm ở server theo vai × cơ sở × hành động; **lọc trường nhạy cảm ở server** (serializer theo quyền) – client không nhận dữ liệu nó không được xem (sửa BL 8.2 #27).
-- **Khách**: token theo đơn (ADR-006).
+- **Khách**: token theo đơn (ADR-006). Mức 2 = OTP email hoặc mã lễ tân cấp (tại quầy/điện thoại; qua kênh OTA/Zalo chỉ khi owner bật – mặc định tắt); đếm sai theo token; sau trả phòng chỉ còn bill + phát sinh.
 - **C3**: ADR-013. **Không** đưa C2/C3 vào URL, log, thông báo đẩy, tiêu đề email.
-- **Bí mật**: chỉ biến môi trường (file `.env` trên máy chủ, quyền 600; `.env.example` chỉ placeholder); KEK tách riêng; không bí mật nào trong image Docker.
-- **Webhook/IPN**: xác thực chữ ký; IPN chỉ chấp nhận khi khớp số tiền; webhook kênh → kéo lại dữ liệu qua API (ADR-011 B4).
+- **Bí mật**: biến môi trường (file `.env` trên máy chủ, quyền 600; `.env.example` chỉ placeholder); **KEK và `ID_HASH_KEY` nạp từ tệp** (`*_FILE`, Compose `secrets:`, ngoài thư mục dự án, loại khỏi backup – SR-KEY-10); không bí mật nào trong image Docker. IP trong log/nhật ký là HMAC với `LOG_IP_HMAC_KEY`.
+- **Webhook/IPN**: `/v1/webhooks/{provider}/{propertySlug}` (+ GET cho VNPay); xác thực chữ ký theo bí mật của cơ sở; IPN chỉ chấp nhận khi khớp số tiền; body ≤ 64 KB; route `mock` không có ở production; webhook kênh → kéo lại dữ liệu qua API (ADR-011 B4); payload kênh chỉ lưu bản đã lọc allowlist (không bao giờ lưu trường thẻ – SR-PAY-09).
+- **Đường vào trước ngữ cảnh RLS**: đăng nhập, phiên, thiết bị, token khách, webhook, trang QR căn, danh sách cơ sở của worker đi qua hàm `SECURITY DEFINER` hẹp (erd 2.4); api/worker chạy vai `ottimo_app` không superuser, không BYPASSRLS.
 - **Biên mạng**: chỉ mở 80/443 (+ SSH bằng khóa, giới hạn IP nếu được); Postgres không mở ra ngoài; rate limit đăng nhập và endpoint khách (trong API, bộ đếm ở Postgres/RAM).
-- **Header**: CSP chặt cho SPA, HSTS, `X-Content-Type-Options`, `Referrer-Policy: no-referrer` cho guest-web (token trong đường dẫn).
+- **Header**: CSP chặt cho SPA, HSTS, `X-Content-Type-Options`, `Referrer-Policy: no-referrer` cho guest-web (token trong đường dẫn). Tệp C3 trả kèm `Content-Security-Policy: sandbox; default-src 'none'`.
+- **Ba origin** (SR-HDR-04): admin-web, PWA nhân viên, guest-web ở 3 tên miền con; mỗi origin proxy `/v1` tới api (cùng origin, không CORS); cookie host-only `__Host-`. OPS cấu hình Caddy.
+- **Sao lưu**: vòng đời ≤ 35 ngày; xóa bằng hủy DEK chỉ có hiệu lực trong backup sau ≤ 35 ngày; `purge_journal` áp lại sau khôi phục (ADR-010, ADR-013).
 
 ## 11. Offline cho app nhân viên (ADR-005)
 | Nhóm thao tác | Offline? | Cách làm |
@@ -266,21 +290,29 @@ Bộ đếm `doc_sequence` theo `(cơ sở hoặc tổ chức, loại mã, kỳ)
 Lễ tân mất mạng tại quầy (tình huống S7): admin-web giữ rack đã tải ở chế độ chỉ xem + banner; khi có mạng, worker đẩy lại tồn và đối soát kênh. **UXD** cần thiết kế: banner mất kết nối, huy hiệu "đang chờ gửi (n)", danh sách mục không áp dụng được.
 
 ## 12. Cập nhật thời gian thực
-SSE `GET /v1/properties/{id}/events` phát sự kiện nhẹ (`room.status_changed`, `reservation.changed`, `attention.changed`, `task.assigned`) chỉ chứa ID + loại; client gọi lại API để lấy dữ liệu theo quyền của mình (không đẩy dữ liệu nhạy cảm qua kênh sự kiện). Mất kết nối → TanStack Query refetch khi online/focus + poll 30 giây.
+SSE `GET /v1/properties/{id}/events` phát sự kiện nhẹ (`room.status_changed`, `reservation.changed`, `attention.changed`, `task.assigned`, `notification.created` – chỉ tới người nhận) chỉ chứa ID + loại; client gọi lại API để lấy dữ liệu theo quyền của mình (không đẩy dữ liệu nhạy cảm qua kênh sự kiện). Mất kết nối → TanStack Query refetch khi online/focus + poll 30 giây.
+
+### 12.1 "Cần chú ý" và thông báo nhân viên (BE-ARC-06)
+| Loại | Lưu ở | Cách sinh | Đóng |
+|---|---|---|---|
+| Mục suy ra từ trạng thái (giữ chỗ sắp hết, khai báo đến hạn/quá hạn, thị thực, kỳ thu, HĐ sắp hết, OOO, phiếu Cao mở, cần gọi/đánh dấu no-show) | **Không lưu** – `listAttentionItems` tính lúc đọc từ bảng nghiệp vụ | Truy vấn có chỉ mục | Tự hết khi trạng thái nghiệp vụ đổi |
+| Mục sự kiện (`deposit_after_cancel`, `channel_sync_error`, `data_quality`, `overbooking`, `unassigned_with_free_room`, `security_alert`) | `attention_event` (`dedupe_key` chống trùng) | Trong giao dịch nghiệp vụ hoặc job | `resolveAttentionEvent` có ghi chú |
+| "Báo người tạo / nhắc bộ phận" (J1, J2, J10, J11, báo cọc, duyệt, bảo mật tài khoản) | `staff_notification` theo người nhận | Cùng giao dịch + `NOTIFY` → SSE `notification.created` | `markNotificationRead` |
+R2: thông báo trong app + SSE; **R3**: Web Push (`push_subscription`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`). Nội dung chỉ loại + mã tham chiếu, không C2/C3.
 
 ## 13. Lớp adapter tích hợp – khớp interface INT (ADR-011)
 
 | Interface INT (`product/integrations/README.md`) | Module lõi gọi | Mock R2 | Thật | Nhận xét ARC |
 |---|---|---|---|---|
 | `ChannelAdapter` | `channels` | Có (kịch bản trễ/trùng/xung đột) | Beds24 (R3, theo ESC) | Chấp nhận; bổ sung B1–B4, B9 (đa cơ sở, `LocalDate`, thêm trường sự kiện, webhook = tín hiệu rồi kéo lại, push theo khoảng ngày). Cần thêm `fetchBooking(externalId)` |
-| `PaymentAdapter` | `folio` | Có | VietQR (R2, chỉ sinh chuỗi), VNPay/MoMo (R3), bankfeed (R3) | Chấp nhận; `verifyCallback` → async (B5); `paymentId` sinh trước khi gọi cổng là đúng; trạng thái giao dịch của INT dùng nguyên trong ERD |
+| `PaymentAdapter` | `folio` | Có | VietQR (R2, chỉ sinh chuỗi), VNPay/MoMo (R3), bankfeed (R3) | Chấp nhận; `verifyCallback` → async (B5); `paymentId` sinh trước khi gọi cổng là đúng. **Sửa câu cũ**: trạng thái giao dịch trong ERD theo BA SM-12 (`pending/succeeded/failed/expired/reversed`), **hoàn tiền là `payment` riêng `type=refund`**; adapter ánh xạ trạng thái của cổng sang SM-12 (FB-R1-ARC-INT-11). Thêm `payment.method_detail`, `payment.reconciliation` (BR-527) |
 | `EInvoiceAdapter` | `folio` | Có | MISA (R3) | Chấp nhận; `invoiceRef` = khóa idempotency; phát hành qua outbox, lỗi không chặn trả phòng |
 | `DoorLockAdapter` | `doorlock` | `manual` + `mock` | TTLock/Tuya (sau MVP) | Chấp nhận; sinh mã ở lõi (không trùng mã hiệu lực trên cùng khóa); mã cửa đang hiệu lực là C3 → mã hóa trường |
 | `NotificationAdapter` | `messaging` | `mock`, `manual_copy` | email (R2), ZNS (R3/sau) | Chấp nhận; nội dung render ở lõi theo `templateId` + `locale` |
 | `GuestRegistrationAdapter` | `registration` | – | `semi_auto` duy nhất | Chấp nhận; không scrape cổng BCA |
 | (chung) | `integrations-hub` | – | – | Thêm `IntegrationError` (B6), `healthCheck()` (B7), credential theo cơ sở (B8), Mock có kịch bản lỗi (B10) |
 
-Biến môi trường: dùng nguyên danh sách INT mục 4; OPS đưa vào `product/.env.example` (giá trị trống). Thêm của ARC: `DATABASE_URL`, `APP_BASE_URL`, `GUEST_BASE_URL`, `SESSION_SECRET`, `DATA_KEK_CURRENT`, `DATA_KEK_VERSION`, `ID_HASH_KEY`, `BLOBSTORE_PROVIDER=local|s3`, `BLOBSTORE_LOCAL_PATH`, `CLOCK_OVERRIDE` (chỉ dev/staging), `LOG_LEVEL`.
+Biến môi trường: dùng nguyên danh sách INT mục 4; OPS đưa vào `product/.env.example` (giá trị trống). Thêm của ARC: `APP_ENV` (`dev|test|staging|production`), `DATABASE_URL` (vai `ottimo_app`), `MIGRATION_DATABASE_URL` (vai `ottimo_migrator`), `ADMIN_BASE_URL`, `STAFF_BASE_URL`, `GUEST_BASE_URL` (3 origin), `SESSION_SECRET`, `DATA_KEK_FILE` + `DATA_KEK_VERSION`, `ID_HASH_KEY_FILE` (dev được dùng `DATA_KEK_CURRENT`, `ID_HASH_KEY`), `LOG_IP_HMAC_KEY`, `BLOBSTORE_PROVIDER=local|s3`, `BLOBSTORE_LOCAL_PATH`, `CLOCK_MODE=system|mutable` (production luôn `system`), `TEST_SUPPORT_TOKEN` (chỉ dev/staging), `TRUST_PROXY_CIDR` (subnet Caddy), `COOKIE_SECURE_PREFIX`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` (R3), `LOG_LEVEL`. **Bỏ** `CLOCK_OVERRIDE`.
 
 Các điểm B1–B10 sẽ được ghi thành thẻ trong `rounds/round-01/reviews/ARC-on-INT.md` ở bước 3 để INT cập nhật README (ARC không sửa file của INT).
 
@@ -364,7 +396,7 @@ Triển khai: image Docker build trong CI → đẩy lên registry (GitHub Conta
     ├── integrations/                 # INT – package @ottimo/integrations (cấu trúc theo README của INT)
     ├── infra/
     │   ├── docker/                   # Dockerfile.api (multi-stage, dùng cho api + worker), Dockerfile.web
-    │   ├── compose/                  # docker-compose.yml (dev), docker-compose.prod.yml
+    │   ├── docker-compose.yml        # dev – vị trí thực tế OPS đã dựng (thay `compose/` cũ)
     │   ├── caddy/Caddyfile
     │   └── scripts/                  # backup.sh, restore.sh, deploy.sh
     ├── tests/
@@ -380,7 +412,8 @@ Triển khai: image Docker build trong CI → đẩy lên registry (GitHub Conta
 Ghi chú cho OPS (Đợt 3):
 - Thư mục `product/apps/mobile` (đã có) **giữ tên** theo protocol, nội dung là PWA – không phải Flutter.
 - Khung R1 tối thiểu để CI xanh: `services/api` có endpoint `GET /health` (trả `{status:"ok", db:"ok", time:"<ISO +07:00>"}`) và 1 test Vitest; `apps/admin-web`, `apps/mobile`, `apps/guest-web` mỗi app 1 trang trống build được + 1 test; `packages/contracts` rỗng build được; `integrations` có interface + 1 Mock + 1 test.
-- `docker-compose.yml` dev: `postgres:17-alpine` (có `btree_gist`), `api`, `worker`, `caddy` (tùy chọn ở dev); Vite dev server chạy ngoài container cho nhanh.
+- `infra/docker-compose.yml` dev: `postgres:17-alpine` (có `btree_gist`), `api`, `worker`, `caddy` (tùy chọn ở dev); Vite dev server chạy ngoài container cho nhanh.
+- **Yêu cầu OPS (R1 bước 4 – ARC không sửa file OPS)**: (1) init Postgres tạo vai `ottimo_owner`, `ottimo_migrator`, `ottimo_app`, `ottimo_readonly` (erd 2.1), cho cả DB `ottimo_test` và CI; (2) tách `DATABASE_URL`/`MIGRATION_DATABASE_URL` trong compose, `.env.example`, CI; api/worker không dùng superuser; (3) `trustProxy` = subnet Caddy; (4) job CI `api-contract` (redocly + openapi-spec-validator + kiểm `x-roles`) và 2 bước migration (erd 16); (5) CI kiểm bundle production không chứa `__test__`; (6) Compose `secrets:` cho KEK/`ID_HASH_KEY`; (7) Caddy 3 origin + che `/g/*` và query `/v1/webhooks/*`; (8) đổi `src/db.ts` → `src/db/pinger.ts`; (9) `/health` trả `503 {status:error, db:down}` (OpenAPI đã khai); (10) backup ≤ 35 ngày + `purge_journal` riêng ≥ 36 ngày.
 - Lệnh và bước CI: xem ADR-012.
 
 ## 18. Pha B (Đợt 3) cần gì từ các vai khác
@@ -403,7 +436,7 @@ Sản phẩm Pha B: `product/docs/erd.md` (bảng, khóa, constraint, RLS, cột
 
 | # | Rủi ro | Mức | Giảm thiểu |
 |---|---|---|---|
-| T1 | Phạm vi R2 lớn (71 story Must) so với năng lực BE/FE/MOB | Cao | Kiến trúc tối giản (1 ngôn ngữ, ít thành phần); đề nghị PO/ORC cắt theo thứ tự PRD D6; ARC ước lượng khi có OpenAPI (Pha B) |
+| T1 | Phạm vi R2 lớn (77 story Must sau bước 4 PO) so với năng lực BE/FE/MOB. ARC ước ban đầu 9–11 tuần-người BE là **thiếu**: chưa tính đủ phần nền (vai DB, RLS + hàm đường vào, middleware idempotency/If-Match/x-roles/x-visible-to, MutableClock, test kiến trúc ≈ 3–3,5 tuần), ~30 BR có ví dụ số thành test, C3 + thiết bị tin cậy, 18 job theo mẫu đúng-một-lần. **ARC chấp nhận ước của BE: ≈ 20–25 tuần-người** (bảng module ở `rounds/round-01/reviews/BE-on-ARC.md`); sau bước 4 thêm thiết bị tin cậy, OTP/mã lễ tân, thông báo, đổi chéo căn → nghiêng về cận trên | Cao | Phân xử ORC 15/10: PO lập plan R2 theo PRD D6 + phương án thu hẹp trong ESC-012 (đội đề xuất R-C). Không cắt: nền tảng, chống trùng, folio/thu tiền, C3 |
 | T2 | PWA trên iOS hạn chế (Background Sync, push) | Thấp–TB | Nhân viên buồng phòng dùng Android (giả định); fallback gửi lại khi mở app; điều kiện chuyển native ở ADR-005 |
 | T3 | Beds24 không có sandbox riêng – thử có thể ảnh hưởng OTA thật | TB | Tài khoản thử chưa nối OTA; Mock có kịch bản; bật kênh từng bước ở R3 |
 | T4 | 1 VPS là điểm lỗi đơn | TB | Backup + WAL off-site tại VN; runbook dựng lại ≤ 4 giờ; thử khôi phục mỗi round |
@@ -417,3 +450,4 @@ Sản phẩm Pha B: `product/docs/erd.md` (bảng, khóa, constraint, RLS, cột
 |---|---|---|---|
 | 15/10/2026 | 1 – Đợt 2 | Bản Pha A: kiến trúc tổng thể, ADR-001…013, chi phí hạ tầng, adapter, nhận xét channel manager, cấu trúc repo | ARC |
 | 15/10/2026 | 1 – Đợt 3 | Pha B: danh sách 23 job theo lịch + nguyên tắc chạy đúng một lần/bắt kịp (9.1), công thức hạn khai báo, mã chứng từ (9a), chốt biểu diễn đơn OTA xung đột (8); tài liệu mới `erd.md`, `api/openapi.yaml`, `coding-standards.md` | ARC |
+| 16/10/2026 | 1 – Bước 4 | v0.2: mẫu handler job đúng một lần + tick theo Clock (9.1); ngày nghiệp vụ 06:00, MutableClock + `/__test__` (7); bảo mật: thiết bị tin cậy, thu hồi phiên, 2FA, OTP/mã lễ tân, 3 origin, KEK qua tệp, backup ≤ 35 ngày (10); "Cần chú ý" + thông báo (12.1); sửa câu PaymentAdapter (13); biến môi trường; vị trí compose + yêu cầu OPS (17); T1 nhận ước BE (19); BR-603 `hours_only`; bill `F26-000123` | ARC |

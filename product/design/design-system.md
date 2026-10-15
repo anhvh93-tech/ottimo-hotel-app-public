@@ -1,6 +1,6 @@
-# Design System OTTIMO – v0.2
+# Design System OTTIMO – v0.3
 
-- Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2 | Ngày: 15/10/2026
+- Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2; cập nhật Bước 4 (phản hồi review) | Ngày: 15–16/10/2026
 - Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
 - Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
 - Minh họa sống: `product/design/wireframes/index.html` (9 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
@@ -38,11 +38,12 @@ Token đổi so với Round 0 được đánh dấu **(đổi)**. Màu nền, b�
 | `--faint` | `#6A645B` | `#A39D92` | Chữ phụ cấp 3 (chú thích, nhãn nhóm menu) – vẫn đạt 4,5:1 | #9A948A / #7D776E **(đổi)** |
 | `--deco` | `#9A948A` | `#7D776E` | CHỈ trang trí (icon không mang nghĩa, vạch kẻ chấm). CẤM dùng cho chữ | mới |
 | `--line` | `#E0D8CA` | `#38342F` | Đường kẻ phân cách (trang trí) | #E0D8CA / #38342F |
-| `--line-strong` | `#8C8578` | `#857F75` | Viền ô nhập, checkbox, seg – thành phần UI cần ≥ 3:1 | mới |
+| `--line-strong` | `#857E71` | `#857F75` | Viền ô nhập, checkbox, seg – thành phần UI cần ≥ 3:1 (R1 bước 4: #8C8578 → #857E71 để đạt 3:1 trên --side) | mới |
 | `--oak` | `#B08D57` | `#C9A56E` | Màu thương hiệu: logo, minh họa, thanh biểu đồ, viền nhấn. Không dùng cho chữ nhỏ trên nền sáng | #B08D57 / #C9A56E |
 | `--oak-ink` | `#7A5C2E` | `#D9B987` | Chữ/icon màu gỗ sồi, link, mục đang chọn | #86693B / #D9B987 **(đổi)** |
 | `--oak-soft` | `#F1E7D6` | `#3A3226` | Nền nhấn nhẹ, mục đang chọn, dòng bảng đang chọn | #F1E7D6 / #3A3226 |
 | `--focus` | `#7A5C2E` | `#D9B987` | Viền focus 2px + offset 2px | #B08D57 / #C9A56E **(đổi)** |
+| `--focus-on-dark` | `#F4F0E8` | `#1B1A18` | Viền focus trên vùng nền tối (đầu trang app khách --bar-in, toast --ink) – R1 bước 4 | mới |
 | `--ok` | `#356B49` | `#7FBF95` | Thành công / Đạt / Sẵn sàng | #3D7552 / #7FBF95 **(đổi)** |
 | `--ok-bg` | `#E2EEE5` | `#22352A` | Nền chip thành công | #E2EEE5 / #22352A |
 | `--warn` | `#8A5214` | `#E0A866` | Cảnh báo / Cần dọn / Sắp hết hạn | #9A5F1C / #E0A866 **(đổi)** |
@@ -63,7 +64,8 @@ Quy tắc dùng:
 - **Chữ** chỉ dùng: `--ink`, `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, `--bad`, `--info`, `--bar-*-t`, `--ink-inverse`. **Cấm** dùng `--deco`, `--line`, `--line-strong`, `--oak` cho chữ (trừ chữ ≥ 24px đậm trên nền tối).
 - `--faint` R0 (#9A948A) được đổi tên thành `--deco` và **chỉ dùng trang trí**; `--faint` mới đạt ≥ 4,5:1 trên mọi nền.
 - **Viền thành phần UI** cần nhận biết (ô nhập, checkbox, seg, nút phụ) dùng `--line-strong` (≥ 3:1). `--line` chỉ cho đường kẻ phân cách.
-- **Focus** luôn `--focus` 2px + offset 2px (không dùng `--oak` như R0: 2,72:1).
+- **Focus** luôn `--focus` 2px + offset 2px (không dùng `--oak` như R0: 2,72:1). Trên **vùng nền tối** (đầu trang app khách `--bar-in`, toast `--ink`) dùng `--focus-on-dark` (12,08:1 sáng / 12,76:1 tối) – lớp `.on-dark` (Bước 4, FB-R1-UXR-UXD-05). Bảng 2.2 đo cả viền focus trên mọi nền có điều khiển (side, surface-2, oak-soft, nền alert).
+- **Nút bị khóa** không dùng `opacity`: nền `--surface-2`, chữ `--muted` (5,20:1), viền đứt `--line-strong` – lý do ghi trên nút phải đọc được (Bước 4).
 - Nền chip `*-bg` chỉ đi với chữ cùng tông (`--ok` trên `--ok-bg`…).
 
 ### 2.2 Bảng kiểm tương phản (đo theo công thức WCAG 2.2, cả sáng và tối)
@@ -77,7 +79,7 @@ Dùng mục 3–4 của `heuristic-review-r0.md` làm checklist. Mọi cặp ch�
 | `--ink-inverse` / `--ink` | Chữ nút chính | ≥ 4,5:1 | 13,46:1 ĐẠT | 14,25:1 ĐẠT |
 | `--muted` / `--bg` | Chữ phụ trên nền trang | ≥ 4,5:1 | 5,58:1 ĐẠT | 6,94:1 ĐẠT |
 | `--muted` / `--surface` | Chữ phụ trên thẻ | ≥ 4,5:1 | 6,03:1 ĐẠT | 6,33:1 ĐẠT |
-| `--muted` / `--surface-2` | Chữ phụ trên nền phụ / header bảng | ≥ 4,5:1 | 5,20:1 ĐẠT | 5,70:1 ĐẠT |
+| `--muted` / `--surface-2` | Chữ phụ trên nền phụ / header bảng; chữ nút bị khóa (thay opacity .5); thanh 'Đã kín' | ≥ 4,5:1 | 5,20:1 ĐẠT | 5,70:1 ĐẠT |
 | `--muted` / `--side` | Menu chưa chọn trên sidebar | ≥ 4,5:1 | 5,07:1 ĐẠT | 6,63:1 ĐẠT |
 | `--muted` / `--oak-soft` | Chữ phụ trên dòng đang chọn | ≥ 4,5:1 | 5,18:1 ĐẠT | 5,04:1 ĐẠT |
 | `--faint` / `--bg` | Chú thích trên nền trang (R0: 2,65:1) | ≥ 4,5:1 | 5,15:1 ĐẠT | 6,46:1 ĐẠT |
@@ -98,13 +100,24 @@ Dùng mục 3–4 của `heuristic-review-r0.md` làm checklist. Mọi cặp ch�
 | `--bar-long-t` / `--bar-long` | Chữ trên thanh dài hạn | ≥ 4,5:1 | 4,94:1 ĐẠT | 6,28:1 ĐẠT |
 | `--focus` / `--bg` | Viền focus trên nền trang (R0: 2,72:1) | ≥ 3:1 | 5,44:1 ĐẠT | 9,31:1 ĐẠT |
 | `--focus` / `--surface` | Viền focus trên thẻ | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
-| `--line-strong` / `--surface` | Viền ô nhập trên thẻ | ≥ 3:1 | 3,48:1 ĐẠT | 4,00:1 ĐẠT |
-| `--line-strong` / `--bg` | Viền ô nhập trên nền trang | ≥ 3:1 | 3,22:1 ĐẠT | 4,38:1 ĐẠT |
+| `--line-strong` / `--surface` | Viền ô nhập trên thẻ | ≥ 3:1 | 3,82:1 ĐẠT | 4,00:1 ĐẠT |
+| `--line-strong` / `--bg` | Viền ô nhập trên nền trang | ≥ 3:1 | 3,54:1 ĐẠT | 4,38:1 ĐẠT |
 | `--oak-ink` / `--surface-2` | Chữ nhấn trên nền phụ / seg đang chọn | ≥ 4,5:1 | 5,07:1 ĐẠT | 7,64:1 ĐẠT |
 | `--ink` / `--oak-soft` | Chữ chính trên dòng/mục đang chọn | ≥ 4,5:1 | 11,56:1 ĐẠT | 10,34:1 ĐẠT |
 | `--bad` / `--bg` | Chữ lỗi / quá hạn trên nền trang | ≥ 4,5:1 | 5,33:1 ĐẠT | 6,87:1 ĐẠT |
 | `--warn` / `--bg` | Chữ cảnh báo trên nền trang | ≥ 4,5:1 | 5,60:1 ĐẠT | 8,25:1 ĐẠT |
 | `--bad` / `--warn-bg` | Đếm ngược quá hạn trên nền cảnh báo | ≥ 4,5:1 | 5,01:1 ĐẠT | 5,22:1 ĐẠT |
+| `--focus-on-dark` / `--bar-in` | Viền focus ở đầu trang app khách (R1 đo thực tế 2,22:1 – FB-R1-UXR-UXD-05) | ≥ 3:1 | 12,08:1 ĐẠT | 12,76:1 ĐẠT |
+| `--focus-on-dark` / `--ink` | Viền focus trên toast / nền --ink | ≥ 3:1 | 12,46:1 ĐẠT | 14,25:1 ĐẠT |
+| `--focus` / `--side` | Viền focus trên sidebar | ≥ 3:1 | 4,93:1 ĐẠT | 8,89:1 ĐẠT |
+| `--focus` / `--surface-2` | Viền focus trên nền phụ / seg | ≥ 3:1 | 5,07:1 ĐẠT | 7,64:1 ĐẠT |
+| `--focus` / `--oak-soft` | Viền focus trên dòng đang chọn | ≥ 3:1 | 5,04:1 ĐẠT | 6,75:1 ĐẠT |
+| `--focus` / `--warn-bg` | Viền focus của nút trong alert cảnh báo | ≥ 3:1 | 5,11:1 ĐẠT | 7,07:1 ĐẠT |
+| `--focus` / `--bad-bg` | Viền focus của nút trong alert lỗi | ≥ 3:1 | 4,85:1 ĐẠT | 7,63:1 ĐẠT |
+| `--focus` / `--info-bg` | Viền focus của nút trong alert thông tin | ≥ 3:1 | 4,99:1 ĐẠT | 7,23:1 ĐẠT |
+| `--line-strong` / `--side` | Viền ô nhập/seg đặt trên sidebar (R1: 2,92:1 – FB-R1-UXR-UXD-13) | ≥ 3:1 | 3,21:1 ĐẠT | 4,19:1 ĐẠT |
+| `--line-strong` / `--surface-2` | Viền seg trên nền phụ | ≥ 3:1 | 3,30:1 ĐẠT | 3,60:1 ĐẠT |
+| `--oak-ink` / `--surface` | Cột biểu đồ công suất (thay --oak 2,94:1 – FB-R1-UXR-UXD-03) | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
 | `--ok` / `--bad` | Phân biệt Đạt vs Lỗi chỉ bằng màu – KHÔNG đủ, bắt buộc icon + chữ (HR-11) | không áp dụng | 1,03:1 | 1,18:1 |
 | `--ink-inverse` / `--bad` | Chữ nút "nguy hiểm", badge đếm | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,87:1 ĐẠT |
 | `#2B2B2B` / `--oak` | Số chú thích tròn trong wireframe (chỉ tài liệu) | ≥ 4,5:1 | 4,58:1 ĐẠT | – |
@@ -126,13 +139,13 @@ Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → ngườ
 | (loại) dài hạn | Hợp đồng dài hạn | Long-term lease | `--bar-long` + tiền tố "HĐ" | lịch tháng | tiền tố chữ "HĐ" |
 | (khối) OOO | Khóa phòng | Out of order | sọc chéo 45° `--bad-bg`/`--surface`, viền `--bad` | ổ khóa | sọc + ổ khóa + lý do |
 | `confirmed` + `conflictState=open` | Chưa gán căn – xung đột OTA | Unassigned – OTA conflict | làn riêng trên lưới; thanh `--bad-bg`, viền **đứt** 2px `--bad` | cảnh báo | làn có tiêu đề chữ + "cần gán căn" |
-| (dạng xem sale/CTV) `unavailable` | Đã kín / Không bán | Taken / Not for sale | sọc chéo 135° `--surface-2`/`--line`, chữ `--muted` | – | chữ "Đã kín"; không tên khách |
+| (dạng xem sale/CTV) `unavailable` | Đã kín / Không bán | Taken / Not for sale | nền đặc `--surface-2`, viền đứt `--line-strong`, chữ `--ink` (Bước 4: bỏ sọc dưới chữ – 4,49:1) | – | chữ "Đã kín"; không tên khách |
 
 **Trạng thái buồng** (BR-801): giao diện quản lý hiện **mã + nhãn** ("VD · Trống, cần dọn"); giao diện buồng phòng hiện **câu thường** không mã (HR-13) – xem `content-guide.md` mục 5.
 
 | Mã | Tông | Icon |
 |---|---|---|
-| VC | ok | lấp lánh |
+| VC | **oak** (Bước 4: không dùng `ok` để khỏi nhầm với "Sẵn sàng" – FB-R1-UXR-UXD-09) | lấp lánh |
 | VI | ok | khiên ✓ |
 | VD | warn | chổi |
 | CL | oak | chổi (nền oak-soft) |
@@ -161,7 +174,7 @@ Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → ngườ
 | `caption` | Be Vietnam Pro 400 | **12** / 1,45 | Chữ phụ nhỏ nhất trên máy tính |
 
 Quy tắc:
-- **Cỡ tối thiểu**: máy tính 12px; điện thoại 14px (chữ phụ), 16px (thân, ô nhập); buồng phòng **16px cho mọi chữ** (thân 17px). Bỏ hết cỡ 9,5 / 10 / 10,5px của R0 (HR-10).
+- **Cỡ tối thiểu**: máy tính 12px (kể cả nhãn chú thích wireframe, `.api`, `.role-tag` – Bước 4 bỏ 11px); điện thoại 14px (chữ phụ, chip, nhãn thanh dưới, chữ toast 16px), 16px (thân, ô nhập); buồng phòng **16px cho mọi chữ** (thân 17px; nhãn ô nhập, chip, alert, thanh dưới 16px). Bỏ hết cỡ 9,5 / 10 / 10,5px của R0 (HR-10).
 - Đơn vị `rem` trong code, để phóng chữ của hệ điều hành/trình duyệt có tác dụng tới 200% không vỡ bố cục (WCAG 1.4.4).
 - Số tiền, giờ, số căn: `font-variant-numeric: tabular-nums`. Định dạng tiền theo `content-guide.md` mục 4.
 - **Tự host font** (SIL Open Font License 1.1 – miễn phí, không cần ESC): Lora (biến thiên 500–600 + italic 500), Be Vietnam Pro 400/500/600, định dạng woff2, `font-display: swap`, subset `latin`, `latin-ext`, `vietnamese`. Be Vietnam Pro **không có ký tự Cyrillic** → chuỗi tiếng Nga rơi về `system-ui` (Roboto/San Francisco/Segoe đều có Cyrillic); Lora có Cyrillic → tiêu đề RU vẫn dùng Lora. FE/MOB kiểm tra lại ở R3 (chữ Nga dài).
@@ -171,7 +184,7 @@ Quy tắc:
 
 - **Lưới 4px**: `space` 0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64. Lề trang: máy tính 16–24px, điện thoại 16px. Khoảng cách giữa thẻ 12px; trong thẻ 14–16px.
 - **Bo góc**: `sm` 6 (seg trong), `md` 8 (nút, ô nhập), `lg` 12 (thẻ, thẻ buồng phòng 14), `xl` 16 (modal, bottom sheet 20), `pill` 999 (chip), `phone` 36 (khung minh họa).
-- **Vùng chạm**: máy tính ≥ 32px chiều cao (WCAG 2.5.8 yêu cầu 24px); điện thoại ≥ 44×44px; buồng phòng ≥ **48px**, nút chính **56px**, khoảng cách giữa hai nút ≥ 8px.
+- **Vùng chạm**: máy tính ≥ 32px chiều cao (WCAG 2.5.8 yêu cầu 24px); điện thoại ≥ 44×44px; buồng phòng ≥ **48px**, nút chính **56px**, khoảng cách giữa hai nút ≥ 8px. Áp cho **mọi** điều khiển trong mật độ đó, kể cả nút trong toast (Hoàn tác 48px ở HK), seg (44 / 48px), `.btn.sm` (44 / 48px), ô tích (44px). Kiểm bằng DevTools ở 360px cho mọi điều khiển của HK trước khi nộp (Bước 4, FB-R1-UXR-UXD-04).
 - **Kích thước khung**: sidebar 240 (R0 232), drawer 460, modal 480 / 720, cột rack 72 (tối thiểu 56), dòng rack 48.
 - **Breakpoint**: 360 (điện thoại nhỏ), 480, 768 (dưới mức này: rack chuyển dạng danh sách, sidebar → thanh điều hướng dưới ≤ 5 mục), 1024, 1280.
 - **Bóng**: `sm` cho thẻ nổi nhẹ; `lg` cho drawer, modal, toast, bottom sheet.
@@ -243,7 +256,8 @@ Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), 
 ### 6.4 Kiểm tra 3 trạng thái (HR-07 – Blocker; BR-605)
 - `pass` chỉ khi hệ thống **đã so sánh dữ liệu thật** (ví dụ hạn hộ chiếu > ngày trả phòng).
 - Thiếu dữ liệu → `unknown` "Chưa kiểm được – cần kiểm tay" (viền đứt, icon ?), người dùng đánh dấu sau khi xem giấy tờ gốc; ghi tên người kiểm.
-- `fail` **không chặn** nhận phòng (SEC R-REG-03, state-machines K5) nhưng bắt buộc ô "Cách xử lý" cho từng mục `fail`/`unknown` trước khi sang bước khai báo; người ghi = mọi vai `front_desk` trở lên, lưu tên + thời điểm (`warningNotes`). *(Đợt 4 – thay "chỉ quản lý ghi ngoại lệ".)*
+- `fail` **không chặn** nhận phòng (SEC R-REG-03, state-machines K5) nhưng bắt buộc ô "Cách xử lý" cho từng mục `fail`/`unknown` trước khi sang bước khai báo; người ghi = mọi vai `front_desk` trở lên, lưu tên + thời điểm (`warningNotes`). *(Đợt 4 – thay "chỉ quản lý ghi ngoại lệ".)* **[GIẢ ĐỊNH – chờ ESC-001]**; biến thể nếu luật sư/INV chọn "phải duyệt": nút "Tiếp tục" → "Gửi lễ tân trưởng duyệt" (FB-R1-PO-UXD-06).
+- **Ngoại lệ chặn (Bước 4 – BR-613 c, DOM v0.2):** hộ chiếu/thị thực khách NN **đã hết hạn tại ngày nhận phòng** → `fail` có cờ chặn: icon ổ khóa, chip "Không đạt – chặn giao mã", bước Giao mã khóa ô mã cửa và nút Hoàn tất nêu lý do. Hết hạn trong thời gian ở → vẫn chỉ cảnh báo.
 
 ### 6.5 Nhắc việc bền vững thay toast (HR-09)
 Nhắc pháp lý/tiền (khai báo còn thiếu, kỳ thu, căn quá giờ trả, đơn vừa về từ OTA) → **Task item** trên Tổng quan/"Hôm nay" + badge, ở lại tới khi xong; nhắc lại theo mốc giờ (BR-611, BR-425).
@@ -262,6 +276,18 @@ Trang chủ theo vai (bảng 9 mã vai ở `wireframes/01-login-role-nav.html` m
 
 ### 6.10 Đa ngôn ngữ (HR-01 – Blocker)
 App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không ghép câu bằng code; ngôn ngữ mặc định theo trình duyệt, đổi tay ở đầu trang, ghi nhớ theo đơn. Bố cục chịu được chuỗi dài hơn 40% (RU/DE): nút xuống dòng, không cắt chữ, không cố định chiều rộng theo chữ VI.
+
+### 6.11 Đến muộn / tự nhận phòng (Bước 4 – FB-R1-UXR-UXD-01, PHÂN XỬ ORC 15/10)
+- Khách có giờ đến ≥ 22:00: trang lưu trú đưa thẻ "Đến muộn? Tự nhận phòng" lên đầu, khuyến khích làm thủ tục trước. Hoàn tất thủ tục (đã xác minh mức 2 trong luồng) → **mã cửa hiện ngay** + hướng dẫn mở khóa có ảnh.
+- Mã đã hiện được **giữ trong phiên** (sessionStorage, hết khi đóng phiên/hết khoảng hiệu lực – SEC chốt), xem lại được khi mạng yếu. Không đưa mã vào URL, thông báo đẩy, tiêu đề tab.
+- **Luôn có lối thoát người thật**: nút "Gọi người trực" + "Nhắn Zalo / WhatsApp" ở trang lưu trú, màn hoàn tất, màn mã cửa và màn bị khóa/hết phiên.
+- Người trực đêm làm việc C3 trên **thiết bị của cơ sở đã cấp** (máy quầy / máy tính bảng của cơ sở, hạn ≤ 30 ngày với thiết bị di động), không trên điện thoại cá nhân. Minh họa: L7 7.2, L3 3.6, L1 1.4.
+
+### 6.12 Chữ tự do của nhân viên hiện cho khách (Bước 4 – FB-R1-UXR-UXD-06)
+Lý do/phản hồi gửi khách chọn từ **danh sách lý do đã dịch**; ghi chú tự do là tùy chọn, hiện dưới nhãn "Ghi chú của lễ tân (tiếng Việt)" và bọc `lang="vi"`. Chuỗi dự phòng EN khi đang ở RU gắn `lang="en"`; khi màn chưa đủ RU hiện câu "Русская версия скоро".
+
+### 6.13 Dữ liệu mẫu (Bước 4 – FB-R1-PO-UXD-02)
+Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2) làm bộ dữ liệu mẫu duy nhất; số tiền tính lại theo ví dụ BR; đơn kịch bản ngoài DS-0 phải ghi rõ ở `wireframes/index.html`. Không đặt dữ liệu cho một vai thấy điều RBAC cấm (vd. "Hoa hồng của tôi" chỉ có mục của đúng người xem).
 
 ## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
 
@@ -305,7 +331,7 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 | Thân chữ | 14px | 16px | 17px (tối thiểu 16) |
 | Vùng chạm | ≥ 32px | ≥ 44px | ≥ 48px, nút chính 56px |
 | Bố cục | sidebar + nội dung, drawer phải | 1 cột, thanh dưới ≤ 5 mục, bottom sheet | 1 cột, 1 việc = 1 thẻ, nút toàn chiều rộng |
-| Ngôn ngữ | mã + nhãn (VC · Trống, sạch) | như Desk, rút gọn | **câu thường, không mã** |
+| Ngôn ngữ | mã + nhãn (VC · Đã dọn, chờ kiểm) | như Desk, rút gọn | **câu thường, không mã** |
 | Mạng yếu | chỉ xem khi mất mạng | chỉ xem (khách: xem dữ liệu đã tải) | thao tác offline, tự gửi lại |
 
 ## 10. Quản trị Design System
@@ -317,5 +343,6 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.3 | 16/10/2026 | UXD | Bước 4 (phản hồi UXR, PO, QA): thêm token `--focus-on-dark`; `--line-strong` sáng #8C8578 → #857E71 (đạt 3:1 trên `--side`); bảng 2.2 thêm 12 cặp (focus trên mọi nền có điều khiển, line-strong trên side/surface-2, cột biểu đồ) – 0 cặp không đạt; nút khóa bỏ opacity; cỡ chữ/vùng chạm tối thiểu áp cho toast, seg, thanh dưới, chip, nhãn; VC một tên "Đã dọn – chờ kiểm" tông gỗ sồi; mẫu 6.11 đến muộn, 6.12 chữ tự do của nhân viên, 6.13 dữ liệu mẫu DS-0; wireframe L10 mới. |
 | 0.2 | 15/10/2026 | UXD | Đợt 4: khớp RBAC/máy trạng thái/ERD/API/SEC – thêm màu trạng thái làn "Chưa gán căn", dạng xem `unavailable`, SM-05 `void`, SM-10/11/15; C12 mở rộng; thêm C31 Code input, C32 Code display (32 component); 6.1 theo US-135 (+ không đến, thu hồi thiết bị); 6.4 "Không đạt" không chặn, bắt buộc ghi xử lý; 6.9 nút = `allowedActions`, C3 chỉ trên thiết bị được cấp; mục 7 lỗi theo `Problem.code` + `requestId` |
 | 0.1 | 15/10/2026 | UXD | Bản đầu: token sáng/tối đạt AA (đổi `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, focus; thêm `--deco`, `--line-strong`, `--ink-inverse`), thang chữ, 30 component, 10 mẫu tương tác, 15 quy tắc a11y |

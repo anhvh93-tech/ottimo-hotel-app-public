@@ -13,7 +13,7 @@
 ## Quyết định (đề xuất)
 1. **Production: 1 VPS tại Việt Nam** (nhà cung cấp chọn ở R2 bởi OPS theo tiêu chí dưới), chạy **Docker Compose**: `caddy` (TLS Let's Encrypt tự động, phục vụ web tĩnh, reverse proxy), `api`, `worker`, `postgres`. Không dùng DB managed (đắt, khó di chuyển).
 2. **Staging**: R2–R3 dùng VPS này làm staging với dữ liệu giả (production bị chặn tới khi có ESC-002). Từ khi chạy thật: staging chuyển sang 1 VPS nhỏ (1–2 GB), **ưu tiên khác nhà cung cấp** để kiêm nơi nhận bản sao lưu ngoài máy (off-site).
-3. **Sao lưu**: `pg_dump` hằng ngày + WAL archive (PITR, mục tiêu mất ≤ 15 phút dữ liệu, PRD N11 yêu cầu ≤ 24 giờ) + thư mục tệp mã hóa; mã hóa bản sao lưu (age/GPG) trước khi chuyển off-site **trong Việt Nam**; giữ 7 ngày + 4 tuần + 3 tháng (chờ SEC T15/T16). Thử khôi phục mỗi round (OPS).
+3. **Sao lưu**: `pg_dump` hằng ngày + WAL archive (PITR, mục tiêu mất ≤ 15 phút dữ liệu, PRD N11 yêu cầu ≤ 24 giờ) + thư mục tệp mã hóa; mã hóa bản sao lưu (age/GPG) trước khi chuyển off-site **trong Việt Nam**; **vòng đời cứng ≤ 35 ngày** (7 bản ngày + 4 bản tuần) cho DB, WAL và tệp – SEC T18, SR-BAK-03, decision-log SEC/OPS 15/10; **snapshot tự động của nhà cung cấp VPS tắt hoặc ≤ 7 ngày** (snapshot chứa cả `.env`/KEK). Bảng `purge_journal` (chỉ ID + thời điểm) sao lưu riêng, giữ ≥ 36 ngày, áp lại sau mỗi lần khôi phục rồi chạy J16 trước khi mở hệ thống (SR-BAK-06). Thư mục bí mật (`/etc/ottimo/secrets/`) loại khỏi mọi bản sao lưu tệp (SR-KEY-10). Thử khôi phục mỗi round (OPS).
 4. **Không đặt Cloudflare proxy (đám mây cam) trước API/app khách** khi chọn phương án A của ESC-002 – proxy giải mã TLS ở máy chủ nước ngoài. Dùng Cloudflare/nhà đăng ký tên miền chỉ cho DNS là được.
 5. Di chuyển được: toàn bộ là container + script; đổi nhà cung cấp = dựng VPS mới + khôi phục backup (OPS ghi runbook) → giảm rủi ro khóa nhà cung cấp, đáp ứng "đổi hosting được" của ESC-002.
 
@@ -54,3 +54,6 @@ Trung tâm dữ liệu tại VN (ưu tiên TP.HCM hoặc Hà Nội), SSD/NVMe, �
 ## Điều kiện xem lại
 - INV chọn phương án B/C của ESC-002 → giữ nguyên kiến trúc, đổi nơi đặt VPS (không đổi code).
 - Báo giá thực tế của OPS vượt 1 tr/tháng → ESC mới kèm phương án giảm (gộp staging vào production bằng compose project riêng).
+
+## Cập nhật R1 bước 4 (16/10/2026)
+- Điểm 3: bỏ "3 tháng", chốt ≤ 35 ngày + `purge_journal` (FB-R1-SEC-ARC-05, -17; OPS report R3).

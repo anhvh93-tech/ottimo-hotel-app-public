@@ -9,7 +9,7 @@
 
 ## Quyết định
 1. **PostgreSQL 17** là kho dữ liệu duy nhất (dữ liệu nghiệp vụ, phiên đăng nhập, hàng đợi, khóa idempotency). Extension: `btree_gist` (chống trùng – ADR-009), `pgcrypto` (UUID/băm), `citext` (email).
-2. **Hàng đợi + lịch: `pg-boss`** (chạy trên PostgreSQL): job có retry, lùi theo cấp số nhân, singleton key (gộp lô đồng bộ kênh), cron theo múi giờ. Outbox ghi **cùng transaction** nghiệp vụ → worker đọc.
+2. **Hàng đợi + lịch: `pg-boss`** (chạy trên PostgreSQL): job có retry, lùi theo cấp số nhân, singleton key (gộp lô đồng bộ kênh). Lịch = tick mỗi phút + so mốc theo `Clock` (ADR-008 cập nhật), không dùng cron theo tz. pg-boss chỉ bảo đảm "ít nhất một lần" → handler theo mẫu đúng-một-lần (architecture 9.1). Schema `pgboss` ngoài RLS, cài bởi `ottimo_migrator`. Outbox ghi **cùng transaction** nghiệp vụ → worker đọc.
 3. **Real-time: Server-Sent Events (SSE)** `GET /v1/properties/{id}/events` + PostgreSQL `LISTEN/NOTIFY` giữa worker và api. Client tự kết nối lại; nếu SSE bị chặn → poll 30 giây. Không dùng WebSocket (không cần 2 chiều).
 4. **Không cài Redis ở MVP.** Bộ nhớ đệm (cache) tham số cấu hình: trong RAM tiến trình, xóa khi có NOTIFY `config_changed`.
 5. Khóa chính: UUID v7 (sắp xếp theo thời gian) cho bảng nghiệp vụ; mã chứng từ hiển thị (`OTM-00171`, BR-007) là cột riêng do bộ đếm cấp (Pha B).

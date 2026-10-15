@@ -38,7 +38,7 @@
   "status.booking.no_show": "No-show",
   "status.block.ooo": "Out of order",
   "status.booking.long_term": "Long-term lease",
-  "status.room.VC": "VC · Vacant clean",
+  "status.room.VC": "VC · Cleaned, awaiting inspection",
   "status.room.VI": "VI · Inspected, ready",
   "status.room.VD": "VD · Vacant dirty",
   "status.room.CL": "CL · Cleaning",

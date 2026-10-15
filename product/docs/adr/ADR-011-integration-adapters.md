@@ -9,7 +9,7 @@ INT đã đề xuất 6 interface (`ChannelAdapter`, `PaymentAdapter`, `EInvoice
 ## Quyết định
 1. **Chấp nhận** thiết kế INT làm nền. Vị trí code: `product/integrations/` là **workspace package TypeScript** `@ottimo/integrations` (mỗi nhóm một thư mục con như INT đề xuất), được `services/api` và `worker` import. Lõi chỉ phụ thuộc **interface** trong `@ottimo/integrations/contracts`; cài đặt cụ thể được NestJS DI chọn lúc khởi động qua `IntegrationRegistry`.
 2. **Luồng ra**: nghiệp vụ ghi `outbox_message(topic, aggregate_id, payload, dedupe_key, property_id)` **cùng giao dịch** → worker (pg-boss) gọi adapter → ghi `integration_log`. Retry 5 lần lùi cấp số nhân → "Cần chú ý" (BR-907).
-3. **Luồng vào**: endpoint `POST /v1/webhooks/{provider}/{propertySlug}` chỉ làm 3 việc: xác thực chữ ký (nếu nhà cung cấp có), ghi `inbox_message` với khóa duy nhất, trả 2xx nhanh; worker xử lý sau. Riêng **IPN thanh toán** xử lý đồng bộ trong request (vì cổng cần `RspCode` đúng) nhưng vẫn idempotent theo `paymentId`.
+3. **Luồng vào**: endpoint `POST /v1/webhooks/{provider}/{propertySlug}` (+ `GET` cho cổng gửi IPN qua query string – VNPay) chỉ làm 3 việc: xác thực chữ ký (nếu nhà cung cấp có), ghi `inbox_message` với khóa duy nhất, trả 2xx nhanh; worker xử lý sau. Riêng **IPN thanh toán** xử lý đồng bộ trong request (vì cổng cần `RspCode` đúng) nhưng vẫn idempotent theo `paymentId`.
 4. **Bổ sung bắt buộc so với bản INT** (gửi lại INT ở bước 3 dưới dạng thẻ review; INT sửa README):
    | # | Bổ sung | Lý do |
    |---|---|---|
@@ -32,3 +32,9 @@ INT đã đề xuất 6 interface (`ChannelAdapter`, `PaymentAdapter`, `EInvoice
 ## Hệ quả
 - Tốt: R2 chạy hoàn toàn bằng Mock; R3 bật thật bằng biến môi trường; đổi Beds24 → Channex chỉ viết adapter mới.
 - Phải chấp nhận: thêm bảng outbox/inbox/log và độ trễ bất đồng bộ (vài chục giây) cho đồng bộ kênh.
+
+## Cập nhật R1 bước 4 (16/10/2026)
+- OpenAPI dùng đúng đường dẫn điểm 3 (một họ đường dẫn cho cổng thanh toán và channel manager, `provider ∈ vnpay, momo, sepay, payos, beds24, mock`); `mock` không đăng ký ở production; provider `off` không đăng ký route; body ≤ 64 KB; cơ sở xác định bằng hàm `webhook_resolve_property` (erd 2.4).
+- Payload channel manager chỉ lưu bản **đã lọc theo allowlist** (`inbox_message.filtered_payload`), xóa sau 90 ngày; không lưu `ChannelBookingEvent.raw` (SR-PAY-09).
+- `integration_log.cost_units` theo dõi credit Beds24; `payment.method_detail` cho kênh con của cổng; hoàn tiền là `payment` riêng `type=refund`; bản ghi xung đột OTA ở `overbooking_incident` (không thêm bảng `booking_conflict`).
+- Đóng gói `@ottimo/integrations`: ADR-012 mục "Đóng gói ESM/CJS".

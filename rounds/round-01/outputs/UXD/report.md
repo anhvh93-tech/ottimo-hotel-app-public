@@ -130,3 +130,36 @@ Giả định làm việc (chờ xác nhận ở đợt 4 hoặc bởi vai khác
 | R8 | Chuỗi mới (+204) chưa có RU; chuỗi pháp lý/bảo mật EN chưa qua người dịch | Gắn ESC-001 như đợt 2; RU ở R3 (US-115) |
 | R9 | API chưa có các endpoint bảo mật mới (OTP, thiết bị, 2FA) – tên trường trong wireframe là dự kiến | ARC cập nhật OpenAPI; UXD đối chiếu lại ở R2 |
 | – | Chưa vẽ: Trả sớm (US-137 Should – chỉ có nút trong bảng 2.6), màn Kênh OTA, CRM gộp hồ sơ (chỉ có hộp xác nhận), kho F&B, chốt công tơ, màn yêu cầu dữ liệu cá nhân US-133/134 (R3) | R2/R3 theo backlog |
+
+---
+
+## Bước 4 – Phản hồi & sửa (16/10/2026)
+
+### Đã làm gì
+- Trả lời đủ 26 mục (16 thẻ UXR, 7 thẻ PO, QA #8 #9 #13, tin ORC chuyển từ SEC và DOM) trong `rounds/round-01/responses/UXD-responses.md`: **26 Done**, 0 Rejected/Deferred/Escalated. Blocker/Major còn Open: **0**.
+- Áp PHÂN XỬ ORC 15/10: L7 7.2 "Đến muộn / tự nhận phòng" (4 khung), L3 3.6 ca đêm trên thiết bị của cơ sở, L1 1.4 loại thiết bị (máy quầy / máy tính bảng của cơ sở, hạn ≤ 30 ngày cho di động), kênh gửi mã qua OTA/Zalo (mặc định tắt, owner bật – L3 3.5, L10 10.3, L7), ô email không bắt buộc + nhãn "Đơn chưa có email" (L2 2.2, drawer, Hôm nay).
+- Màn mới: L1 1.3 "Hôm nay" máy quầy; L1 1.5 đăng ký 2FA + mã khôi phục; L8 khung điện thoại (tổng quan + duyệt PIN); file mới `10-config-crm-messages.html` (10.1 hồ sơ khách + chặn trùng, 10.2 mẫu tin nhắn, 10.3 danh mục căn / tham số / kênh gửi mã / minibar, 10.4 nhật ký tiền).
+- Dữ liệu mẫu mọi wireframe đổi theo DS-0 (rack sinh lại bằng script); tính lại số tiền (gia hạn 402 = 2.000.000; bill 201 = 2.299.000; bộ đếm giữ chỗ theo BR-302); hoa hồng chỉ của một người xem.
+- BR-613 (c) của DOM v0.2: L3 chặn giao mã cửa khi giấy tờ NN đã hết hạn tại ngày nhận phòng.
+- CSS/Design System v0.3: kích thước theo mật độ (toast HK 48px, seg 44/48, thanh dưới 14/16, chip 14, nhãn ≥ 12px), `--focus-on-dark`, nút khóa không opacity, `--line-strong` #857E71, biểu đồ `--oak-ink`, thanh "Đã kín" nền đặc; VC "Đã dọn – chờ kiểm" tông gỗ sồi; `wf.js` gắn `lang` cho chuỗi dự phòng + banner RU.
+- Chuỗi: 622 chuỗi + 8 mẫu tin nhắn (thêm ~100; bỏ mã BR khỏi 10 chuỗi); content-guide v0.3.
+- Kiểm: `gen_tokens.py` → 0 cặp không đạt; `gen_strings.py` chạy sạch; 11 file HTML qua bộ kiểm cấu trúc thẻ (0 lỗi), không trùng `id`, mọi `data-i18n` có trong `strings-vi.json`; 4 file JSON hợp lệ.
+
+### File đã tạo/sửa
+- Tạo: `product/design/wireframes/10-config-crm-messages.html`, `rounds/round-01/responses/UXD-responses.md`.
+- Sửa: `product/design/wireframes/01…09-*.html`, `index.html`, `assets/wf.css`, `assets/wf.js`, `assets/tokens.css` (sinh), `assets/strings.js` (sinh); `product/design/design-system.md`, `content-guide.md`, `tokens.json` (sinh), `copy/strings-{vi,en,ru}.json` (sinh), `tools/gen_tokens.py`, `tools/gen_strings.py`.
+
+### Giả định
+- Mã cửa xem lại trong phiên = `sessionStorage` của tab, hết khi đóng phiên hoặc hết khoảng hiệu lực; đề xuất phiên mức 2 không hết vì 30 phút trong ngày đến – **SEC chốt**.
+- Số/giờ người trực đêm hiển thị cho khách lấy từ cấu hình ca (22:00–07:00 minh họa) – chờ ESC-010. Mô tả khóa cửa minh họa – chờ ESC-011.
+- 4 đơn kịch bản ngoài DS-0: OTM-0160 (giữ chỗ 103), OTM-0161 (giữ chỗ dài hạn 102), OTM-0162 (OTA xung đột), OTM-0163 (đơn con gia hạn); tên khách cho các đơn DS-0 chưa có tên (Anna Martin, Lê Thu Trang, Tanaka Yui, Olga Ivanova, Chen Wei, Trần Quốc Bảo…) là tên giả do UXD đặt – QA có thể đổi khi sinh seed.
+- Cơ sở phụ thu nhận sớm/trả muộn của đơn OTA minh họa trên giá đơn – chờ DOM (FB-R1-PO-DOM-03).
+
+### Rủi ro / vướng mắc
+- Chưa mở được bằng trình duyệt để đo DevTools ở 360px (kiểm bằng mã); đề nghị QA/UXR xem `index.html` ở 360px và 1280px.
+- API cần thêm: cờ `blocksDoorCode` trong `check_results` (BR-613), cấu hình kênh gửi mã, loại + hạn thiết bị, `booker.email` – đã ghi trong chú thích wireframe để ARC/BE thêm vào `openapi.yaml`.
+- Câu hỏi owner thứ 2 / người khôi phục 2FA chuyển PO + SEC.
+
+### Việc chưa xong
+- Đơn đoàn BR-321…326 chưa vẽ (không bắt buộc R1).
+- Khung điện thoại riêng cho L10 (bảng → thẻ 1 cột theo DS 6.8) để R2.

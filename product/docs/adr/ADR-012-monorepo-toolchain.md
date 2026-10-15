@@ -34,8 +34,9 @@
 | `pnpm format:check` | Prettier |
 | `pnpm test` | `turbo run test` (Vitest) |
 | `pnpm build` | `turbo run build` |
-| `pnpm dev` | `docker compose -f infra/compose/docker-compose.yml up` + Vite dev server |
-| `pnpm db:migrate` / `db:seed` | Migration Drizzle + seed 10 căn từ dữ liệu mẫu BL 4.1 |
+| `pnpm dev` | `docker compose -f infra/docker-compose.yml up` + Vite dev server (vị trí thực tế OPS đã dựng) |
+| `pnpm db:migrate` / `db:seed` | Chạy migration SQL (erd mục 16) bằng `MIGRATION_DATABASE_URL` + seed 10 căn giả từ BL 4.1. Cấm `drizzle-kit push` |
+| `pnpm api:lint` | `redocly lint docs/api/openapi.yaml` + `openapi-spec-validator` + script kiểm `x-roles`/`x-stories` (SR-AZ-01) |
 | `pnpm e2e` | Playwright (R2+) |
 
 ### CI tối thiểu (R1, khung rỗng) – `.github/workflows/ci.yml` tại gốc repo
@@ -48,3 +49,15 @@
 ## Hệ quả
 - Tốt: một lệnh chạy toàn bộ kiểm tra; sửa `openapi.yaml` → kiểu sai lộ ra ngay ở FE/PWA khi build.
 - Phải chấp nhận: dev phải dùng pnpm (Corepack bật sẵn trong Node 22).
+
+## Cập nhật R1 bước 4 (16/10/2026)
+
+### Đóng gói ESM/CJS (ARC tự nhận; FB-R1-ARC-OPS-01)
+- Node **≥ 22.12** (`engines`, `.nvmrc`).
+- **Mọi package nội bộ là ESM** (`"type": "module"`), xuất **kép** qua `exports` có điều kiện: `"import"` → `dist/esm/*.js`, `"require"` → `dist/cjs/*.cjs`, `"types"` → `dist/types/*.d.ts`, `"default"` → bản ESM. Build bằng `tsup` (format `esm,cjs`).
+- `services/api` (NestJS, decorator) build **CommonJS** (`module: Node16`, `moduleResolution: Node16`) và import package nội bộ qua điều kiện `require`. Chuyển api sang ESM thuần là việc R3 nếu cần.
+- Web/PWA (Vite) dùng điều kiện `import`. CI kiểm `require('@ottimo/integrations/contracts')` và `import()` đều chạy được.
+
+### Kiểm hợp đồng trong CI (yêu cầu OPS – FB-R1-ARC-OPS-08)
+- Job `api-contract`: `redocly lint` (rule kiểm ví dụ, operationId duy nhất, component không dùng), `openapi-spec-validator`, script kiểm mọi operation có `x-roles` và mọi story Must R2 có `x-stories`. ARC đã chạy `openapi-spec-validator` 0.7.2 cho `openapi.yaml` 0.2.0-draft và `openapi.test.yaml`: hợp lệ. `redocly` chưa chạy được trên máy ARC (không có Node/npx) – OPS chạy trong CI.
+- Migration: 2 bước CI ở erd mục 16. Bundle production không chứa chuỗi `__test__` (ADR-008).

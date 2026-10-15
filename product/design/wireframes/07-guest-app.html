@@ -43,14 +43,14 @@
 <button class="btn block ghost" style="margin-top:6px" aria-disabled="true"><span data-i18n="guest.verify.resend_wait" data-i18n-args='{&quot;seconds&quot;: &quot;42&quot;}'>Gửi lại sau 42 giây</span></button>
 <p class="muted" style="font-size:14px;margin-top:8px"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg> <span data-i18n="guest.verify.desk_code">Không nhận được email? Lễ tân có thể đọc mã cho bạn – nhập mã đó vào ô trên.</span></p>
 <a class="btn block" href="tel:+84000000000"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="guest.verify.call_desk">Gọi lễ tân</span></a>
-<h3 style="margin-top:14px">Biến thể – chọn kênh nhận mã (kênh OTA/Zalo do owner bật)</h3>
+<p class="api" style="margin-top:14px">[biến thể wireframe] chọn kênh nhận mã (kênh OTA/Zalo do owner bật)</p>
 <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="lbl" style="font-size:16px" data-i18n="guest.verify.channel_title">Nhận mã xác minh qua</legend>
 <label class="check" style="font-size:15px"><input type="radio" name="vch" checked> <span data-i18n="guest.verify.via_email" data-i18n-args='{"email": "j***@g***.com"}'>Email j***@g***.com</span></label>
 <label class="check" style="font-size:15px"><input type="radio" name="vch"> <span data-i18n="guest.verify.via_channel" data-i18n-args='{"channel": "Booking.com"}'>Tin nhắn Booking.com</span></label></fieldset>
-<h3 style="margin-top:14px">Biến thể – đơn chưa có email</h3>
+<p class="api" style="margin-top:14px">[biến thể wireframe] đơn chưa có email</p>
 <div class="alert info" role="status"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt"><span data-i18n="guest.verify.no_email">Đơn của bạn chưa có email. Gọi hoặc nhắn lễ tân để nhận mã.</span></div></div>
 <div class="contact-row" style="margin-top:8px"><a class="btn" href="tel:+84000000000"><span data-i18n="guest.verify.call_desk">Gọi lễ tân</span></a><a class="btn" href="#"><span data-i18n="guest.contact.message">Nhắn Zalo / WhatsApp</span></a></div>
-<h3 style="margin-top:14px">Biến thể – bị khóa</h3>
+<p class="api" style="margin-top:14px">[biến thể wireframe] bị khóa</p>
 <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div class="txt"><span data-i18n="guest.verify.locked">Bạn đã nhập sai quá nhiều lần. Vui lòng liên hệ lễ tân để nhận mã xác minh.</span></div></div>
 <div class="contact-row" style="margin-top:8px"><a class="btn" href="tel:+84000000000"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="guest.contact.call">Gọi người trực</span></a><a class="btn" href="#"><span data-i18n="guest.contact.message">Nhắn Zalo / WhatsApp</span></a></div>
 <div class="alert warn" role="status" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt"><span data-i18n="guest.verify.resend_limit">Đã gửi 3 lần trong 1 giờ. Thử lại sau hoặc lấy mã tại quầy lễ tân.</span></div></div>
@@ -59,9 +59,9 @@
 <div class="seg seg-inv" role="group" aria-label="Language / Ngôn ngữ"><button data-set-lang="vi" aria-pressed="true" lang="vi" aria-label="Tiếng Việt">VI</button><button data-set-lang="en" aria-pressed="false" lang="en" aria-label="English">EN</button><button data-set-lang="ru" aria-pressed="false" lang="ru" aria-label="Русский">RU</button></div></div><div class="m-body">
 <div class="card"><div style="display:flex;gap:8px;align-items:center"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><b><span data-i18n="guest.door_code">Mã cửa</span></b> <span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="guest.chip.verified">Đã xác minh</span></span></div><p class="mono" style="font-size:28px;margin:6px 0 0;letter-spacing:.2em">583 920</p><p class="muted" style="font-size:14px;margin:4px 0 0">14:00 19/10 → 12:00 22/10</p></div>
 <p class="muted" style="font-size:14px;margin-top:8px"><span data-i18n="guest.verify.expired_session">Phiên xác minh đã hết sau 30 phút không dùng. Xác minh lại để xem tiếp.</span> <span class="api">(biến thể hết phiên mức 2)</span></p>
-<h3 style="margin-top:14px">Sau trả phòng – ân hạn 24 giờ</h3>
+<p class="api" style="margin-top:14px">[biến thể wireframe] sau trả phòng – ân hạn 24 giờ</p>
 <div class="card"><b><span data-i18n="guest.after_checkout.title">Cảm ơn bạn đã lưu trú</span></b><p class="muted" style="font-size:14px;margin:4px 0 0"><span data-i18n="guest.after_checkout.body" data-i18n-args='{&quot;time&quot;: &quot;12:40 23/10&quot;}'>Liên kết này còn dùng đến 12:40 23/10 để xem phiếu thanh toán và thanh toán khoản phát sinh.</span></p></div>
-<p class="muted" style="font-size:14px">Chỉ còn tab Hóa đơn (bắt buộc mức 2). Wi-Fi, mã cửa, yêu cầu, tải giấy tờ: ẩn.</p>
+<p class="api">[chú thích wireframe] Chỉ còn tab Hóa đơn (bắt buộc mức 2). Wi-Fi, mã cửa, yêu cầu, tải giấy tờ: ẩn.</p>
 </div><nav class="m-nav" aria-label="Guest navigation"><a href="#" aria-current=page><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="guest.tab.bill">Hóa đơn</span></a></nav></div><div class="frame-cap">Mã cửa sau xác minh · màn sau trả phòng (SR-GST-10, 11)</div></div><div><div class="frame-phone touch"><div class="m-top on-dark"><div style="flex:1"><div style="font-family:var(--serif);letter-spacing:.3em;font-size:13px">OTTIMO</div><h1 style="font-size:20px;color:inherit"><span data-i18n="guest.cta.checkin">Check-in online</span></h1></div>
 <div class="seg seg-inv" role="group" aria-label="Language / Ngôn ngữ"><button data-set-lang="vi" aria-pressed="true" lang="vi" aria-label="Tiếng Việt">VI</button><button data-set-lang="en" aria-pressed="false" lang="en" aria-label="English">EN</button><button data-set-lang="ru" aria-pressed="false" lang="ru" aria-label="Русский">RU</button></div></div><div class="m-body">
 <ol class="steps"><li aria-current="step"><span data-i18n="guest.oci.step1">Giấy tờ</span></li><li><span data-i18n="guest.oci.step2">Giờ đến</span></li><li><span data-i18n="guest.oci.step3">Xác nhận</span></li></ol>
@@ -98,7 +98,7 @@
 <table class="table" style="font-size:15px"><tbody><tr><td data-i18n="guest.bill.line.room" data-i18n-args='{"nights": "3", "rate": "820.000"}'>Tiền phòng 3 đêm × 820.000</td><td class="r num">2.460.000</td></tr><tr><td data-i18n="guest.bill.line.minibar">Minibar</td><td class="r num">35.000</td></tr></tbody>
 <tfoot><tr><td><span data-i18n="guest.bill.paid">Đã thanh toán</span></td><td class="r num">0</td></tr><tr><td><span data-i18n="guest.bill.due">Còn phải trả</span></td><td class="r num">2.495.000 đ</td></tr></tfoot></table>
 <p class="muted" style="font-size:14px" data-i18n="guest.bill.usd" data-i18n-args='{"usd": "95", "date": "15/10"}'>≈ 95 USD (tỷ giá ngày 15/10, chỉ tham khảo)</p>
-<h3 style="margin-top:14px">Daniel · 301 · dài hạn</h3>
+<p class="api" style="margin-top:14px">[biến thể wireframe] Daniel · 301 · dài hạn</p>
 <div class="card"><b><span data-i18n="guest.bill.utility_period" data-i18n-args='{&quot;from&quot;: &quot;01/10&quot;, &quot;to&quot;: &quot;31/10&quot;}'>Kỳ chốt 01/10 – 31/10</span></b>
 <div class="num"><span data-i18n="guest.bill.meter" data-i18n-args='{&quot;old&quot;: &quot;3312&quot;, &quot;new&quot;: &quot;3454&quot;, &quot;used&quot;: &quot;142&quot;, &quot;unit&quot;: &quot;kWh&quot;}'>Chỉ số 3312 → 3454 = 142 kWh</span></div>
 <div class="num"><span data-i18n="guest.bill.meter" data-i18n-args='{&quot;old&quot;: &quot;254&quot;, &quot;new&quot;: &quot;262&quot;, &quot;used&quot;: &quot;8&quot;, &quot;unit&quot;: &quot;m³&quot;}'>Chỉ số 254 → 262 = 8 m³</span></div>
