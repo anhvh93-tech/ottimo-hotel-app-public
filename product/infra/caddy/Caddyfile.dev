@@ -1,0 +1,36 @@
+# DEV ONLY – plain HTTP on localhost. Production Caddyfile (TLS, CSP, HSTS, log masking of /g/*) comes in R2.
+{
+	admin off
+	auto_https off
+}
+
+(spa) {
+	root * /srv/{args[0]}
+	encode gzip
+	header X-Content-Type-Options nosniff
+	handle /health {
+		reverse_proxy api:3000
+	}
+	handle /v1/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# admin-web (front desk, manager, owner)
+:8081 {
+	import spa admin-web
+}
+
+# mobile – OTTIMO Staff PWA
+:8082 {
+	import spa mobile
+}
+
+# guest-web
+:8083 {
+	import spa guest-web
+}

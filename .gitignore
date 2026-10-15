@@ -1,10 +1,34 @@
+# Secrets – only templates are committed
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.age
+
+# Node / build
 node_modules/
 build/
 dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+.pnpm-store/
+.vite/
+*.log
+
+# Local runtime data (blob store, db dumps)
+.data/
+*.dump
+*.sql.gz
+
+# Mobile toolchains (legacy entries)
 .dart_tool/
 *.keystore
 *.jks
+
+# OS / editor
 .DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

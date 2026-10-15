@@ -48,3 +48,41 @@
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] Booking engine công khai là Should R3; khóa cửa MVP nhập mã tay, tích hợp API R4+ | PO | PRD |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] R2 chỉ ghi nhận thanh toán + VietQR; VNPay/MoMo, MISA, Zalo ZNS, channel manager thật ở R3; app khách VI/EN ở R2, tiếng Nga ở R3 (mẫu tin nhắn có tiếng Nga từ R2) | PO | PRD |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] P&L R3 nhập chi phí trong app, chưa tính thuê nhà/khấu hao | PO | BL 9 #26 |
+| 2026-10-15 | 1 | Kiến trúc modular monolith (api + worker), contract-first OpenAPI; server là nguồn sự thật cho mọi tính toán tiền và tồn phòng | ARC | ADR-001 |
+| 2026-10-15 | 1 | Stack: Node 22 + TypeScript + NestJS + Drizzle + PostgreSQL 17 + pg-boss; chưa dùng Redis; real-time SSE | ARC | ADR-002, 003 – quy mô 10 căn, ngân sách |
+| 2026-10-15 | 1 | Web quản trị và web khách: React + Vite SPA build tĩnh; booking-web chọn công nghệ ở R3 | ARC | ADR-004 |
+| 2026-10-15 | 1 | App nhân viên là PWA, không native ở MVP; offline: đọc + hàng đợi thao tác buồng phòng, thao tác tiền/tồn bắt buộc có mạng (chốt BL 9 #22) | ARC (+UXD) | ADR-005 |
+| 2026-10-15 | 1 | App khách: link/QR theo đơn, token băm, hết hạn sau trả phòng, 2 mức xác minh | ARC | ADR-006, SEC F09 |
+| 2026-10-15 | 1 | Đa cơ sở: organization/property, `property_id` mọi bảng + Row Level Security | ARC | ADR-007 |
+| 2026-10-15 | 1 | Thời gian: UTC cho thời điểm, `date` theo múi giờ cơ sở, `Clock` duy nhất (giờ giả cho dev/staging) | ARC | ADR-008, BR-001 |
+| 2026-10-15 | 1 | Chống đặt trùng bằng exclusion constraint PostgreSQL trên (căn, khoảng ngày) + Idempotency-Key + khóa lạc quan | ARC | ADR-009, BL 8.2 #30, BR-906 |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận qua ESC-002] Hosting 1 VPS tại Việt Nam + Docker Compose, ước 0,45–0,9 tr/tháng | ARC | ADR-010 |
+| 2026-10-15 | 1 | Monorepo pnpm + Turborepo; ESLint, Prettier, Vitest, Playwright, k6, gitleaks | ARC | ADR-012 |
+| 2026-10-15 | 1 | Ảnh giấy tờ: mã hóa phong bì, xóa bằng hủy khóa, log mỗi lần xem | ARC + SEC | ADR-013 |
+| 2026-10-15 | 1 | Chỉ số đêm và doanh thu phòng tính trên bảng đêm-phòng (StayNight); kỳ báo cáo lọc theo ngày lưu trú, giờ Asia/Ho_Chi_Minh | DATA | Một nguồn đếm đêm, tránh lặp lỗi BL 8.2 #8, #22 |
+| 2026-10-15 | 1 | Đêm khả dụng thuần = số căn kinh doanh × ngày − đêm OOO; Occupancy/RevPAR/GOPPAR dùng mẫu số thuần, báo kèm số gộp | DATA | BL 8.2 #29, BR-804, BR-904 |
+| 2026-10-15 | 1 | Occupancy dùng đêm có khách (gồm đêm miễn phí); ADR dùng đêm bán có thu tiền | DATA | Không để đêm 0 đồng kéo ADR |
+| 2026-10-15 | 1 | Doanh thu dài hạn phân bổ theo đêm, chia theo tháng hợp đồng (tổng HĐ = Σ đêm); tiền thu theo kỳ là dòng tiền riêng | DATA | BR-215, BL 8.2 #22 – chi tiết lý do ở metrics-definitions Q-10 |
+| 2026-10-15 | 1 | Kênh và loại lưu trú là 2 chiều tách biệt; "HĐ dài hạn" không còn là kênh | DATA | Báo cáo kênh T9 của INV đã ghi dài hạn theo kênh nguồn |
+| 2026-10-15 | 1 | Chi phí kênh = phí OTA + hoa hồng CTV; hoa hồng nhân viên sale ở dòng riêng của P&L; phí kênh/hoa hồng ghi nhận theo đêm cùng kỳ doanh thu | DATA | BL 5.11, BR-901–903 |
+| 2026-10-15 | 1 | Nhận phòng trước 06:00 và trả sau 18:00 sinh đêm bán (doanh thu phòng); phụ thu 30%/50% và phụ thu người thêm là doanh thu khác | DATA | BR-003, 411, 416, 904 – chờ DOM xác nhận ở review |
+| 2026-10-15 | 1 | ALOS đếm theo lượt lưu trú (gộp đơn con gia hạn), tách ngắn ngày và dài hạn | DATA | Tránh HĐ 1 năm làm ALOS vô nghĩa |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] Báo cáo dùng doanh thu gồm VAT cho đến khi kế toán chốt thuế suất; CTV/môi giới không tính là kênh trực tiếp trong mục tiêu G3; chốt số liệu tháng vào ngày 5 tháng sau | DATA | metrics-definitions O-1, O-2, O-3 |
+| 2026-10-15 | 1 | Bộ mã vai: owner, manager, front_desk_lead (kế thừa front_desk), front_desk, housekeeping, maintenance, sales_staff, collaborator, guest (link), system; một tài khoản nhiều vai = hợp quyền | BA | Quyền BA (cách đặc tả); PRD U1–U5 |
+| 2026-10-15 | 1 | Quyền kiểm ở server theo 3 lớp: màn hình, hành động, trường; trường không được phép không trả về từ API | BA | BL 8.2 #27, US-002 AC2 |
+| 2026-10-15 | 1 | Khai báo lưu trú: đồng ý lưu ảnh không còn là điều kiện sang `scanned` (sửa trình tự BL 5.12); thêm trạng thái `void` cho đơn hủy/no-show | BA | SEC R-REG-05, decision-log SEC |
+| 2026-10-15 | 1 | Người trong đơn có 2 thuộc tính độc lập: `is_minor_data` theo ngưỡng bảo vệ dữ liệu của SEC (thay ngưỡng BL 3.17) và bậc tuổi phụ thu theo BR-110 | BA | SEC R-CON-05; ngưỡng cuối do luật sư (ESC-001) |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] CTV không được xác nhận cọc (chỉ báo đã chuyển kèm biên nhận); lễ tân/sale nội bộ xác nhận | BA | Kiểm soát tiền; CTV ngoài biên chế |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] Chỉ chủ đầu tư được gán vai, đặt hạn mức FOC, tỷ lệ hoa hồng, phí kênh; quản lý sửa tham số vận hành | BA | Tách người đặt hạn mức với người duyệt |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] SAL/CTV không thấy bất kỳ trường giấy tờ nào (kể cả dạng che); chỉ thấy khách/lead của mình; CTV không thấy "OTTIMO còn lại" | BA | BR-610, SEC D01–D04 |
+| 2026-10-15 | 1 | Thêm các chuyển ngoại lệ có duyệt MGR+: khôi phục no-show, hoàn tác nhận phòng nhầm (chờ DOM xác nhận) | BA | Tình huống thực tế khách đến khuya |
+| 2026-10-15 | 1 | Design System OTTIMO v0.1: giữ màu nền/thương hiệu R0; sửa `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, focus; `--faint` cũ thành `--deco` (cấm dùng cho chữ); thêm `--line-strong`, `--ink-inverse`. Mọi cặp chữ ≥ 4,5:1, UI ≥ 3:1 cả sáng và tối | UXD | HR-10, BL 8.3, WCAG 2.2 AA |
+| 2026-10-15 | 1 | Ba mật độ giao diện: Desk (máy tính, chữ 14, chạm 32), Touch (điện thoại, chữ 16, chạm 44), HK (buồng phòng, chữ 16–17, chạm 48/56) | UXD | Persona P2, P3 |
+| 2026-10-15 | 1 | Giao diện buồng phòng dùng câu thường thay mã VC/VI/VD…; mức độ phiếu sửa "Gấp / Trong ngày / Không gấp" | UXD | HR-13 |
+| 2026-10-15 | 1 | Mẫu bắt buộc: xác nhận phá hủy, phụ thu chủ động, kiểm tra 3 trạng thái, nhắc việc bền vững thay toast, hoàn tác 10 giây | UXD | HR-04, 06, 07, 09, 17 |
+| 2026-10-15 | 1 | Chính tả kiểu mới (hủy, khóa, hóa đơn); "Phiếu thanh toán" cho bill khách, "Hóa đơn" chỉ cho hóa đơn GTGT/điện tử; không in "FOC" trên giấy tờ khách | UXD | HR-19, HR-13 |
+| 2026-10-15 | 1 | Font tự host Lora + Be Vietnam Pro (SIL OFL, miễn phí); chữ Nga dùng font hệ thống | UXD | Be Vietnam Pro không có Cyrillic |
+| 2026-10-15 | 1 | App khách xưng "bạn" (VI), "Вы" (RU) | UXD | Giọng boutique, khách trẻ/quốc tế |
+| 2026-10-15 | 1 | Dependabot cho cập nhật phụ thuộc (npm, GitHub Actions, Docker); gitleaks chạy bằng image CLI chính thức trong CI | OPS | ADR-012 |
+| 2026-10-15 | 1 | Vòng xoay backup 7 ngày + 4 tuần (≤ 35 ngày) theo SEC T18 (ARC cần sửa ADR-010 – thẻ review) | OPS | SEC T18 |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] RPO ≤ 15 phút, RTO ≤ 4 giờ | OPS | architecture/ADR-010 |

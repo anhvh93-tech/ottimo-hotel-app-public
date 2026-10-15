@@ -1,0 +1,82 @@
+# OTTIMO Desk – local DEV environment (not for production).
+# Run from product/:   cp .env.example .env   (edit POSTGRES_PASSWORD)   then   pnpm dev
+# (= docker compose --env-file .env -f infra/docker-compose.yml up --build)
+#
+#   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext
+#   api       127.0.0.1:3000   GET /health
+#   worker    (no port)        same image as api, entrypoint dist/worker.js
+#   web       127.0.0.1:8081   admin-web | :8082 mobile (PWA) | :8083 guest-web  (Caddy, proxies /health and /v1 to api)
+# Ports are bound to 127.0.0.1 only so nothing is exposed on the LAN.
+name: ottimo-dev
+
+x-api-env: &api-env
+  NODE_ENV: development
+  DATABASE_URL: postgres://${POSTGRES_USER:-ottimo}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  CLOCK_OVERRIDE: ${CLOCK_OVERRIDE:-}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ottimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-ottimo}
+      TZ: UTC
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: ottimo-api:dev
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.api
+    environment: *api-env
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    image: ottimo-api:dev
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.api
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ottimo-web:dev
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.web
+    ports:
+      - '127.0.0.1:8081:8081'
+      - '127.0.0.1:8082:8082'
+      - '127.0.0.1:8083:8083'
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+# Static SPAs (admin-web, mobile PWA, guest-web) served by Caddy (ADR-004). Build context = product/
+FROM node:22-alpine AS build
+RUN npm install -g pnpm@9.15.4
+WORKDIR /repo
+COPY . .
+RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
+    else echo "WARNING: pnpm-lock.yaml missing - non-reproducible install" && pnpm install --no-frozen-lockfile; fi
+RUN pnpm exec turbo run build --filter=./apps/*
+
+FROM caddy:2-alpine AS runtime
+COPY infra/caddy/Caddyfile.dev /etc/caddy/Caddyfile
+COPY --from=build /repo/apps/admin-web/dist /srv/admin-web
+COPY --from=build /repo/apps/mobile/dist /srv/mobile
+COPY --from=build /repo/apps/guest-web/dist /srv/guest-web
+EXPOSE 8081 8082 8083

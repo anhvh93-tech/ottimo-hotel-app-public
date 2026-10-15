@@ -1,0 +1,9 @@
+{
+  "name": "OTTIMO Staff",
+  "short_name": "OTTIMO Staff",
+  "start_url": "/",
+  "display": "standalone",
+  "lang": "vi",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}

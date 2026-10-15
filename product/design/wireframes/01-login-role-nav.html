@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>L1 · Đăng nhập, chọn cơ sở, điều hướng theo vai – Wireframe OTTIMO</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/wf.css">
+<script src="assets/icons.js" defer></script>
+<script src="assets/strings.js" defer></script>
+<script src="assets/wf.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="wf-head">
+  <div class="crumb"><a href="index.html">Wireframe OTTIMO R1</a> › L1</div>
+  <h1>L1 · Đăng nhập, chọn cơ sở, điều hướng theo vai</h1>
+  <div class="wf-meta"><span>Mọi vai nội bộ (P1–P4)</span><span>Điện thoại + máy tính</span><span>US-001, 002, 003, 009</span><span>PRD mục 4 (định hướng quyền)</span><span>Khắc phục HR-03; BL 8.3 (lang, title)</span></div>
+</header>
+<div class="wf-toolbar"><div class="grp" role="group" aria-label="Trạng thái màn hình"><span>Trạng thái:</span><div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div><div class="grp" role="group" aria-label="Giao diện sáng tối"><span>Giao diện:</span><div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp"><a class="btn sm" href="index.html">← Trước</a><a class="btn sm" href="02-fo-rack-booking.html">Sau →</a></div>
+  <div id="wf-live" class="sr-only" aria-live="polite"></div>
+</div>
+<main id="main" class="wf-main">
+
+<section class="wf-section"><h2><span class="no">1.1</span>Đăng nhập → chọn cơ sở → trang chủ theo vai</h2><div class="wf-row">
+<div><div class="frame-phone touch stateful" data-state="normal"><div class="m-body" style="display:flex;flex-direction:column;justify-content:center">
+<div style="text-align:center;margin-bottom:24px"><div class="brand" style="font-size:22px;padding:0">OTTIMO</div><div class="faint" style="letter-spacing:.16em;font-size:12px">BOUTIQUE STAY · DESK</div></div>
+<div class="flexshow offline-bar" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span>Không có mạng. Cần kết nối để đăng nhập lần đầu.</span></div>
+<div class="flexshow alert bad" data-show="error" role="alert" style="margin-bottom:12px"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt">Số điện thoại/email hoặc mật khẩu chưa đúng. Còn 3 lần thử trước khi tài khoản tạm khóa 15 phút. Quên mật khẩu? Nhờ chủ đầu tư đặt lại.</div></div>
+<div class="field"><label for="u">Số điện thoại hoặc email</label><input id="u" class="input" autocomplete="username" inputmode="email"></div>
+<div class="field"><label for="p">Mật khẩu</label><div style="display:flex;gap:6px"><input id="p" class="input" type="password" autocomplete="current-password"><button class="btn icon-btn" aria-label="Hiện mật khẩu" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg></button></div></div>
+<label class="check"><input type="checkbox" checked> Giữ đăng nhập trên máy này (thiết bị riêng của khách sạn)</label>
+<button class="btn pri block" style="margin-top:12px" data-show="normal empty error offline">Đăng nhập</button>
+<button class="btn pri block" style="margin-top:12px" data-show="loading" aria-busy="true" disabled>Đang đăng nhập…</button>
+<p class="muted" style="text-align:center;margin-top:16px;font-size:14px">Không có màn tự đăng ký – tài khoản do chủ đầu tư tạo (US-008).</p></div></div><div class="frame-cap">Đăng nhập (mọi vai nội bộ)</div></div>
+<div><div class="frame-phone touch stateful" data-state="normal"><div class="m-top"><h1>Chọn cơ sở</h1></div><div class="m-body">
+<p class="muted">Bạn có quyền ở 2 cơ sở. (MVP 1 cơ sở → bỏ qua màn này, vào thẳng.)</p>
+<ul class="list"><li><button class="rowlink" style="min-height:56px"><span class="avatar">ĐL</span><span class="grow"><b>OTTIMO Đà Lạt</b><br><span class="muted" style="font-size:14px">10 căn · Xuân Hương</span></span>›</button></li>
+<li><button class="rowlink" style="min-height:56px"><span class="avatar">+</span><span class="grow"><b>Cơ sở 2 (sau MVP)</b><br><span class="muted" style="font-size:14px">Ví dụ đa cơ sở</span></span>›</button></li></ul>
+<div data-show="empty"><div class="state"><div class="ill"><svg class="ico lg" aria-hidden="true"><use href="#i-home"/></svg></div><h4>Tài khoản chưa được gán cơ sở nào</h4><p>Nhờ chủ đầu tư gán quyền rồi đăng nhập lại.</p></div></div></div></div><div class="frame-cap">Chọn cơ sở – chỉ hiện khi có ≥ 2 cơ sở (US-009 Could)</div></div>
+<div><div class="frame-phone touch"><div class="m-top"><h1>Hôm nay</h1><span class="avatar">TH</span></div><div class="m-body">
+<div class="task urgent"><div><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg></div><div style="flex:1"><b>2 khách chưa khai báo – hạn 23:00</b><div class="muted" style="font-size:14px">Căn 102 (NN), 202</div></div></div>
+<div class="task soon"><div><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg></div><div style="flex:1"><b>11:00 · Căn 201 chưa xác nhận giờ trả</b></div></div>
+<div class="task"><div><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></div><div style="flex:1"><b>1 yêu cầu khách</b><div class="muted" style="font-size:14px">302 · Thêm khăn</div></div></div></div>
+<nav class="m-nav" aria-label="Điều hướng"><a href="#" aria-current=page><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg>Hôm nay</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg>Phòng</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg>Khai báo</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg>Việc</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg>Thêm</a></nav></div><div class="frame-cap">Lễ tân: trang chủ = việc theo giờ</div></div>
+<div class="wf-notes"><h3>Chú thích</h3><ol>
+<li>Không có bộ chọn "Xem với vai trò": vai lấy từ tài khoản. <span class="ref">HR-03, BL 2</span></li>
+<li>Lỗi đăng nhập không nói rõ sai trường nào (an toàn), nêu số lần thử còn lại và cách khắc phục. Số lần khóa do SEC/ARC chốt.</li>
+<li><code>&lt;html lang&gt;</code> và <code>&lt;title&gt;</code> theo từng màn ("Hôm nay – OTTIMO Desk"). <span class="ref">BL 8.3</span></li>
+<li>Trạng thái: Đang tải (nút "Đang đăng nhập…"), Lỗi, Mất mạng, Rỗng (tài khoản chưa có cơ sở).</li>
+<li>Điều hướng điện thoại ≤ 5 mục; desktop dùng sidebar có nhóm.</li></ol></div></div></section>
+<section class="wf-section"><h2><span class="no">1.2</span>Điều hướng theo vai (định hướng – chờ <code>rbac-matrix.md</code>)</h2><table class="table"><thead><tr><th>Vai (PRD U1–U4)</th><th>Trang chủ sau đăng nhập</th><th>Thiết bị / giao diện</th><th>Menu chính (≤ 5 mục trên điện thoại)</th><th>Không được thấy (định hướng PRD mục 4)</th></tr></thead><tbody>
+<tr><td><b>Chủ đầu tư / Quản lý</b></td><td>Tổng quan: KPI + Cần chú ý + Cần duyệt (L8)</td><td>Laptop + điện thoại</td><td>Tổng quan · Cần duyệt · Phòng · Báo cáo · Thêm</td><td>– (mọi lần xem ảnh giấy tờ vẫn ghi log). Quản lý có thể bị giới hạn P&amp;L – chờ RBAC</td></tr>
+<tr><td><b>Lễ tân</b></td><td>"Hôm nay": việc theo giờ – khách đến/đi, khai báo còn thiếu, yêu cầu khách (L2)</td><td>Máy tính quầy (+ điện thoại)</td><td>Hôm nay · Phòng · Khai báo · Việc · Thêm</td><td>P&amp;L, giá vốn kho, hoa hồng người khác</td></tr>
+<tr><td><b>Buồng phòng / Bảo trì</b></td><td>"Việc của tôi" (L6)</td><td>Điện thoại, giao diện riêng nút ≥ 48px</td><td>Việc của tôi · Các căn · Báo sự cố · Tôi</td><td>Giấy tờ khách, giá phòng, doanh thu, giá vốn (chỉ số lượng)</td></tr>
+<tr><td><b>CTV / Sale</b></td><td>Căn trống + Báo giá của tôi (L5)</td><td>Điện thoại</td><td>Căn trống · Báo giá · Khách của tôi · Hoa hồng</td><td>Giấy tờ khách, P&amp;L, báo cáo kênh, hoa hồng người khác, chi tiết khách không do mình bán</td></tr>
+<tr><td><b>Khách</b></td><td>App khách theo link/QR của đơn (L7) – không đăng nhập</td><td>Điện thoại, không cài app</td><td>Lưu trú · Yêu cầu · Hóa đơn · Thông tin</td><td>Mọi dữ liệu không thuộc đơn của mình; link hết hạn khi trả phòng</td></tr>
+</tbody></table>
+<div class="rbac-note">Nguồn: PRD mục 4 cột "Không được thấy". Ở đợt 4 UXD đối chiếu ma trận RBAC của BA và API của ARC; mọi màn hình chỉ hiện nút mà vai có quyền (không hiện rồi báo lỗi).</div></section>
+
+</main>
+</body>
+</html>

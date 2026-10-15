@@ -1,0 +1,6 @@
+# Workspace root = product/ (ADR-012). booking-web has no package.json until R3.
+packages:
+  - 'apps/*'
+  - 'services/*'
+  - 'packages/*'
+  - 'integrations'

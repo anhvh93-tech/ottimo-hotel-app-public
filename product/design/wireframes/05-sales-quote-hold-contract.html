@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>L5 · Sale/CTV: báo giá → giữ chỗ → cọc → hợp đồng, hoa hồng – Wireframe OTTIMO</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/wf.css">
+<script src="assets/icons.js" defer></script>
+<script src="assets/strings.js" defer></script>
+<script src="assets/wf.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="wf-head">
+  <div class="crumb"><a href="index.html">Wireframe OTTIMO R1</a> › L5</div>
+  <h1>L5 · Sale/CTV: báo giá → giữ chỗ → cọc → hợp đồng, hoa hồng</h1>
+  <div class="wf-meta"><span>Persona P4 CTV, P2 sale nội bộ</span><span>Điện thoại</span><span>US-080–087, 089</span><span>BR-108, 201–212, 302–306, 903</span><span>Khắc phục HR-16</span></div>
+</header>
+<div class="wf-toolbar"><div class="grp" role="group" aria-label="Trạng thái màn hình"><span>Trạng thái:</span><div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div><div class="grp" role="group" aria-label="Giao diện sáng tối"><span>Giao diện:</span><div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp"><a class="btn sm" href="04-checkout-bill-payment.html">← Trước</a><a class="btn sm" href="06-housekeeping-mobile.html">Sau →</a></div>
+  <div id="wf-live" class="sr-only" aria-live="polite"></div>
+</div>
+<main id="main" class="wf-main">
+<section class="wf-section"><h2><span class="no">5.1</span>Báo giá → giữ chỗ → cọc → hợp đồng; hoa hồng của tôi</h2><div class="wf-row">
+<div><div class="frame-phone touch stateful" data-state="normal"><div class="m-top"><h1>Báo giá mới</h1></div><div class="flexshow offline-bar" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span>Mất kết nối – báo giá lưu nháp, chưa giữ chỗ được.</span></div><div class="m-body">
+<div class="seg" role="group" aria-label="Loại"><button aria-pressed="false">Ngắn ngày</button><button aria-pressed="true">Dài hạn</button></div>
+<div data-show="normal offline">
+<div class="field" style="margin-top:10px"><label for="q-r">Căn</label><select id="q-r" class="input"><option>302 · The Ivory · Căn N+ · trống từ 05/12</option></select></div>
+<div class="row2"><div class="field"><label for="q-f">Vào ở</label><input id="q-f" class="input" value="05/12/2026"></div><div class="field"><label for="q-t">Kỳ hạn</label><select id="q-t" class="input"><option>6 tháng</option></select></div></div>
+<div class="row2"><div class="field"><label for="q-k">Khách</label><select id="q-k" class="input"><option>Nước ngoài</option></select></div><div class="field"><label for="q-c">Gói dọn</label><select id="q-c" class="input"><option>1 lần/tuần</option></select></div></div>
+<div class="card" style="background:var(--surface-2)"><table class="table"><tbody>
+<tr><td>Tiền thuê/tháng (BR-203)</td><td class="r num">… đ</td></tr><tr><td>Phí dịch vụ + dọn (BR-204)</td><td class="r num">… đ</td></tr><tr><td>Ký quỹ (BR-206)</td><td class="r num">… đ</td></tr><tr><td>Thu khi chốt (BR-208)</td><td class="r num"><b>… đ</b></td></tr><tr><td>Hoa hồng của tôi (BR-212)</td><td class="r num">… đ</td></tr></tbody></table>
+<p class="muted" style="font-size:13px;margin:0">Số tiền tính từ tham số BR – wireframe không ghi số cứng. Hiệu lực báo giá 3 ngày (BR-304).</p></div>
+<button class="btn block" style="margin-top:10px"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg>Sao chép văn bản báo giá · VI / EN / RU</button>
+<button class="btn pri block" style="margin-top:8px">Giữ chỗ 24 giờ</button></div>
+<div data-show="loading" aria-busy="true"><div class="sk" style="height:80px;margin-bottom:10px"></div><div class="sk" style="height:80px;margin-bottom:10px"></div><div class="sk" style="height:80px"></div></div><div data-show="empty"><div class="state"><div class="ill"><svg class="ico lg" aria-hidden="true"><use href="#i-calendar"/></svg></div><h4>Không còn căn trống trong khoảng ngày này</h4><p>Thử đổi ngày vào ở hoặc kỳ hạn. Gợi ý: 203 trống từ 23/10.</p></div></div><div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico lg" aria-hidden="true"><use href="#i-alert"/></svg></div><h4>Chưa tải được dữ liệu</h4><p>Dữ liệu của bạn không bị mất. Thử lại; nếu vẫn lỗi, báo quản lý kèm mã QT-500.</p><button class="btn pri">Thử lại</button></div></div></div>
+<nav class="m-nav" aria-label="Điều hướng"><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>Căn trống</a><a href="#" aria-current=page><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg>Báo giá</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg>Khách</a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg>Hoa hồng</a></nav></div><div class="frame-cap">Báo giá dài hạn (Sale/CTV)</div></div><div><div class="frame-phone touch"><div class="m-top"><h1>Giữ chỗ · 302</h1></div><div class="m-body">
+<span class="chip hold"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg>Giữ chỗ · chờ cọc</span>
+<div class="alert warn" style="margin-top:10px"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt">Hết hạn sau <b class="countdown warn">23 giờ 10 phút</b>. Nhắc bạn 2 giờ trước hạn; hết hạn chưa cọc → tự hủy, mở bán lại (BR-303).</div></div>
+<ol class="steps" style="margin-top:12px"><li class="done">Báo giá</li><li aria-current="step">Giữ chỗ</li><li>Ký HĐ & ký quỹ</li></ol>
+<div class="card"><b>Nhận ký quỹ</b><p class="muted" style="font-size:14px">VietQR theo số tiền thu khi chốt; nội dung CK = mã đơn.</p><div class="qr" role="img" aria-label="Mã VietQR ký quỹ"></div></div>
+<button class="btn pri block" style="margin-top:10px">Xác nhận đã nhận ký quỹ</button>
+<p class="muted" style="font-size:14px;margin-top:8px">Xác nhận → đơn "Đã xác nhận", sinh hợp đồng dài hạn (snapshot giá BR-006), xuất PDF hợp đồng (R3).</p>
+<div class="rbac-note">CTV: <b>không thấy</b> giấy tờ khách, chỉ thấy đơn/khách do mình bán. Xác nhận cọc có thể chỉ dành cho sale nội bộ/lễ tân – chờ RBAC (US-086).</div></div></div><div class="frame-cap">Giữ chỗ có bộ đếm, nhận ký quỹ</div></div><div><div class="frame-phone touch stateful" data-state="normal"><div class="m-top"><h1>Hoa hồng của tôi</h1></div><div class="m-body">
+<div class="grid g2"><div class="card kpi"><div class="k">Đã ghi nhận T10</div><div class="v">… đ</div></div><div class="card kpi"><div class="k">Đã chi</div><div class="v">… đ</div></div></div>
+<ul class="list card" style="margin-top:10px" data-show="normal offline"><li><div class="grow"><b>HĐ Emma Laurent · 302</b><div class="muted" style="font-size:14px">6 tháng · tỷ lệ theo BR-212</div></div><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Đã chi</span></li>
+<li><div class="grow"><b>Đơn OTM-000171 · 103</b><div class="muted" style="font-size:14px">Ngắn ngày · ghi nhận khi trả phòng (BR-903)</div></div><span class="chip neutral">Chờ trả phòng</span></li></ul>
+<div data-show="loading" aria-busy="true"><div class="sk" style="height:80px;margin-bottom:10px"></div><div class="sk" style="height:80px;margin-bottom:10px"></div><div class="sk" style="height:80px"></div></div><div data-show="empty"><div class="state"><div class="ill"><svg class="ico lg" aria-hidden="true"><use href="#i-chart"/></svg></div><h4>Chưa có hoa hồng tháng này</h4><p>Hoa hồng ghi nhận khi khách trả phòng hoặc ký hợp đồng.</p></div></div><div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico lg" aria-hidden="true"><use href="#i-alert"/></svg></div><h4>Chưa tải được dữ liệu</h4><p>Dữ liệu của bạn không bị mất. Thử lại; nếu vẫn lỗi, báo quản lý kèm mã CM-500.</p><button class="btn pri">Thử lại</button></div></div>
+<p class="muted" style="font-size:14px;margin-top:10px">Chỉ hiện hoa hồng của chính bạn (US-087).</p></div></div><div class="frame-cap">Hoa hồng của tôi</div></div>
+<div class="wf-notes"><h3>Chú thích</h3><ol>
+<li>Mobile-first cho P4 (CTV dùng điện thoại). <span class="ref">persona P4</span></li>
+<li>Mọi con số = tham chiếu BR-2xx/3xx; wireframe để "… đ" để không tự đặt số (QC B3).</li>
+<li>Văn bản báo giá VI/EN/RU sao chép 1 chạm. <span class="ref">US-083, O-05</span></li>
+<li>Bộ đếm giữ chỗ ở mọi nơi đơn xuất hiện (rack, drawer, kanban). <span class="ref">HR-16</span></li>
+<li>"Căn trống" của CTV <b>ẩn tên khách</b> của căn đã có người – chỉ hiện "Đã kín".</li>
+<li>Từ 15 đêm, báo giá ngắn ngày hiện song song phương án 1 tháng. <span class="ref">BR-108</span></li></ol></div></div></section>
+</main>
+</body>
+</html>

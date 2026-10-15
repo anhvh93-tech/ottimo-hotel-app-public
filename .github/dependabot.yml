@@ -1,0 +1,19 @@
+# OPS choice for dependency updates (ADR-012: Dependabot or Renovate) – Dependabot, free and built-in.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /product
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker
+    directory: /product/infra/docker
+    schedule:
+      interval: monthly

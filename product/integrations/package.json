@@ -1,0 +1,26 @@
+{
+  "name": "@ottimo/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Third-party adapters (owner: INT). R1 skeleton by OPS: NotificationAdapter interface + Mock only, per README section 3.5.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

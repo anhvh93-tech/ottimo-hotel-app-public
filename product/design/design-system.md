@@ -1,0 +1,314 @@
+# Design System OTTIMO – v0.1
+
+- Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2 | Ngày: 15/10/2026
+- Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Chỉnh theo `rbac-matrix.md` (BA) và OpenAPI (ARC) ở đợt 4.
+- Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
+- Minh họa sống: `product/design/wireframes/index.html` (8 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
+- Nội dung chữ: `product/design/content-guide.md`, chuỗi `product/design/copy/strings-{vi,en,ru}.json`.
+- Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`.
+
+---
+
+## 1. Nguyên tắc
+
+| # | Nguyên tắc | Hệ quả thiết kế |
+|---|---|---|
+| D1 | **Giữ nhận diện OTTIMO, sửa cho đạt chuẩn** – kem giấy, chữ than, nhấn gỗ sồi, Lora + Be Vietnam Pro (BL 6.1) | Không đổi màu thương hiệu `--oak` #B08D57; chỉ thêm biến thể đậm `--oak-ink` cho chữ/focus và làm đậm các màu chữ không đạt AA |
+| D2 | **Hai giọng giao diện, một hệ thống** – nhân viên cần nhanh, dày thông tin; khách cần ấm, thoáng, ít bước | Cùng token; khác mật độ: *Desk* (máy tính quầy), *Touch* (điện thoại – lễ tân/sale/chủ đầu tư/khách), *HK* (buồng phòng – nút to, chữ to) |
+| D3 | **Đúng tiền, đúng luật trước** – không mặc định phát sinh phí, không báo "Đạt" giả, không xóa không hỏi | Mẫu bắt buộc: Phụ thu chủ động (mục 6.3), Kiểm tra 3 trạng thái (6.4), Xác nhận phá hủy (6.1) |
+| D4 | **Không chỉ bằng màu** | Mọi trạng thái = chữ + icon (+ hoa văn ở rack) – HR-11 |
+| D5 | **Không mất dữ liệu khi bị ngắt quãng** | Nháp tự lưu, hỏi trước khi bỏ thay đổi, thao tác offline xếp hàng (HR-05, US-058) |
+| D6 | **Số nghiệp vụ không nằm trong thiết kế** | Nhãn chỉ tham chiếu mã BR; số tiền trên wireframe là ví dụ tính từ BR (QC B3) |
+
+## 2. Màu
+
+### 2.1 Bảng token (sáng + tối)
+
+Token đổi so với Round 0 được đánh dấu **(đổi)**. Màu nền, bề mặt, thương hiệu giữ nguyên để giữ cảm giác OTTIMO.
+
+| Token | Sáng | Tối | Dùng cho | Round 0 (sáng / tối) |
+|---|---|---|---|---|
+| `--bg` | `#F4F0E8` | `#1B1A18` | Nền trang | #F4F0E8 / #1B1A18 |
+| `--surface` | `#FBF9F4` | `#24221F` | Thẻ, input, modal, drawer | #FBF9F4 / #24221F |
+| `--surface-2` | `#EEE8DC` | `#2D2A26` | Nền phụ, seg control, header bảng | #EEE8DC / #2D2A26 |
+| `--side` | `#ECE5D8` | `#201E1C` | Sidebar | #ECE5D8 / #201E1C |
+| `--ink` | `#2B2B2B` | `#EDE8DF` | Chữ chính; nền nút chính | #2B2B2B / #EDE8DF |
+| `--ink-inverse` | `#FBF9F4` | `#1B1A18` | Chữ trên nền --ink (nút chính) | mới |
+| `--muted` | `#635F58` | `#A9A398` | Chữ phụ (nhãn, mô tả) | #6B6760 / #A9A398 **(đổi)** |
+| `--faint` | `#6A645B` | `#A39D92` | Chữ phụ cấp 3 (chú thích, nhãn nhóm menu) – vẫn đạt 4,5:1 | #9A948A / #7D776E **(đổi)** |
+| `--deco` | `#9A948A` | `#7D776E` | CHỈ trang trí (icon không mang nghĩa, vạch kẻ chấm). CẤM dùng cho chữ | mới |
+| `--line` | `#E0D8CA` | `#38342F` | Đường kẻ phân cách (trang trí) | #E0D8CA / #38342F |
+| `--line-strong` | `#8C8578` | `#857F75` | Viền ô nhập, checkbox, seg – thành phần UI cần ≥ 3:1 | mới |
+| `--oak` | `#B08D57` | `#C9A56E` | Màu thương hiệu: logo, minh họa, thanh biểu đồ, viền nhấn. Không dùng cho chữ nhỏ trên nền sáng | #B08D57 / #C9A56E |
+| `--oak-ink` | `#7A5C2E` | `#D9B987` | Chữ/icon màu gỗ sồi, link, mục đang chọn | #86693B / #D9B987 **(đổi)** |
+| `--oak-soft` | `#F1E7D6` | `#3A3226` | Nền nhấn nhẹ, mục đang chọn, dòng bảng đang chọn | #F1E7D6 / #3A3226 |
+| `--focus` | `#7A5C2E` | `#D9B987` | Viền focus 2px + offset 2px | #B08D57 / #C9A56E **(đổi)** |
+| `--ok` | `#356B49` | `#7FBF95` | Thành công / Đạt / Sẵn sàng | #3D7552 / #7FBF95 **(đổi)** |
+| `--ok-bg` | `#E2EEE5` | `#22352A` | Nền chip thành công | #E2EEE5 / #22352A |
+| `--warn` | `#8A5214` | `#E0A866` | Cảnh báo / Cần dọn / Sắp hết hạn | #9A5F1C / #E0A866 **(đổi)** |
+| `--warn-bg` | `#F5E8D3` | `#3A2E1E` | Nền chip cảnh báo | #F5E8D3 / #3A2E1E |
+| `--bad` | `#A8403C` | `#E58A84` | Lỗi / Không đạt / Khóa phòng / Quá hạn | #A8403C / #E58A84 |
+| `--bad-bg` | `#F5DFDC` | `#3D2422` | Nền chip lỗi | #F5DFDC / #3D2422 |
+| `--info` | `#3E5E78` | `#8DB0CC` | Thông tin / Có khách | #3E5E78 / #8DB0CC |
+| `--info-bg` | `#E0E8EF` | `#22303B` | Nền chip thông tin | #E0E8EF / #22303B |
+| `--bar-in` | `#2F2D2A` | `#E3DCCF` | Thanh rack: đang ở (in_house) | #2F2D2A / #E3DCCF |
+| `--bar-in-t` | `#F4F0E8` | `#1B1A18` | Chữ trên thanh đang ở | #F4F0E8 / #1B1A18 |
+| `--bar-cf` | `#C9A56E` | `#B8925A` | Thanh rack: đã xác nhận (confirmed) | #C9A56E / #B8925A |
+| `--bar-cf-t` | `#2B2B2B` | `#1B1A18` | Chữ trên thanh đã xác nhận | #2B2B2B / #1B1A18 |
+| `--bar-long` | `#5B7387` | `#7E98AD` | Thanh rack: hợp đồng dài hạn (đang ở/đã xác nhận) | #5B7387 / #7E98AD |
+| `--bar-long-t` | `#FFFFFF` | `#111111` | Chữ trên thanh dài hạn | #FFFFFF / #111111 |
+| `--scrim` | `rgba(27,26,24,.48)` | `rgba(0,0,0,.6)` | Nền mờ sau modal/drawer | mới |
+
+Quy tắc dùng:
+- **Chữ** chỉ dùng: `--ink`, `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, `--bad`, `--info`, `--bar-*-t`, `--ink-inverse`. **Cấm** dùng `--deco`, `--line`, `--line-strong`, `--oak` cho chữ (trừ chữ ≥ 24px đậm trên nền tối).
+- `--faint` R0 (#9A948A) được đổi tên thành `--deco` và **chỉ dùng trang trí**; `--faint` mới đạt ≥ 4,5:1 trên mọi nền.
+- **Viền thành phần UI** cần nhận biết (ô nhập, checkbox, seg, nút phụ) dùng `--line-strong` (≥ 3:1). `--line` chỉ cho đường kẻ phân cách.
+- **Focus** luôn `--focus` 2px + offset 2px (không dùng `--oak` như R0: 2,72:1).
+- Nền chip `*-bg` chỉ đi với chữ cùng tông (`--ok` trên `--ok-bg`…).
+
+### 2.2 Bảng kiểm tương phản (đo theo công thức WCAG 2.2, cả sáng và tối)
+
+Dùng mục 3–4 của `heuristic-review-r0.md` làm checklist. Mọi cặp chữ ≥ 4,5:1, thành phần UI ≥ 3:1. Kết quả: **0 cặp không đạt**.
+
+| Cặp (chữ/UI trên nền) | Vị trí dùng | Yêu cầu | Sáng | Tối |
+|---|---|---|---|---|
+| `--ink` / `--bg` | Chữ chính trên nền trang | ≥ 4,5:1 | 12,46:1 ĐẠT | 14,25:1 ĐẠT |
+| `--ink` / `--surface` | Chữ chính trên thẻ | ≥ 4,5:1 | 13,46:1 ĐẠT | 13,00:1 ĐẠT |
+| `--ink-inverse` / `--ink` | Chữ nút chính | ≥ 4,5:1 | 13,46:1 ĐẠT | 14,25:1 ĐẠT |
+| `--muted` / `--bg` | Chữ phụ trên nền trang | ≥ 4,5:1 | 5,58:1 ĐẠT | 6,94:1 ĐẠT |
+| `--muted` / `--surface` | Chữ phụ trên thẻ | ≥ 4,5:1 | 6,03:1 ĐẠT | 6,33:1 ĐẠT |
+| `--muted` / `--surface-2` | Chữ phụ trên nền phụ / header bảng | ≥ 4,5:1 | 5,20:1 ĐẠT | 5,70:1 ĐẠT |
+| `--muted` / `--side` | Menu chưa chọn trên sidebar | ≥ 4,5:1 | 5,07:1 ĐẠT | 6,63:1 ĐẠT |
+| `--muted` / `--oak-soft` | Chữ phụ trên dòng đang chọn | ≥ 4,5:1 | 5,18:1 ĐẠT | 5,04:1 ĐẠT |
+| `--faint` / `--bg` | Chú thích trên nền trang (R0: 2,65:1) | ≥ 4,5:1 | 5,15:1 ĐẠT | 6,46:1 ĐẠT |
+| `--faint` / `--surface` | Chú thích trên thẻ (R0: 2,86:1) | ≥ 4,5:1 | 5,56:1 ĐẠT | 5,89:1 ĐẠT |
+| `--faint` / `--side` | Nhãn nhóm menu | ≥ 4,5:1 | 4,67:1 ĐẠT | 6,17:1 ĐẠT |
+| `--oak-ink` / `--bg` | Link / chữ nhấn trên nền trang | ≥ 4,5:1 | 5,44:1 ĐẠT | 9,31:1 ĐẠT |
+| `--oak-ink` / `--surface` | Link / chữ nhấn trên thẻ | ≥ 4,5:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
+| `--oak-ink` / `--oak-soft` | Chữ trên nền nhấn (R0: 4,18:1) | ≥ 4,5:1 | 5,04:1 ĐẠT | 6,75:1 ĐẠT |
+| `--ok` / `--ok-bg` | Chip thành công | ≥ 4,5:1 | 5,25:1 ĐẠT | 6,08:1 ĐẠT |
+| `--ok` / `--surface` | Chữ/icon thành công trên thẻ | ≥ 4,5:1 | 5,96:1 ĐẠT | 7,40:1 ĐẠT |
+| `--warn` / `--warn-bg` | Chip cảnh báo (R0: 4,31:1) | ≥ 4,5:1 | 5,27:1 ĐẠT | 6,27:1 ĐẠT |
+| `--warn` / `--surface` | Chữ cảnh báo trên thẻ | ≥ 4,5:1 | 6,05:1 ĐẠT | 7,53:1 ĐẠT |
+| `--bad` / `--bad-bg` | Chip lỗi | ≥ 4,5:1 | 4,76:1 ĐẠT | 5,63:1 ĐẠT |
+| `--bad` / `--surface` | Chữ lỗi dưới ô nhập | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,27:1 ĐẠT |
+| `--info` / `--info-bg` | Chip thông tin | ≥ 4,5:1 | 5,51:1 ĐẠT | 5,93:1 ĐẠT |
+| `--bar-in-t` / `--bar-in` | Chữ trên thanh đang ở | ≥ 4,5:1 | 12,08:1 ĐẠT | 12,76:1 ĐẠT |
+| `--bar-cf-t` / `--bar-cf` | Chữ trên thanh đã xác nhận | ≥ 4,5:1 | 6,13:1 ĐẠT | 6,04:1 ĐẠT |
+| `--bar-long-t` / `--bar-long` | Chữ trên thanh dài hạn | ≥ 4,5:1 | 4,94:1 ĐẠT | 6,28:1 ĐẠT |
+| `--focus` / `--bg` | Viền focus trên nền trang (R0: 2,72:1) | ≥ 3:1 | 5,44:1 ĐẠT | 9,31:1 ĐẠT |
+| `--focus` / `--surface` | Viền focus trên thẻ | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
+| `--line-strong` / `--surface` | Viền ô nhập trên thẻ | ≥ 3:1 | 3,48:1 ĐẠT | 4,00:1 ĐẠT |
+| `--line-strong` / `--bg` | Viền ô nhập trên nền trang | ≥ 3:1 | 3,22:1 ĐẠT | 4,38:1 ĐẠT |
+| `--oak-ink` / `--surface-2` | Chữ nhấn trên nền phụ / seg đang chọn | ≥ 4,5:1 | 5,07:1 ĐẠT | 7,64:1 ĐẠT |
+| `--ink` / `--oak-soft` | Chữ chính trên dòng/mục đang chọn | ≥ 4,5:1 | 11,56:1 ĐẠT | 10,34:1 ĐẠT |
+| `--bad` / `--bg` | Chữ lỗi / quá hạn trên nền trang | ≥ 4,5:1 | 5,33:1 ĐẠT | 6,87:1 ĐẠT |
+| `--warn` / `--bg` | Chữ cảnh báo trên nền trang | ≥ 4,5:1 | 5,60:1 ĐẠT | 8,25:1 ĐẠT |
+| `--bad` / `--warn-bg` | Đếm ngược quá hạn trên nền cảnh báo | ≥ 4,5:1 | 5,01:1 ĐẠT | 5,22:1 ĐẠT |
+| `--ok` / `--bad` | Phân biệt Đạt vs Lỗi chỉ bằng màu – KHÔNG đủ, bắt buộc icon + chữ (HR-11) | không áp dụng | 1,03:1 | 1,18:1 |
+| `--ink-inverse` / `--bad` | Chữ nút "nguy hiểm", badge đếm | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,87:1 ĐẠT |
+| `#2B2B2B` / `--oak` | Số chú thích tròn trong wireframe (chỉ tài liệu) | ≥ 4,5:1 | 4,58:1 ĐẠT | – |
+
+Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → người mù màu đỏ–lục không phân biệt được (HR-11). Vì vậy **mọi** chỗ dùng hai màu này đều có icon khác nhau (✓ / ✕ / ?) và chữ.
+
+### 2.3 Màu trạng thái
+
+**Trạng thái đơn** (tên kỹ thuật theo BR-301 / decision-log – không đổi tên):
+
+| `status` | Nhãn VI | Nhãn EN | Thanh rack | Icon | Phân biệt không cần màu |
+|---|---|---|---|---|---|
+| `hold` | Giữ chỗ · chờ cọc | On hold · awaiting deposit | nền `--surface`, viền **đứt** 2px `--oak-ink` | đồng hồ cát | viền đứt + bộ đếm "còn 5 giờ 20 phút" |
+| `confirmed` | Đã xác nhận | Confirmed | `--bar-cf` | dấu ✓ | icon + nhãn trong drawer |
+| `in_house` | Đang ở | In house | `--bar-in` (đậm) | giường | icon |
+| `checked_out` | Đã trả phòng | Checked out | `--surface-2`, chữ `--muted` | cửa ra | icon, nhạt |
+| `cancelled` | Đã hủy | Cancelled | **không hiện trên rack** | ✕ | chip gạch ngang trong danh sách/CRM |
+| `no_show` | Không đến | No-show | **không hiện trên rack** | người ✕ | chip `bad` |
+| (loại) dài hạn | Hợp đồng dài hạn | Long-term lease | `--bar-long` + tiền tố "HĐ" | lịch tháng | tiền tố chữ "HĐ" |
+| (khối) OOO | Khóa phòng | Out of order | sọc chéo 45° `--bad-bg`/`--surface`, viền `--bad` | ổ khóa | sọc + ổ khóa + lý do |
+
+**Trạng thái buồng** (BR-801): giao diện quản lý hiện **mã + nhãn** ("VD · Trống, cần dọn"); giao diện buồng phòng hiện **câu thường** không mã (HR-13) – xem `content-guide.md` mục 5.
+
+| Mã | Tông | Icon |
+|---|---|---|
+| VC | ok | lấp lánh |
+| VI | ok | khiên ✓ |
+| VD | warn | chổi |
+| CL | oak | chổi (nền oak-soft) |
+| OC | info | người |
+| OD | warn | người + chổi |
+| OOO | bad | ổ khóa |
+
+**Kết quả kiểm tra** (HR-07): `pass` Đạt (ok, ✓, viền liền) · `fail` Không đạt (bad, ✕, viền liền 2px) · `unknown` Chưa kiểm được – cần kiểm tay (warn, ?, viền **đứt** 2px).
+
+**Khai báo lưu trú** (BR-607): `none` neutral · `partial` warn · `review` warn · `scanned` info · `pre` info · `sent` oak · `confirmed` ok · `needs_update` warn · `updated` ok.
+
+## 3. Chữ
+
+| Token | Font | Cỡ / dòng | Dùng cho |
+|---|---|---|---|
+| `display` | Lora 600 | 32 / 1,2 | Màn hoàn tất của khách, tiêu đề lớn app khách |
+| `h1` | Lora 600 | 24 / 1,25 | Tiêu đề màn hình (R0: 22) |
+| `h2` | Lora 600 | 19 / 1,3 | Tiêu đề thẻ, modal |
+| `h3-label` | Be Vietnam Pro 600, chữ hoa, giãn .1em | **12** / 1,4 | Nhãn nhóm (R0: 11px – tăng lên 12) |
+| `kpi` | Lora 600, tabular-nums | 26 / 1,15 | Số KPI, số căn, tổng bill |
+| `body-desk` | Be Vietnam Pro 400 | 14 / 1,5 | Thân chữ máy tính quầy |
+| `body-mobile` | Be Vietnam Pro 400 | **16** / 1,5 | Thân chữ mọi màn điện thoại (tránh iOS tự phóng ô nhập) |
+| `body-hk` | Be Vietnam Pro 500 | **17** / 1,45 | Giao diện buồng phòng/bảo trì |
+| `caption` | Be Vietnam Pro 400 | **12** / 1,45 | Chữ phụ nhỏ nhất trên máy tính |
+
+Quy tắc:
+- **Cỡ tối thiểu**: máy tính 12px; điện thoại 14px (chữ phụ), 16px (thân, ô nhập); buồng phòng **16px cho mọi chữ** (thân 17px). Bỏ hết cỡ 9,5 / 10 / 10,5px của R0 (HR-10).
+- Đơn vị `rem` trong code, để phóng chữ của hệ điều hành/trình duyệt có tác dụng tới 200% không vỡ bố cục (WCAG 1.4.4).
+- Số tiền, giờ, số căn: `font-variant-numeric: tabular-nums`. Định dạng tiền theo `content-guide.md` mục 4.
+- **Tự host font** (SIL Open Font License 1.1 – miễn phí, không cần ESC): Lora (biến thiên 500–600 + italic 500), Be Vietnam Pro 400/500/600, định dạng woff2, `font-display: swap`, subset `latin`, `latin-ext`, `vietnamese`. Be Vietnam Pro **không có ký tự Cyrillic** → chuỗi tiếng Nga rơi về `system-ui` (Roboto/San Francisco/Segoe đều có Cyrillic); Lora có Cyrillic → tiêu đề RU vẫn dùng Lora. FE/MOB kiểm tra lại ở R3 (chữ Nga dài).
+- Mã đơn, mã hồ sơ khai báo, nội dung chuyển khoản: `mono`.
+
+## 4. Khoảng cách, bo góc, kích thước, chuyển động
+
+- **Lưới 4px**: `space` 0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64. Lề trang: máy tính 16–24px, điện thoại 16px. Khoảng cách giữa thẻ 12px; trong thẻ 14–16px.
+- **Bo góc**: `sm` 6 (seg trong), `md` 8 (nút, ô nhập), `lg` 12 (thẻ, thẻ buồng phòng 14), `xl` 16 (modal, bottom sheet 20), `pill` 999 (chip), `phone` 36 (khung minh họa).
+- **Vùng chạm**: máy tính ≥ 32px chiều cao (WCAG 2.5.8 yêu cầu 24px); điện thoại ≥ 44×44px; buồng phòng ≥ **48px**, nút chính **56px**, khoảng cách giữa hai nút ≥ 8px.
+- **Kích thước khung**: sidebar 240 (R0 232), drawer 460, modal 480 / 720, cột rack 72 (tối thiểu 56), dòng rack 48.
+- **Breakpoint**: 360 (điện thoại nhỏ), 480, 768 (dưới mức này: rack chuyển dạng danh sách, sidebar → thanh điều hướng dưới ≤ 5 mục), 1024, 1280.
+- **Bóng**: `sm` cho thẻ nổi nhẹ; `lg` cho drawer, modal, toast, bottom sheet.
+- **Chuyển động**: 150ms (hover, công tắc), 200ms (mở modal mờ dần), 280ms (drawer/bottom sheet trượt); easing `cubic-bezier(.2,0,0,1)`. `prefers-reduced-motion` → 0ms, skeleton không chạy sóng.
+- **Thời gian**: toast tự ẩn ≥ 6 giây, dừng khi rê chuột/focus; hoàn tác 10 giây; skeleton chỉ hiện nếu tải > 300ms.
+- **z-index**: sticky 10 · drawer 40 · modal 50 · toast 60.
+
+## 5. Component (30)
+
+Mỗi component có: mục đích · biến thể · trạng thái · quy tắc a11y. Minh họa trong wireframe (mã luồng trong ngoặc).
+
+| # | Component | Biến thể / trạng thái | Quy tắc chính |
+|---|---|---|---|
+| C1 | **Button** | `primary` (nền `--ink`), `secondary` (viền `--line-strong`), `ghost` (chữ `--oak-ink`), `danger` (nền `--bad`), `sm`; trạng thái hover, focus, đang xử lý ("Đang lưu…" + vô hiệu), disabled (`aria-disabled` + lý do gần nút) | Nhãn là **động từ + đối tượng** ("Hoàn tất trả phòng", không "OK"). Mỗi vùng tối đa 1 nút primary. Nút bị khóa phải có chữ giải thích vì sao (ví dụ "Dọn xong (còn 3 mục)") |
+| C2 | **IconButton** | 32 / 44 / 48px | Bắt buộc `aria-label`; tooltip hiện cả khi focus |
+| C3 | **Field (Input, Select, Textarea)** | mặc định, focus, lỗi (viền 2px `--bad` + dòng lỗi có icon ✕), chỉ đọc, đang kiểm (spinner nhỏ) | Nhãn luôn hiển thị phía trên (không dùng placeholder thay nhãn); `*` bắt buộc + chữ "Bắt buộc" cho trình đọc; lỗi gắn `aria-describedby`, `aria-invalid`; trợ giúp dưới ô; điện thoại cỡ 16px |
+| C4 | **Stepper +/−** | 44px (Touch), 56px (HK); có `data-max` | Thay ô số cho minibar, số thẻ, số khách (BL 8.3). `output aria-live="polite"` |
+| C5 | **Segmented control** | 2–5 lựa chọn | `aria-pressed`; dùng cho bộ lọc, kiểu xem, chọn phương thức |
+| C6 | **Checkbox / Radio / Switch** | Switch = `role="switch"` + `aria-checked` | Không tích sẵn cho đồng ý pháp lý (BR-609) |
+| C7 | **Chip trạng thái** | ok, warn, bad, info, oak, neutral, hold (viền đứt), strike | **Luôn có icon + chữ**; không dùng chip chỉ có chấm màu |
+| C8 | **Badge đếm** | số trên nền `--bad` | Kèm chữ ẩn "4 mục cần chú ý" |
+| C9 | **Card / KPI tile** | card, KPI (`kpi` + nhãn + diễn giải) | KPI luôn có nhãn đầy đủ và nguồn/công thức khi bấm |
+| C10 | **List row / Task item** | thường, `urgent` (viền trái 4px `--bad`), `soon` (`--warn`) | Toàn bộ dòng bấm được bằng một `button`/`a` thật (không bấm vào `tr`/`div` – BL 8.3) |
+| C11 | **Table** | header chữ hoa 12px nền `--surface-2`, dòng tổng đậm, dòng chọn `--oak-soft`, cột số canh phải | Chọn dòng bằng nút trong dòng hoặc `role="grid"` có focus; `aria-selected` |
+| C12 | **Room rack** | lưới 10 căn × 14 ngày; thanh đơn 6 loại (mục 2.3); ô trống bấm được (từ hôm nay); cột hôm nay nền `--oak-soft`; chú giải luôn hiện; dạng danh sách < 768px | Mỗi thanh là `button` có `aria-label` đủ "Căn 203, Ji-woo Park, đã xác nhận, 19/10 đến 22/10, Booking.com". Bản thật: `role="grid"`, phím mũi tên di chuyển ô, Enter mở, tab-index lưu động (roving tabindex) |
+| C13 | **Booking bar** | xem C12 | Chữ trong thanh: tên khách + ghi chú ngắn ("đi hôm nay", "còn 5 giờ 20 phút"); không chỉ `title` |
+| C14 | **Drawer** (phải, 460px) | chi tiết đơn, khách | Như Modal (C15); trên điện thoại thành trang toàn màn |
+| C15 | **Modal / Dialog** | `sm` 480, `lg` 720; có tiêu đề, thân cuộn, chân cố định | Mở → focus tiêu đề/ô đầu; **bẫy focus**; Esc/nền **không đóng khi form đã sửa** → hỏi "Bỏ các thay đổi chưa lưu?"; đóng → **trả focus** về nút gọi; nội dung phía sau `inert` |
+| C16 | **Confirm dialog (phá hủy / tiền)** | `role="alertdialog"` | Mục 6.1 |
+| C17 | **Stepper tiến trình (Steps)** | bước đã xong (✓), hiện tại, chưa tới | `aria-current="step"`; có "← Sửa lại" ở mọi bước |
+| C18 | **Toast** | xác nhận thường + nút Hoàn tác | Chỉ cho thông tin **không quan trọng**; `role="status"`; ≥ 6 giây, dừng khi rê/focus, có nút đóng. **Cấm** dùng toast cho nhắc pháp lý/tiền (HR-09) |
+| C19 | **Alert / Banner** | ok, warn, bad, info; banner mất mạng | Lỗi chặn: `role="alert"`; nhắc: `role="status"`. Câu theo mẫu content-guide mục 6 |
+| C20 | **Persistent task ("Cần chú ý")** | urgent, soon, normal | Ở lại tới khi xử lý xong; sinh từ quy tắc (BR-907); có nút hành động trực tiếp |
+| C21 | **Countdown** | bình thường, `warn` (< 2 giờ), `bad` (quá hạn → "Đã quá hạn 15 phút") | Hiện chữ, không chỉ màu; `aria-live` chỉ khi đổi mức, không đọc mỗi giây |
+| C22 | **CheckRow (kiểm tra 3 trạng thái)** | pass / fail / unknown (mục 6.4) | Không bao giờ hiện pass khi hệ thống chưa kiểm; unknown có nút "Tôi đã kiểm – Đạt/Không đạt" ghi tên người kiểm |
+| C23 | **Scan frame / Upload** | trống, đang đọc (skeleton), đọc lỗi, xong | Luôn có lựa chọn "Nhập tay"; ảnh không đọc được → giữ dữ liệu khác |
+| C24 | **Bill / Folio** | tạm tính, đã thu (dấu "ĐÃ THU ĐỦ"), song ngữ | Dòng miễn phí ghi "Miễn phí · lý do" (không "FOC"); USD chỉ tham khảo (BR-004) |
+| C25 | **VietQR block** | QR + số tiền + nội dung CK + nút sao chép; chờ xác nhận | QR có `aria-label` nêu số tiền và nội dung |
+| C26 | **Chart** | cột, cột tương lai **sọc**, đường mục tiêu | Cột là nút: chạm/focus hiện số; luôn có "Xem dạng bảng" (HR-12) |
+| C27 | **Navigation** | sidebar có nhóm (máy tính), thanh dưới **≤ 5 mục** (điện thoại), mục "Thêm" | `aria-current="page"`; nhãn đầy đủ, không viết tắt khó hiểu |
+| C28 | **Language switcher** | VI / EN / RU | Tên ngôn ngữ viết bằng chính ngôn ngữ đó; đổi `<html lang>` |
+| C29 | **Empty / Loading (skeleton) / Error / Offline state** | mục 7 | – |
+| C30 | **Date range picker** | chọn khoảng, đêm đã kín gạch chéo + nhãn, ngày quá khứ khóa | Nhập được bằng bàn phím (ô ngày gõ tay `dd/mm/yyyy`) |
+
+Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), vẽ lại trong `wireframes/assets/icons.js` (34 icon). Không mua bộ icon. Icon luôn đi kèm chữ, trừ IconButton có `aria-label`.
+
+## 6. Mẫu tương tác bắt buộc (khắc phục heuristic)
+
+### 6.1 Xác nhận hành động phá hủy / tiền (HR-06 – Blocker)
+Áp dụng: hủy giữ chỗ, hủy đơn, hoàn tất trả phòng, đóng/mở bán kênh, gộp hồ sơ, đổi phiếu sửa sang "Xong" (mở khóa phòng), hoàn cọc, xóa ảnh giấy tờ sớm.
+1. Tiêu đề là câu hỏi cụ thể có đối tượng: "Hủy giữ chỗ căn 103?".
+2. Thân nêu **hậu quả cụ thể**: "Căn 103 sẽ mở bán lại từ 16/10 đến 18/10 trên 7 kênh."
+3. **Lý do bắt buộc** khi quy tắc yêu cầu (BR-308, 424, 432) – nút xác nhận khóa đến khi chọn.
+4. Nút an toàn ("Giữ lại đơn") nhận focus mặc định; nút xác nhận dùng `danger`, nhãn lặp lại động từ ("Hủy giữ chỗ"). Không dùng "OK / Có / Không".
+5. Ghi nhật ký (BR-008). Hành động đảo ngược được (đổi trạng thái buồng) → **không hỏi**, dùng **Hoàn tác 10 giây** (HR-17).
+
+### 6.2 Không mất dữ liệu (HR-05)
+- Form nhiều bước tự lưu nháp mỗi khi rời ô; hiện "Nháp tự lưu 10:41".
+- Esc / bấm nền đóng modal **chỉ khi form chưa sửa**; nếu đã sửa → hộp "Bỏ các thay đổi chưa lưu?" (Tiếp tục nhập / Bỏ thay đổi).
+- Không dựng lại toàn trang khi lưu (ghi chú cho FE – BL 8.4).
+
+### 6.3 Phụ thu chủ động (HR-04 – Blocker; BR-414)
+- Ô giờ nhận/trả mặc định **giờ chuẩn** (BR-401), phụ thu = 0, hiện câu xanh "Nhận đúng giờ chuẩn – không phụ thu".
+- Lễ tân phải **bật công tắc** "Khách nhận sớm / trả muộn" → nhập giờ → thấy số tiền + bậc BR → tick "Tôi đã báo khách khoản phụ thu này" mới lưu được.
+- Miễn phí (FOC) là nhánh riêng: lý do bắt buộc, vượt hạn mức → gửi người duyệt (BR-432/433); không có ô "chọn tên người duyệt".
+
+### 6.4 Kiểm tra 3 trạng thái (HR-07 – Blocker; BR-605)
+- `pass` chỉ khi hệ thống **đã so sánh dữ liệu thật** (ví dụ hạn hộ chiếu > ngày trả phòng).
+- Thiếu dữ liệu → `unknown` "Chưa kiểm được – cần kiểm tay" (viền đứt, icon ?), người dùng đánh dấu sau khi xem giấy tờ gốc; ghi tên người kiểm.
+- `fail` chặn bước tiếp theo; chỉ quản lý ghi ngoại lệ có lý do.
+
+### 6.5 Nhắc việc bền vững thay toast (HR-09)
+Nhắc pháp lý/tiền (khai báo còn thiếu, kỳ thu, căn quá giờ trả, đơn vừa về từ OTA) → **Task item** trên Tổng quan/"Hôm nay" + badge, ở lại tới khi xong; nhắc lại theo mốc giờ (BR-611, BR-425).
+
+### 6.6 Trạng thái hệ thống trung thực (HR-20, HR-15)
+Chỉ hiện "Đã khóa – ngừng bán trên mọi kênh" sau khi server xác nhận khối OOO; trước đó hiện "Đang gửi yêu cầu khóa…". Áp dụng tương tự cho đồng bộ kênh (Đang gửi / Thành công / Lỗi – thử lại).
+
+### 6.7 Nguồn giá (HR-18)
+Mọi nơi đề xuất giá (đặt mới, gia hạn ở quầy và app khách) hiện **giá sẽ thu** + **nguồn giá** ("Giá trực tiếp hôm nay – BR-104", "Giá đơn gốc – BR-421").
+
+### 6.8 Lối tắt cho việc lặp lại (HR-22)
+Bấm ô trống trên rack → Đặt phòng mới điền sẵn căn + ngày; tìm kiếm toàn cục (phím `/`); điện thoại: nút hành động chính ở vùng ngón cái.
+
+### 6.9 Điều hướng theo vai (HR-03)
+Trang chủ theo vai (bảng ở `wireframes/01-login-role-nav.html` mục 1.2). Không có bộ chọn "Xem với vai trò". **Không vẽ nút cho hành động vai không có quyền** (ẩn, không hiện rồi báo lỗi); trường nhạy cảm ẩn hẳn (không hiện "••••" với vai không được xem giấy tờ – BR-610).
+
+### 6.10 Đa ngôn ngữ (HR-01 – Blocker)
+App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không ghép câu bằng code; ngôn ngữ mặc định theo trình duyệt, đổi tay ở đầu trang, ghi nhớ theo đơn. Bố cục chịu được chuỗi dài hơn 40% (RU/DE): nút xuống dòng, không cắt chữ, không cố định chiều rộng theo chữ VI.
+
+## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
+
+| Trạng thái | Khi nào | Mẫu | Ví dụ |
+|---|---|---|---|
+| **Đang tải** | > 300ms | Skeleton đúng hình bố cục thật (không spinner giữa trang); `aria-busy="true"`; nút đang xử lý đổi chữ "Đang lưu…" | Rack: dải xám theo hàng căn (L2) |
+| **Rỗng** | Không có dữ liệu hợp lệ | Hình tròn icon + tiêu đề nói **sự thật tích cực** + 1 câu hướng dẫn + (nếu có) 1 nút hành động | "Hết việc rồi!" (L6), "Không có gì cần chú ý" (L8), "Không dùng gì – tủ đủ" (L4) |
+| **Lỗi** | Tải/lưu thất bại | Icon cảnh báo + "Chưa tải được …" + nguyên nhân dễ hiểu + **dữ liệu không mất** + nút Thử lại + mã lỗi để báo quản lý; `role="alert"` | "Chưa tải được sơ đồ phòng … mã RK-503" |
+| **Lỗi nghiệp vụ** | Server từ chối (trùng phòng, sai định dạng) | Alert `bad` tại chỗ, nêu vấn đề + cách sửa + gợi ý thay thế, giữ dữ liệu | Trùng lịch kèm căn trống thay thế (L2) |
+| **Mất mạng** | Mất kết nối | Banner `warn` đầu màn; **Desk**: chỉ xem, khóa tạo/sửa đơn (chống đặt trùng – BR-906); **HK**: vẫn thao tác, xếp hàng, đếm "2 thao tác đang chờ", tự gửi; **khách**: xem dữ liệu đã tải | L2, L6, L7 |
+| **Hết hạn / không có quyền** | Link khách hết hạn; vai không có quyền | Trang giải thích + kênh liên hệ; không lộ dữ liệu | "Liên kết đã hết hạn" (L7) |
+
+## 8. Quy tắc a11y – khắc phục từng mục BL 8.3
+
+Chuẩn mục tiêu: **WCAG 2.2 AA** (decision-log UXR 15/10/2026).
+
+| # | Mục BL 8.3 / HR | Tiêu chí WCAG | Quy tắc Design System | Minh họa |
+|---|---|---|---|---|
+| A1 | Modal/drawer không bẫy focus, không đưa focus vào, không trả focus (HR-08) | 2.1.2, 2.4.3, 2.4.11 | C15: focus vào tiêu đề khi mở, bẫy focus, nội dung sau `inert`, đóng → trả focus về nút gọi; phần tử đang focus không bị header dính che (scroll-padding) | L2 2.2, L3 |
+| A2 | Dòng bảng khai báo bấm bằng `tr` | 2.1.1, 4.1.2 | C10/C11: hành động trên dòng luôn là `button`/`a` thật hoặc `role="grid"` có quản lý focus; cấm gắn click vào `tr`/`div` | L1 chọn cơ sở, L2 danh sách |
+| A3 | Tooltip biểu đồ chỉ theo chuột; SVG không có bảng (HR-12) | 1.1.1, 1.4.13 | C26: cột là nút có `aria-label`, chạm/focus hiện số, tooltip không biến mất khi rê vào, có "Xem dạng bảng" | L8 |
+| A4 | Trạng thái chủ yếu bằng màu (HR-11) | 1.4.1, 1.4.11 | Mục 2.3: mọi trạng thái = chữ + icon; rack có viền đứt/sọc/tiền tố "HĐ"; chú giải luôn hiện; kiểm bằng mô phỏng mù màu (deuteranopia/protanopia) trước mỗi round | L2, L6 |
+| A5 | Alert trong modal thiếu `role="alert"` (HR-24) | 4.1.3 | C19: lỗi chặn `role="alert"`, thông tin `role="status"`; lỗi trường `aria-describedby` + `aria-invalid` | L2, L3, L4 |
+| A6 | Ô số/giá nhỏ, tab dưới 9–11 mục (HR-02) | 2.5.8, 1.4.10 | Mục 4 vùng chạm; C4 stepper thay ô số; C27 thanh dưới ≤ 5 mục; không cuộn ngang ở 320px (trừ rack có chế độ danh sách) | L4, L6 |
+| A7 | `<title>` trong `<body>`, thiếu `lang` | 2.4.2, 3.1.1, 3.1.2 | Mỗi màn có `<title>` "Tên màn – OTTIMO"; `<html lang>` theo ngôn ngữ đang dùng; đoạn khác ngôn ngữ (song ngữ bill) gắn `lang` riêng | mọi trang |
+| A8 | (bổ sung) Tương phản chữ `--faint` 2,65:1 (HR-10) | 1.4.3 | Mục 2.2: đo cả sáng/tối, 0 cặp không đạt | tokens |
+| A9 | (bổ sung) Chữ 9,5–10,5px (HR-10) | 1.4.4 | Mục 3: tối thiểu 12px máy tính, 14/16px điện thoại, 16px buồng phòng; dùng `rem` | – |
+| A10 | (bổ sung) Focus ring 2,72:1 | 2.4.7, 1.4.11 | `--focus` 5,44:1 trở lên, 2px + offset 2px; không bỏ outline | mọi trang |
+| A11 | (bổ sung) Toast 2,8 giây (HR-09) | 2.2.1, 4.1.3 | C18: ≥ 6 giây, dừng khi rê/focus, nút đóng; việc quan trọng → C20 | L6 |
+| A12 | (bổ sung) Chuyển động | 2.3.3 | Tôn trọng `prefers-reduced-motion` | tokens |
+| A13 | (bổ sung) Bỏ qua điều hướng | 2.4.1 | Link "Bỏ qua tới nội dung" đầu trang; landmark `nav`/`main` | mọi trang |
+| A14 | (bổ sung) Kéo thả trên rack (nếu làm ở R2+) | 2.5.7 | Mọi thao tác kéo thả phải có cách thay thế bằng nút/form (đổi căn, đổi ngày qua drawer) | – |
+| A15 | (bổ sung) Nhập lại dữ liệu | 3.3.7 | Không bắt nhập lại thông tin đã có (giấy tờ khách gửi trước qua app hiện sẵn ở quầy) | L3 |
+
+Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồng không chuột; trình đọc màn hình (VoiceOver/TalkBack) đọc đúng nhãn thanh rack và chip; phóng chữ 200%; sáng/tối; mô phỏng mù màu.
+
+## 9. Ba giao diện theo thiết bị
+
+| | **Desk** (lễ tân, quản lý – máy tính) | **Touch** (lễ tân/sale/chủ đầu tư/khách – điện thoại) | **HK** (buồng phòng/bảo trì – điện thoại) |
+|---|---|---|---|
+| Thân chữ | 14px | 16px | 17px (tối thiểu 16) |
+| Vùng chạm | ≥ 32px | ≥ 44px | ≥ 48px, nút chính 56px |
+| Bố cục | sidebar + nội dung, drawer phải | 1 cột, thanh dưới ≤ 5 mục, bottom sheet | 1 cột, 1 việc = 1 thẻ, nút toàn chiều rộng |
+| Ngôn ngữ | mã + nhãn (VC · Trống, sạch) | như Desk, rút gọn | **câu thường, không mã** |
+| Mạng yếu | chỉ xem khi mất mạng | chỉ xem (khách: xem dữ liệu đã tải) | thao tác offline, tự gửi lại |
+
+## 10. Quản trị Design System
+
+- Nguồn sự thật: `tokens.json` → sinh `tokens.css` (và theme cho MOB). Component code (R2) đặt trong thư viện dùng chung FE/MOB; tên component theo mục 5.
+- Thay đổi token/component: UXD cập nhật file này + `tokens.json`, ghi lịch sử bên dưới, báo FE/MOB trong review.
+- Sinh lại và kiểm tương phản: `python3 product/design/tools/gen_tokens.py` (in số cặp không đạt; phải là 0) và `python3 product/design/tools/gen_strings.py` (sinh `copy/strings-*.json` + `wireframes/assets/strings.js`). Đề nghị OPS đưa bước kiểm tương phản vào CI ở R2.
+
+## 11. Lịch sử thay đổi
+| Phiên bản | Ngày | Người | Nội dung |
+|---|---|---|---|
+| 0.1 | 15/10/2026 | UXD | Bản đầu: token sáng/tối đạt AA (đổi `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, focus; thêm `--deco`, `--line-strong`, `--ink-inverse`), thang chữ, 30 component, 10 mẫu tương tác, 15 quy tắc a11y |
