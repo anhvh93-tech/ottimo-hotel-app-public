@@ -1,0 +1,116 @@
+# Bản đồ hành trình – OTTIMO Boutique Stay
+
+> **Mô phỏng – cần INV kiểm chứng.**
+> Các hành trình dưới đây do UXR **mô phỏng** dựa trên persona (`product/docs/research/personas.md`), brief chủ đầu tư mục 1 và 5, và prototype Round 0 (`product/docs/round-0-baseline.md` = **BL**). Giờ giấc, tần suất, cảm xúc là **giả định**, chưa quan sát người thật. Giả thuyết cần kiểm chứng có mã **H-xx** (danh sách ở `personas.md` mục 9).
+>
+> Người viết: UXR · Round 1 · Bước 2 · 15/10/2026 · Phiên bản 0.1
+
+Quy ước:
+- **Cảm xúc**: thang chữ **Tốt / Bình thường / Lo / Bực** (không dùng biểu tượng để đọc được bằng trình đọc màn hình).
+- **Cơ hội** ghi mã luồng wireframe UXD (plan.md mục 3.3: L1…L8) và tham chiếu BL để PO đưa vào backlog.
+- **Mức đau**: Cao / TB / Thấp – mức ảnh hưởng tới khách, doanh thu hoặc pháp lý (đánh giá của UXR, mô phỏng).
+
+---
+
+## J1. Khách ngắn ngày (P5 nội địa đặt trực tiếp · P7 quốc tế qua OTA)
+
+Hành trình chung 7 giai đoạn; cột "Biến thể" ghi khác biệt giữa khách trực tiếp (P5) và khách OTA (P7).
+
+| # | Giai đoạn | Hành động của khách | Điểm chạm | Cảm xúc | Điểm đau (mức) | Cơ hội cho sản phẩm | Biến thể P5 / P7 |
+|---|---|---|---|---|---|---|---|
+| 1 | **Tìm phòng** | Xem ảnh trên OTA/Google Maps/mạng xã hội; so giá; hỏi phòng trống | OTA, Google, TikTok/Facebook, Zalo OA | Bình thường → Lo (sợ ảnh không giống thật) | Không biết giá trực tiếp có rẻ hơn OTA không; câu hỏi lặp lại (đậu xe, nước nóng, bếp, Wi-Fi) mất thời gian lễ tân (TB) | Trang/tin nhắn giới thiệu chuẩn bị sẵn theo ngôn ngữ; mẫu trả lời FAQ cho lễ tân (L2 – mẫu tin) – H-16 | P5 hỏi qua Zalo; P7 chỉ thấy trang OTA |
+| 2 | **Đặt phòng** | Chọn ngày, căn, số người; nhận báo giá; xác nhận | Zalo + lễ tân (P5) / OTA (P7) → channel manager → Desk | Lo (chờ phản hồi) | P5: chờ lễ tân trả lời, giá phải tính tay; không có phiếu xác nhận. P7: đơn OTA về Desk phải đúng, không trùng (BL 8.2 #30) (Cao) | Lễ tân tạo đơn ≤ 1 phút từ rack (L2); kiểm trùng ở server; gửi **link xác nhận đơn** (ngày, căn, giá, chính sách hủy) đa ngôn ngữ | P7 bỏ qua bước này trong Desk (OTA lo); lễ tân chỉ cần thấy đơn mới + thông báo |
+| 3 | **Thanh toán / cọc** | Chuyển cọc 30% (P5) hoặc đã trả OTA/trả tại chỗ (P7) | VietQR, app ngân hàng; OTA | **Lo** (đã chuyển tiền nhưng chưa ai báo nhận) | Đối soát tay "đã nhận cọc chưa"; khách hỏi lại; giữ chỗ hết hạn không tự mở (BL 8.2 #19) (Cao) | VietQR có nội dung theo mã đơn + đối soát tự động; tin "Đã nhận cọc X đ" tự gửi; bộ đếm giữ chỗ (L5, L2) – H-09 | P7: hiển thị rõ cho lễ tân "đã trả qua OTA" vs "thu tại chỗ" để khỏi thu nhầm |
+| 4 | **Trước khi đến + check-in** | Nhận link check-in online, tải giấy tờ, chọn giờ đến; nhận mã cửa; đến nơi, vào phòng | Link app khách (L7); email/tin OTA; khóa thông minh; quầy (L3) | Lo (đường đi, giờ, giấy tờ) → Tốt nếu vào phòng nhanh | Ảnh giấy tờ gửi qua chat (lộ dữ liệu – SEC); khách OTA có thể không nhận link (H-10); đến muộn sau 22:00 không có người (H-04); phụ thu nhận sớm tự tính sai (BL 8.2 #2); app khách chỉ tiếng Việt (HR-01) (Cao) | Check-in online đa ngôn ngữ, ảnh nén, thử lại khi mạng yếu; khai báo lưu trú được chuẩn bị sẵn từ dữ liệu check-in (BL 5.12); mã cửa + hướng dẫn hình; nhận phòng tại quầy ≤ 3 phút khi đã check-in online | P5: CCCD cả nhà + số định danh trẻ em – cần hướng dẫn. P7: hộ chiếu + visa/miễn thị thực + dấu nhập cảnh |
+| 5 | **Lưu trú** | Dùng Wi-Fi, bếp; xin thêm chăn/khăn; báo sự cố (nước nóng); hỏi tour/xe | App khách tab Yêu cầu; chat; lễ tân; buồng phòng; bảo trì | Tốt → **Bực** nếu sự cố không được xử lý nhanh | Yêu cầu qua chat bị chìm; không biết đã ai nhận chưa; nước nóng (9% đánh giá cần cải thiện – số mẫu BL 3.20) (TB) | Yêu cầu có trạng thái (Đã nhận → Đang xử lý → Xong) hiển thị cho khách; tự định tuyến (BL 5.19) với cam kết 10 phút; hỏi thăm ngày thứ 2 (BL 5.18) | P7 cần EN; liên hệ khẩn bằng WhatsApp |
+| 6 | **Check-out** | Nhận nhắc giờ trả; chọn trả đúng giờ / ở thêm / trả muộn; trả phòng; thanh toán phần còn lại; lấy hóa đơn | Tin nhắc 20:00 & 09:00 (BL 5.9); app khách; quầy (L4); VietQR; HĐĐT MISA | Bình thường → Lo (phí phát sinh bất ngờ) | Phụ thu trả muộn chưa có ân hạn rõ (BL 8.2 #4); minibar tính tranh cãi; khách OTA ở thêm bị giá khác (BL 8.2 #13); phải chờ lễ tân kiểm minibar (Cao – sai tiền) | Khách tự chọn ở thêm/trả muộn trong app với giá hiện rõ trước khi xác nhận; bill xem trước trên điện thoại; "trả chìa trên bàn, thanh toán QR" không cần chờ quầy (express check-out) | P5 có thể cần HĐ công ty (MST); P7 đã trả OTA → chỉ trả phát sinh |
+| 7 | **Đánh giá & quay lại** | Nhận lời mời đánh giá; viết đánh giá; nhận mã OTTIMO-BACK5 | Tin nhắn sau 1 ngày; OTA; Google Maps; CRM | Tốt (nếu ở vui) | Mời đánh giá thủ công, quên; khách OTA không biết đặt trực tiếp lần sau rẻ hơn (TB) | Tự động hóa 4 bước xin đánh giá (BL 5.18); lọc khách chưa hài lòng (ngày 2) trước khi mời; CRM nhận diện khách quay lại | P7: mời đánh giá đúng kênh (Booking/Agoda); P5: Google Maps + Zalo OA |
+
+**Khoảnh khắc quyết định (moments of truth):** (a) bước 3 – "tiền đã đến chưa"; (b) bước 4 – đứng trước cửa có vào được ngay không; (c) bước 6 – bill có đúng và không bất ngờ không.
+
+---
+
+## J2. Khách dài hạn (P6 – Alexei, thuê 3–6 tháng)
+
+| # | Giai đoạn | Hành động | Điểm chạm | Cảm xúc | Điểm đau (mức) | Cơ hội |
+|---|---|---|---|---|---|---|
+| 1 | **Tìm & hỏi giá** | Thấy bài đăng nhóm Telegram/Facebook expat hoặc qua CTV; hỏi giá tháng, dọn phòng, điện nước | CTV (P4), chat, ảnh | Lo (giá có minh bạch không, phí ẩn) | Báo giá tiếng Việt hoặc dịch máy; điện nước "theo thực tế" khó hình dung (TB) | Báo giá dài hạn EN/RU dạng link/ảnh: thuê, phí dịch vụ, điện nước **ước tính**, phí phạt (thuốc lá 500k, thẻ phòng 200k – brief 5) ngay từ đầu (L5) |
+| 2 | **Xem phòng & giữ chỗ** | Xem trực tiếp hoặc video call; yêu cầu giữ căn | CTV/lễ tân; Desk (giữ chỗ 12/24/48h) | Lo (sợ mất căn) | Giữ chỗ không có đếm giờ, không tự mở lại (BL 8.2 #19) (TB) | Bộ đếm giữ chỗ hiển thị cho cả khách và sale; nhắc trước khi hết hạn |
+| 3 | **Ký hợp đồng & ký quỹ** | Đọc hợp đồng, chuyển ký quỹ + kỳ thu đầu | Hợp đồng (PDF), chuyển khoản/tiền mặt | **Lo** (hợp đồng tiếng Việt; ký quỹ lớn ~2 tháng thuê với khách NN – BL 5.2) | Không đọc được hợp đồng; khó thanh toán quốc tế (H-12); không có biên nhận ký quỹ (Cao) | Hợp đồng song ngữ VI/EN (RU tóm tắt) xuất PDF; biên nhận ký quỹ trong app; nhiều phương thức thanh toán |
+| 4 | **Nhận phòng** | Gửi hộ chiếu, visa, dấu nhập cảnh; nhận chìa/mã; biên bản tình trạng phòng | Quầy (L3), app khách | Bình thường | Khai báo tạm trú phải đủ ảnh trang hộ chiếu, dấu nhập cảnh, visa (brief 5); ngày đi dự kiến không vượt hạn tạm trú (Cao – pháp lý) | Checklist giấy tờ người nước ngoài; cảnh báo visa hết trước ngày kết thúc hợp đồng (BL 5.12, mẫu Emma); **biên bản nhận phòng có ảnh** (làm căn cứ khấu trừ ký quỹ sau này) |
+| 5 | **Sống hằng tháng** | Làm việc tại phòng; đặt dọn 100k/lần khi cần; nhận hóa đơn điện nước; trả tiền kỳ | App khách (hóa đơn, lịch dọn, yêu cầu); chat | Tốt nếu Wi-Fi + nước nóng ổn | Không biết tiền điện tính sao; muốn thấy chỉ số công tơ; dọn phòng phải nhắn hẹn; nhắc kỳ thu bằng tin chat lẫn lộn (TB) | Hóa đơn tháng có ảnh công tơ, đơn giá (BL 5.10); đặt/hủy dọn trong app (H-13); nhắc thu trước 7 ngày (BL 5.20); trạng thái yêu cầu báo hỏng |
+| 6 | **Sự cố** | Báo mất nước nóng / Wi-Fi chậm | App khách → Bảo trì (P3) | **Bực** (ảnh hưởng công việc) | Không biết ai xử lý, bao giờ xong (Cao với người làm việc từ xa) | Phiếu sửa có ảnh, có ETA cho khách; ưu tiên cao cho sự cố Wi-Fi/nước nóng ở căn dài hạn |
+| 7 | **Gia hạn visa / hợp đồng** | Gia hạn visa; quyết định ở tiếp | Lễ tân; app khách | Lo | Không ai nhắc visa; chào gia hạn hợp đồng trễ (BL 5.20: trước ~1 tháng) (TB) | Nhắc visa 30 ngày trước; chào gia hạn hợp đồng trong app kèm giá; cập nhật khai báo tạm trú khi gia hạn |
+| 8 | **Trả phòng & hoàn ký quỹ** | Kiểm phòng, chốt điện nước kỳ cuối, trả thẻ (2 thẻ), nhận lại ký quỹ | Quầy (L4 biến thể dài hạn); app | **Lo** (sợ bị trừ cọc) | Prototype không có khấu trừ/hoàn ký quỹ (BL 8.2 #6); phí làm lại thẻ 200k nếu thiếu thẻ (Cao – tiền) | Biên bản trả phòng so với ảnh lúc nhận; bảng khấu trừ minh bạch; cam kết thời hạn hoàn ký quỹ (chính sách – chờ ESC của PO/DOM) |
+| 9 | **Sau khi đi** | Đánh giá; giới thiệu bạn bè | Nhóm expat, Google | Tốt/Bực tùy bước 8 | – | Mã giới thiệu cho khách dài hạn (ý tưởng – Suggestion cho PO) |
+
+**Khoảnh khắc quyết định:** bước 3 (hiểu hợp đồng + ký quỹ), bước 6 (sự cố được xử lý trong ngày), bước 8 (nhận lại ký quỹ đúng như cam kết).
+
+---
+
+## J3. Một ca lễ tân (P2 – Chị Thảo, ca ngày 07:00–15:00 → bàn giao ca chiều)
+
+Mốc giờ dựa trên quy tắc BL: nhận phòng 14:00, trả phòng 12:00, nhắc 09:00/11:00/12:00 (BL 5.9), hạn khai báo 23:00 (BL 5.12). Ngày minh họa: Thứ Năm 15/10/2026 (ngày demo của prototype). Số ca/giờ ca là **giả định** (H-02, H-20).
+
+| Giờ | Việc | Màn hình / công cụ (prototype → đề xuất) | Cảm xúc | Điểm đau (mức) | Cơ hội |
+|---|---|---|---|---|---|
+| 07:00 | Nhận ca: đọc ghi chú ca đêm, kiểm tiền mặt, xem khách đến/đi hôm nay | Prototype: Tổng quan (KPI tài chính đứng đầu) | Bình thường | Không có bàn giao ca; KPI tài chính (ADR, RevPAR) không phải thứ lễ tân cần đầu ca (TB) | Dashboard **theo vai**: lễ tân thấy "Việc hôm nay theo giờ" trước; ghi chú bàn giao ca (H-20) |
+| 07:30 | Kiểm tra khai báo lưu trú còn sót của khách đến hôm qua | Giấy tờ & khai báo | Lo | Prototype hiển thị "Đã quá hạn" nhưng không có hướng xử lý (TB – pháp lý) | Danh sách "quá hạn" ở đầu dashboard + hướng dẫn xử lý |
+| 08:00–09:00 | Trả lời tin nhắn đêm qua (Zalo/WhatsApp/OTA), soạn tin tiếng Anh/Nga | Ngoài app (điện thoại cá nhân) | **Bực** | Chuyển qua lại điện thoại – laptop; dịch tiếng Nga; không lưu vào hồ sơ khách (Cao – thời gian) | Mẫu tin nhắn VI/EN/RU có biến, sao chép 1 chạm; ghi chú tin nhắn quan trọng vào hồ sơ khách (H-03) |
+| 09:00 | Hệ thống nhắc lần 2 cho khách trả phòng hôm nay | Thẻ "Khách trả phòng hôm nay chưa trả" (BL 3.3b) | Bình thường | – (điểm mạnh prototype) | Giữ; thêm khách trả lời tự cập nhật |
+| 09:00–11:00 | Phối hợp buồng phòng: phòng nào dọn trước cho khách đến sớm; nhận yêu cầu từ khách | Buồng phòng; App khách (phần nhân viên) | Lo | Phải gọi điện hỏi buồng phòng tiến độ; yêu cầu app khách nằm ở màn khác (TB) | Bảng trạng thái buồng cập nhật thời gian thực từ điện thoại buồng phòng; ưu tiên dọn tự động theo giờ khách đến |
+| 10:30 | Khách xin nhận sớm | Modal Nhận phòng | Lo | Mặc định tự tính phụ thu 30% (BL 8.2 #2); FOC tự chọn người duyệt (8.2 #24) (Cao – tiền) | Giờ mặc định = giờ thực, hiển thị phí và cho gửi yêu cầu duyệt FOC tới P1 |
+| 11:00 | Khách chưa trả lời giờ trả → gọi điện | Thẻ trả phòng (trạng thái "Chưa trả lời · lễ tân gọi") | Bình thường | Số điện thoại phải gõ sang máy khác (Thấp) | Nút gọi/nhắn trực tiếp (tel:, WhatsApp) |
+| 11:30–12:30 | **Cao điểm trả phòng**: kiểm minibar → phụ phí → bill → thu tiền → HĐĐT | Trả phòng 3 bước (L4) | Lo → Tốt khi xong | Minibar nhập số vào ô nhỏ; lỡ bấm nền/Esc là mất hết (HR-05); phải chờ buồng phòng báo minibar (TB) | Buồng phòng nhập minibar trước khi khách xuống; bill xem trước; lưu nháp tự động |
+| 12:00 | Quá giờ trả phòng – cảnh báo đỏ | Thẻ trả phòng | Lo | Toast 2,8 giây dễ bỏ lỡ (HR-09) (Thấp) | Cảnh báo bền vững trên dashboard đến khi xử lý |
+| 12:30–13:30 | Nhận đặt phòng mới qua Zalo; báo giá dài hạn cho khách hỏi | Đặt phòng mới (L2), Báo giá (L5) | Bình thường | Đặt phòng mới không chọn được giá theo kênh, tối đa 60 đêm (BL 8.2 #26) (TB) | Đặt phòng từ ô trống trên rack (bấm vào ngày/căn) – điền sẵn |
+| 14:00–15:00 | Nhận phòng khách đến: giấy tờ → đối chiếu → khai báo → giao mã cửa | Nhận phòng (L3) + Giấy tờ & khai báo | Lo (khách chờ) | Khai báo: sao chép – mở cổng BCA – dán mã (BL 3.11), dễ quên làm sau; hạn hộ chiếu luôn "Khớp" (BL 8.2 #3) (Cao – pháp lý) | Gộp nhận phòng + khai báo thành một luồng; nếu chưa khai báo thì nhắc lại theo giờ (18:00, 21:00, 22:30) |
+| 15:00 | Bàn giao ca chiều: tiền thu trong ca, khách chưa đến, khai báo còn thiếu | Không có | Lo | Không có (TB) | Màn "Kết ca" tóm tắt tự động (H-20) |
+
+Tổng hợp ca: **6–8 lần chuyển giữa ứng dụng** (Desk, Zalo, cổng BCA, app ngân hàng, extranet OTA) là nguồn đau lớn nhất (mô phỏng – cần quan sát 1 ca thật để đếm).
+
+---
+
+## J4. Một ngày buồng phòng / bảo trì (P3 – Chú Bảy, 08:00–17:00)
+
+Ngày minh họa: 3 phòng trả (dọn trả phòng), 2 phòng khách đang ở (1 dài hạn có gói dọn), 1 phòng khóa (OOO), 1 yêu cầu từ app khách, cuối tháng có chốt điện nước. **Giả định** – H-05, H-06, H-07.
+
+| Giờ | Việc | Công cụ (prototype → đề xuất) | Cảm xúc | Điểm đau (mức) | Cơ hội |
+|---|---|---|---|---|---|
+| 08:00 | Xem việc hôm nay, phòng nào ưu tiên | Prototype: màn Buồng phòng desktop thu nhỏ; tab dưới 9–11 mục (BL 8.3) | Lo | Danh sách việc không xếp theo giờ khách đến; mã VC/OD (H-06) (Cao) | Màn "Việc của tôi" sắp theo ưu tiên: khách đến sớm nhất trước; nhãn câu thường |
+| 08:30–09:00 | Dọn phòng dài hạn theo lịch (gói 1–3 lần/tuần) | Thẻ buồng | Bình thường | Không biết khách có ở trong phòng không / có muốn dọn hôm nay (TB) | Khách xác nhận/hoãn lịch dọn trong app; buồng phòng thấy trạng thái "khách đồng ý dọn 9–11h" |
+| 09:00–12:30 | Chờ khách trả phòng; dọn phòng trống cần chuẩn bị | Thẻ buồng; checklist 12 điểm (văn bản tĩnh) | Bực (chờ đợi) | Không biết khách đã trả chưa → phải hỏi lễ tân (TB) | Thông báo đẩy "Phòng 201 đã trả phòng – có thể dọn"; checklist tick được |
+| 10:15 | Nhận yêu cầu "thêm khăn" từ app khách | Việc hôm nay (chip "App khách") | Bình thường | Phải tự mở app để thấy; không có thông báo (TB) | Thông báo đẩy + rung; bấm "Đã giao" → khách thấy trạng thái |
+| 12:30–14:00 | Dọn trả phòng: kiểm minibar, checklist, báo xong | Modal minibar (ô nhập 64–96px); nút Bắt đầu dọn/Dọn xong (btn.sm) | Bực (tay ướt, nút nhỏ) | Vùng chạm nhỏ; nhập số bằng bàn phím; mạng yếu trong phòng (H-07) (Cao) | Nút +/− lớn cho minibar; "Dọn xong" 1 chạm, hoạt động offline; chụp ảnh phòng sau kiểm (checklist mục 12) |
+| 14:00 | Lễ tân giục phòng cho khách đến | Điện thoại gọi | Bực | Thông tin thời gian thực không có (TB) | Trạng thái tự đồng bộ; lễ tân thấy "đang dọn, còn ~15 phút" |
+| 14:30 | Báo hỏng: vòi sen phòng 402 rò nước | Bảo trì → phiếu mới (desktop form) | Bình thường | Không chụp ảnh; tick "khóa phòng" không chặn bán (BL 8.2 #5) (Cao – bán nhầm phòng hỏng) | Phiếu sửa từ điện thoại: chọn phòng (tự gợi ý phòng đang đứng), chụp ảnh, nói giọng nói; khóa phòng thật sự chặn bán |
+| 15:00–16:00 | Sửa nước nóng phòng dài hạn (yêu cầu từ khách) | Phiếu sửa – đổi trạng thái dropdown | Bình thường | Không báo được cho khách "đang sửa, xong lúc…" (TB) | Cập nhật trạng thái phiếu → tự báo khách (EN/RU) |
+| 16:00 | Bổ sung minibar, lấy hàng từ kho | Việc "Bổ sung minibar" | Bình thường | – (prototype đã tự trừ kho khi tick – điểm mạnh) | Giữ |
+| Cuối tháng | Chốt số điện nước các căn dài hạn | Bảo trì → bảng chỉ số (desktop) | Lo (sợ ghi sai) | Chỉ số mới < cũ bị ép về 0 (BL 8.2 #21); không chụp ảnh công tơ (Cao – tiền, tranh chấp với khách P6) | Nhập từ điện thoại tại công tơ + chụp ảnh; kiểm tra bất thường (âm, tăng đột biến) |
+| 17:00 | Kết thúc ngày | – | – | Không biết hôm nay đã làm đủ chưa | Tóm tắt "Đã xong 8/9 việc"; việc dở chuyển sang hôm sau |
+
+---
+
+## 5. Tổng hợp cơ hội theo mức ưu tiên (đề xuất cho PO – không phải quyết định phạm vi)
+
+| # | Cơ hội | Hành trình / giai đoạn | Persona | Lý do ưu tiên | Liên kết BL / luồng UXD |
+|---|---|---|---|---|---|
+| O-01 | Nhận phòng + giấy tờ + khai báo lưu trú thành **một luồng**, nhắc hạn 23:00 theo mốc | J1-4, J2-4, J3 14:00 | P2, P5, P6, P7 | Pháp lý + thời gian quầy | BL 3.6, 3.11, 5.12; L3 |
+| O-02 | **App khách đa ngôn ngữ (VI/EN, RU)**: xác nhận đơn, check-in online, yêu cầu có trạng thái, hóa đơn | J1-2..6, J2-5..6 | P5, P6, P7 | Khách NN là nhóm lớn; app prototype chỉ tiếng Việt | BL 3.21; L7; decision-log P4 |
+| O-03 | **Giao diện điện thoại cho buồng phòng/bảo trì**: một tay, nút lớn, offline, ảnh | J4 toàn bộ | P3 | Nếu P3 không dùng được, trạng thái buồng sai → bán sai phòng | BL 3.12, 3.14, 8.3; L6 |
+| O-04 | Đối soát thanh toán/cọc tự động + tin "đã nhận tiền" | J1-3, J2-3 | P2, P5, P6 | Khoảnh khắc lo lắng nhất của khách | BL 5.5, 5.20; L4, L5 |
+| O-05 | Mẫu tin nhắn VI/EN/RU có biến, gửi/sao chép 1 chạm | J3 08:00, J2 toàn bộ | P2, P4 | Brief mục 5 nêu trực tiếp | Brief 5 |
+| O-06 | Trả phòng dài hạn: biên bản + khấu trừ/hoàn ký quỹ minh bạch | J2-8 | P6, P2 | Tranh chấp tiền | BL 8.2 #6; L4 biến thể |
+| O-07 | Dashboard theo vai (lễ tân: việc theo giờ; chủ đầu tư: rủi ro tiền/pháp lý) | J3 07:00 | P1, P2 | Mỗi vai cần khác nhau | BL 3.2; L1, L8 |
+| O-08 | Không mất dữ liệu khi bị ngắt quãng (nháp tự lưu, xác nhận trước khi đóng) | J3 11:30 | P2 | Lễ tân bị gián đoạn liên tục | HR-05 |
+| O-09 | Chốt điện nước từ điện thoại có ảnh công tơ, hiện trong app khách | J4 cuối tháng, J2-5 | P3, P6 | Minh bạch tiền cho khách dài hạn | BL 3.14, 5.10, 8.2 #21 |
+| O-10 | Express check-out (khách tự trả phòng, thanh toán QR) | J1-6 | P5, P7 | Giảm tải quầy giờ cao điểm | BL 3.21 (Huy) |
+| O-11 | Bàn giao ca | J3 07:00, 15:00 | P2 | Chưa rõ nhu cầu (H-20) | BL câu 13 |
+| O-12 | Duyệt FOC trên điện thoại | J3 10:30 | P1, P2 | Kiểm soát thất thoát | BL 5.7, 8.2 #24 |
+
+---
+
+## 6. Lịch sử thay đổi
+| Phiên bản | Ngày | Người | Nội dung |
+|---|---|---|---|
+| 0.1 | 15/10/2026 | UXR | Bản đầu: 4 hành trình (J1–J4) + 12 cơ hội |
