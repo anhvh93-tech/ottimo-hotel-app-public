@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+build/
+dist/
+.dart_tool/
+*.keystore
+*.jks
+.DS_Store

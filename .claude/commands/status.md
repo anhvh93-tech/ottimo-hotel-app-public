@@ -1,0 +1,1 @@
+Báo cáo nhanh cho chủ đầu tư (tối đa 15 dòng): round hiện tại và bước đang ở, quyết định QC gần nhất, lỗi còn mở theo P0–P3, các ESC đang chờ chủ đầu tư (kèm đề xuất của đội), việc tiếp theo. Đọc từ `rounds/`, `02-escalations/escalations-index.md`, `03-backlog/backlog.md`.
