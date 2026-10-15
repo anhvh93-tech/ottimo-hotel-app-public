@@ -1,6 +1,6 @@
 # Đánh giá rủi ro dữ liệu cá nhân – OTTIMO (Phần 1)
 
-- Người lập: SEC | Round 1 – Bước 2 Sản xuất – Đợt 1 | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review ARC bắt buộc, OPS khuyến nghị)
+- Người lập: SEC | Round 1 – Bước 2 Sản xuất – Đợt 1 | Ngày: 15/10/2026 | Phiên bản: 0.2 (Bước 4 – sửa câu chữ xóa bằng hủy khóa, mã sinh nhật, câu hỏi luật sư Q11)
 - Đầu vào: `00-brief/investor-brief.md` (mục 3, 5, 7), `01-decisions/decision-log.md`, `rounds/round-01/plan.md` (mục 3.1), `product/docs/round-0-baseline.md` (gọi tắt **BL**: mục 2, 3.11, 3.16–3.17, 3.21, 4.2–4.4, 4.12, 5.12, 5.13, 5.16, 5.20, 7, 8.2 #3, #16, #24, #27).
 - Phạm vi Phần 1: kiểm kê và phân loại dữ liệu cá nhân, cơ sở pháp lý, đồng ý – thông báo – hồ sơ đánh giá tác động, thời hạn lưu/xóa đề xuất, yêu cầu với khai báo lưu trú, ghi chú PCI DSS.
 - **Ngoài phạm vi Phần 1** (làm ở Đợt 4, sau ARC Pha B): threat model STRIDE (`threat-model.md`), yêu cầu kỹ thuật chi tiết về xác thực, phân quyền, mã hóa, nhật ký (`security-requirements.md`).
@@ -164,7 +164,7 @@ Một văn bản "Thông báo xử lý dữ liệu cá nhân" của OTTIMO, nộ
 | T17 | CTV (D26) | Trong thời gian hợp tác; chứng từ chi hoa hồng theo T08; số tài khoản/CCCD xóa 12 tháng sau kết thúc hợp tác | Xóa | – |
 | T18 | Bản sao lưu (backup) | Dữ liệu đã xóa sẽ biến mất khỏi backup sau tối đa **35 ngày** (chu kỳ xoay vòng backup) | Hết hạn backup | OPS thiết kế vòng đời backup khớp bảng này |
 
-**Yêu cầu kỹ thuật kèm theo (giao ARC/BE, chi tiết ở Phần 2):** job xóa tự động chạy hằng ngày, có báo cáo "đã xóa gì" (không chứa dữ liệu đã xóa); "xóa" ảnh = xóa tệp + hủy khóa mã hóa riêng của tệp (crypto-shredding) để không còn khôi phục từ backup; khóa xóa (legal hold) cho trường hợp cơ quan chức năng yêu cầu giữ lại.
+**Yêu cầu kỹ thuật kèm theo (giao ARC/BE, chi tiết ở Phần 2):** job xóa tự động chạy hằng ngày, có báo cáo "đã xóa gì" (không chứa dữ liệu đã xóa); "xóa" ảnh = xóa tệp + hủy khóa mã hóa riêng của tệp (crypto-shredding): dữ liệu **không đọc được trong hệ thống đang chạy ngay lập tức**, nhưng bản sao lưu cũ vẫn chứa khóa đã bọc nên dữ liệu **chỉ hết hẳn khi bản sao lưu đó hết hạn (≤ 35 ngày, T18)**; sau khi khôi phục từ backup phải áp lại nhật ký xóa `purge_journal` (chi tiết `security-requirements.md` SR-RET-03, SR-BAK-03, SR-BAK-06); khóa xóa (legal hold) cho trường hợp cơ quan chức năng yêu cầu giữ lại.
 
 ---
 
@@ -214,7 +214,7 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 | F02 | Đồng ý lưu giấy tờ là điều kiện bắt buộc để chuyển sang khai báo → ép đồng ý (đồng ý không tự nguyện) và lẫn nghĩa vụ luật với việc cần đồng ý | BL 3.11, 5.12 | High (pháp lý) | R-REG-05, P02/P02b, T01/T02 | DOM, BA, UXD |
 | F03 | Số giấy tờ là khóa định danh số 1 của CRM và dùng để gộp đơn OTA → dùng dữ liệu khai báo cho mục đích CRM (vượt mục đích) | BL 5.16, 5.21 | Medium | Khóa CRM dùng SĐT/email/mã OTA; nếu cần nhận diện khách quen bằng giấy tờ thì chỉ dùng giá trị băm có khóa bí mật (không đảo ngược) và chỉ khi khách đồng ý P05; hiển thị tối đa 4 số cuối | ARC, BA |
 | F04 | Ghi chú tự do, sở thích, tag có thể chứa dữ liệu sức khỏe/tôn giáo (dị ứng, ăn kiêng tôn giáo) – dữ liệu nhạy cảm theo luật | BL 3.16, 4.2 | Medium | Danh mục "lưu ý phục vụ" chọn sẵn; cảnh báo không ghi sức khỏe vào ghi chú; nếu cần ghi dị ứng thì có đồng ý riêng và xóa theo T05 | UXD, BA |
-| F05 | **Mã cửa đặt theo ngày sinh nhật khách** → đoán được (ngày sinh có trên giấy tờ, mạng xã hội, OTA), lặp lại giữa các lần lưu trú, lộ dữ liệu cá nhân qua mã | Brief 7 #3, decision-log | High (an toàn thân thể) | Mã ngẫu nhiên 6 số, hiệu lực từ giờ nhận đến giờ trả phòng; nếu INV vẫn muốn mã "sinh nhật" làm trải nghiệm thì chỉ khi khách tự chọn và vẫn có hạn hiệu lực. Đề nghị PO/INT gom vào ESC về khóa cửa | INT, PO (ESC) |
+| F05 | **Mã cửa đặt theo ngày sinh nhật khách** → đoán được (ngày sinh có trên giấy tờ, mạng xã hội, OTA), lặp lại giữa các lần lưu trú, lộ dữ liệu cá nhân qua mã | Brief 7 #3, decision-log | High (an toàn thân thể) | Mã ngẫu nhiên 6 số, hiệu lực từ giờ nhận đến giờ trả phòng; nếu INV vẫn muốn mã "sinh nhật" làm trải nghiệm thì chỉ khi khách tự chọn, dạng **`ddmm` + ≥ 3 số ngẫu nhiên** (decision-log 15/10, SR-LOCK-02) và vẫn có hạn hiệu lực. Đề nghị PO/INT gom vào ESC về khóa cửa | INT, PO (ESC) |
 | F06 | Khóa hỗ trợ **vân tay** – dữ liệu sinh trắc học (nhạy cảm) | Brief 7 #3 | High (pháp lý) | Không đăng ký vân tay cho khách; nếu dùng cho nhân viên thì mẫu vân tay chỉ nằm trên khóa, không đồng bộ về OTTIMO/cloud; tiêu chí chọn hãng khóa phải gồm điều này | INT |
 | F07 | Thực tế vận hành: giao tiếp qua **nhóm chat**; khai báo NN cần ảnh hộ chiếu/visa/dấu nhập cảnh → ảnh giấy tờ đang (hoặc sẽ) đi qua Zalo/nhóm chat, nằm vĩnh viễn trên điện thoại cá nhân | Brief 5 | High | Kênh upload trong app (R-REG-08); quy định nội bộ: không nhận/gửi giấy tờ qua chat, xóa ảnh cũ đã có trong nhóm chat; mẫu tin nhắn hướng khách dùng link upload | PO, UXD, INV (quy định nội bộ) |
 | F08 | Hạn khai báo khách NN có thể là 12 giờ, BL chỉ có mốc 23:00 | BL 5.12 | Medium (pháp lý) | R-REG-01 | DOM |
@@ -256,6 +256,7 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 | Q8 | Văn bản thông báo xử lý dữ liệu, mẫu đồng ý, điều khoản đặt phòng, hợp đồng xử lý dữ liệu với nhà cung cấp – luật sư soạn/duyệt | 6.1, 6.2, P11 |
 | Q9 | Có cần chỉ định bộ phận/nhân sự bảo vệ dữ liệu cá nhân không | Luật 91 |
 | Q10 | Quy định nội bộ về nhóm chat, điện thoại cá nhân của nhân viên chứa ảnh giấy tờ (F07) | INV ban hành |
+| Q11 | **Lưu ý sức khỏe của khách** (dị ứng, bệnh cần lưu ý khi phục vụ, ăn kiêng vì lý do sức khỏe/tôn giáo) trong D12 – ghi chú/tag/"lưu ý phục vụ" (decision-log DOM/BA D12): (a) có phải dữ liệu cá nhân nhạy cảm theo Luật 91/2025 không; (b) cần **đồng ý riêng, rõ ràng** dạng nào (bằng văn bản/tích chọn trong app, tại quầy có được không); (c) thời hạn lưu (đề xuất theo T05/T06, xóa khi rút đồng ý); (d) nhân viên buồng phòng/F&B được thấy tới mức nào. **PO gom vào ESC-001.** Trong lúc chờ: chỉ cho chọn từ danh mục "lưu ý phục vụ" không nêu bệnh (ví dụ "không dùng đậu phộng"), cảnh báo không ghi bệnh vào ghi chú tự do (F04, SR-INP-05) | D12, F04, P05 |
 
 ---
 
@@ -265,7 +266,7 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 |---|---|
 | Thang phân loại C0–C3 ở mục 3 là chuẩn chung cho RBAC, ERD, log | Một ngôn ngữ chung cho BA, ARC, QA |
 | OTTIMO không lưu/nhận/truyền dữ liệu thẻ; chỉ trang thanh toán của cổng; không kéo VCC từ channel manager (R-PAY-01, 02, 06) | Giữ phạm vi PCI tối thiểu; vi phạm = Critical, SEC chặn phát hành |
-| Dữ liệu C3 lưu tách, mã hóa mức trường/tệp, mỗi lần xem ghi nhật ký; ảnh giấy tờ xóa bằng hủy khóa riêng | BL 5.13 + yêu cầu tối thiểu |
+| Dữ liệu C3 lưu tách, mã hóa mức trường/tệp, mỗi lần xem ghi nhật ký; ảnh giấy tờ xóa bằng xóa tệp + hủy khóa riêng (hết đọc được ngay trong hệ thống; hết khỏi bản sao lưu sau ≤ 35 ngày – T18) | BL 5.13 + yêu cầu tối thiểu |
 | Đồng ý lưu ảnh không là điều kiện để khai báo (R-REG-05) | Tách nghĩa vụ luật với việc cần đồng ý |
 | Không đăng ký vân tay khách; mẫu vân tay nhân viên không rời thiết bị khóa (F06) | Dữ liệu sinh trắc |
 | Link app khách gắn với đơn, hết hạn khi trả phòng (F09) | Chống lộ dữ liệu khách trước |
@@ -278,3 +279,12 @@ Mức rủi ro: Critical / High / Medium / Low (đánh giá khi sản phẩm v�
 - `product/docs/security/security-requirements.md`: xác thực (nhân viên, khách qua link/OTP, CTV), phân quyền theo vai + cơ sở + trường, mã hóa và quản lý khóa, nhật ký truy cập ảnh giấy tờ, rate limit, callback thanh toán, lưu trữ trên thiết bị (app nhân viên), quản lý bí mật.
 - Review bắt buộc ARC, INT, OPS ở bước 3; soát OpenAPI/ERD ở bước 5.
 - Bản nháp hồ sơ đánh giá tác động: Round 3.
+
+---
+
+## 15. Lịch sử thay đổi
+
+| Ngày | Round | Thay đổi | Người |
+|---|---|---|---|
+| 15/10/2026 | 1 – Bước 4 | Sửa câu chữ "xóa bằng hủy khóa" (mục 7, mục 13): hết đọc được trong hệ thống ngay, hết khỏi backup sau ≤ 35 ngày; F05 mã sinh nhật `ddmm` + ≥ 3 số; thêm Q11 (lưu ý sức khỏe D12) cho ESC-001 | SEC |
+| 15/10/2026 | 1 – Đợt 1 | Bản đầu (Phần 1) | SEC |

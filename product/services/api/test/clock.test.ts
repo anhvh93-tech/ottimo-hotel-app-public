@@ -15,7 +15,7 @@ describe('clockFromEnv', () => {
   it('uses CLOCK_OVERRIDE outside production', () => {
     const clock = clockFromEnv({
       CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00',
-      NODE_ENV: 'development',
+      APP_ENV: 'staging',
     });
     expect(clock).toBeInstanceOf(FixedClock);
     expect(clock.now().toISOString()).toBe('2026-10-15T02:00:00.000Z');
@@ -24,7 +24,15 @@ describe('clockFromEnv', () => {
   it('ignores CLOCK_OVERRIDE in production', () => {
     const clock = clockFromEnv({
       CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00',
-      NODE_ENV: 'production',
+      APP_ENV: 'production',
+    });
+    expect(clock).not.toBeInstanceOf(FixedClock);
+  });
+
+  it('ignores CLOCK_OVERRIDE when APP_ENV is missing, even if NODE_ENV is development', () => {
+    const clock = clockFromEnv({
+      CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00',
+      NODE_ENV: 'development',
     });
     expect(clock).not.toBeInstanceOf(FixedClock);
   });

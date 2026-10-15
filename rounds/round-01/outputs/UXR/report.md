@@ -37,3 +37,39 @@ Ghi chú: skill đặt đường dẫn product/docs/ux/…; round này theo plan
 - Chưa có ảnh chụp màn hình cho heuristic review; UXD/QA xác nhận thị giác khi review.
 - real-user-test-guide.md để Round 2 (bản rút gọn 1 trang nếu INV chọn phương án A).
 - Bước 3: review UXD (bắt buộc), PO; chờ PO, UXD, DOM review sản phẩm UXR.
+
+---
+
+## Bước 4 – Phản hồi & sửa (15/10/2026)
+
+### Đã làm gì
+1. Trả lời đủ **27 thẻ** (UXD 14, PO 6, DOM 7) trong `rounds/round-01/responses/UXR-responses.md`: **25 Done, 2 Deferred** (UXD-10 đánh giá chế độ tối/trạng thái/luồng check-in online → `usability-report-r2.md`; UXD-13 thêm J5, J6 → test kịch bản R2), 0 Rejected, 0 Escalated. **8/8 thẻ Major đã Done; Blocker/Major còn Open: 0.**
+2. `personas.md` v0.2: hạn khai báo theo BR-602 (VN 23:00) / BR-603 (NN giờ đến + 12 giờ); bỏ USDT + ghi chú pháp lý; thước đo P7 theo PRD S5; nhắc thị thực theo BR-605; thêm ánh xạ persona ↔ U1–U5 ↔ RBAC ↔ BL và bảng bề mặt → persona chính; biến thể Quản lý, tách vai buồng phòng/kỹ thuật, nhân viên trẻ; viết lại mục 9 (cột luật quyết định, cột đường kiểm chứng, H-20 nâng Cao, H-03 hạ TB, H-06 đóng, thêm H-21…H-24).
+3. `journeys.md` v0.2: J3 10:30 sửa theo BR-414/HR-04 (giờ mặc định = giờ chuẩn, phụ thu 0); nhắc khai báo theo thời gian còn lại; J4 dọn theo yêu cầu 100k/lần (bỏ "gói dọn"); express check-out có bước trả 2 thẻ (BR-511, BR-427); kẹt ngoài cửa, khách đến 04–06h; giao lại căn sau sửa; mục 4b Ngoại lệ thường gặp; mục 5 thêm cột Story/Round và ý ngoài MVP.
+4. `heuristic-review-r0.md` v0.2: HR-20 nâng **Blocker**; HR-13 tách 13a (Major)/13b (Minor); lý do HR-02 Major; HR-12 phụ thuộc H-01; tổng 26 = 5B/11M/8m/2S; ghi rõ phần chưa bao phủ dời R2.
+5. Viết lại `02-escalations/ESC-003.md`: 7 điều Cao bằng lời thường (mã trong ngoặc), câu không hỏi lại (ESC-007, ESC-010, INT), thời gian chủ động ~1–1,5 giờ + tối đa 3 ngày chờ, H-05 kiểm bằng 3 nhiệm vụ trên điện thoại nhân viên với `06-housekeeping-mobile.html` + luật quyết định, liên hệ ESC-012, nơi gửi kết quả.
+6. Tạo phiếu 1 trang `product/docs/research/real-user-check-guide.md` (câu hỏi + phiếu ghi + tin nhắn EN/RU cho khách thuê tháng).
+7. Đề xuất 4 dòng decision-log ở cuối `UXR-responses.md` (không tự sửa decision-log).
+
+### File tạo/sửa (Bước 4)
+- product/docs/research/personas.md (sửa, v0.2)
+- product/docs/research/journeys.md (sửa, v0.2)
+- product/docs/research/heuristic-review-r0.md (sửa, v0.2)
+- product/docs/research/real-user-check-guide.md (mới)
+- 02-escalations/ESC-003.md (viết lại)
+- rounds/round-01/responses/UXR-responses.md (mới)
+- rounds/round-01/outputs/UXR/report.md (thêm mục này)
+
+### Giả định
+- Hạn khai báo khách NN lấy theo nguyên tắc "giờ đến + 12 giờ" của BR-603; tài liệu UXR không tự tính lại, chỉ dẫn BR-603 và chỉ dùng ví dụ đúng với mọi cách diễn đạt (đến 08:00 → hạn 20:00), vì DOM đang sửa câu chữ BR-603 song song.
+- UXD (hoặc ORC) cung cấp link bản tĩnh `06-housekeeping-mobile.html` mở được trên điện thoại để INV dùng phiếu phần C; nếu không, INV mở trực tiếp tệp HTML.
+- Bản tin nhắn tiếng Nga trong phiếu do đội soạn, nên nhờ người nói tiếng Nga xem lại.
+- Đối chiếu story/round ở journeys mục 5 theo `backlog.md` tại 15/10/2026; PO có thể đổi song song.
+
+### Rủi ro / vướng mắc
+- Wireframe L6 là bản vẽ tĩnh: buổi thử H-05 đo "biết bấm đâu" và "đọc được trên máy mình", chưa đo thao tác thật (tay ướt, mất mạng) – sẽ đo lại trên bản PWA ở R2.
+- Thử H-05 do chủ đầu tư (người trả lương) tiến hành vẫn có thiên lệch "trả lời cho vừa lòng"; đã giảm bằng cách quan sát làm thử và câu mở đầu trung lập.
+
+### Việc chưa xong
+- FB-R1-UXD-UXR-10, -13 (Deferred sang R2).
+- Áp luật quyết định khi có kết quả ESC-003 (đầu R2).

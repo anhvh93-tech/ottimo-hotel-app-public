@@ -1,6 +1,7 @@
 # Use case chính – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 2 (Sản xuất, đợt 2) | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review DOM, ARC; PO dùng để viết AC đợt 3)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC, SEC)
+- "Hôm nay" = **ngày nghiệp vụ** (đổi lúc 06:00 giờ VN – `state-machines.md` 0.2 điểm 7).
 - Nguồn: `business-processes.md` (P01–P10), `state-machines.md` (mã chuyển B1…, K1…, SM-xx), `rbac-matrix.md` (vai, hành động A-xx), `business-rules.md` (BR-xxx – con số chỉ tham chiếu mã), `03-backlog/backlog.md` (US-xxx).
 - Mỗi use case có: tác nhân, kích hoạt, tiền điều kiện, hậu điều kiện, luồng chính, luồng thay thế/ngoại lệ (A), lỗi (X), quy tắc, story. Dữ liệu và thông báo lỗi ở mức hành vi; giao diện do UXD thiết kế.
 
@@ -36,7 +37,10 @@
 | UC-27 | Gửi và duyệt FOC / ngoại lệ | FD, FDL, MGR | P10 | US-007, US-102 |
 | UC-28 | Đăng nhập và truy cập theo vai | Mọi nhân viên | – | US-001, US-002, US-003 |
 | UC-29 | Xem ảnh giấy tờ và xóa theo hạn / theo yêu cầu | FD, MGR, SYS | P03 | US-048, US-049 |
-| UC-30 | Yêu cầu của chủ thể dữ liệu | GST, MGR | – | (đề xuất story mới – SEC R-DSR) |
+| UC-30 | Yêu cầu của chủ thể dữ liệu | GST, MGR | – | US-133, US-134 |
+| UC-31 | Đơn nhóm (đoàn nhiều căn) | FD, SAL, CTV | P01 | (đề xuất PO thêm story – FB-R1-DOM-BA-05, DOM-PO-02) |
+| UC-32 | Đóng ca và đối soát chuyển khoản | FD, FDL, MGR | P11 | US-124 (+ đề xuất story đối soát) |
+| UC-33 | Vận hành khi mất mạng/mất điện | FD, MGR | P12 | (đề xuất PO thêm story) |
 
 ---
 
@@ -69,8 +73,9 @@
 - **Tác nhân**: FD (R2 nhập tay đơn OTA); SYS (R3 channel manager). **Tiền điều kiện**: căn mở bán.
 - **Hậu điều kiện**: đơn `confirmed` (B2), giá từng đêm snapshot, khai báo `none`, đồng bộ kênh.
 - **Luồng chính**: (1) Từ rack chọn căn + ngày; (2) nhập kênh, ngày đến, số đêm (giới hạn BR-112), số khách, khách (bộ chọn), giá/đêm mặc định theo lịch giá kênh, mã OTA và kiểu thanh toán (OTA) hoặc giao dịch đã thu (trực tiếp); (3) lưu, kiểm trùng ở server.
-- **A1**: khách vãng lai đến hôm nay → thu tiền rồi tạo `confirmed`. **A2**: đơn OTA trùng do đồng bộ trễ → vẫn tạo, cờ xung đột (BR-312).
-- **X1**: trùng lịch/khối OOO → báo căn, khoảng ngày trùng. **X2**: kênh trực tiếp thiếu SĐT → chặn. **X3**: giá ngoài sàn–trần → lỗi tại ô.
+- **A1**: khách vãng lai đến hôm nay → thu tiền rồi tạo `confirmed`. **A2** (chỉ kênh thuộc nhóm OTA, `channel_group = 'ota'` – decision-log PO): căn đã chọn đã kín → server **không tự đổi căn**, trả `409` kèm danh sách căn trống (cùng nhóm trước) để FD chọn lại; **không còn căn nào** → FD xác nhận tạo đơn ở làn "Chưa gán căn" (`conflict_state = open`, B7b), cảnh báo đỏ FD + MGR, xử lý bằng UC-04b. **A3**: đơn OTA về từ channel manager (R3) trùng → tự gán căn cùng nhóm, không có → chưa gán căn (BR-312).
+- **UC-04b – Gán căn cho đơn chưa gán**: FD mở làn "Chưa gán căn" → hệ thống gợi ý căn trống theo BR-312 → FD chọn → kiểm trùng → `conflict_state = resolved`, sự cố đóng (B7a). Không còn căn → MGR dời khách ra ngoài (`resolveOverbookingExternal`). Nhận phòng bị chặn cho đến khi gán căn.
+- **X1** (kênh Trực tiếp/CTV): trùng lịch/khối OOO → chặn, báo căn, khoảng ngày trùng, gợi ý căn trống. **X2**: kênh trực tiếp thiếu SĐT → chặn. **X3**: giá ngoài sàn–trần → lỗi tại ô.
 - **Quy tắc**: BR-104, 105, 106, 112, 307, 312, 608, 901, 905, 906, 951.
 
 ## UC-05 – Hủy đơn / hủy giữ chỗ / no-show
@@ -78,7 +83,7 @@
 - **Hậu điều kiện**: `cancelled`/`no_show`; mở phòng; khai báo `void`; hoa hồng `void`; yêu cầu hoàn (nếu có) chờ duyệt.
 - **Luồng chính (hủy)**: (1) Chọn Hủy; (2) chọn lý do danh mục BR-308 (+ ghi chú khi "Khác"); (3) hệ thống hiển thị phí hủy/phần hoàn theo BR-309 (trực tiếp) hoặc nhập theo kênh (BR-310); (4) xác nhận (hộp thoại xác nhận bắt buộc – khắc phục HR-06); (5) phần hoàn → UC-27 (MGR duyệt).
 - **Luồng no-show**: sau mốc gọi BR-311 hệ thống nhắc FD gọi khách; sau mốc đánh dấu FD ghi kết quả liên lạc và bấm No-show (B11).
-- **A1**: MGR dời ngày thay vì hủy (B8). **A2**: hết hạn giữ chỗ → SYS hủy (B6), báo người tạo. **A3**: khôi phục no-show (B12, MGR+).
+- **A1**: MGR dời ngày thay vì hủy (B8). **A2**: hết hạn giữ chỗ → SYS hủy (B6), báo người tạo. **A3**: khôi phục no-show (B12) – FD/FDL tự làm khi đủ 3 điều kiện (còn ngày nghiệp vụ của đêm đến; căn còn trống, không đổi căn; không hoàn/đổi giá), lý do bắt buộc, MGR được báo; ngoài ra gửi duyệt MGR+.
 - **X1**: thiếu lý do → chặn. **X2**: đơn `in_house` → không hủy được (dùng trả sớm).
 - **Quy tắc**: BR-303, 308–311, 522.
 
@@ -113,17 +118,17 @@
 - **Tác nhân**: GST. **Kích hoạt**: link check-in gửi trước ngày đến. **Tiền điều kiện**: đơn `confirmed`; link còn hạn.
 - **Hậu điều kiện**: khai báo `pre`; giờ đến dự kiến; hồ sơ đồng ý theo mục đích.
 - **Luồng chính**: (1) Mở link (không cài app, chọn VI/EN; RU từ R3); (2) đọc thông báo xử lý dữ liệu; (3) tải giấy tờ từng người (ảnh trang thông tin, thị thực, dấu nhập cảnh với NN); (4) chọn giờ đến dự kiến; (5) chọn đồng ý lưu ảnh (không tích sẵn, tách mục đích); (6) hoàn tất → thông báo mã cửa gửi theo BR-403.
-- **A1**: khách không đồng ý lưu ảnh → vẫn hoàn tất (SEC R-REG-05). **A2**: đơn nhiều người → gửi link cho từng người đi cùng.
+- **A1**: khách không đồng ý lưu ảnh → vẫn hoàn tất (SEC R-REG-05). **A2**: đơn nhiều người → **một link cho đơn**; người đứng tên tải giấy tờ cho cả nhóm, mỗi người một mục trong cùng phiên (ADR-006, SR-GST-04). Link riêng cho từng người là ý tưởng R3 (đề xuất PO đưa backlog Could). **A3**: phiên check-in online ở mức GST1 (chỉ ghi): khách không xem lại được ảnh/số giấy tờ đã tải.
 - **X1**: tệp sai loại/quá lớn → lỗi, tải lại. **X2**: link hết hạn/không đúng đơn → trang lỗi, hướng liên hệ lễ tân.
 - **Quy tắc**: BR-403, 601, 606, 609; SEC R-CON-01, R-REG-08.
 
 ## UC-11 – Nhận phòng
-- **Tác nhân**: FD (gồm người trực đêm), FDL (ngoại lệ). **Tiền điều kiện**: đơn `confirmed`, ngày đến = hôm nay.
+- **Tác nhân**: FD (gồm người trực đêm), FDL (ngoại lệ). **Tiền điều kiện**: đơn `confirmed`, `conflict_state` khác `open`; **ngày nghiệp vụ hiện tại = ngày đến** (khách tới 00:00–05:59 của đơn ngày hôm trước vẫn hợp lệ); phiên chạy trên **thiết bị được cấp** mở admin-web (máy quầy hoặc máy tính bảng của cơ sở – phân xử ORC 15/10/2026).
 - **Hậu điều kiện**: `in_house` (B9); buồng `OC`; giờ nhận; phụ thu (nếu có); mã cửa hiệu lực.
 - **Luồng chính**: (1) Mở đơn từ "Khách đến"; (2) kiểm buồng; (3) giấy tờ người đứng tên đã có (UC-12); (4) thu phần còn lại hoặc xác nhận OTA đã trả; (5) giờ nhận mặc định giờ chuẩn; (6) bấm Nhận phòng; (7) nhập/giao mã cửa, số thẻ; gửi nội quy.
-- **A1**: buồng chưa `VI`/`VC` → FDL+ xác nhận lý do. **A2**: giờ nhận sớm → hệ thống đề xuất phụ thu theo bậc BR-411 (dài hạn BR-413); FD xác nhận; FOC → UC-27. **A3**: nhận trước mốc đêm trước → đổi ngày đến trước (BR-003).
-- **X1**: còn phải thu → chặn. **X2**: thiếu giấy tờ người đứng tên → chặn giao mã cửa.
-- **Quy tắc**: BR-003, 401, 402, 403, 411, 413, 414.
+- **A1**: buồng chưa `VI`/`VC` → FDL+ xác nhận lý do. **A2**: giờ nhận sớm → hệ thống đề xuất phụ thu theo bậc BR-411 (dài hạn BR-413); FD xác nhận; FOC → UC-27. **A3**: ngày nghiệp vụ = ngày đến − 1 (khách tới 00:00–05:59 của ngày đến) → **B9a Thêm đêm trước**: kiểm căn trống đêm trước; đơn Trực tiếp/CTV thêm 1 đêm đầu đơn; đơn OTA tạo đơn con kênh Trực tiếp đi thẳng `in_house`; giá BR-411; căn không trống → không nhận, gợi ý gửi hành lý. **A4**: người trực đêm chỉ có điện thoại cá nhân (PWA) → không nhận phòng được; đến quầy dùng thiết bị được cấp. **A5**: mất mạng → UC-33.
+- **X1**: còn phải thu → chặn. **X2**: thiếu giấy tờ người đứng tên → chặn giao mã cửa. **X3**: đơn chưa gán căn → chặn: "Đơn chưa có căn. Gán căn trước khi nhận phòng." **X4**: thiết bị chưa được cấp → chặn: "Nhận phòng chỉ làm trên máy của cơ sở đã được cấp quyền."
+- **Quy tắc**: BR-003, 401, 402, 403, 411, 413, 414, 422.
 
 ## UC-12 – Nhập giấy tờ và khai báo lưu trú
 - **Tác nhân**: FD. **Tiền điều kiện**: bản ghi khai báo của đơn tồn tại (BR-608).
@@ -132,7 +137,7 @@
 - **A1**: dữ liệu `pre` từ khách → chỉ đối chiếu. **A2**: thêm người giữa chừng / gia hạn / trả sớm / trả phòng NN → `needs_update` → cập nhật → `updated`. **A3**: cổng từ chối → `scanned`, khai lại.
 - **X1**: hạn hộ chiếu ≤ ngày trả, thị thực hết trước ngày trả → cảnh báo đỏ (không chặn nhận phòng). **X2**: sắp/quá hạn → "Cần chú ý", nhắc người trực.
 - **Quy tắc**: BR-601–612; SEC R-REG-01…12.
-- **Ghi chú mâu thuẫn**: hạn khai báo NN (BR-603) khác BL 5.12 – dùng hạn sớm hơn `[GIẢ ĐỊNH – chờ INV/luật sư]`.
+- **Hạn khai báo**: VN theo BR-602; NN = giờ nhận thực tế + số giờ BR-603, không áp mốc 23:00 (decision-log DOM 15/10/2026) `[GIẢ ĐỊNH – chờ luật sư qua ESC-001]`. Mọi bước giấy tờ chỉ trên thiết bị được cấp.
 
 ## UC-13 – Gia hạn lưu trú
 - **Tác nhân**: FD; GST yêu cầu (R3 tự phục vụ). **Tiền điều kiện**: đơn `in_house`.
@@ -212,25 +217,50 @@
 
 ## UC-27 – Gửi và duyệt FOC / ngoại lệ
 - **Tác nhân**: người gửi (FD, FDL, SAL, MT); người duyệt (FDL, MGR, OWN). **Luồng chính**: gửi yêu cầu + lý do → hệ thống chọn người duyệt theo loại và hạn mức BR-433 → người duyệt xác nhận bằng PIN của chính mình → folio dòng phát sinh + dòng FOC âm.
-- **A1**: tự áp trong hạn mức (MGR/OWN; FD với FOC minibar – chờ DOM SQ-3). **A2**: vượt hạn mức → chuyển cấp trên. **A3**: từ chối có lý do.
+- **A1**: tự áp trong hạn mức (MGR/OWN theo BR-433; FD/FDL chỉ FOC minibar trong hạn mức lần + hạn mức tháng tự áp, PIN của mình – DOM SQ-3); vượt hạn mức tháng → gửi duyệt FDL+ khác người gửi. **A2**: vượt hạn mức → chuyển cấp trên. **A3**: từ chối có lý do.
 - **X1**: người duyệt = người gửi → từ chối. **X2**: PIN sai → không duyệt.
 - **Quy tắc**: BR-431–435, 522.
 
 ## UC-28 – Đăng nhập và truy cập theo vai
-- **Tác nhân**: mọi nhân viên. **Luồng chính**: đăng nhập tài khoản riêng → màn hình mặc định theo vai (rbac mục 1) → menu, nút, trường theo ma trận.
-- **X1**: mở trực tiếp đường dẫn không được phép → từ chối + nhật ký. **X2**: phiên hết hạn → về đăng nhập.
+- **Tác nhân**: mọi nhân viên; OWN (quản trị). **Luồng chính**: (1) đăng nhập tài khoản riêng (mỗi người một tài khoản, cấm dùng chung – rbac 8.8); (2) lần đầu với mật khẩu tạm → buộc đổi mật khẩu; (3) OWN/MGR: nhập mã 2FA TOTP (bắt buộc trước dữ liệu thật – R3, SR-AUTH-06); (4) hệ thống ghi nhận thiết bị: được cấp (admin-web) hay không (PWA/thiết bị lạ) – quyết định có mở C3 không; (5) vào màn mặc định theo vai (rbac mục 1: FD/FDL = Hôm nay); menu, nút, trường theo ma trận.
+- **A1**: đổi ca trên máy quầy → "Đổi người nhanh" (A117): đăng xuất người cũ, đăng nhập người mới; ca SM-17 gắn người mới. **A2**: OWN khóa/đổi vai/đặt lại mật khẩu → mọi phiên của người đó hết hiệu lực ngay. **A3**: OWN mất mật khẩu/2FA → khôi phục bằng mã khôi phục in sẵn do INV giữ (A116, runbook OPS). **A4**: đặt/đổi PIN duyệt của mình (A112).
+- **X1**: mở trực tiếp đường dẫn không được phép → từ chối + nhật ký. **X2**: phiên hết hạn (admin-web 30 phút không hoạt động, tối đa 12 giờ; PWA 72 giờ, tối đa 30 ngày) → về đăng nhập. **X3**: sai mật khẩu quá số lần SEC quy định (SR-AUTH) → khóa tạm, báo OWN. **X4**: mở chức năng C3 từ thiết bị chưa cấp → `DEVICE_NOT_TRUSTED`, hướng dẫn dùng máy quầy.
 - **Quy tắc**: `rbac-matrix.md` mục 8.
 
 ## UC-29 – Xem ảnh giấy tờ và xóa theo hạn
-- **Tác nhân**: FD, FDL, MGR, OWN; SYS. **Luồng chính**: mở ảnh từ màn khai báo → ghi nhật ký C3 (sau khi khai báo `confirmed` phải chọn lý do) → SYS xóa ảnh khi hết hạn BR-610 hoặc ngay sau khai báo nếu khách không đồng ý (BR-609).
+- **Tác nhân**: FD, FDL, MGR, OWN; SYS. **Luồng chính**: mở ảnh từ màn khai báo (chỉ thiết bị được cấp) → ghi nhật ký C3 (lý do theo rbac ghi chú 30: không cần trong luồng đang mở của chính đơn; các lần khác chọn lý do, xác nhận lại PIN nếu > 15 phút) → SYS xóa ảnh khi hết hạn BR-610 hoặc ngay sau khai báo nếu khách không đồng ý (BR-609).
 - **A1**: khách yêu cầu xóa sớm → MGR xóa, ghi nhật ký. **X1**: vai không được phép → trường không trả về.
 - **Quy tắc**: BR-609, 610; SEC mục 7.
 
 ## UC-30 – Yêu cầu của chủ thể dữ liệu
-- **Tác nhân**: GST gửi; MGR/OWN xử lý. **Luồng chính**: khách gửi yêu cầu (xem, sửa, xóa, rút đồng ý, nhận bản sao) qua app/quầy → MGR xác minh danh tính → xử lý trong thời hạn luật (SEC R-DSR-02) → trả lời rõ phần không xóa được do luật buộc lưu.
-- **Ghi chú**: chưa có story trong backlog – đề xuất PO thêm (xem report BA).
+- **Tác nhân**: GST gửi (mức GST2); MGR/OWN xử lý. **Luồng chính**: khách gửi yêu cầu (xem, sửa, xóa, rút đồng ý, nhận bản sao) qua app/quầy → MGR xác minh danh tính → xử lý trong thời hạn luật (SEC R-DSR-02) → trả lời rõ phần không xóa được do luật buộc lưu. Bản sao dữ liệu của **một** chủ thể (A77) giao qua app khách mức 2, không đính kèm email, ghi `c3_access_log` – không vi phạm A75 (cấm xuất nhiều người).
+- **Story**: US-133, US-134.
+
+## UC-31 – Đơn nhóm (đoàn nhiều căn)
+- **Tác nhân**: FD, SAL, CTV (khách của mình). **Kích hoạt**: khách đặt ≥ 2 căn cho một đoàn/gia đình. **Tiền điều kiện**: báo giá nhiều căn `active`, hoặc các đơn đã có cùng khách đầu mối.
+- **Hậu điều kiện**: nhóm `open` (SM-16); mỗi căn một đơn SM-01 có `group_id`; cọc chung phân bổ theo căn.
+- **Luồng chính**: (1) báo giá nhiều căn; (2) "Tạo giữ chỗ cho nhóm" → mỗi căn một đơn `hold` (căn trùng báo riêng, căn khác vẫn tạo); (3) khách chuyển một khoản cọc (nội dung = mã nhóm); (4) FD/SAL ghi giao dịch nhóm, hệ thống đề xuất phân bổ theo tỷ lệ tiền phòng, FD sửa nếu cần; đơn đủ mức cọc → `confirmed`; (5) cập nhật danh sách khách từng căn trước ngày đến; (6) nhận/trả từng căn; (7) khi trả phòng chọn bill gộp hoặc bill tách.
+- **A1**: hủy một căn → phí/hoàn theo BR-309 trên phần cọc của căn đó; phần hoàn giữ làm cọc các căn còn lại nếu khách đồng ý. **A2**: một căn ở thêm → gia hạn riêng đơn đó. **A3**: đơn OTA nhiều phòng → gom nhóm theo mã OTA.
+- **X1**: tổng phân bổ ≠ số tiền giao dịch → chặn lưu. **X2**: CTV phân bổ cọc → từ chối (rbac ghi chú 36).
+- **Quy tắc**: BR-110, 302, 305, 309, 523, 906; quy tắc đoàn DOM bổ sung.
+
+## UC-32 – Đóng ca và đối soát chuyển khoản
+- **Tác nhân**: FD/FDL (chủ ca); MGR (đối soát, xem chênh lệch). **Kích hoạt**: hết ca/bàn giao; đối soát hằng ngày. **Tiền điều kiện**: ca `open` của chính người đó.
+- **Hậu điều kiện**: ca `closed`; việc tồn chuyển ca sau; chuyển khoản `reconciled`/`disputed`.
+- **Luồng chính**: (1) Đóng ca → báo cáo ca (thu theo cách thanh toán, tiền mặt phải có, chuyển khoản chờ đối soát, FOC tự áp, khôi phục no-show, nhập bù); (2) nhập tiền mặt đếm thực tế; (3) chênh lệch → lý do; (4) xem việc tồn; (5) xác nhận đóng ca. MGR: mở danh sách chuyển khoản `pending` → so sao kê → tick `reconciled` hoặc `disputed`.
+- **A1**: người trực đêm một mình → đóng ca khi bàn giao buổi sáng. **A2**: quên đóng ca → "Cần chú ý" cho MGR. **A3**: R3 bank feed tự đối soát.
+- **X1**: chưa nhập tiền mặt → chặn đóng ca. **X2**: tự đối soát giao dịch mình ghi (trừ OWN) → từ chối.
+- **Quy tắc**: BR-008, 521, 526 (DOM bổ sung). **Story**: US-124 (đề xuất PO nâng Must R3 theo DOM-PO-06, thêm story đối soát).
+
+## UC-33 – Vận hành khi mất mạng / mất điện
+- **Tác nhân**: FD, MGR. **Kích hoạt**: quầy mất mạng/mất điện. **Tiền điều kiện**: danh sách dự phòng của ngày đã sinh (06:00).
+- **Luồng chính**: (1) thử 4G của cơ sở; (2) không được → chế độ giấy: ghi sổ dự phòng (giờ thực tế, căn, khách, tiền, người làm); (3) không nhận đơn mới khi chưa xem được tồn phòng; (4) có mạng lại → nhập bù từng việc theo thứ tự thời gian với giờ thực tế + lý do "nhập bù sau mất mạng"; (5) hệ thống kiểm trùng, đối soát kênh, báo MGR.
+- **A1**: đơn OTA về trong lúc mất mạng trùng việc nhập bù → xử lý như xung đột (UC-04b).
+- **X1**: nhập bù không có lý do → chặn. **X2**: giờ thực tế quá mốc `offline_backfill_max_hours` → cần MGR+.
+- **Quy tắc**: BR-402, 414, 603, 905, 906. Phần kỹ thuật bản đọc offline: ARC/UXD.
 
 ## Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 30 use case, truy vết P/SM/BR/US | BA |
+| 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ; UC-04 A2/X1 tách theo kênh + UC-04b gán căn; UC-05 A3 khôi phục no-show theo SQ-1; UC-10 A2 một link/đơn; UC-11 thiết bị được cấp, B9a, chặn đơn chưa gán; UC-12 hạn khai báo NN; UC-27 FOC tự áp; UC-28 2FA, đổi mật khẩu lần đầu, khóa, đổi người nhanh, thu hồi phiên; UC-30 → US-133/134; thêm UC-31 đơn nhóm, UC-32 đóng ca, UC-33 mất mạng | BA |

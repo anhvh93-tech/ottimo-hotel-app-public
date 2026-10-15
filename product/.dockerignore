@@ -1,3 +1,4 @@
+# Keep in sync with the root .gitignore secret/data patterns (FB-R1-SEC-OPS-06).
 **/node_modules
 **/dist
 **/.turbo
@@ -5,7 +6,21 @@
 .env
 .env.*
 !.env.example
+# Secrets, keys, local data and dumps must never enter a build context or image layer
+**/.data
+**/*.pem
+**/*.key
+**/*.age
+**/*.p12
+**/*.pfx
+**/id_rsa*
+**/id_ed25519*
+**/*.kdbx
+**/*.dump
+**/*.sql.gz
+# Not needed to build images. docs/ stays out: R2 commits the types generated from
+# docs/api/openapi.yaml into packages/contracts/src/generated (FB-R1-ARC-OPS-06).
+# tests/ is kept in the context because tests/e2e becomes a workspace package (lockfile importer).
 docs
 design
 legacy
-tests

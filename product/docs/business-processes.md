@@ -1,6 +1,7 @@
 # Quy trình nghiệp vụ – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 2 (Sản xuất, đợt 2) | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review DOM, ARC; khuyến nghị QA)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC – xem `rounds/round-01/responses/BA-responses.md`)
+- **"Hôm nay" = ngày nghiệp vụ, đổi lúc 06:00 giờ VN** (decision-log DOM 15/10/2026; `state-machines.md` 0.2 điểm 7).
 - Nguồn: `business-rules.md` (**BR-xxx**, nguồn sự thật duy nhất cho con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `PRD.md` mục 6, `research/journeys.md`, `security/data-risk-assessment.md` (**SEC**).
 - Trạng thái và vai: theo `state-machines.md` (mã B1…, K1…) và `rbac-matrix.md` (OWN, MGR, FDL, FD, HK, MT, SAL, CTV, GST, SYS).
 - Sơ đồ swimlane vẽ bằng Mermaid `flowchart`, mỗi làn (subgraph) là một vai. Mỗi quy trình có: luồng chính, luồng ngoại lệ (E), luồng lỗi (X).
@@ -8,7 +9,7 @@
 ## 0. Danh mục quy trình
 | Mã | Quy trình | Phân hệ | Round code | Use case |
 |---|---|---|---|---|
-| P01 | Đặt phòng ngắn ngày (trực tiếp, CTV, OTA) – gồm giữ chỗ, cọc, hủy, no-show, overbooking | M2, M8, M9 | R2 | UC-01…UC-05 |
+| P01 | Đặt phòng ngắn ngày (trực tiếp, CTV, OTA) – gồm giữ chỗ, cọc, hủy, no-show, overbooking, OTA sửa đơn, đơn nhóm | M2, M8, M9 | R2 | UC-01…UC-05, UC-31 |
 | P02 | Báo giá → giữ chỗ → cọc → hợp đồng dài hạn – gồm kỳ thu, gia hạn, chấm dứt sớm | M8 | R2 (kỳ thu, gia hạn R3) | UC-06…UC-09 |
 | P03 | Nhận phòng + giấy tờ + khai báo lưu trú | M2, M3, M11 | R2 | UC-10…UC-12 |
 | P04 | Lưu trú: gia hạn, trả muộn, nhắc trả phòng, yêu cầu khách, sự cố, đổi phòng | M2, M4, M5, M11 | R2 | UC-13…UC-17 |
@@ -18,6 +19,8 @@
 | P08 | Bảo trì: phiếu sửa chữa, khóa phòng, bảo trì định kỳ | M5 | R2 (định kỳ R3) | UC-24, UC-25 |
 | P09 | Hoa hồng CTV / sale | M8 | R3 | UC-26 |
 | P10 | Duyệt FOC / giảm giá đặc biệt / ngoại lệ (dùng chung) | M0 | R2 | UC-27 |
+| P11 | Đóng ca / chốt ngày, đối soát tiền | M2, M12 | R2 (phạm vi PO chốt) | UC-32 |
+| P12 | Vận hành khi mất mạng / mất điện ở quầy | M2 | R2 (quy trình + danh sách dự phòng) | UC-33 |
 
 ---
 
@@ -43,7 +46,7 @@
 ### Luồng chính – đơn OTA
 | Bước | Ai | Việc | Quy tắc |
 |---|---|---|---|
-| 1 | SYS (R3) / FD (R2 nhập tay) | Tạo đơn `confirmed` (B2): kênh, mã OTA, giá thực tế, kiểu thanh toán (OTA thu hộ / trả tại chỗ) | BR-307, BR-901 |
+| 1 | SYS (R3) / FD (R2 nhập tay) | Tạo đơn `confirmed` (B2): kênh, mã OTA, giá thực tế, kiểu thanh toán (OTA thu hộ / trả tại chỗ). R2 nhập tay vào căn đã kín → server trả `409` kèm gợi ý căn trống, lễ tân chọn; hết căn → lễ tân xác nhận đưa vào làn "Chưa gán căn" (B7b, decision-log PO) | BR-307, BR-901, BR-312 |
 | 2 | SYS | Gắn/tạo hồ sơ khách theo khóa định danh | BR-951 |
 | 3 | SYS | Đóng phòng các kênh khác; sinh khai báo `none` | BR-905, BR-608 |
 
@@ -92,17 +95,33 @@ flowchart TB
 | E7 | Khách không đến | Sau mốc gọi BR-311 lễ tân gọi/nhắn; sau mốc đánh dấu và không liên lạc được → B11 (thủ công). Đơn OTA: tạo việc báo no-show trên kênh | BR-311 |
 | E8 | Khách báo đến trễ | Ghi giờ đến dự kiến; không đánh dấu no-show | BR-311 |
 | E9 | Đổi căn/ngày trước khi đến | B7, kiểm trùng, lý do | BR-906 |
+| E10 | **OTA sửa đơn** (đổi ngày, số khách, loại phòng, hủy một phần đêm) | B7c: SYS (R3) hoặc FD (R2, theo extranet) áp thay đổi; kiểm trùng lại – phần không xếp được → làn "Chưa gán căn"; giá snapshot theo OTA mới; số người cần khai báo cập nhật (đã `confirmed` → `needs_update`); đồng bộ kênh. Đơn đang `in_house` mà OTA rút ngắn ngày → việc "Xác nhận thay đổi từ OTA" cho FD, không tự áp | BR-312, BR-601, BR-905 |
+| E11 | Đơn OTA ở làn "Chưa gán căn" | FD gán căn trống (B7a) theo thứ tự BR-312; không còn căn → MGR dời khách ra ngoài, đóng sự cố; cấm nhận phòng khi chưa gán | BR-312 |
 
 ### Lỗi
 | Mã | Lỗi | Hành vi hệ thống / thông báo |
 |---|---|---|
 | X1 | Hai người cùng đặt một căn – đêm | Một người thành công; người kia: "Căn {số} đêm {ngày} vừa được đặt. Chọn căn khác." (BR-906) |
-| X2 | Đơn OTA về trùng (đồng bộ trễ) | Vẫn tạo đơn, gắn cờ xung đột, cảnh báo đỏ FD + MGR; quy trình dời khách theo thứ tự ưu tiên | BR-312 |
+| X2 | Đơn OTA về trùng (đồng bộ trễ) | Vẫn tạo đơn, không tự hủy đơn nào; tự gán căn trống cùng nhóm, không có → "Chưa gán căn"; cảnh báo đỏ FD + MGR; đồng bộ lỗi > 15 phút → FD đóng bán thủ công trên extranet (decision-log DOM) | BR-312 |
+| X1b | Nhập tay đơn **trực tiếp/CTV** vào căn đã kín | Chặn: "Căn {số} đã có đơn {ngày}–{ngày}. Chọn căn khác." kèm gợi ý căn trống | BR-906 |
 | X3 | Tiền cọc về sau khi giữ chỗ đã tự hủy | Cảnh báo "Tiền về cho đơn đã hủy" → tạo lại đơn nếu căn trống, không thì hoàn | SM-01 mục 1.3 |
 | X4 | Giá trống/0 hoặc ngoài sàn–trần | Báo lỗi tại ô, không lưu | BR-105 |
 | X5 | Số khách vượt sức chứa | Chặn: "Căn {số} tối đa {n} khách" | BR-110 |
 | X6 | Thiếu SĐT với đơn trực tiếp/CTV | Chặn lưu | BL 5.16 |
 | X7 | Đồng bộ kênh lỗi | Cảnh báo lễ tân, tự thử lại | BR-905 |
+
+### Đơn nhóm – đoàn / gia đình nhiều căn (FB-R1-DOM-BA-05; SM-16; UC-31)
+Mỗi căn là một đơn SM-01 riêng; nhóm chỉ gom cọc, hủy bớt và bill. Quy tắc đoàn (mức cọc nhóm, hạn danh sách khách) do DOM bổ sung trong BR; nếu chưa có thì dùng quy tắc đơn lẻ.
+| Bước | Ai | Việc | Quy tắc |
+|---|---|---|---|
+| 1 | SAL/CTV/FD | Báo giá nhiều căn trong một báo giá (mỗi căn một dòng: căn, ngày, số khách) | BR-110, BR-304 |
+| 2 | SAL/CTV/FD | Tạo giữ chỗ từ báo giá → mỗi căn một đơn `hold`, cùng `group_id`, khách đầu mối là người đặt/người trả (G1) | BR-302, BR-906 – căn nào trùng thì báo căn đó, các căn khác vẫn tạo được |
+| 3 | GST | Chuyển **một** khoản cọc cho cả nhóm (VietQR nội dung = mã nhóm) | BR-521 |
+| 4 | FD/SAL | Ghi giao dịch cho nhóm, phân bổ theo căn (mặc định theo tỷ lệ tiền phòng, sửa được); đơn nào đủ mức BR-305 → `confirmed` (G2 + B4) | BR-305 |
+| 5 | FD | Trước ngày đến: cập nhật danh sách khách từng căn (người đứng tên từng căn) | BR-601 |
+| 6 | FD | Nhận phòng từng căn (B9) – có thể lệch giờ | BR-402 |
+| 7 | FD | Trả phòng: chọn **bill gộp** (một bill liệt kê từng căn, người trả chung) hoặc **bill tách** từng căn | BR-523 |
+Ngoại lệ: **hủy một căn** (G3) – phí hủy/hoàn tính theo BR-309 trên phần cọc đã phân bổ cho căn đó; phần hoàn mặc định giữ làm cọc cho các căn còn lại nếu khách đồng ý, không thì yêu cầu hoàn (P10). **Khách trong đoàn ở thêm** – gia hạn đơn của căn đó (P04a). **Đơn OTA nhiều phòng** – mỗi phòng OTA một đơn, gom nhóm theo mã OTA. Lỗi: tổng phân bổ ≠ số tiền giao dịch → chặn lưu; bỏ một đơn khỏi nhóm khi đơn đó còn phần cọc chung → bắt chọn phần cọc đi theo đơn hay ở lại nhóm.
 
 ---
 
@@ -181,7 +200,8 @@ flowchart TB
 ## P03 – Nhận phòng + giấy tờ + khai báo lưu trú
 
 **Mục tiêu**: khách vào phòng nhanh, thu đủ tiền, giấy tờ đúng, khai báo đúng hạn.
-**Vai**: GST, FD (gồm người trực đêm), FDL, MGR, HK, SYS. **Kích hoạt**: ngày đến của đơn `confirmed`.
+**Vai**: GST, FD (gồm người trực đêm), FDL, MGR, HK, SYS. **Kích hoạt**: ngày đến của đơn `confirmed` (theo **ngày nghiệp vụ**, đổi lúc 06:00).
+**Thiết bị**: B9 và mọi bước giấy tờ (C3) chỉ làm trên **thiết bị được cấp** mở admin-web – máy quầy hoặc máy tính bảng của cơ sở (`rbac-matrix.md` 8.7). PWA trên điện thoại cá nhân không làm được nhận phòng.
 **Kết quả**: đơn `in_house`, buồng `OC`, khai báo ≥ `sent` trước hạn, mã cửa đã giao.
 
 ### Luồng chính
@@ -236,14 +256,16 @@ flowchart TB
 | Mã | Tình huống | Xử lý | Quy tắc |
 |---|---|---|---|
 | E1 | Buồng chưa sẵn sàng, khách đến sớm | Gửi hành lý, ưu tiên dọn căn (BR-807); hoặc nhận vào buồng chưa sạch nếu FDL+ đồng ý → `OD` | BR-402, BR-807 |
-| E2 | Khách đến khuya, không có lễ tân | Check-in online trước; người trực/MGR nhận thông báo, làm B9 và khai báo trên điện thoại; nhắc theo mốc BR-611 | BR-611 |
+| E2 | Khách đến khuya, không có lễ tân thường trực | (Phân xử ORC 15/10/2026) Trước ngày đến: nhắc khách khai giờ đến và **check-in online** (K2) – mẫu tin nhấn mạnh "đến sau {giờ} vui lòng check-in online trước". Người trực (vai FD) nhận thông báo, dùng **thiết bị của cơ sở đã được OWN cấp** (máy quầy hoặc máy tính bảng của cơ sở) mở admin-web để đối chiếu giấy tờ, làm B9 và khai báo; nhắc theo mốc BR-611. Không có thiết bị được cấp trong tay → **không** nhận phòng bằng điện thoại cá nhân; người trực đến quầy. Ai trực tối, bằng thiết bị gì: chờ INV (ESC-010) | BR-611 |
+| E2b | Khách đến 00:00–05:59 của đơn có ngày đến là **hôm trước** | Vẫn thuộc ngày nghiệp vụ của ngày đến: đơn nằm trong "Khách đến", nhận phòng bình thường (B9); đêm đầu tính như đã đặt, không phụ thu nhận sớm | Ngày nghiệp vụ (DOM) |
 | E3 | Thiếu giấy tờ người đi cùng | Vẫn nhận phòng nếu có giấy tờ người đứng tên; bổ sung trước hạn khai báo | BR-402, BR-601 |
 | E4 | Thêm người giữa chừng | Cập nhật số khách (kiểm sức chứa BR-110), nhập giấy tờ → `needs_update` khai bổ sung | BR-601 |
 | E5 | Thị thực hết trước ngày đi | Cảnh báo đỏ, khai đến hết hạn thị thực, nhắc khách gia hạn | BR-605 |
 | E6 | Khách không đồng ý lưu ảnh | Vẫn khai báo; ảnh xóa sau khi khai xong; chỉ giữ trường văn bản cần thiết | BR-609, SEC R-REG-05 |
 | E7 | Cổng khai báo từ chối | `sent` → `scanned`, sửa dữ liệu, khai lại | SM-05 K8 |
 | E8 | Đơn đến khi vẫn `hold` | Thu cọc/đủ → B4 → B9 | SM-01 |
-| E9 | Nhận phòng trước mốc đêm trước (BR-003) | Lễ tân đổi ngày đến sang đêm trước (B7, kiểm trùng) rồi nhận | BR-003, BR-411 |
+| E9 | Khách nhận trước 06:00 **của chính ngày đến** (xe đêm, bay đêm) | **B9a – Thêm đêm trước**: kiểm căn trống đêm trước (BR-906). Đơn Trực tiếp/CTV: thêm 1 đêm vào đầu đơn. Đơn OTA (không đổi ngày đơn OTA): tạo **đơn con kênh Trực tiếp** cho đêm đó, đi thẳng `in_house`. Giá theo BR-411 (đêm bán). Căn không trống đêm trước → không cho nhận, gợi ý gửi hành lý hoặc đổi sang căn trống (B7) nếu khách đồng ý giá | BR-003, BR-411, BR-422, BR-904 |
+| E10 | Mất mạng/mất điện khi khách đến | Theo P12: nhận khách bằng danh sách dự phòng, nhập bù khi có mạng với giờ thực tế. Mã cửa (C3) **không** nằm trong danh sách dự phòng – cách cấp mã khi mất mạng do INT/SEC chốt theo loại khóa (P12 bước 5) | P12 |
 
 ### Lỗi
 | Mã | Lỗi | Hành vi |
@@ -254,7 +276,7 @@ flowchart TB
 | X4 | Gửi ảnh giấy tờ qua chat | Không có đường nhập; mẫu tin hướng khách dùng link | SEC R-REG-08 |
 | X5 | Tệp tải lên sai định dạng/quá lớn | Báo lỗi tại ô, cho tải lại | SEC R-REG-08 |
 
-**Mâu thuẫn hạn khai báo khách nước ngoài**: BL dùng một mốc 23:00 cho mọi khách; BR-603 (DOM) và SEC R-REG-01 cho rằng người nước ngoài phải khai trong số giờ BR-603 kể từ khi đến. Quy trình dùng **hạn sớm hơn** giữa hai mốc `[GIẢ ĐỊNH – chờ INV/luật sư xác nhận]`.
+**Hạn khai báo**: công dân VN theo mốc BR-602 trong ngày đến; người nước ngoài = **giờ nhận thực tế + số giờ BR-603**, không còn áp mốc 23:00 cho khách nước ngoài (decision-log DOM 15/10/2026, thay dòng trước) `[GIẢ ĐỊNH – chờ luật sư qua ESC-001]`.
 
 ---
 
@@ -402,7 +424,7 @@ GST bấm "Trả phòng" (B18 – chỉ khi còn phải thu = 0) → SYS gửi b
 | 4 | FD | Lập quyết toán: ngày lẻ chưa thu + điện nước kỳ cuối + minibar/dọn lẻ + phạt/bồi thường − ký quỹ | BR-210, BR-214 |
 | 5 | FD | Hoàn tất trả phòng (B18); HĐ → `settling` | – |
 | 6 | MGR | Duyệt quyết toán (P10) | BR-214, BR-522 |
-| 7 | FD/MGR | Dương → thu thêm; âm → hoàn trong thời hạn BR-214 (giao dịch hoàn) | BR-214 |
+| 7 | FD / MGR | Dương → FD thu thêm; âm → **MGR+** thực hiện chuyển khoản hoàn (thấy số TK đầy đủ) và ghi giao dịch hoàn trong thời hạn BR-214; FD chỉ nhập yêu cầu (số TK dạng che) | BR-214, rbac A47 |
 | 8 | SYS | HĐ `closed` | SM-06 H9 |
 
 ### P05d – Trả sớm
@@ -411,7 +433,7 @@ FD ghi ngày rời mới (B16); hoàn theo BR-428 qua P10; mở bán các đêm 
 ### Ngoại lệ và lỗi
 | Mã | Tình huống | Xử lý |
 |---|---|---|
-| E1 | Khách tranh chấp minibar | FD FOC trong hạn mức (BR-704), vượt → FDL |
+| E1 | Khách tranh chấp minibar | FD **tự áp** FOC minibar trong hạn mức lần + hạn mức tháng tự áp (PIN của mình, lý do), vượt → FDL (SM-10 A2, DOM SQ-3) |
 | E2 | Khách công ty trả sau | MGR ghi công nợ có hạn, cảnh báo quá hạn (BR-525) |
 | E3 | Đơn OTA thu hộ | Bill ghi "Đã thu qua OTA"; chỉ thu phát sinh (BR-307, BR-415) |
 | E4 | Phát hiện phát sinh sau khi hoàn tất | Ghi bút toán vào folio `settled` (FD trong thời hạn BR-427, sau đó MGR), gửi link thanh toán |
@@ -506,7 +528,7 @@ flowchart TB
   H4 --> Y2
 ```
 
-Ngoại lệ: khách từ chối dọn → việc `cancelled` có lý do (BR-807); khách treo biển không làm phiền → hoãn, báo FD; mất mạng → thao tác lưu trên máy và gửi lại khi có mạng (US-058, ARC quyết cách làm). Lỗi: chuyển trạng thái không hợp lệ (ví dụ `VD` → `VI`) → server từ chối (SM-03).
+Ngoại lệ: khách từ chối dọn → việc `cancelled` có lý do (BR-807); khách treo biển không làm phiền → hoãn, báo FD; **kiểm tra an toàn** (FB-R1-DOM-BA-09): căn từ chối dọn hoặc treo biển liên tục quá tham số `welfare_check_hours` (DOM đề xuất 48 giờ, đưa vào BR-807) → SYS tạo việc "Liên hệ khách" cho FD; không liên lạc được → MGR + 1 nhân viên vào kiểm, ghi biên bản (giờ, người, ảnh nếu cần); khách dài hạn từ chối dọn → kiểm tình trạng phòng tối thiểu 1 lần/tháng, báo trước 24 giờ (căn cứ khấu trừ ký quỹ BR-214); mất mạng → thao tác lưu trên máy và gửi lại khi có mạng (US-058, ARC quyết cách làm). Lỗi: chuyển trạng thái không hợp lệ (ví dụ `VD` → `VI`) → server từ chối (SM-03).
 
 ---
 
@@ -568,7 +590,7 @@ Lỗi: khóa căn đang có khách → chặn; tạo phiếu thiếu mô tả �
 | 2 | SYS | Xác nhận cọc → hoa hồng `projected` với tỷ lệ, cơ sở snapshot | BR-006 |
 | 3 | SYS | Ngắn ngày: đơn `checked_out` + thu đủ → `earned`. Dài hạn: đợt 1 khi kỳ đầu `paid`; đợt 2 khi qua mốc thời hạn | BR-212, BR-903 |
 | 4 | SYS | Đơn hủy/no-show, HĐ chấm dứt sớm trước đợt 2 → `void` | BR-212, BR-903 |
-| 5 | SYS | Đến kỳ chi → `payable` (gộp theo tháng – chờ DOM SQ-4) | – |
+| 5 | SYS | Job ngày 1 hằng tháng: mọi bản ghi `earned` của tháng trước → `payable`; chi trước ngày 10 `[GIẢ ĐỊNH – chờ INV]`; điều chỉnh sau khi đã `paid` trừ vào kỳ sau (DOM SQ-4) | BR-008 |
 | 6 | OWN/MGR | Chi, đánh dấu `paid` (ngày, cách chi, chứng từ) | – |
 | 7 | SAL/CTV | Xem hoa hồng của mình theo trạng thái | US-087, US-089 |
 
@@ -602,7 +624,7 @@ Mâu thuẫn còn mở: tỷ lệ CTV ngắn ngày ở báo giá khác báo cáo
 | Bước | Ai | Việc | Quy tắc |
 |---|---|---|---|
 | 1 | FD/FDL/SAL/MT | Gửi yêu cầu: loại, giá trị, lý do từ danh mục | BR-432 |
-| 2 | SYS | Trong hạn mức tự áp của vai (chỉ MGR/OWN, hoặc FD với FOC minibar) → `approved`; còn lại → `pending`, báo người có quyền | BR-432, BR-433 |
+| 2 | SYS | Trong hạn mức tự áp của vai (MGR/OWN theo BR-433; FD/FDL chỉ FOC minibar trong hạn mức lần + hạn mức tháng tự áp) → `approved`; còn lại → `pending`, báo người có quyền | BR-432, BR-433, BR-704 |
 | 3 | Người duyệt | Xác nhận bằng PIN/mật khẩu của chính mình; không duyệt yêu cầu của chính mình | BR-432 |
 | 4 | SYS | Vượt hạn mức lần/tháng → chuyển cấp trên | BR-433 |
 | 5 | SYS | Duyệt: folio có dòng phát sinh + dòng FOC âm; nhật ký; cộng hạn mức tháng; kiểm cảnh báo thất thoát gửi OWN | BR-434, BR-435 |
@@ -635,7 +657,104 @@ Lỗi: người duyệt = người gửi (không phải MGR/OWN) → từ chối
 
 ---
 
+## P11 – Đóng ca / chốt ngày, đối soát tiền (FB-R1-DOM-BA-03; SM-17; UC-32)
+
+**Mục tiêu**: mỗi ca bàn giao đúng tiền mặt, mọi chuyển khoản ghi tay được đối soát với sao kê, việc tồn không rơi giữa hai ca. INV xem đối soát hằng ngày trong app thay cho sổ tay.
+**Vai**: FD/FDL (chủ ca), MGR (xem chênh lệch, đối soát chuyển khoản), OWN (cảnh báo), SYS. **Kích hoạt**: hết ca, bàn giao ca, người trực đêm bàn giao buổi sáng; đối soát chuyển khoản tối thiểu 1 lần/ngày nghiệp vụ.
+**Tiền điều kiện**: ca của người đó đang `open` (C1 – mở ca khi bắt đầu, nhập tiền mặt đầu ca nhận bàn giao). **Kết quả**: ca `closed`, biên bản ca, danh sách việc tồn chuyển ca sau; giao dịch chuyển khoản `reconciled`/`disputed`.
+
+| Bước | Ai | Việc | Quy tắc |
+|---|---|---|---|
+| 1 | FD | Bấm "Đóng ca" (C2) | SM-17 |
+| 2 | SYS | Lập báo cáo ca: tổng thu theo cách thanh toán (tiền mặt, chuyển khoản/VietQR ghi tay, cổng thanh toán, đã thu qua OTA), số giao dịch, hoàn đã chi; tiền mặt phải có = đầu ca + thu tiền mặt − chi tiền mặt; danh sách chuyển khoản ghi tay `pending` của ca; FOC tự áp trong ca (SM-10 A2); khôi phục no-show trong ca (B12); nhập bù sau mất mạng (P12) | BR-521, BR-526 (DOM) |
+| 3 | FD | Đếm và nhập tiền mặt thực tế; chênh lệch ≠ 0 → lý do bắt buộc | BR-526 |
+| 4 | SYS | Danh sách việc tồn cho ca sau: khai báo chưa `sent` và hạn còn lại; khách đến chưa tới (giờ đến dự kiến); khách đi chưa trả phòng; yêu cầu khách đang mở; phiếu sửa mức Cao đang mở; giữ chỗ sắp hết hạn | BR-602/603, BR-311, BR-811, BR-809, BR-303 |
+| 5 | FD | Xác nhận đóng ca (C3); bàn giao tiền mặt cho người nhận ca (người nhận mở ca mới với số đầu ca = số bàn giao) | SM-17 |
+| 6 | SYS | Chênh lệch ≠ 0 → thông báo MGR; ca `closed` khóa số liệu | BR-008 |
+| 7 | MGR | Hằng ngày: mở "Đối soát chuyển khoản", so từng giao dịch `pending` với sao kê ngân hàng → tick `reconciled`; không thấy tiền sau mốc BR-526 → `disputed` (A46) | BR-526 |
+| 8 | SYS | `disputed` → cảnh báo đỏ OWN + MGR; `pending` quá mốc → "Cần chú ý"; R3: webhook bank feed khớp số tiền + nội dung → tự `reconciled` | SM-12 |
+
+```mermaid
+flowchart TB
+  subgraph FD["Lễ tân / người trực (chủ ca)"]
+    F1["Bấm Đóng ca"]
+    F2["Đếm tiền mặt, nhập số thực tế"]
+    F3{"Chênh lệch = 0?"}
+    F4["Ghi lý do chênh lệch"]
+    F5["Xác nhận đóng ca, bàn giao tiền + việc tồn"]
+  end
+  subgraph SYS["Hệ thống"]
+    Y1["Báo cáo ca: thu theo cách thanh toán, tiền mặt phải có, CK chờ đối soát, FOC tự áp, khôi phục no-show, nhập bù"]
+    Y2["Danh sách việc tồn cho ca sau"]
+    Y3["Báo MGR nếu chênh lệch"]
+    Y4["Cảnh báo CK quá mốc / disputed"]
+  end
+  subgraph MGR["Quản lý"]
+    M1["Đối soát CK với sao kê"]
+    M2{"Thấy tiền?"}
+    M3["reconciled"]
+    M4["disputed: đảo giao dịch, thu lại"]
+  end
+  F1 --> Y1 --> F2 --> F3
+  F3 -- "Có" --> F5
+  F3 -- "Không" --> F4 --> F5
+  F5 --> Y2
+  F4 --> Y3
+  M1 --> M2
+  M2 -- "Có" --> M3
+  M2 -- "Không" --> M4 --> Y4
+```
+
+Ngoại lệ: **người trực đêm một mình** – mở ca khi nhận trực, đóng ca khi bàn giao buổi sáng; không có người nhận ca → tiền mặt cất két theo quy định nội bộ `[GIẢ ĐỊNH – chờ INV qua ESC-010]`, người mở ca sáng đếm lại và ghi nhận. **Quên đóng ca** – ca `open` quá `shift_max_hours` → "Cần chú ý" cho MGR; MGR không đóng hộ, chủ ca đóng khi quay lại (giữ trách nhiệm theo người). **Khách đưa ảnh chụp màn hình chuyển khoản** – FD vẫn ghi nhận (`pending`), không giao mã cửa chỉ dựa vào ảnh khi số tiền > tham số `transfer_unverified_max` `[GIẢ ĐỊNH – DOM chốt trong BR-526]`. Lỗi: đóng ca khi chưa nhập tiền mặt → chặn; đối soát giao dịch do chính mình ghi (trừ OWN) → chặn (rbac 5.3).
+
+---
+
+## P12 – Vận hành khi mất mạng / mất điện ở quầy (FB-R1-DOM-BA-04; UC-33)
+
+**Mục tiêu**: khách vẫn được nhận/trả phòng an toàn khi quầy mất mạng hoặc mất điện; dữ liệu nhập bù đúng giờ thực tế, không đặt trùng.
+**Vai**: FD/FDL, MGR, SYS. **Bối cảnh**: theo ADR-005, thao tác tiền và tồn phòng bắt buộc có mạng; Đà Lạt mùa mưa hay mất điện, mất mạng cục bộ (BR mục 14 S7).
+**Phần kỹ thuật** (bản đọc offline, lưu trữ trên thiết bị, cách đồng bộ) do ARC/UXD quyết; quy trình dưới đây không giả định có chế độ offline ghi dữ liệu.
+
+| Bước | Ai | Việc | Quy tắc |
+|---|---|---|---|
+| 1 | SYS → FD | **Phòng ngừa, mỗi sáng sau 06:00** (đầu ngày nghiệp vụ): sinh "Danh sách dự phòng" của ngày – khách đến (tên, căn, số khách, đã cọc/còn phải thu, giờ đến dự kiến, đã check-in online chưa), khách đi (căn, còn phải thu), trạng thái buồng, số điện thoại khẩn (MGR, kỹ thuật, nhà cung cấp mạng/điện). **Không** chứa số giấy tờ, ảnh, mã cửa (C3). FD in giấy hoặc lưu bản đọc offline trên thiết bị được cấp (S34) | rbac 8.7, SEC mục 3 |
+| 2 | FD | Mất mạng: thử theo thứ tự – (a) 4G điện thoại **của cơ sở** phát Wi-Fi cho thiết bị quầy; (b) nếu không được → chế độ giấy | – |
+| 3 | FD | Chế độ giấy: ghi sổ dự phòng mỗi việc – giờ thực tế, căn, khách, tiền thu (cách thu), người làm. Nhận khách đã có trong danh sách: cho vào phòng `VI`/`VC` theo danh sách; giấy tờ: xem bản gốc, ghi sổ, nhập lại khi có mạng (hạn khai báo vẫn tính từ giờ nhận thực tế) | BR-402, BR-603 |
+| 4 | FD | **Không** nhận đơn mới (điện thoại/khách vãng lai) khi chưa xem được tồn phòng: ghi thông tin, báo khách "sẽ xác nhận lại khi có hệ thống"; không hứa căn | BR-906 |
+| 5 | FD | Mã cửa: khóa thông minh hoạt động độc lập mạng quầy thì dùng mã đã cấp trước (khách check-in online) hoặc ứng dụng của nhà cung cấp khóa trên thiết bị cơ sở; cách làm theo loại khóa do INT/SEC chốt (`integrations/smart-lock.md`) | BR-403 |
+| 6 | FD | **Có mạng lại**: nhập bù từng việc theo thứ tự thời gian bằng A11b – nhập "giờ thực tế" trong quá khứ + lý do "nhập bù sau mất mạng"; phụ thu nhận sớm/trả muộn tính theo **giờ thực tế**, không theo giờ nhập (BR-414) | BR-414 |
+| 7 | SYS | Kiểm trùng khi nhập bù (BR-906); đối soát kênh (BR-905) – đơn OTA về trong lúc mất mạng được xử lý như X2 của P01; danh sách việc nhập bù vào báo cáo ca (P11) và thông báo MGR | BR-905, BR-906 |
+| 8 | MGR | Xem danh sách nhập bù, đối chiếu sổ giấy; sổ giấy lưu theo quy định nội bộ | – |
+
+```mermaid
+flowchart TB
+  subgraph SYS["Hệ thống"]
+    Y1["06:00: sinh danh sách dự phòng (không C3)"]
+    Y2["Kiểm trùng, đối soát kênh, báo MGR"]
+  end
+  subgraph FD["Lễ tân"]
+    F0["In / lưu bản đọc offline"]
+    F1{"Mất mạng?"}
+    F2{"4G của cơ sở dùng được?"}
+    F3["Làm việc bình thường qua 4G"]
+    F4["Chế độ giấy: sổ dự phòng, không nhận đơn mới"]
+    F5["Có mạng lại: nhập bù với giờ thực tế + lý do"]
+  end
+  subgraph MGR["Quản lý"]
+    M1["Đối chiếu danh sách nhập bù với sổ giấy"]
+  end
+  Y1 --> F0 --> F1
+  F1 -- "Có" --> F2
+  F2 -- "Có" --> F3
+  F2 -- "Không" --> F4 --> F5 --> Y2 --> M1
+```
+
+Lỗi: nhập bù trùng căn – đêm với đơn đã có (đơn OTA về trong lúc mất mạng) → server chặn, FD xử lý như xung đột (B7a/B14); giờ thực tế sớm hơn mốc `offline_backfill_max_hours` → cần MGR+; nhập bù không có lý do → chặn.
+
+---
+
 ## Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 10 quy trình, swimlane Mermaid, ngoại lệ + lỗi | BA |
+| 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ 06:00; P01: OTA nhập tay vào căn kín (409 + gợi ý / làn chưa gán), E10 OTA sửa đơn, E11 làn chưa gán, mục Đơn nhóm; P03: E2 theo phân xử ORC (thiết bị của cơ sở được cấp, admin-web), E2b, E9 thành B9a, E10 mất mạng, hạn khai báo NN theo BR-603 mới; P05: người thực hiện hoàn là MGR+, FOC minibar tự áp; P07 kiểm tra an toàn; P09 kỳ chi tháng; thêm P11 đóng ca/đối soát, P12 mất mạng/mất điện | BA |

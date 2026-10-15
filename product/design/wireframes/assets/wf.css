@@ -39,7 +39,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .wf-notes{flex:1 1 280px;min-width:260px;max-width:420px;font-size:13px}
 .wf-notes ol{padding-left:20px;margin:0}.wf-notes li{margin-bottom:6px}
 .wf-notes .ref{color:var(--oak-ink);font-weight:500}
-.anno{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--oak);color:#2B2B2B;font-size:11px;font-weight:600;vertical-align:middle;margin:0 4px}
+.anno{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--oak);color:#2B2B2B;font-size:12px;font-weight:600;vertical-align:middle;margin:0 4px}
 .rbac-note{border-left:4px solid var(--info);background:var(--info-bg);color:var(--ink);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;margin:8px 0}
 .fix-note{border-left:4px solid var(--ok);background:var(--ok-bg);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;margin:8px 0}
 
@@ -52,7 +52,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .shell{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:560px}
 .side{background:var(--side);border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:12px}
 .brand{font-family:var(--serif);font-weight:600;letter-spacing:.3em;font-size:15px;padding-left:8px}
-.brand small{display:block;font-family:var(--sans);letter-spacing:.16em;font-size:11px;color:var(--faint);font-weight:500;margin-top:2px}
+.brand small{display:block;font-family:var(--sans);letter-spacing:.16em;font-size:12px;color:var(--faint);font-weight:500;margin-top:2px}
 .nav{display:grid;gap:2px}
 .nav .sec{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:10px 8px 2px;font-weight:600}
 .nav a{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500;min-height:32px}
@@ -83,11 +83,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 14px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-weight:500;cursor:pointer;text-decoration:none;transition:background var(--t-fast) var(--ease)}
 .btn:hover{background:var(--surface-2)}
 .btn.pri{background:var(--ink);color:var(--ink-inverse);border-color:var(--ink)}
-.btn.pri:hover{opacity:.92}
+.btn.pri:hover{background:color-mix(in srgb,var(--ink) 86%,var(--surface))}
 .btn.danger{background:var(--bad);color:var(--ink-inverse);border-color:var(--bad)}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--oak-ink)}
 .btn.sm{min-height:28px;padding:3px 10px;font-size:13px}
-.btn[disabled],.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
+/* Disabled: no opacity (FB-R1-UXR-UXD-05) – reason text inside the button must stay ≥ 4.5:1 */
+.btn[disabled],.btn[aria-disabled="true"],.btn.pri[disabled],.btn.pri[aria-disabled="true"],.btn.danger[aria-disabled="true"]{background:var(--surface-2);color:var(--muted);border:1px dashed var(--line-strong);cursor:not-allowed}
 .btn.block{width:100%}
 .touch .btn{min-height:44px;font-size:16px}
 .hk .btn{min-height:48px;font-size:17px;border-radius:12px}
@@ -98,7 +99,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* ---------- Form ---------- */
 .field{display:grid;gap:4px;margin-bottom:12px}
 .field label,.field .lbl{font-weight:500;font-size:13px}
-.touch .field label,.hk .field label{font-size:15px}
+.touch .field label{font-size:15px}
+.hk .field label,.hk .field .lbl{font-size:16px}
 .field .help{font-size:12px;color:var(--muted)}
 .touch .field .help{font-size:14px}
 .input,select.input,textarea.input{width:100%;min-height:36px;padding:7px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink)}
@@ -115,7 +117,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .seg{display:inline-flex;background:var(--surface-2);border-radius:8px;padding:3px;gap:2px;border:1px solid var(--line-strong)}
 .seg button{border:0;background:transparent;padding:5px 12px;border-radius:6px;min-height:28px;color:var(--muted);font-weight:500;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
-.touch .seg button{min-height:40px;font-size:15px}
+.touch .seg button{min-height:44px;font-size:15px}
+.hk .seg button{min-height:48px;font-size:17px;padding:6px 14px}
 .stepper{display:inline-grid;grid-template-columns:44px 56px 44px;align-items:center;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--surface)}
 .stepper button{height:44px;border:0;background:var(--surface-2);font-size:20px;cursor:pointer}
 .stepper output{text-align:center;font-weight:600;font-size:17px}
@@ -137,7 +140,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .chip.neutral{background:var(--surface-2);color:var(--muted)}
 .chip.hold{background:var(--surface);color:var(--ink);border:2px dashed var(--oak-ink)}
 .chip.strike{text-decoration:line-through}
-.hk .chip{font-size:15px;padding:4px 12px}
+.hk .chip{font-size:16px;padding:4px 12px}
 .badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:var(--ink-inverse);font-size:12px;font-weight:600}
 
 /* ---------- Cards, KPI, lists ---------- */
@@ -227,7 +230,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .alert.info{background:var(--info-bg);color:var(--info);border-color:var(--info)}
 .alert p,.alert b{color:inherit}
 .alert .txt{color:var(--ink)}
-.touch .alert,.hk .alert{font-size:15px}
+.touch .alert{font-size:15px}
+.hk .alert{font-size:16px}
+.hk .field .help{font-size:16px}
 .offline-bar{display:flex;gap:8px;align-items:center;background:var(--warn-bg);color:var(--warn);border-bottom:1px solid var(--warn);padding:8px 16px;font-size:14px;font-weight:500}
 
 /* ---------- States ---------- */
@@ -266,8 +271,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- Chart ---------- */
 .chart{display:flex;align-items:flex-end;gap:3px;height:120px;padding:8px 0;border-bottom:1px solid var(--line-strong)}
-.chart button{all:unset;flex:1;background:var(--oak);border-radius:3px 3px 0 0;cursor:pointer;position:relative}
-.chart button.future{background:repeating-linear-gradient(45deg,var(--oak) 0 3px,var(--oak-soft) 3px 6px)}
+.chart button{all:unset;flex:1;min-width:6px;background:var(--oak-ink);border-radius:3px 3px 0 0;cursor:pointer;position:relative}
+.chart button.future{background:repeating-linear-gradient(45deg,var(--oak-ink) 0 3px,var(--oak-soft) 3px 6px);outline:1px solid var(--oak-ink);outline-offset:-1px}
 .chart button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .chart .target{position:absolute}
 
@@ -294,11 +299,41 @@ button,input,select,textarea{font:inherit;color:inherit}
 .bar.conflict{background:var(--bad-bg);color:var(--ink);border:2px dashed var(--bad)}
 .bar.conflict .ico{color:var(--bad)}
 /* Sales/agent availability view: RackBar.kind = unavailable (no guest name, channel, price) */
-.bar.unavailable{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--line) 6px 8px);color:var(--muted);font-weight:500}
+.bar.unavailable{background:var(--surface-2);color:var(--ink);font-weight:500;border:1px dashed var(--line-strong)}
 /* Wireframe-only annotations */
-.role-tag{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--info);background:var(--info-bg);color:var(--ink);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle}
-.role-tag code{font-size:11px}
+.role-tag{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--info);background:var(--info-bg);color:var(--ink);border-radius:999px;padding:1px 8px;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.role-tag code{font-size:12px}
 .d4-note{border-left:4px solid var(--warn);background:var(--warn-bg);color:var(--ink);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;margin:8px 0}
-.api{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.api{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .wf-table-note{font-size:13px}
 .wf-table-note td,.wf-table-note th{vertical-align:top}
+
+/* ---------- R1 bước 4: kích thước tối thiểu theo mật độ (FB-R1-UXR-UXD-04) ---------- */
+/* Touch (điện thoại): chữ phụ ≥ 14px, vùng chạm ≥ 44px. HK (buồng phòng): mọi chữ ≥ 16px, vùng chạm ≥ 48px. */
+.touch .m-nav a{font-size:14px}
+.hk .m-nav a{font-size:16px;min-height:60px}
+.touch .chip{font-size:14px}
+.touch .toast{font-size:16px}
+.touch .toast .btn{min-height:44px;padding:8px 12px;font-size:16px}
+.hk .toast{font-size:17px}
+.hk .toast .btn{min-height:48px;padding:8px 14px;font-size:17px}
+.touch .btn.sm{min-height:44px;font-size:15px}
+.hk .btn.sm{min-height:48px;font-size:16px}
+.touch .check{min-height:44px}
+.touch .check input{width:22px;height:22px}
+/* Focus on dark surfaces (FB-R1-UXR-UXD-05): guest header, toast */
+.m-top.on-dark{background:var(--bar-in);color:var(--bar-in-t);border:0}
+.on-dark :focus-visible,.toast :focus-visible{outline-color:var(--focus-on-dark)}
+/* Free text written by staff shown to guests (FB-R1-UXR-UXD-06) */
+.staff-note{display:block;border-left:3px solid var(--line-strong);padding-left:8px;margin-top:2px}
+.staff-note .lbl{display:block;font-size:14px;color:var(--muted)}
+/* RU partial: banner only visible when lang=ru (wf.js toggles [data-only-lang]) */
+[data-only-lang]{display:none}
+[data-only-lang].on{display:flex}
+/* Door code display (C32) for late arrival */
+.code-xl{font-family:var(--mono);font-size:32px;letter-spacing:.2em;font-variant-numeric:tabular-nums;margin:6px 0 0}
+.contact-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.progress{height:8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line-strong);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--ink)}
+.qr-sm{width:120px;height:120px}
+.wf-us{display:inline-flex;gap:4px;flex-wrap:wrap}

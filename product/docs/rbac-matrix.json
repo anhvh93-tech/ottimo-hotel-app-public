@@ -1,0 +1,1796 @@
+{
+ "version": "0.2",
+ "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
+ "generated": "2026-10-15",
+ "author": "BA",
+ "roles": [
+  "owner",
+  "manager",
+  "front_desk_lead",
+  "front_desk",
+  "housekeeping",
+  "maintenance",
+  "sales_staff",
+  "collaborator",
+  "guest",
+  "system"
+ ],
+ "role_codes": {
+  "OWN": "owner",
+  "MGR": "manager",
+  "FDL": "front_desk_lead",
+  "FD": "front_desk",
+  "HK": "housekeeping",
+  "MT": "maintenance",
+  "SAL": "sales_staff",
+  "CTV": "collaborator",
+  "GST": "guest",
+  "SYS": "system"
+ },
+ "value_legend": {
+  "allow": "✔ toàn cơ sở",
+  "own": "M – dữ liệu của mình",
+  "today": "T – việc hôm nay của mình",
+  "read": "R",
+  "approval": "D – gửi, cần duyệt SM-10",
+  "conditional": "◐ / ✔ có điều kiện (xem ghi chú rbac)",
+  "guest_l1": "GST1 – chỉ link",
+  "guest_l2": "GST2 – link + OTP/mã lễ tân",
+  "guest_post": "GSTp – sau trả phòng ≤ 24h"
+ },
+ "rules": {
+  "deny_default": "Vai không có trong roles → 403 FORBIDDEN_ACTION + ghi nhật ký",
+  "trusted_device_required": "true → chỉ admin-web trên thiết bị được cấp; PWA/thiết bị lạ → 403 DEVICE_NOT_TRUSTED",
+  "c3_access_log": "true → mỗi lần gọi ghi c3_access_log"
+ },
+ "actions": [
+  {
+   "id": "A01",
+   "name_vi": "Tạo đơn ngắn ngày đã đảm bảo",
+   "event": "create_confirmed",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createReservation"
+   ]
+  },
+  {
+   "id": "A02",
+   "name_vi": "Tạo giữ chỗ",
+   "event": "create_hold",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createHoldFromQuote"
+   ]
+  },
+  {
+   "id": "A03",
+   "name_vi": "Gia hạn giữ chỗ",
+   "event": "extend_hold",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "extendHold"
+   ]
+  },
+  {
+   "id": "A04",
+   "name_vi": "Xác nhận cọc/ký quỹ",
+   "event": "confirm_deposit",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "confirmDeposit"
+   ]
+  },
+  {
+   "id": "A05",
+   "name_vi": "Hủy giữ chỗ",
+   "event": "cancel_hold",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "cancelReservation"
+   ]
+  },
+  {
+   "id": "A06",
+   "name_vi": "Hủy đơn đã đảm bảo",
+   "event": "cancel",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "cancelReservation"
+   ]
+  },
+  {
+   "id": "A07",
+   "name_vi": "Đổi căn / đổi ngày",
+   "event": "move",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "moveReservation"
+   ]
+  },
+  {
+   "id": "A07a",
+   "name_vi": "Gán căn cho đơn xung đột",
+   "event": "assign_room",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "moveReservation"
+   ]
+  },
+  {
+   "id": "A07a-ext",
+   "name_vi": "Dời khách ra ngoài, đóng sự cố",
+   "event": "resolve_external",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "resolveOverbookingExternal"
+   ]
+  },
+  {
+   "id": "A07b",
+   "name_vi": "Áp thay đổi OTA",
+   "event": "apply_ota_modification",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "updateReservation",
+    "channelWebhook"
+   ]
+  },
+  {
+   "id": "A08",
+   "name_vi": "Dời ngày thay vì hủy",
+   "event": "postpone",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A09",
+   "name_vi": "Đánh dấu no-show",
+   "event": "mark_no_show",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "markNoShow"
+   ]
+  },
+  {
+   "id": "A10",
+   "name_vi": "Khôi phục no-show",
+   "event": "restore_no_show",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "conditional",
+    "front_desk": "conditional"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "restoreNoShow"
+   ]
+  },
+  {
+   "id": "A11",
+   "name_vi": "Nhận phòng",
+   "event": "check_in",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "previewCheckIn",
+    "checkIn"
+   ]
+  },
+  {
+   "id": "A11a",
+   "name_vi": "Nhận trước 06:00 – thêm đêm trước",
+   "event": "check_in_add_prior_night",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "checkIn"
+   ]
+  },
+  {
+   "id": "A11b",
+   "name_vi": "Nhập bù sau mất mạng",
+   "event": "offline_backfill",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A12",
+   "name_vi": "Nhận phòng khi buồng chưa VC/VI",
+   "event": "check_in_exception",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "approval"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "checkIn"
+   ]
+  },
+  {
+   "id": "A13",
+   "name_vi": "Hoàn tác nhận phòng",
+   "event": "undo_check_in",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "undoCheckIn"
+   ]
+  },
+  {
+   "id": "A14",
+   "name_vi": "Gia hạn",
+   "event": "extend_stay",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "getExtensionOptions",
+    "extendStay"
+   ]
+  },
+  {
+   "id": "A15",
+   "name_vi": "Đổi phòng",
+   "event": "change_room",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "changeRoom",
+    "swapRoom"
+   ]
+  },
+  {
+   "id": "A16",
+   "name_vi": "Đặt trả muộn",
+   "event": "set_late_checkout",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setLateCheckout"
+   ]
+  },
+  {
+   "id": "A17",
+   "name_vi": "Trả sớm",
+   "event": "early_departure",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "earlyDeparture"
+   ]
+  },
+  {
+   "id": "A18",
+   "name_vi": "Hoàn tất trả phòng",
+   "event": "check_out",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "guest_l2"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "getCheckoutSummary",
+    "checkOut"
+   ]
+  },
+  {
+   "id": "A19",
+   "name_vi": "Ghi công nợ khi trả phòng",
+   "event": "record_receivable",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A20",
+   "name_vi": "Thêm người đi cùng",
+   "event": "add_party_member",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "guest_l2"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "addPartyMember",
+    "removePartyMember"
+   ]
+  },
+  {
+   "id": "A21",
+   "name_vi": "Nhập/sửa/xem mã cửa",
+   "event": "door_credential",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "getDoorCredential",
+    "setDoorCredential"
+   ]
+  },
+  {
+   "id": "A22",
+   "name_vi": "Gửi link app khách qua kênh hệ thống",
+   "event": "send_guest_link",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A22a",
+   "name_vi": "Cấp link + sao chép link (token một lần)",
+   "event": "issue_guest_link",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "issueGuestLink"
+   ]
+  },
+  {
+   "id": "A23",
+   "name_vi": "Nhóm đơn, phân bổ cọc chung",
+   "event": "create_group",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A30",
+   "name_vi": "Thêm dòng phát sinh",
+   "event": "add_folio_line",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "addFolioLine"
+   ]
+  },
+  {
+   "id": "A31",
+   "name_vi": "Sửa giá dòng / đêm",
+   "event": "adjust_folio_line",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "adjustFolioLine"
+   ]
+  },
+  {
+   "id": "A32",
+   "name_vi": "Điều chỉnh folio settled",
+   "event": "adjust_settled_folio",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "adjustFolioLine"
+   ]
+  },
+  {
+   "id": "A33",
+   "name_vi": "Ghi nhận thu tiền",
+   "event": "record_payment",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "recordPayment",
+    "paymentCallback"
+   ]
+  },
+  {
+   "id": "A34",
+   "name_vi": "Đảo giao dịch",
+   "event": "reverse_payment",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "reversePayment"
+   ]
+  },
+  {
+   "id": "A35",
+   "name_vi": "Gửi FOC / giảm giá đặc biệt (FOC minibar tự áp trong hạn mức)",
+   "event": "submit_approval",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "approval",
+    "front_desk": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "requestFoc"
+   ]
+  },
+  {
+   "id": "A36",
+   "name_vi": "Duyệt FOC / giảm giá",
+   "event": "approve",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "approveRequest",
+    "rejectRequest"
+   ]
+  },
+  {
+   "id": "A37",
+   "name_vi": "Kiểm minibar",
+   "event": "record_minibar_check",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "today"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "recordMinibarCheck"
+   ]
+  },
+  {
+   "id": "A38",
+   "name_vi": "Xuất hóa đơn GTGT",
+   "event": "invoice_request",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "guest_l2",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setInvoiceRequest"
+   ]
+  },
+  {
+   "id": "A39",
+   "name_vi": "Tạo VietQR / link thanh toán",
+   "event": "create_payment_link",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "guest": "guest_l2",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createVietQr"
+   ]
+  },
+  {
+   "id": "A43",
+   "name_vi": "Gửi yêu cầu hoàn tiền",
+   "event": "request_refund",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A44",
+   "name_vi": "Xem tổng thu trong ngày",
+   "event": "view_daily_takings",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A45",
+   "name_vi": "Mở/đóng ca",
+   "event": "open_shift",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A46",
+   "name_vi": "Đối soát chuyển khoản",
+   "event": "reconcile_payment",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "system": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A47",
+   "name_vi": "Thực hiện chuyển khoản hoàn",
+   "event": "execute_refund",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": true,
+   "operationIds": []
+  },
+  {
+   "id": "A50",
+   "name_vi": "Lập/lưu báo giá",
+   "event": "save_quote",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "allow",
+    "collaborator": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "calculateQuote",
+    "saveQuote",
+    "getQuote",
+    "getQuoteText",
+    "listQuotes",
+    "withdrawQuote"
+   ]
+  },
+  {
+   "id": "A51",
+   "name_vi": "Gia hạn báo giá hết hiệu lực",
+   "event": "extend_quote",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "sales_staff": "approval",
+    "collaborator": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A51-track",
+   "name_vi": "Theo dõi/rút yêu cầu duyệt của mình",
+   "event": "list_own_approvals",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "own",
+    "housekeeping": "own",
+    "maintenance": "own",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listApprovalRequests",
+    "cancelRequest"
+   ]
+  },
+  {
+   "id": "A52",
+   "name_vi": "Tạo / chuyển giai đoạn lead",
+   "event": "manage_lead",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createLead",
+    "listLeads"
+   ]
+  },
+  {
+   "id": "A53",
+   "name_vi": "Báo khách đã chuyển cọc",
+   "event": "create_deposit_notice",
+   "roles": {
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createDepositNotice"
+   ]
+  },
+  {
+   "id": "A54",
+   "name_vi": "Gia hạn HĐ",
+   "event": "renew_contract",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A55",
+   "name_vi": "Sửa tay con số HĐ",
+   "event": "amend_contract",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "approval",
+    "front_desk": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A56",
+   "name_vi": "Chấm dứt sớm / hủy HĐ trước vào ở",
+   "event": "notify_termination",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "conditional",
+    "front_desk": "conditional"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A57",
+   "name_vi": "Duyệt quyết toán ký quỹ",
+   "event": "close_settlement",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A58",
+   "name_vi": "Ghi nhận thu kỳ",
+   "event": "mark_installment_paid",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A59",
+   "name_vi": "Miễn kỳ thu",
+   "event": "waive_installment",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A60",
+   "name_vi": "Xem hoa hồng",
+   "event": "view_commission",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listCommissions"
+   ]
+  },
+  {
+   "id": "A61",
+   "name_vi": "Đánh dấu đã chi hoa hồng",
+   "event": "mark_commission_paid",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "markCommissionPayoutPaid"
+   ]
+  },
+  {
+   "id": "A63",
+   "name_vi": "Đối chiếu phí kênh thực tế",
+   "event": "reconcile_channel_fee",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "reconcileChannelFee"
+   ]
+  },
+  {
+   "id": "A62",
+   "name_vi": "Xuất PDF hợp đồng (R3)",
+   "event": "export_contract_pdf",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A70",
+   "name_vi": "Nhập/tải giấy tờ, đối chiếu",
+   "event": "record_documents",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "guest_l1"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "addGuestDocument",
+    "updateGuestDocument",
+    "completeRegistrationReview",
+    "uploadGuestDocument"
+   ]
+  },
+  {
+   "id": "A71",
+   "name_vi": "Xem ảnh / số giấy tờ đầy đủ",
+   "event": "view_c3_documents",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "getGuestDocumentSensitive",
+    "getDocumentImage"
+   ]
+  },
+  {
+   "id": "A70-read",
+   "name_vi": "Xem danh sách/chi tiết khai báo (che C3)",
+   "event": "view_registrations",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listRegistrations",
+    "getRegistration"
+   ]
+  },
+  {
+   "id": "A72",
+   "name_vi": "Ghi đồng ý lưu ảnh",
+   "event": "record_image_consent",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "guest": "guest_l1"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "recordImageConsent",
+    "recordGuestConsent"
+   ]
+  },
+  {
+   "id": "A73",
+   "name_vi": "Sao chép dữ liệu khai báo, ghi mã hồ sơ",
+   "event": "registration_portal",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "getPortalData",
+    "transitionRegistration"
+   ]
+  },
+  {
+   "id": "A74",
+   "name_vi": "Xóa sớm ảnh theo yêu cầu khách",
+   "event": "purge_images",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": [
+    "purgeRegistrationImages"
+   ]
+  },
+  {
+   "id": "A75",
+   "name_vi": "Xuất giấy tờ nhiều người",
+   "event": "bulk_export_c3",
+   "roles": {},
+   "trusted_device_required": false,
+   "c3_access_log": true,
+   "operationIds": []
+  },
+  {
+   "id": "A76",
+   "name_vi": "Xem nhật ký truy cập C3",
+   "event": "view_c3_log",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listC3AccessLog"
+   ]
+  },
+  {
+   "id": "A77",
+   "name_vi": "Bản sao dữ liệu một chủ thể",
+   "event": "dsr_export",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": true,
+   "c3_access_log": true,
+   "operationIds": []
+  },
+  {
+   "id": "A80",
+   "name_vi": "Bắt đầu dọn / dọn xong",
+   "event": "cleaning",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "today"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionRoomStatus",
+    "transitionHkTask"
+   ]
+  },
+  {
+   "id": "A81",
+   "name_vi": "Kiểm phòng đạt",
+   "event": "pass_inspection",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "housekeeping": "conditional"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "recordInspection"
+   ]
+  },
+  {
+   "id": "A82",
+   "name_vi": "Báo cần dọn",
+   "event": "mark_dirty",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "today"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionRoomStatus"
+   ]
+  },
+  {
+   "id": "A83",
+   "name_vi": "Tạo/giao/hủy việc buồng phòng",
+   "event": "manage_hk_task",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "conditional"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionHkTask"
+   ]
+  },
+  {
+   "id": "A83-create",
+   "name_vi": "Tạo việc buồng phòng bằng tay",
+   "event": "create_hk_task",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createHkTask"
+   ]
+  },
+  {
+   "id": "A84",
+   "name_vi": "Tạo phiếu sửa chữa",
+   "event": "create_work_order",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "allow",
+    "maintenance": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createWorkOrder"
+   ]
+  },
+  {
+   "id": "A85",
+   "name_vi": "Nhận/cập nhật/hoàn thành phiếu",
+   "event": "work_order_progress",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "maintenance": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "updateWorkOrder",
+    "transitionWorkOrder"
+   ]
+  },
+  {
+   "id": "A86",
+   "name_vi": "Tạo/kéo dài khối OOO",
+   "event": "manage_room_block",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "maintenance": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createRoomBlock",
+    "updateRoomBlock",
+    "transitionRoomBlock"
+   ]
+  },
+  {
+   "id": "A87",
+   "name_vi": "Mở khóa OOO không qua phiếu",
+   "event": "release_block_manual",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionRoomBlock"
+   ]
+  },
+  {
+   "id": "A88",
+   "name_vi": "Chốt công tơ",
+   "event": "record_meter",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "maintenance": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A89",
+   "name_vi": "Lưu chỉ số nhỏ hơn kỳ trước",
+   "event": "meter_lower_than_previous",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "approval",
+    "front_desk": "approval",
+    "maintenance": "approval"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A90",
+   "name_vi": "Nhập/xuất kho, kiểm kê",
+   "event": "inventory",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A91",
+   "name_vi": "Sửa danh mục mặt hàng, giá vốn",
+   "event": "manage_items",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "createItem",
+    "updateItem"
+   ]
+  },
+  {
+   "id": "A92",
+   "name_vi": "Ghi đồ thất lạc",
+   "event": "lost_and_found",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "allow",
+    "maintenance": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A100",
+   "name_vi": "Tạo/khóa tài khoản, gán vai, đặt lại mật khẩu",
+   "event": "manage_users",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listUsers",
+    "createUser",
+    "updateUser",
+    "setUserRoles"
+   ]
+  },
+  {
+   "id": "A101",
+   "name_vi": "Sửa tham số vận hành",
+   "event": "set_parameter",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setParameter"
+   ]
+  },
+  {
+   "id": "A102",
+   "name_vi": "Sửa hạn mức FOC, hoa hồng, phí kênh",
+   "event": "set_restricted_parameter",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setParameter"
+   ]
+  },
+  {
+   "id": "A103",
+   "name_vi": "Sửa lịch giá, đẩy giá",
+   "event": "manage_rates",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A104",
+   "name_vi": "Bật/tắt mở bán kênh",
+   "event": "toggle_channel",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A105",
+   "name_vi": "Xuất báo cáo C2",
+   "event": "export_report",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A106",
+   "name_vi": "Sửa mẫu tin nhắn",
+   "event": "edit_message_template",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A106-use",
+   "name_vi": "Dùng mẫu tin (render)",
+   "event": "render_message",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own",
+    "collaborator": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listMessageTemplates",
+    "renderMessage"
+   ]
+  },
+  {
+   "id": "A107",
+   "name_vi": "Gộp hồ sơ khách (R3)",
+   "event": "merge_guests",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A108",
+   "name_vi": "Đổi tài khoản nhận tiền của cơ sở",
+   "event": "set_payout_account",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A110",
+   "name_vi": "Cấp/thu hồi thiết bị được cấp",
+   "event": "manage_trusted_device",
+   "roles": {
+    "owner": "allow",
+    "manager": "conditional"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listTrustedDevices",
+    "trustCurrentDevice",
+    "revokeTrustedDevice"
+   ]
+  },
+  {
+   "id": "A111",
+   "name_vi": "Bật/đặt lại 2FA người khác",
+   "event": "reset_user_2fa",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A112",
+   "name_vi": "Đặt mật khẩu/2FA của mình",
+   "event": "manage_own_credentials",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "housekeeping": "allow",
+    "maintenance": "allow",
+    "sales_staff": "allow",
+    "collaborator": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "getMe",
+    "logout",
+    "changeMyPassword",
+    "getMy2fa",
+    "startMy2faSetup",
+    "confirmMy2fa",
+    "disableMy2fa"
+   ]
+  },
+  {
+   "id": "A112-pin",
+   "name_vi": "Đặt PIN duyệt / xác thực lại (FD cần cho FOC minibar tự áp, xem C3 sau 15 phút)",
+   "event": "set_own_pin",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setMyApprovalPin",
+    "stepUp"
+   ]
+  },
+  {
+   "id": "A113",
+   "name_vi": "Cấp mã xác minh khách",
+   "event": "issue_guest_verification_code",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "issueGuestVerificationCode"
+   ]
+  },
+  {
+   "id": "A114",
+   "name_vi": "Thu hồi link khách",
+   "event": "revoke_guest_link",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "revokeGuestLink"
+   ]
+  },
+  {
+   "id": "A115",
+   "name_vi": "Xem/thu hồi phiên người khác",
+   "event": "manage_sessions",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A117",
+   "name_vi": "Đổi người nhanh trên máy quầy",
+   "event": "switch_user",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "A118",
+   "name_vi": "Bật kênh gửi mã xác minh qua OTA/Zalo",
+   "event": "toggle_verification_channel",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": []
+  },
+  {
+   "id": "G-L1",
+   "name_vi": "App khách mức 1 (Wi-Fi, nội quy, yêu cầu, check-in online)",
+   "event": "guest_level1",
+   "roles": {
+    "guest": "guest_l1"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "openGuestSession",
+    "setGuestLocale",
+    "getOnlineCheckin",
+    "updateOnlineCheckin",
+    "completeOnlineCheckin",
+    "listMyRequests",
+    "createGuestRequest"
+   ]
+  },
+  {
+   "id": "G-L2",
+   "name_vi": "App khách mức 2 (xác minh, folio, mã cửa)",
+   "event": "guest_level2",
+   "roles": {
+    "guest": "guest_l2"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "sendGuestOtp",
+    "verifyGuestSession",
+    "getGuestFolio",
+    "withdrawGuestConsent"
+   ]
+  },
+  {
+   "id": "G-STAY",
+   "name_vi": "Xem lưu trú (trường theo mức GST1/GST2/GSTp – rbac mục 6)",
+   "event": "guest_stay",
+   "roles": {
+    "guest": "guest_l1"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "getGuestStay"
+   ]
+  }
+ ],
+ "openapi_check": {
+  "note": "So sánh roles (gộp theo operationId) với x-roles trong api/openapi.yaml lúc sinh file. Dùng để ARC sửa x-roles và QA sinh test phân quyền (SR-AZ-01/09).",
+  "differences": [
+   {
+    "operationId": "cancelRequest",
+    "method": "POST",
+    "path": "/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/cancel",
+    "missing_in_openapi": [
+     "collaborator"
+    ],
+    "extra_in_openapi": [],
+    "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
+   },
+   {
+    "operationId": "issueGuestLink",
+    "method": "POST",
+    "path": "/v1/properties/{propertyId}/reservations/{reservationId}/guest-link",
+    "missing_in_openapi": [],
+    "extra_in_openapi": [
+     "sales_staff"
+    ],
+    "note": "SEC-BA-07 – SAL chỉ gửi qua kênh hệ thống, không cấp/sao chép link"
+   },
+   {
+    "operationId": "listApprovalRequests",
+    "method": "GET",
+    "path": "/v1/properties/{propertyId}/approval-requests",
+    "missing_in_openapi": [
+     "collaborator"
+    ],
+    "extra_in_openapi": [],
+    "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
+   },
+   {
+    "operationId": "listTrustedDevices",
+    "method": "GET",
+    "path": "/v1/properties/{propertyId}/trusted-devices",
+    "missing_in_openapi": [
+     "manager"
+    ],
+    "extra_in_openapi": [],
+    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
+   },
+   {
+    "operationId": "revokeTrustedDevice",
+    "method": "POST",
+    "path": "/v1/properties/{propertyId}/trusted-devices/{deviceId}/actions/revoke",
+    "missing_in_openapi": [
+     "manager"
+    ],
+    "extra_in_openapi": [],
+    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
+   },
+   {
+    "operationId": "setMyApprovalPin",
+    "method": "PUT",
+    "path": "/v1/me/approval-pin",
+    "missing_in_openapi": [
+     "front_desk"
+    ],
+    "extra_in_openapi": [],
+    "note": "SQ-3 – FD tự áp FOC minibar bằng PIN của chính mình"
+   },
+   {
+    "operationId": "trustCurrentDevice",
+    "method": "POST",
+    "path": "/v1/properties/{propertyId}/trusted-devices",
+    "missing_in_openapi": [
+     "manager"
+    ],
+    "extra_in_openapi": [],
+    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
+   }
+  ],
+  "operations_without_action_mapping": [
+   "createGuest",
+   "createRoom",
+   "deleteMyPushSubscription",
+   "getArrivalsDepartures",
+   "getBill",
+   "getChargeCatalog",
+   "getFolio",
+   "getGuest",
+   "getInspectionChecklist",
+   "getLeaseContract",
+   "getParameterHistory",
+   "getRack",
+   "getReservation",
+   "getReservationHistory",
+   "getTonightKpi",
+   "getWorkOrder",
+   "listAttentionItems",
+   "listAuditEvents",
+   "listChannels",
+   "listCheckoutReminders",
+   "listGuestRequests",
+   "listHkTasks",
+   "listItems",
+   "listMyNotifications",
+   "listOverbookingIncidents",
+   "listParameters",
+   "listParty",
+   "listReservations",
+   "listRoomBlocks",
+   "listRoomGroups",
+   "listRoomStatuses",
+   "listRooms",
+   "listWorkOrders",
+   "lookupGuestByContact",
+   "markNotificationRead",
+   "putMyPushSubscription",
+   "recordCheckoutConfirmation",
+   "resolveAttentionEvent",
+   "searchAvailability",
+   "searchGuests",
+   "streamEvents",
+   "transitionGuestRequest",
+   "updateGuest",
+   "updateRoom",
+   "uploadAttachment"
+  ],
+  "operations_without_action_mapping_note": "Endpoint đọc theo màn hình – quyền theo rbac-matrix.md mục 3 (màn hình) và mục 6 (trường); chưa gán mã hành động A-xx"
+ }
+}

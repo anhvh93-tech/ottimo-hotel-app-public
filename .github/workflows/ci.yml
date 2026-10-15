@@ -1,4 +1,7 @@
 # CI for OTTIMO Desk (ADR-012). Code lives in product/; this file stays at the repo root.
+# Supply chain (FB-R1-SEC-OPS-04): every action is pinned to a commit SHA (tag in the comment),
+# images by digest; Dependabot (github-actions, docker) bumps both. Checkouts never keep the token.
+# R2 deploy job: put `permissions` (packages: write) on that job only, run it on push to main only.
 name: CI
 
 on:
@@ -16,7 +19,7 @@ concurrency:
 
 jobs:
   build-test:
-    name: format · lint · test · build
+    name: format · lint · audit · test · build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -24,28 +27,43 @@ jobs:
         working-directory: product
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         env:
           # Throwaway CI-only database, not a secret.
-          POSTGRES_USER: ottimo
-          POSTGRES_PASSWORD: ci_only
+          POSTGRES_USER: ottimo_admin
+          POSTGRES_PASSWORD: ci_admin_only
           POSTGRES_DB: ottimo_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ottimo -d ottimo_test"
+          --health-cmd "pg_isready -h 127.0.0.1 -U ottimo_admin -d ottimo_test"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      DATABASE_URL: postgres://ottimo:ci_only@localhost:5432/ottimo_test
+      # Tests run as the application role, never as the superuser (FB-R1-SEC-OPS-01).
+      DATABASE_URL: postgres://ottimo_app:ci_app_only@localhost:5432/ottimo_test
+      MIGRATION_DATABASE_URL: postgres://ottimo_owner:ci_owner_only@localhost:5432/ottimo_test
       TURBO_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - name: Create database roles (same script as docker compose)
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGPASSWORD: ci_admin_only
+          POSTGRES_USER: ottimo_admin
+          OTTIMO_DATABASES: ottimo_test
+          OTTIMO_OWNER_DB_PASSWORD: ci_owner_only
+          OTTIMO_APP_DB_PASSWORD: ci_app_only
+        run: bash infra/postgres/init/02-roles.sh
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: product/package.json
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: product/.nvmrc
           # Only enable the pnpm cache once the lockfile is committed (setup-node fails without it).
@@ -53,16 +71,32 @@ jobs:
           cache-dependency-path: product/pnpm-lock.yaml
 
       - name: Install dependencies
+        id: install
         run: |
           if [ -f pnpm-lock.yaml ]; then
             pnpm install --frozen-lockfile
           else
-            echo "::warning title=Missing lockfile::product/pnpm-lock.yaml is not committed yet. Install is not reproducible. Commit the lockfile (see docs/dev-setup.md); this fallback must be removed in Round 2."
+            echo "::warning title=Missing lockfile::product/pnpm-lock.yaml is not committed yet. Install is not reproducible. Download the 'pnpm-lock' artifact of this run and commit it (docs/dev-setup.md section 6). This fallback is removed in Round 2."
             pnpm install --no-frozen-lockfile
+            echo "generated_lockfile=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # FB-R1-ARC-OPS-02: hand the generated lockfile back so it can be committed without a local Node.
+      - name: Upload generated lockfile
+        if: steps.install.outputs.generated_lockfile == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pnpm-lock
+          path: product/pnpm-lock.yaml
+          retention-days: 7
+
+      # FB-R1-SEC-OPS-05 (SR-SUP-01): fail on High/Critical advisories. Accepted exceptions go in
+      # package.json > pnpm.auditConfig.ignoreCves, each with an expiry noted in the PR.
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+
       - name: Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: product/.turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -71,29 +105,47 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Lint (ESLint + tsc)
+      - name: Lint (ESLint once for the workspace + tsc per package)
         run: pnpm lint
 
-      - name: Test (Vitest, real PostgreSQL)
+      - name: Test (Vitest, real PostgreSQL as ottimo_app)
         run: pnpm test
 
       - name: Build
         run: pnpm build
+
+  contract-lint:
+    # FB-R1-ARC-OPS-08: lint docs/api/openapi.yaml. R1 reports only (continue-on-error); R2 blocks.
+    name: OpenAPI lint (Redocly)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: product/.nvmrc
+      - name: Redocly lint
+        run: npx --yes @redocly/cli@1.34.21 lint product/docs/api/openapi.yaml
 
   secrets-scan:
     name: gitleaks
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       # Run the gitleaks CLI image directly (no license needed, unlike gitleaks-action for orgs).
+      # Allowlist with reasons: .github/gitleaks.toml.
       - name: Scan full git history for secrets
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/repo" -w /repo \
-            ghcr.io/gitleaks/gitleaks:v8.21.2 \
-            detect --source=/repo --redact --verbose --exit-code 1
+            ghcr.io/gitleaks/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46 \
+            detect --source=/repo --config=/repo/.github/gitleaks.toml --redact --verbose --exit-code 1
 
   docker-build:
     name: docker images build
@@ -101,20 +153,39 @@ jobs:
     timeout-minutes: 20
     needs: build-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Build api image
         run: docker build -f product/infra/docker/Dockerfile.api -t ottimo-api:ci product
       - name: Build web image
         run: docker build -f product/infra/docker/Dockerfile.web -t ottimo-web:ci product
-      - name: Smoke test GET /health against PostgreSQL
+      - name: Smoke test GET /health against PostgreSQL (app role, same init scripts as dev)
+        env:
+          PG_IMAGE: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         run: |
           docker network create ottimo-ci
           docker run -d --name pg --network ottimo-ci \
-            -e POSTGRES_USER=ottimo -e POSTGRES_PASSWORD=ci_only -e POSTGRES_DB=ottimo \
-            postgres:17-alpine
-          for i in $(seq 1 30); do docker exec pg pg_isready -U ottimo -d ottimo && break; sleep 2; done
-          docker run -d --name api --network ottimo-ci -p 3000:3000 \
-            -e DATABASE_URL=postgres://ottimo:ci_only@pg:5432/ottimo ottimo-api:ci
-          for i in $(seq 1 30); do curl -fsS http://localhost:3000/health && exit 0; sleep 2; done
+            -e POSTGRES_USER=ottimo_admin -e POSTGRES_PASSWORD=ci_admin_only -e POSTGRES_DB=ottimo \
+            -e OTTIMO_OWNER_DB_PASSWORD=ci_owner_only -e OTTIMO_APP_DB_PASSWORD=ci_app_only \
+            -v "$GITHUB_WORKSPACE/product/infra/postgres/init:/docker-entrypoint-initdb.d:ro" \
+            "$PG_IMAGE"
+          for i in $(seq 1 30); do
+            docker exec pg pg_isready -h 127.0.0.1 -U ottimo_admin -d ottimo && break; sleep 2
+          done
+          docker run -d --name api --network ottimo-ci -p 127.0.0.1:3000:3000 -e APP_ENV=test \
+            -e DATABASE_URL=postgres://ottimo_app:ci_app_only@pg:5432/ottimo ottimo-api:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health; then
+              # The image must refuse to start without APP_ENV (fail-fast config, FB-R1-SEC-OPS-09).
+              if docker run --rm --network ottimo-ci \
+                -e DATABASE_URL=postgres://ottimo_app:ci_app_only@pg:5432/ottimo ottimo-api:ci; then
+                echo "api started without APP_ENV"; exit 1
+              fi
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs pg
           docker logs api
           exit 1

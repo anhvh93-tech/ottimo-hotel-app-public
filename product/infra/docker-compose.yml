@@ -1,27 +1,33 @@
-# OTTIMO Desk – local DEV environment (not for production).
-# Run from product/:   cp .env.example .env   (edit POSTGRES_PASSWORD)   then   pnpm dev
+# OTTIMO Desk – local DEV environment (not for production; production gets its own
+# infra/docker-compose.prod.yml in R2 and never reuses these dev settings).
+# Run from product/:   cp .env.example .env   (fill the *_PASSWORD values)   then   pnpm dev
 # (= docker compose --env-file .env -f infra/docker-compose.yml up --build)
 #
-#   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext
-#   api       127.0.0.1:3000   GET /health
+#   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext + roles ottimo_owner/app/readonly
+#   api       127.0.0.1:3000   GET /health (connects as ottimo_app, never as the superuser)
 #   worker    (no port)        same image as api, entrypoint dist/worker.js
 #   web       127.0.0.1:8081   admin-web | :8082 mobile (PWA) | :8083 guest-web  (Caddy, proxies /health and /v1 to api)
 # Ports are bound to 127.0.0.1 only so nothing is exposed on the LAN.
 name: ottimo-dev
 
 x-api-env: &api-env
+  APP_ENV: dev
   NODE_ENV: development
-  DATABASE_URL: postgres://${POSTGRES_USER:-ottimo}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
+  DATABASE_URL: postgres://ottimo_app:${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
   LOG_LEVEL: ${LOG_LEVEL:-info}
   CLOCK_OVERRIDE: ${CLOCK_OVERRIDE:-}
+  # Dev trusts no proxy: X-Forwarded-For is ignored (FB-R1-ARC-OPS-04). Production sets Caddy's IP.
+  TRUST_PROXY: ''
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ottimo}
+      POSTGRES_USER: ${POSTGRES_USER:-ottimo_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}
       POSTGRES_DB: ${POSTGRES_DB:-ottimo}
+      OTTIMO_OWNER_DB_PASSWORD: ${OTTIMO_OWNER_DB_PASSWORD:?set OTTIMO_OWNER_DB_PASSWORD in product/.env}
+      OTTIMO_APP_DB_PASSWORD: ${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}
       TZ: UTC
     ports:
       - '127.0.0.1:5432:5432'
@@ -29,7 +35,8 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      # -h 127.0.0.1: only TCP counts, so "healthy" means the init scripts have finished.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -54,15 +61,16 @@ services:
     restart: unless-stopped
 
   worker:
+    # Reuses the image built by `api` (only one service builds it – FB-R1-ARC-OPS-07).
     image: ottimo-api:dev
-    build:
-      context: ..
-      dockerfile: infra/docker/Dockerfile.api
+    pull_policy: never
     command: ['node', 'dist/worker.js']
     environment: *api-env
     depends_on:
       postgres:
         condition: service_healthy
+      api:
+        condition: service_started
     restart: unless-stopped
 
   web:
@@ -70,6 +78,9 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.web
+    # The DEV Caddyfile is mounted, not baked into the image (FB-R1-ARC-OPS-07).
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
     ports:
       - '127.0.0.1:8081:8081'
       - '127.0.0.1:8082:8082'

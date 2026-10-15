@@ -1,7 +1,7 @@
 # Mô hình dữ liệu (ERD) – OTTIMO Desk
 
-- Người viết: ARC | Round 1 – Bước 2 – Đợt 3 (Pha B) | Ngày: 15/10/2026 | Phiên bản: 0.1
-- Trạng thái: **Bản nháp** – chờ review bắt buộc BE, SEC; khuyến nghị DATA (mục 8, 13.2), INT (bảng tích hợp), BA/DOM (mục 5, 7, 9)
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2
+- Trạng thái: **Đã sửa theo review bước 3** (SEC-on-ARC 26 thẻ, BE-on-ARC 18 thẻ, DATA-on-ARC 11 thẻ – xem `rounds/round-01/responses/ARC-responses.md`) và quyết định mới trong decision-log (SEC, DOM, PO, DATA, phân xử ORC 15/10). Đối chiếu `metrics-definitions.md` v0.2 mục 9, `security-requirements.md` v0.2
 - Đầu vào: `architecture.md` (ADR-001…013), `state-machines.md` (SM-01…SM-15), `rbac-matrix.md`, `business-rules.md` (BR, mục 13 tham số), `metrics-definitions.md` (mục 9 – trường bắt buộc), `security/data-risk-assessment.md` (C0–C3, D01–D28, T01–T18), `integrations.md`, `product/integrations/README.md`, `round-0-baseline.md` (BL mục 4), `03-backlog/backlog.md` (Must R2)
 - Đọc cùng: `api/openapi.yaml` (hợp đồng API), `coding-standards.md` (quy tắc migration, đặt tên), `architecture.md` mục 9 (job theo lịch) và mục 9a (mã chứng từ)
 - Tài liệu này **không chép con số nghiệp vụ**: mọi giá trị mặc định nằm trong `business-rules.md` mục 13 và được nạp vào bảng `config_parameter` (mục 9).
@@ -13,8 +13,10 @@
 | Chủ đề | Quy ước |
 |---|---|
 | Tên bảng, cột | `snake_case`, tiếng Anh, **số ít** (`reservation`, `room`). Khóa ngoại `<bảng>_id`. Cột thời điểm `*_at`, ngày `*_date`/`*_on`, giờ cấu hình `*_time`, tiền `*_vnd`, tỷ lệ `*_pct` |
-| Khóa chính | `id uuid` – UUIDv7 sinh ở ứng dụng (sắp xếp theo thời gian, không lộ số lượng). Ngoại lệ: bảng append-only lớn dùng `bigint generated always as identity` (`audit_event`, `c3_access_log`, `integration_log`) |
-| Tiền | `bigint` **VND nguyên** (BR-004). Không dùng `numeric`/`float` cho tiền. Âm = giảm trừ/hoàn |
+| Khóa chính | `id uuid` – UUIDv7 sinh ở ứng dụng bằng thư viện `uuid@^11` (`v7()`) – Node 22 và PG 17 chưa có sẵn (sắp xếp theo thời gian, không lộ số lượng). Ngoại lệ: bảng append-only lớn dùng `bigint generated always as identity` (`audit_event`, `c3_access_log`, `integration_log`) |
+| Khóa ngoại cấp cơ sở (BE-ARC-09) | Mọi bảng cấp cơ sở có `UNIQUE (property_id, id)`; FK tới bảng cấp cơ sở **luôn là cặp** `(property_id, x_id) REFERENCES x(property_id, id)` để DB chặn trỏ chéo cơ sở kể cả khi RLS bị bỏ qua. Áp ít nhất cho FK tới: `room`, `room_group`, `reservation`, `reservation_segment`, `folio`, `registration`, `room_block`, `guest_document`, `work_order` |
+| Tiền | `bigint` **VND nguyên** (BR-004). Không dùng `numeric`/`float` cho tiền. Âm = giảm trừ/hoàn. Driver `pg` trả `int8` dạng chuỗi → `types.setTypeParser(20, parseSafeBigint)` ném lỗi khi vượt 2^53; Drizzle `bigint({ mode: 'number' })` |
+| Ngày nghiệp vụ | Đổi lúc **06:00** giờ cơ sở (`business_day_rollover`, BR-010): 00:00–05:59 thuộc ngày hôm trước. `Clock.businessDate()` áp quy tắc này; hạn pháp lý (BR-602/603) tính theo giờ thực |
 | Tỷ lệ | `numeric(7,4)` theo **phần trăm** (15,5% lưu `15.5000`) |
 | Thời điểm | `timestamptz` (lưu UTC, ADR-008). API trả kèm offset `+07:00` |
 | Ngày lưu trú | `date` theo `property.timezone`. Khoảng lưu trú `[from, to)` (BR-002) – kiểu `daterange` ở bảng chiếm phòng |
@@ -28,25 +30,83 @@
 
 ## 2. Đa cơ sở và Row Level Security (ADR-007)
 
-1. **Ba vai DB**: `ottimo_owner` (chủ schema, chạy migration), `ottimo_app` (api + worker; **không** `BYPASSRLS`, không quyền `UPDATE/DELETE` trên bảng append-only), `ottimo_readonly` (sao lưu/khắc phục sự cố, có `BYPASSRLS`, chỉ OPS dùng qua runbook).
-2. **Biến phiên** đặt bằng `SET LOCAL` ở đầu **mỗi giao dịch** (middleware api; worker đặt theo từng cơ sở khi duyệt): `app.organization_id`, `app.property_id`, `app.user_id`, `app.actor_type` (`user|guest|system`).
-3. **Chính sách** (sinh tự động trong migration cho mọi bảng có cột tương ứng):
-   ```sql
-   ALTER TABLE <t> ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE <t> FORCE ROW LEVEL SECURITY;
-   -- bảng cấp cơ sở
-   CREATE POLICY tenant_isolation ON <t>
-     USING (property_id = current_setting('app.property_id', true)::uuid)
-     WITH CHECK (property_id = current_setting('app.property_id', true)::uuid);
-   -- bảng cấp tổ chức (guest, app_user, consent_record…)
-   CREATE POLICY tenant_isolation ON <t>
-     USING (organization_id = current_setting('app.organization_id', true)::uuid)
-     WITH CHECK (organization_id = current_setting('app.organization_id', true)::uuid);
-   ```
-   Thiếu biến phiên → `current_setting(..., true)` trả NULL → không thấy dòng nào (an toàn mặc định).
-4. RLS chỉ tách **cơ sở**. Quyền theo **vai, hành động, trường** (rbac-matrix mục 4, 6) kiểm ở tầng ứng dụng: guard theo hành động + serializer theo vai (trường không được phép **không có trong JSON**). Phạm vi "M" (của mình) lọc bằng `created_by`, `closer_user_id`, `assigned_user_id`; phạm vi "T" (hôm nay) lọc bằng việc/phiếu giao trong ngày nghiệp vụ (rbac-matrix mục 8.2).
-5. Hồ sơ khách ở cấp tổ chức; dữ liệu C3 (giấy tờ, ảnh, mã cửa) gắn `property_id` của lượt lưu trú – không chia sẻ chéo cơ sở.
-6. **Test bắt buộc** (BE + QA): seed 2 cơ sở; người dùng cơ sở A gọi API/đọc DB với context cơ sở B → 0 dòng / HTTP 404.
+### 2.1 Vai DB (BE-ARC-01, -03; yêu cầu gửi OPS)
+| Vai | Thuộc tính | Dùng bởi | Quyền |
+|---|---|---|---|
+| `ottimo_owner` | `NOLOGIN NOSUPERUSER` | Chủ sở hữu schema `public`, các hàm `SECURITY DEFINER` (mục 2.4), schema `pgboss` | Mọi DDL |
+| `ottimo_migrator` | `LOGIN NOSUPERUSER NOBYPASSRLS`, `IN ROLE ottimo_owner` (`SET ROLE ottimo_owner` khi chạy) | `pnpm db:migrate` (bước riêng trước khi bật api mới), cài/nâng cấp pg-boss | DDL qua `ottimo_owner` |
+| `ottimo_app` | `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE` | **api và worker** (cùng một vai – không có "vai job riêng"; câu cũ ở ADR-007 đã bỏ) | `SELECT/INSERT/UPDATE` trên bảng nghiệp vụ; **không** `UPDATE/DELETE` trên bảng append-only (K8); `DELETE` chỉ trên bảng kỹ thuật được liệt kê (phiên, khóa idempotency, `dev_clock`); `EXECUTE` các hàm 2.4; DML trên schema `pgboss` |
+| `ottimo_readonly` | `LOGIN BYPASSRLS` | OPS qua runbook (khắc phục sự cố, đối soát) – không bao giờ là vai của ứng dụng | `SELECT` |
+
+- Biến môi trường: `DATABASE_URL` (vai `ottimo_app`) cho api/worker/test; `MIGRATION_DATABASE_URL` (vai `ottimo_migrator`) chỉ cho bước migrate. Áp cho cả DB `ottimo_test` và CI.
+- **Yêu cầu OPS** (OPS sửa compose/CI/init – ARC không sửa file của OPS): script init tạo 4 vai trên; compose và CI tách 2 URL; api/worker **không** dùng `POSTGRES_USER` (superuser luôn bỏ qua RLS và REVOKE → test RLS/K8 vô nghĩa); `trustProxy` của Fastify giới hạn về địa chỉ/subnet của Caddy.
+- Khởi động api/worker kiểm `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` → phải `false,false`, nếu không thì dừng (SR-SECR-05(d)); test kiến trúc kiểm như vậy khi chạy test.
+
+### 2.2 Biến phiên – một tên, đặt bằng `set_config`
+- Tên chốt: `app.organization_id`, `app.property_id` (**số ít** – mỗi request một cơ sở theo đường dẫn), `app.user_id`, `app.actor_type` (`user|guest|system`). ADR-007 đã sửa cho khớp (bỏ `app.org_id`, `app.property_ids`). Báo cáo chuỗi (R4+) sẽ dùng policy riêng với `app_current_property_ids()`.
+- `SET LOCAL` không nhận tham số bind → middleware chạy **câu lệnh đầu tiên** của mọi giao dịch:
+  ```sql
+  SELECT set_config('app.organization_id', $1, true),
+         set_config('app.property_id',     $2, true),
+         set_config('app.user_id',         $3, true),
+         set_config('app.actor_type',      $4, true);
+  ```
+- Mọi truy vấn (kể cả chỉ đọc) chạy trong giao dịch có ngữ cảnh. Worker đặt ngữ cảnh theo từng cơ sở khi lặp.
+
+### 2.3 Chính sách (sinh tự động trong migration)
+Sau khi một giao dịch có `set_config(..., true)` kết thúc, kết nối tái sử dụng trả `''` (không phải NULL) cho `current_setting(..., true)` → `''::uuid` ném lỗi. Vì vậy dùng hàm bọc `NULLIF`:
+```sql
+CREATE FUNCTION app_current_property() RETURNS uuid LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT NULLIF(current_setting('app.property_id', true), '')::uuid $$;
+CREATE FUNCTION app_current_org() RETURNS uuid LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT NULLIF(current_setting('app.organization_id', true), '')::uuid $$;
+
+ALTER TABLE <t> ENABLE ROW LEVEL SECURITY;
+ALTER TABLE <t> FORCE ROW LEVEL SECURITY;
+-- bảng cấp cơ sở
+CREATE POLICY tenant_isolation ON <t>
+  USING (property_id = app_current_property()) WITH CHECK (property_id = app_current_property());
+-- bảng cấp tổ chức (guest, app_user, consent_record…)
+CREATE POLICY tenant_isolation ON <t>
+  USING (organization_id = app_current_org()) WITH CHECK (organization_id = app_current_org());
+-- bảng có thể ở cả hai cấp (doc_sequence)
+CREATE POLICY tenant_isolation ON doc_sequence
+  USING (organization_id = app_current_org() AND (property_id IS NULL OR property_id = app_current_property()))
+  WITH CHECK (organization_id = app_current_org() AND (property_id IS NULL OR property_id = app_current_property()));
+```
+Thiếu ngữ cảnh → hàm trả NULL → 0 dòng, **không lỗi** (an toàn mặc định). Bộ sinh policy dựa vào cột `property_id`/`organization_id`; test kiến trúc quét `pg_class` → mọi bảng trong `public` (trừ danh sách ngoại lệ có ghi lý do: `config_parameter_def`, `dev_clock`) phải `relrowsecurity` và `relforcerowsecurity`.
+
+View dùng `WITH (security_invoker = true)` (PG ≥ 15) để RLS áp theo người gọi (ví dụ `v_folio_balance`).
+
+### 2.4 Truy vấn "đường vào" trước khi có ngữ cảnh – hàm `SECURITY DEFINER` (BE-ARC-01)
+Sáu truy vấn chạy trước khi biết cơ sở/tổ chức. Không tắt RLS, không dùng vai `BYPASSRLS` cho api; thay bằng hàm hẹp, chủ là `ottimo_owner`, `SET search_path = pg_catalog, public`, chỉ trả đúng cột cần, `REVOKE ALL … FROM PUBLIC; GRANT EXECUTE … TO ottimo_app`:
+
+| Hàm | Trả | Dùng ở |
+|---|---|---|
+| `auth_find_user(p_username text)` | `(user_id, organization_id, password_hash, status, locked_until, failed_login_count, must_change_password, mfa_enabled)` | `POST /v1/auth/login` – `username` **duy nhất toàn hệ thống** (citext UK) |
+| `auth_resolve_session(p_sid_hash text)` | `(session_id, user_id, organization_id, active_property_id, expires_at, revoked_at, roles_version, trusted_device_id)` | Mỗi request nhân viên |
+| `auth_resolve_device(p_did_hash text)` | `(device_id, property_id, organization_id, expires_at, revoked_at)` | Kiểm `__Host-ottimo_did` |
+| `guest_resolve_token(p_token_hash text)` | `(token_id, reservation_id, property_id, organization_id, expires_at, revoked_at)` | `POST /v1/guest/sessions`, mỗi request khách (qua `guest_session.token_id`) |
+| `webhook_resolve_property(p_provider text, p_slug text)` | `(property_id, organization_id)` | `/v1/webhooks/{kind}/{provider}/{propertySlug}` |
+| `public_resolve_unit(p_unit_slug text)` | `(property_id, organization_id, room_id)` | `/v1/public/units/{unitSlug}` |
+| `worker_list_properties()` | `(property_id, organization_id, timezone)` của cơ sở `active` | Worker trước khi lặp theo cơ sở |
+
+Sau khi hàm trả kết quả, middleware đặt ngữ cảnh (2.2) rồi mọi truy vấn khác chạy dưới RLS. Mỗi hàm có test riêng: chỉ trả các cột trên, không trả dòng `revoked`/hết hạn sai.
+
+### 2.5 Schema `pgboss` và LISTEN
+- `pgboss` nằm **ngoài RLS** (bảng hàng đợi kỹ thuật, không chứa dữ liệu khách – payload job chỉ có id). `ottimo_migrator` cài/nâng cấp schema ở bước migrate (`migrate: false` khi api/worker khởi động); `ottimo_app` chỉ DML.
+- Handler job **không** dùng kết nối của pg-boss cho hiệu ứng nghiệp vụ – dùng pool app có ngữ cảnh RLS (mẫu ở `architecture.md` 9.1).
+- api giữ **1 kết nối riêng ngoài pool** để `LISTEN` (`config_changed`, `clock_changed`, `sse_event`), tự nối lại khi rớt (lùi cấp số nhân, tối đa 30 giây) và refetch trạng thái sau khi nối lại.
+
+### 2.6 Quyền theo vai, phạm vi, trường
+RLS chỉ tách **cơ sở**. Quyền theo **vai, hành động, trường** (rbac-matrix mục 4, 6) kiểm ở tầng ứng dụng: guard theo hành động + serializer theo vai (trường không được phép **không có trong JSON**). Phạm vi "M" lọc bằng `created_by`, `closer_user_id`, `assigned_user_id`; phạm vi "T" lọc bằng việc/phiếu giao trong ngày nghiệp vụ. Quyền đọc từ `user_property_role` mỗi request (cache ≤ 60 giây theo `app_user.roles_version` – SR-AZ-08). Hồ sơ khách ở cấp tổ chức; dữ liệu C3 gắn `property_id` của lượt lưu trú – không chia sẻ chéo cơ sở.
+
+### 2.7 Test bắt buộc (BE + QA)
+1. Seed 2 cơ sở; người dùng cơ sở A gọi API/đọc DB với ngữ cảnh cơ sở B → 0 dòng / HTTP 404.
+2. **Kết nối tái sử dụng**: chạy 1 giao dịch có ngữ cảnh, rồi trên **cùng kết nối** truy vấn không ngữ cảnh → 0 dòng, **không lỗi**.
+3. Vai chạy test: `rolsuper=false, rolbypassrls=false`.
+4. Thử `UPDATE/DELETE` bảng append-only bằng `ottimo_app` → lỗi quyền (K8).
+5. Mỗi hàm 2.4 không trả cột ngoài danh sách.
 
 ## 3. Sơ đồ quan hệ (Mermaid)
 

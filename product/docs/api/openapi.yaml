@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.1.0-draft
+  version: 0.2.0-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -24,9 +24,26 @@ info:
     - **Idempotency** (ADR-009): header `Idempotency-Key` (UUID) **bắt buộc** với mọi POST tạo đơn/giữ chỗ/thu tiền/chuyển trạng thái
       và mọi thao tác gửi từ hàng đợi offline của PWA. Gửi lại cùng key + cùng body → trả lại phản hồi cũ (kèm header `Idempotent-Replayed: true`);
       cùng key khác body → `422 IDEMPOTENCY_KEY_REUSED`; request trước còn đang xử lý → `409 IDEMPOTENCY_IN_PROGRESS`.
+      Header khai `required: false` trong spec để validator không trả `422`; **middleware** kiểm operation có tham số này và trả
+      `428 PRECONDITION_REQUIRED` khi thiếu (bảng mã lỗi là chuẩn).
+      Khóa = (`principal_type` `user|guest_session`, `principal_id`, `key`). Bản ghi khóa INSERT `state=in_progress` **trong cùng giao dịch nghiệp vụ**:
+      request trùng song song chờ UK rồi nhận `409 IDEMPOTENCY_IN_PROGRESS`; giao dịch rollback thì khóa cũng mất, client gửi lại được.
+    - **Thứ tự kiểm** (bắt buộc, middleware dùng chung): xác thực → CSRF/Origin → thiết bị tin cậy (nếu `x-requires-trusted-device`)
+      → `Idempotency-Key` (đã hoàn tất → trả lại phản hồi cũ, **không** kiểm `If-Match` nữa) → `If-Match` → quyền vai/phạm vi → nghiệp vụ.
+      Nhờ vậy thao tác offline gửi lại sau khi đã thành công nhận lại kết quả cũ thay vì `412`.
+    - **`dryRun: true`** (tính thử) **không** cần `Idempotency-Key`/`If-Match`, không ghi gì và không tiêu khóa; chỉ lần gọi thật mới cần.
     - **Khóa lạc quan**: GET tài nguyên sửa được trả `ETag: "<version>"`; PATCH và các hành động đổi trạng thái của đơn/folio/khai báo
       **bắt buộc** `If-Match: "<version>"`. Thiếu → `428 PRECONDITION_REQUIRED`; lệch → `412 VERSION_CONFLICT`
-      ("Dữ liệu vừa thay đổi, tải lại" – state-machines 0.2.6).
+      ("Dữ liệu vừa thay đổi, tải lại" – state-machines 0.2.6). Ngoại lệ có chủ đích: thêm dòng folio (`addFolioLine`) là chỉ-thêm,
+      không cần `If-Match`; server khóa `folio … FOR UPDATE` và trả `409 FOLIO_LOCKED` nếu bill đã khóa.
+    - **Thiết bị tin cậy** (SR-DEV-01…06, decision-log SEC): operation có `x-requires-trusted-device: true` (mọi đọc/ghi C3 của nhân viên) chỉ chạy khi
+      request có cookie `__Host-ottimo_did` hợp lệ, chưa thu hồi, cùng cơ sở → nếu không `403 DEVICE_NOT_TRUSTED` + `audit_event access.denied`.
+      PWA nhân viên không bao giờ được cấp. Trực đêm dùng **thiết bị của cơ sở** đã được owner cấp (phân xử ORC 15/10).
+    - **App khách** (ADR-006): operation `/v1/guest/*` có `x-guest-level` = `1` (chỉ cần link) hoặc `2` (đã xác minh bằng OTP email hoặc mã lễ tân cấp).
+      Sau khi đơn `checked_out` chỉ còn `getGuestFolio` + thanh toán phát sinh (mức 2); mọi operation khác trả `403 GUEST_STAY_ENDED` (SR-GST-11).
+      Thuộc tính có `x-guest-level: 2` vắng mặt khi phiên mới ở mức 1.
+    - **Ba origin** (SR-HDR-04): admin-web, PWA nhân viên, guest-web ở 3 tên miền con; mỗi origin proxy `/v1` tới api (không CORS);
+      cookie host-only tiền tố `__Host-`. Ở dev HTTP tên cookie bỏ tiền tố qua cấu hình `COOKIE_SECURE_PREFIX=false`.
     - **Phân quyền** (rbac-matrix mục 8): mỗi operation có `x-roles` (vai được gọi) và `x-scope` (phạm vi dữ liệu theo vai:
       `all` toàn cơ sở, `own` của mình, `today` việc hôm nay, `reservation` đơn của khách). Vai không có trong `x-roles` → `403 FORBIDDEN_ACTION`
       và ghi nhật ký lần bị từ chối (US-002 AC2). Bản ghi ngoài phạm vi hoặc thuộc cơ sở khác → `404 NOT_FOUND` (không lộ sự tồn tại).
@@ -34,8 +51,21 @@ info:
       với vai khác thuộc tính **vắng mặt** (không phải `null`). Thuộc tính có `x-classification: C3` chỉ trả qua endpoint `.../sensitive`
       hoặc tải ảnh, mỗi lần đều ghi `c3_access_log`, luôn `Cache-Control: no-store`.
     - **Hành động hợp lệ**: tài nguyên có máy trạng thái trả `allowedActions[]` tính theo trạng thái **và** vai người gọi (US-020).
-    - **Bảo mật**: nhân viên dùng cookie phiên `ottimo_sid` (HttpOnly, Secure, SameSite=Lax) + header `X-CSRF-Token` cho method ghi;
-      khách dùng cookie `ottimo_gsid` sau khi đổi token link (ADR-006). Không đưa dữ liệu C2/C3 vào URL/query.
+      Mỗi phần tử có `action` (tên route `kebab-case`) **và** `event` = mã chuyển của BA (`B4`, `B9`, `K6`…, state-machines.md) để FE/QA đối chiếu.
+    - **Bảo mật**: nhân viên dùng cookie phiên `__Host-ottimo_sid` (HttpOnly, Secure, SameSite=Lax, Path=/) + header `X-CSRF-Token` và `Origin` hợp lệ cho method ghi;
+      khách dùng cookie `__Host-ottimo_gsid` sau khi đổi token link (ADR-006). Không đưa dữ liệu C2/C3 vào URL/query.
+      Đổi vai, khóa tài khoản, đặt lại/đổi mật khẩu, tắt 2FA → **thu hồi ngay mọi phiên** của người đó; quyền đọc theo `user_property_role`
+      mỗi request (cache ≤ 60 giây có `roles_version`) – SR-SES-06, SR-AZ-08.
+    - **Nhật ký**: `AuditEvent.before/after` sinh bằng serializer audit theo **danh sách trường cho phép** từng thực thể; cột `_enc` và giá trị C3
+      không bao giờ vào nhật ký (SR-AUD-03).
+    - **Tệp tải lên** (SR-FILE-01…06, bản SEC v0.2): server chỉ nhận **JPEG, PNG, WebP** xác định bằng magic bytes cho mọi kênh;
+      **không nhận PDF, không nhận HEIC/HEIF** (→ `422 FILE_REJECTED` kèm hướng dẫn chụp lại); client chuẩn hóa (canvas → JPEG ~0,85, cạnh ≤ 2.500 px);
+      ≤ 10 MB/tệp, ≤ 40 MP, ≤ 4 ảnh/người/giấy tờ, ≤ 30 tệp/đơn từ app khách; server vẫn **mã hóa lại** ảnh (sharp), bỏ EXIF/GPS; phản hồi tệp có `Cache-Control: no-store`,
+      `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'`, `Content-Disposition: inline; filename="document"`.
+    - **Xác nhận lại (step-up)**: operation có `x-step-up: true` cần PIN duyệt hoặc mật khẩu trong cửa sổ trượt `c3_stepup_minutes`
+      (mặc định 15 phút, mỗi thao tác C3 gia hạn) qua `POST /v1/me/step-up`; hết cửa sổ → `401 REAUTH_REQUIRED` (SR-C3-09).
+    - **Endpoint kiểm thử**: `/__test__/*` (đặt/tua giờ `MutableClock`, chạy job theo yêu cầu) **không** thuộc hợp đồng này – xem `openapi.test.yaml`;
+      chỉ đăng ký khi `APP_ENV ∈ {dev, test, staging}`, không bao giờ ở production.
     - **Hành động không đảo ngược** (US-135): hủy đơn, trả sớm, đặt trả muộn hỗ trợ `dryRun: true` để client hiện hộp xác nhận nêu hậu quả
       (đêm mở bán lại, khoản giữ lại/hoàn, phụ thu); hoàn tất trả phòng dùng `GET .../checkout-summary`. Server **không** dựa vào hộp xác nhận
       để bảo vệ dữ liệu – mọi điều kiện vẫn kiểm lại khi ghi.
@@ -81,10 +111,23 @@ info:
     | GUEST_VERIFICATION_REQUIRED | 403 | Cần xác minh mức 2 (ADR-006) |
     | FILE_REJECTED | 422 | Tệp sai loại/kích thước/có mã độc |
     | RATE_LIMITED | 429 | Quá số lần (đăng nhập, xác minh khách) |
+    | DEVICE_NOT_TRUSTED | 403 | Thao tác C3 từ thiết bị chưa được owner cấp (SR-DEV-03) |
+    | GUEST_VERIFICATION_LOCKED | 429 | Token khách sai xác minh quá 5 lần/24 giờ – nhờ lễ tân cấp mã (SR-GST-08) |
+    | GUEST_STAY_ENDED | 403 | Đơn đã trả phòng – chỉ còn xem bill/thanh toán phát sinh (SR-GST-11) |
+    | DELIVERY_CHANNEL_DISABLED | 409 | Kênh gửi mã xác minh (OTA/Zalo) chưa được owner bật (phân xử ORC 15/10) |
+    | MFA_REQUIRED | 401 | Cần mã TOTP để hoàn tất đăng nhập (SR-AUTH-06, R3) |
+    | PASSWORD_CHANGE_REQUIRED | 403 | Đang dùng mật khẩu tạm – chỉ được gọi `POST /v1/me/password` (SR-AUTH-05) |
+    | REAUTH_REQUIRED | 401 | Cần xác nhận lại PIN/mật khẩu trước thao tác C3 (SR-C3-09) |
+    | PAYLOAD_TOO_LARGE | 413 | Body/tệp vượt giới hạn (webhook 64 KB, tệp 10 MB) |
 
     ## Phạm vi bản nháp
-    Phủ 71 story Must R2 (`03-backlog/backlog.md` mục 4). Endpoint R3 chỉ để chỗ (webhook) và ghi `x-round: R3`.
+    Phủ 74 story Must R2 (`03-backlog/backlog.md` mục 4). Endpoint R3 chỉ để chỗ và ghi `x-round: R3`.
     Mỗi operation có `x-stories` (US-xxx) và `x-rbac` (mã hành động A-xx hoặc màn hình S-xx của rbac-matrix).
+
+    ## Thay đổi phiên bản 0.2.0-draft (R1 bước 4 – trả lời review SEC, BE, DATA)
+    Xác minh khách mức 2 bằng OTP email / mã lễ tân (bỏ `phoneLast4`, `bookingCode`); thiết bị tin cậy; thu hồi phiên; 2FA, đổi mật khẩu, PIN;
+    thông báo nhân viên; hoa hồng; webhook có `{propertySlug}`; lọc trường theo vai bổ sung; `TonightKpi.unassignedConflictReservations`;
+    đổi chéo căn; gửi lại link từ QR căn; rút đồng ý; thứ tự kiểm idempotency. Chi tiết: `rounds/round-01/responses/ARC-responses.md`.
   contact:
     name: ARC – OTTIMO Desk
 servers:
@@ -138,6 +181,14 @@ tags:
     description: SSE thời gian thực
   - name: webhooks
     description: Callback từ bên thứ ba (R3)
+  - name: devices
+    description: Thiết bị tin cậy cho dữ liệu C3 (SR-DEV-01…06)
+  - name: notifications
+    description: Thông báo trong app cho nhân viên (BE-ARC-06)
+  - name: commissions
+    description: Hoa hồng sale/CTV (US-087 AC2 thu hẹp R2; US-089 R3)
+  - name: public
+    description: Trang công khai của căn (QR trong phòng – không có dữ liệu khách)
 paths:
   /health:
     get:
@@ -145,19 +196,22 @@ paths:
       operationId: getHealth
       security: []
       x-roles: [public]
+      description: |
+        Ngoại lệ có chủ đích với chuẩn lỗi: `/health` luôn trả JSON thường (không `problem+json`) để công cụ giám sát đọc đơn giản.
+        Không lộ phiên bản, cấu hình hay lỗi chi tiết.
       responses:
         '200':
           description: Dịch vụ sống, DB kết nối được
           content:
             application/json:
-              schema:
-                type: object
-                required: [status, db, time]
-                properties:
-                  status: { type: string, enum: [ok] }
-                  db: { type: string, enum: [ok, down] }
-                  time: { $ref: '#/components/schemas/Instant' }
+              schema: { $ref: '#/components/schemas/Health' }
               example: { status: ok, db: ok, time: '2026-10-15T09:00:00+07:00' }
+        '503':
+          description: DB không kết nối được
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+              example: { status: error, db: down, time: '2026-10-15T09:00:00+07:00' }
 
   # ───────────────────────── auth / users ─────────────────────────
   /v1/auth/login:
@@ -168,9 +222,14 @@ paths:
       security: []
       x-roles: [public]
       x-stories: [US-001]
+      x-rate-limit: 5 sai/tài khoản/15 phút; 20 lần/IP/15 phút (SR-RL-01)
       description: |
-        Đặt cookie `ottimo_sid` (HttpOnly) và trả token CSRF. Sai nhiều lần → khóa tạm, `429 RATE_LIMITED`.
-        Thông báo lỗi không phân biệt "sai tên" hay "sai mật khẩu".
+        Đặt cookie `__Host-ottimo_sid` (HttpOnly) và trả token CSRF. Sai nhiều lần → khóa tạm, `429 RATE_LIMITED`.
+        Thông báo lỗi không phân biệt "sai tên" hay "sai mật khẩu"; thời gian phản hồi đồng đều.
+        **`username` duy nhất toàn hệ thống** (không chỉ theo tổ chức) nên body không cần mã tổ chức; tra người dùng bằng hàm
+        `auth_find_user()` SECURITY DEFINER (erd mục 2.4) vì chưa có ngữ cảnh RLS.
+        Tài khoản có 2FA (R3): trả `401 MFA_REQUIRED` kèm `mfaToken` ngắn hạn → gọi `POST /v1/auth/login/mfa`.
+        Mật khẩu tạm (`mustChangePassword=true` trong `Me`): mọi API khác trả `403 PASSWORD_CHANGE_REQUIRED` cho tới khi đổi.
       requestBody:
         required: true
         content:
@@ -188,7 +247,35 @@ paths:
           headers:
             Set-Cookie:
               schema: { type: string }
-              description: 'ottimo_sid=...; HttpOnly; Secure; SameSite=Lax; Path=/'
+              description: '__Host-ottimo_sid=...; HttpOnly; Secure; SameSite=Lax; Path=/'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/auth/login/mfa:
+    post:
+      tags: [auth]
+      operationId: loginMfa
+      summary: Bước 2 đăng nhập – mã TOTP hoặc mã khôi phục (SR-AUTH-06)
+      security: []
+      x-roles: [public]
+      x-round: R3
+      x-stories: [US-001]
+      x-rate-limit: 5 sai/người/15 phút (SR-RL-02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken, code]
+              properties:
+                mfaToken: { type: string, writeOnly: true, description: Token ngắn hạn (5 phút) trả kèm 401 MFA_REQUIRED }
+                code: { type: string, pattern: '^([0-9]{6}|[A-Z0-9]{10})$', writeOnly: true, description: TOTP 6 số hoặc mã khôi phục 10 ký tự }
+      responses:
+        '200':
+          description: Đăng nhập thành công (đặt cookie như `login`)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
@@ -198,10 +285,249 @@ paths:
     post:
       tags: [auth]
       operationId: logout
+      summary: Hủy phiên hiện tại. Tự nhiên idempotent (gọi lại vẫn 204) nên không cần Idempotency-Key.
       x-roles: [any_staff]
       x-stories: [US-001]
       responses:
         '204': { description: Đã hủy phiên }
+  /v1/me/password:
+    post:
+      tags: [auth]
+      operationId: changeMyPassword
+      summary: Tự đổi mật khẩu (cần mật khẩu cũ) – thu hồi mọi phiên khác, giữ phiên hiện tại (SR-AUTH-05, SR-SES-06)
+      x-roles: [any_staff]
+      x-stories: [US-001]
+      x-rate-limit: 5 sai/người/15 phút
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, writeOnly: true, minLength: 8, maxLength: 256 }
+                newPassword: { type: string, writeOnly: true, minLength: 10, maxLength: 256 }
+      responses:
+        '204': { description: Đã đổi; ghi `audit_event` security }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/me/approval-pin:
+    put:
+      tags: [auth]
+      operationId: setMyApprovalPin
+      summary: Đặt/đổi PIN duyệt 6 số (khác mật khẩu, argon2id) – vai có quyền duyệt (SR-AUTH-09, BR-432)
+      x-roles: [owner, manager, front_desk_lead]
+      x-rbac: [S01]
+      x-stories: [US-007]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, pin]
+              properties:
+                currentPassword: { type: string, writeOnly: true }
+                pin: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+      responses:
+        '204': { description: Đã đặt; ghi `audit_event` security }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/me/step-up:
+    post:
+      tags: [auth]
+      operationId: stepUp
+      summary: Xác nhận lại bằng PIN duyệt hoặc mật khẩu – mở cửa sổ trượt cho thao tác C3 (SR-C3-09)
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rate-limit: 5 sai/người/15 phút (SR-RL-02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+                password: { type: string, writeOnly: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [validUntil]
+                properties:
+                  validUntil: { $ref: '#/components/schemas/Instant' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/me/2fa:
+    get:
+      tags: [auth]
+      operationId: getMy2fa
+      summary: Trạng thái 2FA của tôi (R3; bắt buộc với owner, manager trước khi đưa dữ liệu thật)
+      x-roles: [any_staff]
+      x-round: R3
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, required]
+                properties:
+                  enabled: { type: boolean }
+                  required: { type: boolean, description: Vai owner/manager → true }
+                  recoveryCodesRemaining: { type: integer }
+    delete:
+      tags: [auth]
+      operationId: disableMy2fa
+      summary: Tắt 2FA (không cho vai bắt buộc) – cần mật khẩu + TOTP; thu hồi mọi phiên (SR-SES-06)
+      x-roles: [any_staff]
+      x-round: R3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaConfirmInput' }
+      responses:
+        '204': { description: Đã tắt }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /v1/me/2fa/setup:
+    post:
+      tags: [auth]
+      operationId: startMy2faSetup
+      summary: Bắt đầu đăng ký TOTP – trả URI otpauth để hiện QR (chỉ trả 1 lần, no-store)
+      x-roles: [any_staff]
+      x-round: R3
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword]
+              properties:
+                currentPassword: { type: string, writeOnly: true }
+      responses:
+        '200':
+          description: Bí mật tạm (chưa bật cho tới khi xác nhận)
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [otpauthUri]
+                properties:
+                  otpauthUri: { type: string, description: 'otpauth://totp/OTTIMO:<username>?secret=…' }
+  /v1/me/2fa/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmMy2fa
+      summary: Xác nhận mã TOTP đầu tiên → bật 2FA, trả 10 mã khôi phục (một lần, no-store)
+      x-roles: [any_staff]
+      x-round: R3
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+      responses:
+        '200':
+          description: Đã bật
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recoveryCodes]
+                properties:
+                  recoveryCodes: { type: array, items: { type: string }, minItems: 10, maxItems: 10 }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/me/notifications:
+    get:
+      tags: [notifications]
+      operationId: listMyNotifications
+      summary: Hộp thông báo của tôi (báo người tạo giữ chỗ, nhắc bộ phận, cọc sau khi hủy…) – R2 trong app + SSE; Web Push R3
+      description: Nội dung chỉ gồm loại + mã tham chiếu (mã đơn, số căn) – không C2/C3. Client dựng câu chữ theo `kind` (i18n UXD).
+      x-roles: [any_staff]
+      x-stories: [US-012, US-085, US-110, US-136]
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page, unreadCount]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/StaffNotification' } }
+                  page: { $ref: '#/components/schemas/PageInfo' }
+                  unreadCount: { type: integer }
+  /v1/me/notifications/{notificationId}/read:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [notifications]
+      operationId: markNotificationRead
+      summary: Đánh dấu đã đọc (idempotent tự nhiên – gọi lại vẫn 204)
+      x-roles: [any_staff]
+      responses:
+        '204': { description: OK }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/me/push-subscription:
+    put:
+      tags: [notifications]
+      operationId: putMyPushSubscription
+      summary: Đăng ký/cập nhật Web Push cho thiết bị này (PWA). Payload đẩy chỉ có loại + id (không C2/C3)
+      x-roles: [any_staff]
+      x-round: R3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                endpoint: { type: string, format: uri }
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh: { type: string, writeOnly: true }
+                    auth: { type: string, writeOnly: true }
+      responses:
+        '204': { description: Đã lưu }
+    delete:
+      tags: [notifications]
+      operationId: deleteMyPushSubscription
+      x-roles: [any_staff]
+      x-round: R3
+      responses:
+        '204': { description: Đã hủy đăng ký }
   /v1/me:
     get:
       tags: [auth]
@@ -225,7 +551,10 @@ paths:
                     timezone: Asia/Ho_Chi_Minh
                     roles: [front_desk_lead]
                     screens: [S01, S02, S03, S04, S05, S06, S07, S08, S09, S10, S11, S12, S13, S14, S15, S16, S23, S24, S25, S27, S29, S30]
+                    deviceTrusted: true
                 activePropertyId: 0192a1b0-0000-7000-8000-0000000000a1
+                mustChangePassword: false
+                mfaEnabled: false
         '401': { $ref: '#/components/responses/Unauthenticated' }
   /v1/users:
     get:
@@ -283,6 +612,9 @@ paths:
       tags: [users]
       operationId: updateUser
       summary: Khóa/mở tài khoản, đổi tên hiển thị, đặt lại mật khẩu
+      description: |
+        `status=disabled` hoặc `resetPassword` → **thu hồi ngay mọi phiên** của người đó (SR-SES-06), tăng `roles_version`,
+        ghi `audit_event` security. `resetPassword` đặt mật khẩu tạm + `must_change_password=true` (SR-AUTH-05).
       x-roles: [owner]
       x-rbac: [A100]
       x-stories: [US-002]
@@ -312,10 +644,15 @@ paths:
     put:
       tags: [users]
       operationId: setUserRoles
-      summary: Gán toàn bộ vai theo cơ sở cho tài khoản (US-002 AC1). Có hiệu lực ở lần đăng nhập/làm mới quyền kế tiếp.
+      summary: Gán toàn bộ vai theo cơ sở cho tài khoản (US-002 AC1). Có hiệu lực ngay – thu hồi mọi phiên đang chạy của người đó.
+      description: |
+        Trong cùng giao dịch: ghi `user_property_role`, tăng `app_user.roles_version`, đặt `revoked_at` cho mọi `user_session` của người đó
+        (SR-SES-06, SR-AZ-08). Request kế tiếp của phiên cũ nhận `401 UNAUTHENTICATED`. Ghi `audit_event` security.
       x-roles: [owner]
       x-rbac: [A100]
       x-stories: [US-002]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -336,6 +673,104 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ───────────────────────── trusted devices (SR-DEV) ─────────────────────────
+  /v1/properties/{propertyId}/trusted-devices:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [devices]
+      operationId: listTrustedDevices
+      summary: Danh sách thiết bị được cấp quyền C3 + lần dùng gần nhất (màn S26, SR-DEV-06)
+      x-roles: [owner]
+      x-rbac: [S26]
+      x-stories: [US-003]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/TrustedDevice' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [devices]
+      operationId: trustCurrentDevice
+      summary: Cấp quyền C3 cho **chính thiết bị đang gọi** (máy quầy / máy tính bảng của cơ sở) – SR-DEV-02
+      description: |
+        Chỉ gọi được từ origin **admin-web** (kiểm `Origin`); gọi từ origin PWA → `403 FORBIDDEN_ACTION` (SR-DEV-04).
+        Người cấp xác nhận lại mật khẩu (và TOTP khi đã bật 2FA). Server sinh 256 bit, đặt cookie
+        `__Host-ottimo_did` (HttpOnly; Secure; SameSite=Strict; hết hạn = `expiresAt`), DB lưu SHA-256. Hạn mặc định `trusted_device_days`.
+        Trực đêm dùng thiết bị của cơ sở được cấp theo cách này (phân xử ORC 15/10) – không cấp cho điện thoại cá nhân.
+        Ghi `audit_event` security.
+      x-roles: [owner]
+      x-rbac: [A100]
+      x-stories: [US-003]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, deviceKind, currentPassword, hardeningChecklistConfirmed]
+              properties:
+                name: { type: string, maxLength: 80, example: Máy quầy lễ tân 1 }
+                deviceKind:
+                  type: string
+                  enum: [desk, facility_mobile]
+                  description: |
+                    `desk` máy tính quầy (hạn `trusted_device_days`, mặc định 180) · `facility_mobile` máy tính bảng/điện thoại **của cơ sở**
+                    mở admin-web trong trình duyệt (hạn ≤ 30 ngày, SR-DEV-08). Không bao giờ cấp cho máy cá nhân hay PWA (SR-DEV-09).
+                currentPassword: { type: string, writeOnly: true }
+                totpCode: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+                hardeningChecklistConfirmed: { type: boolean, description: Đã kiểm checklist cứng hóa SR-DEV-07 }
+      responses:
+        '201':
+          description: Đã cấp; cookie thiết bị được đặt
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: '__Host-ottimo_did=...; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=...'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrustedDevice' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /v1/properties/{propertyId}/trusted-devices/{deviceId}/actions/revoke:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: deviceId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [devices]
+      operationId: revokeTrustedDevice
+      summary: Thu hồi thiết bị – có hiệu lực ngay ở request kế tiếp (SR-DEV-06)
+      x-roles: [owner]
+      x-rbac: [A100]
+      x-stories: [US-003]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Đã thu hồi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrustedDevice' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ───────────────────────── platform ─────────────────────────
   /v1/properties/{propertyId}/room-groups:
@@ -554,7 +989,9 @@ paths:
                 departures: 1
                 inHouse: 5
                 occupancyPct: 66.7
-                denominatorNote: Đêm khả dụng thuần = 10 căn − 1 căn khóa = 9; giữ chỗ không tính là bán
+                unassignedConflictReservations: 0
+                denominatorNote: Đêm khả dụng thuần = 10 căn − 1 căn khóa = 9; giữ chỗ không tính là bán; đơn OTA xung đột chưa gán căn không tính vào công suất
+                metricRefs: { availableRoomsNet: K-01, occupiedRooms: K-02, occupancyPct: K-03, unassignedConflictReservations: S1b }
   /v1/properties/{propertyId}/arrivals-departures:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -582,6 +1019,11 @@ paths:
       tags: [dashboard]
       operationId: listAttentionItems
       summary: '"Cần chú ý" sinh từ quy tắc BR-907 (US-012). FD không nhận mục tài chính/FOC.'
+      description: |
+        Hai nguồn (erd mục 4.14): mục **tính lúc đọc** từ trạng thái nghiệp vụ (`source=computed`: giữ chỗ sắp hết, khai báo đến hạn,
+        thị thực, kỳ thu, OOO, phiếu Cao, cần gọi no-show) và mục **sự kiện đã lưu** (`source=event`, bảng `attention_event`:
+        `deposit_after_cancel`, `channel_sync_error`, `data_quality`, `overbooking`, `unassigned_with_free_room`). Mục sự kiện có `eventId`
+        và được đóng bằng `resolveAttentionEvent`. Mục `visa_expiring` chỉ chứa mã đơn (không ngày hạn – SR-RET-06).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [S02]
       x-stories: [US-012, US-042, US-044, US-085]
@@ -604,10 +1046,36 @@ paths:
                     reservationIds: [0192a1b0-0000-7000-8000-00000000b171]
                     link: /registrations?due=today
                   - kind: hold_expiring
+                    source: computed
                     severity: warning
                     count: 1
                     dueAt: '2026-10-15T12:00:00+07:00'
                     reservationIds: [0192a1b0-0000-7000-8000-00000000b172]
+  /v1/properties/{propertyId}/attention-events/{eventId}/actions/resolve:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: eventId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [dashboard]
+      operationId: resolveAttentionEvent
+      summary: Đóng một mục "Cần chú ý" dạng sự kiện (có ghi chú xử lý)
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-stories: [US-012]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 500 }
+      responses:
+        '204': { description: Đã đóng }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/properties/{propertyId}/events:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -618,7 +1086,7 @@ paths:
       x-roles: [any_staff]
       responses:
         '200':
-          description: 'text/event-stream; sự kiện: room.status_changed, reservation.changed, attention.changed, task.assigned, request.created'
+          description: 'text/event-stream; sự kiện: room.status_changed, reservation.changed, attention.changed, task.assigned, request.created, notification.created (chỉ gửi tới người nhận)'
           content:
             text/event-stream:
               schema: { type: string }
@@ -744,8 +1212,16 @@ paths:
       description: |
         Server trong **một giao dịch**: kiểm quyền → tính giá (giá trống → giá niêm yết theo BR-101/104, hiển thị trước qua `.../quotes/calculate` hoặc `previewOnly`)
         → ghi `room_occupancy` (exclusion constraint) → cấp mã `OTM-xxxxx` → sinh `stay_night`, folio, bản ghi khai báo `none` (BR-608)
-        → outbox đồng bộ kênh. Đơn kênh OTA không còn căn → **vẫn tạo**, `conflictState=open`, không gán căn (erd mục 7);
-        đơn kênh khác trùng → `409 ROOM_UNAVAILABLE`.
+        → outbox đồng bộ kênh. Đơn kênh khác OTA trùng → `409 ROOM_UNAVAILABLE`.
+
+        **Đơn OTA nhập tay vào căn đã kín** (decision-log PO 15/10, US-139 tối thiểu): server **không** tự đổi căn mà không báo –
+        trả `409 ROOM_UNAVAILABLE` kèm `suggestions[]` (căn trống cùng nhóm, rồi nhóm cao hơn theo `room_group.sort_order`, đánh dấu `upgrade`).
+        Lễ tân chọn căn và gửi lại với `roomId` mới; hết căn → gửi lại với `allowUnassigned: true` → đơn được tạo `confirmed`,
+        `conflictState=open`, không gán căn (làn "Chưa gán căn", erd mục 7). `allowUnassigned` chỉ hợp lệ với kênh `channel_group=ota`.
+        Đơn OTA về qua channel manager (R3) tự gán: căn ánh xạ → căn trống cùng nhóm; nhóm cao hơn chỉ gợi ý, không tự gán (DOM 15/10).
+
+        Đơn OTA chỉ có tổng tiền (`otaRoomAmountVnd`, không `nightlyRates`) → chia đều theo đêm, phần nguyên đồng, dư dồn đêm cuối;
+        có `nightlyRates` thì Σ phải bằng `otaRoomAmountVnd` (nếu gửi cả hai) – erd mục 8.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A01, S05]
       x-transition: B2
@@ -762,11 +1238,11 @@ paths:
                 summary: Đơn Booking.com nhập tay (US-017 AC1)
                 value:
                   roomId: 0192a1b0-0000-7000-8000-0000000c0203
-                  channelId: 0192a1b0-0000-7000-8000-0000000ch002
+                  channelId: 0192a1b0-0000-7000-8000-0000000cb002
                   arrivalDate: '2026-10-19'
                   departureDate: '2026-10-22'
                   adults: 2
-                  bookerGuestId: 0192a1b0-0000-7000-8000-0000000g0012
+                  bookerGuestId: 0192a1b0-0000-7000-8000-0000000aa012
                   otaRef: '4021788113'
                   paymentModel: ota_prepaid
                   nightlyRates: [{ date: '2026-10-19', amountVnd: 820000 }, { date: '2026-10-20', amountVnd: 820000 }, { date: '2026-10-21', amountVnd: 820000 }]
@@ -774,11 +1250,11 @@ paths:
                 summary: Khách vãng lai đến hôm nay, giá mặc định
                 value:
                   roomId: 0192a1b0-0000-7000-8000-0000000c0201
-                  channelId: 0192a1b0-0000-7000-8000-0000000ch010
+                  channelId: 0192a1b0-0000-7000-8000-0000000cb010
                   arrivalDate: '2026-10-15'
                   departureDate: '2026-10-17'
                   adults: 1
-                  bookerGuestId: 0192a1b0-0000-7000-8000-0000000g0003
+                  bookerGuestId: 0192a1b0-0000-7000-8000-0000000aa003
                   paymentModel: direct
                   initialPayment: { method: cash, amountVnd: 1334000 }
       responses:
@@ -961,7 +1437,8 @@ paths:
       summary: Hủy giữ chỗ (B5) hoặc hủy đơn đã đảm bảo (B10) – lý do bắt buộc (US-021)
       description: |
         Gọi trước với `dryRun=true` để nhận phí hủy/hoàn cọc theo `cancel_policy_direct` (snapshot của đơn) – US-021 AC3;
-        gọi lại `dryRun=false` để lưu. Phần hoàn tạo yêu cầu duyệt `refund` (MGR+, BR-522). Mở phòng + outbox đồng bộ kênh trong cùng giao dịch.
+        lần gọi thử **không cần** `Idempotency-Key`/`If-Match` và không tiêu khóa. Gọi lại `dryRun=false` (kèm cả hai header) để lưu.
+        Phần hoàn tạo yêu cầu duyệt `refund` (MGR+, BR-522). Mở phòng + outbox đồng bộ kênh trong cùng giao dịch.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own_direct_only, collaborator: own_hold_only }
       x-rbac: [A05, A06]
@@ -981,7 +1458,7 @@ paths:
                 reasonCode: { $ref: '#/components/schemas/CancelReasonCode' }
                 note: { type: string, maxLength: 500 }
                 dryRun: { type: boolean, default: false }
-            example: { reasonCode: found_other_place, note: Khách báo qua Zalo, dryRun: false }
+            example: { reasonCode: found_other, note: Khách báo qua Zalo, dryRun: false }
       responses:
         '200':
           description: Đã hủy, hoặc kết quả tính thử khi `dryRun=true`
@@ -1330,6 +1807,49 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/ReservationOk' }
         '409': { $ref: '#/components/responses/RoomUnavailable' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/actions/swap-room:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [reservations]
+      operationId: swapRoom
+      summary: Đổi chéo căn giữa 2 đơn trong một giao dịch (xử lý xung đột OTA – erd 7.5; BE-ARC-08)
+      description: |
+        Đơn A (đường dẫn) và đơn B (`otherReservationId`) đổi căn cho nhau trên khoảng giao nhau. Server khóa 2 dòng `room` theo
+        `room_id` tăng dần, dùng `SET CONSTRAINTS room_occupancy_no_overlap DEFERRED` rồi cập nhật 2 segment; lỗi lúc COMMIT → `409 ROOM_UNAVAILABLE`.
+        Mỗi đơn là B7 (chưa nhận phòng) hoặc B14 (đang ở) theo trạng thái; cần `If-Match` của **cả hai** đơn.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A15]
+      x-transition: [B7, B14]
+      x-stories: [US-024, US-139]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otherReservationId, otherVersion, reason]
+              properties:
+                otherReservationId: { $ref: '#/components/schemas/Uuid' }
+                otherVersion: { type: integer, description: Version của đơn B (khóa lạc quan cho đơn thứ hai) }
+                effectiveDate: { $ref: '#/components/schemas/LocalDate' }
+                reason: { type: string, minLength: 3 }
+      responses:
+        '200':
+          description: Đã đổi
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reservations]
+                properties:
+                  reservations: { type: array, minItems: 2, maxItems: 2, items: { $ref: '#/components/schemas/Reservation' } }
+        '409': { $ref: '#/components/responses/RoomUnavailable' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
   /v1/properties/{propertyId}/reservations/{reservationId}/checkout-confirmations:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -1499,6 +2019,9 @@ paths:
       tags: [reservations]
       operationId: listParty
       summary: Người trong đơn + cảnh báo thiếu người (US-022 AC1). SAL thấy số người, không thấy quan hệ (rbac D10).
+      description: |
+        Phạm vi `own_count_only` (SAL, CTV – đơn của mình): serializer **bỏ hẳn** `members` (không trả mảng rỗng), chỉ còn
+        `requiredCount`, `presentCount`, `missingCount` (SR-AZ-04, rbac D10).
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own_count_only, collaborator: own_count_only }
       x-stories: [US-022]
@@ -1523,7 +2046,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/PartyMemberCreate' }
             examples:
-              companion: { value: { role: companion, guestId: 0192a1b0-0000-7000-8000-0000000g0013, relationship: spouse } }
+              companion: { value: { role: companion, guestId: 0192a1b0-0000-7000-8000-0000000aa013, relationship: spouse } }
               child: { value: { role: child, childName: NGUYEN AN NHI, childBirthYear: 2019 } }
       responses:
         '201':
@@ -1579,6 +2102,59 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       responses:
         '204': { description: Đã thu hồi mọi link của đơn }
+  /v1/properties/{propertyId}/reservations/{reservationId}/guest-verification-code:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [reservations]
+      operationId: issueGuestVerificationCode
+      summary: Cấp mã xác minh mức 2 cho khách (6 số CSPRNG, dùng một lần, gắn token link đang hiệu lực) – SR-GST-07(b), SR-GST-13
+      description: |
+        Mã gắn với **token link đang hiệu lực** của đơn (cấp lại link → mã cũ vô hiệu); cấp mã mới vô hiệu mã cũ chưa dùng. Mã lưu băm.
+        - `delivery=in_person|phone_call`: lễ tân đọc tại quầy hoặc gọi tới SĐT trên đơn; hạn 10 phút. Mã loại này **vẫn dùng được** khi token
+          đã bị khóa xác minh do sai 5 lần (SR-GST-08) – dùng thành công thì mở khóa.
+        - `delivery=airbnb_inbox|booking_inbox|agoda_inbox|zalo` (SR-GST-13, phân xử ORC 15/10): **mặc định tắt**; chỉ dùng được khi kênh có trong tham số
+          `guest_verify_code_channels` (owner bật theo cơ sở) – nếu không `409 DELIVERY_CHANNEL_DISABLED`. Hạn `guest_verify_code_channel_minutes`
+          (mặc định 15, tối đa 30); tối đa 3 lần/24 giờ/token; **không** mở khóa token đã bị khóa. Phản hồi kèm `messageText` từ mẫu `verify_code`
+          (chỉ mã + hạn, **không chứa link**; link và mã luôn ở 2 tin khác nhau) để lễ tân sao chép, dán đúng hội thoại của đơn / Zalo của SĐT trên đơn
+          bằng tài khoản của cơ sở (R2 không gửi tự động). Mã không lưu trong `message_log`.
+        Chỉ gọi từ origin **admin-web** (PWA → 403). Ghi `audit_event` security mỗi lần cấp: người cấp, kênh, đơn – không ghi mã.
+        Luồng khách đến khuya (SR-GST-15): người trực đêm dùng **thiết bị của cơ sở** đã được cấp để đọc mã trực tiếp.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A22]
+      x-stories: [US-106, US-111]
+      x-rate-limit: kênh nhắn tin 3 lần/24 giờ/token; tại quầy/điện thoại 5 lần/giờ/đơn
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delivery]
+              properties:
+                delivery: { type: string, enum: [in_person, phone_call, airbnb_inbox, booking_inbox, agoda_inbox, zalo] }
+                locale: { type: string, enum: [vi, en, ru], description: Ngôn ngữ mẫu `verify_code` khi gửi qua kênh }
+      responses:
+        '201':
+          description: Mã vừa cấp (chỉ trả một lần)
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt]
+                properties:
+                  code: { type: string, pattern: '^[0-9]{6}$' }
+                  expiresAt: { $ref: '#/components/schemas/Instant' }
+                  messageText: { type: string, description: 'Chỉ khi gửi qua kênh – nội dung mẫu `verify_code` (mã + hạn, không link)' }
+              example: { code: '407219', expiresAt: '2026-10-19T14:10:00+07:00' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/properties/{propertyId}/reservations/{reservationId}/door-credential:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -1590,6 +2166,8 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A21]
       x-classification: C3
+      x-requires-trusted-device: true
+      x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn (SR-RL-06)
       x-stories: [US-128]
       responses:
         '200':
@@ -1604,10 +2182,17 @@ paths:
       tags: [doorlock]
       operationId: setDoorCredential
       summary: Nhập/sửa mã cửa và hiệu lực (MVP nhập tay; mặc định hiệu lực = giờ nhận → giờ trả, BR-403) (US-128 AC1)
+      description: |
+        Bỏ trống `code` → lõi sinh 6 chữ số từ CSPRNG, không trùng mã đang hiệu lực trên cùng khóa, không tái dùng cho căn trong 90 ngày (SR-LOCK-01).
+        Lần tạo đầu: `If-Match` không áp dụng; sửa mã đã có: bắt buộc `If-Match` (chống gửi lại ghi đè mã mới bằng mã cũ – SR-KEY-08 thẻ SEC-ARC-24).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A21]
       x-classification: C3
+      x-requires-trusted-device: true
       x-stories: [US-128]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -1617,9 +2202,13 @@ paths:
       responses:
         '200':
           description: OK (trả bản che, không trả lại mã)
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DoorCredentialMasked' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
   /v1/properties/{propertyId}/overbooking-incidents:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -1673,6 +2262,114 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OverbookingIncident' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/channel-fee:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    put:
+      tags: [reservations]
+      operationId: reconcileChannelFee
+      summary: Ghi phí kênh thực tế khi đối soát tay (DATA FB-06) → phân bổ lại `stay_night.channel_fee_vnd` các đêm chưa thuộc tháng đã chốt
+      x-roles: [owner, manager]
+      x-round: R3
+      x-stories: [US-089]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountActualVnd, source]
+              properties:
+                amountActualVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                source: { type: string, enum: [manual_reconcile, channel_manager] }
+                note: { type: string, maxLength: 300 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelFee' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+
+  # ───────────────────────── commissions ─────────────────────────
+  /v1/properties/{propertyId}/commissions:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [commissions]
+      operationId: listCommissions
+      summary: Hoa hồng theo đơn/HĐ – SAL/CTV chỉ thấy của mình (US-087 AC2 thu hẹp R2; màn tổng hợp US-089 R3)
+      x-roles: [owner, manager, sales_staff, collaborator]
+      x-scope: { sales_staff: own, collaborator: own }
+      x-stories: [US-087]
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: false
+          schema: { type: array, items: { $ref: '#/components/schemas/CommissionStatus' } }
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Commission' } }
+                  page: { $ref: '#/components/schemas/PageInfo' }
+                  totals:
+                    type: object
+                    properties:
+                      projectedVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                      earnedVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                      paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
+  /v1/properties/{propertyId}/commissions/{commissionId}/payouts/{payoutId}/actions/mark-paid:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - name: commissionId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+      - name: payoutId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [commissions]
+      operationId: markCommissionPayoutPaid
+      summary: Ghi đã chi một đợt hoa hồng (SM-11 payable → paid)
+      x-roles: [owner, manager]
+      x-round: R3
+      x-stories: [US-089]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paidAt]
+              properties:
+                paidAt: { $ref: '#/components/schemas/Instant' }
+                note: { type: string, maxLength: 300 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Commission' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   # ───────────────────────── quotes / leads ─────────────────────────
   /v1/properties/{propertyId}/quotes/calculate:
@@ -1695,10 +2392,10 @@ paths:
             schema: { $ref: '#/components/schemas/QuoteInput' }
             examples:
               short:
-                value: { type: short, roomId: 0192a1b0-0000-7000-8000-0000000c0201, arrivalDate: '2026-10-20', nights: 7, adults: 2, channelId: 0192a1b0-0000-7000-8000-0000000ch006 }
+                value: { type: short, roomId: 0192a1b0-0000-7000-8000-0000000c0201, arrivalDate: '2026-10-20', nights: 7, adults: 2, channelId: 0192a1b0-0000-7000-8000-0000000cb006 }
               long:
                 summary: Ví dụ BL 5.2 – căn 302, khách NN, 6 tháng, dọn 2/tuần, CTV
-                value: { type: long, roomId: 0192a1b0-0000-7000-8000-0000000c0302, arrivalDate: '2026-11-01', termMonths: 6, adults: 1, guestCategory: foreigner, cleaningPerWeek: 2, channelId: 0192a1b0-0000-7000-8000-0000000ch006 }
+                value: { type: long, roomId: 0192a1b0-0000-7000-8000-0000000c0302, arrivalDate: '2026-11-01', termMonths: 6, adults: 1, guestCategory: foreigner, cleaningPerWeek: 2, channelId: 0192a1b0-0000-7000-8000-0000000cb006 }
       responses:
         '200':
           description: OK
@@ -1864,6 +2561,8 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own, collaborator: own }
       x-transition: Q5
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
           description: OK
@@ -1968,6 +2667,9 @@ paths:
       tags: [folio]
       operationId: addFolioLine
       summary: Thêm dòng phát sinh từ danh mục (giặt, phạt thuốc lá, làm lại thẻ… BR-511) – ghi nhật ký tiền (US-032, A30)
+      description: |
+        Dòng folio là chỉ-thêm nên **không** cần `If-Match` (ngoại lệ có chủ đích với coding-standards 7.5). Server khóa
+        `folio … FOR UPDATE`, kiểm `status='open'` (hoặc trong `post_checkout_window_until`) rồi ghi; bill đã khóa → `409 FOLIO_LOCKED`.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A30, A31]
       x-stories: [US-032, US-006]
@@ -1978,7 +2680,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/FolioLineCreate' }
-            example: { chargeCode: smoking_fee, quantity: 1, serviceDate: '2026-10-21', note: Ảnh buồng phòng đính kèm, evidenceAttachmentIds: [0192a1b0-0000-7000-8000-0000000at001] }
+            example: { chargeCode: smoking_fee, quantity: 1, serviceDate: '2026-10-21', note: Ảnh buồng phòng đính kèm, evidenceAttachmentIds: [0192a1b0-0000-7000-8000-0000000af001] }
       responses:
         '201':
           description: Đã ghi
@@ -2224,7 +2926,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/MinibarCheckInput' }
-            example: { mode: checkout, lines: [{ itemId: 0192a1b0-0000-7000-8000-0000000it002, remainingQty: 0 }, { itemId: 0192a1b0-0000-7000-8000-0000000it001, remainingQty: 0 }] }
+            example: { mode: checkout, lines: [{ itemId: 0192a1b0-0000-7000-8000-0000000e1002, remainingQty: 0 }, { itemId: 0192a1b0-0000-7000-8000-0000000e1001, remainingQty: 0 }] }
       responses:
         '201':
           description: OK
@@ -2336,6 +3038,8 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff]
       x-scope: { all: own }
       x-transition: A6
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
           description: OK
@@ -2463,11 +3167,13 @@ paths:
       operationId: addGuestDocument
       summary: Nhập giấy tờ một người (trường + ảnh tùy chọn) – K3; tự gắn/khớp người trong đơn (US-043 AC3). Ghi c3_access_log.
       description: |
-        `multipart/form-data`: phần `data` (JSON `GuestDocumentInput`) + 0..n phần `image` (JPEG/PNG/HEIC/PDF, giới hạn kích thước OPS/SEC chốt).
-        Ảnh mã hóa ngay khi nhận, không ghi tệp tạm ra đĩa ở dạng rõ. Trẻ em: `docType=child_personal_id`, không bắt ảnh (US-043 AC2).
+        `multipart/form-data`: phần `data` (JSON `GuestDocumentInput`) + 0..4 phần `image` (JPEG/PNG/WebP theo magic bytes; ≤ 10 MB, ≤ 40 MP;
+        không PDF/HEIC – SR-FILE-01/02). Server mã hóa lại ảnh (bỏ EXIF/GPS – SR-FILE-03), mã hóa phong bì ngay khi nhận, không ghi tệp tạm dạng rõ.
+        Trẻ em: `docType=child_personal_id`, không bắt ảnh (US-043 AC2).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A70]
       x-classification: C3
+      x-requires-trusted-device: true
       x-transition: K3
       x-stories: [US-043, US-044]
       parameters:
@@ -2486,7 +3192,7 @@ paths:
                   items: { type: string, format: binary }
             encoding:
               data: { contentType: application/json }
-              image: { contentType: 'image/jpeg, image/png, image/heic, application/pdf' }
+              image: { contentType: 'image/jpeg, image/png, image/webp' }
       responses:
         '201':
           description: OK – trả khai báo đã cập nhật (trạng thái partial/review)
@@ -2505,6 +3211,7 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A70]
       x-classification: C3
+      x-requires-trusted-device: true
       parameters:
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
@@ -2530,6 +3237,9 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A70, A71]
       x-classification: C3
+      x-requires-trusted-device: true
+      x-step-up: true
+      x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn (SR-RL-06)
       x-stories: [US-048]
       parameters:
         - name: reason
@@ -2562,6 +3272,9 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A71]
       x-classification: C3
+      x-requires-trusted-device: true
+      x-step-up: true
+      x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn (SR-RL-06)
       x-stories: [US-048]
       parameters:
         - name: reason
@@ -2572,13 +3285,13 @@ paths:
           description: Ảnh
           headers:
             Cache-Control: { schema: { type: string, enum: [no-store] } }
-            Content-Disposition: { schema: { type: string, example: inline } }
+            Content-Disposition: { schema: { type: string, example: 'inline; filename="document"' } }
+            X-Content-Type-Options: { schema: { type: string, enum: [nosniff] } }
+            Content-Security-Policy: { schema: { type: string, example: "sandbox; default-src 'none'" } }
           content:
             image/jpeg:
               schema: { type: string, format: binary }
-            image/png:
-              schema: { type: string, format: binary }
-            application/pdf:
+            image/webp:
               schema: { type: string, format: binary }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -2593,8 +3306,11 @@ paths:
       x-roles: [owner, manager]
       x-rbac: [A74]
       x-classification: C3
+      x-requires-trusted-device: true
       x-stories: [US-049]
       parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
         - name: reason
           in: query
           required: true
@@ -2623,7 +3339,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/ConsentInput' }
-            example: { partyMemberId: 0192a1b0-0000-7000-8000-0000000pm001, purpose: P02B_ID_IMAGE_RETENTION, decision: granted, channel: desk, noticeVersion: privacy-2026-10-v1, locale: en }
+            example: { partyMemberId: 0192a1b0-0000-7000-8000-0000000bb001, purpose: P02B_ID_IMAGE_RETENTION, decision: granted, channel: desk, noticeVersion: privacy-2026-10-v1, locale: en }
       responses:
         '201':
           description: OK
@@ -2678,6 +3394,9 @@ paths:
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A73]
       x-classification: C3
+      x-requires-trusted-device: true
+      x-step-up: true
+      x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn (SR-RL-06)
       x-stories: [US-046]
       responses:
         '200':
@@ -3020,7 +3739,7 @@ paths:
               title: Hỏng bình nóng lạnh
               description: Khách báo không có nước nóng từ 21:00
               severity: high
-              photoAttachmentIds: [0192a1b0-0000-7000-8000-0000000at010]
+              photoAttachmentIds: [0192a1b0-0000-7000-8000-0000000af010]
               block: { startDate: '2026-10-15', endDatePlanned: '2026-10-18', reason: Thay bình nóng lạnh }
       responses:
         '201':
@@ -3344,7 +4063,7 @@ paths:
                 title: Đã có hồ sơ với số điện thoại này
                 status: 409
                 code: DUPLICATE_GUEST
-                existingGuestId: 0192a1b0-0000-7000-8000-0000000g0012
+                existingGuestId: 0192a1b0-0000-7000-8000-0000000aa012
                 existingGuestCode: KH-0012
         '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/guests/lookup:
@@ -3354,8 +4073,13 @@ paths:
       tags: [guests]
       operationId: lookupGuestByContact
       summary: Tìm hồ sơ theo SĐT/email đã chuẩn hóa (BR-951) – dùng POST để không đưa dữ liệu C2 vào URL
+      description: |
+        Chỉ đọc nên không cần `Idempotency-Key`. Mỗi lần tra ghi `audit_event` (category `access`, không ghi giá trị tra).
+        SAL/CTV (`exists_only_or_own`): khách **của mình** → trả hồ sơ như thường; khách khác → chỉ `{ match: possible_duplicate }`
+        ("Có thể trùng – liên hệ lễ tân"), **không** trả mã khách/tên (SR-RL-07, thẻ SEC-ARC-14).
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: exists_only_or_own, collaborator: exists_only_or_own }
+      x-rate-limit: SAL/CTV 30 lần/giờ/người (SR-RL-07)
       x-stories: [US-072, US-073]
       requestBody:
         required: true
@@ -3506,6 +4230,12 @@ paths:
       tags: [messaging]
       operationId: renderMessage
       summary: Điền mẫu tin theo đơn và ngôn ngữ để sao chép (manual_copy, US-125). Ghi message_log (không lưu nội dung).
+      description: |
+        Mẫu chứa link app khách (`checkin_link`, `guest_link`) đi qua cùng kiểm quyền với A22 `issueGuestLink`: CTV → `403 FORBIDDEN_ACTION` (SR-MSG-03).
+        Render **không** cấp token mới và không thu hồi link khách đang dùng: server không giữ token rõ nên biến `{{guest_link}}` chỉ điền được khi
+        gọi kèm `guestLinkUrl` vừa nhận từ `issueGuestLink` trong cùng thao tác; thiếu → `409 INVALID_TRANSITION` với hướng dẫn "Cấp link trước".
+        Mẫu `verify_code` **không** render ở đây (chỉ có trong phản hồi `issueGuestVerificationCode`). Mẫu cấm biến C3 trừ `door_code`
+        (chỉ đúng ngày đến, SR-LOCK-03). Email escape HTML.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own, collaborator: own }
       x-stories: [US-125]
@@ -3521,6 +4251,7 @@ paths:
               properties:
                 templateCode: { type: string, example: checkin_link }
                 locale: { $ref: '#/components/schemas/Locale' }
+                guestLinkUrl: { type: string, format: uri, writeOnly: true, description: URL vừa cấp bởi issueGuestLink (không lưu) }
       responses:
         '200':
           description: OK
@@ -3541,8 +4272,13 @@ paths:
       tags: [guest-portal]
       operationId: openGuestSession
       summary: Đổi token trong link `/g/{token}` lấy cookie phiên khách mức 1 (US-106 AC1, AC2)
+      description: |
+        Tra token bằng hàm `guest_resolve_token(token_hash)` SECURITY DEFINER (erd mục 2.4) vì `/v1/guest/*` chưa có ngữ cảnh RLS;
+        sau đó đặt ngữ cảnh cơ sở của đơn. Mở phiên mới **không** reset bộ đếm xác minh sai (đếm theo token – SR-GST-08).
       security: []
       x-roles: [guest]
+      x-guest-level: 0
+      x-rate-limit: 10/phút/IP, 100/ngày/IP (SR-RL-03)
       x-stories: [US-106]
       requestBody:
         required: true
@@ -3555,20 +4291,59 @@ paths:
                 token: { type: string, minLength: 22, maxLength: 64, writeOnly: true }
       responses:
         '200':
-          description: OK – đặt cookie `ottimo_gsid`
+          description: OK – đặt cookie `__Host-ottimo_gsid`
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GuestSession' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/guest/sessions/otp:
+    post:
+      tags: [guest-portal]
+      operationId: sendGuestOtp
+      summary: Gửi OTP email 6 số (10 phút) tới email trên đơn để lên mức 2 (SR-GST-07a)
+      description: |
+        OTP sinh bằng CSPRNG, lưu băm trên `guest_verification_code` gắn token; gửi qua `NotificationAdapter` email (outbox).
+        Tối đa 3 OTP/giờ/token (SR-GST-08). Đơn **không có email** → `409 INVALID_TRANSITION` với hướng dẫn "nhờ lễ tân cấp mã".
+        Email trên đơn **vừa đổi trong 24 giờ** sau khi đã cấp link → từ chối cùng hướng dẫn, trừ khi lễ tân đã xác nhận lại (SR-GST-14).
+        Phản hồi chỉ có email đã che (`d***@g***.com`).
+      security:
+        - guestSession: []
+      x-roles: [guest]
+      x-guest-level: 1
+      x-rate-limit: 3 OTP/giờ/token (SR-RL-04)
+      x-stories: [US-106]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Đã xếp gửi
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [maskedEmail, expiresAt]
+                properties:
+                  maskedEmail: { type: string, example: 'd***@g***.com' }
+                  expiresAt: { $ref: '#/components/schemas/Instant' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/guest/sessions/verify:
     post:
       tags: [guest-portal]
       operationId: verifyGuestSession
-      summary: Xác minh nhẹ lên mức 2 (4 số cuối SĐT hoặc mã đặt phòng – cơ chế cuối SEC chốt Phần 2) (US-106 AC3)
+      summary: Lên mức 2 bằng OTP email hoặc mã xác minh do lễ tân cấp (SR-GST-07; US-106 AC3)
+      description: |
+        Chỉ hai yếu tố được chấp nhận: `email_otp` (gửi bằng `sendGuestOtp`) và `desk_code` (mã lễ tân cấp – tại quầy, điện thoại hoặc qua kênh
+        nhắn tin nếu owner bật). 4 số cuối SĐT và mã đặt phòng **không** là yếu tố xác minh (TM-21).
+        Đếm sai **theo token**, chung mọi loại mã: 5 lần sai/24 giờ → khóa xác minh của token (`429 GUEST_VERIFICATION_LOCKED`); khi bị khóa chỉ mã
+        lễ tân đọc tại quầy/gọi điện còn dùng được (SR-GST-08). Mã dùng một lần. Phiên mức 2 hết sau `guest_level2_idle_minutes` (30) không hoạt động
+        và tối đa 24 giờ → về mức 1 (SR-GST-09).
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
+      x-rate-limit: 5 sai/token/24 giờ (SR-RL-04)
       x-stories: [US-106]
       requestBody:
         required: true
@@ -3576,25 +4351,33 @@ paths:
           application/json:
             schema:
               type: object
+              required: [method, code]
               properties:
-                phoneLast4: { type: string, pattern: '^[0-9]{4}$', writeOnly: true }
-                bookingCode: { type: string, writeOnly: true }
+                method: { type: string, enum: [email_otp, desk_code] }
+                code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+            example: { method: email_otp, code: '381904' }
       responses:
         '200':
-          description: OK
+          description: OK – phiên lên mức 2
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GuestSession' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /v1/guest/stay:
     get:
       tags: [guest-portal]
       operationId: getGuestStay
       summary: Thông tin lưu trú – ngày, giờ chuẩn, chỉ đường, nội quy + phí phạt; Wi-Fi và mã cửa chỉ từ ngày nhận phòng (mã cửa cần mức 2) (US-108, US-128)
+      description: |
+        Trường theo mức (SR-GST-06, -10): mức 1 – ngày, giờ, chỉ đường, nội quy, Wi-Fi (từ ngày nhận phòng); mức 2 thêm họ tên đầy đủ,
+        `doorCode` (chỉ trong `[validFrom, validTo]` và đơn `confirmed`/`in_house`). Mỗi lần trả `doorCode` ghi `c3_access_log`
+        (`actor_type=guest`) và phản hồi `no-store`. Sau `checked_out` → `403 GUEST_STAY_ENDED`.
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-scope: { guest: reservation }
       x-stories: [US-108, US-128, US-112]
       parameters:
@@ -3614,6 +4397,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       requestBody:
         required: true
         content:
@@ -3633,6 +4417,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-107]
       responses:
         '200':
@@ -3647,6 +4432,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-107]
       requestBody:
         required: true
@@ -3667,10 +4453,14 @@ paths:
     post:
       tags: [guest-portal]
       operationId: uploadGuestDocument
-      summary: Khách tải giấy tờ từng người (chỉ ghi, không đọc lại) – K2 none → pre; giới hạn loại/kích thước, quét mã độc (R-REG-08)
+      summary: Khách tải giấy tờ từng người (chỉ ghi, không đọc lại) – K2 none → pre (R-REG-08)
+      description: |
+        Chỉ ảnh JPEG/PNG/WebP (magic bytes); client chuẩn hóa qua canvas trước khi tải; HEIC/PDF → `422 FILE_REJECTED` kèm hướng dẫn
+        "chụp lại bằng nút Chụp trong app". ≤ 10 MB/tệp, ≤ 4 ảnh/người, ≤ 30 tệp/đơn (SR-FILE-01/02, SR-RL-05); server mã hóa lại, bỏ EXIF/GPS.
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-classification: C3
       x-transition: K2
       x-stories: [US-107]
@@ -3703,6 +4493,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-107, US-045]
       requestBody:
         required: true
@@ -3723,6 +4514,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-107]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3740,6 +4532,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-109]
       responses:
         '200':
@@ -3758,6 +4551,7 @@ paths:
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 1
       x-stories: [US-109, US-110]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3783,10 +4577,11 @@ paths:
     get:
       tags: [guest-portal]
       operationId: getGuestFolio
-      summary: Folio/hóa đơn tạm tính – cần phiên mức 2; không hiện dòng nội bộ (US-111)
+      summary: Folio/hóa đơn tạm tính – cần phiên mức 2; không hiện dòng nội bộ (US-111). Vẫn dùng được sau trả phòng (trong ân hạn – SR-GST-11)
       security:
         - guestSession: []
       x-roles: [guest]
+      x-guest-level: 2
       x-scope: { guest: reservation_level2 }
       x-stories: [US-111]
       parameters:
@@ -3802,18 +4597,117 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /v1/guest/consents/{purpose}/withdraw:
+    parameters:
+      - name: purpose
+        in: path
+        required: true
+        schema: { type: string, enum: [P02B_ID_IMAGE_RETENTION, P05_CRM, P06_MARKETING, P07_REVIEW] }
+    post:
+      tags: [guest-portal]
+      operationId: withdrawGuestConsent
+      summary: Khách rút đồng ý theo mục đích (SR-DSR-02, R-CON-03) – dừng xử lý; P02b → kích hoạt xóa ảnh theo BR-609
+      description: Ghi `consent_record.withdrawn_at`, `withdrawn_via=guest_app`; P02b → đặt `document_image.delete_after = now` để J16 xóa và hủy DEK, ghi `purge_journal`.
+      security:
+        - guestSession: []
+      x-roles: [guest]
+      x-guest-level: 2
+      x-stories: [US-133]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204': { description: Đã rút }
+        '403':
+          description: GUEST_VERIFICATION_REQUIRED
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # ───────────────────────── public (QR trong phòng) ─────────────────────────
+  /v1/public/units/{unitSlug}:
+    parameters:
+      - name: unitSlug
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[a-z0-9-]{3,40}$' }
+    get:
+      tags: [public]
+      operationId: getPublicUnitPage
+      summary: Trang công khai của căn (hướng dẫn, liên hệ) – không truy vấn dữ liệu đơn (SR-GST-12, ADR-006 điểm 4)
+      security: []
+      x-roles: [public]
+      x-stories: [US-108]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  propertyName: { type: string }
+                  roomNo: { type: string }
+                  guideI18n: { type: object, additionalProperties: { type: string } }
+                  phonePublic: { type: string }
+  /v1/public/units/{unitSlug}/resend-link:
+    parameters:
+      - name: unitSlug
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[a-z0-9-]{3,40}$' }
+    post:
+      tags: [public]
+      operationId: resendGuestLinkFromUnit
+      summary: Ô "nhập mã đặt phòng" trên trang QR căn – chỉ GỬI LẠI link tới email/SĐT đã có trên đơn, KHÔNG cấp phiên (thẻ SEC-ARC-03)
+      description: |
+        Luôn trả cùng một phản hồi `202` "Nếu mã đúng, link đã được gửi tới liên hệ trên đơn" (không lộ đơn có tồn tại hay không).
+        Chỉ xử lý khi mã đặt phòng thuộc đúng căn của `unitSlug` và đơn `confirmed`/`in_house`; gửi lại **link đang hiệu lực** không được vì server
+        không giữ token rõ → cấp link mới (thu hồi link cũ) và gửi qua email trên đơn (R2) – không bao giờ trả link trong phản hồi.
+        Giới hạn 5 lần/giờ/IP và 3 lần/ngày/đơn. Không có email trên đơn → không gửi gì (phản hồi vẫn như trên).
+      security: []
+      x-roles: [public]
+      x-rate-limit: 5/giờ/IP; 3/ngày/đơn
+      x-stories: [US-106]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingCode]
+              properties:
+                bookingCode: { type: string, maxLength: 20, writeOnly: true }
+      responses:
+        '202': { description: 'Nếu mã đúng, link đã được gửi tới liên hệ trên đơn' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   # ───────────────────────── webhooks (R3 – giữ chỗ hợp đồng) ─────────────────────────
-  /v1/webhooks/payments/{provider}:
+  /v1/webhooks/payments/{provider}/{propertySlug}:
     parameters:
       - name: provider
         in: path
         required: true
-        schema: { type: string, enum: [vnpay, momo, sepay, payos] }
+        description: '`mock` chỉ được đăng ký khi APP_ENV ∈ {dev, test, staging}; production không có route này (SR-PAY-05)'
+        schema: { type: string, enum: [vnpay, momo, sepay, payos, mock] }
+      - $ref: '#/components/parameters/PropertySlug'
+    get:
+      tags: [webhooks]
+      operationId: paymentCallbackGet
+      summary: IPN dạng GET cho cổng yêu cầu (VNPay – INT xác minh); cùng xử lý với POST
+      security:
+        - providerSignature: []
+      x-roles: [system]
+      x-round: R3
+      responses:
+        '200': { description: Phản hồi theo đặc tả cổng (ví dụ VNPay RspCode) }
     post:
       tags: [webhooks]
       operationId: paymentCallback
       summary: IPN/webhook cổng thanh toán – xác thực chữ ký, khớp số tiền, ghi inbox idempotent; phản hồi theo định dạng cổng (ADR-011, INT 3.2)
+      description: |
+        Cơ sở xác định bằng `propertySlug` qua hàm `webhook_resolve_property(provider, slug)` SECURITY DEFINER (erd 2.4) → chọn đúng bí mật theo cơ sở.
+        Body ≤ 64 KB (`413`); 300/phút/provider. Không cần phiên, ngoại lệ CSRF duy nhất. Mọi lỗi (kể cả chữ ký sai) trả mã lỗi chung theo
+        định dạng cổng, không lộ lý do.
       security:
         - providerSignature: []
       x-roles: [system]
@@ -3827,16 +4721,21 @@ paths:
             schema: { type: object, additionalProperties: true }
       responses:
         '200': { description: Phản hồi theo đặc tả cổng (ví dụ VNPay RspCode) }
-  /v1/webhooks/channel/{provider}:
+  /v1/webhooks/channel/{provider}/{propertySlug}:
     parameters:
       - name: provider
         in: path
         required: true
+        description: '`mock` chỉ ngoài production (SR-PAY-05)'
         schema: { type: string, enum: [beds24, mock] }
+      - $ref: '#/components/parameters/PropertySlug'
     post:
       tags: [webhooks]
       operationId: channelWebhook
       summary: Tín hiệu từ channel manager – ghi inbox rồi kéo lại đơn qua API (ADR-011 B4)
+      description: |
+        Body ≤ 64 KB. Dữ liệu trong webhook không được tin – worker kéo lại đơn (SR-INT-01). Payload chỉ lưu bản **đã lọc theo danh sách trường cho phép**
+        (trường nghi thẻ bị loại + tăng bộ đếm cảnh báo), xóa sau 90 ngày (SR-PAY-09).
       security:
         - providerSignature: []
       x-roles: [system]
@@ -3854,13 +4753,13 @@ components:
     staffSession:
       type: apiKey
       in: cookie
-      name: ottimo_sid
-      description: Cookie phiên nhân viên (HttpOnly, Secure, SameSite=Lax). Method ghi cần thêm header `X-CSRF-Token` = `Me.csrfToken`.
+      name: __Host-ottimo_sid
+      description: Cookie phiên nhân viên (HttpOnly, Secure, SameSite=Lax, Path=/, không Domain). Method ghi cần thêm header `X-CSRF-Token` = `Me.csrfToken` và `Origin` hợp lệ. Dev HTTP dùng tên không tiền tố.
     guestSession:
       type: apiKey
       in: cookie
-      name: ottimo_gsid
-      description: Cookie phiên khách sau khi đổi token link (ADR-006); mức 1 hoặc 2.
+      name: __Host-ottimo_gsid
+      description: Cookie phiên khách sau khi đổi token link (ADR-006); mức 1 hoặc 2. Origin guest-web riêng; không endpoint nào nhận cả cookie khách và nhân viên (SR-SES-09).
     providerSignature:
       type: apiKey
       in: header
@@ -3962,15 +4861,23 @@ components:
     IdempotencyKey:
       name: Idempotency-Key
       in: header
-      required: true
-      description: UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`.
+      required: false
+      description: |
+        UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+        (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
       schema: { type: string, format: uuid }
     IfMatch:
       name: If-Match
       in: header
-      required: true
-      description: Giá trị `ETag` lần đọc gần nhất
+      required: false
+      description: Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
       schema: { type: string, example: '"7"' }
+    PropertySlug:
+      name: propertySlug
+      in: path
+      required: true
+      description: Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở
+      schema: { type: string, pattern: '^[a-z0-9-]{2,40}$', example: dl01 }
     AcceptLanguage:
       name: Accept-Language
       in: header
@@ -4053,6 +4960,9 @@ components:
                 kind: reservation
                 reservationCode: OTM-00168
                 guestDisplayName: Nguyễn T. Hà
+            suggestions:
+              - { roomId: 0192a1b0-0000-7000-8000-0000000c0202, roomNo: '202', roomGroupCode: L12, upgrade: false }
+              - { roomId: 0192a1b0-0000-7000-8000-0000000c0401, roomNo: '401', roomGroupCode: NPLUS, upgrade: true }
     ValidationFailed:
       description: VALIDATION_FAILED và các lỗi dữ liệu nghiệp vụ 422 (CAPACITY_EXCEEDED, RATE_OUT_OF_RANGE, PHONE_REQUIRED, CARD_NUMBER_DETECTED, IDEMPOTENCY_KEY_REUSED…)
       content:
@@ -4122,13 +5032,35 @@ components:
         code: { type: string, description: Mã máy đọc (bảng mã lỗi ở info.description) }
         requestId: { type: string }
         errors: { type: array, items: { $ref: '#/components/schemas/FieldError' } }
+        conflicts:
+          type: array
+          description: Với ROOM_UNAVAILABLE – dựng bằng truy vấn sau khi rollback lỗi 23P01 (không đọc từ thông điệp lỗi DB)
+          items: { type: object, additionalProperties: true }
+        suggestions:
+          type: array
+          description: Với ROOM_UNAVAILABLE – căn trống thay thế (cùng nhóm trước, `upgrade=true` nếu nhóm cao hơn)
+          items:
+            type: object
+            required: [roomId, roomNo, upgrade]
+            properties:
+              roomId: { $ref: '#/components/schemas/Uuid' }
+              roomNo: { type: string }
+              roomGroupCode: { type: string }
+              upgrade: { type: boolean }
       additionalProperties: true
     AllowedAction:
       type: object
-      required: [action]
+      required: [event, transition, action]
+      description: |
+        `event` = mã sự kiện máy đọc của BA (state-machines.md mục 18, ví dụ `check_in`, `confirm_deposit`, `mark_sent`);
+        `transition` = mã chuyển (B9, B4, K6…); `action` = đoạn đường dẫn `…/actions/<action>` (kebab-case) để client gọi.
+        Bảng ánh xạ event ↔ action sinh trong `packages/contracts/src/state-machines/*.ts` từ state-machines.md.
       properties:
-        action: { type: string, description: 'Tên action endpoint (check-in, cancel, confirm-deposit…) hoặc mã chuyển BA', example: check-in }
+        event: { type: string, pattern: '^[a-z][a-z0-9_]*$', example: check_in }
+        transition: { type: string, example: B9 }
+        action: { type: string, description: 'Đường dẫn hành động (check-in, cancel, confirm-deposit…)', example: check-in }
         requiresApproval: { type: boolean, description: 'Vai hiện tại gửi được nhưng cần duyệt (ký hiệu D trong rbac)' }
+        requiresTrustedDevice: { type: boolean, description: 'Hành động cần thiết bị tin cậy (vd. B9 nhận phòng – xem giấy tờ)' }
 
     # ── trạng thái (erd mục 5) ──
     ReservationStatus: { type: string, enum: [hold, confirmed, in_house, checked_out, cancelled, no_show] }
@@ -4150,8 +5082,11 @@ components:
     Severity: { type: string, enum: [high, medium, low] }
     CancelReasonCode:
       type: string
-      description: Danh mục BR-308 (+ lý do hệ thống)
-      enum: [changed_mind, found_other_place, price, change_dates, unreachable, other, hold_expired, channel_cancelled, relocated_external]
+      description: |
+        Danh mục BR-308 v0.2 (DOM) – dùng chung mọi luồng hủy. Mã hệ thống: `hold_expired` (J1), `ota_cancelled` (kênh báo hủy, BR-310),
+        `overbooking_relocated` (dời khách, BR-312). DATA K-22a loại `hold_expired`, `overbooking_relocated`, `ota_cancelled` khỏi tử số chính
+        (DATA dùng tên cũ `relocated_external`, `channel_cancelled` – đã đề nghị đổi theo BR-308).
+      enum: [guest_cancelled, guest_changed_mind, found_other, price, date_change, unreachable, hold_expired, ota_cancelled, overbooking_relocated, group_partial, other]
     DocType: { type: string, enum: [cccd, passport, child_personal_id, other] }
     DocumentCheckCode: { type: string, enum: [name_match, passport_valid_through_departure, visa_valid_through_departure, stay_within_visa, party_count] }
     HkTaskType: { type: string, enum: [checkout_clean, stayover_clean, long_stay_clean, minibar_refill, guest_request, after_repair_clean, adhoc_clean, priority_clean] }
@@ -4188,7 +5123,10 @@ components:
               timezone: { type: string }
               roles: { type: array, items: { $ref: '#/components/schemas/Role' } }
               screens: { type: array, items: { type: string }, description: 'Mã màn hình S01…S31 được phép (rbac mục 3) để dựng menu' }
-              deviceTrusted: { type: boolean, description: 'Máy quầy được cấp – điều kiện hiện C3 trên thiết bị (rbac 8.7, chờ SEC)' }
+              deviceTrusted: { type: boolean, description: 'Thiết bị đang dùng đã được owner cấp (cookie `__Host-ottimo_did`) – FE ẩn nút C3 khi false; server vẫn kiểm (SR-DEV-05)' }
+        mustChangePassword: { type: boolean, description: 'Mật khẩu tạm – chỉ cho đổi mật khẩu (SR-AUTH-05)' }
+        mfaEnabled: { type: boolean }
+        mfaRequiredButMissing: { type: boolean, description: 'Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật)' }
     User:
       type: object
       required: [id, username, displayName, status, roles, version]
@@ -4306,13 +5244,18 @@ components:
         roomsSellable: { type: integer }
         oooRooms: { type: integer }
         availableRoomsNet: { type: integer, description: 'Mẫu số thuần (metrics Q-04)' }
-        occupiedRooms: { type: integer }
+        occupiedRooms: { type: integer, description: 'Số căn có đêm `sold` **đã gán căn** (`room_id IS NOT NULL`) – K-02' }
         holdOnlyRooms: { type: integer }
         arrivals: { type: integer }
         departures: { type: integer }
         inHouse: { type: integer }
-        occupancyPct: { type: [number, 'null'], description: 'null khi mẫu số = 0 (hiển thị "–", Q-15)' }
+        occupancyPct: { type: [number, 'null'], description: 'K-03 = đêm sold đã gán căn ÷ đêm khả dụng thuần; luôn ≤ 100%; null khi mẫu số = 0 (hiển thị "–", Q-15)' }
+        unassignedConflictReservations: { type: integer, description: 'Số đơn OTA xung đột chưa gán căn có đêm hôm nay (S1b) – hiện riêng, không cộng vào công suất (DATA FB-03)' }
         denominatorNote: { type: string }
+        metricRefs:
+          type: object
+          description: Mã chỉ số (metrics-definitions) cho từng trường – S9
+          additionalProperties: { type: string }
     ArrivalsDepartures:
       type: object
       required: [date, arrivals, departures, holdsArrivingToday]
@@ -4335,11 +5278,13 @@ components:
       enum: [reminded_waiting, replied, call_needed, overdue, checked_out]
     AttentionItem:
       type: object
-      required: [kind, severity]
+      required: [kind, source, severity]
       properties:
         kind:
           type: string
-          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, data_quality, deposit_after_cancel, no_show_call, no_show_mark]
+          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, unassigned_with_free_room, data_quality, deposit_after_cancel, no_show_call, no_show_mark, security_alert]
+        source: { type: string, enum: [computed, event], description: 'computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)' }
+        eventId: { $ref: '#/components/schemas/Uuid' }
         severity: { type: string, enum: [info, warning, critical] }
         count: { type: integer }
         dueAt: { $ref: '#/components/schemas/Instant' }
@@ -4549,6 +5494,17 @@ components:
           items: { $ref: '#/components/schemas/NightRate' }
         otaRoomAmountVnd: { $ref: '#/components/schemas/MoneyVnd' }
         otaChannelFeeVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        otaBookedAt:
+          $ref: '#/components/schemas/Instant'
+          description: Lúc khách đặt trên OTA (lead time đúng cho đơn OTA – DATA FB-05); R2 nhập tay, R3 lấy từ channel manager
+        allowUnassigned:
+          type: boolean
+          default: false
+          description: Chỉ kênh OTA – tạo đơn chưa gán căn sau khi đã nhận 409 kèm gợi ý và không còn căn phù hợp (decision-log PO 15/10)
+        guestEmail:
+          type: string
+          format: email
+          description: Ô email không bắt buộc ở form đặt phòng mới (phân xử ORC 15/10) – để gửi OTP mức 2; lưu vào hồ sơ khách người đứng tên
         etaTime: { $ref: '#/components/schemas/LocalTime' }
         initialPayment: { $ref: '#/components/schemas/PaymentCreate' }
         internalNote: { type: string, maxLength: 1000 }
@@ -4670,12 +5626,15 @@ components:
         blockers: { type: array, items: { type: string, enum: [balance_due, pending_approvals, minibar_not_checked] } }
     Party:
       type: object
-      required: [requiredCount, members]
+      required: [requiredCount]
+      description: Với phạm vi `own_count_only` (SAL/CTV) thuộc tính `members` vắng mặt hoàn toàn (D10).
       properties:
         requiredCount: { type: integer }
+        presentCount: { type: integer }
         missingCount: { type: integer }
         members:
           type: array
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
           items:
             type: object
             required: [id, role]
@@ -4699,23 +5658,25 @@ components:
         role: { type: string, enum: [companion, child] }
         guestId: { $ref: '#/components/schemas/Uuid' }
         relationship: { type: string, enum: [spouse, partner, family, friend, colleague, unknown] }
-        childName: { type: string, x-classification: C3 }
-        childBirthYear: { type: integer, minimum: 2000, x-classification: C3 }
+        childName: { type: string, writeOnly: true, x-classification: C3 }
+        childBirthYear: { type: integer, minimum: 2000, writeOnly: true, x-classification: C3 }
     DoorCredentialInput:
       type: object
       required: [kind, validFrom, validTo]
       properties:
         kind: { type: string, enum: [pin, card] }
-        code: { type: string, pattern: '^[0-9]{4,10}$', writeOnly: true, x-classification: C3 }
+        code: { type: string, pattern: '^[0-9]{6,10}$', writeOnly: true, x-classification: C3, description: 'Bỏ trống → lõi sinh 6 số CSPRNG (SR-LOCK-01). Mã theo ngày sinh = ddmm + ≥ 3 số ngẫu nhiên, chỉ khi khách muốn (decision-log DOM+SEC)' }
         validFrom: { $ref: '#/components/schemas/Instant' }
         validTo: { $ref: '#/components/schemas/Instant' }
         cardsIssued: { type: integer, minimum: 0, maximum: 4 }
     DoorCredentialMasked:
       type: object
-      required: [kind, validFrom, validTo, codeHint]
+      required: [kind, validFrom, validTo, version]
+      description: Không còn `codeHint` (2 số cuối làm giảm không gian đoán – SR-LOCK-01); lễ tân xem mã đầy đủ qua `getDoorCredential` trên thiết bị được cấp.
       properties:
         kind: { type: string, enum: [pin, card] }
-        codeHint: { type: string, example: '••••13' }
+        hasCode: { type: boolean }
+        version: { type: integer }
         validFrom: { $ref: '#/components/schemas/Instant' }
         validTo: { $ref: '#/components/schemas/Instant' }
         cardsIssued: { type: integer }
@@ -4790,6 +5751,8 @@ components:
             totalUsd: { type: number }
         commission:
           type: object
+          description: Hoa hồng của người chốt – FD/FDL không nhận (SR-AZ-04); SAL/CTV chỉ thấy khi là người chốt báo giá (phạm vi M)
+          x-visible-to: [owner, manager, sales_staff, collaborator]
           properties:
             ratePct: { $ref: '#/components/schemas/Percent' }
             baseVnd: { $ref: '#/components/schemas/MoneyVnd' }
@@ -4956,16 +5919,17 @@ components:
           items: { $ref: '#/components/schemas/Payment' }
         totals:
           type: object
-          required: [roomVnd, totalVnd, paidVnd, balanceDueVnd]
+          required: [roomVnd]
+          description: CTV chỉ nhận `roomVnd` và `depositHeldVnd` (rbac, SEC-ARC-15); các trường khác vắng mặt với CTV
           properties:
             roomVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            otherVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            focVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            totalVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            paidViaOtaVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            otherVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            focVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            totalVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            paidVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            paidViaOtaVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
             depositHeldVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
         pendingApprovals: { type: integer }
         invoiceRequest: { $ref: '#/components/schemas/InvoiceRequest' }
         version: { type: integer }
@@ -5088,15 +6052,19 @@ components:
         entityType: { type: string }
         entityId: { $ref: '#/components/schemas/Uuid' }
         entityCode: { type: string }
-        before: { type: object, additionalProperties: true }
-        after: { type: object, additionalProperties: true }
+        before: { type: object, additionalProperties: true, description: 'Sinh bằng serializer audit theo danh sách trường cho phép từng thực thể; không bao giờ chứa cột `_enc`/giá trị C3; C2 che theo danh sách (SR-AUD-03)' }
+        after: { type: object, additionalProperties: true, description: Như `before` }
         reason: { type: string }
     C3AccessEntry:
       type: object
-      required: [occurredAt, userName, subjectType, action]
+      required: [occurredAt, actorType, subjectType, action]
       properties:
         occurredAt: { $ref: '#/components/schemas/Instant' }
-        userName: { type: string }
+        actorType: { type: string, enum: [user, guest, system], description: 'guest = khách xem mã cửa qua app mức 2 (SR-GST-10)' }
+        userName: { type: string, description: Vắng khi actorType ≠ user }
+        sessionRef: { type: string, description: '8 ký tự đầu của id phiên (đủ đối chiếu, không dùng lại được)' }
+        trustedDeviceName: { type: string }
+        requestId: { type: string }
         subjectType: { type: string, enum: [guest_document, document_image, door_credential, payee_account, portal_data] }
         action: { type: string, enum: [view, create, update, copy, delete, purge] }
         reservationCode: { type: string }
@@ -5168,19 +6136,19 @@ components:
         isMain: { type: boolean }
         fullNameOnDoc: { type: string }
         docNumber: { type: string, writeOnly: true, x-classification: C3 }
-        dateOfBirth: { $ref: '#/components/schemas/LocalDate', x-classification: C3 }
+        dateOfBirth: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3 }
         gender: { type: string, enum: [male, female, other] }
         nationalityCode: { type: string, pattern: '^[A-Z]{2,3}$' }
-        passportIssueDate: { $ref: '#/components/schemas/LocalDate', x-classification: C3 }
-        passportExpiryDate: { $ref: '#/components/schemas/LocalDate', x-classification: C3 }
-        issuingPlace: { type: string, x-classification: C3 }
-        visaKind: { type: string, enum: [visa, visa_exempt, temp_residence_card], x-classification: C3 }
-        visaNumber: { type: string, x-classification: C3 }
-        visaValidUntil: { $ref: '#/components/schemas/LocalDate', x-classification: C3 }
-        entryDate: { $ref: '#/components/schemas/LocalDate', x-classification: C3 }
-        entryPort: { type: string, x-classification: C3 }
-        entryPurpose: { type: string, x-classification: C3 }
-        address: { type: string, x-classification: C3, description: 'Chỉ khi biểu mẫu cổng yêu cầu (R-REG-04)' }
+        passportIssueDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3 }
+        passportExpiryDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3 }
+        issuingPlace: { type: string, writeOnly: true, x-classification: C3 }
+        visaKind: { type: string, enum: [visa, visa_exempt, temp_residence_card], writeOnly: true, x-classification: C3 }
+        visaNumber: { type: string, writeOnly: true, x-classification: C3 }
+        visaValidUntil: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3 }
+        entryDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3 }
+        entryPort: { type: string, writeOnly: true, x-classification: C3 }
+        entryPurpose: { type: string, writeOnly: true, x-classification: C3 }
+        address: { type: string, writeOnly: true, x-classification: C3, description: 'Chỉ khi biểu mẫu cổng yêu cầu (R-REG-04)' }
         captureMethod: { type: string, enum: [qr_cccd, mrz, manual] }
     GuestDocumentSensitive:
       type: object
@@ -5362,7 +6330,11 @@ components:
       properties:
         roomId: { $ref: '#/components/schemas/Uuid' }
         startDate: { $ref: '#/components/schemas/LocalDate' }
-        endDatePlanned: { $ref: '#/components/schemas/LocalDate' }
+        endDatePlanned:
+          $ref: '#/components/schemas/LocalDate'
+          description: |
+            **Nửa mở** – ngày **mở bán lại** (khối chiếm `[startDate, endDatePlanned)`, cùng cách tính khoảng lưu trú BR-002).
+            UI hiển thị "khóa đến hết ngày X" = `endDatePlanned − 1`; mặc định = ngày sửa xong + 1 (decision-log DOM 15/10, QA #1).
         reason: { type: string, minLength: 3 }
         workOrderId: { $ref: '#/components/schemas/Uuid' }
         affectedReservationsAcknowledged: { type: boolean }
@@ -5428,7 +6400,10 @@ components:
           type: string
           example: 0905***456
           x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
-        tags: { type: array, items: { type: string } }
+        tags:
+          type: array
+          items: { type: string }
+          x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff]
     GuestInput:
       type: object
       required: [fullName]
@@ -5474,8 +6449,15 @@ components:
         preferredContact: { type: string }
         companyName: { type: string, x-visible-to: [owner, manager, front_desk_lead, front_desk] }
         taxCode: { type: string, x-visible-to: [owner, manager, front_desk_lead, front_desk] }
-        tags: { type: array, items: { type: string } }
-        serviceNotes: { type: array, items: { type: string } }
+        tags:
+          type: array
+          items: { type: string }
+          x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff]
+        serviceNotes:
+          type: array
+          items: { type: string }
+          description: Từ danh mục (không văn bản tự do – tránh ghi thông tin sức khỏe)
+          x-visible-to: [owner, manager, front_desk_lead, front_desk, housekeeping]
         freeNote:
           type: string
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
@@ -5486,6 +6468,7 @@ components:
         crmConsent: { type: string, enum: [not_asked, granted, refused] }
         warnings:
           type: array
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
           items:
             type: object
             properties:
@@ -5540,6 +6523,14 @@ components:
       properties:
         level: { type: integer, enum: [1, 2] }
         reservationCode: { type: string }
+        stayEnded: { type: boolean, description: 'Đơn đã trả phòng – chỉ còn bill/thanh toán phát sinh (SR-GST-11)' }
+        verification:
+          type: object
+          description: Cách lên mức 2 khả dụng (để guest-web hiện đúng nút)
+          properties:
+            emailOtpAvailable: { type: boolean, description: 'false khi đơn không có email hoặc email vừa đổi < 24 giờ (SR-GST-14)' }
+            maskedEmail: { type: string }
+            locked: { type: boolean, description: 'Token bị khóa xác minh – chỉ mã lễ tân tại quầy/điện thoại (SR-GST-08)' }
         guestFirstName: { type: string }
         roomNo: { type: [string, 'null'] }
         locale: { $ref: '#/components/schemas/Locale' }
@@ -5565,6 +6556,9 @@ components:
             mapUrl: { type: string, format: uri }
             phone: { type: string }
         houseRules: { type: string, description: 'Nội quy + phí phạt theo tham số BR-511, theo ngôn ngữ' }
+        guestFullName:
+          type: string
+          x-guest-level: 2
         wifi:
           type: [object, 'null']
           description: 'null trước ngày nhận phòng (US-108 AC2)'
@@ -5573,7 +6567,8 @@ components:
             password: { type: string }
         doorCode:
           type: [object, 'null']
-          description: 'Chỉ khi phiên mức 2 và trong khoảng hiệu lực (BR-403, US-128 AC1); không trả → hiện "sẽ hiện vào ngày nhận phòng"'
+          description: 'Chỉ khi phiên mức 2 và trong khoảng hiệu lực và đơn confirmed/in_house (BR-403, US-128 AC1, SR-GST-10); không trả → hiện "sẽ hiện vào ngày nhận phòng". Mỗi lần trả ghi c3_access_log actor_type=guest'
+          x-guest-level: 2
           properties:
             code: { type: string, x-classification: C3 }
             validFrom: { $ref: '#/components/schemas/Instant' }
@@ -5609,3 +6604,82 @@ components:
         paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
         balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd' }
         usdReference: { type: object, properties: { rate: { type: integer }, balanceDueUsd: { type: number } } }
+
+    # ── bổ sung 0.2.0 (R1 bước 4) ──
+    Health:
+      type: object
+      required: [status, db, time]
+      properties:
+        status: { type: string, enum: [ok, error] }
+        db: { type: string, enum: [ok, down] }
+        time: { $ref: '#/components/schemas/Instant' }
+    MfaConfirmInput:
+      type: object
+      required: [currentPassword, code]
+      properties:
+        currentPassword: { type: string, writeOnly: true }
+        code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+    TrustedDevice:
+      type: object
+      required: [id, name, deviceKind, createdAt, expiresAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        deviceKind: { type: string, enum: [desk, facility_mobile] }
+        createdByName: { type: string }
+        createdAt: { $ref: '#/components/schemas/Instant' }
+        expiresAt: { $ref: '#/components/schemas/Instant' }
+        lastSeenAt: { $ref: '#/components/schemas/Instant' }
+        revokedAt: { $ref: '#/components/schemas/Instant' }
+        isCurrentDevice: { type: boolean }
+    StaffNotification:
+      type: object
+      required: [id, kind, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind:
+          type: string
+          enum: [hold_expired, hold_expiring, deposit_notice, deposit_after_cancel, guest_request_new, guest_request_overdue, work_order_overdue, approval_requested, approval_decided, registration_due, checkout_call_needed, security_alert, account_security_change]
+        refType: { type: string, enum: [reservation, guest_request, work_order, approval_request, registration, user] }
+        refId: { $ref: '#/components/schemas/Uuid' }
+        refCode: { type: string, description: 'Mã hiển thị (OTM-00171, WO-00034, số căn) – không C2/C3' }
+        createdAt: { $ref: '#/components/schemas/Instant' }
+        readAt: { $ref: '#/components/schemas/Instant' }
+    ChannelFee:
+      type: object
+      required: [reservationId, amountEstimatedVnd, isEstimate, version]
+      properties:
+        reservationId: { $ref: '#/components/schemas/Uuid' }
+        ratePctSnapshot: { $ref: '#/components/schemas/Percent' }
+        amountEstimatedVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        amountActualVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        isEstimate: { type: boolean }
+        source: { type: string, enum: [channel_manager, manual_reconcile, estimate] }
+        recognizedOn: { $ref: '#/components/schemas/LocalDate' }
+        reconciledAt: { $ref: '#/components/schemas/Instant' }
+        version: { type: integer }
+    Commission:
+      type: object
+      required: [id, payeeType, status, amountVnd]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        reservationCode: { type: string }
+        leaseContractCode: { type: string }
+        payeeType: { type: string, enum: [agent, staff] }
+        payeeName: { type: string, x-visible-to: [owner, manager] }
+        ratePctSnapshot: { $ref: '#/components/schemas/Percent' }
+        baseAmountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        status: { $ref: '#/components/schemas/CommissionStatus' }
+        recognizedAt: { $ref: '#/components/schemas/Instant' }
+        payouts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              trancheNo: { type: integer }
+              dueDate: { $ref: '#/components/schemas/LocalDate' }
+              amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+              paidAt: { $ref: '#/components/schemas/Instant' }
+        version: { type: integer }

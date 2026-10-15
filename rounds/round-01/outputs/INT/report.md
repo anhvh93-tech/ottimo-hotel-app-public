@@ -50,3 +50,58 @@ Không sửa decision-log và escalations-index; đề xuất ORC ghi các dòng
 - Đối chiếu adapter với ERD/OpenAPI của ARC (Đợt 3).
 - Review ARC (bước 3).
 - PO đánh số và đưa 3 dự thảo ESC vào 02-escalations.
+
+---
+
+# Bước 4 – Phản hồi & sửa (15/10/2026)
+
+## 1. Đã làm gì
+- Trả lời đủ **38 thẻ** (ARC 18, SEC 12, DOM 8) trong `rounds/round-01/responses/INT-responses.md`: **38 Done**, 0 Rejected/Deferred. Blocker còn Open: **0** (SEC-01). Major còn Open: **0** (ARC 01/02/03/04/06/09/10/11, SEC 02/03/04/05, DOM 01/02/03).
+- **Interface adapter v0.2** (`product/integrations/README.md`):
+  - Mọi phương thức nhận `IntegrationContext`; adapter không đọc `process.env`, nhận khóa qua `CredentialProvider`.
+  - Ngày dùng `LocalDate`, thời điểm dùng `IsoInstant`; lỗi chuẩn `IntegrationError` có `retryable`; mọi adapter có `healthCheck`.
+  - `MockScenario` 14 kịch bản; production từ chối khởi động nếu tiền/kênh/khóa ở mock/sandbox; giá trị `off` mặc định và không đăng ký webhook.
+- **Không giữ payload thô**: bỏ `raw`, lọc theo allowlist từng trường, phát hiện thẻ bằng tên trường + Luhn 13–19 số, `rawFiltered` xóa sau 90 ngày, có test bắt buộc.
+- **Webhook kênh chỉ là tín hiệu**: `parseWebhookSignal` + `fetchBooking`. Đã xác minh Beds24 không ký webhook. Đường dẫn webhook là `/v1/webhooks/{provider}/{propertySlug}`, VNPay IPN dùng GET, query string được che trong log.
+- **IPN thanh toán không fail-open**: `verifyCallback` trả union `{ok:true,event} | {ok:false,reason}`. Lõi kiểm 6 bước theo thứ tự, gồm gọi `queryStatus` trước khi ghi `succeeded`.
+- **Báo tiền về**: tách `BankFeedAdapter`, xác thực bằng HMAC hoặc API key + IP nguồn + kéo lại giao dịch; khớp tự động phải đủ 4 điều kiện.
+- **Trạng thái thanh toán đồng bộ SM-12/ERD**: hoàn tiền là dòng `payment(type=refund)` riêng; `payment.method` là tên cổng.
+- **Tài liệu nghiệp vụ** (`integrations.md`):
+  - 7 quy tắc ưu tiên OTA vs trực tiếp (3.1.1), việc OTA phát sinh như sửa đơn/no-show/VCC (3.1.2), nhắn tin hội thoại OTA (3.1.3).
+  - Hóa đơn phát hành theo sự kiện BR-524; hạn khai báo theo BR-602/603.
+  - So sánh email (đề xuất SES Singapore); bảng quyền tối thiểu/chủ sở hữu/chu kỳ xoay bí mật (4.1); thêm RI10, RI11.
+- **Khóa cửa** (`smart-lock.md`):
+  - Mã sinh nhật `ddmm` + 3 số, bỏ biến thể + 2 số theo decision-log; thêm tiêu chí T11, T12.
+  - Tách 3 thời điểm tạo / hiệu lực / hiển thị mã; mã nhân viên (4.3); `label` không chứa dữ liệu cá nhân; gửi mã mặc định qua link app khách.
+- **Channel manager** (`channel-manager-comparison.md` 3.4): ước tính tải Beds24 (đơn lẻ / đối soát đêm / đỉnh) → 100 credit/5 phút đủ cho 10 căn.
+- **Mã**:
+  - Thêm `contracts/common.ts` (LocalDate/IsoInstant, IntegrationContext, IntegrationError, HealthStatus, InboundHttp, CredentialProvider, MockScenario), `contracts/notification.ts`, `contracts/index.ts`; export `"./contracts"`.
+  - Mock notification: nhận `ctx`, có scenario, có `healthCheck`, đồng hồ tiêm vào (ADR-008), không giữ tham số bí mật; test tăng từ 2 lên 6 ca.
+- Việc ORC chuyển tiếp từ SEC: (1) giá trị `off` đã áp cho mọi nhóm, `off` không đăng ký webhook. (2) Đã xác minh nhắn tin theo từng đơn trên extranet: Booking.com có [Nguồn]; Agoda có nhưng phải yêu cầu bật [Nguồn]; Airbnb [GIẢ ĐỊNH]; Expedia/Trip.com/Traveloka [Chưa xác minh]. Beds24 API cũng gửi được tin vào hội thoại đơn OTA [Nguồn].
+
+## 2. File tạo/sửa (Bước 4)
+- product/integrations/README.md (viết lại – v0.2)
+- product/docs/integrations.md (sửa)
+- product/docs/integrations/smart-lock.md (sửa)
+- product/docs/integrations/channel-manager-comparison.md (sửa)
+- product/integrations/contracts/common.ts, contracts/notification.ts, contracts/index.ts (mới)
+- product/integrations/notification/types.ts, mock.ts, mock.test.ts (sửa – INT tiếp quản khung OPS)
+- product/integrations/index.ts, package.json (thêm export `./contracts`), tsconfig.json (include `contracts`) (sửa)
+- rounds/round-01/responses/INT-responses.md (mới)
+- rounds/round-01/outputs/INT/report.md (thêm phần này)
+
+## 3. Giả định
+- [GIẢ ĐỊNH] Mỗi lời gọi đơn giản tốn khoảng 1–2 credit Beds24 (tài liệu không công bố bảng giá credit); sẽ đo bằng header `x-request-cost` ở R2.
+- [GIẢ ĐỊNH – chờ INV qua ESC-010] Email giao dịch dùng Amazon SES vùng Singapore.
+- [GIẢ ĐỊNH] Airbnb có hội thoại theo từng đặt phòng cho chủ nhà; chưa đối chiếu tài liệu.
+- Bỏ hẳn biến thể mã `ddmm` + 2 số, theo dòng decision-log "THAY dòng INT", dù SR-LOCK-02 cho phép khi khóa có giới hạn thử sai.
+
+## 4. Rủi ro / vướng mắc
+- Chưa chạy được `tsc`/`vitest` (máy không có Node) → mã `contracts/` và Mock notification **chưa được biên dịch/kiểm thử**; CI của OPS cần chạy ở lần đẩy kế tiếp.
+- OpenAPI vẫn dùng đường dẫn webhook cũ và chỉ có POST → đã ghi yêu cầu ARC (responses mục 4).
+- Chưa xác minh: Beds24 hỗ trợ CTA/CTD theo kênh, báo no-show qua API, kênh nào nhận tin nhắn; TTLock sinh mã có hạn có cần gateway không.
+
+## 5. Việc chưa xong
+- Máy tính giá Beds24 (đầu R2).
+- Đầu R2: chép interface 3.1–3.4, 3.6 vào `contracts/*.ts`; cài `scrubCardData`, `assertSafeConfig`, `EnvCredentialProvider`.
+- PO cập nhật ESC-008/009/010/011 theo đề xuất ở responses mục 5; ORC ghi các dòng decision-log đề xuất.

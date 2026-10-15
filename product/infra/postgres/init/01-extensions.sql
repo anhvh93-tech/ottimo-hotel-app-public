@@ -5,6 +5,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- Separate database for integration tests run from the host (DATABASE_URL in tests).
+-- Roles and grants for both databases: 02-roles.sh.
 CREATE DATABASE ottimo_test;
 \connect ottimo_test
 CREATE EXTENSION IF NOT EXISTS btree_gist;

@@ -5,6 +5,11 @@
 *.pem
 *.key
 *.age
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.kdbx
 
 # Node / build
 node_modules/

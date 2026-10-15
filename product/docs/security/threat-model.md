@@ -1,6 +1,6 @@
 # Threat model (STRIDE) – OTTIMO Desk
 
-- Người lập: SEC | Round 1 – Bước 2 Sản xuất – Đợt 4 (Phần 2) | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review ARC bắt buộc, OPS khuyến nghị)
+- Người lập: SEC | Round 1 – Bước 2 Sản xuất – Đợt 4 (Phần 2) | Ngày: 15/10/2026 | Phiên bản: 0.2 (Bước 4 – sau review ARC và phân xử ORC)
 - Đầu vào: `architecture.md` (Pha A + B), `adr/ADR-001…013`, `erd.md`, `api/openapi.yaml` (0.1.0-draft), `rbac-matrix.md`, `integrations.md`, `integrations/smart-lock.md`, `product/integrations/README.md`, `infra/docker-compose.yml`, `infra/caddy/Caddyfile.dev`, `infra/docker/Dockerfile.api`, `.github/workflows/ci.yml`, `.env.example`, `security/data-risk-assessment.md` (gọi tắt **DRA**: C0–C3, D01–D28, T01–T18, R-REG, R-PAY, F01–F14), `rounds/round-01/outputs/ARC/report.md` mục 4 (M1–M11).
 - Đọc cùng: `security-requirements.md` (mã **SR-xxx** – mọi biện pháp trong tài liệu này trỏ tới đó).
 - Phạm vi: kiến trúc MVP (1 VPS tại Việt Nam, Docker Compose, Caddy, `api` + `worker` NestJS, PostgreSQL 17 có RLS, kho tệp mã hóa, 3 client web: `admin-web`, PWA `mobile`, `guest-web`) và các tích hợp R2–R3 (cổng thanh toán, bank feed, channel manager Beds24, email/Zalo, MISA, khóa cửa thủ công/cloud sau MVP, cổng khai báo BCA bán tự động). `booking-web` (R3) chỉ xét ở mức biên Internet.
@@ -11,9 +11,9 @@
 
 ## 1. Tóm tắt cho người bận
 
-1. **60 mối đe dọa** (TM-01…TM-60) trên 10 nhóm thành phần/luồng. Trước biện pháp: **3 Critical, 23 High**, 27 Medium, 7 Low. Sau khi cài đủ biện pháp R2–R3: **0 Critical, 2 High còn lại** (TM-13 chiếm VPS, TM-17 ảnh giấy tờ ngoài hệ thống – cần INV biết và chấp nhận, mục 9), phần còn lại Medium/Low.
+1. **62 mối đe dọa** (TM-01…TM-62) trên 10 nhóm thành phần/luồng. Trước biện pháp: **3 Critical, 25 High**, 27 Medium, 7 Low. Sau khi cài đủ biện pháp R2–R3: **0 Critical, 2 High còn lại** (TM-13 chiếm VPS, TM-17 ảnh giấy tờ ngoài hệ thống – cần INV biết và chấp nhận, mục 9), phần còn lại Medium/Low.
 2. Ba điểm thiết kế **phải sửa trước khi code R2** (đã ghi thành phát hiện ở report SEC mục 4, sẽ vào bug-list bước 5):
-   - **Xác minh mức 2 của app khách quá yếu** (TM-21): OpenAPI cho lên mức 2 bằng "4 số cuối SĐT **hoặc** mã đặt phòng". Mã đặt phòng là số tăng dần (`OTM-00171`) và nằm **ngay trong tin nhắn chứa link** → ai có link (ví dụ người trong nhóm chat) cũng xem được bill và **mã cửa**. SEC chốt: mức 2 = mã OTP gửi email của đơn **hoặc** mã xác minh do lễ tân cấp (SR-GST-07).
+   - **Xác minh mức 2 của app khách quá yếu** (TM-21): OpenAPI cho lên mức 2 bằng "4 số cuối SĐT **hoặc** mã đặt phòng". Mã đặt phòng là số tăng dần (`OTM-00171`) và nằm **ngay trong tin nhắn chứa link** → ai có link (ví dụ người trong nhóm chat) cũng xem được bill và **mã cửa**. SEC chốt: mức 2 = mã OTP gửi email của đơn **hoặc** mã xác minh do lễ tân cấp (SR-GST-07). Bước 4 (phân xử ORC): mã lễ tân được phép gửi qua hộp thư OTA/Zalo của đơn, **mặc định tắt**, owner bật theo kênh (SR-GST-13) – rủi ro còn lại ở TM-61 và mục 9.
    - **"Xóa bằng hủy khóa" không xóa được trong bản sao lưu** như ADR-013 mô tả (TM-15): khóa dữ liệu đã bọc (`data_key.wrapped_key`) nằm trong chính DB được sao lưu, còn khóa chủ không đổi → backup cũ vẫn giải mã được. Dữ liệu chỉ thực sự hết khi backup cũ hết hạn (≤ 35 ngày, T18). Cần sửa câu chữ ADR-013 + ràng buộc vòng đời backup + nhật ký xóa để áp lại sau khôi phục (SR-BAK-03, SR-BAK-06).
    - **"C3 chỉ trên máy quầy" chưa có cơ chế thật** (M8, TM-46): cờ `device_trusted` theo phiên không ràng buộc với thiết bị. SEC chốt cơ chế **đăng ký thiết bị** (cookie thiết bị riêng, bảng `trusted_device`) và yêu cầu mọi endpoint C3 kiểm (SR-DEV).
 3. Rủi ro lớn nhất còn lại **nằm ngoài phần mềm**: ảnh giấy tờ đi qua điện thoại cá nhân/nhóm chat (TM-17, DRA F07), máy quầy dùng chung không được quản lý (TM-46), và toàn bộ dữ liệu nằm trên **một VPS** – ai chiếm được quyền root thì có cả khóa chủ lẫn dữ liệu (TM-13). Giảm bằng quy định nội bộ của INV, cứng hóa máy quầy, và **giữ C3 càng ngắn càng tốt**.
@@ -179,6 +179,26 @@ sequenceDiagram
   Note over DB: Backup cũ vẫn còn wrapped_key → chỉ hết hẳn khi backup ≤ 35 ngày hết hạn (TM-15)
 ```
 
+### 6.4 DF-3/DF-8 – khách đến khuya, không có lễ tân (phân xử ORC 15/10)
+
+```mermaid
+sequenceDiagram
+  participant K as Khách
+  participant G as guest-web
+  participant FD as Lễ tân (giờ trực)
+  participant N as Người trực đêm (thiết bị của cơ sở được cấp)
+  FD->>K: Link app khách + mời check-in online (mức 1: chỉ ghi giấy tờ)
+  alt Đơn có email
+    G->>K: OTP email → mức 2
+  else Không email, OWN đã bật kênh
+    FD->>K: Mã xác minh qua hộp thư OTA/Zalo của đơn (tin riêng, 15 phút, 1 lần)
+  end
+  Note over K,G: Mức 2: mã cửa hiện từ validFrom (SR-GST-10) hoặc mẫu door_code ngày đến
+  K->>N: Đến 01:00 chưa mức 2 / chưa đối chiếu giấy tờ
+  N->>N: admin-web trên máy quầy hoặc máy tính bảng của cơ sở (SR-DEV-08) – đối chiếu giấy tờ, đọc mã xác minh trực tiếp
+  Note over N: Điện thoại cá nhân / PWA: không bao giờ có C3 (SR-DEV-09)
+```
+
 ---
 
 ## 7. Bảng mối đe dọa
@@ -211,10 +231,10 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 | Mã | Thành phần | STRIDE | Mối đe dọa | K | TĐ | M | Biện pháp chính | CL |
 |---|---|---|---|:-:|:-:|:-:|---|:-:|
 | TM-12 | DB, volume tệp, backup | I | Lấy được bản sao DB/ổ đĩa/backup (nhà cung cấp, OPS, kẻ tấn công) → đọc C3 | 2 | 3 | **High** | Mã hóa phong bì DEK/KEK, KEK không nằm trong DB/backup/image (SR-KEY-01…04); backup mã hóa `age`, khóa riêng ngoài VPS (SR-BAK-02); giữ C3 ngắn (T01–T03) | Medium |
-| TM-13 | KEK trong `.env` trên **cùng VPS** | I | Chiếm quyền root VPS (lỗ hổng ứng dụng → RCE, SSH yếu) → có cả KEK lẫn DB → giải mã toàn bộ C3 **đang lưu** | 2 | 3 | **High** | Cứng hóa VPS (SR-OPS-01…05); `.env` quyền 600, user riêng; KEK không vào log/dump; tối thiểu hóa thời gian lưu C3 để giới hạn "bán kính nổ"; xoay KEK khi nghi lộ (SR-KEY-05). **Không loại bỏ được** ở ngân sách MVP (KMS/HSM ngoài phạm vi) → báo INV ở mục 9 | **High** |
+| TM-13 | KEK trong `.env` trên **cùng VPS** | I | Chiếm quyền root VPS (lỗ hổng ứng dụng → RCE, SSH yếu) → có cả KEK lẫn DB → giải mã toàn bộ C3 **đang lưu** | 2 | 3 | **High** | Cứng hóa VPS (SR-OPS-01…05); `.env` quyền 600, user riêng; KEK không vào log/dump; tối thiểu hóa thời gian lưu C3 để giới hạn "bán kính nổ"; xoay KEK khi nghi lộ (SR-KEY-05); KEK tách khỏi `.env`, nạp qua Compose secrets, loại khỏi sao lưu tệp – chỉ chống bản sao ổ đĩa, không chống root đang chạy (SR-KEY-10, R3). **Không loại bỏ được** ở ngân sách MVP (KMS/HSM ngoài phạm vi) → báo INV ở mục 9 | **High** |
 | TM-14 | KEK | D | Mất KEK (xóa nhầm `.env`, dựng lại VPS) → mất toàn bộ ảnh/số giấy tờ đang lưu | 1 | 2 | Low | INV giữ 2 bản sao KEK ngoại tuyến (SR-KEY-04); kiểm thử khôi phục mỗi round giải mã 1 mẫu (SR-BAK-05) | Low |
 | TM-15 | Crypto-shredding vs backup | I | Hủy DEK trong DB **không** làm backup cũ hết giải mã được (backup có `wrapped_key` + KEK không đổi) → ảnh/số giấy tờ "đã xóa" vẫn khôi phục được tới khi backup hết hạn; ADR-013 hiện mô tả sai | 3 | 2 | **High** | Sửa câu chữ ADR-013 và thông báo xử lý dữ liệu: "xóa khỏi bản sao lưu trong ≤ 35 ngày" (T18); vòng đời backup **cứng** ≤ 35 ngày gồm cả snapshot của nhà cung cấp (SR-BAK-03); `purge_journal` áp lại sau khôi phục (SR-BAK-06); (tùy chọn R3) xoay KEK theo tháng + hủy KEK cũ sau khi backup chứa nó hết hạn (SR-KEY-06) | Low |
-| TM-16 | Upload ảnh (quầy, app khách, đính kèm) | T/E | Tệp độc: polyglot, HEIC/PDF khai thác thư viện xử lý ảnh, SVG/HTML giả ảnh, PDF có JavaScript, ảnh "bom giải nén" → RCE hoặc XSS khi lễ tân mở | 2 | 3 | **High** | Danh sách loại cho phép theo **magic bytes**, ≤ 10 MB, ≤ 40 MP; **mã hóa lại** ảnh sang JPEG/WebP (bỏ EXIF/GPS); PDF chỉ từ quầy, phục vụ với `Content-Disposition: attachment` + CSP `sandbox`; thư viện ảnh chạy với giới hạn tài nguyên (SR-FILE-01…06) | Low |
+| TM-16 | Upload ảnh (quầy, app khách, đính kèm) | T/E | Tệp độc: polyglot, HEIC/PDF khai thác thư viện xử lý ảnh, SVG/HTML giả ảnh, PDF có JavaScript, ảnh "bom giải nén" → RCE hoặc XSS khi lễ tân mở | 2 | 3 | **High** | Danh sách loại cho phép theo **magic bytes**, ≤ 10 MB, ≤ 40 MP; server chỉ nhận JPEG/PNG/WebP, client chuẩn hóa ảnh (kể cả HEIC) sang JPEG trước khi tải, server vẫn **mã hóa lại** bằng `sharp` (bỏ EXIF/GPS); **MVP không nhận PDF**; phục vụ với CSP `sandbox`; thư viện ảnh chạy với giới hạn tài nguyên (SR-FILE-01…06) | Low |
 | TM-17 | Ngoài hệ thống: điện thoại cá nhân, Zalo, thư mục Downloads | I | Ảnh giấy tờ bị chụp bằng điện thoại cá nhân, gửi nhóm chat, tải về máy quầy; trình duyệt cache ảnh (DRA F07) | 3 | 3 | **Critical** | Kênh tải lên trong app thay chat (R-REG-08); chụp bằng camera trong app (không lưu thư viện ảnh); `no-store`, không nút tải về, xem inline có watermark tên người xem + thời điểm (SR-C3-10); máy quầy không đồng bộ đám mây/không cài app chat (SR-DEV-07); **quy định nội bộ của INV** (DRA Q10) | **High** |
 | TM-18 | Clipboard (K6 sao chép sang cổng BCA) | I | Dữ liệu C3 ở clipboard máy quầy, **lịch sử clipboard/Đồng bộ clipboard đám mây** (Windows/macOS/iCloud), app bàn phím | 2 | 3 | **High** | `portal-data` chỉ trên thiết bị được cấp (SR-DEV-03); sao chép **từng trường**, tự xóa clipboard sau 60 giây (SR-C3-11); tắt lịch sử/đồng bộ clipboard trên máy quầy (SR-DEV-07); ghi nhật ký `copy` | Medium |
 | TM-19 | `c3_access_log` | R | Không chứng minh được ai xem ảnh (log ghi sau, lỗi ghi bị bỏ qua, thiếu thiết bị/phiên) | 2 | 2 | Medium | Ghi cùng giao dịch **trước** khi trả, thất bại → 503 không trả dữ liệu (fail closed); thêm `actor_type`, `session_id`, `device_id`, `ip_hmac` (SR-C3-07, SR-C3-08) | Low |
@@ -224,12 +244,13 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 
 | Mã | Thành phần | STRIDE | Mối đe dọa | K | TĐ | M | Biện pháp chính | CL |
 |---|---|---|---|:-:|:-:|:-:|---|:-:|
-| TM-21 | `/v1/guest/sessions/verify`, `GuestStay.doorCode`, `/v1/guest/folio` | S/I | **Link bị chuyển tiếp** (nhóm chat đoàn, email forward). Xác minh mức 2 hiện là "4 số cuối SĐT **hoặc** mã đặt phòng" – mã đặt phòng tăng dần và **nằm trong cùng tin nhắn với link** → người nhận link vượt mức 2, xem bill và **mã cửa** → vào phòng | 3 | 3 | **Critical** | Mức 2 = **OTP 6 số gửi email của đơn** hoặc **mã xác minh lễ tân cấp** (SR-GST-07); mã đặt phòng/4 số SĐT **không** là yếu tố xác minh; giới hạn 5 lần sai **trên token** (không trên phiên) rồi khóa token (SR-GST-08); mã cửa chỉ hiện từ giờ nhận phòng, chỉ mức 2 (SR-GST-10); lễ tân cấp lại link = thu hồi link cũ và mọi phiên (SR-GST-04) | Medium |
+| TM-21 | `/v1/guest/sessions/verify`, `GuestStay.doorCode`, `/v1/guest/folio` | S/I | **Link bị chuyển tiếp** (nhóm chat đoàn, email forward). Xác minh mức 2 hiện là "4 số cuối SĐT **hoặc** mã đặt phòng" – mã đặt phòng tăng dần và **nằm trong cùng tin nhắn với link** → người nhận link vượt mức 2, xem bill và **mã cửa** → vào phòng | 3 | 3 | **Critical** | Mức 2 = **OTP 6 số gửi email của đơn** hoặc **mã xác minh lễ tân cấp** (SR-GST-07); mã đặt phòng/4 số SĐT **không** là yếu tố xác minh; giới hạn 5 lần sai **trên token** (không trên phiên) rồi khóa token (SR-GST-08); mã cửa chỉ hiện từ giờ nhận phòng, chỉ mức 2 (SR-GST-10); lễ tân cấp lại link = thu hồi link cũ và mọi phiên (SR-GST-04). Khách không có email: mã lễ tân đọc tại quầy/gọi điện, hoặc (nếu OWN bật kênh) gửi qua hộp thư OTA/Zalo của đơn – mã **một lần**, gắn token, hết hạn 15 phút, đếm sai chung theo token, tin riêng không kèm link (SR-GST-13); ô email không bắt buộc ở form đặt phòng (SR-GST-14). **Rủi ro còn lại khi bật kênh**: nếu link cũng được gửi trong cùng hộp thư/Zalo đó thì mức 2 chỉ chứng minh "người giữ kênh của đơn", không chống được người dùng chung tài khoản OTA/Zalo đó hoặc người được chủ kênh chuyển tiếp **cả hai** tin – xem TM-61 | Medium (kênh tắt) · Medium (kênh bật, rủi ro cao hơn – TM-61) |
 | TM-22 | `/v1/guest/sessions` | S | Dò token link | 1 | 3 | Medium | Token ngẫu nhiên 256 bit (tối thiểu 128), DB lưu SHA-256; giới hạn 10 lần/phút/IP + 100/ngày/IP (SR-GST-01, SR-RL-03) | Low |
 | TM-23 | URL `/g/{token}` | I | Token lộ qua Referer, log Caddy/API, lịch sử trình duyệt, máy dùng chung, script bên thứ ba | 2 | 2 | Medium | Đổi token sang cookie ngay rồi `history.replaceState` xóa token khỏi thanh địa chỉ; `Referrer-Policy: no-referrer`; che `/g/*` trong log; guest-web **không** có script bên thứ ba/analytics (SR-GST-02, -03, SR-LOG-03) | Low |
 | TM-24 | QR trong phòng | I | QR cố định theo phòng lộ dữ liệu khách trước (DRA F09) | 1 | 2 | Low | QR chỉ mở trang công khai của căn + ô nhập link/mã (ADR-006 mục 4) | Low |
 | TM-25 | Upload/yêu cầu từ app khách | D | Spam yêu cầu, tải tệp liên tục → làm phiền lễ tân, đầy đĩa | 2 | 1 | Low | 20 yêu cầu/ngày/đơn, 30 tệp/đơn, 10 MB/tệp, tổng 200 MB/đơn (SR-RL-05, SR-FILE-02) | Low |
 | TM-26 | Link sau trả phòng (M4) | I | Link còn dùng được sau khi rời → người khác cầm điện thoại xem bill/thông tin | 2 | 2 | Medium | Ân hạn mặc định 24 giờ nhưng **thu hẹp phạm vi**: chỉ xem bill + thanh toán phát sinh, cần mức 2; không Wi-Fi, mã cửa, yêu cầu, upload (SR-GST-11) | Low |
+| TM-61 | Mã xác minh lễ tân qua kênh nhắn tin (SR-GST-13) | S/I | (a) **Lừa lễ tân**: kẻ có link (người trong nhóm chat) nhắn Zalo từ số khác/hội thoại OTA khác xưng là khách xin mã → nhận mã → mức 2 → mã cửa; (b) tài khoản OTA/Zalo của khách bị chiếm hoặc dùng chung; (c) mã lộ khi lễ tân dán nhầm hội thoại hoặc gửi bằng Zalo cá nhân | 2 | 3 | **High** | Mặc định **tắt**, OWN bật theo kênh (`guest_verify_code_channels`); chỉ gửi tới hội thoại của đơn trên extranet hoặc Zalo của **SĐT trên đơn**, bằng Zalo **của cơ sở**; mã 6 số một lần, gắn token, 15 phút, lưu băm; đếm sai chung theo token (5/24 giờ) + tối đa 3 lần cấp qua kênh/24 giờ/token; tin mã không chứa link; audit mỗi lần cấp (người, kênh, đơn); cấp lại link hủy mã cũ; hướng dẫn lễ tân "không gửi mã cho hội thoại mới" (SR-GST-08, -13) | Medium |
 | TM-27 | Origin guest-web | E | XSS ở guest-web cùng origin với admin → đọc/gửi request bằng cookie nhân viên | 1 | 3 | Medium | Tên miền con riêng cho guest-web; cookie `ottimo_sid` host-only ở origin quản trị; CORS chỉ cùng origin (SR-HDR-04) | Low |
 
 ### 7.5 Thanh toán (DF-4, TB-6)
@@ -256,7 +277,7 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 
 | Mã | Thành phần | STRIDE | Mối đe dọa | K | TĐ | M | Biện pháp chính | CL |
 |---|---|---|---|:-:|:-:|:-:|---|:-:|
-| TM-38 | Sinh mã cửa | S | Mã đoán được: theo ngày sinh, chỉ 4 số (OpenAPI cho `^[0-9]{4,10}$`), lặp giữa các lần ở → người khác vào phòng | 2 | 3 | **High** | Mã ngẫu nhiên ≥ 6 số từ CSPRNG (SR-LOCK-01); biến thể sinh nhật chỉ khi khách tự chọn và có **≥ 3 số ngẫu nhiên** hoặc khóa có giới hạn thử sai (SR-LOCK-02, chờ ESC-011); không tái dùng mã trên cùng khóa trong 90 ngày | Medium |
+| TM-38 | Sinh mã cửa | S | Mã đoán được: theo ngày sinh, chỉ 4 số (OpenAPI cho `^[0-9]{4,10}$`), lặp giữa các lần ở → người khác vào phòng | 2 | 3 | **High** | Mã ngẫu nhiên ≥ 6 số từ CSPRNG (SR-LOCK-01); biến thể sinh nhật chỉ khi khách tự chọn, dạng **`ddmm` + ≥ 3 số ngẫu nhiên**, không ngoại lệ (SR-LOCK-02, decision-log 15/10, chờ ESC-011); không tái dùng mã trên cùng khóa trong 90 ngày | Medium |
 | TM-39 | Gửi mã | I | Mã cửa lộ qua tiêu đề email, xem trước thông báo màn hình khóa, nhóm chat, log, outbox | 2 | 3 | **High** | Mã chỉ hiện trong app khách mức 2 từ giờ nhận phòng; mẫu tin **cấm biến mã cửa** trừ mẫu `door_code` gửi đúng ngày đến tới liên hệ đã xác minh, không trong tiêu đề; outbox chỉ chứa ID; không log (SR-LOCK-03, SR-MSG-01) | Medium |
 | TM-40 | Thu hồi mã (chế độ thủ công) | T/E | Lễ tân quên xóa mã trên app khóa → khách cũ hoặc người biết mã vào lại | 2 | 3 | **High** | Luôn đặt **hạn trên chính khóa** khi tạo mã (phòng thủ kép); việc "Xóa mã" tạo tự động khi trả phòng, chưa tick → "Cần chú ý" đỏ; đối chiếu hằng ngày (SR-LOCK-04) | Low |
 | TM-41 | Cloud khóa (sau MVP) | I | Mã/nhật ký mở cửa nằm ở cloud nước ngoài; vân tay | 2 | 2 | Medium | Không đăng ký vân tay khách (decision-log); tiêu chí chọn hãng (smart-lock.md) + ESC-011, ESC-002 | Medium |
@@ -269,7 +290,8 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 | TM-43 | Hàng đợi offline | T | Sửa IndexedDB để đổi `performedAt`, phát lại thao tác | 1 | 2 | Low | Server kiểm chuyển trạng thái, `Idempotency-Key`, `performedAt` trong [−24 giờ, now]; lưu cả giờ nhận (SR-PWA-05) | Low |
 | TM-44 | Service worker | I | SW cache phản hồi API có C2/C3 (bill, giấy tờ) trên thiết bị | 2 | 2 | Medium | SW chỉ cache danh sách endpoint cho phép; mọi phản hồi C3 `no-store`; admin-web **không** cache API bằng SW (SR-PWA-02, -03) | Low |
 | TM-45 | Web Push | I | Nội dung thông báo hiện trên màn hình khóa | 2 | 1 | Low | Push chỉ chứa loại + số căn, không tên/liên hệ/mã (ADR-005, SR-PWA-06) | Low |
-| TM-46 | Máy quầy (M8) | S/E/I | Máy không được cấp vẫn xem C3 (cờ `device_trusted` theo phiên, không ràng buộc thiết bị); máy quầy dùng việc cá nhân, cài tiện ích trình duyệt/keylogger, không mã hóa ổ đĩa | 2 | 3 | **High** | **Đăng ký thiết bị**: OWN cấp, cookie thiết bị riêng 256 bit, băm trong `trusted_device`, gắn cơ sở, hết hạn 180 ngày, thu hồi được; mọi endpoint C3 kiểm → 403 `DEVICE_NOT_TRUSTED` (SR-DEV-01…06); danh sách cứng hóa máy quầy (SR-DEV-07) | Medium |
+| TM-46 | Máy quầy (M8) | S/E/I | Máy không được cấp vẫn xem C3 (cờ `device_trusted` theo phiên, không ràng buộc thiết bị); máy quầy dùng việc cá nhân, cài tiện ích trình duyệt/keylogger, không mã hóa ổ đĩa | 2 | 3 | **High** | **Đăng ký thiết bị**: OWN cấp, cookie thiết bị riêng 256 bit, băm trong `trusted_device`, gắn cơ sở, hết hạn 180 ngày, thu hồi được; mọi endpoint C3 kiểm → 403 `DEVICE_NOT_TRUSTED` (SR-DEV-01…06); danh sách cứng hóa máy quầy (SR-DEV-07); thiết bị di động **của cơ sở** cấp với checklist di động, hạn ≤ 30 ngày (SR-DEV-08); máy cá nhân/PWA không bao giờ được cấp (SR-DEV-09) | Medium |
+| TM-62 | Máy tính bảng/điện thoại **của cơ sở** được cấp (người trực đêm) | I/S | Thiết bị nhỏ, dễ mang đi/mất/bị mượn; có cookie thiết bị + phiên admin-web → xem C3, mã cửa; cài thêm Zalo rồi chụp màn hình gửi đi | 2 | 3 | **High** | Khóa màn hình ≤ 1 phút + PIN/sinh trắc, mã hóa thiết bị, không app chat/tài khoản cá nhân, tắt đồng bộ ảnh/clipboard, "Tìm thiết bị" để xóa từ xa; hạn cấp ≤ 30 ngày, ở lại cơ sở; phiên admin 30 phút không hoạt động + step-up C3 (SR-C3-09); OWN thu hồi trên S26 khi mất (SR-DEV-06, -08) | Medium |
 
 ### 7.9 Hạ tầng, bí mật, chuỗi cung ứng, log (TB-1, TB-9, TB-10)
 
@@ -305,23 +327,24 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 |---|:-:|---|---|---|---|
 | Critical | 3 | TM-07 | SR-AZ-01…09 (guard + phạm vi + RLS + test sinh từ OpenAPI) | R2 | Medium |
 | | | TM-17 | SR-C3-10, SR-DEV-07, R-REG-08 + quy định nội bộ INV | R2 + INV | **High** |
-| | | TM-21 | SR-GST-07, -08, -10, -04 | R2 | Medium |
-| High | 23 | TM-01, 02, 03, 05, 08, 11, 12, 13, 15, 16, 18, 28, 30, 31, 36, 38, 39, 40, 46, 47, 48, 53, 58 | Mỗi dòng ≥ 2 biện pháp, trỏ SR ở bảng 7 | R2 (phần lớn); R3: 2FA (TM-01), IPN/bank feed thật (TM-28, TM-31) | 1 High (TM-13), còn lại Medium/Low |
+| | | TM-21 | SR-GST-07, -08, -10, -04, -13, -14 | R2 | Medium |
+| High | 25 | TM-01, 02, 03, 05, 08, 11, 12, 13, 15, 16, 18, 28, 30, 31, 36, 38, 39, 40, 46, 47, 48, 53, 58, 61, 62 | Mỗi dòng ≥ 2 biện pháp, trỏ SR ở bảng 7 | R2 (phần lớn); R3: 2FA (TM-01), IPN/bank feed thật (TM-28, TM-31) | 1 High (TM-13), còn lại Medium/Low |
 | Medium | 27 | còn lại | Có biện pháp, một số dời R3 | R2–R3 | Low/Medium |
 | Low | 7 | TM-14, 24, 25, 43, 45, 54, 60 | Theo dõi | – | Low |
 
-Kết luận cho QC A14: **26/26 rủi ro Critical/High có ≥ 1 biện pháp cụ thể** có mã SR kiểm chứng được.
+Kết luận cho QC A14: **28/28 rủi ro Critical/High có ≥ 1 biện pháp cụ thể** có mã SR kiểm chứng được.
 
-## 9. Rủi ro còn lại cần INV biết (2 dòng còn High + 2 dòng Medium ảnh hưởng kinh doanh)
+## 9. Rủi ro còn lại cần INV biết (2 dòng còn High + 3 dòng Medium ảnh hưởng kinh doanh)
 
 | Mã | Rủi ro còn lại | Vì sao chưa giảm thêm được | Đề xuất |
 |---|---|---|---|
 | TM-13 | Chiếm quyền root VPS = có KEK + DB → đọc C3 đang lưu | KMS/HSM hoặc tách máy chủ khóa vượt ngân sách ≤ 1 tr/tháng và độ phức tạp MVP | Chấp nhận cho MVP **với điều kiện** C3 giữ ngắn (T01–T03), cứng hóa VPS, kiểm thử xâm nhập trước vận hành thật (đề xuất ESC – report SEC) |
 | TM-17 | Ảnh giấy tờ qua điện thoại cá nhân/nhóm chat | Hành vi con người, ngoài phần mềm | INV ban hành quy định nội bộ (DRA Q10), đào tạo; xóa ảnh cũ trong nhóm chat |
 | TM-36 | Dữ liệu khách ra nước ngoài (channel manager, email) | Không có CM trong nước đáp ứng (INT/ARC) | Luật sư xác nhận thủ tục (ESC-001, ESC-002) |
+| TM-21 / TM-61 | Khi owner **bật** gửi mã xác minh qua hộp thư OTA/Zalo: ai giữ (hoặc dùng chung) tài khoản OTA/Zalo của người đặt, hoặc được người đặt chuyển cả link lẫn mã, sẽ xem được bill và **mã cửa**; lễ tân có thể bị lừa gửi mã sang hội thoại khác | Khách Airbnb/Booking/Zalo không có email dùng được; nếu chỉ cho mã tại quầy/gọi điện thì khách đến khuya không tự lấy được mã cửa và nhân viên sẽ lách bằng gửi mã cửa qua chat (nặng hơn) | Giữ **tắt** mặc định; owner chỉ bật kênh cần thiết; đào tạo lễ tân chỉ gửi vào hội thoại của đơn; owner xem nhật ký cấp mã hằng tháng. ORC báo INV ở round-summary |
 | TM-50 | DoS một VPS | Một máy chủ là lựa chọn ngân sách | Chấp nhận; quy trình thủ công khi mất hệ thống (OPS runbook R3) |
 
-(TM-36 và TM-50 còn Medium, nêu để INV biết vì phụ thuộc quyết định pháp lý và ngân sách.)
+(TM-21/61, TM-36 và TM-50 còn Medium, nêu để INV biết vì phụ thuộc quyết định pháp lý và ngân sách.)
 
 ## 10. Quan điểm SEC về mâu thuẫn ARC liên quan bảo mật
 
@@ -335,7 +358,9 @@ Kết luận cho QC A14: **26/26 rủi ro Critical/High có ≥ 1 biện pháp c
 
 ## 11. Giả định
 
-- `[GIẢ ĐỊNH]` Máy quầy là 1–2 máy tính (Windows hoặc macOS) đặt tại quầy, có tài khoản OS riêng cho cơ sở; nếu lễ tân dùng máy tính bảng cần đánh giá lại SR-DEV-07.
+- `[GIẢ ĐỊNH]` Máy quầy là 1–2 máy tính (Windows hoặc macOS) đặt tại quầy, có tài khoản OS riêng cho cơ sở. Máy tính bảng/điện thoại **của cơ sở** (ví dụ cho người trực đêm) được cấp theo checklist di động SR-DEV-08 – đã đánh giá ở TM-62. Ai trực đêm và bằng thiết bị gì: chờ INV (ESC-010, câu bổ sung theo phân xử ORC).
+- `[GIẢ ĐỊNH]` Mã xác minh qua kênh OTA/Zalo ở MVP gửi **tay** (sao chép mẫu) – chưa có API nhắn tin OTA/ZNS; extranet OTA cho nhắn vào hội thoại của từng đơn (INT xác minh với Airbnb/Booking/Agoda).
+- `[GIẢ ĐỊNH – chưa xác minh trên thiết bị thật]` Trình duyệt trên iPhone giải mã được ảnh HEIC để vẽ vào `canvas` (SR-FILE-01); MOB/QA thử ở R2, nếu không thì khách dùng nút Chụp trong app.
 - `[GIẢ ĐỊNH]` Nhân viên buồng phòng dùng điện thoại cá nhân (BYOD) – không quản lý thiết bị tập trung (MDM) được, nên PWA không giữ C3.
 - `[GIẢ ĐỊNH]` VNPay gửi IPN dạng GET có tham số trên query (theo hiểu biết của đội, **INT xác minh** ở R3) – ảnh hưởng SR-LOG-02.
 - `[GIẢ ĐỊNH]` Beds24 cho phép tắt chuyển dữ liệu thẻ ảo qua API/webhook (INT xác minh trước R3).
@@ -355,4 +380,5 @@ Kết luận cho QC A14: **26/26 rủi ro Critical/High có ≥ 1 biện pháp c
 
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 15/10/2026 | 1 – Bước 4 | Thêm TM-61 (mã xác minh qua kênh nhắn tin), TM-62 (thiết bị di động của cơ sở), mục 6.4 luồng khách đến khuya; cập nhật TM-16 (không PDF, chuẩn hóa ảnh ở client), TM-21 (rủi ro còn lại khi bật kênh), TM-38 (`ddmm` + ≥ 3 số), TM-46; mục 8 (28/28), mục 9, giả định | SEC |
 | 15/10/2026 | 1 – Đợt 4 | Bản đầu: 16 tài sản, 10 tác nhân, 11 biên tin cậy, 10 luồng, 60 mối đe dọa STRIDE, quan điểm M1/M3/M4/M8/M9 | SEC |

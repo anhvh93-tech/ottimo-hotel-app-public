@@ -3,13 +3,14 @@
 - Người lập: INT | Round 1 – Bước 2 (Sản xuất, Đợt 1) | Ngày tra cứu: 15/10/2026
 - Đầu vào: decision-log 15/10/2026 ("khóa thông minh có app – mật mã / vân tay / thẻ từ, đặt mã cửa [đã ẩn – INV 19/10: đổi sang mã ngẫu nhiên 8 số]; hãng chưa rõ"); brief mục 5 (mất/nhầm thẻ phòng, phí làm lại thẻ 200k); BL câu 23; plan rủi ro R2
 - Quy ước nguồn: **[Nguồn]** đã thấy trên tài liệu chính thức; **[Bên thứ ba]**; **[Chưa xác minh]**.
+- Sửa Round 1 Bước 4 (15/10/2026): mã sinh nhật `ddmm` + ≥ 3 số (SEC-05, DOM-03, decision-log DOM+SEC); tiêu chí T11; thời điểm tạo/hiệu lực/hiển thị mã (ARC-16); mã nhân viên (DOM-07); `label` không chứa dữ liệu cá nhân (SEC-08); gửi mã mặc định bằng link app khách (SEC-07).
 
 ## 1. Tóm tắt cho chủ đầu tư
 1. Chưa biết hãng khóa OTTIMO đang dùng → **bước đầu tiên là INV chụp ảnh khóa + tên app đang dùng để mở/quản lý khóa** (rất nhiều khóa bán ở VN thực chất chạy nền tảng **TTLock** hoặc **Tuya** dưới tên thương hiệu khác).
 2. Nếu khóa chạy **TTLock** hoặc **Tuya** và có **gateway (bộ phát Wi-Fi)**: app OTTIMO có thể **tự tạo mã cửa có hạn** (từ giờ nhận phòng đến giờ trả phòng) và **tự đặt mã theo ý** (ví dụ theo ngày sinh nhật khách) – đã thấy trong tài liệu API chính thức.
 3. Nếu khóa không có API: MVP vẫn chạy bằng **nhập mã thủ công** – lễ tân đặt mã trên app của hãng, rồi ghi mã vào app OTTIMO để gửi khách. Không chặn Round 2.
 4. **Vân tay không phù hợp cho khách ngắn ngày** (khách phải đứng tại khóa để quét) – chỉ dùng cho khách thuê tháng và nhân viên.
-5. **Mã theo ngày sinh nhật có rủi ro an ninh** (ngày sinh có trên giấy tờ, dễ đoán) – đề xuất chỉ dùng khi khách chủ động chọn, và ghép thêm 2 số ngẫu nhiên (xem mục 5).
+5. **Mã theo ngày sinh nhật có rủi ro an ninh** (ngày sinh có trên giấy tờ, dễ đoán) – chỉ dùng khi khách chủ động chọn, và ghép thêm **ít nhất 3 số ngẫu nhiên** (xem mục 5).
 
 ## 2. Các hãng / nền tảng phổ biến tại Việt Nam
 
@@ -17,7 +18,7 @@
 
 | Hãng / nền tảng | Kiểu | API cho hệ thống riêng | Mã có hạn | Đặt mã tùy ý (vd. sinh nhật) | Thẻ từ | Vân tay | Ghi chú |
 |---|---|---|---|---|---|---|---|
-| **TTLock** (Sciener, Hangzhou) – nền tảng cho nhiều nhãn khóa | Nền tảng cloud + app; khóa Bluetooth, cần **gateway** để điều khiển từ xa | **Có – Open Platform API** [Nguồn: euopen.ttlock.com/doc/api/v3] | Có: `keyboardPwd/add` có `startDate`/`endDate` [Nguồn] | **Có** – tham số `keyboardPwd` do mình đặt; chỉ khóa hỗ trợ "passcode V4"; qua gateway gọi API trực tiếp (`addType=2`) [Nguồn] | Có: `identityCard/addForReversedCardNumber` có hạn dùng; qua gateway gọi trực tiếp [Nguồn] | Có `fingerprint/add`, nhưng chỉ **sau khi** vân tay đã được quét tại khóa [Nguồn] | Đã có tích hợp sẵn với Cloudbeds, Zeevou [Bên thứ ba]. Phí nền tảng/gateway: [Chưa xác minh] |
+| **TTLock** (Sciener, Hangzhou) – nền tảng cho nhiều nhãn khóa | Nền tảng cloud + app; khóa Bluetooth, cần **gateway** để điều khiển từ xa. Ngoài ra có API `keyboardPwd/get` **sinh mã theo kỳ / theo lịch lặp** (giá trị mã do hệ thống sinh, mã kỳ phải dùng lần đầu trong 24 giờ) – trang tài liệu không nhắc gateway [Nguồn: euopen.ttlock.com/doc/api/v3/keyboardPwd/get]; có chạy **không cần gateway** không [Chưa xác minh – hỏi hãng]. Mã kiểu này không làm được mã sinh nhật | **Có – Open Platform API** [Nguồn: euopen.ttlock.com/doc/api/v3] | Có: `keyboardPwd/add` có `startDate`/`endDate` [Nguồn] | **Có** – tham số `keyboardPwd` do mình đặt; chỉ khóa hỗ trợ "passcode V4"; qua gateway gọi API trực tiếp (`addType=2`) [Nguồn] | Có: `identityCard/addForReversedCardNumber` có hạn dùng; qua gateway gọi trực tiếp [Nguồn] | Có `fingerprint/add`, nhưng chỉ **sau khi** vân tay đã được quét tại khóa [Nguồn] | Đã có tích hợp sẵn với Cloudbeds, Zeevou [Bên thứ ba]. Phí nền tảng/gateway: [Chưa xác minh] |
 | **Tuya Smart / Smart Life** – nền tảng cho nhiều nhãn khóa Trung Quốc | Cloud + app; khóa Wi-Fi hoặc Zigbee/Bluetooth + hub | Có – Cloud API + mini-app SDK [Nguồn: developer.tuya.com] | Có: mật khẩu tạm có giờ bắt đầu/kết thúc (`createTempLimit`) [Nguồn – SDK mini-app] | Có: `createTempCustom` (mật khẩu số tự đặt) [Nguồn – SDK mini-app]; endpoint Cloud tương ứng [Chưa xác minh] | Tùy model [Chưa xác minh] | Tùy model, đăng ký tại khóa [Chưa xác minh] | Cần tài khoản Tuya IoT Platform (gói dev có giới hạn) [Chưa xác minh] |
 | **igloohome** (Singapore) | Khóa Bluetooth, tạo mã **ngoại tuyến** (algoPIN), có bridge | Có (trực tiếp hoặc qua Seam) [Nguồn: docs.seam.co] | Có: theo giờ (1–672 giờ) hoặc theo ngày [Nguồn: docs.seam.co] | **Không** với mã ngoại tuyến algoPIN (không đặt mã tùy ý) [Nguồn: docs.seam.co]; mã tùy ý cần bridge online [Chưa xác minh] | Tùy model | Tùy model | Ưu điểm: không cần Wi-Fi tại khóa. Nhược: không đặt được mã sinh nhật |
 | **Kaadas** (phân phối độc quyền Ssehome) | App Kaadas riêng; dòng có Wi-Fi | **Chưa tìm thấy API công khai** | Có trong app (mã dùng 30 phút, mã 1 lần – tùy dòng) [Bên thứ ba: hacom.vn, meta.vn] | Chưa rõ | Có (tùy dòng) | Có | Phổ biến dân dụng. Hỏi nhà phân phối về API |
@@ -32,7 +33,7 @@
 | # | Tiêu chí | Bắt buộc / Nên có | Cách kiểm tra |
 |---|---|---|---|
 | T1 | Có **Cloud API công khai** (tạo/xóa mã, thẻ; xem nhật ký mở cửa) | Bắt buộc nếu muốn tự động | Có trang tài liệu cho nhà phát triển |
-| T2 | Có **gateway Wi-Fi** để thao tác từ xa (không cần đứng gần khóa) | Bắt buộc | Hỏi nhà phân phối; 1 gateway phủ được mấy căn |
+| T2 | Có **gateway Wi-Fi** để thao tác từ xa (không cần đứng gần khóa) | Bắt buộc – **hạ xuống "Nên có"** nếu hãng xác nhận mã có hạn sinh theo thuật toán chạy không cần gateway (DOM-07; khi đó không xóa mã từ xa được, chỉ chờ hết hạn) | Hỏi nhà phân phối; 1 gateway phủ được mấy căn |
 | T3 | Tạo **mã có hạn** theo giờ nhận/trả phòng; tự hết hạn | Bắt buộc | API có `startDate`/`endDate` |
 | T4 | **Đặt mã tùy ý** (để làm mã sinh nhật), 6–8 số | Theo yêu cầu INV | API cho truyền số mã |
 | T5 | Thẻ từ có hạn, **hủy thẻ từ xa** khi khách mất thẻ (brief mục 5) | Nên có | API thêm/xóa thẻ |
@@ -40,20 +41,32 @@
 | T7 | Mở được khi **mất mạng/mất điện** (mã đã nạp sẵn trong khóa, pin dự phòng, chìa cơ) | Bắt buộc (an toàn khách) | Hỏi hãng |
 | T8 | Bảo hành, linh kiện, kỹ thuật viên tại **Đà Lạt** | Bắt buộc | Hỏi đại lý |
 | T9 | Chi phí: khóa + gateway + phí nền tảng/tháng | Theo ngân sách | Báo giá |
-| T10 | Dữ liệu (vân tay, nhật ký) lưu ở đâu – liên quan Luật BVDLCN 91/2025 | Cần SEC xem | Điều khoản của hãng |
+| T10 | Dữ liệu (vân tay, nhật ký) lưu ở đâu – liên quan Luật BVDLCN 91/2025; hãng là **bên xử lý dữ liệu ngoài VN** → SEC đưa vào danh sách RI9/ESC-002 | Cần SEC xem | Điều khoản của hãng |
+| T11 | **Khóa tạm khi nhập sai nhiều lần** (vd. khóa bàn phím sau ≤ 5 lần sai) | Nên có (giảm rủi ro thử mã, nhất là mã sinh nhật) | Hỏi hãng / thử trên khóa thật |
+| T12 | Tạo **mã nhân viên theo khung giờ** (lịch lặp ngày làm việc) | Nên có | API mã lặp (TTLock có kiểu mã theo ngày trong tuần [Nguồn]) |
 
 ## 4. Luồng đề xuất trong app OTTIMO
 
 ### 4.1 Chế độ tự động (khi khóa có API – `DoorLockAdapter` thật)
-1. Khi đơn chuyển **confirmed** và đã đủ điều kiện nhận phòng (cọc/khai báo theo BR của DOM): app tạo mã có hạn `[giờ nhận phòng − 0, giờ trả phòng + ân hạn]` cho đúng căn.
-2. Gửi mã cho khách qua kênh đã chọn (email/Zalo/app khách) **chỉ vào ngày đến** (giảm rủi ro lộ mã).
+1. **Thời điểm tạo ≠ thời điểm hiệu lực ≠ thời điểm hiển thị** (ARC-16, khớp SM-01 B9/BR-403):
+   - **Tạo** mã: có thể ngay khi đơn `confirmed` (để có thời gian xử lý lỗi khóa/gateway).
+   - **Hiệu lực** (`validFrom`): giờ nhận phòng chuẩn của ngày đến (hoặc giờ nhận sớm đã xác nhận) → `validTo` = giờ trả phòng + ân hạn.
+   - **Hiển thị cho khách**: chỉ trong app khách ở mức xác minh 2, trong khoảng hiệu lực (SR-GST-10); có nhật ký xem mã.
+2. **Gửi mã** (SEC-07): mặc định gửi **link app khách**, không gửi mã. Chỉ gửi mã trực tiếp (email/Zalo/hội thoại OTA) khi khách chọn vì không dùng được link, **vào ngày đến**, **không kèm địa chỉ/số căn** trong cùng tin.
 3. Gia hạn / trả muộn / đổi phòng → cập nhật hạn mã hoặc xóa mã cũ, tạo mã mới.
 4. Trả phòng / hủy / no-show → **xóa mã ngay** (không chờ hết hạn).
 5. Khách thuê tháng: mã dài hạn + thẻ từ có hạn đến ngày kết thúc hợp đồng; vân tay đăng ký tại chỗ (tùy chọn).
 6. Mọi thao tác ghi nhật ký (ai tạo, lúc nào, cho đơn nào) – không ghi số mã rõ trong log.
+7. Tên/nhãn mã gửi lên nền tảng khóa (`label`) **chỉ là mã tham chiếu nội bộ ngẫu nhiên** – không tên khách, SĐT, số căn kèm ngày sinh (SEC-08; nền tảng khóa đặt máy chủ ngoài VN [Chưa xác minh vị trí]).
+
+### 4.3 Mã của nhân viên (DOM-07)
+1. Mỗi nhân viên buồng phòng/kỹ thuật có **mã riêng**, giới hạn khung giờ làm (mã lặp theo ngày làm việc nếu khóa hỗ trợ – T12); không dùng chung một mã.
+2. **Mã chủ / khẩn cấp** chỉ quản lý giữ; mỗi lần dùng ghi lý do trong app.
+3. Nhật ký mở cửa (T6) đối chiếu với việc buồng phòng trong app (ai vào căn nào, lúc nào) – bằng chứng khi khách báo mất đồ.
+4. Nhân viên nghỉ việc → thu hồi mã ngay trong quy trình khóa tài khoản.
 
 ### 4.2 Chế độ thủ công (dự phòng – `ManualDoorLockAdapter`, dùng cho MVP nếu chưa có API)
-1. App gợi ý mã (ngẫu nhiên hoặc theo sinh nhật + 2 số).
+1. App gợi ý mã (ngẫu nhiên 6 số, hoặc theo sinh nhật `ddmm` + 3 số ngẫu nhiên).
 2. Lễ tân mở app của hãng khóa, tạo mã/thẻ với hạn tương ứng.
 3. Lễ tân nhập lại mã vào app OTTIMO và tick "Đã cài trên khóa" → app gửi mã cho khách.
 4. Khi trả phòng, app tạo **việc nhắc** "Xóa mã căn 201 trên app khóa" cho lễ tân; chưa tick → hiện trong "Cần chú ý".
@@ -65,9 +78,10 @@ Cả hai chế độ dùng **chung giao diện** (`DoorLockAdapter`), chuyển b
 - **Yêu cầu INV:** [đã ẩn – INV 19/10: mã cửa đổi sang ngẫu nhiên 8 số].
 - **Rủi ro:** ngày sinh nằm trên CCCD/hộ chiếu, hồ sơ OTA, mạng xã hội → người khác đoán được; chỉ 4–6 số (ddmm / ddmmyy) → dễ thử. Ngày sinh là dữ liệu cá nhân → SEC cần xem.
 - **Đề xuất kỹ thuật (INT tự quyết, chờ SEC review):**
-  - Mặc định: mã **ngẫu nhiên 6 số**.
-  - Tùy chọn "mã sinh nhật": `ddmm` + **2 số ngẫu nhiên** (ví dụ `1503`+`47`), chỉ khi khách chọn hoặc lễ tân chọn với sự đồng ý của khách.
-  - Không cho trùng mã đang có hiệu lực trên **cùng một khóa**; nếu trùng → đổi 2 số cuối.
+  - Mặc định: mã **ngẫu nhiên 6 số**, sinh bằng bộ sinh số ngẫu nhiên an toàn (CSPRNG); độ dài cho phép 6–10 số (SR-LOCK-01).
+  - Tùy chọn "mã sinh nhật": `ddmm` + **3 số ngẫu nhiên** (ví dụ `1503`+`479`, 7 số – 1.000 khả năng với người biết ngày sinh), chỉ khi khách chọn hoặc lễ tân chọn với sự đồng ý của khách (decision-log DOM+SEC, SR-LOCK-02).
+  - **Không** dùng `ddmm` + 2 số (decision-log: dòng "THAY dòng INT về mã sinh nhật"). Nếu sau này khóa được xác nhận có T11, đội chỉ có thể đề xuất lại qua ESC-011.
+  - Không cho trùng mã đang có hiệu lực trên **cùng một khóa**; nếu trùng → sinh lại phần số ngẫu nhiên.
   - Mã có hạn, xóa ngay khi trả phòng.
 - Có cần cho phép mã **chỉ gồm** ngày sinh (không thêm số) hay không là **chính sách** → đưa vào dự thảo ESC khóa cửa.
 
@@ -80,6 +94,7 @@ Cả hai chế độ dùng **chung giao diện** (`DoorLockAdapter`), chuyển b
 - TTLock Open API – thêm mã tùy ý: https://euopen.ttlock.com/doc/api/v3/keyboardPwd/add
 - TTLock – thêm thẻ IC: https://euopen.ttlock.com/doc/api/v3/identityCard/add
 - TTLock – vân tay: https://euopen.ttlock.com/doc/api/v3/fingerprint/add
+- TTLock – sinh mã theo kỳ/lịch lặp: https://euopen.ttlock.com/doc/api/v3/keyboardPwd/get
 - TTLock tích hợp PMS (bên thứ ba): https://www.cloudbeds.com/integrations/ttlock/ ; https://zeevou.com/integrations/ttlock/ ; https://strspecialist.com/reviews/ttlock-smart-lock-review
 - Tuya – mật khẩu tạm (SDK mini-app): https://developer.tuya.com/en/miniapp/develop/ray/api/doorlock/temporary/createTempCustom.md ; createTempLimit.md
 - igloohome qua Seam: https://docs.seam.co/latest/device-and-system-integration-guides/igloohome-locks/creating-igloohome-offline-access-codes

@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: OTTIMO Desk – API kiểm thử (KHÔNG thuộc hợp đồng production)
+  version: 0.1.0-draft
+  description: |
+    Endpoint chỉ dùng cho QA/E2E ở môi trường `APP_ENV ∈ {dev, test, staging}` (ADR-008 cập nhật R1 bước 4; BE-ARC-04; QA rủi ro kiểm thử).
+
+    Quy tắc an toàn (bắt buộc – SR-SECR-05):
+    - Module `TestSupportModule` **chỉ được import** khi `APP_ENV ≠ production` (import động trong `app.module.ts`); production không đăng ký route.
+    - CI kiểm bundle production không chứa chuỗi `__test__` (OPS thêm bước).
+    - Khởi động production mà `CLOCK_MODE ≠ system` hoặc bảng `dev_clock` có dòng → dừng khởi động.
+    - Mọi lời gọi cần header `X-Test-Token` = `TEST_SUPPORT_TOKEN` (biến môi trường, ≥ 32 byte, chỉ có ở dev/staging) **và** phiên vai `owner`.
+    - Mỗi lời gọi ghi `audit_event` (`category=config`, `action=test.clock_changed` / `test.job_run`).
+
+    Cơ chế giờ giả (`MutableClock`): offset lưu ở bảng 1 dòng `dev_clock(offset_ms, frozen_at)`; api và worker đọc chung (cache 1 giây,
+    xóa cache khi `NOTIFY clock_changed`). Job viết dạng "quét điều kiện theo `Clock.now()`" nên `POST /__test__/jobs/{jobKey}/run` cho kết quả
+    giống chạy theo lịch (architecture mục 9.1).
+servers:
+  - url: http://localhost:3000
+security:
+  - testToken: []
+paths:
+  /__test__/clock:
+    get:
+      operationId: testGetClock
+      x-roles: [owner]
+      responses:
+        '200':
+          description: Giờ hiện tại theo Clock
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClockState' }
+    post:
+      operationId: testSetClock
+      x-roles: [owner]
+      summary: Đặt giờ giả, tua giờ, đóng băng hoặc về giờ thật
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [op]
+              properties:
+                op: { type: string, enum: [set, advance, freeze, unfreeze, reset] }
+                at: { type: string, format: date-time, description: 'Với set – ISO có offset, ví dụ 2026-10-15T22:59:00+07:00' }
+                advanceMs: { type: integer, description: Với advance }
+            examples:
+              set: { value: { op: set, at: '2026-10-15T22:59:00+07:00' } }
+              advance: { value: { op: advance, advanceMs: 120000 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClockState' }
+  /__test__/jobs/{jobKey}/run:
+    parameters:
+      - name: jobKey
+        in: path
+        required: true
+        schema: { type: string, example: registration.deadline }
+    post:
+      operationId: testRunJob
+      x-roles: [owner]
+      summary: Chạy ngay một job theo `job_key` (J1…J23) cho một cơ sở, theo giờ của Clock; đi qua đúng mẫu handler đúng-một-lần
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                propertyId: { type: string, format: uuid }
+                slot: { type: string, description: 'Mốc giờ của job theo mốc (bỏ trống = mốc gần nhất ≤ Clock.now())' }
+      responses:
+        '200':
+          description: Kết quả
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [done, skipped_already_ran, skipped_catchup_window] }
+                  stats: { type: object, additionalProperties: true }
+components:
+  securitySchemes:
+    testToken:
+      type: apiKey
+      in: header
+      name: X-Test-Token
+  schemas:
+    ClockState:
+      type: object
+      required: [now, mode]
+      properties:
+        now: { type: string, format: date-time }
+        mode: { type: string, enum: [system, offset, frozen] }
+        offsetMs: { type: integer }

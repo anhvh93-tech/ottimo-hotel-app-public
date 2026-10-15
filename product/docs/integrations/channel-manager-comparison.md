@@ -14,7 +14,7 @@
 |---|---|---|
 | Y1 | Kết nối 2 chiều (giá, phòng trống, đặt phòng) với cả 6 OTA, **gồm Airbnb và Traveloka** | Brief mục 7. Airbnb chỉ mở API cho đối tác, không cho chủ nhà nhỏ kết nối thẳng (BL 3.19); prototype đã ghi "không dùng iCal" |
 | Y2 | Có **API công khai cho hệ thống riêng (PMS bên ngoài)**: đẩy giá/phòng trống, nhận đơn qua webhook | Không có API thì app OTTIMO không thể là nguồn dữ liệu chính; nhân viên sẽ phải nhập 2 nơi → đặt trùng |
-| Y3 | Chi phí phù hợp quy mô 10 căn | Ngân sách hạ tầng ≤ 1 tr/tháng **chưa gồm** phí CM → phí CM cần INV duyệt riêng (ESC) |
+| Y3 | Chi phí phù hợp quy mô 10 căn | Ngân sách hạ tầng ≤ 1 tr/tháng **chưa gồm** phí CM → phí CM là **chi phí riêng**, INV duyệt riêng (ESC-009) |
 | Y4 | Hỗ trợ tiếng Việt / múi giờ VN / VND | Nhân viên vận hành là người Việt |
 | Y5 | Không ràng buộc hợp đồng dài, có môi trường thử (sandbox/test) | Round 2 cần thử trước khi bật thật |
 
@@ -53,10 +53,21 @@
 ### 3.3 Channex
 - Phí nền tảng từ $130/tháng + $7/khách sạn (hoặc $0,5/căn nếu là nhà cho thuê ngắn ngày); không phí khởi tạo, không tối thiểu số cơ sở [Nguồn]. Định giá cho **nhà phát triển PMS** phục vụ nhiều khách sạn – với 1 cơ sở thì đắt nhất.
 
+### 3.4 Ước tính tải API Beds24 (ARC-09) – sửa Round 1 Bước 4
+- Căn cứ [Nguồn: wiki.beds24.com API_V2.0]: hạn mức mặc định **100 credit / 5 phút / tài khoản** (mọi token cùng tài khoản dùng chung); nâng 200 credit mất €10/tháng; **chi phí mỗi lời gọi thay đổi theo độ phức tạp**, đọc từ header `x-request-cost`, `x-five-min-limit-remaining`, `x-five-min-limit-resets-in`. Tài liệu không công bố bảng giá credit cố định → các con số dưới là **[GIẢ ĐỊNH: ~1–2 credit/lời gọi đơn giản]**, đo lại bằng header ở R2.
+- Thiết kế adapter: đẩy theo **khoảng ngày** (một lời gọi lịch mang nhiều căn × khoảng ngày), outbox **gộp thay đổi trong cửa sổ 10–30 giây**, luôn giữ **≥ 20% hạn mức** cho việc kéo đơn sau webhook; hết hạn mức → `RATE_LIMITED` với `retryAfterMs` từ header.
+
+| Tình huống | Số lời gọi ước | Credit ước | So với 100/5 phút |
+|---|---|---|---|
+| (a) Một thay đổi đơn lẻ (đặt/hủy/đổi ngày 1 căn) | 1 đẩy tồn (+1 đẩy giá/hạn chế nếu có) | 1–4 | Không đáng kể |
+| (b) Đối soát đêm 10 căn × 365 ngày | Đọc lịch theo căn hoặc theo cả cơ sở: 1–10 lời gọi; sửa lệch theo lô | ≤ 20 (+ sửa lệch) | Chạy 02:00–04:00, chia nhiều cửa sổ 5 phút nếu cần |
+| (c) Đỉnh 10 thay đổi / 5 phút + 10 webhook | Sau gộp: ≤ 10 lời gọi đẩy + 10 lời gọi `GET /bookings` | ≤ 40 | Còn dư ≥ 60% |
+- Kết luận tạm: 100 credit/5 phút đủ cho 10 căn với thiết kế gộp lô; không cần gói 200 credit ở MVP. Kiểm lại bằng số đo thật ở R2 (thêm vào `integration_log` cột chi phí credit).
+
 ## 4. Nhận định
 
 1. **Beds24 là phương án duy nhất đã xác nhận đủ cả 6 OTA + có API công khai cho hệ thống riêng**, và rẻ nhất trong nhóm có API. Nhược điểm chính: không hỗ trợ tiếng Việt, giao diện cấu hình phức tạp (đội INT làm phần ghép phòng/kênh một lần, nhân viên không phải vào Beds24 hằng ngày); giới hạn 100 credit/5 phút đủ cho 10 căn nếu đẩy theo lô (ARC/INT thiết kế hàng đợi).
-2. **ezCloud** rẻ và có hỗ trợ tiếng Việt, nhưng **chưa thấy API cho hệ thống ngoài** và chưa xác nhận Airbnb/Expedia/Traveloka. Nếu chọn ezCloud, gần như phải dùng **PMS của ezCloud** song song với app OTTIMO → nhập 2 nơi, mâu thuẫn mục tiêu "all-in-one" (brief mục 2). Chỉ nên chọn nếu ezCloud xác nhận bằng văn bản: (a) có API đối tác 2 chiều, (b) kết nối Airbnb + Traveloka + Expedia.
+2. **ezCloud** (ARC: chỉ chấp nhận khi có văn bản xác nhận API 2 chiều; nếu phải dùng PMS ezCloud song song → nguy cơ đặt trùng) rẻ và có hỗ trợ tiếng Việt, nhưng **chưa thấy API cho hệ thống ngoài** và chưa xác nhận Airbnb/Expedia/Traveloka. Nếu chọn ezCloud, gần như phải dùng **PMS của ezCloud** song song với app OTTIMO → nhập 2 nơi, mâu thuẫn mục tiêu "all-in-one" (brief mục 2). Chỉ nên chọn nếu ezCloud xác nhận bằng văn bản: (a) có API đối tác 2 chiều, (b) kết nối Airbnb + Traveloka + Expedia.
 3. **Channex** về kỹ thuật phù hợp nhất (sandbox tốt, API là sản phẩm chính) nhưng ~3,6 tr/tháng cho 1 cơ sở và thiếu Traveloka → dự phòng khi OTTIMO mở nhiều cơ sở.
 4. **Cloudbeds**: đắt, và là một PMS trọn gói – trùng chức năng với app đang làm. Chỉ để tham chiếu.
 
@@ -66,14 +77,16 @@
 - [ ] Chạy máy tính giá Beds24 với cấu hình 10 căn / 3 loại phòng / 6 kênh → thay khoảng ước tính bằng số chính xác.
 - [ ] Gửi câu hỏi (qua form công khai, **INV gửi** hoặc INV cho phép) tới ezCloud: API đối tác, danh sách OTA, giá ezCms cho 10 căn.
 - [ ] Hỏi Channex về Traveloka.
-- [ ] ARC review: hợp đồng adapter `ChannelAdapter` (xem `product/integrations/README.md`) đủ để thay CM mà không sửa lõi.
-- [ ] DOM review: quy tắc khi OTA và đặt trực tiếp xung đột (xem `integrations.md` mục 3.1).
+- [x] ARC review: hợp đồng adapter `ChannelAdapter` – đã sửa theo ARC-INT-01…04, 09 (README v0.2 mục 3.1).
+- [x] DOM review: quy tắc khi OTA và đặt trực tiếp xung đột – đã ghi `integrations.md` mục 3.1.1.
+- [x] Beds24 không ký webhook [Nguồn] → mẫu "webhook = tín hiệu, kéo lại qua API"; quyền xem thẻ phải liên hệ Beds24 mới bật → **không yêu cầu**.
+- [ ] R2: đo `x-request-cost` thật; kiểm Beds24 hỗ trợ CTA/CTD/min-stay theo kênh, báo no-show qua API, kênh nào nhận tin nhắn qua `POST /bookings/messages`.
 
 ## 6. Nguồn (tra ngày 15/10/2026)
 - Beds24 – bảng giá: https://beds24.com/pricing.html
 - Beds24 – danh sách kênh: https://beds24.com/channel-manager.html
 - Beds24 – Airbnb: https://beds24.com/airbnb-channel-manager.html
-- Beds24 – API V2: https://wiki.beds24.com/index.php/Category:API_V2
+- Beds24 – API V2: https://wiki.beds24.com/index.php/Category:API_V2 ; API V2.0 (credit, webhook, tin nhắn, quyền thẻ): https://wiki.beds24.com/index.php/API_V2.0
 - Beds24 giá (bên thứ ba): https://www.roommaster.com/blog/beds24-pricing ; https://comparatifchannelmanager.fr/?p=6009
 - ezCloud – trang chủ: https://ezcloud.vn/ ; báo giá: https://ezcloud.vn/bang-bao-gia-phan-mem-khach-san
 - ezCloud × eRevMax: https://hospitalitytech.com/erevmax-completes-integration-vietnamese-pms-ezcloud

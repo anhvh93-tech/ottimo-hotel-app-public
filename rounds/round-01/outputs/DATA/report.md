@@ -53,3 +53,36 @@ Giả định cần INV (nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]`):
 - Bảng ánh xạ "thẻ dashboard → mã chỉ số" cho S9: làm cùng FE khi có wireframe Tổng quan của UXD.
 - Review ERD của ARC (đợt 3) để kiểm đủ trường ở mục 9.
 - Chờ review bắt buộc của PO (`PO-on-DATA.md`), khuyến nghị BE.
+
+---
+
+# Bước 4 – Phản hồi & sửa (15/10/2026)
+
+## 1. Đã làm gì
+- Trả lời đủ **16 thẻ** trong `rounds/round-01/responses/DATA-responses.md`: 6 thẻ PO (4 Minor, 2 Suggestion) và 10 lỗi tự nhận D-1…D-10. **16 Done**, không có thẻ Rejected, Deferred hay Escalated.
+- Nâng `product/docs/metrics-definitions.md` lên **v0.2**:
+  - Đơn OTA xung đột chưa gán căn: Occupancy chỉ đếm đêm đã gán; đêm chưa gán vẫn tính vào doanh thu và ADR, được báo riêng ở S1c; R-06 tách thành R-06a/R-06b.
+  - Thêm K-22 (tỉ lệ hủy, no-show, đêm mất); GOP thêm chi phí dời khách và R-08; thêm R-09 (phí theo đêm khớp phí của đơn).
+  - Mục 9 bổ sung các cột phân bổ theo đêm (phí kênh, hoa hồng CTV/nhân viên, phí dịch vụ dài hạn, giá gốc, giảm giá/FOC), mốc `sold_at`/`voided_at`/`void_reason`/`prev_state`, `confirmed_at`/`status_before_cancel`/`ota_booked_at`/`direct_source`, `user_activity_day`. `RoomBlock` đổi theo trạng thái SM-02. Nguồn lịch sử cho chỉ số là `reservation_change`.
+  - Áp các quyết định DOM: BR-411 trước 06:00 = đêm bán; BR-215 chia theo tháng hợp đồng; OOO nửa mở; ngày nghiệp vụ đổi lúc 06:00.
+  - Áp các quyết định PO: kênh + nguồn; nhãn R3 cho chốt tháng, pickup và đối chiếu; bảng lộ trình hiển thị R2/R3/R4; S2 theo `front_desk_hours`; S5 kèm S5-pre và S5-link.
+- Có đề xuất 8 dòng decision-log ở cuối file responses để ORC chép vào. DATA không sửa `decision-log.md` và `02-escalations/`.
+
+## 2. File tạo/sửa
+- Sửa: `product/docs/metrics-definitions.md` (v0.2)
+- Tạo: `rounds/round-01/responses/DATA-responses.md`
+- Sửa: `rounds/round-01/outputs/DATA/report.md` (phần này)
+
+## 3. Giả định
+- Đệm cuối ca cho S2-trực là **60 phút** (`s2_shift_end_buffer_minutes`). Đây là tham số, chờ DOM đưa vào BR mục 13.
+- Dòng tiền K-20 tính theo **ngày lịch**, các chỉ số theo sự kiện khác tính theo **ngày nghiệp vụ** (06:00). Thuộc quyền DATA nên không mở ESC.
+- `void_reason` gồm 8 giá trị như FB-R1-DATA-ARC-04. Riêng `cancel_reason_code` cần thêm giá trị `guest_cancelled`; ARC/BA chốt tên cuối cùng.
+
+## 4. Rủi ro / vướng mắc
+- Các cột "(mới v0.2)" ở mục 9 chỉ có hiệu lực khi ARC đưa vào `erd.md`. ARC đang sửa song song. Nếu ERD thiếu cột phân bổ theo đêm thì sẽ lặp lại lỗi BL #11 (P&L lệch bảng kênh). DATA cần đối chiếu lại ERD sau khi ARC sửa xong.
+- Văn bản BR-215 trong `business-rules.md` vẫn ghi "tháng lịch", lệch với quyết định DOM. Chờ DOM sửa.
+- **ESC mới: không có.**
+
+## 5. Việc chưa xong
+- Đối chiếu lại `erd.md` sau khi ARC sửa (FB-R1-DATA-ARC-01…11 và các cột mới ở v0.2).
+- Tracking plan, truy vấn mẫu, đặc tả báo cáo: R2–R3 theo quyết định P1.

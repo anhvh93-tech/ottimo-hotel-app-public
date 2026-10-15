@@ -1,7 +1,7 @@
 # PRD – OTTIMO Desk · App All-in-one cho OTTIMO Boutique Stay (MVP)
 
-- Người viết: PO | Round 1 – Bước 2, đợt 1 (cập nhật đợt 3) | Ngày: 15/10/2026
-- Trạng thái: **BẢN NHÁP** – chờ review bắt buộc của BA, DOM (khuyến nghị ARC, UXD). Phạm vi MVP chờ INV xác nhận qua **ESC-012** (câu hỏi BL 9 #21). Kết cục 26 câu hỏi BL mục 9: `open-questions-resolution.md`.
+- Người viết: PO | Round 1 – Bước 2, đợt 1 (cập nhật đợt 3; sửa ở bước 4 theo review BA, DOM, QA) | Ngày: 15/10/2026
+- Trạng thái: **BẢN NHÁP v0.3** – đã qua review bắt buộc của BA, DOM (bước 3) và sửa ở bước 4 (`rounds/round-01/responses/PO-responses.md`). Phạm vi MVP chờ INV xác nhận qua **ESC-012** (câu hỏi BL 9 #21). Kết cục 26 câu hỏi BL mục 9: `open-questions-resolution.md`.
 - Đầu vào: `00-brief/investor-brief.md` (gọi tắt **Brief**), `01-decisions/decision-log.md`, `product/docs/round-0-baseline.md` (gọi tắt **BL**), `rounds/round-01/plan.md`.
 - Tài liệu liên quan: `business-rules.md` (DOM – nguồn sự thật cho mọi con số quy tắc, mã BR-xxx), `use-cases.md`, `state-machines.md`, `rbac-matrix.md` (BA), `metrics-definitions.md` (DATA), `architecture.md` (ARC), `baseline-issues-triage.md` (DOM), `research/personas.md`, `research/journeys.md` (UXR), `integrations.md` (INT), `security/data-risk-assessment.md` (SEC).
 - Backlog chi tiết: `03-backlog/backlog.md`.
@@ -48,15 +48,15 @@ Nguyên tắc sản phẩm (dùng để nói "không" với tính năng thừa):
 | G2 | Nền khách dài hạn | Trong dữ liệu mẫu: 2 hợp đồng đang chạy | **4–6 căn** dài hạn cùng lúc | Brief mục 1 |
 | G3 | Giảm phí kênh bằng cách kéo khách về kênh trực tiếp | Trực tiếp 52,2/186,4 tr ≈ **28%** doanh thu phòng T9; phí kênh ≈ 18,1 tr/tháng | Trực tiếp **≥ 35%** doanh thu phòng sau 3 tháng vận hành `[GIẢ ĐỊNH – chờ INV xác nhận]` | BL 5.11 |
 | G4 | Giữ biên lợi nhuận gộp | GOP ~61% (T9) | **≥ 60%** `[GIẢ ĐỊNH – chờ INV xác nhận]` | BL 5.11 |
-| G5 | Tuân thủ pháp lý | Khai báo làm tay | **100%** khách được khai báo đúng hạn; 0 sự cố lộ dữ liệu giấy tờ | BL 5.12, 5.13 |
+| G5 | Tuân thủ pháp lý | Khai báo làm tay | **100%** khách được khai báo đúng hạn (mục tiêu kinh doanh – nghĩa vụ pháp lý); 0 sự cố lộ dữ liệu giấy tờ | BL 5.12, 5.13 |
 
 ### 3.2 Chỉ số thành công của sản phẩm (đo sau khi INV vận hành thật từ Round 4)
 Các chỉ số dưới đây là đích đội đề xuất `[GIẢ ĐỊNH – chờ INV xác nhận]`; công thức chính xác do DATA chốt trong `metrics-definitions.md`.
 
 | # | Chỉ số | Đích | Cách đo (dự kiến) |
 |---|---|---|---|
-| S1 | Số lần **đặt trùng phòng** do hệ thống | **0** | Đơn trùng căn × đêm ở trạng thái đã xác nhận/đang ở |
-| S2 | Tỉ lệ khách được **khai báo lưu trú đúng hạn** (hạn theo BR-602 / BR-603) | **≥ 98%** (100% với khách nhận phòng trong giờ trực lễ tân) | Thời điểm ghi mã hồ sơ so với hạn |
+| S1 | Số lần **đặt trùng phòng** do hệ thống | **0** | Theo `metrics-definitions.md` (DATA): **S1a** (đích 0) – cặp căn × đêm có ≥ 2 khối chiếm tồn phòng cùng lúc (`hold`, `confirmed`, `in_house` hoặc OOO) trong dữ liệu Desk; **S1b** (báo riêng) – cảnh báo overbooking do đơn OTA về khi đã hết phòng; **S1c** (giám sát) – đêm xung đột chưa gán căn |
+| S2 | Tỉ lệ khách được **khai báo lưu trú đúng hạn** (hạn theo BR-602 / BR-603) | **100%** với khách nhận phòng trong giờ trực lễ tân (`front_desk_hours` – BR-811) – đây là đích nghiệm thu, khớp G5; **≥ 98%** tính trên toàn bộ khách là ngưỡng cảnh báo của DATA (phần thiếu thường do khách đến ngoài giờ trực mà không check-in online) | Thời điểm ghi mã hồ sơ so với hạn |
 | S3 | Thời gian **trả phòng** tại quầy (từ mở đơn tới thu tiền xong) | **≤ 5 phút** trung vị | Nhật ký thao tác |
 | S4 | Thời gian **nhận phòng** với khách đã check-in online | **≤ 3 phút** trung vị | Nhật ký thao tác |
 | S5 | Tỉ lệ khách đã check-in online trước khi đến (đơn trực tiếp + OTA có liên hệ) | **≥ 40%** sau 2 tháng | Đơn có giấy tờ nhận trước qua app |
@@ -74,7 +74,8 @@ Các chỉ số dưới đây là đích đội đề xuất `[GIẢ ĐỊNH –
 
 | # | Nhóm | Ai (theo BL) | Thiết bị chính `[GIẢ ĐỊNH]` | Việc quan trọng nhất | Không được thấy (định hướng) |
 |---|---|---|---|---|---|
-| U1 | **Chủ đầu tư / Quản lý** (`owner`, `manager`) | Chủ đầu tư; Quản lý anh Hoàng Anh | Laptop + điện thoại | Xem KPI và "cần chú ý", duyệt FOC/giảm giá, cấu hình giá & quy tắc, xem báo cáo kênh và P&L | – (toàn quyền, mọi lần xem ảnh giấy tờ vẫn ghi log) |
+| U1a | **Chủ đầu tư** (`owner`) | Chủ đầu tư | Laptop + điện thoại | Xem KPI và "cần chú ý", duyệt FOC/giảm giá, cấu hình giá & quy tắc, gán vai, cấp thiết bị được phép xem giấy tờ, xem báo cáo kênh và P&L | – (toàn quyền; mọi lần xem ảnh giấy tờ vẫn ghi log) |
+| U1b | **Quản lý** (`manager`) | Quản lý anh Hoàng Anh | Laptop + điện thoại | Vận hành hằng ngày, duyệt FOC/hoàn tiền theo hạn mức, sửa tham số vận hành, xử lý yêu cầu dữ liệu cá nhân | **Không được làm** (rbac mục 5.3): gán vai/mở khóa tài khoản, sửa hạn mức FOC, tỷ lệ hoa hồng, phí kênh |
 | U2 | **Lễ tân** (`front_desk`; lễ tân trưởng `front_desk_lead`; gồm người trực đêm) | Lễ tân Hạnh | Máy tính quầy + điện thoại | Room rack, đặt phòng, nhận/trả phòng, bill & thu tiền, khai báo lưu trú, trả lời khách | P&L, giá vốn, hoa hồng người khác |
 | U3 | **Buồng phòng / Bảo trì** (`housekeeping`, `maintenance`) | Chị Lan, Chị Mai; Anh Tùng (kỹ thuật) | Điện thoại | Việc hôm nay, đổi trạng thái buồng, kiểm phòng, minibar, phiếu sửa chữa, chốt số điện nước | Giấy tờ khách, giá phòng, doanh thu, giá vốn kho (chỉ thấy số lượng) |
 | U4 | **CTV / Sale** (`sales_staff`, `collaborator`) | NV Hạnh (sale nội bộ), CTV Minh Anh | Điện thoại | Báo giá, giữ chỗ, theo dõi khách tiềm năng, xem hoa hồng **của mình** | Giấy tờ khách, P&L, báo cáo kênh, hoa hồng người khác, phòng chi tiết khách không do mình bán |
@@ -93,19 +94,19 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 ### 5.2 Bảng phân hệ
 | # | Phân hệ | Nguồn BL | MVP – R2 | MVP – R3 | Sau MVP (R4+) |
 |---|---|---|---|---|---|
-| M0 | **Nền tảng**: đăng nhập, phân quyền 4 vai + khách, cơ sở/căn/nhóm căn, tham số cấu hình, nhật ký thao tác | BL 2, 4.1, 7 | Đăng nhập, RBAC theo màn hình + hành động + trường nhạy cảm, danh mục căn & giá niêm yết, bảng tham số quy tắc, nhật ký thao tác, giờ Việt Nam, hộp xác nhận cho hành động không đảo ngược (HR-06) | Quản lý người dùng tự phục vụ, xác nhận phê duyệt bằng PIN | Vận hành đa cơ sở thật (đã thiết kế sẵn) |
+| M0 | **Nền tảng**: đăng nhập, phân quyền 4 vai + khách, cơ sở/căn/nhóm căn, tham số cấu hình, nhật ký thao tác | BL 2, 4.1, 7 | Đăng nhập, RBAC theo màn hình + hành động + trường nhạy cảm, danh mục căn & giá niêm yết, bảng tham số quy tắc, nhật ký thao tác, giờ Việt Nam và **ngày nghiệp vụ đổi lúc 06:00** (BR-001), hộp xác nhận cho hành động không đảo ngược (HR-06), duyệt FOC bằng **xác thực lại mật khẩu** của người duyệt, tài khoản 8 vai tạo bằng dữ liệu khởi tạo, **thiết bị được cấp** cho dữ liệu giấy tờ (US-142) | Quản lý người dùng tự phục vụ (US-008), PIN duyệt riêng, xác thực hai bước cho `owner`/`manager` (US-143) | Vận hành đa cơ sở thật (đã thiết kế sẵn) |
 | M1 | **Tổng quan (dashboard)** | BL 3.2 | KPI đêm nay (công suất, khách đến/đi, đang ở), "cần chú ý" tính từ dữ liệu thật, việc trong ngày | ADR/RevPAR tháng, biểu đồ công suất 30+14 ngày, so sánh kỳ trước | Cảnh báo lệch mục tiêu (BL 9 #25) |
-| M2 | **Lễ tân** | BL 3.3–3.10 | Room rack 14 ngày, đặt phòng mới ngắn ngày (kênh, giá, mã OTA), chi tiết đơn & folio, nhận phòng (phụ thu sớm + FOC có duyệt), trả phòng 3 bước + bill, gia hạn, trả muộn, xác nhận giờ trả, nhắc trả phòng theo mốc giờ (hiển thị + nhắc nội bộ), chống đặt trùng ở máy chủ, đổi căn/đổi ngày/đổi phòng, đánh dấu và khôi phục no-show (BR-311), trả sớm (Should) | In/xuất PDF bill, gửi bill qua email/Zalo, nhắc trả phòng tự động gửi tới khách | – |
+| M2 | **Lễ tân** | BL 3.3–3.10 | Room rack 14 ngày, đặt phòng mới ngắn ngày (kênh, giá, mã OTA), chi tiết đơn & folio, nhận phòng (phụ thu sớm + FOC có duyệt), trả phòng 3 bước + bill, gia hạn, trả muộn, xác nhận giờ trả, nhắc trả phòng theo mốc giờ (hiển thị + nhắc nội bộ), chống đặt trùng ở máy chủ, đổi căn/đổi ngày/đổi phòng, đánh dấu và khôi phục no-show (BR-311), trả sớm (Should), nhận phòng trước 06:00 = bán thêm đêm (BR-411) | In/xuất PDF bill, gửi bill qua email/Zalo, nhắc trả phòng tự động gửi tới khách, **đóng ca / bàn giao ca** có đối soát tiền mặt và chuyển khoản (US-124) | – |
 | M3 | **Giấy tờ & khai báo lưu trú** | BL 3.11, 5.12, 5.13 | Nhập/tải ảnh giấy tờ, đối chiếu tự động (tên, hạn hộ chiếu, thị thực, đủ người), đồng ý lưu giấy tờ, khai báo **bán tự động** (sao chép dữ liệu → cổng BCA → ghi mã hồ sơ), nhắc hạn theo BR-602/BR-603/BR-611, ảnh mã hóa + log xem + tự xóa theo hạn BR-610 | Đọc QR CCCD gắn chip, đọc MRZ hộ chiếu; **yêu cầu của chủ thể dữ liệu** (xem/sửa/xóa/rút đồng ý/nhận bản sao – UC-30, SEC R-DSR) | Kết nối tự động với cổng BCA (nếu BCA cấp kết nối) |
 | M4 | **Buồng phòng** | BL 3.12, 5.15 | Trạng thái buồng 7 mã, đổi trạng thái trên điện thoại, việc hôm nay (tự sinh khi trả phòng/gia hạn/yêu cầu khách), checklist kiểm phòng, lịch dọn khách dài hạn | Phân việc theo người, ảnh sau kiểm phòng | Ca làm việc, chấm công (BL 9 #13 – đề xuất ngoài MVP) |
 | M5 | **Bảo trì** | BL 3.14 | Phiếu sửa chữa (mức độ, người xử lý, trạng thái), **khóa phòng chặn bán thật** | Bảo trì định kỳ tự sinh kỳ kế tiếp, chốt số điện nước → hóa đơn tháng | – |
 | M6 | **Kho F&B / minibar** | BL 3.13, 3.15, 5.14 | Kiểm minibar khi trả phòng và giữa kỳ (ghi folio), danh mục mặt hàng + giá bán | Xuất nhập tồn, kiểm kê, bổ sung tủ trừ kho, mặt hàng cần nhập, bán chạy | Giá vốn bình quân, nhà cung cấp, đơn đặt hàng, hạn sử dụng |
 | M7 | **Khách hàng (CRM)** | BL 3.16, 3.17, 5.16–5.18 | Hồ sơ khách, chống tạo trùng theo SĐT/email, người đi cùng & trẻ em trong đơn, bộ chọn khách dùng chung | Gộp hồ sơ (cập nhật mọi tham chiếu + nhật ký), phân khúc, độ đầy đủ hồ sơ, dòng thời gian, đồng ý ưu đãi theo người | Chiến dịch ưu đãi theo phân khúc, hạng thành viên |
-| M8 | **Sale & báo giá** | BL 3.18, 5.2–5.5 | Công cụ báo giá ngắn ngày + dài hạn, giữ chỗ (khóa phòng, hết hạn tự xử lý), xác nhận cọc/ký quỹ, sinh hợp đồng dài hạn, văn bản báo giá để gửi Zalo | Kanban khách tiềm năng, lịch thu theo kỳ + nhắc thu, chào gia hạn HĐ, trả phòng dài hạn có khấu trừ/hoàn ký quỹ, hoa hồng CTV/sale (ghi nhận + đã chi), xuất PDF hợp đồng | Ký số hợp đồng (BL 9 #17 – đề xuất ngoài MVP) |
-| M9 | **Kênh OTA** | BL 3.19, 5.21 | Ghi nhận đơn OTA nhập tay (kênh, mã OTA, giá thực tế); lớp đồng bộ **giả lập** để đóng/mở phòng | Kết nối channel manager thật (theo ESC-009), xử lý xung đột đơn OTA trùng (BR-312): đơn về tự động, đẩy phòng trống & giá, nhật ký đồng bộ, đối soát | Tối ưu giá theo kênh tự động |
+| M8 | **Sale & báo giá** | BL 3.18, 5.2–5.5 | Công cụ báo giá ngắn ngày + dài hạn, giữ chỗ (khóa phòng, hết hạn tự xử lý), xác nhận cọc/ký quỹ, sinh hợp đồng dài hạn, **ghi nhận đã thu từng kỳ** (để vòng đời HĐ tạo ở R2 không bị kẹt), văn bản báo giá để gửi Zalo | **Đơn nhóm nhiều căn** (US-140), kanban khách tiềm năng, danh sách HĐ + nhắc thu đầy đủ, chào gia hạn HĐ, trả phòng dài hạn có khấu trừ/hoàn ký quỹ, hoa hồng CTV/sale (ghi nhận + đã chi), xuất PDF hợp đồng | Ký số hợp đồng (BL 9 #17 – đề xuất ngoài MVP) |
+| M9 | **Kênh OTA** | BL 3.19, 5.21 | Ghi nhận đơn OTA nhập tay (kênh, mã OTA, giá thực tế); đơn OTA trùng **không bị chặn** mà gắn cờ xung đột, vào làn "Chưa gán căn", báo đỏ (US-139); lớp đồng bộ **giả lập** để đóng/mở phòng | Kết nối channel manager thật (theo ESC-009): đơn về tự động (đơn trùng đi theo luồng xung đột đã có từ R2), đẩy phòng trống & giá, nhật ký đồng bộ, đối soát | Tối ưu giá theo kênh tự động |
 | M10 | **Báo cáo** | BL 3.20, 5.11 | – (chỉ KPI ở Tổng quan) | Báo cáo vận hành (công suất, ADR, RevPAR, ALOS, cơ cấu ngắn/dài hạn), kênh bán (phí kênh, thực thu), FOC, P&L đơn giản (nhập chi phí trong app), xuất file | Đánh giá OTA tự lấy từ kênh, lợi nhuận ròng có khấu hao |
-| M11 | **App khách** (web trên điện thoại, mở bằng link/QR) | BL 3.21, 5.19 | Mở bằng link riêng theo đơn, check-in online (giấy tờ + giờ đến + đồng ý), gửi yêu cầu (định tuyến tới đúng bộ phận), xem hóa đơn/folio, thông tin lưu trú (Wi-Fi, giờ, chỉ đường), VI/EN | Ở thêm/trả muộn tự phục vụ, trả phòng nhanh qua app (BR-427), thanh toán online, hóa đơn điện nước tháng cho khách dài hạn, tab Đà Lạt, xin đánh giá theo mốc, tiếng Nga | Mã cửa tự động qua API khóa thông minh |
-| M12 | **Thanh toán & hóa đơn** (xuyên phân hệ) | BL 5.20 | Ghi nhận thu tiền 4 cách (chuyển khoản VietQR, thẻ, tiền mặt, đã thu qua OTA), VietQR theo số tiền bill (sandbox/tĩnh), folio đúng công thức | VNPay/MoMo (theo ESC-010), phát hành hóa đơn điện tử MISA meInvoice, hoàn cọc | Đối soát ngân hàng tự động |
+| M11 | **App khách** (web trên điện thoại, mở bằng link/QR) | BL 3.21, 5.19 | Mở bằng link riêng theo đơn, check-in online (giấy tờ + giờ đến + đồng ý), gửi yêu cầu (định tuyến tới đúng bộ phận), xem hóa đơn/folio, thông tin lưu trú (Wi-Fi, giờ, chỉ đường), VI/EN; xác minh nhẹ bằng mã một lần trước khi xem mã cửa/hóa đơn (US-141); sau trả phòng link còn ân hạn ngắn **chỉ** để xem bill và trả phát sinh | Ở thêm/trả muộn tự phục vụ, trả phòng nhanh qua app (BR-427), thanh toán online, hóa đơn điện nước tháng cho khách dài hạn, tab Đà Lạt, xin đánh giá theo mốc, tiếng Nga | Mã cửa tự động qua API khóa thông minh |
+| M12 | **Thanh toán & hóa đơn** (xuyên phân hệ) | BL 5.20 | Ghi nhận thu tiền 4 cách (chuyển khoản VietQR, thẻ, tiền mặt, đã thu qua OTA), VietQR theo số tiền bill (sandbox/tĩnh), folio đúng công thức. **Không nhận tiền mã hóa** (USDT…) dưới mọi hình thức – không phải phương tiện thanh toán hợp pháp ở Việt Nam | VNPay/MoMo (theo ESC-010), phát hành hóa đơn điện tử MISA meInvoice, hoàn cọc | Đối soát ngân hàng tự động |
 | M13 | **Giao tiếp với khách** (xuyên phân hệ) | Brief mục 5, BL 7 | Mẫu tin nhắn đa ngôn ngữ (VI/EN/RU) để **sao chép gửi** qua nhóm chat/Zalo | Gửi tự động qua Zalo OA/ZNS và email (theo ESC-010) | WhatsApp/KakaoTalk tự động |
 | M14 | **Khóa cửa thông minh** | Brief mục 7 #3 | Lễ tân **nhập tay** mã cửa vào đơn, app khách hiển thị đúng thời hạn | – | Tích hợp API hãng khóa: sinh mã theo ngày sinh nhật, mã có hạn (khi đã chọn hãng) |
 | M15 | **Trang đặt phòng trực tiếp** (booking engine công khai) | BL 3.19 (kênh Website), Brief mục 1 | – | **Should**: trang xem phòng trống + giá trực tiếp + gửi yêu cầu giữ chỗ (sale xác nhận) | Đặt và thanh toán tức thì không cần người duyệt |
@@ -121,7 +122,7 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 |---|---|---|
 | X1 | POS nhà hàng/quầy bar | OTTIMO không có nhà hàng; Brief mục 7 #3: chưa dùng POS |
 | X2 | Kế toán tổng hợp, sổ sách thuế, tính lương | Dùng phần mềm kế toán riêng; app chỉ cung cấp số liệu doanh thu/chi phí vận hành |
-| X3 | Quản lý ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – đề xuất, chờ INV xác nhận |
+| X3 | Xếp lịch ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – đề xuất, chờ INV xác nhận. **Không gồm** đóng ca/bàn giao tiền – đó là kiểm soát tiền, nằm trong MVP R3 (US-124) |
 | X4 | Ký số hợp đồng điện tử (chữ ký số có giá trị pháp lý) | Cần nhà cung cấp chữ ký số và tư vấn pháp lý; MVP chỉ xuất PDF hợp đồng (BL 9 #17) |
 | X5 | Kết nối trực tiếp từng OTA (không qua channel manager) | Airbnb chỉ mở API cho đối tác lớn; dùng channel manager (BL 3.19) |
 | X6 | Đồng bộ lịch bằng iCal | Chậm, dễ đặt trùng (BL 3.19) |
@@ -145,9 +146,9 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | Đánh giá | Mời đánh giá theo mốc, mã quay lại | Mời đánh giá trên OTA đã đặt | Hỏi thăm định kỳ | M11, M10 | R3 |
 
 ### 6.2 Luồng nhân viên
-- **Lễ tân:** mở ca → xem Tổng quan/"cần chú ý" → room rack → đặt phòng/giữ chỗ → nhận phòng + giấy tờ + khai báo trước hạn (BR-602/BR-603) → xử lý yêu cầu khách → nhắc/chốt giờ trả → trả phòng + bill + thu tiền.
+- **Lễ tân:** nhận bàn giao ca → xem Tổng quan/"cần chú ý" → room rack → đặt phòng/giữ chỗ → nhận phòng + giấy tờ + khai báo trước hạn (BR-602/BR-603) → xử lý yêu cầu khách → nhắc/chốt giờ trả → trả phòng + bill + thu tiền → đóng ca (R3). Người trực đêm làm trên **thiết bị của cơ sở** đã được cấp quyền (PHÂN XỬ ORC).
 - **Buồng phòng/Bảo trì:** mở điện thoại → việc hôm nay → bắt đầu dọn → dọn xong → kiểm phòng (checklist) → báo sự cố (tạo phiếu, khóa phòng nếu cần) → kiểm minibar → (bảo trì) xử lý phiếu, mở khóa phòng, chốt số điện nước.
-- **CTV/Sale:** nhận yêu cầu khách → báo giá → gửi Zalo → giữ chỗ → xác nhận cọc → (dài hạn) hợp đồng → xem hoa hồng của mình.
+- **CTV/Sale:** nhận yêu cầu khách → báo giá → gửi Zalo → giữ chỗ → báo đã chuyển cọc kèm ảnh (CTV) / xác nhận cọc (sale nội bộ cho đơn của mình, lễ tân) → (dài hạn) hợp đồng → xem hoa hồng của mình (CTV chỉ thấy phần của mình – rbac A04, A53).
 - **Chủ đầu tư/Quản lý:** xem KPI + cần chú ý → duyệt FOC/giảm giá → chỉnh giá & tham số → xem báo cáo kênh, P&L (R3).
 
 ## 7. Yêu cầu phi chức năng (mức sản phẩm – chi tiết kỹ thuật do ARC/SEC)
@@ -158,12 +159,12 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | N3 | Tốc độ cảm nhận | Màn hình chính tải ≤ 2 giây trên 4G; thao tác lưu phản hồi ≤ 1 giây `[GIẢ ĐỊNH]` |
 | N4 | Mạng yếu | Buồng phòng đổi trạng thái được khi mạng chập chờn (lưu tạm, gửi lại) – mức độ do ARC đề xuất (BL 9 #22) |
 | N5 | Thời gian | Giờ Việt Nam (Asia/Ho_Chi_Minh) cho mọi hạn (BR-001): hạn khai báo (BR-602/603), giờ chuẩn nhận/trả (BR-401), hết hạn giữ chỗ (BR-302/303) |
-| N6 | Dữ liệu cá nhân | Tuân thủ Nghị định 13/2023 và Luật BVDLCN 91/2025/QH15 (theo BL 5.13 – SEC xác minh); ảnh giấy tờ mã hóa, chỉ lễ tân + quản lý xem, log mọi lần xem, tự xóa theo hạn |
+| N6 | Dữ liệu cá nhân | Tuân thủ Nghị định 13/2023 và Luật BVDLCN 91/2025/QH15 (theo BL 5.13 – SEC xác minh); ảnh giấy tờ mã hóa, chỉ lễ tân + quản lý xem trên thiết bị được cấp, log mọi lần xem, tự xóa theo hạn. Lưu ý sức khỏe của khách (dị ứng…) chỉ chọn từ danh mục, không ghi vào ghi chú tự do – cần đồng ý riêng hay không chờ luật sư (ESC-001) |
 | N7 | Thanh toán | Không lưu số thẻ; dùng cổng thanh toán |
 | N8 | Truy vết | Mọi thao tác tiền (folio, FOC, giảm giá, hủy, hoàn cọc) ghi ai – lúc nào – giá trị cũ/mới |
 | N9 | Khả dụng | Truy cập được bằng bàn phím; trạng thái không chỉ bằng màu (khắc phục BL 8.3) |
 | N10 | Chi phí hạ tầng | ≤ 1 triệu đ/tháng (chưa gồm channel manager, SMS/Zalo) `[GIẢ ĐỊNH – chờ INV xác nhận]`; gói hosting chờ duyệt ở ESC-002 |
-| N11 | Sao lưu | Không mất dữ liệu đơn/tiền quá 24 giờ khi có sự cố `[GIẢ ĐỊNH]` – OPS đề xuất ở R2–R3 |
+| N11 | Sao lưu | Theo mục tiêu khôi phục của OPS (decision-log: mất tối đa ~15 phút dữ liệu – RPO ≤ 15 phút); backup ≤ 35 ngày (SEC) |
 
 ## 8. Phụ thuộc và rủi ro sản phẩm
 | # | Phụ thuộc / rủi ro | Ảnh hưởng tới phạm vi | Cách xử lý |
@@ -173,7 +174,7 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | D3 | Tài khoản Zalo OA, merchant VNPay/MoMo, VietQR, MISA, cổng BCA (BL 9 #15, #19, #20) | Tích hợp R3 bị chặn nếu INV chưa cấp | R2 làm phần không cần tài khoản; ESC-010 |
 | D4 | Hãng khóa cửa chưa rõ; mã sinh nhật dễ đoán | M14 tự động để sau MVP | Nhập mã tay trong MVP; ESC-011 |
 | D5 | Persona/hành trình là mô phỏng | Ưu tiên có thể lệch nhu cầu thật | INV kiểm chứng với lễ tân, buồng phòng, khách dài hạn trước R2 (ESC-003) |
-| D6 | Phạm vi R2 lớn (M0–M5, M8, M11, M12 cùng lúc) | Trễ R2 | Thứ tự ưu tiên trong R2: M0 → M2/M8 (đơn, chống trùng) → M3 → M4/M5 → M11; story Should R2 được dời R3 nếu thiếu thời gian; 74 story Must R2 – ESC-012 xin xác nhận |
+| D6 | Phạm vi R2 lớn (M0–M5, M8, M11, M12 cùng lúc); ước lượng lệch: ARC 9–11, BE 20–25 tuần-người backend | Trễ R2 | Thứ tự ưu tiên trong R2: M0 → M2/M8 (đơn, chống trùng) → M3 → M4/M5 → M11; story Should R2 được dời R3 nếu thiếu thời gian; **không được cắt**: nền tảng, chống trùng, folio/thanh toán, bảo vệ giấy tờ. 77 story Must R2 – câu phụ phạm vi R2 trong **ESC-012** (R-A kéo dài / R-B thu hẹp theo thứ tự này / R-C dời có chọn lọc – đội đề xuất). Vòng đời HĐ dài hạn: tạo + ghi thu kỳ ở cùng một round; trả phòng dài hạn, điện nước ở R3 |
 | D7 | Thời hạn lưu ảnh giấy tờ cần luật sư (BL 9 #14) | Tự xóa dùng giá trị mặc định | Tham số cấu hình; ESC-001 (luật sư) |
 
 ## 9. Giả định (dùng cho PRD này)
@@ -184,8 +185,8 @@ Mọi giả định cần ghi vào `decision-log.md` (ORC ghi khi commit) với 
 | A1 | Mọi con số quy tắc ở BL mục 5 là giá trị mặc định cấu hình được (đã có trong decision-log) | Phải sửa tham số, không sửa code |
 | A2 | Mục tiêu kênh trực tiếp ≥ 35% doanh thu phòng và GOP ≥ 60% là đích hợp lý (G3, G4) | Chỉ ảnh hưởng chỉ số đo, không ảnh hưởng tính năng |
 | A3 | Đích S1–S12 do đội đề xuất | Điều chỉnh đích sau khi INV vận hành |
-| A4 | Không có vai F&B, kế toán riêng; quản lý (anh Hoàng Anh) cùng nhóm U1 với chủ đầu tư nhưng có thể bị giới hạn xem P&L – BA chốt trong RBAC | Thêm vai con trong RBAC |
-| A5 | Lễ tân trưởng là lễ tân có thêm quyền duyệt FOC trong hạn mức (hạn mức chờ ESC-007) | Đổi quyền duyệt |
+| A4 | Không có vai F&B, kế toán riêng; quyền của `manager` khác `owner` đã chốt ở `rbac-matrix.md` mục 5.3 – chờ INV xác nhận | Thêm vai con trong RBAC |
+| A5 | Lễ tân trưởng là lễ tân có thêm quyền duyệt FOC trong hạn mức; lễ tân được **tự miễn** minibar trong hạn mức lần + hạn mức tháng [GIẢ ĐỊNH 500.000 đ/người/tháng] (hạn mức chờ ESC-007) | Đổi quyền duyệt |
 | A6 | Khách tìm phòng chủ yếu qua OTA và hỏi trực tiếp Zalo/CTV; booking engine công khai chỉ là Should R3 | Nếu INV coi website đặt phòng là bắt buộc → tăng phạm vi R3 |
 | A7 | Khóa cửa: MVP lễ tân nhập mã tay; tự động sinh mã sau MVP | Nếu INV muốn tự động ngay → phụ thuộc chọn hãng có API |
 | A8 | R2 chạy thanh toán ở chế độ ghi nhận + VietQR (mã QR theo số tiền, không tự đối soát); cổng VNPay/MoMo ở R3 | Nếu cần thu online ngay R2 → cần tài khoản sandbox sớm |
@@ -193,27 +194,30 @@ Mọi giả định cần ghi vào `decision-log.md` (ORC ghi khi commit) với 
 | A10 | Thiết bị: lễ tân máy tính, buồng phòng/sale điện thoại; không yêu cầu chạy offline hoàn toàn (BL 9 #22) | Nếu cần offline đầy đủ → thay đổi kiến trúc |
 | A11 | MVP 1 cơ sở, thiết kế sẵn đa cơ sở (đã có trong decision-log) | – |
 | A12 | P&L R3: nhập chi phí trực tiếp trong app mức đơn giản, chưa có thuê nhà/khấu hao (BL 9 #26) | Thêm phân hệ chi phí |
+| A13 | "Hôm nay" trong app = ngày nghiệp vụ đổi lúc 06:00 (DOM) | Khách đến sau nửa đêm biến khỏi danh sách nếu sai |
+| A14 | Người trực đêm dùng thiết bị của cơ sở (máy quầy/máy tính bảng) được owner cấp quyền (PHÂN XỬ ORC) – ai trực và thiết bị nào chờ ESC-010 | Nếu không có người/thiết bị → khách khuya phải check-in online trước |
 
 ## 10. Câu hỏi mở → ESC (đợt 3)
 Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O-1…O-3, BA, UXD, OPS) đã có kết cục – bảng truy vết ở `open-questions-resolution.md`. Các việc chờ chủ đầu tư quyết (đều mức Bình thường, không chặn code Round 2):
 
 | ESC | Nội dung | Ảnh hưởng PRD |
 |---|---|---|
-| ESC-001 | Luật sư: thời hạn lưu giấy tờ, hạn khai báo khách NN, ngưỡng tuổi trẻ em, hạn trả lời yêu cầu dữ liệu | M3, N6 |
+| ESC-001 | Luật sư: thời hạn lưu giấy tờ, hạn khai báo khách NN, ngưỡng tuổi trẻ em, hạn trả lời yêu cầu dữ liệu, nhận phòng khi hộ chiếu/thị thực không đạt, lưu ý sức khỏe | M3, N6 |
 | ESC-002 | Nơi đặt dữ liệu + gói hosting + tên miền | N10, N11 |
 | ESC-003 | Kiểm chứng nhanh với người dùng thật | Mục 4, D5 |
-| ESC-004 | Chính sách giá ngắn ngày, sức chứa từng căn | M2, M8 |
+| ESC-004 | Chính sách giá ngắn ngày, sức chứa từng căn, ở tối thiểu, mùa cao điểm Đà Lạt | M2, M8 |
 | ESC-005 | Thuê dài hạn, phí dịch vụ, hoa hồng | M8 |
-| ESC-006 | Hủy, hoàn cọc, chấm dứt HĐ, giữ chỗ hết hạn, hoàn ký quỹ | M2, M8, M12 |
-| ESC-007 | Phụ thu nhận sớm/trả muộn, hạn mức FOC | M0, M2 |
-| ESC-008 | Điện nước, giặt ủi, dọn phòng, VAT | M5, M12, M10 |
+| ESC-006 | Hủy, hoàn cọc, chấm dứt HĐ, giữ chỗ hết hạn, hoàn ký quỹ, bất khả kháng, khách không cọc online được | M2, M8, M12 |
+| ESC-007 | Phụ thu nhận sớm/trả muộn (cả cơ sở tính cho đơn OTA), hạn mức FOC, hạn mức tháng lễ tân tự miễn | M0, M2 |
+| ESC-008 | Điện nước, giặt ủi, dọn phòng, VAT, loại hình kinh doanh, thuế suất có ngày hiệu lực | M5, M12, M10 |
 | ESC-009 | Channel manager | M9 |
-| ESC-010 | Tài khoản thanh toán, hóa đơn, Zalo, email, cổng khai báo, người khai ca tối | M3, M12, M13 |
+| ESC-010 | Tài khoản thanh toán, hóa đơn, Zalo, email, cổng khai báo; ai trực tối, ở đâu, thiết bị gì; gửi mã xác minh qua OTA/Zalo | M3, M11, M12, M13 |
 | ESC-011 | Khóa cửa và mã sinh nhật | M14 |
-| ESC-012 | Phạm vi MVP, mục tiêu G3/G4 (CTV có tính kênh trực tiếp), logo | Mục 3, 5 |
+| ESC-012 | Phạm vi MVP, phạm vi Round 2 khi ước lượng vượt, mục tiêu G3/G4 (CTV có tính kênh trực tiếp), logo | Mục 3, 5, D6 |
 
 ## 11. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 1) | Bản nháp đầu tiên | PO |
 | 15/10/2026 | 1 (đợt 3) | Bỏ con số quy tắc, tham chiếu BR; thêm mã vai RBAC; bổ sung phân hệ (no-show, trả sớm, xác nhận hành động, yêu cầu chủ thể dữ liệu, xung đột OTA, trả phòng nhanh); gắn ESC-001…012 vào phụ thuộc và câu hỏi mở | PO |
+| 15/10/2026 | 1 (bước 4) | Theo review BA/DOM/QA: S1 trỏ S1a/S1b DATA, S2 thống nhất với G5; tách U1 thành `owner`/`manager`; M0 xác thực lại bằng mật khẩu ở R2, PIN + 2FA ở R3, thiết bị được cấp; ngày nghiệp vụ 06:00; xung đột OTA lên R2; ghi thu kỳ HĐ lên R2; đóng ca R3 (tách khỏi X3); đơn nhóm R3; không nhận tiền mã hóa; sửa luồng CTV ở 6.2; N11 theo RPO của OPS; D6 thêm ước lượng lệch và câu phụ ESC-012; thêm giả định A13, A14 | PO |

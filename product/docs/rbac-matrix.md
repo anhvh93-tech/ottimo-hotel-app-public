@@ -1,6 +1,7 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 2 (Sản xuất, đợt 2) | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review DOM, ARC; khuyến nghị mạnh SEC, QA)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`)
+- Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
 - Đọc cùng `state-machines.md` (cột "Ai được chuyển" dùng cùng mã vai).
@@ -11,8 +12,8 @@
 |---|---|---|---|---|---|
 | OWN | `owner` – Chủ đầu tư | U1 | Chủ đầu tư (P1) | Điện thoại + laptop | Tổng quan |
 | MGR | `manager` – Quản lý | U1 | Quản lý anh Hoàng Anh | Laptop + điện thoại | Tổng quan |
-| FDL | `front_desk_lead` – Lễ tân trưởng | U2 | Lễ tân trưởng Hạnh | Máy quầy | Lễ tân (room rack) |
-| FD | `front_desk` – Lễ tân (gồm người trực đêm BR-611) | U2 | Lễ tân (P2) | Máy quầy + điện thoại | Lễ tân (room rack) |
+| FDL | `front_desk_lead` – Lễ tân trưởng | U2 | Lễ tân trưởng Hạnh | Máy quầy (thiết bị được cấp) | **Hôm nay** (Sơ đồ phòng mở bằng 1 lần bấm) |
+| FD | `front_desk` – Lễ tân (gồm người trực đêm BR-611) | U2 | Lễ tân (P2) | Máy quầy hoặc máy tính bảng **của cơ sở** đã được cấp (admin-web); điện thoại cá nhân chỉ dùng PWA – không có C3 | **Hôm nay** (Sơ đồ phòng mở bằng 1 lần bấm) |
 | HK | `housekeeping` – Buồng phòng | U3 | Chị Lan, chị Mai (P3) | Điện thoại | Buồng phòng – việc hôm nay |
 | MT | `maintenance` – Bảo trì/kỹ thuật | U3 | Anh Tùng (P3 kiêm) | Điện thoại | Bảo trì – phiếu đang mở |
 | SAL | `sales_staff` – Sale nội bộ (nhân viên) | U4 | NV Hạnh | Điện thoại | Sale & báo giá |
@@ -25,7 +26,10 @@ Quy tắc vai:
 2. **Nhiều vai một người**: quyền = hợp các vai (ví dụ P2 lễ tân kiêm sale nội bộ = FD ∪ SAL; P3 = HK ∪ MT). Phạm vi dữ liệu "của mình" của SAL vẫn áp cho màn Sale; khi thao tác ở màn Lễ tân thì theo quyền FD.
 3. **Theo cơ sở**: mọi quyền gắn với cơ sở (đa cơ sở thiết kế sẵn, MVP 1 cơ sở – decision-log). Người dùng chỉ thấy cơ sở được gán.
 4. **Không có vai F&B, kế toán riêng** (decision-log PO): việc kho do FD+HK, việc kế toán do OWN/MGR.
-5. Vai khách GST không phải tài khoản: link riêng của đơn, hết hạn khi trả phòng (decision-log SEC F09); dữ liệu nhạy cảm cần thêm bước xác minh nhẹ (US-106 AC3 – cách làm SEC/ARC chốt).
+5. Vai khách GST không phải tài khoản: **một link cho mỗi đơn** (ADR-006), có 2 mức (SR-GST-06/07, decision-log SEC 15/10/2026):
+   - **GST1** – chỉ có link: Wi-Fi, nội quy, gửi yêu cầu, check-in online (tải giấy tờ – chỉ ghi), ghi đồng ý.
+   - **GST2** – link + xác minh: OTP gửi email của đơn **hoặc** mã xác minh do lễ tân cấp (A113). 4 số cuối SĐT và mã đặt phòng **không** là yếu tố xác minh. Mã lễ tân cấp được gửi qua kênh nhắn tin OTA hoặc Zalo **chỉ khi OWN bật kênh đó** (mặc định tắt – phân xử ORC 15/10/2026, A118); mặc định đọc tại quầy hoặc qua điện thoại.
+   - **GSTp** – sau `checked_out`: ân hạn tối đa 24 giờ, **bắt buộc GST2**, chỉ xem bill và thanh toán phát sinh; Wi-Fi, mã cửa, yêu cầu, tải giấy tờ → ✖ (SR-GST-11, threat-model M4). Đơn dài hạn: GSTp áp sau khi HĐ `closed`.
 
 ## 2. Ký hiệu
 
@@ -34,7 +38,8 @@ Quy tắc vai:
 | ✔ | Được, toàn bộ dữ liệu của cơ sở |
 | M | Chỉ dữ liệu **của mình** (do mình tạo, được gán phụ trách, hoặc mình là người chốt) |
 | T | Chỉ dữ liệu **liên quan việc hôm nay** của mình (căn có việc/phiếu được giao hoặc trong danh sách hôm nay) |
-| Đ | Chỉ đơn của chính khách (link) |
+| Đ | Chỉ đơn của chính khách (link). **Đ1** = đủ ở mức GST1; **Đ2** = cần GST2; **Đp** = còn được trong ân hạn sau trả phòng (GSTp, luôn kèm GST2) |
+| Q | Chỉ trên **thiết bị được cấp** mở admin-web (8.7); từ PWA hoặc thiết bị chưa cấp → server từ chối `DEVICE_NOT_TRUSTED` |
 | R | Chỉ xem (không sửa) |
 | D | Được gửi, **cần duyệt** qua SM-10 |
 | L | Mỗi lần xem/thao tác ghi nhật ký truy cập C3 |
@@ -49,34 +54,37 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S01 | Đăng nhập, đổi mật khẩu, PIN duyệt (M0) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ |
 | S02 | Tổng quan – KPI đêm nay, khách đến/đi, "Cần chú ý" (M1) | ✔ | ✔ | ✔ | ✔ ¹ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S03 | Room rack 14 ngày (M2) | ✔ | ✔ | ✔ | ✔ | R ² | R ² | R ³ | R ³ | ✖ |
-| S04 | Chi tiết đơn + folio (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M ⁴ | Đ |
+| S04 | Chi tiết đơn + folio (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M ⁴ | Đ1 (ngày ở, căn) / Đ2 (folio) / Đp (bill) |
 | S05 | Đặt phòng mới ngắn ngày (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ ⁵ | ✖ ⁵ | ✖ |
-| S06 | Nhận phòng (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S06 | Nhận phòng (M2) | ✔ Q | ✔ Q | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S07 | Trả phòng 3 bước + bill (M2, M6, M12) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ |
-| S08 | Gia hạn, trả muộn, xác nhận giờ trả, đổi phòng (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ ⁶ |
-| S09 | Giấy tờ & khai báo lưu trú (M3) | ✔ L | ✔ L | ✔ L | ✔ L | ✖ | ✖ | ✖ | ✖ | Đ ⁷ |
+| S08 | Gia hạn, trả muộn, xác nhận giờ trả, đổi phòng (M2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ1 ⁶ |
+| S09 | Giấy tờ & khai báo lưu trú (M3) | ✔ L Q | ✔ L Q | ✔ L Q | ✔ L Q | ✖ | ✖ | ✖ | ✖ | Đ1 ⁷ |
 | S10 | Buồng phòng – trạng thái, việc hôm nay, checklist (M4) | ✔ | ✔ | ✔ | ✔ | ✔ | R | ✖ | ✖ | ✖ |
 | S11 | Bảo trì – phiếu sửa, khóa phòng, bảo trì định kỳ (M5) | ✔ | ✔ | ✔ | ✔ | ◐ ⁸ | ✔ | ✖ | ✖ | ✖ |
 | S12 | Chốt công tơ điện nước (M5) | ✔ | ✔ | ✔ | ✔ | ✖ | ✔ ⁹ | ✖ | ✖ | ✖ |
 | S13 | Kho F&B / minibar (M6) | ✔ | ✔ | ✔ | ✔ ¹⁰ | ◐ ¹⁰ | ✖ | ✖ | ✖ | ✖ |
 | S14 | Khách hàng – CRM (M7) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M | ✖ |
 | S15 | Sale & báo giá, kanban lead (M8) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M | ✖ |
-| S16 | Hợp đồng dài hạn, kỳ thu (M8) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M R | M R | Đ ¹¹ |
+| S16 | Hợp đồng dài hạn, kỳ thu (M8) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M R | M R | Đ2 ¹¹ |
 | S17 | Hoa hồng (M8) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | M R | M R | ✖ |
 | S18 | Kênh OTA, lịch giá, đồng bộ (M9) | ✔ | ✔ | R | R ¹² | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S19 | Báo cáo vận hành (công suất, ADR, RevPAR, ALOS) (M10) | ✔ | ✔ | R ¹³ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S20 | Báo cáo kênh (doanh thu, phí kênh, thực thu) (M10) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S21 | Lãi lỗ P&L + nhập chi phí (M10) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S22 | Báo cáo FOC (M10) | ✔ | ✔ | M R ¹⁴ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
-| S23 | Hộp duyệt (yêu cầu chờ duyệt SM-10) | ✔ | ✔ | ✔ ¹⁵ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | ✖ | ✖ |
+| S23 | Hộp duyệt (yêu cầu chờ duyệt SM-10) | ✔ | ✔ | ✔ ¹⁵ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | ✖ |
 | S24 | Tham số quy tắc (bảng BR mục 13) (M0) | ✔ | ✔ ¹⁷ | R | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S25 | Danh mục căn, nhóm căn, giá niêm yết (M0) | ✔ | ✔ | R | R | ✖ | ✖ | R | R | ✖ |
-| S26 | Người dùng & vai (M0) | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S26 | Người dùng & vai, thiết bị được cấp, phiên đăng nhập, 2FA (M0) | ✔ | ◐ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S27 | Nhật ký thao tác (tiền, trạng thái) (M0) | ✔ | ✔ | M | M | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S28 | Nhật ký truy cập dữ liệu C3 (M0, M3) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S29 | Mẫu tin nhắn đa ngôn ngữ – dùng / sửa mẫu (M13) | ✔ | ✔ | ✔ dùng | ✔ dùng | ✖ | ✖ | ✔ dùng | ✔ dùng | ✖ |
-| S30 | Yêu cầu khách & đồ thất lạc (M11, BR-513) | ✔ | ✔ | ✔ | ✔ | T ¹⁸ | T ¹⁸ | ✖ | ✖ | Đ |
-| S31 | Yêu cầu của chủ thể dữ liệu (xem/sửa/xóa/rút đồng ý – SEC R-DSR) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Đ ¹⁹ |
+| S30 | Yêu cầu khách & đồ thất lạc (M11, BR-513) | ✔ | ✔ | ✔ | ✔ | T ¹⁸ | T ¹⁸ | ✖ | ✖ | Đ1 |
+| S31 | Yêu cầu của chủ thể dữ liệu (xem/sửa/xóa/rút đồng ý – SEC R-DSR) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Đ2 ¹⁹ |
+| S32 | Ca làm việc & đóng ca (P11, SM-17) | ✔ | ✔ | ✔ | M | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S33 | Đối soát chuyển khoản (P11, SM-12) | ✔ | ✔ | R | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S34 | Danh sách dự phòng mất mạng (P12) – bản in/bản đọc offline | ✔ | ✔ | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ |
 
 Ghi chú:
 1. FD thấy KPI đêm nay và "Cần chú ý" vận hành; **không** thấy dòng tài chính (doanh thu tháng, ADR, RevPAR, cảnh báo FOC BR-435). Cảnh báo FOC chỉ đến OWN.
@@ -94,10 +102,11 @@ Ghi chú:
 13. FDL: báo cáo vận hành không có doanh thu (chỉ công suất, ALOS, số đêm) – BA đề xuất, chờ DOM.
 14. FDL: báo cáo FOC của các yêu cầu mình gửi hoặc duyệt.
 15. FDL: yêu cầu thuộc hạn mức FDL theo BR-433.
-16. M: chỉ thấy trạng thái các yêu cầu mình gửi.
+16. M: chỉ thấy trạng thái các yêu cầu mình gửi và rút lại được (A6). CTV gửi gia hạn báo giá (A51) nên cần theo dõi được yêu cầu của mình (QA #12) – ARC thêm `collaborator` với `x-scope: own` vào `listApprovalRequests` và `cancelRequest`.
+20a. MGR chỉ cấp/thu hồi thiết bị khi OWN bật ủy quyền (SR-DEV-01); không gán vai, không đặt lại 2FA người khác.
 17. MGR sửa tham số vận hành; **không** sửa hạn mức FOC (`foc_limits`), tỷ lệ hoa hồng, phí kênh – chỉ OWN (mục 5.3).
 18. HK/MT: yêu cầu định tuyến tới bộ phận mình (BR-811); đồ thất lạc: HK được tạo bản ghi (người nhặt), không xem danh sách đồ giá trị.
-19. GST: gửi yêu cầu qua app; OWN/MGR xử lý (SEC R-DSR-01).
+19. GST: gửi yêu cầu qua app (mức GST2); OWN/MGR xử lý (SEC R-DSR-01). Bản sao dữ liệu giao qua app khách mức 2, không đính kèm email (A77).
 
 ## 4. Ma trận theo hành động
 
@@ -113,10 +122,14 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A05 | Hủy giữ chỗ (B5) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M | ✖ | ✔ hết hạn | Lý do BR-308 |
 | A06 | Hủy đơn đã đảm bảo (B10) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ²¹ | ✖ | ✖ | ✔ (OTA R3) | Phần hoàn → A43 |
 | A07 | Đổi căn / đổi ngày (B7) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Lý do bắt buộc |
+| A07a | Gán căn cho đơn xung đột / chưa gán căn (B7a) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Dời khách ra ngoài: MGR+ (`resolveOverbookingExternal`) |
+| A07b | Áp thay đổi OTA cho đơn (B7c) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ (R3) | Đơn `in_house` rút ngắn: FD xác nhận |
 | A08 | Dời ngày thay vì hủy (B8) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | BR-309 |
 | A09 | Đánh dấu no-show (B11) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Không tự động (BR-311) |
-| A10 | Khôi phục no-show (B12) | ✔ | ✔ | D | D | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Duyệt MGR+ (SQ-1) |
-| A11 | Nhận phòng (B9) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
+| A10 | Khôi phục no-show (B12) | ✔ | ✔ | ✔ / D ³⁵ | ✔ / D ³⁵ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | DOM SQ-1 |
+| A11 | Nhận phòng (B9) | ✔ Q | ✔ Q | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Cần C3 (đối chiếu giấy tờ) |
+| A11a | Nhận trước 06:00 – thêm đêm trước (B9a) | ✔ Q | ✔ Q | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Đơn OTA → đơn con Trực tiếp |
+| A11b | Nhập bù thao tác sau mất mạng (giờ thực tế trong quá khứ + lý do "nhập bù sau mất mạng") | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | P12; giờ thực tế không sớm hơn mốc tham số `offline_backfill_max_hours`; MGR nhận danh sách |
 | A12 | Nhận phòng khi buồng chưa VC/VI | ✔ | ✔ | ✔ | D | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | FDL+ (BR-402) |
 | A13 | Hoàn tác nhận phòng (B17) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A14 | Gia hạn (B13) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | D (R3) | ✖ | GST gửi yêu cầu, FD xác nhận |
@@ -126,8 +139,10 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A18 | Hoàn tất trả phòng (B18) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ ²² | ✖ | – |
 | A19 | Ghi công nợ khi trả phòng (BR-525) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A20 | Thêm người đi cùng / trẻ em vào đơn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ | ✖ | – |
-| A21 | Nhập/sửa mã cửa, số thẻ phòng (BR-403) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Mã cửa = C3 |
-| A22 | Gửi link app khách / link check-in | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | – |
+| A21 | Nhập/sửa/xem mã cửa, số thẻ phòng (BR-403) | ✔ L Q | ✔ L Q | ✔ L Q | ✔ L Q | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Mã cửa = C3 (D22) |
+| A22 | Gửi link app khách / link check-in **qua kênh hệ thống** (email/ZNS), không thấy link | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | SEC-BA-07 |
+| A22a | Cấp link và **sao chép link** (token hiện một lần khi cấp; xem lại = cấp lại, thu hồi link cũ) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Ghi audit; SR-GST-01, SR-GST-04 |
+| A23 | Tạo/sửa nhóm đơn, phân bổ cọc chung (SM-16) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M ³⁶ | ✖ | ✖ | CTV chỉ tạo nhóm giữ chỗ, không phân bổ tiền |
 
 ### 4.2 Folio, tiền, duyệt
 | # | Hành động | OWN | MGR | FDL | FD | HK | MT | SAL | CTV | GST | SYS | Duyệt / ghi chú |
@@ -135,7 +150,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A30 | Thêm dòng phát sinh từ danh mục (phụ thu, giặt, phạt BR-511) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ | Nhật ký BR-008 |
 | A31 | Sửa giá một dòng / giá đêm ngoài lịch giá | ✔ | ✔ | ✔ | ✔ ²³ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Trong sàn–trần BR-105 |
 | A32 | Điều chỉnh folio đã `settled` (bút toán) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Lý do bắt buộc |
-| A33 | Ghi nhận thu tiền (giao dịch `succeeded`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | Nhật ký tiền |
+| A33 | Ghi nhận thu tiền (giao dịch `succeeded`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | Chuyển khoản ghi tay → `reconciliation = pending` (SM-12) |
 | A34 | Đảo giao dịch ghi sai | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A35 | Gửi FOC / giảm giá đặc biệt | ✔ | ✔ | D | D ²⁴ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | SM-10 |
 | A36 | Duyệt FOC / giảm giá đặc biệt | ✔ | ✔ ²⁵ | ✔ ²⁵ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Không duyệt cho chính mình (trừ MGR/OWN) – BR-432 |
@@ -144,12 +159,15 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A39 | Tạo VietQR / link thanh toán | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | Đ (R3) | ✔ | – |
 | A43 | Gửi yêu cầu hoàn tiền (cọc, ký quỹ, trả sớm) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Duyệt MGR+ (BR-522) |
 | A44 | Xem tổng thu trong ngày theo cách thanh toán | ✔ | ✔ | ✔ | M ²⁸ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
+| A45 | Mở / đóng ca của mình, nhập tiền mặt đếm thực tế (SM-17) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Chênh lệch → lý do, báo MGR |
+| A46 | Đối soát chuyển khoản với sao kê (`reconciled`/`disputed`) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ (bank feed R3) | Không đối soát giao dịch do chính mình ghi, trừ OWN |
+| A47 | Thực hiện chuyển khoản hoàn và ghi giao dịch hoàn | ✔ L | ✔ L | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Chỉ trên yêu cầu hoàn `approved`; xem D15 đầy đủ |
 
 ### 4.3 Sale, hợp đồng, hoa hồng
 | # | Hành động | OWN | MGR | FDL | FD | HK | MT | SAL | CTV | Duyệt / ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
 | A50 | Lập/lưu báo giá ngắn ngày và dài hạn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✔ | ✔ | Snapshot BR-006 |
-| A51 | Gia hạn báo giá hết hiệu lực (Q4) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | D | D | BR-304 |
+| A51 | Gia hạn báo giá hết hiệu lực (Q4) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | D | D | BR-304; người gửi theo dõi ở S23 (M) |
 | A52 | Tạo / chuyển giai đoạn lead | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M | – |
 | A53 | Báo "khách đã chuyển cọc" (kèm ảnh biên nhận) | – | – | – | – | ✖ | ✖ | M | M | FD/SAL xác nhận A04 |
 | A54 | Gia hạn HĐ (H4) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | D | ✖ | MGR+ duyệt khi SAL đề xuất |
@@ -165,13 +183,14 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 ### 4.4 Giấy tờ & khai báo
 | # | Hành động | OWN | MGR | FDL | FD | Khác | Ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
-| A70 | Nhập/tải giấy tờ, đối chiếu (K3–K5) | ✔ L | ✔ L | ✔ L | ✔ L | GST Đ (tải lên) | Không nhận ảnh qua chat (R-REG-08) |
-| A71 | Xem ảnh giấy tờ | ✔ L | ✔ L | ✔ L | ✔ L ³⁰ | ✖ | Chỉ trong hạn lưu BR-610 |
+| A70 | Nhập/tải giấy tờ, đối chiếu (K3–K5) | ✔ L Q | ✔ L Q | ✔ L Q | ✔ L Q | GST Đ1 (tải lên, chỉ ghi) | Không nhận ảnh qua chat (R-REG-08) |
+| A71 | Xem ảnh giấy tờ, xem số giấy tờ đầy đủ (`…/sensitive`) | ✔ L Q ³⁰ | ✔ L Q ³⁰ | ✔ L Q ³⁰ | ✔ L Q ³⁰ | ✖ | Chỉ trong hạn lưu BR-610 |
 | A72 | Ghi đồng ý lưu ảnh (BR-609) | ✔ | ✔ | ✔ | ✔ | GST Đ | Không bắt buộc để khai báo (R-REG-05) |
-| A73 | Sao chép dữ liệu khai báo, ghi mã hồ sơ (K6–K10) | ✔ L | ✔ L | ✔ L | ✔ L ³¹ | ✖ | Chỉ trên máy quầy được cấp (R-REG-07) |
-| A74 | Xóa sớm ảnh theo yêu cầu khách | ✔ L | ✔ L | ✖ | ✖ | ✖ | R-DSR |
-| A75 | Xuất dữ liệu giấy tờ hàng loạt | ✖ | ✖ | ✖ | ✖ | ✖ | **Cấm với mọi vai** (C3 – SEC mục 3) |
+| A73 | Sao chép dữ liệu khai báo, ghi mã hồ sơ (K6–K10) | ✔ L Q | ✔ L Q | ✔ L Q | ✔ L Q ³¹ | ✖ | R-REG-07 |
+| A74 | Xóa sớm ảnh theo yêu cầu khách | ✔ L Q | ✔ L Q | ✖ | ✖ | ✖ | R-DSR |
+| A75 | Xuất dữ liệu giấy tờ **của nhiều người** | ✖ | ✖ | ✖ | ✖ | ✖ | **Cấm với mọi vai** (C3 – SEC mục 3); không áp cho A77 |
 | A76 | Xem nhật ký truy cập C3 | ✔ | ✔ | ✖ | ✖ | ✖ | – |
+| A77 | Tạo bản sao dữ liệu của **một** chủ thể (S31) | ✔ L Q | ✔ L Q | ✖ | ✖ | ✖ | Ghi `c3_access_log`; giao qua app khách GST2, không đính kèm email (SEC-BA-11) |
 
 ### 4.5 Buồng phòng, bảo trì, kho
 | # | Hành động | OWN | MGR | FDL | FD | HK | MT | Ghi chú |
@@ -193,28 +212,44 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 ### 4.6 Cấu hình, người dùng, báo cáo
 | # | Hành động | OWN | MGR | FDL | FD | Khác | Ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
-| A100 | Tạo/khóa tài khoản, gán vai, đặt lại mật khẩu | ✔ | ✖ | ✖ | ✖ | ✖ | US-002, US-008 |
-| A101 | Sửa tham số vận hành (giờ, hạn, phụ thu, giá…) | ✔ | ✔ | ✖ | ✖ | ✖ | US-005 |
+| A100 | Tạo/khóa tài khoản, gán vai, đặt lại mật khẩu | ✔ | ✖ | ✖ | ✖ | ✖ | US-002, US-008; **có hiệu lực ngay, thu hồi mọi phiên** của người đó (SR-SES-06); mật khẩu tạm buộc đổi ở lần đăng nhập đầu |
+| A101 | Sửa tham số vận hành (giờ, hạn, phụ thu, giá…) | ✔ | ✔ | ✖ | ✖ | ✖ | US-005; **không** gồm thông tin nhận tiền (A108) |
 | A102 | Sửa hạn mức FOC, tỷ lệ hoa hồng, phí kênh | ✔ | ✖ | ✖ | ✖ | ✖ | Tách người đặt hạn mức với người duyệt `[GIẢ ĐỊNH]` |
 | A103 | Sửa lịch giá, đẩy giá lên kênh | ✔ | ✔ | ✖ | ✖ | ✖ | BR-105 |
 | A104 | Bật/tắt mở bán kênh | ✔ | ✔ | ✖ | ✖ | ✖ | – |
-| A105 | Xuất báo cáo ra bảng tính (C2) | ✔ L | ✔ L | ✖ | ✖ | ✖ | SEC: xuất C2 cần quyền riêng + nhật ký |
-| A106 | Sửa mẫu tin nhắn | ✔ | ✔ | ✖ | ✖ | ✖ | US-127 |
-| A107 | Gộp hồ sơ khách | ✔ | ✔ | ✔ | ✔ | ✖ | BR-953 |
+| A105 | Xuất báo cáo ra bảng tính (C2) | ✔ L | ✔ L | ✖ | ✖ | ✖ | Mặc định **không** có SĐT/email/số giấy tờ; muốn có phải chọn rõ từng cột, ghi audit (SEC-BA-10) |
+| A106 | Sửa mẫu tin nhắn | ✔ | ✔ | ✖ | ✖ | ✖ | US-127; ràng buộc ở 8.9 |
+| A107 | Gộp hồ sơ khách | ✔ | ✔ | ✔ | ✔ | ✖ | BR-953 (R3 – US-074) |
+| A108 | Đổi tài khoản nhận tiền / thông tin thanh toán của cơ sở (VietQR, thông tin chuyển khoản trên bill) | ✔ | ✖ | ✖ | ✖ | ✖ | Xác nhận lại mật khẩu (+2FA khi có); ghi audit; thông báo OWN; hiệu lực sau bước xác nhận thứ hai (SEC-BA-03) |
+
+### 4.7 Bảo mật tài khoản, thiết bị, link khách (FB-R1-ARC-BA-08, SEC-BA-01/02/06)
+| # | Hành động | OWN | MGR | FDL | FD | HK/MT | SAL | CTV | Ghi chú |
+|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
+| A110 | Cấp / thu hồi thiết bị được cấp (danh sách ở S26) | ✔ | ◐ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-DEV-01…06; PWA không bao giờ được cấp |
+| A111 | Bật / đặt lại 2FA TOTP của **người khác** | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | 2FA bắt buộc OWN/MGR trước dữ liệu thật (R3) – SR-AUTH-06 |
+| A112 | Đặt/đổi PIN duyệt, mật khẩu, 2FA **của mình** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | SR-AUTH-09 |
+| A113 | Cấp mã xác minh cho khách (để lên GST2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | Ghi audit; mặc định đọc tại quầy/điện thoại (SR-GST-07b) |
+| A114 | Thu hồi link khách | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | SR-GST-04 |
+| A115 | Xem / thu hồi phiên đăng nhập của người khác | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-SES-07; mỗi người xem/thu hồi phiên của mình (A112) |
+| A116 | Khôi phục tài khoản OWN | – | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Bằng **mã khôi phục in sẵn do INV giữ**, không qua MGR; quy trình ở runbook OPS |
+| A117 | Đổi người nhanh trên máy quầy (đăng xuất + đăng nhập người khác) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | 8.8 |
+| A118 | Bật/tắt gửi mã xác minh qua kênh nhắn tin OTA / Zalo (theo từng kênh) | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | **Mặc định tắt** (phân xử ORC 15/10/2026); rủi ro còn lại ghi trong threat-model |
 
 Ghi chú hành động:
 20. CTV **không xác nhận cọc** vì không kiểm được tiền vào tài khoản OTTIMO; CTV dùng A53, FD/SAL xác nhận A04 `[GIẢ ĐỊNH – chờ INV xác nhận]`.
 21. SAL hủy đơn trực tiếp do mình chốt; phần hoàn đi qua A43.
 22. GST "trả phòng nhanh" (BR-427) chỉ khi còn phải thu = 0.
 23. FD sửa giá trong khoảng sàn–trần BR-105; giảm dưới giá chính sách = "giảm giá đặc biệt" → A35.
-24. FD tự áp được FOC minibar trong hạn mức vai FD (BR-433, BR-704) – chờ DOM trả lời SQ-3 (`state-machines.md` mục 16).
+24. FD/FDL tự áp FOC **minibar** khi ≤ hạn mức lần của vai FD (BR-433, BR-704) **và** còn trong hạn mức tháng tự áp (`foc_self_monthly_limit` `[GIẢ ĐỊNH – chờ INV qua ESC-007]`); PIN của chính mình, lý do bắt buộc; vượt tháng → `pending` lên FDL+ khác người gửi. FOC loại khác luôn D (DOM SQ-3; SM-10 A2).
 25. Trong hạn mức lần và tháng của vai (BR-433); vượt → chuyển cấp trên; xác thực bằng PIN/mật khẩu của chính người duyệt.
 26. HK nhập số lượng; không thấy thành tiền và giá vốn.
 27. GST nhập thông tin xuất hóa đơn công ty qua app (R3).
 28. FD thấy tổng thu ca của mình (bàn giao tiền mặt – US-124).
 29. SAL xuất PDF HĐ do mình chốt; bản PDF cho SAL **không in số giấy tờ** (SEC D17).
-30. Xem ảnh sau khi khai báo đã `confirmed` phải chọn lý do (đối chiếu lại, khách yêu cầu, cơ quan chức năng) – BA đề xuất, chờ SEC.
-31. Bản text sao chép chỉ dùng trên máy quầy, có nút xóa clipboard (R-REG-07).
+30. Lý do khi xem C3 (SEC-BA-05, SR-C3-07/09): (1) trong luồng nhận phòng/khai báo **đang mở của chính đơn đó** – không cần lý do; (2) mọi lần xem khác (sau `confirmed`, đơn đã trả phòng, đơn không thuộc ca) – chọn lý do: đối chiếu lại · khách yêu cầu · cơ quan chức năng · khác + ghi chú; (3) xác nhận lại PIN/mật khẩu nếu lần xác thực gần nhất > 15 phút; (4) xem C3 của đơn đã trả phòng > 7 ngày → cảnh báo OWN (SR-LOG-06).
+31. Bản text sao chép chỉ dùng trên thiết bị được cấp, có nút xóa clipboard (R-REG-07).
+35. FD/FDL tự khôi phục khi đủ 3 điều kiện (còn ngày nghiệp vụ của đêm đến; căn còn trống, không phải đổi căn; không hoàn tiền/đổi giá) – lý do bắt buộc, MGR được báo, hiện trong báo cáo đóng ca. Ngoài 3 điều kiện hoặc đơn OTA đã báo no-show lên kênh → D, MGR+ duyệt (DOM SQ-1).
+36. CTV tạo nhóm từ báo giá nhiều căn cho khách của mình (giữ chỗ); không phân bổ cọc (không xác nhận tiền – ghi chú 20).
 32. HK tự kiểm chỉ khi đủ checklist + ảnh và cơ sở bật chế độ "1 người" (BR-802).
 33. HK chỉ hủy việc "dọn phòng khách đang ở" khi khách từ chối dọn (ghi lý do).
 
@@ -223,9 +258,9 @@ Ghi chú hành động:
 ### 5.1 Loại yêu cầu và người duyệt
 | Loại yêu cầu (SM-10) | Người gửi | Người duyệt | Căn cứ |
 |---|---|---|---|
-| FOC phát sinh (phụ thu, minibar, dọn lẻ, phạt, bồi thường, đêm bù sự cố) | FD, FDL | FDL / MGR / OWN theo hạn mức | BR-431–433 |
+| FOC phát sinh (phụ thu, minibar, dọn lẻ, phạt, bồi thường, đêm bù sự cố) | FD, FDL | FDL / MGR / OWN theo hạn mức; FOC minibar trong hạn mức lần + tháng của vai FD: **tự áp** (ghi chú 24) | BR-431–433, BR-704 |
 | Giảm giá đặc biệt tiền phòng | FD, FDL, SAL | MGR / OWN theo hạn mức | BR-431 |
-| Hoàn tiền (cọc, ký quỹ, trả sớm, hủy) | FD+ | MGR, OWN | BR-522 |
+| Hoàn tiền (cọc, ký quỹ, trả sớm, hủy) | FD+ (nhập, thấy số TK dạng che) | MGR, OWN – người duyệt cũng là người thực hiện chuyển (A47); đổi số TK sau khi duyệt → duyệt lại | BR-522 |
 | Sửa tay con số trên HĐ | FD+, SAL | MGR, OWN | BR-006 |
 | Nhận phòng khi buồng chưa sẵn sàng | FD | FDL, MGR, OWN | BR-402 |
 | Trả muộn khi có khách đến cùng ngày | FD+ | MGR, OWN | BR-416 |
@@ -233,12 +268,12 @@ Ghi chú hành động:
 | Chênh lệch kiểm kê vượt ngưỡng | FD+ | MGR, OWN | BR-705 |
 | Định giá hư hỏng ngoài bảng | FD+ | MGR, OWN | BR-512 |
 | Gia hạn báo giá | SAL, CTV, FD+ | MGR, OWN | BR-304 |
-| Khôi phục no-show | FD, FDL | MGR, OWN | SM-01 B12 |
+| Khôi phục no-show **ngoài 3 điều kiện** (căn đã bán lại, phải đổi căn, có hoàn/đổi giá, qua ngày nghiệp vụ, OTA đã báo kênh) | FD, FDL | MGR, OWN | SM-01 B12 (trong 3 điều kiện: FD+ tự làm) |
 | Công nợ khi trả phòng | – (MGR+ tự ghi) | MGR, OWN | BR-525 |
 
 ### 5.2 Quy tắc duyệt
 1. Người duyệt xác nhận **bằng tài khoản và PIN/mật khẩu của chính mình**; người gửi không chọn tên người duyệt (BR-432, US-007 – khắc phục BL 8.2 #24).
-2. Không duyệt cho yêu cầu của chính mình, trừ MGR/OWN (BR-432).
+2. *Không ai duyệt yêu cầu của chính mình, **trừ** khi giá trị nằm trong hạn mức tự áp của vai mình* (FD/FDL: FOC minibar; MGR/OWN: theo BR-433) – câu chung do DOM chốt (SQ-3) để BR-432 và BR-433/704 không đọc mâu thuẫn.
 3. Hạn mức lần và hạn mức tháng theo BR-433; vượt → tự chuyển cấp trên (SM-10 A4).
 4. Cảnh báo thất thoát BR-435 chỉ gửi OWN.
 5. Mọi yêu cầu, kể cả bị từ chối, vào báo cáo FOC/nhật ký (BR-434).
@@ -246,40 +281,50 @@ Ghi chú hành động:
 ### 5.3 Tách nhiệm vụ (kiểm soát nội bộ) `[GIẢ ĐỊNH – chờ INV xác nhận]`
 - Người đặt hạn mức FOC, tỷ lệ hoa hồng, phí kênh (OWN) khác người duyệt FOC hằng ngày (FDL/MGR).
 - CTV không xác nhận tiền (A04) và không xem dữ liệu khách ngoài khách của mình.
-- MGR không tự gán vai cho mình hay người khác (A100 chỉ OWN).
+- MGR không tự gán vai cho mình hay người khác (A100 chỉ OWN); không đổi tài khoản nhận tiền (A108 chỉ OWN).
+- Người ghi nhận chuyển khoản (FD, SAL) khác người đối soát với sao kê (MGR+, A46). Xác nhận cọc của SAL (A04) tạo giao dịch `reconciliation = pending`, MGR+ đối soát trong ngày (SEC-BA-12).
+- Người thực hiện chuyển khoản hoàn (MGR+) phải đi qua yêu cầu `approved`; MGR tự gửi và tự duyệt hoàn chỉ trong hạn mức BR-433, vượt → OWN.
 
 ## 6. Ma trận theo trường dữ liệu nhạy cảm
 
 Ký hiệu thêm: **Đầy** = xem đầy đủ · **Che** = che giữa (ví dụ `0905***456`) · **4S** = chỉ 4 ký tự cuối · **Tên+căn** = chỉ tên gọi + số căn · **K** = không thấy (trường không trả về từ API, không chỉ ẩn trên giao diện).
 
-| Mã SEC | Trường | Mức | OWN/MGR | FDL/FD | HK | MT | SAL | CTV | GST |
-|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| D01 | Họ tên, ngày sinh, giới tính, quốc tịch | C2 | Đầy | Đầy | Tên+căn (T) | K | Tên + quốc tịch (M) | Tên + quốc tịch (M) | Đ |
-| D02 | SĐT, Zalo/WhatsApp, email | C2 | Đầy | Đầy | K | K | Đầy (M) | Đầy (M) | Đ |
-| D03 | Số CCCD / định danh | C3 | Đầy L (màn khai báo); 4S (CRM) | Đầy L (màn khai báo); 4S (CRM) | K | K | **K** | **K** | 4S (Đ) |
-| D04 | Hộ chiếu (số, ngày cấp/hết hạn, MRZ) | C3 | như D03 | như D03 | K | K | **K** | **K** | 4S + hạn (Đ) |
-| D05 | Thị thực, nhập cảnh | C3 | Đầy L | Đầy L | K | K | K | K | Hạn thị thực (Đ) |
-| D06 | Ảnh giấy tờ | C3 | Đầy L | Đầy L | K | K | K | K | K (sau khi tải) |
-| D07 | Địa chỉ thường trú, quê quán | C3 | Đầy L | Đầy L | K | K | K | K | K |
-| D09 | Dữ liệu trẻ em (tên, năm sinh, số định danh) | C3 | Đầy L | Đầy L | K | K | K | K | Đ |
-| D10 | Người đi cùng: tên, **quan hệ**, liên hệ | C2 | Đầy | Đầy | Số người | K | Số người, **không** quan hệ | Số người | Đ |
-| D11 | Lịch sử lưu trú (ngày, căn, kênh, giờ thực tế) | C2 | Đầy | Đầy | Hôm nay (T) | K | M | M | Đ |
-| D12 | Sở thích, tag, ghi chú tự do | C2/C3 | Đầy | Đầy | "Lưu ý phục vụ" từ danh mục (T) | K | Tag (M) | K | K |
-| D13 | Dữ liệu thẻ (PAN, CVV) | C3 cấm lưu | K | K | K | K | K | K | K |
-| D14 | Kết quả thanh toán (mã giao dịch, số tiền, 4 số cuối thẻ, tên người chuyển) | C2 | Đầy | Đầy | K | K | Cọc đơn M | K | Đ |
-| D15 | Tài khoản ngân hàng nhận hoàn | C3 | Đầy L | Che | K | K | K | K | Đ (nhập) |
-| D16 | Thông tin xuất hóa đơn (công ty, MST) | C2 | Đầy | Đầy | K | K | K | K | Đ |
-| D17 | Hợp đồng dài hạn (số tiền, kỳ thu) / số giấy tờ in trên HĐ | C2 / C3 | Đầy / Đầy L | Đầy / 4S | K | K | M / **K** | M (tiền thuê, kỳ hạn) / **K** | Đ / 4S |
-| D18 | Chỉ số điện nước gắn khách dài hạn | C2 | Đầy | Đầy | K | Chỉ số + căn, **không tên** | K | K | Đ |
-| D19 | Mã đặt phòng OTA, dữ liệu channel manager | C2 | Đầy | Đầy | K | K | K | K | Đ (mã của mình) |
-| D20 | Hồ sơ đồng ý | C2 | Đầy | Trạng thái có/không | K | K | K | K | Đ (của mình, rút lại được) |
-| D21 | Vân tay | C3 | K (không lưu trên hệ thống) | K | K | K | K | K | K |
-| D22 | Mã cửa còn hiệu lực, thẻ từ | C3 | Đầy L | Đầy L | K | K | K | K | Đ (chỉ trong khoảng hiệu lực BR-403) |
-| D23 | Yêu cầu từ app khách, tin nhắn | C2 | Đầy | Đầy | Loại + căn + nội dung (T, định tuyến) | như HK | K | K | Đ |
-| D25 | Token link app khách | C3 | K (chỉ tạo/thu hồi) | K (chỉ tạo/thu hồi) | K | K | K | K | – |
-| D26 | CTV/Sale: số tài khoản, CCCD/MST | C3 | Đầy L | K | K | K | Của mình | Của mình | – |
-| D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình | K | K | K | K | – |
-| D28 | Lead (tên, liên hệ, nhu cầu) | C2 | Đầy | Đầy | K | K | M | M | – |
+Cột khách tách theo mức (FB-R1-ARC-BA-02, SEC-BA-02; SR-GST-06/07/11): **GST1** chỉ có link · **GST2** link + OTP email/mã lễ tân cấp · **GSTp** sau trả phòng ≤ 24 giờ (bắt buộc GST2). Wi-Fi, nội quy (C1) có ở GST1, ✖ ở GSTp. Ô có **Q** = chỉ trả về khi phiên chạy trên thiết bị được cấp (8.7).
+
+| Mã SEC | Trường | Mức | OWN/MGR | FDL/FD | HK | MT | SAL | CTV | GST1 | GST2 | GSTp |
+|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| D01 | Họ tên, ngày sinh, giới tính, quốc tịch | C2 | Đầy | Đầy | Tên+căn (T) | K | Tên + quốc tịch (M) | Tên + quốc tịch (M) | Tên gọi người đứng tên | Đ | Tên trên bill |
+| D02 | SĐT, Zalo/WhatsApp, email | C2 | Đầy | Đầy | K | K | Đầy (M) | Đầy (M) | K | Đ | K |
+| D03 | Số CCCD / định danh | C3 | Đầy L Q (màn khai báo); 4S (CRM) | Đầy L Q (màn khai báo); 4S (CRM) | K | K | **K** | **K** | K | 4S | K |
+| D04 | Hộ chiếu (số, ngày cấp/hết hạn, MRZ) | C3 | như D03 | như D03 | K | K | **K** | **K** | K | 4S + hạn | K |
+| D05 | Thị thực, nhập cảnh | C3 | Đầy L Q | Đầy L Q | K | K | K | K | K | Hạn thị thực | K |
+| D06 | Ảnh giấy tờ | C3 | Đầy L Q | Đầy L Q | K | K | K | K | Chỉ tải lên (không xem lại) | K | K |
+| D07 | Địa chỉ thường trú, quê quán | C3 | Đầy L Q | Đầy L Q | K | K | K | K | Chỉ ghi | K | K |
+| D09 | Dữ liệu trẻ em (tên, năm sinh, số định danh) | C3 | Đầy L Q | Đầy L Q | K | K | K | K | Chỉ ghi | Tên + năm sinh | K |
+| D10 | Người đi cùng: tên, **quan hệ**, liên hệ | C2 | Đầy | Đầy | Số người | K | Số người, **không** quan hệ | Số người | Số người | Đ | K |
+| D11 | Lịch sử lưu trú (ngày, căn, kênh, giờ thực tế) | C2 | Đầy | Đầy | Hôm nay (T) | K | M | M | Ngày ở + căn của đơn này | Đ (đơn này) | Ngày ở trên bill |
+| D12a | Tag / lưu ý phục vụ từ **danh mục không liên quan sức khỏe** | C2 | Đầy | Đầy | Lưu ý phục vụ (T) | K | Tag (M) | K | K | K | K |
+| D12b | **Lưu ý sức khỏe** từ danh mục cố định (ví dụ "dị ứng thực phẩm – hỏi lễ tân"); chỉ ghi khi khách đồng ý | C3 | Đầy L | Đầy L | Nhãn chung "Có lưu ý – hỏi lễ tân" (T) | K | K | K | K | K (xem qua S31) | K |
+| D12c | Ghi chú tự do (giao diện cảnh báo "không ghi thông tin sức khỏe, giấy tờ") | C2 | Đầy | Đầy | K | K | K | K | K | K | K |
+| D13 | Dữ liệu thẻ (PAN, CVV) | C3 cấm lưu | K | K | K | K | K | K | K | K | K |
+| D14 | Kết quả thanh toán (mã giao dịch, số tiền, 4 số cuối thẻ, tên người chuyển) | C2 | Đầy | Đầy | K | K | Cọc đơn M | K | K | Đ | Đ |
+| D15 | Tài khoản ngân hàng nhận hoàn của khách | C3 | Đầy L (người thực hiện hoàn, A47) | Che (FD nhập yêu cầu) | K | K | K | K | K | Đ (nhập/xem của mình, che) | Đ (nhập/xem của mình, che) |
+| D16 | Thông tin xuất hóa đơn (công ty, MST) | C2 | Đầy | Đầy | K | K | K | K | K | Đ | Đ |
+| D17 | Hợp đồng dài hạn (số tiền, kỳ thu) / số giấy tờ in trên HĐ | C2 / C3 | Đầy / Đầy L Q | Đầy / 4S | K | K | M / **K** | M (tiền thuê, kỳ hạn) / **K** | K | Đ / 4S | K (chỉ bill quyết toán) |
+| D18 | Chỉ số điện nước gắn khách dài hạn | C2 | Đầy | Đầy | K | Chỉ số + căn, **không tên** | K | K | K | Đ | Kỳ cuối trên bill |
+| D19 | Mã đặt phòng OTA, dữ liệu channel manager | C2 | Đầy | Đầy | K | K | K | K | K | Mã của mình | K |
+| D20 | Hồ sơ đồng ý | C2 | Đầy | Trạng thái có/không | K | K | K | K | Ghi đồng ý (chỉ ghi) | Đ (của mình, rút lại được) | K (qua S31) |
+| D21 | Vân tay | C3 | K (không lưu trên hệ thống) | K | K | K | K | K | K | K | K |
+| D22 | Mã cửa còn hiệu lực, thẻ từ | C3 | Đầy L Q | Đầy L Q | K | K | K | K | **K** | Đ (chỉ trong khoảng hiệu lực BR-403) | **K** |
+| D23 | Yêu cầu từ app khách, tin nhắn | C2 | Đầy | Đầy | Loại + căn + nội dung (T, định tuyến) | như HK | K | K | Gửi + xem trạng thái | Đ | K |
+| D25 | Token link app khách | C3 | **Một lần khi cấp** (để sao chép/gửi – A22a), không xem lại; xem lại = cấp lại (thu hồi link cũ) | như OWN/MGR | K | K | K (chỉ gửi qua kênh hệ thống – A22) | K (kể cả khi render mẫu tin) | – | – | – |
+| D26 | CTV/Sale: số tài khoản, CCCD/MST | C3 | Đầy L | K | K | K | Của mình | Của mình | – | – | – |
+| D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình | K | K | K | K | – | – | – |
+| D28 | Lead (tên, liên hệ, nhu cầu) | C2 | Đầy | Đầy | K | K | M | M | – | – | – |
+| D29 | Cảnh báo / danh sách đen về khách (`Guest.warnings`, có thể kèm mã khách khác) | C2 | Đầy | Đầy | K | K | K | K | K | K (xem qua S31) | K |
+| – | Tài khoản nhận tiền của cơ sở (VietQR, thông tin chuyển khoản) | C1 – toàn vẹn quan trọng | Đầy; **sửa chỉ OWN** (A108) | Đầy (để hiện QR) | K | K | Đầy (QR của đơn M) | K | K | Đ (trên QR/bill) | Đ |
+
+Câu hỏi "lưu ý sức khỏe có cần đồng ý riêng không" (D12b) đề xuất gộp vào ESC-001 (luật sư) – xem `BA-responses.md`.
 
 **Dữ liệu kinh doanh nhạy cảm (BL 8.2 #27)**:
 | Trường | Mức | OWN/MGR | FDL | FD | HK | MT | SAL | CTV | GST |
@@ -317,8 +362,11 @@ Ký hiệu thêm: **Đầy** = xem đầy đủ · **Che** = che giữa (ví d�
 3. Dữ liệu C3: đọc qua API riêng, mỗi lần đọc ghi nhật ký (ai, lúc nào, đơn/khách nào, lý do nếu có); cấm xuất hàng loạt; không đưa vào log, URL, thông báo đẩy, nội dung tin nhắn (SEC mục 3).
 4. Xuất file C2 (A105) cần quyền riêng và ghi nhật ký.
 5. Mỗi lần bị từ chối quyền ghi nhật ký (người, hành động, đối tượng) – OWN xem ở S27.
-6. Link app khách (GST) chỉ truy cập đúng đơn; hết hạn khi trả phòng (SEC F09); với đơn dài hạn hết hạn khi HĐ `closed`.
-7. Phiên đăng nhập nhân viên trên điện thoại (HK, MT, SAL, CTV) không được hiển thị trường C3 ngay cả khi người dùng có thêm vai FD – trường C3 chỉ mở trên thiết bị quầy được cấp *(BA đề xuất, chờ SEC/ARC)*.
+6. Link app khách (GST) chỉ truy cập đúng đơn; mức GST1/GST2 và ân hạn GSTp theo mục 1 quy tắc 5 (SR-GST-06/07/11, decision-log SEC 15/10/2026 M4); đơn dài hạn: GSTp tính từ khi HĐ `closed`. Serializer phía khách lọc trường theo cột GST1/GST2/GSTp của mục 6 – JSON mức 1 không chứa trường cấm (test SR-GST-06).
+7. **Thiết bị được cấp (quyết định SEC, decision-log 15/10/2026; phân xử ORC về nhận phòng khuya)**: mọi đọc/ghi C3 của **mọi vai nhân viên** (A11, A11a, A21, A70, A71, A73, A74, A77, endpoint `…/sensitive`, `…/door-credential`, ảnh giấy tờ) chỉ chạy trên thiết bị được OWN cấp (A110) và chỉ qua admin-web; **PWA nhân viên không bao giờ được cấp**. Thiết bị của cơ sở (máy quầy, máy tính bảng của cơ sở dùng cho người trực đêm) được cấp như máy quầy; điện thoại/máy cá nhân không được cấp. Thiết bị chưa cấp: menu C3 ẩn, server trả `403 DEVICE_NOT_TRUSTED`, ghi nhật ký.
+8. **Mỗi người một tài khoản** (SEC-BA-09): cấm dùng chung tài khoản trên máy quầy; đổi ca phải đăng xuất hoặc dùng "Đổi người nhanh" (A117); phiên admin-web tự khóa sau 30 phút không hoạt động, tối đa 12 giờ; PWA 72 giờ không hoạt động, tối đa 30 ngày (decision-log SEC). Ca làm việc (SM-17) gắn đúng người đăng nhập.
+9. **Mẫu tin nhắn** (SEC-BA-08): mỗi loại mẫu có danh sách biến cho phép cố định trong code; biến C3 duy nhất là mã cửa, chỉ trong mẫu "mã cửa", chỉ hệ thống gửi vào ngày đến; không có biến cho số giấy tờ; URL trong mẫu chỉ thuộc tên miền OTTIMO; sửa mẫu ghi audit nội dung trước/sau. Biến "link app khách" chỉ render cho FD+ (A22a); SAL/CTV render mẫu không có link.
+10. **Thu hồi phiên**: khóa tài khoản, đổi vai, đặt lại mật khẩu, thu hồi thiết bị → mọi phiên liên quan hết hiệu lực ngay (SR-SES-06).
 
 ## 9. Ngưỡng "trẻ em" – mâu thuẫn cần thống nhất
 | Nguồn | Ngưỡng | Dùng để |
@@ -347,3 +395,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 9 vai + hệ thống, 31 màn hình, ~70 hành động, ma trận trường theo D01–D28 và dữ liệu kinh doanh; giải quyết BL 2 và 8.2 #27 | BA |
+| 15/10/2026 | 1 (bước 4) | Màn mặc định FD/FDL = Hôm nay; ký hiệu Q (thiết bị được cấp) theo quyết định SEC + phân xử ORC; GST1/GST2/GSTp; D12 tách a/b/c; D15, D22, D25 sửa; thêm D29; A07a/b, A11a/b, A22a, A23, A45–A47, A77, A108, 4.7 (A110–A118); A10 theo SQ-1; ghi chú 24 theo SQ-3; S23 cho CTV (QA #12); S32–S34; 8.7–8.10; bản máy đọc `rbac-matrix.json` | BA |

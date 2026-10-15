@@ -3,7 +3,9 @@
 > **Mô phỏng – cần INV kiểm chứng.**
 > Toàn bộ persona dưới đây do UXR (agent AI) **mô phỏng** từ: brief chủ đầu tư (`00-brief/investor-brief.md` mục 1, 5), đặc tả ngược prototype Round 0 (`product/docs/round-0-baseline.md`, gọi tắt **BL**) và hiểu biết chung về vận hành boutique stay ở Việt Nam. **Chưa có cuộc phỏng vấn hay khảo sát người thật nào.** Các câu "trích dẫn" là lời giả tưởng để minh họa, không phải phát ngôn thật. Mọi điểm cần kiểm chứng được đánh mã **H-xx** và gom ở mục 9.
 >
-> Người viết: UXR · Round 1 · Bước 2 (Sản xuất – Đợt 1) · 15/10/2026 · Phiên bản 0.1
+> Người viết: UXR · Round 1 · Bước 2 (Sản xuất – Đợt 1) · 15/10/2026 · Phiên bản 0.2 (Bước 4 – sửa theo review UXD, PO, DOM; xem mục 10)
+>
+> **Số quy tắc** (hạn khai báo, nhắc thị thực, phí phạt…) **không ghi lại trong persona** mà tham chiếu `product/docs/business-rules.md` (BR-xxx); **đích chỉ số** tham chiếu PRD mục 3 (S1–S12). Số trong persona chỉ là giả thuyết của UXR và được ghi rõ như vậy.
 
 ---
 
@@ -39,6 +41,28 @@ Ghi chú về tên: tên persona là hư cấu, **không** trùng với nhân s�
 
 Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết bị và nhịp làm việc khác hẳn nhau** → không nên dùng chung một giao diện desktop thu nhỏ (như prototype với tab dưới 9–11 mục, BL 8.3). Ít nhất cần: (a) web quầy lễ tân cho laptop, (b) giao diện điện thoại một tay cho buồng phòng/bảo trì, (c) giao diện điện thoại gọn cho chủ đầu tư và CTV, (d) app khách mobile web đa ngôn ngữ.
 
+### 0.2 Ánh xạ persona ↔ nhóm người dùng PRD ↔ mã vai RBAC ↔ người trong dữ liệu mẫu BL
+
+| Persona | Nhóm PRD (mục 4) | Mã vai RBAC (`rbac-matrix.md` mục 1) | Người trong BL mục 2 | Ghi chú |
+|---|---|---|---|---|
+| P1 Anh Quân | U1 | `owner` | Chủ đầu tư | Biến thể **Quản lý** (`manager`, anh Hoàng Anh) ghi trong P1 – người duyệt FOC/hoàn tiền |
+| P2 Chị Thảo | U2 | `front_desk`, `front_desk_lead` (gồm người trực đêm) | Lễ tân Hạnh (lễ tân trưởng) | Phần "kiêm sale" thuộc `sales_staff` (U4) nếu có NV sale riêng |
+| P3 Chú Bảy | U3 | `housekeeping` + `maintenance` (một người kiêm) | Chị Lan, chị Mai (buồng phòng); anh Tùng (kỹ thuật) | Biến thể A trong P3: tách vai 2 + 1 người (H-21) |
+| P4 Minh Anh | U4 | `collaborator` (CTV); `sales_staff` cho sale nội bộ | CTV Minh Anh; NV Hạnh (sale) | – |
+| P5 Gia đình anh Hưng | U5 (a) | `guest` (link của đơn) | Huy (khách mẫu) | Đại diện cả khách lớn tuổi |
+| P6 Alexei | U5 (c) | `guest` | Daniel, Emma | – |
+| P7 Ji-woo | U5 (b) | `guest` | Ji-woo | – |
+
+### 0.3 Bề mặt giao diện → persona chính / phụ (dùng khi phải đánh đổi)
+
+| Bề mặt | Persona chính (ưu tiên khi xung đột) | Persona phụ | Ràng buộc quyết định |
+|---|---|---|---|
+| Web quầy (rack, nhận/trả, bill, khai báo) | P2 | P1/quản lý | Giả định laptop tối thiểu 1366×768 (H-02); mật độ thông tin theo P2 |
+| Điện thoại nội bộ – buồng phòng/bảo trì (L6) | P3 | – | Nút ≥ 48px, chữ ≥ 16px, một tay, offline |
+| Điện thoại nội bộ – tổng quan, duyệt (L8) | P1 (và quản lý) | P2 | Đọc nhanh ≤ 30 giây, không cần chuột |
+| Điện thoại nội bộ – sale/báo giá (L5) | P4 | P2 | ≤ 3 màn từ căn trống tới gửi báo giá |
+| App khách (L7) | P7 về **tốc độ/mạng yếu**; P5 (người lớn tuổi) về **khả năng đọc** | P6 | Khi xung đột: giữ chữ to và tương phản (P5) nhưng trang nhẹ, ít ảnh nặng (P7); P6 cần thêm hóa đơn tháng |
+
 ---
 
 ## 1. P1 – Anh Quân, chủ đầu tư / quản lý vận hành
@@ -51,12 +75,13 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Thiết bị & bối cảnh | Điện thoại là chính (xem nhanh giữa các việc khác), laptop khi làm báo cáo cuối tháng, chốt giá OTA, ký hợp đồng |
 | Mục tiêu | Công suất tháng 80%; giữ 4–6 căn dài hạn làm nền; tăng tỷ lệ đặt trực tiếp để tránh phí OTA 15–18%; kiểm soát thất thoát (FOC, minibar, phụ thu); yên tâm về pháp lý (khai báo lưu trú, dữ liệu giấy tờ) |
 | Nhiệm vụ chính | Xem KPI ngày/tháng; xử lý mục "Cần chú ý"; duyệt FOC/giảm giá; chỉnh giá theo nhóm căn và đẩy lên kênh; theo dõi hợp đồng dài hạn sắp hết hạn, kỳ thu; xem P&L; trả lời đánh giá OTA |
-| Điểm đau (giả định) | Số liệu rời rạc giữa OTA, sổ sách, Zalo; không biết nhân viên có quên khai báo trước 23:00 không; FOC "tự duyệt" (BL 8.2 #24); số liệu dashboard prototype là số cứng (BL 8.2 #28) → mất niềm tin nếu sai; phải tự nhắn tin cho khách nước ngoài bằng Google Dịch |
+| Điểm đau (giả định) | Số liệu rời rạc giữa OTA, sổ sách, Zalo; không biết nhân viên có khai báo lưu trú **đúng hạn** không (khách VN: trước 23:00 – BR-602; khách nước ngoài: trong 12 giờ kể từ giờ đến – BR-603, nên khách NN đến 08:00 có hạn 20:00); FOC "tự duyệt" (BL 8.2 #24); số liệu dashboard prototype là số cứng (BL 8.2 #28) → mất niềm tin nếu sai; phải tự nhắn tin cho khách nước ngoài bằng Google Dịch |
 | Nhu cầu với app | Một màn "hôm nay có gì cần tôi" ưu tiên theo rủi ro tiền/pháp lý; số liệu **truy được nguồn** (bấm vào KPI thấy danh sách đơn); duyệt FOC bằng 1 chạm trên điện thoại kèm thông báo; báo cáo đúng công thức (DATA) |
 | Hành vi công nghệ | Dùng thành thạo app ngân hàng, Airbnb host app, Booking Pulse – sẽ **so sánh** OTTIMO Desk với các app này |
-| Thước đo thành công | Mở app ≤ 30 giây là biết tình hình ngày; 0 lần quá hạn khai báo; tổng FOC/tháng nằm trong hạn mức; báo cáo tháng không cần đối chiếu tay |
+| Thước đo thành công | Mở app ≤ 30 giây là biết tình hình ngày; 0 lần quá hạn khai báo (hạn theo BR-602/603; đích PRD S2); tổng FOC/tháng nằm trong hạn mức; báo cáo tháng không cần đối chiếu tay |
 | Trích dẫn giả tưởng | "Tôi không cần xem hết, tôi cần biết hôm nay có gì sắp cháy." |
 | Rủi ro thiết kế nếu hiểu sai | Nếu INV thực tế ngồi quầy thường xuyên → P1 và P2 gộp vai, cần chuyển vai nhanh trong cùng phiên (H-01) |
+| Biến thể: Quản lý (`manager`, anh Hoàng Anh trong BL) | Có mặt tại cơ sở nhiều hơn chủ đầu tư; là người **duyệt** FOC/giảm giá theo hạn mức (BR-432, 433), hoàn tiền, khôi phục no-show; dùng laptop + điện thoại. Cần: hàng đợi "chờ tôi duyệt" trên điện thoại có số tiền, lý do, người đề nghị; duyệt bằng PIN của chính mình. Có thể bị giới hạn xem P&L (PRD A4). Nếu chủ đầu tư không ở Đà Lạt thì quản lý là người dùng chính của L8 hằng ngày |
 
 ## 2. P2 – Chị Thảo, lễ tân (kiêm sale nội bộ, kiêm trực tối)
 
@@ -65,15 +90,15 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Mục | Nội dung |
 |---|---|
 | Hồ sơ | 24–32 tuổi, tốt nghiệp trung cấp/cao đẳng du lịch, tiếng Anh giao tiếp khá, **không nói tiếng Nga**. Với 10 căn, có thể chỉ 1–2 người lễ tân xoay ca; một người kiêm nhận đặt phòng qua Zalo, báo giá dài hạn, thu tiền, khai báo lưu trú |
-| Thiết bị & bối cảnh | Laptop tại quầy; điện thoại cá nhân để nhắn Zalo/WhatsApp với khách; thường bị **ngắt quãng** (khách đến, điện thoại, nhắn tin cùng lúc). Có lúc phải rời quầy (dẫn khách lên phòng) |
-| Mục tiêu | Nhận/trả phòng nhanh, không sai tiền; không quên khai báo trước 23:00; trả lời tin nhắn khách nhanh; ít phải gọi chủ đầu tư hỏi |
+| Thiết bị & bối cảnh | Laptop tại quầy (giả định màn tối thiểu **1366×768** – quyết định room rack hiện được bao nhiêu ngày; kiểm chứng trong H-02); điện thoại cá nhân để nhắn Zalo/WhatsApp với khách; thường bị **ngắt quãng** (khách đến, điện thoại, nhắn tin cùng lúc). Có lúc phải rời quầy (dẫn khách lên phòng) |
+| Mục tiêu | Nhận/trả phòng nhanh, không sai tiền; khai báo lưu trú **trước hạn** – khách VN 23:00 (BR-602), khách nước ngoài giờ đến + 12 giờ (BR-603), nên cần nhớ hạn **theo từng khách**, không theo một mốc chung; trả lời tin nhắn khách nhanh; ít phải gọi chủ đầu tư hỏi |
 | Nhiệm vụ chính (theo tần suất) | Xem khách đến/đi hôm nay → nhận phòng (giấy tờ, khai báo, giao mã cửa) → trả phòng 3 bước (minibar, phụ phí, bill) → nhắc giờ trả phòng → xử lý gia hạn/trả muộn → tạo đơn trực tiếp từ Zalo → chuyển yêu cầu khách sang buồng phòng/bảo trì → soạn tin nhắn Anh/Nga |
 | Điểm đau (từ brief mục 5 + BL) | Mất nước nóng, mất/nhầm thẻ phòng, đồ để quên, lịch dọn theo yêu cầu – đều đến qua chat, phải chép tay; khai báo bán tự động phải **sao chép – mở cổng BCA – dán mã** (BL 3.11); modal đóng khi lỡ bấm nền/Esc là mất dữ liệu đang nhập (heuristic HR-05); tự tính phụ thu dễ sai (BL 8.2 #1, #2) |
 | Nhu cầu với app | Danh sách việc theo **giờ** trong ca; nút hành động đúng ngữ cảnh (đơn đến hôm nay → "Nhận phòng"); mẫu tin nhắn đa ngôn ngữ có biến (tên, giờ, mã cửa, số tiền); cảnh báo trước khi làm sai (đặt trùng, phòng chưa sạch, thị thực sắp hết hạn); bàn giao ca |
 | Hành vi công nghệ | Quen Excel, Zalo, extranet OTA; học nhanh nếu giao diện giống thứ đã quen; ngại thao tác nhiều bước khi có khách đứng trước quầy |
-| Thước đo thành công | Nhận phòng khách đã check-in online ≤ 3 phút; trả phòng ≤ 5 phút; 0 lỗi tính tiền; 100% khai báo trước 23:00 |
+| Thước đo thành công | Nhận phòng khách đã check-in online ≤ 3 phút (PRD S4); trả phòng ≤ 5 phút (S3); 0 lỗi tính tiền; 100% khai báo **đúng hạn** (S2) |
 | Trích dẫn giả tưởng | "Khách đang đứng đây, em không có thời gian bấm 5 màn hình." |
-| Biến thể cần xét | Lễ tân trực tối/ca đêm (có thể là chính chủ đầu tư hoặc người nhà) – khách đến sau 22:00 làm gấp khai báo (BL câu 15) – H-04 |
+| Biến thể cần xét | (a) Lễ tân trực tối/ca đêm (có thể là chính chủ đầu tư hoặc người nhà) – khách đến khuya phải khai báo kịp hạn; theo phân xử ORC người trực dùng **thiết bị của cơ sở**; ai trực tối hỏi ở ESC-010 (H-04). (b) Lễ tân **không kiêm sale**: RBAC tách `sales_staff`; nếu thực tế có NV sale riêng thì phần báo giá chuyển sang P4/U4 |
 
 ## 3. P3 – Chú Bảy, buồng phòng kiêm bảo trì
 
@@ -85,12 +110,14 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Thiết bị & bối cảnh | Điện thoại Android tầm trung (màn ~6", đã cũ), pin yếu; **tay ướt / đeo găng** khi dọn; Wi-Fi tầng trên có thể yếu, 4G chập chờn trong phòng; thường cầm xe đẩy, chỉ rảnh **một tay** |
 | Mục tiêu | Biết phòng nào cần dọn trước (khách sắp đến), dọn xong báo nhanh, không bị gọi điện liên tục; báo hỏng có ảnh để khỏi giải thích |
 | Nhiệm vụ chính | Xem việc hôm nay theo thứ tự ưu tiên → bắt đầu dọn → checklist kiểm phòng 12 điểm (BL 3.12) → đếm minibar → báo xong; nhận việc từ app khách (thêm khăn, dọn thêm); tạo/cập nhật phiếu sửa chữa, khóa phòng khi hỏng; chốt số điện nước cuối tháng |
-| Điểm đau (giả định) | Prototype: thẻ buồng dùng **mã VC/VI/VD/OD** – thuật ngữ khách sạn quốc tế, người lao động địa phương có thể không quen (H-06); ô nhập số minibar nhỏ 64–96px (BL 8.3); chuyển trạng thái chỉ bằng nút nhỏ (btn.sm ~26px cao); không có ảnh; không có chế độ offline (BL câu 22) |
+| Điểm đau (giả định) | Prototype: thẻ buồng dùng **mã VC/VI/VD/OD** – thuật ngữ khách sạn quốc tế, người lao động địa phương có thể không quen (H-06 – đã xử lý bằng thiết kế: giao diện buồng phòng dùng câu thường, mã chỉ ở giao diện quản lý); ô nhập số minibar nhỏ 64–96px (BL 8.3); chuyển trạng thái chỉ bằng nút nhỏ (btn.sm ~26px cao); không có ảnh; không có chế độ offline (BL câu 22) |
 | Nhu cầu với app | Màn hình **một cột, nút lớn ≥ 48px**, chữ ≥ 16px, ít chữ + icon + màu **kèm nhãn**; trạng thái bằng câu thường ("Cần dọn – khách đến 14:00"); bấm-tăng/giảm cho minibar thay vì gõ số; chụp ảnh báo hỏng; **vẫn bấm "Dọn xong" được khi mất mạng** và tự gửi khi có mạng lại; đọc thông báo bằng giọng nói (khả năng sau MVP) |
 | Hành vi công nghệ | Dùng Zalo (gửi ảnh, gửi voice), YouTube; ít dùng app công việc; sợ "bấm nhầm hỏng máy" → cần hoàn tác |
 | Thước đo thành công | Báo "dọn xong" ≤ 2 chạm; không cần lễ tân gọi hỏi tiến độ; chấp nhận dùng app sau 1 buổi hướng dẫn ≤ 30 phút |
 | Trích dẫn giả tưởng | "Cứ nói chú phòng nào trước, xong chú bấm một cái là được." |
-| Rủi ro thiết kế nếu hiểu sai | Nếu thực tế buồng phòng **không dùng app** (nhắn Zalo cho lễ tân) → cần phương án lễ tân cập nhật hộ + bảng giấy in (H-05). Đây là giả thuyết rủi ro cao nhất |
+| Rủi ro thiết kế nếu hiểu sai | Nếu thực tế buồng phòng **không dùng app** (nhắn Zalo cho lễ tân) → cần phương án lễ tân cập nhật hộ + bảng giấy in (H-05, có luật quyết định ở mục 9). Đây là giả thuyết rủi ro cao nhất |
+| Biến thể A – tách vai (theo BL và RBAC) | 2 nhân viên buồng phòng (chị Lan, chị Mai – `housekeeping`) và 1 kỹ thuật (anh Tùng – `maintenance`) là **người khác nhau** (H-21). Khi đó điểm dễ rơi việc là **chuyển giao giữa hai người**: buồng phòng phát hiện hỏng → báo kỹ thuật → kỹ thuật báo xong → buồng phòng dọn lại → kiểm phòng. Căn dễ bị kẹt ở trạng thái khóa/chờ dọn lâu hơn cần thiết → mất đêm bán. Cần: thông báo "Căn X sửa xong – cần dọn lại" tới buồng phòng, thấy giờ khách đến tiếp theo |
+| Biến thể B – nhân viên trẻ 25–35 tuổi, dùng smartphone thành thạo | Yêu cầu nút lớn ≥ 48px, chữ ≥ 16px, offline **vẫn giữ** (tay ướt, một tay, mạng yếu không phụ thuộc tuổi); đọc giọng nói, hướng dẫn chi tiết từng bước **hạ ưu tiên**. Tuổi và kinh nghiệm smartphone được ghi trong buổi thử H-05 |
 
 ## 4. P4 – Minh Anh, CTV / môi giới căn hộ
 
@@ -106,7 +133,7 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Nhu cầu với app | Màn điện thoại "Căn trống + Báo giá + Giữ chỗ" trong ≤ 3 màn; báo giá xuất **EN/RU** đẹp (ảnh hoặc link) gửi được qua mọi chat; bộ đếm giờ giữ chỗ hiển thị rõ; trang "Hoa hồng của tôi" minh bạch; **chỉ thấy khách và đơn của mình** |
 | Thước đo thành công | Từ lúc khách hỏi đến lúc gửi báo giá ≤ 2 phút; 0 tranh chấp hoa hồng |
 | Trích dẫn giả tưởng | "Khách hỏi giá 3 tháng có dọn phòng là em phải trả lời liền, chậm là họ thuê chỗ khác." |
-| Câu hỏi mở | CTV có được cấp tài khoản riêng hay gửi yêu cầu qua lễ tân? (H-08; liên quan RBAC của BA) |
+| Câu hỏi mở | RBAC đã giả định CTV có tài khoản riêng (`collaborator`) và chỉ thấy khách/đơn của mình (decision-log). H-08 chỉ còn là **xác nhận có/không** của INV |
 
 ## 5. P5 – Gia đình anh Hưng, khách ngắn ngày nội địa
 
@@ -130,11 +157,11 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Mục | Nội dung |
 |---|---|
 | Hồ sơ | 32 tuổi, quốc tịch Nga, lập trình viên làm từ xa cho công ty nước ngoài; ở Đà Lạt 3–6 tháng (có thể đi cùng bạn đời). Tiếng Nga là mẹ đẻ, tiếng Anh làm việc được; **không đọc tiếng Việt** |
-| Thiết bị & bối cảnh | Laptop làm việc cả ngày tại phòng → **Wi-Fi là sống còn** (checklist yêu cầu ≥ 50 Mbps, BL 3.12; đánh giá mẫu 6% phàn nàn Wi-Fi); điện thoại dùng Telegram/WhatsApp; thanh toán: thẻ quốc tế có thể bị hạn chế với người Nga → thường **chuyển khoản qua người quen, tiền mặt hoặc USDT** (giả định – H-12) |
+| Thiết bị & bối cảnh | Laptop làm việc cả ngày tại phòng → **Wi-Fi là sống còn** (checklist yêu cầu ≥ 50 Mbps, BL 3.12; đánh giá mẫu 6% phàn nàn Wi-Fi); điện thoại dùng Telegram/WhatsApp; thanh toán: thẻ do ngân hàng Nga phát hành gần như không dùng được ở nước ngoài từ 2022 (thông tin công khai) → thường trả **tiền mặt (USD/VND) hoặc chuyển khoản qua người thân/bạn tại VN**, đôi khi qua ngân hàng/ví ở nước thứ ba (cần kiểm chứng cách trả thực tế – H-12). **OTTIMO không nhận tiền mã hóa** (không phải phương tiện thanh toán hợp pháp tại VN); PRD X9: chỉ thu VND |
 | Mục tiêu | Giá tháng minh bạch, biết trước tổng chi (thuê + điện nước + dọn); không bị tính sai điện nước; hợp đồng rõ ràng bằng ngôn ngữ đọc được; gia hạn tạm trú/visa đúng hạn; yên tĩnh, có bàn làm việc |
 | Nhiệm vụ chính | Nhận báo giá dài hạn (EN/RU) → ký hợp đồng + ký quỹ → nhận phòng, gửi hộ chiếu/visa/dấu nhập cảnh → hằng tháng xem hóa đơn điện nước (ảnh công tơ), trả tiền → đặt dọn phòng 100k/lần khi cần → báo hỏng (nước nóng) → gia hạn hợp đồng → trả phòng, nhận lại ký quỹ |
 | Điểm đau (từ brief + BL) | Thông báo tiếng Việt hoặc Google Dịch khó hiểu; không biết tiền điện tính thế nào (prototype app khách: chỉ số + đơn giá có hiển thị, nhưng không có ảnh công tơ); phí phạt (khử mùi thuốc lá 500k, làm lại thẻ 200k – brief mục 5) nếu không được báo rõ từ đầu sẽ gây tranh chấp; trả phòng dài hạn **không có khấu trừ/hoàn ký quỹ** (BL 8.2 #6) → lo mất cọc; visa sắp hết mà không ai nhắc (BL 5.12: ví dụ Emma) |
-| Nhu cầu với app | App khách **tiếng Anh và tiếng Nga**; hóa đơn tháng có ảnh công tơ đầu/cuối kỳ; lịch dọn đặt/hủy được; nút "báo hỏng" có ảnh và theo dõi trạng thái; nhắc visa/tạm trú trước 30 ngày; biên bản trả phòng + ký quỹ minh bạch |
+| Nhu cầu với app | App khách **tiếng Anh và tiếng Nga**; hóa đơn tháng có ảnh công tơ đầu/cuối kỳ; lịch dọn đặt/hủy được; nút "báo hỏng" có ảnh và theo dõi trạng thái; nhắc gia hạn thị thực/tạm trú theo BR-605 (tham số `visa_expiry_warning_days`; DOM đang đề xuất 30 ngày cho khách dài hạn, 14 ngày cho khách ngắn ngày); biên bản trả phòng + ký quỹ minh bạch |
 | Thước đo thành công | Không phải nhắn hỏi "tháng này bao nhiêu tiền"; sự cố nước nóng được xác nhận ≤ 10 phút, xử lý trong ngày; nhận lại ký quỹ đúng hạn đã cam kết |
 | Trích dẫn giả tưởng | "I just need stable Wi-Fi, hot water, and a bill I can understand." |
 
@@ -147,10 +174,10 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 | Hồ sơ | 29 tuổi, Hàn Quốc, đi du lịch cùng bạn 3 đêm; đặt qua Booking.com/Agoda (đã trả trước hoặc trả tại chỗ). Tiếng Anh cơ bản, ưu tiên tiếng Hàn. Đại diện chung cho nhóm khách OTA quốc tế (Hàn, Singapore, Pháp, Đức – brief mục 1) |
 | Thiết bị & bối cảnh | Điện thoại, dùng **roaming/eSIM** – có lúc mạng yếu khi vừa xuống sân bay Liên Khương; chủ yếu nhận tin qua email của OTA và tin nhắn trong app OTA; không có Zalo |
 | Mục tiêu | Đến nơi nhận phòng nhanh (kể cả đến muộn, quầy không có người); biết đường đi; không bị phụ thu bất ngờ |
-| Nhiệm vụ chính | Nhận link check-in online (qua email/tin nhắn OTA) → tải hộ chiếu, chọn giờ đến → nhận mã cửa sáng hôm đến → tìm đường → vào phòng → yêu cầu khăn/hỏi tour → trả phòng (để chìa trên bàn) → mời đánh giá |
-| Điểm đau (giả định) | Link check-in gửi qua kênh nào? OTA che email thật của khách (email ủy quyền) → có thể không nhận được (H-10); app khách prototype **chỉ tiếng Việt** (heuristic HR-01); không rõ ai là người thật để liên hệ khi kẹt ngoài cửa lúc 23:00; tải ảnh hộ chiếu trên mạng yếu dễ lỗi |
+| Nhiệm vụ chính | Nhận link check-in online (qua email/tin nhắn OTA) → tải hộ chiếu, chọn giờ đến → nhận mã cửa sáng hôm đến → tìm đường → vào phòng → yêu cầu khăn/hỏi tour → trả phòng (**trả đủ 2 thẻ phòng** nếu căn dùng thẻ – thiếu thẻ phạt 200.000 đ/thẻ, BR-511; khi trả không có người ở quầy theo BR-427) → mời đánh giá |
+| Điểm đau (giả định) | Link check-in gửi qua kênh nào? OTA che email thật của khách (email ủy quyền) → có thể không nhận được (H-10); app khách prototype **chỉ tiếng Việt** (heuristic HR-01); không rõ ai là người thật để liên hệ khi **kẹt ngoài cửa** lúc 23:00 (mã sai, khóa hết pin, mã chưa có hiệu lực – H-23); tải ảnh hộ chiếu trên mạng yếu dễ lỗi |
 | Nhu cầu với app | Link nhẹ, tải nhanh trên 3G; ngôn ngữ tự nhận theo trình duyệt (EN tối thiểu, KO là điểm cộng); mã cửa + hướng dẫn mở khóa có hình; nút liên hệ khẩn (WhatsApp/gọi); ảnh hộ chiếu nén trước khi gửi, có thể thử lại |
-| Thước đo thành công | ≥ 60% khách OTA hoàn tất check-in online trước khi đến (chỉ số giả định để DATA theo dõi – H-11); vào phòng ≤ 5 phút từ khi đến cửa |
+| Thước đo thành công | Đích chính thức: **PRD S5 ≥ 40%** khách check-in online trước khi đến (sau 2 tháng). Giả thuyết riêng của UXR (H-11): với khách OTA có thể đạt 60% nếu link đến được tay khách. Vào phòng ≤ 5 phút từ khi đến cửa |
 | Trích dẫn giả tưởng | "I arrived at 11 pm and nobody was there. Where is my code?" |
 
 ---
@@ -171,32 +198,37 @@ Hệ quả cho thiết kế (đưa UXD, BA): bốn vai nội bộ có **thiết 
 ## 9. Danh sách giả thuyết cần INV kiểm chứng với người thật
 
 Quy ước ưu tiên: **Cao** = sai thì phải đổi kiến trúc/luồng chính, kiểm chứng **trước khi bắt đầu code Round 2**; **TB** = kiểm chứng trong Round 2; **Thấp** = trước RC (Round 3).
-Cách kiểm chứng gợi ý: hỏi trực tiếp 5–10 phút/người, hoặc quan sát 1 ca làm việc. UXR sẽ soạn bộ câu hỏi chi tiết (`real-user-test-guide.md`) ở Round 2.
+Cách kiểm chứng: phiếu 1 trang `product/docs/research/real-user-check-guide.md` (đính kèm ESC-003). Bộ test đầy đủ với 3–5 người (`real-user-test-guide.md`) vẫn ở Round 2.
+Cột **Đường kiểm chứng**: "ESC-003" = có trong phiếu 1 trang; "ESC-0xx" = câu đã nằm ở ESC khác (không hỏi lại); "INT/DATA" = vai khác xác minh; "Thiết kế" = đã xử lý bằng thiết kế, không cần hỏi.
 
-| Mã | Giả thuyết (đội đang tin là…) | Persona | Nếu sai thì ảnh hưởng | Kiểm chứng với ai, bằng cách nào | Tiêu chí xác nhận | Ưu tiên |
+| Mã | Giả thuyết (đội đang tin là…) | Persona | Kiểm chứng với ai, bằng cách nào | Tiêu chí / luật quyết định (nếu đúng → … / nếu sai → …) | Ưu tiên | Đường kiểm chứng |
 |---|---|---|---|---|---|---|
-| H-01 | Chủ đầu tư chủ yếu xem app trên **điện thoại**, không ngồi quầy thường xuyên | P1 | Thiết kế dashboard sai thiết bị | INV tự trả lời | Có/Không + tỷ lệ thời gian điện thoại vs laptop | Cao |
-| H-02 | Lễ tân dùng **laptop tại quầy**; có 1–2 người xoay ca; một người kiêm sale nội bộ | P2 | Ưu tiên web quầy vs mobile sai | Hỏi lễ tân hiện tại; xem quầy | Thiết bị, số người, ca | Cao |
-| H-03 | Lễ tân giao tiếp khách nước ngoài chủ yếu bằng **chat (Zalo/WhatsApp/Telegram)** và cần mẫu tin RU | P2, P6 | Mẫu tin nhắn đa ngôn ngữ ưu tiên thấp/cao sai | Xem lại 1 tuần lịch sử chat (ẩn danh); đếm tin theo ngôn ngữ, theo chủ đề | ≥ 30% tin nhắn khách NN là tiếng Nga hoặc cần dịch | Cao |
-| H-04 | Khách đến sau 22:00 xảy ra ≥ 1 lần/tuần; có người trực để khai báo trước 23:00 | P2, P7 | Luồng tự nhận phòng + khai báo ca tối | Đếm giờ đến thực tế tháng 9–10; hỏi INV ai trực tối | Tần suất/tuần | Cao |
-| H-05 | **Buồng phòng sẽ tự dùng app trên điện thoại** (không qua lễ tân) | P3 | Cả phân hệ buồng phòng mobile có thể thành vô ích | Hỏi trực tiếp nhân viên buồng phòng; cho xem 3 màn mẫu (giấy hoặc wireframe) | Đồng ý thử + tự bấm được "dọn xong" không cần trợ giúp | **Cao** |
-| H-06 | Nhân viên buồng phòng **không quen mã VC/VI/VD/OD** → cần nhãn tiếng Việt thường | P3 | Lỗi đổi trạng thái sai | Hỏi "VD nghĩa là gì?" + cho chọn giữa mã và câu | ≥ 1 người không hiểu mã → bỏ mã khỏi giao diện buồng phòng | Cao |
-| H-07 | Điện thoại buồng phòng là Android tầm trung, có 4G; Wi-Fi trong một số căn yếu | P3 | Yêu cầu offline, hiệu năng | Ghi đời máy; đo sóng ở 3 phòng tầng cao | Đời máy, Android version, có/không mất sóng | TB |
-| H-08 | CTV có **tài khoản riêng** trong app và chỉ thấy khách/đơn của mình | P4 | RBAC và luồng sale | INV quyết (chính sách) + hỏi 1–2 CTV có muốn dùng app không | Có/không tài khoản CTV ở MVP | Cao |
-| H-09 | Khách nội địa đặt trực tiếp **chủ yếu qua Zalo** và trả cọc bằng **chuyển khoản/VietQR** | P5 | Kênh gửi link xác nhận/thanh toán | Đếm đơn trực tiếp tháng 9–10 theo kênh + phương thức trả | ≥ 70% qua Zalo + chuyển khoản | TB |
-| H-10 | Có thể gửi link check-in online tới khách OTA (qua tin nhắn của OTA hoặc channel manager) và khách **mở được** | P7 | Luồng check-in online cho 60%+ khách OTA có thể không chạy | INT xác minh với channel manager + INV thử với 3–5 khách OTA thật | ≥ 3/5 khách mở link | Cao |
-| H-11 | ≥ 60% khách OTA sẵn lòng check-in online (tải hộ chiếu) trước khi đến | P7 | Ước lượng tải quầy, giá trị tính năng | Thử với khách thật trong R2–R3; DATA theo dõi | Tỷ lệ hoàn tất | TB |
-| H-12 | Khách Nga thuê tháng gặp khó với thanh toán thẻ quốc tế → cần chuyển khoản nội địa/tiền mặt | P6 | Lựa chọn cổng thanh toán (ESC thanh toán) | Hỏi 3–5 khách dài hạn hiện tại về cách trả tiền | Phương thức thực tế | Cao |
-| H-13 | Khách dài hạn muốn xem **hóa đơn tháng + ảnh công tơ** trong app thay vì nhận tin chat | P6 | Ưu tiên app khách dài hạn | Hỏi 3–5 khách dài hạn | ≥ 3/5 muốn | TB |
-| H-14 | Khách dài hạn cần app **tiếng Nga** (không chỉ tiếng Anh) | P6 | Ưu tiên RU (decision-log P4) | Hỏi khách Nga: đọc hợp đồng/hóa đơn tiếng Anh có thoải mái không | ≥ 2/3 muốn RU | TB |
-| H-15 | Khách gia đình nội địa ngại gửi ảnh CCCD qua chat, sẵn lòng gửi qua link bảo mật | P5 | Luồng giấy tờ trước khi đến | Hỏi 3–5 khách nội địa | ≥ 3/5 thích link | Thấp |
-| H-16 | Khách lớn tuổi / gia đình có trẻ nhỏ quan tâm tầng thấp, thang máy, chỗ đậu xe, nước nóng | P5 | Thông tin trên link xác nhận và trang đặt phòng | Xem 20 tin nhắn hỏi trước khi đặt; đánh giá OTA | Chủ đề được hỏi nhiều nhất | Thấp |
-| H-17 | Sự cố phổ biến nhất là **nước nóng, thẻ phòng, đồ để quên, lịch dọn** (brief mục 5) – đủ để làm danh mục yêu cầu app khách | P2, P3, P6 | Danh mục yêu cầu (BL 5.19) | INV liệt kê sự cố 2 tháng gần nhất | Top 5 sự cố | TB |
-| H-18 | Khách OTA quốc tế có thể tự vào phòng bằng **mã cửa** mà không cần lễ tân | P7 | Luồng tự nhận phòng, tích hợp khóa (INT) | INV thử 1 lần với khách thật | Khách vào được không cần gọi | TB |
-| H-19 | Chủ đầu tư muốn **duyệt FOC trên điện thoại** theo thời gian thực (thay vì soát cuối tháng) | P1 | Luồng phê duyệt, thông báo | INV trả lời | Có/không, hạn mức | TB |
-| H-20 | Lễ tân cần **bàn giao ca** trong app (việc dở, tiền mặt, khách chưa khai báo) | P2 | Thêm màn bàn giao ca (BL câu 13 đang dự kiến ngoài MVP) | Hỏi lễ tân hiện bàn giao thế nào | Có quy trình bàn giao hay không | Thấp |
+| H-01 | Chủ đầu tư chủ yếu xem app trên **điện thoại**, không ngồi quầy thường xuyên | P1 | INV tự trả lời | Đúng → L8 thiết kế mobile trước, HR-12 giữ Major. Sai (chủ yếu laptop/ngồi quầy) → L8 ưu tiên laptop, thêm chuyển vai nhanh P1↔P2; HR-12 hạ Minor | Cao | ESC-003 |
+| H-02 | Lễ tân dùng **laptop tại quầy** (màn ≥ 1366×768); 1–2 người xoay ca; một người kiêm sale | P2 | Hỏi lễ tân; xem máy quầy | Đúng → giữ web quầy làm bề mặt chính. Màn nhỏ hơn 1366 → rack mặc định 7 ngày + cuộn. Chủ yếu dùng điện thoại → báo UXD/PO đổi ưu tiên L2/L3 sang mobile | Cao | ESC-003 |
+| H-03 | Lễ tân trao đổi với khách NN chủ yếu qua chat và cần mẫu tin **tiếng Nga** | P2, P6 | Lễ tân **ước lượng** tỷ lệ tin cần tiếng Nga trong tuần qua (không lục lịch sử chat – dữ liệu cá nhân); R2: DATA đếm mức dùng mẫu tin RU | Decision-log đã chốt mẫu VI/EN/RU cho MVP. Ước lượng ≥ 1/4 → giữ RU ở R2–R3; < 1/10 → PO cân nhắc dời RU | TB (hạ từ Cao) | ESC-003 (hỏi kèm) + DATA R2 |
+| H-04 | Khách đến ngoài giờ trực (khuya) hoặc khách NN đến buổi sáng (hạn BR-603 sớm) xảy ra hằng tuần; luôn có người khai báo kịp hạn | P2, P7 | Ai trực tối, thiết bị gì → **ESC-010**; lễ tân ước lượng số khách đến khuya và khách NN đến trước 10:00 mỗi tuần; DATA lấy giờ đến từ dữ liệu đơn khi có | ≥ 1 lần/tuần → nhắc hạn theo thời gian còn lại + thông báo người trực là Must R2 (đã có US-042) | Cao | ESC-010 + ESC-003 (hỏi kèm) + DATA |
+| H-05 | **Buồng phòng tự dùng app trên điện thoại** (không qua lễ tân) | P3 | Kịch bản 3 nhiệm vụ trên **chính điện thoại nhân viên** với wireframe `06-housekeeping-mobile.html` (chi tiết trong phiếu) | Tính theo từng người, nếu thử 2 người lấy kết quả **thấp hơn**: **≥ 2/3** nhiệm vụ tự làm được → giữ L6 như thiết kế. **1/3** → đơn giản hóa L6 (chỉ "Việc của tôi" + "Dọn xong"), lễ tân nhập minibar/sự cố hộ. **0/3 hoặc từ chối dùng** → L6 thành màn cho lễ tân cập nhật hộ + bảng việc in; UXR ghi decision-log, PO điều chỉnh backlog EP07 | **Cao** | ESC-003 |
+| H-06 | Nhân viên buồng phòng không quen mã VC/VI/VD/OD | P3 | – | **Đã xử lý bằng thiết kế** (giao diện buồng phòng dùng câu thường, mã chỉ ở giao diện quản lý – decision-log). Kiểm lại khi test L6 ở R2 | Đóng | Thiết kế |
+| H-07 | Điện thoại buồng phòng là Android tầm trung, có 4G; Wi-Fi trong một số căn yếu | P3 | Ghi đời máy, phiên bản Android trong buổi thử H-05 (không tốn thêm thời gian) | Android < 9 hoặc RAM ≤ 2 GB → báo ARC kiểm PWA offline (ADR-005) trên máy đó | TB | ESC-003 (ghi kèm H-05) |
+| H-08 | CTV có **tài khoản riêng** và chỉ thấy khách/đơn của mình (đã giả định trong RBAC) | P4 | INV xác nhận **có/không** | Có → giữ RBAC. Không → CTV gửi yêu cầu qua lễ tân; PO bỏ màn CTV khỏi R2 | Cao | ESC-003 |
+| H-09 | Khách nội địa đặt trực tiếp chủ yếu qua Zalo, cọc bằng chuyển khoản/VietQR | P5 | DATA/INV đếm đơn trực tiếp tháng 9–10 theo kênh khi có dữ liệu | ≥ 70% → giữ VietQR + link qua Zalo làm luồng chính | TB | DATA R2 |
+| H-10 | Gửi được link check-in online tới khách OTA và khách mở được | P7 | **INT** xác minh tài liệu channel manager (R2); INV thử với khách thật khi hệ thống gửi link đã chạy (R2–R3) | ≥ 3/5 khách mở link → giữ; < 3/5 → lễ tân gửi link qua tin nhắn OTA thủ công + QR tại cửa | Cao | INT (không hỏi INV ở R1) |
+| H-11 | Với khách OTA có thể đạt 60% check-in online (đích PRD S5 là ≥ 40%) | P7 | DATA theo dõi từ R2–R3 | Theo PRD S5 | TB | DATA |
+| H-12 | Khách Nga **không** dùng thẻ quốc tế được (gần chắc chắn); chưa biết kênh trả thực tế | P6 | Hỏi 3 khách dài hạn hiện tại qua chat (câu soạn sẵn) | Đa số trả tiền mặt/chuyển khoản qua người thân tại VN → giữ VietQR + tiền mặt **có biên nhận trong app**, không ưu tiên thẻ cho nhóm này. Đa số qua ngân hàng/ví nước thứ ba → báo PO/INT xem lại ESC-010. Ghi kết quả vào cọc khách Nga đặt trực tiếp (DOM-on-PO FB-10) | Cao | ESC-003 |
+| H-13 | Khách dài hạn muốn xem hóa đơn tháng + ảnh công tơ trong app | P6 | Cùng tin nhắn H-12 | **≥ 2/3** muốn → giữ US-114/065 ở R3; ≤ 1/3 → gửi hóa đơn qua chat, hạ ưu tiên màn hóa đơn | TB | ESC-003 (hỏi kèm) |
+| H-14 | Khách dài hạn cần app **tiếng Nga** | P6 | Cùng tin nhắn H-12 | ≥ 2/3 muốn RU → giữ US-115 R3; ≤ 1/3 → RU chỉ cho hợp đồng/nội quy | TB | ESC-003 (hỏi kèm) |
+| H-15 | Khách gia đình nội địa ngại gửi ảnh CCCD qua chat, sẵn lòng gửi qua link bảo mật | P5 | Hỏi 3–5 khách nội địa (R2) | ≥ 3/5 thích link | Thấp | R2 |
+| H-16 | Khách lớn tuổi / gia đình có trẻ nhỏ quan tâm tầng thấp, thang máy, đậu xe, nước nóng | P5 | Xem 20 tin hỏi trước khi đặt; đánh giá OTA (R2) | Chủ đề hỏi nhiều nhất | Thấp | R2 |
+| H-17 | Sự cố phổ biến: nước nóng, thẻ phòng, đồ để quên, lịch dọn | P2, P3, P6 | INV liệt kê sự cố 2 tháng gần nhất (R2) | Top 5 sự cố → danh mục yêu cầu app khách | TB | R2 |
+| H-18 | Khách OTA quốc tế tự vào phòng bằng mã cửa không cần lễ tân | P7 | INV thử 1 lần khi có khóa (ESC-011) | Khách vào được không cần gọi | TB | Sau ESC-011 |
+| H-19 | Chủ đầu tư muốn duyệt FOC trên điện thoại theo thời gian thực | P1 | – | Câu hỏi hạn mức và cách duyệt đã nằm ở **ESC-007** – không hỏi lại | TB | ESC-007 |
+| H-20 | Lễ tân cần **bàn giao ca** (tiền mặt, chuyển khoản đã xác nhận, khách chưa đến, khai báo còn thiếu, yêu cầu đang mở) | P2 | Hỏi lễ tân: bàn giao những gì, bằng giấy hay Zalo, có đếm tiền mặt không, đã từng lệch tiền chưa | Có bàn giao tiền mặt hoặc từng lệch tiền → đề nghị PO nâng US-124 lên Must R3 (cùng DOM-PO-06); không → giữ Should | **Cao** (nâng từ Thấp theo DOM) | ESC-003 |
+| H-21 | Buồng phòng và kỹ thuật là **người khác nhau** (2 + 1 như BL), không phải một người kiêm | P3 | INV tự trả lời | Khác người → L6 cần luồng chuyển giao "sửa xong – cần dọn lại" (biến thể A của P3). Một người kiêm → giữ menu gộp | Cao | ESC-003 |
+| H-22 | Có khách đến **04:00–06:00** (xe giường nằm đêm, chuyến bay sớm) và họ muốn vào phòng/gửi đồ/tắm | P2, P5 | Lễ tân ước lượng số lần/tháng | ≥ 2 lần/tháng → luồng "nhận trước 06:00 = thêm đêm" (BR-411) và gửi hành lý cần rõ trên quầy và tin nhắn | TB | ESC-003 (hỏi kèm) |
+| H-23 | Khách tự nhận phòng bằng mã cửa có lúc **kẹt ngoài cửa** (mã sai, hết pin, mã chưa hiệu lực) | P7 | Lễ tân/INV: đã từng xảy ra chưa, khách liên hệ ai, mất bao lâu | Đã từng → link khách có số khẩn cấp + quản lý cấp mã dự phòng từ xa (gửi INT/UXD) | TB | ESC-003 (hỏi kèm) |
+| H-24 | Khách nội địa lớn tuổi **không hiểu** cụm "check-in online" (UXR-UXD-16) | P5 | Lễ tân hỏi 3 khách nội địa ≥ 50 tuổi trong 3 ngày: chỉ thẻ chữ "Check-in online" và "Làm thủ tục trước", hỏi "cụm nào dễ hiểu hơn?" | ≥ 2/3 chọn "Làm thủ tục trước" → UXD dùng cụm tiếng Việt làm chính, "check-in online" trong ngoặc | TB | ESC-003 (không bắt buộc) |
 
-Giả thuyết **Cao** (H-01, H-02, H-03, H-04, H-05, H-06, H-08, H-10, H-12) được đề nghị gom trong dự thảo ESC của UXR (xem `rounds/round-01/outputs/UXR/report.md`).
+Tóm tắt đường đi: **7 giả thuyết Cao hỏi qua ESC-003** (H-01, H-02, H-05, H-08, H-12, H-20, H-21); **2 giả thuyết Cao đi đường khác** (H-04 → ESC-010 + DATA, có 1 câu ước lượng hỏi kèm; H-10 → INT); H-06 đóng bằng thiết kế; H-19 đã nằm ở ESC-007; các câu TB "hỏi kèm" (H-03, H-07, H-13, H-14, H-22, H-23, H-24) mỗi câu < 1 phút, không làm tăng đáng kể thời gian.
 
 ---
 
@@ -204,3 +236,4 @@ Giả thuyết **Cao** (H-01, H-02, H-03, H-04, H-05, H-06, H-08, H-10, H-12) đ
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
 | 0.1 | 15/10/2026 | UXR | Bản đầu, 7 persona mô phỏng + 20 giả thuyết |
+| 0.2 | 15/10/2026 | UXR | Bước 4 R1: hạn khai báo theo BR-602/603 (P1, P2); bỏ USDT, ghi chú pháp lý (P6); thước đo P7 theo PRD S5; nhắc thị thực theo BR-605; thêm mục 0.2 ánh xạ persona–PRD–RBAC–BL, mục 0.3 bề mặt → persona chính; biến thể Quản lý (P1), tách vai và nhân viên trẻ (P3); viết lại mục 9: cột luật quyết định, H-03 hạ TB, H-06 đóng bằng thiết kế, H-19 → ESC-007, H-20 nâng Cao, thêm H-21…H-24; trả 2 thẻ phòng khi trả phòng (P7). Theo thẻ FB-R1-UXD-UXR-*, PO-UXR-*, DOM-UXR-* |

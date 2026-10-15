@@ -4,7 +4,7 @@
 > Đây là đánh giá **chuyên gia** (UXR – agent AI) theo 10 heuristic của Nielsen và WCAG 2.2 mức AA, **không phải** kết quả test với người dùng thật. Mức nghiêm trọng là nhận định của UXR; mức độ ảnh hưởng thật trên lễ tân, buồng phòng, khách cần INV kiểm chứng (giả thuyết H-xx ở `personas.md` mục 9).
 >
 > Đối tượng: `product/legacy/round-0-prototype/ottimo-desk.html` (2.173 dòng) và đặc tả ngược `product/docs/round-0-baseline.md` (**BL**).
-> Người đánh giá: UXR · Round 1 · Bước 2 · 15/10/2026 · Phiên bản 0.1
+> Người đánh giá: UXR · Round 1 · Bước 2 · 15/10/2026 · Phiên bản 0.2 (Bước 4 – xem mục 7)
 
 ---
 
@@ -12,6 +12,7 @@
 
 - **Cách làm**: đọc mã nguồn HTML/CSS/JS (cấu trúc DOM, thuộc tính ARIA, CSS kích thước, luồng sự kiện) và đối chiếu với mô tả màn hình ở BL mục 3. Đi qua các nhiệm vụ chính theo từng persona (P1–P7) bằng cách lần theo mã.
 - **Giới hạn**: chưa render được giao diện trong trình duyệt của phiên làm việc này (trình duyệt tích hợp không mở được tệp cục bộ) → các phát hiện về bố cục thị giác dựa trên CSS, chưa có ảnh chụp màn hình. UXD/QA nên mở tệp bằng trình duyệt để xác nhận khi review.
+- **Chưa bao phủ (dời Round 2, theo FB-R1-UXD-UXR-10)**: (1) tương phản các token **chế độ tối**; (2) trạng thái **tải / rỗng / lỗi / mất mạng** – prototype R0 hầu như không có các trạng thái này (ghi nhận chung, chưa tách mã HR); (3) đi trọn luồng **check-in online của app khách** theo P7 (số bước, tải ảnh, ô nhập). Ba mục này sẽ đánh giá trên wireframe/bản build mới của UXD trong `usability-report-r2.md` (test kịch bản Round 2), vì prototype R0 không còn là đối tượng thiết kế.
 - **Độ tương phản** được **tính** theo công thức WCAG từ token màu ở BL 6.2 (số liệu đo được, không phải ước lượng).
 - **Ngữ cảnh**: prototype là bản demo dữ liệu mẫu. Mục tiêu đánh giá không phải "chấm điểm prototype" mà là **chỉ ra cái gì giữ, cái gì phải khác** khi UXD làm Design System và wireframe Round 1.
 
@@ -28,11 +29,11 @@
 
 ## 2. Tóm tắt
 
-- Tổng **25 phát hiện**: **4 Blocker**, **12 Major**, **7 Minor**, **2 Suggestion** (mục 4).
+- Tổng **26 phát hiện** (v0.2): **5 Blocker**, **11 Major**, **8 Minor**, **2 Suggestion** (mục 4). Thay đổi so với v0.1: HR-20 nâng Blocker; HR-13 tách thành HR-13a (Major) và HR-13b (Minor).
 - Điểm mạnh lớn nhất: ngôn ngữ nghiệp vụ gần thực tế, luồng trả phòng 3 bước, thẻ "khách trả phòng hôm nay", FOC có lý do, kiểm trùng lịch có báo tên khách trùng, đã có nền ARIA (mục 5).
 - Vấn đề lớn nhất theo nhóm:
   1. **Một giao diện cho mọi vai và mọi thiết bị** – buồng phòng dùng giao diện desktop thu nhỏ, app khách chỉ tiếng Việt (HR-01, HR-02, HR-03).
-  2. **Phòng ngừa lỗi tiền/pháp lý dựa vào trí nhớ người dùng** – phụ thu mặc định, hủy giữ chỗ không xác nhận, kiểm hạn hộ chiếu giả (HR-04, HR-06, HR-07).
+  2. **Phòng ngừa lỗi tiền/pháp lý dựa vào trí nhớ người dùng** – phụ thu mặc định, hủy giữ chỗ không xác nhận, kiểm hạn hộ chiếu giả, khóa phòng không chặn bán (HR-04, HR-06, HR-07, HR-20).
   3. **Mất dữ liệu khi bị ngắt quãng** – Esc/bấm nền đóng modal không hỏi (HR-05).
   4. **Khả năng tiếp cận**: focus không quản lý trong modal/drawer, chữ màu `--faint` tương phản 2,65:1, vùng chạm nhỏ, trạng thái truyền bằng màu (HR-08, HR-10, HR-11, HR-12).
 
@@ -41,7 +42,7 @@
 | Heuristic Nielsen | Số phát hiện | Mã |
 |---|:-:|---|
 | H1 Hiển thị trạng thái hệ thống | 3 | HR-09, HR-15, HR-16 |
-| H2 Khớp với thế giới thực | 4 | HR-01, HR-13, HR-14, HR-25 |
+| H2 Khớp với thế giới thực | 5 | HR-01, HR-13a, HR-13b, HR-14, HR-25 |
 | H3 Quyền kiểm soát và tự do | 2 | HR-05, HR-17 |
 | H4 Nhất quán và chuẩn | 2 | HR-18, HR-19 |
 | H5 Phòng ngừa lỗi | 4 | HR-04, HR-06, HR-07, HR-20 |
@@ -102,12 +103,19 @@
 - Ảnh hưởng: P2 tin vào dấu tích xanh → không kiểm tay; rủi ro nhận khách hộ chiếu hết hạn, khai báo sai.
 - Đề xuất: không hiển thị dấu "Khớp" khi hệ thống chưa thật sự kiểm; dùng 3 trạng thái **Đạt / Không đạt / Chưa kiểm được (cần kiểm tay)**. → UXD (component trạng thái kiểm tra), BE/QA (Round 2).
 
+**HR-20 – Khóa phòng từ phiếu sửa chữa không chặn bán nhưng giao diện cho cảm giác đã khóa**
+- Mức: **Blocker** (nâng từ Major ở v0.2 – bán nhầm phòng hỏng = sai nghiệp vụ nghiêm trọng, phải đổi phòng/hoàn tiền; cùng loại hậu quả với HR-06) · H5; H1
+- Bằng chứng: tick "Khoá phòng đến khi sửa xong" chỉ đổi trạng thái buồng = OOO, không tạo đơn khóa → rack và phòng trống OTA vẫn coi là trống (BL 8.2 #5).
+- Ảnh hưởng: P3 tin đã khóa; P2 đặt khách vào phòng hỏng; P7 nhận phòng hỏng.
+- Đề xuất: giao diện chỉ báo "Đã khóa – ngừng bán trên mọi kênh" khi hệ thống thật sự đã chặn (server xác nhận); hiện khoảng ngày khóa trên rack; mở bán lại chỉ sau sửa xong + kiểm phòng. PO nên có AC mức Must "khóa phòng chặn tồn trên mọi kênh". → UXD (L6/L2 – đã đưa vào), BA (state machine), BE.
+
 ### Major
 
 **HR-02 – Buồng phòng/bảo trì dùng giao diện desktop thu nhỏ**
 - Mức: **Major** · H7 Linh hoạt & hiệu quả; WCAG 2.5.8
 - Bằng chứng: ≤900px chỉ ẩn sidebar, thêm tab dưới cuộn ngang 9–11 mục, chữ 10,5px (dòng 78); thẻ buồng dùng nút `.btn.sm` ≈ 26px; ô nhập minibar `type=number` 64–96px (dòng 1327; BL 8.3); phiếu sửa là bảng nhiều cột (dòng 693).
 - Ảnh hưởng: P3 (tay ướt, một tay, mắt kém – H-05, H-07).
+- Lý do xếp Major (không phải Blocker): nút 26px vẫn **đạt** tối thiểu 24px của WCAG 2.5.8 và nhân viên vẫn hoàn thành được việc (chậm, dễ bấm nhầm), tức là chưa đến mức "một nhóm người dùng chính không dùng được". Sẽ nâng Blocker nếu buổi thử H-05 cho kết quả 0/3 do giao diện.
 - Đề xuất: giao diện mobile riêng cho vai buồng phòng: "Việc của tôi" 1 cột, nút ≥ 48px, nút +/− cho minibar, chụp ảnh báo hỏng, thao tác offline. → UXD (L6), ARC (offline/PWA).
 
 **HR-03 – Không có điều hướng theo vai: mọi vai thấy cùng dashboard tài chính**
@@ -130,7 +138,7 @@
 
 **HR-09 – Phản hồi quan trọng chỉ là toast 2,8 giây**
 - Mức: **Major** · H1; WCAG 2.2.1 Timing Adjustable, 4.1.3
-- Bằng chứng: `toast()` tự xóa sau 2.800 ms (dòng 523); được dùng cho cả thông tin quan trọng: "nhớ khai báo trước 23:00" sau nhận phòng (BL 3.6), "Căn vừa có người đặt" (dòng 950), "Đã tạo … đã gửi link thanh toán" (dòng 958).
+- Bằng chứng: `toast()` tự xóa sau 2.800 ms (dòng 523); được dùng cho cả thông tin quan trọng: "nhớ khai báo trước 23:00" sau nhận phòng (BL 3.6 – mốc này còn **sai** với khách NN, hạn theo BR-603), "Căn vừa có người đặt" (dòng 950), "Đã tạo … đã gửi link thanh toán" (dòng 958).
 - Ảnh hưởng: P2 (đang nhìn khách, không nhìn màn hình), người đọc chậm/lớn tuổi.
 - Đề xuất: toast chỉ cho xác nhận thường; nhắc việc pháp lý/tiền thì thành **mục việc bền vững** trên dashboard đến khi xử lý xong; toast có nút đóng và thời gian ≥ 5 giây hoặc dừng khi rê chuột. → UXD.
 
@@ -147,16 +155,16 @@
 - Đề xuất: mọi trạng thái có **nhãn chữ + icon**; thanh rack có tiền tố ngắn (ví dụ biểu tượng ổ khóa cho OOO, đồng hồ cát cho giữ chỗ); chú giải màu luôn hiển thị; kiểm tra bằng mô phỏng mù màu. → UXD.
 
 **HR-12 – Biểu đồ không có dữ liệu thay thế; tooltip chỉ theo chuột**
-- Mức: **Major** (với chủ đầu tư dùng điện thoại – không có chuột) · WCAG 1.1.1, 1.4.13
+- Mức: **Major nếu H-01 đúng** (chủ đầu tư xem chủ yếu trên điện thoại – không có chuột); **Minor nếu H-01 sai** (xem chủ yếu trên laptop). Sẽ chốt lại sau ESC-003 · WCAG 1.1.1, 1.4.13
 - Bằng chứng: biểu đồ công suất SVG tooltip khi rê chuột (BL 3.2); `.hbar` dùng `title` (dòng 563).
 - Ảnh hưởng: P1 trên điện thoại (H-01) không xem được số từng ngày.
 - Đề xuất: chạm để xem giá trị; nút "Xem dạng bảng"; số chính in thẳng trên biểu đồ. → UXD, DATA.
 
-**HR-13 – Thuật ngữ khách sạn (VC/VI/VD/OD/OOO, FOC, ADR, RevPAR) không giải thích cho người không chuyên**
-- Mức: **Major** cho giao diện buồng phòng; Minor cho chủ đầu tư · H2
-- Bằng chứng: chip trạng thái buồng hiển thị mã kèm nhãn ngắn (BL 4.5); nút chuyển trạng thái theo mã (BL 5.15); "FOC" xuất hiện trên bill và form.
-- Ảnh hưởng: P3 (H-06), khách thấy chữ "FOC" trên bill (P5, P7).
-- Đề xuất: giao diện buồng phòng dùng câu thường ("Cần dọn", "Đang dọn", "Sẵn sàng đón khách"), mã chỉ hiện trong giao diện quản lý; trên bill khách ghi "Miễn phí" thay vì "FOC". → UXD (content-guide).
+**HR-13a – Mã trạng thái buồng (VC/VI/VD/OD/OOO) trên giao diện buồng phòng**
+- Mức: **Major** · H2
+- Bằng chứng: chip trạng thái buồng hiển thị mã kèm nhãn ngắn (BL 4.5); nút chuyển trạng thái theo mã (BL 5.15).
+- Ảnh hưởng: P3 (H-06) – đổi trạng thái sai.
+- Đề xuất: giao diện buồng phòng dùng câu thường ("Cần dọn", "Đang dọn", "Sẵn sàng đón khách"), mã chỉ hiện trong giao diện quản lý. → UXD (content-guide). Trạng thái: UXD đã áp dụng (decision-log).
 
 **HR-14 – Hóa đơn/tiền điện nước dài hạn không đủ minh bạch cho khách**
 - Mức: **Major** · H2; H1
@@ -164,19 +172,19 @@
 - Ảnh hưởng: P6 (tranh chấp tiền), P3 (ghi sai không ai phát hiện).
 - Đề xuất: hóa đơn tháng có kỳ chốt, chỉ số đầu/cuối + ảnh; cảnh báo bất thường khi nhập; màn trả phòng dài hạn có bảng ký quỹ. → UXD (L4 biến thể, L7), DOM (BR ký quỹ).
 
-**HR-20 – Khóa phòng từ phiếu sửa chữa không chặn bán nhưng giao diện cho cảm giác đã khóa**
-- Mức: **Major** (bán nhầm phòng hỏng) · H5; H1
-- Bằng chứng: tick "Khoá phòng đến khi sửa xong" chỉ đổi trạng thái buồng = OOO, không tạo đơn khóa → rack và phòng trống OTA vẫn coi là trống (BL 8.2 #5).
-- Ảnh hưởng: P3 tin đã khóa; P2 đặt khách vào phòng hỏng; P7 nhận phòng hỏng.
-- Đề xuất: giao diện chỉ báo "Đã khóa – ngừng bán trên mọi kênh" khi hệ thống thật sự đã chặn; hiện khoảng ngày khóa trên rack. → UXD, BA (state machine), BE.
-
 **HR-21 – Lễ tân phải nhớ và chép dữ liệu khai báo sang cổng Bộ Công an**
 - Mức: **Major** · H6 Nhận biết hơn nhớ lại; H7
 - Bằng chứng: Modal khai báo 3 bước: sao chép text → mở cổng ngoài → dán mã hồ sơ tay (BL 3.11). Không nhắc lại nếu bỏ dở.
 - Ảnh hưởng: P2 (J3 14:00), đặc biệt ca tối (H-04).
-- Đề xuất: giữ bán tự động (chờ INT) nhưng: sao chép từng trường theo đúng thứ tự form của cổng; trạng thái "Đã mở cổng – chưa dán mã" có nhắc theo mốc giờ; danh sách khai báo còn thiếu luôn hiện trên dashboard lễ tân. → UXD (L3), INT.
+- Đề xuất: giữ bán tự động (chờ INT) nhưng: sao chép từng trường theo đúng thứ tự form của cổng; trạng thái "Đã mở cổng – chưa dán mã" có nhắc theo **thời gian còn lại tới hạn của từng khách** (BR-602 khách VN 23:00; BR-603 khách NN giờ đến + 12 giờ); danh sách khai báo còn thiếu luôn hiện trên dashboard lễ tân. → UXD (L3), INT.
 
 ### Minor
+
+**HR-13b – Thuật ngữ FOC, ADR, RevPAR với chủ đầu tư và chữ "FOC" trên bill khách**
+- Mức: Minor · H2
+- Bằng chứng: "FOC" xuất hiện trên bill và form; KPI ADR/RevPAR không có giải thích (BL 3.2).
+- Ảnh hưởng: P1 (hiểu được nhưng chậm), khách thấy chữ "FOC" trên bill (P5, P7).
+- Đề xuất: trên bill khách ghi "Miễn phí" thay vì "FOC"; KPI có chú giải ngắn khi chạm. → UXD (content-guide), DATA.
 
 **HR-15 – Không thấy tiến độ đồng bộ kênh thật / lỗi đồng bộ**
 - Mức: Minor (prototype giả lập; sẽ thành Major khi có channel manager) · H1
@@ -224,13 +232,13 @@
 - Mức: Suggestion · H2
 - Bằng chứng/đề xuất: Bill đã có song ngữ + quy đổi USD cho khách NN: nên mở rộng sang tiếng Nga và cho chọn ngôn ngữ bill theo hồ sơ khách. → UXD (Suggestion).
 
-> Ghi chú đếm: tổng 25 = 4 Blocker (HR-01, 04, 06, 07) + 12 Major (HR-02, 03, 05, 08, 09, 10, 11, 12, 13, 14, 20, 21) + 7 Minor (HR-15, 16, 17, 18, 19, 22, 24) + 2 Suggestion (HR-23, 25). Thứ tự mã theo nhóm heuristic, không theo mức.
+> Ghi chú đếm (v0.2): tổng 26 = 5 Blocker (HR-01, 04, 06, 07, 20) + 11 Major (HR-02, 03, 05, 08, 09, 10, 11, 12, 13a, 14, 21) + 8 Minor (HR-13b, 15, 16, 17, 18, 19, 22, 24) + 2 Suggestion (HR-23, 25). Thứ tự mã theo nhóm heuristic, không theo mức.
 
 ---
 
 ## 5. Điểm làm tốt – nên giữ trong sản phẩm thật
 
-1. **Ngôn ngữ nghiệp vụ gần thực tế Việt Nam** và ghi chú ngay trong giao diện (giờ nhận/trả, hạn khai báo 23:00, thu trực tiếp khi khách OTA gia hạn) – giúp người mới hiểu "vì sao" (H10).
+1. **Ngôn ngữ nghiệp vụ gần thực tế Việt Nam** và ghi chú ngay trong giao diện (giờ nhận/trả, hạn khai báo – lưu ý mốc 23:00 chỉ đúng với khách VN, khách NN theo BR-603, thu trực tiếp khi khách OTA gia hạn) – giúp người mới hiểu "vì sao" (H10).
 2. **Thẻ "Khách trả phòng hôm nay chưa trả"** đổi trạng thái theo giờ (đã nhắc → gọi điện → quá giờ) – ví dụ tốt của H1 hiển thị trạng thái theo ngữ cảnh.
 3. **Trả phòng 3 bước có "← Sửa lại"** trước khi thu tiền (dòng 1449) – phòng ngừa lỗi tốt; nên áp dụng mẫu này cho nhận phòng.
 4. **Kiểm trùng lịch báo rõ tên khách và khoảng ngày trùng**, gợi ý căn trống thay thế – thông báo lỗi giúp tự sửa (H9).
@@ -242,7 +250,7 @@
 ## 6. Việc tiếp theo
 
 - UXD: dùng mục 3 + mục 4 làm checklist khi viết `design-system.md` (quy tắc a11y) và wireframe L1–L8. UXR sẽ review lại theo đúng các mã HR này ở bước 3 (`rounds/round-01/reviews/UXR-on-UXD.md`).
-- PO: các Blocker HR-01, HR-04, HR-06, HR-07 nên có tiêu chí nghiệm thu tương ứng trong backlog (đề xuất, không phải quyết định của UXR).
+- PO: các Blocker HR-01, HR-04, HR-06, HR-07, **HR-20** nên có tiêu chí nghiệm thu tương ứng trong backlog (đề xuất, không phải quyết định của UXR).
 - QA: dùng bảng mục 3 làm test case a11y cơ bản (bàn phím, tương phản, lang, focus).
 - Round 2: UXR chạy "test kịch bản" theo persona trên wireframe/bản build và soạn `real-user-test-guide.md` để INV test với 3–5 người thật.
 
@@ -250,3 +258,4 @@
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
 | 0.1 | 15/10/2026 | UXR | Bản đầu |
+| 0.2 | 15/10/2026 | UXR | Bước 4 R1: HR-20 nâng Blocker; tách HR-13 → HR-13a (Major) / HR-13b (Minor); ghi lý do HR-02 Major; HR-12 Major/Minor theo H-01; nhắc khai báo theo BR-602/603; ghi rõ phần chưa bao phủ (tối, trạng thái, check-in online) dời R2. Theo FB-R1-UXD-UXR-05, -10 |

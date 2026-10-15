@@ -11,11 +11,11 @@ Brief ban đầu: `00-brief/investor-brief.md` (có thể sửa trực tiếp tr
 
 ## Chạy sản phẩm ở máy local (dành cho dev)
 
-Cần Node 22, pnpm 9 (qua Corepack) và Docker. Chi tiết: `product/docs/dev-setup.md`.
+Cần Node 22 (tối thiểu 22.12), pnpm 9 (qua Corepack) và Docker. Chi tiết: `product/docs/dev-setup.md`.
 
 ```bash
 cd product
-cp .env.example .env        # sửa POSTGRES_PASSWORD (giá trị dev, không dùng mật khẩu thật)
+cp .env.example .env        # giá trị mẫu chạy được ở máy dev; đổi mật khẩu thì đổi cho khớp từng cặp (dev-setup mục 2)
 pnpm install
 pnpm dev                    # 1 lệnh: PostgreSQL + api + worker + web (Docker Compose)
 curl http://localhost:3000/health

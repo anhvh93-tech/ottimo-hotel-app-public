@@ -1,4 +1,5 @@
 # OPS choice for dependency updates (ADR-012: Dependabot or Renovate) – Dependabot, free and built-in.
+# github-actions and docker updates also refresh the SHA / digest pins (FB-R1-SEC-OPS-04/07).
 version: 2
 updates:
   - package-ecosystem: npm
@@ -15,5 +16,9 @@ updates:
       interval: monthly
   - package-ecosystem: docker
     directory: /product/infra/docker
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker-compose
+    directory: /product/infra
     schedule:
       interval: monthly

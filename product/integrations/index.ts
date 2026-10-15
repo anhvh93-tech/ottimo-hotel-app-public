@@ -1,2 +1,2 @@
-export type * from './notification/types.js';
-export { MockNotificationAdapter } from './notification/mock.js';
+export * from './contracts/index.js';
+export { MockNotificationAdapter, type MockSentRecord } from './notification/mock.js';

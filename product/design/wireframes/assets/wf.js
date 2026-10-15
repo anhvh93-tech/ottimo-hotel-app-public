@@ -1,4 +1,4 @@
-/* Wireframe helpers – OTTIMO DS v0.1. Not production code.
+/* Wireframe helpers – OTTIMO DS v0.3 (R1 bước 4). Not production code.
    - State switcher: buttons [data-set-state="loading|empty|error|offline|normal"] change [data-state] on every .stateful (or the one named in data-target).
    - Theme switcher: [data-set-theme="light|dark|auto"].
    - Language: [data-set-lang="vi|en|ru"] replaces text of [data-i18n="key"] using window.OTTIMO_STRINGS (fallback en -> vi).
@@ -13,10 +13,16 @@
     (root || document).querySelectorAll('[data-i18n]').forEach(function (el) {
       var args = {}; try { args = JSON.parse(el.getAttribute('data-i18n-args') || '{}'); } catch (e) {}
       el.textContent = fmt(t(lang, el.getAttribute('data-i18n')), args);
-      if (lang === 'ru' && !(S.ru && S.ru[el.getAttribute('data-i18n')])) el.setAttribute('data-fallback', 'en'); else el.removeAttribute('data-fallback');
+      // FB-R1-UXR-UXD-06d: a string that falls back to EN must carry lang="en" so screen readers switch voice (WCAG 3.1.2)
+      var fb = lang !== 'vi' && !(S[lang] && S[lang][el.getAttribute('data-i18n')]);
+      var fbLang = fb ? ((S.en && S.en[el.getAttribute('data-i18n')]) ? 'en' : 'vi') : null;
+      if (fbLang && fbLang !== lang) { el.setAttribute('data-fallback', fbLang); el.setAttribute('lang', fbLang); }
+      else { el.removeAttribute('data-fallback'); el.removeAttribute('lang'); }
     });
     var scope = root && root !== document ? root : document.documentElement;
     scope.setAttribute('lang', lang);
+    // Banners that only make sense in one language (e.g. "Русская версия скоро")
+    (root || document).querySelectorAll('[data-only-lang]').forEach(function (el) { el.classList.toggle('on', el.getAttribute('data-only-lang') === lang); });
     document.querySelectorAll('[data-set-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang)); });
   }
 

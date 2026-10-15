@@ -1,0 +1,20 @@
+# gitleaks configuration (FB-R1-ARC-OPS-02 point 3). Used by the `secrets-scan` CI job.
+# Default rules stay ON; the allowlist only covers known, reviewed non-secrets. Each entry has a reason.
+title = "OTTIMO Desk gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed false positives – see .github/gitleaks.toml comments"
+paths = [
+  # Round-0 prototype kept for reference only (217 KB single HTML, no backend, no real keys).
+  '''product/legacy/''',
+  # Lockfile integrity hashes (sha512-…) look like high-entropy keys.
+  '''product/pnpm-lock\.yaml''',
+]
+regexes = [
+  # Dev/CI-only placeholder passwords in .env.example, compose, CI and docs (never valid anywhere else).
+  '''change_me_[a-z_]*dev_only''',
+  '''ci_[a-z]*_?only''',
+]

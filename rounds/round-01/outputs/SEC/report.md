@@ -149,3 +149,32 @@ Không có ESC "Gấp". Các quyết định khác ở mục 6 thuộc quyền k
 - Bước 5: chuyển 25 phát hiện vào `qa/bug-list.md` cùng QA; soát lại OpenAPI/ERD sau khi ARC sửa.
 - Round 2: review code theo OWASP Top 10 / MASVS (PWA), kiểm các SR mức R2.
 - Round 3: kiểm tra bảo mật tổng, báo cáo rủi ro còn lại, bản nháp hồ sơ đánh giá tác động.
+
+---
+
+# Báo cáo SEC – Round 1 · Bước 4 Phản hồi & Sửa
+
+## 1. Đã làm gì
+- Trả lời 10/10 thẻ của `reviews/ARC-on-SEC.md` trong `responses/SEC-responses.md`: **10 Done**, 0 Rejected/Deferred/Escalated; 2 thẻ Major (01, 03) đã xử lý xong.
+- Thực thi PHÂN XỬ ORC: (a) nhận phòng khuya – thiết bị di động **của cơ sở** được cấp C3 theo checklist di động (SR-DEV-08), máy cá nhân/PWA không bao giờ (SR-DEV-09), luồng khách đến khuya (SR-GST-15, threat-model 6.4); (b) mã xác minh lễ tân qua hộp thư OTA/Zalo, mặc định tắt, OWN bật theo kênh (SR-GST-13), TM-21 cập nhật + TM-61 mới; (c) ô email không bắt buộc (SR-GST-14).
+- Áp mã sinh nhật `ddmm` + ≥ 3 số (SR-LOCK-02, TM-38, DRA F05); thêm câu hỏi luật sư Q11 về lưu ý sức khỏe D12 (PO gom ESC-001); sửa câu chữ "xóa bằng hủy khóa" trong DRA mục 7 và 13.
+- Kiểm khả thi ý ARC: không thêm chi phí hạ tầng; chỉnh 2 chi tiết kỹ thuật trong đề xuất SR-KEY-10 (chủ tệp secrets = UID container; Compose không-swarm dùng bind mount chỉ đọc, không tmpfs).
+- Threat model: 62 mối đe dọa (thêm TM-61, TM-62, cả hai High → Medium); 28/28 Critical/High có biện pháp; vẫn 2 High còn lại (TM-13, TM-17).
+
+## 2. File đã tạo/sửa
+- Tạo: `rounds/round-01/responses/SEC-responses.md` (có mục "Dòng decision-log đề xuất")
+- Sửa: `product/docs/security/security-requirements.md` (v0.2), `product/docs/security/threat-model.md` (v0.2), `product/docs/security/data-risk-assessment.md` (v0.2, thêm mục 15 lịch sử)
+- Sửa: file này (thêm phần Bước 4)
+
+## 3. Giả định
+- `[GIẢ ĐỊNH]` Mã xác minh qua kênh OTA/Zalo ở MVP gửi tay (chưa có API nhắn OTA/ZNS); extranet OTA cho nhắn vào hội thoại từng đơn – INT xác minh.
+- `[GIẢ ĐỊNH – chưa xác minh trên máy thật]` Safari iPhone giải mã được HEIC vào `canvas`; MOB/QA thử R2, nếu không thì dùng nút Chụp trong app.
+- `[GIẢ ĐỊNH]` Hạn mã xác minh qua kênh 15 phút (tối đa 30) là tham số SEC; chỉnh sau khi UXR có số liệu.
+
+## 4. Rủi ro / vướng mắc
+- Khi owner **bật** gửi mã qua kênh, mức 2 chỉ chứng minh "người giữ kênh của đơn" (TM-21/TM-61, Medium) – ORC nêu trong round-summary cho INV (threat-model mục 9).
+- Phụ thuộc vai khác ở bước 4 (SEC không sửa file của họ): ARC – tham số `guest_verify_code_channels`, endpoint cấp mã qua kênh, cột `trusted_device.device_kind`, mẫu `verify_code`; INT – giá trị `off` cho cổng; UXD – ô email, nhãn "đơn chưa có email", lựa chọn "Gửi qua <kênh>"; BA/DOM – luồng khách đến khuya theo SR-GST-15; PO – sửa ESC-011 phương án A ("+ 2 số" → "+ ≥ 3 số"), gom Q11 vào ESC-001; câu "ai trực đêm, thiết bị gì" vào ESC-010 (theo ORC).
+
+## 5. Việc chưa xong
+- Bước 5: soát lại OpenAPI/ERD sau khi ARC sửa (SR-GST-13/14, SR-DEV-08, SR-FILE-01), chuyển phát hiện vào `qa/bug-list.md`.
+- Dự thảo ESC kiểm thử bảo mật độc lập: đã được ORC dời trình INV cuối Round 2.

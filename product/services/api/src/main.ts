@@ -1,35 +1,29 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import { clockFromEnv } from './clock';
+import { loadConfig, resolveFileSecrets } from './config';
 import { PgPinger } from './db';
+import { createHttpAdapter } from './http';
 
 async function bootstrap(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required (see product/.env.example)');
-  }
-  const db = new PgPinger(databaseUrl);
+  // Fails fast (exit 1) on weak/missing secrets, bad APP_ENV, or clock/mock overrides in production.
+  const env = resolveFileSecrets(process.env);
+  const config = loadConfig(env);
+  const db = new PgPinger(config.databaseUrl);
 
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule.register({ clock: clockFromEnv(process.env), db }),
-    new FastifyAdapter({
-      logger: {
-        level: process.env.LOG_LEVEL ?? 'info',
-        // Never log credentials or guest tokens (SEC, architecture.md section 10).
-        redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
-      },
-      trustProxy: true,
-    }),
+    AppModule.register({ clock: clockFromEnv(env), db }),
+    createHttpAdapter({ logLevel: config.logLevel, trustProxy: config.trustProxy }),
   );
   app.enableShutdownHooks();
 
-  const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port, '0.0.0.0');
+  await app.listen(config.port, '0.0.0.0');
 }
 
 bootstrap().catch((err: unknown) => {
-  console.error(err);
+  // Print only the message: a ConfigError never contains secret values.
+  console.error(err instanceof Error ? `${err.name}: ${err.message}` : err);
   process.exit(1);
 });

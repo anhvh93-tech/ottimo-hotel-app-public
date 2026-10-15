@@ -3,12 +3,13 @@
  * R1 skeleton: only proves the process starts and stops cleanly.
  * R2: pg-boss scheduler, outbox dispatcher, inbox processor (architecture.md section 9).
  */
+import { loadConfig, resolveFileSecrets } from './config';
 import { PgPinger } from './db';
 
 async function main(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error('DATABASE_URL is required');
-  const db = new PgPinger(databaseUrl);
+  // Same startup check as the api (SR-SECR-05).
+  const config = loadConfig(resolveFileSecrets(process.env));
+  const db = new PgPinger(config.databaseUrl);
   const ok = await db.ping();
   console.log(
     JSON.stringify({ level: 'info', msg: 'worker started (skeleton)', db: ok ? 'ok' : 'down' }),
@@ -26,6 +27,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err);
+  console.error(err instanceof Error ? `${err.name}: ${err.message}` : err);
   process.exit(1);
 });

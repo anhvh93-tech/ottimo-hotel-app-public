@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 # Static SPAs (admin-web, mobile PWA, guest-web) served by Caddy (ADR-004). Build context = product/
-FROM node:22-alpine AS build
+# The Caddyfile is NOT baked in: compose mounts Caddyfile.dev (dev) or the production Caddyfile (R2)
+# at /etc/caddy/Caddyfile (FB-R1-ARC-OPS-07).
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
 RUN npm install -g pnpm@9.15.4
 WORKDIR /repo
 COPY . .
@@ -8,9 +10,18 @@ RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
     else echo "WARNING: pnpm-lock.yaml missing - non-reproducible install" && pnpm install --no-frozen-lockfile; fi
 RUN pnpm exec turbo run build --filter=./apps/*
 
-FROM caddy:2-alpine AS runtime
-COPY infra/caddy/Caddyfile.dev /etc/caddy/Caddyfile
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS runtime
+# Run as an unprivileged user (FB-R1-SEC-OPS-07). Caddy only listens on ports > 1024 inside the
+# container, so the binary's cap_net_bind_service is removed (it would also break cap_drop: [ALL]).
+RUN apk add --no-cache libcap \
+    && setcap -r /usr/bin/caddy \
+    && apk del libcap \
+    && mkdir -p /home/caddy/data /home/caddy/config \
+    && chown -R 10001:10001 /home/caddy
+ENV XDG_DATA_HOME=/home/caddy/data \
+    XDG_CONFIG_HOME=/home/caddy/config
 COPY --from=build /repo/apps/admin-web/dist /srv/admin-web
 COPY --from=build /repo/apps/mobile/dist /srv/mobile
 COPY --from=build /repo/apps/guest-web/dist /srv/guest-web
+USER 10001:10001
 EXPOSE 8081 8082 8083

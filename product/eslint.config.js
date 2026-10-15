@@ -4,6 +4,13 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+
+// Money must never go through float parsing (ADR-002, BR-005).
+const noFloatMoney = {
+  selector: "CallExpression[callee.object.name='Number'][callee.property.name='parseFloat']",
+  message: 'Money is integer VND – do not Number.parseFloat (ADR-002).',
+};
 
 export default tseslint.config(
   {
@@ -25,20 +32,22 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.browser },
     },
     rules: {
-      // Money must never go through float parsing (ADR-002, BR-005).
       'no-restricted-globals': [
         'error',
         { name: 'parseFloat', message: 'Money is integer VND – do not parseFloat (ADR-002).' },
       ],
+      'no-restricted-syntax': ['error', noFloatMoney],
     },
   },
   {
     files: ['services/**/*.ts', 'integrations/**/*.ts'],
-    ignores: ['**/clock.ts', '**/*.test.ts'],
+    // Only the one real Clock implementation may read the system time.
+    ignores: ['services/api/src/clock.ts', '**/*.test.ts'],
     rules: {
-      // Time only via Clock (ADR-008).
+      // Time only via Clock (ADR-008). Repeats noFloatMoney because this block replaces the option list.
       'no-restricted-syntax': [
         'error',
+        noFloatMoney,
         {
           selector: "NewExpression[callee.name='Date'][arguments.length=0]",
           message: 'Use the injected Clock instead of new Date() (ADR-008).',
@@ -54,5 +63,10 @@ export default tseslint.config(
     files: ['apps/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
+  },
+  {
+    // Accessibility lint (ADR-012, BL 8.3).
+    ...jsxA11y.flatConfigs.recommended,
+    files: ['apps/**/*.tsx'],
   },
 );

@@ -22,9 +22,13 @@ export class FixedClock implements Clock {
   }
 }
 
+/** APP_ENVs where CLOCK_OVERRIDE is honoured – APP_ENV, not NODE_ENV (FB-R1-SEC-OPS-09). */
+const CLOCK_OVERRIDE_ENVS = ['dev', 'test', 'staging'];
+
 export function clockFromEnv(env: NodeJS.ProcessEnv): Clock {
   const override = env.CLOCK_OVERRIDE;
-  if (override && env.NODE_ENV !== 'production') {
+  // Unknown or missing APP_ENV never enables the override (config.ts also rejects it at startup).
+  if (override && CLOCK_OVERRIDE_ENVS.includes(env.APP_ENV ?? '')) {
     const d = new Date(override);
     if (Number.isNaN(d.getTime())) throw new Error('CLOCK_OVERRIDE is not a valid ISO date');
     return new FixedClock(d);
