@@ -36,3 +36,7 @@
 ## Hệ quả
 - Tốt: PRD S1 "0 đặt trùng do hệ thống" được bảo đảm bởi DB, test được bằng test đồng thời (QA: 2 request song song → đúng 1 thành công).
 - Phải chấp nhận: đơn OTA chưa gán căn không tồn tại – mọi đơn phải gán căn ngay (phù hợp quy mô 10 căn); đổi căn phải qua API đổi phòng (không sửa tay).
+
+## Cập nhật Pha B (15/10/2026)
+- Điểm 5 chốt theo BA (`state-machines.md` 1.3): **không** thêm trạng thái; đơn OTA không còn căn được tạo `confirmed` với `reservation.conflict_state = 'open'`, segment `room_id = NULL`, không chèn `room_occupancy`; xử lý bằng B7/B14 (`erd.md` mục 7). Câu "đơn OTA chưa gán căn không tồn tại" ở phần Hệ quả được thay bằng: chỉ đơn kênh OTA xung đột mới được tồn tại ở trạng thái chưa gán căn, và không nhận phòng được cho tới khi gán.
+- Tên bảng chốt: `room_occupancy`, `reservation_segment`, `idempotency_key` (erd mục 4.5, 4.12).

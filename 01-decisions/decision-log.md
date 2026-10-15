@@ -94,3 +94,9 @@
 | 2026-10-15 | 1 | Tiêu chí nghiệm thu chỉ tham chiếu mã BR ("khớp ví dụ BR-xxx"), không chép con số quy tắc; dùng tên trạng thái `state-machines.md` và mã vai `rbac-matrix.md` | PO | QC B1, B3 |
 | 2026-10-15 | 1 | Mọi hành động không đảo ngược có hộp xác nhận nêu hậu quả (US-135) | PO | HR-06 (Blocker UXR) |
 | 2026-10-15 | 1 | Chấp nhận ESC-002 và ESC-012 có "câu phụ" (hosting + tên miền; logo) để giữ tổng ESC ≤ 12 – mỗi câu phụ có phương án và đề xuất riêng | ORC | Bảo vệ thời gian INV; cùng chủ đề |
+| 2026-10-15 | 1 | ERD: bảng số ít snake_case, tiền `bigint` VND, enum `text + CHECK` đúng tên trạng thái BA, UUIDv7, không xóa cứng dữ liệu nghiệp vụ, RLS theo `property_id`/`organization_id` cho mọi bảng | ARC | `erd.md` mục 1–2 |
+| 2026-10-15 | 1 | Đơn OTA xung đột: giữ `confirmed` + `conflict_state`, segment chưa gán căn, không chèn `room_occupancy`; xử lý bằng đổi căn/đổi phòng; không nhận phòng khi chưa gán | ARC (khớp BA) | BR-312, ADR-009, `erd.md` mục 7 |
+| 2026-10-15 | 1 | Mã chứng từ cấp bằng bảng `doc_sequence` khóa hàng trong cùng giao dịch; số bill cấp khi folio `settled` | ARC | BR-007, BL 8.2 #18 |
+| 2026-10-15 | 1 | Job theo lịch: đúng một lần qua `job_run`, chạy bù có giới hạn, đọc tham số khi chạy, không tự đánh dấu no-show | ARC | architecture 9.1 |
+| 2026-10-15 | 1 | Chuẩn API: RFC 9457 + `code`, phân trang con trỏ, `Idempotency-Key` bắt buộc cho POST ghi, `If-Match` cho sửa/chuyển trạng thái, phân quyền khai báo bằng `x-roles`/`x-scope`/`x-visible-to` | ARC | `openapi.yaml` info |
+| 2026-10-15 | 1 | Áp dụng `coding-standards.md` cho mọi mã từ R2 | ARC | Skill ARC, QC R1 |
