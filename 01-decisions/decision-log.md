@@ -113,3 +113,6 @@
 | 2026-10-15 | 1 | Lỗi máy chủ hiện "mã tham chiếu" = `requestId`; lỗi nghiệp vụ hiện theo chuỗi `error.<CODE>` (khớp `Problem.code` OpenAPI) | UXD | Thay mã lỗi minh họa đợt 2 |
 | 2026-10-15 | 1 | Design System v0.2: thêm C31 Code input, C32 Code display (OTP, mã xác minh, 2FA) | UXD | SEC SR-GST, SR-AUTH |
 | 2026-10-15 | 1 | Buồng phòng sau khi dọn hiển thị "Sạch – chờ kiểm" (CL→VC cần kiểm), không nhảy thẳng "Sẵn sàng" | UXD | state-machines SM buồng |
+| 2026-10-15 | 1 | Thang mức lỗi P0–P3 cho sản phẩm và tài liệu (test-strategy mục 8); lỗi tiền, tồn phòng, C3 mặc định là P0 | QA | Protocol – quyền QA |
+| 2026-10-15 | 1 | Tiêu chí ra R2: 100% TC ưu tiên Cao đạt, ≥ 95% TC TB đã chạy, 0 lỗi P0/P1 | QA | test-strategy |
+| 2026-10-15 | 1 | Bộ dữ liệu test DS-E/DS-0 (T0 = 15/10/2026); tài khoản test `qa.*`, mật khẩu chỉ nằm trong file seed; ma trận truy vết chỉ sinh bằng script | QA | test-strategy |
