@@ -12,3 +12,8 @@
 | 2026-10-15 | 0 | [GIẢ ĐỊNH] Cổng thanh toán: VietQR chuyển khoản + VNPay/MoMo | ORC | Giữ giả định trong brief, chờ INV xác nhận |
 | 2026-10-15 | 0 | [GIẢ ĐỊNH] Thiết kế sẵn đa cơ sở, MVP 1 cơ sở; chưa dùng POS | ORC | Giữ giả định trong brief, chờ INV xác nhận |
 | 2026-10-15 | 0 | [GIẢ ĐỊNH] Mô hình tài chính lấy theo số liệu tháng 9/2026 trong prototype cho đến khi INV bổ sung `00-brief/context/` | ORC | Không chặn Round 1 |
+| 2026-10-15 | 1 | DATA tham gia nhẹ ở Round 1 (chỉ `metrics-definitions.md`); tracking + dashboard để Round 3 | PO | Công thức chỉ số ảnh hưởng ERD (lỗi baseline 8.2 #8, #11, #22, #28, #29) |
+| 2026-10-15 | 1 | MOB, FE, BE không sản xuất ở Round 1, chỉ review | PO | Round 1 là round tài liệu/thiết kế |
+| 2026-10-15 | 1 | PO đề xuất ranh giới MVP trong PRD, trình ESC để INV xác nhận phạm vi | PO | Câu hỏi mở baseline mục 9 #21 |
+| 2026-10-15 | 1 | Ngôn ngữ: VI + EN bắt buộc; RU là ngôn ngữ thứ 3 (thay KR/CN của prototype) | PO | Brief mục 5: khách Nga nhiều, cần tin nhắn tiếng Nga |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] Mọi con số quy tắc ở baseline mục 5 là giá trị mặc định cấu hình được | PO | Sẽ xác nhận qua ESC cuối Round 1 |
