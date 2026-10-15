@@ -1,7 +1,7 @@
 # DEV ONLY – plain HTTP on localhost, mounted by infra/docker-compose.yml (not baked into the image).
 # No `log` directive on purpose: dev Caddy writes no access log, so no query strings or /g/* tokens.
 # Production Caddyfile (R2): TLS, CSP/HSTS/Referrer-Policy, 3 origins (SR-HDR-01..04), access log with
-# /g/* and query masked, /health restricted to internal/monitoring (FB-R1-SEC-OPS-11/12).
+# /g/* and every query string masked (incl. /v1/webhooks/* – VNPay GET IPN), /health restricted to internal/monitoring (FB-R1-SEC-OPS-11/12).
 {
 	admin off
 	auto_https off

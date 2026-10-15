@@ -108,7 +108,7 @@ def parse_backlog():
         sid = head.split()[0]
         titles[sid] = head.split('–', 1)[1].strip() if '–' in head else head
         acs[sid] = OrderedDict()
-        for m in re.finditer(r'^- (AC\d+): (.*)$', block, flags=re.M):
+        for m in re.finditer(r'^- (AC\d+)(?:\s*\*\([^)]*\)\*)?\s*:\s*(.*)$', block, flags=re.M):
             acs[sid][m.group(1)] = m.group(2)
     return stories, acs, titles, t
 
@@ -275,9 +275,12 @@ def parse_state_machines():
 
 def _expand_codes(seg: str) -> list[str]:
     out = []
-    for m in re.finditer(r'\b([A-Z])(\d{1,2})(?:\([a-z]\))?(?:\s*[–-]\s*\1?(\d{1,2}))?\b', seg):
+    for m in re.finditer(r'\b([A-Z])(\d{1,2})([a-z])?(?:\([a-z]\))?(?:\s*[–-]\s*\1?(\d{1,2}))?(?![\w])', seg):
         a = int(m.group(2))
-        b = int(m.group(3)) if m.group(3) else a
+        if m.group(3):  # B7a, B9a ...
+            out.append(f'{m.group(1)}{a}{m.group(3)}')
+            continue
+        b = int(m.group(4)) if m.group(4) else a
         if a <= b <= a + 20:
             out += [f'{m.group(1)}{n}' for n in range(a, b + 1)]
     return out
@@ -330,23 +333,11 @@ def _cell_allows(cell: str) -> str:
     return 'Y'
 
 
-def load_rbac():
-    """-> (actions: code -> {role: 'Y'|'M'|'R'|''}, fields: Dxx -> {role: 'full'|'partial'|'none'}, source)."""
-    if os.path.exists(RBAC_JSON):
-        data = json.loads(read(RBAC_JSON))
-        alias = {**{k: v for k, v in ROLE_CODES.items()}, **{v: v for v in ROLE_CODES.values()}}
-        acts = {}
-        for key in ('actions', 'screens'):
-            for code, cells in (data.get(key) or {}).items():
-                acts[code] = {alias.get(r, r): _cell_allows(str(v)) for r, v in cells.items() if alias.get(r, r) in ROLE_CODES.values()}
-        fields = {}
-        for code, cells in (data.get('fields') or {}).items():
-            fields[code] = {}
-            for r, v in cells.items():
-                for rr in r.split('/'):
-                    if alias.get(rr) in ROLE_CODES.values():
-                        fields[code][alias[rr]] = _field_level(str(v))
-        return acts, fields, 'rbac-matrix.json'
+JSON_LEVEL = {'allow': 'Y', 'own': 'M', 'today': 'Y', 'read': 'R', 'approval': 'Y', 'conditional': 'Y',
+              'guest_l1': 'Y', 'guest_l2': 'Y', 'guest_post': 'Y'}
+
+
+def _load_rbac_md():
     t = read(RBAC_MD)
     acts, fields = {}, {}
     header = None
@@ -376,7 +367,28 @@ def load_rbac():
                     if rr in ROLE_CODES:
                         row[ROLE_CODES[rr]] = _field_level(v)
             fields[code] = row
-    return acts, fields, 'rbac-matrix.md (mục 3, 4, 6)'
+    return acts, fields
+
+
+def load_rbac():
+    """-> (actions: code -> {role: 'Y'|'M'|'R'|''}, fields: Dxx -> {role: 'full'|'partial'|'none'},
+           op_actions: operationId -> [action codes] (from JSON, may be empty), source).
+    rbac-matrix.json (BA export, `actions[]` with `roles{role: allow|own|today|read|approval|conditional|guest_*}`
+    and `operationIds[]`) is preferred for A-xx; screens S-xx and fields Dxx still come from rbac-matrix.md."""
+    acts, fields = _load_rbac_md()
+    op_actions = defaultdict(list)
+    if os.path.exists(RBAC_JSON):
+        data = json.loads(read(RBAC_JSON))
+        for a in data.get('actions') or []:
+            row = {r: '' for r in ROLE_CODES.values()}
+            for role, lv in (a.get('roles') or {}).items():
+                if role in row:
+                    row[role] = JSON_LEVEL.get(str(lv), 'Y')
+            acts[a['id']] = row
+            for op in a.get('operationIds') or []:
+                op_actions[op].append(a['id'])
+        return acts, fields, op_actions, 'rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)'
+    return acts, fields, op_actions, 'rbac-matrix.md (mục 3, 4, 6)'
 
 
 def _field_level(v: str) -> str:
@@ -394,11 +406,14 @@ FIELD_MAP = {'dateOfBirth': 'D01', 'phone': 'D02', 'email': 'D02', 'phoneMasked'
              'payerName': 'D14', 'freeNote': 'D12', 'internalNote': 'D12'}
 
 
-def rbac_check(meta, visible, acts, fields):
+def rbac_check(meta, visible, acts, fields, op_actions=None):
     """Compare OpenAPI against rbac truth. Returns (op_rows, field_rows, unknown_codes)."""
     op_rows, unknown = [], []
     for op, m in sorted(meta.items()):
         codes = [c for c in m['rbac'] if re.fullmatch(r'[AS]\d{2,3}', c)]
+        for c in (op_actions or {}).get(op, []):  # JSON operationIds mapping complements x-rbac
+            if c not in codes:
+                codes.append(c)
         if not codes:
             continue
         missing_codes = [c for c in codes if c not in acts]
@@ -414,6 +429,8 @@ def rbac_check(meta, visible, acts, fields):
         if not exp:
             continue
         got = set(m['roles'])
+        if 'any_staff' in got:  # OpenAPI alias = every internal role
+            got = (got - {'any_staff'}) | {r for r in ROLE_CODES.values() if r != 'guest'}
         if 'guest' not in got:  # GST reaches its data only through /guest/* operations (ADR-006)
             exp.discard('guest')
         extra = sorted(got - exp)
@@ -497,8 +514,8 @@ def main(argv=None):
     tcs = parse_tcs()
     ops, ops_by_story, op_meta, visible = parse_openapi()
     sms = parse_state_machines()
-    acts, rfields, rbac_src = load_rbac()
-    op_bad, field_bad, rbac_unknown = rbac_check(op_meta, visible, acts, rfields)
+    acts, rfields, op_actions, rbac_src = load_rbac()
+    op_bad, field_bad, rbac_unknown = rbac_check(op_meta, visible, acts, rfields, op_actions)
     br_cat = parse_br_catalogue()
     triage = parse_triage()
     wf_hdr = parse_wireframes()
@@ -616,7 +633,7 @@ def main(argv=None):
     w(f'| AC có ≥ 1 TC | **{cov_ac}/{total_ac}** ({100*cov_ac/max(1,total_ac):.1f}%) |')
     w(f'| AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **{cov_ac_run}/{total_ac}** ({100*cov_ac_run/max(1,total_ac):.1f}%) |')
     w(f'| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | {sum(r["blocked"] for r in tcs)} · {sum(r["assumed"] for r in tcs)} (danh sách mục 5.7) |')
-    w(f'| Chuyển trạng thái (15 máy, `state-machines.md`) có ≥ 1 TC | **{cov_tr}/{total_tr}** ({100*cov_tr/max(1,total_tr):.1f}%) – chi tiết mục 7 |')
+    w(f'| Chuyển trạng thái ({len(sms)} máy, `state-machines.md`) có ≥ 1 TC | **{cov_tr}/{total_tr}** ({100*cov_tr/max(1,total_tr):.1f}%) – chi tiết mục 7 |')
     w(f'| Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | {len(bad_sm_refs)} |')
     w(f'| Kiểm tĩnh quyền (nguồn chuẩn: {rbac_src}): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | {len(op_bad)} · {len(field_bad)} – chi tiết mục 8 |')
     w(f'| Story Must R2 không có AC ở mục 4 | {len(no_ac_story)} {", ".join(no_ac_story)} |')
@@ -729,7 +746,7 @@ def main(argv=None):
     unused = sorted(o for o in ops if o not in {e for r in tcs for e in r['endpoints']})
     w('- ' + (', '.join(f'`{o}`' for o in unused) if unused else 'Không có.'))
     w('')
-    w('## 7. Chuyển trạng thái (15 máy) → test case')
+    w(f'## 7. Chuyển trạng thái ({len(sms)} máy) → test case')
     w('')
     w('Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã chuyển (B1…, O1…, R1…, W1…, K1…, H1…, T1…, Q1…, A1…); máy chưa có mã (SM-09, SM-11…SM-15) dùng khóa `từ→đến`. TC khai báo chuyển ở cột "Quy tắc" (`SM-10 A5`, `SM-14 open→cancelled`). Cột Endpoint lấy từ `x-transition` của OpenAPI.')
     w('')

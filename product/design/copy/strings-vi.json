@@ -582,7 +582,7 @@
   "auth.login.error_generic": "Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại.",
   "auth.login.username": "Số điện thoại hoặc email",
   "auth.code_label.totp": "Mã trong ứng dụng xác thực (6 số)",
-  "auth.code_label.recovery": "Mã khôi phục (10 ký tự)",
+  "auth.code_label.recovery": "Mã khôi phục (8 ký tự)",
   "auth.code_label.pin": "PIN duyệt của bạn (4–6 số)",
   "auth.code_label.guest": "Mã cấp cho khách",
   "auth.enroll.title": "Bật xác thực 2 bước",

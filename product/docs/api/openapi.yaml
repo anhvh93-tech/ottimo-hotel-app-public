@@ -317,8 +317,8 @@ paths:
     put:
       tags: [auth]
       operationId: setMyApprovalPin
-      summary: Đặt/đổi PIN duyệt 6 số (khác mật khẩu, argon2id) – vai có quyền duyệt (SR-AUTH-09, BR-432)
-      x-roles: [owner, manager, front_desk_lead]
+      summary: Đặt/đổi PIN duyệt 6 số (khác mật khẩu, argon2id) – vai có quyền duyệt hoặc xác nhận lại C3 (SR-AUTH-09, SR-C3-09, BR-432)
+      x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [S01]
       x-stories: [US-007]
       requestBody:
@@ -2079,8 +2079,7 @@ paths:
       tags: [reservations]
       operationId: issueGuestLink
       summary: Cấp (hoặc cấp lại – thu hồi link cũ) link app khách cho đơn (US-106 AC1; ADR-006). Token chỉ trả một lần.
-      x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
-      x-scope: { sales_staff: own }
+      x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A22]
       x-stories: [US-106]
       parameters:
@@ -2943,8 +2942,8 @@ paths:
       tags: [approvals]
       operationId: listApprovalRequests
       summary: Hộp duyệt – FDL thấy yêu cầu trong hạn mức FDL; người gửi thấy yêu cầu của mình (S23)
-      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff]
-      x-scope: { front_desk: own, housekeeping: own, maintenance: own, sales_staff: own, front_desk_lead: within_limit_or_own }
+      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff, collaborator]
+      x-scope: { front_desk: own, housekeeping: own, maintenance: own, sales_staff: own, collaborator: own, front_desk_lead: within_limit_or_own }
       x-rbac: [S23]
       x-stories: [US-007]
       parameters:
@@ -3035,7 +3034,7 @@ paths:
       tags: [approvals]
       operationId: cancelRequest
       summary: Người gửi rút lại (A6)
-      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff]
+      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff, collaborator]
       x-scope: { all: own }
       x-transition: A6
       parameters:
@@ -4682,18 +4681,20 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   # ───────────────────────── webhooks (R3 – giữ chỗ hợp đồng) ─────────────────────────
-  /v1/webhooks/payments/{provider}/{propertySlug}:
+  /v1/webhooks/{provider}/{propertySlug}:
     parameters:
       - name: provider
         in: path
         required: true
-        description: '`mock` chỉ được đăng ký khi APP_ENV ∈ {dev, test, staging}; production không có route này (SR-PAY-05)'
-        schema: { type: string, enum: [vnpay, momo, sepay, payos, mock] }
+        description: |
+          Cổng thanh toán (`vnpay`, `momo`, `sepay`, `payos`) hoặc channel manager (`beds24`). `mock` chỉ được đăng ký khi
+          `APP_ENV ∈ {dev, test, staging}`; production không có route này; provider cấu hình `off` không đăng ký route (SR-PAY-05, INT-responses mục 4).
+        schema: { type: string, enum: [vnpay, momo, sepay, payos, beds24, mock] }
       - $ref: '#/components/parameters/PropertySlug'
     get:
       tags: [webhooks]
-      operationId: paymentCallbackGet
-      summary: IPN dạng GET cho cổng yêu cầu (VNPay – INT xác minh); cùng xử lý với POST
+      operationId: webhookGet
+      summary: IPN dạng GET (query string) cho cổng yêu cầu – VNPay; cùng xử lý với POST. Caddy che query string `/v1/webhooks/*` trong log
       security:
         - providerSignature: []
       x-roles: [system]
@@ -4702,12 +4703,14 @@ paths:
         '200': { description: Phản hồi theo đặc tả cổng (ví dụ VNPay RspCode) }
     post:
       tags: [webhooks]
-      operationId: paymentCallback
-      summary: IPN/webhook cổng thanh toán – xác thực chữ ký, khớp số tiền, ghi inbox idempotent; phản hồi theo định dạng cổng (ADR-011, INT 3.2)
+      operationId: webhookPost
+      summary: Webhook/IPN từ cổng thanh toán hoặc channel manager (ADR-011 điểm 3)
       description: |
         Cơ sở xác định bằng `propertySlug` qua hàm `webhook_resolve_property(provider, slug)` SECURITY DEFINER (erd 2.4) → chọn đúng bí mật theo cơ sở.
-        Body ≤ 64 KB (`413`); 300/phút/provider. Không cần phiên, ngoại lệ CSRF duy nhất. Mọi lỗi (kể cả chữ ký sai) trả mã lỗi chung theo
-        định dạng cổng, không lộ lý do.
+        Body ≤ 64 KB (`413`); 300/phút/provider; không cần phiên, ngoại lệ CSRF duy nhất. Lỗi (kể cả chữ ký sai) không lộ lý do.
+        - **Cổng thanh toán**: xác thực chữ ký, khớp số tiền theo `paymentId` (= `payment.code`), ghi inbox idempotent, xử lý đồng bộ; phản hồi theo định dạng cổng (`200`).
+        - **Channel manager**: dữ liệu webhook không được tin – ghi `inbox_message` (chỉ `filtered_payload` theo danh sách trường cho phép, trường nghi thẻ bị loại
+          và tăng bộ đếm cảnh báo, xóa sau 90 ngày – SR-PAY-09) rồi worker kéo lại đơn qua API (SR-INT-01); trả `202`.
       security:
         - providerSignature: []
       x-roles: [system]
@@ -4720,33 +4723,9 @@ paths:
           application/x-www-form-urlencoded:
             schema: { type: object, additionalProperties: true }
       responses:
-        '200': { description: Phản hồi theo đặc tả cổng (ví dụ VNPay RspCode) }
-  /v1/webhooks/channel/{provider}/{propertySlug}:
-    parameters:
-      - name: provider
-        in: path
-        required: true
-        description: '`mock` chỉ ngoài production (SR-PAY-05)'
-        schema: { type: string, enum: [beds24, mock] }
-      - $ref: '#/components/parameters/PropertySlug'
-    post:
-      tags: [webhooks]
-      operationId: channelWebhook
-      summary: Tín hiệu từ channel manager – ghi inbox rồi kéo lại đơn qua API (ADR-011 B4)
-      description: |
-        Body ≤ 64 KB. Dữ liệu trong webhook không được tin – worker kéo lại đơn (SR-INT-01). Payload chỉ lưu bản **đã lọc theo danh sách trường cho phép**
-        (trường nghi thẻ bị loại + tăng bộ đếm cảnh báo), xóa sau 90 ngày (SR-PAY-09).
-      security:
-        - providerSignature: []
-      x-roles: [system]
-      x-round: R3
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: true }
-      responses:
-        '202': { description: Đã nhận }
+        '200': { description: Cổng thanh toán – phản hồi theo đặc tả cổng }
+        '202': { description: Channel manager – đã nhận }
+        '413': { description: Body vượt 64 KB }
 
 components:
   securitySchemes:

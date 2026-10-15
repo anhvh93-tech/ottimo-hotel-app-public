@@ -2,7 +2,7 @@
 
 - Tác giả: PO | Ngày: 15/10/2026
 - Phạm vi: mọi thẻ gửi PO trong `reviews/BA-on-PO.md` (15 thẻ) và `reviews/DOM-on-PO.md` (13 thẻ), cộng 11 lỗi PO tự nhận (T1–T11, cuối `reviews/PO-on-QA.md`).
-- File đã sửa: `product/docs/PRD.md`, `03-backlog/backlog.md`, `product/docs/open-questions-resolution.md`, `02-escalations/ESC-001, 004, 005, 006, 007, 008, 010, 011, 012`, `02-escalations/escalations-index.md`. Không sửa ESC-003 (UXR sở hữu), không sửa file của vai khác.
+- File đã sửa: `product/docs/PRD.md`, `03-backlog/backlog.md`, `product/docs/open-questions-resolution.md`, `02-escalations/ESC-001, 004, 005, 006, 007, 008, 009, 010, 011, 012`, `02-escalations/escalations-index.md`. Không sửa ESC-003 (UXR sở hữu), không sửa file của vai khác.
 - Tổng hợp: **28/28 thẻ Done** (14 Major, 11 Minor, 3 Suggestion); 0 Rejected, 0 Escalated, 0 Deferred. **Blocker/Major còn Open: 0.** T1–T11: 11/11 Done.
 
 ## 1. Thẻ của BA
@@ -13,7 +13,7 @@
 | FB-R1-BA-PO-02 (Major) | Done | Chọn hướng (b). US-007 AC2/AC4: người duyệt xác thực lại bằng **mật khẩu đăng nhập** ở R2, **PIN duyệt** từ R3 (BR-432 "mật khẩu/PIN"). PRD M0 ghi thống nhất (R2: xác thực lại mật khẩu; R3: PIN + 2FA). Thêm US-001 AC4: tài khoản 8 vai ở R2 tạo bằng dữ liệu khởi tạo/lệnh quản trị của OPS–BE, đổi mật khẩu lần đầu; US-008 giữ Should R3 |
 | FB-R1-BA-PO-03 (Major) | Done | US-023 AC2 cũ (tra mã sau gộp) chuyển sang US-074 (R3) – backlog mục "Story khác ngoài R2". US-023 AC2 mới: mã `KH-` do server cấp, không đổi khi sửa hồ sơ. QA chuyển TC-NT-023 sang US-074 |
 | FB-R1-BA-PO-04 (Major) | Done | Chọn hướng (a) nhưng không thêm story: thêm **US-119 AC5** (Must R2) – ghi giao dịch thu gắn vào kỳ HĐ (A58, UC-08, SM-07 T2) → kỳ `paid`, nhắc tắt, job quá hạn không chạm kỳ đã trả. US-012 AC2 nêu rõ nhắc biến mất khi kỳ đã thu. PRD M8 + D6: "tạo HĐ và ghi thu kỳ luôn ở cùng một round" (nếu INV chọn R-C ở ESC-012 thì cả hai cùng dời R3). Trả phòng dài hạn, điện nước vẫn R3 |
-| FB-R1-BA-PO-05 (Major) | Done | US-106 AC2 viết lại: sau `checked_out` mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; link còn `guest_link_grace_hours` (DOM thêm vào BR mục 13; mặc định theo ADR-006/decision-log SEC M4) chỉ để xem bill + trả phát sinh. US-133 AC3 "sau khi hết ân hạn". BA cập nhật rbac 8.6 theo AC này |
+| FB-R1-BA-PO-05 (Major) | Done | US-106 AC2 viết lại: sau `checked_out` mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; link còn `post_checkout_charge_hours` (BR-427, mặc định 24 giờ – ADR-006/decision-log SEC M4) chỉ để xem bill + trả phát sinh. US-133 AC3 "sau khi hết ân hạn". BA cập nhật rbac 8.6 theo AC này |
 | FB-R1-BA-PO-06 (Minor) | Done | PRD 6.2: "báo đã chuyển cọc kèm ảnh (CTV) / xác nhận cọc (sale nội bộ cho đơn của mình, lễ tân)" (cùng T5) |
 | FB-R1-BA-PO-07 (Minor) | Done | PRD mục 4 tách U1a `owner` / U1b `manager`; cột "Không được làm" của `manager` dẫn rbac 5.3; A4 sửa "đã chốt ở rbac 5.3, chờ INV xác nhận" |
 | FB-R1-BA-PO-08 (Minor) | Done | US-020 AC2 thêm "Gửi yêu cầu khôi phục" cho `front_desk`/`front_desk_lead` (A10 = D) |
@@ -30,11 +30,11 @@
 | ID | Trạng thái mới | Ghi chú |
 |---|---|---|
 | FB-R1-DOM-PO-01 (Major) | Done | Thêm US-007 AC6 (lễ tân tự áp FOC minibar trong hạn mức lần + tháng, `approved` ngay theo SM-10 A2, ghi "tự áp trong hạn mức", báo cáo cuối ngày, tính BR-435); AC4 thêm "trừ AC6". ESC-007 A viết lại rõ "tự miễn, không cần người thứ hai duyệt, tối đa 500.000 đ/người/tháng" + câu phụ (1) hạn mức tháng |
-| FB-R1-DOM-PO-02 (Major) | Done | Thêm **US-140 Đơn nhóm** (Must R3) với 4 AC: mã nhóm, cọc chung phân bổ, hủy từng căn/cả nhóm theo BR-309, bill gộp/tách, danh sách khách từng căn; tham chiếu BR nhóm DOM bổ sung (BR-315…). Không xếp Should R2 vì R2 đã vượt ước lượng (ESC-012); ở R2 lễ tân tạo các đơn rời và ghi chú nhóm. PRD M8 R3 cập nhật |
+| FB-R1-DOM-PO-02 (Major) | Done | Thêm **US-140 Đơn nhóm** (Must R3) với 4 AC: mã nhóm, cọc chung phân bổ, hủy từng căn/cả nhóm theo BR-309, bill gộp/tách, danh sách khách từng căn; tham chiếu BR-321…326. Không xếp Should R2 vì R2 đã vượt ước lượng (ESC-012); ở R2 lễ tân tạo các đơn rời và ghi chú nhóm. PRD M8 R3 cập nhật |
 | FB-R1-DOM-PO-03 (Major) | Done | US-026 AC3 viết lại đúng đề xuất: kiểm căn trống đêm trước (BR-906); Trực tiếp/CTV thêm 1 đêm vào đầu đơn; OTA tạo đơn con kênh Trực tiếp liên kết (BR-421/422); là đêm bán (BR-904); căn không trống → không cho nhận sớm, gợi ý gửi hành lý/căn khác |
 | FB-R1-DOM-PO-04 (Major) | Done | Quy ước AC mục 4: "hôm nay/đêm nay = ngày nghiệp vụ, đổi lúc 06:00 (BR-001)". Thêm ca test US-011 AC3 (01:30 ngày 21/10 vẫn thấy đơn đến 20/10), US-025 AC6 (nhận phòng 01:30 được), US-010 AC3 (KPI đêm nay lúc 02:00); US-136 AC4 tham chiếu cùng định nghĩa. PRD M0, A13 |
 | FB-R1-DOM-PO-05 (Major) | Done | Thêm US-017 AC7, US-080 AC5 (khớp ví dụ BR-110), US-022 AC4 (thêm người giữa kỳ, lễ tân xác nhận như BR-414); đơn OTA không cộng phụ thu người |
-| FB-R1-DOM-PO-06 (Major) | Done | PRD X3 tách: chấm công/xếp ca vẫn ngoài MVP; đóng ca/bàn giao tiền vào M2 R3. US-124 nâng **Must R3**, câu story mở rộng thành đóng ca, thêm 3 AC (đếm tiền mặt + lý do chênh, chuyển khoản ghi tay "chờ đối soát" MGR tick, biên bản bàn giao việc tồn) – tham chiếu BR-526 DOM bổ sung |
+| FB-R1-DOM-PO-06 (Major) | Done | PRD X3 tách: chấm công/xếp ca vẫn ngoài MVP; đóng ca/bàn giao tiền vào M2 R3. US-124 nâng **Must R3**, câu story mở rộng thành đóng ca, thêm 3 AC (đếm tiền mặt + lý do chênh, chuyển khoản ghi tay "chờ đối soát" MGR tick, biên bản bàn giao việc tồn) – tham chiếu BR-526, BR-527 |
 | FB-R1-DOM-PO-07 (Major) | Done | US-061 AC1: form hiện cả "dự kiến xong 17/10" và "mở bán lại từ 18/10"; khóa đêm 15, 16, 17; lưu [15/10, 18/10) (decision-log DOM, `ooo_reopen_buffer_days`) |
 | FB-R1-DOM-PO-08 (Major) | Done | ESC-011 A: "ddmm + ít nhất 3 số ngẫu nhiên (ví dụ 1503472); chỉ rút còn 2 số nếu khóa tự khóa sau 5 lần sai – INT xác nhận"; phương án B ghi "bộ phận bảo mật không chấp nhận"; "Nếu chưa quyết" ghi rõ dạng mã. Cũng là yêu cầu SEC (qua ORC) |
 | FB-R1-DOM-PO-09 (Major) | Done | ESC-008 bổ sung: (1) doanh nghiệp hay hộ kinh doanh + MST; (2) thuế suất và thời hạn mức giảm (cần kế toán xác nhận); (3) dài hạn cùng thuế suất không. "Nếu chưa quyết": thuế suất là tham số có ngày hiệu lực; loại hóa đơn tạm "GTGT" [giả định] |
@@ -43,7 +43,7 @@
 | FB-R1-DOM-PO-12 (Minor) | Done | (a) US-086 AC3 đổi dữ liệu sang ví dụ BR-208 (căn 302, NN, 6 tháng). (b) PRD N11 theo RPO ≤ 15 phút của OPS. (c) Q-D3 ghi "giờ đến thực tế + số giờ BR-603"; US-042 AC1 và US-012 AC1 bỏ "sớm hơn mốc BR-602" |
 | FB-R1-DOM-PO-13 (Suggestion) | Done | (a) ESC-004 thêm câu phụ (6) ở tối thiểu 2 đêm T6–T7/lễ, (7) mùa cao điểm Đà Lạt (hè, Festival Hoa, mùa hoa, nghỉ lễ dài), lưu ý "bằng giá" OTA; tham số `min_stay`, `special_dates[]`. (b) ESC-006 A thêm bất khả kháng: dời ngày miễn phí trong 3 tháng, không hoàn tiền mặt |
 
-Ghi nhận phần A (DOM xác nhận câu hỏi): PO dùng các kết luận A2 (tự gán căn OTA chỉ trong nhóm), A3 (nhận trước 06:00 = đêm bán), A5 (BR-603 = giờ đến + 12 giờ), A8 (OOO nửa mở) trong AC đã sửa. Phần B là lỗi trong `business-rules.md` của DOM – PO không sửa; các AC đã trỏ tới BR mới DOM hứa thêm (BR-001 ngày nghiệp vụ, BR-315… đơn nhóm, BR-526 đóng ca, hạn mức tháng BR-433, `guest_link_grace_hours`, `min_stay`). Xác nhận story "Mới" của DOM: US-124 đã nâng Must R3 như DOM yêu cầu.
+Ghi nhận phần A (DOM xác nhận câu hỏi): PO dùng các kết luận A2 (tự gán căn OTA chỉ trong nhóm), A3 (nhận trước 06:00 = đêm bán), A5 (BR-603 = giờ đến + 12 giờ), A8 (OOO nửa mở) trong AC đã sửa. Phần B là lỗi trong `business-rules.md` của DOM – PO không sửa; các AC đã được đối chiếu với `business-rules.md` v0.2 và trỏ đúng mã mới: BR-010 ngày nghiệp vụ, BR-315 khôi phục no-show, BR-316/317 xung đột OTA, BR-321…326 đơn nhóm, BR-417 nhận trước 06:00, BR-436 tự miễn FOC, BR-526/527 đóng ca – chờ đối soát, BR-613 giấy tờ NN không đạt, BR-113 ở tối thiểu, BR-427 phát sinh sau trả phòng (thay tên tham số dự kiến `guest_link_grace_hours` bằng `post_checkout_charge_hours`). Xác nhận story "Mới" của DOM: US-124 đã nâng Must R3 như DOM yêu cầu.
 
 ## 3. Lỗi PO tự nhận (T1–T11, cuối PO-on-QA.md)
 
@@ -69,8 +69,28 @@ Ghi nhận phần A (DOM xác nhận câu hỏi): PO dùng các kết luận A2 
 | Gom Q11 (lưu ý sức khỏe D12) vào ESC-001 | Done | ESC-001 câu phụ 6 (6a đề xuất / 6b) |
 | ESC-010: chi phí thiết bị ca tối + rủi ro còn lại khi gửi mã qua OTA/Zalo | Done | ESC-010 câu phụ (4) T-A/T-B (máy tính bảng ~4–8 triệu đ, ước tính chưa xác minh, chi phí của INV) và (5) Z-A/Z-B (rủi ro Trung bình – TM-21, TM-61, threat-model mục 9; mặc định tắt) |
 
+### Yêu cầu chuyển tiếp từ INT và UXR (qua ORC, bước 4)
+
+| Yêu cầu | Trạng thái | Ghi chú |
+|---|---|---|
+| ESC-009: phí channel manager là chi phí riêng ngoài ngân sách hạ tầng + đánh giá ARC về ezCloud | Done | Thêm đoạn "Lưu ý chi phí" trước phần đề xuất |
+| ESC-010: email Amazon SES vùng Singapore; dịch vụ báo tiền về phải có chữ ký HMAC | Done | Thêm "Đề xuất kỹ thuật kèm theo" (liên hệ ESC-002 vì email chứa tên khách) |
+| ESC-011: A = ddmm + 3 số ngẫu nhiên; hỏi khóa có tự khóa khi nhập sai nhiều lần không | Done | Bỏ ngoại lệ "2 số"; thêm câu hỏi vào "Thông tin chỉ chủ đầu tư có" |
+| ESC-008: kế toán xác nhận thời điểm phát hành hóa đơn theo BR-524 | Done | Mục (4) trong "Thông tin cần chủ đầu tư/kế toán cung cấp" |
+| escalations-index: dòng ESC-003 khớp bản UXR viết lại | Done | Tiêu đề kèm 7 điều cần kiểm chứng; PO không sửa ESC-003 |
+
+### Yêu cầu chuyển tiếp từ DOM và BA (qua ORC, sau khi DOM nộp business-rules v0.2)
+
+| Yêu cầu | Trạng thái | Ghi chú |
+|---|---|---|
+| DOM mục 6 – gom đề xuất vào ESC-001, 004, 005, 006, 007, 008, 011 | Done | ESC-001 câu phụ 5 theo BR-613 + câu 8 tiền mã hóa (BR-527); ESC-004 ở tối thiểu mặc định **tắt** tới khi INV chọn (BR-113); ESC-005 lịch chi hoa hồng (dòng 6); ESC-006 trả sớm đếm theo ngày (BR-011, có ví dụ biên), đơn đoàn cọc chung 30% + hạn danh sách khách (BR-322…324); ESC-007 phát sinh sau trả phòng nhanh 24 giờ (BR-427), mã BR-415/436; ESC-008 hóa đơn theo sự kiện (BR-524); ESC-011 khóa có chạy khi mất điện không (BR-964) |
+| Đối chiếu mã BR mới trong AC | Done | Sửa BR-001 → BR-010 (ngày nghiệp vụ), BR-433 → BR-436 (tự miễn), "BR-315…" → BR-321…326 (đoàn), thêm BR-315, 316, 317, 417, 527, 613; `guest_link_grace_hours` → `post_checkout_charge_hours` (BR-427) |
+| BA: story cho UC-31, UC-32, UC-33 | Done | UC-31 → US-140 (giữ Must R3 – R2 đã vượt ước lượng). UC-32 → US-119 AC6 cờ "chờ đối soát" **Must R2** (dữ liệu tiền đúng từ đầu) + US-124 đóng ca **Must R3** (R2 chưa vận hành tiền thật). UC-33 → **US-145 mới, Should R3** (cần lõi R2 trước; sổ giấy theo mẫu BR-962 là đường lui; phải xong trước dữ liệu thật) |
+| BA: US-136 theo state-machines v0.2 B12 | Done | Câu story + AC4 (FD/FDL tự khôi phục khi đủ 3 điều kiện BR-315) + AC5 (ngoài điều kiện hoặc OTA đã báo kênh → MGR+); US-020 AC2 trỏ US-136 |
+| Lưu ý sức khỏe – đồng ý riêng | Done | Đã ở ESC-001 câu phụ 6 |
+
 ## 5. Thay đổi phạm vi do bước 4 (PO tự quyết trong quyền ưu tiên backlog)
-- Backlog: 139 → **144 story**; Must R2: 74 → **77** (+US-139 nâng từ R3, +US-141, +US-142); Must R3: 17 → **19** (+US-140, +US-143, +US-124 nâng; −US-139). Phần ghi thu kỳ HĐ thêm vào US-119 (không thêm story).
+- Backlog: 139 → **145 story** (thêm US-140…US-145); Must R2: 74 → **77** (+US-139 nâng từ R3, +US-141, +US-142); Must R3: 17 → **19** (+US-140, +US-143, +US-124 nâng; −US-139). Phần ghi thu kỳ HĐ và cờ chờ đối soát thêm vào US-119 (AC5, AC6 – không thêm story); US-145 là Should R3.
 - Vì Must R2 tăng trong khi ước lượng BE đã gấp đôi ARC, câu hỏi phạm vi R2 được đưa vào ESC-012 (câu phụ R-A/R-B/R-C, đội đề xuất R-C). Plan R2 lập theo R-C nếu INV chưa trả lời.
 
 ## 6. Dòng decision-log đề xuất (ORC ghi – PO không sửa decision-log)
@@ -81,13 +101,15 @@ Ghi nhận phần A (DOM xác nhận câu hỏi): PO dùng các kết luận A2 
 | 2026-10-15 | 1 | Lễ tân tự áp FOC minibar trong hạn mức lần + tháng không cần người thứ hai (US-007 AC6); vượt hạn mức đi luồng duyệt | PO (theo DOM) | FB-R1-DOM-PO-01; SM-10 A2 |
 | 2026-10-15 | 1 | US-139 (đơn OTA trùng: cờ xung đột, làn "Chưa gán căn", chặn nhận phòng khi chưa gán) nâng Must R2; US-018 chặn trùng chỉ áp cho kênh Trực tiếp/CTV/HĐ | PO | FB-R1-BA-PO-01; BR-312 |
 | 2026-10-15 | 1 | Ghi nhận đã thu từng kỳ HĐ dài hạn (US-119 AC5) làm cùng round với sinh HĐ (R2), để kỳ đã trả không bị báo quá hạn | PO | FB-R1-BA-PO-04 |
-| 2026-10-15 | 1 | Link app khách sau `checked_out`: mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; ân hạn `guest_link_grace_hours` chỉ xem bill và trả phát sinh | PO | FB-R1-BA-PO-05; SEC M4; ADR-006 |
+| 2026-10-15 | 1 | Link app khách sau `checked_out`: mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; ân hạn `post_checkout_charge_hours` (BR-427) chỉ xem bill và trả phát sinh | PO | FB-R1-BA-PO-05; SEC M4; ADR-006 |
 | 2026-10-15 | 1 | Nhận phòng trước mốc tròn 1 đêm: Trực tiếp/CTV thêm đêm vào đơn, OTA tạo đơn con Trực tiếp; căn không trống thì không cho nhận sớm (US-026 AC3) | PO (theo DOM) | FB-R1-DOM-PO-03 |
 | 2026-10-15 | 1 | Đơn OTA nhập tay: giá ngoài sàn–trần chỉ cảnh báo + lý do; sàn–trần chặn với Trực tiếp/CTV/HĐ và khi sửa lịch giá | PO (theo DOM) | FB-R1-DOM-PO-11 |
 | 2026-10-15 | 1 | Đóng ca/bàn giao ca (US-124) là kiểm soát tiền, nâng Must R3; X3 chỉ còn xếp ca/chấm công | PO | FB-R1-DOM-PO-06 |
 | 2026-10-15 | 1 | Thêm US-140 Đơn nhóm nhiều căn (Must R3); ở R2 dùng đơn rời + ghi chú nhóm | PO | FB-R1-DOM-PO-02; R2 đã vượt ước lượng |
-| 2026-10-15 | 1 | Thêm story bảo mật: US-141 xác minh nhẹ app khách (Must R2), US-142 thiết bị được cấp cho C3 (Must R2), US-143 2FA owner/manager (Must R3); US-144 chốt số liệu tháng (Could R3). Backlog 144 story, 77 Must R2, 19 Must R3 | PO | T7, T11; decision-log SEC |
+| 2026-10-15 | 1 | Thêm story bảo mật: US-141 xác minh nhẹ app khách (Must R2), US-142 thiết bị được cấp cho C3 (Must R2), US-143 2FA owner/manager (Must R3); US-144 chốt số liệu tháng (Could R3), US-145 vận hành dự phòng mất mạng/mất điện (Should R3). Backlog 145 story, 77 Must R2, 19 Must R3 | PO | T7, T11; decision-log SEC |
 | 2026-10-15 | 1 | Không tạo ESC mới ở bước 4: câu hỏi phát sinh gom vào ESC-001, 004, 006, 007, 008, 010, 011, 012 (câu phụ có phương án + đề xuất); ESC-004…007 có bảng chọn từng dòng; tổng vẫn 12 ESC | PO | Protocol mục 8; FB-R1-BA-PO-14 |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV qua ESC-012] Nếu INV chưa trả lời, plan R2 theo phương án R-C: dời báo giá/HĐ dài hạn + ghi thu kỳ, app khách nâng cao (bill, mã cửa, OTP), nhắc kỳ thu/gia hạn tự động, mẫu tin sang đầu R3; không cắt nền tảng, chống trùng, folio/thu tiền, bảo vệ giấy tờ | PO | FB-R1-BE-ARC-16; PHÂN XỬ ORC |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV qua ESC-007] Phụ thu nhận sớm/trả muộn của đơn OTA tính trên giá trực tiếp hiện hành của căn | PO | T9; ESC-007 câu phụ (2) |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV qua ESC-008] Thuế suất VAT là tham số có ngày hiệu lực; loại hóa đơn tạm "hóa đơn GTGT" | PO (theo DOM) | FB-R1-DOM-PO-09 |
+| 2026-10-15 | 1 | Chuyển khoản ghi tay mang cờ "chờ đối soát" từ R2 (US-119 AC6); màn đóng ca đầy đủ US-124 ở R3 | PO | UC-32, BR-527; BA đề nghị |
+| 2026-10-15 | 1 | US-136: người trực tự khôi phục no-show khi đủ 3 điều kiện BR-315, ngoài điều kiện thì MGR+ | PO (theo DOM, BA) | BR-315, SM-01 B12 v0.2 |

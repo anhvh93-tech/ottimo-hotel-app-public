@@ -88,10 +88,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   if (appEnv === 'production') {
     if (env.CLOCK_OVERRIDE) throw new ConfigError('CLOCK_OVERRIDE is forbidden in production');
     const mocks = Object.keys(env).filter(
-      (k) => /_(PROVIDER|MODE)$/.test(k) && env[k]?.trim().toLowerCase() === 'mock',
+      (k) => /_(PROVIDER|MODE)$/.test(k) && ['mock', 'sandbox'].includes(env[k]?.trim() ?? ''),
     );
     if (mocks.length > 0) {
-      throw new ConfigError(`mock adapters are forbidden in production: ${mocks.join(', ')}`);
+      throw new ConfigError(`mock/sandbox adapters forbidden in production: ${mocks.join(', ')}`);
     }
   }
 

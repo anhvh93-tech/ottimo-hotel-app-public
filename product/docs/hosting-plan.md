@@ -90,6 +90,17 @@ Internet ──443/80──► Caddy (TLS Let's Encrypt, web tĩnh, reverse prox
 
 Tên miền con không mất thêm phí; chỉ cần 1 tên miền chính (mục 3).
 
+**Bản ghi DNS cho email giao dịch nếu INV chọn Amazon SES vùng Singapore** (đề xuất của INT – `integrations.md` 3.4.1; ESC-010). OPS soạn, INV dán khi có tên miền; phải xong **trước staging R2**. Giá trị cụ thể do SES sinh khi xác minh tên miền – dưới đây là khuôn:
+
+| Loại | Tên | Giá trị (khuôn) | Mục đích |
+|---|---|---|---|
+| CNAME ×3 | `<token1>._domainkey.<tên-miền>` … `<token3>._domainkey.<tên-miền>` | `<token>.dkim.amazonses.com` (Easy DKIM, SES sinh 3 token) | DKIM – chữ ký email |
+| MX | `mail.<tên-miền>` (MAIL FROM riêng) | `10 feedback-smtp.ap-southeast-1.amazonses.com` | Bounce/phản hồi, căn chỉnh SPF |
+| TXT | `mail.<tên-miền>` | `v=spf1 include:amazonses.com -all` | SPF cho MAIL FROM |
+| TXT | `_dmarc.<tên-miền>` | `v=DMARC1; p=none; rua=mailto:dmarc@<tên-miền>` → sau 2–4 tuần không lỗi nâng `p=quarantine` | DMARC |
+
+Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hãng; giữ DMARC. Gửi email chuyển dữ liệu C2 (email, tên khách) ra Singapore → thuộc danh sách bên xử lý dữ liệu (ESC-002, SEC).
+
 ## 6. Triển khai và quay lui (chi tiết ở R2)
 
 1. CI build image `api` (dùng cho cả worker) và `web` → đẩy lên GHCR, gắn tag theo commit.
@@ -110,7 +121,7 @@ Tên miền con không mất thêm phí; chỉ cần 1 tên miền chính (mục
 | Lệch cần ARC sửa | ADR-010 mục 3 ghi "giữ 7 ngày + 4 tuần + **3 tháng**" → **vượt T18**. OPS đề xuất bỏ bản 3 tháng (hoặc chỉ giữ nếu SEC/luật sư đồng ý, vì dữ liệu C3 đã được hủy khóa – ADR-013 – nhưng dữ liệu C2 thì không) | Thẻ review gửi ARC ở bước 3 |
 | Thử khôi phục | Mỗi round, trong **môi trường dùng một lần** – xem mục 7.1. **Không** khôi phục backup production vào staging/dev | SR-BAK-05/06, FB-R1-ARC-OPS-09 |
 | RPO / RTO | RPO ≤ 15 phút (WAL), tệ nhất 24 giờ (dump); RTO ≤ 4 giờ (dựng VPS mới + khôi phục) | ADR-010 [GIẢ ĐỊNH – OPS xác nhận khi diễn tập R3] |
-| Log kỹ thuật | Ứng dụng ghi JSON ra stdout: mỗi request chỉ `method`, **mẫu route**, mã trạng thái, thời gian – không query string, không header, không IP rõ (R2: `ip_hmac`); khóa nhạy cảm (`password`, `pin`, `otp`, `token`, `code`, `secret`, `docNumber`…) bị che (đã có trong khung + test). Caddy production che `/g/*` và query trong access log. Docker xoay vòng log theo dung lượng; bản lưu lâu dài giữ **90 ngày** rồi xóa; không chứa dữ liệu C3 | SEC **T16**, SR-LOG-01…04 |
+| Log kỹ thuật | Ứng dụng ghi JSON ra stdout: mỗi request chỉ `method`, **mẫu route**, mã trạng thái, thời gian – không query string, không header, không IP rõ (R2: `ip_hmac`); khóa nhạy cảm (`password`, `pin`, `otp`, `token`, `code`, `secret`, `docNumber`…) bị che (đã có trong khung + test). Caddy production che `/g/*` và **toàn bộ query string** trong access log – đặc biệt `/v1/webhooks/*` (VNPay IPN dạng GET mang chữ ký, số tiền trên query; `CHANNEL_WEBHOOK_PATH_TOKEN` nằm trong đường dẫn nên đường dẫn webhook cũng ghi dạng mẫu, không ghi token) – INT-responses mục 4. Docker xoay vòng log theo dung lượng; bản lưu lâu dài giữ **90 ngày** rồi xóa; không chứa dữ liệu C3 | SEC **T16**, SR-LOG-01…04 |
 | Audit log, nhật ký truy cập C3 | Nằm trong PostgreSQL (append-only), giữ 24 tháng theo job xóa của BE | SEC **T15** |
 
 ### 7.1 Diễn tập khôi phục (thay cho "khôi phục vào staging")
@@ -138,6 +149,8 @@ Tên miền con không mất thêm phí; chỉ cần 1 tên miền chính (mục
 | `PAYMENT_*_SECRET*`, `CHANNEL_*`, `EINVOICE_*`, `ZALO_APP_SECRET`, `DOORLOCK_*_SECRET` | staging (sandbox) / production | INV (tài khoản) + INT | Docker secret | Theo hãng; khi nghi lộ hoặc đổi người quản lý tài khoản |
 | Khóa `age` giải mã backup | production | INV + OPS | **Ngoài máy chủ** (2 bản ngoại tuyến) | Khi người giữ nghỉ việc |
 | Khóa SSH vào máy chủ | production, staging | từng người (OPS, INV) | máy cá nhân | Thu hồi ngay khi nghỉ việc |
+
+Chi tiết quyền tối thiểu và chu kỳ xoay từng bí mật **tích hợp** (Beds24, VNPay, MoMo, SePay/payOS, MISA 6 tháng, TTLock, SES/Resend, Zalo, `CHANNEL_WEBHOOK_PATH_TOKEN`, `BANKFEED_API_KEY`): `integrations.md` mục 4.1 (INT) – sổ này dùng bảng đó làm nguồn, OPS giữ sổ (SR-SECR-04). Cổng không dùng đặt `off`, không đăng ký webhook.
 
 Runbook xoay KEK/bí mật: R2 (`docs/runbook.md`).
 

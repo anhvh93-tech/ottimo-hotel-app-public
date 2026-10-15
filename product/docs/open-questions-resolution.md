@@ -67,7 +67,7 @@ Tổng: 26/26 có kết cục. Số câu vào ESC (toàn bộ hoặc một phầ
 | R4-3 | SEC Q11, FB-R1-SEC-BA-04 | Lưu ý sức khỏe có cần đồng ý riêng | **ESC-001** câu phụ 6 |
 | R4-4 | FB-R1-DOM-PO-13 | Ở tối thiểu 2 đêm; mùa cao điểm Đà Lạt; lưu ý "bằng giá" OTA | **ESC-004** câu phụ 6, 7 |
 | R4-5 | FB-R1-DOM-PO-10, -13 | Bất khả kháng; khách không cọc online được (khách Nga) | **ESC-006** (A + bảng chọn dòng 7, 8); ESC-010 (lưu ý khách Nga) |
-| R4-6 | FB-R1-BA-PO-11 | Mốc tính "báo trước 24 giờ" khi trả sớm | **ESC-006** A (trước 12:00 của ngày đi mới) |
+| R4-6 | FB-R1-BA-PO-11, DOM | Mốc tính "báo trước" khi trả sớm/hủy | **ESC-006** A: ≥ 1 ngày, đếm theo ngày lịch của ngày nghiệp vụ (BR-011, có ví dụ biên) |
 | R4-7 | FB-R1-DOM-PO-01, BA SQ-3 | Hạn mức tháng lễ tân tự miễn minibar | **ESC-007** câu phụ (1); mặc định 500.000 đ – **Đã có** (DOM) |
 | R4-8 | PO review DOM-03 | Phụ thu nhận sớm/trả muộn đơn OTA tính trên giá nào | **ESC-007** câu phụ (2) |
 | R4-9 | FB-R1-DOM-PO-09 | Doanh nghiệp hay hộ kinh doanh; thuế suất có ngày hiệu lực | **ESC-008** |
@@ -76,6 +76,10 @@ Tổng: 26/26 có kết cục. Số câu vào ESC (toàn bộ hoặc một phầ
 | R4-12 | FB-R1-DOM-PO-08, SEC | Mã sinh nhật ≥ 3 số ngẫu nhiên | **ESC-011** A (đã sửa) |
 | R4-13 | FB-R1-BE-ARC-16, PHÂN XỬ ORC | Ước lượng R2 lệch – giữ/kéo dài, thu hẹp hay dời có chọn lọc | **ESC-012** câu phụ R-A/R-B/R-C |
 | R4-14 | FB-R1-BA-PO-02 | Xác thực người duyệt FOC ở R2 khi chưa có PIN | Đội tự chốt (PO): R2 nhập lại mật khẩu, PIN từ R3 – **Đề xuất D-8** |
+| R4-16 | DOM mục 6 | Đơn đoàn: cọc chung, hủy từng căn, hạn danh sách khách | **ESC-006** dòng 9 (BR-322…324) |
+| R4-17 | DOM mục 6 | Lịch chi hoa hồng trong tháng | **ESC-005** dòng 6 (BR-212, BR-903) |
+| R4-18 | DOM mục 6 | Thời hạn ghi phát sinh sau trả phòng nhanh | **ESC-007** câu phụ (3) (BR-427) |
+| R4-19 | DOM mục 6 | Khóa có chạy khi mất điện | **ESC-011** (BR-964) |
 | R4-15 | FB-R1-BA-PO-05 | Link app khách sau trả phòng | Đội tự chốt (PO, theo SEC M4): ân hạn chỉ xem bill + trả phát sinh – **Đề xuất D-9** |
 
 ## 3. Dòng decision-log đề xuất (ORC ghi khi commit – PO không sửa trực tiếp)
@@ -90,6 +94,6 @@ Tổng: 26/26 có kết cục. Số câu vào ESC (toàn bộ hoặc một phầ
 | D-6 | 2026-10-15 | 1 | Tiêu chí nghiệm thu chỉ tham chiếu mã BR ("khớp ví dụ BR-xxx"), không chép con số quy tắc; dùng tên trạng thái `state-machines.md` và mã vai `rbac-matrix.md` | PO | QC B1, B3 |
 | D-7 | 2026-10-15 | 1 | Mọi hành động không đảo ngược có hộp xác nhận nêu hậu quả (US-135) | PO | HR-06 (Blocker UXR) |
 | D-8 | 2026-10-15 | 1 | Duyệt FOC ở R2: người duyệt xác thực lại bằng mật khẩu đăng nhập của chính mình; PIN duyệt riêng và 2FA TOTP (owner, manager) ở R3; tài khoản 8 vai ở R2 tạo bằng dữ liệu khởi tạo/lệnh quản trị | PO | FB-R1-BA-PO-02; BR-432 |
-| D-9 | 2026-10-15 | 1 | Link app khách sau `checked_out`: mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; còn ân hạn `guest_link_grace_hours` chỉ để xem bill và trả phát sinh | PO | FB-R1-BA-PO-05; SEC M4; ADR-006 |
+| D-9 | 2026-10-15 | 1 | Link app khách sau `checked_out`: mã cửa, Wi-Fi, gửi yêu cầu khóa ngay; còn ân hạn `post_checkout_charge_hours` (BR-427) chỉ để xem bill và trả phát sinh | PO | FB-R1-BA-PO-05; SEC M4; ADR-006 |
 
 Ghi chú bước 4: D-1…D-7 đã được ORC ghi vào decision-log. D-8, D-9 và các dòng khác của bước 4 nằm ở `rounds/round-01/responses/PO-responses.md` mục "Dòng decision-log đề xuất".

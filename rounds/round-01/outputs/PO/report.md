@@ -94,3 +94,32 @@
 - Bước 3: review UXR, UXD, QA, DATA. Bước 4: trả lời thẻ review của BA, DOM.
 - Cùng ORC lập `plan.md` Round 2 (sau khi INV trả lời ESC-012 hoặc theo mặc định A).
 - ORC ghi decision-log 7 dòng D-1…D-7 ở `open-questions-resolution.md` mục 3.
+
+---
+
+# Báo cáo PO – Round 1 · Bước 4 (Phản hồi & sửa)
+- Ngày: 15/10/2026 | Vai: PO
+
+## 1. Đã làm gì
+- Trả lời 28/28 thẻ (BA 15, DOM 13) – tất cả **Done**; 11/11 lỗi tự nhận T1–T11 Done; xử lý yêu cầu chuyển tiếp của SEC, INT, UXR. Blocker/Major còn Open: **0**. Chi tiết: `rounds/round-01/responses/PO-responses.md`.
+- Backlog: ngày nghiệp vụ 06:00 vào quy ước AC; sửa AC US-001, 007, 010, 011, 012, 016, 017, 018, 020, 022, 023, 024, 025, 026, 054, 061, 071, 073, 080, 082, 085, 086, 087, 106, 119, 133, 136, 139; thêm US-140 (đơn nhóm), US-141 (xác minh app khách), US-142 (thiết bị được cấp), US-143 (2FA), US-144 (chốt tháng), US-145 (vận hành dự phòng mất mạng/mất điện, Should R3); US-119 AC6 cờ chờ đối soát (R2); US-136 theo BR-315; US-139 lên Must R2, US-124 lên Must R3; gắn 13 BR và 8 UC còn thiếu. Tổng **145 story, 77 Must R2, 19 Must R3**.
+- PRD v0.3: S1/S2 khớp DATA và G5; tách `owner`/`manager`; M0 xác thực lại bằng mật khẩu (R2), PIN + 2FA (R3); đóng ca vào MVP R3; không nhận tiền mã hóa; N11 theo RPO của OPS; D6 nêu ước lượng lệch.
+- ESC: không tạo ESC mới (vẫn 12). Bổ sung câu phụ có phương án + đề xuất vào ESC-001, 004, 006, 007, 008, 009, 010, 011, 012; bảng chọn từng dòng cho ESC-004…007; cập nhật index.
+
+## 2. File tạo/sửa
+- `03-backlog/backlog.md`, `product/docs/PRD.md`, `product/docs/open-questions-resolution.md`
+- `02-escalations/ESC-001, 004, 005, 006, 007, 008, 009, 010, 011, 012.md`, `escalations-index.md`
+- `rounds/round-01/responses/PO-responses.md` (tạo mới), báo cáo này
+
+## 3. Giả định
+- Hạn mức tháng lễ tân tự miễn minibar 500.000 đ/người/tháng; phụ thu đơn OTA tính trên giá trực tiếp hiện hành; thuế suất có ngày hiệu lực, loại hóa đơn tạm GTGT; R2 duyệt FOC bằng mật khẩu; nếu INV chưa trả lời ESC-012 thì plan R2 theo R-C.
+
+## 4. Rủi ro / vướng mắc
+- Must R2 tăng 74 → 77 trong khi BE ước 20–25 tuần-người – phụ thuộc INV chọn R-A/R-B/R-C (ESC-012).
+- Mã BR trong AC đã đối chiếu với business-rules v0.2 (BR-010, 113, 315–317, 321–326, 417, 427, 436, 526, 527, 613, 961–964); nếu DOM đổi số tiếp thì phải đối chiếu lại.
+- ARC cần chỉnh OpenAPI theo US-018 AC5/US-139, US-119 AC5, US-106 AC2; BA sửa rbac mục 1 và 8.6.
+
+## 5. Việc chưa xong
+- Cùng ORC lập plan Round 2 theo quyết định ESC-012.
+- Viết AC chi tiết cho US-145 và US-144 đầu R3.
+

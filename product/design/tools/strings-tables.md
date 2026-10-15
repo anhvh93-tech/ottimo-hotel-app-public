@@ -664,7 +664,7 @@
 | `auth.login.error_generic` | Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại. | Incorrect username or password. Forgot it? Ask the owner to reset it. | ⟨chừa chỗ⟩ | Luôn giống nhau, không nêu số lần còn lại (SR-AUTH-04, FB-R1-UXR-UXD-14) |
 | `auth.login.username` | Số điện thoại hoặc email | Phone number or email | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.totp` | Mã trong ứng dụng xác thực (6 số) | Code from your authenticator app (6 digits) | ⟨chừa chỗ⟩ |  |
-| `auth.code_label.recovery` | Mã khôi phục (10 ký tự) | Recovery code (10 characters) | ⟨chừa chỗ⟩ |  |
+| `auth.code_label.recovery` | Mã khôi phục (8 ký tự) | Recovery code (8 characters) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.pin` | PIN duyệt của bạn (4–6 số) | Your approval PIN (4–6 digits) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.guest` | Mã cấp cho khách | Code for the guest | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.title` | Bật xác thực 2 bước | Turn on 2-step verification | ⟨chừa chỗ⟩ | SR-AUTH-06 – lần đăng nhập đầu của owner/manager |

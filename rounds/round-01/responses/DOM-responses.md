@@ -9,7 +9,7 @@
 
 | Trạng thái | Số thẻ | Ghi chú |
 |---|--:|---|
-| Done | 47 | Gồm 18 Major (BA 9, PO 4, và các mục B tương ứng) |
+| Done | 47 | Gồm 13 Major (BA-DOM-01…09, PO-DOM-01…04), 11 Minor, 2 Suggestion và 21 mục B tự nhận |
 | Rejected | 0 | Một phần đề xuất của BA-DOM-01 (lấy `earlier_of` làm mặc định) không theo – lý do ghi ở dòng thẻ; phần mâu thuẫn đã sửa xong nên thẻ là Done |
 | Escalated | 0 | Không tạo ESC mới. Các câu cần INV quyết được **đề xuất bổ sung vào ESC đang có** (mục "Đề xuất bổ sung ESC" bên dưới) – PO gom |
 | Deferred | 0 | – |

@@ -35,11 +35,15 @@ describe('loadConfig (SR-SECR-05)', () => {
     expect(() => loadConfig({ ...prod, DATA_KEK_CURRENT: 'abc' })).toThrow(/DATA_KEK_CURRENT/);
   });
 
-  it('forbids CLOCK_OVERRIDE and mock adapters in production', () => {
+  it('forbids CLOCK_OVERRIDE and mock/sandbox adapters in production', () => {
     expect(() => loadConfig({ ...prod, CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00' })).toThrow(
       /CLOCK_OVERRIDE/,
     );
     expect(() => loadConfig({ ...prod, PAYMENT_VNPAY_MODE: 'mock' })).toThrow(/PAYMENT_VNPAY_MODE/);
+    const sandbox = { ...prod, PAYMENT_MOMO_MODE: 'sandbox' };
+    expect(() => loadConfig(sandbox)).toThrow(/PAYMENT_MOMO_MODE/);
+    const live = { ...prod, PAYMENT_VNPAY_MODE: 'production', PAYMENT_MOMO_MODE: 'off' };
+    expect(loadConfig(live).appEnv).toBe('production');
   });
 
   it('never puts a secret value in the error message', () => {

@@ -71,3 +71,63 @@ Không đụng: `01-decisions/`, `02-escalations/`, docs của vai khác, `produ
 | Review chéo ARC (thẻ ADR-010 backup vs T18) | Bước 3 R1 |
 
 Nguồn giá: https://bizflycloud.vn/cloud-server/bang-gia, https://bizflycloud.vn/s3-simple-storage/bang-gia; Viettel IDC lấy từ ADR-010 (bên thứ ba).
+
+---
+
+# Bước 4 – Phản hồi & sửa (15/10/2026)
+
+- **Trạng thái kiểm chứng: VẪN CHƯA CHẠY ĐƯỢC.** `which node pnpm docker` → cả 3 không có (INV đang cài). Không cài phần mềm hệ thống. Vì vậy chưa có: `pnpm install`, `pnpm-lock.yaml`, format:check, lint, test, build, `docker compose up`, `curl /health`. **Không báo xanh.**
+- Phản hồi đầy đủ: `rounds/round-01/responses/OPS-responses.md` – 26 thẻ: 22 Done, 1 Escalated (ARC-02, phần đẩy GitHub cần INV), 3 Deferred (Suggestion SEC-11/12/13 → R2), 0 Rejected. **Blocker/Major còn Open: 0.**
+
+## 1. Đã làm gì
+1. **ESM/CJS (ARC-01):** Node ≥ 22.12 (`engines`, Docker digest), `exports.default` ở 2 gói dùng chung, api `NodeNext` + TypeScript ~5.8.3, test `require()` thật.
+2. **Vai DB (SEC-01, BE-ARC-03):** `infra/postgres/init/02-roles.sh` tạo `ottimo_owner`/`ottimo_app`/`ottimo_readonly`; api, worker, CI test, smoke test Docker đều dùng `ottimo_app`; `MIGRATION_DATABASE_URL` riêng; test `rolsuper/rolbypassrls = false`; healthcheck Postgres dùng TCP để chờ init xong.
+3. **Khung api:** `src/config.ts` (kiểm cấu hình khi khởi động, `APP_ENV`, `*_FILE` secrets, `TRUST_PROXY`), `src/http.ts` (log chỉ mẫu route, che khóa nhạy cảm), `main.ts`/`worker.ts` dùng chung; `clockFromEnv` theo `APP_ENV`. Test mới: `config.test.ts` (10), `http.test.ts` (3), `db-role.test.ts` (1), `workspace-packages.test.ts` (2); `clock.test.ts` sửa + 1 test.
+4. **CI:** ghim SHA + digest, `persist-credentials: false`, tạo vai DB bằng cùng script, `pnpm audit --audit-level=high`, tải lockfile sinh ra làm artifact, job `contract-lint` (Redocly 1.34.21, R1 không chặn), gitleaks dùng `.github/gitleaks.toml`, smoke test kiểm image từ chối chạy khi thiếu `APP_ENV`. Dependabot thêm `docker-compose`.
+5. **Docker/compose:** worker không build lại; Caddyfile dev mount (không nằm trong image); Caddy chạy uid 10001, gỡ capability; `.dockerignore`/`.gitignore` thêm mẫu khóa/dữ liệu; `tests/` không còn bị loại.
+6. **ESLint:** chạy một lần ở gốc (`eslint . && turbo run typecheck`), `jsx-a11y`, chặn `Number.parseFloat`, ngoại lệ Clock đúng 1 tệp.
+7. **Tài liệu:** `dev-setup.md` (Node 22.12, bảng mật khẩu/vai DB, log, lockfile qua artifact, sự cố mới); `hosting-plan.md` (Docker secrets, kiểm cấu hình, cứng hóa container, tên miền con + email, khuôn DNS SES, quyền ghi đích backup, tắt snapshot, tách backup khỏi staging, diễn tập khôi phục dùng một lần 7.1, sổ bí mật 8.1, việc R2); README gốc (Node 22.12).
+8. **Yêu cầu INT (mục 4 INT-responses):** `.env.example` theo README INT v0.2 (cổng mặc định `off`, biến mới), che query `/v1/webhooks/*` trong log Caddy production, sổ bí mật dẫn `integrations.md` 4.1, khuôn DNS SES.
+
+### Kết quả kiểm chứng (Bước 4)
+| Kiểm tra | Kết quả |
+|---|---|
+| `which node pnpm docker` | Không có → **chưa chạy** install/lint/test/build/compose/`/health` |
+| YAML (`python3 yaml.safe_load`): `ci.yml`, `dependabot.yml`, `docker-compose.yml`, `pnpm-workspace.yaml` | Hợp lệ |
+| JSON: 22 tệp trong `product/` | Hợp lệ |
+| `bash -n infra/postgres/init/02-roles.sh` | Hợp lệ |
+| `.github/gitleaks.toml` | Kiểm tay (máy không có thư viện TOML) |
+| Dò chuỗi giống khóa (AKIA, private key, ghp_, sk_live_, chuỗi base64 ≥ 40) trên tệp đã sửa | Chỉ khớp SHA commit của action (không phải bí mật) |
+| Dòng code TS > 100 ký tự | Chỉ còn dòng chú thích (Prettier không ngắt chú thích) |
+| SHA action / digest image / phiên bản Redocly | Tra trực tiếp 15/10/2026 (`git ls-remote`, Docker Hub/GHCR registry, npm registry) |
+
+## 2. File tạo/sửa (Bước 4)
+- Tạo: `product/services/api/src/config.ts`, `product/services/api/src/http.ts`, `product/services/api/test/{config,http,db-role,workspace-packages}.test.ts`, `product/infra/postgres/init/02-roles.sh`, `.github/gitleaks.toml`, `rounds/round-01/responses/OPS-responses.md`.
+- Sửa: `product/package.json`, `product/.nvmrc`, `product/turbo.json`, `product/eslint.config.js`, `product/.env.example`, `product/.dockerignore`, `product/{apps/admin-web,apps/mobile,apps/guest-web,packages/contracts,integrations,services/api}/package.json` (script `typecheck`, TS 5.8; `exports.default` ở contracts/integrations; api thêm `@ottimo/integrations`, `engines`), `product/services/api/tsconfig.json`, `product/services/api/src/{main,worker,clock}.ts`, `product/services/api/test/clock.test.ts`, `product/infra/docker-compose.yml`, `product/infra/docker/Dockerfile.{api,web}`, `product/infra/caddy/Caddyfile.dev`, `product/infra/postgres/init/01-extensions.sql` (chú thích), `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.gitignore` (chỉ bổ sung), `README.md` gốc (2 dòng), `product/docs/dev-setup.md`, `product/docs/hosting-plan.md`, file này.
+- Không đụng: `01-decisions/`, `02-escalations/`, architecture/ADR/erd/openapi (ARC), docs/README tích hợp (INT), `product/design/`.
+
+## 3. Giả định (Bước 4)
+| # | Giả định |
+|---|---|
+| G8 | Tên vai DB theo ERD 2.1 (`ottimo_owner`), không theo tên trong thẻ SEC (`ottimo_migrator`) – cùng vai trò |
+| G9 | TypeScript ~5.8 (`nodenext` hỗ trợ `require(esm)`); chưa biên dịch thử |
+| G10 | `APP_ENV` dùng `dev` (SEC/OpenAPI), không `development` (README INT) – đã gửi INT sửa |
+| G11 | Dev/test được để trống khóa bí mật; chỉ staging/production bắt buộc |
+| G12 | Action ghim bản vá mới nhất của major v4 đang dùng (không nâng major khi chưa chạy được) |
+
+## 4. Rủi ro / vướng mắc (Bước 4)
+| # | Mức | Nội dung | Đề xuất |
+|---|---|---|---|
+| R1 | **Cao** | Vẫn chưa chạy thật; lượng mã khung tăng (config/log/test) → khả năng lỗi kiểu TS (kiểu serializer Fastify, `stream`), định dạng Prettier, script vai DB | Chạy dev-setup ngay khi INV cài xong Node/Docker, hoặc CI trên GitHub (ESC đề xuất trong OPS-responses mục 6) |
+| R2 | Trung bình | `pnpm audit --audit-level=high` có thể đỏ ngay lần đầu vì cảnh báo của gói bên ngoài | Thêm ngoại lệ có hạn ở `pnpm.auditConfig.ignoreCves` hoặc nâng gói – không tắt bước |
+| R3 | Thấp | Volume DB dev tạo từ khung cũ không có vai mới | `down -v` (ghi ở dev-setup mục 8) |
+
+## 5. Việc chưa xong
+| Việc | Khi |
+|---|---|
+| Chạy thật toàn bộ dev-setup, commit `pnpm-lock.yaml`, sửa lỗi | Khi có Node 22.12 + Docker (INV đang cài) hoặc CI GitHub |
+| Xóa nhánh cài không lockfile (CI + 2 Dockerfile), `turbo prune` trong Dockerfile.api | Đầu R2, sau khi có lockfile |
+| Caddyfile + compose production, runbook xoay bí mật, CODEOWNERS/branch protection | R2 |
+
+## 6. Ghi chú về tin nhắn ORC chuyển tiếp từ SEC (wireframe)
+Tin nhắn yêu cầu bổ sung wireframe (ô email không bắt buộc, nhãn "Đơn chưa có email", kênh gửi mã xác minh, màn bật/tắt kênh, loại thiết bị được cấp – SR-GST-13/14/15, SR-DEV-08/09) thuộc phạm vi **UXD**, không phải OPS. OPS không sửa `product/design/`; đề nghị ORC chuyển cho UXD.

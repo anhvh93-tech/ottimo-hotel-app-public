@@ -582,7 +582,7 @@
   "auth.login.error_generic": "Incorrect username or password. Forgot it? Ask the owner to reset it.",
   "auth.login.username": "Phone number or email",
   "auth.code_label.totp": "Code from your authenticator app (6 digits)",
-  "auth.code_label.recovery": "Recovery code (10 characters)",
+  "auth.code_label.recovery": "Recovery code (8 characters)",
   "auth.code_label.pin": "Your approval PIN (4–6 digits)",
   "auth.code_label.guest": "Code for the guest",
   "auth.enroll.title": "Turn on 2-step verification",

@@ -45,3 +45,35 @@ Giả định khác dùng trong tài liệu: lễ tân trưởng chỉ xem báo 
 - Đặc tả chức năng theo phân hệ ở mức trường/kiểm tra hợp lệ/thông báo lỗi chi tiết (`specs/<phân-hệ>.md`) – để bước 4 hoặc đầu R2 sau khi có ERD/OpenAPI của ARC và wireframe UXD.
 - Review QA (khuyến nghị) – làm ở bước 3 khi QA có test case.
 - Trả lời thẻ review DOM/ARC ở bước 4.
+
+---
+
+# Bước 4 – Phản hồi & sửa (15/10/2026)
+
+## 1. Đã làm gì
+- Trả lời đủ **32 thẻ** (DOM 9, ARC 10, SEC 12, QA #12): **32 Done**, 0 Rejected/Escalated/Deferred. Blocker 0; Major 11, tất cả Done – không còn Blocker/Major mở. Chi tiết: `rounds/round-01/responses/BA-responses.md`.
+- Áp các quyết định mới trong decision-log: phân xử ORC về nhận phòng khuya (thiết bị của cơ sở được cấp, admin-web; PWA không bao giờ có C3) và mã xác minh qua OTA/Zalo (mặc định tắt); SEC (thiết bị được cấp cho mọi vai, GST1/GST2, ân hạn 24 giờ phạm vi hẹp, thu hồi phiên; security-requirements v0.2: SR-GST-15, SR-DEV-08/09); DOM (ngày nghiệp vụ 06:00, OOO nửa mở, nhận trước 06:00 là đêm bán, khôi phục no-show, FOC minibar tự áp có hạn mức tháng, BR-603 mới); PO (màn mặc định FD/FDL = "Hôm nay"; đơn OTA nhập tay vào căn kín → 409 + gợi ý, hết căn → làn "Chưa gán căn").
+- `state-machines.md` v0.2: ngày nghiệp vụ; B7a/B7b/B7c; B9 (thiết bị được cấp, không xung đột) và B9a thêm đêm trước; B12 theo SQ-1; K12; R10 từ `CL`; W3 theo SQ-2; SM-10 A2 theo SQ-3; SM-11 theo SQ-4; SM-12 đối soát; thêm SM-16 nhóm đơn, SM-17 ca làm việc; mục 18 mã sự kiện máy đọc.
+- `business-processes.md` v0.2: thêm **P11 Đóng ca/đối soát**, **P12 Mất mạng/mất điện**, mục **Đơn nhóm** trong P01, OTA sửa đơn, làn chưa gán, P03 E2 theo SR-GST-15, E9 = B9a, kiểm tra an toàn ở P07.
+- `use-cases.md` v0.2: sửa UC-04/05/10/11/12/27/28/29/30; thêm UC-04b, UC-31, UC-32, UC-33.
+- `rbac-matrix.md` v0.2: ký hiệu Q, GST1/GST2/GSTp, D12a/b/c, D29, A07a/b, A11a/b, A22a, A23, A45–A47, A77, A108, mục 4.7 (A110–A118), 8.7–8.10.
+- Tạo `product/docs/rbac-matrix.json` (104 hành động × vai × operationId, cờ thiết bị được cấp/nhật ký C3) kèm so sánh tự động với `x-roles` của OpenAPI: còn 7 chỗ lệch, đã gửi ARC.
+
+## 2. File tạo/sửa
+- Sửa: `product/docs/state-machines.md`, `product/docs/business-processes.md`, `product/docs/use-cases.md`, `product/docs/rbac-matrix.md`
+- Tạo: `product/docs/rbac-matrix.json`, `rounds/round-01/responses/BA-responses.md`
+- Sửa: `rounds/round-01/outputs/BA/report.md` (phần này)
+- Không sửa decision-log, 02-escalations, file của vai khác.
+
+## 3. Giả định
+- Người thực hiện chuyển khoản hoàn là MGR+ (DOM xác nhận ở R2); hạn mức tháng FOC minibar tự áp chờ INV (ESC-007); chi hoa hồng trước ngày 10 chờ INV; tiền mặt ca đêm khi không có người nhận ca chờ ESC-010.
+- Tham số mới đề nghị DOM thêm: `welfare_check_hours`, `shift_max_hours`, `offline_backfill_max_hours`, `transfer_unverified_max`, `foc_self_monthly_limit`.
+
+## 4. Rủi ro / vướng mắc
+- OpenAPI đang được ARC sửa song song; phần so sánh trong `rbac-matrix.json` là ảnh chụp lúc sinh file – cần chạy lại sau khi ARC xong (script sinh file nằm ở scratchpad của BA, logic mô tả trong khóa `openapi_check`).
+- Nhóm đơn, đóng ca, mất mạng cần ARC thêm mô hình dữ liệu và PO chốt phạm vi R2 – nếu chưa có story thì chưa vào R2.
+- BR-526 (đối soát), quy tắc đoàn chưa có – quy trình đang tham chiếu mã BR dự kiến.
+
+## 5. Việc chưa xong
+- Đặc tả theo phân hệ ở mức trường/kiểm tra hợp lệ (`specs/<phân-hệ>.md`) – đầu R2.
+- Endpoint đọc chưa gán mã hành động trong `rbac-matrix.json` (quyền theo màn hình/trường) – gán ở R2 khi OpenAPI ổn định.

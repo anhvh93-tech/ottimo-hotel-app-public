@@ -47,3 +47,57 @@
 - Chờ review bắt buộc của BA và PO (khuyến nghị QC).
 - R2 tuần đầu: `br-examples.json`, seed DS-E/DS-0, script ma trận quyền từ `x-roles`, E2E smoke, ca cho 17 `operationId` chưa có TC.
 - TC cho lỗi BL #11, #14, #22, #25 và story Must R3.
+
+---
+
+## Bước 4 – Phản hồi & sửa (15/10/2026)
+
+**Đã làm gì**
+- Đã trả lời đủ 17 thẻ (BA 10, PO 7) trong `rounds/round-01/responses/QA-responses.md`. Kết quả: 17 Done, 0 Rejected, 0 Deferred, 0 Escalated. Không còn thẻ Major nào ở trạng thái Open (4/4 Major đã Done).
+- Test case v0.2 tăng từ 313 lên **373 TC** (thêm 60). Có 38 ca gắn nhãn Smoke (S). Mục 10a mới gồm 20 ca bảo mật SR-SES, SR-DEV, SR-GST. Đã thêm ca cho các nhánh chuyển trạng thái còn thiếu (SM-10 A5/A6/A2, SM-02 O4/O5, SM-08 Q5, SM-14 hủy việc, SM-03 R9 từ CL, SM-13 settled→closed, SM-12 đối soát, B7a/B7b/B7c/B9a…). Đã thêm ca cho các AC mới mà PO viết ở bước 4 (US-141, US-142, US-001 AC4, US-018 AC5, US-139 AC3…) và 5 ca kiểm trường chỉ số.
+- Đã áp các quyết định mới vào test case: khối OOO nửa mở; BR-603 khách nước ngoài +12 giờ; ngày nghiệp vụ đổi lúc 06:00; đơn OTA nhập tay vào căn đã kín → 409 kèm gợi ý; màn mặc định là "Hôm nay"; OTP hoặc mã lễ tân thay cho mã đặt phòng; thiết bị được cấp; MutableClock; xóa ảnh ngay khi `confirmed`; FOC minibar tự áp trong hạn mức tháng.
+- Test-strategy v0.2:
+  - tầng R/C lấy rbac-matrix làm chuẩn và có thêm bước kiểm tĩnh;
+  - mục 2.0 về truy vết ba chiều;
+  - sửa DS-0 (cọc OTM-0151, cách nạp dữ liệu);
+  - thêm tài khoản `qa.hkmt` và các thiết bị test;
+  - MutableClock và mốc 06:00;
+  - bước PO nghiệm thu ở R2, UAT ở R3, bộ Smoke;
+  - 2 dòng hiệu năng cho PWA nhân viên.
+- Script `gen_traceability.py`:
+  - sinh mục 7 "chuyển trạng thái → TC" (đọc mọi máy SM, hiện có 17 máy);
+  - sinh mục 8 kiểm tĩnh rbac ↔ OpenAPI (đọc `rbac-matrix.json` cho A-xx và rbac-matrix.md cho S-xx/Dxx), có tùy chọn `--strict` cho CI;
+  - thêm nhãn `[BLOCKED]`/`[UNDECIDED]`/`[GIẢ ĐỊNH QA]` và chỉ số AC chạy được ở R2;
+  - thêm cột ESC, đếm Smoke, tùy chọn `--out`;
+  - đọc được AC dạng "AC3 *(bước 4…)*:" và mã chuyển có hậu tố chữ (B7a).
+- Chạy thử script (xuất ra scratchpad, **chưa** ghi đè `traceability.md`):
+  - 77 story Must R2; AC 265/265; AC chạy được ở R2 265/265;
+  - chuyển trạng thái 101/121;
+  - 0 operationId lạ, 0 tham chiếu AC sai, 0 mã TC trùng;
+  - 20 operation lệch rbac ↔ OpenAPI, chờ BA/ARC xác nhận;
+  - 1 tham chiếu chuyển `SM-05 review→partial` chưa có trong SM-05, đã đề nghị BA thêm.
+
+**File đã sửa**
+- `product/docs/qa/test-strategy.md`
+- `product/tests/test-cases/r1-main-flows.md`
+- `product/tests/tools/gen_traceability.py`
+- `rounds/round-01/responses/QA-responses.md` (file mới)
+- `rounds/round-01/outputs/QA/report.md` (phần này)
+
+**Giả định**
+- Đếm "30 ngày sau trả phòng" theo ngày lịch giờ VN.
+- 5 cách hiểu biên khác được gắn nhãn `[GIẢ ĐỊNH QA – chờ DOM]`.
+- D01 với người kiêm HK ∪ MT hiển thị theo màn đang mở.
+- Chỉ owner được bật kênh gửi mã qua Zalo/OTA.
+- Hạn mức FOC minibar tháng là 500.000 (chờ ESC-007).
+
+**Rủi ro / vướng mắc**
+- OpenAPI chưa có endpoint gửi OTP email và endpoint đổi giai đoạn lead (TC ghi "—").
+- `x-visible-to` chưa gắn mã Dxx nên phải dùng bảng ánh xạ của QA.
+- Các vai khác đang sửa song song nên số liệu có thể đổi. Phải chạy lại script ở bước 5.
+
+**Việc chưa xong (bước 5)**
+- Sinh lại `traceability.md`.
+- Lập `qa/bug-list.md`: lỗi tài liệu P2 cho DOM từ các nhãn giả định, 20 lệch rbac ↔ OpenAPI.
+- Chạy CI khung và `GET /health`.
+- TC cho SM-16, SM-17 và SM-06 H3–H9 khi có story/AC.
