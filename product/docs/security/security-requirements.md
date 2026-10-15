@@ -1,0 +1,315 @@
+# Yêu cầu bảo mật – OTTIMO Desk
+
+- Người lập: SEC | Round 1 – Bước 2 Sản xuất – Đợt 4 (Phần 2) | Ngày: 15/10/2026 | Phiên bản: 0.1 (chờ review ARC bắt buộc, OPS khuyến nghị)
+- Đầu vào: `threat-model.md` (TM-01…TM-60), `data-risk-assessment.md` (gọi tắt **DRA**: C0–C3, D01–D28, T01–T18, R-CON, R-DSR, R-REG, R-PAY), `architecture.md`, `adr/ADR-001…013`, `erd.md`, `api/openapi.yaml`, `rbac-matrix.md`, `integrations.md`, `product/integrations/README.md`, `infra/*`, `.github/workflows/ci.yml`, `.env.example`.
+- Cách dùng: mỗi yêu cầu có mã **SR-<nhóm>-<số>**, cách **kiểm chứng** (ai cũng kiểm lại được), **round** phải đạt và **vai** chịu trách nhiệm. BE/FE/MOB/INT/OPS dẫn mã SR trong PR; QA dẫn mã SR trong test case; SEC dùng làm checklist review R2 và kiểm tra tổng R3.
+- Mức: **B** = bắt buộc (không đạt = lỗi bảo mật, mức theo threat model; Critical → SEC chặn phát hành) · **N** = nên có (lệch phải ghi lý do trong PR).
+- Round: **R2** = phải đạt khi tính năng liên quan hoàn thành ở R2 · **R3** = đạt trước bản RC · **GL** = đạt trước khi đưa dữ liệu khách thật vào (go-live).
+- Mọi con số ở đây (thời gian, ngưỡng) là **tham số kỹ thuật** do SEC đặt; con số thuộc nghiệp vụ/pháp lý dẫn sang BR hoặc DRA mục 7.
+
+> Tài liệu này không khẳng định "tuân thủ pháp luật". Nó liệt kê biện pháp kỹ thuật; phần pháp lý cần luật sư xác nhận (ESC-001).
+
+---
+
+## 1. Xác thực nhân viên (SR-AUTH)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-AUTH-01 | B | Mỗi nhân viên một tài khoản riêng (`app_user`), đăng nhập bằng tên đăng nhập + mật khẩu. Không có tài khoản mặc định trong seed production; tài khoản OWN đầu tiên tạo bằng lệnh CLI một lần, in ra mật khẩu tạm buộc đổi ở lần đầu | Seed production không có user; test CLI; đăng nhập lần đầu bị bắt đổi mật khẩu | R2 | BE | TM-01 |
+| SR-AUTH-02 | B | Mật khẩu ≥ 10 ký tự, tối đa 128; không bắt buộc loại ký tự; **từ chối** mật khẩu nằm trong danh sách ≥ 10.000 mật khẩu phổ biến (tệp offline trong repo) + chứa tên đăng nhập/"ottimo"; không bắt đổi định kỳ, bắt đổi khi nghi lộ | Unit test: `12345678abc`, `ottimo2026` bị từ chối; mật khẩu 10 ký tự ngẫu nhiên được nhận | R2 | BE | TM-01 |
+| SR-AUTH-03 | B | Băm **argon2id** (m = 19 MiB, t = 2, p = 1 hoặc mạnh hơn), muối riêng; mật khẩu và PIN không bao giờ log, không trả về, không vào audit | Kiểm chuỗi băm bắt đầu `$argon2id$`; grep log test không có mật khẩu | R2 | BE | TM-01 |
+| SR-AUTH-04 | B | Sai 5 lần liên tiếp/tài khoản → khóa 15 phút (lần khóa thứ 3 trong 24 giờ → khóa tới khi OWN mở); cộng giới hạn theo IP (SR-RL-01). Thông báo lỗi luôn chung "Tên đăng nhập hoặc mật khẩu không đúng"; thời gian phản hồi đồng đều khi tên không tồn tại | Test API: lần 6 trả `429 RATE_LIMITED`; tên không tồn tại và mật khẩu sai trả cùng body | R2 | BE | TM-01 |
+| SR-AUTH-05 | B | OWN đặt lại mật khẩu cho người khác (A100) → mật khẩu tạm, cờ `must_change_password`, thu hồi mọi phiên của người đó; người dùng tự đổi mật khẩu tại `POST /v1/me/password` (cần mật khẩu cũ) | Test: sau reset, phiên cũ 401; đăng nhập bằng mật khẩu tạm chỉ được gọi đổi mật khẩu | R2 | BE, ARC (thêm endpoint) | TM-03 |
+| SR-AUTH-06 | B | **2FA TOTP (RFC 6238) bắt buộc với vai `owner` và `manager`**; khuyến nghị `front_desk_lead`. Bí mật TOTP lưu `_enc` (DEK). 10 mã khôi phục dùng một lần (băm). Mất thiết bị: OWN khác hoặc quy trình CLI có ghi nhật ký. Không dùng SMS OTP (chi phí, SIM swap) | Test E2E đăng nhập OWN không có mã TOTP → không vào được; đăng ký/thu hồi 2FA ghi `audit_event security` | R3 (bắt buộc trước GL) | BE, FE | TM-01 |
+| SR-AUTH-07 | B | Đổi mật khẩu, bật/tắt 2FA, đặt PIN duyệt, khóa tài khoản, đổi vai → ghi `audit_event` loại `security`; gửi thông báo trong app cho chính người đó | Test kiểm bản ghi audit | R2 (R3 với 2FA) | BE | TM-03 |
+| SR-AUTH-08 | B | Cấm tài khoản dùng chung ("letan", "quay1"). Quy định trong hướng dẫn vận hành; OWN rà danh sách tài khoản hằng tháng | Rà danh sách user; tài liệu vận hành R3 | R3 | PO, INV | TM-01, TM-02 |
+| SR-AUTH-09 | B | **PIN duyệt** (BR-432): 6 chữ số, argon2id, khác mật khẩu; sai 5 lần → khóa duyệt 15 phút; yêu cầu duyệt chỉ chấp nhận PIN của **chính** tài khoản đang đăng nhập (không chọn tên người duyệt) | Test: dùng PIN người khác → `401 REAUTH_FAILED`; khóa sau 5 lần | R2 | BE | TM-06 |
+| SR-AUTH-10 | N | Hiển thị cho người dùng "đăng nhập gần nhất lúc… từ thiết bị…" trên màn hình chính | Kiểm giao diện | R3 | FE | TM-01 |
+
+## 2. Phiên (SR-SES)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-SES-01 | B | Phiên phía server (`user_session`), token phiên ngẫu nhiên ≥ 256 bit, DB chỉ lưu SHA-256. Cookie `__Host-ottimo_sid`: `HttpOnly; Secure; SameSite=Lax; Path=/`, không `Domain`. Không lưu token trong localStorage/IndexedDB | Kiểm header `Set-Cookie`; DB không có token rõ | R2 | BE, FE | TM-01 |
+| SR-SES-02 | B | Cấp token phiên **mới** sau đăng nhập, sau 2FA, sau đổi mật khẩu (chống session fixation); đăng xuất xóa dòng phiên server-side | Test: cookie trước đăng nhập không dùng được sau đăng nhập; sau logout cookie cũ 401 | R2 | BE | TM-01 |
+| SR-SES-03 | B | Thời hạn phiên (tham số kỹ thuật `session_policy` theo kênh): **admin-web**: hết sau 30 phút không hoạt động, tối đa 12 giờ; **PWA `mobile`**: 72 giờ không hoạt động, tối đa 30 ngày. Hết hạn → 401 `UNAUTHENTICATED`, client về màn đăng nhập, xóa dữ liệu màn hình | Test với `Clock` giả: request sau 31 phút → 401 | R2 | BE, FE, MOB | TM-02, TM-42 |
+| SR-SES-04 | B | Chống CSRF: mọi method ghi của nhân viên cần `X-CSRF-Token` khớp phiên (token đồng bộ, không phải cookie đọc được bởi JS khác origin) **và** header `Origin` thuộc danh sách origin hợp lệ; webhook là ngoại lệ duy nhất | Test: POST thiếu token/Origin lạ → 403 | R2 | BE | TM-04 |
+| SR-SES-05 | B | Mỗi phiên ghi `active_property_id`; mọi request `/v1/properties/{propertyId}/…` phải có `propertyId` ∈ cơ sở được gán của người dùng, nếu không → 404 | Test 2 cơ sở | R2 | BE | TM-07, TM-09 |
+| SR-SES-06 | B | **Thu hồi ngay mọi phiên** của người dùng khi: đổi vai (`PUT /users/{id}/roles`), khóa/vô hiệu tài khoản, đặt lại/đổi mật khẩu, tắt 2FA. (Sửa mô tả OpenAPI "có hiệu lực lần đăng nhập kế tiếp") | Test: đổi vai → request kế tiếp của phiên cũ trả 401 | R2 | BE, ARC | TM-03 |
+| SR-SES-07 | N | OWN xem danh sách phiên đang hoạt động (thiết bị, giờ, IP che) và thu hồi từng phiên; người dùng thu hồi phiên của mình | Test API | R3 | BE, FE | TM-42 |
+| SR-SES-08 | B | admin-web có nút "Đổi ca/Khóa" (đăng xuất nhanh); hướng dẫn vận hành: hết ca phải đăng xuất | Kiểm giao diện + tài liệu | R2 | FE, UXD | TM-02 |
+| SR-SES-09 | B | Phiên khách (`ottimo_gsid`) tách hoàn toàn phiên nhân viên: khác tên cookie, khác origin (SR-HDR-04), không endpoint nào chấp nhận cả hai | Test: cookie khách gọi API nhân viên → 401 | R2 | BE | TM-27 |
+
+## 3. Thiết bị được cấp – "máy quầy" (SR-DEV) – chốt M8
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-DEV-01 | B | Bảng `trusted_device(id, organization_id, property_id, name, token_hash, created_by, created_at, expires_at, last_seen_at, revoked_at, revoked_by)`. Chỉ OWN (và MGR nếu OWN bật) cấp/thu hồi; hết hạn mặc định 180 ngày (tham số `trusted_device_days`) | Test quyền A100-tương đương; audit `security` | R2 | ARC (ERD), BE | TM-46 |
+| SR-DEV-02 | B | Cấp thiết bị: người cấp đang đăng nhập **trên chính thiết bị đó** ở origin admin-web, xác nhận lại mật khẩu (và TOTP khi có) → server đặt cookie `__Host-ottimo_did` (256 bit, `HttpOnly; Secure; SameSite=Strict`, hết hạn = `expires_at`), DB lưu SHA-256 | Test luồng; cookie không đọc được từ JS | R2 | BE, FE | TM-46 |
+| SR-DEV-03 | B | Mọi endpoint có `x-classification: C3` **đọc hoặc ghi** của nhân viên (`.../documents` POST/PATCH, `.../sensitive`, `.../images/{id}`, `.../portal-data`, `door-credential` GET/PUT, xóa ảnh) yêu cầu cookie thiết bị hợp lệ, chưa thu hồi, cùng `property_id` → nếu không: `403 DEVICE_NOT_TRUSTED` + ghi `audit_event access.denied`. OpenAPI đánh dấu bằng `x-requires-trusted-device: true` | Test: cùng tài khoản FD, không cookie thiết bị → 403 trên từng endpoint C3 | R2 | ARC, BE | TM-46, TM-18 |
+| SR-DEV-04 | B | PWA `mobile` (origin nhân viên di động) **không có** chức năng cấp thiết bị; phiên PWA không bao giờ `device_trusted` (rbac 8.7) – kể cả khi người dùng có vai FD | Test: gọi endpoint cấp thiết bị từ origin PWA → 403 | R2 | BE, MOB | TM-42, TM-46 |
+| SR-DEV-05 | B | `Me.properties[].deviceTrusted` phản ánh trạng thái để FE ẩn nút C3; nhưng **server** là nơi kiểm (SR-DEV-03) | Test UI + API | R2 | FE, BE | TM-46 |
+| SR-DEV-06 | B | Danh sách thiết bị được cấp + lần dùng gần nhất trên màn S26; thu hồi có hiệu lực ngay | Test | R2 | BE, FE | TM-46 |
+| SR-DEV-07 | B | **Cứng hóa máy quầy** (checklist OPS/INV, kiểm khi cấp thiết bị và mỗi quý): ổ đĩa mã hóa (BitLocker/FileVault); tài khoản OS chuẩn (không quản trị); khóa màn hình sau 5 phút; cập nhật tự động; trình duyệt riêng cho OTTIMO, **không cài tiện ích**, không lưu mật khẩu trong trình duyệt; **tắt lịch sử clipboard và đồng bộ clipboard đám mây**; không cài Zalo/ứng dụng chat, không đồng bộ thư mục Downloads/Ảnh lên đám mây; phần mềm diệt mã độc mặc định bật | Checklist ký tên khi cấp thiết bị (lưu trong `trusted_device.name`/ghi chú); SEC kiểm ngẫu nhiên R3 | R3 (GL) | OPS, INV | TM-17, TM-18, TM-46 |
+
+## 4. Phân quyền 3 lớp theo `rbac-matrix.md` (SR-AZ)
+
+Ba lớp ở server (giao diện ẩn nút chỉ là phụ): **Lớp 1 – hành động**: guard theo `x-roles` của operation (rbac mục 3–4). **Lớp 2 – phạm vi dữ liệu**: cơ sở (RLS PostgreSQL, ADR-007) + phạm vi vai `x-scope` (M của mình, T hôm nay, Đ đơn của khách). **Lớp 3 – trường**: serializer theo `x-visible-to` (rbac mục 6) + endpoint riêng cho C3.
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-AZ-01 | B | Mọi operation trong OpenAPI có `x-roles`; **mặc định từ chối** khi thiếu (lint OpenAPI trong CI). Vai không có trong `x-roles` → `403 FORBIDDEN_ACTION` + `audit_event access.denied` (người, hành động, đối tượng) | Lint CI: 0 operation thiếu `x-roles`; test 403 + bản ghi audit | R2 | ARC, BE | TM-07 |
+| SR-AZ-02 | B | Phạm vi `x-scope` áp **trong câu truy vấn** (điều kiện `created_by`/`closer_user_id`/`assigned_user_id`/việc hôm nay), không lọc sau khi đã nạp; bản ghi ngoài phạm vi → `404 NOT_FOUND` (không lộ tồn tại) | Test IDOR: SAL A gọi đơn của SAL B → 404 | R2 | BE | TM-07 |
+| SR-AZ-03 | B | `allowedActions[]` tính ở server theo **trạng thái và vai**; server kiểm lại khi thực hiện, không tin client | Test chuyển trạng thái trái phép → 409/403 | R2 | BE | TM-07 |
+| SR-AZ-04 | B | Serializer **mặc định từ chối trường**: chỉ đưa vào JSON trường mà vai được thấy theo `x-visible-to`; thuộc tính `x-classification: C3` chỉ có ở endpoint C3. Trường không được thấy **vắng mặt** (không `null`) | Test snapshot JSON cho từng vai × schema chính (Reservation, Folio, Guest, Quote, Party, Item, LeaseContract) so với rbac mục 6 | R2 | BE, QA | TM-08 |
+| SR-AZ-05 | B | Mọi id trong đường dẫn/body được kiểm thuộc cùng `propertyId` của đường dẫn và trong phạm vi người gọi (ví dụ `documentId` thuộc `registrationId`, `imageId` thuộc `documentId`) | Test ghép id chéo → 404 | R2 | BE | TM-07 |
+| SR-AZ-06 | B | RLS: `ENABLE` + `FORCE` trên mọi bảng có `property_id`/`organization_id`; vai `ottimo_app` không `BYPASSRLS`; biến phiên đặt bằng `SET LOCAL` trong giao dịch; job dùng vai riêng, mỗi lần dùng `ottimo_readonly` (BYPASSRLS) phải qua runbook và ghi lại | Test: truy vấn không ngữ cảnh → 0 dòng; bộ test 2 cơ sở (ADR-007) | R2 | BE, OPS | TM-09 |
+| SR-AZ-07 | B | Phê duyệt (SM-10): kiểm hạn mức theo `foc_limits` tại thời điểm duyệt, chặn tự duyệt (CHECK + guard), xác thực lại bằng PIN (SR-AUTH-09) | Test US-007 | R2 | BE | TM-06 |
+| SR-AZ-08 | B | Quyền đọc từ DB theo `user_property_role` còn hiệu lực ở **mỗi request** (hoặc bộ nhớ đệm ≤ 60 giây có `roles_version` xóa khi đổi vai); không nhúng vai vào token | Test: đổi vai → request kế tiếp theo vai mới (kèm SR-SES-06) | R2 | BE | TM-03 |
+| SR-AZ-09 | B | **Bộ test phân quyền sinh từ OpenAPI**: với mỗi operation × 8 vai nhân viên + khách mức 1/2 + không đăng nhập, kỳ vọng 2xx/403/404 theo `x-roles`/`x-scope`; chạy trong CI | CI xanh; báo cáo ma trận | R2 | QA, BE | TM-07 |
+| SR-AZ-10 | B | Không endpoint nào xuất danh sách C3 hàng loạt (A75 cấm mọi vai); xuất C2 (A105) chỉ OWN/MGR + nhật ký | Lint/grep OpenAPI; test | R2 | ARC, BE | TM-11 |
+
+## 5. Dữ liệu C3: đọc, ghi, nhật ký truy cập (SR-C3)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-C3-01 | B | Danh sách cột C3 = cột hậu tố `_enc`/`_hmac`/`_hash` trong ERD (erd mục 11) + `trusted_device.token_hash`, `app_user.mfa_secret_enc`. Mọi cột C3 khai báo trong một danh mục code (`c3Columns`) dùng chung cho serializer, audit, log | Test: danh mục khớp migration (so tên cột) | R2 | BE | TM-08, TM-53 |
+| SR-C3-02 | B | Cột `_enc` không bao giờ có trong DTO danh sách, `audit_event.before/after`, `outbox_message.payload`, SSE, `idempotency_key.response_body`, log, nội dung tin nhắn | Test tự động quét JSON các đường đó tìm khóa trong `c3Columns` | R2 | BE | TM-08, TM-53 |
+| SR-C3-03 | B | Phản hồi C3 (JSON hoặc ảnh) có `Cache-Control: no-store`, `Pragma: no-cache`; ảnh/PDF thêm `X-Content-Type-Options: nosniff` và `Content-Security-Policy: sandbox; default-src 'none'` | Test header | R2 | BE | TM-16, TM-44 |
+| SR-C3-04 | B | Không URL công khai hoặc URL ký sẵn cho ảnh giấy tờ; chỉ stream qua API sau kiểm quyền | Review code; test truy cập trực tiếp volume qua Caddy → 404 | R2 | BE, OPS | TM-12 |
+| SR-C3-05 | B | Không đưa C2/C3 vào URL/query (trừ mã lý do enum) | Lint OpenAPI: tham số `in: query` không chứa tên trường C2/C3 | R2 | ARC | TM-23, TM-53 |
+| SR-C3-06 | B | Ảnh khách tải qua app **chỉ ghi**, không có endpoint khách đọc lại ảnh/số giấy tờ (rbac ghi chú 7) | Lint OpenAPI + test | R2 | BE | TM-21 |
+| SR-C3-07 | B | **Nhật ký truy cập C3**: mỗi lần `view/create/update/copy/delete/purge` ghi `c3_access_log` **trong cùng giao dịch và trước khi trả dữ liệu**; ghi thất bại → không trả dữ liệu (503). Bảng append-only (REVOKE UPDATE/DELETE với `ottimo_app`) | Test: giả lập lỗi ghi log → không có dữ liệu trả về; DELETE bằng `ottimo_app` → lỗi quyền | R2 | BE | TM-11, TM-19 |
+| SR-C3-08 | B | Trường nhật ký tối thiểu: `occurred_at`, `actor_type` (`user|guest|system`), `user_id`, `session_id`, `trusted_device_id`, `ip_hmac`, `subject_type`, `subject_id`, `reservation_id`, `action`, `reason_code`, `request_id`. Khách xem mã cửa cũng ghi (`actor_type=guest`) | Kiểm migration + test | R2 | ARC, BE | TM-19 |
+| SR-C3-09 | B | **Xác nhận lại** (PIN duyệt hoặc mật khẩu) trước khi xem ảnh giấy tờ / `.../sensitive` / `portal-data` nếu lần xác thực gần nhất của phiên > 15 phút (tham số `c3_stepup_minutes`) | Test với `Clock` giả | R2 | BE, FE | TM-02, TM-11 |
+| SR-C3-10 | B | Xem ảnh: hiển thị inline trong khung xem của app, **watermark** chồng lên ảnh (tên người xem + thời điểm + "Chỉ dùng khai báo lưu trú"), không có nút tải về; ảnh không đưa vào thẻ `<a download>`; PDF hiển thị ảnh đã kết xuất thay vì mở PDF gốc | Kiểm UI; test API trả ảnh đã chèn watermark hoặc watermark ở client + ảnh không có URL tải | R2 | FE, BE | TM-17 |
+| SR-C3-11 | B | `portal-data`: nút "Sao chép" **từng trường** (không sao chép cả khối mặc định); sau sao chép, client tự ghi đè clipboard bằng chuỗi rỗng sau 60 giây và khi rời màn hình; mỗi lần sao chép ghi `c3_access_log action=copy` (gộp theo phiên màn hình) | Test E2E + kiểm log | R2 | FE, BE | TM-18 |
+| SR-C3-12 | B | OWN/MGR có màn S28 lọc theo người/đơn/ngày; báo cáo tháng "lượt xem C3 theo người" gửi OWN; cảnh báo bất thường theo SR-LOG-06 | Test màn hình + job | R2 (màn), R3 (cảnh báo) | BE, FE | TM-11 |
+
+## 6. Mã hóa và quản lý khóa (SR-KEY) – siết ADR-013
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-KEY-01 | B | AES-256-GCM qua thư viện chuẩn (Node `crypto`), nonce 96 bit ngẫu nhiên mỗi lần mã hóa, **AAD** = `table|column|record_id|kek_version` (chống tráo bản mã giữa các bản ghi); một DEK cho mỗi bản ghi `guest_document`, mỗi ảnh, mỗi `door_credential`, mỗi `reservation_guest` có dữ liệu trẻ em (thêm cột `data_key_id`), mỗi `approval_request` có tài khoản hoàn | Unit test: đổi AAD → giải mã thất bại; không dùng lại nonce (test 10⁵ lần) | R2 | BE | TM-12 |
+| SR-KEY-02 | B | Chỉ module `CryptoService` đọc bảng `data_key` và biến KEK; lint chặn import ở module khác | Lint rule + review | R2 | BE | TM-12 |
+| SR-KEY-03 | B | KEK 256 bit ngẫu nhiên, mỗi môi trường một KEK khác nhau (dev/staging/production); nạp từ `DATA_KEK_CURRENT` (+ `DATA_KEK_<n>` cho phiên bản cũ khi xoay); **không** nằm trong DB, image, repo, log, backup tệp, thông báo lỗi; ứng dụng từ chối khởi động ở production nếu KEK trống/ngắn | Test khởi động; grep image (`docker history`, `docker run … env` không có KEK ngoài runtime) | R2 | BE, OPS | TM-13, TM-47 |
+| SR-KEY-04 | B | INV giữ **2 bản sao KEK ngoại tuyến** (ví dụ giấy in trong két + USB mã hóa), tách khỏi khóa giải mã backup; OPS ghi runbook "khôi phục KEK" | Biên bản bàn giao (không ghi giá trị) trước GL | GL | OPS, INV | TM-14 |
+| SR-KEY-05 | B | Xoay KEK: khi nghi lộ (bắt buộc) và mỗi 12 tháng (nên); bọc lại mọi DEK còn hiệu lực bằng KEK mới, ghi `kek_version`; runbook OPS | Diễn tập ở staging R3 | R3 | OPS, BE | TM-13 |
+| SR-KEY-06 | N | (Tăng cường crypto-shredding với backup) Xoay KEK theo tháng, hủy KEK cũ khi mọi backup chứa DEK bọc bởi nó đã hết hạn (≤ 35 ngày sau xoay) | Thiết kế R3 nếu INV/luật sư yêu cầu "xóa khỏi backup" nhanh hơn 35 ngày | R3 | ARC, OPS | TM-15 |
+| SR-KEY-07 | B | `ID_HASH_KEY` (HMAC số giấy tờ) khác KEK, 256 bit; chỉ dùng HMAC-SHA256; giá trị HMAC là C3 (không trả API) | Test | R2 | BE | TM-12 |
+| SR-KEY-08 | B | Băm IP trong log/nhật ký dùng **HMAC với khóa riêng** (`LOG_IP_HMAC_KEY`), không SHA-256 trần (IPv4 dò ngược được) | Test | R2 | BE | TM-53 |
+| SR-KEY-09 | B | Sửa ADR-013 mục 3: "Hủy DEK làm dữ liệu không đọc được trong DB ngay; bản sao lưu cũ vẫn chứa DEK bọc bởi KEK hiện hành nên dữ liệu chỉ hết hẳn khi backup cũ hết hạn (≤ 35 ngày, T18)" | ARC cập nhật ADR (thẻ review bước 3) | R1 bước 4 | ARC | TM-15 |
+
+## 7. Tệp tải lên (SR-FILE)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-FILE-01 | B | Loại cho phép xác định bằng **magic bytes** (không tin `Content-Type`/đuôi): ảnh giấy tờ JPEG, PNG, HEIC/HEIF; PDF **chỉ** từ quầy (máy scan). Khách (`guest-web`) chỉ ảnh. Đính kèm vận hành: JPEG, PNG, HEIC | Test tệp đổi đuôi `.jpg` chứa HTML → 422 `FILE_REJECTED` | R2 | BE | TM-16 |
+| SR-FILE-02 | B | Giới hạn: ≤ 10 MB/tệp, ≤ 40 megapixel, ≤ 4 ảnh/người/giấy tờ, ≤ 30 tệp/đơn từ app khách; giới hạn body ở Caddy 25 MB | Test vượt ngưỡng → 413/422 | R2 | BE, OPS | TM-16, TM-25 |
+| SR-FILE-03 | B | **Mã hóa lại** ảnh (decode → encode JPEG/WebP) trước khi lưu, bỏ toàn bộ metadata (EXIF, GPS); thư viện xử lý ảnh chạy với giới hạn bộ nhớ/thời gian; lỗi decode → từ chối | Test: ảnh có GPS → bản lưu không có EXIF | R2 | BE | TM-16 |
+| SR-FILE-04 | B | Không ghi tệp tạm dạng rõ ra đĩa (xử lý trong bộ nhớ hoặc tmpfs); tên lưu ngẫu nhiên; quyền tệp 600, thư mục 700; volume không được Caddy phục vụ | Review + kiểm quyền thư mục | R2 | BE, OPS | TM-12 |
+| SR-FILE-05 | N | Quét mã độc (ClamAV container) cho PDF; nếu chưa có ở R2 thì PDF chỉ hiển thị dạng ảnh đã kết xuất ở server | Test | R3 | OPS, BE | TM-16 |
+| SR-FILE-06 | B | Phục vụ tệp với `Content-Disposition: inline; filename="document"` (không lộ tên gốc), `nosniff`, CSP `sandbox` (SR-C3-03) | Test header | R2 | BE | TM-16 |
+
+## 8. Thời hạn lưu, xóa, legal hold (SR-RET)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-RET-01 | B | Thời hạn đọc từ `config_parameter` (erd 9.2), không viết cứng; chỉ OWN sửa; mỗi lần sửa audit `config` | Test quyền + audit | R2 | BE | TM-20 |
+| SR-RET-02 | B | **Ảnh của người không đồng ý lưu (M3)**: xóa ngay khi khai báo `confirmed` (outbox, mục tiêu ≤ 15 phút); J16 là lưới an toàn với hạn trên T01 = 24 giờ; chưa `confirmed` → tối đa 7 ngày sau trả phòng | Test với `Clock` giả: `confirmed` → ảnh mất trong 1 lần chạy outbox; job bắt ca sót | R2 | BE | TM-20 |
+| SR-RET-03 | B | J16 ghi `retention_run` (không dữ liệu cá nhân) + `purge_journal(subject_type, subject_id, purged_at, policy_key)`; cảnh báo OPS khi job lỗi hoặc không chạy trong 26 giờ | Test + cấu hình giám sát R2 | R2 | BE, OPS | TM-20, TM-56 |
+| SR-RET-04 | B | `legal_hold`: chỉ OWN/MGR, bắt buộc lý do + `review_by` ≤ 90 ngày; danh sách hold quá hạn xem lại hiện "Cần chú ý" cho OWN | Test | R3 | BE | TM-20 |
+| SR-RET-05 | B | Xóa sớm theo yêu cầu khách (A74) và rút đồng ý P02b → hủy DEK + xóa tệp trong cùng request; trả lời khách phần nào luật buộc giữ (R-DSR-03) | Test | R2 | BE | TM-20 |
+| SR-RET-06 | B | `visa_alert_on` (M9): C2, đặt NULL khi đơn `checked_out`/`cancelled`/`no_show`/khai báo `void`; không có trong DTO/audit/SSE; mục "Cần chú ý" `visa_expiring` chỉ chứa mã đơn | Test | R2 | BE | TM-08 |
+
+## 9. App khách theo link (SR-GST) – chốt cơ chế xác minh mức 2
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-GST-01 | B | Token link 256 bit từ CSPRNG (base64url 43 ký tự; tối thiểu 128 bit), DB lưu SHA-256 (`guest_access_token.token_hash`), token rõ chỉ trả **một lần** khi cấp | Test | R2 | BE | TM-22 |
+| SR-GST-02 | B | guest-web đọc token từ `/g/{token}`, gọi `POST /v1/guest/sessions` (token trong body), nhận cookie `__Host-ottimo_gsid`, rồi `history.replaceState` về `/` – token không còn trên thanh địa chỉ; `Referrer-Policy: no-referrer` | Test E2E: sau mở link, `location.href` không chứa token | R2 | MOB/FE, BE | TM-23 |
+| SR-GST-03 | B | guest-web **không** nhúng script/analytics/font của bên thứ ba; Caddy và API che đường dẫn `/g/*` trong log | Kiểm CSP + log | R2 | MOB, OPS | TM-23 |
+| SR-GST-04 | B | Cấp lại link = thu hồi mọi token cũ của đơn + mọi `guest_session` của chúng; thu hồi thủ công (DELETE) tương tự | Test | R2 | BE | TM-21 |
+| SR-GST-05 | B | Hiệu lực: từ khi cấp tới `checked_out` + `guest_link_grace_hours` (mặc định 24); dài hạn: HĐ `closed` + ân hạn; quá hạn → `401 GUEST_LINK_INVALID` | Test với `Clock` giả | R2 | BE | TM-26 |
+| SR-GST-06 | B | **Mức 1** (chỉ có link): thông tin lưu trú, nội quy, Wi-Fi (từ ngày nhận phòng), gửi yêu cầu, check-in online (chỉ ghi), giờ đến. Không: bill, hợp đồng, mã cửa, họ tên đầy đủ, liên hệ, người đi cùng | Test JSON mức 1 không có trường cấm | R2 | BE | TM-21 |
+| SR-GST-07 | B | **Mức 2** đạt được bằng **một trong hai**: (a) **OTP email**: 6 chữ số, CSPRNG, hiệu lực 10 phút, gửi tới email trên đơn (qua `NotificationAdapter` email, R2), hiển thị email che `d***@g***.com`; (b) **Mã xác minh lễ tân**: FD+ bấm "Cấp mã xác minh" ở chi tiết đơn → 6 chữ số, 10 phút, dùng một lần, đọc trực tiếp cho khách tại quầy hoặc gọi điện tới SĐT trên đơn; mỗi lần cấp ghi audit. (c) R3 tùy chọn: OTP qua Zalo ZNS nếu INV duyệt chi phí (ESC-010). **Không chấp nhận** 4 số cuối SĐT hay mã đặt phòng làm yếu tố xác minh (mã đặt phòng tăng dần và có sẵn trong tin nhắn chứa link). OTP lưu băm | Test: `bookingCode`/`phoneLast4` không còn trong schema `verify`; OTP sai/hết hạn bị từ chối | R2 | ARC (sửa OpenAPI), BE, MOB, UXD | TM-21 |
+| SR-GST-08 | B | Đếm lần xác minh sai **theo token** (không theo phiên): 5 lần sai trong 24 giờ → khóa xác minh của token, khách phải nhờ lễ tân (mã xác minh lễ tân vẫn dùng được); gửi OTP tối đa 3 lần/giờ/token | Test: mở phiên mới không reset bộ đếm | R2 | ARC (ERD), BE | TM-21 |
+| SR-GST-09 | B | Phiên mức 2 hết sau 30 phút không hoạt động (`guest_level2_idle_minutes`) và tối đa 24 giờ → về mức 1 | Test | R2 | BE | TM-21 |
+| SR-GST-10 | B | Mã cửa trong `GuestStay.doorCode` chỉ trả khi: phiên mức 2 **và** thời điểm trong `[validFrom, validTo]` **và** đơn `confirmed`/`in_house`; mỗi lần trả ghi `c3_access_log` (`actor_type=guest`); phản hồi `no-store` | Test | R2 | BE | TM-21, TM-39 |
+| SR-GST-11 | B | **Sau `checked_out` (M4)**: chỉ còn xem bill + thanh toán phát sinh (BR-427), bắt buộc mức 2; Wi-Fi, mã cửa, yêu cầu, upload, đồng ý mới → 403 | Test | R2 | BE | TM-26 |
+| SR-GST-12 | B | QR đặt trong phòng chỉ trỏ tới trang công khai của căn (không token); trang đó không truy vấn dữ liệu đơn | Kiểm nội dung QR | R2 | MOB, UXD | TM-24 |
+
+## 10. Thanh toán, callback và PCI DSS (SR-PAY) – chi tiết R-PAY-08
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-PAY-01 | B | IPN/webhook xác thực chữ ký **trên dữ liệu thô** đúng đặc tả cổng (VNPay HMAC-SHA512 trên tham số đã sắp xếp; MoMo HMAC-SHA256; SePay/payOS theo tài liệu) bằng so sánh hằng thời gian; sai → phản hồi mã lỗi theo cổng, ghi `inbox_message.signature_valid=false`, **không** thay đổi dữ liệu | Test Mock B10: chữ ký sai, thiếu, trường bị sửa → không tạo `succeeded` | R3 (R2 với Mock) | INT, BE | TM-28 |
+| SR-PAY-02 | B | Chỉ chuyển `succeeded` khi: chữ ký hợp lệ **và** `paymentId` tồn tại ở trạng thái `pending` **và** số tiền + tiền tệ khớp chính xác **và** mã kết quả cổng là thành công; ngược lại ghi "Cần chú ý" `payment_mismatch` | Test bảng các ca lệch | R3 (R2 Mock) | INT, BE | TM-28, TM-29 |
+| SR-PAY-03 | B | Idempotent: UK `(provider, provider_txn_id)` + `inbox_message(provider, external_event_id)`; IPN lặp trả "đã xác nhận" theo đặc tả cổng (ví dụ VNPay `02`) | Test gửi 2 lần → 1 giao dịch (K5) | R2 | BE | TM-28 |
+| SR-PAY-04 | B | Trước khi ghi `succeeded`, gọi `queryStatus` của cổng (B5) khi cổng hỗ trợ; ReturnUrl **không bao giờ** đổi trạng thái | Test | R3 | INT | TM-28 |
+| SR-PAY-05 | B | Endpoint webhook: không cần phiên, ngoại lệ CSRF duy nhất; giới hạn body 64 KB; có định danh cơ sở trong đường dẫn (ADR-011: `/v1/webhooks/{provider}/{propertySlug}`) để chọn đúng bí mật; hỗ trợ đúng method của cổng (VNPay IPN dùng GET – INT xác minh); phản hồi không chứa chi tiết lỗi nội bộ; route `mock` **không đăng ký** khi `NODE_ENV=production` | Test; kiểm bảng route production | R3 | ARC, INT, BE | TM-28, TM-33 |
+| SR-PAY-06 | B | Số tiền thanh toán do server tính (số dư/cọc/kỳ thu); VietQR/link thanh toán khác số server tính → bắt buộc lý do + audit; nội dung chuyển khoản chỉ mã đơn/bill (không tên, không SĐT) | Test | R2 | BE | TM-29 |
+| SR-PAY-07 | B | Bank feed (R3): xác thực khóa/chữ ký nhà cung cấp; **kéo lại giao dịch qua API nhà cung cấp** trước khi ghi; khớp nội dung chuẩn hóa (`OTM00171`) + số tiền chính xác; không khớp hoặc khớp nhiều đơn → "Cần chú ý", lễ tân xác nhận tay (A04) | Test Mock | R3 | INT, BE | TM-31 |
+| SR-PAY-08 | B | Không có cột, trường API, log nào chứa PAN/CVV/ngày hết hạn thẻ (R-PAY-01); chỉ `card_brand`, `card_last4` nếu cổng trả | Grep schema + test | R2 | ARC, BE | TM-30 |
+| SR-PAY-09 | B | Payload từ channel manager: **lọc theo danh sách trường cho phép** trước khi lưu/ghi log; trường thẻ (card, cc, cvv, vcc…) bị loại và tăng bộ đếm cảnh báo; `ChannelBookingEvent.raw` không được lưu nguyên; `inbox_message.payload_ref` (nếu có) chỉ chứa bản đã lọc, xóa sau 90 ngày (T16); INT tắt chuyển thẻ trên Beds24 (R-PAY-06) | Test Mock CM có trường thẻ → bản lưu không có | R3 (R2 Mock) | INT, BE | TM-30 |
+| SR-PAY-10 | B | Validator Luhn (13–19 chữ số, cho phép dấu cách/gạch) trên **mọi** ô văn bản tự do (ghi chú đơn, khách, folio, yêu cầu khách, lý do, mẫu tin) → `422 CARD_NUMBER_DETECTED`; hướng dẫn nhân viên "không nhận số thẻ qua điện thoại/Zalo" trong tài liệu vận hành | Test | R2 | BE, PO | TM-30 |
+
+## 11. Tích hợp, khóa cửa, tin nhắn (SR-INT, SR-LOCK, SR-MSG)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-INT-01 | B | Webhook kênh = tín hiệu; worker kéo lại đơn bằng thông tin đăng nhập của OTTIMO (ADR-011 B4); webhook không có chữ ký vẫn an toàn vì không dùng dữ liệu trong webhook | Test Mock: webhook giả với id không tồn tại ở CM → không tạo đơn | R3 | INT | TM-34 |
+| SR-INT-02 | B | Adapter chỉ gọi host cố định trong cấu hình (không lấy URL từ dữ liệu vào – chống SSRF); timeout ≤ 15 giây; TLS kiểm chứng chỉ | Review + test | R2 | INT | TM-35 |
+| SR-INT-03 | B | Mỗi adapter có bảng "trường gửi đi" tối thiểu; không gửi giấy tờ, mã cửa ra bên thứ ba (trừ hãng khóa khi tích hợp thật); danh sách bên xử lý + quốc gia máy chủ cập nhật cho thông báo xử lý dữ liệu (DRA P11) | Review README INT | R3 | INT, SEC | TM-36, TM-55 |
+| SR-LOCK-01 | B | Mã cửa mặc định: 6 chữ số từ CSPRNG; không trùng mã đang hiệu lực trên cùng khóa; không tái dùng mã cho căn trong 90 ngày; OpenAPI `DoorCredentialInput.code` sửa thành `^[0-9]{6,10}$` | Unit test sinh mã; lint schema | R2 | BE, ARC | TM-38 |
+| SR-LOCK-02 | B | Biến thể "mã sinh nhật" (chờ ESC-011): chỉ khi khách **tự chọn**; tối thiểu `ddmm` + **3** chữ số ngẫu nhiên (7 số), **hoặc** `ddmm` + 2 số nếu INT xác nhận khóa có khóa bàn phím sau ≤ 5 lần sai; không bao giờ chỉ ngày sinh | Review ESC-011 + test | R2 (sau ESC) | INT, BE | TM-38 |
+| SR-LOCK-03 | B | Mã cửa chỉ hiển thị cho khách ở app mức 2 trong khoảng hiệu lực (SR-GST-10); mẫu tin nhắn **cấm** biến mã cửa trừ mẫu `door_code` gửi đúng ngày đến tới liên hệ đã có trên đơn, không trong tiêu đề email/xem trước thông báo; nhân viên xem mã ghi `c3_access_log` | Test render mẫu | R2 | BE, UXD | TM-39 |
+| SR-LOCK-04 | B | Chế độ thủ công: hướng dẫn lễ tân **luôn đặt hạn trên chính khóa**; khi trả phòng/hủy/no-show tạo việc "Xóa mã căn X trên app khóa", chưa tick sau 1 giờ → "Cần chú ý" đỏ; `door_credential.revoked_at` đặt ngay | Test job + UI | R2 | BE, FE | TM-40 |
+| SR-MSG-01 | B | `message_template.body` chỉ dùng biến trong danh sách cho phép theo từng mã mẫu; **cấm** mọi biến C3; `message_log` không lưu nội dung đã điền | Test lưu mẫu có biến cấm → 422 | R2 | BE | TM-39, TM-60 |
+| SR-MSG-02 | B | Nội dung tin gửi bên thứ ba (email/Zalo) tối thiểu: tên gọi, mã đơn, ngày; không SĐT/giấy tờ/số tiền chi tiết trừ mẫu bill gửi chính khách | Review mẫu UXD | R2 | UXD, BE | TM-55 |
+| SR-MSG-03 | B | Mẫu chứa link app khách (`checkin_link`…) khi render (`/messages/render`) phải đi qua luồng cấp link với **quyền A22** (CTV không được); render mỗi lần không cấp token mới ngầm định – dùng link đang hiệu lực nếu người gọi có quyền xem, hoặc yêu cầu cấp lại rõ ràng; escape HTML cho email | Test: CTV render `checkin_link` → 403 | R2 | ARC, BE | TM-60, TM-21 |
+
+## 12. Lưu trữ trên thiết bị – PWA và trình duyệt (SR-PWA)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-PWA-01 | B | IndexedDB của PWA `mobile` chỉ chứa: trạng thái 10 căn, việc hôm nay, checklist, danh mục minibar (không giá vốn), hàng đợi thao tác, ảnh sự cố chờ gửi; **không** C3, không SĐT/email, không số tiền folio, không ghi chú khách tự do; HK chỉ tên gọi + số căn của việc hôm nay | Test: dump IndexedDB sau 1 ca mô phỏng, so danh sách khóa cho phép | R2 | MOB | TM-42 |
+| SR-PWA-02 | B | Service worker chỉ cache: tệp tĩnh của app + danh sách endpoint GET cho phép (rõ trong code); phản hồi có `Cache-Control: no-store` không bao giờ vào cache | Test | R2 | MOB | TM-44 |
+| SR-PWA-03 | B | admin-web và guest-web **không** cache phản hồi API bằng service worker; guest-web chỉ cache thông tin lưu trú mức 1 (ADR-006) | Review | R2 | FE, MOB | TM-44 |
+| SR-PWA-04 | B | Đăng xuất, hết phiên, đổi người dùng → xóa IndexedDB, Cache Storage, bộ nhớ TanStack Query; hàng đợi chưa gửi được cảnh báo trước khi xóa; xóa ảnh sự cố sau khi server xác nhận | Test E2E | R2 | MOB, FE | TM-42 |
+| SR-PWA-05 | B | Hàng đợi offline: mỗi mục có `Idempotency-Key` (UUID v4/v7) + `performedAt`; server chấp nhận `performedAt` trong [now − 24 giờ, now + 5 phút], lưu cả giờ nhận; kiểm chuyển trạng thái hợp lệ | Test | R2 | MOB, BE | TM-43 |
+| SR-PWA-06 | B | Web Push: nội dung chỉ loại sự kiện + số căn ("Căn 203 cần dọn"), không tên/liên hệ/mã | Review mẫu push | R2 | MOB, BE | TM-45 |
+| SR-PWA-07 | B | Không dùng `localStorage`/`sessionStorage` cho token hoặc dữ liệu C2/C3; chỉ cờ giao diện (ngôn ngữ, chế độ tối) | Lint/grep | R2 | FE, MOB | TM-42 |
+
+## 13. Giới hạn tần suất (SR-RL)
+
+Bộ đếm lưu ở PostgreSQL (ADR-003 – không Redis; một instance api nên bộ đếm RAM chỉ dùng cho giới hạn chung). Vượt → `429 RATE_LIMITED` kèm `Retry-After`; ghi `audit_event security` khi chạm ngưỡng xác thực.
+
+| Mã | Mức | Endpoint / hành vi | Ngưỡng mặc định (tham số) | Khóa đếm | R |
+|---|:-:|---|---|---|:-:|
+| SR-RL-01 | B | `POST /v1/auth/login` | 5 sai/tài khoản/15 phút (SR-AUTH-04); 20 lần/IP/15 phút | tài khoản, IP | R2 |
+| SR-RL-02 | B | Xác nhận PIN duyệt, step-up C3, 2FA | 5 sai/người/15 phút | người dùng | R2 |
+| SR-RL-03 | B | `POST /v1/guest/sessions` | 10/phút/IP, 100/ngày/IP | IP | R2 |
+| SR-RL-04 | B | `POST /v1/guest/sessions/verify`, gửi OTP | 5 sai/token/24 giờ; 3 OTP/giờ/token | token | R2 |
+| SR-RL-05 | B | Yêu cầu khách, upload app khách | 20 yêu cầu/ngày/đơn; 30 tệp/đơn | đơn | R2 |
+| SR-RL-06 | B | Endpoint C3 (`sensitive`, ảnh, `portal-data`, mã cửa) | 60 lượt/giờ/người – **vượt thì cảnh báo** OWN (không chặn công việc), 200/giờ thì chặn | người dùng | R2 |
+| SR-RL-07 | B | `guests/lookup`, `guests` tìm kiếm bởi SAL/CTV | 30/giờ/người; ghi audit mỗi lần tra theo SĐT/email | người dùng | R2 |
+| SR-RL-08 | B | Webhook | 300/phút/provider; body ≤ 64 KB | provider | R3 |
+| SR-RL-09 | N | API chung đã đăng nhập | 600/phút/người | người dùng | R2 |
+
+## 14. Bí mật và `.env` (SR-SECR)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-SECR-01 | B | Bí mật chỉ ở `product/.env` trên từng máy (quyền 600, chủ sở hữu là user chạy docker), không commit; `.env.example` chỉ placeholder (đã đạt); gitleaks quét toàn lịch sử trong CI (đã có) + khuyến nghị pre-commit | CI xanh; kiểm quyền tệp trên VPS | R2 | OPS | TM-47 |
+| SR-SECR-02 | B | `.dockerignore` loại `.env*`, `.data/`, `*.pem`, `*.key`, `*.age`, dump DB; image không chứa bí mật (kiểm `docker history`, quét image bằng gitleaks/trivy) | CI bước quét image | R2 | OPS | TM-47 |
+| SR-SECR-03 | B | Mỗi môi trường bộ bí mật riêng; staging chỉ dùng khóa sandbox của cổng; khóa production không bao giờ ở máy dev | Rà `.env` staging | R2 | OPS | TM-35, TM-47 |
+| SR-SECR-04 | B | Sổ bí mật (tên, chủ sở hữu, nơi giữ, chu kỳ xoay – **không ghi giá trị**) trong `hosting-plan.md`/runbook; xoay ngay khi người có quyền nghỉ việc hoặc nghi lộ: `SESSION_SECRET`, khóa cổng TT, token Beds24, MISA, Zalo, SMTP, tài khoản cổng BCA (ngoài app) | Runbook R3; diễn tập xoay 1 khóa ở staging | R3 | OPS, INV | TM-35, TM-57 |
+| SR-SECR-05 | B | **Kiểm khi khởi động** (`api` và `worker`): `NODE_ENV=production` mà (a) thiếu/yếu `SESSION_SECRET` (< 32 byte), `DATA_KEK_CURRENT` (≠ 32 byte), `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`; (b) `CLOCK_OVERRIDE` khác rỗng; (c) adapter tiền (`PAYMENT_*_MODE`, `BANKFEED_PROVIDER`) là `mock`; (d) `DATABASE_URL` dùng vai có `BYPASSRLS` → **dừng khởi động** với thông báo không lộ giá trị | Test khởi động từng ca | R2 | BE | TM-33, TM-47 |
+| SR-SECR-06 | B | Bí mật không bao giờ in ra log, thông báo lỗi, `/health`, trang lỗi; `integration_log` không ghi khóa/chữ ký | Test log | R2 | BE, INT | TM-53 |
+
+## 15. Sao lưu và khôi phục (SR-BAK) – theo T18
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-BAK-01 | B | `pg_dump` hằng ngày + WAL archive (mục tiêu mất ≤ 15 phút) + thư mục tệp mã hóa; đích off-site **tại Việt Nam** (ESC-002 A) | Kiểm lịch chạy + đích | R2 (staging), GL | OPS | TM-52 |
+| SR-BAK-02 | B | Mã hóa bản sao lưu bằng `age` với **khóa công khai** trên VPS; khóa riêng chỉ ở ngoài VPS (2 bản: INV + trình quản lý mật khẩu OPS), tách khỏi KEK | Thử giải mã trên máy khác; VPS không có khóa riêng | R2 | OPS | TM-12, TM-51 |
+| SR-BAK-03 | B | **Vòng đời cứng ≤ 35 ngày** (7 bản ngày + 4 bản tuần) cho DB, WAL, tệp; snapshot tự động của nhà cung cấp VPS **tắt** hoặc ≤ 7 ngày (vì snapshot chứa cả `.env`/KEK). Sửa ADR-010 ("3 tháng") theo T18 | Kiểm chính sách đích + bảng điều khiển nhà cung cấp | R2 | OPS, ARC | TM-15 |
+| SR-BAK-04 | B | Thông tin đăng nhập đích backup từ VPS chỉ cho **ghi thêm** (không xóa/ghi đè), hoặc đích tự kéo về; xóa theo vòng đời do đích tự làm | Thử xóa từ VPS → bị từ chối | R3 | OPS | TM-52 |
+| SR-BAK-05 | B | Thử khôi phục mỗi round vào môi trường cách ly: DB + tệp + giải mã 1 ảnh mẫu bằng KEK; đo RTO; **không** khôi phục backup production vào dev/staging dùng chung (dữ liệu thật) | Biên bản thử khôi phục | R2 (staging), mỗi round | OPS | TM-14, TM-52 |
+| SR-BAK-06 | B | Sau khôi phục: áp lại `purge_journal` (SR-RET-03) – lưu ngoài vòng đời backup thông thường (bảng riêng sao lưu mỗi ngày, giữ ≥ 36 ngày, chỉ chứa ID) – rồi chạy J16 trước khi mở hệ thống cho người dùng | Diễn tập ở staging | R3 | OPS, BE | TM-56 |
+| SR-BAK-07 | B | Thông báo xử lý dữ liệu nói rõ: dữ liệu đã xóa có thể còn trong bản sao lưu mã hóa tối đa 35 ngày (luật sư duyệt câu chữ) | Văn bản thông báo | GL | PO, luật sư | TM-15 |
+
+## 16. Log, che dữ liệu, nhật ký thao tác (SR-LOG, SR-AUD)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-LOG-01 | B | Log ứng dụng JSON có cấu trúc (`request_id`, route **mẫu** như `/v1/properties/:id/reservations/:id`, status, thời gian, `user_id`, vai); **không log body** request/response, không log header `Cookie`, `Authorization`, `X-CSRF-Token`, chữ ký nhà cung cấp | Test: gọi endpoint có body → log không có body | R2 | BE | TM-53 |
+| SR-LOG-02 | B | Bỏ query string khỏi log truy cập (Caddy + API) trừ danh sách cho phép (`cursor`, `limit`, `view`, `from`, `days`, `date`, `reason`); IPN dạng GET chỉ log `provider` + `paymentId` + kết quả | Test + cấu hình Caddy production | R2 | OPS, BE | TM-53 |
+| SR-LOG-03 | B | Che đường dẫn `/g/*` thành `/g/[redacted]` ở Caddy và API | Test log | R2 | OPS, BE | TM-23 |
+| SR-LOG-04 | B | Bộ lọc che (redactor) chạy trên mọi bản ghi log và `Problem.detail`: khóa trong `c3Columns`, `password`, `pin`, `otp`, `token`, `code` (mã cửa), `docNumber`, `phone`, `email` (che giữa), chuỗi đạt Luhn, mẫu số CCCD 12 số/hộ chiếu; lỗi trả client không có stack trace | Test: ném lỗi chứa số thẻ/CCCD giả → log và response đã che | R2 | BE | TM-53 |
+| SR-LOG-05 | B | Log kỹ thuật giữ 90 ngày (T16), không chứa C3; không dùng SaaS theo dõi lỗi ở MVP; nếu dùng (R3) phải bật lọc PII và ESC-002 | Cấu hình logrotate/docker | R2 | OPS | TM-53 |
+| SR-LOG-06 | B | Cảnh báo bảo mật gửi OWN (trong app + email): ≥ 3 khóa tài khoản/giờ; vượt SR-RL-06; xem C3 của đơn đã trả phòng > 7 ngày; xem C3 ngoài giờ ca cấu hình; job J16 lỗi; webhook chữ ký sai ≥ 5/giờ | Test sinh cảnh báo | R3 | BE, OPS | TM-11, TM-20 |
+| SR-AUD-01 | B | `audit_event` ghi mọi thao tác tiền, chuyển trạng thái, cấu hình, phân quyền, từ chối quyền, đăng nhập/2FA; append-only | Test | R2 | BE | TM-06, TM-32 |
+| SR-AUD-02 | B | REVOKE UPDATE/DELETE trên `audit_event`, `c3_access_log`, `state_transition`, `consent_record`, `folio_line`, `payment` với `ottimo_app`; xóa theo hạn T15 chỉ bằng vai job riêng xóa theo **phân vùng tháng** | Test lỗi quyền | R2 | BE, OPS | TM-54 |
+| SR-AUD-03 | B | `before/after` qua serializer audit **danh sách cho phép** theo thực thể (không `additionalProperties` tùy ý), không C3, C2 che theo danh sách | Test snapshot audit | R2 | BE | TM-08, TM-53 |
+
+## 17. Header, origin, kiểm đầu vào (SR-HDR, SR-INP)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-HDR-01 | B | CSP cho cả 3 SPA: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (guest-web thêm `form-action` cổng thanh toán khi R3) – không `unsafe-inline`/`unsafe-eval` | Kiểm header; trình duyệt không báo vi phạm khi chạy E2E | R2 | OPS, FE | TM-05 |
+| SR-HDR-02 | B | `Strict-Transport-Security: max-age=31536000; includeSubDomains`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: no-referrer` (guest-web) / `same-origin` (admin, staff); `Permissions-Policy` chỉ bật `camera` cho origin cần chụp giấy tờ/sự cố | Kiểm header (securityheaders hoặc test) | R2 | OPS | TM-23 |
+| SR-HDR-03 | B | TLS 1.2+ (Caddy mặc định); HTTP → HTTPS; không Cloudflare proxy giải mã TLS ngoài VN (ADR-010) | Kiểm cấu hình | R2 | OPS | TM-36 |
+| SR-HDR-04 | B | **Tách origin**: admin-web, PWA nhân viên, guest-web ở 3 tên miền con khác nhau, mỗi origin proxy `/v1` tới api (cùng origin, không CORS); cookie host-only (`__Host-`); CORS tắt | Kiểm Caddyfile production | R2 | OPS, ARC | TM-05, TM-27 |
+| SR-HDR-05 | N | `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` | Kiểm header | R3 | OPS | TM-05 |
+| SR-INP-01 | B | Mọi body/tham số kiểm bằng zod `.strict()` sinh từ OpenAPI; trường lạ → 422; độ dài tối đa cho mọi chuỗi | Test gửi trường thừa | R2 | BE | TM-10 |
+| SR-INP-02 | B | Chỉ truy vấn tham số hóa (Drizzle/SQL có tham số); cấm nối chuỗi SQL (lint) | Lint + review | R2 | BE | – |
+| SR-INP-03 | B | Thuộc tính đầu vào C3 trong OpenAPI có `writeOnly: true` (GuestDocumentInput, PartyMemberCreate, DoorCredentialInput) | Lint OpenAPI | R1 bước 4 | ARC | TM-08 |
+| SR-INP-04 | B | Không `dangerouslySetInnerHTML`/`innerHTML` với dữ liệu người dùng (lint React); dữ liệu từ OTA/khách hiển thị dạng văn bản | Lint CI | R2 | FE, MOB | TM-05 |
+| SR-INP-05 | B | Ô văn bản tự do có giới hạn độ dài + Luhn (SR-PAY-10); ghi chú khách gợi ý "không ghi sức khỏe/tôn giáo" (DRA F04) | Test + UI | R2 | BE, UXD | TM-30 |
+| SR-INP-06 | B | Xuất CSV/XLSX (A105): escape ô bắt đầu bằng `= + - @ \t \r`; ghi người xuất + thời điểm ở cuối file; nhật ký xuất | Test | R3 | BE | TM-59 |
+
+## 18. Hạ tầng và chuỗi cung ứng (SR-OPS, SR-SUP)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-OPS-01 | B | VPS: chỉ mở 80/443 + SSH; SSH chỉ khóa, tắt mật khẩu và đăng nhập root, fail2ban; giới hạn IP SSH nếu được | Quét cổng từ ngoài; kiểm `sshd_config` | R2 (staging) | OPS | TM-49 |
+| SR-OPS-02 | B | Postgres không publish cổng ở production (compose prod không có `ports` cho postgres); các container chạy user không root (đã có ở Dockerfile.api) | Kiểm compose prod | R2 | OPS | TM-49 |
+| SR-OPS-03 | B | Vá bảo mật OS tự động (`unattended-upgrades`); cập nhật image base mỗi tháng | Kiểm cấu hình | R2 | OPS | TM-49 |
+| SR-OPS-04 | B | Truy cập máy chủ production: chỉ OPS (và INV nếu muốn), mỗi người khóa SSH riêng; mỗi lần dùng `ottimo_readonly`/`psql` trên production ghi vào sổ vận hành | Runbook | R3 | OPS | TM-13, TM-49 |
+| SR-OPS-05 | B | Giám sát uptime + cảnh báo đĩa đầy, job lỗi, backup lỗi | Cấu hình R2 | R2 | OPS | TM-20, TM-50 |
+| SR-SUP-01 | B | `pnpm install --frozen-lockfile` bắt buộc trong CI và Dockerfile (bỏ nhánh fallback hiện tại ngay khi lockfile được commit – đầu R2) | CI | R2 | OPS | TM-48 |
+| SR-SUP-02 | B | Quét lỗ hổng phụ thuộc trong CI (`pnpm audit --audit-level=high` hoặc OSV-Scanner): High/Critical có bản sửa → CI đỏ; ngoại lệ ghi lý do + hạn | CI | R2 | OPS | TM-48 |
+| SR-SUP-03 | B | Renovate/Dependabot mở PR cập nhật hằng tuần; gói mới phải qua review (tên, số tải, người bảo trì) | Cấu hình repo | R2 | OPS, ARC | TM-48 |
+| SR-SUP-04 | N | Ghim GitHub Actions theo SHA commit; base image theo digest | Kiểm workflow | R2 | OPS | TM-48 |
+| SR-SUP-05 | N | Quét image (trivy) và SBOM khi build RC | CI | R3 | OPS | TM-48 |
+
+## 19. Quyền chủ thể dữ liệu và sự cố (SR-DSR, SR-INC)
+
+| Mã | Mức | Yêu cầu | Kiểm chứng | R | Vai | TM |
+|---|:-:|---|---|:-:|---|---|
+| SR-DSR-01 | B | Yêu cầu xem/sửa/xóa/rút đồng ý chỉ nhận qua app khách **mức 2** hoặc tại quầy có đối chiếu giấy tờ; không xử lý yêu cầu chỉ dựa trên email/SĐT | Test + quy trình | R3 | BE, PO | TM-58 |
+| SR-DSR-02 | B | Rút đồng ý từ app khách (thiếu endpoint trong OpenAPI – thêm `POST /v1/guest/consents/{purpose}/withdraw`) → dừng xử lý mục đích, kích hoạt xóa (P02b → SR-RET-05) | Test | R2 | ARC, BE | TM-58 |
+| SR-DSR-03 | B | Bản sao dữ liệu cho khách không chứa ảnh giấy tờ; giao trong app (mức 2) hoặc tại quầy, không gửi tệp C3 qua email | Review | R3 | BE | TM-58 |
+| SR-INC-01 | B | Runbook sự cố dữ liệu: phát hiện → khoanh vùng (thu hồi phiên, thiết bị, xoay khóa) → đánh giá → báo cơ quan chức năng trong 72 giờ (DRA 6.4, luật sư xác nhận) → báo chủ thể; danh bạ liên hệ | Diễn tập bàn giấy R3 | R3 | OPS, SEC, INV | – |
+| SR-INC-02 | B | Khả năng "thu hồi tất cả" một lệnh: mọi phiên nhân viên, mọi link khách, mọi thiết bị được cấp | Test lệnh ở staging | R3 | BE, OPS | TM-13 |
+
+---
+
+## 20. Bảng kiểm bảo mật cho Definition of Done (R2)
+
+Một story chạm các nhóm dưới chỉ được coi là XONG khi có thêm:
+
+| Story chạm | Phải có |
+|---|---|
+| Endpoint mới | `x-roles`, `x-scope`, `x-visible-to` cho trường nhạy cảm; test SR-AZ-09 cho endpoint đó |
+| Dữ liệu C3 | SR-C3-02, -03, -07; SR-DEV-03; test log không có giá trị C3 |
+| Tiền | SR-PAY-03, -06, -10; audit (SR-AUD-01) |
+| App khách | SR-GST-06, -07, -10, -11 |
+| PWA | SR-PWA-01, -02, -04, -05 |
+| Tích hợp | SR-INT-02, SR-PAY-09 (nếu CM), SR-SECR-06 |
+| Cấu hình/OPS | SR-SECR-02, -05; SR-OPS-02 |
+
+## 21. Truy vết yêu cầu ↔ nguồn
+
+| Nhóm SR | Nguồn chính |
+|---|---|
+| SR-AUTH, SR-SES | architecture mục 10; rbac 4.2, 5.2; BR-432; TM-01…06 |
+| SR-DEV | rbac 8.7; ARC M8; erd E4; R-REG-07; TM-46 |
+| SR-AZ | rbac mục 3–8; ADR-007; erd mục 2; OpenAPI "Phân quyền"; TM-07…10 |
+| SR-C3, SR-KEY, SR-FILE | DRA mục 3, R-REG-08, R-REG-09; ADR-013; erd mục 11; TM-11…20 |
+| SR-RET | DRA mục 7 (T01–T18); erd 9.2, 12; ARC M3, M9; TM-20, TM-56 |
+| SR-GST | ADR-006; DRA F09, F12; ARC M4; erd 9.3; TM-21…27 |
+| SR-PAY | DRA mục 9 (R-PAY-01…10); ADR-011; INT 3.2; TM-28…33 |
+| SR-INT, SR-LOCK, SR-MSG | INT README, smart-lock.md; DRA F05, F06, F12; ESC-011; TM-34…41, 60 |
+| SR-PWA | ADR-005; architecture mục 11, 12; TM-42…45 |
+| SR-SECR, SR-BAK, SR-OPS, SR-SUP | ADR-010, ADR-012; `.env.example`; ci.yml; Dockerfile; DRA T15–T18; TM-47…56 |
+| SR-LOG, SR-AUD | DRA mục 3, T15, T16; erd 4.3; TM-19, TM-53, TM-54 |
+| SR-DSR, SR-INC | DRA R-DSR, mục 6.4; TM-58 |
+
+## 22. Lịch sử thay đổi
+
+| Ngày | Round | Thay đổi | Người |
+|---|---|---|---|
+| 15/10/2026 | 1 – Đợt 4 | Bản đầu: ~165 yêu cầu SR trong 19 mục; chốt 2FA OWN/MGR, thiết bị được cấp (M8), xác minh mức 2 app khách, vòng đời backup ≤ 35 ngày + `purge_journal`, M3/M4/M9 | SEC |

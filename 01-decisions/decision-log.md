@@ -100,3 +100,13 @@
 | 2026-10-15 | 1 | Job theo lịch: đúng một lần qua `job_run`, chạy bù có giới hạn, đọc tham số khi chạy, không tự đánh dấu no-show | ARC | architecture 9.1 |
 | 2026-10-15 | 1 | Chuẩn API: RFC 9457 + `code`, phân trang con trỏ, `Idempotency-Key` bắt buộc cho POST ghi, `If-Match` cho sửa/chuyển trạng thái, phân quyền khai báo bằng `x-roles`/`x-scope`/`x-visible-to` | ARC | `openapi.yaml` info |
 | 2026-10-15 | 1 | Áp dụng `coding-standards.md` cho mọi mã từ R2 | ARC | Skill ARC, QC R1 |
+| 2026-10-15 | 1 | App khách mức 2 = OTP email của đơn hoặc mã xác minh lễ tân cấp; 4 số cuối SĐT và mã đặt phòng không dùng làm yếu tố xác minh; đếm sai theo token | SEC | TM-21 (mã đơn tăng dần, nằm trong tin chứa link) |
+| 2026-10-15 | 1 | C3 chỉ đọc/ghi trên thiết bị được OWN cấp (bảng `trusted_device`, cookie thiết bị); PWA không bao giờ được cấp | SEC | M8, TM-46 |
+| 2026-10-15 | 1 | 2FA TOTP bắt buộc cho owner, manager trước khi đưa dữ liệu thật (R3) | SEC | TM-01 |
+| 2026-10-15 | 1 | Thu hồi mọi phiên khi đổi vai/khóa/đặt lại mật khẩu; phiên admin 30 phút không hoạt động – tối đa 12 giờ; PWA 72 giờ – tối đa 30 ngày | SEC | TM-02, TM-03 |
+| 2026-10-15 | 1 | Backup và snapshot ≤ 35 ngày là ràng buộc cứng; "xóa bằng hủy khóa" chỉ có hiệu lực trong backup sau ≤ 35 ngày; thêm `purge_journal` áp lại sau khôi phục | SEC | TM-15, TM-56 |
+| 2026-10-15 | 1 | Ảnh của người không đồng ý: xóa ngay khi khai báo `confirmed`, 24 giờ là hạn trên (M3); link khách ân hạn 24 giờ với phạm vi thu hẹp (M4); `visa_alert_on` C2 có điều kiện (M9) | SEC | Mâu thuẫn ARC M3, M4, M9 |
+| 2026-10-15 | 1 | Mã cửa ≥ 6 chữ số ngẫu nhiên; biến thể sinh nhật cần ≥ 3 số ngẫu nhiên hoặc khóa có giới hạn thử sai (chờ ESC-011) | SEC | TM-38 |
+| 2026-10-15 | 1 | admin-web, PWA nhân viên, guest-web ở 3 tên miền con riêng, cookie `__Host-`, không CORS | SEC | TM-05, TM-27 |
+| 2026-10-15 | 1 | Payload channel manager lọc theo danh sách trường cho phép trước khi lưu; không lưu payload thô có trường thẻ | SEC | TM-30, R-PAY-06 |
+| 2026-10-15 | 1 | Dự thảo ESC "kiểm thử bảo mật độc lập + chấp nhận rủi ro còn lại TM-13/TM-17" (SEC report Phần 2 mục 7) dời trình INV ở cuối Round 2 – hạn quyết là trước Round 3, không cần INV quyết bây giờ | ORC | Bảo vệ thời gian INV; đã có 12 ESC ở Round 1 |
