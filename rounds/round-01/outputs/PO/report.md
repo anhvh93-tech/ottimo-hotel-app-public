@@ -46,3 +46,51 @@
 - Cùng DOM gom 26 câu hỏi BL mục 9 thành ESC (dự kiến ≤ 9) hoặc ghi decision-log.
 - Bước 3: review UXR, UXD, QA, DATA.
 - Cùng ORC lập `plan.md` Round 2.
+
+---
+
+# Báo cáo PO – Round 1 · Bước 2 (Sản xuất) · Đợt 3
+- Ngày: 15/10/2026 | Vai: PO
+
+## 1. Đã làm gì
+- **Backlog (việc A)** – `03-backlog/backlog.md`:
+  - Viết lại toàn bộ tiêu chí nghiệm thu: không còn con số quy tắc, chỉ tham chiếu mã BR ("khớp ví dụ BR-xxx" để QA kiểm được). Dùng tên trạng thái của `state-machines.md` (SM-01…SM-15, mã chuyển B/K/R/O/W) và mã vai của `rbac-matrix.md` (owner … guest, hành động A-xx, trường Dxx).
+  - Gắn mã vai vào cả 132 câu story cũ; thêm 7 story mới: US-133, US-134 (UC-30 – yêu cầu của chủ thể dữ liệu, Must R3), US-135 (xác nhận hành động không đảo ngược – HR-06, Must R2), US-136 (no-show + khôi phục – Must R2), US-137 (trả sớm – Should R2), US-138 (trả phòng nhanh qua app – Should R3), US-139 (xung đột đơn OTA – Must R3). Nâng US-024 lên Must R2. Tổng: **139 story, 74 Must R2** (mỗi story có ≥ 2 AC), 17 Must R3.
+  - Sửa 2 AC mâu thuẫn quyết định SEC/BA: US-045, US-107 – đồng ý lưu ảnh **không** còn là điều kiện khai báo/hoàn tất check-in.
+  - Blocker UXR: HR-01 → US-112, US-107 AC5; HR-04 → US-026; HR-06 → US-135, US-021; HR-07 → US-044 (3 trạng thái Đạt / Không đạt / Chưa kiểm được).
+  - Rà 4 story "Mới" với BR: US-024, US-124, US-127, US-132 đều không mâu thuẫn BR (bảng ở backlog mục 5.3).
+  - Thêm truy vết HR → story, UC → story, ESC → story (backlog mục 5).
+- **PRD** – thêm mã vai, bỏ con số quy tắc (hạn khai báo, giờ chuẩn → mã BR), bổ sung phân hệ (no-show, trả sớm, xác nhận hành động, yêu cầu chủ thể dữ liệu, xung đột OTA, trả phòng nhanh), gắn ESC-001…012 vào mục 8 và mục 10.
+- **Câu hỏi mở (việc B)** – 26/26 câu BL mục 9 + 15 câu mới có kết cục (`product/docs/open-questions-resolution.md`):
+  - Tạo 9 ESC mới (004–012), đúng định dạng protocol, đều mức Bình thường.
+  - Bổ sung ESC-001 (4 câu cho luật sư: hạn khai báo khách nước ngoài, ngưỡng tuổi trẻ em, lưu thông tin khai báo dạng chữ, hạn trả lời yêu cầu dữ liệu).
+  - Bổ sung ESC-002: câu phụ duyệt chi phí hosting theo số của OPS (H-A ~350–390k, H-B ~425–535k – đề xuất, H-C ~720–940k đ/tháng) + tên miền, kèm đối chiếu ADR-010 (0,45–0,9 tr). Theo chỉ đạo ORC, dùng số OPS thay cho số ADR-010.
+  - Gộp câu logo của UXD vào ESC-012. Cập nhật `escalations-index.md` (12 ESC).
+
+## 2. File tạo/sửa
+- `03-backlog/backlog.md` (sửa lớn: mục 1–3, viết lại mục 4–7)
+- `product/docs/PRD.md` (sửa)
+- `product/docs/open-questions-resolution.md` (tạo mới)
+- `02-escalations/ESC-004.md` … `ESC-012.md` (tạo mới, 9 file)
+- `02-escalations/ESC-001.md` (bổ sung câu luật sư), `ESC-002.md` (bổ sung hosting + tên miền)
+- `02-escalations/escalations-index.md` (sửa)
+- `rounds/round-01/outputs/PO/report.md` (thêm phần Đợt 3)
+
+## 3. Giả định
+1. "Khớp ví dụ BR-xxx" trong AC dựa vào cột ví dụ của `business-rules.md` v0.1; DOM sửa ví dụ thì QA theo số mới.
+2. Các mốc kỹ thuật không phải quy tắc kinh doanh vẫn ghi số trong AC (job hết hạn giữ chỗ chạy trong 5 phút, việc dọn xuất hiện trong 1 phút, màn 360px, 10 căn × 14 ngày).
+3. Vai trong câu story là người hưởng lợi chính; quyền chi tiết luôn theo `rbac-matrix.md`.
+4. Giả định của BA (CTV không xác nhận cọc, chỉ `owner` đặt hạn mức FOC) dùng nguyên trong AC, nhãn chờ INV giữ ở decision-log.
+5. Chi phí trong ESC lấy từ INT/ARC/OPS, đều là ước tính hoặc giá niêm yết – đã ghi rõ "chưa xác minh" khi nguồn chưa chắc.
+
+## 4. Rủi ro / vướng mắc
+- **R2 nặng hơn**: 74 Must R2 (tăng 3). Đã đưa vào ESC-012 phương án B (thu hẹp) để INV chọn nếu muốn an toàn; ORC cần ước lượng năng lực khi lập plan R2.
+- ESC-012 câu chính và câu phụ logo dùng chung một file – protocol yêu cầu 1 câu hỏi/ESC; đã tách rõ "câu phụ" để giữ tổng ≤ 12. ESC-002 tương tự (câu phụ hosting).
+- AC phụ thuộc review DOM/BA bước 3: nếu DOM đổi tên/mã BR, cần dò lại mục 4 backlog.
+- Một số AC dựa trên đề xuất BA "chờ SEC/DOM" (rbac ghi chú 30 – lý do xem ảnh sau khi khai báo; SQ-3 FOC minibar tự áp) – nếu bị bác, sửa US-048, US-007.
+
+## 5. Việc chưa xong
+- AC chi tiết cho story Must R3 cũ (US-041, 064, 065, 088, 089, 095, 096, 099, 100–102, 114, 115, 122) – làm ở R2 trước khi đưa vào plan R3.
+- Bước 3: review UXR, UXD, QA, DATA. Bước 4: trả lời thẻ review của BA, DOM.
+- Cùng ORC lập `plan.md` Round 2 (sau khi INV trả lời ESC-012 hoặc theo mặc định A).
+- ORC ghi decision-log 7 dòng D-1…D-7 ở `open-questions-resolution.md` mục 3.

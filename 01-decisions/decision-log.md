@@ -86,3 +86,11 @@
 | 2026-10-15 | 1 | Dependabot cho cập nhật phụ thuộc (npm, GitHub Actions, Docker); gitleaks chạy bằng image CLI chính thức trong CI | OPS | ADR-012 |
 | 2026-10-15 | 1 | Vòng xoay backup 7 ngày + 4 tuần (≤ 35 ngày) theo SEC T18 (ARC cần sửa ADR-010 – thẻ review) | OPS | SEC T18 |
 | 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] RPO ≤ 15 phút, RTO ≤ 4 giờ | OPS | architecture/ADR-010 |
+| 2026-10-15 | 1 | [GIẢ ĐỊNH – chờ INV xác nhận] Tiền tệ: thu và lưu VND số nguyên; USD chỉ hiển thị tham khảo theo tỷ giá nhập tay có ngày cập nhật (BR-004); không đa tiền tệ thanh toán trong MVP | PO | BL 9 #24; PRD X9 |
+| 2026-10-15 | 1 | 26 câu hỏi BL mục 9 + câu mới xử lý theo `product/docs/open-questions-resolution.md`; tạo ESC-004…ESC-012, gộp câu luật sư vào ESC-001, câu hosting (OPS) vào ESC-002, câu logo (UXD) vào ESC-012; tổng 12 ESC, đều Bình thường | PO | Plan R1 mục 8; QC A6 |
+| 2026-10-15 | 1 | WhatsApp/KakaoTalk/Telegram tự động để sau MVP; MVP dùng email + mẫu tin sao chép VI/EN/RU | PO | BL 9 #19; ít tích hợp cho 10 căn |
+| 2026-10-15 | 1 | CTV (`collaborator`) không thấy "OTTIMO còn lại" trên báo giá, chỉ thấy hoa hồng của mình | PO | rbac ghi chú 34; bảo mật biên lợi nhuận |
+| 2026-10-15 | 1 | US-024 (đổi căn/đổi ngày/đổi phòng) nâng từ Should lên Must R2; thêm US-133…US-139 (yêu cầu chủ thể dữ liệu, xác nhận hành động không đảo ngược, no-show, trả sớm, trả phòng nhanh, xung đột OTA); backlog 139 story, 74 Must R2 | PO | UC-05, UC-16, UC-19, UC-30; HR-06; BR-311, BR-312, BR-428 |
+| 2026-10-15 | 1 | Tiêu chí nghiệm thu chỉ tham chiếu mã BR ("khớp ví dụ BR-xxx"), không chép con số quy tắc; dùng tên trạng thái `state-machines.md` và mã vai `rbac-matrix.md` | PO | QC B1, B3 |
+| 2026-10-15 | 1 | Mọi hành động không đảo ngược có hộp xác nhận nêu hậu quả (US-135) | PO | HR-06 (Blocker UXR) |
+| 2026-10-15 | 1 | Chấp nhận ESC-002 và ESC-012 có "câu phụ" (hosting + tên miền; logo) để giữ tổng ESC ≤ 12 – mỗi câu phụ có phương án và đề xuất riêng | ORC | Bảo vệ thời gian INV; cùng chủ đề |
