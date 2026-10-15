@@ -1,6 +1,6 @@
-# Hướng dẫn nội dung chữ OTTIMO (Content guide) – v0.1
+# Hướng dẫn nội dung chữ OTTIMO (Content guide) – v0.2
 
-- Người viết: UXD (kiêm UX Writer) | Round 1 – Bước 2, đợt 2 | Ngày: 15/10/2026
+- Người viết: UXD (kiêm UX Writer) | Round 1 – Bước 2, đợt 2; cập nhật đợt 4 (khớp `rbac-matrix.md`, `state-machines.md`, `erd.md`, `openapi.yaml`) | Ngày: 15/10/2026
 - Trạng thái: bản nháp chờ review (UXR, PO; khuyến nghị DOM cho thuật ngữ nghiệp vụ).
 - File chuỗi máy đọc: `product/design/copy/strings-vi.json`, `strings-en.json`, `strings-ru.json` (cùng key với bảng mục 8). Nguồn duy nhất: `product/design/tools/gen_strings.py` (sinh JSON + `wireframes/assets/strings.js`); sửa chuỗi ở đó rồi chạy lại.
 - Khắc phục: HR-01 (app khách chỉ tiếng Việt), HR-13 (thuật ngữ khó), HR-19 (đặt tên không thống nhất), HR-24 (lỗi không chỉ cách sửa), HR-25 (bill song ngữ).
@@ -52,6 +52,24 @@ Không dùng: "Lỗi hệ thống", "Thao tác không hợp lệ", "OK", "Có/Kh
 | Khai báo lưu trú | Khai báo lưu trú (chung); "Khai báo tạm trú" (NN), "Thông báo lưu trú" (VN) | Residence registration | Đăng ký tạm trú | BR-602/603 |
 | Giấy tờ | Giấy tờ | ID / ID document | Chứng từ tùy thân | |
 | Kênh | Kênh | Channel | Nguồn | Trực tiếp, CTV / môi giới, Airbnb, Booking.com, Agoda, Expedia, Trip.com, Traveloka |
+| `conflict_state = open` | Chưa gán căn – xung đột OTA | Unassigned – OTA conflict | Overbook, Trùng phòng (trên UI) | Làn riêng trên rack (erd mục 7) |
+| `no_show` (hành động) | Đánh dấu không đến | Mark as no-show | Bỏ phòng, Hủy no-show | Không bao giờ tự động (BR-311) |
+| Đổi căn (đơn chưa nhận) / Đổi phòng (khách đang ở) | Đổi căn / đổi ngày · Đổi phòng | Change room / dates · Move room | Chuyển phòng | B7 vs B14 – hai nút khác nhau |
+| Báo đã chuyển cọc | Báo đã chuyển cọc | Report deposit sent | Xác nhận cọc (với CTV) | CTV chỉ báo, không xác nhận (A53 vs A04) |
+| Mã tham chiếu lỗi | Mã tham chiếu | Reference | Mã lỗi RK-xxx | `Problem.requestId` – chỉ cho lỗi máy chủ |
+
+### 3.1b Tên vai (mã vai `rbac-matrix.md` mục 1)
+| Mã vai (code) | VI | EN | Ghi chú |
+|---|---|---|---|
+| `owner` | Chủ đầu tư | Owner | |
+| `manager` | Quản lý | Manager | |
+| `front_desk_lead` | Lễ tân trưởng | Senior receptionist | |
+| `front_desk` | Lễ tân | Receptionist | gồm người trực đêm |
+| `housekeeping` | Buồng phòng | Housekeeping | |
+| `maintenance` | Bảo trì | Maintenance | |
+| `sales_staff` | Sale nội bộ | Sales staff | thay "Sale" chung chung khi cần phân biệt với CTV |
+| `collaborator` | CTV / môi giới | Agent | |
+| khách (link) | Khách | Guest | không phải tài khoản |
 
 ### 3.2 Trạng thái buồng – hai cách nói (HR-13)
 | Mã | Desk (mã · nhãn) | Buồng phòng (câu thường) | EN (Desk) | EN (HK) |
@@ -87,11 +105,19 @@ Số nhiều EN/RU dùng ICU MessageFormat (`{n, plural, one {# night} other {# 
 Công thức: **[Chuyện gì xảy ra] + [Vì sao, nếu giúp ích] + [Làm gì tiếp] + [Dữ liệu vẫn còn]**.
 - Lỗi trường: "Số điện thoại cần ít nhất 9 chữ số. Ví dụ: 0912 345 678."
 - Lỗi nghiệp vụ: "Căn 203 đã có đơn của Ji-woo Park từ 19/10 đến 22/10. Chọn ngày khác hoặc một căn trống bên dưới."
-- Lỗi tải: "Chưa tải được sơ đồ phòng. Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý kèm mã RK-503."
+- Lỗi tải: "Chưa tải được sơ đồ phòng. Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-7Q4K." (mã tham chiếu = `Problem.requestId`; đợt 2 dùng mã minh họa RK-503 – đã bỏ)
 - Cấm: "Lỗi!", "Dữ liệu không hợp lệ", "Bạn đã nhập sai".
 
-### 5.2 Hộp xác nhận (HR-06)
+### 5.2 Hộp xác nhận (HR-06, US-135)
 Tiêu đề: câu hỏi có đối tượng ("Hủy giữ chỗ căn 103?"). Thân: hậu quả cụ thể. Nút: "Giữ lại đơn" (an toàn) / "Hủy giữ chỗ" (lặp động từ). Không "OK/Có/Không".
+Áp dụng đủ 7 hành động US-135 AC1: hủy giữ chỗ/hủy đơn, đánh dấu không đến, hoàn tất trả phòng, đóng/mở bán kênh, gộp hồ sơ khách, đóng phiếu sửa (mở khóa phòng), xóa sớm ảnh giấy tờ – chuỗi `confirm.*`, `cancel.*`, `noshow.*`, `checkout.complete_confirm_*`. Số tiền/khoảng ngày trong hộp lấy từ API `dryRun=true` (hủy, trả muộn) hoặc `checkout-summary`, không tự tính ở client.
+
+### 5.2b Thông báo lỗi từ API (`Problem.code`)
+- Client hiển thị theo `code` + chuỗi `error.<CODE>` (bảng mục 8, 37 mã khớp `openapi.yaml` + `DEVICE_NOT_TRUSTED` mới của SEC – SR-DEV-03, ARC cần thêm vào bảng mã), **không** hiện `title`/`detail` thô của server.
+- Lỗi theo trường (`VALIDATION_FAILED`): mỗi `errors[]` gắn vào đúng ô (`aria-describedby`), tiêu đề form chỉ tóm tắt số ô cần sửa.
+- Lỗi máy chủ (5xx, không có `code`): `error.server` + mã tham chiếu `requestId`. Mất mạng (không có phản hồi): banner mất mạng, không hiện mã.
+- Lỗi nêu tên khách (trùng phòng, trả muộn) chỉ hiện tên khi vai được xem D01 đầy đủ (lễ tân trở lên); vai khác dùng bản không tên (`booking.error.conflict_noname`).
+- Mã "lỗi lập trình" (`PRECONDITION_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`) vẫn có câu thân thiện nhưng FE phải ghi log để sửa.
 
 ### 5.3 Trạng thái rỗng
 Nói sự thật tích cực + bước tiếp: "Hết việc rồi! Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây."
@@ -129,9 +155,9 @@ Biến lấy từ đơn; giờ chuẩn 14:00/12:00 lấy từ tham số BR-401 (
 | `msg.house_rules_smoking` | Nhắc nội quy hút thuốc | Chào {name}, OTTIMO xin nhắc: chỉ hút thuốc ở ban công. Hút trong phòng sẽ tính phí khử mùi theo nội quy. Cảm ơn bạn! | Hi {name}, a friendly reminder: smoking is allowed on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you! | Здравствуйте, {name}! Напоминаем: курить можно только на балконе. За курение в номере взимается плата за удаление запаха согласно правилам проживания. Спасибо! |
 | `msg.hot_water_issue` | Báo đang xử lý sự cố nước nóng | Chào {name}, OTTIMO đã nhận báo mất nước nóng căn {room}. Kỹ thuật sẽ có mặt trước {time}. Xin lỗi vì bất tiện! | Hi {name}, we've received your report of no hot water in room {room}. Our technician will be there by {time}. Sorry for the inconvenience! | Здравствуйте, {name}! Мы получили сообщение об отсутствии горячей воды в апартаментах {room}. Техник придёт до {time}. Приносим извинения за неудобства! |
 
-## 8. Bảng chuỗi VI / EN (luồng 2, 3, 4, 7 + dùng chung), cột RU chừa chỗ
+## 8. Bảng chuỗi VI / EN (luồng 1–9 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN. Tổng 318 chuỗi + 7 mẫu tin nhắn.
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN. Tổng 522 chuỗi + 7 mẫu tin nhắn (đợt 4: +204 chuỗi; sửa 10 chuỗi – xem mục 9).
 
 #### Chung
 
@@ -158,7 +184,7 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `common.unsaved_keep` | Tiếp tục nhập | Keep editing | ⟨chừa chỗ⟩ |  |
 | `common.unsaved_discard` | Bỏ thay đổi | Discard | ⟨chừa chỗ⟩ |  |
 | `common.error_generic_title` | Chưa tải được dữ liệu | Couldn't load data | Не удалось загрузить данные |  |
-| `common.error_generic_body` | Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý kèm mã {code}. | This may be a network problem. Nothing has been lost. Tap Try again; if it keeps failing, tell your manager the code {code}. | ⟨chừa chỗ⟩ |  |
+| `common.error_generic_body` | Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | This may be a network problem. Nothing has been lost. Tap Try again; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | Đợt 4: thay mã minh họa (RK-503…) bằng `Problem.requestId` của ARC |
 | `common.currency_vnd` | {amount} đ | {amount} VND | {amount} VND |  |
 | `common.approx_usd` | ≈ {usd} USD (tỷ giá {rate}, cập nhật {date}) | ≈ {usd} USD (rate {rate}, updated {date}) | ⟨chừa chỗ⟩ |  |
 
@@ -212,6 +238,7 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `status.reg.pre` | Khách đã gửi trước qua app | Sent in advance by guest | ⟨chừa chỗ⟩ |  |
 | `status.reg.needs_update` | Cần cập nhật ngày đi | Departure date needs updating | ⟨chừa chỗ⟩ |  |
 | `status.reg.updated` | Đã cập nhật ngày đi | Departure date updated | ⟨chừa chỗ⟩ |  |
+| `status.reg.void` | Không cần khai (đơn đã hủy) | Not required (booking cancelled) | ⟨chừa chỗ⟩ | `void` – SM-05 K11 |
 | `check.pass` | Đạt | Pass | ⟨chừa chỗ⟩ |  |
 | `check.fail` | Không đạt | Fail | ⟨chừa chỗ⟩ |  |
 | `check.unknown` | Chưa kiểm được – cần kiểm tay | Not verified – check manually | ⟨chừa chỗ⟩ |  |
@@ -254,7 +281,8 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `booking.summary.total` | Tổng tiền phòng | Room total | ⟨chừa chỗ⟩ |  |
 | `booking.summary.deposit` | Cọc cần thu (theo BR-305) | Deposit due (per BR-305) | ⟨chừa chỗ⟩ |  |
 | `booking.create` | Tạo đơn | Create booking | ⟨chừa chỗ⟩ |  |
-| `booking.create_hold` | Giữ chỗ {hours} giờ | Hold for {hours} hours | ⟨chừa chỗ⟩ |  |
+| `booking.create_hold` | Giữ chỗ đến {time} | Hold until {time} | ⟨chừa chỗ⟩ | Hạn theo BR-302 do server tính (`hold.expiresAt`) – không ghi cứng số giờ |
+| `booking.error.conflict_noname` | Căn {room} đã kín từ {from} đến {to}. Chọn ngày khác hoặc một căn trống bên dưới. | Room {room} is taken from {from} to {to}. Choose other dates or a free room below. | ⟨chừa chỗ⟩ | Dùng cho sales_staff/collaborator – không lộ tên khách (rbac ghi chú 3) |
 | `booking.error.conflict` | Căn {room} đã có đơn của {guest} từ {from} đến {to}. Chọn ngày khác hoặc một căn trống bên dưới. | Room {room} is already booked by {guest} from {from} to {to}. Choose other dates or a free room below. | ⟨chừa chỗ⟩ |  |
 | `booking.error.conflict_alt` | Căn trống cùng nhóm: {rooms} | Free rooms in the same group: {rooms} | ⟨chừa chỗ⟩ |  |
 | `booking.error.ooo` | Căn {room} đang khóa sửa chữa từ {from} đến {to}. | Room {room} is out of order from {from} to {to}. | ⟨chừa chỗ⟩ |  |
@@ -283,6 +311,24 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `drawer.action.extend` | Gia hạn | Extend stay | ⟨chừa chỗ⟩ |  |
 | `drawer.action.late_checkout` | Trả muộn | Late check-out | ⟨chừa chỗ⟩ |  |
 | `drawer.action.docs` | Giấy tờ & khai báo | IDs & registration | ⟨chừa chỗ⟩ |  |
+| `drawer.action.extend_hold` | Gia hạn giữ chỗ (1 lần) | Extend hold (once) | ⟨chừa chỗ⟩ | B3, A03 |
+| `drawer.action.deposit_notice` | Báo đã chuyển cọc | Report deposit sent | ⟨chừa chỗ⟩ | A53 – chỉ sales_staff/collaborator |
+| `drawer.deposit_notice.help` | Gửi ảnh biên nhận. Lễ tân hoặc sale nội bộ kiểm tiền vào tài khoản OTTIMO rồi xác nhận. | Attach the receipt. Reception or in-house sales will check OTTIMO's account and confirm. | ⟨chừa chỗ⟩ |  |
+| `drawer.deposit_notice.sent` | Đã báo chuyển cọc lúc {time} – chờ xác nhận | Deposit reported at {time} – awaiting confirmation | ⟨chừa chỗ⟩ |  |
+| `drawer.action.move` | Đổi căn / đổi ngày | Change room / dates | ⟨chừa chỗ⟩ | B7, A07 |
+| `drawer.action.postpone` | Dời ngày thay vì hủy | Postpone instead of cancelling | ⟨chừa chỗ⟩ | B8, A08 – chỉ manager/owner |
+| `drawer.action.change_room` | Đổi phòng | Move room | ⟨chừa chỗ⟩ | B14, A15 |
+| `drawer.action.early_departure` | Trả sớm | Early departure | ⟨chừa chỗ⟩ | B16, A17 |
+| `drawer.action.no_show` | Đánh dấu không đến | Mark as no-show | ⟨chừa chỗ⟩ | B11, A09 |
+| `drawer.action.restore_no_show` | Khôi phục đơn không đến | Restore no-show | ⟨chừa chỗ⟩ | B12 – manager/owner |
+| `drawer.action.request_restore` | Gửi yêu cầu khôi phục | Request restore | ⟨chừa chỗ⟩ | A10 = D – front_desk/front_desk_lead |
+| `drawer.action.undo_checkin` | Hoàn tác nhận phòng | Undo check-in | ⟨chừa chỗ⟩ | B17 – manager/owner |
+| `fo.rack.unassigned_lane` | Chưa gán căn – xung đột OTA ({n}) | Unassigned – OTA conflict ({n}) | ⟨chừa chỗ⟩ | erd mục 7, `Rack.unassigned` |
+| `fo.rack.unassigned_help` | Đơn OTA về khi căn đã kín. Gán căn trống cùng nhóm hoặc cao hơn, hoặc đổi phòng cho khách khác. Chưa gán căn thì chưa nhận phòng được. | This OTA booking arrived after the room was taken. Assign a free room in the same or a higher group, or move another guest. It can't be checked in until a room is assigned. | ⟨chừa chỗ⟩ | BR-312 |
+| `fo.rack.assign_room` | Gán căn | Assign room | ⟨chừa chỗ⟩ |  |
+| `fo.rack.arriving_today` | Có khách đến hôm nay | Arrival today | ⟨chừa chỗ⟩ | Rack dạng xem của housekeeping/maintenance – không tên khách |
+| `fo.rack.arriving_tomorrow` | Có khách đến ngày mai | Arrival tomorrow | ⟨chừa chỗ⟩ |  |
+| `fo.rack.sold_out` | Đã kín | Taken | ⟨chừa chỗ⟩ | Rack dạng xem của sales_staff/collaborator (`RackBar.kind = unavailable`) |
 | `cancel.title` | Hủy giữ chỗ căn {room}? | Cancel the hold on room {room}? | ⟨chừa chỗ⟩ |  |
 | `cancel.consequence` | Căn {room} sẽ mở bán lại từ {from} đến {to} trên {channels} kênh. Khách tiềm năng {lead} trở về "Đã báo giá". | Room {room} will be back on sale from {from} to {to} on {channels} channels. Lead {lead} returns to "Quoted". | ⟨chừa chỗ⟩ |  |
 | `cancel.reason` | Lý do hủy | Cancellation reason | ⟨chừa chỗ⟩ |  |
@@ -305,7 +351,13 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `checkin.step.verify` | Kiểm tra | Verify | ⟨chừa chỗ⟩ |  |
 | `checkin.step.register` | Khai báo | Register | ⟨chừa chỗ⟩ |  |
 | `checkin.step.handover` | Giao mã & hoàn tất | Hand over & finish | ⟨chừa chỗ⟩ |  |
-| `checkin.room_not_ready` | Căn {room} đang "{status}" – chưa sẵn sàng. Cần lễ tân trưởng xác nhận và ghi lý do để nhận phòng. | Room {room} is "{status}" – not ready. A senior receptionist must approve with a reason. | ⟨chừa chỗ⟩ | BR-402 |
+| `checkin.room_not_ready` | Căn {room} đang "{status}" – chưa sẵn sàng. Gửi lễ tân trưởng xác nhận kèm lý do để nhận phòng. | Room {room} is "{status}" – not ready. Send it to a senior receptionist with a reason to approve. | ⟨chừa chỗ⟩ | BR-402; A12 = D cho front_desk |
+| `checkin.room_not_ready_lead` | Căn {room} đang "{status}" – chưa sẵn sàng. Bạn xác nhận ngoại lệ được: ghi lý do; buồng sẽ chuyển "Có khách, cần dọn" và có việc dọn gấp. | Room {room} is "{status}" – not ready. You can approve the exception: add a reason; the room becomes "Occupied, dirty" with an urgent cleaning task. | ⟨chừa chỗ⟩ | front_desk_lead trở lên (R7) |
+| `checkin.cond.title` | Điều kiện nhận phòng (BR-402) | Check-in conditions (BR-402) | ⟨chừa chỗ⟩ |  |
+| `checkin.cond.room_ready` | Buồng sẵn sàng (VI hoặc VC) | Room ready (VI or VC) | ⟨chừa chỗ⟩ | `room_ready` |
+| `checkin.cond.balance_paid` | Đã thu đủ hoặc OTA đã trả/đảm bảo | Paid in full, or prepaid/guaranteed by OTA | ⟨chừa chỗ⟩ | `balance_paid` |
+| `checkin.cond.main_guest_document` | Có giấy tờ người đứng tên | Main guest's ID on file | ⟨chừa chỗ⟩ | `main_guest_document` |
+| `checkin.cond.not_unassigned` | Đơn đã được gán căn | Room assigned | ⟨chừa chỗ⟩ | `not_unassigned` – đơn OTA xung đột |
 | `checkin.docs.progress` | Đã có giấy tờ {have}/{need} người | IDs collected for {have} of {need} guests | ⟨chừa chỗ⟩ |  |
 | `checkin.docs.scan` | Chụp hoặc tải ảnh giấy tờ | Take or upload a photo of the ID | ⟨chừa chỗ⟩ |  |
 | `checkin.docs.manual` | Nhập tay | Enter manually | ⟨chừa chỗ⟩ |  |
@@ -323,11 +375,16 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `checkin.docs.field.entry_date` | Ngày nhập cảnh | Date of entry | ⟨chừa chỗ⟩ |  |
 | `checkin.consent.label` | Khách đồng ý cho OTTIMO lưu ảnh giấy tờ trong {days} ngày sau trả phòng | Guest agrees OTTIMO may keep ID photos for {days} days after check-out | ⟨chừa chỗ⟩ | BR-609/610 – số ngày lấy từ tham số |
 | `checkin.consent.help` | Không đồng ý vẫn khai báo được: chỉ lưu các trường cần thiết, không lưu ảnh. | If the guest declines, registration still works: only the required fields are kept, no photos. | ⟨chừa chỗ⟩ |  |
+| `checkin.consent.yes` | Đồng ý lưu ảnh | Agrees to keep photos | ⟨chừa chỗ⟩ | `decision = granted` – phải chọn 1 trong 2, không chọn sẵn |
+| `checkin.consent.no` | Không đồng ý – xóa ảnh sau khi khai báo | Declines – delete photos after registration | ⟨chừa chỗ⟩ | `decision = refused` |
 | `checkin.verify.name` | Tên khớp với đơn | Name matches booking | ⟨chừa chỗ⟩ |  |
 | `checkin.verify.passport` | Hộ chiếu còn hạn sau ngày trả phòng ({date}) | Passport valid beyond check-out ({date}) | ⟨chừa chỗ⟩ |  |
 | `checkin.verify.visa` | Thị thực còn hạn đến ngày trả phòng | Visa valid until check-out | ⟨chừa chỗ⟩ |  |
 | `checkin.verify.headcount` | Đủ giấy tờ cho {need} khách | IDs for all {need} guests | ⟨chừa chỗ⟩ |  |
-| `checkin.verify.fail_passport` | Hộ chiếu hết hạn {date}, trước ngày trả phòng {checkout}. Không nhận phòng với giấy tờ này – báo quản lý. | Passport expires {date}, before check-out {checkout}. Don't check in with this ID – tell the manager. | ⟨chừa chỗ⟩ |  |
+| `checkin.verify.fail_passport` | Hộ chiếu hết hạn {date}, trước ngày trả phòng {checkout}. Ghi cách xử lý trước khi sang bước khai báo. | Passport expires {date}, before check-out {checkout}. Record how you handled it before moving on to registration. | ⟨chừa chỗ⟩ | K5: cảnh báo không chặn nhận phòng (SEC R-REG-03) nhưng bắt buộc ghi xử lý |
+| `checkin.verify.note_label` | Cách xử lý | How it was handled | ⟨chừa chỗ⟩ | `warningNotes[].note` – front_desk trở lên ghi, lưu tên người ghi |
+| `checkin.verify.note_placeholder` | Ví dụ: khách xuất trình hộ chiếu mới số …; đã báo khách gia hạn thị thực | E.g. guest showed new passport no. …; guest told to extend visa | ⟨chừa chỗ⟩ |  |
+| `checkin.verify.note_required` | Ghi cách xử lý cho mọi mục Không đạt hoặc Chưa kiểm được để tiếp tục. | Record how each Fail or Not verified item was handled to continue. | ⟨chừa chỗ⟩ |  |
 | `checkin.verify.visa_short` | Thị thực hết hạn {date}, trước ngày trả phòng. Khai báo đến {date} và nhắc khách gia hạn trước {remind}. | Visa expires {date}, before check-out. Register until {date} and remind the guest to extend before {remind}. | ⟨chừa chỗ⟩ | BR-605 |
 | `checkin.verify.unknown_help` | Hệ thống chưa đủ dữ liệu để kiểm. Hãy xem giấy tờ gốc và đánh dấu kết quả. | The system doesn't have enough data to check. Look at the original ID and mark the result. | ⟨chừa chỗ⟩ |  |
 | `checkin.verify.mark_pass` | Tôi đã kiểm – Đạt | I checked – Pass | ⟨chừa chỗ⟩ |  |
@@ -344,7 +401,7 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `reg.copied` | Đã chép | Copied | ⟨chừa chỗ⟩ |  |
 | `reg.portal_opened` | Đã mở cổng – chưa có mã hồ sơ | Portal opened – no file code yet | ⟨chừa chỗ⟩ |  |
 | `reg.code_label` | Mã hồ sơ | File code | ⟨chừa chỗ⟩ |  |
-| `reg.code_error` | Mã hồ sơ chưa đúng dạng (ví dụ {example}). | File code format looks wrong (e.g. {example}). | ⟨chừa chỗ⟩ |  |
+| `reg.code_error` | Nhập mã hồ sơ cổng trả về để đánh dấu đã khai báo. | Enter the file code returned by the portal to mark this as registered. | ⟨chừa chỗ⟩ | `portalReference` ≤ 64 ký tự, không có định dạng cố định (erd 4.7) |
 | `reg.later` | Khai báo sau (thêm vào việc cần làm) | Register later (add to to-do list) | ⟨chừa chỗ⟩ |  |
 | `reg.later_note` | Việc này sẽ nằm trên Tổng quan và nhắc lúc {times} cho đến khi xong. | This stays on the Overview and reminds you at {times} until done. | ⟨chừa chỗ⟩ |  |
 | `handover.door_code` | Mã cửa | Door code | ⟨chừa chỗ⟩ |  |
@@ -460,6 +517,22 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `guest.oci.why` | Vì sao cần? Luật Việt Nam yêu cầu khách sạn khai báo lưu trú cho mọi khách. | Why? Vietnamese law requires hotels to register every guest's stay. | ⟨chừa chỗ⟩ |  |
 | `guest.oci.consent` | Tôi đồng ý OTTIMO lưu ảnh giấy tờ của tôi đến {days} ngày sau khi trả phòng, sau đó tự xóa. | I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically. | ⟨chừa chỗ⟩ | Văn bản pháp lý – cần người dịch duyệt (HR-01) |
 | `guest.oci.consent_optional` | Không bắt buộc. Nếu không đồng ý, chúng tôi chỉ dùng thông tin để khai báo và không lưu ảnh. | Optional. If you don't agree, we only use the details for registration and don't keep the photos. | ⟨chừa chỗ⟩ |  |
+| `guest.oci.consent_q` | Lưu ảnh giấy tờ sau khi khai báo? | Keep your ID photos after registration? | ⟨chừa chỗ⟩ | Phải chọn Có/Không – không chọn sẵn (`/v1/guest/consents`) |
+| `guest.oci.consent_no` | Không, chỉ dùng để khai báo rồi xóa ảnh | No – use them for registration only, then delete | ⟨chừa chỗ⟩ |  |
+| `guest.verify.title` | Xác minh để xem mã cửa và hóa đơn | Verify to see your door code and bill | ⟨chừa chỗ⟩ | Mức 2 – SR-GST-07 (OTP email hoặc mã lễ tân); không dùng 4 số cuối SĐT/mã đặt phòng |
+| `guest.verify.sent_to` | Chúng tôi đã gửi mã 6 số tới {email}. Mã dùng trong 10 phút. | We've sent a 6-digit code to {email}. It's valid for 10 minutes. | ⟨chừa chỗ⟩ | Email che dạng d***@g***.com |
+| `guest.verify.send` | Gửi mã qua email | Email me a code | ⟨chừa chỗ⟩ |  |
+| `guest.verify.label` | Mã xác minh 6 số | 6-digit verification code | ⟨chừa chỗ⟩ |  |
+| `guest.verify.submit` | Xác minh | Verify | ⟨chừa chỗ⟩ |  |
+| `guest.verify.resend` | Gửi lại mã | Resend code | ⟨chừa chỗ⟩ |  |
+| `guest.verify.resend_wait` | Gửi lại sau {seconds} giây | Resend in {seconds} s | ⟨chừa chỗ⟩ |  |
+| `guest.verify.resend_limit` | Đã gửi 3 lần trong 1 giờ. Thử lại sau hoặc lấy mã tại quầy lễ tân. | Sent 3 times this hour. Try later or get a code from reception. | ⟨chừa chỗ⟩ | SR-GST-08 |
+| `guest.verify.desk_code` | Không nhận được email? Lễ tân có thể đọc mã cho bạn – nhập mã đó vào ô trên. | No email? Reception can give you a code – enter it above. | ⟨chừa chỗ⟩ | Mã xác minh lễ tân (SR-GST-07b) |
+| `guest.verify.error` | Mã chưa đúng hoặc đã hết hạn. Còn {left} lần thử. | The code is wrong or has expired. {left} attempts left. | ⟨chừa chỗ⟩ | 401 |
+| `guest.verify.locked` | Bạn đã nhập sai quá nhiều lần. Vui lòng liên hệ lễ tân để nhận mã xác minh. | Too many wrong attempts. Please contact reception for a verification code. | ⟨chừa chỗ⟩ | 5 lần sai/24 giờ/token – SR-GST-08 |
+| `guest.verify.expired_session` | Phiên xác minh đã hết sau 30 phút không dùng. Xác minh lại để xem tiếp. | Your verification timed out after 30 minutes. Verify again to continue. | ⟨chừa chỗ⟩ | SR-GST-09 |
+| `guest.after_checkout.title` | Cảm ơn bạn đã lưu trú | Thank you for staying with us | ⟨chừa chỗ⟩ | SR-GST-11: ân hạn 24 giờ sau trả phòng |
+| `guest.after_checkout.body` | Liên kết này còn dùng đến {time} để xem phiếu thanh toán và thanh toán khoản phát sinh. | This link works until {time} to view your folio and pay any extra charges. | ⟨chừa chỗ⟩ |  |
 | `guest.oci.arrival` | Bạn dự kiến đến lúc nào? | When do you expect to arrive? | ⟨chừa chỗ⟩ |  |
 | `guest.oci.arrival_late` | Sau 22:00 | After 22:00 | ⟨chừa chỗ⟩ |  |
 | `guest.oci.note` | Ghi chú cho lễ tân | Note for reception | ⟨chừa chỗ⟩ |  |
@@ -477,9 +550,11 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `guest.req.note` | Mô tả thêm (không bắt buộc) | Add details (optional) | ⟨chừa chỗ⟩ |  |
 | `guest.req.send` | Gửi yêu cầu | Send request | ⟨chừa chỗ⟩ |  |
 | `guest.req.fee_notice` | Dịch vụ này có phí {amount}. Phí sẽ vào hóa đơn của bạn. | This service costs {amount}. It will be added to your bill. | ⟨chừa chỗ⟩ |  |
-| `guest.req.status.received` | Đã nhận | Received | ⟨chừa chỗ⟩ |  |
-| `guest.req.status.in_progress` | Đang xử lý | In progress | ⟨chừa chỗ⟩ |  |
-| `guest.req.status.done` | Đã xong | Done | ⟨chừa chỗ⟩ |  |
+| `guest.req.status.new` | Đã gửi | Sent | ⟨chừa chỗ⟩ | SM-15 `new` |
+| `guest.req.status.acknowledged` | Đã nhận | Received | ⟨chừa chỗ⟩ | `acknowledged` |
+| `guest.req.status.in_progress` | Đang xử lý | In progress | ⟨chừa chỗ⟩ | `in_progress` |
+| `guest.req.status.done` | Hoàn thành | Done | ⟨chừa chỗ⟩ | `done` – nhãn theo state-machines mục 15 |
+| `guest.req.status.declined` | Không thực hiện được | Can't be done | ⟨chừa chỗ⟩ | `declined` – kèm lý do lễ tân ghi |
 | `guest.req.reply_time` | Lễ tân phản hồi trong khoảng {minutes} phút (07:00–22:00). | Reception replies within about {minutes} minutes (07:00–22:00). | ⟨chừa chỗ⟩ | BR-811 |
 | `guest.req.empty` | Bạn chưa gửi yêu cầu nào. | You haven't sent any requests yet. | ⟨chừa chỗ⟩ |  |
 | `guest.req.sent` | Đã gửi. Chúng tôi sẽ cập nhật trạng thái tại đây. | Sent. We'll update the status here. | ⟨chừa chỗ⟩ |  |
@@ -496,7 +571,203 @@ Nguồn: `copy/strings-*.json`. Cột RU "⟨chừa chỗ⟩" = chưa dịch, hi
 | `guest.error_title` | Không tải được trang | Couldn't load this page | Не удалось загрузить страницу |  |
 | `guest.error_body` | Kiểm tra kết nối mạng rồi thử lại. | Check your connection and try again. | Проверьте подключение и попробуйте снова. |  |
 
+#### Vai (mã vai theo rbac-matrix mục 1)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `role.owner` | Chủ đầu tư | Owner | ⟨chừa chỗ⟩ | `owner` |
+| `role.manager` | Quản lý | Manager | ⟨chừa chỗ⟩ | `manager` |
+| `role.front_desk_lead` | Lễ tân trưởng | Senior receptionist | ⟨chừa chỗ⟩ | `front_desk_lead` |
+| `role.front_desk` | Lễ tân | Receptionist | ⟨chừa chỗ⟩ | `front_desk` (gồm người trực đêm) |
+| `role.housekeeping` | Buồng phòng | Housekeeping | ⟨chừa chỗ⟩ | `housekeeping` |
+| `role.maintenance` | Bảo trì | Maintenance | ⟨chừa chỗ⟩ | `maintenance` |
+| `role.sales_staff` | Sale nội bộ | Sales staff | ⟨chừa chỗ⟩ | `sales_staff` |
+| `role.collaborator` | CTV / môi giới | Agent | ⟨chừa chỗ⟩ | `collaborator` – ngoài biên chế |
+| `role.guest` | Khách | Guest | Гость | Không phải tài khoản – link theo đơn |
+
+#### Mã lỗi API → câu hiển thị (RFC 9457 `Problem.code`, openapi info)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `error.VALIDATION_FAILED` | Còn {n} ô cần sửa – xem dòng đỏ dưới từng ô. | {n} fields need fixing – see the red note under each field. | ⟨chừa chỗ⟩ | 422; lỗi từng ô lấy từ `errors[]` |
+| `error.UNAUTHENTICATED` | Phiên đăng nhập đã hết. Đăng nhập lại – thông tin đang nhập vẫn được giữ trên máy này. | Your session has ended. Sign in again – what you typed is kept on this device. | ⟨chừa chỗ⟩ | 401 |
+| `error.FORBIDDEN_ACTION` | Tài khoản của bạn không làm được thao tác này. Nếu cần, nhờ quản lý. | Your account can't do this. Ask a manager if needed. | ⟨chừa chỗ⟩ | 403 – bình thường không gặp vì nút đã ẩn theo vai; gặp khi quyền vừa bị đổi |
+| `error.NOT_FOUND` | Không tìm thấy mục này hoặc bạn không có quyền xem. Tải lại danh sách. | This item wasn't found or you can't view it. Reload the list. | ⟨chừa chỗ⟩ | 404 – không lộ sự tồn tại |
+| `error.ROOM_UNAVAILABLE` | Căn {room} đã kín từ {from} đến {to}. Chọn ngày khác hoặc một căn trống bên dưới. | Room {room} is taken from {from} to {to}. Choose other dates or a free room below. | ⟨chừa chỗ⟩ | 409 + `conflicts[]`; lễ tân/quản lý thấy thêm tên khách: dùng `booking.error.conflict` |
+| `error.ROOM_BLOCKED` | Căn {room} đang khóa sửa chữa từ {from} đến {to}. Chọn căn khác. | Room {room} is out of order from {from} to {to}. Choose another room. | ⟨chừa chỗ⟩ | 409 – US-019 |
+| `error.ROOM_NOT_SELLABLE` | Căn {room} đang ngừng bán. Chọn căn khác. | Room {room} isn't for sale right now. Choose another room. | ⟨chừa chỗ⟩ | 409 – US-004 |
+| `error.INVALID_TRANSITION` | Đơn vừa chuyển sang "{status}" nên thao tác này không còn dùng được. Tải lại để xem các nút hiện có. | This booking just changed to "{status}", so this action no longer applies. Reload to see what you can do now. | ⟨chừa chỗ⟩ | 409 |
+| `error.VERSION_CONFLICT` | Dữ liệu vừa được người khác thay đổi. Tải lại để xem bản mới – thông tin bạn nhập vẫn còn. | Someone else just changed this. Reload to see the latest – what you typed is kept. | ⟨chừa chỗ⟩ | 412 – state-machines 0.2.6 |
+| `error.PRECONDITION_REQUIRED` | Cần tải lại trang trước khi lưu. Bấm Tải lại – thông tin bạn nhập vẫn còn. | Please reload before saving. Tap Reload – what you typed is kept. | ⟨chừa chỗ⟩ | 428 – lỗi lập trình, ghi log cho FE |
+| `error.IDEMPOTENCY_KEY_REUSED` | Thao tác này đã được gửi với nội dung khác. Tải lại rồi làm lại. | This action was already sent with different details. Reload and try again. | ⟨chừa chỗ⟩ | 422 – lỗi lập trình |
+| `error.IDEMPOTENCY_IN_PROGRESS` | Thao tác trước đang được xử lý. Chờ vài giây – không cần bấm lại. | Your previous action is still being processed. Wait a few seconds – no need to tap again. | ⟨chừa chỗ⟩ | 409 |
+| `error.HOLD_EXPIRED` | Giữ chỗ đã hết hạn lúc {time} và căn đã mở bán lại. Tạo giữ chỗ mới nếu căn còn trống. | The hold expired at {time} and the room is back on sale. Create a new hold if it's still free. | ⟨chừa chỗ⟩ | 409 |
+| `error.HOLD_NOT_ALLOWED_TODAY` | Khách đến hôm nay thì không giữ chỗ được. Thu tiền và tạo đơn ngay. | You can't hold a room for a same-day arrival. Take payment and create the booking now. | ⟨chừa chỗ⟩ | 422 – BR-302 |
+| `error.QUOTE_EXPIRED` | Báo giá đã hết hiệu lực. Gửi quản lý gia hạn, hoặc lập báo giá mới theo giá hiện hành. | This quote has expired. Ask a manager to extend it, or make a new quote at current rates. | ⟨chừa chỗ⟩ | 409 – BR-304 |
+| `error.CAPACITY_EXCEEDED` | Căn {room} ở tối đa {max} khách. Giảm số khách hoặc chọn căn lớn hơn. | Room {room} sleeps up to {max}. Reduce guests or choose a larger room. | ⟨chừa chỗ⟩ | 422 – BR-110 |
+| `error.OUTSIDE_BOOKING_WINDOW` | Ngày đến hoặc số đêm nằm ngoài khoảng được bán. Chọn lại ngày, hoặc lập báo giá dài hạn nếu khách ở lâu. | The arrival date or number of nights is outside the bookable range. Pick other dates, or make a long-stay quote. | ⟨chừa chỗ⟩ | 422 – BR-112 |
+| `error.RATE_OUT_OF_RANGE` | Giá phải từ {min} đến {max} (giá sàn – trần nhóm {group}). | Rate must be between {min} and {max} (floor – ceiling for {group}). | ⟨chừa chỗ⟩ | 422 – BR-105; trùng `booking.error.rate_range` |
+| `error.PHONE_REQUIRED` | Kênh Trực tiếp và CTV cần số điện thoại của khách. | Direct and agent bookings need the guest's phone number. | ⟨chừa chỗ⟩ | 422 |
+| `error.DEPOSIT_INSUFFICIENT` | Chưa đủ cọc: cần {required}, đã ghi nhận {paid}. Ghi nhận thêm rồi xác nhận. | Deposit not enough: {required} needed, {paid} recorded. Record the rest, then confirm. | ⟨chừa chỗ⟩ | 422 – B4 |
+| `error.CHECKIN_CONDITIONS_NOT_MET` | Chưa nhận phòng được: {unmet}. Xử lý các mục còn thiếu ở danh sách điều kiện. | Can't check in yet: {unmet}. Resolve the missing items in the conditions list. | ⟨chừa chỗ⟩ | 409 + `unmet[]` (mã `checkin.cond.*`) |
+| `error.RESERVATION_UNASSIGNED` | Đơn chưa được gán căn (xung đột OTA). Gán căn trước khi nhận phòng. | This booking has no room yet (OTA conflict). Assign a room before check-in. | ⟨chừa chỗ⟩ | 409 – erd mục 7 |
+| `error.LATE_CHECKOUT_CONFLICT` | Căn {room} có khách {guest} đến lúc {eta} và không còn căn thay thế. Chỉ quản lý duyệt được; có thể gợi ý khách gửi hành lý. | Room {room} has {guest} arriving at {eta} and there's no other room. Only a manager can approve; you can offer luggage storage. | ⟨chừa chỗ⟩ | 409 – BR-416; ẩn tên khách nếu vai không được xem |
+| `error.BALANCE_DUE` | Còn {amount} chưa ghi nhận thanh toán. Ghi nhận đủ trước khi hoàn tất (hoặc quản lý ghi công nợ). | {amount} not yet recorded as paid. Record full payment before completing (or a manager records it as receivable). | ⟨chừa chỗ⟩ | 409 – BR-426, BR-525 |
+| `error.PENDING_APPROVALS` | Còn {n} yêu cầu miễn phí/giảm giá đang chờ duyệt. Chờ duyệt xong hoặc rút yêu cầu rồi hoàn tất. | {n} waiver/discount requests are still awaiting approval. Wait for approval or withdraw them, then complete. | ⟨chừa chỗ⟩ | 409 – SM-10 |
+| `error.FOLIO_LOCKED` | Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh. | The folio is locked after check-out. Only a manager can post an adjustment. | ⟨chừa chỗ⟩ | 409 – US-038 |
+| `error.SELF_APPROVAL_FORBIDDEN` | Bạn không tự duyệt yêu cầu của chính mình được. Yêu cầu vẫn chờ người duyệt khác. | You can't approve your own request. It's still waiting for another approver. | ⟨chừa chỗ⟩ | 403 – BR-432 |
+| `error.APPROVAL_LIMIT_EXCEEDED` | Số tiền vượt hạn mức duyệt của bạn. Yêu cầu đã chuyển lên {approver}. | The amount is above your approval limit. The request has gone to {approver}. | ⟨chừa chỗ⟩ | 403 – BR-433 |
+| `error.REAUTH_FAILED` | Mã PIN chưa đúng. Còn {left} lần thử. | Incorrect PIN. {left} attempts left. | ⟨chừa chỗ⟩ | 401 |
+| `error.DUPLICATE_GUEST` | SĐT/email này đã thuộc hồ sơ {guest}. Dùng hồ sơ đó? | This phone/email belongs to {guest}. Use that profile? | ⟨chừa chỗ⟩ | 409 + `existingGuestId` – BR-951 |
+| `error.CARD_NUMBER_DETECTED` | Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ. | The note contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers. | ⟨chừa chỗ⟩ | 422 – R-PAY-07 |
+| `error.PAYMENT_NOT_CONFIGURED` | Chưa cài tài khoản nhận chuyển khoản nên chưa tạo được VietQR. Chọn cách thanh toán khác và báo chủ đầu tư cài đặt. | No receiving account is set up, so VietQR can't be created. Choose another method and ask the owner to set it up. | ⟨chừa chỗ⟩ | 409 – US-120 |
+| `error.REGISTRATION_INCOMPLETE` | Khai báo chưa đủ: còn thiếu giấy tờ hoặc cảnh báo chưa ghi cách xử lý. | Registration incomplete: IDs missing or warnings without a note. | ⟨chừa chỗ⟩ | 409 – K5 |
+| `error.GUEST_LINK_INVALID` | Liên kết đã hết hạn hoặc không còn dùng được. Nhắn OTTIMO để nhận liên kết mới. | This link has expired or is no longer valid. Message OTTIMO for a new one. | ⟨chừa chỗ⟩ | 401 – app khách; màn đầy đủ dùng `guest.link_expired_*` |
+| `error.GUEST_VERIFICATION_REQUIRED` | Để xem mục này, xác minh bằng mã gửi qua email hoặc mã do lễ tân cấp. | To see this, verify with the code sent by email or given by reception. | ⟨chừa chỗ⟩ | 403 – mức 2 (SR-GST-07) |
+| `error.DEVICE_NOT_TRUSTED` | Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này. | This device isn't approved for IDs and door codes. Use an approved desk computer, or ask the owner to approve this one. | ⟨chừa chỗ⟩ | 403 – SR-DEV-03; mã mới do SEC thêm, ARC cần bổ sung vào bảng mã openapi |
+| `error.FILE_REJECTED` | Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG, HEIC hoặc PDF dung lượng vừa phải – chụp lại hoặc chọn tệp khác. | This file can't be used. Only JPG, PNG, HEIC or PDF of reasonable size – retake or choose another file. | ⟨chừa chỗ⟩ | 422 – giới hạn dung lượng OPS/SEC chốt |
+| `error.RATE_LIMITED` | Bạn đã thử quá nhiều lần. Chờ {minutes} phút rồi thử lại. | Too many attempts. Wait {minutes} minutes and try again. | ⟨chừa chỗ⟩ | 429 |
+| `error.server` | Máy chủ đang gặp sự cố. Dữ liệu của bạn không bị mất. Thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The server is having a problem. Nothing has been lost. Try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | 5xx không có `code` – hiện `requestId` |
+
+#### Lưu trú – gia hạn, trả muộn, đổi căn/đổi phòng, không đến (L9)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `extend.title` | Gia hạn · Căn {room} · {guest} | Extend stay · Room {room} · {guest} | ⟨chừa chỗ⟩ | B13, US-028 |
+| `extend.nights` | Ở thêm | Extra nights | ⟨chừa chỗ⟩ |  |
+| `extend.night_free` | Trống | Free | ⟨chừa chỗ⟩ |  |
+| `extend.night_taken` | Đã kín | Taken | ⟨chừa chỗ⟩ |  |
+| `extend.max_hint` | Tối đa {max} đêm liên tiếp còn trống. Ở lâu hơn → lập báo giá dài hạn. | Up to {max} consecutive free nights. Longer → make a long-stay quote. | ⟨chừa chỗ⟩ | `extension_max_nights` – BR-421, BR-108 |
+| `extend.rate_source` | Nguồn giá: {source} | Rate source: {source} | ⟨chừa chỗ⟩ | HR-18 |
+| `extend.ota_child` | Đơn {channel}: phần gia hạn thành đơn con kênh Trực tiếp, chung phiếu thanh toán. Tiết kiệm phí kênh ≈ {amount}. | {channel} booking: the extra nights become a linked Direct booking on the same folio. Saves about {amount} in channel fees. | ⟨chừa chỗ⟩ | BR-422; tỷ lệ từ cấu hình kênh |
+| `extend.pay_by` | Thu tiền gia hạn muộn nhất {time}. | Collect payment for the extension by {time}. | ⟨chừa chỗ⟩ | BR-423 |
+| `extend.effects` | Ngày đi đổi thành {date}; buồng chuyển "Có khách, cần dọn"; khách nước ngoài cần cập nhật khai báo trong ngày. | Departure becomes {date}; room set to "Occupied, dirty"; foreign guests' registration must be updated today. | ⟨chừa chỗ⟩ | BR-802, BR-604 |
+| `extend.submit` | Gia hạn {n} đêm · {amount} | Extend {n} nights · {amount} | ⟨chừa chỗ⟩ |  |
+| `extend.to_long` | Lập báo giá dài hạn | Make long-stay quote | ⟨chừa chỗ⟩ |  |
+| `late.title` | Trả muộn · Căn {room} · {guest} | Late check-out · Room {room} · {guest} | ⟨chừa chỗ⟩ | B15, US-029 |
+| `late.time` | Giờ trả đã hẹn | Agreed check-out time | ⟨chừa chỗ⟩ |  |
+| `late.fee` | Phụ thu đề xuất: {amount} ({pct}% giá đêm cuối, BR-412) | Suggested surcharge: {amount} ({pct}% of last night, BR-412) | ⟨chừa chỗ⟩ |  |
+| `late.fee_zero` | Trong giờ ân hạn – không phụ thu | Within grace period – no surcharge | ⟨chừa chỗ⟩ |  |
+| `late.arrival_warning` | Căn {room} có khách đến lúc {eta}. Còn căn thay thế cùng nhóm: {rooms}. | Room {room} has a guest arriving at {eta}. Same-group alternatives: {rooms}. | ⟨chừa chỗ⟩ | US-029 AC2 – tên khách đến chỉ hiện với front_desk trở lên |
+| `late.conflict_block` | Có khách đến lúc {eta} và không còn căn thay thế. Gửi quản lý duyệt, hoặc gợi ý khách gửi hành lý. | A guest arrives at {eta} and there's no other room. Send to a manager to approve, or offer luggage storage. | ⟨chừa chỗ⟩ | BR-416; `LATE_CHECKOUT_CONFLICT` |
+| `late.request_approval` | Gửi quản lý duyệt | Send to manager | ⟨chừa chỗ⟩ |  |
+| `late.treat_as_extension` | Sau {time} tính thêm 1 đêm – chuyển sang Gia hạn. | After {time} it counts as an extra night – switch to Extend stay. | ⟨chừa chỗ⟩ | BR-416, `treatAsExtension` |
+| `late.effects` | Việc dọn ghi "dọn sau {time}"; mã cửa kéo dài tới {time}. | Cleaning task set to "after {time}"; door code extended to {time}. | ⟨chừa chỗ⟩ | BR-403 |
+| `late.submit` | Lưu giờ trả {time} | Save check-out at {time} | ⟨chừa chỗ⟩ |  |
+| `move.title` | Đổi căn / đổi ngày · {code} | Change room / dates · {code} | ⟨chừa chỗ⟩ | B7, US-024 |
+| `move.ota_dates_locked` | Đơn OTA: chỉ đổi căn nội bộ, ngày theo kênh. | OTA booking: room can change, dates follow the channel. | ⟨chừa chỗ⟩ |  |
+| `move.reason` | Lý do đổi | Reason for change | ⟨chừa chỗ⟩ |  |
+| `move.unassigned` | Đơn chưa gán căn – chọn cách xử lý | No room assigned – choose how to resolve | ⟨chừa chỗ⟩ |  |
+| `move.resolution.same_group` | Gán căn trống cùng nhóm | Assign a free room in the same group | ⟨chừa chỗ⟩ | `reassigned_same_group` |
+| `move.resolution.upgrade` | Nâng hạng (OTTIMO chịu chênh lệch) | Upgrade (OTTIMO absorbs the difference) | ⟨chừa chỗ⟩ | `upgraded` – BR-312 bước 2 |
+| `room_change.title` | Đổi phòng · {guest} · Căn {from_room} | Move room · {guest} · Room {from_room} | ⟨chừa chỗ⟩ | B14, US-024 |
+| `room_change.cause` | Vì sao đổi? | Why the move? | ⟨chừa chỗ⟩ |  |
+| `room_change.cause.property_fault` | Sự cố của OTTIMO – giữ giá cũ | OTTIMO issue – keep current rate | ⟨chừa chỗ⟩ | `property_fault` – BR-424 |
+| `room_change.cause.guest_request` | Khách yêu cầu – tính giá căn mới từ đêm đổi | Guest request – new room's rate from the move night | ⟨chừa chỗ⟩ | `guest_request` |
+| `room_change.effective` | Đổi từ đêm | Move from night of | ⟨chừa chỗ⟩ |  |
+| `room_change.ready_only` | Chỉ hiện căn "Sẵn sàng" hoặc "Trống, sạch" và không bị khóa. | Only rooms that are "Ready" or "Vacant clean" and not blocked are shown. | ⟨chừa chỗ⟩ |  |
+| `room_change.effects` | Căn {from_room} chuyển "Cần dọn"; mã cửa cũ bị hủy – nhập mã mới cho căn {to_room}. Không phải khai báo lại. | Room {from_room} becomes "Needs cleaning"; the old door code is revoked – enter a new code for room {to_room}. No re-registration needed. | ⟨chừa chỗ⟩ | BR-424, BR-403 |
+| `room_change.submit` | Đổi sang căn {room} | Move to room {room} | ⟨chừa chỗ⟩ |  |
+| `noshow.reminder` | Khách {guest} chưa đến căn {room}. Gọi hoặc nhắn khách rồi ghi kết quả. | {guest} hasn't arrived for room {room}. Call or message, then record the result. | ⟨chừa chỗ⟩ | BR-311 `no_show_call_time` |
+| `noshow.contact_note` | Kết quả liên lạc | Contact result | ⟨chừa chỗ⟩ | `contactAttemptNote` – bắt buộc |
+| `noshow.locked` | Mở được từ {time} và sau khi ghi kết quả liên lạc. | Available from {time} once a contact result is recorded. | ⟨chừa chỗ⟩ | US-136 AC3; `no_show_mark_time` |
+| `noshow.title` | Đánh dấu {guest} không đến? | Mark {guest} as no-show? | ⟨chừa chỗ⟩ |  |
+| `noshow.consequence_direct` | Giữ cọc {amount} theo chính sách. Căn {room} mở bán lại {from} → {to} trên mọi kênh. Khai báo và hoa hồng của đơn bị hủy. | The {amount} deposit is kept per policy. Room {room} goes back on sale {from} → {to} on all channels. The booking's registration and commission are voided. | ⟨chừa chỗ⟩ | B11, BR-311 |
+| `noshow.consequence_ota` | Căn {room} mở bán lại {from} → {to}. Tạo việc "Báo không đến trên {channel}" để kênh không tính hoa hồng. | Room {room} goes back on sale {from} → {to}. A task "Report no-show on {channel}" is created so the channel doesn't charge commission. | ⟨chừa chỗ⟩ |  |
+| `noshow.confirm` | Đánh dấu không đến | Mark as no-show | ⟨chừa chỗ⟩ |  |
+| `noshow.keep` | Chờ thêm | Keep waiting | ⟨chừa chỗ⟩ |  |
+| `noshow.restore_title` | Khôi phục đơn {code}? | Restore booking {code}? | ⟨chừa chỗ⟩ | B12 |
+| `noshow.restore_body` | Khách đã đến. Căn {room} đóng bán lại từ {from}. Chỉ làm được trong ngày nghiệp vụ của đêm đến. | The guest has arrived. Room {room} is taken off sale again from {from}. Only possible within the arrival night's business day. | ⟨chừa chỗ⟩ |  |
+| `noshow.restore_request_sent` | Đã gửi quản lý duyệt khôi phục. | Restore request sent to a manager. | ⟨chừa chỗ⟩ | A10 = D |
+
+#### Hộp xác nhận hành động không đảo ngược (US-135)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `confirm.keep` | Không, quay lại | No, go back | ⟨chừa chỗ⟩ | Nút an toàn mặc định (focus) khi không có tên riêng |
+| `confirm.cancel_booking.title` | Hủy đơn {code} của {guest}? | Cancel booking {code} for {guest}? | ⟨chừa chỗ⟩ | B10 – dùng `dryRun=true` để lấy số tiền |
+| `confirm.cancel_booking.body` | Căn {room} mở bán lại {from} → {to} trên mọi kênh. Giữ lại {retained} (phí hủy); hoàn {refund} – cần quản lý duyệt. | Room {room} goes back on sale {from} → {to} on all channels. {retained} kept (cancellation fee); {refund} refunded – needs manager approval. | ⟨chừa chỗ⟩ | BR-309, BR-522 |
+| `confirm.channel_close.title` | Đóng bán căn {room} trên {channel}? | Close room {room} on {channel}? | ⟨chừa chỗ⟩ | US-098 |
+| `confirm.channel_close.body` | Khách sẽ không đặt được căn {room} trên {channel} từ {from} đến {to}. Đơn đã có giữ nguyên. | Guests won't be able to book room {room} on {channel} from {from} to {to}. Existing bookings stay. | ⟨chừa chỗ⟩ |  |
+| `confirm.channel_open.title` | Mở bán căn {room} trên {channel}? | Open room {room} on {channel}? | ⟨chừa chỗ⟩ |  |
+| `confirm.channel_open.body` | Căn {room} sẽ nhận đặt phòng trên {channel} từ {from} đến {to} theo lịch giá hiện tại. | Room {room} will accept bookings on {channel} from {from} to {to} at current rates. | ⟨chừa chỗ⟩ |  |
+| `confirm.merge_guest.title` | Gộp hồ sơ {a} vào {b}? | Merge profile {a} into {b}? | ⟨chừa chỗ⟩ | BR-953 |
+| `confirm.merge_guest.body` | Lịch sử lưu trú, tag và đơn của {a} chuyển sang {b}. Mã cũ {old_code} vẫn tra được. Không tách lại được. | {a}'s stays, tags and bookings move to {b}. The old code {old_code} still resolves. This can't be undone. | ⟨chừa chỗ⟩ |  |
+| `confirm.wo_done.title` | Đóng phiếu {wo} và mở khóa căn {room}? | Close {wo} and unblock room {room}? | ⟨chừa chỗ⟩ | W4 → O4 |
+| `confirm.wo_done.body` | Căn {room} chuyển "Trống, cần dọn" và mở bán lại từ hôm nay trên mọi kênh. | Room {room} becomes "Vacant dirty" and goes back on sale from today on all channels. | ⟨chừa chỗ⟩ |  |
+| `confirm.purge_images.title` | Xóa sớm ảnh giấy tờ của {guest}? | Delete {guest}'s ID photos now? | ⟨chừa chỗ⟩ | A74 – owner/manager |
+| `confirm.purge_images.body` | Ảnh bị xóa vĩnh viễn, không khôi phục được. Thông tin đã khai báo vẫn giữ theo luật. | The photos are permanently deleted and can't be recovered. Registration details are kept as required by law. | ⟨chừa chỗ⟩ |  |
+
+#### Buồng phòng – bổ sung đợt 4
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `hk.task.guest_refused` | Khách không muốn dọn | Guest declined cleaning | ⟨chừa chỗ⟩ | A83 ◐ – lý do bắt buộc |
+| `hk.task.refused_reason` | Lý do | Reason | ⟨chừa chỗ⟩ |  |
+| `hk.done_wait_inspect` | Đã dọn – chờ kiểm | Cleaned – awaiting inspection | ⟨chừa chỗ⟩ | CL → VC (R3) |
+| `hk.self_inspect` | Dọn xong & tự kiểm đạt | Cleaned & self-inspected | ⟨chừa chỗ⟩ | R4 – chỉ khi cơ sở bật chế độ ca 1 người |
+| `hk.self_inspect_help` | Cần đủ checklist và ảnh phòng. | Needs the full checklist and room photos. | ⟨chừa chỗ⟩ |  |
+| `hk.arriving_today` | Có khách đến hôm nay {time} | Guest arriving today {time} | ⟨chừa chỗ⟩ | Không tên khách |
+| `hk.guest_first_name` | Khách: {name} | Guest: {name} | ⟨chừa chỗ⟩ | Chỉ tên gọi, chỉ căn trong việc hôm nay (rbac D01 Tên+căn T) |
+| `hk.lock_by_others` | Lễ tân hoặc bảo trì sẽ quyết định khóa phòng sau khi xem báo cáo. | Reception or maintenance will decide whether to block the room. | ⟨chừa chỗ⟩ | housekeeping không có A86 |
+| `hk.lock_request` | Khóa căn – không bán đến khi sửa xong | Block room – no sales until fixed | ⟨chừa chỗ⟩ | maintenance, front_desk trở lên (A86) |
+| `hk.lock_pending` | Đang gửi yêu cầu khóa… | Sending block request… | ⟨chừa chỗ⟩ |  |
+| `hk.lock_done` | Đã khóa – ngừng bán trên mọi kênh | Blocked – off sale on all channels | ⟨chừa chỗ⟩ | Chỉ sau khi server xác nhận (HR-20) |
+
+#### Bảo mật nhân viên – 2FA, thiết bị được cấp, mã xác minh khách (SEC Phần 2)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `auth.totp.title` | Nhập mã xác thực | Enter authentication code | ⟨chừa chỗ⟩ | SR-AUTH-06 – owner, manager (bắt buộc) |
+| `auth.totp.help` | Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số đang hiện. | Open your authenticator app and enter the 6-digit code shown. | ⟨chừa chỗ⟩ |  |
+| `auth.totp.submit` | Xác nhận | Confirm | ⟨chừa chỗ⟩ |  |
+| `auth.totp.error` | Mã chưa đúng hoặc đã đổi. Nhập mã đang hiện trong ứng dụng. | The code is wrong or has changed. Enter the code currently shown in the app. | ⟨chừa chỗ⟩ |  |
+| `auth.totp.recovery` | Mất điện thoại? Dùng mã khôi phục | Lost your phone? Use a recovery code | ⟨chừa chỗ⟩ |  |
+| `device.title` | Thiết bị được cấp | Approved devices | ⟨chừa chỗ⟩ | S26 – SR-DEV-01, 06 |
+| `device.this_untrusted` | Máy này chưa được cấp quyền xem dữ liệu giấy tờ và mã cửa. | This device isn't approved for ID data and door codes. | ⟨chừa chỗ⟩ |  |
+| `device.grant` | Cấp quyền thiết bị này | Approve this device | ⟨chừa chỗ⟩ | Chỉ owner (manager nếu owner bật); trên chính máy đó |
+| `device.grant_name` | Tên máy | Device name | ⟨chừa chỗ⟩ | Ví dụ: Máy quầy 1 |
+| `device.grant_confirm` | Nhập lại mật khẩu (và mã xác thực) để cấp quyền | Re-enter your password (and authentication code) to approve | ⟨chừa chỗ⟩ |  |
+| `device.grant_checklist` | Máy đã mã hóa ổ đĩa, khóa màn hình sau 5 phút, không cài tiện ích trình duyệt, tắt lịch sử/đồng bộ clipboard | Disk encrypted, screen locks after 5 minutes, no browser extensions, clipboard history/sync off | ⟨chừa chỗ⟩ | SR-DEV-07 |
+| `device.expires` | Hết hạn {date} | Expires {date} | ⟨chừa chỗ⟩ | `trusted_device_days` |
+| `device.last_seen` | Dùng gần nhất {time} | Last used {time} | ⟨chừa chỗ⟩ |  |
+| `device.revoke` | Thu hồi | Revoke | ⟨chừa chỗ⟩ |  |
+| `device.revoke_title` | Thu hồi quyền của {device}? | Revoke {device}? | ⟨chừa chỗ⟩ |  |
+| `device.revoke_body` | Máy {device} không xem được giấy tờ, mã cửa ngay lập tức. Muốn dùng lại phải cấp quyền mới. | {device} immediately loses access to IDs and door codes. It must be approved again to use them. | ⟨chừa chỗ⟩ |  |
+| `device.blocked_title` | Máy này chưa được cấp quyền | This device isn't approved | ⟨chừa chỗ⟩ | Trạng thái 403 DEVICE_NOT_TRUSTED |
+| `device.blocked_body` | Giấy tờ và mã cửa chỉ mở trên máy quầy đã cấp. Các việc khác (đơn, trả phòng, buồng phòng) vẫn làm được trên máy này. | IDs and door codes only open on an approved desk computer. Everything else (bookings, check-out, housekeeping) still works here. | ⟨chừa chỗ⟩ |  |
+| `device.pwa_note` | Trên điện thoại không xem được giấy tờ và mã cửa. Mở trên máy quầy. | IDs and door codes aren't available on phones. Use the desk computer. | ⟨chừa chỗ⟩ | SR-DEV-04 – PWA nhân viên |
+| `desk_code.action` | Cấp mã xác minh cho khách | Give guest a verification code | ⟨chừa chỗ⟩ | SR-GST-07b – front_desk trở lên, ghi audit |
+| `desk_code.body` | Đọc mã này cho khách tại quầy hoặc gọi tới SĐT trên đơn. Mã dùng một lần, hết hạn sau 10 phút. | Read this code to the guest at the desk or call the phone on the booking. Single use, expires in 10 minutes. | ⟨chừa chỗ⟩ |  |
+| `desk_code.warning` | Không gửi mã qua tin nhắn chat cùng với link app khách. | Don't send the code by chat together with the guest link. | ⟨chừa chỗ⟩ |  |
+
+#### Duyệt yêu cầu (SM-10)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `approval.pin_title` | Duyệt bằng PIN của bạn | Approve with your PIN | ⟨chừa chỗ⟩ | BR-432 – tài khoản của chính người duyệt |
+| `approval.pin_label` | Mã PIN | PIN | ⟨chừa chỗ⟩ |  |
+| `approval.approve` | Duyệt | Approve | ⟨chừa chỗ⟩ |  |
+| `approval.reject` | Từ chối | Reject | ⟨chừa chỗ⟩ |  |
+| `approval.reject_reason` | Lý do từ chối | Reason for rejecting | ⟨chừa chỗ⟩ |  |
+| `approval.status.pending` | Chờ duyệt | Pending | ⟨chừa chỗ⟩ |  |
+| `approval.status.approved` | Đã duyệt | Approved | ⟨chừa chỗ⟩ |  |
+| `approval.status.rejected` | Bị từ chối | Rejected | ⟨chừa chỗ⟩ |  |
+| `approval.status.escalated` | Đã chuyển cấp trên | Escalated | ⟨chừa chỗ⟩ |  |
+| `approval.status.cancelled` | Đã rút | Withdrawn | ⟨chừa chỗ⟩ |  |
+
+#### Hoa hồng (SM-11)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `commission.status.projected` | Dự kiến | Projected | ⟨chừa chỗ⟩ | `projected` |
+| `commission.status.earned` | Đủ điều kiện | Earned | ⟨chừa chỗ⟩ | `earned` |
+| `commission.status.payable` | Chờ chi | Payable | ⟨chừa chỗ⟩ | `payable` |
+| `commission.status.paid` | Đã chi | Paid | ⟨chừa chỗ⟩ | `paid` |
+| `commission.status.void` | Không tính | Void | ⟨chừa chỗ⟩ | `void` – đơn hủy/không đến |
+
 ## 9. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
 | 0.1 | 15/10/2026 | UXD | Bản đầu: giọng văn, chính tả, thuật ngữ, định dạng, mẫu câu, i18n, 7 mẫu tin nhắn VI/EN/RU, bảng chuỗi luồng 2–4, 7 |
+| 0.2 | 15/10/2026 | UXD | Đợt 4: thêm bảng tên vai (3.1b) và 5 thuật ngữ; mục 5.2b hiển thị lỗi API; 37 chuỗi `error.<CODE>` + `error.server` thay mã minh họa RK-503/CO-MB-502/QT-500/CM-500/HK-500/OV-500; nhóm chuỗi L9 (gia hạn, trả muộn, đổi căn/đổi phòng, không đến), xác nhận US-135, buồng phòng, duyệt, hoa hồng; nhóm bảo mật SEC Phần 2 (`auth.totp.*`, `device.*`, `desk_code.*`, `guest.verify.*` OTP email/mã lễ tân, `guest.after_checkout.*`, `error.DEVICE_NOT_TRUSTED`). Sửa: `common.error_generic_body` ({code}→{request_id}), `booking.create_hold` (giờ → hạn), `checkin.room_not_ready` (lễ tân gửi duyệt, lễ tân trưởng tự xác nhận), `checkin.verify.fail_passport` (không chặn, bắt buộc ghi xử lý – K5), `reg.code_error` (bỏ định dạng giả), `guest.req.status.*` theo SM-15 (bỏ `received`, thêm `new`, `acknowledged`, `declined`; "Đã xong" → "Hoàn thành"), thêm `status.reg.void` |

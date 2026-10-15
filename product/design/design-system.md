@@ -1,9 +1,9 @@
-# Design System OTTIMO – v0.1
+# Design System OTTIMO – v0.2
 
 - Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2 | Ngày: 15/10/2026
-- Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Chỉnh theo `rbac-matrix.md` (BA) và OpenAPI (ARC) ở đợt 4.
+- Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
 - Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
-- Minh họa sống: `product/design/wireframes/index.html` (8 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
+- Minh họa sống: `product/design/wireframes/index.html` (9 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
 - Nội dung chữ: `product/design/content-guide.md`, chuỗi `product/design/copy/strings-{vi,en,ru}.json`.
 - Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`.
 
@@ -125,6 +125,8 @@ Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → ngườ
 | `no_show` | Không đến | No-show | **không hiện trên rack** | người ✕ | chip `bad` |
 | (loại) dài hạn | Hợp đồng dài hạn | Long-term lease | `--bar-long` + tiền tố "HĐ" | lịch tháng | tiền tố chữ "HĐ" |
 | (khối) OOO | Khóa phòng | Out of order | sọc chéo 45° `--bad-bg`/`--surface`, viền `--bad` | ổ khóa | sọc + ổ khóa + lý do |
+| `confirmed` + `conflictState=open` | Chưa gán căn – xung đột OTA | Unassigned – OTA conflict | làn riêng trên lưới; thanh `--bad-bg`, viền **đứt** 2px `--bad` | cảnh báo | làn có tiêu đề chữ + "cần gán căn" |
+| (dạng xem sale/CTV) `unavailable` | Đã kín / Không bán | Taken / Not for sale | sọc chéo 135° `--surface-2`/`--line`, chữ `--muted` | – | chữ "Đã kín"; không tên khách |
 
 **Trạng thái buồng** (BR-801): giao diện quản lý hiện **mã + nhãn** ("VD · Trống, cần dọn"); giao diện buồng phòng hiện **câu thường** không mã (HR-13) – xem `content-guide.md` mục 5.
 
@@ -140,7 +142,9 @@ Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → ngườ
 
 **Kết quả kiểm tra** (HR-07): `pass` Đạt (ok, ✓, viền liền) · `fail` Không đạt (bad, ✕, viền liền 2px) · `unknown` Chưa kiểm được – cần kiểm tay (warn, ?, viền **đứt** 2px).
 
-**Khai báo lưu trú** (BR-607): `none` neutral · `partial` warn · `review` warn · `scanned` info · `pre` info · `sent` oak · `confirmed` ok · `needs_update` warn · `updated` ok.
+**Khai báo lưu trú** (BR-607, SM-05): `none` neutral · `partial` warn · `review` warn · `scanned` info · `pre` info · `sent` oak · `confirmed` ok · `needs_update` warn · `updated` ok · `void` neutral gạch ngang.
+
+**Yêu cầu khách** (SM-15): `new` neutral · `acknowledged` info · `in_progress` info · `done` ok · `declined` neutral. **Yêu cầu duyệt** (SM-10): `pending` warn · `approved` ok · `rejected` bad · `escalated` warn · `cancelled` neutral. **Hoa hồng** (SM-11): `projected` neutral · `earned` info · `payable` warn · `paid` ok · `void` neutral gạch ngang.
 
 ## 3. Chữ
 
@@ -175,7 +179,7 @@ Quy tắc:
 - **Thời gian**: toast tự ẩn ≥ 6 giây, dừng khi rê chuột/focus; hoàn tác 10 giây; skeleton chỉ hiện nếu tải > 300ms.
 - **z-index**: sticky 10 · drawer 40 · modal 50 · toast 60.
 
-## 5. Component (30)
+## 5. Component (32)
 
 Mỗi component có: mục đích · biến thể · trạng thái · quy tắc a11y. Minh họa trong wireframe (mã luồng trong ngoặc).
 
@@ -192,7 +196,7 @@ Mỗi component có: mục đích · biến thể · trạng thái · quy tắc 
 | C9 | **Card / KPI tile** | card, KPI (`kpi` + nhãn + diễn giải) | KPI luôn có nhãn đầy đủ và nguồn/công thức khi bấm |
 | C10 | **List row / Task item** | thường, `urgent` (viền trái 4px `--bad`), `soon` (`--warn`) | Toàn bộ dòng bấm được bằng một `button`/`a` thật (không bấm vào `tr`/`div` – BL 8.3) |
 | C11 | **Table** | header chữ hoa 12px nền `--surface-2`, dòng tổng đậm, dòng chọn `--oak-soft`, cột số canh phải | Chọn dòng bằng nút trong dòng hoặc `role="grid"` có focus; `aria-selected` |
-| C12 | **Room rack** | lưới 10 căn × 14 ngày; thanh đơn 6 loại (mục 2.3); ô trống bấm được (từ hôm nay); cột hôm nay nền `--oak-soft`; chú giải luôn hiện; dạng danh sách < 768px | Mỗi thanh là `button` có `aria-label` đủ "Căn 203, Ji-woo Park, đã xác nhận, 19/10 đến 22/10, Booking.com". Bản thật: `role="grid"`, phím mũi tên di chuyển ô, Enter mở, tab-index lưu động (roving tabindex) |
+| C12 | **Room rack** | lưới 10 căn × 14 ngày; thanh đơn 6 loại (mục 2.3); **làn "Chưa gán căn"** phía trên lưới khi `Rack.unassigned` có đơn; 2 dạng xem rút gọn theo vai (buồng phòng/bảo trì: trạng thái + có khách đến; sale/CTV: "Đã kín"); ô trống bấm được (từ hôm nay); cột hôm nay nền `--oak-soft`; chú giải luôn hiện; dạng danh sách < 768px | Mỗi thanh là `button` có `aria-label` đủ "Căn 203, Ji-woo Park, đã xác nhận, 19/10 đến 22/10, Booking.com". Bản thật: `role="grid"`, phím mũi tên di chuyển ô, Enter mở, tab-index lưu động (roving tabindex) |
 | C13 | **Booking bar** | xem C12 | Chữ trong thanh: tên khách + ghi chú ngắn ("đi hôm nay", "còn 5 giờ 20 phút"); không chỉ `title` |
 | C14 | **Drawer** (phải, 460px) | chi tiết đơn, khách | Như Modal (C15); trên điện thoại thành trang toàn màn |
 | C15 | **Modal / Dialog** | `sm` 480, `lg` 720; có tiêu đề, thân cuộn, chân cố định | Mở → focus tiêu đề/ô đầu; **bẫy focus**; Esc/nền **không đóng khi form đã sửa** → hỏi "Bỏ các thay đổi chưa lưu?"; đóng → **trả focus** về nút gọi; nội dung phía sau `inert` |
@@ -211,13 +215,15 @@ Mỗi component có: mục đích · biến thể · trạng thái · quy tắc 
 | C28 | **Language switcher** | VI / EN / RU | Tên ngôn ngữ viết bằng chính ngôn ngữ đó; đổi `<html lang>` |
 | C29 | **Empty / Loading (skeleton) / Error / Offline state** | mục 7 | – |
 | C30 | **Date range picker** | chọn khoảng, đêm đã kín gạch chéo + nhãn, ngày quá khứ khóa | Nhập được bằng bàn phím (ô ngày gõ tay `dd/mm/yyyy`) |
+| C31 | **Code input (OTP / TOTP / PIN / mã xác minh)** *(đợt 4)* | 6 ô số liền một trường; trạng thái sai (còn N lần), khóa, gửi lại có đếm ngược | `inputmode="numeric"`, `autocomplete="one-time-code"`; một `input` (không 6 ô rời) để trình đọc màn hình và dán mã dùng được; lỗi gắn `aria-describedby` |
+| C32 | **Code display (mã cấp cho khách)** *(đợt 4)* | mã lớn đơn cách + đếm ngược hiệu lực | Chỉ hiện trong modal, không ghi vào thông báo/toast; cảnh báo không gửi kèm link |
 
 Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), vẽ lại trong `wireframes/assets/icons.js` (34 icon). Không mua bộ icon. Icon luôn đi kèm chữ, trừ IconButton có `aria-label`.
 
 ## 6. Mẫu tương tác bắt buộc (khắc phục heuristic)
 
-### 6.1 Xác nhận hành động phá hủy / tiền (HR-06 – Blocker)
-Áp dụng: hủy giữ chỗ, hủy đơn, hoàn tất trả phòng, đóng/mở bán kênh, gộp hồ sơ, đổi phiếu sửa sang "Xong" (mở khóa phòng), hoàn cọc, xóa ảnh giấy tờ sớm.
+### 6.1 Xác nhận hành động phá hủy / tiền (HR-06 – Blocker; US-135)
+Áp dụng: hủy giữ chỗ, hủy đơn, **đánh dấu không đến**, hoàn tất trả phòng, đóng/mở bán kênh, gộp hồ sơ, đổi phiếu sửa sang "Xong" (mở khóa phòng), hoàn cọc, xóa ảnh giấy tờ sớm, **thu hồi thiết bị được cấp**. Số tiền/khoảng ngày trong hộp lấy từ API (`dryRun=true`, `checkout-summary`) – bảng 7 hành động: `wireframes/09-stay-changes.html` mục 9.6.
 1. Tiêu đề là câu hỏi cụ thể có đối tượng: "Hủy giữ chỗ căn 103?".
 2. Thân nêu **hậu quả cụ thể**: "Căn 103 sẽ mở bán lại từ 16/10 đến 18/10 trên 7 kênh."
 3. **Lý do bắt buộc** khi quy tắc yêu cầu (BR-308, 424, 432) – nút xác nhận khóa đến khi chọn.
@@ -237,7 +243,7 @@ Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), 
 ### 6.4 Kiểm tra 3 trạng thái (HR-07 – Blocker; BR-605)
 - `pass` chỉ khi hệ thống **đã so sánh dữ liệu thật** (ví dụ hạn hộ chiếu > ngày trả phòng).
 - Thiếu dữ liệu → `unknown` "Chưa kiểm được – cần kiểm tay" (viền đứt, icon ?), người dùng đánh dấu sau khi xem giấy tờ gốc; ghi tên người kiểm.
-- `fail` chặn bước tiếp theo; chỉ quản lý ghi ngoại lệ có lý do.
+- `fail` **không chặn** nhận phòng (SEC R-REG-03, state-machines K5) nhưng bắt buộc ô "Cách xử lý" cho từng mục `fail`/`unknown` trước khi sang bước khai báo; người ghi = mọi vai `front_desk` trở lên, lưu tên + thời điểm (`warningNotes`). *(Đợt 4 – thay "chỉ quản lý ghi ngoại lệ".)*
 
 ### 6.5 Nhắc việc bền vững thay toast (HR-09)
 Nhắc pháp lý/tiền (khai báo còn thiếu, kỳ thu, căn quá giờ trả, đơn vừa về từ OTA) → **Task item** trên Tổng quan/"Hôm nay" + badge, ở lại tới khi xong; nhắc lại theo mốc giờ (BR-611, BR-425).
@@ -252,7 +258,7 @@ Mọi nơi đề xuất giá (đặt mới, gia hạn ở quầy và app khách)
 Bấm ô trống trên rack → Đặt phòng mới điền sẵn căn + ngày; tìm kiếm toàn cục (phím `/`); điện thoại: nút hành động chính ở vùng ngón cái.
 
 ### 6.9 Điều hướng theo vai (HR-03)
-Trang chủ theo vai (bảng ở `wireframes/01-login-role-nav.html` mục 1.2). Không có bộ chọn "Xem với vai trò". **Không vẽ nút cho hành động vai không có quyền** (ẩn, không hiện rồi báo lỗi); trường nhạy cảm ẩn hẳn (không hiện "••••" với vai không được xem giấy tờ – BR-610).
+Trang chủ theo vai (bảng 9 mã vai ở `wireframes/01-login-role-nav.html` mục 1.2, khớp `rbac-matrix.md`). Không có bộ chọn "Xem với vai trò". **Nút = `allowedActions[]` của API** (theo trạng thái + vai; bảng `02-fo-rack-booking.html` mục 2.6); hành động `requiresApproval` vẽ thành "Gửi … duyệt". **Không vẽ nút cho hành động vai không có quyền** (ẩn, không hiện rồi báo lỗi); trường nhạy cảm ẩn hẳn – API không trả (`x-visible-to`), giao diện không để chỗ trống "••••". Dữ liệu C3 chỉ hiện trên thiết bị được cấp (`deviceTrusted`), không bao giờ trên PWA điện thoại (SR-DEV-03/04).
 
 ### 6.10 Đa ngôn ngữ (HR-01 – Blocker)
 App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không ghép câu bằng code; ngôn ngữ mặc định theo trình duyệt, đổi tay ở đầu trang, ghi nhớ theo đơn. Bố cục chịu được chuỗi dài hơn 40% (RU/DE): nút xuống dòng, không cắt chữ, không cố định chiều rộng theo chữ VI.
@@ -263,10 +269,10 @@ App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không gh
 |---|---|---|---|
 | **Đang tải** | > 300ms | Skeleton đúng hình bố cục thật (không spinner giữa trang); `aria-busy="true"`; nút đang xử lý đổi chữ "Đang lưu…" | Rack: dải xám theo hàng căn (L2) |
 | **Rỗng** | Không có dữ liệu hợp lệ | Hình tròn icon + tiêu đề nói **sự thật tích cực** + 1 câu hướng dẫn + (nếu có) 1 nút hành động | "Hết việc rồi!" (L6), "Không có gì cần chú ý" (L8), "Không dùng gì – tủ đủ" (L4) |
-| **Lỗi** | Tải/lưu thất bại | Icon cảnh báo + "Chưa tải được …" + nguyên nhân dễ hiểu + **dữ liệu không mất** + nút Thử lại + mã lỗi để báo quản lý; `role="alert"` | "Chưa tải được sơ đồ phòng … mã RK-503" |
-| **Lỗi nghiệp vụ** | Server từ chối (trùng phòng, sai định dạng) | Alert `bad` tại chỗ, nêu vấn đề + cách sửa + gợi ý thay thế, giữ dữ liệu | Trùng lịch kèm căn trống thay thế (L2) |
+| **Lỗi** | Tải/lưu thất bại (5xx, không có `code`) | Icon cảnh báo + "Chưa tải được …" + nguyên nhân dễ hiểu + **dữ liệu không mất** + nút Thử lại + **mã tham chiếu** (`Problem.requestId`) để báo quản lý; `role="alert"` | "Chưa tải được sơ đồ phòng … mã tham chiếu 01JB-7Q4K" (đợt 2 dùng mã minh họa RK-503 – đã bỏ) |
+| **Lỗi nghiệp vụ** | Server từ chối với `Problem.code` (37 mã + `DEVICE_NOT_TRUSTED`) | Alert `bad` tại chỗ, câu lấy từ `error.<CODE>` (content-guide 5.2b), nêu vấn đề + cách sửa + gợi ý thay thế, giữ dữ liệu; `VALIDATION_FAILED` gắn lỗi vào từng ô | `ROOM_UNAVAILABLE` kèm căn trống thay thế (L2) |
 | **Mất mạng** | Mất kết nối | Banner `warn` đầu màn; **Desk**: chỉ xem, khóa tạo/sửa đơn (chống đặt trùng – BR-906); **HK**: vẫn thao tác, xếp hàng, đếm "2 thao tác đang chờ", tự gửi; **khách**: xem dữ liệu đã tải | L2, L6, L7 |
-| **Hết hạn / không có quyền** | Link khách hết hạn; vai không có quyền | Trang giải thích + kênh liên hệ; không lộ dữ liệu | "Liên kết đã hết hạn" (L7) |
+| **Hết hạn / không có quyền** | Link khách hết hạn (`GUEST_LINK_INVALID`); cần xác minh (`GUEST_VERIFICATION_REQUIRED`); máy chưa cấp (`DEVICE_NOT_TRUSTED`); vai không có quyền | Trang giải thích + cách tiếp tục + kênh liên hệ; không lộ dữ liệu | "Liên kết đã hết hạn" (L7), "Máy này chưa được cấp quyền" (L3 3.5) |
 
 ## 8. Quy tắc a11y – khắc phục từng mục BL 8.3
 
@@ -311,4 +317,5 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.2 | 15/10/2026 | UXD | Đợt 4: khớp RBAC/máy trạng thái/ERD/API/SEC – thêm màu trạng thái làn "Chưa gán căn", dạng xem `unavailable`, SM-05 `void`, SM-10/11/15; C12 mở rộng; thêm C31 Code input, C32 Code display (32 component); 6.1 theo US-135 (+ không đến, thu hồi thiết bị); 6.4 "Không đạt" không chặn, bắt buộc ghi xử lý; 6.9 nút = `allowedActions`, C3 chỉ trên thiết bị được cấp; mục 7 lỗi theo `Problem.code` + `requestId` |
 | 0.1 | 15/10/2026 | UXD | Bản đầu: token sáng/tối đạt AA (đổi `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, focus; thêm `--deco`, `--line-strong`, `--ink-inverse`), thang chữ, 30 component, 10 mẫu tương tác, 15 quy tắc a11y |

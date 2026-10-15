@@ -110,3 +110,6 @@
 | 2026-10-15 | 1 | admin-web, PWA nhân viên, guest-web ở 3 tên miền con riêng, cookie `__Host-`, không CORS | SEC | TM-05, TM-27 |
 | 2026-10-15 | 1 | Payload channel manager lọc theo danh sách trường cho phép trước khi lưu; không lưu payload thô có trường thẻ | SEC | TM-30, R-PAY-06 |
 | 2026-10-15 | 1 | Dự thảo ESC "kiểm thử bảo mật độc lập + chấp nhận rủi ro còn lại TM-13/TM-17" (SEC report Phần 2 mục 7) dời trình INV ở cuối Round 2 – hạn quyết là trước Round 3, không cần INV quyết bây giờ | ORC | Bảo vệ thời gian INV; đã có 12 ESC ở Round 1 |
+| 2026-10-15 | 1 | Lỗi máy chủ hiện "mã tham chiếu" = `requestId`; lỗi nghiệp vụ hiện theo chuỗi `error.<CODE>` (khớp `Problem.code` OpenAPI) | UXD | Thay mã lỗi minh họa đợt 2 |
+| 2026-10-15 | 1 | Design System v0.2: thêm C31 Code input, C32 Code display (OTP, mã xác minh, 2FA) | UXD | SEC SR-GST, SR-AUTH |
+| 2026-10-15 | 1 | Buồng phòng sau khi dọn hiển thị "Sạch – chờ kiểm" (CL→VC cần kiểm), không nhảy thẳng "Sẵn sàng" | UXD | state-machines SM buồng |

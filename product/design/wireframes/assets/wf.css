@@ -285,3 +285,20 @@ button,input,select,textarea{font:inherit;color:inherit}
 .seg-inv button[aria-pressed="true"]{background:var(--bar-in-t);color:var(--bar-in)}
 [data-fallback="en"]{outline:1px dashed var(--warn);outline-offset:1px}
 .toast span{min-width:0}.toast .btn{flex:none;white-space:nowrap;padding:4px 6px}
+
+/* ---------- Đợt 4 (R1): RBAC/API alignment ---------- */
+/* Unassigned OTA-conflict lane on the rack (erd §7, Rack.unassigned) */
+.rack .rm.lane{background:var(--bad-bg);color:var(--bad)}
+.rack .rm.lane b{font-family:var(--sans);font-size:12px;letter-spacing:.02em}
+.rack .cell.lane{background:color-mix(in srgb,var(--bad-bg) 45%,transparent)}
+.bar.conflict{background:var(--bad-bg);color:var(--ink);border:2px dashed var(--bad)}
+.bar.conflict .ico{color:var(--bad)}
+/* Sales/agent availability view: RackBar.kind = unavailable (no guest name, channel, price) */
+.bar.unavailable{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--line) 6px 8px);color:var(--muted);font-weight:500}
+/* Wireframe-only annotations */
+.role-tag{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--info);background:var(--info-bg);color:var(--ink);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.role-tag code{font-size:11px}
+.d4-note{border-left:4px solid var(--warn);background:var(--warn-bg);color:var(--ink);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;margin:8px 0}
+.api{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.wf-table-note{font-size:13px}
+.wf-table-note td,.wf-table-note th{vertical-align:top}
