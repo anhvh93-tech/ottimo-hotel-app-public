@@ -882,6 +882,7 @@ export interface paths {
      * @description Gọi trước với `dryRun=true` để nhận phí hủy/hoàn cọc theo `cancel_policy_direct` (snapshot của đơn) – US-021 AC3;
      *     lần gọi thử **không cần** `Idempotency-Key`/`If-Match` và không tiêu khóa. Gọi lại `dryRun=false` (kèm cả hai header) để lưu.
      *     Phần hoàn tạo yêu cầu duyệt `refund` (MGR+, BR-522). Mở phòng + outbox đồng bộ kênh trong cùng giao dịch.
+     *     0.3.6 (B-13, SEC G4): thu hồi **mọi** `guest_access_token` + phiên khách của đơn trong **cùng giao dịch** (`GuestAccessPort.revokeAllForReservation`).
      */
     post: operations['cancelReservation'];
     delete?: never;
@@ -928,6 +929,7 @@ export interface paths {
      *     R2 không có operation ghi lần gọi riêng. "Đã ghi kết quả liên lạc" (US-136 AC2/AC3) = ô bắt buộc trong hộp xác nhận.
      *     Thứ tự kiểm: body (`contactAttemptNote` thiếu/< 3 ký tự → `422 VALIDATION_FAILED`, `errors[{field: contactAttemptNote, code: REASON_REQUIRED}]`)
      *     → `If-Match` → trạng thái `confirmed` và giờ server ≥ `noShowAvailableFrom` (khác → `409 INVALID_TRANSITION` kèm `currentState`, `availableFrom`).
+     *     0.3.6 (B-13): thu hồi mọi link/phiên khách của đơn trong cùng giao dịch; `restoreNoShow` **không** mở lại – lễ tân cấp link mới.
      */
     post: operations['markNoShow'];
     delete?: never;
@@ -1102,6 +1104,8 @@ export interface paths {
     /**
      * Đặt trả muộn (B15) – tính phụ thu theo bậc, cảnh báo khách đến cùng ngày (US-029; BR-412, 416)
      * @description `dryRun=true` trả phụ thu + cảnh báo (tên khách đến, giờ đến dự kiến – US-029 AC2) mà không lưu.
+     *     **0.3.6 (SEC A3 [CHẶN])**: đường `dryRun=true` chạy trong giao dịch `readOnly` (`read()`), không qua `uow.run` – không ghi `folio_line`,
+     *     `reservation_change`, `audit_event`, `approval_request`, không tiêu `Idempotency-Key` (như `cancelReservation`).
      *     Có khách đến cùng ngày và không có căn thay thế → `409 LATE_CHECKOUT_CONFLICT`, trừ MGR+ (hoặc tạo yêu cầu duyệt `late_checkout_conflict`).
      *     Sau mốc 100% BR-416 → trả lỗi gợi ý dùng gia hạn.
      */
@@ -1262,7 +1266,9 @@ export interface paths {
      *
      *     **0.3.3 (EP03-05 mục 5.5)** – blocker kiểm lại ở server theo thứ tự: `minibar_not_checked` (`409 MINIBAR_NOT_CHECKED`) → `pending_approvals`
      *     (`409 PENDING_APPROVALS`) → `balance_due` (`409 BALANCE_DUE`; FD/FDL gửi `debt` → `403 FORBIDDEN_ACTION`). `expectedSurchargeVnd` bắt buộc khi
-     *     `applyLateSurcharge=true`; lệch → `409 SURCHARGE_CHANGED`. Phụ thu trả muộn đã ghi ở `setLateCheckout` → server chỉ ghi **phần chênh** (không ghi hai lần).
+     *     `applyLateSurcharge=true`; lệch → `409 SURCHARGE_CHANGED`. Phụ thu trả muộn tính theo **giờ trả thực tế** (`checkoutTime`, DOM G-10): đã ghi ở `setLateCheckout` mà bậc
+     *     thực tế khác (kể cả **thấp hơn** – hẹn 17:00 trả 13:00 → 50 % về 30 %) → server **đảo** dòng `late_checkout` cũ và ghi dòng mới (BR-008), không ghi hai lần; bằng nhau → giữ nguyên.
+     *     `expectedSurchargeVnd` = tổng phụ thu sau khi tính lại (0.3.6).
      *     `checkoutTime` sau mốc cuối BR-412 → 422 `LATE_CHECKOUT_AFTER_LIMIT`. R2: không hủy mã cửa trong app (US-128 dời R3).
      */
     post: operations['checkOut'];
@@ -1311,7 +1317,12 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** Bỏ một người khỏi đơn (không xóa hồ sơ khách) */
+    /**
+     * Bỏ một người khỏi đơn (không xóa hồ sơ khách)
+     * @description 0.3.6 (A-38): người đứng tên (`role=booker`) → `409 INVALID_TRANSITION`. Người bị bỏ đã có giấy tờ trong khai báo → giấy tờ + ảnh của người đó bị **xóa**
+     *     trong cùng giao dịch (hủy DEK, `c3_access_log purge`, `purge_journal`) – module registration qua port; khai báo đã `confirmed` → `needs_update` (EP02 mục 8).
+     *     Thêm người (`addPartyMember`) khi đơn `in_house` cũng chuyển khai báo `confirmed` → `needs_update`. Phát `reservation.changed` + `registration.changed`.
+     */
     delete: operations['removePartyMember'];
     options?: never;
     head?: never;
@@ -1629,7 +1640,11 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Ghi nhận đã dời khách sang cơ sở khác (BR-312 bước 2) + chi phí; đơn được hủy với lý do tương ứng */
+    /**
+     * Ghi nhận đã dời khách sang cơ sở khác (BR-312 bước 2) + chi phí; đơn được hủy với lý do tương ứng
+     * @description 0.3.6 (DOM FB-R2-DOM-BE-12): đơn có cọc đã thu > 0 → tạo yêu cầu duyệt `refund` **100 % cọc** (`reasonCode = overbooking_relocated`) trong **cùng giao dịch**;
+     *     khách đồng ý trừ vào lần sau → MGR từ chối yêu cầu đó với ghi chú. Thu hồi link khách (B-13).
+     */
     post: operations['resolveOverbookingExternal'];
     delete?: never;
     options?: never;
@@ -2258,8 +2273,36 @@ export interface paths {
      *     (`recordedByUserId`) **hoặc** người đã xác nhận thấy tiền (`confirmedByUserId`, `confirmPaymentReceived`) và không phải OWN → `403 SELF_RECONCILE_FORBIDDEN`
      *     (rbac A46). `disputed` bắt buộc `note` (V-08, 3–300; thiếu → 422 `REASON_REQUIRED`) → cảnh báo đỏ OWN + MGR; **không tự đảo** – bước tiếp là
      *     `reversePayment`. `If-Match` = `Payment.version`.
+     *     **0.3.6 (PO 16/10)**: đối soát chuyển khoản/VietQR với sao kê vẫn MGR+ (A46). Tiền mặt sale/CTV nộp quầy xác nhận bằng `confirmCashHandover` (FD+, A46a).
      */
     post: operations['reconcilePayment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/payments/{paymentId}/actions/confirm-cash-handover': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        paymentId: components['parameters']['PaymentId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Lễ tân xác nhận đã nhận tiền mặt sale/CTV nộp quầy (BR-527, BR-526; PO 16/10 – rbac A46a)
+     * @description 0.3.6. Chỉ giao dịch `method=cash`, `status=succeeded`, `reconciliation=pending`, `recordedByRole ∈ {sales_staff, collaborator}` (khác → `409 INVALID_TRANSITION`).
+     *     Người xác nhận ≠ người ghi (so `user_id`, dưới `FOR UPDATE` + CHECK DB) → `403 SELF_RECONCILE_FORBIDDEN` (không ngoại lệ, kể cả OWN). Kết quả
+     *     `reconciliation = reconciled`, `reconciledByName`, tiền vào **ca đang mở** của người xác nhận (`shiftId`; R3 khi bật đóng ca – `409 SHIFT_NOT_OPEN`);
+     *     `short` → `disputed` + cảnh báo OWN/MGR (`payment_disputed`). Audit `money`; phát `payment.changed`. `received` → hoa hồng người ghi "đạt" (ESC-017 A, BR-527).
+     *     FD/FDL thấy các khoản này trong `listPayments` nhờ phạm vi `own_or_cash_handover` (của mình **hoặc** `cash` do SAL/CTV ghi đang `pending`).
+     */
+    post: operations['confirmCashHandover'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2306,11 +2349,39 @@ export interface paths {
      *     - `expiresAt` = mốc đổi ngày nghiệp vụ kế tiếp (`business_day_rollover`, BR-010). Hết hạn: job `payment.expire` (erd 4.6) đặt `expired`;
      *       `confirmPaymentReceived` cũng kiểm `expiresAt` tại chỗ (không chờ job). Tiền về sau khi QR hết hạn → lễ tân ghi bằng `recordPayment` (`method=vietqr`,
      *       `reconciliation=pending`).
-     *     - `amountVnd` > còn phải thu (hoặc cọc còn thiếu khi `hold`) → 422 `AMOUNT_EXCEEDS_BALANCE` – **giả định BA, chờ DOM E05-06 (d)**.
+     *     - `amountVnd` > còn phải thu (hoặc cọc còn thiếu khi `hold`) → 422 `AMOUNT_EXCEEDS_BALANCE`, trừ khi FD+ gửi `overBalanceReason` (DOM G-4 đã quyết – 0.3.6).
      *     - `purpose=billing_period` chỉ R3 (kỳ thu HĐ) → R2 trả 422 `NOT_IN_LIST`.
      *     - Không vẽ QR giả khi chưa cấu hình tài khoản nhận (`409 PAYMENT_NOT_CONFIGURED`, US-120 AC2).
+     *     - **0.3.6 (SEC F1–F3 [CHẶN])**: số tiền do server kiểm (≤ còn phải thu/cọc còn thiếu); `transferContent` chỉ mã đơn/số bill. **Ảnh QR vẽ tại chỗ**
+     *       từ `qrPayload` (thư viện trong bundle admin-web) – **không** gọi dịch vụ ảnh QR bên ngoài (img.vietqr.io, Google Chart…); CSP `img-src 'self' blob: data:`.
+     *       Tài khoản nhận đổi trong 24 giờ → `receivingAccountRecentlyChanged=true`, client hiện cảnh báo "Tài khoản nhận vừa đổi".
      */
     post: operations['createVietQr'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/folios/{folioId}/refund-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        folioId: components['parameters']['FolioId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tạo yêu cầu hoàn **tay** từ folio khi khách trả thừa giữa kỳ ở (A43, BA E15-01)
+     * @description 0.3.6. Folio `open`, `creditVnd > 0`; `amountVnd` ≤ `creditVnd` − tổng yêu cầu `refund` đang `pending`/`approved` chưa chi của folio → 422 `REFUND_EXCEEDS_APPROVED`
+     *     (`field` = `amountVnd`). Tạo `ApprovalRequest` `type=refund` (`reasonCode = overpayment`), duyệt MGR+ (BR-522); nơi nhận nhập bằng `setRefundDestination`
+     *     (có thể gửi luôn `destination` ở đây – cùng quy tắc C3). Các nguồn tự động (B10, B16, dời ra ngoài, A-34) **không** dùng operation này.
+     */
+    post: operations['createRefundRequest'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2352,6 +2423,9 @@ export interface paths {
      * @description **0.3.3 (E05-05)**: `Bill.locale` do **server** quyết – `vi_en` khi có khách NN theo giấy tờ khai báo (BR-009) **hoặc** hồ sơ người đứng tên có ngôn ngữ ≠ `vi`;
      *     ngược lại `vi`. `Accept-Language` chỉ đổi `title` của lỗi, **không** đổi ngôn ngữ bill. Thứ tự `lines`: theo `serviceDate` rồi `postedAt`; mỗi dòng FOC/giảm giá
      *     **đã duyệt** đặt **ngay dưới** dòng gốc (`relatedLineId`, BR-434); dòng `pending_approval`/`rejected` **không** có trong bill. `usdReference` chỉ khi `vi_en`.
+     *     **0.3.6 (DOM G-12)**: dòng đã bị đảo và dòng đảo **không in** (cặp gốc + đảo bỏ khỏi `lines`; chỉ in dòng còn hiệu lực / giá trị ròng) – `getFolio` và nhật ký vẫn đủ.
+     *     **0.3.6 (DOM G-13)**: `paymentModel` của đơn quyết tiền phòng: `ota_prepaid` → dòng `room` ẩn, in một dòng "Đã thu qua OTA" (`otaPrepaidNote`);
+     *     `ota_pay_at_property` → in tiền phòng theo giá OTA, thu tại quầy như đơn trực tiếp; `direct` như cũ.
      */
     get: operations['getBill'];
     put?: never;
@@ -2516,6 +2590,90 @@ export interface paths {
     put?: never;
     /** Người gửi rút lại (A6) */
     post: operations['cancelRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/approval-requests/{approvalId}/refund-destination': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    /** Xem đủ nơi nhận hoàn để chuyển khoản (người thực hiện hoàn – A47, D15 đầy đủ L) */
+    get: operations['getRefundDestination'];
+    /**
+     * Nhập nơi nhận hoàn của yêu cầu `refund` (tiền mặt / chuyển khoản / về phương thức gốc) – số tài khoản C3 (D15, SEC F8)
+     * @description 0.3.6 (A-33). Chỉ yêu cầu `type=refund` chưa thực hiện (khác → `409 INVALID_TRANSITION`). `accountNo` mã hóa DEK riêng
+     *     (`approval_request.refund_account_enc`), Luhn đạt → 422 `CARD_NUMBER_DETECTED` (không nhận số thẻ). Đổi nơi nhận khi yêu cầu đã `approved`
+     *     → yêu cầu về `pending`, phải duyệt lại (F8). Tiền thu qua cổng (`vnpay`, `momo`) chỉ được `original_method`.
+     */
+    put: operations['setRefundDestination'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/execute-cash-refund': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Chi hoàn **tiền mặt** tại quầy theo yêu cầu `refund` đã duyệt – FD+ (PO 16/10, rbac A47a)
+     * @description 0.3.6. Chỉ khi nơi nhận `method=cash` (khác → `409 INVALID_TRANSITION`; chuyển khoản/phương thức gốc dùng `executeRefund`, OWN/MGR). Yêu cầu `approved`;
+     *     người chi ≠ người **tạo** yêu cầu (`requestedBy`, CHECK DB) → `403 SELF_REFUND_FORBIDDEN`; `amountVnd` ≤ số duyệt − `refundedVnd` và ≤ đã thu − đã hoàn → 422
+     *     `REFUND_EXCEEDS_APPROVED`; `attachmentId` (`purpose=refund_proof`, biên nhận khách ký) **bắt buộc** → `EVIDENCE_REQUIRED`. Ghi `payment` `type=refund`,
+     *     `method=cash`, `reconciliation=not_required`, vào **ca đang mở** của người chi (`shiftId`). Audit `money`; phát `payment.changed`, `reservation.changed`.
+     *     Không đọc số tài khoản (không C3).
+     */
+    post: operations['executeCashRefund'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/execute-refund': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ghi giao dịch hoàn đã chi theo yêu cầu `refund` `approved` – OWN/MGR, mọi cách hoàn (A47, BR-522, SEC F8)
+     * @description 0.3.6 (A-33). **Chỉ nơi nhận `bank_transfer`/`original_method`** (nơi nhận `cash` → `409 INVALID_TRANSITION`, dùng `executeCashRefund` – PO 16/10).
+     *     Ghi `payment` `type=refund` (`succeeded`, `approvalRequestId`) trên folio của yêu cầu – nhận cả khi folio `settled` (không đổi bill).
+     *     Kiểm dưới `FOR UPDATE` của folio + yêu cầu: yêu cầu `approved`, có nơi nhận (`409 REFUND_DESTINATION_REQUIRED`), người duyệt ≠ người tạo (CHECK DB);
+     *     `amountVnd` ≤ số duyệt − `refundedVnd` **và** ≤ đã thu − đã hoàn của folio (server tính) → 422 `REFUND_EXCEEDS_APPROVED`. `method` theo nơi nhận
+     *     (`cash` → ghi vào ca đang mở; `bank_transfer`; `original_method` → phương thức gốc). Hoàn đủ → hủy DEK `refund_account` trong cùng giao dịch (T09,
+     *     `c3_access_log purge`). Audit `money`; phát `payment.changed`, `reservation.changed`.
+     *     **Đối soát chi hoàn (DOM G-14)**: `bank_transfer` → `reconciliation = pending`, đối soát bằng `reconcilePayment` như khoản thu (người đối soát ≠ người chi);
+     *     `cash` → `not_required`, tính vào ca. Folio số dư về 0 khi đã hoàn đủ `creditVnd`. Nguồn yêu cầu `refund`: hủy có cọc (B10), trả sớm (B16), dời ra ngoài
+     *     (`resolveOverbookingExternal`, BE-12), trả thừa khi trả phòng (A-34), yêu cầu tay (`createRefundRequest`). Người chi ≠ người tạo yêu cầu → `403 SELF_REFUND_FORBIDDEN`.
+     */
+    post: operations['executeRefund'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2990,8 +3148,44 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Tải ảnh **không phải giấy tờ** (sự cố, kiểm phòng, bằng chứng phạt, biên nhận cọc). Ảnh nén ở client trước khi gửi. */
+    /**
+     * Tải ảnh **không phải giấy tờ** (sự cố, kiểm phòng, bằng chứng phạt, biên nhận cọc). Ảnh nén ở client trước khi gửi.
+     * @description 0.3.6 (B-01, SEC I1–I7): cùng pipeline với ảnh giấy tờ (magic bytes JPEG/PNG/WebP, ≤ 10 MB, ≤ 40 MP, mã hóa lại, bỏ EXIF, xử lý trong bộ nhớ);
+     *     lưu **C2 mã hóa DEK riêng mỗi tệp** qua `CryptoService` (xóa = hủy DEK). `purpose` là enum **đóng** – không bao giờ dùng cho giấy tờ tùy thân;
+     *     guest-web không gọi. Giới hạn 20 tệp/phiếu hoặc lần kiểm, 50 tệp/người/ngày (429). Vai theo `purpose`: `deposit_receipt` FD+ và SAL/CTV;
+     *     `penalty_evidence`, `meter` FD+ (+MT với `meter`); `work_order` mọi vai thấy phiếu; `inspection` FD+ và HK; `refund_proof` (ảnh ủy nhiệm chi/biên nhận
+     *     chi hoàn – có thể chứa số tài khoản khách, đọc như D15): tải – OWN/MGR, và FD/FDL cho biên nhận hoàn tiền mặt; đọc – OWN/MGR + người tải (BA E15-02, PO 16/10). Sai vai cho `purpose` → 403. `refund_proof` xóa cùng hạn `deposit_receipt`.
+     *     Thời hạn lưu (SEC I5, tham số OWN sửa): `work_order`/`inspection` 12 tháng sau đóng (`attachment_ops_retention_months` 3–24);
+     *     `deposit_receipt` 90 ngày sau `reconciled` (`deposit_receipt_retention_days` 30–365; `disputed` giữ tới xử lý xong + 90 ngày);
+     *     `penalty_evidence` 12 tháng sau trả phòng hoặc khiếu nại đóng (mốc muộn hơn); `meter` 12 tháng sau HĐ kết thúc. J16 xóa.
+     */
     post: operations['uploadAttachment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/attachments/{attachmentId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        attachmentId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Xem ảnh đính kèm (không phải giấy tờ) – giải mã, header an toàn, phạm vi theo `purpose` (B-01)
+     * @description 0.3.6 (B-01, SEC I1–I3 duyệt 16/10). C2 – **không** cần thiết bị được cấp, step-up, `c3_access_log`. Phạm vi theo `purpose`:
+     *     `work_order` – ai thấy phiếu; `inspection` – FD+ và HK người chụp; `penalty_evidence`, `meter` – FD+; `refund_proof` – OWN/MGR, và FD/FDL người tải (biên nhận hoàn tiền mặt) (E15-02); `deposit_receipt` – FD+ và người tải
+     *     (SAL/CTV) **khi** đơn vẫn trong phạm vi của họ. Ngoài phạm vi, khác cơ sở, đã xóa (DEK hủy) → `404`. Không URL ký sẵn; client `fetch` có cookie →
+     *     object URL → thu hồi khi đóng. Không dùng cho giấy tờ (`getDocumentImage`).
+     */
+    get: operations['getAttachment'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3574,6 +3768,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/guest/request-options': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Loại yêu cầu khách dùng được lúc này + phí (B-14/B-16) – trước khi gửi
+     * @description 0.3.6. Bảng giá dịch vụ không phải dữ liệu cá nhân → mức 1 (SEC J, B-16). `available=false` kèm `unavailableReason`
+     *     (`outside_service_hours`, `not_in_house`, `paid_limit_reached`, `not_offered`). Loại có phí do DOM quyết (E14-07). Sprint 4.
+     */
+    get: operations['listGuestRequestOptions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/guest/folio': {
     parameters: {
       query?: never;
@@ -4093,7 +4308,10 @@ export interface components {
       'vietqr' | 'bank_transfer' | 'cash' | 'card_pos' | 'vnpay' | 'momo' | 'ota_collect';
     /** @enum {string} */
     PaymentType: 'charge' | 'deposit' | 'security_deposit' | 'refund' | 'deposit_deduction';
-    /** @enum {string} */
+    /**
+     * @description `room_change_difference` (0.3.6, BA E04-05): chênh lệch đổi phòng đơn OTA do khách yêu cầu, thu tại quầy
+     * @enum {string}
+     */
     FolioLineCategory:
       | 'room'
       | 'early_checkin'
@@ -4113,7 +4331,8 @@ export interface components {
       | 'deposit_forfeit'
       | 'discount'
       | 'foc'
-      | 'adjustment';
+      | 'adjustment'
+      | 'room_change_difference';
     PropertyRole: {
       propertyId: components['schemas']['Uuid'];
       role: components['schemas']['Role'];
@@ -4337,7 +4556,13 @@ export interface components {
         | 'no_show_call'
         | 'no_show_mark'
         | 'security_alert'
-        | 'capacity_conflict';
+        | 'capacity_conflict'
+        | 'work_order_overdue'
+        | 'extra_guest_kit_overdue'
+        | 'room_status_mismatch'
+        | 'reconcile_overdue'
+        | 'ooo_ending_work_open'
+        | 'guest_request_overdue';
       /**
        * @description computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)
        * @enum {string}
@@ -4352,6 +4577,15 @@ export interface components {
       roomNos?: string[];
       /** @description Đường dẫn màn hình xử lý */
       link?: string;
+      /** @description Mã hiển thị (mã đơn, mã WO, số căn) – không C2/C3 (0.3.6, B-21) */
+      refCode?: string;
+      /**
+       * @description 0.3.6 (B-21, SEC J duyệt có điều kiện): tham số điền chuỗi UXD. Mỗi `kind` có **danh sách khóa cho phép trong code**; khóa lạ → lỗi lúc sinh mục
+       *     (không lọc im lặng). Chỉ số, mã đơn/WO, số căn, ngày – **không** tên, SĐT, ghi chú, số tiền chi tiết của khách. `reconcile_overdue`: `count`, `oldestDays`.
+       */
+      params?: {
+        [key: string]: string | number;
+      };
     };
     Rack: {
       from: components['schemas']['LocalDate'];
@@ -4714,6 +4948,12 @@ export interface components {
       adults?: number;
       children6to11?: number;
       childrenUnder6?: number;
+      /**
+       * @description 0.3.6 (B-28, US-025 AC7): tick bổ sung "Đã giao mã cửa/thẻ" từ chi tiết đơn. Chỉ nhận `true`; FD+; đơn `in_house`; đặt **một lần**
+       *     (đã có → `409 INVALID_TRANSITION` + `currentState`). Ghi `door_access_handed_over_at/_by` + audit `state`. Không lưu, không hiện mã cửa.
+       * @enum {boolean}
+       */
+      doorAccessHandedOver?: true;
       etaTime?: components['schemas']['LocalTime'];
       closerUserId?: components['schemas']['Uuid'];
       internalNote?: string;
@@ -4810,6 +5050,18 @@ export interface components {
       /** @description Đơn OTA → đơn con kênh Trực tiếp (BR-422) */
       createsChildReservation?: boolean;
       channelFeeSavingsVnd?: components['schemas']['MoneyVnd'];
+      /**
+       * @description 0.3.6 (DOM D-8, A-22; UXD #4): mỗi phần tử ứng với gia hạn `nights` đêm (1…`maxNights`) – server tính lại bậc giảm BR-107 cho **mọi** đêm còn hiệu lực
+       *     theo tổng số đêm mới; client hiển thị, không tự tính. Đơn OTA/Nội bộ/`externalContract` → `losDiscountPct` = 0.
+       */
+      repricing?: {
+        nights: number;
+        /** @description Tổng tiền phòng cả đơn sau gia hạn (đêm cũ còn hiệu lực + đêm mới) */
+        repricedTotalVnd: components['schemas']['MoneyVnd'];
+        /** @description Chênh so với tổng hiện tại (có thể âm khi bậc giảm tăng – kiểu integer) */
+        deltaVnd?: components['schemas']['MoneyVnd'];
+        losDiscountPct: components['schemas']['Percent'];
+      }[];
       nights: {
         date: components['schemas']['LocalDate'];
         available: boolean;
@@ -4852,8 +5104,39 @@ export interface components {
       totalVnd: components['schemas']['MoneyVnd'];
       paidVnd: components['schemas']['MoneyVnd'];
       balanceDueVnd: components['schemas']['MoneyVnd'];
+      /** @description Trả thừa → `checkOut.overpaymentHandling` bắt buộc (0.3.6, A-34) */
+      creditVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 (DOM G-10, BA E05-10): phụ thu trả muộn đã ghi (`oldVnd`, theo giờ hẹn) và theo giờ trả thực tế (`newVnd`); khác nhau → B18 đảo dòng cũ, ghi dòng mới */
+      lateSurchargeRecalc?: {
+        oldVnd?: components['schemas']['MoneyVnd'];
+        newVnd?: components['schemas']['MoneyVnd'];
+        oldTierPct?: components['schemas']['Percent'];
+        newTierPct?: components['schemas']['Percent'];
+      };
+      /** @description Không tính yêu cầu loại `refund` (0.3.6) */
       pendingApprovals?: number;
-      blockers?: ('balance_due' | 'pending_approvals' | 'minibar_not_checked')[];
+      /** @description `credit_balance` (0.3.6, DOM G-15): `creditVnd > 0` – gỡ bằng `checkOut.overpaymentHandling` */
+      blockers?: ('balance_due' | 'pending_approvals' | 'minibar_not_checked' | 'credit_balance')[];
+    };
+    /**
+     * @description 0.3.6 (BA E04-05): giá các đêm từ `effectiveDate`. `property_fault` → giữ giá cũ (nâng hạng miễn phí); `guest_request` → giá căn mới theo lịch giá kênh hiện hành
+     *     (kênh `direct`/`agent` áp lại bậc giảm theo tổng số đêm – D-8); đơn OTA `guest_request` → không sửa giá OTA, chênh lệch dương ghi dòng `room_change_difference`
+     *     thu tại quầy. Căn mới rẻ hơn với `guest_request` → giảm theo giá mới, không tự hoàn (dư → `creditVnd`).
+     */
+    ChangeRoomPreview: {
+      nights: {
+        date: components['schemas']['LocalDate'];
+        oldRateVnd: components['schemas']['MoneyVnd'];
+        newRateVnd: components['schemas']['MoneyVnd'];
+      }[];
+      /** @description Có thể âm */
+      folioDeltaVnd: components['schemas']['MoneyVnd'];
+      /** @description Chỉ đơn OTA `guest_request` */
+      roomChangeDifferenceVnd?: components['schemas']['MoneyVnd'];
+      losDiscountPct?: components['schemas']['Percent'];
+      extraGuestKitTransfer?: boolean;
+      /** @description Mã buồng hiện tại của căn mới (BR-801) */
+      newRoomStatus?: string;
     };
     /** @description Với phạm vi `own_count_only` (SAL/CTV) thuộc tính `members` vắng mặt hoàn toàn (D10). */
     Party: {
@@ -4868,10 +5151,31 @@ export interface components {
         relationship?: string;
         /** @description Tên trẻ em che bớt; đầy đủ chỉ qua màn khai báo (C3) */
         childDisplayName?: string;
-        /** @enum {string} */
+        /**
+         * @description Bậc tuổi tính tại ngày đến (BR-110) – dùng thay `childAgeBand` BA E04-04 (cùng nghĩa: `adult` = 12+); không bao giờ trả năm sinh
+         * @enum {string}
+         */
         priceAgeBand?: 'adult' | 'child_6_11' | 'child_under_6';
         isMinorData?: boolean;
+        /** @description Người thêm giữa kỳ ở (0.3.6) */
+        effectiveFrom?: components['schemas']['LocalDate'];
       }[];
+      /** @description Phiên bản danh sách người – `ETag` của `listParty`; `If-Match` cho `removePartyMember` (0.3.6, E04-04) */
+      version?: number;
+      /**
+       * @description 0.3.6 (E04-04): chỉ có trong phản hồi `addPartyMember` (kể cả `dryRun`) khi số người tính định mức đổi. `surchargeVnd` = phụ thu người thêm BR-110
+       *     từ đêm `effectiveFrom` × số đêm còn lại (đơn OTA: chỉ khi vượt số khách trên đơn OTA). `extraGuestKitTaskCreated` khi `extraCount` tăng (BR-812).
+       */
+      occupancyChange?: {
+        adults?: number;
+        children6to11?: number;
+        childrenUnder6?: number;
+        extraCount?: number;
+        surchargeVnd?: components['schemas']['MoneyVnd'];
+        nights?: number;
+        surchargeApplied?: boolean;
+        extraGuestKitTaskCreated?: boolean;
+      };
     };
     PartyMemberCreate: {
       /** @enum {string} */
@@ -4881,6 +5185,22 @@ export interface components {
       relationship?: 'spouse' | 'partner' | 'family' | 'friend' | 'colleague' | 'unknown';
       childName?: string;
       childBirthYear?: number;
+      /** @description 0.3.6 (BA E04-04, US-022 AC4): **bắt buộc** khi đơn `in_house` – ngày nghiệp vụ hôm nay … ngày đi − 1; phụ thu người thêm tính từ đêm này. Đơn chưa nhận phòng: bỏ qua */
+      effectiveFrom?: components['schemas']['LocalDate'];
+      /**
+       * @description Lễ tân xác nhận "Ghi phụ thu {amount}" theo `occupancyChange.surchargeVnd` (BR-414) – 0.3.6
+       * @default false
+       */
+      applyExtraPersonSurcharge: boolean;
+      /** @description Bắt buộc khi `applyExtraPersonSurcharge=true`; lệch → 409 `SURCHARGE_CHANGED` (như E03-02) – 0.3.6 */
+      expectedSurchargeVnd?: components['schemas']['MoneyVnd'];
+      /**
+       * @description Chỉ tính `occupancyChange`, không ghi (giao dịch readOnly – SEC A3) – 0.3.6
+       * @default false
+       */
+      dryRun: boolean;
+      /** @description Đơn OTA vượt sức chứa (DOM D-1) – như `ReservationPatch` (0.3.6) */
+      capacityWarningAckReason?: string;
     };
     DoorCredentialInput: {
       /** @enum {string} */
@@ -4889,6 +5209,7 @@ export interface components {
       code?: string;
       validFrom: components['schemas']['Instant'];
       validTo: components['schemas']['Instant'];
+      /** @description 0.3.6 (DOM G-1): tối đa 2 thẻ **mỗi căn** (đơn-căn), không theo đầu người – BR-403/511 */
       cardsIssued?: number;
     };
     /** @description Không còn `codeHint` (2 số cuối làm giảm không gian đoán – SR-LOCK-01); lễ tân xem mã đầy đủ qua `getDoorCredential` trên thiết bị được cấp. */
@@ -5123,6 +5444,8 @@ export interface components {
       reservationCode?: string;
       /** @description Người ghi/tạo giao dịch (0.3.3, E05-03) */
       recordedByUserId?: components['schemas']['Uuid'];
+      /** @description Vai của người ghi tại thời điểm ghi (snapshot) – lọc khoản sale/CTV ghi (BR-527) – 0.3.6, UXD #3 */
+      recordedByRole?: components['schemas']['Role'];
       /** @description VietQR: lúc lễ tân xác nhận thấy tiền (`confirmPaymentReceived`) – 0.3.3 */
       confirmedAt?: components['schemas']['Instant'];
       /** @description 0.3.3 */
@@ -5133,6 +5456,8 @@ export interface components {
       note?: string;
       /** @description Ảnh biên nhận chuyển khoản (BR-527) – 0.3.3, E05-01 */
       attachmentId?: components['schemas']['Uuid'];
+      /** @description Giao dịch hoàn (`type=refund`): yêu cầu duyệt `refund` đã thực hiện (0.3.6, A-33) */
+      approvalRequestId?: components['schemas']['Uuid'];
       /** @description Ghi chú đối soát (bắt buộc khi `disputed`) – 0.3.3 */
       reconciliationNote?: string;
       /** @description Khóa lạc quan cho `reconcilePayment` (`If-Match`) – 0.3.3 */
@@ -5146,6 +5471,7 @@ export interface components {
       /** @description Chờ > `bank_reconcile_alert_days` (BR-527) – "Cần chú ý" */
       reconcileOverdue?: boolean;
     };
+    /** @description `type=refund` không nhận ở đây (422 `NOT_IN_LIST`, `field` = `type`) – hoàn chỉ qua `executeRefund` (0.3.6, A-33) */
     PaymentCreate: {
       type: components['schemas']['PaymentType'];
       method: components['schemas']['PaymentMethod'];
@@ -5157,8 +5483,8 @@ export interface components {
       /** @description Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2) */
       billingPeriodId?: components['schemas']['Uuid'];
       /**
-       * @description Ảnh biên nhận chuyển khoản – id từ `uploadAttachment purpose=deposit_receipt` của cùng cơ sở (sai → 422 `NOT_IN_LIST`); BR-527 "kèm ảnh/mã giao dịch" (0.3.3, E05-01).
-       *     **R2 Sprint 2**: luôn `422 NOT_IN_LIST` tới khi `uploadAttachment` + `getAttachment` cài xong (Sprint 3, SEC duyệt SR-FILE) – client ẩn ô ảnh (0.3.5, A-17).
+       * @description Ảnh biên nhận chuyển khoản – id từ `uploadAttachment purpose=deposit_receipt` của cùng cơ sở, do chính người gọi tải hoặc FD+ (sai → 422 `NOT_IN_LIST`);
+       *     BR-527 "kèm ảnh/mã giao dịch" (0.3.3, E05-01). **0.3.6**: bỏ chặn tạm A-17 – nhận từ Sprint 3 (SEC I1 duyệt). Một ảnh chỉ gắn một giao dịch.
        */
       attachmentId?: components['schemas']['Uuid'];
     };
@@ -5180,6 +5506,8 @@ export interface components {
         paidViaOtaVnd?: components['schemas']['MoneyVnd'];
         depositHeldVnd?: components['schemas']['MoneyVnd'];
         balanceDueVnd?: components['schemas']['MoneyVnd'];
+        /** @description Đã thu (gồm `pending` đối soát) − tổng − đã hoàn, khi > 0; ngược lại 0. `balanceDueVnd` và `creditVnd` không cùng > 0 (0.3.6, A-34) */
+        creditVnd?: components['schemas']['MoneyVnd'];
       };
       pendingApprovals?: number;
       invoiceRequest?: components['schemas']['InvoiceRequest'];
@@ -5222,6 +5550,22 @@ export interface components {
         rateUpdatedOn?: components['schemas']['LocalDate'];
       };
       vietqrTransferContent?: string;
+      /**
+       * @description 0.3.6 (DOM G-13)
+       * @enum {string}
+       */
+      paymentModel?: 'direct' | 'ota_prepaid' | 'ota_pay_at_property';
+      /** @description Chỉ `ota_prepaid`: "Đã thu qua {kênh}" theo `locale` – thay dòng tiền phòng (0.3.6) */
+      otaPrepaidNote?: string | null;
+      /** @description Tổng tiền phòng OTA đã thu (tóm tắt, không chi tiết đêm) – 0.3.6 E05-10 */
+      otaPrepaidVnd?: components['schemas']['MoneyVnd'] | null;
+      /** @description Dòng hoàn đã chi (`executeRefund`) in dưới phần thanh toán – 0.3.6 E05-10 */
+      refunds?: {
+        amountVnd: components['schemas']['MoneyVnd'];
+        paidAt: components['schemas']['Instant'];
+        method: components['schemas']['PaymentMethod'];
+      }[];
+      refundedVnd?: components['schemas']['MoneyVnd'];
     };
     ChargeCatalogItem: {
       /** @example smoking_fee */
@@ -5313,6 +5657,16 @@ export interface components {
       decidedAt?: components['schemas']['Instant'];
       decisionNote?: string;
       approverRemainingMonthlyVnd?: components['schemas']['MoneyVnd'];
+      /** @description Chỉ yêu cầu `refund` – nơi nhận hoàn **đã che** (D15). Số đầy đủ chỉ qua `getRefundDestination` (0.3.6, A-33) */
+      refundDestination?: {
+        /** @enum {string} */
+        method?: 'cash' | 'bank_transfer' | 'original_method';
+        bankBin?: string;
+        accountNoLast4?: string;
+        setAt?: components['schemas']['Instant'];
+      };
+      /** @description Đã chi theo yêu cầu `refund` (0.3.6) */
+      refundedVnd?: components['schemas']['MoneyVnd'];
     };
     AuditEvent: {
       occurredAt: components['schemas']['Instant'];
@@ -5825,7 +6179,16 @@ export interface components {
       /** @description Đã gửi · Đã nhận · Đang xử lý · Hoàn thành · Không thực hiện được (theo ngôn ngữ) */
       statusLabel: string;
       autoReply?: string;
-      declinedReason?: string;
+      /**
+       * @description 0.3.6 (B-15) – thay `declinedReason` tự do
+       * @enum {string}
+       */
+      declinedReasonCode?:
+        'not_available_now' | 'outside_service_hours' | 'needs_front_desk' | 'duplicate' | 'other';
+      /** @description Lời nhắn của nhân viên (B-15) – văn bản thuần */
+      replyNote?: string;
+      /** @description Phí đã chấp nhận (snapshot) – 0.3.6 B-16 */
+      feeVnd?: components['schemas']['MoneyVnd'] | null;
       createdAt: components['schemas']['Instant'];
       updatedAt?: components['schemas']['Instant'];
     };
@@ -5872,7 +6235,11 @@ export interface components {
       property: {
         name?: string;
         address?: string;
-        /** Format: uri */
+        /**
+         * Format: uri
+         * @description 0.3.6 (SEC E14-08): chỉ `https`, host khớp **chính xác** một trong `maps.google.com`, `www.google.com` (path bắt đầu `/maps`), `maps.app.goo.gl`,
+         *     `maps.apple.com`, `www.openstreetmap.org`; kiểm khi OWN lưu (422 `NOT_IN_LIST`). guest-web mở với `rel="noopener noreferrer"`.
+         */
         mapUrl?: string;
         phone?: string;
       };
@@ -5962,7 +6329,12 @@ export interface components {
     };
     StaffNotification: {
       id: components['schemas']['Uuid'];
-      /** @enum {string} */
+      /**
+       * @description 0.3.6 (A-36): `online_checkin_completed` (FD đang trực – "Khách {refCode} đã làm thủ tục trước – đến lúc {eta}", EP06 8.3; refType `reservation`);
+       *     `payment_disputed` (OWN + MGR khác người ghi – SEC F5; refType `payment`); `deposit_shortfall_accepted` (OWN – B-29); `receiving_account_changed`
+       *     (mọi OWN/MGR – SEC F3; refType `property`); `refund_ready` (MGR+ – yêu cầu hoàn đã duyệt và có nơi nhận; refType `approval_request`).
+       * @enum {string}
+       */
       kind:
         | 'hold_expired'
         | 'hold_expiring'
@@ -5976,7 +6348,12 @@ export interface components {
         | 'registration_due'
         | 'checkout_call_needed'
         | 'security_alert'
-        | 'account_security_change';
+        | 'account_security_change'
+        | 'online_checkin_completed'
+        | 'payment_disputed'
+        | 'deposit_shortfall_accepted'
+        | 'receiving_account_changed'
+        | 'refund_ready';
       /** @enum {string} */
       refType?:
         | 'reservation'
@@ -5984,7 +6361,9 @@ export interface components {
         | 'work_order'
         | 'approval_request'
         | 'registration'
-        | 'user';
+        | 'user'
+        | 'payment'
+        | 'property';
       refId?: components['schemas']['Uuid'];
       /** @description Mã hiển thị (OTM-00171, WO-00034, số căn) – không C2/C3 */
       refCode?: string;
@@ -7197,7 +7576,17 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['Room'];
+          'application/json': components['schemas']['Room'] & {
+            /**
+             * @description 0.3.6 (ĐK-S2-2, A-39): cảnh báo **không chặn** sau khi lưu. `FUTURE_RESERVATIONS_KEEP_ROOM` – vừa đặt `isSellable=false` mà còn `count` đơn
+             *     `hold`/`confirmed`/`in_house` có đêm từ hôm nay giữ căn này (ngừng bán không hủy/dời đơn – lễ tân tự dời). Không có cảnh báo → mảng rỗng.
+             */
+            warnings?: {
+              /** @enum {string} */
+              code: 'FUTURE_RESERVATIONS_KEEP_ROOM';
+              count: number;
+            }[];
+          };
         };
       };
       403: components['responses']['Forbidden'];
@@ -7338,6 +7727,12 @@ export interface operations {
           value: unknown;
           effectiveFrom: components['schemas']['LocalDate'];
           reason: string;
+          /** @description Bắt buộc với khóa `payment_receiving_account` (0.3.6, SEC F3); khóa khác bỏ qua. Thiếu → 422 `REQUIRED` (`field` = `reauth`) */
+          reauth?: {
+            /** @enum {string} */
+            authMethod: 'password';
+            secret: string;
+          };
         };
       };
     };
@@ -7351,6 +7746,7 @@ export interface operations {
           'application/json': components['schemas']['Parameter'];
         };
       };
+      401: components['responses']['ReauthFailed'];
       403: components['responses']['Forbidden'];
       /** @description VALIDATION_FAILED (sai kiểu) / PARAM_OUT_OF_RANGE (ngoài biên – kèm `min`, `max` hoặc `allowed[]`) */
       422: {
@@ -7553,6 +7949,8 @@ export interface operations {
       /**
        * @description text/event-stream; payload `{id}` (không dữ liệu). Sự kiện (0.3.5, A-09): `reservation.changed`, `room.status_changed`, `attention.changed`,
        *     `hk_task.changed`, `work_order.changed` (Sprint 4), `guest_request.changed` (Sprint 4), `notification.created` (chỉ gửi tới người nhận).
+       *     0.3.6 (A-35): `registration.changed` (thêm/sửa giấy tờ, check-in online xong, K-chuyển trạng thái, xóa ảnh – chỉ phát tới FD+),
+       *     `payment.changed` (ghi/xác nhận/đối soát/đảo/hoàn – MGR+ và người ghi). Folio đổi → `reservation.changed`.
        *     Bỏ `task.assigned`, `request.created` của 0.2 (chưa client/BE nào dùng) – thay bằng `hk_task.changed`, `guest_request.changed`.
        */
       200: {
@@ -7944,6 +8342,13 @@ export interface operations {
         'application/json': {
           payment?: components['schemas']['PaymentCreate'];
           existingPaymentId?: components['schemas']['Uuid'];
+          /**
+           * @description 0.3.6 (B-29, DOM D-9). **Chỉ MGR+** (FD/FDL/SAL gửi → `403 FORBIDDEN_ACTION`). Đơn `hold` có tổng cọc `succeeded` > 0 (= 0 → `409 INVALID_TRANSITION`).
+           *     Tổng cọc < `depositRequiredVnd` mà có lý do → B4 `confirmed` (giữ `shortfallVnd` trên đơn), audit `money` + `StaffNotification`
+           *     `deposit_shortfall_accepted` tới OWN. Audit `category='money'`, `action='deposit.shortfall_accepted'`, `after` có `shortfallVnd`, `reason` (UXD #3).
+           *     Không gửi → hành vi A-13 (200, vẫn `hold`).
+           */
+          acceptShortfallReason?: string;
         };
       };
     };
@@ -8293,7 +8698,7 @@ export interface operations {
           documentBlockOverride?: {
             reason: string;
           };
-          /** @description Số thẻ phòng đã phát (BR-511: 1 chính + 1 dự phòng). Tối đa 2/đơn là **giả định BA – chờ DOM E05-06 a** (2/đơn hay 2/người); nới biên sau là thay đổi không phá (0.3.3, E03-04) */
+          /** @description Số thẻ phòng đã phát (BR-511: 1 chính + 1 dự phòng). **0.3.6 chốt (DOM G-1)**: tối đa 2 thẻ mỗi căn (đơn-căn), không theo đầu người */
           cardsIssued: number;
           /**
            * @description Lễ tân xác nhận đã gửi/giao nội quy VI/EN – điều kiện để thu phí phạt sau này (BR-511). Thiếu/`false` → 422 `REQUIRED` (0.3.3, E03-04)
@@ -8545,15 +8950,49 @@ export interface operations {
       content: {
         'application/json': {
           newRoomId: components['schemas']['Uuid'];
+          /** @description Ngày nghiệp vụ hôm nay … ngày đi − 1; đêm từ ngày này dùng căn mới (0.3.6 làm rõ) */
           effectiveDate: components['schemas']['LocalDate'];
-          /** @enum {string} */
+          /**
+           * @description `property_fault` → giữ giá cũ (nâng hạng miễn phí); `guest_request` → giá căn mới từ đêm đổi (BR-424). Giá căn mới xem trước bằng `searchAvailability?reservationId=`. **0.3.6 (A-37)**: số khách > `maxOccupancy` căn mới → **chặn cứng** 422 `CAPACITY_EXCEEDED` (`field` = `newRoomId`) mọi kênh – không có lý do bỏ qua (khách đang ở là người thật)
+           * @enum {string}
+           */
           cause: 'property_fault' | 'guest_request';
           reason: string;
+          /** @description Phiếu sửa gây đổi phòng (`cause=property_fault`, EP07-08 6.4) – sai/khác căn cũ → 422 `NOT_IN_LIST` (0.3.6, E04-05) */
+          workOrderId?: components['schemas']['Uuid'];
+          /**
+           * @description `true` "Khách đã chuyển xong" → căn cũ `VD`; `false` "Chuyển sau" (còn để đồ) → `OD`; cả hai tạo việc dọn (0.3.6, E04-05)
+           * @default true
+           */
+          oldRoomVacated?: boolean;
+          /**
+           * @description Xác nhận ghi chênh lệch đúng `preview.folioDeltaVnd` (BR-414); bắt buộc `true` khi chênh ≠ 0, kèm `expectedDeltaVnd` (lệch → 409 `SURCHARGE_CHANGED`) – 0.3.6
+           * @default false
+           */
+          applyDifference?: boolean;
+          expectedDeltaVnd?: components['schemas']['MoneyVnd'];
+          /**
+           * @description Trả `ChangeRoomPreview`, không ghi (giao dịch readOnly – SEC A3), không cần `Idempotency-Key`/`If-Match` (0.3.6, E04-05)
+           * @default false
+           */
+          dryRun?: boolean;
         };
       };
     };
     responses: {
-      200: components['responses']['ReservationOk'];
+      /**
+       * @description Đơn sau khi đổi (`dryRun=false`) – căn mới `OC`, `doorAccessHandedOver` đặt lại `false` (R2: nhắc thu thẻ cũ, giao thẻ căn mới), hoặc
+       *     `ChangeRoomPreview` (`dryRun=true`)
+       */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            components['schemas']['Reservation'] | components['schemas']['ChangeRoomPreview'];
+        };
+      };
       /**
        * @description ROOM_UNAVAILABLE / ROOM_BLOCKED (kèm `conflicts[]`, `suggestions[]`) hoặc **ROOM_NOT_READY** (0.3.1) – căn mới chưa `VI`/`VC`
        *     (BR-803, US-024 AC4), kèm `roomStatus`. Đơn có `extraGuestCount > 0` → sinh việc `extra_guest_kit_transfer` trong cùng giao dịch (BR-812 (4)).
@@ -8566,6 +9005,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
+      422: components['responses']['ValidationFailed'];
     };
   };
   assignRoom: {
@@ -8732,6 +9172,8 @@ export interface operations {
     parameters: {
       query?: {
         checkoutTime?: components['schemas']['LocalTime'];
+        /** @description Như `checkOut.checkoutAt` (0.3.6, E05-09) – ưu tiên hơn `checkoutTime` */
+        checkoutAt?: components['schemas']['Instant'];
       };
       header?: {
         'Accept-Language'?: components['parameters']['AcceptLanguage'];
@@ -8822,11 +9264,29 @@ export interface operations {
          */
         'application/json': {
           checkoutTime: components['schemas']['LocalTime'];
+          /**
+           * @description 0.3.6 (BA E05-09, DOM G-16): thời điểm trả thực tế. Có thì server dùng `checkoutAt` (bỏ qua `checkoutTime`, chỉ kiểm khớp giờ) – trả sau nửa đêm
+           *     (01:00 hôm sau, ngày nghiệp vụ vẫn là ngày đi) luôn > mốc cuối BR-412 → 422 `LATE_CHECKOUT_AFTER_LIMIT` (gia hạn 1 đêm trước). Không có → `checkoutTime`
+           *     hiểu trên trục ngày nghiệp vụ (00:00–05:59 = sau nửa đêm).
+           */
+          checkoutAt?: components['schemas']['Instant'];
           /** @default false */
           applyLateSurcharge?: boolean;
           /** @description Phụ thu trả muộn client đang hiển thị (từ `getCheckoutSummary`) – bắt buộc khi `applyLateSurcharge=true` (0.3.3, E03-02) */
           expectedSurchargeVnd?: components['schemas']['MoneyVnd'];
           finalPayment?: components['schemas']['PaymentCreate'];
+          /**
+           * @description 0.3.6 (A-34). Bắt buộc khi `creditVnd > 0` (đã thu > tổng – ví dụ cọc lớn hơn bill sau FOC/trả sớm); thiếu → 422 `OVERPAYMENT_HANDLING_REQUIRED`.
+           *     `refund_request`: tạo yêu cầu duyệt `refund` số tiền = `creditVnd` (A43, BR-522) trong cùng giao dịch B18 – loại `refund` **không** tính vào
+           *     blocker `pending_approvals`; nơi nhận nhập sau bằng `setRefundDestination`, MGR+ chi bằng `executeRefund`.
+           *     `retain_with_guest_consent`: chỉ MGR+ (FD/FDL → 403) – khách đồng ý để lại (DOM G-15 "khách để lại cho lần sau"): ghi dòng `deposit_forfeit`
+           *     bằng `creditVnd` + `reason` (R2 không có ví tín dụng khách; lần sau MGR giảm giá thủ công có ghi chú).
+           */
+          overpaymentHandling?: {
+            /** @enum {string} */
+            mode: 'refund_request' | 'retain_with_guest_consent';
+            reason: string;
+          };
           /** @description Chỉ OWN/MGR (A19) */
           debt?: {
             dueDate: components['schemas']['LocalDate'];
@@ -8877,6 +9337,7 @@ export interface operations {
       /** @description OK */
       200: {
         headers: {
+          ETag: components['headers']['ETag'];
           [name: string]: unknown;
         };
         content: {
@@ -8940,7 +9401,15 @@ export interface operations {
   removePartyMember: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
       path: {
         propertyId: components['parameters']['PropertyId'];
         reservationId: components['parameters']['ReservationId'];
@@ -8959,6 +9428,9 @@ export interface operations {
       };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
     };
   };
   issueGuestLink: {
@@ -10698,6 +11170,8 @@ export interface operations {
         receivedFrom?: components['schemas']['LocalDate'];
         receivedTo?: components['schemas']['LocalDate'];
         recordedBy?: components['schemas']['Uuid'];
+        /** @description 0.3.6 – ví dụ `sales_staff`, `collaborator` (tiền sale/CTV nộp quầy) */
+        recordedByRole?: components['schemas']['Role'];
         method?: components['schemas']['PaymentMethod'];
         /** @description Mặc định mọi trạng thái trừ `pending`/`expired`/`failed` khi lọc theo đối soát */
         status?: components['schemas']['PaymentStatus'];
@@ -10875,6 +11349,57 @@ export interface operations {
       422: components['responses']['ValidationFailed'];
     };
   };
+  confirmCashHandover: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        paymentId: components['parameters']['PaymentId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * @description `received` – nhận đủ → `reconciled`; `short` – thiếu/không nhận → `disputed` + cảnh báo OWN/MGR (như `reconcilePayment disputed`, không tự đảo)
+           * @enum {string}
+           */
+          result: 'received' | 'short';
+          /** @description Bắt buộc khi `short` (số thực nhận, < `amountVnd`) */
+          receivedAmountVnd?: components['schemas']['MoneyVnd'];
+          /** @description Bắt buộc khi `short` (3–300, `REASON_REQUIRED`) */
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Payment'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
   reversePayment: {
     parameters: {
       query?: never;
@@ -10934,6 +11459,8 @@ export interface operations {
           amountVnd: components['schemas']['MoneyVnd'];
           /** @enum {string} */
           purpose?: 'deposit' | 'balance' | 'billing_period';
+          /** @description 0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE` */
+          overBalanceReason?: string;
         };
       };
     };
@@ -10946,14 +11473,64 @@ export interface operations {
         content: {
           'application/json': {
             payment: components['schemas']['Payment'];
+            /** @description Chuỗi EMVCo/NAPAS VietQR – client tự vẽ ảnh (SEC F2) */
             qrPayload: string;
             /** @example OTM00171 */
             transferContent: string;
+            /**
+             * @description 0.3.6 – để lễ tân đối chiếu với khách
+             * @example 9704••••1234
+             */
+            receivingAccountMasked?: string;
+            receivingAccountChangedAt?: components['schemas']['Instant'];
+            /** @description Đổi trong 24 giờ qua (SEC F3) – 0.3.6 */
+            receivingAccountRecentlyChanged?: boolean;
             /** @description Giao dịch VietQR `pending` cũ của folio vừa chuyển `expired` (0.3.3) */
             expiredPaymentIds?: components['schemas']['Uuid'][];
           };
         };
       };
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  createRefundRequest: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        folioId: components['parameters']['FolioId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          amountVnd: components['schemas']['MoneyVnd'];
+          reason: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Đã tạo yêu cầu hoàn (chờ duyệt) */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApprovalRequest'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
       422: components['responses']['ValidationFailed'];
     };
@@ -11285,6 +11862,176 @@ export interface operations {
       };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
+    };
+  };
+  getRefundDestination: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            method: 'cash' | 'bank_transfer' | 'original_method';
+            bankBin?: string;
+            accountNo?: string;
+            accountHolder?: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  setRefundDestination: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          method: 'cash' | 'bank_transfer' | 'original_method';
+          /** @description Bắt buộc khi `bank_transfer` */
+          bankBin?: string;
+          /** @description Bắt buộc khi `bank_transfer` */
+          accountNo?: string;
+          accountHolder?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK – bản che */
+      200: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApprovalRequest'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  executeCashRefund: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          amountVnd: components['schemas']['MoneyVnd'];
+          paidAt: components['schemas']['Instant'];
+          /** @description Ảnh biên nhận khách ký nhận tiền (`purpose=refund_proof`) */
+          attachmentId: components['schemas']['Uuid'];
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Đã ghi giao dịch hoàn tiền mặt */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Payment'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  executeRefund: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        approvalId: components['parameters']['ApprovalId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          amountVnd: components['schemas']['MoneyVnd'];
+          paidAt: components['schemas']['Instant'];
+          /** @description Mã giao dịch ngân hàng – **bắt buộc** khi nơi nhận `bank_transfer` hoặc hoàn qua POS (`REQUIRED`) – 0.3.6 E15-02 */
+          bankReference?: string;
+          /** @description Ảnh ủy nhiệm chi / biên nhận ký nhận (`uploadAttachment purpose=refund_proof`) – **bắt buộc** khi `bank_transfer` (`EVIDENCE_REQUIRED`), không bắt buộc với `cash` – 0.3.6 E15-02 */
+          attachmentId?: components['schemas']['Uuid'];
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Đã ghi giao dịch hoàn */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Payment'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   listAuditEvents: {
@@ -12113,7 +12860,15 @@ export interface operations {
           /** Format: binary */
           file: string;
           /** @enum {string} */
-          purpose: 'work_order' | 'inspection' | 'penalty_evidence' | 'deposit_receipt' | 'meter';
+          purpose:
+            | 'work_order'
+            | 'inspection'
+            | 'penalty_evidence'
+            | 'deposit_receipt'
+            | 'meter'
+            | 'refund_proof';
+          /** @description Bắt buộc với `deposit_receipt`, `penalty_evidence` – kiểm phạm vi người gọi với đơn (SEC I1) – 0.3.6 */
+          reservationId?: components['schemas']['Uuid'];
         };
       };
     };
@@ -12126,10 +12881,63 @@ export interface operations {
         content: {
           'application/json': {
             id: components['schemas']['Uuid'];
+            /** @enum {string} */
+            purpose:
+              | 'work_order'
+              | 'inspection'
+              | 'penalty_evidence'
+              | 'deposit_receipt'
+              | 'meter'
+              | 'refund_proof';
+            sizeBytes?: number;
           };
         };
       };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      /** @description PAYLOAD_TOO_LARGE */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  getAttachment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        attachmentId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ảnh đã mã hóa lại (không EXIF) */
+      200: {
+        headers: {
+          'Cache-Control'?: 'private, no-store';
+          'Content-Disposition'?: string;
+          'X-Content-Type-Options'?: 'nosniff';
+          'Content-Security-Policy'?: string;
+          'Cross-Origin-Resource-Policy'?: 'same-origin';
+          [name: string]: unknown;
+        };
+        content: {
+          'image/jpeg': string;
+          'image/webp': string;
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
     };
   };
   listWorkOrders: {
@@ -12820,7 +13628,22 @@ export interface operations {
     requestBody?: {
       content: {
         'application/json': {
-          declinedReason?: string;
+          /**
+           * @description Bắt buộc khi `action=decline` (0.3.6, B-15). Khách thấy nhãn theo ngôn ngữ của mã này
+           * @enum {string}
+           */
+          declinedReasonCode?:
+            | 'not_available_now'
+            | 'outside_service_hours'
+            | 'needs_front_desk'
+            | 'duplicate'
+            | 'other';
+          /**
+           * @description 0.3.6 (B-15). Lời nhắn **hiện cho khách ở mức 1** (ai có link cũng đọc được). Văn bản thuần; Luhn → `CARD_NUMBER_DETECTED`; chuỗi ≥ 6 chữ số liền nhau
+           *     (sau khi bỏ dấu cách/chấm/gạch) trừ hotline công khai của cơ sở → `SENSITIVE_DATA_DETECTED`. Không vào push/outbox; xóa theo T13 cùng `guest_request.note`.
+           *     Bắt buộc khi `declinedReasonCode=other`. FE nhắc "Không ghi mã cửa, số giấy tờ, số điện thoại".
+           */
+          replyNote?: string;
         };
       };
     };
@@ -12836,6 +13659,7 @@ export interface operations {
       };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   listMessageTemplates: {
@@ -13392,8 +14216,15 @@ export interface operations {
          *     }
          */
         'application/json': {
+          /** @description Không dùng được (`listGuestRequestOptions.available=false`) → 422 `REQUEST_TYPE_NOT_AVAILABLE` (B-14) */
           type: components['schemas']['GuestRequestType'];
+          /** @description Bắt buộc theo `noteRequired` của loại (EP14 3.2) → `REQUIRED` */
           note?: string;
+          /**
+           * @description 0.3.6 (B-16). Bắt buộc `true` khi loại có `feeVnd > 0` → thiếu: `FEE_NOT_ACCEPTED`. Client **không** gửi số tiền – server lưu `feeVndSnapshot`
+           *     từ danh mục lúc tạo; loại có phí chỉ khi đơn `in_house`; ≤ 3 yêu cầu có phí đang mở/đơn; phí ghi folio (nguồn `guest_app`) chỉ khi nhân viên bấm hoàn thành.
+           */
+          feeAccepted?: boolean;
         };
       };
     };
@@ -13409,6 +14240,48 @@ export interface operations {
       };
       403: components['responses']['GuestForbidden'];
       429: components['responses']['RateLimited'];
+    };
+  };
+  listGuestRequestOptions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: {
+              type: components['schemas']['GuestRequestType'];
+              available: boolean;
+              /** @enum {string|null} */
+              unavailableReason?:
+                | 'outside_service_hours'
+                | 'not_in_house'
+                | 'paid_limit_reached'
+                | 'not_offered'
+                | null;
+              feeVnd?: components['schemas']['MoneyVnd'] | null;
+              /**
+               * @description Vì sao có phí (ESC-016 A) – 0.3.6, UXD #6
+               * @enum {string|null}
+               */
+              feeReason?: 'second_full_clean' | 'long_stay_adhoc' | null;
+              /** @description Chỉ **giờ** (HH:mm) lần dọn toàn bộ gần nhất trong ngày nghiệp vụ, khi `feeReason=second_full_clean` – không ngày, không tên nhân viên (0.3.6; SEC xem khi review) */
+              lastFullCleanTime?: components['schemas']['LocalTime'] | null;
+              noteRequired: boolean;
+            }[];
+          };
+        };
+      };
+      403: components['responses']['GuestForbidden'];
     };
   };
   getGuestFolio: {

@@ -2,7 +2,7 @@
  * reservations module (architecture 5.1; EP02 + EP11 R2 + US-139; SM-01, SM-02; ADR-009) – BE-A Sprint 2.
  * Global exports for the other modules: OccupancyService (the only inventory writer), PricingService (one
  * price engine for bookings and quotes), ReservationHooks (same-transaction extension points),
- * RESERVATION_SALES_PORT (quotes/folio/payments – BE-B), ROOM_CAPACITY_CHECK implementation.
+ * RESERVATION_SALES_PORT (quotes/folio/payments – BE-B), ROOM_CAPACITY_CHECK (ReservationCapacityCheck – US-004/BR-110, QC-S2-01).
  * Jobs: J1 hold expiry + O2 block activation (jobs/reservation-jobs.ts). Approval hook: an approved
  * `no_show_restore` request (SM-10) performs B12 in the approver's transaction.
  */
@@ -13,6 +13,7 @@ import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ParameterService } from '../platform/public/parameter.service';
+import { ROOM_CAPACITY_CHECK } from '../platform/public/room-capacity';
 import { MoneyBridge } from './internal/money-bridge';
 import { RackService } from './internal/rack.service';
 import { ReservationsController } from './internal/reservations.controller';
@@ -22,6 +23,7 @@ import { ReservationSalesAdapter } from './internal/sales-port.adapter';
 import { OccupancyService } from './public/occupancy.service';
 import { PricingService } from './public/pricing.service';
 import { ReservationHooks } from './public/reservation-hooks';
+import { ReservationCapacityCheck } from './public/room-capacity-check';
 import { RESERVATION_SALES_PORT } from './public/sales-port';
 import { StayNightAllocationService } from './public/stay-night-allocation';
 
@@ -67,6 +69,8 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     ReservationSalesAdapter,
     StayNightAllocationService,
     { provide: RESERVATION_SALES_PORT, useExisting: ReservationSalesAdapter },
+    ReservationCapacityCheck,
+    { provide: ROOM_CAPACITY_CHECK, useExisting: ReservationCapacityCheck },
   ],
   exports: [
     OccupancyService,
@@ -75,6 +79,7 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     MoneyBridge,
     RESERVATION_SALES_PORT,
     StayNightAllocationService,
+    ROOM_CAPACITY_CHECK,
   ],
 })
 export class ReservationsModule implements OnModuleInit {

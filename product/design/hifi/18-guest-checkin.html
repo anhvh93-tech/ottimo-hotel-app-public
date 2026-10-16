@@ -91,8 +91,8 @@
     </div><p class="frame-cap" data-i18n="gw.cap_docs">1 · Giấy tờ từng người (đổi trạng thái để xem gửi / lỗi / mất mạng)</p></div>
     <aside class="spec" aria-label="Đặc tả 18.2">
       <h3>Story / AC</h3><ul><li><span class="us">US-107</span> AC1 thứ tự: thông báo → giấy tờ → giờ đến → đồng ý; AC2 bỏ dở → mở lại tiếp bước dở; AC4 tệp sai loại/quá lớn → báo lỗi, cho tải lại; AC5 tiếng Anh đầy đủ, kể cả thông báo và mục đồng ý.</li><li>SEC ĐK-3: không hiện lại ảnh/số; không lưu ảnh ở localStorage/sessionStorage/IndexedDB/Cache/service worker; thu hồi object URL sau khi gửi.</li><li>Checklist UXD: check-in online ≤ 3 bước (màn thông báo là bước đọc, không nhập).</li></ul>
-      <h3>API</h3><ul><li><span class="op">getOnlineCheckin</span> (<code>currentStep</code>, <code>requiredPeople</code>, <code>uploadedPeople[]</code> – chỉ chỉ số) · <span class="op">uploadGuestDocument</span> (ảnh JPEG đã chuẩn hóa canvas, ≤ 10 MB, ≤ 4 ảnh/người) · <span class="op">updateOnlineCheckin</span></li><li>Đề nghị BA E06-06: trường <code>notice</code> (phiên bản thông báo) – chưa có trong 0.3.2.</li></ul>
-      <h3>Problem.code</h3><ul><li><span class="pc">FILE_REJECTED</span> · <span class="pc">PAYLOAD_TOO_LARGE</span> · <span class="pc">RATE_LIMITED</span> (≤ 30 tệp/đơn) · <span class="pc">INVALID_TRANSITION</span> (check-in online đã đóng – 18.5)</li></ul>
+      <h3>API</h3><ul><li><span class="op">getOnlineCheckin</span> (<code>currentStep</code>, <code>requiredPeople</code>, <code>uploadedPeople[]</code> – chỉ chỉ số) · <span class="op">uploadGuestDocument</span> (ảnh JPEG đã chuẩn hóa canvas, ≤ 10 MB, ≤ 4 ảnh/người) · <span class="op">updateOnlineCheckin</span></li><li>0.3.3 (E06-06): <code>onlineCheckinAvailable=false</code> → hiện 18.5 ngay khi mở, không đợi lỗi; <code>noticeVersion</code> gửi kèm quyết định đồng ý.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FILE_REJECTED</span> (chi tiết <code>errors[]</code>: <code>FILE_TYPE</code> · <code>FILE_TOO_LARGE</code> · <code>TOO_MANY_FILES</code> → <code>field.*</code>) · <span class="pc">PAYLOAD_TOO_LARGE</span> · <span class="pc">RATE_LIMITED</span> (≤ 30 tệp/đơn) · <span class="pc">ONLINE_CHECKIN_CLOSED</span> (409, 0.3.3 – thay <code>INVALID_TRANSITION</code> cho "đã đóng" → 18.5) · <span class="pc">CONCURRENT_UPDATE</span>/<span class="pc">SERVICE_UNAVAILABLE</span> (tự thử lại một lần, giữ bước đang làm – DS 6.21)</li></ul>
     </aside>
   </div>
 </section>
@@ -136,7 +136,7 @@
     <aside class="spec" aria-label="Đặc tả 18.3">
       <h3>Story / AC</h3><ul><li><span class="us">US-107</span> AC1 hoàn tất → khai báo <code>pre</code>, lễ tân thấy giờ đến + thông báo "Khách {code} đã làm thủ tục trước – đến lúc {eta}"; AC3 chọn "Không" vẫn hoàn tất.</li><li><span class="us">US-045</span> AC3 quyết định qua app ghi kèm thời điểm, hình thức "qua app".</li><li>BA EP06 8.1: chỉ hỏi Khách 1; người đi cùng trả lời tại quầy (R-CON-04). SEC ĐK-5: dòng hướng dẫn rút đồng ý qua lễ tân. ĐK-6: <code>guest.oci.done_body</code> bản R2 (BA E06-10).</li></ul>
       <h3>API</h3><ul><li><span class="op">updateOnlineCheckin</span> {<code>etaTime</code>} · <span class="op">recordGuestConsent</span> {<code>purpose:"P02B_ID_IMAGE_RETENTION"</code>, <code>decision</code>, <code>personIndex:1</code>, <code>noticeVersion</code>, <code>channel:"guest_app"</code>} · <span class="op">completeOnlineCheckin</span></li></ul>
-      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (thiếu giấy tờ / chưa ghi quyết định / đã đóng) · <span class="pc">GUEST_STAY_ENDED</span> · <span class="pc">VALIDATION_FAILED</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (thiếu giấy tờ / chưa ghi quyết định) · <span class="pc">ONLINE_CHECKIN_CLOSED</span> (đã đóng) · <span class="pc">GUEST_STAY_ENDED</span> · <span class="pc">VALIDATION_FAILED</span></li></ul>
     </aside>
   </div>
 </section>

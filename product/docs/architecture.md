@@ -138,6 +138,8 @@ flowchart LR
 | `guest-portal` | M11 | Phiên khách theo token đơn, yêu cầu khách (định tuyến BL 5.19), check-in online |
 | `messaging` | M13 | Mẫu tin đa ngôn ngữ, gửi qua `NotificationAdapter` |
 | `doorlock` | M14 | Mã cửa (MVP nhập tay; sinh mã ở lõi), thẻ phòng |
+| `crypto` | – | `CryptoService` duy nhất (ADR-013): DEK theo bản ghi, AAD, hủy DEK; chỉ module này đọc `data_key`/KEK (0.3.6) |
+| `files` | M4, M5, M12 | Pipeline ảnh dùng chung (magic bytes, `sharp`, bỏ EXIF), đính kèm C2 mã hóa (`uploadAttachment`/`getAttachment`) (0.3.6) |
 | `integrations-hub` | – | Outbox/inbox, webhook endpoint, `integration_log`, `IntegrationRegistry` |
 
 Quy tắc module: module khác chỉ gọi qua `modules/<x>/public` (service + DTO); thư mục `internal` bị lint chặn import chéo.
@@ -455,5 +457,6 @@ Sản phẩm Pha B: `product/docs/erd.md` (bảng, khóa, constraint, RLS, cột
 | 15/10/2026 | 1 – Đợt 3 | Pha B: danh sách 23 job theo lịch + nguyên tắc chạy đúng một lần/bắt kịp (9.1), công thức hạn khai báo, mã chứng từ (9a), chốt biểu diễn đơn OTA xung đột (8); tài liệu mới `erd.md`, `api/openapi.yaml`, `coding-standards.md` | ARC |
 | 16/10/2026 | 1 – Bước 4 | v0.2: mẫu handler job đúng một lần + tick theo Clock (9.1); ngày nghiệp vụ 06:00, MutableClock + `/__test__` (7); bảo mật: thiết bị tin cậy, thu hồi phiên, 2FA, OTP/mã lễ tân, 3 origin, KEK qua tệp, backup ≤ 35 ngày (10); "Cần chú ý" + thông báo (12.1); sửa câu PaymentAdapter (13); biến môi trường; vị trí compose + yêu cầu OPS (17); T1 nhận ước BE (19); BR-603 `hours_only`; bill `F26-000123` | ARC |
 | 16/10/2026 | 1 – Bước 5 | Sửa lỗi QA/SEC: mẫu tin chứa mã cửa tách `renderDoorCodeMessage` (C3 đầy đủ kiểm soát); tham số bảo mật chỉ OWN + biên cứng; link chờ khi gửi lại từ QR căn; `GUEST_CODE_SIGNING_KEY` tách khỏi `ID_HASH_KEY`; trạng thái yêu cầu OPS (vai DB, CI `__test__`). Chi tiết `rounds/round-01/qa/fix-notes-ARC.md` | ARC |
+| 16/10/2026 | 2 – Sprint 3 khởi động | 5.1 thêm module `crypto`, `files`; SSE (mục 12) thêm `registration.changed`, `payment.changed` (OpenAPI 0.3.6); chia vùng code 3 BE + quy tắc `_journal.json` ở `rounds/round-02/outputs/ARC/s3-contract.md` mục 4 | ARC |
 | 16/10/2026 | 2 – Sprint 2 (phản hồi) | 9.1: chốt khóa job `hold.expire` (J1, tick 1 phút – bỏ job hẹn giờ) và `ooo.activate` (J9, theo ngày nghiệp vụ 06:00 BR-010, không 00:01); J1 xử lý giữ chỗ có cọc thiếu theo DOM D-9; mục 12 danh mục SSE 0.3.5 | ARC |
 | 16/10/2026 | 2 – Tuần 1 | Theo BE W10 (G1–G3): 9.1 J12, J13 dời **R3** theo R-C; J2 đổi từ job hẹn giờ sang **tick theo Clock** (ADR-008 điểm 4); mục 13 tên biến đúng như mã/OPS: `TRUST_PROXY` (IP/CIDR, không số bước), `DATA_KEK_CURRENT`(`_FILE`), `ID_HASH_KEY`(`_FILE`) | ARC |

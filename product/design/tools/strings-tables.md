@@ -963,15 +963,15 @@
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `occ.adults` | Người lớn (từ 12 tuổi) | Adults (12+) | ⟨chừa chỗ⟩ | 09-booking.html |
-| `occ.adults_short` | Người lớn | Adults | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.adults_short` | Người lớn | Adults | Взрослые | 12-sales-quote.html |
 | `occ.children` | Trẻ 6–11 tuổi | Children 6–11 | ⟨chừa chỗ⟩ | 09-booking.html |
-| `occ.children_short` | Trẻ 6–11 | Kids 6–11 | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.children_short` | Trẻ 6–11 | Kids 6–11 | Дети 6–11 | 12-sales-quote.html |
 | `occ.fee_line` | Phụ thu {n} người vượt định mức × {nights} đêm (BR-110) | Extra-guest charge: {n} over standard × {nights} nights (BR-110) | ⟨chừa chỗ⟩ | 09-booking.html |
 | `occ.kit_chip` | Vượt định mức {n} · chuẩn bị bộ đồ dùng thêm | {n} over standard · prepare extra amenity kit | ⟨chừa chỗ⟩ | 03-today.html |
 | `occ.kit_reminder` | Vượt định mức {n} người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối); buồng phòng tự nhận việc khi lưu đơn. | {n} guest(s) over the standard occupancy – sleeping on the sofa. Remember to prepare an extra amenity kit (1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries – no pillow); housekeeping gets the task automatically when the booking is saved. | ⟨chừa chỗ⟩ | 09-booking.html |
 | `occ.under6` | Trẻ dưới 6 tuổi | Children under 6 | ⟨chừa chỗ⟩ | 09-booking.html |
 | `occ.under6_note` | Trẻ dưới 6 tuổi ngủ chung giường bố mẹ, không tính vào số này. | Children under 6 share their parents' bed and don't count towards this number. | ⟨chừa chỗ⟩ | 09-booking.html |
-| `occ.under6_short` | Dưới 6 | Under 6 | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.under6_short` | Dưới 6 | Under 6 | До 6 лет | 12-sales-quote.html |
 | `occ.summary` | Tính {counted}/{max} người (định mức {base}) · trẻ dưới 6 tuổi: {under6} | Counted {counted}/{max} guests (standard {base}) · children under 6: {under6} | ⟨chừa chỗ⟩ | JS hifi.js – trẻ dưới 6 tuổi không tính (BR-110) |
 | `occ.fee_ota` | Đơn OTA: không cộng phụ thu người – OTA đã tính theo số khách | OTA booking: no extra-guest charge – the OTA already priced the guest count | ⟨chừa chỗ⟩ | US-017 AC7 |
 
@@ -1231,8 +1231,12 @@ Báo giá có hiệu lực đến {expires}. | OTTIMO Boutique Stay – Quote {c
 Room {room} {room_name}, {from} → {to} ({nights} nights), {guests}.
 Room total: {room_total}{discount_note}.
 Deposit to hold the room: {deposit}. The rest is paid at check-in.
-This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQuoteText; RU ở R3 (US-115) |
-| `sale.quote_text_extra_guest` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes extra-guest charge for {n} guest(s) on the sofa: {amount}. | ⟨chừa chỗ⟩ | Dòng thêm khi vượt định mức (BR-110) |
+This quote is valid until {expires}. | OTTIMO Boutique Stay – предложение {code}
+Апартаменты {room} {room_name}, {from} → {to} (ночей: {nights}), {guests}.
+Стоимость проживания: {room_total}{discount_note}.
+Депозит для бронирования: {deposit}. Остальное оплачивается при заселении.
+Предложение действительно до {expires}. | US-083 AC2 – getQuoteText; RU ở R3 (US-115) |
+| `sale.quote_text_extra_guest` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes extra-guest charge for {n} guest(s) on the sofa: {amount}. | Включена доплата за {n} гост. на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110) |
 
 #### R2 hi-fi – Khung ứng dụng (H02)
 
@@ -2053,7 +2057,7 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `gw.req.clean_what` | Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. Dọn hằng ngày vẫn miễn phí. | Includes cleaning, fresh bed linen, bathroom and kitchen. Daily cleaning stays free. | ⟨chừa chỗ⟩ |  |
 | `gw.req.fee_accept` | Tôi đồng ý phí {amount} cho lần dọn này | I agree to the {amount} fee for this clean | ⟨chừa chỗ⟩ |  |
 | `gw.req.note_ph` | Ví dụ: dọn lúc 15:00 khi tôi đi ra ngoài | e.g. clean at 15:00 while I'm out | ⟨chừa chỗ⟩ |  |
-| `gw.req.note_help` | Tối đa 500 ký tự. Đừng ghi số thẻ hay mật khẩu. | Up to 500 characters. Please don't include card numbers or passwords. | ⟨chừa chỗ⟩ |  |
+| `gw.req.note_help` | Tối đa 500 ký tự. Không ghi số giấy tờ, số thẻ thanh toán hay thông tin sức khỏe. | Up to 500 characters. Please don't include ID numbers, payment card numbers or health information. | ⟨chừa chỗ⟩ | S3: theo EP14 3.2 guest.req.note_hint (SR-INP-05) |
 | `gw.req.reason` | Lý do: | Reason: | ⟨chừa chỗ⟩ |  |
 | `gw.req.empty_body` | Cần khăn, dọn phòng hay báo hỏng? Gửi ở đây – lễ tân thấy ngay. | Need towels, cleaning or something fixed? Send it here – the front desk sees it right away. | ⟨chừa chỗ⟩ |  |
 | `gw.req.error_title` | Chưa tải được yêu cầu của bạn | Couldn't load your requests | ⟨chừa chỗ⟩ |  |
@@ -2206,6 +2210,100 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `rack.legend_hold_urgent` | Giữ chỗ còn dưới {hours} giờ | Hold with under {hours} h left | ⟨chừa chỗ⟩ | Mẫu chú giải .bar.hold.urgent – {hours} = hold_expiry_reminder_hours |
 | `field.HOLD_LIMIT_REACHED` | Bạn đang có {max} giữ chỗ chưa cọc – mức tối đa. Chốt cọc hoặc hủy bớt rồi giữ thêm. | You already have {max} unpaid holds – the limit. Confirm a deposit or cancel one before adding more. | ⟨chừa chỗ⟩ | SEC-BE-28 – field holdHours; {max} = Problem.max (FE truyền args) |
 | `error.ROOM_OCCUPIED` | Căn {room} đang có khách ở trong khoảng khóa. Đổi phòng cho khách trước rồi mới khóa căn. | Room {room} has a guest in house during this block. Move the guest first, then block the room. | ⟨chừa chỗ⟩ | 409 – createRoomBlock / updateRoomBlock / createWorkOrder.block |
+
+#### R2 Sprint 3 – lưu đồng thời / hệ thống bận, tự thử lại theo Retry-After (ĐK-S2-3, QC-S2-02; DS 6.21)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `error.CONCURRENT_UPDATE` | Người khác đang lưu cùng lúc. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | Someone else is saving at the same moment. What you entered is still here – try again in a few seconds. | ⟨chừa chỗ⟩ | 409 + Retry-After – server không ghi gì; FE tự thử lại (DS 6.21), giữ form; không dùng error.server |
+| `error.SERVICE_UNAVAILABLE` | Hệ thống đang bận nên chưa lưu. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | The system is busy, so this wasn't saved. What you entered is still here – try again in a few seconds. | ⟨chừa chỗ⟩ | 503 + Retry-After – không ghi gì; với GET: khung lỗi màn tự tải lại (DS 6.21) |
+| `retry.countdown` | Tự thử lại sau {seconds} giây… | Trying again in {seconds} s… | ⟨chừa chỗ⟩ | {seconds} = Retry-After còn lại; aria-live chỉ đọc lần đầu |
+| `retry.trying` | Đang thử lại… | Trying again… | ⟨chừa chỗ⟩ |  |
+| `retry.now` | Thử lại ngay | Try now | ⟨chừa chỗ⟩ |  |
+| `retry.stop` | Dừng thử lại | Stop retrying | ⟨chừa chỗ⟩ | Giữ nguyên dữ liệu form |
+| `retry.done` | Đã lưu sau khi thử lại. | Saved after retrying. | ⟨chừa chỗ⟩ |  |
+| `retry.gave_up_concurrent` | Vẫn có người đang lưu cùng chỗ này. Dữ liệu của bạn còn nguyên – bấm Thử lại, hoặc tải lại để xem thay đổi mới nhất. | Someone is still saving the same item. Your data is still here – tap Try again, or reload to see the latest changes. | ⟨chừa chỗ⟩ | Sau 2 lần tự thử lại vẫn 409 CONCURRENT_UPDATE |
+| `retry.gave_up_unavailable` | Hệ thống vẫn bận. Dữ liệu của bạn còn nguyên – thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The system is still busy. Your data is still here – try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | Sau 1 lần tự thử lại vẫn 503; chỉ dùng khi có Problem.requestId |
+| `retry.load_countdown` | Đang tải lại sau {seconds} giây… | Reloading in {seconds} s… | ⟨chừa chỗ⟩ | GET nhận 503 – khung lỗi màn |
+| `hk.queue.busy_retry` | Hệ thống bận – sẽ tự gửi lại | System busy – will resend automatically | ⟨chừa chỗ⟩ | PWA: 409 CONCURRENT_UPDATE / 503 giữ ở 'Đang chờ gửi', KHÔNG vào 'Cần xem lại' |
+
+#### R2 Sprint 3 – rà hi-fi H13–H18 theo OpenAPI 0.3.5, BR v0.3.2, quyết định Sprint 2
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `checkin.cond.capacity` | Số khách không vượt sức chứa căn | Guest count within the room's maximum | ⟨chừa chỗ⟩ | capacity_within_max (0.3.5, DOM D-1) – không ai bỏ qua được |
+| `ci.cond_capacity_ok` | {n} khách · căn {room} tối đa {max} | {n} guests · room {room} sleeps up to {max} | ⟨chừa chỗ⟩ |  |
+| `ci.capacity_block_title` | Chưa nhận phòng được – vượt sức chứa | Can't check in yet – over room capacity | ⟨chừa chỗ⟩ |  |
+| `ci.capacity_fix_move` | Đổi sang căn đủ chỗ | Move to a larger room | ⟨chừa chỗ⟩ |  |
+| `ci.capacity_fix_guests` | Sửa số người | Edit guest count | ⟨chừa chỗ⟩ |  |
+| `checkin.time` | Giờ nhận thực tế | Actual check-in time | ⟨chừa chỗ⟩ | EP03-05 1.4 checkinTime – mặc định giờ chuẩn |
+| `ci.house_rules_sent` | Đã gửi/giao nội quy (VI/EN) cho khách | House rules given to the guest (VI/EN) | ⟨chừa chỗ⟩ | checkIn.houseRulesSent – bắt buộc true (0.3.3) |
+| `ci.house_rules_help` | Cần tick để hoàn tất – nội quy là căn cứ khi phải thu phí phạt. | Required to finish – the house rules are the basis for any fines. | ⟨chừa chỗ⟩ |  |
+| `checkin.door_handed_over` | Đã giao mã cửa/thẻ cho khách | Door code/key card handed to the guest | ⟨chừa chỗ⟩ | checkIn.doorAccessHandedOver – KHÔNG bắt buộc (PO 16/10, US-025 AC7); thay ci.door_done |
+| `ci.door_optional` | Không bắt buộc. Khách đến khuya hoặc giao thẻ sau: tick ở chi tiết đơn khi đã giao. | Optional. Late arrival or handing over later: tick it on the booking once done. | ⟨chừa chỗ⟩ |  |
+| `ci.submit_needs_rules` | Tick "Đã gửi/giao nội quy" để bật nút Nhận phòng. | Tick "House rules given" to enable Check in. | ⟨chừa chỗ⟩ |  |
+| `checkin.done` | Đã nhận phòng căn {room}. Hạn khai báo: {deadline}. | Checked in to room {room}. Registration due: {deadline}. | ⟨chừa chỗ⟩ |  |
+| `ci.shortfall_accepted` | Quản lý đã chấp nhận cọc thiếu ({who}). Phần còn lại {amount} vẫn phải thu đủ trước khi nhận phòng. | A manager accepted the short deposit ({who}). The remaining {amount} must still be paid before check-in. | ⟨chừa chỗ⟩ | DOM D-9 / BR-303 v0.3.2; balance_paid không đổi |
+| `error.SURCHARGE_CHANGED` | Phụ thu vừa đổi thành {amount} (giờ hoặc giá vừa cập nhật). Xem số mới, báo khách rồi xác nhận lại. | The surcharge has just changed to {amount} (time or rate updated). Check the new amount, tell the guest, then confirm again. | ⟨chừa chỗ⟩ | 409 – Problem.surchargeVnd → {amount}; tải lại preview, bỏ tick 'đã báo khách' |
+| `drawer.action.door_handed_over` | Đã giao mã/thẻ | Code/key handed over | ⟨chừa chỗ⟩ | Đơn in_house chưa có doorAccessHandedOverAt – E03-06 (0.3.6 nhóm B) |
+| `ci.door_late_title` | Ghi đã giao mã/thẻ cho khách căn {room}? | Record that the code/key for room {room} was handed over? | ⟨chừa chỗ⟩ |  |
+| `ci.door_late_body` | Ghi thời điểm và người giao. Ghi rồi không bỏ được. OTTIMO không lưu mã cửa. | This records the time and who handed it over. It can't be undone. OTTIMO doesn't store door codes. | ⟨chừa chỗ⟩ |  |
+| `ci.door_late_done` | Đã ghi giao mã/thẻ lúc {time} · {user} | Code/key handover recorded at {time} · {user} | ⟨chừa chỗ⟩ |  |
+| `rsv.door_not_handed` | Chưa ghi giao mã/thẻ | Code/key handover not recorded | ⟨chừa chỗ⟩ |  |
+| `field.DOC_NUMBER_INVALID` | Số giấy tờ chưa đúng dạng: CCCD/định danh 12 chữ số; hộ chiếu 6–12 chữ hoặc số. | ID number format isn't right: citizen/personal ID 12 digits; passport 6–12 letters or digits. | ⟨chừa chỗ⟩ |  |
+| `field.MAIN_GUEST_DUPLICATE` | Đơn đã có người đứng tên. Bỏ chọn ở người kia trước. | This booking already has a main guest. Unselect the other person first. | ⟨chừa chỗ⟩ |  |
+| `field.ENTRY_DATE_FUTURE` | Ngày nhập cảnh không thể sau hôm nay. | Entry date can't be after today. | ⟨chừa chỗ⟩ |  |
+| `field.CHECK_NOTE_REQUIRED` | Ghi cách xử lý (3–500 ký tự) cho mục Không đạt hoặc Chưa kiểm được. | Add how it was handled (3–500 characters) for any Failed or Couldn't check item. | ⟨chừa chỗ⟩ |  |
+| `field.PORTAL_REFERENCE_REQUIRED` | Nhập mã hồ sơ trên cổng (3–64 ký tự: chữ, số, - / . _). | Enter the portal reference (3–64 characters: letters, digits, - / . _). | ⟨chừa chỗ⟩ |  |
+| `field.DOB_FUTURE` | Ngày sinh không thể sau hôm nay. | Date of birth can't be in the future. | ⟨chừa chỗ⟩ |  |
+| `field.DOB_INVALID` | Ngày sinh chưa đúng (dd/mm/yyyy). | Date of birth isn't valid (dd/mm/yyyy). | ⟨chừa chỗ⟩ |  |
+| `field.DOB_MINOR` | Khách dưới {age} tuổi không tạo hồ sơ riêng. Thêm vào đơn dạng trẻ em. | Guests under {age} don't get their own profile. Add them to the booking as a child. | ⟨chừa chỗ⟩ | EP00 V-06 |
+| `field.DATE_INVALID` | Ngày hoặc giờ chưa đúng dạng. | Date or time isn't valid. | ⟨chừa chỗ⟩ |  |
+| `error.CONSENT_CHANGE_NOT_ALLOWED` | Ảnh giấy tờ đã được xóa nên không đổi sang "Đồng ý lưu ảnh" được nữa. | The ID photos have already been deleted, so this can't be changed to "Agree to keep photos". | ⟨chừa chỗ⟩ |  |
+| `field_error.generic` | Giá trị này chưa hợp lệ – kiểm tra lại. | This value isn't valid – please check it. | ⟨chừa chỗ⟩ | Mã FieldError client chưa biết (OpenAPI: tập mã mở) |
+| `field.EXTENSION_LIMIT_EXCEEDED` | Số đêm vượt số đêm trống liên tiếp. Chọn ít đêm hơn hoặc lập báo giá dài hạn. | More nights than are free in a row. Choose fewer nights or create a long-stay quote. | ⟨chừa chỗ⟩ |  |
+| `field.NIGHTLY_RATES_NOT_ALLOWED` | Đơn dài hạn nhập tay không sửa giá từng đêm – tiền thuê theo hợp đồng. | Manual long-stay bookings don't take nightly rates – rent follows the contract. | ⟨chừa chỗ⟩ |  |
+| `field.VISA_EXPIRES_BEFORE_DEPARTURE` | Thị thực của khách hết trước ngày đi mới. Ghi lý do để vẫn lưu và nhắc khách gia hạn. | The guest's visa ends before the new departure date. Add a reason to save anyway and remind the guest to extend it. | ⟨chừa chỗ⟩ | Cảnh báo → ô visaWarningAckReason (0.3.3) |
+| `field.LATE_CHECKOUT_AFTER_LIMIT` | Giờ trả này quá mốc trả muộn – tính thêm 1 đêm. Dùng Gia hạn. | This time is past the late check-out limit – it counts as another night. Use Extend stay. | ⟨chừa chỗ⟩ |  |
+| `extend.los_reprice` | Tổng {n} đêm – giảm {pct}% theo thời gian ở, áp lại cho mọi đêm còn lại. Cọc đã thu không đổi. | {n} nights in total – the {pct}% length-of-stay discount now applies to every remaining night. Deposit paid stays the same. | ⟨chừa chỗ⟩ | DOM D-8 / BR-107 v0.3.2 – đơn Trực tiếp/CTV |
+| `late.request_sent` | Đã gửi quản lý duyệt giờ trả {time}. Giờ trả chưa đổi cho tới khi được duyệt. | Sent to a manager to approve check-out at {time}. The time won't change until it's approved. | ⟨chừa chỗ⟩ | setLateCheckout 202 (requestApproval) |
+| `error.MINIBAR_NOT_CHECKED` | Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất. | Minibar not checked yet. Do step 1 before finishing. | ⟨chừa chỗ⟩ |  |
+| `field.MINIBAR_QTY_OVER_STANDARD` | Không quá {max} (mức chuẩn của tủ). | No more than {max} (the minibar's standard stock). | ⟨chừa chỗ⟩ |  |
+| `field.MINIBAR_ITEMS_INCOMPLETE` | Nhập số còn lại cho mọi món trong tủ. | Enter what's left for every minibar item. | ⟨chừa chỗ⟩ |  |
+| `field.AMOUNT_EXCEEDS_BALANCE` | Số tiền lớn hơn số còn phải thu. Giảm về đúng số còn phải thu. | The amount is more than the balance due. Lower it to the balance due. | ⟨chừa chỗ⟩ |  |
+| `field.AMOUNT_EXCEEDS_LINE` | Không lớn hơn giá trị dòng. | Can't be more than the line amount. | ⟨chừa chỗ⟩ |  |
+| `field.AMOUNT_INVALID` | Số tiền phải là số nguyên đồng, không âm. | Amount must be a whole number of dong, not negative. | ⟨chừa chỗ⟩ |  |
+| `field.PRICE_NOT_EDITABLE` | Khoản này theo bảng phí – không sửa giá. | This item uses the fee table – the price can't be changed. | ⟨chừa chỗ⟩ |  |
+| `field.DATE_RANGE_TOO_LONG` | Chọn khoảng tối đa 92 ngày. | Choose a range of 92 days or less. | ⟨chừa chỗ⟩ |  |
+| `pay.recorded_by_staff` | Do {role} ghi – chờ đối soát | Recorded by {role} – awaiting reconciliation | ⟨chừa chỗ⟩ | BR-527 v0.3.2: khoản sale/CTV ghi luôn chờ đối soát, mọi cách thu |
+| `pay.cash_hand_in` | Tiền mặt sale nhận phải nộp quầy – lễ tân tick khi đã nhận. | Cash taken by sales must be handed in at the desk – front desk ticks it when received. | ⟨chừa chỗ⟩ |  |
+| `pay.confirm_received` | Đã thấy tiền về | Money received | ⟨chừa chỗ⟩ | confirmPaymentReceived – VietQR pending → succeeded (0.3.3) |
+| `recon.filter_role` | Người ghi | Recorded by | ⟨chừa chỗ⟩ |  |
+| `recon.commission_note` | Hoa hồng của người ghi chỉ thành "đạt" sau khi khoản này được đối soát. | The recorder's commission only counts once this payment is reconciled. | ⟨chừa chỗ⟩ | ESC-017 A / BR-527 |
+| `mlog.a_shortfall_accepted` | Chấp nhận cọc thiếu · còn thiếu {amount} | Short deposit accepted · {amount} short | ⟨chừa chỗ⟩ | confirmDeposit.acceptShortfallReason MGR+ (0.3.6 nhóm B, DOM D-9) |
+| `mlog.a_closer_changed` | Đổi người chốt: {from} → {to} | Closer changed: {from} → {to} | ⟨chừa chỗ⟩ | reservation.closer_changed (SEC-BE-26) |
+| `mlog.a_staff_payment` | Sale ghi nhận cọc · tiền mặt · chờ đối soát | Sales recorded deposit · cash · awaiting reconciliation | ⟨chừa chỗ⟩ |  |
+| `error.ONLINE_CHECKIN_CLOSED` | Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân. | Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk. | ⟨chừa chỗ⟩ | 409 (0.3.3 E06-06) – hiện trạng thái 18.5 |
+| `field.FILE_TYPE` | Chỉ nhận ảnh JPG, PNG hoặc WebP. | Only JPG, PNG or WebP photos. | ⟨chừa chỗ⟩ |  |
+| `field.FILE_TOO_LARGE` | Ảnh lớn hơn 10 MB – chụp lại hoặc chọn ảnh nhỏ hơn. | The photo is over 10 MB – retake it or choose a smaller one. | ⟨chừa chỗ⟩ |  |
+| `field.TOO_MANY_FILES` | Đã đủ số ảnh tối đa cho người này. | You've reached the photo limit for this person. | ⟨chừa chỗ⟩ |  |
+
+#### R2 Sprint 3 – ESC-016 A: phí dọn thêm trên guest-web (H23)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `gw.req.clean_makeup_free` | Hôm nay căn chưa được dọn – lần dọn này miễn phí. | Your room hasn't been cleaned today – this clean is free. | ⟨chừa chỗ⟩ | Khách ngắn ngày, chưa có lần dọn đầy đủ trong ngày (dọn bù) – feeVnd = 0 |
+| `gw.req.clean_second_fee` | Căn đã được dọn đầy đủ lúc {time} hôm nay. Dọn đầy đủ thêm lần nữa có phí {amount}. | Your room had a full clean at {time} today. Another full clean costs {amount}. | ⟨chừa chỗ⟩ | Khách ngắn ngày, lần dọn đầy đủ thứ hai trong ngày (ESC-016 A) |
+| `gw.req.clean_long_fee` | Gói thuê dài hạn của bạn chưa gồm dọn phòng. Mỗi lần dọn có phí {amount}. | Your long-stay rent doesn't include cleaning. Each clean costs {amount}. | ⟨chừa chỗ⟩ | Khách dài hạn – dọn lẻ BR-506/BR-204 |
+| `gw.req.clean_what_long` | Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. | Includes cleaning, fresh bed linen, bathroom and kitchen. | ⟨chừa chỗ⟩ | Bản cho khách dài hạn (không có câu 'dọn hằng ngày miễn phí') |
+| `gw.req.clean_fee_rule` | Hôm nay chưa dọn: miễn phí. Đã dọn đầy đủ rồi mà muốn dọn lần nữa: {amount}. Thuê dài hạn: {amount}/lần. | Not cleaned yet today: free. Already had a full clean and want another: {amount}. Long stays: {amount} each time. | ⟨chừa chỗ⟩ | Dự phòng khi chưa có listGuestRequestOptions (không biết phí của chính khách) – nêu đủ quy tắc ESC-016 A |
+| `gw.req.towels_free` | Thay khăn, bổ sung đồ dùng luôn miễn phí. | Fresh towels and supplies are always free. | ⟨chừa chỗ⟩ |  |
+| `gw.req.not_available` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | ⟨chừa chỗ⟩ | EP14 3.1 guest.req.not_available → tên R2 gw.req.* |
+| `field.REQUEST_TYPE_NOT_AVAILABLE` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | ⟨chừa chỗ⟩ | 422 mã trường (ARC B-14) |
+| `field.FEE_NOT_ACCEPTED` | Tick đồng ý phí để gửi yêu cầu này. | Tick to agree to the fee before sending. | ⟨chừa chỗ⟩ | 422 mã trường (ARC B-16, 0.3.6) |
+| `gw.req.note_required` | Mô tả ngắn giúp chúng tôi xử lý nhanh hơn. | A short description helps us sort it out faster. | ⟨chừa chỗ⟩ | EP14 3.2 guest.req.note_required |
+| `gw.req.card_detected` | Vui lòng không ghi số thẻ thanh toán. | Please don't include a payment card number. | ⟨chừa chỗ⟩ | EP14 3.2 guest.req.card_detected |
+| `gw.req.too_many` | Bạn đã gửi nhiều yêu cầu hôm nay. Vui lòng gọi lễ tân {phone}. | You've sent a lot of requests today. Please call the front desk on {phone}. | ⟨chừa chỗ⟩ | 429 – EP14 guest.req.too_many |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

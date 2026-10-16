@@ -226,6 +226,10 @@ Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O
 | ESC-011 | Khóa cửa và mã sinh nhật | M14 |
 | ESC-012 | Phạm vi MVP, phạm vi Round 2 khi ước lượng vượt, mục tiêu G3/G4 (CTV có tính kênh trực tiếp), logo | Mục 3, 5, D6 |
 | ESC-013 | Môi trường chạy thử khung + kiểm tra tự động (INV cài Node 22 + Docker, tạo repo GitHub riêng tư) | Hạ tầng R2 (không đổi phạm vi) |
+| ESC-014 | Sức chứa tối đa từng căn, trẻ dưới 6 tuổi – INV quyết 16/10: A | M2, M8 |
+| ESC-015 | Ngày đặc biệt thêm Giỗ Tổ Hùng Vương + đêm 1/9 (giá BR-104, ở tối thiểu BR-113, không hoàn cọc BR-309) – INV quyết 16/10: A | M2, M8 (tham số; ghi chú US-005) |
+| ESC-016 | Phí dọn thêm khách ngắn ngày: dọn bù miễn phí, lần dọn đầy đủ thứ hai trong ngày tính phí BR-506 – INV quyết 16/10: A. Câu phụ về HĐ dài hạn có lịch dọn cố định: chưa trả lời, giữ giả định "không có" | M4, M11 (US-109 AC1) |
+| ESC-017 | Giới hạn giữ chỗ đang mở theo vai (BR-302) + tiền sale/CTV ghi chờ đối soát, hoa hồng người ghi đạt sau đối soát (BR-527) – INV quyết 16/10: A | M8, M12 (US-084 AC1, US-086 AC5, US-119 AC6) |
 
 ## 11. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
@@ -235,3 +239,4 @@ Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O
 | 15/10/2026 | 1 (bước 4) | Theo review BA/DOM/QA: S1 trỏ S1a/S1b DATA, S2 thống nhất với G5; tách U1 thành `owner`/`manager`; M0 xác thực lại bằng mật khẩu ở R2, PIN + 2FA ở R3, thiết bị được cấp; ngày nghiệp vụ 06:00; xung đột OTA lên R2; ghi thu kỳ HĐ lên R2; đóng ca R3 (tách khỏi X3); đơn nhóm R3; không nhận tiền mã hóa; sửa luồng CTV ở 6.2; N11 theo RPO của OPS; D6 thêm ước lượng lệch và câu phụ ESC-012; thêm giả định A13, A14 | PO |
 | 16/10/2026 | 2 (tuần 1 – W12) | v0.4: áp kết quả 13 ESC INV quyết 16/10 – bỏ nhãn giả định ở G3, G4, S1–S12, X3, N10, A2, A3, A5, A14, D1–D7, quy ước số liệu; giữ nhãn cho thông tin INV còn phải gửi (sức chứa – ESC-004, loại hình kinh doanh – ESC-008, tài khoản ngân hàng + tên miền – ESC-010, thông tin khóa – ESC-011); thêm mục 5.4 phạm vi R2 theo R-C | PO |
 | 16/10/2026 | 2 (Sprint 2 – Phản hồi & sửa) | Mục 5.4 thêm dòng M4: US-056 dời R3 (71 Must R2) | PO |
+| 16/10/2026 | 2 (Sprint 3 – khởi động) | Mục 10 thêm ESC-014…017 (INV quyết A ngày 16/10) và nơi áp trong backlog; không đổi phạm vi, không đổi phân hệ | PO |

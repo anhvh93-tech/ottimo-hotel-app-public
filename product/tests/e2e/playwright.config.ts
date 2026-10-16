@@ -12,7 +12,8 @@
 //   clock            – MutableClock scenarios (hold expiry J1/J2, quote J3, no-show J6/J7, OOO J9 – clock/): serial,
 //                      after every other project; enabled in CI or with E2E_CLOCK_CONTROL=1 (moves the shared clock)
 //   db-outage        – TC-X-050c stops PostgreSQL: runs after every other project
-//   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke needs E2E_UI=1 + chromium)
+//   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke + axe H01–H12 need E2E_UI=1 + chromium;
+//                      reuses the harness sessions; limits + rbac-logout run after it)
 //   mobile-webkit    – Safari iOS 390×844 (housekeeping PWA, guest-web)
 //   android-chromium – Chrome Android 360×800
 import { defineConfig, devices } from '@playwright/test';
@@ -53,12 +54,14 @@ export default defineConfig({
       name: 'limits',
       testMatch: /limits\/.*\.spec\.ts$/,
       fullyParallel: false,
-      dependencies: ['rbac', 'api'],
+      // desk-chromium too: its form logins (TC-NT-001/006) reset the limiter on 429 (ui/helpers.ts loginForm)
+      dependencies: ['rbac', 'api', 'desk-chromium'],
     },
     {
       name: 'rbac-logout',
       testMatch: /rbac\/rbac-logout\.spec\.ts$/,
-      dependencies: ['rbac', 'api', 'limits'],
+      // desk-chromium reuses the cached sessions (cookie injected – ui/helpers.ts signIn)
+      dependencies: ['rbac', 'api', 'limits', 'desk-chromium'],
     },
     // Moving the clock changes "today" and expires every session: serial, after every project that uses the API
     // (UI included). Each test sets/freezes the clock itself; afterAll resets it (support/clock.ts).

@@ -1,4 +1,4 @@
-# Design System OTTIMO – v0.3.3
+# Design System OTTIMO – v0.3.4
 
 - Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2; cập nhật Bước 4 (phản hồi review) | Ngày: 15–16/10/2026
 - Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
@@ -344,7 +344,8 @@ Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2)
 
 ### 6.16 Nhận/trả phòng R2 – phụ thu chủ động, mã cửa ngoài app, "chờ đối soát" (Sprint 3)
 - Phụ thu nhận sớm / trả muộn: công tắc → ô giờ → câu kết quả `aria-live` (0 đ màu xanh; có tiền màu chữ thường) → tick "Tôi đã báo khách" mới lưu. Trả muộn: ân hạn đến **12:30 (gồm 12:30)** chỉ khi căn không có khách đến cùng ngày; mốc 15:00/18:00 không dời; sau 18:00 → Gia hạn; trước 06:00 → thêm đêm (tiền phòng, không phụ thu). Bản bấm thử: `hifi.js` `[data-sur]` (H13 13.5, H15 15.3) – chỉ minh họa, số thật lấy từ `previewCheckIn` / `setLateCheckout dryRun`.
-- Mã cửa R2 (P-R2-5, US-128 dời R3): OTTIMO không lưu mã. Bước "Giao mã & hoàn tất" là hướng dẫn tạo mã trên app TTLock với hiệu lực BR-403 + ô tick "Đã tạo mã và giao cho khách"; trả phòng / đổi phòng / hoàn tác sinh việc "Xóa mã trên app khóa". Không hiện "mã cửa bị hủy".
+- Mã cửa R2 (P-R2-5, US-128 dời R3): OTTIMO không lưu mã. Bước "Giao mã & hoàn tất" là hướng dẫn tạo mã trên app TTLock với hiệu lực BR-403 + số thẻ đã phát (stepper 0–2, bắt buộc) + tick **"Đã gửi/giao nội quy"** (bắt buộc – là điều kiện bật nút Nhận phòng) + tick **"Đã giao mã cửa/thẻ"** (**không bắt buộc** – PO 16/10, US-025 AC7; tick bổ sung sau ở chi tiết đơn Đang ở, có hộp xác nhận, ghi rồi không bỏ). Trả phòng / đổi phòng / hoàn tác sinh việc "Xóa mã trên app khóa". Không hiện "mã cửa bị hủy".
+- Điều kiện nhận phòng là danh sách chữ "Đã đủ/Còn thiếu"; **vượt sức chứa** (`capacity_within_max`, OTA `capacityConflict`) là khối khóa không có nút bỏ qua cho bất kỳ vai nào – chỉ có lối ra "Đổi sang căn đủ chỗ" / "Sửa số người". Phụ thu server tính lại khác số đã báo khách (`SURCHARGE_CHANGED`) → hiện số mới, **bỏ tick "đã báo khách"**, bắt xác nhận lại.
 - Thu tiền: chuyển khoản/VietQR lễ tân tự ghi mang chip viền đứt `.chip.recon` "Chờ đối soát" – vẫn tính là đã thu; quản lý đối soát ở H16 16.6. Không có ô số thẻ ở bất kỳ đâu (POS: chỉ mã chuẩn chi).
 - Duyệt FOC: không có ô chọn người duyệt; R2 xác nhận lại bằng **mật khẩu đăng nhập** (không dùng chữ "PIN" tới R3).
 
@@ -360,13 +361,25 @@ Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2)
 - Lỗi tải ở PWA: nút **Gọi lễ tân** thay "Gửi lỗi cho lễ tân" (không có API); mã tham chiếu chỉ là chữ nhỏ.
 
 ### 6.19 Yêu cầu khách có phí (R2 Sprint 4 – H23)
-- Ô loại yêu cầu ghi phí ngay trên ô ("100.000 đ/lần", "Miễn phí"); loại có phí phải **tick "Tôi đồng ý phí …"** mới mở nút Gửi (cùng tinh thần 6.3 – không phát sinh phí bất ngờ). Nói rõ dọn hằng ngày vẫn miễn phí.
+- Ô loại yêu cầu ghi phí ngay trên ô ("100.000 đ/lần", "Miễn phí") theo `feeVnd` **server tính cho chính khách đó tại thời điểm mở** – client không tự suy luận; loại có phí phải **tick "Tôi đồng ý phí …"** mới mở nút Gửi (cùng tinh thần 6.3 – không phát sinh phí bất ngờ).
+- **Dọn phòng thêm – ESC-016 A (INV 16/10)**: khách ngắn ngày chưa có lần dọn đầy đủ trong ngày (kể cả đã từ chối dọn sáng) → "Miễn phí" + câu dọn bù, **không** có ô tick; đã dọn đầy đủ → câu nêu giờ đã dọn + phí lần hai + tick; khách dài hạn → câu "gói thuê chưa gồm dọn" + phí mỗi lần + tick. Thay khăn/đồ dùng luôn miễn phí. Chưa có API phí → câu quy tắc đủ 3 trường hợp (`gw.req.clean_fee_rule`).
 - guest-web R2 không dùng chữ "hóa đơn / bill / mã cửa / OTP" (SEC ĐK-6): dùng `gw.req.fee_notice` ("thanh toán khi trả phòng") thay `guest.req.fee_notice`.
 - Ngoài giờ trực [07:00, 22:00): báo trước khi gửi + trả lời tự động; việc gấp → nút gọi người trực. Mất mạng: không xếp hàng ở trang khách – nút "Cần có mạng để gửi yêu cầu".
 
 ### 6.20 Tổng quan + "Cần chú ý" + SSE (R2 Sprint 4 – H24)
 - Điện thoại chủ đầu tư: **Cần duyệt → Cần chú ý → KPI đêm nay**. Mỗi mục "Cần chú ý" là một nút mở màn xử lý; mức `critical/warning/info` = viền + icon + chữ. Câu cho 19 `AttentionItem.kind` ở `attn.*` (H24 24.3).
 - Chỉ báo kết nối luôn có chữ: **Trực tiếp** (chấm xanh) · **Đang kết nối lại** (chấm vàng, poll 30 giây) · **Ngoại tuyến** (vòng rỗng đỏ – khác hình). Mục mới từ SSE chèn đầu danh sách, sáng nền 2,4 giây (tắt khi giảm chuyển động), `aria-live="polite"` đọc một câu `ov.sse_new_announce`, không cướp focus. Mỗi khối (KPI, Cần chú ý, Cần duyệt) lỗi độc lập.
+
+### 6.21 Lưu đồng thời / hệ thống bận – tự thử lại theo `Retry-After` (R2 Sprint 3 – ĐK-S2-3, QC-S2-02)
+- Áp cho `409 CONCURRENT_UPDATE` và `503 SERVICE_UNAVAILABLE` (server **không ghi gì**). Không bao giờ hiện "Máy chủ đang gặp sự cố" (`error.server`) cho hai mã này; không hiện mã tham chiếu ở lần đầu.
+- **Giữ nguyên** form, hộp thoại, bước wizard và mọi dữ liệu đã nhập; không đóng hộp, không tải lại trang.
+- Hiện cảnh báo vàng tại chỗ (`role="status"`, không phải toast tự tắt) với câu `error.CONCURRENT_UPDATE` / `error.SERVICE_UNAVAILABLE` + nút chính chuyển thành "Tự thử lại sau {seconds} giây…" (`retry.countdown`, `aria-disabled`) + nút phụ "Dừng thử lại" (`retry.stop`) / "Thử lại ngay" (`retry.now`).
+- Chờ đúng `Retry-After` (thiếu header → 2 giây; trần 10 giây) rồi **tự gửi lại cùng `Idempotency-Key` và `If-Match`**: `CONCURRENT_UPDATE` tối đa 2 lần, `SERVICE_UNAVAILABLE` 1 lần. Thành công → toast thường của thao tác (có thể kèm `retry.done`). Lần thử lại trả mã khác (`VERSION_CONFLICT`, `ROOM_UNAVAILABLE`…) → xử lý theo mã đó.
+- Hết lượt tự thử → dừng, câu `retry.gave_up_concurrent` hoặc `retry.gave_up_unavailable` (kèm `{request_id}` nếu có) + nút "Thử lại" thủ công. Rời màn / đóng hộp → hủy hẹn giờ.
+- Đọc (GET) nhận 503 → khung lỗi màn hiện `error.SERVICE_UNAVAILABLE` + `retry.load_countdown`, tự tải lại 1 lần.
+- PWA (hàng đợi ADR-005): hai mã này **giữ thao tác ở "Đang chờ gửi"** (`hk.queue.busy_retry`) và thử lại theo `Retry-After`, **không** đưa vào "Cần xem lại".
+- a11y: `aria-live="polite"` đọc câu lỗi một lần và kết quả cuối; **không** đọc từng giây đếm lùi; focus giữ nguyên tại nút vừa bấm. Giảm chuyển động: không nhấp nháy.
+- Minh họa: H13 13.5 biến thể "Lưu đồng thời". Ghi chú FE: `problem.ts` hiện đổi `Retry-After` thành `{minutes}` – cần thêm tham số `{seconds}`.
 
 ## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
 
@@ -422,6 +435,7 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.3.4 | 17/10/2026 | UXD | R2 Sprint 3 – mẫu **6.21** tự thử lại theo `Retry-After` cho `CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` (ĐK-S2-3, QC-S2-02); 6.16 theo quyết định Sprint 2 (nội quy bắt buộc, "đã giao mã/thẻ" không bắt buộc + tick sau, số thẻ, vượt sức chứa chặn cứng, `SURCHARGE_CHANGED`); 6.19 áp ESC-016 A (phí dọn chỉ khi lần dọn đầy đủ thứ hai trong ngày / dọn lẻ dài hạn); rà H13–H18 theo OpenAPI 0.3.5 + BR v0.3.2; chuỗi mới (xem `rounds/round-02/outputs/UXD/s3-report.md`); 5 chuỗi RU báo giá (PO-S2-01). |
 | 0.3.3 | 16/10/2026 | UXD | R2 Sprint 2 – hi-fi Sprint 4 (H19–H24): mẫu 6.18 PWA buồng phòng/bảo trì (mật độ HK, hoàn tác 10 giây = gửi trễ, hàng đợi + "Cần xem lại", mức phiếu, ảnh bằng chứng), 6.19 yêu cầu khách có phí, 6.20 Tổng quan + SSE; mục 4.1 lớp tiện ích thay style nội tuyến (FB-R2-UXD-FE-15) + `[hidden]` toàn cục + `tr.is-editing` (FE-13); component `.hk-card`, `.filters`, `.qpill`, `.toast-dock`, `.photo-row`, `.tl`, `.req-grid/.req-tile/.req-card`, `.live`, `.kpis.two`; H04 thêm cột/ô **số giường** (`bedCount`) và **diện tích** (`areaM2`) theo OpenAPI 0.3.4 Q6; 303 chuỗi VI/EN mới (`hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`); sửa `hk.task.extra_kit_items` ("1 1 mền"). |
 | 0.3.2 | 16/10/2026 | UXD | R2 Sprint 1 – hi-fi Sprint 3 (H13–H18): mẫu 6.16 (phụ thu chủ động + ân hạn 12:30, mã cửa ngoài app R2, "chờ đối soát", duyệt bằng mật khẩu), 6.17 guest-web mức 1; 6.4 bổ sung BR-613 c ở R2 = chặn nhận phòng (BA G-1); component `.conds`, `.chk3`, `.lock-box`, `.person`, `.bill-paper` (in A5), `.upload-slot`, `.choice`, `.chip.recon`, `.wiz-foot`; icon `printer`, `cash`, `scan`; 363 chuỗi VI/EN mới; sửa `guest.oci.done_body`, `pay.card`, `approval.pin_*`, `error.REAUTH_FAILED`, `checkout.complete_confirm_body`, bỏ `handover.foc_approver` (BA E05-07, E06-10). |
 | 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 – hi-fi EP00/EP02/EP10/EP11 (`hifi/`, 12 màn): component hi-fi `hifi.css` (chỉ dùng token), bảng 2.2 thêm 8 cặp chữ trên nền màu (0 cặp không đạt); mẫu 6.14 số khách định mức/tối đa + bộ đồ dùng thêm (ESC-014, sofa), 6.15 đơn dài hạn nhập tay; icon mới `monitor`, `sofa`, `sliders`, `chevron`, `filter`; 502 chuỗi VI/EN mới (RU ở R3; gồm mã lỗi OpenAPI 0.3.1); sửa `error.FILE_REJECTED` theo OpenAPI 0.3 (JPG/PNG/WebP ≤ 10 MB). |

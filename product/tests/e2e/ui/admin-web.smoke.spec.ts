@@ -5,6 +5,7 @@
 // the suite also skips by itself when the login form is not on E2E_WEB_URL yet.
 import { expect, test, type Page } from '@playwright/test';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
+import { hasLoginForm, loginForm } from './helpers.js';
 
 const UI = process.env.E2E_UI === '1';
 
@@ -60,26 +61,9 @@ const ROLES: Array<{ user: string; landing: RegExp; sees: string[]; hides: strin
   },
 ];
 
-async function loginForm(page: Page): Promise<boolean> {
-  await page.goto(WEB_URL);
-  return page
-    .getByLabel(/Số điện thoại hoặc email|Tên đăng nhập/)
-    .first()
-    .waitFor({ timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false);
-}
-
+/** These cases test the login screen itself: real form login (helpers.loginForm, SR-RL-01 aware). */
 async function signIn(page: Page, user: string) {
-  await page
-    .getByLabel(/Số điện thoại hoặc email|Tên đăng nhập/)
-    .first()
-    .fill(user);
-  await page
-    .getByLabel(/Mật khẩu/)
-    .first()
-    .fill(SEED_PASSWORD ?? '');
-  await page.getByRole('button', { name: /Đăng nhập/ }).click();
+  await loginForm(page, user);
 }
 
 test.describe(
@@ -90,7 +74,7 @@ test.describe(
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
 
     test.beforeEach(async ({ page }) => {
-      test.skip(!(await loginForm(page)), 'Chưa có form đăng nhập trên admin-web');
+      test.skip(!(await hasLoginForm(page)), 'Chưa có form đăng nhập trên admin-web');
     });
 
     test('TC-NT-002 (E) chưa đăng nhập mở URL sâu → về trang đăng nhập, không chớp dữ liệu', async ({
@@ -139,9 +123,15 @@ test.describe(
       await signIn(page, 'qa.mgr');
       await expect(page.getByRole('heading', { name: /Tổng quan/ }).first()).toBeVisible();
       await page.goto(`${WEB_URL}/settings/users`);
+      // BUG-R2-010: trang "không có quyền" (NoAccessPage, shell.no_access_*), không phải lỗi tải danh sách
+      // kèm "Thử lại" và câu "nhờ quản lý".
+      const main = page.getByRole('main');
       await expect(
-        page.getByText(/không làm được thao tác này|Không có quyền/).first(),
+        main.getByRole('heading', { name: 'Bạn không có quyền mở trang này' }),
       ).toBeVisible();
+      await expect(main.getByRole('button', { name: /Thử lại/ })).toHaveCount(0);
+      await expect(main.getByText(/nhờ quản lý/)).toHaveCount(0);
+      await expect(main.getByText(/Chưa tải được danh sách/)).toHaveCount(0);
     });
   },
 );

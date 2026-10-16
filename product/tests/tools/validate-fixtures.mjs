@@ -201,6 +201,13 @@ const CALC = {
     floorVnd: roundTo(otaBaseRateVnd * 70, 100, 10000),
     ceilingVnd: roundTo(otaBaseRateVnd * 250, 100, 10000),
   }),
+  // BR-113 (min stay, mặc định ESC-004 M-A): ngày đến T6/T7 hoặc ngày đặc biệt (special_dates seed) → 2 đêm, còn lại 1.
+  // Chỉ phần "chặn hay không"; ngoại lệ đêm lẻ / kênh nội bộ (BR-113-02…04) chưa tính ở đây (calc null).
+  minStay: ({ arrivalDate, nights }, p) => {
+    const special = isSpecial(arrivalDate, p.special_dates ?? SPECIAL_DATES);
+    const minStayNights = special || ['FRI', 'SAT'].includes(weekday(arrivalDate)) ? 2 : 1;
+    return { minStayNights, accepted: nights >= minStayNights };
+  },
   calendarRate: ({ baseRateVnd, nightDate, channel }, p) => ({
     rateVnd: calendarRateFor(baseRateVnd, nightDate, channel, p),
   }),

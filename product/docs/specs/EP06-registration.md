@@ -1,6 +1,6 @@
 # Đặc tả mức trường – EP06 Giấy tờ, đối chiếu, khai báo lưu trú + check-in online mức 1 trên guest-web (phần R2)
 
-- Tác giả: BA | Round 2 – Sprint 1 (đi trước Sprint 3 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
+- Tác giả: BA | Round 2 – Sprint 1 (đi trước Sprint 3 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.2 (Sprint 3 khởi động: BR v0.3.3, DOM s2-DOM mục G, OpenAPI 0.3.5)
 - Phạm vi (Must R2 theo R-C): EP06 – US-042, 043, 044, 045, 046, 047, 048, 049, 050 · US-142 (phần dùng ở màn giấy tờ) · **guest-web check-in online mức 1**: EP14 – US-106, US-107, US-112 (phần trang check-in). *Ghi chú*: phiếu giao việc gọi phần này là "EP15 phần R2"; trong backlog check-in online thuộc **EP14** (US-106/107/112) – EP15 (US-119/120) nằm ở `EP03-05-stay.md`.
 - Ngoài phạm vi / dời: US-051 quét QR CCCD/MRZ (Should R3); US-133, US-134 quyền chủ thể dữ liệu (R3); **US-141 xác minh mức 2 [Dời R3 – R-C]** với điều kiện SEC P-R2-4 **ĐK-1…ĐK-6** (mục 8.1); US-108 thông tin lưu trú, US-109/110 yêu cầu khách (Sprint 4 – đặc tả ở đợt sau); US-111 folio khách, US-128 mã cửa (R3).
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0 (V-01…V-11, hiển thị lỗi, xác nhận lại mục 0.5, thiết bị được cấp mục 10). BR **v0.3.1** nhóm BR-6xx đều mang nhãn **PHÁP LÝ – cần xác nhận** (INV quyết ESC-001: luật sư rà soát **trước khi đưa dữ liệu khách thật vào**; tới lúc đó dùng mặc định hiện hành). Mọi hạn/ngưỡng ghi bằng tham số, không chép số.
@@ -108,7 +108,7 @@ Mỗi mục chỉ có **3 kết quả hiển thị**: **Đạt** · **Không đ�
 
 | `DocumentCheckCode` | Chuỗi | Đạt khi | Không đạt khi | Chưa kiểm được khi | Hệ quả "Không đạt" (BR-613) |
 |---|---|---|---|---|---|
-| `name_match` | `checkin.verify.name` | Mọi từ trong tên trên đơn (người đứng tên / người đi cùng đã gắn) có trong tên trên giấy tờ, sau chuẩn hóa: bỏ dấu, chữ hoa, gộp khoảng trắng, **không xét thứ tự** ("Daniel Weber" ↔ "WEBER DANIEL" – AC3; giấy tờ có thêm tên đệm vẫn Đạt) `[GIẢ ĐỊNH BA – DOM xác nhận quy tắc "tập con"]` | Có từ của tên trên đơn không có trên giấy tờ | Người chưa gắn với ai trên đơn (người mới "Chưa rõ") | Cảnh báo; ghi chú xử lý |
+| `name_match` | `checkin.verify.name` | Mọi từ trong tên trên đơn (người đứng tên / người đi cùng đã gắn) có trong tên trên giấy tờ, sau chuẩn hóa: bỏ dấu, chữ hoa, gộp khoảng trắng, **không xét thứ tự** ("Daniel Weber" ↔ "WEBER DANIEL" – AC3; giấy tờ có thêm tên đệm vẫn Đạt) (DOM G-5 đồng ý). **Tên trên đơn chỉ có một từ** (khách nhắn Zalo "anh Tuấn") → `unverified`, lễ tân kiểm tay – **không** tự Đạt (G-5) | Có từ của tên trên đơn không có trên giấy tờ | Người chưa gắn với ai trên đơn (người mới "Chưa rõ") | Cảnh báo; ghi chú xử lý |
 | `passport_valid_through_departure` | `checkin.verify.passport` | `passportExpiryDate` **sau** ngày đi (BR-605) | `passportExpiryDate` ≤ ngày đi (AC1: hết hạn **đúng** ngày trả = Không đạt) | Thiếu `passportExpiryDate` | (b) hết trong kỳ ở → cảnh báo, không chặn |
 | `passport_valid_at_arrival` **(E06-01)** | **(mới)** "Hộ chiếu còn hạn tại ngày nhận phòng" | `passportExpiryDate` ≥ ngày nhận | < ngày nhận | Thiếu | (c) **chặn** – `blocksDoorCode = true` |
 | `visa_valid_through_departure` | `checkin.verify.visa` | `visaValidUntil` ≥ ngày đi | < ngày đi và ≥ ngày nhận | Thiếu `visaKind`/`visaValidUntil` (NN) | (a) không chặn; ngày đi khai = `visaValidUntil`; nhắc khách gia hạn từ `visaValidUntil` − `visa_expiry_warning_days` (dài hạn/ngắn ngày); đơn vào "Cần chú ý" (AC4) – `checkin.verify.visa_short` |
@@ -173,6 +173,7 @@ Mục kiểm thị thực/nhập cảnh/hộ chiếu chỉ áp cho **NN** (mục
 "Khai báo sau" (`reg.later`, `reg.later_note`): đóng màn khai báo, việc nằm trên Tổng quan và nhắc theo mốc BR-611 tới khi `sent`.
 
 ### 5.3 Ngày đi thực tế & hạn tạm trú (US-050, BR-604, BR-605)
+> Cập nhật ngày đi khi gia hạn chỉ áp **khách NN** (BR-604). Với khách VN, cổng thông báo lưu trú có cần cập nhật ngày đi khi gia hạn (qua đơn con OTA – BR-608) hay không là câu hỏi **PHÁP LÝ** – đã gộp vào danh sách cho luật sư của ESC-001 (DOM G-18); R2 không sinh việc cập nhật cho khách VN.
 - **Tự sinh việc** (AC1): khách NN có khai báo `confirmed`/`updated` mà đơn gia hạn (B13), trả sớm (B16), trả phòng (B18), đổi giấy tờ → `needs_update` (K9) + việc "Cập nhật ngày đi" hạn trong ngày nghiệp vụ cho FD. Khách VN: chỉ khi thêm người giữa chừng (K9) `[theo SM-05 K9]`.
 - **Cảnh báo khi lưu đơn/gia hạn** (AC2): khách NN có `visaValidUntil` < ngày đi (mới) → chặn mềm: 422 mã trường cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (đề nghị ARC E04-01, xem EP03-05 4.1) → hộp **(mới)** "Thị thực của {guest} hết hạn {date}, trước ngày đi {departure}. Khai báo chỉ đến {date}. Nhắc khách gia hạn trước {remind}." + ô lý do bắt buộc (V-08) → gửi lại với `visaWarningAckReason`. Ngày đi khai không vượt `visaValidUntil`; nhắc khách từ `visaValidUntil` − `visa_expiry_warning_days` (`.long_stay`/`.short_stay`).
 
@@ -187,6 +188,8 @@ Mục kiểm thị thực/nhập cảnh/hộ chiếu chỉ áp cho **NN** (mục
 | Đơn `cancelled`/`no_show` trước khi khai (khai báo `void` – BR-609 b) | Ngay khi `void` | `id_image_purge_max_hours` |
 | Rút đồng ý (BR-609 c, mục 4) | Chưa `confirmed`: như dòng 1; đã `confirmed`: ngay | `id_image_purge_max_hours` |
 | Người đồng ý, đơn `checked_out` (AC1, BR-610) | Trả phòng + `id_image_retention_days_after_checkout` | J16 chạy hằng giờ `[GIẢ ĐỊNH BA – ARC chốt lịch]` |
+| **Trả sớm (B16)** – khách đã ở rồi rời trước ngày đi (kể cả lễ tân ghi là "hủy phần còn lại") sau khi khai báo `confirmed` (DOM G-17) | Trả sớm = trả phòng: người đồng ý → `actualCheckoutAt` + `id_image_retention_days_after_checkout`; người không đồng ý đã xóa lúc `confirmed` | Như dòng trên |
+| Người bị **bỏ khỏi đơn** (`removePartyMember`, EP03-05 4.7; OpenAPI 0.3.6 A-38) | **Ngay khi bỏ**, trong cùng giao dịch: giấy tờ và ảnh của người đó bị xóa (hủy DEK, `purge_journal`); khai báo đã `confirmed` → `needs_update` | – (cùng giao dịch) |
 
 Xóa = hủy khóa dữ liệu của ảnh (ADR-013) – không khôi phục được; **giữ** các trường văn bản cần cho khai báo theo tham số lưu riêng (AC1); khôi phục no-show **không** khôi phục ảnh (K12 – khách nộp lại). Mỗi lần xóa → `c3_access_log` `purge` (actor `system`) + `Registration.imageRetentionUntil`/`imagesPurgedAt` cập nhật.
 
@@ -268,7 +271,7 @@ Mặc định theo ngôn ngữ hồ sơ khách, không có thì theo trình duy�
 | E06-05 | ARC | Mã trường mới: `DOC_NUMBER_INVALID`, `MAIN_GUEST_DUPLICATE`, `ENTRY_DATE_FUTURE`, `CHECK_NOTE_REQUIRED`, `PORTAL_REFERENCE_REQUIRED`; `nationalityCode` thu về đúng 3 ký tự (alpha-3) thay `{2,3}` |
 | E06-06 | ARC + **SEC (ĐK-2: thêm trường phải qua SEC)** | `OnlineCheckin.currentStep` thêm `notice` + `noticeVersion` đã đọc; `updateOnlineCheckin` thêm `arrivalNote` (≤ 300, V-09) và `lateArrival: bool`; `completeOnlineCheckin` cho phép người còn thiếu ảnh ở trạng thái "bổ sung tại quầy" (`deferredPeople[]`); mã `ONLINE_CHECKIN_CLOSED` (409); `Registration.onlineCheckin { completedAt, etaTime, uploadedCount }` cho Desk |
 | E06-07 | ARC | `uploadGuestDocument` lặp lại cho cùng `personIndex` = thay thế bản trước (ghi rõ trong mô tả); mã trường `FILE_TYPE`, `FILE_TOO_LARGE`, `TOO_MANY_FILES` trong `errors[]` của `FILE_REJECTED` để guest-web hiện đúng câu |
-| E06-08 | DOM | Quy tắc so tên "tập con, không xét thứ tự" (3.1); người dưới ngưỡng dữ liệu không hỏi đồng ý, ảnh xóa khi khai xong (mục 0); "đổi giấy tờ" sau `confirmed` → `needs_update` (2.3) |
+| E06-08 | DOM | **Đã trả lời** (s2-DOM G-5: đồng ý cả ba + tên một từ → `unverified`; áp 3.1, Sprint 3). Nội dung cũ: Quy tắc so tên "tập con, không xét thứ tự" (3.1); người dưới ngưỡng dữ liệu không hỏi đồng ý, ảnh xóa khi khai xong (mục 0); "đổi giấy tờ" sau `confirmed` → `needs_update` (2.3) |
 | E06-09 | SEC | Xác nhận: (a) guest-web chỉ hỏi đồng ý cho Khách 1, người đi cùng trả lời tại quầy (8.3 – R-CON-04); (b) dòng `guest.oci.withdraw_hint` (ĐK-5); (c) danh sách chuỗi cấm dùng ở R2 (8.1 ĐK-6); (d) tự ẩn số đầy đủ sau 60 giây, tự xóa clipboard sau 60 giây |
 | E06-10 | UXD | Chuỗi **(mới)** trong tài liệu (VI/EN); bản R2 của `guest.oci.done_body`; nhãn 3 kết quả kiểm (Đạt / Không đạt / Chưa kiểm được) – hiện có `mark_pass`/`mark_fail` nhưng chưa có nhãn kết quả hệ thống; bỏ nhắc HEIC/PDF ở `error.FILE_REJECTED` |
 | E06-11 | QA | Test tự động ĐK-2 (JSON mức 1 không có `guestFullName`/`doorCode`, kể cả `null`) mỗi PR; kiểm DevTools ĐK-3 (không có ảnh trong storage/cache sau khi gửi); đồng hồ giả lập cho hạn BR-602 (23:00, khách đến 23:40) và BR-603 (+12 giờ, 01:30); xóa ảnh J16 với `Clock` giả (BR-609, BR-610) |
@@ -277,3 +280,4 @@ Mặc định theo ngôn ngữ hồ sơ khách, không có thì theo trình duy�
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 1) | Bản đầu: đặc tả mức trường EP06 (US-042…050), dùng thiết bị được cấp (US-142), check-in online mức 1 trên guest-web (US-106, 107, 112 phần check-in) theo SEC P-R2-4 ĐK-1…6; xác nhận phần BA của ĐK-5 (ghi đè `granted → refused` tại quầy); BR-613 ở R2 = chặn nhận phòng | BA |
+| 16/10/2026 | 2 (Sprint 3 khởi động) | DOM G-5 (so tên: một từ → `unverified`), G-17 (trả sớm = trả phòng khi tính hạn xóa ảnh; người bị bỏ khỏi đơn), G-18 (ngày đi khách VN – câu hỏi luật sư ESC-001); E06-08 đã trả lời | BA |

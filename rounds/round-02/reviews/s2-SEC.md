@@ -36,7 +36,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Ngoại lệ "dryRun không cần header" áp cho **mọi** operation, trong khi chỉ `cancelReservation` thật sự xử lý `dryRun` (không ghi). Các handler còn lại dùng `z.object` (mặc định **bỏ** khóa lạ) hoặc `Fields` (không từ chối khóa lạ) nên `dryRun` bị lờ đi và **ghi thật**. Kịch bản: gửi `POST /folios/{id}/lines/{lineId}/foc` với `{"kind":"foc","amountVnd":500000,"reasonCode":"vip","dryRun":true}` và **không** có `Idempotency-Key` → guard cho qua, UoW không giữ khóa, dòng FOC + yêu cầu duyệt được tạo. Client (hoặc FE sau này) tưởng là "tính thử", bấm lại → yêu cầu FOC/thông báo cọc/giữ chỗ/khách hàng tiềm năng trùng; lần thử lại do mất mạng cũng không còn được chống trùng. Với operation có If-Match, `expectedVersion()` vẫn chặn (428) nên chỉ nhóm "chỉ có Idempotency-Key" bị ảnh hưởng.
 - Vì sao quan trọng: ADR-009 điểm 8 / coding-standards 7.5 – mọi ghi tiền phải chống trùng; SR-AUD-01 cần một thao tác = một bản ghi. Một cờ trong body vô hiệu hóa được một kiểm soát bắt buộc là lỗi thiết kế "fail-open"; càng nhiều endpoint tiền ở Sprint 3 (`recordPayment`, `addFolioLine`, `allocateGroupDeposit`) thì càng nguy hiểm.
 - Đề xuất sửa: (1) Sinh cờ `supportsDryRun` vào `OperationMeta` từ OpenAPI (operation có `dryRun` trong requestBody ở OpenAPI 0.3.4: `cancelReservation`, `setLateCheckout`, `cancelReservationGroupMember`, `cancelReservationGroup`; ARC bổ sung `allocateGroupDeposit` vào requestBody nếu giữ mô tả "tính thử"). (2) Guard + UoW chỉ miễn header khi `operation.supportsDryRun && body.dryRun === true`; operation khác mà body có `dryRun` → `422 VALIDATION_FAILED` (`field: dryRun, code: NOT_ALLOWED`) – fail-closed. (3) Đường dryRun của handler phải chạy trong giao dịch `readOnly: true` (như `cancel` hiện nay) để mọi lệnh ghi lỡ tay bị PostgreSQL từ chối. Test: `requestFoc`/`createDepositNotice`/`createHoldFromQuote` với `dryRun: true` không có header → 422, không có dòng mới trong `folio_line`/`deposit_notice`/`reservation`; `cancelReservation` dryRun vẫn 200 không cần header.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`) – xem mục "Kiểm lại ĐK-S2-7"
 
 ### FB-R2-SEC-BE-22
 - Mức độ: Major
@@ -50,7 +50,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
   4. Hoa hồng của đơn do chính payee xác nhận cọc giữ `projected` nhưng chỉ chuyển `earned` (R3) khi khoản cọc đã đối soát.
   Test: SAL `confirmDeposit` tiền mặt → `payment.reconciliation = pending` + có mục Cần chú ý; SAL `receivedAt` lùi 3 ngày → 422; FD cùng thao tác → `not_required` như cũ.
   Ghi chú: nếu DOM/PO cho rằng điểm 1–2 thay đổi quy trình quầy, SEC chấp nhận phương án "chỉ FD+ được chọn `cash`/`card_pos`, SAL chỉ `vietqr`/`bank_transfer`"; nếu cần đổi quyền SAL thì mới tạo ESC (chính sách đặt cọc).
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`) – điểm 1–3 có trong code + test; điểm 4 (hoa hồng chỉ `earned` sau đối soát) theo ESC-017 A, làm khi có `earned` (R3) – theo dõi ở `outputs/SEC/s3-checklist.md` mục F
 
 ### FB-R2-SEC-BE-23
 - Mức độ: Major
@@ -58,7 +58,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Mọi khóa nghiệp vụ (dòng `room`, `reservation`, `folio`, và lần chờ của ràng buộc EXCLUDE khi giao dịch khác đang chèn khoảng trùng) chờ **không giới hạn**. Một giao dịch chậm (job hết hạn giữ chỗ khóa hàng loạt đơn – BE-24, request treo khi chờ kết nối thứ hai, truy vấn `suggest()` trên khoảng ngày rất dài – BE-28) làm mọi request đặt/đổi/hủy cùng căn xếp hàng, mỗi request giữ một kết nối pool → **cạn pool, toàn bộ API (kể cả đăng nhập) ngừng phản hồi**. Với 10 căn, gần như mọi thao tác quầy đều chạm vài dòng `room`. Deadlock hiếm (thứ tự khóa đã đúng) nhưng khi xảy ra (`40P01`) lại trả `500` + stack ở log thay vì lỗi thử lại được.
 - Vì sao quan trọng: TM-50 (DoS trên 1 VPS), SR-RL-09; plan R2 rủi ro "rack p95". Đây là kiểu sự cố "giờ check-in đông khách, cả quầy đứng hình" khó chẩn đoán.
 - Đề xuất sửa: (1) Sau khi giành khóa idempotency, đặt `SET LOCAL lock_timeout = '5s'` (tham số `db_lock_timeout_ms`) thay vì `0`; job đặt riêng 10 s. (2) Ở vai DB `ottimo_app`: `ALTER ROLE ottimo_app SET statement_timeout = '15s'`, `idle_in_transaction_session_timeout = '30s'` (OPS đưa vào `02-roles.sh`; truy vấn báo cáo dài sau này đặt `SET LOCAL` riêng). (3) Bộ lọc lỗi ánh xạ `55P03` (lock_not_available), `40P01` (deadlock), `40001` (serialization) → `409 CONCURRENT_UPDATE` kèm `Retry-After: 1`, ghi metric; `57014` (statement timeout) → `503`. (4) Pool có `connectionTimeoutMillis` để request mới nhận 503 thay vì treo. Test: giao dịch A giữ `SELECT … FROM room … FOR UPDATE` 10 s, request đặt căn đó từ client B trả 409 trong ≤ 6 s; endpoint `/v1/auth/login` vẫn 200 trong lúc đó.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`) – còn 1 việc vận hành cho OPS (áp lại vai DB trên volume cũ/staging), ghi ở s3-checklist mục H
 
 ### FB-R2-SEC-BE-24
 - Mức độ: Minor
@@ -66,7 +66,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: (a) Job khóa **mọi** giữ chỗ quá hạn trong một câu `FOR UPDATE SKIP LOCKED` rồi xử lý tuần tự trong **một giao dịch**; chỉ cần một đơn ném lỗi (dữ liệu lạ, `loadReservation` không thấy, hook lỗi) là cả lô rollback và lặp lại y hệt ở mọi tick → **không giữ chỗ nào được giải phóng** ("poison pill"), căn bị khóa bán vô thời hạn. (b) `runAll` dừng ở property lỗi, các property sau không chạy. (c) Job giải phóng `room_occupancy` mà không `lockRooms` (lệch thứ tự khóa reservation → room đã quy định, erd 4.5) – hiện chưa thấy deadlock nhưng là ngoại lệ không ghi chú. Phần chống chạy song song (SKIP LOCKED + kiểm lại `status = 'hold' AND hold_expires_at <= now`) **đúng**, giữ nguyên.
 - Vì sao quan trọng: Tính sẵn sàng của tồn phòng (doanh thu), TM-50; lỗi im lặng trong worker khó thấy nếu chưa có cảnh báo (SR-LOG-06).
 - Đề xuất sửa: Lấy lô có `LIMIT 50`; mỗi đơn chạy trong `SAVEPOINT hold_<n>` – lỗi thì `ROLLBACK TO SAVEPOINT`, ghi log `job.item_failed` (id, mã lỗi, không dữ liệu khách) + đếm vào kết quả `{ expired, keptPaid, failed }`; gọi `occupancy.lockRooms` trước `release`; `runAll` bắt lỗi theo property và chạy tiếp. Test: chèn 1 giữ chỗ "hỏng" + 2 giữ chỗ bình thường quá hạn → 2 cái được hủy, `failed = 1`.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-25
 - Mức độ: Minor
@@ -74,7 +74,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Khi `withNames = false` (SAL, CTV, MT), `conflicts[]` vẫn trả `reservationCode` của **đơn người khác** kèm các đêm trùng. CTV thử giữ chỗ hàng loạt (409 rẻ) sẽ ghép được "mã đơn – căn – đêm" của toàn khách sạn, trong khi rack của CTV chỉ được thấy "hết phòng" (`availability_only`) và đơn người khác phải là 404. Mã đơn là chuỗi khách đọc qua điện thoại cho quầy để xác minh (US-020) và dùng trong nội dung chuyển khoản (SR-PAY-06) → mở đường mạo danh "tôi là khách đơn OTM-00168".
 - Vì sao quan trọng: Nhất quán với phạm vi M và x-scope `availability_only` (rbac ghi chú 4); spec EP02 3.5 chỉ cho vai khác thông báo `booking.error.conflict_noname`.
 - Đề xuất sửa: Trong `publicConflict`, khi `!view.withNames` chỉ trả `roomNo`, `nights`, `kind` (đổi `reservation`/`hold` thành `unavailable` nếu muốn khớp rack); hoặc chỉ giữ `reservationCode` khi đơn thuộc phạm vi của người gọi. ARC ghi rõ trong OpenAPI `RoomUnavailable` (`reservationCode` + `guestDisplayName` chỉ FD+). Test: CTV `createHoldFromQuote` vào căn đã có đơn của FD → 409, `conflicts[0]` không có `reservationCode`/`guestDisplayName`.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-26
 - Mức độ: Minor
@@ -82,7 +82,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: (a) `isPropertyUser` không lọc `revoked_at IS NULL` và `app_user.status = 'active'` (khác `quote-pricing.ts` dòng 155–163 có lọc) → FD/MGR gán được người chốt là CTV đã bị thu hồi vai/khóa tài khoản; người đó (nếu được mở lại) thấy đơn theo phạm vi `closer` và nhận hoa hồng. (b) Đổi người chốt quyết định ai nhận hoa hồng (EP02 5.4) nhưng chỉ ghi `audit_event` loại `data` và `before/after` **không có** `closerUserId`; hoa hồng `projected` đã tạo ở B4 cũng không chuyển theo → dấu vết tiền không khớp người hưởng.
 - Vì sao quan trọng: SR-AUD-01 (mọi thao tác tiền), TM-32 (gian lận hoa hồng nội bộ); SR-AZ (người bị thu hồi không còn quyền).
 - Đề xuất sửa: Dùng chung một hàm `assertActiveStaff(tx, userId, roles?)` cho reservations và quote-pricing (lọc `revoked_at IS NULL`, `status = 'active'`, vai trong `sales_staff`/`collaborator`/FD+ theo BR-903). Đổi người chốt → `audit.recordMoney('reservation.closer_changed', before: {closerUserId}, after: {closerUserId})`; sau xác nhận (MGR+) thì void hoa hồng cũ + project hoa hồng mới trong cùng giao dịch (hoặc chặn đổi nếu DOM không muốn – ghi vào spec).
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-27
 - Mức độ: Minor
@@ -90,7 +90,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Phí kênh OTA (thực tế hoặc ước tính, có thể do người nhập tay qua `otaChannelFeeVnd`) là số tiền ảnh hưởng doanh thu ròng nhưng không có bản ghi `audit_event money`; hoa hồng dự kiến không nối được về request gốc khi điều tra.
 - Vì sao quan trọng: SR-AUD-01, US-086 AC5 (ai, khi nào, bao nhiêu); điều tra sai lệch đối soát OTA ở R3.
 - Đề xuất sửa: Thêm `audit.recordMoney('channel_fee.recorded', after: {channelCode, baseVnd, ratePct, amountEstimatedVnd, amountActualVnd, source})`; truyền `requestId` qua `projectCommission`/`channelFee`. Bổ sung test "mọi đường ghi bảng tiền (`folio_line`, `payment`, `commission`, `channel_fee`) đều có `audit_event category='money'` cùng `request_id`" – một test duyệt theo bảng thay vì theo từng use case.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-28
 - Mức độ: Minor
@@ -98,7 +98,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: (a) CTV/SAL có thể giữ chỗ cùng lúc **mọi căn** cho dịp cao điểm (mỗi giữ chỗ tối đa `hold_hours_options` + 1 lần gia hạn) – một CTV có ý xấu hoặc bị chiếm tài khoản chặn bán cả khách sạn. (b) Gọi `createDepositNotice` liên tục → spam push tới quầy (TM-25 tương tự phía nhân viên). (c) `calculateQuote` 10.000 đêm, `searchAvailability` khoảng 100 năm → vòng lặp/mảng hàng chục nghìn phần tử mỗi request, cộng với BE-23 thành điểm làm chậm có chủ đích.
 - Vì sao quan trọng: TM-50, TM-07 (CTV là người ngoài biên chế), SR-RL-09.
 - Đề xuất sửa: (1) `nights` ≤ ngưỡng BR-108 (`long_stay_threshold_nights`, hiện báo giá dài hạn là R3) hoặc tối đa 60; khoảng `searchAvailability` ≤ 90 đêm (422 `VALUE_OUT_OF_RANGE`). (2) Tham số `max_open_holds_per_user` (đề xuất mặc định: CTV 3, SAL 5; FD+ không giới hạn) kiểm trong `createHold` → 409 `HOLD_LIMIT_REACHED` – PO/DOM chốt con số, SEC chỉ yêu cầu có giới hạn. (3) `createDepositNotice`: tối đa 1 thông báo `open` mỗi đơn (lần sau cập nhật thông báo cũ, không push lại trong 10 phút) + 10 lần/giờ/người. (4) Cài SR-RL-09 bằng bộ đếm RAM theo người (đã được phép ở R2). Test cho từng giới hạn.
-- Trạng thái: Open
+- Trạng thái: Verified phần giới hạn nghiệp vụ (SEC 16/10, `cfcf6d8`); SR-RL-09 (600/phút/người) Deferred Sprint 3 – SEC chấp nhận, bắt buộc xong trong Sprint 3 (s3-checklist mục H)
 
 ### FB-R2-SEC-BE-29
 - Mức độ: Minor
@@ -106,7 +106,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Đã có test 404 cho `getReservation`, `getQuote`, `getFolio`, `confirmDeposit`, `createDepositNotice`, `changeLeadStage` – tốt. Còn thiếu các ca mà lỗi phạm vi thường lọt: CTV/SAL gọi `extendHold`, `cancelReservation` (cả `dryRun`), `createHoldFromQuote`, `withdrawQuote` trên đối tượng **của người khác** → 404; `conflicts[]` không có `guestDisplayName` cho SAL/CTV/MT; `dryRun` không vượt được Idempotency-Key (BE-21); `confirmDeposit` song song với job hết hạn giữ chỗ (một bên thắng, không có trạng thái lai); `listCommissions` của SAL không thấy hoa hồng của CTV cùng đơn.
 - Vì sao quan trọng: Plan R2 B3 + SR-AZ-09 – phải **chứng minh** cách ly bằng test, không chỉ bằng đọc mã; đây là các ca hồi quy dễ vỡ khi Sprint 3 thêm đoàn/folio.
 - Đề xuất sửa: Thêm bảng ca vào `rbac-sprint2-*.test.ts` (dạng `[operation, actor, ownerOfObject, expectedStatus]`) để mọi operation có `x-scope: own*` tự sinh ca "người khác → 404". QA dùng lại trong bộ hồi quy.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-30
 - Mức độ: Suggestion
@@ -114,7 +114,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: (a) Các FK chéo module khác đều kép `(property_id, id)`; riêng `folio_line → stay_night` đơn cột, nên về lý thuyết một dòng folio có thể trỏ tới đêm của property khác (FK bỏ qua RLS). Hiện chỉ code hệ thống ghi cột này nên chưa khai thác được. (b) `isOwnScoped` coi mọi vai không phải FD+ là "own" – an toàn (mặc định thu hẹp), nên ghi chú để người sau không đảo thành danh sách cho phép.
 - Vì sao quan trọng: Phòng thủ nhiều lớp cho cách ly property (SR-AZ-09, seed 2 cơ sở).
 - Đề xuất sửa: Đổi thành `FOREIGN KEY (property_id, stay_night_id) REFERENCES stay_night (property_id, id)` (cần unique `(property_id, id)` trên `stay_night`) ở migration kế tiếp; thêm comment "default-deny" cạnh `isOwnScoped`.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ### FB-R2-SEC-BE-31
 - Mức độ: Suggestion
@@ -122,7 +122,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Adapter dựng `BookingContext` từ **mọi** vai còn hiệu lực trong DB chứ không từ vai của phiên (`principal.roles`), và đọc đơn bằng quyền `owner`. Hiện an toàn vì phía gọi (quotes/deposits) đã kiểm phạm vi trước và serializer lọc theo vai phiên, nhưng `allowedActions` có thể lệch vai phiên và một lời gọi port mới quên kiểm phạm vi sẽ trả đơn ngoài phạm vi.
 - Vì sao quan trọng: Giảm rủi ro hồi quy IDOR khi Sprint 3 thêm đường gọi port (đoàn, folio).
 - Đề xuất sửa: Truyền `actor` (userId + roles của phiên) qua tham số port thay vì suy từ `tx.ctx`; `reservationView`/`lockForDeposit` nhận `actor` và dùng `loadReservation(tx, id, actor)` (404 khi ngoài phạm vi), chỉ job hệ thống mới dùng `SYSTEM_ACTOR`.
-- Trạng thái: Open
+- Trạng thái: Deferred Sprint 3 – SEC chấp nhận lý do; bắt buộc làm trước khi thêm đường gọi port mới của Sprint 3 (s3-checklist mục H)
 
 ### FB-R2-SEC-FE-05
 - Mức độ: Suggestion
@@ -130,7 +130,7 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 - Vấn đề: Nháp đặt phòng (chứa SĐT/email khách) đã giữ trong bộ nhớ và bị xóa khi đăng xuất/đổi người (`clearClientData`) – đạt SR-PWA-07. Riêng khóa nháp không gắn người dùng như `GuestFormDialog` (`ottimo.draft.guest.<userId>`), nên chỉ an toàn nhờ một điểm xóa duy nhất; nếu sau này có luồng đổi người không gọi `clearClientData` (ví dụ đăng nhập lại sau hết phiên trên cùng tab bằng tài khoản khác) thì nháp của người trước hiện cho người sau.
 - Vì sao quan trọng: Máy quầy dùng chung giữa các ca (TM-42).
 - Đề xuất sửa: Gắn `session.me.id` vào khóa nháp như form khách (`booking.new.<userId>`); test: đăng nhập A, gõ nháp, phiên hết hạn, đăng nhập B trên cùng tab → không thấy nháp.
-- Trạng thái: Open
+- Trạng thái: Verified (SEC 16/10, `cfcf6d8`)
 
 ---
 
@@ -139,3 +139,26 @@ Kết luận nhanh theo các điểm ORC yêu cầu:
 1. **Chống trùng phòng đặt ở đúng chỗ**: ràng buộc `EXCLUDE … WHERE (active) DEFERRABLE` là nguồn sự thật, mọi ghi tồn phòng đi qua `OccupancyService` trong `SAVEPOINT`, khóa phòng theo id tăng dần, `swapRoom` khóa hai đơn theo id và hoãn ràng buộc trong cùng savepoint – không còn kiểu "SELECT rồi INSERT".
 2. **Phạm vi M làm trong SQL và luôn 404**: `ownScopeSql`, `quotes.row`, `commissions.list`, `deposits.target`, `folio.assertOwn` – không lộ sự tồn tại; serializer mặc định từ chối trường, tên khách trong `conflicts[]` chỉ cho FD+, push báo cọc không có số tiền, mẫu `getQuoteText` sinh từ tệp và không chứa dữ liệu cá nhân.
 3. **RLS và quyền DB tối thiểu**: 19 bảng mới đều FORCE RLS; `folio_line`/`payment` chỉ được UPDATE cột trạng thái (số tiền bất biến ở mức DB – K8/BR-008); FE giữ nháp chỉ trong bộ nhớ và gom mọi thứ cần xóa về `clearClientData`.
+
+---
+
+## Kiểm lại ĐK-S2-7 (QC Sprint 2) – SEC, 16/10/2026, trên `cfcf6d8` (HEAD `99aca64` chỉ thêm tài liệu QC)
+
+Cách kiểm: đọc mã nguồn và test tại HEAD, đối chiếu phản hồi `responses/s2-BE-A.md`, `s2-BE-B.md`, `s2-FE.md`. Không chạy được test trên máy SEC (không có pnpm/PostgreSQL); kết quả chạy lấy từ CI 38911271416 (QC đã đọc, E2E 783/0). Không tấn công hệ thống nào.
+
+| Thẻ | Kết luận | Bằng chứng trong code | Còn lại |
+|---|---|---|---|
+| **BE-21** (dryRun vượt Idempotency-Key) | **Verified** | `auth.guard.ts:450–458`: body có `dryRun` mà operation không khai `dryRun` → 422 `dryRun: NOT_ALLOWED` (fail-closed, mọi endpoint, trước khi vào handler); chỉ `dryRun === true` của operation có cờ mới bỏ kiểm header. `unit-of-work.ts:158–163`: chỉ bỏ khóa idempotency khi `operation.dryRun && body.dryRun === true`. Cờ sinh từ OpenAPI (`openapi-meta.ts`: 5 operation). `shared/http/dry-run.ts` `rejectDryRun()` là lớp thứ hai ở 12 handler BE-B. Đường dryRun duy nhất đang cài (`cancelReservation`, `reservations.controller.ts:275–285`) chạy qua `read()` = giao dịch `READ ONLY`. Test: `folio-payments.test.ts:609`, `sales.test.ts:614`, `reservations-fix.test.ts:623` | 4 operation còn lại có cờ `dryRun` (`setLateCheckout`, `allocateGroupDeposit`, `cancelReservationGroupMember`, `cancelReservationGroup`) **chưa cài**. `setLateCheckout` thuộc Sprint 3: guard đã miễn header cho chúng, nên đường dryRun **bắt buộc** chạy trong giao dịch `readOnly` → ghi ở s3-checklist mục A |
+| **BE-22** (tiền sale/CTV, lùi giờ, trần) | **Verified** (điểm 1–3) | `deposits.service.ts`: (1) dòng 176 – người không có vai FD+ ghi thì `reconciliation = pending` với **mọi** phương thức, `recordedByRole` vào audit (`payment.service.ts:92`), push `deposit_unverified` tới FD/FDL/MGR còn hiệu lực, trừ chính người ghi (dòng 241–268); (2) dòng 110–124 – `receivedAt` ≤ now và ≥ `max(hold_created_at, now − staff_payment_backdate_max_hours)`; tham số thiếu thì `ParameterService.get` ném lỗi (fail-closed); biên 0–72, mặc định 24 (migration 0019); dòng 155–158 – giữ chỗ quá hạn chỉ FD+ cứu được, và chỉ khi tiền nhận trước hạn; (3) dòng 127–138 – mỗi phiếu ≤ còn phải trả (tiền phòng + phụ thu − đã cọc), vượt → 422 `AMOUNT_TOO_HIGH`, chỉ FD+ vượt được khi có ghi chú. Test: `folio-payments.test.ts:544–570` | Điểm 4 (hoa hồng của đơn do người hưởng tự xác nhận cọc chỉ `earned` khi khoản cọc đã đối soát) – INV đã chốt ở ESC-017 A; trạng thái `earned` có từ R3 → s3-checklist mục F. Ghi chú nhỏ: `recordedByRole` viết cứng `'sales_staff'` – đúng với rbac hiện tại (CTV không có A04); nếu sau này CTV được xác nhận cọc thì lấy vai thật của phiên |
+| **BE-23** (khóa chờ vô hạn) | **Verified** | `db/database.ts:51–57`: mọi giao dịch `SET LOCAL lock_timeout 5 s` + `statement_timeout 15 s` ngay sau `BEGIN`; `job-runner.ts:30,192` job 10 s; `unit-of-work.ts:211–226` khóa idempotency 3 s rồi **trở về 5 s** (không còn `0`), `55P03` ở bước này → `IDEMPOTENCY_IN_PROGRESS`. `problem.ts:146–178`: `55P03`/`40P01`/`40001` → 409 `CONCURRENT_UPDATE` + `Retry-After: 1`; `57014` → 503 `SERVICE_UNAVAILABLE` + `Retry-After: 5`. `pool.ts:20` `connectionTimeoutMillis 5 s`. OPS: `infra/postgres/init/02-roles.sh:53–54` `ALTER ROLE ottimo_app SET idle_in_transaction_session_timeout = '30s'`, `statement_timeout = '15s'`; `ottimo_migrator` không bị giới hạn (đúng); CI chạy script này (`ci.yml:61`). Test: `reservations-fix.test.ts:671` (giữ khóa phòng → 409, không treo), `problem-concurrency.test.ts` | `02-roles.sh` nằm trong `docker-entrypoint-initdb.d` nên **chỉ chạy khi khởi tạo volume mới**; máy dev/stack tạm đã có volume và staging sau này cần áp lại hai lệnh `ALTER ROLE` (idempotent) ở bước deploy → s3-checklist mục H (OPS) |
+| BE-24 (job giữ chỗ kẹt cả lô) | Verified | `expireHolds` (`reservations.service.ts:2639+`): lô `LIMIT` + `FOR UPDATE SKIP LOCKED`, `SAVEPOINT` từng đơn, `failures[]` chỉ id + mã lỗi; `lockRooms` trước khi giải phóng; `job-runner.ts:114–128` lỗi một property không dừng property khác | Đơn lỗi lặp lại mỗi tick sẽ nằm trong `job_run.stats.failures` – cần cảnh báo (SR-LOG-06, R3) |
+| BE-25 (`conflicts[]` lộ mã đơn) | Verified | `occupancy.service.ts:391–400` chỉ đưa `reservationCode`/`guestDisplayName` khi `view.withNames` (FD+) | – |
+| BE-26 (người chốt) | Verified | Kiểm `revoked_at IS NULL AND status = 'active'` (`reservations.service.ts:1239`); đổi người chốt `recordMoney('reservation.closer_changed', before/after closerUserId)` (dòng 1078–1088); BE-B void + project lại hoa hồng ở `resyncStay` | – |
+| BE-27 (phí kênh không có nhật ký tiền) | Verified | `folio.service.ts:836` `channel_fee.recorded`/`updated` qua `recordMoney`, `requestId` truyền xuống | – |
+| BE-28 (giới hạn) | Verified một phần | `max_open_holds_per_user` (0016) → 422 `HOLD_LIMIT_REACHED`; `searchAvailability` ≤ 90 đêm; `calculateQuote` `nights` ≤ 60; `createDepositNotice` 1 thông báo mở/đơn, không push lại trong 10 phút | SR-RL-09 (600 request/phút/người) Deferred – **bắt buộc xong trong Sprint 3** vì Sprint 3 mở các endpoint khách không đăng nhập đầy đủ (guest-web) |
+| BE-29 (test phạm vi) | Verified | `rbac-sprint2-bea.test.ts`, `rbac-sprint2-beb.test.ts`, `sales.test.ts` có ca người khác → 404 cho `extendHold`, `cancel` dryRun, `withdrawQuote`, `createHoldFromQuote` | – |
+| BE-30 (FK tenant) | Verified | `0016_…sql:32–35` FK `(property_id, stay_night_id)` | – |
+| BE-31 (sales-port dùng vai DB) | Deferred Sprint 3 – chấp nhận | Phía gọi vẫn kiểm phạm vi trước (đã đọc lại `deposits.target`, `quotes.row`) | Làm **trước** khi thêm đường gọi port mới ở Sprint 3 (s3-checklist mục H) |
+| FE-05 (khóa nháp theo người) | Verified | `BookingDialog.tsx:57`, `LongStayDialog.tsx:46`: `booking.new.<userId>`, `booking.longStay.<userId>` | – |
+
+**Kết luận ĐK-S2-7 (phần SEC): ĐẠT.** 3 thẻ Major Sprint 2 (BE-21, BE-22, BE-23) Verified trên code HEAD; 8/9 Minor + Suggestion Verified, 1 Deferred có lý do (BE-31). Không mở lại thẻ nào. Bốn việc còn lại (dryRun của `setLateCheckout`, `earned` sau đối soát, áp lại vai DB, SR-RL-09 + BE-31) chuyển thành điều kiện bắt buộc trong `outputs/SEC/s3-checklist.md` – SEC kiểm ở review Sprint 3.

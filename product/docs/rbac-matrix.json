@@ -1,5 +1,5 @@
 {
- "version": "0.2.2",
+ "version": "0.2.3",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
  "generated": "2026-10-16",
  "author": "BA",
@@ -745,7 +745,7 @@
   },
   {
    "id": "A46",
-   "name_vi": "Đối soát chuyển khoản",
+   "name_vi": "Đối soát chuyển khoản/VietQR với sao kê",
    "event": "reconcile_payment",
    "roles": {
     "owner": "allow",
@@ -757,8 +757,25 @@
    "operationIds": []
   },
   {
+   "id": "A46a",
+   "name_vi": "Xác nhận đã nhận tiền mặt sale/CTV nộp quầy",
+   "event": "confirm_cash_handover",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "confirmCashHandover"
+   ],
+   "note": "PO 16/10 (ESC-017 A, BR-527): chỉ giao dịch cash do sales_staff/collaborator ghi, reconciliation=pending; người xác nhận ≠ người ghi."
+  },
+  {
    "id": "A47",
-   "name_vi": "Thực hiện chuyển khoản hoàn",
+   "name_vi": "Thực hiện chuyển khoản hoàn (cần D15)",
    "event": "execute_refund",
    "roles": {
     "owner": "allow",
@@ -767,6 +784,23 @@
    "trusted_device_required": false,
    "c3_access_log": true,
    "operationIds": []
+  },
+  {
+   "id": "A47a",
+   "name_vi": "Chi hoàn tiền mặt tại quầy theo yêu cầu đã duyệt",
+   "event": "execute_cash_refund",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "executeCashRefund"
+   ],
+   "note": "PO 16/10 (Q-S3-1): yêu cầu refund approved, nơi nhận cash, ≤ số duyệt còn lại; người chi ≠ người tạo yêu cầu."
   },
   {
    "id": "A50",

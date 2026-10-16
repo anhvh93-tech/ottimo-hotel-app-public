@@ -520,6 +520,7 @@ export class ReservationsService {
 
     // ── writes ──
     await this.occupancy.lockRooms(tx, [rm.id]);
+    await this.assertCapacityStable(tx, [rm]);
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
     const folioId = uuidv7(); // reservation.folio_id ↔ folio.primary_reservation_id, both DEFERRED
@@ -791,6 +792,7 @@ export class ReservationsService {
     }
     await this.assertSellable(tx, rm, input.arrivalDate, input.departureDate);
     await this.occupancy.lockRooms(tx, [rm.id]);
+    await this.assertCapacityStable(tx, [rm]);
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
     const folioId = uuidv7();
@@ -1031,6 +1033,9 @@ export class ReservationsService {
     let capacityState: 'over' | 'ok' | null = null;
     let baseOccupancy: number | null = null;
     if (peopleChanged && seg.room_id) {
+      // QC-S2-01: lock the room (reservation already locked – lock order kept) BEFORE reading max_occupancy,
+      // so a concurrent updateRoom either waits for us (and sees the new head count) or we see its value.
+      await this.occupancy.lockRooms(tx, [seg.room_id]);
       const rm = await this.room(tx, seg.room_id);
       if (rm) {
         baseOccupancy = rm.base_occupancy;
@@ -1203,6 +1208,26 @@ export class ReservationsService {
         errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
         extras: { roomNo: rm.room_no, max: rm.max_occupancy },
       });
+    }
+  }
+
+  /**
+   * QC-S2-01 race guard. `rm` was read before the room lock (lock order: reservation → rooms ascending), so a
+   * concurrent `updateRoom` may have lowered max_occupancy after the capacity decision. RoomsService.update
+   * locks the room FOR UPDATE and only sees committed bookings; once we hold the room lock, re-read the value:
+   * if it changed, our capacity decision is stale → 409 CONCURRENT_UPDATE (+ Retry-After) and the client
+   * retries with the fresh value (its retry gets the right CAPACITY_EXCEEDED / warning branch).
+   * Call ONLY after occupancy.lockRooms() on the same rooms.
+   */
+  async assertCapacityStable(tx: Tx, rooms: ReadonlyArray<RoomInfo>): Promise<void> {
+    if (rooms.length === 0) return;
+    const { rows } = await tx.query<{ id: string; max_occupancy: number }>(
+      'SELECT id, max_occupancy FROM room WHERE id = ANY($1::uuid[])',
+      [rooms.map((r) => r.id)],
+    );
+    const fresh = new Map(rows.map((r) => [r.id, r.max_occupancy]));
+    if (rooms.some((r) => fresh.get(r.id) !== r.max_occupancy)) {
+      throw new ProblemError('CONCURRENT_UPDATE', { headers: { 'Retry-After': '1' } });
     }
   }
 
@@ -1901,6 +1926,7 @@ export class ReservationsService {
 
     // Lock order: reservation (done) → rooms ascending.
     await this.occupancy.lockRooms(tx, [targetRoomId, ...(seg.room_id ? [seg.room_id] : [])]);
+    await this.assertCapacityStable(tx, [rm]);
     const persons = countedPersons({
       adults: row.adults,
       children6to11: row.children_6_11,
@@ -2219,6 +2245,7 @@ export class ReservationsService {
     await this.assertSellable(tx, rm, row.arrival_date, row.departure_date);
     const seg = await singleSegment(tx, row.id);
     await this.occupancy.lockRooms(tx, [rm.id]);
+    await this.assertCapacityStable(tx, [rm]);
     await this.occupancy.claim(
       tx,
       {
@@ -2303,6 +2330,7 @@ export class ReservationsService {
     this.assertCapacity(roomB, { adults: a.adults, children6to11: a.children_6_11 });
     this.assertCapacity(roomA, { adults: b.adults, children6to11: b.children_6_11 });
     await this.occupancy.lockRooms(tx, [roomA.id, roomB.id]);
+    await this.assertCapacityStable(tx, [roomA, roomB]);
     // K12: both rows move inside one deferred check (ADR-009 update R1 step 4, BE-ARC-08).
     await this.occupancy.guarded(
       tx,
@@ -2523,8 +2551,10 @@ export class ReservationsService {
     }
     let roomId: string | null = newRoomId ?? seg.room_id;
     let unassigned = false;
+    let checkedRoom: RoomInfo | null = null;
     if (newRoomId) {
       const rm = await this.room(tx, newRoomId);
+      checkedRoom = rm;
       if (!rm) {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
       }
@@ -2538,6 +2568,7 @@ export class ReservationsService {
     }
     if (roomId) {
       await this.occupancy.lockRooms(tx, [roomId, ...(seg.room_id ? [seg.room_id] : [])]);
+      if (checkedRoom) await this.assertCapacityStable(tx, [checkedRoom]);
       await this.occupancy.update(
         tx,
         { segmentId: seg.id },
