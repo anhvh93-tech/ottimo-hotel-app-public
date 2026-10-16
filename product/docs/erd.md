@@ -36,14 +36,14 @@
 | `ottimo_owner` | `NOLOGIN NOSUPERUSER` | Chủ sở hữu schema `public`, các hàm `SECURITY DEFINER` (mục 2.4), schema `pgboss` | Mọi DDL |
 | `ottimo_migrator` | `LOGIN NOSUPERUSER NOBYPASSRLS`, `IN ROLE ottimo_owner` (`SET ROLE ottimo_owner` khi chạy) | `pnpm db:migrate` (bước riêng trước khi bật api mới), cài/nâng cấp pg-boss | DDL qua `ottimo_owner` |
 | `ottimo_app` | `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE` | **api và worker** (cùng một vai – không có "vai job riêng"; câu cũ ở ADR-007 đã bỏ) | `SELECT/INSERT/UPDATE` trên bảng nghiệp vụ; **không** `UPDATE/DELETE` trên bảng append-only (K8); `DELETE` chỉ trên bảng kỹ thuật được liệt kê (phiên, khóa idempotency, `dev_clock`); `EXECUTE` các hàm 2.4; DML trên schema `pgboss` |
-| `ottimo_readonly` | `LOGIN BYPASSRLS` | OPS qua runbook (khắc phục sự cố, đối soát) – không bao giờ là vai của ứng dụng | `SELECT` |
+| `ottimo_readonly` | `NOLOGIN BYPASSRLS` (mặc định; chặt hơn bản v0.2 – BUG-R1-SEC-06) | OPS qua runbook (khắc phục sự cố, đối soát) – không bao giờ là vai của ứng dụng. Khi cần: OPS bật `LOGIN` có hạn (`VALID UNTIL`) theo runbook, ghi lý do, tắt lại sau phiên (R3 – runbook production) | `SELECT` |
 
 - Biến môi trường: `DATABASE_URL` (vai `ottimo_app`) cho api/worker/test; `MIGRATION_DATABASE_URL` (vai `ottimo_migrator`) chỉ cho bước migrate. Áp cho cả DB `ottimo_test` và CI.
-- **Chốt mô hình 4 vai (BUG-R1-SEC-06, 16/10)**: giữ bảng trên (khuyến nghị SEC) – **không** đổi erd theo `infra/postgres/init/02-roles.sh` hiện tại
-  (`ottimo_owner` LOGIN, không có `ottimo_migrator`). Lý do: lộ `MIGRATION_DATABASE_URL` không được đăng nhập thẳng bằng chủ hàm `SECURITY DEFINER`;
-  `SET ROLE` để lại dấu vết. Việc của OPS (hạn: **trước migration đầu tiên R2**; R1 chưa có migration nên chưa gây hại): `ottimo_owner` → `NOLOGIN`
-  (không mật khẩu), thêm `ottimo_migrator LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE ottimo_owner` (biến `OTTIMO_MIGRATOR_DB_PASSWORD`),
-  `.env.example`/CI `MIGRATION_DATABASE_URL=postgres://ottimo_migrator:…`; test vai kiểm `ottimo_owner` không đăng nhập được. Tên 3 vai còn lại khớp hạ tầng.
+- **Chốt mô hình 4 vai (BUG-R1-SEC-06, 16/10)**: giữ bảng trên (khuyến nghị SEC). Lý do: lộ `MIGRATION_DATABASE_URL` không được đăng nhập thẳng bằng
+  chủ hàm `SECURITY DEFINER`; `SET ROLE` để lại dấu vết. **Đã làm (OPS, R2 tuần 1 – `rounds/round-02/outputs/OPS/w1-skeleton-run.md` mục 3.1)**:
+  `infra/postgres/init/02-roles.sh` tạo đúng 4 vai trên PostgreSQL 17.11 – `ottimo_owner` NOLOGIN không mật khẩu; `ottimo_migrator` LOGIN NOINHERIT,
+  thành viên owner kiểu `INHERIT FALSE, SET TRUE` (bắt buộc `SET ROLE`); `ottimo_app` không superuser/BYPASSRLS, không thuộc owner;
+  `ottimo_readonly` NOLOGIN BYPASSRLS; chạy lại được trên volume cũ. `db-role.test.ts` 5/5 xanh, không test nào bị bỏ qua.
 - **Yêu cầu OPS** (OPS sửa compose/CI/init – ARC không sửa file của OPS): script init tạo 4 vai trên; compose và CI tách 2 URL; api/worker **không** dùng `POSTGRES_USER` (superuser luôn bỏ qua RLS và REVOKE → test RLS/K8 vô nghĩa); `trustProxy` của Fastify giới hạn về địa chỉ/subnet của Caddy.
 - Khởi động api/worker kiểm `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` → phải `false,false`, nếu không thì dừng (SR-SECR-05(d)); test kiến trúc kiểm như vậy khi chạy test.
 
@@ -595,6 +595,9 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `agreed_checkout_time` | time null | Giờ trả đã xác nhận / trả muộn đã duyệt (US-030, B15) | | |
 | `guest_link_sent_at`, `has_contact_at_send` | | Chỉ cờ, không chép SĐT | | DATA S5 |
 | `internal_note` | text | lọc mẫu số thẻ | C2 | R-PAY-07 |
+| `group_id` | uuid FK `reservation_group` null | Nhóm đơn (SM-16) – cột tạo ở migration R2, luồng R3 | | BR-321 |
+| `external_contract` | bool not null default false | **Đơn dài hạn nhập tay R2** (US-017 AC5a, P-R2-3): HĐ ngoài hệ thống, chuyển vào app ở R3 **giữ nguyên `id` và `code`** (rủi ro R2-7). CHECK `NOT external_contract OR stay_type = 'long'`. Chỉ mục một phần (`property_id`) WHERE `external_contract` để lọc chuyển đổi | | US-017 AC5a |
+| `manual_long_stay` | jsonb null | `{monthly_rent_vnd, external_contract_ref, deposit_held_vnd, note}` – chỉ khi `external_contract`; không sinh `lease_contract`/`billing_period`/hoa hồng. R3 đọc để tạo HĐ | C2 | US-017 AC5a |
 
 Chỉ mục: (`property_id`,`status`,`arrival_date`), (`property_id`,`departure_date`) cho danh sách hôm nay; (`closer_user_id`) cho phạm vi M.
 
@@ -912,7 +915,7 @@ UK một phần chống sinh trùng: (`room_id`,`type`,`due_date`) WHERE `status
 
 **`dev_clock`** (chỉ dev/test/staging – ADR-008) – bảng 1 dòng `offset_ms bigint`, `frozen_at timestamptz null`, `updated_at`. `MutableClock` của api và worker đọc chung (cache 1 giây, `NOTIFY clock_changed`). Migration tạo bảng ở mọi môi trường nhưng production **dừng khởi động** nếu bảng có dòng hoặc `CLOCK_MODE ≠ system` (SR-SECR-05). Ngoại lệ RLS có ghi lý do (không dữ liệu khách).
 
-**`reservation_group`** (SM-16, BR-321…326) – nhóm đơn đoàn: `code` (`NH-xxxxx`, BR-007), `status` (`open|closed`), `lead_guest_id` (người đặt/người trả), `closer_user_id`, `created_at`, `closed_at`. `reservation.group_id` FK null. Mỗi căn vẫn là một đơn SM-01 riêng (chống trùng theo căn – đêm giữ nguyên). Cọc chung qua `payment.reservation_group_id` + `payment_allocation`; bill gộp qua `group_bill`. **Phạm vi**: bảng + cột tạo ở migration R2 (rẻ, tránh đổi khung); luồng G1–G5 và bill gộp theo PO chốt (nếu không kịp → R3).
+**`reservation_group`** (SM-16, BR-321…326) – nhóm đơn đoàn: `code` (`NH-xxxxx`, BR-007), `status` (`open|closed`), `booker_guest_id` (người đặt), `payer_guest_id` (người trả – có thể khác, ví dụ công ty trả; BR-321), `closer_user_id`, `created_at`, `closed_at`. `reservation.group_id` FK null. Mỗi căn vẫn là một đơn SM-01 riêng (chống trùng theo căn – đêm giữ nguyên). Cọc chung qua `payment.reservation_group_id` + `payment_allocation`; bill gộp qua `group_bill`. **Phạm vi**: bảng + cột tạo ở migration R2 (rẻ, tránh đổi khung); luồng G1–G5 và bill gộp theo PO chốt (nếu không kịp → R3).
 
 **`shift`** (SM-17, BR-526, P11) – ca làm việc: `user_id`, `status` (`open|closing|closed`), `opened_at`, `opening_cash_vnd`, `closing_started_at`, `counted_cash_vnd`, `expected_cash_vnd` (tính từ `payment` tiền mặt gắn ca), `variance_vnd`, `variance_reason`, `closed_at`, `reviewed_by`, `reviewed_at`, `handover_note`. UK một phần (`property_id`,`user_id`) WHERE `status <> 'closed'`. Tham số `shift_max_hours` → "Cần chú ý". Chênh lệch đã xử lý không sửa ca, chỉ tạo bút toán. **Phạm vi**: bảng R2 (cột `payment.shift_id` cần từ đầu); màn đóng ca theo PO (nếu không kịp → R3, khi đó `shift_id` cho phép null).
 
@@ -1277,3 +1280,4 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | 15/10/2026 | 1 – Đợt 3 (Pha B) | Bản đầu: 60+ bảng, RLS, 15 máy trạng thái, tham số, mã chứng từ, C3, thời hạn lưu, xung đột OTA | ARC |
 | 16/10/2026 | 1 – Bước 4 | v0.2: vai DB `ottimo_owner/migrator/app/readonly`; RLS `NULLIF` + `set_config` + hàm đường vào SECURITY DEFINER; `trusted_device`, `guest_verification_code`, bộ đếm theo token; `staff_notification`, `push_subscription`, `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `shift`, `payment_allocation`, `group_bill`; cột DATA v0.2 cho `stay_night`/`reservation`; `commission` đầy đủ; `payment.reconciliation`, `method_detail`; `inbox_message.filtered_payload`; `integration_log.cost_units`; FK cặp cơ sở; EXCLUDE DEFERRABLE; phân vùng nhật ký; OOO nửa mở; bill `F26-000123`; sức chứa theo căn; mục 16 chiến lược migration | ARC |
 | 16/10/2026 | 1 – Bước 5 | v0.2.1 (sửa lỗi QA/SEC – `rounds/round-01/qa/fix-notes-ARC.md`): `message_template.contains_c3` + render mẫu mã cửa tách riêng (SEC-01); 9.3 cột Người sửa · Biên, tham số bảo mật chỉ OWN, audit `security` (SEC-02); `guest_access_token.activation`/`replaces_token_id`/`first_opened_at` – link chờ không thu hồi link đang dùng (SEC-03); `guest_verification_code.code_hash` dùng `GUEST_CODE_SIGNING_KEY` (SEC-07); chốt 4 vai DB, giao OPS (SEC-06); đóng E7; SM-05 K1–K13 (BUG-R1-018) | ARC |
+| 16/10/2026 | 2 – Tuần 1 (W1, W11, BUG-R1-SEC-06) | 2.1 `ottimo_readonly` = **NOLOGIN** BYPASSRLS (khớp `02-roles.sh`), đoạn "việc của OPS" → đã làm (OPS W1); `reservation.group_id`, `external_contract`, `manual_long_stay` (US-017 AC5a); `reservation_group` tách `booker_guest_id`/`payer_guest_id` (BR-321) – khớp OpenAPI 0.3.0 (`reservation-groups`, `shifts`) | ARC |

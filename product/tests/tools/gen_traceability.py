@@ -25,7 +25,8 @@ Round 1 step 4 additions (QA responses FB-R1-BA-QA-02/03/04, FB-R1-PO-QA-03/07):
 
 Usage (from repo root):  python3 product/tests/tools/gen_traceability.py [--out PATH] [--strict]
   --out     write the matrix somewhere else (dry run); default product/docs/qa/traceability.md
-  --strict  exit 1 when the RBAC static check finds a role that OpenAPI grants but rbac-matrix denies (CI gate)
+  --strict  exit 1 when the RBAC static check finds a role that OpenAPI grants but rbac-matrix denies (operation or
+            field leak), a property with x-classification lacks x-rbac-field, or an x-rbac-field code is unknown (CI gate)
 """
 from __future__ import annotations
 
@@ -165,6 +166,7 @@ def parse_openapi():
     tags: list[str] = []
     prop = None
     visible = defaultdict(list)
+    occ: list[dict] = []  # one entry per schema property line: name, x-visible-to, x-rbac-field, x-classification (W2 R2)
     for line in t.splitlines():
         m = re.match(r'^    (get|post|put|patch|delete):\s*$', line)
         if m:
@@ -200,17 +202,39 @@ def parse_openapi():
         m = re.match(r'^\s+(\w+):\s*(\{.*\})?\s*$', line)
         if m and not line.strip().startswith('x-'):
             prop = m.group(1)
-            inline = re.search(r'x-visible-to:\s*(\[[^\]]*\])', m.group(2) or '')
+            body = m.group(2) or ''
+            ind = len(line) - len(line.lstrip())
+            cur_occ = {'name': prop, 'vs': None, 'field': None, 'cls': None, 'ind': ind}
+            if ind >= 8:  # schema properties; component names (4) and operation keys (6) are not properties
+                occ.append(cur_occ)
+            inline = re.search(r'x-visible-to:\s*(\[[^\]]*\])', body)
             if inline:
                 visible[prop].append(_yaml_list(inline.group(1)))
+                cur_occ['vs'] = _yaml_list(inline.group(1))
+            f = re.search(r'x-rbac-field:\s*(\w+)', body)
+            if f:
+                cur_occ['field'] = f.group(1)
+            c = re.search(r'x-classification:\s*(C\d)', body)
+            if c:
+                cur_occ['cls'] = c.group(1)
             continue
         m = re.match(r'^\s+x-visible-to:\s*(\[.*\])', line)
         if m and prop:
             visible[prop].append(_yaml_list(m.group(1)))
+            if occ and len(line) - len(line.lstrip()) == occ[-1]['ind'] + 2:
+                occ[-1]['vs'] = _yaml_list(m.group(1))
+        ind = len(line) - len(line.lstrip())
+        m = re.match(r'^\s+x-rbac-field:\s*(\w+)', line)
+        if m and prop and occ and ind == occ[-1]['ind'] + 2:
+            occ[-1]['field'] = m.group(1)
+        m = re.match(r'^\s+x-classification:\s*(C\d)', line)
+        if m and prop and occ and ind == occ[-1]['ind'] + 2:
+            occ[-1]['cls'] = m.group(1)
     by_story = defaultdict(list)
     for op, sts in ops.items():
         for s in sts:
             by_story[s].append(op)
+    parse_openapi.occurrences = occ  # read by rbac_check (x-rbac-field coverage, W2 R2)
     return ops, by_story, meta, visible
 
 
@@ -365,7 +389,7 @@ def _load_rbac_md():
                         if re.search(r'\b' + rc + r'\b', v):
                             row[ROLE_CODES[rc]] = 'Y'
             acts[code] = row
-        elif re.fullmatch(r'D\d{2}', code) and 'OWN/MGR' in header:
+        elif re.fullmatch(r'D\d{2}[a-z]?', code) and 'OWN/MGR' in header:
             row = {}
             for h, v in zip(header, cells):
                 for rr in h.split('/'):
@@ -408,7 +432,7 @@ def _field_level(v: str) -> str:
 # QA map: schema property -> rbac field code (until ARC tags properties with x-rbac-field)
 FIELD_MAP = {'dateOfBirth': 'D01', 'phone': 'D02', 'email': 'D02', 'phoneMasked': 'D02', 'relationship': 'D10',
              'childDisplayName': 'D09', 'companyName': 'D16', 'taxCode': 'D16', 'otaRef': 'D19',
-             'payerName': 'D14', 'freeNote': 'D12', 'internalNote': 'D12'}
+             'payerName': 'D14', 'freeNote': 'D12c', 'internalNote': 'D12c'}
 
 
 def rbac_check(meta, visible, acts, fields, op_actions=None):
@@ -457,16 +481,35 @@ def rbac_check(meta, visible, acts, fields, op_actions=None):
         if extra or lack or scope_lack:
             op_rows.append((op, m['method'], ','.join(codes), extra, lack, scope_lack))
     field_rows = []
-    for prop, sets in sorted(visible.items()):
-        code = FIELD_MAP.get(prop)
+    occ = getattr(parse_openapi, 'occurrences', None)
+    if occ is None:  # fallback: QA name map only
+        occ = [{'name': p, 'vs': vs, 'field': None, 'cls': None} for p, sets in visible.items() for vs in sets]
+    seen = set()
+    for o in occ:
+        if o['vs'] is None:
+            continue
+        code = o['field'] or FIELD_MAP.get(o['name'])  # ARC x-rbac-field wins over the QA name map (W2 R2)
         if not code or code not in fields:
             continue
-        for vs in sets:
-            leak = sorted(r for r in vs if fields[code].get(r) == 'none')
-            lack = sorted(r for r, lv in fields[code].items() if lv == 'full' and r != 'guest' and r not in vs)
-            if leak or lack:
-                field_rows.append((prop, code, vs, leak, lack))
+        vs = o['vs']
+        leak = sorted(r for r in vs if fields[code].get(r) == 'none')
+        lack = sorted(r for r, lv in fields[code].items() if lv == 'full' and r != 'guest' and r not in vs)
+        key = (o['name'], code, tuple(vs))
+        if (leak or lack) and key not in seen:
+            seen.add(key)
+            field_rows.append((o['name'], code, vs, leak, lack))
     return op_rows, field_rows, unknown
+
+
+def field_tag_check(fields):
+    """W2 R2: x-rbac-field coverage. -> (tagged count, untagged [(name, reason)], unknown field codes [(name, code)]).
+    Must be tagged: every property with x-classification (C2/C3) and every property in QA FIELD_MAP that carries x-visible-to."""
+    occ = getattr(parse_openapi, 'occurrences', []) or []
+    tagged = sum(1 for o in occ if o['field'])
+    untagged = sorted({(o['name'], f"x-classification {o['cls']}" if o['cls'] else 'x-visible-to + FIELD_MAP')
+                       for o in occ if not o['field'] and (o['cls'] or (o['vs'] is not None and o['name'] in FIELD_MAP))})
+    unknown = sorted({(o['name'], o['field']) for o in occ if o['field'] and o['field'] not in fields})
+    return tagged, untagged, unknown
 
 
 # ---------------------------------------------------------------- BR / triage / wireframes
@@ -561,6 +604,7 @@ def main(argv=None):
     sms = parse_state_machines()
     acts, rfields, op_actions, rbac_src = load_rbac()
     op_bad, field_bad, rbac_unknown = rbac_check(op_meta, visible, acts, rfields, op_actions)
+    f_tagged, f_untagged, f_unknown = field_tag_check(rfields)
     br_cat = parse_br_catalogue()
     triage = parse_triage()
     wf_hdr = parse_wireframes()
@@ -845,6 +889,16 @@ def main(argv=None):
         w('')
         w('Mã `x-rbac` không có trong rbac-matrix: ' + ', '.join(f'{o}→{"/".join(c)}' for o, c in rbac_unknown))
     w('')
+    w(f'Phủ `x-rbac-field` (W2 R2): {f_tagged} thuộc tính đã gắn mã Dxx; thiếu mã: {len(f_untagged)}; mã Dxx lạ: {len(f_unknown)}. '
+      'Bắt buộc gắn: mọi thuộc tính có `x-classification` và mọi thuộc tính có `x-visible-to` nằm trong `FIELD_MAP`. '
+      'So sánh trường dùng `x-rbac-field` trước, `FIELD_MAP` chỉ là dự phòng.')
+    if f_untagged:
+        w('')
+        w('Thuộc tính thiếu `x-rbac-field`: ' + ', '.join(f'`{n}` ({r})' for n, r in f_untagged))
+    if f_unknown:
+        w('')
+        w('Mã `x-rbac-field` không có trong rbac-matrix mục 6: ' + ', '.join(f'`{n}`→{c}' for n, c in f_unknown))
+    w('')
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(L))
     # console summary
@@ -858,8 +912,10 @@ def main(argv=None):
     print(f'Transitions covered: {cov_tr}/{total_tr}; bad SM refs: {bad_sm_refs}')
     print('Empty transitions:', [f'{sm} {row["id"]}' for sm, v in sms.items() for row in v['rows'] if not tc_by_tr.get((sm, row['id']))])
     print(f'RBAC ({rbac_src}): ops mismatched {len(op_bad)}; fields mismatched {len(field_bad)}; unknown codes {rbac_unknown}')
+    print(f'x-rbac-field: tagged {f_tagged}; untagged {f_untagged}; unknown codes {f_unknown}')
     print(f'Smoke: {sum(r["smoke"] for r in tcs)}; written to {out_path}')
-    if strict and any(extra for _, _, _, extra, _, _ in op_bad):
+    if strict and (any(extra for _, _, _, extra, _, _ in op_bad) or any(leak for _, _, _, leak, _ in field_bad)
+                   or f_untagged or f_unknown):
         sys.exit(1)
 
 
