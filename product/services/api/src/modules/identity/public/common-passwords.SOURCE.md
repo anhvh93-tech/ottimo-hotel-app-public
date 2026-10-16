@@ -7,9 +7,9 @@ Quyết định nguồn: `rounds/round-02/outputs/SEC/s1-decisions.md` mục 2. 
 
 | Mục | Giá trị |
 |---|---|
-| Số dòng | **9.684** (chỉ nguồn B) – **chưa đủ 10.000** → staging/production chưa khởi động được |
-| SHA-256 | `bbabf8ee6ab3151db2efaaaf2347ed255765d9754fe1633de2c6c06874c1910c` |
-| Nguồn A (SecLists) | **CHƯA NHẬP** – môi trường BE không được phép tự tải tệp từ Internet; cần người có quyền tải (xem dưới) |
+| Số dòng | **18.733** (nguồn B 9.684 + nguồn A thêm 9.049) – đạt ≥ 10.000 |
+| SHA-256 | `330c81189fb337601957ebae857cd2d9fda9ee4a3354d2f0d8efea9804f62934` |
+| Nguồn A (SecLists) | Đã nhập 16/10/2026 (ORC, INV cho phép): `Passwords/Common-Credentials/100k-most-used-passwords-NCSC.txt` tại commit `2d1efd26a4bc0da0a4627040f531c915bb17d604` |
 | Nguồn B | danh sách tự soạn `common-password-bases.json` (từ gốc tiếng Việt/khách sạn/thương hiệu theo SEC + họ, tên phổ biến) × hậu tố năm 2020–2030, `123…`, `@123`, `!`… và ghép đôi từ gốc |
 
 ## Nguồn
@@ -40,3 +40,4 @@ sắp xếp theo code point; UTF-8 không BOM, mỗi dòng một mục.
 | Ngày | Người | Nguồn A (commit SecLists) | Số dòng | SHA-256 |
 |---|---|---|---|---|
 | 16/10/2026 | BE-B | – (chưa nhập) | 9684 | bbabf8ee6ab3151db2efaaaf2347ed255765d9754fe1633de2c6c06874c1910c |
+| 16/10/2026 | ORC (INV cho phép tải) | `2d1efd26a4bc0da0a4627040f531c915bb17d604` – tệp `100k-most-used-passwords-NCSC.txt` (835.538 byte, SHA-256 tệp gốc `c2e5696882c603b76bb67a47ee970897e5a76fc4c3f5547abe3d0ca340c576e0`); giấy phép repo SecLists: MIT (kiểm qua GitHub API ngày tải); tệp gốc không lưu trong repo | 18733 | 330c81189fb337601957ebae857cd2d9fda9ee4a3354d2f0d8efea9804f62934 |
