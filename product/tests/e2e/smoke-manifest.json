@@ -29,11 +29,12 @@
       "story": "US-002/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – createReservation (biến thể listUsers đã viết)",
+      "status": "implemented",
       "title": "`403 FORBIDDEN_ACTION`; không tạo đơn; `audit_event` có người = `qa.hk`, hành động = A01/createReservation, đối tượng (c",
       "endpoints": "createReservation, listAuditEvents",
-      "note": "Biến thể Sprint 1 (listUsers thay createReservation) ở api/audit-approvals.api.spec.ts; ca gốc chờ createReservation (Sprint 2)"
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Ca gốc createReservation (Sprint 2); biến thể listUsers vẫn ở api/audit-approvals.api.spec.ts",
+      "spec": "api/reservations.api.spec.ts",
+      "project": "api"
     },
     {
       "tc": "TC-NT-028",
@@ -103,9 +104,9 @@
       "status": "implemented",
       "title": "100% trả `403 FORBIDDEN_ACTION` (khách: 401/403), mỗi lần 1 `audit_event`; vai ô `M` với dữ liệu người khác → 404; vai r",
       "endpoints": "(mọi operation)",
-      "spec": "rbac/rbac-sprint1.spec.ts",
+      "spec": "rbac/rbac-sprint1.spec.ts, rbac/rbac-sprint2.spec.ts",
       "project": "rbac",
-      "note": "Runner từ rbac-cases.json – lượt này phủ operation Sprint 1 (385 ca); operation Sprint 2+ thêm vào rbac/sprint1-ops.ts khi có"
+      "note": "Runner từ rbac-cases.json – Sprint 1 (385 ca) + Sprint 2 (385 ca, 35 operation EP02/EP11/US-139); operation Sprint 3+ thêm file sprint3-ops.ts"
     },
     {
       "tc": "TC-RB-022",
@@ -133,60 +134,72 @@
       "story": "US-018/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "`409 ROOM_UNAVAILABLE`, `conflicts[]` = đêm 21/10; thông báo nêu khoảng ngày trùng (và tên khách với vai được xem) + gợi",
-      "endpoints": "createReservation"
+      "endpoints": "createReservation",
+      "spec": "api/booking-conflicts.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build."
     },
     {
       "tc": "TC-L2-021",
       "story": "US-018/AC2",
       "layers": "P+A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Mỗi lần đúng 1 thành công, phiên kia `409 ROOM_UNAVAILABLE` → giao diện \"Căn vừa được đặt\", dữ liệu form còn nguyên; `ro",
-      "endpoints": "createReservation"
+      "endpoints": "createReservation",
+      "spec": "api/concurrency.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. N yêu cầu song song (E2E_DOUBLE_BOOK_N, mặc định 8) × E2E_DOUBLE_BOOK_ROUNDS (20) vòng, nhiều phiên; phần UI ở ui/rack-booking.smoke.spec.ts (chờ FE)"
     },
     {
       "tc": "TC-L2-024",
       "story": "US-018/AC5; US-139/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "(1) `409 ROOM_UNAVAILABLE` kèm danh sách căn trống cùng nhóm (202); không tạo đơn, không tự đổi căn; (2) đơn tạo ở 202, ",
-      "endpoints": "createReservation, getRack, listOverbookingIncidents, listAttentionItems"
+      "endpoints": "createReservation, getRack, listOverbookingIncidents, listAttentionItems",
+      "spec": "api/booking-conflicts.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. (1)(2) và (3) cùng TC-L2-027/028"
     },
     {
       "tc": "TC-L2-052",
       "story": "US-021/AC3",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Đơn `cancelled`; `room_occupancy.active=false`; rack trống ngay; 1 lệnh outbox mở phòng; khai báo `void`; hoa hồng `void",
-      "endpoints": "cancelReservation, getRack"
+      "endpoints": "cancelReservation, getRack",
+      "spec": "api/reservations.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Phần outbox/khai báo/hoa hồng chưa có API đọc – kiểm ở tầng A của BE"
     },
     {
       "tc": "TC-L2-053",
       "story": "US-021/AC4",
       "layers": "A+U",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Hoàn/phí: 7 ngày → hoàn 700.000; 5 ngày → hoàn 350.000, phí hủy 350.000 (ví dụ BR-309); 3 ngày → hoàn 350.000; 2 ngày → ",
-      "endpoints": "cancelReservation, listApprovalRequests"
+      "endpoints": "cancelReservation, listApprovalRequests",
+      "spec": "api/reservations.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Dùng cancel dryRun (không ghi) với ngày đến = hôm nay + 7/5/3/2; oracle BR-309-02/03/05/06"
     },
     {
       "tc": "TC-L2-074",
       "story": "US-136/AC4",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "(a) đơn `confirmed` (FD tự làm khi đủ 3 điều kiện BR-315), đóng lại phòng (outbox), khai báo `void` → `none`, `qa.mgr` n",
-      "endpoints": "restoreNoShow, getRegistration, listAuditEvents"
+      "endpoints": "restoreNoShow, getRegistration, listAuditEvents",
+      "spec": "clock/no-show.clock.spec.ts",
+      "project": "clock",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Project clock (MutableClock) – CI hoặc E2E_CLOCK_CONTROL=1"
     },
     {
       "tc": "TC-L3-001",
@@ -293,70 +306,84 @@
       "story": "US-080/AC1",
       "layers": "U+A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
-      "title": "792.000 (giá đêm niêm yết 202, BR-101) × 0,9 = 712.800 → 713.000/đêm (BR-005) × 7 = 4.991.000; cọc 1.500.000; hoa hồng C",
-      "endpoints": "calculateQuote"
+      "status": "implemented",
+      "title": "Giá đêm sau lịch giá 792.000 × 5, 911.000 × 2 → giảm 10%: 713.000 / 820.000; tổng 5.205.000; cọc 1.600.000; hoa hồng CTV 8% = 416.400 (oracle BR-107-01, BR-305-01, BR-903-01)",
+      "endpoints": "calculateQuote",
+      "spec": "api/quotes-holds.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Ngày cố định của oracle BR-107-01 (9/11/2026) – tự skip khi đã qua"
     },
     {
       "tc": "TC-L5-021",
       "story": "US-084/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Đơn `hold`, hạn 12:00 16/10 (không phải 20:00 16/10 – ví dụ BR-302); rack viền đứt + bộ đếm; căn bị chặn bán; 1 lệnh out",
-      "endpoints": "createHoldFromQuote, getRack"
+      "endpoints": "createHoldFromQuote, getRack",
+      "spec": "api/quotes-holds.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Giờ thật (dung sai 2 phút); biên chính xác BR-302-01 ở clock/hold-expiry.clock.spec.ts (TC-L5-022)"
     },
     {
       "tc": "TC-L5-026",
       "story": "US-085/AC1",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "11:59:59: vẫn `hold`; sau hạn: `cancelled`, lý do \"Hết hạn giữ chỗ\", `room_occupancy` inactive, outbox mở phòng, lead → ",
-      "endpoints": "getReservation, getRack"
+      "endpoints": "getReservation, getRack",
+      "spec": "clock/hold-expiry.clock.spec.ts",
+      "project": "clock",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. J1 hold.expire qua /__test__/jobs/hold.expire/run"
     },
     {
       "tc": "TC-X-001",
       "story": "US-018/AC2",
       "layers": "P",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Đúng 1 `201`, 49 `409 ROOM_UNAVAILABLE`, 0 lỗi 5xx; 1 dòng `room_occupancy` active; mã đơn không bị \"tiêu\" (không hở số ",
-      "endpoints": "createReservation"
+      "endpoints": "createReservation",
+      "spec": "api/concurrency.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. E2E_DOUBLE_BOOK_N_X001 (mặc định 50); \"mã đơn không bị tiêu\" kiểm ở tầng A (stack dùng chung có đơn song song khác)"
     },
     {
       "tc": "TC-X-002",
       "story": "US-018/AC4",
       "layers": "P+A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Đúng 1 thành công",
-      "endpoints": "createReservation, createHoldFromQuote, createRoomBlock"
+      "endpoints": "createReservation, createHoldFromQuote, createRoomBlock",
+      "spec": "api/concurrency.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build."
     },
     {
       "tc": "TC-X-003",
       "story": "US-086/–",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Một lần chuyển `confirmed`, lần kia `412`/`409`; chỉ 1 hoa hồng `projected`",
-      "endpoints": "confirmDeposit"
+      "endpoints": "confirmDeposit",
+      "spec": "api/concurrency.api.spec.ts",
+      "project": "api",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Phần \"chỉ 1 hoa hồng projected\" chờ API hoa hồng theo đơn"
     },
     {
       "tc": "TC-X-004",
       "story": "US-085/AC4",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 2 – EP02/EP11 đặt phòng, chống trùng, giữ chỗ, cọc",
+      "status": "implemented",
       "title": "Không bao giờ vừa `cancelled` vừa `confirmed`; kết quả: `confirmed` (tiền trước hạn)",
-      "endpoints": "confirmDeposit, getReservation"
+      "endpoints": "confirmDeposit, getReservation",
+      "spec": "clock/hold-expiry.clock.spec.ts",
+      "project": "clock",
+      "note": "Viết sẵn Sprint 2 – tự skip có mã TC khi endpoint chưa có trên build. Cùng TC-L5-030 (a)"
     },
     {
       "tc": "TC-SEC-001",

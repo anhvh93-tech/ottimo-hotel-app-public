@@ -1,6 +1,6 @@
 # Sơ đồ trạng thái – OTTIMO Desk
 
-- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
+- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.2.3 (R2 Sprint 2: trả lời ARC Q-B1, Q-B2; R4 kiểm không đạt; SM-15 tự ghi đã nhận). 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
 - Nguồn: `business-rules.md` (mã **BR-xxx** – nguồn sự thật duy nhất cho mọi con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `security/data-risk-assessment.md` (**SEC**), `PRD.md`, `03-backlog/backlog.md` (**US-xxx**), `rbac-matrix.md` (mã vai).
 - Tài liệu này **không chép con số nghiệp vụ**. Mọi mốc giờ, hạn, tỷ lệ, hạn mức đều là tham số trong `business-rules.md` mục 13, ghi bằng mã BR.
 - Đọc cùng: `rbac-matrix.md` (vai được phép), `business-processes.md` (quy trình), `use-cases.md` (UC-xx).
@@ -193,7 +193,7 @@ stateDiagram-v2
 | R1 | `VD`/`OD` → `CL` | Bắt đầu dọn | Có việc dọn mở cho căn (SM-14) – nếu chưa có thì tạo | HK | Việc dọn → `in_progress` |
 | R2 | `CL` → `OC` | Dọn xong (căn còn đơn `in_house`) | – | HK | Việc dọn → `done` (BL 5.15) |
 | R3 | `CL` → `VC` | Dọn xong (không còn đơn `in_house`) | – | HK | Việc dọn → `done`; căn chờ kiểm |
-| R4 | `VC` → `VI` | Kiểm phòng đạt | Checklist BR-808 đủ mục; người kiểm theo BR-802: FDL+/MGR, **hoặc** HK tự kiểm khi đủ checklist + ảnh và cấu hình cơ sở cho phép (ca chỉ 1 người) | FDL+, HK (có điều kiện) | Lưu biên bản kiểm (người, giờ, ảnh) |
+| R4 | `VC` → `VI` | Kiểm phòng đạt | Checklist BR-808 đủ mục; người kiểm theo BR-802: FDL+/MGR, **hoặc** HK tự kiểm khi đủ checklist + ảnh và cấu hình cơ sở cho phép (ca chỉ 1 người) | FDL+, HK (có điều kiện) | Lưu biên bản kiểm (người, giờ, ảnh). **Không đạt**: buồng **giữ `VC`** (không có `VC → CL`), SYS tạo việc `adhoc_clean` "Dọn lại theo kiểm phòng" kèm các mục không đạt; HK làm xong → kiểm lại `[GIẢ ĐỊNH BA – DOM xác nhận; EP07-08 mục 4.4]` |
 | R5 | `VI` → `VC` | Quá hạn chờ khách | Không có khách theo BR-805 | SYS | Cần kiểm lại |
 | R6 | `VC`/`VI` → `OC` | Nhận phòng (B9) | – | SYS (theo SM-01) | – |
 | R7 | `VD` → `OD` | Nhận phòng ngoại lệ (B9 khi buồng chưa sẵn sàng) | FDL+ xác nhận có lý do (BR-402) | SYS (theo SM-01) | Tạo việc dọn ưu tiên cao |
@@ -277,7 +277,7 @@ stateDiagram-v2
 | K3 | `pre`/`none` → `partial`/`review` | Nhập/đối chiếu giấy tờ | Mỗi người: loại giấy, số, họ tên, ngày sinh, quốc tịch; NN thêm hạn hộ chiếu, thị thực, ngày nhập cảnh (BR-606); trẻ em theo BR-612 | FD+ | Ghi nhật ký C3 mỗi lần xem/nhập (SEC R-REG-09) |
 | K4 | `partial` → `review` | Đủ người | Số người có giấy tờ ≥ số khách đơn | SYS | – |
 | K5 | `review` → `scanned` | Đối chiếu xong | Đối chiếu tự động đã chạy và lễ tân xử lý mọi cảnh báo: tên khớp đơn, hạn hộ chiếu so thật, thị thực đến ngày trả, ngày đi khai không vượt hạn tạm trú (BR-605) – cảnh báo **không chặn** nhận phòng (SEC R-REG-03) nhưng phải có ghi chú xử lý; trạng thái đồng ý lưu ảnh đã ghi (có / không) | FD+ | Không đồng ý → đánh dấu ảnh "xóa sau khi khai báo xong" (BR-609) |
-| K6 | `scanned` → `sent` | Đã khai | Lễ tân chọn đúng loại (NN / công dân VN, BR-602/603/606), sao chép dữ liệu, tự đăng nhập cổng (SEC R-REG-06), dán mã hồ sơ | FD+ | Ghi người khai, thời điểm, mã hồ sơ |
+| K6 | `scanned` → `sent` | Đã khai | Lễ tân chọn đúng loại (NN / công dân VN, BR-602/603/606), sao chép dữ liệu, tự đăng nhập cổng (SEC R-REG-06), dán mã hồ sơ. **Khai báo `mixed`** (có cả khách VN và NN – hai lần khai trên cổng): mỗi khối ghi mã riêng (`portalReferences[]` theo `kind`, có `sentAt` riêng); khai báo chỉ chuyển `sent` khi **mọi** khối đã có mã – trước đó giữ `scanned`, khối còn thiếu vẫn tính hạn riêng (BR-602 cho khối VN, BR-603 cho khối NN) và "Cần chú ý" hiện hạn sớm nhất chưa xong (trả lời ARC Q-B2) | FD+ | Ghi người khai, thời điểm, mã hồ sơ (từng khối) |
 | K7 | `sent` → `confirmed` | Cổng xác nhận | Lễ tân ghi nhận xác nhận | FD+ | Áp hạn lưu ảnh (BR-610); ảnh của người **không đồng ý** xóa ngay khi `confirmed`, 24 giờ là hạn trên nếu job xóa chạy trễ (decision-log SEC M3) |
 | K8 | `sent` → `scanned` | Cổng từ chối | Ghi lý do từ chối | FD+ | Sửa dữ liệu, khai lại |
 | K9 | `confirmed`/`updated` → `needs_update` | Thay đổi phải cập nhật | Với hồ sơ NN: gia hạn (B13), trả sớm (B16), trả phòng (B18), gia hạn HĐ, đổi giấy tờ (BR-604, BR-608); với mọi hồ sơ: thêm người giữa chừng (BR-601) | SYS | Tạo việc "Cập nhật ngày đi / khai bổ sung" cho FD trong ngày (BR-604) |
@@ -452,7 +452,7 @@ Mỗi khoản thu/hoàn là một giao dịch gắn folio (BR-521). OTTIMO khôn
 |---|---|---|
 | [*] → `pending` | Tạo yêu cầu thu online (VietQR động, link VNPay/MoMo – R3) | FD+, SAL, SYS |
 | [*] → `succeeded` | Ghi nhận thu tay (tiền mặt, chuyển khoản đã thấy tiền, "đã thu qua OTA"). Chuyển khoản/VietQR ghi tay mang cờ **`reconciliation = pending`** (chờ đối soát); tiền mặt gắn với **ca** đang mở (SM-17) | FD+, SAL (cọc đơn của mình) |
-| `pending` → `succeeded` | IPN/webhook đã xác thực chữ ký và khớp số tiền (decision-log INT), hoặc FD+ xác nhận đã thấy tiền | SYS, FD+ |
+| `pending` → `succeeded` | IPN/webhook đã xác thực chữ ký và khớp số tiền (decision-log INT), hoặc người dùng xác nhận đã thấy tiền VietQR (`confirmPaymentReceived`, OpenAPI 0.3.3) → `reconciliation = pending`; người xác nhận **không** được tự đối soát (A46) | SYS, FD+, SAL (chỉ cọc đơn của mình – như A33 M; trả lời ARC Q-B1) |
 | `pending` → `failed` / `expired` | Cổng báo lỗi / quá hạn link | SYS |
 | `succeeded` → `reversed` | Ghi sai: tạo giao dịch đảo (không xóa – BR-008) | MGR+ |
 
@@ -500,7 +500,7 @@ Thứ tự ưu tiên danh sách việc theo BR-807. Việc "Chuẩn bị bộ đ
 |---|---|---|
 | [*] → `new` | Khách gửi (6 loại, BR-811) | GST |
 | `new` → `acknowledged` | Bộ phận được định tuyến bấm "Đã nhận" – đo thời hạn phản hồi BR-811; ngoài giờ trực → SYS trả lời tự động | FD+, HK, MT theo loại; SYS |
-| `acknowledged` → `in_progress` | Tạo việc HK (SM-14) / phiếu sửa (SM-04) / ghi chú lễ tân | SYS, người nhận |
+| `acknowledged` → `in_progress` | Việc HK (SM-14) liên kết bắt đầu / phiếu sửa (SM-04) liên kết được nhận (W2); việc/phiếu được **sinh ngay lúc tạo yêu cầu** (BR-811). Bắt đầu việc/nhận phiếu khi yêu cầu còn `new` → SYS ghi luôn `acknowledgedAt` rồi chuyển `in_progress` `[GIẢ ĐỊNH BA – EP14 mục 4.4]` | SYS, người nhận |
 | `in_progress` → `done` | Việc/phiếu liên kết `done`, hoặc lễ tân trả lời xong | SYS, FD+ |
 | `new`/`acknowledged` → `declined` | Không thực hiện được, ghi lý do gửi khách | FD+ |
 
@@ -591,3 +591,4 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | 16/10/2026 | 1 (bước 5) | SM-05 thêm K13 `review → partial` (sự kiện `change_party`) cho khớp sơ đồ – BUG-R1-001; ERD mục 5 cần sửa thành "K1–K13" (ARC, BUG-R1-018) | BA |
 | 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |
 | 16/10/2026 | 2 (Đợt 0) | **SM-16 G4** (và G3) chốt một nguồn = **rbac A23/A05/A06** (khớp OpenAPI 0.3): thêm/bớt đơn khỏi nhóm FD+, SAL/CTV phạm vi của mình (CTV chỉ đơn `hold`); bỏ ghi "FD+" cũ – theo đề nghị ARC (w1-report). B1 ghi rõ cách tính sức chứa (ESC-014). B2 + SM-14: việc HK chuẩn bị/chuyển/thu hồi bộ đồ dùng thêm (BR-812) | BA |
+| 16/10/2026 | 2 (Sprint 2) | Trả lời ARC Q-B1 (SM-12 `pending → succeeded` thêm SAL cọc đơn của mình) và Q-B2 (K6 khai báo `mixed` – `sent` khi mọi khối có mã); R4 ghi rõ kết quả kiểm không đạt; SM-15 việc/phiếu sinh lúc tạo yêu cầu + tự ghi "đã nhận" – theo specs EP07-08, EP14 | BA |

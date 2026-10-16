@@ -8,7 +8,10 @@
      a dialog containing a form that was edited asks "Bỏ các thay đổi chưa lưu?" before closing (DS §6.2);
      focus returns to the opener (DS C15, WCAG 2.4.3).
    - Seg / switch / stepper / tabs demos. Occupancy calculator for booking/quote forms (BR-110, ESC-014).
-   - R2 Sprint 3: surcharge preview [data-sur] (BR-411/412/414, ân hạn 12:30), [data-enables] checkbox → nút. */
+   - R2 Sprint 3: surcharge preview [data-sur] (BR-411/412/414, ân hạn 12:30), [data-enables] checkbox → nút.
+   - R2 Sprint 4 (H19–H24): [data-countdown] toast Hoàn tác 10 giây (gửi trễ – lệnh nằm trong hàng đợi 10 giây rồi mới gửi),
+     [data-undo-start] bắt đầu lại, [data-undo] hủy lệnh; [data-filter] lọc thẻ căn theo [data-kind];
+     [data-checklist] đếm mục bắt buộc đã tick → mở [data-checklist-submit]; [data-unhide] hiện phần tử (mô phỏng sự kiện SSE). */
 (function () {
   var S = window.OTTIMO_STRINGS || { vi: {}, en: {} };
   var LANG = 'vi';
@@ -191,6 +194,51 @@
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     var tabs = Array.prototype.slice.call(tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]'));
     var i = tabs.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : -1); i = (i + tabs.length) % tabs.length; tabs[i].focus(); tabs[i].click();
+  });
+
+  /* ---------- R2 Sprint 4: hoàn tác 10 giây (gửi trễ), bộ lọc, checklist, mô phỏng SSE ---------- */
+  var timers = new WeakMap();
+  function cdRender(box, n) {
+    box.querySelectorAll('[data-cd-label]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n'); el.setAttribute('data-i18n-args', JSON.stringify({ s: n })); el.textContent = t(k, { s: n });
+    });
+  }
+  function cdStart(box) {
+    if (!box) return; clearInterval(timers.get(box)); box.hidden = false;
+    var n = parseInt(box.getAttribute('data-countdown') || '10', 10); cdRender(box, n);
+    timers.set(box, setInterval(function () {
+      n -= 1; cdRender(box, Math.max(n, 0));
+      if (n <= 0) { clearInterval(timers.get(box)); box.hidden = true; var live = document.getElementById('doc-live'); if (live) live.textContent = t('hk.sent_after_undo'); }
+    }, 1000));
+  }
+  document.addEventListener('click', function (e) {
+    var el;
+    if ((el = e.target.closest('[data-undo-start]'))) { cdStart(document.querySelector(el.getAttribute('data-undo-start'))); return; }
+    if ((el = e.target.closest('[data-undo]'))) {
+      var box = el.closest('[data-countdown]'); if (box) { clearInterval(timers.get(box)); box.hidden = true; }
+      var live = document.getElementById('doc-live'); if (live) live.textContent = t('hk.undone'); return;
+    }
+    if ((el = e.target.closest('[data-filter]'))) {
+      var scope = el.closest('[data-filter-scope]') || document, f = el.getAttribute('data-filter');
+      el.parentElement.querySelectorAll('[data-filter]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === el)); });
+      scope.querySelectorAll('[data-kind]').forEach(function (c) { c.hidden = f !== 'all' && (' ' + c.getAttribute('data-kind') + ' ').indexOf(' ' + f + ' ') < 0; });
+      return;
+    }
+    if ((el = e.target.closest('[data-unhide]'))) {
+      document.querySelectorAll(el.getAttribute('data-unhide')).forEach(function (x) { x.hidden = false; x.classList.remove('is-new'); void x.offsetWidth; x.classList.add('is-new'); });
+      var lv = document.getElementById('doc-live'); if (lv && el.getAttribute('data-announce')) lv.textContent = t(el.getAttribute('data-announce'));
+    }
+  });
+  function checklist(box) {
+    var req = box.querySelectorAll('input[type=checkbox][data-req]'), done = 0;
+    req.forEach(function (c) { if (c.checked) done++; });
+    box.querySelectorAll('[data-checklist-count]').forEach(function (o) { var k = o.getAttribute('data-i18n'); var a = { n: done, total: req.length }; o.setAttribute('data-i18n-args', JSON.stringify(a)); o.textContent = t(k, a); });
+    box.querySelectorAll('[data-checklist-submit]').forEach(function (b) { if (done === req.length) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); });
+  }
+  document.addEventListener('change', function (e) { var b = e.target.closest('[data-checklist]'); if (b) checklist(b); });
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-checklist]').forEach(checklist);
+    document.querySelectorAll('[data-countdown][data-autostart]').forEach(cdStart);
   });
 
   document.addEventListener('DOMContentLoaded', function () { setLang(document.documentElement.getAttribute('data-init-lang') || 'vi'); });

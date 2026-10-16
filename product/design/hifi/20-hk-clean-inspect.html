@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H20 Buồng phòng – dọn, đổi trạng thái, hoàn tác 10 giây, kiểm phòng – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H20</div>
+  <h1>H20 · PWA buồng phòng – dọn căn, đổi trạng thái bằng câu thường, hoàn tác 10 giây, kiểm phòng 12 điểm, khách không muốn dọn, minibar</h1>
+  <div class="doc-meta"><span>Sprint 4 (MOB)</span><span>housekeeping · front_desk_lead (kiểm phòng)</span><span>Điện thoại · mật độ HK</span><span>US-053 AC1–AC4, US-055 AC1–AC2, US-054 AC3, US-058, BR-802, BR-808, BR-703</span><span>SM-03 R1–R4, R8 · SM-14</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="19-hk-tasks.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="21-hk-incident-queue.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<div class="note-rbac"><b>Chuyển trạng thái (BR-802, SM-03):</b> Cần dọn → <b>Bắt đầu dọn</b> → Đang dọn → <b>Dọn xong</b> → "Đã dọn – chờ kiểm" (căn trống) hoặc "Khách đang ở – đã dọn" (còn khách). "Đã dọn – chờ kiểm" → "Sẵn sàng đón khách" chỉ qua <b>kiểm phòng</b> (lễ tân trưởng trở lên; buồng phòng tự kiểm khi cơ sở bật <code>hk_self_inspection_enabled</code> + đủ checklist + ảnh). Vào/ra "Đang sửa" chỉ qua phiếu sửa (H22). Nút hiện = <code>allowedEvents</code> của server.</div>
+
+<section class="doc-sec" aria-labelledby="s201">
+  <h2 id="s201"><span class="no">20.1</span>Căn 202 – đang dọn trả phòng → Dọn xong</h2>
+  <p class="lead">Sau "Bắt đầu dọn" (19.1) căn chuyển "Đang dọn", màn căn mở ra. Một nút chính duy nhất ở đáy: <b>Dọn xong</b>. Báo sự cố của căn này luôn ở cuối. Đổi trạng thái để xem tải / lỗi / mất mạng.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal">
+      <header class="m-top"><a class="btn icon-btn" href="19-hk-tasks.html" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1><span data-i18n="hk.room_title" data-i18n-args='{"room":"202"}'>Căn 202</span><span class="sub" data-i18n="hk.status.CL">Đang dọn</span></h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline">
+          <div class="hk-card"><b data-i18n="hk.type.checkout_clean">Dọn trả phòng</b>
+            <ul class="list-plain mt-8"><li data-i18n="hk.linen_change">Thay ga gối</li><li data-i18n="hk.step.bath">Vệ sinh nhà tắm, thay khăn</li><li data-i18n="hk.step.kitchen">Lau bếp, đổ rác, kiểm tủ lạnh</li><li data-i18n="hk.step.amenity">Bổ sung đồ dùng, nước suối</li></ul>
+            <div class="meta mt-8"><span data-i18n="hk.next_arrival" data-i18n-args='{"when":"16/10 14:00"}'>Khách đến tiếp: 16/10 14:00</span></div>
+          </div>
+          <div class="hk-card"><b data-i18n="hk.started_at" data-i18n-args='{"time":"10:31"}'>Bắt đầu lúc 10:31</b><p class="li-s mt-4 m-0" data-i18n="hk.finish_help_vacant">Bấm Dọn xong khi đã làm hết. Căn sẽ chuyển "Đã dọn – chờ kiểm" và lễ tân trưởng được báo đi kiểm.</p></div>
+          <a class="btn xl block mt-12" href="21-hk-incident-queue.html#s211"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="hk.report_this_room">Báo sự cố căn này</span></a>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-120"></div><div class="sk h-80"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="hk.room_no_task_title">Căn này không có việc hôm nay</h3><p data-i18n="hk.room_no_task_body">Lễ tân giao việc mới thì sẽ hiện ở đây.</p></div></div>
+        <div data-show="error"><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="hk.err.transition_title" data-i18n-args='{"room":"202"}'>Căn 202 vừa được đổi ở chỗ khác</b><span data-i18n="hk.err.invalid_transition" data-i18n-args='{"room":"202","status":"Đang sửa – không bán"}'>Căn 202 hiện là "Đang sửa – không bán", nên chưa bấm Dọn xong được. Không cần làm lại – xem lại danh sách việc.</span></div></div><a class="btn xl block" href="19-hk-tasks.html" data-i18n="hk.back_to_tasks">Về danh sách việc</a></div>
+      </div>
+      <div class="wiz-foot" data-show="normal offline"><button class="btn pri xl block" data-undo-start="#undo201"><span data-i18n="hk.action.finish_cleaning">Dọn xong</span></button></div>
+      <div class="toast-dock" data-countdown="10" id="undo201" hidden><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="hk.toast.room_status" data-i18n-args='{"room":"202","status":"Đã dọn – chờ kiểm"}'>Căn 202: Đã dọn – chờ kiểm</span><button class="btn" data-undo=""><svg class="ico" aria-hidden="true"><use href="#i-undo"/></svg><span data-cd-label="" data-i18n="hk.undo_btn" data-i18n-args='{"s":"10"}'>Hoàn tác (10)</span></button></div></div>
+    </div><p class="frame-cap">Bấm "Dọn xong" để xem toast Hoàn tác 10 giây (mất mạng: vẫn bấm được).</p></div>
+    <aside class="spec" aria-label="Đặc tả 20.1">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-053</span> AC1 <code>VD</code> chỉ có "Bắt đầu dọn" (R1 → <code>CL</code>); <code>CL</code> còn khách → "Dọn xong" thành <code>OC</code> (R2), không còn khách → <code>VC</code> (R3); AC2 dọn xong → việc dọn đầu tiên của căn tự <code>done</code>; AC4 chuyển cấm bị từ chối.</li>
+        <li>Câu sau khi xong dùng <code>hk.finish_help_vacant</code> (căn trống) hoặc <code>hk.finish_help_occupied</code> (căn có khách).</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">transitionRoomStatus</span> {<code>event: start_cleaning | finish_cleaning</code>, <code>expectedFrom</code>, <code>performedAt</code> = giờ bấm, <code>taskId</code>} + <code>Idempotency-Key</code> sinh trên máy khi bấm (gửi lại không trùng).</li><li><span class="op">listHkTasks</span>, <span class="op">listRoomStatuses</span> làm mới sau khi gửi.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (409, kèm trạng thái hiện tại) → alert tại chỗ (khung trạng thái Lỗi) hoặc mục "Cần xem lại" nếu gửi từ hàng đợi; <span class="pc">IDEMPOTENCY_IN_PROGRESS</span> → im lặng chờ; <span class="pc">FORBIDDEN_ACTION</span>; 5xx → thao tác ở lại hàng đợi, tự gửi lại.</li></ul>
+      <h3>a11y</h3><ul><li>Nút chính 56px ghim đáy (vùng ngón cái); toast <code>role="status"</code>; nút Hoàn tác 48px, chữ 16px.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s202">
+  <h2 id="s202"><span class="no">20.2</span>Hoàn tác 10 giây = gửi trễ 10 giây (không cần API "hủy")</h2>
+  <p class="lead">Mỗi thao tác đổi trạng thái / xong việc vào <b>hàng đợi trên máy</b> và chỉ được gửi sau 10 giây. Trong 10 giây, nút <b>Hoàn tác (n)</b> rút thao tác khỏi hàng đợi – server chưa từng nhận. Sau 10 giây: có mạng → gửi ngay; mất mạng → nằm chờ (H21 21.3). Toast đếm lùi, không tự ẩn trước khi hết 10 giây, dừng đếm khi đang focus vào nút.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><h1><span data-i18n="nav.my_tasks">Việc của tôi</span><span class="sub" data-i18n="hk.updated_at" data-i18n-args='{"date":"15/10","time":"10:58"}'>Hôm nay 15/10 · cập nhật 10:58</span></h1><span class="chip neutral" data-i18n="hk.progress" data-i18n-args='{"done":"4","total":"9"}'>4/9 xong</span></header>
+      <div class="m-body">
+        <article class="hk-card done"><div class="hd"><span class="room">202</span><span class="chip oak"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg><span data-i18n="hk.status.VC">Đã dọn – chờ kiểm</span></span></div><p class="li-s mt-4 m-0" data-i18n="hk.done_wait_inspect_note" data-i18n-args='{"time":"10:58"}'>Dọn xong lúc 10:58 · đã báo lễ tân trưởng kiểm phòng</p></article>
+        <article class="hk-card"><div class="hd"><span class="room">102</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="hk.status.OD">Khách đang ở – cần dọn</span></span></div></article>
+      </div>
+      <div class="toast-dock" data-countdown="10" data-autostart="" id="undo202"><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="hk.toast.room_status" data-i18n-args='{"room":"202","status":"Đã dọn – chờ kiểm"}'>Căn 202: Đã dọn – chờ kiểm</span><button class="btn" data-undo=""><svg class="ico" aria-hidden="true"><use href="#i-undo"/></svg><span data-cd-label="" data-i18n="hk.undo_btn" data-i18n-args='{"s":"10"}'>Hoàn tác (10)</span></button></div></div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="19-hk-tasks.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.my_tasks">Việc của tôi</span></a><a href="19-hk-tasks.html#s192"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="21-hk-incident-queue.html"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">Toast tự đếm khi mở trang. Bấm "Hoàn tác" → thẻ 202 quay lại "Đang dọn".</p></div>
+    <div class="variants grow">
+      <div class="variant hk touch"><span class="label-h">Sau khi bấm Hoàn tác</span><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-undo"/></svg><span class="grow" data-i18n="hk.undone_room" data-i18n-args='{"room":"202","status":"Đang dọn"}'>Đã hoàn tác – căn 202 vẫn là "Đang dọn"</span></div></div>
+      <div class="variant hk touch"><span class="label-h">Hết 10 giây khi mất mạng</span><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span class="grow" data-i18n="hk.queued_toast">Đã lưu trên máy – sẽ tự gửi khi có mạng</span></div></div>
+      <div class="variant hk touch"><span class="label-h">Kiểm phòng / xong việc cũng hoàn tác được</span><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="hk.toast.room_status" data-i18n-args='{"room":"302","status":"Sẵn sàng đón khách"}'>Căn 302: Sẵn sàng đón khách</span><button class="btn"><svg class="ico" aria-hidden="true"><use href="#i-undo"/></svg><span data-i18n="hk.undo_btn" data-i18n-args='{"s":"7"}'>Hoàn tác (7)</span></button></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 20.2">
+      <h3>Quy tắc (UXD quyết – DS 6.18)</h3><ul>
+        <li>Áp cho mọi thao tác ghi của PWA buồng phòng/bảo trì đi qua hàng đợi: <span class="op">transitionRoomStatus</span>, <span class="op">transitionHkTask</span>, <span class="op">recordInspection</span>, <span class="op">recordMinibarCheck</span> (stayover). <b>Không</b> áp cho tạo phiếu sự cố (đã có màn xác nhận) và thao tác tiền.</li>
+        <li><code>performedAt</code> = giờ bấm (không phải giờ gửi); <code>Idempotency-Key</code> sinh lúc bấm. Hoàn tác = xóa mục khỏi hàng đợi IndexedDB; không gọi API nào.</li>
+        <li>Hai thao tác liên tiếp trên cùng căn trong 10 giây: thao tác sau thay toast trước; hàng đợi giữ thứ tự (Bắt đầu dọn → Dọn xong).</li>
+        <li>Lễ tân thấy trạng thái mới sau ≤ 10 giây + độ trễ SSE – chấp nhận (wireframe L6 HR-17). WCAG 2.2.1: thời gian 10 giây đủ cho một thao tác đảo ngược; đếm dừng khi focus nằm trên nút Hoàn tác.</li>
+      </ul>
+      <h3>Đề nghị ARC (không đổi hợp đồng)</h3><ul><li>Ghi vào ADR-005 mục 3: "gửi trễ 10 giây để hoàn tác" – không cần endpoint đảo trạng thái (SM-03 không có chuyển ngược CL → VD).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s203">
+  <h2 id="s203"><span class="no">20.3</span>Kiểm phòng 302 – checklist 12 điểm + bộ đồ dùng thêm + ảnh (US-055)</h2>
+  <p class="lead">Lễ tân trưởng (hoặc buồng phòng khi cơ sở bật tự kiểm) tick từng mục; nút <b>Kiểm đạt</b> chỉ mở khi đủ mục bắt buộc. Căn có việc bộ đồ dùng thêm có thêm điểm 13 (BR-812 (5)). Tick vài ô để thấy bộ đếm chạy.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal" data-checklist="">
+      <header class="m-top"><a class="btn icon-btn" href="19-hk-tasks.html#s192" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1><span data-i18n="hk.insp.title" data-i18n-args='{"room":"302"}'>Kiểm phòng 302</span><span class="sub" data-checklist-count="" data-i18n="hk.insp.progress" data-i18n-args='{"n":"10","total":"13"}'>Đã kiểm 10/13 mục</span></h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline">
+          <fieldset class="fieldset-plain"><legend data-i18n="hk.insp.legend">Đánh dấu khi đạt chuẩn OTTIMO</legend>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i01">Ga gối phẳng, sạch</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i02">Phòng tắm khô, không tóc</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i03">Khăn: 2 tắm, 2 mặt, 1 chân</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i04">Đồ dùng đủ, quay nhãn ra</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i05">Bếp sạch, tủ lạnh có nước suối</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i06">Bàn làm việc, đèn, ổ cắm</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i07">Wi-Fi từ 50 Mbps</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i08">Rèm, cửa sổ kín</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.i09">Không mùi, đã thông gió</span></label>
+            <label class="check"><input type="checkbox" data-req=""><span data-i18n="hk.insp.i10">Remote, điều hòa / sưởi chạy</span></label>
+            <label class="check"><input type="checkbox" data-req=""><span data-i18n="hk.insp.i11">Thẻ chào + thông tin Wi-Fi</span></label>
+            <label class="check"><input type="checkbox" data-req="" checked><span data-i18n="hk.insp.kit" data-i18n-args='{"n":"1"}'>Có đủ 1 bộ đồ dùng thêm (sofa)</span></label>
+          </fieldset>
+          <div class="field"><span class="lbl" id="ph-l"><span data-i18n="hk.insp.i12">Ảnh phòng</span> <span class="req" aria-hidden="true">*</span></span>
+            <div class="photo-row" role="group" aria-labelledby="ph-l"><span class="photo" role="img" data-i18n-label="hk.photo_n" data-i18n-args='{"n":"1"}' aria-label="Ảnh 1"><span class="tag">1</span></span><button class="photo add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="hk.photo_add">Chụp</span></button></div>
+            <label class="check"><input type="checkbox" data-req=""><span data-i18n="hk.insp.photo_done">Đã chụp đủ ảnh phòng</span></label></div>
+          <div class="field"><label for="insp-note" data-i18n="hk.insp.note">Ghi chú (không bắt buộc)</label><textarea class="input" id="insp-note"></textarea></div>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-56"></div><div class="sk h-56"></div><div class="sk h-56"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg></div><h3 data-i18n="hk.insp.empty_title">Chưa có danh mục kiểm phòng</h3><p data-i18n="hk.insp.empty_body">Quản lý cần thiết lập danh mục kiểm phòng trước. Báo lễ tân trưởng.</p></div></div>
+        <div data-show="error"><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="hk.insp.self_off_title">Bạn chưa tự kiểm được căn này</b><span data-i18n="hk.insp.self_off_body">Cơ sở chưa bật chế độ buồng phòng tự kiểm. Lễ tân trưởng sẽ kiểm – bạn không cần làm gì thêm.</span></div></div></div>
+      </div>
+      <div class="wiz-foot" data-show="normal offline"><a class="btn xl" href="#s203f" data-i18n="hk.insp.fail">Chưa đạt</a><button class="btn pri xl grow" data-checklist-submit="" aria-disabled="true"><span data-i18n="hk.insp.pass">Kiểm đạt – sẵn sàng</span></button></div>
+    </div><p class="frame-cap">Kiểm phòng – nút "Kiểm đạt" mở khi đủ 13 mục (gồm ảnh).</p></div>
+    <div class="variants grow" id="s203f">
+      <div class="variant hk touch"><span class="label-h">Chưa đạt – ghi mục chưa đạt</span>
+        <div class="field"><label for="insp-fail" data-i18n="hk.insp.fail_note">Chưa đạt ở đâu? Ghi để người dọn sửa</label><textarea class="input" id="insp-fail">Thiếu thẻ chào, remote hết pin</textarea></div>
+        <p class="li-s" data-i18n="hk.insp.fail_effect">Căn quay về "Cần dọn (khách đã đi)" và có việc dọn lại.</p>
+        <button class="btn danger xl block" data-i18n="hk.insp.fail_save">Ghi chưa đạt</button></div>
+      <div class="variant hk touch"><span class="label-h">Buồng phòng tự kiểm (cơ sở bật, ca 1 người)</span>
+        <button class="btn xl block" aria-disabled="true"><span data-i18n="hk.self_inspect_left" data-i18n-args='{"n":"3"}'>Dọn xong &amp; tự kiểm đạt (còn 3 mục)</span></button><p class="li-s mt-8" data-i18n="hk.self_inspect_help">Cần đủ checklist và ảnh phòng.</p></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 20.3">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-055</span> AC1 chưa đủ mục bắt buộc → không chuyển <code>VI</code>; AC2 biên bản ghi người kiểm, thời điểm, căn, ảnh.</li>
+        <li><span class="us">US-053</span> AC3 <code>housekeeping</code> chỉ tự kiểm khi bật chế độ một người và có ảnh (R4, A81) – không bật → trạng thái Lỗi của khung (thông báo nhẹ, không phải lỗi người dùng).</li>
+        <li>BR-812 (5): căn có việc bộ đồ dùng thêm → điểm kiểm "Có đủ n bộ đồ dùng thêm".</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">getInspectionChecklist</span> (<code>items[].required</code>, <code>photoRequired</code>, <code>version</code>) · <span class="op">uploadAttachment</span> <code>purpose=inspection</code> (ảnh nén ≤ 300 KB, xếp hàng được) · <span class="op">recordInspection</span> {<code>checklistVersion</code>, <code>items[{code, passed, note}]</code>, <code>photoAttachmentIds</code>, <code>performedAt</code>}.</li></ul>
+      <h3>Đề nghị ARC / BA</h3><ul>
+        <li><b>ARC</b>: <code>getInspectionChecklist.items[].label</code> chỉ một ngôn ngữ – thêm nhãn theo <code>Accept-Language</code> (hoặc <code>labelEn</code>) để PWA EN đủ chữ (DS 6.10). R2 tạm: nhãn mặc định lấy từ chuỗi <code>hk.insp.i01…i12</code>, mục do cơ sở tự thêm hiện đúng chữ đã nhập.</li>
+        <li><b>BA/ARC</b>: kết quả <code>fail</code> chuyển buồng về đâu? UXD giả định <code>VC → VD</code> + sinh việc dọn lại <code>[GIẢ ĐỊNH UXD – chờ BA chốt SM-03]</code>; <code>Inspection.roomStatusAfter</code> trả về để PWA hiện đúng câu.</li>
+      </ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (thiếu mục bắt buộc / thiếu ảnh – <code>errors[]</code> theo <code>code</code> mục) · <span class="pc">FORBIDDEN_ACTION</span> (HK tự kiểm khi chưa bật) · <span class="pc">INVALID_TRANSITION</span> (căn không còn <code>VC</code>) · <span class="pc">FILE_REJECTED</span>.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s204">
+  <h2 id="s204"><span class="no">20.4</span>Dọn phòng khách đang ở – minibar chỉ đếm số lượng · Khách không muốn dọn</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><a class="btn icon-btn" href="19-hk-tasks.html" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1><span data-i18n="hk.room_title" data-i18n-args='{"room":"101"}'>Căn 101</span><span class="sub" data-i18n="hk.status.CL">Đang dọn</span></h1></header>
+      <div class="m-body">
+        <div class="hk-card"><b data-i18n="hk.type.stayover_clean">Dọn phòng khách đang ở</b><p class="mt-4 m-0"><span data-i18n="guest.req.towels">Khăn, đồ dùng</span> · <span data-i18n="hk.req_note" data-i18n-args='{"note":"Thêm 2 khăn tắm"}'>Khách nhắn: "Thêm 2 khăn tắm"</span></p></div>
+        <h2 class="grp-h"><span data-i18n="hk.minibar_title">Minibar – còn lại trong tủ</span></h2>
+        <div class="hk-card">
+          <div class="row"><span class="grow" id="mb1">Bia Đà Lạt</span><div class="stepper" data-min="0" data-max="2" role="group" aria-labelledby="mb1"><button type="button" data-d="-1" data-i18n-label="hk.minibar_less" aria-label="Bớt">−</button><output aria-live="polite">0</output><button type="button" data-d="1" data-i18n-label="hk.minibar_more" aria-label="Thêm">+</button></div></div>
+          <div class="row mt-8"><span class="grow" id="mb2">Snack khoai</span><div class="stepper" data-min="0" data-max="2" role="group" aria-labelledby="mb2"><button type="button" data-d="-1" data-i18n-label="hk.minibar_less" aria-label="Bớt">−</button><output aria-live="polite">1</output><button type="button" data-d="1" data-i18n-label="hk.minibar_more" aria-label="Thêm">+</button></div></div>
+          <div class="row mt-8"><span class="grow" id="mb3">Nước suối</span><div class="stepper" data-min="0" data-max="4" role="group" aria-labelledby="mb3"><button type="button" data-d="-1" data-i18n-label="hk.minibar_less" aria-label="Bớt">−</button><output aria-live="polite">2</output><button type="button" data-d="1" data-i18n-label="hk.minibar_more" aria-label="Thêm">+</button></div></div>
+          <p class="li-s mt-8 m-0" data-i18n="hk.minibar_help">Đếm số còn trong tủ. Hệ thống tự tính phần khách đã dùng và báo bổ sung.</p>
+        </div>
+      </div>
+      <div class="wiz-foot"><button class="btn pri xl block" data-i18n="hk.action.finish_cleaning">Dọn xong</button></div>
+    </div><p class="frame-cap">Dọn phòng khách đang ở – minibar dùng stepper 56px, không giá.</p></div>
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><h1 data-i18n="hk.room_title" data-i18n-args='{"room":"102"}'>Căn 102</h1></header>
+      <div class="m-body"><div class="scrim-demo"></div></div>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ref-h">
+        <h2 id="ref-h" data-i18n="hk.refuse_title">Khách không muốn dọn hôm nay?</h2>
+        <fieldset class="fieldset-plain mt-12"><legend data-i18n="hk.task.refused_reason">Lý do</legend>
+          <label class="choice"><input type="radio" name="rr" data-enables="#rr-ok"><span data-i18n="hk.refuse.dnd">Treo biển "Không làm phiền"</span></label>
+          <label class="choice"><input type="radio" name="rr" data-enables="#rr-ok"><span data-i18n="hk.refuse.said_no">Khách nói không cần dọn</span></label>
+          <label class="choice"><input type="radio" name="rr" data-enables="#rr-ok"><span data-i18n="hk.refuse.other">Lý do khác</span></label></fieldset>
+        <p class="li-s" data-i18n="hk.refuse_effect">Việc dọn hôm nay của căn này được bỏ. Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường.</p>
+        <div class="acts"><button class="btn xl" data-i18n="common.back">Quay lại</button><button class="btn pri xl" id="rr-ok" aria-disabled="true" data-i18n="hk.refuse_save">Bỏ việc dọn hôm nay</button></div>
+      </div>
+    </div><p class="frame-cap">Khách không muốn dọn – bắt buộc chọn lý do (SM-14).</p></div>
+    <aside class="spec" aria-label="Đặc tả 20.4">
+      <h3>Story / quy tắc</h3><ul>
+        <li>BR-703 kiểm minibar mỗi lần dọn phòng có khách – buồng phòng chỉ nhập số lượng, không thấy giá (rbac ghi chú 26).</li>
+        <li>SM-14: <code>housekeeping</code> chỉ hủy "dọn phòng khách đang ở" khi khách từ chối, lý do bắt buộc (rbac ghi chú 33). Lý do = câu chọn sẵn (gửi <code>cancelReason</code> mã + chữ VI).</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">getMinibarStandard</span> · <span class="op">recordMinibarCheck</span> {<code>mode: stayover</code>, <code>lines[{itemId, remainingQty}]</code>} (cần <code>reservationId</code> – lấy từ việc/căn) · <span class="op">transitionHkTask</span> <code>cancel</code> {<code>cancelReason</code>, <code>performedAt</code>}.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">MINIBAR_QTY_OVER_STANDARD</span> (stepper đã chặn bằng <code>data-max</code>) · <span class="pc">FORBIDDEN_ACTION</span> (hủy loại việc khác) · <span class="pc">INVALID_TRANSITION</span>.</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

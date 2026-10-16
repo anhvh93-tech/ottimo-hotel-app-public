@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H23 guest-web – yêu cầu và thông tin lưu trú – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H23</div>
+  <h1>H23 · guest-web mức 1 – gửi yêu cầu (dọn phòng thêm 100.000 đ/lần, khăn/đồ dùng, báo hỏng, xe/tour, trả muộn, khác), trạng thái yêu cầu, tab Thông tin</h1>
+  <div class="doc-meta"><span>Sprint 4 (MOB – apps/guest-web)</span><span>Khách (phiên mức 1 – chỉ link)</span><span>Điện thoại · VI/EN</span><span>US-108 AC1 + Wi-Fi AC2, US-109 AC1–AC2, US-110 AC2, US-112 AC1–AC3, BR-506, BR-811</span><span>SEC P-R2-4 ĐK-1…6</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="22-maintenance.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="24-owner-overview.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<div class="note-rbac"><b>Giới hạn R2 (SEC ĐK-1…6, DS 6.17):</b> chỉ tên gọi, không mã cửa, không hóa đơn/folio, không OTP. Yêu cầu khách chỉ có <code>type</code> + <code>note</code> (≤ 500 ký tự, D23); trạng thái và lý do từ chối do nhân viên ghi. Không dùng <code>guest.req.fee_notice</code> (có chữ "hóa đơn" – SEC chuỗi cấm ĐK-6), thay bằng <code>gw.req.fee_notice</code>. Phí dọn thêm chỉ <b>báo trước</b> trên trang – số tiền thật ghi vào folio ở Desk khi việc xong (BR-506), khách xem ở phiếu thanh toán khi trả phòng. Dữ liệu: OTM-0150 · Anna · căn 103, tối 15/10/2026.</div>
+
+<section class="doc-sec" aria-labelledby="s231">
+  <h2 id="s231"><span class="no">23.1</span>Tab Yêu cầu – các yêu cầu đã gửi và trạng thái (SM-15)</h2>
+  <p class="lead">Nhãn trạng thái: Đã gửi · Đã nhận · Đang xử lý · Hoàn thành · Không thực hiện được (kèm lý do). Trang tự làm mới mỗi 30 giây khi đang mở (không có SSE cho khách). Đổi trạng thái để xem rỗng / lỗi / mất mạng.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><h1 data-i18n="guest.tab.requests">Yêu cầu</h1><button class="btn sm" data-i18n-label="guest.lang" aria-label="Ngôn ngữ"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>VI</span></button></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="guest.offline_banner">Mất kết nối. Bạn vẫn xem được thông tin đã tải; gửi yêu cầu khi có mạng lại.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline empty"><a class="btn pri block mb-12" href="#s232" data-show="normal empty"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="gw.req.new">Gửi yêu cầu mới</span></a><button class="btn block mb-12" aria-disabled="true" data-show="offline"><span data-i18n="gw.req.need_network">Cần có mạng để gửi yêu cầu</span></button></div>
+        <div data-show="normal offline">
+          <div class="card req-card"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg></span><div><b data-i18n="guest.req.towels">Khăn, đồ dùng</b><br><span class="chip info" data-i18n="guest.req.status.in_progress">Đang xử lý</span></div><p class="full li-s m-0" data-i18n="gw.req.sent_at" data-i18n-args='{"time":"20:10"}'>Gửi lúc 20:10</p><p class="full m-0">"2 extra towels please"</p></div>
+          <div class="card req-card"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg></span><div><b data-i18n="guest.req.clean">Dọn phòng thêm</b><br><span class="chip ok" data-i18n="guest.req.status.done">Hoàn thành</span></div><p class="full li-s m-0" data-i18n="gw.req.fee_line" data-i18n-args='{"amount":"100.000 đ"}'>Phí 100.000 đ – thanh toán khi trả phòng.</p></div>
+          <div class="card req-card"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></span><div><b data-i18n="guest.req.transport">Đặt xe / tour</b><br><span class="chip bad" data-i18n="guest.req.status.declined">Không thực hiện được</span></div><p class="full m-0"><span data-i18n="gw.req.reason">Lý do:</span> <span data-i18n="guest.req.decline.fully_booked">Đã hết chỗ vào thời gian bạn chọn</span></p><p class="full li-s m-0"><span data-i18n="guest.req.staff_note">Ghi chú của lễ tân (tiếng Việt)</span>: "Tour Langbiang sáng 16/10 hết chỗ, còn chiều 16/10."</p></div>
+          <div class="card req-card"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg></span><div><b data-i18n="guest.req.repair">Báo hỏng</b><br><span class="chip neutral" data-i18n="guest.req.status.acknowledged">Đã nhận</span></div><p class="full li-s m-0" data-i18n="gw.req.sent_at" data-i18n-args='{"time":"19:40"}'>Gửi lúc 19:40</p></div>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-96"></div><div class="sk h-96"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></div><h3 data-i18n="guest.req.empty">Bạn chưa gửi yêu cầu nào.</h3><p data-i18n="gw.req.empty_body">Cần khăn, dọn phòng hay báo hỏng? Gửi ở đây – lễ tân thấy ngay.</p></div></div>
+        <div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="gw.req.error_title">Chưa tải được yêu cầu của bạn</h3><p data-i18n="guest.error_body">Kiểm tra kết nối mạng rồi thử lại.</p><button class="btn" data-i18n="common.retry">Thử lại</button><a class="btn ghost" href="tel:+84000000000" data-i18n="guest.contact.call">Gọi người trực</a></div></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="18-guest-checkin.html#s181"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="guest.tab.home">Lưu trú</span></a><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="guest.tab.requests">Yêu cầu</span></a><a href="#s234"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="guest.tab.info">Thông tin</span></a></nav>
+    </div><p class="frame-cap">Tab Yêu cầu – ghi chú của khách hiện đúng chữ khách viết.</p></div>
+    <aside class="spec" aria-label="Đặc tả 23.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-109</span> AC1 thẻ "Đã gửi" kèm thời điểm, nhãn SM-15; AC2 <code>done</code> → "Hoàn thành"; <code>declined</code> → khách thấy lý do (mã lý do dịch sẵn <code>guest.req.decline.*</code> + ghi chú tiếng Việt của lễ tân – DS 6.12).</li><li><span class="us">US-112</span> AC1 mọi nhãn, nút, lỗi, trạng thái có EN; ghi chú khách và lễ tân hiện nguyên văn.</li></ul>
+      <h3>API</h3><ul><li><span class="op">listMyRequests</span> (<code>type</code>, <code>status</code>, <code>statusLabel</code> theo ngôn ngữ, <code>autoReply</code>, <code>declinedReason</code>, <code>createdAt</code>) – làm mới 30 giây khi trang đang hiện (<code>visibilitychange</code>), dừng khi ẩn.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">GUEST_LINK_INVALID</span> (401 → trang link hết hạn, H18 18.1) · <span class="pc">GUEST_STAY_ENDED</span> (403 → trang đã kết thúc, H18 18.5) · 5xx.</li></ul>
+      <h3>SEC</h3><ul><li>Không lưu ghi chú yêu cầu ở bộ nhớ máy; mất mạng chỉ xem danh sách đã tải trong phiên (bộ nhớ trang), không xếp hàng gửi.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s232">
+  <h2 id="s232"><span class="no">23.2</span>Gửi yêu cầu – chọn loại · phí dọn thêm 100.000 đ/lần (tick đồng ý) · ngoài giờ trực</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><a class="btn icon-btn" href="#s231" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="guest.req.title">Bạn cần gì?</h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="guest.offline_banner">Mất kết nối. Bạn vẫn xem được thông tin đã tải; gửi yêu cầu khi có mạng lại.</span></div>
+      <div class="m-body">
+        <div class="req-grid" role="group" data-i18n-label="guest.req.title" aria-label="Bạn cần gì?">
+          <button type="button" class="req-tile" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="guest.req.clean">Dọn phòng thêm</span><span class="fee" data-i18n="gw.req.fee_tile" data-i18n-args='{"amount":"100.000 đ"}'>100.000 đ/lần</span></button>
+          <button type="button" class="req-tile" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg><span data-i18n="guest.req.towels">Khăn, đồ dùng</span><span class="fee" data-i18n="gw.req.free">Miễn phí</span></button>
+          <button type="button" class="req-tile" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="guest.req.repair">Báo hỏng</span></button>
+          <button type="button" class="req-tile" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="guest.req.transport">Đặt xe / tour</span></button>
+          <button type="button" class="req-tile" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="guest.req.late">Trả phòng muộn</span></button>
+          <button type="button" class="req-tile" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="guest.req.other">Khác</span></button>
+        </div>
+        <div class="alert info mt-12" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt"><b data-i18n="gw.req.fee_notice" data-i18n-args='{"amount":"100.000 đ"}'>Dịch vụ này có phí 100.000 đ/lần, thanh toán khi trả phòng.</b><span data-i18n="gw.req.clean_what">Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. Dọn hằng ngày vẫn miễn phí.</span></div></div>
+        <label class="check"><input type="checkbox" data-enables="#rq-send"><span data-i18n="gw.req.fee_accept" data-i18n-args='{"amount":"100.000 đ"}'>Tôi đồng ý phí 100.000 đ cho lần dọn này</span></label>
+        <div class="field mt-8"><label for="rq-note" data-i18n="guest.req.note">Mô tả thêm (không bắt buộc)</label><textarea class="input" id="rq-note" maxlength="500" aria-describedby="rq-help" data-i18n-ph="gw.req.note_ph" placeholder="Ví dụ: dọn lúc 15:00 khi tôi đi ra ngoài"></textarea><span class="help" id="rq-help" data-i18n="gw.req.note_help">Tối đa 500 ký tự. Đừng ghi số thẻ hay mật khẩu.</span></div>
+        <p class="li-s" data-i18n="guest.req.reply_time" data-i18n-args='{"minutes":"10"}'>Lễ tân phản hồi trong khoảng 10 phút (07:00–22:00).</p>
+        <div class="field invalid" data-show="error"><div class="err" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.RATE_LIMITED" data-i18n-args='{"minutes":"10"}'>Bạn đã thử quá nhiều lần. Chờ 10 phút rồi thử lại.</span></div></div>
+      </div>
+      <div class="wiz-foot" data-show="normal error loading empty"><a class="btn ghost" href="#s231" data-i18n="common.back">Quay lại</a><button class="btn pri" id="rq-send" aria-disabled="true" data-i18n="guest.req.send">Gửi yêu cầu</button></div>
+      <div class="wiz-foot" data-show="offline"><span></span><button class="btn" aria-disabled="true" data-i18n="gw.req.need_network">Cần có mạng để gửi yêu cầu</button></div>
+    </div><p class="frame-cap">Dọn phòng thêm: nút Gửi mở khi tick đồng ý phí. Lỗi: gửi quá nhiều.</p></div>
+    <div class="variants grow">
+      <div class="variant touch"><span class="label-h">Ngoài giờ trực (22:00 – 07:00)</span><div class="alert warn" role="note"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt"><b data-i18n="gw.req.after_hours_title">Lễ tân trả lời từ 07:00</b><span data-i18n="gw.req.after_hours_body">Bạn vẫn gửi được, chúng tôi xử lý vào buổi sáng. Việc gấp (mất điện, nước, khóa cửa) – gọi người trực.</span><div class="act"><a class="btn sm" href="tel:+84000000000" data-i18n="guest.contact.call">Gọi người trực</a></div></div></div></div>
+      <div class="variant touch"><span class="label-h">Báo hỏng</span><p data-i18n="gw.req.repair_help">Mô tả chỗ hỏng (ví dụ: không có nước nóng). Kỹ thuật sẽ liên hệ trước khi vào phòng.</p></div>
+      <div class="variant touch"><span class="label-h">Trả phòng muộn (R2: không có mã cửa)</span><p data-i18n="gw.req.late_help">Ghi giờ bạn muốn trả. Lễ tân sẽ báo phí (nếu có) và xác nhận trước khi bạn ở thêm.</p></div>
+      <div class="variant touch"><span class="label-h">Sau khi gửi</span><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="guest.req.sent">Đã gửi. Chúng tôi sẽ cập nhật trạng thái tại đây.</span></div></div>
+      <div class="variant touch"><span class="label-h">Trả lời tự động (ngoài giờ)</span><div class="card req-card"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg></span><div><b data-i18n="guest.req.clean">Dọn phòng thêm</b><br><span class="chip neutral" data-i18n="guest.req.status.new">Đã gửi</span></div><p class="full li-s m-0" data-i18n="gw.req.auto_reply" data-i18n-args='{"time":"07:00"}'>Trả lời tự động: Chúng tôi đã nhận và sẽ xử lý từ 07:00.</p></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 23.2">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-109</span> 6 loại (BR-811): Dọn thêm, Khăn/đồ dùng → buồng phòng; Báo hỏng → bảo trì (phiếu Trong ngày, lễ tân nâng mức); Xe/tour, Trả muộn, Khác → lễ tân. <span class="us">US-110</span> AC2 ngoài giờ trực [07:00, 22:00) → trả lời tự động kèm giờ xử lý.</li>
+        <li>BR-506: dọn lẻ 100.000/lần, ghi folio khi việc xong. Dọn hằng ngày của khách ngắn ngày vẫn miễn phí (BR-807) – nói rõ để khách không hiểu nhầm.</li>
+        <li>Khách phải <b>tick đồng ý phí</b> trước khi gửi loại có phí (DS 6.3 – thu phí chủ động, không bất ngờ ở bill).</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">createGuestRequest</span> {<code>type</code>, <code>note</code>} + <code>Idempotency-Key</code> → 201 <code>GuestRequestForGuest</code> (có <code>autoReply</code> ngoài giờ).</li></ul>
+      <h3>Đề nghị ARC (qua SEC – ĐK-2 cấm thêm trường guest R2 khi chưa duyệt)</h3><ul><li>Phí hiện trên trang lấy từ đâu? Đề nghị <code>GET /v1/guest/request-options</code> → <code>[{type, feeVnd|null, available}]</code> (từ tham số <code>adhoc_cleaning_fee</code>) và body <code>createGuestRequest.feeAccepted: boolean</code> (bắt buộc khi <code>feeVnd &gt; 0</code>; lưu làm bằng chứng đã báo phí). Không chứa dữ liệu cá nhân → đề nghị SEC duyệt nhanh. Chưa có: guest-web hiện phí từ cấu hình build (100.000) <code>[GIẢ ĐỊNH UXD]</code>.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">RATE_LIMITED</span> (429 – <code>{minutes}</code>) · <span class="pc">VALIDATION_FAILED</span> (<code>TOO_LONG</code> ghi chú) · <span class="pc">CARD_NUMBER_DETECTED</span> (ghi chú chứa số giống thẻ – câu <code>error.CARD_NUMBER_DETECTED</code>) · <span class="pc">GUEST_STAY_ENDED</span> · <span class="pc">GUEST_LINK_INVALID</span>.</li></ul>
+      <h3>a11y</h3><ul><li>Ô loại yêu cầu là <code>button aria-pressed</code> ≥ 96px, 2 cột ở 360px, chữ EN dài xuống dòng. Phí luôn là chữ, không chỉ biểu tượng.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s234">
+  <h2 id="s234"><span class="no">23.3</span>Tab Thông tin – Wi-Fi (từ ngày nhận phòng), giờ nhận/trả, chỉ đường, nội quy + phí phạt, liên hệ</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><h1 data-i18n="guest.tab.info">Thông tin</h1><button class="btn sm" data-i18n-label="guest.lang" aria-label="Ngôn ngữ"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>VI</span></button></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="guest.offline_banner">Mất kết nối. Bạn vẫn xem được thông tin đã tải; gửi yêu cầu khi có mạng lại.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline empty">
+          <div class="card"><div class="card-h"><svg class="ico" aria-hidden="true"><use href="#i-wifi"/></svg><h3 data-i18n="guest.wifi">Wi-Fi</h3></div>
+            <div data-show="normal offline"><dl class="dl"><dt data-i18n="gw.wifi_name">Tên mạng</dt><dd class="mono">OTTIMO_103</dd><dt data-i18n="gw.wifi_pass">Mật khẩu</dt><dd class="mono">dalat-mist-2026</dd></dl><button class="btn sm mt-8"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="gw.wifi_copy">Sao chép mật khẩu</span></button></div>
+            <p class="li-s m-0" data-show="empty" data-i18n="gw.wifi_later" data-i18n-args='{"date":"15/10"}'>Hiện ở đây vào ngày nhận phòng (15/10).</p></div>
+          <div class="card stack-gap"><dl class="dl"><dt data-i18n="gw.checkin">Nhận phòng</dt><dd data-i18n="guest.stay.checkin_time" data-i18n-args='{"time":"14:00"}'>Nhận phòng từ 14:00</dd><dt data-i18n="gw.checkout">Trả phòng</dt><dd data-i18n="guest.stay.checkout_time" data-i18n-args='{"time":"12:00"}'>Trả phòng trước 12:00</dd></dl></div>
+          <ul class="list stack-gap"><li><a class="rowlink" href="#"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span class="grow" data-i18n="gw.directions">Chỉ đường</span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a></li><li><a class="rowlink" href="#rules"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span class="grow" data-i18n="gw.house_rules">Nội quy và phí phạt</span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a></li></ul>
+          <div class="card stack-gap" id="rules"><h3 data-i18n="gw.house_rules">Nội quy và phí phạt</h3><div class="quote-text mt-8">Không hút thuốc trong phòng – phí khử mùi 500.000 đ.
+Giữ yên lặng sau 22:00.
+Mất thẻ/chìa khóa: 200.000 đ.</div><p class="caption mt-8" data-i18n="gw.rules_source">Nội dung theo nội quy OTTIMO đang áp dụng.</p></div>
+          <div class="card stack-gap"><h3 data-i18n="guest.contact.title">Cần giúp? Người trực đêm</h3><p class="li-s" data-i18n="guest.contact.hours" data-i18n-args='{"from":"07:00","to":"22:00"}'>Người trực nghe máy 07:00–22:00.</p><div class="row"><a class="btn" href="tel:+84000000000" data-i18n="guest.contact.call">Gọi người trực</a><a class="btn" href="#" data-i18n="guest.contact.message">Nhắn Zalo / WhatsApp</a></div></div>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-96"></div><div class="sk h-80"></div><div class="sk h-120"></div></div>
+        <div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="gw.info_error_title">Chưa tải được thông tin lưu trú</h3><p data-i18n="guest.error_body">Kiểm tra kết nối mạng rồi thử lại.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="18-guest-checkin.html#s181"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="guest.tab.home">Lưu trú</span></a><a href="#s231"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="guest.tab.requests">Yêu cầu</span></a><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="guest.tab.info">Thông tin</span></a></nav>
+    </div><p class="frame-cap">Thông tin – Rỗng = trước ngày nhận phòng (Wi-Fi ẩn).</p></div>
+    <aside class="spec" aria-label="Đặc tả 23.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-108</span> AC1 ngày/giờ chuẩn (BR-401), địa chỉ + chỉ đường, nội quy kèm phí phạt (BR-511); AC2 (R2) Wi-Fi ẩn trước ngày nhận phòng với "sẽ hiện vào ngày nhận phòng"; sau trả phòng → trang đã kết thúc. <b>Không có mã cửa</b> (P-R2-5, ĐK-6).</li><li><span class="us">US-112</span> AC3 nội quy là văn bản đã duyệt theo ngôn ngữ (<code>houseRules</code> theo <code>Accept-Language</code>), không dịch máy.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getGuestStay</span> (<code>checkinTime</code>, <code>checkoutTime</code>, <code>property.address/mapUrl/phone</code>, <code>houseRules</code>, <code>wifi</code> = <code>null</code> trước ngày nhận) · <span class="op">setGuestLocale</span>.</li><li>Sao chép mật khẩu Wi-Fi: <code>navigator.clipboard</code>, toast "Đã sao chép" – Wi-Fi là dữ liệu mức 1, không phải C3.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">GUEST_STAY_ENDED</span> · <span class="pc">GUEST_LINK_INVALID</span> · 5xx.</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

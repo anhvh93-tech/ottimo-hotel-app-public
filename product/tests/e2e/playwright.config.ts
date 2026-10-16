@@ -5,10 +5,12 @@
 //
 // Projects
 //   smoke            – the (S) suite, every PR (API-level checks need no browser)
-//   rbac             – role-gate runner over fixtures/rbac-cases.json (Sprint 1 operations, rbac/)
+//   rbac             – role-gate runner over fixtures/rbac-cases.json (Sprint 1 + Sprint 2 operations, rbac/)
 //   api              – E2E API flows per story (api/*.api.spec.ts) – Playwright request API, no browser
 //   limits           – login lockout + per-IP limit (limits/), serial, after rbac + api
 //   rbac-logout      – logout cases; kill the cached sessions, so they run after rbac + api + limits
+//   clock            – MutableClock scenarios (hold expiry J1/J2, quote J3, no-show J6/J7, OOO J9 – clock/): serial,
+//                      after every other project; enabled in CI or with E2E_CLOCK_CONTROL=1 (moves the shared clock)
 //   db-outage        – TC-X-050c stops PostgreSQL: runs after every other project
 //   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke needs E2E_UI=1 + chromium)
 //   mobile-webkit    – Safari iOS 390×844 (housekeeping PWA, guest-web)
@@ -43,7 +45,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'smoke', testMatch: /smoke\/.*\.spec\.ts$/ },
-    { name: 'rbac', testMatch: /rbac\/rbac-sprint1\.spec\.ts$/ },
+    { name: 'rbac', testMatch: /rbac\/rbac-sprint\d\.spec\.ts$/ },
     { name: 'api', testMatch: /api\/.*\.api\.spec\.ts$/ },
     // TC-NT-043 lockout / SR-RL-01 IP window: serial, after every project that logs in through the
     // harness (a 429 there triggers /__test__/rate-limits/reset, which would wipe a lockout in progress).
@@ -57,6 +59,14 @@ export default defineConfig({
       name: 'rbac-logout',
       testMatch: /rbac\/rbac-logout\.spec\.ts$/,
       dependencies: ['rbac', 'api', 'limits'],
+    },
+    // Moving the clock changes "today" and expires every session: serial, after every project that uses the API
+    // (UI included). Each test sets/freezes the clock itself; afterAll resets it (support/clock.ts).
+    {
+      name: 'clock',
+      testMatch: /clock\/.*\.clock\.spec\.ts$/,
+      fullyParallel: false,
+      dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium'],
     },
     {
       name: 'desk-chromium',
@@ -78,7 +88,14 @@ export default defineConfig({
     {
       name: 'db-outage',
       testMatch: /outage\/.*\.spec\.ts$/,
-      dependencies: ['smoke', 'rbac-logout', 'desk-chromium', 'mobile-webkit', 'android-chromium'],
+      dependencies: [
+        'smoke',
+        'rbac-logout',
+        'clock',
+        'desk-chromium',
+        'mobile-webkit',
+        'android-chromium',
+      ],
     },
   ],
 });

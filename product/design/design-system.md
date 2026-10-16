@@ -1,10 +1,10 @@
-# Design System OTTIMO – v0.3.2
+# Design System OTTIMO – v0.3.3
 
 - Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2; cập nhật Bước 4 (phản hồi review) | Ngày: 15–16/10/2026
 - Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
 - Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
 - Minh họa sống: `product/design/wireframes/index.html` (9 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
-- **Hi-fi R2** (Đợt 0, EP00/EP02/EP10/EP11): `product/design/hifi/index.html` – 12 màn, component thật trong `hifi/assets/hifi.css`, kiểm bằng `tools/check_hifi.py`.
+- **Hi-fi R2**: `product/design/hifi/index.html` – 24 màn (H01–H12 Đợt 0, H13–H18 Sprint 3, H19–H24 Sprint 4), component thật trong `hifi/assets/hifi.css`, kiểm bằng `tools/check_hifi.py`.
 - Nội dung chữ: `product/design/content-guide.md`, chuỗi `product/design/copy/strings-{vi,en,ru}.json`.
 - Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`.
 
@@ -201,6 +201,33 @@ Quy tắc:
 - **Thời gian**: toast tự ẩn ≥ 6 giây, dừng khi rê chuột/focus; hoàn tác 10 giây; skeleton chỉ hiện nếu tải > 300ms.
 - **z-index**: sticky 10 · drawer 40 · modal 50 · toast 60.
 
+### 4.1 Lớp tiện ích dùng chung FE/MOB thay style nội tuyến (v0.3.3 – FB-R2-UXD-FE-15)
+Định nghĩa ở `hifi/assets/hifi.css` mục 13 (FE/MOB dùng thẳng file này như hiện nay). Chỉ giá trị trên lưới 4px; giá trị lệch lưới trong code (6, 10, 14, 18px) quy về lớp gần nhất bên dưới. Hi-fi H04, H19–H24, index đã bỏ hết `style=` (trừ vị trí lưới rack H08 – dữ liệu động, được phép).
+
+| Mẫu nội tuyến đang gặp (admin-web) | Lớp thay thế |
+|---|---|
+| `<p className="muted" style={{fontSize:'.75rem', margin…}}>` (chú thích nhỏ) | `.caption` (+ `.mt-8` / `.mt-12`) |
+| `<fieldset style={{border:0, margin:'0 0 14px', padding:0}}>` + `<legend style={{fontWeight:500, fontSize:'.8125rem', marginBottom:4}}>` | `.fieldset-plain` (legend tự đúng kiểu; `.fieldset-plain.flush` khi không cần lề dưới) |
+| `<fieldset className="card" style={{background:'var(--bg)', margin:'0 0 14px'}}>` | `.card.inset` |
+| `<hr className="hr" style={{margin:'4px 0'}}>` | `.hr.tight` |
+| `<div style={{padding:'8px 10px'}}>` (đầu menu người dùng) | `.menu-head` (8px 12px) |
+| `<div className="rowlink" style={{cursor:'default'}}>` | `.rowlink.static` |
+| `<div style={{display:'contents'}}>` | `.contents` |
+| `<div className="alert warn" style={{margin:0, borderRadius:0}}>` (thanh dev) | `.alert.flush` |
+| `<div className="field invalid" style={{margin…}}>` / alert lỗi sát nhóm | `.field.flush` / `.alert.tight` |
+| `style={{borderRadius:0}}` trên ô nhập ghép | `.input.square` |
+| `style={{maxWidth:440}}` | `.maxw-sm` |
+| `<label className="search" style={{width:380}}>` | `.search.wide` |
+| `<div className="row" style={{gap:4}}>` | `.row.tight` |
+| `<div style={{alignSelf:'end', marginBottom:14}}>` | `.self-end` |
+| `<div className="brand" style={{padding:0, marginBottom:18}}>` | `.brand.flush` (16px) |
+| `<ul style={{margin:'6px 0 0', paddingLeft:18}}>` | `.list-plain` |
+| `<Button style={{marginTop:8}}>` | `.btn.mt` hoặc `.mt-8` |
+| `margin-top/bottom` 4 · 8 · 12 · 16, `margin:0`, `padding:8px` | `.mt-4 .mt-8 .mt-12 .mt-16 .mb-4 .mb-8 .mb-12 .mb-16 .my-8 .m-0 .p-0 .p-8` |
+| skeleton `style={{height:…}}` | `.sk.h-6 .h-12 .h-32 .h-36 .h-56 .h-80 .h-96 .h-120 .h-300`, `.sk.w-60`; các `.sk` liền nhau tự cách 10px |
+| `<tr aria-selected>` để tô hàng đang sửa | `tr.is-editing` (FB-R2-UXD-FE-13) |
+| `[hidden]` bị `display` của lớp khác đè (vd `.rowlink`) | đã có `[hidden]{display:none !important}` toàn cục |
+
 ## 5. Component (32)
 
 Mỗi component có: mục đích · biến thể · trạng thái · quy tắc a11y. Minh họa trong wireframe (mã luồng trong ngoặc).
@@ -318,6 +345,22 @@ Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2)
 - Chỉ dữ liệu mức 1: tên (không họ tên đầy đủ), ngày/giờ, chỉ đường, nội quy, Wi-Fi từ ngày nhận. **Không** có tab Hóa đơn, màn OTP/mã xác minh, mã cửa. Các chuỗi `guest.verify.*`, `guest.door_code*`, `guest.late.*` (mã cửa), `guest.tab.bill`, `guest.bill.*` không dùng ở R2; mẫu 6.11 chỉ áp từ R3 – R2 thay bằng "Lễ tân giao mã cửa khi bạn đến / gọi người trực".
 - Check-in online: màn thông báo dữ liệu ("Tôi đã đọc") → 3 bước Giấy tờ · Giờ đến · Xác nhận. Mở lại link chỉ thấy "Đã có giấy tờ của n/m khách" – không hiện lại ảnh/số; không lưu ảnh trên máy khách (mất mạng → chụp lại). Đồng ý lưu ảnh: hai lựa chọn ngang hàng, không chọn sẵn, chỉ hỏi Khách 1; dòng "Muốn rút đồng ý… báo lễ tân". Minh họa `hifi/18-guest-checkin.html`.
 
+### 6.18 PWA buồng phòng / bảo trì (R2 Sprint 4 – H19–H22)
+- Mật độ **HK** (lớp `.hk` trên khung): thân 17px, mọi chữ ≥ 16px, mọi điều khiển ≥ 48px (nút, chip lọc, ô tích, radio `.choice` 56px, stepper 56px, thanh dưới 64px), nút chính `.btn.xl` 56px ghim đáy (vùng ngón cái), một thẻ = một căn = **một nút chính**. Trạng thái buồng = câu thường `hk.status.*` + icon + màu, không mã (mã chỉ ở Desk).
+- **Hoàn tác 10 giây = gửi trễ**: mọi lệnh ghi qua hàng đợi trên máy (đổi trạng thái buồng, xong việc, kiểm phòng, đếm minibar) nằm chờ 10 giây rồi mới gửi; toast `role="status"` có nút "Hoàn tác (n)" 48px đếm lùi, dừng khi focus. Hoàn tác = xóa khỏi hàng đợi, **không** gọi API; `performedAt` = giờ bấm, `Idempotency-Key` sinh lúc bấm. Không áp cho tạo phiếu sự cố và mọi thao tác tiền / tồn phòng.
+- **Mất mạng**: banner vàng + nút đếm "n thao tác đang chờ gửi" (`.qpill`) ở đầu mọi màn; màn "Thao tác trên máy" chia **Đang chờ gửi** và **Cần xem lại** (server từ chối 409 – có câu giải thích trạng thái hiện tại, nút "Đã hiểu"); không bao giờ âm thầm bỏ. Thao tác không được offline (tiền, tồn phòng, C3, đóng phiếu có khóa phòng) → nút khóa "Cần có mạng".
+- **Phiếu sửa**: mức **Gấp / Trong ngày / Không gấp** (`high/medium/low`, BR-809) luôn là chữ + icon + viền trái; hạn kế tiếp viết thành câu ("Nhận việc trước 10:47 – còn 5 phút", "Hạn tạm dừng – vật tư dự kiến 17/10"). Sửa xong: ghi kết quả + **≥ 1 ảnh sau sửa** `[GIẢ ĐỊNH UXD]`, hộp hậu quả (mở bán lại, căn "Cần dọn", việc dọn sau sửa) và trạng thái trung thực "Đang mở bán…" → "Đã mở bán lại". Khóa phòng hiện cả "dự kiến xong" và "mở bán lại từ" (BR-804). Bảo trì không thấy tên khách.
+- Lỗi tải ở PWA: nút **Gọi lễ tân** thay "Gửi lỗi cho lễ tân" (không có API); mã tham chiếu chỉ là chữ nhỏ.
+
+### 6.19 Yêu cầu khách có phí (R2 Sprint 4 – H23)
+- Ô loại yêu cầu ghi phí ngay trên ô ("100.000 đ/lần", "Miễn phí"); loại có phí phải **tick "Tôi đồng ý phí …"** mới mở nút Gửi (cùng tinh thần 6.3 – không phát sinh phí bất ngờ). Nói rõ dọn hằng ngày vẫn miễn phí.
+- guest-web R2 không dùng chữ "hóa đơn / bill / mã cửa / OTP" (SEC ĐK-6): dùng `gw.req.fee_notice` ("thanh toán khi trả phòng") thay `guest.req.fee_notice`.
+- Ngoài giờ trực [07:00, 22:00): báo trước khi gửi + trả lời tự động; việc gấp → nút gọi người trực. Mất mạng: không xếp hàng ở trang khách – nút "Cần có mạng để gửi yêu cầu".
+
+### 6.20 Tổng quan + "Cần chú ý" + SSE (R2 Sprint 4 – H24)
+- Điện thoại chủ đầu tư: **Cần duyệt → Cần chú ý → KPI đêm nay**. Mỗi mục "Cần chú ý" là một nút mở màn xử lý; mức `critical/warning/info` = viền + icon + chữ. Câu cho 19 `AttentionItem.kind` ở `attn.*` (H24 24.3).
+- Chỉ báo kết nối luôn có chữ: **Trực tiếp** (chấm xanh) · **Đang kết nối lại** (chấm vàng, poll 30 giây) · **Ngoại tuyến** (vòng rỗng đỏ – khác hình). Mục mới từ SSE chèn đầu danh sách, sáng nền 2,4 giây (tắt khi giảm chuyển động), `aria-live="polite"` đọc một câu `ov.sse_new_announce`, không cướp focus. Mỗi khối (KPI, Cần chú ý, Cần duyệt) lỗi độc lập.
+
 ## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
 
 | Trạng thái | Khi nào | Mẫu | Ví dụ |
@@ -372,6 +415,7 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.3.3 | 16/10/2026 | UXD | R2 Sprint 2 – hi-fi Sprint 4 (H19–H24): mẫu 6.18 PWA buồng phòng/bảo trì (mật độ HK, hoàn tác 10 giây = gửi trễ, hàng đợi + "Cần xem lại", mức phiếu, ảnh bằng chứng), 6.19 yêu cầu khách có phí, 6.20 Tổng quan + SSE; mục 4.1 lớp tiện ích thay style nội tuyến (FB-R2-UXD-FE-15) + `[hidden]` toàn cục + `tr.is-editing` (FE-13); component `.hk-card`, `.filters`, `.qpill`, `.toast-dock`, `.photo-row`, `.tl`, `.req-grid/.req-tile/.req-card`, `.live`, `.kpis.two`; H04 thêm cột/ô **số giường** (`bedCount`) và **diện tích** (`areaM2`) theo OpenAPI 0.3.4 Q6; 303 chuỗi VI/EN mới (`hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`); sửa `hk.task.extra_kit_items` ("1 1 mền"). |
 | 0.3.2 | 16/10/2026 | UXD | R2 Sprint 1 – hi-fi Sprint 3 (H13–H18): mẫu 6.16 (phụ thu chủ động + ân hạn 12:30, mã cửa ngoài app R2, "chờ đối soát", duyệt bằng mật khẩu), 6.17 guest-web mức 1; 6.4 bổ sung BR-613 c ở R2 = chặn nhận phòng (BA G-1); component `.conds`, `.chk3`, `.lock-box`, `.person`, `.bill-paper` (in A5), `.upload-slot`, `.choice`, `.chip.recon`, `.wiz-foot`; icon `printer`, `cash`, `scan`; 363 chuỗi VI/EN mới; sửa `guest.oci.done_body`, `pay.card`, `approval.pin_*`, `error.REAUTH_FAILED`, `checkout.complete_confirm_body`, bỏ `handover.foc_approver` (BA E05-07, E06-10). |
 | 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 – hi-fi EP00/EP02/EP10/EP11 (`hifi/`, 12 màn): component hi-fi `hifi.css` (chỉ dùng token), bảng 2.2 thêm 8 cặp chữ trên nền màu (0 cặp không đạt); mẫu 6.14 số khách định mức/tối đa + bộ đồ dùng thêm (ESC-014, sofa), 6.15 đơn dài hạn nhập tay; icon mới `monitor`, `sofa`, `sliders`, `chevron`, `filter`; 502 chuỗi VI/EN mới (RU ở R3; gồm mã lỗi OpenAPI 0.3.1); sửa `error.FILE_REJECTED` theo OpenAPI 0.3 (JPG/PNG/WebP ≤ 10 MB). |
 | 0.3 | 16/10/2026 | UXD | Bước 4 (phản hồi UXR, PO, QA): thêm token `--focus-on-dark`; `--line-strong` sáng #8C8578 → #857E71 (đạt 3:1 trên `--side`); bảng 2.2 thêm 12 cặp (focus trên mọi nền có điều khiển, line-strong trên side/surface-2, cột biểu đồ) – 0 cặp không đạt; nút khóa bỏ opacity; cỡ chữ/vùng chạm tối thiểu áp cho toast, seg, thanh dưới, chip, nhãn; VC một tên "Đã dọn – chờ kiểm" tông gỗ sồi; mẫu 6.11 đến muộn, 6.12 chữ tự do của nhân viên, 6.13 dữ liệu mẫu DS-0; wireframe L10 mới. |

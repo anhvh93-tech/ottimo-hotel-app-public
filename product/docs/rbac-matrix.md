@@ -1,6 +1,6 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.1 (đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
 - Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
@@ -83,7 +83,7 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S30 | Yêu cầu khách & đồ thất lạc (M11, BR-513) | ✔ | ✔ | ✔ | ✔ | T ¹⁸ | T ¹⁸ | ✖ | ✖ | Đ1 |
 | S31 | Yêu cầu của chủ thể dữ liệu (xem/sửa/xóa/rút đồng ý – SEC R-DSR) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Đ2 ¹⁹ |
 | S32 | Ca làm việc & đóng ca (P11, SM-17) | ✔ | ✔ | ✔ | M | ✖ | ✖ | ✖ | ✖ | ✖ |
-| S33 | Đối soát chuyển khoản (P11, SM-12) | ✔ | ✔ | R | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S33 | Đối soát chuyển khoản (P11, SM-12) | ✔ | ✔ | M R ³³ᵃ | M R ³³ᵃ | ✖ | ✖ | M R ³³ᵃ | ✖ | ✖ |
 | S34 | Danh sách dự phòng mất mạng (P12) – bản in/bản đọc offline | ✔ | ✔ | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ |
 
 Ghi chú:
@@ -103,6 +103,7 @@ Ghi chú:
 14. FDL: báo cáo FOC của các yêu cầu mình gửi hoặc duyệt.
 15. FDL: yêu cầu thuộc hạn mức FDL theo BR-433.
 16. M: chỉ thấy trạng thái các yêu cầu mình gửi và rút lại được (A6). CTV gửi gia hạn báo giá (A51) nên cần theo dõi được yêu cầu của mình (QA #12) – ARC thêm `collaborator` với `x-scope: own` vào `listApprovalRequests` và `cancelRequest`.
+33a. **S33 theo vai (R2 Sprint 2 – trả lời ARC Q-B1)**: OWN/MGR xem toàn cơ sở và đối soát (A46). FDL, FD, SAL chỉ **xem** giao dịch **của mình** (`recordedBy` hoặc `confirmedBy` = mình – suy từ A33; SAL chỉ cọc đơn của mình) để theo dõi cờ "chờ đối soát"; không đối soát (A46 ✖). Khớp `listPayments` `x-scope: own` (OpenAPI 0.3.3) và EP03-05 mục 2.4. Bản cũ (FDL R toàn bộ, FD ✖) bỏ.
 20a. **Round 2: chỉ OWN** xem danh sách, cấp, thu hồi thiết bị được cấp (A110 – `listTrustedDevices`, `trustCurrentDevice`, `revokeTrustedDevice`); MGR ✖ – khớp OpenAPI, wireframe L1 và ARC-responses bước 4 ("thiết bị giữ owner"), chặt hơn SR-DEV-01 nên vẫn đạt yêu cầu SEC. Ở S26, MGR chỉ quản lý mật khẩu/PIN/2FA/phiên **của mình** (A112); không gán vai, không đặt lại 2FA người khác. Ủy quyền cho MGR khi OWN bật (tùy chọn của SR-DEV-01) **chưa làm**; khi PO đưa vào round sau, BA thêm lại MGR ◐ kèm tham số bật ủy quyền và báo ARC thêm `manager` vào `x-roles` (BUG-R1-006).
 25a. S25 theo vai (khớp `listRooms`, `listRoomGroups`; BUG-R1-005): OWN/MGR xem đầy đủ + sửa (A101/A103). FDL/FD/SAL/CTV chỉ **xem dạng tra cứu** (`x-scope: catalog_only`): số căn, tầng, nhóm căn, tên, sức chứa (`baseOccupancy`, `maxOccupancy` – cần để xếp khách và báo giá, BR-601) và giá niêm yết hiện hành; không thấy lịch sử giá. **HK/MT ✖: không dùng `listRooms`/`listRoomGroups`.** Số căn, tầng, nhóm căn mà HK/MT cần lấy từ **danh sách việc buồng phòng** (S10 – `listHkTasks`, `listRoomStatuses`), phiếu sửa (S11 – `listWorkOrders`) và rack dạng trạng thái (S03, ghi chú 2). Với HK/MT, `maxOccupancy`, `baseOccupancy` và mọi giá là **K** (không trả về); ARC gắn `x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]` cho `Room.maxOccupancy`, `RoomGroup.maxOccupancy`, `RoomGroup.baseOccupancy` nếu các schema này còn xuất hiện trong response dành cho HK/MT.
 17. MGR sửa tham số vận hành; **không** sửa hạn mức FOC (`foc_limits`), tỷ lệ hoa hồng, phí kênh – chỉ OWN (mục 5.3).
@@ -400,3 +401,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | 15/10/2026 | 1 (bước 4) | Màn mặc định FD/FDL = Hôm nay; ký hiệu Q (thiết bị được cấp) theo quyết định SEC + phân xử ORC; GST1/GST2/GSTp; D12 tách a/b/c; D15, D22, D25 sửa; thêm D29; A07a/b, A11a/b, A22a, A23, A45–A47, A77, A108, 4.7 (A110–A118); A10 theo SQ-1; ghi chú 24 theo SQ-3; S23 cho CTV (QA #12); S32–S34; 8.7–8.10; bản máy đọc `rbac-matrix.json` | BA |
 | 16/10/2026 | 1 (bước 5) | BUG-R1-005: ghi chú 25a – S25 dạng tra cứu cho FDL/FD/SAL/CTV, HK/MT không dùng `listRooms`/`listRoomGroups` (dùng danh sách việc buồng phòng), sức chứa ẩn với HK/MT. BUG-R1-006: A22 SAL ✖ (theo quyết định bước 4); A110 MGR ✖ ở R2 (ghi chú 20a). `rbac-matrix.json` v0.2.1 cập nhật theo | BA |
 | 16/10/2026 | 1 (bước 5, lượt 2) | Thêm **A119** "Sửa tham số bảo mật – chỉ OWN" (8 khóa `x-security-parameters` của `setParameter` 0.2.1-draft; MGR 403; ngoài biên 422 `PARAM_OUT_OF_RANGE` kể cả OWN) theo BUG-R1-SEC-02 / fix-notes-ARC; A118 ghi là trường hợp riêng của A119; mục 5.3 thêm A119. `rbac-matrix.json` thêm A119, A118 ánh xạ `setParameter` | BA |
+| 16/10/2026 | 2 (Sprint 2) | S33: FDL/FD/SAL **M R** (giao dịch của mình – ghi chú 33a), trả lời ARC Q-B1, khớp `listPayments` OpenAPI 0.3.3; `rbac-matrix.json` không đổi (bản máy đọc chỉ có hành động A-xx; `listPayments` đã ánh xạ A33) | BA |

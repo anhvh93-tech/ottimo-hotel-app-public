@@ -13,7 +13,7 @@
 | AC của story Must R2 (backlog mục 4) | **250** |
 | AC có ≥ 1 TC | **250/250** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **250/250** (100.0%) |
-| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 6 · 5 (danh sách mục 5.7) |
+| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 7 · 5 (danh sách mục 5.7) |
 | Chuyển trạng thái (17 máy, `state-machines.md`) có ≥ 1 TC | **102/122** (83.6%) – chi tiết mục 7 |
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
@@ -194,15 +194,16 @@
 | TC-NT-023 | [BLOCKED: R3 – gộp hồ sơ US-074; decision-log 15/10 PO chuyển US-023 AC2 sang US-074] | US-074/– |
 | TC-NT-042 | [UNDECIDED: erd 9.1 chưa ghi khoảng giá trị cho khóa nghiệp vụ – chờ ARC] | US-005/– |
 | TC-RB-024 | [GIẢ ĐỊNH QA – chờ BA: D01 hiển thị theo màn đang mở] | US-002/AC3 |
+| TC-L2-079 | [UNDECIDED: `ReservationCreate.roomId` bắt buộc – hợp đồng chưa có cách "không chọn căn cụ thể", chờ BA/ARC (s2-report QA)] | US-017/– |
 | TC-L2-029 | [BLOCKED: R2 chỉ có nhánh lễ tân nhập lại theo extranet; nhánh SYS từ channel manager là R3] | US-139/– |
 | TC-L3-070 | [GIẢ ĐỊNH QA – chờ DOM: "30 ngày sau trả phòng" = xóa ở lần chạy J16 đầu tiên từ 00:00 ngày (ngày trả theo lịch giờ VN + 30); BA-DOM-07] | US-049/AC1 |
 | TC-L5-015 | [GIẢ ĐỊNH QA – chờ DOM: hạn = 23:59 của ngày (ngày lập + `quote_validity_days`)] | US-083/AC1 |
 | TC-L5-033 | [Dời R3 – R-C: AC dời theo INV quyết ESC-012 16/10; giữ TC cho đầu R3, không chạy ở R2] | US-086/AC3 |
 | TC-L5-039 | [Dời R3 – R-C: AC dời theo INV quyết ESC-012 16/10; giữ TC cho đầu R3, không chạy ở R2] | US-086/–, US-119/AC5 |
 | TC-L6-029 | [GIẢ ĐỊNH QA – chờ DOM: đủ đúng 72 giờ tính là "quá 3 ngày" → VC] | US-053/– |
-| TC-L6-053 | [BLOCKED: OpenAPI 0.3 chưa có loại việc buồng phòng cho bộ đồ dùng thêm (`HkTaskType` thiếu `extra_guest_kit_prepare`/`collect`/`transfer` – BA EP02 E02-05) – chờ ARC; backlog chưa có AC cho BR-812 – chờ PO] | US-054/– |
-| TC-L6-054 | [BLOCKED: OpenAPI 0.3 chưa có loại việc buồng phòng cho bộ đồ dùng thêm (`HkTaskType` thiếu `extra_guest_kit_prepare`/`collect`/`transfer` – BA EP02 E02-05) – chờ ARC; backlog chưa có AC cho BR-812 – chờ PO] | US-054/– |
-| TC-L6-055 | [BLOCKED: OpenAPI 0.3 chưa có loại việc buồng phòng cho bộ đồ dùng thêm (`HkTaskType` thiếu `extra_guest_kit_prepare`/`collect`/`transfer` – BA EP02 E02-05) – chờ ARC; backlog chưa có AC cho BR-812 – chờ PO] | US-054/– |
+| TC-L6-053 | [BLOCKED: backlog chưa có AC cho BR-812 – chờ PO (phần ARC đã xong: OpenAPI 0.3.1 có `HkTaskType` `extra_guest_kit_prepare`/`collect`/`transfer`, `HkTask.dueAt`, `Reservation.extraGuestCount`)] | US-054/– |
+| TC-L6-054 | [BLOCKED: backlog chưa có AC cho BR-812 – chờ PO (phần ARC đã xong: OpenAPI 0.3.1 có `HkTaskType` `extra_guest_kit_prepare`/`collect`/`transfer`, `HkTask.dueAt`, `Reservation.extraGuestCount`)] | US-054/– |
+| TC-L6-055 | [BLOCKED: backlog chưa có AC cho BR-812 – chờ PO (phần ARC đã xong: OpenAPI 0.3.1 có `HkTaskType` `extra_guest_kit_prepare`/`collect`/`transfer`, `HkTask.dueAt`, `Reservation.extraGuestCount`)] | US-054/– |
 | TC-L7-035 | [GIẢ ĐỊNH QA – chờ DOM: giờ trực là khoảng [07:00, 22:00) – 22:00 là ngoài giờ] | US-110/AC2 |
 | TC-L8-006 | [Dời R3 – R-C: AC dời theo INV quyết ESC-012 16/10; giữ TC cho đầu R3, không chạy ở R2] | US-012/AC2 |
 
@@ -324,7 +325,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-14 | – | `open` → `cancelled` | Khách từ chối dọn, khối OOO, đơn hủy; việc bộ đồ dùng thêm k | – | TC-L6-033 |
 | SM-15 | – | [*] → `new` | Khách gửi (6 loại, BR-811) | – | TC-L7-030 |
 | SM-15 | – | `new` → `acknowledged` | Bộ phận được định tuyến bấm "Đã nhận" – đo thời hạn phản hồi | – | TC-L7-036 |
-| SM-15 | – | `acknowledged` → `in_progress` | Tạo việc HK (SM-14) / phiếu sửa (SM-04) / ghi chú lễ tân | – | TC-L7-036 |
+| SM-15 | – | `acknowledged` → `in_progress` | Việc HK (SM-14) liên kết bắt đầu / phiếu sửa (SM-04) liên kế | – | TC-L7-036 |
 | SM-15 | – | `in_progress` → `done` | Việc/phiếu liên kết `done`, hoặc lễ tân trả lời xong | – | TC-L7-031 |
 | SM-15 | – | `new`/`acknowledged` → `declined` | Không thực hiện được, ghi lý do gửi khách | – | TC-L7-031 |
 | SM-16 | G1 | [*] → `open` | Tạo nhóm từ báo giá nhiều căn hoặc gom các đơn có sẵn | – | **TRỐNG** |

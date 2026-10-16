@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H19 Buồng phòng – việc hôm nay, các căn, bộ đồ dùng thêm – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H19</div>
+  <h1>H19 · PWA buồng phòng – việc hôm nay theo căn, các căn + bộ lọc, bộ đồ dùng thêm (BR-812)</h1>
+  <div class="doc-meta"><span>Sprint 4 (MOB – apps/mobile "OTTIMO Staff")</span><span>housekeeping (FDL/FD xem cùng dữ liệu)</span><span>Điện thoại 360–412px · mật độ HK: chữ ≥ 16px, nút ≥ 48px, nút chính 56px</span><span>US-052, US-053 AC2, US-054, US-056, US-110 AC3, BR-807, BR-812</span><span>Wireframe gốc: L6 6.1</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="18-guest-checkin.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="20-hk-clean-inspect.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<div class="note-rbac"><b>Giao diện buồng phòng (DS mục 9 – mật độ HK):</b> trạng thái buồng là <b>câu thường</b> (<code>hk.status.*</code>), không mã VC/VD; 1 việc = 1 thẻ, nút toàn chiều rộng; thanh dưới 4 mục. <code>housekeeping</code> chỉ thấy <b>tên gọi</b> khách của căn có việc hôm nay (rbac D01) – căn sắp có khách chỉ ghi "Có khách đến hôm nay 15:30", không tên, không kênh, không giá. Dữ liệu: DS-0, Thứ Năm 15/10/2026 10:42.</div>
+
+<section class="doc-sec" aria-labelledby="s191">
+  <h2 id="s191"><span class="no">19.1</span>Việc của tôi – xếp theo ưu tiên BR-807 (căn có khách đến hôm nay trước)</h2>
+  <p class="lead">Danh sách tự sinh (US-054): dọn trả phòng, dọn phòng khách đang ở, dọn theo gói dài hạn, bổ sung minibar, yêu cầu từ app khách, bộ đồ dùng thêm. Một thẻ = một căn; mỗi thẻ có đúng một nút chính. Đổi trạng thái thanh công cụ để xem tải / rỗng / lỗi / mất mạng (vẫn bấm được, xếp hàng).</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal">
+      <header class="m-top"><h1><span data-i18n="nav.my_tasks">Việc của tôi</span><span class="sub" data-i18n="hk.updated_at" data-i18n-args='{"date":"15/10","time":"10:42"}'>Hôm nay 15/10 · cập nhật 10:42</span></h1><span class="chip neutral" data-show="normal offline" data-i18n="hk.progress" data-i18n-args='{"done":"3","total":"9"}'>3/9 xong</span></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div data-show="offline"><a class="qpill mb-12" href="21-hk-incident-queue.html#s213"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="hk.queue_pill" data-i18n-args='{"n":"2"}'>2 thao tác đang chờ gửi</span></a></div>
+        <div data-show="normal offline">
+          <h2 class="grp-h"><span data-i18n="hk.grp.first">Làm trước – có khách đến hôm nay</span></h2>
+          <article class="hk-card kit" aria-labelledby="t302">
+            <div class="hd"><span class="room" id="t302">302</span><span class="chip oak"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg><span data-i18n="hk.status.VC">Đã dọn – chờ kiểm</span></span></div>
+            <div class="what"><b data-i18n="hk.task.extra_kit" data-i18n-args='{"n":"1","room":"302","time":"14:00"}'>Chuẩn bị 1 bộ đồ dùng thêm – căn 302, trước 14:00</b><span class="li-s" data-i18n="hk.task.extra_kit_items">Mỗi bộ: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối)</span><div class="meta"><span data-i18n="hk.arriving_today" data-i18n-args='{"time":"15:30"}'>Có khách đến hôm nay 15:30</span></div></div>
+            <div class="acts"><button class="btn pri xl block" data-undo-start="#undo191"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="hk.kit.prepared">Đã chuẩn bị</span></button></div>
+          </article>
+          <article class="hk-card urgent" aria-labelledby="t202">
+            <div class="hd"><span class="room" id="t202">202</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="hk.status.VD">Cần dọn (khách đã đi)</span></span></div>
+            <div class="what"><b data-i18n="hk.type.checkout_clean">Dọn trả phòng</b><div class="meta"><span data-i18n="hk.arriving_tomorrow">Có khách đến ngày mai</span><span data-i18n="hk.linen_change">Thay ga gối</span></div></div>
+            <div class="acts"><a class="btn pri xl block" href="20-hk-clean-inspect.html#s201"><span data-i18n="hk.action.start_cleaning">Bắt đầu dọn</span></a></div>
+          </article>
+          <h2 class="grp-h"><span data-i18n="hk.grp.stay">Khách đang ở</span></h2>
+          <article class="hk-card" aria-labelledby="t102">
+            <div class="hd"><span class="room" id="t102">102</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="hk.status.OD">Khách đang ở – cần dọn</span></span></div>
+            <div class="what"><b data-i18n="hk.type.long_stay_clean">Dọn theo gói dài hạn</b><div class="meta"><span data-i18n="hk.window" data-i18n-args='{"from":"09:00","to":"11:00"}'>Khung giờ hẹn 09:00–11:00</span><span data-i18n="hk.guest_first_name" data-i18n-args='{"name":"Emma"}'>Khách: Emma</span></div></div>
+            <div class="acts two"><a class="btn pri xl" href="20-hk-clean-inspect.html#s201"><span data-i18n="hk.action.start_cleaning">Bắt đầu dọn</span></a><a class="btn xl" href="20-hk-clean-inspect.html#s204"><span data-i18n="hk.task.guest_refused">Khách không muốn dọn</span></a></div>
+          </article>
+          <article class="hk-card" aria-labelledby="t101">
+            <div class="hd"><span class="room" id="t101">101</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="hk.status.OD">Khách đang ở – cần dọn</span></span><span class="chip info"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="hk.source.guest_app">App khách</span></span></div>
+            <div class="what"><b data-i18n="hk.type.stayover_clean">Dọn phòng khách đang ở</b><div class="meta"><span data-i18n="hk.guest_first_name" data-i18n-args='{"name":"Khoa"}'>Khách: Khoa</span></div>
+              <p class="mt-8 m-0"><span data-i18n="guest.req.towels">Khăn, đồ dùng</span> · <span data-i18n="hk.req_note" data-i18n-args='{"note":"Thêm 2 khăn tắm"}'>Khách nhắn: "Thêm 2 khăn tắm"</span></p>
+              <p class="mt-4 m-0 li-s"><span data-i18n="hk.refill" data-i18n-args='{"items":"2 bia, 1 snack"}'>Bổ sung minibar: 2 bia, 1 snack</span></p></div>
+            <div class="acts two"><a class="btn pri xl" href="20-hk-clean-inspect.html#s204"><span data-i18n="hk.action.start_cleaning">Bắt đầu dọn</span></a><a class="btn xl" href="20-hk-clean-inspect.html#s204"><span data-i18n="hk.task.guest_refused">Khách không muốn dọn</span></a></div>
+          </article>
+          <h2 class="grp-h"><span data-i18n="hk.grp.later">Sau khi khách trả phòng</span></h2>
+          <article class="hk-card" aria-labelledby="t201">
+            <div class="hd"><span class="room" id="t201">201</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="hk.status.OD">Khách đang ở – cần dọn</span></span></div>
+            <div class="what"><b data-i18n="hk.type.checkout_clean">Dọn trả phòng</b><div class="meta"><span data-i18n="hk.departing_today" data-i18n-args='{"time":"12:00"}'>Khách đi hôm nay – trả phòng trước 12:00</span></div></div>
+            <div class="acts"><button class="btn xl block" aria-disabled="true"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="hk.wait_checkout">Chờ khách trả phòng</span></button></div>
+          </article>
+          <h2 class="grp-h"><span data-i18n="hk.grp.done" data-i18n-args='{"n":"3"}'>Đã xong (3)</span></h2>
+          <article class="hk-card done" aria-labelledby="t203"><div class="hd"><span class="room" id="t203">203</span><span class="chip oak"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg><span data-i18n="hk.status.VC">Đã dọn – chờ kiểm</span></span></div><p class="li-s mt-4 m-0" data-i18n="hk.done_at" data-i18n-args='{"time":"09:40"}'>Xong lúc 09:40</p></article>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-32 w-60"></div><div class="sk h-120"></div><div class="sk h-120"></div><div class="sk h-120"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="hk.empty_title">Hết việc rồi!</h3><p data-i18n="hk.empty_body">Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây.</p></div></div>
+        <div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="hk.error_title">Chưa tải được việc hôm nay</h3><p data-i18n="hk.error_body">Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân.</p><button class="btn pri xl block" data-i18n="common.retry">Thử lại</button><a class="btn xl block" href="tel:+84000000000" data-i18n="hk.call_desk">Gọi lễ tân</a><p class="caption" data-i18n="hk.ref" data-i18n-args='{"id":"01JB-6H2K"}'>Mã tham chiếu: 01JB-6H2K</p></div></div>
+      </div>
+      <div class="toast-dock" data-countdown="10" id="undo191" hidden><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="hk.kit.prepared_toast" data-i18n-args='{"room":"302"}'>Căn 302: đã chuẩn bị bộ đồ dùng thêm</span><button class="btn" data-undo=""><svg class="ico" aria-hidden="true"><use href="#i-undo"/></svg><span data-cd-label="" data-i18n="hk.undo_btn" data-i18n-args='{"s":"10"}'>Hoàn tác (10)</span></button></div></div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.my_tasks">Việc của tôi</span></a><a href="#s192"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="21-hk-incident-queue.html"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">Việc của tôi – bấm "Đã chuẩn bị" ở căn 302 để xem toast Hoàn tác đếm 10 giây.</p></div>
+    <aside class="spec" aria-label="Đặc tả 19.1">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-054</span> AC1 việc tự sinh sau trả phòng (độ trễ theo architecture mục 16 – SSE <code>task.assigned</code>/<code>room.status_changed</code>); AC2 chip "App khách" + ghi chú của khách; AC3 bộ đếm x/y (<code>summary.done/total</code>); AC4 thứ tự BR-807 = <code>priorityRank</code> của server, client không tự sắp.</li>
+        <li><span class="us">US-056</span> AC1 việc dài hạn có khung giờ (<code>windowStart</code>–<code>windowEnd</code>).</li>
+        <li><span class="us">US-110</span> AC3 buồng phòng chỉ thấy yêu cầu khách định tuyến tới mình (Dọn thêm, Khăn/đồ dùng).</li>
+        <li>BR-812 (2): việc bộ đồ dùng thêm có <code>dueAt</code> (giờ nhận phòng của đơn) → luôn nằm nhóm "Làm trước", viền xanh <code>info</code> + icon sofa ở 19.3.</li>
+        <li>Nhóm hiển thị (client tự nhóm theo dữ liệu, không đổi thứ tự trong nhóm): Làm trước (có khách đến hôm nay hoặc có <code>dueAt</code>) · Khách đang ở · Sau khi khách trả phòng (<code>notBeforeTime</code> / đơn còn <code>in_house</code>) · Đã xong (thu gọn).</li>
+      </ul>
+      <h3>API</h3><ul>
+        <li><span class="op">listHkTasks</span> <code>?date=2026-10-15</code> (<code>summary</code>, <code>priorityRank</code>, <code>source</code>, <code>note</code>, <code>refillItems</code>, <code>quantity</code>, <code>dueAt</code>) · <span class="op">listRoomStatuses</span> (nhãn trạng thái, <code>currentGuest</code>, <code>nextArrival</code>, <code>allowedEvents</code>) · <span class="op">transitionHkTask</span> <code>done</code> (bộ đồ dùng thêm) · <span class="op">streamEvents</span> (<code>task.assigned</code>, <code>room.status_changed</code>).</li>
+        <li>Nút trên thẻ = <code>RoomStatusEntry.allowedEvents</code> (DS 6.9): <code>start_cleaning</code> → "Bắt đầu dọn"; căn còn khách đi hôm nay chưa trả → nút khóa "Chờ khách trả phòng".</li>
+        <li>Đọc offline (ADR-005): lưu IndexedDB, dòng phụ "cập nhật 10:42".</li>
+      </ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (lễ tân vừa đổi trạng thái → mục "Cần xem lại", H21 21.3) · <span class="pc">FORBIDDEN_ACTION</span> · <span class="pc">UNAUTHENTICATED</span> (về đăng nhập H01, hàng đợi giữ nguyên) · 5xx + <code>requestId</code> (chữ nhỏ, không bắt đọc).</li></ul>
+      <h3>a11y / mật độ</h3><ul><li>Số căn là <code>id</code> của thẻ (<code>aria-labelledby</code>) → trình đọc đọc "302, Đã dọn – chờ kiểm, Chuẩn bị 1 bộ…". Nút chính 56px, nút phụ 48px, cách 8px; chữ phụ 16px; thanh dưới 64px. Không cuộn ngang ở 360px (bộ lọc xuống dòng).</li><li>Lỗi: thay "Gửi lỗi cho lễ tân" (wireframe L6) bằng <b>Gọi lễ tân</b> – không có API gửi lỗi; mã tham chiếu chỉ là chữ nhỏ.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s192">
+  <h2 id="s192"><span class="no">19.2</span>Các căn – trạng thái 10 căn + bộ lọc (US-052)</h2>
+  <p class="lead">Bấm bộ lọc để thử. "Cần dọn" = trống cần dọn, khách đang ở cần dọn, đang dọn (US-052 AC2). Mỗi căn: số căn, trạng thái bằng câu thường, khách đến kế tiếp. Chạm thẻ → mở việc của căn (H20).</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal" data-filter-scope="">
+      <header class="m-top"><h1><span data-i18n="nav.rooms_status">Các căn</span><span class="sub" data-i18n="hk.updated_at" data-i18n-args='{"date":"15/10","time":"10:42"}'>Hôm nay 15/10 · cập nhật 10:42</span></h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div class="filters" role="group" data-i18n-label="hk.filter_label" aria-label="Lọc căn" data-show="normal offline"><button data-filter="all" aria-pressed="true" data-i18n="hk.filter.all" data-i18n-args='{"n":"10"}'>Tất cả (10)</button><button data-filter="dirty" aria-pressed="false" data-i18n="hk.filter.dirty" data-i18n-args='{"n":"5"}'>Cần dọn (5)</button><button data-filter="occupied" aria-pressed="false" data-i18n="hk.filter.occupied" data-i18n-args='{"n":"5"}'>Có khách (5)</button><button data-filter="ready" aria-pressed="false" data-i18n="hk.filter.ready" data-i18n-args='{"n":"4"}'>Sạch (4)</button><button data-filter="ooo" aria-pressed="false" data-i18n="hk.filter.ooo" data-i18n-args='{"n":"1"}'>Đang sửa (1)</button></div>
+        <div data-show="normal offline">
+          <a class="hk-card rowlink" data-kind="dirty" href="20-hk-clean-inspect.html#s201"><span class="room">202</span><span class="grow"><span class="chip warn" data-i18n="hk.status.VD">Cần dọn (khách đã đi)</span><span class="meta"><span data-i18n="hk.next_arrival" data-i18n-args='{"when":"16/10 14:00"}'>Khách đến tiếp: 16/10 14:00</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="dirty occupied" href="#"><span class="room">101</span><span class="grow"><span class="chip warn" data-i18n="hk.status.OD">Khách đang ở – cần dọn</span><span class="meta"><span data-i18n="hk.guest_first_name" data-i18n-args='{"name":"Khoa"}'>Khách: Khoa</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="dirty occupied" href="#"><span class="room">102</span><span class="grow"><span class="chip warn" data-i18n="hk.status.OD">Khách đang ở – cần dọn</span><span class="meta"><span data-i18n="hk.guest_first_name" data-i18n-args='{"name":"Emma"}'>Khách: Emma</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="dirty occupied" href="#"><span class="room">201</span><span class="grow"><span class="chip warn" data-i18n="hk.status.OD">Khách đang ở – cần dọn</span><span class="meta"><span data-i18n="hk.departing_today" data-i18n-args='{"time":"12:00"}'>Khách đi hôm nay – trả phòng trước 12:00</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="dirty occupied" href="#"><span class="room">402</span><span class="grow"><span class="chip warn" data-i18n="hk.status.OD">Khách đang ở – cần dọn</span><span class="meta"><span data-i18n="hk.guest_first_name" data-i18n-args='{"name":"Sarah"}'>Khách: Sarah</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="ready" href="20-hk-clean-inspect.html#s203"><span class="room">302</span><span class="grow"><span class="chip oak" data-i18n="hk.status.VC">Đã dọn – chờ kiểm</span><span class="meta"><span data-i18n="hk.arriving_today" data-i18n-args='{"time":"15:30"}'>Có khách đến hôm nay 15:30</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="ready" href="#"><span class="room">203</span><span class="grow"><span class="chip oak" data-i18n="hk.status.VC">Đã dọn – chờ kiểm</span><span class="meta"><span data-i18n="hk.next_arrival" data-i18n-args='{"when":"19/10 14:00"}'>Khách đến tiếp: 19/10 14:00</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="ready" href="#"><span class="room">103</span><span class="grow"><span class="chip ok" data-i18n="hk.status.VI">Sẵn sàng đón khách</span><span class="meta"><span data-i18n="hk.arriving_today" data-i18n-args='{"time":"14:00"}'>Có khách đến hôm nay 14:00</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="ready occupied" href="#"><span class="room">301</span><span class="grow"><span class="chip ok" data-i18n="hk.status.OC">Khách đang ở – đã dọn</span><span class="meta"><span data-i18n="hk.no_task_today">Không có việc hôm nay</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          <a class="hk-card rowlink" data-kind="ooo" href="22-maintenance.html#s222"><span class="room">401</span><span class="grow"><span class="chip bad" data-i18n="hk.status.OOO">Đang sửa – không bán</span><span class="meta"><span data-i18n="hk.reopen" data-i18n-args='{"date":"17/10"}'>Mở bán lại 17/10</span></span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-80"></div><div class="sk h-80"></div><div class="sk h-80"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-filter"/></svg></div><h3 data-i18n="hk.filter_empty_title">Không có căn nào ở nhóm này</h3><p data-i18n="hk.filter_empty_body" data-i18n-args='{"n":"10"}'>Chọn "Tất cả" để xem lại 10 căn.</p><button class="btn xl" data-i18n="hk.filter.show_all">Xem tất cả</button></div></div>
+        <div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="hk.rooms_error_title">Chưa tải được trạng thái các căn</h3><p data-i18n="hk.error_body">Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân.</p><button class="btn pri xl block" data-i18n="common.retry">Thử lại</button></div></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#s191"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.my_tasks">Việc của tôi</span></a><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="21-hk-incident-queue.html"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">Các căn – lọc "Cần dọn" còn 5 căn (VD, OD, CL).</p></div>
+    <aside class="spec" aria-label="Đặc tả 19.2">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-052</span> AC1 360px: 10 thẻ, số căn, nhãn trạng thái bằng chữ, khách đến kế tiếp, không cuộn ngang; AC2 "Cần dọn" = <code>VD</code>, <code>OD</code>, <code>CL</code>; AC3 tên gọi chỉ với căn có việc hôm nay, không kênh, không giá.</li>
+        <li>Bộ lọc (client): Cần dọn = VD/OD/CL · Có khách = OC/OD (+ CL khi còn đơn in_house) · Sạch = VC/VI/OC · Đang sửa = OOO. Số trong ngoặc tính từ dữ liệu đã tải.</li>
+        <li>Giao diện buồng phòng không hiện mã (VC, VD…). Lễ tân trưởng dùng PWA cũng thấy câu thường; mã chỉ ở Desk (H08).</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">listRoomStatuses</span> <code>?filter=</code> (server lọc được, client lọc lại khi offline) – <code>statusLabel</code>, <code>nextArrival.date/etaTime</code> (<code>guestDisplayName</code> chỉ D01), <code>currentGuest</code>, <code>roomBlock</code> qua <code>since</code> + H22.</li><li>"Mở bán lại 17/10": ngày đầu được bán của khối OOO (BR-804 nửa mở) – lấy từ khối đang <code>active</code>.</li></ul>
+      <h3>Problem.code</h3><ul><li>5xx/mạng → giữ danh sách cũ + "cập nhật lúc" (không xóa trắng màn).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s193">
+  <h2 id="s193"><span class="no">19.3</span>Bộ đồ dùng thêm (BR-812) – chuẩn bị · thu hồi · chuyển căn · sắp đến giờ mà chưa chuẩn bị</h2>
+  <p class="lead">Bốn biến thể thẻ việc <code>extra_guest_kit_*</code> (chỉ hệ thống sinh). Bấm "Đã chuẩn bị" ghi xuất kho bàn chải + bộ vệ sinh (BR-812 (7)) – buồng phòng không thấy giá vốn. Mền và khăn là đồ vải luân chuyển, không trừ kho.</p>
+  <div class="variants">
+    <div class="variant hk touch"><span class="label-h">Chuẩn bị – extra_guest_kit_prepare</span>
+      <article class="hk-card kit"><div class="hd"><span class="room">302</span><svg class="ico lg" aria-hidden="true"><use href="#i-sofa"/></svg></div>
+        <div class="what"><b data-i18n="hk.task.extra_kit" data-i18n-args='{"n":"1","room":"302","time":"14:00"}'>Chuẩn bị 1 bộ đồ dùng thêm – căn 302, trước 14:00</b><span class="li-s" data-i18n="hk.task.extra_kit_items">Mỗi bộ: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối)</span></div>
+        <button class="btn pri xl block"><span data-i18n="hk.kit.prepared">Đã chuẩn bị</span></button></article></div>
+    <div class="variant hk touch"><span class="label-h">Thu hồi – extra_guest_kit_collect</span>
+      <article class="hk-card"><div class="hd"><span class="room">202</span><svg class="ico lg" aria-hidden="true"><use href="#i-sofa"/></svg></div>
+        <div class="what"><b data-i18n="hk.kit.collect" data-i18n-args='{"n":"1","room":"202"}'>Thu hồi 1 bộ đồ dùng thêm – căn 202</b><span class="li-s" data-i18n="hk.kit.collect_how">Mền và khăn đưa đi giặt; bàn chải, đồ vệ sinh đã mở thì bỏ.</span><div class="meta"><span data-i18n="hk.kit.collect_reason">Đơn đã giảm số người</span></div></div>
+        <button class="btn pri xl block"><span data-i18n="hk.kit.collected">Đã thu hồi</span></button></article></div>
+    <div class="variant hk touch"><span class="label-h">Chuyển căn – extra_guest_kit_transfer (đổi phòng B14)</span>
+      <article class="hk-card"><div class="hd"><span class="room">402</span><svg class="ico lg" aria-hidden="true"><use href="#i-sofa"/></svg></div>
+        <div class="what"><b data-i18n="hk.kit.transfer" data-i18n-args='{"n":"1","from":"402","to":"301"}'>Chuyển 1 bộ đồ dùng thêm từ căn 402 sang căn 301</b><div class="meta"><span data-i18n="hk.kit.transfer_due" data-i18n-args='{"time":"11:30"}'>Trước 11:30</span></div></div>
+        <button class="btn pri xl block"><span data-i18n="hk.kit.transferred">Đã chuyển</span></button></article></div>
+    <div class="variant hk touch"><span class="label-h">Sắp đến giờ nhận phòng mà chưa chuẩn bị</span>
+      <article class="hk-card urgent"><div class="hd"><span class="room">302</span><span class="countdown bad"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="hk.kit.due_in" data-i18n-args='{"m":"25"}'>Còn 25 phút</span></span></div>
+        <div class="what"><b data-i18n="hk.kit.not_ready_title">Bộ đồ dùng thêm chưa chuẩn bị</b><span class="li-s" data-i18n="hk.kit.not_ready_body">Lễ tân vẫn nhận phòng được nhưng sẽ thấy cảnh báo. Việc này đã lên đầu danh sách.</span></div>
+        <button class="btn pri xl block"><span data-i18n="hk.kit.prepared">Đã chuẩn bị</span></button></article></div>
+  </div>
+  <div class="doc-row mt-16">
+    <aside class="spec" aria-label="Đặc tả 19.3">
+      <h3>Story / quy tắc</h3><ul>
+        <li>BR-812 (1) sinh khi đơn <code>confirmed</code> vượt định mức (302: 2 NL + 2 trẻ 6–11 = 4 &gt; 3 → 1 bộ); (2) hạn = giờ nhận phòng của đơn (14:00 hoặc giờ nhận sớm đã xác nhận); thêm người giữa kỳ → hạn 60 phút; (4) đổi đơn trước khi chuẩn bị → việc biến mất, sau khi chuẩn bị → việc thu hồi; đổi phòng đang ở → việc chuyển; (5) chưa xong khi khách đến → không chặn nhận phòng, lễ tân thấy <code>checkin.kit_not_ready</code> (H13), việc nâng đầu hàng; (6) trả phòng: dòng "Thu hồi bộ đồ dùng thêm" nằm trong thẻ dọn trả phòng (<code>hk.kit.collect_in_checkout</code>).</li>
+        <li>Thu hồi ví dụ ở căn 202 và chuyển 402 → 301 là <b>dữ liệu minh họa ngoài DS-0</b>.</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">listHkTasks</span> (<code>type</code> = <code>extra_guest_kit_prepare</code> / <code>_collect</code> / <code>_transfer</code>, <code>quantity</code>, <code>dueAt</code>, <code>reservationId</code>) · <span class="op">transitionHkTask</span> <code>done</code> {<code>performedAt</code>} – ghi được offline (ADR-005); gửi sau 10 giây hoàn tác (H20 20.2).</li><li>Nội dung bộ lấy từ tham số <code>extra_guest_kit_items</code> – chuỗi <code>hk.task.extra_kit_items</code> chỉ là bản mặc định (đã sửa lỗi "1 1 mền").</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> việc đã bị hệ thống hủy (đơn đổi) → "Cần xem lại": "Việc này đã được hủy vì đơn thay đổi – không cần làm".</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

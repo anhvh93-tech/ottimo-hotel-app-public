@@ -13,20 +13,20 @@
 <body>
 <a class="skip" href="#main">Bỏ qua tới nội dung</a>
 <header class="doc-head">
-  <div class="crumb">OTTIMO · Design System v0.3.1</div>
-  <h1>Thiết kế hi-fi Round 2 – Đợt 0 + Sprint 1 (Sprint 1–3: EP00, EP02, EP10, EP11 · EP03–EP06, EP15, EP14 check-in online)</h1>
-  <div class="doc-meta"><span>UXD · 16/10/2026</span><span>HTML tĩnh, bấm thử được, không gắn backend</span><span>OpenAPI 0.3.1 (H01–H12) · 0.3.2-draft (H13–H18)</span><span>VI + EN (RU ở R3)</span><span>Dữ liệu: DS-0, hôm nay = Thứ Năm 15/10/2026 10:42</span></div>
+  <div class="crumb">OTTIMO · Design System v0.3.3</div>
+  <h1>Thiết kế hi-fi Round 2 – Đợt 0 + Sprint 1 + Sprint 2 (Sprint 1–4: EP00, EP02, EP10, EP11 · EP03–EP06, EP15, EP14 check-in online · EP07, EP08, EP14 yêu cầu, EP01 Tổng quan)</h1>
+  <div class="doc-meta"><span>UXD · 16/10/2026</span><span>HTML tĩnh, bấm thử được, không gắn backend</span><span>OpenAPI 0.3.1 (H01–H12) · 0.3.2-draft (H13–H18) · 0.3.4-draft (H19–H24, H04 số giường/diện tích)</span><span>VI + EN (RU ở R3)</span><span>Dữ liệu: DS-0, hôm nay = Thứ Năm 15/10/2026 10:42</span></div>
 </header>
 <div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
   <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
   <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
-  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="../wireframes/index.html">Wireframe R1</a><a class="btn sm pri" href="01-login.html">Bắt đầu: H01 →</a><a class="btn sm" href="13-check-in.html">Sprint 3: H13 →</a></nav>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="../wireframes/index.html">Wireframe R1</a><a class="btn sm pri" href="01-login.html">Bắt đầu: H01 →</a><a class="btn sm" href="13-check-in.html">Sprint 3: H13 →</a><a class="btn sm" href="19-hk-tasks.html">Sprint 4: H19 →</a></nav>
 </div>
 <main id="main" class="doc-main">
 
 <section class="doc-sec" aria-labelledby="i1">
   <h2 id="i1"><span class="no">1</span>Cách xem</h2>
-  <div class="spec" style="max-width:none">
+  <div class="spec wide">
     <ul>
       <li>Mở bằng trình duyệt (Chrome/Safari/Firefox), không cần mạng. Mỗi trang có: <b>Trạng thái</b> (bình thường / đang tải / rỗng / lỗi / mất mạng), <b>Giao diện</b> sáng/tối, <b>Ngôn ngữ</b> VI/EN (đổi chữ thật từ <code>copy/strings-*.json</code>).</li>
       <li>Mỗi màn có khung bên phải ghi: <span class="us">Story/AC</span> · <span class="op">operationId</span> (OpenAPI 0.3.1) · <span class="pc">Problem.code</span> phải xử lý · hành vi, a11y.</li>
@@ -45,7 +45,7 @@
       <tr><td><b>H01</b></td><td><a href="01-login.html">Đăng nhập · đổi mật khẩu lần đầu · mã 2 bước · bật 2FA · chọn cơ sở</a></td><td>Mọi vai · máy quầy + điện thoại</td><td>US-001 AC1/2/4, US-002; nền US-143 (R3)</td><td class="mono">login, loginMfa, getMe, changeMyPassword, getMy2fa, startMy2faSetup, confirmMy2fa, logout</td><td class="mono">UNAUTHENTICATED, RATE_LIMITED, MFA_REQUIRED, PASSWORD_CHANGE_REQUIRED, REAUTH_REQUIRED, VALIDATION_FAILED</td><td>1</td></tr>
       <tr><td><b>H02</b></td><td><a href="02-role-nav.html">Khung ứng dụng + điều hướng 8 vai · không có quyền · máy chưa cấp</a></td><td>8 vai · máy quầy + điện thoại</td><td>US-001 AC1, US-002 AC1/3/4, US-003 AC3/4, US-142 AC2</td><td class="mono">getMe, logout, listMyNotifications, streamEvents</td><td class="mono">FORBIDDEN_ACTION, DEVICE_NOT_TRUSTED, UNAUTHENTICATED</td><td>1</td></tr>
       <tr><td><b>H03</b></td><td><a href="03-today.html">Hôm nay (máy quầy) – màn mặc định lễ tân</a></td><td>FD, FDL · máy quầy</td><td>US-001 AC1, US-011, US-012 AC1, US-085 AC2/4, US-136 AC1, US-139 AC1, US-003 AC4</td><td class="mono">listAttentionItems, resolveAttentionEvent, getArrivalsDepartures, getTonightKpi, listGuestRequests, listHkTasks</td><td class="mono">5xx + requestId, UNAUTHENTICATED</td><td>1 (khung) · 2–4</td></tr>
-      <tr><td><b>H04</b></td><td><a href="04-rooms.html">Danh mục căn – định mức / tối đa / giá / bán</a></td><td>owner, manager · máy quầy</td><td>US-004 AC1–3; ESC-014</td><td class="mono">listRooms, listRoomGroups, updateRoom, createRoom</td><td class="mono">CAPACITY_BELOW_BOOKINGS, VALIDATION_FAILED (MAX_OCCUPANCY_RANGE), VERSION_CONFLICT, FORBIDDEN_ACTION</td><td>1</td></tr>
+      <tr><td><b>H04</b></td><td><a href="04-rooms.html">Danh mục căn – định mức / tối đa / giá / bán</a></td><td>owner, manager · máy quầy</td><td>US-004 AC1–3; ESC-014; Room.bedSetup/bedCount/areaM2 (0.3.4 Q6)</td><td class="mono">listRooms, listRoomGroups, updateRoom, createRoom</td><td class="mono">CAPACITY_BELOW_BOOKINGS, VALIDATION_FAILED (MAX_OCCUPANCY_RANGE), VERSION_CONFLICT, FORBIDDEN_ACTION</td><td>1</td></tr>
       <tr><td><b>H05</b></td><td><a href="05-params.html">Tham số quy tắc + lịch sử</a></td><td>owner (sửa), manager (A101), FDL (xem)</td><td>US-005 AC1–3</td><td class="mono">listParameters, setParameter, getParameterHistory</td><td class="mono">PARAM_OUT_OF_RANGE, FORBIDDEN_ACTION, VERSION_CONFLICT</td><td>1</td></tr>
       <tr><td><b>H06</b></td><td><a href="06-guests.html">Khách hàng – hồ sơ, chặn trùng, bộ chọn khách</a></td><td>FD+ · sale/CTV (của mình)</td><td>US-071, US-072, US-073, US-023 AC2, US-003 AC1, US-087 AC3</td><td class="mono">searchGuests, lookupGuestByContact, createGuest, updateGuest, getGuest</td><td class="mono">DUPLICATE_GUEST, VALIDATION_FAILED, CARD_NUMBER_DETECTED, VERSION_CONFLICT</td><td>1</td></tr>
       <tr><td><b>H07</b></td><td><a href="07-users-devices.html">Người dùng &amp; vai · thiết bị được cấp</a></td><td>owner · máy quầy</td><td>US-002 AC1–4, US-001 AC4, US-142 AC1–3, US-135</td><td class="mono">listUsers, createUser, updateUser, setUserRoles, listTrustedDevices, trustCurrentDevice, revokeTrustedDevice, stepUp</td><td class="mono">USERNAME_TAKEN, FORBIDDEN_ACTION, REAUTH_FAILED, REAUTH_REQUIRED, VALIDATION_FAILED (LAST_OWNER)</td><td>1</td></tr>
@@ -60,37 +60,45 @@
       <tr><td><b>H16</b></td><td><a href="16-check-out.html">Trả phòng 3 bước + Phiếu thanh toán (VI / VI–EN) + VietQR + thu tiền "chờ đối soát" + hoàn tất + đối soát</a></td><td>FD+ (thu, hoàn tất) · MGR/OWN (đối soát, công nợ)</td><td>US-035, US-036, US-037, US-038, US-039, US-119, US-120, US-135, US-007 AC5</td><td class="mono">getCheckoutSummary, recordMinibarCheck, getBill, createVietQr, recordPayment, setInvoiceRequest, checkOut, reconcilePayment</td><td class="mono">BALANCE_DUE, PENDING_APPROVALS, PAYMENT_NOT_CONFIGURED, FOLIO_LOCKED, CARD_NUMBER_DETECTED, INVALID_TRANSITION, VERSION_CONFLICT, IDEMPOTENCY_IN_PROGRESS</td><td>3</td></tr>
       <tr><td><b>H17</b></td><td><a href="17-approvals-moneylog.html">Miễn phí / giảm giá – gửi (không chọn người duyệt), hộp Cần duyệt (mật khẩu R2), nhật ký tiền</a></td><td>Gửi FD+ · duyệt FDL/MGR/OWN · nhật ký OWN/MGR (FD: của mình)</td><td>US-007 AC1–AC6, US-006 AC1–AC2</td><td class="mono">requestFoc, listApprovalRequests, approveRequest, rejectRequest, cancelRequest, listAuditEvents</td><td class="mono">REAUTH_FAILED, SELF_APPROVAL_FORBIDDEN, APPROVAL_LIMIT_EXCEEDED, INVALID_TRANSITION, FOLIO_LOCKED, FORBIDDEN_ACTION</td><td>3</td></tr>
       <tr><td><b>H18</b></td><td><a href="18-guest-checkin.html">guest-web mức 1 – trang lưu trú + check-in online 3 bước (SEC P-R2-4 ĐK-1…6)</a></td><td>Khách · điện thoại</td><td>US-106, US-107, US-108 (trừ mã cửa), US-112, US-045 AC3</td><td class="mono">openGuestSession, getGuestStay, setGuestLocale, getOnlineCheckin, updateOnlineCheckin, uploadGuestDocument, recordGuestConsent, completeOnlineCheckin</td><td class="mono">GUEST_LINK_INVALID, GUEST_STAY_ENDED, FILE_REJECTED, PAYLOAD_TOO_LARGE, RATE_LIMITED, INVALID_TRANSITION</td><td>3</td></tr>
+      <tr><td><b>H19</b></td><td><a href="19-hk-tasks.html">PWA buồng phòng – việc hôm nay theo căn, các căn + bộ lọc, bộ đồ dùng thêm (chuẩn bị / thu hồi / chuyển)</a></td><td>housekeeping (FDL/FD xem) · điện thoại, mật độ HK</td><td>US-052, US-053 AC2, US-054, US-056, US-110 AC3, BR-807, BR-812</td><td class="mono">listHkTasks, listRoomStatuses, transitionHkTask, streamEvents</td><td class="mono">INVALID_TRANSITION, FORBIDDEN_ACTION, UNAUTHENTICATED, 5xx + requestId</td><td>4</td></tr>
+      <tr><td><b>H20</b></td><td><a href="20-hk-clean-inspect.html">PWA buồng phòng – dọn căn, đổi trạng thái bằng câu thường, hoàn tác 10 giây (gửi trễ), kiểm phòng 12 điểm + ảnh, khách không muốn dọn, minibar</a></td><td>housekeeping · front_desk_lead (kiểm) · điện thoại</td><td>US-053 AC1–4, US-055, US-054 AC3, US-058, BR-802, BR-808, BR-703</td><td class="mono">transitionRoomStatus, getInspectionChecklist, uploadAttachment, recordInspection, getMinibarStandard, recordMinibarCheck, transitionHkTask</td><td class="mono">INVALID_TRANSITION, IDEMPOTENCY_IN_PROGRESS, VALIDATION_FAILED, FORBIDDEN_ACTION, FILE_REJECTED, MINIBAR_QTY_OVER_STANDARD</td><td>4</td></tr>
+      <tr><td><b>H21</b></td><td><a href="21-hk-incident-queue.html">PWA buồng phòng – báo sự cố → phiếu sửa (Gấp / Trong ngày / Không gấp), mất mạng, hàng đợi "đang chờ gửi (n)", "Cần xem lại"</a></td><td>housekeeping (MT, FD+ cũng báo) · điện thoại</td><td>US-057 AC1–2, US-058, BR-809, ADR-005</td><td class="mono">uploadAttachment, createWorkOrder (+ hàng đợi mọi lệnh ghi)</td><td class="mono">VALIDATION_FAILED, FILE_REJECTED, PAYLOAD_TOO_LARGE, INVALID_TRANSITION, IDEMPOTENCY_KEY_REUSED, UNAUTHENTICATED</td><td>4</td></tr>
+      <tr><td><b>H22</b></td><td><a href="22-maintenance.html">PWA bảo trì – phiếu sửa theo mức + hạn, chi tiết + nhật ký, chờ vật tư, sửa xong có ảnh bằng chứng → mở bán lại, tạo phiếu + khóa phòng OOO</a></td><td>maintenance · FD+ (tạo/khóa) · điện thoại</td><td>US-061 AC1–4, US-062 AC1–3, US-057 AC2, US-110 AC1, BR-804, BR-809</td><td class="mono">listWorkOrders, getWorkOrder, transitionWorkOrder, updateWorkOrder, uploadAttachment, createWorkOrder, createRoomBlock</td><td class="mono">VALIDATION_FAILED (EVIDENCE_REQUIRED, DATE_ORDER), VERSION_CONFLICT, INVALID_TRANSITION, ROOM_UNAVAILABLE, ROOM_BLOCKED, FORBIDDEN_ACTION</td><td>4</td></tr>
+      <tr><td><b>H23</b></td><td><a href="23-guest-requests.html">guest-web mức 1 – gửi yêu cầu (dọn thêm 100.000 đ/lần có tick đồng ý phí), trạng thái yêu cầu, tab Thông tin (Wi-Fi, nội quy + phí phạt)</a></td><td>Khách · điện thoại</td><td>US-108 AC1/AC2 (Wi-Fi), US-109, US-110 AC2, US-112, BR-506, BR-811</td><td class="mono">listMyRequests, createGuestRequest, getGuestStay, setGuestLocale</td><td class="mono">RATE_LIMITED, VALIDATION_FAILED, CARD_NUMBER_DETECTED, GUEST_STAY_ENDED, GUEST_LINK_INVALID</td><td>4</td></tr>
+      <tr><td><b>H24</b></td><td><a href="24-owner-overview.html">Tổng quan chủ đầu tư (điện thoại) – Cần duyệt → Cần chú ý → KPI đêm nay, SSE trực tiếp / kết nối lại / ngoại tuyến, câu cho 19 loại "Cần chú ý"</a></td><td>owner (manager, FDL, FD rút gọn) · điện thoại</td><td>US-010 AC1–3, US-011, US-012 AC1/3/4, US-007 (link), BR-904, BR-907</td><td class="mono">getTonightKpi, listAttentionItems, resolveAttentionEvent, listApprovalRequests, streamEvents</td><td class="mono">FORBIDDEN_ACTION, UNAUTHENTICATED, 5xx từng khối</td><td>4</td></tr>
     </tbody>
   </table></div>
 </section>
 
 <section class="doc-sec" aria-labelledby="i3">
   <h2 id="i3"><span class="no">3</span>Điểm mới so với wireframe R1</h2>
-  <div class="spec" style="max-width:none">
+  <div class="spec wide">
     <ul>
       <li><b>Số khách theo định mức / tối đa</b> (INV quyết ESC-014): Studio 2/3; 301, 401: 4/5; 302, 402: 3/4. Ô số khách = 3 stepper (người lớn, trẻ 6–11, trẻ dưới 6 – không tính). Người vượt định mức ngủ <b>sofa</b> (không dùng chữ "nệm phụ"), có dòng phụ thu (Trực tiếp/CTV) và nhắc <b>"chuẩn bị bộ đồ dùng thêm"</b> = 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối (INV 16/10) ở H03, H08, H09, H10, H11, H12. Việc buồng phòng: <code>HkTaskType extra_guest_kit_prepare/collect/transfer</code>.</li>
       <li><b>Đơn dài hạn nhập tay</b> (H10) – thanh rack nhãn "Nhập tay", chip "HĐ ngoài hệ thống – chuyển vào app ở R3".</li>
       <li><b>2FA nền</b> (H01 1.3–1.4): bật tự nguyện ở R2, banner nhắc owner/manager; bắt buộc R3 (US-143). Đổi mật khẩu tạm lần đầu (US-001 AC4).</li>
       <li><b>Người dùng &amp; vai</b> (H07): danh sách, sửa nhiều vai, khóa/mở khóa, thêm người dùng (mật khẩu tạm).</li>
       <li>Sale/CTV: bỏ "Hoa hồng" khỏi thanh dưới (S17 – R3), báo giá gửi VI/EN (RU ở R3).</li>
+      <li><b>Sprint 4 (H19–H24)</b>: mật độ HK thật (chữ ≥ 16px, điều khiển ≥ 48px, nút chính 56px), trạng thái buồng bằng câu thường, <b>hoàn tác 10 giây = gửi trễ</b> (không cần API hủy), hàng đợi offline có "Cần xem lại", mức phiếu Gấp / Trong ngày / Không gấp, ảnh bằng chứng khi sửa xong, yêu cầu khách có phí phải tick đồng ý, Tổng quan cập nhật qua SSE kèm chỉ báo trạng thái kết nối bằng chữ.</li>
     </ul>
   </div>
 </section>
 
 <section class="doc-sec" aria-labelledby="i4">
   <h2 id="i4"><span class="no">4</span>Dữ liệu mẫu ngoài DS-0</h2>
-  <div class="spec" style="max-width:none"><ul>
+  <div class="spec wide"><ul>
     <li>Giữ nguyên từ wireframe R1: OTM-0160 (giữ chỗ 103, 19–21/10, CTV Minh Anh), OTM-0162 (Agoda xung đột, Hannah Schmidt 21–23/10).</li>
     <li>Mới: đơn đặt mới 202 Trực tiếp 21–24/10, 3 người lớn, khách Trần Minh Khoa KH-0021 (H09; tạo xong = OTM-0164); báo giá BG-00049 + giữ chỗ OTM-0165 (H12, căn 202 9–16/11 theo ví dụ BR-107); đơn dài hạn nhập tay Ivan Petrov KH-0030, 202, 01/11/2026 → 01/05/2027 (H10); tiền thuê/ký quỹ căn 102 (Emma) là ví dụ.</li>
     <li>OTM-0152 (302) giả định 4 người lớn, đã cọc 1.200.000 (DS-0 ghi "4 khách", chưa ghi cọc).</li>
     <li>Sprint 3 (H13–H18): OTM-0150 = Anna Martin + Lucas Martin (FRA), đã check-in online 14/10 20:15, nhận sớm 11:05; Lucas hộ chiếu hết 17/10 (minh họa BR-613 b). OTM-0146 = Kim Seo-yeon (KR), nhận 21:30 14/10 (khai báo quá hạn 09:30 15/10), giặt ủi 75.000. OTM-0139 (Phạm Huy, Agoda) giả định "trả tại chỗ", 820.000/đêm, Coca 25.000, trả muộn 15:00 có FOC "Khách quen" – để khớp ví dụ US-037 AC1 (tổng 2.485.000). Số phiếu F26-000123, tỷ giá 26.300, mã giao dịch, tài khoản Techcombank thử là ví dụ.</li>
+      <li>Sprint 4 (H19–H24): việc buồng phòng/phiếu sửa/"Cần chú ý" theo DS-0 lúc 10:42 15/10 (302 bộ đồ dùng thêm hạn 14:00; WO-00001 401, WO-00002 203, WO-00003 102). <b>Ngoài DS-0</b>: WO-00005 căn 101 (khách báo qua app, nâng Gấp), việc thu hồi bộ ở 202 và chuyển bộ 402 → 301, yêu cầu khách của Anna (103), diện tích căn ở H04 (INV chưa gửi số đo), tên mạng/mật khẩu Wi-Fi, nội dung nội quy.</li>
   </ul></div>
 </section>
 
 <section class="doc-sec" aria-labelledby="i5">
   <h2 id="i5"><span class="no">5</span>Tài liệu đi kèm</h2>
-  <div class="spec" style="max-width:none"><ul>
-    <li><a href="../design-system.md">design-system.md</a> v0.3.1 (mẫu 6.14 số khách / bộ đồ dùng thêm, 6.15 đơn dài hạn nhập tay; bảng tương phản 2.2)</li>
+  <div class="spec wide"><ul>
+    <li><a href="../design-system.md">design-system.md</a> v0.3.3 (mẫu 6.14–6.17; mới 6.18 PWA buồng phòng/bảo trì + hoàn tác gửi trễ, 6.19 yêu cầu khách có phí, 6.20 Tổng quan + SSE; mục 4.1 lớp tiện ích thay style nội tuyến – FE-15)</li>
     <li><a href="../content-guide.md">content-guide.md</a> (thuật ngữ định mức/tối đa/sofa/bộ đồ dùng thêm; bảng chuỗi mục 8)</li>
     <li><code>copy/strings-vi.json</code>, <code>strings-en.json</code> (sinh từ <code>tools/gen_strings.py</code>), <code>strings-ru.json</code> (R3)</li>
     <li><a href="../wireframes/index.html">Wireframe R1</a> – bảng nút theo trạng thái × vai (L2 2.6) vẫn là nguồn cho FE/QA.</li>

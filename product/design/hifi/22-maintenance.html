@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H22 Bảo trì – phiếu sửa, mức độ, ảnh bằng chứng, khóa phòng – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H22</div>
+  <h1>H22 · PWA bảo trì – danh sách phiếu sửa theo mức (Gấp / Trong ngày / Không gấp), chi tiết + nhật ký, chờ vật tư, xong có ảnh bằng chứng, khóa phòng OOO</h1>
+  <div class="doc-meta"><span>Sprint 4 (MOB)</span><span>maintenance · FD+ (tạo phiếu, khóa phòng)</span><span>Điện thoại · mật độ HK</span><span>US-061 AC1–AC4, US-062 AC1–AC3, US-057 AC2, US-110 AC1/AC3, BR-804, BR-809</span><span>SM-04 · SM-09 (khối OOO)</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="21-hk-incident-queue.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="23-guest-requests.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<div class="note-rbac"><b>Bảo trì không thấy tên khách ở bất kỳ màn nào</b> (rbac D18) – chỉ "Căn có khách đang ở". Mã phiếu do server cấp theo BR-007 (<code>WO-00001</code> – sửa BUG-R1-015). Dữ liệu: DS-0 (WO-00001 401, WO-00002 203, WO-00003 102) + WO-00005 căn 101 là ví dụ ngoài DS-0 (khách báo qua app, lễ tân nâng Gấp).</div>
+
+<section class="doc-sec" aria-labelledby="s221">
+  <h2 id="s221"><span class="no">22.1</span>Phiếu sửa – xếp theo mức và hạn (BR-809)</h2>
+  <p class="lead">Mỗi phiếu: mã, căn, tiêu đề, mức (chữ + icon + viền trái), trạng thái, <b>hạn kế tiếp</b> bằng câu ("Nhận việc trước 10:47 – còn 5 phút"). Căn đang khóa có chip "Đang khóa – mở bán lại 17/10".</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal" data-filter-scope="">
+      <header class="m-top"><h1><span data-i18n="nav.work_orders">Phiếu sửa</span><span class="sub" data-i18n="hk.updated_at" data-i18n-args='{"date":"15/10","time":"10:42"}'>Hôm nay 15/10 · cập nhật 10:42</span></h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div class="filters" role="group" data-i18n-label="wo.filter_label" aria-label="Lọc phiếu" data-show="normal offline"><button data-filter="all" aria-pressed="true" data-i18n="wo.filter.open" data-i18n-args='{"n":"4"}'>Đang mở (4)</button><button data-filter="high" aria-pressed="false" data-i18n="wo.filter.high" data-i18n-args='{"n":"2"}'>Gấp (2)</button><button data-filter="parts" aria-pressed="false" data-i18n="wo.filter.parts" data-i18n-args='{"n":"1"}'>Chờ vật tư (1)</button></div>
+        <div data-show="normal offline">
+          <a class="hk-card urgent rowlink" data-kind="high" href="#s222"><span class="grow"><span class="hd"><span class="room">101</span><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="wo.sev.high">Gấp</span></span><span class="chip neutral" data-i18n="wo.status.new">Mới</span></span><span class="what"><b>WO-00005 · Không có nước nóng</b><span class="countdown bad"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="wo.due.ack" data-i18n-args='{"time":"10:47","m":"5"}'>Nhận việc trước 10:47 – còn 5 phút</span></span><span class="meta"><span data-i18n="wo.source.guest_app">Khách báo qua app</span><span data-i18n="wo.occupied">Căn có khách đang ở</span></span></span></span></a>
+          <a class="hk-card urgent rowlink" data-kind="high" href="#s222"><span class="grow"><span class="hd"><span class="room">401</span><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="wo.sev.high">Gấp</span></span><span class="chip info" data-i18n="wo.status.in_progress">Đang sửa</span></span><span class="what"><b>WO-00001 · Bình nóng lạnh rò nước, khóa phòng</b><span class="meta"><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="wo.locked_until" data-i18n-args='{"date":"17/10"}'>Đang khóa – mở bán lại 17/10</span></span><span data-i18n="wo.assignee" data-i18n-args='{"name":"Tùng"}'>Người xử lý: Tùng</span></span></span></span></a>
+          <a class="hk-card soon rowlink" data-kind="parts" href="#s224"><span class="grow"><span class="hd"><span class="room">102</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="wo.sev.medium">Trong ngày</span></span><span class="chip neutral" data-i18n="wo.status.waiting_parts">Chờ vật tư</span></span><span class="what"><b>WO-00003 · Wi-Fi yếu ở góc bàn làm việc</b><span class="meta"><span data-i18n="wo.due.paused" data-i18n-args='{"date":"17/10"}'>Hạn tạm dừng – vật tư dự kiến 17/10</span><span data-i18n="wo.occupied">Căn có khách đang ở</span></span></span></span></a>
+          <a class="hk-card rowlink" data-kind="low" href="#s222"><span class="grow"><span class="hd"><span class="room">203</span><span class="chip neutral"><span data-i18n="wo.sev.low">Không gấp</span></span><span class="chip neutral" data-i18n="wo.status.new">Mới</span></span><span class="what"><b>WO-00002 · Bóng đèn ban công chập chờn</b><span class="meta"><span data-i18n="wo.due.resolve" data-i18n-args='{"when":"18/10 08:15"}'>Xong trước 18/10 08:15</span></span></span></span></a>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-120"></div><div class="sk h-120"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="wo.empty_title">Không có phiếu nào đang mở</h3><p data-i18n="wo.empty_body">Phiếu mới từ buồng phòng, lễ tân hoặc khách sẽ hiện ở đây kèm thông báo.</p></div></div>
+        <div data-show="error"><div class="state err" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="wo.error_title">Chưa tải được phiếu sửa</h3><p data-i18n="hk.error_body">Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân.</p><button class="btn pri xl block" data-i18n="common.retry">Thử lại</button></div></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.work_orders">Phiếu sửa</span></a><a href="19-hk-tasks.html#s192"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="21-hk-incident-queue.html"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">Phiếu sửa – bấm bộ lọc "Gấp" / "Chờ vật tư" để thử.</p></div>
+    <aside class="spec" aria-label="Đặc tả 22.1">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-062</span> AC2 trạng thái theo SM-04: Mới → Đang sửa ↔ Chờ vật tư → Xong; Hủy có lý do. Nhãn: <code>wo.status.*</code>.</li>
+        <li><span class="us">US-110</span> AC1 "Báo hỏng" từ app khách → phiếu mặc định Trong ngày, nguồn "App khách"; lễ tân nâng mức (WO-00005).</li>
+        <li>BR-809 hạn kế tiếp hiển thị: Gấp – "Nhận việc trước hh:mm" (15 phút) rồi "Có phương án trước hh:mm" (2 giờ); Trong ngày / Không gấp – "Xong trước dd/mm hh:mm" (24 / 72 giờ); chờ vật tư có ngày → "Hạn tạm dừng" (Gấp không dừng). Quá hạn → chip đỏ "Quá hạn n phút" + vào "Cần chú ý" (H24).</li>
+        <li>Sắp xếp: quá hạn → Gấp → hạn gần nhất. Bộ lọc client.</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">listWorkOrders</span> <code>?status=new,in_progress,waiting_parts</code> (<code>severity</code>, <code>status</code>, <code>source</code>, <code>ackDueAt</code>, <code>resolveDueAt</code>, <code>isOverdue</code>, <code>roomBlock</code>, <code>assigneeName</code>, <code>allowedActions</code>) · <span class="op">streamEvents</span> <code>notification.created</code> (phiếu mới).</li></ul>
+      <h3>Problem.code</h3><ul><li>5xx/mạng → giữ danh sách đã tải + "cập nhật lúc".</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s222">
+  <h2 id="s222"><span class="no">22.2</span>Chi tiết phiếu – nhận việc, nhật ký, ảnh báo, hành động hợp lệ</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><a class="btn icon-btn" href="#s221" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1>WO-00005<span class="sub" data-i18n="hk.room_title" data-i18n-args='{"room":"101"}'>Căn 101</span></h1></header>
+      <div class="m-body">
+        <div class="hk-card urgent"><div class="hd"><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="wo.sev.high">Gấp</span></span><span class="chip neutral" data-i18n="wo.status.new">Mới</span></div>
+          <div class="what"><b>Không có nước nóng</b><span>Khách: "Không có nước nóng từ 10:20" · Lễ tân: vòi sen phòng tắm</span></div>
+          <span class="countdown bad"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="wo.due.ack" data-i18n-args='{"time":"10:47","m":"5"}'>Nhận việc trước 10:47 – còn 5 phút</span></span>
+          <p class="li-s mt-8 m-0" data-i18n="wo.due.plan" data-i18n-args='{"time":"12:32"}'>Có phương án trước 12:32 (sửa xong hoặc đổi phòng cho khách).</p></div>
+        <h2 class="grp-h"><span data-i18n="wo.photos_reported">Ảnh lúc báo</span></h2>
+        <div class="photo-row"><span class="photo" role="img" data-i18n-label="hk.photo_n" data-i18n-args='{"n":"1"}' aria-label="Ảnh 1"><span class="tag">1</span></span></div>
+        <h2 class="grp-h"><span data-i18n="wo.log">Nhật ký phiếu</span></h2>
+        <ol class="tl"><li class="now"><span class="when">10:34</span> · <span data-i18n="wo.log.raised_high" data-i18n-args='{"who":"Hạnh"}'>Lễ tân Hạnh nâng mức lên Gấp</span></li><li><span class="when">10:32</span> · <span data-i18n="wo.log.created_guest">Tạo từ yêu cầu "Báo hỏng" của khách</span></li></ol>
+      </div>
+      <div class="wiz-foot"><button class="btn pri xl block" data-i18n="wo.action.start">Nhận việc</button></div>
+    </div><p class="frame-cap">Phiếu mới – một nút "Nhận việc" (new → in_progress).</p></div>
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><a class="btn icon-btn" href="#s221" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1>WO-00001<span class="sub" data-i18n="hk.room_title" data-i18n-args='{"room":"401"}'>Căn 401</span></h1></header>
+      <div class="m-body">
+        <div class="hk-card urgent"><div class="hd"><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="wo.sev.high">Gấp</span></span><span class="chip info" data-i18n="wo.status.in_progress">Đang sửa</span></div>
+          <div class="what"><b>Bình nóng lạnh rò nước, khóa phòng</b></div>
+          <div class="amenity"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="wo.block_info" data-i18n-args='{"from":"15/10","to":"16/10","reopen":"17/10"}'>Căn khóa đêm 15/10 – 16/10, mở bán lại từ 17/10.</span></div></div>
+        <h2 class="grp-h"><span data-i18n="wo.log">Nhật ký phiếu</span></h2>
+        <ol class="tl"><li class="now"><span class="when">15/10 08:05</span> · <span data-i18n="wo.log.started" data-i18n-args='{"who":"Tùng"}'>Tùng nhận việc</span></li><li><span class="when">14/10 21:40</span> · <span data-i18n="wo.log.blocked" data-i18n-args='{"who":"Hạnh"}'>Lễ tân Hạnh khóa căn</span></li><li><span class="when">14/10 21:15</span> · <span data-i18n="wo.log.created_hk">Tạo từ báo sự cố của buồng phòng</span></li></ol>
+      </div>
+      <div class="wiz-foot"><a class="btn xl" href="#s224" data-i18n="wo.action.wait_parts">Chờ vật tư</a><a class="btn pri xl grow" href="#s223" data-i18n="wo.action.done">Sửa xong</a></div>
+    </div><p class="frame-cap">Đang sửa – "Chờ vật tư" hoặc "Sửa xong".</p></div>
+    <aside class="spec" aria-label="Đặc tả 22.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-062</span> AC2 mọi đổi trạng thái / người xử lý ghi nhật ký (người, thời điểm); AC3 phiếu Gấp của căn có khách quá hạn phương án → gợi ý đổi phòng + FOC bù sự cố (hiện ở lễ tân H15/H17, bảo trì chỉ thấy dòng "Đã báo lễ tân đổi phòng").</li><li>Nút = <code>WorkOrder.allowedActions</code>: <code>start</code> (Nhận việc), <code>wait-parts</code> (Chờ vật tư), <code>resume</code> (Sửa tiếp), <code>done</code> (Sửa xong), <code>cancel</code> (FD+ – menu ⋯, lý do bắt buộc).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getWorkOrder</span> · <span class="op">transitionWorkOrder</span> <code>start</code> (+ <code>If-Match</code>, <code>Idempotency-Key</code>; xếp hàng được) · <span class="op">updateWorkOrder</span> (đổi người xử lý / mức – FD+).</li><li>Nhật ký: dùng <span class="op">listAuditEvents</span> lọc phiếu? – không có quyền với MT. <b>Đề nghị ARC</b>: <code>WorkOrder.history[]</code> {<code>at</code>, <code>actorName</code>, <code>event</code>, <code>from</code>, <code>to</code>} (không chứa tên khách).</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VERSION_CONFLICT</span> (người khác vừa đổi – tải lại, giữ ghi chú) · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">FORBIDDEN_ACTION</span>.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s223">
+  <h2 id="s223"><span class="no">22.3</span>Sửa xong – kết quả + ảnh bằng chứng → mở khóa, căn "Cần dọn", việc "Dọn sau sửa chữa"</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal">
+      <header class="m-top"><a class="btn icon-btn" href="#s222" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="wo.done_title" data-i18n-args='{"code":"WO-00001"}'>Sửa xong WO-00001</h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="wo.done_offline">Mất mạng – chưa mở bán lại được. Đóng phiếu có khóa phòng cần có mạng để lễ tân thấy ngay.</span></div>
+      <div class="m-body">
+        <div class="field"><label for="wo-res"><span data-i18n="wo.result">Đã làm gì?</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="wo-res">Thay bình nóng lạnh mới 30L, thử nước nóng 20 phút ổn</textarea></div>
+        <div class="field" data-show="normal offline loading empty"><span class="lbl" id="wo-after"><span data-i18n="wo.photos_after">Ảnh sau khi sửa</span> <span class="req" aria-hidden="true">*</span></span><div class="photo-row" role="group" aria-labelledby="wo-after"><span class="photo" role="img" data-i18n-label="hk.photo_n" data-i18n-args='{"n":"1"}' aria-label="Ảnh 1"><span class="tag">1</span></span><span class="photo" role="img" data-i18n-label="hk.photo_n" data-i18n-args='{"n":"2"}' aria-label="Ảnh 2"><span class="tag">2</span></span><button class="photo add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="hk.photo_add">Chụp</span></button></div></div>
+        <div class="field invalid" data-show="error"><span class="lbl" id="wo-after-e"><span data-i18n="wo.photos_after">Ảnh sau khi sửa</span> <span class="req" aria-hidden="true">*</span></span><div class="photo-row" role="group" aria-labelledby="wo-after-e" aria-describedby="wo-after-err"><button class="photo add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="hk.photo_add">Chụp</span></button></div><div class="err" id="wo-after-err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="wo.photo_required">Chụp ít nhất 1 ảnh sau khi sửa làm bằng chứng.</span></div></div>
+        <div class="consequence"><b data-i18n="wo.done_effects_title">Khi bấm Xác nhận:</b><ul class="list-plain"><li data-i18n="wo.done_effect_unblock" data-i18n-args='{"room":"401"}'>Căn 401 mở khóa và mở bán lại trên mọi kênh</li><li data-i18n="wo.done_effect_vd">Căn chuyển "Cần dọn (khách đã đi)"</li><li data-i18n="wo.done_effect_task">Buồng phòng nhận việc "Dọn sau sửa chữa"</li></ul></div>
+        <div data-show="loading"><div class="alert info" role="status"><span class="spin" aria-hidden="true"></span><div class="txt" data-i18n="wo.reopening">Đang mở bán lại… chỉ khi hiện "Đã mở bán lại" thì căn mới bán được.</div></div></div>
+        <div data-show="empty"><div class="alert ok" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt" data-i18n="wo.reopened" data-i18n-args='{"room":"401"}'>Đã mở bán lại căn 401. Đã giao việc dọn sau sửa chữa.</div></div></div>
+      </div>
+      <div class="wiz-foot" data-show="normal error"><button class="btn pri xl block" data-i18n="wo.done_confirm">Xác nhận sửa xong</button></div>
+      <div class="wiz-foot" data-show="offline"><button class="btn xl block" aria-disabled="true" data-i18n="hk.need_network">Cần có mạng</button></div>
+    </div><p class="frame-cap">Sửa xong – Lỗi: thiếu ảnh · Đang tải: đang mở bán · Rỗng: đã mở bán (trạng thái trung thực).</p></div>
+    <aside class="spec" aria-label="Đặc tả 22.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-062</span> AC1 phiếu có khối OOO → <code>done</code> (xác nhận US-135, DS 6.1 – liệt kê hậu quả) → khối <code>released</code>, buồng <code>OOO → VD</code>, việc <code>after_repair_clean</code>, lệnh đồng bộ mở bán. Phiếu không khóa: xác nhận một bước, không có dòng mở bán.</li><li>Trạng thái trung thực (HR-20): "Đang mở bán…" cho đến khi server trả phiếu <code>done</code> + khối <code>released</code>.</li></ul>
+      <h3>API</h3><ul><li><span class="op">uploadAttachment</span> <code>purpose=work_order</code> · <span class="op">transitionWorkOrder</span> <code>done</code> {<code>resultNote</code>, <code>photoAttachmentIds</code>} + <code>If-Match</code>.</li><li>Phiếu có khối OOO: <b>không</b> xếp hàng offline (ảnh hưởng tồn phòng – ADR-005) → nút "Cần có mạng". Phiếu không khóa: xếp hàng được.</li></ul>
+      <h3>Giả định / đề nghị</h3><ul><li>Ảnh sau sửa bắt buộc ≥ 1 và ghi kết quả bắt buộc <code>[GIẢ ĐỊNH UXD – chờ PO/DOM]</code>; đề nghị ARC/BE trả <span class="pc">VALIDATION_FAILED</span> mã trường <code>EVIDENCE_REQUIRED</code> (đã có ở 0.3.3) cho <code>done</code> thiếu ảnh.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (<code>REQUIRED</code> <code>resultNote</code>, <code>EVIDENCE_REQUIRED</code>) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">FILE_REJECTED</span>.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s224">
+  <h2 id="s224"><span class="no">22.4</span>Chờ vật tư – ngày dự kiến có vật tư (dừng hạn với Trong ngày / Không gấp)</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><a class="btn icon-btn" href="#s222" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="wo.wait_title" data-i18n-args='{"code":"WO-00003"}'>Chờ vật tư – WO-00003</h1></header>
+      <div class="m-body">
+        <div class="field"><label for="wo-parts"><span data-i18n="wo.parts_note">Cần vật tư gì?</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="wo-parts">Bộ phát Wi-Fi mesh thứ 2</textarea></div>
+        <div class="field"><label for="wo-pdate"><span data-i18n="wo.parts_date">Ngày dự kiến có vật tư</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="wo-pdate" type="date" value="2026-10-17"><span class="help" data-i18n="wo.parts_date_help">Hạn của phiếu tạm dừng đến ngày này. Quá ngày mà chưa có, phiếu vào "Cần chú ý".</span></div>
+        <div class="alert warn" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="wo.parts_high_note">Phiếu Gấp không dừng hạn khi chờ vật tư – vẫn cần phương án trong 2 giờ (đổi phòng hoặc bù cho khách).</div></div>
+      </div>
+      <div class="wiz-foot"><button class="btn pri xl block" data-i18n="wo.action.wait_parts_save">Lưu – chờ vật tư</button></div>
+    </div><p class="frame-cap">Chờ vật tư – ngày dự kiến bắt buộc (BR-809).</p></div>
+    <aside class="spec" aria-label="Đặc tả 22.4">
+      <h3>Quy tắc</h3><ul><li>BR-809: Trong ngày / Không gấp dừng hạn khi <code>waiting_parts</code> <b>nếu</b> có ngày dự kiến có vật tư; quá ngày → cảnh báo lại + "Cần chú ý". Gấp không dừng hạn.</li><li>Căn có khách dài hạn: nâng một bậc nếu ảnh hưởng làm việc/sinh hoạt (Wi-Fi, nước nóng) – lễ tân nâng (H22 nhật ký "nâng mức").</li></ul>
+      <h3>API</h3><ul><li><span class="op">transitionWorkOrder</span> <code>wait-parts</code> {<code>note</code>} · <span class="op">updateWorkOrder</span> {<code>partsNote</code>}.</li><li><b>Đề nghị ARC (thiếu trong 0.3.4)</b>: <code>partsExpectedDate</code> (LocalDate) ở body <code>wait-parts</code> + <code>WorkOrder.partsExpectedDate</code> – DS-0 đã có trường này; không có thì server không dừng hạn được. Lỗi trường: <code>REQUIRED</code>, <code>DATE_IN_PAST</code>.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s225">
+  <h2 id="s225"><span class="no">22.5</span>Tạo phiếu + khóa phòng (bảo trì, lễ tân trở lên) – hai ngày rõ ràng, đơn trùng, căn có khách</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk">
+      <header class="m-top"><a class="btn icon-btn" href="#s221" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="wo.new_title">Phiếu sửa mới</h1></header>
+      <div class="m-body">
+        <div class="field"><label for="n-room" data-i18n="hk.wo.room">Căn</label><select class="input" id="n-room"><option selected>401</option></select></div>
+        <div class="field"><label for="n-desc"><span data-i18n="hk.wo.desc">Mô tả</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="n-desc">Hỏng bình nóng lạnh – thay mới</textarea></div>
+        <button type="button" class="switch" role="switch" aria-checked="true"><i aria-hidden="true"></i><span data-i18n="hk.lock_request">Khóa căn – không bán đến khi sửa xong</span></button>
+        <div class="g-2 mt-12"><div class="field"><label for="n-from" data-i18n="wo.block_from">Khóa từ</label><input class="input" id="n-from" type="date" value="2026-10-15"></div><div class="field"><label for="n-to" data-i18n="wo.block_done_planned">Dự kiến xong</label><input class="input" id="n-to" type="date" value="2026-10-17"></div></div>
+        <div class="amenity"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="wo.block_summary" data-i18n-args='{"nights":"3","from":"15/10","to":"17/10","reopen":"18/10"}'>Khóa 3 đêm (15/10 – 17/10). Mở bán lại từ 18/10.</span></div>
+        <div class="alert bad mt-12" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="wo.block_conflict_title" data-i18n-args='{"n":"1"}'>Khoảng khóa trùng 1 đơn đã đặt</b><span data-i18n="wo.block_conflict_body">Dời đơn sang căn khác trước khi khóa, hoặc quản lý xác nhận đã có phương án.</span><ul class="list-plain"><li>OTM-0154 · 17/10 → 21/10</li></ul><div class="act"><a class="btn" href="11-reservation.html" data-i18n="wo.open_booking">Mở đơn để đổi căn</a></div></div></div>
+        <label class="check"><input type="checkbox"><span data-i18n="wo.block_ack">Tôi là quản lý – đã có phương án cho các đơn này</span></label>
+        <div class="lock-box mt-12"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div><b data-i18n="wo.block_occupied_title">Căn đang có khách – chưa khóa được</b><br><span data-i18n="wo.block_occupied_body">Lễ tân đổi phòng cho khách trước, rồi mới khóa căn.</span></div></div>
+      </div>
+      <div class="wiz-foot"><button class="btn pri xl block" data-i18n="wo.create_and_block">Tạo phiếu và khóa căn</button></div>
+    </div><p class="frame-cap">Ví dụ BR-804: khóa 15/10, dự kiến xong 17/10 → lưu [15/10, 18/10), mở bán lại 18/10.</p></div>
+    <aside class="spec" aria-label="Đặc tả 22.5">
+      <h3>Story / AC</h3><ul><li><span class="us">US-061</span> AC1 hiện rõ "dự kiến xong 17/10" và "mở bán lại từ 18/10" (= xong + <code>ooo_reopen_buffer_days</code>); AC2 trùng đơn <code>hold</code>/<code>confirmed</code> tương lai → danh sách đơn; chỉ lưu khi hết trùng hoặc <code>manager</code>/<code>owner</code> xác nhận; AC3 căn có <code>in_house</code> → không tạo khối, gợi ý đổi phòng; AC4 thiếu mô tả → không lưu.</li><li>"Đã khóa" chỉ hiện khi server xác nhận khối <code>active</code> (HR-20) – trước đó "Đang khóa…" (<code>hk.lock_pending</code>).</li><li>Tạo phiếu có khóa <b>không</b> xếp hàng offline.</li></ul>
+      <h3>API</h3><ul><li><span class="op">createWorkOrder</span> {…, <code>block: {startDate, endDatePlanned, reason, affectedReservationsAcknowledged}</code>} · <span class="op">createRoomBlock</span> (khóa có kế hoạch, không qua sự cố).</li><li>Tên trường: BR-804 đề nghị <code>reopenDatePlanned</code> thay <code>endDatePlanned</code> – UI gửi ngày mở bán lại (18/10) và hiện "dự kiến xong" = ngày trước đó. <b>ARC xác nhận</b> ngữ nghĩa trường (xong hay mở bán) để không lệch 1 ngày.</li></ul>
+      <h3>Problem.code</h3><ul><li>409 kèm <code>conflicts[]</code> (đơn tương lai) – 0.3.4 chưa ghi tên mã cho <span class="op">createWorkOrder</span>; <b>đề nghị ARC</b>: <span class="pc">ROOM_UNAVAILABLE</span> + <code>conflicts[]</code> cho đơn trùng và mã mới <code>ROOM_OCCUPIED</code> cho căn đang có khách (AC3) · <span class="pc">ROOM_BLOCKED</span> (đã có khối) · <span class="pc">VALIDATION_FAILED</span> (<code>DATE_ORDER</code>, <code>REQUIRED</code>) · <span class="pc">FORBIDDEN_ACTION</span> (HK gửi <code>block</code>; FD gửi <code>affectedReservationsAcknowledged</code>).</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

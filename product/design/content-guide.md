@@ -89,6 +89,17 @@ Không dùng: "Lỗi hệ thống", "Thao tác không hợp lệ", "OK", "Có/Kh
 
 Mức độ phiếu sửa (BR-809) – Desk: Cao / Trung bình / Thấp; buồng phòng: **Gấp / Trong ngày / Không gấp**.
 
+### 3.3 Phiếu sửa, hàng đợi, Tổng quan (R2 Sprint 4)
+| Khái niệm | Dùng (VI) | EN | Không dùng | Ghi chú |
+|---|---|---|---|---|
+| `severity=high` | Gấp | Urgent | Cao, Khẩn cấp, P1 | BR-809 – nhận 15 phút, phương án 2 giờ |
+| `severity=medium` | Trong ngày | Today | Trung bình | Xong trong 24 giờ |
+| `severity=low` | Không gấp | Not urgent | Thấp | Xong trong 72 giờ |
+| Phiếu sửa (`work_order`) | Phiếu sửa | Work order | Ticket, WO (trừ mã) | Mã `WO-00001` do server cấp |
+| Lệnh chờ gửi trên máy | Thao tác đang chờ gửi | Changes waiting to send | Đồng bộ, Sync, Queue | Mất mạng ở PWA |
+| Lệnh bị server từ chối | Cần xem lại | Needs review | Lỗi đồng bộ, Conflict | Kèm câu trạng thái hiện tại |
+| SSE đang chạy | Trực tiếp | Live | Online, Realtime | Luôn kèm chấm + chữ |
+
 ## 4. Định dạng
 
 | Loại | VI | EN | RU |
@@ -167,7 +178,7 @@ Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy 
 
 ## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 1585 chuỗi + 8 mẫu tin nhắn (R2 Sprint 1 – review FE: chuyển 71 chuỗi admin-web EP00 từ `packages/i18n/src/pending.*` vào nhóm "R2 Sprint 1 – admin-web EP00" + 28 chuỗi nhãn tham số H05/lỗi mạng/đơn vị tiền; R2 Sprint 1: thêm 363 chuỗi cho hi-fi H13–H18 – nhóm "R2 hi-fi Sprint 3"; R2 Đợt 0: thêm 502 chuỗi cho hi-fi `hifi/` – nhóm "R2 hi-fi – …"; Bước 4 R1: thêm 100, sửa 14 – xem mục 9).
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 1888 chuỗi + 8 mẫu tin nhắn (R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`).
 
 #### Chung
 
@@ -559,7 +570,7 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.req.other` | Khác | Something else | ⟨chừa chỗ⟩ |  |
 | `guest.req.note` | Mô tả thêm (không bắt buộc) | Add details (optional) | ⟨chừa chỗ⟩ |  |
 | `guest.req.send` | Gửi yêu cầu | Send request | ⟨chừa chỗ⟩ |  |
-| `guest.req.fee_notice` | Dịch vụ này có phí {amount}. Phí sẽ vào hóa đơn của bạn. | This service costs {amount}. It will be added to your bill. | ⟨chừa chỗ⟩ |  |
+| `guest.req.fee_notice` | Dịch vụ này có phí {amount}. Phí sẽ vào hóa đơn của bạn. | This service costs {amount}. It will be added to your bill. | ⟨chừa chỗ⟩ | KHÔNG dùng ở guest-web R2 (chữ "hóa đơn/bill" – SEC ĐK-6); R2 dùng gw.req.fee_notice |
 | `guest.req.status.new` | Đã gửi | Sent | ⟨chừa chỗ⟩ | SM-15 `new` |
 | `guest.req.status.acknowledged` | Đã nhận | Received | ⟨chừa chỗ⟩ | `acknowledged` |
 | `guest.req.status.in_progress` | Đang xử lý | In progress | ⟨chừa chỗ⟩ | `in_progress` |
@@ -1026,7 +1037,7 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `hk.task.extra_kit` | Chuẩn bị {n} bộ đồ dùng thêm – căn {room}, trước {time} | Prepare {n} extra amenity kit(s) – room {room}, before {time} | ⟨chừa chỗ⟩ | Việc buồng phòng tự sinh khi đơn có người vượt định mức (INV 16/10) |
-| `hk.task.extra_kit_items` | Mỗi bộ: 1 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối) | Each kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow) | ⟨chừa chỗ⟩ | INV xác nhận 16/10 – BR-812; HkTaskType extra_guest_kit_prepare/collect/transfer (OpenAPI 0.3.1) |
+| `hk.task.extra_kit_items` | Mỗi bộ: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối) | Each kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow) | ⟨chừa chỗ⟩ | INV xác nhận 16/10 – BR-812; HkTaskType extra_guest_kit_prepare/collect/transfer (OpenAPI 0.3.1) |
 
 #### R2 hi-fi – Đăng nhập (H01)
 
@@ -1967,6 +1978,334 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `common.vnd_unit` | đ | VND | ⟨chừa chỗ⟩ | Hậu tố ô nhập tiền (input-affix) – H04, H05 |
 | `common.error_network_body` | Chưa kết nối được tới máy chủ. Kiểm tra mạng rồi bấm Thử lại. Dữ liệu của bạn không bị mất. | Couldn't reach the server. Check the connection, then tap Try again. Nothing has been lost. | ⟨chừa chỗ⟩ | Dùng khi lỗi mạng (không có requestId) – thay common.error_generic_body với '—' |
 
+#### R2 hi-fi Sprint 4 – PWA buồng phòng (H19–H21)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `hk.updated_at` | Hôm nay {date} · cập nhật {time} | Today {date} · updated {time} | ⟨chừa chỗ⟩ |  |
+| `hk.progress` | {done}/{total} xong | {done}/{total} done | ⟨chừa chỗ⟩ |  |
+| `hk.offline_bar` | Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng. | You're offline. You can keep tapping – changes send by themselves when you're back online. | ⟨chừa chỗ⟩ |  |
+| `hk.queue_pill` | {n} thao tác đang chờ gửi | {n} changes waiting to send | ⟨chừa chỗ⟩ |  |
+| `hk.need_network` | Cần có mạng | Needs a connection | ⟨chừa chỗ⟩ | Nút khóa cho thao tác không xếp hàng offline (ADR-005) |
+| `hk.grp.first` | Làm trước – có khách đến hôm nay | Do first – guests arriving today | ⟨chừa chỗ⟩ |  |
+| `hk.grp.stay` | Khách đang ở | Guests staying | ⟨chừa chỗ⟩ |  |
+| `hk.grp.later` | Sau khi khách trả phòng | After check-out | ⟨chừa chỗ⟩ |  |
+| `hk.grp.done` | Đã xong ({n}) | Done ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.type.checkout_clean` | Dọn trả phòng | Check-out clean | ⟨chừa chỗ⟩ | HkTaskType checkout_clean |
+| `hk.type.stayover_clean` | Dọn phòng khách đang ở | Stay-over clean | ⟨chừa chỗ⟩ | stayover_clean |
+| `hk.type.long_stay_clean` | Dọn theo gói dài hạn | Long-stay scheduled clean | ⟨chừa chỗ⟩ | long_stay_clean |
+| `hk.type.after_repair_clean` | Dọn sau sửa chữa | Clean after repair | ⟨chừa chỗ⟩ | after_repair_clean |
+| `hk.type.adhoc_clean` | Dọn phòng thêm (khách yêu cầu) | Extra clean (guest request) | ⟨chừa chỗ⟩ | adhoc_clean – BR-506 |
+| `hk.type.priority_clean` | Dọn gấp – khách vào khi đang dọn | Priority clean – guest checking in | ⟨chừa chỗ⟩ | priority_clean – BR-803 ngoại lệ |
+| `hk.type.minibar_refill` | Bổ sung minibar | Minibar refill | ⟨chừa chỗ⟩ |  |
+| `hk.type.guest_request` | Yêu cầu của khách | Guest request | ⟨chừa chỗ⟩ |  |
+| `hk.source.guest_app` | App khách | Guest app | ⟨chừa chỗ⟩ |  |
+| `hk.arriving_tomorrow` | Có khách đến ngày mai | Guest arriving tomorrow | ⟨chừa chỗ⟩ |  |
+| `hk.departing_today` | Khách đi hôm nay – trả phòng trước {time} | Guest leaves today – check-out by {time} | ⟨chừa chỗ⟩ |  |
+| `hk.next_arrival` | Khách đến tiếp: {when} | Next arrival: {when} | ⟨chừa chỗ⟩ |  |
+| `hk.no_task_today` | Không có việc hôm nay | No tasks today | ⟨chừa chỗ⟩ |  |
+| `hk.reopen` | Mở bán lại {date} | Back on sale {date} | ⟨chừa chỗ⟩ |  |
+| `hk.window` | Khung giờ hẹn {from}–{to} | Agreed time {from}–{to} | ⟨chừa chỗ⟩ |  |
+| `hk.linen_change` | Thay ga gối | Change bed linen | ⟨chừa chỗ⟩ |  |
+| `hk.req_note` | Khách nhắn: "{note}" | Guest wrote: "{note}" | ⟨chừa chỗ⟩ | Ghi chú khách hiện nguyên văn (D23) |
+| `hk.refill` | Bổ sung minibar: {items} | Restock minibar: {items} | ⟨chừa chỗ⟩ |  |
+| `hk.wait_checkout` | Chờ khách trả phòng | Waiting for check-out | ⟨chừa chỗ⟩ |  |
+| `hk.done_at` | Xong lúc {time} | Done at {time} | ⟨chừa chỗ⟩ |  |
+| `hk.action.start_cleaning` | Bắt đầu dọn | Start cleaning | ⟨chừa chỗ⟩ | event start_cleaning (R1) |
+| `hk.action.finish_cleaning` | Dọn xong | Finished cleaning | ⟨chừa chỗ⟩ | event finish_cleaning (R2/R3) |
+| `hk.empty_title` | Hết việc rồi! | All done! | ⟨chừa chỗ⟩ |  |
+| `hk.empty_body` | Không còn việc nào hôm nay. Có việc mới sẽ hiện ở đây. | No more tasks today. New ones will appear here. | ⟨chừa chỗ⟩ |  |
+| `hk.error_title` | Chưa tải được việc hôm nay | Couldn't load today's tasks | ⟨chừa chỗ⟩ |  |
+| `hk.error_body` | Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân. | The connection may be weak. Nothing you tapped is lost. Tap Try again; if it still fails, call the front desk. | ⟨chừa chỗ⟩ |  |
+| `hk.call_desk` | Gọi lễ tân | Call the front desk | ⟨chừa chỗ⟩ |  |
+| `hk.ref` | Mã tham chiếu: {id} | Reference: {id} | ⟨chừa chỗ⟩ |  |
+| `hk.filter_label` | Lọc căn | Filter rooms | ⟨chừa chỗ⟩ |  |
+| `hk.filter.all` | Tất cả ({n}) | All ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.filter.dirty` | Cần dọn ({n}) | To clean ({n}) | ⟨chừa chỗ⟩ | VD, OD, CL – US-052 AC2 |
+| `hk.filter.occupied` | Có khách ({n}) | Occupied ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.filter.ready` | Sạch ({n}) | Clean ({n}) | ⟨chừa chỗ⟩ | VC, VI, OC |
+| `hk.filter.ooo` | Đang sửa ({n}) | Under repair ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.filter.show_all` | Xem tất cả | Show all | ⟨chừa chỗ⟩ |  |
+| `hk.filter_empty_title` | Không có căn nào ở nhóm này | No rooms in this group | ⟨chừa chỗ⟩ |  |
+| `hk.filter_empty_body` | Chọn "Tất cả" để xem lại {n} căn. | Choose "All" to see all {n} rooms. | ⟨chừa chỗ⟩ |  |
+| `hk.rooms_error_title` | Chưa tải được trạng thái các căn | Couldn't load room status | ⟨chừa chỗ⟩ |  |
+| `hk.kit.prepared` | Đã chuẩn bị | Prepared | ⟨chừa chỗ⟩ | BR-812 – transitionHkTask done |
+| `hk.kit.prepared_toast` | Căn {room}: đã chuẩn bị bộ đồ dùng thêm | Room {room}: extra-guest kit prepared | ⟨chừa chỗ⟩ |  |
+| `hk.kit.collect` | Thu hồi {n} bộ đồ dùng thêm – căn {room} | Collect {n} extra-guest kit(s) – room {room} | ⟨chừa chỗ⟩ | extra_guest_kit_collect |
+| `hk.kit.collect_how` | Mền và khăn đưa đi giặt; bàn chải, đồ vệ sinh đã mở thì bỏ. | Send the blanket and towels to the laundry; throw away opened toothbrush and toiletries. | ⟨chừa chỗ⟩ |  |
+| `hk.kit.collect_reason` | Đơn đã giảm số người | The booking now has fewer guests | ⟨chừa chỗ⟩ |  |
+| `hk.kit.collect_in_checkout` | Thu hồi bộ đồ dùng thêm | Collect the extra-guest kit | ⟨chừa chỗ⟩ | Dòng trong thẻ dọn trả phòng – BR-812 (6) |
+| `hk.kit.collected` | Đã thu hồi | Collected | ⟨chừa chỗ⟩ |  |
+| `hk.kit.transfer` | Chuyển {n} bộ đồ dùng thêm từ căn {from} sang căn {to} | Move {n} extra-guest kit(s) from room {from} to room {to} | ⟨chừa chỗ⟩ | extra_guest_kit_transfer (đổi phòng B14) |
+| `hk.kit.transfer_due` | Trước {time} | By {time} | ⟨chừa chỗ⟩ |  |
+| `hk.kit.transferred` | Đã chuyển | Moved | ⟨chừa chỗ⟩ |  |
+| `hk.kit.due_in` | Còn {m} phút | {m} min left | ⟨chừa chỗ⟩ |  |
+| `hk.kit.not_ready_title` | Bộ đồ dùng thêm chưa chuẩn bị | Extra-guest kit not ready yet | ⟨chừa chỗ⟩ |  |
+| `hk.kit.not_ready_body` | Lễ tân vẫn nhận phòng được nhưng sẽ thấy cảnh báo. Việc này đã lên đầu danh sách. | The front desk can still check the guest in but will see a warning. This task is now at the top of your list. | ⟨chừa chỗ⟩ |  |
+| `hk.room_title` | Căn {room} | Room {room} | ⟨chừa chỗ⟩ |  |
+| `hk.step.bath` | Vệ sinh nhà tắm, thay khăn | Clean the bathroom, change towels | ⟨chừa chỗ⟩ |  |
+| `hk.step.kitchen` | Lau bếp, đổ rác, kiểm tủ lạnh | Wipe the kitchen, empty bins, check the fridge | ⟨chừa chỗ⟩ |  |
+| `hk.step.amenity` | Bổ sung đồ dùng, nước suối | Restock amenities and bottled water | ⟨chừa chỗ⟩ |  |
+| `hk.started_at` | Bắt đầu lúc {time} | Started at {time} | ⟨chừa chỗ⟩ |  |
+| `hk.finish_help_vacant` | Bấm Dọn xong khi đã làm hết. Căn sẽ chuyển "Đã dọn – chờ kiểm" và lễ tân trưởng được báo đi kiểm. | Tap Finished cleaning when everything is done. The room becomes "Cleaned – awaiting inspection" and the front desk lead is asked to inspect. | ⟨chừa chỗ⟩ |  |
+| `hk.finish_help_occupied` | Bấm Dọn xong khi đã làm hết. Căn chuyển "Khách đang ở – đã dọn". | Tap Finished cleaning when everything is done. The room becomes "Guest staying – cleaned". | ⟨chừa chỗ⟩ |  |
+| `hk.report_this_room` | Báo sự cố căn này | Report a problem in this room | ⟨chừa chỗ⟩ |  |
+| `hk.room_no_task_title` | Căn này không có việc hôm nay | No tasks for this room today | ⟨chừa chỗ⟩ |  |
+| `hk.room_no_task_body` | Lễ tân giao việc mới thì sẽ hiện ở đây. | New tasks from the front desk will appear here. | ⟨chừa chỗ⟩ |  |
+| `hk.err.transition_title` | Căn {room} vừa được đổi ở chỗ khác | Room {room} was just changed by someone else | ⟨chừa chỗ⟩ |  |
+| `hk.err.invalid_transition` | Căn {room} hiện là "{status}", nên chưa bấm Dọn xong được. Không cần làm lại – xem lại danh sách việc. | Room {room} is now "{status}", so it can't be marked Finished cleaning. No need to redo anything – check your task list. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION ở PWA (status = hk.status.* hiện tại) |
+| `hk.back_to_tasks` | Về danh sách việc | Back to my tasks | ⟨chừa chỗ⟩ |  |
+| `hk.toast.room_status` | Căn {room}: {status} | Room {room}: {status} | ⟨chừa chỗ⟩ |  |
+| `hk.undo_btn` | Hoàn tác ({s}) | Undo ({s}) | ⟨chừa chỗ⟩ | Đếm lùi 10 giây – lệnh gửi trễ (DS 6.18) |
+| `hk.undone` | Đã hoàn tác | Undone | ⟨chừa chỗ⟩ |  |
+| `hk.undone_room` | Đã hoàn tác – căn {room} vẫn là "{status}" | Undone – room {room} is still "{status}" | ⟨chừa chỗ⟩ |  |
+| `hk.sent_after_undo` | Đã gửi thao tác | Change sent | ⟨chừa chỗ⟩ |  |
+| `hk.queued_toast` | Đã lưu trên máy – sẽ tự gửi khi có mạng | Saved on this phone – it will send when you're back online | ⟨chừa chỗ⟩ |  |
+| `hk.done_wait_inspect_note` | Dọn xong lúc {time} · đã báo lễ tân trưởng kiểm phòng | Cleaned at {time} · front desk lead asked to inspect | ⟨chừa chỗ⟩ |  |
+| `hk.insp.title` | Kiểm phòng {room} | Inspect room {room} | ⟨chừa chỗ⟩ |  |
+| `hk.insp.progress` | Đã kiểm {n}/{total} mục | {n}/{total} items checked | ⟨chừa chỗ⟩ |  |
+| `hk.insp.legend` | Đánh dấu khi đạt chuẩn OTTIMO | Tick each item that meets the OTTIMO standard | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i01` | Ga gối phẳng, sạch | Bed linen smooth and clean | ⟨chừa chỗ⟩ | BR-808 – nhãn mặc định khi checklist chưa có EN |
+| `hk.insp.i02` | Phòng tắm khô, không tóc | Bathroom dry, no hair | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i03` | Khăn: 2 tắm, 2 mặt, 1 chân | Towels: 2 bath, 2 face, 1 bath mat | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i04` | Đồ dùng đủ, quay nhãn ra | Amenities complete, labels facing out | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i05` | Bếp sạch, tủ lạnh có nước suối | Kitchen clean, bottled water in the fridge | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i06` | Bàn làm việc, đèn, ổ cắm | Desk, lamp and sockets work | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i07` | Wi-Fi từ 50 Mbps | Wi-Fi at least 50 Mbps | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i08` | Rèm, cửa sổ kín | Curtains and windows close properly | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i09` | Không mùi, đã thông gió | No odours, room aired | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i10` | Remote, điều hòa / sưởi chạy | Remote, air-con / heater working | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i11` | Thẻ chào + thông tin Wi-Fi | Welcome card + Wi-Fi details | ⟨chừa chỗ⟩ |  |
+| `hk.insp.i12` | Ảnh phòng | Room photos | ⟨chừa chỗ⟩ |  |
+| `hk.insp.kit` | Có đủ {n} bộ đồ dùng thêm (sofa) | {n} extra-guest kit(s) in place (sofa) | ⟨chừa chỗ⟩ | BR-812 (5) |
+| `hk.insp.photo_done` | Đã chụp đủ ảnh phòng | Room photos taken | ⟨chừa chỗ⟩ |  |
+| `hk.insp.note` | Ghi chú (không bắt buộc) | Note (optional) | ⟨chừa chỗ⟩ |  |
+| `hk.insp.pass` | Kiểm đạt – sẵn sàng | Passed – ready | ⟨chừa chỗ⟩ | recordInspection → VI |
+| `hk.insp.fail` | Chưa đạt | Not passed | ⟨chừa chỗ⟩ |  |
+| `hk.insp.fail_note` | Chưa đạt ở đâu? Ghi để người dọn sửa | What didn't pass? Write it down so it can be fixed | ⟨chừa chỗ⟩ |  |
+| `hk.insp.fail_effect` | Căn quay về "Cần dọn (khách đã đi)" và có việc dọn lại. | The room goes back to "Needs cleaning (guest left)" with a re-clean task. | ⟨chừa chỗ⟩ | [GIẢ ĐỊNH UXD – chờ BA chốt SM-03] |
+| `hk.insp.fail_save` | Ghi chưa đạt | Save as not passed | ⟨chừa chỗ⟩ |  |
+| `hk.insp.empty_title` | Chưa có danh mục kiểm phòng | No inspection checklist yet | ⟨chừa chỗ⟩ |  |
+| `hk.insp.empty_body` | Quản lý cần thiết lập danh mục kiểm phòng trước. Báo lễ tân trưởng. | A manager needs to set up the checklist first. Let the front desk lead know. | ⟨chừa chỗ⟩ |  |
+| `hk.insp.self_off_title` | Bạn chưa tự kiểm được căn này | You can't self-inspect this room yet | ⟨chừa chỗ⟩ |  |
+| `hk.insp.self_off_body` | Cơ sở chưa bật chế độ buồng phòng tự kiểm. Lễ tân trưởng sẽ kiểm – bạn không cần làm gì thêm. | Self-inspection isn't switched on for this property. The front desk lead will inspect – nothing more for you to do. | ⟨chừa chỗ⟩ |  |
+| `hk.self_inspect_left` | Dọn xong & tự kiểm đạt (còn {n} mục) | Finished & self-inspected ({n} items left) | ⟨chừa chỗ⟩ |  |
+| `hk.photo_add` | Chụp | Take photo | ⟨chừa chỗ⟩ |  |
+| `hk.photo_n` | Ảnh {n} | Photo {n} | ⟨chừa chỗ⟩ |  |
+| `hk.minibar_title` | Minibar – còn lại trong tủ | Minibar – items left | ⟨chừa chỗ⟩ |  |
+| `hk.minibar_less` | Bớt | Fewer | ⟨chừa chỗ⟩ |  |
+| `hk.minibar_more` | Thêm | More | ⟨chừa chỗ⟩ |  |
+| `hk.minibar_help` | Đếm số còn trong tủ. Hệ thống tự tính phần khách đã dùng và báo bổ sung. | Count what's left. The system works out what was used and what to restock. | ⟨chừa chỗ⟩ |  |
+| `hk.refuse_title` | Khách không muốn dọn hôm nay? | Guest doesn't want cleaning today? | ⟨chừa chỗ⟩ |  |
+| `hk.refuse.dnd` | Treo biển "Không làm phiền" | "Do not disturb" sign is up | ⟨chừa chỗ⟩ |  |
+| `hk.refuse.said_no` | Khách nói không cần dọn | Guest said no cleaning needed | ⟨chừa chỗ⟩ |  |
+| `hk.refuse.other` | Lý do khác | Other reason | ⟨chừa chỗ⟩ |  |
+| `hk.refuse_effect` | Việc dọn hôm nay của căn này được bỏ. Lễ tân thấy lý do. Ngày mai vẫn có việc dọn như thường. | Today's cleaning for this room is skipped. The front desk sees the reason. Cleaning resumes tomorrow as usual. | ⟨chừa chỗ⟩ |  |
+| `hk.refuse_save` | Bỏ việc dọn hôm nay | Skip today's cleaning | ⟨chừa chỗ⟩ |  |
+| `hk.wo.offline` | Mất mạng – vẫn gửi được. Phiếu và ảnh lưu trên máy, tự gửi khi có mạng; mã phiếu có sau khi gửi. | You're offline – you can still send. The report and photos stay on this phone and send when you're back online; the work-order number comes after. | ⟨chừa chỗ⟩ |  |
+| `hk.wo.room` | Căn | Room | ⟨chừa chỗ⟩ |  |
+| `hk.wo.what` | Chuyện gì xảy ra? | What happened? | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.hot_water` | Mất nước nóng | No hot water | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.power` | Điện / đèn | Power / lights | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.leak` | Rò nước | Water leak | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.lock` | Khóa cửa | Door lock | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.broken` | Đồ hỏng | Something broken | ⟨chừa chỗ⟩ |  |
+| `hk.wo.k.other` | Khác | Other | ⟨chừa chỗ⟩ |  |
+| `hk.wo.desc` | Mô tả | Description | ⟨chừa chỗ⟩ |  |
+| `hk.wo.desc_required` | Ghi vài chữ để kỹ thuật biết cần mang gì. | Add a few words so maintenance knows what to bring. | ⟨chừa chỗ⟩ |  |
+| `hk.wo.photos` | Ảnh (nên có) | Photos (recommended) | ⟨chừa chỗ⟩ |  |
+| `hk.wo.severity` | Mức độ | Priority | ⟨chừa chỗ⟩ |  |
+| `hk.wo.block_request` | Đề nghị khóa căn – không bán đến khi sửa xong | Suggest blocking the room – no sales until fixed | ⟨chừa chỗ⟩ | WorkOrderCreate.blockRequested (đề nghị ARC) |
+| `hk.wo.send` | Gửi báo sự cố | Send report | ⟨chừa chỗ⟩ |  |
+| `hk.wo.pick_room_title` | Chọn căn trước | Pick a room first | ⟨chừa chỗ⟩ |  |
+| `hk.wo.pick_room_body` | Mở từ thẻ việc hoặc chọn căn ở ô trên để báo sự cố. | Open this from a task card or pick a room above to report a problem. | ⟨chừa chỗ⟩ |  |
+| `hk.wo.sent_title` | Đã tạo phiếu {code} | Work order {code} created | ⟨chừa chỗ⟩ |  |
+| `hk.wo.sent_body_high` | Bảo trì, lễ tân và quản lý đã được báo. Bảo trì nhận việc trong 15 phút. | Maintenance, front desk and the manager have been notified. Maintenance will pick it up within 15 minutes. | ⟨chừa chỗ⟩ |  |
+| `hk.wo.sent_body` | Bảo trì đã thấy phiếu. Bạn không cần làm gì thêm. | Maintenance can see it now. Nothing more for you to do. | ⟨chừa chỗ⟩ |  |
+| `hk.wo.queued_title` | Đã lưu trên máy – chưa gửi | Saved on this phone – not sent yet | ⟨chừa chỗ⟩ |  |
+| `hk.wo.queued_body` | Sẽ tự gửi khi có mạng. Sự cố gấp? Gọi lễ tân ngay, đừng chờ. | It will send when you're back online. Urgent? Call the front desk now – don't wait. | ⟨chừa chỗ⟩ |  |
+| `hk.queue_title` | Thao tác trên máy | Changes on this phone | ⟨chừa chỗ⟩ |  |
+| `hk.queue.pending` | Đang chờ gửi ({n}) | Waiting to send ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.queue.tapped_at` | Bấm lúc {time} | Tapped at {time} | ⟨chừa chỗ⟩ |  |
+| `hk.queue.waiting` | Chờ mạng | Waiting for connection | ⟨chừa chỗ⟩ |  |
+| `hk.queue.wo_with_photo` | Báo sự cố + {n} ảnh | Problem report + {n} photo(s) | ⟨chừa chỗ⟩ |  |
+| `hk.queue.review` | Cần xem lại ({n}) | Needs review ({n}) | ⟨chừa chỗ⟩ |  |
+| `hk.queue.rejected_title` | Căn {room} – "{action}" không áp dụng được | Room {room} – "{action}" couldn't be applied | ⟨chừa chỗ⟩ |  |
+| `hk.queue.rejected_body` | Lúc bạn bấm ({time}), căn đã là "{status}". Không cần làm lại. | When you tapped ({time}), the room was already "{status}". No need to redo it. | ⟨chừa chỗ⟩ |  |
+| `hk.queue.ack` | Đã hiểu | Got it | ⟨chừa chỗ⟩ |  |
+| `hk.queue.keep_note` | Đừng xóa dữ liệu trình duyệt hay gỡ app khi còn thao tác chờ gửi. | Don't clear browser data or remove the app while changes are waiting to send. | ⟨chừa chỗ⟩ |  |
+| `hk.queue.empty_title` | Đã gửi hết | Everything sent | ⟨chừa chỗ⟩ |  |
+| `hk.queue.empty_body` | Không còn thao tác nào chờ gửi trên máy này. | No changes waiting on this phone. | ⟨chừa chỗ⟩ |  |
+| `hk.queue.retry_title` | Gửi chưa được – sẽ thử lại | Not sent yet – will try again | ⟨chừa chỗ⟩ |  |
+| `hk.queue.retry_body` | Máy chủ chưa nhận. Thao tác vẫn nằm trên máy, tự thử lại lúc {time}. | The server didn't receive it. Your changes are still on this phone; next try at {time}. | ⟨chừa chỗ⟩ |  |
+| `hk.queue.send_now` | Gửi ngay | Send now | ⟨chừa chỗ⟩ |  |
+| `hk.queue.sending` | Đang gửi {n}/{total}… | Sending {n}/{total}… | ⟨chừa chỗ⟩ |  |
+| `hk.queue.sent_all` | Đã gửi {n} thao tác | {n} changes sent | ⟨chừa chỗ⟩ |  |
+| `hk.queue.relogin_title` | Đăng nhập lại để gửi tiếp | Sign in again to keep sending | ⟨chừa chỗ⟩ |  |
+| `hk.queue.relogin_body` | {n} thao tác vẫn còn trên máy và sẽ gửi sau khi bạn đăng nhập. | {n} changes are still on this phone and will send after you sign in. | ⟨chừa chỗ⟩ |  |
+| `hk.queue.task_cancelled` | Căn {room} – việc này đã được hủy vì đơn thay đổi | Room {room} – this task was cancelled because the booking changed | ⟨chừa chỗ⟩ |  |
+| `hk.queue.task_cancelled_body` | Không cần làm. Xem danh sách việc mới. | Nothing to do. Check your updated task list. | ⟨chừa chỗ⟩ |  |
+
+#### R2 hi-fi Sprint 4 – Bảo trì / phiếu sửa (H22)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `wo.sev.high` | Gấp | Urgent | ⟨chừa chỗ⟩ | Severity high – BR-809 (nhận 15 phút, phương án 2 giờ) |
+| `wo.sev.medium` | Trong ngày | Today | ⟨chừa chỗ⟩ | medium – xong trong 24 giờ |
+| `wo.sev.low` | Không gấp | Not urgent | ⟨chừa chỗ⟩ | low – xong trong 72 giờ |
+| `wo.sev.high_help` | An toàn hoặc khách đang ở bị ảnh hưởng: mất nước nóng, mất điện, khóa hỏng, rò nước | Safety, or a staying guest is affected: no hot water, no power, broken lock, leak | ⟨chừa chỗ⟩ |  |
+| `wo.sev.medium_help` | Cần sửa xong trong 24 giờ | Fix within 24 hours | ⟨chừa chỗ⟩ |  |
+| `wo.sev.low_help` | Sửa trong 3 ngày | Fix within 3 days | ⟨chừa chỗ⟩ |  |
+| `wo.status.new` | Mới | New | ⟨chừa chỗ⟩ | SM-04 |
+| `wo.status.in_progress` | Đang sửa | In progress | ⟨chừa chỗ⟩ |  |
+| `wo.status.waiting_parts` | Chờ vật tư | Waiting for parts | ⟨chừa chỗ⟩ |  |
+| `wo.status.done` | Đã xong | Done | ⟨chừa chỗ⟩ |  |
+| `wo.status.cancelled` | Đã hủy | Cancelled | ⟨chừa chỗ⟩ |  |
+| `wo.filter_label` | Lọc phiếu | Filter work orders | ⟨chừa chỗ⟩ |  |
+| `wo.filter.open` | Đang mở ({n}) | Open ({n}) | ⟨chừa chỗ⟩ |  |
+| `wo.filter.high` | Gấp ({n}) | Urgent ({n}) | ⟨chừa chỗ⟩ |  |
+| `wo.filter.parts` | Chờ vật tư ({n}) | Waiting for parts ({n}) | ⟨chừa chỗ⟩ |  |
+| `wo.due.ack` | Nhận việc trước {time} – còn {m} phút | Pick up by {time} – {m} min left | ⟨chừa chỗ⟩ |  |
+| `wo.due.plan` | Có phương án trước {time} (sửa xong hoặc đổi phòng cho khách). | Have a solution by {time} (fixed, or the guest moved to another room). | ⟨chừa chỗ⟩ |  |
+| `wo.due.resolve` | Xong trước {when} | Fix by {when} | ⟨chừa chỗ⟩ |  |
+| `wo.due.paused` | Hạn tạm dừng – vật tư dự kiến {date} | Deadline paused – parts expected {date} | ⟨chừa chỗ⟩ |  |
+| `wo.due.overdue` | Quá hạn {m} phút | {m} min overdue | ⟨chừa chỗ⟩ |  |
+| `wo.source.guest_app` | Khách báo qua app | Reported by guest in the app | ⟨chừa chỗ⟩ |  |
+| `wo.occupied` | Căn có khách đang ở | Room is occupied | ⟨chừa chỗ⟩ | MT không thấy tên khách (rbac D18) |
+| `wo.locked_until` | Đang khóa – mở bán lại {date} | Blocked – back on sale {date} | ⟨chừa chỗ⟩ |  |
+| `wo.assignee` | Người xử lý: {name} | Assigned to: {name} | ⟨chừa chỗ⟩ |  |
+| `wo.empty_title` | Không có phiếu nào đang mở | No open work orders | ⟨chừa chỗ⟩ |  |
+| `wo.empty_body` | Phiếu mới từ buồng phòng, lễ tân hoặc khách sẽ hiện ở đây kèm thông báo. | New work orders from housekeeping, the front desk or guests will show here with a notification. | ⟨chừa chỗ⟩ |  |
+| `wo.error_title` | Chưa tải được phiếu sửa | Couldn't load work orders | ⟨chừa chỗ⟩ |  |
+| `wo.photos_reported` | Ảnh lúc báo | Photos when reported | ⟨chừa chỗ⟩ |  |
+| `wo.log` | Nhật ký phiếu | Work order history | ⟨chừa chỗ⟩ |  |
+| `wo.log.raised_high` | Lễ tân {who} nâng mức lên Gấp | Front desk {who} raised it to Urgent | ⟨chừa chỗ⟩ |  |
+| `wo.log.created_guest` | Tạo từ yêu cầu "Báo hỏng" của khách | Created from a guest's "Report a problem" request | ⟨chừa chỗ⟩ |  |
+| `wo.log.created_hk` | Tạo từ báo sự cố của buồng phòng | Created from a housekeeping report | ⟨chừa chỗ⟩ |  |
+| `wo.log.started` | {who} nhận việc | {who} picked it up | ⟨chừa chỗ⟩ |  |
+| `wo.log.blocked` | Lễ tân {who} khóa căn | Front desk {who} blocked the room | ⟨chừa chỗ⟩ |  |
+| `wo.action.start` | Nhận việc | Pick up | ⟨chừa chỗ⟩ | transitionWorkOrder start |
+| `wo.action.wait_parts` | Chờ vật tư | Waiting for parts | ⟨chừa chỗ⟩ | wait-parts |
+| `wo.action.resume` | Sửa tiếp | Resume work | ⟨chừa chỗ⟩ | resume |
+| `wo.action.done` | Sửa xong | Fixed | ⟨chừa chỗ⟩ | done |
+| `wo.action.cancel` | Hủy phiếu | Cancel work order | ⟨chừa chỗ⟩ | cancel – FD+, lý do bắt buộc |
+| `wo.block_info` | Căn khóa đêm {from} – {to}, mở bán lại từ {reopen}. | Room blocked for the nights of {from} – {to}, back on sale from {reopen}. | ⟨chừa chỗ⟩ |  |
+| `wo.done_title` | Sửa xong {code} | Fixed – {code} | ⟨chừa chỗ⟩ |  |
+| `wo.done_offline` | Mất mạng – chưa mở bán lại được. Đóng phiếu có khóa phòng cần có mạng để lễ tân thấy ngay. | You're offline – the room can't go back on sale yet. Closing a work order with a room block needs a connection so the front desk sees it right away. | ⟨chừa chỗ⟩ |  |
+| `wo.result` | Đã làm gì? | What did you do? | ⟨chừa chỗ⟩ |  |
+| `wo.photos_after` | Ảnh sau khi sửa | Photos after the fix | ⟨chừa chỗ⟩ |  |
+| `wo.photo_required` | Chụp ít nhất 1 ảnh sau khi sửa làm bằng chứng. | Take at least 1 photo after the fix as evidence. | ⟨chừa chỗ⟩ | [GIẢ ĐỊNH UXD – chờ PO/DOM]; server: EVIDENCE_REQUIRED |
+| `wo.done_effects_title` | Khi bấm Xác nhận: | When you confirm: | ⟨chừa chỗ⟩ |  |
+| `wo.done_effect_unblock` | Căn {room} mở khóa và mở bán lại trên mọi kênh | Room {room} is unblocked and back on sale on every channel | ⟨chừa chỗ⟩ |  |
+| `wo.done_effect_vd` | Căn chuyển "Cần dọn (khách đã đi)" | The room becomes "Needs cleaning (guest left)" | ⟨chừa chỗ⟩ |  |
+| `wo.done_effect_task` | Buồng phòng nhận việc "Dọn sau sửa chữa" | Housekeeping gets a "Clean after repair" task | ⟨chừa chỗ⟩ |  |
+| `wo.reopening` | Đang mở bán lại… chỉ khi hiện "Đã mở bán lại" thì căn mới bán được. | Putting it back on sale… the room is only bookable once "Back on sale" appears. | ⟨chừa chỗ⟩ |  |
+| `wo.reopened` | Đã mở bán lại căn {room}. Đã giao việc dọn sau sửa chữa. | Room {room} is back on sale. A clean-after-repair task has been assigned. | ⟨chừa chỗ⟩ |  |
+| `wo.done_confirm` | Xác nhận sửa xong | Confirm fixed | ⟨chừa chỗ⟩ |  |
+| `wo.wait_title` | Chờ vật tư – {code} | Waiting for parts – {code} | ⟨chừa chỗ⟩ |  |
+| `wo.parts_note` | Cần vật tư gì? | What parts are needed? | ⟨chừa chỗ⟩ |  |
+| `wo.parts_date` | Ngày dự kiến có vật tư | Expected parts date | ⟨chừa chỗ⟩ | partsExpectedDate (đề nghị ARC) |
+| `wo.parts_date_help` | Hạn của phiếu tạm dừng đến ngày này. Quá ngày mà chưa có, phiếu vào "Cần chú ý". | The deadline pauses until this date. If the parts haven't arrived by then, it shows under "Needs attention". | ⟨chừa chỗ⟩ |  |
+| `wo.parts_high_note` | Phiếu Gấp không dừng hạn khi chờ vật tư – vẫn cần phương án trong 2 giờ (đổi phòng hoặc bù cho khách). | Urgent work orders don't pause while waiting for parts – a solution is still needed within 2 hours (move the guest or compensate). | ⟨chừa chỗ⟩ |  |
+| `wo.action.wait_parts_save` | Lưu – chờ vật tư | Save – waiting for parts | ⟨chừa chỗ⟩ |  |
+| `wo.new_title` | Phiếu sửa mới | New work order | ⟨chừa chỗ⟩ |  |
+| `wo.block_from` | Khóa từ | Block from | ⟨chừa chỗ⟩ |  |
+| `wo.block_done_planned` | Dự kiến xong | Expected fixed by | ⟨chừa chỗ⟩ |  |
+| `wo.block_summary` | Khóa {nights} đêm ({from} – {to}). Mở bán lại từ {reopen}. | Blocked for {nights} nights ({from} – {to}). Back on sale from {reopen}. | ⟨chừa chỗ⟩ | BR-804 nửa mở – mở bán lại = xong + ooo_reopen_buffer_days |
+| `wo.block_conflict_title` | Khoảng khóa trùng {n} đơn đã đặt | The block overlaps {n} existing booking(s) | ⟨chừa chỗ⟩ |  |
+| `wo.block_conflict_body` | Dời đơn sang căn khác trước khi khóa, hoặc quản lý xác nhận đã có phương án. | Move these bookings to another room first, or a manager confirms there's a plan. | ⟨chừa chỗ⟩ |  |
+| `wo.open_booking` | Mở đơn để đổi căn | Open booking to change room | ⟨chừa chỗ⟩ |  |
+| `wo.block_ack` | Tôi là quản lý – đã có phương án cho các đơn này | I'm a manager – there's a plan for these bookings | ⟨chừa chỗ⟩ |  |
+| `wo.block_occupied_title` | Căn đang có khách – chưa khóa được | Room is occupied – can't block it yet | ⟨chừa chỗ⟩ |  |
+| `wo.block_occupied_body` | Lễ tân đổi phòng cho khách trước, rồi mới khóa căn. | The front desk needs to move the guest first, then block the room. | ⟨chừa chỗ⟩ |  |
+| `wo.create_and_block` | Tạo phiếu và khóa căn | Create and block room | ⟨chừa chỗ⟩ |  |
+
+#### R2 hi-fi Sprint 4 – guest-web yêu cầu & thông tin (H23)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `gw.req.new` | Gửi yêu cầu mới | New request | ⟨chừa chỗ⟩ |  |
+| `gw.req.need_network` | Cần có mạng để gửi yêu cầu | You need a connection to send a request | ⟨chừa chỗ⟩ |  |
+| `gw.req.sent_at` | Gửi lúc {time} | Sent at {time} | ⟨chừa chỗ⟩ |  |
+| `gw.req.fee_line` | Phí {amount} – thanh toán khi trả phòng. | Fee {amount} – paid at check-out. | ⟨chừa chỗ⟩ |  |
+| `gw.req.fee_tile` | {amount}/lần | {amount} each time | ⟨chừa chỗ⟩ |  |
+| `gw.req.free` | Miễn phí | Free | ⟨chừa chỗ⟩ |  |
+| `gw.req.fee_notice` | Dịch vụ này có phí {amount}/lần, thanh toán khi trả phòng. | This service costs {amount} each time, paid at check-out. | ⟨chừa chỗ⟩ | Thay guest.req.fee_notice ở R2 (không chữ hóa đơn/bill – SEC ĐK-6) |
+| `gw.req.clean_what` | Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. Dọn hằng ngày vẫn miễn phí. | Includes cleaning, fresh bed linen, bathroom and kitchen. Daily cleaning stays free. | ⟨chừa chỗ⟩ |  |
+| `gw.req.fee_accept` | Tôi đồng ý phí {amount} cho lần dọn này | I agree to the {amount} fee for this clean | ⟨chừa chỗ⟩ |  |
+| `gw.req.note_ph` | Ví dụ: dọn lúc 15:00 khi tôi đi ra ngoài | e.g. clean at 15:00 while I'm out | ⟨chừa chỗ⟩ |  |
+| `gw.req.note_help` | Tối đa 500 ký tự. Đừng ghi số thẻ hay mật khẩu. | Up to 500 characters. Please don't include card numbers or passwords. | ⟨chừa chỗ⟩ |  |
+| `gw.req.reason` | Lý do: | Reason: | ⟨chừa chỗ⟩ |  |
+| `gw.req.empty_body` | Cần khăn, dọn phòng hay báo hỏng? Gửi ở đây – lễ tân thấy ngay. | Need towels, cleaning or something fixed? Send it here – the front desk sees it right away. | ⟨chừa chỗ⟩ |  |
+| `gw.req.error_title` | Chưa tải được yêu cầu của bạn | Couldn't load your requests | ⟨chừa chỗ⟩ |  |
+| `gw.req.after_hours_title` | Lễ tân trả lời từ 07:00 | The front desk replies from 07:00 | ⟨chừa chỗ⟩ |  |
+| `gw.req.after_hours_body` | Bạn vẫn gửi được, chúng tôi xử lý vào buổi sáng. Việc gấp (mất điện, nước, khóa cửa) – gọi người trực. | You can still send it and we'll handle it in the morning. Urgent (power, water, lock)? Call the night staff. | ⟨chừa chỗ⟩ |  |
+| `gw.req.repair_help` | Mô tả chỗ hỏng (ví dụ: không có nước nóng). Kỹ thuật sẽ liên hệ trước khi vào phòng. | Describe the problem (e.g. no hot water). Maintenance will contact you before entering the room. | ⟨chừa chỗ⟩ |  |
+| `gw.req.late_help` | Ghi giờ bạn muốn trả. Lễ tân sẽ báo phí (nếu có) và xác nhận trước khi bạn ở thêm. | Tell us what time you'd like to leave. The front desk will confirm and tell you any fee before you stay longer. | ⟨chừa chỗ⟩ |  |
+| `gw.req.auto_reply` | Trả lời tự động: Chúng tôi đã nhận và sẽ xử lý từ {time}. | Automatic reply: We've received your request and will handle it from {time}. | ⟨chừa chỗ⟩ | BR-811 ngoài giờ trực |
+| `gw.wifi_name` | Tên mạng | Network name | ⟨chừa chỗ⟩ |  |
+| `gw.wifi_pass` | Mật khẩu | Password | ⟨chừa chỗ⟩ |  |
+| `gw.wifi_copy` | Sao chép mật khẩu | Copy password | ⟨chừa chỗ⟩ |  |
+| `gw.wifi_copied` | Đã sao chép mật khẩu Wi-Fi | Wi-Fi password copied | ⟨chừa chỗ⟩ |  |
+| `gw.rules_source` | Nội dung theo nội quy OTTIMO đang áp dụng. | Based on OTTIMO's current house rules. | ⟨chừa chỗ⟩ |  |
+| `gw.info_error_title` | Chưa tải được thông tin lưu trú | Couldn't load your stay details | ⟨chừa chỗ⟩ |  |
+
+#### R2 hi-fi Sprint 4 – Tổng quan + Cần chú ý + SSE (H24)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `ov.subtitle` | Đêm nay {date} | Tonight {date} | ⟨chừa chỗ⟩ | date = businessDate (BR-010) |
+| `ov.live` | Trực tiếp | Live | ⟨chừa chỗ⟩ |  |
+| `ov.reconnecting` | Đang kết nối lại | Reconnecting | ⟨chừa chỗ⟩ |  |
+| `ov.offline_short` | Ngoại tuyến | Offline | ⟨chừa chỗ⟩ |  |
+| `ov.poll_note` | tự tải lại mỗi 30 giây | refreshing every 30 seconds | ⟨chừa chỗ⟩ |  |
+| `ov.offline` | Mất kết nối – số liệu lúc {time}, chưa duyệt được. | You're offline – figures from {time}; approvals unavailable. | ⟨chừa chỗ⟩ |  |
+| `ov.approvals_n` | Cần duyệt ({n}) | To approve ({n}) | ⟨chừa chỗ⟩ |  |
+| `ov.approval_item` | {what} · {amount} | {what} · {amount} | ⟨chừa chỗ⟩ |  |
+| `ov.attention_n` | Cần chú ý ({n}) | Needs attention ({n}) | ⟨chừa chỗ⟩ |  |
+| `ov.new` | Mới | New | ⟨chừa chỗ⟩ |  |
+| `ov.sse_new_announce` | Có 1 mục mới cần chú ý | 1 new item needs attention | ⟨chừa chỗ⟩ | aria-live polite – đọc một lần |
+| `ov.owner_only` | Chỉ chủ đầu tư thấy | Visible to the owner only | ⟨chừa chỗ⟩ |  |
+| `ov.attn_empty_title` | Không có gì cần chú ý | Nothing needs attention | ⟨chừa chỗ⟩ |  |
+| `ov.attn_empty_body` | Khai báo, giữ chỗ và phiếu sửa đều ổn. Có việc mới sẽ hiện ngay ở đây. | Registrations, holds and work orders are all fine. Anything new will show up here. | ⟨chừa chỗ⟩ |  |
+| `ov.attn_error_title` | Chưa tải được mục Cần chú ý | Couldn't load Needs attention | ⟨chừa chỗ⟩ |  |
+| `ov.tonight` | Đêm nay | Tonight | ⟨chừa chỗ⟩ |  |
+| `ov.kpi_arr_dep` | Khách đến / đi | Arrivals / departures | ⟨chừa chỗ⟩ |  |
+| `ov.kpi_note` | Giữ chỗ chưa cọc và đơn OTA chưa gán căn không tính vào công suất. | Unpaid holds and unassigned OTA bookings don't count towards occupancy. | ⟨chừa chỗ⟩ | BR-904, metrics K-03, S1b |
+| `ov.role.manager` | Như chủ đầu tư, trừ cảnh báo miễn phí vượt ngưỡng. | Same as the owner, except the complimentary-limit alert. | ⟨chừa chỗ⟩ |  |
+| `ov.role.fdl` | Cần duyệt: chỉ yêu cầu trong hạn mức của bạn. Không có số tiền tháng, không có cảnh báo miễn phí. | To approve: only requests within your limit. No monthly revenue, no complimentary-limit alert. | ⟨chừa chỗ⟩ |  |
+| `ov.role.fd` | Thấy KPI đêm nay và Cần chú ý vận hành. Cần duyệt chỉ hiện trạng thái yêu cầu bạn đã gửi. | Sees tonight's KPIs and operational alerts. To approve only shows the status of requests you sent. | ⟨chừa chỗ⟩ |  |
+| `attn.vip_arrival` | Khách quen đến hôm nay: {n} đơn | Returning guests arriving today: {n} | ⟨chừa chỗ⟩ | AttentionItem.kind – BR-907 |
+| `attn.room_ooo` | Căn {room} đang khóa sửa chữa – mở bán lại {date} | Room {room} is blocked for repair – back on sale {date} | ⟨chừa chỗ⟩ |  |
+| `attn.rent_due_soon` | Kỳ thu dài hạn trong 7 ngày: {n} hợp đồng | Long-stay payments due within 7 days: {n} contract(s) | ⟨chừa chỗ⟩ | R3 |
+| `attn.lease_expiring` | Hợp đồng hết hạn trong 30 ngày: {n} | Contracts ending within 30 days: {n} | ⟨chừa chỗ⟩ | R3 |
+| `attn.registration_due` | Khai báo lưu trú hôm nay: {n} đơn – hạn sớm nhất {time} | Guest registrations due today: {n} – earliest deadline {time} | ⟨chừa chỗ⟩ |  |
+| `attn.registration_overdue` | Khai báo quá hạn: {n} đơn – làm ngay | Overdue guest registrations: {n} – do now | ⟨chừa chỗ⟩ |  |
+| `attn.visa_expiring` | Thị thực của khách hết trước ngày đi – đơn {code} | A guest's visa ends before departure – booking {code} | ⟨chừa chỗ⟩ | Chỉ mã đơn, không ngày (SR-RET-06) |
+| `attn.work_order_high_open` | Phiếu sửa Gấp đang mở: {n} (căn {rooms}) | Urgent work orders open: {n} (room {rooms}) | ⟨chừa chỗ⟩ |  |
+| `attn.work_order_high_sub` | Căn {room} có khách – cần nhận việc trước {time} | Room {room} is occupied – must be picked up by {time} | ⟨chừa chỗ⟩ |  |
+| `attn.hold_expiring` | Giữ chỗ {code} hết hạn lúc {time} | Hold {code} expires at {time} | ⟨chừa chỗ⟩ |  |
+| `attn.meter_not_read` | Chưa chốt công tơ: {n} căn | Meters not read: {n} room(s) | ⟨chừa chỗ⟩ | R3 |
+| `attn.channel_sync_error` | Đồng bộ kênh lỗi – {n} thay đổi chưa đẩy lên kênh | Channel sync failed – {n} change(s) not pushed to channels | ⟨chừa chỗ⟩ |  |
+| `attn.foc_threshold` | Miễn phí tháng này vượt ngưỡng cảnh báo | This month's complimentary items are over the alert limit | ⟨chừa chỗ⟩ | Chỉ owner (BR-435) |
+| `attn.overbooking` | Hai đơn trùng căn {room} – xử lý ngay | Two bookings overlap in room {room} – act now | ⟨chừa chỗ⟩ |  |
+| `attn.unassigned_with_free_room` | Đơn OTA chưa gán căn trong khi còn căn trống: {n} | Unassigned OTA bookings while rooms are free: {n} | ⟨chừa chỗ⟩ |  |
+| `attn.data_quality` | Dữ liệu cần kiểm lại: {n} mục | Data to double-check: {n} item(s) | ⟨chừa chỗ⟩ |  |
+| `attn.no_show_call` | Gọi khách chưa đến {code} (từ {time}) | Call guest who hasn't arrived – {code} (from {time}) | ⟨chừa chỗ⟩ |  |
+| `attn.no_show_mark` | Có thể ghi "Không đến" cho {code} | {code} can now be marked "No-show" | ⟨chừa chỗ⟩ |  |
+| `attn.security_alert` | Cảnh báo bảo mật tài khoản: {n} | Account security alerts: {n} | ⟨chừa chỗ⟩ |  |
+
+#### R2 hi-fi Sprint 2 – Danh mục căn: số giường, diện tích (H04, OpenAPI 0.3.4 Q6)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rooms.col_bed_count` | Số giường | Beds | ⟨chừa chỗ⟩ | Room.bedCount 1–10 |
+| `rooms.col_area` | Diện tích | Area | ⟨chừa chỗ⟩ | Room.areaM2 |
+| `rooms.area_value` | {m2} m² | {m2} m² | ⟨chừa chỗ⟩ |  |
+| `rooms.area` | Diện tích (không bắt buộc) | Area (optional) | ⟨chừa chỗ⟩ |  |
+| `rooms.area_help` | Số nguyên. Để trống nếu chưa đo. | Whole number. Leave blank if not measured. | ⟨chừa chỗ⟩ |  |
+| `rooms.bed_count_help` | Giường lớn và giường đơn, không tính sofa (1–10). | Double and single beds, not the sofa (1–10). | ⟨chừa chỗ⟩ |  |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
@@ -1989,3 +2328,4 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | 0.3.2 | 16/10/2026 | UXD | R2 Sprint 1 – hi-fi Sprint 3: 363 chuỗi VI/EN mới (`ci.*`, `checkin.*` mới, `reg2.*`, `stay.*`, `co.*`, `pay.bank_transfer`, `pay.pending_reconcile`, `foc.*`, `approval.*` mới, `mlog.*`, `gw.*`, `guest.oci.*` mới, `sur.*`, `late.std_zero`, `late.grace_off`, `error.SELF_RECONCILE_FORBIDDEN`, `field_error.*` mới) theo specs BA EP03-05, EP06; sửa `guest.oci.done_body` (R2 không hứa mã cửa – SEC ĐK-6), `pay.card` (POS tại quầy), `approval.pin_title/label` và `error.REAUTH_FAILED` (mật khẩu ở R2), `checkout.complete_confirm_body` (bỏ mã cửa, thêm thu hồi bộ đồ dùng thêm); xóa `handover.foc_approver` (BR-432). |
 | 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 hi-fi: 502 chuỗi VI/EN mới (gồm mã lỗi OpenAPI 0.3.1: USERNAME_TAKEN, PARTY_DUPLICATE, ROOM_NOT_READY, 6 mã trường `field.*`) (đăng nhập, đổi mật khẩu, 2FA nền, chọn cơ sở, điều hướng 8 vai, Hôm nay, danh mục căn định mức/tối đa, tham số, khách hàng, người dùng & thiết bị, rack, đặt phòng, đơn dài hạn nhập tay, chi tiết đơn, sale/CTV); 13 mã lỗi `error.*` còn thiếu so với OpenAPI 0.3; `error.FILE_REJECTED` sửa theo hợp đồng (JPG/PNG/WebP ≤ 10 MB); thuật ngữ "sofa" cho khách vượt định mức (không dùng "nệm phụ" – ESC-014); RU để R3 |
 | 0.3.3 | 16/10/2026 | UXD | R2 Sprint 1 – review FE: chuyển 71 chuỗi FE đang tạm ở `packages/i18n/src/pending.{vi,en}.json` vào nguồn chuẩn (nhóm "R2 Sprint 1 – admin-web EP00"); sửa câu chữ EN cho đúng giọng văn (không đổ lỗi, viết tắt thân thiện), `auth.current_password` bỏ "(mật khẩu tạm)" vì dùng cả ở menu đổi MK. Sửa `auth.login.username` → "Tên đăng nhập / Username" (hợp đồng `username`, vd `hanh.fd`); `error.REAUTH_FAILED` bỏ `{left}` (API không trả, SR-AUTH-04) và `error.REAUTH_REQUIRED` bỏ "PIN duyệt" (R2 chỉ mật khẩu). `device.grant_confirm` bỏ "mã xác thực" (R2 chỉ mật khẩu). Thêm 24 nhãn tham số `params.k.*` (H05 trước đây hiện khóa kỹ thuật), `common.error_network_body` (lỗi mạng không có mã tham chiếu), `login.hide_password`, `common.vnd_unit`, `shell.main_nav`. Hi-fi H01 (bỏ ô "Giữ đăng nhập" – API không có, ví dụ tên đăng nhập `hanh.fd`), H07, H17 cập nhật theo. |
+| 0.3.4 | 16/10/2026 | UXD | R2 Sprint 2 – hi-fi Sprint 4 (H19–H24): 303 chuỗi VI/EN mới – PWA buồng phòng (`hk.*`: nhóm việc, loại việc, bộ đồ dùng thêm chuẩn bị/thu hồi/chuyển, kiểm phòng 12 điểm, hoàn tác đếm lùi, hàng đợi + "Cần xem lại", báo sự cố), bảo trì (`wo.*`: mức Gấp / Trong ngày / Không gấp, trạng thái SM-04, hạn BR-809, nhật ký, khóa phòng BR-804), guest-web yêu cầu (`gw.req.*`, không chữ "hóa đơn/bill" – SEC ĐK-6), Tổng quan + SSE (`ov.*`), 19 loại "Cần chú ý" (`attn.*`), H04 số giường/diện tích (`rooms.*`). Sửa `hk.task.extra_kit_items` ("1 1 mền"); ghi chú `guest.req.fee_notice` không dùng ở guest-web R2. Thuật ngữ: "Gấp / Trong ngày / Không gấp" (Urgent / Today / Not urgent) cho mức phiếu sửa; "Hoàn tác (n)" (Undo (n)). |

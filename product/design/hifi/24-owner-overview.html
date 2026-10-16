@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H24 Tổng quan chủ đầu tư – KPI đêm nay, Cần chú ý, SSE – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H24</div>
+  <h1>H24 · Tổng quan chủ đầu tư trên điện thoại – Cần duyệt → Cần chú ý → KPI đêm nay, cập nhật trực tiếp (SSE)</h1>
+  <div class="doc-meta"><span>Sprint 4 (FE – admin-web responsive; cùng dữ liệu bản máy tính)</span><span>owner (manager như owner trừ FOC; FDL/FD bản rút gọn)</span><span>Điện thoại 375px · Touch</span><span>US-010 AC1–AC3, US-011, US-012 AC1/AC3/AC4 (AC2 dời R3), US-007 (link), BR-904, BR-907</span><span>Wireframe gốc: L8 8.1 (khung điện thoại)</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <div class="grp"><button class="btn sm" data-unhide="#sse-new" data-announce="ov.sse_new_announce">Mô phỏng sự kiện SSE</button></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="23-guest-requests.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<div class="note-rbac"><b>Thứ tự trên điện thoại (FB-R1-UXR-UXD-03):</b> Cần duyệt → Cần chú ý → KPI đêm nay. ADR/RevPAR là R3 – không vẽ. Số liệu DS-0, 10:42 Thứ Năm 15/10: công suất 6/9 = 67% (401 khóa, giữ chỗ không tính – BR-904). "Cần chú ý" sinh từ quy tắc BR-907, không viết cứng; mỗi mục bấm được, mở đúng màn xử lý.</div>
+
+<section class="doc-sec" aria-labelledby="s241">
+  <h2 id="s241"><span class="no">24.1</span>Tổng quan – điện thoại của chủ đầu tư</h2>
+  <p class="lead">Bấm "Mô phỏng sự kiện SSE" trên thanh công cụ: một mục mới chèn vào đầu "Cần chú ý", sáng nền 2 giây, trình đọc màn hình đọc một câu ngắn. Đổi trạng thái để xem tải / rỗng / lỗi / mất mạng.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><h1><span data-i18n="nav.overview">Tổng quan</span><span class="sub" data-i18n="ov.subtitle" data-i18n-args='{"date":"15/10"}'>Đêm nay 15/10</span></h1>
+        <span class="live" data-show="normal empty"><i aria-hidden="true"></i><span data-i18n="ov.live">Trực tiếp</span></span>
+        <span class="live re" data-show="error"><i aria-hidden="true"></i><span data-i18n="ov.reconnecting">Đang kết nối lại</span></span>
+        <span class="live off" data-show="offline"><i aria-hidden="true"></i><span data-i18n="ov.offline_short">Ngoại tuyến</span></span></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="ov.offline" data-i18n-args='{"time":"10:42"}'>Mất kết nối – số liệu lúc 10:42, chưa duyệt được.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline">
+          <h2 class="grp-h"><span data-i18n="ov.approvals_n" data-i18n-args='{"n":"1"}'>Cần duyệt (1)</span></h2>
+          <a class="task soon rowlink" href="17-approvals-moneylog.html"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span class="grow"><b data-i18n="ov.approval_item" data-i18n-args='{"what":"Miễn phụ thu nhận sớm","amount":"225.000 đ"}'>Miễn phụ thu nhận sớm · 225.000 đ</b><br><span class="li-s">103 · Hạnh · "Phòng sẵn sàng, không ảnh hưởng khách sau"</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+        </div>
+        <div data-show="normal offline empty error">
+          <h2 class="grp-h"><span data-i18n="ov.attention_n" data-i18n-args='{"n":"6"}'>Cần chú ý (6)</span></h2>
+          <div data-show="normal offline">
+            <a class="task urgent rowlink" id="sse-new" hidden href="#"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></span><span class="grow"><b data-i18n="attn.channel_sync_error" data-i18n-args='{"n":"2"}'>Đồng bộ kênh lỗi – 2 thay đổi chưa đẩy lên kênh</b><br><span class="chip info" data-i18n="ov.new">Mới</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task urgent rowlink" href="22-maintenance.html#s221"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg></span><span class="grow"><b data-i18n="attn.work_order_high_open" data-i18n-args='{"n":"2","rooms":"101, 401"}'>Phiếu sửa Gấp đang mở: 2 (căn 101, 401)</b><br><span class="li-s" data-i18n="attn.work_order_high_sub" data-i18n-args='{"room":"101","time":"10:47"}'>Căn 101 có khách – cần nhận việc trước 10:47</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task soon rowlink" href="14-registration.html"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg></span><span class="grow"><b data-i18n="attn.registration_due" data-i18n-args='{"n":"2","time":"23:00"}'>Khai báo lưu trú hôm nay: 2 đơn – hạn sớm nhất 23:00</b><br><span class="li-s">302, 103</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task soon rowlink" href="11-reservation.html"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg></span><span class="grow"><b data-i18n="attn.hold_expiring" data-i18n-args='{"code":"OTM-0160","time":"12:00"}'>Giữ chỗ OTM-0160 hết hạn lúc 12:00</b></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task soon rowlink" href="15-stay.html"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg></span><span class="grow"><b data-i18n="attn.visa_expiring" data-i18n-args='{"code":"OTM-0146"}'>Thị thực của khách hết trước ngày đi – đơn OTM-0146</b></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task soon rowlink" href="17-approvals-moneylog.html#s173"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg></span><span class="grow"><b data-i18n="attn.foc_threshold">Miễn phí tháng này vượt ngưỡng cảnh báo</b><br><span class="chip neutral" data-i18n="ov.owner_only">Chỉ chủ đầu tư thấy</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+            <a class="task info rowlink" href="08-rack.html"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg></span><span class="grow"><b data-i18n="attn.room_ooo" data-i18n-args='{"room":"401","date":"17/10"}'>Căn 401 đang khóa sửa chữa – mở bán lại 17/10</b></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a>
+          </div>
+          <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="ov.attn_empty_title">Không có gì cần chú ý</h3><p data-i18n="ov.attn_empty_body">Khai báo, giữ chỗ và phiếu sửa đều ổn. Có việc mới sẽ hiện ngay ở đây.</p></div></div>
+          <div data-show="error"><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="ov.attn_error_title">Chưa tải được mục Cần chú ý</b><span data-i18n="common.error_network_body">Chưa kết nối được tới máy chủ. Kiểm tra mạng rồi bấm Thử lại. Dữ liệu của bạn không bị mất.</span><div class="act"><button class="btn sm" data-i18n="common.retry">Thử lại</button></div></div></div></div>
+        </div>
+        <div data-show="normal offline empty error">
+          <h2 class="grp-h"><span data-i18n="ov.tonight">Đêm nay</span></h2>
+          <div class="kpis two">
+            <div class="card kpi kpi-wide"><span class="k" data-i18n="today.kpi_occupancy">Công suất đêm nay</span><div class="v">67%</div><span class="note" data-i18n="today.kpi_occupancy_note" data-i18n-args='{"sold":"6","sellable":"9","blocked":"1"}'>6/9 căn bán được (1 đang khóa)</span></div>
+            <div class="card kpi"><span class="k" data-i18n="ov.kpi_arr_dep">Khách đến / đi</span><div class="v">2 / 1</div></div>
+            <div class="card kpi"><span class="k" data-i18n="today.kpi_in_house">Đang ở</span><div class="v">4</div></div>
+          </div>
+          <p class="caption mt-8" data-i18n="ov.kpi_note">Giữ chỗ chưa cọc và đơn OTA chưa gán căn không tính vào công suất.</p>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-80"></div><div class="sk h-56"></div><div class="sk h-56"></div><div class="sk h-56"></div><div class="sk h-96"></div></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a><a href="17-approvals-moneylog.html"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span></a><a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_short">Phòng</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span data-i18n="nav.more">Thêm</span></a></nav>
+    </div><p class="frame-cap">Tổng quan – Lỗi: SSE đang kết nối lại, mục Cần chú ý chưa tải; KPI vẫn hiện số cũ.</p></div>
+    <aside class="spec" aria-label="Đặc tả 24.1">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-010</span> AC1 công suất 6/9 theo metrics K-03 (đêm khả dụng thuần trừ OOO, <code>hold</code> không là đêm bán) + chú thích mẫu số; AC2 số đổi theo dữ liệu, không số cứng; AC3 02:00 ngày 21/10 → "đêm nay" = 20/10 (<code>businessDate</code>, BR-010) – tiêu đề lấy ngày từ API, không từ đồng hồ máy.</li>
+        <li><span class="us">US-012</span> AC1 khai báo đến hạn có số đơn + hạn, bấm mở H14; AC3 thị thực – chỉ mã đơn, không ngày (SR-RET-06); AC4 mỗi loại một dòng (giữ chỗ, OOO, phiếu Gấp). AC2 (kỳ thu, HĐ) dời R3 – chuỗi <code>attn.rent_due_soon</code>, <code>attn.lease_expiring</code> có sẵn.</li>
+        <li>Mức: <code>critical</code> → viền đỏ + icon cảnh báo; <code>warning</code> → viền vàng; <code>info</code> → viền xanh. Luôn có chữ, không chỉ màu (A4). Sắp xếp: critical → warning → info, trong nhóm theo <code>dueAt</code>.</li>
+        <li>Duyệt trên điện thoại mở H17 (mật khẩu R2) – không duyệt "một chạm" ở Tổng quan.</li>
+      </ul>
+      <h3>API</h3><ul>
+        <li><span class="op">getTonightKpi</span> (<code>occupancyPct</code> null → "–", <code>denominatorNote</code>, <code>unassignedConflictReservations</code> hiện riêng nếu &gt; 0) · <span class="op">listAttentionItems</span> · <span class="op">listApprovalRequests</span> <code>?status=pending</code> · <span class="op">resolveAttentionEvent</span> (mục <code>source=event</code>, có ô ghi chú) · <span class="op">streamEvents</span>.</li>
+        <li>SSE (architecture mục 12): <code>attention.changed</code> → gọi lại <span class="op">listAttentionItems</span>; <code>reservation.changed</code>, <code>room.status_changed</code> → gọi lại <span class="op">getTonightKpi</span> (gộp 2 giây); <code>notification.created</code> → chuông. Sự kiện chỉ có loại + id, không dữ liệu.</li>
+        <li>Mất SSE: "Đang kết nối lại" + poll 30 giây; mất mạng: "Ngoại tuyến" + giữ số cũ kèm giờ; duyệt khóa (cần mạng).</li>
+      </ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> (vai không mở Tổng quan → về trang chủ của vai, H02) · <span class="pc">UNAUTHENTICATED</span> · 5xx từng khối độc lập: KPI lỗi không làm mất Cần chú ý và ngược lại.</li></ul>
+      <h3>a11y</h3><ul><li>Mục mới từ SSE: <code>aria-live="polite"</code> đọc <code>ov.sse_new_announce</code> một lần, <b>không</b> đọc lại cả danh sách; không cướp focus; sáng nền tắt khi <code>prefers-reduced-motion</code>.</li><li>Chấm "Trực tiếp" luôn đi kèm chữ; ngoại tuyến dùng vòng rỗng đỏ (khác hình, không chỉ khác màu).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s242">
+  <h2 id="s242"><span class="no">24.2</span>Theo vai – manager, lễ tân trưởng, lễ tân (rbac S02, S21, S26)</h2>
+  <div class="variants">
+    <div class="variant touch"><span class="label-h">manager</span><p data-i18n="ov.role.manager">Như chủ đầu tư, trừ cảnh báo miễn phí vượt ngưỡng.</p></div>
+    <div class="variant touch"><span class="label-h">front_desk_lead</span><p data-i18n="ov.role.fdl">Cần duyệt: chỉ yêu cầu trong hạn mức của bạn. Không có số tiền tháng, không có cảnh báo miễn phí.</p></div>
+    <div class="variant touch"><span class="label-h">front_desk</span><p data-i18n="ov.role.fd">Thấy KPI đêm nay và Cần chú ý vận hành. Cần duyệt chỉ hiện trạng thái yêu cầu bạn đã gửi.</p></div>
+    <div class="variant touch"><span class="label-h">SSE – ba trạng thái (luôn có chữ)</span><p><span class="live"><i aria-hidden="true"></i><span data-i18n="ov.live">Trực tiếp</span></span></p><p><span class="live re"><i aria-hidden="true"></i><span data-i18n="ov.reconnecting">Đang kết nối lại</span></span> – <span class="li-s" data-i18n="ov.poll_note">tự tải lại mỗi 30 giây</span></p><p><span class="live off"><i aria-hidden="true"></i><span data-i18n="ov.offline_short">Ngoại tuyến</span></span></p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s243">
+  <h2 id="s243"><span class="no">24.3</span>Câu cho 19 loại "Cần chú ý" (<code>AttentionItem.kind</code>) – nguồn chung cho FE (H03, H24)</h2>
+  <p class="lead">Mỗi loại một câu ngắn, có tham số; mở đúng màn xử lý theo <code>link</code> của API. Loại R3 (kỳ thu, HĐ, công tơ) có câu sẵn nhưng R2 không phát.</p>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>kind</th><th>Câu (VI – đổi EN trên thanh công cụ)</th><th>Mức thường gặp</th><th>Ai thấy</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">vip_arrival</td><td data-i18n="attn.vip_arrival" data-i18n-args='{"n":"1"}'>Khách quen đến hôm nay: 1 đơn</td><td>info</td><td>FD+</td></tr>
+      <tr><td class="mono">room_ooo</td><td data-i18n="attn.room_ooo" data-i18n-args='{"room":"401","date":"17/10"}'>Căn 401 đang khóa sửa chữa – mở bán lại 17/10</td><td>info</td><td>FD+</td></tr>
+      <tr><td class="mono">rent_due_soon</td><td data-i18n="attn.rent_due_soon" data-i18n-args='{"n":"1"}'>Kỳ thu dài hạn trong 7 ngày: 1 hợp đồng</td><td>warning (R3)</td><td>MGR, OWN</td></tr>
+      <tr><td class="mono">lease_expiring</td><td data-i18n="attn.lease_expiring" data-i18n-args='{"n":"1"}'>Hợp đồng hết hạn trong 30 ngày: 1</td><td>info (R3)</td><td>MGR, OWN</td></tr>
+      <tr><td class="mono">registration_due</td><td data-i18n="attn.registration_due" data-i18n-args='{"n":"2","time":"23:00"}'>Khai báo lưu trú hôm nay: 2 đơn – hạn sớm nhất 23:00</td><td>warning</td><td>FD+</td></tr>
+      <tr><td class="mono">registration_overdue</td><td data-i18n="attn.registration_overdue" data-i18n-args='{"n":"1"}'>Khai báo quá hạn: 1 đơn – làm ngay</td><td>critical</td><td>FD+</td></tr>
+      <tr><td class="mono">visa_expiring</td><td data-i18n="attn.visa_expiring" data-i18n-args='{"code":"OTM-0146"}'>Thị thực của khách hết trước ngày đi – đơn OTM-0146</td><td>warning</td><td>FD+ (C2)</td></tr>
+      <tr><td class="mono">work_order_high_open</td><td data-i18n="attn.work_order_high_open" data-i18n-args='{"n":"2","rooms":"101, 401"}'>Phiếu sửa Gấp đang mở: 2 (căn 101, 401)</td><td>critical</td><td>FD+</td></tr>
+      <tr><td class="mono">hold_expiring</td><td data-i18n="attn.hold_expiring" data-i18n-args='{"code":"OTM-0160","time":"12:00"}'>Giữ chỗ OTM-0160 hết hạn lúc 12:00</td><td>warning</td><td>FD+</td></tr>
+      <tr><td class="mono">meter_not_read</td><td data-i18n="attn.meter_not_read" data-i18n-args='{"n":"2"}'>Chưa chốt công tơ: 2 căn</td><td>warning (R3)</td><td>MGR, OWN</td></tr>
+      <tr><td class="mono">channel_sync_error</td><td data-i18n="attn.channel_sync_error" data-i18n-args='{"n":"2"}'>Đồng bộ kênh lỗi – 2 thay đổi chưa đẩy lên kênh</td><td>critical</td><td>FD+</td></tr>
+      <tr><td class="mono">foc_threshold</td><td data-i18n="attn.foc_threshold">Miễn phí tháng này vượt ngưỡng cảnh báo</td><td>warning</td><td>OWN</td></tr>
+      <tr><td class="mono">overbooking</td><td data-i18n="attn.overbooking" data-i18n-args='{"room":"203"}'>Hai đơn trùng căn 203 – xử lý ngay</td><td>critical</td><td>FD+</td></tr>
+      <tr><td class="mono">unassigned_with_free_room</td><td data-i18n="attn.unassigned_with_free_room" data-i18n-args='{"n":"1"}'>Đơn OTA chưa gán căn trong khi còn căn trống: 1</td><td>warning</td><td>FD+</td></tr>
+      <tr><td class="mono">data_quality</td><td data-i18n="attn.data_quality" data-i18n-args='{"n":"3"}'>Dữ liệu cần kiểm lại: 3 mục</td><td>info</td><td>MGR, OWN</td></tr>
+      <tr><td class="mono">deposit_after_cancel</td><td data-i18n="today.money_after_cancel" data-i18n-args='{"code":"OTM-0161"}'>Tiền về cho đơn đã hủy OTM-0161</td><td>critical</td><td>FD+</td></tr>
+      <tr><td class="mono">no_show_call</td><td data-i18n="attn.no_show_call" data-i18n-args='{"code":"OTM-0150","time":"18:00"}'>Gọi khách chưa đến OTM-0150 (từ 18:00)</td><td>warning</td><td>FD+</td></tr>
+      <tr><td class="mono">no_show_mark</td><td data-i18n="attn.no_show_mark" data-i18n-args='{"code":"OTM-0150"}'>Có thể ghi "Không đến" cho OTM-0150</td><td>warning</td><td>FD+</td></tr>
+      <tr><td class="mono">security_alert</td><td data-i18n="attn.security_alert" data-i18n-args='{"n":"1"}'>Cảnh báo bảo mật tài khoản: 1</td><td>critical</td><td>OWN</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</main>
+</body>
+</html>

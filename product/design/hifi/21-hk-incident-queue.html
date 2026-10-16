@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H21 Buồng phòng – báo sự cố, mất mạng và hàng đợi – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H21</div>
+  <h1>H21 · PWA buồng phòng – báo sự cố → phiếu sửa, thao tác khi mất mạng, hàng đợi "đang chờ gửi (n)", "Cần xem lại"</h1>
+  <div class="doc-meta"><span>Sprint 4 (MOB)</span><span>housekeeping (maintenance, FD+ cũng báo được)</span><span>Điện thoại · mật độ HK</span><span>US-057 AC1–AC2, US-058 (Should), BR-809, ADR-005</span><span>Wireframe gốc: L6 6.1 (khung 4)</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="20-hk-clean-inspect.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="22-maintenance.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s211">
+  <h2 id="s211"><span class="no">21.1</span>Báo sự cố – căn, chuyện gì, ảnh, mức độ (Gấp / Trong ngày / Không gấp)</h2>
+  <p class="lead">Chọn nhanh loại sự cố (điền sẵn tiêu đề và gợi ý mức độ), thêm vài chữ mô tả, chụp ảnh. Buồng phòng <b>không</b> tự khóa căn – chỉ tick "Đề nghị khóa căn" để lễ tân/bảo trì quyết (A86). Mất mạng: vẫn gửi được, ảnh lưu tạm trên máy đến khi gửi xong.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="normal">
+      <header class="m-top"><a class="btn icon-btn" href="19-hk-tasks.html" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="nav.report_issue">Báo sự cố</h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.wo.offline">Mất mạng – vẫn gửi được. Phiếu và ảnh lưu trên máy, tự gửi khi có mạng; mã phiếu có sau khi gửi.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline error">
+          <div class="field"><label for="wo-room" data-i18n="hk.wo.room">Căn</label><select class="input" id="wo-room"><option>101</option><option>102</option><option>103</option><option>201</option><option selected>202</option><option>203</option><option>301</option><option>302</option><option>401</option><option>402</option></select></div>
+          <fieldset class="fieldset-plain"><legend data-i18n="hk.wo.what">Chuyện gì xảy ra?</legend>
+            <div class="filters"><button type="button" aria-pressed="true" data-i18n="hk.wo.k.hot_water">Mất nước nóng</button><button type="button" aria-pressed="false" data-i18n="hk.wo.k.power">Điện / đèn</button><button type="button" aria-pressed="false" data-i18n="hk.wo.k.leak">Rò nước</button><button type="button" aria-pressed="false" data-i18n="hk.wo.k.lock">Khóa cửa</button><button type="button" aria-pressed="false" data-i18n="hk.wo.k.broken">Đồ hỏng</button><button type="button" aria-pressed="false" data-i18n="hk.wo.k.other">Khác</button></div></fieldset>
+          <div class="field invalid" data-show="error"><label for="wo-desc-e"><span data-i18n="hk.wo.desc">Mô tả</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="wo-desc-e" aria-invalid="true" aria-describedby="wo-desc-err"></textarea><div class="err" id="wo-desc-err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="hk.wo.desc_required">Ghi vài chữ để kỹ thuật biết cần mang gì.</span></div></div>
+          <div class="field" data-show="normal offline"><label for="wo-desc"><span data-i18n="hk.wo.desc">Mô tả</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="wo-desc">Vòi sen chỉ ra nước lạnh, đã bật bình 15 phút</textarea></div>
+          <div class="field"><span class="lbl" id="wo-ph" data-i18n="hk.wo.photos">Ảnh (nên có)</span><div class="photo-row" role="group" aria-labelledby="wo-ph"><span class="photo" role="img" data-i18n-label="hk.photo_n" data-i18n-args='{"n":"1"}' aria-label="Ảnh 1"><span class="tag">1</span></span><button class="photo add" type="button"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="hk.photo_add">Chụp</span></button></div></div>
+          <fieldset class="fieldset-plain"><legend data-i18n="hk.wo.severity">Mức độ</legend>
+            <label class="choice"><input type="radio" name="sev" checked><span><b data-i18n="wo.sev.high">Gấp</b><br><span class="li-s" data-i18n="wo.sev.high_help">An toàn hoặc khách đang ở bị ảnh hưởng: mất nước nóng, mất điện, khóa hỏng, rò nước</span></span></label>
+            <label class="choice"><input type="radio" name="sev"><span><b data-i18n="wo.sev.medium">Trong ngày</b><br><span class="li-s" data-i18n="wo.sev.medium_help">Cần sửa xong trong 24 giờ</span></span></label>
+            <label class="choice"><input type="radio" name="sev"><span><b data-i18n="wo.sev.low">Không gấp</b><br><span class="li-s" data-i18n="wo.sev.low_help">Sửa trong 3 ngày</span></span></label></fieldset>
+          <label class="check"><input type="checkbox"><span data-i18n="hk.wo.block_request">Đề nghị khóa căn – không bán đến khi sửa xong</span></label>
+          <p class="li-s" data-i18n="hk.lock_by_others">Lễ tân hoặc bảo trì sẽ quyết định khóa phòng sau khi xem báo cáo.</p>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-80"></div><div class="sk h-120"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg></div><h3 data-i18n="hk.wo.pick_room_title">Chọn căn trước</h3><p data-i18n="hk.wo.pick_room_body">Mở từ thẻ việc hoặc chọn căn ở ô trên để báo sự cố.</p></div></div>
+      </div>
+      <div class="wiz-foot" data-show="normal offline error"><button class="btn pri xl block"><span data-i18n="hk.wo.send">Gửi báo sự cố</span></button></div>
+    </div><p class="frame-cap">Báo sự cố – Lỗi: thiếu mô tả (US-061 AC4). Mất mạng: gửi vào hàng đợi.</p></div>
+    <aside class="spec" aria-label="Đặc tả 21.1">
+      <h3>Story / AC</h3><ul>
+        <li><span class="us">US-057</span> AC1 chọn căn, mô tả, 1 ảnh, mức → phiếu <code>new</code> nguồn "buồng phòng", mã server cấp (<code>WO-00005</code>), <code>maintenance</code> thấy ngay; mức Gấp báo <code>maintenance</code>, <code>front_desk</code>, <code>manager</code> + "Cần chú ý"; AC2 "cần khóa phòng" chỉ ghi đề nghị – FD/MT xác nhận khối OOO (H22 22.5).</li>
+        <li>BR-809: Gấp = <code>high</code> (nhận 15 phút, phương án 2 giờ, không dừng hạn) · Trong ngày = <code>medium</code> (xong 24 giờ) · Không gấp = <code>low</code> (xong 72 giờ). Chip loại sự cố gợi ý mức: nước nóng, điện, rò nước, khóa → Gấp; đồ hỏng, khác → Trong ngày (người báo đổi được).</li>
+      </ul>
+      <h3>API</h3><ul><li><span class="op">uploadAttachment</span> <code>purpose=work_order</code> (ảnh nén ≤ 300 KB trên máy) → <span class="op">createWorkOrder</span> {<code>roomId</code>, <code>title</code> (từ chip), <code>description</code>, <code>severity</code>, <code>photoAttachmentIds</code>} + <code>Idempotency-Key</code>. Offline: cả hai vào hàng đợi theo thứ tự (ảnh trước, phiếu sau).</li></ul>
+      <h3>Đề nghị ARC (thiếu trong 0.3.4)</h3><ul><li><code>WorkOrderCreate.blockRequested: boolean</code> (+ <code>WorkOrder.blockRequested</code>) – ghi "đề nghị khóa" của buồng phòng (US-057 AC2); hiện tại <code>block</code> tạo khối thật, HK không được gọi (A86).</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (<code>REQUIRED</code> ở <code>description</code>) · <span class="pc">FILE_REJECTED</span> (<code>FILE_TYPE</code>, <code>FILE_TOO_LARGE</code>) · <span class="pc">PAYLOAD_TOO_LARGE</span> · <span class="pc">FORBIDDEN_ACTION</span> (HK gửi <code>block</code>).</li></ul>
+      <h3>a11y</h3><ul><li>Chip loại sự cố là <code>button aria-pressed</code> 48px; mức độ là radio <code>.choice</code> 56px có câu giải thích, không chỉ màu.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s212">
+  <h2 id="s212"><span class="no">21.2</span>Sau khi gửi – có mạng / mất mạng (trạng thái trung thực, DS 6.6)</h2>
+  <div class="variants">
+    <div class="variant hk touch"><span class="label-h">Có mạng – server đã cấp mã</span><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="hk.wo.sent_title" data-i18n-args='{"code":"WO-00005"}'>Đã tạo phiếu WO-00005</h3><p data-i18n="hk.wo.sent_body_high">Bảo trì, lễ tân và quản lý đã được báo. Bảo trì nhận việc trong 15 phút.</p><a class="btn xl block" href="19-hk-tasks.html" data-i18n="hk.back_to_tasks">Về danh sách việc</a></div></div>
+    <div class="variant hk touch"><span class="label-h">Mất mạng – đã lưu, chưa có mã</span><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg></div><h3 data-i18n="hk.wo.queued_title">Đã lưu trên máy – chưa gửi</h3><p data-i18n="hk.wo.queued_body">Sẽ tự gửi khi có mạng. Sự cố gấp? Gọi lễ tân ngay, đừng chờ.</p><a class="btn pri xl block" href="tel:+84000000000" data-i18n="hk.call_desk">Gọi lễ tân</a></div></div>
+    <div class="variant hk touch"><span class="label-h">Trong ngày / Không gấp</span><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="hk.wo.sent_title" data-i18n-args='{"code":"WO-00006"}'>Đã tạo phiếu WO-00006</h3><p data-i18n="hk.wo.sent_body">Bảo trì đã thấy phiếu. Bạn không cần làm gì thêm.</p></div></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s213">
+  <h2 id="s213"><span class="no">21.3</span>Hàng đợi – "Đang chờ gửi (n)" và "Cần xem lại" (US-058, ADR-005)</h2>
+  <p class="lead">Mở từ nút vàng "n thao tác đang chờ gửi" ở đầu mọi màn (19.1 khi mất mạng). Mỗi thao tác một dòng: căn, việc, giờ bấm. Khi có mạng tự gửi theo thứ tự; thao tác server từ chối chuyển xuống "Cần xem lại" kèm câu giải thích, <b>không</b> âm thầm bỏ.</p>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch hk stateful" data-state="offline">
+      <header class="m-top"><a class="btn icon-btn" href="19-hk-tasks.html" data-i18n-label="common.back" aria-label="Quay lại">‹</a><h1 data-i18n="hk.queue_title">Thao tác trên máy</h1></header>
+      <div class="offline-bar flexshow" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span class="grow" data-i18n="hk.offline_bar">Mất mạng. Bấm vẫn được – thao tác sẽ tự gửi khi có mạng.</span></div>
+      <div class="m-body">
+        <div data-show="normal offline">
+          <h2 class="grp-h"><span data-i18n="hk.queue.pending" data-i18n-args='{"n":"3"}'>Đang chờ gửi (3)</span></h2>
+          <ul class="list">
+            <li class="li"><span class="roomno">202</span><span class="grow"><span class="li-t" data-i18n="hk.action.start_cleaning">Bắt đầu dọn</span><br><span class="li-s" data-i18n="hk.queue.tapped_at" data-i18n-args='{"time":"10:31"}'>Bấm lúc 10:31</span></span><span class="chip warn" data-i18n="hk.queue.waiting">Chờ mạng</span></li>
+            <li class="li"><span class="roomno">202</span><span class="grow"><span class="li-t" data-i18n="hk.action.finish_cleaning">Dọn xong</span><br><span class="li-s" data-i18n="hk.queue.tapped_at" data-i18n-args='{"time":"10:58"}'>Bấm lúc 10:58</span></span><span class="chip warn" data-i18n="hk.queue.waiting">Chờ mạng</span></li>
+            <li class="li"><span class="roomno">202</span><span class="grow"><span class="li-t" data-i18n="hk.queue.wo_with_photo" data-i18n-args='{"n":"1"}'>Báo sự cố + 1 ảnh</span><br><span class="li-s" data-i18n="hk.queue.tapped_at" data-i18n-args='{"time":"11:02"}'>Bấm lúc 11:02</span></span><span class="chip warn" data-i18n="hk.queue.waiting">Chờ mạng</span></li>
+          </ul>
+          <h2 class="grp-h"><span data-i18n="hk.queue.review" data-i18n-args='{"n":"1"}'>Cần xem lại (1)</span></h2>
+          <div class="task urgent"><div class="ic"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><div class="grow"><b data-i18n="hk.queue.rejected_title" data-i18n-args='{"room":"401","action":"Bắt đầu dọn"}'>Căn 401 – "Bắt đầu dọn" không áp dụng được</b><p class="li-s m-0" data-i18n="hk.queue.rejected_body" data-i18n-args='{"status":"Đang sửa – không bán","time":"10:20"}'>Lúc bạn bấm (10:20), căn đã là "Đang sửa – không bán". Không cần làm lại.</p><button class="btn xl mt-8" data-i18n="hk.queue.ack">Đã hiểu</button></div></div>
+          <p class="li-s mt-12" data-i18n="hk.queue.keep_note">Đừng xóa dữ liệu trình duyệt hay gỡ app khi còn thao tác chờ gửi.</p>
+        </div>
+        <div data-show="loading" aria-busy="true"><span class="sr-only" data-i18n="common.loading">Đang tải…</span><div class="sk h-56"></div><div class="sk h-56"></div></div>
+        <div data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="hk.queue.empty_title">Đã gửi hết</h3><p data-i18n="hk.queue.empty_body">Không còn thao tác nào chờ gửi trên máy này.</p></div></div>
+        <div data-show="error"><div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="hk.queue.retry_title">Gửi chưa được – sẽ thử lại</b><span data-i18n="hk.queue.retry_body" data-i18n-args='{"time":"11:10"}'>Máy chủ chưa nhận. Thao tác vẫn nằm trên máy, tự thử lại lúc 11:10.</span></div></div><button class="btn pri xl block" data-i18n="hk.queue.send_now">Gửi ngay</button></div>
+      </div>
+      <div class="wiz-foot" data-show="normal"><button class="btn pri xl block" data-i18n="hk.queue.send_now">Gửi ngay</button></div>
+    </div><p class="frame-cap">Hàng đợi khi mất mạng (khung mở sẵn ở trạng thái Mất mạng).</p></div>
+    <div class="variants grow">
+      <div class="variant hk touch"><span class="label-h">Có mạng lại – đang gửi</span><div class="toast" role="status"><span class="spin" aria-hidden="true"></span><span class="grow" data-i18n="hk.queue.sending" data-i18n-args='{"n":"1","total":"3"}'>Đang gửi 1/3…</span></div></div>
+      <div class="variant hk touch"><span class="label-h">Gửi xong</span><div class="toast" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span class="grow" data-i18n="hk.queue.sent_all" data-i18n-args='{"n":"3"}'>Đã gửi 3 thao tác</span></div></div>
+      <div class="variant hk touch"><span class="label-h">Phiên đăng nhập hết hạn khi còn hàng đợi</span><div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div class="txt"><b data-i18n="hk.queue.relogin_title">Đăng nhập lại để gửi tiếp</b><span data-i18n="hk.queue.relogin_body" data-i18n-args='{"n":"3"}'>3 thao tác vẫn còn trên máy và sẽ gửi sau khi bạn đăng nhập.</span></div></div></div>
+      <div class="variant hk touch"><span class="label-h">Việc đã được hệ thống hủy</span><div class="task info"><div class="ic"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg></div><div class="grow"><b data-i18n="hk.queue.task_cancelled" data-i18n-args='{"room":"302"}'>Căn 302 – việc này đã được hủy vì đơn thay đổi</b><p class="li-s m-0" data-i18n="hk.queue.task_cancelled_body">Không cần làm. Xem danh sách việc mới.</p></div></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 21.3">
+      <h3>Story / AC (US-058 – Should R2)</h3><ul>
+        <li>Thao tác đổi trạng thái vẫn được ghi khi mạng chập chờn và tự gửi lại khi có mạng; không phải làm lại.</li>
+        <li>ADR-005: ghi offline = đổi trạng thái buồng, tick checklist, đếm minibar, tạo phiếu sự cố (ảnh nén ≤ 300 KB). <b>Không</b> offline: tiền, tồn phòng, giấy tờ (C3) – nút khóa "Cần có mạng" (<code>hk.need_network</code>).</li>
+        <li>Gửi lại: Background Sync (Chrome Android) + khi có sự kiện <code>online</code>/mở app (iOS). Thứ tự giữ nguyên theo giờ bấm; một mục lỗi 409 không chặn các mục sau của căn khác.</li>
+      </ul>
+      <h3>API</h3><ul><li>Mỗi mục = một request có sẵn <code>Idempotency-Key</code> + <code>performedAt</code> (giờ bấm). <span class="op">transitionRoomStatus</span> dùng <code>expectedFrom</code> thay <code>If-Match</code>.</li></ul>
+      <h3>Problem.code → mục "Cần xem lại"</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (kèm trạng thái hiện tại) → <code>hk.queue.rejected_*</code> · việc <code>cancelled</code> → <code>hk.queue.task_cancelled</code> · <span class="pc">IDEMPOTENCY_KEY_REUSED</span> (lỗi máy) → xóa mục, ghi log · <span class="pc">UNAUTHENTICATED</span> → giữ hàng đợi, mời đăng nhập lại · 5xx/mạng → thử lại theo lũy thừa (30 giây, 1, 2, 5 phút).</li></ul>
+      <h3>a11y</h3><ul><li>Nút đếm hàng đợi có chữ (không chỉ chấm); khi gửi xong đọc qua <code>role="status"</code> một lần.</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>
