@@ -2,12 +2,11 @@
  * Read-only view of the booking that the registration and guest-portal modules need (code, dates, persons,
  * booker name, room, actual times) – through BE-A's port `reservations/public/stay-view.ts` (ARC 4.3): this
  * module never reads the reservations tables itself. `actor` is the session's (SEC H2: SAL/CTV only their
- * own bookings); jobs and the guest session (bound to its booking by the token) use SYSTEM_ACTOR.
- * (Switched by BE-A, Sprint 3 – interface kept for the callers.)
+ * own bookings); jobs and the guest session (bound to its booking by the token) pass SYSTEM_ACTOR
+ * EXPLICITLY – no default (SEC-BE-52 (2): a new call never falls back to the system scope silently).
  */
 import type { Tx } from '../../../db/database';
 import type { LocalDate } from '../../../shared/time';
-import { SYSTEM_ACTOR } from '../../reservations/public/stay-port';
 import {
   type StayViewRow,
   activeRootBookings,
@@ -32,6 +31,8 @@ export interface StayView {
   actualCheckoutAt: Date | null;
   parentReservationId: string | null;
 }
+
+export { SYSTEM_ACTOR } from '../../reservations/public/stay-view';
 
 export interface StayActor {
   userId: string;
@@ -67,7 +68,7 @@ function toView(r: StayViewRow): StayView {
 export async function readStay(
   tx: Tx,
   reservationId: string,
-  actor: StayActor = SYSTEM_ACTOR,
+  actor: StayActor,
 ): Promise<StayView | null> {
   const v = await stayView(tx, reservationId, actor);
   return v ? toView(v) : null;
@@ -76,7 +77,7 @@ export async function readStay(
 export async function readStays(
   tx: Tx,
   ids: readonly string[],
-  actor: StayActor = SYSTEM_ACTOR,
+  actor: StayActor,
 ): Promise<Map<string, StayView>> {
   const views = await stayViews(tx, ids, actor);
   return new Map([...views].map(([id, v]) => [id, toView(v)]));

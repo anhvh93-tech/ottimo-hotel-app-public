@@ -184,6 +184,8 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       depositHeldVnd: 1_600_000,
       balanceDueVnd: 4_655_000, // BR-305-02 dueAtCheckinVnd
       creditVnd: 0,
+      unhandledCreditVnd: 0,
+      otaExcessVnd: 0,
     });
     const { rows: nights } = await db.withContext(t.ctx(), (tx) =>
       tx.query<{ night_state: string; n: number }>(
@@ -205,7 +207,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
     );
     expect(audit.filter((a) => a.action === 'payment.recorded')).toHaveLength(2);
     expect(audit.map((a) => a.action)).toEqual(
-      expect.arrayContaining(['folio.charges_posted', 'reservation.deposit_confirmed']),
+      expect.arrayContaining(['folio.line_posted', 'reservation.deposit_confirmed']),
     );
     expect(audit.every((a) => a.actor_user_id === t.users.sal!.id)).toBe(true);
 
@@ -546,7 +548,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
     const tooHigh = await confirm('sal', b, deposit(160_000_000, { method: 'cash' }));
     expect(tooHigh.json()).toMatchObject({
       code: 'VALIDATION_FAILED',
-      errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_TOO_HIGH' }],
+      errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
     });
     const ok = await confirm(
       'sal',

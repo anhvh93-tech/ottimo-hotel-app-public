@@ -30,7 +30,7 @@ export function useSubmit() {
     } catch (e) {
       if (!isRetryable(e)) {
         setError(e);
-        setFields(fieldErrors(t, e));
+        setFields(fieldErrors(t, e, {}, locale));
       }
       return undefined;
     }
@@ -103,6 +103,17 @@ export function MoneyField({
 }
 
 export const amountOf = (text: string) => parseVnd(text) ?? 0;
+
+/** DS C15 / 6.2: "Bỏ các thay đổi chưa lưu?" for dialogs with typed input (FE-S3-19). */
+export function useUnsavedLabels() {
+  const { t } = useI18n();
+  return {
+    title: t('common.unsaved_title'),
+    body: t('common.unsaved_body'),
+    keep: t('common.unsaved_keep'),
+    discard: t('common.unsaved_discard'),
+  };
+}
 
 /**
  * Step-up (SR-C3-09): re-enter the login password before reading C3 data (full document number, portal

@@ -105,6 +105,12 @@ export function canonicalJson(value: unknown): string {
 }
 
 export function requestHash(method: string, path: string, body: unknown): string {
+  // A raw binary body (multipart Buffer, typed array) is never walked key by key: canonicalJson over a
+  // 40 MB Buffer would block the event loop (ARC FB-R2-ARC-BE-S3-03). Upload controllers replace the body
+  // by its semantic digest before the unit of work; anything else binary is refused.
+  if (Buffer.isBuffer(body) || ArrayBuffer.isView(body) || body instanceof ArrayBuffer) {
+    throw problem('VALIDATION_FAILED', { detail: 'Binary request body' });
+  }
   return createHash('sha256')
     .update(`${method.toUpperCase()} ${path}\n${canonicalJson(withoutSecrets(body))}`)
     .digest('hex');
@@ -172,6 +178,9 @@ export class UnitOfWork {
           lockTimeoutMs: options.lockTimeoutMs ?? 3_000,
         });
         if (replay) {
+          // ADR-009: the deferred role decision IS this replay (the key was completed while the role was
+          // held) – mark it applied so the serializer safety net (SEC-BE-33 (3)) does not refuse it.
+          auth.enforced = true;
           const failure = replayFailure(replay);
           if (failure) return { fail: failure };
           return { ...(replay as UseCaseResult<T>), replayed: true };

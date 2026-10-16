@@ -6,12 +6,15 @@ import {
   computeDoorValidity,
   generateBirthdayDoorCode,
   generateDoorCode,
+  isWeakDoorCode,
+  matchesBirthdayWithoutRandom,
   MAX_KEY_CARDS_PER_ROOM,
 } from './access.js';
 import { createDoorLockAdapter } from './factory.js';
 import { ManualDoorLockAdapter } from './manual.js';
 import { MockDoorLockAdapter } from './mock.js';
 
+const clock = () => isoInstant('2026-10-17T08:30:00+07:00');
 const ctx: IntegrationContext = {
   propertyId: 'p1',
   credentialsRef: 'env:DOORLOCK_TTLOCK',
@@ -57,6 +60,75 @@ describe('computeDoorValidity (BR-403)', () => {
   });
 });
 
+describe('computeDoorValidity – BR-403 v0.3.4 / FB-R2-DOM-INT-01 (S3-16)', () => {
+  const base = { arrivalDate: '2026-10-20', departureDate: '2026-10-22', lateGraceUntil: '12:30' };
+
+  it('no agreed late check-out, no guest arriving that day → until late_grace_until 12:30', () => {
+    expect(computeDoorValidity({ ...base, sameDayArrival: false }).validTo).toBe(
+      '2026-10-22T12:30:00+07:00',
+    );
+  });
+  it('guest arriving in the room that day → standard 12:00 (no grace)', () => {
+    expect(computeDoorValidity({ ...base, sameDayArrival: true }).validTo).toBe(
+      '2026-10-22T12:00:00+07:00',
+    );
+  });
+  it('unknown same-day arrival → no grace (conservative)', () => {
+    expect(computeDoorValidity(base).validTo).toBe('2026-10-22T12:00:00+07:00');
+  });
+  it('agreed late check-out wins over grace', () => {
+    expect(
+      computeDoorValidity({ ...base, sameDayArrival: false, lateCheckOutTime: '15:00' }).validTo,
+    ).toBe('2026-10-22T15:00:00+07:00');
+  });
+  it('B9a: checked in at 04:40 on the arrival date → valid from 04:40', () => {
+    expect(
+      computeDoorValidity({ ...base, actualCheckInAt: '2026-10-20T04:40:00+07:00' }).validFrom,
+    ).toBe('2026-10-20T04:40:00+07:00');
+  });
+  it('actual check-in later than the standard time does not move validFrom', () => {
+    expect(
+      computeDoorValidity({ ...base, actualCheckInAt: '2026-10-20T16:05:00+07:00' }).validFrom,
+    ).toBe('2026-10-20T14:00:00+07:00');
+  });
+  it('bad actualCheckInAt / grace → INVALID_REQUEST', () => {
+    expect(() =>
+      computeDoorValidity({ ...base, actualCheckInAt: '2026-10-20 04:40' }),
+    ).toThrowError(IntegrationError);
+    expect(() =>
+      computeDoorValidity({ ...base, lateGraceUntil: '12h30', sameDayArrival: false }),
+    ).toThrowError(IntegrationError);
+  });
+});
+
+describe('weak codes and birthday-only codes (BR-403 v0.3.4)', () => {
+  it.each(['000000', '777777', '123456', '654321', '789012', '3210987654', '1111111'])(
+    '%s is weak',
+    (code) => {
+      expect(isWeakDoorCode(code)).toBe(true);
+    },
+  );
+  it.each(['582913', '120347', '1203472', '135791'])('%s is not weak', (code) => {
+    expect(isWeakDoorCode(code)).toBe(false);
+  });
+  it('generated codes are never weak', () => {
+    for (let i = 0; i < 200; i++) expect(isWeakDoorCode(generateDoorCode())).toBe(false);
+  });
+  it('adapters refuse a weak code, message without the code', async () => {
+    const m = new MockDoorLockAdapter();
+    const err = await m.createCode(ctx, req({ code: '123456' })).catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: 'INVALID_REQUEST' });
+    expect((err as Error).message).not.toContain('123456');
+  });
+  it('date of birth without the random digits is detected (core check – adapter has no DOB)', () => {
+    for (const code of ['120390', '12031990', '900312', '19900312', '031290', '03121990']) {
+      expect(matchesBirthdayWithoutRandom(code, '1990-03-12')).toBe(true);
+    }
+    expect(matchesBirthdayWithoutRandom('1203472', '1990-03-12')).toBe(false);
+    expect(matchesBirthdayWithoutRandom('582913', '1990-03-12')).toBe(false);
+  });
+});
+
 describe('code generation (SR-LOCK-01)', () => {
   it('6 digits by default, 6–10 allowed', () => {
     expect(generateDoorCode()).toMatch(/^\d{6}$/);
@@ -82,7 +154,7 @@ describe('code generation (SR-LOCK-01)', () => {
 });
 
 describe('ManualDoorLockAdapter (R2 default)', () => {
-  const a = new ManualDoorLockAdapter({ newId: () => 'x1' });
+  const a = new ManualDoorLockAdapter({ newId: () => 'x1', now: clock });
 
   it('createCode → installed=false (core creates "install code" task), no code returned', async () => {
     const r = await a.createCode(ctx, req());
@@ -203,10 +275,10 @@ describe('MockDoorLockAdapter', () => {
 
 describe('createDoorLockAdapter', () => {
   it('off → null, manual/mock → instances, ttlock → CONFIG until R3, unknown → CONFIG', () => {
-    expect(createDoorLockAdapter('off')).toBeNull();
-    expect(createDoorLockAdapter('manual')).toBeInstanceOf(ManualDoorLockAdapter);
-    expect(createDoorLockAdapter('mock')).toBeInstanceOf(MockDoorLockAdapter);
-    expect(() => createDoorLockAdapter('ttlock')).toThrow(/Round 3/);
-    expect(() => createDoorLockAdapter('Mock')).toThrowError(IntegrationError);
+    expect(createDoorLockAdapter('off', { now: clock })).toBeNull();
+    expect(createDoorLockAdapter('manual', { now: clock })).toBeInstanceOf(ManualDoorLockAdapter);
+    expect(createDoorLockAdapter('mock', { now: clock })).toBeInstanceOf(MockDoorLockAdapter);
+    expect(() => createDoorLockAdapter('ttlock', { now: clock })).toThrow(/Round 3/);
+    expect(() => createDoorLockAdapter('Mock', { now: clock })).toThrowError(IntegrationError);
   });
 });

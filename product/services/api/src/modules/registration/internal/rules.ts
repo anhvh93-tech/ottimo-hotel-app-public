@@ -10,6 +10,7 @@
  */
 import type { DocType } from '../../../db/schema';
 import { PORTAL_VALUE_VI, type PortalValueKey } from '../../../generated/portal-copy';
+import { countryNameVi } from './countries';
 import type { FieldError } from '../../../shared/problem';
 import { containsCardNumber } from '../../../shared/validation';
 import { type LocalDate, addDays, atLocal, localDate, zonedParts } from '../../../shared/time';
@@ -522,8 +523,32 @@ export function checkNoteError(note: unknown): string | null {
 }
 
 /** Tokens of a note that could be a document number (compared by blind index, never stored). */
-export function docNumberCandidates(note: string): string[] {
-  return (note.toUpperCase().match(/[A-Z0-9]{6,30}/g) ?? []).map(normalizeDocNumber);
+/**
+ * Windows of a free-text note that could be one of the declaration's document numbers (SEC
+ * FB-R2-SEC-BE-48): separators `[\s.\-/]` removed first ("079 123.456-789" → one run), then every window of
+ * 3…30 characters that ENDS with a known last-4 (cheap pre-filter – only those are HMAC-compared).
+ * The values are compared by blind index only, never stored.
+ */
+export function docNumberCandidates(note: string, last4s: ReadonlySet<string>): string[] {
+  const flat = note.toUpperCase().replace(/[\s.\-/]+/g, '');
+  const runs = flat.match(/[A-Z0-9]{3,}/g) ?? [];
+  const out = new Set<string>();
+  for (const run of runs) {
+    for (let end = 4; end <= run.length; end++) {
+      if (!last4s.has(run.slice(end - 4, end))) continue;
+      for (let len = 3; len <= Math.min(30, end); len++) out.add(run.slice(end - len, end));
+    }
+  }
+  return [...out];
+}
+
+/**
+ * B-15 rule applied to staff notes that may be shown widely (check notes, portal rejection reason – SEC
+ * BE-48): six or more digits in a row once spaces, dots and dashes are removed → SENSITIVE_DATA_DETECTED
+ * (document numbers, door codes, phone numbers never belong in a note).
+ */
+export function hasLongDigitRun(text: string): boolean {
+  return /\d{6,}/.test(text.replace(/[\s.-]+/g, ''));
 }
 
 /** BR-605 visa reminder: validUntil − visa_expiry_warning_days.<stay type>. */
@@ -559,22 +584,62 @@ export interface PortalPersonInput {
   entryPort: string | null;
   entryPurpose: string | null;
   address: string | null;
+  /** BR-602 / BR-417 (4), DOM BE-22: calendar date (property time) of the ACTUAL check-in when known. */
   arrivalDate: LocalDate;
   departureDate: LocalDate;
   roomNo: string | null;
 }
 
 /**
- * K6 portal data of one person (BR-606 order of the portal form; UXD s3 section 9; ORC 17/10): every field
+ * K6 portal data of one person – the ONE implementation (ARC FB-S3-20; INT's adapter no longer builds
+ * fields). BR-606 order of the portal form; UXD s3 section 9; ORC 17/10: every field
  * in order, empty ones included (value '', valueKey reg.value.empty – the client shows no copy button).
  * Enum values are written in Vietnamese whatever the desk UI language (the portal is Vietnamese) and carry
  * their `reg.value.*` key. BR-605: a foreigner's departure is never declared beyond the visa.
  */
-export function portalFields(kind: PortalKind, p: PortalPersonInput): PortalField[] {
-  const departure =
+export type PortalDateFormat = 'dd/MM/yyyy' | 'yyyy-MM-dd';
+export type PortalNationalityFormat = 'name_vi_alpha3' | 'alpha3';
+
+export interface PortalFormat {
+  /** `portal_date_format` (DOM S3-5 default dd/MM/yyyy – [GIẢ ĐỊNH – chờ INV, ESC-018]). */
+  date: PortalDateFormat;
+  /** `portal_nationality_format` (default "Tên nước tiếng Việt (alpha-3)"). */
+  nationality: PortalNationalityFormat;
+}
+
+export const DEFAULT_PORTAL_FORMAT: PortalFormat = {
+  date: 'dd/MM/yyyy',
+  nationality: 'name_vi_alpha3',
+};
+
+export function formatPortalDate(d: LocalDate | null, fmt: PortalDateFormat): string | null {
+  if (!d) return null;
+  if (fmt === 'yyyy-MM-dd') return d;
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+export function formatNationality(
+  alpha3: string | null,
+  fmt: PortalNationalityFormat,
+): string | null {
+  if (!alpha3) return null;
+  if (fmt === 'alpha3') return alpha3;
+  const name = countryNameVi(alpha3);
+  return name ? `${name} (${alpha3})` : alpha3;
+}
+
+export function portalFields(
+  kind: PortalKind,
+  p: PortalPersonInput,
+  format: PortalFormat = DEFAULT_PORTAL_FORMAT,
+): PortalField[] {
+  const departureIso =
     kind === 'foreigner_temp_residence' && p.visaValidUntil && p.visaValidUntil < p.departureDate
       ? p.visaValidUntil
       : p.departureDate;
+  const date = (d: LocalDate | null) => formatPortalDate(d, format.date);
+  const departure = date(departureIso);
   const enumValue = (
     prefix: 'gender' | 'visa_kind',
     v: string | null,
@@ -587,28 +652,28 @@ export function portalFields(kind: PortalKind, p: PortalPersonInput): PortalFiel
     kind === 'foreigner_temp_residence'
       ? [
           ['reg.field.full_name', p.fullNameOnDoc],
-          ['reg.field.date_of_birth', p.dateOfBirth],
+          ['reg.field.date_of_birth', date(p.dateOfBirth)],
           ['reg.field.gender', enumValue('gender', p.gender)],
-          ['reg.field.nationality', p.nationalityCode],
+          ['reg.field.nationality', formatNationality(p.nationalityCode, format.nationality)],
           ['reg.field.passport_number', p.docNumber],
-          ['reg.field.passport_expiry', p.passportExpiryDate],
+          ['reg.field.passport_expiry', date(p.passportExpiryDate)],
           ['reg.field.visa_kind', enumValue('visa_kind', p.visaKind)],
           ['reg.field.visa_number', p.visaNumber],
-          ['reg.field.visa_valid_until', p.visaValidUntil],
-          ['reg.field.entry_date', p.entryDate],
+          ['reg.field.visa_valid_until', date(p.visaValidUntil)],
+          ['reg.field.entry_date', date(p.entryDate)],
           ['reg.field.entry_port', p.entryPort],
           ['reg.field.entry_purpose', p.entryPurpose],
-          ['reg.field.arrival_date', p.arrivalDate],
+          ['reg.field.arrival_date', date(p.arrivalDate)],
           ['reg.field.departure_date', departure],
           ['reg.field.room_no', p.roomNo],
         ]
       : [
           ['reg.field.full_name', p.fullNameOnDoc],
-          ['reg.field.date_of_birth', p.dateOfBirth],
+          ['reg.field.date_of_birth', date(p.dateOfBirth)],
           ['reg.field.gender', enumValue('gender', p.gender)],
           ['reg.field.id_number', p.docNumber],
           ['reg.field.address', p.address],
-          ['reg.field.arrival_date', p.arrivalDate],
+          ['reg.field.arrival_date', date(p.arrivalDate)],
           ['reg.field.departure_date', departure],
           ['reg.field.room_no', p.roomNo],
         ];

@@ -14,6 +14,7 @@ import type { Tx } from '../../../db/database';
 import { fieldAad, gcmOpen, gcmSeal } from '../internal/envelope-crypto.service';
 import {
   type CryptoService,
+  type KeyedHashPurpose,
   type DataKeyRequest,
   DataKeyDestroyedError,
   DecryptionError,
@@ -83,7 +84,7 @@ export class FakeCryptoService implements CryptoService {
     return createHmac('sha256', this.hashKey).update(value, 'utf8').digest('hex');
   }
 
-  keyedHash(purpose: 'child_name', value: string): string {
+  keyedHash(purpose: KeyedHashPurpose, value: string): string {
     return createHmac('sha256', this.hashKey).update(`${purpose}|${value}`, 'utf8').digest('hex');
   }
 

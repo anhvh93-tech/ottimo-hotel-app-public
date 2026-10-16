@@ -20,7 +20,6 @@ import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { maskPhone } from '../../guests/public/normalize';
-import { nightsOf } from '../../reservations/public/pricing';
 import {
   type BookingContext,
   FD_PLUS,
@@ -164,7 +163,9 @@ export class PartyService {
     const adultFrom = await this.s.param<number>(tx, ctx, 'adult_from_age');
     const freeUnder = await this.s.param<number>(tx, ctx, 'child_free_under_age');
     const minorUnder = await this.s.param<number>(tx, ctx, 'minor_data_age_threshold');
-    const age = Number(arrival.slice(0, 4)) - birthYear;
+    // DOM S3-7: only the birth year is known → the YOUNGEST possible age (birthday not reached yet) – lower
+    // fee/capacity for the guest, the safer side of the minor-data threshold (BR-110, BR-612).
+    const age = Number(arrival.slice(0, 4)) - birthYear - 1;
     const band: Band =
       age >= adultFrom ? 'adult' : age < freeUnder ? 'child_under_6' : 'child_6_11';
     return { band, minor: age < minorUnder };
@@ -289,11 +290,18 @@ export class PartyService {
       const oldExtra = Math.max(0, declared.adult + declared.child_6_11 - rm.base_occupancy);
       const newExtra = Math.max(0, counted - rm.base_occupancy);
       extraDelta = newExtra - oldExtra;
-      nights = nightsOf(effectiveFrom as LocalDate, row.departure_date);
-      if (extraDelta > 0 && band !== 'child_under_6') {
-        const fee = band === 'adult' ? ctx.params.extraAdultFeeVnd : ctx.params.child611FeeVnd;
-        surcharge = fee * extraDelta * nights;
-      }
+      // DOM S3-13 / FB-R2-ARC-BE-S3-01: BR-110 per night from `effectiveFrom` – people present that night in
+      // that night's room, the extra persons at the lower band (not "the person just added").
+      const party = {
+        adults: next.adult,
+        children6to11: next.child_6_11,
+        childrenUnder6: next.child_under_6,
+      };
+      const p = await this.s.stay.peopleFromNight(tx, ctx, row, party, effectiveFrom as LocalDate, {
+        write: false,
+      });
+      nights = p.nights;
+      surcharge = Math.max(0, p.newVnd - p.oldVnd);
       occupancyChange = {
         adults: next.adult,
         children6to11: next.child_6_11,
@@ -307,6 +315,13 @@ export class PartyService {
     }
     if (dryRun) return this.dto(tx, ctx, row, occupancyChange ? { occupancyChange } : {});
 
+    // DOM S3-12 (BR-414): a fee > 0 is never waived by leaving the box unticked – FOC goes through approval.
+    if (surcharge > 0 && !apply) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'applyExtraPersonSurcharge', code: 'SURCHARGE_DECISION_REQUIRED' }],
+        extras: { surchargeVnd: surcharge },
+      });
+    }
     if (apply && surcharge > 0) {
       if (expected === undefined) {
         throw problem('VALIDATION_FAILED', {
@@ -314,7 +329,7 @@ export class PartyService {
         });
       }
       if (expected !== surcharge) {
-        throw problem('SURCHARGE_CHANGED', { extras: { expectedSurchargeVnd: surcharge } });
+        throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: surcharge } });
       }
     }
 
@@ -400,26 +415,22 @@ export class PartyService {
         ctx.now,
         'US-022',
       );
-      if (apply && surcharge > 0 && row.folio_id) {
-        const fee = surcharge / (extraDelta * nights);
-        await this.s.folios.postLines(
-          tx,
-          row.folio_id,
-          [
-            {
-              reservationId: row.id,
-              category: 'extra_person',
-              description: `extra_guest x${extraDelta} from ${effectiveFrom}`,
-              quantity: extraDelta * nights,
-              unitPriceVnd: fee,
-              amountVnd: surcharge,
-              serviceDate: effectiveFrom ?? null,
-              source: 'manual',
-            },
-          ],
-          { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
-        );
-        occupancyChange.surchargeApplied = true;
+      // Nights from `effectiveFrom` get the new party's fee; the folio posts them one line per night.
+      await this.s.stay.peopleFromNight(
+        tx,
+        ctx,
+        row,
+        { adults: next.adult, children6to11: next.child_6_11, childrenUnder6: next.child_under_6 },
+        effectiveFrom as LocalDate,
+        { write: true },
+      );
+      if (row.folio_id && !row.external_contract) {
+        const fresh = await loadReservation(tx, row.id, ctx.actor);
+        await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {
+          userId: ctx.actor.userId,
+          ...this.s.req(ctx),
+        });
+        occupancyChange.surchargeApplied = surcharge > 0;
       }
       if (extraDelta > 0 && roomId) {
         const task = await this.s.createTask(tx, ctx, {
@@ -480,18 +491,67 @@ export class PartyService {
       });
     }
     if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.s.stay.invalid(row);
-    const { rows } = await tx.query<{ id: string; role: string; child_data_key_id: string | null }>(
-      `SELECT id, role, child_data_key_id FROM reservation_guest
+    const { rows } = await tx.query<{
+      id: string;
+      role: string;
+      child_data_key_id: string | null;
+      price_age_band: Band;
+    }>(
+      `SELECT id, role, child_data_key_id, price_age_band FROM reservation_guest
         WHERE id = $1 AND reservation_id = $2 AND removed_at IS NULL FOR UPDATE`,
       [memberId, row.id],
     );
     const m = rows[0];
     if (!m) throw problem('NOT_FOUND');
-    await tx.query('UPDATE reservation_guest SET removed_at = $2, removed_by = $3 WHERE id = $1', [
-      m.id,
-      ctx.now,
-      ctx.actor.userId,
-    ]);
+    // ARC-BE-S3-24.6 / DOM S3-13: an in-house person who leaves no longer counts from tonight – the declared
+    // band goes down when it was counting this person, and the BR-110 fee of the nights from today follows
+    // (in the guest's favour, so no decision is needed). Nights already stayed keep their fee.
+    const members = await this.members(tx, row.id);
+    const presentAfter = { adult: 1, child_6_11: 0, child_under_6: 0 } as Record<Band, number>;
+    for (const x of members) if (x.id !== m.id) presentAfter[x.price_age_band] += 1;
+    const declared = {
+      adult: row.adults,
+      child_6_11: row.children_6_11,
+      child_under_6: row.children_under_6,
+    } as Record<Band, number>;
+    const leaves =
+      row.status === 'in_house' && declared[m.price_age_band] > presentAfter[m.price_age_band];
+    if (leaves) {
+      const next = { ...declared, [m.price_age_band]: declared[m.price_age_band] - 1 } as Record<
+        Band,
+        number
+      >;
+      await tx.query(
+        `UPDATE reservation SET adults = $2, children_6_11 = $3, children_under_6 = $4 WHERE id = $1`,
+        [row.id, next.adult, next.child_6_11, next.child_under_6],
+      );
+      await recordChange(
+        tx,
+        row.id,
+        'persons',
+        {
+          adults: declared.adult,
+          children6to11: declared.child_6_11,
+          childrenUnder6: declared.child_under_6,
+        },
+        { adults: next.adult, children6to11: next.child_6_11, childrenUnder6: next.child_under_6 },
+        ctx.now,
+        'US-022 member left',
+      );
+      await this.s.stay.peopleFromNight(
+        tx,
+        ctx,
+        row,
+        { adults: next.adult, children6to11: next.child_6_11, childrenUnder6: next.child_under_6 },
+        ctx.today,
+        { write: true },
+      );
+    }
+    // SEC-BE-41: the keyed hash of a child's name|year is C3 – erased together with the DEK.
+    await tx.query(
+      `UPDATE reservation_guest SET removed_at = $2, removed_by = $3, child_name_hmac = NULL WHERE id = $1`,
+      [m.id, ctx.now, ctx.actor.userId],
+    );
     // A-38 / T03: C3 of the removed person destroyed in the same transaction (DEK + documents).
     if (m.child_data_key_id) await this.s.ports.childData.destroy(tx, m.child_data_key_id);
     await this.s.ports.registration.onPartyMemberRemoved(tx, row.id, m.id);
@@ -500,6 +560,13 @@ export class PartyService {
         WHERE id = $1`,
       [row.id, ctx.now],
     );
+    if (leaves && row.folio_id && !row.external_contract) {
+      const fresh = await loadReservation(tx, row.id, ctx.actor);
+      await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {
+        userId: ctx.actor.userId,
+        ...this.s.req(ctx),
+      });
+    }
     await this.audit.record(tx, {
       category: 'state',
       action: 'reservation.party_member_removed',

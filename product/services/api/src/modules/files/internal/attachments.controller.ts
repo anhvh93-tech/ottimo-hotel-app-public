@@ -12,9 +12,15 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { AuditService } from '../../audit/public/audit.service';
 import { DATABASE, Database } from '../../../db/database';
-import { ATTACHMENT_PURPOSES, AttachmentService, canUpload } from '../public/attachment.service';
+import {
+  ATTACHMENT_PURPOSES,
+  AttachmentService,
+  PURPOSES_ACCEPTED_NOW,
+  canUpload,
+} from '../public/attachment.service';
 import { fileRejected, normalizeImage } from '../public/image-pipeline';
 import { fileParts, parseMultipart, textPart } from '../public/multipart';
+import { withUploadGate } from '../public/upload-gate';
 
 interface Reply {
   status(code: number): unknown;
@@ -50,6 +56,9 @@ export class AttachmentsController {
       });
     }
     const typed = purpose as AttachmentPurpose;
+    if (!PURPOSES_ACCEPTED_NOW.includes(typed)) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
+    }
     if (!canUpload(p.roles, typed)) {
       await this.audit.recordDenied(tenantOf(p), {
         action: 'access.denied',
@@ -77,24 +86,26 @@ export class AttachmentsController {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'file', code: 'REQUIRED' }] });
     }
     if (files.length > 1) throw fileRejected('file', 'TOO_MANY_FILES');
-    const image = await normalizeImage(files[0] as Buffer, 'file');
-    // Idempotency hash over the logical request (never the multipart bytes as JSON).
-    req.body = {
-      purpose: typed,
-      reservationId: reservationRaw,
-      fileSha256: createHash('sha256')
-        .update(files[0] as Buffer)
-        .digest('hex'),
-    };
-    const result = await this.uow.run(req, async (tx) => ({
-      status: 201,
-      body: await this.attachments.upload(
-        tx,
-        { userId: p.userId, roles: p.roles },
-        { purpose: typed, reservationId: reservationRaw },
-        image,
-      ),
-    }));
+    const result = await withUploadGate(async () => {
+      const image = await normalizeImage(files[0] as Buffer, 'file');
+      // Idempotency hash over the logical request (never the multipart bytes as JSON).
+      req.body = {
+        purpose: typed,
+        reservationId: reservationRaw,
+        fileSha256: createHash('sha256')
+          .update(files[0] as Buffer)
+          .digest('hex'),
+      };
+      return this.uow.run(req, async (tx) => ({
+        status: 201,
+        body: await this.attachments.upload(
+          tx,
+          { userId: p.userId, roles: p.roles },
+          { purpose: typed, reservationId: reservationRaw },
+          image,
+        ),
+      }));
+    });
     return applyResult(reply, result);
   }
 

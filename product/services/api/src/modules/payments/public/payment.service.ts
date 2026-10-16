@@ -131,8 +131,23 @@ export class PaymentService {
     @Optional() @Inject(ModuleRef) private readonly moduleRef?: ModuleRef,
   ) {}
 
+  private attachmentsRef: AttachmentUsage | null | undefined;
+
+  /**
+   * Looked up once (ARC-BE-S3-16 – the lookup no longer runs per call); a composition without BE-C's
+   * FilesModule (worker) gets undefined and anchorPaymentAttachment refuses a payment that has an image.
+   * Constructor injection once BE-A splits ReservationReadPort (cycle MoneyBridge → PaymentService).
+   */
   private get attachments(): AttachmentUsage | undefined {
-    return this.moduleRef?.get<AttachmentUsage>(ATTACHMENT_USAGE, { strict: false });
+    if (this.attachmentsRef === undefined) {
+      try {
+        this.attachmentsRef =
+          this.moduleRef?.get<AttachmentUsage>(ATTACHMENT_USAGE, { strict: false }) ?? null;
+      } catch {
+        this.attachmentsRef = null;
+      }
+    }
+    return this.attachmentsRef ?? undefined;
   }
 
   async recordManual(tx: Tx, p: ManualPaymentInput): Promise<{ id: string; code: string }> {
@@ -142,7 +157,14 @@ export class PaymentService {
     const id = uuidv7();
     const now = this.clock.now();
     const code = await this.docNumbers.allocate(tx, 'payment');
-    const reconciliation = p.reconciliation ?? reconciliationFor(p.method);
+    // ARC-BE-S3-11: every receipt carries the recorder's role (snapshot, A-40) – callers that do not pass it
+    // (B2 initialPayment of reservations) get it from the property roles; a sale/CTV receipt always waits
+    // for the desk/bank check whatever the method (SEC-BE-22, BR-527, ESC-017 A – A46a cash handover).
+    const role = p.recordedByRole ?? (await this.roleOf(tx, p.recordedBy));
+    const fromSales = role === 'sales_staff' || role === 'collaborator';
+    const reconciliation = fromSales
+      ? 'pending'
+      : (p.reconciliation ?? reconciliationFor(p.method));
     await tx.query(
       `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
          reconciliation, amount_vnd, status, auth_code, received_at, recorded_by, note, created_at,
@@ -164,7 +186,7 @@ export class PaymentService {
         p.recordedBy,
         p.note,
         now,
-        p.recordedByRole ?? null,
+        role,
         p.attachmentId ?? null,
       ],
     );
@@ -180,11 +202,21 @@ export class PaymentService {
         amountVnd: p.amountVnd,
         status: 'succeeded',
         reconciliation,
-        ...(p.recordedByRole ? { recordedByRole: p.recordedByRole } : {}),
+        ...(role ? { recordedByRole: role } : {}),
       },
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });
     return { id, code };
+  }
+
+  /** Highest active role of a user in the property in context (A-40 snapshot). */
+  private async roleOf(tx: Tx, userId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ role: string }>(
+      `SELECT role FROM user_property_role
+        WHERE user_id = $1 AND property_id = $2 AND revoked_at IS NULL`,
+      [userId, tx.ctx.propertyId],
+    );
+    return primaryRole(rows.map((r) => r.role));
   }
 
   /**
@@ -203,6 +235,8 @@ export class PaymentService {
       channelGroup?: string | null;
       reservationCreatedAt?: Date | null;
       fieldPrefix?: string;
+      /** What the booking owes when it is not the folio balance (a hold: its missing deposit – BR-305). */
+      outstandingCapVnd?: number;
     },
   ): Promise<PaymentRowLite> {
     const folios = this.need(this.folios, 'FolioService');
@@ -280,13 +314,13 @@ export class PaymentService {
         });
       }
     }
-    const balance = await folios.balance(tx, folio.id);
-    if (raw.amountVnd > balance.balanceDueVnd) {
+    const owed = ctx.outstandingCapVnd ?? (await folios.balance(tx, folio.id)).balanceDueVnd;
+    if (raw.amountVnd > owed) {
       if (!desk) {
         // BR-527: a sale never records more than the booking still owes.
         throw problem('VALIDATION_FAILED', {
-          errors: [{ field: f('amountVnd'), code: 'AMOUNT_TOO_HIGH' }],
-          extras: { max: balance.balanceDueVnd },
+          errors: [{ field: f('amountVnd'), code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          extras: { max: owed },
         });
       }
       if (!note || note.length < 3) {

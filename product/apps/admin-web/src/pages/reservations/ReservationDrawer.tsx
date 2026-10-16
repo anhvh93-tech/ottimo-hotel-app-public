@@ -14,6 +14,7 @@ import {
   remaining,
   rsvErrorText,
 } from '../../app/reservations';
+import { lineLabel } from '../../app/folio';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
 import { useNow } from '../../hooks/useNow';
@@ -79,7 +80,7 @@ export function ReservationDrawer({
   reservationId: string;
   onClose: () => void;
 }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { roles, deviceTrusted } = useSession();
   const { online } = useOnline();
@@ -419,7 +420,9 @@ export function ReservationDrawer({
           {r.status === 'in_house' && fd ? (
             <dl className="dl mt-12">
               <dt>{t('stay.checkout_time')}</dt>
-              <dd>{r.agreedCheckoutTime ?? t('stay.checkout_std', { time: '12:00' })}</dd>
+              <dd>
+                {r.agreedCheckoutTime ?? t('stay.checkout_std', { time: rules.checkoutTime })}
+              </dd>
               <dt>{t('stay.door')}</dt>
               <dd>
                 {r.doorAccessHandedOverAt ? (
@@ -534,11 +537,13 @@ export function ReservationDrawer({
                     .map((l) => (
                       <tr key={l.id} className="sub">
                         <td>
-                          {l.description}
+                          {lineLabel(t, l)}
                           {l.lineState === 'pending_approval' ? (
                             <>
                               {' '}
-                              <Chip tone="warn">{t('approval.status.pending')}</Chip>
+                              <Chip tone="warn" icon="hourglass">
+                                {t('approval.status.pending')}
+                              </Chip>
                             </>
                           ) : null}
                         </td>
@@ -555,7 +560,7 @@ export function ReservationDrawer({
               </table>
               {(folio.totals.creditVnd ?? 0) > 0 && online ? (
                 <Button size="sm" onClick={() => setOpen('refund')}>
-                  {t('refund.request_overpayment', { amount: vnd(folio.totals.creditVnd ?? 0) })}
+                  {t('refund.request_overpayment', { amount: money(folio.totals.creditVnd ?? 0) })}
                 </Button>
               ) : null}
             </>

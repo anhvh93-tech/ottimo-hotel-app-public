@@ -38,6 +38,15 @@ import { StayNightAllocationService } from '../../reservations/public/stay-night
 import { allocate } from './allocate';
 
 export type RevenueGroup = 'room' | 'other' | 'non_revenue';
+
+/** Charges an `ota_prepaid` booking has paid to the OTA (BR-307, DOM BE-13, DOM S3-2 OTA fees). */
+export const OTA_COVERED: ReadonlySet<string> = new Set([
+  'room',
+  'extra_person',
+  'cancellation_fee',
+  'no_show_fee',
+  'early_departure_fee',
+]);
 export type PayeeType = 'agent' | 'staff';
 
 /** Revenue group of a charge category (BR-904: room revenue excludes surcharges, minibar, fees). */
@@ -69,6 +78,8 @@ export interface FolioLineInput {
   note?: string | null;
   reason?: string | null;
   evidenceAttachmentIds?: readonly string[] | null;
+  /** Params of the printable label (line-labels.ts – DOM BE-21), e.g. {time: '13:00', pct: 30}. */
+  labelParams?: Record<string, string | number> | null;
 }
 
 /** Who posts (null = system job) + display code for the money audit. */
@@ -125,6 +136,8 @@ export interface FolioLineRow {
   reversal_of_id: string | null;
   approval_request_id: string | null;
   stay_night_id: string | null;
+  charge_code: string | null;
+  label_params: Record<string, string | number> | null;
   posted_at: Date;
   posted_by: string | null;
   posted_by_name: string | null;
@@ -161,6 +174,8 @@ export interface PaymentRowLite {
   reservation_id: string | null;
   approval_request_id: string | null;
   shift_id: string | null;
+  received_amount_vnd: number | null;
+  provider: string | null;
   version: number;
 }
 
@@ -175,47 +190,122 @@ export interface FolioTotals {
   balanceDueVnd: number;
   /** 0.3.6 A-34: received (incl. receipts waiting for reconciliation) − total − refunded, when > 0. */
   creditVnd: number;
+  /** 0.3.6 bổ sung 2 (E15-05): creditVnd − open refund requests. */
+  unhandledCreditVnd: number;
+  /** 0.3.6 bổ sung 2 (DOM BE-13): OTA collected beyond the OTA-covered charges. */
+  otaExcessVnd: number;
 }
 
-/** Money balance of a folio (FolioPort.balance – BE-A checkout, credit_balance blocker). */
+/**
+ * Money balance of a folio (FolioPort.balance – BE-A check-in/stay/check-out, credit_balance blocker).
+ * Review S3 (DOM BE-13/14, ARC 13, OpenAPI 0.3.6 bổ sung 2 E15-05): `creditVnd` here is the overpayment NOT
+ * yet routed to a refund request (= `unhandledCreditVnd` of the contract) – B16/B18/cancellation create at most
+ * this amount, so a still-unpaid B16 refund never gets a second request at B18. The contract's `creditVnd`
+ * (shown on Folio/CheckoutSummary) is `rawCreditVnd`. Money OTA collected beyond the OTA-covered charges is
+ * OTA's (`otaExcessVnd`), never OTTIMO credit.
+ */
 export interface FolioBalance {
   totalVnd: number;
   paidVnd: number;
   refundedVnd: number;
   balanceDueVnd: number;
+  /** = unhandledCreditVnd (kept under this name for the existing B16/B18/cancellation callers). */
   creditVnd: number;
+  /** Contract `unhandledCreditVnd`: rawCreditVnd − openRefundVnd (≥ 0). */
+  unhandledCreditVnd: number;
+  /** Contract `creditVnd`: own receipts (incl. pending reconciliation) − refunded − what OTA did not cover. */
+  rawCreditVnd: number;
+  /** Σ (amount − refunded) of the refund requests still open (pending / escalated / approved not fully paid). */
+  openRefundVnd: number;
+  /** Part of the overpayment that may be PAID OUT: only receipts reconciled or needing none (cash, POS). */
+  payableCreditVnd: number;
+  /** rawCreditVnd − payableCreditVnd: overpayment backed by receipts not reconciled yet. */
+  unreconciledVnd: number;
+  /** Own receipts still pending/disputed – why payable < raw (DOM BE-14 c, REFUND_SOURCE_NOT_RECONCILED). */
+  unsettledPaymentIds: string[];
+  unsettledPaymentCodes: string[];
+  /** OTA collected beyond the OTA-covered charges (OTA refunds the guest – DOM BE-13). */
+  otaExcessVnd: number;
 }
 
 type TotalsPayment = Pick<PaymentRowLite, 'type' | 'method' | 'amount_vnd' | 'status'> & {
+  id?: string;
   reversal_of_id?: string | null;
+  reconciliation?: string;
+  received_amount_vnd?: number | null;
+  code?: string;
+  reservation_id?: string | null;
 };
 
+type TotalsLine = Pick<FolioLineRow, 'amount_vnd' | 'line_state'> &
+  Partial<Pick<FolioLineRow, 'id' | 'category' | 'reservation_id' | 'related_line_id'>>;
+
+/** Money position of a folio – the ONE computation behind totals, balance, refund caps and the bill. */
+export interface MoneyPosition {
+  totalVnd: number;
+  /** Receipts (refunds excluded), OTA included. */
+  paidVnd: number;
+  /** `ota_collect` receipts (BR-307 – OTA collected for us). */
+  paidOtaVnd: number;
+  /** OTA-covered charges (room, extra person, OTA-kept fees of the OTA booking, net of FOC/discount). */
+  otaCoveredVnd: number;
+  /** paidOtaVnd − what it pays of the OTA-covered charges (OTA's money – never OTTIMO credit). */
+  otaExcessVnd: number;
+  refundedVnd: number;
+  depositHeldVnd: number;
+  balanceDueVnd: number;
+  /** OTTIMO overpayment (OTA excess excluded – DOM BE-13 b). */
+  creditVnd: number;
+  /** Overpayment backed by settled own money (reconciled / not_required; short cash = amount received). */
+  payableCreditVnd: number;
+  unsettledPaymentIds: string[];
+  unsettledPaymentCodes: string[];
+}
+
 /**
- * Σ of the posted lines and succeeded payments (erd 4.6: balances are computed, never stored).
- * A reversed receipt has status `reversed` and its reversal row (reversal_of_id) is bookkeeping only – neither
- * counts (G-12). Refund rows are negative: they reduce the credit, not the receipts (A-34).
+ * Σ of the posted OTA-covered lines of the bookings the OTA collected for (+ their FOC/discount lines, through
+ * `related_line_id`). Reversal rows carry the category and the related line, so the sum is net.
  */
-export function computeTotals(
-  lines: ReadonlyArray<
-    Pick<FolioLineRow, 'category' | 'revenue_group' | 'amount_vnd' | 'line_state'>
-  >,
-  payments: ReadonlyArray<TotalsPayment>,
-): FolioTotals {
-  let roomVnd = 0;
-  let otherVnd = 0;
-  let focVnd = 0;
-  let totalVnd = 0;
+export function otaCoveredOf(
+  lines: ReadonlyArray<TotalsLine>,
+  otaReservations: ReadonlySet<string>,
+): number {
+  if (otaReservations.size === 0) return 0;
+  const covered = new Set<string>();
+  let sum = 0;
   for (const l of lines) {
-    if (l.line_state !== 'posted') continue;
-    totalVnd += l.amount_vnd;
-    if (l.category === 'foc' || l.category === 'discount') focVnd -= l.amount_vnd;
-    else if (l.revenue_group === 'room') roomVnd += l.amount_vnd;
-    else otherVnd += l.amount_vnd;
+    if (l.line_state !== 'posted' || !l.category || !OTA_COVERED.has(l.category)) continue;
+    if (!l.reservation_id || !otaReservations.has(l.reservation_id)) continue;
+    sum += l.amount_vnd;
+    if (l.id) covered.add(l.id);
   }
+  for (const l of lines) {
+    if (l.line_state !== 'posted' || (l.category !== 'foc' && l.category !== 'discount')) continue;
+    if (l.related_line_id && covered.has(l.related_line_id)) sum += l.amount_vnd;
+  }
+  return Math.max(0, sum);
+}
+
+/**
+ * Σ of the posted lines and succeeded receipts (erd 4.6: balances are computed, never stored). A reversed
+ * receipt (`reversed`) and its reversal row (`reversal_of_id`) are bookkeeping only – neither counts (G-12).
+ * Refunds are their own negative rows: they reduce the credit, not the receipts (A-34). `ota_collect` pays only
+ * the OTA-covered charges (x-ota-prepaid-rule): desk charges stay due, OTA excess is not credit.
+ */
+export function moneyPosition(
+  lines: ReadonlyArray<TotalsLine>,
+  payments: ReadonlyArray<TotalsPayment>,
+): MoneyPosition {
+  let totalVnd = 0;
+  for (const l of lines) if (l.line_state === 'posted') totalVnd += l.amount_vnd;
   let paidVnd = 0;
-  let paidViaOtaVnd = 0;
-  let depositHeldVnd = 0;
+  let paidOtaVnd = 0;
   let refundedVnd = 0;
+  let depositHeldVnd = 0;
+  let settledOwnVnd = 0;
+  const otaReservations = new Set<string>();
+  const unsettledIds: string[] = [];
+  const unsettledCodes: string[] = [];
   for (const p of payments) {
     if (p.status !== 'succeeded' || p.reversal_of_id) continue;
     // A security deposit (long stay) is held, not a payment of the bill (BR-206).
@@ -225,20 +315,81 @@ export function computeTotals(
       continue;
     }
     paidVnd += p.amount_vnd;
-    if (p.method === 'ota_collect') paidViaOtaVnd += p.amount_vnd;
     if (p.type === 'deposit') depositHeldVnd += p.amount_vnd;
+    if (p.method === 'ota_collect') {
+      paidOtaVnd += p.amount_vnd;
+      if (p.reservation_id) otaReservations.add(p.reservation_id);
+      continue;
+    }
+    const rec = p.reconciliation ?? 'not_required';
+    if (rec === 'reconciled' || rec === 'not_required') settledOwnVnd += p.amount_vnd;
+    else {
+      // ARC 13: a disputed receipt counts only for what really arrived (short cash), pending for nothing.
+      if (rec === 'disputed') settledOwnVnd += Math.min(p.amount_vnd, p.received_amount_vnd ?? 0);
+      if (p.id) unsettledIds.push(p.id);
+      if (p.code) unsettledCodes.push(p.code);
+    }
   }
-  const net = totalVnd - paidVnd + refundedVnd;
+  // Rows without a booking id (older callers) keep the S3 behaviour: OTA money pays the whole folio.
+  const otaCoveredVnd =
+    paidOtaVnd > 0 && otaReservations.size > 0 ? otaCoveredOf(lines, otaReservations) : paidOtaVnd;
+  const otaAppliedVnd = Math.min(paidOtaVnd, otaCoveredVnd);
+  const paidOwnVnd = paidVnd - paidOtaVnd;
+  const dueAfterOta = Math.max(0, totalVnd - otaAppliedVnd);
+  const creditVnd = Math.max(0, paidOwnVnd - refundedVnd - dueAfterOta);
+  const payableCreditVnd = Math.max(
+    0,
+    Math.min(creditVnd, settledOwnVnd - refundedVnd - dueAfterOta),
+  );
+  return {
+    totalVnd,
+    paidVnd,
+    paidOtaVnd,
+    otaCoveredVnd,
+    otaExcessVnd: paidOtaVnd - otaAppliedVnd,
+    refundedVnd,
+    depositHeldVnd,
+    balanceDueVnd: Math.max(0, dueAfterOta - paidOwnVnd + refundedVnd),
+    creditVnd,
+    payableCreditVnd,
+    unsettledPaymentIds: unsettledIds,
+    unsettledPaymentCodes: unsettledCodes,
+  };
+}
+
+/**
+ * OpenAPI `Folio.totals` (see moneyPosition). `openRefundVnd` = open refund requests of the folio's bookings
+ * (FolioService.openRefundVnd) → `unhandledCreditVnd` (E15-05).
+ */
+export function computeTotals(
+  lines: ReadonlyArray<
+    TotalsLine & Pick<FolioLineRow, 'category' | 'revenue_group' | 'amount_vnd' | 'line_state'>
+  >,
+  payments: ReadonlyArray<TotalsPayment>,
+  openRefundVnd = 0,
+): FolioTotals {
+  let roomVnd = 0;
+  let otherVnd = 0;
+  let focVnd = 0;
+  for (const l of lines) {
+    if (l.line_state !== 'posted') continue;
+    if (l.category === 'foc' || l.category === 'discount') focVnd -= l.amount_vnd;
+    else if (l.revenue_group === 'room') roomVnd += l.amount_vnd;
+    else otherVnd += l.amount_vnd;
+  }
+  const m = moneyPosition(lines, payments);
   return {
     roomVnd,
     otherVnd,
     focVnd,
-    totalVnd,
-    paidVnd,
-    paidViaOtaVnd,
-    depositHeldVnd,
-    balanceDueVnd: Math.max(0, net),
-    creditVnd: Math.max(0, -net),
+    totalVnd: m.totalVnd,
+    paidVnd: m.paidVnd,
+    paidViaOtaVnd: m.paidOtaVnd,
+    depositHeldVnd: m.depositHeldVnd,
+    balanceDueVnd: m.balanceDueVnd,
+    creditVnd: m.creditVnd,
+    unhandledCreditVnd: Math.max(0, m.creditVnd - openRefundVnd),
+    otaExcessVnd: m.otaExcessVnd,
   };
 }
 
@@ -255,7 +406,7 @@ export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.
   uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
   p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
   p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
-  p.version`;
+  p.received_amount_vnd, p.provider, p.version`;
 export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
   LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
 
@@ -326,7 +477,7 @@ export class FolioService implements FolioStaySync {
       `SELECT l.id, l.folio_id, l.reservation_id, l.category, l.revenue_group, l.description,
               l.service_date::text AS service_date, l.quantity, l.unit_price_vnd, l.amount_vnd, l.vat_rate_pct,
               l.line_state, l.related_line_id, l.reversal_of_id, l.approval_request_id, l.stay_night_id,
-              l.posted_at, l.posted_by, u.display_name AS posted_by_name
+              l.charge_code, l.label_params, l.posted_at, l.posted_by, u.display_name AS posted_by_name
          FROM folio_line l LEFT JOIN app_user u ON u.id = l.posted_by
         WHERE l.folio_id = $1
         ORDER BY l.posted_at, l.service_date NULLS LAST, l.id`,
@@ -347,14 +498,23 @@ export class FolioService implements FolioStaySync {
   }
 
   async totals(tx: Tx, folioId: string): Promise<FolioTotals> {
-    return computeTotals(await this.lines(tx, folioId), await this.payments(tx, folioId));
+    const lines = await this.lines(tx, folioId);
+    return computeTotals(
+      lines,
+      await this.payments(tx, folioId),
+      await this.openRefundVnd(tx, folioId, lines),
+    );
   }
 
-  /** Σ succeeded deposit payments of a folio (B4 sufficiency, BR-305). */
+  /**
+   * Σ succeeded deposit receipts of a folio (B4 sufficiency, BR-305, BR-309 base, J1). Reversal rows are
+   * bookkeeping (their original is `reversed`) – never counted, so a reversed deposit gives 0, not −X
+   * (ARC-BE-S3-02, SEC-BE-36). Same rule as moneyPosition().depositHeldVnd.
+   */
   async depositPaid(tx: Tx, folioId: string): Promise<number> {
     const { rows } = await tx.query<{ total: string | number }>(
       `SELECT COALESCE(SUM(amount_vnd), 0) AS total FROM payment
-        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded'`,
+        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded' AND reversal_of_id IS NULL`,
       [folioId],
     );
     return Number(rows[0]?.total ?? 0);
@@ -425,6 +585,7 @@ export class FolioService implements FolioStaySync {
         reason: l.reason ?? null,
         evidenceAttachmentIds: l.evidenceAttachmentIds ?? null,
         postCheckout: folio.postCheckout,
+        labelParams: l.labelParams ?? null,
       });
       ids.push(id);
       await this.audit.recordMoney(tx, {
@@ -440,6 +601,10 @@ export class FolioService implements FolioStaySync {
         ...(l.reason ? { reason: l.reason } : {}),
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
+    }
+    // An OTA-covered charge (B16 early-departure fee kept by the OTA…) moves the OTA prepaid receipt.
+    if (lines.some((l) => OTA_COVERED.has(l.category))) {
+      await this.syncOtaCollect(tx, folio.id, folio.primary_reservation_id, null, actor);
     }
     return ids;
   }
@@ -506,14 +671,64 @@ export class FolioService implements FolioStaySync {
   /** FolioPort.balance – server-side money balance (A-34: balanceDue and credit are never both > 0). */
   async balance(tx: Tx, folioId: string): Promise<FolioBalance> {
     const payments = await this.payments(tx, folioId);
-    const t = computeTotals(await this.lines(tx, folioId), payments);
+    const lines = await this.lines(tx, folioId);
+    const m = moneyPosition(lines, payments);
+    const openRefundVnd = await this.openRefundVnd(tx, folioId, lines);
+    const unhandled = Math.max(0, m.creditVnd - openRefundVnd);
     return {
-      totalVnd: t.totalVnd,
-      paidVnd: t.paidVnd,
-      refundedVnd: refundedOf(payments),
-      balanceDueVnd: t.balanceDueVnd,
-      creditVnd: t.creditVnd,
+      totalVnd: m.totalVnd,
+      paidVnd: m.paidVnd,
+      refundedVnd: m.refundedVnd,
+      balanceDueVnd: m.balanceDueVnd,
+      creditVnd: unhandled,
+      unhandledCreditVnd: unhandled,
+      rawCreditVnd: m.creditVnd,
+      openRefundVnd,
+      payableCreditVnd: m.payableCreditVnd,
+      unreconciledVnd: m.creditVnd - m.payableCreditVnd,
+      unsettledPaymentIds: m.unsettledPaymentIds,
+      unsettledPaymentCodes: m.unsettledPaymentCodes,
+      otaExcessVnd: m.otaExcessVnd,
     };
+  }
+
+  /**
+   * Σ (amount − refunded) of the refund requests of the folio's bookings that are still open (pending,
+   * escalated, approved not fully paid). The refund columns are written by payments (ARC B-4).
+   */
+  async openRefundVnd(
+    tx: Tx,
+    folioId: string,
+    lines?: ReadonlyArray<Pick<FolioLineRow, 'reservation_id'>>,
+  ): Promise<number> {
+    const folio = await this.get(tx, folioId);
+    if (!folio) return 0;
+    const ids = new Set<string>([folio.primary_reservation_id]);
+    for (const l of lines ?? (await this.lines(tx, folioId)))
+      if (l.reservation_id) ids.add(l.reservation_id);
+    const { rows } = await tx.query<{ total: string | number }>(
+      `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0) AS total FROM approval_request
+        WHERE type = 'refund' AND target_type = 'reservation' AND target_id = ANY($1::uuid[])
+          AND status IN ('pending', 'escalated', 'approved')`,
+      [[...ids]],
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  /**
+   * ARC-BE-S3-15 c (B17 undo check-in): does the booking have live posted lines posted at/after `at`?
+   * Lets the desk refuse an undo once money moved, without re-implementing "live line" outside folio.
+   */
+  async hasLiveLinesSince(tx: Tx, reservationId: string, at: Date): Promise<boolean> {
+    const { rows } = await tx.query(
+      `SELECT 1 FROM folio_line l
+        WHERE l.reservation_id = $1 AND l.posted_at >= $2 AND l.line_state = 'posted'
+          AND l.reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
+        LIMIT 1`,
+      [reservationId, at],
+    );
+    return rows.length > 0;
   }
 
   /**
@@ -558,6 +773,52 @@ export class FolioService implements FolioStaySync {
     return { billNo, settledAt: now, postCheckoutWindowUntil: until };
   }
 
+  /**
+   * SM-11 `projected → earned` (BR-903 + BR-527, DOM S3-3 / BE-15): a short-stay commission is earned when
+   * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
+   * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),
+   * reconciliation / cash handover, a receipt after checkout (debt). The caller passes the booking status.
+   */
+  async tryEarnCommissions(
+    tx: Tx,
+    stay: { reservationId: string; reservationCode: string; status: string },
+    requestId?: string,
+  ): Promise<number> {
+    if (stay.status !== 'checked_out') return 0;
+    const folio = await this.folioOfReservation(tx, stay.reservationId);
+    if (!folio) return 0;
+    const m = moneyPosition(await this.lines(tx, folio.id), await this.payments(tx, folio.id));
+    if (m.balanceDueVnd > 0) return 0;
+    const { rows: due } = await tx.query<{ id: string; amount_vnd: number; payee_user_id: string }>(
+      `SELECT c.id, c.amount_vnd, c.payee_user_id FROM commission c
+        WHERE c.reservation_id = $1 AND c.status = 'projected'
+          AND NOT EXISTS (
+            SELECT 1 FROM payment p
+             WHERE p.folio_id = $2 AND p.recorded_by = c.payee_user_id AND p.status = 'succeeded'
+               AND p.reversal_of_id IS NULL AND p.reconciliation IN ('pending', 'disputed'))
+        FOR UPDATE OF c`,
+      [stay.reservationId, folio.id],
+    );
+    const now = this.clock.now();
+    for (const c of due) {
+      await tx.query(
+        `UPDATE commission SET status = 'earned', recognized_at = $2, updated_at = $2, version = version + 1
+          WHERE id = $1`,
+        [c.id, now],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.earned',
+        entityType: 'commission',
+        entityId: c.id,
+        entityCode: stay.reservationCode,
+        before: { status: 'projected' },
+        after: { status: 'earned', amountVnd: c.amount_vnd },
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+    return due.length;
+  }
+
   /** Folio of a booking (folio.primary_reservation_id is unique). */
   async folioOfReservation(tx: Tx, reservationId: string): Promise<FolioRow | null> {
     const { rows } = await tx.query<FolioRow>(
@@ -577,7 +838,7 @@ export class FolioService implements FolioStaySync {
     stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
   ): Promise<SyncResult> {
-    return this.syncStay(tx, stay, actor, 'folio.charges_posted');
+    return this.syncStay(tx, stay, actor, 'confirmed');
   }
 
   /**
@@ -591,7 +852,7 @@ export class FolioService implements FolioStaySync {
     stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
   ): Promise<void> {
-    await this.syncStay(tx, stay, actor, 'folio.charges_resynced');
+    await this.syncStay(tx, stay, actor, 'resynced');
   }
 
   /** B5/B6/B10/B11/relocation: live commissions of the booking → void (SM-11). */
@@ -673,6 +934,103 @@ export class FolioService implements FolioStaySync {
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
     }
+    await this.syncOtaCollect(tx, folio.id, input.reservationId, null, {
+      userId: who.userId,
+      reservationCode: input.reservationCode,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+  }
+
+  /**
+   * DOM BE-13 / BR-307: an `ota_prepaid` booking has ONE live system receipt `ota_collect` (provider
+   * `ota_system`, reconciliation `not_required` until the OTA payout reconciliation of R3) equal to the
+   * OTA-covered charges of the booking: nights, extra-person fee, fees the OTA keeps (cancellation, no-show,
+   * early departure), net of their approved FOC/discounts. Re-run after every change of those lines: a
+   * different amount → the old receipt is reversed (BR-008) and a new one written. `paymentModel` null =
+   * unknown here (fee posting, void): acts only when the folio already has a system receipt.
+   * Lines of child bookings (B9a / OTA extension, direct channel) are paid at the desk – not covered.
+   */
+  async syncOtaCollect(
+    tx: Tx,
+    folioId: string,
+    reservationId: string,
+    paymentModel: string | null,
+    actor: FolioActor,
+  ): Promise<void> {
+    const { rows: live } = await tx.query<{ id: string; amount_vnd: number; code: string }>(
+      `SELECT id, amount_vnd, code FROM payment
+        WHERE folio_id = $1 AND provider = 'ota_system' AND status = 'succeeded' AND reversal_of_id IS NULL
+        FOR UPDATE`,
+      [folioId],
+    );
+    if (live.length === 0 && paymentModel !== 'ota_prepaid') return;
+    // Known non-prepaid model with a system receipt (model changed) → target 0: the receipt is reversed.
+    const covered = paymentModel === 'ota_prepaid' || paymentModel === null;
+    let target = 0;
+    if (covered) {
+      const { rows } = await tx.query<{ total: string | number | null }>(
+        `WITH live AS (
+           SELECT l.* FROM folio_line l
+            WHERE l.folio_id = $1 AND l.reservation_id = $2 AND l.line_state = 'posted'
+              AND l.reversal_of_id IS NULL
+              AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id))
+         SELECT COALESCE(SUM(c.amount_vnd), 0) + COALESCE((
+                  SELECT SUM(d.amount_vnd) FROM live d JOIN live c2 ON c2.id = d.related_line_id
+                   WHERE d.category IN ('foc', 'discount') AND c2.category = ANY($3::text[])), 0) AS total
+           FROM live c WHERE c.category = ANY($3::text[])`,
+        [folioId, reservationId, [...OTA_COVERED]],
+      );
+      target = Math.max(0, Number(rows[0]?.total ?? 0));
+    }
+    if (live.length === 1 && live[0]?.amount_vnd === target) return;
+    if (live.length === 0 && target === 0) return;
+    if (!this.docNumbers) throw new Error('FolioService.syncOtaCollect needs DocNumberService');
+    const now = this.clock.now();
+    for (const p of live) {
+      const revCode = await this.docNumbers.allocate(tx, 'payment');
+      await tx.query(
+        `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
+           reconciliation, amount_vnd, status, received_at, provider, reversal_of_id, reversal_reason,
+           created_at, updated_at)
+         SELECT $2, organization_id, property_id, $3, folio_id, reservation_id, type, method, 'not_required',
+                -amount_vnd, 'succeeded', $4, provider, id, 'ota_prepaid_resync', $4, $4
+           FROM payment WHERE id = $1`,
+        [p.id, uuidv7(), revCode, now],
+      );
+      await tx.query(
+        `UPDATE payment SET status = 'reversed', updated_at = $2, version = version + 1 WHERE id = $1`,
+        [p.id, now],
+      );
+    }
+    let code: string | null = null;
+    if (target > 0) {
+      code = await this.docNumbers.allocate(tx, 'payment');
+      await tx.query(
+        `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
+           reconciliation, amount_vnd, status, received_at, provider, note, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'charge', 'ota_collect', 'not_required', $7, 'succeeded', $8,
+           'ota_system', 'ota_prepaid', $8, $8)`,
+        [
+          uuidv7(),
+          tx.ctx.organizationId,
+          tx.ctx.propertyId,
+          code,
+          folioId,
+          reservationId,
+          target,
+          now,
+        ],
+      );
+    }
+    await this.audit.recordMoney(tx, {
+      action: live.length ? 'payment.ota_collect_adjusted' : 'payment.ota_collected',
+      entityType: 'payment',
+      entityId: reservationId,
+      ...(actor.reservationCode ? { entityCode: actor.reservationCode } : {}),
+      ...(live.length ? { before: { amountVnd: live.reduce((a, p) => a + p.amount_vnd, 0) } } : {}),
+      after: { method: 'ota_collect', amountVnd: target, ...(code ? { code } : {}) },
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
   }
 
   // ───────────── sync (B2/B4/B7/B8/B12/B13/B16/PATCH) ─────────────
@@ -681,7 +1039,7 @@ export class FolioService implements FolioStaySync {
     tx: Tx,
     stay: ConfirmedStay,
     who: { userId: string | null; requestId?: string },
-    action: string,
+    sync: 'confirmed' | 'resynced',
   ): Promise<SyncResult> {
     const folio = await this.lock(tx, stay.folioId);
     if (!folio) throw new Error(`folio ${stay.folioId} not visible for ${stay.reservationCode}`);
@@ -720,7 +1078,7 @@ export class FolioService implements FolioStaySync {
         folioId: folio.id,
         reservationId: stay.reservationId,
         category: 'room',
-        description: 'room_night',
+        description: n.extraNight ? 'extra_night' : 'room_night',
         quantity: 1,
         unitPriceVnd: n.roomRevenueVnd,
         amountVnd: n.roomRevenueVnd,
@@ -729,24 +1087,30 @@ export class FolioService implements FolioStaySync {
         source: 'system',
         postedBy: who.userId,
         now,
+        chargeCode: n.extraNight ? 'extra_night' : null,
+        labelParams: { date: n.date },
       });
       result.roomVnd += n.roomRevenueVnd;
     }
 
-    // Extra-person fee (BR-110): one line per sold night at the current per-night fee.
+    // Extra-person fee (BR-110): one line per sold night at THAT night's fee (BE-A review fix, DOM S3-13 /
+    // FB-R2-ARC-BE-S3-01 – `ConfirmedStay.nights[].extraPersonVnd`; mid-stay changes apply from `effectiveFrom`).
     live = await this.liveLines(tx, folio.id, stay.reservationId);
-    const perNight = stay.extraPersonPerNightVnd;
-    const wanted = new Set(perNight > 0 ? stay.nights.map((n) => n.date) : []);
+    const wanted = new Map<string, number>();
+    for (const n of stay.nights) {
+      const fee = n.extraPersonVnd ?? stay.extraPersonPerNightVnd;
+      if (fee > 0) wanted.set(n.date, fee);
+    }
     const keptDates = new Set<string>();
     for (const l of live.filter((x) => x.category === 'extra_person')) {
       const d = l.service_date ?? '';
-      if (wanted.has(d) && !keptDates.has(d) && l.amount_vnd === perNight) {
+      if (wanted.get(d) === l.amount_vnd && !keptDates.has(d)) {
         keptDates.add(d);
         continue;
       }
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
     }
-    for (const d of wanted) {
+    for (const [d, fee] of wanted) {
       if (keptDates.has(d)) continue;
       await this.insertLine(tx, {
         folioId: folio.id,
@@ -754,27 +1118,42 @@ export class FolioService implements FolioStaySync {
         category: 'extra_person',
         description: `extra_guest x${stay.extraGuestCount}`,
         quantity: 1,
-        unitPriceVnd: perNight,
-        amountVnd: perNight,
+        unitPriceVnd: fee,
+        amountVnd: fee,
         serviceDate: d,
         stayNightId: null,
         source: 'system',
         postedBy: who.userId,
         now,
+        labelParams: {
+          date: d,
+          ...(stay.extraGuestCount > 0 ? { count: stay.extraGuestCount } : {}),
+        },
       });
-      result.extraPersonVnd += perNight;
+      result.extraPersonVnd += fee;
     }
 
     result.commissionVnd = await this.syncCommission(tx, stay, today, now, who.requestId);
     await this.syncChannelFee(tx, stay, today, now, who.requestId);
+    await this.syncOtaCollect(tx, folio.id, stay.reservationId, stay.paymentModel ?? null, {
+      userId: who.userId,
+      reservationCode: stay.reservationCode,
+      ...(who.requestId ? { requestId: who.requestId } : {}),
+    });
 
     if (result.roomVnd !== 0 || result.extraPersonVnd !== 0 || result.reversedVnd !== 0) {
+      // Closed money-log list (OpenAPI 0.3.6 bổ sung 2 – AuditEvent.action): one entry per sync, named by
+      // what it did; `after.sync` tells a first posting (B2/B4/B12) from a resync (B7/B8/B13/B14/B16/PATCH).
       await this.audit.recordMoney(tx, {
-        action,
+        action:
+          result.roomVnd !== 0 || result.extraPersonVnd !== 0
+            ? 'folio.line_posted'
+            : 'folio.line_reversed',
         entityType: 'folio',
         entityId: folio.id,
         entityCode: stay.reservationCode,
         after: {
+          sync,
           roomVnd: result.roomVnd,
           extraPersonVnd: result.extraPersonVnd,
           reversedVnd: result.reversedVnd,
@@ -847,10 +1226,10 @@ export class FolioService implements FolioStaySync {
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category, adjusts_group,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
          stay_night_id, line_state, related_line_id, reversal_of_id, source, posted_at, posted_by, created_at,
-         charge_code, reason)
+         charge_code, reason, label_params)
        SELECT $2, organization_id, property_id, folio_id, reservation_id, category, adjusts_group, revenue_group,
               description, quantity, -unit_price_vnd, -amount_vnd, vat_rate_pct, service_date, stay_night_id,
-              'posted', related_line_id, id, $5, $3, $4, $3, charge_code, $6
+              'posted', related_line_id, id, $5, $3, $4, $3, charge_code, $6, label_params
          FROM folio_line WHERE id = $1`,
       [l.id, id, now, by, reason ? 'manual' : 'system', reason],
     );
@@ -910,6 +1289,7 @@ export class FolioService implements FolioStaySync {
       reason?: string | null;
       evidenceAttachmentIds?: readonly string[] | null;
       postCheckout?: boolean;
+      labelParams?: Record<string, string | number> | null;
     },
   ): Promise<string> {
     if (!Number.isSafeInteger(l.amountVnd) || !Number.isSafeInteger(l.unitPriceVnd)) {
@@ -920,9 +1300,9 @@ export class FolioService implements FolioStaySync {
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
          stay_night_id, line_state, related_line_id, source, posted_at, posted_by, created_at, charge_code, note,
-         reason, evidence_attachment_ids, post_checkout)
+         reason, evidence_attachment_ids, post_checkout, label_params)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $20, $21,
-         $22, $23, $24)`,
+         $22, $23, $24, $25)`,
       [
         id,
         tx.ctx.organizationId,
@@ -948,6 +1328,7 @@ export class FolioService implements FolioStaySync {
         l.reason ?? null,
         l.evidenceAttachmentIds ? [...l.evidenceAttachmentIds] : null,
         l.postCheckout ?? false,
+        l.labelParams ? JSON.stringify(l.labelParams) : null,
       ],
     );
     return id;

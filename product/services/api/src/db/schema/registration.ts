@@ -29,6 +29,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { auditColumns, bytea, instant } from './common';
 import { dataKey } from './crypto';
+import { reservationGuest } from './frontdesk';
 import { property } from './platform';
 import { reservation } from './reservations';
 
@@ -89,6 +90,8 @@ export const registration = pgTable(
     imagesPurgedAt: instant('images_purged_at'),
     imagesPurgeReason: text('images_purge_reason'),
     voidedAt: instant('voided_at'),
+    /** 0053: checkout / early departure / cancel with a declaration in progress – SEC BE-32 deadline base. */
+    stayEndedAt: instant('stay_ended_at'),
     ...auditColumns(),
   },
   (t) => [
@@ -212,8 +215,18 @@ export const guestDocument = pgTable(
     }),
     foreignKey({
       name: 'guest_document_data_key_fk',
-      columns: [t.dataKeyId],
-      foreignColumns: [dataKey.id],
+      columns: [t.propertyId, t.dataKeyId],
+      foreignColumns: [dataKey.propertyId, dataKey.id],
+    }),
+    foreignKey({
+      name: 'guest_document_reservation_fk',
+      columns: [t.propertyId, t.reservationId],
+      foreignColumns: [reservation.propertyId, reservation.id],
+    }),
+    foreignKey({
+      name: 'guest_document_party_member_fk',
+      columns: [t.propertyId, t.partyMemberId],
+      foreignColumns: [reservationGuest.propertyId, reservationGuest.id],
     }),
     check(
       'guest_document_doc_type_check',
@@ -266,16 +279,17 @@ export const documentImage = pgTable(
     }),
     foreignKey({
       name: 'document_image_data_key_fk',
-      columns: [t.dataKeyId],
-      foreignColumns: [dataKey.id],
+      columns: [t.propertyId, t.dataKeyId],
+      foreignColumns: [dataKey.propertyId, dataKey.id],
     }),
     check('document_image_via_check', sql`${t.uploadedVia} IN ('desk', 'guest_app')`),
     check('document_image_mime_check', sql`${t.mime} IN ('image/jpeg', 'image/webp')`),
     check(
       'document_image_delete_reason_check',
-      sql`${t.deleteReason} IS NULL OR ${t.deleteReason} IN ('retention', 'no_consent', 'consent_withdrawn', 'guest_request', 'void', 'replaced', 'party_removed')`,
+      sql`${t.deleteReason} IS NULL OR ${t.deleteReason} IN ('retention', 'no_consent', 'consent_withdrawn', 'guest_request', 'void', 'replaced', 'party_removed', 'unconfirmed')`,
     ),
     index('document_image_document_idx').on(t.guestDocumentId),
+    index('document_image_registration_idx').on(t.registrationId),
     index('document_image_purge_idx')
       .on(t.propertyId, t.deleteAfter)
       .where(sql`${t.deletedAt} IS NULL`),
@@ -308,6 +322,8 @@ export const consentRecord = pgTable(
     recordedByType: text('recorded_by_type').notNull(),
     recordedBy: uuid('recorded_by'),
     recordedAt: instant('recorded_at').notNull(),
+    /** 0053 (SEC ĐK-2 17/10): P02b retention days the person read in the consent sentence. */
+    retentionDays: smallint('retention_days'),
   },
   (t) => [
     foreignKey({
@@ -323,6 +339,10 @@ export const consentRecord = pgTable(
     check('consent_record_channel_check', sql`${t.channel} IN ('guest_app', 'desk', 'paper')`),
     check('consent_record_locale_check', sql`${t.locale} IN ('vi', 'en', 'ru')`),
     check('consent_record_by_check', sql`${t.recordedByType} IN ('user', 'guest')`),
+    check(
+      'consent_record_retention_days_check',
+      sql`${t.retentionDays} IS NULL OR ${t.retentionDays} BETWEEN 1 AND 365`,
+    ),
     index('consent_record_registration_idx').on(t.registrationId, t.recordedAt),
   ],
 );

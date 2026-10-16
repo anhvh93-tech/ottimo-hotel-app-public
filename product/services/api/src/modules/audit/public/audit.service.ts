@@ -13,6 +13,7 @@ import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/dat
 import type { AuditCategory } from '../../../db/schema';
 import type { GuardedRequest } from '../../../shared/http/auth.guard';
 import { pickAuditFields } from './audit-fields';
+import { isMoneyAuditAction } from './money-actions';
 
 export interface AuditEntry {
   category: AuditCategory;
@@ -58,6 +59,15 @@ export class AuditService {
   ) {}
 
   async record(tx: Tx, entry: AuditEntry): Promise<void> {
+    // 0.3.6 bổ sung 2: `money` actions are a closed set (the money log has one sentence per action). Outside
+    // production an unlisted action fails loudly (tests catch it); production keeps the audit row.
+    if (
+      entry.category === 'money' &&
+      !isMoneyAuditAction(entry.action) &&
+      process.env.NODE_ENV !== 'production'
+    ) {
+      throw new Error(`money audit action "${entry.action}" is not in the contract list`);
+    }
     const { ctx } = tx;
     if (!ctx.organizationId) throw new Error('audit_event needs an organization context');
     const before = pickAuditFields(entry.entityType, entry.before);

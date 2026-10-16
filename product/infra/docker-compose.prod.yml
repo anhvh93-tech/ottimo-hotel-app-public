@@ -1,0 +1,278 @@
+# OTTIMO Desk – STAGING and PRODUCTION on one VPS (hosting-plan 5; never reuses the dev compose settings).
+# Always run through infra/server/bin/dc (sets the project name, the server .env and the deployed IMAGE_TAG):
+#   /opt/ottimo/infra/server/bin/dc ps
+# Server layout (infra/server/README.md):
+#   /opt/ottimo/infra/      copy of product/infra (this file, caddy/Caddyfile.prod, postgres/init/02-roles.sh, server/)
+#   /opt/ottimo/.env        non-secret settings (APP_ENV, host names, image names, integration modes) – 0600
+#   /opt/ottimo/secrets/    one file per secret (0400, owner = uid of the container that reads it) – SR-KEY-10
+#   /opt/ottimo/state/      deployed / previous image tag (deploy.sh, rollback.sh)
+#
+#   postgres  (no port)   only on the internal `db` network; roles by 02-roles.sh (re-applied by every deploy – H3)
+#   migrate   (one-shot)  run by deploy.sh before api/worker change image (erd 16 point 5) – profile `deploy`
+#   api       (no port)   reached only through Caddy; TRUST_PROXY = Caddy's fixed IP on `edge`
+#   worker    (no port)   same image as api (dist/worker.js): jobs, J16 retention
+#   web       80, 443     Caddy: TLS (Let's Encrypt), 3 origins, security headers, masked access log
+#   seed      (one-shot)  staging only: QA/demo seed (fake data) – profile `seed`
+# Volumes: pgdata (database), blobdata (encrypted uploads, api + worker only – never mounted into web: SEC C2),
+# caddydata (certificates – must persist, or every restart asks Let's Encrypt again and hits its rate limit).
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  restart: unless-stopped
+  logging:
+    # Size-based rotation on the host (SR-LOG-05); long-term copies are not kept on staging.
+    driver: local
+    options:
+      max-size: 20m
+      max-file: '5'
+
+x-api-env: &api-env
+  APP_ENV: ${APP_ENV:?set APP_ENV (staging|production) in /opt/ottimo/.env}
+  NODE_ENV: production
+  PORT: '3000'
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  # Secrets: files under /run/secrets, read through X_FILE (config.ts resolveFileSecrets) – not visible in
+  # `docker inspect` (FB-R1-SEC-OPS-10, SR-KEY-10).
+  DATABASE_URL_FILE: /run/secrets/database_url
+  SESSION_SECRET_FILE: /run/secrets/session_secret
+  DATA_KEK_CURRENT_FILE: /run/secrets/data_kek_current
+  DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+  ID_HASH_KEY_FILE: /run/secrets/id_hash_key
+  LOG_IP_HMAC_KEY_FILE: /run/secrets/log_ip_hmac_key
+  GUEST_CODE_SIGNING_KEY_FILE: /run/secrets/guest_code_signing_key
+  # Caddy's fixed address on `edge` (below): the only proxy whose X-Forwarded-For is trusted.
+  TRUST_PROXY: ${WEB_IP:-172.30.0.10}
+  COOKIE_SECURE_PREFIX: 'true'
+  CLOCK_MODE: ${CLOCK_MODE:-system}
+  # Staging may set 1 (with an image built with test support, API_TAG_SUFFIX=-test); production refuses it.
+  INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-0}
+  TEST_SUPPORT_TOKEN: ${TEST_SUPPORT_TOKEN:-}
+  # Origin checks (SR-SES-04/09): https, one origin per app (SR-HDR-04).
+  ADMIN_BASE_URL: https://${DESK_HOST:?set DESK_HOST in /opt/ottimo/.env}
+  STAFF_BASE_URL: https://${STAFF_HOST:?set STAFF_HOST in /opt/ottimo/.env}
+  GUEST_BASE_URL: https://${GUEST_HOST:?set GUEST_HOST in /opt/ottimo/.env}
+  # Encrypted blob store (ADR-013, SEC C2/SR-FILE-04): absolute path on the blobdata volume (BE-C: required).
+  BLOBSTORE_PROVIDER: local
+  BLOBSTORE_LOCAL_PATH: /var/lib/ottimo/blobs
+  # Integrations (integrations/README.md 4): selectors only. R2 staging keeps every gateway off/manual/mock;
+  # credentials for sandbox/production come later as *_FILE secrets (hosting-plan 8.1), never in .env.
+  CHANNEL_PROVIDER: ${CHANNEL_PROVIDER:-off}
+  CHANNEL_MOCK_SCENARIO: ${CHANNEL_MOCK_SCENARIO:-}
+  PAYMENT_METHODS_ENABLED: ${PAYMENT_METHODS_ENABLED:-vietqr}
+  PAYMENT_MOCK_SCENARIO: ${PAYMENT_MOCK_SCENARIO:-}
+  PAYMENT_VIETQR_MODE: ${PAYMENT_VIETQR_MODE:-off}
+  # VietQR receiving account = parameter payment_receiving_account (OWN, in the app – SEC-INT-06); the retired
+  # PAYMENT_VIETQR_BANK_BIN/_ACCOUNT_NO/_ACCOUNT_NAME are deliberately not passed (non-empty → api refuses to start).
+  PAYMENT_VNPAY_MODE: ${PAYMENT_VNPAY_MODE:-off}
+  PAYMENT_MOMO_MODE: ${PAYMENT_MOMO_MODE:-off}
+  BANKFEED_PROVIDER: ${BANKFEED_PROVIDER:-off}
+  EINVOICE_PROVIDER: ${EINVOICE_PROVIDER:-off}
+  DOORLOCK_PROVIDER: ${DOORLOCK_PROVIDER:-manual}
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
+  EMAIL_FROM: ${EMAIL_FROM:-}
+  ZALO_PROVIDER: ${ZALO_PROVIDER:-manual_copy}
+
+x-api-secrets: &api-secrets
+  - database_url
+  - session_secret
+  - data_kek_current
+  - id_hash_key
+  - log_ip_hmac_key
+  - guest_code_signing_key
+
+services:
+  postgres:
+    <<: *hardening
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    # The entrypoint starts as root, fixes ownership and drops to `postgres` (uid 70): it needs these 5 back.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=1m,uid=70,gid=70,mode=2775
+    shm_size: 128m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ottimo_admin}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: ottimo
+      # 02-roles.sh: only the application database here (ottimo_test exists in dev/CI only).
+      OTTIMO_DATABASES: ottimo
+      OTTIMO_MIGRATOR_DB_PASSWORD_FILE: /run/secrets/ottimo_migrator_db_password
+      OTTIMO_APP_DB_PASSWORD_FILE: /run/secrets/ottimo_app_db_password
+      TZ: UTC
+    secrets: [postgres_password, ottimo_migrator_db_password, ottimo_app_db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Roles only: extensions come from the migrations (0000, 0005), so no 01-extensions.sql (it creates ottimo_test).
+      - ./postgres/init/02-roles.sh:/docker-entrypoint-initdb.d/02-roles.sh:ro
+    networks: [db]
+    mem_limit: 1g
+    pids_limit: 200
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+      start_interval: 2s
+
+  migrate:
+    <<: *hardening
+    image: ${API_IMAGE:?set API_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}${API_TAG_SUFFIX:-}
+    profiles: ['deploy']
+    command: ['node', 'dist/db/migrate-cli.js']
+    environment:
+      MIGRATION_DATABASE_URL_FILE: /run/secrets/migration_database_url
+    secrets: [migration_database_url]
+    networks: [db]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    <<: *hardening
+    image: ${API_IMAGE:?set API_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}${API_TAG_SUFFIX:-}
+    environment: *api-env
+    secrets: *api-secrets
+    volumes:
+      - blobdata:/var/lib/ottimo/blobs
+    networks: [db, edge]
+    mem_limit: 1g
+    pids_limit: 300
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health || exit 1']
+      interval: 15s
+      timeout: 3s
+      retries: 6
+      start_period: 60s
+      start_interval: 2s
+
+  worker:
+    <<: *hardening
+    image: ${API_IMAGE:?set API_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}${API_TAG_SUFFIX:-}
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    secrets: *api-secrets
+    volumes:
+      # J16 deletes blobs (hủy DEK + xóa blob) – same volume as api.
+      - blobdata:/var/lib/ottimo/blobs
+    # `db` is internal (no Internet); `egress` lets the worker reach integrations (e-mail, OTA, bank feed) later.
+    networks: [db, egress]
+    mem_limit: 768m
+    pids_limit: 300
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *hardening
+    image: ${WEB_IMAGE:?set WEB_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}
+    # Caddy runs as uid 10001 without capabilities; binding 80/443 inside its own network namespace is allowed by
+    # this namespaced sysctl (Docker's default since 20.10, set explicitly so it does not depend on the engine).
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: '0'
+    environment:
+      DESK_HOST: ${DESK_HOST:?set DESK_HOST in /opt/ottimo/.env}
+      STAFF_HOST: ${STAFF_HOST:?set STAFF_HOST in /opt/ottimo/.env}
+      GUEST_HOST: ${GUEST_HOST:?set GUEST_HOST in /opt/ottimo/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo/.env}
+      HEALTH_ALLOW_IPS: ${HEALTH_ALLOW_IPS:-}
+      # Default = loopback only, i.e. nobody through the published ports (Caddyfile.prod /__test__/*).
+      TEST_SUPPORT_ALLOW_IPS: ${TEST_SUPPORT_ALLOW_IPS:-127.0.0.1/32}
+    volumes:
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddydata:/home/caddy/data
+      - caddyconfig:/home/caddy/config
+    ports:
+      - '${PUBLIC_HTTP_PORT:-80}:80'
+      - '${PUBLIC_HTTPS_PORT:-443}:443'
+    networks:
+      edge:
+        ipv4_address: ${WEB_IP:-172.30.0.10}
+    mem_limit: 256m
+    pids_limit: 200
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # TLS port open (an HTTPS request would need the real host name / certificate).
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+
+  seed:
+    # Staging only (the loader refuses APP_ENV=production): fake QA/demo data from the bundle's fixtures.
+    <<: *hardening
+    image: ${API_IMAGE:?set API_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}${API_TAG_SUFFIX:-}
+    profiles: ['seed']
+    entrypoint: ['node', 'dist/db/seed/seed-cli.js', '--file', '/fixtures/ds-e.json']
+    command: []
+    environment:
+      APP_ENV: ${APP_ENV:?set APP_ENV in /opt/ottimo/.env}
+      NODE_ENV: production
+      DATABASE_URL_FILE: /run/secrets/database_url
+      QA_SEED_PASSWORD_FILE: /run/secrets/qa_seed_password
+      CLOCK_MODE: ${CLOCK_MODE:-system}
+    secrets: [database_url, qa_seed_password]
+    volumes:
+      # Writable: the loader writes device tokens to /fixtures/.out (0600).
+      - ${SEED_DIR:-/opt/ottimo/seed}:/fixtures
+    networks: [db]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+networks:
+  # Caddy ↔ api. Fixed subnet so TRUST_PROXY can name Caddy's address (change both if it clashes on the host).
+  edge:
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.30.0.0/24}
+  # Database traffic only; `internal` = no route to the Internet, nothing published.
+  db:
+    internal: true
+  egress: {}
+
+volumes:
+  pgdata:
+  # Ciphertext only; backed up with the database (infra/server/bin/backup.sh) – one without the other is useless.
+  blobdata:
+  caddydata:
+  caddyconfig:
+
+# Non-swarm compose bind-mounts these files read-only at /run/secrets/<name>; their owner/mode on the host is what
+# the container sees (infra/server/bin/init-secrets.sh: api/worker/migrate/seed files uid 1000, postgres files uid 70).
+secrets:
+  database_url:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/database_url
+  migration_database_url:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/migration_database_url
+  session_secret:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/session_secret
+  data_kek_current:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/data_kek_current
+  id_hash_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/id_hash_key
+  log_ip_hmac_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/log_ip_hmac_key
+  guest_code_signing_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/guest_code_signing_key
+  postgres_password:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/postgres_password
+  ottimo_migrator_db_password:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/ottimo_migrator_db_password
+  ottimo_app_db_password:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/ottimo_app_db_password
+  qa_seed_password:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/qa_seed_password

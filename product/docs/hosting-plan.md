@@ -1,6 +1,6 @@
 # Phương án hosting – OTTIMO Desk (phác thảo Round 1)
 
-- Người viết: OPS | Round 1 – Đợt 3, sửa ở Bước 4 (thẻ ARC-OPS-09/10, SEC-OPS-03/10/12/13) | Ngày: 15/10/2026 | Trạng thái: **Phác thảo – chờ INV quyết ESC-002 (nơi đặt dữ liệu) và duyệt chi phí**
+- Người viết: OPS | Round 1 – Đợt 3, sửa ở Bước 4 (thẻ ARC-OPS-09/10, SEC-OPS-03/10/12/13); cập nhật R2 – Sprint 3 (16/10/2026) | Trạng thái: **ESC-002 đã quyết (A – dữ liệu ở VN, gói H-B). Script dựng staging đã sẵn (`infra/server/`, diễn tập local đạt) – chờ INV báo IP VPS + tên miền (mục 10)**
 - Căn cứ: ADR-010 (ARC), ESC-002 phương án A (dữ liệu khách tại Việt Nam), `data-risk-assessment.md` T15/T16/T18 (SEC), decision-log 15/10 ([GIẢ ĐỊNH] hạ tầng ≤ 1 triệu đ/tháng)
 - Dùng cho: Round 2 dựng staging; Round 3 chuẩn bị production.
 
@@ -73,9 +73,11 @@ Internet ──443/80──► Caddy (TLS Let's Encrypt, web tĩnh, reverse prox
 - Tường lửa: chỉ mở 80, 443 và SSH (chỉ đăng nhập bằng khóa, tắt mật khẩu, tắt root; giới hạn IP nếu được). PostgreSQL **không** mở ra Internet.
 - Tự cập nhật bản vá bảo mật hệ điều hành (unattended-upgrades); khởi động lại có kế hoạch ngoài giờ cao điểm (sau 02:00, tránh giờ nhận/trả phòng).
 - DNS: dùng nhà đăng ký tên miền hoặc Cloudflare **chỉ DNS** (không bật proxy "đám mây cam" – ADR-010 mục 4, để TLS kết thúc tại máy chủ ở VN).
+- Kho tệp mã hóa (ADR-013, SEC C2): volume `blobdata` gắn **chỉ** vào api + worker tại `/var/lib/ottimo/blobs` (`BLOBSTORE_LOCAL_PATH`, thư mục 0700 chủ `node` do image tạo sẵn), **không** gắn vào Caddy; mọi đường dẫn kiểu `/var/…`, `/blobs/…`, tệp ẩn, source map qua Caddy → 404 (CI + smoke deploy kiểm).
 - Bí mật: cấu hình thường ở `/opt/ottimo/.env` quyền 600; **khóa mạnh** (`DATA_KEK_*`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`, `SESSION_SECRET`, `PAYMENT_*_SECRET*`, mật khẩu DB) nạp bằng **Docker Compose secrets** – tệp `/opt/ottimo/secrets/<tên>` quyền 0400, ứng dụng đọc qua biến `<TÊN>_FILE` (đã hỗ trợ trong khung api) – để không hiện trong `docker inspect` (FB-R1-SEC-OPS-10). Không bí mật nào trong image Docker hay log CI. Khóa chủ `DATA_KEK_*` (ADR-013) có **bản sao ngoại tuyến do INV giữ** (ví dụ giấy niêm phong/USB mã hóa) – mất KEK = mất ảnh giấy tờ. Mỗi môi trường một KEK riêng; KEK production không bao giờ nằm trên máy staging (SR-KEY-03).
 - Kiểm cấu hình khi khởi động: `APP_ENV=production` mà thiếu/yếu khóa, `CLOCK_MODE` khác `system`, `INCLUDE_TEST_SUPPORT=1` hoặc có `TEST_SUPPORT_TOKEN`, `COOKIE_SECURE_PREFIX=false`, có adapter `mock`, thiếu `TRUST_PROXY` hoặc `TRUST_PROXY` không phải dải nội bộ → api/worker **dừng** (staging cũng bắt buộc `TRUST_PROXY` và `COOKIE_SECURE_PREFIX=true`). `CLOCK_OVERRIDE` đã bỏ (R2): đặt giá trị khác rỗng ở bất kỳ môi trường nào cũng làm api/worker dừng. Compose production là tệp riêng `infra/docker-compose.prod.yml` (R2), không kế thừa cấu hình dev.
-- Vai DB trên staging/production tạo bằng **cùng** `infra/postgres/init/02-roles.sh` như dev/CI (chạy lại được) – gồm giới hạn của vai `ottimo_app`: `idle_in_transaction_session_timeout = 30s`, `statement_timeout = 15s` (FB-R2-SEC-BE-23). Không đổi hai giá trị này để "chữa" lỗi timeout; báo cáo dài tự `SET LOCAL statement_timeout`. Biến origin `ADMIN_BASE_URL`/`STAFF_BASE_URL`/`GUEST_BASE_URL` bắt buộc (https) ở staging/production – api từ chối khởi động nếu thiếu.
+- **Đã có (R2 S3):** `infra/docker-compose.prod.yml` (staging + production, một tệp; luôn chạy qua `infra/server/bin/dc`), `infra/caddy/Caddyfile.prod`, `infra/server/` (bootstrap VPS, bí mật, deploy/rollback, sao lưu, kiểm tra định kỳ, diễn tập khôi phục) – hướng dẫn từng bước: `infra/server/README.md`. Mạng: `db` (internal, chỉ postgres/api/worker/migrate), `edge` (Caddy ↔ api, Caddy IP cố định 172.30.0.10 = `TRUST_PROXY`), `egress` (worker ra Internet cho tích hợp sau này). Mọi container `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, giới hạn RAM/PID; Caddy chạy uid 10001 nghe 80/443 nhờ sysctl không gian tên `ip_unprivileged_port_start=0` (không cần capability).
+- Vai DB trên staging/production tạo bằng **cùng** `infra/postgres/init/02-roles.sh` như dev/CI (chạy lại được; **mỗi lần deploy chạy lại** – SEC H3, script tự đọc lại `rolconfig` và dừng nếu thiếu) – gồm giới hạn của vai `ottimo_app`: `idle_in_transaction_session_timeout = 30s`, `statement_timeout = 15s` (FB-R2-SEC-BE-23). Không đổi hai giá trị này để "chữa" lỗi timeout; báo cáo dài tự `SET LOCAL statement_timeout`. Biến origin `ADMIN_BASE_URL`/`STAFF_BASE_URL`/`GUEST_BASE_URL` bắt buộc (https) ở staging/production – api từ chối khởi động nếu thiếu.
 - Container: api/worker chạy user `node`, web (Caddy) chạy uid 10001; production thêm `cap_drop: [ALL]`, `read_only: true` + tmpfs, `security_opt: [no-new-privileges:true]`; api không publish cổng, `TRUST_PROXY` = IP cố định của container Caddy.
 - `/health`: Docker healthcheck dùng bản đầy đủ trong mạng nội bộ; từ Internet Caddy chỉ cho IP giám sát (hoặc trả rút gọn `{status}`) – FB-R1-SEC-OPS-12, làm cùng Caddyfile production R2.
 
@@ -102,17 +104,18 @@ Tên miền con không mất thêm phí; chỉ cần 1 tên miền chính (mục
 
 Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hãng; giữ DMARC. Gửi email chuyển dữ liệu C2 (email, tên khách) ra Singapore → thuộc danh sách bên xử lý dữ liệu (ESC-002, SEC).
 
-## 6. Triển khai và quay lui (chi tiết ở R2)
+## 6. Triển khai và quay lui (đã cài – R2 S3)
 
-1. CI build image `api` (dùng cho cả worker) và `web` → đẩy lên GHCR, gắn tag theo commit.
-2. Máy chủ: `docker compose pull` → chạy migration DB (bước riêng, trước khi bật api mới) → `docker compose up -d` → kiểm `GET /health` = 200.
-3. Quay lui: giữ tag image trước; `IMAGE_TAG=<tag cũ> docker compose up -d`. Migration phải theo kiểu "mở rộng trước – thu hẹp sau" để quay lui image không cần quay lui DB.
+1. CI (`.github/workflows/ci.yml`, job `publish-images`, chỉ push vào `main`, bật bằng biến repo `PUBLISH_IMAGES=true`) build `ottimo-api:sha-<12>` (production, quét không có `/__test__`), `ottimo-api:sha-<12>-test` (staging khi QA cần đồng hồ giả), `ottimo-web:sha-<12>` → GHCR riêng tư. Quyền `packages: write` chỉ ở job này.
+2. Máy chủ: `infra/server/bin/deploy.sh <tag>` – kéo image → PostgreSQL → `02-roles.sh` (H3) → migration (dịch vụ một lần `migrate`, trước khi api/worker đổi image) → so `count(drizzle.__drizzle_migrations)` với journal trong image (ARC 4.2-7) → đổi api/worker/web → smoke (`/health`, `rolconfig`, worker, header 3 tên miền, probe 404, log không có token `/g/`). Tự động từ CI: job `deploy-staging` (biến `STAGING_DEPLOY=true`) SSH bằng khóa bị ép lệnh (`deploy-from-ci.sh` chỉ nhận `deploy sha-<hex>`).
+3. Quay lui: lỗi sau khi đổi container → `deploy.sh` tự đặt lại tag trước; bằng tay `rollback.sh [tag]`. DB không quay lui: migration theo kiểu "mở rộng trước – thu hẹp sau" (`deploy.sh --rollback` chấp nhận DB mới hơn journal của image cũ).
+4. Đã diễn tập local (container Ubuntu 24.04 đóng vai VPS, Docker 29.8, image thật, `APP_ENV=staging`): deploy, deploy lần 2, quay lui, bản lỗi giả lập → tự quay về bản trước, sao lưu, kiểm tra J16, diễn tập khôi phục – `rounds/round-02/outputs/OPS/s3-report.md`.
 
 ## 7. Sao lưu, khôi phục, vòng đời log (khớp SEC T15/T16/T18)
 
 | Hạng mục | Thiết kế đề xuất | Căn cứ |
 |---|---|---|
-| Sao lưu DB | `pg_dump` hằng ngày 03:30 (sau job xóa dữ liệu theo hạn 03:00) + WAL archive (khôi phục tới thời điểm, mất tối đa ~15 phút) | ADR-010 mục 3 |
+| Sao lưu DB | `pg_dump` hằng ngày 03:30 giờ VN + WAL archive (khôi phục tới thời điểm, mất tối đa ~15 phút – **R3**). **Đã cài (R2 S3):** `infra/server/bin/backup.sh` + `ottimo-backup.timer`: `db-*.dump.age` (pg_dump -Fc), `blobs-*.tar.age` (volume tệp mã hóa), `purge-journal-*.csv.age` (SR-BAK-06, giữ 40 ngày), kèm `.sha256`; không ghi tệp chưa mã hóa; từ chối chạy nếu `recipients.txt` thiếu hoặc lỡ chứa khóa riêng | ADR-010 mục 3 |
 | Mã hóa | Mã hóa bản sao lưu bằng `age` trên máy chủ trước khi chuyển đi; khóa giải mã do INV + OPS giữ, không nằm trên máy chủ | SEC |
 | Nơi giữ | Off-site **tại Việt Nam** (PA2: VPS phụ hãng khác; PA1: object storage VN) | ESC-002 A |
 | Quyền ghi đích backup | Máy production chỉ có quyền **ghi thêm**, không xóa/sửa: PA1 – khóa truy cập object storage chỉ `PutObject` + bật khóa đối tượng/vòng đời do đích tự xóa sau 35 ngày; PA2 – đích **tự kéo về** (máy phụ dùng khóa SSH chỉ đọc vào thư mục backup của production). Kẻ chiếm máy production không xóa được backup | SR-BAK-04, TM-51 |
@@ -133,8 +136,11 @@ Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hã
 4. Khôi phục → **áp lại `purge_journal`** (xóa lại những bản ghi đã xóa sau thời điểm backup, SR-BAK-06) → kiểm: `/health` = 200, đếm bản ghi các bảng chính khớp số ghi lúc backup, giải mã **1** ảnh giấy tờ mẫu.
 5. `docker compose -p ottimo-restore-<yyyymmdd> down -v`, xóa tệp giải mã, xóa secret tạm; ghi **biên bản** (ngày, bản backup, thời gian khôi phục = RTO thực, kết quả từng bước, người làm) vào report OPS của round.
 
-## 8. Giám sát (R3)
+## 8. Giám sát (R2: kiểm tra trên máy; R3: theo dõi từ bên ngoài)
 
+- **Đã có (R2 S3):** `infra/server/bin/ops-check.sh` chạy 30 phút/lần (systemd timer `ottimo-ops-check.timer`), cảnh báo vào journal (`journalctl -t ottimo-alert`), `systemctl --failed` và webhook tùy chọn (`ALERT_WEBHOOK_URL`, chỉ khi đổi trạng thái + nhắc 6 giờ/lần, không dữ liệu cá nhân):
+  - **J16 (SEC C6, SR-RET-03):** với mỗi cơ sở `active`, lượt `retention_run` policy `J16` trạng thái `done` gần nhất phải < 26 giờ (cơ sở tạo chưa đủ 26 giờ thì chưa xét), và không có lượt `failed` trong 26 giờ. J16 chạy hằng giờ trong worker, mỗi lượt luôn ghi một dòng `J16` (kể cả 0 mục) → 26 giờ không có dòng = worker/job hỏng, ảnh giấy tờ có thể sống quá hạn xóa. Truy vấn bằng superuser qua socket trong container postgres (không mật khẩu, không đi qua RLS), chỉ đọc id cơ sở + thời gian. Lưu ý: staging bật `CLOCK_MODE=mutable` (đồng hồ giả) thì cảnh báo J16 trong lúc QA dời đồng hồ là bình thường.
+  - sao lưu thành công gần nhất < 26 giờ; đĩa < 80 %; chứng chỉ TLS còn > 14 ngày; postgres/api/worker/web đang chạy, api `/health` ok.
 - Theo dõi `/health` mỗi 1 phút từ bên ngoài (Uptime Kuma tự chạy trên máy staging, hoặc dịch vụ miễn phí – chỉ gọi `/health`, không có dữ liệu cá nhân); cảnh báo qua email/Zalo nhóm vận hành.
 - Cảnh báo: đĩa > 80%, sao lưu đêm thất bại, chứng chỉ TLS < 14 ngày, `/health` lỗi 3 lần liên tiếp.
 - Không dùng SaaS theo dõi lỗi nước ngoài ở MVP (ADR-010) – xem lại R3.
@@ -151,12 +157,18 @@ Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hã
 | `PAYMENT_*_SECRET*`, `CHANNEL_*`, `EINVOICE_*`, `ZALO_APP_SECRET`, `DOORLOCK_*_SECRET` | staging (sandbox) / production | INV (tài khoản) + INT | Docker secret | Theo hãng; khi nghi lộ hoặc đổi người quản lý tài khoản |
 | Khóa `age` giải mã backup | production | INV + OPS | **Ngoài máy chủ** (2 bản ngoại tuyến) | Khi người giữ nghỉ việc |
 | Khóa SSH vào máy chủ | production, staging | từng người (OPS, INV) | máy cá nhân | Thu hồi ngay khi nghỉ việc |
+| Token GitHub `read:packages` (VPS kéo image GHCR) | staging, production | INV (chủ repo) | `~ottimo/.docker/config.json` trên VPS (0600) | 12 tháng hoặc khi nghi lộ; chỉ quyền đọc package |
+| Khóa SSH deploy của CI (`STAGING_SSH_KEY`) | staging | OPS | secret của environment `staging` trên GitHub; trên VPS `authorized_keys` ép lệnh `deploy-from-ci.sh` | 12 tháng hoặc khi nghi lộ |
+| `qa_seed_password` (tài khoản `qa.*` dữ liệu giả) | staging | QA + OPS | Docker secret (`init-secrets.sh`) | khi nạp lại seed hoặc người biết nghỉ |
 
 Chi tiết quyền tối thiểu và chu kỳ xoay từng bí mật **tích hợp** (Beds24, VNPay, MoMo, SePay/payOS, MISA 6 tháng, TTLock, SES/Resend, Zalo, `CHANNEL_WEBHOOK_PATH_TOKEN`, `BANKFEED_API_KEY`): `integrations.md` mục 4.1 (INT) – sổ này dùng bảng đó làm nguồn, OPS giữ sổ (SR-SECR-04). Cổng không dùng đặt `off`, không đăng ký webhook.
 
 Runbook xoay KEK/bí mật: R2 (`docs/runbook.md`).
 
 ## 9. Việc tiếp theo
+
+Cập nhật R2 S3: dòng "Caddyfile production", "Dựng staging + deploy tự động + quản lý bí mật + migration tự động" và phần "Sao lưu tự động" đã có script và đã diễn tập local; chỉ còn chạy trên VPS thật khi INV báo IP + tên miền (mục 10). WAL archive, off-site kéo về máy phụ, giám sát từ bên ngoài, runbook xoay KEK: R3.
+
 
 | Việc | Ai | Khi |
 |---|---|---|
@@ -168,3 +180,37 @@ Runbook xoay KEK/bí mật: R2 (`docs/runbook.md`).
 | Caddyfile production: CSP/HSTS/Referrer-Policy, 3 origin, che log `/g/*`, hạn chế `/health` công khai; `curl -I` kiểm header trong CI | OPS | R2 |
 | Dựng staging + deploy tự động + quản lý bí mật + migration tự động | OPS | R2 |
 | Sao lưu tự động + diễn tập khôi phục + runbook + giám sát | OPS | R3 |
+
+## 10. Checklist DNS cho chủ đầu tư (dán tại nhà đăng ký tên miền – không cần đưa mật khẩu cho đội)
+
+Thay `<tên-miền>` bằng tên miền INV chọn, `<IP-staging>` / `<IP-production>` bằng IP VPS (hãng gửi khi thuê). Dùng DNS của nhà đăng ký hoặc Cloudflare **chỉ DNS** (đám mây xám – ADR-010, SR-HDR-03). TTL 300 giây trong lúc dựng, sau ổn định để 3600.
+
+**10.1 Web (bắt buộc trước khi dựng staging)**
+
+| Loại | Tên | Giá trị | Khi nào |
+|---|---|---|---|
+| A | `desk.staging` | `<IP-staging>` | R2 – staging |
+| A | `staff.staging` | `<IP-staging>` | R2 – staging |
+| A | `g.staging` | `<IP-staging>` | R2 – staging |
+| A | `desk` | `<IP-production>` | R3 – khi có production |
+| A | `staff` | `<IP-production>` | R3 |
+| A | `g` | `<IP-production>` | R3 |
+| CAA | `@` | `0 issue "letsencrypt.org"` | R2 (khuyến nghị: chỉ Let's Encrypt được cấp chứng chỉ cho tên miền) |
+| CAA | `@` | `0 iodef "mailto:<hộp thư nhóm>"` | R2 (tùy chọn) |
+
+- **Không** tạo bản ghi AAAA (IPv6) ở R2: tường lửa và smoke chỉ kiểm IPv4.
+- **Không** dùng bản ghi `*` (wildcard). Không trỏ tên miền gốc `<tên-miền>` vào VPS này nếu đang dùng cho website giới thiệu.
+- Kiểm (OPS làm): `dig +short desk.staging.<tên-miền>` ra đúng IP; cổng 80 mở để Let's Encrypt cấp chứng chỉ ở lần deploy đầu.
+
+**10.2 Email giao dịch (SPF / DKIM / DMARC – SR-GST-07, ESC-010)**
+
+R2: email đang ở chế độ Mock (chỉ ghi log), nên chưa cần bản ghi gửi thư. Hai trường hợp:
+
+| Trường hợp | Bản ghi INV dán |
+|---|---|
+| Tên miền **chưa** dùng để gửi email gì cả (chặn kẻ giả mạo dùng tên miền) | `TXT @ "v=spf1 -all"` · `TXT _dmarc "v=DMARC1; p=reject; adkim=s; aspf=s"` |
+| Tên miền đã có email (Google Workspace, Zoho…) | Giữ bản ghi SPF/DKIM hiện có; chỉ thêm `TXT _dmarc "v=DMARC1; p=none; rua=mailto:<hộp thư nhóm>"` nếu chưa có – không thêm SPF thứ hai |
+| Khi chọn nhà cung cấp email giao dịch (Amazon SES – đề xuất INT) | Theo bảng khuôn ở mục 5.1 (3 CNAME DKIM do SES sinh, MX + SPF cho `mail.<tên-miền>`, DMARC `p=none` → `quarantine` sau 2–4 tuần) – thay cho dòng "chưa gửi email" ở trên |
+
+**10.3 Gửi lại cho đội:** IP VPS, tên miền đã chọn, ảnh chụp bảng bản ghi DNS (không cần tài khoản nhà đăng ký).
+

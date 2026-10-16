@@ -120,6 +120,16 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     extraGuestCount: extraGuestCount(row, current?.base_occupancy ?? null),
     ...(row.eta_time ? { etaTime: row.eta_time } : {}),
     ...(row.agreed_checkout_time ? { agreedCheckoutTime: row.agreed_checkout_time } : {}),
+    // 0.3.6 bổ sung (ARC review S3 C): MGR+ accepted a short deposit (FD+ only – x-visible-to).
+    depositShortfall:
+      row.deposit_shortfall_accepted_at && row.deposit_shortfall_vnd !== null
+        ? {
+            shortfallVnd: Number(row.deposit_shortfall_vnd),
+            acceptedAt: d.iso(row.deposit_shortfall_accepted_at),
+            acceptedByName: row.deposit_shortfall_accepted_by_name ?? '',
+            reason: row.deposit_shortfall_reason ?? '',
+          }
+        : null,
     ...(row.actual_checkin_at ? { actualCheckinAt: d.iso(row.actual_checkin_at) } : {}),
     ...(row.actual_checkout_at ? { actualCheckoutAt: d.iso(row.actual_checkout_at) } : {}),
     ...(row.hold_expires_at

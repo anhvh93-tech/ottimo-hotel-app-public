@@ -27,7 +27,7 @@ export function PaymentPanel({
   purpose?: 'balance' | 'deposit';
   onPaid: (p: Payment) => void;
 }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
@@ -69,7 +69,7 @@ export function PaymentPanel({
       ),
     );
     if (out) {
-      toast(t('pay.record', { amount: vnd(out.data.amountVnd) }));
+      toast(t('pay.record', { amount: money(out.data.amountVnd) }));
       setQr(null);
       setNote('');
       onPaid(out.data);
@@ -92,7 +92,7 @@ export function PaymentPanel({
       ),
     );
     if (out) {
-      toast(t('pay.record', { amount: vnd(out.data.amountVnd) }));
+      toast(t('pay.record', { amount: money(out.data.amountVnd) }));
       setNote('');
       setPos('');
       setCash('');
@@ -135,35 +135,48 @@ export function PaymentPanel({
       {method === 'vietqr' ? (
         qr ? (
           <div className="card">
+            {/* FE-S3-07 / DS 6.16: one block per fact; copy buttons copy exactly one value. */}
             <div className="row wrap">
               <QrCode
                 value={qr.qrPayload}
-                label={`${t('pay.vietqr')} · ${vnd(qr.payment.amountVnd)} ${t('common.vnd_unit')} · ${qr.transferContent}`}
+                label={t('pay.qr_label', {
+                  amount: money(qr.payment.amountVnd),
+                  ref: qr.transferContent,
+                })}
                 size={184}
               />
               <div className="stack grow">
-                <b className="price-big num">
-                  {vnd(qr.payment.amountVnd)} {t('common.vnd_unit')}
-                </b>
-                <span>{t('pay.qr_note', { ref: qr.transferContent })}</span>
+                <div className="price-big num">{money(qr.payment.amountVnd)}</div>
+                <div>
+                  <span className="mono">{t('pay.qr_note', { ref: qr.transferContent })}</span>{' '}
+                  <Button
+                    size="sm"
+                    icon="copy"
+                    onClick={() => void navigator.clipboard?.writeText(qr.transferContent)}
+                  >
+                    {t('pay.copy_ref')}
+                  </Button>
+                </div>
                 {qr.receivingAccountMasked ? (
-                  <span className="li-s mono">{qr.receivingAccountMasked}</span>
+                  <div className="li-s mono">
+                    {t('pay.qr_account', { account: qr.receivingAccountMasked })}
+                  </div>
                 ) : null}
+                <div>
+                  <Button
+                    size="sm"
+                    icon="copy"
+                    onClick={() =>
+                      void navigator.clipboard?.writeText(String(qr.payment.amountVnd))
+                    }
+                  >
+                    {t('pay.copy_amount')}
+                  </Button>
+                </div>
                 {qr.receivingAccountRecentlyChanged ? (
                   // SEC F3: the receiving account changed in the last 24 h – double-check with the guest.
                   <Alert tone="warn">{t('pay.receiving_account_changed')}</Alert>
                 ) : null}
-                <Button
-                  size="sm"
-                  icon="copy"
-                  onClick={() =>
-                    void navigator.clipboard?.writeText(
-                      `${qr.transferContent} ${qr.payment.amountVnd}`,
-                    )
-                  }
-                >
-                  {t('rsv.copy_qr')}
-                </Button>
               </div>
             </div>
             <p className="li-s" role="status">
@@ -188,7 +201,7 @@ export function PaymentPanel({
               busyLabel={payAct.busyLabel}
               onClick={() => void confirmQr()}
             >
-              {payAct.label(t('pay.record', { amount: vnd(qr.payment.amountVnd) }))}
+              {payAct.label(t('pay.record', { amount: money(qr.payment.amountVnd) }))}
             </Button>
           </div>
         ) : (
@@ -202,7 +215,7 @@ export function PaymentPanel({
               disabled={!(value > 0)}
               onClick={() => void createQr()}
             >
-              {qrAct.label(`${t('pay.vietqr')} · ${vnd(value)} ${t('common.vnd_unit')}`)}
+              {qrAct.label(t('pay.vietqr_create', { amount: money(value) }))}
             </Button>
           </>
         )
@@ -213,7 +226,11 @@ export function PaymentPanel({
               <MoneyField label={t('co.cash_received')} value={cash} onChange={setCash} />
               {change > 0 ? (
                 <p className="num" role="status">
-                  {t('co.change_due', { amount: vnd(change) })}
+                  {t('co.change_due', { amount: money(change) })}
+                </p>
+              ) : cash.trim() && change < 0 ? (
+                <p className="num" role="status">
+                  {t('pay.cash_short', { amount: money(-change) })}
                 </p>
               ) : null}
             </>
@@ -251,7 +268,10 @@ export function PaymentPanel({
                 )}
               </Field>
               <p className="li-s">
-                <Chip tone="warn">{t('pay.pending_reconcile')}</Chip> {t('rsv.reconcile_note')}
+                <Chip tone="warn" icon="hourglass" className="recon">
+                  {t('pay.pending_reconcile')}
+                </Chip>{' '}
+                {t('rsv.reconcile_note')}
               </p>
             </>
           ) : null}
@@ -263,7 +283,7 @@ export function PaymentPanel({
             disabled={!(value > 0) || (method === 'card_pos' && !pos.trim())}
             onClick={() => void record()}
           >
-            {payAct.label(t('pay.record', { amount: vnd(value) }))}
+            {payAct.label(t('pay.record', { amount: money(value) }))}
           </Button>
         </>
       )}

@@ -6,7 +6,7 @@ import {
   type Registration,
   type Reservation,
 } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { hasKey, useI18n } from '@ottimo/i18n';
 import {
   Alert,
   Button,
@@ -14,6 +14,7 @@ import {
   Chip,
   ConfirmDialog,
   Field,
+  Icon,
   Modal,
   Stepper,
   Switch,
@@ -22,6 +23,8 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
+import { dayMonth } from '../../app/reservations';
+import { useRules } from '../../app/rules';
 import { timeHHmm } from '../../app/dates';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
@@ -66,7 +69,7 @@ const FOC_REASONS: Array<{ value: FocRequestInput['reasonCode']; key: string }> 
  * box is optional (PO 16/10, US-025 AC7). Conflicts/busy follow DS 6.21.
  */
 export function CheckInPage({ reservationId }: { reservationId: string }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { roles, deviceTrusted } = useSession();
   const { online, since } = useOnline();
@@ -75,6 +78,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const ids = useId();
   const lead = roles.some((r) => LEAD_PLUS.includes(r));
   const catalog = useCatalog(propertyId);
+  const rules = useRules(propertyId, roles);
   const R = { propertyId, reservationId };
 
   const res = useResource(
@@ -109,6 +113,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   }, [deviceTrusted, propertyId, r?.registrationId]);
 
   const [toldGuest, setToldGuest] = useState(false);
+  const [timeNote, setTimeNote] = useState('');
   const [askFoc, setAskFoc] = useState(false);
   const [focReason, setFocReason] = useState<FocRequestInput['reasonCode'] | ''>('');
   const [focNote, setFocNote] = useState('');
@@ -165,6 +170,10 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const roomCond = cond('room_ready');
   const docCond = cond('document_check_block');
   const ooo = roomCond && !roomCond.met && roomCond.detail === 'OOO';
+  const stdIn = p?.standardCheckinTime?.slice(0, 5) ?? rules.checkinTime;
+  // FE-S3-05: FD + room not ready + reason → the button sends a request (202), it does not check in.
+  const requestOnly = !lead && !!roomCond && !roomCond.met && !ooo && roomReason.trim().length >= 3;
+  const docsMain = !!registration?.documents.some((d) => d.isMain);
   const statusText = p?.roomStatus ? t(`status.room.${p.roomStatus}`) : '';
   const foreign =
     registration?.kind === 'foreigner_temp_residence' || registration?.kind === 'mixed';
@@ -180,10 +189,22 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const needTold = early && amount > 0;
   const canSubmit =
     online && houseRules && (!needTold || toldGuest) && blocking.length === 0 && !waitingLead;
+  // FE-S3-04: the first missing thing, said next to the locked button (aria-describedby).
+  const whyLocked = !houseRules
+    ? t('ci.submit_needs_rules')
+    : needTold && !toldGuest
+      ? t('ci.submit_needs_told')
+      : blocking.length
+        ? t('ci.submit_needs_conditions', { n: blocking.length })
+        : waitingLead
+          ? t('ci.waiting_lead')
+          : null;
 
   const submit = async () => {
     const body: CheckInBody = {
-      checkinTime: early && time ? time : (p?.standardCheckinTime ?? undefined),
+      // Not early → no typed time (the server uses its clock / standard time – E03-07).
+      checkinTime: early && time ? time : undefined,
+      checkinTimeNote: early && timeNote.trim() ? timeNote.trim() : undefined,
       applyEarlySurcharge: needTold && toldGuest,
       expectedSurchargeVnd: needTold && toldGuest ? amount : undefined,
       requestFocForSurcharge:
@@ -207,13 +228,19 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       addPriorNight: priorNight || undefined,
       priorNightRateVnd: priorNight ? amount : undefined,
     };
-    const out = await act.submit((idem) => api.checkIn(R, body, r.version, idem));
+    let failed: unknown = null;
+    const out = await act.submit((idem) =>
+      api.checkIn(R, body, r.version, idem).catch((e: unknown) => {
+        failed = e;
+        throw e;
+      }),
+    );
     setConfirm(false);
     if (!out) {
-      // SURCHARGE_CHANGED / CHECKIN_CONDITIONS_NOT_MET: re-read the preview, ask to confirm again.
+      // Re-read the preview; only a changed surcharge asks to confirm "told the guest" again (DS 6.3).
       preview.reload();
       folio.reload();
-      setToldGuest(false);
+      if (isApiError(failed) && failed.code === 'SURCHARGE_CHANGED') setToldGuest(false);
       return;
     }
     if (out.status === 202) {
@@ -247,7 +274,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       case 'room_ready':
         return t('ci.cond_room', { room, status: statusText });
       case 'balance_paid':
-        return c.met ? null : t('ci.cond_balance', { amount: vnd(balance) });
+        return c.met ? null : t('ci.cond_balance', { amount: money(balance) });
       case 'main_guest_document':
         return c.met ? null : t('ci.cond_doc');
       case 'capacity_within_max':
@@ -259,18 +286,28 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             })
           : null;
       case 'document_check_block':
+        // FE-S3-18: never "Đã đủ" before any document was checked.
+        if (c.met && registration && registration.documents.length === 0)
+          return t('ci.cond_doc_check_pending');
         return c.met && registration && !foreign ? t('ci.cond_na_citizen') : null;
       default:
         return null;
     }
   };
 
+  // FE-S3-18: a step is "done" only when it really is (main document; checks noted; register later).
+  const stepDone = [
+    docsMain,
+    docsMain && !!registration && reviewReady(registration, ['party_count']),
+    step > 2,
+    false,
+  ];
   const steps = (
-    <ol className="progress-steps" aria-label={t('checkin.cond.title')}>
+    <ol className="progress-steps" aria-label={t('checkin.steps_label')}>
       {STEPS.map((k, i) => (
         <li
           key={k}
-          className={i < step ? 'done' : undefined}
+          className={stepDone[i] && i !== step ? 'done' : undefined}
           aria-current={i === step ? 'step' : undefined}
         >
           {t(k)}
@@ -286,115 +323,153 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       </h2>
       {!p ? (
         preview.state.status === 'error' ? (
-          <Alert tone="bad">{act.text(preview.state.error)}</Alert>
+          <Alert
+            tone="bad"
+            actions={
+              <Button size="sm" onClick={preview.reload}>
+                {t('common.retry')}
+              </Button>
+            }
+          >
+            {act.text(preview.state.error)}
+          </Alert>
         ) : (
           <LoadingBlock rows={2} />
         )
       ) : (
         <ul className="conds">
-          {conds.map((c) => (
-            <li key={c.code} className={c.met ? 'met' : 'unmet'}>
-              <div className="grow">
-                <b>{t(COND_LABEL[c.code])}</b>
-                {condDetail(c) ? <div className="li-s">{condDetail(c)}</div> : null}
-                {!c.met && c.code === 'not_unassigned' ? (
-                  <div className="li-s">{t('error.RESERVATION_UNASSIGNED')}</div>
-                ) : null}
-                {!c.met && c.code === 'capacity_within_max' ? (
-                  <Alert tone="bad" title={t('ci.capacity_block_title')}>
-                    {t('rsv.capacity_conflict_body', {
-                      n: r.adults + (r.children6to11 ?? 0),
-                      room,
-                      max: roomInfo?.maxOccupancy ?? '–',
-                    })}
-                    <div className="row wrap mt-4">
-                      <Link className="btn sm" to={`/reservations/${reservationId}`}>
-                        {t('ci.capacity_fix_move')}
-                      </Link>
-                      <Button size="sm" onClick={() => setFixGuests(true)}>
-                        {t('checkin.fix_guest_count')}
-                      </Button>
-                    </div>
-                  </Alert>
-                ) : null}
-                {!c.met && c.code === 'room_ready' ? (
-                  ooo ? (
-                    <div className="li-s">{t('ci.ooo_never')}</div>
-                  ) : (
-                    <>
-                      <div className="li-s">
-                        {lead
-                          ? t('checkin.room_not_ready_lead', { room, status: statusText })
-                          : t('checkin.room_not_ready', { room, status: statusText })}
+          {conds.map((c) => {
+            const pendingCheck =
+              c.code === 'document_check_block' &&
+              c.met &&
+              !!registration &&
+              registration.documents.length === 0;
+            return (
+              <li key={c.code} className={pendingCheck ? undefined : c.met ? 'met' : 'unmet'}>
+                <Icon name={pendingCheck ? 'question' : c.met ? 'check' : 'x'} />
+                <div className="grow">
+                  <b>{t(COND_LABEL[c.code])}</b>
+                  {condDetail(c) ? <div className="li-s">{condDetail(c)}</div> : null}
+                  {!c.met && c.code === 'not_unassigned' ? (
+                    <div className="li-s">{t('error.RESERVATION_UNASSIGNED')}</div>
+                  ) : null}
+                  {!c.met && c.code === 'capacity_within_max' ? (
+                    <Alert tone="bad" title={t('ci.capacity_block_title')}>
+                      {t('rsv.capacity_conflict_body', {
+                        n: r.adults + (r.children6to11 ?? 0),
+                        room,
+                        max: roomInfo?.maxOccupancy ?? '–',
+                      })}
+                      <div className="row wrap mt-4">
+                        <Link className="btn sm" to={`/reservations/${reservationId}`}>
+                          {t('ci.capacity_fix_move')}
+                        </Link>
+                        <Button size="sm" onClick={() => setFixGuests(true)}>
+                          {t('checkin.fix_guest_count')}
+                        </Button>
                       </div>
-                      <Field
-                        label={t('ci.reason')}
-                        required
-                        error={act.fields['roomNotReadyOverride.reason']}
-                      >
-                        {(fp) => (
-                          <input
-                            {...fp}
-                            className="input"
-                            maxLength={500}
-                            value={roomReason}
-                            onChange={(e) => setRoomReason(e.target.value)}
-                          />
-                        )}
-                      </Field>
-                    </>
-                  )
-                ) : null}
-                {!c.met && c.code === 'balance_paid' ? (
-                  <Button size="sm" onClick={() => setStep(3)}>
-                    {t('ci.pay_open')}
-                  </Button>
-                ) : null}
-                {!c.met && c.code === 'main_guest_document' && deviceTrusted ? (
-                  <Button size="sm" onClick={() => setStep(0)}>
-                    {t('ci.go_docs')}
-                  </Button>
-                ) : null}
-                {!c.met && c.code === 'document_check_block' ? (
-                  <div className="stack">
-                    <b>{t('ci.doc_blocked_title')}</b>
-                    <div className="li-s">{t('ci.doc_blocked_body')}</div>
-                    {lead ? (
-                      <Field label={t('ci.reason')} required>
-                        {(fp) => (
-                          <textarea
-                            {...fp}
-                            className="input"
-                            maxLength={500}
-                            value={docReason}
-                            onChange={(e) => setDocReason(e.target.value)}
-                          />
-                        )}
-                      </Field>
+                    </Alert>
+                  ) : null}
+                  {!c.met && c.code === 'room_ready' ? (
+                    ooo ? (
+                      <div className="li-s">{t('ci.ooo_never')}</div>
                     ) : (
-                      <div className="li-s">{t('ci.block_fd')}</div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              <Chip tone={c.met ? 'ok' : 'bad'}>{t(c.met ? 'ci.met' : 'ci.unmet')}</Chip>
-            </li>
-          ))}
+                      <>
+                        <div className="li-s">
+                          {lead
+                            ? t('checkin.room_not_ready_lead', { room, status: statusText })
+                            : t('checkin.room_not_ready', { room, status: statusText })}
+                        </div>
+                        <Field
+                          label={t('ci.reason')}
+                          required
+                          error={act.fields['roomNotReadyOverride.reason']}
+                        >
+                          {(fp) => (
+                            <input
+                              {...fp}
+                              className="input"
+                              maxLength={500}
+                              value={roomReason}
+                              onChange={(e) => setRoomReason(e.target.value)}
+                            />
+                          )}
+                        </Field>
+                      </>
+                    )
+                  ) : null}
+                  {!c.met && c.code === 'balance_paid' ? (
+                    <Button size="sm" onClick={() => setStep(3)}>
+                      {t('ci.pay_open')}
+                    </Button>
+                  ) : null}
+                  {!c.met && c.code === 'main_guest_document' && deviceTrusted ? (
+                    <Button size="sm" onClick={() => setStep(0)}>
+                      {t('ci.go_docs')}
+                    </Button>
+                  ) : null}
+                  {!c.met && c.code === 'document_check_block' ? (
+                    <div className="stack">
+                      <b>{t('ci.doc_blocked_title')}</b>
+                      <div className="li-s">{t('ci.doc_blocked_body')}</div>
+                      {lead ? (
+                        <Field label={t('ci.reason')} required>
+                          {(fp) => (
+                            <textarea
+                              {...fp}
+                              className="input"
+                              maxLength={500}
+                              value={docReason}
+                              onChange={(e) => setDocReason(e.target.value)}
+                            />
+                          )}
+                        </Field>
+                      ) : (
+                        <div className="li-s">{t('ci.block_fd')}</div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                {pendingCheck ? (
+                  <Chip tone="neutral" icon="question">
+                    {t('checkin.verify.result.unknown')}
+                  </Chip>
+                ) : (
+                  <Chip tone={c.met ? 'ok' : 'bad'}>{t(c.met ? 'ci.met' : 'ci.unmet')}</Chip>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
-      {p?.warnings?.map((w) => (
-        <Alert
-          key={w.code}
-          tone="warn"
-          icon={w.code === 'extra_guest_kit_not_ready' ? 'sofa' : 'alert'}
-        >
-          {w.code === 'extra_guest_kit_not_ready'
+      {r.depositShortfall ? (
+        <Alert tone="info">
+          {t('ci.shortfall_accepted', {
+            who: r.depositShortfall.acceptedByName,
+            amount: money(balance),
+          })}
+        </Alert>
+      ) : null}
+      {p?.warnings?.map((w) => {
+        // FE-S3-13: our own sentence per code (never the server `detail`); unknown codes skipped.
+        const text =
+          w.code === 'extra_guest_kit_not_ready'
             ? t('checkin.kit_not_ready', { room })
             : w.code === 'pending_online_checkin'
               ? t('checkin.docs.from_app')
-              : (w.detail ?? t('ci.visa_attention'))}
-        </Alert>
-      ))}
+              : hasKey(`checkin.warn.${w.code}`)
+                ? t(`checkin.warn.${w.code}`)
+                : null;
+        return text ? (
+          <Alert
+            key={w.code}
+            tone="warn"
+            icon={w.code === 'extra_guest_kit_not_ready' ? 'sofa' : 'alert'}
+          >
+            {text}
+          </Alert>
+        ) : null;
+      })}
       {r.extraGuestCount ? (
         <Chip tone="warn" icon="sofa">
           {t('occ.kit_chip', { n: r.extraGuestCount })}
@@ -427,23 +502,29 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       <LoadingBlock rows={2} />
     );
   } else if (step === 1) {
-    body = registration ? (
-      <>
-        <VerifyList
-          registration={registration}
-          departureDate={r.departureDate}
-          onChange={(x) => {
-            setRegistration(x);
-            preview.reload();
-          }}
-        />
-        {verifyTried && !reviewReady(registration, ['party_count']) ? (
-          <Alert tone="bad">{t('checkin.verify.note_required')}</Alert>
-        ) : null}
-      </>
-    ) : (
-      <LoadingBlock rows={2} />
-    );
+    body =
+      registration && registration.documents.length === 0 ? (
+        <div className="card stack">
+          <p>{t('checkin.verify.empty')}</p>
+          <Button onClick={() => setStep(0)}>{t('ci.go_docs')}</Button>
+        </div>
+      ) : registration ? (
+        <>
+          <VerifyList
+            registration={registration}
+            departureDate={r.departureDate}
+            onChange={(x) => {
+              setRegistration(x);
+              preview.reload();
+            }}
+          />
+          {verifyTried && !reviewReady(registration, ['party_count']) ? (
+            <Alert tone="bad">{t('checkin.verify.note_required')}</Alert>
+          ) : null}
+        </>
+      ) : (
+        <LoadingBlock rows={2} />
+      );
   } else if (step === 2) {
     body = (
       <div className="card stack">
@@ -485,12 +566,15 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           </Switch>
           {!early ? (
             <p className="li-s">
-              {t('ci.time_default', { std: p?.standardCheckinTime ?? '14:00' })}{' '}
-              {t('ci.time_default_help')}
+              {t('ci.time_default', { std: stdIn })} {t('ci.time_default_help')}
             </p>
           ) : (
             <>
-              <Field label={t('checkin.time')} help={t('checkin.time_hint')}>
+              <Field
+                label={t('checkin.time')}
+                help={t('checkin.time_hint')}
+                error={act.fields.checkinTime}
+              >
                 {(fp) => (
                   <input
                     {...fp}
@@ -504,6 +588,25 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                   />
                 )}
               </Field>
+              {act.fields.checkinTimeNote || timeNote ? (
+                // E03-07 TIME_NOTE_REQUIRED: a time well before "now" needs a note (3–300).
+                <Field
+                  label={t('checkin.time_note')}
+                  help={t('stay.time_note_help')}
+                  required
+                  error={act.fields.checkinTimeNote}
+                >
+                  {(fp) => (
+                    <input
+                      {...fp}
+                      className="input"
+                      maxLength={300}
+                      value={timeNote}
+                      onChange={(e) => setTimeNote(e.target.value)}
+                    />
+                  )}
+                </Field>
+              ) : null}
               <div aria-live="polite">
                 {!time ? null : priorNight ? (
                   <Alert tone="info">
@@ -511,15 +614,15 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                       date: p?.priorNight?.date
                         ? p.priorNight.date.split('-').reverse().slice(0, 2).join('/')
                         : '',
-                      amount: vnd(amount),
+                      amount: money(amount),
                     })}
                   </Alert>
                 ) : amount > 0 ? (
                   <p>
-                    <b>{t('sur.early_fee', { amount: vnd(amount), pct: sur?.tierPct ?? 0 })}</b>
+                    <b>{t('sur.early_fee', { amount: money(amount), pct: sur?.tierPct ?? 0 })}</b>
                   </p>
                 ) : (
-                  <p>{t('sur.early_zero', { std: p?.standardCheckinTime ?? '14:00' })}</p>
+                  <p>{t('sur.early_zero', { std: stdIn })}</p>
                 )}
               </div>
               {amount > 0 ? (
@@ -572,22 +675,25 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             {t('ci.pay_title')}
           </h2>
           <p className="kv-big num">
-            {t('drawer.folio.balance')}: {vnd(balance)} {t('common.vnd_unit')}
+            {t('drawer.folio.balance')}: {money(balance)}
           </p>
-          {balance > 0 && online ? (
-            <PaymentPanel
-              reservation={r}
-              balanceVnd={balance}
-              onPaid={() => {
-                folio.reload();
-                preview.reload();
-                res.reload();
-              }}
-            />
+          {balance > 0 ? (
+            online ? (
+              <PaymentPanel
+                reservation={r}
+                balanceVnd={balance}
+                onPaid={() => {
+                  folio.reload();
+                  preview.reload();
+                  res.reload();
+                }}
+              />
+            ) : (
+              // FE-S3-12: offline never shows "Đã thanh toán đủ" while money is still owed.
+              <p className="li-s">{t('rsv.need_online')}</p>
+            )
           ) : (
-            <Chip tone="ok" icon="check">
-              {t('drawer.folio.settled')}
-            </Chip>
+            <Chip tone="ok">{t('drawer.folio.settled')}</Chip>
           )}
           <p className="li-s">{t('ci.recon_ok')}</p>
         </section>
@@ -596,27 +702,41 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           <h2 className="label-h" id={`${ids}-door`}>
             {t('ci.door_title')}
           </h2>
+          {/* FE-S3-08 (BR-403): the validity the desk types into the lock app – arrival time → departure. */}
+          <dl className="dl">
+            <dt>{t('ci.door_valid')}</dt>
+            <dd className="num">
+              {t('ci.door_valid_value', {
+                from: `${early && time ? time : stdIn} ${dayMonth(r.arrivalDate)}`,
+                to: `${r.agreedCheckoutTime?.slice(0, 5) ?? rules.checkoutTime} ${dayMonth(r.departureDate)}`,
+              })}
+            </dd>
+            <dt>{t('ci.door_lock')}</dt>
+            <dd>TTLock · {room}</dd>
+          </dl>
           <ol className="list-plain li-s">
             <li>{t('ci.door_step1', { room })}</li>
             <li>{t('ci.door_step2')}</li>
             <li>{t('ci.door_step3')}</li>
           </ol>
-          <span className="label-h" id={`${ids}-cards`}>
-            {t('handover.cards')}
-          </span>
-          <Stepper
-            value={cards}
-            min={0}
-            max={2}
-            onChange={setCards}
-            labelledBy={`${ids}-cards`}
-            describedBy={`${ids}-cards-h`}
-            decLabel={t('rooms.dec')}
-            incLabel={t('rooms.inc')}
-          />
-          <span className="li-s" id={`${ids}-cards-h`}>
-            {t('handover.cards_help')}
-          </span>
+          <div className="field">
+            <span className="label-h" id={`${ids}-cards`}>
+              {t('handover.cards')}
+            </span>
+            <Stepper
+              value={cards}
+              min={0}
+              max={2}
+              onChange={setCards}
+              labelledBy={`${ids}-cards`}
+              describedBy={`${ids}-cards-h`}
+              decLabel={t('rooms.dec')}
+              incLabel={t('rooms.inc')}
+            />
+            <div className="help" id={`${ids}-cards-h`}>
+              {t('handover.cards_help')}
+            </div>
+          </div>
           <Checkbox checked={houseRules} onChange={setHouseRules}>
             {t('ci.house_rules_sent')} *
           </Checkbox>
@@ -635,7 +755,9 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           <ul className="list-plain">
             <li>{t('ci.effect_status', { room })}</li>
             {deadline ? <li>{t('ci.effect_deadline', { deadline: dateTime(deadline) })}</li> : null}
-            {needTold && toldGuest ? <li>{t('ci.effect_fee', { amount: vnd(amount) })}</li> : null}
+            {needTold && toldGuest ? (
+              <li>{t('ci.effect_fee', { amount: money(amount) })}</li>
+            ) : null}
           </ul>
         </section>
       </div>
@@ -710,23 +832,25 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             </Button>
           ) : (
             <>
-              {!houseRules ? (
+              {whyLocked ? (
                 <span className="li-s" id={`${ids}-why`}>
-                  {t('ci.submit_needs_rules')}
+                  {whyLocked}
                 </span>
               ) : null}
               <Button
                 variant="pri"
                 aria-disabled={!canSubmit || undefined}
-                aria-describedby={!houseRules ? `${ids}-why` : undefined}
+                aria-describedby={whyLocked ? `${ids}-why` : undefined}
                 busy={act.busy}
                 busyLabel={act.busyLabel}
                 onClick={() => canSubmit && setConfirm(true)}
               >
                 {act.label(
-                  priorNight && needTold
-                    ? t('checkin.prior_night_submit')
-                    : t('ci.submit', { room }),
+                  requestOnly
+                    ? t('ci.send_lead')
+                    : priorNight && needTold
+                      ? t('checkin.prior_night_submit')
+                      : t('ci.submit', { room }),
                 )}
               </Button>
             </>
@@ -736,20 +860,22 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       {confirm ? (
         <ConfirmDialog
           danger={false}
-          title={t('ci.confirm_title', { room, guest })}
-          body={t('ci.effect_status', { room })}
+          title={
+            requestOnly ? t('ci.request_title', { room }) : t('ci.confirm_title', { room, guest })
+          }
+          body={requestOnly ? t('ci.request_effect') : t('ci.effect_status', { room })}
           keepLabel={t('confirm.keep')}
-          confirmLabel={t('ci.submit', { room })}
+          confirmLabel={requestOnly ? t('ci.send_lead') : t('ci.submit', { room })}
           busy={act.busy}
           busyLabel={act.busyLabel}
           onKeep={() => setConfirm(false)}
           onConfirm={() => void submit()}
         >
-          {deadline ? (
+          {deadline && !requestOnly ? (
             <p className="li-s">{t('ci.effect_deadline', { deadline: dateTime(deadline) })}</p>
           ) : null}
-          {needTold && toldGuest ? (
-            <p className="li-s">{t('ci.effect_fee', { amount: vnd(amount) })}</p>
+          {needTold && toldGuest && !requestOnly ? (
+            <p className="li-s">{t('ci.effect_fee', { amount: money(amount) })}</p>
           ) : null}
           {act.view()}
         </ConfirmDialog>

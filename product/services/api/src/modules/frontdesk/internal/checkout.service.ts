@@ -1,18 +1,30 @@
 /**
  * Check-out – spec EP03-05 5 (US-035…039, US-038 B18; BR-412/413/415 at the ACTUAL time – DOM G-10; G-15
- * credit; BR-426 balance; BR-427 post-checkout window; BR-525 debt; BR-812 kit collect).
+ * credit; BR-416 extra night; BR-426 balance; BR-427 post-checkout window; BR-525 debt; BR-812 kit collect).
  *
  * getCheckoutSummary: lines + money + blockers for the 3-step screen (read-only).
  * checkOut (B18): server re-checks every blocker in order (minibar → pending approvals → balance → credit),
  * recomputes the late surcharge at the actual departure time: a lower amount reverses the old line and posts
- * the new one automatically (in the guest's favour), a higher one needs the desk's confirmation (BR-414).
- * Folio `settled` + bill number through FolioService.settle (BE-B FolioPort) in the SAME transaction.
- * Payments of `finalPayment` go through PaymentService.recordInTx (one path for receipts).
+ * the new one automatically (in the guest's favour, an approved FOC carried over – DOM S3-11), a higher one
+ * needs the desk's decision (BR-414, S3-12). Folio `settled` + bill number through FolioService.settle (BE-B
+ * FolioPort) in the SAME transaction. Payments of `finalPayment` go through PaymentService.recordInTx.
+ *
+ * OpenAPI 0.3.6 bổ sung 2 (E05-11, E03-07, E15-05; DOM S3-9/S3-10): the stay is the primary booking + its
+ * in-house children (BR-422 – ARC-BE-S3-05); a departure after the last BR-412 tier is "check out – charge
+ * one more night" (`extraNight`, one transaction); the post-midnight window (business date = departure − 1,
+ * calendar date = departure) is a valid B18 with no surcharge; only MONEY requests block; operational ones
+ * are cancelled as superseded; the overpayment handled is the part not yet routed to a refund request.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
-import { type LocalDate, type LocalTime, addDays, businessDate } from '../../../shared/time';
+import {
+  type LocalDate,
+  type LocalTime,
+  addDays,
+  businessDate,
+  localDate,
+} from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
 import type { FolioLineRow } from '../../folio/public/folio.service';
@@ -25,6 +37,8 @@ import {
   type RoomInfo,
   hasAny,
   loadReservation,
+  outboxAvailability,
+  recordChange,
   recordTransition,
 } from '../../reservations/public/stay-port';
 import type { LateCheckoutResult } from '../public/stay-rules';
@@ -34,12 +48,32 @@ import { StaySupport, TASK_RANK } from './stay-support';
 /** BA EP03-05 5.5 [GIẢ ĐỊNH BA]: a debt is due within this many days (data-entry bound, technical). */
 const DEBT_MAX_DAYS = 30;
 
+/** DOM S3-10 / US-038 AC4: only MONEY requests block the check-out. */
+const BLOCKING_APPROVALS = ['foc', 'special_discount', 'damage_pricing'] as const;
+/** DOM S3-10: operational requests that lose their purpose at B18 (cancelled `superseded`). */
+const SUPERSEDED_AT_CHECKOUT = ['late_checkout_conflict', 'checkin_room_not_ready'] as const;
+
 type Blocker = 'minibar_not_checked' | 'pending_approvals' | 'balance_due' | 'credit_balance';
+
+interface ExtraNight {
+  date: LocalDate;
+  defaultRateVnd: number;
+  calendarVnd: number;
+  floorVnd: number;
+  ceilingVnd: number;
+  available: boolean;
+}
 
 interface Departure {
   time: LocalTime;
   rm: RoomInfo;
   quote: Awaited<ReturnType<StayService['lateQuote']>>;
+  stay: Awaited<ReturnType<StaySupport['effectiveStay']>>;
+  /** post-midnight window: business date = departure − 1 and calendar date = departure */
+  postMidnight: boolean;
+  /** departure after the last BR-412 tier → one more night (E05-11) */
+  extraNight: ExtraNight | null;
+  rollover: LocalTime;
 }
 
 @Injectable()
@@ -51,61 +85,86 @@ export class CheckoutService {
     @Inject(PaymentService) private readonly payments: PaymentService,
   ) {}
 
-  /** The departure clock time on the business-day axis (E05-09: `checkoutAt` wins over `checkoutTime`). */
-  private async departureTime(
+  /** Post-midnight window at `at` for a stay leaving on `departure` (DOM S3-9 b). */
+  private postMidnight(
+    ctx: BookingContext,
+    rollover: LocalTime,
+    departure: LocalDate,
+    at: Date,
+  ): boolean {
+    return (
+      businessDate(at, ctx.tz, rollover) === addDays(departure, -1) &&
+      localDate(at, ctx.tz) === departure
+    );
+  }
+
+  /**
+   * Departure of the whole stay at the given time: the clock time on the business-day axis (E05-09:
+   * `checkoutAt` wins over `checkoutTime`), the room of the last night, the late quote (zero in the
+   * post-midnight window), and the extra night when the time is after the last tier.
+   */
+  private async departure(
     tx: Tx,
     ctx: BookingContext,
     row: ReservationRow,
     checkoutTime: LocalTime | undefined,
     checkoutAt: Date | undefined,
-  ): Promise<LocalTime> {
-    if (checkoutAt) {
-      const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
-      if (businessDate(checkoutAt, ctx.tz, rollover) !== row.departure_date) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
-        });
-      }
-      return this.s.localTime(ctx, checkoutAt);
-    }
-    return (
-      checkoutTime ?? row.agreed_checkout_time ?? (await this.s.param(tx, ctx, 'checkout_time'))
-    );
-  }
-
-  private async departure(
-    tx: Tx,
-    ctx: BookingContext,
-    row: ReservationRow,
-    time: LocalTime,
   ): Promise<Departure> {
-    const seg = await this.s.segmentOn(tx, row.id, addDays(row.departure_date, -1));
+    const stay = await this.s.effectiveStay(tx, ctx, row);
+    const dep = stay.departureDate;
+    const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
+    const at = checkoutAt ?? ctx.now;
+    const postMidnight = this.postMidnight(ctx, rollover, dep, at);
+    if (checkoutAt && businessDate(checkoutAt, ctx.tz, rollover) !== dep && !postMidnight) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
+      });
+    }
+    const time: LocalTime = checkoutAt
+      ? this.s.localTime(ctx, checkoutAt)
+      : (checkoutTime ??
+        row.agreed_checkout_time ??
+        (await this.s.param<LocalTime>(tx, ctx, 'checkout_time')));
+    const seg = await this.s.segmentOn(tx, stay.last.id, addDays(dep, -1));
     const rm = seg.room_id ? await this.s.stay.room(tx, seg.room_id) : null;
     if (!rm) throw problem('RESERVATION_UNASSIGNED');
-    return { time, rm, quote: await this.stays.lateQuote(tx, ctx, row, rm, time) };
+    const quote = postMidnight
+      ? {
+          r: {
+            tierPct: 0,
+            baseNightVnd: 0,
+            amountVnd: 0,
+            treatAsExtension: false,
+            inGrace: false,
+            ruleRef: 'BR-412',
+          } satisfies LateCheckoutResult,
+          arrival: null,
+          alternativeRoomAvailable: true,
+          standard: await this.s.param<LocalTime>(tx, ctx, 'checkout_time'),
+          rollover,
+        }
+      : await this.stays.lateQuote(tx, ctx, stay.last, rm, time);
+    let extraNight: ExtraNight | null = null;
+    if (quote.r.treatAsExtension) {
+      const direct = await this.s.directRate(tx, ctx, rm.id, dep);
+      extraNight = {
+        date: dep,
+        defaultRateVnd: direct.rateVnd,
+        calendarVnd: direct.rateVnd,
+        floorVnd: direct.floorVnd,
+        ceilingVnd: direct.ceilingVnd,
+        available: await this.s.occupancy.isFree(tx, rm.id, dep, addDays(dep, 1)),
+      };
+    }
+    return { time, rm, quote, stay, postMidnight, extraNight, rollover };
   }
 
-  /** Live (posted, not reversed, not a reversal) late-checkout lines of the booking (G-10). */
-  private async liveLateLines(tx: Tx, folioId: string, reservationId: string) {
-    const lines = await this.s.folios.lines(tx, folioId);
-    const reversed = new Set(lines.filter((l) => l.reversal_of_id).map((l) => l.reversal_of_id));
-    return lines.filter(
-      (l) =>
-        l.reservation_id === reservationId &&
-        l.category === 'late_checkout' &&
-        l.line_state === 'posted' &&
-        !l.reversal_of_id &&
-        !reversed.has(l.id),
-    );
-  }
-
-  private async pendingApprovals(tx: Tx, row: ReservationRow): Promise<number> {
-    // A-34: refund requests never block the check-out.
+  private async pendingApprovals(tx: Tx, ids: readonly string[]): Promise<number> {
     const { rows } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM approval_request
-        WHERE target_type = 'reservation' AND target_id = $1 AND status IN ('pending', 'escalated')
-          AND type <> 'refund'`,
-      [row.id],
+        WHERE target_type = 'reservation' AND target_id = ANY($1::uuid[])
+          AND status IN ('pending', 'escalated') AND type = ANY($2::text[])`,
+      [[...ids], [...BLOCKING_APPROVALS]],
     );
     return rows[0]?.n ?? 0;
   }
@@ -140,40 +199,48 @@ export class CheckoutService {
     const row = await loadReservation(tx, id, ctx.actor);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
-    const time = await this.departureTime(tx, ctx, row, q.checkoutTime, q.checkoutAt);
-    const d = await this.departure(tx, ctx, row, time);
+    const d = await this.departure(tx, ctx, row, q.checkoutTime, q.checkoutAt);
     const lines = await this.s.folios.lines(tx, row.folio_id);
     const balance = await this.s.folios.balance(tx, row.folio_id);
-    const pending = await this.pendingApprovals(tx, row);
+    const pending = await this.pendingApprovals(tx, d.stay.ids);
     const minibar = await this.s.ports.minibar.checkoutStatus(tx, row.id, d.rm.id);
-    const old = await this.liveLateLines(tx, row.folio_id, row.id);
-    const oldVnd = old.reduce((a, l) => a + l.amount_vnd, 0);
+    const old = await this.s.liveSurchargeLines(tx, row.folio_id, d.stay.ids, 'late_checkout');
     const late = d.quote.r;
+    const newVnd = d.extraNight ? 0 : late.amountVnd;
     const blockers: Blocker[] = [];
     if (minibar.required && !minibar.checked) blockers.push('minibar_not_checked');
     if (pending > 0) blockers.push('pending_approvals');
     if (balance.balanceDueVnd > 0) blockers.push('balance_due');
-    if (balance.creditVnd > 0) blockers.push('credit_balance');
+    if (balance.unhandledCreditVnd > 0) blockers.push('credit_balance');
     const tz = ctx.tz;
     return {
-      checkoutTime: time,
+      checkoutTime: d.time,
       standardCheckoutTime: d.quote.standard,
-      lateCheckoutSurcharge: { tierPct: late.tierPct, amountVnd: late.amountVnd },
+      lateCheckoutSurcharge: { tierPct: d.extraNight ? 0 : late.tierPct, amountVnd: newVnd },
       lines: lines.map((l: FolioLineRow) => folioLineDto(l, tz)),
       totalVnd: balance.totalVnd,
       paidVnd: balance.paidVnd,
       balanceDueVnd: balance.balanceDueVnd,
-      creditVnd: balance.creditVnd,
-      ...(old.length > 0
+      creditVnd: balance.rawCreditVnd,
+      unhandledCreditVnd: balance.unhandledCreditVnd,
+      ...(old.lines.length > 0
         ? {
             lateSurchargeRecalc: {
-              oldVnd,
-              newVnd: late.amountVnd,
-              newTierPct: late.tierPct,
+              oldVnd: old.grossVnd,
+              newVnd,
+              newTierPct: d.extraNight ? 0 : late.tierPct,
             },
           }
         : {}),
       pendingApprovals: pending,
+      extraNightRequired: !!d.extraNight,
+      ...(d.extraNight
+        ? {
+            extraNightDefaultRateVnd: d.extraNight.defaultRateVnd,
+            extraNightAvailable: d.extraNight.available,
+          }
+        : {}),
+      postMidnightWindow: d.postMidnight,
       blockers,
     };
   }
@@ -198,9 +265,10 @@ export class CheckoutService {
         f.add('checkoutAt', 'DATE_INVALID');
       } else {
         checkoutAt = new Date(body.checkoutAt);
-        if (checkoutAt.getTime() > ctx.now.getTime()) f.add('checkoutAt', 'DATE_INVALID');
       }
     }
+    const timeNote = f.text('checkoutTimeNote', 300, { min: 3 });
+    const extraNightRate = this.extraNightInput(f, body);
     const applyLate = f.bool('applyLateSurcharge') ?? false;
     const expected = f.money('expectedSurchargeVnd', { required: false, positive: false });
     const over = this.overpayment(f, body);
@@ -217,75 +285,87 @@ export class CheckoutService {
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
-    const kids = await this.children(tx, row);
-    const lastDeparture = kids.reduce(
-      (a, k) => (k.departure_date > a ? k.departure_date : a),
-      row.departure_date,
-    );
-    if (lastDeparture !== ctx.today) {
+    await this.children(tx, row); // lock the children before reading the stay
+    if (!row.folio_id) throw problem('NOT_FOUND');
+    const folioId = row.folio_id;
+    const d = await this.departure(tx, ctx, row, checkoutTime, checkoutAt);
+    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
+    if (d.stay.departureDate !== ctx.today && !nowWindow) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-out on the departure business day (early departure first – B16)',
       });
     }
-    if (!row.folio_id) throw problem('NOT_FOUND');
-    const folioId = row.folio_id;
-    const time = await this.departureTime(tx, ctx, row, checkoutTime, checkoutAt);
-    const d = await this.departure(tx, ctx, row, time);
     const late: LateCheckoutResult = d.quote.r;
-    if (late.treatAsExtension) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'checkoutTime', code: 'LATE_CHECKOUT_AFTER_LIMIT' }],
+    const surcharge = d.extraNight ? 0 : late.amountVnd;
+    const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
+    // 409 SURCHARGE_CHANGED before the field checks (contract order).
+    if (applyLate && surcharge > old.grossVnd && expected !== undefined && expected !== surcharge) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: surcharge, tierPct: late.tierPct },
       });
     }
+
+    // ── field data (422) ──
+    // E03-07: the typed departure vs the server clock (checkoutAt = an instant, else the business-day axis).
+    let typed: { systemTime: LocalTime; noted: boolean };
+    if (checkoutAt) {
+      const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
+      const diff = checkoutAt.getTime() - ctx.now.getTime();
+      if (diff > tolerance * 60_000) f.add('checkoutAt', 'TIME_AFTER_ACTION');
+      typed = { systemTime: this.s.localTime(ctx), noted: -diff > tolerance * 60_000 };
+      if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
+    } else {
+      typed = await this.s.checkTypedTime(tx, ctx, f, {
+        field: 'checkoutTime',
+        time: d.time,
+        noteField: 'checkoutTimeNote',
+        note: timeNote,
+        rollover: d.rollover,
+      });
+    }
+    if (d.extraNight && !extraNightRate) f.add('extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
+    if (!d.extraNight && extraNightRate) f.add('extraNight', 'NOT_ALLOWED');
+    const raise = surcharge > old.grossVnd;
+    if (raise && !applyLate) f.add('applyLateSurcharge', 'SURCHARGE_DECISION_REQUIRED');
+    if (raise && applyLate && expected === undefined) f.add('expectedSurchargeVnd', 'REQUIRED');
+    f.done();
     await this.s.occupancy.lockRooms(tx, [d.rm.id]);
 
-    // ── G-10: late surcharge at the ACTUAL departure time ──
-    const old = await this.liveLateLines(tx, folioId, row.id);
-    const oldVnd = old.reduce((a, l) => a + l.amount_vnd, 0);
-    const newVnd = late.amountVnd;
-    const confirmIfHigher = () => {
-      if (!applyLate) return false;
-      if (expected === undefined) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'expectedSurchargeVnd', code: 'REQUIRED' }],
+    // ── E05-11: "check out – charge one more night" (BR-416 v0.3.4, DOM S3-9) ──
+    if (d.extraNight && extraNightRate !== null) {
+      const x = d.extraNight;
+      if (extraNightRate < x.floorVnd || extraNightRate > x.ceilingVnd) {
+        throw problem('RATE_OUT_OF_RANGE', {
+          errors: [{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }],
+          extras: { min: x.floorVnd, max: x.ceilingVnd },
         });
       }
-      if (expected !== newVnd) {
-        throw problem('SURCHARGE_CHANGED', {
-          extras: { expectedSurchargeVnd: newVnd, tierPct: late.tierPct },
-        });
-      }
-      return true;
-    };
-    let repost = false;
-    if (oldVnd > 0 && newVnd < oldVnd)
-      repost = true; // lower → automatic, in the guest's favour
-    else if (newVnd > oldVnd && newVnd > 0) repost = confirmIfHigher();
-    if (repost) {
-      const actor = { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) };
-      for (const l of old) {
-        await this.s.folios.reverseLine(tx, l.id, `G-10 actual departure ${time}`, actor);
-      }
-      if (newVnd > 0) {
-        await this.s.folios.postLines(
+      if (!x.available) {
+        throw await this.s.occupancy.unavailable(
           tx,
-          folioId,
-          [
-            {
-              reservationId: row.id,
-              category: 'late_checkout',
-              description: `late_checkout ${time} ${late.tierPct}%`,
-              quantity: 1,
-              unitPriceVnd: newVnd,
-              amountVnd: newVnd,
-              serviceDate: row.departure_date,
-              source: 'checkout',
-            },
-          ],
-          actor,
+          { roomId: d.rm.id, from: x.date, to: addDays(x.date, 1), persons: this.s.counted(row) },
+          { withNames: true },
         );
       }
+      await this.addExtraNight(tx, ctx, row, d, x, extraNightRate);
+    }
+
+    // ── G-10: late surcharge at the ACTUAL departure time (one live charge, FOC carried – S3-11) ──
+    if (surcharge < old.grossVnd || (raise && applyLate)) {
+      await this.s.replaceLateCharge(tx, ctx, {
+        folioId,
+        ids: d.stay.ids,
+        booking: d.stay.last,
+        serviceDate: d.stay.departureDate,
+        time: d.time,
+        tierPct: d.extraNight ? 0 : late.tierPct,
+        amountVnd: surcharge,
+        reason: d.extraNight
+          ? `extra night on checkout ${d.time}`
+          : `G-10 actual departure ${d.time}`,
+        source: 'checkout',
+      });
     }
 
     // ── final payment in the same transaction (spec 5.4) ──
@@ -304,27 +384,41 @@ export class CheckoutService {
       );
     }
 
+    // DOM S3-10: operational requests of the stay lost their purpose (cancelled `superseded`, audited).
+    const kids = await this.children(tx, row);
+    const all = [row.id, ...kids.map((k) => k.id)];
+    for (const target of all) {
+      await this.s.approvals.cancelSuperseded(tx, {
+        targetType: 'reservation',
+        targetId: target,
+        types: SUPERSEDED_AT_CHECKOUT,
+        reason: 'checked out (B18)',
+        ...this.s.req(ctx),
+      });
+    }
+
     // ── blockers, in order (spec 5.5) ──
     const minibar = await this.s.ports.minibar.checkoutStatus(tx, row.id, d.rm.id);
     if (minibar.required && !minibar.checked) throw problem('MINIBAR_NOT_CHECKED');
-    const pending = await this.pendingApprovals(tx, row);
+    const pending = await this.pendingApprovals(tx, all);
     if (pending > 0) throw problem('PENDING_APPROVALS', { extras: { pendingApprovals: pending } });
     const balance = await this.s.folios.balance(tx, folioId);
     if (balance.balanceDueVnd > 0 && !debt) {
       throw problem('BALANCE_DUE', { extras: { balanceDueVnd: balance.balanceDueVnd } });
     }
-    let refundRequestId: string | null = null;
-    if (balance.creditVnd > 0) {
+    // E15-05 / DOM BE-14: only the overpayment NOT yet routed to a refund request.
+    const unhandled = balance.unhandledCreditVnd;
+    if (unhandled > 0) {
       if (!over) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'overpaymentHandling', code: 'OVERPAYMENT_HANDLING_REQUIRED' }],
-          extras: { creditVnd: balance.creditVnd },
+          extras: { unhandledCreditVnd: unhandled, creditVnd: unhandled },
         });
       }
       if (over.mode === 'refund_request') {
-        const req = await this.s.approvals.submit(tx, ctx.actor, {
+        await this.s.approvals.submit(tx, ctx.actor, {
           type: 'refund',
-          amountVnd: balance.creditVnd,
+          amountVnd: unhandled,
           reasonCode: 'overpayment',
           reasonNote: over.reason,
           targetType: 'reservation',
@@ -332,8 +426,8 @@ export class CheckoutService {
           targetCode: row.code,
           ...this.s.req(ctx),
         });
-        refundRequestId = req.id;
       } else {
+        // DOM S3-4: the guest freely gives the excess up – other revenue, bill "left by the guest".
         await this.s.folios.postLines(
           tx,
           folioId,
@@ -341,11 +435,13 @@ export class CheckoutService {
             {
               reservationId: row.id,
               category: 'deposit_forfeit',
-              description: 'retain_with_guest_consent',
+              revenueGroup: 'other',
+              chargeCode: 'overpayment_retained',
+              description: 'overpayment_retained',
               quantity: 1,
-              unitPriceVnd: balance.creditVnd,
-              amountVnd: balance.creditVnd,
-              serviceDate: row.departure_date,
+              unitPriceVnd: unhandled,
+              amountVnd: unhandled,
+              serviceDate: d.stay.departureDate,
               source: 'checkout',
               reason: over.reason,
             },
@@ -356,7 +452,6 @@ export class CheckoutService {
     }
 
     // ── state ──
-    const all = [row.id, ...kids.map((k) => k.id)];
     await tx.query(
       `UPDATE reservation SET status = 'checked_out', actual_checkout_at = $2, checkout_mode = $3,
               debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1
@@ -386,11 +481,29 @@ export class CheckoutService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
+    if (typed.noted) {
+      // E03-07: typed time well before the action – both times + the note in the change log and the audit.
+      await recordChange(
+        tx,
+        row.id,
+        'checkout_time',
+        typed.systemTime,
+        d.time,
+        ctx.now,
+        timeNote ?? null,
+      );
+    }
     const settled = await this.s.folios.settle(tx, folioId, {
       userId: ctx.actor.userId,
       reservationCode: row.code,
       ...this.s.req(ctx),
     });
+    // SM-11 / DOM S3-3 (FB-R2-DOM-BE-15): checked out + folio owes nothing → commissions may be earned now.
+    await this.s.folios.tryEarnCommissions(
+      tx,
+      { reservationId: row.id, reservationCode: row.code, status: 'checked_out' },
+      ctx.requestId,
+    );
     await this.audit.record(tx, {
       category: 'state',
       action: 'reservation.checked_out',
@@ -401,10 +514,18 @@ export class CheckoutService {
       after: {
         status: 'checked_out',
         roomNo: d.rm.room_no,
-        lateSurchargeVnd: newVnd,
+        checkoutTime: d.time,
+        systemTime: typed.systemTime,
+        lateSurchargeVnd: surcharge,
         checkoutMode: debt ? 'debt' : 'desk',
+        ...(d.extraNight ? { extraNight: d.extraNight.date } : {}),
+        ...(d.postMidnight ? { postMidnightWindow: true } : {}),
       },
-      ...(debt ? { reason: debt.reason } : {}),
+      ...(debt || (typed.noted && timeNote)
+        ? {
+            reason: [debt?.reason, typed.noted ? timeNote : null].filter(Boolean).join(' | '),
+          }
+        : {}),
       ...this.s.req(ctx),
     });
     if (debt) {
@@ -451,14 +572,114 @@ export class CheckoutService {
     await this.s.ports.registration.onCheckedOut(tx, row.id, ctx.now);
     const after = await loadReservation(tx, row.id, ctx.actor);
     await this.s.events.publish(tx, 'reservation.changed', row.id);
-    if (refundRequestId) {
-      await this.s.events.publish(tx, 'payment.changed', refundRequestId, {
-        roles: [...MGR_PLUS],
-        userIds: [ctx.actor.userId],
-      });
-    }
     await this.s.stay.emit(tx, 'transitioned', after, 'in_house', 'B18', d.rm.id);
     return { row: after, billNo: settled.billNo, createdTaskIds };
+  }
+
+  /**
+   * E05-11 (BR-416 v0.3.4): the night of the departure day is sold at `rateVnd` – direct/agent: the booking is
+   * extended (re-tiered like B13, the typed price kept); OTA / external contract: a direct child booking (BR-422).
+   */
+  private async addExtraNight(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    d: Departure,
+    x: ExtraNight,
+    rateVnd: number,
+  ): Promise<void> {
+    const to = addDays(x.date, 1);
+    if (row.channel_group === 'ota' || row.external_contract) {
+      await this.s.stay.createChildStay(tx, ctx, row, {
+        roomId: d.rm.id,
+        from: x.date,
+        to,
+        nights: [{ date: x.date, amountVnd: rateVnd, calendarVnd: x.calendarVnd }],
+        rateSource: 'extra_night_early_late',
+        transition: 'B13',
+        actualCheckinAt: row.actual_checkin_at ?? ctx.now,
+        extraNight: true,
+      });
+    } else {
+      const seg = await this.s.lastSegment(tx, row.id);
+      await this.s.occupancy.update(
+        tx,
+        { segmentId: seg.id },
+        { roomId: d.rm.id, from: seg.from_date, to },
+        ctx.now,
+        { withNames: true, persons: this.s.counted(row), excludeSegmentIds: [seg.id] },
+      );
+      await tx.query('UPDATE reservation_segment SET to_date = $2, updated_at = $3 WHERE id = $1', [
+        seg.id,
+        to,
+        ctx.now,
+      ]);
+      const kept = await this.s.stay.pricedNights(tx, row);
+      const r = this.s.stay.retierStay(ctx, row, kept, [
+        { date: x.date, calendarVnd: x.calendarVnd, amountVnd: rateVnd, manual: true },
+      ]);
+      await this.s.stay.writeRepricedNights(tx, ctx, row, {
+        segmentId: seg.id,
+        roomId: d.rm.id,
+        pct: r.pct,
+        kept: r.kept,
+        added: r.added,
+        rateSource: 'extra_night_early_late',
+        extraNight: true,
+      });
+      await tx.query(
+        `UPDATE reservation SET departure_date = $2, updated_at = $3, version = version + 1 WHERE id = $1`,
+        [row.id, to, ctx.now],
+      );
+      await recordChange(
+        tx,
+        row.id,
+        'departure_date',
+        row.departure_date,
+        to,
+        ctx.now,
+        'B18 extra night',
+      );
+      const fresh = await loadReservation(tx, row.id, ctx.actor);
+      await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {
+        userId: ctx.actor.userId,
+        ...this.s.req(ctx),
+      });
+    }
+    await this.audit.recordMoney(tx, {
+      action: 'reservation.extra_night_on_checkout',
+      entityType: 'reservation',
+      entityId: row.id,
+      entityCode: row.code,
+      before: { departureDate: d.stay.departureDate },
+      after: {
+        departureDate: to,
+        nightlyRates: [{ date: x.date, amountVnd: rateVnd }],
+        checkoutTime: d.time,
+      },
+      reason: 'BR-416',
+      ...this.s.req(ctx),
+    });
+    await outboxAvailability(
+      tx,
+      [{ roomId: d.rm.id, from: x.date, to }],
+      'reservation.extra_night_on_checkout',
+    );
+    await this.s.ports.registration.onDepartureChanged(tx, row.id, to);
+  }
+
+  /** `extraNight {rateVnd}` (E05-11). */
+  private extraNightInput(f: Fields, body: Record<string, unknown>): number | null {
+    const v = body.extraNight;
+    if (v === undefined || v === null) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) {
+      f.add('extraNight', 'VALIDATION_FAILED');
+      return null;
+    }
+    const sub = new Fields(v as Record<string, unknown>);
+    const rate = sub.money('rateVnd', { required: true, positive: true });
+    for (const e of sub.errors) f.add(`extraNight.${e.field}`, e.code);
+    return rate ?? null;
   }
 
   // ───────────────────────── inputs ─────────────────────────

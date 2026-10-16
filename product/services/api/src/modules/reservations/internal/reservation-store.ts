@@ -70,6 +70,11 @@ export interface ReservationRow {
   checkin_room_status_before: string | null;
   early_departure_notice_at: Date | null;
   party_version: number;
+  // 0040 (BE-B – deposit shortfall accepted by MGR+; Reservation.depositShortfall, 0.3.6 bổ sung)
+  deposit_shortfall_vnd: number | null;
+  deposit_shortfall_accepted_at: Date | null;
+  deposit_shortfall_accepted_by_name: string | null;
+  deposit_shortfall_reason: string | null;
   created_at: Date;
   created_by: string | null;
   updated_at: Date;
@@ -87,7 +92,9 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   r.actual_checkout_at, to_char(r.agreed_checkout_time, 'HH24:MI') AS agreed_checkout_time, r.internal_note,
   r.external_contract, r.manual_long_stay, r.cards_issued, r.door_access_handed_over_at, r.checkout_mode,
   r.checkin_room_status_before, r.early_departure_notice_at, r.party_version, r.created_at, r.created_by,
-  r.updated_at, r.version`;
+  r.updated_at, r.version, r.deposit_shortfall_vnd, r.deposit_shortfall_accepted_at, r.deposit_shortfall_reason,
+  (SELECT su.display_name FROM app_user su WHERE su.id = r.deposit_shortfall_accepted_by)
+    AS deposit_shortfall_accepted_by_name`;
 
 export interface Actor {
   userId: string;

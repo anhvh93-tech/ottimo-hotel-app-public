@@ -1,6 +1,8 @@
-import { screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { mockControl, MOCK_TOKENS } from '../mocks/handlers';
+import { GuestI18nProvider } from '../app/i18n';
+import { TerminalPage } from '../pages/TerminalPage';
 import { openLink } from './helpers';
 
 describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
@@ -67,7 +69,9 @@ describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
     expect(await screen.findByText(/No smoking inside the unit/)).toBeInTheDocument();
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Language' }), 'ru');
-    expect(await screen.findByText(/Русская версия скоро/)).toBeInTheDocument();
+    // decision-log 17/10: no "Russian version soon" banner anywhere (screens are in RU)
+    await waitFor(() => expect(document.documentElement.lang).toBe('ru'));
+    expect(document.body.textContent).not.toMatch(/Русская версия скоро/);
     await waitFor(() => expect(mockControl.state.locale).toBe('ru'));
     expect(localStorage.length).toBe(0);
   });
@@ -77,5 +81,27 @@ describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
     const link = await screen.findByRole('link', { name: 'Chỉ đường' });
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link.getAttribute('href')).toMatch(/^https:\/\/maps\.google\.com\//);
+  });
+
+  it('429 and checked-out pages keep a way to a real person (UXD S3-07, DS 6.11)', () => {
+    const { unmount } = render(
+      <GuestI18nProvider locale="vi">
+        <TerminalPage which="rate_limited" minutes={3} phone="+84 263 000 000" />
+      </GuestI18nProvider>,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Bạn đã thử quá nhiều lần. Chờ 3 phút rồi thử lại.' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gọi người trực' })).toHaveAttribute(
+      'href',
+      'tel:+84263000000',
+    );
+    unmount();
+    render(
+      <GuestI18nProvider locale="vi">
+        <TerminalPage which="stay_ended" phone="+84 263 000 000" />
+      </GuestI18nProvider>,
+    );
+    expect(screen.getByRole('link', { name: 'Gọi người trực' })).toBeInTheDocument();
   });
 });

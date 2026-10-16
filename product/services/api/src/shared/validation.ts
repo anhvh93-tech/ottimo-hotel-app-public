@@ -17,6 +17,18 @@ export interface ReasonOptions {
 
 export { luhnValid };
 
+/**
+ * Control / invisible formatting characters (C0 except tab/newline/CR, DEL, C1, zero-width, bidi overrides) –
+ * removed from free text before it is stored, printed or audited (SEC-BE-44, A4).
+ */
+const CONTROL_CHARS =
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point here
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g;
+
+export function stripControlChars(text: string): string {
+  return text.replace(CONTROL_CHARS, '');
+}
+
 /** True when `text` contains something that looks like a payment card number (V-09). */
 export function containsCardNumber(text: string): boolean {
   // Any 13–19 digit window (spaces/dashes allowed between digits) that passes Luhn. The single copy:
@@ -49,7 +61,8 @@ export function assertNoCardNumber(field: string, text: string | null | undefine
 export function requireReason(field: string, value: unknown, opts: ReasonOptions = {}): string {
   const min = opts.min ?? 3;
   const max = opts.max ?? 500;
-  const text = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  const text =
+    typeof value === 'string' ? stripControlChars(value).trim().replace(/\s+/g, ' ') : '';
   const errors: FieldError[] = [];
   if (text.length < min) errors.push({ field, code: 'REASON_REQUIRED' });
   else if (text.length > max) errors.push({ field, code: 'TOO_LONG' });
@@ -64,7 +77,7 @@ export function optionalText(field: string, value: unknown, max: number): string
   if (typeof value !== 'string') {
     throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'VALIDATION_FAILED' }] });
   }
-  const text = value.trim();
+  const text = stripControlChars(value).trim();
   if (text.length > max) {
     throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'TOO_LONG' }] });
   }

@@ -27,9 +27,10 @@ import {
   type FolioLineRow,
   type FolioRow,
   FolioService,
-  computeTotals,
-  refundedOf,
+  OTA_COVERED,
+  moneyPosition,
 } from '../public/folio.service';
+import { type LabelContext, roomResolver } from '../public/line-labels';
 
 const TAX_CODE = /^[0-9]{10}(-?[0-9]{3})?$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -109,7 +110,7 @@ export class BillService {
     const view = await this.reservations.reservationView(tx, folio.primary_reservation_id);
     const lines = await this.folios.lines(tx, folio.id);
     const payments = await this.folios.payments(tx, folio.id);
-    const totals = computeTotals(lines, payments);
+    const m = moneyPosition(lines, payments);
     const paymentModel = String(view.paymentModel ?? 'direct');
     let printable = billLines(lines);
     let otaPrepaidNote: string | null = null;
@@ -128,13 +129,21 @@ export class BillService {
     const foreign = !!booker?.nationalityCode && booker.nationalityCode !== 'VN';
     const locale = foreign || (preferred !== null && preferred !== 'vi') ? 'vi_en' : 'vi';
     if (paymentModel === 'ota_prepaid') {
-      const roomIds = new Set(printable.filter((l) => l.category === 'room').map((l) => l.id));
-      const room = printable.filter(
-        (l) => roomIds.has(l.id) || (!!l.related_line_id && roomIds.has(l.related_line_id)),
+      // G-13 + DOM BE-13: what the OTA collected (nights, extra-person fee, fees it keeps) is not printed;
+      // the bill totals only what is settled at the desk.
+      const covered = new Set(
+        printable
+          .filter(
+            (l) => OTA_COVERED.has(l.category) && l.reservation_id === folio.primary_reservation_id,
+          )
+          .map((l) => l.id),
       );
-      const roomNet = room.reduce((a, l) => a + l.amount_vnd, 0);
-      printable = printable.filter((l) => !room.includes(l));
-      otaPrepaidVnd = totals.paidViaOtaVnd > 0 ? totals.paidViaOtaVnd : roomNet;
+      const ota = printable.filter(
+        (l) => covered.has(l.id) || (!!l.related_line_id && covered.has(l.related_line_id)),
+      );
+      const otaNet = ota.reduce((a, l) => a + l.amount_vnd, 0);
+      printable = printable.filter((l) => !ota.includes(l));
+      otaPrepaidVnd = m.paidOtaVnd > 0 ? m.paidOtaVnd : otaNet;
       const channel = String(view.channelCode ?? 'OTA');
       otaPrepaidNote =
         locale === 'vi_en'
@@ -148,7 +157,15 @@ export class BillService {
         paidAt: p.received_at ? toZonedIso(p.received_at, tz) : undefined,
         method: p.method,
       }));
-    const segments = (view.segments as Array<{ roomNo?: string }> | undefined) ?? [];
+    const segments =
+      (view.segments as
+        Array<{ roomNo?: string; fromDate?: string; toDate?: string }> | undefined) ?? [];
+    const totalVnd =
+      paymentModel === 'ota_prepaid' ? printable.reduce((a, l) => a + l.amount_vnd, 0) : m.totalVnd;
+    const labels = {
+      roomOn: roomResolver(segments),
+      catalogName: await this.catalogNames(tx, today),
+    };
     const { rows: prop } = await tx.query<{ name: string; address: string | null }>(
       'SELECT name, address FROM property WHERE id = $1',
       [tx.ctx.propertyId],
@@ -165,7 +182,7 @@ export class BillService {
         );
         usdReference = {
           rate,
-          totalUsd: Math.round((totals.totalVnd / rate) * 10) / 10,
+          totalUsd: Math.round((totalVnd / rate) * 10) / 10,
           ...(fx[0] ? { rateUpdatedOn: fx[0].effective_from } : {}),
         };
       } catch (e) {
@@ -187,10 +204,13 @@ export class BillService {
         : {}),
       arrivalDate: view.arrivalDate,
       departureDate: view.departureDate,
-      lines: printable.map((l) => folioLineDto(l, tz)),
-      totalVnd: totals.totalVnd,
-      paidVnd: totals.paidVnd,
-      balanceDueVnd: totals.balanceDueVnd,
+      lines: printable.map((l) => folioLineDto(l, tz, labels)),
+      totalVnd,
+      // Money paid at the desk (OTA collection shown apart as otaPrepaidVnd).
+      paidVnd: m.paidVnd - m.paidOtaVnd,
+      balanceDueVnd: m.balanceDueVnd,
+      // DOM BE-21: "Hoàn lại khách {x}" (spec 5.4) – OTTIMO overpayment not refunded yet.
+      creditVnd: m.creditVnd,
       ...(usdReference ? { usdReference } : {}),
       vietqrTransferContent: (folio.status === 'open' ? code : (folio.bill_no ?? code)).replace(
         /[^A-Za-z0-9]/g,
@@ -200,8 +220,44 @@ export class BillService {
       otaPrepaidNote,
       otaPrepaidVnd,
       refunds,
-      refundedVnd: refundedOf(payments),
+      refundedVnd: m.refundedVnd,
     };
+  }
+
+  /** Label context of a folio's lines (room per night, damage names) – getFolio and the bill. */
+  async labelContext(tx: Tx, folio: FolioRow): Promise<LabelContext> {
+    const tz = await this.folios.timezone(tx);
+    let segments: Array<{ roomNo?: string; fromDate?: string; toDate?: string }> = [];
+    if (this.reservations) {
+      try {
+        const v = await this.reservations.reservationView(tx, folio.primary_reservation_id);
+        segments = (v.segments as typeof segments | undefined) ?? [];
+      } catch {
+        segments = [];
+      }
+    }
+    return {
+      roomOn: roomResolver(segments),
+      catalogName: await this.catalogNames(tx, localDate(this.clock.now(), tz)),
+    };
+  }
+
+  /** Names of the BR-512 damage table (`damage.<code>` charge codes) for the line labels. */
+  async catalogNames(tx: Tx, day: string): Promise<(code: string) => string | null> {
+    let table: unknown = null;
+    try {
+      table = await this.params.get<unknown>(tx, 'damage_catalog', day);
+    } catch (e) {
+      if (!(e instanceof ParameterMissingError)) throw e;
+    }
+    const names = new Map<string, string>();
+    if (Array.isArray(table)) {
+      for (const d of table as Array<{ code?: unknown; name?: unknown }>) {
+        if (typeof d.code === 'string' && typeof d.name === 'string')
+          names.set(`damage.${d.code}`, d.name);
+      }
+    }
+    return (code) => names.get(code) ?? null;
   }
 
   /** setInvoiceRequest (A38, US-039 AC1/AC2): validated, stored per folio; MISA issuance R3. */

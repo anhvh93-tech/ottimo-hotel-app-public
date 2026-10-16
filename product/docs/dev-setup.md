@@ -58,7 +58,7 @@ Biến đồng hồ và kiểm thử (ADR-008, `docs/api/openapi.test.yaml`):
 | `OTTIMO_APP_DB_PASSWORD` (vai `ottimo_app` – api, worker, test) | mật khẩu trong `DATABASE_URL` |
 | `OTTIMO_MIGRATOR_DB_PASSWORD` (vai `ottimo_migrator` – chỉ chạy migration; `ottimo_owner` là `NOLOGIN`, không có mật khẩu) | mật khẩu trong `MIGRATION_DATABASE_URL` |
 
-Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định mọi tích hợp ở chế độ `mock`/`manual`. `APP_ENV=dev` là bắt buộc (api/worker từ chối khởi động nếu thiếu). Các khóa `SESSION_SECRET`, `DATA_KEK_CURRENT`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`, `GUEST_CODE_SIGNING_KEY` (mỗi mục đích một khóa – ADR-013 điểm 5) được để trống ở `dev`/`test`; ở `staging`/`production` thiếu hoặc ngắn hơn 32 ký tự thì ứng dụng **dừng** (tạo bằng `openssl rand -base64 32`).
+Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định mọi tích hợp ở chế độ `mock`/`manual`. **Tài khoản nhận tiền VietQR không còn là biến môi trường** (SEC-INT-06, INT 17/10): ở dev/staging, tài khoản **OWN** nhập tài khoản ngân hàng **thử** trong app – Tham số → `payment_receiving_account` (hỏi lại mật khẩu, ghi audit `money`); production cũng vậy với tài khoản thật. Ba biến cũ `PAYMENT_VIETQR_BANK_BIN`, `PAYMENT_VIETQR_ACCOUNT_NO`, `PAYMENT_VIETQR_ACCOUNT_NAME` đã bỏ khỏi `.env.example`; nếu `.env` cũ còn giá trị khác rỗng thì api/worker **dừng khởi động** (`… is no longer read – set the receiving account in the payment_receiving_account parameter`) → xóa hoặc comment ba dòng đó. `APP_ENV=dev` là bắt buộc (api/worker từ chối khởi động nếu thiếu). Các khóa `SESSION_SECRET`, `DATA_KEK_CURRENT`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`, `GUEST_CODE_SIGNING_KEY` (mỗi mục đích một khóa – ADR-013 điểm 5) được để trống ở `dev`/`test`; ở `staging`/`production` thiếu hoặc ngắn hơn 32 ký tự thì ứng dụng **dừng** (tạo bằng `openssl rand -base64 32`).
 
 ### Kiểm Origin của api trong compose (SR-SES-04/09)
 
@@ -84,7 +84,9 @@ Khi bật: mở web bằng `http://localhost:808x` (không dùng `127.0.0.1` –
 | `ottimo_app` | api, worker, test (`DATABASE_URL`) | `NOSUPERUSER NOBYPASSRLS`, không sở hữu bảng; quyền từng bảng do migration `GRANT` |
 | `ottimo_readonly` | sao lưu, tra cứu sự cố | `BYPASSRLS`, tạo ở trạng thái `NOLOGIN`; chỉ bật đăng nhập theo runbook (SR-OPS-04) |
 
-Giới hạn mặc định của vai `ottimo_app` (FB-R2-SEC-BE-23, đặt trong `02-roles.sh` bằng `ALTER ROLE … SET`, áp khi kết nối mới): `idle_in_transaction_session_timeout = 30s` (phiên mở giao dịch rồi bỏ đó quá 30 s bị PostgreSQL ngắt, nhả khóa dòng) và `statement_timeout = 15s`. Giao dịch của api vẫn tự `SET LOCAL lock_timeout 5s / statement_timeout 15s` (job 10 s); báo cáo dài phải tự `SET LOCAL statement_timeout` lớn hơn. `ottimo_migrator` không bị giới hạn (migration có thể chạy lâu). **Volume DB tạo trước Sprint 2 – bước Phản hồi & sửa** chưa có hai giá trị này – áp bằng một trong hai cách (không mất dữ liệu):
+Giới hạn mặc định của vai `ottimo_app` (FB-R2-SEC-BE-23, đặt trong `02-roles.sh` bằng `ALTER ROLE … SET`, áp khi kết nối mới): `idle_in_transaction_session_timeout = 30s` (phiên mở giao dịch rồi bỏ đó quá 30 s bị PostgreSQL ngắt, nhả khóa dòng) và `statement_timeout = 15s`. Giao dịch của api vẫn tự `SET LOCAL lock_timeout 5s / statement_timeout 15s` (job 10 s); báo cáo dài phải tự `SET LOCAL statement_timeout` lớn hơn. `ottimo_migrator` không bị giới hạn (migration có thể chạy lâu).
+
+**Từ R2 – Sprint 3 (SEC H3): `02-roles.sh` chạy lại ở MỖI lần `pnpm dev` / `docker compose up`** (dịch vụ một lần `db-roles`, trước `migrate`) – volume cũ, stack tạm dùng lại volume đều tự nhận thay đổi vai; script đọc lại `rolconfig` và thoát 1 nếu thiếu giới hạn (`docker compose … logs db-roles`). Staging/production: `infra/server/bin/deploy.sh` chạy cùng script trước migration. Hai cách tay dưới đây chỉ còn dùng khi chạy postgres ngoài compose này (không mất dữ liệu):
 
 ```bash
 # cách 1: chạy lại script vai (idempotent)
@@ -112,14 +114,16 @@ cd product
 pnpm dev          # = docker compose --env-file .env -f infra/docker-compose.yml up --build
 ```
 
-Thứ tự khởi động: `postgres` (healthy) → **`migrate`** (một lần: `node dist/db/migrate-cli.js`, đăng nhập `ottimo_migrator` rồi `SET ROLE ottimo_owner`, áp migration còn thiếu, chạy lại = không làm gì; in `{"msg":"migrations applied"}` rồi thoát 0) → `api`, `worker` (chỉ chạy khi `migrate` thoát 0) → `web`. `migrate` lỗi thì api/worker không khởi động – xem `docker compose … logs migrate`. Chỉ dịch vụ `migrate` nhận `MIGRATION_DATABASE_URL`; api/worker chỉ có `DATABASE_URL` (`ottimo_app`).
+Thứ tự khởi động: `postgres` (healthy) → **`db-roles`** (một lần: chạy lại `02-roles.sh`, thoát 0 – SEC H3) → **`migrate`** (một lần: `node dist/db/migrate-cli.js`, đăng nhập `ottimo_migrator` rồi `SET ROLE ottimo_owner`, áp migration còn thiếu, chạy lại = không làm gì; in `{"msg":"migrations applied"}` rồi thoát 0) → `api`, `worker` (chỉ chạy khi `migrate` thoát 0) → `web`. `migrate` lỗi thì api/worker không khởi động – xem `docker compose … logs migrate`. Chỉ dịch vụ `migrate` nhận `MIGRATION_DATABASE_URL`; api/worker chỉ có `DATABASE_URL` (`ottimo_app`).
 
 | Dịch vụ | Địa chỉ | Ghi chú |
 |---|---|---|
 | PostgreSQL 17 | `localhost:5432` | DB `ottimo` (+ `ottimo_test` cho test); extension `btree_gist`, `pgcrypto`, `citext` và 4 vai `ottimo_owner` (NOLOGIN) / `ottimo_migrator` / `ottimo_app` / `ottimo_readonly` tạo sẵn khi volume mới |
 | api | http://localhost:3000/health | trả `{"status":"ok","db":"ok","time":"…+07:00"}`; 503 nếu DB không trả lời. Dev có `/__test__/*` (không token → 401) |
 | migrate | (không có cổng) | chạy một lần rồi thoát – `docker compose ps -a` hiện `Exited (0)` là đúng |
-| worker | (không có cổng) | job chạy theo phút (`JobRunner`, hiện có `log.partitions`); log `worker started`, `job done …` |
+| db-roles | (không có cổng) | chạy một lần mỗi `up` rồi thoát 0 (`Exited (0)` là đúng); log cuối in `rolconfig` của `ottimo_app` |
+| worker | (không có cổng) | job chạy theo phút (`JobRunner`: `hold.expire`, `log.partitions`, `ooo.activate`, `payment.expire`, `retention.purge` – J16 hằng giờ); log `worker started`, `job done …` |
+| volume `blobdata` | – | kho tệp **đã mã hóa** (ảnh giấy tờ, đính kèm – ADR-013, SEC C2) tại `/var/lib/ottimo/blobs` trong **api + worker** (`BLOBSTORE_LOCAL_PATH`), thư mục 0700 chủ `node`; **không** gắn vào `web`. `down -v` xóa cả volume này cùng DB (giữ hai thứ đi cùng nhau) |
 | web – admin-web | http://localhost:8081 | Caddy (chạy user không đặc quyền) phục vụ bản build tĩnh; `/health`, `/v1/*` được chuyển tới api; Caddyfile dev được mount từ `infra/caddy/Caddyfile.dev` |
 | web – mobile (PWA) | http://localhost:8082 | |
 | web – guest-web | http://localhost:8083 | |
@@ -143,6 +147,8 @@ docker compose --env-file .env -f infra/docker-compose.yml --profile seed run --
 ```
 
 Loader in báo cáo JSON (số user, thiết bị, tham số, so mã chứng từ); token thiết bị ghi vào `tests/fixtures/seed/.out/ds-e.map.json` (gitignore, quyền 0600), không in ra log. Mã chứng từ của fixture lệch với server → loader dừng, không để lại gì; `--allow-code-drift` để nạp vẫn nạp và chỉ cảnh báo.
+
+Giới hạn thân request qua Caddy (giống staging – FB-R2-ARC-BE-S3-18): 3 đường tải ảnh (`addGuestDocument`, `uploadAttachment`, `uploadGuestDocument`) tối đa 42 MB, mọi request khác 1 MB → quá thì `413`. Gọi thẳng api ở cổng 3000 thì không qua giới hạn này.
 
 Dừng: `pnpm dev:down`. Xóa sạch dữ liệu DB dev: `docker compose --env-file .env -f infra/docker-compose.yml down -v` (mất toàn bộ dữ liệu DB dev – chỉ dữ liệu giả).
 
@@ -213,14 +219,18 @@ product/
 ├── infra/docker-compose.yml              # môi trường dev: postgres → migrate (một lần) → api/worker → web; seed (profile)
 ├── infra/docker/Dockerfile.api|web       # image api/worker (turbo prune @ottimo/api) và web tĩnh (base image ghim digest)
 ├── infra/caddy/Caddyfile.dev             # mount vào container web, không nằm trong image
+├── infra/caddy/Caddyfile.prod            # staging/production: TLS, CSP/HSTS/Referrer-Policy, che log /g/*, 42 MB/1 MB
+├── infra/docker-compose.prod.yml         # staging/production (một tệp) – chạy qua infra/server/bin/dc
+├── infra/server/                         # dựng VPS: bootstrap, bí mật, deploy/rollback, sao lưu, ops-check, diễn tập khôi phục (README)
 ├── infra/postgres/init/01-extensions.sql
 ├── infra/postgres/init/02-roles.sh       # vai ottimo_owner (NOLOGIN) / ottimo_migrator / ottimo_app / ottimo_readonly
 ├── infra/ci/check-no-test-surface.sh     # CI: chặn /__test__ trong openapi.yaml và bundle api production
 ├── infra/ci/make-ci-env.sh               # CI: .env dùng một lần (mật khẩu, TEST_SUPPORT_TOKEN, QA_SEED_PASSWORD ngẫu nhiên)
+├── infra/ci/check-caddy-prod.sh          # CI: Caddyfile.prod – header, probe 404, 413, log không có token /g/
 └── tests/e2e | load | fixtures           # R2–R3
 ```
 
-Ngoài `product/`: `.github/workflows/ci.yml` (job `build-test` – có bước `drizzle-kit generate` không sinh file và `pnpm db:migrate` trước test; `test-surface-guard`, `contract-lint`, `api-contract` – có `gen_rbac_cases.py --check`; `secrets-scan`; `docker-build` – migrate từ image production rồi smoke `/health`, E2E trên stack compose có `migrate`; action ghim theo SHA), `.github/gitleaks.toml` (allowlist có lý do), `.github/dependabot.yml`.
+Ngoài `product/`: `.github/workflows/ci.yml` (job `infra-scripts` – shellcheck các script hạ tầng; job `build-test` – có bước `drizzle-kit generate` không sinh file và `pnpm db:migrate` trước test; `test-surface-guard`, `contract-lint`, `api-contract` – có `gen_rbac_cases.py --check`; `secrets-scan`; `docker-build` – migrate từ image production rồi smoke `/health`, E2E trên stack compose có `migrate`; action ghim theo SHA), `.github/gitleaks.toml` (allowlist có lý do), `.github/dependabot.yml`.
 
 Sinh kiểu từ OpenAPI (R2): kết quả sinh vào `packages/contracts/src/generated/` và **được commit**; CI kiểm "sinh lại không đổi". Docker build không đọc `docs/` (thẻ FB-R1-ARC-OPS-06).
 
@@ -249,6 +259,10 @@ Lệch so với `architecture.md` mục 17: compose đặt ở `infra/docker-com
 | `corepack` báo lỗi chữ ký khi tải pnpm | Cập nhật Node 22 lên bản vá mới nhất, hoặc `npm i -g corepack@latest` |
 | macOS: postgres đứng mãi `health: starting`, `docker logs` trống, `docker stop` báo "did not receive an exit event" | Docker/OrbStack chưa được macOS cho phép đọc thư mục chứa repo (`~/Desktop`, `~/Documents`, `~/Downloads`) – xem mục 1 "macOS – quyền thư mục". Sau khi cho phép, nếu volume đã tạo mà thiếu vai/`ottimo_test` thì `docker compose … down -v` rồi chạy lại |
 | `ERR_PNPM_OUTDATED_LOCKFILE` / `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` (CI hoặc `docker build`) | Đã sửa `package.json` mà chưa cập nhật lockfile: `pnpm install` ở `product/` rồi commit `pnpm-lock.yaml` |
+| `ConfigError: … PAYMENT_VIETQR_ACCOUNT_NO is no longer read …` (hoặc `_BANK_BIN`, `_ACCOUNT_NAME`) | `.env` cũ còn 3 biến VietQR đã bỏ (SEC-INT-06): xóa/comment chúng; OWN nhập tài khoản nhận tiền ở Tham số → `payment_receiving_account` |
 | `ConfigError: … TRUST_PROXY hop counts are not supported` | Fastify ≥ 5.12 bỏ tin proxy theo số bước (không kiểm được địa chỉ proxy). Đặt `TRUST_PROXY` = IP/CIDR của Caddy |
+| api/worker `unhealthy`, log `Error: EACCES: permission denied, mkdir '/app/.data/blobs'` (CI run 38929255451) | Compose/stack tự viết không đặt `BLOBSTORE_LOCAL_PATH`: mặc định `./.data/blobs` chỉ dùng khi chạy api trên máy (thư mục `/app` trong image không ghi được). Dùng `infra/docker-compose.yml` mới (volume `blobdata` → `/var/lib/ottimo/blobs`) hoặc tự thêm biến + volume đó cho **cả** api và worker |
+| `db-roles` `Exited (1)`: `ottimo_app … missing (rolconfig=…)` hoặc lỗi mật khẩu | `POSTGRES_PASSWORD` trong `.env` khác mật khẩu superuser của volume (chỉ áp lúc tạo volume) → sửa `.env` cho khớp, hoặc `down -v` nếu chỉ là dữ liệu giả |
+| Tải ảnh qua `localhost:808x` trả `413` | Thân request vượt 42 MB (đường tải ảnh) hoặc 1 MB (đường khác) – đúng thiết kế; client phải thu nhỏ ảnh trước (SR-FILE-01) |
 | `pnpm test` xanh nhưng có `skipped` ở `db-role.test.ts` / `health.test.ts` | Thiếu `DATABASE_URL` hoặc `MIGRATION_DATABASE_URL` – xem lệnh ở mục 5 |
 | `No "exports" main defined in …/@ottimo/<gói>/package.json` khi api chạy/test | Gói ESM dùng chung thiếu điều kiện `"default"` trong `exports` – api (CommonJS) `require()` gói qua điều kiện `require`/`default`, không dùng `import`. Thêm `"default"` cạnh `"import"` |

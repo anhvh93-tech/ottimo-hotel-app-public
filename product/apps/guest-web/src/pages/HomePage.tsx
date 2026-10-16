@@ -27,13 +27,11 @@ export function HomePage({
   const isDone = Boolean(checkin?.completedAt) || checkin?.currentStep === 'done';
   const uploadedN = checkin?.uploadedPeople?.length ?? 0;
   const deferredN = checkin?.deferredPeople?.length ?? 0;
-  // "After 22:00" is stored as 22:00 + lateArrival (contract 0.3.3).
-  const eta = checkin?.lateArrival ? `${checkin.etaTime ?? '22:00'}+` : checkin?.etaTime;
 
   return (
     <div className="m-body gw-stack">
       <div>
-        <h2 style={{ fontSize: '1.375rem' }} tabIndex={-1} data-autofocus>
+        <h2 className="gw-hello" tabIndex={-1} data-autofocus>
           {name ? t('guest.hello', { name }) : stay.reservationCode}
         </h2>
         <p className="li-s">
@@ -64,32 +62,35 @@ export function HomePage({
 
       {stay.onlineCheckinAvailable && isDone ? (
         <div className="card">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h3 className="gw-card-title">
             <Icon name="check" />
             {t('gw.oci_done_card_title')}
           </h3>
-          <p className="li-s" style={{ margin: '4px 0 0' }}>
-            {t('gw.oci_done_card_body', {
-              n: uploadedN,
-              m: checkin?.requiredPeople ?? 0,
-              eta: eta ?? '–',
-            })}
+          <p className="li-s m-0 mt-4">
+            {checkin?.lateArrival
+              ? // "After 22:00" is stored as 22:00 + lateArrival (contract 0.3.3) – UXD MOB-S3-03.
+                t('gw.oci_done_card_body_late', {
+                  n: uploadedN,
+                  m: checkin.requiredPeople,
+                  time: checkin.etaTime ?? '22:00',
+                })
+              : t('gw.oci_done_card_body', {
+                  n: uploadedN,
+                  m: checkin?.requiredPeople ?? 0,
+                  eta: checkin?.etaTime ?? '–',
+                })}
           </p>
           {deferredN ? (
-            <p className="li-s" style={{ margin: 0 }}>
-              {t('gw.oci_done_card_deferred', { k: deferredN })}
-            </p>
+            <p className="li-s m-0">{t('gw.oci_done_card_deferred', { k: deferredN })}</p>
           ) : null}
-          <button type="button" className="btn block" style={{ marginTop: 8 }} onClick={onCheckin}>
+          <button type="button" className="btn block mt-8" onClick={onCheckin}>
             {t('gw.oci_done_card_view')}
           </button>
         </div>
       ) : stay.onlineCheckinAvailable ? (
-        <div className="card" style={{ borderColor: 'var(--ink)' }}>
+        <div className="card gw-cta">
           <h3>{t('guest.cta.checkin')}</h3>
-          <p className="li-s" style={{ margin: '4px 0 10px' }}>
-            {t('guest.cta.checkin_help')}
-          </p>
+          <p className="li-s m-0 mt-4 mb-12">{t('guest.cta.checkin_help')}</p>
           <button type="button" className="btn pri block" onClick={onCheckin}>
             {t('guest.cta.checkin_short')}
           </button>
@@ -105,13 +106,13 @@ export function HomePage({
         <h3>{t('gw.door_at_desk_title')}</h3>
         <p className="li-s">{t('gw.door_at_desk')}</p>
         {tel ? (
-          <a className="btn block" href={tel} style={{ marginTop: 8 }}>
+          <a className="btn block mt-8" href={tel}>
             {t('guest.contact.call')}
           </a>
         ) : null}
       </div>
 
-      <ul className="list card" style={{ padding: '2px 12px' }}>
+      <ul className="list card gw-links">
         {map ? (
           <li>
             <a className="rowlink" href={map} target="_blank" rel="noopener noreferrer">

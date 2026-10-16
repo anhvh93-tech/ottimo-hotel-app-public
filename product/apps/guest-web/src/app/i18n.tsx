@@ -22,7 +22,8 @@ function lookup(locale: GuestLocale, key: string): string | undefined {
  * Legal text of the check-in (data notice + consent) stays in the approved EN on the RU page until a
  * reviewed RU exists (content-guide HR-01, EP06 8.5: "không dịch máy"). The RU drafts (UXD S3 đợt 2)
  * are marked "cần người dịch duyệt"; consent evidence must not rest on an unreviewed text.
- * [GIẢ ĐỊNH MOB – UXD/SEC bỏ khóa khỏi danh sách khi bản RU được duyệt]
+ * Decision-log 17/10 (ORC, SEC + UXD): remove a key only when UXD + SEC sign the reviewed RU text and
+ * `privacy_notice_version` is bumped.
  */
 const RU_UNREVIEWED_LEGAL = new Set([
   'gw.notice_body',
@@ -32,6 +33,7 @@ const RU_UNREVIEWED_LEGAL = new Set([
   'guest.oci.consent_no',
   'guest.oci.consent_optional',
   'guest.oci.withdraw_hint',
+  'gw.notice_read', // the confirm button reads in the language of the text it confirms (SEC (a) 2)
 ]);
 
 function effective(locale: GuestLocale, key: string): GuestLocale {

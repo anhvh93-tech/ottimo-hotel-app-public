@@ -22,6 +22,7 @@ import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { type AttachmentPurpose, ATTACHMENT_PURPOSES } from '../../../db/schema';
 import { problem } from '../../../shared/problem';
+import { inSavepoint } from '../../../shared/savepoint';
 import { localDate } from '../../../shared/time';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
@@ -70,6 +71,17 @@ const READ_OWN_ROLES: Record<AttachmentPurpose, readonly string[]> = {
   inspection: ['housekeeping'],
   refund_proof: ['front_desk_lead', 'front_desk'],
 };
+
+/**
+ * Purposes whose owning flow exists in R2 (money rows of BE-B, penalty evidence of the checkout). Work
+ * orders, inspections and meter readings land in Sprint 4/R3: until their record exists an upload could
+ * never be bound, so it is refused (SEC FB-R2-SEC-BE-38 option 2) – 422 NOT_IN_LIST.
+ */
+export const PURPOSES_ACCEPTED_NOW: readonly AttachmentPurpose[] = [
+  'deposit_receipt',
+  'penalty_evidence',
+  'refund_proof',
+];
 
 /** SEC I7 – technical limit (counts every purpose). */
 export const ATTACHMENTS_PER_USER_PER_DAY = 50;
@@ -132,6 +144,10 @@ export class AttachmentService {
     image: NormalizedImage,
   ): Promise<{ id: string; purpose: AttachmentPurpose; sizeBytes: number }> {
     const now = this.clock.now();
+    // SEC BE-49: count and insert under a per-user lock (two parallel uploads cannot both pass at 49).
+    await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+      `attachment-upload:${actor.userId}`,
+    ]);
     const { rows } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM attachment WHERE uploaded_by = $1 AND uploaded_at > $2`,
       [actor.userId, new Date(now.getTime() - 86_400_000)],
@@ -215,19 +231,28 @@ export class AttachmentService {
     if (row.bound_ref_id) throw invalid();
   }
 
-  /** Links the file to the record that uses it (payment, folio_line, approval_request…). */
+  /**
+   * Links the file to the record that uses it (payment, folio_line, approval_request…). One file, one
+   * record: binding is a compare-and-set (`bound_ref_id IS NULL`), so two concurrent money rows cannot share
+   * a receipt (ARC FB-S3-27 (7)) – the loser gets 422 NOT_IN_LIST.
+   */
   async bindTo(
     tx: Tx,
     id: string,
     ref: { type: string; id: string },
-    opts: { retentionAnchorAt?: Date } = {},
+    opts: { retentionAnchorAt?: Date; field?: string } = {},
   ): Promise<void> {
-    await tx.query(
+    const r = await tx.query(
       `UPDATE attachment SET bound_ref_type = $2, bound_ref_id = $3,
               retention_anchor_at = COALESCE($4, retention_anchor_at)
-        WHERE id = $1 AND purged_at IS NULL`,
+        WHERE id = $1 AND purged_at IS NULL AND bound_ref_id IS NULL`,
       [id, ref.type, ref.id, opts.retentionAnchorAt ?? null],
     );
+    if ((r.rowCount ?? 0) === 0) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: opts.field ?? 'attachmentId', code: 'NOT_IN_LIST' }],
+      });
+    }
   }
 
   /** Start of the retention period (SEC I5): reconciled, checkout, closed… Idempotent. */
@@ -236,6 +261,10 @@ export class AttachmentService {
     where: { id?: string; reservationId?: string; purpose: AttachmentPurpose },
     at: Date,
   ): Promise<number> {
+    // ARC FB-S3-31 (2): never "every file of this purpose".
+    if (!where.id && !where.reservationId) {
+      throw new Error('setRetentionAnchor needs an attachment id or a reservation id');
+    }
     const r = await tx.query(
       `UPDATE attachment SET retention_anchor_at = $4
         WHERE purpose = $3 AND purged_at IS NULL
@@ -246,38 +275,64 @@ export class AttachmentService {
     return r.rowCount ?? 0;
   }
 
-  /** J16 (SEC I5): purge attachments whose anchor + retention has passed. Returns the count. */
-  async purgeDue(tx: Tx, now: Date, timezone: string): Promise<number> {
+  /**
+   * J16 (SEC I5, SEC BE-38): purge attachments whose anchor + retention has passed, and uploads never bound
+   * to a record within `attachment_unbound_days`. Each file in its own SAVEPOINT (one bad row does not stop
+   * the run). Returns purged count + failures.
+   */
+  async purgeDue(
+    tx: Tx,
+    now: Date,
+    timezone: string,
+  ): Promise<{ purged: number; failed: number; errors: string[] }> {
     const today = localDate(now, timezone);
     const days = await this.params.get<number>(tx, 'deposit_receipt_retention_days', today);
     const months = await this.params.get<number>(tx, 'attachment_ops_retention_months', today);
-    const { rows } = await tx.query<{ id: string; blob_key: string; data_key_id: string }>(
-      `SELECT id, blob_key, data_key_id FROM attachment
-        WHERE purged_at IS NULL AND retention_anchor_at IS NOT NULL
-          AND ((purpose IN ('deposit_receipt', 'refund_proof')
-                AND retention_anchor_at + make_interval(days => $2) <= $1)
-            OR (purpose IN ('work_order', 'inspection', 'penalty_evidence', 'meter')
-                AND retention_anchor_at + make_interval(months => $3) <= $1))
-        ORDER BY id LIMIT 500 FOR UPDATE`,
-      [now, days, months],
+    const unboundDays = await this.params.get<number>(tx, 'attachment_unbound_days', today);
+    const { rows } = await tx.query<{
+      id: string;
+      blob_key: string;
+      data_key_id: string;
+      reason: 'retention' | 'unbound';
+    }>(
+      `SELECT id, blob_key, data_key_id,
+              CASE WHEN bound_ref_id IS NULL AND uploaded_at + make_interval(days => $4) <= $1
+                   THEN 'unbound' ELSE 'retention' END AS reason
+         FROM attachment
+        WHERE purged_at IS NULL
+          AND ( (bound_ref_id IS NULL AND uploaded_at + make_interval(days => $4) <= $1)
+             OR (retention_anchor_at IS NOT NULL
+                 AND ((purpose IN ('deposit_receipt', 'refund_proof')
+                       AND retention_anchor_at + make_interval(days => $2) <= $1)
+                   OR (purpose IN ('work_order', 'inspection', 'penalty_evidence', 'meter')
+                       AND retention_anchor_at + make_interval(months => $3) <= $1))))
+        ORDER BY id LIMIT 500 FOR UPDATE SKIP LOCKED`,
+      [now, days, months, unboundDays],
     );
+    let purged = 0;
+    const errors: string[] = [];
     for (const row of rows) {
-      await this.blobs.purge(
-        tx,
-        {
-          blobKey: row.blob_key,
-          dataKeyId: row.data_key_id,
-          subjectType: 'attachment',
-          subjectId: row.id,
-        },
-        'SEC-I5',
-      );
-      await tx.query(
-        `UPDATE attachment SET purged_at = $2, purge_reason = 'retention' WHERE id = $1`,
-        [row.id, now],
-      );
+      const err = await inSavepoint(tx, async () => {
+        await this.blobs.purge(
+          tx,
+          {
+            blobKey: row.blob_key,
+            dataKeyId: row.data_key_id,
+            subjectType: 'attachment',
+            subjectId: row.id,
+          },
+          row.reason === 'unbound' ? 'SEC-BE-38' : 'SEC-I5',
+        );
+        await tx.query(`UPDATE attachment SET purged_at = $2, purge_reason = $3 WHERE id = $1`, [
+          row.id,
+          now,
+          row.reason,
+        ]);
+      });
+      if (err) errors.push(`attachment ${row.id}: ${err.name}`);
+      else purged++;
     }
-    return rows.length;
+    return { purged, failed: errors.length, errors };
   }
 
   private async visibleRow(

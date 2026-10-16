@@ -1,6 +1,6 @@
 // Door access helpers shared by the core (BE-A) and every DoorLockAdapter. Owner: INT.
-// BR-403: code valid from check-in time to check-out time (incl. approved late check-out); 6 random digits
-// by default; birthday code = ddmm + 3 random digits; at most 2 key cards per room (BR-511).
+// BR-403 v0.3.4: validity window (actual check-in if earlier → agreed late check-out or grace); 6 random
+// digits by default, no weak code; birthday code = ddmm + 3 random digits; at most 2 key cards per room.
 import { randomInt } from 'node:crypto';
 import {
   IntegrationError,
@@ -34,8 +34,20 @@ export interface DoorValidityInput {
   checkOutTime?: string;
   /** Confirmed early check-in time on the arrival date. */
   earlyCheckInTime?: string;
-  /** Approved late check-out time on the departure date (BR-403). */
+  /**
+   * Actual check-in instant (B9a, e.g. 04:40). Used as validFrom when earlier than the standard/early
+   * check-in time (BR-403 v0.3.4, FB-R2-DOM-INT-01).
+   */
+  actualCheckInAt?: IsoInstant | string;
+  /** Agreed late check-out time on the departure date (BR-403/412). Wins over everything below. */
   lateCheckOutTime?: string;
+  /** Parameter `late_grace_until` (BR-412, '12:30'). Applies only when `sameDayArrival === false`. */
+  lateGraceUntil?: string;
+  /**
+   * Core-computed: a confirmed/hold reservation arrives in this room on the departure date (BR-412). Grace is
+   * applied only when this is explicitly false – unknown means no grace (standard check-out time).
+   */
+  sameDayArrival?: boolean;
 }
 
 function hhmm(value: string, field: string): string {
@@ -43,7 +55,14 @@ function hhmm(value: string, field: string): string {
   return value;
 }
 
-/** Validity window of a guest code/card: arrival + check-in time → departure + check-out time. */
+/**
+ * Validity window of a guest code/card (BR-403 v0.3.4, DOM S3-16):
+ * - validFrom = arrival date + standard (or confirmed early) check-in time, or the actual check-in instant
+ *   when that is earlier;
+ * - validTo = departure date + agreed late check-out time; none agreed → `late_grace_until` when no guest
+ *   arrives in the room that day; otherwise the standard check-out time.
+ * The core still revokes the code immediately at check-out (B18) – the window is only the upper bound.
+ */
 export function computeDoorValidity(input: DoorValidityInput): {
   validFrom: IsoInstant;
   validTo: IsoInstant;
@@ -57,11 +76,59 @@ export function computeDoorValidity(input: DoorValidityInput): {
     throw new IntegrationError('INVALID_REQUEST', 'departureDate must be after arrivalDate');
   }
   const from = hhmm(input.earlyCheckInTime ?? input.checkInTime ?? '14:00', 'checkInTime');
-  const to = hhmm(input.lateCheckOutTime ?? input.checkOutTime ?? '12:00', 'checkOutTime');
-  return {
-    validFrom: isoInstant(`${arrival}T${from}:00${offset}`),
-    validTo: isoInstant(`${departure}T${to}:00${offset}`),
-  };
+  const standardTo = hhmm(input.checkOutTime ?? '12:00', 'checkOutTime');
+  let to = standardTo;
+  if (input.lateCheckOutTime !== undefined) {
+    to = hhmm(input.lateCheckOutTime, 'lateCheckOutTime');
+  } else if (input.lateGraceUntil !== undefined && input.sameDayArrival === false) {
+    const grace = hhmm(input.lateGraceUntil, 'lateGraceUntil');
+    if (grace > standardTo) to = grace;
+  }
+  let validFrom = isoInstant(`${arrival}T${from}:00${offset}`);
+  if (input.actualCheckInAt !== undefined) {
+    const actual = isoInstant(input.actualCheckInAt);
+    if (Date.parse(actual) < Date.parse(validFrom)) validFrom = actual;
+  }
+  const validTo = isoInstant(`${departure}T${to}:00${offset}`);
+  assertValidityWindow(validFrom, validTo);
+  return { validFrom, validTo };
+}
+
+/**
+ * Weak code (BR-403 v0.3.4): all digits identical (000000, 777777) or a run of consecutive digits going up or
+ * down (123456, 654321; wrapping 9→0 counts: 789012). Refused by every adapter and never generated.
+ */
+export function isWeakDoorCode(code: string): boolean {
+  if (!/^\d+$/.test(code)) return true;
+  const d = [...code].map(Number);
+  const steps = d.slice(1).map((x, i) => (x - (d[i] as number) + 10) % 10);
+  return steps.every((s) => s === 0) || steps.every((s) => s === 1) || steps.every((s) => s === 9);
+}
+
+/**
+ * True when `code` is only the guest's date of birth without the 3 random digits (BR-403: not accepted).
+ * The adapter never sees the date of birth (C3) – the core (BE-A) calls this before setDoorCredential.
+ */
+export function matchesBirthdayWithoutRandom(
+  code: string,
+  dateOfBirth: LocalDate | string,
+): boolean {
+  const dob = localDate(dateOfBirth);
+  const yyyy = dob.slice(0, 4);
+  const yy = dob.slice(2, 4);
+  const mm = dob.slice(5, 7);
+  const dd = dob.slice(8, 10);
+  const forms = [
+    dd + mm,
+    dd + mm + yy,
+    dd + mm + yyyy,
+    yy + mm + dd,
+    yyyy + mm + dd,
+    mm + dd,
+    mm + dd + yy,
+    mm + dd + yyyy,
+  ];
+  return forms.includes(code);
 }
 
 function randomDigits(n: number): string {
@@ -70,12 +137,18 @@ function randomDigits(n: number): string {
   return out;
 }
 
-/** n random digits from the OS CSPRNG (SR-LOCK-01). Uniqueness on the lock / 90-day reuse: core checks in DB. */
+/**
+ * n random digits from the OS CSPRNG (SR-LOCK-01), never a weak code. Uniqueness on the lock / 90-day reuse /
+ * birthday check: the core, in DB.
+ */
 export function generateDoorCode(digits: number = DOOR_CODE_DEFAULT_DIGITS): string {
   if (!Number.isInteger(digits) || digits < DOOR_CODE_MIN_DIGITS || digits > DOOR_CODE_MAX_DIGITS) {
     throw new IntegrationError('INVALID_REQUEST', 'Door code length must be 6–10');
   }
-  return randomDigits(digits);
+  let code: string;
+  do code = randomDigits(digits);
+  while (isWeakDoorCode(code));
+  return code;
 }
 
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -88,7 +161,10 @@ export function generateBirthdayDoorCode(ddmm: string): string {
   if (!m || month < 1 || month > 12 || day < 1 || day > (DAYS_IN_MONTH[month - 1] as number)) {
     throw new IntegrationError('INVALID_REQUEST', 'Birthday must be ddmm');
   }
-  return ddmm + randomDigits(BIRTHDAY_CODE_RANDOM_DIGITS);
+  let code: string;
+  do code = ddmm + randomDigits(BIRTHDAY_CODE_RANDOM_DIGITS);
+  while (isWeakDoorCode(code));
+  return code;
 }
 
 export function assertValidityWindow(validFrom: IsoInstant, validTo: IsoInstant): void {
@@ -111,6 +187,9 @@ export function assertLabel(label: string): void {
 export function assertCreateDoorCode(req: CreateDoorCodeRequest): void {
   if (!/^\d{6,10}$/.test(req.code)) {
     throw new IntegrationError('INVALID_REQUEST', 'Door code must be 6–10 digits');
+  }
+  if (isWeakDoorCode(req.code)) {
+    throw new IntegrationError('INVALID_REQUEST', 'Door code is too easy to guess');
   }
   if (req.kind !== 'guest' && req.kind !== 'staff') {
     throw new IntegrationError('INVALID_REQUEST', 'kind must be guest or staff');

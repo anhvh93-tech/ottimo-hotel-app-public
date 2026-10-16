@@ -1,0 +1,11 @@
+# 03:30 Vietnam time, after the night jobs; Persistent = run at boot if the server was off at 03:30.
+[Unit]
+Description=OTTIMO daily backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Ho_Chi_Minh
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

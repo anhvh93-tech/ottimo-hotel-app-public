@@ -8,7 +8,8 @@
  * 3. decode → re-encode with sharp (JPEG q85, WebP stays WebP): EXIF/GPS/XMP/ICC are not copied (sharp
  *    drops metadata unless asked), orientation is applied first so the picture stays upright;
  * 4. everything in memory – no temporary file in clear (encryption happens right after, by the caller);
- * 5. at most 2 images decoded at the same time per process (memory on the 1-replica VPS).
+ * 5. at most 2 images decoded at the same time per process (memory on the 1-replica VPS), 10 s each,
+ *    libvips cache off, only the JPEG/PNG/WebP loaders unblocked; uploads in flight capped by upload-gate.ts.
  * Limits are technical security constants (SR-FILE-02), not business parameters.
  */
 import sharp from 'sharp';
@@ -54,17 +55,34 @@ export function fileRejected(
   return problem('FILE_REJECTED', { errors });
 }
 
+// libvips hardening (SEC FB-R2-SEC-BE-47, ARC FB-R2-ARC-BE-S3-18): no pixel cache (decoded document
+// pixels never linger in RAM), and only the three accepted decoders are callable – the HEIF/SVG/GIF/TIFF/PDF
+// loaders of the 2026 advisories are blocked even if magic-byte sniffing were bypassed.
+sharp.cache(false);
+sharp.block({ operation: ['VipsForeignLoad'] });
+sharp.unblock({
+  operation: ['VipsForeignLoadJpegBuffer', 'VipsForeignLoadPngBuffer', 'VipsForeignLoadWebpBuffer'],
+});
+
+/** Seconds one decode/encode may take (SR-FILE-03). */
+const DECODE_TIMEOUT_S = 10;
+
 let active = 0;
 const waiting: Array<() => void> = [];
 
+/** At most CONCURRENCY decodes; a released slot is handed to the next waiter (no slot stealing). */
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
-  if (active >= CONCURRENCY) await new Promise<void>((resolve) => waiting.push(resolve));
-  active++;
+  if (active >= CONCURRENCY) {
+    await new Promise<void>((resolve) => waiting.push(resolve));
+  } else {
+    active++;
+  }
   try {
     return await fn();
   } finally {
-    active--;
-    waiting.shift()?.();
+    const next = waiting.shift();
+    if (next) next();
+    else active--;
   }
 }
 
@@ -78,7 +96,7 @@ export async function normalizeImage(input: Buffer, field = 'image'): Promise<No
     let meta: sharp.Metadata;
     try {
       // Header only (no pixel decode): the dimensions are checked below, before any decode.
-      meta = await sharp(input, { limitInputPixels: false }).metadata();
+      meta = await sharp(input, { limitInputPixels: false, failOn: 'warning' }).metadata();
     } catch {
       throw fileRejected(field, 'FILE_TYPE');
     }
@@ -90,8 +108,11 @@ export async function normalizeImage(input: Buffer, field = 'image'): Promise<No
     try {
       const pipeline = sharp(input, {
         limitInputPixels: IMAGE_MAX_PIXELS,
-        failOn: 'error',
-      }).rotate();
+        failOn: 'warning',
+        sequentialRead: true,
+      })
+        .rotate()
+        .timeout({ seconds: DECODE_TIMEOUT_S });
       const out =
         type === 'webp'
           ? await pipeline.webp({ quality: 85 }).toBuffer({ resolveWithObject: true })

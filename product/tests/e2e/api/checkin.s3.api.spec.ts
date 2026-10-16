@@ -1,877 +1,1225 @@
-// KHUNG E2E Sprint 3 (pending) – L3 – Nhận phòng: giấy tờ, đối chiếu, khai báo, mã cửa (EP03, EP06 – Sprint 3).
-// Sinh từ product/tests/test-cases/r1-main-flows.md (QA, khởi động Sprint 3 – 16/10/2026). Mỗi TC một test.fixme có
-// mã TC, story/AC, tầng, ưu tiên và tóm tắt bước/kỳ vọng. QA điền thân test khi ARC chốt OpenAPI 0.3.6 (nhóm B) và
-// endpoint có trên build: đổi test.fixme → test, gọi requireEndpoints(...) như các spec Sprint 2.
-// Không sửa tay phần mô tả: sửa TC trong r1-main-flows.md rồi chép lại.
-import { test } from '@playwright/test';
+// E2E API Sprint 3 – L3: giấy tờ C3, đối chiếu, đồng ý lưu ảnh, khai báo, mã cửa (R3), xóa ảnh (EP03, EP06).
+// Project "api" (đồng hồ thật, song song): KHÔNG nhận phòng – mọi ca dùng đơn confirmed ở khoảng ngày xa còn trống
+// (support/s3-checkin.ts farStay → makeStay), làm giấy tờ/khai báo/đồng ý trên đơn đó, hủy đơn ở afterEach.
+// Các ca cần nhận phòng / mốc giờ chính xác (TC-L3-001…016, 073, 037, 039, 044–049, 051, 053–056, 070):
+// clock/checkin.s3.clock.spec.ts. TC gốc: product/tests/test-cases/r1-main-flows.md mục 4 (L3).
+// Ghi chú harness: khách NN ở ngày xa phải tự đặt entryDate ≤ hôm nay (foreignDoc mặc định = ngày đi − 5 → 422
+// ENTRY_DATE_FUTURE ở project api) – dùng foreignFar() bên dưới.
+import { expect, test, type APIRequestContext } from '@playwright/test';
+import {
+  call,
+  expectProblem,
+  needSeedPassword,
+  propertyIdOf,
+  requireEndpoints,
+  sessionOrSkip,
+  stackToday,
+  versionTag,
+  type StaffSession,
+} from '../support/api.js';
+import { CLOCK_ENABLED, runJobIfAny } from '../support/clock.js';
+import { GUEST_ORIGIN } from '../support/env.js';
+import {
+  EP,
+  addDays,
+  bookFree,
+  channel,
+  cleanupTracked,
+  createReservation,
+  freeWindow,
+  getReservation,
+  makeHold,
+  oracle,
+  reservationBody,
+  room,
+  s2Context,
+  track,
+  type ProblemFields,
+  type Reservation,
+} from '../support/s2.js';
+import {
+  EP3,
+  PRIVACY_NOTICE,
+  addDocument,
+  callMultipart,
+  completeReview,
+  dev,
+  fakeCccd,
+  fakePassport,
+  foreignDoc,
+  getFolio,
+  guestCall,
+  guestLink,
+  namedGuest,
+  openGuest,
+  p3,
+  png,
+  transitionReg,
+  vnDoc,
+  type GuestDocument,
+} from '../support/s3.js';
+import {
+  SMALL_ROOMS,
+  anyRoom,
+  c3Log,
+  checkOf,
+  consentFor,
+  farStay,
+  getImage,
+  mainDoc,
+  regOf,
+  regRow,
+  reviewNotes,
+  stepUp,
+  toConfirmed,
+  toScanned,
+} from '../support/s3-checkin.js';
 
-const WAITING = 'OpenAPI 0.3.6 (ARC) + endpoint Sprint 3 trên build';
+const story = (s: string) => ({ type: 'story', description: s });
+const eps = (s: string) => ({ type: 'endpoints', description: s });
+const R3_DOOR =
+  'R3: US-128 mã cửa dời R3 (R-C, SEC D2 – R2 không sinh/lưu mã cửa; setDoorCredential/getDoorCredential không đăng ký)';
+
+/** Hộ chiếu Đức ở ngày xa: entryDate ≤ hôm nay (EP06 2.2 ENTRY_DATE_FUTURE), thị thực còn hạn sau ngày đi. */
+function foreignFar(
+  name: string,
+  today: string,
+  departure: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return foreignDoc(name, departure, { entryDate: addDays(today, -1), ...extra });
+}
+
+/** Booker "Daniel Weber" (tên khớp hộ chiếu – BR-952) + đơn confirmed ở ngày xa, chưa có giấy tờ. */
+async function foreignStay(
+  request: APIRequestContext,
+  fd: StaffSession,
+  today: string,
+  i: { adults?: number; images?: number; fullName?: string } = {},
+) {
+  const c = await s2Context(request);
+  const g = await namedGuest(request, fd, { fullName: i.fullName ?? 'Daniel Weber' });
+  const st = await farStay(request, c, fd, today, {
+    guestId: g.id,
+    adults: i.adults ?? 1,
+    doc: false,
+  });
+  return { ...st, guestName: g.fullName };
+}
+
+async function partyOf(request: APIRequestContext, s: StaffSession, reservationId: string) {
+  const r = await call<{
+    requiredCount: number;
+    members?: Array<{ id: string; role: string; relationship?: string; guest?: { id: string } }>;
+    version: number;
+  }>(request, 'GET', p3(EP3.listParty, s, { reservationId }), { session: s });
+  expect(r.status, `listParty: ${JSON.stringify(r.body).slice(0, 300)}`).toBe(200);
+  return r.body;
+}
 
 test.describe(
-  'L3 – Nhận phòng: giấy tờ, đối chiếu, khai báo, mã cửa (EP03, EP06 – Sprint 3)',
-  { tag: ['@api', '@sprint3', '@pending'] },
+  'L3 – giấy tờ, đối chiếu, đồng ý, khai báo, mã cửa, xóa ảnh (EP03, EP06 – Sprint 3, API)',
+  { tag: ['@api', '@sprint3'] },
   () => {
-    test.describe('4.1 Nhận phòng và phụ thu nhận sớm', () => {
-      test.fixme(
-        'TC-L3-001 US-025/AC1 [A+E · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC1' },
-            { type: 'endpoints', description: 'previewCheckIn, checkIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: DS-E; đơn Trực tiếp confirmed 203 đến 15/10, đã thu đủ; buồng VI; giấy tờ người đứng
-          //   tên đã nhập; ⏱ 15/10 14:30
-          // Bước: qa.fd nhận phòng, giữ giờ mặc định
-          // Kỳ vọng: Đơn in_house; buồng OC; giờ nhận ghi 14:30; folio không có dòng phụ thu
-          // Quy tắc: SM-01 B9, BR-401, BR-402, BR-411, SM-03 R6
-        },
-      );
-      test.fixme(
-        'TC-L3-002 US-025/AC2 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC2' },
-            { type: 'endpoints', description: 'checkIn, listApprovalRequests, listHkTasks' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Như TC-L3-001 nhưng buồng VD
-          // Bước: (a) qa.fd nhận phòng; (b) qa.fdl nhận phòng kèm lý do
-          // Kỳ vọng: (a) không nhận trực tiếp, tạo yêu cầu duyệt cho FDL+ (A12 = D); (b) đơn in_house, buồng OD,
-          //   việc dọn ưu tiên được tạo, nhật ký có lý do
-          // Quy tắc: BR-402, A12, SM-03 R7
-        },
-      );
-      test.fixme(
-        'TC-L3-003 US-025/AC3 [A+E · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC3' },
-            { type: 'endpoints', description: 'previewCheckIn, checkIn, setDoorCredential' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) đơn Trực tiếp còn phải thu 1.000; (b) đơn đủ tiền nhưng chưa có giấy tờ người
-          //   đứng tên; (c) đơn Airbnb "OTA thu hộ", còn phải thu = 0
-          // Bước: Nhận phòng từng đơn; thử nhập mã cửa
-          // Kỳ vọng: (a) 409 CHECKIN_CONDITIONS_NOT_MET, unmet=[balance_paid]; (b) unmet=[main_guest_document];
-          //   cả hai không giao/nhập được mã cửa; (c) nhận được
-          // Quy tắc: BR-402, BR-307
-        },
-      );
-      test.fixme(
-        'TC-L3-004 US-025/AC4 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC4' },
-            { type: 'endpoints', description: 'checkIn, listAttentionItems, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn khách NN, khai báo review; ⏱ 15/10 10:00
-          // Bước: Nhận phòng
-          // Kỳ vọng: Màn hình hiện hạn khai báo tính từ giờ nhận thực tế (xem TC-L3-044); đơn vào "Cần chú ý" mục
-          //   khai báo
-          // Quy tắc: BR-602, BR-603, BR-907
-        },
-      );
-      test.fixme(
-        'TC-L3-005 US-025/AC5 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC5' },
-            { type: 'endpoints', description: 'undoCheckIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn vừa nhận phòng nhầm, buồng trước đó VI, có mã cửa
-          // Bước: (a) qa.fd tìm "Hoàn tác"; (b) qa.mgr hoàn tác kèm lý do; (c) dữ liệu mới: thêm 1 dòng folio rồi
-          //   hoàn tác; (d) ⏱ hôm sau hoàn tác
-          // Kỳ vọng: (a) không có nút, API 403; (b) đơn confirmed, buồng về VI, mã cửa hủy, nhật ký có lý do;
-          //   (c), (d) bị chặn 409
-          // Quy tắc: SM-01 B17, A13
-        },
-      );
-      test.fixme(
-        'TC-L3-006 US-025/– [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/–' },
-            { type: 'endpoints', description: 'checkIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn đến hôm nay ở căn đang OOO; đơn confirmed đến ngày mai
-          // Bước: Nhận phòng hai đơn
-          // Kỳ vọng: Căn OOO: bị chặn; đơn ngày mai: 409 INVALID_TRANSITION, gợi ý đổi ngày đến (B7)
-          // Quy tắc: SM-03 cấm nhận phòng vào OOO, BR-803
-        },
-      );
-      test.fixme(
-        'TC-L3-007 US-025/AC3 [A+E · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC3' },
-            {
-              type: 'endpoints',
-              description: 'previewCheckIn, checkIn, setDoorCredential, recordPayment',
-            },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Booking.com kiểu thanh toán khách trả tại chỗ, còn phải thu = tiền phòng
-          //   2.460.000; buồng VI; giấy tờ người đứng tên đủ
-          // Bước: 1. Nhận phòng. 2. Thử nhập mã cửa. 3. Ghi thu đủ 2.460.000 rồi nhận phòng
-          // Kỳ vọng: (1) 409 CHECKIN_CONDITIONS_NOT_MET, unmet=[balance_paid] (không coi là "OTA đã trả"); (2)
-          //   không nhập/giao được mã cửa; (3) nhận được
-          // Quy tắc: BR-307, BR-402, SM-01 B9
-        },
-      );
-      test.fixme(
-        'TC-L3-008 US-025/AC6; US-026/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC6; US-026/AC3' },
-            { type: 'endpoints', description: 'previewCheckIn, checkIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) Đơn Trực tiếp 203 đến 15/10; ⏱ 16/10 01:30. (b) Đơn Booking 203 đến 20/10, đêm
-          //   19/10 trống; ⏱ 20/10 04:30
-          // Bước: Nhận phòng từng đơn
-          // Kỳ vọng: (a) B9 bình thường (ngày nghiệp vụ 15/10 = ngày đến), không phụ thu, không bị coi là trễ
-          //   ngày; hạn khai báo: khách VN 23:00 16/10 (ngày lịch của giờ đến thực tế – BR-602, không dùng ngày
-          //   nghiệp vụ), khách NN 13:30 16/10 (01:30 + 12 giờ – BR-603); đơn vẫn ở "Khách đến hôm nay" của ngày
-          //   nghiệp vụ 15/10; (b) B9a: tạo đơn con kênh Trực tiếp cho đêm 19/10 (đêm bán, giá BR-411), đơn con
-          //   in_house cùng lúc, đơn gốc giữ ngày OTA 20/10; khai báo dùng chung bản ghi đơn gốc
-          // Quy tắc: SM-01 B9, SM-01 B9a, BR-010, BR-602, BR-603, BR-411, decision-log 15/10 DOM (ngày nghiệp vụ
-          //   đổi lúc 06:00; nhận trước 06:00 = đêm bán)
-        },
-      );
-      test.fixme(
-        'TC-L3-073 US-025/AC7 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-025/AC7' },
-            { type: 'endpoints', description: 'checkIn, updateReservation, getReservation' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Trực tiếp confirmed đến hôm nay, đủ điều kiện nhận phòng (như TC-L3-001); đơn thứ
-          //   hai cùng điều kiện
-          // Bước: (a) qa.fd nhận phòng đơn 1 không tick "Đã giao mã cửa/thẻ"; (b) mở chi tiết đơn 1, tick bổ
-          //   sung; (c) nhận phòng đơn 2 có tick; (d) tìm ô nhập/hiện mã cửa trên màn nhận phòng và chi tiết đơn
-          // Kỳ vọng: (a) nhận phòng thành công (in_house), doorAccessHandedOverAt rỗng; (b)
-          //   doorAccessHandedOverAt = thời điểm tick, ghi người tick (nhật ký); (c) doorAccessHandedOverAt = giờ
-          //   nhận phòng, người = qa.fd; (d) không có ô mã cửa, phản hồi API không có trường mã cửa (R2)
-          // Quy tắc: ARC Q-P1, EP03-05 1.4 doorAccessHandedOver, US-128 (dời R3), [GIẢ ĐỊNH QA – chờ ARC E03-06:
-          //   tick bổ sung qua ReservationPatch.doorAccessHandedOver (chỉ true)]
-        },
-      );
-      test.fixme(
-        'TC-L3-010 US-026/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-026/AC1' },
-            { type: 'endpoints', description: 'previewCheckIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn đến hôm nay; ⏱ 15/10 11:05
-          // Bước: Mở form nhận phòng
-          // Kỳ vọng: Giờ nhận mặc định 14:00 (không phải 11:05); phụ thu 0; previewCheckIn không tạo dòng folio
-          // Quy tắc: BR-414, BL #2, HR-04
-        },
-      );
-      test.fixme(
-        'TC-L3-011 US-026/AC2 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-026/AC2' },
-            { type: 'endpoints', description: 'previewCheckIn, checkIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn giá đêm đầu 700.000
-          // Bước: Chọn "Nhận sớm", nhập 11:00; (a) xác nhận với số đang hiển thị; (b) gửi API với số khác số
-          //   server tính
-          // Kỳ vọng: Đề xuất 210.000 (ví dụ BR-411), chưa ghi folio trước khi xác nhận; (a) ghi 1 dòng 210.000;
-          //   (b) bị từ chối (số xác nhận lệch), không ghi
-          // Quy tắc: BR-411, BR-414
-        },
-      );
-      test.fixme(
-        'TC-L3-012 US-026/AC2 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-026/AC2' },
-            { type: 'endpoints', description: 'previewCheckIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn giá đêm đầu 700.000
-          // Bước: Giờ nhận: 14:00; 13:59; 10:00; 09:59; 08:00; 06:00
-          // Kỳ vọng: 14:00 → 0; 13:59 → 210.000; 10:00 → 210.000; 09:59 → 350.000; 08:00 → 350.000; 06:00 →
-          //   350.000
-          // Quy tắc: BR-411 (biên)
-        },
-      );
-      test.fixme(
-        'TC-L3-013 US-026/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-026/AC3' },
-            { type: 'endpoints', description: 'previewCheckIn, checkIn' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Trực tiếp 203 đến 20/10 giá 700.000; đêm 19/10 trống
-          // Bước: Nhận phòng ⏱ 20/10 05:30; ⏱ 05:59; lặp khi đêm 19/10 đã có khách; lặp ⏱ 20/10 06:00
-          // Kỳ vọng: 05:30, 05:59 (ngày nghiệp vụ 19/10 = ngày đến − 1): B9a – thêm đêm 19/10 vào đầu đơn (ngày
-          //   đến = 19/10), đêm bán 700.000, không phải dòng "phụ thu nhận sớm"; đêm 19/10 có khách → không cho
-          //   nhận, gợi ý gửi hành lý; 06:00 → B9, phụ thu nhận sớm theo TC-L3-012
-          // Quy tắc: BR-003, BR-411, SM-01 B9a, decision-log 15/10 DOM (ngày nghiệp vụ 06:00)
-        },
-      );
-      test.fixme(
-        'TC-L3-014 US-026/AC4 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-026/AC4' },
-            { type: 'endpoints', description: 'requestFoc' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Phụ thu nhận sớm 210.000 đã ghi
-          // Bước: Lễ tân muốn miễn
-          // Kỳ vọng: Đi qua yêu cầu FOC (pending) – không có nút xóa/sửa thẳng dòng phụ thu
-          // Quy tắc: BR-431–433, US-007
-        },
-      );
-      test.fixme(
-        'TC-L3-015 US-027/AC1 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-027/AC1' },
-            { type: 'endpoints', description: 'setLateCheckout' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn dài hạn HĐ thuê 11.130.000/tháng; chính sách miễn phí dài hạn tắt; trả muộn 15:00
-          // Bước: Tính phụ thu trả muộn
-          // Kỳ vọng: Cơ sở = 11.130.000 ÷ 30 = 371.000; 30% = 111.000 (không phải 3.339.000)
-          // Quy tắc: BR-102, BR-213, BR-413, BL #1
-        },
-      );
-      test.fixme(
-        'TC-L3-016 US-027/AC2 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-027/AC2' },
-            { type: 'endpoints', description: 'setLateCheckout, setParameter' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Như trên, chính sách miễn phí đến 15:00 bật
-          // Bước: (a) Căn không có khách đến cùng ngày, trả 15:00; (b) có khách đến cùng ngày; (c) qa.owner đổi
-          //   long_stay_free_late_until 15:00 → 13:00, trả 14:00
-          // Kỳ vọng: (a) đề xuất 0; (b) 111.000; (c) 111.000 – thay đổi chỉ bằng tham số
-          // Quy tắc: BR-413 (INV quyết ESC-007)
-        },
-      );
-    });
+    test.beforeEach(() => needSeedPassword());
+    test.afterEach(async ({ request }) => cleanupTracked(request));
+
     test.describe('4.2 Giấy tờ, đối chiếu, đồng ý, khai báo', () => {
-      test.fixme(
+      test(
         'TC-L3-030 US-043/AC1 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-043/AC1' },
-            { type: 'endpoints', description: 'addGuestDocument, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn 2 người lớn, khai báo none
-          // Bước: Nhập đủ trường người 1; rồi người 2
-          // Kỳ vọng: Sau người 1: partial; sau người 2: review
-          // Quy tắc: BR-601, BR-607, SM-05 K3, K4
+        { annotation: [story('US-043/AC1'), eps('addGuestDocument, getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-030', [EP3.addGuestDocument, EP3.getRegistration]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 2, doc: false });
+          const reg0 = await regOf(request, fd, st.regId);
+          expect(reg0.status).toBe('none');
+          expect(reg0.requiredCount).toBe(2);
+          // người 1 đủ trường → partial (BR-601, K3)
+          const d1 = await addDocument(request, fd, st.regId, vnDoc(st.guestName));
+          expect(d1.status, JSON.stringify(d1.body)).toBe(201);
+          expect(d1.body.status).toBe('partial');
+          expect(d1.body.submittedCount).toBe(1);
+          // người 2 → review (K4)
+          const d2 = await addDocument(
+            request,
+            fd,
+            st.regId,
+            vnDoc('Tran Van Binh', { isMain: false, gender: 'male' }),
+          );
+          expect(d2.status, JSON.stringify(d2.body)).toBe(201);
+          expect(d2.body.status).toBe('review');
+          expect(d2.body.submittedCount).toBe(2);
+          expect(d2.body.documents).toHaveLength(2);
+          // oracle BR-601-01: 3 khách, mới có 2 giấy tờ → partial (số khách tăng lên 3 – K13)
+          const o = oracle('BR-601-01');
+          const res = await getReservation(request, fd, st.res.id);
+          const up = await call<Reservation>(
+            request,
+            'PATCH',
+            `/v1/properties/${propertyIdOf(fd)}/reservations/${st.res.id}`,
+            {
+              session: fd,
+              ifMatch: versionTag(res.body.version),
+              body: { adults: Number(o.input.guests) },
+            },
+          );
+          expect(up.status, JSON.stringify(up.body)).toBe(200);
+          const reg3 = await regOf(request, fd, st.regId);
+          expect(reg3.requiredCount).toBe(Number(o.input.guests));
+          expect(reg3.submittedCount).toBe(Number(o.input.documentsCaptured));
+          expect(reg3.status).toBe(String(o.expected.registrationStatus));
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-031 US-043/AC2 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-043/AC2' },
-            { type: 'endpoints', description: 'addGuestDocument' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn có trẻ em
-          // Bước: Nhập giấy tờ trẻ em
-          // Kỳ vọng: Loại giấy = số định danh cá nhân; không bắt ảnh; năm sinh chỉ dùng cho khai báo + phụ thu
-          // Quy tắc: BR-612
+        { annotation: [story('US-043/AC2'), eps('addGuestDocument')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-031', [
+            EP3.addGuestDocument,
+            EP3.recordImageConsent,
+            EP3.getPortalData,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          // 1 người lớn + 1 trẻ 6–11 → cần khai 2 người (BR-601/608)
+          const st = await farStay(request, c, fd, today, { adults: 1, children6to11: 1 });
+          const arrival = st.res.arrivalDate;
+          const dob = addDays(arrival, -8 * 365 - 30);
+          const kid = {
+            docType: 'child_personal_id',
+            isMain: false,
+            fullNameOnDoc: 'NGUYEN BE NA',
+            docNumber: fakeCccd(),
+            dateOfBirth: dob,
+            gender: 'female',
+            nationalityCode: 'VNM',
+            captureMethod: 'manual',
+          };
+          // không ảnh vẫn lưu được (BR-612: trẻ em – số định danh cá nhân, không bắt ảnh)
+          const r = await addDocument(request, fd, st.regId, kid, 0);
+          expect(r.status, JSON.stringify(r.body)).toBe(201);
+          expect(r.body.status).toBe('review');
+          const doc = r.body.documents.find((d) => d.docType === 'child_personal_id');
+          expect(doc, JSON.stringify(r.body.documents)).toBeTruthy();
+          expect(doc!.imageIds ?? []).toHaveLength(0);
+          expect(doc!.imageConsent).toBe('not_recorded');
+          // trẻ em không có quyết định đồng ý lưu ảnh (dữ liệu trẻ em – ĐK-5)
+          const cons = await consentFor(request, fd, st.regId, doc!.id, 'granted');
+          expect(cons.status, JSON.stringify(cons.body)).toBe(422);
+          // đủ người → scanned không cần đồng ý của trẻ; năm sinh dùng cho khai báo (dữ liệu cổng VN)
+          await toScanned(request, fd, st.regId);
+          await stepUp(request, fd);
+          const pd = await call<{
+            people: Array<{ fields: Array<{ label: string; value: string }> }>;
+          }>(request, 'GET', p3(EP3.getPortalData, fd, { registrationId: st.regId }), dev(fd));
+          expect(pd.status, JSON.stringify(pd.body).slice(0, 300)).toBe(200);
+          const dobs = pd.body.people.map(
+            (p) => p.fields.find((f) => f.label === 'reg.field.date_of_birth')?.value,
+          );
+          expect(dobs).toContain(dob);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-032 US-043/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-043/AC3' },
-            { type: 'endpoints', description: 'addGuestDocument, listParty' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn 2 khách; nhập giấy tờ người thứ 2 (a) trùng số giấy tờ với hồ sơ KH có sẵn; (b)
-          //   không khớp ai
-          // Bước: Lưu
-          // Kỳ vọng: (a) gắn vào hồ sơ có sẵn; (b) tạo hồ sơ mới, quan hệ "Chưa rõ"; cả hai gắn vào đơn
-          // Quy tắc: BR-951
+        { annotation: [story('US-043/AC3'), eps('addGuestDocument, listParty')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-032', [EP3.addGuestDocument, EP3.listParty]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          // hồ sơ KH có sẵn G: lần ở trước đã khai giấy tờ số N (người đứng tên)
+          const prev = await farStay(request, c, fd, today, { adults: 1, doc: false });
+          const known = vnDoc(prev.guestName);
+          const kd = await addDocument(request, fd, prev.regId, known);
+          expect(kd.status, JSON.stringify(kd.body)).toBe(201);
+          const prevBooker = (await getReservation(request, fd, prev.res.id)).body.booker as
+            { id?: string } | undefined;
+          // đơn mới 2 khách (người đứng tên khác)
+          const st = await farStay(request, c, fd, today, { adults: 2 });
+          const before = await partyOf(request, fd, st.res.id);
+          // (a) người thứ 2 trùng số giấy tờ N với hồ sơ G, không chọn partyMemberId
+          const a = await addDocument(request, fd, st.regId, { ...known, isMain: false });
+          expect(a.status, JSON.stringify(a.body)).toBe(201);
+          const docA = a.body.documents.find((d) => !d.isMain);
+          expect(docA).toBeTruthy();
+          test.fail(
+            true,
+            'BUG-R2-033: addGuestDocument không gắn người vào đơn theo BR-951 (partyMemberId trống → không khớp hồ sơ, không tạo người "Chưa rõ")',
+          );
+          expect(docA!.partyMemberId, 'giấy tờ được gắn với một người trong đơn').toBeTruthy();
+          const after = await partyOf(request, fd, st.res.id);
+          const memberA = after.members?.find((m) => m.id === docA!.partyMemberId);
+          expect(memberA?.guest?.id, 'khớp hồ sơ có sẵn theo số giấy tờ (BR-951)').toBe(
+            prevBooker?.id,
+          );
+          // (b) không khớp ai → người mới quan hệ "Chưa rõ"
+          const b = await addDocument(
+            request,
+            fd,
+            st.regId,
+            vnDoc('Hoang Van Moi', { isMain: false, gender: 'male' }),
+          );
+          expect(b.status).toBe(201);
+          const docB = b.body.documents.find((d) => d.fullNameOnDoc === 'HOANG VAN MOI');
+          const after2 = await partyOf(request, fd, st.res.id);
+          const memberB = after2.members?.find((m) => m.id === docB?.partyMemberId);
+          expect(memberB?.relationship).toBe('unknown');
+          expect((after2.members ?? []).length).toBeGreaterThan((before.members ?? []).length);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-033 US-043/AC4 [A · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-043/AC4' },
-            {
-              type: 'endpoints',
-              description: 'getGuestDocumentSensitive, updateGuestDocument, listC3AccessLog',
-            },
+            story('US-043/AC4'),
+            eps('getGuestDocumentSensitive, updateGuestDocument, listC3AccessLog'),
           ],
         },
-        async () => {
-          // Tiền điều kiện: Như TC-L3-030
-          // Bước: Xem lại và sửa trường số hộ chiếu
-          // Kỳ vọng: Mỗi lần xem/nhập có dòng c3_access_log (người, thời điểm, đơn)
-          // Quy tắc: A70 (L), R-REG-09
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-033', [
+            EP3.getGuestDocumentSensitive,
+            EP3.updateGuestDocument,
+            EP3.listC3AccessLog,
+            EP3.stepUp,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const today = await stackToday(request);
+          const st = await foreignStay(request, fd, today);
+          const dep = st.res.departureDate;
+          const data = foreignFar(st.guestName, today, dep);
+          const add = await addDocument(request, fd, st.regId, data);
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          const doc = mainDoc(add.body);
+          // xem lại (step-up + máy quầy)
+          await stepUp(request, fd);
+          const view = await call<{ docNumber: string }>(
+            request,
+            'GET',
+            p3(EP3.getGuestDocumentSensitive, fd, { registrationId: st.regId, documentId: doc.id }),
+            dev(fd),
+          );
+          expect(view.status, JSON.stringify(view.body)).toBe(200);
+          expect(view.body.docNumber).toBe(data.docNumber);
+          expect(view.headers['cache-control'] ?? '').toContain('no-store');
+          // sửa số hộ chiếu
+          const reg = await regOf(request, fd, st.regId);
+          const newNo = fakePassport();
+          const up = await call(
+            request,
+            'PATCH',
+            p3(EP3.updateGuestDocument, fd, { registrationId: st.regId, documentId: doc.id }),
+            { ...dev(fd), ifMatch: versionTag(reg.version), body: { ...data, docNumber: newNo } },
+          );
+          expect(up.status, JSON.stringify(up.body)).toBe(200);
+          // mỗi lần nhập/xem/sửa có dòng c3_access_log: người, thời điểm, đơn (A70 L, R-REG-09)
+          const log = (await c3Log(request, st.res.id)).filter(
+            (e) => e.subjectType === 'guest_document',
+          );
+          for (const action of ['create', 'view', 'update']) {
+            const e = log.find((x) => x.action === action);
+            expect(e, `c3_access_log ${action}: ${JSON.stringify(log)}`).toBeTruthy();
+            expect(e!.actorType).toBe('user');
+            expect(e!.userName).toBe(fd.me.displayName);
+            expect(e!.reservationCode).toBe(st.res.code);
+            expect(Date.parse(e!.occurredAt)).not.toBeNaN();
+          }
+          // nhật ký không chứa số giấy tờ đầy đủ
+          const json = JSON.stringify(log);
+          expect(json).not.toContain(String(data.docNumber));
+          expect(json).not.toContain(newNo);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-034 US-044/AC1 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-044/AC1' },
-            { type: 'endpoints', description: 'addGuestDocument, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn trả phòng 22/10; hộ chiếu hết hạn: 21/10; 22/10; 23/10
-          // Bước: Chạy đối chiếu
-          // Kỳ vọng: 21/10 và 22/10 → Không đạt; 23/10 → Đạt
-          // Quy tắc: BR-605, BL #3, R-REG-03
+        { annotation: [story('US-044/AC1'), eps('addGuestDocument, getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-034', [EP3.addGuestDocument, EP3.getRegistration]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const today = await stackToday(request);
+          const st = await foreignStay(request, fd, today, { adults: 3 });
+          const dep = st.res.departureDate;
+          // hộ chiếu hết hạn: ngày đi − 1, đúng ngày đi, ngày đi + 1
+          const cases: Array<[string, string, string]> = [
+            [st.guestName, addDays(dep, -1), 'fail'],
+            ['Anna Schmidt', dep, 'fail'],
+            ['Lukas Becker', addDays(dep, 1), 'pass'],
+          ];
+          let reg = await regOf(request, fd, st.regId);
+          const ids: string[] = [];
+          for (const [i, [name, exp]] of cases.entries()) {
+            const r = await addDocument(
+              request,
+              fd,
+              st.regId,
+              foreignFar(name, today, dep, { passportExpiryDate: exp, isMain: i === 0 }),
+            );
+            expect(r.status, `${name}: ${JSON.stringify(r.body)}`).toBe(201);
+            reg = r.body;
+            const d = reg.documents.find((x) => x.fullNameOnDoc === name.toUpperCase());
+            ids.push(d!.id);
+          }
+          for (const [i, [name, exp, want]] of cases.entries()) {
+            const d = reg.documents.find((x) => x.id === ids[i]) as GuestDocument;
+            expect(
+              checkOf(d, 'passport_valid_through_departure'),
+              `${name} hết hạn ${exp}, ngày đi ${dep}`,
+            ).toBe(want);
+          }
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-035 US-044/AC2 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-044/AC2' },
-            { type: 'endpoints', description: 'getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Chưa nhập ngày hết hạn hộ chiếu, thị thực
-          // Bước: Chạy đối chiếu
-          // Kỳ vọng: Kết quả "Chưa kiểm được – cần kiểm tay"; mỗi mục chỉ một trong 3 giá trị Đạt / Không đạt /
-          //   Chưa kiểm được; không bao giờ "Đạt" khi thiếu dữ liệu
-          // Quy tắc: HR-07
+        { annotation: [story('US-044/AC2'), eps('getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-035', [EP3.addGuestDocument, EP3.getRegistration]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const today = await stackToday(request);
+          const st = await foreignStay(request, fd, today);
+          const dep = st.res.departureDate;
+          // hộ chiếu (passport) thiếu ngày hết hạn + thị thực → không lưu được (không thể "Đạt" khi thiếu dữ liệu)
+          const miss = await addDocument(
+            request,
+            fd,
+            st.regId,
+            foreignFar(st.guestName, today, dep, {
+              passportExpiryDate: undefined,
+              visaValidUntil: undefined,
+            }),
+          );
+          expect(miss.status, JSON.stringify(miss.body)).toBe(422);
+          const codes = (miss.body.errors ?? []).map((e) => `${e.field}:${e.code}`);
+          expect(codes).toContain('passportExpiryDate:REQUIRED');
+          expect(codes).toContain('visaValidUntil:REQUIRED');
+          // giấy tờ NN loại "khác" không có ngày hết hạn, không có dấu nhập cảnh → "Chưa kiểm được"
+          const other = await addDocument(
+            request,
+            fd,
+            st.regId,
+            foreignFar(st.guestName, today, dep, {
+              docType: 'other',
+              passportExpiryDate: undefined,
+              passportIssueDate: undefined,
+              entryDate: undefined,
+            }),
+          );
+          expect(other.status, JSON.stringify(other.body)).toBe(201);
+          const d = mainDoc(other.body);
+          expect(checkOf(d, 'passport_valid_through_departure')).toBe('unverified');
+          expect(checkOf(d, 'passport_valid_at_arrival')).toBe('unverified');
+          expect(checkOf(d, 'entry_record_present')).toBe('unverified');
+          // mỗi mục đúng một trong 3 giá trị, không mục nào "Đạt" khi thiếu dữ liệu
+          for (const x of d.checks) expect(['pass', 'fail', 'unverified']).toContain(x.result);
+          // "Chưa kiểm được" của mục chặn (BR-613 c) mặc định chặn cho tới khi kiểm tay (an toàn)
+          expect(d.checks.find((x) => x.code === 'passport_valid_at_arrival')?.blocking).toBe(true);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-036 US-044/AC3 [U · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-044/AC3' },
-            { type: 'endpoints', description: 'getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Tên đơn / tên giấy tờ
-          // Bước: "Daniel Weber" / "WEBER DANIEL"; "Đỗ Mai Anh" / "DO MAI ANH"; "Daniel Weber" / "DANIELA WEBB"
-          // Kỳ vọng: Đạt; Đạt; Không đạt (hoặc Chưa kiểm được)
-          // Quy tắc: BR-952
-        },
-      );
-      test.fixme(
-        'TC-L3-037 US-044/AC4 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-044/AC4' },
+        { annotation: [story('US-044/AC3'), eps('getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-036', [
+            EP3.addGuestDocument,
+            EP3.updateGuestDocument,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const today = await stackToday(request);
+          // "Daniel Weber" / "WEBER DANIEL" → Đạt
+          const a = await foreignStay(request, fd, today);
+          const dataA = foreignFar('Weber Daniel', today, a.res.departureDate);
+          const ra = await addDocument(request, fd, a.regId, dataA);
+          expect(ra.status, JSON.stringify(ra.body)).toBe(201);
+          expect(checkOf(mainDoc(ra.body), 'name_match')).toBe('pass');
+          // "Đỗ Mai Anh" / "DO MAI ANH" → Đạt
+          const b = await foreignStay(request, fd, today, { fullName: 'Đỗ Mai Anh' });
+          const rb = await addDocument(request, fd, b.regId, vnDoc('Do Mai Anh'));
+          expect(rb.status, JSON.stringify(rb.body)).toBe(201);
+          expect(checkOf(mainDoc(rb.body), 'name_match')).toBe('pass');
+          // "Daniel Weber" / "DANIELA WEBB" → Không đạt (hoặc Chưa kiểm được)
+          const reg = await regOf(request, fd, a.regId);
+          const up = await call<{ documents: GuestDocument[] }>(
+            request,
+            'PATCH',
+            p3(EP3.updateGuestDocument, fd, {
+              registrationId: a.regId,
+              documentId: mainDoc(reg).id,
+            }),
             {
-              type: 'endpoints',
-              description: 'completeRegistrationReview, checkIn, listAttentionItems',
+              ...dev(fd),
+              ifMatch: versionTag(reg.version),
+              body: { ...dataA, fullNameOnDoc: 'DANIELA WEBB' },
             },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khách NN thị thực hết 20/10, trả phòng 22/10
-          // Bước: 1. Đối chiếu. 2. Nhận phòng. 3. "Đối chiếu xong" không ghi chú; rồi có ghi chú xử lý
-          // Kỳ vọng: Cảnh báo đỏ; đơn vào "Cần chú ý"; ngày đi khai báo đề xuất = 20/10; nhận phòng không bị
-          //   chặn; chuyển scanned không ghi chú → 409 REGISTRATION_INCOMPLETE; có ghi chú → scanned
-          // Quy tắc: BR-605, SM-05 K5
+          );
+          expect(up.status, JSON.stringify(up.body)).toBe(200);
+          const d = up.body.documents.find((x) => x.isMain) as GuestDocument;
+          expect(['fail', 'unverified']).toContain(checkOf(d, 'name_match'));
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-038 US-045/AC1 [A+E · Cao]',
         {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-045/AC1' },
-            { type: 'endpoints', description: 'recordImageConsent, completeRegistrationReview' },
-          ],
+          annotation: [story('US-045/AC1'), eps('recordImageConsent, completeRegistrationReview')],
         },
-        async () => {
-          // Tiền điều kiện: Khai báo review đủ người
-          // Bước: Bấm "Đối chiếu xong" không chọn đồng ý; chọn "Không"; (dữ liệu mới) chọn "Có"
-          // Kỳ vọng: Không chọn: không chuyển được (ô không tích sẵn); "Không" → scanned, khai báo tiếp bình
-          //   thường; "Có" → scanned
-          // Quy tắc: BR-609, R-REG-05, SEC F02
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-038', [
+            EP3.recordImageConsent,
+            EP3.completeRegistrationReview,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const stay = async () => {
+            const st = await farStay(request, c, fd, today, { adults: 1, doc: false });
+            const r = await addDocument(request, fd, st.regId, vnDoc(st.guestName), 1);
+            expect(r.status, JSON.stringify(r.body)).toBe(201);
+            expect(r.body.status).toBe('review');
+            return { st, doc: mainDoc(r.body) };
+          };
+          const one = await stay();
+          expect(one.doc.imageConsent, 'không tích sẵn').toBe('not_recorded');
+          // "Đối chiếu xong" khi chưa chọn đồng ý → không chuyển được
+          const none = await completeReview(request, fd, one.st.regId);
+          expectProblem(none, 409, 'REGISTRATION_INCOMPLETE');
+          expect((none.body.errors ?? []).map((e) => `${e.field}:${e.code}`)).toContain(
+            `documents[${one.doc.id}].imageConsent:REQUIRED`,
+          );
+          expect((await regOf(request, fd, one.st.regId)).status).toBe('review');
+          // "Không" → scanned, khai báo tiếp bình thường
+          const no = await consentFor(request, fd, one.st.regId, one.doc.id, 'refused');
+          expect(no.status, JSON.stringify(no.body)).toBe(201);
+          expect(mainDoc(no.body).imageConsent).toBe('refused');
+          const sc = await completeReview(request, fd, one.st.regId);
+          expect(sc.status, JSON.stringify(sc.body)).toBe(200);
+          expect(sc.body.status).toBe('scanned');
+          const sent = await transitionReg(request, fd, one.st.regId, 'mark-sent', {
+            portalReference: 'E2E-L3-038',
+          });
+          expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+          expect(sent.body.status).toBe('sent');
+          // (dữ liệu mới) "Có" → scanned
+          const two = await stay();
+          const yes = await consentFor(request, fd, two.st.regId, two.doc.id, 'granted');
+          expect(yes.status, JSON.stringify(yes.body)).toBe(201);
+          expect(mainDoc(yes.body).imageConsent).toBe('granted');
+          const sc2 = await completeReview(request, fd, two.st.regId);
+          expect(sc2.status, JSON.stringify(sc2.body)).toBe(200);
+          expect(sc2.body.status).toBe('scanned');
         },
       );
-      test.fixme(
-        'TC-L3-039 US-045/AC2 [A · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-045/AC2' },
-            { type: 'endpoints', description: 'transitionRegistration, getDocumentImage' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khai báo chọn "Không" đồng ý lưu ảnh, có 2 ảnh
-          // Bước: 1. ⏱ 15/10 15:00 chuyển sent → confirmed. 2. Gọi ngay getDocumentImage. 3. Dữ liệu mới: giả lập
-          //   tác vụ xóa ngay bị lỗi; ⏱ 16/10 14:59 và 15:00 ▶ J16
-          // Kỳ vọng: (2) ảnh đã bị xóa ngay sau confirmed (404/410, khóa mã hóa bị hủy), không chờ J16; trường
-          //   văn bản cần thiết còn; nhật ký/retention_run ghi; (3) J16 xóa bù chậm nhất 16/10 15:00 (24 giờ);
-          //   sau mốc này ảnh còn = lỗi P0
-          // Quy tắc: BR-609, SEC T01, J16, decision-log 15/10 SEC (xóa ngay khi confirmed, 24 giờ là hạn trên –
-          //   M3)
-        },
-      );
-      test.fixme(
+
+      test(
         'TC-L3-040 US-045/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-045/AC3' },
-            { type: 'endpoints', description: 'getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khách chọn đồng ý "Có" qua check-in online
-          // Bước: Lễ tân mở khai báo
-          // Kỳ vọng: Trạng thái đồng ý đã ghi kèm thời điểm, hình thức "qua app", mục đích; lễ tân không phải hỏi
-          //   lại
-          // Quy tắc: BR-609, D20
+        { annotation: [story('US-045/AC3'), eps('getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-040', [
+            EP3.issueGuestLink,
+            EP3.openGuestSession,
+            EP3.updateOnlineCheckin,
+            EP3.uploadGuestDocument,
+            EP3.recordGuestConsent,
+            EP3.getRegistration,
+            EP.listAuditEvents,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1, doc: false });
+          const link = await guestLink(request, fd, st.res.id);
+          const g = await openGuest(request, link.token);
+          expect(g.status, JSON.stringify(g.body)).toBe(200);
+          const n = await guestCall(request, 'PUT', EP3.updateOnlineCheckin[1], g.cookie, {
+            body: { noticeVersion: PRIVACY_NOTICE, currentStep: 'documents' },
+          });
+          expect(n.status, JSON.stringify(n.body)).toBe(200);
+          const up = await callMultipart(request, 'POST', EP3.uploadGuestDocument[1], {
+            cookie: g.cookie,
+            origin: GUEST_ORIGIN,
+            idempotencyKey: true,
+            fields: { personIndex: '1', docType: 'cccd' },
+            files: [['image', png()]],
+          });
+          expect(up.status, JSON.stringify(up.body)).toBe(201);
+          const before = Date.now();
+          const k = await guestCall(request, 'POST', EP3.recordGuestConsent[1], g.cookie, {
+            body: {
+              personIndex: 1,
+              purpose: 'P02B_ID_IMAGE_RETENTION',
+              decision: 'granted',
+              noticeVersion: PRIVACY_NOTICE,
+              locale: 'vi',
+              channel: 'guest_app',
+            },
+          });
+          expect(k.status, JSON.stringify(k.body)).toBe(201);
+          // lễ tân mở khai báo: đã có quyết định "Có" của khách (không hỏi lại)
+          const reg = await regOf(request, fd, st.regId);
+          const d = reg.documents.find(
+            (x) =>
+              (x as GuestDocument & { captureMethod?: string }).captureMethod === 'guest_upload',
+          );
+          expect(d, JSON.stringify(reg.documents)).toBeTruthy();
+          expect(d!.imageConsent).toBe('granted');
+          // lễ tân nhập trường từ bản gốc → "Đối chiếu xong" không phải ghi đồng ý lần nữa
+          const upd = await call(
+            request,
+            'PATCH',
+            p3(EP3.updateGuestDocument, fd, { registrationId: st.regId, documentId: d!.id }),
+            { ...dev(fd), ifMatch: versionTag(reg.version), body: vnDoc(st.guestName) },
+          );
+          expect(upd.status, JSON.stringify(upd.body)).toBe(200);
+          const sc = await completeReview(
+            request,
+            fd,
+            st.regId,
+            reviewNotes(await regOf(request, fd, st.regId)),
+          );
+          expect(sc.status, JSON.stringify(sc.body)).toBe(200);
+          expect(sc.body.status).toBe('scanned');
+          // thời điểm + hình thức "qua app" + mục đích: nhật ký consent.recorded (GuestDocumentMasked chỉ có
+          // imageConsent – [GIẢ ĐỊNH QA] chi tiết lấy từ nhật ký thao tác)
+          const owner = await sessionOrSkip(request, 'qa.owner');
+          type AuditRow = {
+            action: string;
+            entityId?: string;
+            actorType: string;
+            occurredAt: string;
+            after?: Record<string, unknown>;
+          };
+          let ev: AuditRow | undefined;
+          let cursor: string | undefined;
+          for (let page = 0; page < 20 && !ev; page++) {
+            const au = await call<{ data: AuditRow[]; page: { nextCursor?: string | null } }>(
+              request,
+              'GET',
+              `/v1/properties/${propertyIdOf(owner)}/audit-events`,
+              { session: owner, query: { category: 'data', from: today, limit: 100, cursor } },
+            );
+            expect(au.status, JSON.stringify(au.body).slice(0, 300)).toBe(200);
+            ev = au.body.data.find(
+              (e) => e.action === 'consent.recorded' && e.entityId === st.regId,
+            );
+            cursor = au.body.page?.nextCursor ?? undefined;
+            if (!cursor) break;
+          }
+          expect(ev, 'nhật ký consent.recorded của khai báo').toBeTruthy();
+          expect(ev!.actorType).toBe('guest');
+          expect(ev!.after).toMatchObject({
+            purpose: 'P02B_ID_IMAGE_RETENTION',
+            decision: 'granted',
+            channel: 'guest_app',
+          });
+          expect(Date.parse(ev!.occurredAt)).toBeGreaterThanOrEqual(before - 60_000);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-041 US-046/AC1 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-046/AC1' },
-            { type: 'endpoints', description: 'getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) đơn có 1 người hộ chiếu Đức + 1 CCCD VN; (b) đơn toàn CCCD VN
-          // Bước: Mở khai báo
-          // Kỳ vọng: (a) tiêu đề "Khai báo tạm trú người nước ngoài"; (b) "Thông báo lưu trú công dân Việt Nam"
-          // Quy tắc: BR-602, BR-603, BR-606
+        { annotation: [story('US-046/AC1'), eps('getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-041', [EP3.addGuestDocument, EP3.getRegistration]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          // (a) 1 hộ chiếu Đức + 1 CCCD VN → có người NN → khai báo tạm trú NN (khối NN trước, `mixed`)
+          const a = await foreignStay(request, fd, today, { adults: 2 });
+          const ra = await addDocument(
+            request,
+            fd,
+            a.regId,
+            foreignFar(a.guestName, today, a.res.departureDate),
+          );
+          expect(ra.status, JSON.stringify(ra.body)).toBe(201);
+          expect(ra.body.kind).toBe('foreigner_temp_residence');
+          const rb = await addDocument(
+            request,
+            fd,
+            a.regId,
+            vnDoc('Pham Thi Lan', { isMain: false }),
+          );
+          expect(rb.status, JSON.stringify(rb.body)).toBe(201);
+          expect(rb.body.kind).toBe('mixed');
+          const row = await regRow(request, fd, a.res.id);
+          expect(row?.kind).toBe('mixed');
+          // (b) toàn CCCD VN → thông báo lưu trú công dân VN
+          const b = await farStay(request, c, fd, today, { adults: 2 });
+          const rc = await addDocument(
+            request,
+            fd,
+            b.regId,
+            vnDoc('Vu Van Hai', { isMain: false, gender: 'male' }),
+          );
+          expect(rc.status, JSON.stringify(rc.body)).toBe(201);
+          expect(rc.body.kind).toBe('vn_citizen_stay');
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-042 US-046/AC2 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-046/AC2' },
-            { type: 'endpoints', description: 'getPortalData, listC3AccessLog' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khai báo scanned NN; máy quầy được cấp; một điện thoại
-          // Bước: Bấm "Sao chép dữ liệu" trên máy quầy; rồi bấm "Xóa bộ nhớ tạm"; thử trên điện thoại
-          // Kỳ vọng: Bộ nhớ tạm có đủ trường bắt buộc từng người theo BR-606, đúng thứ tự cổng; xóa bộ nhớ tạm
-          //   hoạt động; trên điện thoại không có chức năng (hoặc API từ chối); mỗi lần sao chép có log C3
-          // Quy tắc: BR-606, A73, R-REG-07
+        { annotation: [story('US-046/AC2'), eps('getPortalData, listC3AccessLog')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-042', [
+            EP3.getPortalData,
+            EP3.listC3AccessLog,
+            EP3.completeRegistrationReview,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const today = await stackToday(request);
+          const st = await foreignStay(request, fd, today);
+          const data = foreignFar(st.guestName, today, st.res.departureDate, {
+            visaKind: 'visa',
+            visaNumber: 'DV1234567',
+          });
+          const add = await addDocument(request, fd, st.regId, data);
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          await toScanned(request, fd, st.regId);
+          await stepUp(request, fd);
+          const path = p3(EP3.getPortalData, fd, { registrationId: st.regId });
+          const pd = await call<{
+            kind: string;
+            portalUrl: string;
+            people: Array<{ fields: Array<{ label: string; value: string }> }>;
+            clipboardText: string;
+          }>(request, 'GET', path, dev(fd));
+          expect(pd.status, JSON.stringify(pd.body).slice(0, 300)).toBe(200);
+          expect(pd.body.kind).toBe('foreigner_temp_residence');
+          expect(pd.body.portalUrl).toContain('tbltkbtt.bocongan.gov.vn');
+          expect(pd.body.people).toHaveLength(1);
+          const f = pd.body.people[0]!.fields;
+          const val = (k: string) => f.find((x) => x.label === `reg.field.${k}`)?.value;
+          // đủ trường bắt buộc BR-606 (thứ tự theo server – đúng thứ tự form cổng)
+          expect(val('full_name')).toBe(String(data.fullNameOnDoc));
+          expect(val('date_of_birth')).toBe(String(data.dateOfBirth));
+          expect(val('nationality')).toBe('DEU');
+          expect(val('passport_number')).toBe(String(data.docNumber));
+          expect(val('visa_number')).toBe('DV1234567');
+          expect(val('visa_valid_until')).toBe(String(data.visaValidUntil));
+          expect(val('entry_date')).toBe(String(data.entryDate));
+          expect(val('arrival_date')).toBe(st.res.arrivalDate);
+          expect(val('departure_date')).toBe(st.res.departureDate);
+          expect(f.findIndex((x) => x.label === 'reg.field.full_name')).toBe(0);
+          expect(f.findIndex((x) => x.label === 'reg.field.arrival_date')).toBeLessThan(
+            f.findIndex((x) => x.label === 'reg.field.departure_date'),
+          );
+          // bộ nhớ tạm: một dòng/người, các trường cách nhau bằng tab, đúng thứ tự
+          expect(pd.body.clipboardText).toBe(f.map((x) => x.value).join('\t'));
+          expect(pd.headers['cache-control'] ?? '').toContain('no-store');
+          // lần sao chép thứ 2 → mỗi lần một dòng log C3
+          const pd2 = await call(request, 'GET', path, dev(fd));
+          expect(pd2.status).toBe(200);
+          // điện thoại (không phải máy quầy được cấp) → API từ chối
+          const phone = await call(request, 'GET', path, { session: fd });
+          expectProblem(phone, 403, 'DEVICE_NOT_TRUSTED');
+          const log = (await c3Log(request, st.res.id)).filter(
+            (e) => e.subjectType === 'portal_data',
+          );
+          expect(log.length, JSON.stringify(log)).toBe(2);
+          for (const e of log) {
+            expect(e.userName).toBe(fd.me.displayName);
+            expect(e.reservationCode).toBe(st.res.code);
+          }
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-043 US-046/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-046/AC3' },
-            { type: 'endpoints', description: 'transitionRegistration, listRegistrations' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khai báo scanned
-          // Bước: Dán mã hồ sơ → lưu; "Cổng đã xác nhận"; (dữ liệu mới) "Cổng từ chối" + lý do
-          // Kỳ vọng: sent (ghi người khai, thời điểm, mã); confirmed, đơn rời danh sách cần xử lý; từ chối →
-          //   scanned kèm lý do
-          // Quy tắc: SM-05 K6–K8
-        },
-      );
-      test.fixme(
-        'TC-L3-044 US-042/AC1 [A+U · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/AC1' },
-            { type: 'endpoints', description: 'listRegistrations, listAttentionItems' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn khách VN đến 15/10 chưa khai; đơn khách NN nhận phòng ⏱ 15/10 08:00
-          // Bước: Xem danh sách cần khai báo; ⏱ 20:00 và 20:00:01 ▶ J5
-          // Kỳ vọng: VN: hạn 23:00 15/10; NN: hạn 20:00 15/10 (ví dụ BR-603). Lúc 20:00:01 hồ sơ NN trước sent
-          //   hiện "Đã quá hạn" bằng màu cảnh báo và nhãn chữ
-          // Quy tắc: BR-602, BR-603 (decision-log 15/10: NN = giờ đến + 12 giờ, chờ ESC-001), J5
-        },
-      );
-      test.fixme(
-        'TC-L3-045 US-042/AC1 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/AC1' },
-            { type: 'endpoints', description: 'checkIn, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khách VN nhận phòng ⏱ 20/10 22:59 và (dữ liệu khác) 23:40
-          // Bước: Xem hạn
-          // Kỳ vọng: 22:59 → 23:00 20/10; 23:40 → 08:00 21/10
-          // Quy tắc: BR-602
-        },
-      );
-      test.fixme(
-        'TC-L3-046 US-042/AC1 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/AC1' },
-            { type: 'endpoints', description: 'checkIn, getRegistration, listAttentionItems' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khách NN nhận phòng ⏱ 20/10 21:30
-          // Bước: Xem hạn; ⏱ 21/10 09:29 và 09:30:01 ▶ J5
-          // Kỳ vọng: Hạn 09:30 21/10 (21:30 + 12 giờ; không còn chế độ earlier_of); 09:29: chưa quá hạn;
-          //   09:30:01: "Đã quá hạn" bằng màu và nhãn chữ
-          // Quy tắc: BR-603, decision-log 15/10 DOM (NN = giờ đến + 12 giờ, bỏ mốc 23:00 với khách NN; giả định
-          //   chờ luật sư qua ESC-001)
+        { annotation: [story('US-046/AC3'), eps('transitionRegistration, listRegistrations')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-043', [
+            EP3.transitionRegistration,
+            EP3.listRegistrations,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1 });
+          await toScanned(request, fd, st.regId);
+          // dán mã hồ sơ → sent (người khai, thời điểm, mã)
+          const t0 = Date.now();
+          const sent = await transitionReg(request, fd, st.regId, 'mark-sent', {
+            portalReference: '  HS-2026/0042  ',
+          });
+          expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+          expect(sent.body.status).toBe('sent');
+          expect(sent.body.portalReference).toBe('HS-2026/0042');
+          expect(Date.parse(String(sent.body.sentAt))).toBeGreaterThanOrEqual(t0 - 60_000);
+          const refs = sent.body.portalReferences as Array<Record<string, unknown>>;
+          expect(refs[0]).toMatchObject({
+            reference: 'HS-2026/0042',
+            sentByName: fd.me.displayName,
+          });
+          // "Cổng đã xác nhận" → confirmed, rời danh sách cần xử lý
+          const conf = await transitionReg(request, fd, st.regId, 'mark-confirmed');
+          expect(conf.status, JSON.stringify(conf.body)).toBe(200);
+          expect(conf.body.status).toBe('confirmed');
+          expect(conf.body.deadlineLabel).toBe('done');
+          expect(conf.body.allowedActions).toEqual([]);
+          expect(await regRow(request, fd, st.res.id, 'action_needed')).toBeUndefined();
+          // (dữ liệu mới) "Cổng từ chối" + lý do → scanned
+          const b = await farStay(request, c, fd, today, { adults: 1 });
+          await toScanned(request, fd, b.regId);
+          const s2 = await transitionReg(request, fd, b.regId, 'mark-sent', {
+            portalReference: 'HS-2026-0043',
+          });
+          expect(s2.status).toBe(200);
+          const noReason = await transitionReg(request, fd, b.regId, 'mark-rejected', {});
+          expectProblem(noReason, 422, 'VALIDATION_FAILED');
+          expect((noReason.body.errors ?? []).map((e) => e.code)).toContain('REASON_REQUIRED');
+          const rej = await transitionReg(request, fd, b.regId, 'mark-rejected', {
+            rejectedReason: 'Sai ngay het han thi thuc',
+          });
+          expect(rej.status, JSON.stringify(rej.body)).toBe(200);
+          expect(rej.body.status).toBe('scanned');
+          expect(rej.body.allowedActions.map((a) => a.action)).toContain('mark-sent');
         },
       );
-      test.fixme(
-        'TC-L3-047 US-042/– [U · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/–' },
-            { type: 'endpoints', description: 'getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn 1 VN + 1 NN nhận phòng 10:00
-          // Bước: Xem hạn
-          // Kỳ vọng: Hạn của hồ sơ = hạn sớm nhất của các người (VN 23:00, NN 10:00 + 12 giờ = 22:00) → 22:00
-          // Quy tắc: BR-602, BR-603 (decision-log 15/10), architecture 9.1 (hồ sơ hỗn hợp)
-        },
-      );
-      test.fixme(
-        'TC-L3-048 US-042/AC2 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/AC2' },
-            { type: 'endpoints', description: 'listAttentionItems' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: 2 hồ sơ chưa khai; qa.fd trực, qa.mgr
-          // Bước: ⏱ 21:59 ▶ J5; ⏱ 22:00 ▶ J5; ⏱ 16/10 07:00 ▶ J5; ▶ J5 lần 2 cùng mốc
-          // Kỳ vọng: 21:59: không nhắc tổng hợp; 22:00 và 07:00: qa.fd + qa.mgr nhận thông báo trong app nêu số
-          //   hồ sơ; chạy lại cùng mốc không gửi trùng (job_run)
-          // Quy tắc: BR-611, J5
-        },
-      );
-      test.fixme(
-        'TC-L3-049 US-042/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-042/AC3' },
-            { type: 'endpoints', description: 'setParameter, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Hồ sơ A chưa khai (NN, nhận 10:00, hạn 22:00); hồ sơ B đã sent
-          // Bước: qa.owner đổi registration_deadline_foreigner_hours 12 → 24 (giả lập kết luận luật sư)
-          // Kỳ vọng: Hạn A tính lại theo tham số mới mà không đổi code; B giữ nguyên
-          // Quy tắc: BR-603, ERD 9.1 (tham số hạn)
-        },
-      );
-      test.fixme(
+
+      test(
         'TC-L3-050 US-047/AC1 [A · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-047/AC1' },
+            story('US-047/AC1'),
+            eps('createReservation, createHoldFromQuote, confirmDeposit, listRegistrations'),
+          ],
+        },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-050', [
+            EP.createReservation,
+            EP.createHoldFromQuote,
+            EP.confirmDeposit,
+            EP3.listRegistrations,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const sal = await sessionOrSkip(request, 'qa.sal');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const one = async (res: { id: string }, persons: number, what: string) => {
+            const all = [];
+            // đúng 1 bản ghi (listRegistrations view=all)
+            let cursor: string | undefined;
+            for (let p = 0; p < 50; p++) {
+              const l = await call<{
+                data: Array<{
+                  id: string;
+                  reservationId: string;
+                  status: string;
+                  requiredCount: number;
+                }>;
+                page: { nextCursor?: string | null };
+              }>(request, 'GET', p3(EP3.listRegistrations, fd), {
+                session: fd,
+                query: { view: 'all', limit: 100, cursor },
+              });
+              expect(l.status).toBe(200);
+              all.push(...l.body.data.filter((x) => x.reservationId === res.id));
+              cursor = l.body.page?.nextCursor ?? undefined;
+              if (!cursor) break;
+            }
+            expect(all, `${what}: đúng 1 bản ghi khai báo`).toHaveLength(1);
+            expect(all[0]!.status, what).toBe('none');
+            expect(all[0]!.requiredCount, `${what}: số người cần khai = số khách`).toBe(persons);
+          };
+          // đặt mới Trực tiếp: 2 NL + 1 trẻ 6–11 + 1 trẻ dưới 6 → 4 người (mọi người kể cả trẻ dưới 6)
+          const d = await bookFree(request, fd, c, {
+            room: room(c, '301'),
+            nights: 2,
+            today,
+            adults: 2,
+            children6to11: 1,
+            childrenUnder6: 1,
+          });
+          await one(d, 4, 'đặt mới Trực tiếp');
+          // giữ chỗ từ báo giá → xác nhận cọc
+          const h = await makeHold(request, sal, c, {
+            rooms: SMALL_ROOMS.map((n) => room(c, n)),
+            arrival: (await freeWindow(request, fd, room(c, '102'), 1, { today })).arrival,
+            nights: 1,
+            holdHours: 24,
+            adults: 2,
+          });
+          await one(h.hold, 2, 'giữ chỗ từ báo giá');
+          const cur = await getReservation(request, fd, h.hold.id);
+          const dep = await call<Reservation & ProblemFields>(
+            request,
+            'POST',
+            `/v1/properties/${propertyIdOf(fd)}/reservations/${h.hold.id}/actions/confirm-deposit`,
             {
-              type: 'endpoints',
-              description:
-                'createReservation, createHoldFromQuote, confirmDeposit, listRegistrations',
+              session: fd,
+              idempotencyKey: true,
+              ifMatch: versionTag(cur.body.version),
+              body: {
+                payment: {
+                  type: 'deposit',
+                  method: 'cash',
+                  amountVnd: cur.body.depositRequiredVnd ?? h.quote.depositVnd ?? 0,
+                },
+              },
             },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: DS-E
-          // Bước: Tạo đơn bằng: đặt mới (Trực tiếp); giữ chỗ từ báo giá; đơn OTA nhập tay; giữ chỗ dài hạn → xác
-          //   nhận ký quỹ
-          // Kỳ vọng: Mọi đơn có đúng 1 bản ghi khai báo none, số người cần = số khách của đơn
-          // Quy tắc: BR-608, SM-05 K1, BL #9
+          );
+          expect(dep.status, JSON.stringify(dep.body)).toBe(200);
+          expect(dep.body.status).toBe('confirmed');
+          await one(h.hold, 2, 'giữ chỗ → xác nhận cọc');
+          // đơn OTA nhập tay
+          const o = await bookFree(request, fd, c, {
+            room: anyRoom(c),
+            nights: 1,
+            today,
+            kind: 'booking',
+            adults: 1,
+          });
+          await one(o, 1, 'đơn OTA nhập tay');
+          // đơn dài hạn nhập tay (AC5a – HĐ thật R3)
+          const lr = room(c, '402');
+          const w = await freeWindow(request, fd, lr, 30, { today });
+          const long = await createReservation(
+            request,
+            fd,
+            reservationBody(c, {
+              room: lr,
+              ...w,
+              adults: 2,
+              guestId: (await namedGuest(request, fd)).id,
+              extra: {
+                manualLongStay: {
+                  monthlyRentVnd: 9500000,
+                  externalContractRef: 'HD-E2E-L3-050',
+                  depositHeldVnd: 9500000,
+                },
+              },
+            }),
+          );
+          expect(long.status, JSON.stringify(long.body)).toBe(201);
+          track('reservation', long.body.id);
+          await one(long.body, 2, 'đơn dài hạn nhập tay');
+          expect(channel(c, 'direct').id).toBeTruthy();
         },
       );
-      test.fixme(
-        'TC-L3-051 US-047/AC2 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-047/AC2' },
-            { type: 'endpoints', description: 'extendStay, listRegistrations' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Booking.com in_house có khai báo confirmed
-          // Bước: Gia hạn 1 đêm (sinh đơn con kênh Trực tiếp)
-          // Kỳ vọng: Đơn con không có bản ghi khai báo mới; có việc "Cập nhật ngày đi"
-          // Quy tắc: BR-608, BR-422
-        },
-      );
-      test.fixme(
+
+      test(
         'TC-L3-052 US-047/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-047/AC3' },
-            { type: 'endpoints', description: 'updateReservation, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) Đơn khai báo partial 2 người; (b) đơn khai báo confirmed 2 người
-          // Bước: Đổi số khách 2 → 3
-          // Kỳ vọng: (a) số người cần = 3, trạng thái theo số người đã có; (b) → needs_update + việc khai bổ sung
-          // Quy tắc: SM-05 K9, BR-601
-        },
-      );
-      test.fixme(
-        'TC-L3-053 US-050/AC1 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-050/AC1' },
-            {
-              type: 'endpoints',
-              description: 'extendStay, earlyDeparture, checkOut, transitionRegistration',
-            },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: 3 đơn khách NN khai báo confirmed
-          // Bước: Gia hạn đơn 1; trả sớm đơn 2; trả phòng đơn 3; rồi nhập ngày đi thực tế
-          // Kỳ vọng: Cả 3 → needs_update + việc "Cập nhật ngày đi" trong ngày cho front_desk; sau khi nhập →
-          //   updated
-          // Quy tắc: BR-604, SM-05 K9, K10
-        },
-      );
-      test.fixme(
-        'TC-L3-054 US-050/AC2 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-050/AC2' },
-            { type: 'endpoints', description: 'extendStay, getRegistration, listAttentionItems' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khách NN thị thực đến 20/11; ⏱ 15/10
-          // Bước: Gia hạn đơn đến 04/12 (hoặc lưu HĐ đến 04/12)
-          // Kỳ vọng: Cảnh báo chặn mềm, phải nhập lý do mới lưu; ngày đi khai báo không vượt 20/11; nhắc gia hạn
-          //   thị thực từ 06/11 (14 ngày trước)
-          // Quy tắc: BR-605
+        { annotation: [story('US-047/AC3'), eps('updateReservation, getRegistration')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-052', [EP.updateReservation, EP3.getRegistration]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const adults3 = async (st: { res: { id: string } }) => {
+            const cur = await getReservation(request, fd, st.res.id);
+            const up = await call<Reservation & ProblemFields>(
+              request,
+              'PATCH',
+              `/v1/properties/${propertyIdOf(fd)}/reservations/${st.res.id}`,
+              { session: fd, ifMatch: versionTag(cur.body.version), body: { adults: 3 } },
+            );
+            expect(up.status, JSON.stringify(up.body)).toBe(200);
+          };
+          // (a) partial 2 người (mới có 1 giấy tờ) → cần 3, trạng thái theo số người đã có
+          const a = await farStay(request, c, fd, today, { adults: 2 });
+          expect((await regOf(request, fd, a.regId)).status).toBe('partial');
+          await adults3(a);
+          const ra = await regOf(request, fd, a.regId);
+          expect(ra.requiredCount).toBe(3);
+          expect(ra.submittedCount).toBe(1);
+          expect(ra.status).toBe('partial');
+          // (b) confirmed 2 người → needs_update (K9) + việc khai bổ sung (danh sách cần cập nhật)
+          const b = await farStay(request, c, fd, today, { adults: 2 });
+          const d2 = await addDocument(
+            request,
+            fd,
+            b.regId,
+            vnDoc('Ngo Van Tam', { isMain: false, gender: 'male' }),
+          );
+          expect(d2.status).toBe(201);
+          await toScanned(request, fd, b.regId);
+          await toConfirmed(request, fd, b.regId);
+          await adults3(b);
+          const rb = await regOf(request, fd, b.regId);
+          expect(rb.requiredCount).toBe(3);
+          expect(rb.status).toBe('needs_update');
+          expect(rb.deadlineLabel).toBe('needs_update');
+          expect((await regRow(request, fd, b.res.id, 'needs_update'))?.status).toBe(
+            'needs_update',
+          );
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-055 US-022/– [A · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-022/–' },
+            story('US-022/–'),
+            eps('removePartyMember, addPartyMember, getRegistration'),
+          ],
+        },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-055', [
+            EP3.addPartyMember,
+            EP3.removePartyMember,
+            EP3.getRegistration,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 2 });
+          // người thứ 2 trong đơn (người đi cùng) + giấy tờ gắn với người đó, có ảnh
+          const g2 = await namedGuest(request, fd);
+          const add = await call<{ members: Array<{ id: string; guest?: { id: string } }> }>(
+            request,
+            'POST',
+            p3(EP3.addPartyMember, fd, { reservationId: st.res.id }),
             {
-              type: 'endpoints',
-              description: 'removePartyMember, addPartyMember, getRegistration',
+              session: fd,
+              idempotencyKey: true,
+              body: { role: 'companion', guestId: g2.id, relationship: 'friend' },
             },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn 2 người, khai báo review (đủ giấy tờ 2 người)
-          // Bước: 1. Bỏ người thứ 2 khỏi đơn. 2. Thêm người khác chưa có giấy tờ
-          // Kỳ vọng: (1) khai báo về partial (thiếu người so với số khách), giấy tờ người bị bỏ không còn trong
-          //   khai báo, ảnh xử lý theo hạn BR-609/610; (2) vẫn partial
-          // Quy tắc: SM-05 review→partial, BR-609
-        },
-      );
-      test.fixme(
-        'TC-L3-056 US-022/AC4 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-022/AC4' },
-            { type: 'endpoints', description: 'addPartyMember, getFolio, listHkTasks' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Trực tiếp 302 in_house 15→18/10, 3 người lớn (đủ định mức 3); đơn Booking
-          //   302-khác 2 người lớn
-          // Bước: (a) Thêm 1 người lớn từ đêm 16/10, xem đề xuất rồi xác nhận lúc 19:10 16/10; (b) thêm người thứ
-          //   5 (vượt sức chứa 4); (c) thêm người vào đơn Booking
-          // Kỳ vọng: (a) đề xuất phụ thu 150.000 × 2 đêm (16, 17/10) = 300.000, chỉ ghi folio khi lễ tân xác nhận
-          //   đúng số đang hiển thị; sinh việc bộ đồ dùng thêm hạn 20:10 (BR-812-09); (b) 422 CAPACITY_EXCEEDED;
-          //   (c) chỉ cập nhật số khách, không phụ thu
-          // Quy tắc: BR-110, BR-414, BR-812, US-004/AC3
+          );
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          const member = add.body.members.find((m) => m.guest?.id === g2.id);
+          expect(member, JSON.stringify(add.body)).toBeTruthy();
+          const d2 = await addDocument(
+            request,
+            fd,
+            st.regId,
+            vnDoc(g2.fullName, { isMain: false, partyMemberId: member!.id }),
+            1,
+          );
+          expect(d2.status, JSON.stringify(d2.body)).toBe(201);
+          expect(d2.body.status).toBe('review');
+          const doc2 = d2.body.documents.find((d) => d.partyMemberId === member!.id);
+          expect(doc2?.imageIds ?? []).toHaveLength(1);
+          // 1. bỏ người thứ 2 khỏi đơn
+          const party = await partyOf(request, fd, st.res.id);
+          const del = await call(
+            request,
+            'DELETE',
+            p3(EP3.removePartyMember, fd, { reservationId: st.res.id, memberId: member!.id }),
+            { session: fd, idempotencyKey: true, ifMatch: versionTag(party.version) },
+          );
+          expect(del.status, JSON.stringify(del.body)).toBe(204);
+          const r1 = await regOf(request, fd, st.regId);
+          expect(r1.status, 'thiếu người so với số khách → partial').toBe('partial');
+          expect(r1.documents.map((d) => d.id)).not.toContain(doc2!.id);
+          // ảnh của người bị bỏ: không còn đọc được (hủy khóa ngay – A-38)
+          await stepUp(request, fd);
+          const img = await getImage(request, fd, st.regId, doc2!.id, doc2!.imageIds![0]!);
+          expect(img.status).toBe(404);
+          // 2. thêm người khác chưa có giấy tờ → vẫn partial
+          const g3 = await namedGuest(request, fd);
+          const add3 = await call(
+            request,
+            'POST',
+            p3(EP3.addPartyMember, fd, { reservationId: st.res.id }),
+            {
+              session: fd,
+              idempotencyKey: true,
+              body: { role: 'companion', guestId: g3.id, relationship: 'family' },
+            },
+          );
+          expect(add3.status, JSON.stringify(add3.body)).toBe(201);
+          const r2 = await regOf(request, fd, st.regId);
+          expect(r2.status).toBe('partial');
+          expect(r2.submittedCount).toBeLessThan(r2.requiredCount);
         },
       );
     });
+
     test.describe('4.3 Mã cửa, xóa ảnh giấy tờ theo hạn', () => {
-      test.fixme(
+      test(
         'TC-L3-060 US-128/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-128/AC1' },
-            { type: 'endpoints', description: 'setDoorCredential, getGuestStay' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn in_house nhận 14:30 15/10, đi 18/10; có trả muộn đã duyệt đến 15:00
-          // Bước: qa.fd nhập mã cửa
-          // Kỳ vọng: Hiệu lực mặc định 15/10 14:30 → 18/10 15:00; app khách chỉ hiện mã trong khoảng đó
-          //   (TC-L7-021)
-          // Quy tắc: BR-403, D22
+        { annotation: [story('US-128/AC1'), eps('setDoorCredential, getGuestStay')] },
+        async ({ request }) => {
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1 });
+          // R2: không có endpoint nhập mã cửa (404), app khách không có mã cửa (ĐK-2)
+          const set = await call(
+            request,
+            'PUT',
+            p3(EP3.setDoorCredential, fd, { reservationId: st.res.id }),
+            { session: fd, idempotencyKey: true, body: { code: '1203472' } },
+          );
+          expect(set.status).toBe(404);
+          const link = await guestLink(request, fd, st.res.id);
+          const g = await openGuest(request, link.token);
+          expect(g.status).toBe(200);
+          const gs = await guestCall(request, 'GET', EP3.getGuestStay[1], g.cookie);
+          expect(gs.status, JSON.stringify(gs.body)).toBe(200);
+          expect(JSON.stringify(gs.body), 'ĐK-2: mức 1 không có doorCode').not.toContain(
+            'doorCode',
+          );
+          test.skip(
+            true,
+            `${R3_DOOR} – hiệu lực mặc định nhận → trả muộn và hiện trên app khách (TC-L7-021)`,
+          );
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-061 US-128/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-128/AC3' },
-            { type: 'endpoints', description: 'checkOut, changeRoom, getDoorCredential' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn có mã cửa
-          // Bước: (a) Trả phòng; (b) dữ liệu mới: đổi phòng
-          // Kỳ vọng: Mã cũ "đã hủy"; có việc nhắc lễ tân xóa mã trên app khóa (MVP nhập tay – INV quyết ESC-011,
-          //   khóa TTLock)
-          // Quy tắc: BR-403, SEC T11
+        { annotation: [story('US-128/AC3'), eps('checkOut, changeRoom, getDoorCredential')] },
+        async ({ request }) => {
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1 });
+          const get = await call(
+            request,
+            'GET',
+            p3(EP3.getDoorCredential, fd, { reservationId: st.res.id }),
+            { session: fd },
+          );
+          expect(get.status, 'getDoorCredential chưa đăng ký ở R2').toBe(404);
+          test.skip(
+            true,
+            `${R3_DOOR} – mã cũ "đã hủy" khi trả phòng/đổi phòng + việc nhắc xóa mã trên app khóa (ESC-011)`,
+          );
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-062 US-128/–; US-025/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-128/–; US-025/AC3' },
-            { type: 'endpoints', description: 'setDoorCredential' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn còn phải thu > 0
-          // Bước: Nhập mã cửa trước khi nhận phòng
-          // Kỳ vọng: Bị chặn: chưa đạt điều kiện giao mã
-          // Quy tắc: BR-402
-        },
-      );
-      test.fixme(
-        'TC-L3-070 US-049/AC1 [A · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-049/AC1' },
-            { type: 'endpoints', description: 'getDocumentImage' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) Đơn checked_out 14/10 10:30, có ảnh, đồng ý lưu "Có"; (b) đơn checked_out 14/10
-          //   23:59, như (a)
-          // Bước: ⏱ 12/11 03:00 ▶ J16; ⏱ 13/11 03:00 ▶ J16
-          // Kỳ vọng: 12/11 (ngày thứ 29 sau ngày trả): ảnh (a), (b) còn; 13/11 (= 14/10 + 30 ngày): ảnh (a), (b)
-          //   bị xóa (hủy khóa) – giờ trả trong ngày không làm lệch ngày; dữ liệu khai báo dạng chữ giữ theo tham
-          //   số riêng; retention_run ghi lần xóa; endpoint ảnh trả 404/410
-          // Quy tắc: BR-610 (chờ ESC-001), SEC T02, ADR-013, J16, [GIẢ ĐỊNH QA – chờ DOM: "30 ngày sau trả phòng"
-          //   = xóa ở lần chạy J16 đầu tiên từ 00:00 ngày (ngày trả theo lịch giờ VN + 30); BA-DOM-07]
+        { annotation: [story('US-128/–; US-025/AC3'), eps('setDoorCredential')] },
+        async ({ request }) => {
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          // đơn còn phải thu > 0 (chỉ cọc)
+          const st = await farStay(request, c, fd, today, { adults: 1, nights: 3, pay: 'deposit' });
+          const folio = await getFolio(request, fd, String(st.res.folioId));
+          expect(folio.totals.balanceDueVnd, 'còn phải thu > 0').toBeGreaterThan(0);
+          // R2: không có chức năng nhập mã cửa → không giao được mã trước khi đủ điều kiện (BR-402)
+          const set = await call(
+            request,
+            'PUT',
+            p3(EP3.setDoorCredential, fd, { reservationId: st.res.id }),
+            { session: fd, idempotencyKey: true, body: { code: '1203472' } },
+          );
+          expect(set.status).toBe(404);
+          const res = await getReservation(request, fd, st.res.id);
+          expect(JSON.stringify(res.body)).not.toMatch(/doorCode|doorCredential/);
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-071 US-049/AC2 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-049/AC2' },
-            { type: 'endpoints', description: 'transitionRegistration, getDocumentImage' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Khai báo chọn không đồng ý
-          // Bước: Khai báo → confirmed, ▶ J16
-          // Kỳ vọng: Ảnh bị xóa ngay khi confirmed, không chờ J16; 24 giờ là hạn trên (cùng kỳ vọng TC-L3-039)
-          // Quy tắc: BR-609, SEC T01, decision-log 15/10 SEC (M3)
+        { annotation: [story('US-049/AC2'), eps('transitionRegistration, getDocumentImage')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-071', [
+            EP3.transitionRegistration,
+            EP3.getDocumentImage,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1, doc: false });
+          const add = await addDocument(request, fd, st.regId, vnDoc(st.guestName), 2);
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          const doc = mainDoc(add.body);
+          expect(doc.imageIds).toHaveLength(2);
+          await toScanned(request, fd, st.regId, 'refused');
+          await stepUp(request, fd);
+          const before = await getImage(request, fd, st.regId, doc.id, doc.imageIds![0]!);
+          expect(before.status, 'trước khi confirmed ảnh còn').toBe(200);
+          const conf = await toConfirmed(request, fd, st.regId);
+          // xóa NGAY khi confirmed, không chờ J16
+          for (const imageId of doc.imageIds!) {
+            const img = await getImage(request, fd, st.regId, doc.id, imageId, 'recheck');
+            expect(img.status, `ảnh ${imageId} sau confirmed`).toBe(404);
+          }
+          expect(conf.imagesPurgeReason).toBe('no_consent');
+          expect(conf.imagesPurgedAt).toBeTruthy();
+          const reg = await regOf(request, fd, st.regId);
+          expect(mainDoc(reg).imageIds ?? []).toHaveLength(0);
+          // trường văn bản cần thiết còn (số giấy tờ 4 ký tự cuối)
+          expect(mainDoc(reg).docNumberLast4).toHaveLength(4);
+          // ▶ J16 (lưới an toàn) – chỉ khi stack cho chạy job (CI / E2E_CLOCK_CONTROL=1); ảnh vẫn 404
+          const j = CLOCK_ENABLED ? await runJobIfAny(request, 'retention.purge') : null;
+          test.info().annotations.push({
+            type: 'J16',
+            description: j
+              ? JSON.stringify(j)
+              : 'không chạy (stack không cho chạy job hoặc job chưa đăng ký)',
+          });
+          const again = await getImage(request, fd, st.regId, doc.id, doc.imageIds![0]!, 'recheck');
+          expect(again.status).toBe(404);
+          // nhật ký C3: mỗi ảnh một dòng purge (lý do no_consent)
+          const purge = (await c3Log(request, st.res.id)).filter(
+            (e) => e.subjectType === 'document_image' && e.action === 'purge',
+          );
+          expect(purge).toHaveLength(2);
+          for (const e of purge) expect(e.reasonCode).toBe('no_consent');
         },
       );
-      test.fixme(
+
+      test(
         'TC-L3-072 US-049/AC3 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-049/AC3' },
-            { type: 'endpoints', description: 'purgeRegistrationImages' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn còn ảnh trong hạn
-          // Bước: (a) qa.fd tìm chức năng xóa sớm; (b) qa.mgr xóa sớm qua hộp xác nhận
-          // Kỳ vọng: (a) không có, API 403; (b) ảnh bị xóa ngay, nhật ký ghi người, lý do, thời điểm
-          // Quy tắc: A74, US-135
+        { annotation: [story('US-049/AC3'), eps('purgeRegistrationImages')] },
+        async ({ request }) => {
+          await requireEndpoints(request, 'TC-L3-072', [EP3.purgeRegistrationImages]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const mgr = await sessionOrSkip(request, 'qa.mgr');
+          const c = await s2Context(request);
+          const today = await stackToday(request);
+          const st = await farStay(request, c, fd, today, { adults: 1, doc: false });
+          const add = await addDocument(request, fd, st.regId, vnDoc(st.guestName), 1);
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          const doc = mainDoc(add.body);
+          const cons = await consentFor(request, fd, st.regId, doc.id, 'granted');
+          expect(cons.status).toBe(201);
+          const path = p3(EP3.purgeRegistrationImages, fd, { registrationId: st.regId });
+          // (a) qa.fd không có chức năng – API 403
+          const v0 = (await regOf(request, fd, st.regId)).version;
+          const a = await call(request, 'DELETE', path, {
+            ...dev(fd),
+            idempotencyKey: true,
+            ifMatch: versionTag(v0),
+            query: { reason: 'guest_request' },
+          });
+          expect(a.status, JSON.stringify(a.body)).toBe(403);
+          // (b) qa.mgr xóa sớm (máy quầy, If-Match, lý do)
+          const t0 = Date.now();
+          const b = await call(request, 'DELETE', path, {
+            ...dev(mgr),
+            idempotencyKey: true,
+            ifMatch: versionTag(v0),
+            query: { reason: 'guest_request' },
+          });
+          expect(b.status, JSON.stringify(b.body)).toBe(204);
+          const reg = await regOf(request, fd, st.regId);
+          expect(reg.imagesPurgeReason).toBe('guest_request');
+          expect(Date.parse(String(reg.imagesPurgedAt))).toBeGreaterThanOrEqual(t0 - 60_000);
+          expect(mainDoc(reg).imageIds ?? []).toHaveLength(0);
+          await stepUp(request, mgr);
+          const img = await getImage(request, mgr, st.regId, doc.id, doc.imageIds![0]!);
+          expect(img.status).toBe(404);
+          // nhật ký: người (qa.mgr), lý do, thời điểm
+          const purge = (await c3Log(request, st.res.id)).filter(
+            (e) => e.subjectType === 'document_image' && e.action === 'purge',
+          );
+          expect(purge).toHaveLength(1);
+          expect(purge[0]).toMatchObject({
+            userName: mgr.me.displayName,
+            reasonCode: 'guest_request',
+          });
+          expect(Date.parse(purge[0]!.occurredAt)).toBeGreaterThanOrEqual(t0 - 60_000);
+          // lần 2 → 409 (đã xóa)
+          const again = await call(request, 'DELETE', path, {
+            ...dev(mgr),
+            idempotencyKey: true,
+            ifMatch: versionTag(reg.version),
+            query: { reason: 'guest_request' },
+          });
+          expect(again.status).toBe(409);
         },
       );
     });

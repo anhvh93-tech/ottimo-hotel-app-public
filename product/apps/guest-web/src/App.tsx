@@ -31,7 +31,12 @@ export function App({ link }: { link: LinkRead }) {
     if (which && which !== 'checkin_closed') {
       setBoot({ kind: 'terminal', which, phone: phoneRef.current });
     } else if (isApiError(e) && e.code === 'RATE_LIMITED') {
-      setBoot({ kind: 'terminal', which: 'rate_limited', minutes: retryMinutes(e) });
+      setBoot({
+        kind: 'terminal',
+        which: 'rate_limited',
+        minutes: retryMinutes(e),
+        phone: phoneRef.current,
+      });
     } else {
       setBoot({ kind: 'error' });
     }

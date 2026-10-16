@@ -1,4 +1,4 @@
-import { Alert, Icon, OfflineBar } from '@ottimo/ui';
+import { Icon, OfflineBar } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import {
   guestApi,
@@ -17,6 +17,12 @@ import { SkipLink, TopBar } from './TerminalPage';
 
 type View = 'home' | 'info' | 'checkin';
 
+const LANG_KEYS: Record<GuestLocale, string> = {
+  vi: 'guest.lang.vi',
+  en: 'guest.lang.en',
+  ru: 'guest.lang.ru',
+};
+
 export interface ShellProps {
   session?: GuestSession;
   stay: GuestStay;
@@ -29,7 +35,7 @@ export interface ShellProps {
 function LanguageSelect({ onChange }: { onChange: (l: GuestLocale) => void }) {
   const { t, locale } = useT();
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <label className="gw-lang">
       <Icon name="globe" />
       <span className="sr-only">{t('guest.lang')}</span>
       <select
@@ -39,7 +45,7 @@ function LanguageSelect({ onChange }: { onChange: (l: GuestLocale) => void }) {
       >
         {GUEST_LOCALES.map((l) => (
           <option key={l} value={l} lang={l}>
-            {t(`guest.lang.${l}`)}
+            {t(LANG_KEYS[l])}
           </option>
         ))}
       </select>
@@ -48,7 +54,7 @@ function LanguageSelect({ onChange }: { onChange: (l: GuestLocale) => void }) {
 }
 
 export function GuestShell({ session, stay, onLocale, onFatal, onReloadStay }: ShellProps) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const online = useOnline();
   const [view, setView] = useState<View>('home');
   // Progress of online check-in, for the "done" card on the stay page (H18 18.5). Best effort: if it
@@ -107,13 +113,6 @@ export function GuestShell({ session, stay, onLocale, onFatal, onReloadStay }: S
         </OfflineBar>
       ) : null}
       <main id="main" ref={mainRef}>
-        {locale === 'ru' ? (
-          <div style={{ padding: '12px 16px 0' }}>
-            <Alert tone="info" role="status">
-              {t('guest.lang.ru_soon')}
-            </Alert>
-          </div>
-        ) : null}
         {view === 'checkin' ? (
           <CheckinFlow
             stay={stay}

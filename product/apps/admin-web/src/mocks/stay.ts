@@ -65,6 +65,11 @@ export interface MockLine {
   unitPriceVnd: number;
   amountVnd: number;
   lineState: 'posted' | 'pending_approval' | 'rejected';
+  /** Bill label contract proposed by DOM/ARC (`bill.line.*` + params); `description` stays technical. */
+  labelKey?: string;
+  labelParams?: Record<string, string | number>;
+  /** Catalogue / system charge code (`extra_night`, `overpayment_retained`, `key_card_fee`…). */
+  chargeCode?: string;
   relatedLineId?: string;
   approvalRequestId?: string;
   postedAt: string;
@@ -135,6 +140,15 @@ interface MockDoc {
   passportExpiryDate?: string;
   visaValidUntil?: string;
   entryDate?: string;
+  gender?: string;
+  passportIssueDate?: string;
+  issuingPlace?: string;
+  visaKind?: string;
+  visaNumber?: string;
+  entryPort?: string;
+  entryPurpose?: string;
+  noEntryRecord?: boolean;
+  address?: string;
   imageIds: string[];
   imageConsent: 'not_recorded' | 'granted' | 'refused';
   captureMethod: string;
@@ -162,6 +176,94 @@ interface MockMember {
   displayName: string;
   priceAgeBand: 'adult' | 'child_6_11' | 'child_under_6';
   effectiveFrom?: string;
+}
+
+type LabelParams = Record<string, string | number>;
+/**
+ * Same rules as BE `folio/public/line-labels.ts` (closed `bill.line.*` list, 0.3.6 bổ sung 2): the
+ * key comes from category / charge code, params from the technical description, then the poster's
+ * own `labelParams` win. `room` = room of the stay (the mock has one segment).
+ */
+export function labelFor(
+  l: Pick<MockLine, 'category' | 'description'> & Partial<MockLine>,
+  roomNo?: string | null,
+): { labelKey: string; labelParams?: LabelParams } {
+  const given = l.labelParams ?? {};
+  const d = l.description ?? '';
+  const qty = Number(l.quantity ?? 1);
+  const out = (labelKey: string, p: Record<string, string | number | null | undefined> = {}) => {
+    const labelParams: LabelParams = {};
+    for (const [k, v] of Object.entries(p))
+      if (v !== null && v !== undefined && v !== '') labelParams[k] = v;
+    return Object.keys(labelParams).length ? { labelKey, labelParams } : { labelKey };
+  };
+  const timePct = () => {
+    const m = /(\d{2}:\d{2})\s+(\d+)%/.exec(d);
+    return m ? { time: m[1], pct: Number(m[2]) } : {};
+  };
+  switch (l.category) {
+    case 'room':
+      return out(
+        l.chargeCode === 'extra_night' ? 'bill.line.extra_night' : 'bill.line.room_night',
+        {
+          date: l.serviceDate,
+          room: roomNo,
+          ...given,
+        },
+      );
+    case 'extra_person': {
+      const m = /x(\d+)/.exec(d);
+      return out('bill.line.extra_person', {
+        date: l.serviceDate,
+        count: m ? Number(m[1]) : null,
+        ...given,
+      });
+    }
+    case 'early_checkin':
+      return out('bill.line.early_checkin', { ...timePct(), ...given });
+    case 'late_checkout':
+      return out('bill.line.late_checkout', { ...timePct(), ...given });
+    case 'early_departure_fee': {
+      const m = /(\d+)d\b/.exec(d);
+      return out('bill.line.early_departure_fee', {
+        noticeDays: m ? Number(m[1]) : null,
+        ...given,
+      });
+    }
+    case 'deposit_forfeit':
+      return out('bill.line.overpayment_retained', given);
+    case 'room_change_difference': {
+      const m = /(\S+)->(\S+)/.exec(d);
+      return out('bill.line.room_change', { from: m?.[1], to: m?.[2], ...given });
+    }
+    case 'minibar':
+      return out('bill.line.minibar', { item: d, ...given, qty });
+    case 'cancellation_fee':
+      return out('bill.line.cancellation_fee', given);
+    case 'no_show_fee':
+      return out('bill.line.no_show_fee', given);
+    case 'foc':
+    case 'discount':
+      return out(l.category === 'foc' ? 'bill.line.foc' : 'bill.line.discount', given);
+    case 'laundry':
+      return out('bill.line.laundry', { ...given, qty });
+    case 'cleaning':
+      return out('bill.line.adhoc_cleaning', { ...given, qty });
+    case 'penalty':
+      return l.chargeCode === 'key_card_fee'
+        ? out('bill.line.key_card_fee', { ...given, qty })
+        : out('bill.line.smoking_fee', given);
+    case 'damage':
+      return out('bill.line.damage', { item: d, ...given, qty });
+    case 'fnb':
+      return out('bill.line.fnb', { text: d, ...given, qty });
+    case 'service_fee':
+      return out('bill.line.service_fee', { text: d, ...given, qty });
+    case 'utilities':
+      return out('bill.line.utilities', given);
+    default:
+      return out('bill.line.adjustment', given);
+  }
 }
 
 const MINIBAR = [
@@ -316,7 +418,11 @@ export function createStayMock(ctx: Ctx) {
       const lines: MockLine[] = (r.nightlyRates ?? []).map((nr, i) => ({
         id: uid(80_000 + ++n),
         category: 'room',
-        description: `Tiền phòng đêm ${nr.date.slice(8, 10)}/${nr.date.slice(5, 7)}`,
+        description: 'room_night',
+        ...labelFor(
+          { category: 'room', description: 'room_night', serviceDate: nr.date },
+          r.segments?.[0]?.roomNo,
+        ),
         serviceDate: nr.date,
         quantity: 1,
         unitPriceVnd: nr.amountVnd,
@@ -350,6 +456,28 @@ export function createStayMock(ctx: Ctx) {
           recordedByRole: 'front_desk',
           version: 1,
         });
+      if (r.paymentModel === 'ota_prepaid' && lines.length)
+        payments.push({
+          id: uid(81_500 + ++n),
+          code: `PT-0${n}`,
+          folioId: r.folioId,
+          reservationCode: r.code,
+          type: 'charge',
+          method: 'ota_collect',
+          amountVnd: lines.reduce((a, l) => a + l.amountVnd, 0),
+          status: 'succeeded',
+          reconciliation: 'not_required',
+          receivedAt: now,
+          recordedBy: 'system',
+          version: 1,
+        });
+      if (r.guestName === 'Gia đình anh Hưng')
+        r.depositShortfall = {
+          shortfallVnd: 300_000,
+          acceptedAt: now,
+          acceptedByName: 'Quân',
+          reason: 'Khách quen, thu đủ khi đến',
+        };
       const regId = uid(82_000 + ++n);
       r.registrationId = regId;
       r.registrationStatus = r.status === 'checked_out' ? 'confirmed' : 'none';
@@ -489,10 +617,15 @@ export function createStayMock(ctx: Ctx) {
         actorName: 'Sơn · Sale',
         actorUserId: uid(7),
         category: 'money',
-        action: 'payment.recorded_by_staff',
+        action: 'payment.recorded',
         entityType: 'payment',
         entityCode: sal.code,
-        after: { amountVnd: 1_600_000, method: 'cash' },
+        after: {
+          amountVnd: 1_600_000,
+          method: 'cash',
+          recordedByRole: 'sales_staff',
+          reconciliation: 'pending',
+        },
       },
       {
         occurredAt: now,
@@ -513,7 +646,7 @@ export function createStayMock(ctx: Ctx) {
         actorName: 'Hạnh',
         actorUserId: fdUser,
         category: 'money',
-        action: 'folio.line_added',
+        action: 'folio.line_posted',
         entityType: 'folio',
         entityCode: kim.code,
         after: { amountVnd: 75_000, category: 'laundry' },
@@ -523,7 +656,10 @@ export function createStayMock(ctx: Ctx) {
     folios.get(kim.folioId)!.lines.push({
       id: uid(86_001),
       category: 'laundry',
-      description: 'Giặt ủi · 2,5 kg',
+      description: 'LAUNDRY_KG x2.5',
+      chargeCode: 'LAUNDRY_KG',
+      labelKey: 'bill.line.laundry',
+      labelParams: { qty: 2.5 },
       serviceDate: today(),
       quantity: 2.5,
       unitPriceVnd: 30_000,
@@ -586,16 +722,31 @@ export function createStayMock(ctx: Ctx) {
     const refundedVnd = pays
       .filter((p) => p.type === 'refund')
       .reduce((a, p) => a + p.amountVnd, 0);
-    const paidViaOtaVnd = r.paymentModel === 'ota_prepaid' ? roomVnd : 0;
-    const net = totalVnd - paidViaOtaVnd - paidVnd + refundedVnd;
+    // DOM BE-13 / FE-03: OTA prepaid room money is a system `ota_collect` payment – no special case.
+    const paidViaOtaVnd = pays
+      .filter((p) => p.method === 'ota_collect')
+      .reduce((a, p) => a + p.amountVnd, 0);
+    const net = totalVnd - paidVnd + refundedVnd;
+    const creditVnd = Math.max(0, -net);
+    // 0.3.6 add. 2: credit already covered by an open/approved refund request is "handled".
+    const requested = st.approvals
+      .filter(
+        (a) =>
+          a.type === 'refund' &&
+          a.folioId === f.id &&
+          ['pending', 'approved', 'escalated'].includes(a.status),
+      )
+      .reduce((a, x) => a + x.amountVnd - (x.refundedVnd ?? 0), 0);
     return {
       roomVnd,
       otherVnd: totalVnd - roomVnd,
       totalVnd,
       paidVnd,
       paidViaOtaVnd,
+      otaExcessVnd: 0,
       balanceDueVnd: Math.max(0, net),
-      creditVnd: Math.max(0, -net),
+      creditVnd,
+      unhandledCreditVnd: Math.max(0, creditVnd - requested),
       refundedVnd,
       pendingApprovals: f.lines.filter((l) => l.lineState === 'pending_approval').length,
     };
@@ -623,12 +774,15 @@ export function createStayMock(ctx: Ctx) {
       totals: {
         roomVnd: tt.roomVnd,
         otherVnd: tt.otherVnd,
-        totalVnd: tt.totalVnd,
-        paidVnd: tt.paidVnd,
+        // 0.3.6 add. 2: OTA prepaid bills show only what is settled at the desk.
+        totalVnd: r.paymentModel === 'ota_prepaid' ? tt.totalVnd - tt.paidViaOtaVnd : tt.totalVnd,
+        paidVnd: r.paymentModel === 'ota_prepaid' ? tt.paidVnd - tt.paidViaOtaVnd : tt.paidVnd,
         paidViaOtaVnd: tt.paidViaOtaVnd,
         depositHeldVnd: r.depositPaidVnd,
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
+        unhandledCreditVnd: tt.unhandledCreditVnd,
+        otaExcessVnd: tt.otaExcessVnd,
       },
       pendingApprovals: tt.pendingApprovals,
       invoiceRequest: f.invoiceRequest,
@@ -707,7 +861,35 @@ export function createStayMock(ctx: Ctx) {
         x.arrivalDate === r.departureDate,
     );
   }
+  /** E03-07: typed times vs the server clock (tolerance `manual_time_tolerance_minutes`, mock 15). */
+  const nowHHmm = () =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date());
+  const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+  function timeCheck(time: string | undefined, note: unknown, field: string, noteField: string) {
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) return null;
+    const now = nowHHmm();
+    if (now < '06:00') return null; // post-midnight: business-day axis, not checked by the mock
+    const diff = minutes(time) - minutes(now);
+    if (diff > 15) return validation([{ field, code: 'TIME_AFTER_ACTION' }]);
+    if (diff < -15 && String(note ?? '').trim().length < 3)
+      return validation([{ field: noteField, code: 'TIME_NOTE_REQUIRED' }]);
+    return null;
+  }
+
+  /**
+   * 0.3.6 add. 2 (B18/B16 window): business day = departure − 1 while the calendar already shows the
+   * departure date, before `business_day_rollover` (mock 06:00) – an early-morning check-out is valid
+   * with no surcharge. After the departure day's last tier (incl. after its midnight) → extra night.
+   */
+  const postMidnightWindow = (r: MockReservation) =>
+    today() === r.departureDate && nowHHmm() < '06:00';
   function lateSurcharge(r: MockReservation, time: string) {
+    if (postMidnightWindow(r) && time < '06:00') return { tierPct: 0, surchargeVnd: 0, base: 0 };
     const base =
       r.paymentModel !== 'direct'
         ? (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000)
@@ -736,6 +918,7 @@ export function createStayMock(ctx: Ctx) {
       serviceDate: today(),
       ...line,
     };
+    Object.assign(l, labelFor(l, r.segments?.[0]?.roomNo));
     folioOf(r).lines.push(l);
     folioOf(r).version += 1;
     syncReservation(r);
@@ -769,7 +952,12 @@ export function createStayMock(ctx: Ctx) {
     };
     st.payments.push(p);
     syncReservation(r);
-    audit(g, 'payment.recorded', r.code, { amountVnd: p.amountVnd, method });
+    audit(g, 'payment.recorded', r.code, {
+      amountVnd: p.amountVnd,
+      method,
+      recordedByRole: p.recordedByRole,
+      reconciliation: p.reconciliation,
+    });
     return p;
   }
   function paymentErrors(body: Body) {
@@ -877,7 +1065,7 @@ export function createStayMock(ctx: Ctx) {
       });
       checks.push({
         code: 'entry_record_present',
-        result: d.entryDate ? 'pass' : 'unverified',
+        result: d.noEntryRecord ? 'fail' : d.entryDate ? 'pass' : 'unverified',
         blocking: true,
       });
       const visa = d.visaValidUntil;
@@ -1004,8 +1192,19 @@ export function createStayMock(ctx: Ctx) {
         if (ro && String(ro.reason ?? '').trim().length < 3)
           errors.push({ field: 'roomNotReadyOverride.reason', code: 'REASON_REQUIRED' });
         if (errors.length) return validation(errors);
+        const timeErr = timeCheck(
+          body.checkinTime as string | undefined,
+          body.checkinTimeNote,
+          'checkinTime',
+          'checkinTimeNote',
+        );
+        if (timeErr) return timeErr;
         const time = String(body.checkinTime ?? '14:00');
         const sur = earlySurcharge(r, time);
+        if (sur.amountVnd > 0 && body.checkinTime && body.applyEarlySurcharge !== true)
+          return validation([
+            { field: 'applyEarlySurcharge', code: 'SURCHARGE_DECISION_REQUIRED' },
+          ]);
         if (body.applyEarlySurcharge && Number(body.expectedSurchargeVnd) !== sur.amountVnd)
           return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: sur.amountVnd });
         if (ro && !lead && conditions(r).find((c) => c.code === 'room_ready' && !c.met)) {
@@ -1040,7 +1239,7 @@ export function createStayMock(ctx: Ctx) {
             {
               category: 'early_checkin',
               amountVnd: sur.amountVnd,
-              description: `Phụ thu nhận sớm (${time})`,
+              description: `early_checkin ${time} ${sur.tierPct}%`,
             },
             g.user.displayName,
           );
@@ -1128,13 +1327,30 @@ export function createStayMock(ctx: Ctx) {
         });
       }
       const ota = r.paymentModel !== 'direct';
+      // D-8 / BR-107: direct stays that cross 7 nights get the length-of-stay step on every night.
+      // `repricing[].nights` = nights ADDED; `repricedTotalVnd` = room total of the whole booking.
+      const roomNow = (r.nightlyRates ?? []).reduce((a, x) => a + x.amountVnd, 0);
+      const repricing = ota
+        ? []
+        : Array.from({ length: max }, (_, i) => {
+            const k = i + 1;
+            const pct = (r.nights ?? 0) + k >= 7 && (r.nights ?? 0) < 7 ? 10 : 0;
+            const total = round1000(((roomNow + k * rate) * (100 - pct)) / 100);
+            return {
+              nights: k,
+              repricedTotalVnd: total,
+              deltaVnd: total - roomNow,
+              losDiscountPct: pct,
+            };
+          });
       return json({
         maxNights: max,
         exceedsShortStayLimit: false,
         createsChildReservation: ota,
         channelFeeSavingsVnd: ota ? round1000(rate * 0.155) : undefined,
+        currentBookingRateVnd: ota ? null : (r.nightlyRates?.at(-1)?.amountVnd ?? null),
         nights,
-        repricing: [],
+        repricing,
       });
     }),
     http.post(`${prop}/reservations/:reservationId/actions/extend`, async ({ request, params }) => {
@@ -1161,7 +1377,7 @@ export function createStayMock(ctx: Ctx) {
           {
             category: 'room',
             amountVnd: amount,
-            description: `Tiền phòng đêm ${date.slice(8, 10)}/${date.slice(5, 7)}`,
+            description: 'room_night',
             serviceDate: date,
           },
           g.user.displayName,
@@ -1236,7 +1452,7 @@ export function createStayMock(ctx: Ctx) {
             {
               category: 'late_checkout',
               amountVnd: s.surchargeVnd,
-              description: `Phụ thu trả muộn (${time})`,
+              description: `late_checkout ${time} ${s.tierPct}%`,
             },
             g.user.displayName,
           );
@@ -1258,6 +1474,7 @@ export function createStayMock(ctx: Ctx) {
         if (!room || room.id === r.roomId)
           return validation([{ field: 'newRoomId', code: 'NOT_IN_LIST' }]);
         const from = String(body.effectiveDate ?? today());
+        if (from !== today()) return validation([{ field: 'effectiveDate', code: 'DATE_INVALID' }]);
         const occ = r.adults + (r.children6to11 ?? 0);
         if (occ > (room.maxOccupancy ?? 99))
           return problem(422, 'CAPACITY_EXCEEDED', { roomNo: room.roomNo, max: room.maxOccupancy });
@@ -1324,7 +1541,7 @@ export function createStayMock(ctx: Ctx) {
             {
               category: 'room_change_difference',
               amountVnd: delta,
-              description: `Đổi căn ${old?.roomNo} → ${room.roomNo}`,
+              description: `room_change ${old?.roomNo}->${room.roomNo}`,
             },
             g.user.displayName,
           );
@@ -1500,7 +1717,8 @@ export function createStayMock(ctx: Ctx) {
               amountVnd: amount,
               quantity: used,
               unitPriceVnd: std.unitPriceVnd,
-              description: `Minibar – ${std.itemName} × ${used}`,
+              description: `minibar ${std.itemName} x${used}`,
+              labelParams: { item: std.itemName },
             },
             g.user.displayName,
           );
@@ -1533,21 +1751,31 @@ export function createStayMock(ctx: Ctx) {
       if (!st.minibarChecks.has(r.id)) blockers.push('minibar_not_checked');
       if (tt.pendingApprovals) blockers.push('pending_approvals');
       if (tt.balanceDueVnd > 0) blockers.push('balance_due');
-      if (tt.creditVnd > 0) blockers.push('credit_balance');
+      if (tt.unhandledCreditVnd > 0) blockers.push('credit_balance');
+      const extraRate = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
       const already = f.lines.find(
         (l) => l.category === 'late_checkout' && l.lineState === 'posted',
       );
       return json({
         checkoutTime: time,
         standardCheckoutTime: '12:00',
-        lateCheckoutSurcharge: { tierPct: s.tierPct, amountVnd: already ? 0 : s.surchargeVnd },
+        // E05-11: after the last BR-412 tier the check-out charges one more night (no late surcharge).
+        lateCheckoutSurcharge: {
+          tierPct: s.treatAsExtension ? 0 : s.tierPct,
+          amountVnd: already || s.treatAsExtension ? 0 : s.surchargeVnd,
+        },
+        extraNightRequired: s.treatAsExtension === true,
+        extraNightDefaultRateVnd: s.treatAsExtension ? extraRate : undefined,
+        extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
+        postMidnightWindow: postMidnightWindow(r),
+        unhandledCreditVnd: tt.unhandledCreditVnd,
         lateSurchargeRecalc:
           already && already.amountVnd !== s.surchargeVnd
             ? { oldVnd: already.amountVnd, newVnd: s.surchargeVnd }
             : undefined,
         lines: f.lines.filter((l) => l.lineState !== 'rejected'),
         totalVnd: tt.totalVnd,
-        paidVnd: tt.paidVnd + tt.paidViaOtaVnd,
+        paidVnd: tt.paidVnd,
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
         pendingApprovals: tt.pendingApprovals,
@@ -1566,9 +1794,17 @@ export function createStayMock(ctx: Ctx) {
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         const body = (await request.json()) as Body;
         const time = String(body.checkoutTime ?? '12:00');
+        const timeErr = timeCheck(time, body.checkoutTimeNote, 'checkoutTime', 'checkoutTimeNote');
+        if (timeErr) return timeErr;
         const s = lateSurcharge(r, time);
-        if (s.treatAsExtension)
-          return validation([{ field: 'checkoutTime', code: 'LATE_CHECKOUT_AFTER_LIMIT' }]);
+        const extraNight = body.extraNight as { rateVnd?: number } | undefined;
+        if (s.treatAsExtension && !extraNight)
+          return validation([{ field: 'extraNight', code: 'LATE_CHECKOUT_AFTER_LIMIT' }]);
+        if (s.treatAsExtension && extraNight && !(Number(extraNight.rateVnd) > 0))
+          return validation([{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }]);
+        // The room is sold tonight (a same-day arrival) → no extra night (0.3.6 add. 2).
+        if (s.treatAsExtension && extraNight && arrivalSameDay(r))
+          return problem(409, 'ROOM_UNAVAILABLE', { roomNo: roomOf(r)?.roomNo });
         if (!st.minibarChecks.has(r.id)) return problem(409, 'MINIBAR_NOT_CHECKED');
         if (
           body.applyLateSurcharge &&
@@ -1583,32 +1819,58 @@ export function createStayMock(ctx: Ctx) {
         const op = body.overpaymentHandling as Body | undefined;
         if (op?.mode === 'retain_with_guest_consent' && !has(g.roles, OWN_MGR))
           return problem(403, 'FORBIDDEN_ACTION');
-        if (body.applyLateSurcharge && s.surchargeVnd > 0)
+        if (!s.treatAsExtension && s.surchargeVnd > 0 && body.applyLateSurcharge !== true)
+          return validation([{ field: 'applyLateSurcharge', code: 'SURCHARGE_DECISION_REQUIRED' }]);
+        // One transaction (ARC 0.3.6 add. 2): extra night + surcharge + payment + B18, rolled back on failure.
+        const f0 = folioOf(r);
+        const snap = { lines: f0.lines.length, version: f0.version, pays: st.payments.length };
+        const fail = (resp: Response) => {
+          f0.lines.length = snap.lines;
+          f0.version = snap.version;
+          st.payments.length = snap.pays;
+          syncReservation(r);
+          return resp;
+        };
+        if (s.treatAsExtension && extraNight)
+          addLine(
+            r,
+            {
+              category: 'room',
+              amountVnd: Number(extraNight.rateVnd),
+              description: 'extra_night',
+              chargeCode: 'extra_night',
+              serviceDate: r.departureDate,
+            },
+            g.user.displayName,
+          );
+        if (body.applyLateSurcharge && s.surchargeVnd > 0 && !s.treatAsExtension)
           addLine(
             r,
             {
               category: 'late_checkout',
               amountVnd: s.surchargeVnd,
-              description: `Phụ thu trả muộn (${time})`,
+              description: `late_checkout ${time} ${s.tierPct}%`,
             },
             g.user.displayName,
           );
         if (body.finalPayment) {
           const errs = paymentErrors(body.finalPayment as Body);
           if (errs.length)
-            return validation(errs.map((e) => ({ ...e, field: `finalPayment.${e.field}` })));
+            return fail(validation(errs.map((e) => ({ ...e, field: `finalPayment.${e.field}` }))));
           recordPay(r, body.finalPayment as Body, g);
         }
         const tt = totals(r);
         if (tt.balanceDueVnd > 0 && !debt)
-          return problem(409, 'BALANCE_DUE', { balanceDueVnd: tt.balanceDueVnd });
-        if (tt.creditVnd > 0) {
+          return fail(problem(409, 'BALANCE_DUE', { balanceDueVnd: tt.balanceDueVnd }));
+        if (tt.unhandledCreditVnd > 0) {
           if (!op)
-            return validation([
-              { field: 'overpaymentHandling', code: 'OVERPAYMENT_HANDLING_REQUIRED' },
-            ]);
+            return fail(
+              validation([{ field: 'overpaymentHandling', code: 'OVERPAYMENT_HANDLING_REQUIRED' }]),
+            );
           if (String(op.reason ?? '').trim().length < 3)
-            return validation([{ field: 'overpaymentHandling.reason', code: 'REASON_REQUIRED' }]);
+            return fail(
+              validation([{ field: 'overpaymentHandling.reason', code: 'REASON_REQUIRED' }]),
+            );
           if (op.mode === 'refund_request')
             st.approvals.push({
               id: uid(89_000 + next()),
@@ -1616,7 +1878,7 @@ export function createStayMock(ctx: Ctx) {
               status: 'pending',
               reservationCode: r.code,
               folioId: r.folioId,
-              amountVnd: tt.creditVnd,
+              amountVnd: tt.unhandledCreditVnd,
               reasonCode: 'overpayment',
               reasonNote: String(op.reason),
               requestedBy: g.user.displayName,
@@ -1629,12 +1891,17 @@ export function createStayMock(ctx: Ctx) {
               r,
               {
                 category: 'deposit_forfeit',
-                amountVnd: tt.creditVnd,
-                description: 'Khách để lại tiền thừa',
+                amountVnd: tt.unhandledCreditVnd,
+                description: 'retain_with_guest_consent',
+                chargeCode: 'overpayment_retained',
               },
               g.user.displayName,
             );
         }
+        if (s.treatAsExtension && extraNight)
+          audit(g, 'reservation.extra_night_on_checkout', r.code, {
+            amountVnd: Number(extraNight.rateVnd),
+          });
         r.status = 'checked_out';
         r.actualCheckoutAt = nowIso();
         const f = folioOf(r);
@@ -1702,11 +1969,19 @@ export function createStayMock(ctx: Ctx) {
           quantity: qty,
           unitPriceVnd: unit,
           amountVnd: round1000(unit * qty),
-          description: `${item?.name ?? body.description}${qty !== 1 ? ` · ${qty}${item?.unit ? ` ${item.unit}` : ''}` : ''}`,
+          description: `${item?.code ?? body.description} x${qty}`,
+          chargeCode: item?.code === 'CARD_LOST' ? 'key_card_fee' : item?.code,
+          // fnb / service: free text; damage: catalogue item name (BE `catalogName`).
+          labelParams:
+            item?.category === 'damage'
+              ? { item: item.name }
+              : ['fnb', 'service_fee'].includes(item?.category ?? String(body.category))
+                ? { text: String(body.note ?? '').trim() || (item?.name ?? '') }
+                : undefined,
         },
         g.user.displayName,
       );
-      audit(g, 'folio.line_added', r.code, {
+      audit(g, 'folio.line_posted', r.code, {
         amountVnd: round1000(unit * qty),
         category: item?.category,
       });
@@ -1748,7 +2023,8 @@ export function createStayMock(ctx: Ctx) {
         {
           category: 'foc',
           amountVnd: -a.amountVnd,
-          description: `Miễn phí · ${line.description}`,
+          description: `foc ${line.id}`,
+          labelParams: { reason: String(body.reasonCode) },
           lineState: 'pending_approval',
           relatedLineId: line.id,
           approvalRequestId: a.id,
@@ -1836,7 +2112,11 @@ export function createStayMock(ctx: Ctx) {
         const r = rsv().state.reservations.find((x) => x.folioId === p.folioId)!;
         syncReservation(r);
         bump(r);
-        audit(g, 'payment.recorded', r.code, { amountVnd: p.amountVnd, method: 'vietqr' });
+        audit(g, 'payment.confirmed_received', r.code, {
+          amountVnd: p.amountVnd,
+          method: 'vietqr',
+          reconciliation: 'pending',
+        });
         return json(p);
       },
     ),
@@ -1933,7 +2213,7 @@ export function createStayMock(ctx: Ctx) {
       const body = (await request.json()) as Body;
       if (String(body.reason ?? '').trim().length < 3)
         return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
-      if (!(Number(body.amountVnd) > 0) || Number(body.amountVnd) > totals(r).creditVnd)
+      if (!(Number(body.amountVnd) > 0) || Number(body.amountVnd) > totals(r).unhandledCreditVnd)
         return validation([{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }]);
       const a: MockApproval = {
         id: uid(89_000 + next()),
@@ -2010,6 +2290,8 @@ export function createStayMock(ctx: Ctx) {
           .filter((p) => p.folioId === f.id && p.type === 'refund')
           .map((p) => ({ amountVnd: p.amountVnd, paidAt: p.receivedAt, method: p.method })),
         refundedVnd: tt.refundedVnd,
+        // DOM FE-03: "Hoàn lại khách {x}" on the bill when the guest paid more (contract pending ARC).
+        creditVnd: tt.creditVnd,
       });
     }),
     http.post(`${prop}/attachments`, async ({ request }) => {
@@ -2272,6 +2554,16 @@ export function createStayMock(ctx: Ctx) {
         passportExpiryDate: data.passportExpiryDate as string | undefined,
         visaValidUntil: data.visaValidUntil as string | undefined,
         entryDate: data.entryDate as string | undefined,
+        // All manual-entry fields the portal needs (BE-C `portalFields()`, FE-S3-02).
+        gender: data.gender as string | undefined,
+        address: data.address as string | undefined,
+        passportIssueDate: data.passportIssueDate as string | undefined,
+        issuingPlace: data.issuingPlace as string | undefined,
+        visaKind: data.visaKind as string | undefined,
+        visaNumber: data.visaNumber as string | undefined,
+        entryPort: data.entryPort as string | undefined,
+        entryPurpose: data.entryPurpose as string | undefined,
+        noEntryRecord: data.noEntryRecord === true,
         imageIds: images.map(() => uid(94_000 + next())),
         imageConsent: 'not_recorded',
         captureMethod: String(data.captureMethod ?? 'manual'),
@@ -2310,6 +2602,12 @@ export function createStayMock(ctx: Ctx) {
       if (isResponse(x)) return x;
       const { reg } = x;
       const body = (await request.json()) as Body;
+      if (body.purpose === 'P02B_ID_IMAGE_RETENTION') {
+        if (body.retentionDays === undefined)
+          return validation([{ field: 'retentionDays', code: 'REQUIRED' }]);
+        if (body.retentionDays !== 30)
+          return validation([{ field: 'retentionDays', code: 'NOT_IN_LIST' }]);
+      }
       const d =
         reg.documents.find(
           (z) => z.partyMemberId === body.partyMemberId || z.id === body.partyMemberId,
@@ -2367,15 +2665,57 @@ export function createStayMock(ctx: Ctx) {
       const { reg, r } = x;
       if (!['scanned', 'needs_update'].includes(reg.status))
         return problem(409, 'INVALID_TRANSITION', { currentState: reg.status });
-      const people = reg.documents.map((d) => ({
-        fields: [
-          { label: 'Họ tên', value: d.fullNameOnDoc.toUpperCase() },
-          { label: 'Ngày sinh', value: d.dateOfBirth ?? '' },
-          { label: 'Quốc tịch', value: d.nationalityCode ?? '' },
-          { label: 'Số giấy tờ', value: d.docNumber },
-          { label: 'Tạm trú đến ngày', value: r.departureDate },
-        ],
-      }));
+      // Same shape as BE-C `rules.ts portalFields()`: label = i18n key (`reg.field.*`), value in
+      // Vietnamese as the portal expects (dates as the server formats them), enum/empty → `valueKey`.
+      const GENDER: Record<string, string> = { male: 'Nam', female: 'Nữ', other: 'Khác' };
+      const VISA: Record<string, string> = {
+        visa: 'Thị thực',
+        visa_exempt: 'Miễn thị thực',
+        temp_residence_card: 'Thẻ tạm trú',
+      };
+      const f = (key: string, value: string | undefined, valueKey?: string) =>
+        value
+          ? { label: `reg.field.${key}`, value, ...(valueKey ? { valueKey } : {}) }
+          : { label: `reg.field.${key}`, value: '', valueKey: 'reg.value.empty' };
+      const roomNo = r.segments?.[0]?.roomNo ?? '';
+      const people = reg.documents.map((d) => {
+        const gender = d.gender
+          ? f('gender', GENDER[d.gender], `reg.value.gender.${d.gender}`)
+          : f('gender', undefined);
+        const foreign = d.docType === 'passport' && d.nationalityCode !== 'VNM';
+        return {
+          fields: foreign
+            ? [
+                f('full_name', d.fullNameOnDoc.toUpperCase()),
+                f('date_of_birth', d.dateOfBirth),
+                gender,
+                f('nationality', d.nationalityCode),
+                f('passport_number', d.docNumber),
+                f('passport_expiry', d.passportExpiryDate),
+                d.visaKind
+                  ? f('visa_kind', VISA[d.visaKind], `reg.value.visa_kind.${d.visaKind}`)
+                  : f('visa_kind', undefined),
+                f('visa_number', d.visaNumber),
+                f('visa_valid_until', d.visaValidUntil),
+                f('entry_date', d.entryDate),
+                f('entry_port', d.entryPort),
+                f('entry_purpose', d.entryPurpose),
+                f('arrival_date', r.arrivalDate),
+                f('departure_date', r.departureDate),
+                f('room_no', roomNo),
+              ]
+            : [
+                f('full_name', d.fullNameOnDoc.toUpperCase()),
+                f('date_of_birth', d.dateOfBirth),
+                gender,
+                f('id_number', d.docNumber),
+                f('address', d.address),
+                f('arrival_date', r.arrivalDate),
+                f('departure_date', r.departureDate),
+                f('room_no', roomNo),
+              ],
+        };
+      });
       return json({
         kind: isForeign(r) ? 'foreigner_temp_residence' : 'vn_citizen_stay',
         portalUrl: 'https://dichvucong.bocongan.gov.vn/',
@@ -2447,9 +2787,45 @@ export function createStayMock(ctx: Ctx) {
             passportExpiryDate: d.passportExpiryDate,
             visaValidUntil: d.visaValidUntil,
             entryDate: d.entryDate,
+            gender: d.gender,
+            passportIssueDate: d.passportIssueDate,
+            issuingPlace: d.issuingPlace,
+            visaKind: d.visaKind,
+            visaNumber: d.visaNumber,
+            entryPort: d.entryPort,
+            entryPurpose: d.entryPurpose,
+            noEntryRecord: d.noEntryRecord,
+            address: d.address,
           },
           { headers: { 'cache-control': 'no-store' } },
         );
+      },
+    ),
+    // updateGuestDocument (If-Match = registration version) – same field rules as add.
+    http.patch(
+      `${prop}/registrations/:registrationId/documents/:documentId`,
+      async ({ request, params }) => {
+        const x = c3(request, params);
+        if (isResponse(x)) return x;
+        const { reg, r } = x;
+        const g2 = guard(request, FD_PLUS, { ifMatch: reg.version });
+        if (isResponse(g2)) return g2;
+        const d = reg.documents.find((z) => z.id === params.documentId);
+        if (!d) return problem(404, 'NOT_FOUND');
+        const data = (await request.json()) as Body;
+        const no = String(data.docNumber ?? d.docNumber)
+          .replace(/\s/g, '')
+          .toUpperCase();
+        if (
+          ['cccd', 'child_personal_id'].includes(String(data.docType ?? d.docType))
+            ? !/^[0-9]{12}$/.test(no)
+            : !/^[A-Z0-9-]{3,30}$/.test(no)
+        )
+          return validation([{ field: 'docNumber', code: 'DOC_NUMBER_INVALID' }]);
+        Object.assign(d, data, { docNumber: no, noEntryRecord: data.noEntryRecord === true });
+        recomputeReg(r, reg);
+        reg.version += 1;
+        return json(regView(reg));
       },
     ),
   ];
@@ -2481,6 +2857,20 @@ export function createStayMock(ctx: Ctx) {
       return problem(409, 'INVALID_TRANSITION', { currentState: a.status });
     const dest = a.refundDestination?.method;
     if (!dest) return problem(409, 'REFUND_DESTINATION_REQUIRED');
+    // E15-05: money paid by an unreconciled transfer/VietQR cannot be paid back yet.
+    const unreconciled = st.payments.filter(
+      (p) =>
+        p.folioId === a.folioId &&
+        p.status === 'succeeded' &&
+        p.type !== 'refund' &&
+        ['vietqr', 'bank_transfer'].includes(p.method) &&
+        ['pending', 'disputed'].includes(p.reconciliation),
+    );
+    if (unreconciled.length)
+      return problem(409, 'REFUND_SOURCE_NOT_RECONCILED', {
+        paymentIds: unreconciled.map((p) => p.id),
+        unreconciledVnd: unreconciled.reduce((x, p) => x + p.amountVnd, 0),
+      });
     if (kind === 'cash' && dest !== 'cash') return problem(403, 'FORBIDDEN_ACTION');
     if (kind === 'transfer' && dest === 'cash')
       return problem(409, 'INVALID_TRANSITION', { currentState: a.status });
@@ -2523,7 +2913,10 @@ export function createStayMock(ctx: Ctx) {
     st.payments.push(p);
     a.refundedVnd = (a.refundedVnd ?? 0) + p.amountVnd;
     syncReservation(r);
-    audit(g, 'payment.refund_paid', r.code, { amountVnd: -p.amountVnd, method: p.method });
+    audit(g, kind === 'cash' ? 'refund.cash_paid' : 'refund.paid', r.code, {
+      amountVnd: -p.amountVnd,
+      method: p.method,
+    });
     return rsv().remember(key, 201, p);
   }
 

@@ -56,7 +56,7 @@ interface FolioLine {
 }
 interface Folio {
   lines?: FolioLine[];
-  totals?: { roomVnd?: number; balanceDueVnd?: number; paidVnd?: number };
+  totals?: { roomVnd?: number; balanceDueVnd?: number; paidVnd?: number; creditVnd?: number };
 }
 
 const sumOf = (lines: FolioLine[], cat: string) =>
@@ -350,9 +350,11 @@ test.describe(
         lines.filter((l) => l.category === 'cancellation_fee').map((l) => l.amountVnd),
       ).toEqual([o.expected.cancelFeeVnd]);
       expect(f.body.totals?.roomVnd).toBe(0);
-      // EP03-05 1.1: còn phải thu = Σ dòng posted − Σ giao dịch succeeded = 350.000 − 700.000 = −350.000
-      // (khoản hoàn chờ duyệt, BR-522) – khách không còn nợ
-      expect(f.body.totals?.balanceDueVnd).toBe(-Number(o.expected.refundVnd));
+      // OpenAPI 0.3.6 (A-34, BE-B S3): tiền khách trả thừa không còn là còn-phải-thu âm mà nằm ở `creditVnd`
+      // = đã thu − tổng − đã hoàn = 700.000 − 350.000 = 350.000 (khoản hoàn BR-522); `balanceDueVnd` không âm và
+      // không cùng > 0 với `creditVnd` → khách không còn nợ (0), OTTIMO nợ khách 350.000
+      expect(f.body.totals?.balanceDueVnd).toBe(0);
+      expect(f.body.totals?.creditVnd).toBe(Number(o.expected.refundVnd));
     });
 
     test('TC-L5-050 CTV đã có 3 giữ chỗ đang mở → giữ chỗ thứ 4: 422 HOLD_LIMIT_REACHED (max 3); xác nhận cọc 1 đơn → giữ được (BR-302-03, A-26)', async ({

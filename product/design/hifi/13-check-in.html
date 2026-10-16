@@ -59,7 +59,7 @@
                 <h2 class="label-h" style="margin-bottom:8px" data-i18n="checkin.cond.title">Điều kiện nhận phòng</h2>
                 <ul class="conds">
                   <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.room_ready">Buồng sẵn sàng (VI hoặc VC)</b><div class="li-s" data-i18n="ci.cond_room" data-i18n-args='{"room":"302","status":"VC · Đã dọn, chờ kiểm"}'>Căn 302 · VC · Đã dọn, chờ kiểm</div></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
-                  <li class="unmet"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><div class="grow"><b data-i18n="checkin.cond.balance_paid">Đã thu đủ hoặc OTA đã trả/đảm bảo</b><div class="li-s" data-i18n="ci.cond_balance" data-i18n-args='{"amount":"3.344.000"}'>Còn phải thu 3.344.000 đ – thu ở bước 4, trước khi giao mã cửa.</div></div><span class="chip bad" data-i18n="ci.unmet">Còn thiếu</span></li>
+                  <li class="unmet"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><div class="grow"><b data-i18n="checkin.cond.balance_paid">Đã thu đủ hoặc OTA đã trả/đảm bảo</b><div class="li-s" data-i18n="ci.cond_balance" data-i18n-args='{"amount":"3.344.000 đ"}'>Còn phải thu 3.344.000 đ – thu ở bước 4, trước khi giao mã cửa.</div></div><span class="chip bad" data-i18n="ci.unmet">Còn thiếu</span></li>
                   <li class="unmet"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><div class="grow"><b data-i18n="checkin.cond.main_guest_document">Có giấy tờ người đứng tên</b><div class="li-s" data-i18n="ci.cond_doc">Bắt đầu với người đứng tên ở bước 1. Người đi cùng bổ sung được trước hạn khai báo.</div></div><span class="chip bad" data-i18n="ci.unmet">Còn thiếu</span></li>
                   <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.not_unassigned">Đơn đã được gán căn</b></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
                   <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.capacity">Số khách không vượt sức chứa căn</b><div class="li-s" data-i18n="ci.cond_capacity_ok" data-i18n-args='{"n":"4","room":"302","max":"4"}'>4 khách · căn 302 tối đa 4</div></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
@@ -236,7 +236,7 @@
             </div>
             <div class="card" style="margin-top:12px">
               <div class="card-h"><h3 data-i18n="ci.effects_title">Khi bấm Nhận phòng</h3></div>
-              <ul class="consequence" style="margin:0"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul>
+              <ul class="consequence" style="margin:0"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000 đ"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul>
             </div>
           </div>
         </div>
@@ -335,7 +335,7 @@
 </div></dialog>
 <dialog class="dlg sm" id="dlg-checkin" aria-labelledby="ck-h"><div class="modal">
   <div class="modal-h"><h2 id="ck-h" tabindex="-1" data-i18n="ci.confirm_title" data-i18n-args='{"room":"103","guest":"Anna Martin"}'>Nhận phòng căn 103 cho Anna Martin?</h2></div>
-  <div class="modal-b"><ul class="consequence"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul></div>
+  <div class="modal-b"><ul class="consequence"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000 đ"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul></div>
   <div class="modal-f"><button class="btn" data-close="" data-i18n="confirm.keep">Không, quay lại</button><button class="btn pri" data-close="force" data-i18n="ci.submit" data-i18n-args='{"room":"103"}'>Nhận phòng căn 103</button></div>
 </div></dialog>
 <dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">

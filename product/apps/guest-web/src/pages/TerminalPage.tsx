@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Alert, Button, Icon, Skeleton, StateView } from '@ottimo/ui';
+import { Button, Icon, Skeleton, StateView } from '@ottimo/ui';
 import { fallbackDeskPhone } from '../app/config';
 import { useT } from '../app/i18n';
 import { telHref } from '../app/link';
@@ -30,14 +30,12 @@ export function LoadingPage() {
   return (
     <div className="guest-app touch">
       <TopBar />
-      <main id="main" className="m-body" aria-busy="true">
+      <main id="main" className="m-body gw-stack" aria-busy="true">
         <p className="sr-only" role="status">
           {t('common.loading')}
         </p>
         <Skeleton height={32} width="60%" />
-        <div style={{ height: 10 }} />
         <Skeleton height={120} />
-        <div style={{ height: 10 }} />
         <Skeleton height={96} />
       </main>
     </div>
@@ -58,22 +56,17 @@ export function TerminalPage({
 }) {
   const { t } = useT();
   const tel = telHref(phone ?? fallbackDeskPhone());
+  // DS 6.11: every dead end keeps a way to a real person.
+  const call = tel ? (
+    <a className="btn" href={tel}>
+      {t('guest.contact.call')}
+    </a>
+  ) : undefined;
   let body: ReactNode;
   switch (which) {
     case 'link_invalid':
       body = (
-        <StateView
-          kind="error"
-          icon="lock"
-          title={t('guest.link_expired_title')}
-          action={
-            tel ? (
-              <a className="btn" href={tel}>
-                {t('guest.contact.call')}
-              </a>
-            ) : undefined
-          }
-        >
+        <StateView kind="error" icon="lock" title={t('guest.link_expired_title')} action={call}>
           {t('error.GUEST_LINK_INVALID')}
         </StateView>
       );
@@ -81,23 +74,26 @@ export function TerminalPage({
     case 'stay_ended':
       // ĐK-6: never the after-checkout body string (it promises a bill) in R2.
       body = (
-        <StateView icon="star" title={t('guest.after_checkout.title')}>
+        <StateView icon="star" title={t('guest.after_checkout.title')} action={call}>
           {t('gw.ended_body')}
         </StateView>
       );
       break;
     case 'checkin_closed':
       body = (
-        <StateView icon="check" title={t('guest.oci.closed_desk')}>
+        <StateView icon="check" title={t('guest.oci.closed_desk')} action={call}>
           {t('gw.closed_body')}
         </StateView>
       );
       break;
     case 'rate_limited':
       body = (
-        <Alert tone="warn" icon="clock" role="alert">
-          {t('error.RATE_LIMITED', { minutes: minutes ?? 10 })}
-        </Alert>
+        <StateView
+          kind="error"
+          icon="clock"
+          title={t('error.RATE_LIMITED', { minutes: minutes ?? 10 })}
+          action={call}
+        />
       );
       break;
     default:

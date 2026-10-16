@@ -147,3 +147,14 @@ Mock: `completeOnlineCheckin` nhận `deferredPeople` (số nguyên 1…`require
 - `src/app/{i18n.tsx,problem.ts}`
 - `src/styles.css`, `vite.config.ts`, `src/mocks/handlers.ts`
 - `src/__tests__/{flow.test.tsx,units.test.ts}`
+
+## 9. Bước Phản hồi & sửa (17/10)
+Đã trả lời và sửa toàn bộ thẻ cho MOB:
+- UXD: MOB-S3-01…08 → **Done**.
+- SEC: MOB-01 → **Done**; MOB-02 → **Done một phần** (chờ trường `noticeLocale` / BE-50 và `getGuestSession` ở 0.3.7).
+
+Chi tiết và kết quả lệnh ở `rounds/round-02/responses/s3-MOB.md`. Một số thay đổi so với các mục trên:
+- Không còn hằng phiên bản thông báo và 30 ngày (dùng `currentNoticeVersion` / `imageRetentionDays`, thiếu thì fail closed).
+- Trang RU dùng khối pháp lý `lang="en"`, không còn banner RU.
+- Bundle chỉ chứa khóa được dùng (214 kB), và được kiểm bằng `bundle.test.ts` trong mọi lần test.
+- guest-web có **50 ca test**.

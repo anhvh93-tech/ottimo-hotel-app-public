@@ -14,13 +14,16 @@ import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { addDays, dayMonth } from '../../app/reservations';
 import { useToast } from '../../app/toast';
-import { todayLocal } from '../../app/dates';
+import { timeHHmm, todayLocal } from '../../app/dates';
+import { useCatalog } from '../../app/catalog';
+import { channelName } from '../../app/reservations';
+import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { GuestPicker } from '../../components/GuestPicker';
-import { FilePicker, MoneyField, amountOf, useSubmit } from './common';
+import { FilePicker, MoneyField, amountOf, useSubmit, useUnsavedLabels } from './common';
 
 export interface StayDialogProps {
   reservation: Reservation;
@@ -35,18 +38,29 @@ const guestOf = (r: Reservation) => r.booker?.displayName ?? '';
 
 /** H15 15.2 Gia hạn (B13, US-028): consecutive free nights only, default rate, OTA → child booking. */
 export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
-  const { t, vnd, date } = useI18n();
+  const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
+  const catalog = useCatalog(propertyId);
   const R = { propertyId, reservationId: r.id };
   const opts = useResource(async () => (await api.getExtensionOptions(R)).data, [r.id]);
   const o: ExtensionOptions | undefined = opts.state.data;
   const [n, setN] = useState(1);
   const [visaReason, setVisaReason] = useState('');
+  // E04-07 "Giữ giá đơn": the booking has an agreed rate (≠ calendar) → reuse it for the new nights.
+  const bookingRate = o?.currentBookingRateVnd ?? null;
+  const [keep, setKeep] = useState(false);
   const act = useSubmit();
   const nights = o?.nights.slice(0, n) ?? [];
-  const total = nights.reduce((a, x) => a + (x.defaultRateVnd ?? 0), 0);
-  const reprice = o?.repricing?.find((x) => x.nights === (r.nights ?? 0) + n);
+  const rateOf = (x: { defaultRateVnd?: number }) =>
+    keep && bookingRate !== null ? bookingRate : (x.defaultRateVnd ?? 0);
+  const total = nights.reduce((a, x) => a + rateOf(x), 0);
+  // FE-S3-03: `repricing[].nights` = nights ADDED; the button shows what the guest pays extra
+  // (`deltaVnd`), `repricedTotalVnd` is the room total of the whole booking after the extension.
+  // `repricing` is computed on calendar prices – with the kept rate the button shows the kept
+  // nights (the server re-applies BR-107 on save).
+  const reprice = keep ? undefined : o?.repricing?.find((x) => x.nights === n);
+  const extra = reprice?.deltaVnd ?? total;
   const visaAsked =
     act.fields.visaWarningAckReason !== undefined ||
     act.fields.nights === t('field.VISA_EXPIRES_BEFORE_DEPARTURE');
@@ -55,13 +69,25 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
     const out = await act.submit((idem) =>
       api.extendStay(
         R,
-        { nights: n, visaWarningAckReason: visaReason.trim() || undefined },
+        {
+          nights: n,
+          nightlyRates:
+            keep && bookingRate !== null
+              ? nights.map((x) => ({ date: x.date, amountVnd: bookingRate }))
+              : undefined,
+          visaWarningAckReason: visaReason.trim() || undefined,
+        },
         r.version,
         idem,
       ),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(
+        t('stay.toast.extended', {
+          n,
+          date: date(out.data.reservation.departureDate ?? addDays(r.departureDate, n)),
+        }),
+      );
       onDone(out.data.reservation);
     } else opts.reload();
   };
@@ -82,7 +108,7 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
             disabled={!o || o.maxNights < 1}
             onClick={() => void save()}
           >
-            {act.label(t('extend.submit', { n, amount: vnd(reprice?.repricedTotalVnd ?? total) }))}
+            {act.label(t('extend.submit', { n, amount: money(extra) }))}
           </Button>
         </>
       }
@@ -103,23 +129,34 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
                 />
                 {dayMonth(x.date)}
                 {x.available
-                  ? ` · ${vnd(x.defaultRateVnd ?? 0)} · ${t('extend.night_free')}`
+                  ? ` · ${vnd(rateOf(x))} · ${t('extend.night_free')}`
                   : ` · ${t('extend.night_taken')}`}
               </label>
             ))}
           </fieldset>
+          {bookingRate !== null ? (
+            <div className="stack">
+              <Button size="sm" aria-pressed={keep} onClick={() => setKeep((k) => !k)}>
+                {t('extend.keep_rate', { amount: money(bookingRate) })}
+              </Button>
+              <p className="li-s">{t('extend.keep_rate_help')}</p>
+            </div>
+          ) : null}
           <p className="li-s">{t('extend.max_hint', { max: o.maxNights })}</p>
           {o.createsChildReservation ? (
             <p className="li-s">
               {t('extend.ota_child', {
-                channel: r.channelCode ?? '',
-                amount: vnd(o.channelFeeSavingsVnd ?? 0),
+                channel: channelName(catalog.channels, r.channelCode, r.channelId),
+                amount: money(o.channelFeeSavingsVnd ?? 0),
               })}
             </p>
           ) : null}
-          {reprice ? (
+          {reprice && reprice.losDiscountPct > 0 ? (
             <Alert tone="info">
-              {t('extend.los_reprice', { n: reprice.nights, pct: reprice.losDiscountPct })}
+              {t('extend.los_reprice', { n: (r.nights ?? 0) + n, pct: reprice.losDiscountPct })}{' '}
+              <b className="num">
+                {t('bill.total')}: {money(reprice.repricedTotalVnd)}
+              </b>
             </Alert>
           ) : null}
           {o.exceedsShortStayLimit ? <Alert tone="warn">{t('stay.long_hint')}</Alert> : null}
@@ -153,9 +190,11 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
  * removes the 12:30 grace; FD without an alternative room sends it for approval (202).
  */
 export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
-  const { t, vnd } = useI18n();
+  const { t, money } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const { roles } = useSession();
+  const rules = useRules(propertyId, roles);
   const toast = useToast();
   const R = { propertyId, reservationId: r.id };
   const [time, setTime] = useState(r.agreedCheckoutTime ?? '');
@@ -163,6 +202,7 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
   const [res, setRes] = useState<LateCheckoutResult | null>(null);
   const [told, setTold] = useState(false);
   const act = useSubmit();
+  const lateIds = useId();
   const mgr = roles.some((x) => OWN_MGR.includes(x));
 
   useEffect(() => {
@@ -205,15 +245,20 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
       onDone();
       return;
     }
-    toast(t('common.saved'));
+    toast(t('stay.toast.late_set', { time }));
     onDone((out.data as LateCheckoutResult).reservation);
   };
+
+  // After the last tier the alert above the button already says why (use Gia hạn).
+  const lateWhy = res && !res.treatAsExtension && amount > 0 && !told ? t('ci.told_guest') : null;
 
   return (
     <Modal
       open
       title={t('late.title', { room: roomOf(r), guest: guestOf(r) })}
       onClose={onClose}
+      dirty={!!time && time !== (r.agreedCheckoutTime ?? '')}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
@@ -223,15 +268,25 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
               {t('late.request_approval')}
             </Button>
           ) : (
-            <Button
-              variant="pri"
-              busy={act.busy}
-              busyLabel={act.busyLabel}
-              disabled={!res || res.treatAsExtension || (amount > 0 && !told)}
-              onClick={() => void save()}
-            >
-              {act.label(t('late.submit', { time }))}
-            </Button>
+            <>
+              {/* FE-S3-04: say why the button is locked (the reason sits next to it). */}
+              {lateWhy ? (
+                <span className="li-s" id={`${lateIds}-why`}>
+                  {lateWhy}
+                </span>
+              ) : null}
+              <Button
+                variant="pri"
+                busy={act.busy}
+                busyLabel={act.busyLabel}
+                disabled={!res || res.treatAsExtension}
+                aria-disabled={lateWhy ? true : undefined}
+                aria-describedby={lateWhy ? `${lateIds}-why` : undefined}
+                onClick={() => !lateWhy && void save()}
+              >
+                {act.label(t('late.submit', { time }))}
+              </Button>
+            </>
           )}
         </>
       }
@@ -250,10 +305,10 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
       <div aria-live="polite">
         {res ? (
           res.treatAsExtension ? (
-            <Alert tone="warn">{t('late.treat_as_extension', { time: '18:00' })}</Alert>
+            <Alert tone="warn">{t('late.treat_as_extension', { time: rules.lateLimitTime })}</Alert>
           ) : amount > 0 ? (
             <p>
-              <b>{t('late.fee', { amount: vnd(amount), pct: res.tierPct ?? 0 })}</b>
+              <b>{t('late.fee', { amount: money(amount), pct: res.tierPct ?? 0 })}</b>
             </p>
           ) : (
             <p>{t('late.fee_zero')}</p>
@@ -264,10 +319,9 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
             {t('late.grace_off')}{' '}
             {conflict
               ? t('late.conflict_block', { eta: res.arrivalSameDay.etaTime ?? '' })
-              : t('late.arrival_warning', {
+              : t('late.arrival_warning_alt', {
                   room: roomOf(r),
                   eta: res.arrivalSameDay.etaTime ?? '',
-                  rooms: '–',
                 })}
           </Alert>
         ) : null}
@@ -293,7 +347,8 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
  * is a hard block (0.3.6 A-37). Price preview with `dryRun`; the door flag resets (hand over again).
  */
 export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
-  const { t, vnd } = useI18n();
+  const { t, money, date } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
@@ -351,7 +406,7 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
       ),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(t('stay.toast.moved', { room: target.roomNo }));
       onDone(out.data);
     }
   };
@@ -361,6 +416,8 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
       open
       title={t('stay.change_title', { room: roomOf(r), guest: guestOf(r) })}
       onClose={onClose}
+      dirty={!!reason.trim() || !!roomId}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
@@ -403,6 +460,11 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
       <fieldset className="fieldset-plain">
         <legend className="label-h">{t('stay.new_room')}</legend>
         {!avail.state.data ? <LoadingBlock rows={1} /> : null}
+        {avail.state.data && options.length === 0 ? (
+          <Alert tone="warn">
+            {t('room_change.no_rooms', { from: date(today), to: date(r.departureDate) })}
+          </Alert>
+        ) : null}
         {options.map((x) => (
           <label key={x.roomId} className="check">
             <input
@@ -421,8 +483,10 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
       {preview ? (
         <p className="num">
           {cause === 'property_fault' || preview.folioDeltaVnd === 0
-            ? t('stay.cause_fault')
-            : `${t('stay.cause_guest')}: ${preview.folioDeltaVnd > 0 ? '+' : ''}${vnd(preview.folioDeltaVnd)} ${t('common.vnd_unit')}`}
+            ? t('room_change.price_same')
+            : t('room_change.price_delta', {
+                amount: `${preview.folioDeltaVnd > 0 ? '+' : '−'}${money(Math.abs(preview.folioDeltaVnd))}`,
+              })}
         </p>
       ) : null}
       {target ? (
@@ -449,7 +513,8 @@ export function AddChargeDialog({
   onDone,
   preset,
 }: StayDialogProps & { preset?: string }) {
-  const { t, vnd } = useI18n();
+  const { t, money } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const catalog = useResource(
@@ -495,7 +560,7 @@ export function AddChargeDialog({
     });
     if (out) {
       setPhoto(null);
-      toast(t('common.saved'));
+      toast(t('stay.toast.charge_added', { item: item.name }));
       onDone();
     }
   };
@@ -505,6 +570,8 @@ export function AddChargeDialog({
       open
       title={t('stay.add_charge')}
       onClose={onClose}
+      dirty={!!note.trim() || !!photo || !!price || qty !== '1'}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
@@ -530,7 +597,7 @@ export function AddChargeDialog({
             onChange={(e) => setCode(e.target.value)}
           >
             <option value="" disabled>
-              {t('rsv.choose_reason')}
+              {t('stay.charge_choose')}
             </option>
             {items.map((x) => (
               <option key={x.code} value={x.code}>
@@ -543,7 +610,7 @@ export function AddChargeDialog({
       {item ? (
         <p className="li-s">
           {t('stay.charge_default', {
-            amount: vnd(item.defaultUnitPriceVnd),
+            amount: money(item.defaultUnitPriceVnd),
             rule: item.ruleRef ?? item.name,
           })}
         </p>
@@ -607,13 +674,15 @@ export function AddChargeDialog({
 export function ConfirmTimeDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
+  const { roles } = useSession();
+  const rules = useRules(propertyId, roles);
   const toast = useToast();
   const ids = useId();
   const [channel, setChannel] = useState<'phone' | 'in_person' | 'zalo_copy'>('phone');
   const [time, setTime] = useState('');
   const [note, setNote] = useState('');
   const act = useSubmit();
-  const late = time > '12:00';
+  const late = time > rules.checkoutTime;
   const save = async () => {
     const out = await act.submit((idem) =>
       api.recordCheckoutConfirmation(
@@ -628,7 +697,7 @@ export function ConfirmTimeDialog({ reservation: r, onClose, onDone }: StayDialo
       ),
     );
     if (out) {
-      toast(t('stay.card_answered', { time: time || '12:00' }));
+      toast(t('stay.card_answered', { time: time || rules.checkoutTime }));
       onDone();
     }
   };
@@ -712,7 +781,7 @@ export function DoorHandedDialog({ reservation: r, onClose, onDone }: StayDialog
     if (out) {
       toast(
         t('ci.door_late_done', {
-          time: new Date().toTimeString().slice(0, 5),
+          time: timeHHmm(new Date()),
           user: me?.displayName ?? '',
         }),
       );
@@ -749,7 +818,7 @@ export function UndoCheckInDialog({ reservation: r, onClose, onDone }: StayDialo
       api.undoCheckIn({ propertyId, reservationId: r.id }, reason.trim(), r.version, idem),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(t('stay.toast.undo_checkin', { room: roomOf(r) }));
       onDone(out.data);
     }
   };
@@ -787,6 +856,7 @@ export function UndoCheckInDialog({ reservation: r, onClose, onDone }: StayDialo
 /** Closing reloads the booking (members may have changed) – `onDone`, not `onClose`. */
 export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const { t } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
@@ -861,6 +931,10 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       party.reload();
     }
   };
+  const nameOf = (id: string | null) => {
+    const m = p?.members?.find((x) => x.id === id);
+    return m?.guest?.displayName ?? m?.childDisplayName ?? '';
+  };
   const registered = ['sent', 'confirmed', 'updated'].includes(r.registrationStatus ?? '');
   return (
     <Modal
@@ -868,6 +942,8 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       title={t('rsv.party')}
       onClose={() => onDone()}
       closeLabel={t('common.close')}
+      dirty={!!name.trim() || !!companion}
+      unsavedLabels={unsaved}
       footer={<Button onClick={() => onDone()}>{t('common.close')}</Button>}
     >
       {!p ? (
@@ -877,7 +953,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
           {p.missingCount ? (
             <Alert tone="warn">{t('party.missing', { n: p.missingCount })}</Alert>
           ) : null}
-          <ul className="list-plain">
+          <ul className="list-none">
             {(p.members ?? []).map((m) => (
               <li key={m.id} className="person">
                 <div className="grow">
@@ -908,7 +984,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
               value={kind}
               onChange={setKind}
               options={[
-                { value: 'companion', label: t('rsv.add_person') },
+                { value: 'companion', label: t('party.kind.adult') },
                 { value: 'child', label: t('rsv.child') },
               ]}
             />
@@ -938,7 +1014,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
                 </Field>
               ) : null}
               {kind === 'child' ? (
-                <Field label={t('checkin.docs.field.dob')} help={t('rsv.child_note')}>
+                <Field label={t('party.child_birth_year')} help={t('rsv.child_note')}>
                   {(fp) => (
                     <input
                       {...fp}
@@ -962,9 +1038,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       )}
       {removing ? (
         <ConfirmDialog
-          title={t('party.remove_confirm', {
-            name: p?.members?.find((m) => m.id === removing)?.guest?.displayName ?? '',
-          })}
+          title={t('party.remove_confirm', { name: nameOf(removing) })}
           body={registered ? t('party.remove_registered') : ''}
           keepLabel={t('confirm.keep')}
           confirmLabel={t('party.remove')}
@@ -977,9 +1051,9 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
         <ConfirmDialog
           danger={false}
           title={t('party.reduce_count', { n: reduce.n })}
-          body={t('booking.field.guests')}
+          body={t('party.reduce_count_body')}
           keepLabel={t('confirm.keep')}
-          confirmLabel={t('common.save')}
+          confirmLabel={t('party.reduce_submit', { n: reduce.n })}
           busy={del.busy}
           onKeep={() => setReduce(null)}
           onConfirm={() => void reduceCount()}
@@ -996,7 +1070,8 @@ export function RefundRequestDialog({
   onClose,
   onDone,
 }: StayDialogProps & { creditVnd: number }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const [amount, setAmount] = useState(vnd(creditVnd));
@@ -1019,8 +1094,10 @@ export function RefundRequestDialog({
     <Modal
       open
       size="sm"
-      title={t('refund.request_overpayment', { amount: vnd(creditVnd) })}
+      title={t('refund.request_overpayment', { amount: money(creditVnd) })}
       onClose={onClose}
+      dirty={!!reason.trim()}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
@@ -1032,7 +1109,7 @@ export function RefundRequestDialog({
             disabled={reason.trim().length < 3}
             onClick={() => void save()}
           >
-            {act.label(t('foc.send'))}
+            {act.label(t('refund.request_overpayment', { amount: money(amountOf(amount)) }))}
           </Button>
         </>
       }

@@ -201,12 +201,15 @@ export class FolioController {
   private async folioBody(tx: Tx, folio: FolioRow): Promise<Record<string, unknown>> {
     const tz = await this.folios.timezone(tx);
     const inv = await this.bills.invoice(tx, folio.id);
+    const lines = await this.folios.lines(tx, folio.id);
     return folioDto(
       folio,
-      await this.folios.lines(tx, folio.id),
+      lines,
       await this.folios.payments(tx, folio.id),
       tz,
       inv ? invoiceDto(inv) : null,
+      await this.bills.labelContext(tx, folio),
+      await this.folios.openRefundVnd(tx, folio.id, lines),
     );
   }
 
@@ -293,6 +296,7 @@ export class FolioController {
         version,
         input,
         own?.code ?? null,
+        async (rid) => (await this.reservations?.stayInfo(tx, rid))?.status ?? null,
       );
       const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
       return { status: 201, body: await this.folioBody(tx, fresh) };

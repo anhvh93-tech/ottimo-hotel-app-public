@@ -115,6 +115,8 @@ Mức độ phiếu sửa (BR-809) – Desk: Cao / Trung bình / Thấp; buồng
 
 Số nhiều EN/RU dùng ICU MessageFormat (`{n, plural, one {# night} other {# nights}}`); RU cần dạng one/few/many.
 
+**Tiền trong câu (R2 Sprint 3 – review s3-UXD):** tham số `{amount}` (và `{old}`, `{new}`, `{max}` khi là tiền) luôn là **số đã định dạng kèm đơn vị** – client tạo bằng `common.currency_vnd` ("3.344.000 đ" / "3,344,000 VND"); chuỗi **không** tự viết "đ"/"VND" sau tham số (đã sửa `ci.cond_balance`, `ci.effect_fee`, `co.change_due`). Ô số trong bảng/tổng (folio, bill, đối soát) giữ số trần, đơn vị nằm ở tiêu đề cột (`bill.col_amount` "Số tiền (đ)") hoặc ở dòng tổng. Số tiền có dấu (chênh lệch, đảo) đặt dấu trước số: "+500.000 đ", "−212.000 đ"; không in "−0".
+
 ## 5. Mẫu câu theo tình huống
 
 ### 5.1 Thông báo lỗi (HR-24)
@@ -157,6 +159,7 @@ Luôn nêu số tiền + cơ sở + mã BR: "Phụ thu nhận sớm: 238.000 đ 
 - Ngôn ngữ khách: mặc định theo trình duyệt → theo hồ sơ khách → VI; đổi tay ở đầu trang, ghi nhớ theo đơn.
 - **Chữ tự do của nhân viên gửi khách** (lý do từ chối yêu cầu, phản hồi): chọn từ danh sách lý do đã dịch (`guest.req.decline.*`); ghi chú tự do là tùy chọn, hiện dưới nhãn `guest.req.staff_note` "Ghi chú của lễ tân (tiếng Việt)" và bọc `lang="vi"` (Bước 4, FB-R1-UXR-UXD-06).
 - Màn chưa đủ RU: không trộn RU/EN mà không báo – hiện `guest.lang.ru_soon`; mọi chuỗi dự phòng gắn `lang` của ngôn ngữ thật.
+- **Văn bản pháp lý trên trang RU (quyết định UXD 17/10, chờ SEC đồng ký – review s3-UXD, FB-R2-UXD-MOB-S3-01):** 7 chuỗi `gw.notice_body`, `guest.oci.why`, `guest.oci.consent_q`, `guest.oci.consent`, `guest.oci.consent_no`, `guest.oci.consent_optional`, `guest.oci.withdraw_hint` hiện **bản EN đã duyệt** cho tới khi bản RU được người bản ngữ duyệt (không dùng bản nháp RU làm căn cứ đồng ý – 5.6). Điều kiện: (1) gom các chuỗi này trong một khối có `lang="en"`; (2) ngay trên khối hiện `gw.legal_en_notice` (RU) – **không** hiện banner `guest.lang.ru_soon` ở các màn đã đủ RU; (3) bằng chứng đồng ý ghi `locale=en`, `noticeVersion` không đổi; (4) bỏ khóa khỏi danh sách `RU_UNREVIEWED_LEGAL` (guest-web) ngay khi bản RU được duyệt và ghi decision-log.
 - Bill song ngữ VI/EN cho khách NN; mở rộng RU theo ngôn ngữ hồ sơ khách (HR-25, R3).
 
 ## 7. Mẫu tin nhắn (US-125 – lễ tân/sale sao chép gửi qua nhóm chat/Zalo)
@@ -178,7 +181,7 @@ Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy 
 
 ## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2137 chuỗi + 8 mẫu tin nhắn (R2 Sprint 3 đợt 3: thêm 32 chuỗi `reg.field.*`, `reg.value.*`, `checkin.docs.field.*` cho dữ liệu khai báo trên cổng; R2 Sprint 3 đợt 2: thêm 66 chuỗi FE/MOB – `refund.*`, `checkout.overpay.*`, `party.*`, `gw.doc*`, `gw.defer*`, `gw.oci_done_card_*`… và RU cho mọi chuỗi guest-web đang dùng; R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2300 chuỗi + 8 mẫu tin nhắn (R2 Sprint 3 – phản hồi & sửa: thêm 72 chuỗi – `field.TIME_*`, `field.SURCHARGE_DECISION_REQUIRED`, `error.REFUND_SOURCE_NOT_RECONCILED`, `checkout.extra_night_*`, `extend.keep_rate`, 28 `bill.line.*` (22 `FolioLine.labelKey` + 6 biến thể), `mlog.a_*` đủ tập đóng 49 action, `gw.oci_unavailable_*`; sửa `field.LATE_CHECKOUT_AFTER_LIMIT` theo BR-416 v0.3.4; R2 Sprint 3 – review FE/MOB s3-UXD: thêm 91 chuỗi nhóm "review FE H13–H17 + MOB guest-web" – lý do nút khóa, trạng thái rỗng, toast lưu trú, VietQR, Phiếu thanh toán, đối soát/hoàn tiền rỗng, tiêu đề/thân duyệt theo loại, `mlog.a_*` cho mọi action tiền của BE, `gw.legal_en_notice`…; sửa `ci.cond_balance`, `ci.effect_fee`, `co.change_due` (bỏ đơn vị cứng) và 4 chuỗi `mlog.a_*` có ví dụ viết cứng; R2 Sprint 3 đợt 3: thêm 32 chuỗi `reg.field.*`, `reg.value.*`, `checkin.docs.field.*` cho dữ liệu khai báo trên cổng; R2 Sprint 3 đợt 2: thêm 66 chuỗi FE/MOB – `refund.*`, `checkout.overpay.*`, `party.*`, `gw.doc*`, `gw.defer*`, `gw.oci_done_card_*`… và RU cho mọi chuỗi guest-web đang dùng; R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
 
 #### Chung
 
@@ -1546,7 +1549,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `ci.capture_mrz` | Đọc MRZ hộ chiếu | Read passport MRZ | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.capture_qr` | Quét QR CCCD | Scan ID card QR | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.child_doc` | Trẻ em · số định danh cá nhân, số cuối {last4} · không cần ảnh | Child · personal ID number ending {last4} · no photo needed | ⟨chừa chỗ⟩ | 13-check-in.html |
-| `ci.cond_balance` | Còn phải thu {amount} đ – thu ở bước 4, trước khi giao mã cửa. | {amount} VND still due – collect in step 4, before handing over the door code. | ⟨chừa chỗ⟩ | 13-check-in.html |
+| `ci.cond_balance` | Còn phải thu {amount} – thu ở bước 4, trước khi giao mã cửa. | {amount} still due – collect in step 4, before handing over the door code. | ⟨chừa chỗ⟩ | 13-check-in.html; {amount} kèm đơn vị (common.currency_vnd) – s3-UXD |
 | `ci.cond_doc` | Bắt đầu với người đứng tên ở bước 1. Người đi cùng bổ sung được trước hạn khai báo. | Start with the main guest in step 1. Other guests can be added before the registration deadline. | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.cond_na_citizen` | Không áp dụng – cả đơn là công dân Việt Nam. | Not applicable – everyone on the booking is a Vietnamese citizen. | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.cond_room` | Căn {room} · {status} | Room {room} · {status} | ⟨chừa chỗ⟩ | 13-check-in.html |
@@ -1574,7 +1577,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `ci.early_time` | Giờ khách nhận phòng | Guest's check-in time | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.early_toggle` | Khách nhận sớm | Guest checks in early | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.effect_deadline` | Hạn khai báo bắt đầu tính: {deadline}. | Registration deadline starts: {deadline}. | ⟨chừa chỗ⟩ | 13-check-in.html |
-| `ci.effect_fee` | Phụ thu nhận sớm {amount} đ ghi vào folio (đã báo khách). | Early check-in surcharge {amount} VND goes on the folio (guest informed). | ⟨chừa chỗ⟩ | 13-check-in.html |
+| `ci.effect_fee` | Phụ thu nhận sớm {amount} ghi vào folio (đã báo khách). | Early check-in surcharge of {amount} goes on the folio (guest informed). | ⟨chừa chỗ⟩ | 13-check-in.html; {amount} kèm đơn vị – s3-UXD |
 | `ci.effect_status` | Đơn chuyển "Đang ở", buồng {room} chuyển "Có khách, sạch". | Booking becomes "In house", room {room} becomes "Occupied, clean". | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.effects_title` | Khi bấm Nhận phòng | When you tap Check in | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `ci.empty_body` | Các đơn đến hôm nay đã nhận phòng hoặc đã xử lý không đến. Khách vãng lai: tạo đơn mới rồi nhận phòng. | Today's arrivals are checked in or handled as no-shows. Walk-in guest: create a booking, then check in. | ⟨chừa chỗ⟩ | 13-check-in.html |
@@ -1626,7 +1629,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.bill_vi` | Tiếng Việt | Vietnamese | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.bill_vien` | Việt – Anh | Vietnamese – English | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.cash_received` | Tiền khách đưa | Cash received | ⟨chừa chỗ⟩ | 16-check-out.html |
-| `co.change_due` | Thối lại {amount} đ | Change due {amount} VND | ⟨chừa chỗ⟩ | 16-check-out.html |
+| `co.change_due` | Thối lại {amount} | Change due: {amount} | ⟨chừa chỗ⟩ | 16-check-out.html; {amount} kèm đơn vị – s3-UXD |
 | `co.company_name` | Tên công ty | Company name | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.complete_paid` | Đã thu {amount} – hoàn tất | Paid {amount} – complete | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.debt_mgr` | Quản lý/chủ đầu tư thấy thêm "Ghi công nợ" – bắt buộc hạn thanh toán và lý do. | Managers/owners also see "Record as debt" – due date and reason required. | ⟨chừa chỗ⟩ | 16-check-out.html |
@@ -1739,10 +1742,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | Появится здесь в день заезда ({date}). | 18-guest-checkin.html |
 | `late.grace_off` | Căn có khách đến hôm nay – không áp ân hạn 12:30. | A guest is arriving in this room today – the 12:30 grace period doesn't apply. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
-| `mlog.a_adjusted` | Điều chỉnh dòng (đảo + dòng mới) · giặt ủi | Line adjusted (reversal + new line) · laundry | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
+| `mlog.a_adjusted` | Điều chỉnh dòng folio (đảo + dòng mới) | Folio line adjusted (reversal + new line) | ⟨chừa chỗ⟩ | folio_line.adjusted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ 'giặt ủi' khỏi chuỗi) |
 | `mlog.a_foc_approved` | Duyệt miễn phí | Waiver approved | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
-| `mlog.a_line_added` | Thêm dòng folio · phụ thu trả muộn | Folio line added · late check-out fee | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
-| `mlog.a_payment` | Ghi nhận thu · VietQR · chờ đối soát | Payment recorded · VietQR · awaiting reconciliation | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
+| `mlog.a_line_added` | Thêm dòng folio | Folio line added | ⟨chừa chỗ⟩ | folio.line_posted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ khỏi chuỗi; mô tả dòng là dữ liệu) |
+| `mlog.a_payment` | Ghi nhận thu tiền | Payment recorded | ⟨chừa chỗ⟩ | payment.recorded – cách thu là dữ liệu (pay.*), chip 'Chờ đối soát' riêng – s3-UXD |
 | `mlog.action` | Thao tác | Action | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
 | `mlog.all_kinds` | Mọi thao tác tiền | All money actions | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
 | `mlog.all_people` | Mọi người | Everyone | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
@@ -2445,7 +2448,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field.EXTENSION_LIMIT_EXCEEDED` | Số đêm vượt số đêm trống liên tiếp. Chọn ít đêm hơn hoặc lập báo giá dài hạn. | More nights than are free in a row. Choose fewer nights or create a long-stay quote. | ⟨chừa chỗ⟩ |  |
 | `field.NIGHTLY_RATES_NOT_ALLOWED` | Đơn dài hạn nhập tay không sửa giá từng đêm – tiền thuê theo hợp đồng. | Manual long-stay bookings don't take nightly rates – rent follows the contract. | ⟨chừa chỗ⟩ |  |
 | `field.VISA_EXPIRES_BEFORE_DEPARTURE` | Thị thực của khách hết trước ngày đi mới. Ghi lý do để vẫn lưu và nhắc khách gia hạn. | The guest's visa ends before the new departure date. Add a reason to save anyway and remind the guest to extend it. | ⟨chừa chỗ⟩ | Cảnh báo → ô visaWarningAckReason (0.3.3) |
-| `field.LATE_CHECKOUT_AFTER_LIMIT` | Giờ trả này quá mốc trả muộn – tính thêm 1 đêm. Dùng Gia hạn. | This time is past the late check-out limit – it counts as another night. Use Extend stay. | ⟨chừa chỗ⟩ |  |
+| `field.LATE_CHECKOUT_AFTER_LIMIT` | Giờ này quá mốc trả muộn nên tính thêm 1 đêm. Khi trả phòng: nhập giá đêm thêm. Khi khách muốn ở lại: dùng Gia hạn. | This time is past the late check-out limit, so it counts as one more night. At check-out: enter the extra night rate. If the guest is staying on: use Extend stay. | ⟨chừa chỗ⟩ | 0.3.6 bổ sung 2 (BR-416 v0.3.4, DOM S3-9): checkOut field = extraNight; setLateCheckout giữ nghĩa Gia hạn – sửa 17/10 (s3-UXD đợt 2) |
 | `extend.los_reprice` | Tổng {n} đêm – giảm {pct}% theo thời gian ở, áp lại cho mọi đêm còn lại. Cọc đã thu không đổi. | {n} nights in total – the {pct}% length-of-stay discount now applies to every remaining night. Deposit paid stays the same. | ⟨chừa chỗ⟩ | DOM D-8 / BR-107 v0.3.2 – đơn Trực tiếp/CTV |
 | `late.request_sent` | Đã gửi quản lý duyệt giờ trả {time}. Giờ trả chưa đổi cho tới khi được duyệt. | Sent to a manager to approve check-out at {time}. The time won't change until it's approved. | ⟨chừa chỗ⟩ | setLateCheckout 202 (requestApproval) |
 | `error.MINIBAR_NOT_CHECKED` | Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất. | Minibar not checked yet. Do step 1 before finishing. | ⟨chừa chỗ⟩ |  |
@@ -2463,7 +2466,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `recon.commission_note` | Hoa hồng của người ghi chỉ thành "đạt" sau khi khoản này được đối soát. | The recorder's commission only counts once this payment is reconciled. | ⟨chừa chỗ⟩ | ESC-017 A / BR-527 |
 | `mlog.a_shortfall_accepted` | Chấp nhận cọc thiếu · còn thiếu {amount} | Short deposit accepted · {amount} short | ⟨chừa chỗ⟩ | confirmDeposit.acceptShortfallReason MGR+ (0.3.6 nhóm B, DOM D-9) |
 | `mlog.a_closer_changed` | Đổi người chốt: {from} → {to} | Closer changed: {from} → {to} | ⟨chừa chỗ⟩ | reservation.closer_changed (SEC-BE-26) |
-| `mlog.a_staff_payment` | Sale ghi nhận cọc · tiền mặt · chờ đối soát | Sales recorded deposit · cash · awaiting reconciliation | ⟨chừa chỗ⟩ |  |
+| `mlog.a_staff_payment` | Sale/CTV ghi nhận thu · chờ đối soát | Sales/agent recorded a payment · awaiting reconciliation | ⟨chừa chỗ⟩ | payment.recorded khi recordedByRole = sales_staff/collaborator (BR-527) – s3-UXD bỏ 'cọc · tiền mặt' cứng |
 | `error.ONLINE_CHECKIN_CLOSED` | Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân. | Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk. | Онлайн-регистрация закрыта – администратор уже получил ваши документы или вы уже заселились. Нужна помощь? Позвоните администратору. | 409 (0.3.3 E06-06) – hiện trạng thái 18.5 |
 | `field.FILE_TYPE` | Chỉ nhận ảnh JPG, PNG hoặc WebP. | Only JPG, PNG or WebP photos. | Принимаются только фото JPG, PNG или WebP. |  |
 | `field.FILE_TOO_LARGE` | Ảnh lớn hơn 10 MB – chụp lại hoặc chọn ảnh nhỏ hơn. | The photo is over 10 MB – retake it or choose a smaller one. | Фото больше 10 МБ – переснимите или выберите фото поменьше. |  |
@@ -2599,6 +2602,179 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkin.docs.field.entry_purpose` | Mục đích nhập cảnh | Purpose of entry | ⟨chừa chỗ⟩ |  |
 | `checkin.docs.field.address` | Địa chỉ thường trú | Permanent address | ⟨chừa chỗ⟩ | Chỉ hiện khi cổng yêu cầu (R-REG-04) |
 
+#### R2 Sprint 3 – review FE H13–H17 + MOB guest-web (rounds/round-02/reviews/s3-UXD.md)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `checkin.steps_label` | Các bước nhận phòng | Check-in steps | ⟨chừa chỗ⟩ | aria-label của ol.progress-steps (thay checkin.cond.title) – FB-R2-UXD-FE-S3-14 |
+| `checkout.steps_label` | Các bước trả phòng | Check-out steps | ⟨chừa chỗ⟩ | aria-label của ol.progress-steps H16 |
+| `ci.submit_needs_told` | Tick "Tôi đã báo khách khoản phụ thu này" để bật nút Nhận phòng. | Tick "I've told the guest about this surcharge" to enable Check in. | ⟨chừa chỗ⟩ | Lý do nút khóa (aria-describedby) – FE-S3-04 |
+| `ci.submit_needs_conditions` | Còn {n} điều kiện chưa đủ ở danh sách Điều kiện nhận phòng – xử lý xong mới nhận phòng được. | {n} check-in condition(s) still unmet – resolve them in the conditions list first. | ⟨chừa chỗ⟩ | Lý do nút khóa – FE-S3-04 |
+| `ci.request_title` | Gửi lễ tân trưởng xác nhận nhận phòng căn {room}? | Send check-in for room {room} to a senior receptionist? | ⟨chừa chỗ⟩ | FD + buồng chưa sẵn sàng (202) – FE-S3-05 |
+| `ci.request_effect` | Yêu cầu được gửi lễ tân trưởng. Đơn vẫn "Đã xác nhận" cho tới khi có người xác nhận; quản lý nhận thông báo. | The request goes to a senior receptionist. The booking stays "Confirmed" until someone approves; managers are notified. | ⟨chừa chỗ⟩ | Thân hộp xác nhận khi FD gửi yêu cầu – FE-S3-05 |
+| `ci.cond_doc_check_pending` | Chưa có giấy tờ để kiểm – hệ thống kiểm ngay khi nhập giấy tờ khách nước ngoài. | No ID to check yet – it's checked as soon as a foreign guest's ID is entered. | ⟨chừa chỗ⟩ | document_check_block khi đơn chưa có giấy tờ (không hiện 'Đã đủ' – DS 6.4) – FE-S3-18 |
+| `checkin.verify.empty` | Chưa có giấy tờ để kiểm. Nhập giấy tờ ở bước 1 – hạn hộ chiếu, thị thực được kiểm ngay khi có dữ liệu. | No IDs to check yet. Add them in step 1 – passport and visa dates are checked as soon as they're in. | ⟨chừa chỗ⟩ | Trạng thái rỗng bước Kiểm tra – FE-S3-12 |
+| `checkin.warn.visa_expires_before_departure` | Thị thực của khách hết hạn trước ngày trả phòng – khai báo đến hạn thị thực và nhắc khách gia hạn. | A guest's visa expires before check-out – register up to the visa expiry date and remind the guest to extend it. | ⟨chừa chỗ⟩ | previewCheckIn.warnings[] – thay w.detail thô – FE-S3-13 |
+| `checkin.warn.passport_expires_during_stay` | Hộ chiếu của khách hết hạn trong thời gian ở – vẫn nhận phòng được, ghi cách xử lý ở bước Kiểm tra. | A guest's passport expires during the stay – check-in can go ahead; record the handling in the Check step. | ⟨chừa chỗ⟩ | previewCheckIn.warnings[] – FE-S3-13 |
+| `ci.view_hide` | Ẩn số | Hide number | ⟨chừa chỗ⟩ | Nút Xem đủ số khi đang hiện – FE-S3-14 |
+| `ci.full_autohide` | Tự ẩn sau {seconds} giây hoặc khi rời tab. | Hides after {seconds} s or when you leave the tab. | ⟨chừa chỗ⟩ | Cạnh số giấy tờ đầy đủ (EP06 0) – FE-S3-22 |
+| `reg2.portal_autohide` | Dữ liệu tự ẩn sau {minutes} phút hoặc khi rời tab. Dán xong, bấm "Xóa bộ nhớ tạm". | The data hides after {minutes} min or when you leave the tab. When you've finished pasting, tap "Clear clipboard". | ⟨chừa chỗ⟩ | Bảng dữ liệu cổng – FE-S3-22 |
+| `reg2.retention_pending` | Ngày tự xóa hiện sau khi khách trả phòng. | The deletion date appears after check-out. | ⟨chừa chỗ⟩ | imageRetentionUntil chưa có – FE-S3-12 |
+| `reg2.deadline_pending` | Chưa tính hạn | Deadline not set yet | ⟨chừa chỗ⟩ | deadlineAt chưa có – FE-S3-12 |
+| `common.duration_hm` | {h} giờ {m} phút | {h} h {m} min | ⟨chừa chỗ⟩ | Thời lượng (content-guide 4) – dùng cho reg.deadline_left/overdue thay 'h:mm' |
+| `common.duration_m` | {m} phút | {m} min | ⟨chừa chỗ⟩ | Thời lượng < 1 giờ |
+| `party.kind.adult` | Người lớn đi cùng | Adult companion | ⟨chừa chỗ⟩ | Seg loại người (thay rsv.add_person) – FE-S3-14 |
+| `party.child_birth_year` | Năm sinh | Year of birth | ⟨chừa chỗ⟩ | Ô năm sinh trẻ em (thay checkin.docs.field.dob) |
+| `party.reduce_count_body` | Số khách dùng để tính phụ thu người và sức chứa căn. Chỉ giảm khi người này thật sự không ở nữa. | The guest count drives the extra-person charge and room capacity. Only lower it if this person is really no longer staying. | ⟨chừa chỗ⟩ | Thân hộp party.reduce_count (thay booking.field.guests) |
+| `party.reduce_submit` | Giảm còn {n} người | Lower to {n} | ⟨chừa chỗ⟩ | Nút xác nhận (thay common.save) |
+| `stay.charge_choose` | Chọn khoản phát sinh | Choose a charge | ⟨chừa chỗ⟩ | Placeholder ô khoản phát sinh (thay rsv.choose_reason) |
+| `room_change.price_same` | Giữ giá cũ – không phát sinh chênh lệch. | Old rate kept – nothing extra to pay. | ⟨chừa chỗ⟩ | Xem trước đổi phòng (dryRun) – thay ghép chuỗi |
+| `room_change.price_delta` | Chênh lệch theo giá căn mới: {amount} – ghi vào folio khi đổi. | Difference at the new room's rate: {amount} – posted to the folio on the move. | ⟨chừa chỗ⟩ | {amount} kèm dấu +/− và đơn vị |
+| `room_change.no_rooms` | Không còn căn sẵn sàng đủ chỗ từ {from} đến {to}. Hỏi quản lý, hoặc giữ khách ở căn hiện tại. | No ready room with enough space from {from} to {to}. Ask a manager, or keep the guest in the current room. | ⟨chừa chỗ⟩ | Trạng thái rỗng danh sách căn – FE-S3-12 |
+| `stay.toast.extended` | Đã gia hạn {n} đêm – trả phòng {date}. | Extended by {n} night(s) – check-out {date}. | ⟨chừa chỗ⟩ | Thay common.saved |
+| `stay.toast.late_set` | Đã hẹn trả muộn lúc {time}. | Late check-out set for {time}. | ⟨chừa chỗ⟩ | Thay common.saved |
+| `stay.toast.moved` | Đã đổi sang căn {room}. Thu thẻ cũ và giao mã/thẻ mới. | Moved to room {room}. Collect the old card and hand over the new code/card. | ⟨chừa chỗ⟩ | Thay common.saved |
+| `stay.toast.charge_added` | Đã thêm "{item}" vào folio. | Added "{item}" to the folio. | ⟨chừa chỗ⟩ | Thay common.saved |
+| `stay.toast.undo_checkin` | Đã hoàn tác nhận phòng căn {room}. | Check-in for room {room} undone. | ⟨chừa chỗ⟩ | Thay common.saved |
+| `late.arrival_warning_alt` | Căn {room} có khách đến lúc {eta}. Còn căn cùng nhóm để xếp cho khách đến. | Room {room} has a guest arriving at {eta}. There's still a same-group room for the arriving guest. | ⟨chừa chỗ⟩ | Thay late.arrival_warning khi API không trả danh sách căn ({rooms} = '–') |
+| `pay.vietqr_create` | Tạo VietQR · {amount} | Create VietQR · {amount} | ⟨chừa chỗ⟩ | Thay ghép pay.vietqr + số tiền – FE-S3-14 |
+| `pay.qr_label` | Mã VietQR: chuyển {amount}, nội dung {ref} | VietQR code: transfer {amount}, reference {ref} | ⟨chừa chỗ⟩ | aria-label QR (DS C25) |
+| `pay.qr_account` | Tài khoản nhận: {account} | Receiving account: {account} | ⟨chừa chỗ⟩ | Dòng riêng, không dính nội dung CK – FE-S3-07 |
+| `pay.copy_ref` | Sao chép nội dung | Copy reference | ⟨chừa chỗ⟩ | Thay rsv.copy_qr (chép chung nội dung + số tiền) |
+| `pay.copy_amount` | Sao chép số tiền | Copy amount | ⟨chừa chỗ⟩ |  |
+| `pay.cash_short` | Khách đưa thiếu {amount}. | {amount} short. | ⟨chừa chỗ⟩ | Tiền mặt nhận < số cần thu |
+| `checkout.overpay.needs_reason` | Ghi lý do xử lý tiền khách trả thừa để bật nút Hoàn tất. | Enter a reason for handling the overpayment to enable Complete. | ⟨chừa chỗ⟩ | Lý do nút khóa – FE-S3-04 |
+| `bill.col_desc` | Nội dung | Description | ⟨chừa chỗ⟩ | Tiêu đề cột Phiếu thanh toán – song ngữ dùng .en |
+| `bill.col_amount` | Số tiền (đ) | Amount (VND) | ⟨chừa chỗ⟩ | Đơn vị nằm ở tiêu đề cột; ô số giữ số trần |
+| `bill.paid` | Đã thu | Paid | ⟨chừa chỗ⟩ | Dòng tổng đã thu trên phiếu (thay bill.deposit 'Đã cọc / đã thu') |
+| `bill.issued_at` | Lập lúc {time} | Issued {time} | ⟨chừa chỗ⟩ |  |
+| `bill.tax_code` | MST {code} | Tax ID {code} | ⟨chừa chỗ⟩ |  |
+| `bill.preview_note` | Bản xem trước – số phiếu được cấp khi hoàn tất trả phòng. | Preview – the folio number is issued at check-out. | ⟨chừa chỗ⟩ | billNo chưa có |
+| `bill.lang_label` | Ngôn ngữ phiếu | Folio language | ⟨chừa chỗ⟩ | Nhãn Seg co.bill_vi / co.bill_vien |
+| `recon.empty_title` | Không có khoản nào chờ đối soát | Nothing awaiting reconciliation | ⟨chừa chỗ⟩ | Thay mlog.empty_title ở tab Chờ đối soát – FE-S3-12 |
+| `recon.empty_body` | Chuyển khoản, VietQR lễ tân ghi và tiền sale/CTV ghi sẽ hiện ở đây tới khi được đối soát. | Transfers and VietQR payments recorded at the desk, and money recorded by sales/agents, appear here until reconciled. | ⟨chừa chỗ⟩ |  |
+| `recon.cash_received_toast` | Đã nhận tiền mặt {amount} của {code}. | Cash {amount} for {code} received. | ⟨chừa chỗ⟩ | Thay co.recon_ok cho tiền mặt nộp quầy |
+| `refund.empty_title` | Không có khoản hoàn nào cần xử lý | No refunds to handle | ⟨chừa chỗ⟩ | Thay approval.empty_* ở tab Hoàn tiền – FE-S3-12 |
+| `refund.empty_body` | Đề nghị hoàn từ trả thừa, hủy đơn hoặc trả sớm sẽ hiện ở đây. | Refund requests from overpayments, cancellations or early check-outs appear here. | ⟨chừa chỗ⟩ |  |
+| `refund.method_label` | Cách hoàn: {method} | Refund method: {method} | ⟨chừa chỗ⟩ | Thay ghép refund.method + ':' |
+| `refund.execute_effect_cash` | Ghi đã chi {amount} tiền mặt cho khách. Không sửa được sau khi ghi; ảnh biên nhận có chữ ký của khách lưu cùng giao dịch. | Records {amount} paid to the guest in cash. It can't be edited afterwards; the receipt photo signed by the guest is kept with the transaction. | ⟨chừa chỗ⟩ | Hậu quả trong hộp chi hoàn (DS 6.1) – FE-S3-11 |
+| `refund.execute_effect_transfer` | Ghi đã chuyển {amount} cho khách. Chỉ ghi sau khi ngân hàng báo chuyển thành công. | Records {amount} transferred to the guest. Only record it once the bank confirms the transfer. | ⟨chừa chỗ⟩ | FE-S3-11 |
+| `approval.type.room_not_ready` | Nhận phòng khi buồng chưa sẵn sàng | Check-in before the room is ready | ⟨chừa chỗ⟩ | Thay checkin.cond.room_ready (tên điều kiện) – FE-S3-10 |
+| `approval.type.late_checkout` | Trả muộn khi có khách đến cùng ngày | Late check-out with a same-day arrival | ⟨chừa chỗ⟩ |  |
+| `approval.type.no_show_restore` | Khôi phục đơn không đến | Restore a no-show booking | ⟨chừa chỗ⟩ |  |
+| `approval.approve_title.refund` | Duyệt hoàn {amount} cho {code}? | Approve a refund of {amount} for {code}? | ⟨chừa chỗ⟩ | Thay approval.approve_title ('Duyệt miễn') cho type=refund |
+| `approval.approve_title.room_not_ready` | Cho {code} nhận phòng khi buồng chưa sẵn sàng? | Let {code} check in before the room is ready? | ⟨chừa chỗ⟩ |  |
+| `approval.approve_title.late_checkout` | Duyệt trả muộn cho {code} dù có khách đến cùng ngày? | Approve late check-out for {code} despite a same-day arrival? | ⟨chừa chỗ⟩ |  |
+| `approval.approve_title.no_show_restore` | Khôi phục đơn không đến {code}? | Restore no-show booking {code}? | ⟨chừa chỗ⟩ |  |
+| `approval.approve_body.refund` | Sau khi duyệt: lễ tân nhập nơi nhận; tiền mặt do lễ tân chi, chuyển khoản do quản lý ghi. Mọi lần chi được ghi nhật ký tiền. | Once approved, reception enters where the money goes; cash is paid at the desk, transfers are recorded by a manager. Every payout is logged. | ⟨chừa chỗ⟩ | Thay approval.approve_body (nói về dòng miễn phí) |
+| `approval.approve_body.room_not_ready` | Lễ tân nhận phòng được ngay; buồng chuyển "Có khách, cần dọn" và có việc dọn gấp. | Reception can check the guest in now; the room becomes "Occupied dirty" with an urgent cleaning task. | ⟨chừa chỗ⟩ |  |
+| `approval.approve_body.late_checkout` | Khách được trả muộn theo giờ đã hẹn; lễ tân xếp căn khác cho khách đến hoặc gợi ý gửi hành lý. | The guest keeps the agreed late check-out; reception moves the arriving guest or offers luggage storage. | ⟨chừa chỗ⟩ |  |
+| `approval.approve_body.no_show_restore` | Đơn trở lại trạng thái trước khi đánh dấu không đến. Kiểm tra lại căn và tiền cọc trong chi tiết đơn. | The booking returns to its status before the no-show. Re-check the room and the deposit in the booking details. | ⟨chừa chỗ⟩ |  |
+| `approval.reject_title_generic` | Từ chối yêu cầu của {code}? | Reject the request for {code}? | ⟨chừa chỗ⟩ | Dùng cho mọi loại trừ foc/discount |
+| `mlog.a_payment_confirmed` | Xác nhận đã nhận chuyển khoản VietQR | VietQR transfer confirmed received | ⟨chừa chỗ⟩ | payment.confirmed_received |
+| `mlog.a_qr_created` | Tạo mã VietQR | VietQR code created | ⟨chừa chỗ⟩ | payment.qr_created |
+| `mlog.a_payment_expired` | Mã VietQR hết hạn – chưa thu | VietQR code expired – not paid | ⟨chừa chỗ⟩ | payment.expired |
+| `mlog.a_reconciled` | Đối soát chuyển khoản | Transfer reconciled | ⟨chừa chỗ⟩ | payment.reconciled (kết quả khớp/không thấy tiền ở cột Trước → sau) |
+| `mlog.a_reversed` | Đảo giao dịch thu | Payment reversed | ⟨chừa chỗ⟩ | payment.reversed |
+| `mlog.a_cash_handover` | Nhận tiền mặt sale/CTV nộp quầy | Cash handed in by sales/agent received | ⟨chừa chỗ⟩ | payment.cash_handover_confirmed |
+| `mlog.a_line_reversed` | Đảo dòng folio | Folio line reversed | ⟨chừa chỗ⟩ | folio.line_reversed |
+| `mlog.a_folio_settled` | Chốt folio khi trả phòng | Folio settled at check-out | ⟨chừa chỗ⟩ | folio.settled |
+| `mlog.a_stay_reversed` | Đảo tiền phòng (hủy / không đến) | Room charges reversed (cancellation / no-show) | ⟨chừa chỗ⟩ | folio.stay_reversed |
+| `mlog.a_foc_requested` | Gửi yêu cầu miễn phí / giảm giá | Waiver / discount requested | ⟨chừa chỗ⟩ | folio.foc_requested |
+| `mlog.a_approval_rejected` | Từ chối yêu cầu | Request rejected | ⟨chừa chỗ⟩ | approval.rejected |
+| `mlog.a_approval_escalated` | Chuyển cấp duyệt | Request escalated | ⟨chừa chỗ⟩ | approval.escalated |
+| `mlog.a_approval_cancelled` | Rút yêu cầu | Request withdrawn | ⟨chừa chỗ⟩ | approval.cancelled |
+| `mlog.a_refund_destination` | Nhập nơi nhận hoàn | Refund destination entered | ⟨chừa chỗ⟩ | refund.destination_set |
+| `mlog.a_refund_cash_paid` | Chi hoàn tiền mặt | Cash refund paid | ⟨chừa chỗ⟩ | refund.cash_paid |
+| `mlog.a_refund_paid` | Ghi đã hoàn chuyển khoản | Transfer refund recorded | ⟨chừa chỗ⟩ | refund.paid |
+| `mlog.a_deposit_confirmed` | Xác nhận cọc | Deposit confirmed | ⟨chừa chỗ⟩ | reservation.deposit_confirmed |
+| `mlog.a_noshow_retained` | Giữ cọc – khách không đến | Deposit kept – no-show | ⟨chừa chỗ⟩ | reservation.no_show_deposit_retained |
+| `mlog.a_other` | Thao tác tiền khác | Other money action | ⟨chừa chỗ⟩ | Mã lạ: hiện câu này + mã ở chữ nhỏ (.mono .caption), không hiện mã một mình |
+| `gw.legal_en_notice` | Phần pháp lý bên dưới tạm hiện bằng tiếng Anh cho tới khi bản tiếng Nga được duyệt. | The legal text below is shown in English until the Russian translation is approved. | Юридический текст ниже пока на английском – русский перевод проходит проверку. | Chỉ hiện ở trang RU, ngay trên khối pháp lý EN (lang="en") – thay banner guest.lang.ru_soon toàn cục – FB-R2-UXD-MOB-S3-01 |
+| `gw.oci_done_card_body_late` | Đã gửi giấy tờ của {n}/{m} khách · dự kiến đến sau {time}. Khi tới nơi, gọi người trực. | IDs sent for {n}/{m} guests · arriving after {time}. Call the night staff when you arrive. | Документы отправлены: {n}/{m} гостей · прибытие после {time}. По приезде позвоните дежурному. | lateArrival=true (thay eta '22:00+') – MOB-S3-03 |
+| `gw.upload_progress` | Đang gửi {count} ảnh – {pct}% | Sending {count} photo(s) – {pct}% | Отправка фото ({count}) – {pct}% | Thay guest.oci.uploading {n}/{total} – MOB-S3-04 |
+| `gw.upload_done` | Đã gửi ảnh của {person}. | Photos for {person} sent. | Фото ({person}) отправлены. | Câu aria-live khi xong (không đọc từng %) |
+| `gw.next_needs_docs` | Chụp giấy tờ hoặc chọn "Bổ sung tại quầy" cho từng khách để tiếp tục. | Take a photo or choose "Add at reception" for each guest to continue. | Сфотографируйте документ или выберите «Предъявить на стойке» для каждого гостя, чтобы продолжить. | Lý do nút Tiếp tục khóa – MOB-S3-05 |
+| `gw.eta_first` | Chọn giờ đến để tiếp tục. | Choose your arrival time to continue. | Выберите время прибытия, чтобы продолжить. |  |
+| `gw.consent_first` | Chọn một trong hai lựa chọn ở trên để gửi. | Choose one of the two options above to submit. | Выберите один из двух вариантов выше, чтобы отправить. |  |
+
+#### R2 Sprint 3 – phản hồi & sửa: chuỗi còn thiếu FE/MOB (OpenAPI 0.3.6 bổ sung 2; responses/s3-FE.md, s3-MOB.md)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `field.TIME_AFTER_ACTION` | Giờ này muộn hơn hiện tại. Ghi đúng giờ đã diễn ra – không ghi giờ chưa tới. | This time is later than now. Enter the time it actually happened – times that haven't happened yet can't be recorded. | ⟨chừa chỗ⟩ | 422 checkIn/checkOut – giờ nhập tay muộn hơn giờ server quá manual_time_tolerance_minutes |
+| `field.TIME_NOTE_REQUIRED` | Giờ này sớm hơn lúc bấm khá lâu – ghi chú vì sao ghi bù (ví dụ: mất mạng lúc khách đi). | This time is well before now – add a note on why it's being recorded late (e.g. no connection when the guest left). | ⟨chừa chỗ⟩ | 422 – thiếu checkinTimeNote/checkoutTimeNote; gắn vào ô ghi chú giờ |
+| `field.SURCHARGE_DECISION_REQUIRED` | Giờ này có phụ thu – tick "Tôi đã báo khách khoản phụ thu này" hoặc xin miễn. | This time carries a surcharge – tick "I've told the guest about this surcharge" or request a waiver. | ⟨chừa chỗ⟩ | 422 checkIn/setLateCheckout/checkOut (DOM S3-12 – không bỏ qua im lặng) |
+| `error.REFUND_SOURCE_NOT_RECONCILED` | Chưa chi được: {amount} trong khoản hoàn đến từ chuyển khoản chưa đối soát. Chờ quản lý khớp sao kê rồi chi. | Can't pay this out yet: {amount} of the refund comes from transfers that aren't reconciled. Wait for a manager to match the bank statement, then pay. | ⟨chừa chỗ⟩ | 409 executeRefund/executeCashRefund – {amount} ← unreconciledVnd (kèm đơn vị) |
+| `checkin.time_note` | Ghi chú giờ nhận (vì sao ghi bù) | Check-in time note (why it's recorded late) | ⟨chừa chỗ⟩ | checkinTimeNote 3–300 ký tự – thay stay.note |
+| `checkout.time_note` | Ghi chú giờ trả (vì sao ghi bù) | Check-out time note (why it's recorded late) | ⟨chừa chỗ⟩ | checkoutTimeNote 3–300 ký tự – thay stay.note |
+| `stay.time_note_help` | Bắt buộc khi giờ ghi sớm hơn lúc bấm. Ghi chú lưu vào nhật ký thay đổi. | Required when the time is earlier than now. The note is kept in the change log. | ⟨chừa chỗ⟩ |  |
+| `checkout.extra_night_title` | Trả sau mốc trả muộn – tính thêm 1 đêm | Check-out after the late check-out limit – one extra night | ⟨chừa chỗ⟩ | CheckoutSummary.extraNightRequired |
+| `checkout.extra_night_body` | Giờ trả này quá mốc trả muộn nên tính thêm 1 đêm ({amount}) thay cho phụ thu trả muộn. Báo khách trước khi hoàn tất. | This check-out time is past the late check-out limit, so one extra night ({amount}) is charged instead of a late check-out fee. Tell the guest before completing. | ⟨chừa chỗ⟩ | {amount} = giá đêm thêm đang nhập (kèm đơn vị) |
+| `checkout.extra_night_rate_label` | Giá đêm thêm | Extra night rate | ⟨chừa chỗ⟩ | Ô extraNight.rateVnd |
+| `checkout.extra_night_rate_help` | Mặc định giá Trực tiếp đêm nay; sửa được trong khoảng sàn – trần. | Defaults to tonight's Direct rate; can be changed within the floor–ceiling range. | ⟨chừa chỗ⟩ | Ngoài sàn–trần → field.RATE_OUT_OF_RANGE |
+| `checkout.extra_night_unavailable` | Căn đã có khách đêm nay nên chưa tính thêm đêm được. Đổi căn cho khách đến hoặc thỏa thuận lại giờ trả. | The room is booked tonight, so an extra night can't be added. Move the arriving guest or agree a different check-out time. | ⟨chừa chỗ⟩ | extraNightAvailable=false |
+| `checkout.post_midnight` | Đang sau nửa đêm của ngày đi – trả phòng bây giờ không phụ thu, không tính thêm đêm. | It's after midnight on the departure day – checking out now has no late fee and no extra night. | ⟨chừa chỗ⟩ | CheckoutSummary.postMidnightWindow (tùy chọn) |
+| `extend.keep_rate` | Giữ giá đơn · {amount}/đêm | Keep booking rate · {amount}/night | ⟨chừa chỗ⟩ | ExtensionOptions.currentBookingRateVnd ≠ null |
+| `extend.keep_rate_help` | Đơn đang có giá thỏa thuận khác lịch giá. Bấm để dùng lại giá này cho các đêm thêm – vẫn trong sàn – trần; ngày đặc biệt theo giá ngày đó. | This booking has an agreed rate that differs from the rate calendar. Tap to reuse it for the extra nights – still within floor–ceiling; special dates keep their own rate. | ⟨chừa chỗ⟩ |  |
+| `bill.line.room_night` | Tiền phòng đêm {date} | Room, night of {date} | ⟨chừa chỗ⟩ | {date} dd/MM; có {room} → bill.line.room_night_room |
+| `bill.line.room_night_room` | Tiền phòng căn {room} · đêm {date} | Room {room}, night of {date} | ⟨chừa chỗ⟩ |  |
+| `bill.line.extra_night` | Đêm thêm {date} – trả phòng sau mốc trả muộn | Extra night of {date} – check-out after the late check-out limit | ⟨chừa chỗ⟩ | E05-11; có {room} → bill.line.extra_night_room |
+| `bill.line.extra_night_room` | Đêm thêm {date} · căn {room} – trả phòng sau mốc trả muộn | Extra night of {date} · room {room} – check-out after the late check-out limit | ⟨chừa chỗ⟩ |  |
+| `bill.line.extra_person` | Phụ thu người vượt định mức · đêm {date} | Extra guest charge, night of {date} | ⟨chừa chỗ⟩ | có {count} → bill.line.extra_person_count |
+| `bill.line.extra_person_count` | Phụ thu {count} người vượt định mức · đêm {date} | Extra guest charge ×{count}, night of {date} | ⟨chừa chỗ⟩ |  |
+| `bill.line.early_checkin` | Phụ thu nhận sớm (nhận lúc {time}) | Early check-in fee (arrived {time}) | ⟨chừa chỗ⟩ | {pct} có trong labelParams nhưng không in lên phiếu khách |
+| `bill.line.late_checkout` | Phụ thu trả muộn ({time}) | Late check-out fee ({time}) | ⟨chừa chỗ⟩ | Cùng chữ co.line_late |
+| `bill.line.early_departure_fee` | Phí trả phòng sớm | Early departure fee | ⟨chừa chỗ⟩ | có {noticeDays} → bill.line.early_departure_fee_notice |
+| `bill.line.early_departure_fee_notice` | Phí trả phòng sớm (báo trước {noticeDays} ngày) | Early departure fee ({noticeDays} days' notice) | ⟨chừa chỗ⟩ |  |
+| `bill.line.overpayment_retained` | Khoản trả thừa khách tự nguyện để lại | Overpayment the guest chose to leave | ⟨chừa chỗ⟩ | deposit_forfeit + charge_code overpayment_retained (DOM S3-4) |
+| `bill.line.room_change` | Chênh lệch đổi phòng căn {from} → {to} | Room change difference, {from} → {to} | ⟨chừa chỗ⟩ |  |
+| `bill.line.minibar` | Minibar – {item} × {qty} | Minibar – {item} × {qty} | ⟨chừa chỗ⟩ | {item} là tên món do server (tiếng Việt) |
+| `bill.line.cancellation_fee` | Phí hủy đặt phòng | Cancellation fee | ⟨chừa chỗ⟩ |  |
+| `bill.line.no_show_fee` | Phí không đến | No-show fee | ⟨chừa chỗ⟩ |  |
+| `bill.line.foc` | Miễn phí | Complimentary | ⟨chừa chỗ⟩ | có {reason} → bill.line.foc_reason ({reason} = foc.r_* đã dịch) |
+| `bill.line.foc_reason` | Miễn phí · {reason} | Complimentary · {reason} | ⟨chừa chỗ⟩ |  |
+| `bill.line.discount` | Giảm giá | Discount | ⟨chừa chỗ⟩ | có {reason} → bill.line.discount_reason |
+| `bill.line.discount_reason` | Giảm giá · {reason} | Discount · {reason} | ⟨chừa chỗ⟩ |  |
+| `bill.line.laundry` | Giặt ủi · {qty} kg | Laundry · {qty} kg | ⟨chừa chỗ⟩ | Mã LAUNDRY_KG |
+| `bill.line.adhoc_cleaning` | Dọn phòng thêm × {qty} | Extra cleaning × {qty} | ⟨chừa chỗ⟩ |  |
+| `bill.line.smoking_fee` | Phí khử mùi thuốc lá | Smoke odour treatment fee | ⟨chừa chỗ⟩ |  |
+| `bill.line.key_card_fee` | Phí thẻ phòng không trả × {qty} | Unreturned key card × {qty} | ⟨chừa chỗ⟩ |  |
+| `bill.line.damage` | Hư hỏng, mất đồ – {item} × {qty} | Damage / missing item – {item} × {qty} | ⟨chừa chỗ⟩ |  |
+| `bill.line.fnb` | Đồ ăn, uống – {text} × {qty} | Food & drink – {text} × {qty} | ⟨chừa chỗ⟩ |  |
+| `bill.line.service_fee` | Dịch vụ – {text} × {qty} | Service – {text} × {qty} | ⟨chừa chỗ⟩ |  |
+| `bill.line.utilities` | Điện nước | Utilities | ⟨chừa chỗ⟩ |  |
+| `bill.line.adjustment` | Điều chỉnh | Adjustment | ⟨chừa chỗ⟩ | Mặc định cho dòng không có khóa riêng |
+| `mlog.a_ota_collected` | Ghi nhận tiền phòng OTA thu hộ | OTA-collected room payment recorded | ⟨chừa chỗ⟩ | payment.ota_collected |
+| `mlog.a_ota_collect_adjusted` | Điều chỉnh khoản OTA thu hộ (đêm thay đổi) | OTA-collected amount adjusted (nights changed) | ⟨chừa chỗ⟩ | payment.ota_collect_adjusted |
+| `mlog.a_foc_posted` | Ghi dòng miễn phí / giảm giá vào folio | Waiver / discount line posted | ⟨chừa chỗ⟩ | folio.foc_posted |
+| `mlog.a_foc_rejected` | Từ chối miễn phí / giảm giá | Waiver / discount rejected | ⟨chừa chỗ⟩ | folio.foc_rejected |
+| `mlog.a_damage_posted` | Ghi phí hư hỏng ngoài bảng (đã duyệt) | Off-list damage charge posted (approved) | ⟨chừa chỗ⟩ | folio.damage_posted |
+| `mlog.a_damage_rejected` | Từ chối giá hư hỏng ngoài bảng | Off-list damage price rejected | ⟨chừa chỗ⟩ | folio.damage_rejected |
+| `mlog.a_cancellation_fee` | Ghi phí hủy đặt phòng | Cancellation fee recorded | ⟨chừa chỗ⟩ | reservation.cancellation_fee |
+| `mlog.a_debt_on_checkout` | Ghi công nợ khi trả phòng | Balance recorded as receivable at check-out | ⟨chừa chỗ⟩ | reservation.debt_on_checkout |
+| `mlog.a_early_departure` | Trả phòng sớm – tính phí và tiền hoàn | Early departure – fee and refund calculated | ⟨chừa chỗ⟩ | reservation.early_departure |
+| `mlog.a_extended` | Gia hạn lưu trú | Stay extended | ⟨chừa chỗ⟩ | reservation.extended |
+| `mlog.a_prior_night_added` | Thêm đêm trước (nhận phòng rất sớm) | Prior night added (very early check-in) | ⟨chừa chỗ⟩ | reservation.prior_night_added (BR-417) |
+| `mlog.a_extra_night_on_checkout` | Tính thêm 1 đêm khi trả phòng (quá mốc trả muộn) | Extra night charged at check-out (past the late check-out limit) | ⟨chừa chỗ⟩ | reservation.extra_night_on_checkout |
+| `mlog.a_priced` | Tính giá đơn | Booking priced | ⟨chừa chỗ⟩ | reservation.priced |
+| `mlog.a_repriced` | Tính lại giá đơn | Booking repriced | ⟨chừa chỗ⟩ | reservation.repriced |
+| `mlog.a_room_change_repriced` | Tính lại giá khi đổi phòng | Repriced after room change | ⟨chừa chỗ⟩ | reservation.room_change_repriced |
+| `mlog.a_commission_projected` | Ghi hoa hồng dự kiến | Commission projected | ⟨chừa chỗ⟩ | commission.projected |
+| `mlog.a_commission_earned` | Hoa hồng đạt (sau đối soát) | Commission earned (after reconciliation) | ⟨chừa chỗ⟩ | commission.earned |
+| `mlog.a_commission_voided` | Hủy hoa hồng | Commission voided | ⟨chừa chỗ⟩ | commission.voided |
+| `mlog.a_channel_fee_recorded` | Ghi phí kênh OTA | OTA channel fee recorded | ⟨chừa chỗ⟩ | channel_fee.recorded |
+| `mlog.a_channel_fee_updated` | Cập nhật phí kênh OTA | OTA channel fee updated | ⟨chừa chỗ⟩ | channel_fee.updated |
+| `mlog.a_relocation_cost` | Chi phí chuyển khách sang nơi khác (xung đột OTA) | Cost of moving a guest elsewhere (OTA conflict) | ⟨chừa chỗ⟩ | overbooking.relocation_cost – không dùng chữ 'overbook/trùng phòng' (content-guide 3.1) |
+| `mlog.a_approval_requested` | Gửi yêu cầu duyệt | Approval requested | ⟨chừa chỗ⟩ | approval.requested (mọi loại; thay mlog.a_foc_requested) |
+| `mlog.a_approval_self_applied` | Tự áp miễn phí trong hạn mức (xác nhận lại mật khẩu) | Waiver self-applied within limit (password re-confirmed) | ⟨chừa chỗ⟩ | approval.self_applied |
+| `mlog.a_approval_approved` | Duyệt yêu cầu | Request approved | ⟨chừa chỗ⟩ | approval.approved khi loại ≠ foc/special_discount (FOC giữ mlog.a_foc_approved); loại hiện bằng approval.type.* / refund.title cạnh câu |
+| `mlog.a_approval_reopened` | Mở lại yêu cầu duyệt | Approval request reopened | ⟨chừa chỗ⟩ | approval.reopened |
+| `mlog.a_receiving_account_changed` | Đổi tài khoản nhận chuyển khoản | Receiving bank account changed | ⟨chừa chỗ⟩ | config.changed (chỉ khóa payment_receiving_account) |
+| `gw.oci_unavailable_title` | Làm thủ tục tại quầy | Check in at reception | Регистрация на стойке | Màn fail closed (MOB s3 – thay guest.cta.checkin + guest.late.not_ready) |
+| `gw.oci_unavailable_body` | Lúc này chưa làm thủ tục trước qua trang này được. Bạn vẫn nhận phòng bình thường: mang giấy tờ gốc, lễ tân làm thủ tục cho bạn trong vài phút. | Online check-in isn't available on this page right now. You can still check in as usual: bring your original IDs and reception will check you in within a few minutes. | Сейчас онлайн-регистрация на этой странице недоступна. Заселиться можно как обычно: возьмите оригиналы документов – администратор оформит всё за несколько минут. | Không nói lý do kỹ thuật (phiên bản thông báo) với khách |
+| `gw.oci_unavailable_late` | Đến sau {time}? Gọi người trực khi tới nơi. | Arriving after {time}? Call the night staff when you get here. | Приезжаете после {time}? Позвоните дежурному по прибытии. | {time} = mốc đến khuya của khung giờ đến (bước Giờ đến) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
@@ -2627,3 +2803,5 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | 0.3.7 | 17/10/2026 | UXD | R2 Sprint 3: 79 chuỗi VI/EN mới (lưu đồng thời/hệ thống bận + tự thử lại – ĐK-S2-3; rà H13–H18 theo OpenAPI 0.3.5/BR v0.3.2; ESC-016 A cho `gw.req.*`); sửa `gw.req.note_help` theo EP14 3.2 (SR-INP-05); RU cho `sale.quote_text`, `sale.quote_text_extra_guest`, `occ.adults_short`, `occ.children_short`, `occ.under6_short` (PO-S2-01) |
 | 0.3.8 | 17/10/2026 | UXD | R2 Sprint 3 đợt 2 (FE/MOB s3 mục 5): 48 chuỗi admin-web (hoàn tiền EP03-05 2.6, trả thừa, tiền mặt sale/CTV nộp quầy, người đi cùng, bill, nhật ký Từ/Đến ngày, `rooms.future_keep`, nhãn kiểm thị thực E06-01) + 18 chuỗi guest-web VI/EN/RU (điều hướng, bước, loại giấy tờ, bổ sung tại quầy, thẻ "Đã làm thủ tục trước", `gw.error_server`); RU nháp cho 91 chuỗi guest-web đang dùng (cần người bản ngữ duyệt) |
 | 0.3.9 | 17/10/2026 | UXD | R2 Sprint 3 đợt 3 (BE-C `getPortalData`): 17 nhãn `reg.field.*` theo chữ biểu mẫu cổng, 7 giá trị `reg.value.*` (giới tính, diện nhập cảnh, trường rỗng), 8 nhãn ô giấy tờ EP06 2.3 còn thiếu (`checkin.docs.field.*`); H14 14.2 bảng dữ liệu cổng theo đúng thứ tự server |
+| 0.3.10 | 17/10/2026 | UXD | R2 Sprint 3 – review chéo FE H13–H17 + MOB guest-web (`rounds/round-02/reviews/s3-UXD.md`): 91 chuỗi mới (VI/EN, RU nháp cho 7 chuỗi `gw.*`); quy ước tiền trong câu ở mục 4 (`{amount}` kèm đơn vị qua `common.currency_vnd`, bỏ "đ" cứng ở 3 chuỗi); quy tắc văn bản pháp lý EN trên trang RU ở mục 6 (quyết định UXD, chờ SEC đồng ký); `mlog.a_payment`, `mlog.a_staff_payment`, `mlog.a_line_added`, `mlog.a_adjusted` bỏ chi tiết ví dụ viết cứng (VietQR, tiền mặt, giặt ủi…) + 19 chuỗi `mlog.a_*` theo action BE; H13/H16/H17 hi-fi cập nhật tham số và dòng nhật ký. |
+| 0.3.11 | 17/10/2026 | UXD | R2 Sprint 3 – phản hồi & sửa (ORC; `responses/s3-FE.md`, `s3-MOB.md`; OpenAPI 0.3.6 bổ sung 2): 72 chuỗi mới – giờ nhập tay `field.TIME_AFTER_ACTION`/`TIME_NOTE_REQUIRED` + nhãn `checkin.time_note`/`checkout.time_note`, `field.SURCHARGE_DECISION_REQUIRED`, `error.REFUND_SOURCE_NOT_RECONCILED` {amount}, "tính thêm 1 đêm" khi trả phòng `checkout.extra_night_*` + `checkout.post_midnight`, `extend.keep_rate`, `bill.line.*` cho 22 `labelKey` (+ 6 biến thể khi có tham số tùy chọn), `mlog.a_*` để mỗi mã của tập đóng `AuditEvent.action` (49) có câu riêng (gồm `mlog.a_approval_approved` chung ngoài FOC), `gw.oci_unavailable_*` (VI/EN/RU nháp); sửa `field.LATE_CHECKOUT_AFTER_LIMIT` (bỏ "Dùng Gia hạn" – BR-416 v0.3.4, DOM S3-9). |

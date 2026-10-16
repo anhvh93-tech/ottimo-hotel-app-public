@@ -6,7 +6,13 @@
 //    a built staff route answers 401 (AuthGuard runs before any lookup) – used to mark cases "pending"
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
-import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
+import {
+  expect,
+  request as playwrightRequest,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+} from '@playwright/test';
 import {
   API_URL,
   AUTH_DIR,
@@ -172,11 +178,23 @@ const ANY_UUID = '00000000-0000-7000-8000-000000000000';
  * true when the route exists on the build. Anonymous call: built staff route → 401 (guard first),
  * built public route (login) → 4xx other than 404, route not built → 404 (Fastify "unmatched").
  */
+/**
+ * Probes run in their OWN request context: the test's `request` fixture keeps a cookie jar, so after a login made
+ * inside the same test (freshSession of an account not cached yet) an "anonymous" probe would carry that session and
+ * a property-scoped route with a random id would answer 404 → wrongly "not on the build" (QA S3: TC-L4-062 skipped).
+ */
+let probeCtx: Promise<APIRequestContext> | null = null;
+function probeContext(): Promise<APIRequestContext> {
+  probeCtx ??= playwrightRequest.newContext();
+  return probeCtx;
+}
+
 export async function isAvailable(
-  ctx: APIRequestContext,
+  _ctx: APIRequestContext,
   method: string,
   path: string,
 ): Promise<boolean> {
+  const ctx = await probeContext();
   const concrete = path.replace(/\{(\w+)\}/g, (_, k: string) =>
     k === 'key' ? 'probe_key' : ANY_UUID,
   );
@@ -466,10 +484,18 @@ export async function testClock(
   });
 }
 
-/** Business date "today" of the stack (getHealth.time is +07:00 and follows the MutableClock). */
-export async function stackToday(ctx: APIRequestContext): Promise<string> {
+/**
+ * Business date "today" of the stack (getHealth.time is +07:00 and follows the MutableClock). BR-010: the business
+ * day changes at `business_day_rollover` (DS-E 06:00), not at midnight – between 00:00 and 05:59 it is the
+ * PREVIOUS calendar date (QA S3 testing 17/10: the calendar date made TC-L2-014/053, TC-L5-005/023 red after midnight).
+ */
+export async function stackToday(ctx: APIRequestContext, rollover = '06:00'): Promise<string> {
   const r = await call<{ time: string }>(ctx, 'GET', '/health');
-  return r.body.time.slice(0, 10);
+  const date = r.body.time.slice(0, 10);
+  if (r.body.time.slice(11, 16) >= rollover) return date;
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /** Owner creates a throwaway account (must change password on first login – SR-AUTH-05). */

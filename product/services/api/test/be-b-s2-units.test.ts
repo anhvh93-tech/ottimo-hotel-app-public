@@ -115,6 +115,8 @@ describe('folio totals (erd 4.6: computed, never stored)', () => {
       depositHeldVnd: 300_000,
       balanceDueVnd: 313_000,
       creditVnd: 0,
+      unhandledCreditVnd: 0,
+      otaExcessVnd: 0,
     });
   });
 

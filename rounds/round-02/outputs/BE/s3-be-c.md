@@ -144,7 +144,7 @@ Cửa sổ step-up mở bằng `POST /v1/me/step-up` (`stepUp`, đã cài trong 
 - `src/modules/feature-modules.ts` (tham số `runtimeEnv` + 4 module dưới "Sprint 3 (BE-C)"), `src/main.ts` (truyền `rt.env`), `src/worker.ts` (đăng ký J16)
 - `src/shared/http/auth.guard.ts` (nhánh khách: resolver + Origin guest-web + header điều kiện; `RequestAuth.guest`), `src/shared/serialization/serialize.interceptor.ts` + `serializer.ts` + `src/shared/openapi-types.ts` (vai `guest`, cờ `g` = `x-guest-level`), `scripts/gen-openapi-meta.mjs` (phát cờ `g`) → `src/generated/openapi-schemas.ts` sinh lại
 - `src/http.ts` (content-type parser `multipart/form-data` dạng Buffer, `MULTIPART_BODY_LIMIT` 42 MB)
-- `services/api/package.json` + `product/pnpm-lock.yaml` (thêm `sharp@0.34.5` – SR-FILE-03, ADR-013 điểm 1)
+- `services/api/package.json` + `product/pnpm-lock.yaml` (thêm `sharp@0.35.5` – SR-FILE-03, ADR-013 điểm 1)
 - `test/helpers/feature-app.ts` (`rawPayload` trong kiểu phản hồi), `test/integration/role-gate-first.test.ts` (bỏ operation khách khỏi vòng "vai cấm → 403": khách không có vai nhân viên, nhân viên gọi → 401 – phủ ở `rbac-sprint3-bec`)
 - `01-decisions/decision-log.md` (8 dòng BE-C S3), file báo cáo này
 
@@ -200,3 +200,32 @@ Không có.
 - Nguồn chữ: `services/api/scripts/gen-portal-copy.mjs` → `src/generated/portal-copy.ts` (cùng kiểu `gen-quote-copy.mjs`).
 - Không sửa `registration/internal/stay-reader.ts` (BE-A đang chuyển sang cổng `stayView`).
 - Lệnh: format:check ✓, lint (eslint + typecheck 12 gói) ✓, build 6/6 ✓, `turbo run test --force` 12/12 – api 50 tệp / **2036** test ✓, `gen-openapi-meta --check`, `gen-portal-copy --check`, api-client `gen --check` ✓.
+
+## 9. Bước Phản hồi & sửa (17/10) – trả lời thẻ SEC/ARC/DOM
+Chi tiết từng thẻ: `rounds/round-02/responses/s3-BE-C.md`. Sửa phiên bản sharp ở mục 2: **0.35.5** (ORC đã nâng). Giả định 7 ở mục 4 (ngày `YYYY-MM-DD`, quốc tịch mã, URL hằng số) **được thay** bằng tham số `portal_date_format`/`portal_nationality_format` + biến môi trường URL cổng (DOM S3-5, ARC S3-20, chờ ESC-018). Giả định 3 (xóa blob trong giao dịch) **được thay** bằng xóa tệp sau COMMIT.
+
+**Migration** `0053_retention_hardening_be_c.sql` + `meta/0053_snapshot.json` (4.2a): bảng `blob_pending_delete` (RLS property, SELECT/INSERT/DELETE); CHECK `purge_reason` + `unbound`, `delete_reason` + `unconfirmed`; FK cặp tenant tới `data_key`/`guest_access_token`; FK `guest_document.party_member_id/reservation_id`, `guest_session.reservation_id`; chỉ mục `attachment_retention_idx`, `attachment_unbound_idx`, `document_image_registration_idx` (bỏ `attachment_purge_idx`); cột `registration.stay_ended_at`, `consent_record.retention_days`; GRANT UPDATE theo cột cho `document_image`/`guest_document`; trigger `c3_no_resurrection`; tham số `id_image_unconfirmed_max_days`, `attachment_unbound_days`, `portal_date_format`, `portal_nationality_format`; biên `id_image_purge_max_hours` 1–24.
+
+**File tạo**: `src/shared/savepoint.ts`, `src/modules/files/public/upload-gate.ts`, `src/modules/registration/internal/countries.ts`, `src/modules/registration/internal/portal-config.ts`, `src/modules/guest-portal/public/online-checkin.read.ts`, `test/be-c-s3-units.test.ts`, migration 0053 + snapshot, `rounds/round-02/responses/s3-BE-C.md`.
+**File sửa**: `src/http.ts`, `src/shared/http/unit-of-work.ts`, `src/modules/feature-modules.ts` (`RegistrationModule.register({ env })`), `src/db/schema/{crypto,files,registration,guest-portal}.ts`, `meta/_journal.json` (idx 27), `modules/crypto/**` (`KeyedHashPurpose` + `idempotency`, `rewrap` bỏ qua phiên bản chưa nạp, `unknownVersionCount`), `modules/files/**` (pipeline sharp, blob service, attachment service + controller), `modules/registration/**` (service, repo, rules, controller, retention, c3-log, module, worker-jobs), `modules/guest-portal/internal/{guest-portal.service,guest.controller}.ts`, `product/.env.example` (2 biến URL cổng), test: `crypto-boundary`, `registration-rules`, `integration/{crypto-envelope,files-attachments,guest-portal,registration-flow}`, `helpers/feature-app.ts` (tùy chọn `guestOrigins`), `helpers/registration-fixture.ts` (Origin guest-web ở `guest()`), `01-decisions/decision-log.md` (5 dòng).
+
+**Kết quả lệnh** (17/10, DB `ottimo_test_bec` tạo mới, Node 22, pnpm 9):
+
+| Lệnh | Kết quả |
+|---|---|
+| Test BE-C | 9 tệp / **376 test xanh**: be-c-s3-units 7, crypto-units 18, crypto-boundary 4, registration-rules 32, crypto-envelope 8, files-attachments 9, guest-portal 10, registration-flow 12, rbac-sprint3-bec 276 |
+| `turbo run test --force` toàn repo | 11/12 task xanh; `@ottimo/api` 52 tệp / 2080 test: **2062 xanh, 18 đỏ – đều ở `frontdesk*.test.ts`, `payments-s3.test.ts`, `role-gate-first.test.ts`** (BE-A/BE-B đang sửa cùng bước: kỳ vọng cũ của B9a/SURCHARGE, `ciphertext-name` của bộ giả cũ, tổng folio, khớp `method/path` của SEC-BE-33). Không tệp nào của BE-C đỏ |
+| `pnpm lint` | eslint: 3 lỗi ở `events/internal/events.controller.ts`, `frontdesk/internal/party.service.ts` (BE-A đang sửa); 0 lỗi ở file BE-C. `turbo run typecheck` 12/12 |
+| `pnpm build` | 6/6 |
+| `pnpm format:check` | 25 file của BE-A/BE-B/QA đang sửa; **0 file BE-C** |
+| `drizzle-kit generate` (thư mục thật + bản sao) | "No schema changes" – không tạo file |
+| `gen-openapi-meta --check`, `gen-portal-copy --check`, api-client `gen --check` | up to date |
+
+**Việc cho vai khác (mới)**
+- **ARC**: (1) bảng Problem không có 415 – multipart sai route trả 422 `VALIDATION_FAILED`; nếu muốn mã riêng thì thêm `UNSUPPORTED_MEDIA_TYPE`. (2) 0.3.7: `updateOnlineCheckin.noticeLocale` (SEC BE-50), `getGuestSession`, `Registration.imageRetentionDays` (để FE quầy đọc số ngày cho `retentionDays`). (3) Biên `id_image_retention_days_after_checkout` là 0–30 (0003) nhưng hợp đồng `imageRetentionDays`/`retentionDays` tối thiểu 1: tham số = 0 thì không ghi được đồng ý P02b (422 – an toàn); đề nghị chốt min 1 hoặc mô tả "0 = không lưu, không hỏi đồng ý".
+- **BE-A**: bỏ mặc định `SYSTEM_ACTOR` ở `stay-reader.ts` khi sẵn sàng (SEC BE-52) – BE-C truyền tường minh; test `frontdesk.test.ts` còn kỳ vọng `ciphertext-name` của bộ giả cũ (cổng thật trả bản mã).
+- **INT**: bỏ phần dựng trường trong `integrations/guest-registration/manual.ts` (ARC S3-20) – server là nơi duy nhất.
+- **OPS**: Caddy `request_body max_size 42MB` chỉ cho 3 đường upload, 1 MB phần còn lại; truyền `GUEST_REGISTRATION_PORTAL_URL_*` vào compose nếu khác mặc định; volume blob dùng chung api + worker (J16 xóa tệp).
+- **FE/MOB/QA**: xem "Thay đổi hành vi" trong file phản hồi (retentionDays bắt buộc, định dạng cổng, 422/401/503 của upload, K1 xuất hiện trong ≤ 1 phút).
+
+**ESC mới**: không. DOM S3-5 dùng ESC-018 đã có.

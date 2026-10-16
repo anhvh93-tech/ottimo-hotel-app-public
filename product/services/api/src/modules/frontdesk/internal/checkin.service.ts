@@ -11,17 +11,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
-import { type LocalDate, type LocalTime, addDays, businessDate } from '../../../shared/time';
+import {
+  type LocalDate,
+  type LocalTime,
+  addDays,
+  atLocal,
+  businessDate,
+} from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import {
   type BookingContext,
   FDL_PLUS,
   Fields,
+  MGR_PLUS,
   type ReservationRow,
   type RoomInfo,
   hasAny,
-  insertNights,
   loadReservation,
   outboxAvailability,
   recordChange,
@@ -56,12 +62,15 @@ interface Evaluation {
   roomStatus: RoomStatusCode;
   checkinTime: LocalTime;
   standard: LocalTime;
+  rollover: LocalTime;
   priorNightWindow: boolean;
   early: EarlyCheckinResult;
   priorNight: {
     date: LocalDate;
     available: boolean;
     defaultRateVnd: number;
+    /** direct calendar price of the night (BR-421) – the base the B9a night is re-tiered from */
+    calendarVnd: number;
     floorVnd: number;
     ceilingVnd: number;
     createsChildReservation: boolean;
@@ -90,7 +99,7 @@ export class CheckinService {
   ): Promise<Record<string, unknown>> {
     const row = await loadReservation(tx, id, ctx.actor);
     if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
-    const e = await this.evaluate(tx, ctx, row, checkinTime);
+    const e = await this.evaluate(tx, ctx, row, checkinTime, 'preview');
     return {
       checkinTime: e.checkinTime,
       standardCheckinTime: e.standard,
@@ -116,6 +125,7 @@ export class CheckinService {
     ctx: BookingContext,
     row: ReservationRow,
     requestedTime: LocalTime | undefined,
+    mode: 'preview' | 'write',
   ): Promise<Evaluation> {
     const seg = await this.s.segmentOn(tx, row.id, row.arrival_date);
     const room = seg.room_id ? await this.s.stay.room(tx, seg.room_id) : null;
@@ -127,7 +137,12 @@ export class CheckinService {
     // B9a (BR-417, BR-010): business date = arrival − 1 while the calendar date is already the arrival day.
     const priorNightWindow =
       ctx.today === addDays(row.arrival_date, -1) && this.s.calendarDate(ctx) === row.arrival_date;
-    const checkinTime = requestedTime ?? (priorNightWindow ? this.s.localTime(ctx) : standard);
+    // FB-R2-ARC-BE-S3-07: in the B9a window the check-in time is ALWAYS the server clock (a typed 14:00 must
+    // not turn an arrival at 04:40 into a plain B9). Otherwise: the preview shows the form default (standard
+    // time, BR-414); a check-in without a typed time uses the server clock (never a silent "standard").
+    const checkinTime = priorNightWindow
+      ? this.s.localTime(ctx)
+      : (requestedTime ?? (mode === 'preview' ? standard : this.s.localTime(ctx)));
 
     let early: EarlyCheckinResult = {
       tierPct: 0,
@@ -169,13 +184,19 @@ export class CheckinService {
         available:
           priorNightWindow && (await this.s.occupancy.isFree(tx, room.id, date, row.arrival_date)),
         defaultRateVnd: own,
+        calendarVnd: direct.rateVnd,
         floorVnd: direct.floorVnd,
         ceilingVnd: direct.ceilingVnd,
         createsChildReservation: row.channel_group === 'ota' || row.external_contract,
       };
     }
 
+    // FB-R2-DOM-BE-30 (2) deferred: counting the surcharge about to be posted would block every early
+    // check-in – recordPayment is capped at the balance due (AMOUNT_EXCEEDS_BALANCE), so it cannot be paid
+    // beforehand and checkIn has no payment field (asked of ARC for 0.3.7). It is due on the folio at once
+    // and BR-426 (BALANCE_DUE at B18) collects it.
     const balance = row.folio_id ? await this.s.folios.balance(tx, row.folio_id) : null;
+    const balancePaid = row.payment_model === 'ota_prepaid' || (balance?.balanceDueVnd ?? 0) === 0;
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
@@ -189,10 +210,7 @@ export class CheckinService {
         ...(roomReady ? {} : { detail: roomStatus }),
         ...(!roomReady && roomStatus !== 'OOO' ? { overridableBy: FDL_UP } : {}),
       },
-      {
-        code: 'balance_paid',
-        met: row.payment_model === 'ota_prepaid' || (balance?.balanceDueVnd ?? 0) === 0,
-      },
+      { code: 'balance_paid', met: balancePaid },
       { code: 'main_guest_document', met: docs.mainGuestDocument },
       {
         code: 'document_check_block',
@@ -212,6 +230,7 @@ export class CheckinService {
       roomStatus,
       checkinTime,
       standard,
+      rollover,
       priorNightWindow,
       early,
       priorNight,
@@ -256,6 +275,7 @@ export class CheckinService {
   ): Promise<{ row: ReservationRow } | { approval: ApprovalRow }> {
     const f = new Fields(body);
     const checkinTime = f.time('checkinTime');
+    const timeNote = f.text('checkinTimeNote', 300, { min: 3 });
     const applyEarly = f.bool('applyEarlySurcharge') ?? false;
     const expected = f.money('expectedSurchargeVnd', { required: false, positive: false });
     const cardsIssued = f.int('cardsIssued', { required: true, min: 0, max: 2 });
@@ -278,11 +298,22 @@ export class CheckinService {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
-    const e = await this.evaluate(tx, ctx, row, checkinTime);
+    const e = await this.evaluate(tx, ctx, row, checkinTime, 'write');
     if (ctx.today !== row.arrival_date && !e.priorNightWindow) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'check-in only on the arrival business day (or B9a with addPriorNight)',
+      });
+    }
+    // FB-R2-ARC-BE-S3-07 (0.3.6 bổ sung 2): in the B9a window the guest either takes the prior night or waits
+    // for the business-day rollover (a plain B9 from then on).
+    if (e.priorNightWindow && !addPriorNight) {
+      throw problem('INVALID_TRANSITION', {
+        extras: {
+          currentState: row.status,
+          availableFrom: ctx.iso(atLocal(row.arrival_date, e.rollover, ctx.tz)),
+        },
+        detail: 'before the business-day rollover the check-in adds the prior night (B9a)',
       });
     }
     if (row.conflict_state === 'open') throw problem('RESERVATION_UNASSIGNED');
@@ -328,27 +359,50 @@ export class CheckinService {
       throw problem('CHECKIN_CONDITIONS_NOT_MET', { extras: { unmet } });
     }
 
+    // ── surcharge shown ≠ surcharge now (409, before the field checks – ARC-BE-S3-24.1) ──
+    const surcharge = e.early.amountVnd;
+    if (applyEarly && surcharge > 0 && expected !== undefined && expected !== surcharge) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: surcharge, tierPct: e.early.tierPct },
+      });
+    }
+    if (addPriorNight && e.early.addsPreviousNight && priorRate !== undefined) {
+      if (expected !== undefined && expected !== priorRate) {
+        throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: priorRate } });
+      }
+    }
+
     // ── field data (422) ──
+    let typed: { systemTime: LocalTime; noted: boolean } | null = null;
+    if (!e.priorNightWindow && checkinTime !== undefined) {
+      typed = await this.s.checkTypedTime(tx, ctx, f, {
+        field: 'checkinTime',
+        time: checkinTime,
+        noteField: 'checkinTimeNote',
+        note: timeNote,
+        rollover: e.rollover,
+      });
+    }
     if (e.early.addsPreviousNight) {
       if (!addPriorNight) f.add('addPriorNight', 'REQUIRED');
       if (addPriorNight && priorRate === undefined && !f.has('priorNightRateVnd')) {
         f.add('priorNightRateVnd', 'REQUIRED');
       }
+      if (addPriorNight && expected === undefined && !f.has('expectedSurchargeVnd')) {
+        f.add('expectedSurchargeVnd', 'REQUIRED');
+      }
     } else if (addPriorNight) {
       f.add('addPriorNight', 'NOT_ALLOWED');
     }
-    if (applyEarly && e.early.amountVnd > 0 && expected === undefined) {
+    // DOM S3-12: a surcharge > 0 is posted (optionally with a FOC request) – never skipped silently.
+    if (surcharge > 0 && !applyEarly) f.add('applyEarlySurcharge', 'SURCHARGE_DECISION_REQUIRED');
+    if (applyEarly && surcharge > 0 && expected === undefined && !f.has('expectedSurchargeVnd')) {
       f.add('expectedSurchargeVnd', 'REQUIRED');
     }
-    if (foc && !(applyEarly && e.early.amountVnd > 0)) {
+    if (foc && !(applyEarly && surcharge > 0)) {
       f.add('requestFocForSurcharge', 'NOT_ALLOWED');
     }
     f.done();
-    if (applyEarly && e.early.amountVnd > 0 && expected !== e.early.amountVnd) {
-      throw problem('SURCHARGE_CHANGED', {
-        extras: { expectedSurchargeVnd: e.early.amountVnd, tierPct: e.early.tierPct },
-      });
-    }
     if (addPriorNight && e.priorNight && priorRate !== undefined) {
       if (!e.priorNight.available) {
         const view = { withNames: true };
@@ -372,6 +426,7 @@ export class CheckinService {
     }
 
     if (requestRoomApproval) {
+      // ApprovalService.submit pushes the approvers itself (ARC-BE-S3-23.1 – one push per request).
       const approval = await this.s.approvals.submit(tx, ctx.actor, {
         type: 'checkin_room_not_ready',
         amountVnd: 0,
@@ -382,18 +437,6 @@ export class CheckinService {
         targetCode: row.code,
         ...this.s.req(ctx),
       });
-      await this.s.events.notify(
-        tx,
-        {
-          kind: 'approval_requested',
-          roles: FDL_UP,
-          excludeUserIds: [ctx.actor.userId],
-          refType: 'approval_request',
-          refId: approval.id,
-          refCode: row.code,
-        },
-        ctx.now,
-      );
       return { approval };
     }
 
@@ -401,7 +444,7 @@ export class CheckinService {
     await this.s.occupancy.lockRooms(tx, [room.id]);
     let arrival = row.arrival_date;
     if (addPriorNight && e.priorNight && priorRate !== undefined) {
-      arrival = await this.addPriorNight(tx, ctx, row, room, e.priorNight.date, priorRate);
+      arrival = await this.addPriorNight(tx, ctx, row, room, e.priorNight, priorRate);
     }
     const transition = addPriorNight ? 'B9a' : 'B9';
     await tx.query(
@@ -436,6 +479,18 @@ export class CheckinService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
+    if (typed?.noted && checkinTime !== undefined) {
+      // E03-07: typed time well before the action – both times + the note in the change log and the audit.
+      await recordChange(
+        tx,
+        row.id,
+        'checkin_time',
+        typed.systemTime,
+        checkinTime,
+        ctx.now,
+        timeNote ?? null,
+      );
+    }
     await this.audit.record(tx, {
       category: 'state',
       action: 'reservation.checked_in',
@@ -449,10 +504,16 @@ export class CheckinService {
         cardsIssued,
         doorAccessHandedOver: doorHandedOver,
         roomStatusBefore: e.roomStatus,
+        checkinTime: e.checkinTime,
+        ...(typed ? { systemTime: typed.systemTime } : {}),
         ...(arrival !== row.arrival_date ? { arrivalDate: arrival } : {}),
       },
-      ...(docOverrideReason || roomOverrideReason
-        ? { reason: [roomOverrideReason, docOverrideReason].filter(Boolean).join(' | ') }
+      ...(docOverrideReason || roomOverrideReason || (typed?.noted && timeNote)
+        ? {
+            reason: [roomOverrideReason, docOverrideReason, typed?.noted ? timeNote : null]
+              .filter(Boolean)
+              .join(' | '),
+          }
         : {}),
       ...this.s.req(ctx),
     });
@@ -476,7 +537,7 @@ export class CheckinService {
     }
 
     // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
-    if (applyEarly && e.early.amountVnd > 0 && row.folio_id) {
+    if (applyEarly && surcharge > 0 && row.folio_id) {
       const [lineId] = await this.s.folios.postLines(
         tx,
         row.folio_id,
@@ -486,10 +547,11 @@ export class CheckinService {
             category: 'early_checkin',
             description: `early_checkin ${e.checkinTime} ${e.early.tierPct}%`,
             quantity: 1,
-            unitPriceVnd: e.early.amountVnd,
-            amountVnd: e.early.amountVnd,
+            unitPriceVnd: surcharge,
+            amountVnd: surcharge,
             serviceDate: row.arrival_date,
             source: 'checkin',
+            labelParams: { time: e.checkinTime, pct: e.early.tierPct },
           },
         ],
         { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
@@ -500,12 +562,20 @@ export class CheckinService {
           ctx,
           row,
           row.folio_id,
-          { id: lineId, amountVnd: e.early.amountVnd, category: 'early_checkin' },
+          { id: lineId, amountVnd: surcharge, category: 'early_checkin' },
           foc,
         );
       }
     }
 
+    // DOM S3-10: a "check in on an unready room" request still open lost its purpose.
+    await this.s.approvals.cancelSuperseded(tx, {
+      targetType: 'reservation',
+      targetId: row.id,
+      types: ['checkin_room_not_ready'],
+      reason: `checked in (${transition})`,
+      ...this.s.req(ctx),
+    });
     // BR-812 (5): kit not prepared yet → first in the HK queue.
     await this.s.raiseKitPriority(tx, ctx, row.id);
     // BR-602/603 (G-9): registration deadline counts from actualCheckinAt.
@@ -520,6 +590,19 @@ export class CheckinService {
         reason: docOverrideReason,
         ...this.s.req(ctx),
       });
+      // EP06 4 / ARC-BE-S3-24.2: the manager is told (ids + booking code only – the reason stays in the audit).
+      await this.s.events.notify(
+        tx,
+        {
+          kind: 'security_alert',
+          roles: [...MGR_PLUS],
+          excludeUserIds: [ctx.actor.userId],
+          refType: 'reservation',
+          refId: row.id,
+          refCode: row.code,
+        },
+        ctx.now,
+      );
     }
     const after = await loadReservation(tx, row.id, ctx.actor);
     await this.s.events.publish(tx, 'reservation.changed', row.id);
@@ -528,8 +611,9 @@ export class CheckinService {
   }
 
   /**
-   * B9a (BR-417): direct/agent booking gets one more first night (segment + inventory + sold night + folio);
-   * an OTA booking (or a manual long stay without nights) gets a direct CHILD booking for that night.
+   * B9a (BR-417): direct/agent booking gets one more first night (segment + inventory + sold night + folio),
+   * re-tiered with the stay (BR-107 D-8 – FB-R2-DOM-BE-30) and kept as a typed price (ARC-BE-S3-24.3); an
+   * OTA booking (or a manual long stay without nights) gets a direct CHILD booking for that night.
    * Returns the (new) arrival date of the booking itself.
    */
   private async addPriorNight(
@@ -537,15 +621,16 @@ export class CheckinService {
     ctx: BookingContext,
     row: ReservationRow,
     room: RoomInfo,
-    date: LocalDate,
+    prior: NonNullable<Evaluation['priorNight']>,
     rateVnd: number,
   ): Promise<LocalDate> {
+    const date = prior.date;
     if (row.channel_group === 'ota' || row.external_contract) {
       await this.s.stay.createChildStay(tx, ctx, row, {
         roomId: room.id,
         from: date,
         to: row.arrival_date,
-        nights: [{ date, amountVnd: rateVnd, calendarVnd: rateVnd }],
+        nights: [{ date, amountVnd: rateVnd, calendarVnd: prior.calendarVnd }],
         rateSource: 'extra_night_early_late',
         transition: 'B9a',
         actualCheckinAt: ctx.now,
@@ -565,36 +650,30 @@ export class CheckinService {
       date,
       ctx.now,
     ]);
-    await insertNights(
-      tx,
-      {
-        reservationId: row.id,
-        segmentId: seg.id,
-        roomId: room.id,
-        channelId: row.channel_id,
-        stayType: row.stay_type,
-        state: 'sold',
-        isComplimentary: false,
-        now: ctx.now,
-      },
-      [{ date, amountVnd: rateVnd, calendarVnd: rateVnd, source: 'manual' }],
-    );
-    await tx.query(
-      `UPDATE stay_night SET rate_source = 'extra_night_early_late' WHERE reservation_id = $1 AND stay_date = $2
-          AND night_state <> 'void'`,
-      [row.id, date],
-    );
-    await tx.query(
-      `UPDATE reservation SET arrival_date = $2, total_room_vnd = total_room_vnd + $3 WHERE id = $1`,
-      [row.id, date, rateVnd],
-    );
+    const kept = await this.s.stay.pricedNights(tx, row);
+    const r = this.s.stay.retierStay(ctx, row, kept, [
+      { date, calendarVnd: prior.calendarVnd, amountVnd: rateVnd, manual: true },
+    ]);
+    await this.s.stay.writeRepricedNights(tx, ctx, row, {
+      segmentId: seg.id,
+      roomId: room.id,
+      pct: r.pct,
+      kept: r.kept,
+      added: r.added,
+      rateSource: 'extra_night_early_late',
+    });
+    await tx.query(`UPDATE reservation SET arrival_date = $2 WHERE id = $1`, [row.id, date]);
     await recordChange(tx, row.id, 'arrival_date', row.arrival_date, date, ctx.now, 'B9a');
     await this.audit.recordMoney(tx, {
       action: 'reservation.prior_night_added',
       entityType: 'reservation',
       entityId: row.id,
       entityCode: row.code,
-      after: { arrivalDate: date, nightlyRates: [{ date, amountVnd: rateVnd }] },
+      after: {
+        arrivalDate: date,
+        nightlyRates: [{ date, amountVnd: rateVnd }],
+        losDiscountPct: r.pct,
+      },
       reason: 'BR-417',
       ...this.s.req(ctx),
     });
@@ -659,19 +738,14 @@ export class CheckinService {
         detail: 'undo only on the business day of the check-in',
       });
     }
-    // No LIVE folio line posted since the check-in (a reversed pair does not count – spec 1.7).
-    const { rows: lines } = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM folio_line l
-        WHERE l.reservation_id = $1 AND l.posted_at >= $2 AND l.line_state = 'posted'
-          AND l.reversal_of_id IS NULL
-          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
-      [row.id, row.actual_checkin_at],
-    );
+    // No LIVE folio line posted since the check-in (a reversed pair does not count – spec 1.7); "live" is the
+    // folio module's rule (FolioService.hasLiveLinesSince – ARC-BE-S3-15 c).
+    const moved = await this.s.folios.hasLiveLinesSince(tx, row.id, row.actual_checkin_at);
     const { rows: children } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM reservation WHERE parent_reservation_id = $1 AND status = 'in_house'`,
       [row.id],
     );
-    if ((lines[0]?.n ?? 0) > 0 || (children[0]?.n ?? 0) > 0) {
+    if (moved || (children[0]?.n ?? 0) > 0) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: row.status },
         detail: 'reverse the lines posted since check-in first',

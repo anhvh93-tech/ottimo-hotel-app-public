@@ -36,14 +36,25 @@ export function Alert({ tone, icon, title, children, actions, role, id }: AlertP
 
 export interface ChipProps {
   tone?: Tone | 'oak' | 'neutral';
-  icon?: IconName;
+  /** DS C7 "icon + chữ": ok/warn/bad/info get a default icon; `null` = no icon on purpose. */
+  icon?: IconName | null;
+  /** Extra DS variant class, e.g. `recon` ("chờ đối soát": dashed border + hourglass). */
+  className?: string;
   children: ReactNode;
 }
 
-export function Chip({ tone = 'neutral', icon, children }: ChipProps) {
+const CHIP_ICON: Partial<Record<NonNullable<ChipProps['tone']>, IconName>> = {
+  ok: 'check',
+  warn: 'alert',
+  bad: 'x',
+  info: 'info',
+};
+
+export function Chip({ tone = 'neutral', icon, className, children }: ChipProps) {
+  const name = icon === null ? undefined : (icon ?? CHIP_ICON[tone]);
   return (
-    <span className={`chip ${tone}`}>
-      {icon ? <Icon name={icon} size="sm" /> : null}
+    <span className={['chip', tone, className].filter(Boolean).join(' ')}>
+      {name ? <Icon name={name} size="sm" /> : null}
       <span>{children}</span>
     </span>
   );

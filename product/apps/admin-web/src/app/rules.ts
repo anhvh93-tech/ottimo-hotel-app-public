@@ -21,6 +21,11 @@ export interface RuleParams {
   depositPct: number;
   /** BR-304 quote validity in days. */
   quoteValidityDays: number;
+  /** BR-401 standard check-in / check-out time (HH:mm) – FE-S3-15: never written in the screens. */
+  checkinTime: string;
+  checkoutTime: string;
+  /** BR-412 last late-checkout tier: after it the stay is an extension (not in BookingRules yet). */
+  lateLimitTime: string;
 }
 
 export const RULE_DEFAULTS: RuleParams = {
@@ -34,6 +39,9 @@ export const RULE_DEFAULTS: RuleParams = {
   holdWarnHours: 2,
   depositPct: 30,
   quoteValidityDays: 3,
+  checkinTime: '14:00',
+  checkoutTime: '12:00',
+  lateLimitTime: '18:00',
 };
 
 const READERS: Role[] = ['owner', 'manager', 'front_desk_lead'];
@@ -60,6 +68,9 @@ export function rulesFrom(params: Parameter[]): RuleParams {
     holdWarnHours: RULE_DEFAULTS.holdWarnHours,
     depositPct: num('short_stay_deposit_pct', RULE_DEFAULTS.depositPct),
     quoteValidityDays: num('quote_validity_days', RULE_DEFAULTS.quoteValidityDays),
+    checkinTime: str('checkin_time', RULE_DEFAULTS.checkinTime),
+    checkoutTime: str('checkout_time', RULE_DEFAULTS.checkoutTime),
+    lateLimitTime: RULE_DEFAULTS.lateLimitTime,
   };
 }
 
@@ -77,6 +88,9 @@ export function rulesFromBooking(b: BookingRules): RuleParams {
     holdWarnHours: RULE_DEFAULTS.holdWarnHours,
     depositPct: b.shortStayDepositPct,
     quoteValidityDays: b.quoteValidityDays,
+    checkinTime: b.checkinTime ? hhmm(b.checkinTime) : RULE_DEFAULTS.checkinTime,
+    checkoutTime: b.checkoutTime ? hhmm(b.checkoutTime) : RULE_DEFAULTS.checkoutTime,
+    lateLimitTime: RULE_DEFAULTS.lateLimitTime,
   };
 }
 

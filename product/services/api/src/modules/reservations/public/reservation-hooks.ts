@@ -38,12 +38,28 @@ export interface ReservationEvent {
 
 export type ReservationHook = (tx: Tx, event: ReservationEvent) => Promise<void>;
 
+/** Number of active party members recorded on a booking (US-022 – the frontdesk module owns them). */
+export type PartyCounter = (tx: Tx, reservationId: string) => Promise<number>;
+
 @Injectable()
 export class ReservationHooks {
   private readonly hooks = new Map<ReservationEventKind, ReservationHook[]>();
+  private partyCounter: PartyCounter | null = null;
 
   on(kind: ReservationEventKind, hook: ReservationHook): void {
     this.hooks.set(kind, [...(this.hooks.get(kind) ?? []), hook]);
+  }
+
+  /**
+   * ARC-BE-S3-15 g: `reservation_guest` belongs to the frontdesk module, which provides the count here (the
+   * Reservation DTO's `partyPresentCount`) – reservations never reads that table.
+   */
+  providePartyCount(counter: PartyCounter): void {
+    this.partyCounter = counter;
+  }
+
+  partyCount(tx: Tx, reservationId: string): Promise<number> {
+    return this.partyCounter ? this.partyCounter(tx, reservationId) : Promise.resolve(0);
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {

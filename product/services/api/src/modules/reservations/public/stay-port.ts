@@ -9,7 +9,11 @@ import type { Tx } from '../../../db/database';
 import type { ReservationStatus } from '../../../db/schema';
 import type { BookingContext } from '../internal/booking-context';
 import type { Actor, ReservationRow } from '../internal/reservation-store';
-import { type RoomInfo, ReservationsService } from '../internal/reservations.service';
+import {
+  type RoomInfo,
+  ReservationsService,
+  type StayNightPrice,
+} from '../internal/reservations.service';
 import type { ConfirmedStay } from './sales-port';
 
 export type { BookingContext } from '../internal/booking-context';
@@ -36,7 +40,7 @@ export {
 export { Fields, asBody, isLocalDate, isUuid, pathId } from '../internal/inputs';
 export { FDL_PLUS, FD_PLUS, MGR_PLUS, hasAny } from '../internal/allowed-actions';
 export { syncExtraGuestKit } from '../internal/extra-guest-kit';
-export type { RoomInfo } from '../internal/reservations.service';
+export type { RoomInfo, StayNightPrice } from '../internal/reservations.service';
 export { SYSTEM_ACTOR } from '../internal/reservations.service';
 
 @Injectable()
@@ -86,6 +90,72 @@ export class ReservationStayPort {
     input: Parameters<ReservationsService['createChildStay']>[3],
   ): Promise<ReservationRow> {
     return this.reservations.createChildStay(tx, ctx, parent, input);
+  }
+
+  // BR-110 per night (DOM S3-13, FB-R2-ARC-BE-S3-01) – see ReservationsService.
+  nightFee(
+    ctx: BookingContext,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    baseOccupancy: number,
+  ): number {
+    return this.reservations.nightFee(ctx, row, party, baseOccupancy);
+  }
+
+  nightFees(tx: Tx, row: ReservationRow) {
+    return this.reservations.nightFees(tx, row);
+  }
+
+  setNightFees(
+    tx: Tx,
+    reservationId: string,
+    fees: ReadonlyArray<{ date: string; feeVnd: number }>,
+    now: Date,
+  ): Promise<void> {
+    return this.reservations.setNightFees(tx, reservationId, fees, now);
+  }
+
+  peopleFromNight(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    fromDate: string,
+    opts: { write: boolean },
+  ) {
+    return this.reservations.peopleFromNight(tx, ctx, row, party, fromDate, opts);
+  }
+
+  feesForNewNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    dates: readonly string[],
+  ): Promise<void> {
+    return this.reservations.feesForNewNights(tx, ctx, row, dates);
+  }
+
+  // BR-107 re-tiering of an in-house stay (B13, B9a) – ARC B-3 (d): night prices only through reservations.
+  pricedNights(tx: Tx, row: ReservationRow): Promise<StayNightPrice[]> {
+    return this.reservations.pricedNights(tx, row);
+  }
+
+  retierStay(
+    ctx: BookingContext,
+    row: ReservationRow,
+    kept: readonly StayNightPrice[],
+    added: readonly StayNightPrice[],
+  ): { pct: number; kept: StayNightPrice[]; added: StayNightPrice[] } {
+    return this.reservations.retierStay(ctx, row, kept, added);
+  }
+
+  writeRepricedNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    input: Parameters<ReservationsService['writeRepricedNights']>[3],
+  ): Promise<number> {
+    return this.reservations.writeRepricedNights(tx, ctx, row, input);
   }
 
   /** Same-transaction hooks (registration, commissions…) of an SM-01 transition or a stay change. */

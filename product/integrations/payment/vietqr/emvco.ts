@@ -68,12 +68,6 @@ export function normalizeTransferContent(code: string): string {
   return out;
 }
 
-/** '0123456789' → '••••6789'. Short numbers keep at most half their digits visible. */
-export function maskAccountNo(accountNo: string): string {
-  const visible = Math.min(4, Math.floor(accountNo.length / 2));
-  return `••••${visible > 0 ? accountNo.slice(-visible) : ''}`;
-}
-
 /** Strips Vietnamese diacritics and upper-cases (bank account names are registered without marks). */
 export function toBankName(name: string): string {
   return name

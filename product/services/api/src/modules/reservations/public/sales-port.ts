@@ -105,9 +105,30 @@ export interface ConfirmedStay {
   extraPersonPerNightVnd: number;
   /** OTA fee reported on entry (BR-901), null = estimate from the channel rate. */
   otaChannelFeeVnd: number | null;
-  nights: Array<{ stayNightId: string; date: LocalDate; roomRevenueVnd: number }>;
+  /**
+   * Sold nights. `extraPersonVnd` (Sprint 3 fix, DOM S3-13 / FB-R2-ARC-BE-S3-01): BR-110 fee of THAT night –
+   * people present that night × base occupancy of that night's room (mid-stay changes apply from `effectiveFrom`).
+   * The folio posts one `extra_person` line per night with it (0 = none); `extraPersonPerNightVnd` is the
+   * booking-level default kept for older callers.
+   */
+  nights: Array<{
+    stayNightId: string;
+    date: LocalDate;
+    roomRevenueVnd: number;
+    extraPersonVnd: number;
+    /**
+     * E05-11 (OpenAPI 0.3.6 bổ sung 2): night added at check-out after the BR-412 limit – printed as
+     * `bill.line.extra_night` (charge_code `extra_night` on its room line). Optional (BE-A sets it).
+     */
+    extraNight?: boolean;
+  }>;
   /** Commission % of the quote (BR-006 snapshot) – null = the parameter in force (direct bookings). */
   commissionRatePctSnapshot?: number | null;
+  /**
+   * Review S3 (DOM BE-13, BE-B): `ota_prepaid` → folio keeps one system `ota_collect` receipt equal to the
+   * OTA-covered charges (BR-307 "Đã thu qua OTA"). Optional so older callers keep compiling.
+   */
+  paymentModel?: string;
 }
 
 /** stayInfo(): booking facts without personal data (C0/C1). Dates are business dates. */

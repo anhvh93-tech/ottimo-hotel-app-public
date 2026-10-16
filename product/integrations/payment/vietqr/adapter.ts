@@ -2,9 +2,7 @@
 // VietQR has no gateway: createPayment only builds the EMVCo string; confirmation comes from the bank feed
 // (R3, BankFeedAdapter) or a staff "money received" click (SM-12). No network, no logging.
 import {
-  isoInstant,
   IntegrationError,
-  type CredentialProvider,
   type HealthStatus,
   type InboundHttp,
   type IntegrationContext,
@@ -22,7 +20,6 @@ import type {
 import { renderQrSvg } from '../../qr/svg.js';
 import {
   buildVietQrPayload,
-  maskAccountNo,
   normalizeTransferContent,
   validateReceivingAccount,
   type VietQrReceivingAccount,
@@ -30,18 +27,18 @@ import {
 
 /**
  * BE-B supplies this: reads the property's `payment_receiving_account` parameter (OWN-only, re-auth, audit,
- * push – SEC F3). Return null when the parameter is not set → the adapter falls back to PAYMENT_VIETQR_*.
+ * push, 24-hour warning – SEC F3). It is the ONLY source of the receiving account (FB-R2-SEC-INT-06,
+ * FB-R2-ARC-BE-S3-29): no fallback to environment variables, so changing the account always leaves an audit
+ * trail. Return null when the parameter is not set.
  */
 export type ReceivingAccountSource = (
   ctx: IntegrationContext,
 ) => Promise<VietQrReceivingAccount | null>;
 
 export interface VietQrAdapterOptions {
-  /** Fallback source: credentials.get(ctx.credentialsRef), ref 'env:PAYMENT_VIETQR' → BANK_BIN, ACCOUNT_NO, ACCOUNT_NAME. */
-  credentials: CredentialProvider;
-  receivingAccount?: ReceivingAccountSource;
-  /** Injected clock (ADR-008) for healthCheck.checkedAt. */
-  now?: () => IsoInstant;
+  receivingAccount: ReceivingAccountSource;
+  /** Injected Clock (ADR-008) for healthCheck.checkedAt – required (FB-R2-ARC-BE-S3-29). */
+  now: () => IsoInstant;
 }
 
 export interface VietQrPrepareRequest {
@@ -51,6 +48,7 @@ export interface VietQrPrepareRequest {
   transferContent: string;
 }
 
+/** No masked account here: the one mask is BE-B `maskedAccountNo` ('9704••••1234', FB-R2-ARC-BE-S3-29). */
 export interface VietQrPrepared {
   qrPayload: string;
   /** Locally drawn SVG (SEC F2). */
@@ -58,55 +56,31 @@ export interface VietQrPrepared {
   amountVnd: number;
   transferContent: string;
   bankBin: string;
-  accountNoMasked: string;
   accountName: string;
-  accountSource: 'parameter' | 'env';
 }
 
 const NOT_CONFIGURED = 'VietQR receiving account not configured';
 
 export class VietQrPaymentAdapter implements PaymentAdapter {
   readonly gateway = 'vietqr' as const;
-  private readonly credentials: CredentialProvider;
-  private readonly receivingAccount: ReceivingAccountSource | undefined;
+  private readonly receivingAccount: ReceivingAccountSource;
   private readonly now: () => IsoInstant;
 
   constructor(opts: VietQrAdapterOptions) {
-    this.credentials = opts.credentials;
     this.receivingAccount = opts.receivingAccount;
-    this.now = opts.now ?? (() => isoInstant('2026-10-16T09:00:00+07:00'));
+    this.now = opts.now;
   }
 
-  /** Resolves the receiving account: parameter first, then env. CONFIG when neither is usable. */
-  async resolveAccount(
-    ctx: IntegrationContext,
-  ): Promise<{ account: VietQrReceivingAccount; source: 'parameter' | 'env' }> {
-    const fromParam = this.receivingAccount ? await this.receivingAccount(ctx) : null;
-    if (fromParam) return { account: validateReceivingAccount(fromParam), source: 'parameter' };
-
-    let creds: Readonly<Record<string, string>>;
-    try {
-      creds = await this.credentials.get(ctx.credentialsRef);
-    } catch (e) {
-      if (e instanceof IntegrationError && e.code === 'CONFIG') {
-        throw new IntegrationError('CONFIG', NOT_CONFIGURED);
-      }
-      throw e;
-    }
-    const bankBin = creds['BANK_BIN'];
-    const accountNo = creds['ACCOUNT_NO'];
-    const accountName = creds['ACCOUNT_NAME'];
-    if (!bankBin || !accountNo || !accountName)
-      throw new IntegrationError('CONFIG', NOT_CONFIGURED);
-    return {
-      account: validateReceivingAccount({ bankBin, accountNo, accountName }),
-      source: 'env',
-    };
+  /** The `payment_receiving_account` parameter, validated. Not set → CONFIG (BE-B: 409 PAYMENT_NOT_CONFIGURED). */
+  async resolveAccount(ctx: IntegrationContext): Promise<VietQrReceivingAccount> {
+    const account = await this.receivingAccount(ctx);
+    if (!account) throw new IntegrationError('CONFIG', NOT_CONFIGURED);
+    return validateReceivingAccount(account);
   }
 
   async prepare(ctx: IntegrationContext, req: VietQrPrepareRequest): Promise<VietQrPrepared> {
     const transferContent = normalizeTransferContent(req.transferContent);
-    const { account, source } = await this.resolveAccount(ctx);
+    const account = await this.resolveAccount(ctx);
     const qrPayload = buildVietQrPayload({
       bankBin: account.bankBin,
       accountNo: account.accountNo,
@@ -119,9 +93,7 @@ export class VietQrPaymentAdapter implements PaymentAdapter {
       amountVnd: req.amountVnd,
       transferContent,
       bankBin: account.bankBin,
-      accountNoMasked: maskAccountNo(account.accountNo),
       accountName: account.accountName,
-      accountSource: source,
     };
   }
 

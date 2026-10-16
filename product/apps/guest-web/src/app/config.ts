@@ -13,14 +13,9 @@ export function fallbackDeskPhone(): string | undefined {
 }
 
 /**
- * Version of the data-processing notice whose text ships in design/copy (`gw.notice_body`).
- * The contract has no read endpoint for it yet (request to ARC in s3-report); the server answers
- * 422 NOT_IN_LIST if it moved on, and the page then asks the guest to reload.
+ * Versions of the data-processing notice whose text ships in design/copy (`gw.notice_body` …).
+ * The server tells the current one (`OnlineCheckin.currentNoticeVersion`, 0.3.6 addendum). A version
+ * not listed here – or no version at all – means the page has no matching text: the flow fails closed
+ * and sends the guest to the desk (ARC/SEC ĐK-2 17/10). Add a version only together with its text.
  */
-export const NOTICE_VERSION = 'privacy-2026-10-v1';
-
-/**
- * `id_image_retention_days_after_checkout` default (business-rules BR-610). Not exposed to the guest
- * API yet – shown in the consent sentence only. [GIẢ ĐỊNH MOB – chờ ARC thêm vào OnlineCheckin]
- */
-export const RETENTION_DAYS_DEFAULT = 30;
+export const NOTICE_TEXT_VERSIONS: readonly string[] = ['privacy-2026-10-v1'];

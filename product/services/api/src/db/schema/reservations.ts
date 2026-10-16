@@ -252,6 +252,22 @@ export const reservation = pgTable(
       columns: [t.organizationId, t.houseRulesSentBy],
       foreignColumns: [appUser.organizationId, appUser.id],
     }),
+    foreignKey({
+      name: 'reservation_document_override_by_fk',
+      columns: [t.organizationId, t.checkinDocumentOverrideBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'reservation_room_override_by_fk',
+      columns: [t.organizationId, t.checkinRoomOverrideBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    // 0017 (SQL since Sprint 2) – mirrored here by the schema-parity test (4.2a-9).
+    foreignKey({
+      name: 'reservation_capacity_ack_by_fk',
+      columns: [t.organizationId, t.capacityAckBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
     index('reservation_parent_idx')
       .on(t.propertyId, t.parentReservationId)
       .where(sql`${t.parentReservationId} IS NOT NULL`),
@@ -454,6 +470,8 @@ export const stayNight = pgTable(
     agentCommissionVnd: bigint('agent_commission_vnd', { mode: 'number' }).notNull().default(0),
     staffCommissionVnd: bigint('staff_commission_vnd', { mode: 'number' }).notNull().default(0),
     serviceFeeAllocVnd: bigint('service_fee_alloc_vnd', { mode: 'number' }).notNull().default(0),
+    // 0031 (FB-R2-ARC-BE-S3-01, DOM S3-13): NULL = booking-level fee of the snapshot; value = this night's fee.
+    extraPersonFeeVnd: bigint('extra_person_fee_vnd', { mode: 'number' }),
     soldAt: instant('sold_at'),
     voidedAt: instant('voided_at'),
     voidReason: text('void_reason'),
@@ -488,6 +506,10 @@ export const stayNight = pgTable(
     check(
       'stay_night_void_check',
       sql`${t.nightState} <> 'void' OR (${t.voidedAt} IS NOT NULL AND ${t.voidReason} IN ('hold_expired', 'cancelled', 'no_show', 'early_departure', 'lease_terminated', 'date_change', 'relocated_external', 'channel_cancelled') AND ${t.prevState} IN ('hold', 'sold'))`,
+    ),
+    check(
+      'stay_night_extra_person_fee_check',
+      sql`${t.extraPersonFeeVnd} IS NULL OR ${t.extraPersonFeeVnd} >= 0`,
     ),
     check(
       'stay_night_money_check',

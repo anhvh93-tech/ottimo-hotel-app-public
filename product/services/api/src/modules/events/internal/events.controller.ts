@@ -6,6 +6,7 @@
  * Reads run in a read-only transaction with the tenant context (RLS); the inbox is filtered by user in SQL.
  */
 import { Controller, Get, Inject, Query, Req, Res } from '@nestjs/common';
+import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
@@ -54,6 +55,7 @@ export class EventsController {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(SseHub) private readonly hub: SseHub,
     @Inject(AttentionService) private readonly attention: AttentionService,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   private read<T>(req: GuardedRequest, fn: (tx: Tx) => Promise<T>): Promise<T> {
@@ -65,16 +67,42 @@ export class EventsController {
   async stream(@Req() req: GuardedRequest, @Res() reply: RawReply): Promise<void> {
     const p = principal(req);
     if (!p.propertyId) throw problem('NOT_FOUND');
+    const propertyId = p.propertyId;
     const raw = reply.raw;
-    const unsubscribe = await this.hub.subscribe({
-      propertyId: p.propertyId,
+    let closed = false;
+    const timers: { heartbeat?: NodeJS.Timeout; maxAge?: NodeJS.Timeout } = {};
+    let unsubscribe: () => void = () => undefined;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      if (timers.heartbeat) clearInterval(timers.heartbeat);
+      if (timers.maxAge) clearTimeout(timers.maxAge);
+      unsubscribe();
+    };
+    const end = () => {
+      close();
+      try {
+        raw.end();
+      } catch {
+        // socket already gone
+      }
+    };
+    // ARC-BE-S3-23.6: attach `close` first – a socket closed while subscribing must not keep timers alive.
+    raw.on('close', close);
+    unsubscribe = await this.hub.subscribe({
+      propertyId,
       userId: p.userId,
       roles: p.roles,
       send: (type, data) => {
         if (raw.destroyed) throw new Error('closed');
-        raw.write(`event: ${type}\ndata: ${JSON.stringify({ id: data.id })}\n\n`);
+        return raw.write(`event: ${type}\ndata: ${JSON.stringify({ id: data.id })}\n\n`);
       },
+      close: end,
     });
+    if (closed || raw.destroyed) {
+      close();
+      return;
+    }
     reply.hijack();
     raw.writeHead(200, {
       'content-type': 'text/event-stream; charset=utf-8',
@@ -83,25 +111,51 @@ export class EventsController {
       'x-accel-buffering': 'no',
     });
     raw.write(`retry: ${SSE_RETRY_MS}\n: connected\n\n`);
-    let closed = false;
-    const close = () => {
-      if (closed) return;
-      closed = true;
-      clearInterval(heartbeat);
-      clearTimeout(maxAge);
-      unsubscribe();
-    };
+    // FB-R2-SEC-BE-40: the session and roles are re-checked at every heartbeat – a revoked session, a
+    // disabled account or a changed role ends the stream at once (the client reconnects and re-authenticates).
     const heartbeat = setInterval(() => {
-      if (!raw.destroyed) raw.write(': ping\n\n');
+      void this.stillValid(p.sessionId, p.userId, propertyId, p.roles, tenantOf(p))
+        .then((ok) => {
+          if (!ok) end();
+          else if (!raw.destroyed) raw.write(': ping\n\n');
+        })
+        .catch(() => end());
     }, SSE_HEARTBEAT_MS);
-    // Roles/session are fixed at connect time: end the stream regularly so the client re-authenticates.
-    const maxAge = setTimeout(() => {
-      close();
-      raw.end();
-    }, SSE_MAX_AGE_MS);
+    const maxAge = setTimeout(end, SSE_MAX_AGE_MS);
     heartbeat.unref();
     maxAge.unref();
-    raw.on('close', close);
+    timers.heartbeat = heartbeat;
+    timers.maxAge = maxAge;
+  }
+
+  /** Session alive (not revoked/expired/idle, account not disabled) and the same roles at the property. */
+  private async stillValid(
+    sessionId: string,
+    userId: string,
+    propertyId: string,
+    roles: readonly string[],
+    tenant: ReturnType<typeof tenantOf>,
+  ): Promise<boolean> {
+    const now = this.clock.now();
+    return this.db.withContext(
+      tenant,
+      async (tx) => {
+        const { rows } = await tx.query<{ ok: boolean; roles: string[] | null }>(
+          `SELECT (s.revoked_at IS NULL AND s.expires_at > $3 AND s.idle_expires_at > $3
+                   AND u.status <> 'disabled') AS ok,
+                  (SELECT array_agg(r.role ORDER BY r.role) FROM user_property_role r
+                    WHERE r.user_id = s.user_id AND r.property_id = $4 AND r.revoked_at IS NULL) AS roles
+             FROM user_session s JOIN app_user u ON u.id = s.user_id
+            WHERE s.id = $1 AND s.user_id = $2`,
+          [sessionId, userId, now, propertyId],
+        );
+        const r = rows[0];
+        if (!r?.ok) return false;
+        const current = [...(r.roles ?? [])].sort().join(',');
+        return current === [...roles].sort().join(',');
+      },
+      { readOnly: true },
+    );
   }
 
   @Get('me/notifications')

@@ -14,8 +14,11 @@
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type { LocalDate, LocalTime } from '../../../shared/time';
-import { EventsService } from '../../events/public/events.service';
+import { publishSse } from '../../events/public/events.service';
 import { type Actor, ownScopeSql, recordChange } from '../internal/reservation-store';
+
+/** Actor of jobs / the guest session (already bound to its booking) – for the registration and guest portal. */
+export { SYSTEM_ACTOR } from '../internal/reservations.service';
 
 export interface StayViewRow {
   reservationId: string;
@@ -32,6 +35,12 @@ export interface StayViewRow {
   roomNo: string | null;
   etaTime: LocalTime | null;
   actualCheckinAt: Date | null;
+  /**
+   * FB-R2-DOM-BE-22 / BR-602, BR-417 (4): calendar date (property time zone) of the actual check-in – the
+   * "arrival date" of the declaration (a B9a guest at 04:40 on 20/10 arrived on 20/10, not on the booking's
+   * new first night 19/10). Null before check-in (use `arrivalDate`).
+   */
+  actualArrivalDate: LocalDate | null;
   actualCheckoutAt: Date | null;
   parentReservationId: string | null;
 }
@@ -49,6 +58,7 @@ interface Row {
   room_no: string | null;
   eta_time: string | null;
   actual_checkin_at: Date | null;
+  actual_arrival_date: string | null;
   actual_checkout_at: Date | null;
   parent_reservation_id: string | null;
 }
@@ -58,8 +68,10 @@ const SELECT = `
          r.departure_date::text AS departure_date,
          (r.adults + r.children_6_11 + r.children_under_6)::int AS persons,
          g.full_name, g.preferred_locale, rm.room_no, to_char(r.eta_time, 'HH24:MI') AS eta_time,
-         r.actual_checkin_at, r.actual_checkout_at, r.parent_reservation_id
+         r.actual_checkin_at, (r.actual_checkin_at AT TIME ZONE p.timezone)::date::text AS actual_arrival_date,
+         r.actual_checkout_at, r.parent_reservation_id
     FROM reservation r
+    JOIN property p ON p.id = r.property_id
     JOIN guest g ON g.id = r.booker_guest_id
     LEFT JOIN LATERAL (
       SELECT ro.room_no FROM reservation_segment s JOIN room ro ON ro.id = s.room_id
@@ -80,6 +92,7 @@ function toView(r: Row): StayViewRow {
     roomNo: r.room_no,
     etaTime: r.eta_time,
     actualCheckinAt: r.actual_checkin_at,
+    actualArrivalDate: r.actual_arrival_date,
     actualCheckoutAt: r.actual_checkout_at,
     parentReservationId: r.parent_reservation_id,
   };
@@ -160,6 +173,6 @@ export async function setEta(
     now,
     late ? 'online_checkin late_arrival' : 'online_checkin',
   );
-  await new EventsService().publish(tx, 'reservation.changed', reservationId);
+  await publishSse(tx, 'reservation.changed', reservationId);
   return true;
 }

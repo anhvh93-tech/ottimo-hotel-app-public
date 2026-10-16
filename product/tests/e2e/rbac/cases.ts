@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { SPRINT1_OPS } from './sprint1-ops.js';
 import { SPRINT2_OPS } from './sprint2-ops.js';
+import { SPRINT3_OPS } from './sprint3-ops.js';
 
 export interface RbacCase {
   id: string;
@@ -26,3 +27,5 @@ const all = (
 export const SPRINT1_CASES: RbacCase[] = all.filter((c) => SPRINT1_OPS[c.operationId]);
 
 export const SPRINT2_CASES: RbacCase[] = all.filter((c) => SPRINT2_OPS[c.operationId]);
+
+export const SPRINT3_CASES: RbacCase[] = all.filter((c) => SPRINT3_OPS[c.operationId]);

@@ -43,7 +43,10 @@ export async function anchorPaymentAttachment(
   p: { attachment_id: string | null; type: string },
   at: Date,
 ): Promise<void> {
-  if (!usage || !p.attachment_id) return;
+  if (!p.attachment_id) return;
+  // ARC-BE-S3-26 (5): a payment with an image MUST anchor its retention – a missing port is a wiring bug.
+  if (!usage)
+    throw new Error('ATTACHMENT_USAGE is not wired – receipt retention cannot be anchored');
   await usage.setRetentionAnchor(
     tx,
     { id: p.attachment_id, purpose: p.type === 'refund' ? 'refund_proof' : 'deposit_receipt' },

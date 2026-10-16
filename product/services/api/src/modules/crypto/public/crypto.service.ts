@@ -50,6 +50,9 @@ export interface Sealed {
 }
 
 /** The DEK was destroyed (or is not visible in this property): the data is gone – map to 404, never 500. */
+/** Domains of `keyedHash` (one HKDF sub-key each). */
+export type KeyedHashPurpose = 'child_name' | 'idempotency';
+
 export class DataKeyDestroyedError extends Error {
   constructor() {
     super('data key destroyed or not found');
@@ -107,10 +110,10 @@ export abstract class CryptoService {
 
   /**
    * Keyed hash for another purpose (duplicate detection without decrypting, e.g. a child's name + birth
-   * year – US-022 AC3). The key is derived from ID_HASH_KEY with HKDF and the purpose as `info`, so values
+   * year – US-022 AC3; the idempotency digest of a request carrying C3 – ARC FB-S3-19). The key is derived from ID_HASH_KEY with HKDF and the purpose as `info`, so values
    * of different purposes never compare equal (ADR-013 point 5 – one key per purpose).
    */
-  abstract keyedHash(purpose: 'child_name', value: string): string;
+  abstract keyedHash(purpose: KeyedHashPurpose, value: string): string;
 
   /**
    * KEK rotation (SR-KEY-05): re-wrap up to `limit` live DEKs of the current property that are wrapped by

@@ -26,7 +26,7 @@
  * front_desk_lead (not the BR-436 self-application) needs at least a manager – two leads never approve
  * each other's requests.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
@@ -40,6 +40,7 @@ import { problem } from '../../../shared/problem';
 import { type LocalDate, atLocal, localDate, toZonedIso } from '../../../shared/time';
 import { assertNoCardNumber, requireReason } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
+import { EventsService } from '../../events/public/events.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import {
   APPROVER_RANK,
@@ -182,6 +183,8 @@ export class ApprovalService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(AuditService) private readonly audit: AuditService,
+    /** Staff inbox rows of requests/decisions (ARC-BE-S3-23 – approvals is the ONE place that tells people). */
+    @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
   /** Register a same-transaction hook for decisions of a request type (folio FOC line, refunds…). */
@@ -528,6 +531,58 @@ export class ApprovalService {
     return rejected;
   }
 
+  /**
+   * ARC-BE-S3-15 d (BE-B refunds): an `approved` request goes back to `pending` because what was approved
+   * changed (refund destination changed after approval – SEC F8). Decision fields are cleared (the monthly
+   * budget no longer counts it), audited, approvers pushed again. Only through this service (SM-10).
+   */
+  async reopenForRedecision(
+    tx: Tx,
+    approvalId: string,
+    input: { reason: string; byUserId: string; requestId?: string },
+  ): Promise<ApprovalRow> {
+    const { rows: cur } = await tx.query<ApprovalRow>(
+      'SELECT * FROM approval_request WHERE id = $1 FOR UPDATE',
+      [approvalId],
+    );
+    const row = cur[0];
+    if (!row) throw problem('NOT_FOUND');
+    if (row.status !== 'approved') return row;
+    const { today, now } = await this.context(tx);
+    const { rows } = await tx.query<ApprovalRow>(
+      `UPDATE approval_request SET status = 'pending', approver_id = NULL, approver_role_snapshot = NULL,
+          approver_limit_snapshot = NULL, auth_method = NULL, decided_at = NULL, decision_note = NULL,
+          updated_at = $2, version = version + 1
+        WHERE id = $1 RETURNING *`,
+      [approvalId, now],
+    );
+    const reopened = rows[0] as ApprovalRow;
+    await this.audit.record(tx, {
+      category: MONEY_CATEGORY(row.type),
+      action: 'approval.reopened',
+      entityType: 'approval_request',
+      entityId: row.id,
+      ...(row.target_code ? { entityCode: row.target_code } : {}),
+      before: { status: 'approved' },
+      after: { status: 'pending', type: row.type, amountVnd: row.amount_vnd },
+      reason: input.reason,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+    await this.pushToApprovers(tx, reopened, row.requested_by, today);
+    return reopened;
+  }
+
+  /** ARC-BE-S3-15 d: amount paid out on a `refund` request (negative = a pay-out reversed). */
+  async addRefunded(tx: Tx, approvalId: string, deltaVnd: number): Promise<void> {
+    if (!Number.isSafeInteger(deltaVnd)) throw new RangeError('refund delta must be an integer');
+    const { now } = await this.context(tx);
+    await tx.query(
+      `UPDATE approval_request SET refunded_vnd = refunded_vnd + $2, updated_at = $3, version = version + 1
+        WHERE id = $1 AND type = 'refund'`,
+      [approvalId, deltaVnd, now],
+    );
+  }
+
   /** A6: only the requester (x-scope own → someone else's id is 404), only while `pending`. */
   async cancel(tx: Tx, actor: Actor, approvalId: string, requestId?: string): Promise<ApprovalRow> {
     const { rows } = await tx.query<ApprovalRow>(
@@ -556,6 +611,58 @@ export class ApprovalService {
     });
     await this.runHooks(tx, cancelled);
     return cancelled;
+  }
+
+  /**
+   * DOM S3-10 (FB-R2-DOM-BE-20): open OPERATIONAL requests that lost their purpose (check-in done another way,
+   * guest checked out / extended) are cancelled by the system with the reason `superseded` – SM-10 through
+   * this service only (audit + hooks + the requester is told). Returns the cancelled rows.
+   */
+  async cancelSuperseded(
+    tx: Tx,
+    input: {
+      targetType: string;
+      targetId: string;
+      types: readonly ApprovalType[];
+      reason: string;
+      requestId?: string;
+    },
+  ): Promise<ApprovalRow[]> {
+    const { rows: open } = await tx.query<ApprovalRow>(
+      `SELECT * FROM approval_request
+        WHERE target_type = $1 AND target_id = $2 AND type = ANY($3::text[])
+          AND status IN ('pending', 'escalated')
+        ORDER BY requested_at FOR UPDATE`,
+      [input.targetType, input.targetId, [...input.types]],
+    );
+    if (open.length === 0) return [];
+    const { now } = await this.context(tx);
+    const out: ApprovalRow[] = [];
+    for (const row of open) {
+      const { rows } = await tx.query<ApprovalRow>(
+        `UPDATE approval_request SET status = 'cancelled', decision_note = $3, updated_at = $2,
+            version = version + 1
+          WHERE id = $1 RETURNING *`,
+        [row.id, now, `superseded: ${input.reason}`.slice(0, 500)],
+      );
+      const cancelled = rows[0] as ApprovalRow;
+      await this.audit.record(tx, {
+        category: MONEY_CATEGORY(row.type),
+        // Money audit set is closed (AuditEvent.action): a superseded request is an `approval.cancelled`.
+        action: 'approval.cancelled',
+        entityType: 'approval_request',
+        entityId: row.id,
+        ...(row.target_code ? { entityCode: row.target_code } : {}),
+        before: { status: row.status },
+        after: { status: 'cancelled', type: row.type },
+        reason: input.reason,
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+      });
+      await this.runHooks(tx, cancelled);
+      await this.pushDecision(tx, cancelled);
+      out.push(cancelled);
+    }
+    return out;
   }
 
   /** Open requests (pending/escalated) of a target – checkout guard (AC5, 409 PENDING_APPROVALS). */
@@ -671,6 +778,19 @@ export class ApprovalService {
     if (row.type === 'refund' && row.requested_by === actor.userId) {
       throw problem('SELF_APPROVAL_FORBIDDEN');
     }
+    // SEC-BE-37 (BE-B, review S3): whoever set the refund destination does not approve it (CHECK 0031/0042).
+    // PO 17/10: except an OWN (role at the time of the action) on a transfer refund – OWN may route, approve and
+    // pay the same refund; cash refunds (A47a) keep the rule for everyone.
+    const refund = row as ApprovalRow & {
+      refund_destination_set_by?: string | null;
+      refund_method?: string | null;
+    };
+    const setBy = refund.refund_destination_set_by;
+    const ownerTransfer =
+      role === 'owner' && !!refund.refund_method && refund.refund_method !== 'cash';
+    if (row.type === 'refund' && setBy && setBy === actor.userId && !ownerTransfer) {
+      throw problem('SELF_APPROVAL_FORBIDDEN');
+    }
     if (row.requested_by === actor.userId && role !== 'owner' && role !== 'manager') {
       throw problem('SELF_APPROVAL_FORBIDDEN');
     }
@@ -773,6 +893,35 @@ export class ApprovalService {
       roles,
       userIds: users.map((u) => u.user_id),
     });
+    await this.inbox(
+      tx,
+      row,
+      'approval_requested',
+      users.map((u) => u.user_id),
+    );
+  }
+
+  /** Inbox rows + `notification.created` (no second push – the outbox row above is the push). */
+  private async inbox(
+    tx: Tx,
+    row: ApprovalRow,
+    kind: 'approval_requested' | 'approval_decided',
+    userIds: readonly string[],
+  ): Promise<void> {
+    if (!this.events || userIds.length === 0) return;
+    const { now } = await this.context(tx);
+    await this.events.notify(
+      tx,
+      {
+        kind,
+        userIds,
+        refType: 'approval_request',
+        refId: row.id,
+        ...(row.target_code ? { refCode: row.target_code } : {}),
+      },
+      now,
+      { push: false },
+    );
   }
 
   private async pushDecision(tx: Tx, row: ApprovalRow): Promise<void> {
@@ -781,6 +930,7 @@ export class ApprovalService {
       status: row.status,
       userIds: [row.requested_by],
     });
+    await this.inbox(tx, row, 'approval_decided', [row.requested_by]);
   }
 
   private async outbox(

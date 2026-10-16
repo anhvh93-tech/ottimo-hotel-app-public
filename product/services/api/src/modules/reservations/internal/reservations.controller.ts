@@ -53,6 +53,8 @@ export class ReservationsController {
     req: GuardedRequest,
     fn: (tx: Tx, ctx: BookingContext) => Promise<T>,
   ): Promise<T> {
+    // SEC-BE-33 second line: never read for a role the guard refused (dry runs included).
+    if (!req.ottimoAuth?.allowed) throw problem('FORBIDDEN_ACTION');
     const p = principal(req);
     return this.db.withContext(
       tenantOf(p),

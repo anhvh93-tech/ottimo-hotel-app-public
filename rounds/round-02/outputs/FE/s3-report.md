@@ -102,3 +102,50 @@
 → BE đã sửa phần `services/api` trong lúc FE làm đợt 2 nên **toàn repo nay xanh**. Các mục trước đó đã được đợt này xử lý: mục 2 "Chưa áp H10/H12", mục 5 "Việc cần vai khác – UXD" và mục 7 "Bundle 539 KB". Giả định 9 (focus khi nút bị khóa lúc đếm ngược) vẫn giữ.
 
 Không có ESC mới.
+
+## 9. Bước Phản hồi & sửa (17/10/2026)
+
+Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm:
+- UXD FE-S3-01…22 (riêng FE-S3-20 mục 1 dời sang R3).
+- SEC FE-06, DOM FE-03.
+- ARC mục C và OpenAPI 0.3.6 bổ sung 1 + 2 (`outputs/ARC/s3-contract.md` mục 7).
+
+### 9.1 Thay đổi chính
+| Nhóm | Kết quả |
+|---|---|
+| C3 (SEC FE-06) | `app/c3.ts`: `useC3Reveal` (60 giây / tab ẩn / unmount / đăng xuất) và `useC3Clipboard` (ghi `''` sau 60 giây, khi tab ẩn, khi rời màn) dùng chung cho số giấy tờ, dữ liệu cổng, số TK hoàn |
+| H14 dữ liệu cổng (FE-S3-01) | Nhãn khóa `reg.field.*`, `valueKey`, ô rỗng không có nút chép, chép giá trị server. Mock theo `portalFields()` |
+| Nhập tay giấy tờ (FE-S3-02) | Đủ trường cổng cần, có `noEntryRecord`, sửa giấy tờ đã lưu (`updateGuestDocument`) |
+| Trả phòng (bổ sung 2) | Hai trường hợp mới:<br>• Sau mốc cuối → `extraNight` (giá mặc định, sửa được). Số còn phải thu đã gồm đêm này.<br>• Cửa sổ sau nửa đêm → giờ mặc định là giờ hiện tại, phụ thu 0.<br>Thêm `unhandledCreditVnd` và `checkoutTimeNote`. Mock gộp thành một giao dịch và hoàn tác khi lỗi |
+| Nhận phòng | `checkinTimeNote`, `depositShortfall`, gửi lễ tân trưởng (FD + buồng chưa sẵn sàng), lý do khóa nút, hiệu lực mã cửa |
+| Bill / folio (DOM FE-03, FE-S3-06) | `labelKey`/`labelParams` (`lineLabel`), in qua `.print-root`, song ngữ `lang="en"`, `creditVnd`, OTA thu hộ đúng hình API |
+| Nhật ký tiền / Cần duyệt / Hoàn tiền | Tập đóng `AuditEvent.action` → `mlog.a_*`, mã lạ → `mlog.a_other`.<br>Tiêu đề/thân duyệt theo loại. Cách hoàn đủ 3 loại, hậu quả chi hoàn trên nút |
+| Chuỗi / DS | `money()` cho mọi `{amount}`, Chip có icon, `.chk3`, `.chip.recon`, `.list-none`, `dirty` cho mọi hộp nhập, bỏ style nội tuyến H04 |
+
+### 9.2 Kết quả lệnh (thư mục `product/`)
+| Lệnh | Kết quả |
+|---|---|
+| `prettier --check` + `eslint` (admin-web, ui, i18n, api-client) | Prettier xanh; ESLint 0 lỗi (1 cảnh báo cũ `mockServiceWorker.js`) |
+| `turbo run typecheck test build` (4 gói FE) | 9/9 xanh – admin-web 19 tệp / 142 test (mới: `s3-review.test.tsx` 7; `checkout.test.tsx` +3 – thêm đêm, ghi chú giờ, sau nửa đêm), api-client 14, ui 10, i18n 4; bundle chính 427 KB |
+| `turbo run typecheck build` toàn repo | 16/16 xanh |
+| axe-core (jsdom, không tính tương phản) – H13, H16 bước 2 + 3, H14 dữ liệu cổng, H17 ba tab, Cần duyệt, hộp Gia hạn | 0 critical/serious |
+| `docker build -f infra/docker/Dockerfile.web -t ottimo-web:fe-s3c .` | exit 0 |
+
+### 9.3 Đợt 2 – nối 72 chuỗi UXD (`reviews/s3-UXD.md` mục E)
+- Đã nối:
+  - Ghi chú giờ (`checkin/checkout.time_note`) và `field.TIME_*`, `SURCHARGE_DECISION_REQUIRED`.
+  - `error.REFUND_SOURCE_NOT_RECONCILED` {amount}. `{amount}` của lỗi cấp yêu cầu nay có đơn vị.
+  - `checkout.extra_night_*` (cả trường hợp không thêm được đêm: khóa "Hoàn tất") và `checkout.post_midnight`.
+  - Nút "Giữ giá đơn" (`extend.keep_rate`, gửi `nightlyRates`).
+  - 22 khóa `bill.line.*` + 6 biến thể. Bill VI–EN dịch dòng ở client.
+  - Đủ 49 mã `mlog.a_*`, cả `a_approval_approved` theo loại.
+- Mock tính nhãn dòng theo `folio/public/line-labels.ts` của BE. Không còn `bill.line.charge` / `room_change_difference` / `deposit_forfeit`.
+- Kết quả lệnh:
+  - admin-web 19 tệp / **148 test** xanh. Bundle chính 433 KB.
+  - Toàn repo `typecheck build` 16/16 xanh.
+  - axe 0 critical/serious trên các trạng thái mới.
+  - `docker build` exit 0 (`ottimo-web:fe-s3d`).
+
+### 9.4 Còn mở
+- ARC 0.3.7: `requestedById`, mốc cuối trả muộn trong `BookingRules`, nguồn phiên bản thông báo / số ngày lưu ảnh cho Desk, `checkedByName`. `getBill?locale=vi_en` chỉ còn cần cho tham số chữ tự do.
+- FE-S3-20 mục 1 (`aria-disabled` khi đếm ngược) – R3.

@@ -18,7 +18,16 @@ import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
-import { FilePicker, MoneyField, StepUpDialog, amountOf, useSubmit } from '../stay/common';
+import { C3_TTL_MS, useC3Reveal } from '../../app/c3';
+import { APPROVAL_TYPE, methodText } from '../../app/folio';
+import {
+  FilePicker,
+  MoneyField,
+  StepUpDialog,
+  amountOf,
+  useSubmit,
+  useUnsavedLabels,
+} from '../stay/common';
 
 type Tab = 'log' | 'recon' | 'refund';
 const OWN_MGR = ['owner', 'manager'];
@@ -72,32 +81,112 @@ export function MoneyPage() {
   );
 }
 
-function auditLabel(
-  t: (k: string, a?: Record<string, string | number>) => string,
-  e: AuditEvent,
-  vnd: (n: number) => string,
-) {
+/**
+ * FE-S3-09 / UXD s3 E.3: `AuditEvent.action` (money) is a closed list (0.3.6 add. 2, 49 codes) – one
+ * sentence each. `payment.recorded` by sale/CTV → "Sale/CTV ghi nhận thu · chờ đối soát"; codes outside
+ * the list → "Thao tác tiền khác" with the code in small print (never a raw code as the label).
+ */
+const ACTION_KEY: Record<string, string> = {
+  'payment.qr_created': 'mlog.a_qr_created',
+  'payment.confirmed_received': 'mlog.a_payment_confirmed',
+  'payment.expired': 'mlog.a_payment_expired',
+  'payment.reconciled': 'mlog.a_reconciled',
+  'payment.cash_handover_confirmed': 'mlog.a_cash_handover',
+  'payment.reversed': 'mlog.a_reversed',
+  'payment.ota_collected': 'mlog.a_ota_collected',
+  'payment.ota_collect_adjusted': 'mlog.a_ota_collect_adjusted',
+  'folio.line_posted': 'mlog.a_line_added',
+  'folio.line_reversed': 'mlog.a_line_reversed',
+  'folio_line.adjusted': 'mlog.a_adjusted',
+  'folio.settled': 'mlog.a_folio_settled',
+  'folio.stay_reversed': 'mlog.a_stay_reversed',
+  'folio.foc_requested': 'mlog.a_foc_requested',
+  'folio.foc_posted': 'mlog.a_foc_posted',
+  'folio.foc_rejected': 'mlog.a_foc_rejected',
+  'folio.damage_posted': 'mlog.a_damage_posted',
+  'folio.damage_rejected': 'mlog.a_damage_rejected',
+  'refund.destination_set': 'mlog.a_refund_destination',
+  'refund.paid': 'mlog.a_refund_paid',
+  'refund.cash_paid': 'mlog.a_refund_cash_paid',
+  'reservation.deposit_confirmed': 'mlog.a_deposit_confirmed',
+  'reservation.no_show_deposit_retained': 'mlog.a_noshow_retained',
+  'reservation.cancellation_fee': 'mlog.a_cancellation_fee',
+  'reservation.debt_on_checkout': 'mlog.a_debt_on_checkout',
+  'reservation.early_departure': 'mlog.a_early_departure',
+  'reservation.extended': 'mlog.a_extended',
+  'reservation.prior_night_added': 'mlog.a_prior_night_added',
+  'reservation.extra_night_on_checkout': 'mlog.a_extra_night_on_checkout',
+  'reservation.priced': 'mlog.a_priced',
+  'reservation.repriced': 'mlog.a_repriced',
+  'reservation.room_change_repriced': 'mlog.a_room_change_repriced',
+  'commission.projected': 'mlog.a_commission_projected',
+  'commission.earned': 'mlog.a_commission_earned',
+  'commission.voided': 'mlog.a_commission_voided',
+  'channel_fee.recorded': 'mlog.a_channel_fee_recorded',
+  'channel_fee.updated': 'mlog.a_channel_fee_updated',
+  'overbooking.relocation_cost': 'mlog.a_relocation_cost',
+  'approval.requested': 'mlog.a_approval_requested',
+  'approval.self_applied': 'mlog.a_approval_self_applied',
+  'approval.rejected': 'mlog.a_approval_rejected',
+  'approval.escalated': 'mlog.a_approval_escalated',
+  'approval.reopened': 'mlog.a_approval_reopened',
+  'approval.cancelled': 'mlog.a_approval_cancelled',
+  'config.changed': 'mlog.a_receiving_account_changed',
+};
+
+function AuditAction({ e }: { e: AuditEvent }) {
+  const { t, money } = useI18n();
   const before = (e.before ?? {}) as Record<string, unknown>;
   const after = (e.after ?? {}) as Record<string, unknown>;
-  switch (e.action) {
-    case 'payment.recorded':
-      return t('mlog.a_payment');
-    case 'payment.recorded_by_staff':
-      return t('mlog.a_staff_payment');
-    case 'folio.line_added':
-      return t('mlog.a_line_added');
-    case 'approval.approved':
-      return t('mlog.a_foc_approved');
-    case 'reservation.closer_changed':
-      return t('mlog.a_closer_changed', {
-        from: String(before.closer ?? ''),
-        to: String(after.closer ?? ''),
-      });
-    case 'deposit.shortfall_accepted':
-      return t('mlog.a_shortfall_accepted', { amount: vnd(Number(after.shortfallVnd ?? 0)) });
-    default:
-      return e.action;
+  if (e.action === 'payment.recorded' || e.action === 'payment.recorded_by_staff') {
+    const staff = SALES.includes(String(after.recordedByRole)) || e.action !== 'payment.recorded';
+    const method = METHOD_KEY[String(after.method)];
+    return (
+      <>
+        {staff ? t('mlog.a_staff_payment') : t('mlog.a_payment')}
+        {!staff && method ? ` · ${t(method)}` : ''}
+        {after.reconciliation === 'pending' && !staff ? (
+          <>
+            {' '}
+            <Chip tone="warn" icon="hourglass" className="recon">
+              {t('pay.pending_reconcile')}
+            </Chip>
+          </>
+        ) : null}
+      </>
+    );
   }
+  if (e.action === 'reservation.closer_changed')
+    return (
+      <>
+        {t('mlog.a_closer_changed', {
+          from: String(before.closer ?? ''),
+          to: String(after.closer ?? ''),
+        })}
+      </>
+    );
+  if (e.action === 'deposit.shortfall_accepted')
+    return (
+      <>{t('mlog.a_shortfall_accepted', { amount: money(Number(after.shortfallVnd ?? 0)) })}</>
+    );
+  if (e.action === 'approval.approved') {
+    // FOC / special discount keep "Duyệt miễn phí"; other money requests: "Duyệt yêu cầu · {type}".
+    const type = String(after.type ?? '');
+    if (type === 'foc' || type === 'special_discount') return <>{t('mlog.a_foc_approved')}</>;
+    if (!APPROVAL_TYPE[type]) return <>{t('mlog.a_approval_approved')}</>;
+    return (
+      <>
+        {t('mlog.a_approval_approved')} · {t(APPROVAL_TYPE[type]!)}
+      </>
+    );
+  }
+  const key = ACTION_KEY[e.action];
+  if (key) return <>{t(key)}</>;
+  return (
+    <>
+      {t('mlog.a_other')} <span className="caption mono">{e.action}</span>
+    </>
+  );
 }
 
 function MoneyLog() {
@@ -113,7 +202,7 @@ function MoneyLog() {
     [propertyId, from, to],
   );
   const rows = state.data ?? [];
-  const money = (o: unknown) => {
+  const amountOfEvent = (o: unknown) => {
     const v = (o as Record<string, unknown> | undefined)?.amountVnd;
     return typeof v === 'number' ? vnd(v) : '—';
   };
@@ -175,10 +264,12 @@ function MoneyLog() {
                 <tr key={`${e.occurredAt}-${i}`}>
                   <td className="num">{dateTime(e.occurredAt)}</td>
                   <td>{e.actorName}</td>
-                  <td>{auditLabel(t, e, vnd)}</td>
+                  <td>
+                    <AuditAction e={e} />
+                  </td>
                   <td className="mono">{e.entityCode}</td>
                   <td className="num">
-                    {money(e.before)} → {money(e.after)}
+                    {amountOfEvent(e.before)} → {amountOfEvent(e.after)}
                   </td>
                   <td>{e.reason ?? '—'}</td>
                 </tr>
@@ -192,7 +283,7 @@ function MoneyLog() {
 }
 
 function Reconcile() {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const { online } = useOnline();
@@ -217,7 +308,12 @@ function Reconcile() {
       api.confirmCashHandover({ propertyId }, p.id, { result: 'received' }, p.version ?? 1, idem),
     );
     if (out) {
-      toast(t('co.recon_ok'));
+      toast(
+        t('recon.cash_received_toast', {
+          amount: money(p.amountVnd),
+          code: p.reservationCode ?? '',
+        }),
+      );
       reload();
     }
   };
@@ -262,8 +358,8 @@ function Reconcile() {
       ) : !state.data ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <StateView icon="check" title={t('mlog.empty_title')}>
-          {t('co.recon_explain')}
+        <StateView icon="check" title={t('recon.empty_title')}>
+          {t('recon.empty_body')}
         </StateView>
       ) : (
         <div className="table-wrap">
@@ -293,14 +389,15 @@ function Reconcile() {
                     {p.recordedBy}
                     {SALES.includes(String(p.recordedByRole)) ? (
                       <div>
-                        <Chip tone="warn">
+                        <Chip tone="warn" icon="hourglass" className="recon">
                           {t('pay.recorded_by_staff', {
                             role: t(ROLE_KEY[String(p.recordedByRole)] ?? 'role.sales_staff'),
                           })}
                         </Chip>
                       </div>
                     ) : null}
-                    {(p.pendingDays ?? 0) > 2 ? (
+                    {/* FE-S3-15: the server says when it is overdue (bank_reconcile_alert_days). */}
+                    {p.reconcileOverdue ? (
                       <div>
                         <Chip tone="bad">
                           {t('co.recon_overdue', { days: p.pendingDays ?? 0 })}
@@ -338,7 +435,9 @@ function Reconcile() {
                         </Button>
                       </div>
                     ) : (
-                      <Chip tone="warn">{t('pay.pending_reconcile')}</Chip>
+                      <Chip tone="warn" icon="hourglass" className="recon">
+                        {t('pay.pending_reconcile')}
+                      </Chip>
                     )}
                   </td>
                 </tr>
@@ -388,7 +487,7 @@ function Reconcile() {
 }
 
 function Refunds() {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const { online } = useOnline();
@@ -415,11 +514,11 @@ function Refunds() {
       ) : !state.data ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <StateView icon="check" title={t('approval.empty_title')}>
-          {t('approval.empty_body')}
+        <StateView icon="check" title={t('refund.empty_title')}>
+          {t('refund.empty_body')}
         </StateView>
       ) : (
-        <ul className="list-plain">
+        <ul className="list-none">
           {rows.map((a) => {
             const left = a.amountVnd - (a.refundedVnd ?? 0);
             const method = a.refundDestination?.method;
@@ -430,16 +529,17 @@ function Refunds() {
                   <div className="grow">
                     <b>
                       {a.reservationCode} · {vnd(a.amountVnd)}
-                      {a.refundedVnd ? ` (−${vnd(a.refundedVnd)})` : ''}
                     </b>
                     <div className="li-s">
                       {a.reasonNote ? `"${a.reasonNote}" · ` : ''}
                       {t('approval.sent_by', { who: a.requestedBy, time: dateTime(a.requestedAt) })}
                     </div>
                     <div className="li-s">
-                      {t('refund.method')}:{' '}
+                      {a.refundedVnd ? (
+                        <div>{t('refund.paid', { amount: money(a.refundedVnd) })}</div>
+                      ) : null}
                       {method
-                        ? `${t(cash ? 'pay.cash' : method === 'bank_transfer' ? 'pay.bank_transfer' : 'pay.card')}${a.refundDestination?.accountNoLast4 ? ` · ••${a.refundDestination.accountNoLast4}` : ''}`
+                        ? `${t('refund.method_label', { method: methodText(t, method) })}${a.refundDestination?.accountNoLast4 ? ` · ••${a.refundDestination.accountNoLast4}` : ''}`
                         : '—'}
                     </div>
                   </div>
@@ -508,6 +608,7 @@ function DestinationDialog({
   onDone: () => void;
 }) {
   const { t } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const { deviceTrusted } = useSession();
   const ids = useId();
@@ -542,6 +643,8 @@ function DestinationDialog({
       size="sm"
       title={t('refund.set_destination')}
       onClose={onClose}
+      dirty={!!bankBin || !!accountNo || !!holder}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
@@ -615,7 +718,7 @@ function DestinationDialog({
           <Alert tone="warn">{t('error.DEVICE_NOT_TRUSTED')}</Alert>
         )
       ) : null}
-      {a.status === 'approved' ? <p className="li-s">{t('approval.status.pending')}</p> : null}
+
       {act.view()}
     </Modal>
   );
@@ -635,7 +738,8 @@ function ExecuteRefundDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
+  const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const cash = a.refundDestination?.method === 'cash';
@@ -643,14 +747,16 @@ function ExecuteRefundDialog({
   const [amount, setAmount] = useState(vnd(left));
   const [ref, setRef] = useState('');
   const [proof, setProof] = useState<File | null>(null);
-  const [full, setFull] = useState<RefundDestination | null>(null);
+  // FB-R2-SEC-FE-06 / FE-S3-22: the full account number hides itself like other C3 values.
+  const fullReveal = useC3Reveal<RefundDestination>();
+  const full = fullReveal.value;
   const [stepUp, setStepUp] = useState(false);
   const act = useSubmit();
   const A = { propertyId, approvalId: a.id };
 
   const showAccount = async () => {
     try {
-      setFull((await api.getRefundDestination(A)).data);
+      fullReveal.show((await api.getRefundDestination(A)).data);
     } catch (e) {
       if (isApiError(e) && e.code === 'REAUTH_REQUIRED') setStepUp(true);
       else act.setError(e);
@@ -684,7 +790,7 @@ function ExecuteRefundDialog({
     });
     if (out) {
       setProof(null);
-      toast(t('refund.paid', { amount: vnd(out.data.amountVnd) }));
+      toast(t('refund.paid', { amount: money(out.data.amountVnd) }));
       onDone();
     }
   };
@@ -694,15 +800,18 @@ function ExecuteRefundDialog({
       size="sm"
       title={t(cash ? 'refund.execute_cash' : 'refund.execute_transfer')}
       onClose={onClose}
+      dirty={!!proof || !!ref.trim()}
+      unsavedLabels={unsaved}
       closeLabel={t('common.close')}
       footer={
         <>
           <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button
-            variant="pri"
+            variant="danger"
             busy={act.busy}
             busyLabel={act.busyLabel}
             disabled={!proof && cash}
+            aria-describedby="refund-effect"
             onClick={() => void save()}
           >
             {act.label(t(cash ? 'refund.execute_cash' : 'refund.execute_transfer'))}
@@ -715,14 +824,17 @@ function ExecuteRefundDialog({
       </p>
       {!cash ? (
         full ? (
-          <dl className="dl">
-            <dt>{t('refund.bank_bin')}</dt>
-            <dd className="mono">{full.bankBin}</dd>
-            <dt>{t('refund.account_no')}</dt>
-            <dd className="mono">{full.accountNo}</dd>
-            <dt>{t('refund.account_holder')}</dt>
-            <dd>{full.accountHolder}</dd>
-          </dl>
+          <>
+            <dl className="dl">
+              <dt>{t('refund.bank_bin')}</dt>
+              <dd className="mono">{full.bankBin}</dd>
+              <dt>{t('refund.account_no')}</dt>
+              <dd className="mono">{full.accountNo}</dd>
+              <dt>{t('refund.account_holder')}</dt>
+              <dd>{full.accountHolder}</dd>
+            </dl>
+            <p className="caption">{t('ci.full_autohide', { seconds: C3_TTL_MS / 1000 })}</p>
+          </>
         ) : (
           <Button size="sm" onClick={() => void showAccount()}>
             {t('refund.show_account')}
@@ -756,6 +868,11 @@ function ExecuteRefundDialog({
         error={act.fields.attachmentId}
         required={cash}
       />
+      <p id="refund-effect" className="li-s">
+        {t(cash ? 'refund.execute_effect_cash' : 'refund.execute_effect_transfer', {
+          amount: money(amountOf(amount)),
+        })}
+      </p>
       {act.code === 'SELF_APPROVAL_FORBIDDEN' ? (
         <Alert tone="bad">{t('refund.self_execute_forbidden')}</Alert>
       ) : (

@@ -99,6 +99,15 @@ export interface LateCheckoutResult {
   ruleRef: 'BR-412' | 'BR-413' | 'BR-416';
 }
 
+/** End of the last late-checkout tier on the business-day axis (null = no tier configured). */
+export function lastLateTierMinutes(
+  tiers: readonly LateTier[],
+  rollover: LocalTime,
+): number | null {
+  if (tiers.length === 0) return null;
+  return Math.max(...tiers.map((x) => businessMinutes(x.until, rollover)));
+}
+
 export function lateCheckoutSurcharge(i: LateCheckoutInput): LateCheckoutResult {
   const r = i.rollover;
   const t = businessMinutes(i.checkoutTime, r);
@@ -111,8 +120,9 @@ export function lateCheckoutSurcharge(i: LateCheckoutInput): LateCheckoutResult 
   };
   const ref = i.longStay ? 'BR-413' : 'BR-412';
   if (t <= businessMinutes(i.standardCheckoutTime, r)) return { ...zero, ruleRef: ref };
-  const last = Math.max(...i.tiers.map((x) => businessMinutes(x.until, r)));
-  if (t > last) return { ...zero, treatAsExtension: true, ruleRef: 'BR-416' };
+  // ARC-BE-S3-24.4: no tier configured → no "after the last tier" (Math.max() of nothing is -Infinity).
+  const last = lastLateTierMinutes(i.tiers, r);
+  if (last !== null && t > last) return { ...zero, treatAsExtension: true, ruleRef: 'BR-416' };
   const graceOk = !i.graceRequiresNoArrival || !i.sameDayArrival;
   if (i.graceUntil && graceOk && t <= businessMinutes(i.graceUntil, r)) {
     return { ...zero, inGrace: true, ruleRef: 'BR-412' };

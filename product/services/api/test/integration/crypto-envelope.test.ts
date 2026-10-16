@@ -158,4 +158,73 @@ describe.skipIf(!HAS_DB)('CryptoService – envelope encryption on PostgreSQL', 
       { t: 'retention_run', d: false, u: false },
     ]);
   });
+
+  it('SEC BE-51 (2): rewrap skips (and counts) DEKs of a KEK version that is not loaded – no failed batch', async () => {
+    const kek3 = randomBytes(32);
+    const v3 = new EnvelopeCryptoService(staticKeyring(3, new Map([[3, kek3]]), idKey), clock);
+    const id = uuidv7();
+    await db.withContext(t.ctx(1), (tx) =>
+      v3.seal(tx, { purpose: 'guest_document', subjectId: id, aad: aad(id) }, 'from-the-future'),
+    );
+    const old = await db.withContext(t.ctx(1), (tx) =>
+      v1.seal(tx, { purpose: 'guest_document', subjectId: id, aad: aad(id) }, 'v1-value'),
+    );
+    const rotating = new EnvelopeCryptoService(
+      staticKeyring(
+        2,
+        new Map([
+          [1, kek1],
+          [2, kek2],
+        ]),
+        idKey,
+      ),
+      clock,
+    );
+    const n = await db.withContext(t.ctx(1), (tx) => rotating.rewrap(tx, 100));
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(await db.withContext(t.ctx(1), (tx) => rotating.unknownVersionCount(tx))).toBe(1);
+    expect(
+      await db.withContext(t.ctx(1), (tx) =>
+        rotating.decryptText(tx, old.dataKeyId, aad(id), old.ciphertext),
+      ),
+    ).toBe('v1-value');
+  });
+
+  it('SEC BE-51 (4): a destroyed DEK cannot be brought back; C3 rows are updatable column by column only', async () => {
+    const id = uuidv7();
+    const s = await db.withContext(t.ctx(0), (tx) =>
+      v1.seal(tx, { purpose: 'guest_document', subjectId: id, aad: aad(id) }, 'gone'),
+    );
+    await db.withContext(t.ctx(0), (tx) =>
+      v1.destroy(tx, s.dataKeyId, {
+        subjectType: 'guest_document',
+        subjectId: id,
+        policyKey: 'T01',
+      }),
+    );
+    for (const sql of [
+      'UPDATE data_key SET destroyed_at = NULL WHERE id = $1',
+      `UPDATE data_key SET wrapped_key = '\\x00'::bytea WHERE id = $1`,
+    ]) {
+      const err = await db
+        .withContext(t.ctx(0), (tx) => tx.query(sql, [s.dataKeyId]))
+        .catch((e: unknown) => e);
+      expect((err as { code?: string }).code).toBe('42501');
+    }
+    const { rows } = await db.pool.query<{ c: string; u: boolean }>(
+      `SELECT t || '.' || c AS c, has_column_privilege('ottimo_app', t, c, 'UPDATE') AS u
+         FROM (VALUES ('document_image', 'blob_key'), ('document_image', 'data_key_id'),
+                      ('document_image', 'deleted_at'), ('guest_document', 'data_key_id'),
+                      ('guest_document', 'registration_id'), ('guest_document', 'purged_at')) AS v(t, c)
+        ORDER BY 1`,
+    );
+    expect(rows).toEqual([
+      { c: 'document_image.blob_key', u: false },
+      { c: 'document_image.data_key_id', u: false },
+      { c: 'document_image.deleted_at', u: true },
+      { c: 'guest_document.data_key_id', u: false },
+      { c: 'guest_document.purged_at', u: true },
+      { c: 'guest_document.registration_id', u: false },
+    ]);
+  });
 });

@@ -48,7 +48,7 @@ export function featureModules(
     // (documents, declaration, J16), guest-portal (guest link, online check-in level 1).
     CryptoModule.register({ env: runtimeEnv }),
     FilesModule.register({ env: runtimeEnv }),
-    RegistrationModule,
+    RegistrationModule.register({ env: runtimeEnv }),
     GuestPortalModule.register({ env: runtimeEnv }),
   ];
 }

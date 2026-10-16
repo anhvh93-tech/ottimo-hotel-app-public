@@ -120,6 +120,23 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
     ).toHaveLength(1);
   });
 
+  it('FB-R2-SEC-INT-06: retired PAYMENT_VIETQR_* account variables must be empty in every environment', () => {
+    for (const appEnv of ['dev', 'test', 'staging', 'production']) {
+      const problems = findUnsafeIntegrationConfig(
+        {
+          PAYMENT_VIETQR_ACCOUNT_NO: '9876543210',
+          PAYMENT_VIETQR_BANK_BIN: '',
+          PAYMENT_VIETQR_ACCOUNT_NAME: ' ',
+        },
+        appEnv,
+      );
+      expect(problems).toEqual([
+        'PAYMENT_VIETQR_ACCOUNT_NO is no longer read – set the receiving account in the payment_receiving_account parameter',
+      ]);
+      expect(problems.join()).not.toContain('9876543210');
+    }
+  });
+
   it('throws IntegrationError CONFIG listing variables, never values', () => {
     const env = {
       ...prodOk,

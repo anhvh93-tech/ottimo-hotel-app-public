@@ -183,6 +183,27 @@
       "when": 1792163188709,
       "tag": "0052_guest_portal_be_c",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792168750859,
+      "tag": "0031_frontdesk_fix_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792168823949,
+      "tag": "0053_retention_hardening_be_c",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792169904369,
+      "tag": "0042_money_review_s3_be_b",
+      "breakpoints": true
     }
   ]
 }

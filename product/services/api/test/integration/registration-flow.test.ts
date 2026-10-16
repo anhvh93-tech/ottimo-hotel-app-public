@@ -4,11 +4,13 @@
  * before data (503 when it cannot be written), checks/K5, consent, portal data (1 log row per call),
  * K6/K7 with immediate purge of non-consenting people, early purge (A74), J16 with the Clock, C3 log list.
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { AuditService } from '../../src/modules/audit/public/audit.service';
 import { BLOB_STORE, type BlobStore } from '../../src/modules/files/internal/blob-store';
 import { RegistrationPortService } from '../../src/modules/registration/public/registration.port';
+import { RegistrationService } from '../../src/modules/registration/internal/registration.service';
 import { RetentionService } from '../../src/modules/registration/internal/retention.service';
 import { serializeResponse } from '../../src/shared/serialization/serializer';
 import {
@@ -53,6 +55,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     await fa?.close();
     await db.close();
   });
+  // A failed Clock test must not leave the app in the future for the next one.
+  afterEach(() => fa?.clock.set(T0));
 
   async function stepUp(user: string): Promise<void> {
     const r = await staff(fa, tok(user), device, 'POST', '/v1/me/step-up', {
@@ -62,6 +66,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
   }
 
   async function registrationOf(reservationId: string): Promise<{ id: string; version: number }> {
+    // K1 records of fixture bookings come from the J16 tick backfill (the GET is read-only – ARC S3-27 (6)).
+    await db.withContext(t.ctx(), (tx) => fa.app.get(RegistrationService).backfill(tx));
     const list = await staff(
       fa,
       tok('fd'),
@@ -77,7 +83,13 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     return { id: reg.id, version: full.json().version };
   }
 
-  async function addDoc(regId: string, data: Record<string, unknown>, images = 1, user = 'fd') {
+  async function addDoc(
+    regId: string,
+    data: Record<string, unknown>,
+    images = 1,
+    user = 'fd',
+    idem?: string,
+  ) {
     const parts = [{ name: 'data', value: JSON.stringify(data), contentType: 'application/json' }];
     for (let i = 0; i < images; i++) {
       parts.push({
@@ -89,6 +101,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     }
     return staff(fa, tok(user), device, 'POST', `${P(t)}/registrations/${regId}/documents`, {
       multipart: parts,
+      ...(idem ? { idem } : {}),
     });
   }
 
@@ -221,6 +234,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       );
       for (const k of ['docNumberLast4', 'imageIds', 'imageConsent']) expect(out).not.toContain(k);
     }
+    // docType / fullNameOnDoc: the role gate is the control (403 above); the contract-wide check of every
+    // DTO these roles can call is in test/be-c-s3-units.test.ts (SEC BE-50 (d)).
   });
 
   it('B3: step-up window, reason, c3 log BEFORE data, no-store, 503 when the log cannot be written', async () => {
@@ -326,6 +341,26 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       { json: { manualResult: 'pass', note: 'Đã xem CCCD 079123456789' }, ifMatch: reg.version },
     );
     expect(leak.json().errors).toEqual([{ field: 'note', code: 'SENSITIVE_DATA_DETECTED' }]);
+    // SEC BE-48: separators, a glued prefix and ANOTHER person's number are caught too.
+    for (const note of [
+      'Đã xem CCCD 079 123 456 789',
+      'Số 079.123.456.789 khớp',
+      'CCCD079123456789 bản gốc',
+      'Đối chiếu với hộ chiếu C01X-00T47 của người đi cùng',
+    ]) {
+      const r = await staff(
+        fa,
+        tok('fd'),
+        device,
+        'PUT',
+        `${P(t)}/registrations/${reg.id}/documents/${d2.id}/checks/name_match`,
+        { json: { manualResult: 'pass', note }, ifMatch: reg.version },
+      );
+      expect({ note, errors: r.json().errors }).toEqual({
+        note,
+        errors: [{ field: 'note', code: 'SENSITIVE_DATA_DETECTED' }],
+      });
+    }
     const check = await staff(
       fa,
       tok('fd'),
@@ -363,6 +398,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
             decision,
             channel: 'desk',
             noticeVersion: 'privacy-2026-10-v1',
+            retentionDays: 30,
             locale: 'en',
           },
         },
@@ -412,6 +448,11 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       valueKey: 'reg.value.empty',
     });
     expect(fo.json().clipboardText).toContain('\tNữ\t');
+    // DOM S3-5 [GIẢ ĐỊNH – ESC-018]: dates dd/MM/yyyy, nationality "Vietnamese name (alpha-3)".
+    expect(fields.find((x) => x.label === 'reg.field.date_of_birth')?.value).toBe('12/04/1990');
+    expect(fields.find((x) => x.label === 'reg.field.nationality')?.value).toBe('Đức (DEU)');
+    expect(fields.find((x) => x.label === 'reg.field.arrival_date')?.value).toBe('15/10/2026');
+    expect(fo.json().clipboardText).not.toContain('1990-04-12');
     expect(fo.json().clipboardText).not.toMatch(/female|visa_exempt/);
     await staff(fa, tok('fd'), device, 'GET', `${pd}?kind=vn_citizen_stay`);
     const portalRows = await db.withContext(
@@ -495,6 +536,15 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       `${P(t)}/registrations/${reg.id}/documents/${d1.id}/images/${keepId}`,
     );
     expect(noReason.json().errors).toEqual([{ field: 'reason', code: 'REQUIRED' }]);
+    // SEC BE-48 (2): once the declaration is closed, "registration" is no longer a reason.
+    const closedReason = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'GET',
+      `${P(t)}/registrations/${reg.id}/documents/${d1.id}/images/${keepId}?reason=registration`,
+    );
+    expect(closedReason.json().errors).toEqual([{ field: 'reason', code: 'NOT_IN_LIST' }]);
     const img = await staff(
       fa,
       tok('fd'),
@@ -522,6 +572,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
           decision: 'granted',
           channel: 'desk',
           noticeVersion: 'privacy-2026-10-v1',
+          retentionDays: 30,
           locale: 'vi',
         },
       },
@@ -645,5 +696,302 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect((await staff(fa, tok('fd'), device, 'GET', `${P(t)}/c3-access-log`)).statusCode).toBe(
       403,
     );
+  });
+
+  /** Single VN guest reviewed up to `scanned` (consent given). */
+  async function scannedRegistration(
+    name: string,
+    docNumber: string,
+    stay: { arrival?: string; departure?: string } = {},
+  ) {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1, bookerName: name, ...stay });
+    const reg = await registrationOf(reservationId);
+    const add = await addDoc(reg.id, { ...an, fullNameOnDoc: name, docNumber }, 1);
+    expect(add.statusCode).toBe(201);
+    const doc = add.json().documents[0];
+    const c = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/registrations/${reg.id}/consents`,
+      {
+        json: {
+          partyMemberId: doc.id,
+          purpose: 'P02B_ID_IMAGE_RETENTION',
+          decision: 'granted',
+          channel: 'desk',
+          noticeVersion: 'privacy-2026-10-v1',
+          retentionDays: 30,
+          locale: 'vi',
+        },
+      },
+    );
+    expect(c.statusCode).toBe(201);
+    const state = { version: c.json().version as number };
+    const act = async (action: string, json: unknown) => {
+      const r = await staff(
+        fa,
+        tok('fd'),
+        device,
+        'POST',
+        `${P(t)}/registrations/${reg.id}/actions/${action}`,
+        { json, ifMatch: state.version },
+      );
+      if (r.statusCode === 200) state.version = r.json().version;
+      return r;
+    };
+    const review = await act('complete-review', {});
+    expect(review.statusCode, JSON.stringify(review.json())).toBe(200);
+    expect(review.json().status).toBe('scanned');
+    return { reservationId, registrationId: reg.id, documentId: doc.id as string, act };
+  }
+
+  /** … then declared on the portal (`sent`), never confirmed – the BE-32 cases. */
+  async function sentRegistration(name: string, docNumber: string) {
+    const r = await scannedRegistration(name, docNumber);
+    const sent = await r.act('mark-sent', {
+      portalReference: `VN-${docNumber}`,
+      kind: 'vn_citizen_stay',
+    });
+    expect(sent.json().status).toBe('sent');
+    // SEC BE-48: the rejection reason is checked like a note (6+ digits / a document number).
+    const rej = await r.act('mark-rejected', { rejectedReason: `Cổng báo sai số ${docNumber}` });
+    expect(rej.json().errors).toEqual([
+      { field: 'rejectedReason', code: 'SENSITIVE_DATA_DETECTED' },
+    ]);
+    return r;
+  }
+
+  async function imageState(documentId: string) {
+    return db.withContext(t.ctx(), async (tx) => {
+      const img = await tx.query<{
+        id: string;
+        blob_key: string;
+        deleted_at: Date | null;
+        delete_reason: string | null;
+        delete_after: Date | null;
+      }>(
+        `SELECT id, blob_key, deleted_at, delete_reason, delete_after FROM document_image
+          WHERE guest_document_id = $1`,
+        [documentId],
+      );
+      const row = img.rows[0]!;
+      const journal = await tx.query<{ action: string }>(
+        'SELECT action FROM purge_journal WHERE subject_id = $1 ORDER BY id',
+        [row.id],
+      );
+      const log = await tx.query<{ action: string }>(
+        `SELECT action FROM c3_access_log WHERE subject_id = $1 AND action = 'purge'`,
+        [row.id],
+      );
+      return { ...row, journal: journal.rows.map((r) => r.action), purgeLog: log.rows.length };
+    });
+  }
+
+  it('SEC BE-32: a declaration never confirmed – images go 7 days after the stay ended (checkout / cancel), legal hold keeps them', async () => {
+    const out = await sentRegistration('Trần Thị Bình', '079200000001');
+    const cancelled = await sentRegistration('Lê Văn Cường', '079200000002');
+    const held = await sentRegistration('Phạm Thị Dung', '079200000003');
+    const port = fa.app.get(RegistrationPortService);
+    const checkout = new Date('2026-10-20T04:00:00.000Z');
+    await setStayStatus(db, t, out.reservationId, 'checked_out', { actualCheckoutAt: checkout });
+    await db.withContext(t.ctx(), (tx) => port.onCheckedOut(tx, out.reservationId, checkout));
+    await setStayStatus(db, t, held.reservationId, 'checked_out', { actualCheckoutAt: checkout });
+    await db.withContext(t.ctx(), async (tx) => {
+      await port.onCheckedOut(tx, held.reservationId, checkout);
+      await tx.query('UPDATE registration SET legal_hold = true WHERE id = $1', [
+        held.registrationId,
+      ]);
+    });
+    // Cancelled while `sent` (not voidable): the stay ended at the cancellation (Clock = T0).
+    await setStayStatus(db, t, cancelled.reservationId, 'cancelled');
+    await db.withContext(t.ctx(), (tx) => port.onReservationVoided(tx, cancelled.reservationId));
+    expect((await imageState(out.documentId)).delete_after?.toISOString()).toBe(
+      '2026-10-27T04:00:00.000Z',
+    );
+    expect((await imageState(cancelled.documentId)).delete_after?.toISOString()).toBe(
+      new Date(T0.getTime() + 7 * 86_400_000).toISOString(),
+    );
+
+    const retention = fa.app.get(RetentionService);
+    const run = async (at: string) => {
+      fa.clock.set(new Date(at));
+      return db.withContext(t.ctx(), (tx) =>
+        retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+      );
+    };
+    // Day 7 − 1 min after the cancellation: nothing yet; then the cancelled one goes.
+    await run('2026-10-22T01:59:00.000Z');
+    expect((await imageState(cancelled.documentId)).deleted_at).toBeNull();
+    const first = await run('2026-10-22T02:01:00.000Z');
+    expect(first.unconfirmedImages).toBeGreaterThanOrEqual(1);
+    expect(await imageState(cancelled.documentId)).toMatchObject({ delete_reason: 'unconfirmed' });
+    // Checkout + 7 days − 1 min → kept; + 1 min → deleted with journal, c3 log and the file gone.
+    await run('2026-10-27T03:59:00.000Z');
+    expect((await imageState(out.documentId)).deleted_at).toBeNull();
+    await run('2026-10-27T04:01:00.000Z');
+    const gone = await imageState(out.documentId);
+    expect(gone).toMatchObject({ delete_reason: 'unconfirmed', purgeLog: 1 });
+    expect(gone.journal).toEqual(['destroy_dek', 'delete_blob']);
+    expect(await fa.app.get<BlobStore>(BLOB_STORE).get(gone.blob_key)).toBeNull();
+    // Legal hold: still there.
+    expect((await imageState(held.documentId)).deleted_at).toBeNull();
+    // FD/MGR see a "Cần chú ý" item for each declaration that never reached `confirmed`.
+    const attention = await db.withContext(t.ctx(), async (tx) =>
+      (
+        await tx.query<{ ref_id: string }>(
+          `SELECT ref_id FROM attention_event WHERE kind = 'registration_overdue'
+               AND dedupe_key LIKE 'registration_unconfirmed:%' ORDER BY ref_id`,
+        )
+      ).rows.map((r) => r.ref_id),
+    );
+    expect(attention).toEqual([out.registrationId, cancelled.registrationId].sort());
+    fa.clock.set(T0);
+  });
+
+  it('SEC BE-46 / ARC S3-27 (2): a poison row does not stop J16 – it is skipped and the run is `failed`', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
+    const reg = await registrationOf(reservationId);
+    const doc = (await addDoc(reg.id, { ...an, docNumber: '079200000009' }, 1)).json().documents[0];
+    const retention = fa.app.get(RetentionService);
+    // An image whose DEK row vanished from under it: destroying it throws inside its SAVEPOINT.
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(`UPDATE document_image SET delete_after = $2 WHERE guest_document_id = $1`, [
+        doc.id,
+        new Date('2026-10-15T00:00:00.000Z'),
+      ]),
+    );
+    const spy = vi
+      .spyOn(fa.app.get(RegistrationService), 'purgeImages')
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { name: 'PoisonError' }));
+    fa.clock.set(new Date('2026-10-15T03:00:00.000Z'));
+    const stats = await db.withContext(t.ctx(), (tx) =>
+      retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+    );
+    spy.mockRestore();
+    expect(stats.failures).toBeGreaterThanOrEqual(1);
+    const runs = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ status: string; error: string | null }>(
+            `SELECT status, error FROM retention_run WHERE policy_key = 'J16' AND run_at = $1`,
+            [fa.clock.now()],
+          )
+        ).rows,
+    );
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe('failed');
+    expect(runs[0]!.error).toContain('PoisonError');
+    expect(runs[0]!.error).not.toContain('079200000009');
+    // The next run (no poison) deletes it.
+    fa.clock.set(new Date('2026-10-15T04:00:00.000Z'));
+    await db.withContext(t.ctx(), (tx) => retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }));
+    expect((await imageState(doc.id)).deleted_at).not.toBeNull();
+    fa.clock.set(T0);
+  });
+
+  it('SEC BE-39: J16 deletes idempotency keys older than idempotency_ttl_hours (C2 in response bodies)', async () => {
+    const at = new Date('2026-10-18T03:00:00.000Z');
+    const old = randomUUID();
+    const young = randomUUID();
+    await db.withContext(t.ctx(), async (tx) => {
+      for (const [key, hours] of [
+        [old, 49],
+        [young, 47],
+      ] as const) {
+        await tx.query(
+          `INSERT INTO idempotency_key (principal_type, principal_id, key, organization_id, method, path,
+             request_hash, state, response_status, response_body, created_at)
+           VALUES ('user', $1, $2, $3, 'POST', '/x', 'h', 'completed', 201, '{"guestDisplayName":"X"}', $4)`,
+          [t.users.fd!.id, key, t.organizationId, new Date(at.getTime() - hours * 3_600_000)],
+        );
+      }
+    });
+    fa.clock.set(at);
+    const stats = await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RetentionService).run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+    );
+    expect(stats.idempotencyKeys).toBeGreaterThanOrEqual(1);
+    const left = await db.withContext(t.ctx(), async (tx) =>
+      (
+        await tx.query<{ key: string }>(
+          'SELECT key FROM idempotency_key WHERE key = ANY($1::text[])',
+          [[old, young]],
+        )
+      ).rows.map((r) => r.key),
+    );
+    expect(left).toEqual([young]);
+  });
+
+  it('ARC S3-19: addGuestDocument retried with the same Idempotency-Key (new multipart boundary) → replay', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
+    const reg = await registrationOf(reservationId);
+    const key = randomUUID();
+    const data = { ...an, docNumber: '079200000011' };
+    const first = await addDoc(reg.id, data, 1, 'fd', key);
+    expect(first.statusCode).toBe(201);
+    const again = await addDoc(reg.id, data, 1, 'fd', key);
+    expect(again.statusCode).toBe(201);
+    expect(again.json().id).toBe(first.json().id);
+    // Same key, different content → 422 IDEMPOTENCY_KEY_REUSED (the C3 fields only enter as a keyed hash).
+    const other = await addDoc(reg.id, { ...data, docNumber: '079200000012' }, 1, 'fd', key);
+    expect(other.json().code).toBe('IDEMPOTENCY_KEY_REUSED');
+    const stored = await db.withContext(t.ctx(), async (tx) => {
+      const docs = await tx.query('SELECT id FROM guest_document WHERE registration_id = $1', [
+        reg.id,
+      ]);
+      const k = await tx.query<{ request_hash: string; response_body: unknown }>(
+        'SELECT request_hash, response_body FROM idempotency_key WHERE key = $1',
+        [key],
+      );
+      return { docs: docs.rowCount, key: k.rows[0]! };
+    });
+    expect(stored.docs).toBe(1);
+    expect(JSON.stringify(stored.key)).not.toContain('079200000011');
+  });
+
+  it('DOM BE-22: "Ngày đến" of the portal data = calendar date of the actual check-in (B9a 04:40)', async () => {
+    // Direct booking for 19/10 (night added before), guest arrives 04:40 on 20/10 (Asia/Ho_Chi_Minh).
+    const { reservationId, registrationId } = await scannedRegistration(
+      'Nguyễn Văn An',
+      '079200000010',
+      { arrival: '2026-10-19', departure: '2026-10-22' },
+    );
+    const reg = { id: registrationId };
+    const at = new Date('2026-10-19T21:40:00.000Z');
+    await setStayStatus(db, t, reservationId, 'in_house', { actualCheckinAt: at });
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationPortService).onCheckedIn(tx, reservationId, at),
+    );
+    await stepUp('fd');
+    const pd = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'GET',
+      `${P(t)}/registrations/${reg.id}/portal-data?kind=vn_citizen_stay`,
+    );
+    expect(pd.statusCode).toBe(200);
+    const fields = pd.json().people[0].fields as Array<{ label: string; value: string }>;
+    expect(fields.find((x) => x.label === 'reg.field.arrival_date')?.value).toBe('20/10/2026');
+    expect(fields.find((x) => x.label === 'reg.field.departure_date')?.value).toBe('22/10/2026');
+    // ARC S3-27 (4): DEK destroyed → 404, not 500.
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `UPDATE data_key SET wrapped_key = NULL, destroyed_at = $2
+          WHERE id = (SELECT data_key_id FROM guest_document WHERE registration_id = $1 LIMIT 1)`,
+        [reg.id, T0],
+      ),
+    );
+    const gone = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'GET',
+      `${P(t)}/registrations/${reg.id}/portal-data?kind=vn_citizen_stay`,
+    );
+    expect(gone.statusCode).toBe(404);
   });
 });

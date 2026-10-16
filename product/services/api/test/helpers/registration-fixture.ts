@@ -175,6 +175,9 @@ export async function staff(
   return fa.app.inject({ method, url, headers, ...(payload !== undefined ? { payload } : {}) });
 }
 
+/** Origin the guest() helper sends on writes (startFeatureApp `guestOrigins`). */
+export const GUEST_TEST_ORIGIN = 'https://g.test';
+
 /** Guest-web request with the guest cookie. */
 export async function guest(
   fa: FeatureApp,
@@ -190,7 +193,11 @@ export async function guest(
 ): Promise<LightMyRequestResponse> {
   const headers: Record<string, string> = { ...(opts.headers ?? {}) };
   if (sid) headers.cookie = `ottimo_gsid=${sid}`;
-  if (method !== 'GET') headers['idempotency-key'] = opts.idem ?? randomUUID();
+  if (method !== 'GET') {
+    headers['idempotency-key'] = opts.idem ?? randomUUID();
+    // guest-web origin of the test app (`guestOrigins`); ignored where no guest origin is configured.
+    if (!('origin' in headers)) headers.origin = GUEST_TEST_ORIGIN;
+  }
   let payload: string | Buffer | undefined;
   if (opts.multipart) {
     const m = multipart(opts.multipart);

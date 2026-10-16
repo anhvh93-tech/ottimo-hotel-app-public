@@ -862,6 +862,19 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           s: { k: 'ref', name: 'MoneyVnd' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
         },
+        depositShortfall: {
+          s: {
+            k: 'object',
+            props: {
+              shortfallVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+              acceptedAt: { s: { k: 'ref', name: 'Instant' } },
+              acceptedByName: { s: { k: 'scalar' } },
+              reason: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         requestedRoomGroupId: {
           s: { k: 'ref', name: 'Uuid' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
@@ -1028,6 +1041,9 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         exceedsShortStayLimit: { s: { k: 'scalar' } },
         createsChildReservation: { s: { k: 'scalar' } },
         channelFeeSavingsVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        currentBookingRateVnd: {
+          s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
+        },
         repricing: {
           s: {
             k: 'array',
@@ -1086,6 +1102,16 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       },
       open: false,
     },
+    EarlyDepartureResult: {
+      k: 'object',
+      props: {
+        reservation: { s: { k: 'ref', name: 'Reservation' } },
+        earlyDepartureFeeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        refundVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        refundRequestId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
+      },
+      open: false,
+    },
     CheckoutReminderEntry: {
       k: 'object',
       props: {
@@ -1132,6 +1158,11 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
         },
         pendingApprovals: { s: { k: 'scalar' } },
+        unhandledCreditVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraNightRequired: { s: { k: 'scalar' } },
+        extraNightDefaultRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraNightAvailable: { s: { k: 'scalar' } },
+        postMidnightWindow: { s: { k: 'scalar' } },
         blockers: { s: { k: 'array', items: { k: 'scalar' } } },
       },
       open: false,
@@ -1534,6 +1565,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         category: { s: { k: 'ref', name: 'FolioLineCategory' } },
         revenueGroup: { s: { k: 'scalar' } },
         description: { s: { k: 'scalar' } },
+        labelKey: { s: { k: 'scalar' } },
+        labelParams: { s: { k: 'object', props: {}, open: true, extra: { k: 'scalar' } } },
         serviceDate: { s: { k: 'ref', name: 'LocalDate' } },
         quantity: { s: { k: 'scalar' } },
         unitPriceVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
@@ -1719,6 +1752,14 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 s: { k: 'ref', name: 'MoneyVnd' },
                 v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
               },
+              unhandledCreditVnd: {
+                s: { k: 'ref', name: 'MoneyVnd' },
+                v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+              },
+              otaExcessVnd: {
+                s: { k: 'ref', name: 'MoneyVnd' },
+                v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+              },
             },
             open: false,
           },
@@ -1766,6 +1807,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         totalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         paidVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         balanceDueVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        creditVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         usdReference: {
           s: {
             k: 'object',
@@ -2150,6 +2192,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         purpose: { s: { k: 'scalar' } },
         decision: { s: { k: 'scalar' } },
         noticeVersion: { s: { k: 'scalar' } },
+        retentionDays: { s: { k: 'scalar' } },
         locale: { s: { k: 'ref', name: 'Locale' } },
         channel: { s: { k: 'scalar' } },
       },
@@ -2173,7 +2216,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                       k: 'object',
                       props: {
                         label: { s: { k: 'scalar' } },
-                        value: { s: { k: 'scalar' } },
+                        value: { s: { k: 'scalar' }, f: 'D03' },
                         valueKey: { s: { k: 'scalar' } },
                       },
                       open: false,
@@ -2676,6 +2719,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         noticeAccepted: { s: { k: 'scalar' }, g: 1 },
         lateArrival: { s: { k: 'scalar' }, g: 1 },
         deferredPeople: { s: { k: 'array', items: { k: 'scalar' } }, g: 1 },
+        currentNoticeVersion: { s: { k: 'scalar' }, g: 1 },
+        imageRetentionDays: { s: { k: 'scalar' }, g: 1 },
       },
       open: false,
     },
@@ -3211,6 +3256,19 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
             s: { k: 'ref', name: 'MoneyVnd' },
             v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
           },
+          depositShortfall: {
+            s: {
+              k: 'object',
+              props: {
+                shortfallVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                acceptedAt: { s: { k: 'ref', name: 'Instant' } },
+                acceptedByName: { s: { k: 'scalar' } },
+                reason: { s: { k: 'scalar' } },
+              },
+              open: false,
+            },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+          },
           requestedRoomGroupId: {
             s: { k: 'ref', name: 'Uuid' },
             v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
@@ -3254,7 +3312,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
     },
     recordCheckoutConfirmation: { '201': { k: 'ref', name: 'CheckoutReminderEntry' } },
     getCheckoutSummary: { '200': { k: 'ref', name: 'CheckoutSummary' } },
-    earlyDeparture: { '200': { k: 'ref', name: 'Reservation' } },
+    earlyDeparture: { '200': { k: 'ref', name: 'EarlyDepartureResult' } },
     checkOut: {
       '200': {
         k: 'object',

@@ -9,7 +9,7 @@ import {
 } from '../app/api';
 import { ImageRejected, MAX_IMAGES_PER_PERSON, normalizeImage } from '../app/image';
 import { useT, type GuestLocale } from '../app/i18n';
-import { problemText, terminalOf } from '../app/problem';
+import { FIELD_KEYS, problemText, terminalOf } from '../app/problem';
 
 /** Document types a guest can photograph (children need no photo – the desk types the number). */
 export type GuestDocType = Extract<DocType, 'cccd' | 'passport'>;
@@ -21,6 +21,8 @@ interface Slot {
   phase: Phase;
   pct: number;
   error?: string;
+  /** Why the photos are waiting (weak network / server busy) – they are kept in memory meanwhile. */
+  waitText?: string;
 }
 
 /** Photos waiting for a retry. Memory only, dropped on success / leaving the step (SEC ĐK-3). */
@@ -31,6 +33,10 @@ interface Pending {
 }
 
 const AUTO_RETRY_MS = 3000;
+/** DS 6.21: CONCURRENT_UPDATE / SERVICE_UNAVAILABLE wrote nothing – keep the photos, wait, retry once. */
+const BUSY_CODES = new Set(['CONCURRENT_UPDATE', 'SERVICE_UNAVAILABLE']);
+const BUSY_DEFAULT_S = 2;
+const BUSY_MAX_S = 10;
 const IDLE: Slot = { phase: 'idle', pct: 0 };
 
 /** UXD 8.3 (4): Vietnamese page → CCCD first; any other language → passport first. */
@@ -72,6 +78,8 @@ export function DocumentsStep({
   const [slots, setSlots] = useState<Record<number, Slot>>({});
   const [reopen, setReopen] = useState<Set<number>>(new Set());
   const [busyNext, setBusyNext] = useState(false);
+  /** Screen-reader announcements: only when a send starts and when it ends (not every %). */
+  const [announce, setAnnounce] = useState('');
   const pending = useRef(new Map<number, Pending>());
   const retried = useRef(new Set<number>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -111,7 +119,8 @@ export function DocumentsStep({
     async (person: number) => {
       const job = pending.current.get(person);
       if (!job) return;
-      patch(person, { phase: 'uploading', pct: 0, error: undefined });
+      patch(person, { phase: 'uploading', pct: 0, error: undefined, waitText: undefined });
+      setAnnounce(t('gw.upload_progress', { count: job.images.length, pct: 0 }));
       try {
         const next = await uploadGuestDocument({
           personIndex: person,
@@ -128,6 +137,7 @@ export function DocumentsStep({
           n.delete(person);
           return n;
         });
+        setAnnounce(t('gw.upload_done', { person: t('guest.oci.person_n', { n: person }) }));
         onUploaded(next);
       } catch (e) {
         if (terminalOf(e)) {
@@ -135,19 +145,31 @@ export function DocumentsStep({
           onProblem(e);
           return;
         }
-        if (isApiError(e) && e.isNetwork) {
-          // Weak network: keep the photos in memory and retry once by itself, then offer a button.
-          patch(person, { phase: 'weak' });
+        const busyServer = isApiError(e) && BUSY_CODES.has(e.code);
+        if ((isApiError(e) && e.isNetwork) || busyServer) {
+          // Keep the photos in memory and retry once by itself (same Idempotency-Key), then a button.
+          const waitS = busyServer
+            ? Math.min(
+                Math.max((isApiError(e) && e.retryAfterSeconds) || BUSY_DEFAULT_S, 1),
+                BUSY_MAX_S,
+              )
+            : AUTO_RETRY_MS / 1000;
+          patch(person, {
+            phase: 'weak',
+            waitText: busyServer ? problemText(t, e) : t('guest.oci.upload_weak'),
+          });
+          setAnnounce('');
           if (!retried.current.has(person)) {
             retried.current.add(person);
             const id = setTimeout(() => {
               timers.current.delete(id);
               void send(person);
-            }, AUTO_RETRY_MS);
+            }, waitS * 1000);
             timers.current.add(id);
           }
           return;
         }
+        setAnnounce('');
         pending.current.delete(person); // rejected photos are useless – drop them
         patch(person, { phase: 'error', error: problemText(t, e) });
       }
@@ -176,9 +198,11 @@ export function DocumentsStep({
       await send(person);
     } catch (e) {
       const code = e instanceof ImageRejected ? e.code : 'FILE_TYPE';
-      patch(person, { phase: 'error', error: t(`field.${code}`) });
+      patch(person, { phase: 'error', error: t(FIELD_KEYS[code]!) });
     }
   };
+
+  const firstMissing = people.find((p) => !uploaded.has(p) && !deferred.has(p));
 
   const summary =
     deferredCount > 0
@@ -213,16 +237,14 @@ export function DocumentsStep({
 
           if (isUploaded || isDeferred) {
             return (
-              <div
-                key={p}
-                className={`upload-slot${isUploaded ? ' done' : ''}`}
-                style={{ marginTop: 8 }}
-              >
+              <div key={p} className={`upload-slot mt-8${isUploaded ? ' done' : ''}`}>
                 <span className="ill">
                   <Icon name={isUploaded ? 'check' : 'clock'} />
                 </span>
                 <div className="grow">
-                  <b id={ids.name}>{t('guest.oci.person_n', { n: p })}</b>
+                  <b id={ids.name} tabIndex={-1}>
+                    {t('guest.oci.person_n', { n: p })}
+                  </b>
                   <div className="li-s">{isUploaded ? t('gw.sent_hidden') : t('gw.deferred')}</div>
                 </div>
                 {isUploaded ? (
@@ -247,36 +269,33 @@ export function DocumentsStep({
           }
 
           return (
-            <div
-              key={p}
-              className="upload-slot gw-slot"
-              style={{ marginTop: 8 }}
-              aria-busy={busy || undefined}
-            >
+            <div key={p} className="upload-slot gw-slot mt-8" aria-busy={busy || undefined}>
               <span className="ill">
                 <Icon name="camera" />
               </span>
               <div className="grow">
-                <b id={ids.name}>{t('guest.oci.person_n', { n: p })}</b>
+                <b id={ids.name} tabIndex={-1}>
+                  {t('guest.oci.person_n', { n: p })}
+                </b>
                 <div className="li-s" id={ids.hint}>
                   {type ? t(`gw.doc_hint.${type}`) : t('guest.oci.add_doc')}
                 </div>
                 {busy ? (
-                  <div className="li-s" role="status" aria-live="polite">
-                    {t('guest.oci.uploading', {
-                      n: pending.current.get(p)?.images.length ?? 1,
-                      total: pending.current.get(p)?.images.length ?? 1,
+                  // Visible progress only; the live region below announces start / end (UXD S3-04).
+                  <div className="li-s">
+                    {t('gw.upload_progress', {
+                      count: pending.current.get(p)?.images.length ?? 1,
                       pct: s.pct,
                     })}
                   </div>
                 ) : null}
-                {s.phase === 'weak' ? (
+                {s.phase === 'weak' && s.waitText ? (
                   <div className="li-s" role="status">
-                    {t('guest.oci.upload_weak')}
+                    {s.waitText}
                   </div>
                 ) : null}
                 {s.phase === 'error' && s.error ? (
-                  <div className="err" role="alert" style={{ color: 'var(--bad)' }}>
+                  <div className="err gw-err" role="alert">
                     {s.error}
                   </div>
                 ) : null}
@@ -310,15 +329,34 @@ export function DocumentsStep({
                     />
                   </div>
                   <div className="gw-docs-row">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => setDeferred(p, true)}
-                      aria-describedby={`${ids.name} ${ids.defer}`}
-                    >
-                      {t('gw.defer_at_desk')}
-                    </Button>
+                    {reopen.has(p) && uploaded.has(p) ? (
+                      // Opened "Gửi lại" by mistake: back to "Đã gửi", the photos on file stay (S3-08).
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() =>
+                          setReopen((r) => {
+                            const n = new Set(r);
+                            n.delete(p);
+                            return n;
+                          })
+                        }
+                        aria-describedby={ids.name}
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setDeferred(p, true)}
+                        aria-describedby={`${ids.name} ${ids.defer}`}
+                      >
+                        {t('gw.defer_at_desk')}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="pri"
@@ -334,13 +372,15 @@ export function DocumentsStep({
                     </Button>
                   </div>
                   {!type ? (
-                    <p className="li-s" id={ids.first} style={{ flexBasis: '100%', margin: 0 }}>
+                    <p className="li-s gw-row-note" id={ids.first}>
                       {t('gw.doc_type_first')}
                     </p>
                   ) : null}
-                  <p className="li-s" id={ids.defer} style={{ flexBasis: '100%', margin: 0 }}>
-                    {t('gw.defer_help')}
-                  </p>
+                  {reopen.has(p) && uploaded.has(p) ? null : (
+                    <p className="li-s gw-row-note" id={ids.defer}>
+                      {t('gw.defer_help')}
+                    </p>
+                  )}
                 </>
               )}
             </div>
@@ -357,17 +397,34 @@ export function DocumentsStep({
           data-testid="doc-input"
           onChange={(e) => void onFiles(e.target.files)}
         />
-        <p className="li-s" style={{ marginTop: 10 }}>
-          {t('gw.photo_tips')}
+        <p className="li-s mt-12">{t('gw.photo_tips')}</p>
+        <p className="sr-only" role="status" aria-live="polite">
+          {announce}
         </p>
       </div>
       <div className="wiz-foot">
-        <span className="li-s">{t('gw.saved_progress')}</span>
+        {allDone ? (
+          <span className="li-s">{t('gw.saved_progress')}</span>
+        ) : (
+          <span className="li-s" id="gw-docs-reason">
+            {t('gw.next_needs_docs')}
+          </span>
+        )}
         <Button
           variant="pri"
           busy={busyNext}
-          disabled={!allDone}
+          aria-disabled={!allDone || undefined}
+          aria-describedby={allDone ? undefined : 'gw-docs-reason'}
           onClick={async () => {
+            if (!allDone) {
+              // Locked: take the guest to the first person still missing (UXD S3-05).
+              if (firstMissing) {
+                const el = document.getElementById(`gw-p${firstMissing}-name`);
+                el?.scrollIntoView?.({ block: 'center' });
+                el?.focus();
+              }
+              return;
+            }
             setBusyNext(true);
             await onNext();
             setBusyNext(false);

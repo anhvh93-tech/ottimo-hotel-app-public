@@ -1,11 +1,11 @@
-// SEC s3-checklist G1/G3/G8 as CI tests over the guest-web source (and dist when built).
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+// SEC s3-checklist G1/G3/G8 over the guest-web source; the built bundle is checked in bundle.test.ts.
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { collectUsedKeys } from '../../build/used-keys';
 import { hasGuestKey } from '../app/i18n';
 
 const SRC = join(__dirname, '..');
-const DIST = join(__dirname, '..', '..', 'dist');
 
 function files(dir: string, skip: string[] = []): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -22,7 +22,7 @@ const appSource = () =>
     .join('\n');
 
 /** ĐK-6 – strings UXD marked "not used in R2". */
-const FORBIDDEN_KEYS = [
+export const FORBIDDEN_KEYS = [
   /guest\.verify\./,
   /guest\.door_code/,
   /guest\.late\.(done_title|code_|how_|prompt|arrival_hint)/,
@@ -31,7 +31,7 @@ const FORBIDDEN_KEYS = [
   /guest\.after_checkout\.body/,
 ];
 /** ĐK-1 – level-2 operations. */
-const FORBIDDEN_PATHS = [
+export const FORBIDDEN_PATHS = [
   '/v1/guest/sessions/otp',
   '/v1/guest/sessions/verify',
   '/v1/guest/folio',
@@ -61,25 +61,23 @@ describe('guest-web R2 guard rails', () => {
     expect(hasGuestKey('guest.oci.done_body', 'vi')).toBe(true);
   });
 
-  it('every literal t("…") key exists in VI and EN', () => {
-    const used = new Set<string>();
-    for (const m of appSource().matchAll(/\bt\(\s*'([a-z_]+\.[A-Za-z0-9_.]+)'/g)) used.add(m[1]!);
-    expect(used.size).toBeGreaterThan(40);
+  it('every key the source names exists in VI and EN (and in the shipped dictionary)', () => {
+    const used = collectUsedKeys(SRC);
+    expect(used.exact.size).toBeGreaterThan(60);
     for (const locale of ['vi', 'en'] as const) {
       expect(
-        [...used].filter((k) => !hasGuestKey(k, locale)),
+        [...used.exact].filter((k) => !hasGuestKey(k, locale)),
         locale,
       ).toEqual([]);
     }
+    // Template keys (`gw.doc.${type}` …) must stay narrow – a whole family is not a prefix.
+    expect(used.prefixes.sort()).toEqual(['gw.doc.', 'gw.doc_hint.']);
   });
 
-  it.skipIf(!existsSync(DIST))('built bundle has no forbidden key / path / mock worker', () => {
-    const bundle = files(join(DIST, 'assets'))
-      .map((f) => readFileSync(f, 'utf8'))
-      .join('\n');
-    for (const p of FORBIDDEN_PATHS) expect(bundle, p).not.toContain(p);
-    for (const re of FORBIDDEN_KEYS) expect(bundle, String(re)).not.toMatch(re);
-    expect(bundle).not.toContain('demo-guest-link');
-    expect(existsSync(join(DIST, 'mockServiceWorker.js'))).toBe(false);
+  it('ships only named keys: unused staff/level-2 wording is not in the dictionary (SEC MOB-01 (2))', () => {
+    expect(hasGuestKey('error.GUEST_STAY_ENDED', 'en')).toBe(false); // "…only shows your bill"
+    expect(hasGuestKey('guest.req.fee_notice', 'vi')).toBe(false);
+    expect(hasGuestKey('error.INVALID_TRANSITION', 'vi')).toBe(false);
+    expect(hasGuestKey('guest.lang.ru_soon', 'ru')).toBe(false);
   });
 });

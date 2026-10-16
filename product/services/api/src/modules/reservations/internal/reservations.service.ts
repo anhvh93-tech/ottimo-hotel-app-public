@@ -33,6 +33,7 @@ import {
   isOrphanGap,
   lastBookableArrival,
   minStayNights,
+  nightDates,
   nightsOf,
   noticeDays,
 } from '../public/pricing';
@@ -128,6 +129,15 @@ function errorCode(err: unknown): string {
 
 /** Input limit of a manual long stay (BA EP02 4 – data-entry guard, not a business rule). */
 const MANUAL_LONG_STAY_MAX_DAYS = 731;
+
+/** A night price of an in-house stay being re-tiered (B13, B9a – BR-107 D-8). */
+export interface StayNightPrice {
+  date: LocalDate;
+  calendarVnd: number;
+  amountVnd: number;
+  /** typed by the desk (or quoted) – never re-tiered */
+  manual: boolean;
+}
 
 export interface CreateHoldInput {
   roomId: string;
@@ -267,16 +277,13 @@ export class ReservationsService {
       rescheduleCount: row.reschedule_count,
       rescheduleMaxTimes: ctx.params.rescheduleMaxTimes,
     });
-    // US-022: booker + active party members (people recorded on the booking).
-    const party = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM reservation_guest WHERE reservation_id = $1 AND removed_at IS NULL`,
-      [row.id],
-    );
+    // US-022: booker + active party members (people recorded on the booking – counted by frontdesk).
+    const partyMembers = await this.hooks.partyCount(tx, row.id);
     return toReservationDto({
       row,
       segments,
       booker,
-      partyPresentCount: 1 + (party.rows[0]?.n ?? 0),
+      partyPresentCount: 1 + partyMembers,
       nights: nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,
@@ -962,9 +969,14 @@ export class ReservationsService {
 
   /** Sold nights + snapshot extra-person fee for the folio postings (sales-port ConfirmedStay). */
   async confirmedStay(tx: Tx, row: ReservationRow): Promise<ConfirmedStay> {
-    const { rows } = await tx.query<{ id: string; date: string; amount: number }>(
-      `SELECT id, stay_date::text AS date, room_revenue_vnd AS amount FROM stay_night
-        WHERE reservation_id = $1 AND night_state = 'sold' ORDER BY stay_date`,
+    const { rows } = await tx.query<{
+      id: string;
+      date: string;
+      amount: number;
+      extra: number | null;
+    }>(
+      `SELECT id, stay_date::text AS date, room_revenue_vnd AS amount, extra_person_fee_vnd AS extra
+         FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold' ORDER BY stay_date`,
       [row.id],
     );
     const snap = row.pricing_snapshot as {
@@ -973,8 +985,10 @@ export class ReservationsService {
       otaChannelFeeVnd?: number;
       commissionRatePct?: number | null;
       quote?: { commissionRatePct?: number | null };
+      extraNightDates?: string[];
     };
     const commissionRatePct = snap.commissionRatePct ?? snap.quote?.commissionRatePct ?? null;
+    const extraNights = new Set(snap.extraNightDates ?? []);
     return {
       reservationId: row.id,
       reservationCode: row.code,
@@ -985,8 +999,18 @@ export class ReservationsService {
       extraGuestCount: snap.extraCount ?? 0,
       extraPersonPerNightVnd: snap.extraPersonFeePerNightVnd ?? 0,
       otaChannelFeeVnd: snap.otaChannelFeeVnd ?? null,
-      nights: rows.map((n) => ({ stayNightId: n.id, date: n.date, roomRevenueVnd: n.amount })),
+      nights: rows.map((n) => ({
+        stayNightId: n.id,
+        date: n.date,
+        roomRevenueVnd: n.amount,
+        // NULL = the booking-level fee of the snapshot (every night alike); a value = this night's own fee.
+        extraPersonVnd: n.extra ?? snap.extraPersonFeePerNightVnd ?? 0,
+        // E05-11: night sold at check-out after the BR-412 limit (bill.line.extra_night).
+        ...(extraNights.has(n.date) ? { extraNight: true } : {}),
+      })),
       commissionRatePctSnapshot: typeof commissionRatePct === 'number' ? commissionRatePct : null,
+      // BE-B review S3 (DOM BE-13): the folio keeps the OTA prepaid receipt in step with the nights.
+      paymentModel: row.payment_model,
     };
   }
 
@@ -1109,8 +1133,14 @@ export class ReservationsService {
     } else if (capacityState === 'ok') {
       await this.clearCapacityConflict(tx, row.id);
     }
-    if (peopleChanged && baseOccupancy !== null)
-      await this.repriceExtraPersons(tx, row, next, baseOccupancy);
+    if (peopleChanged && baseOccupancy !== null) {
+      if (row.status === 'in_house') {
+        // DOM S3-13 / BE-16: an in-house change applies from tonight; the nights already stayed keep their fee.
+        await this.peopleFromNight(tx, ctx, row, next, ctx.today, { write: true });
+      } else {
+        await this.repriceExtraPersons(tx, row, next, baseOccupancy);
+      }
+    }
     if (closerUserId && closerUserId !== row.closer_user_id) {
       // SEC-BE-26: the closer decides who earns the commission – a money event.
       await this.audit.recordMoney(tx, {
@@ -1594,6 +1624,8 @@ export class ReservationsService {
       rateSource: 'extra_night_early_late' | 'extension';
       transition: 'B9a' | 'B13';
       actualCheckinAt: Date;
+      /** E05-11: the night is the "extra night on check-out" (bill.line.extra_night). */
+      extraNight?: boolean;
     },
   ): Promise<ReservationRow> {
     const { rows: ch } = await tx.query<{ id: string }>(
@@ -1605,13 +1637,31 @@ export class ReservationsService {
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
     const total = input.nights.reduce((a, n) => a + n.amountVnd, 0);
+    // The child is a DIRECT booking: BR-110 extra persons are charged on its nights (room of the child).
+    const rm = await this.room(tx, input.roomId);
+    const rates = {
+      adultVnd: ctx.params.extraAdultFeeVnd,
+      child611Vnd: ctx.params.child611FeeVnd,
+    };
+    const extra = extraPersons(
+      {
+        adults: parent.adults,
+        children6to11: parent.children_6_11,
+        childrenUnder6: parent.children_under_6,
+      },
+      rm?.base_occupancy ?? 0,
+      rates,
+    );
     const snapshot = {
       asOf: ctx.today,
       nightRateUnit: ctx.params.nightRateUnit,
       parentReservationCode: parent.code,
       childOf: input.transition,
-      extraPersonFeePerNightVnd: 0,
-      extraCount: 0,
+      extraAdultFeeVnd: rates.adultVnd,
+      child611FeeVnd: rates.child611Vnd,
+      extraPersonFeePerNightVnd: rm ? extra.perNightVnd : 0,
+      extraCount: rm ? extra.extraCount : 0,
+      ...(input.extraNight ? { extraNightDates: input.nights.map((n) => n.date) } : {}),
       nights: input.nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,
@@ -1722,6 +1772,298 @@ export class ReservationsService {
     );
     await this.hooks.emit(tx, this.event('created', child, null, input.transition, input.roomId));
     return child;
+  }
+
+  // ─────────────────────────── BR-110 per night (DOM S3-13, FB-R2-ARC-BE-S3-01) ───────────────────────────
+
+  /** Fee rates of the booking (BR-006 snapshot first, else the parameters in force). */
+  feeRates(ctx: BookingContext, row: ReservationRow): { adultVnd: number; child611Vnd: number } {
+    const snap = row.pricing_snapshot as { extraAdultFeeVnd?: number; child611FeeVnd?: number };
+    return {
+      adultVnd: snap.extraAdultFeeVnd ?? ctx.params.extraAdultFeeVnd,
+      child611Vnd: snap.child611FeeVnd ?? ctx.params.child611FeeVnd,
+    };
+  }
+
+  /**
+   * BR-110 fee of one night for `party` in a room of `baseOccupancy`: the people above the base, adults first
+   * so the extra persons are charged at the lower band. Direct/agent: that fee. OTA: only what exceeds the
+   * people the OTA booking was sold for (`bookedParty`, BR-110 "vượt số khách trên đơn OTA"). Internal: 0.
+   */
+  nightFee(
+    ctx: BookingContext,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    baseOccupancy: number,
+  ): number {
+    const rates = this.feeRates(ctx, row);
+    const fee = extraPersons(party, baseOccupancy, rates).perNightVnd;
+    if (row.channel_group === 'direct' || row.channel_group === 'agent') return fee;
+    if (row.channel_group !== 'ota') return 0;
+    const booked = (row.pricing_snapshot as { bookedParty?: typeof party }).bookedParty ?? {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    return Math.max(0, fee - extraPersons(booked, baseOccupancy, rates).perNightVnd);
+  }
+
+  /** Current fee of every live night (own value, else the booking-level fee of the snapshot). */
+  async nightFees(
+    tx: Tx,
+    row: ReservationRow,
+  ): Promise<Array<{ id: string; date: LocalDate; feeVnd: number; own: boolean }>> {
+    const snap = row.pricing_snapshot as { extraPersonFeePerNightVnd?: number };
+    const { rows } = await tx.query<{ id: string; date: string; fee: number | null }>(
+      `SELECT id, stay_date::text AS date, extra_person_fee_vnd AS fee FROM stay_night
+        WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
+      [row.id],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.date,
+      feeVnd: r.fee ?? snap.extraPersonFeePerNightVnd ?? 0,
+      own: r.fee !== null,
+    }));
+  }
+
+  /** Give nights their own fee (the folio sync posts them – one `extra_person` line per night). */
+  async setNightFees(
+    tx: Tx,
+    reservationId: string,
+    fees: ReadonlyArray<{ date: LocalDate; feeVnd: number }>,
+    now: Date,
+  ): Promise<void> {
+    for (const f of fees) {
+      await tx.query(
+        `UPDATE stay_night SET extra_person_fee_vnd = $3, updated_at = $4
+          WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'
+            AND extra_person_fee_vnd IS DISTINCT FROM $3::bigint`,
+        [reservationId, f.date, f.feeVnd, now],
+      );
+    }
+  }
+
+  /** Base occupancy of the room of each night (active segments). */
+  async nightBases(tx: Tx, reservationId: string): Promise<Map<LocalDate, number>> {
+    const out = new Map<LocalDate, number>();
+    for (const s of await activeSegments(tx, reservationId)) {
+      if (s.base_occupancy === null) continue;
+      for (const d of nightDates(s.from_date, s.to_date)) out.set(d, s.base_occupancy);
+    }
+    return out;
+  }
+
+  /**
+   * People of an IN-HOUSE booking changed (US-022 AC4 / updateReservation): nights before `fromDate` keep what
+   * they had (frozen as their own fee), nights from `fromDate` get the fee of the new party in their room.
+   * Returns old/new Σ of the changed nights. The caller updates the head count and re-syncs the folio.
+   */
+  async peopleFromNight(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    fromDate: LocalDate,
+    opts: { write: boolean },
+  ): Promise<{ oldVnd: number; newVnd: number; nights: number; extraCount: number }> {
+    const bases = await this.nightBases(tx, row.id);
+    const fees = await this.nightFees(tx, row);
+    const changes: Array<{ date: LocalDate; feeVnd: number }> = [];
+    let oldVnd = 0;
+    let newVnd = 0;
+    let nights = 0;
+    let extraCount = 0;
+    for (const n of fees) {
+      if (n.date < fromDate) {
+        if (!n.own) changes.push({ date: n.date, feeVnd: n.feeVnd });
+        continue;
+      }
+      const base = bases.get(n.date);
+      if (base === undefined) continue;
+      const fee = this.nightFee(ctx, row, party, base);
+      oldVnd += n.feeVnd;
+      newVnd += fee;
+      nights += 1;
+      extraCount = Math.max(
+        extraCount,
+        extraPersons(party, base, this.feeRates(ctx, row)).extraCount,
+      );
+      changes.push({ date: n.date, feeVnd: fee });
+    }
+    if (opts.write) {
+      if (
+        row.channel_group === 'ota' &&
+        !(row.pricing_snapshot as { bookedParty?: unknown }).bookedParty
+      ) {
+        await tx.query(
+          `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
+          [
+            row.id,
+            JSON.stringify({
+              bookedParty: {
+                adults: row.adults,
+                children6to11: row.children_6_11,
+                childrenUnder6: row.children_under_6,
+              },
+            }),
+          ],
+        );
+      }
+      await this.setNightFees(tx, row.id, changes, ctx.now);
+    }
+    return { oldVnd, newVnd, nights, extraCount };
+  }
+
+  /** New nights (B13, B9a) of a booking whose nights carry their own fee get the current party's fee. */
+  async feesForNewNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    dates: readonly LocalDate[],
+  ): Promise<void> {
+    const fees = await this.nightFees(tx, row);
+    if (!fees.some((f) => f.own)) return; // booking-level fee still applies to every night
+    const bases = await this.nightBases(tx, row.id);
+    const party = {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    await this.setNightFees(
+      tx,
+      row.id,
+      dates.flatMap((d) => {
+        const base = bases.get(d);
+        return base === undefined
+          ? []
+          : [{ date: d, feeVnd: this.nightFee(ctx, row, party, base) }];
+      }),
+      ctx.now,
+    );
+  }
+
+  // ───────────── BR-107 re-tiering of an in-house stay (B13, B9a – D-8; ARC B-3 d: night prices only here) ─────────────
+
+  /** Live nights with their calendar price; `manual` = the price was typed (never re-tiered – ARC-BE-S3-24.3). */
+  async pricedNights(tx: Tx, row: ReservationRow): Promise<StayNightPrice[]> {
+    const snap = new Map(
+      (
+        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
+      ).map((n) => [n.date, n.source]),
+    );
+    return (await liveNightRows(tx, row.id)).map((n) => ({
+      date: n.date,
+      calendarVnd: n.calendarVnd ?? n.grossVnd,
+      amountVnd: n.grossVnd,
+      manual: snap.get(n.date) === 'manual',
+    }));
+  }
+
+  /** D-8: every live non-manual night of a direct/agent booking re-tiered for the new number of nights. */
+  retierStay(
+    ctx: BookingContext,
+    row: ReservationRow,
+    kept: readonly StayNightPrice[],
+    added: readonly StayNightPrice[],
+  ): { pct: number; kept: StayNightPrice[]; added: StayNightPrice[] } {
+    const tiered =
+      (row.channel_group === 'direct' || row.channel_group === 'agent') && !row.external_contract;
+    const pct = tiered ? losDiscountPct(kept.length + added.length, ctx.params.losTiers) : 0;
+    const unit =
+      (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ??
+      ctx.params.nightRateUnit;
+    const apply = (n: StayNightPrice): StayNightPrice =>
+      n.manual || !tiered
+        ? { ...n }
+        : { ...n, amountVnd: applyNightDiscount([n.calendarVnd], pct, unit)[0] as number };
+    return { pct, kept: kept.map(apply), added: added.map(apply) };
+  }
+
+  /**
+   * Writes a re-tiered stay (B13 extension, B9a prior night of a direct booking): kept nights get their new
+   * gross (discounts kept), added nights are sold with `rateSource`, the snapshot remembers which prices were
+   * typed, `total_room_vnd` = Σ gross, and the added nights get the party's BR-110 fee when nights carry their
+   * own fee. The caller moves the segment / inventory first and re-syncs the folio after.
+   */
+  async writeRepricedNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    input: {
+      segmentId: string;
+      roomId: string;
+      pct: number;
+      kept: readonly StayNightPrice[];
+      added: readonly StayNightPrice[];
+      rateSource: string;
+      /** E05-11: the added nights are "extra night on check-out" (bill.line.extra_night). */
+      extraNight?: boolean;
+    },
+  ): Promise<number> {
+    for (const k of input.kept) {
+      await tx.query(
+        `UPDATE stay_night SET room_revenue_gross_vnd = $3::bigint, room_revenue_vnd = $3::bigint - discount_vnd,
+                calendar_rate_vnd = $4::bigint, updated_at = $5
+          WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'
+            AND (room_revenue_gross_vnd <> $3::bigint OR calendar_rate_vnd IS DISTINCT FROM $4::bigint)`,
+        [row.id, k.date, k.amountVnd, k.calendarVnd, ctx.now],
+      );
+    }
+    await insertNights(
+      tx,
+      {
+        reservationId: row.id,
+        segmentId: input.segmentId,
+        roomId: input.roomId,
+        channelId: row.channel_id,
+        stayType: row.stay_type,
+        state: 'sold',
+        isComplimentary: row.is_complimentary,
+        now: ctx.now,
+      },
+      input.added.map((x) => ({
+        date: x.date,
+        amountVnd: x.amountVnd,
+        calendarVnd: x.calendarVnd,
+        source: x.manual ? 'manual' : 'calendar',
+      })),
+    );
+    const addedDates = input.added.map((x) => x.date);
+    await tx.query(
+      `UPDATE stay_night SET rate_source = $3 WHERE reservation_id = $1
+          AND stay_date = ANY($2::date[]) AND night_state <> 'void'`,
+      [row.id, addedDates, input.rateSource],
+    );
+    const all = [...input.kept, ...input.added].sort((a, b) => (a.date < b.date ? -1 : 1));
+    const total = all.reduce((a, x) => a + x.amountVnd, 0);
+    await tx.query(
+      `UPDATE reservation SET total_room_vnd = $2, pricing_snapshot = pricing_snapshot || $3::jsonb WHERE id = $1`,
+      [
+        row.id,
+        total,
+        JSON.stringify({
+          losDiscountPct: input.pct,
+          ...(input.extraNight
+            ? {
+                extraNightDates: [
+                  ...((row.pricing_snapshot as { extraNightDates?: string[] }).extraNightDates ??
+                    []),
+                  ...addedDates,
+                ],
+              }
+            : {}),
+          nights: all.map((x) => ({
+            date: x.date,
+            amountVnd: x.amountVnd,
+            calendarVnd: x.calendarVnd,
+            source: x.manual ? 'manual' : 'calendar',
+          })),
+        }),
+      ],
+    );
+    await this.feesForNewNights(tx, ctx, row, addedDates);
+    return total;
   }
 
   /** Same-transaction hooks for a transition/stay change made outside this service (front desk – B9…B18). */

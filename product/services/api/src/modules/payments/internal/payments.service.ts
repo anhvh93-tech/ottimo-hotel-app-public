@@ -19,6 +19,7 @@ import { decodeCursor, page } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, addDays, atLocal, businessDate, localDate } from '../../../shared/time';
 import { optionalText, requireReason } from '../../../shared/validation';
+import { ApprovalService } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import {
@@ -86,6 +87,7 @@ export class PaymentsService {
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(DocNumberService) private readonly docNumbers: DocNumberService,
     @Inject(ATTACHMENT_USAGE) private readonly attachments: AttachmentUsage,
+    @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
@@ -107,7 +109,13 @@ export class PaymentsService {
     actor: { userId: string; roles: readonly string[] },
     reservationId: string,
     opts: { lock?: boolean } = {},
-  ): Promise<{ id: string; code: string; status: string; createdBy: string | null }> {
+  ): Promise<{
+    id: string;
+    code: string;
+    status: string;
+    createdBy: string | null;
+    depositRequiredVnd?: number;
+  }> {
     const port = this.port();
     const r = opts.lock
       ? await port.lockForDeposit(tx, reservationId)
@@ -116,7 +124,15 @@ export class PaymentsService {
     if (!isDesk(actor.roles) && r.createdBy !== actor.userId && r.closerUserId !== actor.userId) {
       throw problem('NOT_FOUND');
     }
-    return { id: r.id, code: r.code, status: r.status, createdBy: r.createdBy };
+    return {
+      id: r.id,
+      code: r.code,
+      status: r.status,
+      createdBy: r.createdBy,
+      ...('depositRequiredVnd' in r && typeof r.depositRequiredVnd === 'number'
+        ? { depositRequiredVnd: r.depositRequiredVnd }
+        : {}),
+    };
   }
 
   private async folioMeta(
@@ -155,12 +171,21 @@ export class PaymentsService {
     }
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
+    // BUG-R2-051 / SEC F1: a hold owes its missing deposit (BR-305) – same cap as createVietQr; otherwise the
+    // folio balance (a hold has no lines yet, so the balance would be 0).
+    const holdCap =
+      r.status === 'hold' && r.depositRequiredVnd !== undefined
+        ? Math.max(0, r.depositRequiredVnd - (await this.folios.depositPaid(tx, folioId)))
+        : undefined;
     const row = await this.payments.recordInTx(tx, actor, folioId, raw, {
       reservationId: r.id,
       reservationCode: r.code,
       channelGroup: raw.method === 'ota_collect' ? await this.channelGroup(tx, r.id) : null,
       reservationCreatedAt: meta.created_at,
+      ...(holdCap !== undefined ? { outstandingCapVnd: holdCap } : {}),
     });
+    // Debt paid after checkout (BR-525) can be the last condition of SM-11 `earned` (BE-15).
+    if (r.status === 'checked_out') await this.tryEarn(tx, r.id, actor.requestId);
     await this.changed(tx, row, r.id);
     return row;
   }
@@ -320,10 +345,33 @@ export class PaymentsService {
       });
     }
     const at = receivedAt ?? now;
-    if (at.getTime() > now.getTime()) {
+    // SEC-BE-44 / F4 (as recordPayment): never before the QR existed nor in the future; a sale dates back at
+    // most `staff_payment_backdate_max_hours`; the desk back-filling > 24 h writes a note.
+    const created = await this.createdAt(tx, p.id);
+    if (at.getTime() > now.getTime() || (created && at.getTime() < created.getTime())) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'receivedAt', code: 'DATE_INVALID' }],
       });
+    }
+    const ageMs = now.getTime() - at.getTime();
+    if (isDesk(actor.roles)) {
+      if (ageMs > 24 * 3_600_000 && !note) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+        });
+      }
+    } else {
+      const tz = await this.folios.timezone(tx);
+      const maxH = await this.params.get<number>(
+        tx,
+        'staff_payment_backdate_max_hours',
+        localDate(now, tz),
+      );
+      if (ageMs > maxH * 3_600_000) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'receivedAt', code: 'DATE_INVALID' }],
+        });
+      }
     }
     if (input.attachmentId) {
       await this.attachments.assertUsable(tx, actor, input.attachmentId, 'deposit_receipt', {
@@ -446,6 +494,14 @@ export class PaymentsService {
     });
   }
 
+  private async createdAt(tx: Tx, paymentId: string): Promise<Date | null> {
+    const { rows } = await tx.query<{ created_at: Date }>(
+      'SELECT created_at FROM payment WHERE id = $1',
+      [paymentId],
+    );
+    return rows[0]?.created_at ?? null;
+  }
+
   private async lockPayment(
     tx: Tx,
     paymentId: string,
@@ -475,9 +531,19 @@ export class PaymentsService {
     const now = this.clock.now();
     await tx.query(
       `UPDATE payment SET reconciliation = $2, reconciled_at = $3, reconciled_by = $4, reconciliation_note = $5,
-          self_reconciled = $6, received_amount_vnd = $7, updated_at = $3, version = version + 1
+          self_reconciled = $6, received_amount_vnd = $7, reconciled_by_role = $8, updated_at = $3,
+          version = version + 1
         WHERE id = $1`,
-      [p.id, o.result, now, actor.userId, o.note, o.selfReconciled, o.receivedAmountVnd],
+      [
+        p.id,
+        o.result,
+        now,
+        actor.userId,
+        o.note,
+        o.selfReconciled,
+        o.receivedAmountVnd,
+        primaryRole(actor.roles),
+      ],
     );
     const code = p.reservation_id
       ? (await this.port().ownership(tx, p.reservation_id))?.code
@@ -516,7 +582,7 @@ export class PaymentsService {
         now,
       );
     } else {
-      await this.earnRecorderCommission(tx, p, now, actor.requestId);
+      await this.tryEarn(tx, p.reservation_id, actor.requestId);
       // SEC I5: the receipt image is kept `deposit_receipt_retention_days` from now on (J16 purges it).
       await anchorPaymentAttachment(this.attachments, tx, p, now);
     }
@@ -525,42 +591,16 @@ export class PaymentsService {
     return out;
   }
 
-  /**
-   * ESC-017 A / SEC F6 (BR-527 "hoa hồng của chính người ghi chỉ thành đạt khi khoản cọc đã đối soát", oracle
-   * BR-527-05): the recorder's live projected commission on this booking → `earned` when none of the
-   * receipts they recorded on the folio is still pending or disputed.
-   */
-  private async earnRecorderCommission(
-    tx: Tx,
-    p: PaymentRowLite & { folio_id: string },
-    now: Date,
-    requestId?: string,
-  ): Promise<void> {
-    if (!p.reservation_id || !p.recorded_by || !SALES_ROLES.includes(p.recorded_by_role ?? ''))
-      return;
-    const { rows: open } = await tx.query(
-      `SELECT 1 FROM payment WHERE folio_id = $1 AND recorded_by = $2 AND status = 'succeeded'
-          AND reversal_of_id IS NULL AND reconciliation IN ('pending', 'disputed') LIMIT 1`,
-      [p.folio_id, p.recorded_by],
+  /** BE-15 / DOM S3-3: try SM-11 `earned` after money moved on a booking (see FolioService). */
+  private async tryEarn(tx: Tx, reservationId: string | null, requestId?: string): Promise<void> {
+    if (!reservationId) return;
+    const own = await this.port().ownership(tx, reservationId);
+    if (!own) return;
+    await this.folios.tryEarnCommissions(
+      tx,
+      { reservationId: own.id, reservationCode: own.code, status: own.status },
+      requestId,
     );
-    if (open[0]) return;
-    const { rows } = await tx.query<{ id: string; amount_vnd: number }>(
-      `UPDATE commission SET status = 'earned', recognized_at = $3, updated_at = $3, version = version + 1
-        WHERE reservation_id = $1 AND payee_user_id = $2 AND status = 'projected'
-        RETURNING id, amount_vnd`,
-      [p.reservation_id, p.recorded_by, now],
-    );
-    for (const c of rows) {
-      await this.audit.recordMoney(tx, {
-        action: 'commission.earned',
-        entityType: 'commission',
-        entityId: c.id,
-        entityCode: p.code,
-        before: { status: 'projected' },
-        after: { status: 'earned', amountVnd: c.amount_vnd },
-        ...(requestId ? { requestId } : {}),
-      });
-    }
   }
 
   // ───────────── reversePayment (2.5, A34) ─────────────
@@ -596,12 +636,8 @@ export class PaymentsService {
     if (p.reconciliation === 'disputed')
       await anchorPaymentAttachment(this.attachments, tx, p, now);
     if (p.type === 'refund' && p.approval_request_id) {
-      // Reversing a refund paid by mistake gives the approved amount back (BR-522).
-      await tx.query(
-        `UPDATE approval_request SET refunded_vnd = refunded_vnd + $2, updated_at = $3, version = version + 1
-          WHERE id = $1`,
-        [p.approval_request_id, p.amount_vnd, now],
-      );
+      // Reversing a refund paid by mistake gives the approved amount back (BR-522) – through SM-10's owner.
+      await this.approvals.addRefunded(tx, p.approval_request_id, p.amount_vnd);
     }
     const resCode = p.reservation_id
       ? (await this.port().ownership(tx, p.reservation_id))?.code
@@ -628,7 +664,7 @@ export class PaymentsService {
     actor: PaymentActor,
     folioId: string,
     input: { amountVnd: number; purpose: string | null; overBalanceReason: unknown },
-  ): Promise<Record<string, unknown> & { payment: PaymentRowLite }> {
+  ): Promise<{ paymentId: string; expiredPaymentIds: string[] }> {
     if (input.purpose === 'billing_period') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
     }
@@ -678,9 +714,6 @@ export class PaymentsService {
         extras: { max: capVnd },
       });
     }
-    const content = transferContentOf(
-      folio.status === 'open' ? target.code : (folio.bill_no ?? target.code),
-    );
     // One pending QR per folio (UK payment_one_pending_qr_per_folio): the older one expires now.
     const { rows: expired } = await tx.query<{ id: string }>(
       `UPDATE payment SET status = 'expired', updated_at = $2, version = version + 1
@@ -729,12 +762,41 @@ export class PaymentsService {
     });
     const payment = (await this.payments.row(tx, id)) as PaymentRowLite;
     await this.changed(tx, payment, target.id);
+    return { paymentId: id, expiredPaymentIds: expired.map((e) => e.id) };
+  }
+
+  /**
+   * SEC-BE-43 / F3: the QR answer is rebuilt from the payment row and the receiving account IN EFFECT at
+   * every call – the idempotency table only keeps the ids, so a replay never hands back an old account or the
+   * full account number from storage.
+   */
+  async qrView(
+    tx: Tx,
+    paymentId: string,
+  ): Promise<
+    Record<string, unknown> & { payment: PaymentRowLite; receivingAccountChangedAt: Date }
+  > {
+    const payment = (await this.payments.row(tx, paymentId)) as
+      (PaymentRowLite & { folio_id: string }) | null;
+    if (!payment || payment.method !== 'vietqr') throw problem('NOT_FOUND');
+    const now = this.clock.now();
+    const tz = await this.folios.timezone(tx);
+    const rollover = await this.rollover(tx, tz, now);
+    const account = await receivingAccountInEffect(tx, businessDate(now, tz, rollover), tz);
+    if (!account) throw problem('PAYMENT_NOT_CONFIGURED');
+    const folio = await this.folios.get(tx, payment.folio_id);
+    const code = payment.reservation_id
+      ? await this.reservationCode(tx, payment.reservation_id)
+      : null;
+    const content = transferContentOf(
+      folio?.status === 'open' || !folio?.bill_no ? (code ?? payment.code) : folio.bill_no,
+    );
     return {
       payment,
       qrPayload: buildVietQrPayload({
         bankBin: account.bankBin,
         accountNo: account.accountNo,
-        amountVnd: input.amountVnd,
+        amountVnd: payment.amount_vnd,
         transferContent: content,
       }),
       transferContent: content,
@@ -742,7 +804,6 @@ export class PaymentsService {
       receivingAccountChangedAt: account.changedAt,
       receivingAccountRecentlyChanged:
         now.getTime() - account.changedAt.getTime() < RECENT_CHANGE_MS,
-      expiredPaymentIds: expired.map((e) => e.id),
     };
   }
 }

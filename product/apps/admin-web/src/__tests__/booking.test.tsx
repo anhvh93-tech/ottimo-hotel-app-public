@@ -84,6 +84,11 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
       pick: /Trần Minh Khoa/,
     });
     await waitFor(() => expect(within(dlg).getByText('Tổng tiền đơn')).toBeInTheDocument());
+    // The deposit actually received is a fact – make it cover either room so the test does not depend
+    // on weekday/weekend prices (201 costs more at weekends → DEPOSIT_INSUFFICIENT, by design).
+    const received = within(dlg).getByLabelText(new RegExp(`^${tv('rsv.amount_received')}`));
+    await user.clear(received);
+    await user.type(received, '2000000');
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
     const alert = await within(dlg).findByText(/Căn 101 đã có đơn của Trần Thu Nga/);
     expect(alert).toBeInTheDocument();

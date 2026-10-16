@@ -157,7 +157,10 @@ describe('Xác nhận tiền mặt sale nộp quầy (A46a) + đối soát (A46)
     ).closest('li')!;
     await user.click(within(card).getByRole('button', { name: tv('approval.approve') }));
     const dlg = await screen.findByRole('dialog', {
-      name: tv('approval.approve_title', { amount: '75.000', code: kim.code }),
+      name: tv('approval.approve_title', {
+        amount: tv('common.currency_vnd', { amount: '75.000' }),
+        code: kim.code,
+      }),
     });
     await user.type(within(dlg).getByLabelText(/^Mật khẩu đăng nhập/), 'wrong-pass');
     await user.click(within(dlg).getByRole('button', { name: tv('approval.approve') }));

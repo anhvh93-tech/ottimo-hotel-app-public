@@ -49,7 +49,6 @@ const LIST_PAYMENTS: Ep = ['GET', `${R}/payments`, 'listPayments'];
 const RECONCILE: Ep = ['POST', `${R}/payments/{paymentId}/actions/reconcile`, 'reconcilePayment'];
 
 /** Set E2E_BUG_R2_027_FIXED=1 once UXD/BE-B ship the 5 RU strings: the RU case then runs as a normal test. */
-const BUG_027_FIXED = process.env.E2E_BUG_R2_027_FIXED === '1';
 
 function rows<T = Record<string, unknown>>(body: unknown): T[] {
   if (Array.isArray(body)) return body as T[];
@@ -261,11 +260,29 @@ test.describe(
       const c = await s2Context(request);
       const today = await stackToday(request);
       const rm = room(c, '201');
-      const res = await bookFree(request, fd, c, { room: rm, nights: 2, today });
+      // dời trong reschedule_window_months (DS-E 3 tháng) TÍNH TỪ NGÀY ĐẾN CŨ (B8, BR-309): đơn gốc 30–120 ngày
+      // tới, ngày mới = ngày đến cũ + 20…60 ngày (bản cũ chọn ngẫu nhiên 150–200 ngày từ hôm nay → có lúc vượt
+      // cửa sổ so với đơn gốc gần → 422 VALUE_OUT_OF_RANGE, ca chập chờn)
+      const orig = await freeWindow(request, fd, rm, 2, { today, minOffset: 30, maxOffset: 120 });
+      const created = await createReservation(
+        request,
+        fd,
+        reservationBody(c, {
+          room: rm,
+          arrival: orig.arrival,
+          departure: orig.departure,
+          guestId: await newGuest(request, fd),
+        }),
+      );
+      test.skip(created.status === 409, 'môi trường: khoảng vừa kiểm trống đã bị ca song song lấy');
+      expect(created.status, JSON.stringify(created.body)).toBe(201);
+      track('reservation', created.body.id);
+      const res = created.body;
+      const fromOrig = Math.round((Date.parse(orig.arrival) - Date.parse(today)) / 86_400_000);
       const target = await freeWindow(request, fd, rm, 2, {
         today,
-        minOffset: 150,
-        maxOffset: 200,
+        minOffset: fromOrig + 20,
+        maxOffset: fromOrig + 60,
       });
       const body = {
         mode: 'postpone_instead_of_cancel',
@@ -284,7 +301,11 @@ test.describe(
       expect(after.body.arrivalDate).toBe(target.arrival);
       expect(after.body.depositPaidVnd, 'giữ nguyên cọc').toBe(before.body.depositPaidVnd);
       // (3) lần 2 → chặn (chỉ 1 lần – BR-309)
-      const again = await freeWindow(request, fd, rm, 2, { today, minOffset: 210, maxOffset: 250 });
+      const again = await freeWindow(request, fd, rm, 2, {
+        today,
+        minOffset: fromOrig + 65,
+        maxOffset: fromOrig + 85,
+      });
       const m2 = await action(request, mgr, res.id, 'move', {
         ...body,
         arrivalDate: again.arrival,
@@ -318,19 +339,18 @@ test.describe(
       expect(r.body.text, 'không lẫn chữ tiếng Việt có dấu').not.toMatch(
         /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i,
       );
-      const exp = q.body.expiresAt.slice(0, 10).split('-');
-      expect(r.body.text, 'có ngày hết hiệu lực').toMatch(
-        new RegExp(`${exp[2]}/${exp[1]}|${exp[0]}-${exp[1]}-${exp[2]}|${Number(exp[2])}`),
-      );
+      // expiresAt là mốc LOẠI TRỪ (vd. 2026-10-21T00:00+07:00) – văn bản ghi thời điểm cuối còn hiệu lực
+      // ("23:59 20/10/2026"): so ngày của (expiresAt − 1 ms) theo giờ VN, đủ dd/mm/yyyy (bản cũ so "20" lọt cả "2026")
+      const last = new Date(Date.parse(q.body.expiresAt) - 1).toLocaleDateString('en-GB', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      });
+      expect(r.body.text, `có ngày hết hiệu lực ${last}`).toContain(last);
     });
 
-    test('TC-L5-016 (ru) văn bản báo giá tiếng Nga: chữ Kirin, không rơi về mẫu tiếng Anh (BUG-R2-027)', async ({
+    test('TC-L5-016 (ru) văn bản báo giá tiếng Nga: chữ Kirin, không rơi về mẫu tiếng Anh (hồi quy BUG-R2-027)', async ({
       request,
     }) => {
-      test.fail(
-        !BUG_027_FIXED,
-        'BUG-R2-027: QUOTE_COPY_MISSING.ru 5 khóa → văn bản RU ra tiếng Anh',
-      );
+      // BUG-R2-027 Closed (S3 testing 17/10): BE-B sinh lại quote-copy.ts với 5 chuỗi RU của UXD – ca chạy thường
       await requireEndpoints(request, 'TC-L5-016', [EP.saveQuote, QUOTE_TEXT]);
       const sal = await sessionOrSkip(request, 'qa.sal');
       const c = await s2Context(request);

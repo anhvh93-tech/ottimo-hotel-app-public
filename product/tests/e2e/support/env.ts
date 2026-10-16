@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 export const PRODUCT_DIR = fileURLToPath(new URL('../../../', import.meta.url));
 export const E2E_DIR = fileURLToPath(new URL('../', import.meta.url));
-export const AUTH_DIR = fileURLToPath(new URL('../.auth/', import.meta.url));
+/** Session cache dir (gitignored). E2E_AUTH_DIR lets two runs against two disposable stacks keep separate caches. */
+export const AUTH_DIR = process.env.E2E_AUTH_DIR
+  ? `${process.env.E2E_AUTH_DIR.replace(/\/$/, '')}/`
+  : fileURLToPath(new URL('../.auth/', import.meta.url));
 
 function fromDotEnv(key: string): string | undefined {
   const file = `${PRODUCT_DIR}.env`;

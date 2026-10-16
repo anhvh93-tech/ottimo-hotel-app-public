@@ -2,7 +2,7 @@
 
 - Chủ sở hữu: INT | Tạo: Round 1 Bước 2 (15/10/2026) | Sửa: **Round 1 Bước 4 (15/10/2026) – Interface v0.2** theo review ARC (FB-R1-ARC-INT-01…18), SEC (FB-R1-SEC-INT-01…12), DOM (FB-R1-DOM-INT-01…08)
 - Ngôn ngữ/khung: **TypeScript**, package `@ottimo/integrations` (ADR-002, ADR-011). Lõi (`services/api`) **chỉ** import `@ottimo/integrations/contracts` (kiểu + lỗi + ngữ cảnh); cài đặt adapter (có SDK/HTTP của đối tác) chỉ được nạp qua `IntegrationRegistry` trong tầng hạ tầng.
-- Trạng thái mã (R2 tuần 1, W9 – 16/10/2026): `contracts/` có **đủ** interface 3.0–3.6 (`common`, `channel`, `payment`, `bankfeed`, `einvoice`, `doorlock`, `notification`, `guest-registration`) – chép nguyên chữ ký v0.2, chỉ đặt tên cho các kiểu tham số/kết quả (vd. `CreatePaymentRequest`, `EInvoiceIssueRequest`). `common/` (export `@ottimo/integrations/common`) có `scrubCardData`, `EnvCredentialProvider`, `assertSafeConfig`/`findUnsafeIntegrationConfig` – `services/api/src/config.ts` gọi hàm này lúc khởi động. Adapter đã cài: Mock Notification. **Sprint 3 (16/10/2026)**: `qr/` (export `./qr` – bộ mã hóa QR tự viết, TS thuần, dùng được trong trình duyệt), `payment/` (export `./payment` – `VietQrPaymentAdapter`, `buildVietQrPayload`, `renderQrPng`), `doorlock/` (export `./doorlock` – `manual` mặc định, `Mock`, `computeDoorValidity`, `generateDoorCode`), `guest-registration/` (export `./guest-registration` – `manual`). Interface cho BE/FE: `rounds/round-02/outputs/INT/s3-report.md` mục Interface. Đổi chữ ký interface phải qua ARC.
+- Trạng thái mã (R2 tuần 1, W9 – 16/10/2026): `contracts/` có **đủ** interface 3.0–3.6 (`common`, `channel`, `payment`, `bankfeed`, `einvoice`, `doorlock`, `notification`, `guest-registration`) – chép nguyên chữ ký v0.2, chỉ đặt tên cho các kiểu tham số/kết quả (vd. `CreatePaymentRequest`, `EInvoiceIssueRequest`). `common/` (export `@ottimo/integrations/common`) có `scrubCardData`, `EnvCredentialProvider`, `assertSafeConfig`/`findUnsafeIntegrationConfig` – `services/api/src/config.ts` gọi hàm này lúc khởi động. Adapter đã cài: Mock Notification. **Sprint 3 (16/10/2026)**: `qr/` (export `./qr` – bộ mã hóa QR tự viết, TS thuần, dùng được trong trình duyệt), `payment/` (export `./payment` – `VietQrPaymentAdapter`, `buildVietQrPayload`, `renderQrPng`), `doorlock/` (export `./doorlock` – `manual` mặc định, `Mock`, `computeDoorValidity`, `generateDoorCode`, `isWeakDoorCode`, `matchesBirthdayWithoutRandom`), `guest-registration/` (export `./guest-registration` – `manual`: **không dựng trường**, chỉ chuyển tiếp dữ liệu cổng do BE-C `registration/internal/rules.ts` dựng + kiểm mã hồ sơ – FB-R2-ARC-BE-S3-20). **Phản hồi review S3 (17/10/2026)**: tài khoản nhận VietQR **chỉ** từ tham số `payment_receiving_account` (bỏ nhánh `PAYMENT_VIETQR_*` – FB-R2-SEC-INT-06, FB-R2-ARC-BE-S3-29). Interface cho BE/FE: `rounds/round-02/outputs/INT/s3-report.md` mục Interface. Đổi chữ ký interface phải qua ARC.
 - Danh sách tích hợp, chi phí, việc INV cần cung cấp: `product/docs/integrations.md`
 
 ## 1. Nguyên tắc
@@ -168,7 +168,7 @@ interface PaymentAdapter {
 - Adapter chỉ trả `pending|succeeded|failed|expired` – đúng tập con của `payment.status`. `reversed` là thao tác nội bộ (MGR+ ghi sai → giao dịch đảo), adapter không bao giờ trả.
 - **Hoàn tiền là giao dịch riêng**: lõi tạo dòng `payment(type=refund, amount_vnd < 0, status=pending, approval_request_id)` **sau khi** yêu cầu SM-10 `approved` (BR-522) → worker gọi `refund({ refundCode: <code dòng hoàn>, ... })` → kết quả cập nhật **chính dòng hoàn** (`succeeded|failed`, `provider_txn_id = providerRefundTxnId`). Dòng thu gốc giữ nguyên `succeeded`.
 - `payment.method` = `gateway` (`vietqr|vnpay|momo`); `channel` (`qr|atm|intl_card|wallet`) là phương thức con của cổng → đề nghị ARC thêm cột tùy chọn `payment.method_detail` (hoặc ghi vào `integration_log` nếu ARC không thêm). `payment.provider` = `vnpay|momo|sepay|payos` (nguồn xác nhận); `provider_txn_id` = mã giao dịch cổng.
-- VietQR: chỉ `createPayment` → `qrPayload` (tự sinh chuỗi EMVCo/NAPAS); không có callback. Xác nhận bằng `BankFeedAdapter` (3.2b) hoặc FD+ bấm tay (SM-12 `pending → succeeded`, `received_at`, `recorded_by`).
+- VietQR: chỉ `createPayment` → `qrPayload` (tự sinh chuỗi EMVCo/NAPAS); tài khoản nhận **chỉ** từ tham số `payment_receiving_account` (OWN + xác nhận lại + audit + push – SEC F3), không có nguồn env (FB-R2-SEC-INT-06); không có callback. Xác nhận bằng `BankFeedAdapter` (3.2b) hoặc FD+ bấm tay (SM-12 `pending → succeeded`, `received_at`, `recorded_by`).
 
 **Quy tắc lõi khi nhận IPN (bắt buộc, thứ tự):**
 1. `verifyCallback` → `ok:false` ⇒ `callbackAck('invalid_signature')`, ghi `integration_log`, **không đọc thêm gì**. So sánh chữ ký bằng `crypto.timingSafeEqual` trên buffer cùng độ dài; kiểm `vnp_TmnCode`/`partnerCode` khớp khóa của `ctx`.
@@ -269,6 +269,7 @@ interface GuestRegistrationAdapter {
 - Hồ sơ đoàn có cả khách VN và NN (`registration.kind = mixed` ở ERD) → trả theo từng người.
 - Hạn khai báo theo BR-602 (khách VN) / BR-603 (khách NN, giờ đến + 12 giờ – chờ luật sư ESC-001), tham số hóa; job nhắc trước hạn X giờ.
 - Chỉ có cài đặt `semi_auto` – **không** tự điền/scrape cổng BCA.
+- **Một nguồn dữ liệu cổng** (FB-R2-ARC-BE-S3-20, 17/10/2026): danh sách trường, thứ tự, định dạng ngày (`portal_date_format`), quốc tịch (`portal_nationality_format`), BR-605 và văn bản sao chép chỉ do BE-C `registration/internal/rules.ts` dựng. Adapter `manual` nhận `RegistrationPortalSource` (lõi cài) và chỉ kiểm URL cổng https + mã hồ sơ `PORTAL_REFERENCE_PATTERN`. URL cổng: `GUEST_REGISTRATION_PORTAL_URL_FOREIGNER` / `_VN` (BE-C `portal-config.ts`).
 
 ## 4. Biến môi trường (chỉ tên – OPS đưa vào `product/infra/.env.example` với giá trị trống; `EnvCredentialProvider` đọc)
 ```
@@ -284,9 +285,8 @@ CHANNEL_SYNC_FAILURE_ALERT_MINUTES=15
 PAYMENT_METHODS_ENABLED=vietqr   # danh sách bật, vd. vietqr,vnpay
 PAYMENT_MOCK_SCENARIO=ok
 PAYMENT_VIETQR_MODE=off          # off | mock | production (VietQR không có sandbox – chỉ sinh chuỗi)
-PAYMENT_VIETQR_BANK_BIN=
-PAYMENT_VIETQR_ACCOUNT_NO=       # toàn vẹn quan trọng – chỉ đổi qua .env trên máy chủ (SEC-12)
-PAYMENT_VIETQR_ACCOUNT_NAME=
+# PAYMENT_VIETQR_BANK_BIN / _ACCOUNT_NO / _ACCOUNT_NAME: ĐÃ BỎ (17/10/2026, FB-R2-SEC-INT-06) – tài khoản nhận
+#   chỉ ở tham số payment_receiving_account; assertSafeConfig từ chối khởi động nếu 3 biến này có giá trị
 PAYMENT_VNPAY_MODE=off           # off | mock | sandbox | production
 PAYMENT_VNPAY_TMN_CODE=
 PAYMENT_VNPAY_HASH_SECRET=

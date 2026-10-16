@@ -6,6 +6,11 @@
 
 ## Interface (công bố ngày 1 – BE-A, BE-B, BE-C, FE dùng)
 
+> **Cập nhật 17/10/2026 sau review chéo S3** (chi tiết: `rounds/round-02/responses/s3-INT.md`):
+> - I-1: `new VietQrPaymentAdapter({ receivingAccount, now })` – **cả hai bắt buộc**; bỏ `credentials` và nhánh `PAYMENT_VIETQR_*`; `VietQrPrepared` bỏ `accountNoMasked`, `accountSource`; bỏ `maskAccountNo` (mẫu che duy nhất = BE-B `maskedAccountNo` `9704••••1234`).
+> - I-2: `computeDoorValidity` thêm `actualCheckInAt`, `lateGraceUntil`, `sameDayArrival`; thêm `isWeakDoorCode`, `matchesBirthdayWithoutRandom`; `createDoorLockAdapter(provider, { now })` và `ManualDoorLockAdapter({ now })` bắt buộc `now`.
+> - I-3: INT **không dựng trường** nữa – nguồn duy nhất là BE-C `rules.ts`. Adapter: `new ManualGuestRegistrationAdapter(source: RegistrationPortalSource)`; còn `validatePortalReference`, `PORTAL_REFERENCE_PATTERN`, `assertPortalUrl`. Khối mã I-3 bên dưới là bản 16/10, **đã thay**.
+
 Tất cả là mã chạy trong `@ottimo/integrations`, không gọi mạng, không SDK, không đọc `process.env`. Lỗi luôn là `IntegrationError` (README 1.6).
 
 ### I-1 VietQR (cho BE-B: `createVietQr`, `confirmDeposit`; FE: vẽ QR)

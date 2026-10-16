@@ -632,3 +632,17 @@ button.photo.add{border:2px dashed var(--line-strong);background:var(--surface);
 .upload-slot.gw-slot .grow{min-width:0;flex:1}
 .gw-docs-row{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .gw-slot > .li-s{flex-basis:100%}
+
+/* 16. In Phiếu thanh toán từ app (H16 16.5 – FB-R2-UXD-FE-S3-06). FE render một bản tờ phiếu vào
+   <div class="print-root"> là con trực tiếp của <body> (portal) khi hộp Phiếu thanh toán đang mở, rồi gọi
+   window.print(). Màn hình: ẩn. Khi in: chỉ in tờ phiếu, nền trắng chữ đen bất kể sáng/tối (giấy, tiết kiệm mực). */
+.print-root{display:none}
+@media print{
+  @page{size:A5;margin:10mm}
+  body:has(> .print-root) > :not(.print-root){display:none !important}
+  body > .print-root{display:block}
+  body:has(> .print-root){background:#fff}
+  /* token sáng cố định cho giấy (cùng giá trị token sáng của tokens.css) – không đổi theo chế độ tối */
+  .print-root{--surface:#FFFFFF;--ink:#2B2B2B;--muted:#635F58;--faint:#6A645B;--line:#E0D8CA;--line-strong:#857E71;--ok:#356B49;color-scheme:light;color:var(--ink);background:#fff}
+  .print-root .bill-paper{border:0;box-shadow:none;max-width:none;padding:0}
+}

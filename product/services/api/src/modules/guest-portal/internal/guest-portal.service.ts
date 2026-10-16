@@ -18,7 +18,7 @@ import type { Tx } from '../../../db/database';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import type { GuestPrincipal } from '../../../shared/http/guest-session';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate, atLocal, localDate, toZonedIso } from '../../../shared/time';
+import { type LocalDate, atLocal, businessDate, localDate, toZonedIso } from '../../../shared/time';
 import { containsCardNumber } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
@@ -27,6 +27,7 @@ import { ParameterService } from '../../platform/public/parameter.service';
 import { setEta } from '../../reservations/public/stay-view';
 import {
   RegistrationService,
+  SYSTEM_ACTOR,
   type StayView,
   readStay,
 } from '../../registration/public/registration.service';
@@ -40,6 +41,8 @@ type Locale = (typeof LOCALES)[number];
 const STEPS = ['notice', 'documents', 'eta', 'consent'] as const;
 type Step = (typeof STEPS)[number] | 'done';
 const ORDER: readonly Step[] = ['notice', 'documents', 'eta', 'consent', 'done'];
+/** Locales with a privacy notice approved by UXD + SEC (content-guide HR-01). */
+const APPROVED_NOTICE_LOCALES: readonly string[] = ['vi', 'en'];
 
 /** SEC E14-08 / A-31: map links only to these exact hosts, https only. */
 export function safeMapUrl(raw: string | null): string | null {
@@ -107,7 +110,7 @@ export class GuestPortalService {
     reservationId: string,
     guestBaseUrl: string,
   ): Promise<IssuedLink> {
-    const stay = await readStay(tx, reservationId);
+    const stay = await readStay(tx, reservationId, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     // EP06 8.2 [GIẢ ĐỊNH BA]: links from `confirmed` (also in-house guests); never hold/cancelled/no-show/out.
     if (stay.status !== 'confirmed' && stay.status !== 'in_house') {
@@ -153,7 +156,7 @@ export class GuestPortalService {
   }
 
   async bookingVisible(tx: Tx, reservationId: string): Promise<boolean> {
-    return (await readStay(tx, reservationId)) !== null;
+    return (await readStay(tx, reservationId, SYSTEM_ACTOR)) !== null;
   }
 
   /** SR-GST-04 / B-13: every token and session of the booking, same transaction. Returns tokens revoked. */
@@ -186,7 +189,7 @@ export class GuestPortalService {
     token: { id: string; reservationId: string; expiresAt: Date },
     acceptLanguage: string | undefined,
   ): Promise<{ sid: string; expiresAt: Date; body: Record<string, unknown> }> {
-    const stay = await readStay(tx, token.reservationId);
+    const stay = await readStay(tx, token.reservationId, SYSTEM_ACTOR);
     if (!stay || stay.status === 'cancelled' || stay.status === 'no_show') {
       throw problem('GUEST_LINK_INVALID');
     }
@@ -226,8 +229,10 @@ export class GuestPortalService {
         reservationCode: stay.code,
         stayEnded: stay.status === 'checked_out',
         verification: { emailOtpAvailable: false, locked: false },
-        guestFirstName: stay.bookerFirstName,
-        roomNo: stay.roomNo,
+        // SEC BE-51 (6): after checkout the page only says thank you – no name, no room.
+        ...(stay.status === 'checked_out'
+          ? {}
+          : { guestFirstName: stay.bookerFirstName, roomNo: stay.roomNo }),
         locale,
         expiresAt: toZonedIso(token.expiresAt, c.tz),
         level2ExpiresAt: null,
@@ -236,7 +241,7 @@ export class GuestPortalService {
   }
 
   private async activeStay(tx: Tx, g: GuestPrincipal): Promise<StayView> {
-    const stay = await readStay(tx, g.reservationId);
+    const stay = await readStay(tx, g.reservationId, SYSTEM_ACTOR);
     if (!stay || stay.status === 'cancelled' || stay.status === 'no_show') {
       throw problem('GUEST_LINK_INVALID');
     }
@@ -303,8 +308,9 @@ export class GuestPortalService {
   /** EP06 8.4: closed once the desk entered documents (≥ partial), the guest is in-house, or not confirmed. */
   private async available(tx: Tx, stay: StayView): Promise<boolean> {
     if (stay.status !== 'confirmed') return false;
-    const reg = await this.regs.registrationOfReservation(tx, stay.reservationId);
-    return !!reg && (reg.status === 'none' || reg.status === 'pre');
+    // Read-only (no K1 record created on a GET – ARC FB-S3-27 (6)); no record yet = nothing entered.
+    const { registration: reg } = await this.regs.guestProgress(tx, stay.reservationId);
+    return !reg || reg.status === 'none' || reg.status === 'pre';
   }
 
   private async row(tx: Tx, reservationId: string, lock = false): Promise<OciRow | null> {
@@ -331,25 +337,32 @@ export class GuestPortalService {
     return this.params.get<string>(tx, 'privacy_notice_version', today);
   }
 
-  /** ĐK-2: exactly the allowed keys of OnlineCheckin – nothing about images, numbers or names. */
+  /** Business date of the property (BR-010) – the parameters of the notice/consent are read for it. */
+  private async businessToday(tx: Tx): Promise<LocalDate> {
+    const c = await this.tz(tx);
+    const rollover = await this.params.get<string>(tx, 'business_day_rollover', c.today);
+    return businessDate(c.now, c.tz, rollover);
+  }
+
+  /**
+   * ĐK-2 (SEC 16/10 + 17/10): exactly the 11 allowed keys of OnlineCheckin – nothing about images, numbers
+   * or names. `currentNoticeVersion` / `imageRetentionDays` = property parameters of the business date
+   * (privacy_notice_version, id_image_retention_days_after_checkout) the client must show and send back.
+   * Read-only (registration data through registration/public – ARC FB-S3-15 (f)).
+   */
   async view(tx: Tx, g: GuestPrincipal): Promise<Record<string, unknown>> {
     const c = await this.tz(tx);
-    const reg = await this.regs.registrationOfReservation(tx, g.reservationId);
+    const bizToday = await this.businessToday(tx);
+    const progress = await this.regs.guestProgress(tx, g.reservationId);
+    const stay = await readStay(tx, g.reservationId, SYSTEM_ACTOR);
     const row = await this.row(tx, g.reservationId);
-    const current = await this.noticeVersion(tx, c.today);
+    const current = await this.noticeVersion(tx, bizToday);
+    const retentionDays = await this.params.get<number>(
+      tx,
+      'id_image_retention_days_after_checkout',
+      bizToday,
+    );
     const accepted = !!row?.notice_accepted_at && row.notice_version === current;
-    const { rows: people } = await tx.query<{ person_index: number }>(
-      `SELECT DISTINCT d.person_index FROM guest_document d
-        WHERE d.reservation_id = $1 AND d.removed_at IS NULL AND d.person_index IS NOT NULL
-          AND EXISTS (SELECT 1 FROM document_image i WHERE i.guest_document_id = d.id)
-        ORDER BY d.person_index`,
-      [g.reservationId],
-    );
-    const { rows: consent } = await tx.query(
-      `SELECT 1 FROM consent_record c JOIN registration x ON x.id = c.registration_id
-        WHERE x.reservation_id = $1 AND c.purpose = 'P02B_ID_IMAGE_RETENTION' AND c.person_index = 1 LIMIT 1`,
-      [g.reservationId],
-    );
     const step: Step = row?.completed_at
       ? 'done'
       : accepted
@@ -357,14 +370,16 @@ export class GuestPortalService {
         : 'notice';
     return {
       currentStep: step === 'notice' && accepted ? 'documents' : step,
-      requiredPeople: reg?.required_count ?? 0,
-      uploadedPeople: people.map((p) => p.person_index),
+      requiredPeople: progress.registration?.required_count ?? stay?.personsTotal ?? 0,
+      uploadedPeople: progress.uploadedPeople,
       ...(row?.eta_time ? { etaTime: row.eta_time } : {}),
-      consentRecorded: consent.length > 0,
+      consentRecorded: progress.consentPeople.some((p) => p.personIndex === 1),
       ...(row?.completed_at ? { completedAt: toZonedIso(row.completed_at, c.tz) } : {}),
       noticeAccepted: accepted,
       lateArrival: row?.late_arrival ?? false,
       deferredPeople: row?.deferred_people ?? [],
+      currentNoticeVersion: current,
+      imageRetentionDays: retentionDays,
     };
   }
 
@@ -392,8 +407,9 @@ export class GuestPortalService {
     );
   }
 
-  private async noticeOk(tx: Tx, row: OciRow, today: LocalDate): Promise<boolean> {
-    return !!row.notice_accepted_at && row.notice_version === (await this.noticeVersion(tx, today));
+  private async noticeOk(tx: Tx, row: OciRow): Promise<boolean> {
+    const current = await this.noticeVersion(tx, await this.businessToday(tx));
+    return !!row.notice_accepted_at && row.notice_version === current;
   }
 
   async update(
@@ -406,8 +422,8 @@ export class GuestPortalService {
     const row = await this.ensureRow(tx, g.reservationId);
     await this.countWrite(tx, row, c.today);
     const errors: FieldError[] = [];
-    const current = await this.noticeVersion(tx, c.today);
-    let noticeNow = await this.noticeOk(tx, row, c.today);
+    const current = await this.noticeVersion(tx, await this.businessToday(tx));
+    let noticeNow = await this.noticeOk(tx, row);
     const sets: string[] = [];
     const params: unknown[] = [];
     const set = (col: string, v: unknown) => {
@@ -419,7 +435,9 @@ export class GuestPortalService {
         errors.push({ field: 'noticeVersion', code: 'NOT_IN_LIST' });
       } else {
         set('notice_version', current);
-        set('notice_locale', g.locale);
+        // SEC decision (a) 17/10: the evidence names the language really SHOWN – approved notice texts
+        // exist in vi/en only; a `ru` session reads the EN text (MOB RU_UNREVIEWED_LEGAL).
+        set('notice_locale', APPROVED_NOTICE_LOCALES.includes(g.locale) ? g.locale : 'en');
         set('notice_accepted_at', c.now);
         noticeNow = true;
       }
@@ -492,6 +510,34 @@ export class GuestPortalService {
     return this.view(tx, g);
   }
 
+  /**
+   * Cheap checks BEFORE any image is decoded (ARC FB-S3-18, SEC BE-47) – read-only transaction: stay
+   * active, flow open, notice read, person number, 30 files per booking.
+   */
+  async precheckUpload(
+    tx: Tx,
+    g: GuestPrincipal,
+    personIndex: number,
+    files: number,
+  ): Promise<void> {
+    const stay = await this.openFlow(tx, g);
+    const row = await this.row(tx, g.reservationId);
+    if (!row || !(await this.noticeOk(tx, row))) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'notice' } });
+    }
+    const progress = await this.regs.guestProgress(tx, g.reservationId);
+    const required = progress.registration?.required_count ?? stay.personsTotal;
+    if (personIndex > required) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'personIndex', code: 'NOT_IN_LIST' }],
+      });
+    }
+    if (files > MAX_IMAGES_PER_PERSON) throw fileRejected('image', 'TOO_MANY_FILES');
+    if (progress.guestUploads + files > GUEST_FILES_PER_BOOKING) {
+      throw fileRejected('image', 'TOO_MANY_FILES');
+    }
+  }
+
   async upload(
     tx: Tx,
     g: GuestPrincipal,
@@ -502,7 +548,7 @@ export class GuestPortalService {
     await this.openFlow(tx, g);
     const c = await this.tz(tx);
     const row = await this.ensureRow(tx, g.reservationId);
-    if (!(await this.noticeOk(tx, row, c.today))) {
+    if (!(await this.noticeOk(tx, row))) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: 'notice' } });
     }
     const reg = await this.regs.registrationOfReservation(tx, g.reservationId);
@@ -513,11 +559,10 @@ export class GuestPortalService {
       });
     }
     if (images.length > MAX_IMAGES_PER_PERSON) throw fileRejected('image', 'TOO_MANY_FILES');
-    const { rows } = await tx.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM document_image WHERE registration_id = $1 AND uploaded_via = 'guest_app'`,
-      [reg.id],
-    );
-    if ((rows[0]?.n ?? 0) + images.length > GUEST_FILES_PER_BOOKING) {
+    // Re-checked in the write transaction under the registration lock (the precheck was read-only).
+    await this.regs.lockForGuest(tx, reg.id);
+    const { guestUploads } = await this.regs.guestProgress(tx, g.reservationId);
+    if (guestUploads + images.length > GUEST_FILES_PER_BOOKING) {
       throw fileRejected('image', 'TOO_MANY_FILES');
     }
     await this.regs.guestUpload(
@@ -570,7 +615,20 @@ export class GuestPortalService {
     }
     if (body.partyMemberId !== undefined)
       errors.push({ field: 'partyMemberId', code: 'NOT_IN_LIST' });
-    const current = await this.noticeVersion(tx, c.today);
+    const bizToday = await this.businessToday(tx);
+    const current = await this.noticeVersion(tx, bizToday);
+    const retentionDays = await this.params.get<number>(
+      tx,
+      'id_image_retention_days_after_checkout',
+      bizToday,
+    );
+    // SEC ĐK-2 17/10: the days the guest read in the sentence = the parameter in force.
+    if (body.retentionDays !== retentionDays) {
+      errors.push({
+        field: 'retentionDays',
+        code: body.retentionDays === undefined ? 'REQUIRED' : 'NOT_IN_LIST',
+      });
+    }
     if (body.noticeVersion !== current) {
       errors.push({
         field: 'noticeVersion',
@@ -585,20 +643,33 @@ export class GuestPortalService {
     }
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const row = await this.ensureRow(tx, g.reservationId);
-    if (!(await this.noticeOk(tx, row, c.today))) {
+    if (!(await this.noticeOk(tx, row))) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: 'notice' } });
     }
+    // SEC BE-49: consent writes count in the 20 writes/day of the booking (SR-RL-05).
+    await this.countWrite(tx, row, c.today);
     const reg = await this.regs.registrationOfReservation(tx, g.reservationId);
     if (!reg) throw problem('NOT_FOUND');
-    const locked = await this.regs.lockForGuest(tx, reg.id);
-    const doc = await this.regs.documentOfPerson(tx, reg.id, 1);
-    await this.regs.recordConsent(tx, { type: 'guest', requestId }, locked, doc, {
-      decision: body.decision as 'granted' | 'refused',
-      noticeVersion: current,
-      locale: body.locale as Locale,
-      channel: 'guest_app',
-      personIndex: 1,
-    });
+    const progress = await this.regs.guestProgress(tx, g.reservationId);
+    const last = progress.consentPeople.find((p) => p.personIndex === 1);
+    const same =
+      !!last &&
+      last.decision === body.decision &&
+      last.noticeVersion === current &&
+      last.retentionDays === retentionDays;
+    if (!same) {
+      // A repeated identical answer (same notice, same days) is not a new consent record.
+      const locked = await this.regs.lockForGuest(tx, reg.id);
+      const doc = await this.regs.documentOfPerson(tx, reg.id, 1);
+      await this.regs.recordConsent(tx, { type: 'guest', requestId }, locked, doc, {
+        decision: body.decision as 'granted' | 'refused',
+        noticeVersion: current,
+        locale: body.locale as Locale,
+        channel: 'guest_app',
+        personIndex: 1,
+        retentionDays,
+      });
+    }
     if (ORDER.indexOf(row.current_step) < ORDER.indexOf('consent')) {
       await tx.query(
         `UPDATE online_checkin SET current_step = 'consent', updated_at = $2 WHERE id = $1`,
@@ -632,7 +703,7 @@ export class GuestPortalService {
     }
     const missing = (step: Step) =>
       problem('INVALID_TRANSITION', { extras: { currentState: step } });
-    if (!(await this.noticeOk(tx, row, c.today))) throw missing('notice');
+    if (!(await this.noticeOk(tx, row))) throw missing('notice');
     const view = await this.view(tx, g);
     const uploaded = new Set(view.uploadedPeople as number[]);
     // ĐK-2: server drops deferred indexes that already have documents.

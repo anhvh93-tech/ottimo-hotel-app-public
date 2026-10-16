@@ -232,7 +232,7 @@ export function RoomDrawer({
             />
           )}
         </Field>
-        <fieldset className="card" style={{ background: 'var(--bg)', margin: '0 0 14px' }}>
+        <fieldset className="card inset">
           <legend className="label-h">{t('rooms.capacity')}</legend>
           <div className="occ-row">
             <div className="occ">
@@ -247,10 +247,7 @@ export function RoomDrawer({
                 incLabel={`${t('rooms.inc')} ${t('rooms.col_base')}`}
               />
             </div>
-            <div
-              className={`occ field${errors.maxOccupancy || conflicts ? ' invalid' : ''}`}
-              style={{ margin: 0 }}
-            >
+            <div className={`occ field flush${errors.maxOccupancy || conflicts ? ' invalid' : ''}`}>
               <span id={`${ids}-max`}>{t('rooms.col_max')}</span>
               <Stepper
                 value={max}
@@ -268,18 +265,16 @@ export function RoomDrawer({
               />
             </div>
           </div>
-          <p className="help muted" style={{ fontSize: '.75rem', margin: '8px 0 0' }}>
-            {t('rooms.capacity_help')}
-          </p>
+          <p className="caption mt-8">{t('rooms.capacity_help')}</p>
           {errors.maxOccupancy ? (
-            <div className="field invalid" style={{ margin: '8px 0 0' }}>
+            <div className="field invalid mt-8">
               <div className="err" id={`${ids}-max-e`} role="alert">
                 {errors.maxOccupancy}
               </div>
             </div>
           ) : null}
           {conflicts ? (
-            <div style={{ marginTop: 10 }}>
+            <div className="mt-8">
               <Alert tone="bad" id={`${ids}-max-e`} title={t('rooms.below_title', { max })}>
                 <span>{t('rooms.below_body')}</span>
                 <ul className="err-list">
@@ -298,7 +293,7 @@ export function RoomDrawer({
             </div>
           ) : null}
         </fieldset>
-        <fieldset className="card" style={{ background: 'var(--bg)', margin: '0 0 14px' }}>
+        <fieldset className="card inset">
           <legend className="label-h">{t('rooms.price')}</legend>
           <div className="g-2">
             <Field label={t('rooms.col_month')} error={errors['listPrice.monthlyListPriceVnd']}>
@@ -361,15 +356,13 @@ export function RoomDrawer({
               </Field>
             </div>
           ) : null}
-          <p className="help muted" style={{ fontSize: '.75rem', margin: 0 }}>
-            {t('rooms.snapshot_note')}
-          </p>
+          <p className="caption">{t('rooms.snapshot_note')}</p>
         </fieldset>
         <div className="row">
           <Switch checked={sellable} onChange={setSellable} describedBy={`${ids}-stop`}>
             {t('rooms.selling')}
           </Switch>
-          <span className="help muted" id={`${ids}-stop`} style={{ fontSize: '.75rem' }}>
+          <span className="caption" id={`${ids}-stop`}>
             {t('rooms.stop_help')}
           </span>
         </div>

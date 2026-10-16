@@ -11,8 +11,25 @@ import {
   requireEndpoints,
   sessionOrSkip,
   type Problem,
+  stackToday,
   type StaffSession,
 } from '../support/api.js';
+import {
+  EP,
+  calculateQuote,
+  cleanupTracked,
+  createHold,
+  createReservation,
+  freeWindow,
+  newGuest,
+  oracle,
+  oracleNum,
+  quoteInput,
+  reservationBody,
+  room,
+  s2Context,
+  saveQuote,
+} from '../support/s2.js';
 
 const SET: [string, string, string] = [
   'PUT',
@@ -306,6 +323,7 @@ test.describe(
   { tag: ['@api', '@sprint1'] },
   () => {
     test.beforeEach(() => needSeedPassword());
+    test.afterEach(async ({ request }) => cleanupTracked(request));
 
     interface Room {
       id: string;
@@ -374,11 +392,82 @@ test.describe(
 
     // TC-NT-039, TC-NT-040(a–d), TC-NT-018, TC-NT-019 đổi căn/giá đang hiệu lực → chạy tuần tự trong
     // e2e/serial/platform-mutations.serial.spec.ts (Sprint 3 kickoff, PO acceptance N-1).
-    test('TC-NT-020 sức chứa ở form đặt/giữ chỗ/báo giá → 422 CAPACITY_EXCEEDED', async () => {
-      test.skip(
-        true,
-        'TC-NT-020: chờ createReservation/createHoldFromQuote/calculateQuote (Sprint 2)',
-      );
+    test('TC-NT-020 sức chứa ở form đặt/giữ chỗ/báo giá → 422 CAPACITY_EXCEEDED', async ({
+      request,
+    }) => {
+      // (S3 testing) bỏ skip "chờ Sprint 2": báo giá, giữ chỗ, đặt phòng đã có trên build
+      await requireEndpoints(request, 'TC-NT-020', [
+        EP.calculateQuote,
+        EP.createReservation,
+        EP.saveQuote,
+        EP.createHoldFromQuote,
+      ]);
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const sal = await sessionOrSkip(request, 'qa.sal');
+      const c = await s2Context(request);
+      const today = await stackToday(request);
+      // sức chứa tối đa = định mức + 1 (BR-110 v0.3.1, ESC-014): 201 → 3, 301 → 5, 302 → 4; trẻ < 6 không tính
+      const cases: Array<[roomNo: string, ok: number, bad: number]> = [
+        ['201', 3, 4],
+        ['301', 5, 6],
+        ['302', 4, 5],
+      ];
+      for (const [roomNo, ok, bad] of cases) {
+        const rm = room(c, roomNo);
+        const w = await freeWindow(request, fd, rm, 3, { today, dow: 1 });
+        const q = (adults: number, under6 = 0) =>
+          calculateQuote(request, sal, {
+            ...quoteInput(c, { room: rm, arrival: w.arrival, nights: 3, adults }),
+            childrenUnder6: under6,
+          });
+        // báo giá: hợp lệ / vượt
+        expect((await q(ok)).status, `báo giá ${roomNo} ${ok} người lớn`).toBe(200);
+        const qb = await q(bad);
+        expectProblem(qb, 422, 'CAPACITY_EXCEEDED');
+        // giữ chỗ (lưu báo giá rồi giữ chỗ): vượt → 422 ở bước lưu báo giá hoặc giữ chỗ
+        const sq = await saveQuote(request, sal, {
+          ...quoteInput(c, { room: rm, arrival: w.arrival, nights: 3, adults: bad }),
+          guestId: await newGuest(request, sal),
+        });
+        if (sq.status === 201) {
+          expectProblem(await createHold(request, sal, sq.body.id, 24), 422, 'CAPACITY_EXCEEDED');
+        } else expectProblem(sq, 422, 'CAPACITY_EXCEEDED');
+        // đặt phòng (Trực tiếp): vượt → 422, lỗi tại ô số khách
+        const bodyFor = (adults: number) =>
+          reservationBody(c, { room: rm, arrival: w.arrival, departure: w.departure, adults });
+        const rb = await createReservation(request, fd, {
+          ...bodyFor(bad),
+          bookerGuestId: await newGuest(request, fd),
+        });
+        const p = expectProblem(rb, 422, 'CAPACITY_EXCEEDED');
+        expect(JSON.stringify(p.errors ?? [])).toMatch(/adults|guest|occupancy|children/i);
+      }
+      // phụ thu người vượt định mức ở báo giá (oracle BR-110-01: 202 × 3 người lớn × 3 đêm; BR-110-06: 302 × 4 × 3)
+      for (const id of ['BR-110-01', 'BR-110-06']) {
+        const o = oracle(id);
+        const rm = room(c, String(o.input.roomNo));
+        const w = await freeWindow(request, fd, rm, Number(o.input.nights), { today, dow: 1 });
+        const r = await calculateQuote(request, sal, {
+          ...quoteInput(c, {
+            room: rm,
+            arrival: w.arrival,
+            nights: Number(o.input.nights),
+            adults: Number(o.input.adults),
+          }),
+        });
+        expect(r.status, JSON.stringify(r.body)).toBe(200);
+        expect((r.body as { extraPersonFeeVnd?: number }).extraPersonFeeVnd, id).toBe(
+          oracleNum(id, 'extraPersonFeeVnd'),
+        );
+      }
+      // 202: 3 người lớn + 1 trẻ 4 tuổi → hợp lệ (trẻ < 6 không tính, BR-110-04 cùng nguyên tắc)
+      const r202 = room(c, '202');
+      const w202 = await freeWindow(request, fd, r202, 1, { today, dow: 1 });
+      const under6 = await calculateQuote(request, sal, {
+        ...quoteInput(c, { room: r202, arrival: w202.arrival, nights: 1, adults: 3 }),
+        childrenUnder6: 1,
+      });
+      expect(under6.status, JSON.stringify(under6.body)).toBe(200);
     });
   },
 );

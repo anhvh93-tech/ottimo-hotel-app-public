@@ -110,3 +110,33 @@ File sửa thêm ở bước này: `src/modules/approvals/internal/limits.ts`, `
 | 4 | Giữ 2 dòng J16 trong `worker.ts` | Giữ nguyên; BE-A chỉ thêm 1 dòng import + 1 dòng đăng ký J24 |
 
 Test mới: `frontdesk-stay` ca "stayView + setEta" (phạm vi actor, ETA 22:00 + lịch sử, 25:00 → 422). Chạy lại `guest-portal.test.ts`, `registration-flow.test.ts`, `frontdesk*.test.ts`: 41/41 xanh.
+
+## 10. Bước Phản hồi & sửa (17/10) – review ARC/SEC/DOM + OpenAPI 0.3.6 bổ sung 1 + 2
+Trả lời từng thẻ: `rounds/round-02/responses/s3-BE-A.md`. Tóm tắt thiết kế:
+- **Phụ thu người theo đêm** (ARC-01, DOM-16, S3-13): `stay_night.extra_person_fee_vnd` (0031); `ConfirmedStay.nights[].extraPersonVnd`; `syncStay` (BE-B) một dòng `extra_person`/đêm; `ReservationStayPort.peopleFromNight/feesForNewNights/setNightFees`. Thêm/bớt người giữa kỳ áp từ `effectiveFrom`/đêm nay; B14 theo căn đêm đó.
+- **Giá đêm chỉ qua reservations** (ARC B-3 d): `pricedNights`, `retierStay`, `writeRepricedNights` (B13, B9a, E05-11) – đêm giá tay giữ giá, đêm khác tính lại bậc BR-107; snapshot ghi `source` và `extraNightDates`.
+- **Phụ thu trả muộn một dòng sống** (ARC-06, DOM-17/25): `StaySupport.replaceLateCharge` (B15, G-10 ở B18, B13, B16) – đảo dòng sống + FOC kèm, ghi dòng mới, chuyển FOC đã duyệt = min(FOC, mới).
+- **Lưu trú gộp đơn chính + con** (ARC-05): `StaySupport.effectiveStay`.
+- **B18 mới**: `extraNight`, cửa sổ sau nửa đêm, `TIME_AFTER_ACTION`/`TIME_NOTE_REQUIRED`, `SURCHARGE_DECISION_REQUIRED`, chỉ yêu cầu tiền chặn, yêu cầu vận hành `superseded`, `unhandledCreditVnd`, `overpayment_retained`, `tryEarnCommissions`.
+- **B9/B9a**: cửa sổ B9a giờ server + `availableFrom`; quyết định phụ thu bắt buộc; MGR được báo khi vượt chặn giấy tờ; hủy `checkin_room_not_ready` mở; B17 qua `FolioService.hasLiveLinesSince`.
+- **B16** → `EarlyDepartureResult`; cơ sở ròng; phụ thu người đêm bỏ hoàn 100 %; OTA `otaRetainedVnd`; `noticeEvidence`.
+- **Sự kiện**: SSE nối lại + backoff + đóng luồng khi hỏng, ≤ 5 luồng/người, kiểm lại phiên mỗi nhịp, `publishSse()` dùng chung, audience `reservation.changed`; params "Cần chú ý" theo định dạng khóa; dòng hỏng không làm 500; ApprovalService tạo dòng hộp thư (một push).
+- **Dùng chung**: UoW đánh dấu replay đã quyết vai; job `idempotency.purge`; `MONEY_AUDIT_ACTIONS` (tập đóng của hợp đồng, AuditService từ chối mã lạ ngoài production); `ReservationReadPort`; `providePartyCount`; `Reservation.depositShortfall`; `StayViewRow.actualArrivalDate`; `readStay/readStays` bắt buộc actor.
+- **Migration 0031** (journal idx 26) + tham số `manual_time_tolerance_minutes` (danh mục, mặc định 30). `.ts` thêm `reservation_capacity_ack_by_fk` (0017 có sẵn – parity). Snapshot đầu `0053_snapshot.json` sinh lại theo 4.2a-2c (giữ `id/prevId`).
+
+**File tạo**: `src/db/migrations/0031_frontdesk_fix_be_a.sql`, `src/modules/audit/public/money-actions.ts`, `src/modules/reservations/public/read-port.ts`, `test/integration/frontdesk-s3-fixes.test.ts`, `test/integration/schema-parity.test.ts`, `test/module-boundaries.test.ts`, `rounds/round-02/responses/s3-BE-A.md`.
+
+**File sửa (vùng BE-A)**: `db/schema/{frontdesk,reservations,approvals}.ts`, `migrations/meta/{_journal.json,0053_snapshot.json}`, `frontdesk/frontdesk.module.ts`, `frontdesk/internal/{checkin,checkout,stay,party,stay-support,attention-sources,frontdesk.controller}.ts`, `frontdesk/public/stay-rules.ts`, `reservations/internal/{reservations.service,reservation-store,reservation-dto,sales-port.adapter,reservations.controller}.ts`, `reservations/public/{stay-port,stay-view,sales-port,reservation-hooks}.ts`, `reservations.module.ts`, `approvals/public/approval.service.ts`, `audit/public/audit.service.ts`, `events/public/events.service.ts`, `events/internal/{sse-hub,events.controller,attention.service}.ts`, `jobs/builtin-jobs.ts`; test `frontdesk.test.ts`, `frontdesk-stay.test.ts`, `rbac-sprint3-bea.test.ts`.
+**File sửa ngoài vùng (báo ORC)**: `folio/public/folio.service.ts` (`syncStay` phụ thu theo đêm – BE-B đã giữ), `shared/http/unit-of-work.ts` (replay → `enforced`), `registration/internal/{stay-reader,registration.service,c3-log.service,retention.service}.ts`, `registration/public/registration.service.ts`, `guest-portal/internal/guest-portal.service.ts` (truyền `SYSTEM_ACTOR` tường minh – theo yêu cầu ORC, không đổi hành vi).
+
+**Kết quả lệnh** (17/10 ~00:35–00:45, DB `ottimo_test_bea_s3r2` rồi `ottimo_test_bea_s3r3` tạo mới sau khi BE-B sửa 0042, Node 22):
+
+| Lệnh | Kết quả |
+|---|---|
+| `prettier --check .` | All matched files use Prettier code style |
+| `eslint .` | 0 lỗi (2 cảnh báo có sẵn ở `mockServiceWorker.js`) |
+| `turbo run typecheck` | 12/12 |
+| `turbo run build` | 6/6 |
+| `turbo run test --force` | 12/12 task; `@ottimo/api` **55 tệp / 2118 test xanh**; chạy lại api trên DB mới sau 0042 của BE-B: **55 tệp / 2119 xanh** (gồm `frontdesk-s3-fixes` 10, `schema-parity` 6, `module-boundaries` 5, `rbac-sprint3-bea` 214, `guard-s3` của BE-B) |
+| `drizzle-kit generate` (thư mục thật + bản sao) | "No schema changes" – không tạo tệp |
+| `gen-openapi-meta.mjs --check` | up to date |

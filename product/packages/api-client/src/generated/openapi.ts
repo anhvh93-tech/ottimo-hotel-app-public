@@ -1021,6 +1021,10 @@ export interface paths {
      *       trong sàn–trần BR-105 (`RATE_OUT_OF_RANGE`). Miễn tiền đêm này = `requestFoc kind=special_discount` trên dòng `room`, không phải FOC phụ thu.
      *     - `cardsIssued`, `houseRulesSent` lưu vào đơn (`Reservation.cardsIssued`, `houseRulesSentAt`) – phục vụ phí thiếu thẻ/khử mùi BR-511 khi chưa có US-128.
      *     - `actualCheckinAt` = thời điểm bấm (giờ thật, kể cả sau nửa đêm – US-025 AC6); `checkinTime` chỉ dùng tính phụ thu.
+     *     - **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E03-07, DOM S3-12)**: `checkinTime` muộn hơn giờ server quá `manual_time_tolerance_minutes` → 422 `TIME_AFTER_ACTION`; sớm hơn quá ngưỡng
+     *       → bắt buộc `checkinTimeNote` (thiếu → 422 `TIME_NOTE_REQUIRED`). Trong **cửa sổ B9a** (ngày nghiệp vụ = ngày đến − 1, ngày lịch = ngày đến) server bỏ qua
+     *       `checkinTime` và dùng giờ server; bắt buộc `addPriorNight=true` (thiếu → 409 `INVALID_TRANSITION`, `availableFrom` = mốc đổi ngày nghiệp vụ) – thẻ FB-R2-ARC-BE-S3-07.
+     *       Phụ thu > 0 mà `applyEarlySurcharge` ≠ `true` → 422 `SURCHARGE_DECISION_REQUIRED` (không có "bỏ qua im lặng").
      */
     post: operations['checkIn'];
     delete?: never;
@@ -1270,6 +1274,20 @@ export interface paths {
      *     thực tế khác (kể cả **thấp hơn** – hẹn 17:00 trả 13:00 → 50 % về 30 %) → server **đảo** dòng `late_checkout` cũ và ghi dòng mới (BR-008), không ghi hai lần; bằng nhau → giữ nguyên.
      *     `expectedSurchargeVnd` = tổng phụ thu sau khi tính lại (0.3.6).
      *     `checkoutTime` sau mốc cuối BR-412 → 422 `LATE_CHECKOUT_AFTER_LIMIT`. R2: không hủy mã cửa trong app (US-128 dời R3).
+     *
+     *     **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)** (BA EP03-05 v0.3 mục 5, DOM S3-9/S3-10/S3-12/S3-16, BR-416/522 v0.3.4):
+     *     - **Cửa sổ mở B18/B16**: ngày nghiệp vụ = ngày đi **hoặc** cửa sổ sau nửa đêm (ngày nghiệp vụ = ngày đi − 1 **và** ngày lịch = ngày đi, trước `business_day_rollover`)
+     *       – trả trong cửa sổ sau nửa đêm hợp lệ, phụ thu 0. `allowedActions` có `check_out` trong cả hai trường hợp. Ngày đi tính trên **đơn chính + đơn con** (BR-422).
+     *     - **"Trả phòng – tính thêm 1 đêm"** (E05-11, thay hướng G-16): giờ trả sau mốc cuối `late_checkout_tiers` (kể cả sau nửa đêm của ngày lịch kế tiếp) → bắt buộc
+     *       `extraNight`; thiếu → 422 `LATE_CHECKOUT_AFTER_LIMIT` (`field` = `extraNight`). Cùng giao dịch: thêm đêm ngày đi (giá `extraNight.rateVnd`, sàn–trần BR-105 →
+     *       `RATE_OUT_OF_RANGE`; Trực tiếp/CTV kéo đơn, OTA/HĐ nhập tay → đơn con Trực tiếp như B13), đêm bán + dòng `room`, **không** phụ thu trả muộn (dòng
+     *       `late_checkout` sống bị đảo), rồi B18. Căn không trống đêm đó → 409 `ROOM_UNAVAILABLE`. Audit `money` `reservation.extra_night_on_checkout`.
+     *     - Giờ nhập tay (E03-07): `checkoutTime`/`checkoutAt` muộn hơn giờ server quá `manual_time_tolerance_minutes` → 422 `TIME_AFTER_ACTION`; sớm hơn quá ngưỡng
+     *       → bắt buộc `checkoutTimeNote` (→ 422 `TIME_NOTE_REQUIRED`).
+     *     - Chỉ yêu cầu **tiền** (`foc`, `special_discount`, `damage_pricing`) chặn `pending_approvals`; yêu cầu vận hành (`checkin_room_not_ready`, `late_checkout_conflict`)
+     *       tự hủy `superseded` trong giao dịch B18 (DOM S3-10). Phụ thu > 0 mà `applyLateSurcharge` ≠ `true` → 422 `SURCHARGE_DECISION_REQUIRED` (S3-12).
+     *     - **Số dư thừa** (E15-05, DOM BE-14): `overpaymentHandling` chỉ xử lý `unhandledCreditVnd` (= `creditVnd` − yêu cầu hoàn đang mở) – **không** tạo yêu cầu hoàn trùng
+     *       với yêu cầu đã có (ví dụ B16 trước đó). `unhandledCreditVnd = 0` → không cần `overpaymentHandling`. Phần dư sinh từ `ota_collect` không tính (xem `Folio.totals`).
      */
     post: operations['checkOut'];
     delete?: never;
@@ -1992,7 +2010,12 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2). */
+    /**
+     * Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2).
+     * @description **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10).
+     *     Dòng **sinh từ đêm lưu trú** (`room`, `extra_person`) sửa giá phải ghi lại giá đêm ở đơn (cùng giao dịch) để lần đồng bộ đêm sau (gia hạn, đổi phòng, đổi số người)
+     *     **giữ** giá đã sửa và các dòng FOC/giảm giá đi kèm – không bao giờ tự đảo giá đã sửa (thẻ FB-R2-ARC-BE-S3-14).
+     */
     post: operations['adjustFolioLine'];
     delete?: never;
     options?: never;
@@ -2638,7 +2661,8 @@ export interface paths {
      * Chi hoàn **tiền mặt** tại quầy theo yêu cầu `refund` đã duyệt – FD+ (PO 16/10, rbac A47a)
      * @description 0.3.6. Chỉ khi nơi nhận `method=cash` (khác → `409 INVALID_TRANSITION`; chuyển khoản/phương thức gốc dùng `executeRefund`, OWN/MGR). Yêu cầu `approved`;
      *     người chi ≠ người **tạo** yêu cầu (`requestedBy`, CHECK DB) → `403 SELF_REFUND_FORBIDDEN`; `amountVnd` ≤ số duyệt − `refundedVnd` và ≤ đã thu − đã hoàn → 422
-     *     `REFUND_EXCEEDS_APPROVED`; `attachmentId` (`purpose=refund_proof`, biên nhận khách ký) **bắt buộc** → `EVIDENCE_REQUIRED`. Ghi `payment` `type=refund`,
+     *     `REFUND_EXCEEDS_APPROVED`; `attachmentId` (`purpose=refund_proof`, biên nhận khách ký) **bắt buộc** → `EVIDENCE_REQUIRED`. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: `amountVnd` ≤ `creditVnd`
+     *     hiện tại (→ 422 `REFUND_EXCEEDS_APPROVED`); phần thừa sinh từ khoản thu chưa đối soát → `409 REFUND_SOURCE_NOT_RECONCILED`. Ghi `payment` `type=refund`,
      *     `method=cash`, `reconciliation=not_required`, vào **ca đang mở** của người chi (`shiftId`). Audit `money`; phát `payment.changed`, `reservation.changed`.
      *     Không đọc số tài khoản (không C3).
      */
@@ -2666,7 +2690,8 @@ export interface paths {
      * @description 0.3.6 (A-33). **Chỉ nơi nhận `bank_transfer`/`original_method`** (nơi nhận `cash` → `409 INVALID_TRANSITION`, dùng `executeCashRefund` – PO 16/10).
      *     Ghi `payment` `type=refund` (`succeeded`, `approvalRequestId`) trên folio của yêu cầu – nhận cả khi folio `settled` (không đổi bill).
      *     Kiểm dưới `FOR UPDATE` của folio + yêu cầu: yêu cầu `approved`, có nơi nhận (`409 REFUND_DESTINATION_REQUIRED`), người duyệt ≠ người tạo (CHECK DB);
-     *     `amountVnd` ≤ số duyệt − `refundedVnd` **và** ≤ đã thu − đã hoàn của folio (server tính) → 422 `REFUND_EXCEEDS_APPROVED`. `method` theo nơi nhận
+     *     `amountVnd` ≤ số duyệt − `refundedVnd` **và** ≤ đã thu − đã hoàn của folio (server tính) → 422 `REFUND_EXCEEDS_APPROVED`. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: và ≤ `creditVnd`
+     *     hiện tại; phần thừa sinh từ khoản thu chưa đối soát (`pending`/`disputed`) → `409 REFUND_SOURCE_NOT_RECONCILED` (`paymentIds[]`, `unreconciledVnd`). `method` theo nơi nhận
      *     (`cash` → ghi vào ca đang mở; `bank_transfer`; `original_method` → phương thức gốc). Hoàn đủ → hủy DEK `refund_account` trong cùng giao dịch (T09,
      *     `c3_access_log purge`). Audit `money`; phát `payment.changed`, `reservation.changed`.
      *     **Đối soát chi hoàn (DOM G-14)**: `bank_transfer` → `reconciliation = pending`, đối soát bằng `reconcilePayment` như khoản thu (người đối soát ≠ người chi);
@@ -4853,6 +4878,17 @@ export interface components {
       /** @description Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13) */
       depositPaidVnd?: components['schemas']['MoneyVnd'];
       /**
+       * @description MGR+ đã chấp nhận xác nhận đơn với cọc thiếu (`confirmDeposit.acceptShortfallReason`, B-29 / DOM BE-11) – đọc từ cột `reservation.deposit_shortfall_*` (0040).
+       *     `null` khi chưa từng chấp nhận. Màn nhận phòng hiện câu `ci.shortfall_accepted`. 0.3.6 bổ sung (review S3, đề nghị FE s3 mục 5 c)
+       */
+      depositShortfall?: {
+        shortfallVnd: components['schemas']['MoneyVnd'];
+        acceptedAt: components['schemas']['Instant'];
+        /** @description Tên hiển thị người chấp nhận (MGR/OWN) */
+        acceptedByName: string;
+        reason: string;
+      } | null;
+      /**
        * @description Đơn `conflictState=open` (chưa gán căn): nhóm căn đơn yêu cầu = nhóm của `overbooking_incident.requested_room_id` (căn kênh OTA ánh xạ, hoặc căn cũ khi khôi phục
        *     no-show – D-3 b). Null khi đơn đã gán căn. Gán căn cùng nhóm → `overbookingResolution=reassigned_same_group`, nhóm cao hơn → `upgraded` (FDL+). 0.3.5 (A-25)
        */
@@ -5051,6 +5087,11 @@ export interface components {
       createsChildReservation?: boolean;
       channelFeeSavingsVnd?: components['schemas']['MoneyVnd'];
       /**
+       * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá **ròng** một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
+       *     client hiện nút "Giữ giá đơn" điền giá này vào `nightlyRates` (vẫn kiểm sàn–trần BR-105; ngày đặc biệt luôn giá ngày đó). `null` = đơn theo lịch giá.
+       */
+      currentBookingRateVnd?: components['schemas']['MoneyVnd'] | null;
+      /**
        * @description 0.3.6 (DOM D-8, A-22; UXD #4): mỗi phần tử ứng với gia hạn `nights` đêm (1…`maxNights`) – server tính lại bậc giảm BR-107 cho **mọi** đêm còn hiệu lực
        *     theo tổng số đêm mới; client hiển thị, không tự tính. Đơn OTA/Nội bộ/`externalContract` → `losDiscountPct` = 0.
        */
@@ -5084,6 +5125,16 @@ export interface components {
       saved?: boolean;
       reservation?: components['schemas']['Reservation'];
     };
+    /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06) – phản hồi `earlyDeparture` */
+    EarlyDepartureResult: {
+      reservation: components['schemas']['Reservation'];
+      /** @description Dòng `early_departure_fee` đã ghi (đơn OTA = `otaRetainedVnd`) */
+      earlyDepartureFeeVnd: components['schemas']['MoneyVnd'];
+      /** @description Số của yêu cầu hoàn vừa tạo (0 khi không có) */
+      refundVnd?: components['schemas']['MoneyVnd'];
+      /** @description Yêu cầu `refund` vừa tạo (null khi không có số dư thừa chưa xử lý) */
+      refundRequestId?: components['schemas']['Uuid'] | null;
+    };
     CheckoutReminderEntry: {
       at: components['schemas']['Instant'];
       slot?: string;
@@ -5113,9 +5164,19 @@ export interface components {
         oldTierPct?: components['schemas']['Percent'];
         newTierPct?: components['schemas']['Percent'];
       };
-      /** @description Không tính yêu cầu loại `refund` (0.3.6) */
+      /** @description Không tính yêu cầu loại `refund` (0.3.6). 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): chỉ yêu cầu tiền (`foc`, `special_discount`, `damage_pricing`) */
       pendingApprovals?: number;
-      /** @description `credit_balance` (0.3.6, DOM G-15): `creditVnd > 0` – gỡ bằng `checkOut.overpaymentHandling` */
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05): `creditVnd` − yêu cầu hoàn đang mở; blocker `credit_balance` khi > 0 */
+      unhandledCreditVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11): giờ trả (`checkoutTime`/`checkoutAt`) sau mốc cuối BR-412 → `checkOut` phải gửi `extraNight` */
+      extraNightRequired?: boolean;
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): lịch giá Trực tiếp đêm ngày đi (BR-421); có khi `extraNightRequired` */
+      extraNightDefaultRateVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả) */
+      extraNightAvailable?: boolean;
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): đang trong cửa sổ sau nửa đêm (ngày nghiệp vụ = ngày đi − 1, ngày lịch = ngày đi) – B18 hợp lệ, phụ thu 0 */
+      postMidnightWindow?: boolean;
+      /** @description `credit_balance` (0.3.6, DOM G-15): `creditVnd > 0` – gỡ bằng `checkOut.overpaymentHandling`. 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): theo `unhandledCreditVnd > 0` */
       blockers?: ('balance_due' | 'pending_approvals' | 'minibar_not_checked' | 'credit_balance')[];
     };
     /**
@@ -5379,7 +5440,21 @@ export interface components {
       category: components['schemas']['FolioLineCategory'];
       /** @enum {string} */
       revenueGroup?: 'room' | 'other' | 'non_revenue';
+      /** @description Mô tả kỹ thuật cho nhật ký – **không in** lên bill/màn khách (DOM BE-21); hiển thị theo `labelKey` */
       description: string;
+      /**
+       * @description 0.3.6 bổ sung (review S3 – ARC mục C chốt tên, DOM BE-21): khóa chuỗi hiển thị của dòng (`bill.line.*`), client dịch theo `locale`
+       *     (VI, VI/EN). Danh sách khóa và tham số (đóng theo khóa): `room_night {date, room}` · `extra_night {date, room}` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10), E05-11) · `extra_person {date, count}` ·
+       *     `early_checkin {time, pct}` · `late_checkout {time, pct}` · `early_departure_fee {pct?, nights?, noticeDays?}` · `overpayment_retained` ·
+       *     `room_change {from, to}` · `minibar {item, qty}` · `cancellation_fee` · `no_show_fee` · `foc {reason}` · `discount {reason}` ·
+       *     `laundry {qty}` · `adhoc_cleaning {qty}` · `smoking_fee` · `key_card_fee {qty}` · `damage {item, qty}` · `fnb {text, qty}` ·
+       *     `service_fee {text, qty}` · `utilities` · `adjustment`
+       */
+      labelKey?: string;
+      /** @description Tham số của `labelKey` – ngày `YYYY-MM-DD`, giờ `HH:mm`, phần trăm số nguyên; client định dạng. 0.3.6 bổ sung (review S3) */
+      labelParams?: {
+        [key: string]: string | number;
+      };
       serviceDate?: components['schemas']['LocalDate'];
       quantity: number;
       unitPriceVnd: components['schemas']['MoneyVnd'];
@@ -5506,8 +5581,15 @@ export interface components {
         paidViaOtaVnd?: components['schemas']['MoneyVnd'];
         depositHeldVnd?: components['schemas']['MoneyVnd'];
         balanceDueVnd?: components['schemas']['MoneyVnd'];
-        /** @description Đã thu (gồm `pending` đối soát) − tổng − đã hoàn, khi > 0; ngược lại 0. `balanceDueVnd` và `creditVnd` không cùng > 0 (0.3.6, A-34) */
+        /** @description Đã thu (gồm `pending` đối soát) − tổng − đã hoàn, khi > 0; ngược lại 0. `balanceDueVnd` và `creditVnd` không cùng > 0 (0.3.6, A-34). 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): không gồm phần dư sinh từ `ota_collect` (xem `otaExcessVnd`) */
         creditVnd?: components['schemas']['MoneyVnd'];
+        /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05, BR-522 v0.3.4): `creditVnd` − tổng yêu cầu hoàn đang mở (`pending`/`approved` chưa chi đủ); trần của `createRefundRequest` và `overpaymentHandling` */
+        unhandledCreditVnd?: components['schemas']['MoneyVnd'];
+        /**
+         * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (DOM BE-13): phần OTA đã thu vượt tiền phòng hiện còn (ví dụ sau B16 đơn OTA) – OTA hoàn cho khách theo chính sách OTA, **không** vào
+         *     `creditVnd`, blocker `credit_balance` hay luồng hoàn của OTTIMO.
+         */
+        otaExcessVnd?: components['schemas']['MoneyVnd'];
       };
       pendingApprovals?: number;
       invoiceRequest?: components['schemas']['InvoiceRequest'];
@@ -5539,9 +5621,13 @@ export interface components {
       arrivalDate?: components['schemas']['LocalDate'];
       departureDate?: components['schemas']['LocalDate'];
       lines: components['schemas']['FolioLine'][];
+      /** @description `ota_prepaid`: chỉ các khoản tại quầy (khoản OTA đã thu không in – DOM BE-13, 0.3.6 bổ sung) */
       totalVnd: components['schemas']['MoneyVnd'];
+      /** @description Đã thu tại quầy (phần OTA thu hộ ở `otaPrepaidVnd`) – 0.3.6 bổ sung */
       paidVnd: components['schemas']['MoneyVnd'];
       balanceDueVnd: components['schemas']['MoneyVnd'];
+      /** @description Tiền khách trả thừa OTTIMO chưa hoàn (in "Hoàn lại khách {x}" – spec 5.4, DOM BE-21). 0.3.6 bổ sung (review S3) */
+      creditVnd?: components['schemas']['MoneyVnd'];
       /** @description Chỉ khi `locale=vi_en` (US-037 AC2, BR-004) – 0.3.3 mô tả */
       usdReference?: {
         rate?: number;
@@ -5675,7 +5761,21 @@ export interface components {
       actorName?: string;
       /** @enum {string} */
       category: 'money' | 'state' | 'config' | 'access' | 'security' | 'data';
-      /** @example folio_line.adjusted */
+      /**
+       * @description **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (UXD FB-R2-UXD-FE-S3-09)** – với `category = money` đây là **tập đóng** (thêm mã mới = đổi hợp đồng; BE có test mọi `recordMoney` ∈ danh sách;
+       *     FE có câu `mlog.a_*` cho từng mã, mã lạ → `mlog.a_other`):
+       *     `payment.recorded`, `payment.qr_created`, `payment.confirmed_received`, `payment.expired`, `payment.reconciled`, `payment.cash_handover_confirmed`,
+       *     `payment.reversed`, `payment.ota_collected`, `payment.ota_collect_adjusted`, `folio.line_posted`, `folio.line_reversed`, `folio_line.adjusted`,
+       *     `folio.settled`, `folio.stay_reversed`, `folio.foc_requested`, `folio.foc_posted`, `folio.foc_rejected`, `folio.damage_posted`, `folio.damage_rejected`,
+       *     `refund.destination_set`, `refund.paid`, `refund.cash_paid`, `deposit.shortfall_accepted`, `reservation.deposit_confirmed`,
+       *     `reservation.no_show_deposit_retained`, `reservation.cancellation_fee`, `reservation.debt_on_checkout`, `reservation.early_departure`,
+       *     `reservation.extended`, `reservation.prior_night_added`, `reservation.extra_night_on_checkout`, `reservation.priced`, `reservation.repriced`,
+       *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
+       *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
+       *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `config.changed` (chỉ khóa `payment_receiving_account`).
+       *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
+       * @example folio_line.adjusted
+       */
       action: string;
       entityType?: string;
       /** @description Id thực thể – thường UUID, một số thực thể khóa text/bigint (erd 4.3 `audit_event.entity_id` text – 0.3.3 nới từ `Uuid`) */
@@ -5873,6 +5973,12 @@ export interface components {
       /** @enum {string} */
       decision: 'granted' | 'refused';
       noticeVersion: string;
+      /**
+       * @description 0.3.6 bổ sung (review S3, SEC ĐK-2 17/10): số ngày lưu ảnh mà người đồng ý **đã đọc** trong câu P02b (`OnlineCheckin.imageRetentionDays` / văn bản tại quầy).
+       *     **Bắt buộc** khi `purpose = P02B_ID_IMAGE_RETENTION` (thiếu → 422 `REQUIRED`); khác tham số hiện hành → 422 `NOT_IN_LIST` (như `noticeVersion`).
+       *     Lưu vào `consent_record`; J16 T02 dùng min(số ngày lúc đồng ý, tham số hiện hành).
+       */
+      retentionDays?: number;
       locale: components['schemas']['Locale'];
       /** @enum {string} */
       channel?: 'guest_app' | 'desk' | 'paper';
@@ -5884,7 +5990,9 @@ export interface components {
       portalUrl: string;
       people: {
         fields: {
+          /** @description Khóa i18n (0.3.6 bổ sung review S3: thêm pattern) */
           label: string;
+          /** @description 0.3.6 bổ sung (review S3, ARC 17/10 – **một** cài đặt duy nhất ở server, INT `guest-registration/manual` không còn dựng trường riêng): ngày theo tham số `portal_date_format` (mặc định `dd/MM/yyyy`); quốc tịch theo `portal_nationality_format` (mặc định "Tên nước tiếng Việt (alpha-3)", ví dụ "Hàn Quốc (KOR)") – DOM S3-5 `[GIẢ ĐỊNH – chờ INV, ESC-018]`; "Ngày đến" = ngày lịch (giờ cơ sở) của giờ nhận phòng thực tế (BR-602, BR-417 (4)), chưa nhận phòng → ngày đến của đơn; khách NN ngày đi khai = min(ngày đi, hạn thị thực/tạm trú) (BR-605). */
           value: string;
           valueKey?: string;
         }[];
@@ -6279,6 +6387,19 @@ export interface components {
       lateArrival?: boolean;
       /** @description Chỉ số người "bổ sung tại quầy" – không có thông tin nào khác về người đó (0.3.3, E06-06) */
       deferredPeople?: number[];
+      /**
+       * @description 0.3.6 bổ sung (review S3 – đề nghị MOB s3 mục 5; SEC duyệt có điều kiện 17/10). Tham số **cơ sở** `privacy_notice_version` hiện hành theo ngày nghiệp vụ –
+       *     giá trị phải gửi lại ở `updateOnlineCheckin.noticeVersion` và `ConsentInput.noticeVersion`. Client chỉ có văn bản cho các phiên bản nó biết: gặp phiên bản lạ
+       *     hoặc thiếu trường → **không** hiện bước thông báo/câu đồng ý, hướng "làm thủ tục tại quầy" (fail closed). Có ở **mọi** phản hồi `OnlineCheckin`.
+       * @example privacy-2026-10-v1
+       */
+      currentNoticeVersion?: string;
+      /**
+       * @description 0.3.6 bổ sung (review S3). Tham số `id_image_retention_days_after_checkout` (BR-610) hiện hành – số ngày câu đồng ý P02b hiện cho khách; gửi lại ở
+       *     `ConsentInput.retentionDays`. Thiếu trường → client không hiện câu đồng ý (không rơi về 30).
+       * @example 30
+       */
+      imageRetentionDays?: number;
     };
     GuestFolio: {
       /** @description Không có dòng nội bộ, giá vốn, ghi chú nhân viên (US-111 AC2) */
@@ -8682,6 +8803,8 @@ export interface operations {
       content: {
         'application/json': {
           checkinTime?: components['schemas']['LocalTime'];
+          /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E03-07): bắt buộc khi `checkinTime` sớm hơn giờ thao tác quá `manual_time_tolerance_minutes` */
+          checkinTimeNote?: string;
           /**
            * @description Lễ tân xác nhận ghi phụ thu vào folio (BR-414)
            * @default false
@@ -8951,7 +9074,7 @@ export interface operations {
       content: {
         'application/json': {
           newRoomId: components['schemas']['Uuid'];
-          /** @description Ngày nghiệp vụ hôm nay … ngày đi − 1; đêm từ ngày này dùng căn mới (0.3.6 làm rõ) */
+          /** @description Ngày nghiệp vụ hôm nay … ngày đi − 1; đêm từ ngày này dùng căn mới (0.3.6 làm rõ). **0.3.6 bổ sung (review S3, ARC 17/10)**: R2 chỉ nhận **ngày nghiệp vụ hôm nay** (khác → 422 `DATE_INVALID`, `field` = `effectiveDate`) vì trạng thái buồng, việc dọn và giao lại mã/thẻ áp ngay lúc ghi; đổi phòng hẹn ngày sau dời R3 */
           effectiveDate: components['schemas']['LocalDate'];
           /**
            * @description `property_fault` → giữ giá cũ (nâng hạng miễn phí); `guest_request` → giá căn mới từ đêm đổi (BR-424). Giá căn mới xem trước bằng `searchAvailability?reservationId=`. **0.3.6 (A-37)**: số khách > `maxOccupancy` căn mới → **chặn cứng** 422 `CAPACITY_EXCEEDED` (`field` = `newRoomId`) mọi kênh – không có lý do bỏ qua (khách đang ở là người thật)
@@ -9223,11 +9346,36 @@ export interface operations {
         'application/json': {
           newDepartureDate: components['schemas']['LocalDate'];
           noticeGivenAt: components['schemas']['Instant'];
+          /**
+           * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06, DOM S3-2): **đơn kênh OTA bắt buộc** (thiếu → 422 `REQUIRED`) – số OTA giữ lại theo extranet, server không tự tính; ghi dòng
+           *     `early_departure_fee`; tiền OTA thu hộ không vào luồng hoàn của OTTIMO. Đơn kênh khác gửi → 422 `NOT_ALLOWED`. > tiền OTA của các đêm bỏ → 422 `VALUE_OUT_OF_RANGE`
+           */
+          otaRetainedVnd?: components['schemas']['MoneyVnd'];
+          /**
+           * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06, BR-011): bắt buộc khi `noticeGivenAt` sớm hơn lúc thao tác quá `manual_time_tolerance_minutes` hoặc khác ngày nghiệp vụ
+           *     (thiếu → 422 `EVIDENCE_REQUIRED`, `field` = `noticeEvidence`). Ảnh (tin nhắn khách…) `purpose=penalty_evidence` cùng `reservationId`.
+           */
+          noticeEvidence?: {
+            note: string;
+            attachmentId?: components['schemas']['Uuid'];
+          };
         };
       };
     };
     responses: {
-      200: components['responses']['ReservationOk'];
+      /**
+       * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06): đổi từ `Reservation` sang `EarlyDepartureResult` (FE chưa làm màn B16 – không vỡ client). Cơ sở BR-428 = giá **ròng** đêm bỏ
+       *     (`room_revenue_vnd`, sau bậc BR-107 và FOC/giảm giá); phụ thu người đêm bỏ hoàn 100 %; yêu cầu hoàn = min(phần hoàn + phụ thu người đêm bỏ,
+       *     `unhandledCreditVnd`), làm tròn nửa lên; không tính lại bậc BR-107 (DOM S3-1/S3-2).
+       */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EarlyDepartureResult'];
+        };
+      };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
     };
@@ -9267,10 +9415,19 @@ export interface operations {
           checkoutTime: components['schemas']['LocalTime'];
           /**
            * @description 0.3.6 (BA E05-09, DOM G-16): thời điểm trả thực tế. Có thì server dùng `checkoutAt` (bỏ qua `checkoutTime`, chỉ kiểm khớp giờ) – trả sau nửa đêm
-           *     (01:00 hôm sau, ngày nghiệp vụ vẫn là ngày đi) luôn > mốc cuối BR-412 → 422 `LATE_CHECKOUT_AFTER_LIMIT` (gia hạn 1 đêm trước). Không có → `checkoutTime`
+           *     (01:00 hôm sau, ngày nghiệp vụ vẫn là ngày đi) luôn > mốc cuối BR-412 → phải gửi `extraNight` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) – trước đây: gia hạn 1 đêm trước). Không có → `checkoutTime`
            *     hiểu trên trục ngày nghiệp vụ (00:00–05:59 = sau nửa đêm).
            */
           checkoutAt?: components['schemas']['Instant'];
+          /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E03-07): bắt buộc khi giờ trả nhập tay sớm hơn giờ thao tác quá `manual_time_tolerance_minutes` */
+          checkoutTimeNote?: string;
+          /**
+           * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11, BR-416 v0.3.4, DOM S3-9): "Trả phòng – tính thêm 1 đêm" – bắt buộc khi `CheckoutSummary.extraNightRequired=true`.
+           *     Mặc định `CheckoutSummary.extraNightDefaultRateVnd` (lịch giá Trực tiếp đêm đó, BR-421); giá ngoài sàn–trần BR-105 → `RATE_OUT_OF_RANGE`.
+           */
+          extraNight?: {
+            rateVnd: components['schemas']['MoneyVnd'];
+          };
           /** @default false */
           applyLateSurcharge?: boolean;
           /** @description Phụ thu trả muộn client đang hiển thị (từ `getCheckoutSummary`) – bắt buộc khi `applyLateSurcharge=true` (0.3.3, E03-02) */
@@ -9278,6 +9435,8 @@ export interface operations {
           finalPayment?: components['schemas']['PaymentCreate'];
           /**
            * @description 0.3.6 (A-34). Bắt buộc khi `creditVnd > 0` (đã thu > tổng – ví dụ cọc lớn hơn bill sau FOC/trả sớm); thiếu → 422 `OVERPAYMENT_HANDLING_REQUIRED`.
+           *     **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: điều kiện và số tiền là `unhandledCreditVnd` (không phải `creditVnd`) – không tạo yêu cầu hoàn trùng; `retain_with_guest_consent` chỉ khi
+           *     khách **tự nguyện bỏ** khoản thừa (DOM S3-4) – ghi `deposit_forfeit` `charge_code = overpayment_retained`, bill `labelKey = bill.line.overpayment_retained`.
            *     `refund_request`: tạo yêu cầu duyệt `refund` số tiền = `creditVnd` (A43, BR-522) trong cùng giao dịch B18 – loại `refund` **không** tính vào
            *     blocker `pending_approvals`; nơi nhận nhập sau bằng `setRefundDestination`, MGR+ chi bằng `executeRefund`.
            *     `retain_with_guest_consent`: chỉ MGR+ (FD/FDL → 403) – khách đồng ý để lại (DOM G-15 "khách để lại cho lần sau"): ghi dòng `deposit_forfeit`
@@ -9310,7 +9469,7 @@ export interface operations {
           };
         };
       };
-      /** @description MINIBAR_NOT_CHECKED / PENDING_APPROVALS / BALANCE_DUE / SURCHARGE_CHANGED / INVALID_TRANSITION */
+      /** @description MINIBAR_NOT_CHECKED / PENDING_APPROVALS / BALANCE_DUE / SURCHARGE_CHANGED / INVALID_TRANSITION / ROOM_UNAVAILABLE (`extraNight` – 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)) */
       409: {
         headers: {
           [name: string]: unknown;

@@ -16,7 +16,12 @@ import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
 import { type FieldError, problem } from '../../../shared/problem';
 import { type LocalDate, businessDate, localDate } from '../../../shared/time';
-import { optionalText, requireReason } from '../../../shared/validation';
+import {
+  assertNoCardNumber,
+  optionalText,
+  requireReason,
+  stripControlChars,
+} from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
 import { EventsService } from '../../events/public/events.service';
@@ -177,7 +182,7 @@ export class FolioLinesService {
     let evidenceRequired = false;
     if (item) {
       category = item.category;
-      description = input.description?.trim() || item.code;
+      description = stripControlChars(input.description ?? '').trim() || item.code;
       evidenceRequired = item.evidenceRequired;
       if (!item.priceEditable) {
         if (input.unitPriceVnd !== undefined) {
@@ -197,7 +202,7 @@ export class FolioLinesService {
         errors.push({ field: input.chargeCode ? 'chargeCode' : 'category', code: 'NOT_IN_LIST' });
       }
       category = (cat ?? 'service_fee') as FolioLineCategory;
-      description = input.description?.trim() ?? '';
+      description = stripControlChars(input.description ?? '').trim();
       if (!description) errors.push({ field: 'description', code: 'REQUIRED' });
       else if (description.length < 3) errors.push({ field: 'description', code: 'REQUIRED' });
       else if (description.length > 200) errors.push({ field: 'description', code: 'TOO_LONG' });
@@ -230,6 +235,8 @@ export class FolioLinesService {
     if (!(q > 0) || !Number.isInteger(Math.round(q * decimals * 1000) / 1000) || q > 1000) {
       errors.push({ field: 'quantity', code: 'VALUE_OUT_OF_RANGE' });
     }
+    // SEC-BE-44 (A4/SR-PAY-10): the description is printed on the bill and audited – never a card number.
+    assertNoCardNumber('description', description);
     const note = optionalText('note', input.note, 500);
     const evidence = input.evidenceAttachmentIds ?? [];
     if (evidence.length > 20)
@@ -338,6 +345,8 @@ export class FolioLinesService {
     version: number,
     input: { newQuantity?: number; newUnitPriceVnd?: number; voidLine?: boolean; reason: unknown },
     stayCode: string | null,
+    /** Status of the booking of a line (reservations stayInfo) – FB-R2-ARC-BE-S3-14 guard. */
+    statusOf?: (reservationId: string) => Promise<string | null>,
   ): Promise<void> {
     const reason = requireReason('reason', input.reason);
     const given = [
@@ -376,11 +385,12 @@ export class FolioLinesService {
       service_date: string | null;
       stay_night_id: string | null;
       charge_code: string | null;
+      label_params: Record<string, string | number> | null;
       reversed: boolean;
     }>(
       `SELECT l.id, l.folio_id, l.reservation_id, l.category, l.revenue_group, l.description, l.quantity,
               l.unit_price_vnd, l.line_state, l.reversal_of_id, l.service_date::text AS service_date,
-              l.stay_night_id, l.charge_code,
+              l.stay_night_id, l.charge_code, l.label_params,
               EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id) AS reversed
          FROM folio_line l WHERE l.id = $1`,
       [lineId],
@@ -394,6 +404,28 @@ export class FolioLinesService {
       ['foc', 'discount', 'adjustment'].includes(line.category)
     ) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: line.line_state } });
+    }
+    // FB-R2-ARC-BE-S3-14 (interim until reservations exposes a night-rate port): a line DERIVED from the sold
+    // nights (room, extra_person) of a booking still synced (hold/confirmed/in_house) cannot be changed here –
+    // the next night sync would silently undo it. Change the stay (price/people) through reservations instead.
+    if (
+      (line.category === 'room' || line.category === 'extra_person') &&
+      line.reservation_id &&
+      statusOf
+    ) {
+      const status = await statusOf(line.reservation_id);
+      if (status === 'hold' || status === 'confirmed' || status === 'in_house') {
+        const field =
+          input.newUnitPriceVnd !== undefined
+            ? 'newUnitPriceVnd'
+            : input.newQuantity !== undefined
+              ? 'newQuantity'
+              : 'voidLine';
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field, code: 'NOT_ALLOWED' }],
+          detail: 'night-derived line of a booking still in stay – change the stay instead',
+        });
+      }
     }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
@@ -450,6 +482,7 @@ export class FolioLinesService {
         now: this.clock.now(),
         relatedLineId: line.id,
         chargeCode: line.charge_code,
+        labelParams: line.label_params,
         reason,
         postCheckout: folio.status === 'settled',
       });

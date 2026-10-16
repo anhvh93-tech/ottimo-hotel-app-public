@@ -14,7 +14,27 @@
 # CI runs it directly against the service container (PGHOST/PGPASSWORD set, OTTIMO_DATABASES=ottimo_test).
 # Idempotent: re-running it on an existing volume converts the old 3-role setup (ottimo_owner LOGIN)
 # to this model – see docs/dev-setup.md "Lỗi thường gặp".
+# Re-applied on EVERY start, not only on a new volume (SEC s3-checklist H3): dev compose runs it in the
+# one-shot `db-roles` service before `migrate`; staging/production run it in infra/staging/bin/deploy.sh
+# (`docker compose exec postgres …`) before `migrate`. So a role change (e.g. the ottimo_app limits below)
+# reaches a database that already exists.
+# Passwords may come from files (Docker secrets, staging/production): OTTIMO_MIGRATOR_DB_PASSWORD_FILE,
+# OTTIMO_APP_DB_PASSWORD_FILE – same convention as the postgres image's POSTGRES_PASSWORD_FILE.
 set -Eeuo pipefail
+
+# Named ottimo_* so it never shadows file_env of the postgres entrypoint.
+ottimo_file_env() {
+  local var="$1" file_var="${1}_FILE"
+  if [ -n "${!var:-}" ] && [ -n "${!file_var:-}" ]; then
+    echo "02-roles.sh: both $var and $file_var are set – use only one" >&2
+    exit 1
+  fi
+  if [ -n "${!file_var:-}" ]; then
+    export "$var"="$(<"${!file_var}")"
+  fi
+}
+ottimo_file_env OTTIMO_MIGRATOR_DB_PASSWORD
+ottimo_file_env OTTIMO_APP_DB_PASSWORD
 
 : "${POSTGRES_USER:?POSTGRES_USER is required}"
 : "${OTTIMO_MIGRATOR_DB_PASSWORD:?set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env}"
@@ -80,4 +100,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE ottimo_owner IN SCHEMA public
 SQL
 done
 
-echo "02-roles.sh: roles ottimo_owner (NOLOGIN), ottimo_migrator, ottimo_app, ottimo_readonly ready on: $databases"
+# H3 smoke: the runtime limits must be in force (read back, not assumed).
+rolconfig=$(psql_admin --dbname "$first_db" -tAc \
+  "SELECT array_to_string(rolconfig, ',') FROM pg_roles WHERE rolname = 'ottimo_app'")
+case ",$rolconfig," in
+  *,idle_in_transaction_session_timeout=30s,*) ;;
+  *) echo "02-roles.sh: ottimo_app idle_in_transaction_session_timeout missing (rolconfig=$rolconfig)" >&2; exit 1 ;;
+esac
+case ",$rolconfig," in
+  *,statement_timeout=15s,*) ;;
+  *) echo "02-roles.sh: ottimo_app statement_timeout missing (rolconfig=$rolconfig)" >&2; exit 1 ;;
+esac
+
+echo "02-roles.sh: roles ottimo_owner (NOLOGIN), ottimo_migrator, ottimo_app, ottimo_readonly ready on: $databases (ottimo_app: $rolconfig)"

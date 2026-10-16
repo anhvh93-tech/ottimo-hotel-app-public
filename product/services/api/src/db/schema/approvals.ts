@@ -149,7 +149,8 @@ export const approvalRequest = pgTable(
     ),
     check(
       'approval_request_refund_account_check',
-      sql`(${t.refundMethod} = 'bank_transfer') OR (${t.refundAccountEnc} IS NULL AND ${t.refundAccountLast4} IS NULL)`,
+      // 0042: IS NOT DISTINCT FROM – a NULL method with an account no longer passes (ARC 12).
+      sql`${t.refundMethod} IS NOT DISTINCT FROM 'bank_transfer' OR (${t.refundAccountEnc} IS NULL AND ${t.refundAccountLast4} IS NULL)`,
     ),
     check(
       'approval_request_refund_last4_check',
@@ -166,6 +167,12 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_refund_no_self_approval',
       sql`${t.type} <> 'refund' OR ${t.approverId} IS NULL OR ${t.approverId} <> ${t.requestedBy}`,
+    ),
+    // 0031 (BE-A, SEC-BE-37): who set the refund destination never approves it – 0042 (BE-B, PO 17/10): except
+    // an OWN approving a refund not paid in cash.
+    check(
+      'approval_request_refund_destination_not_approver',
+      sql`${t.type} <> 'refund' OR ${t.approverId} IS NULL OR ${t.refundDestinationSetBy} IS NULL OR ${t.approverId} <> ${t.refundDestinationSetBy} OR (${t.approverRoleSnapshot} = 'owner' AND COALESCE(${t.refundMethod}, 'cash') <> 'cash')`,
     ),
     index('approval_request_queue_idx').on(t.propertyId, t.status, t.requestedAt.desc()),
     index('approval_request_requester_idx').on(t.propertyId, t.requestedBy, t.requestedAt.desc()),

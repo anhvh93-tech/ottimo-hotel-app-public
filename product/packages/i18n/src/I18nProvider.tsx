@@ -23,6 +23,8 @@ export interface I18n {
   setLocale: (locale: Locale) => void;
   t: (key: string, args?: Args) => string;
   vnd: (amount: number) => string;
+  /** Money inside a sentence: number WITH the unit (`common.currency_vnd`, content-guide 4 / FE-S3-16). */
+  money: (amount: number) => string;
   date: (value: string | undefined | null) => string;
   dateTime: (value: string | undefined | null) => string;
 }
@@ -84,6 +86,8 @@ export function I18nProvider({
       setLocale,
       t: (key, args) => translate(locale, key, args),
       vnd: (amount) => formatNumber(locale, amount),
+      money: (amount) =>
+        translate(locale, 'common.currency_vnd', { amount: formatNumber(locale, amount) }),
       date: formatLocalDate,
       dateTime: (v) => formatInstant(locale, v),
     }),

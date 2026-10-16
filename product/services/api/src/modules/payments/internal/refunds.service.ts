@@ -24,7 +24,13 @@ import type { Tx } from '../../../db/database';
 import type { StaffPrincipal } from '../../../shared/http/auth.guard';
 import { problem } from '../../../shared/problem';
 import { toZonedIso } from '../../../shared/time';
-import { luhnValid, optionalText, requireReason } from '../../../shared/validation';
+import {
+  assertNoCardNumber,
+  containsCardNumber,
+  luhnValid,
+  optionalText,
+  requireReason,
+} from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
@@ -57,6 +63,7 @@ export interface RefundRow extends ApprovalRow {
   refund_account_enc: Buffer | null;
   refund_account_key_id: string | null;
   refund_destination_set_at: Date | null;
+  refund_destination_set_by: string | null;
   refunded_vnd: number;
 }
 
@@ -76,6 +83,8 @@ export interface PayoutInput {
 }
 
 const OPEN_STATES = ['pending', 'escalated', 'approved'];
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
 @Injectable()
 export class RefundsService {
@@ -94,6 +103,24 @@ export class RefundsService {
 
   /** SM-10 hook (registered by PaymentsModule): an approved refund → `refund_ready` to its requester (A-36). */
   async onDecided(tx: Tx, row: ApprovalRow): Promise<void> {
+    if (row.status === 'rejected' || row.status === 'cancelled') {
+      // SEC-BE-45 / T09: a refund that will never be paid keeps no account – DEK destroyed, envelope dropped.
+      const r = row as RefundRow;
+      if (r.refund_account_key_id && r.refund_account_enc) {
+        await this.cipher.destroy(tx, r.refund_account_key_id);
+        await tx.query(
+          `UPDATE approval_request SET refund_account_enc = NULL, updated_at = $2 WHERE id = $1`,
+          [r.id, this.clock.now()],
+        );
+        await this.audit.recordC3Access(tx, {
+          subjectType: 'refund_account',
+          subjectId: r.id,
+          action: 'purge',
+          ...(r.target_id ? { reservationId: r.target_id } : {}),
+        });
+      }
+      return;
+    }
     if (row.status !== 'approved') return;
     await notifyStaff(
       tx,
@@ -107,17 +134,6 @@ export class RefundsService {
       },
       this.clock.now(),
     );
-  }
-
-  /** Σ still open (not paid) of the folio's refund requests. */
-  private async openRequestsVnd(tx: Tx, reservationId: string, exceptId?: string): Promise<number> {
-    const { rows } = await tx.query<{ total: string | number }>(
-      `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0) AS total FROM approval_request
-        WHERE type = 'refund' AND target_type = 'reservation' AND target_id = $1
-          AND status = ANY($2::text[]) AND ($3::uuid IS NULL OR id <> $3)`,
-      [reservationId, OPEN_STATES, exceptId ?? null],
-    );
-    return Number(rows[0]?.total ?? 0);
   }
 
   // ───────────── createRefundRequest (E15-01) ─────────────
@@ -138,11 +154,9 @@ export class RefundsService {
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
     if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
-    const { creditVnd } = await this.folios.balance(tx, folio.id);
-    const max = Math.max(
-      0,
-      creditVnd - (await this.openRequestsVnd(tx, folio.primary_reservation_id)),
-    );
+    // E15-05: the cap is the overpayment not routed to a refund request yet (open requests of every booking
+    // of the folio already deducted by FolioService.balance).
+    const max = (await this.folios.balance(tx, folio.id)).unhandledCreditVnd;
     if (input.amountVnd > max) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }],
@@ -198,10 +212,12 @@ export class RefundsService {
       else if (!/^[0-9]{6,19}$/.test(accountNo)) {
         errors.push({ field: 'accountNo', code: 'VALIDATION_FAILED' });
       }
-      holder = input.accountHolder?.trim() ?? null;
+      // SEC-BE-44: control characters stripped, Luhn refused (V-09).
+      holder = input.accountHolder?.replace(CONTROL_CHARS, '').trim() ?? null;
       if (!holder) errors.push({ field: 'accountHolder', code: 'REQUIRED' });
       else if (holder.length > 70) errors.push({ field: 'accountHolder', code: 'TOO_LONG' });
       if (errors.length) throw problem('VALIDATION_FAILED', { errors });
+      assertNoCardNumber('accountHolder', holder);
       // SEC F8 / V-09: a card number is never accepted as a refund account.
       if (accountNo && accountNo.length >= 13 && luhnValid(accountNo)) {
         throw problem('CARD_NUMBER_DETECTED', {
@@ -231,17 +247,18 @@ export class RefundsService {
     }
     const oldKey = row.refund_account_key_id;
     const reapprove = row.status === 'approved';
+    if (reapprove) {
+      // SEC F8: a new destination after approval needs a new decision – through SM-10 (ARC 15 d).
+      await this.approvals.reopenForRedecision(tx, row.id, {
+        reason: 'refund_destination_changed',
+        byUserId: actor.userId,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
     const { rows } = await tx.query<RefundRow>(
       `UPDATE approval_request SET refund_method = $2, refund_bank_bin = $3,
           refund_account_last4 = $4, refund_account_enc = $5, refund_account_key_id = $6,
           refund_destination_set_at = $7, refund_destination_set_by = $8,
-          status = CASE WHEN $9 THEN 'pending' ELSE status END,
-          approver_id = CASE WHEN $9 THEN NULL ELSE approver_id END,
-          approver_role_snapshot = CASE WHEN $9 THEN NULL ELSE approver_role_snapshot END,
-          approver_limit_snapshot = CASE WHEN $9 THEN NULL ELSE approver_limit_snapshot END,
-          auth_method = CASE WHEN $9 THEN NULL ELSE auth_method END,
-          decided_at = CASE WHEN $9 THEN NULL ELSE decided_at END,
-          decision_note = CASE WHEN $9 THEN NULL ELSE decision_note END,
           updated_at = $7, version = version + 1
         WHERE id = $1 RETURNING *`,
       [
@@ -253,7 +270,6 @@ export class RefundsService {
         keyId,
         now,
         actor.userId,
-        reapprove,
       ],
     );
     if (oldKey) await this.cipher.destroy(tx, oldKey);
@@ -280,23 +296,38 @@ export class RefundsService {
       },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
-    if (reapprove) {
-      // SEC F8: a new destination after approval needs a new decision.
-      await notifyStaff(
-        tx,
-        this.events,
-        {
-          kind: 'approval_requested',
-          roles: MANAGER_ROLES,
-          excludeUserIds: [row.requested_by],
+    // SEC-BE-37 (4): every set/change of the destination is pushed to the requester and every owner – the
+    // booking code only, never the account (SEC A5). Push-only kind (no inbox row in R2).
+    await this.pushDestinationChanged(tx, row, actor.userId);
+    return rows[0] as RefundRow;
+  }
+
+  private async pushDestinationChanged(tx: Tx, row: RefundRow, actorId: string): Promise<void> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT DISTINCT u.id FROM app_user u
+         JOIN user_property_role upr ON upr.user_id = u.id AND upr.property_id = $1 AND upr.revoked_at IS NULL
+        WHERE u.status = 'active' AND (upr.role = 'owner' OR u.id = $2) AND u.id <> $3
+        ORDER BY u.id`,
+      [tx.ctx.propertyId, row.requested_by, actorId],
+    );
+    if (!rows.length) return;
+    await tx.query(
+      `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
+       VALUES ($1, $2, $3, 'staff.push', $4, $5) ON CONFLICT (dedupe_key) DO NOTHING`,
+      [
+        uuidv7(),
+        tx.ctx.organizationId,
+        tx.ctx.propertyId,
+        JSON.stringify({
+          kind: 'refund_destination_changed',
+          userIds: rows.map((r) => r.id),
           refType: 'approval_request',
           refId: row.id,
           ...(row.target_code ? { refCode: row.target_code } : {}),
-        },
-        now,
-      );
-    }
-    return rows[0] as RefundRow;
+        }),
+        `refund_destination_changed:${row.id}:${uuidv7()}`,
+      ],
+    );
   }
 
   async getDestination(
@@ -349,6 +380,20 @@ export class RefundsService {
     };
   }
 
+  /**
+   * PO 17/10: an OWN paying a transfer refund they requested, approved or routed takes the self path – the
+   * controller asks for the step-up window first (401 REAUTH_REQUIRED). Read-only, before the unit of work.
+   */
+  async isOwnSelfPayout(tx: Tx, approvalId: string, userId: string): Promise<boolean> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM approval_request
+        WHERE id = $1 AND type = 'refund'
+          AND (requested_by = $2 OR approver_id = $2 OR refund_destination_set_by = $2)`,
+      [approvalId, userId],
+    );
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
   // ───────────── pay-outs (A47a cash, A47 transfer / original method) ─────────────
 
   async executeCash(
@@ -388,6 +433,18 @@ export class RefundsService {
         errors: [{ field: 'bankReference', code: 'VALIDATION_FAILED' }],
       });
     }
+    if (input.bankReference !== null && containsCardNumber(input.bankReference)) {
+      // SEC-BE-44: a 13–19 digit Luhn-valid reference is a card number – never stored.
+      throw problem('CARD_NUMBER_DETECTED', {
+        errors: [{ field: 'bankReference', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    }
+    // ARC-BE-S3-25 lock order (reservation → folio → payment → approval): folio first, then the request; every
+    // state check below runs under both locks.
+    const target = await this.targetOf(tx, approvalId);
+    const folio = await this.folios.folioOfReservation(tx, target);
+    if (!folio) throw problem('NOT_FOUND');
+    const lockedFolio = await this.folios.lock(tx, folio.id);
     const row = await this.lock(tx, approvalId);
     if (row.status !== 'approved' || row.refunded_vnd >= row.amount_vnd) {
       throw problem('INVALID_TRANSITION', {
@@ -399,13 +456,23 @@ export class RefundsService {
     if ((channel === 'cash') !== (row.refund_method === 'cash')) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: row.refund_method } });
     }
-    // BR-522 v0.3.3 / A47a: the person who created the request never pays it out (CHECK in 0040 as well).
-    if (row.requested_by === actor.userId) throw problem('SELF_REFUND_FORBIDDEN');
-    if (row.target_type !== 'reservation' || !row.target_id) throw problem('NOT_FOUND');
-    const folio = await this.folios.folioOfReservation(tx, row.target_id);
-    if (!folio) throw problem('NOT_FOUND');
-    await this.folios.lock(tx, folio.id);
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    // PO 17/10 (SEC-37, decision-log): for a TRANSFER refund the payer differs from the requester, the approver
+    // and whoever set the destination – except an OWN (role at the time of the action), who may approve and pay
+    // the same refund (step-up checked by the controller, flagged in the money log). MGR never approves + pays.
+    // Cash refunds (A47a): the requester never pays, no exception (CHECK in 0040/0042 as well).
+    const ownerTransfer = channel === 'transfer' && primaryRole(actor.roles) === 'owner';
+    if (row.requested_by === actor.userId && !ownerTransfer) throw problem('SELF_REFUND_FORBIDDEN');
+    if (
+      channel === 'transfer' &&
+      !ownerTransfer &&
+      (row.approver_id === actor.userId || row.refund_destination_set_by === actor.userId)
+    ) {
+      throw problem('SELF_REFUND_FORBIDDEN');
+    }
+    const ownSelf =
+      ownerTransfer &&
+      [row.requested_by, row.approver_id, row.refund_destination_set_by].includes(actor.userId);
+    if (!lockedFolio || lockedFolio.status === 'closed') throw problem('FOLIO_LOCKED');
     const now = this.clock.now();
     if (
       paidAt.getTime() > now.getTime() ||
@@ -413,12 +480,23 @@ export class RefundsService {
     ) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'paidAt', code: 'DATE_INVALID' }] });
     }
+    // DOM BE-14 b/c, ARC 13: never more than the overpayment that exists NOW, and only the part backed by
+    // settled money (reconciled transfers, cash, POS – a disputed receipt counts for what arrived).
     const balance = await this.folios.balance(tx, folio.id);
-    const max = Math.min(row.amount_vnd - row.refunded_vnd, balance.paidVnd - balance.refundedVnd);
-    if (input.amountVnd > max) {
+    const left = row.amount_vnd - row.refunded_vnd;
+    if (input.amountVnd > Math.min(left, balance.rawCreditVnd)) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }],
-        extras: { max: Math.max(0, max) },
+        extras: { max: Math.max(0, Math.min(left, balance.payableCreditVnd)) },
+      });
+    }
+    if (input.amountVnd > balance.payableCreditVnd) {
+      // E15-05 / BR-522 v0.3.4 (DOM S3-16 a): the overpayment comes from receipts not reconciled yet.
+      throw problem('REFUND_SOURCE_NOT_RECONCILED', {
+        extras: {
+          paymentIds: balance.unsettledPaymentIds,
+          unreconciledVnd: balance.unreconciledVnd,
+        },
       });
     }
     // Method actually used (original_method → the method of the latest receipt of the folio).
@@ -431,6 +509,14 @@ export class RefundsService {
         [folio.id],
       );
       method = orig[0]?.method ?? 'cash';
+      // ARC-BE-S3-26 / SEC-BE-45: cash (or money the OTA holds) is never paid out by this operation – cash goes
+      // through executeCashRefund with the guest's signed receipt (A47a).
+      if (method === 'cash' || method === 'ota_collect') {
+        throw problem('INVALID_TRANSITION', {
+          detail: 'original method resolves to cash – use executeCashRefund',
+          extras: { currentState: method },
+        });
+      }
     }
     const transfer = method === 'bank_transfer' || method === 'vietqr';
     const errors: Array<{ field: string; code: string }> = [];
@@ -493,12 +579,13 @@ export class RefundsService {
     }
     const refunded = row.refunded_vnd + input.amountVnd;
     const full = refunded >= row.amount_vnd;
-    await tx.query(
-      `UPDATE approval_request SET refunded_vnd = $2, updated_at = $3, version = version + 1,
-          refund_account_enc = CASE WHEN $4 THEN NULL ELSE refund_account_enc END
-        WHERE id = $1`,
-      [row.id, refunded, now, full],
-    );
+    await this.approvals.addRefunded(tx, row.id, input.amountVnd);
+    if (full) {
+      await tx.query(
+        `UPDATE approval_request SET refund_account_enc = NULL, updated_at = $2 WHERE id = $1`,
+        [row.id, now],
+      );
+    }
     if (full && row.refund_account_key_id) {
       // T09: crypto-shredding of the destination account once the refund is fully paid.
       await this.cipher.destroy(tx, row.refund_account_key_id);
@@ -506,7 +593,7 @@ export class RefundsService {
         subjectType: 'refund_account',
         subjectId: row.id,
         action: 'purge',
-        reservationId: row.target_id,
+        reservationId: target,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
@@ -523,6 +610,8 @@ export class RefundsService {
         status: 'succeeded',
         reconciliation,
         recordedByRole: primaryRole(actor.roles),
+        // PO 17/10: "OWN tự duyệt và chi" – shown in the money log (mlog) from this flag.
+        ...(ownSelf ? { ownSelfApprovedAndPaid: true } : {}),
       },
       ...(note ? { reason: note } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
@@ -531,8 +620,19 @@ export class RefundsService {
       roles: MANAGER_ROLES,
       userIds: [actor.userId],
     });
-    await publishEvent(tx, this.events, 'reservation.changed', row.target_id);
+    await publishEvent(tx, this.events, 'reservation.changed', target);
     return (await this.payments.row(tx, id)) as PaymentRowLite;
+  }
+
+  /** Booking of a refund request (unlocked read – the request row is locked after the folio). */
+  private async targetOf(tx: Tx, approvalId: string): Promise<string> {
+    const { rows } = await tx.query<{ target_type: string | null; target_id: string | null }>(
+      `SELECT target_type, target_id FROM approval_request WHERE id = $1 AND type = 'refund'`,
+      [approvalId],
+    );
+    const r = rows[0];
+    if (!r || r.target_type !== 'reservation' || !r.target_id) throw problem('NOT_FOUND');
+    return r.target_id;
   }
 
   /** OpenAPI ApprovalRequest + refund parts (masked destination, refundedVnd). */

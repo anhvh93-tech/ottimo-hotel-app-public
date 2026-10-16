@@ -832,6 +832,13 @@
       "effectiveFrom": "2026-10-01"
     },
     {
+      "param": "early_departure_refund",
+      "value": { "minNoticeDays": 1, "refundPct": 50 },
+      "br": "BR-428",
+      "status": "INV-006",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
       "param": "checkout_reminders",
       "value": {
         "before": ["20:00-1d", "09:00", "11:00"],

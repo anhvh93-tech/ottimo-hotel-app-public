@@ -3,6 +3,7 @@
  * every total except roomVnd/depositHeldVnd – rbac note 4, SEC-ARC-15; payerName etc. by x-visible-to).
  */
 import { toZonedIso } from '../../../shared/time';
+import { type LabelContext, lineLabel } from './line-labels';
 import {
   type FolioLineRow,
   type FolioRow,
@@ -17,12 +18,19 @@ function defined<T extends Record<string, unknown>>(o: T): T {
   return o;
 }
 
-export function folioLineDto(l: FolioLineRow, tz: string): Record<string, unknown> {
+export function folioLineDto(
+  l: FolioLineRow,
+  tz: string,
+  labels: LabelContext = {},
+): Record<string, unknown> {
+  const { labelKey, labelParams } = lineLabel(l, labels);
   return defined({
     id: l.id,
     category: l.category,
     revenueGroup: l.revenue_group,
     description: l.description,
+    labelKey,
+    labelParams,
     serviceDate: l.service_date,
     quantity: Number(l.quantity),
     unitPriceVnd: l.unit_price_vnd,
@@ -82,6 +90,8 @@ export function folioDto(
   payments: PaymentRowLite[],
   tz: string,
   invoice: Record<string, unknown> | null = null,
+  labels: LabelContext = {},
+  openRefundVnd = 0,
 ): Record<string, unknown> {
   const reservationIds = [
     folio.primary_reservation_id,
@@ -96,9 +106,9 @@ export function folioDto(
     status: folio.status,
     billNo: folio.bill_no,
     reservationIds,
-    lines: lines.map((l) => folioLineDto(l, tz)),
+    lines: lines.map((l) => folioLineDto(l, tz, labels)),
     payments: payments.map((p) => paymentDto(p, tz, { folioId: folio.id })),
-    totals: computeTotals(lines, payments),
+    totals: computeTotals(lines, payments, openRefundVnd),
     ...(invoice ? { invoiceRequest: invoice } : {}),
     pendingApprovals: lines.filter((l) => l.line_state === 'pending_approval').length,
     version: folio.version,

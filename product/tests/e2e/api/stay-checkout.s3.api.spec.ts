@@ -1,913 +1,952 @@
-// KHUNG E2E Sprint 3 (pending) – L4 – Lưu trú, trả phòng 3 bước, bill, VietQR, thu tiền (EP04, EP05, EP15 – Sprint 3).
-// Sinh từ product/tests/test-cases/r1-main-flows.md (QA, khởi động Sprint 3 – 16/10/2026). Mỗi TC một test.fixme có
-// mã TC, story/AC, tầng, ưu tiên và tóm tắt bước/kỳ vọng. QA điền thân test khi ARC chốt OpenAPI 0.3.6 (nhóm B) và
-// endpoint có trên build: đổi test.fixme → test, gọi requireEndpoints(...) như các spec Sprint 2.
-// Không sửa tay phần mô tả: sửa TC trong r1-main-flows.md rồi chép lại.
-import { test } from '@playwright/test';
+// E2E Sprint 3 – L4 (EP04, EP05, EP15) – phần chạy ở project "api" (đồng hồ thật, song song): KHÔNG nhận phòng.
+// Đơn confirmed ngày xa (support/s3-stay.ts farBooking – khoảng trống today + 30…320, hủy ở afterEach): danh mục phí,
+// hóa đơn công ty, ghi thu/đảo giao dịch/hoàn tiền (tách nhiệm BR-522-01, C3 nơi nhận hoàn), VietQR CHƯA cấu hình
+// (TC-L4-065 – tài khoản nhận chỉ được đặt cho NGÀY ẢO ở project clock), schema không có trường thẻ.
+// Các TC cần đơn in_house / trả phòng / mốc giờ ở e2e/clock/stay-checkout.s3.clock.spec.ts.
+// TC: product/tests/test-cases/r1-main-flows.md mục 5 (L4). Oracle: fixtures/br-examples.json (oracle()).
+import { readFileSync } from 'node:fs';
+import { expect, test } from '@playwright/test';
+import {
+  call,
+  expectProblem,
+  needSeedPassword,
+  propertyIdOf,
+  requireEndpoints,
+  sessionOrSkip,
+  stackToday,
+} from '../support/api.js';
+import {
+  EP,
+  addDays,
+  cleanupTracked,
+  fieldCodes,
+  getReservation,
+  makeHold,
+  oracle,
+  oracleNum,
+  s2Context,
+  type ProblemFields,
+} from '../support/s2.js';
+import {
+  EP3,
+  CAN_CLEAN_ROOMS,
+  addDocument,
+  addLine,
+  approve,
+  dev,
+  foreignDoc,
+  getFolio,
+  liveLines,
+  namedGuest,
+  p3,
+  recordPayment,
+  registrationOf,
+  stackSql,
+  stepUp,
+  vnDoc,
+  type Payment,
+} from '../support/s3.js';
+import { approvalsOf, dsParam, farBooking, upload, type Approval } from '../support/s3-stay.js';
 
-const WAITING = 'OpenAPI 0.3.6 (ARC) + endpoint Sprint 3 trên build';
+let today = '';
 
 test.describe(
   'L4 – Lưu trú, trả phòng 3 bước, bill, VietQR, thu tiền (EP04, EP05, EP15 – Sprint 3)',
-  { tag: ['@api', '@sprint3', '@pending'] },
+  { tag: ['@api', '@sprint3'] },
   () => {
+    test.beforeAll(async ({ request }) => {
+      today = await stackToday(request);
+    });
+    test.beforeEach(() => needSeedPassword());
+    test.afterEach(async ({ request }) => cleanupTracked(request));
+
     test.describe('5.1 Gia hạn, trả muộn, nhắc trả phòng, phát sinh', () => {
-      test.fixme(
-        'TC-L4-001 US-028/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-028/AC1' },
-            { type: 'endpoints', description: 'getExtensionOptions' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: DS-E; đơn Trực tiếp 201 in_house 13→16/10; 201 trống 16, 17, 18/10, đêm 19/10 đã có
-          //   đơn
-          // Bước: Mở gia hạn; thử chọn 4 đêm; (dữ liệu mới, 201 trống 10 đêm) thử 8 đêm
-          // Kỳ vọng: Chọn tối đa 3 đêm, mỗi đêm ghi "Trống"; 4 đêm → không chọn được (đêm 19/10 kín); 8 đêm →
-          //   vượt giới hạn 7 đêm BR-421, hướng sang báo giá dài hạn
-          // Quy tắc: BR-421, BR-108
-        },
-      );
-      test.fixme(
-        'TC-L4-002 US-028/AC2 [A+U · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-028/AC2' },
-            { type: 'endpoints', description: 'getExtensionOptions, extendStay' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Trực tiếp 201 giá 700.000; (dữ liệu mới) đơn Trực tiếp có đêm gia hạn rơi vào
-          //   24/12
-          // Bước: Gia hạn 2 đêm ngày thường; gia hạn qua 24/12
-          // Kỳ vọng: 2 đêm = 1.400.000 (giữ giá đơn – ví dụ BR-421); đêm 24/12 lấy giá ngày đặc biệt của lịch giá
-          //   kênh Trực tiếp
-          // Quy tắc: BR-421, BR-104, SM-01 B13
-        },
-      );
-      test.fixme(
-        'TC-L4-003 US-028/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-028/AC3' },
-            { type: 'endpoints', description: 'extendStay, getReservation, getFolio' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) Đơn Booking.com 401 giá 990.000 in_house; (b) đơn Airbnb in_house
-          // Bước: (a) Gia hạn 1 đêm; (b) gia hạn 2 đêm
-          // Kỳ vọng: (a) tạo đơn con kênh Trực tiếp liên kết đơn gốc, giá 1.042.000 (giá trực tiếp hiện hành),
-          //   folio chung, đơn OTA gốc không đổi; (b) thông báo "tiết kiệm 15,5% phí kênh ≈ 323.000" – tỷ lệ đọc
-          //   từ cấu hình kênh (đổi tỷ lệ cấu hình → thông báo đổi theo)
-          // Quy tắc: BR-422, BR-421, BR-901, BL #12, BL #13
-        },
-      );
-      test.fixme(
-        'TC-L4-004 US-028/AC4 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-028/AC4' },
-            { type: 'endpoints', description: 'extendStay, listHkTasks, getRegistration' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn khách NN in_house, khai báo confirmed, buồng OC, có việc "Dọn trả phòng" ngày đi
-          // Bước: Gia hạn 1 đêm
-          // Kỳ vọng: Ngày đi cập nhật; buồng → OD; việc "Dọn trả phòng" đổi thành "Dọn phòng khách đang ở"; 1
-          //   lệnh outbox; khai báo → needs_update; hạn thu tiền gia hạn = muộn nhất 14:00 ngày đầu phần gia hạn
-          //   (BR-423)
-          // Quy tắc: BR-802, BR-423, BR-604, BR-905
-        },
-      );
-      test.fixme(
-        'TC-L4-005 US-028/AC5 [P+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-028/AC5' },
-            { type: 'endpoints', description: 'extendStay, createReservation' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn in_house 201 đi 16/10; 201 trống 16/10
-          // Bước: Đồng thời: qa.fd gia hạn đêm 16/10 và qa.fd2 tạo đơn mới 201 đêm 16/10 (lặp 20 lần)
-          // Kỳ vọng: Mỗi lần đúng 1 thao tác thành công, thao tác kia 409 ROOM_UNAVAILABLE
-          // Quy tắc: BR-906
-        },
-      );
-      test.fixme(
-        'TC-L4-010 US-029/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-029/AC1' },
-            { type: 'endpoints', description: 'setLateCheckout' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn giá đêm cuối 700.000, đi hôm nay, căn không có khách đến
-          // Bước: Đặt trả muộn 15:00 (dryRun rồi ghi); dữ liệu mới: 17:00
-          // Kỳ vọng: 15:00 → 210.000, 17:00 → 350.000 (ví dụ BR-412); số tiền hiện trước khi lưu (dryRun không
-          //   ghi dữ liệu); chỉ ghi folio khi lễ tân xác nhận
-          // Quy tắc: BR-412, BR-414, SM-01 B15
-        },
-      );
-      test.fixme(
-        'TC-L4-011 US-029/AC1 [U+A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-029/AC1' },
-            { type: 'endpoints', description: 'setLateCheckout, setParameter' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Như trên; giá đêm cuối 700.000; ân hạn mặc định 12:30
-          // Bước: Căn không có khách đến hôm nay, giờ trả: 12:00; 12:30; 12:31; 15:00; 15:01; 18:00. Căn có khách
-          //   đến hôm nay: 12:01; 12:20. Sau đó qa.owner đặt ân hạn 13:00, thử 13:00 và 13:01 (không có khách
-          //   đến)
-          // Kỳ vọng: Không có khách đến: 12:00 → 0; 12:30 → 0; 12:31 → 210.000; 15:00 → 210.000; 15:01 → 350.000;
-          //   18:00 → 350.000 (oracle BR-412-01…11). Có khách đến: 12:01 → 210.000; 12:20 → 210.000 (không ân
-          //   hạn). Ân hạn 13:00: 13:00 → 0; 13:01 → 210.000 (ân hạn không dời mốc bậc)
-          // Quy tắc: BR-412 (biên, INV quyết ESC-007), late_grace_until, late_grace_requires_no_same_day_arrival,
-          //   BL #4
-        },
-      );
-      test.fixme(
-        'TC-L4-012 US-029/AC2 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-029/AC2' },
-            { type: 'endpoints', description: 'setLateCheckout' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Căn 203 trả muộn 15:00; có khách đến 203 hôm nay ETA 14:00; (a) không còn căn Lầu 1–2
-          //   trống; (b) còn 202 trống
-          // Bước: (a) qa.fd đặt trả muộn; qa.mgr đặt trả muộn. (b) qa.fd đặt trả muộn
-          // Kỳ vọng: (a) qa.fd: 409 LATE_CHECKOUT_CONFLICT; qa.mgr: được (duyệt). (b) được kèm cảnh báo nêu tên
-          //   khách đến và giờ đến dự kiến 14:00
-          // Quy tắc: BR-416, A16
-        },
-      );
-      test.fixme(
-        'TC-L4-013 US-029/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-029/AC3' },
-            { type: 'endpoints', description: 'setLateCheckout, getExtensionOptions' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn đi hôm nay
-          // Bước: Đặt trả muộn 18:01; 19:00
-          // Kỳ vọng: Không ghi phụ thu; chuyển sang luồng gia hạn 1 đêm (kiểm trùng, khóa đêm trên kênh)
-          // Quy tắc: BR-416, BR-421
-        },
-      );
-      test.fixme(
-        'TC-L4-014 US-029/AC4 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-029/AC4' },
-            {
-              type: 'endpoints',
-              description: 'setLateCheckout, listHkTasks, getDoorCredential, listCheckoutReminders',
-            },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Như TC-L4-010 (15:00)
-          // Bước: Lưu trả muộn
-          // Kỳ vọng: Việc dọn của căn ghi "dọn sau 15:00"; hiệu lực mã cửa kéo tới 15:00; nhật ký nhắc ghi giờ
-          //   trả đã chốt
-          // Quy tắc: BR-403, SM-14
-        },
-      );
-      test.fixme(
-        'TC-L4-020 US-030/AC1 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-030/AC1' },
-            { type: 'endpoints', description: 'recordCheckoutConfirmation, listCheckoutReminders' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn đi hôm nay
-          // Bước: Lễ tân chọn giờ 11:00, ghi chú "Gọi điện"
-          // Kỳ vọng: Nhật ký nhắc có dòng "Gọi điện – khách trả lúc 11:00", người ghi, thời điểm
-          // Quy tắc: UC-14
-        },
-      );
-      test.fixme(
-        'TC-L4-021 US-030/AC2 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-030/AC2' },
-            { type: 'endpoints', description: 'getArrivalsDepartures' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Sau TC-L4-020
-          // Bước: Xem thẻ "khách trả phòng hôm nay"
-          // Kỳ vọng: Thẻ đơn đó chuyển "đã trả lời"
-          // Quy tắc: –
-        },
-      );
-      test.fixme(
-        'TC-L4-022 US-031/AC1 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-031/AC1' },
-            { type: 'endpoints', description: 'getArrivalsDepartures, listCheckoutReminders' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn in_house đi 16/10, khách chưa trả lời
-          // Bước: ⏱ 15/10 19:59, 20:00; 16/10 08:59, 09:00; 10:59, 11:00; 11:59, 12:00 – mỗi mốc ▶ J4
-          // Kỳ vọng: Thẻ đổi đúng thứ tự: (20:00) nhắc lần 1 → (09:00) "Đã nhắc, chờ khách trả lời" → (11:00)
-          //   "Chưa trả lời – lễ tân gọi xác nhận" → (12:00) "Quá giờ trả phòng" báo đỏ cho qa.fd + qa.mgr; trước
-          //   mỗi mốc 1 phút chưa đổi; chạy J4 hai lần cùng mốc không nhắc trùng
-          // Quy tắc: BR-425, BR-001, J4
-        },
-      );
-      test.fixme(
-        'TC-L4-023 US-031/AC2 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-031/AC2' },
-            { type: 'endpoints', description: 'getArrivalsDepartures' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: 2 đơn đi hôm nay chưa trả lời; căn của đơn thứ 2 có khách đến hôm nay
-          // Bước: Xem danh sách thẻ
-          // Kỳ vọng: Đơn thứ 2 được xếp lên đầu
-          // Quy tắc: BR-425
-        },
-      );
-      test.fixme(
-        'TC-L4-024 US-031/– [A · Thấp]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-031/–' },
-            { type: 'endpoints', description: 'listCheckoutReminders' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Worker dừng từ 19:00 đến 08:30 hôm sau
-          // Bước: Khởi động worker lúc 08:30
-          // Kỳ vọng: Nhắc "20:00 hôm trước" không gửi bù (trễ > job_catchup_minutes), job_run ghi skipped
-          // Quy tắc: BR-425, architecture 9.1 J4 (bắt kịp)
-        },
-      );
-      test.fixme(
-        'TC-L4-025 US-137/– [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-137/–' },
-            { type: 'endpoints', description: 'earlyDeparture, listApprovalRequests' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Trực tiếp 4 đêm × 700.000 in_house; story Should R2
-          // Bước: (a) Khách báo trước 1 ngày, bỏ 2 đêm cuối; (b) dữ liệu mới: báo trong ngày
-          // Kỳ vọng: (a) hoàn 700.000 (50% của 2 đêm – ví dụ BR-428), yêu cầu hoàn chờ qa.mgr duyệt, 2 đêm mở bán
-          //   + outbox, khai báo NN needs_update; (b) không hoàn, các đêm còn lại vẫn mở bán
-          // Quy tắc: BR-428, SM-01 B16, BR-522, BR-011 (ngày mốc = ngày rời đi mới)
-        },
-      );
-      test.fixme(
-        'TC-L4-030 US-032/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-032/AC1' },
-            { type: 'endpoints', description: 'getChargeCatalog, addFolioLine, adjustFolioLine' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn in_house; danh mục phí BR-511
-          // Bước: Thêm "Khử mùi thuốc lá" và "Mất/hỏng thẻ phòng" (kèm ảnh); sửa số lượng thẻ 1 → 2
-          // Kỳ vọng: Giá mặc định 500.000 và 200.000/thẻ; loại dòng "Phí phạt" (không vào doanh thu phòng); sửa
-          //   số lượng được, có nhật ký; 1 khử mùi + 1 thẻ = 700.000
-          // Quy tắc: BR-511, BR-904, BR-008
-        },
-      );
-      test.fixme(
-        'TC-L4-031 US-032/AC2 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-032/AC2' },
-            { type: 'endpoints', description: 'addFolioLine' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Như trên
-          // Bước: Thêm dòng phí phạt/hư hỏng không ảnh và không ghi chú
-          // Kỳ vọng: 422 VALIDATION_FAILED (thiếu bằng chứng)
-          // Quy tắc: BR-511, BR-512
-        },
-      );
-      test.fixme(
-        'TC-L4-032 US-032/AC3 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-032/AC3' },
-            { type: 'endpoints', description: 'addFolioLine, getFolio, getGuestFolio' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn còn phải thu 0
-          // Bước: Thêm phí 200.000
-          // Kỳ vọng: "Còn phải thu" = 200.000 ở chi tiết đơn và app khách (cùng số)
-          // Quy tắc: –
-        },
-      );
-      test.fixme(
-        'TC-L4-033 US-032/AC4 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-032/AC4' },
-            { type: 'endpoints', description: 'addFolioLine, listApprovalRequests' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Món hư "Đèn ngủ" không có trong bảng BR-512
-          // Bước: Lễ tân thêm dòng
-          // Kỳ vọng: Tạo yêu cầu định giá cho qa.mgr/qa.owner (SM-10), chưa có số tiền trên folio
-          // Quy tắc: BR-512, SM-10
-        },
-      );
-      test.fixme(
+      test(
         'TC-L4-034 US-032/– [U · Thấp]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-032/–' },
             { type: 'endpoints', description: 'getChargeCatalog' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Bảng đền bù tạm
           // Bước: Thêm khăn tắm, ly, remote
           // Kỳ vọng: 150.000; 50.000; 200.000
           // Quy tắc: BR-512
+          await requireEndpoints(request, 'TC-L4-034', [EP3.getChargeCatalog, EP3.addFolioLine]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const cat = await call<{
+            data: Array<{
+              code: string;
+              category: string;
+              defaultUnitPriceVnd: number;
+              evidenceRequired?: boolean;
+              priceEditable?: boolean;
+              ruleRef?: string;
+            }>;
+          }>(request, 'GET', p3(EP3.getChargeCatalog, fd), { session: fd });
+          expect(cat.status, JSON.stringify(cat.body)).toBe(200);
+          const expected = oracle('BR-512-01').expected.catalogVnd as Record<string, number>;
+          for (const [code, price] of Object.entries(expected)) {
+            const item = cat.body.data.find((x) => x.code === `damage.${code}`);
+            expect(item, `danh mục thiếu damage.${code}`).toBeTruthy();
+            expect(item!.category).toBe('damage');
+            expect(item!.defaultUnitPriceVnd).toBe(price);
+            expect(item!.evidenceRequired).toBe(true);
+            expect(item!.priceEditable).toBe(false);
+          }
+          // Lễ tân thêm 3 món đền bù (kèm biên bản) lên folio của đơn: giá lấy từ bảng, không sửa được
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 2, today });
+          for (const [code, price] of Object.entries(expected)) {
+            const r = await addLine(request, fd, res.folioId, {
+              chargeCode: `damage.${code}`,
+              quantity: 1,
+              serviceDate: res.arrivalDate,
+              note: 'Bien ban kiem phong E2E',
+            });
+            expect(r.status, JSON.stringify(r.body)).toBe(201);
+            const line = r.body.lines.find((l) => l.description === `damage.${code}`);
+            expect(line, `dòng damage.${code}`).toBeTruthy();
+            expect(line!.amountVnd).toBe(price);
+            expect(line!.category).toBe('damage');
+          }
+          const edited = await addLine(request, fd, res.folioId, {
+            chargeCode: 'damage.glass',
+            quantity: 1,
+            unitPriceVnd: 1000,
+            serviceDate: res.arrivalDate,
+            note: 'Bien ban kiem phong E2E',
+          });
+          expect(edited.status).toBe(422);
+          expect(fieldCodes(edited.body)).toContain('unitPriceVnd:PRICE_NOT_EDITABLE');
         },
       );
     });
+
     test.describe('5.2 Trả phòng 3 bước, bill, thu tiền', () => {
-      test.fixme(
-        'TC-L4-040 US-035/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-035/AC1' },
-            { type: 'endpoints', description: 'recordMinibarCheck, getCheckoutSummary' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Căn 201 tủ chuẩn có 2 lon Coca
-          // Bước: Bước 1: nhập Coca còn 0
-          // Kỳ vọng: Đã dùng 2; tiền = 2 × giá bán Coca trong danh mục
-          // Quy tắc: BR-702, BR-703, BR-426
-        },
-      );
-      test.fixme(
-        'TC-L4-041 US-035/AC2 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-035/AC2' },
-            { type: 'endpoints', description: 'recordMinibarCheck' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Nước suối "miễn phí", chuẩn 2
-          // Bước: Nhập còn 0
-          // Kỳ vọng: Dòng ghi "Miễn phí", 0 đ; tiêu hao 2 vẫn ghi (trừ kho)
-          // Quy tắc: BR-701
-        },
-      );
-      test.fixme(
-        'TC-L4-042 US-035/AC3 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-035/AC3' },
-            { type: 'endpoints', description: 'recordMinibarCheck' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Chuẩn Coca 2
-          // Bước: Nhập còn 3; nhập −1
-          // Kỳ vọng: Bị chặn (422); giao diện dùng nút +/− không cho vượt khoảng 0…chuẩn
-          // Quy tắc: BR-702
-        },
-      );
-      test.fixme(
-        'TC-L4-043 US-035/– [U · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-035/–' },
-            { type: 'endpoints', description: 'recordMinibarCheck' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Bia 35.000, snack 30.000, nước suối miễn phí
-          // Bước: Dùng 2 bia, 1 snack, 2 nước
-          // Kỳ vọng: Tổng 100.000
-          // Quy tắc: BR-702 (ví dụ)
-        },
-      );
-      test.fixme(
-        'TC-L4-044 US-036/AC1 [A+E · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-036/AC1' },
-            { type: 'endpoints', description: 'getCheckoutSummary' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: (a) đơn đã hẹn trả muộn 15:00 giá đêm cuối 700.000; (b) đơn không hẹn
-          // Bước: Mở bước 2
-          // Kỳ vọng: (a) giờ trả mặc định 15:00, phụ thu 210.000; (b) giờ trả mặc định 12:00, phụ thu 0
-          // Quy tắc: BR-412, BR-414, BR-401
-        },
-      );
-      test.fixme(
-        'TC-L4-045 US-036/AC2 [E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-036/AC2' },
-            { type: 'endpoints', description: 'getCheckoutSummary' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Bước 2
-          // Bước: Nhập giặt ủi 120.000, chọn "Chuyển khoản QR"
-          // Kỳ vọng: Bảng tóm tắt "Còn phải thu" tăng 120.000 ngay (không cần lưu)
-          // Quy tắc: BR-521, BR-507
-        },
-      );
-      test.fixme(
-        'TC-L4-046 US-036/AC3 [A+E · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-036/AC3' },
-            { type: 'endpoints', description: 'getCheckoutSummary' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Airbnb "OTA thu hộ" có minibar 50.000
-          // Bước: Mở bước 2, bước 3
-          // Kỳ vọng: Tiền phòng không nằm trong "Còn phải thu"; chỉ còn 50.000 phát sinh tại quầy
-          // Quy tắc: BR-307
-        },
-      );
-      test.fixme(
-        'TC-L4-047 US-036/AC3 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-036/AC3' },
-            { type: 'endpoints', description: 'getCheckoutSummary' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Booking.com "OTA thu hộ", giá đêm cuối 760.000, trả muộn 15:00 đã hẹn
-          // Bước: Mở bước 2 và 3
-          // Kỳ vọng: Phụ thu trả muộn tính theo chính sách OTTIMO trên giá đêm cuối của đơn (30% = 228.000), là
-          //   khoản thu trực tiếp tại quầy; tiền phòng vẫn "Đã thu qua OTA"
-          // Quy tắc: BR-415, BR-412
-        },
-      );
-      test.fixme(
-        'TC-L4-048 US-036/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-036/AC3' },
-            { type: 'endpoints', description: 'getCheckoutSummary, checkOut' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn Booking.com khách trả tại chỗ in_house, chưa thu tiền phòng 2.460.000, minibar
-          //   50.000
-          // Bước: Mở bước 2, 3; hoàn tất khi chưa thu; khách bấm "trả phòng nhanh" trên app
-          // Kỳ vọng: "Còn phải thu" = 2.460.000 + 50.000 (khác TC-L4-046 kiểu OTA thu hộ); hoàn tất → 409
-          //   BALANCE_DUE; trả phòng nhanh của khách bị chặn (BR-427)
-          // Quy tắc: BR-307, SM-01 B18
-        },
-      );
-      test.fixme(
-        'TC-L4-050 US-037/AC1 [A+U · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-037/AC1' },
-            { type: 'endpoints', description: 'getCheckoutSummary, getBill' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn 3 đêm × 820.000; minibar 25.000; phụ thu trả muộn 210.000 có FOC approved; chưa
-          //   cọc
-          // Bước: Mở bước 3 – bill
-          // Kỳ vọng: Bill: 3 dòng tiền phòng 820.000; 1 dòng minibar 25.000; 1 dòng phụ thu 210.000; 1 dòng FOC
-          //   −210.000; tổng 2.485.000; còn phải thu 2.485.000
-          // Quy tắc: BR-412, BR-434, BR-008
-        },
-      );
-      test.fixme(
+      test(
         'TC-L4-051 US-037/AC2 [A+E · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-037/AC2' },
             { type: 'endpoints', description: 'getBill' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: (a) khách đứng tên hộ chiếu nước ngoài; (b) khách VN hồ sơ ngôn ngữ "English"; (c)
           //   khách VN tiếng Việt; tỷ giá 26.200 cập nhật 10/10
           // Bước: Xem bill
           // Kỳ vọng: (a), (b) bill song ngữ Việt – Anh + dòng quy đổi USD tham khảo kèm ngày cập nhật tỷ giá
           //   (13.908.000 đ ≈ 530,8 USD); (c) chỉ tiếng Việt
           // Quy tắc: BR-004, BR-009
+          // Bill đọc được trên đơn confirmed (không cần nhận phòng) → chạy ở project api.
+          await requireEndpoints(request, 'TC-L4-051', [
+            EP3.getBill,
+            EP3.addFolioLine,
+            EP3.addGuestDocument,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const o = oracle('BR-004-01');
+          const target = Number(o.input.amountVnd); // 13.908.000
+          const rate = dsParam<number>('fx_usd_vnd'); // 26.200 (DS-E)
+          const bill = async (guest: Record<string, unknown>, doc: 'foreign' | 'vn') => {
+            const g = await namedGuest(request, fd, guest);
+            const res = await farBooking(request, c, fd, { nights: 1, today, guestId: g.id });
+            const regId = await registrationOf(request, fd, res);
+            const name = String(guest.fullName ?? g.fullName);
+            const d = await addDocument(
+              request,
+              fd,
+              regId,
+              doc === 'foreign'
+                ? foreignDoc(name, res.departureDate, { entryDate: addDays(today, -1) })
+                : vnDoc(name),
+            );
+            expect(d.status, JSON.stringify(d.body)).toBe(201);
+            // tổng bill = số tiền của ví dụ BR-004-01 (thêm dòng dịch vụ cho đủ)
+            const f = await getFolio(request, fd, res.folioId);
+            const add = await addLine(request, fd, res.folioId, {
+              category: 'fnb',
+              description: 'Tiec sinh nhat',
+              quantity: 1,
+              unitPriceVnd: target - f.totals.totalVnd,
+              serviceDate: res.arrivalDate,
+            });
+            expect(add.status, JSON.stringify(add.body)).toBe(201);
+            const b = await call<{
+              locale: string;
+              totalVnd: number;
+              usdReference?: { rate: number; totalUsd: number; rateUpdatedOn?: string };
+            }>(request, 'GET', p3(EP3.getBill, fd, { folioId: res.folioId }), { session: fd });
+            expect(b.status, JSON.stringify(b.body)).toBe(200);
+            expect(b.body.totalVnd).toBe(target);
+            return b.body;
+          };
+          // (a) khách đứng tên hộ chiếu nước ngoài (hồ sơ quốc tịch DE)
+          const a = await bill({ fullName: 'Daniel Weber', nationalityCode: 'DE' }, 'foreign');
+          // (b) khách VN, ngôn ngữ hồ sơ English
+          const b = await bill({ nationalityCode: 'VN', preferredLocale: 'en' }, 'vn');
+          for (const x of [a, b]) {
+            expect(x.locale).toBe('vi_en');
+            expect(x.usdReference?.rate).toBe(rate);
+            expect(x.usdReference?.totalUsd.toFixed(1)).toBe(String(o.expected.usdDisplay));
+            expect(x.usdReference?.rateUpdatedOn, 'ngày cập nhật tỷ giá').toMatch(
+              /^\d{4}-\d{2}-\d{2}$/,
+            );
+            expect(x.usdReference!.rateUpdatedOn! <= today).toBe(true);
+          }
+          // (c) khách VN tiếng Việt → chỉ tiếng Việt, không quy đổi USD
+          const cc = await bill({ nationalityCode: 'VN', preferredLocale: 'vi' }, 'vn');
+          expect(cc.locale).toBe('vi');
+          expect(cc.usdReference).toBeUndefined();
         },
       );
-      test.fixme(
-        'TC-L4-052 US-037/AC3 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-037/AC3' },
-            { type: 'endpoints', description: 'getBill' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn có giao dịch: cọc 700.000 succeeded; 300.000 failed; 200.000 reversed (+ dòng
-          //   đảo); 100.000 pending
-          // Bước: Xem bill
-          // Kỳ vọng: "Đã thu" = 700.000 (chỉ succeeded thuần, đã trừ giao dịch đảo)
-          // Quy tắc: SM-12, US-119
-        },
-      );
-      test.fixme(
-        'TC-L4-053 US-038/AC1 [A+E · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/AC1' },
-            { type: 'endpoints', description: 'getCheckoutSummary, checkOut' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn khách NN in_house 201, đã thu đủ X, có tiêu hao minibar; ⏱ 15/10 11:40
-          // Bước: Bấm "Đã thu X đ – hoàn tất" + xác nhận
-          // Kỳ vọng: Đơn checked_out; folio settled với số bill dạng F26-nnnnnn (BR-007); buồng VD; mã cửa "đã
-          //   hủy"; việc "Dọn trả phòng" + "Bổ sung minibar"; khai báo → needs_update
-          // Quy tắc: SM-01 B18, SM-13 open→settled, SM-14 *→open, SM-11 projected→earned, BR-007, BR-604, SM-03
-          //   R9
-        },
-      );
-      test.fixme(
-        'TC-L4-054 US-038/AC2 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/AC2' },
-            { type: 'endpoints', description: 'addFolioLine, adjustFolioLine' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Folio settled
-          // Bước: (a) qa.fd thêm/sửa dòng; (b) qa.mgr tạo bút toán điều chỉnh có lý do; (c) qa.mgr không lý do
-          // Kỳ vọng: (a) 409 FOLIO_LOCKED (hoặc 403); (b) được, dòng adjustment, nhật ký; (c) 422
-          // Quy tắc: A32, ERD K7
-        },
-      );
-      test.fixme(
-        'TC-L4-055 US-038/AC3 [A · Cao (S)]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/AC3' },
-            { type: 'endpoints', description: 'checkOut' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Còn phải thu 500.000, chưa ghi giao dịch
-          // Bước: (a) qa.fd hoàn tất; (b) qa.mgr ghi công nợ có hạn thanh toán rồi hoàn tất
-          // Kỳ vọng: (a) 409 BALANCE_DUE; (b) hoàn tất được, folio có debt_due_date, người duyệt qa.mgr
-          // Quy tắc: BR-426, BR-525, A19
-        },
-      );
-      test.fixme(
-        'TC-L4-056 US-038/AC4 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/AC4' },
-            { type: 'endpoints', description: 'checkOut' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Folio có FOC escalated
-          // Bước: Hoàn tất trả phòng
-          // Kỳ vọng: 409 PENDING_APPROVALS
-          // Quy tắc: SM-10
-        },
-      );
-      test.fixme(
-        'TC-L4-057 US-038/– [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/–' },
-            { type: 'endpoints', description: 'checkOut' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn đủ điều kiện trả phòng
-          // Bước: Bấm hoàn tất 2 lần nhanh (cùng Idempotency-Key); gửi lại sau mất mạng
-          // Kỳ vọng: Chỉ 1 lần chuyển trạng thái, 1 số bill; lần 2 trả phản hồi cũ Idempotent-Replayed: true
-          // Quy tắc: ADR-009 mục 8
-        },
-      );
-      test.fixme(
+      test(
         'TC-L4-058 US-039/AC1 [A+U · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-039/AC1' },
             { type: 'endpoints', description: 'setInvoiceRequest' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Tích "Khách lấy hóa đơn công ty"
           // Bước: MST: 0101234567; 0101234567-001; 0101234567001; 010123456; 01012345678; 01A1234567
           // Kỳ vọng: 10 số, 13 số (có/không gạch ngang) hợp lệ; 9 số, 11 số, có chữ → lỗi rõ tại ô MST
           // Quy tắc: BL 5.16, ERD invoice_request
+          await requireEndpoints(request, 'TC-L4-058', [EP3.setInvoiceRequest]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 1, today });
+          const put = (taxCode: string) =>
+            call<Record<string, unknown> & ProblemFields>(
+              request,
+              'PUT',
+              p3(EP3.setInvoiceRequest, fd, { folioId: res.folioId }),
+              {
+                session: fd,
+                idempotencyKey: true,
+                body: {
+                  buyerType: 'company',
+                  companyName: 'Cong ty TNHH Thu Nghiem E2E',
+                  taxCode,
+                  email: 'ketoan.e2e@example.test',
+                },
+              },
+            );
+          for (const ok of ['0101234567', '0101234567-001', '0101234567001']) {
+            const r = await put(ok);
+            expect(r.status, `${ok}: ${JSON.stringify(r.body)}`).toBe(200);
+            expect(r.body.taxCode).toBe(ok);
+          }
+          for (const bad of ['010123456', '01012345678', '01A1234567']) {
+            const r = await put(bad);
+            expect(r.status, `${bad}: ${JSON.stringify(r.body)}`).toBe(422);
+            expect(fieldCodes(r.body), bad).toContain('taxCode:TAX_CODE_INVALID');
+          }
         },
       );
-      test.fixme(
+      test(
         'TC-L4-059 US-039/AC2 [A · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-039/AC2' },
             { type: 'endpoints', description: 'setInvoiceRequest, getBill, getGuest' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: MST hợp lệ
           // Bước: Lưu tên công ty, MST, email
           // Kỳ vọng: Thông tin gắn với bill và hồ sơ khách; hóa đơn điện tử thật để R3 (US-122)
           // Quy tắc: BR-524, D16
+          await requireEndpoints(request, 'TC-L4-059', [
+            EP3.setInvoiceRequest,
+            EP3.getBill,
+            EP3.getFolio,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 1, today });
+          const inv = {
+            buyerType: 'company',
+            companyName: 'Cong ty CP Du Lich Thu Nghiem',
+            taxCode: '0312345678',
+            email: 'hoadon.e2e@example.test',
+            address: '1 Nguyen Hue, Quan 1, TP HCM',
+          };
+          const r = await call<Record<string, unknown>>(
+            request,
+            'PUT',
+            p3(EP3.setInvoiceRequest, fd, { folioId: res.folioId }),
+            { session: fd, idempotencyKey: true, body: inv },
+          );
+          expect(r.status, JSON.stringify(r.body)).toBe(200);
+          // R2: chỉ lưu yêu cầu, MISA phát hành ở R3 (US-122) → not_requested
+          expect(r.body.einvoiceStatus).toBe('not_requested');
+          const f = await getFolio(request, fd, res.folioId);
+          expect(f.invoiceRequest).toMatchObject({
+            buyerType: 'company',
+            companyName: inv.companyName,
+            taxCode: inv.taxCode,
+            email: inv.email,
+          });
+          const bill = await call<Record<string, unknown>>(
+            request,
+            'GET',
+            p3(EP3.getBill, fd, { folioId: res.folioId }),
+            { session: fd },
+          );
+          expect(bill.status, JSON.stringify(bill.body)).toBe(200);
+          expect(bill.body.folioId).toBe(res.folioId);
+          // Hồ sơ khách (D16): spec EP03-05 5.x "thông tin gắn folio + hồ sơ khách"
+          const guestId = (res as { booker?: { id?: string } }).booker?.id;
+          expect(guestId, 'Reservation.booker.id').toBeTruthy();
+          const g = await call<Record<string, unknown>>(
+            request,
+            'GET',
+            `/v1/properties/${propertyIdOf(fd)}/guests/${guestId}`,
+            { session: fd },
+          );
+          expect(g.status, JSON.stringify(g.body)).toBe(200);
+          test.fail(
+            g.body.companyName === undefined,
+            'BUG-R2-041: setInvoiceRequest không gắn tên công ty/MST vào hồ sơ khách (Guest.companyName/taxCode) – US-039 AC2, spec EP03-05 5.4 "gắn folio + hồ sơ khách (D16)"',
+          );
+          expect(g.body.companyName).toBe(inv.companyName);
+          expect(g.body.taxCode).toBe(inv.taxCode);
         },
       );
-      test.fixme(
+      test(
         'TC-L4-060 US-119/AC1 [A+E · Cao (S)]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-119/AC1' },
             { type: 'endpoints', description: 'recordPayment, getFolio' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Đơn tổng 2.460.000 đã thu cọc 800.000
           // Bước: Ghi thu 1.660.000 chuyển khoản
           // Kỳ vọng: Còn phải thu 0; đơn có 2 giao dịch succeeded với cách thanh toán, người thu, thời điểm, mã
           //   PT-xxxxxx
           // Quy tắc: BR-521, SM-12 *→succeeded
+          await requireEndpoints(request, 'TC-L4-060', [EP3.recordPayment, EP3.getFolio]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          // 3 đêm × 820.000 = 2.460.000 (giá nhập tay kênh Trực tiếp); cọc = mức BR-305 server yêu cầu
+          const res = await farBooking(request, c, fd, { nights: 3, today, rate: 820000 });
+          const f0 = await getFolio(request, fd, res.folioId);
+          expect(f0.totals.totalVnd).toBe(3 * 820000);
+          const deposit = f0.totals.paidVnd;
+          expect(deposit).toBe(res.depositRequiredVnd);
+          const rest = f0.totals.totalVnd - deposit;
+          expect(f0.totals.balanceDueVnd).toBe(rest);
+          const p = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'bank_transfer',
+            amountVnd: rest,
+            note: 'CK Vietcombank E2E',
+          });
+          expect(p.status, JSON.stringify(p.body)).toBe(201);
+          expect(p.body.status).toBe('succeeded');
+          expect(p.body.code).toMatch(/^PT-\d+/);
+          // chuyển khoản ghi tay → chờ đối soát (BR-527)
+          expect(p.body.reconciliation).toBe('pending');
+          const f = await getFolio(request, fd, res.folioId);
+          expect(f.totals.balanceDueVnd).toBe(0);
+          expect(f.totals.paidVnd).toBe(f0.totals.totalVnd);
+          const ok = f.payments.filter((x) => x.status === 'succeeded');
+          expect(ok).toHaveLength(2);
+          for (const x of ok) {
+            expect(x.code).toMatch(/^PT-\d+/);
+            expect(['cash', 'bank_transfer']).toContain(x.method);
+            expect(x.recordedBy, 'người thu').toBeTruthy();
+            expect(x.receivedAt, 'thời điểm').toBeTruthy();
+          }
+          expect(ok.map((x) => x.amountVnd).sort((a, b) => a - b)).toEqual(
+            [deposit, rest].sort((a, b) => a - b),
+          );
         },
       );
-      test.fixme(
+      test(
         'TC-L4-061 US-119/AC2 [A · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-119/AC2' },
             { type: 'endpoints', description: 'getFolio' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Đơn Booking "OTA thu hộ" 3 đêm, phát sinh 75.000
           // Bước: Xem còn phải thu
           // Kỳ vọng: Chỉ 75.000; tiền phòng không cộng
           // Quy tắc: BR-307
+          await requireEndpoints(request, 'TC-L4-061', [EP3.getFolio, EP3.addFolioLine]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 3, today, kind: 'booking' });
+          expect(res.paymentModel).toBe('ota_prepaid');
+          // phát sinh 75.000 = giặt ủi 2,5 kg (oracle BR-507-01)
+          const kg = Number(oracle('BR-507-01').input.weightGrams) / 1000;
+          const add = await addLine(request, fd, res.folioId, {
+            chargeCode: 'laundry',
+            quantity: kg,
+            serviceDate: res.arrivalDate,
+          });
+          expect(add.status, JSON.stringify(add.body)).toBe(201);
+          const f = await getFolio(request, fd, res.folioId);
+          expect(liveLines(f, 'room').length).toBe(3);
+          test.fail(
+            (f.totals.paidViaOtaVnd ?? 0) === 0,
+            'BUG-R2-044: đơn OTA thu hộ (ota_prepaid) không có khoản "Đã thu qua OTA" (ota_collect) → tiền phòng bị tính vào "Còn phải thu" (BR-307, US-119 AC2)',
+          );
+          expect(f.totals.paidViaOtaVnd).toBe(f.totals.roomVnd);
+          expect(f.totals.balanceDueVnd).toBe(oracleNum('BR-507-01', 'amountVnd'));
         },
       );
-      test.fixme(
+      test(
         'TC-L4-062 US-119/AC3 [A · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-119/AC3' },
             { type: 'endpoints', description: 'reversePayment' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Giao dịch ghi sai 1.660.000
           // Bước: (a) qa.fd đảo; (b) qa.mgr đảo không lý do; (c) qa.mgr đảo có lý do; (d) thử xóa giao dịch
           // Kỳ vọng: (a) 403; (b) 422; (c) giao dịch gốc reversed + giao dịch âm có lý do; (d) không có endpoint,
           //   DB từ chối DELETE
           // Quy tắc: A34, BR-008, ERD K8, SM-12 succeeded→reversed
+          // + tách nhiệm hoàn tiền (BR-522-01, SEC F8, A43/A47/A47a, D15) – test.step "tách nhiệm"
+          // mọi endpoint của ca (cả bước hoàn tiền + C3) kiểm NGAY ĐẦU ca: sau một lần đăng nhập trong ca, request
+          // context giữ cookie phiên → lần thăm dò "ẩn danh" của isAvailable() thành có phiên và trả 404 (sai)
+          await requireEndpoints(request, 'TC-L4-062', [
+            EP3.reversePayment,
+            EP3.recordPayment,
+            EP3.createRefundRequest,
+            EP3.setRefundDestination,
+            EP3.getRefundDestination,
+            EP3.executeCashRefund,
+            EP3.executeRefund,
+            EP3.approveRequest,
+            EP3.listApprovalRequests,
+            EP3.uploadAttachment,
+            EP3.stepUp,
+          ]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const mgr = await sessionOrSkip(request, 'qa.mgr');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 3, today, rate: 820000 });
+          const f0 = await getFolio(request, fd, res.folioId);
+          const wrong = f0.totals.balanceDueVnd; // 2.460.000 − cọc (= 1.660.000 với cọc 800.000)
+          const p = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'bank_transfer',
+            amountVnd: wrong,
+          });
+          expect(p.status, JSON.stringify(p.body)).toBe(201);
+          const rev = (s: typeof fd, body: Record<string, unknown>) =>
+            call<Payment & ProblemFields>(
+              request,
+              'POST',
+              p3(EP3.reversePayment, s, { paymentId: p.body.id }),
+              { session: s, idempotencyKey: true, body },
+            );
+          await test.step('(a) qa.fd đảo → 403', async () => {
+            expectProblem(await rev(fd, { reason: 'Ghi nham so tien' }), 403);
+          });
+          await test.step('(b) qa.mgr đảo không lý do → 422', async () => {
+            const r = await rev(mgr, {});
+            expect(r.status, JSON.stringify(r.body)).toBe(422);
+            const r2 = await rev(mgr, { reason: ' ' });
+            expect(r2.status).toBe(422);
+            expect(fieldCodes(r2.body)).toContain('reason:REASON_REQUIRED');
+          });
+          await test.step('(c) qa.mgr đảo có lý do → gốc reversed + giao dịch âm', async () => {
+            const r = await rev(mgr, { reason: 'Ghi nham so tien – E2E' });
+            expect(r.status, JSON.stringify(r.body)).toBe(200);
+            expect(r.body.status).toBe('reversed');
+            const f = await getFolio(request, mgr, res.folioId);
+            const neg = f.payments.find((x) => x.reversalOfId === p.body.id);
+            expect(neg, 'giao dịch đảo').toBeTruthy();
+            expect(neg!.amountVnd).toBe(-wrong);
+            expect(f.totals.balanceDueVnd).toBe(wrong);
+            // đảo lần 2 → 409
+            expectProblem(await rev(mgr, { reason: 'Dao lan hai' }), 409, 'INVALID_TRANSITION');
+          });
+          await test.step('(d) không có thao tác xóa; DB không cho DELETE/UPDATE số tiền', async () => {
+            const del = await call(
+              request,
+              'DELETE',
+              `/v1/properties/${propertyIdOf(mgr)}/payments/${p.body.id}`,
+              { session: mgr },
+            );
+            expect([404, 405]).toContain(del.status);
+            const f = await getFolio(request, mgr, res.folioId);
+            expect(f.payments.some((x) => x.id === p.body.id)).toBe(true);
+            if (CAN_CLEAN_ROOMS) {
+              const priv = stackSql(
+                `SELECT has_table_privilege('ottimo_app', 'payment', 'DELETE'),
+                        has_column_privilege('ottimo_app', 'payment', 'amount_vnd', 'UPDATE');`,
+              ).trim();
+              expect(priv).toBe('f|f');
+            }
+          });
+
+          // ── tách nhiệm hoàn tiền: oracle BR-522-01 (hoàn đã duyệt 350.000, FD sáng tạo yêu cầu, MGR duyệt) ──
+          await test.step('tách nhiệm hoàn tiền mặt (BR-522-01, A47a) + MGR không tự duyệt (SEC F8)', async () => {
+            const o = oracle('BR-522-01');
+            const approved = Number(o.input.refundApprovedVnd);
+            const fd2 = await sessionOrSkip(request, 'qa.fd2');
+            const r2 = await farBooking(request, c, fd, { nights: 1, today, pay: 'full' });
+            // khách trả dư (thu dư FD+ cần ghi chú – DOM G-15) → creditVnd
+            const over = await recordPayment(request, fd, r2.folioId, {
+              type: 'charge',
+              method: 'cash',
+              amountVnd: approved + 200000,
+              note: 'Khach tra du – se hoan',
+            });
+            expect(over.status, JSON.stringify(over.body)).toBe(201);
+            expect((await getFolio(request, fd, r2.folioId)).totals.creditVnd).toBe(
+              approved + 200000,
+            );
+            const createRefund = (s: typeof fd, amountVnd: number) =>
+              call<Approval & ProblemFields>(
+                request,
+                'POST',
+                p3(EP3.createRefundRequest, s, { folioId: r2.folioId }),
+                {
+                  session: s,
+                  idempotencyKey: true,
+                  body: { amountVnd, reason: 'Hoan tien tra du' },
+                },
+              );
+            // MGR tạo yêu cầu hoàn rồi tự duyệt → 403 SELF_APPROVAL_FORBIDDEN (kể cả MGR/OWN)
+            const mine = await createRefund(mgr, 100000);
+            expect(mine.status, JSON.stringify(mine.body)).toBe(201);
+            expect(mine.body.type).toBe('refund');
+            expectProblem(
+              await approve(request, mgr, mine.body.id),
+              403,
+              'SELF_APPROVAL_FORBIDDEN',
+            );
+            // vượt số dư còn có thể hoàn → 422 REFUND_EXCEEDS_APPROVED
+            const tooMuch = await createRefund(fd, approved + 200000);
+            expect(tooMuch.status).toBe(422);
+            expect(fieldCodes(tooMuch.body)).toContain('amountVnd:REFUND_EXCEEDS_APPROVED');
+            // FD sáng tạo yêu cầu 350.000, nơi nhận tiền mặt, MGR duyệt
+            const req = await createRefund(fd, approved);
+            expect(req.status, JSON.stringify(req.body)).toBe(201);
+            const dest = await call<Approval>(
+              request,
+              'PUT',
+              p3(EP3.setRefundDestination, fd, { approvalId: req.body.id }),
+              { ...dev(fd), idempotencyKey: true, body: { method: 'cash' } },
+            );
+            expect(dest.status, JSON.stringify(dest.body)).toBe(200);
+            const ok = await approve(request, mgr, req.body.id);
+            expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+            expect(ok.body.status).toBe('approved');
+            const proof = await upload(request, fd2, 'refund_proof', r2.id);
+            const pay = (s: typeof fd, amountVnd: number, att: string) =>
+              call<Payment & ProblemFields>(
+                request,
+                'POST',
+                p3(EP3.executeCashRefund, s, { approvalId: req.body.id }),
+                {
+                  session: s,
+                  idempotencyKey: true,
+                  body: { amountVnd, paidAt: new Date().toISOString(), attachmentId: att },
+                },
+              );
+            // Kết quả từng lần thử theo cách gọi của oracle; các lần bị từ chối chạy trước (không ghi gì), lần chi
+            // hợp lệ chạy sau cùng – nếu chạy trước thì yêu cầu đã `refunded` và mọi lần sau chỉ còn 409.
+            const label = (r: { status: number; body?: { code?: string } }, kind: string) =>
+              r.status === 201
+                ? 'paid'
+                : r.status === 403 && r.body?.code === 'SELF_REFUND_FORBIDDEN'
+                  ? 'rejected_self_requested'
+                  : r.status === 403 && kind === 'transfer'
+                    ? 'rejected_transfer_manager_only'
+                    : r.status === 422
+                      ? 'rejected_over_approved'
+                      : `${r.status} ${r.body?.code ?? ''}`;
+            // lần 2: chính FD sáng (người tạo yêu cầu) chi tiền mặt
+            const proof2 = await upload(request, fd, 'refund_proof', r2.id);
+            const a2 = await pay(fd, approved, proof2);
+            // lần 3: FD chiều chi chuyển khoản (chỉ MGR/OWN – A47)
+            const a3 = await call<ProblemFields>(
+              request,
+              'POST',
+              p3(EP3.executeRefund, fd2, { approvalId: req.body.id }),
+              {
+                session: fd2,
+                idempotencyKey: true,
+                body: {
+                  amountVnd: approved,
+                  paidAt: new Date().toISOString(),
+                  bankReference: 'FT0001',
+                },
+              },
+            );
+            // lần 4: FD chiều chi 400.000 > số đã duyệt
+            const a4 = await pay(fd2, 400000, proof);
+            // lần 1: FD chiều chi tiền mặt đúng số đã duyệt
+            const a1 = await pay(fd2, approved, proof);
+            expect(a1.status, JSON.stringify(a1.body)).toBe(201);
+            expect(a1.body.type).toBe('refund');
+            expect(a1.body.amountVnd).toBe(-approved);
+            const results = [
+              label(a1, 'cash'),
+              label(a2, 'cash'),
+              label(a3, 'transfer'),
+              label(a4, 'cash'),
+            ];
+            expect(results).toEqual(o.expected.attemptResults);
+            // số dư sau khi hoàn = oracle (0 – phần dư 200.000 còn lại là yêu cầu hoàn 100.000 của MGR + credit)
+            const f = await getFolio(request, fd, r2.folioId);
+            expect(f.totals.balanceDueVnd).toBe(oracleNum('BR-522-01', 'balanceAfterVnd'));
+          });
+
+          await test.step('C3 nơi nhận hoàn chuyển khoản (D15, A47): FD không đọc; MGR cần thiết bị + step-up; danh sách chỉ 4 số cuối', async () => {
+            const r3 = await farBooking(request, c, fd, { nights: 1, today, pay: 'full' });
+            const over = await recordPayment(request, fd, r3.folioId, {
+              type: 'charge',
+              method: 'bank_transfer',
+              amountVnd: 300000,
+              note: 'Khach chuyen du – se hoan',
+            });
+            expect(over.status, JSON.stringify(over.body)).toBe(201);
+            const req = await call<Approval>(
+              request,
+              'POST',
+              p3(EP3.createRefundRequest, fd, { folioId: r3.folioId }),
+              {
+                session: fd,
+                idempotencyKey: true,
+                body: { amountVnd: 300000, reason: 'Hoan chuyen khoan tra du' },
+              },
+            );
+            expect(req.status, JSON.stringify(req.body)).toBe(201);
+            const accountNo = `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+            // không có thiết bị được cấp → 403
+            const noDev = await call(
+              request,
+              'PUT',
+              p3(EP3.setRefundDestination, fd, { approvalId: req.body.id }),
+              {
+                session: fd,
+                idempotencyKey: true,
+                body: {
+                  method: 'bank_transfer',
+                  bankBin: '970436',
+                  accountNo,
+                  accountHolder: 'NGUYEN VAN E2E',
+                },
+              },
+            );
+            expect(noDev.status, JSON.stringify(noDev.body)).toBe(403);
+            const set = await call<Approval>(
+              request,
+              'PUT',
+              p3(EP3.setRefundDestination, fd, { approvalId: req.body.id }),
+              {
+                ...dev(fd),
+                idempotencyKey: true,
+                body: {
+                  method: 'bank_transfer',
+                  bankBin: '970436',
+                  accountNo,
+                  accountHolder: 'NGUYEN VAN E2E',
+                },
+              },
+            );
+            expect(set.status, JSON.stringify(set.body)).toBe(200);
+            expect(set.headers['cache-control']).toContain('no-store');
+            expect(JSON.stringify(set.body)).not.toContain(accountNo);
+            expect(set.body.refundDestination).toMatchObject({
+              method: 'bank_transfer',
+              accountNoLast4: accountNo.slice(-4),
+            });
+            // danh sách duyệt (MGR) chỉ có accountNoLast4
+            const list = await approvalsOf(request, mgr, r3.code, 'refund');
+            expect(list.length).toBeGreaterThan(0);
+            expect(JSON.stringify(list)).not.toContain(accountNo);
+            expect(list[0]!.refundDestination).toMatchObject({
+              accountNoLast4: accountNo.slice(-4),
+            });
+            // FD/FDL đọc nơi nhận đầy đủ → 403, không lộ số tài khoản
+            for (const who of ['qa.fd', 'qa.fdl']) {
+              const s = await sessionOrSkip(request, who);
+              const g = await call(
+                request,
+                'GET',
+                p3(EP3.getRefundDestination, s, { approvalId: req.body.id }),
+                dev(s),
+              );
+              expect(g.status, `${who}: ${JSON.stringify(g.body)}`).toBe(403);
+              expect(JSON.stringify(g.body)).not.toContain(accountNo);
+            }
+            // MGR không thiết bị được cấp → 403; có thiết bị nhưng chưa step-up → 401 REAUTH_REQUIRED
+            const mgrNoDev = await call(
+              request,
+              'GET',
+              p3(EP3.getRefundDestination, mgr, { approvalId: req.body.id }),
+              { session: mgr },
+            );
+            expect(mgrNoDev.status, JSON.stringify(mgrNoDev.body)).toBe(403);
+            expect(JSON.stringify(mgrNoDev.body)).not.toContain(accountNo);
+            const mgr2 = await sessionOrSkip(request, 'qa.mgr');
+            const fresh = await call<{ accountNo?: string }>(
+              request,
+              'GET',
+              p3(EP3.getRefundDestination, mgr2, { approvalId: req.body.id }),
+              dev(mgr2),
+            );
+            if (fresh.status === 200) {
+              // phiên MGR dùng chung đã step-up ở ca khác trong cửa sổ c3_stepup_minutes – vẫn hợp lệ
+              expect(fresh.body.accountNo).toBe(accountNo);
+            } else {
+              expectProblem(fresh, 401, 'REAUTH_REQUIRED');
+              expect(JSON.stringify(fresh.body)).not.toContain(accountNo);
+              await stepUp(request, mgr2);
+              const g = await call<{ accountNo?: string; accountHolder?: string }>(
+                request,
+                'GET',
+                p3(EP3.getRefundDestination, mgr2, { approvalId: req.body.id }),
+                dev(mgr2),
+              );
+              expect(g.status, JSON.stringify(g.body)).toBe(200);
+              expect(g.headers['cache-control']).toContain('no-store');
+              expect(g.body.accountNo).toBe(accountNo);
+            }
+          });
         },
       );
-      test.fixme(
+      test(
         'TC-L4-063 US-119/AC4 [A · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-119/AC4' },
             { type: 'endpoints', description: 'recordPayment' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Giữ chỗ G1 do qa.sal chốt; giữ chỗ G2 của người khác
           // Bước: qa.sal ghi thu cọc G1; ghi thu G2; ghi thu tiền phòng còn lại (không phải cọc) cho G1; qa.ctv1
           //   ghi thu G1
           // Kỳ vọng: G1 cọc: được; G2: 404; khoản không phải cọc: 403; qa.ctv1: 403
           // Quy tắc: A33, x-scope own_deposit_only
+          await requireEndpoints(request, 'TC-L4-063', [
+            EP3.recordPayment,
+            EP.saveQuote,
+            EP.createHoldFromQuote,
+          ]);
+          const sal = await sessionOrSkip(request, 'qa.sal');
+          const ctv = await sessionOrSkip(request, 'qa.ctv1');
+          const c = await s2Context(request);
+          const arrival = addDays(today, 40 + Math.floor(Math.random() * 200));
+          const g1 = await makeHold(request, sal, c, {
+            rooms: c.rooms,
+            arrival,
+            nights: 2,
+            holdHours: 24,
+          });
+          const g2 = await makeHold(request, ctv, c, {
+            rooms: c.rooms,
+            arrival: addDays(arrival, 3),
+            nights: 2,
+            holdHours: 24,
+          });
+          const folio = async (id: string) => {
+            const fdl = await sessionOrSkip(request, 'qa.fd');
+            return (await getReservation(request, fdl, id)).body.folioId!;
+          };
+          const g1Folio = await folio(g1.hold.id);
+          const g2Folio = await folio(g2.hold.id);
+          const deposit = Math.min(500000, g1.hold.depositRequiredVnd ?? 500000);
+          // G2 của người khác → 404 (phạm vi M, không lộ tồn tại)
+          expectProblem(
+            await recordPayment(request, sal, g2Folio, {
+              type: 'deposit',
+              method: 'cash',
+              amountVnd: 100000,
+            }),
+            404,
+          );
+          // khoản không phải cọc (tiền phòng còn lại) → 403
+          expectProblem(
+            await recordPayment(request, sal, g1Folio, {
+              type: 'charge',
+              method: 'cash',
+              amountVnd: 100000,
+            }),
+            403,
+          );
+          // CTV không ghi thu được → 403 (A33)
+          expectProblem(
+            await recordPayment(request, ctv, g1Folio, {
+              type: 'deposit',
+              method: 'cash',
+              amountVnd: 100000,
+            }),
+            403,
+          );
+          // G1 – cọc giữ chỗ của chính qa.sal → được, luôn "chờ đối soát" (SEC-BE-22, ESC-017 A)
+          const okDep = await recordPayment(request, sal, g1Folio, {
+            type: 'deposit',
+            method: 'bank_transfer',
+            amountVnd: deposit,
+            note: 'Coc CK E2E',
+          });
+          test.fail(
+            okDep.status === 422,
+            'BUG-R2-042: qa.sal ghi thu cọc giữ chỗ của mình (US-119 AC4, A33 own_deposit_only) bị 422 AMOUNT_TOO_HIGH max 0 – trần recordPayment của folio giữ chỗ = còn phải thu = 0 (createVietQr cùng đơn lấy trần = cọc còn thiếu)',
+          );
+          expect(okDep.status, JSON.stringify(okDep.body)).toBe(201);
+          expect(okDep.body.reconciliation).toBe('pending');
         },
       );
-      test.fixme(
-        'TC-L4-064 US-120/AC1 [A+U · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-120/AC1' },
-            { type: 'endpoints', description: 'createVietQr' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đã cấu hình tài khoản nhận (dữ liệu test); còn phải thu 1.660.000; mã đơn OTM-00171
-          // Bước: Chọn chuyển khoản → tạo VietQR
-          // Kỳ vọng: Chuỗi QR theo chuẩn VietQR/EMVCo (CRC hợp lệ), số tiền 1660000, nội dung OTM00171 (không dấu
-          //   cách, không gạch)
-          // Quy tắc: BR-521, I2, SM-12 *→pending
-        },
-      );
-      test.fixme(
+      test(
         'TC-L4-065 US-120/AC2 [A+E · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-120/AC2' },
             { type: 'endpoints', description: 'createVietQr' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: Chưa cấu hình tài khoản nhận
           // Bước: Chọn chuyển khoản bằng qa.fd, qa.mgr
           // Kỳ vọng: Không hiện QR giả; API 409 PAYMENT_NOT_CONFIGURED; qa.mgr/qa.owner thấy "Chưa cấu hình tài
           //   khoản nhận"; qa.fd thấy hướng dẫn liên hệ quản lý
           // Quy tắc: ESC-010
+          await requireEndpoints(request, 'TC-L4-065', [EP3.createVietQr]);
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 2, today });
+          const f0 = await getFolio(request, fd, res.folioId);
+          expect(f0.totals.balanceDueVnd).toBeGreaterThan(0);
+          for (const who of ['qa.fd', 'qa.mgr', 'qa.owner']) {
+            const s = await sessionOrSkip(request, who);
+            const r = await call<Record<string, unknown> & ProblemFields>(
+              request,
+              'POST',
+              p3(EP3.createVietQr, s, { folioId: res.folioId }),
+              { session: s, idempotencyKey: true, body: { amountVnd: f0.totals.balanceDueVnd } },
+            );
+            expectProblem(r, 409, 'PAYMENT_NOT_CONFIGURED');
+            expect(r.body.qrPayload, `${who}: không có QR giả`).toBeUndefined();
+          }
+          // không sinh giao dịch chờ nào
+          const f = await getFolio(request, fd, res.folioId);
+          expect(f.payments.filter((x) => x.method === 'vietqr')).toHaveLength(0);
+          // MGR/OWN thấy tham số tài khoản nhận chưa có giá trị hôm nay (màn Tham số – "Chưa cấu hình")
+          const mgr = await sessionOrSkip(request, 'qa.mgr');
+          const params = await call<{ data: Array<{ key: string; value?: unknown }> }>(
+            request,
+            'GET',
+            `/v1/properties/${propertyIdOf(mgr)}/parameters`,
+            { session: mgr },
+          );
+          expect(params.status).toBe(200);
+          const acc = params.body.data.find((x) => x.key === 'payment_receiving_account');
+          expect(acc?.value ?? null).toBeNull();
         },
       );
-      test.fixme(
+      test(
         'TC-L4-066 US-119/– [A · Cao]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-119/–' },
             { type: 'endpoints', description: 'recordPayment' },
           ],
         },
-        async () => {
+        async ({ request }) => {
           // Tiền điều kiện: –
           // Bước: Kiểm schema recordPayment và màn thu tiền bằng thẻ
           // Kỳ vọng: Không có trường số thẻ/CVV/hạn thẻ; thẻ tại quầy chỉ nhận "đã thu bằng thẻ" + 4 số cuối/mã
           //   chuẩn chi
           // Quy tắc: R-PAY-01, R-PAY-03, R-PAY-04
-        },
-      );
-      test.fixme(
-        'TC-L4-067 US-038/– [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/–' },
-            { type: 'endpoints', description: 'checkOut, listRoomStatuses, listHkTasks' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Đơn in_house 201, buồng CL (HK đang dọn phòng khách đang ở)
-          // Bước: Hoàn tất trả phòng
-          // Kỳ vọng: Đơn checked_out; buồng CL → VD (không kẹt ở CL); việc dọn đang làm chuyển thành "Dọn trả
-          //   phòng" hoặc sinh việc mới, qa.hk được báo
-          // Quy tắc: SM-03 R9 (từ CL), SM-01 B18
-        },
-      );
-      test.fixme(
-        'TC-L4-068 US-038/– [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-038/–' },
-            {
-              type: 'endpoints',
-              description: 'getFolio, addFolioLine, adjustFolioLine, listAttentionItems',
-            },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Folio F1 settled ⏱ 15/10 11:40, còn phải thu 0; folio F2 settled, còn phải thu
-          //   50.000, không ghi công nợ
-          // Bước: ⏱ ngay trước và ngay sau hết thời hạn phát sinh BR-427 ▶ job đóng folio; qa.fd thêm dòng vào
-          //   F1; qa.mgr điều chỉnh F1 có lý do
-          // Kỳ vọng: Trước hạn: F1 settled, FD ghi phát sinh sau trả phòng nhanh được; sau hạn: F1 closed, FD
-          //   thêm dòng → 409 FOLIO_LOCKED, MGR điều chỉnh có lý do được; F2 không tự closed, vào "Cần chú ý"
-          // Quy tắc: SM-13 settled→closed, BR-427
-        },
-      );
-      test.fixme(
-        'TC-L4-069 US-120/–; US-119/AC6 [A · Cao]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-120/–; US-119/AC6' },
-            { type: 'endpoints', description: 'createVietQr, recordPayment, getFolio' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: VietQR 1.660.000 tạo ⏱ 15/10 10:00 (pending)
-          // Bước: (a) qa.fd xác nhận đã thấy tiền; (b) dữ liệu mới: để quá hạn link ▶ job; (c) qa.mgr đối soát
-          //   giao dịch (a) với sao kê; (d) qa.fd thử đối soát; (e) ghi thu tiền mặt 500.000; (f) giao dịch
-          //   chuyển khoản ghi tay, quá mốc BR-526 không thấy trên sao kê, qa.mgr đánh dấu; (g) qa.sal ghi cọc
-          //   chuyển khoản "đã nhận"; qa.mgr lọc danh sách chờ đối soát theo ngày và người ghi
-          // Kỳ vọng: (a) succeeded, reconciliation = pending, còn phải thu giảm 1.660.000; (b) expired, còn phải
-          //   thu không đổi, tạo được QR mới; (c) reconciled, có reconciled_by, reconciled_at; (d) 403; (e)
-          //   reconciliation = not_required, gắn ca đang mở; (f) disputed, cảnh báo đỏ OWN + MGR, đơn giữ trạng
-          //   thái; (g) giao dịch mang cờ "chờ đối soát" tới khi MGR/OWN tick; lọc theo ngày/người ghi trả đúng
-          //   danh sách
-          // Quy tắc: SM-12 pending→succeeded, SM-12 pending→expired, SM-12 pending→reconciled, SM-12
-          //   *→not_required, SM-12 pending→disputed, BR-526
-        },
-      );
-      test.fixme(
-        'TC-L4-070 US-066/AC1 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-066/AC1' },
-            { type: 'endpoints', description: 'createItem, recordMinibarCheck' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: qa.owner
-          // Bước: Thêm mặt hàng "Trà gừng" giá "miễn phí", chuẩn 2; kiểm minibar dùng 1
-          // Kỳ vọng: Không tính tiền, vẫn ghi tiêu hao
-          // Quy tắc: BR-701
-        },
-      );
-      test.fixme(
-        'TC-L4-071 US-066/AC2 [A · TB]',
-        {
-          annotation: [
-            { type: 'waitingFor', description: WAITING },
-            { type: 'story', description: 'US-066/AC2' },
-            { type: 'endpoints', description: 'updateItem, recordMinibarCheck, getFolio' },
-          ],
-        },
-        async () => {
-          // Tiền điều kiện: Folio đã có dòng Coca giá cũ
-          // Bước: qa.owner đổi giá Coca; kiểm minibar đơn khác
-          // Kỳ vọng: Lần kiểm sau dùng giá mới; dòng folio cũ giữ giá cũ
-          // Quy tắc: BR-006
+          await requireEndpoints(request, 'TC-L4-066', [EP3.recordPayment]);
+          // (1) hợp đồng: PaymentCreate không có trường thẻ
+          const yaml = readFileSync(
+            new URL('../../../docs/api/openapi.yaml', import.meta.url),
+            'utf8',
+          );
+          const start = yaml.indexOf('\n    PaymentCreate:');
+          expect(start, 'components.schemas.PaymentCreate').toBeGreaterThan(0);
+          const rest = yaml.slice(start + 1);
+          const end = rest.search(/\n {4}[A-Za-z]/);
+          const schema = end > 0 ? rest.slice(0, end) : rest;
+          expect(schema).not.toMatch(/card_?number|cardNumber|pan\b|cvv|cvc|expiry|expiration/i);
+          // (2) thẻ tại quầy: card_pos bắt buộc mã chuẩn chi, không nhận số thẻ
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          const c = await s2Context(request);
+          const res = await farBooking(request, c, fd, { nights: 2, today });
+          const noAuth = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'card_pos',
+            amountVnd: 100000,
+          });
+          expect(noAuth.status).toBe(422);
+          expect(fieldCodes(noAuth.body)).toContain('posAuthCode:REQUIRED');
+          // số thẻ (Luhn hợp lệ, dữ liệu thử) ở ghi chú → 422 CARD_NUMBER_DETECTED, không lưu
+          const pan = '4111 1111 1111 1111';
+          const inNote = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'card_pos',
+            amountVnd: 100000,
+            posAuthCode: 'A1B2C3',
+            note: `the ${pan}`,
+          });
+          expect(inNote.status, JSON.stringify(inNote.body)).toBe(422);
+          expect(fieldCodes(inNote.body)).toContain('note:CARD_NUMBER_DETECTED');
+          // trường thẻ lạ trong body không được lưu/trả lại
+          const ok = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'card_pos',
+            amountVnd: 100000,
+            posAuthCode: 'A1B2C3',
+            cardNumber: '4111111111111111',
+            cvv: '123',
+            expiry: '12/30',
+          });
+          expect([201, 422]).toContain(ok.status);
+          expect(JSON.stringify(ok.body)).not.toMatch(/4111111111111111|"cvv"|"expiry"/);
+          if (ok.status === 201) {
+            expect(ok.body.method).toBe('card_pos');
+            expect(ok.body.reconciliation).toBe('not_required');
+            const f = await getFolio(request, fd, res.folioId);
+            expect(JSON.stringify(f)).not.toMatch(/4111111111111111|"cvv"/);
+          }
+          // số thẻ ở ô mã chuẩn chi → 422 CARD_NUMBER_DETECTED (spec EP03-05 2.2, V-09)
+          const inAuth = await recordPayment(request, fd, res.folioId, {
+            type: 'charge',
+            method: 'card_pos',
+            amountVnd: 100000,
+            posAuthCode: '4111111111111111',
+          });
+          expect(inAuth.status, JSON.stringify(inAuth.body)).toBe(422);
+          expect(JSON.stringify(inAuth.body)).not.toContain('4111111111111111');
+          test.fail(
+            !fieldCodes(inAuth.body).includes('posAuthCode:CARD_NUMBER_DETECTED'),
+            'BUG-R2-043: số thẻ ở posAuthCode bị chặn nhưng mã lỗi không phải CARD_NUMBER_DETECTED (spec EP03-05 2.2 V-09) – giao diện không hiện đúng thông báo "không nhập số thẻ"',
+          );
+          expect(fieldCodes(inAuth.body)).toContain('posAuthCode:CARD_NUMBER_DETECTED');
         },
       );
     });
+
     test.describe('5.3 Biến thể trả phòng dài hạn có khấu trừ ký quỹ (US-041 Must R3 – ca chính)', () => {
-      test.fixme(
+      test(
         'TC-L4-080 US-041/– [A+E · TB]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-041/–' },
             { type: 'endpoints', description: '—' },
           ],
@@ -920,13 +959,18 @@ test.describe(
           //   22.300.000 → hoàn 21.450.000; tạo yêu cầu hoàn cho qa.mgr duyệt, hạn hoàn 7 ngày làm việc; không có
           //   biên bản ảnh → không cho khấu trừ. Endpoint quyết toán chưa có trong OpenAPI R2
           // Quy tắc: BR-214, BR-522, BR-511, BL #6
+          // Oracle sẵn sàng cho R3: BR-214-01 (hoàn 21.450.000, 7 ngày làm việc)
+          expect(oracleNum('BR-214-01', 'refundVnd')).toBeGreaterThan(0);
+          test.skip(
+            true,
+            'R3: US-041 trả phòng dài hạn/quyết toán ký quỹ – endpoint chưa có trong OpenAPI R2 (dời R3 theo R-C, ESC-012)',
+          );
         },
       );
-      test.fixme(
+      test(
         'TC-L4-081 US-041/– [U · Thấp]',
         {
           annotation: [
-            { type: 'waitingFor', description: WAITING },
             { type: 'story', description: 'US-041/–' },
             { type: 'endpoints', description: '—' },
           ],
@@ -936,6 +980,11 @@ test.describe(
           // Bước: Tính tiền ngày lẻ
           // Kỳ vọng: 371.000 × 5 = 1.855.000 + phí dịch vụ 350.000 × 5/30 = 58.000 (ví dụ BR-210)
           // Quy tắc: BR-214, BR-210
+          expect(oracleNum('BR-210-01', 'rentVnd')).toBeGreaterThan(0);
+          test.skip(
+            true,
+            'R3: US-041 quyết toán HĐ dài hạn (tiền ngày lẻ BR-210) – endpoint chưa có trong OpenAPI R2 (dời R3 theo R-C, ESC-012)',
+          );
         },
       );
     });

@@ -53,7 +53,9 @@ describe('ĐK-S2-3 / BUG-R2-026 – CONCURRENT_UPDATE, SERVICE_UNAVAILABLE (DS 6
       ],
     });
     expect(fieldErrors(t, exceeds)).toEqual({
-      amountVnd: t('error.REFUND_EXCEEDS_APPROVED', { max: '1.200.000' }),
+      amountVnd: t('error.REFUND_EXCEEDS_APPROVED', {
+        max: t('common.currency_vnd', { amount: '1.200.000' }),
+      }),
       overpaymentHandling: t('error.OVERPAYMENT_HANDLING_REQUIRED'),
     });
   });

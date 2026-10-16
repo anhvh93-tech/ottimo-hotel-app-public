@@ -13,6 +13,7 @@
 //   clock            – MutableClock scenarios (hold expiry J1/J2, quote J3, no-show J6/J7, OOO J9 – clock/): serial,
 //                      after every other project; enabled in CI or with E2E_CLOCK_CONTROL=1 (moves the shared clock)
 //   db-outage        – TC-X-050c stops PostgreSQL: runs after every other project
+//   desk-clock       – UI cases needing the MutableClock (ui-clock/: H16 trả phòng 3 bước + axe): serial, after clock
 //   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke + axe H01–H12 need E2E_UI=1 + chromium;
 //                      reuses the harness sessions; limits + rbac-logout run after it)
 //   mobile-webkit    – Safari iOS 390×844 (housekeeping PWA, guest-web)
@@ -83,6 +84,25 @@ export default defineConfig({
       workers: 1,
       dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium', 'serial'],
     },
+    // UI cases that need the MutableClock (H16 trả phòng: đơn đi hôm nay đã nhận phòng hôm trước) – serial, after
+    // clock (same rule: moving the clock changes "today" for the whole stack). Each case resets the clock.
+    {
+      name: 'desk-clock',
+      testMatch: /ui-clock\/.*\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
+      dependencies: [
+        'smoke',
+        'rbac',
+        'api',
+        'limits',
+        'rbac-logout',
+        'desk-chromium',
+        'serial',
+        'clock',
+      ],
+    },
     {
       name: 'desk-chromium',
       testMatch: /(flows|ui)\/.*\.spec\.ts$/,
@@ -108,6 +128,7 @@ export default defineConfig({
         'rbac-logout',
         'serial',
         'clock',
+        'desk-clock',
         'desk-chromium',
         'mobile-webkit',
         'android-chromium',

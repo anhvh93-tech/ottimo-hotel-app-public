@@ -30,9 +30,21 @@ const LIVE_MONEY_MODES = ['PAYMENT_VNPAY_MODE', 'PAYMENT_MOMO_MODE'];
 const val = (env: Env, k: string) => (env[k] ?? '').trim();
 
 /**
+ * No longer read by anything (FB-R2-SEC-INT-06, FB-R2-ARC-BE-S3-29): the VietQR receiving account is ONLY the
+ * `payment_receiving_account` parameter (OWN + re-auth + audit + push – SEC F3). A value here would let
+ * someone believe they changed the account without any audit trail → refuse in every environment.
+ */
+export const RETIRED_VIETQR_ACCOUNT_VARS = [
+  'PAYMENT_VIETQR_BANK_BIN',
+  'PAYMENT_VIETQR_ACCOUNT_NO',
+  'PAYMENT_VIETQR_ACCOUNT_NAME',
+] as const;
+
+/**
  * Returns the list of problems (empty = safe). `appEnv` is APP_ENV already validated by the caller.
  * All environments: known selectors must hold an allowed value; PAYMENT_METHODS_ENABLED must list
- * known gateways. production additionally: no *_PROVIDER/*_MODE = mock|sandbox (rule a), every method
+ * known gateways; PAYMENT_VIETQR_BANK_BIN/ACCOUNT_NO/ACCOUNT_NAME must be empty (retired, SEC-INT-06).
+ * production additionally: no *_PROVIDER/*_MODE = mock|sandbox (rule a), every method
  * in PAYMENT_METHODS_ENABLED at MODE=production (rule b), no *_MOCK_SCENARIO set. mock/sandbox is
  * matched case-insensitively (selectors not in INTEGRATION_SELECTORS, FB-R2-SEC-INT-05a).
  * Outside production: PAYMENT_VNPAY_MODE / PAYMENT_MOMO_MODE = production refused (real money from a
@@ -51,6 +63,14 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
     const m = /^PAYMENT_([A-Z0-9]+)_MODE$/.exec(name);
     if (m && !(PAYMENT_METHODS as readonly string[]).includes((m[1] as string).toLowerCase())) {
       problems.push(`${name} is not a known payment gateway (${PAYMENT_METHODS.join('|')})`);
+    }
+  }
+
+  for (const name of RETIRED_VIETQR_ACCOUNT_VARS) {
+    if (val(env, name) !== '') {
+      problems.push(
+        `${name} is no longer read – set the receiving account in the payment_receiving_account parameter`,
+      );
     }
   }
 

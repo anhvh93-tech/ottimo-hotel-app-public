@@ -20,6 +20,7 @@ import {
   DecryptionError,
   type DestroyJournal,
   type FieldAad,
+  type KeyedHashPurpose,
   type Sealed,
 } from '../public/crypto.service';
 import type { Keyring } from './keyring';
@@ -191,20 +192,26 @@ export class EnvelopeCryptoService implements CryptoService {
     return createHmac('sha256', this.keyring.idHashKey).update(value, 'utf8').digest('hex');
   }
 
-  keyedHash(purpose: 'child_name', value: string): string {
+  keyedHash(purpose: KeyedHashPurpose, value: string): string {
     const key = Buffer.from(
       hkdfSync('sha256', this.keyring.idHashKey, Buffer.alloc(0), `ottimo:${purpose}:v1`, 32),
     );
     return createHmac('sha256', key).update(value, 'utf8').digest('hex');
   }
 
+  /**
+   * KEK rotation (SR-KEY-05). Only versions loaded in the keyring are re-wrapped; a DEK whose version is not
+   * loaded is skipped and counted (SEC BE-51 (2)) instead of failing the whole batch.
+   */
   async rewrap(tx: Tx, limit = 500): Promise<number> {
     const current = this.keyring.currentVersion;
+    const loaded = this.keyring.versions.filter((v) => v !== current);
+    if (loaded.length === 0) return 0;
     const { rows } = await tx.query<{ id: string; wrapped_key: Buffer; kek_version: number }>(
       `SELECT id, wrapped_key, kek_version FROM data_key
-        WHERE destroyed_at IS NULL AND kek_version <> $1
+        WHERE destroyed_at IS NULL AND kek_version = ANY($1::int[])
         ORDER BY id LIMIT $2 FOR UPDATE`,
-      [current, limit],
+      [loaded, limit],
     );
     let n = 0;
     for (const row of rows) {
@@ -226,6 +233,15 @@ export class EnvelopeCryptoService implements CryptoService {
       }
     }
     return n;
+  }
+
+  /** DEKs wrapped by a KEK version that is not loaded (cannot be re-wrapped nor read). */
+  async unknownVersionCount(tx: Tx): Promise<number> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM data_key WHERE destroyed_at IS NULL AND NOT (kek_version = ANY($1::int[]))`,
+      [[...this.keyring.versions]],
+    );
+    return rows[0]?.n ?? 0;
   }
 
   private async unwrap(tx: Tx, dataKeyId: string): Promise<{ dek: Buffer; version: number }> {

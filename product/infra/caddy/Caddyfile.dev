@@ -1,16 +1,53 @@
 # DEV ONLY – plain HTTP on localhost, mounted by infra/docker-compose.yml (not baked into the image).
 # No `log` directive on purpose: dev Caddy writes no access log, so no query strings or /g/* tokens.
-# Production Caddyfile (R2): TLS, CSP/HSTS/Referrer-Policy, 3 origins (SR-HDR-01..04), access log with
-# /g/* and every query string masked (incl. /v1/webhooks/* – VNPay GET IPN), /health restricted to internal/monitoring (FB-R1-SEC-OPS-11/12).
+# Staging/production: infra/caddy/Caddyfile.prod (TLS, CSP/HSTS/Referrer-Policy, 3 origins, masked access log,
+# /health restricted) – checked on every PR by infra/ci/check-caddy-prod.sh. Kept the same here: the request body
+# limits (an upload over the limit fails in dev/CI exactly like on staging) and the guest-web Referrer-Policy.
+# CSP is not sent in dev (Vite dev servers do not go through Caddy anyway); the built bundles were checked under
+# the production CSP (rounds/round-02/outputs/OPS/s3-report.md).
 {
 	admin off
 	auto_https off
 }
 
+# args[0] = directory under /srv, args[1] = Referrer-Policy, args[2] = Cache-Control of HTML / non-hashed files
 (spa) {
 	root * /srv/{args[0]}
 	encode gzip
 	header X-Content-Type-Options nosniff
+	header ?Referrer-Policy "{args[1]}"
+
+	# Same limits as Caddyfile.prod (FB-R2-ARC-BE-S3-18): 42 MB for the three multipart uploads, 1 MB otherwise.
+	@upload {
+		method POST
+		path_regexp upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+	}
+	request_body @upload {
+		max_size 42MB
+	}
+	@not_upload not {
+		method POST
+		path_regexp not_upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+	}
+	request_body @not_upload {
+		max_size 1MB
+	}
+	@too_big_upload {
+		method POST
+		path_regexp too_big_upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+		expression `{http.request.header.Content-Length}.matches('^[0-9]{1,15}$') && int({http.request.header.Content-Length}) > 42000000`
+	}
+	@too_big_other {
+		not path_regexp too_big_other_up ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+		expression `{http.request.header.Content-Length}.matches('^[0-9]{1,15}$') && int({http.request.header.Content-Length}) > 1000000`
+	}
+	handle @too_big_upload {
+		respond 413
+	}
+	handle @too_big_other {
+		respond 413
+	}
+
 	handle /health {
 		reverse_proxy api:3000
 	}
@@ -18,6 +55,7 @@
 		reverse_proxy api:3000
 	}
 	handle {
+		header Cache-Control "{args[2]}"
 		try_files {path} /index.html
 		file_server
 	}
@@ -25,15 +63,15 @@
 
 # admin-web (front desk, manager, owner)
 :8081 {
-	import spa admin-web
+	import spa admin-web same-origin no-cache
 }
 
 # mobile – OTTIMO Staff PWA
 :8082 {
-	import spa mobile
+	import spa mobile same-origin no-cache
 }
 
-# guest-web
+# guest-web – the /g/<token> page must not leak the token through Referer or a cache (SR-GST-02)
 :8083 {
-	import spa guest-web
+	import spa guest-web no-referrer no-store
 }

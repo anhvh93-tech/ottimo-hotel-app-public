@@ -123,3 +123,48 @@ Kết quả lệnh lần cuối (toàn repo, DB `ottimo_test_beb` tạo mới):
 | `pnpm -s test -- --force` | **Xanh** – turbo 12/12; `@ottimo/api` 50 tệp / **2.033** ca |
 | `pnpm -s build` | **Xanh** 6/6 |
 | `gen-openapi-meta --check`, `gen-quote-copy --check` | up to date |
+
+## 10. Phản hồi & sửa (17/10/2026 – theo `reviews/s3-DOM.md`, `s3-ARC.md`, `s3-SEC.md`, hợp đồng 0.3.6 bổ sung 1 + 2)
+
+Phản hồi từng thẻ: `responses/s3-BE-B.md`. Phần dưới chỉ ghi những gì đã đổi trong code.
+
+| Nhóm | Thay đổi | Tệp chính |
+|---|---|---|
+| Vị thế tiền (một nơi tính) | `moneyPosition`: OTA chỉ trả các khoản OTA trả hộ (`otaCoveredOf`), có thêm `otaExcessVnd`; số dư phải thu tính sau OTA; `payableCreditVnd` (chỉ khoản thu đã đối soát hoặc tiền mặt/POS; `disputed` = số thực nhận); `unsettledPaymentIds`. `computeTotals(lines, payments, openRefundVnd)` thêm `unhandledCreditVnd`, `otaExcessVnd`. `FolioBalance` thêm `unhandledCreditVnd`, `rawCreditVnd`, `openRefundVnd`, `unreconciledVnd`, `otaExcessVnd` (`creditVnd` = phần chưa xử lý). `depositPaid` bỏ dòng đảo | `folio/public/folio.service.ts`, `folio-view.ts`, `folio.controller.ts`, `bill.service.ts` |
+| OTA trả trước (DOM BE-13) | `syncOtaCollect` gọi ở cuối `syncStay`, `voidStay`, và `postLines` khi ghi loại phí OTA trả hộ. `ConfirmedStay.paymentModel` (BE-A trả) | `folio.service.ts`, `reservations/public/sales-port.ts`, `reservations.service.ts` (`confirmedStay`) |
+| Hoàn tiền (DOM BE-14, SEC 37/44/45, ARC 13/25) | `createRefundRequest` lấy trần = `unhandledCreditVnd`. `payOut`: trần = `creditVnd` hiện tại, `REFUND_SOURCE_NOT_RECONCILED`, khóa folio trước `approval_request`, người chi ≠ người tạo/duyệt/đặt nơi nhận, `original_method` ra `cash` → 409, `bankReference` không nhận số thẻ. `setDestination` mở lại yêu cầu qua `ApprovalService`, push `refund_destination_changed`. Yêu cầu bị từ chối/hủy → hủy DEK | `payments/internal/refunds.service.ts`, `approvals/public/approval.service.ts` (thêm hàm) |
+| Hoa hồng (DOM BE-15) | `tryEarnCommissions` (S3-3), gọi qua hook B18, khi đối soát/nộp quầy, khi thu nợ sau trả phòng | `folio.service.ts`, `folio.module.ts`, `payments.service.ts` |
+| Nhãn bill (DOM BE-21) | `line-labels.ts` (`lineLabel`, `roomResolver`), cột `label_params`, `labelKey`/`labelParams` trên `FolioLine`, `Bill.creditVnd`, đêm `extra_night` qua `charge_code` | `folio/public/line-labels.ts`, `folio-view.ts`, `bill.service.ts`, `foc.service.ts`, `minibar.service.ts` |
+| Ghi tiền | `recordManual` tự lấy vai, SAL/CTV ép `pending` (ARC-11). Trần cọc của đơn giữ chỗ = cọc còn thiếu (BUG-R2-051). `confirmPaymentReceived` kiểm `receivedAt` (SEC-44). VietQR chỉ lưu id, dựng lại phản hồi theo tài khoản đang hiệu lực (SEC-43) | `payments/public/payment.service.ts`, `payments/internal/payments.service.ts`, `payments.controller.ts` |
+| Dòng folio / minibar | `adjustFolioLine` chặn `room`/`extra_person` khi đơn còn lưu trú (ARC-14, tạm). `addFolioLine` bỏ ký tự điều khiển + Luhn cho mô tả. Minibar: `stayover` → 422, kiểm lại đảo theo chuỗi, kiểm trạng thái sau khi khóa | `folio-lines.service.ts`, `inventory/internal/minibar.service.ts` |
+| Ranh giới module (ARC-15) | `payments/public/payment-expiry.ts` (J24 gọi vào), `payments/public/reconcile-attention.ts` (nguồn "Cần chú ý"), bỏ truy vấn `payment` khỏi `events` | `jobs/payment-jobs.ts`, `events/internal/attention.service.ts`, `payments.module.ts` |
+| BE chung (SEC 33/34/35) | Guard: `dryRun` → quyết định ngay; replay phải khớp method + path; phiên PWA không bao giờ là thiết bị tin cậy; 600 request/phút/user. Lưới an toàn ở `SerializeInterceptor`. `stripControlChars` dùng chung | `shared/http/auth.guard.ts`, `shared/serialization/serialize.interceptor.ts`, `shared/validation.ts`, `test/helpers/feature-app.ts` |
+| Migration 0042 | `label_params`, `reconciled_by_role`; backfill vai khi đã tắt RLS; CHECK tách nhiệm (fact / owner / reconciled_by / role required / cash handover COALESCE); UK một lần đảo / khoản thu; sửa `refund_account_check`; GRANT UPDATE theo cột cho `approval_request`, `item`, `invoice_request`. `.ts` (folio, approvals) và snapshot đầu 0053 sinh lại theo 4.2a-2c | `src/db/migrations/0042_money_review_s3_be_b.sql`, `meta/_journal.json`, `meta/0053_snapshot.json`, `db/schema/folio.ts`, `db/schema/approvals.ts` |
+
+Test mới / sửa:
+- `payments-s3.test.ts`: 14 ca mới
+  - SEC-36 / ARC-02, DOM BE-13, DOM BE-14, ARC-13, DOM BE-15 (BR-527-06, BR-903-04), ARC-11
+  - SEC-37, SEC-45, ARC-12 / SEC-42, ARC-14, DOM BE-21, SEC-43, SEC-44, DOM BE-29 / ARC-32
+  - Sửa: BR-527-05 (thêm B18 trước xác nhận), A47 (chờ đối soát rồi mới chi), CHECK người tạo yêu cầu.
+- `guard-s3.test.ts` (mới): 3 ca, SEC-33/34/35.
+- `be-b-s3-units.test.ts`: `moneyPosition` (OTA trả hộ / OTA thu dư / tiền chưa đối soát) và `lineLabel`.
+- `folio-payments.test.ts`, `be-b-s2-units.test.ts`: hai trường totals mới; `AMOUNT_EXCEEDS_BALANCE`; nhật ký `folio.line_posted`.
+- `approvals-audit.test.ts` (BE-A): RB-0100…0109 chèn bản sao thay vì UPDATE `requested_by` (vì GRANT theo cột).
+
+Kết quả lệnh (17/10/2026, DB `ottimo_test_beb` xóa – tạo lại – `db:migrate` 29/29):
+| Lệnh | Kết quả |
+|---|---|
+| `pnpm -s test` (toàn repo) | **Xanh** – turbo 12/12; `@ottimo/api` 55 tệp / **2.119** ca (lần cuối, sau quyết định PO 17/10). Lần chạy trước: một ca `platform.test.ts` (NOTIFY `dev_clock`, phụ thuộc thời gian khi máy tải nặng) đỏ; chạy lại tệp 3/3 xanh, chạy lại toàn repo xanh |
+| `pnpm -s lint` (eslint + typecheck) | **Xanh** – 0 lỗi, typecheck 12/12 |
+| `pnpm -s build` | **Xanh** 6/6 |
+| `pnpm -s format:check` | **Xanh** (lần cuối) |
+| `drizzle-kit generate` (cấu hình thật) | "No schema changes" – không sinh tệp |
+| `gen-openapi-meta --check`, api-client `gen.mjs --check`, `gen-quote-copy --check`, `gen-portal-copy --check` | up to date |
+
+Bổ sung sau quyết định PO 17/10 (SEC-37, decision-log): OWN được miễn tách nhiệm trên hoàn **chuyển khoản**.
+- OWN được đặt nơi nhận, duyệt và chi cùng một khoản (`approval.service` `assertNotSelf`, `refunds.service` `payOut`).
+- CHECK trong 0042: `approval_request_refund_destination_not_approver`, `payment_refund_not_requester_check`.
+- Chi trên đường "tự làm" cần cửa sổ step-up (`refunds.controller`).
+- Nhật ký `refund.paid` có `after.ownSelfApprovedAndPaid`.
+- MGR duyệt rồi chi → 403.
+- Test: `payments-s3` ca "PO 17/10 (SEC-37)…".

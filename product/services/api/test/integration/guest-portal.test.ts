@@ -5,12 +5,20 @@
  * rate limits, revoke / re-issue / expiry / after checkout, staff cookie never authenticates a guest call.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { OPENAPI_META } from '../../src/generated/openapi-meta';
 import { GuestAccessPort } from '../../src/modules/guest-portal/public/guest-access.port';
+import { RATE_LIMITER, type RateLimiter } from '../../src/modules/identity/public/rate-limiter';
 import { type FeatureApp, P, cookieValue, startFeatureApp } from '../helpers/feature-app';
-import { guest, sampleJpeg, seedStay, setStayStatus, staff } from '../helpers/registration-fixture';
+import {
+  GUEST_TEST_ORIGIN,
+  guest,
+  sampleJpeg,
+  seedStay,
+  setStayStatus,
+  staff,
+} from '../helpers/registration-fixture';
 import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
 import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
@@ -25,7 +33,21 @@ const ALLOWED_OCI_KEYS = [
   'noticeAccepted',
   'lateArrival',
   'deferredPeople',
+  // 0.3.6 (SEC ĐK-2 17/10): property parameters the consent sentence shows.
+  'currentNoticeVersion',
+  'imageRetentionDays',
 ];
+/** id_image_retention_days_after_checkout of DS-E (BR-610). */
+const RETENTION_DAYS = 30;
+
+/** ĐK-2: EVERY OnlineCheckin response has only the 11 allowed keys and carries the two parameters. */
+function oci(r: { statusCode: number; json(): Record<string, unknown> }): Record<string, unknown> {
+  const body = r.json();
+  expect(r.statusCode, JSON.stringify(body)).toBeLessThan(300);
+  expect(Object.keys(body).filter((k) => !ALLOWED_OCI_KEYS.includes(k))).toEqual([]);
+  expect(body).toMatchObject({ currentNoticeVersion: NOTICE, imageRetentionDays: RETENTION_DAYS });
+  return body;
+}
 
 describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-in (SEC G)', () => {
   let db: Database;
@@ -42,12 +64,14 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     });
     ids = await seedBooking(db, t);
     device = await t.deviceToken(0);
-    fa = await startFeatureApp(db);
+    fa = await startFeatureApp(db, { guestOrigins: [GUEST_TEST_ORIGIN] });
   });
   afterAll(async () => {
     await fa?.close();
     await db.close();
   });
+  // RAM counters (SR-RL-03, guest uploads) are per test: every test starts with fresh windows.
+  beforeEach(() => fa.app.get<RateLimiter>(RATE_LIMITER).resetAll());
 
   async function link(reservationId: string): Promise<string> {
     const r = await staff(
@@ -189,9 +213,7 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
   it('online check-in: notice gate, uploads (HEIC refused, replace = DEK destroyed), consent of guest 1, completion', async () => {
     const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
     const sid = await session(reservationId);
-    const oci = (r: { json(): Record<string, unknown> }) => r.json();
     const first = await guest(fa, sid, 'GET', '/v1/guest/online-checkin');
-    expect(Object.keys(oci(first)).every((k) => ALLOWED_OCI_KEYS.includes(k))).toBe(true);
     expect(oci(first)).toMatchObject({
       currentStep: 'notice',
       requiredPeople: 2,
@@ -241,7 +263,7 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     const up = await upload(1, await sampleJpeg('#123456'));
     expect(up.statusCode).toBe(201);
     expect(oci(up).uploadedPeople).toEqual([1]);
-    expect(JSON.stringify(up.json())).not.toMatch(/image|docType|passport/i);
+    expect(JSON.stringify(up.json())).not.toMatch(/imageIds|"image"|docType|passport/i);
     const before = await db.withContext(
       t.ctx(),
       async (tx) =>
@@ -285,6 +307,7 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision: 'refused',
       noticeVersion: NOTICE,
+      retentionDays: RETENTION_DAYS,
       locale: 'en',
       channel: 'guest_app',
     };
@@ -292,9 +315,32 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
       { field: 'personIndex', code: 'NOT_IN_LIST' },
     ]);
     expect((await consent({ ...base, personIndex: 1, channel: 'desk' })).statusCode).toBe(422);
+    // SEC ĐK-2 17/10: the days the guest read must be the parameter in force.
+    expect((await consent({ ...base, personIndex: 1, retentionDays: 90 })).json().errors).toEqual([
+      { field: 'retentionDays', code: 'NOT_IN_LIST' },
+    ]);
+    const noDays: Record<string, unknown> = { ...base };
+    delete noDays.retentionDays;
+    expect((await consent({ ...noDays, personIndex: 1 })).json().errors).toEqual([
+      { field: 'retentionDays', code: 'REQUIRED' },
+    ]);
     const c = await consent({ ...base, personIndex: 1 });
     expect(c.statusCode).toBe(201);
     expect(oci(c).consentRecorded).toBe(true);
+    // SEC BE-49: the same answer again is not a new record (no version bump for the desk).
+    expect((await consent({ ...base, personIndex: 1 })).statusCode).toBe(201);
+    const records = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ decision: string; retention_days: number }>(
+            `SELECT c.decision, c.retention_days FROM consent_record c
+               JOIN registration x ON x.id = c.registration_id WHERE x.reservation_id = $1`,
+            [reservationId],
+          )
+        ).rows,
+    );
+    expect(records).toEqual([{ decision: 'refused', retention_days: RETENTION_DAYS }]);
 
     // Completion: missing ETA → 409 currentState eta; person 2 missing → documents unless deferred.
     const complete = (deferredPeople?: number[]) =>
@@ -391,6 +437,9 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     await setStayStatus(db, t, out.reservationId, 'checked_out');
     const opened = await open(token4);
     expect(opened.json().stayEnded).toBe(true);
+    // SEC BE-51 (6): after checkout the page only says thank you – no name, no room number.
+    expect(opened.json()).not.toHaveProperty('guestFirstName');
+    expect(opened.json()).not.toHaveProperty('roomNo');
     const sid4 = cookieValue(opened, 'ottimo_gsid') as string;
     expect((await guest(fa, sid4, 'GET', '/v1/guest/stay')).json().code).toBe('GUEST_STAY_ENDED');
     expect(
@@ -400,6 +449,103 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     fa.clock.set(new Date('2026-10-21T05:01:00.000Z'));
     expect((await open(token4)).json().code).toBe('GUEST_LINK_INVALID');
     fa.clock.set(T0);
+  });
+
+  it('SEC BE-47: upload checks run BEFORE decoding; uploads count per session (429)', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
+    const sid = await session(reservationId);
+    const heic = Buffer.concat([
+      Buffer.from([0, 0, 0, 0x18]),
+      Buffer.from('ftypheic'),
+      Buffer.alloc(64),
+    ]);
+    const upload = () =>
+      guest(fa, sid, 'POST', '/v1/guest/online-checkin/documents', {
+        multipart: [
+          { name: 'personIndex', value: '1' },
+          { name: 'docType', value: 'passport' },
+          { name: 'image', value: heic, filename: 'x.heic', contentType: 'image/heic' },
+        ],
+      });
+    // Notice not read: 409 – the HEIC never reached the image pipeline (it would be 422 FILE_REJECTED).
+    const early = await upload();
+    expect(early.statusCode).toBe(409);
+    expect(early.json().currentState).toBe('notice');
+    expect(
+      (await guest(fa, sid, 'PUT', '/v1/guest/online-checkin', { json: { noticeVersion: NOTICE } }))
+        .statusCode,
+    ).toBe(200);
+    for (let i = 1; i < 20; i++) expect((await upload()).json().code).toBe('FILE_REJECTED');
+    const over = await upload();
+    expect(over.statusCode).toBe(429);
+    expect(over.headers['retry-after']).toBeDefined();
+  });
+
+  it('SEC decision (a): the notice evidence names the language really shown (ru → en)', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
+    const sid = await session(reservationId);
+    expect(
+      (await guest(fa, sid, 'PUT', '/v1/guest/locale', { json: { locale: 'ru' } })).statusCode,
+    ).toBe(204);
+    expect(
+      (await guest(fa, sid, 'PUT', '/v1/guest/online-checkin', { json: { noticeVersion: NOTICE } }))
+        .statusCode,
+    ).toBe(200);
+    const locale = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ notice_locale: string }>(
+            'SELECT notice_locale FROM online_checkin WHERE reservation_id = $1',
+            [reservationId],
+          )
+        ).rows[0]!.notice_locale,
+    );
+    expect(locale).toBe('en');
+  });
+
+  it('SEC BE-50 (a): guest writes need the guest-web Origin; a GET never writes (K1, online_checkin)', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
+    const sid = await session(reservationId);
+    const put = (origin: string | null) =>
+      guest(fa, sid, 'PUT', '/v1/guest/online-checkin', {
+        json: { noticeVersion: NOTICE },
+        headers: origin ? { origin } : { origin: '' },
+      });
+    expect((await put(null)).statusCode).toBe(403);
+    expect((await put('https://evil.test')).statusCode).toBe(403);
+    expect((await put('https://g.test')).statusCode).toBe(200);
+    // Open a session without the guest-web Origin → 403 (public guest operation).
+    const token = await link(reservationId);
+    const foreign = await guest(fa, null, 'POST', '/v1/guest/sessions', {
+      json: { token },
+      headers: { origin: 'https://desk.test', 'x-forwarded-for': '1.2.3.9' },
+    });
+    expect(foreign.statusCode).toBe(403);
+    // GET of a fresh booking writes nothing (ARC S3-27 (6)): no online_checkin row, no K1 change. (The K1
+    // record itself comes from the link issue – a write.)
+    const fresh = await seedStay(db, t, ids, { adults: 1 });
+    const sid2 = await session(fresh.reservationId);
+    const counts = () =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ r: number; v: number; o: number }>(
+              `SELECT (SELECT count(*)::int FROM registration WHERE reservation_id = $1) AS r,
+                      (SELECT COALESCE(max(version), 0)::int FROM registration WHERE reservation_id = $1) AS v,
+                      (SELECT count(*)::int FROM online_checkin WHERE reservation_id = $1) AS o`,
+              [fresh.reservationId],
+            )
+          ).rows[0],
+      );
+    const before = await counts();
+    expect(oci(await guest(fa, sid2, 'GET', '/v1/guest/online-checkin'))).toMatchObject({
+      currentStep: 'notice',
+      requiredPeople: 1,
+    });
+    expect(await counts()).toEqual(before);
+    expect(before?.o).toBe(0);
   });
 
   it('SR-RL-03: openGuestSession is limited per IP (10/min)', async () => {

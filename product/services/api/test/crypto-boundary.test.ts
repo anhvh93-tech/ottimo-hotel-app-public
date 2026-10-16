@@ -27,8 +27,19 @@ function offenders(pattern: RegExp): string[] {
 }
 
 describe('crypto boundary (SR-KEY-02)', () => {
-  it('no SQL on data_key outside the crypto module', () => {
-    expect(offenders(/\b(FROM|JOIN|INTO|UPDATE)\s+data_key\b/i)).toEqual([]);
+  it('no SQL on data_key outside the crypto module (also quoted / schema-qualified – ARC S3-31 (3))', () => {
+    const sql = /\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(?:"?public"?\s*\.\s*)?"?data_key"?(?![\w$])/i;
+    expect(offenders(sql)).toEqual([]);
+    // The pattern itself catches the evasions it is meant to catch.
+    for (const q of [
+      'SELECT 1 FROM data_key',
+      'select 1 from "data_key"',
+      'UPDATE public.data_key SET x = 1',
+      'JOIN "public"."data_key" k ON true',
+    ]) {
+      expect({ q, hit: sql.test(q) }).toEqual({ q, hit: true });
+    }
+    expect(sql.test('FROM data_key_audit')).toBe(false);
   });
 
   it('no KEK / ID hash key variable read outside the crypto module and config.ts', () => {

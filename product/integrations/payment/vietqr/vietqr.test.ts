@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { EnvCredentialProvider } from '../../common/env-credential-provider.js';
-import { IntegrationError, type IntegrationContext } from '../../contracts/common.js';
+import { IntegrationError, isoInstant, type IntegrationContext } from '../../contracts/common.js';
 import { encodeQr } from '../../qr/encoder.js';
 import { VietQrPaymentAdapter } from './adapter.js';
 import {
   buildVietQrPayload,
   crc16Ccitt,
-  maskAccountNo,
   normalizeTransferContent,
   parseEmvTlv,
   toBankName,
@@ -15,7 +13,7 @@ import {
 
 const ctx: IntegrationContext = {
   propertyId: 'p-ottimo',
-  credentialsRef: 'env:PAYMENT_VIETQR',
+  credentialsRef: 'param:payment_receiving_account', // VietQR has no secret
   requestId: 'req-1',
 };
 
@@ -121,82 +119,63 @@ describe('normalizeTransferContent (SEC F1)', () => {
 });
 
 describe('helpers', () => {
-  it('maskAccountNo shows at most 4 digits', () => {
-    expect(maskAccountNo('0123456789')).toBe('••••6789');
-    expect(maskAccountNo('123')).toBe('••••3');
-  });
   it('toBankName strips Vietnamese marks', () => {
     expect(toBankName(ACC.accountName)).toBe('CONG TY TNHH OTTIMO DA LAT');
+  });
+  it('no second account mask in INT (one mask = BE-B maskedAccountNo, FB-R2-ARC-BE-S3-29)', async () => {
+    expect(Object.keys(await import('./emvco.js'))).not.toContain('maskAccountNo');
   });
 });
 
 describe('VietQrPaymentAdapter', () => {
-  const env = {
-    PAYMENT_VIETQR_MODE: 'mock',
-    PAYMENT_VIETQR_BANK_BIN: '970436',
-    PAYMENT_VIETQR_ACCOUNT_NO: '9876543210',
-    PAYMENT_VIETQR_ACCOUNT_NAME: 'OTTIMO TEST',
-  };
+  const now = () => isoInstant('2026-10-17T08:30:00+07:00');
 
-  it('prefers payment_receiving_account (parameter) over .env', async () => {
-    const a = new VietQrPaymentAdapter({
-      credentials: new EnvCredentialProvider(env),
-      receivingAccount: async () => ACC,
-    });
+  it('uses payment_receiving_account (the only source)', async () => {
+    const a = new VietQrPaymentAdapter({ receivingAccount: async () => ACC, now });
     const r = await a.prepare(ctx, { amountVnd: 1_600_000, transferContent: 'OTM-00171' });
     expect(r.qrPayload).toBe(VECTOR);
-    expect(r.accountSource).toBe('parameter');
-    expect(r.accountNoMasked).toBe('••••6789');
     expect(r.accountName).toBe('CONG TY TNHH OTTIMO DA LAT');
     expect(r.transferContent).toBe('OTM00171');
     expect(r.qrSvg.startsWith('<svg')).toBe(true);
     expect(r.qrSvg).not.toContain('http://img'); // drawn locally (F2)
+    expect(JSON.stringify(r)).not.toMatch(/accountNoMasked|accountSource/);
   });
 
-  it('falls back to PAYMENT_VIETQR_* when the parameter is not set', async () => {
-    const a = new VietQrPaymentAdapter({
-      credentials: new EnvCredentialProvider(env),
-      receivingAccount: async () => null,
-    });
-    const r = await a.prepare(ctx, { amountVnd: 500_000, transferContent: 'F26-000123' });
-    expect(r.accountSource).toBe('env');
-    const ben = parseEmvTlv(
-      parseEmvTlv(parseEmvTlv(r.qrPayload).get('38') as string).get('01') as string,
-    );
-    expect(ben.get('01')).toBe('9876543210');
-  });
-
-  it('not configured → CONFIG (BE-B maps to 409 PAYMENT_NOT_CONFIGURED), no fake QR', async () => {
-    const a = new VietQrPaymentAdapter({ credentials: new EnvCredentialProvider({}) });
+  it('FB-R2-SEC-INT-06: parameter not set → CONFIG even when PAYMENT_VIETQR_* exist in the environment', async () => {
+    const env = {
+      PAYMENT_VIETQR_BANK_BIN: '970436',
+      PAYMENT_VIETQR_ACCOUNT_NO: '9876543210',
+      PAYMENT_VIETQR_ACCOUNT_NAME: 'OTTIMO TEST',
+    };
+    // The adapter has no access to env at all; options only take the parameter source.
+    const a = new VietQrPaymentAdapter({ receivingAccount: async () => null, now });
     await expect(
       a.prepare(ctx, { amountVnd: 1000, transferContent: 'OTM1' }),
-    ).rejects.toMatchObject({
-      code: 'CONFIG',
+    ).rejects.toMatchObject({ code: 'CONFIG' });
+    const health = await a.healthCheck(ctx);
+    expect(health).toEqual({
+      status: 'down',
+      checkedAt: '2026-10-17T08:30:00+07:00',
+      detail: 'not_configured',
     });
-    expect((await a.healthCheck(ctx)).status).toBe('down');
+    expect(JSON.stringify(health)).not.toContain(env.PAYMENT_VIETQR_ACCOUNT_NO);
   });
 
   it('error messages never contain the account number', async () => {
     const bad = { ...ACC, accountNo: '0123-456789' };
-    const a = new VietQrPaymentAdapter({
-      credentials: new EnvCredentialProvider({}),
-      receivingAccount: async () => bad,
-    });
+    const a = new VietQrPaymentAdapter({ receivingAccount: async () => bad, now });
     const err = await a.prepare(ctx, { amountVnd: 1000, transferContent: 'OTM1' }).catch((e) => e);
     expect(err).toBeInstanceOf(IntegrationError);
     expect(String(err.message)).not.toContain('456789');
   });
 
   it('createPayment uses description as content; callbacks are refused (not fail-open)', async () => {
-    const a = new VietQrPaymentAdapter({
-      credentials: new EnvCredentialProvider({}),
-      receivingAccount: async () => ACC,
-    });
+    const a = new VietQrPaymentAdapter({ receivingAccount: async () => ACC, now });
     const r = await a.createPayment(ctx, {
       paymentCode: 'PT-000001',
       amountVnd: 1_600_000,
       description: 'OTM-00171',
-      expiresAt: '2026-10-20T14:00:00+07:00' as never,
+      expiresAt: isoInstant('2026-10-20T14:00:00+07:00'),
       locale: 'vi',
     });
     expect(r.qrPayload).toBe(VECTOR);
@@ -210,6 +189,9 @@ describe('VietQrPaymentAdapter', () => {
     expect(cb).toEqual({ ok: false, reason: 'source_not_allowed' });
     expect(a.callbackAck('ok').status).toBe(404);
     expect(await a.queryStatus(ctx, 'PT-000001')).toEqual({ status: 'pending' });
-    expect((await a.healthCheck(ctx)).status).toBe('ok');
+    expect(await a.healthCheck(ctx)).toEqual({
+      status: 'ok',
+      checkedAt: '2026-10-17T08:30:00+07:00',
+    });
   });
 });

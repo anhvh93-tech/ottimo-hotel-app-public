@@ -14,12 +14,14 @@ import { Operation } from '../../../shared/http/operation';
 import { applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { CLOCK, type Clock } from '../../../clock';
+import { EncryptedBlobService } from '../../files/public/encrypted-blob.service';
 import {
   type NormalizedImage,
   fileRejected,
   normalizeImage,
 } from '../../files/public/image-pipeline';
 import { fileParts, parseMultipart, textPart } from '../../files/public/multipart';
+import { withUploadGate } from '../../files/public/upload-gate';
 import { RATE_LIMITER, RateLimiter } from '../../identity/public/rate-limiter';
 import { GuestPortalService } from './guest-portal.service';
 import { GuestSessionResolverService } from './guest-session.resolver';
@@ -34,6 +36,16 @@ interface Reply {
 export const OPEN_SESSION_RULES = {
   perMinute: { limit: 10, windowMs: 60_000 },
   perDay: { limit: 100, windowMs: 86_400_000 },
+} as const;
+
+/**
+ * SEC FB-R2-SEC-BE-47: guest uploads count per session and per IP BEFORE any image is decoded (technical
+ * constants, RAM counter accepted for R2 with 1 api replica – security-requirements 13). The business
+ * limits (30 files / booking, 4 per person) are checked in the read-only precheck.
+ */
+export const GUEST_UPLOAD_RULES = {
+  perSession: { limit: 20, windowMs: 3_600_000 },
+  perIp: { limit: 60, windowMs: 3_600_000 },
 } as const;
 
 const DOC_TYPES = ['cccd', 'passport', 'child_personal_id', 'other'] as const;
@@ -69,6 +81,7 @@ export class GuestController {
     @Inject(GuestSessionResolverService) private readonly sessions: GuestSessionResolverService,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(EncryptedBlobService) private readonly blobs: EncryptedBlobService,
   ) {}
 
   @Post('sessions')
@@ -156,7 +169,8 @@ export class GuestController {
   async get(@Req() req: GuardedRequest, @Res({ passthrough: true }) reply: Reply) {
     guestHeaders(reply, true);
     const g = guestOf(req);
-    return this.db.withContext(guestContext(g), (tx) => this.portal.get(tx, g));
+    // Read-only (ARC FB-S3-27 (6)): a GET never creates the K1 record nor the online_checkin row.
+    return this.db.withContext(guestContext(g), (tx) => this.portal.get(tx, g), { readOnly: true });
   }
 
   @Put('online-checkin')
@@ -191,24 +205,38 @@ export class GuestController {
     if (files.length === 0)
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'image', code: 'REQUIRED' }] });
     if (files.length > 4) throw fileRejected('image', 'TOO_MANY_FILES');
-    // Re-encoded in memory before the transaction (SEC C1): HEIC/PDF/HTML → 422 FILE_REJECTED.
-    const images: NormalizedImage[] = [];
-    for (const f of files) images.push(await normalizeImage(f, 'image'));
+    const ip = (req as { ip?: string }).ip ?? 'unknown';
+    this.limiter.consume(`guest-upload:s:${g.sessionId}`, GUEST_UPLOAD_RULES.perSession);
+    this.limiter.consume(`guest-upload:i:${ip}`, GUEST_UPLOAD_RULES.perIp);
+    // Cheap checks first (flow open, notice read, person number, 30 files) – nothing decoded yet.
+    await this.db.withContext(
+      guestContext(g),
+      (tx) => this.portal.precheckUpload(tx, g, personIndex, files.length),
+      { readOnly: true },
+    );
+    // Semantic idempotency hash (ARC FB-S3-19): the files' digests, not the multipart bytes/boundary.
     req.body = {
       personIndex,
       docType,
-      multipartSha256: createHash('sha256').update(Buffer.concat(files)).digest('hex'),
+      images: files.map((f) => createHash('sha256').update(f).digest('hex')),
     };
-    const result = await this.uow.run(req, g, async (tx) => ({
-      status: 201,
-      body: await this.portal.upload(
-        tx,
-        g,
-        { personIndex, docType: docType as (typeof DOC_TYPES)[number] },
-        images,
-        req.id,
-      ),
-    }));
+    const result = await withUploadGate(async () => {
+      // Re-encoded in memory before the transaction (SEC C1): HEIC/PDF/HTML → 422 FILE_REJECTED.
+      const images: NormalizedImage[] = [];
+      for (const f of files) images.push(await normalizeImage(f, 'image'));
+      return this.uow.run(req, g, async (tx) => ({
+        status: 201,
+        body: await this.portal.upload(
+          tx,
+          g,
+          { personIndex, docType: docType as (typeof DOC_TYPES)[number] },
+          images,
+          req.id,
+        ),
+      }));
+    });
+    // A replaced image of the same person: its file is deleted only now, after COMMIT (ARC FB-S3-17).
+    await this.blobs.sweepAfterCommit(guestContext(g));
     return applyResult(reply, result);
   }
 
@@ -222,9 +250,11 @@ export class GuestController {
     guestHeaders(reply, true);
     const g = guestOf(req);
     reply.status(201);
-    return this.db.withContext(guestContext(g), (tx) =>
+    const out = await this.db.withContext(guestContext(g), (tx) =>
       this.portal.consent(tx, g, obj(body), req.id),
     );
+    await this.blobs.sweepAfterCommit(guestContext(g));
+    return out;
   }
 
   @Post('online-checkin/complete')

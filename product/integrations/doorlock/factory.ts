@@ -9,23 +9,24 @@ export const DOORLOCK_PROVIDERS = ['off', 'manual', 'mock', 'ttlock'] as const;
 export type DoorLockProvider = (typeof DOORLOCK_PROVIDERS)[number];
 
 export interface DoorLockFactoryOptions {
-  manual?: ManualDoorLockOptions;
-  mock?: MockDoorLockOptions;
-  now?: () => IsoInstant;
+  /** Injected Clock (ADR-008), required. */
+  now: () => IsoInstant;
+  manual?: Omit<ManualDoorLockOptions, 'now'>;
+  mock?: Omit<MockDoorLockOptions, 'now'>;
 }
 
 /** 'off' → null (no door-code step in the UI). 'ttlock' is the R3 adapter: refused with CONFIG in R2. */
 export function createDoorLockAdapter(
   provider: string,
-  opts: DoorLockFactoryOptions = {},
+  opts: DoorLockFactoryOptions,
 ): DoorLockAdapter | null {
   switch (provider) {
     case 'off':
       return null;
     case 'manual':
-      return new ManualDoorLockAdapter({ ...opts.manual, ...(opts.now ? { now: opts.now } : {}) });
+      return new ManualDoorLockAdapter({ ...opts.manual, now: opts.now });
     case 'mock':
-      return new MockDoorLockAdapter({ ...opts.mock, ...(opts.now ? { now: opts.now } : {}) });
+      return new MockDoorLockAdapter({ ...opts.mock, now: opts.now });
     case 'ttlock':
       throw new IntegrationError(
         'CONFIG',

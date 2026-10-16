@@ -1,6 +1,6 @@
 {
   "$comment": "Bộ smoke (S) – chạy mọi PR (test-strategy mục 6, plan R2 W8). Nguồn: tests/test-cases/r1-main-flows.md cột ƯT có '(S)'. validate-fixtures.mjs kiểm manifest khớp test case. Khi tính năng có trên build: viết spec thật, đổi status → implemented, ghi spec.",
-  "updated": "2026-10-16",
+  "updated": "2026-10-17",
   "cases": [
     {
       "tc": "TC-X-050",
@@ -41,50 +41,60 @@
       "story": "US-007/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – FOC/phê duyệt trên folio, trả phòng (US-007 cần folio)",
+      "status": "implemented",
       "title": "`approved`; folio có dòng phụ thu 210.000 và dòng \"Miễn phí (FOC) · Khách quen\" −210.000, lý do, tên người duyệt thật = ",
-      "endpoints": "approveRequest, getFolio"
+      "endpoints": "approveRequest, getFolio",
+      "spec": "clock/approvals-foc.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "FDL duyệt FOC trong hạn mức (mật khẩu – R2 chưa có PIN)"
     },
     {
       "tc": "TC-NT-031",
       "story": "US-007/AC5",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – FOC/phê duyệt trên folio, trả phòng (US-007 cần folio)",
+      "status": "implemented",
       "title": "`409 PENDING_APPROVALS`, đơn vẫn `in_house`",
-      "endpoints": "checkOut"
+      "endpoints": "checkOut",
+      "spec": "clock/approvals-foc.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "checkOut → 409 PENDING_APPROVALS"
     },
     {
       "tc": "TC-NT-033",
       "story": "US-007/–",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – FOC/phê duyệt trên folio, trả phòng (US-007 cần folio)",
+      "status": "implemented",
       "title": "(1) không lý do → `422`; có lý do → `rejected`, người gửi nhận thông báo; (2) dòng FOC bị bỏ, phụ thu 210.000 còn nguyên",
-      "endpoints": "rejectRequest, getFolio, checkOut"
+      "endpoints": "rejectRequest, getFolio, checkOut",
+      "spec": "clock/approvals-foc.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Từ chối FOC: không lý do 422, có lý do rejected; phụ thu còn phải thu"
     },
     {
       "tc": "TC-RB-001",
       "story": "US-003/AC1; US-087/AC3",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "status": "implemented",
       "title": "JSON không có khóa loại giấy tờ, số giấy tờ (kể cả dạng che, 4 số cuối), ảnh, địa chỉ thường trú (vắng mặt, không phải `",
-      "endpoints": "getGuest, getReservation, listParty, searchGuests"
+      "endpoints": "getGuest, getReservation, listParty, searchGuests",
+      "spec": "api/c3-access.s3.api.spec.ts",
+      "project": "api",
+      "note": "SAL/CTV: không có khóa giấy tờ/ảnh/địa chỉ (vắng mặt)"
     },
     {
       "tc": "TC-RB-002",
       "story": "US-003/AC1; US-048/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "status": "implemented",
       "title": "Tất cả `403 FORBIDDEN_ACTION` (hoặc 404 nếu ngoài phạm vi), không trả nội dung; mỗi lần có audit; không có dòng `c3_acce",
-      "endpoints": "getRegistration, getGuestDocumentSensitive, getDocumentImage, getPortalData"
+      "endpoints": "getRegistration, getGuestDocumentSensitive, getDocumentImage, getPortalData",
+      "spec": "api/c3-access.s3.api.spec.ts",
+      "project": "api",
+      "note": "SAL/CTV/HK/MT → 403/404, không giá trị rõ, không thêm c3_access_log view"
     },
     {
       "tc": "TC-RB-013",
@@ -92,7 +102,7 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "waitingFor": "R3 – US-128 mã cửa dời R3 (R-C, SEC D2): getDoorCredential không đăng ký ở R2 (runner RBAC S3 kiểm 404)",
       "title": "4 vai đầu `403`, trường mã vắng mặt; `qa.fd` xem được và có dòng `c3_access_log`",
       "endpoints": "getDoorCredential, getReservation, listC3AccessLog"
     },
@@ -104,19 +114,21 @@
       "status": "implemented",
       "title": "100% trả `403 FORBIDDEN_ACTION` (khách: 401/403), mỗi lần 1 `audit_event`; vai ô `M` với dữ liệu người khác → 404; vai r",
       "endpoints": "(mọi operation)",
-      "spec": "rbac/rbac-sprint1.spec.ts, rbac/rbac-sprint2.spec.ts",
+      "spec": "rbac/rbac-sprint1.spec.ts, rbac/rbac-sprint2.spec.ts, rbac/rbac-sprint3.spec.ts",
       "project": "rbac",
-      "note": "Runner từ rbac-cases.json – Sprint 1 (385 ca) + Sprint 2 (385 ca, 35 operation EP02/EP11/US-139); operation Sprint 3+ thêm file sprint3-ops.ts"
+      "note": "Runner từ rbac-cases.json – Sprint 1 (sprint1-ops.ts) + Sprint 2 (sprint2-ops.ts, 35 operation EP02/EP11/US-139) + Sprint 3 (sprint3-ops.ts, 67 operation EP03–EP06/EP15/US-106–107 + createLead, transitionRoomBlock bỏ sót ở S2; route không đăng ký ở R2 theo quyết định – ĐK-1, mã cửa US-128 – kỳ vọng 404 mọi chủ thể)"
     },
     {
       "tc": "TC-RB-022",
       "story": "US-048/–; US-142/AC2",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "status": "implemented",
       "title": "PWA: không có nút C3; mọi lời gọi → `403 DEVICE_NOT_TRUSTED` + `audit_event access.denied`, không trả nội dung; máy quầy",
-      "endpoints": "getGuestDocumentSensitive, getDocumentImage, getDoorCredential"
+      "endpoints": "getGuestDocumentSensitive, getDocumentImage, getDoorCredential",
+      "spec": "api/c3-access.s3.api.spec.ts",
+      "project": "api",
+      "note": "Không thiết bị → 403 DEVICE_NOT_TRUSTED; thiết bị chưa step-up → 401 REAUTH_REQUIRED; thiết bị + step-up → 200 no-store + 1 dòng log; mã cửa 404 (R3)"
     },
     {
       "tc": "TC-RB-023",
@@ -206,100 +218,120 @@
       "story": "US-025/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "Đơn `in_house`; buồng `OC`; giờ nhận ghi 14:30; folio không có dòng phụ thu",
-      "endpoints": "previewCheckIn, checkIn"
+      "endpoints": "previewCheckIn, checkIn",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Ngày ảo (MutableClock) – qa.fd nhận phòng buồng VC; phần E (4 bước trên máy quầy) ở ui/stay.h13-h17.spec.ts"
     },
     {
       "tc": "TC-L3-003",
       "story": "US-025/AC3",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "(a) `409 CHECKIN_CONDITIONS_NOT_MET`, `unmet=[balance_paid]`; (b) `unmet=[main_guest_document]`; cả hai không giao/nhập ",
-      "endpoints": "previewCheckIn, checkIn, setDoorCredential"
+      "endpoints": "previewCheckIn, checkIn, setDoorCredential",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "(a) balance_paid, (b) main_guest_document, (c) Airbnb OTA thu hộ; mã cửa US-128 dời R3 → setDoorCredential 404"
     },
     {
       "tc": "TC-L3-007",
       "story": "US-025/AC3",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "(1) `409 CHECKIN_CONDITIONS_NOT_MET`, `unmet=[balance_paid]` (không coi là \"OTA đã trả\"); (2) không nhập/giao được mã cử",
-      "endpoints": "previewCheckIn, checkIn, setDoorCredential, recordPayment"
+      "endpoints": "previewCheckIn, checkIn, setDoorCredential, recordPayment",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Booking khách trả tại chỗ: chưa thu → unmet balance_paid; thu đủ → nhận được"
     },
     {
       "tc": "TC-L3-039",
       "story": "US-045/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "(2) ảnh đã bị xóa ngay sau `confirmed` (404/410, khóa mã hóa bị hủy), không chờ J16; trường văn bản cần thiết còn; nhật ",
-      "endpoints": "transitionRegistration, getDocumentImage"
+      "endpoints": "transitionRegistration, getDocumentImage",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Xóa ảnh ngay khi confirmed (không đồng ý) đạt; phần J16 hạn trên 24 giờ: test.fail BUG-R2-036"
     },
     {
       "tc": "TC-L3-044",
       "story": "US-042/AC1",
       "layers": "A+U",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "VN: hạn 23:00 15/10; NN: hạn 20:00 15/10 (ví dụ BR-603). Lúc 20:00:01 hồ sơ NN trước `sent` hiện \"Đã quá hạn\" bằng màu c",
-      "endpoints": "listRegistrations, listAttentionItems"
+      "endpoints": "listRegistrations, listAttentionItems",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Hạn VN/NN + nhãn quá hạn tính lúc đọc đạt; job J5 registration.deadline: test.fail BUG-R2-035"
     },
     {
       "tc": "TC-L3-070",
       "story": "US-049/AC1",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "12/11 (ngày thứ 29 sau ngày trả): ảnh (a), (b) còn; 13/11 (= 14/10 + 30 ngày): ảnh (a), (b) bị xóa (hủy khóa) – giờ trả ",
-      "endpoints": "getDocumentImage"
+      "endpoints": "getDocumentImage",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "J16 retention.purge theo id_image_retention_days_after_checkout (EP06 6.1 – mốc = giờ trả + 30 ngày, chờ DOM chốt cách đếm)"
     },
     {
       "tc": "TC-L4-050",
       "story": "US-037/AC1",
       "layers": "A+U",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "Bill: 3 dòng tiền phòng 820.000; 1 dòng minibar 25.000; 1 dòng phụ thu 210.000; 1 dòng FOC −210.000; tổng 2.485.000; còn",
-      "endpoints": "getCheckoutSummary, getBill"
+      "endpoints": "getCheckoutSummary, getBill",
+      "spec": "clock/stay-checkout.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "Bill 3 đêm + minibar + phụ thu + FOC (BR-434-01)"
     },
     {
       "tc": "TC-L4-053",
       "story": "US-038/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "Đơn `checked_out`; folio `settled` với số bill dạng `F26-nnnnnn` (BR-007); buồng `VD`; mã cửa \"đã hủy\"; việc \"Dọn trả ph",
-      "endpoints": "getCheckoutSummary, checkOut"
+      "endpoints": "getCheckoutSummary, checkOut",
+      "spec": "clock/stay-checkout.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "checkOut → settled, số bill F{yy}-nnnnnn; phần E (3 bước trên giao diện) ở ui-clock/checkout.h16.spec.ts (project desk-clock)"
     },
     {
       "tc": "TC-L4-055",
       "story": "US-038/AC3",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "(a) `409 BALANCE_DUE`; (b) hoàn tất được, folio có `debt_due_date`, người duyệt `qa.mgr`",
-      "endpoints": "checkOut"
+      "endpoints": "checkOut",
+      "spec": "clock/stay-checkout.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "BALANCE_DUE; MGR ghi công nợ có hạn → hoàn tất"
     },
     {
       "tc": "TC-L4-060",
       "story": "US-119/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – nhận phòng, khai báo, folio, trả phòng, thu tiền (EP03–EP06)",
+      "status": "implemented",
       "title": "Còn phải thu 0; đơn có 2 giao dịch `succeeded` với cách thanh toán, người thu, thời điểm, mã `PT-xxxxxx`",
-      "endpoints": "recordPayment, getFolio"
+      "endpoints": "recordPayment, getFolio",
+      "spec": "api/stay-checkout.s3.api.spec.ts",
+      "project": "api",
+      "note": "BR-521: 2 giao dịch succeeded, mã PT-xxxxxx"
     },
     {
       "tc": "TC-L5-001",
@@ -391,7 +423,7 @@
       "layers": "A+E",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – guest-web phiên khách (EP14/EP15)",
+      "waitingFor": "R3 – US-106 AC3 → US-141 (mức 2: OTP email / mã lễ tân) dời R3 theo R-C; ĐK-1: verifyGuestSession, sendGuestOtp, getGuestFolio không đăng ký ở R2 (runner RBAC S3 kiểm 404)",
       "title": "(1) hiện email che `T*@e*.test`, OTP 6 số, hiệu lực 10 phút, DB lưu băm; (2) lên mức 2; (3) mở được; (4) về mức 1, dữ li",
       "endpoints": "verifyGuestSession, getGuestFolio, getGuestStay, —"
     },
@@ -401,7 +433,7 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – guest-web phiên khách (EP14/EP15)",
+      "waitingFor": "R3 – US-106 AC3 → US-141 (mức 2: OTP email / mã lễ tân) dời R3 theo R-C; ĐK-1: verifyGuestSession, sendGuestOtp, getGuestFolio không đăng ký ở R2 (runner RBAC S3 kiểm 404)",
       "title": "Schema không còn `bookingCode`/`phoneLast4`; gửi các trường này → `422` (hoặc bị bỏ qua), phiên vẫn mức 1",
       "endpoints": "verifyGuestSession"
     },
@@ -411,7 +443,7 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – guest-web phiên khách (EP14/EP15)",
+      "waitingFor": "R3 – mã cửa US-128 + mức 2 US-141 dời R3 (R-C, SEC D2): getGuestStay mức 1 không có doorCode (kiểm ở api/guest-checkin-online.s3.api.spec.ts TC-L7-003)",
       "title": "Chỉ (c) có `doorCode`, header `Cache-Control: no-store`, ghi `c3_access_log` (`actor_type=guest`); (a), (b), (d): trường",
       "endpoints": "getGuestStay, listC3AccessLog"
     },
@@ -420,10 +452,12 @@
       "story": "US-048/–; US-142/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "status": "implemented",
       "title": "Máy chưa cấp: tất cả `403 DEVICE_NOT_TRUSTED` + `audit_event access.denied`, không trả nội dung; máy đã cấp: thành công,",
-      "endpoints": "addGuestDocument, updateGuestDocument, getGuestDocumentSensitive, getDocumentImage, getPortalData, getDoorCredential, setDoorCredential, purgeRegistrationImages"
+      "endpoints": "addGuestDocument, updateGuestDocument, getGuestDocumentSensitive, getDocumentImage, getPortalData, getDoorCredential, setDoorCredential, purgeRegistrationImages",
+      "spec": "api/c3-at-rest.s3.api.spec.ts",
+      "project": "api",
+      "note": "7 endpoint x-requires-trusted-device (giấy tờ thêm/sửa, sensitive, ảnh, portal-data, xóa ảnh, kiểm tay) không cookie thiết bị → 403 DEVICE_NOT_TRUSTED, không lộ số, không ghi; có thiết bị → qua cổng (step-up 401). Mã cửa GET/PUT dời R3 (404 ở runner RBAC S3)"
     },
     {
       "tc": "TC-SEC-022",
@@ -442,7 +476,7 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "waitingFor": "R3/Sprint 4 – renderDoorCodeMessage/renderMessage/listMessageTemplates (US-125 mẫu tin) chưa có trên build; mã cửa US-128 dời R3 (R-C)",
       "title": "(a) `403 FORBIDDEN_ACTION`; (b) `403 DEVICE_NOT_TRUSTED` + `audit_event access.denied`; (c) `401 REAUTH_REQUIRED`; (d) `",
       "endpoints": "renderDoorCodeMessage, stepUp, listC3AccessLog"
     },
@@ -452,7 +486,7 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 3 – giấy tờ C3, thiết bị được cấp, mã cửa (EP04/EP06)",
+      "waitingFor": "R3/Sprint 4 – renderDoorCodeMessage/renderMessage/listMessageTemplates (US-125 mẫu tin) chưa có trên build; mã cửa US-128 dời R3 (R-C)",
       "title": "(a) cả ba `422 VALIDATION_FAILED`, `errors[{field: templateCode, code: C3_TEMPLATE_USE_DEDICATED_ENDPOINT}]`, phản hồi k",
       "endpoints": "renderMessage, listMessageTemplates"
     },

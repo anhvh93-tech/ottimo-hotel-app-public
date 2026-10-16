@@ -21,6 +21,7 @@ import {
   date,
   foreignKey,
   index,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -143,6 +144,8 @@ export const folioLine = pgTable(
     note: text('note'),
     evidenceAttachmentIds: uuid('evidence_attachment_ids').array(),
     postCheckout: boolean('post_checkout').notNull().default(false),
+    // 0042 (review S3, DOM BE-21): params of the printable label `labelKey` (bill.line.*).
+    labelParams: jsonb('label_params').$type<Record<string, string | number>>(),
   },
   (t) => [
     unique('folio_line_property_id_key').on(t.propertyId, t.id),
@@ -195,6 +198,10 @@ export const folioLine = pgTable(
     check(
       'folio_line_reason_check',
       sql`${t.reason} IS NULL OR char_length(${t.reason}) BETWEEN 3 AND 500`,
+    ),
+    check(
+      'folio_line_label_params_check',
+      sql`${t.labelParams} IS NULL OR jsonb_typeof(${t.labelParams}) = 'object'`,
     ),
     uniqueIndex('folio_line_one_reversal_key')
       .on(t.reversalOfId)
@@ -253,6 +260,8 @@ export const payment = pgTable(
     receivedAmountVnd: bigint('received_amount_vnd', { mode: 'number' }),
     overBalanceReason: text('over_balance_reason'),
     bankReference: text('bank_reference'),
+    // 0042 (review S3, SEC F5 / ARC 12): role snapshot of the reconciler (self-reconcile = owner only).
+    reconciledByRole: text('reconciled_by_role'),
   },
   (t) => [
     unique('payment_property_id_key').on(t.propertyId, t.id),
@@ -325,16 +334,41 @@ export const payment = pgTable(
     ),
     check(
       'payment_refund_not_requester_check',
-      sql`${t.approvalRequestId} IS NULL OR (${t.approvalRequestedBy} IS NOT NULL AND ${t.recordedBy} IS NOT NULL AND ${t.recordedBy} <> ${t.approvalRequestedBy})`,
+      // 0042 (PO 17/10): an OWN may pay a transfer refund they requested; cash never (A47a).
+      sql`${t.approvalRequestId} IS NULL OR (${t.approvalRequestedBy} IS NOT NULL AND ${t.recordedBy} IS NOT NULL AND (${t.recordedBy} <> ${t.approvalRequestedBy} OR (${t.recordedByRole} = 'owner' AND ${t.method} <> 'cash')))`,
     ),
     check(
       'payment_reconcile_separation_check',
       sql`${t.reconciledBy} IS NULL OR ${t.selfReconciled} OR (${t.reconciledBy} IS DISTINCT FROM ${t.recordedBy} AND ${t.reconciledBy} IS DISTINCT FROM ${t.confirmedBy})`,
     ),
+    // 0042: COALESCE closes the NULL-role hole of 0040.
     check(
       'payment_cash_handover_not_self_check',
-      sql`NOT ${t.selfReconciled} OR NOT (${t.method} = 'cash' AND ${t.recordedByRole} IN ('sales_staff', 'collaborator'))`,
+      sql`NOT ${t.selfReconciled} OR NOT (${t.method} = 'cash' AND COALESCE(${t.recordedByRole}, '') IN ('sales_staff', 'collaborator'))`,
     ),
+    check(
+      'payment_reconciled_by_role_check',
+      sql`${t.reconciledByRole} IS NULL OR ${t.reconciledByRole} IN ('owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator', 'housekeeping', 'maintenance')`,
+    ),
+    check(
+      'payment_recorded_by_role_required_check',
+      sql`${t.recordedBy} IS NULL OR ${t.recordedByRole} IS NOT NULL`,
+    ),
+    check(
+      'payment_reconciled_by_check',
+      sql`(${t.reconciliation} NOT IN ('reconciled', 'disputed') OR ${t.reconciledBy} IS NOT NULL) AND (${t.reconciledBy} IS NULL OR ${t.reconciledByRole} IS NOT NULL)`,
+    ),
+    check(
+      'payment_self_reconciled_fact_check',
+      sql`${t.selfReconciled} = (COALESCE(${t.reconciledBy} = ${t.recordedBy}, false) OR COALESCE(${t.reconciledBy} = ${t.confirmedBy}, false))`,
+    ),
+    check(
+      'payment_self_reconcile_owner_check',
+      sql`NOT ${t.selfReconciled} OR ${t.reconciledByRole} = 'owner'`,
+    ),
+    uniqueIndex('payment_one_reversal_key')
+      .on(t.reversalOfId)
+      .where(sql`${t.reversalOfId} IS NOT NULL`),
     foreignKey({
       name: 'payment_approval_request_fk',
       columns: [t.propertyId, t.approvalRequestId, t.approvalRequestedBy],

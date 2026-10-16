@@ -5,12 +5,13 @@
  *
  * AAD of a blob = `<table>|blob|<record id>|<kek version>` – a blob copied onto another record does not open.
  * The blob is written before COMMIT: a rolled-back use case leaves an orphan CIPHERTEXT whose DEK row was
- * rolled back too (unreadable forever); purge deletes the file after destroying the DEK.
+ * rolled back too (unreadable forever). Purge destroys the DEK in the transaction and deletes the file only
+ * after COMMIT (queue `blob_pending_delete`, swept after commit and by J16).
  */
 import { createHash } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
-import type { Tx } from '../../../db/database';
+import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
 import type { DataKeyPurpose } from '../../../db/schema';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { BLOB_STORE, type BlobStore } from '../internal/blob-store';
@@ -45,6 +46,7 @@ export class EncryptedBlobService {
     @Inject(CryptoService) private readonly crypto: CryptoService,
     @Inject(BLOB_STORE) private readonly store: BlobStore,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Optional() @Inject(DATABASE) private readonly db?: Database,
   ) {}
 
   async put(
@@ -89,8 +91,11 @@ export class EncryptedBlobService {
   }
 
   /**
-   * Crypto-shredding of one file: destroy its DEK (+ purge_journal destroy_dek), delete the ciphertext
-   * (+ purge_journal delete_blob). Idempotent; returns false when the DEK was already destroyed.
+   * Crypto-shredding of one file, in the caller's transaction: destroy its DEK (+ purge_journal
+   * `destroy_dek`) – the data is unreadable from then on – and QUEUE the ciphertext file for deletion
+   * (`blob_pending_delete`). The file itself is deleted only after COMMIT (`sweepPending`): a transaction that
+   * rolls back keeps both its DEK and its file (ARC FB-R2-ARC-BE-S3-17, SEC FB-R2-SEC-BE-46).
+   * Idempotent; returns false when the DEK was already destroyed.
    */
   async purge(
     tx: Tx,
@@ -102,15 +107,15 @@ export class EncryptedBlobService {
       subjectId: ref.subjectId,
       policyKey,
     });
-    await this.store.delete(ref.blobKey);
     if (destroyed) {
       await tx.query(
-        `INSERT INTO purge_journal (organization_id, property_id, subject_type, subject_id, policy_key,
-           action, purged_at)
-         VALUES ($1, $2, $3, $4, $5, 'delete_blob', $6)`,
+        `INSERT INTO blob_pending_delete (organization_id, property_id, blob_key, subject_type, subject_id,
+           policy_key, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           tx.ctx.organizationId,
           tx.ctx.propertyId,
+          ref.blobKey,
           ref.subjectType,
           ref.subjectId,
           policyKey,
@@ -119,5 +124,66 @@ export class EncryptedBlobService {
       );
     }
     return destroyed;
+  }
+
+  /**
+   * Deletes queued files of the property of `tx` (committed purges only – the queue rows of a rolled-back
+   * transaction never existed) and journals `delete_blob`. Run by J16 and right after the commit of the
+   * request that purged (`sweepAfterCommit`). Returns the number of files handled.
+   */
+  async sweepPending(tx: Tx, limit = 200): Promise<number> {
+    // DELETE … RETURNING claims the rows (ottimo_app has no UPDATE on the queue, so no FOR UPDATE): a
+    // concurrent sweeper waits for this one and then finds them gone. A rollback after a file was removed
+    // puts the row back; the next sweep deletes an already missing file (idempotent).
+    const { rows } = await tx.query<{
+      blob_key: string;
+      subject_type: string;
+      subject_id: string;
+      policy_key: string;
+    }>(
+      `DELETE FROM blob_pending_delete
+        WHERE id IN (SELECT id FROM blob_pending_delete ORDER BY id LIMIT $1)
+        RETURNING blob_key, subject_type, subject_id, policy_key`,
+      [limit],
+    );
+    for (const r of rows) {
+      await this.store.delete(r.blob_key);
+      await tx.query(
+        `INSERT INTO purge_journal (organization_id, property_id, subject_type, subject_id, policy_key,
+           action, purged_at)
+         VALUES ($1, $2, $3, $4, $5, 'delete_blob', $6)`,
+        [
+          tx.ctx.organizationId,
+          tx.ctx.propertyId,
+          r.subject_type,
+          r.subject_id,
+          r.policy_key,
+          this.clock.now(),
+        ],
+      );
+    }
+    return rows.length;
+  }
+
+  /**
+   * After the request's transaction committed: sweep the queue of that property in a new transaction.
+   * Best effort – a failure leaves the rows for J16 (the data is already unreadable: DEK destroyed).
+   */
+  async sweepAfterCommit(ctx: TenantContext): Promise<void> {
+    if (!this.db || !ctx.propertyId) return;
+    try {
+      await this.db.withContext(ctx, (tx) => this.sweepPending(tx));
+    } catch (err) {
+      // Never fails the request that already committed; J16 retries within the hour.
+      // Error class and SQLSTATE only (no message: it could echo values).
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'blob sweep deferred to J16',
+          err: (err as Error).name,
+          code: (err as { code?: string }).code,
+        }),
+      );
+    }
   }
 }

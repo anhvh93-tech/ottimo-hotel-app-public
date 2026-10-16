@@ -3,6 +3,7 @@
  * The EMVCo builder and the transfer-content normalisation are INT's (`@ottimo/integrations/payment`,
  * decision-log 16/10 – built locally, no third-party QR service); this file only adapts them to the api:
  * the client draws the image from `qrPayload`, amount and content are server values (SEC F1).
+ * Account masks: `maskedAccountNo` of platform/public/receiving-account.ts is the only one (ARC-BE-S3-29).
  */
 import {
   buildVietQrPayload as buildEmvco,
@@ -24,9 +25,4 @@ export function buildVietQrPayload(input: {
   transferContent: string;
 }): string {
   return buildEmvco(input);
-}
-
-/** "9704••••1234" – the only form of an account number an API answer ever carries. */
-export function maskAccount(bankBinOrPrefix: string, accountNo: string): string {
-  return `${bankBinOrPrefix.slice(0, 4)}••••${accountNo.slice(-4)}`;
 }

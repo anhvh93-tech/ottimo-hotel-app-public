@@ -1,10 +1,10 @@
 /**
  * "Cần chú ý" list (S02, OpenAPI listAttentionItems; erd BE-ARC-06): open `attention_event` rows (source
- * `event`) + items computed at read time by the owning modules (EventsService.registerAttentionSource) + the
- * built-in `reconcile_overdue` (B-21). Items carry codes, counts and room numbers only (SEC J) – `params` go
+ * `event`) + items computed at read time by the owning modules (EventsService.registerAttentionSource –
+ * `reconcile_overdue` is the payments module's since FB-R2-ARC-BE-S3-15 b). Items carry codes, counts and room numbers only (SEC J) – `params` go
  * through the per-kind allowlist again before leaving the server.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
@@ -22,6 +22,8 @@ const MAX_EVENT_ROWS = 200;
 
 @Injectable()
 export class AttentionService {
+  private readonly logger = new Logger('AttentionService');
+
   constructor(
     @Inject(EventsService) private readonly events: EventsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
@@ -45,10 +47,20 @@ export class AttentionService {
       },
     };
     const items: AttentionItem[] = [];
-    items.push(...(await this.eventItems(tx, ctx)));
-    for (const source of this.events.attentionSources()) items.push(...(await source(tx, ctx)));
-    items.push(...(await this.reconcileOverdue(tx, ctx)));
-    for (const i of items) assertAttentionParams(i.kind, i.params);
+    // SEC-BE-52 (1): a stored row whose params no longer pass the allowlist is left out (logged), never a 500
+    // for the whole list; computed items are code – a bad one stays a programming error.
+    for (const i of await this.eventItems(tx, ctx)) {
+      try {
+        assertAttentionParams(i.kind, i.params);
+        items.push(i);
+      } catch {
+        this.logger.error(`attention event ${i.eventId ?? '?'} (${i.kind}) skipped: params`);
+      }
+    }
+    const computed: AttentionItem[] = [];
+    for (const source of this.events.attentionSources()) computed.push(...(await source(tx, ctx)));
+    for (const i of computed) assertAttentionParams(i.kind, i.params);
+    items.push(...computed);
     return items.sort(
       (a, b) =>
         SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.kind.localeCompare(b.kind),
@@ -84,33 +96,5 @@ export class AttentionService {
         ...(params ? { params } : {}),
       };
     });
-  }
-
-  /**
-   * B-21 `reconcile_overdue` (BR-527, `bank_reconcile_alert_days`): transfers/VietQR still `pending` after the
-   * alert window. Read-only aggregate over the payments table (count + age only – no payer, no amount).
-   */
-  private async reconcileOverdue(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
-    const days = await ctx.param<number>('bank_reconcile_alert_days');
-    if (days === undefined) return [];
-    const { rows } = await tx.query<{ n: number; oldest: Date | null }>(
-      `SELECT count(*)::int AS n, min(received_at) AS oldest FROM payment
-        WHERE reconciliation = 'pending' AND status = 'succeeded'
-          AND received_at < $1::timestamptz - make_interval(days => $2::int)`,
-      [ctx.now, days],
-    );
-    const r = rows[0];
-    if (!r || r.n === 0 || !r.oldest) return [];
-    const oldestDays = Math.floor((ctx.now.getTime() - r.oldest.getTime()) / 86_400_000);
-    return [
-      {
-        kind: 'reconcile_overdue',
-        source: 'computed',
-        severity: 'warning',
-        count: r.n,
-        link: '/payments?reconciliation=pending',
-        params: { count: r.n, oldestDays },
-      },
-    ];
   }
 }

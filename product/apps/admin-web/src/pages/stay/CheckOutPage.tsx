@@ -1,5 +1,5 @@
 import { isApiError, type Bill, type CheckOutBody, type FolioLine } from '@ottimo/api-client';
-import { isLocaleLoaded, loadLocale, translate, useI18n } from '@ottimo/i18n';
+import { isLocaleLoaded, loadLocale, translate, useI18n, type Args } from '@ottimo/i18n';
 import {
   Alert,
   Button,
@@ -8,13 +8,17 @@ import {
   ConfirmDialog,
   Field,
   Modal,
+  Seg,
   Stepper,
   Switch,
 } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { timeHHmm } from '../../app/dates';
+import { hasLineKey, lineLabel } from '../../app/folio';
+import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -22,7 +26,7 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
-import { useSubmit } from './common';
+import { MoneyField, amountOf, useSubmit } from './common';
 import { PaymentPanel } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 
@@ -44,9 +48,10 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
  * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
  */
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
+  const rules = useRules(propertyId, roles);
   const { online, since } = useOnline();
   const toast = useToast();
   const ids = useId();
@@ -72,6 +77,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   );
   const [left, setLeft] = useState<Record<string, number>>({});
   const [lateTold, setLateTold] = useState(false);
+  const [timeNote, setTimeNote] = useState('');
+  const [extraRate, setExtraRate] = useState('');
   const [extra, setExtra] = useState<string | null>(null);
   const [invoice, setInvoice] = useState(false);
   const [inv, setInv] = useState({ companyName: '', taxCode: '', email: '', address: '' });
@@ -100,7 +107,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
   }, [std.state.data]);
   useEffect(() => {
-    if (s && !time) setTime(s.checkoutTime);
+    // E03-07: never a future time – before the agreed/standard time the default is "now"; in the
+    // post-midnight window (0.3.6 add. 2) the guest leaves now, early in the departure day.
+    if (s && !time) {
+      const now = timeHHmm(new Date());
+      const std = s.checkoutTime.slice(0, 5);
+      setTime(s.postMidnightWindow || (now >= '06:00' && now < std) ? now : std);
+    }
     // first summary only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.checkoutTime]);
@@ -140,9 +153,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     0,
   );
   const lateAmount = s?.lateCheckoutSurcharge?.amountVnd ?? 0;
+  // `{max}` of MINIBAR_QTY_OVER_STANDARD = standard of the item the server flagged (lines[i]).
+  const badIdx = Object.keys(minibarAct.fields)
+    .map((k) => /^lines\[(\d+)\]/.exec(k)?.[1])
+    .find((x) => x !== undefined);
+  const minibarMax = badIdx !== undefined ? (items[Number(badIdx)]?.standardQty ?? '') : '';
   const lines: FolioLine[] = s?.lines ?? [];
-  const balance = s?.balanceDueVnd ?? 0;
-  const credit = s?.creditVnd ?? 0;
+  const extraNightNeeded = !!s?.extraNightRequired;
+  const extraUnavailable = extraNightNeeded && s?.extraNightAvailable === false;
+  // E05-11: the extra night is posted inside the check-out transaction, so the summary does not
+  // include it yet – balance/credit shown here are what B18 will see after that night.
+  const extraNightVnd =
+    extraNightNeeded && !extraUnavailable
+      ? amountOf(extraRate) || (s?.extraNightDefaultRateVnd ?? 0)
+      : 0;
+  // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
+  const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
+  const balance = Math.max(0, (s?.balanceDueVnd ?? 0) + extraNightVnd - credit0);
+  const credit = Math.max(0, credit0 - extraNightVnd - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
   const reload = () => {
     sum.reload();
@@ -193,9 +221,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   const complete = async () => {
     const body: CheckOutBody = {
-      checkoutTime: time || s?.checkoutTime || '12:00',
+      checkoutTime: time || s?.checkoutTime || rules.checkoutTime,
+      checkoutTimeNote: timeNote.trim() || undefined,
       applyLateSurcharge: lateAmount > 0 && lateTold,
       expectedSurchargeVnd: lateAmount > 0 && lateTold ? lateAmount : undefined,
+      // E05-11: after the last late tier the check-out itself adds one night at this rate.
+      extraNight: extraNightNeeded ? { rateVnd: extraNightVnd } : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
     };
     const out = await act.submit((idem) => api.checkOut(R, body, r.version, idem));
@@ -219,7 +250,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   };
 
   const steps = (
-    <ol className="progress-steps" aria-label={t('checkout.title', { room, guest })}>
+    <ol className="progress-steps" aria-label={t('checkout.steps_label')}>
       {STEPS.map((k, i) => (
         <li
           key={k}
@@ -245,25 +276,43 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             {lines.map((l) => (
               <tr key={l.id} className={l.lineState === 'pending_approval' ? 'sub' : undefined}>
                 <td>
-                  {l.description}
+                  {lineLabel(t, l)}
                   {l.lineState === 'pending_approval' ? (
                     <>
                       {' '}
-                      <Chip tone="warn">{t('approval.status.pending')}</Chip>
+                      <Chip tone="warn" icon="hourglass">
+                        {t('approval.status.pending')}
+                      </Chip>
                     </>
                   ) : null}
                 </td>
                 <td className="r num">{vnd(l.amountVnd)}</td>
               </tr>
             ))}
-            <tr className="sub">
-              <td>{t('drawer.folio.paid')}</td>
-              <td className="r num">−{vnd(s.paidVnd)}</td>
-            </tr>
+            {extraNightVnd > 0 ? (
+              <tr>
+                <td>
+                  {lineLabel(t, {
+                    category: 'room',
+                    serviceDate: r.departureDate,
+                    description: 'extra_night',
+                    labelKey: 'bill.line.extra_night',
+                    labelParams: { date: r.departureDate },
+                  } as unknown as FolioLine)}
+                </td>
+                <td className="r num">{vnd(extraNightVnd)}</td>
+              </tr>
+            ) : null}
+            {s.paidVnd > 0 ? (
+              <tr className="sub">
+                <td>{t('drawer.folio.paid')}</td>
+                <td className="r num">−{vnd(s.paidVnd)}</td>
+              </tr>
+            ) : null}
             <tr className="total">
               <td>{t('checkout.summary.balance')}</td>
               <td className="r num" aria-live="polite">
-                {vnd(balance)} {t('common.vnd_unit')}
+                {money(balance)}
               </td>
             </tr>
           </tbody>
@@ -301,12 +350,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <p>{t('checkout.minibar.empty')}</p>
         ) : (
           <>
+            {/* FE-S3-14: only with the name of who checked (MinibarCheck has no name yet – ARC). */}
             {std.state.data.latestCheck?.mode === 'checkout' &&
-            std.state.data.latestCheck.checkedAt ? (
+            std.state.data.latestCheck.checkedAt &&
+            (std.state.data.latestCheck as { checkedByName?: string }).checkedByName ? (
               <Alert tone="info">
                 {t('checkout.minibar.from_hk', {
                   time: timeHHmm(new Date(std.state.data.latestCheck.checkedAt)),
-                  who: '',
+                  who:
+                    (std.state.data.latestCheck as { checkedByName?: string }).checkedByName ?? '',
                 })}
               </Alert>
             ) : null}
@@ -371,7 +423,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {t('co.minibar_total')}: {vnd(minibarTotal)}
               </b>
             </p>
-            {minibarAct.view({ max: '' })}
+            {minibarAct.view({ max: minibarMax })}
           </>
         )}
       </section>
@@ -401,12 +453,54 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             />
           )}
         </Field>
+        {s?.postMidnightWindow ? <Alert tone="info">{t('checkout.post_midnight')}</Alert> : null}
+        {act.fields.checkoutTimeNote || timeNote ? (
+          <Field
+            label={t('checkout.time_note')}
+            help={t('stay.time_note_help')}
+            required
+            error={act.fields.checkoutTimeNote}
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                maxLength={300}
+                value={timeNote}
+                onChange={(e) => setTimeNote(e.target.value)}
+              />
+            )}
+          </Field>
+        ) : null}
+        {extraNightNeeded ? (
+          // E05-11: one more night instead of a late surcharge; the rate defaults to the direct
+          // calendar price of that night. The room taken tonight → no extra night possible.
+          extraUnavailable ? (
+            <Alert tone="bad" title={t('checkout.extra_night_title')}>
+              {t('checkout.extra_night_unavailable')}
+            </Alert>
+          ) : (
+            <div className="stack">
+              <Alert tone="warn" title={t('checkout.extra_night_title')}>
+                {t('checkout.extra_night_body', { amount: money(extraNightVnd) })}
+              </Alert>
+              <MoneyField
+                label={t('checkout.extra_night_rate_label')}
+                help={t('checkout.extra_night_rate_help')}
+                required
+                value={extraRate || vnd(s?.extraNightDefaultRateVnd ?? 0)}
+                onChange={setExtraRate}
+                error={act.fields['extraNight.rateVnd'] ?? act.fields.extraNight}
+              />
+            </div>
+          )
+        ) : null}
         <div aria-live="polite">
-          {lateAmount > 0 ? (
+          {extraNightNeeded ? null : lateAmount > 0 ? (
             <p>
               <b>
                 {t('checkout.late_fee', {
-                  amount: vnd(lateAmount),
+                  amount: money(lateAmount),
                   pct: s?.lateCheckoutSurcharge?.tierPct ?? 0,
                 })}
               </b>
@@ -417,15 +511,16 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           {s?.lateSurchargeRecalc ? (
             <Alert tone="info">
               {t('checkout.late_recalc', {
-                old: vnd(s.lateSurchargeRecalc.oldVnd ?? 0),
-                new: vnd(s.lateSurchargeRecalc.newVnd ?? 0),
+                old: money(s.lateSurchargeRecalc.oldVnd ?? 0),
+                new: money(s.lateSurchargeRecalc.newVnd ?? 0),
               })}
             </Alert>
           ) : null}
         </div>
         {lateAmount > 0 ? (
+          // SURCHARGE_DECISION_REQUIRED (0.3.6): a surcharge > 0 needs the desk's decision – required.
           <Checkbox checked={lateTold} onChange={setLateTold}>
-            {t('ci.told_guest')}
+            {t('ci.told_guest')} *
           </Checkbox>
         ) : null}
         {!r.agreedCheckoutTime ? <p className="li-s">{t('co.late_switch_hint')}</p> : null}
@@ -439,7 +534,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         </div>
         {pendingFoc.map((l) => (
           <Alert key={l.id} tone="warn">
-            {t('co.foc_pending', { amount: vnd(Math.abs(l.amountVnd)) })}{' '}
+            {t('co.foc_pending', { amount: money(Math.abs(l.amountVnd)) })}{' '}
             <Link to="/approvals">{t('co.see_approval')}</Link>
           </Alert>
         ))}
@@ -450,22 +545,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       <div className="stack">
         <section className="card stack">
           <p className="kv-big num">
-            {t('bill.total')}: {vnd(s?.totalVnd ?? 0)} {t('common.vnd_unit')}
+            {t('bill.total')}: {money(s?.totalVnd ?? 0)}
           </p>
-          {balance > 0 && online ? (
-            <PaymentPanel reservation={r} balanceVnd={balance} onPaid={reload} />
-          ) : balance === 0 ? (
-            <Chip tone="ok" icon="check">
-              {t('drawer.folio.settled')}
-            </Chip>
-          ) : null}
+          {balance > 0 ? (
+            online ? (
+              <PaymentPanel reservation={r} balanceVnd={balance} onPaid={reload} />
+            ) : (
+              <p className="li-s">{t('rsv.need_online')}</p>
+            )
+          ) : (
+            <Chip tone="ok">{t('drawer.folio.settled')}</Chip>
+          )}
           <p className="li-s">{t('co.recon_explain')}</p>
           {balance > 0 ? <p className="li-s">{t('co.partial_hint')}</p> : null}
         </section>
         {credit > 0 ? (
           <section className="card stack" aria-labelledby={`${ids}-over`}>
             <h3 className="label-h" id={`${ids}-over`}>
-              {t('checkout.blocked_credit', { amount: vnd(credit) })}
+              {t('checkout.blocked_credit', { amount: money(credit) })}
             </h3>
             <label className="check">
               <input
@@ -474,7 +571,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 checked={overMode === 'refund_request'}
                 onChange={() => setOverMode('refund_request')}
               />
-              {t('checkout.overpay.refund_request', { amount: vnd(credit) })}
+              {t('checkout.overpay.refund_request', { amount: money(credit) })}
             </label>
             {mgr ? (
               <label className="check">
@@ -568,7 +665,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
   }
 
-  const blocked = credit > 0 && overReason.trim().length < 3;
+  // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
+  const whyLocked = extraUnavailable
+    ? t('checkout.extra_night_unavailable')
+    : lateAmount > 0 && !lateTold
+      ? t('ci.told_guest')
+      : credit > 0 && overReason.trim().length < 3
+        ? t('checkout.overpay.needs_reason')
+        : null;
+  const blocked = whyLocked !== null;
   return (
     <>
       <Topbar title={t('checkout.title', { room, guest })} sub={r.code} />
@@ -626,19 +731,27 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {t('co.go_bill')}
               </Button>
             ) : (
-              <Button
-                variant="pri"
-                aria-disabled={blocked || undefined}
-                busy={act.busy}
-                busyLabel={act.busyLabel}
-                onClick={() => !blocked && setConfirm(true)}
-              >
-                {act.label(
-                  balance === 0 && (s?.paidVnd ?? 0) > 0
-                    ? t('co.complete_paid', { amount: vnd(s?.paidVnd ?? 0) })
-                    : t('checkout.complete'),
-                )}
-              </Button>
+              <>
+                {whyLocked ? (
+                  <span className="li-s" id={`${ids}-why`}>
+                    {whyLocked}
+                  </span>
+                ) : null}
+                <Button
+                  variant="pri"
+                  aria-disabled={blocked || undefined}
+                  aria-describedby={whyLocked ? `${ids}-why` : undefined}
+                  busy={act.busy}
+                  busyLabel={act.busyLabel}
+                  onClick={() => !blocked && setConfirm(true)}
+                >
+                  {act.label(
+                    balance === 0 && (s?.paidVnd ?? 0) > 0
+                      ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+                      : t('checkout.complete'),
+                  )}
+                </Button>
+              </>
             )}
           </div>
         )}
@@ -651,7 +764,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           keepLabel={t('confirm.keep')}
           confirmLabel={
             balance === 0
-              ? t('co.complete_paid', { amount: vnd(s?.paidVnd ?? 0) })
+              ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
               : t('checkout.complete')
           }
           busy={act.busy}
@@ -685,7 +798,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   );
 }
 
-/** H16 16.5 Phiếu thanh toán – VI or VI–EN with USD reference; printed from the browser (no download). */
+/**
+ * H16 16.5 Phiếu thanh toán (FE-S3-06, DOM FE-03): the slip has its own title, tax code, number or
+ * preview note, column headers, and every fixed label in VI with the EN line under it (`.en`,
+ * `lang="en"`) when bilingual. Printing renders a copy into `<div class="print-root">` directly under
+ * `<body>` (hifi.css §16 prints only that, A5, white paper even in dark mode). Line texts come from
+ * `labelKey`/`labelParams` (fallback: server description).
+ */
 export function BillDialog({
   bill,
   channel,
@@ -696,7 +815,8 @@ export function BillDialog({
   channel?: string;
   onClose: () => void;
 }) {
-  const { t, vnd, date } = useI18n();
+  const { t, vnd, money, date, dateTime } = useI18n();
+  const ids = useId();
   const [bilingual, setBilingual] = useState(bill.locale === 'vi_en');
   // EN strings are a lazy chunk – load them for the bilingual bill even when the UI is Vietnamese.
   const [enReady, setEnReady] = useState(() => isLocaleLoaded('en'));
@@ -711,8 +831,141 @@ export function BillDialog({
       stale = true;
     };
   }, [bilingual, enReady]);
-  const en = (key: string, args?: Record<string, string | number>) =>
-    bilingual && enReady ? ` / ${translateEn(key, args)}` : '';
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    window.print();
+    setPrinting(false);
+  }, [printing]);
+
+  const both = bilingual && enReady;
+  const L = (key: string, args?: Args) => (
+    <>
+      {t(key, args)}
+      {both ? (
+        <span className="en" lang="en">
+          {translate('en', key, args)}
+        </span>
+      ) : null}
+    </>
+  );
+  const credit = (bill as Bill & { creditVnd?: number }).creditVnd ?? 0;
+  const roomLines = bill.lines.filter((l) => l.category === 'room');
+  const shown = bill.lines.filter(
+    (l) => !(bill.paymentModel === 'ota_prepaid' && l.category === 'room'),
+  );
+
+  const paper = (
+    <div className="bill-paper">
+      <div className="hdr">
+        <div>
+          <b>{bill.property?.name}</b>
+          <div className="li-s">{bill.property?.address}</div>
+          {bill.property?.taxCode ? (
+            <div className="li-s">{t('bill.tax_code', { code: bill.property.taxCode })}</div>
+          ) : null}
+        </div>
+        <div className="r">
+          {bill.billNo ? (
+            <>
+              <div>
+                {L('bill.no')} <span className="mono">{bill.billNo}</span>
+              </div>
+              <div className="li-s">
+                {t('bill.issued_at', { time: dateTime(new Date().toISOString()) })}
+              </div>
+            </>
+          ) : (
+            <div className="li-s">{L('bill.preview_note')}</div>
+          )}
+        </div>
+      </div>
+      <h2>{L('bill.title')}</h2>
+      <p>
+        {bill.guestDisplayName} · {bill.roomNo} · {date(bill.arrivalDate)} →{' '}
+        {date(bill.departureDate)}
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{L('bill.col_desc')}</th>
+            <th scope="col" className="r">
+              {L('bill.col_amount')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {bill.paymentModel === 'ota_prepaid' && bill.otaPrepaidVnd ? (
+            <tr>
+              <td>{L('bill.ota_prepaid', { n: roomLines.length, channel: channel ?? '' })}</td>
+              <td className="r">{vnd(bill.otaPrepaidVnd)}</td>
+            </tr>
+          ) : null}
+          {shown.map((l) => (
+            <tr key={l.id}>
+              <td>
+                {lineLabel(t, l)}
+                {/* labelKey is translatable here – free text params (item names) stay as given. */}
+                {both && hasLineKey(l) ? (
+                  <span className="en" lang="en">
+                    {lineLabel((k, a) => translate('en', k, a), l)}
+                  </span>
+                ) : null}
+              </td>
+              <td className="r">{vnd(l.amountVnd)}</td>
+            </tr>
+          ))}
+          <tr className="total">
+            <td>{L('bill.total')}</td>
+            <td className="r">{vnd(bill.totalVnd)}</td>
+          </tr>
+          {bill.paidVnd > 0 ? (
+            <tr>
+              <td>{L('bill.paid')}</td>
+              <td className="r">−{vnd(bill.paidVnd)}</td>
+            </tr>
+          ) : null}
+          {(bill.refunds ?? []).map((x, i) => (
+            <tr key={i}>
+              <td>
+                {L('bill.refund', {
+                  amount: money(x.amountVnd),
+                  method: t(x.method === 'cash' ? 'pay.cash' : 'pay.bank_transfer'),
+                })}
+              </td>
+              <td className="r">{vnd(x.amountVnd)}</td>
+            </tr>
+          ))}
+          <tr className="total">
+            <td>{L('bill.balance')}</td>
+            <td className="r">{vnd(bill.balanceDueVnd)}</td>
+          </tr>
+          {credit > 0 ? (
+            <tr>
+              <td>{L('bill.refund_due', { amount: money(credit) })}</td>
+              <td className="r">{vnd(credit)}</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+      <div className="foot">
+        {both && bill.usdReference?.totalUsd !== undefined ? (
+          <p>
+            {t('common.approx_usd', {
+              usd: bill.usdReference.totalUsd,
+              rate: vnd(bill.usdReference.rate ?? 0),
+              date: date(bill.usdReference.rateUpdatedOn),
+            })}
+          </p>
+        ) : null}
+        <p>{L('bill.vat_note')}</p>
+        {bill.balanceDueVnd === 0 && bill.billNo ? (
+          <Chip tone="ok">{L('bill.paid_stamp')}</Chip>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     <Modal
       open
@@ -722,106 +975,34 @@ export function BillDialog({
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button onClick={() => setBilingual((x) => !x)}>
-            {bilingual ? t('co.bill_vi') : t('co.bill_vien')}
-          </Button>
-          <Button variant="pri" icon="printer" onClick={() => window.print()}>
+          <span className="label-h" id={`${ids}-lang`}>
+            {t('bill.lang_label')}
+          </span>
+          <Seg
+            labelledBy={`${ids}-lang`}
+            value={bilingual ? 'vi_en' : 'vi'}
+            onChange={(v) => setBilingual(v === 'vi_en')}
+            options={[
+              { value: 'vi', label: t('co.bill_vi') },
+              { value: 'vi_en', label: t('co.bill_vien') },
+            ]}
+          />
+          <Button variant="pri" icon="printer" onClick={() => setPrinting(true)}>
             {t('co.print')}
           </Button>
         </>
       }
     >
-      <div className="bill-paper">
-        <b>{bill.property?.name}</b>
-        <div className="li-s">
-          {bill.property?.address}
-          {bill.property?.taxCode ? ` · ${bill.property.taxCode}` : ''}
-        </div>
-        <p>
-          {t('bill.no')}
-          {en('bill.no')}: <span className="mono">{bill.billNo ?? '—'}</span>
-        </p>
-        <p>
-          {bill.guestDisplayName} · {bill.roomNo} · {date(bill.arrivalDate)} →{' '}
-          {date(bill.departureDate)}
-        </p>
-        <table className="sum">
-          <tbody>
-            {bill.otaPrepaidVnd ? (
-              <tr>
-                <td>
-                  {bill.otaPrepaidNote ??
-                    t('bill.ota_prepaid', {
-                      n: bill.lines.filter((l) => l.category === 'room').length,
-                      channel: channel ?? '',
-                    })}
-                </td>
-                <td className="r num">{vnd(bill.otaPrepaidVnd)}</td>
-              </tr>
-            ) : null}
-            {bill.lines
-              .filter((l) => !(bill.paymentModel === 'ota_prepaid' && l.category === 'room'))
-              .map((l) => (
-                <tr key={l.id}>
-                  <td>{l.description}</td>
-                  <td className="r num">{vnd(l.amountVnd)}</td>
-                </tr>
-              ))}
-            <tr className="total">
-              <td>
-                {t('bill.total')}
-                {en('bill.total')}
-              </td>
-              <td className="r num">{vnd(bill.totalVnd)}</td>
-            </tr>
-            <tr className="sub">
-              <td>
-                {t('bill.deposit')}
-                {en('bill.deposit')}
-              </td>
-              <td className="r num">−{vnd(bill.paidVnd)}</td>
-            </tr>
-            {(bill.refunds ?? []).map((x, i) => (
-              <tr key={i} className="sub">
-                <td>
-                  {t('bill.refund', {
-                    amount: vnd(x.amountVnd),
-                    method: t(x.method === 'cash' ? 'pay.cash' : 'pay.bank_transfer'),
-                  })}
-                </td>
-                <td className="r num">{vnd(x.amountVnd)}</td>
-              </tr>
-            ))}
-            <tr className="total">
-              <td>
-                {t('bill.balance')}
-                {en('bill.balance')}
-              </td>
-              <td className="r num">{vnd(bill.balanceDueVnd)}</td>
-            </tr>
-          </tbody>
-        </table>
-        {bilingual && bill.usdReference?.totalUsd !== undefined ? (
-          <p className="li-s">
-            {t('common.approx_usd', {
-              usd: bill.usdReference.totalUsd,
-              rate: vnd(bill.usdReference.rate ?? 0),
-              date: date(bill.usdReference.rateUpdatedOn),
-            })}
-          </p>
-        ) : null}
-        <p className="li-s">
-          {t('bill.vat_note')}
-          {en('bill.vat_note')}
-        </p>
-        {bill.balanceDueVnd === 0 && bill.billNo ? (
-          <Chip tone="ok">{t('bill.paid_stamp')}</Chip>
-        ) : null}
-      </div>
+      {paper}
+      {/* Only while printing: the copy the print stylesheet keeps (body > .print-root). */}
+      {printing
+        ? createPortal(
+            <div className="print-root" aria-hidden="true">
+              {paper}
+            </div>,
+            document.body,
+          )
+        : null}
     </Modal>
   );
 }
-
-// The bilingual bill prints the EN label next to the VI one (US-037 AC2) regardless of the UI language.
-const translateEn = (key: string, args?: Record<string, string | number>) =>
-  translate('en', key, args);

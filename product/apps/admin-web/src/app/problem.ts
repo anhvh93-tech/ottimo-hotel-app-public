@@ -1,5 +1,5 @@
 import { isApiError, type ApiError, type FieldError } from '@ottimo/api-client';
-import { formatNumber, hasKey, type Args } from '@ottimo/i18n';
+import { formatNumber, hasKey, translate, type Args } from '@ottimo/i18n';
 
 type T = (key: string, args?: Args) => string;
 
@@ -26,9 +26,11 @@ function argsFor(error: ApiError, locale: 'vi' | 'en' = 'vi'): Args {
   }
   // DS 6.21 (ĐK-S2-3): `{seconds}` for CONCURRENT_UPDATE / SERVICE_UNAVAILABLE countdowns.
   args.seconds = retryDelaySeconds(error);
-  // Money placeholders: SURCHARGE_CHANGED {amount} ← surchargeVnd; BALANCE_DUE {amount} ← balanceDueVnd.
-  const money = p.surchargeVnd ?? p.balanceDueVnd ?? p.amountVnd;
-  if (typeof money === 'number') args.amount = formatNumber(locale, money);
+  // Money placeholders (number WITH unit – FE-S3-16): SURCHARGE_CHANGED ← surchargeVnd; BALANCE_DUE ←
+  // balanceDueVnd; REFUND_SOURCE_NOT_RECONCILED ← unreconciledVnd (0.3.6 add. 2).
+  const money = p.surchargeVnd ?? p.balanceDueVnd ?? p.unreconciledVnd ?? p.amountVnd;
+  if (typeof money === 'number')
+    args.amount = translate(locale, 'common.currency_vnd', { amount: formatNumber(locale, money) });
   if (typeof p.pendingApprovals === 'number') args.n = p.pendingApprovals;
   if (p.min !== undefined) args.min = String(p.min);
   if (p.max !== undefined) args.max = String(p.max);
@@ -96,7 +98,12 @@ export function fieldErrorText(t: T, fe: FieldError, args: Args = {}): string {
 }
 
 /** Map `errors[]` of a 422 to { field: message } (first error per field wins). */
-export function fieldErrors(t: T, error: unknown, args: Args = {}): Record<string, string> {
+export function fieldErrors(
+  t: T,
+  error: unknown,
+  args: Args = {},
+  locale: 'vi' | 'en' = 'vi',
+): Record<string, string> {
   if (!isApiError(error)) return {};
   const out: Record<string, string> = {};
   const extra = argsFor(error);
@@ -107,7 +114,7 @@ export function fieldErrors(t: T, error: unknown, args: Args = {}): Record<strin
       // Money maxima (REFUND_EXCEEDS_APPROVED {max}) are shown as VND, not a raw integer.
       const money: Args =
         fe.code === 'REFUND_EXCEEDS_APPROVED' && typeof error.problem.max === 'number'
-          ? { max: formatNumber('vi', error.problem.max) }
+          ? { max: t('common.currency_vnd', { amount: formatNumber(locale, error.problem.max) }) }
           : {};
       out[field] =
         fe.code === 'PARAM_OUT_OF_RANGE'

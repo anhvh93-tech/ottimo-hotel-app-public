@@ -6,7 +6,16 @@
  * the blob is encrypted with its own DEK (data_key purpose 'attachment'); deleting = destroying that DEK.
  */
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  check,
+  foreignKey,
+  index,
+  integer,
+  pgTable,
+  text,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { dataKey } from './crypto';
 import { instant } from './common';
 import { property } from './platform';
@@ -60,8 +69,8 @@ export const attachment = pgTable(
     }),
     foreignKey({
       name: 'attachment_data_key_fk',
-      columns: [t.dataKeyId],
-      foreignColumns: [dataKey.id],
+      columns: [t.propertyId, t.dataKeyId],
+      foreignColumns: [dataKey.propertyId, dataKey.id],
     }),
     check(
       'attachment_purpose_check',
@@ -74,12 +83,43 @@ export const attachment = pgTable(
     check('attachment_mime_check', sql`${t.mime} IN ('image/jpeg', 'image/webp')`),
     check(
       'attachment_purge_reason_check',
-      sql`${t.purgeReason} IS NULL OR ${t.purgeReason} IN ('retention', 'manual')`,
+      sql`${t.purgeReason} IS NULL OR ${t.purgeReason} IN ('retention', 'manual', 'unbound')`,
     ),
     index('attachment_uploader_idx').on(t.propertyId, t.uploadedBy, t.uploadedAt),
     index('attachment_reservation_idx').on(t.propertyId, t.reservationId),
-    index('attachment_purge_idx')
-      .on(t.propertyId, t.purgeAfter)
+    // 0053 (ARC FB-S3-27): J16 reads retention_anchor_at (SEC I5) and unbound uploads (SEC BE-38).
+    index('attachment_retention_idx')
+      .on(t.propertyId, t.retentionAnchorAt)
       .where(sql`${t.purgedAt} IS NULL`),
+    index('attachment_unbound_idx')
+      .on(t.propertyId, t.uploadedAt)
+      .where(sql`${t.purgedAt} IS NULL AND ${t.boundRefId} IS NULL`),
+  ],
+);
+
+/**
+ * 0053 (ARC FB-S3-17, SEC BE-46): ciphertext files to delete AFTER the transaction that destroyed their DEK
+ * has committed (a rollback must never lose a file whose key is still alive). Swept after commit and by
+ * J16. IDs + opaque blob key only.
+ */
+export const blobPendingDelete = pgTable(
+  'blob_pending_delete',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    blobKey: text('blob_key').notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: uuid('subject_id').notNull(),
+    policyKey: text('policy_key').notNull(),
+    createdAt: instant('created_at').notNull(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'blob_pending_delete_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    index('blob_pending_delete_property_idx').on(t.propertyId, t.id),
   ],
 );

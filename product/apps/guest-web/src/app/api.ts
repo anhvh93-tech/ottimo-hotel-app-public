@@ -48,7 +48,7 @@ export function pickStayLevel1(raw: GuestStayRaw): GuestStay {
   };
 }
 
-/** Keys of OnlineCheckin allowed at level 1 (s3-checklist G2) – anything else is dropped. */
+/** Keys of OnlineCheckin allowed at level 1 (s3-checklist G2; 9 → 11 with the 0.3.6 addendum, SEC ĐK-2 17/10). */
 const CHECKIN_KEYS = [
   'currentStep',
   'requiredPeople',
@@ -59,6 +59,8 @@ const CHECKIN_KEYS = [
   'noticeAccepted',
   'lateArrival',
   'deferredPeople',
+  'currentNoticeVersion',
+  'imageRetentionDays',
 ] as const;
 
 export function pickCheckin(raw: OnlineCheckin): OnlineCheckin {

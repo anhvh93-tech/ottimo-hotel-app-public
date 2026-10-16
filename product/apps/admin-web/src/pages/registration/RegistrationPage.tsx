@@ -4,13 +4,13 @@ import {
   type Registration,
   type RegistrationSummary,
 } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Seg, StateView } from '@ottimo/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useLiveReload } from '../../app/live';
-import { remaining } from '../../app/reservations';
+import { C3_TTL_MS, useC3Clipboard, useC3Reveal } from '../../app/c3';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -23,8 +23,9 @@ import { DocsList, VerifyList, resultOf } from './DocsPanel';
 
 type View = 'action_needed' | 'needs_update' | 'all';
 const OWN_MGR = ['owner', 'manager'];
-const PORTAL_HIDE_MS = 120_000;
 const NOTICE_VERSION = 'privacy-2026-10-v1';
+/** Days said in `reg2.consent_q` (BR-610 default) – ARC to expose the parameter to the desk. */
+const RETENTION_DAYS = 30;
 
 /** H14 Giấy tờ & khai báo (S09, C3 – the route itself is only reachable on a granted device). */
 export function RegistrationPage() {
@@ -51,21 +52,19 @@ function RegistrationList() {
     if (r.deadlineLabel === 'at_checkin') return <span>{t('reg2.at_checkin')}</span>;
     if (r.deadlineLabel === 'done') return <span>{t(`status.reg.${r.status}`)}</span>;
     if (r.deadlineLabel === 'needs_update') return <span>{t('status.reg.needs_update')}</span>;
-    const left = remaining(r.deadlineAt, now);
-    const duration = left ? `${left.h}:${left.m}` : '';
-    const over = r.deadlineAt ? Math.max(0, now - Date.parse(r.deadlineAt)) : 0;
-    const overMin = Math.floor(over / 60_000);
+    // FE-S3-12: no deadline computed yet → say so instead of "Hạn khai báo: · còn".
+    if (!r.deadlineAt) return <span>{t('reg2.deadline_pending')}</span>;
+    const left = Math.max(0, Date.parse(r.deadlineAt) - now);
+    const over = Math.max(0, now - Date.parse(r.deadlineAt));
     return r.deadlineLabel === 'overdue' ? (
       // US-042 AC1: overdue in colour AND words.
       <Chip tone="bad" icon="alert">
-        {t('reg.deadline_overdue', {
-          duration: `${Math.floor(overMin / 60)}:${String(overMin % 60).padStart(2, '0')}`,
-        })}
+        {t('reg.deadline_overdue', { duration: durationText(t, over) })}
       </Chip>
     ) : (
       <span>
         {t('reg.deadline', { time: dateTime(r.deadlineAt) })} ·{' '}
-        {t('reg.deadline_left', { duration })}
+        {t('reg.deadline_left', { duration: durationText(t, left) })}
       </span>
     );
   };
@@ -187,23 +186,16 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
   const portalAct = useSubmit();
   const flow = useSubmit();
   const purge = useSubmit();
-  const [portal, setPortal] = useState<PortalData | null>(null);
+  // FB-R2-SEC-FE-06: portal data hidden after 60 s / tab hidden / leaving; clipboard wiped too.
+  const portalReveal = useC3Reveal<PortalData>();
+  const portal = portalReveal.value;
+  const clip = useC3Clipboard();
   const [copied, setCopied] = useState<string | null>(null);
   const [stepUp, setStepUp] = useState(false);
   const [code, setCode] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [purging, setPurging] = useState(false);
-  const hide = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => {
-    const onHide = () => document.visibilityState === 'hidden' && setPortal(null);
-    document.addEventListener('visibilitychange', onHide);
-    return () => {
-      document.removeEventListener('visibilitychange', onHide);
-      clearTimeout(hide.current);
-    };
-  }, []);
 
   if (!reg)
     return (
@@ -236,6 +228,8 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
           purpose: 'P02B_ID_IMAGE_RETENTION',
           decision,
           noticeVersion: NOTICE_VERSION,
+          // 0.3.6 add. 2: the days the guest heard in the consent question (`reg2.consent_q`).
+          retentionDays: RETENTION_DAYS,
           locale,
           channel: 'desk',
         },
@@ -269,20 +263,19 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
     portalAct.setError(null);
     try {
       const res = await api.getPortalData(G);
-      setPortal(res.data);
-      clearTimeout(hide.current);
-      hide.current = setTimeout(() => setPortal(null), PORTAL_HIDE_MS);
+      portalReveal.show(res.data);
     } catch (e) {
       if (isApiError(e) && e.code === 'REAUTH_REQUIRED') setStepUp(true);
       else portalAct.setError(e);
     }
   };
+  // Copy the server value (Vietnamese, as the portal expects) – never the translated text shown.
   const copy = async (key: string, value: string) => {
-    await navigator.clipboard?.writeText(value).catch(() => undefined);
+    await clip.copy(value);
     setCopied(key);
   };
-  const clearClipboard = async () => {
-    await navigator.clipboard?.writeText('').catch(() => undefined);
+  const clearClipboard = () => {
+    clip.clear();
     setCopied(null);
   };
 
@@ -297,7 +290,10 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
       set(out.data);
       setRejecting(false);
       toast(t(`status.reg.${out.data.status}`));
-      if (tr === 'mark-sent') setPortal(null);
+      if (tr === 'mark-sent') {
+        portalReveal.hide();
+        clearClipboard();
+      }
     }
   };
 
@@ -422,15 +418,30 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                   <tbody>
                     {p.fields.map((f, fi) => {
                       const key = `${pi}-${fi}`;
+                      // FE-S3-01: label = i18n key from the server; enum/empty values have `valueKey`.
+                      const empty = f.valueKey === 'reg.value.empty' || !f.value;
+                      const label = hasKey(f.label) ? t(f.label) : f.label;
                       return (
                         <tr key={key}>
                           <td className="num">{fi + 1}</td>
-                          <td>{f.label}</td>
-                          <td className="mono">{f.value}</td>
+                          <td>{label}</td>
+                          <td className={empty ? 'muted' : 'mono'}>
+                            {empty
+                              ? t('reg.value.empty')
+                              : f.valueKey && hasKey(f.valueKey)
+                                ? t(f.valueKey)
+                                : f.value}
+                          </td>
                           <td>
-                            <Button size="sm" onClick={() => void copy(key, f.value)}>
-                              {copied === key ? t('reg.copied') : t('reg.copy_field')}
-                            </Button>
+                            {empty ? null : (
+                              <Button
+                                size="sm"
+                                aria-label={`${t('reg.copy_field')} ${label}`}
+                                onClick={() => void copy(key, f.value)}
+                              >
+                                {copied === key ? t('reg.copied') : t('reg.copy_field')}
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -447,8 +458,9 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                 >
                   {t('reg.step.open')}
                 </a>
-                <Button onClick={() => void clearClipboard()}>{t('reg2.clear_clipboard')}</Button>
+                <Button onClick={() => clearClipboard()}>{t('reg2.clear_clipboard')}</Button>
               </div>
+              <p className="li-s">{t('reg2.portal_autohide', { minutes: C3_TTL_MS / 60_000 })}</p>
             </>
           )}
           {portalAct.view()}
@@ -548,7 +560,9 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                     time: dateTime(reg.imagesPurgedAt),
                     reason: reg.imagesPurgeReason ?? '',
                   })
-                : t('reg2.retention_value', { date: dateTime(reg.imageRetentionUntil) })}
+                : reg.imageRetentionUntil
+                  ? t('reg2.retention_value', { date: dateTime(reg.imageRetentionUntil) })
+                  : t('reg2.retention_pending')}
             </dd>
             <dt>{t('reg2.retention_refused')}</dt>
             <dd>{t('reg2.retention_refused_value')}</dd>
@@ -583,4 +597,12 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
       ) : null}
     </>
   );
+}
+
+/** content-guide 4: durations as "{h} giờ {m} phút" / "{m} phút" (FE-S3-14). */
+function durationText(t: (k: string, a?: Record<string, string | number>) => string, ms: number) {
+  const total = Math.floor(ms / 60_000);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? t('common.duration_hm', { h, m }) : t('common.duration_m', { m });
 }

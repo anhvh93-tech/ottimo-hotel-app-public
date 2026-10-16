@@ -41,6 +41,7 @@ export const guestAccessToken = pgTable(
   },
   (t) => [
     unique('guest_access_token_hash_key').on(t.tokenHash),
+    unique('guest_access_token_property_id_key').on(t.propertyId, t.id),
     foreignKey({
       name: 'guest_access_token_reservation_fk',
       columns: [t.propertyId, t.reservationId],
@@ -76,8 +77,13 @@ export const guestSession = pgTable(
     unique('guest_session_sid_key').on(t.sidHash),
     foreignKey({
       name: 'guest_session_token_fk',
-      columns: [t.tokenId],
-      foreignColumns: [guestAccessToken.id],
+      columns: [t.propertyId, t.tokenId],
+      foreignColumns: [guestAccessToken.propertyId, guestAccessToken.id],
+    }),
+    foreignKey({
+      name: 'guest_session_reservation_fk',
+      columns: [t.propertyId, t.reservationId],
+      foreignColumns: [reservation.propertyId, reservation.id],
     }),
     check('guest_session_level_check', sql`${t.level} IN (1, 2)`),
     check('guest_session_locale_check', sql`${t.locale} IN ('vi', 'en', 'ru')`),

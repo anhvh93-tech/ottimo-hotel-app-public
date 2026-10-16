@@ -1,13 +1,17 @@
-# OTTIMO Desk – local DEV environment (not for production; production gets its own
-# infra/docker-compose.prod.yml in R2 and never reuses these dev settings).
+# OTTIMO Desk – local DEV environment (not for staging/production: those use infra/docker-compose.prod.yml
+# through infra/server/bin/dc and never reuse these dev settings).
 # Run from product/:   cp .env.example .env   (fill the *_PASSWORD values)   then   pnpm dev
 # (= docker compose --env-file .env -f infra/docker-compose.yml up --build)
 #
 #   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext + roles ottimo_owner(NOLOGIN)/migrator/app/readonly
+#   db-roles  (one-shot)       re-applies infra/postgres/init/02-roles.sh on every `up` (idempotent) so an existing
+#                              volume gets role changes too – e.g. ottimo_app timeouts (SEC s3-checklist H3)
 #   migrate   (one-shot)       node dist/db/migrate-cli.js as ottimo_migrator (SET ROLE ottimo_owner), then exits 0;
 #                              api and worker start only after it completed successfully (erd 16 point 5)
 #   api       127.0.0.1:3000   GET /health (connects as ottimo_app, never as the superuser)
 #   worker    (no port)        same image as api, entrypoint dist/worker.js
+#   blobdata  (volume)         encrypted uploads (ADR-013, SEC C2) at /var/lib/ottimo/blobs in api + worker only –
+#                              never mounted into `web` (Caddy), so no URL can reach a blob
 #   web       127.0.0.1:8081   admin-web | :8082 mobile (PWA) | :8083 guest-web  (Caddy, proxies /health and /v1 to api)
 #   seed      (profile seed)   optional: load QA seed DS-E into the dev DB once –
 #                              docker compose --env-file .env -f infra/docker-compose.yml run --rm seed [--allow-code-drift]
@@ -37,6 +41,11 @@ x-api-env: &api-env
   ADMIN_BASE_URL: ${API_ADMIN_BASE_URL:-}
   STAFF_BASE_URL: ${API_STAFF_BASE_URL:-}
   GUEST_BASE_URL: ${API_GUEST_BASE_URL:-}
+  # Encrypted blob store (BE-C S3, files module): absolute path on the `blobdata` volume (api + worker – J16
+  # deletes blobs). The image creates the directory node:node 0700, a new volume inherits it (SR-FILE-04).
+  # The .env.example default ./.data/blobs is for an api run on the host; in the container /app is not writable.
+  BLOBSTORE_PROVIDER: local
+  BLOBSTORE_LOCAL_PATH: /var/lib/ottimo/blobs
 
 services:
   postgres:
@@ -60,6 +69,28 @@ services:
       timeout: 3s
       retries: 20
 
+  db-roles:
+    # One-shot, every `up` (SEC s3-checklist H3): 02-roles.sh only runs from docker-entrypoint-initdb.d when the
+    # volume is NEW. Re-running it here (idempotent: CREATE IF NOT EXISTS + ALTER to the exact attributes) brings
+    # an older volume – a dev machine, a QA stack reusing its volume – to the current role model, including
+    # `ALTER ROLE ottimo_app SET idle_in_transaction_session_timeout = '30s'` / `statement_timeout = '15s'`;
+    # the script reads them back and exits 1 if missing. Superuser over the compose network, then exits 0.
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    command: ['bash', '/ottimo-init/02-roles.sh']
+    environment:
+      PGHOST: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}
+      POSTGRES_USER: ${POSTGRES_USER:-ottimo_admin}
+      POSTGRES_DB: ${POSTGRES_DB:-ottimo}
+      OTTIMO_MIGRATOR_DB_PASSWORD: ${OTTIMO_MIGRATOR_DB_PASSWORD:?set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env}
+      OTTIMO_APP_DB_PASSWORD: ${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}
+    volumes:
+      - ./postgres/init:/ottimo-init:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   migrate:
     # One-shot: apply pending migrations (forward-only, advisory lock, re-run = no-op), then exit 0.
     # Reuses the image built by `api`; logs in as ottimo_migrator and runs SET ROLE ottimo_owner itself
@@ -72,6 +103,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-roles:
+        condition: service_completed_successfully
     restart: 'no'
 
   api:
@@ -83,6 +116,8 @@ services:
         # Dev keeps /__test__ (MutableClock, run job) for local E2E. Production images never set this.
         INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-1}
     environment: *api-env
+    volumes:
+      - blobdata:/var/lib/ottimo/blobs
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -104,6 +139,8 @@ services:
     pull_policy: never
     command: ['node', 'dist/worker.js']
     environment: *api-env
+    volumes:
+      - blobdata:/var/lib/ottimo/blobs
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,3 +193,6 @@ services:
 
 volumes:
   pgdata:
+  # Encrypted blobs only (ciphertext; the keys are elsewhere). `down -v` deletes it together with pgdata – keep the
+  # two in step: a DB restored without its blobs (or the reverse) leaves documents that cannot be opened.
+  blobdata:

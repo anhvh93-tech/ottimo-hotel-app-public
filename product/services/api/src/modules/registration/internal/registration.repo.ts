@@ -32,6 +32,7 @@ export interface RegRow {
   images_purged_at: Date | null;
   images_purge_reason: string | null;
   voided_at: Date | null;
+  stay_ended_at: Date | null;
   version: number;
 }
 
@@ -77,6 +78,9 @@ export interface ConsentRow {
   decision: 'granted' | 'refused';
   channel: string;
   recorded_at: Date;
+  notice_version: string;
+  /** P02b days the person read (0053, SEC ĐK-2) – null for records before 0053. */
+  retention_days: number | null;
 }
 
 /** Field ↔ column of every C3 value of a document (erd 4.7). */
@@ -102,7 +106,8 @@ const ENC_LIST = Object.entries(ENC_COLUMNS) as Array<[EncField, EncColumn]>;
 export const REG_COLUMNS = `id, reservation_id, status, kind, required_count, submitted_count, pre_submitted_at,
   actual_checkin_at, actual_checkout_at, deadline_at, deadline_basis, sent_at, portal_reference, confirmed_at,
   rejected_reason, needs_update_reason, actual_departure_date::text, image_retention_until, legal_hold,
-  blocks_door_code, images_purge_scheduled_at, images_purged_at, images_purge_reason, voided_at, version`;
+  blocks_door_code, images_purge_scheduled_at, images_purged_at, images_purge_reason, voided_at, stay_ended_at,
+  version`;
 
 const DOC_COLUMNS = `id, registration_id, reservation_id, party_member_id, person_index, doc_type, is_main,
   is_foreigner, is_minor_data, full_name_on_doc, nationality_code, gender, doc_number_last4, doc_number_hmac,
@@ -178,7 +183,8 @@ export async function imagesOf(tx: Tx, registrationId: string): Promise<ImageRow
 
 export async function consentsOf(tx: Tx, registrationId: string): Promise<ConsentRow[]> {
   const { rows } = await tx.query<ConsentRow>(
-    `SELECT guest_document_id, person_index, decision, channel, recorded_at FROM consent_record
+    `SELECT guest_document_id, person_index, decision, channel, recorded_at, notice_version, retention_days
+       FROM consent_record
       WHERE registration_id = $1 AND purpose = 'P02B_ID_IMAGE_RETENTION'
       ORDER BY recorded_at, id`,
     [registrationId],

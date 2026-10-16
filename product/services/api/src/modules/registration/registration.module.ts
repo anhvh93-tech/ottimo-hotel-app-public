@@ -7,7 +7,7 @@
  * Listens to ReservationHooks: `created` → K1 record; `cancelled`/`no_show` → K11 void + images now;
  * restore of a no-show → K12; `stay_changed` → requiredCount (K9/K13).
  */
-import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { type DynamicModule, Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { FD_REGISTRATION_PORT } from '../frontdesk/public/ports';
@@ -15,6 +15,7 @@ import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { C3LogService } from './internal/c3-log.service';
 import { RegistrationController } from './internal/registration.controller';
 import { RegistrationService } from './internal/registration.service';
+import { PORTAL_URLS, portalUrlsFromEnv } from './internal/portal-config';
 import { RetentionService } from './internal/retention.service';
 import { RegistrationPortService } from './public/registration.port';
 import { retentionJob } from './public/worker-jobs';
@@ -24,17 +25,7 @@ defineAuditEntity('registration', ['checkCode', 'manualResult', 'imagesPurgeReas
 defineAuditEntity('consent_record', ['purpose', 'decision', 'channel']);
 
 @Global()
-@Module({
-  controllers: [RegistrationController],
-  providers: [
-    RegistrationService,
-    RetentionService,
-    C3LogService,
-    RegistrationPortService,
-    { provide: FD_REGISTRATION_PORT, useExisting: RegistrationPortService },
-  ],
-  exports: [RegistrationService, RetentionService, RegistrationPortService, FD_REGISTRATION_PORT],
-})
+@Module({})
 export class RegistrationModule implements OnModuleInit {
   constructor(
     @Inject(JobRegistry) private readonly jobs: JobRegistry,
@@ -42,6 +33,28 @@ export class RegistrationModule implements OnModuleInit {
     @Inject(RegistrationService) private readonly regs: RegistrationService,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
   ) {}
+
+  /** `env`: GUEST_REGISTRATION_PORTAL_URL_* (https, defaults BR-606) – resolved environment of bootstrap. */
+  static register(options: { env?: NodeJS.ProcessEnv } = {}): DynamicModule {
+    return {
+      module: RegistrationModule,
+      controllers: [RegistrationController],
+      providers: [
+        { provide: PORTAL_URLS, useValue: portalUrlsFromEnv(options.env ?? process.env) },
+        RegistrationService,
+        RetentionService,
+        C3LogService,
+        RegistrationPortService,
+        { provide: FD_REGISTRATION_PORT, useExisting: RegistrationPortService },
+      ],
+      exports: [
+        RegistrationService,
+        RetentionService,
+        RegistrationPortService,
+        FD_REGISTRATION_PORT,
+      ],
+    };
+  }
 
   onModuleInit(): void {
     const job = retentionJob(this.retention);

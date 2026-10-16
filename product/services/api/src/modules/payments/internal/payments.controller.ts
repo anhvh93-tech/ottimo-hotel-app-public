@@ -288,8 +288,10 @@ export class PaymentsController {
     rejectDryRun(body);
     const input = parseBody(vietQrSchema, body);
     const p = principal(req);
-    const result = await this.uow.run(req, async (tx) => {
-      const out = await this.payments.createVietQr(
+    const result = await this.uow.run(req, async (tx) => ({
+      status: 201,
+      // Only ids are kept for an idempotent replay (SEC-BE-43): never the payload with the account number.
+      body: await this.payments.createVietQr(
         tx,
         { userId: p.userId, roles: p.roles, requestId: req.id },
         folioId,
@@ -298,18 +300,24 @@ export class PaymentsController {
           purpose: input.purpose ?? null,
           overBalanceReason: input.overBalanceReason,
         },
-      );
-      const tz = await this.tz(tx);
-      return {
-        status: 201,
-        body: {
+      ),
+    }));
+    const view = await this.db.withContext(
+      tenantOf(p),
+      async (tx) => {
+        const out = await this.payments.qrView(tx, result.body.paymentId);
+        const tz = await this.tz(tx);
+        return {
           ...out,
           payment: await this.view(tx, out.payment),
-          receivingAccountChangedAt: toZonedIso(out.receivingAccountChangedAt as Date, tz),
-        },
-      };
-    });
-    return applyResult(reply, result);
+          receivingAccountChangedAt: toZonedIso(out.receivingAccountChangedAt, tz),
+          expiredPaymentIds: result.body.expiredPaymentIds,
+        };
+      },
+      { readOnly: true },
+    );
+    applyResult(reply, result);
+    return view;
   }
 
   private async tz(tx: Tx): Promise<string> {

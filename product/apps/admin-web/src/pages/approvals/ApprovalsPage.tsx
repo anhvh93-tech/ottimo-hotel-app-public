@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
 import { useState } from 'react';
 import { api } from '../../app/api';
+import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
 import { timeHHmm } from '../../app/dates';
 import { useToast } from '../../app/toast';
@@ -13,20 +14,12 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
 
-export const APPROVAL_TYPE: Record<string, string> = {
-  foc: 'foc.kind_foc',
-  special_discount: 'foc.kind_discount',
-  refund: 'refund.title',
-  checkin_room_not_ready: 'checkin.cond.room_ready',
-  late_checkout_conflict: 'drawer.action.late_checkout',
-  no_show_restore: 'drawer.action.restore_no_show',
-};
-export const FOC_REASON: Record<string, string> = {
-  regular_vip: 'foc.r_regular',
-  room_ready_no_impact: 'foc.r_room_ready',
-  service_recovery: 'foc.r_recovery',
-  long_stay_guest: 'foc.r_long',
-  other: 'foc.r_other',
+/** FE-S3-10: title/body suffix per request type (FOC and special discount keep the generic texts). */
+const TYPE_SUFFIX: Record<string, string> = {
+  refund: 'refund',
+  checkin_room_not_ready: 'room_not_ready',
+  late_checkout_conflict: 'late_checkout',
+  no_show_restore: 'no_show_restore',
 };
 const STATUS_TONE = {
   pending: 'warn',
@@ -77,14 +70,14 @@ export function ApprovalsPage() {
             {t('approval.empty_body')}
           </StateView>
         ) : (
-          <ul className="list-plain">
+          <ul className="list-none">
             {rows.map((a) => (
               <li key={a.id} className="card">
                 <div className="row wrap">
                   <div className="grow">
                     <b>
-                      {a.reservationCode} · {t(APPROVAL_TYPE[a.type] ?? 'nav.approvals')} ·{' '}
-                      {vnd(a.amountVnd)}
+                      {a.reservationCode} · {t(APPROVAL_TYPE[a.type] ?? 'nav.approvals')}
+                      {a.amountVnd > 0 ? ` · ${vnd(a.amountVnd)}` : ''}
                     </b>
                     <div className="li-s">
                       {FOC_REASON[a.reasonCode] ? t(FOC_REASON[a.reasonCode]!) : null}
@@ -93,9 +86,9 @@ export function ApprovalsPage() {
                     </div>
                     {a.refundDestination ? (
                       <div className="li-s">
-                        {t(
-                          a.refundDestination.method === 'cash' ? 'pay.cash' : 'pay.bank_transfer',
-                        )}
+                        {t('refund.method_label', {
+                          method: methodText(t, a.refundDestination.method ?? ''),
+                        })}
                         {a.refundDestination.accountNoLast4
                           ? ` · ••${a.refundDestination.accountNoLast4}`
                           : ''}
@@ -145,9 +138,10 @@ function DecideDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { t, vnd, dateTime } = useI18n();
+  const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
+  const suffix = TYPE_SUFFIX[a.type];
   const [secret, setSecret] = useState('');
   const [note, setNote] = useState('');
   const act = useSubmit();
@@ -182,8 +176,13 @@ function DecideDialog({
       size="sm"
       title={
         approve
-          ? t('approval.approve_title', { amount: vnd(a.amountVnd), code: a.reservationCode ?? '' })
-          : t('approval.reject_title', { code: a.reservationCode ?? '' })
+          ? t(suffix ? `approval.approve_title.${suffix}` : 'approval.approve_title', {
+              amount: money(a.amountVnd),
+              code: a.reservationCode ?? '',
+            })
+          : t(suffix ? 'approval.reject_title_generic' : 'approval.reject_title', {
+              code: a.reservationCode ?? '',
+            })
       }
       onClose={onClose}
       closeLabel={t('common.close')}
@@ -202,7 +201,13 @@ function DecideDialog({
         </>
       }
     >
-      <p className="li-s">{approve ? t('approval.approve_body') : t('approval.reject_effect')}</p>
+      <p className="li-s">
+        {approve
+          ? t(suffix ? `approval.approve_body.${suffix}` : 'approval.approve_body')
+          : suffix
+            ? null
+            : t('approval.reject_effect')}
+      </p>
       {!approve ? (
         <Field label={t('approval.reject_reason')} required error={act.fields.reason}>
           {(p) => (

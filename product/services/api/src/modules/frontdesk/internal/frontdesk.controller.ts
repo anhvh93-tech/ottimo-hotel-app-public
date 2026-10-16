@@ -81,6 +81,9 @@ export class FrontdeskController {
     req: GuardedRequest,
     fn: (tx: Tx, ctx: BookingContext) => Promise<T>,
   ): Promise<T> {
+    // SEC-BE-33 / ARC-BE-S3-04 second line: a read never runs on a role the guard refused, whatever header
+    // deferred the decision (the guard enforces dry runs itself – this only catches a future regression).
+    if (!req.ottimoAuth?.allowed) throw problem('FORBIDDEN_ACTION');
     return this.db.withContext(
       tenantOf(principal(req)),
       async (tx) => fn(tx, await this.ctx(tx, req)),
@@ -251,16 +254,30 @@ export class FrontdeskController {
 
   @Post('actions/early-departure')
   @Operation('earlyDeparture')
-  earlyDeparture(
+  async earlyDeparture(
     @Req() req: GuardedRequest,
     @Res({ passthrough: true }) reply: Reply,
     @Param('reservationId') reservationId: string,
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
-    return this.reservationResult(req, reply, (tx, ctx) =>
-      this.stays.earlyDeparture(tx, ctx, id, expectedVersion(req), asBody(raw)),
-    );
+    // OpenAPI 0.3.6 bổ sung 2 (E04-06): EarlyDepartureResult.
+    const result = await this.uow.run(req, async (tx) => {
+      const ctx = await this.ctx(tx, req);
+      const r = await this.stays.earlyDeparture(tx, ctx, id, expectedVersion(req), asBody(raw));
+      return {
+        status: 200,
+        body: {
+          reservation: await this.s.stay.dtoOf(tx, ctx, r.row),
+          earlyDepartureFeeVnd: r.earlyDepartureFeeVnd,
+          refundVnd: r.refundVnd,
+          refundRequestId: r.refundRequestId,
+        },
+      };
+    });
+    const out = applyResult(reply, result) as { reservation?: { version?: number } };
+    if (typeof out.reservation?.version === 'number') setETag(reply, out.reservation.version);
+    return out;
   }
 
   @Get('checkout-confirmations')

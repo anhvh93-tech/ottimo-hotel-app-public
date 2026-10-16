@@ -119,7 +119,25 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
 
 const PARAM_MAX_STRING = 40;
 
-/** Throws on a key outside the allowlist of the kind or a value that is not a short string / number. */
+const isCount = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+/**
+ * SEC-BE-52 (1): the FORMAT of each allowed key – counts are integers, times HH:mm, codes look like a
+ * document code (OTM-00171, WO-…), checks are snake_case ids. A short name or phone number never fits.
+ */
+const PARAM_FORMATS: Record<string, (v: unknown) => boolean> = {
+  count: isCount,
+  oldestDays: isCount,
+  pct: (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000,
+  time: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+  deadline: (v) =>
+    typeof v === 'string' &&
+    (/^([01]\d|2[0-3]):[0-5]\d$/.test(v) ||
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?([+-]\d{2}:\d{2}|Z)$/.test(v)),
+  code: (v) => typeof v === 'string' && /^[A-Z]{1,5}\d{0,2}-[A-Z0-9-]{1,30}$/.test(v),
+  check: (v) => typeof v === 'string' && /^[a-z][a-z0-9_.]{0,39}$/.test(v),
+};
+
+/** Throws on a key outside the allowlist of the kind or a value not in the key's format. */
 export function assertAttentionParams(
   kind: AttentionKind,
   params: Record<string, string | number> | undefined,
@@ -130,11 +148,51 @@ export function assertAttentionParams(
     if (!allowed.includes(k)) {
       throw new Error(`attention ${kind}: param "${k}" is not allow-listed (SEC J / B-21)`);
     }
-    const ok =
-      (typeof v === 'number' && Number.isFinite(v)) ||
-      (typeof v === 'string' && v.length <= PARAM_MAX_STRING);
-    if (!ok) throw new Error(`attention ${kind}: param "${k}" must be a number or ≤ 40 chars`);
+    const format = PARAM_FORMATS[k];
+    const ok = format
+      ? format(v)
+      : (typeof v === 'number' && Number.isFinite(v)) ||
+        (typeof v === 'string' && v.length <= PARAM_MAX_STRING);
+    if (!ok) throw new Error(`attention ${kind}: param "${k}" is not in its format (SEC-BE-52)`);
   }
+}
+
+/**
+ * Light SSE event, delivered after COMMIT (pg_notify is transactional) – the ONE implementation behind
+ * EventsService.publish, usable where no container exists (worker jobs, stay-view – ARC-BE-S3-23.5).
+ * `reservation.changed` without an audience goes to FD+ and the booking's creator / closer (SEC-BE-40).
+ */
+export async function publishSse(
+  tx: Tx,
+  type: SseEventType,
+  id: string,
+  audience?: SseAudience,
+): Promise<void> {
+  if (!(SSE_EVENT_TYPES as readonly string[]).includes(type)) {
+    throw new Error(`unknown SSE event type ${type}`);
+  }
+  if (!UUID.test(id)) throw new Error('SSE event id must be a uuid (no data in the payload)');
+  const propertyId = tx.ctx.propertyId;
+  if (!propertyId) throw new Error('SSE publish needs a property context');
+  let roles = audience?.roles ?? DEFAULT_ROLES[type];
+  let userIds = audience?.userIds;
+  if (!audience && type === 'reservation.changed') {
+    const { rows } = await tx.query<{ created_by: string | null; closer_user_id: string | null }>(
+      'SELECT created_by, closer_user_id FROM reservation WHERE id = $1',
+      [id],
+    );
+    roles = FD_PLUS;
+    const r = rows[0];
+    userIds = [...new Set([r?.created_by, r?.closer_user_id].filter((u): u is string => !!u))];
+  }
+  const wire: SseWireEvent = {
+    p: propertyId,
+    t: type,
+    id,
+    ...(roles ? { r: [...roles] } : {}),
+    ...(userIds ? { u: [...userIds] } : {}),
+  };
+  await tx.query('SELECT pg_notify($1, $2)', [SSE_CHANNEL, JSON.stringify(wire)]);
 }
 
 export interface AttentionItem {
@@ -188,27 +246,18 @@ export interface OpenAttentionInput {
 export class EventsService {
   private readonly sources: AttentionSource[] = [];
 
-  /** Light SSE event, delivered after COMMIT (pg_notify is transactional). */
-  async publish(tx: Tx, type: SseEventType, id: string, audience?: SseAudience): Promise<void> {
-    if (!(SSE_EVENT_TYPES as readonly string[]).includes(type)) {
-      throw new Error(`unknown SSE event type ${type}`);
-    }
-    if (!UUID.test(id)) throw new Error('SSE event id must be a uuid (no data in the payload)');
-    const propertyId = tx.ctx.propertyId;
-    if (!propertyId) throw new Error('SSE publish needs a property context');
-    const roles = audience?.roles ?? DEFAULT_ROLES[type];
-    const wire: SseWireEvent = {
-      p: propertyId,
-      t: type,
-      id,
-      ...(roles ? { r: [...roles] } : {}),
-      ...(audience?.userIds ? { u: [...audience.userIds] } : {}),
-    };
-    await tx.query('SELECT pg_notify($1, $2)', [SSE_CHANNEL, JSON.stringify(wire)]);
+  /** Light SSE event, delivered after COMMIT (pg_notify is transactional) – see publishSse. */
+  publish(tx: Tx, type: SseEventType, id: string, audience?: SseAudience): Promise<void> {
+    return publishSse(tx, type, id, audience);
   }
 
   /** Inbox rows + push (outbox) + `notification.created` to each recipient. Returns the recipient ids. */
-  async notify(tx: Tx, input: NotifyInput, now: Date): Promise<string[]> {
+  async notify(
+    tx: Tx,
+    input: NotifyInput,
+    now: Date,
+    opts: { push?: boolean } = {},
+  ): Promise<string[]> {
     if (!(STAFF_NOTIFICATION_KINDS as readonly string[]).includes(input.kind)) {
       throw new Error(`unknown notification kind ${input.kind}`);
     }
@@ -255,7 +304,7 @@ export class EventsService {
       );
       await this.publish(tx, 'notification.created', id, { roles: [], userIds: [userId] });
     }
-    if (recipients.length > 0) {
+    if (recipients.length > 0 && opts.push !== false) {
       // Push (Mock in R2): kind, ids and display code only – no guest data (SEC A5).
       await tx.query(
         `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)

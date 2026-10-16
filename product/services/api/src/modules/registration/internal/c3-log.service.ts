@@ -7,6 +7,7 @@ import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { encodeCursor } from '../../../shared/http/pagination';
 import { addDays, atLocal, toZonedIso } from '../../../shared/time';
+import { SYSTEM_ACTOR, readStays } from './stay-reader';
 
 interface Row {
   id: number;
@@ -18,7 +19,7 @@ interface Row {
   request_id: string | null;
   subject_type: string;
   action: string;
-  reservation_code: string | null;
+  reservation_id: string | null;
   reason_code: string | null;
   doc_type: string | null;
   doc_last4: string | null;
@@ -45,12 +46,11 @@ export class C3LogService {
     const to = q.dateTo ? atLocal(addDays(q.dateTo, 1), '00:00', tz) : null;
     const { rows } = await tx.query<Row>(
       `SELECT l.id::int AS id, l.occurred_at, l.actor_type, u.display_name, l.session_id, d.name AS device_name,
-              l.request_id, l.subject_type, l.action, r.code AS reservation_code, l.reason_code,
+              l.request_id, l.subject_type, l.action, l.reservation_id, l.reason_code,
               gd.doc_type, gd.doc_number_last4 AS doc_last4
          FROM c3_access_log l
          LEFT JOIN app_user u ON u.id = l.user_id
          LEFT JOIN trusted_device d ON d.id = l.trusted_device_id
-         LEFT JOIN reservation r ON r.id = l.reservation_id
          LEFT JOIN document_image di ON l.subject_type = 'document_image' AND di.id = l.subject_id
          LEFT JOIN guest_document gd ON gd.id = CASE WHEN l.subject_type = 'guest_document' THEN l.subject_id
                                                      ELSE di.guest_document_id END
@@ -64,7 +64,14 @@ export class C3LogService {
       [from, to, q.reservationId, q.cursor?.[0] ?? null, q.cursor?.[1] ?? 0, q.limit + 1],
     );
     const more = rows.length > q.limit;
-    const data = (more ? rows.slice(0, q.limit) : rows).map((r) => ({
+    const pageRows = more ? rows.slice(0, q.limit) : rows;
+    // Booking codes through BE-A's stay-view port, not a JOIN on reservation (ARC FB-S3-15 (e)).
+    const stays = await readStays(
+      tx,
+      [...new Set(pageRows.map((r) => r.reservation_id).filter((x): x is string => !!x))],
+      SYSTEM_ACTOR,
+    );
+    const data = pageRows.map((r) => ({
       occurredAt: toZonedIso(r.occurred_at, tz),
       actorType: r.actor_type,
       ...(r.actor_type === 'user' && r.display_name ? { userName: r.display_name } : {}),
@@ -73,7 +80,9 @@ export class C3LogService {
       ...(r.request_id ? { requestId: r.request_id } : {}),
       subjectType: r.subject_type,
       action: r.action,
-      ...(r.reservation_code ? { reservationCode: r.reservation_code } : {}),
+      ...(r.reservation_id && stays.get(r.reservation_id)
+        ? { reservationCode: stays.get(r.reservation_id)?.code }
+        : {}),
       ...(r.doc_type ? { subjectLabel: `${r.doc_type} ••${r.doc_last4 ?? ''}` } : {}),
       ...(r.reason_code ? { reasonCode: r.reason_code } : {}),
     }));

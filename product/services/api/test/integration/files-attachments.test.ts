@@ -13,14 +13,18 @@ import {
   type BlobStore,
   LocalBlobStore,
 } from '../../src/modules/files/internal/blob-store';
+import { randomUUID } from 'node:crypto';
 import { AttachmentService } from '../../src/modules/files/public/attachment.service';
+import { EncryptedBlobService } from '../../src/modules/files/public/encrypted-blob.service';
 import {
   ATTACHMENT_USAGE,
   type AttachmentUsage,
 } from '../../src/modules/payments/public/attachment-usage';
+import { sha256Hex } from '../../src/shared/http/auth.guard';
+import { requestHash } from '../../src/shared/http/unit-of-work';
 import { ProblemError } from '../../src/shared/problem';
 import { type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
-import { sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
+import { multipart, sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
 import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
 import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
@@ -125,13 +129,23 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
     expect((await get('fd2')).statusCode).toBe(404);
     expect((await get('mgr')).statusCode).toBe(200);
     expect((await upload('hk', 'refund_proof')).statusCode).toBe(403);
-    expect((await upload('mt', 'meter')).statusCode).toBe(201);
+    // SEC BE-38 (2): Sprint 4 purposes (no module binds them yet) are refused until it exists.
+    for (const [u, purpose] of [
+      ['mt', 'meter'],
+      ['mt', 'work_order'],
+      ['hk', 'inspection'],
+    ] as const) {
+      expect((await upload(u, purpose)).json()).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }],
+      });
+    }
   });
 
   it('C1/C2: a .jpg containing HTML → 422; stored blob is ciphertext, file 0600 in a 0700 directory', async () => {
     const html = await upload(
       'fd',
-      'work_order',
+      'refund_proof',
       undefined,
       Buffer.from('<html><script>x</script></html>'),
     );
@@ -139,7 +153,7 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
       code: 'FILE_REJECTED',
       errors: [{ field: 'file', code: 'FILE_TYPE' }],
     });
-    const id = (await upload('fd', 'work_order')).json().id;
+    const id = (await upload('fd', 'refund_proof')).json().id;
     const store = fa.app.get<BlobStore>(BLOB_STORE);
     const key = await db.withContext(
       t.ctx(),
@@ -179,19 +193,161 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
       svc.bindTo(tx, id, { type: 'payment', id: paymentId }, { retentionAnchorAt: reconciledAt }),
     );
     await expect(check('deposit_receipt', resv)).rejects.toThrow(ProblemError); // one image, one payment
+    // A second binding of the same file is refused at the row level (ARC S3-27 (7)).
+    await expect(
+      db.withContext(t.ctx(), (tx) =>
+        svc.bindTo(tx, id, { type: 'payment', id: paymentId }, { retentionAnchorAt: reconciledAt }),
+      ),
+    ).rejects.toThrow(ProblemError);
+    const purgedAt = () =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ purged_at: Date | null }>(
+              'SELECT purged_at FROM attachment WHERE id = $1',
+              [id],
+            )
+          ).rows[0]!.purged_at,
+      );
     // deposit_receipt_retention_days = 90 (catalogue default) → purge after 2027-01-14 03:00 UTC.
     const before = await db.withContext(t.ctx(), (tx) =>
       svc.purgeDue(tx, new Date('2027-01-14T02:59:00.000Z'), 'Asia/Ho_Chi_Minh'),
     );
-    expect(before).toBe(0);
+    expect(before.failed).toBe(0);
+    expect(await purgedAt()).toBeNull();
     const after = await db.withContext(t.ctx(), (tx) =>
       svc.purgeDue(tx, new Date('2027-01-14T03:01:00.000Z'), 'Asia/Ho_Chi_Minh'),
     );
-    expect(after).toBe(1);
+    expect(after.purged).toBeGreaterThanOrEqual(1);
+    expect(await purgedAt()).not.toBeNull();
     expect((await staff(fa, tok('fd'), null, 'GET', `${P(t)}/attachments/${id}`)).statusCode).toBe(
       404,
     );
     expect(T0).toBeInstanceOf(Date);
+  });
+
+  async function attachmentRow(id: string) {
+    return db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{
+            blob_key: string;
+            data_key_id: string;
+            purged_at: Date | null;
+            purge_reason: string | null;
+            destroyed_at: Date | null;
+          }>(
+            `SELECT a.blob_key, a.data_key_id, a.purged_at, a.purge_reason, k.destroyed_at
+               FROM attachment a JOIN data_key k ON k.id = a.data_key_id WHERE a.id = $1`,
+            [id],
+          )
+        ).rows[0]!,
+    );
+  }
+
+  it('SEC BE-38: a file never bound to a record is purged on day 8 (DEK destroyed, file deleted after COMMIT)', async () => {
+    const id = (await upload('fd', 'refund_proof')).json().id;
+    const svc = fa.app.get(AttachmentService);
+    const blobs = fa.app.get(EncryptedBlobService);
+    const store = fa.app.get<BlobStore>(BLOB_STORE);
+    const day = 86_400_000;
+    // attachment_unbound_days = 7 (0053 default): T0 + 7 days − 1 min → kept.
+    await db.withContext(t.ctx(), (tx) =>
+      svc.purgeDue(tx, new Date(T0.getTime() + 7 * day - 60_000), 'Asia/Ho_Chi_Minh'),
+    );
+    expect((await attachmentRow(id)).purged_at).toBeNull();
+    const out = await db.withContext(t.ctx(), (tx) =>
+      svc.purgeDue(tx, new Date(T0.getTime() + 7 * day + 60_000), 'Asia/Ho_Chi_Minh'),
+    );
+    expect(out.failed).toBe(0);
+    const row = await attachmentRow(id);
+    expect(row).toMatchObject({ purge_reason: 'unbound' });
+    expect(row.destroyed_at).not.toBeNull();
+    // The file is still on disk until the queue is swept after COMMIT (ARC S3-17).
+    expect(await store.get(row.blob_key)).not.toBeNull();
+    await blobs.sweepAfterCommit(t.ctx());
+    expect(await store.get(row.blob_key)).toBeNull();
+    const journal = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ action: string; policy_key: string }>(
+            `SELECT action, policy_key FROM purge_journal WHERE subject_id = $1 ORDER BY action`,
+            [id],
+          )
+        ).rows,
+    );
+    expect(journal).toEqual([
+      { action: 'delete_blob', policy_key: 'SEC-BE-38' },
+      { action: 'destroy_dek', policy_key: 'SEC-BE-38' },
+    ]);
+  });
+
+  it('SEC BE-46 / ARC S3-17: a purge rolled back keeps the file and the DEK', async () => {
+    const id = (await upload('fd', 'refund_proof')).json().id;
+    const row = await attachmentRow(id);
+    const blobs = fa.app.get(EncryptedBlobService);
+    const store = fa.app.get<BlobStore>(BLOB_STORE);
+    await expect(
+      db.withContext(t.ctx(), async (tx) => {
+        await blobs.purge(
+          tx,
+          {
+            blobKey: row.blob_key,
+            dataKeyId: row.data_key_id,
+            subjectType: 'attachment',
+            subjectId: id,
+          },
+          'SEC-I5',
+        );
+        throw new Error('later step failed');
+      }),
+    ).rejects.toThrow('later step failed');
+    await blobs.sweepAfterCommit(t.ctx());
+    expect(await store.get(row.blob_key)).not.toBeNull();
+    expect((await attachmentRow(id)).destroyed_at).toBeNull();
+    expect((await staff(fa, tok('fd'), null, 'GET', `${P(t)}/attachments/${id}`)).statusCode).toBe(
+      200,
+    );
+  });
+
+  it('ARC S3-03 / SEC BE-47: multipart only on the 3 upload routes, only with a session cookie', async () => {
+    const body = multipart([{ name: 'purpose', value: 'refund_proof' }]);
+    const send = (url: string, cookie: string | null, method: 'POST' | 'PUT' = 'POST') =>
+      fa.app.inject({
+        method,
+        url,
+        headers: {
+          'content-type': body.contentType,
+          ...(cookie ? { cookie } : {}),
+          'x-csrf-token': fa.sessions.csrfToken(sha256Hex(tok('fd'))),
+          'idempotency-key': randomUUID(),
+        },
+        payload: body.body,
+      });
+    // Upload route without any session cookie → 401 before the body is read.
+    const anon = await send(`${P(t)}/attachments`, null);
+    expect(anon.statusCode).toBe(401);
+    expect(anon.json()).toMatchObject({ code: 'UNAUTHENTICATED' });
+    // Any other route: the body is refused unread (415 mapped to 422 VALIDATION_FAILED – no 415 in the table).
+    const someId = '0192a1b0-0000-7000-8000-0000000000aa';
+    for (const url of [
+      `${P(t)}/reservations/${someId}/actions/check-in`,
+      `${P(t)}/registrations/${someId}/consents`,
+      '/v1/guest/online-checkin/complete',
+    ]) {
+      const r = await send(url, `ottimo_sid=${tok('fd')}`);
+      expect(r.statusCode).toBe(422);
+      expect(r.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
+    }
+  });
+
+  it('ARC S3-03: a binary body is never hashed for idempotency', () => {
+    expect(() => requestHash('POST', '/x', Buffer.from('abc'))).toThrow(ProblemError);
+    expect(() => requestHash('POST', '/x', new Uint8Array([1, 2]))).toThrow(ProblemError);
+    expect(requestHash('POST', '/x', { a: 1 })).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('SEC I7: 50 files per person per day → 429', async () => {
@@ -210,6 +366,6 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
         );
       }
     });
-    expect((await upload('fd', 'work_order')).statusCode).toBe(429);
+    expect((await upload('fd', 'refund_proof')).statusCode).toBe(429);
   });
 });

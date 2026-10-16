@@ -4,7 +4,6 @@
 // "Xóa mã căn X" / "Sửa hạn mã căn X" (SEC D3). The adapter keeps no state and never stores the code.
 import { randomUUID } from 'node:crypto';
 import {
-  isoInstant,
   IntegrationError,
   type HealthStatus,
   type IntegrationContext,
@@ -23,7 +22,8 @@ export interface ManualDoorLockOptions {
   /** What the physical lock supports (shown to staff). Default: TTLock keypad + card, no remote. */
   capabilities?: Partial<DoorLockCapabilities>;
   newId?: () => string;
-  now?: () => IsoInstant;
+  /** Injected Clock (ADR-008) – required for a production adapter (same rule as FB-R2-ARC-BE-S3-29). */
+  now: () => IsoInstant;
 }
 
 export const MANUAL_DEFAULT_CAPABILITIES: DoorLockCapabilities = {
@@ -40,10 +40,10 @@ export class ManualDoorLockAdapter implements DoorLockAdapter {
   private readonly newId: () => string;
   private readonly now: () => IsoInstant;
 
-  constructor(opts: ManualDoorLockOptions = {}) {
+  constructor(opts: ManualDoorLockOptions) {
     this.caps = { ...MANUAL_DEFAULT_CAPABILITIES, ...opts.capabilities };
     this.newId = opts.newId ?? (() => randomUUID());
-    this.now = opts.now ?? (() => isoInstant('2026-10-16T09:00:00+07:00'));
+    this.now = opts.now;
   }
 
   async capabilities(ctx: IntegrationContext, lockRef: string): Promise<DoorLockCapabilities> {

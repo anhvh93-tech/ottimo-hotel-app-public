@@ -867,7 +867,9 @@ export function createReservationMock(ctx: Ctx) {
             !text ||
             r.code.toLowerCase().includes(text) ||
             (r.otaRef ?? '').toLowerCase().includes(text) ||
-            (r.booker?.code ?? '').toLowerCase().includes(text),
+            (r.booker?.code ?? '').toLowerCase().includes(text) ||
+            // FE-S3-21 (proposal to ARC/BE): an exact room number also matches.
+            (r.segments?.[0]?.roomNo ?? '') === text,
         )
         .sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate))
         .map((r) => ({

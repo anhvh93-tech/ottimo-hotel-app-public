@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { mockControl, MOCK_TOKENS } from '../mocks/handlers';
+import { translateGuest } from '../app/i18n';
 import { jpeg, openLink } from './helpers';
 
 // Canvas is not available in jsdom: the normaliser is unit-tested on its own (image.test.ts).
@@ -52,7 +53,12 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(mockControl.state.oci.noticeAccepted).toBe(true);
     expect(screen.getByText(/Chưa có giấy tờ nào/)).toBeInTheDocument();
     const next = screen.getByRole('button', { name: 'Tiếp tục' });
-    expect(next).toBeDisabled();
+    // UXD S3-05: locked but focusable, with the reason; a click takes the guest to the first gap
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(next).toHaveAccessibleDescription(/Chụp giấy tờ hoặc chọn "Bổ sung tại quầy"/);
+    await user.click(next);
+    expect(document.activeElement).toHaveTextContent('Khách 1');
+    expect(screen.getByRole('heading', { name: 'Giấy tờ', level: 1 })).toBeInTheDocument();
 
     await uploadFor(user, 1);
     expect(await screen.findByText('Đã có giấy tờ của 1/2 khách')).toBeInTheDocument();
@@ -84,7 +90,12 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(mockControl.state.notes).toEqual(['Đến bằng taxi']);
     // R-CON-01: nothing pre-selected, submit locked until a choice is made
     for (const r of screen.getAllByRole('radio')) expect(r).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Gửi thủ tục' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gửi thủ tục' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByText('Chọn một trong hai lựa chọn ở trên để gửi.')).toBeInTheDocument();
+    expect(screen.getByText(/đến 30 ngày sau khi trả phòng/)).toBeInTheDocument(); // server's imageRetentionDays
     expect(screen.getByText(/Muốn rút đồng ý lưu ảnh\? Báo lễ tân/)).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /Không, chỉ dùng để khai báo/ }));
     await user.click(screen.getByRole('button', { name: 'Gửi thủ tục' }));
@@ -102,6 +113,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
         personIndex: 1,
         channel: 'guest_app',
         noticeVersion: 'privacy-2026-10-v1',
+        retentionDays: 30,
         locale: 'vi',
       }),
     ]);
@@ -265,7 +277,10 @@ describe('guest-web check-in online (H18, US-107)', () => {
     await toDocuments(user);
     await uploadFor(user, 1);
     await screen.findByText('Đã có giấy tờ của 1/2 khách');
-    expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tiếp tục' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.click(within(slotOf(2)).getByRole('button', { name: 'Bổ sung tại quầy' }));
     expect(
       screen.getByText('Đã có giấy tờ của 1/2 khách · 1 khách bổ sung tại quầy'),
@@ -273,7 +288,10 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(screen.getByText('Sẽ bổ sung tại quầy')).toBeInTheDocument();
     // undo and redo
     await user.click(screen.getByRole('button', { name: 'Chụp ngay' }));
-    expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tiếp tục' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.click(within(slotOf(2)).getByRole('button', { name: 'Bổ sung tại quầy' }));
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }));
 
@@ -290,5 +308,114 @@ describe('guest-web check-in online (H18, US-107)', () => {
       await screen.findByText(/Đã gửi giấy tờ của 1\/2 khách · dự kiến đến 14:00/),
     ).toBeInTheDocument();
     expect(screen.getByText('1 khách bổ sung giấy tờ tại quầy.')).toBeInTheDocument();
+  });
+
+  it('upload: progress is visible, screen readers hear start + done only (UXD S3-04)', async () => {
+    const { user } = openLink();
+    await toDocuments(user);
+    await uploadFor(user, 1);
+    await screen.findByText('Đã có giấy tờ của 1/2 khách');
+    const live = document.querySelector('.sr-only[aria-live="polite"]');
+    expect(live).toHaveTextContent('Đã gửi ảnh của Khách 1.');
+  });
+
+  it('server busy (503 + Retry-After) keeps the photos and retries once by itself (UXD S3-02)', async () => {
+    const { user } = openLink();
+    await toDocuments(user);
+    mockControl.scenario.uploadFail = 'busy';
+    await uploadFor(user, 1);
+    expect(await screen.findByText(/Hệ thống đang bận nên chưa lưu/)).toBeInTheDocument();
+    // no re-shoot: the same photos go again after Retry-After (1 s in the mock)
+    expect(
+      await screen.findByText('Đã có giấy tờ của 1/2 khách', {}, { timeout: 6_000 }),
+    ).toBeInTheDocument();
+    expect(mockControl.state.uploads).toHaveLength(1);
+  });
+
+  it('"Gửi lại" opened by mistake can be cancelled back to "Đã gửi" (UXD S3-08)', async () => {
+    const { user } = openLink();
+    await toDocuments(user);
+    await uploadFor(user, 1);
+    await screen.findByText('Đã có giấy tờ của 1/2 khách');
+    await user.click(screen.getByRole('button', { name: 'Gửi lại' }));
+    expect(within(slotOf(1)).getByRole('button', { name: 'Chụp' })).toBeInTheDocument();
+    await user.click(within(slotOf(1)).getByRole('button', { name: 'Hủy' }));
+    expect(screen.getByText('Đã gửi – vì an toàn, ảnh không hiện lại ở đây.')).toBeInTheDocument();
+  });
+
+  it('after-22:00 arrival: the done card says "after 22:00", no "+" code (UXD S3-03)', async () => {
+    Object.assign(mockControl.state.oci, {
+      noticeAccepted: true,
+      currentStep: 'done',
+      uploadedPeople: [1, 2],
+      etaTime: '22:00',
+      lateArrival: true,
+      consentRecorded: true,
+      completedAt: '2026-10-16T20:10:00+07:00',
+    });
+    openLink();
+    expect(
+      await screen.findByText(
+        /Đã gửi giấy tờ của 2\/2 khách · dự kiến đến sau 22:00\. Khi tới nơi, gọi người trực/,
+      ),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('22:00+');
+  });
+
+  it.each([
+    ['no notice version from the server', { noticeVersion: null }],
+    ['a notice version the page has no text for', { noticeVersion: 'privacy-2027-01-v2' }],
+    ['no retention days from the server', { retentionDays: null }],
+  ])('fails closed with %s – no notice, no consent question (SEC ĐK-2 17/10)', async (_, patch) => {
+    mockControl.reset(patch);
+    const { user } = openLink();
+    await user.click(await screen.findByRole('button', { name: 'Làm thủ tục trước' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Làm thủ tục tại quầy' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Bạn vẫn nhận phòng bình thường/)).toBeInTheDocument();
+    expect(screen.getByText('Đến sau 22:00? Gọi người trực khi tới nơi.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gọi người trực' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tôi đã đọc' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tôi đồng ý OTTIMO lưu ảnh/)).not.toBeInTheDocument();
+  });
+
+  it('RU page: legal text is the approved EN in one lang="en" block, evidence says en (decision-log 17/10)', async () => {
+    mockControl.state.locale = 'ru';
+    const ru = (k: string, a?: Record<string, string | number>) => translateGuest('ru', k, a);
+    const en = (k: string, a?: Record<string, string | number>) => translateGuest('en', k, a);
+    const { user } = openLink();
+    await user.click(await screen.findByRole('button', { name: ru('guest.cta.checkin_short') }));
+
+    // notice: RU sentence above an EN block; the confirm button is EN too
+    const notice = await screen.findByText(en('gw.notice_body'));
+    expect(notice.closest('[lang="en"]')).not.toBeNull();
+    expect(screen.getByText(ru('gw.legal_en_notice'))).toBeInTheDocument();
+    expect(screen.getByText(ru('gw.legal_en_notice')).closest('[lang="en"]')).toBeNull();
+    const read = screen.getByRole('button', { name: en('gw.notice_read') });
+    expect(read).toHaveAttribute('lang', 'en');
+    expect(document.body.textContent).not.toMatch(/Русская версия скоро/);
+    await user.click(read);
+
+    for (const p of [1, 2]) {
+      const slot = screen
+        .getByRole('group', { name: `${ru('guest.oci.person_n', { n: p })} ${ru('gw.doc_type')}` })
+        .closest('.upload-slot') as HTMLElement;
+      await user.click(within(slot).getByRole('button', { name: ru('gw.defer_at_desk') }));
+    }
+    await user.click(screen.getByRole('button', { name: ru('common.next') }));
+    await user.click(await screen.findByRole('radio', { name: '14:00 – 16:00' }));
+    await user.click(screen.getByRole('button', { name: ru('common.next') }));
+
+    // consent: question + choices + optional + withdraw in the EN block; companions line stays RU
+    const yes = await screen.findByRole('radio', { name: en('guest.oci.consent', { days: 30 }) });
+    expect(yes.closest('[lang="en"]')).not.toBeNull();
+    expect(screen.getByText(en('guest.oci.withdraw_hint')).closest('[lang="en"]')).not.toBeNull();
+    expect(screen.getByText(ru('guest.oci.companions_at_desk')).closest('[lang="en"]')).toBeNull();
+    await user.click(screen.getByRole('radio', { name: en('guest.oci.consent_no') }));
+    await user.click(screen.getByRole('button', { name: ru('guest.oci.submit') }));
+    await waitFor(() => expect(mockControl.state.oci.completedAt).toBeTruthy());
+    expect(mockControl.state.consents[0]).toMatchObject({ locale: 'en', retentionDays: 30 });
+    expect(mockControl.state.oci.deferredPeople).toEqual([1, 2]);
   });
 });

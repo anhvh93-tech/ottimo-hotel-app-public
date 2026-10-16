@@ -15,14 +15,16 @@ export const MOCK_TOKENS = {
   inHouse: 'demo-in-house-link-0123456789abc',
 } as const;
 
-export const CURRENT_NOTICE = 'privacy-2026-10-v1';
-
 interface Scenario {
   stayEnded: boolean;
   closed: boolean;
   inHouse: boolean;
   /** Next upload fails with this (then clears). */
-  uploadFail?: 'FILE_TYPE' | 'network' | 'TOO_MANY_FILES' | 'rate';
+  uploadFail?: 'FILE_TYPE' | 'network' | 'TOO_MANY_FILES' | 'rate' | 'busy';
+  /** Notice version the server reports (`null` = field missing → guest-web must fail closed). */
+  noticeVersion: string | null;
+  /** `id_image_retention_days_after_checkout` the server reports (`null` = field missing). */
+  retentionDays: number | null;
   /** Simulate a server bug that leaks level-2 keys – the client must drop them (ĐK-2). */
   leakLevel2: boolean;
   requiredPeople: number;
@@ -46,6 +48,8 @@ const scenario: Scenario = {
   leakLevel2: false,
   requiredPeople: 2,
   latencyMs: 0,
+  noticeVersion: 'privacy-2026-10-v1',
+  retentionDays: 30,
 };
 
 function freshOci(required: number): OnlineCheckin {
@@ -80,6 +84,8 @@ export const mockControl = {
       leakLevel2: false,
       requiredPeople: 2,
       latencyMs: 0,
+      noticeVersion: 'privacy-2026-10-v1',
+      retentionDays: 30,
       ...patch,
     });
     state.session = false;
@@ -170,6 +176,15 @@ function missingStep(): string | undefined {
 
 const CARD_RE = /\d[\d -]{11,}\d/;
 
+/** Every OnlineCheckin response carries the 0.3.6-addendum fields (unless a scenario removes them). */
+function oci(): OnlineCheckin {
+  return {
+    ...state.oci,
+    ...(scenario.noticeVersion ? { currentNoticeVersion: scenario.noticeVersion } : {}),
+    ...(scenario.retentionDays ? { imageRetentionDays: scenario.retentionDays } : {}),
+  };
+}
+
 export const handlers = [
   http.post('/v1/guest/sessions', async ({ request }) => {
     state.calls.push('openGuestSession');
@@ -218,7 +233,7 @@ export const handlers = [
   http.get('/v1/guest/online-checkin', async () => {
     const g = await guard('getOnlineCheckin');
     if (g) return g;
-    return HttpResponse.json(state.oci);
+    return HttpResponse.json(oci());
   }),
 
   http.put('/v1/guest/online-checkin', async ({ request }) => {
@@ -226,7 +241,7 @@ export const handlers = [
     if (g) return g;
     const body = (await request.json()) as Record<string, unknown>;
     if (body.noticeVersion !== undefined) {
-      if (body.noticeVersion !== CURRENT_NOTICE) {
+      if (body.noticeVersion !== scenario.noticeVersion) {
         return problem(422, 'VALIDATION_FAILED', {
           errors: [{ field: 'noticeVersion', code: 'NOT_IN_LIST' }],
         });
@@ -250,7 +265,7 @@ export const handlers = [
     if (typeof body.currentStep === 'string') {
       state.oci.currentStep = body.currentStep as OnlineCheckin['currentStep'];
     }
-    return HttpResponse.json(state.oci);
+    return HttpResponse.json(oci());
   }),
 
   http.post('/v1/guest/online-checkin/documents', async ({ request }) => {
@@ -261,6 +276,11 @@ export const handlers = [
     scenario.uploadFail = undefined;
     if (fail === 'network') return HttpResponse.error();
     if (fail === 'rate') return problem(429, 'RATE_LIMITED');
+    if (fail === 'busy') {
+      const r = problem(503, 'SERVICE_UNAVAILABLE');
+      r.headers.set('Retry-After', '1');
+      return r;
+    }
     if (fail === 'FILE_TYPE' || fail === 'TOO_MANY_FILES') {
       return problem(422, 'FILE_REJECTED', { errors: [{ field: 'image', code: fail }] });
     }
@@ -289,7 +309,7 @@ export const handlers = [
     const up = new Set(state.oci.uploadedPeople ?? []);
     up.add(personIndex);
     state.oci.uploadedPeople = [...up].sort((a, b) => a - b);
-    return HttpResponse.json(state.oci, { status: 201 });
+    return HttpResponse.json(oci(), { status: 201 });
   }),
 
   http.post('/v1/guest/consents', async ({ request }) => {
@@ -306,14 +326,20 @@ export const handlers = [
         errors: [{ field: 'personIndex', code: 'NOT_IN_LIST' }],
       });
     }
-    if (body.noticeVersion !== CURRENT_NOTICE) {
+    if (body.noticeVersion !== scenario.noticeVersion) {
       return problem(422, 'VALIDATION_FAILED', {
         errors: [{ field: 'noticeVersion', code: 'NOT_IN_LIST' }],
       });
     }
+    // 0.3.6 addendum (SEC ĐK-2 17/10): the days the guest read must be the current parameter.
+    if (body.retentionDays !== scenario.retentionDays) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'retentionDays', code: 'NOT_IN_LIST' }],
+      });
+    }
     state.consents.push(body);
     state.oci.consentRecorded = true;
-    return HttpResponse.json(state.oci, { status: 201 });
+    return HttpResponse.json(oci(), { status: 201 });
   }),
 
   http.post('/v1/guest/online-checkin/complete', async ({ request }) => {
@@ -340,7 +366,7 @@ export const handlers = [
     if (missing) return problem(409, 'INVALID_TRANSITION', { currentState: missing });
     state.oci.currentStep = 'done';
     state.oci.completedAt = '2026-10-16T20:10:00+07:00';
-    return HttpResponse.json(state.oci);
+    return HttpResponse.json(oci());
   }),
 
   // ĐK-1 tripwires: guest-web must never call these in R2.

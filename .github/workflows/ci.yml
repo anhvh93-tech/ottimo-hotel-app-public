@@ -1,7 +1,8 @@
 # CI for OTTIMO Desk (ADR-012). Code lives in product/; this file stays at the repo root.
 # Supply chain (FB-R1-SEC-OPS-04): every action is pinned to a commit SHA (tag in the comment),
 # images by digest; Dependabot (github-actions, docker) bumps both. Checkouts never keep the token.
-# R2 deploy job: put `permissions` (packages: write) on that job only, run it on push to main only.
+# Images + staging deploy: jobs publish-images / deploy-staging at the end (push to main only, opt-in by repository
+# variables); packages: write exists on publish-images only.
 name: CI
 
 on:
@@ -119,6 +120,20 @@ jobs:
       - name: Build
         run: pnpm build
 
+  infra-scripts:
+    # Server scripts run as root/deploy user on the VPS (infra/server): a quoting bug there is an outage.
+    name: infra scripts (shellcheck)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: shellcheck (warnings and errors)
+        run: |
+          shellcheck --version | head -2
+          shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
+            product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh
+
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
     # (they live in docs/api/openapi.test.yaml only). The bundle half runs in docker-build.
@@ -215,6 +230,16 @@ jobs:
           bash product/infra/ci/check-no-test-surface.sh bundle $dirs
       - name: Build web image
         run: docker build -f product/infra/docker/Dockerfile.web -t ottimo-web:ci product
+      # Staging/production files are checked on every PR (FB-R2-SEC-OPS-03 point 4): the compose file interpolates
+      # with the server template, and the production Caddyfile – run from the image just built, *.localhost names,
+      # internal CA, no Internet – serves CSP/HSTS/Referrer-Policy, 404 on blob/dot-file probes, 413 over 1 MB and
+      # masks /g/<token> in its log (infra/ci/check-caddy-prod.sh).
+      - name: Production compose config + Caddyfile.prod (headers, probes, body limit, log masking)
+        run: |
+          IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-config-check \
+            --env-file product/infra/server/env.example -f product/infra/docker-compose.prod.yml \
+            --profile deploy --profile seed config --quiet
+          bash product/infra/ci/check-caddy-prod.sh ottimo-web:ci
       - name: Smoke test GET /health against PostgreSQL (app role, same init scripts as dev)
         env:
           PG_IMAGE: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
@@ -301,10 +326,34 @@ jobs:
             echo 'API_STAFF_BASE_URL=http://localhost:8082'
             echo 'API_GUEST_BASE_URL=http://localhost:8083'
           } >> product/.env
-      # `migrate` (one-shot) runs first; api/worker wait for it to complete successfully.
-      - name: Start compose stack (postgres, migrate, api, worker, web)
+      # `db-roles` (one-shot, 02-roles.sh – SEC H3) then `migrate` (one-shot) run first; api/worker wait for both.
+      # On failure the reason is printed right here (ORC 16/10: run 38929255451 only said "api is unhealthy").
+      - name: Start compose stack (postgres, db-roles, migrate, api, worker, web)
         working-directory: product
-        run: docker compose --env-file .env -f infra/docker-compose.yml up --build --detach --wait --wait-timeout 300
+        run: |
+          dc() { docker compose --env-file .env -f infra/docker-compose.yml "$@"; }
+          if ! dc up --build --detach --wait --wait-timeout 300; then
+            echo "::error::compose stack did not become healthy – service states and logs follow"
+            dc ps --all
+            for s in db-roles migrate api worker web; do
+              echo "::group::logs $s"
+              dc logs --no-color --tail 200 "$s" || true
+              echo "::endgroup::"
+            done
+            exit 1
+          fi
+      # SEC s3-checklist H3: the runtime role limits must be in force on the stack the tests use.
+      - name: DB role limits applied (ottimo_app rolconfig)
+        working-directory: product
+        run: |
+          cfg=$(docker compose --env-file .env -f infra/docker-compose.yml exec -T postgres \
+            sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA' <<'SQL'
+          SELECT array_to_string(rolconfig, ',') FROM pg_roles WHERE rolname = 'ottimo_app';
+          SQL
+          )
+          echo "ottimo_app rolconfig: $cfg"
+          case ",$cfg," in *,idle_in_transaction_session_timeout=30s,*) ;; *) echo "::error::idle_in_transaction_session_timeout missing"; exit 1 ;; esac
+          case ",$cfg," in *,statement_timeout=15s,*) ;; *) echo "::error::statement_timeout missing"; exit 1 ;; esac
       # DS-E accounts qa.* (password = QA_SEED_PASSWORD of this run): without them every E2E login is 401 and
       # the harness used to retry until SR-RL-01 answered 429 (run 38887585274). QA, round-02 s1-report mục 8.
       - name: Load QA seed DS-E (one-shot, profile seed)
@@ -369,7 +418,14 @@ jobs:
       - name: Compose logs (on failure)
         if: failure()
         working-directory: product
-        run: docker compose --env-file .env -f infra/docker-compose.yml logs --no-color --tail 300
+        run: |
+          [ -f .env ] || exit 0
+          docker compose --env-file .env -f infra/docker-compose.yml ps --all || true
+          for s in api worker db-roles migrate web postgres; do
+            echo "::group::logs $s"
+            docker compose --env-file .env -f infra/docker-compose.yml logs --no-color --tail 300 "$s" || true
+            echo "::endgroup::"
+          done
       # Test data is fake (test-strategy section 4); reports hold no secrets (passwords are masked/not logged).
       - name: Upload Playwright report (on failure)
         if: failure()
@@ -388,3 +444,74 @@ jobs:
           [ -f .env ] || exit 0
           docker compose --env-file .env -f infra/docker-compose.yml down --volumes --remove-orphans
           rm -f .env
+
+  # ---- Images + staging deploy (R2, hosting-plan 6). Both jobs are OFF until the repository variables say so:
+  #   PUBLISH_IMAGES=true   push images to GHCR (private packages of this repository owner)
+  #   STAGING_DEPLOY=true   + STAGING_SSH_HOST (variable), STAGING_SSH_KEY / STAGING_SSH_KNOWN_HOSTS (secrets of the
+  #                         `staging` environment) – the key only runs infra/server/bin/deploy-from-ci.sh on the VPS
+  # Only pushes to main; packages: write exists in publish-images only (FB-R1-SEC-OPS-04).
+  publish-images:
+    name: publish images (GHCR)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+    needs: [build-test, docker-build, secrets-scan, test-surface-guard, contract-lint, api-contract, infra-scripts]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.build.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build (api production + api -test variant for staging + web)
+        id: build
+        run: |
+          owner=$(tr '[:upper:]' '[:lower:]' <<<"$GITHUB_REPOSITORY_OWNER")
+          tag="sha-${GITHUB_SHA::12}"
+          api="ghcr.io/$owner/ottimo-api"; web="ghcr.io/$owner/ottimo-web"
+          docker build -f product/infra/docker/Dockerfile.api -t "$api:$tag" product
+          docker build -f product/infra/docker/Dockerfile.api --build-arg INCLUDE_TEST_SUPPORT=1 -t "$api:$tag-test" product
+          docker build -f product/infra/docker/Dockerfile.web -t "$web:$tag" product
+          # The production tag must not contain test endpoints (BUG-R1-SEC-08) – same guard as docker-build.
+          rm -rf "$RUNNER_TEMP/b" && mkdir -p "$RUNNER_TEMP/b"
+          cid=$(docker create "$api:$tag"); docker cp "$cid:/app/dist" "$RUNNER_TEMP/b/dist"; docker rm "$cid" >/dev/null
+          bash product/infra/ci/check-no-test-surface.sh bundle "$RUNNER_TEMP/b/dist"
+          { echo "tag=$tag"; echo "api=$api"; echo "web=$web"; } >> "$GITHUB_OUTPUT"
+      - name: Push to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.build.outputs.tag }}
+          API: ${{ steps.build.outputs.api }}
+          WEB: ${{ steps.build.outputs.web }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$API:$TAG"; docker push "$API:$TAG-test"; docker push "$WEB:$TAG"
+          docker logout ghcr.io
+          echo "pushed $API:$TAG(-test), $WEB:$TAG"
+
+  deploy-staging:
+    name: deploy staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true' && vars.STAGING_DEPLOY == 'true'
+    needs: publish-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - name: Deploy over SSH (forced command deploy-from-ci.sh – the key cannot do anything else)
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          HOST: ${{ vars.STAGING_SSH_HOST }}
+          TAG: ${{ needs.publish-images.outputs.tag }}
+        run: |
+          [ -n "$HOST" ] && [ -n "$SSH_KEY" ] && [ -n "$KNOWN_HOSTS" ] || { echo "::error::STAGING_SSH_HOST / STAGING_SSH_KEY / STAGING_SSH_KNOWN_HOSTS missing"; exit 1; }
+          install -d -m 0700 ~/.ssh
+          ( umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key; printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts )
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            "ottimo@$HOST" "deploy $TAG"

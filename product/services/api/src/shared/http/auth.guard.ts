@@ -27,6 +27,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
+import { RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
 import { cookieNames, readCookie } from './cookies';
@@ -54,7 +55,15 @@ export interface AuthOptions {
   roleCacheMs?: number;
   /** Browser origins accepted on write methods (SR-SES-04). Empty/missing = not checked (dev/test only). */
   allowedOrigins?: AllowedOrigins;
+  /**
+   * SR-RL-09 (SEC-BE-35, s3-checklist H1): requests per staff user and minute (SSE opens included) before
+   * 429 RATE_LIMITED + Retry-After. Default 600 (security constant); tests may raise it.
+   */
+  staffRequestsPerMinute?: number;
 }
+
+/** SR-RL-09 default (security-requirements section 5). */
+export const STAFF_REQUESTS_PER_MINUTE = 600;
 
 export interface StaffPrincipal {
   kind: 'staff';
@@ -160,6 +169,35 @@ export class AuthGuard implements CanActivate, OnModuleInit {
 
   private csrfVerifier: CsrfVerifier | null | undefined;
   private guestResolverRef: GuestSessionResolver | null | undefined;
+  private limiterRef: RateLimiter | undefined;
+
+  /** SR-RL-09: one fixed-window counter per staff user (per api process – see rate-limiter.ts). */
+  private async rateLimit(req: GuardedRequest, p: StaffPrincipal): Promise<void> {
+    this.limiterRef ??= new RateLimiter(this.clock);
+    const rule = {
+      limit: this.options.staffRequestsPerMinute ?? STAFF_REQUESTS_PER_MINUTE,
+      windowMs: 60_000,
+    };
+    const key = `staff:${p.userId}`;
+    const wait = this.limiterRef.retryAfter(key, rule);
+    if (wait > 0) {
+      if (this.limiterRef.firstRefusal(key)) {
+        // One security event per user and window (not one per refused request).
+        await this.db.withContext(tenantOf(p), (tx) =>
+          this.audit.record(tx, {
+            category: 'security',
+            action: 'security.rate_limited',
+            entityType: 'app_user',
+            entityId: p.userId,
+            requestId: req.id,
+            sessionId: p.sessionId,
+          }),
+        );
+      }
+      throw problem('RATE_LIMITED', { headers: { 'Retry-After': String(wait) } });
+    }
+    this.limiterRef.hit(key, rule);
+  }
 
   /** The guest-portal module's resolver (GUEST_SESSION_RESOLVER), looked up once; null when absent. */
   private guestResolver(): GuestSessionResolver | null {
@@ -244,6 +282,7 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     }
 
     const principal = await this.authenticate(req);
+    await this.rateLimit(req, principal);
     await this.checkCsrf(req, operationId, principal);
     await this.checkTrustedDevice(req, operation, principal);
     const ifMatchVersion = this.checkPreconditionHeaders(req, operation);
@@ -260,9 +299,14 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       enforced: false,
       ...(ifMatchVersion !== undefined ? { ifMatchVersion } : {}),
     };
-    if (!allowed && !(await this.hasCompletedKey(req, operation, principal))) {
+    // SEC-BE-33 / ARC-BE-S3-04: a dry run never goes through the unit of work (nothing stored, nothing to
+    // replay) – the role decision applies here, before any handler reads data.
+    const body = req.body as { dryRun?: unknown } | null | undefined;
+    const dryRun =
+      operation.dryRun === true && !!body && typeof body === 'object' && body.dryRun === true;
+    if (dryRun || !operation.idempotencyKey) {
       await this.enforce(req);
-    } else if (!operation.idempotencyKey) {
+    } else if (!allowed && !(await this.hasCompletedKey(req, operation, principal))) {
       await this.enforce(req);
     }
     return true;
@@ -277,13 +321,18 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     if (!operation.idempotencyKey) return false;
     const key = header(req, 'idempotency-key');
     if (!key || !UUID.test(key)) return false;
+    // SEC-BE-33: only a replay of THIS request (same method + path) may defer the decision to the unit of work.
+    const url = req.url;
+    const q = url.indexOf('?');
+    const path = q < 0 ? url : url.slice(0, q);
     return this.db.withContext(
       tenantOf(p),
       async (tx) => {
         const r = await tx.query(
           `SELECT 1 FROM idempotency_key
-            WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND state = 'completed'`,
-          [p.userId, key],
+            WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND state = 'completed'
+              AND method = $3 AND path = $4`,
+          [p.userId, key, req.method.toUpperCase(), path],
         );
         return (r.rowCount ?? 0) > 0;
       },
@@ -434,9 +483,16 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   ): Promise<void> {
     if (!operation.trustedDevice) return;
     const token = readCookie(header(req, 'cookie'), this.names.device);
+    // SEC-BE-34 / SR-DEV-04 (D1): a staff PWA session is never on a trusted device, whatever cookie it carries
+    // (dev hosts share cookies across ports); a request Origin, when sent, must be admin-web's.
+    const adminOrigins = this.options.allowedOrigins?.admin ?? [];
+    const origin = header(req, 'origin');
+    const fromAdmin =
+      p.session?.clientOrigin !== 'staff_pwa' &&
+      (origin === undefined || adminOrigins.length === 0 || adminOrigins.includes(origin));
     let ok = false;
     let deviceId: string | null = null;
-    if (token && token.length >= 32 && p.propertyId) {
+    if (fromAdmin && token && token.length >= 32 && p.propertyId) {
       const rows = await this.db.entry(async (tx) => {
         const r = await tx.query<DeviceRow>('SELECT * FROM auth_resolve_device($1)', [
           sha256Hex(token),

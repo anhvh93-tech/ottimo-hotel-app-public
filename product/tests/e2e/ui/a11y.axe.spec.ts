@@ -3,70 +3,12 @@
 // được ghi vào annotation + file đính kèm (không làm đỏ) để FE/UXD xử lý dần.
 // TC: TC-X-040 (E – axe trên màn L1–L2, sáng/tối), TC-NT-026 (phần axe của hộp thoại). Màn H01–H12 theo
 // design/hifi/index.html. Không thay được kiểm tay VoiceOver/zoom 200 % (phần M của TC-X-040, TC-NT-026).
-import { AxeBuilder } from '@axe-core/playwright';
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
-import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
+import { SEED_PASSWORD } from '../support/env.js';
 import { bookFree, cleanupTracked, room, s2Context } from '../support/s2.js';
+import { go, scan } from './axe.js';
 import { UI, hasLoginForm, signIn, t } from './helpers.js';
-
-const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-const BLOCKING = new Set(['critical', 'serious']);
-
-async function settle(page: Page): Promise<void> {
-  await page.getByRole('main').first().waitFor({ timeout: 15_000 });
-  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
-  // Busy indicators (skeleton/spinner) gone before scanning
-  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, { timeout: 10_000 });
-}
-
-async function scan(page: Page, info: TestInfo, screen: string): Promise<void> {
-  // dialogs fade in: scanning mid-animation reports false contrast failures (opacity < 1)
-  await page
-    .waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), null, {
-      timeout: 5_000,
-    })
-    .catch(() => undefined);
-  const res = await new AxeBuilder({ page }).withTags(WCAG).analyze();
-  const brief = res.violations.map((v) => ({
-    id: v.id,
-    impact: v.impact,
-    help: v.help,
-    nodes: v.nodes.length,
-    targets: v.nodes.slice(0, 5).map((n) => n.target.join(' ')),
-    // color-contrast: fg/bg/ratio of the first nodes (for the bug report)
-    data: v.nodes
-      .slice(0, 5)
-      .map((n) => n.any[0]?.data as Record<string, unknown> | undefined)
-      .filter(Boolean)
-      .map((d) => `${d!.fgColor ?? ''} on ${d!.bgColor ?? ''} = ${d!.contrastRatio ?? ''}`),
-  }));
-  await info.attach(`axe-${screen}.json`, {
-    body: JSON.stringify(brief, null, 2),
-    contentType: 'application/json',
-  });
-  const minor = brief.filter((v) => !BLOCKING.has(v.impact ?? ''));
-  if (minor.length)
-    info.annotations.push({
-      type: 'axe-non-blocking',
-      description: `${screen}: ${minor.map((v) => `${v.id}(${v.impact}×${v.nodes})`).join(', ')}`,
-    });
-  const blocking = brief.filter((v) => BLOCKING.has(v.impact ?? ''));
-  expect(
-    blocking,
-    `${screen}: vi phạm critical/serious\n${blocking
-      .map(
-        (v) =>
-          `- ${v.id} [${v.impact}] ${v.help} ×${v.nodes}: ${v.targets.join(' | ')} ${v.data.join('; ')}`,
-      )
-      .join('\n')}`,
-  ).toEqual([]);
-}
-
-async function go(page: Page, path: string): Promise<void> {
-  await page.goto(`${WEB_URL}${path}`);
-  await settle(page);
-}
 
 test.describe('a11y axe – admin-web H01–H12', { tag: ['@ui', '@a11y'] }, () => {
   test.skip(!UI, 'Chạy với E2E_UI=1');

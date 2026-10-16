@@ -2,7 +2,7 @@ import type { ReservationStatus } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Button, Chip, StateView } from '@ottimo/ui';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { useLiveReload } from '../../app/live';
@@ -46,7 +46,9 @@ function ReservationsList({ openId }: { openId: string | null }) {
   const navigate = useNavigate();
   const fd = roles.some((r) => FD_PLUS.includes(r));
   const [filter, setFilter] = useState<Filter>('active');
-  const [q, setQ] = useState('');
+  // FE-S3-21: H04 links here with `?q=<room>` after a stop-sale warning.
+  const [search] = useSearchParams();
+  const [q, setQ] = useState(search.get('q') ?? '');
   const query = useDebounced(q.trim(), 300);
   const [dialog, setDialog] = useState<'booking' | 'long' | null>(null);
   const { state, reload } = useResource(

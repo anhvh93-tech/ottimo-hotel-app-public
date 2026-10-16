@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PORTAL_VALUE_VI } from '../src/generated/portal-copy';
+import { ALPHA3_TO_ALPHA2, countryNameVi } from '../src/modules/registration/internal/countries';
 import {
   ageAt,
   computeChecks,
@@ -15,6 +16,10 @@ import {
   isBlocking,
   nameMatch,
   nextStatus,
+  docNumberCandidates,
+  formatNationality,
+  formatPortalDate,
+  hasLongDigitRun,
   portalClipboard,
   portalFields,
   registrationDeadline,
@@ -314,10 +319,12 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
       label: 'reg.field.passport_number',
       value: 'C01X00T47',
     });
-    expect(by['reg.field.departure_date']?.value).toBe('2026-10-18'); // BR-605
+    expect(by['reg.field.departure_date']?.value).toBe('18/10/2026'); // BR-605, DOM S3-5 dd/MM/yyyy
+    expect(by['reg.field.date_of_birth']?.value).toBe('12/04/1990');
+    expect(by['reg.field.nationality']?.value).toBe('Đức (DEU)');
     const clip = portalClipboard([{ fields: f }]);
     expect(clip.split('\t')).toHaveLength(15);
-    expect(clip).toContain('\tNữ\tDEU\t');
+    expect(clip).toContain('\tNữ\tĐức (DEU)\t');
     expect(clip).not.toContain('Không có'); // the "empty" hint is for the screen, never pasted
   });
 
@@ -331,7 +338,34 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
     expect(f).toHaveLength(8);
     expect(f.find((x) => x.label === 'reg.field.gender')?.value).toBe('Nam');
     expect(f.some((x) => x.label.startsWith('reg.field.visa'))).toBe(false);
-    expect(f.find((x) => x.label === 'reg.field.departure_date')?.value).toBe('2026-10-20');
+    expect(f.find((x) => x.label === 'reg.field.departure_date')?.value).toBe('20/10/2026');
+  });
+
+  it('DOM S3-5: formats are parameters – ISO date and bare alpha-3 when OWN/MGR choose them', () => {
+    const f = portalFields('foreigner_temp_residence', person, {
+      date: 'yyyy-MM-dd',
+      nationality: 'alpha3',
+    });
+    const by = Object.fromEntries(f.map((x) => [x.label, x.value]));
+    expect(by['reg.field.date_of_birth']).toBe('1990-04-12');
+    expect(by['reg.field.nationality']).toBe('DEU');
+    expect(by['reg.field.arrival_date']).toBe('2026-10-15');
+    expect(formatPortalDate('2026-10-20', 'dd/MM/yyyy')).toBe('20/10/2026');
+    expect(formatPortalDate(null, 'dd/MM/yyyy')).toBeNull();
+    expect(formatNationality('KOR', 'name_vi_alpha3')).toBe('Hàn Quốc (KOR)');
+    expect(formatNationality('ZZZ', 'name_vi_alpha3')).toBe('ZZZ'); // unknown code: never invent a name
+  });
+
+  it('countries: every alpha-3 entry has a Vietnamese CLDR name; MRZ special codes map to GB / XK', () => {
+    expect(ALPHA3_TO_ALPHA2.size).toBeGreaterThanOrEqual(249);
+    const missing = [...ALPHA3_TO_ALPHA2.keys()].filter((a3) => !countryNameVi(a3));
+    expect(missing).toEqual([]);
+    expect(countryNameVi('DEU')).toBe('Đức');
+    expect(countryNameVi('VNM')).toBe('Việt Nam');
+    for (const a3 of ['GBD', 'GBN', 'GBO', 'GBP', 'GBS'])
+      expect(ALPHA3_TO_ALPHA2.get(a3)).toBe('GB');
+    expect(ALPHA3_TO_ALPHA2.get('RKS')).toBe('XK');
+    expect(new Set(ALPHA3_TO_ALPHA2.values()).size).toBeGreaterThanOrEqual(247);
   });
 
   it('the Vietnamese words come from design/copy/strings-vi.json (generated file up to date)', () => {
@@ -348,5 +382,42 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
         },
       ),
     ).not.toThrow();
+  });
+});
+
+describe('document numbers in staff notes (SEC FB-R2-SEC-BE-48)', () => {
+  it('six digits or more in a row, separators ignored → sensitive', () => {
+    for (const note of [
+      'CCCD 079123456789',
+      '079 123 456 789',
+      '079.123.456.789',
+      '079-123-456-789',
+      'CCCD079123456789',
+      'mã cửa 123 456',
+    ]) {
+      expect({ note, hit: hasLongDigitRun(note) }).toEqual({ note, hit: true });
+    }
+    for (const note of [
+      'Người đi cùng, đã đối chiếu bản gốc',
+      'Phòng 202, 2 khách',
+      'Đến 22:30 ngày 20/10',
+    ]) {
+      expect({ note, hit: hasLongDigitRun(note) }).toEqual({ note, hit: false });
+    }
+  });
+
+  it('candidates: windows ending with a known last-4 after removing separators (prefix glued, other person)', () => {
+    const last4 = new Set(['0T47', '6789']);
+    expect(docNumberCandidates('hộ chiếu C01X-00T47 của người đi cùng', last4)).toContain(
+      'C01X00T47',
+    );
+    expect(docNumberCandidates('CCCD079123456789', last4)).toContain('079123456789');
+    expect(docNumberCandidates('số P 777 777', last4)).toEqual([]);
+    // Every candidate ends with a known last-4 and is 3..30 characters long.
+    for (const c of docNumberCandidates('ABC C01X00T47 XYZ 0123456789', last4)) {
+      expect(c.length).toBeGreaterThanOrEqual(3);
+      expect(c.length).toBeLessThanOrEqual(30);
+      expect([...last4].some((l) => c.endsWith(l) || l.endsWith(c))).toBe(true);
+    }
   });
 });

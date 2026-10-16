@@ -6,11 +6,11 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
-import type { Tx } from '../../../db/database';
+import { type Tx, pgCode } from '../../../db/database';
 import type { StaffPrincipal } from '../../../shared/http/auth.guard';
 import { assertVersion } from '../../../shared/http/precondition';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate, localDate, toZonedIso } from '../../../shared/time';
+import { type LocalDate, businessDate, localDate, toZonedIso } from '../../../shared/time';
 import { containsCardNumber } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
@@ -53,16 +53,43 @@ import {
   computeChecks,
   deadlineLabel,
   docNumberCandidates,
+  hasLongDigitRun,
   isBlocking,
   isForeigner,
   nextStatus,
   type PortalField,
+  type PortalFormat,
   portalClipboard,
   portalFields,
   registrationDeadline,
   visaAlertOn,
 } from './rules';
-import { type StayView, bookingsWithoutRegistration, readStay, readStays } from './stay-reader';
+import { onlineCheckinSummary } from '../../guest-portal/public/online-checkin.read';
+import { DEFAULT_PORTAL_URLS, PORTAL_URLS, type PortalUrls } from './portal-config';
+import {
+  SYSTEM_ACTOR,
+  type StayView,
+  bookingsWithoutRegistration,
+  readStay,
+  readStays,
+} from './stay-reader';
+
+/** A party member id that is not a person of this booking (FK 0053) → 422 NOT_IN_LIST, never 500. */
+async function partyMember<T>(write: Promise<T>): Promise<T> {
+  try {
+    return await write;
+  } catch (err) {
+    if (
+      pgCode(err) === '23503' &&
+      (err as { constraint?: string }).constraint === 'guest_document_party_member_fk'
+    ) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
+      });
+    }
+    throw err;
+  }
+}
 
 /** SR-FILE-02: images per person (technical constant). */
 export const MAX_IMAGES_PER_PERSON = 4;
@@ -74,7 +101,8 @@ export type ImageDeleteReason =
   | 'guest_request'
   | 'void'
   | 'replaced'
-  | 'party_removed';
+  | 'party_removed'
+  | 'unconfirmed';
 
 const POLICY_OF: Record<ImageDeleteReason, string> = {
   retention: 'T02',
@@ -84,6 +112,7 @@ const POLICY_OF: Record<ImageDeleteReason, string> = {
   void: 'T01',
   replaced: 'replaced',
   party_removed: 'party_removed',
+  unconfirmed: 'SR-RET-02',
 };
 const SUMMARY_REASONS: readonly string[] = [
   'retention',
@@ -94,6 +123,8 @@ const SUMMARY_REASONS: readonly string[] = [
 ];
 
 const OPEN_STATUSES: readonly string[] = ['none', 'pre', 'partial', 'review'];
+/** Technical cap of open registrations read for one list (a 10-room property has tens). */
+const OPEN_CAP = 1000;
 const VOIDABLE: readonly string[] = ['none', 'pre', 'partial', 'review', 'scanned'];
 const AFTER_CONFIRMED: readonly string[] = ['confirmed', 'needs_update', 'updated'];
 
@@ -121,6 +152,7 @@ export class RegistrationService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional() @Inject(AttachmentService) private readonly attachments?: AttachmentService,
+    @Optional() @Inject(PORTAL_URLS) private readonly portalUrls: PortalUrls = DEFAULT_PORTAL_URLS,
   ) {}
 
   // ───────────────────────── context helpers ─────────────────────────
@@ -162,7 +194,7 @@ export class RegistrationService {
     if (existing.rows[0]) return existing.rows[0];
     let persons = personsTotal;
     if (persons === undefined) {
-      const stay = await readStay(tx, reservationId);
+      const stay = await readStay(tx, reservationId, SYSTEM_ACTOR);
       if (!stay || stay.parentReservationId) return null; // extension child: no record (BR-608)
       persons = stay.personsTotal;
     }
@@ -202,7 +234,7 @@ export class RegistrationService {
     opts: { requestId?: string; bump?: boolean } = {},
   ): Promise<RegRow> {
     const c = await this.ctx(tx);
-    const stay = await readStay(tx, reg.reservation_id);
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const docs = await documentsOf(tx, reg.id);
     const complete = docs.filter(isComplete);
@@ -350,8 +382,9 @@ export class RegistrationService {
   // ───────────────────────── image purge (C5) ─────────────────────────
 
   /**
-   * Crypto-shredding of images (SEC C5): destroy DEK + delete blob + purge_journal + c3_access_log `purge`
-   * (actor = transaction actor: user, guest or system) – same transaction.
+   * Crypto-shredding of images (SEC C5): destroy DEK + purge_journal + c3_access_log `purge` (actor =
+   * transaction actor: user, guest or system) in the same transaction; the ciphertext file is deleted after
+   * COMMIT (EncryptedBlobService queue – ARC FB-S3-17). Skipped entirely under `legal_hold`.
    */
   async purgeImages(
     tx: Tx,
@@ -360,6 +393,12 @@ export class RegistrationService {
     reason: ImageDeleteReason,
     opts: { requestId?: string; sessionId?: string; trustedDeviceId?: string } = {},
   ): Promise<number> {
+    // SEC legal_hold (erd 4.7): no automatic or requested purge while a hold is set (ARC FB-S3-27 (1)).
+    const hold = await tx.query<{ legal_hold: boolean }>(
+      'SELECT legal_hold FROM registration WHERE id = $1',
+      [reg.id],
+    );
+    if (hold.rows[0]?.legal_hold) return 0;
     const now = this.clock.now();
     let n = 0;
     for (const img of images) {
@@ -420,7 +459,7 @@ export class RegistrationService {
     let reg = await lockRegistration(tx, registrationId);
     if (!reg) throw problem('NOT_FOUND');
     if (reg.status === 'void') throw problem('INVALID_TRANSITION');
-    const stay = await readStay(tx, reg.reservation_id);
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const c = await this.ctx(tx);
     const docs = await documentsOf(tx, reg.id);
@@ -458,34 +497,36 @@ export class RegistrationService {
     });
     const enc = await encryptFields(tx, this.crypto, docId, dataKeyId, input);
     const cols = Object.values(ENC_COLUMNS);
-    await tx.query(
-      `INSERT INTO guest_document (id, organization_id, property_id, registration_id, reservation_id,
+    await partyMember(
+      tx.query(
+        `INSERT INTO guest_document (id, organization_id, property_id, registration_id, reservation_id,
          party_member_id, doc_type, is_main, is_foreigner, is_minor_data, full_name_on_doc, nationality_code,
          gender, doc_number_last4, doc_number_hmac, capture_method, data_key_id, created_at, created_by,
          updated_at, ${cols.join(', ')})
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'manual', $16, $17, $18, $17,
          ${cols.map((_, i) => `$${19 + i}`).join(', ')})`,
-      [
-        docId,
-        tx.ctx.organizationId,
-        tx.ctx.propertyId,
-        reg.id,
-        reg.reservation_id,
-        input.partyMemberId,
-        input.docType,
-        isMain,
-        isForeigner(input.docType, input.nationalityCode),
-        minor,
-        input.fullNameOnDoc,
-        input.nationalityCode,
-        input.gender,
-        input.docNumber.slice(-4),
-        hmac,
-        dataKeyId,
-        c.now,
-        actor.principal.userId,
-        ...cols.map((col) => enc[col]),
-      ],
+        [
+          docId,
+          tx.ctx.organizationId,
+          tx.ctx.propertyId,
+          reg.id,
+          reg.reservation_id,
+          input.partyMemberId,
+          input.docType,
+          isMain,
+          isForeigner(input.docType, input.nationalityCode),
+          minor,
+          input.fullNameOnDoc,
+          input.nationalityCode,
+          input.gender,
+          input.docNumber.slice(-4),
+          hmac,
+          dataKeyId,
+          c.now,
+          actor.principal.userId,
+          ...cols.map((col) => enc[col]),
+        ],
+      ),
     );
     await this.storeImages(tx, reg, docId, images, 'desk', actor.principal.userId);
     await this.gate.record(tx, actor.principal, {
@@ -575,7 +616,7 @@ export class RegistrationService {
     if (!doc || doc.purged_at) throw problem('NOT_FOUND');
     assertVersion(reg.version, expectedVersion);
     if (reg.status === 'void') throw problem('INVALID_TRANSITION');
-    const stay = await readStay(tx, reg.reservation_id);
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const c = await this.ctx(tx);
     const docs = await documentsOf(tx, reg.id);
@@ -598,27 +639,29 @@ export class RegistrationService {
     const enc = await encryptFields(tx, this.crypto, doc.id, doc.data_key_id, input);
     const set = encSetSql(12);
     const minor = await this.isMinor(tx, input, stay.arrivalDate, c.today);
-    await tx.query(
-      `UPDATE guest_document SET doc_type = $2, is_main = $3, is_foreigner = $4, is_minor_data = $5,
+    await partyMember(
+      tx.query(
+        `UPDATE guest_document SET doc_type = $2, is_main = $3, is_foreigner = $4, is_minor_data = $5,
               full_name_on_doc = $6, nationality_code = $7, gender = $8, doc_number_last4 = $9,
               doc_number_hmac = $10, party_member_id = COALESCE($11, party_member_id), ${set.sql},
               updated_at = $${12 + set.columns.length}
         WHERE id = $1`,
-      [
-        doc.id,
-        input.docType,
-        isMain,
-        isForeigner(input.docType, input.nationalityCode),
-        minor,
-        input.fullNameOnDoc,
-        input.nationalityCode,
-        input.gender,
-        input.docNumber.slice(-4),
-        hmac,
-        input.partyMemberId,
-        ...set.columns.map((col) => enc[col]),
-        c.now,
-      ],
+        [
+          doc.id,
+          input.docType,
+          isMain,
+          isForeigner(input.docType, input.nationalityCode),
+          minor,
+          input.fullNameOnDoc,
+          input.nationalityCode,
+          input.gender,
+          input.docNumber.slice(-4),
+          hmac,
+          input.partyMemberId,
+          ...set.columns.map((col) => enc[col]),
+          c.now,
+        ],
+      ),
     );
     await this.gate.record(tx, actor.principal, {
       subjectType: 'guest_document',
@@ -637,15 +680,19 @@ export class RegistrationService {
 
   /** rbac note 30 / EP06 0: a reason is needed outside the open flow of the booking. */
   private async assertReason(tx: Tx, reg: RegRow, reason: ReasonCode | null): Promise<void> {
-    if (reason) return;
-    const stay = await readStay(tx, reg.reservation_id);
+    if (reason === 'recheck' || reason === 'guest_request' || reason === 'authority_request')
+      return;
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     const closed =
       AFTER_CONFIRMED.includes(reg.status) ||
       reg.status === 'void' ||
       !stay ||
       ['checked_out', 'cancelled', 'no_show'].includes(stay.status);
-    if (closed)
-      throw problem('VALIDATION_FAILED', { errors: [{ field: 'reason', code: 'REQUIRED' }] });
+    if (!closed) return;
+    // Outside the open flow only the three access reasons count (`registration` would bypass B4 – SEC BE-48).
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'reason', code: reason ? 'NOT_IN_LIST' : 'REQUIRED' }],
+    });
   }
 
   async sensitive(
@@ -762,6 +809,7 @@ export class RegistrationService {
     const reg = await lockRegistration(tx, registrationId);
     if (!reg) throw problem('NOT_FOUND');
     assertVersion(reg.version, expectedVersion);
+    if (reg.legal_hold) throw problem('INVALID_TRANSITION', { detail: 'legal hold' });
     const live = (await imagesOf(tx, reg.id)).filter((i) => !i.deleted_at);
     if (live.length === 0) throw problem('INVALID_TRANSITION', { detail: 'images already purged' });
     await this.purgeImages(tx, reg, live, reason, {
@@ -797,6 +845,8 @@ export class RegistrationService {
       locale: string;
       channel: 'desk' | 'paper' | 'guest_app';
       personIndex: number | null;
+      /** Days the person read in the P02b sentence (= `id_image_retention_days_after_checkout` now). */
+      retentionDays: number;
     },
   ): Promise<RegRow> {
     const consents = await consentsOf(tx, reg.id);
@@ -815,8 +865,8 @@ export class RegistrationService {
     await tx.query(
       `INSERT INTO consent_record (id, organization_id, property_id, registration_id, guest_document_id,
          party_member_id, person_index, purpose, decision, notice_version, locale, channel, recorded_by_type,
-         recorded_by, recorded_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'P02B_ID_IMAGE_RETENTION', $8, $9, $10, $11, $12, $13, $14)`,
+         recorded_by, recorded_at, retention_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'P02B_ID_IMAGE_RETENTION', $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         uuidv7(),
         tx.ctx.organizationId,
@@ -832,6 +882,7 @@ export class RegistrationService {
         actor.type,
         actor.type === 'user' ? actor.userId : null,
         now,
+        input.retentionDays,
       ],
     );
     let out = reg;
@@ -868,26 +919,91 @@ export class RegistrationService {
     return out;
   }
 
-  /** BR-610/T02: images of consenting people are kept until checkout + retention days. */
-  private async scheduleRetention(tx: Tx, reg: RegRow, docIds: readonly string[]): Promise<void> {
-    if (docIds.length === 0) return;
-    const checkout = reg.actual_checkout_at;
-    if (!checkout) return; // set at checkout (onCheckedOut)
+  /** P02b days that apply to a person: min(days read at consent, parameter now) – SEC ĐK-2 17/10. */
+  async retentionDaysParam(tx: Tx): Promise<number> {
     const c = await this.ctx(tx);
-    const days = await this.params.get<number>(
+    // Same date as guest-web's OnlineCheckin.imageRetentionDays: the property's BUSINESS date (BR-010).
+    const rollover = await this.params.get<string>(tx, 'business_day_rollover', c.today);
+    return this.params.get<number>(
       tx,
       'id_image_retention_days_after_checkout',
-      c.today,
+      businessDate(c.now, c.tz, rollover),
     );
-    const until = new Date(checkout.getTime() + days * 86_400_000);
+  }
+
+  /**
+   * BR-610/T02: images of consenting people are kept until the end of the stay + min(days they read,
+   * days in force). `endedAt` = checkout / early departure / end by cancellation; without it nothing is
+   * scheduled yet (the stay is still running).
+   */
+  private async scheduleRetention(
+    tx: Tx,
+    reg: RegRow,
+    docIds: readonly string[],
+    endedAt: Date | null = reg.stay_ended_at ?? reg.actual_checkout_at,
+  ): Promise<void> {
+    if (docIds.length === 0 || !endedAt) return;
+    const param = await this.retentionDaysParam(tx);
+    const consents = await consentsOf(tx, reg.id);
+    const docs = (await documentsOf(tx, reg.id)).filter((d) => docIds.includes(d.id));
+    let latest: Date | null = null;
+    for (const d of docs) {
+      const read = latestConsent(consents, d)?.retention_days ?? param;
+      const until = new Date(endedAt.getTime() + Math.min(read, param) * 86_400_000);
+      await tx.query(
+        `UPDATE document_image SET delete_after = $2 WHERE guest_document_id = $1 AND deleted_at IS NULL`,
+        [d.id, until],
+      );
+      if (!latest || until > latest) latest = until;
+    }
+    if (latest) {
+      await tx.query(
+        `UPDATE registration SET image_retention_until = $2,
+                images_purge_scheduled_at = LEAST(COALESCE(images_purge_scheduled_at, $2), $2)
+          WHERE id = $1`,
+        [reg.id, latest],
+      );
+    }
+  }
+
+  /**
+   * End of the stay (checkout, early departure, cancellation of a declaration in progress) – SEC
+   * FB-R2-SEC-BE-32, SR-RET-02: EVERY live image gets a deadline. Declared (`confirmed`…): consenting
+   * people → T02 (above); anyone else → now (J16 T01). Not declared: everybody → end +
+   * `id_image_unconfirmed_max_days` (≤ 7); a later K7 re-schedules consenting people to T02.
+   */
+  private async scheduleAfterStay(tx: Tx, reg: RegRow, endedAt: Date): Promise<void> {
     await tx.query(
-      `UPDATE document_image SET delete_after = $2
-        WHERE guest_document_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
-      [docIds, until],
+      'UPDATE registration SET stay_ended_at = COALESCE(stay_ended_at, $2) WHERE id = $1',
+      [reg.id, endedAt],
+    );
+    const ended = { ...reg, stay_ended_at: reg.stay_ended_at ?? endedAt };
+    const docs = await documentsOf(tx, reg.id);
+    if (AFTER_CONFIRMED.includes(reg.status)) {
+      const drop = this.noKeepDocs(docs, await consentsOf(tx, reg.id));
+      await this.scheduleRetention(
+        tx,
+        ended,
+        docs.filter((d) => !drop.has(d.id)).map((d) => d.id),
+        ended.stay_ended_at,
+      );
+      await tx.query(
+        `UPDATE document_image SET delete_after = LEAST(COALESCE(delete_after, $2), $2)
+          WHERE registration_id = $1 AND deleted_at IS NULL AND guest_document_id = ANY($3::uuid[])`,
+        [reg.id, endedAt, [...drop]],
+      );
+      return;
+    }
+    const c = await this.ctx(tx);
+    const days = await this.params.get<number>(tx, 'id_image_unconfirmed_max_days', c.today);
+    const until = new Date(endedAt.getTime() + days * 86_400_000);
+    await tx.query(
+      `UPDATE document_image SET delete_after = LEAST(COALESCE(delete_after, $2), $2)
+        WHERE registration_id = $1 AND deleted_at IS NULL`,
+      [reg.id, until],
     );
     await tx.query(
-      `UPDATE registration SET image_retention_until = $2,
-              images_purge_scheduled_at = LEAST(COALESCE(images_purge_scheduled_at, $2), $2)
+      `UPDATE registration SET images_purge_scheduled_at = LEAST(COALESCE(images_purge_scheduled_at, $2), $2)
         WHERE id = $1`,
       [reg.id, until],
     );
@@ -924,7 +1040,7 @@ export class RegistrationService {
     }
     const noteErr = checkNoteError(input.note);
     if (noteErr) errors.push({ field: 'note', code: noteErr });
-    else if (this.noteHasDocNumber(input.note, doc)) {
+    else if (this.noteIsSensitive(input.note, await documentsOf(tx, reg.id))) {
       errors.push({ field: 'note', code: 'SENSITIVE_DATA_DETECTED' });
     }
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
@@ -977,9 +1093,17 @@ export class RegistrationService {
   }
 
   /** V-09 spirit: a handling note must not repeat the document number (blind-index comparison). */
-  private noteHasDocNumber(note: string, doc: DocRow): boolean {
-    if (!doc.doc_number_hmac) return false;
-    return docNumberCandidates(note).some((t) => this.crypto.blindIndex(t) === doc.doc_number_hmac);
+  /**
+   * A staff note must not carry document numbers or other long numbers (SEC BE-48, B-15): ≥ 6 digits in a
+   * row after removing spaces/dots/dashes, or any window matching (blind index) a number of ANY document of
+   * this declaration – separators and prefixes do not hide it.
+   */
+  private noteIsSensitive(note: string, docs: readonly DocRow[]): boolean {
+    if (hasLongDigitRun(note)) return true;
+    const hmacs = new Set(docs.map((d) => d.doc_number_hmac).filter((h): h is string => !!h));
+    const last4s = new Set(docs.map((d) => d.doc_number_last4).filter((l): l is string => !!l));
+    if (hmacs.size === 0) return false;
+    return docNumberCandidates(note, last4s).some((t) => hmacs.has(this.crypto.blindIndex(t)));
   }
 
   async completeReview(
@@ -1011,7 +1135,7 @@ export class RegistrationService {
       }
       const noteErr = checkNoteError(n.note);
       if (noteErr) errors.push({ field: `warningNotes[${i}].note`, code: noteErr });
-      else if (this.noteHasDocNumber(n.note, doc)) {
+      else if (this.noteIsSensitive(n.note, docs)) {
         errors.push({ field: `warningNotes[${i}].note`, code: 'SENSITIVE_DATA_DETECTED' });
       }
       if (check.result === 'fail' && n.manualResult) {
@@ -1177,6 +1301,11 @@ export class RegistrationService {
             errors: [{ field: 'rejectedReason', code: 'CARD_NUMBER_DETECTED' }],
           });
         }
+        if (this.noteIsSensitive(reason, await documentsOf(tx, reg.id))) {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: 'rejectedReason', code: 'SENSITIVE_DATA_DETECTED' }],
+          });
+        }
         reg = await this.moveTo(tx, reg, 'scanned', 'K8', {
           set: 'rejected_reason = $4',
           params: [reason],
@@ -1187,7 +1316,7 @@ export class RegistrationService {
       case 'mark-updated': {
         if (reg.status !== 'needs_update') throw problem('INVALID_TRANSITION');
         const d = body.actualDepartureDate;
-        const stay = await readStay(tx, reg.reservation_id);
+        const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
         if (!d) {
           throw problem('VALIDATION_FAILED', {
             errors: [{ field: 'actualDepartureDate', code: 'REQUIRED' }],
@@ -1249,7 +1378,7 @@ export class RegistrationService {
     }
     kind ??=
       reg.kind === 'foreigner_temp_residence' ? 'foreigner_temp_residence' : 'vn_citizen_stay';
-    const stay = await readStay(tx, reg.reservation_id);
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const docs = (await documentsOf(tx, reg.id)).filter(
       (d) => isComplete(d) && d.is_foreigner === (kind === 'foreigner_temp_residence'),
@@ -1270,33 +1399,57 @@ export class RegistrationService {
       },
       { stepUp: true },
     );
+    // DOM S3-5 [GIẢ ĐỊNH – chờ INV, ESC-018]: formats are parameters; "Ngày đến" = calendar date (property
+    // time) of the ACTUAL check-in (BR-602, BR-417 (4), DOM BE-22), the booking's date before check-in.
+    const c = await this.ctx(tx);
+    const format: PortalFormat = {
+      date: await this.params.get<PortalFormat['date']>(tx, 'portal_date_format', c.today),
+      nationality: await this.params.get<PortalFormat['nationality']>(
+        tx,
+        'portal_nationality_format',
+        c.today,
+      ),
+    };
+    const checkedInAt = reg.actual_checkin_at ?? stay.actualCheckinAt;
+    const arrivalDate = checkedInAt ? localDate(checkedInAt, c.tz) : stay.arrivalDate;
     const people: Array<{ fields: PortalField[] }> = [];
     for (const doc of docs) {
-      const f = await decryptFields(tx, this.crypto, doc);
+      let f: Awaited<ReturnType<typeof decryptFields>>;
+      try {
+        f = await decryptFields(tx, this.crypto, doc);
+      } catch (err) {
+        // Purged meanwhile (DEK destroyed): nothing to return – 404, never 500 (ARC FB-S3-27 (4)).
+        if (err instanceof DataKeyDestroyedError) throw problem('NOT_FOUND');
+        throw err;
+      }
       people.push({
-        fields: portalFields(kind, {
-          fullNameOnDoc: doc.full_name_on_doc,
-          dateOfBirth: f.dateOfBirth,
-          gender: doc.gender,
-          nationalityCode: doc.nationality_code,
-          docNumber: f.docNumber,
-          passportExpiryDate: f.passportExpiryDate,
-          visaKind: f.visaKind,
-          visaNumber: f.visaNumber,
-          visaValidUntil: f.visaValidUntil,
-          entryDate: f.entryDate,
-          entryPort: f.entryPort,
-          entryPurpose: f.entryPurpose,
-          address: f.address,
-          arrivalDate: stay.arrivalDate,
-          departureDate: reg.actual_departure_date ?? stay.departureDate,
-          roomNo: stay.roomNo,
-        }),
+        fields: portalFields(
+          kind,
+          {
+            fullNameOnDoc: doc.full_name_on_doc,
+            dateOfBirth: f.dateOfBirth,
+            gender: doc.gender,
+            nationalityCode: doc.nationality_code,
+            docNumber: f.docNumber,
+            passportExpiryDate: f.passportExpiryDate,
+            visaKind: f.visaKind,
+            visaNumber: f.visaNumber,
+            visaValidUntil: f.visaValidUntil,
+            entryDate: f.entryDate,
+            entryPort: f.entryPort,
+            entryPurpose: f.entryPurpose,
+            address: f.address,
+            arrivalDate,
+            departureDate: reg.actual_departure_date ?? stay.departureDate,
+            roomNo: stay.roomNo,
+          },
+          format,
+        ),
       });
     }
     return {
       kind,
-      portalUrl: PORTAL_URLS[kind],
+      portalUrl: this.portalUrls[kind],
       people,
       clipboardText: portalClipboard(people),
     };
@@ -1304,6 +1457,12 @@ export class RegistrationService {
 
   // ───────────────────────── reads (DTO) ─────────────────────────
 
+  /**
+   * listRegistrations without reading the reservations tables (ARC FB-S3-15 (e)): candidate registrations
+   * come from this module, booking facts through BE-A's stay-view port. Open registrations of a property are
+   * tens of rows, so the "action needed" filter + order by arrival run in memory over at most OPEN_CAP rows;
+   * `all` pages by registration id (keyset in SQL). Read-only (no backfill here – J16 does it).
+   */
   async list(
     tx: Tx,
     view: 'action_needed' | 'needs_update' | 'all',
@@ -1311,35 +1470,61 @@ export class RegistrationService {
     limit: number,
   ): Promise<{ rows: Array<Record<string, unknown>>; keys: Array<[string, string]> }> {
     const c = await this.ctx(tx);
-    const filter =
-      view === 'needs_update'
-        ? `x.status = 'needs_update' AND $1::date IS NOT NULL`
-        : view === 'action_needed'
-          ? `x.status IN ('none', 'pre', 'partial', 'review', 'scanned', 'sent')
-             AND (r.status = 'in_house' OR (r.status = 'confirmed' AND r.arrival_date <= $1::date))`
-          : '$1::date IS NOT NULL';
-    const { rows } = await tx.query<{ id: string; arrival_date: string }>(
-      `SELECT x.id, r.arrival_date::text FROM registration x JOIN reservation r ON r.id = x.reservation_id
-        WHERE ${filter}
-          AND ($2::date IS NULL OR (r.arrival_date, x.id) > ($2::date, $3::uuid))
-        ORDER BY r.arrival_date, x.id LIMIT $4`,
-      [c.today, cursor?.[0] ?? null, cursor?.[1] ?? null, limit + 1],
-    );
-    const regs: RegRow[] = [];
-    for (const r of rows) {
-      const reg = await readRegistration(tx, r.id);
-      if (reg) regs.push(reg);
+    const deadline = await this.deadlineParams(tx, c.today).catch(() => null);
+    if (view === 'all') {
+      const { rows } = await tx.query<RegRow>(
+        `SELECT ${REG_COLUMNS} FROM registration WHERE ($1::uuid IS NULL OR id > $1::uuid)
+          ORDER BY id LIMIT $2`,
+        [cursor?.[1] ?? null, limit + 1],
+      );
+      const stays = await readStays(
+        tx,
+        rows.map((r) => r.reservation_id),
+        SYSTEM_ACTOR,
+      );
+      return {
+        rows: rows.map((reg) =>
+          this.summary(reg, stays.get(reg.reservation_id) ?? null, c, deadline),
+        ),
+        keys: rows.map((r) => [r.id, r.id]),
+      };
     }
+    const statuses =
+      view === 'needs_update'
+        ? ['needs_update']
+        : ['none', 'pre', 'partial', 'review', 'scanned', 'sent'];
+    const { rows } = await tx.query<RegRow>(
+      `SELECT ${REG_COLUMNS} FROM registration WHERE status = ANY($1::text[]) ORDER BY id LIMIT $2`,
+      [statuses, OPEN_CAP],
+    );
     const stays = await readStays(
       tx,
-      regs.map((r) => r.reservation_id),
+      rows.map((r) => r.reservation_id),
+      SYSTEM_ACTOR,
     );
-    const deadline = await this.deadlineParams(tx, c.today).catch(() => null);
+    const visible = rows
+      .map((reg) => ({ reg, stay: stays.get(reg.reservation_id) ?? null }))
+      .filter(
+        ({ stay }) =>
+          view === 'needs_update' ||
+          (!!stay &&
+            (stay.status === 'in_house' ||
+              (stay.status === 'confirmed' && stay.arrivalDate <= c.today))),
+      )
+      .map((x) => ({
+        ...x,
+        key: [x.stay?.arrivalDate ?? '9999-12-31', x.reg.id] as [string, string],
+      }))
+      .sort((a, b) =>
+        a.key[0] < b.key[0] ? -1 : a.key[0] > b.key[0] ? 1 : a.key[1] < b.key[1] ? -1 : 1,
+      )
+      .filter(
+        (x) => !cursor || x.key[0] > cursor[0] || (x.key[0] === cursor[0] && x.key[1] > cursor[1]),
+      )
+      .slice(0, limit + 1);
     return {
-      rows: regs.map((reg) =>
-        this.summary(reg, stays.get(reg.reservation_id) ?? null, c, deadline),
-      ),
-      keys: rows.map((r) => [r.arrival_date, r.id]),
+      rows: visible.map((x) => this.summary(x.reg, x.stay, c, deadline)),
+      keys: visible.map((x) => x.key),
     };
   }
 
@@ -1384,7 +1569,7 @@ export class RegistrationService {
     // Always the committed-so-far state of this transaction (side effects may have updated the row).
     const reg = (await readRegistration(tx, current.id)) ?? current;
     const c = await this.ctx(tx);
-    const stay = await readStay(tx, reg.reservation_id);
+    const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     const deadline = await this.deadlineParams(tx, c.today).catch(() => null);
     const docs = await documentsOf(tx, reg.id);
     const images = await imagesOf(tx, reg.id);
@@ -1411,18 +1596,7 @@ export class RegistrationService {
          LEFT JOIN app_user u ON u.id = s.sent_by WHERE s.registration_id = $1 ORDER BY s.kind`,
       [reg.id],
     );
-    const { rows: oci } = await tx.query<{
-      completed_at: Date | null;
-      eta_time: string | null;
-      late_arrival: boolean;
-      arrival_note: string | null;
-      deferred_people: number[];
-    }>(
-      `SELECT completed_at, to_char(eta_time, 'HH24:MI') AS eta_time, late_arrival, arrival_note, deferred_people
-         FROM online_checkin WHERE reservation_id = $1`,
-      [reg.reservation_id],
-    );
-    const o = oci[0];
+    const o = await onlineCheckinSummary(tx, reg.reservation_id);
     const liveImages = images.filter((i) => !i.deleted_at);
     const scheduled = liveImages
       .map((i) => i.delete_after)
@@ -1479,13 +1653,13 @@ export class RegistrationService {
       })),
       onlineCheckin: o
         ? {
-            ...(o.completed_at ? { completedAt: iso(o.completed_at) } : {}),
-            ...(o.eta_time ? { etaTime: o.eta_time } : {}),
-            lateArrival: o.late_arrival,
-            ...(o.arrival_note ? { arrivalNote: o.arrival_note } : {}),
+            ...(o.completedAt ? { completedAt: iso(o.completedAt) } : {}),
+            ...(o.etaTime ? { etaTime: o.etaTime } : {}),
+            lateArrival: o.lateArrival,
+            ...(o.arrivalNote ? { arrivalNote: o.arrivalNote } : {}),
             uploadedCount: docs.filter((d) => d.capture_method === 'guest_upload').length,
             requiredCount: reg.required_count,
-            deferredPeople: o.deferred_people ?? [],
+            deferredPeople: o.deferredPeople,
           }
         : null,
       allowedActions: allowedActions(reg.status),
@@ -1533,15 +1707,10 @@ export class RegistrationService {
     await tx.query('UPDATE guest_document SET visa_alert_on = NULL WHERE registration_id = $1', [
       reg.id,
     ]);
+    // SEC BE-32: every live image gets its deadline now, whatever the declaration status.
+    await this.scheduleAfterStay(tx, updated, at);
     if (AFTER_CONFIRMED.includes(reg.status)) {
       const docs = await documentsOf(tx, reg.id);
-      const consents = await consentsOf(tx, reg.id);
-      const drop = this.noKeepDocs(docs, consents);
-      await this.scheduleRetention(
-        tx,
-        updated,
-        docs.filter((d) => !drop.has(d.id)).map((d) => d.id),
-      );
       if (docs.some((d) => d.is_foreigner)) await this.requireUpdate(tx, updated, 'departure');
     }
     // SEC I5: penalty evidence of the stay is kept 12 months from checkout.
@@ -1565,7 +1734,7 @@ export class RegistrationService {
   async onPartyChanged(tx: Tx, reservationId: string, personsTotal?: number): Promise<void> {
     let reg = await lockRegistrationOfReservation(tx, reservationId);
     if (!reg) return;
-    const persons = personsTotal ?? (await readStay(tx, reservationId))?.personsTotal;
+    const persons = personsTotal ?? (await readStay(tx, reservationId, SYSTEM_ACTOR))?.personsTotal;
     if (persons === undefined || persons === reg.required_count) {
       reg = await this.refresh(tx, reg);
       await this.publish(tx, reg.id);
@@ -1638,7 +1807,11 @@ export class RegistrationService {
     await tx.query('UPDATE guest_document SET visa_alert_on = NULL WHERE registration_id = $1', [
       reg.id,
     ]);
-    if (!VOIDABLE.includes(reg.status)) return;
+    if (!VOIDABLE.includes(reg.status)) {
+      // Cancelled / no-show while `sent` (or after): no void, but the images still get a deadline (SEC BE-32).
+      if (reg.status !== 'void') await this.scheduleAfterStay(tx, reg, this.clock.now());
+      return;
+    }
     const now = this.clock.now();
     const out = await this.moveTo(tx, reg, 'void', 'K11', { set: 'voided_at = $4', params: [now] });
     const images = await imagesOf(tx, reg.id);
@@ -1762,6 +1935,58 @@ export class RegistrationService {
     return reg;
   }
 
+  /**
+   * Read-only progress of the online check-in for guest-portal (ARC FB-S3-15 (f)): no write, no record
+   * creation. `uploadedPeople` = person numbers with at least one LIVE image (ARC FB-S3-27 (5)).
+   */
+  async guestProgress(
+    tx: Tx,
+    reservationId: string,
+  ): Promise<{
+    registration: RegRow | null;
+    uploadedPeople: number[];
+    /** Every image ever uploaded from guest-web for the booking (SR-RL-05: 30 files / booking). */
+    guestUploads: number;
+    consentPeople: Array<{
+      personIndex: number;
+      decision: 'granted' | 'refused';
+      noticeVersion: string;
+      retentionDays: number | null;
+    }>;
+  }> {
+    const { rows } = await tx.query<RegRow>(
+      `SELECT ${REG_COLUMNS} FROM registration WHERE reservation_id = $1`,
+      [reservationId],
+    );
+    const reg = rows[0] ?? null;
+    if (!reg) return { registration: null, uploadedPeople: [], guestUploads: 0, consentPeople: [] };
+    const { rows: people } = await tx.query<{ person_index: number }>(
+      `SELECT DISTINCT d.person_index FROM guest_document d
+        WHERE d.registration_id = $1 AND d.removed_at IS NULL AND d.person_index IS NOT NULL
+          AND EXISTS (SELECT 1 FROM document_image i WHERE i.guest_document_id = d.id AND i.deleted_at IS NULL)
+        ORDER BY d.person_index`,
+      [reg.id],
+    );
+    const { rows: uploads } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM document_image WHERE registration_id = $1 AND uploaded_via = 'guest_app'`,
+      [reg.id],
+    );
+    const consents = await consentsOf(tx, reg.id);
+    const latest = new Map<number, ConsentRow>();
+    for (const c of consents) if (c.person_index !== null) latest.set(c.person_index, c);
+    return {
+      registration: reg,
+      uploadedPeople: people.map((p) => p.person_index),
+      guestUploads: uploads[0]?.n ?? 0,
+      consentPeople: [...latest].map(([personIndex, c]) => ({
+        personIndex,
+        decision: c.decision,
+        noticeVersion: c.notice_version,
+        retentionDays: c.retention_days,
+      })),
+    };
+  }
+
   async registrationOfReservation(tx: Tx, reservationId: string): Promise<RegRow | null> {
     return this.ensure(tx, reservationId);
   }
@@ -1784,10 +2009,6 @@ export class RegistrationService {
 }
 
 /** Portal addresses (BR-606; R-REG-06: staff log in themselves – no credentials stored). */
-const PORTAL_URLS = {
-  foreigner_temp_residence: 'https://tbltkbtt.bocongan.gov.vn',
-  vn_citizen_stay: 'https://dichvucong.bocongan.gov.vn',
-} as const;
 
 function allowedActions(status: string) {
   const a = (event: string, transition: string, action: string) => ({

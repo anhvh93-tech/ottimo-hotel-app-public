@@ -154,6 +154,11 @@ export class MinibarService {
       performedAt: Date | null;
     },
   ): Promise<Record<string, unknown>> {
+    // DOM BE-29: a mid-stay count (US-033, R3) would charge the same missing items again at checkout – no refill
+    // task, no baseline after a refill (BR-702/703). Closed until US-033.
+    if (input.mode === 'stayover') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
+    }
     const { today, tz, now } = await this.businessToday(tx);
     const s = await this.stay(tx, actor.roles, reservationId, input.mode, today);
     const items = await this.standardItems(tx);
@@ -180,12 +185,15 @@ export class MinibarService {
     if (at.getTime() > now.getTime()) errors.push({ field: 'performedAt', code: 'DATE_INVALID' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
 
-    await this.port().lockForDeposit(tx, s.id);
-    if (s.status !== 'in_house')
-      throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
     if (!s.folioId || !s.roomId)
       throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
+    // ARC-BE-S3-25: lock first, then check the state. The folio lock serialises with B18 (check-out locks
+    // the folio before settling); the booking lock of lockForDeposit is not used – it applies the desk scope
+    // and HK counts minibars outside it.
     await this.folios.lockForPosting(tx, s.folioId);
+    const fresh = await this.port().stayInfo(tx, s.id);
+    if (fresh?.status !== 'in_house')
+      throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
 
     const id = uuidv7();
     let replaces: string | null = null;
@@ -197,10 +205,17 @@ export class MinibarService {
       );
       if (old[0]) {
         replaces = old[0].id;
+        // ARC-BE-S3-32: a minibar line adjusted at the desk was reversed and REPLACED (adjustFolioLine posts the
+        // new line with related_line_id = the old one) – the live end of each chain is what the recount undoes.
         const { rows: oldLines } = await tx.query<{ folio_line_id: string }>(
-          `SELECT l.folio_line_id FROM minibar_check_line l
-             JOIN folio_line f ON f.id = l.folio_line_id
-            WHERE l.check_id = $1 AND l.folio_line_id IS NOT NULL
+          `WITH RECURSIVE chain AS (
+             SELECT f.id FROM minibar_check_line l JOIN folio_line f ON f.id = l.folio_line_id
+              WHERE l.check_id = $1 AND l.folio_line_id IS NOT NULL
+             UNION
+             SELECT n.id FROM folio_line n JOIN chain c ON n.related_line_id = c.id
+              WHERE n.category = 'minibar' AND n.reversal_of_id IS NULL)
+           SELECT c.id AS folio_line_id FROM chain c JOIN folio_line f ON f.id = c.id
+            WHERE f.line_state = 'posted'
               AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)`,
           [replaces],
         );
@@ -248,6 +263,7 @@ export class MinibarService {
               amountVnd: amount,
               serviceDate: today,
               source: 'minibar_check',
+              labelParams: { item: item.name, qty: used },
             },
           ],
           {

@@ -42,8 +42,15 @@ export async function startFeatureApp(
   opts: {
     adminOrigins?: string[];
     pwaOrigins?: string[];
+    /** guest-web origins (empty = not checked, dev/test default) – SEC FB-R2-SEC-BE-50 (a). */
+    guestOrigins?: string[];
     /** Replace providers (ports of other zones in BE-A Sprint 3 tests – e.g. FrontdeskPorts). */
     override?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+    /**
+     * SR-RL-09 limit per staff user and minute (SEC-BE-35). The fixed test clock never ends a window, so the
+     * suites run with a high limit; the rate-limit test passes the production value.
+     */
+    staffRequestsPerMinute?: number;
   } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
@@ -56,7 +63,13 @@ export async function startFeatureApp(
         database: db,
         auth: {
           cookieSecurePrefix: false,
-          allowedOrigins: { staff: staffOrigins, guest: [] },
+          allowedOrigins: {
+            staff: staffOrigins,
+            guest: opts.guestOrigins ?? [],
+            admin: opts.adminOrigins ?? [],
+            staffPwa: opts.pwaOrigins ?? [],
+          },
+          staffRequestsPerMinute: opts.staffRequestsPerMinute ?? 1_000_000,
         },
         imports: featureModules({
           sessionSecret: 'test-session-secret-0123456789abcdef',

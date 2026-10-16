@@ -10,6 +10,7 @@ import type { AuditService } from '../../audit/public/audit.service';
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
 import { cryptoServiceFromEnv } from '../../crypto/public/factory';
 import { blobStoreFromEnv } from '../../files/public/factory';
+import { EventsService } from '../../events/public/events.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { EncryptedBlobService } from '../../files/public/encrypted-blob.service';
 import type { ParameterService } from '../../platform/public/parameter.service';
@@ -39,7 +40,7 @@ export function registrationWorkerJobs(deps: {
 }): JobDefinition[] {
   const env = deps.env ?? process.env;
   const crypto = cryptoServiceFromEnv(env, deps.clock);
-  const blobs = new EncryptedBlobService(crypto, blobStoreFromEnv(env), deps.clock);
+  const blobs = new EncryptedBlobService(crypto, blobStoreFromEnv(env), deps.clock, deps.database);
   const attachments = new AttachmentService(blobs, deps.clock, deps.parameters);
   const gate = new C3AccessGate(deps.database, deps.clock, deps.parameters, deps.audit);
   const regs = new RegistrationService(
@@ -52,5 +53,16 @@ export function registrationWorkerJobs(deps: {
     undefined,
     attachments,
   );
-  return [retentionJob(new RetentionService(regs, deps.parameters, deps.clock, attachments))];
+  return [
+    retentionJob(
+      new RetentionService(
+        regs,
+        deps.parameters,
+        deps.clock,
+        attachments,
+        blobs,
+        new EventsService(),
+      ),
+    ),
+  ];
 }

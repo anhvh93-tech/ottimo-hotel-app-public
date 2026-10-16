@@ -1,0 +1,214 @@
+# OTTIMO Desk – STAGING and PRODUCTION Caddyfile (one file; the environment decides the host names).
+# Mounted read-only by infra/docker-compose.prod.yml at /etc/caddy/Caddyfile (never baked into the image).
+# Values come from the web container environment (compose `.env` of the server – infra/server/env.example):
+#   DESK_HOST   admin-web  (desk.<domain>      | staging: desk.staging.<domain>)
+#   STAFF_HOST  staff PWA  (staff.<domain>     | staging: staff.staging.<domain>)
+#   GUEST_HOST  guest-web  (g.<domain>         | staging: g.staging.<domain>)
+#   ACME_EMAIL  Let's Encrypt account e-mail (expiry notices) – an address of the team, not a secret
+#   HEALTH_ALLOW_IPS  optional, space separated IPs/CIDRs of an external uptime monitor allowed to GET /health
+#   TEST_SUPPORT_ALLOW_IPS  staging only: who may reach /__test__/* (compose default 127.0.0.1/32 = nobody outside)
+#
+# Requirements covered (security-requirements.md): SR-HDR-01 CSP (3 SPAs, no unsafe-inline/eval; guest-web G5),
+# SR-HDR-02 HSTS / nosniff / Referrer-Policy (guest no-referrer, staff apps same-origin) / Permissions-Policy,
+# SR-HDR-03 TLS by Caddy (Let's Encrypt, HTTP→HTTPS), SR-HDR-04 three origins each proxying /v1 (no CORS),
+# SR-HDR-05 COOP/CORP, body limits 42 MB upload routes / 1 MB elsewhere (FB-R2-ARC-BE-S3-18; SR-FILE-02),
+# SR-FILE-04/SEC C2 the blob volume is not mounted here,
+# SR-LOG-02/03 + SR-GST-03 access log without query strings, headers, /g/<token> or webhook path secrets,
+# FB-R1-SEC-OPS-12 /health only from the Docker network / monitor IPs.
+{
+	# No admin API (nothing to reload remotely; deploy recreates the container).
+	admin off
+	email {$ACME_EMAIL}
+	servers {
+		# HTTP/3 off: only 80/tcp and 443/tcp are opened in the firewall (infra/server/bootstrap-vps.sh).
+		protocols h1 h2
+		# Slow clients cannot hold connections (42 MB upload on 4G ≈ 30 s; the api answers within 60 s).
+		timeouts {
+			read_header 10s
+			read_body 90s
+			idle 2m
+		}
+	}
+	# Non-access logs (errors of reverse_proxy etc. carry the request too): same masking as the access log.
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri multi_regexp {
+					regexp "\?.*$" "?[q]"
+					regexp "^/g/.*$" "/g/[redacted]"
+					regexp "^/v1/webhooks/([^/?]+)/.*$" "/v1/webhooks/$1/[redacted]"
+				}
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+# ---------- shared pieces ----------
+
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				# Whole query string dropped (stricter than the SR-LOG-02 allow-list), /g/<token> masked (SR-LOG-03),
+				# webhook path secrets masked (CHANNEL_WEBHOOK_PATH_TOKEN, VNPay GET IPN – INT-responses 4).
+				request>uri multi_regexp {
+					regexp "\?.*$" "?[q]"
+					regexp "^/g/.*$" "/g/[redacted]"
+					regexp "^/v1/webhooks/([^/?]+)/.*$" "/v1/webhooks/$1/[redacted]"
+				}
+				# Cookie, Authorization, X-CSRF-Token, X-Test-Token, Referer, Set-Cookie: drop every header.
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+# args[0] = directory under /srv, args[1] = Referrer-Policy, args[2] = Cache-Control of HTML / non-hashed files,
+# args[3] = CSP worker-src ('none' where the app has no service worker – guest-web per ĐK-3 / SEC OPS-03)
+(app) {
+	import access_log
+	root * /srv/{args[0]}
+	encode zstd gzip
+
+	# Request bodies (FB-R2-ARC-BE-S3-18, BE-C MULTIPART_BODY_LIMIT): the three multipart upload operations
+	# (addGuestDocument, uploadAttachment, uploadGuestDocument – 0–4 images ≤ 10 MB + data) up to 42 MB, everything
+	# else 1 MB (largest JSON body is far below; webhooks ≤ 64 KB). Over the limit → 413 before the api reads it.
+	# SR-FILE-02 still says 25 MB – SEC to align the requirement text with this decision.
+	@upload {
+		method POST
+		path_regexp upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+	}
+	request_body @upload {
+		max_size 42MB
+	}
+	@not_upload not {
+		method POST
+		path_regexp not_upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+	}
+	request_body @not_upload {
+		max_size 1MB
+	}
+	# A declared Content-Length over the limit is refused before proxying (max_size above stays the backstop for
+	# chunked bodies; without this the api would see a cut body and the client a 502).
+	@too_big_upload {
+		method POST
+		path_regexp too_big_upload ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+		expression `{http.request.header.Content-Length}.matches('^[0-9]{1,15}$') && int({http.request.header.Content-Length}) > 42000000`
+	}
+	@too_big_other {
+		not path_regexp too_big_other_up ^/v1/(properties/[^/]+/(registrations/[^/]+/documents|attachments)|guest/online-checkin/documents)$
+		expression `{http.request.header.Content-Length}.matches('^[0-9]{1,15}$') && int({http.request.header.Content-Length}) > 1000000`
+	}
+	handle @too_big_upload {
+		respond 413
+	}
+	handle @too_big_other {
+		respond 413
+	}
+
+	# Applied when the response is written. Each `?` default is its own directive: the field is set only if the
+	# response does not have it yet, so headers the api sets win – e.g. getAttachment/getDocumentImage keep their
+	# `Content-Security-Policy: sandbox; default-src 'none'` and `Cache-Control: no-store` (SR-FILE-06, SEC I3).
+	# (Several `?` fields in ONE header block would be skipped together as soon as any one of them exists.)
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+		-Via
+	}
+	header ?X-Content-Type-Options "nosniff"
+	header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src {args[3]}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+	header ?Referrer-Policy "{args[1]}"
+	header ?Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
+	header ?X-Frame-Options "DENY"
+	header ?Cross-Origin-Opener-Policy "same-origin"
+	header ?Cross-Origin-Resource-Policy "same-origin"
+
+	# Dot-files, source maps and server-looking paths are never served: 404 instead of the SPA shell
+	# (SEC C2 probe "volume path through Caddy → 404"; the blob volume is not mounted in this container at all).
+	@hidden {
+		path_regexp hidden (^|/)\.|\.map$|^/(var|data|blobs|srv|etc|run|proc)(/|$)
+		not path /.well-known/*
+	}
+	handle @hidden {
+		respond 404
+	}
+
+	# FB-R1-SEC-OPS-12: full /health only from the Docker network (deploy smoke, healthchecks) or a monitor IP.
+	handle /health {
+		@monitor remote_ip private_ranges {$HEALTH_ALLOW_IPS}
+		handle @monitor {
+			reverse_proxy api:3000
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# Test-only endpoints (ADR-008): exist only in a staging api built/started with INCLUDE_TEST_SUPPORT=1 (production
+	# refuses them). Reachable only from TEST_SUPPORT_ALLOW_IPS (compose default 127.0.0.1/32 = nobody outside) and
+	# still need X-Test-Token + an owner session.
+	handle /__test__/* {
+		@qa remote_ip {$TEST_SUPPORT_ALLOW_IPS}
+		handle @qa {
+			reverse_proxy api:3000
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# Same-origin API (no CORS – SR-HDR-04). The api sees Caddy as TRUST_PROXY (fixed IP in compose) and takes the
+	# client IP from X-Forwarded-For, which Caddy overwrites (an incoming X-Forwarded-For is not trusted).
+	handle /v1/* {
+		reverse_proxy api:3000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	# Hashed build assets: cache for a year; a missing asset is a 404, never the HTML shell.
+	handle /assets/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# SPA: everything else is a file of the bundle or index.html (client-side routes, /g/<token>).
+	handle {
+		header Cache-Control "{args[2]}"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# ---------- sites (separate origins – SR-HDR-04) ----------
+
+# admin-web (front desk, manager, owner)
+{$DESK_HOST} {
+	import app admin-web same-origin no-cache 'none'
+}
+
+# OTTIMO Staff PWA
+{$STAFF_HOST} {
+	import app mobile same-origin no-cache 'self'
+}
+
+# guest-web: the link /g/<token> is served by index.html, which moves the token into a POST body and replaces
+# the URL (SR-GST-02). no-referrer + no-store so the token neither leaves in a Referer nor stays in a cache.
+{$GUEST_HOST} {
+	import app guest-web no-referrer no-store 'none'
+}

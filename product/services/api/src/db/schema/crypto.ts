@@ -18,6 +18,7 @@ import {
   integer,
   pgTable,
   text,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { bytea, instant } from './common';
@@ -52,6 +53,8 @@ export const dataKey = pgTable(
     destroyedAt: instant('destroyed_at'),
   },
   (t) => [
+    // 0053: tenant pair for the FKs of the C3 rows (ARC FB-S3-22).
+    unique('data_key_property_id_key').on(t.propertyId, t.id),
     foreignKey({
       name: 'data_key_property_fk',
       columns: [t.organizationId, t.propertyId],

@@ -209,6 +209,16 @@ export class RefundsController {
     rejectDryRun(body);
     const input = parseBody(transferSchema, body);
     const p = principal(req);
+    // PO 17/10 (SEC-37): an OWN who requested / approved / routed this refund pays it only inside the step-up
+    // window (re-auth at every step); the rule itself is checked again under the locks (RefundsService).
+    if (p.roles.includes('owner')) {
+      const self = await this.db.withContext(
+        tenantOf(p),
+        (tx: Tx) => this.refunds.isOwnSelfPayout(tx, approvalId, p.userId),
+        { readOnly: true },
+      );
+      if (self) await this.gate.assertStepUp(p);
+    }
     const result = await this.uow.run(req, async (tx) => {
       const row = await this.refunds.executeTransfer(
         tx,

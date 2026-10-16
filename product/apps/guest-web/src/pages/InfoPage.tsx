@@ -10,11 +10,11 @@ export function InfoPage({ stay }: { stay: GuestStay }) {
   const tel = telHref(stay.property.phone);
   return (
     <div className="m-body gw-stack">
-      <h2 tabIndex={-1} data-autofocus style={{ fontSize: '1.25rem' }}>
+      <h2 className="gw-page-title" tabIndex={-1} data-autofocus>
         {stay.property.name ?? 'OTTIMO'}
       </h2>
       {stay.property.address ? <p className="gw-pre">{stay.property.address}</p> : null}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="gw-actions">
         {map ? (
           <a className="btn" href={map} target="_blank" rel="noopener noreferrer">
             <Icon name="globe" />
@@ -30,9 +30,7 @@ export function InfoPage({ stay }: { stay: GuestStay }) {
       <section className="card" aria-labelledby="gw-rules-h">
         <h3 id="gw-rules-h">{t('gw.house_rules')}</h3>
         {/* Server-rendered text in the session language; rendered as text, never HTML (SR-INP-04). */}
-        <p className="gw-pre" style={{ marginTop: 6 }}>
-          {stay.houseRules ?? ''}
-        </p>
+        <p className="gw-pre mt-8">{stay.houseRules ?? ''}</p>
         <p className="li-s">{t('gw.rules_source')}</p>
       </section>
     </div>

@@ -120,7 +120,7 @@
               <div class="field"><label for="pm-ref" data-i18n="co.txn_ref">Mã giao dịch / ghi chú (không ghi số thẻ)</label><input class="input" id="pm-ref" value="FT2628811902"></div>
               <button class="btn pri" data-i18n="pay.record" data-i18n-args='{"amount":"2.485.000"}'>Ghi nhận đã thu 2.485.000</button>
             </div>
-            <div data-seg-pane="cash" hidden><div class="field"><label for="pm-cash" data-i18n="co.cash_received">Tiền khách đưa</label><div class="input-affix"><input class="input num" id="pm-cash" value="2.500.000"><span class="affix">đ</span></div></div><p data-i18n="co.change_due" data-i18n-args='{"amount":"15.000"}'>Thối lại 15.000 đ</p></div>
+            <div data-seg-pane="cash" hidden><div class="field"><label for="pm-cash" data-i18n="co.cash_received">Tiền khách đưa</label><div class="input-affix"><input class="input num" id="pm-cash" value="2.500.000"><span class="affix">đ</span></div></div><p data-i18n="co.change_due" data-i18n-args='{"amount":"15.000 đ"}'>Thối lại 15.000 đ</p></div>
             <div data-seg-pane="pos" hidden><div class="field"><label for="pm-pos" data-i18n="co.pos_code">Mã chuẩn chi trên phiếu POS</label><input class="input mono" id="pm-pos" maxlength="12"></div><p class="li-s" data-i18n="co.pos_no_card">Không nhập số thẻ – chỉ mã chuẩn chi in trên phiếu máy POS.</p></div>
             <div data-seg-pane="bank" hidden><p class="li-s" data-i18n="rsv.reconcile_note">Chuyển khoản ghi tay được đánh dấu "chờ đối soát" cho tới khi kế toán khớp sao kê.</p></div>
             <button class="btn ghost sm" style="margin-top:8px" data-i18n="pay.split">+ Thêm cách thanh toán khác</button>
@@ -192,7 +192,7 @@
         <h2><span data-i18n="bill.title">Phiếu thanh toán</span><span class="en">Folio</span></h2>
         <p style="margin:8px 0">Phạm Huy · <span data-i18n="booking.field.room">Căn</span> / Room 201 · 12/10 → 15/10/2026 · OTM-0139</p>
         <table>
-          <thead><tr><th>Nội dung / Description</th><th class="r">Số tiền / Amount</th></tr></thead>
+          <thead><tr><th><span data-i18n="bill.col_desc">Nội dung</span><span class="en" lang="en">Description</span></th><th class="r"><span data-i18n="bill.col_amount">Số tiền (đ)</span><span class="en" lang="en">Amount (VND)</span></th></tr></thead>
           <tbody>
             <tr><td>Tiền phòng đêm 12/10 <span class="en">Room night 12 Oct</span></td><td class="r">820.000</td></tr>
             <tr><td>Tiền phòng đêm 13/10 <span class="en">Room night 13 Oct</span></td><td class="r">820.000</td></tr>

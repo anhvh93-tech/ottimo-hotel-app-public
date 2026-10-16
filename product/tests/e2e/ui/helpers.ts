@@ -113,3 +113,38 @@ export function lettersOnly(len = 6): string {
 export function fakePhone(): string {
   return `093${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`;
 }
+
+/**
+ * Fill "Đặt phòng mới" (H09) for a direct booking: dates first (the room list only shows rooms free in the
+ * range), room by number, guest via quick-create (Hồ sơ khách mới), phone again if the form still asks for it
+ * (BUG-R2-028 – sửa ở FE S3: không còn hỏi lại). Leaves the dialog open, ready for "Tạo đơn".
+ */
+export async function fillBooking(
+  p: Page,
+  i: { roomNo: string; arrival: string; departure: string; guest: string; phone: string },
+): Promise<void> {
+  await p
+    .getByRole('button', { name: t('booking.new.title') })
+    .first()
+    .click();
+  const d = p.getByRole('dialog', { name: t('booking.new.title') });
+  await d.getByRole('textbox', { name: 'Ngày đến' }).fill(i.arrival);
+  await d.getByRole('textbox', { name: 'Ngày đi' }).fill(i.departure);
+  const roomSel = d.getByRole('combobox', { name: t('booking.field.room'), exact: true });
+  const label = (await roomSel.locator('option').allTextContents()).find((o) =>
+    o.startsWith(`${i.roomNo} `),
+  );
+  expect(
+    label,
+    `căn ${i.roomNo} có trong danh sách căn trống ${i.arrival}→${i.departure}`,
+  ).toBeTruthy();
+  await roomSel.selectOption({ label: label! });
+  await d.getByRole('combobox', { name: t('booking.field.guest') }).fill(i.guest);
+  await p.getByRole('option', { name: /Tạo nhanh/ }).click();
+  const g = p.getByRole('dialog', { name: 'Hồ sơ khách mới' });
+  await g.getByRole('textbox', { name: 'Số điện thoại / Zalo' }).fill(i.phone);
+  await g.getByRole('button', { name: 'Lưu hồ sơ' }).click();
+  await expect(g).toBeHidden();
+  const phone = d.getByRole('textbox', { name: t('booking.field.phone') });
+  if (await phone.isVisible().catch(() => false)) await phone.fill(i.phone);
+}

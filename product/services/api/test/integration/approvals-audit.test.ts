@@ -820,13 +820,19 @@ describe.skipIf(!HAS_DB)(
               amountVnd: 0,
               reasonCode: 'x',
             });
+            // 0042 (BE-B, ARC-BE-S3-12): `requested_by` is not updatable by the app role any more – the
+            // fixture writes a copy of the request owned by the caller instead.
+            const own = randomUUID();
             await db.withContext(t.ctx(), (tx) =>
-              tx.query('UPDATE approval_request SET requested_by = $2 WHERE id = $1', [
-                r.id,
-                t.users[u]!.id,
-              ]),
+              tx.query(
+                `INSERT INTO approval_request
+                 SELECT (json_populate_record(NULL::approval_request,
+                          (to_jsonb(a) || jsonb_build_object('id', $2::uuid, 'requested_by', $3::uuid))::json)).*
+                   FROM approval_request a WHERE a.id = $1`,
+                [r.id, own, t.users[u]!.id],
+              ),
             );
-            res = await write('POST', `${P()}/approval-requests/${r.id}/actions/cancel`, u);
+            res = await write('POST', `${P()}/approval-requests/${own}/actions/cancel`, u);
           }
         }
         if (c.expected === '2xx') {

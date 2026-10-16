@@ -12,6 +12,7 @@ import { problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays, businessDate } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
+import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
 import {
   applyNightDiscount,
@@ -25,9 +26,9 @@ import {
   MGR_PLUS,
   type ReservationRow,
   type RoomInfo,
+  type StayNightPrice,
   activeSegments,
   hasAny,
-  insertNights,
   insertSegment,
   liveNightRows,
   loadReservation,
@@ -51,12 +52,7 @@ import { StaySupport, TASK_RANK } from './stay-support';
 /** Technical bound of the free-night scan of an external long-stay contract (no BR-421 limit). */
 const LONG_SCAN_NIGHTS = 62;
 
-interface NightPrice {
-  date: LocalDate;
-  calendarVnd: number;
-  amountVnd: number;
-  manual: boolean;
-}
+type NightPrice = StayNightPrice;
 
 export interface LateCheckoutOutcome {
   status: 200 | 202;
@@ -72,6 +68,7 @@ export class StayService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ChannelsService) private readonly channels: ChannelsService,
     @Inject(CheckinService) private readonly checkin: CheckinService,
+    @Inject(AttachmentService) private readonly attachments: AttachmentService,
   ) {}
 
   private assertInHouse(row: ReservationRow): void {
@@ -100,40 +97,6 @@ export class StayService {
     };
   }
 
-  /** D-8: every live non-manual night of a direct/agent booking re-tiered for `totalNights`. */
-  private retier(
-    ctx: BookingContext,
-    row: ReservationRow,
-    kept: NightPrice[],
-    added: NightPrice[],
-  ): { pct: number; kept: NightPrice[]; added: NightPrice[] } {
-    const tiered =
-      (row.channel_group === 'direct' || row.channel_group === 'agent') && !row.external_contract;
-    const pct = tiered ? losDiscountPct(kept.length + added.length, ctx.params.losTiers) : 0;
-    const unit =
-      (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ??
-      ctx.params.nightRateUnit;
-    const apply = (n: NightPrice): NightPrice =>
-      n.manual || !tiered
-        ? n
-        : { ...n, amountVnd: applyNightDiscount([n.calendarVnd], pct, unit)[0] as number };
-    return { pct, kept: kept.map(apply), added: added.map(apply) };
-  }
-
-  private async keptNights(tx: Tx, row: ReservationRow): Promise<NightPrice[]> {
-    const snap = new Map(
-      (
-        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
-      ).map((n) => [n.date, n.source]),
-    );
-    return (await liveNightRows(tx, row.id)).map((n) => ({
-      date: n.date,
-      calendarVnd: n.calendarVnd ?? n.grossVnd,
-      amountVnd: n.grossVnd,
-      manual: snap.get(n.date) === 'manual',
-    }));
-  }
-
   async extensionOptions(tx: Tx, ctx: BookingContext, id: string) {
     const row = await loadReservation(tx, id, ctx.actor);
     this.assertInHouse(row);
@@ -141,18 +104,21 @@ export class StayService {
   }
 
   private async options(tx: Tx, ctx: BookingContext, row: ReservationRow) {
-    const seg = await this.s.lastSegment(tx, row.id);
+    // ARC-BE-S3-05: an OTA stay already extended by a child booking continues after the child's last night.
+    const eff = await this.s.effectiveStay(tx, ctx, row);
+    const from = eff.departureDate;
+    const seg = await this.s.lastSegment(tx, eff.last.id);
     const rm = await this.roomOf(tx, seg.room_id);
     const limit = row.external_contract
       ? LONG_SCAN_NIGHTS
       : await this.s.param<number>(tx, ctx, 'extension_max_nights');
-    const kept = await this.keptNights(tx, row);
+    const kept = await this.s.stay.pricedNights(tx, row);
     const nights: Array<Record<string, unknown>> = [];
     const defaults: NightPrice[] = [];
     let maxNights = 0;
     let consecutive = true;
     for (let i = 0; i < limit; i += 1) {
-      const date = addDays(row.departure_date, i);
+      const date = addDays(from, i);
       const available = await this.s.occupancy.isFree(tx, rm.id, date, addDays(date, 1));
       if (!available) consecutive = false;
       if (available && consecutive) maxNights += 1;
@@ -173,13 +139,8 @@ export class StayService {
     const beyond =
       consecutive &&
       maxNights === limit &&
-      (await this.s.occupancy.isFree(
-        tx,
-        rm.id,
-        addDays(row.departure_date, limit),
-        addDays(row.departure_date, limit + 1),
-      ));
-    const currentNights = nightsOf(row.arrival_date, row.departure_date);
+      (await this.s.occupancy.isFree(tx, rm.id, addDays(from, limit), addDays(from, limit + 1)));
+    const currentNights = nightsOf(row.arrival_date, from);
     const exceeds =
       !row.external_contract &&
       (beyond || currentNights + maxNights >= ctx.params.longStayRequiredFromNights);
@@ -198,7 +159,7 @@ export class StayService {
           });
           continue;
         }
-        const r = this.retier(ctx, row, kept, added);
+        const r = this.s.stay.retierStay(ctx, row, kept, added);
         const total = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
         repricing.push({
           nights: k,
@@ -217,6 +178,8 @@ export class StayService {
     return {
       rm,
       seg,
+      from,
+      ids: eff.ids,
       kept,
       defaults,
       maxNights,
@@ -226,10 +189,25 @@ export class StayService {
         exceedsShortStayLimit: exceeds,
         createsChildReservation: row.channel_group === 'ota',
         ...(savings !== undefined ? { channelFeeSavingsVnd: savings } : {}),
+        currentBookingRateVnd: await this.currentBookingRate(tx, row),
         repricing,
         nights,
       },
     };
+  }
+
+  /**
+   * E04-07 (DOM S3-6, FB-R2-DOM-BE-31): net price of the latest night whose price was agreed (typed / quoted –
+   * `manual` in the snapshot) so the desk can offer "keep the booking's price"; null = calendar-priced.
+   */
+  private async currentBookingRate(tx: Tx, row: ReservationRow): Promise<number | null> {
+    if (row.channel_group === 'ota' || row.external_contract) return null;
+    const manual = new Set(
+      (await this.s.stay.pricedNights(tx, row)).filter((n) => n.manual).map((n) => n.date),
+    );
+    const nights = (await liveNightRows(tx, row.id)).filter((n) => manual.has(n.date));
+    const last = nights[nights.length - 1];
+    return last ? Math.max(0, last.grossVnd - last.discountVnd) : null;
   }
 
   async extend(
@@ -250,6 +228,7 @@ export class StayService {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.s.stay.assertVersion(row, expectedVersion);
     this.assertInHouse(row);
+    this.assertPrimary(row);
     const n = nights as number;
     const rates = Array.isArray(rawRates) ? (rawRates as Array<Record<string, unknown>>) : [];
     if (row.external_contract && rates.length > 0) {
@@ -264,7 +243,7 @@ export class StayService {
         extras: { max: o.maxNights },
       });
     }
-    const from = row.departure_date;
+    const from = o.from;
     const to = addDays(from, n);
     const dates = nightDates(from, to);
     // Rates: default (BR-421) or typed by the desk within BR-105 (one row per added night).
@@ -350,58 +329,15 @@ export class StayService {
         ctx.now,
       ]);
       if (!row.external_contract) {
-        const r = this.retier(ctx, row, o.kept, added);
-        for (const k of r.kept) {
-          await tx.query(
-            `UPDATE stay_night SET room_revenue_gross_vnd = $3::bigint, room_revenue_vnd = $3::bigint - discount_vnd,
-                    calendar_rate_vnd = $4::bigint, updated_at = $5
-              WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'
-                AND (room_revenue_gross_vnd <> $3::bigint OR calendar_rate_vnd IS DISTINCT FROM $4::bigint)`,
-            [row.id, k.date, k.amountVnd, k.calendarVnd, ctx.now],
-          );
-        }
-        await insertNights(
-          tx,
-          {
-            reservationId: row.id,
-            segmentId: o.seg.id,
-            roomId: o.rm.id,
-            channelId: row.channel_id,
-            stayType: row.stay_type,
-            state: 'sold',
-            isComplimentary: row.is_complimentary,
-            now: ctx.now,
-          },
-          r.added.map((x) => ({
-            date: x.date,
-            amountVnd: x.amountVnd,
-            calendarVnd: x.calendarVnd,
-            source: x.manual ? 'manual' : 'calendar',
-          })),
-        );
-        await tx.query(
-          `UPDATE stay_night SET rate_source = 'extension' WHERE reservation_id = $1
-              AND stay_date = ANY($2::date[]) AND night_state <> 'void'`,
-          [row.id, dates],
-        );
-        const all = [...r.kept, ...r.added];
-        await tx.query(
-          `UPDATE reservation SET total_room_vnd = $2,
-                  pricing_snapshot = pricing_snapshot || $3::jsonb WHERE id = $1`,
-          [
-            row.id,
-            all.reduce((a, x) => a + x.amountVnd, 0),
-            JSON.stringify({
-              losDiscountPct: r.pct,
-              nights: all.map((x) => ({
-                date: x.date,
-                amountVnd: x.amountVnd,
-                calendarVnd: x.calendarVnd,
-                source: x.manual ? 'manual' : 'calendar',
-              })),
-            }),
-          ],
-        );
+        const r = this.s.stay.retierStay(ctx, row, o.kept, added);
+        await this.s.stay.writeRepricedNights(tx, ctx, row, {
+          segmentId: o.seg.id,
+          roomId: o.rm.id,
+          pct: r.pct,
+          kept: r.kept,
+          added: r.added,
+          rateSource: 'extension',
+        });
       }
       await tx.query(
         `UPDATE reservation SET departure_date = $2, updated_at = $3, version = version + 1 WHERE id = $1`,
@@ -415,6 +351,44 @@ export class StayService {
         [row.id, ctx.now],
       );
     }
+    // ARC-BE-S3-06 / FB-R2-DOM-BE-25: a late checkout agreed for the old departure day is void – its charge is
+    // reversed, the agreed time cleared, an open conflict request cancelled (superseded).
+    if (row.folio_id) {
+      await this.s.replaceLateCharge(tx, ctx, {
+        folioId: row.folio_id,
+        ids: o.ids,
+        booking: row,
+        serviceDate: from,
+        time: this.s.localTime(ctx),
+        tierPct: 0,
+        amountVnd: 0,
+        reason: 'superseded by extension (B13)',
+        source: 'manual',
+      });
+    }
+    if (row.agreed_checkout_time) {
+      await tx.query(
+        `UPDATE reservation SET agreed_checkout_time = NULL, late_checkout_requested_time = NULL
+          WHERE id = $1`,
+        [row.id],
+      );
+      await recordChange(
+        tx,
+        row.id,
+        'agreed_checkout_time',
+        row.agreed_checkout_time,
+        null,
+        ctx.now,
+        'B13',
+      );
+    }
+    await this.s.approvals.cancelSuperseded(tx, {
+      targetType: 'reservation',
+      targetId: row.id,
+      types: ['late_checkout_conflict'],
+      reason: 'extended (B13)',
+      ...this.s.req(ctx),
+    });
     await recordTransition(tx, {
       reservationId: row.id,
       code: row.code,
@@ -477,10 +451,13 @@ export class StayService {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: !dryRun });
     if (!dryRun && expectedVersion !== null) this.s.stay.assertVersion(row, expectedVersion);
     this.assertInHouse(row);
-    const lastNight = addDays(row.departure_date, -1);
-    const seg = await this.s.segmentOn(tx, row.id, lastNight);
+    this.assertPrimary(row);
+    // ARC-BE-S3-05: departure, room and base night of the whole stay (primary + in-house children).
+    const eff = await this.s.effectiveStay(tx, ctx, row);
+    const lastNight = addDays(eff.departureDate, -1);
+    const seg = await this.s.segmentOn(tx, eff.last.id, lastNight);
     const rm = await this.roomOf(tx, seg.room_id);
-    const q = await this.lateQuote(tx, ctx, row, rm, checkoutTime);
+    const q = await this.lateQuote(tx, ctx, eff.last, rm, checkoutTime);
     const arrival = q.arrival;
     const conflict = !!arrival && !q.alternativeRoomAvailable;
     const result: Record<string, unknown> = {
@@ -523,6 +500,7 @@ export class StayService {
           WHERE id = $1`,
         [row.id, checkoutTime, ctx.now],
       );
+      // ApprovalService.submit pushes MGR+ itself (ARC-BE-S3-23.1 – one push per request).
       const approval = await this.s.approvals.submit(tx, ctx.actor, {
         type: 'late_checkout_conflict',
         amountVnd: q.r.amountVnd,
@@ -533,37 +511,19 @@ export class StayService {
         targetCode: row.code,
         ...this.s.req(ctx),
       });
-      await this.s.events.notify(
-        tx,
-        {
-          kind: 'approval_requested',
-          roles: [...MGR_PLUS],
-          excludeUserIds: [ctx.actor.userId],
-          refType: 'approval_request',
-          refId: approval.id,
-          refCode: row.code,
-        },
-        ctx.now,
-      );
       return { status: 202, body: {}, approval };
     }
-    if (apply && q.r.amountVnd > 0) {
-      if (expected === undefined) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'expectedSurchargeVnd', code: 'REQUIRED' }],
-        });
-      }
-      if (expected !== q.r.amountVnd) {
-        throw problem('SURCHARGE_CHANGED', {
-          extras: { expectedSurchargeVnd: q.r.amountVnd, tierPct: q.r.tierPct },
-        });
-      }
-    }
-    if (foc && !(apply && q.r.amountVnd > 0)) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'requestFocForSurcharge', code: 'NOT_ALLOWED' }],
+    const surcharge = q.r.amountVnd;
+    // ARC-BE-S3-24.1: SURCHARGE_CHANGED (409) before the field checks; DOM S3-12: no silent skip.
+    if (apply && surcharge > 0 && expected !== undefined && expected !== surcharge) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: surcharge, tierPct: q.r.tierPct },
       });
     }
+    if (surcharge > 0 && !apply) f.add('applySurcharge', 'SURCHARGE_DECISION_REQUIRED');
+    if (apply && surcharge > 0 && expected === undefined) f.add('expectedSurchargeVnd', 'REQUIRED');
+    if (foc && !(apply && surcharge > 0)) f.add('requestFocForSurcharge', 'NOT_ALLOWED');
+    f.done();
     await tx.query(
       `UPDATE reservation SET agreed_checkout_time = $2, late_checkout_requested_time = NULL, updated_at = $3,
               version = version + 1 WHERE id = $1`,
@@ -588,31 +548,29 @@ export class StayService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    if (apply && q.r.amountVnd > 0 && row.folio_id) {
-      const [lineId] = await this.s.folios.postLines(
-        tx,
-        row.folio_id,
-        [
-          {
-            reservationId: row.id,
-            category: 'late_checkout',
-            description: `late_checkout ${checkoutTime} ${q.r.tierPct}%`,
-            quantity: 1,
-            unitPriceVnd: q.r.amountVnd,
-            amountVnd: q.r.amountVnd,
-            serviceDate: row.departure_date,
-            source: 'manual',
-          },
-        ],
-        { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
-      );
+    // ARC-BE-S3-06: ONE live late charge per stay – a new time reverses the live one (its approved FOC is
+    // carried over as min(FOC, new amount) – DOM S3-11) and posts the new amount (G-10 logic, same tx).
+    let lineId: string | null = null;
+    if (row.folio_id) {
+      const replaced = await this.s.replaceLateCharge(tx, ctx, {
+        folioId: row.folio_id,
+        ids: eff.ids,
+        booking: eff.last,
+        serviceDate: eff.departureDate,
+        time: checkoutTime,
+        tierPct: q.r.tierPct,
+        amountVnd: apply ? surcharge : 0,
+        reason: `B15 late checkout ${checkoutTime}`,
+        source: 'manual',
+      });
+      lineId = replaced.lineId;
       if (foc && lineId) {
         await this.s.requestFoc(
           tx,
           ctx,
           row,
           row.folio_id,
-          { id: lineId, amountVnd: q.r.amountVnd, category: 'late_checkout' },
+          { id: lineId, amountVnd: surcharge, category: 'late_checkout' },
           foc,
         );
       }
@@ -625,7 +583,7 @@ export class StayService {
       entityCode: row.code,
       after: {
         agreedCheckoutTime: checkoutTime,
-        lateSurchargeVnd: apply ? q.r.amountVnd : 0,
+        lateSurchargeVnd: apply ? surcharge : 0,
         tierPct: q.r.tierPct,
       },
       ...this.s.req(ctx),
@@ -733,7 +691,9 @@ export class StayService {
     if (!dryRun && expectedVersion !== null) this.s.stay.assertVersion(row, expectedVersion);
     this.assertInHouse(row);
     const from = effective as LocalDate;
-    if (from < ctx.today || from >= row.departure_date) {
+    // 0.3.6 bổ sung (FB-R2-ARC-BE-S3-08, DOM BE-26): R2 changes the room TODAY only – room status, cleaning
+    // and the door access are applied immediately; a later date waits for R3 (job on the effective day).
+    if (from !== ctx.today || from >= row.departure_date) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'effectiveDate', code: 'DATE_INVALID' }],
       });
@@ -770,7 +730,7 @@ export class StayService {
     // Prices of the nights moved (BR-424): fault → keep; guest request → new room calendar (direct/agent
     // re-tiered D-8); OTA guest request → OTA price kept, positive difference collected at the desk.
     const dates = nightDates(from, to);
-    const kept = await this.keptNights(tx, row);
+    const kept = await this.s.stay.pricedNights(tx, row);
     const moved = kept.filter((n) => dates.includes(n.date));
     const ota = row.channel_group === 'ota';
     const tiered = !ota && !row.external_contract && row.channel_group !== 'internal';
@@ -785,7 +745,9 @@ export class StayService {
           pct = losDiscountPct(kept.length, ctx.params.losTiers);
           next = applyNightDiscount([direct.rateVnd], pct, ctx.params.nightRateUnit)[0] as number;
         } else {
-          otaDifference += Math.max(0, direct.rateVnd - n.amountVnd);
+          // DOM S3-15: same basis as BR-415 – direct(new room) − direct(old room), never the OTA price.
+          const before = await this.s.directRate(tx, ctx, oldRoom.id, n.date);
+          otaDifference += Math.max(0, direct.rateVnd - before.rateVnd);
         }
       }
       nightsOut.push({
@@ -795,7 +757,24 @@ export class StayService {
       });
     }
     const roomDelta = nightsOut.reduce((a, x) => a + x.newRateVnd - x.oldRateVnd, 0);
-    const delta = ota ? otaDifference : roomDelta;
+    // BR-110 per night (DOM S3-13): guest request → base of the new room; property fault → min(old, new) (an
+    // OTTIMO fault never makes the guest pay more).
+    const party = {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    const current = new Map((await this.s.stay.nightFees(tx, row)).map((f) => [f.date, f.feeVnd]));
+    const feeChanges: Array<{ date: LocalDate; feeVnd: number }> = [];
+    let extraDelta = 0;
+    for (const n of nightsOut) {
+      const before = current.get(n.date) ?? 0;
+      const inNew = this.s.stay.nightFee(ctx, row, party, newRoom.base_occupancy);
+      const fee = cause === 'property_fault' ? Math.min(before, inNew) : inNew;
+      feeChanges.push({ date: n.date, feeVnd: fee });
+      extraDelta += fee - before;
+    }
+    const delta = (ota ? otaDifference : roomDelta) + extraDelta;
     const newExtra = Math.max(0, this.s.counted(row) - newRoom.base_occupancy);
     const oldExtra = Math.max(0, this.s.counted(row) - oldRoom.base_occupancy);
     const preview = {
@@ -816,7 +795,9 @@ export class StayService {
         });
       }
       if (expectedDelta !== delta) {
-        throw problem('SURCHARGE_CHANGED', { extras: { folioDeltaVnd: delta } });
+        throw problem('SURCHARGE_CHANGED', {
+          extras: { surchargeVnd: delta, folioDeltaVnd: delta },
+        });
       }
     }
 
@@ -881,6 +862,8 @@ export class StayService {
         ],
       );
     }
+    // Moved nights carry their own BR-110 fee (folio sync posts one line per night).
+    await this.s.stay.setNightFees(tx, row.id, feeChanges, ctx.now);
     if (roomDelta !== 0 && !ota) {
       await tx.query(`UPDATE reservation SET total_room_vnd = total_room_vnd + $2 WHERE id = $1`, [
         row.id,
@@ -950,6 +933,9 @@ export class StayService {
             {
               reservationId: row.id,
               category: 'room_change_difference',
+              // DOM S3-15: room revenue (BR-904), not "other".
+              revenueGroup: 'room',
+              chargeCode: 'room_change_difference',
               description: `room_change ${oldRoom.room_no}->${newRoom.room_no}`,
               quantity: 1,
               unitPriceVnd: otaDifference,
@@ -960,7 +946,8 @@ export class StayService {
           ],
           { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
         );
-      } else if (!row.external_contract) {
+      }
+      if (!row.external_contract) {
         await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {
           userId: ctx.actor.userId,
           ...this.s.req(ctx),
@@ -1056,13 +1043,27 @@ export class StayService {
 
   // ───────────────────────── B16 – early departure (US-137, Should) ─────────────────────────
 
+  /**
+   * B16 (US-137, BR-428, DOM S3-1/S3-2 – OpenAPI 0.3.6 bổ sung 2, E04-06). Basis = the NET price of the dropped
+   * nights (`room_revenue_vnd`: after the BR-107 tier and the approved FOC/discounts of each night – a night
+   * already given away is never charged 50 %); no re-tiering of the stayed nights (S3-1). The BR-110 fee of the
+   * dropped nights is refunded in full. Refund request = min(BR-428 part + dropped fees, unhandled credit) –
+   * never a second request for money already routed. OTA: the desk types what the OTA keeps
+   * (`otaRetainedVnd` → `early_departure_fee`, covered by the OTA receipt); OTTIMO never refunds OTA money.
+   * A notice typed back in time needs evidence (BR-011).
+   */
   async earlyDeparture(
     tx: Tx,
     ctx: BookingContext,
     id: string,
     expectedVersion: number,
     body: Record<string, unknown>,
-  ): Promise<ReservationRow> {
+  ): Promise<{
+    row: ReservationRow;
+    earlyDepartureFeeVnd: number;
+    refundVnd: number;
+    refundRequestId: string | null;
+  }> {
     const f = new Fields(body);
     const newDeparture = f.date('newDepartureDate', true);
     const notice = body.noticeGivenAt;
@@ -1074,25 +1075,57 @@ export class StayService {
       noticeAt = new Date(notice);
       if (noticeAt.getTime() > ctx.now.getTime()) f.add('noticeGivenAt', 'DATE_INVALID');
     }
+    const otaRetained = f.money('otaRetainedVnd', { required: false, positive: false });
+    const evidence = this.evidenceInput(f, body);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.s.stay.assertVersion(row, expectedVersion);
     this.assertInHouse(row);
+    this.assertPrimary(row);
     const nd = newDeparture as LocalDate;
     if (nd < ctx.today || nd >= row.departure_date || nd <= row.arrival_date) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'newDepartureDate', code: 'DATE_INVALID' }],
       });
     }
+    const ota = row.channel_group === 'ota';
+    if (ota && otaRetained === undefined) f.add('otaRetainedVnd', 'REQUIRED');
+    if (!ota && otaRetained !== undefined) f.add('otaRetainedVnd', 'NOT_ALLOWED');
     const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
     const noticeDate = businessDate(noticeAt as Date, ctx.tz, rollover);
+    // BR-011 / E04-06: a notice typed back in time (beyond the tolerance, or another business day) needs proof.
+    const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
+    const backdated =
+      ctx.now.getTime() - (noticeAt as Date).getTime() > tolerance * 60_000 ||
+      noticeDate !== ctx.today;
+    if (backdated && !evidence) f.add('noticeEvidence', 'EVIDENCE_REQUIRED');
+    f.done();
+    if (evidence?.attachmentId) {
+      await this.attachments.assertUsable(
+        tx,
+        { userId: ctx.actor.userId, roles: ctx.actor.roles },
+        evidence.attachmentId,
+        'penalty_evidence',
+        { reservationId: row.id, field: 'noticeEvidence.attachmentId' },
+      );
+    }
     const dropped = nightDates(nd, row.departure_date);
-    const live = await liveNightRows(tx, row.id);
-    const droppedVnd = live
-      .filter((n) => dropped.includes(n.date))
-      .reduce((a, n) => a + n.grossVnd, 0);
+    const live = (await liveNightRows(tx, row.id)).filter((n) => dropped.includes(n.date));
+    const droppedGrossVnd = live.reduce((a, n) => a + n.grossVnd, 0);
+    const droppedNetVnd = live.reduce((a, n) => a + Math.max(0, n.grossVnd - n.discountVnd), 0);
+    const droppedFeesVnd = ota
+      ? 0
+      : (await this.s.stay.nightFees(tx, row))
+          .filter((n) => dropped.includes(n.date))
+          .reduce((a, n) => a + n.feeVnd, 0);
+    if (ota && otaRetained !== undefined && otaRetained > droppedGrossVnd) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'otaRetainedVnd', code: 'VALUE_OUT_OF_RANGE' }],
+        extras: { max: droppedGrossVnd },
+      });
+    }
     let refund = { noticeDays: 0, refundVnd: 0 };
-    if (row.channel_group !== 'ota' && droppedVnd > 0) {
+    if (!ota && droppedNetVnd > 0) {
       const policy = await this.s.optionalParam<EarlyDepartureRefundPolicy>(
         tx,
         ctx,
@@ -1106,11 +1139,12 @@ export class StayService {
       refund = earlyDepartureRefund({
         newDeparture: nd,
         businessDateAtNotice: noticeDate,
-        droppedNightsVnd: droppedVnd,
+        droppedNightsVnd: droppedNetVnd,
         policy,
         unit: ctx.params.feeUnit,
       });
     }
+    const feeVnd = ota ? (otaRetained ?? 0) : droppedNetVnd - refund.refundVnd;
     const segs = await activeSegments(tx, row.id);
     await this.s.occupancy.lockRooms(
       tx,
@@ -1151,9 +1185,17 @@ export class StayService {
       `UPDATE reservation SET departure_date = $2, early_departure_notice_at = $3,
               total_room_vnd = GREATEST(0, total_room_vnd - $4), updated_at = $5, version = version + 1
         WHERE id = $1`,
-      [row.id, nd, noticeAt, droppedVnd, ctx.now],
+      [row.id, nd, noticeAt, droppedGrossVnd, ctx.now],
     );
-    await recordChange(tx, row.id, 'departure_date', row.departure_date, nd, ctx.now, 'B16');
+    await recordChange(
+      tx,
+      row.id,
+      'departure_date',
+      row.departure_date,
+      nd,
+      ctx.now,
+      evidence ? `B16 ${evidence.note}` : 'B16',
+    );
     await recordTransition(tx, {
       reservationId: row.id,
       code: row.code,
@@ -1166,46 +1208,75 @@ export class StayService {
     });
     const fresh = await loadReservation(tx, row.id, ctx.actor);
     let refundRequestId: string | null = null;
+    let refundVnd = 0;
     if (row.folio_id) {
+      // A late-checkout charge of the old departure day is void with it (the guest leaves earlier).
+      const eff = await this.s.effectiveStay(tx, ctx, row);
+      await this.s.replaceLateCharge(tx, ctx, {
+        folioId: row.folio_id,
+        ids: eff.ids,
+        booking: row,
+        serviceDate: nd,
+        time: this.s.localTime(ctx),
+        tierPct: 0,
+        amountVnd: 0,
+        reason: 'superseded by early departure (B16)',
+        source: 'manual',
+      });
       await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {
         userId: ctx.actor.userId,
         ...this.s.req(ctx),
       });
-      const retained = droppedVnd - refund.refundVnd;
-      if (retained > 0 && row.channel_group !== 'ota') {
-        await this.s.folios.postLines(
+      if (feeVnd > 0) {
+        const [lineId] = await this.s.folios.postLines(
           tx,
           row.folio_id,
           [
             {
               reservationId: row.id,
               category: 'early_departure_fee',
+              revenueGroup: 'other',
               description: `early_departure ${refund.noticeDays}d`,
               quantity: 1,
-              unitPriceVnd: retained,
-              amountVnd: retained,
+              unitPriceVnd: feeVnd,
+              amountVnd: feeVnd,
               serviceDate: nd,
               source: 'system',
+              ...(ota ? { chargeCode: 'ota_retained' } : {}),
+              labelParams: { noticeDays: refund.noticeDays, nights: dropped.length },
             },
           ],
           { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
         );
+        if (evidence?.attachmentId && lineId) {
+          await this.attachments.bindTo(tx, evidence.attachmentId, {
+            type: 'folio_line',
+            id: lineId,
+          });
+        }
       }
-      // G-14: the refundable part becomes a `refund` request (≤ what the guest actually paid in excess).
-      const credit = (await this.s.folios.balance(tx, row.folio_id)).creditVnd;
-      const amount = Math.min(refund.refundVnd, credit);
-      if (amount > 0) {
-        const req = await this.s.approvals.submit(tx, ctx.actor, {
-          type: 'refund',
-          amountVnd: amount,
-          reasonCode: 'early_departure',
-          targetType: 'reservation',
-          targetId: row.id,
-          targetCode: row.code,
-          ...this.s.req(ctx),
-        });
-        refundRequestId = req.id;
+      // G-14 / DOM S3-2 (c): the refundable part + the dropped nights' BR-110 fees become ONE `refund`
+      // request, capped by the overpayment not yet routed to a request (FolioBalance.creditVnd).
+      if (!ota) {
+        const credit = (await this.s.folios.balance(tx, row.folio_id)).unhandledCreditVnd;
+        refundVnd = Math.min(refund.refundVnd + droppedFeesVnd, credit);
+        if (refundVnd > 0) {
+          const req = await this.s.approvals.submit(tx, ctx.actor, {
+            type: 'refund',
+            amountVnd: refundVnd,
+            reasonCode: 'early_departure',
+            ...(evidence ? { reasonNote: evidence.note } : {}),
+            targetType: 'reservation',
+            targetId: row.id,
+            targetCode: row.code,
+            ...this.s.req(ctx),
+          });
+          refundRequestId = req.id;
+        }
       }
+    }
+    if (evidence?.attachmentId && feeVnd <= 0) {
+      await this.attachments.bindTo(tx, evidence.attachmentId, { type: 'reservation', id: row.id });
     }
     await this.audit.recordMoney(tx, {
       action: 'reservation.early_departure',
@@ -1215,17 +1286,51 @@ export class StayService {
       before: { departureDate: row.departure_date },
       after: {
         departureDate: nd,
+        droppedNetVnd,
         refundableVnd: refund.refundVnd,
-        retainedVnd: droppedVnd - refund.refundVnd,
+        droppedExtraPersonVnd: droppedFeesVnd,
+        retainedVnd: feeVnd,
+        refundRequestedVnd: refundVnd,
+        noticeGivenAt: ctx.iso(noticeAt as Date),
+        ...(evidence ? { noticeEvidence: true } : {}),
       },
-      reason: `BR-428 notice ${refund.noticeDays}d${refundRequestId ? ` refund ${refundRequestId}` : ''}`,
+      reason: `BR-428 notice ${refund.noticeDays}d${evidence ? ` – ${evidence.note}` : ''}`,
       ...this.s.req(ctx),
     });
     await outboxAvailability(tx, released, 'reservation.early_departure');
     await this.s.ports.registration.onDepartureChanged(tx, row.id, nd);
     await this.s.events.publish(tx, 'reservation.changed', row.id);
     await this.s.stay.emit(tx, 'stay_changed', fresh, 'in_house', 'B16', null, 'early_departure');
-    return fresh;
+    const after = await loadReservation(tx, row.id, ctx.actor);
+    return { row: after, earlyDepartureFeeVnd: Math.max(0, feeVnd), refundVnd, refundRequestId };
+  }
+
+  /** `noticeEvidence {note, attachmentId?}` (E04-06). */
+  private evidenceInput(
+    f: Fields,
+    body: Record<string, unknown>,
+  ): { note: string; attachmentId: string | null } | null {
+    const v = body.noticeEvidence;
+    if (v === undefined || v === null) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) {
+      f.add('noticeEvidence', 'VALIDATION_FAILED');
+      return null;
+    }
+    const sub = new Fields(v as Record<string, unknown>);
+    const note = sub.text('note', 500, { required: true, min: 3 });
+    const attachmentId = sub.uuid('attachmentId', false);
+    for (const e of sub.errors) f.add(`noticeEvidence.${e.field}`, e.code);
+    return note ? { note, attachmentId: attachmentId ?? null } : null;
+  }
+
+  /** B13/B15/B16 run on the primary booking (children share its room and folio – ARC-BE-S3-05). */
+  private assertPrimary(row: ReservationRow): void {
+    if (row.parent_reservation_id) {
+      throw problem('INVALID_TRANSITION', {
+        extras: { currentState: row.status },
+        detail: 'use the primary booking (this child booking shares its room and folio)',
+      });
+    }
   }
 
   // ───────────────────────── US-030 / US-031 – departure reminders ─────────────────────────

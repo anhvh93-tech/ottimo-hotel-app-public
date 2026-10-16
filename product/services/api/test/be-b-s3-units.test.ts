@@ -11,13 +11,14 @@ import { billLines } from '../src/modules/folio/internal/bill.service';
 import {
   type FolioLineRow,
   computeTotals,
+  moneyPosition,
   refundedOf,
 } from '../src/modules/folio/public/folio.service';
+import { lineLabel, roomResolver } from '../src/modules/folio/public/line-labels';
 import { PaymentsService } from '../src/modules/payments/internal/payments.service';
 import {
   buildVietQrPayload,
   crc16Ccitt,
-  maskAccount,
   transferContentOf,
 } from '../src/modules/payments/internal/vietqr';
 import { isDesk, primaryRole } from '../src/modules/payments/public/payment.service';
@@ -91,7 +92,8 @@ describe('VietQR (US-120, BR-521, SEC F1/F2)', () => {
   it('BR-521: content = booking code / bill number without dashes', () => {
     expect(transferContentOf('OTM-00171')).toBe('OTM00171');
     expect(transferContentOf('F26-000123')).toBe('F26000123');
-    expect(maskAccount('970407', '1903123456789')).toBe('9704••••6789');
+    // ARC-BE-S3-29: one mask format (contract `9704••••1234`).
+    expect(maskedAccountNo({ bankBin: '970407', accountNo: '1903123456789' })).toBe('9704••••6789');
   });
 });
 
@@ -174,6 +176,156 @@ describe('folio totals with credit and refunds (0.3.6 A-34)', () => {
       creditVnd: 0,
     });
     expect(refundedOf(payments)).toBe(350_000);
+  });
+});
+
+describe('money position – review S3 (DOM BE-13/14, ARC 13, E15-05)', () => {
+  const ln = (
+    id: string,
+    category: string,
+    amount: number,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id,
+    category: category as FolioLineRow['category'],
+    revenue_group: (category === 'room' ? 'room' : 'other') as FolioLineRow['revenue_group'],
+    amount_vnd: amount,
+    line_state: 'posted' as const,
+    reservation_id: 'r1',
+    related_line_id: null as string | null,
+    ...extra,
+  });
+  it('ota_collect pays only the OTA-covered charges: Agoda 2 nights 1.800.000 + minibar 70.000 → 70.000 due, no credit', () => {
+    const m = moneyPosition(
+      [ln('n1', 'room', 900_000), ln('n2', 'room', 900_000), ln('mb', 'minibar', 70_000)],
+      [
+        {
+          type: 'charge',
+          method: 'ota_collect',
+          amount_vnd: 1_800_000,
+          status: 'succeeded',
+          reservation_id: 'r1',
+        },
+      ],
+    );
+    expect(m).toMatchObject({
+      paidOtaVnd: 1_800_000,
+      otaCoveredVnd: 1_800_000,
+      otaExcessVnd: 0,
+      balanceDueVnd: 70_000,
+      creditVnd: 0,
+    });
+  });
+  it('OTA money above the covered charges is OTA excess – never OTTIMO credit, never pays desk charges', () => {
+    // A night reversed (B16) before the system receipt was adjusted: OTA holds 900.000 too much.
+    const m = moneyPosition(
+      [
+        ln('n1', 'room', 900_000),
+        ln('n2', 'room', 900_000),
+        ln('n2r', 'room', -900_000, { reversal_of_id: 'n2' }),
+        ln('mb', 'minibar', 70_000),
+        ln('foc', 'foc', -100_000, { related_line_id: 'n1' }),
+      ],
+      [
+        {
+          type: 'charge',
+          method: 'ota_collect',
+          amount_vnd: 1_800_000,
+          status: 'succeeded',
+          reservation_id: 'r1',
+        },
+      ],
+    );
+    expect(m).toMatchObject({ otaCoveredVnd: 800_000, otaExcessVnd: 1_000_000 });
+    expect(m).toMatchObject({ balanceDueVnd: 70_000, creditVnd: 0 });
+  });
+  it('payable credit: pending transfers count for nothing, a short cash handover for what arrived', () => {
+    const m = moneyPosition(
+      [ln('n1', 'room', 1_000_000)],
+      [
+        {
+          id: 'p1',
+          code: 'PT-1',
+          type: 'deposit',
+          method: 'cash',
+          amount_vnd: 600_000,
+          status: 'succeeded',
+          reconciliation: 'disputed',
+          received_amount_vnd: 400_000,
+        },
+        {
+          id: 'p2',
+          code: 'PT-2',
+          type: 'charge',
+          method: 'bank_transfer',
+          amount_vnd: 700_000,
+          status: 'succeeded',
+          reconciliation: 'pending',
+        },
+      ],
+    );
+    expect(m).toMatchObject({
+      creditVnd: 300_000,
+      payableCreditVnd: 0,
+      unsettledPaymentIds: ['p1', 'p2'],
+      unsettledPaymentCodes: ['PT-1', 'PT-2'],
+    });
+    const totals = computeTotals(
+      [ln('n1', 'room', 1_000_000)],
+      [{ type: 'charge', method: 'cash', amount_vnd: 1_300_000, status: 'succeeded' }],
+      300_000,
+    );
+    expect(totals).toMatchObject({ creditVnd: 300_000, unhandledCreditVnd: 0, otaExcessVnd: 0 });
+  });
+});
+
+describe('bill line labels (DOM BE-21) – keys and params, never a technical code', () => {
+  const src = (category: string, description: string, extra: Record<string, unknown> = {}) => ({
+    category,
+    description,
+    service_date: '2026-10-21',
+    quantity: '1',
+    ...extra,
+  });
+  it('maps every system description to bill.line.* with its params', () => {
+    const roomOn = roomResolver([
+      { roomNo: '203', fromDate: '2026-10-20', toDate: '2026-10-22' },
+      { roomNo: '401', fromDate: '2026-10-22', toDate: '2026-10-25' },
+    ]);
+    expect(lineLabel(src('room', 'room_night'), { roomOn })).toEqual({
+      labelKey: 'bill.line.room_night',
+      labelParams: { date: '2026-10-21', room: '203' },
+    });
+    expect(
+      lineLabel(src('room', 'extra_night', { charge_code: 'extra_night' }), { roomOn }),
+    ).toEqual({
+      labelKey: 'bill.line.extra_night',
+      labelParams: { date: '2026-10-21', room: '203' },
+    });
+    expect(lineLabel(src('late_checkout', 'late_checkout 13:00 30%'))).toEqual({
+      labelKey: 'bill.line.late_checkout',
+      labelParams: { time: '13:00', pct: 30 },
+    });
+    expect(lineLabel(src('extra_person', 'extra_guest x2'))).toEqual({
+      labelKey: 'bill.line.extra_person',
+      labelParams: { date: '2026-10-21', count: 2 },
+    });
+    expect(lineLabel(src('deposit_forfeit', 'retain_with_guest_consent'))).toEqual({
+      labelKey: 'bill.line.overpayment_retained',
+    });
+    expect(lineLabel(src('room_change_difference', 'room_change 203->401'))).toEqual({
+      labelKey: 'bill.line.room_change',
+      labelParams: { from: '203', to: '401' },
+    });
+    // Stored params win, but the quantity always follows the line (an adjusted minibar line).
+    expect(
+      lineLabel(src('minibar', 'Bia', { quantity: '1', label_params: { item: 'Bia', qty: 2 } })),
+    ).toEqual({ labelKey: 'bill.line.minibar', labelParams: { item: 'Bia', qty: 1 } });
+    expect(lineLabel(src('penalty', 'x', { charge_code: 'key_card_fee', quantity: '2' }))).toEqual({
+      labelKey: 'bill.line.key_card_fee',
+      labelParams: { qty: 2 },
+    });
+    expect(lineLabel(src('adjustment', 'anything')).labelKey).toBe('bill.line.adjustment');
   });
 });
 

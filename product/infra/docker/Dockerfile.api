@@ -36,6 +36,17 @@ WORKDIR /app
 COPY --from=build --chown=node:node /out/package.json ./package.json
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/services/api/dist ./dist
+# Encrypted blob store (ADR-013 point 1, SEC C2 / SR-FILE-04): mount point of the blob volume, owned by `node`,
+# mode 0700. A NEW named volume mounted here copies this owner/mode, so api and worker can write and nobody
+# else can list it. BLOBSTORE_LOCAL_PATH is NOT set in the image on purpose: compose must name the path
+# (staging/production refuse to start without an absolute one), so a forgotten volume fails loudly instead of
+# writing guest documents into a container layer. Never mounted into the web (Caddy) container.
+RUN mkdir -p /var/lib/ottimo/blobs \
+    && chown node:node /var/lib/ottimo/blobs \
+    && chmod 0700 /var/lib/ottimo/blobs
+# sharp (SR-FILE-03) loads its prebuilt linuxmusl binary (@img/sharp-linuxmusl-*), no build tools needed;
+# fail the build here rather than at the first upload if the platform package is missing.
+RUN node -e "const s=require('sharp');if(!s.versions||!s.versions.vips)process.exit(1);console.log('sharp',s.versions.sharp,'vips',s.versions.vips)"
 # No secrets in the image: all config comes from environment variables (or *_FILE secrets) at runtime.
 # APP_ENV is deliberately NOT set here: the app refuses to start until the environment says what it is.
 USER node

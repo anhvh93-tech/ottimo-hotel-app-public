@@ -4,18 +4,18 @@
  * events (staff inbox, attention, SSE). Ports of BE-C/BE-B zones are fakes (registration, guest access, child
  * crypto, minibar). Fake clock: T0 = Thu 15/10/2026 09:00 (VN). FAKE data only.
  */
-import { createHash, randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database, Tx } from '../../src/db/database';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
-import type {
-  CheckinDocumentStatus,
-  EncryptedChildData,
-  FrontdeskChildDataPort,
-  FrontdeskGuestAccessPort,
-  FrontdeskMinibarPort,
-  FrontdeskRegistrationPort,
+import {
+  FD_CHILD_DATA_PORT,
+  type CheckinDocumentStatus,
+  type EncryptedChildData,
+  type FrontdeskChildDataPort,
+  type FrontdeskGuestAccessPort,
+  type FrontdeskMinibarPort,
+  type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
 import {
   Client,
@@ -31,7 +31,7 @@ import {
   seedGuestRow,
   touchSessions,
 } from '../helpers/reservations-fixture';
-import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
+import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
 class FakeRegistration implements FrontdeskRegistrationPort {
   docs: CheckinDocumentStatus = {
@@ -83,18 +83,20 @@ class FakeGuestAccess implements FrontdeskGuestAccessPort {
   }
 }
 
-class FakeChildData implements FrontdeskChildDataPort {
+/** The real child-data cipher (CryptoService – FK child_data_key_id → data_key, 0031) with a spy on destroy. */
+class SpyChildData implements FrontdeskChildDataPort {
   destroyed: string[] = [];
-  async encryptChild(_tx: Tx, i: { name: string; birthYear: number }): Promise<EncryptedChildData> {
-    return {
-      nameEnc: Buffer.from('ciphertext-name'),
-      birthYearEnc: Buffer.from('ciphertext-year'),
-      nameHmac: createHash('sha256').update(`${i.name.toLowerCase()}|${i.birthYear}`).digest('hex'),
-      dataKeyId: randomUUID(),
-    };
+  inner: FrontdeskChildDataPort | null = null;
+  async encryptChild(
+    tx: Tx,
+    i: Parameters<FrontdeskChildDataPort['encryptChild']>[1],
+  ): Promise<EncryptedChildData> {
+    if (!this.inner) throw new Error('child data port not wired');
+    return this.inner.encryptChild(tx, i);
   }
-  async destroy(_tx: Tx, id: string) {
+  async destroy(tx: Tx, id: string) {
     this.destroyed.push(id);
+    await this.inner?.destroy(tx, id);
   }
 }
 
@@ -128,7 +130,7 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
   let guest2: string;
   const reg = new FakeRegistration();
   const access = new FakeGuestAccess();
-  const child = new FakeChildData();
+  const child = new SpyChildData();
   const minibar = new FakeMinibar();
   const c: Record<string, Client> = {};
 
@@ -136,20 +138,17 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
     db = appDatabase(10);
     t = await createTenant(db, { users: ROLES });
     ids = await seedBooking(db, t);
-    await setParam(
-      db,
-      t,
-      'early_departure_refund',
-      { minNoticeDays: 1, refundPct: 50 },
-      '2026-10-01',
-    );
     guest = await seedGuestRow(db, t, { name: 'Trần Văn Khách' });
     guest2 = await seedGuestRow(db, t, { name: 'Lê Thị Bạn' });
     fa = await startFeatureApp(db, {
       override: (b) =>
-        b
-          .overrideProvider(FrontdeskPorts)
-          .useValue(new FrontdeskPorts(reg, access, child, minibar)),
+        b.overrideProvider(FrontdeskPorts).useFactory({
+          factory: (real: FrontdeskChildDataPort) => {
+            child.inner = real;
+            return new FrontdeskPorts(reg, access, child, minibar);
+          },
+          inject: [FD_CHILD_DATA_PORT],
+        }),
     });
     for (const u of Object.keys(ROLES)) c[u] = Client.of(fa, t, u);
     for (const u of ['fd', 'fd2', 'fdl', 'mgr', 'own']) c[u]!.deviceToken = await t.deviceToken();
@@ -252,7 +251,8 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       .json()
       .errors.map((e: { field: string }) => e.field)
       .sort();
-    expect(fields).toEqual(['cardsIssued', 'houseRulesSent']);
+    // 11:00 by the server clock (no typed time) → the surcharge decision is missing too (DOM S3-12).
+    expect(fields).toEqual(['applyEarlySurcharge', 'cardsIssued', 'houseRulesSent']);
     const changed = await act(
       main.id,
       'check-in',
@@ -264,9 +264,43 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       }),
     );
     expect(changed.statusCode).toBe(409);
-    expect(changed.json()).toMatchObject({
-      code: 'SURCHARGE_CHANGED',
-      expectedSurchargeVnd: 212_000,
+    expect(changed.json()).toMatchObject({ code: 'SURCHARGE_CHANGED', surchargeVnd: 212_000 });
+    // DOM S3-12 / 0.3.6 bổ sung 2: a surcharge > 0 is never skipped silently.
+    const skipped = await act(
+      main.id,
+      'check-in',
+      main.version,
+      checkInBody({ checkinTime: '11:00' }),
+    );
+    expect(skipped.statusCode).toBe(422);
+    expect(skipped.json().errors).toContainEqual({
+      field: 'applyEarlySurcharge',
+      code: 'SURCHARGE_DECISION_REQUIRED',
+    });
+    // E03-07: no future time (14:00 typed at 11:00), and a time well before the action needs a note.
+    const future = await act(
+      main.id,
+      'check-in',
+      main.version,
+      checkInBody({ checkinTime: '14:00' }),
+    );
+    expect(future.json().errors).toContainEqual({
+      field: 'checkinTime',
+      code: 'TIME_AFTER_ACTION',
+    });
+    const early = await act(
+      main.id,
+      'check-in',
+      main.version,
+      checkInBody({
+        checkinTime: '10:00',
+        applyEarlySurcharge: true,
+        expectedSurchargeVnd: 212_000,
+      }),
+    );
+    expect(early.json().errors).toContainEqual({
+      field: 'checkinTimeNote',
+      code: 'TIME_NOTE_REQUIRED',
     });
     const hk = await act(main.id, 'check-in', main.version, checkInBody(), 'hk');
     expect(hk.statusCode).toBe(403);
@@ -483,7 +517,7 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
   });
 
   it('B14 A-37: 4 adults into a room of max 3 → 422 CAPACITY_EXCEEDED', async () => {
-    await at('2026-10-15T12:00:00+07:00');
+    await at('2026-10-15T14:00:00+07:00');
     const big = await book({
       roomId: ids.rooms['301'],
       adults: 4,
@@ -583,7 +617,9 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       `SELECT child_name_enc FROM reservation_guest WHERE reservation_id = $1 AND role = 'child'`,
       [main.id],
     );
-    expect(enc[0]?.child_name_enc?.toString()).toBe('ciphertext-name');
+    // Real envelope encryption (CryptoService – FK to data_key since 0031): ciphertext, never the name.
+    expect(enc[0]?.child_name_enc?.length ?? 0).toBeGreaterThan(16);
+    expect(enc[0]?.child_name_enc?.toString()).not.toContain('Bé Na');
     const members = kid.json().members as Array<{ id: string; role: string; priceAgeBand: string }>;
     expect(members.find((m) => m.role === 'child')?.priceAgeBand).toBe('child_6_11');
     const kidV = kid.json().version as number;
@@ -653,7 +689,7 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
   });
 
   it('A-34 credit: overpaid booking needs overpaymentHandling; retain is MGR+; refund request never blocks', async () => {
-    await at('2026-10-15T13:00:00+07:00');
+    await at('2026-10-15T14:00:00+07:00');
     const b = await book({
       roomId: ids.rooms['103'],
       departureDate: '2026-10-16',

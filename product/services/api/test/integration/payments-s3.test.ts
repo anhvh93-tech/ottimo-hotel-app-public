@@ -16,6 +16,8 @@ import { AttachmentService } from '../../src/modules/files/public/attachment.ser
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
 import { MinibarCheckoutPort } from '../../src/modules/inventory/public/minibar-checkout.port';
 import { FolioService } from '../../src/modules/folio/public/folio.service';
+import { PaymentService } from '../../src/modules/payments/public/payment.service';
+import { ReservationsService } from '../../src/modules/reservations/internal/reservations.service';
 import { crc16Ccitt } from '../../src/modules/payments/internal/vietqr';
 import { addDays } from '../../src/shared/time';
 import {
@@ -230,6 +232,29 @@ describe.skipIf(!HAS_DB)(
         b.id,
         T0,
       ]);
+    /**
+     * B18 as BE-A runs it, money side only: the desk collects what is still due (cash), the booking becomes
+     * `checked_out`, then the SM-11 hook (FolioModule on ReservationHooks B18) – returns commissions earned.
+     */
+    const checkoutPaid = async (b: Booking): Promise<number> => {
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      if (due > 0) {
+        const r = await pay('fd', b, { type: 'charge', method: 'cash', amountVnd: due });
+        expect(r.statusCode, r.body).toBe(201);
+      }
+      await q(
+        `UPDATE reservation SET status = 'checked_out', actual_checkin_at = $2, actual_checkout_at = $2
+          WHERE id = $1`,
+        [b.id, T0],
+      );
+      return db.withContext(t.ctx(), (tx) =>
+        fa.app.get(FolioService).tryEarnCommissions(tx, {
+          reservationId: b.id,
+          reservationCode: b.code,
+          status: 'checked_out',
+        }),
+      );
+    };
     const outbox = async (kind: string) =>
       (
         await q(`SELECT payload FROM outbox_message WHERE property_id = $1 ORDER BY created_at`, [
@@ -564,7 +589,7 @@ describe.skipIf(!HAS_DB)(
       ).rejects.toMatchObject({ code: '23514' });
     });
 
-    it('BR-527-05 / A46a: cash a sale recorded – the sale cannot confirm, FD afternoon confirms → reconciled, sale commission earned; FD list scope', async () => {
+    it('BR-527-05 / A46a: cash a sale recorded – the sale cannot confirm; checked out and paid in full → still projected; FD afternoon confirms → reconciled, sale commission earned; FD list scope', async () => {
       const o = oracle('BR-527-05');
       const amount = (o.input as { amountVnd: number }).amountVnd;
       // Room 202, 7 nights → the BR-305 deposit is the oracle's 1.600.000 (BR-305-02).
@@ -599,6 +624,12 @@ describe.skipIf(!HAS_DB)(
         (await c('fd').get(`${P(t)}/payments`)).json().data.map((x: { id: string }) => x.id),
       ).toContain(other.id);
 
+      // input.stay: the guest checked out, paid in full – the sale's cash is still not handed over
+      // (DOM BE-15 / SM-11: earned needs the payee's own receipts reconciled).
+      expect(await checkoutPaid(b)).toBe(0);
+      expect(await commission()).toBe(
+        (o.expected as { recorderCommissionAtCheckout: string }).recorderCommissionAtCheckout,
+      );
       const handover = (who: string, body: Record<string, unknown>) =>
         c(who).send('POST', `${P(t)}/payments/${p!.id}/actions/confirm-cash-handover`, body, {
           'if-match': `"${p!.version}"`,
@@ -617,6 +648,16 @@ describe.skipIf(!HAS_DB)(
       expect(await commission()).toBe(
         (o.expected as { recorderCommission: string }).recorderCommission,
       );
+      expect(
+        Number(
+          (
+            await q(
+              `SELECT amount_vnd FROM commission WHERE reservation_id = $1 AND status = 'earned'`,
+              [b.id],
+            )
+          )[0]?.amount_vnd,
+        ),
+      ).toBe((o.expected as { commissionVnd: number }).commissionVnd);
       // Not a SAL/CTV cash → 409.
       expect(
         (
@@ -883,11 +924,12 @@ describe.skipIf(!HAS_DB)(
       await expect(
         q(
           `INSERT INTO payment (id, organization_id, property_id, code, folio_id, type, method, reconciliation, amount_vnd,
-           status, recorded_by, approval_request_id, approval_requested_by, created_at, updated_at)
-         VALUES ($1, $2, $3, 'PT-X', $4, 'refund', 'cash', 'not_required', -1, 'succeeded', $5, $6, $5, now(), now())`,
+           status, recorded_by, recorded_by_role, approval_request_id, approval_requested_by, created_at, updated_at)
+         VALUES ($1, $2, $3, 'PT-X', $4, 'refund', 'cash', 'not_required', -1, 'succeeded', $5, 'front_desk', $6, $5,
+           now(), now())`,
           [uuidv7(), t.organizationId, t.propertyIds[0], b.folioId, t.users.fd!.id, r.id],
         ),
-      ).rejects.toMatchObject({ code: '23514' });
+      ).rejects.toMatchObject({ code: '23514', constraint: 'payment_refund_not_requester_check' });
       // SEC F8: nobody approves the refund they asked for – owner included.
       const own = await create('owner', 1);
       expect(own.statusCode).toBe(422); // nothing left to refund on this folio
@@ -896,12 +938,14 @@ describe.skipIf(!HAS_DB)(
     it('A47 transfer refund: Luhn refused, destination C3 masked, change after approval → pending, step-up view logged, pay-out shreds the key', async () => {
       const b = await booking();
       const due = (await folio(b)).totals.balanceDueVnd as number;
-      await pay('fd', b, {
-        type: 'charge',
-        method: 'bank_transfer',
-        amountVnd: due + 500_000,
-        note: 'Chuyển dư',
-      });
+      const src = (
+        await pay('fd', b, {
+          type: 'charge',
+          method: 'bank_transfer',
+          amountVnd: due + 500_000,
+          note: 'Chuyển dư',
+        })
+      ).json();
       const r = (
         await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
           amountVnd: 500_000,
@@ -1000,6 +1044,24 @@ describe.skipIf(!HAS_DB)(
           paidAt: T0.toISOString(),
           ...extra,
         });
+      // E15-05 / DOM BE-14 c: the overpayment comes from a transfer not reconciled yet → nothing paid out.
+      const early = await exec('mgr', {
+        bankReference: 'FT26290001',
+        attachmentId: await attach('mgr', 'refund_proof', b.id),
+      });
+      expect(early.statusCode, early.body).toBe(409);
+      expect(early.json()).toMatchObject({
+        code: 'REFUND_SOURCE_NOT_RECONCILED',
+        paymentIds: [src.id],
+        unreconciledVnd: 500_000,
+      });
+      const recSrc = await c('owner').send(
+        'POST',
+        `${P(t)}/payments/${src.id}/actions/reconcile`,
+        { result: 'reconciled' },
+        { 'if-match': `"${src.version}"` },
+      );
+      expect(recSrc.statusCode, recSrc.body).toBe(200);
       expect((await exec('mgr', {})).json().errors).toEqual([
         { field: 'bankReference', code: 'REQUIRED' },
         { field: 'attachmentId', code: 'EVIDENCE_REQUIRED' },
@@ -1245,7 +1307,8 @@ describe.skipIf(!HAS_DB)(
       expect(
         (
           await q(
-            `SELECT count(*)::int AS n FROM audit_event WHERE action = 'folio.line_posted' AND entity_code = $1`,
+            `SELECT count(*)::int AS n FROM audit_event
+              WHERE action = 'folio.line_posted' AND entity_type = 'folio_line' AND entity_code = $1`,
             [b.code],
           )
         )[0]!.n,
@@ -1551,6 +1614,799 @@ describe.skipIf(!HAS_DB)(
         refill_items: [{ itemId: items.bia, quantity: 1 }],
       });
       expect(await inTx((tx) => port.onCheckedOut(tx, b.id, stay!.room_id as string))).toBeNull();
+    });
+    // ───────────── Sprint 3 Response & fix (DOM BE-13/14/15/21, ARC 02/11/12/13/14/32, SEC 36/37/42–45) ─────────────
+
+    /** Earlier cases move the clock (minibar on the departure day): each case below starts at T0. */
+    const atT0 = async () => {
+      fa.clock.set(T0);
+      await refreshSessions(db, t, T0);
+    };
+    /** Re-run the folio night sync the way reservations does after a change (B7/B13/B16/PATCH). */
+    const resync = (b: Booking) =>
+      db.withContext(t.ctx(), async (tx) => {
+        const { rows } = await tx.query('SELECT * FROM reservation WHERE id = $1', [b.id]);
+        const stay = await fa.app.get(ReservationsService).confirmedStay(tx, rows[0] as never);
+        await fa.app.get(FolioService).resyncStay(tx, stay, { userId: null });
+        return stay;
+      });
+    const postMinibar = (b: Booking, amountVnd: number) =>
+      db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
+        fa.app.get(FolioService).postLines(
+          tx,
+          b.folioId,
+          [
+            {
+              reservationId: b.id,
+              category: 'minibar',
+              description: 'Bia',
+              quantity: 2,
+              unitPriceVnd: amountVnd / 2,
+              amountVnd,
+              serviceDate: b.arrivalDate,
+              source: 'minibar_check',
+              labelParams: { item: 'Bia', qty: 2 },
+            },
+          ],
+          { userId: t.users.fd!.id, reservationCode: b.code },
+        ),
+      );
+    /** Hold confirmed by the sale with a cash deposit = the required deposit of THAT booking (rates vary by week). */
+    const salBooking = async (): Promise<{ b: Booking; amount: number }> => {
+      const b = await booking({ room: '202', deposit: null });
+      const [h] = await q('SELECT deposit_required_vnd, version FROM reservation WHERE id = $1', [
+        b.id,
+      ]);
+      const amount = Number(h!.deposit_required_vnd);
+      const res = await c('sal').send(
+        'POST',
+        `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
+        { payment: { type: 'deposit', method: 'cash', amountVnd: amount } },
+        { 'if-match': `"${h!.version}"` },
+      );
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().status).toBe('confirmed');
+      return { b, amount };
+    };
+    const approveAs = (who: string, id: string) =>
+      c(who).send('POST', `${P(t)}/approval-requests/${id}/actions/approve`, {
+        authMethod: 'password',
+        secret: TEST_PASSWORD,
+      });
+
+    it('SEC-BE-36 / ARC-BE-S3-02: a reversed deposit counts 0 (not −X): VietQR cap of the hold = required deposit; re-recorded deposit confirms', async () => {
+      await atT0();
+      const hold = await booking({ deposit: null });
+      const [h] = await q('SELECT deposit_required_vnd FROM reservation WHERE id = $1', [hold.id]);
+      const required = Number(h!.deposit_required_vnd);
+      const short = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${hold.id}/actions/confirm-deposit`,
+        { payment: { type: 'deposit', method: 'cash', amountVnd: 100_000 } },
+        { 'if-match': `"${hold.version}"` },
+      );
+      expect(short.statusCode, short.body).toBe(200);
+      const [dep] = await q(`SELECT id FROM payment WHERE folio_id = $1 AND type = 'deposit'`, [
+        hold.folioId,
+      ]);
+      const rev = await c('mgr').send('POST', `${P(t)}/payments/${dep!.id}/actions/reverse`, {
+        reason: 'Ghi nhầm số tiền',
+      });
+      expect(rev.statusCode, rev.body).toBe(200);
+      expect(
+        await db.withContext(t.ctx(), (tx) =>
+          fa.app.get(FolioService).depositPaid(tx, hold.folioId),
+        ),
+      ).toBe(0);
+      const qr = await c('fd').send('POST', `${P(t)}/folios/${hold.folioId}/vietqr`, {
+        amountVnd: required + 1,
+      });
+      expect(qr.json()).toMatchObject({ code: 'VALIDATION_FAILED', max: required });
+      // A second reversal of the same payment: refused by code (409) and by the DB (UK payment_one_reversal_key).
+      expect(
+        (
+          await c('mgr').send('POST', `${P(t)}/payments/${dep!.id}/actions/reverse`, {
+            reason: 'Đảo lần hai',
+          })
+        ).statusCode,
+      ).toBe(409);
+      const v = (await q('SELECT version FROM reservation WHERE id = $1', [hold.id]))[0]!.version;
+      const full = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${hold.id}/actions/confirm-deposit`,
+        { payment: { type: 'deposit', method: 'cash', amountVnd: required } },
+        { 'if-match': `"${v}"` },
+      );
+      expect(full.statusCode, full.body).toBe(200);
+      expect(full.json().status).toBe('confirmed');
+    });
+
+    it('DOM BE-13 / x-ota-prepaid-rule: one system ota_collect = OTA-covered charges; desk charges stay due; resync keeps one live row; model change reverses it; bill counts the desk only', async () => {
+      await atT0();
+      const b = await booking();
+      // No own money on this OTA booking: the desk deposit of the fixture is reversed first.
+      const [dep] = await q(`SELECT id FROM payment WHERE folio_id = $1 AND type = 'deposit'`, [
+        b.folioId,
+      ]);
+      expect(
+        (
+          await c('mgr').send('POST', `${P(t)}/payments/${dep!.id}/actions/reverse`, {
+            reason: 'Đơn OTA trả trước – không thu cọc',
+          })
+        ).statusCode,
+      ).toBe(200);
+      await q(`UPDATE reservation SET payment_model = 'ota_prepaid' WHERE id = $1`, [b.id]);
+      await resync(b);
+      await postMinibar(b, 70_000);
+      let f = await folio(b);
+      const room = f.totals.roomVnd as number;
+      expect(f.totals).toMatchObject({
+        paidViaOtaVnd: room,
+        balanceDueVnd: 70_000,
+        creditVnd: 0,
+        unhandledCreditVnd: 0,
+        otaExcessVnd: 0,
+      });
+      const live = () =>
+        q(
+          `SELECT id, amount_vnd, method, provider, reconciliation, recorded_by FROM payment
+            WHERE folio_id = $1 AND method = 'ota_collect' AND status = 'succeeded' AND reversal_of_id IS NULL`,
+          [b.folioId],
+        );
+      expect(await live()).toEqual([
+        expect.objectContaining({
+          amount_vnd: room,
+          provider: 'ota_system',
+          reconciliation: 'not_required',
+          recorded_by: null,
+        }),
+      ]);
+      await resync(b); // nothing changed → no new row
+      expect(await live()).toHaveLength(1);
+      const bill = (await c('fd').get(`${P(t)}/folios/${b.folioId}/bill`)).json();
+      expect(bill).toMatchObject({ paymentModel: 'ota_prepaid', totalVnd: 70_000, paidVnd: 0 });
+      expect(bill.balanceDueVnd).toBe(70_000);
+      const audit = await q(
+        `SELECT action FROM audit_event WHERE entity_code = $1 AND action LIKE 'payment.ota%'`,
+        [b.code],
+      );
+      expect(audit.map((a) => a.action)).toContain('payment.ota_collected');
+      // Model back to direct → the system receipt is reversed (audit ota_collect_adjusted), full balance due.
+      await q(`UPDATE reservation SET payment_model = 'direct' WHERE id = $1`, [b.id]);
+      await resync(b);
+      expect(await live()).toHaveLength(0);
+      f = await folio(b);
+      expect(f.totals.balanceDueVnd).toBe(room + 70_000);
+    });
+
+    it('DOM BE-14 / E15-05: an open refund request leaves no unhandled credit (B16 then B18 → one request); cap = unhandledCreditVnd; pay-out ≤ current credit', async () => {
+      await atT0();
+      const b = await booking();
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      await pay('fd', b, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due + 700_000,
+        note: 'Khách trả dư',
+      });
+      const created = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+        amountVnd: 700_000,
+        reason: 'Trả phòng sớm – hoàn đêm không ở',
+      });
+      expect(created.statusCode, created.body).toBe(201);
+      const r = created.json();
+      let f = await folio(b);
+      expect(f.totals).toMatchObject({ creditVnd: 700_000, unhandledCreditVnd: 0 });
+      // What B18 reads (FolioPort.balance): nothing left to route → no second request, no blocker.
+      const bal = await db.withContext(t.ctx(), (tx) =>
+        fa.app.get(FolioService).balance(tx, b.folioId),
+      );
+      expect(bal).toMatchObject({
+        creditVnd: 0,
+        unhandledCreditVnd: 0,
+        rawCreditVnd: 700_000,
+        openRefundVnd: 700_000,
+      });
+      const again = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+        amountVnd: 1,
+        reason: 'Hoàn trùng',
+      });
+      expect(again.json()).toMatchObject({
+        errors: [{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }],
+        max: 0,
+      });
+      const device = await t.deviceToken();
+      const set = await new Client(fa, t.users.fd!.sessionToken, device).send(
+        'PUT',
+        `${P(t)}/approval-requests/${r.id}/refund-destination`,
+        { method: 'cash' },
+      );
+      expect(set.statusCode, set.body).toBe(200);
+      expect((await approveAs('mgr', r.id)).statusCode).toBe(200);
+      // A charge after approval lowers the overpayment: pay-out ≤ credit NOW (630.000).
+      await postMinibar(b, 70_000);
+      f = await folio(b);
+      expect(f.totals.creditVnd).toBe(630_000);
+      const exec = async (amountVnd: number) =>
+        c('fd2').send('POST', `${P(t)}/approval-requests/${r.id}/actions/execute-cash-refund`, {
+          amountVnd,
+          paidAt: T0.toISOString(),
+          attachmentId: await attach('fd2', 'refund_proof', b.id),
+        });
+      const over = await exec(700_000);
+      expect(over.json()).toMatchObject({
+        errors: [{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }],
+        max: 630_000,
+      });
+      const paid = await exec(630_000);
+      expect(paid.statusCode, paid.body).toBe(201);
+      f = await folio(b);
+      expect(f.totals).toMatchObject({ balanceDueVnd: 0, creditVnd: 0 });
+    });
+
+    it('ARC-BE-S3-13: short cash handover – the overpayment backed by money that never arrived is not paid out (REFUND_SOURCE_NOT_RECONCILED)', async () => {
+      await atT0();
+      const { b, amount } = await salBooking();
+      const [p] = await q(`SELECT id, version FROM payment WHERE folio_id = $1`, [b.folioId]);
+      const short = await c('fd2').send(
+        'POST',
+        `${P(t)}/payments/${p!.id}/actions/confirm-cash-handover`,
+        { result: 'short', receivedAmountVnd: amount - 600_000, note: 'Sale nộp thiếu 600.000' },
+        { 'if-match': `"${p!.version}"` },
+      );
+      expect(short.statusCode, short.body).toBe(200);
+      expect(short.json()).toMatchObject({ reconciliation: 'disputed' });
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      await pay('fd', b, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due + 300_000,
+        note: 'Khách trả dư',
+      });
+      expect((await folio(b)).totals.creditVnd).toBe(300_000);
+      const r = (
+        await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+          amountVnd: 300_000,
+          reason: 'Hoàn tiền dư',
+        })
+      ).json();
+      const device = await t.deviceToken();
+      await new Client(fa, t.users.fd!.sessionToken, device).send(
+        'PUT',
+        `${P(t)}/approval-requests/${r.id}/refund-destination`,
+        { method: 'cash' },
+      );
+      expect((await approveAs('mgr', r.id)).statusCode).toBe(200);
+      const exec = await c('fd2').send(
+        'POST',
+        `${P(t)}/approval-requests/${r.id}/actions/execute-cash-refund`,
+        {
+          amountVnd: 300_000,
+          paidAt: T0.toISOString(),
+          attachmentId: await attach('fd2', 'refund_proof', b.id),
+        },
+      );
+      expect(exec.statusCode, exec.body).toBe(409);
+      expect(exec.json()).toMatchObject({
+        code: 'REFUND_SOURCE_NOT_RECONCILED',
+        paymentIds: [p!.id],
+        unreconciledVnd: 300_000,
+      });
+    });
+
+    it('DOM BE-15 / SM-11 (oracles BR-527-06, BR-903-04): commission earned only at checkout, paid in full, payee receipts reconciled', async () => {
+      await atT0();
+      // BR-527-06: SAL cash confirmed the same day → reconciled but still projected; checkout paid → earned.
+      const o6 = oracle('BR-527-06');
+      const { b } = await salBooking();
+      const [p] = await q(`SELECT id, version FROM payment WHERE folio_id = $1`, [b.folioId]);
+      const ok = await c('fd2').send(
+        'POST',
+        `${P(t)}/payments/${p!.id}/actions/confirm-cash-handover`,
+        { result: 'received' },
+        { 'if-match': `"${p!.version}"` },
+      );
+      expect(ok.json().reconciliation).toBe(
+        (o6.expected as { reconciliation: string }).reconciliation,
+      );
+      const status = async (id: string) =>
+        (
+          await q(
+            `SELECT status, amount_vnd FROM commission WHERE reservation_id = $1 AND status <> 'void'`,
+            [id],
+          )
+        )[0];
+      expect((await status(b.id))!.status).toBe(
+        (o6.expected as { recorderCommissionAfterConfirm: string }).recorderCommissionAfterConfirm,
+      );
+      expect(await checkoutPaid(b)).toBe(1);
+      // (amount: BR-527-05 checks the oracle's 156.150 on the week-0 booking; rates differ by week here)
+      expect((await status(b.id))!.status).toBe(
+        (o6.expected as { recorderCommissionAfterCheckout: string })
+          .recorderCommissionAfterCheckout,
+      );
+      // BR-903-04 shape: the desk records every receipt → earned at checkout. Not checked out → projected.
+      const d = await booking({ room: '202' });
+      expect((await status(d.id))!.status).toBe('projected');
+      expect(
+        await db.withContext(t.ctx(), (tx) =>
+          fa.app.get(FolioService).tryEarnCommissions(tx, {
+            reservationId: d.id,
+            reservationCode: d.code,
+            status: 'in_house',
+          }),
+        ),
+      ).toBe(0);
+      expect(await checkoutPaid(d)).toBe(1);
+      expect((await status(d.id))!.status).toBe('earned');
+    });
+
+    it('ARC-BE-S3-11: a receipt written through recordManual by SAL/CTV (B2 initialPayment) carries the role and waits for reconciliation', async () => {
+      await atT0();
+      const b = await booking({ deposit: null });
+      const row = await db.withContext(
+        { ...t.ctx(), userId: t.users.sal!.id, actorType: 'user' },
+        (tx) =>
+          fa.app.get(PaymentService).recordManual(tx, {
+            folioId: b.folioId,
+            reservationId: b.id,
+            reservationCode: b.code,
+            type: 'deposit',
+            method: 'cash',
+            amountVnd: 500_000,
+            receivedAt: T0,
+            recordedBy: t.users.sal!.id,
+          } as never),
+      );
+      const [p] = await q('SELECT reconciliation, recorded_by_role FROM payment WHERE id = $1', [
+        row.id,
+      ]);
+      expect(p).toEqual({ reconciliation: 'pending', recorded_by_role: 'sales_staff' });
+      const list = await c('fd2').get(`${P(t)}/payments?method=cash&recordedByRole=sales_staff`);
+      expect(list.json().data.map((x: { id: string }) => x.id)).toContain(row.id);
+    });
+
+    it('SEC-BE-37 (F8): whoever set the destination neither approves nor pays the transfer; the approver does not pay it; requester + OWN pushed on every change', async () => {
+      await atT0();
+      const b = await booking();
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      await pay('fd', b, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due + 200_000,
+        note: 'Khách trả dư',
+      });
+      const r = (
+        await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+          amountVnd: 200_000,
+          reason: 'Hoàn tiền dư',
+        })
+      ).json();
+      const device = await t.deviceToken();
+      const set = await new Client(fa, t.users.mgr!.sessionToken, device).send(
+        'PUT',
+        `${P(t)}/approval-requests/${r.id}/refund-destination`,
+        {
+          method: 'bank_transfer',
+          bankBin: '970436',
+          accountNo: '0071000123457',
+          accountHolder: 'NGUYEN VAN A',
+        },
+      );
+      expect(set.statusCode, set.body).toBe(200);
+      const pushed = await outbox('refund_destination_changed');
+      expect(
+        pushed.some((x) => (x.payload as { userIds: string[] }).userIds.includes(t.users.fd!.id)),
+      ).toBe(true);
+      expect(JSON.stringify(pushed.map((x) => x.payload))).not.toContain('0071000123457');
+      const selfApprove = await approveAs('mgr', r.id);
+      expect(selfApprove.statusCode).toBe(403);
+      expect(selfApprove.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+      // DB layer too (0031 approval_request_refund_destination_not_approver).
+      await expect(
+        q(
+          `UPDATE approval_request SET status = 'approved', approver_id = $2, approver_role_snapshot = 'manager',
+              decided_at = now() WHERE id = $1`,
+          [r.id, t.users.mgr!.id],
+        ),
+      ).rejects.toMatchObject({ code: '23514' });
+      expect((await approveAs('owner', r.id)).statusCode).toBe(200);
+      const exec = (who: string) =>
+        c(who).send('POST', `${P(t)}/approval-requests/${r.id}/actions/execute-refund`, {
+          amountVnd: 200_000,
+          paidAt: T0.toISOString(),
+          bankReference: 'FT26290002',
+          attachmentId: uuidv7(),
+        });
+      const bySetter = await exec('mgr');
+      expect(bySetter.statusCode, bySetter.body).toBe(403);
+      expect(bySetter.json().code).toBe('SELF_REFUND_FORBIDDEN');
+      // (PO 17/10: the approving OWN could pay as well – next case.)
+      const ok = await c('mgr2').send(
+        'POST',
+        `${P(t)}/approval-requests/${r.id}/actions/execute-refund`,
+        {
+          amountVnd: 200_000,
+          paidAt: T0.toISOString(),
+          bankReference: 'FT26290002',
+          attachmentId: await attach('mgr2', 'refund_proof', b.id),
+        },
+      );
+      expect(ok.statusCode, ok.body).toBe(201);
+    });
+
+    it('PO 17/10 (SEC-37): an OWN may set the destination, approve and pay the same transfer refund (step-up, money-log flag); a MGR never approves and pays', async () => {
+      await atT0();
+      const device = await t.deviceToken();
+      const overpaid = async () => {
+        const b = await booking();
+        const due = (await folio(b)).totals.balanceDueVnd as number;
+        await pay('fd', b, {
+          type: 'charge',
+          method: 'cash',
+          amountVnd: due + 150_000,
+          note: 'Khách trả dư',
+        });
+        const r = (
+          await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+            amountVnd: 150_000,
+            reason: 'Hoàn tiền dư',
+          })
+        ).json();
+        return { b, r };
+      };
+      const dest = (who: string, id: string) =>
+        new Client(fa, t.users[who]!.sessionToken, device).send(
+          'PUT',
+          `${P(t)}/approval-requests/${id}/refund-destination`,
+          {
+            method: 'bank_transfer',
+            bankBin: '970436',
+            accountNo: '0071000123457',
+            accountHolder: 'NGUYEN VAN A',
+          },
+        );
+      const exec = async (who: string, b: Booking, id: string) =>
+        c(who).send('POST', `${P(t)}/approval-requests/${id}/actions/execute-refund`, {
+          amountVnd: 150_000,
+          paidAt: T0.toISOString(),
+          bankReference: 'FT26290003',
+          attachmentId: await attach(who, 'refund_proof', b.id),
+        });
+
+      // OWN: routes, approves and pays the same transfer refund.
+      const own = await overpaid();
+      expect((await dest('owner2', own.r.id)).statusCode).toBe(200);
+      expect((await approveAs('owner2', own.r.id)).statusCode).toBe(200);
+      const noStep = await exec('owner2', own.b, own.r.id);
+      expect(noStep.statusCode, noStep.body).toBe(401);
+      expect(noStep.json().code).toBe('REAUTH_REQUIRED');
+      const step = await c('owner2').send('POST', '/v1/me/step-up', { password: TEST_PASSWORD });
+      expect(step.statusCode, step.body).toBe(200);
+      const paid = await exec('owner2', own.b, own.r.id);
+      expect(paid.statusCode, paid.body).toBe(201);
+      const [log] = await q(
+        `SELECT after FROM audit_event WHERE action = 'refund.paid' AND entity_id = $1`,
+        [paid.json().id],
+      );
+      expect(log!.after).toMatchObject({ recordedByRole: 'owner', ownSelfApprovedAndPaid: true });
+
+      // MGR: approves, then tries to pay the same refund → 403 (code), whatever the step-up.
+      const mgr = await overpaid();
+      expect((await dest('fd', mgr.r.id)).statusCode).toBe(200);
+      expect((await approveAs('mgr', mgr.r.id)).statusCode).toBe(200);
+      expect(
+        (await c('mgr').send('POST', '/v1/me/step-up', { password: TEST_PASSWORD })).statusCode,
+      ).toBe(200);
+      const self = await exec('mgr', mgr.b, mgr.r.id);
+      expect(self.statusCode, self.body).toBe(403);
+      expect(self.json().code).toBe('SELF_REFUND_FORBIDDEN');
+      // DB (0042): approver = destination setter only for an OWN approval of a non-cash refund.
+      await expect(
+        q(`UPDATE approval_request SET refund_destination_set_by = approver_id WHERE id = $1`, [
+          mgr.r.id,
+        ]),
+      ).rejects.toMatchObject({
+        code: '23514',
+        constraint: 'approval_request_refund_destination_not_approver',
+      });
+      const [ownRow] = await q(
+        `SELECT approver_id = refund_destination_set_by AS same, approver_role_snapshot FROM approval_request
+          WHERE id = $1`,
+        [own.r.id],
+      );
+      expect(ownRow).toEqual({ same: true, approver_role_snapshot: 'owner' });
+    });
+
+    it('SEC-BE-45: original_method resolving to cash → 409 (cash goes through executeCashRefund); a rejected refund request shreds its account key', async () => {
+      await atT0();
+      const b = await booking();
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      await pay('fd', b, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due + 100_000,
+        note: 'Khách trả dư',
+      });
+      const mk = async () =>
+        (
+          await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+            amountVnd: 50_000,
+            reason: 'Hoàn tiền dư',
+          })
+        ).json();
+      const device = await t.deviceToken();
+      const dest = (id: string, body: Record<string, unknown>) =>
+        new Client(fa, t.users.fd!.sessionToken, device).send(
+          'PUT',
+          `${P(t)}/approval-requests/${id}/refund-destination`,
+          body,
+        );
+      const r1 = await mk();
+      expect((await dest(r1.id, { method: 'original_method' })).statusCode).toBe(200);
+      expect((await approveAs('mgr', r1.id)).statusCode).toBe(200);
+      const viaOriginal = await c('mgr2').send(
+        'POST',
+        `${P(t)}/approval-requests/${r1.id}/actions/execute-refund`,
+        {
+          amountVnd: 50_000,
+          paidAt: T0.toISOString(),
+          attachmentId: await attach('mgr2', 'refund_proof', b.id),
+        },
+      );
+      expect(viaOriginal.statusCode, viaOriginal.body).toBe(409);
+      expect(viaOriginal.json()).toMatchObject({
+        code: 'INVALID_TRANSITION',
+        currentState: 'cash',
+      });
+      const r2 = await mk();
+      expect(
+        (
+          await dest(r2.id, {
+            method: 'bank_transfer',
+            bankBin: '970436',
+            accountNo: '0071000123457',
+            accountHolder: 'NGUYEN VAN A',
+          })
+        ).statusCode,
+      ).toBe(200);
+      const rej = await c('mgr').send('POST', `${P(t)}/approval-requests/${r2.id}/actions/reject`, {
+        authMethod: 'password',
+        secret: TEST_PASSWORD,
+        reason: 'Khách đổi ý',
+      });
+      expect(rej.statusCode, rej.body).toBe(200);
+      const [row] = await q('SELECT refund_account_enc FROM approval_request WHERE id = $1', [
+        r2.id,
+      ]);
+      expect(row!.refund_account_enc).toBeNull();
+      expect(
+        await q(`SELECT 1 FROM c3_access_log WHERE subject_id = $1 AND action = 'purge'`, [r2.id]),
+      ).toHaveLength(1);
+    });
+
+    it('ARC-BE-S3-12 / SEC-BE-42: separation of duties held by the DB (23514 / column grants)', async () => {
+      await atT0();
+      const b = await booking();
+      const p = (
+        await pay('fd', b, { type: 'charge', method: 'bank_transfer', amountVnd: 10_000 })
+      ).json();
+      const rec = await c('mgr').send(
+        'POST',
+        `${P(t)}/payments/${p.id}/actions/reconcile`,
+        { result: 'reconciled' },
+        { 'if-match': `"${p.version}"` },
+      );
+      expect(rec.statusCode, rec.body).toBe(200);
+      const [row] = await q(
+        'SELECT reconciled_by_role, self_reconciled FROM payment WHERE id = $1',
+        [p.id],
+      );
+      expect(row).toEqual({ reconciled_by_role: 'manager', self_reconciled: false });
+      const fails = async (sql: string, args: unknown[], constraint: string) =>
+        expect(q(sql, args)).rejects.toMatchObject({ code: '23514', constraint });
+      // self_reconciled is a fact (reconciler = recorder/confirmer), not a flag – even with an owner role.
+      await fails(
+        `UPDATE payment SET self_reconciled = true, reconciled_by_role = 'owner' WHERE id = $1`,
+        [p.id],
+        'payment_self_reconciled_fact_check',
+      );
+      // Only an owner reconciles their own entry (the fact holds here, the role does not).
+      await fails(
+        `UPDATE payment SET reconciled_by = recorded_by, self_reconciled = true WHERE id = $1`,
+        [p.id],
+        'payment_self_reconcile_owner_check',
+      );
+      // reconciled / disputed name the reconciler.
+      const p2 = (
+        await pay('fd', b, { type: 'charge', method: 'bank_transfer', amountVnd: 10_000 })
+      ).json();
+      await fails(
+        `UPDATE payment SET reconciliation = 'reconciled' WHERE id = $1`,
+        [p2.id],
+        'payment_reconciled_by_check',
+      );
+      // A person's receipt carries the role snapshot.
+      await fails(
+        `INSERT INTO payment (id, organization_id, property_id, code, folio_id, type, method, reconciliation,
+           amount_vnd, status, recorded_by, created_at, updated_at)
+         VALUES ($1, $2, $3, 'PT-ROLE', $4, 'charge', 'cash', 'not_required', 1, 'succeeded', $5, now(), now())`,
+        [uuidv7(), t.organizationId, t.propertyIds[0], b.folioId, t.users.fd!.id],
+        'payment_recorded_by_role_required_check',
+      );
+      // Refund account without bank_transfer method (NULL no longer passes).
+      const r = (
+        await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+          amountVnd: 1,
+          reason: 'Thử ràng buộc',
+        })
+      ).json();
+      if (r.id) {
+        await fails(
+          `UPDATE approval_request SET refund_account_last4 = '1234' WHERE id = $1`,
+          [r.id],
+          'approval_request_refund_account_check',
+        );
+      }
+      // SM-10: what was asked never changes (column-level UPDATE grants).
+      const [anyReq] = await q(`SELECT id FROM approval_request LIMIT 1`);
+      for (const col of ['requested_by = requested_by', 'amount_vnd = amount_vnd', 'type = type']) {
+        await expect(
+          q(`UPDATE approval_request SET ${col} WHERE id = $1`, [anyReq!.id]),
+        ).rejects.toMatchObject({ code: '42501' });
+      }
+    });
+
+    it('ARC-BE-S3-14 (interim): a room / extra-person line of a booking still in stay is not adjusted at the folio (422 NOT_ALLOWED)', async () => {
+      await atT0();
+      const b = await booking();
+      const f = await folio(b);
+      const room = (f.lines as Array<{ id: string; category: string }>).find(
+        (l) => l.category === 'room',
+      )!;
+      const res = await c('mgr').send(
+        'POST',
+        `${P(t)}/folios/${b.folioId}/lines/${room.id}/adjustments`,
+        { newUnitPriceVnd: 1_000, reason: 'Giảm giá đêm' },
+        { 'if-match': `"${f.version}"` },
+      );
+      expect(res.statusCode, res.body).toBe(422);
+      expect(res.json().errors).toEqual([{ field: 'newUnitPriceVnd', code: 'NOT_ALLOWED' }]);
+    });
+
+    it('DOM BE-21: folio and bill lines carry labelKey/labelParams – never a technical code to print', async () => {
+      await atT0();
+      const b = await booking();
+      await postMinibar(b, 70_000);
+      const f = await folio(b);
+      const lines = f.lines as Array<{
+        category: string;
+        labelKey: string;
+        labelParams?: Record<string, unknown>;
+      }>;
+      for (const l of lines) expect(l.labelKey).toMatch(/^bill\.line\.[a-z_]+$/);
+      const night = lines.find((l) => l.category === 'room')!;
+      expect(night.labelKey).toBe('bill.line.room_night');
+      expect(night.labelParams).toMatchObject({ date: b.arrivalDate, room: expect.any(String) });
+      expect(lines.find((l) => l.category === 'minibar')).toMatchObject({
+        labelKey: 'bill.line.minibar',
+        labelParams: { item: 'Bia', qty: 2 },
+      });
+      const bill = (await c('fd').get(`${P(t)}/folios/${b.folioId}/bill`)).json();
+      for (const l of bill.lines as Array<{ labelKey: string }>)
+        expect(l.labelKey).toMatch(/^bill\.line\./);
+      expect(bill.creditVnd).toBe(0);
+    });
+
+    it('SEC-BE-43: a VietQR replay is rebuilt from the account in effect; the idempotency row keeps ids only', async () => {
+      await atT0();
+      const b = await booking();
+      const key = uuidv7();
+      const qr = () =>
+        c('fd').send(
+          'POST',
+          `${P(t)}/folios/${b.folioId}/vietqr`,
+          { amountVnd: 100_000 },
+          { 'idempotency-key': key },
+        );
+      const first = await qr();
+      expect(first.statusCode, first.body).toBe(201);
+      const [idem] = await q(
+        `SELECT response_body::text AS body FROM idempotency_key WHERE key = $1`,
+        [key],
+      );
+      expect(String(idem!.body)).not.toContain(ACCOUNT.accountNo);
+      expect(JSON.parse(String(idem!.body))).toEqual({
+        paymentId: first.json().payment.id,
+        expiredPaymentIds: expect.any(Array),
+      });
+      // The owner changes the account from tomorrow; the replay tomorrow shows the account in effect then.
+      const other = { ...ACCOUNT, accountNo: '1903999888777' };
+      const put = await c('owner').send('PUT', `${P(t)}/parameters/payment_receiving_account`, {
+        value: other,
+        effectiveFrom: '2026-10-16',
+        reason: 'Đổi tài khoản nhận',
+        reauth: { authMethod: 'password', secret: TEST_PASSWORD },
+      });
+      expect(put.statusCode, put.body).toBe(200);
+      fa.clock.set(new Date('2026-10-16T03:00:00.000Z'));
+      await refreshSessions(db, t, fa.clock.now());
+      const replay = await qr();
+      expect(replay.statusCode, replay.body).toBe(201);
+      expect(replay.headers['idempotent-replayed']).toBe('true');
+      expect(replay.json().payment.id).toBe(first.json().payment.id);
+      expect(replay.json().qrPayload).toContain(`0113${other.accountNo}`);
+      expect(replay.json().qrPayload).not.toContain(`0113${ACCOUNT.accountNo}`);
+      expect(replay.json().receivingAccountMasked).toBe('9704••••8777');
+      await atT0(); // the original account is still the one in effect at T0 for the other cases
+    });
+
+    it('SEC-BE-44: card numbers refused in addFolioLine.description and the receiving account name; control characters stripped', async () => {
+      await atT0();
+      const b = await booking();
+      await inHouse(b);
+      const add = (description: string) =>
+        c('fd').send('POST', `${P(t)}/folios/${b.folioId}/lines`, {
+          category: 'fnb',
+          description,
+          quantity: 1,
+          unitPriceVnd: 50_000,
+          serviceDate: b.arrivalDate,
+        });
+      const card = await add('Cafe 4111 1111 1111 1111');
+      expect(card.statusCode).toBe(422);
+      expect(card.json().code).toBe('CARD_NUMBER_DETECTED');
+      const ok = await add('Cafe\u0000 sữa‮');
+      expect(ok.statusCode, ok.body).toBe(201);
+      const [line] = await q(
+        `SELECT description FROM folio_line WHERE folio_id = $1 AND category = 'fnb' ORDER BY posted_at DESC LIMIT 1`,
+        [b.folioId],
+      );
+      expect(line!.description).toBe('Cafe sữa');
+      const name = await c('owner').send('PUT', `${P(t)}/parameters/payment_receiving_account`, {
+        value: { ...ACCOUNT, accountName: 'OTTIMO 4111111111111111' },
+        effectiveFrom: '2026-10-20',
+        reason: 'Thử tên tài khoản',
+        reauth: { authMethod: 'password', secret: TEST_PASSWORD },
+      });
+      expect(name.json().code).toBe('CARD_NUMBER_DETECTED');
+    });
+
+    it('DOM BE-29 / ARC-BE-S3-32: stayover count closed (422); a recount reverses the adjusted replacement line too', async () => {
+      await atT0();
+      const b = await booking();
+      await inHouse(b);
+      const record = (who: string, body: Record<string, unknown>) =>
+        c(who).send('POST', `${P(t)}/reservations/${b.id}/minibar-checks`, body);
+      const all = (left: Record<string, number>) =>
+        Object.entries(items).map(([code, itemId]) => ({
+          itemId,
+          remainingQty:
+            left[code] ??
+            (DS_E.minibarItems.find((m) => m.code === code)?.standardQtyPerRoom as number),
+        }));
+      const stay = await record('fd', { mode: 'stayover', lines: all({}) });
+      expect(stay.json().errors).toEqual([{ field: 'mode', code: 'NOT_IN_LIST' }]);
+      const first = await record('fd', { mode: 'checkout', lines: all({ bia: 0 }) });
+      expect(first.statusCode, first.body).toBe(201);
+      let f = await folio(b);
+      const line = (f.lines as Array<{ id: string; category: string; amountVnd: number }>).find(
+        (l) => l.category === 'minibar',
+      )!;
+      const adj = await c('mgr').send(
+        'POST',
+        `${P(t)}/folios/${b.folioId}/lines/${line.id}/adjustments`,
+        { newQuantity: 1, reason: 'Khách chỉ dùng 1 lon' },
+        { 'if-match': `"${f.version}"` },
+      );
+      expect(adj.statusCode, adj.body).toBe(201);
+      const recount = await record('fd', { mode: 'checkout', lines: all({}) });
+      expect(recount.statusCode, recount.body).toBe(201);
+      f = await folio(b);
+      const minibar = (f.lines as Array<{ category: string; amountVnd: number; lineState: string }>)
+        .filter((l) => l.category === 'minibar' && l.lineState === 'posted')
+        .reduce((a, l) => a + l.amountVnd, 0);
+      expect(minibar).toBe(0);
     });
   },
 );

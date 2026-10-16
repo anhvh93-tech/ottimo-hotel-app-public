@@ -1,50 +1,50 @@
 import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { collectUsedKeys, isShipped } from './build/used-keys';
 
 const OUT_DIR = 'dist';
+const SRC_DIR = fileURLToPath(new URL('./src', import.meta.url));
 
 /**
  * The MSW worker lives in public/ for `pnpm dev` only. guest-web must not ship any service worker in R2:
  * nothing about the stay or the ID photos may be cached on the guest's phone (SEC ĐK-3, SR-PWA-03).
  */
 function dropMockWorker(): Plugin {
+  let outDir = OUT_DIR;
   return {
     name: 'ottimo-drop-msw-worker',
     apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir.startsWith('/')
+        ? config.build.outDir
+        : join(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const out = fileURLToPath(new URL(`./${OUT_DIR}/mockServiceWorker.js`, import.meta.url));
-      rmSync(out, { force: true });
+      rmSync(join(outDir, 'mockServiceWorker.js'), { force: true });
     },
   };
 }
 
 /**
- * The UXD string files hold every app's copy (~290 KB for VI+EN+RU). The guest page ships only the key
- * families it can use – mobile data on a 3G hallway matters (MOB checklist) and staff wording such as
- * Desk/registration text never reaches the guest bundle.
+ * The UXD string files hold every app's copy (~2 100 keys × VI/EN/RU). The guest page ships only the
+ * keys its source names (FB-R2-SEC-MOB-01): no staff wording, no unused promise ("…your bill"), and
+ * never the ĐK-6 keys – `src/__tests__/bundle.test.ts` builds the bundle and checks it on every run.
  */
-const GUEST_KEY_PREFIXES = ['guest.', 'gw.', 'common.', 'error.', 'field.', 'shell.skip'];
-
-/** SEC ĐK-6: level-2 / bill / door-code copy is not even shipped in R2 (s3-checklist G8 scans dist). */
-const R2_FORBIDDEN_KEYS =
-  /^(guest\.verify\.|guest\.door_code|guest\.late\.(done_title|code_|how_|prompt|arrival_hint)|guest\.tab\.bill|guest\.bill\.|guest\.after_checkout\.body)/;
-
 function guestStringsOnly(): Plugin {
   return {
     name: 'ottimo-guest-strings-only',
     enforce: 'pre',
     load(id) {
       if (!/design\/copy\/strings-(vi|en|ru)\.json$/.test(id)) return null;
+      const used = collectUsedKeys(SRC_DIR);
       const all = JSON.parse(readFileSync(id, 'utf8')) as Record<string, unknown>;
-      const kept = Object.fromEntries(
-        Object.entries(all).filter(
-          ([k]) => GUEST_KEY_PREFIXES.some((p) => k.startsWith(p)) && !R2_FORBIDDEN_KEYS.test(k),
-        ),
+      return JSON.stringify(
+        Object.fromEntries(Object.entries(all).filter(([k]) => isShipped(k, used))),
       );
-      return JSON.stringify(kept);
     },
   };
 }

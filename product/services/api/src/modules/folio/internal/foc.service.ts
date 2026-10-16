@@ -112,6 +112,8 @@ export class FolioFocService {
       now,
       lineState: 'pending_approval',
       relatedLineId: line.id,
+      // Bill label "Miễn phí · {reason}" (BR-434, DOM BE-21).
+      labelParams: { reason: input.reasonCode },
     });
     await this.audit.recordMoney(tx, {
       action: 'folio.foc_requested',

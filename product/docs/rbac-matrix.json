@@ -1,5 +1,5 @@
 {
- "version": "0.2.3",
+ "version": "0.2.4",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
  "generated": "2026-10-16",
  "author": "BA",
@@ -783,7 +783,8 @@
    },
    "trusted_device_required": false,
    "c3_access_log": true,
-   "operationIds": []
+   "operationIds": [],
+   "note": "PO 17/10 (SEC-37): người chi ≠ người tạo yêu cầu ≠ người duyệt ≠ người đặt/đổi nơi nhận, trừ OWN (OWN được vừa duyệt vừa chi cùng một khoản, xác nhận lại + If-Match mỗi bước, nhật ký \"OWN tự duyệt và chi\"); MGR không bao giờ vừa duyệt vừa chi. D15 đầy đủ chỉ cho người chi"
   },
   {
    "id": "A47a",

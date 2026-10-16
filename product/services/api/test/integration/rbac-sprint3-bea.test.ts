@@ -197,4 +197,41 @@ describe.skipIf(!HAS_DB)('rbac-cases.json – Sprint 3 operations (BE-A)', () =>
       }
     },
   );
+
+  // SEC-BE-33 / ARC-BE-S3-04: a forbidden role with a key it COMPLETED on this very path still gets 403 on a
+  // dry run (a dry run never reaches the unit of work – the guard decides; read() refuses as a second line).
+  const DRY_RUN_FORBIDDEN = CASES.filter(
+    (c) =>
+      c.expected === '403' &&
+      ['setLateCheckout', 'changeRoom', 'addPartyMember'].includes(c.operationId),
+  );
+  it.each(DRY_RUN_FORBIDDEN.map((c) => [`${c.id} ${c.operationId} ${c.subject}`, c] as const))(
+    'dry run + completed key of the same path → 403 (%s)',
+    async (_name, c) => {
+      const r = request(c);
+      const userId = userByRoles.get(c.roles.join('+'))!;
+      const token = await freshSession(userId);
+      const key = randomUUID();
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query(
+          `INSERT INTO idempotency_key (principal_type, principal_id, key, organization_id, method, path,
+             request_hash, state, response_status, response_body)
+           VALUES ('user', $1, $2, $3, $4, $5, 'x', 'completed', 200, '{}')`,
+          [userId, key, t.organizationId, c.method, r.url],
+        ),
+      );
+      const res = await fa.app.inject({
+        method: c.method as 'POST',
+        url: r.url,
+        headers: {
+          cookie: `ottimo_sid=${token}; ottimo_did=${device}`,
+          'x-csrf-token': fa.sessions.csrfToken(sha256Hex(token)),
+          'idempotency-key': key,
+        },
+        payload: r.body as object,
+      });
+      expect(res.statusCode, res.body).toBe(403);
+      expect(res.json().code).toBe('FORBIDDEN_ACTION');
+    },
+  );
 });

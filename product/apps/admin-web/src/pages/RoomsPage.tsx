@@ -55,7 +55,10 @@ export function RoomsPage() {
             title={t('rooms.saved', { room: keepRoom.roomNo })}
             actions={
               <>
-                <Link className="btn sm" to="/reservations">
+                <Link
+                  className="btn sm"
+                  to={`/reservations?q=${encodeURIComponent(keepRoom.roomNo)}`}
+                >
                   {t('nav.reservations')}
                 </Link>
                 <Button size="sm" variant="ghost" onClick={() => setKeepRoom(null)}>
@@ -156,9 +159,7 @@ export function RoomsPage() {
             </table>
           </div>
         )}
-        <p className="muted" style={{ fontSize: '.75rem', marginTop: 10 }}>
-          {t('rooms.footnote')}
-        </p>
+        <p className="caption mt-8">{t('rooms.footnote')}</p>
       </Page>
       {editing ? (
         <RoomDrawer

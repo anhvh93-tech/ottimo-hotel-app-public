@@ -5,5 +5,5 @@
  */
 export { RegistrationService } from '../internal/registration.service';
 export type { StaffActor } from '../internal/registration.service';
-export { readStay } from '../internal/stay-reader';
+export { SYSTEM_ACTOR, readStay } from '../internal/stay-reader';
 export type { StayView } from '../internal/stay-reader';

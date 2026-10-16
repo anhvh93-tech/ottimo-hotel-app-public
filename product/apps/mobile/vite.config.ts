@@ -12,6 +12,8 @@ export default defineConfig({
       '/v1': 'http://localhost:3000',
     },
   },
-  build: { outDir: 'dist', sourcemap: true },
+  // No public source maps in the image (FB-R2-SEC-FE-02, OPS S3). Local debugging only:
+  // `pnpm --filter @ottimo/mobile build --sourcemap hidden` – never copy the maps to a web root.
+  build: { outDir: 'dist', sourcemap: false },
   test: { environment: 'node', include: ['src/**/*.test.{ts,tsx}'] },
 });

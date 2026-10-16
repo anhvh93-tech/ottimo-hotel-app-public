@@ -60,9 +60,75 @@ export function requestIdFrom(header: string | string[] | undefined): string {
   return v && REQUEST_ID.test(v) ? v : randomUUID();
 }
 
+/** The only routes that take multipart/form-data (OpenAPI: addGuestDocument, uploadGuestDocument, uploadAttachment). */
+export const MULTIPART_ROUTES: ReadonlySet<string> = new Set([
+  'POST /v1/properties/:propertyId/registrations/:registrationId/documents',
+  'POST /v1/guest/online-checkin/documents',
+  'POST /v1/properties/:propertyId/attachments',
+]);
+
+const SESSION_COOKIE = /(?:^|;\s*)(?:__Host-)?ottimo_(?:sid|gsid)=[^;\s]{32,}/;
+
+function httpError(statusCode: number, message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode });
+}
+
+interface MultipartRequest {
+  method: string;
+  headers: Record<string, string | string[] | undefined>;
+  routeOptions?: { url?: string };
+}
+
+interface BodyStream {
+  on(event: 'data', fn: (chunk: Buffer) => void): unknown;
+  on(event: 'end', fn: () => void): unknown;
+  on(event: 'error', fn: (err: Error) => void): unknown;
+  resume(): unknown;
+}
+
+export function readMultipart(
+  req: MultipartRequest,
+  payload: BodyStream,
+  done: (err: Error | null, body?: unknown) => void,
+): void {
+  if (!MULTIPART_ROUTES.has(`${req.method} ${req.routeOptions?.url ?? ''}`)) {
+    done(httpError(415, 'multipart/form-data is not accepted on this route'));
+    return;
+  }
+  const cookie = req.headers.cookie;
+  if (!SESSION_COOKIE.test(Array.isArray(cookie) ? cookie.join('; ') : (cookie ?? ''))) {
+    done(httpError(401, 'session required'));
+    return;
+  }
+  const chunks: Buffer[] = [];
+  let size = 0;
+  let settled = false;
+  const finish = (err: Error | null, body?: Buffer) => {
+    if (settled) return;
+    settled = true;
+    done(err, body);
+  };
+  payload.on('data', (chunk: Buffer) => {
+    if (settled) return;
+    size += chunk.length;
+    if (size > MULTIPART_BODY_LIMIT) {
+      chunks.length = 0;
+      finish(httpError(413, 'body too large'));
+      payload.resume(); // drain without keeping anything
+      return;
+    }
+    chunks.push(chunk);
+  });
+  payload.on('end', () => finish(null, Buffer.concat(chunks, size)));
+  payload.on('error', (err) => finish(err));
+}
+
 export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
   const adapter = new FastifyAdapter({
     trustProxy: opts.trustProxy,
+    // The whole request (headers + body) must arrive within 60 s – slow uploads cannot hold sockets
+    // (ARC FB-R2-ARC-BE-S3-18). Responses (SSE) are not affected.
+    requestTimeout: 60_000,
     // Every request has a requestId (coding-standards 12): X-Request-Id echoed back, also in Problem.requestId.
     requestIdHeader: false,
     genReqId: (req: { headers: Record<string, string | string[] | undefined> }) =>
@@ -82,17 +148,12 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
       },
     },
   });
-  // multipart/form-data (document images, attachments – SR-FILE-02): the raw body as a Buffer, parsed in
-  // memory by files/public/multipart.ts (no temp file in clear – SR-FILE-04). Larger than 4 × 10 MB images
-  // + JSON → 413 PAYLOAD_TOO_LARGE before any handler (Caddy caps the body at 25 MB in front – SEC C3).
-  adapter
-    .getInstance()
-    .addContentTypeParser(
-      'multipart/form-data',
-      { parseAs: 'buffer', bodyLimit: MULTIPART_BODY_LIMIT },
-      (_req: unknown, body: Buffer | string, done: (err: Error | null, body?: unknown) => void) =>
-        done(null, body),
-    );
+  // multipart/form-data (ARC FB-R2-ARC-BE-S3-03/18, SEC FB-R2-SEC-BE-47): accepted ONLY on the three upload
+  // routes; anywhere else the body is refused before it is read (Fastify maps it to 415 → problem+json).
+  // A request without any session cookie (staff or guest) is refused before the body is read too. The body
+  // is read from the stream with its own cap (4 × 10 MB images + JSON) and kept in memory only
+  // (files/public/multipart.ts – no temp file in clear, SR-FILE-04). Caddy caps the same routes (OPS).
+  adapter.getInstance().addContentTypeParser('multipart/form-data', readMultipart);
   adapter
     .getInstance()
     .addHook(

@@ -1,6 +1,6 @@
 # guest-web – trang khách theo link/QR (ADR-006)
 
-React + Vite, mobile-first, VI / EN / RU (RU nháp, thiếu key → EN). R2 chỉ có **phiên mức 1** (SEC P-R2-4 ĐK-1…6):
+React + Vite, mobile-first, VI / EN / RU (RU nháp, thiếu key → EN; 8 chuỗi pháp lý luôn EN trong khối `lang="en"` tới khi RU được duyệt – decision-log 17/10). R2 chỉ có **phiên mức 1** (SEC P-R2-4 ĐK-1…6):
 không OTP, không bill, không mã cửa, không họ tên đầy đủ, không lưu gì trên máy khách.
 
 ## Chạy
@@ -35,6 +35,7 @@ Biến tùy chọn: `VITE_DESK_PHONE` – số công khai hiện ở trang "Liê
 - `src/app/image.ts` – chuẩn hóa ảnh: canvas → JPEG, ≤ 2.500 px, mất EXIF, chỉ trong bộ nhớ.
 - `src/checkin/*` – H18: thông báo → giấy tờ → giờ đến → xác nhận → xong.
 - `src/pages/*` – Lưu trú, Thông tin, các trang trạng thái (hết hạn, đã trả phòng, đã đóng, 429, lỗi).
-- `src/__tests__/guard.test.ts` – quét mã nguồn và `dist` theo s3-checklist G1/G3/G8.
+- `build/used-keys.ts` – danh sách khóa chuỗi được đóng gói = khóa mã nguồn thực sự gọi (trừ khóa ĐK-6).
+- `src/__tests__/guard.test.ts` – quét mã nguồn theo s3-checklist G1/G3/G8; `bundle.test.ts` tự build bản production vào thư mục tạm và quét bundle (chạy trong mọi `pnpm test`, cả CI).
 
 Bản build không có `mockServiceWorker.js` và không đăng ký service worker nào.

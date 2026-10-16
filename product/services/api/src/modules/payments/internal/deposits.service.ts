@@ -154,7 +154,7 @@ export class DepositsService {
         !(desk && (input.payment.note ?? '').length >= 3)
       ) {
         throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_TOO_HIGH' }],
+          errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
           extras: { max: outstanding },
         });
       }

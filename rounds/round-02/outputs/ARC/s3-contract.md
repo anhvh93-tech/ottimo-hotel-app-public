@@ -85,7 +85,27 @@ Quy tắc Sprint 3 (bắt buộc):
 5. Migration đã gộp là bất biến (chỉ tiến); sửa = migration mới trong dải của mình.
 6. FK chéo vùng: chỉ trỏ vào bảng **đã có trên main** (ví dụ `payment.approval_request_id → approval_request`). Cần bảng của người khác chưa gộp → gộp người kia trước, hoặc thêm FK ở migration sau.
 7. Bảo vệ: BE-A thêm `test/migrations-journal.test.ts` (unit, không DB) – `when` tăng nghiêm ngặt theo mảng, `idx` = vị trí, mỗi `tag` có tệp và ngược lại, tiền tố thuộc dải cho phép, không trùng tiền tố. OPS thêm vào smoke staging: `count(__drizzle_migrations) = entries.length` sau `migrate` (bắt ca bị bỏ qua mà DB trắng không thấy).
-8. Cuối Sprint 3 (bước ổn định): BE-A chạy `drizzle-kit generate` **một lần** trên main để sinh snapshot gộp (phải ra migration rỗng – nếu không rỗng là schema `.ts` lệch SQL, sửa trước khi đóng sprint).
+8. ~~Cuối Sprint 3 (bước ổn định): BE-A chạy `drizzle-kit generate` **một lần** trên main để sinh snapshot gộp (phải ra migration rỗng – nếu không rỗng là schema `.ts` lệch SQL, sửa trước khi đóng sprint).~~ → thay bằng 4.2a (17/10).
+
+#### 4.2a Sửa quy tắc 2 và 8 (ARC, 17/10/2026 – sau lỗi CI, ORC commit d71d7cf, a297273)
+Sự thật kỹ thuật (đã đọc `drizzle-kit` 0.31.11, `prepareOutFolder`): `generate` lấy làm nền tệp `meta/*_snapshot.json` **đứng cuối theo thứ tự chữ** (`snapshots.sort()`), và dừng khi hai snapshot cùng `prevId` (collision). Bước CI "drizzle-kit generate không sinh tệp" vì thế so schema `.ts` với **snapshot đầu**. Quy tắc 2 cũ ("không thêm snapshot") làm snapshot 0019 tụt sau `.ts` → CI đỏ. Quy tắc mới (thay 2 và 8, áp từ Sprint 3 bước Phản hồi & sửa):
+
+- **2a. Snapshot đầu đi cùng migration.** SQL vẫn viết tay và là nguồn sự thật. PR nào thêm migration thì **trong cùng PR** cập nhật snapshot đầu cho khớp `.ts`.
+- **2b. Tên snapshot đầu = tiền tố LỚN NHẤT trong journal**, không phải migration vừa gộp. Hiện là `meta/0052_snapshot.json`. Ví dụ BE-A gộp `0031_…_be_a.sql` sau 0052 → **sửa** `0052_snapshot.json`; đặt `0031_snapshot.json` sẽ đứng trước 0052 theo thứ tự chữ, drizzle-kit bỏ qua nó và CI vẫn đỏ (hoặc nền sai). Migration mang tiền tố lớn nhất mới (ví dụ 0053) → tạo `0053_snapshot.json`, `prevId` = `id` của snapshot đầu cũ; tệp cũ giữ nguyên.
+- **2c. Cách sinh** (không ghi SQL/journal vào repo): chép `src/db/migrations` ra thư mục tạm → `drizzle-kit generate` với `out` = bản sao → lấy snapshot vừa sinh. Ghi đè snapshot đầu nhưng **giữ nguyên `id`, `prevId`** của tệp đích (chỉ thay phần bảng/enum/…). Chạy `prettier --write` cho tệp (như a297273).
+- **2d. Xung đột snapshot khi rebase**: lấy bản của main rồi **sinh lại** theo 2c. Không trộn JSON bằng tay.
+- **2e. Đối tượng chỉ có trong SQL** (drizzle không biểu diễn được): FK `DEFERRABLE` (`reservation_folio_fk`, `folio_primary_reservation_fk`, `minibar_check_replaced_by_fk`), EXCLUDE `room_occupancy_no_overlap`, chỉ mục trgm/gist (`guest_name_search_trgm_idx`, `room_occupancy_active_range_idx`), `room_occupancy_range_check`, FK chéo module của 0014, RLS/GRANT/REVOKE, trigger, hàm `SECURITY DEFINER`, bảng phân vùng. Snapshot thiếu chúng là **đúng**. Không thêm vào `.ts` chỉ để "cho khớp", không xóa khỏi SQL.
+- **9. Kiểm SQL ↔ `.ts` (mới, thay ý "migration rỗng" của quy tắc 8).** Từ nay cả `.ts` lẫn snapshot đều sinh từ `.ts`. Bước CI chỉ còn bắt "sửa `.ts` mà quên snapshot", **không** bắt "SQL viết tay lệch `.ts`". Vì vậy BE-A thêm `test/integration/schema-parity.test.ts` (thẻ FB-R2-ARC-BE-S3-21). Sau `migrate`, test đọc `pg_catalog`: bảng; cột (kiểu, NOT NULL); tên và thân chuẩn hóa của CHECK; tên FK/UK/chỉ mục. Rồi so với snapshot đầu. Danh sách 2e là ngoại lệ đặt cứng trong test, mỗi mục kèm lý do.
+
+**ARC kiểm tĩnh 17/10** – so snapshot `0052` với SQL 0000–0052:
+- Bảng: 61/61 khớp.
+- CHECK của 0030–0052: thân chuẩn hóa trùng hoàn toàn, **0 lệch**, gồm `payment_reconcile_separation_check`, `payment_refund_not_requester_check`, `approval_request_refund_no_self_approval`, `data_key_destroyed_check`, `reservation_guest_subject_check`.
+- Khác biệt chỉ thuộc nhóm 2e.
+- `minibar_check_replaced_by_fk` vẫn `DEFERRABLE INITIALLY DEFERRED` trong 0041.
+- `reservation_folio_fk` / `folio_primary_reservation_fk` vẫn `DEFERRABLE INITIALLY DEFERRED` trong 0014.
+- `room_occupancy_no_overlap` vẫn `DEFERRABLE INITIALLY IMMEDIATE`.
+
+→ ERD (DEFERRABLE, CHECK) còn đúng. Chuỗi snapshot liền mạch: `0052.prevId` = `0019.id`.
 
 ### 4.3 Cổng public giữa module (ngày 1: mỗi BE gộp interface + bản giả/no-op trước khi cài)
 | Cổng (`modules/<x>/public/…`) | Chủ | Người gọi | Hàm |
@@ -153,3 +173,85 @@ BA nghiêng về **tách operation** vì hai lý do. (1) `x-rbac` một mã/oper
   - Tự chi khoản hoàn do mình tạo → `403 SELF_APPROVAL_FORBIDDEN`.
 - Kiểm tra: `gen_rbac_cases --check` OK (189 operation, mismatch []); `gen_traceability --strict` exit 0.
 - Còn mở: phạm vi `listPayments` để FD/FDL thấy mọi khoản tiền mặt SAL/CTV chờ nộp.
+
+---
+
+## 7. Thay đổi hợp đồng cho bước Phản hồi & sửa Sprint 3 – OpenAPI 0.3.6 bổ sung 1 + 2 (ARC, 17/10/2026)
+
+**Nguồn:**
+- Bổ sung 1: `reviews/s3-ARC.md` mục C.
+- Bổ sung 2: BA `specs/EP03-05-stay.md` v0.3 mục 7 (E03-07, E04-06, E04-07, E05-11, E15-05) và `responses/s3-BA.md`, DOM s3 (BE-13, BE-14, BE-21, S3-1…S3-16), UXD FB-R2-UXD-FE-S3-09, SEC s3 mục 4 b.
+
+Mọi thay đổi là **thêm**, trừ 5 thay đổi hành vi có chủ đích ở bảng 7.1. Đã sinh lại `openapi-meta.ts`, `openapi-schemas.ts` và api-client.
+
+### 7.1 Đổi hành vi – bên gọi phải sửa cùng lúc
+| # | Operation | Trước | Từ nay | Ai sửa |
+|---|---|---|---|---|
+| 1 | `earlyDeparture` 200 | `Reservation` | **`EarlyDepartureResult`** `{reservation, earlyDepartureFeeVnd, refundVnd?, refundRequestId}`. Serializer cắt theo schema mới, nên phản hồi cũ sẽ mất trường cho tới khi BE-A sửa | BE-A (FE chưa làm màn B16) |
+| 2 | `checkOut` khi giờ trả sau mốc cuối BR-412 | 422 `LATE_CHECKOUT_AFTER_LIMIT` (bắt gia hạn trước) | Phải gửi `extraNight {rateVnd}`. Thiếu thì vẫn 422 `LATE_CHECKOUT_AFTER_LIMIT` nhưng `field` = `extraNight`. Thêm đêm + B18 trong một giao dịch, không phụ thu trả muộn | BE-A, FE |
+| 3 | `changeRoom.effectiveDate` | hôm nay … ngày đi − 1 | Chỉ nhận **hôm nay**; khác → 422 `DATE_INVALID` (mã chính thức – BA bỏ `VALUE_OUT_OF_RANGE`) | BE-A, BA |
+| 4 | `recordGuestConsent` / `recordImageConsent` (`ConsentInput`) P02b | không có `retentionDays` | `retentionDays` **bắt buộc** với `P02B_ID_IMAGE_RETENTION` (thiếu → 422 `REQUIRED`). Khác tham số → 422 `NOT_IN_LIST` | BE-C, MOB, FE (H14) |
+| 5 | Ghi tiền vượt còn phải thu | mã trường `AMOUNT_TOO_HIGH` (ngoài hợp đồng) | `AMOUNT_EXCEEDS_BALANCE` kèm `max` | BE-B, FE |
+
+### 7.2 BE-A (frontdesk, reservations, events)
+| Operation / schema | Thay đổi | Mã lỗi |
+|---|---|---|
+| `checkIn` | Thêm `checkinTimeNote`. **Cửa sổ B9a**: bỏ qua `checkinTime`, bắt buộc `addPriorNight` (thẻ S3-07). Phụ thu > 0 mà không quyết → lỗi | 422 `TIME_AFTER_ACTION`, `TIME_NOTE_REQUIRED`, `SURCHARGE_DECISION_REQUIRED`; 409 `INVALID_TRANSITION` (`availableFrom`) |
+| `checkOut` | Thêm `extraNight`, `checkoutTimeNote`.<br>• Cửa sổ sau nửa đêm (B18/B16 hợp lệ, phụ thu 0).<br>• Ngày đi gộp đơn chính + con.<br>• Yêu cầu vận hành tự `superseded`; chỉ yêu cầu tiền chặn.<br>• `overpaymentHandling` theo `unhandledCreditVnd` – không tạo hoàn trùng.<br>• Audit `reservation.extra_night_on_checkout` | 422 `LATE_CHECKOUT_AFTER_LIMIT` (`extraNight`), `RATE_OUT_OF_RANGE`, `TIME_*`, `SURCHARGE_DECISION_REQUIRED`; 409 `ROOM_UNAVAILABLE` |
+| `getCheckoutSummary` → `CheckoutSummary` | `unhandledCreditVnd`, `extraNightRequired`, `extraNightDefaultRateVnd`, `extraNightAvailable`, `postMidnightWindow`. `blockers.credit_balance` tính theo `unhandledCreditVnd`. `pendingApprovals` chỉ đếm yêu cầu tiền | – |
+| `earlyDeparture` | Thêm `otaRetainedVnd` (OTA bắt buộc, kênh khác → `NOT_ALLOWED`), `noticeEvidence {note, attachmentId}` (ảnh `penalty_evidence`). Phản hồi `EarlyDepartureResult`. Cơ sở tính = giá ròng (DOM S3-2) | 422 `REQUIRED`, `NOT_ALLOWED`, `VALUE_OUT_OF_RANGE`, `EVIDENCE_REQUIRED` (`noticeEvidence`) |
+| `getExtensionOptions` → `ExtensionOptions` | Thêm `currentBookingRateVnd` (null = theo lịch giá) | – |
+| `changeRoom` | `effectiveDate` = hôm nay | 422 `DATE_INVALID` |
+| `Reservation` (DTO) | Thêm `depositShortfall {shortfallVnd, acceptedAt, acceptedByName, reason} \| null` từ cột 0040 | – |
+| `listAuditEvents` / `AuditEvent.action` | Nhóm `money` là **tập đóng** (danh sách trong mô tả `AuditEvent.action`). Thêm test: mọi `recordMoney` ∈ danh sách | – |
+
+### 7.3 BE-B (folio, payments)
+| Operation / schema | Thay đổi | Mã lỗi |
+|---|---|---|
+| `Folio.totals` | `unhandledCreditVnd`, `otaExcessVnd`. `creditVnd` không gồm phần dư từ `ota_collect`. Quy tắc `x-ota-prepaid-rule` (DOM BE-13): đơn `ota_prepaid` có **một** `ota_collect` hệ thống = tiền phòng OTA còn hiệu lực, tự điều chỉnh khi đêm đổi | – |
+| `FolioLine` (getFolio, CheckoutSummary, Bill) | `labelKey` (`bill.line.*`, kể cả `extra_night`) + `labelParams`. `description` chỉ dùng cho nhật ký | – |
+| `Bill` | `creditVnd`. `ota_prepaid`: `totalVnd`/`paidVnd` chỉ khoản tại quầy | – |
+| `executeRefund`, `executeCashRefund` | ≤ `creditVnd` hiện tại. Phần thừa từ khoản thu chưa đối soát → chặn | 409 `REFUND_SOURCE_NOT_RECONCILED` (`paymentIds[]`, `unreconciledVnd`); 422 `REFUND_EXCEEDS_APPROVED` |
+| `createRefundRequest` | Trần = `unhandledCreditVnd` | 422 `REFUND_EXCEEDS_APPROVED` |
+| `recordPayment`, `checkOut.finalPayment`, `confirmDeposit.payment` | `AMOUNT_TOO_HIGH` → `AMOUNT_EXCEEDS_BALANCE` | 422 |
+| `adjustFolioLine` | `If-Match` = `Folio.version`. Dòng `room`/`extra_person` phải ghi lại giá đêm (thẻ S3-14) | – |
+| `setRefundDestination`, `addFolioLine` | Mã trường `NOT_ALLOWED` đã có trong bảng | – |
+
+### 7.4 BE-C, MOB, FE
+- **BE-C**:
+  - `OnlineCheckin.currentNoticeVersion`, `imageRetentionDays` có ở mọi phản hồi `OnlineCheckin` (khóa cho phép 9 → 11, SEC ĐK-2).
+  - `ConsentInput.retentionDays` (7.1-4). `consent_record.retention_days` qua migration 0053 (erd); J16 T02 dùng min.
+  - `PortalData`: `label` có pattern, `value` gắn D03, định dạng theo tham số DOM S3-5 (ESC-018) – một cài đặt duy nhất (thẻ S3-20).
+- **MOB**: dùng hai trường `OnlineCheckin` mới, bỏ hằng phiên bản/30 ngày; thiếu trường thì không hiện câu đồng ý; gửi `retentionDays`.
+- **FE**:
+  - `Reservation.depositShortfall` (câu `ci.shortfall_accepted`).
+  - Trả phòng: `extraNight*`, `postMidnightWindow`, `unhandledCreditVnd`, `checkoutTimeNote`. Nhận phòng: `checkinTimeNote`.
+  - Mã `TIME_AFTER_ACTION`, `TIME_NOTE_REQUIRED`, `SURCHARGE_DECISION_REQUIRED`, `REFUND_SOURCE_NOT_RECONCILED`, `AMOUNT_EXCEEDS_BALANCE`.
+  - Bill/folio hiện theo `labelKey`. H14 gửi `retentionDays`.
+  - Nhật ký tiền: bảng `mlog.a_*` theo tập đóng `AuditEvent.action`.
+  - Gia hạn: nút "Giữ giá đơn" (`currentBookingRateVnd`).
+
+### 7.5 Không đổi / dời
+- **0.3.7 (đầu Sprint 4):**
+  - `Reservation.availableOperations`.
+  - `getGuestSession` (SEC đã duyệt cách làm).
+  - `updateOnlineCheckin.deferredPeople`.
+  - Mã 403/404/409/422 còn thiếu ở `recordPayment`/`reversePayment`.
+  - `Payment.receivedAmountVnd`/`selfReconciled`.
+  - `getBill?locale=vi_en` (UXD FE-S3-06).
+  - `ApprovalRequest.requestedById` (UXD).
+- `checkoutAt` (E05-09) **giữ**: vẫn là cách nói giờ trả thực tế, nay đi cùng cửa sổ sau nửa đêm và `extraNight`.
+
+### 7.6 Kiểm tra (17/10, trên tệp thật)
+| Kiểm tra | Kết quả |
+|---|---|
+| `openapi-spec-validator` | OK |
+| `gen-openapi-meta.mjs --check` | up to date |
+| api-client `gen.mjs --check` | up to date |
+| `gen_rbac_cases --check` | 189 op, mismatch [] |
+| `gen_traceability --strict` | exit 0 |
+| `vitest test/contract.test.ts` | 5/5 |
+| `tsc` api-client, admin-web, guest-web | 0 lỗi |
+| prettier (openapi + tệp sinh) | xanh |
+
+`tsc` của `@ottimo/api` đang đỏ ở `registration/internal/registration.service.ts:524,659` (TS1109). Đó là tệp BE-C đang sửa dở, không liên quan hợp đồng; các tệp sinh không gây lỗi.

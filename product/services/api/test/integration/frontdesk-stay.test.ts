@@ -40,7 +40,7 @@ import {
   seedGuestRow,
   touchSessions,
 } from '../helpers/reservations-fixture';
-import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
+import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
 class DocsOk implements FrontdeskRegistrationPort {
   checkedIn: Array<{ id: string; at: Date }> = [];
@@ -111,13 +111,6 @@ describe.skipIf(!HAS_DB)(
       db = appDatabase(8);
       t = await createTenant(db, { users: ROLES });
       ids = await seedBooking(db, t);
-      await setParam(
-        db,
-        t,
-        'early_departure_refund',
-        { minNoticeDays: 1, refundPct: 50 },
-        '2026-10-01',
-      );
       guest = await seedGuestRow(db, t, { name: 'Park Ji-woo' });
       fa = await startFeatureApp(db, {
         override: (b) =>
@@ -204,19 +197,41 @@ describe.skipIf(!HAS_DB)(
         defaultRateVnd: 708_000,
         createsChildReservation: false,
       });
+      // FB-R2-ARC-BE-S3-07: in the B9a window a typed 14:00 is ignored – no plain B9 before the rollover.
       const missing = await act(b.id, 'check-in', b.version, {
         cardsIssued: 1,
         houseRulesSent: true,
+        checkinTime: '14:00',
       });
-      expect(missing.statusCode).toBe(422);
-      expect(missing.json().errors).toContainEqual({ field: 'addPriorNight', code: 'REQUIRED' });
-      const res = await act(b.id, 'check-in', b.version, {
+      expect(missing.statusCode, missing.body).toBe(409);
+      expect(missing.json()).toMatchObject({
+        code: 'INVALID_TRANSITION',
+        availableFrom: '2026-10-20T06:00:00.000+07:00',
+      });
+      const noExpected = await act(b.id, 'check-in', b.version, {
         cardsIssued: 1,
         houseRulesSent: true,
         addPriorNight: true,
         priorNightRateVnd: 708_000,
       });
+      expect(noExpected.json().errors).toContainEqual({
+        field: 'expectedSurchargeVnd',
+        code: 'REQUIRED',
+      });
+      const res = await act(b.id, 'check-in', b.version, {
+        cardsIssued: 1,
+        houseRulesSent: true,
+        addPriorNight: true,
+        priorNightRateVnd: 708_000,
+        expectedSurchargeVnd: 708_000,
+      });
       expect(res.statusCode, res.body).toBe(200);
+      // ARC-BE-S3-24.3: the typed night is kept as a manual price (never re-tiered later).
+      const snap = await q<{ s: { nights: Array<{ date: string; source: string }> } }>(
+        'SELECT pricing_snapshot AS s FROM reservation WHERE id = $1',
+        [b.id],
+      );
+      expect(snap[0]?.s.nights.find((x) => x.date === '2026-10-19')?.source).toBe('manual');
       expect(res.json()).toMatchObject({
         status: 'in_house',
         arrivalDate: '2026-10-19',
@@ -255,6 +270,7 @@ describe.skipIf(!HAS_DB)(
         houseRulesSent: true,
         addPriorNight: true,
         priorNightRateVnd: 917_000,
+        expectedSurchargeVnd: 917_000,
       });
       expect(res.statusCode, res.body).toBe(200);
       expect(res.json()).toMatchObject({ arrivalDate: '2026-10-22', status: 'in_house' });
@@ -311,6 +327,7 @@ describe.skipIf(!HAS_DB)(
         houseRulesSent: true,
         addPriorNight: true,
         priorNightRateVnd: 667_000,
+        expectedSurchargeVnd: 667_000,
       });
       expect(res.statusCode).toBe(409);
       expect(res.json().code).toBe('ROOM_UNAVAILABLE');
@@ -358,7 +375,13 @@ describe.skipIf(!HAS_DB)(
         noticeGivenAt: '2026-10-28T10:00:00+07:00',
       });
       expect(res.statusCode, res.body).toBe(200);
-      expect(res.json()).toMatchObject({ departureDate: '2026-10-29', totalRoomVnd: 1_584_000 });
+      // 0.3.6 bổ sung 2 (E04-06): EarlyDepartureResult.
+      expect(res.json()).toMatchObject({
+        reservation: { departureDate: '2026-10-29', totalRoomVnd: 1_584_000 },
+        earlyDepartureFeeVnd: 851_000,
+        refundVnd: 852_000,
+      });
+      expect(res.json().refundRequestId).toEqual(expect.any(String));
       const voided = await q<{ d: string }>(
         `SELECT stay_date::text AS d FROM stay_night WHERE reservation_id = $1 AND void_reason = 'early_departure' ORDER BY 1`,
         [b.id],

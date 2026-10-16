@@ -20,7 +20,7 @@ export function WifiBlock({ stay }: { stay: GuestStay }) {
   };
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div className="mt-12">
       <dl className="dl">
         <dt>{t('guest.wifi')}</dt>
         {wifi ? (
@@ -28,14 +28,14 @@ export function WifiBlock({ stay }: { stay: GuestStay }) {
             <span className="li-s">{t('gw.wifi_name')}:</span> {wifi.ssid}
             <br />
             <span className="li-s">{t('gw.wifi_pass')}:</span>{' '}
-            <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{wifi.password}</span>
+            <span className="mono">{wifi.password}</span>
           </dd>
         ) : (
           <dd>{t('gw.wifi_later', { date: shortDate(stay.arrivalDate) })}</dd>
         )}
       </dl>
       {wifi?.password ? (
-        <Button size="sm" icon="copy" onClick={() => void copy()} style={{ marginTop: 8 }}>
+        <Button size="sm" icon="copy" className="mt-8" onClick={() => void copy()}>
           {t('gw.wifi_copy')}
         </Button>
       ) : null}

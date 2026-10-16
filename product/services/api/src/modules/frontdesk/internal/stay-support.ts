@@ -19,10 +19,12 @@ import { PricingService } from '../../reservations/public/pricing.service';
 import {
   type Actor,
   type BookingContext,
+  type Fields,
   type ReservationRow,
   type SegmentRow,
   ReservationStayPort,
   activeSegments,
+  loadReservation,
 } from '../../reservations/public/stay-port';
 import type {
   FrontdeskChildDataPort,
@@ -31,7 +33,7 @@ import type {
   FrontdeskRegistrationPort,
 } from '../public/ports';
 import { RoomStatusService } from '../public/room-status.service';
-import { nightlyEquivalent } from '../public/stay-rules';
+import { businessMinutes, nightlyEquivalent } from '../public/stay-rules';
 
 /** Resolved ports (owner implementation or the fail-closed default – see frontdesk.module.ts). */
 export class FrontdeskPorts {
@@ -115,7 +117,10 @@ export class StaySupport {
     return last;
   }
 
-  /** Another confirmed booking arriving in `roomId` on `date` (BR-412 grace, BR-416, US-031 order). */
+  /**
+   * Another booking arriving in `roomId` on `date` (BR-412 grace, BR-416, US-031 order): `confirmed` and
+   * `hold` (DOM S3-14 – a hold with a partial deposit is a paying guest holding the room).
+   */
   async sameDayArrival(
     tx: Tx,
     roomId: string,
@@ -131,7 +136,8 @@ export class StaySupport {
       `SELECT r.id, r.code, g.full_name, to_char(r.eta_time, 'HH24:MI') AS eta_time
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
          LEFT JOIN guest g ON g.id = r.booker_guest_id
-        WHERE s.room_id = $1 AND s.active AND s.from_date = $2 AND r.id <> $3 AND r.status = 'confirmed'
+        WHERE s.room_id = $1 AND s.active AND s.from_date = $2 AND r.id <> $3
+          AND r.status IN ('confirmed', 'hold')
         ORDER BY r.eta_time NULLS LAST LIMIT 1`,
       [roomId, date, excludeReservationId],
     );
@@ -426,6 +432,177 @@ export class StaySupport {
       lineCategory: line.category,
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
+  }
+
+  /**
+   * The stay as the guest lives it (FB-R2-ARC-BE-S3-05, ARC B-1 #5/#6): a primary booking + its in-house
+   * children (B9a prior night, OTA extension B13 – BR-422) share one room and one folio. The departure is the
+   * latest of them; `last` is the booking holding the last night (its rate is the late-checkout base).
+   */
+  async effectiveStay(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+  ): Promise<{ departureDate: LocalDate; last: ReservationRow; ids: string[] }> {
+    const { rows } = await tx.query<{ id: string; departure_date: string }>(
+      `SELECT id, departure_date::text AS departure_date FROM reservation
+        WHERE parent_reservation_id = $1 AND status = 'in_house' ORDER BY departure_date, id`,
+      [row.id],
+    );
+    let last = row;
+    let departureDate = row.departure_date;
+    for (const k of rows) {
+      if (k.departure_date > departureDate) {
+        departureDate = k.departure_date;
+        last = await loadReservation(tx, k.id, ctx.actor);
+      }
+    }
+    return { departureDate, last, ids: [row.id, ...rows.map((k) => k.id)] };
+  }
+
+  /**
+   * Live surcharge lines (posted, not reversed, not a reversal) of one category on the bookings `ids`, with the
+   * APPROVED FOC/discount still reducing each (DOM S3-11) and whether a FOC request is still pending.
+   */
+  async liveSurchargeLines(
+    tx: Tx,
+    folioId: string,
+    ids: readonly string[],
+    category: 'late_checkout' | 'early_checkin',
+  ): Promise<{
+    lines: Array<{ id: string; amountVnd: number; reservationId: string }>;
+    grossVnd: number;
+    focVnd: number;
+    focReason: string | null;
+  }> {
+    const all = await this.folios.lines(tx, folioId);
+    const reversed = new Set(all.filter((l) => l.reversal_of_id).map((l) => l.reversal_of_id));
+    const live = (l: (typeof all)[number]) =>
+      l.line_state === 'posted' && !l.reversal_of_id && !reversed.has(l.id);
+    const lines = all.filter(
+      (l) =>
+        l.category === category && !!l.reservation_id && ids.includes(l.reservation_id) && live(l),
+    );
+    const lineIds = new Set(lines.map((l) => l.id));
+    const focs = all.filter(
+      (l) =>
+        (l.category === 'foc' || l.category === 'discount') &&
+        !!l.related_line_id &&
+        lineIds.has(l.related_line_id) &&
+        live(l),
+    );
+    const reason = focs.map((l) => l.label_params?.reason).find((r) => typeof r === 'string');
+    return {
+      lines: lines.map((l) => ({
+        id: l.id,
+        amountVnd: l.amount_vnd,
+        reservationId: l.reservation_id as string,
+      })),
+      grossVnd: lines.reduce((a, l) => a + l.amount_vnd, 0),
+      focVnd: focs.reduce((a, l) => a - l.amount_vnd, 0),
+      focReason: typeof reason === 'string' ? reason : null,
+    };
+  }
+
+  /**
+   * One live late-checkout charge per stay (FB-R2-ARC-BE-S3-06, DOM G-10 / S3-11): reverses the live lines
+   * (their FOC goes with them – BR-008), posts the new amount (if > 0) and carries an APPROVED FOC over as
+   * min(FOC approved, new amount) – same decision, never more than approved, no second approval.
+   * Returns the new line id (null when the new amount is 0) and the FOC carried.
+   */
+  async replaceLateCharge(
+    tx: Tx,
+    ctx: BookingContext,
+    input: {
+      folioId: string;
+      ids: readonly string[];
+      booking: ReservationRow;
+      serviceDate: LocalDate;
+      time: LocalTime;
+      tierPct: number;
+      amountVnd: number;
+      reason: string;
+      source: 'checkout' | 'manual';
+    },
+  ): Promise<{ lineId: string | null; carriedFocVnd: number }> {
+    const actor = {
+      userId: ctx.actor.userId,
+      reservationCode: input.booking.code,
+      ...this.req(ctx),
+    };
+    const old = await this.liveSurchargeLines(tx, input.folioId, input.ids, 'late_checkout');
+    for (const l of old.lines) await this.folios.reverseLine(tx, l.id, input.reason, actor);
+    if (input.amountVnd <= 0) return { lineId: null, carriedFocVnd: 0 };
+    const [lineId] = await this.folios.postLines(
+      tx,
+      input.folioId,
+      [
+        {
+          reservationId: input.booking.id,
+          category: 'late_checkout',
+          description: `late_checkout ${input.time} ${input.tierPct}%`,
+          quantity: 1,
+          unitPriceVnd: input.amountVnd,
+          amountVnd: input.amountVnd,
+          serviceDate: input.serviceDate,
+          source: input.source,
+          labelParams: { time: input.time, pct: input.tierPct },
+        },
+      ],
+      actor,
+    );
+    const carried = Math.min(old.focVnd, input.amountVnd);
+    if (carried > 0 && lineId) {
+      await this.folios.postLines(
+        tx,
+        input.folioId,
+        [
+          {
+            reservationId: input.booking.id,
+            category: 'foc',
+            revenueGroup: 'other',
+            description: 'foc carried over (G-10, DOM S3-11)',
+            quantity: 1,
+            unitPriceVnd: -carried,
+            amountVnd: -carried,
+            serviceDate: input.serviceDate,
+            source: input.source,
+            relatedLineId: lineId,
+            ...(old.focReason ? { labelParams: { reason: old.focReason } } : {}),
+          },
+        ],
+        actor,
+      );
+    }
+    return { lineId: lineId ?? null, carriedFocVnd: carried };
+  }
+
+  /**
+   * E03-07 / BR-414 v0.3.4 (DOM S3-12): a time the desk typed vs the server clock, both on the business-day
+   * axis. Later by more than `manual_time_tolerance_minutes` → 422 TIME_AFTER_ACTION on `field` (no future
+   * times – the surcharge would vanish); earlier by more → the note is required (TIME_NOTE_REQUIRED on
+   * `noteField`). Adds to `f` (the caller reports all field errors at once). `noted` = the note applies.
+   */
+  async checkTypedTime(
+    tx: Tx,
+    ctx: BookingContext,
+    f: Fields,
+    input: {
+      field: string;
+      time: LocalTime;
+      noteField: string;
+      note: string | undefined;
+      rollover: LocalTime;
+    },
+  ): Promise<{ systemTime: LocalTime; noted: boolean }> {
+    const systemTime = this.localTime(ctx);
+    const tolerance = await this.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
+    const diff =
+      businessMinutes(input.time, input.rollover) - businessMinutes(systemTime, input.rollover);
+    if (diff > tolerance) f.add(input.field, 'TIME_AFTER_ACTION');
+    const noted = -diff > tolerance;
+    if (noted && !input.note) f.add(input.noteField, 'TIME_NOTE_REQUIRED');
+    return { systemTime, noted };
   }
 
   req(ctx: BookingContext): { requestId?: string } {

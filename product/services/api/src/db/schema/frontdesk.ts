@@ -22,6 +22,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { instant } from './common';
+import { dataKey } from './crypto';
 import { guest } from './guests';
 import { appUser } from './identity';
 import { property } from './platform';
@@ -59,6 +60,11 @@ export const roomStatus = pgTable(
       columns: [t.organizationId, t.propertyId],
       foreignColumns: [property.organizationId, property.id],
     }),
+    foreignKey({
+      name: 'room_status_updated_by_fk',
+      columns: [t.organizationId, t.updatedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
     check(
       'room_status_status_check',
       sql`${t.status} IN ('VC', 'VI', 'VD', 'CL', 'OC', 'OD', 'OOO')`,
@@ -85,6 +91,11 @@ export const checkoutConfirmation = pgTable(
       name: 'checkout_confirmation_reservation_fk',
       columns: [t.propertyId, t.reservationId],
       foreignColumns: [reservation.propertyId, reservation.id],
+    }),
+    foreignKey({
+      name: 'checkout_confirmation_recorded_by_fk',
+      columns: [t.organizationId, t.recordedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
     }),
     check(
       'checkout_confirmation_channel_check',
@@ -137,6 +148,29 @@ export const reservationGuest = pgTable(
       columns: [t.organizationId, t.guestId],
       foreignColumns: [guest.organizationId, guest.id],
     }),
+    foreignKey({
+      name: 'reservation_guest_child_key_fk',
+      columns: [t.childDataKeyId],
+      foreignColumns: [dataKey.id],
+    }),
+    foreignKey({
+      name: 'reservation_guest_created_by_fk',
+      columns: [t.organizationId, t.createdBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'reservation_guest_removed_by_fk',
+      columns: [t.organizationId, t.removedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check(
+      'reservation_guest_removed_check',
+      sql`${t.removedBy} IS NULL OR ${t.removedAt} IS NOT NULL`,
+    ),
+    check(
+      'reservation_guest_removed_hmac_check',
+      sql`${t.removedAt} IS NULL OR ${t.childNameHmac} IS NULL`,
+    ),
     check('reservation_guest_role_check', sql`${t.role} IN ('companion', 'child')`),
     check(
       'reservation_guest_relationship_check',
@@ -229,6 +263,7 @@ export const staffNotification = pgTable(
       'staff_notification_ref_type_check',
       sql`${t.refType} IS NULL OR ${t.refType} IN ('reservation', 'guest_request', 'work_order', 'approval_request', 'registration', 'user', 'payment', 'property')`,
     ),
+    check('staff_notification_ref_check', sql`(${t.refType} IS NULL) = (${t.refId} IS NULL)`),
     check(
       'staff_notification_ref_code_check',
       sql`${t.refCode} IS NULL OR length(${t.refCode}) <= 40`,
@@ -268,6 +303,16 @@ export const attentionEvent = pgTable(
       columns: [t.organizationId, t.propertyId],
       foreignColumns: [property.organizationId, property.id],
     }),
+    foreignKey({
+      name: 'attention_event_resolved_by_fk',
+      columns: [t.organizationId, t.resolvedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check(
+      'attention_event_resolved_check',
+      sql`${t.resolvedBy} IS NULL OR ${t.resolvedAt} IS NOT NULL`,
+    ),
+    check('attention_event_ref_check', sql`(${t.refType} IS NULL) = (${t.refId} IS NULL)`),
     check('attention_event_severity_check', sql`${t.severity} IN ('info', 'warning', 'critical')`),
     check(
       'attention_event_ref_code_check',

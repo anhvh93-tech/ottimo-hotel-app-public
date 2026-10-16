@@ -109,6 +109,19 @@ export class FrontdeskModule implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    // SEC-BE-52 (3): the api never runs without the guest-link revocation (a cancelled booking would keep a
+    // live guest link). Test containers may leave it unwired on purpose.
+    if (this.ports.guestAccess instanceof NoGuestAccessPort && process.env.NODE_ENV !== 'test') {
+      throw new Error('FD_GUEST_ACCESS_PORT is not bound (guest-portal module missing)');
+    }
+    // ARC-BE-S3-15 g: reservations shows the party size without reading reservation_guest itself.
+    this.hooks.providePartyCount(async (tx, reservationId) => {
+      const { rows } = await tx.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM reservation_guest WHERE reservation_id = $1 AND removed_at IS NULL`,
+        [reservationId],
+      );
+      return rows[0]?.n ?? 0;
+    });
     this.hooks.on('transitioned', async (tx, e) => {
       if (e.status !== 'cancelled' && e.status !== 'no_show') return;
       // B-13 (SEC G4): every guest link/session of the booking dies with it – the ONLY place (guest-portal no

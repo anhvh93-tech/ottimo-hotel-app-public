@@ -9,12 +9,14 @@ import {
   type Reservation,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal } from '@ottimo/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { Alert, Button, Checkbox, Chip, Field, Icon, Modal, Seg } from '@ottimo/ui';
+import { useId, useState } from 'react';
 import { api } from '../../app/api';
+import { C3_TTL_MS, useC3Reveal } from '../../app/c3';
+import { problemView } from '../../app/problem';
 import { useToast } from '../../app/toast';
 import { usePropertyId } from '../../session/SessionProvider';
-import { StepUpDialog, useSubmit } from '../stay/common';
+import { StepUpDialog, useSubmit, useUnsavedLabels } from '../stay/common';
 
 export const DOC_LABEL: Record<DocType, string> = {
   cccd: 'ci.doc.cccd',
@@ -27,12 +29,13 @@ export const DOC_LABEL: Record<DocType, string> = {
 export const resultOf = (c: GuestDocumentMasked['checks'][number]) =>
   c.manualResult ?? (c.result === 'ok' ? 'pass' : c.result === 'warning' ? 'fail' : c.result);
 
-const SENSITIVE_MS = 60_000;
+type Gender = 'male' | 'female' | 'other';
+type VisaKind = 'visa' | 'visa_exempt' | 'temp_residence_card';
 
 /**
  * H13 13.2 / H14 – documents per person (C3). After saving only the last 4 characters are shown; the
- * full number needs step-up and auto-hides after 60 s (EP06 0) or when the tab is hidden (SEC B5).
- * No download button; nothing is written to browser storage.
+ * full number needs step-up and auto-hides after 60 s, when the tab is hidden, on leaving and on
+ * sign-out (`useC3Reveal`, SEC FE-06). No download button; nothing is written to browser storage.
  */
 export function DocsList({
   registration,
@@ -56,9 +59,9 @@ export function DocsList({
         {t('checkin.docs.progress', { have: docs.length, need: required })}
       </p>
       {docs.length === 0 ? <p className="muted">{t('checkin.docs.empty')}</p> : null}
-      <ul className="list-plain">
+      <ul className="list-none">
         {docs.map((d) => (
-          <DocRow key={d.id} doc={d} registrationId={registration.id} />
+          <DocRow key={d.id} doc={d} registration={registration} onChange={onChange} />
         ))}
         {Array.from({ length: missing }, (_, i) => (
           <li key={`m${i}`} className="person">
@@ -95,32 +98,32 @@ export function DocsList({
   );
 }
 
-function DocRow({ doc, registrationId }: { doc: GuestDocumentMasked; registrationId: string }) {
-  const { t } = useI18n();
+function DocRow({
+  doc,
+  registration,
+  onChange,
+}: {
+  doc: GuestDocumentMasked;
+  registration: Registration;
+  onChange: (r: Registration) => void;
+}) {
+  const { t, locale } = useI18n();
   const propertyId = usePropertyId();
-  const [full, setFull] = useState<GuestDocumentSensitive | null>(null);
-  const [stepUp, setStepUp] = useState(false);
+  const reveal = useC3Reveal<GuestDocumentSensitive>();
+  const full = reveal.value;
+  const [stepUp, setStepUp] = useState<'show' | 'edit' | null>(null);
+  const [editing, setEditing] = useState<GuestDocumentSensitive | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const G = { propertyId, registrationId: registration.id };
 
-  useEffect(() => {
-    const hide = () => document.visibilityState === 'hidden' && setFull(null);
-    document.addEventListener('visibilitychange', hide);
-    return () => {
-      document.removeEventListener('visibilitychange', hide);
-      clearTimeout(timer.current);
-    };
-  }, []);
-
-  const show = async () => {
+  const load = async (then: 'show' | 'edit') => {
     setError(null);
     try {
-      const res = await api.getGuestDocumentSensitive({ propertyId, registrationId }, doc.id);
-      setFull(res.data);
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => setFull(null), SENSITIVE_MS);
+      const res = await api.getGuestDocumentSensitive(G, doc.id);
+      if (then === 'show') reveal.show(res.data);
+      else setEditing(res.data);
     } catch (e) {
-      if (isApiError(e) && e.code === 'REAUTH_REQUIRED') setStepUp(true);
+      if (isApiError(e) && e.code === 'REAUTH_REQUIRED') setStepUp(then);
       else setError(e);
     }
   };
@@ -144,20 +147,37 @@ function DocRow({ doc, registrationId }: { doc: GuestDocumentMasked; registratio
           {doc.imageIds?.length ? ` · ${t('ci.photo_count', { n: doc.imageIds.length })}` : ''}
           {doc.captureMethod === 'guest_upload' ? ` · ${t('checkin.docs.from_app')}` : ''}
         </div>
-        {error ? <Alert tone="bad">{t('error.NOT_FOUND')}</Alert> : null}
+        {full ? (
+          <div className="caption">{t('ci.full_autohide', { seconds: C3_TTL_MS / 1000 })}</div>
+        ) : null}
+        {error ? <Alert tone="bad">{problemView(t, error, locale).text}</Alert> : null}
       </div>
-      <Chip tone="ok" icon="check">
-        {t('guest.chip.doc_ok')}
-      </Chip>
-      <Button size="sm" variant="ghost" onClick={() => (full ? setFull(null) : void show())}>
-        {t('ci.view_full')}
+      <Chip tone="ok">{t('guest.chip.doc_ok')}</Chip>
+      <Button size="sm" variant="ghost" onClick={() => (full ? reveal.hide() : void load('show'))}>
+        {full ? t('ci.view_hide') : t('ci.view_full')}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => void load('edit')}>
+        {t('rooms.edit')}
       </Button>
       {stepUp ? (
         <StepUpDialog
-          onClose={() => setStepUp(false)}
+          onClose={() => setStepUp(null)}
           onDone={() => {
-            setStepUp(false);
-            void show();
+            const then = stepUp;
+            setStepUp(null);
+            void load(then);
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <ManualDocDialog
+          registration={registration}
+          first={false}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(r) => {
+            setEditing(null);
+            onChange(r);
           }}
         />
       ) : null}
@@ -165,61 +185,99 @@ function DocRow({ doc, registrationId }: { doc: GuestDocumentMasked; registratio
   );
 }
 
-/** H13 "Nhập tay giấy tờ" – multipart `addGuestDocument` (data JSON + 0…4 images kept in memory only). */
+/**
+ * H13 "Nhập tay giấy tờ" (FE-S3-02): every field the portal forms need – gender; VN: address; passport:
+ * issue date / place, entry type, visa number (not for visa-exempt), visa validity, entry date / port /
+ * purpose and "Có dấu / chứng nhận nhập cảnh" (unticked = `noEntryRecord`, BR-613 c). Add = multipart
+ * `addGuestDocument` (images in memory only); edit = `updateGuestDocument` with If-Match.
+ */
 export function ManualDocDialog({
   registration,
   bookerName,
   first,
+  initial,
   onClose,
   onSaved,
 }: {
   registration: Registration;
   bookerName?: string;
   first: boolean;
+  /** Full values (after step-up) → edit mode. */
+  initial?: GuestDocumentSensitive;
   onClose: () => void;
   onSaved: (r: Registration) => void;
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
+  const unsaved = useUnsavedLabels();
   const act = useSubmit();
   const ids = useId();
-  const [docType, setDocType] = useState<DocType>('cccd');
+  const [docType, setDocType] = useState<DocType>(initial?.docType ?? 'cccd');
   const [form, setForm] = useState({
-    docNumber: '',
-    fullNameOnDoc: first ? (bookerName ?? '') : '',
-    dateOfBirth: '',
-    nationalityCode: '',
-    passportExpiryDate: '',
-    visaValidUntil: '',
-    entryDate: '',
+    docNumber: initial?.docNumber ?? '',
+    fullNameOnDoc: initial?.fullNameOnDoc ?? (first ? (bookerName ?? '') : ''),
+    dateOfBirth: initial?.dateOfBirth ?? '',
+    nationalityCode: initial?.nationalityCode ?? '',
+    passportIssueDate: initial?.passportIssueDate ?? '',
+    issuingPlace: initial?.issuingPlace ?? '',
+    passportExpiryDate: initial?.passportExpiryDate ?? '',
+    visaNumber: initial?.visaNumber ?? '',
+    visaValidUntil: initial?.visaValidUntil ?? '',
+    entryDate: initial?.entryDate ?? '',
+    entryPort: initial?.entryPort ?? '',
+    entryPurpose: initial?.entryPurpose ?? '',
+    address: initial?.address ?? '',
   });
+  const [gender, setGender] = useState<Gender | ''>(
+    ((initial as { gender?: Gender } | undefined)?.gender ?? '') as Gender | '',
+  );
+  const [visaKind, setVisaKind] = useState<VisaKind | ''>(
+    (initial?.visaKind as VisaKind | undefined) ?? '',
+  );
+  const [hasEntry, setHasEntry] = useState(initial?.noEntryRecord !== true);
   const [images, setImages] = useState<File[]>([]);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
   const passport = docType === 'passport';
-  const dirty = Object.values(form).some(Boolean) || images.length > 0;
+  const dirty =
+    !initial && (Object.values(form).some(Boolean) || images.length > 0 || !!gender || !!visaKind);
+  const opt = (v: string) => v.trim() || undefined;
 
+  const [missing, setMissing] = useState<Record<string, string>>({});
   const save = async () => {
+    // FE-S3-04: the button stays usable; empty required fields are said at the field.
+    const req: Record<string, string> = {};
+    if (!form.docNumber.trim()) req.docNumber = t('common.required');
+    if (!form.fullNameOnDoc.trim()) req.fullNameOnDoc = t('common.required');
+    setMissing(req);
+    if (Object.keys(req).length) return;
     const data: GuestDocumentInput = {
       docType,
-      isMain: first,
+      isMain: initial ? undefined : first,
       fullNameOnDoc: form.fullNameOnDoc.trim(),
       docNumber: form.docNumber.replace(/\s/g, '').toUpperCase(),
-      dateOfBirth: form.dateOfBirth || undefined,
+      dateOfBirth: opt(form.dateOfBirth),
+      gender: gender || undefined,
       nationalityCode: passport ? form.nationalityCode.trim().toUpperCase() || undefined : 'VNM',
-      passportExpiryDate: passport ? form.passportExpiryDate || undefined : undefined,
-      visaValidUntil: passport ? form.visaValidUntil || undefined : undefined,
-      entryDate: passport ? form.entryDate || undefined : undefined,
+      address: passport ? undefined : opt(form.address),
+      passportIssueDate: passport ? opt(form.passportIssueDate) : undefined,
+      issuingPlace: passport ? opt(form.issuingPlace) : undefined,
+      passportExpiryDate: passport ? opt(form.passportExpiryDate) : undefined,
+      visaKind: passport ? visaKind || undefined : undefined,
+      visaNumber: passport && visaKind !== 'visa_exempt' ? opt(form.visaNumber) : undefined,
+      visaValidUntil: passport ? opt(form.visaValidUntil) : undefined,
+      entryDate: passport && hasEntry ? opt(form.entryDate) : undefined,
+      entryPort: passport ? opt(form.entryPort) : undefined,
+      entryPurpose: passport ? opt(form.entryPurpose) : undefined,
+      noEntryRecord: passport ? !hasEntry : undefined,
       captureMethod: 'manual',
     };
+    const G = { propertyId, registrationId: registration.id };
     const out = await act.submit((idem) =>
-      api.addGuestDocument(
-        { propertyId, registrationId: registration.id },
-        data,
-        images.slice(0, 4),
-        idem,
-      ),
+      initial
+        ? api.updateGuestDocument(G, initial.id, data, registration.version)
+        : api.addGuestDocument(G, data, images.slice(0, 4), idem),
     );
     if (out) {
       setImages([]);
@@ -228,7 +286,25 @@ export function ManualDocDialog({
     }
   };
 
-  const f = act.fields;
+  const f: Record<string, string | undefined> = { ...missing, ...act.fields };
+  const text = (
+    k: keyof typeof form,
+    label: string,
+    extra: { type?: string; max?: number } = {},
+  ) => (
+    <Field label={label} error={f[k]}>
+      {(p) => (
+        <input
+          {...p}
+          type={extra.type ?? 'text'}
+          className="input"
+          maxLength={extra.max}
+          value={form[k]}
+          onChange={set(k)}
+        />
+      )}
+    </Field>
+  );
   return (
     <Modal
       open
@@ -236,12 +312,7 @@ export function ManualDocDialog({
       onClose={onClose}
       closeLabel={t('common.close')}
       dirty={dirty}
-      unsavedLabels={{
-        title: t('common.unsaved_title'),
-        body: t('common.unsaved_body'),
-        keep: t('common.unsaved_keep'),
-        discard: t('common.unsaved_discard'),
-      }}
+      unsavedLabels={unsaved}
       footer={
         <>
           <Button onClick={onClose}>{t('common.cancel')}</Button>
@@ -249,7 +320,6 @@ export function ManualDocDialog({
             variant="pri"
             busy={act.busy}
             busyLabel={act.busyLabel}
-            disabled={!form.docNumber.trim() || !form.fullNameOnDoc.trim()}
             onClick={() => void save()}
           >
             {act.label(t('ci.manual_save'))}
@@ -295,79 +365,89 @@ export function ManualDocDialog({
             />
           )}
         </Field>
-        <Field label={t('checkin.docs.field.dob')} error={f.dateOfBirth}>
+        {text('dateOfBirth', t('checkin.docs.field.dob'), { type: 'date' })}
+        <div className="field">
+          <span className="label-h" id={`${ids}-g`}>
+            {t('checkin.docs.field.gender')}
+          </span>
+          <Seg
+            labelledBy={`${ids}-g`}
+            value={gender}
+            onChange={setGender}
+            options={[
+              { value: 'male', label: t('reg.value.gender.male') },
+              { value: 'female', label: t('reg.value.gender.female') },
+              { value: 'other', label: t('reg.value.gender.other') },
+            ]}
+          />
+        </div>
+        {passport ? (
+          <>
+            {text('nationalityCode', t('checkin.docs.field.nationality'), { max: 3 })}
+            {text('passportIssueDate', t('checkin.docs.field.passport_issue_date'), {
+              type: 'date',
+            })}
+            {text('issuingPlace', t('checkin.docs.field.issuing_place'), { max: 100 })}
+            {text('passportExpiryDate', t('checkin.docs.field.passport_expiry'), {
+              type: 'date',
+            })}
+          </>
+        ) : (
+          text('address', t('checkin.docs.field.address'), { max: 300 })
+        )}
+      </div>
+      {passport ? (
+        <>
+          <div className="field">
+            <span className="label-h" id={`${ids}-vk`}>
+              {t('checkin.docs.field.visa_kind')}
+            </span>
+            <Seg
+              labelledBy={`${ids}-vk`}
+              value={visaKind}
+              onChange={setVisaKind}
+              options={[
+                { value: 'visa', label: t('reg.value.visa_kind.visa') },
+                { value: 'visa_exempt', label: t('reg.value.visa_kind.visa_exempt') },
+                {
+                  value: 'temp_residence_card',
+                  label: t('reg.value.visa_kind.temp_residence_card'),
+                },
+              ]}
+            />
+          </div>
+          <div className="g-2">
+            {visaKind !== 'visa_exempt'
+              ? text('visaNumber', t('checkin.docs.field.visa_number'), { max: 20 })
+              : null}
+            {text('visaValidUntil', t('checkin.docs.field.visa'), { type: 'date' })}
+          </div>
+          <Checkbox checked={hasEntry} onChange={setHasEntry}>
+            {t('checkin.verify.entry_record')}
+          </Checkbox>
+          <div className="g-2">
+            {hasEntry
+              ? text('entryDate', t('checkin.docs.field.entry_date'), { type: 'date' })
+              : null}
+            {text('entryPort', t('checkin.docs.field.entry_port'), { max: 100 })}
+            {text('entryPurpose', t('checkin.docs.field.entry_purpose'), { max: 100 })}
+          </div>
+          <p className="li-s">{t('ci.manual_note')}</p>
+        </>
+      ) : null}
+      {initial ? null : (
+        <Field label={t('checkin.docs.scan')} error={f.image}>
           {(p) => (
             <input
               {...p}
-              type="date"
-              className="input"
-              value={form.dateOfBirth}
-              onChange={set('dateOfBirth')}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(e) => setImages(Array.from(e.target.files ?? []).slice(0, 4))}
             />
           )}
         </Field>
-        {passport ? (
-          <>
-            <Field label={t('checkin.docs.field.nationality')} error={f.nationalityCode}>
-              {(p) => (
-                <input
-                  {...p}
-                  className="input mono"
-                  maxLength={3}
-                  value={form.nationalityCode}
-                  onChange={set('nationalityCode')}
-                />
-              )}
-            </Field>
-            <Field label={t('checkin.docs.field.passport_expiry')} error={f.passportExpiryDate}>
-              {(p) => (
-                <input
-                  {...p}
-                  type="date"
-                  className="input"
-                  value={form.passportExpiryDate}
-                  onChange={set('passportExpiryDate')}
-                />
-              )}
-            </Field>
-            <Field label={t('checkin.docs.field.visa')} error={f.visaValidUntil}>
-              {(p) => (
-                <input
-                  {...p}
-                  type="date"
-                  className="input"
-                  value={form.visaValidUntil}
-                  onChange={set('visaValidUntil')}
-                />
-              )}
-            </Field>
-            <Field label={t('checkin.docs.field.entry_date')} error={f.entryDate}>
-              {(p) => (
-                <input
-                  {...p}
-                  type="date"
-                  className="input"
-                  value={form.entryDate}
-                  onChange={set('entryDate')}
-                />
-              )}
-            </Field>
-          </>
-        ) : null}
-      </div>
-      {passport ? <p className="li-s">{t('ci.manual_note')}</p> : null}
-      <Field label={t('checkin.docs.scan')} error={f.image}>
-        {(p) => (
-          <input
-            {...p}
-            id={`${ids}-img`}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            onChange={(e) => setImages(Array.from(e.target.files ?? []).slice(0, 4))}
-          />
-        )}
-      </Field>
+      )}
     </Modal>
   );
 }
@@ -406,7 +486,7 @@ export function VerifyList({
             {d.fullNameOnDoc}
             {d.nationalityCode ? ` · ${d.nationalityCode}` : ''}
           </b>
-          <ul className="conds">
+          <ul className="list-none">
             {d.checks
               .filter((c) => c.result !== 'not_applicable')
               .map((c) => (
@@ -469,8 +549,11 @@ function CheckRow({
       : result === 'fail'
         ? 'checkin.verify.result.fail'
         : 'checkin.verify.result.unknown';
+  // DS 6.4 / FE-S3-17: three looks – Đạt (ok), Không đạt (fail), Chưa kiểm được (dashed, "?").
+  const cls = result === 'pass' ? 'ok' : result === 'fail' ? 'fail' : 'unknown';
   return (
-    <li className={result === 'pass' ? 'met' : 'unmet'}>
+    <li className={`chk3 ${cls}`}>
+      <Icon name={result === 'pass' ? 'check' : result === 'fail' ? 'x' : 'question'} />
       <div className="grow">
         <b>{label}</b>
         {check.result === 'unverified' && !check.manualResult ? (
@@ -519,7 +602,9 @@ function CheckRow({
           </div>
         ) : null}
       </div>
-      <Chip tone={tone}>{t(resultKey)}</Chip>
+      <Chip tone={tone} icon={result === 'unverified' ? 'question' : undefined}>
+        {t(resultKey)}
+      </Chip>
     </li>
   );
 }

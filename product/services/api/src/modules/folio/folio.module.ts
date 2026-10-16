@@ -8,6 +8,7 @@ import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { FOLIO_STAY_SYNC } from '../reservations/public/folio-sync-port';
+import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { FolioController } from './internal/folio.controller';
 import { BillService } from './internal/bill.service';
 import { FolioFocService } from './internal/foc.service';
@@ -28,6 +29,8 @@ defineAuditEntity('folio', [
   'billNo',
   'totalVnd',
   'balanceDueVnd',
+  // 0.3.6 bổ sung 2: night sync logged as folio.line_posted / line_reversed – `confirmed` | `resynced`.
+  'sync',
 ]);
 defineAuditEntity('channel_fee', [
   'channelCode',
@@ -77,6 +80,8 @@ export class FolioModule implements OnModuleInit {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioFocService) private readonly foc: FolioFocService,
     @Inject(FolioLinesService) private readonly lineService: FolioLinesService,
+    @Inject(FolioService) private readonly folios: FolioService,
+    @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
   ) {}
 
   onModuleInit(): void {

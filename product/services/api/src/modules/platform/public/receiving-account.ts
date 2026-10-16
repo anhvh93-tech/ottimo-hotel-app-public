@@ -6,6 +6,7 @@
  */
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
+import { containsCardNumber } from '../../../shared/validation';
 import { type LocalDate, atLocal } from '../../../shared/time';
 
 export const RECEIVING_ACCOUNT_KEY = 'payment_receiving_account';
@@ -47,8 +48,13 @@ export function parseReceivingAccount(value: unknown): ReceivingAccount {
   if (!accountName) errors.push({ field: 'value.accountName', code: 'REQUIRED' });
   else if (accountName.length > 50) errors.push({ field: 'value.accountName', code: 'TOO_LONG' });
   else if (!/^[A-Z0-9 .-]+$/.test(accountName)) {
-    // NAPAS beneficiary name: upper case without diacritics.
+    // NAPAS beneficiary name: upper case without diacritics (control characters never pass).
     errors.push({ field: 'value.accountName', code: 'VALIDATION_FAILED' });
+  } else if (containsCardNumber(accountName)) {
+    // SEC-BE-44 (A4): a card number typed into the name is refused, never stored or audited.
+    throw problem('CARD_NUMBER_DETECTED', {
+      errors: [{ field: 'value.accountName', code: 'CARD_NUMBER_DETECTED' }],
+    });
   }
   const extra = Object.keys(v).filter((k) => !['bankBin', 'accountNo', 'accountName'].includes(k));
   for (const k of extra) errors.push({ field: `value.${k}`, code: 'NOT_IN_LIST' });

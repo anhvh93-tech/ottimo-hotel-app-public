@@ -29,9 +29,12 @@ import {
 import { Operation } from '../../../shared/http/operation';
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
-import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
+import { UnitOfWork, applyResult, canonicalJson } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
 import { C3AccessGate, noStore } from '../../crypto/public/c3-access-gate';
+import { CryptoService } from '../../crypto/public/crypto.service';
+import { EncryptedBlobService } from '../../files/public/encrypted-blob.service';
+import { withUploadGate } from '../../files/public/upload-gate';
 import {
   type NormalizedImage,
   fileRejected,
@@ -99,6 +102,8 @@ export class RegistrationController {
     @Inject(RegistrationService) private readonly regs: RegistrationService,
     @Inject(C3AccessGate) private readonly gate: C3AccessGate,
     @Inject(C3LogService) private readonly c3log: C3LogService,
+    @Inject(EncryptedBlobService) private readonly blobs: EncryptedBlobService,
+    @Inject(CryptoService) private readonly crypto: CryptoService,
   ) {}
 
   private async today(tx: Tx): Promise<string> {
@@ -119,17 +124,20 @@ export class RegistrationController {
     }
     const n = parseLimit(limit, 50);
     const key = decodeCursor(cursor, 2) as [string, string] | null;
-    // Not read-only: bookings from before the module get their K1 record here (backfill).
-    return this.db.withContext(tenantOf(principal(req)), async (tx) => {
-      await this.regs.backfill(tx);
-      const out = await this.regs.list(tx, v as 'action_needed', key, n);
-      const paged = page(
-        out.rows.map((row, i) => ({ row, key: out.keys[i] as [string, string] })),
-        n,
-        (x) => x.key,
-      );
-      return { data: paged.data.map((x) => x.row), page: paged.page };
-    });
+    // Read-only (ARC FB-S3-27 (6)): bookings from before the module get their K1 record from J16.
+    return this.db.withContext(
+      tenantOf(principal(req)),
+      async (tx) => {
+        const out = await this.regs.list(tx, v as 'action_needed', key, n);
+        const paged = page(
+          out.rows.map((row, i) => ({ row, key: out.keys[i] as [string, string] })),
+          n,
+          (x) => x.key,
+        );
+        return { data: paged.data.map((x) => x.row), page: paged.page };
+      },
+      { readOnly: true },
+    );
   }
 
   @Get('registrations/:registrationId')
@@ -189,21 +197,25 @@ export class RegistrationController {
     const parsed = validateDocumentInput(data, today);
     if (!parsed.value) throw problem('VALIDATION_FAILED', { errors: parsed.errors });
     const input = parsed.value;
-    const images: NormalizedImage[] = [];
-    for (const f of files) images.push(await normalizeImage(f, 'image'));
+    // Idempotency over the SEMANTIC request (ARC FB-S3-19): the multipart boundary changes on every
+    // browser retry. The fields (C3) only enter as a keyed hash – never a plain SHA-256 a database copy
+    // could brute-force (12-digit numbers); each image by the SHA-256 of its bytes.
     req.body = {
-      multipartSha256: createHash('sha256')
-        .update(req.body as Buffer)
-        .digest('hex'),
+      dataDigest: this.crypto.keyedHash('idempotency', canonicalJson(data)),
+      images: files.map((f) => createHash('sha256').update(f).digest('hex')),
     };
-    const result = await this.uow.run(
-      req,
-      async (tx) => {
-        const reg = await this.regs.addDocument(tx, actor, rid, input, images);
-        return { status: 201, body: await this.respond(reply, tx, reg) };
-      },
-      { storeBody: false },
-    );
+    const result = await withUploadGate(async () => {
+      const images: NormalizedImage[] = [];
+      for (const f of files) images.push(await normalizeImage(f, 'image'));
+      return this.uow.run(
+        req,
+        async (tx) => {
+          const reg = await this.regs.addDocument(tx, actor, rid, input, images);
+          return { status: 201, body: await this.respond(reply, tx, reg) };
+        },
+        { storeBody: false },
+      );
+    });
     return applyResult(reply, result);
   }
 
@@ -302,6 +314,7 @@ export class RegistrationController {
       },
       { storeBody: false },
     );
+    await this.blobs.sweepAfterCommit(tenantOf(actor.principal)); // files go after COMMIT (ARC FB-S3-17)
     applyResult(reply, result);
   }
 
@@ -331,6 +344,17 @@ export class RegistrationController {
       errors.push({
         field: 'noticeVersion',
         code: b.noticeVersion === undefined ? 'REQUIRED' : 'VALIDATION_FAILED',
+      });
+    }
+    if (
+      typeof b.retentionDays !== 'number' ||
+      !Number.isInteger(b.retentionDays) ||
+      b.retentionDays < 1 ||
+      b.retentionDays > 365
+    ) {
+      errors.push({
+        field: 'retentionDays',
+        code: b.retentionDays === undefined ? 'REQUIRED' : 'VALIDATION_FAILED',
       });
     }
     if (b.locale !== 'vi' && b.locale !== 'en') {
@@ -374,6 +398,12 @@ export class RegistrationController {
             errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
           });
         }
+        // SEC ĐK-2 17/10: the days read in the consent sentence must be the parameter in force.
+        if (b.retentionDays !== (await this.regs.retentionDaysParam(tx))) {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: 'retentionDays', code: 'NOT_IN_LIST' }],
+          });
+        }
         const out = await this.regs.recordConsent(
           tx,
           { type: 'user', userId: actor.principal.userId, requestId: req.id },
@@ -385,12 +415,14 @@ export class RegistrationController {
             locale: b.locale as string,
             channel: b.channel as 'desk' | 'paper',
             personIndex: null,
+            retentionDays: b.retentionDays as number,
           },
         );
         return { status: 201, body: await this.respond(reply, tx, out) };
       },
       { storeBody: false },
     );
+    await this.blobs.sweepAfterCommit(tenantOf(actor.principal));
     return applyResult(reply, result);
   }
 
@@ -531,6 +563,7 @@ export class RegistrationController {
       },
       { storeBody: false },
     );
+    await this.blobs.sweepAfterCommit(tenantOf(actor.principal));
     return applyResult(reply, result);
   }
 

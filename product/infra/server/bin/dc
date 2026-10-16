@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# `docker compose` for the OTTIMO server (staging or production): fixed project name, the server .env, the
+# deployed image tag. Every server script goes through this wrapper; use it by hand too:
+#   /opt/ottimo/infra/server/bin/dc ps
+#   /opt/ottimo/infra/server/bin/dc logs --tail 100 api
+# Environment: OTTIMO_HOME (default /opt/ottimo), IMAGE_TAG (default: state/current_tag written by deploy.sh).
+set -Eeuo pipefail
+
+OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
+if [ -z "${IMAGE_TAG:-}" ] && [ -r "$OTTIMO_HOME/state/current_tag" ]; then
+  IMAGE_TAG=$(cat "$OTTIMO_HOME/state/current_tag")
+fi
+# "none" only lets read-only commands (ps, logs, exec) interpolate before the first deploy.
+export IMAGE_TAG="${IMAGE_TAG:-none}"
+export SECRETS_DIR="${SECRETS_DIR:-$OTTIMO_HOME/secrets}"
+export SEED_DIR="${SEED_DIR:-$OTTIMO_HOME/seed}"
+
+exec docker compose \
+  --project-name "${OTTIMO_PROJECT:-ottimo}" \
+  --project-directory "$OTTIMO_HOME/infra" \
+  --env-file "$OTTIMO_HOME/.env" \
+  --file "$OTTIMO_HOME/infra/docker-compose.prod.yml" \
+  "$@"

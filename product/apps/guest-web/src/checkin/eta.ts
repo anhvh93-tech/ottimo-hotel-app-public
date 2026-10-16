@@ -10,6 +10,8 @@ export interface EtaChoice {
 }
 
 const LATE_FROM = 22 * 60;
+/** Start of "After 22:00" (H18 18.3) – also the time in `gw.oci_unavailable_late`. */
+export const LATE_ARRIVAL_FROM = '22:00';
 
 function toMin(hhmm: string): number | undefined {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);

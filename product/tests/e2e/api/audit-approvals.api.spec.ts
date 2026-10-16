@@ -1,11 +1,11 @@
 // E2E API – nhật ký (US-006, US-002 AC2) và phê duyệt (US-007, SM-10). TC: r1-main-flows.md mục 1.
-// Sprint 1 has no source of approval requests yet (FOC comes with folio – Sprint 2–3): the self-approval
-// cases are written against the contract and skip until requestFoc exists.
+// Ở đây chỉ phần hợp đồng không cần đơn đang ở (TC-NT-008 biến thể, TC-NT-017 (2)(3), TC-NT-027 phần hợp đồng).
+// Các ca cần folio đang ở / FOC / trả phòng (TC-NT-016, TC-NT-017 (1), TC-NT-027 luồng … TC-NT-036) chạy ở project
+// clock: e2e/clock/approvals-foc.s3.clock.spec.ts.
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
   expectProblem,
-  isAvailable,
   needSeedPassword,
   propertyIdOf,
   requireEndpoints,
@@ -30,16 +30,6 @@ const APPROVE: [string, string, string] = [
   'POST',
   '/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/approve',
   'approveRequest',
-];
-const REJECT: [string, string, string] = [
-  'POST',
-  '/v1/properties/{propertyId}/approval-requests/{approvalId}/actions/reject',
-  'rejectRequest',
-];
-const FOC: [string, string, string] = [
-  'POST',
-  '/v1/properties/{propertyId}/folios/{folioId}/lines/{lineId}/foc',
-  'requestFoc',
 ];
 
 type Row = Record<string, unknown>;
@@ -113,13 +103,6 @@ test.describe('L1 – nhật ký thao tác (US-006, US-002 AC2)', { tag: ['@api'
     for (const e of rows(other.body))
       expect(isFd(e), `không lộ nhật ký người khác: ${JSON.stringify(e)}`).toBe(true);
   });
-
-  test('TC-NT-016 điều chỉnh dòng folio có nhật ký trước/sau, không xóa được', async () => {
-    test.skip(true, 'TC-NT-016: chờ addFolioLine/adjustFolioLine (folio – Sprint 2–3)');
-  });
-  test('TC-NT-017 (1) nhật ký tiền lọc theo ngày + người đúng, đủ', async () => {
-    test.skip(true, 'TC-NT-017(1): chờ thao tác tiền (folio/thu/hoàn – Sprint 2–3)');
-  });
 });
 
 test.describe('L1 – phê duyệt (US-007, SM-10)', { tag: ['@api', '@sprint1'] }, () => {
@@ -152,25 +135,5 @@ test.describe('L1 – phê duyệt (US-007, SM-10)', { tag: ['@api', '@sprint1']
       },
     );
     expectProblem(r, 404, 'NOT_FOUND');
-  });
-
-  test('TC-NT-030 (a) FDL tự duyệt → 403 SELF_APPROVAL_FORBIDDEN; (b) MGR tự duyệt được; (c) sai mật khẩu → 401 REAUTH_FAILED', async ({
-    request,
-  }) => {
-    await requireEndpoints(request, 'TC-NT-030', [APPROVALS, APPROVE, REJECT, FOC]);
-    // Needs an in-house reservation with a folio line to raise FOC (requestFoc). Implement the fixture
-    // (createReservation → checkIn → addFolioLine → requestFoc) when those endpoints land.
-    test.skip(
-      !(await isAvailable(request, 'POST', '/v1/properties/{propertyId}/reservations')),
-      'TC-NT-030: chờ nguồn yêu cầu duyệt (đơn in_house + folio + requestFoc)',
-    );
-    test.fixme(true, 'TC-NT-030: fixture FOC chưa viết – viết khi Sprint 2–3 có folio');
-  });
-
-  // When written (Sprint 2–3): TC-NT-029 (d) – an approver BELOW the routed level gets 403
-  // APPROVAL_LIMIT_EXCEEDED and the request status does NOT change (no `escalated`); only the routed
-  // approver exceeding a limit escalates (BE-A responses round-02 "Thay đổi hành vi" 2).
-  test('TC-NT-028/029/031/033…036 duyệt/từ chối/rút, hạn mức, chặn trả phòng', async () => {
-    test.skip(true, 'TC-NT-028…036: chờ requestFoc + folio + checkOut (Sprint 2–3)');
   });
 });
