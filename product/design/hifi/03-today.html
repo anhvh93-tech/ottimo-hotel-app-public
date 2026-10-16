@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H03 Hôm nay (máy quầy) – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H03</div>
+  <h1>H03 · Hôm nay – màn mặc định của lễ tân (máy quầy)</h1>
+  <div class="doc-meta"><span>Sprint 1 (khung) · Sprint 2–4 (dữ liệu đủ)</span><span>front_desk, front_desk_lead (owner, manager mở từ menu)</span><span>Máy quầy</span><span>US-001 AC1, US-011, US-012, US-085 AC2, US-136 AC1, US-139 AC1, US-003 AC4</span><span>Wireframe gốc: L1 1.3</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="02-role-nav.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="04-rooms.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s31">
+  <h2 id="s31"><span class="no">3.1</span>Hôm nay · Thứ Năm 15/10 lúc 10:42 (DS-0)</h2>
+  <p class="lead">Thứ tự: việc pháp lý và tiền trước (Cần chú ý), rồi khách đến/đi, yêu cầu khách. Mỗi việc ở lại tới khi xử lý xong – không dùng toast (HR-09). Mới: đơn có người vượt định mức hiện nhắc "chuẩn bị bộ đồ dùng thêm" (INV 16/10, ESC-014).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar">
+  <h1><span data-i18n="today.title">Hôm nay</span><span class="sub" data-i18n="shell.subtitle" data-i18n-args='{"property":"OTTIMO Đà Lạt","date":"Thứ Năm 15/10/2026"}'>OTTIMO Đà Lạt · Thứ Năm 15/10/2026</span></h1>
+  <label class="search"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only" data-i18n="shell.search_label">Tìm kiếm</span><input type="search" data-i18n-ph="common.search_placeholder" placeholder="Tìm tên khách, SĐT, mã đơn, số căn…"><kbd aria-hidden="true">/</kbd></label>
+  <a class="btn pri" href="09-booking.html"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="bk.new_cta">Đặt phòng mới</span></a>
+  <button class="btn icon-btn" type="button" data-i18n-label="shell.notifications" aria-label="Thông báo"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="userchip" type="button" aria-haspopup="menu"><span class="avatar" aria-hidden="true">H</span><span>Hạnh · <span data-i18n="role.front_desk">Lễ tân</span></span></button>
+</header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_desk" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa tạo hay sửa đơn được.</span></div>
+          <div class="page">
+            <!-- KPI strip -->
+            <div class="kpis" data-show="normal offline" style="margin-bottom:16px">
+              <div class="card kpi"><div class="k" data-i18n="today.kpi_in_house">Đang ở</div><div class="v">4</div></div>
+              <div class="card kpi"><div class="k" data-i18n="today.kpi_arrivals">Khách đến hôm nay</div><div class="v">2</div></div>
+              <div class="card kpi"><div class="k" data-i18n="today.kpi_departures">Khách đi hôm nay</div><div class="v">1</div></div>
+              <div class="card kpi"><div class="k" data-i18n="today.kpi_occupancy">Công suất đêm nay</div><div class="v">67%</div><div class="li-s" data-i18n="today.kpi_occupancy_note" data-i18n-args='{"sold":"6","sellable":"9","blocked":"401"}'>6/9 căn bán được (401 đang khóa)</div></div>
+            </div>
+            <div class="kpis" data-show="loading" style="margin-bottom:16px"><div class="sk" style="height:80px"></div><div class="sk" style="height:80px"></div><div class="sk" style="height:80px"></div><div class="sk" style="height:80px"></div></div>
+
+            <div class="cols-2" data-show="normal offline">
+              <div>
+                <h2 class="label-h" style="margin-bottom:8px"><span data-i18n="today.attention">Cần chú ý</span> <span class="badge">4</span></h2>
+                <div class="task urgent">
+                  <span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></span>
+                  <div class="grow"><div class="li-t" data-i18n="today.unassigned_title" data-i18n-args='{"n":"1"}'>Đơn OTA chưa gán căn (1)</div>
+                    <div class="li-s">Hannah Schmidt · Agoda · OTM-0162 · 21/10 → 23/10 · <span data-i18n="today.unassigned_hint" data-i18n-args='{"rooms":"101, 103, 201, 202"}'>gợi ý căn trống: 101, 103, 201, 202</span></div></div>
+                  <a class="btn sm" href="11-reservation.html#s113" data-i18n="fo.rack.assign_room">Gán căn</a>
+                </div>
+                <div class="task soon">
+                  <span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg></span>
+                  <div class="grow"><div class="li-t"><span data-i18n="today.registration">Khai báo còn thiếu</span> (2)</div>
+                    <div class="li-s">302 · Gia đình anh Hưng · <span data-i18n="today.reg_due" data-i18n-args='{"time":"23:00"}'>hạn khai báo 23:00 hôm nay</span></div>
+                    <div class="li-s">103 · Anna Martin + 1 (NN) · <span data-i18n="today.reg_due_foreign" data-i18n-args='{"hours":"12"}'>hạn = giờ nhận phòng + 12 giờ</span></div></div>
+                  <a class="btn sm" href="#" data-i18n="today.open">Mở</a>
+                </div>
+                <div class="task soon">
+                  <span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg></span>
+                  <div class="grow"><div class="li-t" data-i18n="today.holds">Giữ chỗ sắp hết hạn</div>
+                    <div class="li-s">103 · Lê Minh · 19/10 → 21/10 · OTM-0160 · CTV Minh Anh</div>
+                    <span class="countdown warn"><svg class="ico sm" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="today.hold_left" data-i18n-args='{"h":"22","m":"30","at":"09:12 16/10"}'>còn 22 giờ 30 phút (hết hạn 09:12 16/10)</span></span></div>
+                  <a class="btn sm" href="11-reservation.html" data-i18n="today.open_booking">Mở đơn</a>
+                </div>
+                <div class="task info">
+                  <span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg></span>
+                  <div class="grow"><div class="li-t" data-i18n="today.kit_title" data-i18n-args='{"room":"302","time":"15:30"}'>Chuẩn bị bộ đồ dùng thêm – căn 302, trước 15:30</div>
+                    <div class="li-s" data-i18n="today.kit_body" data-i18n-args='{"n":"1"}'>1 khách vượt định mức ngủ sofa: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải và đồ vệ sinh cá nhân (không gối). Đã giao việc cho buồng phòng.</div></div>
+                </div>
+              </div>
+              <div>
+                <div class="card" style="margin-bottom:12px">
+                  <div class="card-h"><h2 data-i18n="today.arrivals" data-i18n-args='{"n":"2"}'>Khách đến (2)</h2></div>
+                  <ul class="list">
+                    <li><div class="li"><span class="roomno">103</span><div class="grow"><div class="li-t">Anna Martin</div><div class="li-s">Booking.com · 3 đêm · 2 khách · dự kiến 14:00</div><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="today.prechecked">Đã làm thủ tục trước</span></span></div><button class="btn sm" data-i18n="drawer.action.check_in">Nhận phòng</button></div></li>
+                    <li><div class="li" style="align-items:flex-start"><span class="roomno">302</span><div class="grow"><div class="li-t">Gia đình anh Hưng</div><div class="li-s">Trực tiếp · 4 đêm · 4 người lớn · dự kiến 15:30</div>
+                      <div class="row" style="margin-top:4px"><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="today.no_docs">Chưa có giấy tờ</span></span><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="today.no_email">Đơn chưa có email</span></span><span class="chip info"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_chip" data-i18n-args='{"n":"1"}'>Vượt định mức 1 · chuẩn bị bộ đồ dùng thêm</span></span></div></div>
+                      <div style="display:grid;gap:6px"><button class="btn sm" data-i18n="today.send_link">Gửi link thủ tục</button><button class="btn sm" data-i18n="drawer.action.check_in">Nhận phòng</button></div></div></li>
+                  </ul>
+                </div>
+                <div class="card" style="margin-bottom:12px">
+                  <div class="card-h"><h2 data-i18n="today.departures" data-i18n-args='{"n":"1"}'>Khách đi (1)</h2></div>
+                  <div class="li"><span class="roomno">201</span><div class="grow"><div class="li-t">Phạm Huy</div><div class="li-s">Agoda · OTM-0139 · <span data-i18n="today.dep_unconfirmed" data-i18n-args='{"time":"09:00"}'>chưa xác nhận giờ trả · đã nhắc 09:00</span></div></div><button class="btn sm" data-i18n="today.confirm_time">Xác nhận giờ trả</button><button class="btn sm" data-i18n="drawer.action.check_out">Trả phòng</button></div>
+                </div>
+                <div class="card">
+                  <div class="card-h"><h2><span data-i18n="today.requests">Yêu cầu của khách</span> (1)</h2></div>
+                  <div class="li"><span class="roomno">402</span><div class="grow"><div class="li-t">Kim Seo-yeon · Thêm khăn</div><div class="li-s">09:12 · <span data-i18n="today.req_ack">Đã nhận</span></div></div><button class="btn sm" data-i18n="today.update">Cập nhật</button></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="cols-2" data-show="loading"><div class="cards"><div class="sk" style="height:84px"></div><div class="sk" style="height:84px"></div><div class="sk" style="height:84px"></div></div><div class="cards"><div class="sk" style="height:180px"></div><div class="sk" style="height:96px"></div></div></div>
+
+            <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-sparkle"/></svg></div><h3 data-i18n="today.empty_title">Hôm nay không có việc theo giờ</h3><p data-i18n="today.empty_body">Không có khách đến/đi, khai báo hay giữ chỗ cần xử lý. Mở sơ đồ phòng để nhận đặt phòng mới.</p><a class="btn" href="08-rack.html" data-i18n="today.open_rack">Mở sơ đồ phòng</a></div>
+
+            <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="today.error_title">Chưa tải được việc hôm nay</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-3T7D"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-3T7D.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 3.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-001</span> AC1 – FD/FDL đăng nhập vào đây.</li><li><span class="us">US-011</span> khách đến/đi hôm nay (BR-404: không gồm đơn hủy/không đến).</li><li><span class="us">US-012</span> AC1 "Cần chú ý" theo quy tắc BR-907 (phần R2; AC2 kỳ thu dời R3).</li><li><span class="us">US-085</span> AC2 giữ chỗ sắp hết hạn + thời gian còn lại.</li><li><span class="us">US-139</span> AC1 đơn OTA xung đột báo đỏ.</li><li><span class="us">US-136</span> AC1 nhắc gọi khách chưa đến (biến thể 3.2).</li><li><span class="us">US-003</span> AC4 – FD không thấy doanh thu, ADR, RevPAR; công suất được thấy.</li></ul>
+      <h3>API</h3>
+      <ul><li><span class="op">listAttentionItems</span> (Cần chú ý) · <span class="op">resolveAttentionEvent</span></li><li><span class="op">getArrivalsDepartures</span> (khách đến/đi)</li><li><span class="op">getTonightKpi</span> (4 ô số – trường tài chính không trả cho FD)</li><li><span class="op">listGuestRequests</span> · <span class="op">streamEvents</span> (SSE → tải lại khối)</li><li>Việc bộ đồ dùng thêm: <span class="op">listHkTasks</span> loại <code>extra_guest_kit_prepare</code> (OpenAPI 0.3.1, BR-812).</li></ul>
+      <h3>Problem.code</h3>
+      <ul><li>5xx → <code>common.error_generic_body</code> + <code>Problem.requestId</code></li><li><span class="pc">UNAUTHENTICATED</span> → H01</li></ul>
+      <h3>Trạng thái</h3>
+      <ul><li>Đang tải: skeleton đúng bố cục, chỉ hiện nếu &gt; 300ms. Rỗng: câu tích cực + 1 nút. Mất mạng: dữ liệu cũ + giờ, nút nhận/trả khóa.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s32">
+  <h2 id="s32"><span class="no">3.2</span>Biến thể việc trong "Cần chú ý"</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Nhắc gọi khách chưa đến (US-136 AC1, BR-311)</span>
+      <div class="task soon"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg></span><div class="grow"><div class="li-t" data-i18n="noshow.reminder" data-i18n-args='{"guest":"Anna Martin","room":"103"}'>Khách Anna Martin chưa đến căn 103. Gọi hoặc nhắn khách rồi ghi kết quả.</div><div class="li-s" data-i18n="today.noshow_when" data-i18n-args='{"time":"18:00"}'>Hiện từ mốc gọi khách 18:00 (BR-311)</div></div><a class="btn sm" href="11-reservation.html#s115" data-i18n="today.log_contact">Ghi kết quả liên lạc</a></div></div>
+    <div class="variant"><span class="label-h">Giữ chỗ còn &lt; 2 giờ (C21 mức đỏ)</span>
+      <div class="task urgent"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg></span><div class="grow"><div class="li-t">103 · Lê Minh</div><span class="countdown bad"><svg class="ico sm" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="today.hold_left" data-i18n-args='{"h":"1","m":"05","at":"09:12 16/10"}'>còn 1 giờ 05 phút (hết hạn 09:12 16/10)</span></span></div><a class="btn sm" href="11-reservation.html" data-i18n="today.open_booking">Mở đơn</a></div></div>
+    <div class="variant"><span class="label-h">Tiền về cho đơn đã tự hủy (US-085 AC4)</span>
+      <div class="task urgent"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg></span><div class="grow"><div class="li-t" data-i18n="today.money_after_cancel" data-i18n-args='{"code":"OTM-0160"}'>Tiền về cho đơn đã hủy OTM-0160</div><div class="li-s" data-i18n="today.money_after_cancel_body">Giữ chỗ đã tự hủy trước khi tiền về. Liên hệ khách: đặt lại nếu còn phòng, hoặc hoàn tiền (cần quản lý duyệt).</div></div><a class="btn sm" href="11-reservation.html" data-i18n="today.open_booking">Mở đơn</a></div></div>
+  </div>
+</section>
+</main>
+</body>
+</html>

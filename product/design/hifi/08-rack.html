@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H08 Sơ đồ phòng 14 ngày – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H08</div>
+  <h1>H08 · Sơ đồ phòng (room rack) 14 ngày + làn "Chưa gán căn"</h1>
+  <div class="doc-meta"><span>Sprint 2 · EP02</span><span>owner, manager, front_desk_lead, front_desk (đủ) · housekeeping, maintenance, sales_staff, collaborator (rút gọn)</span><span>Máy quầy (≥ 1024px) · điện thoại dạng danh sách</span><span>US-016, US-019, US-139, US-017 AC5a (thanh dài hạn nhập tay), US-004 AC2</span><span>Wireframe gốc: L2 2.1, 2.4, 2.5</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="07-users-devices.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="09-booking.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s81">
+  <h2 id="s81"><span class="no">8.1</span>Sơ đồ phòng – lễ tân, 13/10 → 26/10/2026 (DS-0, hôm nay 15/10)</h2>
+  <p class="lead">Thanh đơn phân biệt bằng <b>màu + icon + chữ + hoa văn</b> (viền đứt = giữ chỗ, sọc = khóa phòng, nhãn "Nhập tay" = dài hạn ngoài hệ thống). Bấm ô trống từ hôm nay → Đặt phòng mới điền sẵn căn + ngày. Hai căn dài hạn (102, 301) ở R2 là <b>đơn dài hạn nhập tay</b> (US-017 AC5a) nên vẫn chiếm phòng và chống trùng.</p>
+  <div class="frame" style="max-width:1300px;flex-basis:auto"><div class="frame-desk stateful" data-state="normal">
+    <div class="shell">
+      <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+      <div class="content">
+        <header class="topbar">
+  <h1><span data-i18n="fo.rack.title">Sơ đồ phòng</span><span class="sub" data-i18n="shell.subtitle" data-i18n-args='{"property":"OTTIMO Đà Lạt","date":"Thứ Năm 15/10/2026"}'>OTTIMO Đà Lạt · Thứ Năm 15/10/2026</span></h1>
+  <label class="search"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only" data-i18n="shell.search_label">Tìm kiếm</span><input type="search" data-i18n-ph="common.search_placeholder" placeholder="Tìm tên khách, SĐT, mã đơn, số căn…"><kbd aria-hidden="true">/</kbd></label>
+  <a class="btn pri" href="09-booking.html"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="bk.new_cta">Đặt phòng mới</span></a>
+  <button class="btn icon-btn" type="button" data-i18n-label="shell.notifications" aria-label="Thông báo"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="userchip" type="button" aria-haspopup="menu"><span class="avatar" aria-hidden="true">H</span><span>Hạnh · <span data-i18n="role.front_desk">Lễ tân</span></span></button>
+</header>
+        <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="rack.offline" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – đang kết nối lại. Chưa tạo hay sửa đơn được để tránh đặt trùng.</span></div>
+        <div class="page">
+          <div class="rack-tools">
+            <div class="row" role="group" aria-label="Khoảng ngày"><button class="btn icon-btn" data-i18n-label="rack.prev" aria-label="Lùi 7 ngày">‹</button><b class="num" data-i18n="rack.range_label" data-i18n-args='{"from":"13/10","to":"26/10/2026"}'>13/10 – 26/10/2026</b><button class="btn icon-btn" data-i18n-label="rack.next" aria-label="Tới 7 ngày">›</button><button class="btn sm" data-i18n="fo.rack.today">Hôm nay</button></div>
+            <div class="seg" role="group" aria-label="Kiểu xem"><button aria-pressed="true" data-i18n="rack.view_grid">Lưới</button><button aria-pressed="false" data-i18n="rack.view_list">Danh sách</button></div>
+            <label class="row" style="gap:6px;font-size:.8125rem"><span data-i18n="rack.filter_group">Nhóm căn</span><select class="input" style="width:auto;min-height:32px"><option data-i18n="rack.all_groups">Tất cả nhóm</option><option>Lầu 1–2</option><option>Căn N</option><option>Căn N+</option></select></label>
+          </div>
+          <div data-show="normal offline">
+            <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="rack.conflict_title" data-i18n-args='{"code":"OTM-0162","guest":"Hannah Schmidt"}'>Đơn Agoda OTM-0162 (Hannah Schmidt) chưa có căn</b><span data-i18n="rack.conflict_body" data-i18n-args='{"from":"21/10","to":"23/10","room":"203","rooms":"101, 103, 201, 202"}'>Đơn về khi căn 203 đã kín 21/10 → 23/10. Đơn vẫn được nhận và nằm ở làn "Chưa gán căn". Căn trống gợi ý: 101, 103, 201, 202.</span><div class="act"><a class="btn sm" href="11-reservation.html#s113" data-i18n="fo.rack.assign_room">Gán căn</a></div></div></div>
+            <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-door"/></svg><div class="txt"><span data-i18n="rack.dep_unconfirmed" data-i18n-args='{"room":"201","guest":"Phạm Huy","time":"09:00"}'>Căn 201: khách Phạm Huy trả phòng hôm nay, chưa xác nhận giờ trả (đã nhắc 09:00).</span></div></div>
+            <div class="rack-wrap" role="region" aria-label="Sơ đồ phòng 13/10 – 26/10/2026" tabindex="0"><div class="rack">
+<div class="hd corner" style="grid-row:1;grid-column:1" data-i18n="rack.col_room">Căn</div>
+<div class="hd" style="grid-row:1;grid-column:2"><b>13</b>T3</div>
+<div class="hd" style="grid-row:1;grid-column:3"><b>14</b>T4</div>
+<div class="hd today" style="grid-row:1;grid-column:4"><b>15</b>T5 · <span data-i18n="fo.rack.today">Hôm nay</span></div>
+<div class="hd" style="grid-row:1;grid-column:5"><b>16</b>T6</div>
+<div class="hd" style="grid-row:1;grid-column:6"><b>17</b>T7</div>
+<div class="hd" style="grid-row:1;grid-column:7"><b>18</b>CN</div>
+<div class="hd" style="grid-row:1;grid-column:8"><b>19</b>T2</div>
+<div class="hd" style="grid-row:1;grid-column:9"><b>20</b>T3</div>
+<div class="hd" style="grid-row:1;grid-column:10"><b>21</b>T4</div>
+<div class="hd" style="grid-row:1;grid-column:11"><b>22</b>T5</div>
+<div class="hd" style="grid-row:1;grid-column:12"><b>23</b>T6</div>
+<div class="hd" style="grid-row:1;grid-column:13"><b>24</b>T7</div>
+<div class="hd" style="grid-row:1;grid-column:14"><b>25</b>CN</div>
+<div class="hd" style="grid-row:1;grid-column:15"><b>26</b>T2</div>
+<div class="rm lane" style="grid-row:2;grid-column:1"><b data-i18n="fo.rack.unassigned_lane" data-i18n-args='{"n":"1"}'>Chưa gán căn – xung đột OTA (1)</b></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:2"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:3"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:4"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:5"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:6"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:7"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:8"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:9"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:10"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:11"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:12"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:13"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:14"></div>
+<div class="cell lanecell" style="grid-row:2;grid-column:15"></div>
+<a class="bar conflict" href="11-reservation.html#s113" style="grid-row:2;grid-column:10/12" aria-label="Chưa gán căn, Hannah Schmidt, Agoda, 21/10 đến 23/10, xung đột với căn 203 – bấm để gán căn"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span>Hannah Schmidt · <span data-i18n="rack.note.need_room">cần gán căn</span></span></a>
+<div class="rm" style="grid-row:3;grid-column:1"><b>101 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Amber</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:3;grid-column:2"></div>
+<div class="cell past" style="grid-row:3;grid-column:3"></div>
+<div class="cell today" style="grid-row:3;grid-column:4"></div>
+<div class="cell" style="grid-row:3;grid-column:5"></div>
+<div class="cell" style="grid-row:3;grid-column:6"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"17/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 17/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:7"></div>
+<div class="cell" style="grid-row:3;grid-column:8"></div>
+<div class="cell" style="grid-row:3;grid-column:9"></div>
+<div class="cell" style="grid-row:3;grid-column:10"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 21/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 22/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 23/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 24/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 25/10"></a></div>
+<div class="cell" style="grid-row:3;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 26/10"></a></div>
+<a class="bar in_house" href="11-reservation.html" style="grid-row:3;grid-column:2/6" aria-label="Căn 101, Trần Thu Nga, đang ở, 13/10 đến 17/10, Airbnb"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span>Trần Thu Nga</span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:3;grid-column:7/10" aria-label="Căn 101, Sophie Martin, đã xác nhận, 18/10 đến 21/10, Booking.com"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Sophie Martin</span></a>
+<div class="rm" style="grid-row:4;grid-column:1"><b>102 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Fern</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:4;grid-column:2"></div>
+<div class="cell past" style="grid-row:4;grid-column:3"></div>
+<div class="cell today" style="grid-row:4;grid-column:4"></div>
+<div class="cell" style="grid-row:4;grid-column:5"></div>
+<div class="cell" style="grid-row:4;grid-column:6"></div>
+<div class="cell" style="grid-row:4;grid-column:7"></div>
+<div class="cell" style="grid-row:4;grid-column:8"></div>
+<div class="cell" style="grid-row:4;grid-column:9"></div>
+<div class="cell" style="grid-row:4;grid-column:10"></div>
+<div class="cell" style="grid-row:4;grid-column:11"></div>
+<div class="cell" style="grid-row:4;grid-column:12"></div>
+<div class="cell" style="grid-row:4;grid-column:13"></div>
+<div class="cell" style="grid-row:4;grid-column:14"></div>
+<div class="cell" style="grid-row:4;grid-column:15"></div>
+<a class="bar long_stay" href="11-reservation.html" style="grid-row:4;grid-column:2/16" aria-label="Căn 102, Emma Laurent, hợp đồng dài hạn, 05/09 đến 04/12, HĐ, hợp đồng ngoài hệ thống, nhập tay"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>‹ HĐ · Emma Laurent · <span data-i18n="rack.note.long_until" data-i18n-args='{"date": "04/12"}'>đến 04/12</span></span><span class="ext" data-i18n="rack.manual_badge">Nhập tay</span></a>
+<div class="rm" style="grid-row:5;grid-column:1"><b>103 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Bloom</span></b><span class="hk" data-i18n="status.room.VI">VI · Đã kiểm, sẵn sàng</span></div>
+<div class="cell past" style="grid-row:5;grid-column:2"></div>
+<div class="cell past" style="grid-row:5;grid-column:3"></div>
+<div class="cell today" style="grid-row:5;grid-column:4"></div>
+<div class="cell" style="grid-row:5;grid-column:5"></div>
+<div class="cell" style="grid-row:5;grid-column:6"></div>
+<div class="cell" style="grid-row:5;grid-column:7"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 18/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:8"></div>
+<div class="cell" style="grid-row:5;grid-column:9"></div>
+<div class="cell" style="grid-row:5;grid-column:10"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 21/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 22/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 23/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 24/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 25/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 26/10"></a></div>
+<a class="bar checked_out" href="11-reservation.html" style="grid-row:5;grid-column:2/3" aria-label="Căn 103, Hoàng Long, đã trả phòng, 12/10 đến 14/10, Agoda"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg><span>‹ Hoàng Long · <span data-i18n="rack.note.checked_out">đã trả</span></span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:5;grid-column:4/7" aria-label="Căn 103, Anna Martin, đã xác nhận, 15/10 đến 18/10, Booking.com"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Anna Martin · <span data-i18n="rack.note.arrives_today">đến hôm nay</span></span></a>
+<a class="bar hold" href="11-reservation.html" style="grid-row:5;grid-column:8/10" aria-label="Căn 103, Lê Minh, giữ chỗ · chờ cọc, 19/10 đến 21/10, CTV"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span>Lê Minh · <span data-i18n="rack.note.hold_left" data-i18n-args='{"h": "22", "m": "30"}'>còn 22 giờ 30 phút</span></span></a>
+<div class="rm" style="grid-row:6;grid-column:1"><b>201 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Mist</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:6;grid-column:2"></div>
+<div class="cell past" style="grid-row:6;grid-column:3"></div>
+<div class="cell today" style="grid-row:6;grid-column:4"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 15/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:5"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"16/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 16/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:6"></div>
+<div class="cell" style="grid-row:6;grid-column:7"></div>
+<div class="cell" style="grid-row:6;grid-column:8"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 19/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:9"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 20/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:10"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 21/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 22/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 23/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 24/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 25/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 26/10"></a></div>
+<a class="bar in_house" href="11-reservation.html" style="grid-row:6;grid-column:2/4" aria-label="Căn 201, Phạm Huy, đang ở, 12/10 đến 15/10, Agoda"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span>‹ Phạm Huy · <span data-i18n="rack.note.departs_today">đi hôm nay</span></span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:6;grid-column:6/8" aria-label="Căn 201, Lê Thu Trang, đã xác nhận, 17/10 đến 19/10, CTV"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Lê Thu Trang</span></a>
+<div class="rm" style="grid-row:7;grid-column:1"><b>202 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Valley</span></b><span class="hk" data-i18n="status.room.VD">VD · Trống, cần dọn</span></div>
+<div class="cell past" style="grid-row:7;grid-column:2"></div>
+<div class="cell past" style="grid-row:7;grid-column:3"></div>
+<div class="cell today" style="grid-row:7;grid-column:4"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 15/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:5"></div>
+<div class="cell" style="grid-row:7;grid-column:6"></div>
+<div class="cell" style="grid-row:7;grid-column:7"></div>
+<div class="cell" style="grid-row:7;grid-column:8"></div>
+<div class="cell" style="grid-row:7;grid-column:9"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 20/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:10"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 21/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 22/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 23/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 24/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 25/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 26/10"></a></div>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:7;grid-column:5/9" aria-label="Căn 202, Nguyễn Văn An, đã xác nhận, 16/10 đến 20/10, Trực tiếp"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Nguyễn Văn An</span></a>
+<div class="rm" style="grid-row:8;grid-column:1"><b>203 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Sage</span></b><span class="hk" data-i18n="status.room.VC">VC · Đã dọn, chờ kiểm</span></div>
+<div class="cell past" style="grid-row:8;grid-column:2"></div>
+<div class="cell past" style="grid-row:8;grid-column:3"></div>
+<div class="cell today" style="grid-row:8;grid-column:4"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 15/10"></a></div>
+<div class="cell" style="grid-row:8;grid-column:5"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"16/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 16/10"></a></div>
+<div class="cell" style="grid-row:8;grid-column:6"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"17/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 17/10"></a></div>
+<div class="cell" style="grid-row:8;grid-column:7"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 18/10"></a></div>
+<div class="cell" style="grid-row:8;grid-column:8"></div>
+<div class="cell" style="grid-row:8;grid-column:9"></div>
+<div class="cell" style="grid-row:8;grid-column:10"></div>
+<div class="cell" style="grid-row:8;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 22/10"></a></div>
+<div class="cell" style="grid-row:8;grid-column:12"></div>
+<div class="cell" style="grid-row:8;grid-column:13"></div>
+<div class="cell" style="grid-row:8;grid-column:14"></div>
+<div class="cell" style="grid-row:8;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 26/10"></a></div>
+<a class="bar checked_out" href="11-reservation.html" style="grid-row:8;grid-column:2/3" aria-label="Căn 203, Ngọc Anh, đã trả phòng, 12/10 đến 14/10, Trực tiếp"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg><span>‹ Ngọc Anh · <span data-i18n="rack.note.checked_out">đã trả</span></span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:8;grid-column:8/11" aria-label="Căn 203, Ji-woo Park, đã xác nhận, 19/10 đến 22/10, Booking.com"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Ji-woo Park</span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:8;grid-column:12/15" aria-label="Căn 203, Tanaka Yui, đã xác nhận, 23/10 đến 26/10, Airbnb"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Tanaka Yui</span></a>
+<div class="rm" style="grid-row:9;grid-column:1"><b>301 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Velvet</span></b><span class="hk" data-i18n="status.room.OC">OC · Có khách, sạch</span></div>
+<div class="cell past" style="grid-row:9;grid-column:2"></div>
+<div class="cell past" style="grid-row:9;grid-column:3"></div>
+<div class="cell today" style="grid-row:9;grid-column:4"></div>
+<div class="cell" style="grid-row:9;grid-column:5"></div>
+<div class="cell" style="grid-row:9;grid-column:6"></div>
+<div class="cell" style="grid-row:9;grid-column:7"></div>
+<div class="cell" style="grid-row:9;grid-column:8"></div>
+<div class="cell" style="grid-row:9;grid-column:9"></div>
+<div class="cell" style="grid-row:9;grid-column:10"></div>
+<div class="cell" style="grid-row:9;grid-column:11"></div>
+<div class="cell" style="grid-row:9;grid-column:12"></div>
+<div class="cell" style="grid-row:9;grid-column:13"></div>
+<div class="cell" style="grid-row:9;grid-column:14"></div>
+<div class="cell" style="grid-row:9;grid-column:15"></div>
+<a class="bar long_stay" href="11-reservation.html" style="grid-row:9;grid-column:2/16" aria-label="Căn 301, Daniel Weber, hợp đồng dài hạn, 01/08/2026 đến 01/08/2027, HĐ, hợp đồng ngoài hệ thống, nhập tay"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>‹ HĐ · Daniel Weber · <span data-i18n="rack.note.long_until" data-i18n-args='{"date": "31/07/2027"}'>đến 31/07/2027</span></span><span class="ext" data-i18n="rack.manual_badge">Nhập tay</span></a>
+<div class="rm" style="grid-row:10;grid-column:1"><b>302 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Ivory</span></b><span class="hk" data-i18n="status.room.VC">VC · Đã dọn, chờ kiểm</span></div>
+<div class="cell past" style="grid-row:10;grid-column:2"></div>
+<div class="cell past" style="grid-row:10;grid-column:3"></div>
+<div class="cell today" style="grid-row:10;grid-column:4"></div>
+<div class="cell" style="grid-row:10;grid-column:5"></div>
+<div class="cell" style="grid-row:10;grid-column:6"></div>
+<div class="cell" style="grid-row:10;grid-column:7"></div>
+<div class="cell" style="grid-row:10;grid-column:8"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 19/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:9"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 20/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:10"></div>
+<div class="cell" style="grid-row:10;grid-column:11"></div>
+<div class="cell" style="grid-row:10;grid-column:12"></div>
+<div class="cell" style="grid-row:10;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 24/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 25/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 26/10"></a></div>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:10;grid-column:4/8" aria-label="Căn 302, Gia đình anh Hưng, đã xác nhận, 15/10 đến 19/10, Trực tiếp, vượt định mức 1 người, chuẩn bị bộ đồ dùng thêm"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Gia đình anh Hưng · <span data-i18n="rack.note.arrives_today">đến hôm nay</span></span><span class="ext" title="Vượt định mức 1 – chuẩn bị bộ đồ dùng thêm"><svg class="ico sm" aria-hidden="true"><use href="#i-sofa"/></svg></span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:10;grid-column:10/13" aria-label="Căn 302, Olga Ivanova, đã xác nhận, 21/10 đến 24/10, Agoda"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Olga Ivanova</span></a>
+<div class="rm" style="grid-row:11;grid-column:1"><b>401 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Pine</span></b><span class="hk" data-i18n="status.room.OOO">OOO · Khóa phòng, đang sửa</span></div>
+<div class="cell past" style="grid-row:11;grid-column:2"></div>
+<div class="cell past" style="grid-row:11;grid-column:3"></div>
+<div class="cell today" style="grid-row:11;grid-column:4"></div>
+<div class="cell" style="grid-row:11;grid-column:5"></div>
+<div class="cell" style="grid-row:11;grid-column:6"></div>
+<div class="cell" style="grid-row:11;grid-column:7"></div>
+<div class="cell" style="grid-row:11;grid-column:8"></div>
+<div class="cell" style="grid-row:11;grid-column:9"></div>
+<div class="cell" style="grid-row:11;grid-column:10"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 21/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:11"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 22/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 23/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 24/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 25/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 26/10"></a></div>
+<button class="bar ooo" type="button" style="grid-row:11;grid-column:4/6" aria-label="Căn 401, khóa phòng 15/10 đến 17/10, WO-00031"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span><span data-i18n="rack.note.ooo" data-i18n-args='{"reason": "hỏng bình nóng lạnh"}'>Khóa · hỏng bình nóng lạnh</span></span></button>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:11;grid-column:6/10" aria-label="Căn 401, Chen Wei, đã xác nhận, 17/10 đến 21/10, Airbnb"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Chen Wei</span></a>
+<div class="rm" style="grid-row:12;grid-column:1"><b>402 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Ember</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:12;grid-column:2"></div>
+<div class="cell past" style="grid-row:12;grid-column:3"></div>
+<div class="cell today" style="grid-row:12;grid-column:4"></div>
+<div class="cell" style="grid-row:12;grid-column:5"></div>
+<div class="cell" style="grid-row:12;grid-column:6"></div>
+<div class="cell" style="grid-row:12;grid-column:7"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 18/10"></a></div>
+<div class="cell" style="grid-row:12;grid-column:8"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 19/10"></a></div>
+<div class="cell" style="grid-row:12;grid-column:9"></div>
+<div class="cell" style="grid-row:12;grid-column:10"></div>
+<div class="cell" style="grid-row:12;grid-column:11"></div>
+<div class="cell" style="grid-row:12;grid-column:12"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 23/10"></a></div>
+<div class="cell" style="grid-row:12;grid-column:13"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 24/10"></a></div>
+<div class="cell" style="grid-row:12;grid-column:14"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 25/10"></a></div>
+<div class="cell" style="grid-row:12;grid-column:15"><a class="empty" href="09-booking.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 26/10"></a></div>
+<a class="bar in_house" href="11-reservation.html" style="grid-row:12;grid-column:3/7" aria-label="Căn 402, Kim Seo-yeon, đang ở, 14/10 đến 18/10, Airbnb"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span>Kim Seo-yeon</span></a>
+<a class="bar confirmed" href="11-reservation.html" style="grid-row:12;grid-column:9/12" aria-label="Căn 402, Trần Quốc Bảo, đã xác nhận, 20/10 đến 23/10, Trực tiếp"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Trần Quốc Bảo</span></a>
+</div></div>
+            <div class="legend" aria-label="Chú giải"><span class="label-h" data-i18n="fo.rack.legend">Chú giải</span>
+              <span class="sw"><span class="bar in_house" aria-hidden="true"></span><span data-i18n="status.booking.in_house">Đang ở</span></span>
+              <span class="sw"><span class="bar confirmed" aria-hidden="true"></span><span data-i18n="status.booking.confirmed">Đã xác nhận</span></span>
+              <span class="sw"><span class="bar long_stay" aria-hidden="true"></span><span data-i18n="status.booking.long_term">Hợp đồng dài hạn</span> <span class="chip neutral" data-i18n="rack.manual_badge">Nhập tay</span> <span class="li-s" data-i18n="rack.manual_legend">= HĐ ngoài hệ thống (R2)</span></span>
+              <span class="sw"><span class="bar hold" aria-hidden="true"></span><span data-i18n="status.booking.hold">Giữ chỗ · chờ cọc</span></span>
+              <span class="sw"><span class="bar checked_out" aria-hidden="true"></span><span data-i18n="status.booking.checked_out">Đã trả phòng</span></span>
+              <span class="sw"><span class="bar ooo" aria-hidden="true"></span><span data-i18n="status.block.ooo">Khóa phòng</span></span>
+              <span class="sw"><span class="bar conflict" aria-hidden="true"></span><span data-i18n="rack.legend_unassigned">Chưa gán căn (xung đột OTA)</span></span>
+              <span class="sw"><svg class="ico sm" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="rack.legend_kit">Có khách vượt định mức – chuẩn bị bộ đồ dùng thêm</span></span>
+            </div>
+            <p class="li-s" style="margin-top:6px" data-i18n="rack.hidden_note">Đơn đã hủy, không đến không hiện trên sơ đồ. Căn ngừng bán hiện nhãn "Ngừng bán" ở đầu dòng.</p>
+          </div>
+          <div data-show="loading" aria-busy="true"><div class="rack-wrap"><div style="padding:12px;display:grid;gap:10px"><div class="sk" style="height:28px"></div><div class="sk" style="height:40px"></div><div class="sk" style="height:40px;width:80%"></div><div class="sk" style="height:40px;width:90%"></div><div class="sk" style="height:40px;width:70%"></div><div class="sk" style="height:40px"></div></div></div></div>
+          <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg></div><h3 data-i18n="fo.rack.empty_title">Chưa có đơn nào trong 14 ngày này</h3><p data-i18n="fo.rack.empty_body">Cả 10 căn đang trống. Bấm vào một ô trống hoặc nút Đặt phòng mới để bắt đầu.</p><a class="btn pri" href="09-booking.html" data-i18n="bk.new_cta">Đặt phòng mới</a></div>
+          <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="fo.rack.error_title">Chưa tải được sơ đồ phòng</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-7Q4K"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-7Q4K.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <div class="doc-row" style="margin-top:16px">
+    <aside class="spec" style="max-width:none" aria-label="Đặc tả 8.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-016</span> AC1 10 dòng × 14 cột, có ngày đã qua, cột hôm nay (ngày nghiệp vụ) đánh dấu; AC2 6 loại thanh phân biệt bằng màu + chữ/icon đọc được bằng trình đọc màn hình; AC3 bấm thanh (chuột/bàn phím) → chi tiết đơn (H11); AC4 vai rút gọn (8.4).</li><li><span class="us">US-019</span> AC2 thanh "Khóa phòng" (khối OOO nửa mở [15/10, 17/10)).</li><li><span class="us">US-139</span> AC1 làn "Chưa gán căn" + cảnh báo đỏ.</li><li><span class="us">US-017</span> AC5a – đơn dài hạn nhập tay hiện như dài hạn + nhãn "Nhập tay".</li><li><span class="us">US-004</span> AC2 – căn ngừng bán: đầu dòng chip "Ngừng bán", ô trống không bấm được.</li></ul>
+      <h3>API</h3>
+      <ul><li><span class="op">getRack</span> (<code>from</code>, <code>days=14</code>; <code>rooms[].bars[]</code> với <code>kind</code> ∈ in_house, confirmed, long_stay, hold, checked_out, ooo, unavailable; <code>unassigned[]</code>; <code>RackBar.label</code> làm <code>aria-label</code>) · <span class="op">streamEvents</span> → tải lại khi có đổi.</li><li>Nhãn "Nhập tay" và icon sofa cần cờ trên <code>RackBar</code> (<code>externalContract</code>, <code>extraGuestCount</code>) – 0.3.1 mới có ở <code>Reservation</code>, chưa có ở <code>RackBar</code> → đề nghị ARC (d0-report); tạm thời FE không vẽ được nếu thiếu.</li></ul>
+      <h3>Problem.code</h3><ul><li>5xx → <code>common.error_generic_body</code> + <code>requestId</code>; <span class="pc">FORBIDDEN_ACTION</span> không xảy ra (mọi vai nội bộ có S03, dữ liệu lọc theo vai).</li></ul>
+      <h3>Bàn phím / a11y</h3>
+      <ul><li>Bản thật: <code>role="grid"</code>, roving tabindex, mũi tên đi ô, Enter mở đơn/đặt phòng, <kbd>R</kbd> mở màn này, <kbd>T</kbd> về hôm nay. Mỗi thanh có <code>aria-label</code> đủ: căn, khách, trạng thái, ngày, kênh (+ "nhập tay", "vượt định mức").</li><li>Cột căn và hàng ngày dính khi cuộn ngang/dọc; &lt; 768px tự sang Danh sách (8.3).</li><li>Mất mạng: dữ liệu cũ + giờ, ô trống không bấm được (chống đặt trùng BR-906).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s82">
+  <h2 id="s82"><span class="no">8.2</span>Giải phẫu thanh đơn</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Dài hạn nhập tay (US-017 AC5a)</span><div style="display:grid;grid-template-columns:1fr"><a class="bar long_stay" href="10-long-stay-manual.html" style="margin:0" aria-label="Căn 102, Emma Laurent, hợp đồng dài hạn, 05/09 đến 04/12, hợp đồng ngoài hệ thống, nhập tay"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>HĐ · Emma Laurent · đến 04/12</span><span class="ext" data-i18n="rack.manual_badge">Nhập tay</span></a></div><p class="li-s" style="margin-top:6px">Nhãn "Nhập tay" = <code>externalContract=true</code>. Bấm → drawer đơn (H10 10.3) không có lịch kỳ thu.</p></div>
+    <div class="variant"><span class="label-h">Vượt định mức (BR-110, ESC-014)</span><div style="display:grid"><a class="bar confirmed" href="11-reservation.html" style="margin:0" aria-label="Căn 302, Gia đình anh Hưng, đã xác nhận, 15/10 đến 19/10, Trực tiếp, vượt định mức 1 người, chuẩn bị bộ đồ dùng thêm"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Gia đình anh Hưng · đến hôm nay</span><span class="ext"><svg class="ico sm" aria-hidden="true"><use href="#i-sofa"/></svg></span></a></div><p class="li-s" style="margin-top:6px">Icon sofa trên thanh khi số người tính vượt định mức căn; chi tiết ở drawer + việc buồng phòng.</p></div>
+    <div class="variant"><span class="label-h">Giữ chỗ còn &lt; 2 giờ</span><div style="display:grid"><a class="bar hold" href="11-reservation.html" style="margin:0;border-color:var(--bad)" aria-label="Căn 103, Lê Minh, giữ chỗ chờ cọc, còn 1 giờ 05 phút"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span>Lê Minh · <span class="countdown bad" data-i18n="rack.note.hold_left" data-i18n-args='{"h":"1","m":"05"}'>còn 1 giờ 05 phút</span></span></a></div><p class="li-s" style="margin-top:6px">Viền đứt đổi sang màu lỗi + chữ đỏ khi &lt; 2 giờ (C21).</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s83">
+  <h2 id="s83"><span class="no">8.3</span>Điện thoại (&lt; 768px) – dạng danh sách theo căn</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><h1 data-i18n="fo.rack.title">Sơ đồ phòng</h1><button class="btn icon-btn" data-i18n-label="shell.search_label" aria-label="Tìm kiếm"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></button></header>
+      <div class="offline-bar" role="status" data-show="offline" style="padding:8px 16px"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="rack.offline_short">Mất kết nối – chỉ xem</span></div>
+      <div class="m-body rack-list">
+        <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="rack.unassigned_short" data-i18n-args='{"n":"1"}'>1 đơn OTA chưa gán căn</span> · <a href="11-reservation.html#s113" data-i18n="fo.rack.assign_room">Gán căn</a></div></div>
+        <div class="grp-h" data-i18n="rack.by_room">Theo căn · 14 ngày</div>
+        <ul class="list">
+          <li><a class="rowlink" href="11-reservation.html"><span class="roomno">103</span><span class="grow"><span class="li-t">Anna Martin · <span data-i18n="rack.note.arrives_today">đến hôm nay</span></span><br><span class="li-s">15/10 → 18/10 · Booking.com</span><br><span class="chip hold"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg>Lê Minh 19–21/10</span></span></a></li>
+          <li><a class="rowlink" href="11-reservation.html"><span class="roomno">302</span><span class="grow"><span class="li-t">Gia đình anh Hưng · <span data-i18n="rack.note.arrives_today">đến hôm nay</span></span><br><span class="li-s">15/10 → 19/10 · Trực tiếp</span><br><span class="chip info"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_chip" data-i18n-args='{"n":"1"}'>Vượt định mức 1 · chuẩn bị bộ đồ dùng thêm</span></span></span></a></li>
+          <li><a class="rowlink" href="10-long-stay-manual.html"><span class="roomno">102</span><span class="grow"><span class="li-t">HĐ · Emma Laurent</span><br><span class="li-s">05/09 → 04/12</span> <span class="chip neutral" data-i18n="rack.manual_badge">Nhập tay</span></span></a></li>
+          <li><a class="rowlink" href="#"><span class="roomno">401</span><span class="grow"><span class="li-t" data-i18n="rack.ooo_until" data-i18n-args='{"date":"17/10"}'>Khóa · mở bán lại 17/10</span><br><span class="li-s">WO-00031 · hỏng bình nóng lạnh</span></span></a></li>
+        </ul>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_short">Phòng</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.tasks">Việc</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg><span data-i18n="nav.more">Thêm</span></a></nav>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 8.3"><h3>Hành vi</h3><ul><li>Không ép lưới 14 ngày lên 360px; mỗi căn một dòng: đơn hiện tại/sắp tới + chip giữ chỗ/khóa/vượt định mức.</li><li>Vùng chạm ≥ 44px, chữ thân 16px; thanh dưới ≤ 5 mục.</li><li>Lễ tân trên điện thoại: xem + thao tác không C3. Tạo đơn trên điện thoại: Sprint 2 cho phép (form 1 cột) – không có nhận phòng (C3).</li></ul></aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s84">
+  <h2 id="s84"><span class="no">8.4</span>Dạng xem rút gọn theo vai</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch">
+      <header class="m-top"><h1 data-i18n="nav.rooms_status">Các căn</h1><span class="chip neutral">15/10</span></header>
+      <div class="m-body"><ul class="list">
+        <li><div class="li"><span class="roomno">302</span><div class="grow"><div class="li-t" data-i18n="rack.hk.vc">Đã dọn – chờ kiểm</div><div class="li-s" data-i18n="rack.hk.arrival_at" data-i18n-args='{"time":"15:30"}'>Có khách đến hôm nay 15:30</div><span class="chip info"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="rack.hk.kit" data-i18n-args='{"n":"1"}'>Chuẩn bị 1 bộ đồ dùng thêm</span></span></div></div></li>
+        <li><div class="li"><span class="roomno">202</span><div class="grow"><div class="li-t" data-i18n="rack.hk.vd">Cần dọn (khách đã đi)</div><div class="li-s" data-i18n="fo.rack.arriving_tomorrow">Có khách đến ngày mai</div></div></div></li>
+        <li><div class="li"><span class="roomno">401</span><div class="grow"><div class="li-t" data-i18n="rack.hk.ooo">Đang sửa – không bán</div><div class="li-s" data-i18n="rack.reopen" data-i18n-args='{"date":"17/10"}'>Mở bán lại 17/10</div></div></div></li>
+      </ul></div>
+    </div><p class="frame-cap">housekeeping / maintenance – không tên khách, kênh, giá (API không trả).</p></div>
+    <div class="frame" style="flex-basis:720px"><div class="frame-desk" style="padding:12px">
+      <div class="row" style="margin-bottom:8px"><b data-i18n="nav.availability">Căn trống</b><span class="li-s">collaborator · Minh Anh</span></div>
+      <div class="rack-wrap" role="region" aria-label="Sơ đồ phòng 13/10 – 26/10/2026" tabindex="0"><div class="rack">
+<div class="hd corner" style="grid-row:1;grid-column:1" data-i18n="rack.col_room">Căn</div>
+<div class="hd" style="grid-row:1;grid-column:2"><b>13</b>T3</div>
+<div class="hd" style="grid-row:1;grid-column:3"><b>14</b>T4</div>
+<div class="hd today" style="grid-row:1;grid-column:4"><b>15</b>T5 · <span data-i18n="fo.rack.today">Hôm nay</span></div>
+<div class="hd" style="grid-row:1;grid-column:5"><b>16</b>T6</div>
+<div class="hd" style="grid-row:1;grid-column:6"><b>17</b>T7</div>
+<div class="hd" style="grid-row:1;grid-column:7"><b>18</b>CN</div>
+<div class="hd" style="grid-row:1;grid-column:8"><b>19</b>T2</div>
+<div class="hd" style="grid-row:1;grid-column:9"><b>20</b>T3</div>
+<div class="hd" style="grid-row:1;grid-column:10"><b>21</b>T4</div>
+<div class="hd" style="grid-row:1;grid-column:11"><b>22</b>T5</div>
+<div class="hd" style="grid-row:1;grid-column:12"><b>23</b>T6</div>
+<div class="hd" style="grid-row:1;grid-column:13"><b>24</b>T7</div>
+<div class="hd" style="grid-row:1;grid-column:14"><b>25</b>CN</div>
+<div class="hd" style="grid-row:1;grid-column:15"><b>26</b>T2</div>
+<div class="rm" style="grid-row:2;grid-column:1"><b>101 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Amber</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:2;grid-column:2"></div>
+<div class="cell past" style="grid-row:2;grid-column:3"></div>
+<div class="cell today" style="grid-row:2;grid-column:4"></div>
+<div class="cell" style="grid-row:2;grid-column:5"></div>
+<div class="cell" style="grid-row:2;grid-column:6"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"17/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 17/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:7"></div>
+<div class="cell" style="grid-row:2;grid-column:8"></div>
+<div class="cell" style="grid-row:2;grid-column:9"></div>
+<div class="cell" style="grid-row:2;grid-column:10"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 21/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 22/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 23/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 24/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 25/10"></a></div>
+<div class="cell" style="grid-row:2;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"101","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 101 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:2;grid-column:2/6"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="bar unavailable" style="grid-row:2;grid-column:7/10"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:3;grid-column:1"><b>102 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Fern</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:3;grid-column:2"></div>
+<div class="cell past" style="grid-row:3;grid-column:3"></div>
+<div class="cell today" style="grid-row:3;grid-column:4"></div>
+<div class="cell" style="grid-row:3;grid-column:5"></div>
+<div class="cell" style="grid-row:3;grid-column:6"></div>
+<div class="cell" style="grid-row:3;grid-column:7"></div>
+<div class="cell" style="grid-row:3;grid-column:8"></div>
+<div class="cell" style="grid-row:3;grid-column:9"></div>
+<div class="cell" style="grid-row:3;grid-column:10"></div>
+<div class="cell" style="grid-row:3;grid-column:11"></div>
+<div class="cell" style="grid-row:3;grid-column:12"></div>
+<div class="cell" style="grid-row:3;grid-column:13"></div>
+<div class="cell" style="grid-row:3;grid-column:14"></div>
+<div class="cell" style="grid-row:3;grid-column:15"></div>
+<div class="bar unavailable" style="grid-row:3;grid-column:2/16"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:4;grid-column:1"><b>103 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Bloom</span></b><span class="hk" data-i18n="status.room.VI">VI · Đã kiểm, sẵn sàng</span></div>
+<div class="cell past" style="grid-row:4;grid-column:2"></div>
+<div class="cell past" style="grid-row:4;grid-column:3"></div>
+<div class="cell today" style="grid-row:4;grid-column:4"></div>
+<div class="cell" style="grid-row:4;grid-column:5"></div>
+<div class="cell" style="grid-row:4;grid-column:6"></div>
+<div class="cell" style="grid-row:4;grid-column:7"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 18/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:8"></div>
+<div class="cell" style="grid-row:4;grid-column:9"></div>
+<div class="cell" style="grid-row:4;grid-column:10"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 21/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 22/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 23/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 24/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 25/10"></a></div>
+<div class="cell" style="grid-row:4;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"103","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 103 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:4;grid-column:4/7"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<a class="bar hold" href="12-sales-quote.html#s124" style="grid-row:4;grid-column:8/10"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span>Lê Minh · <span data-i18n="rack.yours">của bạn</span></span></a>
+<div class="rm" style="grid-row:5;grid-column:1"><b>201 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Mist</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:5;grid-column:2"></div>
+<div class="cell past" style="grid-row:5;grid-column:3"></div>
+<div class="cell today" style="grid-row:5;grid-column:4"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 15/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:5"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"16/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 16/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:6"></div>
+<div class="cell" style="grid-row:5;grid-column:7"></div>
+<div class="cell" style="grid-row:5;grid-column:8"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 19/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:9"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 20/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:10"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 21/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 22/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 23/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 24/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 25/10"></a></div>
+<div class="cell" style="grid-row:5;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"201","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 201 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:5;grid-column:2/4"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="bar unavailable" style="grid-row:5;grid-column:6/8"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:6;grid-column:1"><b>202 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Valley</span></b><span class="hk" data-i18n="status.room.VD">VD · Trống, cần dọn</span></div>
+<div class="cell past" style="grid-row:6;grid-column:2"></div>
+<div class="cell past" style="grid-row:6;grid-column:3"></div>
+<div class="cell today" style="grid-row:6;grid-column:4"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 15/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:5"></div>
+<div class="cell" style="grid-row:6;grid-column:6"></div>
+<div class="cell" style="grid-row:6;grid-column:7"></div>
+<div class="cell" style="grid-row:6;grid-column:8"></div>
+<div class="cell" style="grid-row:6;grid-column:9"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 20/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:10"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 21/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 22/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 23/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 24/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 25/10"></a></div>
+<div class="cell" style="grid-row:6;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"202","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 202 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:6;grid-column:5/9"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:7;grid-column:1"><b>203 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Sage</span></b><span class="hk" data-i18n="status.room.VC">VC · Đã dọn, chờ kiểm</span></div>
+<div class="cell past" style="grid-row:7;grid-column:2"></div>
+<div class="cell past" style="grid-row:7;grid-column:3"></div>
+<div class="cell today" style="grid-row:7;grid-column:4"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"15/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 15/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:5"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"16/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 16/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:6"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"17/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 17/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:7"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 18/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:8"></div>
+<div class="cell" style="grid-row:7;grid-column:9"></div>
+<div class="cell" style="grid-row:7;grid-column:10"></div>
+<div class="cell" style="grid-row:7;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 22/10"></a></div>
+<div class="cell" style="grid-row:7;grid-column:12"></div>
+<div class="cell" style="grid-row:7;grid-column:13"></div>
+<div class="cell" style="grid-row:7;grid-column:14"></div>
+<div class="cell" style="grid-row:7;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"203","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 203 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:7;grid-column:8/11"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="bar unavailable" style="grid-row:7;grid-column:12/15"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:8;grid-column:1"><b>301 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Velvet</span></b><span class="hk" data-i18n="status.room.OC">OC · Có khách, sạch</span></div>
+<div class="cell past" style="grid-row:8;grid-column:2"></div>
+<div class="cell past" style="grid-row:8;grid-column:3"></div>
+<div class="cell today" style="grid-row:8;grid-column:4"></div>
+<div class="cell" style="grid-row:8;grid-column:5"></div>
+<div class="cell" style="grid-row:8;grid-column:6"></div>
+<div class="cell" style="grid-row:8;grid-column:7"></div>
+<div class="cell" style="grid-row:8;grid-column:8"></div>
+<div class="cell" style="grid-row:8;grid-column:9"></div>
+<div class="cell" style="grid-row:8;grid-column:10"></div>
+<div class="cell" style="grid-row:8;grid-column:11"></div>
+<div class="cell" style="grid-row:8;grid-column:12"></div>
+<div class="cell" style="grid-row:8;grid-column:13"></div>
+<div class="cell" style="grid-row:8;grid-column:14"></div>
+<div class="cell" style="grid-row:8;grid-column:15"></div>
+<div class="bar unavailable" style="grid-row:8;grid-column:2/16"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:9;grid-column:1"><b>302 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Ivory</span></b><span class="hk" data-i18n="status.room.VC">VC · Đã dọn, chờ kiểm</span></div>
+<div class="cell past" style="grid-row:9;grid-column:2"></div>
+<div class="cell past" style="grid-row:9;grid-column:3"></div>
+<div class="cell today" style="grid-row:9;grid-column:4"></div>
+<div class="cell" style="grid-row:9;grid-column:5"></div>
+<div class="cell" style="grid-row:9;grid-column:6"></div>
+<div class="cell" style="grid-row:9;grid-column:7"></div>
+<div class="cell" style="grid-row:9;grid-column:8"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 19/10"></a></div>
+<div class="cell" style="grid-row:9;grid-column:9"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"20/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 20/10"></a></div>
+<div class="cell" style="grid-row:9;grid-column:10"></div>
+<div class="cell" style="grid-row:9;grid-column:11"></div>
+<div class="cell" style="grid-row:9;grid-column:12"></div>
+<div class="cell" style="grid-row:9;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 24/10"></a></div>
+<div class="cell" style="grid-row:9;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 25/10"></a></div>
+<div class="cell" style="grid-row:9;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"302","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 302 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:9;grid-column:4/8"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="bar unavailable" style="grid-row:9;grid-column:10/13"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:10;grid-column:1"><b>401 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Pine</span></b><span class="hk" data-i18n="status.room.OOO">OOO · Khóa phòng, đang sửa</span></div>
+<div class="cell past" style="grid-row:10;grid-column:2"></div>
+<div class="cell past" style="grid-row:10;grid-column:3"></div>
+<div class="cell today" style="grid-row:10;grid-column:4"></div>
+<div class="cell" style="grid-row:10;grid-column:5"></div>
+<div class="cell" style="grid-row:10;grid-column:6"></div>
+<div class="cell" style="grid-row:10;grid-column:7"></div>
+<div class="cell" style="grid-row:10;grid-column:8"></div>
+<div class="cell" style="grid-row:10;grid-column:9"></div>
+<div class="cell" style="grid-row:10;grid-column:10"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"21/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 21/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:11"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"22/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 22/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 23/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 24/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 25/10"></a></div>
+<div class="cell" style="grid-row:10;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"401","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 401 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:10;grid-column:4/6"><span data-i18n="rack.not_selling">Không bán</span></div>
+<div class="bar unavailable" style="grid-row:10;grid-column:6/10"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="rm" style="grid-row:11;grid-column:1"><b>402 <span class="faint" style="font-family:var(--sans);font-size:.75rem;font-weight:500">The Ember</span></b><span class="hk" data-i18n="status.room.OD">OD · Có khách, cần dọn</span></div>
+<div class="cell past" style="grid-row:11;grid-column:2"></div>
+<div class="cell past" style="grid-row:11;grid-column:3"></div>
+<div class="cell today" style="grid-row:11;grid-column:4"></div>
+<div class="cell" style="grid-row:11;grid-column:5"></div>
+<div class="cell" style="grid-row:11;grid-column:6"></div>
+<div class="cell" style="grid-row:11;grid-column:7"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"18/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 18/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:8"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"19/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 19/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:9"></div>
+<div class="cell" style="grid-row:11;grid-column:10"></div>
+<div class="cell" style="grid-row:11;grid-column:11"></div>
+<div class="cell" style="grid-row:11;grid-column:12"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"23/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 23/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:13"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"24/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 24/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:14"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"25/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 25/10"></a></div>
+<div class="cell" style="grid-row:11;grid-column:15"><a class="empty" href="12-sales-quote.html" data-i18n-label="fo.rack.empty_cell_hint" data-i18n-args='{"room":"402","date":"26/10"}' aria-label="Bấm ô trống để đặt căn 402 từ 26/10"></a></div>
+<div class="bar unavailable" style="grid-row:11;grid-column:3/7"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+<div class="bar unavailable" style="grid-row:11;grid-column:9/12"><span data-i18n="fo.rack.sold_out">Đã kín</span></div>
+</div></div>
+    </div><p class="frame-cap">sales_staff / collaborator – mọi đơn khác hiện "Đã kín", khóa phòng "Không bán"; đơn của chính mình có tên. Bấm ô trống → Báo giá (H12) điền sẵn căn + ngày.</p></div>
+    <aside class="spec" aria-label="Đặc tả 8.4"><h3>AC</h3><ul><li><span class="us">US-016</span> AC4 – HK/MT chỉ trạng thái căn + có khách đến; sale/CTV chỉ căn – đêm còn/hết.</li><li>Buồng phòng thấy việc "Chuẩn bị bộ đồ dùng thêm" kèm số bộ (không tên khách) – INV 16/10.</li></ul><h3>API</h3><ul><li>Cùng <span class="op">getRack</span>; <code>guestDisplayName</code>, <code>channelCode</code>, <code>reservationId</code> chỉ có với FD trở lên (<code>x-visible-to</code>); sale/CTV nhận <code>kind=unavailable</code>.</li></ul></aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

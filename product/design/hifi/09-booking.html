@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H09 Đặt phòng mới – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H09</div>
+  <h1>H09 · Đặt phòng mới (ngắn ngày) – số khách theo định mức/tối đa, chống trùng, đơn OTA xung đột</h1>
+  <div class="doc-meta"><span>Sprint 2 · EP02</span><span>owner, manager, front_desk_lead, front_desk (A01)</span><span>Máy quầy (modal 720px) · điện thoại 1 cột</span><span>US-017 AC1–AC8, US-018 AC1–AC5, US-019 AC1, US-022, US-073, US-004 AC3, US-139</span><span>BR-104, 105, 107, 110, 112, 302, 305, 906</span><span>Wireframe gốc: L2 2.2</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="08-rack.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="10-long-stay-manual.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s91">
+  <h2 id="s91"><span class="no">9.1</span>Form đặt phòng – bấm thử được (số khách, kênh, phụ thu, nhắc bộ đồ dùng thêm)</h2>
+  <p class="lead">Ví dụ: căn 202 (Studio – định mức 2, tối đa 3), Trực tiếp, 21/10 → 24/10 (3 đêm), 3 người lớn → vượt định mức 1 người: phụ thu 150.000 × 3 = 450.000 (BR-110) và nhắc chuẩn bị bộ đồ dùng thêm. Thử: tăng lên 4 người lớn (bị chặn), thêm trẻ dưới 6 tuổi (không tính), đổi căn 301, đổi kênh OTA (không cộng phụ thu).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal" style="min-height:900px"><div class="scrim-demo">
+      <form class="modal lg" role="dialog" aria-modal="true" aria-labelledby="bk-h" onsubmit="return false" data-occ-form data-nights="3" data-channel="direct" data-room-amount="2495000" data-seg-scope>
+        <div class="modal-h"><h2 id="bk-h" data-i18n="booking.new.title">Đặt phòng mới</h2><span class="meta" data-show="normal loading error" data-i18n="crm.draft_saved" data-i18n-args='{"time":"10:41"}'>Nháp tự lưu 10:41</span><button type="button" class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="modal-b">
+          <div class="alert warn" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><div class="txt" data-i18n="bk.offline">Mất kết nối – chưa tạo đơn được. Nháp vẫn giữ trên máy này.</div></div>
+          <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="booking.error.server_conflict">Căn vừa được người khác đặt trong lúc bạn nhập. Thông tin của bạn vẫn còn – chọn căn khác để lưu.</b><div class="act"><button class="btn sm" data-i18n="bk.use_room" data-i18n-args='{"room":"201"}'>Dùng căn 201</button><button class="btn sm" data-i18n="bk.use_room" data-i18n-args='{"room":"101"}'>Dùng căn 101</button></div></div></div>
+
+          <div class="g-2">
+            <div class="field"><label for="bk-room"><span data-i18n="booking.field.room">Căn</span> <span class="req" aria-hidden="true">*</span></label>
+              <select class="input" id="bk-room" data-occ-room>
+                <option data-room="101" data-base="2" data-max="3">101 · The Amber · Studio (2/3)</option>
+                <option data-room="103" data-base="2" data-max="3">103 · The Bloom · Studio (2/3)</option>
+                <option data-room="202" data-base="2" data-max="3" selected>202 · The Valley · Studio (2/3)</option>
+                <option data-room="301" data-base="4" data-max="5">301 · The Velvet · 2 phòng ngủ (4/5)</option>
+                <option data-room="302" data-base="3" data-max="4">302 · The Ivory · 1 phòng ngủ + giường phụ (3/4)</option>
+                <option data-room="401" data-base="4" data-max="5">401 · The Pine · 2 phòng ngủ (4/5)</option>
+                <option data-room="402" data-base="3" data-max="4">402 · The Ember · 1 phòng ngủ + giường phụ (3/4)</option>
+              </select>
+              <span class="help" data-i18n="bk.room_help">(định mức/tối đa) – chỉ hiện căn đang bán và còn trống trong khoảng ngày</span></div>
+            <div class="field"><label for="bk-from"><span data-i18n="booking.field.dates">Ngày đến – ngày đi</span> <span class="req" aria-hidden="true">*</span></label>
+              <div class="daterange"><input class="input" id="bk-from" value="21/10/2026" inputmode="numeric" aria-label="Ngày đến"><span class="arrow" aria-hidden="true">→</span><input class="input" id="bk-to" value="24/10/2026" inputmode="numeric" aria-label="Ngày đi"></div>
+              <span class="help"><span data-i18n="booking.field.nights" data-i18n-args='{"n":"3"}'>3 đêm</span> · <span data-i18n="bk.free_ok">Căn trống cả khoảng ngày</span></span></div>
+          </div>
+
+          <div class="field"><span class="lbl" id="bk-ch-l"><span data-i18n="booking.field.channel">Kênh</span> <span class="req" aria-hidden="true">*</span></span>
+            <div class="seg" role="group" aria-labelledby="bk-ch-l"><button type="button" aria-pressed="true" data-channel="direct" data-show-only="direct" data-i18n="bk.ch_direct">Trực tiếp</button><button type="button" aria-pressed="false" data-channel="direct" data-show-only="agent" data-i18n="bk.ch_agent">CTV / môi giới</button><button type="button" aria-pressed="false" data-channel="ota" data-show-only="ota" data-i18n="bk.ch_ota">OTA</button><button type="button" aria-pressed="false" data-channel="direct" data-show-only="internal" data-i18n="bk.ch_internal">Nội bộ</button></div></div>
+          <div class="g-2" data-seg-pane="direct">
+            <div class="field"><label for="bk-src"><span data-i18n="bk.source">Nguồn</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="bk-src"><option value="zalo_phone" data-i18n="bk.src_zalo">Zalo / điện thoại</option><option value="website" data-i18n="bk.src_web">Website</option><option value="walk_in" data-i18n="bk.src_walkin">Khách vãng lai</option><option value="returning" data-i18n="bk.src_return">Khách quay lại</option><option value="sales_staff" data-i18n="bk.src_sales">Sale nội bộ</option></select></div>
+          </div>
+          <div class="g-2" data-seg-pane="agent" hidden><div class="field"><label for="bk-ag"><span data-i18n="bk.closer">CTV chốt đơn</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="bk-ag"><option>Minh Anh</option></select></div></div>
+          <div class="g-3" data-seg-pane="ota" hidden>
+            <div class="field"><label for="bk-ota"><span data-i18n="bk.ota_name">Kênh OTA</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="bk-ota"><option>Booking.com</option><option>Agoda</option><option>Airbnb</option><option>Expedia</option><option>Trip.com</option></select></div>
+            <div class="field"><label for="bk-ref"><span data-i18n="booking.field.ota_code">Mã đặt phòng OTA</span> <span class="req" aria-hidden="true">*</span></label><input class="input mono" id="bk-ref"></div>
+            <div class="field"><label for="bk-pm" data-i18n="bk.payment_model">Thanh toán</label><select class="input" id="bk-pm"><option data-i18n="booking.field.ota_paid">OTA đã thu tiền phòng</option><option data-i18n="bk.pay_at_property">Khách trả tại OTTIMO</option></select></div>
+          </div>
+          <div data-seg-pane="internal" hidden><p class="help muted" data-i18n="bk.internal_help">Phòng dùng nội bộ (nhân viên, kiểm tra) – không tính doanh thu, vẫn chiếm phòng.</p></div>
+
+          <fieldset class="card field" style="background:var(--bg);margin:0 0 14px" data-occ-field>
+            <legend class="label-h"><span data-i18n="booking.field.guests">Số khách</span> <span class="req" aria-hidden="true">*</span></legend>
+            <div class="occ-row">
+              <div class="occ" data-occ="adults"><span id="o-a" data-i18n="occ.adults">Người lớn (từ 12 tuổi)</span><div class="stepper" data-min="1" data-max="9" role="group" aria-labelledby="o-a"><button type="button" data-d="-1" data-i18n-label="rooms.dec" aria-label="Giảm">−</button><output aria-live="polite">3</output><button type="button" data-d="1" data-i18n-label="rooms.inc" aria-label="Tăng">+</button></div></div>
+              <div class="occ" data-occ="c611"><span id="o-c" data-i18n="occ.children">Trẻ 6–11 tuổi</span><div class="stepper" data-min="0" data-max="9" role="group" aria-labelledby="o-c"><button type="button" data-d="-1" data-i18n-label="rooms.dec" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" data-i18n-label="rooms.inc" aria-label="Tăng">+</button></div></div>
+              <div class="occ" data-occ="u6"><span id="o-u" data-i18n="occ.under6">Trẻ dưới 6 tuổi</span><div class="stepper" data-min="0" data-max="4" role="group" aria-labelledby="o-u"><button type="button" data-d="-1" data-i18n-label="rooms.dec" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" data-i18n-label="rooms.inc" aria-label="Tăng">+</button></div></div>
+            </div>
+            <p class="li-s" style="margin:8px 0 0" data-occ-summary aria-live="polite">Tính 3/3 người (định mức 2) · trẻ dưới 6 tuổi: 0</p>
+            <div class="err" data-occ-error hidden role="alert" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.CAPACITY_EXCEEDED" data-i18n-args='{"room":"202","max":"3"}'>Căn 202 ở tối đa 3 khách. Giảm số khách hoặc chọn căn lớn hơn.</span></div>
+            <div class="amenity" data-occ-kit style="margin-top:8px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_reminder" data-i18n-args='{"n":"1"}'>Vượt định mức 1 người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối); buồng phòng tự nhận việc khi lưu đơn.</span></div>
+            <p class="help muted" style="font-size:.75rem;margin:6px 0 0" data-i18n="booking.field.guests_help">Người lớn và trẻ em. Mỗi người cần giấy tờ để khai báo lưu trú.</p>
+          </fieldset>
+
+          <div class="g-2">
+            <div class="field combo"><label for="bk-guest"><span data-i18n="booking.field.guest">Khách đứng tên</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="bk-guest" role="combobox" aria-expanded="false" aria-autocomplete="list" value="Trần Minh Khoa · KH-0021"><span class="help"><a href="06-guests.html#s63" data-i18n="bk.guest_help">Tìm theo tên, SĐT, email, mã KH – hoặc tạo nhanh</a></span></div>
+            <div class="field"><label for="bk-phone"><span data-i18n="booking.field.phone">Số điện thoại / Zalo</span> <span class="req" aria-hidden="true">*</span></label><input class="input num" id="bk-phone" value="0938 222 444" inputmode="tel"><span class="help" data-i18n="booking.field.phone_help">Bắt buộc với kênh Trực tiếp và CTV</span></div>
+            <div class="field"><label for="bk-mail" data-i18n="booking.email">Email</label><input class="input" id="bk-mail" type="email" inputmode="email"><span class="help" data-i18n="booking.email_help">Không bắt buộc. Có email thì khách tự nhận mã xem mã cửa và hóa đơn.</span></div>
+            <div class="field"><label for="bk-eta" data-i18n="bk.eta">Giờ đến dự kiến</label><input class="input" id="bk-eta" placeholder="hh:mm" inputmode="numeric"><span class="help" data-i18n="bk.eta_help" data-i18n-args='{"time":"22:00"}'>Đến sau 22:00 → lễ tân chuẩn bị nhận phòng muộn.</span></div>
+          </div>
+
+          <div class="field"><span class="lbl" data-i18n="booking.field.rate">Giá mỗi đêm</span>
+            <div class="table-wrap"><table class="table"><thead><tr><th data-i18n="bk.night">Đêm</th><th class="r" data-i18n="bk.rate">Giá</th><th data-i18n="bk.rate_source">Nguồn giá</th></tr></thead>
+              <tbody><tr><td>T4 21/10</td><td class="r"><input class="cell-input" value="792.000" aria-label="Giá đêm 21/10"></td><td class="li-s" data-i18n="bk.src_list">Giá niêm yết (BR-101)</td></tr>
+                <tr><td>T5 22/10</td><td class="r"><input class="cell-input" value="792.000" aria-label="Giá đêm 22/10"></td><td class="li-s" data-i18n="bk.src_list">Giá niêm yết (BR-101)</td></tr>
+                <tr><td>T6 23/10</td><td class="r"><input class="cell-input" value="911.000" aria-label="Giá đêm 23/10"></td><td class="li-s" data-i18n="bk.src_weekend">Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)</td></tr></tbody></table></div>
+            <span class="help" data-i18n="bk.rate_help" data-i18n-args='{"min":"530.000","max":"1.900.000"}'>Sửa được trong khoảng 530.000 – 1.900.000 (sàn–trần nhóm, BR-105).</span></div>
+
+          <table class="sum" aria-label="Tóm tắt tiền">
+            <tr><td data-i18n="booking.field.nights" data-i18n-args='{"n":"3"}'>3 đêm</td><td class="r">2.495.000</td></tr>
+            <tr class="sub"><td data-i18n="bk.los_none">Giảm theo số đêm (BR-107): không áp dụng</td><td class="r">0</td></tr>
+            <tr data-occ-fee><td data-occ-fee-label data-i18n="occ.fee_line" data-i18n-args='{"n":"1","nights":"3"}'>Phụ thu 1 người vượt định mức × 3 đêm (BR-110)</td><td class="r" data-occ-fee-value>450.000</td></tr>
+            <tr class="total"><td data-i18n="bk.total">Tổng tiền đơn</td><td class="r" data-occ-total>2.945.000 đ</td></tr>
+            <tr class="sub"><td data-i18n="bk.deposit_line" data-i18n-args='{"pct":"30"}'>Cọc cần thu (30% tiền phòng, làm tròn – BR-305)</td><td class="r">700.000</td></tr>
+          </table>
+        </div>
+        <div class="modal-f">
+          <button type="button" class="btn left" data-i18n="booking.close_draft">Đóng (giữ nháp)</button>
+          <button type="button" class="btn" data-occ-submit data-i18n="booking.create_hold" data-i18n-args='{"time":"10:42 16/10"}'>Giữ chỗ đến 10:42 16/10</button>
+          <button type="button" class="btn pri" data-occ-submit data-show="normal error" data-i18n="booking.create">Tạo đơn</button>
+          <button type="button" class="btn pri busy" aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span><span data-i18n="bk.checking">Đang kiểm phòng trống…</span></button>
+          <button type="button" class="btn pri" aria-disabled="true" data-show="offline" data-i18n="bk.create_offline">Tạo đơn (cần có mạng)</button>
+        </div>
+      </form>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 9.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-017</span> AC1 đơn OTA <code>confirmed</code> + mã OTA + kiểu thanh toán; AC2 Trực tiếp/CTV thiếu SĐT → chặn; AC3 giá trống → giá theo lịch, hiện trước khi lưu; ngoài sàn–trần: Trực tiếp chặn, OTA chỉ cảnh báo + lý do; AC4 cửa sổ bán; AC5/AC5a ≥ ngưỡng BR-108 → H10; AC6 sale/CTV không có màn này; <b>AC7</b> 302 Trực tiếp 3 người lớn → phụ thu theo BR-110, OTA không cộng; AC8 kênh + "Nguồn" + email không bắt buộc.</li><li><span class="us">US-004</span> AC3 vượt <b>tối đa</b> → chặn tại ô số khách (không đợi bấm Lưu).</li><li><b>Mới (INV 16/10, ESC-014)</b>: có người vượt <b>định mức</b> → nhắc "chuẩn bị bộ đồ dùng thêm" + việc buồng phòng tự sinh khi lưu.</li></ul>
+      <h3>API</h3>
+      <ul><li><span class="op">searchAvailability</span> (khi đổi căn/ngày) · <span class="op">listChannels</span> · <span class="op">listRooms</span> (<code>maxOccupancy</code>) · <span class="op">searchGuests</span>/<span class="op">lookupGuestByContact</span>/<span class="op">createGuest</span> · <span class="op">createReservation</span> (<code>adults</code>, <code>children6to11</code>, <code>childrenUnder6</code>, <code>nightlyRates</code>, <code>guestEmail</code>, <code>etaTime</code>, <code>directSource</code> ∈ website/zalo_phone/walk_in/returning/sales_staff, <code>rateOverrideReason</code> (OTA), <code>Idempotency-Key</code>)</li><li>Nút "Giữ chỗ đến …": hạn do server tính (BR-302: min(tạo + giờ, 12:00 ngày đến)); ẩn khi ngày đến = hôm nay.</li><li>Phụ thu + định mức: client chỉ hiển thị dự tính; số tiền chuẩn lấy từ phản hồi tính giá của server (0.3.1 có <code>Reservation.extraGuestCount</code>; số tiền phụ thu lấy từ dòng folio/kết quả tính giá).</li></ul>
+      <h3>Problem.code</h3>
+      <ul><li><span class="pc">ROOM_UNAVAILABLE</span> (+ <code>conflicts[]</code>, gợi ý) · <span class="pc">ROOM_BLOCKED</span> · <span class="pc">ROOM_NOT_SELLABLE</span> · <span class="pc">CAPACITY_EXCEEDED</span> · <span class="pc">RATE_OUT_OF_RANGE</span> · <span class="pc">PHONE_REQUIRED</span> · <span class="pc">OUTSIDE_BOOKING_WINDOW</span> · <span class="pc">HOLD_NOT_ALLOWED_TODAY</span> · <span class="pc">DUPLICATE_GUEST</span> · <span class="pc">VALIDATION_FAILED</span> · <span class="pc">IDEMPOTENCY_IN_PROGRESS</span> · <span class="pc">CARD_NUMBER_DETECTED</span> (ghi chú)</li><li>Mã trường (<code>errors[].code</code>, 0.3.1): <code>OTA_REF_DUPLICATE</code>, <code>RATE_OUT_OF_RANGE_WARNING</code> (OTA – hiện cảnh báo + ô lý do), <code>DIRECT_SOURCE_NOT_ALLOWED</code>, <code>ALLOW_UNASSIGNED_OTA_ONLY</code>, <code>LONG_STAY_REQUIRES_CONTRACT</code> (→ H10), <code>MIN_STAY_NOT_MET</code>, <code>OTA_AMOUNT_MISMATCH</code></li></ul>
+      <h3>Hành vi</h3>
+      <ul><li>Mở từ ô trống rack: điền sẵn căn + ngày đến. Focus vào tiêu đề, bẫy focus, Esc khi đã sửa → hỏi bỏ thay đổi; đóng → focus về ô rack.</li><li>Nháp tự lưu khi rời ô. Mất mạng: không tạo đơn (BR-906), giữ nháp.</li><li>Tạo xong: đóng modal, toast "Đã tạo đơn OTM-xxxx" + link mở drawer; thanh mới hiện trên rack (SSE).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s92">
+  <h2 id="s92"><span class="no">9.2</span>Lỗi và nhánh rẽ</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">409 ROOM_UNAVAILABLE – Trực tiếp/CTV (US-018 AC1)</span>
+      <div class="field invalid" style="margin:0"><label for="v1" data-i18n="booking.field.room">Căn</label><select class="input" id="v1" aria-invalid="true" aria-describedby="v1e"><option>203 · The Sage · Studio (2/3)</option></select>
+      <div class="alert bad" role="alert" id="v1e" style="margin:6px 0 0"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="booking.error.conflict" data-i18n-args='{"room":"203","guest":"Ji-woo Park","from":"19/10","to":"22/10"}'>Căn 203 đã có đơn của Ji-woo Park từ 19/10 đến 22/10. Chọn ngày khác hoặc một căn trống bên dưới.</span><div class="act"><button class="btn sm" data-i18n="bk.use_room" data-i18n-args='{"room":"201"}'>Dùng căn 201</button><button class="btn sm" data-i18n="bk.use_room" data-i18n-args='{"room":"202"}'>Dùng căn 202</button><button class="btn sm ghost" data-i18n="bk.other_groups">Xem nhóm khác</button></div></div></div></div></div>
+    <div class="variant"><span class="label-h">Đơn OTA trùng – vẫn nhận (US-018 AC5, US-139)</span>
+      <div class="alert warn" role="alert" style="margin:0"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><b data-i18n="bk.ota_conflict_title" data-i18n-args='{"room":"203","from":"21/10","to":"23/10"}'>Căn 203 đã kín 21/10 → 23/10</b><span data-i18n="bk.ota_conflict_body">Đơn OTA vẫn được nhận (đã cam kết với kênh). Chọn một căn trống cùng nhóm, hoặc lưu chưa gán căn để xử lý sau.</span><div class="act"><button class="btn sm pri" data-i18n="bk.use_room" data-i18n-args='{"room":"202"}'>Dùng căn 202</button><button class="btn sm" data-i18n="bk.use_room" data-i18n-args='{"room":"101"}'>Dùng căn 101</button><button class="btn sm" data-i18n="bk.save_unassigned">Lưu chưa gán căn</button></div></div></div>
+      <p class="li-s" style="margin-top:6px">"Lưu chưa gán căn" = <code>allowUnassigned=true</code> sau khi đã nhận 409; đơn vào làn đỏ trên rack, báo FD + quản lý.</p></div>
+    <div class="variant"><span class="label-h">422 CAPACITY_EXCEEDED – 202, 4 người lớn</span>
+      <div class="field invalid" style="margin:0"><span class="lbl" data-i18n="booking.field.guests">Số khách</span><div class="occ-row"><div class="stepper" aria-invalid="true"><button type="button" aria-label="Giảm">−</button><output>4</output><button type="button" disabled aria-label="Tăng">+</button></div></div>
+      <div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.CAPACITY_EXCEEDED" data-i18n-args='{"room":"202","max":"3"}'>Căn 202 ở tối đa 3 khách. Giảm số khách hoặc chọn căn lớn hơn.</span></div><span class="help" data-i18n="occ.under6_note">Trẻ dưới 6 tuổi ngủ chung giường bố mẹ, không tính vào số này.</span></div></div>
+    <div class="variant"><span class="label-h">409 ROOM_BLOCKED – 401 đêm 16/10 (US-019 AC1)</span>
+      <div class="alert bad" role="alert" style="margin:0"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div class="txt" data-i18n="error.ROOM_BLOCKED" data-i18n-args='{"room":"401","from":"15/10","to":"17/10"}'>Căn 401 đang khóa sửa chữa từ 15/10 đến 17/10. Chọn căn khác.</div></div></div>
+    <div class="variant"><span class="label-h">422 RATE_OUT_OF_RANGE – Trực tiếp (chặn) / OTA (cảnh báo)</span>
+      <div class="field invalid" style="margin:0 0 8px"><label for="v5" data-i18n="booking.field.rate">Giá mỗi đêm</label><input class="input num" id="v5" value="450.000" aria-invalid="true"><div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.RATE_OUT_OF_RANGE" data-i18n-args='{"min":"530.000","max":"1.900.000","group":"Lầu 1–2"}'>Giá phải từ 530.000 đến 1.900.000 (giá sàn – trần nhóm Lầu 1–2).</span></div></div>
+      <div class="alert warn" role="status" style="margin:0"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="bk.ota_rate_warn">Giá OTA nằm ngoài khoảng sàn–trần. Vẫn lưu được – ghi lý do để quản lý xem lại.</span><input class="input" style="margin-top:6px" aria-label="Lý do" data-i18n-ph="bk.reason_ph" placeholder="Lý do (bắt buộc)"></div></div></div>
+    <div class="variant"><span class="label-h">422 PHONE_REQUIRED</span>
+      <div class="field invalid" style="margin:0"><label for="v6" data-i18n="booking.field.phone">Số điện thoại / Zalo</label><input class="input" id="v6" aria-invalid="true"><div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.PHONE_REQUIRED">Kênh Trực tiếp và CTV cần số điện thoại của khách.</span></div></div></div>
+    <div class="variant"><span class="label-h">≥ 28 đêm – sang đơn dài hạn nhập tay (AC5a)</span>
+      <div class="alert info" role="status" style="margin:0"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><div class="txt"><b data-i18n="bk.long_title" data-i18n-args='{"n":"35"}'>35 đêm là thuê dài hạn</b><span data-i18n="bk.long_body">Từ 28 đêm phải làm hợp đồng (BR-108). Ở giai đoạn này, tạo "Đơn dài hạn nhập tay" để giữ phòng; hợp đồng vẫn làm ngoài hệ thống.</span><div class="act"><a class="btn sm pri" href="10-long-stay-manual.html" data-i18n="bk.to_manual_long">Tạo đơn dài hạn nhập tay</a></div></div></div></div>
+    <div class="variant"><span class="label-h">422 OUTSIDE_BOOKING_WINDOW</span>
+      <div class="field invalid" style="margin:0"><label for="v8" data-i18n="booking.field.dates">Ngày đến – ngày đi</label><input class="input" id="v8" value="20/10/2027" aria-invalid="true"><div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.OUTSIDE_BOOKING_WINDOW">Ngày đến hoặc số đêm nằm ngoài khoảng được bán. Chọn lại ngày, hoặc lập báo giá dài hạn nếu khách ở lâu.</span></div></div></div>
+    <div class="variant"><span class="label-h">Tạo xong (toast, không thay việc bền vững)</span>
+      <div class="toast" role="status"><span data-i18n="booking.toast.created" data-i18n-args='{"code":"OTM-0164"}'>Đã tạo đơn OTM-0164</span><a class="btn" href="11-reservation.html" data-i18n="bk.open_booking">Mở đơn</a></div></div>
+  </div>
+</section>
+</main>
+</body>
+</html>

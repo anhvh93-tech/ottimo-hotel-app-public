@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H07 Người dùng, vai, thiết bị được cấp – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H07</div>
+  <h1>H07 · Người dùng &amp; vai · Thiết bị được cấp (chỉ chủ đầu tư)</h1>
+  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>owner</span><span>Máy quầy / laptop – không có trên điện thoại</span><span>US-002 AC1–AC4, US-001 AC4, US-142 AC1–AC3, US-135</span><span>SR-DEV-01…07, SR-AUTH-05</span><span>Wireframe gốc: L1 1.4</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="06-guests.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="08-rack.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s71">
+  <h2 id="s71"><span class="no">7.1</span>Người dùng &amp; vai</h2>
+  <p class="lead">Chủ đầu tư gán một hoặc nhiều vai cho từng tài khoản; quyền là hợp các vai. Đổi vai có hiệu lực ở lần đăng nhập sau (phiên đang mở bị thu hồi). Không có tài khoản dùng chung.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.top">Điều hành</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span><span class="badge" aria-hidden="true">2</span></a>
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="04-rooms.html"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="nav.rooms">Danh mục căn</span></a>
+<a href="05-params.html"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a>
+<a href="07-users-devices.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.users">Người dùng & vai</span></a>
+<a href="07-users-devices.html#s72"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span data-i18n="nav.devices">Thiết bị được cấp</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar"><h1 data-i18n="nav.users">Người dùng & vai</h1><button class="btn pri" data-open="#dlg-user"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="users.new_cta">Thêm người dùng</span></button></header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_readonly" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa lưu thay đổi được.</span></div>
+          <div class="page">
+            <div class="table-wrap" data-show="normal offline"><table class="table">
+              <thead><tr><th data-i18n="users.col_name">Người dùng</th><th data-i18n="users.col_roles">Vai</th><th data-i18n="users.col_status">Trạng thái</th><th data-i18n="users.col_last">Đăng nhập gần nhất</th><th><span class="sr-only" data-i18n="rooms.col_action">Thao tác</span></th></tr></thead>
+              <tbody>
+                <tr><td><b>Chủ đầu tư</b><br><span class="li-s mono">qa.owner</span></td><td><span class="chip oak" data-i18n="role.owner">Chủ đầu tư</span></td><td><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="users.active">Đang dùng</span></span> <span class="chip info"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg>2FA</span></td><td>10:20 hôm nay</td><td><span class="li-s" data-i18n="users.you">Bạn</span></td></tr>
+                <tr><td><b>Anh Hoàng Anh</b><br><span class="li-s mono">qa.mgr</span></td><td><span class="chip oak" data-i18n="role.manager">Quản lý</span></td><td><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="users.active">Đang dùng</span></span> <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="users.no_2fa">Chưa bật 2FA</span></span></td><td>08:05 hôm nay</td><td><div class="row"><button class="btn sm" data-open="#dlg-roles" data-i18n="users.edit_roles">Sửa vai</button><button class="btn sm ghost" data-i18n="users.more">Khác…</button></div></td></tr>
+                <tr><td><b>Chị Lan</b><br><span class="li-s mono">qa.fdl</span></td><td><span class="chip oak" data-i18n="role.front_desk_lead">Lễ tân trưởng</span></td><td><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="users.active">Đang dùng</span></span></td><td>07:58 hôm nay</td><td><div class="row"><button class="btn sm" data-open="#dlg-roles" data-i18n="users.edit_roles">Sửa vai</button><button class="btn sm ghost" data-i18n="users.more">Khác…</button></div></td></tr>
+                <tr aria-selected="true"><td><b>Hạnh</b><br><span class="li-s mono">qa.fd</span></td><td><span class="chip oak" data-i18n="role.front_desk">Lễ tân</span> <span class="chip oak" data-i18n="role.sales_staff">Sale nội bộ</span></td><td><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="users.active">Đang dùng</span></span></td><td>07:55 hôm nay</td><td><div class="row"><button class="btn sm" data-open="#dlg-roles" data-i18n="users.edit_roles">Sửa vai</button><button class="btn sm ghost" data-i18n="users.more">Khác…</button></div></td></tr>
+                <tr><td><b>Anh Tùng</b><br><span class="li-s mono">qa.hkmt</span></td><td><span class="chip oak" data-i18n="role.housekeeping">Buồng phòng</span> <span class="chip oak" data-i18n="role.maintenance">Bảo trì</span></td><td><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="users.active">Đang dùng</span></span></td><td>07:30 hôm nay</td><td><div class="row"><button class="btn sm" data-open="#dlg-roles" data-i18n="users.edit_roles">Sửa vai</button><button class="btn sm ghost" data-i18n="users.more">Khác…</button></div></td></tr>
+                <tr><td><b>Minh Anh</b><br><span class="li-s mono">qa.ctv1</span></td><td><span class="chip oak" data-i18n="role.collaborator">CTV / môi giới</span></td><td><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><span data-i18n="users.temp_password">Chờ đổi mật khẩu tạm</span></span></td><td>–</td><td><div class="row"><button class="btn sm" data-open="#dlg-roles" data-i18n="users.edit_roles">Sửa vai</button><button class="btn sm ghost" data-i18n="users.more">Khác…</button></div></td></tr>
+                <tr><td><b>Lễ tân cũ</b><br><span class="li-s mono">qa.locked</span></td><td><span class="chip neutral" data-i18n="role.front_desk">Lễ tân</span></td><td><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="users.locked">Đã khóa</span></span></td><td>02/10</td><td><button class="btn sm" data-i18n="users.unlock">Mở khóa</button></td></tr>
+              </tbody></table></div>
+            <div class="cards" data-show="loading"><div class="sk" style="height:300px"></div></div>
+            <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="users.error_title">Chưa tải được danh sách người dùng</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-6V3R"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-6V3R.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+            <p class="li-s" style="margin-top:10px" data-i18n="users.more_help">"Khác…": Đặt lại mật khẩu (tạo mật khẩu tạm), Khóa tài khoản, Đặt lại xác thực 2 bước.</p>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 7.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-002</span> AC1 đổi vai → đăng nhập lại chỉ thấy màn của vai mới; AC3 nhiều vai = hợp quyền; AC4 manager mở màn này → H02 2.3.</li><li><span class="us">US-001</span> AC4 tài khoản mới có mật khẩu tạm, buộc đổi lần đầu (H01 1.2).</li></ul>
+      <h3>API</h3><ul><li><span class="op">listUsers</span> · <span class="op">setUserRoles</span> · <span class="op">updateUser</span> (<code>status</code>: <code>active</code>/<code>locked</code>/<code>disabled</code>, đặt lại mật khẩu) · <span class="op">createUser</span> · <span class="op">listAuditEvents</span> (lịch sử đổi vai)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> vai ≠ owner</li><li><span class="pc">USERNAME_TAKEN</span> tên đăng nhập đã có → lỗi tại ô (<code>error.USERNAME_TAKEN</code>)</li><li><span class="pc">VALIDATION_FAILED</span> thiếu vai; mã trường <code>LAST_OWNER</code> khi bỏ vai/khóa owner cuối cùng</li><li><span class="pc">VERSION_CONFLICT</span></li><li><span class="pc">REAUTH_REQUIRED</span> trước khi đổi vai owner/đặt lại 2FA</li></ul>
+      <h3>Giả định</h3><ul><li>"Thêm người dùng" vẽ ở R2 vì <span class="op">createUser</span> có trong hợp đồng 0.3 (US-002). US-001 AC4 ghi tài khoản R2 tạo bằng seed và US-008 (tự phục vụ) là R3 → <b>PO quyết</b> ẩn hay giữ nút ở R2 (hỏi trong d0-report). Không ảnh hưởng phần còn lại của màn.</li><li>Không cho tự gỡ vai owner của chính mình khi chỉ có 1 owner.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s71b">
+  <h2 id="s71b"><span class="no">7.1b</span>Sửa vai của Hạnh</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:560px"><div class="scrim-demo">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ur-h">
+        <div class="modal-h"><h2 id="ur-h" data-i18n="users.roles_title" data-i18n-args='{"name":"Hạnh"}'>Vai của Hạnh</h2><span class="meta">OTTIMO Đà Lạt</span></div>
+        <div class="modal-b">
+          <fieldset style="border:0;margin:0;padding:0"><legend class="label-h" style="margin-bottom:6px" data-i18n="users.roles_legend">Chọn một hoặc nhiều vai</legend>
+            <label class="check"><input type="checkbox"><span><b data-i18n="role.manager">Quản lý</b><br><span class="li-s" data-i18n="users.role_desc.manager">Duyệt hoàn tiền, công nợ, khôi phục không đến; xem báo cáo tài chính.</span></span></label>
+            <label class="check"><input type="checkbox"><span><b data-i18n="role.front_desk_lead">Lễ tân trưởng</b><br><span class="li-s" data-i18n="users.role_desc.front_desk_lead">Như lễ tân + duyệt miễn phí trong hạn mức, kiểm phòng đạt.</span></span></label>
+            <label class="check"><input type="checkbox" checked><span><b data-i18n="role.front_desk">Lễ tân</b><br><span class="li-s" data-i18n="users.role_desc.front_desk">Đặt phòng, nhận/trả phòng, thu tiền, khai báo trên máy được cấp.</span></span></label>
+            <label class="check"><input type="checkbox"><span><b data-i18n="role.housekeeping">Buồng phòng</b><br><span class="li-s" data-i18n="users.role_desc.housekeeping">Việc dọn phòng, kiểm phòng, báo sự cố trên điện thoại.</span></span></label>
+            <label class="check"><input type="checkbox"><span><b data-i18n="role.maintenance">Bảo trì</b><br><span class="li-s" data-i18n="users.role_desc.maintenance">Phiếu sửa, khóa phòng khi sửa chữa.</span></span></label>
+            <label class="check"><input type="checkbox" checked><span><b data-i18n="role.sales_staff">Sale nội bộ</b><br><span class="li-s" data-i18n="users.role_desc.sales_staff">Báo giá, giữ chỗ, xác nhận cọc đơn của mình.</span></span></label>
+            <label class="check"><input type="checkbox"><span><b data-i18n="role.collaborator">CTV / môi giới</b><br><span class="li-s" data-i18n="users.role_desc.collaborator">Chỉ thấy báo giá, đơn, khách của chính mình; không xác nhận cọc.</span></span></label>
+          </fieldset>
+          <div class="alert info" role="note" style="margin-top:8px"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="users.roles_effect">Thay đổi có hiệu lực khi người này đăng nhập lại. Phiên đang mở của họ sẽ bị đăng xuất.</div></div>
+        </div>
+        <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="users.save_roles">Lưu vai</button></div>
+      </div>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 7.1b"><h3>Hành vi</h3><ul><li>Vai "Chủ đầu tư" không có trong danh sách chọn (chỉ đội kỹ thuật cấp owner) – <code>[GIẢ ĐỊNH UXD]</code>, SEC xác nhận.</li><li>Phải chọn ≥ 1 vai; bỏ hết → nút Lưu khóa kèm lý do "Chọn ít nhất 1 vai".</li><li>Mô tả vai một dòng giúp chủ đầu tư hiểu hệ quả; nguồn: rbac-matrix mục 1.</li></ul></aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s72">
+  <h2 id="s72"><span class="no">7.2</span>Thiết bị được cấp quyền giấy tờ (C3)</h2>
+  <p class="lead">Cấp quyền phải làm trên chính máy đó; người cấp nhập lại mật khẩu (và mã 2 bước nếu đã bật). Điện thoại cá nhân (PWA) không bao giờ là thiết bị được cấp.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.top">Điều hành</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span><span class="badge" aria-hidden="true">2</span></a>
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="04-rooms.html"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="nav.rooms">Danh mục căn</span></a>
+<a href="05-params.html"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a>
+<a href="07-users-devices.html"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.users">Người dùng & vai</span></a>
+<a href="07-users-devices.html#s72" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span data-i18n="nav.devices">Thiết bị được cấp</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar"><h1 data-i18n="device.title">Thiết bị được cấp</h1></header>
+          <div class="page">
+            <div class="card" style="margin-bottom:16px">
+              <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><div class="txt" data-i18n="device.this_untrusted">Máy này chưa được cấp quyền xem dữ liệu giấy tờ và mã cửa.</div></div>
+              <div class="g-2">
+                <div class="field"><label for="dv-name"><span data-i18n="device.grant_name">Tên máy</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="dv-name" value="Máy tính bảng ca đêm"></div>
+                <div class="field"><span class="lbl" id="dv-kind" data-i18n="device.kind">Loại thiết bị</span><div class="seg" role="group" aria-labelledby="dv-kind"><button aria-pressed="false" data-i18n="device.kind_desk">Máy quầy / laptop</button><button aria-pressed="true" data-i18n="device.kind_mobile">Máy tính bảng của cơ sở</button></div><span class="help" data-i18n="device.kind_help" data-i18n-args='{"desk_days":"180","mobile_days":"30"}'>Máy quầy/laptop: hạn 180 ngày. Máy tính bảng của cơ sở: hạn tối đa 30 ngày, cấp lại định kỳ.</span></div>
+              </div>
+              <fieldset style="border:0;margin:0 0 12px;padding:0"><legend class="lbl" style="font-weight:500;font-size:.8125rem;margin-bottom:4px"><span data-i18n="device.check_legend">Kiểm máy trước khi cấp</span> <span class="req" aria-hidden="true">*</span></legend>
+                <div class="g-2"><label class="check"><input type="checkbox" checked><span data-i18n="device.check.disk">Ổ đĩa đã mã hóa</span></label><label class="check"><input type="checkbox" checked><span data-i18n="device.check.lock">Tự khóa màn hình sau 5 phút</span></label><label class="check"><input type="checkbox"><span data-i18n="device.check.ext">Trình duyệt không cài tiện ích</span></label><label class="check"><input type="checkbox"><span data-i18n="device.check.clip">Tắt lịch sử/đồng bộ bộ nhớ tạm</span></label></div>
+                <label class="check"><input type="checkbox"><span data-i18n="device.check.ops">Đội kỹ thuật đã kiểm máy này</span></label></fieldset>
+              <div class="g-2"><div class="field"><label for="dv-pw"><span data-i18n="device.grant_confirm">Nhập lại mật khẩu (và mã xác thực) để cấp quyền</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="dv-pw" type="password" autocomplete="current-password"></div><div style="align-self:end;margin-bottom:14px"><button class="btn pri" aria-disabled="true" data-i18n="device.grant_locked" data-i18n-args='{"n":"2"}'>Cấp quyền thiết bị này (còn 2 mục kiểm)</button></div></div>
+            </div>
+            <div class="table-wrap"><table class="table">
+              <thead><tr><th data-i18n="device.col_device">Thiết bị</th><th data-i18n="device.col_by">Cấp bởi</th><th data-i18n="device.col_last">Dùng gần nhất</th><th data-i18n="device.col_expires">Hết hạn</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><b>Máy quầy 1</b> <span class="chip info" data-i18n="device.this">Máy này</span><br><span class="li-s" data-i18n="device.kind_desk">Máy quầy / laptop</span></td><td>Chủ đầu tư · 15/10</td><td>10:42 hôm nay</td><td>13/04/2027</td><td><button class="btn sm danger" data-open="#dlg-revoke" data-i18n="device.revoke">Thu hồi</button></td></tr>
+                <tr><td><b>Laptop quản lý</b><br><span class="li-s" data-i18n="device.kind_desk">Máy quầy / laptop</span></td><td>Chủ đầu tư · 09/10</td><td>09/10</td><td>07/04/2027</td><td><button class="btn sm danger" data-open="#dlg-revoke" data-i18n="device.revoke">Thu hồi</button></td></tr>
+                <tr><td><b>Máy tính bảng ca đêm (cũ)</b><br><span class="li-s" data-i18n="device.kind_mobile">Máy tính bảng của cơ sở</span></td><td>Chủ đầu tư · 20/09</td><td>23:40 hôm qua</td><td><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="device.expires_soon" data-i18n-args='{"days":"5"}'>Hết hạn sau 5 ngày</span></span></td><td><button class="btn sm danger" data-open="#dlg-revoke" data-i18n="device.revoke">Thu hồi</button></td></tr>
+              </tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 7.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-142</span> AC1 danh sách tên, người cấp, ngày; thu hồi bất kỳ lúc nào có hộp xác nhận (US-135); AC2 máy chưa cấp → H02 2.3 + nhật ký C3; AC3 ca đêm trên máy tính bảng của cơ sở.</li></ul>
+      <h3>API</h3><ul><li><span class="op">listTrustedDevices</span> · <span class="op">trustCurrentDevice</span> (đặt cookie <code>__Host-ottimo_did</code>) · <span class="op">revokeTrustedDevice</span> · <span class="op">stepUp</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">REAUTH_FAILED</span> mật khẩu/mã sai → lỗi tại ô</li><li><span class="pc">FORBIDDEN_ACTION</span> vai ≠ owner</li><li><span class="pc">DEVICE_NOT_TRUSTED</span> (ở các màn C3)</li></ul>
+      <h3>Hành vi</h3><ul><li>Nút "Cấp quyền" khóa và nêu số mục kiểm còn thiếu; tích "Đội kỹ thuật đã kiểm" thay được 4 mục (ghi tên, ngày vào ghi chú thiết bị).</li><li>Còn ≤ 7 ngày hết hạn → chip cảnh báo + việc "Cần chú ý" cho owner.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-revoke" aria-labelledby="rv-h"><div class="modal" role="alertdialog" aria-labelledby="rv-h" aria-describedby="rv-b">
+  <div class="modal-h"><h2 id="rv-h" data-i18n="device.revoke_title" data-i18n-args='{"device":"Laptop quản lý"}'>Thu hồi quyền của Laptop quản lý?</h2></div>
+  <div class="modal-b"><p id="rv-b" data-i18n="device.revoke_body" data-i18n-args='{"device":"Laptop quản lý"}'>Máy Laptop quản lý không xem được giấy tờ, mã cửa ngay lập tức. Muốn dùng lại phải cấp quyền mới.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn danger" data-close="force" data-i18n="device.revoke">Thu hồi</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-roles" aria-labelledby="dr-h"><div class="modal">
+  <div class="modal-h"><h2 id="dr-h" tabindex="-1" data-i18n="users.roles_title" data-i18n-args='{"name":"Hạnh"}'>Vai của Hạnh</h2></div>
+  <div class="modal-b"><label class="check"><input type="checkbox" checked><span data-i18n="role.front_desk">Lễ tân</span></label><label class="check"><input type="checkbox" checked><span data-i18n="role.sales_staff">Sale nội bộ</span></label><label class="check"><input type="checkbox"><span data-i18n="role.front_desk_lead">Lễ tân trưởng</span></label></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="users.save_roles">Lưu vai</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-user" aria-labelledby="du-h"><div class="modal">
+  <div class="modal-h"><h2 id="du-h" tabindex="-1" data-i18n="users.new_cta">Thêm người dùng</h2></div>
+  <div class="modal-b">
+    <div class="field"><label for="du-n"><span data-i18n="users.f_display">Tên hiển thị</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="du-n" autofocus></div>
+    <div class="field"><label for="du-u"><span data-i18n="auth.login.username">Số điện thoại hoặc email</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="du-u"></div>
+    <div class="field"><label for="du-r"><span data-i18n="users.col_roles">Vai</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="du-r"><option data-i18n="role.front_desk">Lễ tân</option><option data-i18n="role.housekeeping">Buồng phòng</option><option data-i18n="role.sales_staff">Sale nội bộ</option><option data-i18n="role.collaborator">CTV / môi giới</option></select></div>
+    <div class="alert info" role="note"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><div class="txt" data-i18n="users.temp_pw_note">Hệ thống tạo mật khẩu tạm, hiện một lần để bạn đưa trực tiếp cho người dùng. Họ phải đổi ở lần đăng nhập đầu.</div></div>
+  </div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="users.create">Tạo tài khoản</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

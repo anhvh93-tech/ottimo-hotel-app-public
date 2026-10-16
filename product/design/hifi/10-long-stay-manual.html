@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H10 Đơn dài hạn nhập tay – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H10</div>
+  <h1>H10 · Đơn dài hạn nhập tay (tạm cho R2 – hợp đồng vẫn làm ngoài hệ thống)</h1>
+  <div class="doc-meta"><span>Sprint 2 · EP02</span><span>owner, manager, front_desk_lead, front_desk (sale/CTV không có)</span><span>Máy quầy</span><span>US-017 AC5a (P-R2-3), US-018, US-016 AC2, US-119 AC1</span><span>BR-108, BR-110</span><span>Mới – không có trong wireframe R1</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="09-booking.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="11-reservation.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s101">
+  <h2 id="s101"><span class="no">10.1</span>Tạo đơn dài hạn nhập tay</h2>
+  <p class="lead">Mục đích duy nhất: khách dài hạn <b>chiếm phòng trên rack</b> để chống trùng và KPI đúng. Không sinh hợp đồng, lịch kỳ thu, hoa hồng; tiền ghi từng lần ở folio. Mở từ: nút "Đặt phòng mới" khi ≥ 28 đêm (H09 9.2) hoặc menu Đơn đặt phòng › "Đơn dài hạn nhập tay".</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal" style="min-height:820px"><div class="scrim-demo">
+      <form class="modal lg" role="dialog" aria-modal="true" aria-labelledby="ls-h" onsubmit="return false" data-occ-form data-nights="181" data-channel="direct">
+        <div class="modal-h"><h2 id="ls-h" data-i18n="lsm.title">Đơn dài hạn nhập tay</h2><span class="chip long"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="status.booking.long_term">Hợp đồng dài hạn</span></span></div>
+        <div class="modal-b">
+          <div class="alert info" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt"><b data-i18n="lsm.flag">HĐ ngoài hệ thống – chuyển vào app ở R3</b><span data-i18n="lsm.flag_body">Hợp đồng, lịch thu theo kỳ và ký quỹ vẫn làm như hiện nay. Đơn này giữ phòng trên sơ đồ; tiền thu được ghi từng lần trong folio. Khi app có hợp đồng, đơn được chuyển sang, giữ nguyên mã đơn.</span></div></div>
+          <div class="alert warn" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><div class="txt" data-i18n="bk.offline">Mất kết nối – chưa tạo đơn được. Nháp vẫn giữ trên máy này.</div></div>
+          <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.ROOM_UNAVAILABLE" data-i18n-args='{"room":"202","from":"16/10","to":"20/10"}'>Căn 202 đã kín từ 16/10 đến 20/10. Chọn ngày khác hoặc một căn trống bên dưới.</div></div>
+          <div class="g-3">
+            <div class="field"><label for="ls-room"><span data-i18n="booking.field.room">Căn</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="ls-room" data-occ-room><option data-room="202" data-base="2" data-max="3" selected>202 · The Valley (2/3)</option><option data-room="302" data-base="3" data-max="4">302 · The Ivory (3/4)</option><option data-room="401" data-base="4" data-max="5">401 · The Pine (4/5)</option></select></div>
+            <div class="field"><label for="ls-in"><span data-i18n="lsm.move_in">Ngày vào</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="ls-in" value="01/11/2026" inputmode="numeric"></div>
+            <div class="field"><label for="ls-out"><span data-i18n="lsm.move_out">Ngày ra (theo HĐ)</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="ls-out" value="01/05/2027" inputmode="numeric"><span class="help" data-i18n="lsm.duration" data-i18n-args='{"months":"6","nights":"181"}'>6 tháng · 181 đêm</span></div>
+          </div>
+          <div class="g-2">
+            <div class="field"><label for="ls-guest"><span data-i18n="booking.field.guest">Khách đứng tên</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="ls-guest" role="combobox" aria-expanded="false" value="Ivan Petrov · KH-0030"></div>
+            <div class="field"><label for="ls-phone"><span data-i18n="booking.field.phone">Số điện thoại / Zalo</span> <span class="req" aria-hidden="true">*</span></label><input class="input num" id="ls-phone" value="+7 912 555 0101" inputmode="tel"></div>
+          </div>
+          <fieldset class="card field" style="background:var(--bg);margin:0 0 14px" data-occ-field>
+            <legend class="label-h"><span data-i18n="booking.field.guests">Số khách</span> <span class="req" aria-hidden="true">*</span></legend>
+            <div class="occ-row">
+              <div class="occ" data-occ="adults"><span id="l-a" data-i18n="occ.adults">Người lớn (từ 12 tuổi)</span><div class="stepper" data-min="1" data-max="9" role="group" aria-labelledby="l-a"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">2</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+              <div class="occ" data-occ="c611"><span id="l-c" data-i18n="occ.children">Trẻ 6–11 tuổi</span><div class="stepper" data-min="0" data-max="9" role="group" aria-labelledby="l-c"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+              <div class="occ" data-occ="u6"><span id="l-u" data-i18n="occ.under6">Trẻ dưới 6 tuổi</span><div class="stepper" data-min="0" data-max="4" role="group" aria-labelledby="l-u"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+            </div>
+            <p class="li-s" style="margin:8px 0 0" data-occ-summary aria-live="polite">Tính 2/3 người (định mức 2) · trẻ dưới 6 tuổi: 0</p>
+            <div class="err" data-occ-error hidden role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.CAPACITY_EXCEEDED" data-i18n-args='{"room":"202","max":"3"}'>Căn 202 ở tối đa 3 khách. Giảm số khách hoặc chọn căn lớn hơn.</span></div>
+            <div class="amenity" data-occ-kit hidden style="margin-top:8px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_reminder" data-i18n-args='{"n":"1"}'>Vượt định mức 1 người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối); buồng phòng tự nhận việc khi lưu đơn.</span></div>
+            <p class="help muted" style="font-size:.75rem;margin:6px 0 0" data-i18n="lsm.extra_note">Phụ thu người thêm của khách dài hạn ghi theo hợp đồng giấy – app không tự tính ở đơn này.</p>
+          </fieldset>
+          <div class="g-3">
+            <div class="field"><label for="ls-rent"><span data-i18n="lsm.rent">Tiền thuê mỗi tháng (theo HĐ)</span> <span class="req" aria-hidden="true">*</span></label><div class="input-affix"><input class="input num" id="ls-rent" inputmode="numeric" value="9.800.000"><span class="affix">đ</span></div><span class="help" data-i18n="lsm.rent_help">Nhập tay đúng số trên hợp đồng giấy</span></div>
+            <div class="field"><label for="ls-dep" data-i18n="lsm.deposit">Ký quỹ đang giữ (ngoài app)</label><div class="input-affix"><input class="input num" id="ls-dep" inputmode="numeric" value="19.600.000"><span class="affix">đ</span></div><span class="help" data-i18n="lsm.deposit_help">Chỉ để ghi nhớ – không tạo giao dịch</span></div>
+            <div class="field"><label for="ls-ref" data-i18n="lsm.contract_ref">Số hợp đồng giấy</label><input class="input mono" id="ls-ref" value="HĐ-2026-11"></div>
+          </div>
+          <div class="field"><label for="ls-note" data-i18n="lsm.note">Ghi chú (gói dọn, chu kỳ thu…)</label><textarea class="input" id="ls-note">Dọn 1 lần/tuần thứ Hai. Thu 3 tháng/lần.</textarea></div>
+          <p class="li-s" data-i18n="lsm.not_generated">Đơn này không sinh: hợp đồng, lịch kỳ thu, nhắc thu, hoa hồng.</p>
+        </div>
+        <div class="modal-f"><button type="button" class="btn left" data-i18n="booking.close_draft">Đóng (giữ nháp)</button><button type="button" class="btn pri" data-occ-submit data-show="normal error" data-i18n="lsm.create">Tạo đơn dài hạn</button><button type="button" class="btn pri" aria-disabled="true" data-show="offline" data-i18n="bk.create_offline">Tạo đơn (cần có mạng)</button><button type="button" class="btn pri busy" aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span><span data-i18n="common.saving">Đang lưu…</span></button></div>
+      </form>
+    </div></div>
+    <div class="variants">
+      <div class="variant"><span class="label-h">422 VALIDATION_FAILED · MANUAL_LONG_STAY_BELOW_THRESHOLD</span>
+        <div class="field invalid" style="margin:0"><label for="lv1" data-i18n="lsm.move_out">Ngày ra (theo HĐ)</label><input class="input" id="lv1" value="20/11/2026" aria-invalid="true"><div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="lsm.below_threshold" data-i18n-args='{"n":"19","min":"28"}'>19 đêm chưa tới ngưỡng dài hạn (từ 28 đêm). Tạo đơn ngắn ngày thay thế.</span></div><a class="btn sm" href="09-booking.html" data-i18n="lsm.to_short">Chuyển sang đặt phòng ngắn ngày</a></div></div>
+      <div class="variant"><span class="label-h">sale / CTV mở đường dẫn</span><p class="li-s">Không có mục menu; mở trực tiếp → H02 2.3 (<span class="pc">FORBIDDEN_ACTION</span>, A01 ✖).</p></div>
+    </div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 10.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-017</span> AC5a: ≥ ngưỡng BR-108, FD+ nhập căn, ngày vào/ra, tiền/tháng → <code>confirmed</code>, cờ "HĐ ngoài hệ thống – chuyển vào app ở R3", chiếm tồn phòng, chống trùng (US-018), hiện trên rack kiểu dài hạn, không sinh kỳ thu; sale/CTV không tạo được; lọc được theo cờ.</li><li><span class="us">US-004</span> AC3 vẫn kiểm sức chứa tối đa; vượt định mức → nhắc bộ đồ dùng thêm.</li></ul>
+      <h3>API</h3><ul><li><span class="op">createReservation</span> với <code>manualLongStay</code> { <code>monthlyRentVnd</code>, <code>depositHeldVnd</code>, <code>externalContractRef</code>, <code>note</code> }, <code>paymentModel=direct</code>; không gửi <code>nightlyRates</code>, <code>otaRoomAmountVnd</code>, <code>allowUnassigned</code>.</li><li>Kênh: tự đặt "HĐ dài hạn" – form không có ô kênh.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (mã trường <code>MANUAL_LONG_STAY_BELOW_THRESHOLD</code>) · <span class="pc">ROOM_UNAVAILABLE</span> · <span class="pc">ROOM_BLOCKED</span> · <span class="pc">ROOM_NOT_SELLABLE</span> · <span class="pc">CAPACITY_EXCEEDED</span> · <span class="pc">PHONE_REQUIRED</span> · <span class="pc">FORBIDDEN_ACTION</span> · <span class="pc">CARD_NUMBER_DETECTED</span> (ghi chú)</li></ul>
+      <h3>Dữ liệu mẫu</h3><ul><li>Ivan Petrov, 202, 01/11/2026 → 01/05/2027 – kịch bản ngoài DS-0 (ghi ở index).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s102">
+  <h2 id="s102"><span class="no">10.2</span>Danh sách đơn dài hạn nhập tay (để chuyển sang hợp đồng ở R3)</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="padding:16px">
+      <div class="row" style="margin-bottom:10px"><h2 class="grow" style="font-size:1.125rem" data-i18n="lsm.list_title">Đơn dài hạn nhập tay</h2><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-filter"/></svg><span data-i18n="lsm.filter_chip">Lọc: HĐ ngoài hệ thống</span></span><button class="btn sm" data-i18n="lsm.export">Xuất danh sách (.csv)</button></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th data-i18n="lsm.col_code">Mã đơn</th><th data-i18n="rooms.col_room">Căn</th><th data-i18n="crm.col_name">Họ tên</th><th data-i18n="lsm.col_period">Thời hạn</th><th class="r" data-i18n="lsm.col_rent">Tiền thuê/tháng</th><th class="r" data-i18n="lsm.col_deposit">Ký quỹ ngoài app</th><th data-i18n="lsm.col_last_pay">Lần thu gần nhất</th><th data-i18n="users.col_status">Trạng thái</th></tr></thead>
+        <tbody>
+          <tr><td><a class="mono" href="#s103">OTM-0091</a></td><td>301</td><td>Daniel Weber</td><td>01/08/2026 → 01/08/2027</td><td class="r num">11.130.000</td><td class="r num">22.300.000</td><td>01/10 · 11.130.000</td><td><span class="chip long" data-i18n="status.booking.in_house">Đang ở</span> <span class="chip neutral" data-i18n="lsm.pending_r3">Chờ chuyển vào app</span></td></tr>
+          <tr><td><a class="mono" href="#s103">OTM-0108</a></td><td>102</td><td>Emma Laurent</td><td>05/09/2026 → 04/12/2026</td><td class="r num">9.000.000</td><td class="r num">18.000.000</td><td>05/10 · 9.000.000</td><td><span class="chip long" data-i18n="status.booking.in_house">Đang ở</span> <span class="chip neutral" data-i18n="lsm.pending_r3">Chờ chuyển vào app</span></td></tr>
+        </tbody></table></div>
+      <p class="li-s" style="margin-top:8px">Số tiền dòng 102 là ví dụ (DS-0 chưa có tiền thuê của Emma). DS-0 nạp hai HĐ đang chạy thành đơn dài hạn nhập tay ở R2.</p>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 10.2"><h3>API</h3><ul><li><span class="op">listReservations</span>?<code>externalContract=true</code>. Không có trạng thái riêng – cờ <code>Reservation.externalContract</code>.</li></ul><h3>Rỗng</h3><ul><li>"Chưa có đơn dài hạn nhập tay" + nút tạo.</li></ul></aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s103">
+  <h2 id="s103"><span class="no">10.3</span>Chi tiết đơn dài hạn nhập tay (drawer)</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:640px"><div class="scrim-demo right">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="lsd-h">
+        <div class="modal-h"><div class="grow"><span class="li-s mono">OTM-0091 · HĐ-2026-08</span><h2 id="lsd-h">Daniel Weber</h2></div><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="modal-b">
+          <div class="row" style="margin-bottom:10px"><span class="chip long"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="status.booking.in_house">Đang ở</span></span><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="lsm.flag">HĐ ngoài hệ thống – chuyển vào app ở R3</span></span><span class="chip info">NN</span></div>
+          <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>301 · The Velvet</dd><dt data-i18n="lsm.col_period">Thời hạn</dt><dd>01/08/2026 → 01/08/2027</dd><dt data-i18n="lsm.rent">Tiền thuê mỗi tháng (theo HĐ)</dt><dd class="num">11.130.000 đ</dd><dt data-i18n="lsm.deposit">Ký quỹ đang giữ (ngoài app)</dt><dd class="num">22.300.000 đ</dd></dl>
+          <div class="alert warn" role="note" style="margin-top:12px"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg><div class="txt" data-i18n="lsm.no_reminder">App chưa nhắc thu theo kỳ cho đơn này. Theo dõi lịch thu như hiện nay.</div></div>
+          <h3 class="label-h" style="margin:12px 0 6px" data-i18n="drawer.folio.title">Folio</h3>
+          <table class="sum"><tr><td>01/10 · <span data-i18n="lsm.pay_line">Thu tiền thuê (ghi tay)</span> · <span data-i18n="pay.vietqr">Chuyển khoản VietQR</span></td><td class="r">11.130.000</td></tr><tr><td>01/09 · <span data-i18n="lsm.pay_line">Thu tiền thuê (ghi tay)</span> · <span data-i18n="pay.cash">Tiền mặt</span></td><td class="r">11.130.000</td></tr></table>
+        </div>
+        <div class="modal-f"><button class="btn" data-i18n="drawer.action.move">Đổi căn / đổi ngày</button><button class="btn" data-i18n="lsm.edit">Sửa thông tin HĐ</button><button class="btn pri" data-i18n="lsm.record_payment">Ghi thu tiền</button></div>
+      </aside>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 10.3"><h3>API</h3><ul><li><span class="op">getReservation</span> (<code>externalContract</code>, <code>manualLongStay</code>, <code>allowedActions</code>) · <span class="op">getFolio</span> · <span class="op">recordPayment</span> (không <code>billingPeriodId</code> – US-119 AC1) · <span class="op">updateReservation</span> · <span class="op">moveReservation</span></li></ul><h3>Quy tắc</h3><ul><li>Không có nút trả phòng dài hạn (US-041 – R3) và không có "Hủy đơn" sau khi đang ở. Trước khi đến: Hủy đơn theo hộp xác nhận chung (H11).</li><li>Tiến trình đơn dùng bản "dài hạn" nhưng chỉ 2 mốc: Đã xác nhận · Đang ở.</li></ul></aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

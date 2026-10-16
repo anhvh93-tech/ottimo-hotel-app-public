@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H05 Tham số quy tắc – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H05</div>
+  <h1>H05 · Tham số quy tắc (đổi chính sách không cần lập trình)</h1>
+  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>owner (sửa tất cả) · manager (A101) · front_desk_lead (chỉ xem)</span><span>Máy quầy / laptop</span><span>US-005 AC1–AC3, US-004 AC3</span><span>business-rules.md mục 13</span><span>Wireframe gốc: L10 10.3</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="04-rooms.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="06-guests.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s51">
+  <h2 id="s51"><span class="no">5.1</span>Danh sách tham số theo nhóm – xem với vai chủ đầu tư</h2>
+  <p class="lead">Mỗi dòng: giá trị đang áp dụng, mã BR, ngày hiệu lực, nhãn trạng thái (GĐ = chờ INV xác nhận, PL = chờ luật sư/kế toán). Thay đổi chỉ áp cho đơn/giữ chỗ tạo <b>sau</b> ngày hiệu lực (BR-006).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.top">Điều hành</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span><span class="badge" aria-hidden="true">2</span></a>
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="04-rooms.html"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="nav.rooms">Danh mục căn</span></a>
+<a href="05-params.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a>
+<a href="07-users-devices.html"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.users">Người dùng & vai</span></a>
+<a href="07-users-devices.html#s72"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span data-i18n="nav.devices">Thiết bị được cấp</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar">
+  <h1><span data-i18n="config.params">Tham số quy tắc</span><span class="sub" data-i18n="params.subtitle" data-i18n-args='{}'>Thay đổi áp dụng cho đơn tạo sau ngày hiệu lực</span></h1>
+  <label class="search"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only" data-i18n="shell.search_label">Tìm kiếm</span><input type="search" data-i18n-ph="common.search_placeholder" placeholder="Tìm tên khách, SĐT, mã đơn, số căn…"><kbd aria-hidden="true">/</kbd></label>
+  
+  <button class="btn icon-btn" type="button" data-i18n-label="shell.notifications" aria-label="Thông báo"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="userchip" type="button" aria-haspopup="menu"><span class="avatar" aria-hidden="true">C</span><span>Chủ đầu tư · <span data-i18n="role.owner">Chủ đầu tư</span></span></button>
+</header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_readonly" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa lưu thay đổi được.</span></div>
+          <div class="page">
+            <div class="tabs" role="tablist" aria-label="Nhóm tham số">
+              <button role="tab" id="pt1" aria-selected="true" aria-controls="pp1" tabindex="0" data-i18n="params.grp_booking">Giữ chỗ, cọc, hủy</button>
+              <button role="tab" id="pt2" aria-selected="false" aria-controls="pp2" tabindex="-1" data-i18n="params.grp_occupancy">Số người & phụ thu</button>
+              <button role="tab" id="pt3" aria-selected="false" aria-controls="pp3" tabindex="-1" data-i18n="params.grp_time">Giờ nhận/trả</button>
+              <button role="tab" id="pt4" aria-selected="false" aria-controls="pp4" tabindex="-1" data-i18n="params.grp_money">FOC, hoa hồng, phí kênh</button>
+            </div>
+            <div data-show="normal offline">
+            <div role="tabpanel" id="pp1" aria-labelledby="pt1">
+              <div class="table-wrap"><table class="table">
+                <thead><tr><th data-i18n="params.col_name">Tham số</th><th class="r" data-i18n="params.col_value">Giá trị</th><th data-i18n="params.col_rule">Quy tắc</th><th data-i18n="config.effective_from">Hiệu lực từ</th><th data-i18n="params.col_changed">Sửa gần nhất</th><th><span class="sr-only" data-i18n="rooms.col_action">Thao tác</span></th></tr></thead>
+                <tbody>
+                  <tr><td><b data-i18n="params.hold_hours">Hạn giữ chỗ mặc định</b><br><code class="muted">hold_hours_default</code></td><td class="r num">24 giờ</td><td>BR-302</td><td>15/10/2026</td><td class="li-s">Chủ đầu tư · 15/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                  <tr><td><b data-i18n="params.deposit_pct">Cọc ngắn ngày</b><br><code class="muted">deposit_short_pct</code></td><td class="r num">30%</td><td>BR-305</td><td>16/10/2026</td><td class="li-s">Chủ đầu tư · 16/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                  <tr><td><b data-i18n="params.quote_valid">Hiệu lực báo giá</b><br><code class="muted">quote_validity_days</code></td><td class="r num">3 ngày</td><td>BR-304</td><td>15/10/2026</td><td class="li-s">Chủ đầu tư · 15/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                </tbody></table></div>
+            </div>
+            <div role="tabpanel" id="pp2" aria-labelledby="pt2" hidden>
+              <div class="table-wrap"><table class="table">
+                <thead><tr><th data-i18n="params.col_name">Tham số</th><th class="r" data-i18n="params.col_value">Giá trị</th><th data-i18n="params.col_rule">Quy tắc</th><th data-i18n="config.effective_from">Hiệu lực từ</th><th data-i18n="params.col_changed">Sửa gần nhất</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><b data-i18n="params.extra_adult">Phụ thu người lớn vượt định mức (mỗi đêm)</b></td><td class="r num">150.000</td><td>BR-110</td><td>16/10/2026</td><td class="li-s">Chủ đầu tư · 16/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                  <tr><td><b data-i18n="params.extra_child">Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)</b></td><td class="r num">100.000</td><td>BR-110</td><td>16/10/2026</td><td class="li-s">Chủ đầu tư · 16/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                  <tr><td><b data-i18n="params.child_free">Trẻ miễn phí, không tính số người – dưới</b></td><td class="r num">6 tuổi</td><td>BR-110</td><td>16/10/2026</td><td class="li-s">Chủ đầu tư · 16/10</td><td><button class="btn sm" data-open="#dlg-param" data-i18n="rooms.edit">Sửa</button></td></tr>
+                  <tr><td><b data-i18n="params.room_capacity">Định mức và tối đa từng căn</b></td><td class="r" data-i18n="params.room_capacity_value">Sửa ở Danh mục căn</td><td>BR-110</td><td>16/10/2026</td><td class="li-s">Chủ đầu tư · 16/10</td><td><a class="btn sm" href="04-rooms.html" data-i18n="params.open_rooms">Mở danh mục căn</a></td></tr>
+                </tbody></table></div>
+            </div>
+            <div role="tabpanel" id="pp3" aria-labelledby="pt3" hidden><p class="muted">Giờ nhận/trả chuẩn, ân hạn 12:30 (BR-401, BR-412) – cùng mẫu bảng.</p></div>
+            <div role="tabpanel" id="pp4" aria-labelledby="pt4" hidden><p class="muted">Hạn mức FOC, tỷ lệ hoa hồng, phí kênh (A102) – cùng mẫu bảng; với manager mỗi dòng hiện chip "Chỉ xem – chủ đầu tư sửa".</p></div>
+            </div>
+            <div class="cards" data-show="loading"><div class="sk" style="height:220px"></div></div>
+            <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="params.error_title">Chưa tải được tham số</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-8P1Q"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-8P1Q.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 5.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-005</span> AC1 đổi hạn giữ chỗ → giữ chỗ tạo sau dùng mức mới; AC2 manager sửa A101, không sửa A102; FDL chỉ xem; AC3 nhật ký cũ/mới/người/thời điểm/ngày hiệu lực.</li></ul>
+      <h3>API</h3>
+      <ul><li><span class="op">listParameters</span> (<code>Parameter.brRef</code>, <code>statusLabel</code>, <code>editableBy</code>) · <span class="op">setParameter</span> · <span class="op">getParameterHistory</span></li><li>Nút "Sửa" chỉ vẽ khi vai hiện tại thuộc <code>editableBy</code>; ngược lại chip <code>config.view_only</code>.</li><li>Tham số bảo mật (<code>x-security-parameters</code>) chỉ owner – nhóm riêng "Bảo mật", không hiện với manager.</li></ul>
+      <h3>Problem.code</h3>
+      <ul><li><span class="pc">PARAM_OUT_OF_RANGE</span> → lỗi tại ô, nêu <code>min</code>–<code>max</code> hoặc <code>allowed[]</code></li><li><span class="pc">FORBIDDEN_ACTION</span> (manager sửa A102) – không xảy ra nếu nút đúng <code>editableBy</code></li><li><span class="pc">VERSION_CONFLICT</span> · <span class="pc">VALIDATION_FAILED</span></li></ul>
+      <h3>Ghi chú số liệu</h3><ul><li>Giá trị trong khung là ví dụ từ BR v0.3 – nguồn sự thật là API/BR.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s52">
+  <h2 id="s52"><span class="no">5.2</span>Sửa tham số – lỗi ngoài biên, lịch sử thay đổi</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:560px"><div class="scrim-demo">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pm-h">
+        <div class="modal-h"><h2 id="pm-h" data-i18n="params.edit_title" data-i18n-args='{"name":"Hạn giữ chỗ mặc định"}'>Sửa: Hạn giữ chỗ mặc định</h2><span class="chip oak">BR-302</span></div>
+        <div class="modal-b">
+          <div class="field invalid"><label for="pv"><span data-i18n="params.new_value">Giá trị mới</span> <span class="req" aria-hidden="true">*</span></label>
+            <div class="input-affix"><input class="input num" id="pv" inputmode="numeric" value="96" aria-invalid="true" aria-describedby="pv-e pv-h"><span class="affix" data-i18n="params.unit_hours">giờ</span></div>
+            <span class="help" id="pv-h" data-i18n="params.allowed" data-i18n-args='{"values":"12, 24, 48"}'>Cho phép: 12, 24, 48</span>
+            <div class="err" id="pv-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.PARAM_OUT_OF_RANGE" data-i18n-args='{"allowed":"12, 24, 48"}'>Giá trị này nằm ngoài khoảng cho phép. Chọn một trong: 12, 24, 48.</span></div></div>
+          <div class="g-2"><div class="field"><label for="pe"><span data-i18n="config.effective_from">Hiệu lực từ</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="pe" value="16/10/2026"></div>
+            <div class="field"><label for="pr"><span data-i18n="params.reason">Lý do</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="pr" value="Mùa cao điểm"></div></div>
+          <div class="alert info" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="params.apply_note">Giữ chỗ đã tạo giữ hạn cũ. Mức mới áp cho giữ chỗ tạo từ ngày hiệu lực.</div></div>
+          <h3 class="label-h" style="margin:8px 0" data-i18n="params.history">Lịch sử thay đổi</h3>
+          <table class="table"><thead><tr><th data-i18n="params.h_when">Thời điểm</th><th data-i18n="params.h_who">Người sửa</th><th class="r" data-i18n="params.h_old">Cũ</th><th class="r" data-i18n="params.h_new">Mới</th><th data-i18n="params.reason">Lý do</th></tr></thead>
+            <tbody><tr><td>15/10 09:30</td><td>Chủ đầu tư</td><td class="r">48</td><td class="r">24</td><td>Theo ESC-006</td></tr></tbody></table>
+        </div>
+        <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="params.save">Lưu thay đổi</button></div>
+      </div>
+    </div></div>
+    <div class="variants">
+      <div class="variant"><span class="label-h">manager – dòng A102</span><table class="table"><tbody><tr><td><b data-i18n="params.foc_limit_fdl">Hạn mức FOC mỗi lần – lễ tân trưởng</b></td><td class="r num">300.000</td><td><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="config.view_only">Chỉ xem – chủ đầu tư sửa</span></span></td></tr></tbody></table></div>
+      <div class="variant"><span class="label-h">front_desk_lead – toàn màn chỉ xem</span><div class="alert info" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="params.view_only_banner">Bạn đang xem tham số. Chỉ chủ đầu tư và quản lý sửa được.</div></div></div>
+    </div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 5.2">
+      <h3>Hành vi</h3><ul><li>Tham số dạng danh sách (hạn giữ chỗ) dùng <b>seg</b> khi ≤ 5 lựa chọn; khung này cố ý cho ô nhập để minh họa <span class="pc">PARAM_OUT_OF_RANGE</span>.</li><li>Ngày hiệu lực mặc định = hôm nay; không cho chọn ngày đã qua.</li><li>Lưu thành công → toast "Đã lưu" + dòng mới đầu lịch sử.</li></ul>
+      <h3>Nhãn trạng thái tham số</h3><ul><li>GĐ → chip <code>params.status_gd</code> "Chờ chủ đầu tư xác nhận"; PL → <code>params.status_pl</code>. Tham số đã INV quyết (ESC-004…008, 014) không còn chip.</li></ul>
+    </aside>
+  </div>
+</section>
+<dialog class="dlg sm" id="dlg-param" aria-labelledby="dlg-param-h"><div class="modal">
+  <div class="modal-h"><h2 id="dlg-param-h" tabindex="-1" data-i18n="params.edit_title" data-i18n-args='{"name":"Hạn giữ chỗ mặc định"}'>Sửa: Hạn giữ chỗ mặc định</h2></div>
+  <div class="modal-b"><div class="field"><span class="lbl" id="pseg" data-i18n="params.new_value">Giá trị mới</span><div class="seg" role="group" aria-labelledby="pseg"><button aria-pressed="false">12 giờ</button><button aria-pressed="true">24 giờ</button><button aria-pressed="false">48 giờ</button></div></div>
+  <div class="field"><label for="dpe" data-i18n="config.effective_from">Hiệu lực từ</label><input class="input" id="dpe" value="16/10/2026"></div>
+  <div class="field"><label for="dpr" data-i18n="params.reason">Lý do</label><input class="input" id="dpr"></div></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="params.save">Lưu thay đổi</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

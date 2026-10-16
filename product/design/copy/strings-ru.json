@@ -1,8 +1,8 @@
 {
   "_meta": {
     "source": "product/design/content-guide.md",
-    "version": "0.1",
-    "round": 1,
+    "version": "0.3",
+    "round": 2,
     "fallback": "en",
     "lang": "ru",
     "note": "Chỉ có chuỗi đã dịch (nháp, cần người bản ngữ duyệt). Thiếu key -> dùng EN. Đủ RU ở Round 3 (US-115)."

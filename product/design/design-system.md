@@ -4,6 +4,7 @@
 - Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
 - Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
 - Minh họa sống: `product/design/wireframes/index.html` (9 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
+- **Hi-fi R2** (Đợt 0, EP00/EP02/EP10/EP11): `product/design/hifi/index.html` – 12 màn, component thật trong `hifi/assets/hifi.css`, kiểm bằng `tools/check_hifi.py`.
 - Nội dung chữ: `product/design/content-guide.md`, chuỗi `product/design/copy/strings-{vi,en,ru}.json`.
 - Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`.
 
@@ -120,6 +121,14 @@ Dùng mục 3–4 của `heuristic-review-r0.md` làm checklist. Mọi cặp ch�
 | `--oak-ink` / `--surface` | Cột biểu đồ công suất (thay --oak 2,94:1 – FB-R1-UXR-UXD-03) | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
 | `--ok` / `--bad` | Phân biệt Đạt vs Lỗi chỉ bằng màu – KHÔNG đủ, bắt buộc icon + chữ (HR-11) | không áp dụng | 1,03:1 | 1,18:1 |
 | `--ink-inverse` / `--bad` | Chữ nút "nguy hiểm", badge đếm | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,87:1 ĐẠT |
+| `--ink` / `--warn-bg` | Chữ thân trong alert cảnh báo, thanh mất mạng (hi-fi R2) | ≥ 4,5:1 | 11,71:1 ĐẠT | 10,83:1 ĐẠT |
+| `--ink` / `--bad-bg` | Chữ thân trong alert lỗi, thanh 'Chưa gán căn' (hi-fi R2) | ≥ 4,5:1 | 11,11:1 ĐẠT | 11,68:1 ĐẠT |
+| `--ink` / `--info-bg` | Chữ thân trong alert thông tin, khối 'bộ đồ dùng thêm' (hi-fi R2) | ≥ 4,5:1 | 11,43:1 ĐẠT | 11,07:1 ĐẠT |
+| `--ink` / `--ok-bg` | Chữ thân trong alert thành công (hi-fi R2) | ≥ 4,5:1 | 11,86:1 ĐẠT | 10,68:1 ĐẠT |
+| `--ink` / `--surface-2` | Chữ chính trên nền phụ (ô chỉ đọc, thanh 'Đã kín') (hi-fi R2) | ≥ 4,5:1 | 11,60:1 ĐẠT | 11,70:1 ĐẠT |
+| `--ink` / `--side` | Chữ chính trên sidebar (hi-fi R2) | ≥ 4,5:1 | 11,30:1 ĐẠT | 13,62:1 ĐẠT |
+| `--info` / `--surface` | Chữ/icon thông tin trên thẻ, mã operationId (hi-fi R2) | ≥ 4,5:1 | 6,49:1 ĐẠT | 6,96:1 ĐẠT |
+| `--oak-ink` / `--side` | Icon/chữ mục đang chọn trên sidebar (hi-fi R2) | ≥ 4,5:1 | 4,93:1 ĐẠT | 8,89:1 ĐẠT |
 | `#2B2B2B` / `--oak` | Số chú thích tròn trong wireframe (chỉ tài liệu) | ≥ 4,5:1 | 4,58:1 ĐẠT | – |
 
 Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → người mù màu đỏ–lục không phân biệt được (HR-11). Vì vậy **mọi** chỗ dùng hai màu này đều có icon khác nhau (✓ / ✕ / ?) và chữ.
@@ -289,6 +298,15 @@ Lý do/phản hồi gửi khách chọn từ **danh sách lý do đã dịch**; 
 ### 6.13 Dữ liệu mẫu (Bước 4 – FB-R1-PO-UXD-02)
 Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2) làm bộ dữ liệu mẫu duy nhất; số tiền tính lại theo ví dụ BR; đơn kịch bản ngoài DS-0 phải ghi rõ ở `wireframes/index.html`. Không đặt dữ liệu cho một vai thấy điều RBAC cấm (vd. "Hoa hồng của tôi" chỉ có mục của đúng người xem).
 
+### 6.14 Số khách theo định mức / tối đa – bộ đồ dùng thêm (R2 – INV quyết ESC-014 16/10)
+- Ô số khách = 3 stepper: **Người lớn (từ 12 tuổi)**, **Trẻ 6–11 tuổi**, **Trẻ dưới 6 tuổi**; dòng tóm tắt "Tính n/tối đa người (định mức m) · trẻ dưới 6 tuổi: k" (trẻ dưới 6 không tính – BR-110).
+- Vượt **tối đa** (định mức + 1, khách thứ +1 ngủ **sofa**; không dùng chữ "nệm phụ") → lỗi tại ô `CAPACITY_EXCEEDED`, nút lưu khóa (US-004 AC3).
+- Vượt **định mức** → khối thông tin (icon sofa, nền `--info-bg`): "Vượt định mức n người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm…" + dòng phụ thu người (Trực tiếp/CTV; OTA không cộng – US-017 AC7). Sau khi lưu: chip "Vượt định mức n · chuẩn bị bộ đồ dùng thêm" ở Hôm nay, drawer đơn, rack (icon sofa trên thanh) và việc buồng phòng `hk.task.extra_kit` (`HkTaskType` `extra_guest_kit_prepare` / `_collect` / `_transfer`, OpenAPI 0.3.1). Bộ = 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối (INV 16/10).
+- Minh họa: `hifi/09-booking.html` (bấm thử), `03-today.html`, `08-rack.html`, `11-reservation.html`, `12-sales-quote.html`.
+
+### 6.15 Đơn dài hạn nhập tay (R2 tạm – US-017 AC5a)
+- Thanh rack kiểu dài hạn + nhãn "Nhập tay"; chip "HĐ ngoài hệ thống – chuyển vào app ở R3" ở drawer và danh sách lọc. Không vẽ lịch kỳ thu, nhắc thu, hoa hồng; thu tiền ghi từng lần. Minh họa `hifi/10-long-stay-manual.html`.
+
 ## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
 
 | Trạng thái | Khi nào | Mẫu | Ví dụ |
@@ -343,6 +361,7 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 – hi-fi EP00/EP02/EP10/EP11 (`hifi/`, 12 màn): component hi-fi `hifi.css` (chỉ dùng token), bảng 2.2 thêm 8 cặp chữ trên nền màu (0 cặp không đạt); mẫu 6.14 số khách định mức/tối đa + bộ đồ dùng thêm (ESC-014, sofa), 6.15 đơn dài hạn nhập tay; icon mới `monitor`, `sofa`, `sliders`, `chevron`, `filter`; 502 chuỗi VI/EN mới (RU ở R3; gồm mã lỗi OpenAPI 0.3.1); sửa `error.FILE_REJECTED` theo OpenAPI 0.3 (JPG/PNG/WebP ≤ 10 MB). |
 | 0.3 | 16/10/2026 | UXD | Bước 4 (phản hồi UXR, PO, QA): thêm token `--focus-on-dark`; `--line-strong` sáng #8C8578 → #857E71 (đạt 3:1 trên `--side`); bảng 2.2 thêm 12 cặp (focus trên mọi nền có điều khiển, line-strong trên side/surface-2, cột biểu đồ) – 0 cặp không đạt; nút khóa bỏ opacity; cỡ chữ/vùng chạm tối thiểu áp cho toast, seg, thanh dưới, chip, nhãn; VC một tên "Đã dọn – chờ kiểm" tông gỗ sồi; mẫu 6.11 đến muộn, 6.12 chữ tự do của nhân viên, 6.13 dữ liệu mẫu DS-0; wireframe L10 mới. |
 | 0.2 | 15/10/2026 | UXD | Đợt 4: khớp RBAC/máy trạng thái/ERD/API/SEC – thêm màu trạng thái làn "Chưa gán căn", dạng xem `unavailable`, SM-05 `void`, SM-10/11/15; C12 mở rộng; thêm C31 Code input, C32 Code display (32 component); 6.1 theo US-135 (+ không đến, thu hồi thiết bị); 6.4 "Không đạt" không chặn, bắt buộc ghi xử lý; 6.9 nút = `allowedActions`, C3 chỉ trên thiết bị được cấp; mục 7 lỗi theo `Problem.code` + `requestId` |
 | 0.1 | 15/10/2026 | UXD | Bản đầu: token sáng/tối đạt AA (đổi `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, focus; thêm `--deco`, `--line-strong`, `--ink-inverse`), thang chữ, 30 component, 10 mẫu tương tác, 15 quy tắc a11y |

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H01 Đăng nhập, 2FA, chọn cơ sở – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H01</div>
+  <h1>H01 · Đăng nhập, đổi mật khẩu lần đầu, mã 2 bước, chọn cơ sở</h1>
+  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>Mọi vai nội bộ</span><span>Máy quầy + điện thoại</span><span>US-001, US-002, US-142 · nền 2FA cho US-143 (R3)</span><span>Wireframe gốc: L1 1.1, 1.5</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang xử lý</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="02-role-nav.html">H02 →</a></nav>
+</div>
+
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s11">
+  <h2 id="s11"><span class="no">1.1</span>Đăng nhập (máy quầy)</h2>
+  <p class="lead">Không có tự đăng ký – tài khoản do chủ đầu tư tạo (H07). Lỗi luôn chung một câu, không nói sai ô nào, không nêu số lần thử còn lại (SR-AUTH-04).</p>
+  <div class="doc-row">
+    <div class="frame">
+      <div class="frame-desk stateful" data-state="normal" style="min-height:560px;display:grid;place-items:center;padding:32px 16px;background:var(--side)">
+        <form class="card" style="width:100%;max-width:400px;padding:28px" onsubmit="return false" aria-labelledby="login-h">
+          <div class="brand" style="padding:0;margin-bottom:18px">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+          <h2 id="login-h" style="margin-bottom:16px" data-i18n="login.title">Đăng nhập</h2>
+          <div class="alert warn" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><div class="txt" data-i18n="login.offline">Không có mạng. Cần kết nối để đăng nhập.</div></div>
+          <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="auth.login.error_generic">Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại.</div></div>
+          <div class="field">
+            <label for="u1" data-i18n="auth.login.username">Số điện thoại hoặc email</label>
+            <input class="input" id="u1" autocomplete="username" value="0905 111 222">
+          </div>
+          <div class="field">
+            <label for="p1" data-i18n="login.password">Mật khẩu</label>
+            <div class="input-affix"><input class="input" id="p1" type="password" autocomplete="current-password" value="••••••••••"><button type="button" class="btn ghost sm" style="border-radius:0" data-i18n="login.show_password">Hiện</button></div>
+          </div>
+          <label class="check"><input type="checkbox"><span data-i18n="login.remember">Giữ đăng nhập trên máy này (máy của khách sạn)</span></label>
+          <div style="margin-top:16px">
+            <button class="btn pri block" data-show="normal error offline" data-i18n="login.submit">Đăng nhập</button>
+            <button class="btn pri block busy" aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span><span data-i18n="login.submitting">Đang đăng nhập…</span></button>
+          </div>
+          <p class="muted" style="font-size:.75rem;margin:14px 0 0" data-i18n="login.no_signup">Chưa có tài khoản? Nhờ chủ đầu tư tạo cho bạn.</p>
+        </form>
+      </div>
+      <div class="variants">
+        <div class="variant"><span class="label-h">429 RATE_LIMITED</span>
+          <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt" data-i18n="error.RATE_LIMITED" data-i18n-args='{"minutes":"15"}'>Bạn đã thử quá nhiều lần. Chờ 15 phút rồi thử lại.</div></div>
+          <p class="muted" style="font-size:.75rem">Nút Đăng nhập khóa và hiện đếm ngược; số phút lấy từ header <code>Retry-After</code>.</p></div>
+        <div class="variant"><span class="label-h">401 UNAUTHENTICATED – phiên hết hạn</span>
+          <div class="alert info" role="status"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="error.UNAUTHENTICATED">Phiên đăng nhập đã hết. Đăng nhập lại – thông tin đang nhập vẫn được giữ trên máy này.</div></div>
+          <p class="muted" style="font-size:.75rem">Mở thẳng đường dẫn nội bộ khi chưa đăng nhập → về màn này, sau đăng nhập quay lại đúng trang (US-001 AC2).</p></div>
+        <div class="variant"><span class="label-h">Điện thoại (PWA nhân viên)</span>
+          <div class="touch" style="border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;background:var(--bg)">
+            <div class="brand" style="padding:0;margin-bottom:12px">OTTIMO<small>STAFF</small></div>
+            <div class="field"><label for="u2" data-i18n="auth.login.username">Số điện thoại hoặc email</label><input class="input" id="u2" autocomplete="username"></div>
+            <div class="field"><label for="p2" data-i18n="login.password">Mật khẩu</label><input class="input" id="p2" type="password" autocomplete="current-password"></div>
+            <button class="btn pri block" data-i18n="login.submit">Đăng nhập</button>
+          </div></div>
+      </div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 1.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-001</span> AC1 vào màn mặc định của vai (FD, FDL → Hôm nay H03); AC2 chưa đăng nhập → về đây; AC4 không có tài khoản dùng chung.</li></ul>
+      <h3>API (OpenAPI 0.3.1-draft)</h3>
+      <ul><li><span class="op">login</span> → <span class="op">getMe</span> (dựng menu từ <code>properties[].screens</code>, <code>deviceTrusted</code>, <code>mustChangePassword</code>, <code>mfaEnabled</code>)</li><li><span class="op">logout</span> ở menu người dùng (H02)</li></ul>
+      <h3>Problem.code</h3>
+      <ul><li><span class="pc">UNAUTHENTICATED</span> sai tên/mật khẩu → câu chung <code>auth.login.error_generic</code></li><li><span class="pc">RATE_LIMITED</span> → <code>error.RATE_LIMITED</code></li><li><span class="pc">MFA_REQUIRED</span> → sang 1.3</li><li><span class="pc">PASSWORD_CHANGE_REQUIRED</span> → sang 1.2</li><li>5xx không có code → <code>error.server</code> + <code>Problem.requestId</code></li></ul>
+      <h3>Hành vi</h3>
+      <ul><li>Ô tên đăng nhập không đặt <code>inputmode="email"</code> (nhân viên gõ SĐT).</li><li>Nút "Hiện" mật khẩu là nút thật, đổi <code>aria-pressed</code>.</li><li>Enter gửi form; nút đổi "Đang đăng nhập…" + khóa (không nháy trang).</li><li>Mất mạng: banner + nút vẫn bấm được, gửi lại khi có mạng (không xếp hàng mật khẩu).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s12">
+  <h2 id="s12"><span class="no">1.2</span>Đổi mật khẩu lần đầu (mật khẩu tạm)</h2>
+  <p class="lead">Tài khoản do chủ đầu tư tạo/đặt lại có mật khẩu tạm – mọi API khác trả <code>PASSWORD_CHANGE_REQUIRED</code> tới khi đổi (US-001 AC4, SR-AUTH-05).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:480px;display:grid;place-items:center;padding:32px 16px;background:var(--side)">
+      <form class="card" style="width:100%;max-width:420px;padding:28px" onsubmit="return false" aria-labelledby="pw-h">
+        <h2 id="pw-h" data-i18n="pw.title">Đặt mật khẩu của bạn</h2>
+        <p class="muted" data-i18n="pw.lead">Bạn đang dùng mật khẩu tạm do chủ đầu tư cấp. Đặt mật khẩu riêng để tiếp tục.</p>
+        <div class="field"><label for="pw-new" data-i18n="pw.new">Mật khẩu mới</label><input class="input" id="pw-new" type="password" autocomplete="new-password" aria-describedby="pw-rules" value="••••••••••">
+          <div class="pw-meter" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+          <ul class="rules" id="pw-rules"><li class="ok"><svg class="ico sm" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="pw.rule_len" data-i18n-args='{"n":"10"}'>Ít nhất 10 ký tự</span></li><li class="ok"><svg class="ico sm" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="pw.rule_common">Không phải mật khẩu phổ biến</span></li><li><svg class="ico sm" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="pw.rule_name">Không chứa tên hoặc số điện thoại của bạn</span></li></ul>
+        </div>
+        <div class="field invalid"><label for="pw-2" data-i18n="pw.repeat">Nhập lại mật khẩu mới</label><input class="input" id="pw-2" type="password" autocomplete="new-password" aria-invalid="true" aria-describedby="pw-2e" value="•••••••">
+          <div class="err" id="pw-2e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="pw.mismatch">Hai mật khẩu chưa giống nhau.</span></div></div>
+        <button class="btn pri block" data-i18n="pw.submit">Lưu và vào ứng dụng</button>
+      </form>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 1.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-001</span> AC4 mật khẩu đầu tiên buộc đổi.</li></ul>
+      <h3>API</h3><ul><li><span class="op">changeMyPassword</span>; <code>getMe.mustChangePassword</code> quyết định hiện màn này.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">PASSWORD_CHANGE_REQUIRED</span> (mọi API khác) → điều hướng về đây</li><li><span class="pc">VALIDATION_FAILED</span> → gắn lỗi từng ô theo <code>errors[]</code></li></ul>
+      <h3>Ghi chú</h3><ul><li>Độ dài tối thiểu, danh sách mật khẩu phổ biến: SEC chốt (giả định 10 ký tự – <code>[GIẢ ĐỊNH]</code>). Quy tắc hiện trước khi gõ, tích dần khi đạt – không chỉ báo sau khi bấm.</li><li>Kiểm "nhập lại" khi rời ô, không khi đang gõ.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s13">
+  <h2 id="s13"><span class="no">1.3</span>Nhập mã xác thực 2 bước (khi tài khoản đã bật)</h2>
+  <p class="lead">R2: 2FA là <b>nền</b> – owner/manager bật được (1.4), có tài khoản bật thì đăng nhập đi qua bước này. Bắt buộc từ R3 (US-143) trước khi có dữ liệu thật.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:420px;display:grid;place-items:center;padding:32px 16px;background:var(--side)">
+      <div class="g-2" style="gap:16px;width:100%;max-width:860px">
+        <form class="card" style="padding:24px" onsubmit="return false" aria-labelledby="mfa-h">
+          <h2 id="mfa-h" data-i18n="auth.totp.title">Nhập mã xác thực</h2>
+          <p class="muted" data-i18n="auth.totp.help">Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số đang hiện.</p>
+          <div class="field invalid"><label for="otp" data-i18n="auth.code_label.totp">Mã trong ứng dụng xác thực (6 số)</label>
+            <input class="input code-input" id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="481 20" aria-invalid="true" aria-describedby="otp-e">
+            <div class="err" id="otp-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="auth.totp.error">Mã chưa đúng hoặc đã đổi. Nhập mã đang hiện trong ứng dụng.</span></div></div>
+          <button class="btn pri block" data-i18n="auth.totp.submit">Xác nhận</button>
+          <button class="btn ghost block" style="margin-top:8px" data-i18n="auth.totp.recovery">Mất điện thoại? Dùng mã khôi phục</button>
+        </form>
+        <form class="card" style="padding:24px" onsubmit="return false" aria-labelledby="rec-h">
+          <h2 id="rec-h" data-i18n="mfa.recovery_title">Dùng mã khôi phục</h2>
+          <p class="muted" data-i18n="mfa.recovery_help">Nhập một trong 10 mã khôi phục bạn đã lưu khi bật xác thực 2 bước.</p>
+          <div class="field"><label for="rc" data-i18n="auth.code_label.recovery">Mã khôi phục (8 ký tự)</label><input class="input mono" id="rc" autocomplete="one-time-code" value="K7QD-4M2X"></div>
+          <button class="btn pri block" data-i18n="mfa.recovery_submit">Đăng nhập bằng mã khôi phục</button>
+          <p class="muted" style="font-size:.75rem;margin-top:10px" data-i18n="mfa.recovery_after">Sau khi vào, bạn cần đăng ký lại ứng dụng xác thực. Mã vừa dùng bị hủy.</p>
+        </form>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 1.3">
+      <h3>Story / AC</h3><ul><li>Nền cho <span class="us">US-143</span> AC2 (R3). R2 không bắt buộc.</li></ul>
+      <h3>API</h3><ul><li><span class="pc">MFA_REQUIRED</span> từ <span class="op">login</span> → màn này → <span class="op">loginMfa</span> (mã TOTP hoặc mã khôi phục)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">UNAUTHENTICATED</span> mã sai → <code>auth.totp.error</code> (không nêu số lần còn lại)</li><li><span class="pc">RATE_LIMITED</span> → <code>error.RATE_LIMITED</code></li></ul>
+      <h3>a11y</h3><ul><li>C31: một <code>input</code> duy nhất (không 6 ô rời), <code>autocomplete="one-time-code"</code>, dán được mã có dấu cách.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s14">
+  <h2 id="s14"><span class="no">1.4</span>Bật xác thực 2 bước (owner, manager – khuyến nghị lễ tân trưởng)</h2>
+  <p class="lead">Mở từ menu người dùng › "Bảo mật tài khoản" hoặc banner nhắc khi <code>getMe.mfaRequiredButMissing = true</code>. 3 bước, mỗi bước một việc; bước 3 khóa nút đến khi tích đã lưu mã.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="padding:20px;background:var(--bg)">
+      <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><div class="txt"><span data-i18n="mfa.nudge">Tài khoản chủ đầu tư/quản lý nên bật xác thực 2 bước. Từ khi có dữ liệu khách thật, việc này là bắt buộc.</span><div class="act"><button class="btn sm" data-i18n="mfa.nudge_cta">Bật ngay</button><button class="btn ghost sm" data-i18n="mfa.nudge_later">Để sau</button></div></div></div>
+      <div class="g-3" style="gap:16px">
+        <div class="card">
+          <ol class="progress-steps"><li aria-current="step" data-i18n="auth.enroll.step1">Cài ứng dụng</li><li data-i18n="auth.enroll.step2">Quét mã</li><li data-i18n="auth.enroll.step3">Lưu mã khôi phục</li></ol>
+          <h3 data-i18n="auth.enroll.title">Bật xác thực 2 bước</h3>
+          <p class="muted" style="margin-top:6px" data-i18n="auth.enroll.step1_help">Cài một ứng dụng xác thực miễn phí trên điện thoại của bạn, ví dụ Google Authenticator hoặc Microsoft Authenticator.</p>
+          <button class="btn pri block" data-i18n="mfa.installed">Tôi đã cài – Tiếp tục</button>
+        </div>
+        <div class="card">
+          <ol class="progress-steps"><li class="done" data-i18n="auth.enroll.step1">Cài ứng dụng</li><li aria-current="step" data-i18n="auth.enroll.step2">Quét mã</li><li data-i18n="auth.enroll.step3">Lưu mã khôi phục</li></ol>
+          <p class="muted" data-i18n="auth.enroll.step2_help">Trong ứng dụng, chọn Thêm tài khoản → Quét mã QR, rồi quét mã bên dưới.</p>
+          <div class="row" style="align-items:flex-start"><div class="qr" role="img" aria-label="Mã QR đăng ký ứng dụng xác thực"></div><p class="mono" style="font-size:.75rem" data-i18n="auth.enroll.manual_key" data-i18n-args='{"key":"JBSW Y3DP EHPK 3PXP"}'>Không quét được? Nhập khóa này: JBSW Y3DP EHPK 3PXP</p></div>
+          <div class="field" style="margin-top:10px"><label for="en-otp" data-i18n="auth.enroll.confirm">Nhập mã 6 số ứng dụng đang hiện để xác nhận</label><input class="input code-input" id="en-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div>
+          <button class="btn pri block" data-i18n="auth.totp.submit">Xác nhận</button>
+        </div>
+        <div class="card">
+          <ol class="progress-steps"><li class="done" data-i18n="auth.enroll.step1">Cài ứng dụng</li><li class="done" data-i18n="auth.enroll.step2">Quét mã</li><li aria-current="step" data-i18n="auth.enroll.step3">Lưu mã khôi phục</li></ol>
+          <p class="muted" data-i18n="auth.enroll.step3_help">Mỗi mã dùng một lần khi bạn mất điện thoại. Lưu ở nơi an toàn (in ra giấy hoặc trình quản lý mật khẩu), không gửi qua chat.</p>
+          <pre class="quote-text mono" style="font-size:.75rem">K7QD-4M2X  P9TR-8B3N
+W2HF-6C1Z  M4JX-9V7Q
+B8LN-3K5R  T1GC-7Y4D
+F6WP-2H9S  R3ZM-5Q8E
+N5XB-1T6U  H9KV-4D2A</pre>
+          <div class="row"><button class="btn sm" data-i18n="auth.enroll.download">Tải về (.txt)</button><button class="btn sm" data-i18n="auth.enroll.print">In</button></div>
+          <label class="check" style="margin-top:10px"><input type="checkbox"><span data-i18n="auth.enroll.ack">Tôi đã lưu 10 mã khôi phục ở nơi an toàn</span></label>
+          <button class="btn pri block" aria-disabled="true" style="margin-top:8px" data-i18n="mfa.finish_locked">Hoàn tất (tích ô "đã lưu" trước)</button>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 1.4">
+      <h3>Story</h3><ul><li>Nền cho <span class="us">US-143</span> (R3); SR-AUTH-06. R2: tự nguyện, có banner nhắc.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getMy2fa</span> → <span class="op">startMy2faSetup</span> (trả QR + khóa) → <span class="op">confirmMy2fa</span> (trả 10 mã khôi phục, hiện một lần)</li><li><span class="op">disableMy2fa</span>: chỉ hiện khi vai không bắt buộc 2FA, có hộp xác nhận.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> mã xác nhận sai → <code>auth.totp.error</code></li><li><span class="pc">REAUTH_REQUIRED</span> → hỏi lại mật khẩu trước khi bật/tắt</li></ul>
+      <h3>Ghi chú</h3><ul><li>Không dùng SMS. Mã khôi phục chỉ hiện một lần, không lưu ở trình duyệt.</li><li>Chữ "chủ đầu tư duy nhất" (auth.enroll.single_owner) hiện ở bước 3 nếu chỉ có 1 owner.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s15">
+  <h2 id="s15"><span class="no">1.5</span>Chọn cơ sở (chỉ khi tài khoản có ≥ 2 cơ sở)</h2>
+  <p class="lead">MVP có 1 cơ sở → bỏ qua màn này, vào thẳng trang chủ theo vai. Giữ màn để không đổi luồng khi mở cơ sở 2 (ADR-007).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" id="prop-frame" data-state="normal" style="min-height:400px;display:grid;place-items:center;padding:32px 16px;background:var(--side)">
+      <div class="card" style="width:100%;max-width:440px;padding:24px">
+        <h2 data-i18n="prop.title">Chọn cơ sở</h2>
+        <div data-show="normal loading error offline">
+          <p class="muted" data-i18n="prop.lead" data-i18n-args='{"n":"2"}'>Bạn có quyền ở 2 cơ sở. Chọn nơi làm việc hôm nay.</p>
+          <ul class="list" role="list">
+            <li><a class="rowlink" href="03-today.html"><span class="avatar" aria-hidden="true">ĐL</span><span class="grow"><span class="li-t">OTTIMO Đà Lạt</span><br><span class="li-s" data-i18n="prop.meta" data-i18n-args='{"rooms":"10","roles":"Lễ tân"}'>10 căn · vai của bạn: Lễ tân</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a></li>
+            <li><a class="rowlink" href="#"><span class="avatar" aria-hidden="true">C2</span><span class="grow"><span class="li-t">Cơ sở 2 (ví dụ sau MVP)</span><br><span class="li-s" data-i18n="prop.meta" data-i18n-args='{"rooms":"8","roles":"Quản lý"}'>8 căn · vai của bạn: Quản lý</span></span><svg class="ico" aria-hidden="true"><use href="#i-chevron"/></svg></a></li>
+          </ul>
+        </div>
+        <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg></div><h3 data-i18n="prop.none_title">Tài khoản chưa được gán cơ sở nào</h3><p data-i18n="prop.none_body">Nhờ chủ đầu tư gán vai cho bạn rồi đăng nhập lại.</p><button class="btn" data-i18n="shell.logout">Đăng xuất</button></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px"><span class="muted" style="font-size:.75rem">Xem biến thể:</span><div class="seg"><button data-set-state="normal" data-target="#prop-frame" aria-pressed="true">Có cơ sở</button><button data-set-state="empty" data-target="#prop-frame" aria-pressed="false">Chưa gán cơ sở</button></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 1.5">
+      <h3>Story</h3><ul><li><span class="us">US-002</span> (vai theo cơ sở – <code>PropertyRole</code>); US-009 (Could) đa cơ sở.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getMe</span>.<code>properties[]</code> (tên, vai, <code>screens</code>, <code>deviceTrusted</code>); chọn xong lưu <code>activePropertyId</code> phía client, mọi API gọi theo <code>/v1/properties/{propertyId}</code>.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> nếu cơ sở bị gỡ quyền giữa phiên → về màn này.</li></ul>
+      <h3>Rỗng</h3><ul><li><code>properties = []</code> → trạng thái "chưa gán cơ sở" + Đăng xuất.</li></ul>
+    </aside>
+  </div>
+</section>
+</main>
+</body>
+</html>

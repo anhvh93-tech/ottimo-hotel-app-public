@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H12 Sale và CTV – báo giá ngắn ngày, giữ chỗ – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H12</div>
+  <h1>H12 · Sale/CTV trên điện thoại – căn trống, báo giá ngắn ngày, gửi báo giá, giữ chỗ</h1>
+  <div class="doc-meta"><span>Sprint 2 · EP11 (phần R2)</span><span>sales_staff, collaborator (FD trở lên dùng được trên máy quầy)</span><span>Điện thoại (Touch: chữ 16px, chạm ≥ 44px)</span><span>US-080, US-082, US-083, US-084, US-085, US-086 AC4, US-087, US-004 AC3</span><span>BR-107, 108, 110, 302, 304, 305, 903</span><span>Wireframe gốc: L5 5.1 (phần ngắn ngày)</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="11-reservation.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s121">
+  <h2 id="s121"><span class="no">12.1</span>Căn trống → Báo giá → Gửi → Giữ chỗ (4 màn, mỗi màn một việc)</h2>
+  <p class="lead">Ví dụ US-080 AC1: căn 202, 7 đêm 9/11 → 16/11/2026, khách trực tiếp do sale chốt. Ở khung 2 tăng lên 3 người lớn để thấy phụ thu 150.000 × 7 = 1.050.000 (BR-110) và nhắc khách thứ 3 ngủ sofa; tăng lên 4 → bị chặn (tối đa 3).</p>
+  <div class="doc-row">
+    <!-- 1. Availability -->
+    <div class="frame-phone"><div class="device touch stateful" data-state="normal">
+      <header class="m-top"><h1 data-i18n="nav.availability">Căn trống</h1></header>
+      <div class="offline-bar" role="status" data-show="offline" style="padding:8px 16px"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="sale.offline">Mất kết nối – kết quả có thể đã cũ. Chưa báo giá được.</span></div>
+      <div class="m-body">
+        <div class="g-2"><div class="field"><label for="av-in" data-i18n="sale.arrival">Ngày đến</label><input class="input" id="av-in" value="09/11/2026" inputmode="numeric"></div><div class="field"><label for="av-n" data-i18n="sale.nights">Số đêm</label><input class="input" id="av-n" value="7" inputmode="numeric"></div></div>
+        <div class="field"><label for="av-g" data-i18n="booking.field.guests">Số khách</label><select class="input" id="av-g"><option>2 người lớn</option><option>3 người lớn</option></select></div>
+        <div data-show="normal offline">
+          <div class="li-s" style="margin-bottom:6px" data-i18n="sale.avail_count" data-i18n-args='{"n":"6","from":"09/11","to":"16/11"}'>6 căn trống 09/11 → 16/11</div>
+          <ul class="list">
+            <li><a class="rowlink" href="#s121q"><span class="roomno">202</span><span class="grow"><span class="li-t">The Valley · Studio</span><br><span class="li-s" data-i18n="sale.room_meta" data-i18n-args='{"base":"2","max":"3"}'>Định mức 2 · tối đa 3 (khách thứ 3 ngủ sofa)</span></span><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sale.free">Trống</span></span></a></li>
+            <li><a class="rowlink" href="#s121q"><span class="roomno">302</span><span class="grow"><span class="li-t">The Ivory · 1PN + giường phụ</span><br><span class="li-s" data-i18n="sale.room_meta" data-i18n-args='{"base":"3","max":"4"}'>Định mức 3 · tối đa 4 (khách thứ 4 ngủ sofa)</span></span><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sale.free">Trống</span></span></a></li>
+            <li><div class="li"><span class="roomno">401</span><span class="grow"><span class="li-t">The Pine · 2PN</span><br><span class="li-s" data-i18n="sale.taken_partly" data-i18n-args='{"dates":"12/11 – 14/11"}'>Kín 12/11 – 14/11</span></span><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="sale.conflict">Trùng lịch</span></span></div></li>
+          </ul>
+        </div>
+        <div data-show="loading"><div class="sk" style="height:56px;margin-bottom:8px"></div><div class="sk" style="height:56px;margin-bottom:8px"></div><div class="sk" style="height:56px"></div></div>
+        <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></div><h3 data-i18n="sale.none_title">Hết phòng trong khoảng ngày</h3><p data-i18n="sale.none_body" data-i18n-args='{"dates":"10/11 → 17/11"}'>Thử dời 1 ngày: 10/11 → 17/11 còn 2 căn.</p><button class="btn" data-i18n="sale.try_dates">Xem ngày gợi ý</button></div>
+        <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="sale.error_title">Chưa tải được căn trống</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-9S4A"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-9S4A.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+      </div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.availability">Căn trống</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.my_quotes">Báo giá</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.my_bookings">Đơn của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.my_guests">Khách của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">1 · Căn trống (<span class="api">searchAvailability</span>)</p></div>
+
+    <!-- 2. Quote -->
+    <div class="frame-phone" id="s121q"><div class="device touch">
+      <header class="m-top"><button class="btn icon-btn" data-i18n-label="common.back" aria-label="Quay lại">‹</button><h1 data-i18n="sale.quote_title">Báo giá</h1></header>
+      <form class="m-body" onsubmit="return false" data-occ-form data-nights="7" data-channel="direct" data-room-amount="5205000">
+        <div class="field"><label for="q-room" data-i18n="booking.field.room">Căn</label><select class="input" id="q-room" data-occ-room><option data-room="202" data-base="2" data-max="3" selected>202 · The Valley (2/3)</option><option data-room="302" data-base="3" data-max="4">302 · The Ivory (3/4)</option></select></div>
+        <div class="li-s" style="margin:-6px 0 10px">09/11 → 16/11/2026 · <span data-i18n="booking.field.nights" data-i18n-args='{"n":"7"}'>7 đêm</span></div>
+        <fieldset class="field" style="border:0;padding:0;margin:0 0 10px" data-occ-field>
+          <legend class="lbl" style="font-weight:500;font-size:.9375rem;margin-bottom:4px" data-i18n="booking.field.guests">Số khách</legend>
+          <div class="occ-row">
+            <div class="occ" data-occ="adults"><span id="q-a" data-i18n="occ.adults_short">Người lớn</span><div class="stepper" data-min="1" data-max="9" role="group" aria-labelledby="q-a"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">2</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+            <div class="occ" data-occ="c611"><span id="q-c" data-i18n="occ.children_short">Trẻ 6–11</span><div class="stepper" data-min="0" data-max="9" role="group" aria-labelledby="q-c"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+            <div class="occ" data-occ="u6"><span id="q-u" data-i18n="occ.under6_short">Dưới 6</span><div class="stepper" data-min="0" data-max="4" role="group" aria-labelledby="q-u"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></div>
+          </div>
+          <p class="li-s" style="margin:6px 0 0" data-occ-summary aria-live="polite">Tính 2/3 người (định mức 2) · trẻ dưới 6 tuổi: 0</p>
+          <div class="err" data-occ-error hidden role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.CAPACITY_EXCEEDED" data-i18n-args='{"room":"202","max":"3"}'>Căn 202 ở tối đa 3 khách. Giảm số khách hoặc chọn căn lớn hơn.</span></div>
+          <div class="amenity" data-occ-kit hidden style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_reminder" data-i18n-args='{"n":"1"}'>Vượt định mức 1 người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối); buồng phòng tự nhận việc khi lưu đơn.</span></div>
+        </fieldset>
+        <div class="field"><label for="q-ret" data-i18n="sale.return_code">Mã khách quay lại (nếu có)</label><input class="input" id="q-ret"></div>
+        <div class="card" style="padding:12px">
+          <table class="sum">
+            <tr><td data-i18n="sale.nights_weekday" data-i18n-args='{"n":"5","rate":"713.000"}'>5 đêm thường × 713.000</td><td class="r">3.565.000</td></tr>
+            <tr><td data-i18n="sale.nights_weekend" data-i18n-args='{"n":"2","rate":"820.000"}'>2 đêm thứ Sáu, thứ Bảy × 820.000</td><td class="r">1.640.000</td></tr>
+            <tr class="sub"><td data-i18n="sale.los_applied" data-i18n-args='{"pct":"10"}'>Đã giảm 10% vì ở từ 7 đêm (BR-107)</td><td class="r"></td></tr>
+            <tr data-occ-fee hidden><td data-occ-fee-label data-i18n="occ.fee_line" data-i18n-args='{"n":"1","nights":"7"}'>Phụ thu 1 người vượt định mức × 7 đêm (BR-110)</td><td class="r" data-occ-fee-value>1.050.000</td></tr>
+            <tr class="total"><td data-i18n="bk.total">Tổng tiền đơn</td><td class="r" data-occ-total>5.205.000 đ</td></tr>
+            <tr class="sub"><td data-i18n="sale.deposit_due" data-i18n-args='{"pct":"30"}'>Cọc để giữ phòng (30% tiền phòng – BR-305)</td><td class="r">1.600.000</td></tr>
+          </table>
+          <hr class="hr" style="margin:10px 0">
+          <table class="sum"><tr><td data-i18n="sale.commission" data-i18n-args='{"pct":"3"}'>Sale nhận (3% tiền phòng – BR-903)</td><td class="r">156.150</td></tr><tr><td data-i18n="sale.ottimo_left">OTTIMO còn lại</td><td class="r">5.048.850</td></tr></table>
+          <p class="li-s" style="margin-top:6px" data-i18n="sale.price_source" data-i18n-args='{"days":"3"}'>Giá trực tiếp theo lịch giá hôm nay (BR-104). Báo giá giữ giá 3 ngày.</p>
+        </div>
+        <button class="btn pri block" style="margin-top:12px" data-occ-submit data-i18n="sale.save_quote">Lưu báo giá</button>
+      </form>
+    </div><p class="frame-cap">2 · Báo giá (<span class="api">calculateQuote</span> → <span class="api">saveQuote</span>) – sales_staff</p></div>
+
+    <!-- 3. Send -->
+    <div class="frame-phone" id="s122"><div class="device touch">
+      <header class="m-top"><button class="btn icon-btn" data-i18n-label="common.back" aria-label="Quay lại">‹</button><h1>BG-00049</h1><span class="chip ok" data-i18n="sale.quote_active">Còn hiệu lực</span></header>
+      <div class="m-body">
+        <div class="li-s" data-i18n="sale.quote_expires" data-i18n-args='{"time":"23:59 18/10"}'>Hết hiệu lực 23:59 18/10</div>
+        <div class="field" style="margin-top:10px"><span class="lbl" id="q-lang" data-i18n="sale.text_lang">Ngôn ngữ gửi khách</span><div class="seg" role="group" aria-labelledby="q-lang" data-seg-scope><button type="button" aria-pressed="true" data-show-only="vi">Tiếng Việt</button><button type="button" aria-pressed="false" data-show-only="en">English</button><button type="button" aria-disabled="true" aria-pressed="false" title="R3">Русский · R3</button></div></div>
+        <div data-seg-pane="vi"><pre class="quote-text" lang="vi">OTTIMO Boutique Stay – Báo giá BG-00049
+Căn 202 The Valley (Studio), 09/11 → 16/11/2026 (7 đêm), 2 người lớn.
+Tiền phòng: 5.205.000 đ (đã giảm 10% vì ở từ 7 đêm).
+Cọc giữ phòng: 1.600.000 đ. Phần còn lại thanh toán khi nhận phòng.
+Báo giá có hiệu lực đến 23:59 18/10/2026.</pre></div>
+        <div data-seg-pane="en" hidden><pre class="quote-text" lang="en">OTTIMO Boutique Stay – Quote BG-00049
+Room 202 The Valley (Studio), 09/11 → 16/11/2026 (7 nights), 2 adults.
+Room total: 5,205,000 VND (10% off for 7+ nights).
+Deposit to hold the room: 1,600,000 VND. The rest is paid at check-in.
+This quote is valid until 23:59 on 18/10/2026.</pre></div>
+        <button class="btn block" style="margin-top:10px"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="sale.copy_zalo">Sao chép gửi Zalo</span></button>
+        <div class="toast" role="status" style="margin-top:10px"><span data-i18n="msgtpl.copied">Đã chép</span></div>
+        <button class="btn pri block" style="margin-top:16px" data-i18n="sale.to_hold">Khách đồng ý – Giữ chỗ</button>
+      </div>
+    </div><p class="frame-cap">3 · Gửi báo giá (<span class="api">getQuoteText</span>?<code>locale</code>) – RU ở R3 (US-115)</p></div>
+
+    <!-- 4. Hold -->
+    <div class="frame-phone" id="s124"><div class="device touch">
+      <header class="m-top"><button class="btn icon-btn" data-i18n-label="common.back" aria-label="Quay lại">‹</button><h1 data-i18n="sale.hold_title">Giữ chỗ</h1></header>
+      <div class="m-body">
+        <div class="field"><label for="h-g"><span data-i18n="booking.field.guest">Khách đứng tên</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="h-g" value="Trần Minh Khoa · KH-0021"></div>
+        <div class="field"><label for="h-p"><span data-i18n="booking.field.phone">Số điện thoại / Zalo</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="h-p" value="0938 222 444" inputmode="tel"></div>
+        <div class="field"><span class="lbl" id="h-hrs" data-i18n="sale.hold_for">Giữ trong</span><div class="seg" role="group" aria-labelledby="h-hrs"><button type="button" aria-pressed="false">12 giờ</button><button type="button" aria-pressed="true">24 giờ</button><button type="button" aria-pressed="false">48 giờ</button></div><span class="help" data-i18n="sale.hold_until" data-i18n-args='{"time":"10:42 16/10"}'>Hết hạn 10:42 16/10 – chưa cọc thì tự hủy, mở bán lại.</span></div>
+        <div class="card" style="padding:12px;margin-bottom:12px"><div class="row" style="align-items:flex-start"><div class="qr" role="img" aria-label="VietQR 1.600.000 đồng"></div><div><div class="li-s" data-i18n="sale.deposit_due_short">Cọc cần thu</div><div class="price-big">1.600.000 đ</div><div class="li-s" data-i18n="sale.qr_after">Mã QR có nội dung là mã đơn, tạo ngay sau khi giữ chỗ.</div></div></div></div>
+        <button class="btn pri block" data-i18n="sale.create_hold">Tạo giữ chỗ</button>
+        <div class="alert ok" role="status" style="margin-top:12px"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt"><b data-i18n="sale.hold_created" data-i18n-args='{"code":"OTM-0165","room":"202"}'>Đã giữ căn 202 – đơn OTM-0165</b><span data-i18n="sale.hold_next" data-i18n-args='{"hours":"2"}'>Gửi mã QR cho khách. Bạn sẽ được nhắc 2 giờ trước khi hết hạn.</span></div></div>
+      </div>
+    </div><p class="frame-cap">4 · Giữ chỗ (<span class="api">createHoldFromQuote</span> → <span class="api">createVietQr</span>)</p></div>
+  </div>
+  <div class="doc-row" style="margin-top:16px">
+    <aside class="spec" style="max-width:none" aria-label="Đặc tả 12.1">
+      <h3>Story / AC</h3>
+      <ul><li><span class="us">US-080</span> AC1 tổng khớp ví dụ BR-107 (5.205.000), cọc BR-305 (1.600.000), hoa hồng người chốt BR-903; AC2 CTV thấy "Sale nhận" (8%) nhưng không thấy "OTTIMO còn lại"; AC3 ≥ 15 đêm hiện phương án thuê 1 tháng (<code>longStayAlternative</code>), ≥ 28 đêm → báo giá dài hạn (R3) – ở R2 hướng lễ tân tạo đơn dài hạn nhập tay; AC4 vượt tối đa/ngày đã qua/ngoài cửa sổ → lỗi tại ô, hết phòng → gợi ý ngày khác; AC5 phụ thu người theo BR-110.</li><li><span class="us">US-082</span> AC1 chip "Trùng lịch"/"Đang khóa" + căn khác còn trống; AC2 ngày đã qua → khóa nút giữ chỗ.</li><li><span class="us">US-083</span> AC1 mã BG, hạn theo BR-304, snapshot; AC2 sao chép theo ngôn ngữ (RU ở R3); AC3 báo giá hết hạn (12.2).</li><li><span class="us">US-084</span> AC1 giữ chỗ → <code>hold</code>, hạn theo BR-302, căn khóa ngay; AC2 ngày đến hôm nay → không giữ chỗ; AC3 thiếu SĐT → chặn; AC4 hiện số cọc + VietQR theo mã đơn.</li><li><span class="us">US-087</span> CTV chỉ thấy của mình.</li></ul>
+      <h3>API</h3>
+      <ul><li><span class="op">searchAvailability</span> · <span class="op">calculateQuote</span> (<code>QuoteInput.adults/children6to11/childrenUnder6</code>) · <span class="op">saveQuote</span> · <span class="op">getQuote</span> · <span class="op">getQuoteText</span> · <span class="op">listQuotes</span> · <span class="op">createHoldFromQuote</span> · <span class="op">createVietQr</span> (sale nội bộ; CTV không có – nhắn lễ tân) · <span class="op">withdrawQuote</span> · <span class="op">extendHold</span></li></ul>
+      <h3>Problem.code</h3>
+      <ul><li><span class="pc">CAPACITY_EXCEEDED</span> · <span class="pc">OUTSIDE_BOOKING_WINDOW</span> · <span class="pc">ROOM_UNAVAILABLE</span> · <span class="pc">ROOM_BLOCKED</span> · <span class="pc">QUOTE_EXPIRED</span> · <span class="pc">HOLD_NOT_ALLOWED_TODAY</span> · <span class="pc">PHONE_REQUIRED</span> · <span class="pc">DUPLICATE_GUEST</span> · <span class="pc">PAYMENT_NOT_CONFIGURED</span> (VietQR) · <span class="pc">NOT_FOUND</span> (CTV mở báo giá người khác)</li></ul>
+      <h3>Ghi chú số liệu</h3><ul><li>Giá đêm sau giảm 7 đêm theo ví dụ BR-107 (713.000 / 820.000). Sale nội bộ 3% = 156.150 – số lẻ giữ nguyên vì BR-903 không quy định làm tròn hoa hồng (<code>[GIẢ ĐỊNH]</code> – hỏi DOM).</li><li>Văn bản báo giá do server sinh (<span class="op">getQuoteText</span>) theo mẫu chuỗi <code>sale.quote_text</code> của UXD.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s123">
+  <h2 id="s123"><span class="no">12.2</span>Biến thể và lỗi</h2>
+  <div class="variants">
+    <div class="variant touch"><span class="label-h">CTV – không thấy "OTTIMO còn lại" (US-080 AC2)</span>
+      <table class="sum"><tr><td data-i18n="sale.commission_ctv" data-i18n-args='{"pct":"8"}'>Bạn nhận (8% tiền phòng – BR-903)</td><td class="r">416.400</td></tr></table></div>
+    <div class="variant touch"><span class="label-h">409 QUOTE_EXPIRED (US-083 AC3)</span>
+      <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt"><span data-i18n="error.QUOTE_EXPIRED">Báo giá đã hết hiệu lực. Gửi quản lý gia hạn, hoặc lập báo giá mới theo giá hiện hành.</span><div class="act"><button class="btn sm pri" data-i18n="sale.requote">Lập báo giá mới</button><button class="btn sm" data-i18n="sale.ask_extend">Gửi quản lý gia hạn</button></div></div></div></div>
+    <div class="variant touch"><span class="label-h">422 HOLD_NOT_ALLOWED_TODAY (US-084 AC2)</span>
+      <div class="alert info" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="error.HOLD_NOT_ALLOWED_TODAY">Khách đến hôm nay thì không giữ chỗ được. Thu tiền và tạo đơn ngay.</div></div>
+      <p class="li-s" data-i18n="sale.today_handoff">Sale/CTV: nhắn lễ tân tạo đơn đã thu cho khách này.</p></div>
+    <div class="variant touch"><span class="label-h">Ngày đã qua (US-082 AC2)</span>
+      <div class="field invalid" style="margin:0"><label for="pd" data-i18n="sale.arrival">Ngày đến</label><input class="input" id="pd" value="14/10/2026" aria-invalid="true"><div class="err"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="booking.error.past_date">Ngày đến không được trước hôm nay.</span></div></div>
+      <button class="btn pri block" aria-disabled="true" style="margin-top:8px" data-i18n="sale.hold_locked_past">Tạo giữ chỗ (ngày đã qua)</button></div>
+    <div class="variant touch"><span class="label-h">≥ 15 đêm – phương án thuê 1 tháng (US-080 AC3)</span>
+      <div class="card" style="padding:10px 12px"><b data-i18n="sale.month_option">So sánh: thuê 1 tháng</b><table class="sum"><tr><td data-i18n="sale.short_total" data-i18n-args='{"n":"20"}'>Ngắn ngày 20 đêm</td><td class="r">14.066.000</td></tr><tr><td data-i18n="sale.month_total">Thuê 1 tháng (tiền thuê + phí dịch vụ)</td><td class="r">9.800.000</td></tr></table><p class="li-s" data-i18n="sale.month_note">Thuê tháng làm hợp đồng – hiện vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay.</p></div></div>
+  </div>
+</section>
+</main>
+</body>
+</html>

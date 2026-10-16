@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H06 Hồ sơ khách và chặn trùng – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H06</div>
+  <h1>H06 · Khách hàng – danh sách, hồ sơ, chặn trùng, bộ chọn khách dùng chung</h1>
+  <div class="doc-meta"><span>Sprint 1 · EP10</span><span>front_desk trở lên · sales_staff, collaborator (khách của mình)</span><span>Máy quầy + điện thoại</span><span>US-071, US-072, US-073, US-023 AC2, US-003 AC1, US-087 AC3</span><span>BR-951, BR-952</span><span>Wireframe gốc: L10 10.1</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="05-params.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="07-users-devices.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s61">
+  <h2 id="s61"><span class="no">6.1</span>Danh sách khách – tìm có/không dấu</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar"><h1 data-i18n="nav.guests">Khách hàng</h1><button class="btn pri" data-open="#dlg-guest"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="crm.new_cta">Thêm khách</span></button></header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_readonly" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa lưu thay đổi được.</span></div>
+          <div class="page">
+            <div class="row" style="margin-bottom:12px"><label class="search" style="width:380px"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only" data-i18n="crm.search_label">Tìm khách</span><input type="search" value="do mai anh" data-i18n-ph="crm.search_ph" placeholder="Tên (có/không dấu), SĐT, email, mã KH"></label><span class="li-s" data-i18n="crm.results" data-i18n-args='{"n":"2"}'>2 kết quả</span></div>
+            <div class="table-wrap" data-show="normal offline"><table class="table">
+              <thead><tr><th data-i18n="crm.col_code">Mã KH</th><th data-i18n="crm.col_name">Họ tên</th><th data-i18n="crm.col_contact">Liên hệ</th><th data-i18n="crm.col_nat">Quốc tịch</th><th data-i18n="crm.col_tags">Nhóm khách</th><th data-i18n="crm.col_last">Lưu trú gần nhất</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">KH-0012</td><td><a href="#s62"><b>Đỗ Mai Anh</b></a> <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="crm.suspect_dup">Nghi trùng</span></span></td><td class="num">0905***456 · mai.anh@…</td><td>VN</td><td><span class="chip oak" data-i18n="crm.tag_return">Khách quay lại</span></td><td>OTM-0098 · 08/2026</td></tr>
+                <tr><td class="mono">KH-0014</td><td><a href="#s62"><b>Do Mai Anh</b></a> <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="crm.suspect_dup">Nghi trùng</span></span></td><td class="num">0912***870 · mai.anh@…</td><td>VN</td><td>–</td><td>–</td></tr>
+              </tbody></table></div>
+            <div class="cards" data-show="loading"><div class="sk" style="height:40px"></div><div class="sk" style="height:40px"></div><div class="sk" style="height:40px"></div></div>
+            <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></div><h3 data-i18n="crm.empty_title" data-i18n-args='{"q":"do mai anh"}'>Chưa có khách nào khớp "do mai anh"</h3><p data-i18n="crm.empty_body">Thử tìm bằng số điện thoại hoặc email, hoặc tạo hồ sơ mới.</p><button class="btn" data-open="#dlg-guest" data-i18n="crm.new_cta">Thêm khách</button></div>
+            <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="crm.error_title">Chưa tải được danh sách khách</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-2K9W"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-2K9W.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 6.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-073</span> AC1 "do mai anh" tìm ra "Đỗ Mai Anh" (bỏ dấu cả hai phía, tối thiểu 2 ký tự, tối đa 20 kết quả – <code>[GIẢ ĐỊNH UXD]</code> chờ đặc tả trường BA).</li><li>AC3 sale/CTV chỉ thấy khách/lead của mình.</li><li><span class="us">US-003</span> AC1 – danh sách không có cột giấy tờ với mọi vai.</li></ul>
+      <h3>API</h3><ul><li><span class="op">searchGuests</span> (<code>GuestSummary.phoneMasked</code>, <code>tags</code> theo vai)</li></ul>
+      <h3>Dữ liệu</h3><ul><li>DS-0 g12 "Đỗ Mai Anh" và g14 "Do Mai Anh" trùng email cố ý → chip "Nghi trùng" (BR-952). Gộp hồ sơ (US-074) là R3 – R2 chỉ cảnh báo.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s62">
+  <h2 id="s62"><span class="no">6.2</span>Hồ sơ khách mới – bị chặn vì trùng số điện thoại</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:780px"><div class="scrim-demo">
+      <form class="modal lg" role="dialog" aria-modal="true" aria-labelledby="g-h" onsubmit="return false">
+        <div class="modal-h"><h2 id="g-h" data-i18n="crm.title_new">Hồ sơ khách mới</h2><span class="meta" data-i18n="crm.draft_saved" data-i18n-args='{"time":"10:41"}'>Nháp tự lưu 10:41</span></div>
+        <div class="modal-b">
+          <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><b data-i18n="error.DUPLICATE_GUEST" data-i18n-args='{"guest":"Nguyễn Văn An (KH-0003)"}'>SĐT/email này đã thuộc hồ sơ Nguyễn Văn An (KH-0003). Dùng hồ sơ đó?</b>
+            <div class="card" style="margin-top:8px;padding:10px 12px"><div class="li" style="padding:0"><span class="avatar" aria-hidden="true">A</span><div class="grow"><div class="li-t">Nguyễn Văn An · KH-0003</div><div class="li-s">0901 234 567 · VN · OTM-0151 (16/10 → 20/10)</div></div></div></div>
+            <div class="act"><button class="btn sm pri" data-i18n="crm.duplicate_use">Dùng hồ sơ này cho đơn</button><button class="btn sm" data-i18n="crm.duplicate_open">Mở hồ sơ đã có</button></div></div></div>
+          <div class="g-2">
+            <div class="field span-2"><label for="gf-name"><span data-i18n="crm.f_name">Họ và tên</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="gf-name" value="Nguyen Van An" autocomplete="off"></div>
+            <div class="field invalid"><label for="gf-phone" data-i18n="booking.field.phone">Số điện thoại / Zalo</label><input class="input num" id="gf-phone" value="+84 901234567" aria-invalid="true" aria-describedby="gf-phone-e" inputmode="tel"><div class="err" id="gf-phone-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="crm.phone_taken" data-i18n-args='{"code":"KH-0003","phone":"0901 234 567"}'>Trùng với hồ sơ KH-0003 (đã chuẩn hóa thành 0901 234 567).</span></div></div>
+            <div class="field"><label for="gf-mail" data-i18n="booking.email">Email</label><input class="input" id="gf-mail" type="email" inputmode="email" placeholder="ten@email.com"><span class="help" data-i18n="crm.contact_rule">Cần ít nhất số điện thoại hoặc email.</span></div>
+            <div class="field"><label for="gf-wa" data-i18n="crm.f_handles">WhatsApp / KakaoTalk</label><input class="input" id="gf-wa"></div>
+            <div class="field"><label for="gf-pref" data-i18n="crm.f_pref">Liên hệ ưu tiên</label><select class="input" id="gf-pref"><option data-i18n="crm.pref_zalo">Zalo</option><option data-i18n="crm.pref_phone">Gọi điện</option><option>WhatsApp</option><option>Email</option></select></div>
+            <div class="field"><label for="gf-dob" data-i18n="crm.f_dob">Ngày sinh</label><input class="input" id="gf-dob" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
+            <div class="field"><label for="gf-nat" data-i18n="crm.f_nat">Quốc tịch</label><select class="input" id="gf-nat"><option selected>Việt Nam</option><option>Hàn Quốc</option><option>Nga</option></select></div>
+            <div class="field"><label for="gf-lang" data-i18n="crm.f_lang">Ngôn ngữ giao tiếp</label><select class="input" id="gf-lang"><option selected>Tiếng Việt</option><option>English</option><option>Русский</option></select></div>
+            <div class="field"><label for="gf-tag" data-i18n="crm.f_tags">Nhóm khách</label><select class="input" id="gf-tag"><option data-i18n="crm.tag_none">Chưa phân nhóm</option><option data-i18n="crm.tag_return">Khách quay lại</option><option data-i18n="crm.tag_corp">Khách công ty</option></select></div>
+            <div class="field"><label for="gf-co" data-i18n="crm.f_company">Công ty</label><input class="input" id="gf-co"></div>
+            <div class="field"><label for="gf-tax" data-i18n="invoice.tax_id">Mã số thuế</label><input class="input num" id="gf-tax" inputmode="numeric"><span class="help" data-i18n="invoice.tax_id_error">Mã số thuế gồm 10 hoặc 13 chữ số.</span></div>
+            <div class="field span-2"><span class="lbl" data-i18n="crm.f_service">Lưu ý phục vụ</span><div class="row"><label class="check"><input type="checkbox"><span data-i18n="crm.svc_high_floor">Thích tầng cao</span></label><label class="check"><input type="checkbox"><span data-i18n="crm.svc_quiet">Cần yên tĩnh</span></label><label class="check"><input type="checkbox"><span data-i18n="crm.svc_extra_pillow">Thêm gối</span></label></div><span class="help" data-i18n="crm.svc_help">Chọn từ danh sách – không ghi thông tin sức khỏe.</span></div>
+            <div class="field span-2"><label for="gf-note" data-i18n="crm.f_note">Ghi chú nội bộ</label><textarea class="input" id="gf-note"></textarea></div>
+          </div>
+          <div class="alert info" role="note"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><div class="txt" data-i18n="crm.no_id_note">Giấy tờ tùy thân không nhập ở đây – chỉ thêm ở bước nhận phòng trên máy được cấp.</div></div>
+        </div>
+        <div class="modal-f"><button class="btn" data-i18n="booking.close_draft">Đóng (giữ nháp)</button><button class="btn pri" aria-disabled="true" data-i18n="crm.save_blocked">Lưu hồ sơ (đang trùng SĐT)</button></div>
+      </form>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 6.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-071</span> AC1 thiếu họ tên hoặc thiếu cả SĐT lẫn email → không lưu; AC2 lỗi dạng tại ô, chuẩn hóa BR-951; AC3 không có ô số giấy tờ.</li><li><span class="us">US-072</span> AC1 "+84 901234567" trùng "0901 234 567" → chặn + "Mở hồ sơ đó".</li><li><span class="us">US-023</span> AC2 mã KH do server cấp, không đổi.</li></ul>
+      <h3>API</h3><ul><li><span class="op">lookupGuestByContact</span> khi rời ô SĐT/email (cảnh báo sớm) · <span class="op">createGuest</span> · <span class="op">updateGuest</span> · <span class="op">getGuest</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">DUPLICATE_GUEST</span> (409, <code>existingGuestId</code>) → alert đầu form + lỗi tại ô</li><li><span class="pc">VALIDATION_FAILED</span> (SĐT/email/MST sai dạng) → <code>errors[]</code> từng ô</li><li><span class="pc">CARD_NUMBER_DETECTED</span> ô ghi chú</li><li><span class="pc">VERSION_CONFLICT</span> khi sửa</li></ul>
+      <h3>Theo vai</h3><ul><li>Công ty/MST, ngày sinh: FD trở lên (<code>x-visible-to</code>). Sale/CTV: form rút gọn (tên, liên hệ, quốc tịch, ngôn ngữ, ghi chú); không có tag "Khách quay lại".</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s63">
+  <h2 id="s63"><span class="no">6.3</span>Nghi trùng (chỉ cảnh báo) và bộ chọn khách dùng chung</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">BR-952 – tên gần giống + cùng ngày sinh</span>
+      <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><b data-i18n="crm.duplicate_title">Có thể trùng với hồ sơ đã có</b><span data-i18n="crm.near_dup_body" data-i18n-args='{"guest":"Đỗ Mai Anh (KH-0012)","dob":"12/03/1994"}'>Đỗ Mai Anh (KH-0012) có cùng ngày sinh 12/03/1994. Kiểm tra trước khi tạo hồ sơ mới.</span>
+        <div class="act"><button class="btn sm" data-i18n="crm.duplicate_open">Mở hồ sơ đã có</button><button class="btn sm ghost" data-i18n="crm.duplicate_new_anyway">Vẫn tạo hồ sơ mới (ghi lý do)</button></div></div></div></div>
+    <div class="variant"><span class="label-h">Bộ chọn khách (C3 + combobox) – trong form đặt phòng</span>
+      <div class="field combo" style="margin:0"><label for="gp" data-i18n="booking.field.guest">Khách đứng tên</label>
+        <input class="input" id="gp" role="combobox" aria-expanded="true" aria-controls="gp-list" aria-autocomplete="list" aria-activedescendant="gp-o1" value="do mai anh">
+        <ul class="combo-list" id="gp-list" role="listbox" aria-label="Kết quả">
+          <li role="presentation"><div class="opt" role="option" id="gp-o1" aria-selected="true"><span class="avatar" aria-hidden="true">Đ</span><span class="grow"><mark>Đỗ Mai Anh</mark> · KH-0012<br><span class="li-s">0905***456 · VN</span></span></div></li>
+          <li role="presentation"><div class="opt" role="option" id="gp-o2" aria-selected="false"><span class="avatar" aria-hidden="true">D</span><span class="grow"><mark>Do Mai Anh</mark> · KH-0014<br><span class="li-s">0912***870 · VN</span></span></div></li>
+          <li role="presentation" class="sep"></li>
+          <li role="presentation"><div class="opt" role="option" id="gp-new" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="crm.quick_create" data-i18n-args='{"q":"do mai anh"}'>Tạo nhanh khách "do mai anh"</span></div></li>
+        </ul></div></div>
+    <div class="variant"><span class="label-h">Tạo nhanh với SĐT đã có (US-073 AC2)</span>
+      <div class="field" style="margin:0"><label for="qc-p" data-i18n="booking.field.phone">Số điện thoại / Zalo</label><input class="input" id="qc-p" value="0905 123 456"></div>
+      <div class="alert warn" role="status" style="margin-top:8px"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><span data-i18n="booking.error.dup_guest" data-i18n-args='{"guest":"Đỗ Mai Anh"}'>SĐT này đã thuộc hồ sơ Đỗ Mai Anh. Dùng hồ sơ đó?</span><div class="act"><button class="btn sm pri" data-i18n="crm.use_this">Dùng hồ sơ này</button></div></div></div></div>
+  </div>
+  <div class="spec" style="max-width:none;margin-top:16px">
+    <h3>Bộ chọn khách – quy tắc</h3>
+    <ul><li>Combobox APG: mũi tên lên/xuống, Enter chọn, Esc đóng danh sách; kết quả đọc được bằng trình đọc màn hình (<code>aria-activedescendant</code>).</li><li>Tìm sau 250ms ngừng gõ; ≥ 2 ký tự; khớp không dấu, SĐT (bỏ khoảng trắng/+84), email, mã KH.</li><li>Dòng cuối luôn là "Tạo nhanh khách …" → mở form rút gọn (tên, SĐT, email) trong cùng modal, không mất dữ liệu đơn.</li><li>Dùng ở: Đặt phòng mới (H09), đơn dài hạn nhập tay (H10), báo giá (H12), thêm người đi cùng (H11).</li></ul>
+  </div>
+</section>
+<dialog class="dlg" id="dlg-guest" aria-labelledby="dlg-guest-h"><div class="modal">
+  <div class="modal-h"><h2 id="dlg-guest-h" tabindex="-1" data-i18n="crm.title_new">Hồ sơ khách mới</h2></div>
+  <div class="modal-b"><div class="field"><label for="dg-n"><span data-i18n="crm.f_name">Họ và tên</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="dg-n" autofocus></div><div class="field"><label for="dg-p" data-i18n="booking.field.phone">Số điện thoại / Zalo</label><input class="input" id="dg-p" inputmode="tel"></div><p class="muted" style="font-size:.75rem">Bản bấm thử rút gọn – gõ một ký tự rồi bấm Esc để thấy hộp hỏi bỏ thay đổi.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="booking.close_draft">Đóng (giữ nháp)</button><button class="btn pri" data-close="force" data-i18n="crm.save">Lưu hồ sơ</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H11 Chi tiết đơn, đổi, hủy, gán căn – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H11</div>
+  <h1>H11 · Chi tiết đơn (drawer) – giữ chỗ, xác nhận cọc, đổi căn/ngày, hủy, không đến, gán căn đơn OTA</h1>
+  <div class="doc-meta"><span>Sprint 2 · EP02 + EP11</span><span>FD trở lên (đủ) · sale/CTV (đơn của mình)</span><span>Máy quầy (drawer 460px) · điện thoại toàn màn</span><span>US-020, US-021, US-022, US-024, US-085, US-086 AC1/AC2/AC4/AC5, US-087, US-135, US-136, US-139</span><span>Wireframe gốc: L2 2.3, 2.6; L9</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="10-long-stay-manual.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="12-sales-quote.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+<section class="doc-sec" aria-labelledby="s111">
+  <h2 id="s111"><span class="no">11.1</span>Đơn giữ chỗ chờ cọc – OTM-0160 (bấm các nút để mở hộp)</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal" style="min-height:700px"><div class="scrim-demo right">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="h1-h">
+        <div class="modal-h"><div class="grow"><span class="li-s mono">OTM-0160 · CTV Minh Anh</span><h2 id="h1-h">Lê Minh</h2></div><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="modal-b" data-show="normal offline error">
+          <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.INVALID_TRANSITION" data-i18n-args='{"status":"Đã xác nhận"}'>Đơn vừa chuyển sang "Đã xác nhận" nên thao tác này không còn dùng được. Tải lại để xem các nút hiện có.</div></div>
+          <div class="row" style="margin-bottom:8px"><span class="chip hold"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="status.booking.hold">Giữ chỗ · chờ cọc</span></span><span class="chip info">VN</span><span class="chip neutral" data-i18n="today.no_email">Đơn chưa có email</span></div>
+          <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt"><b data-i18n="rsv.hold_expires" data-i18n-args='{"h":"22","m":"30","at":"09:12 16/10"}'>Hết hạn giữ chỗ sau 22 giờ 30 phút (09:12 16/10)</b><span data-i18n="rsv.hold_auto">Quá hạn chưa cọc → hệ thống tự hủy và mở bán lại căn.</span></div></div>
+          <ol class="progress-steps" aria-label="Tiến trình đơn"><li class="done" data-i18n="rsv.step_booked">Đặt</li><li aria-current="step" data-i18n="rsv.step_hold">Giữ chỗ</li><li data-i18n="rsv.step_deposit">Đã cọc</li><li data-i18n="rsv.step_in">Nhận phòng</li><li data-i18n="rsv.step_out">Trả phòng</li></ol>
+          <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>103 · The Bloom (Lầu 1–2)</dd><dt data-i18n="rsv.dates">Ngày</dt><dd>T2 19/10 → T4 21/10 · 2 đêm</dd><dt data-i18n="booking.field.guests">Số khách</dt><dd><span data-i18n="rsv.guests_line" data-i18n-args='{"adults":"2","base":"2","max":"3"}'>2 người lớn · định mức 2, tối đa 3</span></dd><dt data-i18n="booking.field.channel">Kênh</dt><dd>CTV / môi giới · Minh Anh</dd></dl>
+          <h3 class="label-h" style="margin:14px 0 6px" data-i18n="drawer.folio.title">Folio</h3>
+          <table class="sum"><tr><td data-i18n="drawer.folio.room" data-i18n-args='{"n":"2"}'>Tiền phòng (2 đêm)</td><td class="r">1.500.000</td></tr><tr class="sub"><td data-i18n="bk.deposit_line" data-i18n-args='{"pct":"30"}'>Cọc cần thu (30% tiền phòng, làm tròn – BR-305)</td><td class="r">500.000</td></tr><tr class="total"><td data-i18n="drawer.folio.balance">Còn phải thu</td><td class="r">1.500.000 đ</td></tr></table>
+          <h3 class="label-h" style="margin:14px 0 6px" data-i18n="rsv.party">Người ở</h3>
+          <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><span data-i18n="rsv.party_missing" data-i18n-args='{"n":"1"}'>Thiếu 1 người – cần đủ người để khai báo lưu trú.</span><div class="act"><button class="btn sm" data-open="#dlg-party" data-i18n="rsv.add_person">Thêm người đi cùng</button></div></div></div>
+        </div>
+        <div class="modal-b" data-show="loading" aria-busy="true"><div class="cards"><div class="sk" style="height:28px"></div><div class="sk" style="height:56px"></div><div class="sk" style="height:120px"></div></div></div>
+        <div class="modal-f">
+          <button class="btn danger" data-open="#dlg-cancel-hold" data-i18n="drawer.action.cancel_hold">Hủy giữ chỗ</button>
+          <button class="btn" data-open="#dlg-extend" data-i18n="drawer.action.extend_hold">Gia hạn giữ chỗ (1 lần)</button>
+          <button class="btn pri" data-open="#dlg-deposit" data-show="normal error loading" data-i18n="drawer.action.confirm_deposit">Xác nhận đã nhận cọc</button>
+          <button class="btn pri" aria-disabled="true" data-show="offline" data-i18n="rsv.need_online">Cần có mạng để thao tác</button>
+        </div>
+      </aside>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 11.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-020</span> AC1 tiến trình đúng loại đơn; chỉ nút hợp lệ: Xác nhận cọc (FD+, sale – A04), Gia hạn giữ chỗ (nếu chưa gia hạn), Hủy giữ chỗ; CTV thấy "Báo đã chuyển cọc" (11.5).</li><li><span class="us">US-085</span> AC3 gia hạn 1 lần, không vượt trần 12:00 ngày đến.</li><li><span class="us">US-086</span> AC1 ghi ≥ cọc → <code>confirmed</code>; AC2 thiếu → giữ <code>hold</code> + "còn thiếu"; AC5 nhật ký tiền.</li><li><span class="us">US-022</span> AC1 "Thiếu 1 người".</li></ul>
+      <h3>API</h3><ul><li><span class="op">getReservation</span> (<code>allowedActions[]</code> → nút) · <span class="op">extendHold</span> · <span class="op">confirmDeposit</span> · <span class="op">cancelReservation</span> (<code>dryRun=true</code> lấy hậu quả) · <span class="op">listParty</span>/<span class="op">addPartyMember</span> · <span class="op">getFolio</span> · <span class="op">createVietQr</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (đơn đổi trạng thái giữa chừng) · <span class="pc">HOLD_EXPIRED</span> · <span class="pc">DEPOSIT_INSUFFICIENT</span> · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">NOT_FOUND</span> (CTV mở đơn người khác)</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s112">
+  <h2 id="s112"><span class="no">11.2</span>Đơn đã xác nhận có người vượt định mức – OTM-0152, căn 302</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:760px"><div class="scrim-demo right">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="h2-h">
+        <div class="modal-h"><div class="grow"><span class="li-s mono">OTM-0152 · Trực tiếp · Zalo</span><h2 id="h2-h">Gia đình anh Hưng</h2></div><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="modal-b">
+          <div class="row" style="margin-bottom:8px"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="status.booking.confirmed">Đã xác nhận</span></span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="today.no_docs">Chưa có giấy tờ</span></span><span class="chip neutral" data-i18n="today.no_email">Đơn chưa có email</span></div>
+          <ol class="progress-steps" aria-label="Tiến trình đơn"><li class="done" data-i18n="rsv.step_booked">Đặt</li><li class="done" data-i18n="rsv.step_hold">Giữ chỗ</li><li class="done" data-i18n="rsv.step_deposit">Đã cọc</li><li aria-current="step" data-i18n="rsv.step_in">Nhận phòng</li><li data-i18n="rsv.step_out">Trả phòng</li></ol>
+          <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>302 · The Ivory (Căn N+)</dd><dt data-i18n="rsv.dates">Ngày</dt><dd>T5 15/10 → CN 19/10 · 4 đêm · <span data-i18n="rsv.eta" data-i18n-args='{"time":"15:30"}'>dự kiến đến 15:30</span></dd><dt data-i18n="booking.field.guests">Số khách</dt><dd><span data-i18n="rsv.guests_line" data-i18n-args='{"adults":"4","base":"3","max":"4"}'>4 người lớn · định mức 3, tối đa 4</span></dd></dl>
+          <div class="amenity" style="margin-top:10px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><div><b data-i18n="occ.kit_chip" data-i18n-args='{"n":"1"}'>Vượt định mức 1 · chuẩn bị bộ đồ dùng thêm</b><br><span data-i18n="rsv.kit_task" data-i18n-args='{"time":"15:30"}'>Việc buồng phòng: 1 bộ (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối) trước 15:30 · Đã giao</span></div></div>
+          <h3 class="label-h" style="margin:14px 0 6px" data-i18n="drawer.folio.title">Folio</h3>
+          <table class="sum">
+            <tr><td data-i18n="drawer.folio.room" data-i18n-args='{"n":"4"}'>Tiền phòng (4 đêm)</td><td class="r">3.944.000</td></tr>
+            <tr><td data-i18n="occ.fee_line" data-i18n-args='{"n":"1","nights":"4"}'>Phụ thu 1 người vượt định mức × 4 đêm (BR-110)</td><td class="r">600.000</td></tr>
+            <tr class="sub"><td data-i18n="drawer.folio.paid">Đã thu</td><td class="r">−1.200.000</td></tr>
+            <tr class="total"><td data-i18n="drawer.folio.balance">Còn phải thu</td><td class="r">3.344.000 đ</td></tr>
+          </table>
+          <p class="li-s" style="margin-top:4px">Số tiền tính theo BR-104/110/305 cho ví dụ – DS-0 chưa ghi cọc của đơn này.</p>
+          <h3 class="label-h" style="margin:14px 0 6px" data-i18n="rsv.party">Người ở</h3>
+          <ul class="list"><li><div class="li"><span class="avatar" aria-hidden="true">H</span><div class="grow"><div class="li-t">Nguyễn Văn Hưng · KH-0007</div><div class="li-s" data-i18n="rsv.booker">Người đứng tên</div></div></div></li></ul>
+          <div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><span data-i18n="rsv.party_missing" data-i18n-args='{"n":"3"}'>Thiếu 3 người – cần đủ người để khai báo lưu trú.</span><div class="act"><button class="btn sm" data-open="#dlg-party" data-i18n="rsv.add_person">Thêm người đi cùng</button></div></div></div>
+        </div>
+        <div class="modal-f">
+          <button class="btn ghost" data-open="#dlg-cancel-booking" data-i18n="drawer.action.cancel_booking">Hủy đơn</button>
+          <button class="btn" data-open="#dlg-move" data-i18n="drawer.action.move">Đổi căn / đổi ngày</button>
+          <button class="btn" data-i18n="drawer.action.send_checkin_link">Gửi link check-in online</button>
+          <button class="btn pri" data-i18n="drawer.action.check_in">Nhận phòng</button>
+        </div>
+      </aside>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 11.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-020</span> AC1–AC2 nút theo <code>allowedActions</code>; <span class="us">US-017</span> AC7 dòng phụ thu (Trực tiếp; OTA không cộng); <span class="us">US-022</span> AC1 thiếu người, AC4 thêm người giữa kỳ → đề xuất phụ thu, lễ tân xác nhận mới ghi folio.</li><li><b>INV 16/10</b>: đơn có người vượt định mức → khối "chuẩn bị bộ đồ dùng thêm" + trạng thái việc buồng phòng (Chưa giao / Đã giao / Đã chuẩn bị).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getReservation</span> · <span class="op">getFolio</span> · <span class="op">listParty</span> · <span class="op">listHkTasks</span> (việc bộ đồ dùng thêm) · <span class="op">issueGuestLink</span> · <span class="op">moveReservation</span> · <span class="op">cancelReservation</span> · <span class="op">markNoShow</span></li><li>Nút "Nhận phòng" dẫn sang luồng nhận phòng (Sprint 3 – <span class="op">previewCheckIn</span>), cần thiết bị được cấp (<code>requiresTrustedDevice</code>).</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">CHECKIN_CONDITIONS_NOT_MET</span> · <span class="pc">DEVICE_NOT_TRUSTED</span> · <span class="pc">ROOM_UNAVAILABLE</span> (đổi căn) · <span class="pc">ROOM_NOT_READY</span> (đổi phòng khách đang ở sang căn chưa VI/VC – kèm <code>roomStatus</code>) · <span class="pc">CAPACITY_EXCEEDED</span> (thêm người vượt tối đa) · <span class="pc">PARTY_DUPLICATE</span> (thêm người đã có trong đơn – US-022 AC3)</li><li>Việc buồng phòng: <code>HkTaskType</code> <code>extra_guest_kit_prepare</code> (khi đơn <code>confirmed</code> có <code>extraGuestCount &gt; 0</code>), <code>_collect</code> (sau trả phòng), <code>_transfer</code> (đổi phòng) – hệ thống tự sinh, giao diện chỉ hiển thị.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s113">
+  <h2 id="s113"><span class="no">11.3</span>Đơn OTA chưa gán căn – OTM-0162 (Hannah Schmidt, Agoda)</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:640px"><div class="scrim-demo">
+      <div class="modal lg" role="dialog" aria-modal="true" aria-labelledby="as-h">
+        <div class="modal-h"><h2 id="as-h" data-i18n="rsv.assign_title" data-i18n-args='{"code":"OTM-0162","guest":"Hannah Schmidt"}'>Gán căn cho OTM-0162 · Hannah Schmidt</h2><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="rsv.conflict_chip">Xung đột OTA</span></span></div>
+        <div class="modal-b">
+          <p data-i18n="rsv.assign_lead" data-i18n-args='{"group":"Lầu 1–2","from":"21/10","to":"23/10","room":"203"}'>Agoda gửi đơn nhóm Lầu 1–2, 21/10 → 23/10 khi căn 203 đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất.</p>
+          <fieldset style="border:0;padding:0;margin:0"><legend class="label-h" style="margin-bottom:6px" data-i18n="move.resolution.same_group">Gán căn trống cùng nhóm</legend>
+            <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as" checked><span class="grow"><b>101 · The Amber</b> <span class="chip ok" data-i18n="rsv.best_fit">Phù hợp nhất</span><br><span class="li-s" data-i18n="rsv.fit_contiguous" data-i18n-args='{"prev":"Sophie Martin"}'>Nối tiếp đơn Sophie Martin – không tạo đêm lẻ</span></span></label>
+            <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as"><span class="grow"><b>103 · The Bloom</b><br><span class="li-s" data-i18n="rsv.fit_after_hold" data-i18n-args='{"prev":"Lê Minh"}'>Nối tiếp giữ chỗ Lê Minh (chưa cọc)</span></span></label>
+            <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as"><span class="grow"><b>201 · The Mist</b><br><span class="li-s" data-i18n="rsv.fit_gap" data-i18n-args='{"n":"2"}'>Để lại 2 đêm trống trước đơn</span></span></label>
+            <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as"><span class="grow"><b>202 · The Valley</b><br><span class="li-s" data-i18n="rsv.fit_gap" data-i18n-args='{"n":"1"}'>Để lại 1 đêm trống trước đơn</span></span></label>
+          </fieldset>
+          <details style="margin:8px 0"><summary class="btn ghost sm" data-i18n="move.resolution.upgrade">Nâng hạng (OTTIMO chịu chênh lệch)</summary><p class="li-s" style="margin-top:6px" data-i18n="rsv.upgrade_note">Căn nhóm khác chỉ là gợi ý – lễ tân trưởng hoặc quản lý xác nhận.</p></details>
+          <div class="field"><label for="as-r"><span data-i18n="move.reason">Lý do đổi</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="as-r"><option data-i18n="rsv.reason_ota_conflict">Đơn OTA về khi căn đã kín</option></select></div>
+          <p class="li-s" data-i18n="rsv.assign_effect">Sau khi gán: đơn rời làn "Chưa gán căn", cảnh báo đỏ tắt, nhận phòng được như đơn thường.</p>
+        </div>
+        <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="rsv.assign_submit" data-i18n-args='{"room":"101"}'>Gán vào căn 101</button></div>
+      </div>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 11.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-139</span> AC2 gợi ý theo BR-316 (căn ánh xạ → trống cùng nhóm, ít đêm lẻ; nhóm khác chỉ gợi ý); không tự đổi căn; không dời khách đang ở/dài hạn/khách quen; AC3 chưa gán → nhận phòng bị chặn (<span class="pc">RESERVATION_UNASSIGNED</span>).</li></ul>
+      <h3>API</h3><ul><li><span class="op">searchAvailability</span> (<code>alternatives[]</code> ≤ 6) · <span class="op">assignRoom</span> · <span class="op">swapRoom</span> (dời đơn khác, kèm lý do – US-024) · <span class="op">listOverbookingIncidents</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">ROOM_UNAVAILABLE</span> (căn vừa bị đặt) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">FORBIDDEN_ACTION</span> (nâng hạng với FD → "Gửi lễ tân trưởng xác nhận")</li></ul>
+      <h3>Ghi chú thứ tự gợi ý</h3><ul><li>Theo DS-0: 101 và 103 nối tiếp đơn trước (0 đêm lẻ), 202 để trống đêm 20/10 → xếp sau. Server trả thứ tự; giao diện chỉ hiển thị.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s114">
+  <h2 id="s114"><span class="no">11.4</span>Hộp xác nhận không đảo ngược và hộp thao tác</h2>
+  <p class="lead">Mẫu DS §6.1: tiêu đề là câu hỏi có đối tượng, thân nêu hậu quả (lấy từ <code>dryRun</code>), lý do bắt buộc khi quy tắc yêu cầu, nút an toàn nhận focus, nút xác nhận lặp lại động từ. Bấm các nút ở 11.1 / 11.2 để mở bản thật (Esc đóng, focus quay về nút).</p>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Hủy đơn đã cọc – BR-309 (OTM-0159, 402)</span>
+      <div class="modal" role="alertdialog" aria-labelledby="cb-h" style="box-shadow:none;border:1px solid var(--line)">
+        <div class="modal-h"><h2 id="cb-h" data-i18n="confirm.cancel_booking.title" data-i18n-args='{"code":"OTM-0159","guest":"Trần Quốc Bảo"}'>Hủy đơn OTM-0159 của Trần Quốc Bảo?</h2></div>
+        <div class="modal-b"><p data-i18n="confirm.cancel_booking.body" data-i18n-args='{"room":"402","from":"20/10","to":"23/10","retained":"450.000","refund":"450.000"}'>Căn 402 mở bán lại 20/10 → 23/10 trên mọi kênh. Giữ lại 450.000 (phí hủy); hoàn 450.000 – cần quản lý duyệt.</p>
+          <p class="li-s" data-i18n="rsv.cancel_rule" data-i18n-args='{"days":"5","pct":"50"}'>Hủy trước 5 ngày: hoàn 50% cọc (BR-309).</p>
+          <div class="field"><label for="cb-r"><span data-i18n="cancel.reason">Lý do hủy</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="cb-r"><option data-i18n="rsv.choose_reason">Chọn lý do</option><option data-i18n="cancel.reason.changed_mind">Khách đổi ý</option><option data-i18n="cancel.reason.found_other">Khách tìm được chỗ khác</option><option data-i18n="cancel.reason.dates">Đổi ngày</option></select></div></div>
+        <div class="modal-f"><button class="btn" autofocus data-i18n="cancel.keep">Giữ lại đơn</button><button class="btn danger" aria-disabled="true" data-i18n="drawer.action.cancel_booking">Hủy đơn</button></div></div>
+      <p class="li-s" style="margin-top:6px">manager/owner thấy thêm lựa chọn "Dời ngày thay vì hủy" (US-021 AC5). Đơn OTA: ô "Tiền phạt theo kênh" nhập tay (BR-310).</p></div>
+    <div class="variant"><span class="label-h">Xác nhận cọc – thu thiếu (US-086 AC2)</span>
+      <div class="modal" style="box-shadow:none;border:1px solid var(--line)">
+        <div class="modal-h"><h2 data-i18n="rsv.deposit_title" data-i18n-args='{"code":"OTM-0160"}'>Xác nhận cọc · OTM-0160</h2></div>
+        <div class="modal-b"><div class="g-2"><div class="field"><label for="dp-a" data-i18n="rsv.amount_received">Số tiền đã nhận</label><div class="input-affix"><input class="input num" id="dp-a" value="300.000"><span class="affix">đ</span></div></div><div class="field"><label for="dp-m" data-i18n="pay.method">Cách thanh toán</label><select class="input" id="dp-m"><option data-i18n="pay.vietqr">Chuyển khoản VietQR</option><option data-i18n="pay.cash">Tiền mặt</option></select></div></div>
+          <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.DEPOSIT_INSUFFICIENT" data-i18n-args='{"required":"500.000","paid":"300.000"}'>Chưa đủ cọc: cần 500.000, đã ghi nhận 300.000. Ghi nhận thêm rồi xác nhận.</div></div>
+          <p class="li-s" data-i18n="rsv.deposit_partial">Vẫn ghi được khoản đã nhận – đơn giữ "Giữ chỗ · chờ cọc" và hiện số còn thiếu.</p></div>
+        <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn" data-i18n="rsv.record_partial" data-i18n-args='{"amount":"300.000"}'>Ghi nhận 300.000</button></div></div></div>
+    <div class="variant"><span class="label-h">Đánh dấu không đến – khóa tới mốc (US-136 AC3)</span>
+      <div class="field"><label for="ns-c" data-i18n="noshow.contact_note">Kết quả liên lạc</label><select class="input" id="ns-c"><option data-i18n="rsv.contact_none">Chưa liên lạc</option><option data-i18n="rsv.contact_noanswer">Gọi không nghe máy</option><option data-i18n="rsv.contact_late">Khách báo đến trễ</option></select></div>
+      <button class="btn danger block" aria-disabled="true"><span data-i18n="drawer.action.no_show">Đánh dấu không đến</span></button>
+      <p class="li-s" style="margin-top:6px" data-i18n="noshow.locked" data-i18n-args='{"time":"23:00"}'>Mở được từ 23:00 và sau khi ghi kết quả liên lạc.</p></div>
+    <div class="variant"><span class="label-h">Đổi căn / đổi ngày – trùng lịch (US-024 AC1)</span>
+      <div class="field"><label for="mv-r" data-i18n="booking.field.room">Căn</label><select class="input" id="mv-r"><option>203 · The Sage</option></select></div>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.ROOM_UNAVAILABLE" data-i18n-args='{"room":"203","from":"19/10","to":"22/10"}'>Căn 203 đã kín từ 19/10 đến 22/10. Chọn ngày khác hoặc một căn trống bên dưới.</div></div>
+      <p class="li-s" data-i18n="move.ota_dates_locked">Đơn OTA: chỉ đổi căn nội bộ, ngày theo kênh.</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s115">
+  <h2 id="s115"><span class="no">11.5</span>Biến thể theo vai</h2>
+  <div class="doc-row">
+    <div class="frame-phone"><div class="device touch">
+      <header class="m-top"><button class="btn icon-btn" data-i18n-label="common.back" aria-label="Quay lại">‹</button><h1>Lê Minh</h1></header>
+      <div class="m-body">
+        <div class="row" style="margin-bottom:8px"><span class="chip hold"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="status.booking.hold">Giữ chỗ · chờ cọc</span></span><span class="countdown warn" data-i18n="rack.note.hold_left" data-i18n-args='{"h":"22","m":"30"}'>còn 22 giờ 30 phút</span></div>
+        <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>103 · 19/10 → 21/10</dd><dt data-i18n="booking.summary.total">Tổng tiền phòng</dt><dd>1.500.000</dd><dt data-i18n="booking.summary.deposit">Cọc cần thu</dt><dd>500.000</dd><dt data-i18n="rsv.commission_mine">Hoa hồng dự kiến của bạn</dt><dd>120.000 (8% – BR-903)</dd></dl>
+        <div class="card" style="margin-top:12px"><h3 data-i18n="drawer.action.deposit_notice">Báo đã chuyển cọc</h3>
+          <div class="field" style="margin-top:8px"><label for="ctv-a"><span data-i18n="rsv.amount_sent">Số tiền khách chuyển</span> <span class="req" aria-hidden="true">*</span></label><input class="input num" id="ctv-a" value="500.000" inputmode="numeric"></div>
+          <button class="btn block"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rsv.attach_receipt">Đính kèm ảnh biên nhận</span></button>
+          <p class="help muted" style="margin-top:6px" data-i18n="drawer.deposit_notice.help">Gửi ảnh biên nhận. Lễ tân hoặc sale nội bộ kiểm tiền vào tài khoản OTTIMO rồi xác nhận.</p></div>
+      </div>
+      <div class="sheet" style="border-radius:0"><div class="row"><button class="btn grow" data-i18n="drawer.action.cancel_hold">Hủy giữ chỗ</button><button class="btn pri grow" data-i18n="drawer.action.deposit_notice">Báo đã chuyển cọc</button></div></div>
+    </div><p class="frame-cap">collaborator (Minh Anh), đơn của mình – không folio chi tiết, không giấy tờ, không "Xác nhận cọc".</p></div>
+    <aside class="spec" aria-label="Đặc tả 11.5">
+      <h3>AC</h3><ul><li><span class="us">US-086</span> AC4 CTV chỉ "Báo đã chuyển cọc" + ảnh, FD/sale nhận thông báo.</li><li><span class="us">US-087</span> AC1–AC3 chỉ đơn của mình (đơn khác → <span class="pc">NOT_FOUND</span>), chỉ hoa hồng dự kiến của mình, không trường giấy tờ.</li><li><span class="us">US-020</span> AC3 CTV chỉ thấy tổng tiền phòng và cọc.</li></ul>
+      <h3>API</h3><ul><li><span class="op">createDepositNotice</span> + <span class="op">uploadAttachment</span> (ảnh JPEG/PNG/WebP, chuẩn hóa trên máy)</li></ul>
+      <h3>Bảng nút theo trạng thái × vai</h3><ul><li>Giữ nguyên bảng wireframe L2 mục 2.6 (nguồn cho FE/QA); hi-fi chỉ đổi kiểu nút: 1 nút chính/drawer, hủy = <code>danger</code> (giữ chỗ) hoặc <code>ghost</code> (đơn đã xác nhận, mở hộp xác nhận đỏ).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-cancel-hold" aria-labelledby="ch-h"><div class="modal" role="alertdialog" aria-labelledby="ch-h" aria-describedby="ch-b">
+  <div class="modal-h"><h2 id="ch-h" data-i18n="cancel.title" data-i18n-args='{"room":"103"}'>Hủy giữ chỗ căn 103?</h2></div>
+  <div class="modal-b"><p id="ch-b" data-i18n="cancel.consequence" data-i18n-args='{"room":"103","from":"19/10","to":"21/10","channels":"7","lead":"Lê Minh"}'>Căn 103 sẽ mở bán lại từ 19/10 đến 21/10 trên 7 kênh. Khách tiềm năng Lê Minh trở về "Đã báo giá".</p>
+    <div class="field"><label for="ch-r"><span data-i18n="cancel.reason">Lý do hủy</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="ch-r"><option data-i18n="rsv.choose_reason">Chọn lý do</option><option data-i18n="cancel.reason.changed_mind">Khách đổi ý</option><option data-i18n="cancel.reason.found_other">Khách tìm được chỗ khác</option><option data-i18n="cancel.reason.price">Giá chưa phù hợp</option><option data-i18n="cancel.reason.dates">Đổi ngày</option><option data-i18n="cancel.reason.unreachable">Không liên lạc được</option><option data-i18n="cancel.reason.other">Khác (ghi rõ)</option></select></div>
+    <p class="li-s" data-i18n="cancel.fee_none">Không thu phí (giữ chỗ chưa cọc)</p></div>
+  <div class="modal-f"><button class="btn" data-close="force" autofocus data-i18n="cancel.keep">Giữ lại đơn</button><button class="btn danger" data-close="force" data-i18n="cancel.confirm">Hủy giữ chỗ</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-extend" aria-labelledby="ex-h"><div class="modal">
+  <div class="modal-h"><h2 id="ex-h" tabindex="-1" data-i18n="rsv.extend_title">Gia hạn giữ chỗ (1 lần)</h2></div>
+  <div class="modal-b"><dl class="dl"><dt data-i18n="rsv.current_expiry">Hạn hiện tại</dt><dd>09:12 16/10</dd><dt data-i18n="rsv.new_expiry">Hạn mới</dt><dd>09:12 17/10</dd></dl><p class="li-s" style="margin-top:8px" data-i18n="rsv.extend_rule" data-i18n-args='{"hours":"24","time":"12:00"}'>Tối đa +24 giờ và không quá 12:00 ngày đến. Chỉ gia hạn được một lần.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="rsv.extend_submit" data-i18n-args='{"time":"09:12 17/10"}'>Gia hạn đến 09:12 17/10</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-deposit" aria-labelledby="dd-h"><div class="modal">
+  <div class="modal-h"><h2 id="dd-h" tabindex="-1" data-i18n="rsv.deposit_title" data-i18n-args='{"code":"OTM-0160"}'>Xác nhận cọc · OTM-0160</h2></div>
+  <div class="modal-b"><div class="row" style="align-items:flex-start;margin-bottom:10px"><div class="qr" role="img" aria-label="VietQR 500.000 đồng, nội dung OTM0160"></div><div><div class="price-big">500.000 đ</div><div class="li-s"><span data-i18n="pay.qr_note" data-i18n-args='{"ref":"OTM0160"}'>Nội dung chuyển khoản: OTM0160</span></div><button class="btn sm" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="rsv.copy_qr">Sao chép thông tin chuyển khoản</span></button></div></div>
+    <div class="g-2"><div class="field"><label for="ddp" data-i18n="rsv.amount_received">Số tiền đã nhận</label><div class="input-affix"><input class="input num" id="ddp" value="500.000"><span class="affix">đ</span></div></div><div class="field"><label for="ddm" data-i18n="pay.method">Cách thanh toán</label><select class="input" id="ddm"><option data-i18n="pay.vietqr">Chuyển khoản VietQR</option><option data-i18n="pay.cash">Tiền mặt</option></select></div></div>
+    <p class="li-s" data-i18n="rsv.reconcile_note">Chuyển khoản ghi tay được đánh dấu "chờ đối soát" cho tới khi kế toán khớp sao kê.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="rsv.deposit_submit">Xác nhận đã nhận cọc</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-cancel-booking" aria-labelledby="cbk-h"><div class="modal" role="alertdialog" aria-labelledby="cbk-h" aria-describedby="cbk-b">
+  <div class="modal-h"><h2 id="cbk-h" data-i18n="confirm.cancel_booking.title" data-i18n-args='{"code":"OTM-0152","guest":"Gia đình anh Hưng"}'>Hủy đơn OTM-0152 của Gia đình anh Hưng?</h2></div>
+  <div class="modal-b"><p id="cbk-b" data-i18n="confirm.cancel_booking.body" data-i18n-args='{"room":"302","from":"15/10","to":"19/10","retained":"1.200.000","refund":"0"}'>Căn 302 mở bán lại 15/10 → 19/10 trên mọi kênh. Giữ lại 1.200.000 (phí hủy); hoàn 0 – cần quản lý duyệt.</p>
+  <div class="field"><label for="cbk-r"><span data-i18n="cancel.reason">Lý do hủy</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="cbk-r"><option data-i18n="rsv.choose_reason">Chọn lý do</option><option data-i18n="cancel.reason.changed_mind">Khách đổi ý</option></select></div></div>
+  <div class="modal-f"><button class="btn" data-close="force" autofocus data-i18n="cancel.keep">Giữ lại đơn</button><button class="btn danger" data-close="force" data-i18n="drawer.action.cancel_booking">Hủy đơn</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-move" aria-labelledby="mv-h"><div class="modal">
+  <div class="modal-h"><h2 id="mv-h" tabindex="-1" data-i18n="move.title" data-i18n-args='{"code":"OTM-0152"}'>Đổi căn / đổi ngày · OTM-0152</h2></div>
+  <div class="modal-b"><div class="field"><label for="mvr" data-i18n="booking.field.room">Căn</label><select class="input" id="mvr"><option>302 · The Ivory (3/4)</option><option>402 · The Ember (3/4)</option></select></div><div class="field"><label for="mvw"><span data-i18n="move.reason">Lý do đổi</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="mvw"></div><p class="li-s" data-i18n="rsv.move_price_note">Giá các đêm giữ như lúc đặt.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="rsv.move_submit">Lưu thay đổi</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-party" aria-labelledby="pt-h"><div class="modal">
+  <div class="modal-h"><h2 id="pt-h" tabindex="-1" data-i18n="rsv.add_person">Thêm người đi cùng</h2></div>
+  <div class="modal-b"><div class="field"><span class="lbl" id="ptk" data-i18n="rsv.person_kind">Loại</span><div class="seg" role="group" aria-labelledby="ptk"><button aria-pressed="true" data-i18n="occ.adults">Người lớn (từ 12 tuổi)</button><button aria-pressed="false" data-i18n="rsv.child">Trẻ em</button></div></div>
+    <div class="field"><label for="ptn" data-i18n="crm.f_name">Họ và tên</label><input class="input" id="ptn" autofocus></div>
+    <p class="li-s" data-i18n="rsv.child_note">Trẻ em: chỉ cần năm sinh – không tạo hồ sơ khách, không lưu liên hệ.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="rsv.add_submit">Thêm vào đơn</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

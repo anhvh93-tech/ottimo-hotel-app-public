@@ -38,6 +38,11 @@ Không dùng: "Lỗi hệ thống", "Thao tác không hợp lệ", "OK", "Có/Kh
 | `in_house` | Đang ở | In house | Đã check-in, Đang lưu trú | |
 | `checked_out` | Đã trả phòng | Checked out | Đã check-out, Out | |
 | `cancelled` | Đã hủy | Cancelled | Huỷ, Cx | |
+| Định mức căn (`base_occupancy`) | Định mức | Standard occupancy | Sức chứa chuẩn, tiêu chuẩn | Số người đã gồm trong giá (BR-110) |
+| Sức chứa tối đa (`max_occupancy`) | Tối đa | Maximum | Sức chứa | = định mức + 1 (ESC-014) |
+| Chỗ ngủ của người vượt định mức | Sofa | Sofa | Nệm phụ, giường phụ (giường phụ chỉ dùng cho giường 1m4 của 302/402) | INV 16/10 |
+| Bộ đồ cho người vượt định mức | Bộ đồ dùng thêm | Extra amenity kit | Bộ đồ phụ, set phụ | 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối (INV 16/10) |
+| Đơn dài hạn ở R2 (`externalContract`) | Đơn dài hạn nhập tay · HĐ ngoài hệ thống | Manual long-stay booking · lease outside the app | HĐ tạm, đơn HĐ | US-017 AC5a |
 | `no_show` | Không đến | No-show | Bỏ phòng | |
 | Khối OOO | Khóa phòng | Out of order | Phòng hỏng (trên rack), Khoá | không phải trạng thái đơn (BR-804) |
 | Folio (nội bộ) | Folio | Folio | Sổ phòng | chỉ trong Desk |
@@ -160,9 +165,9 @@ Biến lấy từ đơn; giờ chuẩn 14:00/12:00 lấy từ tham số BR-401 (
 
 Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy từ tham số `cancel_policy_direct` – **chờ ESC-006**, thiếu thì mẫu hiện ⟨…⟩ và cảnh báo (L10 10.2). Không bao giờ đưa mã cửa/mã xác minh vào mẫu.
 
-## 8. Bảng chuỗi VI / EN (luồng 1–10 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
+## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 622 chuỗi + 8 mẫu tin nhắn (Bước 4: thêm 100 chuỗi, sửa 14 chuỗi – xem mục 9).
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 1124 chuỗi + 8 mẫu tin nhắn (R2 Đợt 0: thêm 502 chuỗi cho hi-fi `hifi/` – nhóm "R2 hi-fi – …"; Bước 4 R1: thêm 100, sửa 14 – xem mục 9).
 
 #### Chung
 
@@ -631,7 +636,7 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `error.GUEST_LINK_INVALID` | Liên kết đã hết hạn hoặc không còn dùng được. Nhắn OTTIMO để nhận liên kết mới. | This link has expired or is no longer valid. Message OTTIMO for a new one. | ⟨chừa chỗ⟩ | 401 – app khách; màn đầy đủ dùng `guest.link_expired_*` |
 | `error.GUEST_VERIFICATION_REQUIRED` | Để xem mục này, xác minh bằng mã gửi qua email hoặc mã do lễ tân cấp. | To see this, verify with the code sent by email or given by reception. | ⟨chừa chỗ⟩ | 403 – mức 2 (SR-GST-07) |
 | `error.DEVICE_NOT_TRUSTED` | Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này. | This device isn't approved for IDs and door codes. Use an approved desk computer, or ask the owner to approve this one. | ⟨chừa chỗ⟩ | 403 – SR-DEV-03; mã mới do SEC thêm, ARC cần bổ sung vào bảng mã openapi |
-| `error.FILE_REJECTED` | Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG, HEIC hoặc PDF dung lượng vừa phải – chụp lại hoặc chọn tệp khác. | This file can't be used. Only JPG, PNG, HEIC or PDF of reasonable size – retake or choose another file. | ⟨chừa chỗ⟩ | 422 – giới hạn dung lượng OPS/SEC chốt |
+| `error.FILE_REJECTED` | Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG hoặc WebP, tối đa 10 MB – chụp lại hoặc chọn ảnh khác. | This file can't be used. Only JPG, PNG or WebP photos up to 10 MB – retake or choose another photo. | ⟨chừa chỗ⟩ | 422 – khớp OpenAPI 0.3 (không nhận PDF, HEIC; R2 sửa) |
 | `error.RATE_LIMITED` | Bạn đã thử quá nhiều lần. Chờ {minutes} phút rồi thử lại. | Too many attempts. Wait {minutes} minutes and try again. | ⟨chừa chỗ⟩ | 429 |
 | `error.server` | Máy chủ đang gặp sự cố. Dữ liệu của bạn không bị mất. Thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The server is having a problem. Nothing has been lost. Try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | 5xx không có `code` – hiện `requestId` |
 
@@ -876,9 +881,620 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `config.view_only` | Chỉ xem – chủ đầu tư sửa | View only – owner can edit | ⟨chừa chỗ⟩ | A102 |
 | `moneylog.title` | Nhật ký thao tác tiền | Money activity log | ⟨chừa chỗ⟩ | US-006 |
 
+#### R2 hi-fi – Đặt phòng mới (H09)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `bk.ch_agent` | CTV / môi giới | Agent / broker | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ch_direct` | Trực tiếp | Direct | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ch_internal` | Nội bộ | Internal | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ch_ota` | OTA | OTA | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.checking` | Đang kiểm phòng trống… | Checking availability… | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.closer` | CTV chốt đơn | Agent who closed the booking | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.create_offline` | Tạo đơn (cần có mạng) | Create booking (needs connection) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.deposit_line` | Cọc cần thu ({pct}% tiền phòng, làm tròn – BR-305) | Deposit due ({pct}% of room charges, rounded – BR-305) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.eta` | Giờ đến dự kiến | Expected arrival time | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.eta_help` | Đến sau {time} → lễ tân chuẩn bị nhận phòng muộn. | Arriving after {time} → front desk prepares a late check-in. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.free_ok` | Căn trống cả khoảng ngày | Room is free for all dates | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.guest_help` | Tìm theo tên, SĐT, email, mã KH – hoặc tạo nhanh | Search by name, phone, email, guest ID – or quick-create | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.internal_help` | Phòng dùng nội bộ (nhân viên, kiểm tra) – không tính doanh thu, vẫn chiếm phòng. | Internal use (staff, inspection) – no revenue, still blocks the room. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.long_body` | Từ 28 đêm phải làm hợp đồng (BR-108). Ở giai đoạn này, tạo "Đơn dài hạn nhập tay" để giữ phòng; hợp đồng vẫn làm ngoài hệ thống. | From 28 nights a lease is required (BR-108). For now, create a "Manual long-stay booking" to hold the room; the lease is still handled outside the app. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.long_title` | {n} đêm là thuê dài hạn | {n} nights is a long stay | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.los_none` | Giảm theo số đêm (BR-107): không áp dụng | Length-of-stay discount (BR-107): not applicable | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.new_cta` | Đặt phòng mới | New booking | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `bk.night` | Đêm | Night | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.offline` | Mất kết nối – chưa tạo đơn được. Nháp vẫn giữ trên máy này. | You're offline – the booking can't be created yet. Your draft is kept on this computer. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.open_booking` | Mở đơn | Open booking | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ota_conflict_body` | Đơn OTA vẫn được nhận (đã cam kết với kênh). Chọn một căn trống cùng nhóm, hoặc lưu chưa gán căn để xử lý sau. | The OTA booking is still accepted (we're committed to the channel). Pick a free room in the same group, or save it unassigned and resolve it later. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ota_conflict_title` | Căn {room} đã kín {from} → {to} | Room {room} is already booked {from} → {to} | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ota_name` | Kênh OTA | OTA channel | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.ota_rate_warn` | Giá OTA nằm ngoài khoảng sàn–trần. Vẫn lưu được – ghi lý do để quản lý xem lại. | The OTA rate is outside the floor–ceiling range. You can still save – add a reason for the manager to review. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.other_groups` | Xem nhóm khác | See other room groups | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.pay_at_property` | Khách trả tại OTTIMO | Guest pays at OTTIMO | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.payment_model` | Thanh toán | Payment | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.rate` | Giá | Rate | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.rate_help` | Sửa được trong khoảng {min} – {max} (sàn–trần nhóm, BR-105). | Editable within {min} – {max} (group floor–ceiling, BR-105). | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.rate_source` | Nguồn giá | Rate source | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.reason_ph` | Lý do (bắt buộc) | Reason (required) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.room_help` | (định mức/tối đa) – chỉ hiện căn đang bán và còn trống trong khoảng ngày | (standard/max guests) – only rooms on sale and free for these dates | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.save_unassigned` | Lưu chưa gán căn | Save without a room | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.source` | Nguồn | Source | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_list` | Giá niêm yết (BR-101) | List price (BR-101) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_return` | Khách quay lại | Returning guest | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_sales` | Sale nội bộ | Sales staff | ⟨chừa chỗ⟩ | directSource=sales_staff (0.3.1) |
+| `bk.src_walkin` | Khách vãng lai | Walk-in | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_web` | Website | Website | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_weekend` | Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104) | Rate calendar: Friday/Saturday +15% (BR-104) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_zalo` | Zalo / điện thoại | Zalo / phone | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.to_manual_long` | Tạo đơn dài hạn nhập tay | Create manual long-stay booking | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.total` | Tổng tiền đơn | Booking total | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.use_room` | Dùng căn {room} | Use room {room} | ⟨chừa chỗ⟩ | 09-booking.html |
+
+#### R2 hi-fi – Khách hàng (H06)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `crm.col_code` | Mã KH | Guest ID | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.col_contact` | Liên hệ | Contact | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.col_last` | Lưu trú gần nhất | Last stay | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.col_name` | Họ tên | Full name | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.col_nat` | Quốc tịch | Nationality | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.col_tags` | Nhóm khách | Guest group | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.contact_rule` | Cần ít nhất số điện thoại hoặc email. | At least a phone number or an email is needed. | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.draft_saved` | Nháp tự lưu {time} | Draft saved {time} | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.empty_body` | Thử tìm bằng số điện thoại hoặc email, hoặc tạo hồ sơ mới. | Try searching by phone or email, or create a new profile. | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.empty_title` | Chưa có khách nào khớp "{q}" | No guest matches "{q}" | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.error_title` | Chưa tải được danh sách khách | Couldn't load the guest list | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_company` | Công ty | Company | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_dob` | Ngày sinh | Date of birth | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_handles` | WhatsApp / KakaoTalk | WhatsApp / KakaoTalk | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_lang` | Ngôn ngữ giao tiếp | Preferred language | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_name` | Họ và tên | Full name | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_nat` | Quốc tịch | Nationality | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_note` | Ghi chú nội bộ | Internal note | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_pref` | Liên hệ ưu tiên | Preferred contact | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_service` | Lưu ý phục vụ | Service notes | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.f_tags` | Nhóm khách | Guest group | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.near_dup_body` | {guest} có cùng ngày sinh {dob}. Kiểm tra trước khi tạo hồ sơ mới. | {guest} has the same date of birth {dob}. Check before creating a new profile. | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.new_cta` | Thêm khách | Add guest | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.no_id_note` | Giấy tờ tùy thân không nhập ở đây – chỉ thêm ở bước nhận phòng trên máy được cấp. | ID documents aren't entered here – only at check-in on an approved device. | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.phone_taken` | Trùng với hồ sơ {code} (đã chuẩn hóa thành {phone}). | Matches profile {code} (normalised to {phone}). | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.pref_phone` | Gọi điện | Phone call | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.pref_zalo` | Zalo | Zalo | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.quick_create` | Tạo nhanh khách "{q}" | Quick-create guest "{q}" | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.results` | {n} kết quả | {n} results | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.save` | Lưu hồ sơ | Save profile | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.save_blocked` | Lưu hồ sơ (đang trùng SĐT) | Save profile (phone number already in use) | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.search_label` | Tìm khách | Search guests | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.search_ph` | Tên (có/không dấu), SĐT, email, mã KH | Name (with or without accents), phone, email, guest ID | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.suspect_dup` | Nghi trùng | Possible duplicate | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.svc_extra_pillow` | Thêm gối | Extra pillow | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.svc_help` | Chọn từ danh sách – không ghi thông tin sức khỏe. | Pick from the list – don't record health information. | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.svc_high_floor` | Thích tầng cao | Prefers a high floor | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.svc_quiet` | Cần yên tĩnh | Needs a quiet room | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.tag_corp` | Khách công ty | Corporate guest | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.tag_none` | Chưa phân nhóm | No group | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.tag_return` | Khách quay lại | Returning guest | ⟨chừa chỗ⟩ | 06-guests.html |
+| `crm.use_this` | Dùng hồ sơ này | Use this profile | ⟨chừa chỗ⟩ | 06-guests.html |
+
+#### R2 hi-fi – Thiết bị được cấp (H07)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `device.check_legend` | Kiểm máy trước khi cấp | Check the device before approving | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.col_by` | Cấp bởi | Approved by | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.col_device` | Thiết bị | Device | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.col_expires` | Hết hạn | Expires | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.col_last` | Dùng gần nhất | Last used | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.expires_soon` | Hết hạn sau {days} ngày | Expires in {days} days | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.grant_locked` | Cấp quyền thiết bị này (còn {n} mục kiểm) | Approve this device ({n} checks left) | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.kind` | Loại thiết bị | Device type | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.kind_desk` | Máy quầy / laptop | Front-desk computer / laptop | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.kind_help` | Máy quầy/laptop: hạn {desk_days} ngày. Máy tính bảng của cơ sở: hạn tối đa {mobile_days} ngày, cấp lại định kỳ. | Front-desk computer/laptop: valid {desk_days} days. Property tablet: valid up to {mobile_days} days, renew regularly. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.kind_mobile` | Máy tính bảng của cơ sở | Property tablet | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `device.this` | Máy này | This device | ⟨chừa chỗ⟩ | 07-users-devices.html |
+
+#### R2 hi-fi – Mã lỗi API bổ sung (OpenAPI 0.3 / 0.3.1)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `error.INTERNAL_ERROR` | Máy chủ đang gặp sự cố. Dữ liệu của bạn không bị mất. Thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The server is having a problem. Nothing has been lost. Try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | 500 – cùng câu error.server + Problem.requestId (0.3.1) |
+| `error.USERNAME_TAKEN` | Tên đăng nhập này đã có người dùng. Chọn số điện thoại hoặc email khác. | This username is already taken. Use a different phone number or email. | ⟨chừa chỗ⟩ | 409 – createUser (0.3.1) |
+| `error.PARTY_DUPLICATE` | Người này đã có trong đơn. Chọn người khác. | This person is already on the booking. Choose someone else. | ⟨chừa chỗ⟩ | 409 – addPartyMember, US-022 AC3 (0.3.1) |
+| `error.ROOM_NOT_READY` | Căn {room} chưa sẵn sàng ({status}). Chọn căn đã kiểm sẵn sàng hoặc đã dọn. | Room {room} isn't ready ({status}). Choose a room that is inspected or cleaned. | ⟨chừa chỗ⟩ | 409 – changeRoom B14, kèm roomStatus (0.3.1) |
+| `field.MAX_OCCUPANCY_RANGE` | Tối đa chỉ được bằng định mức hoặc định mức + 1. | Maximum can only equal the standard occupancy or standard + 1. | ⟨chừa chỗ⟩ | errors[].code – ESC-014 (0.3.1) |
+| `field.OTA_REF_DUPLICATE` | Mã đặt phòng OTA này đã có ở đơn khác. Kiểm tra để tránh nhập trùng. | This OTA booking reference is already on another booking. Check to avoid a duplicate. | ⟨chừa chỗ⟩ | errors[].code (0.3.1) |
+| `field.DIRECT_SOURCE_NOT_ALLOWED` | Chỉ chọn nguồn cho đơn kênh Trực tiếp. | Source applies only to Direct bookings. | ⟨chừa chỗ⟩ | errors[].code (0.3.1) |
+| `field.LONG_STAY_REQUIRES_CONTRACT` | Từ 28 đêm là thuê dài hạn – tạo đơn dài hạn nhập tay. | 28 nights or more is a long stay – create a manual long-stay booking. | ⟨chừa chỗ⟩ | errors[].code – BR-108 (0.3.1) |
+| `field.MIN_STAY_NOT_MET` | Ngày này cần ở tối thiểu {n} đêm. | This date requires a minimum stay of {n} nights. | ⟨chừa chỗ⟩ | errors[].code – BR-113; FDL+ bỏ qua bằng lý do |
+| `field.LAST_OWNER` | Không bỏ được vai chủ đầu tư cuối cùng của cơ sở. | You can't remove the last owner of this property. | ⟨chừa chỗ⟩ | errors[].code – rbac 5.3 (0.3.1) |
+| `error.PARAM_OUT_OF_RANGE` | Giá trị này nằm ngoài khoảng cho phép. Chọn một trong: {allowed}. | This value is outside the allowed range. Choose one of: {allowed}. | ⟨chừa chỗ⟩ | 05-params.html |
+| `error.CAPACITY_BELOW_BOOKINGS` | Chưa giảm số người được: có đơn đã nhận nhiều khách hơn. Đổi số khách hoặc đổi căn cho các đơn trong danh sách trước. | Can't lower the occupancy: some bookings already have more guests. Change their guest count or move them first. | ⟨chừa chỗ⟩ | 409 – kèm conflicts[] (BUG-R1-007) |
+| `error.MFA_REQUIRED` | Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. | Enter the code from your authenticator app to finish signing in. | ⟨chừa chỗ⟩ | 401 – sang màn nhập mã |
+| `error.PASSWORD_CHANGE_REQUIRED` | Bạn đang dùng mật khẩu tạm. Đặt mật khẩu riêng để tiếp tục. | You're using a temporary password. Set your own password to continue. | ⟨chừa chỗ⟩ | 403 – sang màn đổi mật khẩu |
+| `error.REAUTH_REQUIRED` | Để tiếp tục, nhập lại mật khẩu (hoặc PIN duyệt) của bạn. | To continue, re-enter your password (or approval PIN). | ⟨chừa chỗ⟩ | 401 – step-up C3 |
+| `error.GUEST_VERIFICATION_LOCKED` | Đã thử sai quá nhiều lần. Gọi hoặc nhắn lễ tân để nhận mã xác minh mới. | Too many wrong attempts. Call or message the front desk for a new verification code. | ⟨chừa chỗ⟩ | 429 – app khách (SR-GST-08) |
+| `error.GUEST_STAY_ENDED` | Bạn đã trả phòng. Trang này chỉ còn xem phiếu thanh toán. | You've checked out. This page now only shows your bill. | ⟨chừa chỗ⟩ | 403 – app khách (SR-GST-11) |
+| `error.DELIVERY_CHANNEL_DISABLED` | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã, hoặc đọc mã cho khách. | Sending codes by message is off. The owner can turn it on in Settings › Code delivery, or read the code to the guest. | ⟨chừa chỗ⟩ | 409 |
+| `error.PAYLOAD_TOO_LARGE` | Tệp quá lớn (tối đa 10 MB). Chụp lại hoặc chọn ảnh nhỏ hơn. | The file is too large (max 10 MB). Retake or choose a smaller photo. | ⟨chừa chỗ⟩ | 413 |
+| `error.SHIFT_ALREADY_OPEN` | Bạn đang có một ca chưa đóng. Đóng ca đó trước khi mở ca mới. | You already have a shift open. Close it before opening a new one. | ⟨chừa chỗ⟩ | 409 – R3 (US-124) |
+| `error.SHIFT_NOT_OPEN` | Chưa mở ca nên chưa ghi tiền mặt được. Mở ca rồi thử lại. | No shift is open, so cash can't be recorded. Open a shift and try again. | ⟨chừa chỗ⟩ | 409 – R3 (US-124) |
+| `error.SHIFT_VARIANCE_REASON_REQUIRED` | Tiền mặt đang lệch so với sổ. Ghi lý do chênh lệch trước khi đóng ca. | Cash doesn't match the records. Add a reason for the difference before closing the shift. | ⟨chừa chỗ⟩ | 422 – R3 (US-124) |
+| `error.GROUP_ALLOCATION_MISMATCH` | Tổng tiền chia cho các đơn chưa khớp số tiền đã nhận. Kiểm lại từng dòng. | The amounts split across bookings don't add up to the payment. Check each line. | ⟨chừa chỗ⟩ | 422 – R3 (US-140) |
+
+#### R2 hi-fi – Buồng phòng – bộ đồ dùng thêm (INV 16/10)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `hk.task.extra_kit` | Chuẩn bị {n} bộ đồ dùng thêm – căn {room}, trước {time} | Prepare {n} extra amenity kit(s) – room {room}, before {time} | ⟨chừa chỗ⟩ | Việc buồng phòng tự sinh khi đơn có người vượt định mức (INV 16/10) |
+| `hk.task.extra_kit_items` | Mỗi bộ: 1 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối) | Each kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow) | ⟨chừa chỗ⟩ | INV xác nhận 16/10 – BR-812; HkTaskType extra_guest_kit_prepare/collect/transfer (OpenAPI 0.3.1) |
+
+#### R2 hi-fi – Đăng nhập (H01)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `login.no_signup` | Chưa có tài khoản? Nhờ chủ đầu tư tạo cho bạn. | No account yet? Ask the owner to create one for you. | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.offline` | Không có mạng. Cần kết nối để đăng nhập. | No connection. You need to be online to sign in. | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.password` | Mật khẩu | Password | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.remember` | Giữ đăng nhập trên máy này (máy của khách sạn) | Keep me signed in on this computer (hotel device) | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.show_password` | Hiện | Show | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.submit` | Đăng nhập | Sign in | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.submitting` | Đang đăng nhập… | Signing in… | ⟨chừa chỗ⟩ | 01-login.html |
+| `login.title` | Đăng nhập | Sign in | ⟨chừa chỗ⟩ | 01-login.html |
+
+#### R2 hi-fi – Đơn dài hạn nhập tay – US-017 AC5a (H10)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `lsm.below_threshold` | {n} đêm chưa tới ngưỡng dài hạn (từ {min} đêm). Tạo đơn ngắn ngày thay thế. | {n} nights is below the long-stay threshold (from {min} nights). Create a short-stay booking instead. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.col_code` | Mã đơn | Booking ID | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.col_deposit` | Ký quỹ ngoài app | Security deposit (outside app) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.col_last_pay` | Lần thu gần nhất | Last payment | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.col_period` | Thời hạn | Term | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.col_rent` | Tiền thuê/tháng | Rent/month | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.contract_ref` | Số hợp đồng giấy | Paper lease number | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.create` | Tạo đơn dài hạn | Create long-stay booking | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.deposit` | Ký quỹ đang giữ (ngoài app) | Security deposit held (outside app) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.deposit_help` | Chỉ để ghi nhớ – không tạo giao dịch | For reference only – no transaction is created | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.duration` | {months} tháng · {nights} đêm | {months} months · {nights} nights | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.edit` | Sửa thông tin HĐ | Edit lease details | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.export` | Xuất danh sách (.csv) | Export list (.csv) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.extra_note` | Phụ thu người thêm của khách dài hạn ghi theo hợp đồng giấy – app không tự tính ở đơn này. | Extra-guest charges for long-stay guests follow the paper lease – the app doesn't calculate them for this booking. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.filter_chip` | Lọc: HĐ ngoài hệ thống | Filter: lease outside the app | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.flag` | HĐ ngoài hệ thống – chuyển vào app ở R3 | Lease outside the app – moved into the app in R3 | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.flag_body` | Hợp đồng, lịch thu theo kỳ và ký quỹ vẫn làm như hiện nay. Đơn này giữ phòng trên sơ đồ; tiền thu được ghi từng lần trong folio. Khi app có hợp đồng, đơn được chuyển sang, giữ nguyên mã đơn. | The lease, payment schedule and security deposit are handled as today. This booking holds the room on the rack; payments are recorded one by one in the folio. When the app supports leases, the booking is moved over with the same booking ID. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.list_title` | Đơn dài hạn nhập tay | Manual long-stay bookings | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.move_in` | Ngày vào | Move-in date | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.move_out` | Ngày ra (theo HĐ) | Move-out date (per lease) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.no_reminder` | App chưa nhắc thu theo kỳ cho đơn này. Theo dõi lịch thu như hiện nay. | The app doesn't send payment-period reminders for this booking yet. Keep tracking the schedule as you do today. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.not_generated` | Đơn này không sinh: hợp đồng, lịch kỳ thu, nhắc thu, hoa hồng. | This booking does not create: a lease, a payment schedule, payment reminders, or commission. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.note` | Ghi chú (gói dọn, chu kỳ thu…) | Notes (cleaning package, payment cycle…) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.pay_line` | Thu tiền thuê (ghi tay) | Rent received (recorded manually) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.pending_r3` | Chờ chuyển vào app | Waiting to move into the app | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.record_payment` | Ghi thu tiền | Record payment | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.rent` | Tiền thuê mỗi tháng (theo HĐ) | Monthly rent (per lease) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.rent_help` | Nhập tay đúng số trên hợp đồng giấy | Type exactly the amount on the paper lease | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.title` | Đơn dài hạn nhập tay | Manual long-stay booking | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.to_short` | Chuyển sang đặt phòng ngắn ngày | Switch to a short-stay booking | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+
+#### R2 hi-fi – Xác thực 2 bước nền (H01)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `mfa.finish_locked` | Hoàn tất (tích ô "đã lưu" trước) | Finish (tick "saved" first) | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.installed` | Tôi đã cài – Tiếp tục | I've installed it – Continue | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.nudge` | Tài khoản chủ đầu tư/quản lý nên bật xác thực 2 bước. Từ khi có dữ liệu khách thật, việc này là bắt buộc. | Owner and manager accounts should turn on 2-step verification. Once real guest data is in the app, it becomes mandatory. | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.nudge_cta` | Bật ngay | Turn on now | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.nudge_later` | Để sau | Later | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.recovery_after` | Sau khi vào, bạn cần đăng ký lại ứng dụng xác thực. Mã vừa dùng bị hủy. | After signing in, set up your authenticator app again. The code you used is cancelled. | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.recovery_help` | Nhập một trong 10 mã khôi phục bạn đã lưu khi bật xác thực 2 bước. | Enter one of the 10 recovery codes you saved when you turned on 2-step verification. | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.recovery_submit` | Đăng nhập bằng mã khôi phục | Sign in with recovery code | ⟨chừa chỗ⟩ | 01-login.html |
+| `mfa.recovery_title` | Dùng mã khôi phục | Use a recovery code | ⟨chừa chỗ⟩ | 01-login.html |
+
+#### R2 hi-fi – Điều hướng theo vai (H02)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `nav.approvals` | Cần duyệt | Approvals | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.availability` | Căn trống | Availability | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.device_trusted` | Máy quầy đã cấp quyền | Approved front-desk computer | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.device_untrusted` | Máy chưa cấp quyền giấy tờ | Device not approved for IDs | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.devices` | Thiết bị được cấp | Approved devices | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.guests` | Khách hàng | Guests | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.housekeeping` | Buồng phòng | Housekeeping | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.maintenance` | Bảo trì | Maintenance | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.me` | Tôi | Me | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.moneylog` | Nhật ký tiền | Money log | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.more` | Thêm | More | ⟨chừa chỗ⟩ | 08-rack.html |
+| `nav.my_bookings` | Đơn của tôi | My bookings | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.my_guests` | Khách của tôi | My guests | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.my_quotes` | Báo giá | Quotes | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.my_tasks` | Việc của tôi | My tasks | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.overview` | Tổng quan | Overview | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.params` | Tham số quy tắc | Rule settings | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.quotes` | Báo giá & giữ chỗ | Quotes & holds | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.rack` | Sơ đồ phòng | Room rack | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.registration` | Giấy tờ & khai báo | IDs & registration | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.report_issue` | Báo sự cố | Report an issue | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.reservations` | Đơn đặt phòng | Bookings | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.rooms` | Danh mục căn | Rooms | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.rooms_short` | Phòng | Rooms | ⟨chừa chỗ⟩ | 08-rack.html |
+| `nav.rooms_status` | Các căn | Rooms | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.sec.admin` | Quản trị | Admin | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.sec.ops` | Vận hành | Operations | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.sec.sales` | Khách & bán | Guests & sales | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.sec.top` | Điều hành | Management | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `nav.tasks` | Việc | Tasks | ⟨chừa chỗ⟩ | 08-rack.html |
+| `nav.today` | Hôm nay | Today | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.users` | Người dùng & vai | Users & roles | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `nav.work_orders` | Phiếu sửa | Work orders | ⟨chừa chỗ⟩ | 02-role-nav.html |
+
+#### R2 hi-fi – Số khách – định mức/tối đa, ESC-014 (H09, H10, H12)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `occ.adults` | Người lớn (từ 12 tuổi) | Adults (12+) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.adults_short` | Người lớn | Adults | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.children` | Trẻ 6–11 tuổi | Children 6–11 | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.children_short` | Trẻ 6–11 | Kids 6–11 | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.fee_line` | Phụ thu {n} người vượt định mức × {nights} đêm (BR-110) | Extra-guest charge: {n} over standard × {nights} nights (BR-110) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.kit_chip` | Vượt định mức {n} · chuẩn bị bộ đồ dùng thêm | {n} over standard · prepare extra amenity kit | ⟨chừa chỗ⟩ | 03-today.html |
+| `occ.kit_reminder` | Vượt định mức {n} người – khách ngủ sofa. Nhớ chuẩn bị bộ đồ dùng thêm (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối); buồng phòng tự nhận việc khi lưu đơn. | {n} guest(s) over the standard occupancy – sleeping on the sofa. Remember to prepare an extra amenity kit (1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries – no pillow); housekeeping gets the task automatically when the booking is saved. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.under6` | Trẻ dưới 6 tuổi | Children under 6 | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.under6_note` | Trẻ dưới 6 tuổi ngủ chung giường bố mẹ, không tính vào số này. | Children under 6 share their parents' bed and don't count towards this number. | ⟨chừa chỗ⟩ | 09-booking.html |
+| `occ.under6_short` | Dưới 6 | Under 6 | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `occ.summary` | Tính {counted}/{max} người (định mức {base}) · trẻ dưới 6 tuổi: {under6} | Counted {counted}/{max} guests (standard {base}) · children under 6: {under6} | ⟨chừa chỗ⟩ | JS hifi.js – trẻ dưới 6 tuổi không tính (BR-110) |
+| `occ.fee_ota` | Đơn OTA: không cộng phụ thu người – OTA đã tính theo số khách | OTA booking: no extra-guest charge – the OTA already priced the guest count | ⟨chừa chỗ⟩ | US-017 AC7 |
+
+#### R2 hi-fi – Tham số quy tắc (H05)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `params.allowed` | Cho phép: {values} | Allowed: {values} | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.apply_note` | Giữ chỗ đã tạo giữ hạn cũ. Mức mới áp cho giữ chỗ tạo từ ngày hiệu lực. | Existing holds keep their old expiry. The new value applies to holds created from the effective date. | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.child_free` | Trẻ miễn phí, không tính số người – dưới | Children free and not counted – under | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.col_changed` | Sửa gần nhất | Last changed | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.col_name` | Tham số | Setting | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.col_rule` | Quy tắc | Rule | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.col_value` | Giá trị | Value | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.deposit_pct` | Cọc ngắn ngày | Short-stay deposit | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.edit_title` | Sửa: {name} | Edit: {name} | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.error_title` | Chưa tải được tham số | Couldn't load settings | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.extra_adult` | Phụ thu người lớn vượt định mức (mỗi đêm) | Extra adult over standard (per night) | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.extra_child` | Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm) | Extra child 6–11 over standard (per night) | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.foc_limit_fdl` | Hạn mức FOC mỗi lần – lễ tân trưởng | Comp limit per request – front-desk lead | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.grp_booking` | Giữ chỗ, cọc, hủy | Holds, deposits, cancellations | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.grp_money` | FOC, hoa hồng, phí kênh | Comps, commission, channel fees | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.grp_occupancy` | Số người & phụ thu | Occupancy & surcharges | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.grp_time` | Giờ nhận/trả | Check-in/out times | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.h_new` | Mới | New | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.h_old` | Cũ | Old | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.h_when` | Thời điểm | When | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.h_who` | Người sửa | Changed by | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.history` | Lịch sử thay đổi | Change history | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.hold_hours` | Hạn giữ chỗ mặc định | Default hold time | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.new_value` | Giá trị mới | New value | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.open_rooms` | Mở danh mục căn | Open rooms | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.quote_valid` | Hiệu lực báo giá | Quote validity | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.reason` | Lý do | Reason | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.room_capacity` | Định mức và tối đa từng căn | Standard and maximum occupancy per room | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.room_capacity_value` | Sửa ở Danh mục căn | Edit in Rooms | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.save` | Lưu thay đổi | Save change | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.subtitle` | Thay đổi áp dụng cho đơn tạo sau ngày hiệu lực | Changes apply to bookings created after the effective date | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.unit_hours` | giờ | hours | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.view_only_banner` | Bạn đang xem tham số. Chỉ chủ đầu tư và quản lý sửa được. | You're viewing settings. Only the owner and manager can edit them. | ⟨chừa chỗ⟩ | 05-params.html |
+| `params.status_gd` | Chờ chủ đầu tư xác nhận | Awaiting owner confirmation | ⟨chừa chỗ⟩ | Parameter.statusLabel = GD |
+| `params.status_pl` | Chờ luật sư/kế toán xác nhận | Awaiting lawyer/accountant confirmation | ⟨chừa chỗ⟩ | Parameter.statusLabel = PL |
+
+#### R2 hi-fi – Chọn cơ sở (H01)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `prop.lead` | Bạn có quyền ở {n} cơ sở. Chọn nơi làm việc hôm nay. | You have access to {n} properties. Choose where you're working today. | ⟨chừa chỗ⟩ | 01-login.html |
+| `prop.meta` | {rooms} căn · vai của bạn: {roles} | {rooms} rooms · your role: {roles} | ⟨chừa chỗ⟩ | 01-login.html |
+| `prop.none_body` | Nhờ chủ đầu tư gán vai cho bạn rồi đăng nhập lại. | Ask the owner to give you a role, then sign in again. | ⟨chừa chỗ⟩ | 01-login.html |
+| `prop.none_title` | Tài khoản chưa được gán cơ sở nào | Your account isn't linked to any property yet | ⟨chừa chỗ⟩ | 01-login.html |
+| `prop.title` | Chọn cơ sở | Choose property | ⟨chừa chỗ⟩ | 01-login.html |
+
+#### R2 hi-fi – Đổi mật khẩu lần đầu (H01)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `pw.lead` | Bạn đang dùng mật khẩu tạm do chủ đầu tư cấp. Đặt mật khẩu riêng để tiếp tục. | You're using a temporary password from the owner. Set your own password to continue. | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.mismatch` | Hai mật khẩu chưa giống nhau. | The two passwords don't match. | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.new` | Mật khẩu mới | New password | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.repeat` | Nhập lại mật khẩu mới | Repeat new password | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.rule_common` | Không phải mật khẩu phổ biến | Not a common password | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.rule_len` | Ít nhất {n} ký tự | At least {n} characters | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.rule_name` | Không chứa tên hoặc số điện thoại của bạn | Doesn't contain your name or phone number | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.submit` | Lưu và vào ứng dụng | Save and continue | ⟨chừa chỗ⟩ | 01-login.html |
+| `pw.title` | Đặt mật khẩu của bạn | Set your password | ⟨chừa chỗ⟩ | 01-login.html |
+
+#### R2 hi-fi – Sơ đồ phòng (H08)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rack.all_groups` | Tất cả nhóm | All groups | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.by_room` | Theo căn · 14 ngày | By room · 14 days | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.col_room` | Căn | Room | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.conflict_body` | Đơn về khi căn {room} đã kín {from} → {to}. Đơn vẫn được nhận và nằm ở làn "Chưa gán căn". Căn trống gợi ý: {rooms}. | It arrived when room {room} was already booked {from} → {to}. The booking is still accepted and sits in the "Unassigned" lane. Suggested free rooms: {rooms}. | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.conflict_title` | Đơn Agoda {code} ({guest}) chưa có căn | Agoda booking {code} ({guest}) has no room | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.dep_unconfirmed` | Căn {room}: khách {guest} trả phòng hôm nay, chưa xác nhận giờ trả (đã nhắc {time}). | Room {room}: guest {guest} checks out today, check-out time not confirmed (reminded at {time}). | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.filter_group` | Nhóm căn | Room group | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hidden_note` | Đơn đã hủy, không đến không hiện trên sơ đồ. Căn ngừng bán hiện nhãn "Ngừng bán" ở đầu dòng. | Cancelled and no-show bookings aren't shown. Rooms off sale show "Off sale" at the start of the row. | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hk.arrival_at` | Có khách đến hôm nay {time} | Guest arriving today {time} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hk.kit` | Chuẩn bị {n} bộ đồ dùng thêm | Prepare {n} extra amenity kit(s) | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hk.ooo` | Đang sửa – không bán | Under repair – not for sale | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hk.vc` | Đã dọn – chờ kiểm | Cleaned – awaiting inspection | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.hk.vd` | Cần dọn (khách đã đi) | Needs cleaning (guest left) | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.legend_kit` | Có khách vượt định mức – chuẩn bị bộ đồ dùng thêm | Guest over standard occupancy – prepare extra amenity kit | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.legend_unassigned` | Chưa gán căn (xung đột OTA) | Unassigned (OTA conflict) | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.manual_badge` | Nhập tay | Manual | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.manual_legend` | = HĐ ngoài hệ thống (R2) | = lease outside the app (R2) | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.next` | Tới 7 ngày | Forward 7 days | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.not_selling` | Không bán | Not for sale | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.arrives_today` | đến hôm nay | arrives today | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.checked_out` | đã trả | checked out | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.departs_today` | đi hôm nay | leaves today | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.hold_left` | còn {h} giờ {m} phút | {h} h {m} min left | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.long_until` | đến {date} | until {date} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.need_room` | cần gán căn | needs a room | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.note.ooo` | Khóa · {reason} | Blocked · {reason} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.offline` | Mất kết nối. Dữ liệu lúc {time} – đang kết nối lại. Chưa tạo hay sửa đơn được để tránh đặt trùng. | You're offline. Data as of {time} – reconnecting. Bookings can't be created or changed to avoid double booking. | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.offline_short` | Mất kết nối – chỉ xem | Offline – view only | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.ooo_until` | Khóa · mở bán lại {date} | Blocked · back on sale {date} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.prev` | Lùi 7 ngày | Back 7 days | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.range_label` | {from} – {to} | {from} – {to} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.reopen` | Mở bán lại {date} | Back on sale {date} | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.unassigned_short` | {n} đơn OTA chưa gán căn | {n} OTA booking(s) without a room | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.view_grid` | Lưới | Grid | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.view_list` | Danh sách | List | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.yours` | của bạn | yours | ⟨chừa chỗ⟩ | 08-rack.html |
+
+#### R2 hi-fi – Danh mục căn (H04)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rooms.bed_1br_plus` | 1 giường lớn + 1 giường 1m4 | 1 large bed + 1 140 cm bed | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.bed_2br` | 2 phòng ngủ · 2 giường lớn | 2 bedrooms · 2 large beds | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.bed_studio` | Studio · 1 giường | Studio · 1 bed | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.below_body` | Các đơn sau đã có nhiều khách hơn. Đổi số khách hoặc đổi căn cho các đơn này trước. | These bookings already have more guests. Change their guest count or move them to another room first. | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.below_title` | Chưa giảm tối đa xuống {max} được | Can't lower the maximum to {max} | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.capacity` | Số người | Occupancy | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.capacity_help` | Định mức: số người đã gồm trong giá. Tối đa: định mức + số người ngủ sofa. Không tính trẻ dưới 6 tuổi. | Standard: guests included in the price. Maximum: standard + guests sleeping on the sofa. Children under 6 don't count. | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_action` | Thao tác | Actions | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_base` | Định mức | Standard | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_beds` | Bố trí giường | Beds | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_group` | Nhóm | Group | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_max` | Tối đa | Maximum | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_month` | Giá tháng | Monthly price | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_night` | Giá đêm niêm yết | Nightly list price | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_room` | Căn | Room | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.col_sale` | Bán | On sale | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.dec` | Giảm | Decrease | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.edit` | Sửa | Edit | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.edit_title` | Sửa căn {room} · {name} | Edit room {room} · {name} | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.error_title` | Chưa tải được danh mục căn | Couldn't load rooms | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.footnote` | Giá đêm niêm yết = giá tháng ÷ 12, làm tròn 1.000 (BR-101) – do hệ thống tính. Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Nightly list price = monthly price ÷ 12, rounded to 1,000 (BR-101) – calculated by the system. Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.inc` | Tăng | Increase | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.name` | Tên căn | Room name | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.night_auto` | Tự tính: giá tháng ÷ 12 (BR-101) | Auto: monthly price ÷ 12 (BR-101) | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.rule_note` | Khách vượt định mức ngủ sofa, trả phụ thu người thêm (BR-110) và được chuẩn bị thêm 1 bộ đồ dùng: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối). | Guests over the standard occupancy sleep on the sofa, pay the extra-guest charge (BR-110) and get an extra amenity kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow). | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.selling` | Đang bán | On sale | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.snapshot_note` | Đơn, báo giá, hợp đồng tạo trước ngày hiệu lực giữ giá cũ. | Bookings, quotes and leases created before the effective date keep the old price. | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.stop_help` | Tắt = ngừng bán: căn không có trong form đặt phòng, rack ghi "Ngừng bán". Đơn đã có giữ nguyên. | Off = stop selling: the room disappears from the booking form and the rack shows "Off sale". Existing bookings stay. | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.subtitle` | {rooms} căn · {groups} nhóm | {rooms} rooms · {groups} groups | ⟨chừa chỗ⟩ | 04-rooms.html |
+
+#### R2 hi-fi – Chi tiết đơn (H11)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rsv.add_person` | Thêm người đi cùng | Add a companion | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.add_submit` | Thêm vào đơn | Add to booking | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.amount_received` | Số tiền đã nhận | Amount received | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.amount_sent` | Số tiền khách chuyển | Amount the guest transferred | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.assign_effect` | Sau khi gán: đơn rời làn "Chưa gán căn", cảnh báo đỏ tắt, nhận phòng được như đơn thường. | After assigning: the booking leaves the "Unassigned" lane, the red alert clears, and check-in works as normal. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.assign_lead` | Agoda gửi đơn nhóm {group}, {from} → {to} khi căn {room} đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất. | Agoda sent a {group} booking for {from} → {to} when room {room} was already booked. Pick a free room – suggestions are sorted by fewest orphan nights. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.assign_submit` | Gán vào căn {room} | Assign to room {room} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.assign_title` | Gán căn cho {code} · {guest} | Assign a room to {code} · {guest} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.attach_receipt` | Đính kèm ảnh biên nhận | Attach receipt photo | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.best_fit` | Phù hợp nhất | Best fit | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.booker` | Người đứng tên | Booker | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.cancel_rule` | Hủy trước {days} ngày: hoàn {pct}% cọc (BR-309). | Cancelled {days} days ahead: {pct}% of the deposit is refunded (BR-309). | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.child` | Trẻ em | Child | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.child_note` | Trẻ em: chỉ cần năm sinh – không tạo hồ sơ khách, không lưu liên hệ. | Children: only the year of birth – no guest profile, no contact details stored. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.choose_reason` | Chọn lý do | Choose a reason | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.commission_mine` | Hoa hồng dự kiến của bạn | Your expected commission | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.conflict_chip` | Xung đột OTA | OTA conflict | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.contact_late` | Khách báo đến trễ | Guest says they'll be late | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.contact_noanswer` | Gọi không nghe máy | Called, no answer | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.contact_none` | Chưa liên lạc | Not contacted yet | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.copy_qr` | Sao chép thông tin chuyển khoản | Copy transfer details | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.current_expiry` | Hạn hiện tại | Current expiry | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.dates` | Ngày | Dates | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.deposit_partial` | Vẫn ghi được khoản đã nhận – đơn giữ "Giữ chỗ · chờ cọc" và hiện số còn thiếu. | You can still record the amount received – the booking stays "On hold · awaiting deposit" and shows what's missing. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.deposit_submit` | Xác nhận đã nhận cọc | Confirm deposit received | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.deposit_title` | Xác nhận cọc · {code} | Confirm deposit · {code} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.eta` | dự kiến đến {time} | expected {time} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.extend_rule` | Tối đa +{hours} giờ và không quá {time} ngày đến. Chỉ gia hạn được một lần. | Up to +{hours} hours and no later than {time} on the arrival day. Can be extended only once. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.extend_submit` | Gia hạn đến {time} | Extend to {time} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.extend_title` | Gia hạn giữ chỗ (1 lần) | Extend hold (once) | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.fit_after_hold` | Nối tiếp giữ chỗ {prev} (chưa cọc) | Follows {prev}'s hold (no deposit yet) | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.fit_contiguous` | Nối tiếp đơn {prev} – không tạo đêm lẻ | Follows {prev}'s booking – no orphan nights | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.fit_gap` | Để lại {n} đêm trống trước đơn | Leaves {n} empty night(s) before the stay | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.guests_line` | {adults} người lớn · định mức {base}, tối đa {max} | {adults} adults · standard {base}, max {max} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.hold_auto` | Quá hạn chưa cọc → hệ thống tự hủy và mở bán lại căn. | If no deposit by then, the system cancels the hold and puts the room back on sale. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.hold_expires` | Hết hạn giữ chỗ sau {h} giờ {m} phút ({at}) | Hold expires in {h} h {m} min ({at}) | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.kit_task` | Việc buồng phòng: 1 bộ (1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân – không gối) trước {time} · Đã giao | Housekeeping task: 1 kit (1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries – no pillow) before {time} · Assigned | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.move_price_note` | Giá các đêm giữ như lúc đặt. | Night rates stay as booked. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.move_submit` | Lưu thay đổi | Save change | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.need_online` | Cần có mạng để thao tác | Connection needed for this action | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.new_expiry` | Hạn mới | New expiry | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.party` | Người ở | Guests staying | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.party_missing` | Thiếu {n} người – cần đủ người để khai báo lưu trú. | {n} guest(s) missing – everyone is needed for the residence registration. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.person_kind` | Loại | Type | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.reason_ota_conflict` | Đơn OTA về khi căn đã kín | OTA booking arrived when the room was full | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.reconcile_note` | Chuyển khoản ghi tay được đánh dấu "chờ đối soát" cho tới khi kế toán khớp sao kê. | Manually recorded transfers are flagged "awaiting reconciliation" until accounting matches the bank statement. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.record_partial` | Ghi nhận {amount} | Record {amount} | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.step_booked` | Đặt | Booked | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.step_deposit` | Đã cọc | Deposit paid | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.step_hold` | Giữ chỗ | On hold | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.step_in` | Nhận phòng | Check-in | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.step_out` | Trả phòng | Check-out | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.upgrade_note` | Căn nhóm khác chỉ là gợi ý – lễ tân trưởng hoặc quản lý xác nhận. | Rooms in another group are suggestions only – the front-desk lead or manager confirms. | ⟨chừa chỗ⟩ | 11-reservation.html |
+
+#### R2 hi-fi – Sale/CTV báo giá (H12)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `sale.arrival` | Ngày đến | Arrival | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.ask_extend` | Gửi quản lý gia hạn | Ask the manager to extend | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.avail_count` | {n} căn trống {from} → {to} | {n} rooms free {from} → {to} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.commission` | Sale nhận ({pct}% tiền phòng – BR-903) | Sales earns ({pct}% of room charges – BR-903) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.commission_ctv` | Bạn nhận ({pct}% tiền phòng – BR-903) | You earn ({pct}% of room charges – BR-903) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.conflict` | Trùng lịch | Dates taken | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.copy_zalo` | Sao chép gửi Zalo | Copy to send on Zalo | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.create_hold` | Tạo giữ chỗ | Create hold | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.deposit_due` | Cọc để giữ phòng ({pct}% tiền phòng – BR-305) | Deposit to hold the room ({pct}% of room charges – BR-305) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.deposit_due_short` | Cọc cần thu | Deposit due | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.error_title` | Chưa tải được căn trống | Couldn't load availability | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.free` | Trống | Free | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_created` | Đã giữ căn {room} – đơn {code} | Room {room} is on hold – booking {code} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_for` | Giữ trong | Hold for | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_locked_past` | Tạo giữ chỗ (ngày đã qua) | Create hold (date has passed) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_next` | Gửi mã QR cho khách. Bạn sẽ được nhắc {hours} giờ trước khi hết hạn. | Send the QR code to the guest. You'll get a reminder {hours} hours before it expires. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_title` | Giữ chỗ | Hold | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.hold_until` | Hết hạn {time} – chưa cọc thì tự hủy, mở bán lại. | Expires {time} – without a deposit it's cancelled and the room goes back on sale. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.los_applied` | Đã giảm {pct}% vì ở từ 7 đêm (BR-107) | {pct}% off applied for 7+ nights (BR-107) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.month_note` | Thuê tháng làm hợp đồng – hiện vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay. | Monthly stays need a lease – still done outside the app; ask the front desk to hold the room with a manual long-stay booking. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.month_option` | So sánh: thuê 1 tháng | Compare: 1-month rental | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.month_total` | Thuê 1 tháng (tiền thuê + phí dịch vụ) | 1-month rental (rent + service fee) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.nights` | Số đêm | Nights | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.nights_weekday` | {n} đêm thường × {rate} | {n} weekday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.nights_weekend` | {n} đêm thứ Sáu, thứ Bảy × {rate} | {n} Friday/Saturday nights × {rate} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.none_body` | Thử dời 1 ngày: {dates} còn 2 căn. | Try shifting by 1 day: {dates} has 2 rooms. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.none_title` | Hết phòng trong khoảng ngày | No rooms for these dates | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.offline` | Mất kết nối – kết quả có thể đã cũ. Chưa báo giá được. | You're offline – results may be out of date. Quotes can't be made yet. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.ottimo_left` | OTTIMO còn lại | OTTIMO keeps | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.price_source` | Giá trực tiếp theo lịch giá hôm nay (BR-104). Báo giá giữ giá {days} ngày. | Direct rate from today's rate calendar (BR-104). The quote holds the price for {days} days. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.qr_after` | Mã QR có nội dung là mã đơn, tạo ngay sau khi giữ chỗ. | The QR code uses the booking ID as the transfer note and is created right after the hold. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.quote_active` | Còn hiệu lực | Valid | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.quote_expires` | Hết hiệu lực {time} | Expires {time} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.quote_title` | Báo giá | Quote | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.requote` | Lập báo giá mới | Make a new quote | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.return_code` | Mã khách quay lại (nếu có) | Returning-guest code (if any) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.room_meta` | Định mức {base} · tối đa {max} (khách thứ {max} ngủ sofa) | Standard {base} · max {max} (guest {max} sleeps on the sofa) | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.save_quote` | Lưu báo giá | Save quote | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.short_total` | Ngắn ngày {n} đêm | Short stay, {n} nights | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.taken_partly` | Kín {dates} | Booked {dates} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.text_lang` | Ngôn ngữ gửi khách | Language for the guest | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.to_hold` | Khách đồng ý – Giữ chỗ | Guest agrees – Hold the room | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.today_handoff` | Sale/CTV: nhắn lễ tân tạo đơn đã thu cho khách này. | Sales/agents: ask the front desk to create a paid booking for this guest. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.try_dates` | Xem ngày gợi ý | See suggested dates | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.quote_text` | OTTIMO Boutique Stay – Báo giá {code}
+Căn {room} {room_name}, {from} → {to} ({nights} đêm), {guests}.
+Tiền phòng: {room_total}{discount_note}.
+Cọc giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.
+Báo giá có hiệu lực đến {expires}. | OTTIMO Boutique Stay – Quote {code}
+Room {room} {room_name}, {from} → {to} ({nights} nights), {guests}.
+Room total: {room_total}{discount_note}.
+Deposit to hold the room: {deposit}. The rest is paid at check-in.
+This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQuoteText; RU ở R3 (US-115) |
+| `sale.quote_text_extra_guest` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes extra-guest charge for {n} guest(s) on the sofa: {amount}. | ⟨chừa chỗ⟩ | Dòng thêm khi vượt định mức (BR-110) |
+
+#### R2 hi-fi – Khung ứng dụng (H02)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `shell.change_password` | Đổi mật khẩu | Change password | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.go_home` | Về trang chủ của tôi | Go to my home page | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.language` | Ngôn ngữ giao diện | Interface language | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.logout` | Đăng xuất | Sign out | ⟨chừa chỗ⟩ | 01-login.html |
+| `shell.no_access_body` | Trang này dành cho vai khác. Nếu bạn cần dùng, nhờ chủ đầu tư thêm vai cho tài khoản. | This page is for another role. If you need it, ask the owner to add the role to your account. | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.no_access_title` | Bạn không có quyền mở trang này | You don't have access to this page | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.notifications` | Thông báo | Notifications | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.offline_desk` | Mất kết nối. Dữ liệu lúc {time} – chỉ xem, chưa tạo hay sửa đơn được. | You're offline. Data as of {time} – view only; bookings can't be created or changed. | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.offline_readonly` | Mất kết nối. Dữ liệu lúc {time} – chỉ xem, chưa lưu thay đổi được. | You're offline. Data as of {time} – view only; changes can't be saved yet. | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `shell.search_label` | Tìm kiếm | Search | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.security` | Xác thực 2 bước | 2-step verification | ⟨chừa chỗ⟩ | 02-role-nav.html |
+| `shell.subtitle` | {property} · {date} | {property} · {date} | ⟨chừa chỗ⟩ | 02-role-nav.html |
+
+#### R2 hi-fi – Hôm nay (H03)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `today.attention` | Cần chú ý | Needs attention | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.confirm_time` | Xác nhận giờ trả | Confirm check-out time | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.dep_unconfirmed` | chưa xác nhận giờ trả · đã nhắc {time} | check-out time not confirmed · reminded at {time} | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.empty_body` | Không có khách đến/đi, khai báo hay giữ chỗ cần xử lý. Mở sơ đồ phòng để nhận đặt phòng mới. | No arrivals, departures, registrations or holds to handle. Open the room rack to take new bookings. | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.empty_title` | Hôm nay không có việc theo giờ | Nothing scheduled for today | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.error_title` | Chưa tải được việc hôm nay | Couldn't load today's tasks | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.hold_left` | còn {h} giờ {m} phút (hết hạn {at}) | {h} h {m} min left (expires {at}) | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kit_body` | {n} khách vượt định mức ngủ sofa: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải và đồ vệ sinh cá nhân (không gối). Đã giao việc cho buồng phòng. | {n} guest(s) over standard sleeping on the sofa: 1 blanket, 1 bath towel, 1 face towel, toothbrush and toiletries (no pillow). Task sent to housekeeping. | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kit_title` | Chuẩn bị bộ đồ dùng thêm – căn {room}, trước {time} | Prepare extra amenity kit – room {room}, before {time} | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kpi_arrivals` | Khách đến hôm nay | Arrivals today | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kpi_departures` | Khách đi hôm nay | Departures today | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kpi_in_house` | Đang ở | In house | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kpi_occupancy` | Công suất đêm nay | Occupancy tonight | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.kpi_occupancy_note` | {sold}/{sellable} căn bán được ({blocked} đang khóa) | {sold}/{sellable} sellable rooms ({blocked} blocked) | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.log_contact` | Ghi kết quả liên lạc | Log contact result | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.money_after_cancel` | Tiền về cho đơn đã hủy {code} | Money received for cancelled booking {code} | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.money_after_cancel_body` | Giữ chỗ đã tự hủy trước khi tiền về. Liên hệ khách: đặt lại nếu còn phòng, hoặc hoàn tiền (cần quản lý duyệt). | The hold was cancelled automatically before the money arrived. Contact the guest: rebook if a room is free, or refund (manager approval needed). | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.no_docs` | Chưa có giấy tờ | No IDs yet | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.no_email` | Đơn chưa có email | No email on booking | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.noshow_when` | Hiện từ mốc gọi khách {time} (BR-311) | Shown from the call-the-guest time {time} (BR-311) | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.open` | Mở | Open | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.open_booking` | Mở đơn | Open booking | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.prechecked` | Đã làm thủ tục trước | Checked in online | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.reg_due` | hạn khai báo {time} hôm nay | registration due {time} today | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.reg_due_foreign` | hạn = giờ nhận phòng + {hours} giờ | due = check-in time + {hours} hours | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.req_ack` | Đã nhận | Acknowledged | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.send_link` | Gửi link thủ tục | Send check-in link | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.unassigned_hint` | gợi ý căn trống: {rooms} | suggested free rooms: {rooms} | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.unassigned_title` | Đơn OTA chưa gán căn ({n}) | OTA bookings without a room ({n}) | ⟨chừa chỗ⟩ | 03-today.html |
+| `today.update` | Cập nhật | Update | ⟨chừa chỗ⟩ | 03-today.html |
+
+#### R2 hi-fi – Người dùng & vai (H07)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `users.active` | Đang dùng | Active | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.col_last` | Đăng nhập gần nhất | Last sign-in | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.col_name` | Người dùng | User | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.col_roles` | Vai | Roles | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.col_status` | Trạng thái | Status | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.create` | Tạo tài khoản | Create account | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.edit_roles` | Sửa vai | Edit roles | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.error_title` | Chưa tải được danh sách người dùng | Couldn't load users | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.f_display` | Tên hiển thị | Display name | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.locked` | Đã khóa | Locked | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.more` | Khác… | More… | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.more_help` | "Khác…": Đặt lại mật khẩu (tạo mật khẩu tạm), Khóa tài khoản, Đặt lại xác thực 2 bước. | "More…": Reset password (creates a temporary password), Lock account, Reset 2-step verification. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.new_cta` | Thêm người dùng | Add user | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.no_2fa` | Chưa bật 2FA | 2FA not on | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.collaborator` | Chỉ thấy báo giá, đơn, khách của chính mình; không xác nhận cọc. | Sees only their own quotes, bookings and guests; can't confirm deposits. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.front_desk` | Đặt phòng, nhận/trả phòng, thu tiền, khai báo trên máy được cấp. | Bookings, check-in/out, payments, registration on approved devices. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.front_desk_lead` | Như lễ tân + duyệt miễn phí trong hạn mức, kiểm phòng đạt. | Front desk + approves comps within limits, passes room inspections. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.housekeeping` | Việc dọn phòng, kiểm phòng, báo sự cố trên điện thoại. | Cleaning tasks, room inspection, issue reports on the phone. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.maintenance` | Phiếu sửa, khóa phòng khi sửa chữa. | Work orders, blocking rooms for repair. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.manager` | Duyệt hoàn tiền, công nợ, khôi phục không đến; xem báo cáo tài chính. | Approves refunds, credit, no-show restores; sees financial reports. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.role_desc.sales_staff` | Báo giá, giữ chỗ, xác nhận cọc đơn của mình. | Quotes, holds, confirming deposits on own bookings. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.roles_effect` | Thay đổi có hiệu lực khi người này đăng nhập lại. Phiên đang mở của họ sẽ bị đăng xuất. | Changes apply when this person signs in again. Their open sessions will be signed out. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.roles_legend` | Chọn một hoặc nhiều vai | Choose one or more roles | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.roles_title` | Vai của {name} | Roles for {name} | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.save_roles` | Lưu vai | Save roles | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.temp_password` | Chờ đổi mật khẩu tạm | Waiting to change temporary password | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.temp_pw_note` | Hệ thống tạo mật khẩu tạm, hiện một lần để bạn đưa trực tiếp cho người dùng. Họ phải đổi ở lần đăng nhập đầu. | The system creates a temporary password, shown once so you can hand it to the user in person. They must change it at first sign-in. | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.unlock` | Mở khóa | Unlock | ⟨chừa chỗ⟩ | 07-users-devices.html |
+| `users.you` | Bạn | You | ⟨chừa chỗ⟩ | 07-users-devices.html |
+
 ## 9. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
 | 0.1 | 15/10/2026 | UXD | Bản đầu: giọng văn, chính tả, thuật ngữ, định dạng, mẫu câu, i18n, 7 mẫu tin nhắn VI/EN/RU, bảng chuỗi luồng 2–4, 7 |
 | 0.2 | 15/10/2026 | UXD | Đợt 4: thêm bảng tên vai (3.1b) và 5 thuật ngữ; mục 5.2b hiển thị lỗi API; 37 chuỗi `error.<CODE>` + `error.server` thay mã minh họa RK-503/CO-MB-502/QT-500/CM-500/HK-500/OV-500; nhóm chuỗi L9 (gia hạn, trả muộn, đổi căn/đổi phòng, không đến), xác nhận US-135, buồng phòng, duyệt, hoa hồng; nhóm bảo mật SEC Phần 2 (`auth.totp.*`, `device.*`, `desk_code.*`, `guest.verify.*` OTP email/mã lễ tân, `guest.after_checkout.*`, `error.DEVICE_NOT_TRUSTED`). Sửa: `common.error_generic_body` ({code}→{request_id}), `booking.create_hold` (giờ → hạn), `checkin.room_not_ready` (lễ tân gửi duyệt, lễ tân trưởng tự xác nhận), `checkin.verify.fail_passport` (không chặn, bắt buộc ghi xử lý – K5), `reg.code_error` (bỏ định dạng giả), `guest.req.status.*` theo SM-15 (bỏ `received`, thêm `new`, `acknowledged`, `declined`; "Đã xong" → "Hoàn thành"), thêm `status.reg.void` |
 | 0.3 | 16/10/2026 | UXD | Bước 4: nhóm chuỗi "đến muộn / tự nhận phòng" (`guest.late.*`, `guest.contact.*`), kênh nhận mã (`guest.verify.via_*`, `guest.verify.no_email`, `desk_code.send_channel/channel_off/separate`), `guest.offline_banner` (app khách không hứa tự gửi), tiến độ tải ảnh, dòng bill/USD, lý do từ chối đã dịch, `guest.req.staff_note`, `guest.lang.ru_soon`; `booking.email*`, `booking.no_email_warn`, `booking.close_draft`; `night.*`; `auth.login.error_generic`, `auth.code_label.*`, `auth.enroll.*`, `device.check.*`; `today.*`; `crm.*`, `msgtpl.*`, `config.*`, `moneylog.title`; mẫu `msg.deposit_received`; `msg.booking_confirmed` thêm `{deposit}`, `{balance}`, `{cancel_policy_short}`. Sửa: bỏ mã BR khỏi 10 chuỗi giao diện (chuyển vào ghi chú – FB-R1-UXR-UXD-08); `hk.status.VC`, `status.room.VC` một tên "Đã dọn – chờ kiểm"; `guest.cta.checkin` "Làm thủ tục trước (check-in online)", `guest.oci.submit` "Gửi thủ tục" (FB-16). |
+| 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 hi-fi: 502 chuỗi VI/EN mới (gồm mã lỗi OpenAPI 0.3.1: USERNAME_TAKEN, PARTY_DUPLICATE, ROOM_NOT_READY, 6 mã trường `field.*`) (đăng nhập, đổi mật khẩu, 2FA nền, chọn cơ sở, điều hướng 8 vai, Hôm nay, danh mục căn định mức/tối đa, tham số, khách hàng, người dùng & thiết bị, rack, đặt phòng, đơn dài hạn nhập tay, chi tiết đơn, sale/CTV); 13 mã lỗi `error.*` còn thiếu so với OpenAPI 0.3; `error.FILE_REJECTED` sửa theo hợp đồng (JPG/PNG/WebP ≤ 10 MB); thuật ngữ "sofa" cho khách vượt định mức (không dùng "nệm phụ" – ESC-014); RU để R3 |

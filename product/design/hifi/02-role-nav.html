@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H02 Điều hướng theo 8 vai – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H02</div>
+  <h1>H02 · Khung ứng dụng và điều hướng theo 8 vai</h1>
+  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>8 vai nội bộ</span><span>Máy quầy · điện thoại</span><span>US-001 AC1, US-002 AC1/AC3/AC4, US-003 AC3/AC4, US-142 AC2</span><span>rbac-matrix mục 3 (S01–S31)</span><span>Wireframe gốc: L1 1.2</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="01-login.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="03-today.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s21">
+  <h2 id="s21"><span class="no">2.1</span>Khung máy quầy – lễ tân (<code>front_desk</code>), menu người dùng mở</h2>
+  <p class="lead">Menu dựng từ <code>getMe.properties[].screens</code> – không có bộ chọn "Xem với vai trò". Mục không có quyền thì <b>không vẽ</b> (không vẽ mờ). Chân sidebar luôn cho biết máy đang dùng có được cấp quyền giấy tờ hay không (US-142).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+<div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+<button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+<div class="nav">
+<div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+<a href="03-today.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+<a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span><kbd aria-hidden="true">R</kbd></a>
+<a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.housekeeping">Buồng phòng</span></a>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.maintenance">Bảo trì</span></a>
+<div class="sec" data-i18n="nav.sec.sales">Khách & bán</div>
+<a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a>
+<a href="12-sales-quote.html"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.quotes">Báo giá & giữ chỗ</span></a>
+<div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+<a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+</div>
+<div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+</nav>
+        <div class="content">
+          <header class="topbar">
+  <h1><span data-i18n="today.title">Hôm nay</span><span class="sub" data-i18n="shell.subtitle" data-i18n-args='{"property":"OTTIMO Đà Lạt","date":"Thứ Năm 15/10/2026"}'>OTTIMO Đà Lạt · Thứ Năm 15/10/2026</span></h1>
+  <label class="search"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only" data-i18n="shell.search_label">Tìm kiếm</span><input type="search" data-i18n-ph="common.search_placeholder" placeholder="Tìm tên khách, SĐT, mã đơn, số căn…"><kbd aria-hidden="true">/</kbd></label>
+  <a class="btn pri" href="09-booking.html"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="bk.new_cta">Đặt phòng mới</span></a>
+  <button class="btn icon-btn" type="button" data-i18n-label="shell.notifications" aria-label="Thông báo"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="userchip" type="button" aria-haspopup="menu"><span class="avatar" aria-hidden="true">H</span><span>Hạnh · <span data-i18n="role.front_desk">Lễ tân</span></span></button>
+</header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_desk" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa tạo hay sửa đơn được.</span></div>
+          <div class="page" style="position:relative;min-height:440px">
+            <div class="cards">
+              <div class="sk" style="height:56px"></div><div class="sk" style="height:120px"></div><div class="sk" style="height:120px;width:70%"></div>
+            </div>
+            <div role="menu" aria-label="Tài khoản" class="card" style="position:absolute;top:4px;right:20px;width:280px;box-shadow:var(--shadow-lg);padding:6px">
+              <div style="padding:8px 10px"><div class="li-t">Hạnh</div><div class="li-s"><span data-i18n="role.front_desk">Lễ tân</span> · OTTIMO Đà Lạt</div></div>
+              <hr class="hr" style="margin:4px 0">
+              <a role="menuitem" class="rowlink" href="01-login.html#s12" style="padding:8px 10px"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><span data-i18n="shell.change_password">Đổi mật khẩu</span></a>
+              <a role="menuitem" class="rowlink" href="01-login.html#s14" style="padding:8px 10px"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="shell.security">Xác thực 2 bước</span></a>
+              <div role="menuitem" class="rowlink" style="padding:8px 10px"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span class="grow" data-i18n="shell.language">Ngôn ngữ giao diện</span><span class="seg" style="padding:2px"><button aria-pressed="true">VI</button><button aria-pressed="false">EN</button></span></div>
+              <hr class="hr" style="margin:4px 0">
+              <a role="menuitem" class="rowlink" href="01-login.html" style="padding:8px 10px"><svg class="ico" aria-hidden="true"><use href="#i-out"/></svg><span data-i18n="shell.logout">Đăng xuất</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 2.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-001</span> AC1 tên người dùng trên đầu trang; màn mặc định theo vai.</li><li><span class="us">US-002</span> AC1 menu chỉ còn màn được phép sau khi đổi vai + đăng nhập lại; AC3 nhiều vai = hợp quyền.</li><li><span class="us">US-142</span> AC2 – chip chân sidebar.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getMe</span> (<code>screens</code>, <code>roles</code>, <code>deviceTrusted</code>), <span class="op">logout</span>, <span class="op">listMyNotifications</span> (chuông), <span class="op">streamEvents</span> (SSE – chỉ báo có thay đổi).</li></ul>
+      <h3>Khung</h3><ul><li>Sidebar 240px, nhóm: Điều hành · Vận hành · Khách &amp; bán · Quản trị. Tìm toàn cục phím <kbd>/</kbd>, mở sơ đồ phòng phím <kbd>R</kbd>.</li><li>"Đặt phòng mới" chỉ hiện khi vai có A01 (owner, manager, FDL, FD).</li><li>Mất mạng: thanh cam dưới đầu trang, Desk chỉ xem (BR-906).</li><li>Ngôn ngữ giao diện nhân viên: VI/EN (R2); lưu theo tài khoản.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s22">
+  <h2 id="s22"><span class="no">2.2</span>Menu và trang chủ của 8 vai</h2>
+  <p class="lead">Mỗi thẻ = menu máy quầy (sidebar) + thanh dưới điện thoại (≤ 5 mục). Mục ghi "R3" không vẽ ở R2. Một người nhiều vai (ví dụ <code>housekeeping</code> + <code>maintenance</code>) → menu gộp, vẫn ≤ 5 mục trên điện thoại.</p>
+  <div class="role-grid">
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">C</span><div class="grow"><b data-i18n="role.owner">Chủ đầu tư</b><br><code>owner</code></div></div>
+      <div class="nav"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span></a><a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a><a href="04-rooms.html"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="nav.rooms">Danh mục căn</span></a><a href="05-params.html"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a><a href="07-users-devices.html"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.users">Người dùng & vai</span></a><a href="07-users-devices.html#s72"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span data-i18n="nav.devices">Thiết bị được cấp</span></a></div>
+      <div class="home">Trang chủ: Tổng quan (Sprint 4). Điện thoại: Tổng quan · Cần duyệt · Phòng · Thêm</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">H</span><div class="grow"><b data-i18n="role.manager">Quản lý</b><br><code>manager</code></div></div>
+      <div class="nav"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg><span data-i18n="nav.overview">Tổng quan</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span></a><a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a><a href="04-rooms.html"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="nav.rooms">Danh mục căn</span></a><a href="05-params.html"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a></div>
+      <div class="home">Không có Người dùng &amp; vai, Thiết bị được cấp (US-002 AC4). Tham số A102 chỉ xem.</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">L</span><div class="grow"><b data-i18n="role.front_desk_lead">Lễ tân trưởng</b><br><code>front_desk_lead</code></div></div>
+      <div class="nav"><a href="03-today.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="nav.approvals">Cần duyệt</span></a><a href="05-params.html"><svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="nav.params">Tham số quy tắc</span></a></div>
+      <div class="home">Trang chủ: Hôm nay (H03). Tham số: chỉ xem. Điện thoại: Hôm nay · Phòng · Việc · Cần duyệt · Thêm</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">H</span><div class="grow"><b data-i18n="role.front_desk">Lễ tân</b><br><code>front_desk</code></div></div>
+      <div class="nav"><a href="03-today.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a><a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a><a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span></a><a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.guests">Khách hàng</span></a></div>
+      <div class="home">Trang chủ: Hôm nay (H03). Điện thoại (PWA): Hôm nay · Phòng · Việc · Thêm – không có Giấy tờ (C3 chỉ trên máy được cấp).</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">B</span><div class="grow"><b data-i18n="role.housekeeping">Buồng phòng</b><br><code>housekeeping</code></div></div>
+      <div class="nav"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><span data-i18n="nav.my_tasks">Việc của tôi</span></a><a href="08-rack.html#s84"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></div>
+      <div class="home">Chỉ PWA điện thoại (Sprint 4). Rack rút gọn: trạng thái căn + có khách đến, không tên khách (US-016 AC4).</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">T</span><div class="grow"><b data-i18n="role.maintenance">Bảo trì</b><br><code>maintenance</code></div></div>
+      <div class="nav"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-wrench"/></svg><span data-i18n="nav.work_orders">Phiếu sửa</span></a><a href="08-rack.html#s84"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rooms_status">Các căn</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="nav.report_issue">Báo sự cố</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></div>
+      <div class="home">Chỉ PWA. "Công tơ" (US-064) là R3 – không vẽ ở R2.</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">S</span><div class="grow"><b data-i18n="role.sales_staff">Sale nội bộ</b><br><code>sales_staff</code></div></div>
+      <div class="nav"><a href="12-sales-quote.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.availability">Căn trống</span></a><a href="12-sales-quote.html#s122"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.my_quotes">Báo giá</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.my_bookings">Đơn của tôi</span></a><a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.my_guests">Khách của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></div>
+      <div class="home">Trang chủ: Căn trống (H12). "Hoa hồng của tôi" (S17, US-089) là R3 – R2 chỉ hiện hoa hồng dự kiến trên báo giá/đơn (US-087 AC2).</div></div>
+    <div class="role-card"><div class="rh"><span class="avatar" aria-hidden="true">M</span><div class="grow"><b data-i18n="role.collaborator">CTV / môi giới</b><br><code>collaborator</code></div></div>
+      <div class="nav"><a href="12-sales-quote.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.availability">Căn trống</span></a><a href="12-sales-quote.html#s122"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.my_quotes">Báo giá</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.my_bookings">Đơn của tôi</span></a><a href="06-guests.html"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.my_guests">Khách của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></div>
+      <div class="home">Như sale nội bộ, nhưng chỉ thấy mục của mình (US-087), không thấy "OTTIMO còn lại", không xác nhận cọc.</div></div>
+  </div>
+  <div class="doc-row" style="margin-top:16px">
+    <div class="frame-phone"><div class="device touch">
+      <header class="m-top"><h1 data-i18n="nav.availability">Căn trống</h1><button class="btn icon-btn" data-i18n-label="shell.notifications" aria-label="Thông báo"><svg class="ico" aria-hidden="true"><use href="#i-bell"/></svg></button></header>
+      <div class="m-body"><div class="sk" style="height:48px;margin-bottom:12px"></div><div class="sk" style="height:180px;margin-bottom:12px"></div><div class="sk" style="height:96px"></div></div>
+      <nav class="m-nav" aria-label="Điều hướng chính"><a href="#" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.availability">Căn trống</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-tag"/></svg><span data-i18n="nav.my_quotes">Báo giá</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.my_bookings">Đơn của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.my_guests">Khách của tôi</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span data-i18n="nav.me">Tôi</span></a></nav>
+    </div><p class="frame-cap">Sale/CTV trên điện thoại – 5 mục, mục 5 "Tôi" chứa đổi mật khẩu, ngôn ngữ, đăng xuất.</p></div>
+    <aside class="spec" aria-label="Đặc tả 2.2">
+      <h3>Nguồn</h3><ul><li>rbac-matrix mục 3 (S01–S31), mục 4 (A-xx). Bảng đủ "khác vai gần nhất / không thấy": wireframe L1 1.2 – giữ nguyên.</li></ul>
+      <h3>AC</h3><ul><li><span class="us">US-002</span> AC4 – manager mở đường dẫn Người dùng &amp; vai → màn 2.3.</li><li><span class="us">US-003</span> AC3 – sale/CTV/buồng phòng không có menu P&amp;L, báo cáo kênh; mở URL trực tiếp → 2.3.</li><li><span class="us">US-003</span> AC4 – FD không thấy KPI tài chính trên Tổng quan.</li></ul>
+      <h3>Thay đổi so với wireframe</h3><ul><li>Sale/CTV: bỏ "Hoa hồng" khỏi thanh dưới (S17 thuộc US-089 – R3), thay bằng "Đơn của tôi". Bảo trì: bỏ "Công tơ" (R3).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s23">
+  <h2 id="s23"><span class="no">2.3</span>Không có quyền · máy chưa cấp quyền · phiên hết hạn</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">403 FORBIDDEN_ACTION – mở URL ngoài <code>screens</code></span>
+      <div class="state err"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg></div><h3 data-i18n="shell.no_access_title">Bạn không có quyền mở trang này</h3><p data-i18n="shell.no_access_body">Trang này dành cho vai khác. Nếu bạn cần dùng, nhờ chủ đầu tư thêm vai cho tài khoản.</p><a class="btn" href="03-today.html" data-i18n="shell.go_home">Về trang chủ của tôi</a></div></div>
+    <div class="variant"><span class="label-h">403 DEVICE_NOT_TRUSTED – C3 trên máy chưa cấp</span>
+      <div class="state err"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></div><h3 data-i18n="device.blocked_title">Máy này chưa được cấp quyền</h3><p data-i18n="device.blocked_body">Giấy tờ và mã cửa chỉ mở trên máy quầy đã cấp. Các việc khác (đơn, trả phòng, buồng phòng) vẫn làm được trên máy này.</p></div>
+      <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg><span data-i18n="nav.device_untrusted">Máy chưa cấp quyền giấy tờ</span></span> <span class="muted" style="font-size:.75rem">← chip chân sidebar khi <code>deviceTrusted = false</code></span></div>
+    <div class="variant"><span class="label-h">401 UNAUTHENTICATED – phiên hết giữa chừng</span>
+      <div class="alert info" role="status"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt"><span data-i18n="error.UNAUTHENTICATED">Phiên đăng nhập đã hết. Đăng nhập lại – thông tin đang nhập vẫn được giữ trên máy này.</span><div class="act"><a class="btn sm" href="01-login.html" data-i18n="login.submit">Đăng nhập</a></div></div></div>
+      <p class="muted" style="font-size:.75rem">Form đang mở giữ nháp trên máy (DS §6.2); đăng nhập lại xong quay về đúng form.</p></div>
+  </div>
+</section>
+</main>
+</body>
+</html>

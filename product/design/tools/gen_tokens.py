@@ -95,6 +95,16 @@ PAIRS = [
     ("line-strong", "surface-2", "ui", "Viền seg trên nền phụ"),
     ("oak-ink", "surface", "ui", "Cột biểu đồ công suất (thay --oak 2,94:1 – FB-R1-UXR-UXD-03)"),
     ("ok", "bad", "info-only", "Phân biệt Đạt vs Lỗi chỉ bằng màu – KHÔNG đủ, bắt buộc icon + chữ (HR-11)"),
+    # R2 Đợt 0 – cặp mới dùng trong hi-fi (product/design/hifi/assets/hifi.css)
+    ("ink", "warn-bg", "text", "Chữ thân trong alert cảnh báo, thanh mất mạng (hi-fi R2)"),
+    ("ink", "bad-bg", "text", "Chữ thân trong alert lỗi, thanh 'Chưa gán căn' (hi-fi R2)"),
+    ("ink", "info-bg", "text", "Chữ thân trong alert thông tin, khối 'bộ đồ dùng thêm' (hi-fi R2)"),
+    ("ink", "ok-bg", "text", "Chữ thân trong alert thành công (hi-fi R2)"),
+    ("ink", "surface-2", "text", "Chữ chính trên nền phụ (ô chỉ đọc, thanh 'Đã kín') (hi-fi R2)"),
+    ("ink", "side", "text", "Chữ chính trên sidebar (hi-fi R2)"),
+    ("ink-inverse", "bad", "text", "Chữ nút nguy hiểm (Hủy đơn, Thu hồi) (hi-fi R2)"),
+    ("info", "surface", "text", "Chữ/icon thông tin trên thẻ, mã operationId (hi-fi R2)"),
+    ("oak-ink", "side", "text", "Icon/chữ mục đang chọn trên sidebar (hi-fi R2)"),
 ]
 
 def build():
@@ -118,8 +128,8 @@ def write_all():
     light, dark, rows, fails = build()
     tokens = {
         "$schema": "https://design-tokens.github.io/community-group/format/",
-        "$description": "OTTIMO Design System tokens v0.1 – Round 1. Nguồn: product/design/design-system.md. Mọi màu chữ đã đo tương phản WCAG 2.2 AA.",
-        "meta": {"name": "OTTIMO", "version": "0.1.0", "round": 1, "owner": "UXD", "date": "2026-10-15"},
+        "$description": "OTTIMO Design System tokens v0.3 – Round 2 (Đợt 0 hi-fi). Nguồn: product/design/design-system.md. Mọi màu chữ đã đo tương phản WCAG 2.2 AA.",
+        "meta": {"name": "OTTIMO", "version": "0.3.1", "round": 2, "owner": "UXD", "date": "2026-10-16"},
         "color": {
             "light": {c[0]: {"$type": "color", "$value": c[1], "$description": c[3]} for c in COLORS},
             "dark": {c[0]: {"$type": "color", "$value": c[2], "$description": c[3]} for c in COLORS},
@@ -205,7 +215,7 @@ def write_all():
 
     def css_block(pal):
         return "\n".join(f"  --{k}:{v};" for k, v in pal.items())
-    css = f"""/* GENERATED from tokens.json (OTTIMO DS v0.1) – do not edit by hand */
+    css = f"""/* GENERATED from tokens.json (OTTIMO DS v0.3) – do not edit by hand */
 :root{{
   color-scheme:light;
 {css_block(light)}
