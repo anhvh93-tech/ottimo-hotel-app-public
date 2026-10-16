@@ -40,10 +40,7 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
   afterAll(async () => db.close());
 
   it('loads organisation, property, 13 users with roles, devices and every parameter; codes match', async () => {
-    // GRP- in the fixture vs NH- in BR-007/erd 10 is reported to QA; this run uses the BR value.
-    const f = fixture((x) => {
-      for (const s of x.docSequences) if (s.docType === 'group') s.prefix = 'NH-';
-    });
+    const f = fixture(); // the real fixture (QA fixed FB-R2-BE-QA-01: NH-, erd 10 names)
     const r = await seedDsE({ database: db, clock, fixture: f, password });
     expect(r.users).toBe(f.users.length);
     expect(r.roles).toBe(f.users.reduce((n, u) => n + u.roles.length, 0));
@@ -51,7 +48,6 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     expect(r.parameters).toBe(f.parameters.length + 2); // + lease_terms, utility_estimate
     expect(r.docSequences.every((d) => d.ok)).toBe(true);
     expect(r.docSequences.map((d) => d.server)).toContain('F26-000001');
-    expect(r.aliases).toEqual(['group → reservation_group', 'receipt → payment']);
     expect(r.skippedBlocks.map((b) => b.block)).toContain('rooms');
 
     const ctx = {
@@ -81,8 +77,14 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     expect(rows.devices).toEqual(['desk', 'facility_mobile']);
   });
 
+  /** Drift injected in the test copy: the fixture expects GRP- while the server issues NH- (BR-007). */
+  const drifted = () =>
+    fixture((x) => {
+      for (const s of x.docSequences) if (s.docType === 'reservation_group') s.prefix = 'GRP-';
+    });
+
   it('stops on a code mismatch (fixture GRP- vs server NH-) and leaves nothing behind', async () => {
-    const f = fixture();
+    const f = drifted();
     await expect(seedDsE({ database: db, clock, fixture: f, password })).rejects.toThrow(
       SeedCodeMismatchError,
     );
@@ -96,11 +98,11 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     const r = await seedDsE({
       database: db,
       clock,
-      fixture: fixture(),
+      fixture: drifted(),
       password,
       allowCodeDrift: true,
     });
-    expect(r.warnings.join()).toMatch(/group: server NH-00001 ≠ fixture GRP-00001/);
+    expect(r.warnings.join()).toMatch(/reservation_group: server NH-00001 ≠ fixture GRP-00001/);
   });
 
   it('refuses a weak password and non-fake fixtures; expectedCode comparison is strict', async () => {
@@ -112,5 +114,12 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     ).rejects.toThrow(/fakeDataOnly/);
     expect(() => assertExpectedCode('g1', 'KH-0002', 'KH-0001')).toThrow(SeedCodeMismatchError);
     expect(() => assertExpectedCode('g1', 'KH-0001', 'KH-0001')).not.toThrow();
+    const legacy = fixture((x) => {
+      const s = x.docSequences.find((d) => d.docType === 'payment');
+      if (s) s.docType = 'receipt'; // pre-erd name: no alias any more
+    });
+    await expect(seedDsE({ database: db, clock, fixture: legacy, password })).rejects.toThrow(
+      /unknown docType receipt/,
+    );
   });
 });

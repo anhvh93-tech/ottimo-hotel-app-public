@@ -721,8 +721,45 @@ function validateSeeds() {
   const users = new Set(dse.users.map((u) => u.username));
   if (JSON.stringify(dse).match(/"password"\s*:/i)) err(W, 'không được ghi mật khẩu trong seed');
 
+  // erd mục 10 / BR-007 (FB-R2-BE-QA-01): tên docType, tiền tố, độ dài, periodKey
+  const ERD10 = {
+    reservation: ['OTM-', 5, '-'],
+    quote: ['BG-', 5, '-'],
+    work_order: ['WO-', 5, '-'],
+    reservation_group: ['NH-', 5, '-'],
+    payment: ['PT-', 6, '-'],
+    bill: ['F{yy}-', 6, 'year'],
+    guest: ['KH-', 4, '-'],
+  };
+  for (const s of dse.docSequences) {
+    const spec = ERD10[s.docType];
+    if (!spec) err(W, `docSequences: docType '${s.docType}' không có trong erd mục 10`);
+    else if (s.prefix !== spec[0] || s.padWidth !== spec[1] || s.periodKey !== spec[2])
+      err(
+        W,
+        `docSequences ${s.docType}: ${s.prefix}/${s.padWidth}/${s.periodKey} ≠ erd 10 ${spec.join('/')}`,
+      );
+  }
+  for (const g of dse.roomGroups) {
+    if ('defaultBaseOccupancy' in g || 'defaultMaxOccupancy' in g)
+      err(W, `nhóm ${g.code}: dùng baseOccupancy/maxOccupancy (OpenAPI 0.3.1 RoomGroup)`);
+    if (!Number.isInteger(g.baseOccupancy) || g.maxOccupancy !== g.baseOccupancy + 1)
+      err(W, `nhóm ${g.code}: baseOccupancy/maxOccupancy mặc định sai (BR-110, ESC-014)`);
+  }
+
   const Z = 'ds-0.json';
   if (ds0.extends !== 'DS-E') err(Z, 'extends phải là DS-E');
+  for (const k of ['baseOccupancy', 'maxOccupancy']) {
+    const tbl = ds0.roomOccupancy?.[k];
+    if (!tbl) err(Z, `thiếu roomOccupancy.${k}`);
+    else {
+      if (Object.keys(tbl).length !== rooms.size)
+        err(Z, `roomOccupancy.${k}: cần ${rooms.size} căn`);
+      for (const [no, v] of Object.entries(tbl))
+        if (rooms.get(no)?.[k] !== v)
+          err(Z, `roomOccupancy.${k} căn ${no} = ${v} ≠ DS-E ${rooms.get(no)?.[k]}`);
+    }
+  }
   const guests = new Map();
   ds0.guests.forEach((g, i) => {
     const code = `KH-${String(i + 1).padStart(4, '0')}`;

@@ -61,11 +61,6 @@ interface DsE {
   [block: string]: unknown;
 }
 
-/** Fixture docType names that differ from erd 10 (reported, then mapped). */
-const DOC_TYPE_ALIASES: Record<string, DocType> = {
-  group: 'reservation_group',
-  receipt: 'payment',
-};
 /** Fixture blocks loaded by later migrations (module that owns the table). */
 const PENDING_BLOCKS: Record<string, string> = {
   roomGroups: 'platform (room_group) – BE-B',
@@ -75,8 +70,10 @@ const PENDING_BLOCKS: Record<string, string> = {
   feeCatalog: 'folio (fee catalogue) – BE-B',
   inspectionChecklist: 'housekeeping (checklist) – BE-B',
 };
+/** erd 4.2 device_kind; `property_tablet` = legacy fixture name, kept until QA renames it. */
 const DEVICE_KINDS: Record<string, 'desk' | 'facility_mobile'> = {
   desk: 'desk',
+  facility_mobile: 'facility_mobile',
   property_tablet: 'facility_mobile',
 };
 
@@ -89,7 +86,6 @@ export interface SeedReport {
   devices: number;
   parameters: number;
   docSequences: Array<{ docType: string; expected: string; server: string; ok: boolean }>;
-  aliases: string[];
   skippedBlocks: Array<{ block: string; owner: string }>;
   warnings: string[];
 }
@@ -142,7 +138,6 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
     devices: 0,
     parameters: 0,
     docSequences: [],
-    aliases: [],
     skippedBlocks: Object.entries(PENDING_BLOCKS)
       .filter(([b]) => fixture[b] !== undefined)
       .map(([block, owner]) => ({ block, owner })),
@@ -281,7 +276,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
 
     // Counters starting above 1 (none in DS-E today) are pre-created so the first code is nextValue.
     for (const s of fixture.docSequences) {
-      const docType = mapDocType(s.docType, report);
+      const docType = mapDocType(s.docType);
       if (s.nextValue > 1) {
         const format = await parameters.get<DocCodeFormat>(
           tx,
@@ -320,7 +315,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
     // savepoint, then roll the savepoint back (the counter stays untouched).
     const date = localDate(clock.now(), fixture.property.timezone);
     for (const s of fixture.docSequences) {
-      const docType = mapDocType(s.docType, report);
+      const docType = mapDocType(s.docType);
       const expected = formatDocCode(
         s.prefix.replace('{yy}', date.slice(2, 4)),
         s.padWidth,
@@ -355,15 +350,9 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
   return report;
 }
 
-function mapDocType(name: string, report: SeedReport): DocType {
-  const alias = DOC_TYPE_ALIASES[name];
-  if (alias) {
-    const note = `${name} → ${alias}`;
-    if (!report.aliases.includes(note)) report.aliases.push(note);
-    return alias;
-  }
+function mapDocType(name: string): DocType {
   if ((DOC_TYPES as readonly string[]).includes(name)) return name as DocType;
-  throw new Error(`unknown docType ${name} in fixture`);
+  throw new Error(`unknown docType ${name} in fixture (erd 10 names only)`);
 }
 
 export function readFixture(path: string): DsE {

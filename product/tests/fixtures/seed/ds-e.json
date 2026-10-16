@@ -25,8 +25,8 @@
       "code": "L12",
       "name": "Lầu 1–2",
       "sortOrder": 1,
-      "defaultBaseOccupancy": 2,
-      "defaultMaxOccupancy": 3,
+      "baseOccupancy": 2,
+      "maxOccupancy": 3,
       "otaBaseRateVnd": 760000,
       "serviceFeeMonthlyVnd": 300000,
       "fixedCostMonthlyVnd": 150000,
@@ -52,8 +52,8 @@
       "code": "N",
       "name": "Căn N",
       "sortOrder": 2,
-      "defaultBaseOccupancy": 4,
-      "defaultMaxOccupancy": 5,
+      "baseOccupancy": 4,
+      "maxOccupancy": 5,
       "otaBaseRateVnd": 1050000,
       "serviceFeeMonthlyVnd": 400000,
       "fixedCostMonthlyVnd": 200000,
@@ -79,8 +79,8 @@
       "code": "NPLUS",
       "name": "Căn N+",
       "sortOrder": 3,
-      "defaultBaseOccupancy": 3,
-      "defaultMaxOccupancy": 4,
+      "baseOccupancy": 3,
+      "maxOccupancy": 4,
       "otaBaseRateVnd": 980000,
       "serviceFeeMonthlyVnd": 350000,
       "fixedCostMonthlyVnd": 180000,
@@ -103,7 +103,7 @@
       ]
     }
   ],
-  "roomGroupsNote": "sortOrder (thứ tự nâng hạng BR-316) là [GIẢ ĐỊNH QA]: L12 < N < N+ – INV cấu hình thật",
+  "roomGroupsNote": "sortOrder (thứ tự nâng hạng BR-316) là [GIẢ ĐỊNH QA]: L12 < N < N+ – INV cấu hình thật. baseOccupancy/maxOccupancy của nhóm = giá trị MẶC ĐỊNH khi tạo căn (tên trường theo OpenAPI 0.3.1 RoomGroup, trước 16/10 là defaultBaseOccupancy/defaultMaxOccupancy); định mức thật là rooms[].baseOccupancy",
   "rooms": [
     {
       "roomNo": "101",
@@ -1762,7 +1762,7 @@
       "prefix": "OTM-",
       "padWidth": 5,
       "scope": "property",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     },
     {
@@ -1770,7 +1770,7 @@
       "prefix": "BG-",
       "padWidth": 5,
       "scope": "property",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     },
     {
@@ -1778,23 +1778,23 @@
       "prefix": "WO-",
       "padWidth": 5,
       "scope": "property",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     },
     {
-      "docType": "group",
-      "prefix": "GRP-",
+      "docType": "reservation_group",
+      "prefix": "NH-",
       "padWidth": 5,
       "scope": "property",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     },
     {
-      "docType": "receipt",
+      "docType": "payment",
       "prefix": "PT-",
       "padWidth": 6,
       "scope": "property",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     },
     {
@@ -1810,9 +1810,9 @@
       "prefix": "KH-",
       "padWidth": 4,
       "scope": "organization",
-      "periodKey": "all",
+      "periodKey": "-",
       "nextValue": 1
     }
   ],
-  "docSequencesNote": "BR-007: mọi bộ đếm bắt đầu từ 1 trên DB mới. Không nối tiếp số prototype (QSEQ=48, OSEQ=170) – erd mục 8 ý 8: chỉ khi INV muốn"
+  "docSequencesNote": "BR-007: mọi bộ đếm bắt đầu từ 1 trên DB mới. Không nối tiếp số prototype (QSEQ=48, OSEQ=170) – erd mục 8 ý 8: chỉ khi INV muốn. docType/periodKey theo erd mục 10 (FB-R2-BE-QA-01, 16/10): nhóm đơn reservation_group NH-{n:05} (HH- dành cho nhóm hộ CRM R3, chưa có bảng nên không seed), phiếu thu payment PT-{n:06}, periodKey '-' = không reset, 'year' = năm cơ sở yy cho bill"
 }

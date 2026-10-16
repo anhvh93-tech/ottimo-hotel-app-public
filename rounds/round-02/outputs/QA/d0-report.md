@@ -55,3 +55,24 @@
 ## 6. File tạo/sửa
 - Tạo: `product/tests/tools/gen_rbac_cases.py`, `product/tests/fixtures/rbac-cases.json`, `product/tests/fixtures/rbac-cases.csv`, `rounds/round-02/outputs/QA/d0-report.md`
 - Sửa: `product/tests/fixtures/br-examples.json`, `product/tests/fixtures/seed/ds-e.json`, `product/tests/fixtures/seed/ds-0.json`, `product/tests/tools/validate-fixtures.mjs`, `product/tests/tools/gen_traceability.py`, `product/tests/test-cases/r1-main-flows.md` (v0.3), `product/docs/qa/traceability.md` (sinh lại, 0.4), `product/tests/README.md`, `product/.prettierignore`, `rounds/round-02/qa/bug-list.md`, `01-decisions/decision-log.md` (5 dòng QA)
+
+## 7. Bổ sung Đợt 0 – thẻ FB-R2-BE-QA-01 + `baseOccupancy` (16/10/2026)
+
+| # | Việc ORC giao | Kết quả | Trạng thái |
+|---|---|---|---|
+| 1 | Sửa fixture theo FB-R2-BE-QA-01 | `ds-e.json` `docSequences`: `reservation_group` `NH-`, `payment` `PT-`, `periodKey` `-` (bill `year`). Không đổi `devices[].type` `property_tablet` (thẻ không yêu cầu; loader chưa nhận `facility_mobile` – xem `responses/QA-responses.md`) | **Xong** – BUG-R2-004 Closed |
+| 2 | `baseOccupancy` từng căn khớp OpenAPI 0.3.1 | DS-E `rooms[]` đã có (2/4/3, max +1). `roomGroups[]` đổi tên trường sang `baseOccupancy`/`maxOccupancy` (schema `RoomGroup`); DS-0 thêm `roomOccupancy` (bảng tra, kế thừa DS-E) | **Xong** |
+| 3 | Validator 0 lỗi + `seed:ds-e` không `--allow-code-drift` | Validator thêm kiểm `docSequences` theo erd 10, tên trường nhóm, `roomOccupancy` DS-0 = DS-E. Kết quả bên dưới | **Xong** |
+
+| Lệnh | Kết quả |
+|---|---|
+| `node tests/tools/validate-fixtures.mjs` | **OK – 0 lỗi**, 1 cảnh báo cũ (HĐ OTM-0108) |
+| Đột biến `NH-` → `GRP-`, `payment` → `receipt` | 2 lỗi đúng chỗ, exit 1; khôi phục → 0 lỗi |
+| `pnpm exec prettier --check tests` | All matched files use Prettier code style |
+| `pnpm --filter @ottimo/api seed:ds-e` (DB dev `ottimo`, `APP_ENV=dev`, vai `ottimo_app`, `QA_SEED_PASSWORD` lấy giá trị thử trong `.env.example`) | **exit 0**: 13 user, 15 vai, 2 thiết bị, 136 tham số, 7/7 mã khớp, `aliases` [], `warnings` [], 6 khối chờ BE-B (roomGroups, rooms, channels, minibarItems, feeCatalog, inspectionChecklist). Token thiết bị ghi `tests/fixtures/seed/.out/ds-e.map.json` (gitignore) |
+
+Rủi ro mới (đề nghị ORC chuyển BE): `services/api/test/integration/seed.test.ts` sẽ đỏ 3 ca vì dựa vào fixture cũ (`GRP-`, `aliases`) – cách sửa ở `responses/QA-responses.md`. DB dev `ottimo` nay đã có tổ chức `OTTIMO` (chạy lại `seed:ds-e` trên DB này sẽ báo "already loaded" – đúng thiết kế).
+
+Giả định: `.env` máy INV chưa có `QA_SEED_PASSWORD` → dùng giá trị thử của `.env.example` cho lần nạp này (chỉ trong biến môi trường của lệnh, không ghi vào `.env`).
+
+File sửa lượt này: `product/tests/fixtures/seed/ds-e.json`, `product/tests/fixtures/seed/ds-0.json`, `product/tests/tools/validate-fixtures.mjs`, `rounds/round-02/qa/bug-list.md`, `rounds/round-02/outputs/QA/d0-report.md`; tạo `rounds/round-02/responses/QA-responses.md`.

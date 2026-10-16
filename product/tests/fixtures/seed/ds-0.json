@@ -3,6 +3,34 @@
   "id": "DS-0",
   "schemaVersion": 1,
   "extends": "DS-E",
+  "roomOccupancy": {
+    "source": "DS-E rooms[] (OpenAPI 0.3.1 Room.baseOccupancy/maxOccupancy, BR-110 v0.3.1, ESC-014)",
+    "baseOccupancy": {
+      "101": 2,
+      "102": 2,
+      "103": 2,
+      "201": 2,
+      "202": 2,
+      "203": 2,
+      "301": 4,
+      "302": 3,
+      "401": 4,
+      "402": 3
+    },
+    "maxOccupancy": {
+      "101": 3,
+      "102": 3,
+      "103": 3,
+      "201": 3,
+      "202": 3,
+      "203": 3,
+      "301": 5,
+      "302": 4,
+      "401": 5,
+      "402": 4
+    },
+    "note": "Bảng tra để đối chiếu – DS-0 KHÔNG nạp lại căn (kế thừa DS-E). Mọi đơn DS-0 được validator kiểm số người tính sức chứa ≤ maxOccupancy và phụ thu/bộ đồ dùng thêm theo định mức từng căn; đơn tạo trước khi đổi định mức giữ giá trị trong pricing_snapshot (BR-006)"
+  },
   "fakeDataOnly": true,
   "updated": "2026-10-16",
   "t0": "2026-10-15",
