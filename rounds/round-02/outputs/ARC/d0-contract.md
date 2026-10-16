@@ -56,3 +56,16 @@
 - Sửa: `product/docs/api/openapi.yaml` (0.3.1-draft), `product/docs/erd.md` (0.3.1), `01-decisions/decision-log.md` (5 dòng ARC)
 - Sinh lại (bằng công cụ): `product/docs/qa/traceability.md`
 - Tạo: `rounds/round-02/outputs/ARC/d0-contract.md`
+
+## 7. Bổ sung – việc nhỏ theo BE `d0-foundation.md` mục 5 (OpenAPI 0.3.2-draft, erd 0.3.2)
+| # | Đề nghị BE | Xử lý |
+|---|---|---|
+| 1 | `INTERNAL_ERROR` (500) | **Xong.** Thêm vào bảng `Problem.code` (info); mọi operation có thể trả, không khai từng operation. Meta BE sinh lại có `INTERNAL_ERROR: 500` |
+| 2 | erd 4.3 `entity_id`/`session_id` kiểu text | **Đồng ý.** `audit_event.entity_id`, `audit_event.session_id`, `c3_access_log.session_id` → text (id phiên = SHA-256 hex; id thực thể có thể bigint/mã). `trusted_device_id` giữ uuid |
+| 3 | `auth_resolve_session` thêm `idle_expires_at` | **Quyết thêm** `idle_expires_at` **và** `user_status` (erd 2.4). Middleware từ chối khi hết hạn idle/tuyệt đối, bị thu hồi, hoặc người dùng không `active`; gia hạn idle bằng UPDATE dưới RLS. Migration mới DROP + CREATE (không sửa 0001) – BE-B làm cùng đăng nhập, cập nhật test kiến trúc cùng PR |
+| 4 | Biến môi trường mới | **Xong.** Bảng 4 biến + `CLOCK_OVERRIDE` đã bỏ ở erd 2.1; mục cập nhật cuối ADR-008 (làm chặt điều kiện nạp `/__test__/*`: `INCLUDE_TEST_SUPPORT=1` và `APP_ENV ≠ production`); architecture mục 13 bổ sung `INCLUDE_TEST_SUPPORT` |
+| thêm | `status_label` là mã tự do dạng `INV-004+GD` | **Đồng ý.** erd 4.1 dùng CHECK đúng như migration BE; OpenAPI `statusLabel` bỏ enum, thêm pattern (client hiện nguyên văn mã lạ) |
+
+Kết quả lệnh (16/10/2026): `pnpm --filter @ottimo/api gen:openapi` → ghi lại `openapi-meta.ts` (version 0.3.2-draft), `--check` exit 0 · `openapi-spec-validator` OK · `redocly lint` 0 lỗi, 4 cảnh báo (như cũ) · `gen_traceability.py --strict` exit 0 · `gen_rbac_cases.py --check` lúc đầu exit 1 (fixture cũ) → sinh lại `rbac-cases.json/.csv` (vẫn 174 operation, 1.914 ca, rbac mismatch []) → `--check` exit 0.
+
+File sửa: `product/docs/api/openapi.yaml`, `product/docs/erd.md`, `product/docs/adr/ADR-008-time-and-timezone.md`, `product/docs/architecture.md` (mục 13), `01-decisions/decision-log.md` (4 dòng). Sinh lại bằng công cụ: `product/services/api/src/generated/openapi-meta.ts`, `product/docs/qa/traceability.md`, `product/tests/fixtures/rbac-cases.json`, `.csv`.

@@ -31,3 +31,10 @@
 
 ## Cập nhật R1 bước 4 (16/10/2026)
 - Điểm 2, 4 viết lại theo BE-ARC-04 và rủi ro kiểm thử của QA (MutableClock, endpoint test chỉ ngoài production, cấm `now()` trong SQL nghiệp vụ, tick + so mốc theo Clock).
+
+## Cập nhật R2 Đợt 0 (16/10/2026) – biến môi trường (khớp `services/api/src/config.ts`)
+- `CLOCK_MODE=system|mutable` (mặc định `system`; production bắt buộc `system`) chọn `SystemClock`/`MutableClock`. `FixedClock` chỉ dùng trong test đơn vị, cấu hình không chọn được.
+- **Bỏ `CLOCK_OVERRIDE`**: đặt giá trị khác rỗng ở bất kỳ môi trường nào → api/worker dừng khởi động (tránh cấu hình cũ lặng lẽ bị bỏ qua).
+- Điểm "endpoint `/__test__/*` chỉ đăng ký khi `APP_ENV ∈ {dev, test, staging}`" làm chặt hơn: module chỉ nạp khi **`INCLUDE_TEST_SUPPORT=1`** (biến chạy) **và** `APP_ENV ≠ production` (production đặt `1` → dừng khởi động); bản build không có build-arg cùng tên thì `dist/test-support` bị xóa. Mỗi request cần `X-Test-Token` = `TEST_SUPPORT_TOKEN` (≥ 32 ký tự, bắt buộc khi bật, cấm ở production) **và** phiên owner; ghi `audit_event`.
+- `COOKIE_SECURE_PREFIX=true|false` (mặc định `true`): `false` chỉ cho dev/test chạy HTTP (cookie bỏ tiền tố `__Host-`); staging/production bắt buộc `true`.
+- Bảng đầy đủ: `erd.md` mục 2.1; danh sách biến chung: `architecture.md` mục 13.

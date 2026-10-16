@@ -1,6 +1,6 @@
 # Mô hình dữ liệu (ERD) – OTTIMO Desk
 
-- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Đợt 0 (16/10/2026): 0.3.1** – khớp OpenAPI 0.3.1-draft (xem mục 15)
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Đợt 0 (16/10/2026): 0.3.2** – khớp OpenAPI 0.3.2-draft (xem mục 15)
 - Trạng thái: **Đã sửa theo review bước 3** (SEC-on-ARC 26 thẻ, BE-on-ARC 18 thẻ, DATA-on-ARC 11 thẻ – xem `rounds/round-01/responses/ARC-responses.md`) và quyết định mới trong decision-log (SEC, DOM, PO, DATA, phân xử ORC 15/10). Đối chiếu `metrics-definitions.md` v0.2 mục 9, `security-requirements.md` v0.2
 - Đầu vào: `architecture.md` (ADR-001…013), `state-machines.md` (SM-01…SM-15), `rbac-matrix.md`, `business-rules.md` (BR, mục 13 tham số), `metrics-definitions.md` (mục 9 – trường bắt buộc), `security/data-risk-assessment.md` (C0–C3, D01–D28, T01–T18), `integrations.md`, `product/integrations/README.md`, `round-0-baseline.md` (BL mục 4), `03-backlog/backlog.md` (Must R2)
 - Đọc cùng: `api/openapi.yaml` (hợp đồng API), `coding-standards.md` (quy tắc migration, đặt tên), `architecture.md` mục 9 (job theo lịch) và mục 9a (mã chứng từ)
@@ -39,6 +39,15 @@
 | `ottimo_readonly` | `NOLOGIN BYPASSRLS` (mặc định; chặt hơn bản v0.2 – BUG-R1-SEC-06) | OPS qua runbook (khắc phục sự cố, đối soát) – không bao giờ là vai của ứng dụng. Khi cần: OPS bật `LOGIN` có hạn (`VALID UNTIL`) theo runbook, ghi lý do, tắt lại sau phiên (R3 – runbook production) | `SELECT` |
 
 - Biến môi trường: `DATABASE_URL` (vai `ottimo_app`) cho api/worker/test; `MIGRATION_DATABASE_URL` (vai `ottimo_migrator`) chỉ cho bước migrate. Áp cho cả DB `ottimo_test` và CI.
+- **Biến chạy liên quan DB/đồng hồ/kiểm thử (0.3.2, khớp `services/api/src/config.ts` BE Đợt 0; danh sách đầy đủ ở `architecture.md` mục 13):**
+
+  | Biến | Giá trị | Mặc định | Production | Ghi chú |
+  |---|---|---|---|---|
+  | `CLOCK_MODE` | `system\|mutable` | `system` | bắt buộc `system` (khác → dừng khởi động) | `mutable` = `MutableClock` đọc bảng `dev_clock` (4.12, ADR-008); production còn dừng nếu `dev_clock` có dòng |
+  | `INCLUDE_TEST_SUPPORT` | `0\|1` (rỗng = 0) | rỗng | cấm `1` | Biến **chạy**: chỉ khi `1` mới nạp module `/__test__/*` (`openapi.test.yaml`). Khác build-arg cùng tên của `Dockerfile.api` (bản build không có cờ này bị xóa `dist/test-support`) |
+  | `TEST_SUPPORT_TOKEN` | chuỗi ≥ 32 ký tự | rỗng | cấm đặt | Bắt buộc khi `INCLUDE_TEST_SUPPORT=1`; header `X-Test-Token`, so sánh thời gian hằng, **và** phải có phiên owner; không được trùng giá trị khóa bí mật khác |
+  | `COOKIE_SECURE_PREFIX` | `true\|false` | `true` | bắt buộc `true` | `false` chỉ cho dev/test qua HTTP: cookie bỏ tiền tố `__Host-` (vẫn `HttpOnly`, `SameSite`); staging/production đặt `false` → dừng khởi động |
+  | ~~`CLOCK_OVERRIDE`~~ | – | – | – | **Đã bỏ** (thay bằng `CLOCK_MODE=mutable` + `POST /__test__/clock`). Đặt giá trị khác rỗng ở **mọi** môi trường → api/worker dừng khởi động |
 - **Chốt mô hình 4 vai (BUG-R1-SEC-06, 16/10)**: giữ bảng trên (khuyến nghị SEC). Lý do: lộ `MIGRATION_DATABASE_URL` không được đăng nhập thẳng bằng
   chủ hàm `SECURITY DEFINER`; `SET ROLE` để lại dấu vết. **Đã làm (OPS, R2 tuần 1 – `rounds/round-02/outputs/OPS/w1-skeleton-run.md` mục 3.1)**:
   `infra/postgres/init/02-roles.sh` tạo đúng 4 vai trên PostgreSQL 17.11 – `ottimo_owner` NOLOGIN không mật khẩu; `ottimo_migrator` LOGIN NOINHERIT,
@@ -89,12 +98,14 @@ Sáu truy vấn chạy trước khi biết cơ sở/tổ chức. Không tắt RL
 | Hàm | Trả | Dùng ở |
 |---|---|---|
 | `auth_find_user(p_username text)` | `(user_id, organization_id, password_hash, status, locked_until, failed_login_count, must_change_password, mfa_enabled)` | `POST /v1/auth/login` – `username` **duy nhất toàn hệ thống** (citext UK) |
-| `auth_resolve_session(p_sid_hash text)` | `(session_id, user_id, organization_id, active_property_id, expires_at, revoked_at, roles_version, trusted_device_id)` | Mỗi request nhân viên |
+| `auth_resolve_session(p_sid_hash text)` | `(session_id text, user_id, organization_id, active_property_id, expires_at, idle_expires_at, revoked_at, roles_version, user_status, trusted_device_id)` – 0.3.2 thêm `idle_expires_at`, `user_status` | Mỗi request nhân viên: từ chối nếu `revoked_at` có, `now ≥ expires_at`, `now ≥ idle_expires_at` hoặc `user_status ≠ active` (401 `UNAUTHENTICATED`). Gia hạn `idle_expires_at`/`last_active_at` bằng UPDATE thường **sau** khi đặt ngữ cảnh (dưới RLS), không ghi trong hàm `STABLE` |
 | `auth_resolve_device(p_did_hash text)` | `(device_id, property_id, organization_id, expires_at, revoked_at)` | Kiểm `__Host-ottimo_did` |
 | `guest_resolve_token(p_token_hash text)` | `(token_id, reservation_id, property_id, organization_id, expires_at, revoked_at)` | `POST /v1/guest/sessions`, mỗi request khách (qua `guest_session.token_id`) |
 | `webhook_resolve_property(p_provider text, p_slug text)` | `(property_id, organization_id)` | `/v1/webhooks/{provider}/{propertySlug}` |
 | `public_resolve_unit(p_unit_slug text)` | `(property_id, organization_id, room_id)` | `/v1/public/units/{unitSlug}` |
 | `worker_list_properties()` | `(property_id, organization_id, timezone)` của cơ sở `active` | Worker trước khi lặp theo cơ sở |
+
+**Quyết định 0.3.2 (đề nghị BE d0 mục 5)**: thêm `idle_expires_at` vì hạn không hoạt động (admin 30 phút, PWA 72 giờ) phải kiểm ở **mỗi** request mà không cần truy vấn thứ hai trước ngữ cảnh; thêm `user_status` làm lớp phòng thủ thứ hai (khóa người dùng đã thu hồi phiên – SR-SES-06 – nhưng nếu thu hồi sót thì vẫn chặn). Đổi kiểu trả về cần `DROP FUNCTION` + `CREATE` trong migration **mới** (không sửa 0001) – BE-B làm cùng việc đăng nhập; test kiến trúc cập nhật danh sách cột cùng PR.
 
 Sau khi hàm trả kết quả, middleware đặt ngữ cảnh (2.2) rồi mọi truy vấn khác chạy dưới RLS. Mỗi hàm có test riêng: chỉ trả các cột trên, không trả dòng `revoked`/hết hạn sai.
 
@@ -438,7 +449,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `key` | text | not null, thuộc danh mục mục 9 (CHECK qua bảng `config_parameter_def`) | |
 | `value` | jsonb | validate bằng schema zod của khóa | |
 | `effective_from` | date | not null | Giá trị áp cho bản ghi tạo từ ngày này (theo giờ cơ sở) |
-| `status_label` | text | `GD\|NGANH\|PL` | Nhãn từ BR mục 13 (để màn hình tham số hiện "chờ INV/luật sư") |
+| `status_label` | text null | CHECK `^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$` | Mã nhãn BR mục 13 (`GD`, `NGANH`, `PL`) hoặc mã quyết định (`INV-004`…), ghép bằng `+` (DS-E: `INV-004+GD`) – là mã, không phải chữ tự do (0.3.2, khớp migration BE 0000 và OpenAPI `statusLabel`) |
 | `reason` | text | | Bắt buộc khi sửa (US-005 AC3) |
 | | | UK (`property_id`, `key`, `effective_from`) | Không UPDATE giá trị đã có hiệu lực trong quá khứ – thêm dòng mới |
 
@@ -504,14 +515,15 @@ CHECK `device_kind <> 'facility_mobile' OR expires_at <= created_at + interval '
 | `actor_user_id` | uuid null | |
 | `category` | text | `money\|state\|config\|access\|security\|data` – lọc US-006 AC2 |
 | `action` | text | `folio_line.posted`, `payment.recorded`, `reservation.cancelled`, `access.denied`, `config.changed`… |
-| `entity_type`, `entity_id` | text, uuid | |
+| `entity_type`, `entity_id` | text, text | 0.3.2: `entity_id` là **text** – id thực thể có thể là uuid, bigint (`audit_event.id`, `job_run`) hoặc mã (khóa tham số, `doc_sequence`); uuid lưu dạng chuỗi chuẩn chữ thường |
 | `before`, `after` | jsonb | Sinh bằng serializer audit theo **danh sách trường cho phép từng thực thể** (allowlist, không phải blocklist); cột `_enc`/giá trị C3 **không bao giờ** vào; C2 che theo danh sách (SR-AUD-03) |
 | `reason` | text | |
 | `request_id`, `ip_hmac` | text | HMAC với `LOG_IP_HMAC_KEY` (SR-KEY-08) |
-| `session_id`, `trusted_device_id` | uuid null | |
+| `session_id` | text null | 0.3.2: **text** – `user_session.id` là SHA-256 hex của token (4.2), không phải uuid; phiên khách lưu `guest_session.id` dạng chuỗi |
+| `trusted_device_id` | uuid null | |
 Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `entity_id`).
 
-**`c3_access_log`** – append-only; mỗi lần đọc/ghi/sao chép/xóa dữ liệu C3 (SEC R-REG-09, SR-C3-08, rbac ký hiệu L). `occurred_at`, `actor_type` (`user|guest|system`), `user_id` (null khi khách/hệ thống), `session_id` (phiên nhân viên hoặc `guest_session`), `trusted_device_id`, `ip_hmac`, `subject_type` (`guest_document|document_image|door_credential|payee_account|portal_data|mfa_secret`), `subject_id`, `reservation_id`, `action` (`view|create|update|copy|delete|purge`), `reason_code` (bắt buộc khi xem ảnh sau `confirmed` – rbac ghi chú 30), `request_id`. **Ghi trước khi trả dữ liệu** (ADR-013). **Khách xem mã cửa** qua `GET /v1/guest/stay` cũng ghi 1 dòng `actor_type=guest` (SR-GST-10).
+**`c3_access_log`** – append-only; mỗi lần đọc/ghi/sao chép/xóa dữ liệu C3 (SEC R-REG-09, SR-C3-08, rbac ký hiệu L). `occurred_at`, `actor_type` (`user|guest|system`), `user_id` (null khi khách/hệ thống), `session_id` text (phiên nhân viên = SHA-256 hex, hoặc id `guest_session` – 0.3.2), `trusted_device_id`, `ip_hmac`, `subject_type` (`guest_document|document_image|door_credential|payee_account|portal_data|mfa_secret`), `subject_id`, `reservation_id`, `action` (`view|create|update|copy|delete|purge`), `reason_code` (bắt buộc khi xem ảnh sau `confirmed` – rbac ghi chú 30), `request_id`. **Ghi trước khi trả dữ liệu** (ADR-013). **Khách xem mã cửa** qua `GET /v1/guest/stay` cũng ghi 1 dòng `actor_type=guest` (SR-GST-10).
 
 **`state_transition`** – lịch sử chuyển trạng thái cho **cả 15 máy** (state-machines 0.2.2). `machine` (`SM-01`…`SM-15`), `entity_id`, `from_state`, `to_state`, `event_code` (mã chuyển BA: `B1`, `O4`, `R3`, `K6`…), `actor_type`, `actor_user_id`, `reason_code`, `reason_note`, `occurred_at`, `performed_at` (giờ trên thiết bị khi gửi offline), `rejected bool` (lần chuyển bị từ chối cũng ghi – US-002 AC2). Append-only. **Dùng cho kiểm toán** (thời hạn T15); **nguồn lịch sử cho chỉ số** là `reservation_change` (mục 4.5, DATA FB-05).
 
@@ -1387,4 +1399,5 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | 16/10/2026 | 1 – Bước 4 | v0.2: vai DB `ottimo_owner/migrator/app/readonly`; RLS `NULLIF` + `set_config` + hàm đường vào SECURITY DEFINER; `trusted_device`, `guest_verification_code`, bộ đếm theo token; `staff_notification`, `push_subscription`, `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `shift`, `payment_allocation`, `group_bill`; cột DATA v0.2 cho `stay_night`/`reservation`; `commission` đầy đủ; `payment.reconciliation`, `method_detail`; `inbox_message.filtered_payload`; `integration_log.cost_units`; FK cặp cơ sở; EXCLUDE DEFERRABLE; phân vùng nhật ký; OOO nửa mở; bill `F26-000123`; sức chứa theo căn; mục 16 chiến lược migration | ARC |
 | 16/10/2026 | 1 – Bước 5 | v0.2.1 (sửa lỗi QA/SEC – `rounds/round-01/qa/fix-notes-ARC.md`): `message_template.contains_c3` + render mẫu mã cửa tách riêng (SEC-01); 9.3 cột Người sửa · Biên, tham số bảo mật chỉ OWN, audit `security` (SEC-02); `guest_access_token.activation`/`replaces_token_id`/`first_opened_at` – link chờ không thu hồi link đang dùng (SEC-03); `guest_verification_code.code_hash` dùng `GUEST_CODE_SIGNING_KEY` (SEC-07); chốt 4 vai DB, giao OPS (SEC-06); đóng E7; SM-05 K1–K13 (BUG-R1-018) | ARC |
 | 16/10/2026 | 2 – Tuần 1 (W1, W11, BUG-R1-SEC-06) | 2.1 `ottimo_readonly` = **NOLOGIN** BYPASSRLS (khớp `02-roles.sh`), đoạn "việc của OPS" → đã làm (OPS W1); `reservation.group_id`, `external_contract`, `manual_long_stay` (US-017 AC5a); `reservation_group` tách `booker_guest_id`/`payer_guest_id` (BR-321) – khớp OpenAPI 0.3.0 (`reservation-groups`, `shifts`) | ARC |
+| 16/10/2026 | 2 – Đợt 0 (việc nhỏ theo BE d0) | **0.3.2** (khớp OpenAPI 0.3.2-draft – `INTERNAL_ERROR`): 2.1 bảng biến chạy `CLOCK_MODE`, `INCLUDE_TEST_SUPPORT`, `TEST_SUPPORT_TOKEN`, `COOKIE_SECURE_PREFIX`, bỏ `CLOCK_OVERRIDE`; 2.4 `auth_resolve_session` trả thêm `idle_expires_at`, `user_status`; 4.3 `audit_event.entity_id`, `session_id` và `c3_access_log.session_id` kiểu text; 4.1 `status_label` là mã có pattern | ARC |
 | 16/10/2026 | 2 – Đợt 0 | **0.3.1** (khớp OpenAPI 0.3.1-draft; đề nghị BA E00-01/04, E02-01/05; ESC-014; BR v0.3.1): `room.base_occupancy` (định mức từng căn) + `max_occupancy ≥ base_occupancy`, quy tắc +1 ở ứng dụng; `room_group.base_occupancy` vào sơ đồ; `reservation.direct_source` enum theo US-017 AC8 (+ `sales_staff`); `hk_task` 3 loại `extra_guest_kit_*`, `quantity`, `due_at`, UK một phần, sinh/hủy trong cùng giao dịch; mã `HH-` cho nhóm hộ CRM (R3), `NH-` giữ cho nhóm đơn; **9.1a biên min–max** khóa nghiệp vụ (QA TC-NT-042, `PARAM_OUT_OF_RANGE`); 9.1 bỏ `base_occupancy`/`max_occupancy.<group>` khỏi tham số (là cột căn/nhóm); câu hỏi mở E8 (kênh direct), E9 (Q-01) | ARC |

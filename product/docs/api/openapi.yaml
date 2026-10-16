@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.3.1-draft
+  version: 0.3.2-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -90,6 +90,7 @@ info:
     | UNAUTHENTICATED | 401 | Chưa đăng nhập / phiên hết hạn |
     | FORBIDDEN_ACTION | 403 | Vai không được làm hành động |
     | NOT_FOUND | 404 | Không có hoặc ngoài phạm vi |
+    | INTERNAL_ERROR | 500 | Lỗi không lường trước ở server – `detail` chung, không lộ SQL/stack; kèm `requestId` để tra log (0.3.2). Mọi operation đều có thể trả; không khai lại ở từng operation |
     | ROOM_UNAVAILABLE | 409 | Trùng căn – đêm (BR-906) – kèm `conflicts[]` |
     | ROOM_BLOCKED | 409 | Căn đang khóa OOO (US-019) |
     | ROOM_NOT_SELLABLE | 409 | Căn ngừng bán (US-004) |
@@ -211,6 +212,10 @@ info:
     `ROOM_NOT_READY` và bảng `FieldError.code`. **Sửa**: `rejectRequest` xác nhận bằng `authMethod` + `secret` như `approveRequest` (R2 mật khẩu; `pin` giữ
     `deprecated`, server R2 không nhận); `initialPassword`/`resetPassword` tối thiểu 10 ký tự (khớp `newPassword`, V-10); SM-16 G1/G4: CTV `own_hold_only` (rbac A23, ghi chú 36);
     ví dụ YAML có `:` đặt trong nháy (FB-R2-SEC-ARC-01). **Không đổi**: `NH-` là mã nhóm đơn; `HH-` dành cho nhóm hộ CRM (R3, erd mục 10).
+
+    ## Thay đổi phiên bản 0.3.2-draft (R2 Đợt 0 – yêu cầu BE `d0-foundation.md` mục 5; chi tiết `rounds/round-02/outputs/ARC/d0-contract.md` mục 4)
+    **Thêm**: mã `INTERNAL_ERROR` (500) vào bảng `Problem.code`. **Nới**: `ConfigParameter.statusLabel` từ enum `GD|NGANH|PL` thành mã có pattern
+    (ghép `+`, ví dụ `INV-004+GD`) – client phải hiện được mã lạ. Không đổi đường dẫn, không đổi request.
   contact:
     name: ARC – OTTIMO Desk
   license:
@@ -6658,7 +6663,7 @@ components:
         key: { type: string, example: hold_hours_default }
         value: { description: 'Giá trị theo schema của khóa' }
         effectiveFrom: { $ref: '#/components/schemas/LocalDate' }
-        statusLabel: { type: string, enum: [GD, NGANH, PL], description: 'GĐ = chờ INV xác nhận; PL = chờ luật sư/kế toán' }
+        statusLabel: { type: string, pattern: '^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$', example: INV-006+NGANH, description: 'Mã nhãn BR mục 13, ghép bằng `+` (GD = chờ INV xác nhận; NGANH; PL = chờ luật sư/kế toán; mã ESC/INV như `INV-004`). Là mã, client tự dịch; mã lạ hiện nguyên văn. 0.3.2: bỏ enum đóng (DS-E dùng `INV-004+GD`)' }
         brRef: { type: string, example: BR-302 }
         editableBy: { type: array, items: { $ref: '#/components/schemas/Role' } }
         changedBy: { type: string }

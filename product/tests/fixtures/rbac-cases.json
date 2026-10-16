@@ -763,7 +763,7 @@
         "collaborator"
       ],
       "expected": "2xx",
-      "scope": "own",
+      "scope": "own_hold_only",
       "rbac": [
         "A23"
       ],
@@ -6068,7 +6068,7 @@
         "collaborator"
       ],
       "expected": "2xx",
-      "scope": "own",
+      "scope": "own_hold_only",
       "rbac": [
         "A23"
       ],
@@ -22625,7 +22625,9 @@
       ],
       "expected": "2xx",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22640,7 +22642,9 @@
       ],
       "expected": "2xx",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22655,7 +22659,9 @@
       ],
       "expected": "2xx",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22670,7 +22676,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22685,7 +22693,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22700,7 +22710,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22715,7 +22727,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22730,7 +22744,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22746,7 +22762,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22762,7 +22780,9 @@
       ],
       "expected": "403",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false
     },
@@ -22777,7 +22797,9 @@
       ],
       "expected": "401",
       "scope": null,
-      "rbac": [],
+      "rbac": [
+        "A36"
+      ],
       "sprint": "R2",
       "rbacMismatch": false,
       "note": "cookie khách trên operation nhân viên (SR-SES-09)"
@@ -23101,7 +23123,7 @@
         "collaborator"
       ],
       "expected": "2xx",
-      "scope": "own",
+      "scope": "own_hold_only",
       "rbac": [
         "A23"
       ],
