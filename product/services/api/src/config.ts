@@ -15,12 +15,24 @@ export type AppEnv = (typeof APP_ENVS)[number];
  */
 export type TrustProxy = false | string[];
 
+export const CLOCK_MODES = ['system', 'mutable'] as const;
+export type ClockModeSetting = (typeof CLOCK_MODES)[number];
+
 export interface AppConfig {
   appEnv: AppEnv;
   databaseUrl: string;
   port: number;
   logLevel: string;
   trustProxy: TrustProxy;
+  /** system = real time; mutable = shared fake clock (dev_clock) – never in production (ADR-008). */
+  clockMode: ClockModeSetting;
+  /**
+   * Test-only endpoints (openapi.test.yaml): loaded only when INCLUDE_TEST_SUPPORT=1, APP_ENV is not
+   * production and the folder exists in the build (Dockerfile.api removes it by default).
+   */
+  testSupport: { enabled: boolean; token: string };
+  /** Cookie names with the __Host- prefix (needs HTTPS). Only dev/test may turn it off. */
+  cookieSecurePrefix: boolean;
 }
 
 export class ConfigError extends Error {
@@ -45,7 +57,7 @@ export const REQUIRED_SECRETS = [
   'GUEST_CODE_SIGNING_KEY',
 ] as const;
 /** Every key material that must never be shared between purposes (includes the KEK). */
-const DISTINCT_KEYS = [...REQUIRED_SECRETS, 'DATA_KEK_CURRENT'] as const;
+const DISTINCT_KEYS = [...REQUIRED_SECRETS, 'DATA_KEK_CURRENT', 'TEST_SUPPORT_TOKEN'] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
 
 /**
@@ -66,7 +78,10 @@ export function resolveFileSecrets(
   return out;
 }
 
-export function parseTrustProxy(raw: string | undefined): TrustProxy {
+/** Narrowest accepted prefixes: anything wider is "trust (almost) everyone" (FB-R2-SEC-BE-01). */
+const MIN_PREFIX = { 4: 8, 6: 16 } as const;
+
+export function parseTrustProxy(raw: string | undefined, appEnv?: AppEnv): TrustProxy {
   const value = (raw ?? '').trim();
   if (value === '' || value === 'false') return false;
   if (value === 'true') {
@@ -76,21 +91,82 @@ export function parseTrustProxy(raw: string | undefined): TrustProxy {
     throw new ConfigError('TRUST_PROXY hop counts are not supported; set the proxy IP/CIDR list');
   }
   const list = value.split(',').map((s) => s.trim());
-  if (!list.every(isIpOrCidr)) {
-    throw new ConfigError('TRUST_PROXY must be empty or a comma list of IP/CIDR');
+  const internalOnly = appEnv === 'staging' || appEnv === 'production';
+  for (const entry of list) {
+    const parsed = parseIpOrCidr(entry);
+    if (!parsed) throw new ConfigError('TRUST_PROXY must be empty or a comma list of IP/CIDR');
+    if (parsed.prefix < MIN_PREFIX[parsed.family]) {
+      throw new ConfigError(
+        `TRUST_PROXY entry is too wide (IPv4 needs /${MIN_PREFIX[4]} or narrower, IPv6 /${MIN_PREFIX[6]})`,
+      );
+    }
+    // Caddy sits in the internal Docker network (hosting-plan): staging/production accept loopback,
+    // RFC 1918 and fc00::/7 only. A CDN in front needs a SEC-approved change here.
+    if (internalOnly && !isInternalRange(parsed)) {
+      throw new ConfigError(
+        `TRUST_PROXY must list internal addresses only (loopback, RFC 1918, fc00::/7) when APP_ENV=${appEnv}`,
+      );
+    }
   }
   return list;
 }
 
-/** Strict IP or CIDR check (node:net), so a typo fails at startup instead of trusting the wrong peer. */
-function isIpOrCidr(entry: string): boolean {
+interface ParsedCidr {
+  family: 4 | 6;
+  addr: bigint;
+  prefix: number;
+}
+
+/** Strict IP or CIDR parse (node:net), so a typo fails at startup instead of trusting the wrong peer. */
+function parseIpOrCidr(entry: string): ParsedCidr | null {
   const [addr, prefix, extra] = entry.split('/');
-  if (extra !== undefined || !addr) return false;
+  if (extra !== undefined || !addr) return null;
   const family = isIP(addr);
-  if (family === 0) return false;
-  if (prefix === undefined) return true;
-  if (!/^\d{1,3}$/.test(prefix)) return false;
-  return Number(prefix) <= (family === 4 ? 32 : 128);
+  if (family !== 4 && family !== 6) return null;
+  const max = family === 4 ? 32 : 128;
+  if (prefix !== undefined && !/^\d{1,3}$/.test(prefix)) return null;
+  const bits = prefix === undefined ? max : Number(prefix);
+  if (bits > max) return null;
+  return { family, addr: family === 4 ? ipv4ToBigint(addr) : ipv6ToBigint(addr), prefix: bits };
+}
+
+function ipv4ToBigint(a: string): bigint {
+  return a.split('.').reduce((acc, octet) => (acc << 8n) + BigInt(Number(octet)), 0n);
+}
+
+function ipv6ToBigint(a: string): bigint {
+  let text = a;
+  // IPv4-embedded tail (::ffff:10.0.0.1) → two hextets.
+  const v4 = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+  if (v4?.[1]) {
+    const n = ipv4ToBigint(v4[1]);
+    text = text.replace(v4[1], `${(n >> 16n).toString(16)}:${(n & 0xffffn).toString(16)}`);
+  }
+  const [head = '', tail] = text.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail !== undefined && tail !== '' ? tail.split(':') : [];
+  const fill = tail !== undefined ? 8 - h.length - t.length : 0;
+  const groups = [...h, ...Array<string>(fill).fill('0'), ...t];
+  return groups.reduce((acc, g) => (acc << 16n) + BigInt(parseInt(g || '0', 16)), 0n);
+}
+
+const INTERNAL_RANGES: ParsedCidr[] = [
+  { family: 4, addr: ipv4ToBigint('127.0.0.0'), prefix: 8 },
+  { family: 4, addr: ipv4ToBigint('10.0.0.0'), prefix: 8 },
+  { family: 4, addr: ipv4ToBigint('172.16.0.0'), prefix: 12 },
+  { family: 4, addr: ipv4ToBigint('192.168.0.0'), prefix: 16 },
+  { family: 6, addr: ipv6ToBigint('::1'), prefix: 128 },
+  { family: 6, addr: ipv6ToBigint('fc00::'), prefix: 7 },
+];
+
+/** True when the whole CIDR lies inside one internal range (not just overlaps it). */
+function isInternalRange(c: ParsedCidr): boolean {
+  const width = c.family === 4 ? 32 : 128;
+  return INTERNAL_RANGES.some((r) => {
+    if (r.family !== c.family || c.prefix < r.prefix) return false;
+    const shift = BigInt(width - r.prefix);
+    return c.addr >> shift === r.addr >> shift;
+  });
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -110,6 +186,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   }
 
   // One key per purpose (ADR-013 point 5): reusing a value across purposes defeats separate rotation.
+  // TEST_SUPPORT_TOKEN is included: the test token must never double as a real key.
   const seen = new Map<string, string>();
   for (const key of DISTINCT_KEYS) {
     const v = env[key] ?? '';
@@ -127,8 +204,45 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new ConfigError('DATA_KEK_CURRENT must be 32 bytes, base64-encoded');
   }
 
-  if (appEnv === 'production' && env.CLOCK_OVERRIDE) {
-    throw new ConfigError('CLOCK_OVERRIDE is forbidden in production');
+  // CLOCK_OVERRIDE (frozen clock read at startup) was replaced by CLOCK_MODE=mutable + the shared
+  // dev_clock (ADR-008, architecture 13): refuse it everywhere so nobody believes it still works.
+  if (env.CLOCK_OVERRIDE) {
+    throw new ConfigError(
+      'CLOCK_OVERRIDE is no longer supported – use CLOCK_MODE=mutable and the test-support clock endpoint',
+    );
+  }
+  const clockMode = (env.CLOCK_MODE || 'system') as ClockModeSetting;
+  if (!CLOCK_MODES.includes(clockMode)) {
+    throw new ConfigError(`CLOCK_MODE must be one of ${CLOCK_MODES.join(', ')}`);
+  }
+  if (appEnv === 'production' && clockMode !== 'system') {
+    throw new ConfigError('CLOCK_MODE must be system in production');
+  }
+
+  const includeTestSupport = env.INCLUDE_TEST_SUPPORT ?? '';
+  if (!['', '0', '1'].includes(includeTestSupport)) {
+    throw new ConfigError('INCLUDE_TEST_SUPPORT must be 0 or 1');
+  }
+  const testSupportEnabled = includeTestSupport === '1';
+  if (testSupportEnabled && appEnv === 'production') {
+    throw new ConfigError('INCLUDE_TEST_SUPPORT=1 is forbidden in production');
+  }
+  const testSupportToken = env.TEST_SUPPORT_TOKEN ?? '';
+  if (testSupportEnabled && testSupportToken.length < 32) {
+    throw new ConfigError(
+      'TEST_SUPPORT_TOKEN (>= 32 characters) is required when INCLUDE_TEST_SUPPORT=1',
+    );
+  }
+  if (appEnv === 'production' && testSupportToken !== '') {
+    throw new ConfigError('TEST_SUPPORT_TOKEN must not be set in production');
+  }
+
+  const cookiePrefixRaw = env.COOKIE_SECURE_PREFIX ?? 'true';
+  if (!['true', 'false'].includes(cookiePrefixRaw)) {
+    throw new ConfigError('COOKIE_SECURE_PREFIX must be true or false');
+  }
+  if (cookiePrefixRaw === 'false' && strict) {
+    throw new ConfigError(`COOKIE_SECURE_PREFIX=false is only allowed in dev/test`);
   }
   // Integration adapters (mock/sandbox in production, PAYMENT_METHODS_ENABLED, *_MOCK_SCENARIO,
   // allowed selector values): one shared rule set owned by INT – integrations README 1.3, W9.
@@ -143,5 +257,23 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const logLevel = env.LOG_LEVEL ?? 'info';
   if (!LOG_LEVELS.includes(logLevel)) throw new ConfigError('LOG_LEVEL is invalid');
 
-  return { appEnv, databaseUrl, port, logLevel, trustProxy: parseTrustProxy(env.TRUST_PROXY) };
+  const trustProxy = parseTrustProxy(env.TRUST_PROXY, appEnv);
+  // Behind Caddy an empty TRUST_PROXY makes every client share Caddy's IP, so per-IP rate limits and
+  // lockouts would merge everyone into one bucket (FB-R2-SEC-BE-02).
+  if (strict && trustProxy === false) {
+    throw new ConfigError(
+      `TRUST_PROXY is required when APP_ENV=${appEnv}; set the reverse proxy IP/CIDR`,
+    );
+  }
+
+  return {
+    appEnv,
+    databaseUrl,
+    port,
+    logLevel,
+    trustProxy,
+    clockMode,
+    testSupport: { enabled: testSupportEnabled, token: testSupportToken },
+    cookieSecurePrefix: cookiePrefixRaw === 'true',
+  };
 }

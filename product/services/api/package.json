@@ -6,22 +6,31 @@
   "description": "OTTIMO Desk API + worker (NestJS/Fastify) – modular monolith, ADR-001/002",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-migrations.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "dev": "node --watch -r ts-node/register src/main.ts",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js",
+    "db:migrate": "node -r ts-node/register/transpile-only src/db/migrate-cli.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:generate:custom": "drizzle-kit generate --custom",
+    "seed:ds-e": "node -r ts-node/register/transpile-only src/db/seed/seed-cli.ts",
+    "gen:openapi": "node scripts/gen-openapi-meta.mjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-fastify": "^11.0.0",
+    "@node-rs/argon2": "^2.0.2",
     "@ottimo/integrations": "workspace:*",
+    "drizzle-orm": "0.45.4",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "uuid": "^11.1.0",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.0",
@@ -29,10 +38,12 @@
     "@swc/core": "^1.10.1",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
+    "drizzle-kit": "0.31.11",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
     "unplugin-swc": "^1.6.0",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "yaml": "^2.8.0"
   },
   "engines": {
     "node": ">=22.12.0 <23"

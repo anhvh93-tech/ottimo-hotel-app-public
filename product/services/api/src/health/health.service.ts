@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { HealthResponse } from '@ottimo/contracts';
 import { CLOCK, type Clock, toOffsetIso } from '../clock';
-import { DB_PINGER, type DbPinger } from '../db';
+import { DB_PINGER, type DbPinger } from '../db/pinger';
 
 @Injectable()
 export class HealthService {

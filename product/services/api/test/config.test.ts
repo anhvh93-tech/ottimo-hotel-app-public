@@ -19,6 +19,8 @@ const prod = {
   LOG_IP_HMAC_KEY: key('l'),
   GUEST_CODE_SIGNING_KEY: key('g'),
   DATA_KEK_CURRENT: KEK,
+  // Caddy in the internal Docker network (hosting-plan) – required in staging/production (FB-R2-SEC-BE-02).
+  TRUST_PROXY: '172.18.0.2',
 };
 const staging = { ...prod, APP_ENV: 'staging' };
 const without = (env: Record<string, string>, name: string) =>
@@ -106,10 +108,14 @@ describe('loadConfig (SR-SECR-05)', () => {
     }
   });
 
-  it('forbids CLOCK_OVERRIDE and mock/sandbox adapters in production', () => {
+  it('refuses the removed CLOCK_OVERRIDE everywhere and mock/sandbox adapters in production', () => {
     expect(() => loadConfig({ ...prod, CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00' })).toThrow(
       /CLOCK_OVERRIDE/,
     );
+    expect(() => loadConfig({ ...base, CLOCK_OVERRIDE: '2026-10-15T09:00:00+07:00' })).toThrow(
+      /CLOCK_OVERRIDE is no longer supported/,
+    );
+    expect(loadConfig({ ...base, CLOCK_OVERRIDE: '' }).clockMode).toBe('system');
     expect(() => loadConfig({ ...prod, PAYMENT_VNPAY_MODE: 'mock' })).toThrow(/PAYMENT_VNPAY_MODE/);
     const sandbox = { ...prod, PAYMENT_MOMO_MODE: 'sandbox' };
     expect(() => loadConfig(sandbox)).toThrow(/PAYMENT_MOMO_MODE/);
@@ -142,6 +148,93 @@ describe('loadConfig (SR-SECR-05)', () => {
   });
 });
 
+describe('CLOCK_MODE, test support, cookies (ADR-008, SR-SECR-05)', () => {
+  const token = 't'.repeat(40);
+
+  it('defaults to the system clock and allows mutable outside production only', () => {
+    expect(loadConfig(base).clockMode).toBe('system');
+    expect(loadConfig({ ...base, CLOCK_MODE: 'mutable' }).clockMode).toBe('mutable');
+    expect(loadConfig({ ...staging, CLOCK_MODE: 'mutable' }).clockMode).toBe('mutable');
+    expect(() => loadConfig({ ...prod, CLOCK_MODE: 'mutable' })).toThrow(
+      /CLOCK_MODE must be system/,
+    );
+    expect(() => loadConfig({ ...base, CLOCK_MODE: 'fixed' })).toThrow(/CLOCK_MODE must be one of/);
+  });
+
+  it('enables test support only with INCLUDE_TEST_SUPPORT=1 and a long token, never in production', () => {
+    expect(loadConfig(base).testSupport.enabled).toBe(false);
+    const on = loadConfig({ ...base, INCLUDE_TEST_SUPPORT: '1', TEST_SUPPORT_TOKEN: token });
+    expect(on.testSupport).toEqual({ enabled: true, token });
+    expect(() => loadConfig({ ...base, INCLUDE_TEST_SUPPORT: '1' })).toThrow(/TEST_SUPPORT_TOKEN/);
+    expect(() => loadConfig({ ...base, INCLUDE_TEST_SUPPORT: 'yes' })).toThrow(
+      /INCLUDE_TEST_SUPPORT/,
+    );
+    expect(() =>
+      loadConfig({ ...prod, INCLUDE_TEST_SUPPORT: '1', TEST_SUPPORT_TOKEN: token }),
+    ).toThrow(/forbidden in production/);
+    expect(() => loadConfig({ ...prod, TEST_SUPPORT_TOKEN: token })).toThrow(/TEST_SUPPORT_TOKEN/);
+  });
+
+  it('keeps the test token distinct from real keys', () => {
+    const env = {
+      ...staging,
+      INCLUDE_TEST_SUPPORT: '1',
+      TEST_SUPPORT_TOKEN: staging.SESSION_SECRET,
+    };
+    expect(() => loadConfig(env)).toThrow(/TEST_SUPPORT_TOKEN must differ from SESSION_SECRET/);
+  });
+
+  it('allows COOKIE_SECURE_PREFIX=false only in dev/test', () => {
+    expect(loadConfig(base).cookieSecurePrefix).toBe(true);
+    expect(loadConfig({ ...base, COOKIE_SECURE_PREFIX: 'false' }).cookieSecurePrefix).toBe(false);
+    expect(() => loadConfig({ ...staging, COOKIE_SECURE_PREFIX: 'false' })).toThrow(
+      /COOKIE_SECURE_PREFIX/,
+    );
+  });
+});
+
+describe('TRUST_PROXY required and internal-only in staging/production (FB-R2-SEC-BE-01/02)', () => {
+  it('requires TRUST_PROXY in staging and production', () => {
+    for (const env of [prod, staging]) {
+      expect(() => loadConfig(without(env, 'TRUST_PROXY'))).toThrow(/TRUST_PROXY is required/);
+      expect(() => loadConfig({ ...env, TRUST_PROXY: 'false' })).toThrow(/TRUST_PROXY is required/);
+    }
+    expect(loadConfig(base).trustProxy).toBe(false);
+  });
+
+  it('refuses /0 and too-wide ranges in every environment', () => {
+    for (const wide of ['0.0.0.0/0', '::/0', '0.0.0.0/1', '10.0.0.0/7', 'fd00::/15']) {
+      expect(() => parseTrustProxy(wide)).toThrow(/too wide/);
+      expect(() => loadConfig({ ...base, TRUST_PROXY: wide })).toThrow(ConfigError);
+    }
+  });
+
+  it('accepts only loopback, RFC 1918 and fc00::/7 in staging/production', () => {
+    for (const ok of [
+      '172.18.0.2',
+      '172.18.0.0/16',
+      '127.0.0.1',
+      '10.0.0.0/8',
+      '192.168.1.0/24',
+      'fd00::/16',
+      '::1',
+    ]) {
+      expect(loadConfig({ ...staging, TRUST_PROXY: ok }).trustProxy).toEqual([ok]);
+    }
+    for (const bad of [
+      '8.8.8.8',
+      '172.0.0.0/8',
+      '172.32.0.1',
+      '2001:db8::1',
+      '172.18.0.2,1.2.3.4',
+    ]) {
+      expect(() => loadConfig({ ...prod, TRUST_PROXY: bad })).toThrow(/internal addresses only/);
+    }
+    // dev may list a public proxy (local experiments), still not a too-wide range
+    expect(loadConfig({ ...base, TRUST_PROXY: '8.8.8.8' }).trustProxy).toEqual(['8.8.8.8']);
+  });
+});
+
 describe('parseTrustProxy (FB-R1-ARC-OPS-04)', () => {
   it('defaults to trusting nobody', () => {
     expect(parseTrustProxy(undefined)).toBe(false);
@@ -167,7 +260,7 @@ describe('parseTrustProxy (FB-R1-ARC-OPS-04)', () => {
     ]) {
       expect(() => parseTrustProxy(bad)).toThrow(ConfigError);
     }
-    expect(parseTrustProxy('fd00::/8,::1')).toEqual(['fd00::/8', '::1']);
+    expect(parseTrustProxy('fd00::/16,::1')).toEqual(['fd00::/16', '::1']);
     expect(() => parseTrustProxy('fd00::/129')).toThrow(ConfigError);
   });
 });

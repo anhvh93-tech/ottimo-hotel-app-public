@@ -5,6 +5,7 @@
  * - Sensitive keys are redacted wherever they appear one level deep (e.g. err.details.token).
  * - trustProxy comes from config (default: trust nobody).
  */
+import { randomUUID } from 'node:crypto';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { TrustProxy } from './config';
 
@@ -46,9 +47,21 @@ export interface HttpOptions {
   logStream?: NodeJS.WritableStream;
 }
 
+/** Client-supplied X-Request-Id is reused only when it is a plain token (no log injection). */
+const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
+
+export function requestIdFrom(header: string | string[] | undefined): string {
+  const v = Array.isArray(header) ? header[0] : header;
+  return v && REQUEST_ID.test(v) ? v : randomUUID();
+}
+
 export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
-  return new FastifyAdapter({
+  const adapter = new FastifyAdapter({
     trustProxy: opts.trustProxy,
+    // Every request has a requestId (coding-standards 12): X-Request-Id echoed back, also in Problem.requestId.
+    requestIdHeader: false,
+    genReqId: (req: { headers: Record<string, string | string[] | undefined> }) =>
+      requestIdFrom(req.headers['x-request-id']),
     logger: {
       level: opts.logLevel,
       ...(opts.logStream ? { stream: opts.logStream } : {}),
@@ -64,4 +77,13 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
       },
     },
   });
+  adapter
+    .getInstance()
+    .addHook(
+      'onSend',
+      async (req: { id: string }, reply: { header(n: string, v: string): unknown }) => {
+        reply.header('x-request-id', req.id);
+      },
+    );
+  return adapter;
 }

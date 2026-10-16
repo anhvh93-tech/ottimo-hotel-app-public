@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { FixedClock } from '../src/clock';
-import { type DbPinger, PgPinger } from '../src/db';
+import { type DbPinger, PgPinger } from '../src/db/pinger';
 
 const fixedClock = new FixedClock(new Date('2026-10-15T02:30:00.000Z'));
 const fakeDb = (up: boolean): DbPinger => ({ ping: async () => up, close: async () => undefined });
