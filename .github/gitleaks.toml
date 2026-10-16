@@ -20,4 +20,7 @@ regexes = [
   # Fake marker values in log-redaction tests (services/api/test/http.test.ts): the test asserts they
   # never reach the log. Convention: <prefix>_SECRET_<digits>; real keys never look like this.
   '''[a-z]+_SECRET_[0-9]+''',
+  # Business parameter key (BR §13, electricity/water meter anomaly default) quoted as `"key": "…"`
+  # in rounds/round-02/outputs/QA/w1-report.md (commit a1cd73a); generic-api-key false positive.
+  '''meter_anomaly_default_m3''',
 ]
