@@ -139,6 +139,16 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         ? t('rsv.transition_changed', { status: t(STATUS_KEY[st]) })
         : t('rsv.transition_changed_unknown');
     }
+    case 'ROOM_NOT_READY': {
+      const st = typeof p.roomStatus === 'string' ? p.roomStatus : '';
+      return t('error.ROOM_NOT_READY', { room, status: st ? t(`status.room.${st}`) : '' });
+    }
+    case 'LATE_CHECKOUT_CONFLICT':
+      return t('error.LATE_CHECKOUT_CONFLICT', {
+        room,
+        guest: String(p.guest ?? p.guestDisplayName ?? ''),
+        eta: String(p.eta ?? p.etaTime ?? ''),
+      });
     case 'HOLD_EXPIRED':
       return typeof p.expiredAt === 'string'
         ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })

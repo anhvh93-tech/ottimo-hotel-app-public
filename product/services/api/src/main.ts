@@ -21,15 +21,18 @@ async function bootstrap(): Promise<void> {
   // Feature modules: the single list in modules/feature-modules.ts (platform, identity, guests, audit,
   // approvals).
   const imports: (DynamicModule | Type)[] = [
-    ...featureModules({
-      sessionSecret: rt.env.SESSION_SECRET ?? '',
-      cookieSecurePrefix: config.cookieSecurePrefix,
-      // Same validated origins as the guard (config.ts: https in staging/production) – ARC-BE-12 (b).
-      adminOrigins: config.allowedOrigins.admin ?? [],
-      pwaOrigins: config.allowedOrigins.staffPwa ?? [],
-      ipHmacKey: rt.env.LOG_IP_HMAC_KEY ?? '',
-      appEnv: config.appEnv,
-    }),
+    ...featureModules(
+      {
+        sessionSecret: rt.env.SESSION_SECRET ?? '',
+        cookieSecurePrefix: config.cookieSecurePrefix,
+        // Same validated origins as the guard (config.ts: https in staging/production) – ARC-BE-12 (b).
+        adminOrigins: config.allowedOrigins.admin ?? [],
+        pwaOrigins: config.allowedOrigins.staffPwa ?? [],
+        ipHmacKey: rt.env.LOG_IP_HMAC_KEY ?? '',
+        appEnv: config.appEnv,
+      },
+      rt.env,
+    ),
   ];
   if (config.testSupport.enabled && config.appEnv !== 'production') {
     // CommonJS build: a synchronous require of the folder (dist/test-support) – it only exists in images

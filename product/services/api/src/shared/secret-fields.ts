@@ -14,6 +14,10 @@ export const SECRET_BODY_FIELDS: ReadonlySet<string> = new Set([
   'newPin',
   'totpCode',
   'otp',
+  // 0.3.6 (BE-B, SEC F3/F8): bank account numbers – refund destination (D15, C3) and the VietQR receiving
+  // account; a 6–19 digit number hashed without salt could be brute-forced from idempotency_key.
+  'accountNo',
+  'accountHolder',
 ]);
 
 export const SECRET_PLACEHOLDER = '[secret]';

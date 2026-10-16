@@ -19,22 +19,13 @@ export const QUOTE_COPY = {
   },
   ru: {
     'sale.quote_text':
-      'OTTIMO Boutique Stay – Quote {code}\nRoom {room} {room_name}, {from} → {to} ({nights} nights), {guests}.\nRoom total: {room_total}{discount_note}.\nDeposit to hold the room: {deposit}. The rest is paid at check-in.\nThis quote is valid until {expires}.',
-    'sale.quote_text_extra_guest':
-      'Includes extra-guest charge for {n} guest(s) on the sofa: {amount}.',
-    'occ.adults_short': 'Adults',
-    'occ.children_short': 'Kids 6–11',
-    'occ.under6_short': 'Under 6',
+      'OTTIMO Boutique Stay – предложение {code}\nАпартаменты {room} {room_name}, {from} → {to} (ночей: {nights}), {guests}.\nСтоимость проживания: {room_total}{discount_note}.\nДепозит для бронирования: {deposit}. Остальное оплачивается при заселении.\nПредложение действительно до {expires}.',
+    'sale.quote_text_extra_guest': 'Включена доплата за {n} гост. на диване: {amount}.',
+    'occ.adults_short': 'Взрослые',
+    'occ.children_short': 'Дети 6–11',
+    'occ.under6_short': 'До 6 лет',
   },
 } as const;
 
 /** Keys a locale lacks (fell back to en) – for UXD. */
-export const QUOTE_COPY_MISSING: Record<string, readonly string[]> = {
-  ru: [
-    'sale.quote_text',
-    'sale.quote_text_extra_guest',
-    'occ.adults_short',
-    'occ.children_short',
-    'occ.under6_short',
-  ],
-};
+export const QUOTE_COPY_MISSING: Record<string, readonly string[]> = {};

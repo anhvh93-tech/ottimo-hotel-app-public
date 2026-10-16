@@ -9,7 +9,9 @@ import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { FOLIO_STAY_SYNC } from '../reservations/public/folio-sync-port';
 import { FolioController } from './internal/folio.controller';
+import { BillService } from './internal/bill.service';
 import { FolioFocService } from './internal/foc.service';
+import { FolioLinesService } from './internal/folio-lines.service';
 import { FolioService } from './public/folio.service';
 
 // Audit allowlists (SR-AUD-03) for money events written by this module (category money).
@@ -23,6 +25,9 @@ defineAuditEntity('folio', [
   'status',
   'reversedVnd',
   'feeVnd',
+  'billNo',
+  'totalVnd',
+  'balanceDueVnd',
 ]);
 defineAuditEntity('channel_fee', [
   'channelCode',
@@ -32,7 +37,16 @@ defineAuditEntity('channel_fee', [
   'amountActualVnd',
   'source',
 ]);
-defineAuditEntity('folio_line', ['category', 'amountVnd', 'lineState', 'relatedCategory']);
+defineAuditEntity('folio_line', [
+  'category',
+  'amountVnd',
+  'lineState',
+  'relatedCategory',
+  'reversedVnd',
+]);
+defineAuditEntity('invoice_request', ['buyerType', 'einvoiceStatus']);
+// 0.3.6 B-29 (payments.confirmDeposit): short deposit accepted by MGR+.
+defineAuditEntity('reservation', ['shortfallVnd', 'depositRequiredVnd', 'depositPaidVnd']);
 defineAuditEntity('commission', [
   'status',
   'payeeType',
@@ -51,6 +65,8 @@ defineAuditEntity('commission', [
   providers: [
     FolioService,
     FolioFocService,
+    FolioLinesService,
+    BillService,
     // reservations/public/folio-sync-port.ts (BE-A): reversal + resync after posted nights change.
     { provide: FOLIO_STAY_SYNC, useExisting: FolioService },
   ],
@@ -60,11 +76,16 @@ export class FolioModule implements OnModuleInit {
   constructor(
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioFocService) private readonly foc: FolioFocService,
+    @Inject(FolioLinesService) private readonly lineService: FolioLinesService,
   ) {}
 
   onModuleInit(): void {
     for (const type of ['foc', 'special_discount'] as const) {
       this.approvals.onDecided(type, (tx, row) => this.foc.onDecided(tx, row));
     }
+    // US-032 AC4 / BR-512: damage outside the table, priced by MGR+.
+    this.approvals.onDecided('damage_pricing', (tx, row) =>
+      this.lineService.onDamageDecided(tx, row),
+    );
   }
 }

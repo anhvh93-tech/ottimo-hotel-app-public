@@ -11,6 +11,8 @@ import {
   formatInstant,
   formatLocalDate,
   formatNumber,
+  isLocaleLoaded,
+  loadLocale,
   translate,
   type Args,
   type Locale,
@@ -48,8 +50,23 @@ export function I18nProvider({
 }) {
   const [locale, setLocaleState] = useState<Locale>(() => initialLocale(defaultLocale));
 
+  // EN strings are a lazy chunk: until they arrive, `translate` shows VI (never a blank screen).
+  const [loaded, setLoaded] = useState(() => isLocaleLoaded(locale));
   useEffect(() => {
     document.documentElement.lang = locale;
+    if (isLocaleLoaded(locale)) {
+      setLoaded(true);
+      return;
+    }
+    let stale = false;
+    setLoaded(false);
+    loadLocale(locale).then(
+      () => !stale && setLoaded(true),
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
   }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {
@@ -70,7 +87,8 @@ export function I18nProvider({
       date: formatLocalDate,
       dateTime: (v) => formatInstant(locale, v),
     }),
-    [locale, setLocale],
+    // `loaded` re-creates `t` once the lazy locale chunk is in.
+    [locale, setLocale, loaded],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

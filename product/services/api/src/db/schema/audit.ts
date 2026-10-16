@@ -96,7 +96,7 @@ export const c3AccessLog = pgTable(
     check('c3_access_log_actor_type_check', sql`${t.actorType} IN ('user', 'guest', 'system')`),
     check(
       'c3_access_log_subject_type_check',
-      sql`${t.subjectType} IN ('guest_document', 'document_image', 'door_credential', 'payee_account', 'portal_data', 'mfa_secret')`,
+      sql`${t.subjectType} IN ('guest_document', 'document_image', 'door_credential', 'payee_account', 'portal_data', 'mfa_secret', 'refund_account')`,
     ),
     check(
       'c3_access_log_action_check',

@@ -267,10 +267,16 @@ export class ReservationsService {
       rescheduleCount: row.reschedule_count,
       rescheduleMaxTimes: ctx.params.rescheduleMaxTimes,
     });
+    // US-022: booker + active party members (people recorded on the booking).
+    const party = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM reservation_guest WHERE reservation_id = $1 AND removed_at IS NULL`,
+      [row.id],
+    );
     return toReservationDto({
       row,
       segments,
       booker,
+      partyPresentCount: 1 + (party.rows[0]?.n ?? 0),
       nights: nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,
@@ -1001,10 +1007,35 @@ export class ReservationsService {
     const closerUserId = f.uuid('closerUserId', false);
     const internalNote = f.text('internalNote', 1000);
     const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
+    // B-28 (US-025 AC7): "door code / card handed over" tick added later – only `true`, once, in house.
+    const doorHandedOver = body.doorAccessHandedOver;
+    if (doorHandedOver !== undefined && doorHandedOver !== true) {
+      f.add('doorAccessHandedOver', 'NOT_IN_LIST');
+    }
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
     if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.invalid(row);
+    if (doorHandedOver === true) {
+      if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
+      if (row.status !== 'in_house' || row.door_access_handed_over_at !== null) {
+        throw this.invalid(row);
+      }
+      await tx.query(
+        `UPDATE reservation SET door_access_handed_over_at = $2, door_access_handed_over_by = $3
+          WHERE id = $1`,
+        [row.id, ctx.now, ctx.actor.userId],
+      );
+      await this.audit.record(tx, {
+        category: 'state',
+        action: 'reservation.door_access_handed_over',
+        entityType: 'reservation',
+        entityId: row.id,
+        entityCode: row.code,
+        after: { doorAccessHandedOver: true },
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
     if (closerUserId) {
       const kind = await this.closerKind(tx, closerUserId);
       if (!kind) f.add('closerUserId', 'NOT_IN_LIST');
@@ -1543,6 +1574,167 @@ export class ReservationsService {
       externalContract: row.external_contract,
       ...(reasonCode ? { reasonCode } : {}),
     };
+  }
+
+  /**
+   * BR-417 (3) / BR-422: OTA guest staying one more night before (B9a) or after (B13) the OTA booking – the
+   * OTA booking is never edited; a CHILD booking of the direct channel is created straight `in_house`, on the
+   * same room and the SAME folio (parent's), its nights sold (BR-904) at the agreed rates. Inventory through
+   * OccupancyService (409 ROOM_UNAVAILABLE + suggestions on a clash). Returns the child row.
+   */
+  async createChildStay(
+    tx: Tx,
+    ctx: BookingContext,
+    parent: ReservationRow,
+    input: {
+      roomId: string;
+      from: LocalDate;
+      to: LocalDate;
+      nights: ReadonlyArray<{ date: LocalDate; amountVnd: number; calendarVnd?: number }>;
+      rateSource: 'extra_night_early_late' | 'extension';
+      transition: 'B9a' | 'B13';
+      actualCheckinAt: Date;
+    },
+  ): Promise<ReservationRow> {
+    const { rows: ch } = await tx.query<{ id: string }>(
+      `SELECT id FROM channel WHERE channel_group = 'direct' AND is_active
+        ORDER BY (code = 'direct') DESC, code LIMIT 1`,
+    );
+    const channelId = ch[0]?.id;
+    if (!channelId) throw problem('VALIDATION_FAILED', { detail: 'no active direct channel' });
+    const code = await this.docNumbers.allocate(tx, 'reservation');
+    const id = uuidv7();
+    const total = input.nights.reduce((a, n) => a + n.amountVnd, 0);
+    const snapshot = {
+      asOf: ctx.today,
+      nightRateUnit: ctx.params.nightRateUnit,
+      parentReservationCode: parent.code,
+      childOf: input.transition,
+      extraPersonFeePerNightVnd: 0,
+      extraCount: 0,
+      nights: input.nights.map((n) => ({
+        date: n.date,
+        amountVnd: n.amountVnd,
+        source: 'manual',
+        ...(n.calendarVnd !== undefined ? { calendarVnd: n.calendarVnd } : {}),
+      })),
+    };
+    await tx.query(
+      `INSERT INTO reservation (id, organization_id, property_id, code, status, stay_type, channel_id, payment_model,
+         booker_guest_id, parent_reservation_id, arrival_date, departure_date, booked_arrival_date,
+         booked_departure_date, adults, children_6_11, children_under_6, conflict_state, deposit_required_vnd,
+         total_room_vnd, pricing_snapshot, confirmed_at, actual_checkin_at, created_at, created_by, updated_at,
+         folio_id)
+       VALUES ($1, $2, $3, $4, 'in_house', 'short', $5, 'direct', $6, $7, $8, $9, $8, $9, $10, $11, $12, 'none', 0,
+         $13, $14, $15, $16, $15, $17, $15, $18)`,
+      [
+        id,
+        tx.ctx.organizationId,
+        tx.ctx.propertyId,
+        code,
+        channelId,
+        parent.booker_guest_id,
+        parent.id,
+        input.from,
+        input.to,
+        parent.adults,
+        parent.children_6_11,
+        parent.children_under_6,
+        total,
+        JSON.stringify(snapshot),
+        ctx.now,
+        input.actualCheckinAt,
+        ctx.actor.userId,
+        parent.folio_id,
+      ],
+    );
+    const segmentId = await insertSegment(tx, id, input.roomId, input.from, input.to, ctx.now);
+    await this.occupancy.claim(
+      tx,
+      {
+        roomId: input.roomId,
+        from: input.from,
+        to: input.to,
+        kind: 'reservation',
+        segmentId,
+        now: ctx.now,
+      },
+      { withNames: true, persons: parent.adults + parent.children_6_11 },
+    );
+    await insertNights(
+      tx,
+      {
+        reservationId: id,
+        segmentId,
+        roomId: input.roomId,
+        channelId,
+        stayType: 'short',
+        state: 'sold',
+        isComplimentary: false,
+        now: ctx.now,
+      },
+      input.nights.map((n) => ({
+        date: n.date,
+        amountVnd: n.amountVnd,
+        source: 'manual',
+        ...(n.calendarVnd !== undefined ? { calendarVnd: n.calendarVnd } : {}),
+      })),
+    );
+    await tx.query(`UPDATE stay_night SET rate_source = $2 WHERE reservation_id = $1`, [
+      id,
+      input.rateSource,
+    ]);
+    await recordTransition(tx, {
+      reservationId: id,
+      code,
+      from: null,
+      to: 'in_house',
+      event: input.transition,
+      reasonNote: parent.code,
+      now: ctx.now,
+      requestId: ctx.requestId,
+    });
+    await this.audit.recordMoney(tx, {
+      action: 'reservation.priced',
+      entityType: 'reservation',
+      entityId: id,
+      entityCode: code,
+      after: {
+        status: 'in_house',
+        totalRoomVnd: total,
+        nightlyRates: input.nights.map((n) => ({ date: n.date, amountVnd: n.amountVnd })),
+        rateSource: input.rateSource,
+      },
+      reason: `${input.transition} ${parent.code}`,
+      ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+    });
+    const child = await loadReservation(tx, id, ctx.actor);
+    await outboxAvailability(
+      tx,
+      [{ roomId: input.roomId, from: input.from, to: input.to }],
+      'reservation.child_created',
+    );
+    await this.money.resynced(
+      tx,
+      await this.confirmedStay(tx, child),
+      ctx.actor.userId,
+      ctx.requestId,
+    );
+    await this.hooks.emit(tx, this.event('created', child, null, input.transition, input.roomId));
+    return child;
+  }
+
+  /** Same-transaction hooks for a transition/stay change made outside this service (front desk – B9…B18). */
+  async emitEvent(
+    tx: Tx,
+    kind: 'created' | 'transitioned' | 'stay_changed',
+    row: ReservationRow,
+    previous: ReservationStatus | null,
+    transition: string | null,
+    roomId: string | null,
+    reasonCode?: string,
+  ): Promise<void> {
+    await this.hooks.emit(tx, this.event(kind, row, previous, transition, roomId, reasonCode));
   }
 
   assertVersion(row: { version: number }, expected: number): void {
@@ -2890,6 +3082,21 @@ export class ReservationsService {
       },
       ctx.actor.userId,
     );
+    // DOM BE-12 / A-40: the guest is moved out by OTTIMO – 100 % of what was paid goes back (refund request,
+    // reason overbooking_relocated; destination + payout through BE-B A-33). Nothing retained (voidStay 0).
+    const refundable = await this.money.credit(tx, row);
+    if (refundable > 0) {
+      await this.approvals.submit(tx, ctx.actor, {
+        type: 'refund',
+        amountVnd: refundable,
+        reasonCode: 'overbooking_relocated',
+        ...(note ? { reasonNote: note } : {}),
+        targetType: 'reservation',
+        targetId: row.id,
+        targetCode: row.code,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
     await this.hooks.emit(
       tx,
       this.event('transitioned', after, 'confirmed', 'B10', null, 'overbooking_relocated'),

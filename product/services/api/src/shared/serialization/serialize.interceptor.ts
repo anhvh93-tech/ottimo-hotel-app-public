@@ -22,12 +22,17 @@ export class SerializeInterceptor implements NestInterceptor {
     const req = http.getRequest<GuardedRequest>();
     const auth = req.ottimoAuth;
     if (!auth) return next.handle();
+    const guestCall = !!auth.guest || auth.operation.roles.includes('guest');
     return next.handle().pipe(
       map((body: unknown) => {
         const reply = http.getResponse<{ statusCode?: number }>();
         return serializeResponse(auth.operationId, reply.statusCode, body, {
-          roles: auth.principal?.roles ?? [],
+          // A guest-session caller is the role `guest` (rbac D-codes: no staff deny applies) and only
+          // receives properties up to its session level (x-guest-level, SEC ĐK-2).
+          // openGuestSession (security: [], x-roles [guest]) answers at level 1 before the cookie exists.
+          roles: auth.principal?.roles ?? (guestCall ? ['guest'] : []),
           c3: auth.operation.c3Log,
+          ...(guestCall ? { guestLevel: auth.guest?.level ?? 1 } : {}),
         });
       }),
     );

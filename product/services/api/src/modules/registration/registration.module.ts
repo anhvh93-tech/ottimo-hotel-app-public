@@ -1,0 +1,63 @@
+/**
+ * registration module (BE-C Sprint 3; EP06 v0.2, SM-05, SEC s3-checklist B/C/E): documents (C3), images,
+ * checks, P02b consent, semi-automatic declaration (portal data + K6…K10), early purge, C3 access log
+ * (S28), J16 retention job. Global exports:
+ * - FD_REGISTRATION_PORT (BE-A frontdesk) → RegistrationPortService;
+ * - RegistrationService (guest-portal uploads and consent).
+ * Listens to ReservationHooks: `created` → K1 record; `cancelled`/`no_show` → K11 void + images now;
+ * restore of a no-show → K12; `stay_changed` → requiredCount (K9/K13).
+ */
+import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { JobRegistry } from '../../jobs/job-runner';
+import { defineAuditEntity } from '../audit/public/audit-fields';
+import { FD_REGISTRATION_PORT } from '../frontdesk/public/ports';
+import { ReservationHooks } from '../reservations/public/reservation-hooks';
+import { C3LogService } from './internal/c3-log.service';
+import { RegistrationController } from './internal/registration.controller';
+import { RegistrationService } from './internal/registration.service';
+import { RetentionService } from './internal/retention.service';
+import { RegistrationPortService } from './public/registration.port';
+import { retentionJob } from './public/worker-jobs';
+
+// Audit allowlists (SR-AUD-03): state facts only – never a document field, name or note text.
+defineAuditEntity('registration', ['checkCode', 'manualResult', 'imagesPurgeReason']);
+defineAuditEntity('consent_record', ['purpose', 'decision', 'channel']);
+
+@Global()
+@Module({
+  controllers: [RegistrationController],
+  providers: [
+    RegistrationService,
+    RetentionService,
+    C3LogService,
+    RegistrationPortService,
+    { provide: FD_REGISTRATION_PORT, useExisting: RegistrationPortService },
+  ],
+  exports: [RegistrationService, RetentionService, RegistrationPortService, FD_REGISTRATION_PORT],
+})
+export class RegistrationModule implements OnModuleInit {
+  constructor(
+    @Inject(JobRegistry) private readonly jobs: JobRegistry,
+    @Inject(RetentionService) private readonly retention: RetentionService,
+    @Inject(RegistrationService) private readonly regs: RegistrationService,
+    @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
+  ) {}
+
+  onModuleInit(): void {
+    const job = retentionJob(this.retention);
+    if (!this.jobs.get(job.key)) this.jobs.register(job);
+    this.hooks.on('created', async (tx, e) => {
+      await this.regs.ensure(tx, e.reservationId);
+    });
+    this.hooks.on('transitioned', async (tx, e) => {
+      if (e.status === 'cancelled' || e.status === 'no_show') {
+        await this.regs.onReservationVoided(tx, e.reservationId);
+      } else if (e.previousStatus === 'no_show' && e.status === 'confirmed') {
+        await this.regs.onReservationRestored(tx, e.reservationId);
+      }
+    });
+    this.hooks.on('stay_changed', async (tx, e) => {
+      await this.regs.onPartyChanged(tx, e.reservationId, e.personsTotal);
+    });
+  }
+}

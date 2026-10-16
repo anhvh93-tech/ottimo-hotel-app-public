@@ -1,12 +1,23 @@
 /**
- * payments module (architecture 5.1; SM-12) – BE-B Sprint 2: deposit confirmation of a hold (B4) and the
- * "đã chuyển cọc" notice of SAL/CTV (A53). PaymentService (manual receipts, PT- codes, money audit) is the
- * base for recordPayment / VietQR / reconciliation in Sprint 3.
+ * payments module (architecture 5.1; SM-12) – BE-B.
+ * Sprint 2: deposit confirmation of a hold (B4) and the "đã chuyển cọc" notice of SAL/CTV (A53).
+ * Sprint 3 (OpenAPI 0.3.6): receipts (PaymentPort.recordInTx for BE-A), VietQR, listing/reconciliation, cash
+ * handover of SAL/CTV (A46a), reversal, refunds (request, destination C3, cash A47a / transfer A47 pay-outs).
+ *
+ * Ports of BE-C (ARC s3-contract 4.3), bound globally by BE-C's modules: ATTACHMENT_USAGE (FilesModule →
+ * AttachmentService), REFUND_ACCOUNT_CIPHER (CryptoModule → CryptoService); C3AccessGate (step-up window,
+ * c3_access_log before data) for getRefundDestination.
  */
-import { Global, Module } from '@nestjs/common';
+import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { ApprovalsModule } from '../approvals/approvals.module';
+import { ApprovalService } from '../approvals/public/approval.service';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { DepositsController } from './internal/deposits.controller';
 import { DepositsService } from './internal/deposits.service';
+import { PaymentsController } from './internal/payments.controller';
+import { PaymentsService } from './internal/payments.service';
+import { RefundsController } from './internal/refunds.controller';
+import { RefundsService } from './internal/refunds.service';
 import { PaymentService } from './public/payment.service';
 
 defineAuditEntity('payment', [
@@ -17,13 +28,27 @@ defineAuditEntity('payment', [
   'status',
   'reconciliation',
   'recordedByRole',
+  'selfReconciled',
+  'receivedAmountVnd',
 ]);
 defineAuditEntity('deposit_notice', ['amountVnd', 'status']);
+// Refund destination events (no C3: method and the last 4 digits only – D15 masked).
+defineAuditEntity('approval_request', ['refundMethod', 'accountNoLast4']);
 
 @Global()
 @Module({
-  controllers: [DepositsController],
-  providers: [PaymentService, DepositsService],
+  imports: [ApprovalsModule],
+  controllers: [DepositsController, PaymentsController, RefundsController],
+  providers: [PaymentService, DepositsService, PaymentsService, RefundsService],
   exports: [PaymentService],
 })
-export class PaymentsModule {}
+export class PaymentsModule implements OnModuleInit {
+  constructor(
+    @Inject(ApprovalService) private readonly approvals: ApprovalService,
+    @Inject(RefundsService) private readonly refunds: RefundsService,
+  ) {}
+
+  onModuleInit(): void {
+    this.approvals.onDecided('refund', (tx, row) => this.refunds.onDecided(tx, row));
+  }
+}

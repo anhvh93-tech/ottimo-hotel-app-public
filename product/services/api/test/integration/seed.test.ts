@@ -45,7 +45,12 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     expect(r.users).toBe(f.users.length);
     expect(r.roles).toBe(f.users.reduce((n, u) => n + u.roles.length, 0));
     expect(r.devices).toBe(f.devices.filter((d) => d.trusted).length);
-    expect(r.parameters).toBe(f.parameters.length + 2); // + lease_terms, utility_estimate
+    expect(r.parameters).toBe(f.parameters.length + 3); // + lease_terms, utility_estimate, damage_catalog
+    // BE-B Sprint 3: minibar fridge + consumables (inventory `item`).
+    expect(r.items).toBe(
+      (f.minibarItems as unknown[]).length +
+        ((f.consumableItems as unknown[] | undefined) ?? []).length,
+    );
     expect(r.docSequences.every((d) => d.ok)).toBe(true);
     expect(r.docSequences.map((d) => d.server)).toContain('F26-000001');
     expect(r.skippedBlocks.map((b) => b.block)).not.toContain('rooms'); // rooms loaded since Sprint 1 (BE-B)

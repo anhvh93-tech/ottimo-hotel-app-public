@@ -13,6 +13,10 @@
  * - confirmFromHold()     B4 after payments checked the deposit (Σ ≥ required, money before the deadline –
  *                         US-085 AC4): hold → confirmed, occupancy kind, nights sold, BR-812 kit task,
  *                         state_transition. Returns the ConfirmedStay the CALLER posts to the folio.
+ * - stayInfo()            Sprint 3 (BE-B S3-B3): read-only facts of a stay for modules whose callers are not in
+ *                         the booking scopes (minibar count by HK, payment lists): status, dates, current room,
+ *                         folio, channel. No guest name/phone (C2), RLS only – the CALLER applies its own
+ *                         operation scope (e.g. HK only `in_house`). null when not visible.
  * - ConfirmedStay         what folio.onReservationConfirmed() needs to post room/extra-person lines (B2/B4/B12).
  *
  * (Re-created by BE-A from the call sites of folio/sales/payments after an overwrite – same members.)
@@ -106,7 +110,29 @@ export interface ConfirmedStay {
   commissionRatePctSnapshot?: number | null;
 }
 
+/** stayInfo(): booking facts without personal data (C0/C1). Dates are business dates. */
+export interface StayInfo {
+  id: string;
+  code: string;
+  status: string;
+  stayType: 'short' | 'long';
+  channelGroup: string;
+  paymentModel: string;
+  folioId: string | null;
+  parentReservationId: string | null;
+  arrivalDate: LocalDate;
+  departureDate: LocalDate;
+  /** Room of the segment covering the last night (current room in house); null while unassigned. */
+  roomId: string | null;
+  roomNo: string | null;
+  adults: number;
+  children6to11: number;
+  childrenUnder6: number;
+  externalContract: boolean;
+}
+
 export interface ReservationSalesPort {
+  stayInfo(tx: Tx, reservationId: string): Promise<StayInfo | null>;
   availability(tx: Tx, q: AvailabilityQuery): Promise<AvailabilityAnswer>;
   createHoldFromQuote(
     tx: Tx,

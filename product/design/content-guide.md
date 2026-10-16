@@ -178,7 +178,7 @@ Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy 
 
 ## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2039 chuỗi + 8 mẫu tin nhắn (R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2137 chuỗi + 8 mẫu tin nhắn (R2 Sprint 3 đợt 3: thêm 32 chuỗi `reg.field.*`, `reg.value.*`, `checkin.docs.field.*` cho dữ liệu khai báo trên cổng; R2 Sprint 3 đợt 2: thêm 66 chuỗi FE/MOB – `refund.*`, `checkout.overpay.*`, `party.*`, `gw.doc*`, `gw.defer*`, `gw.oci_done_card_*`… và RU cho mọi chuỗi guest-web đang dùng; R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
 
 #### Chung
 
@@ -515,30 +515,30 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.lang.vi` | Tiếng Việt | Tiếng Việt | Tiếng Việt |  |
 | `guest.lang.en` | English | English | English |  |
 | `guest.lang.ru` | Русский | Русский | Русский |  |
-| `guest.hello` | Xin chào, {name} | Hello, {name} | ⟨chừa chỗ⟩ |  |
-| `guest.stay.dates` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | ⟨chừa chỗ⟩ |  |
+| `guest.hello` | Xin chào, {name} | Hello, {name} | Здравствуйте, {name} |  |
+| `guest.stay.dates` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · ночей: {nights} |  |
 | `guest.stay.room` | Căn {room} · {room_name} | Room {room} · {room_name} | ⟨chừa chỗ⟩ |  |
-| `guest.stay.checkin_time` | Nhận phòng từ {time} | Check-in from {time} | ⟨chừa chỗ⟩ |  |
-| `guest.stay.checkout_time` | Trả phòng trước {time} | Check-out by {time} | ⟨chừa chỗ⟩ |  |
+| `guest.stay.checkin_time` | Nhận phòng từ {time} | Check-in from {time} | Заезд с {time} |  |
+| `guest.stay.checkout_time` | Trả phòng trước {time} | Check-out by {time} | Выезд до {time} |  |
 | `guest.cta.checkin` | Làm thủ tục trước (check-in online) | Online check-in | Онлайн-регистрация | FB-R1-UXR-UXD-16 – lần đầu kèm 'check-in online'; chỗ sau dùng guest.cta.checkin_short |
-| `guest.cta.checkin_help` | Gửi giấy tờ trước, nhận phòng tại quầy chỉ vài phút. | Send your IDs in advance – check-in at the desk takes just minutes. | ⟨chừa chỗ⟩ |  |
-| `guest.tab.home` | Lưu trú | My stay | ⟨chừa chỗ⟩ |  |
+| `guest.cta.checkin_help` | Gửi giấy tờ trước, nhận phòng tại quầy chỉ vài phút. | Send your IDs in advance – check-in at the desk takes just minutes. | Отправьте документы заранее – заселение на стойке займёт всего несколько минут. |  |
+| `guest.tab.home` | Lưu trú | My stay | Моё проживание |  |
 | `guest.tab.requests` | Yêu cầu | Requests | ⟨chừa chỗ⟩ |  |
 | `guest.tab.bill` | Hóa đơn | Bill | ⟨chừa chỗ⟩ |  |
-| `guest.tab.info` | Thông tin | Info | ⟨chừa chỗ⟩ |  |
-| `guest.wifi` | Wi-Fi | Wi-Fi | ⟨chừa chỗ⟩ |  |
+| `guest.tab.info` | Thông tin | Info | Информация |  |
+| `guest.wifi` | Wi-Fi | Wi-Fi | Wi-Fi |  |
 | `guest.door_code` | Mã cửa | Door code | ⟨chừa chỗ⟩ |  |
 | `guest.door_code_later` | Mã cửa hiện ở đây vào ngày nhận phòng ({date}). | Your door code will appear here on arrival day ({date}). | ⟨chừa chỗ⟩ |  |
-| `guest.oci.step1` | Giấy tờ | IDs | ⟨chừa chỗ⟩ |  |
-| `guest.oci.step2` | Giờ đến | Arrival time | ⟨chừa chỗ⟩ |  |
-| `guest.oci.step3` | Xác nhận | Confirm | ⟨chừa chỗ⟩ |  |
+| `guest.oci.step1` | Giấy tờ | IDs | Документы |  |
+| `guest.oci.step2` | Giờ đến | Arrival time | Время прибытия |  |
+| `guest.oci.step3` | Xác nhận | Confirm | Подтверждение |  |
 | `guest.oci.people` | Giấy tờ của {n} khách trong đơn | IDs for the {n} guests on this booking | ⟨chừa chỗ⟩ |  |
-| `guest.oci.add_doc` | Chụp trang thông tin hộ chiếu / CCCD | Photograph your passport info page / ID card | ⟨chừa chỗ⟩ |  |
-| `guest.oci.why` | Vì sao cần? Luật Việt Nam yêu cầu khách sạn khai báo lưu trú cho mọi khách. | Why? Vietnamese law requires hotels to register every guest's stay. | ⟨chừa chỗ⟩ |  |
-| `guest.oci.consent` | Tôi đồng ý OTTIMO lưu ảnh giấy tờ của tôi đến {days} ngày sau khi trả phòng, sau đó tự xóa. | I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically. | ⟨chừa chỗ⟩ | Văn bản pháp lý – cần người dịch duyệt (HR-01) |
-| `guest.oci.consent_optional` | Không bắt buộc. Nếu không đồng ý, chúng tôi chỉ dùng thông tin để khai báo và không lưu ảnh. | Optional. If you don't agree, we only use the details for registration and don't keep the photos. | ⟨chừa chỗ⟩ |  |
-| `guest.oci.consent_q` | Lưu ảnh giấy tờ sau khi khai báo? | Keep your ID photos after registration? | ⟨chừa chỗ⟩ | Phải chọn Có/Không – không chọn sẵn (`/v1/guest/consents`) |
-| `guest.oci.consent_no` | Không, chỉ dùng để khai báo rồi xóa ảnh | No – use them for registration only, then delete | ⟨chừa chỗ⟩ |  |
+| `guest.oci.add_doc` | Chụp trang thông tin hộ chiếu / CCCD | Photograph your passport info page / ID card | Сфотографируйте страницу паспорта с данными / удостоверение личности |  |
+| `guest.oci.why` | Vì sao cần? Luật Việt Nam yêu cầu khách sạn khai báo lưu trú cho mọi khách. | Why? Vietnamese law requires hotels to register every guest's stay. | Зачем? По закону Вьетнама гостиница обязана регистрировать проживание каждого гостя. |  |
+| `guest.oci.consent` | Tôi đồng ý OTTIMO lưu ảnh giấy tờ của tôi đến {days} ngày sau khi trả phòng, sau đó tự xóa. | I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically. | Я согласен(на), чтобы OTTIMO хранил фото моего документа до {days} дн. после выезда, а затем автоматически удалил их. | Văn bản pháp lý – cần người dịch duyệt (HR-01) |
+| `guest.oci.consent_optional` | Không bắt buộc. Nếu không đồng ý, chúng tôi chỉ dùng thông tin để khai báo và không lưu ảnh. | Optional. If you don't agree, we only use the details for registration and don't keep the photos. | Необязательно. Если вы не согласны, мы используем данные только для регистрации и не храним фото. |  |
+| `guest.oci.consent_q` | Lưu ảnh giấy tờ sau khi khai báo? | Keep your ID photos after registration? | Хранить фото вашего документа после регистрации? | Phải chọn Có/Không – không chọn sẵn (`/v1/guest/consents`) |
+| `guest.oci.consent_no` | Không, chỉ dùng để khai báo rồi xóa ảnh | No – use them for registration only, then delete | Нет – использовать только для регистрации, затем удалить |  |
 | `guest.verify.title` | Xác minh để xem mã cửa và hóa đơn | Verify to see your door code and bill | ⟨chừa chỗ⟩ | Mức 2 – SR-GST-07 (OTP email hoặc mã lễ tân); không dùng 4 số cuối SĐT/mã đặt phòng |
 | `guest.verify.sent_to` | Chúng tôi đã gửi mã 6 số tới {email}. Mã dùng trong 10 phút. | We've sent a 6-digit code to {email}. It's valid for 10 minutes. | ⟨chừa chỗ⟩ | Email che dạng d***@g***.com |
 | `guest.verify.send` | Gửi mã qua email | Email me a code | ⟨chừa chỗ⟩ |  |
@@ -551,15 +551,15 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.verify.error` | Mã chưa đúng hoặc đã hết hạn. Còn {left} lần thử. | The code is wrong or has expired. {left} attempts left. | ⟨chừa chỗ⟩ | 401 |
 | `guest.verify.locked` | Bạn đã nhập sai quá nhiều lần. Vui lòng liên hệ lễ tân để nhận mã xác minh. | Too many wrong attempts. Please contact reception for a verification code. | ⟨chừa chỗ⟩ | 5 lần sai/24 giờ/token – SR-GST-08 |
 | `guest.verify.expired_session` | Phiên xác minh đã hết sau 30 phút không dùng. Xác minh lại để xem tiếp. | Your verification timed out after 30 minutes. Verify again to continue. | ⟨chừa chỗ⟩ | SR-GST-09 |
-| `guest.after_checkout.title` | Cảm ơn bạn đã lưu trú | Thank you for staying with us | ⟨chừa chỗ⟩ | SR-GST-11: ân hạn 24 giờ sau trả phòng |
+| `guest.after_checkout.title` | Cảm ơn bạn đã lưu trú | Thank you for staying with us | Спасибо, что остановились у нас | SR-GST-11: ân hạn 24 giờ sau trả phòng |
 | `guest.after_checkout.body` | Liên kết này còn dùng đến {time} để xem phiếu thanh toán và thanh toán khoản phát sinh. | This link works until {time} to view your folio and pay any extra charges. | ⟨chừa chỗ⟩ |  |
-| `guest.oci.arrival` | Bạn dự kiến đến lúc nào? | When do you expect to arrive? | ⟨chừa chỗ⟩ |  |
-| `guest.oci.arrival_late` | Sau 22:00 | After 22:00 | ⟨chừa chỗ⟩ |  |
-| `guest.oci.note` | Ghi chú cho lễ tân | Note for reception | ⟨chừa chỗ⟩ |  |
+| `guest.oci.arrival` | Bạn dự kiến đến lúc nào? | When do you expect to arrive? | Когда вы планируете приехать? |  |
+| `guest.oci.arrival_late` | Sau 22:00 | After 22:00 | После 22:00 |  |
+| `guest.oci.note` | Ghi chú cho lễ tân | Note for reception | Заметка для администратора |  |
 | `guest.cta.checkin_short` | Làm thủ tục trước | Online check-in | Онлайн-регистрация |  |
-| `guest.oci.submit` | Gửi thủ tục | Submit check-in | ⟨chừa chỗ⟩ |  |
-| `guest.oci.done_title` | Xong! Hẹn gặp bạn ngày {date} | All set! See you on {date} | ⟨chừa chỗ⟩ |  |
-| `guest.oci.done_body` | Phòng sẵn sàng từ {time}. Lễ tân sẽ giao mã cửa khi bạn đến. | Your room is ready from {time}. Reception will give you your door code when you arrive. | ⟨chừa chỗ⟩ | R2 – SEC P-R2-4 ĐK-6, BA E06-10; bản hiện mã cửa trên trang quay lại ở R3 (US-128, US-141) |
+| `guest.oci.submit` | Gửi thủ tục | Submit check-in | Отправить регистрацию |  |
+| `guest.oci.done_title` | Xong! Hẹn gặp bạn ngày {date} | All set! See you on {date} | Готово! До встречи {date} |  |
+| `guest.oci.done_body` | Phòng sẵn sàng từ {time}. Lễ tân sẽ giao mã cửa khi bạn đến. | Your room is ready from {time}. Reception will give you your door code when you arrive. | Апартаменты будут готовы с {time}. Код от двери администратор выдаст при заезде. | R2 – SEC P-R2-4 ĐK-6, BA E06-10; bản hiện mã cửa trên trang quay lại ở R3 (US-128, US-141) |
 | `guest.oci.upload_error` | Ảnh chưa rõ. Chụp lại nơi đủ sáng, không lóa, thấy đủ 4 góc. | The photo isn't clear. Retake it in good light, without glare, showing all 4 corners. | ⟨chừa chỗ⟩ |  |
 | `guest.req.title` | Bạn cần gì? | What do you need? | ⟨chừa chỗ⟩ |  |
 | `guest.req.clean` | Dọn phòng thêm | Extra cleaning | ⟨chừa chỗ⟩ |  |
@@ -640,14 +640,14 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `error.APPROVAL_LIMIT_EXCEEDED` | Số tiền vượt hạn mức duyệt của bạn. Yêu cầu đã chuyển lên {approver}. | The amount is above your approval limit. The request has gone to {approver}. | ⟨chừa chỗ⟩ | 403 – BR-433 |
 | `error.REAUTH_FAILED` | Mật khẩu chưa đúng. Nhập lại mật khẩu đăng nhập của bạn. | That password isn't right. Re-enter your sign-in password. | ⟨chừa chỗ⟩ | 401 – R2 chỉ mật khẩu (BA E05-07). Bỏ {left}: API không trả số lần còn lại, và không nêu số lần (SR-AUTH-04). R3 thêm biến thể PIN |
 | `error.DUPLICATE_GUEST` | SĐT/email này đã thuộc hồ sơ {guest}. Dùng hồ sơ đó? | This phone/email belongs to {guest}. Use that profile? | ⟨chừa chỗ⟩ | 409 + `existingGuestId` – BR-951 |
-| `error.CARD_NUMBER_DETECTED` | Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ. | The note contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers. | ⟨chừa chỗ⟩ | 422 – R-PAY-07 |
+| `error.CARD_NUMBER_DETECTED` | Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ. | The note contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers. | В заметке есть цифры, похожие на номер карты. Удалите их – OTTIMO не хранит номера карт. | 422 – R-PAY-07 |
 | `error.PAYMENT_NOT_CONFIGURED` | Chưa cài tài khoản nhận chuyển khoản nên chưa tạo được VietQR. Chọn cách thanh toán khác và báo chủ đầu tư cài đặt. | No receiving account is set up, so VietQR can't be created. Choose another method and ask the owner to set it up. | ⟨chừa chỗ⟩ | 409 – US-120 |
 | `error.REGISTRATION_INCOMPLETE` | Khai báo chưa đủ: còn thiếu giấy tờ hoặc cảnh báo chưa ghi cách xử lý. | Registration incomplete: IDs missing or warnings without a note. | ⟨chừa chỗ⟩ | 409 – K5 |
-| `error.GUEST_LINK_INVALID` | Liên kết đã hết hạn hoặc không còn dùng được. Nhắn OTTIMO để nhận liên kết mới. | This link has expired or is no longer valid. Message OTTIMO for a new one. | ⟨chừa chỗ⟩ | 401 – app khách; màn đầy đủ dùng `guest.link_expired_*` |
+| `error.GUEST_LINK_INVALID` | Liên kết đã hết hạn hoặc không còn dùng được. Nhắn OTTIMO để nhận liên kết mới. | This link has expired or is no longer valid. Message OTTIMO for a new one. | Срок действия ссылки истёк или она больше недействительна. Напишите OTTIMO, чтобы получить новую. | 401 – app khách; màn đầy đủ dùng `guest.link_expired_*` |
 | `error.GUEST_VERIFICATION_REQUIRED` | Để xem mục này, xác minh bằng mã gửi qua email hoặc mã do lễ tân cấp. | To see this, verify with the code sent by email or given by reception. | ⟨chừa chỗ⟩ | 403 – mức 2 (SR-GST-07) |
 | `error.DEVICE_NOT_TRUSTED` | Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này. | This device isn't approved for IDs and door codes. Use an approved desk computer, or ask the owner to approve this one. | ⟨chừa chỗ⟩ | 403 – SR-DEV-03; mã mới do SEC thêm, ARC cần bổ sung vào bảng mã openapi |
-| `error.FILE_REJECTED` | Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG hoặc WebP, tối đa 10 MB – chụp lại hoặc chọn ảnh khác. | This file can't be used. Only JPG, PNG or WebP photos up to 10 MB – retake or choose another photo. | ⟨chừa chỗ⟩ | 422 – khớp OpenAPI 0.3 (không nhận PDF, HEIC; R2 sửa) |
-| `error.RATE_LIMITED` | Bạn đã thử quá nhiều lần. Chờ {minutes} phút rồi thử lại. | Too many attempts. Wait {minutes} minutes and try again. | ⟨chừa chỗ⟩ | 429 |
+| `error.FILE_REJECTED` | Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG hoặc WebP, tối đa 10 MB – chụp lại hoặc chọn ảnh khác. | This file can't be used. Only JPG, PNG or WebP photos up to 10 MB – retake or choose another photo. | Этот файл не подходит. Принимаются только фото JPG, PNG или WebP до 10 МБ – переснимите или выберите другое фото. | 422 – khớp OpenAPI 0.3 (không nhận PDF, HEIC; R2 sửa) |
+| `error.RATE_LIMITED` | Bạn đã thử quá nhiều lần. Chờ {minutes} phút rồi thử lại. | Too many attempts. Wait {minutes} minutes and try again. | Слишком много попыток. Подождите {minutes} мин. и попробуйте снова. | 429 |
 | `error.server` | Máy chủ đang gặp sự cố. Dữ liệu của bạn không bị mất. Thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The server is having a problem. Nothing has been lost. Try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | 5xx không có `code` – hiện `requestId` |
 
 #### Lưu trú – gia hạn, trả muộn, đổi căn/đổi phòng, không đến (L9)
@@ -795,9 +795,9 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.chip.verified` | Đã xác minh | Verified | Подтверждено |  |
 | `guest.chip.doc_ok` | Đã có | Done | Готово |  |
 | `guest.oci.person_n` | Khách {n} | Guest {n} | Гость {n} |  |
-| `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | ⟨chừa chỗ⟩ | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
-| `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | ⟨chừa chỗ⟩ |  |
-| `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | ⟨chừa chỗ⟩ |  |
+| `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | Отправка фото {n}/{total} – {pct}% | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
+| `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | Слабое соединение – фото сжато, отправка повторится автоматически. |  |
+| `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | Отправить фото снова |  |
 | `guest.bill.line.room` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ |  |
 | `guest.bill.line.minibar` | Minibar | Minibar | Мини-бар |  |
 | `guest.bill.usd` | ≈ {usd} USD (tỷ giá ngày {date}, chỉ tham khảo) | ≈ {usd} USD (rate of {date}, for reference only) | ⟨chừa chỗ⟩ | BR-004 |
@@ -820,7 +820,7 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.late.how_3` | Đèn xanh: đẩy cửa vào. Đèn đỏ: chờ 5 giây rồi nhập lại. | Green light: push the door. Red light: wait 5 seconds and try again. | ⟨chừa chỗ⟩ | Mô tả khóa minh họa – chờ ESC-011 (nhà cung cấp khóa) |
 | `guest.late.how_photos` | Xem ảnh hướng dẫn | See photo guide | ⟨chừa chỗ⟩ |  |
 | `guest.contact.title` | Cần giúp? Người trực đêm | Need help? Night staff | ⟨chừa chỗ⟩ | Số điện thoại người trực lấy từ cấu hình ca – chờ ESC-010 |
-| `guest.contact.call` | Gọi người trực | Call night staff | ⟨chừa chỗ⟩ |  |
+| `guest.contact.call` | Gọi người trực | Call night staff | Позвонить дежурному |  |
 | `guest.contact.message` | Nhắn Zalo / WhatsApp | Message on Zalo / WhatsApp | ⟨chừa chỗ⟩ |  |
 | `guest.contact.hours` | Người trực nghe máy {from}–{to}. | Night staff answer {from}–{to}. | ⟨chừa chỗ⟩ |  |
 | `guest.verify.locked_help` | Không vào được trang mã cửa? Gọi hoặc nhắn người trực – họ sẽ cấp mã xác minh cho bạn. | Can't open your door code? Call or message the night staff – they'll give you a verification code. | ⟨chừa chỗ⟩ |  |
@@ -1699,44 +1699,44 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `foc.self_apply_submit` | Tự áp miễn phí | Apply waiver | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
 | `foc.send` | Gửi duyệt | Send for approval | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
 | `foc.title` | Miễn phí · {line} · {amount} | Waiver · {line} · {amount} | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
-| `guest.oci.closed_desk` | Lễ tân đã nhận giấy tờ của bạn | Reception already has your IDs | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `guest.oci.companions_at_desk` | Người đi cùng tự trả lời câu này tại quầy. | Other guests answer this question themselves at reception. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `guest.oci.withdraw_hint` | Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa. | Want to withdraw consent to keep photos? Tell reception – the photos will be deleted. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.back_home` | Về trang lưu trú | Back to my stay | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
+| `guest.oci.closed_desk` | Lễ tân đã nhận giấy tờ của bạn | Reception already has your IDs | Администратор уже получил ваши документы | 18-guest-checkin.html |
+| `guest.oci.companions_at_desk` | Người đi cùng tự trả lời câu này tại quầy. | Other guests answer this question themselves at reception. | Остальные гости ответят на этот вопрос сами на стойке. | 18-guest-checkin.html |
+| `guest.oci.withdraw_hint` | Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa. | Want to withdraw consent to keep photos? Tell reception – the photos will be deleted. | Хотите отозвать согласие на хранение фото? Сообщите администратору – фото будут удалены. | 18-guest-checkin.html |
+| `gw.back_home` | Về trang lưu trú | Back to my stay | Вернуться к проживанию | 18-guest-checkin.html |
 | `gw.cap_consent` | 3 · Đồng ý Có/Không – nút Gửi mở khi đã chọn | 3 · Consent Yes/No – Send unlocks once chosen | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
 | `gw.cap_docs` | 1 · Giấy tờ từng người (đổi trạng thái để xem gửi / lỗi / mất mạng) | 1 · IDs per guest (switch state to see uploading / error / offline) | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
 | `gw.cap_done` | Hoàn tất – bản R2 không hứa mã cửa trên trang | Done – the R2 version doesn't promise a door code on the page | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
 | `gw.cap_eta` | 2 · Giờ đến dự kiến | 2 · Expected arrival time | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
 | `gw.cap_home` | Trang lưu trú – 3 tab, không có Hóa đơn ở R2. | Stay page – 3 tabs, no Bill tab in R2. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
 | `gw.cap_notice` | 0 · Thông báo xử lý dữ liệu | 0 · Data processing notice | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.checkin` | Nhận phòng | Check-in | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.checkout` | Trả phòng | Check-out | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.closed_body` | Bạn không cần gửi gì thêm. Cần hỗ trợ, nhắn hoặc gọi lễ tân. | You don't need to send anything else. Need help? Message or call reception. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.directions` | Chỉ đường | Directions | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.docs_have` | Đã có giấy tờ của {n}/{m} khách | IDs received for {n}/{m} guests | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.docs_none` | Chưa có giấy tờ nào – bắt đầu với Khách 1 ({m} khách trong đơn). | No IDs yet – start with Guest 1 ({m} guests on the booking). | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.done_desk_check` | Tại quầy, lễ tân xem giấy tờ gốc vài phút để đối chiếu. | At reception, staff will take a few minutes to check your original documents. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.door_at_desk` | Lễ tân giao mã cửa khi bạn đến. Đến sau 22:00? Gọi người trực khi tới nơi. | Reception gives you your door code when you arrive. Arriving after 22:00? Call the night staff when you get here. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.door_at_desk_title` | Mã cửa | Door code | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.ended_body` | Kỳ lưu trú đã kết thúc. Cần phiếu thanh toán hay hỗ trợ? Nhắn OTTIMO qua Zalo/WhatsApp. | Your stay has ended. Need your folio or help? Message OTTIMO on Zalo/WhatsApp. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.house_rules` | Nội quy và phí phạt | House rules and fees | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.late_r2` | Đến sau 22:00: người trực đêm sẽ làm thủ tục và giao mã cửa khi bạn tới – gọi số trên trang này khi đến nơi. | Arriving after 22:00: the night staff will check you in and give you the door code when you arrive – call the number on this page when you get here. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
+| `gw.checkin` | Nhận phòng | Check-in | Заезд | 18-guest-checkin.html |
+| `gw.checkout` | Trả phòng | Check-out | Выезд | 18-guest-checkin.html |
+| `gw.closed_body` | Bạn không cần gửi gì thêm. Cần hỗ trợ, nhắn hoặc gọi lễ tân. | You don't need to send anything else. Need help? Message or call reception. | Больше ничего отправлять не нужно. Нужна помощь? Напишите или позвоните администратору. | 18-guest-checkin.html |
+| `gw.directions` | Chỉ đường | Directions | Как добраться | 18-guest-checkin.html |
+| `gw.docs_have` | Đã có giấy tờ của {n}/{m} khách | IDs received for {n}/{m} guests | Документы получены: {n}/{m} гостей | 18-guest-checkin.html |
+| `gw.docs_none` | Chưa có giấy tờ nào – bắt đầu với Khách 1 ({m} khách trong đơn). | No IDs yet – start with Guest 1 ({m} guests on the booking). | Документов пока нет – начните с гостя 1 (гостей в бронировании: {m}). | 18-guest-checkin.html |
+| `gw.done_desk_check` | Tại quầy, lễ tân xem giấy tờ gốc vài phút để đối chiếu. | At reception, staff will take a few minutes to check your original documents. | На стойке администратор за несколько минут сверит оригиналы документов. | 18-guest-checkin.html |
+| `gw.door_at_desk` | Lễ tân giao mã cửa khi bạn đến. Đến sau 22:00? Gọi người trực khi tới nơi. | Reception gives you your door code when you arrive. Arriving after 22:00? Call the night staff when you get here. | Код от двери выдаст администратор при заезде. Приезжаете после 22:00? Позвоните дежурному по прибытии. | 18-guest-checkin.html |
+| `gw.door_at_desk_title` | Mã cửa | Door code | Код от двери | 18-guest-checkin.html |
+| `gw.ended_body` | Kỳ lưu trú đã kết thúc. Cần phiếu thanh toán hay hỗ trợ? Nhắn OTTIMO qua Zalo/WhatsApp. | Your stay has ended. Need your folio or help? Message OTTIMO on Zalo/WhatsApp. | Ваше проживание завершено. Нужен итоговый расчёт или помощь? Напишите OTTIMO в Zalo/WhatsApp. | 18-guest-checkin.html |
+| `gw.house_rules` | Nội quy và phí phạt | House rules and fees | Правила проживания и штрафы | 18-guest-checkin.html |
+| `gw.late_r2` | Đến sau 22:00: người trực đêm sẽ làm thủ tục và giao mã cửa khi bạn tới – gọi số trên trang này khi đến nơi. | Arriving after 22:00: the night staff will check you in and give you the door code when you arrive – call the number on this page when you get here. | Приезд после 22:00: дежурный оформит заезд и выдаст код от двери на месте – позвоните по номеру на этой странице, когда приедете. | 18-guest-checkin.html |
 | `gw.link_reissue_title` | Cấp link mới cho đơn {code}? Link cũ ngừng hoạt động ngay. | Issue a new link for booking {code}? The old link stops working immediately. | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `gw.link_revoke_title` | Thu hồi link của đơn {code}? Khách mở link sẽ thấy "Liên kết đã hết hạn". | Revoke the link for booking {code}? Guests opening it will see "Link expired". | ⟨chừa chỗ⟩ | BA spec / hifi.js |
-| `gw.notice_body` | OTTIMO dùng thông tin giấy tờ của bạn để khai báo lưu trú với cơ quan công an theo luật Việt Nam. Ảnh giấy tờ được mã hóa; chỉ lễ tân và quản lý xem được. Bạn sẽ được hỏi riêng có muốn cho lưu ảnh sau khi khai báo hay không. | OTTIMO uses your ID details to register your stay with the police, as required by Vietnamese law. ID photos are encrypted; only reception and managers can see them. You'll be asked separately whether we may keep the photos after registration. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.notice_read` | Tôi đã đọc | I've read this | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.notice_title` | Trước khi bắt đầu | Before you start | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.notice_version` | Phiên bản thông báo: {v} | Notice version: {v} | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.offline_upload` | Mất kết nối – ảnh chưa gửi sẽ không được giữ lại trên máy. Khi có mạng, chụp lại để gửi. | You're offline – unsent photos aren't kept on this device. When you're back online, take them again to send. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.photo_tips` | Đặt giấy tờ trên nền tối, đủ sáng, thấy đủ 4 góc, không lóa. | Place the ID on a dark surface in good light, all 4 corners visible, no glare. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
+| `gw.notice_body` | OTTIMO dùng thông tin giấy tờ của bạn để khai báo lưu trú với cơ quan công an theo luật Việt Nam. Ảnh giấy tờ được mã hóa; chỉ lễ tân và quản lý xem được. Bạn sẽ được hỏi riêng có muốn cho lưu ảnh sau khi khai báo hay không. | OTTIMO uses your ID details to register your stay with the police, as required by Vietnamese law. ID photos are encrypted; only reception and managers can see them. You'll be asked separately whether we may keep the photos after registration. | OTTIMO использует данные ваших документов, чтобы зарегистрировать проживание в полиции, как требует закон Вьетнама. Фото документов зашифрованы; их видят только администраторы и управляющие. Отдельно мы спросим, можно ли хранить фото после регистрации. | 18-guest-checkin.html |
+| `gw.notice_read` | Tôi đã đọc | I've read this | Я прочитал(а) | 18-guest-checkin.html |
+| `gw.notice_title` | Trước khi bắt đầu | Before you start | Перед началом | 18-guest-checkin.html |
+| `gw.notice_version` | Phiên bản thông báo: {v} | Notice version: {v} | Версия уведомления: {v} | 18-guest-checkin.html |
+| `gw.offline_upload` | Mất kết nối – ảnh chưa gửi sẽ không được giữ lại trên máy. Khi có mạng, chụp lại để gửi. | You're offline – unsent photos aren't kept on this device. When you're back online, take them again to send. | Нет подключения – неотправленные фото не сохраняются на устройстве. Когда связь появится, сфотографируйте их снова. | 18-guest-checkin.html |
+| `gw.photo_tips` | Đặt giấy tờ trên nền tối, đủ sáng, thấy đủ 4 góc, không lóa. | Place the ID on a dark surface in good light, all 4 corners visible, no glare. | Положите документ на тёмную поверхность при хорошем освещении: видны все 4 угла, без бликов. | 18-guest-checkin.html |
 | `gw.prechecked_notice` | Khách {code} đã làm thủ tục trước – đến lúc {eta} | Guest {code} checked in online – arriving at {eta} | ⟨chừa chỗ⟩ | BA spec / hifi.js |
-| `gw.resend` | Gửi lại | Send again | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.room` | Căn | Room | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.saved_progress` | Tiến trình đã lưu – mở lại link để làm tiếp. | Progress saved – open the link again to continue. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.sent_hidden` | Đã gửi – vì an toàn, ảnh không hiện lại ở đây. | Sent – for your safety, the photo isn't shown again here. | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.take_photo` | Chụp | Take photo | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.take_photo_again` | Chụp lại bằng nút Chụp | Retake with the Take photo button | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
-| `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | ⟨chừa chỗ⟩ | 18-guest-checkin.html |
+| `gw.resend` | Gửi lại | Send again | Отправить снова | 18-guest-checkin.html |
+| `gw.room` | Căn | Room | Апартаменты | 18-guest-checkin.html |
+| `gw.saved_progress` | Tiến trình đã lưu – mở lại link để làm tiếp. | Progress saved – open the link again to continue. | Прогресс сохранён – откройте ссылку снова, чтобы продолжить. | 18-guest-checkin.html |
+| `gw.sent_hidden` | Đã gửi – vì an toàn, ảnh không hiện lại ở đây. | Sent – for your safety, the photo isn't shown again here. | Отправлено – в целях безопасности фото здесь больше не показывается. | 18-guest-checkin.html |
+| `gw.take_photo` | Chụp | Take photo | Сфотографировать | 18-guest-checkin.html |
+| `gw.take_photo_again` | Chụp lại bằng nút Chụp | Retake with the Take photo button | Переснимите кнопкой «Сфотографировать» | 18-guest-checkin.html |
+| `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | Появится здесь в день заезда ({date}). | 18-guest-checkin.html |
 | `late.grace_off` | Căn có khách đến hôm nay – không áp ân hạn 12:30. | A guest is arriving in this room today – the 12:30 grace period doesn't apply. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `mlog.a_adjusted` | Điều chỉnh dòng (đảo + dòng mới) · giặt ủi | Line adjusted (reversal + new line) · laundry | ⟨chừa chỗ⟩ | 17-approvals-moneylog.html |
@@ -1902,7 +1902,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `shell.theme_auto` | Theo máy | System | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `shell.theme_light` | Sáng | Light | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `shell.theme_dark` | Tối | Dark | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
-| `shell.skip` | Bỏ qua tới nội dung | Skip to content | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.skip` | Bỏ qua tới nội dung | Skip to content | Перейти к содержимому | FE S1 pending → UXD duyệt |
 | `shell.user_menu` | Tài khoản | Account | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `params.grp_security` | Bảo mật | Security | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `params.grp_other` | Khác | Other | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
@@ -2247,11 +2247,11 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.req.repair_help` | Mô tả chỗ hỏng (ví dụ: không có nước nóng). Kỹ thuật sẽ liên hệ trước khi vào phòng. | Describe the problem (e.g. no hot water). Maintenance will contact you before entering the room. | ⟨chừa chỗ⟩ |  |
 | `gw.req.late_help` | Ghi giờ bạn muốn trả. Lễ tân sẽ báo phí (nếu có) và xác nhận trước khi bạn ở thêm. | Tell us what time you'd like to leave. The front desk will confirm and tell you any fee before you stay longer. | ⟨chừa chỗ⟩ |  |
 | `gw.req.auto_reply` | Trả lời tự động: Chúng tôi đã nhận và sẽ xử lý từ {time}. | Automatic reply: We've received your request and will handle it from {time}. | ⟨chừa chỗ⟩ | BR-811 ngoài giờ trực |
-| `gw.wifi_name` | Tên mạng | Network name | ⟨chừa chỗ⟩ |  |
-| `gw.wifi_pass` | Mật khẩu | Password | ⟨chừa chỗ⟩ |  |
-| `gw.wifi_copy` | Sao chép mật khẩu | Copy password | ⟨chừa chỗ⟩ |  |
-| `gw.wifi_copied` | Đã sao chép mật khẩu Wi-Fi | Wi-Fi password copied | ⟨chừa chỗ⟩ |  |
-| `gw.rules_source` | Nội dung theo nội quy OTTIMO đang áp dụng. | Based on OTTIMO's current house rules. | ⟨chừa chỗ⟩ |  |
+| `gw.wifi_name` | Tên mạng | Network name | Имя сети |  |
+| `gw.wifi_pass` | Mật khẩu | Password | Пароль |  |
+| `gw.wifi_copy` | Sao chép mật khẩu | Copy password | Скопировать пароль |  |
+| `gw.wifi_copied` | Đã sao chép mật khẩu Wi-Fi | Wi-Fi password copied | Пароль Wi-Fi скопирован |  |
+| `gw.rules_source` | Nội dung theo nội quy OTTIMO đang áp dụng. | Based on OTTIMO's current house rules. | По действующим правилам проживания OTTIMO. |  |
 | `gw.info_error_title` | Chưa tải được thông tin lưu trú | Couldn't load your stay details | ⟨chừa chỗ⟩ |  |
 
 #### R2 hi-fi Sprint 4 – Tổng quan + Cần chú ý + SSE (H24)
@@ -2396,14 +2396,14 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `error.CONCURRENT_UPDATE` | Người khác đang lưu cùng lúc. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | Someone else is saving at the same moment. What you entered is still here – try again in a few seconds. | ⟨chừa chỗ⟩ | 409 + Retry-After – server không ghi gì; FE tự thử lại (DS 6.21), giữ form; không dùng error.server |
-| `error.SERVICE_UNAVAILABLE` | Hệ thống đang bận nên chưa lưu. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | The system is busy, so this wasn't saved. What you entered is still here – try again in a few seconds. | ⟨chừa chỗ⟩ | 503 + Retry-After – không ghi gì; với GET: khung lỗi màn tự tải lại (DS 6.21) |
-| `retry.countdown` | Tự thử lại sau {seconds} giây… | Trying again in {seconds} s… | ⟨chừa chỗ⟩ | {seconds} = Retry-After còn lại; aria-live chỉ đọc lần đầu |
-| `retry.trying` | Đang thử lại… | Trying again… | ⟨chừa chỗ⟩ |  |
-| `retry.now` | Thử lại ngay | Try now | ⟨chừa chỗ⟩ |  |
-| `retry.stop` | Dừng thử lại | Stop retrying | ⟨chừa chỗ⟩ | Giữ nguyên dữ liệu form |
-| `retry.done` | Đã lưu sau khi thử lại. | Saved after retrying. | ⟨chừa chỗ⟩ |  |
-| `retry.gave_up_concurrent` | Vẫn có người đang lưu cùng chỗ này. Dữ liệu của bạn còn nguyên – bấm Thử lại, hoặc tải lại để xem thay đổi mới nhất. | Someone is still saving the same item. Your data is still here – tap Try again, or reload to see the latest changes. | ⟨chừa chỗ⟩ | Sau 2 lần tự thử lại vẫn 409 CONCURRENT_UPDATE |
+| `error.CONCURRENT_UPDATE` | Người khác đang lưu cùng lúc. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | Someone else is saving at the same moment. What you entered is still here – try again in a few seconds. | Кто-то сохраняет данные одновременно с вами. Введённые данные на месте – попробуйте через несколько секунд. | 409 + Retry-After – server không ghi gì; FE tự thử lại (DS 6.21), giữ form; không dùng error.server |
+| `error.SERVICE_UNAVAILABLE` | Hệ thống đang bận nên chưa lưu. Dữ liệu bạn nhập vẫn còn nguyên – thử lại sau vài giây. | The system is busy, so this wasn't saved. What you entered is still here – try again in a few seconds. | Система сейчас занята, поэтому данные не сохранены. Введённые данные на месте – попробуйте через несколько секунд. | 503 + Retry-After – không ghi gì; với GET: khung lỗi màn tự tải lại (DS 6.21) |
+| `retry.countdown` | Tự thử lại sau {seconds} giây… | Trying again in {seconds} s… | Повторная попытка через {seconds} с… | {seconds} = Retry-After còn lại; aria-live chỉ đọc lần đầu |
+| `retry.trying` | Đang thử lại… | Trying again… | Пробуем снова… |  |
+| `retry.now` | Thử lại ngay | Try now | Повторить сейчас |  |
+| `retry.stop` | Dừng thử lại | Stop retrying | Остановить повтор | Giữ nguyên dữ liệu form |
+| `retry.done` | Đã lưu sau khi thử lại. | Saved after retrying. | Сохранено после повторной попытки. |  |
+| `retry.gave_up_concurrent` | Vẫn có người đang lưu cùng chỗ này. Dữ liệu của bạn còn nguyên – bấm Thử lại, hoặc tải lại để xem thay đổi mới nhất. | Someone is still saving the same item. Your data is still here – tap Try again, or reload to see the latest changes. | Кто-то всё ещё сохраняет те же данные. Ваши данные на месте – нажмите «Повторить» или обновите страницу. | Sau 2 lần tự thử lại vẫn 409 CONCURRENT_UPDATE |
 | `retry.gave_up_unavailable` | Hệ thống vẫn bận. Dữ liệu của bạn còn nguyên – thử lại sau ít phút; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | The system is still busy. Your data is still here – try again in a few minutes; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | Sau 1 lần tự thử lại vẫn 503; chỉ dùng khi có Problem.requestId |
 | `retry.load_countdown` | Đang tải lại sau {seconds} giây… | Reloading in {seconds} s… | ⟨chừa chỗ⟩ | GET nhận 503 – khung lỗi màn |
 | `hk.queue.busy_retry` | Hệ thống bận – sẽ tự gửi lại | System busy – will resend automatically | ⟨chừa chỗ⟩ | PWA: 409 CONCURRENT_UPDATE / 503 giữ ở 'Đang chờ gửi', KHÔNG vào 'Cần xem lại' |
@@ -2464,27 +2464,140 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mlog.a_shortfall_accepted` | Chấp nhận cọc thiếu · còn thiếu {amount} | Short deposit accepted · {amount} short | ⟨chừa chỗ⟩ | confirmDeposit.acceptShortfallReason MGR+ (0.3.6 nhóm B, DOM D-9) |
 | `mlog.a_closer_changed` | Đổi người chốt: {from} → {to} | Closer changed: {from} → {to} | ⟨chừa chỗ⟩ | reservation.closer_changed (SEC-BE-26) |
 | `mlog.a_staff_payment` | Sale ghi nhận cọc · tiền mặt · chờ đối soát | Sales recorded deposit · cash · awaiting reconciliation | ⟨chừa chỗ⟩ |  |
-| `error.ONLINE_CHECKIN_CLOSED` | Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân. | Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk. | ⟨chừa chỗ⟩ | 409 (0.3.3 E06-06) – hiện trạng thái 18.5 |
-| `field.FILE_TYPE` | Chỉ nhận ảnh JPG, PNG hoặc WebP. | Only JPG, PNG or WebP photos. | ⟨chừa chỗ⟩ |  |
-| `field.FILE_TOO_LARGE` | Ảnh lớn hơn 10 MB – chụp lại hoặc chọn ảnh nhỏ hơn. | The photo is over 10 MB – retake it or choose a smaller one. | ⟨chừa chỗ⟩ |  |
-| `field.TOO_MANY_FILES` | Đã đủ số ảnh tối đa cho người này. | You've reached the photo limit for this person. | ⟨chừa chỗ⟩ |  |
+| `error.ONLINE_CHECKIN_CLOSED` | Thủ tục online đã đóng – lễ tân đã nhận giấy tờ hoặc bạn đã nhận phòng. Cần hỗ trợ, gọi lễ tân. | Online check-in is closed – the front desk already has your documents or you've checked in. Need help? Call the front desk. | Онлайн-регистрация закрыта – администратор уже получил ваши документы или вы уже заселились. Нужна помощь? Позвоните администратору. | 409 (0.3.3 E06-06) – hiện trạng thái 18.5 |
+| `field.FILE_TYPE` | Chỉ nhận ảnh JPG, PNG hoặc WebP. | Only JPG, PNG or WebP photos. | Принимаются только фото JPG, PNG или WebP. |  |
+| `field.FILE_TOO_LARGE` | Ảnh lớn hơn 10 MB – chụp lại hoặc chọn ảnh nhỏ hơn. | The photo is over 10 MB – retake it or choose a smaller one. | Фото больше 10 МБ – переснимите или выберите фото поменьше. |  |
+| `field.TOO_MANY_FILES` | Đã đủ số ảnh tối đa cho người này. | You've reached the photo limit for this person. | Для этого гостя загружено максимальное число фото. |  |
 
 #### R2 Sprint 3 – ESC-016 A: phí dọn thêm trên guest-web (H23)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `gw.req.clean_makeup_free` | Hôm nay căn chưa được dọn – lần dọn này miễn phí. | Your room hasn't been cleaned today – this clean is free. | ⟨chừa chỗ⟩ | Khách ngắn ngày, chưa có lần dọn đầy đủ trong ngày (dọn bù) – feeVnd = 0 |
-| `gw.req.clean_second_fee` | Căn đã được dọn đầy đủ lúc {time} hôm nay. Dọn đầy đủ thêm lần nữa có phí {amount}. | Your room had a full clean at {time} today. Another full clean costs {amount}. | ⟨chừa chỗ⟩ | Khách ngắn ngày, lần dọn đầy đủ thứ hai trong ngày (ESC-016 A) |
-| `gw.req.clean_long_fee` | Gói thuê dài hạn của bạn chưa gồm dọn phòng. Mỗi lần dọn có phí {amount}. | Your long-stay rent doesn't include cleaning. Each clean costs {amount}. | ⟨chừa chỗ⟩ | Khách dài hạn – dọn lẻ BR-506/BR-204 |
-| `gw.req.clean_what_long` | Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. | Includes cleaning, fresh bed linen, bathroom and kitchen. | ⟨chừa chỗ⟩ | Bản cho khách dài hạn (không có câu 'dọn hằng ngày miễn phí') |
-| `gw.req.clean_fee_rule` | Hôm nay chưa dọn: miễn phí. Đã dọn đầy đủ rồi mà muốn dọn lần nữa: {amount}. Thuê dài hạn: {amount}/lần. | Not cleaned yet today: free. Already had a full clean and want another: {amount}. Long stays: {amount} each time. | ⟨chừa chỗ⟩ | Dự phòng khi chưa có listGuestRequestOptions (không biết phí của chính khách) – nêu đủ quy tắc ESC-016 A |
-| `gw.req.towels_free` | Thay khăn, bổ sung đồ dùng luôn miễn phí. | Fresh towels and supplies are always free. | ⟨chừa chỗ⟩ |  |
-| `gw.req.not_available` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | ⟨chừa chỗ⟩ | EP14 3.1 guest.req.not_available → tên R2 gw.req.* |
-| `field.REQUEST_TYPE_NOT_AVAILABLE` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | ⟨chừa chỗ⟩ | 422 mã trường (ARC B-14) |
-| `field.FEE_NOT_ACCEPTED` | Tick đồng ý phí để gửi yêu cầu này. | Tick to agree to the fee before sending. | ⟨chừa chỗ⟩ | 422 mã trường (ARC B-16, 0.3.6) |
-| `gw.req.note_required` | Mô tả ngắn giúp chúng tôi xử lý nhanh hơn. | A short description helps us sort it out faster. | ⟨chừa chỗ⟩ | EP14 3.2 guest.req.note_required |
-| `gw.req.card_detected` | Vui lòng không ghi số thẻ thanh toán. | Please don't include a payment card number. | ⟨chừa chỗ⟩ | EP14 3.2 guest.req.card_detected |
-| `gw.req.too_many` | Bạn đã gửi nhiều yêu cầu hôm nay. Vui lòng gọi lễ tân {phone}. | You've sent a lot of requests today. Please call the front desk on {phone}. | ⟨chừa chỗ⟩ | 429 – EP14 guest.req.too_many |
+| `gw.req.clean_makeup_free` | Hôm nay căn chưa được dọn – lần dọn này miễn phí. | Your room hasn't been cleaned today – this clean is free. | Сегодня у вас ещё не убирали – эта уборка бесплатна. | Khách ngắn ngày, chưa có lần dọn đầy đủ trong ngày (dọn bù) – feeVnd = 0 |
+| `gw.req.clean_second_fee` | Căn đã được dọn đầy đủ lúc {time} hôm nay. Dọn đầy đủ thêm lần nữa có phí {amount}. | Your room had a full clean at {time} today. Another full clean costs {amount}. | Сегодня в {time} у вас уже была полная уборка. Ещё одна полная уборка стоит {amount}. | Khách ngắn ngày, lần dọn đầy đủ thứ hai trong ngày (ESC-016 A) |
+| `gw.req.clean_long_fee` | Gói thuê dài hạn của bạn chưa gồm dọn phòng. Mỗi lần dọn có phí {amount}. | Your long-stay rent doesn't include cleaning. Each clean costs {amount}. | Долгосрочная аренда не включает уборку. Каждая уборка стоит {amount}. | Khách dài hạn – dọn lẻ BR-506/BR-204 |
+| `gw.req.clean_what_long` | Gồm lau dọn, thay ga gối, vệ sinh nhà tắm và bếp. | Includes cleaning, fresh bed linen, bathroom and kitchen. | Уборка, смена постельного белья, ванная и кухня. | Bản cho khách dài hạn (không có câu 'dọn hằng ngày miễn phí') |
+| `gw.req.clean_fee_rule` | Hôm nay chưa dọn: miễn phí. Đã dọn đầy đủ rồi mà muốn dọn lần nữa: {amount}. Thuê dài hạn: {amount}/lần. | Not cleaned yet today: free. Already had a full clean and want another: {amount}. Long stays: {amount} each time. | Сегодня ещё не убирали: бесплатно. Полная уборка уже была и нужна ещё одна: {amount}. Долгосрочное проживание: {amount} за раз. | Dự phòng khi chưa có listGuestRequestOptions (không biết phí của chính khách) – nêu đủ quy tắc ESC-016 A |
+| `gw.req.towels_free` | Thay khăn, bổ sung đồ dùng luôn miễn phí. | Fresh towels and supplies are always free. | Смена полотенец и пополнение принадлежностей – всегда бесплатно. |  |
+| `gw.req.not_available` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | Этим можно воспользоваться после заезда. | EP14 3.1 guest.req.not_available → tên R2 gw.req.* |
+| `field.REQUEST_TYPE_NOT_AVAILABLE` | Yêu cầu này dùng được khi bạn đã nhận phòng. | You can use this once you've checked in. | Этим можно воспользоваться после заезда. | 422 mã trường (ARC B-14) |
+| `field.FEE_NOT_ACCEPTED` | Tick đồng ý phí để gửi yêu cầu này. | Tick to agree to the fee before sending. | Отметьте согласие с оплатой, чтобы отправить запрос. | 422 mã trường (ARC B-16, 0.3.6) |
+| `gw.req.note_required` | Mô tả ngắn giúp chúng tôi xử lý nhanh hơn. | A short description helps us sort it out faster. | Короткое описание поможет нам справиться быстрее. | EP14 3.2 guest.req.note_required |
+| `gw.req.card_detected` | Vui lòng không ghi số thẻ thanh toán. | Please don't include a payment card number. | Пожалуйста, не указывайте номер платёжной карты. | EP14 3.2 guest.req.card_detected |
+| `gw.req.too_many` | Bạn đã gửi nhiều yêu cầu hôm nay. Vui lòng gọi lễ tân {phone}. | You've sent a lot of requests today. Please call the front desk on {phone}. | Сегодня вы отправили много запросов. Пожалуйста, позвоните администратору: {phone}. | 429 – EP14 guest.req.too_many |
+
+#### R2 Sprint 3 – bổ sung FE: hoàn tiền, trả thừa, tiền mặt sale nộp quầy, người đi cùng (EP03-05 v0.2)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `refund.title` | Hoàn tiền | Refunds | ⟨chừa chỗ⟩ | Tab màn Tiền – thay lt.settlement.refund (chuỗi đó là dòng quyết toán dài hạn) |
+| `refund.method` | Cách hoàn | Refund method | ⟨chừa chỗ⟩ | EP03-05 2.6.1 |
+| `refund.method.original_method` | Cùng cách khách đã trả | Same way the guest paid | ⟨chừa chỗ⟩ | Thẻ POS → hoàn qua máy POS |
+| `refund.bank_bin` | Ngân hàng nhận | Receiving bank | ⟨chừa chỗ⟩ |  |
+| `refund.account_no` | Số tài khoản | Account number | ⟨chừa chỗ⟩ | C3 – chỉ ghi, sau khi lưu chỉ hiện dạng che |
+| `refund.account_holder` | Tên chủ tài khoản | Account holder name | ⟨chừa chỗ⟩ |  |
+| `refund.holder_differs` | Tên chủ tài khoản khác tên khách – xác nhận với khách. | The account holder's name differs from the guest's – confirm with the guest. | ⟨chừa chỗ⟩ | Cảnh báo, không chặn |
+| `refund.set_destination` | Nhập nơi nhận hoàn | Enter refund destination | ⟨chừa chỗ⟩ | setRefundDestination |
+| `refund.execute_cash` | Chi hoàn tiền mặt | Pay cash refund | ⟨chừa chỗ⟩ | executeCashRefund – FD+ (A47a) |
+| `refund.execute_transfer` | Ghi đã hoàn chuyển khoản / qua máy POS | Record transfer / card terminal refund | ⟨chừa chỗ⟩ | executeRefund – MGR/OWN (A47) |
+| `refund.proof` | Ảnh chứng từ (ủy nhiệm chi hoặc biên nhận có chữ ký khách) | Proof photo (transfer slip or receipt signed by the guest) | ⟨chừa chỗ⟩ |  |
+| `refund.bank_reference` | Mã giao dịch ngân hàng / mã hoàn POS | Bank transaction ref / card refund code | ⟨chừa chỗ⟩ |  |
+| `refund.transfer_waits_manager` | Hoàn chuyển khoản do quản lý thực hiện – báo khách thời hạn. | Transfer refunds are made by a manager – tell the guest when to expect it. | ⟨chừa chỗ⟩ |  |
+| `refund.request_overpayment` | Đề nghị hoàn {amount} | Request a refund of {amount} | ⟨chừa chỗ⟩ | Spec ghi {creditVnd} – FE truyền {amount} |
+| `refund.requested` | Đã gửi đề nghị hoàn – chờ quản lý duyệt. | Refund request sent – waiting for a manager to approve. | ⟨chừa chỗ⟩ |  |
+| `refund.paid` | Đã ghi hoàn {amount}. | Refund of {amount} recorded. | ⟨chừa chỗ⟩ |  |
+| `refund.show_account` | Xem đủ số tài khoản | Show full account number | ⟨chừa chỗ⟩ | getRefundDestination – xác nhận lại mật khẩu, ghi nhật ký C3 |
+| `refund.self_execute_forbidden` | Khoản hoàn do bạn tạo cần người khác chi. | A refund you requested must be paid out by someone else. | ⟨chừa chỗ⟩ | 403 SELF_APPROVAL_FORBIDDEN ở executeRefund/executeCashRefund – thay error.SELF_APPROVAL_FORBIDDEN trong ngữ cảnh chi hoàn |
+| `error.REFUND_DESTINATION_REQUIRED` | Chưa có nơi nhận hoàn (hoặc vừa đổi) – nhập hoặc duyệt lại. | No refund destination yet (or it just changed) – enter it or approve it again. | ⟨chừa chỗ⟩ |  |
+| `error.REFUND_EXCEEDS_APPROVED` | Còn được hoàn tối đa {max}. | You can refund at most {max}. | ⟨chừa chỗ⟩ | 422 – Problem.max → {max} |
+| `error.OVERPAYMENT_HANDLING_REQUIRED` | Khách đã trả thừa – chọn cách xử lý trước khi hoàn tất. | The guest has overpaid – choose how to handle it before finishing. | ⟨chừa chỗ⟩ |  |
+| `checkout.blocked_credit` | Khách đã trả thừa {amount}. Chọn cách xử lý. | The guest has overpaid {amount}. Choose how to handle it. | ⟨chừa chỗ⟩ | Spec ghi {x} – FE truyền {amount} |
+| `checkout.overpay.refund_request` | Hoàn lại khách {amount} (tạo đề nghị hoàn) | Refund {amount} to the guest (creates a refund request) | ⟨chừa chỗ⟩ |  |
+| `checkout.overpay.retain` | Khách đồng ý để lại khoản thừa – chỉ quản lý trở lên | Guest agrees to leave the overpayment – managers only | ⟨chừa chỗ⟩ | retain_with_guest_consent; FD/FDL → 403 |
+| `checkout.late_recalc` | Phụ thu trả muộn đã ghi {old} → theo giờ trả thực tế {new}. | Late check-out charge recorded {old} → {new} at the actual check-out time. | ⟨chừa chỗ⟩ |  |
+| `pay.confirm_cash_handover` | Đã nhận tiền mặt | Cash received | ⟨chừa chỗ⟩ | confirmCashHandover – FD+ (A46a) |
+| `pay.cash_handover_title` | Tiền mặt sale/CTV nộp quầy | Cash handed in by sales/agents | ⟨chừa chỗ⟩ |  |
+| `pay.cash_handover_mismatch` | Số tiền nhận khác số sale/CTV đã ghi ({amount}). Báo quản lý. | The amount received differs from what sales/agent recorded ({amount}). Tell a manager. | ⟨chừa chỗ⟩ | 422 AMOUNT_INVALID của confirmCashHandover |
+| `pay.receiving_account_changed` | Tài khoản nhận vừa đổi trong 24 giờ qua – đọc lại tên và số tài khoản với khách trước khi khách chuyển. | The receiving account changed in the last 24 hours – read the name and account number back to the guest before they pay. | ⟨chừa chỗ⟩ | SEC F3 – receivingAccountRecentlyChanged |
+| `party.missing` | Thiếu {n} người | {n} guest(s) missing | ⟨chừa chỗ⟩ |  |
+| `party.remove` | Bỏ khỏi đơn | Remove from booking | ⟨chừa chỗ⟩ |  |
+| `party.remove_confirm` | Bỏ {name} khỏi đơn? Giấy tờ và ảnh của người này sẽ bị xóa ngay. | Remove {name} from the booking? Their ID details and photos will be deleted immediately. | ⟨chừa chỗ⟩ |  |
+| `party.remove_registered` | Người này đã khai trên cổng – cập nhật trên cổng. | This person is already registered on the portal – update it there. | ⟨chừa chỗ⟩ |  |
+| `party.reduce_count` | Giảm số khách của đơn xuống {n}? | Lower the booking's guest count to {n}? | ⟨chừa chỗ⟩ |  |
+| `room_change.door_reminder` | Thu thẻ cũ, giao thẻ/mã căn {room}. | Collect the old key card; hand over the card/code for room {room}. | ⟨chừa chỗ⟩ |  |
+| `checkin.fix_guest_count` | Sửa số khách thực tế | Fix actual guest count | ⟨chừa chỗ⟩ | DOM G-6 – nút trong dòng điều kiện sức chứa |
+| `checkin.time_hint` | Giờ khách vào căn – gửi hành lý không tính phụ thu. | Time the guest goes into the room – leaving luggage early isn't charged. | ⟨chừa chỗ⟩ |  |
+| `checkin.verify.visa_at_arrival` | Thị thực còn hạn tại ngày nhận phòng | Visa valid on the check-in date | ⟨chừa chỗ⟩ | visa_valid_at_arrival (E06-01) – Không đạt thì chặn |
+| `checkin.verify.stay_within_visa` | Ngày đi khai báo không vượt hạn tạm trú | Registered departure within the permitted stay | ⟨chừa chỗ⟩ | stay_within_visa – không chặn |
+| `mlog.date_from` | Từ ngày | From | ⟨chừa chỗ⟩ |  |
+| `mlog.date_to` | Đến ngày | To | ⟨chừa chỗ⟩ |  |
+| `rooms.future_keep` | Căn còn {n} đơn tương lai – các đơn này giữ nguyên, đổi căn nếu cần. | This room has {n} future booking(s) – they stay as they are; move them if needed. | ⟨chừa chỗ⟩ |  |
+| `bill.ota_prepaid` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13) |
+| `bill.refund` | Đã hoàn {amount} ({method}) | Refunded {amount} ({method}) | ⟨chừa chỗ⟩ |  |
+| `bill.refund_due` | Hoàn lại khách {amount} | Refund due to guest {amount} | ⟨chừa chỗ⟩ | Còn phải thu âm |
+| `folio.post_checkout_tag` | Phát sinh sau trả phòng | Added after check-out | ⟨chừa chỗ⟩ | BR-427 c |
+| `charge.room_change_difference` | Chênh lệch đổi phòng | Room change difference | ⟨chừa chỗ⟩ | Đơn OTA đổi phòng theo yêu cầu khách |
+| `invoice.address` | Địa chỉ công ty | Company address | ⟨chừa chỗ⟩ |  |
+
+#### R2 Sprint 3 – bổ sung MOB guest-web: điều hướng, loại giấy tờ, bổ sung tại quầy, trạng thái đã làm thủ tục (H18)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `gw.nav_label` | Điều hướng chính | Main navigation | Основная навигация |  |
+| `gw.steps_label` | Các bước làm thủ tục | Check-in steps | Шаги регистрации |  |
+| `gw.doc_type` | Loại giấy tờ | Document type | Тип документа | Thay checkin.docs.field.doc_type (chuỗi Desk) |
+| `gw.doc.passport` | Hộ chiếu | Passport | Паспорт | Đặt trước khi ngôn ngữ ≠ vi |
+| `gw.doc.cccd` | CCCD (người Việt Nam) | Vietnamese ID card (CCCD) | Вьетнамское удостоверение (CCCD) | Thay ci.doc.cccd – khách nước ngoài không biết chữ CCCD |
+| `gw.doc_type_first` | Chọn loại giấy tờ để bật nút Chụp. | Choose the document type to enable Take photo. | Выберите тип документа, чтобы включить кнопку «Сфотографировать». |  |
+| `gw.doc_hint.passport` | Chụp trang có ảnh; thêm trang thị thực / dấu nhập cảnh nếu có. | Photograph the photo page; add the visa / entry stamp page if you have one. | Сфотографируйте страницу с фото; добавьте страницу с визой / штампом о въезде, если есть. |  |
+| `gw.doc_hint.cccd` | Chụp mặt trước và mặt sau. | Photograph the front and the back. | Сфотографируйте лицевую и оборотную стороны. |  |
+| `gw.defer_at_desk` | Bổ sung tại quầy | Add at reception | Предъявить на стойке | deferredPeople[] (E06-06) |
+| `gw.defer_help` | Chưa có giấy tờ của người này? Mang bản gốc khi đến – lễ tân chụp tại quầy. | Don't have this person's ID now? Bring the original – reception will scan it when you arrive. | Нет документа этого гостя под рукой? Возьмите оригинал – администратор отсканирует его при заезде. |  |
+| `gw.deferred` | Sẽ bổ sung tại quầy | Will be added at reception | Будет предъявлен на стойке |  |
+| `gw.defer_undo` | Chụp ngay | Take photo now | Сфотографировать сейчас |  |
+| `gw.docs_have_deferred` | Đã có giấy tờ của {n}/{m} khách · {k} khách bổ sung tại quầy | IDs received for {n}/{m} guests · {k} will show ID at reception | Документы получены: {n}/{m} гостей · {k} предъявят на стойке |  |
+| `gw.oci_done_card_title` | Đã làm thủ tục trước | Online check-in done | Онлайн-регистрация пройдена |  |
+| `gw.oci_done_card_body` | Đã gửi giấy tờ của {n}/{m} khách · dự kiến đến {eta}. Khi đến, lễ tân chỉ cần đối chiếu bản gốc. | IDs sent for {n}/{m} guests · arriving around {eta}. At reception, staff just check the originals. | Документы отправлены: {n}/{m} гостей · прибытие около {eta}. На стойке администратор только сверит оригиналы. |  |
+| `gw.oci_done_card_deferred` | {k} khách bổ sung giấy tờ tại quầy. | {k} guest(s) will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. |  |
+| `gw.oci_done_card_view` | Xem lại | View | Посмотреть |  |
+| `gw.error_server` | Hệ thống đang gặp sự cố. Thử lại sau ít phút; nếu vẫn lỗi, nhắn OTTIMO kèm mã {request_id}. | Something went wrong on our side. Try again in a few minutes; if it keeps happening, message OTTIMO with the code {request_id}. | У нас произошла ошибка. Попробуйте через несколько минут; если не получится, напишите OTTIMO и укажите код {request_id}. | Thay error.INTERNAL_ERROR ở guest-web (câu đó bảo 'báo quản lý' – dành cho nhân viên) |
+
+#### R2 Sprint 3 – nhãn dữ liệu khai báo trên cổng (getPortalData, BE-C) + ô giấy tờ EP06 2.3
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `reg.field.full_name` | Họ và tên | Full name | ⟨chừa chỗ⟩ | PortalData.people[].fields[].label – thứ tự do server (BE-C), chữ theo biểu mẫu cổng |
+| `reg.field.date_of_birth` | Ngày, tháng, năm sinh | Date of birth | ⟨chừa chỗ⟩ |  |
+| `reg.field.gender` | Giới tính | Sex | ⟨chừa chỗ⟩ | Giá trị: reg.value.gender.* |
+| `reg.field.nationality` | Quốc tịch | Nationality | ⟨chừa chỗ⟩ |  |
+| `reg.field.passport_number` | Số hộ chiếu | Passport number | ⟨chừa chỗ⟩ |  |
+| `reg.field.passport_expiry` | Ngày hết hạn hộ chiếu | Passport expiry date | ⟨chừa chỗ⟩ |  |
+| `reg.field.visa_kind` | Diện nhập cảnh | Entry status | ⟨chừa chỗ⟩ | Giá trị: reg.value.visa_kind.* |
+| `reg.field.visa_number` | Số thị thực / thẻ tạm trú | Visa / residence card number | ⟨chừa chỗ⟩ |  |
+| `reg.field.visa_valid_until` | Thị thực / tạm trú có giá trị đến | Visa / permitted stay valid until | ⟨chừa chỗ⟩ |  |
+| `reg.field.entry_date` | Ngày nhập cảnh | Entry date | ⟨chừa chỗ⟩ |  |
+| `reg.field.entry_port` | Cửa khẩu nhập cảnh | Port of entry | ⟨chừa chỗ⟩ |  |
+| `reg.field.entry_purpose` | Mục đích nhập cảnh | Purpose of entry | ⟨chừa chỗ⟩ |  |
+| `reg.field.arrival_date` | Ngày đến | Arrival date | ⟨chừa chỗ⟩ |  |
+| `reg.field.departure_date` | Ngày đi (dự kiến) | Departure date (expected) | ⟨chừa chỗ⟩ | NN: không vượt hạn thị thực (BR-605) – server đã tính |
+| `reg.field.room_no` | Số phòng | Room number | ⟨chừa chỗ⟩ | Giữ chữ 'phòng' theo biểu mẫu cổng (giao diện OTTIMO dùng 'căn') |
+| `reg.field.id_number` | Số định danh cá nhân / CCCD | Personal ID / citizen ID number | ⟨chừa chỗ⟩ |  |
+| `reg.field.address` | Địa chỉ thường trú | Permanent address | ⟨chừa chỗ⟩ |  |
+| `reg.value.gender.male` | Nam | Male | ⟨chừa chỗ⟩ | Giá trị enum gender – client đổi sang chữ trước khi sao chép |
+| `reg.value.gender.female` | Nữ | Female | ⟨chừa chỗ⟩ |  |
+| `reg.value.gender.other` | Khác | Other | ⟨chừa chỗ⟩ |  |
+| `reg.value.visa_kind.visa` | Thị thực | Visa | ⟨chừa chỗ⟩ |  |
+| `reg.value.visa_kind.visa_exempt` | Miễn thị thực | Visa exemption | ⟨chừa chỗ⟩ |  |
+| `reg.value.visa_kind.temp_residence_card` | Thẻ tạm trú | Temporary residence card | ⟨chừa chỗ⟩ |  |
+| `reg.value.empty` | Không có – để trống trên cổng | None – leave blank on the portal | ⟨chừa chỗ⟩ | Trường không có giá trị: không có nút Sao chép |
+| `checkin.docs.field.gender` | Giới tính | Sex | ⟨chừa chỗ⟩ | EP06 2.3 (mới) – chỉ hiện khi biểu mẫu cổng cần |
+| `checkin.docs.field.passport_issue_date` | Ngày cấp | Date of issue | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.issuing_place` | Nơi cấp | Place of issue | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.visa_kind` | Diện nhập cảnh | Entry status | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.visa_number` | Số thị thực / thẻ tạm trú | Visa / residence card number | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.entry_port` | Cửa khẩu nhập cảnh | Port of entry | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.entry_purpose` | Mục đích nhập cảnh | Purpose of entry | ⟨chừa chỗ⟩ |  |
+| `checkin.docs.field.address` | Địa chỉ thường trú | Permanent address | ⟨chừa chỗ⟩ | Chỉ hiện khi cổng yêu cầu (R-REG-04) |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
@@ -2512,3 +2625,5 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | 0.3.5 | 16/10/2026 | UXD | R2 Sprint 2 – review FE H08–H12: thêm 50 chuỗi (nhóm "R2 Sprint 2 – review FE": `common.reload`, `booking.field.arrival/departure`, `rack.view_label`, `rack.long_prefix`, `rack.col_*`, `rack.off_sale`, `rack.cell_*`, `rsv.toast.*`, `rsv.filter_active`, `rsv.list_empty_*`, `rsv.search_*`, `rsv.transition_changed*`, `rsv.upgrade_needs_lead`, `rsv.assign_options`, `sale.quotes_empty_*`, `sale.quote_converted/expired`, `cancel.consequence_no_lead`, `confirm.cancel_booking.body_no_refund/no_money`, `cancel.preview_*`, `cancel.reason.ota_cancelled`, `cancel.ota_penalty*`, `bk.unassigned_*`, `error.HOLD_EXPIRED_notime`, `field_error.hold_extended_once`, `field.OTA_AMOUNT_MISMATCH`, `field.ALLOW_UNASSIGNED_OTA_ONLY`, `field.DATE_ORDER`, `field.MANUAL_LONG_STAY_BELOW_THRESHOLD`, `field.OTA_PENALTY_OTA_ONLY`). Sửa `rack.conflict_title`, `rsv.assign_lead` (thêm `{channel}`, bỏ chữ Agoda cứng); `cancel.consequence` bỏ `{channels}` → "mọi kênh"; `rack.manual_legend`, `lsm.flag` bỏ mã giai đoạn (R2/R3). Hi-fi H08, H10, H11 cập nhật theo. |
 | 0.3.6 | 16/10/2026 | UXD | R2 Sprint 2 – phản hồi FE (`responses/s2-FE.md`): thêm 22 chuỗi – `move.reason.*` (7 mã MoveReasonCode, BR-429), `bk.source_help`, `bk.source_auto_returning`, `bk.use_room_orphan`, `bk.closer_sales`, `sale.extend_requested`, `rsv.capacity_chip`, `rsv.capacity_conflict_body`, `rack.capacity_conflict`, `booking.capacity_warning/_reason/_reason_help`, `field.CAPACITY_EXCEEDED_WARNING`, `rack.legend_hold_urgent`, `field.HOLD_LIMIT_REACHED`, `error.ROOM_OCCUPIED`. Hi-fi H08 thêm mẫu chú giải giữ chỗ sắp hết hạn (`.bar.hold.urgent`). |
 | 0.3.7 | 17/10/2026 | UXD | R2 Sprint 3: 79 chuỗi VI/EN mới (lưu đồng thời/hệ thống bận + tự thử lại – ĐK-S2-3; rà H13–H18 theo OpenAPI 0.3.5/BR v0.3.2; ESC-016 A cho `gw.req.*`); sửa `gw.req.note_help` theo EP14 3.2 (SR-INP-05); RU cho `sale.quote_text`, `sale.quote_text_extra_guest`, `occ.adults_short`, `occ.children_short`, `occ.under6_short` (PO-S2-01) |
+| 0.3.8 | 17/10/2026 | UXD | R2 Sprint 3 đợt 2 (FE/MOB s3 mục 5): 48 chuỗi admin-web (hoàn tiền EP03-05 2.6, trả thừa, tiền mặt sale/CTV nộp quầy, người đi cùng, bill, nhật ký Từ/Đến ngày, `rooms.future_keep`, nhãn kiểm thị thực E06-01) + 18 chuỗi guest-web VI/EN/RU (điều hướng, bước, loại giấy tờ, bổ sung tại quầy, thẻ "Đã làm thủ tục trước", `gw.error_server`); RU nháp cho 91 chuỗi guest-web đang dùng (cần người bản ngữ duyệt) |
+| 0.3.9 | 17/10/2026 | UXD | R2 Sprint 3 đợt 3 (BE-C `getPortalData`): 17 nhãn `reg.field.*` theo chữ biểu mẫu cổng, 7 giá trị `reg.value.*` (giới tính, diện nhập cảnh, trường rỗng), 8 nhãn ô giấy tờ EP06 2.3 còn thiếu (`checkin.docs.field.*`); H14 14.2 bảng dữ liệu cổng theo đúng thứ tự server |

@@ -20,7 +20,7 @@
  * posting writes `audit_event` category money in the same transaction (recordMoney); lock order
  * reservation (caller) → folio FOR UPDATE; numbers come from parameters/snapshots, never from code.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
@@ -29,6 +29,7 @@ import { problem } from '../../../shared/problem';
 import { type LocalDate, localDate, toZonedIso } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { ChannelsService } from '../../platform/public/channels';
+import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { applyPct } from '../../reservations/public/pricing';
 import type { FolioStaySync, VoidStayInput } from '../../reservations/public/folio-sync-port';
@@ -42,6 +43,39 @@ export type PayeeType = 'agent' | 'staff';
 /** Revenue group of a charge category (BR-904: room revenue excludes surcharges, minibar, fees). */
 export function revenueGroupOf(category: FolioLineCategory): RevenueGroup {
   return category === 'room' ? 'room' : 'other';
+}
+
+export type LineSource =
+  'manual' | 'system' | 'minibar_check' | 'extension' | 'checkin' | 'checkout' | 'guest_app';
+
+/** One line for FolioPort.postLines (BE-A: late checkout, room change difference, deposit forfeit…). */
+export interface FolioLineInput {
+  /** Default: the folio's primary booking. */
+  reservationId?: string | null;
+  category: FolioLineCategory;
+  revenueGroup?: RevenueGroup;
+  description: string;
+  quantity: number;
+  unitPriceVnd: number;
+  /** Default round(quantity × unitPriceVnd). */
+  amountVnd?: number;
+  /** Default: today (property calendar date). */
+  serviceDate?: LocalDate | null;
+  stayNightId?: string | null;
+  source: LineSource;
+  lineState?: 'posted' | 'pending_approval';
+  relatedLineId?: string | null;
+  chargeCode?: string | null;
+  note?: string | null;
+  reason?: string | null;
+  evidenceAttachmentIds?: readonly string[] | null;
+}
+
+/** Who posts (null = system job) + display code for the money audit. */
+export interface FolioActor {
+  userId: string | null;
+  requestId?: string;
+  reservationCode?: string;
 }
 
 export interface SyncResult {
@@ -106,9 +140,13 @@ export interface PaymentRowLite {
   received_at: Date | null;
   recorded_by: string | null;
   recorded_by_name: string | null;
+  recorded_by_role: string | null;
   reconciliation: string;
   reconciled_at: Date | null;
+  reconciled_by: string | null;
+  reconciled_by_name: string | null;
   reconciliation_note: string | null;
+  self_reconciled: boolean;
   payer_name: string | null;
   card_brand: string | null;
   card_last4: string | null;
@@ -119,7 +157,10 @@ export interface PaymentRowLite {
   attachment_id: string | null;
   confirmed_at: Date | null;
   confirmed_by: string | null;
+  confirmed_by_name: string | null;
   reservation_id: string | null;
+  approval_request_id: string | null;
+  shift_id: string | null;
   version: number;
 }
 
@@ -132,14 +173,33 @@ export interface FolioTotals {
   paidViaOtaVnd: number;
   depositHeldVnd: number;
   balanceDueVnd: number;
+  /** 0.3.6 A-34: received (incl. receipts waiting for reconciliation) − total − refunded, when > 0. */
+  creditVnd: number;
 }
 
-/** Σ of the posted lines and succeeded payments (erd 4.6: balances are computed, never stored). */
+/** Money balance of a folio (FolioPort.balance – BE-A checkout, credit_balance blocker). */
+export interface FolioBalance {
+  totalVnd: number;
+  paidVnd: number;
+  refundedVnd: number;
+  balanceDueVnd: number;
+  creditVnd: number;
+}
+
+type TotalsPayment = Pick<PaymentRowLite, 'type' | 'method' | 'amount_vnd' | 'status'> & {
+  reversal_of_id?: string | null;
+};
+
+/**
+ * Σ of the posted lines and succeeded payments (erd 4.6: balances are computed, never stored).
+ * A reversed receipt has status `reversed` and its reversal row (reversal_of_id) is bookkeeping only – neither
+ * counts (G-12). Refund rows are negative: they reduce the credit, not the receipts (A-34).
+ */
 export function computeTotals(
   lines: ReadonlyArray<
     Pick<FolioLineRow, 'category' | 'revenue_group' | 'amount_vnd' | 'line_state'>
   >,
-  payments: ReadonlyArray<Pick<PaymentRowLite, 'type' | 'method' | 'amount_vnd' | 'status'>>,
+  payments: ReadonlyArray<TotalsPayment>,
 ): FolioTotals {
   let roomVnd = 0;
   let otherVnd = 0;
@@ -155,14 +215,20 @@ export function computeTotals(
   let paidVnd = 0;
   let paidViaOtaVnd = 0;
   let depositHeldVnd = 0;
+  let refundedVnd = 0;
   for (const p of payments) {
-    if (p.status !== 'succeeded') continue;
+    if (p.status !== 'succeeded' || p.reversal_of_id) continue;
     // A security deposit (long stay) is held, not a payment of the bill (BR-206).
     if (p.type === 'security_deposit') continue;
+    if (p.type === 'refund') {
+      refundedVnd -= p.amount_vnd;
+      continue;
+    }
     paidVnd += p.amount_vnd;
     if (p.method === 'ota_collect') paidViaOtaVnd += p.amount_vnd;
     if (p.type === 'deposit') depositHeldVnd += p.amount_vnd;
   }
+  const net = totalVnd - paidVnd + refundedVnd;
   return {
     roomVnd,
     otherVnd,
@@ -171,9 +237,27 @@ export function computeTotals(
     paidVnd,
     paidViaOtaVnd,
     depositHeldVnd,
-    balanceDueVnd: totalVnd - paidVnd,
+    balanceDueVnd: Math.max(0, net),
+    creditVnd: Math.max(0, -net),
   };
 }
+
+/** Refunded amount (positive) of the succeeded refund rows (Bill.refundedVnd). */
+export function refundedOf(payments: ReadonlyArray<TotalsPayment>): number {
+  return payments
+    .filter((p) => p.status === 'succeeded' && !p.reversal_of_id && p.type === 'refund')
+    .reduce((a, p) => a - p.amount_vnd, 0);
+}
+
+/** Columns of PaymentRowLite (alias p + user joins ur/uc/uq) – shared with the payments module. */
+export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.status, p.received_at, p.recorded_by,
+  ur.display_name AS recorded_by_name, p.recorded_by_role, p.reconciliation, p.reconciled_at, p.reconciled_by,
+  uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
+  p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
+  p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
+  p.version`;
+export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
+  LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
 
 /** Commission payee of a closer by role in the property (BR-903): CTV → agent, sale → staff. */
 export function payeeTypeOf(roles: readonly string[]): PayeeType | null {
@@ -197,6 +281,9 @@ export class FolioService implements FolioStaySync {
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(ChannelsService) private readonly channels: ChannelsService,
     @Inject(StayNightAllocationService) private readonly nights: StayNightAllocationService,
+    // Optional so the worker composition (reservations/public/worker-jobs.ts) keeps its 5 arguments; the api
+    // container always provides it (settle needs it).
+    @Optional() @Inject(DocNumberService) private readonly docNumbers?: DocNumberService,
   ) {}
 
   /** One open folio per primary booking. `folioId` lets the caller pre-generate it (deferred FK). */
@@ -250,11 +337,8 @@ export class FolioService implements FolioStaySync {
 
   async payments(tx: Tx, folioId: string): Promise<PaymentRowLite[]> {
     const { rows } = await tx.query<PaymentRowLite>(
-      `SELECT p.id, p.code, p.type, p.method, p.amount_vnd, p.status, p.received_at, p.recorded_by,
-              u.display_name AS recorded_by_name, p.reconciliation, p.reconciled_at, p.reconciliation_note,
-              p.payer_name, p.card_brand, p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail,
-              p.note, p.attachment_id, p.confirmed_at, p.confirmed_by, p.reservation_id, p.version
-         FROM payment p LEFT JOIN app_user u ON u.id = p.recorded_by
+      `SELECT ${PAYMENT_COLUMNS}
+         FROM payment p ${PAYMENT_JOINS}
         WHERE p.folio_id = $1
         ORDER BY p.received_at NULLS LAST, p.id`,
       [folioId],
@@ -274,6 +358,214 @@ export class FolioService implements FolioStaySync {
       [folioId],
     );
     return Number(rows[0]?.total ?? 0);
+  }
+
+  // ───────────── FolioPort (ARC s3-contract 4.3 – BE-A checkout/stay, BE-B endpoints) ─────────────
+
+  /**
+   * Lock the folio for a posting: `open`, or `settled` inside `post_checkout_window_until` when the caller
+   * allows post-checkout charges (BR-427 c) – otherwise 409 FOLIO_LOCKED. Lock order: reservation → folio.
+   */
+  async lockForPosting(
+    tx: Tx,
+    folioId: string,
+    opts: { allowPostCheckout?: boolean } = {},
+  ): Promise<FolioRow & { postCheckout: boolean }> {
+    const folio = await this.lock(tx, folioId);
+    if (!folio) throw problem('NOT_FOUND');
+    if (folio.status === 'open') return { ...folio, postCheckout: false };
+    const window = folio.post_checkout_window_until;
+    if (
+      opts.allowPostCheckout &&
+      folio.status === 'settled' &&
+      window &&
+      this.clock.now().getTime() < window.getTime()
+    ) {
+      return { ...folio, postCheckout: true };
+    }
+    throw problem('FOLIO_LOCKED');
+  }
+
+  /**
+   * FolioPort.postLines – append charge lines in the caller's transaction (money audit per line, BR-008).
+   * Amount = round(quantity × unit price) unless given. Returns the new line ids in input order.
+   */
+  async postLines(
+    tx: Tx,
+    folioId: string,
+    lines: readonly FolioLineInput[],
+    actor: FolioActor,
+    opts: { allowPostCheckout?: boolean } = {},
+  ): Promise<string[]> {
+    const folio = await this.lockForPosting(tx, folioId, opts);
+    const now = this.clock.now();
+    const tz = await this.timezone(tx);
+    const ids: string[] = [];
+    for (const l of lines) {
+      const amountVnd = l.amountVnd ?? Math.round(l.quantity * l.unitPriceVnd);
+      const id = await this.insertLine(tx, {
+        folioId: folio.id,
+        reservationId:
+          l.reservationId === undefined ? folio.primary_reservation_id : l.reservationId,
+        category: l.category,
+        ...(l.revenueGroup ? { revenueGroup: l.revenueGroup } : {}),
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceVnd: l.unitPriceVnd,
+        amountVnd,
+        serviceDate: l.serviceDate ?? localDate(now, tz),
+        stayNightId: l.stayNightId ?? null,
+        source: l.source,
+        postedBy: actor.userId,
+        now,
+        lineState: l.lineState ?? 'posted',
+        relatedLineId: l.relatedLineId ?? null,
+        chargeCode: l.chargeCode ?? null,
+        note: l.note ?? null,
+        reason: l.reason ?? null,
+        evidenceAttachmentIds: l.evidenceAttachmentIds ?? null,
+        postCheckout: folio.postCheckout,
+      });
+      ids.push(id);
+      await this.audit.recordMoney(tx, {
+        action: 'folio.line_posted',
+        entityType: 'folio_line',
+        entityId: id,
+        ...(actor.reservationCode ? { entityCode: actor.reservationCode } : {}),
+        after: {
+          category: l.category,
+          amountVnd,
+          lineState: l.lineState ?? 'posted',
+        },
+        ...(l.reason ? { reason: l.reason } : {}),
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    return ids;
+  }
+
+  /**
+   * FolioPort.reverseLine – bút toán đảo of one live posted line (and of the posted FOC/discount lines that
+   * reduced it), `reason` 3–500 on the reversal row (BR-008, G-10). 404 unknown line, 409 INVALID_TRANSITION
+   * when the line is not live (pending/rejected, already reversed, itself a reversal).
+   */
+  async reverseLine(
+    tx: Tx,
+    lineId: string,
+    reason: string,
+    actor: FolioActor,
+    opts: { allowSettled?: boolean } = {},
+  ): Promise<{ reversalId: string; reversedVnd: number; folioId: string }> {
+    const { rows } = await tx.query<{ folio_id: string }>(
+      'SELECT folio_id FROM folio_line WHERE id = $1',
+      [lineId],
+    );
+    const folioId = rows[0]?.folio_id;
+    if (!folioId) throw problem('NOT_FOUND');
+    const folio = await this.lock(tx, folioId);
+    if (!folio) throw problem('NOT_FOUND');
+    if (folio.status !== 'open' && !(opts.allowSettled && folio.status === 'settled')) {
+      throw problem('FOLIO_LOCKED');
+    }
+    const { rows: liveRows } = await tx.query<LiveLine & { reservation_id: string | null }>(
+      `SELECT l.id, l.category, l.revenue_group, l.description, l.quantity, l.unit_price_vnd, l.amount_vnd,
+              l.service_date::text AS service_date, l.stay_night_id, l.related_line_id, l.reservation_id
+         FROM folio_line l
+        WHERE l.folio_id = $1 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+      [folioId],
+    );
+    const line = liveRows.find((l) => l.id === lineId);
+    if (!line) throw problem('INVALID_TRANSITION');
+    const now = this.clock.now();
+    const reversedVnd = await this.reverseWithReductions(
+      tx,
+      line,
+      liveRows,
+      actor.userId,
+      now,
+      reason,
+    );
+    const { rows: rev } = await tx.query<{ id: string }>(
+      'SELECT id FROM folio_line WHERE reversal_of_id = $1',
+      [lineId],
+    );
+    await this.audit.recordMoney(tx, {
+      action: 'folio.line_reversed',
+      entityType: 'folio_line',
+      entityId: lineId,
+      ...(actor.reservationCode ? { entityCode: actor.reservationCode } : {}),
+      before: { category: line.category, amountVnd: line.amount_vnd },
+      after: { reversedVnd, lineState: 'posted' },
+      reason,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    return { reversalId: rev[0]?.id as string, reversedVnd, folioId };
+  }
+
+  /** FolioPort.balance – server-side money balance (A-34: balanceDue and credit are never both > 0). */
+  async balance(tx: Tx, folioId: string): Promise<FolioBalance> {
+    const payments = await this.payments(tx, folioId);
+    const t = computeTotals(await this.lines(tx, folioId), payments);
+    return {
+      totalVnd: t.totalVnd,
+      paidVnd: t.paidVnd,
+      refundedVnd: refundedOf(payments),
+      balanceDueVnd: t.balanceDueVnd,
+      creditVnd: t.creditVnd,
+    };
+  }
+
+  /**
+   * FolioPort.settle – B18: folio `open → settled`, bill number F{yy}-… (BR-007, DocNumberService),
+   * post-checkout window = now + `post_checkout_charge_hours` (BR-427). Money audit `folio.settled`.
+   */
+  async settle(
+    tx: Tx,
+    folioId: string,
+    actor: FolioActor,
+  ): Promise<{ billNo: string; settledAt: Date; postCheckoutWindowUntil: Date }> {
+    const folio = await this.lock(tx, folioId);
+    if (!folio) throw problem('NOT_FOUND');
+    if (folio.status !== 'open')
+      throw problem('INVALID_TRANSITION', { extras: { currentState: folio.status } });
+    const now = this.clock.now();
+    const tz = await this.timezone(tx);
+    const hours = await this.params.get<number>(
+      tx,
+      'post_checkout_charge_hours',
+      localDate(now, tz),
+    );
+    const until = new Date(now.getTime() + hours * 3_600_000);
+    if (!this.docNumbers) throw new Error('FolioService.settle needs DocNumberService');
+    const billNo = await this.docNumbers.allocate(tx, 'bill');
+    await tx.query(
+      `UPDATE folio SET status = 'settled', bill_no = $2, settled_at = $3, settled_by = $4,
+          post_checkout_window_until = $5, updated_at = $3, version = version + 1
+        WHERE id = $1`,
+      [folio.id, billNo, now, actor.userId, until],
+    );
+    const b = await this.balance(tx, folio.id);
+    await this.audit.recordMoney(tx, {
+      action: 'folio.settled',
+      entityType: 'folio',
+      entityId: folio.id,
+      entityCode: billNo,
+      before: { status: 'open' },
+      after: { status: 'settled', billNo, totalVnd: b.totalVnd, balanceDueVnd: b.balanceDueVnd },
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    return { billNo, settledAt: now, postCheckoutWindowUntil: until };
+  }
+
+  /** Folio of a booking (folio.primary_reservation_id is unique). */
+  async folioOfReservation(tx: Tx, reservationId: string): Promise<FolioRow | null> {
+    const { rows } = await tx.query<FolioRow>(
+      `SELECT id, property_id, primary_reservation_id, status, bill_no, post_checkout_window_until, version
+         FROM folio WHERE primary_reservation_id = $1`,
+      [reservationId],
+    );
+    return rows[0] ?? null;
   }
 
   /**
@@ -529,12 +821,13 @@ export class FolioService implements FolioStaySync {
     live: readonly LiveLine[],
     by: string | null,
     now: Date,
+    reason: string | null = null,
   ): Promise<number> {
-    let net = await this.reverse(tx, line, by, now);
+    let net = await this.reverse(tx, line, by, now, reason);
     for (const r of live.filter(
       (x) => x.related_line_id === line.id && (x.category === 'foc' || x.category === 'discount'),
     )) {
-      net += await this.reverse(tx, r, by, now);
+      net += await this.reverse(tx, r, by, now, reason);
       if (line.category === 'room' && line.stay_night_id) {
         await this.nights.addDiscount(tx, line.stay_night_id, r.amount_vnd);
       }
@@ -542,17 +835,24 @@ export class FolioService implements FolioStaySync {
     return net;
   }
 
-  private async reverse(tx: Tx, l: LiveLine, by: string | null, now: Date): Promise<number> {
+  private async reverse(
+    tx: Tx,
+    l: LiveLine,
+    by: string | null,
+    now: Date,
+    reason: string | null = null,
+  ): Promise<number> {
     const id = uuidv7();
     await tx.query(
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category, adjusts_group,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
-         stay_night_id, line_state, related_line_id, reversal_of_id, source, posted_at, posted_by, created_at)
+         stay_night_id, line_state, related_line_id, reversal_of_id, source, posted_at, posted_by, created_at,
+         charge_code, reason)
        SELECT $2, organization_id, property_id, folio_id, reservation_id, category, adjusts_group, revenue_group,
               description, quantity, -unit_price_vnd, -amount_vnd, vat_rate_pct, service_date, stay_night_id,
-              'posted', related_line_id, id, 'system', $3, $4, $3
+              'posted', related_line_id, id, $5, $3, $4, $3, charge_code, $6
          FROM folio_line WHERE id = $1`,
-      [l.id, id, now, by],
+      [l.id, id, now, by, reason ? 'manual' : 'system', reason],
     );
     return l.amount_vnd;
   }
@@ -599,13 +899,17 @@ export class FolioService implements FolioStaySync {
       amountVnd: number;
       serviceDate: LocalDate | null;
       stayNightId: string | null;
-      source:
-        'manual' | 'system' | 'minibar_check' | 'extension' | 'checkin' | 'checkout' | 'guest_app';
+      source: LineSource;
       postedBy: string | null;
       now: Date;
       lineState?: 'posted' | 'pending_approval';
       relatedLineId?: string | null;
       vatRatePct?: number | null;
+      chargeCode?: string | null;
+      note?: string | null;
+      reason?: string | null;
+      evidenceAttachmentIds?: readonly string[] | null;
+      postCheckout?: boolean;
     },
   ): Promise<string> {
     if (!Number.isSafeInteger(l.amountVnd) || !Number.isSafeInteger(l.unitPriceVnd)) {
@@ -615,8 +919,10 @@ export class FolioService implements FolioStaySync {
     await tx.query(
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
-         stay_night_id, line_state, related_line_id, source, posted_at, posted_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18)`,
+         stay_night_id, line_state, related_line_id, source, posted_at, posted_by, created_at, charge_code, note,
+         reason, evidence_attachment_ids, post_checkout)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $20, $21,
+         $22, $23, $24)`,
       [
         id,
         tx.ctx.organizationId,
@@ -637,6 +943,11 @@ export class FolioService implements FolioStaySync {
         l.source,
         l.now,
         l.postedBy,
+        l.chargeCode ?? null,
+        l.note ?? null,
+        l.reason ?? null,
+        l.evidenceAttachmentIds ? [...l.evidenceAttachmentIds] : null,
+        l.postCheckout ?? false,
       ],
     );
     return id;

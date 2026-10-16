@@ -63,6 +63,8 @@ export interface PropShape {
   w?: boolean;
   /** x-classification C3: only in responses of x-c3-log operations. */
   c3?: boolean;
+  /** x-guest-level: minimum guest-session level to receive the property (SEC ĐK-2). */
+  g?: number;
 }
 
 export interface OpenApiSchemas {

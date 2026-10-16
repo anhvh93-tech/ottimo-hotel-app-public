@@ -30,3 +30,5 @@ design/**
 !design/hifi/assets/hifi.css
 !design/copy/strings-vi.json
 !design/copy/strings-en.json
+# guest-web also offers RU (partial draft, EN fallback per key) – MOB R2 S3
+!design/copy/strings-ru.json

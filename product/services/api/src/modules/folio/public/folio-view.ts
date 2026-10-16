@@ -59,12 +59,17 @@ export function paymentDto(
     methodDetail: p.method_detail,
     reconciliation: p.reconciliation,
     reconciledAt: iso(p.reconciled_at, tz),
+    reconciledByName: p.reconciled_by_name,
     reconciliationNote: p.reconciliation_note,
+    shiftId: p.shift_id,
     folioId: extra.folioId,
     reservationCode: extra.reservationCode,
     recordedByUserId: p.recorded_by,
+    recordedByRole: p.recorded_by_role,
     confirmedAt: iso(p.confirmed_at, tz),
     confirmedByUserId: p.confirmed_by,
+    confirmedByName: p.confirmed_by_name,
+    approvalRequestId: p.approval_request_id,
     note: p.note,
     attachmentId: p.attachment_id,
     version: p.version,
@@ -76,6 +81,7 @@ export function folioDto(
   lines: FolioLineRow[],
   payments: PaymentRowLite[],
   tz: string,
+  invoice: Record<string, unknown> | null = null,
 ): Record<string, unknown> {
   const reservationIds = [
     folio.primary_reservation_id,
@@ -93,6 +99,7 @@ export function folioDto(
     lines: lines.map((l) => folioLineDto(l, tz)),
     payments: payments.map((p) => paymentDto(p, tz, { folioId: folio.id })),
     totals: computeTotals(lines, payments),
+    ...(invoice ? { invoiceRequest: invoice } : {}),
     pendingApprovals: lines.filter((l) => l.line_state === 'pending_approval').length,
     version: folio.version,
   };

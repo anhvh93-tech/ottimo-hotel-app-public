@@ -17,8 +17,16 @@ export const APPROVER_RANK: Record<ApproverRole, number> = {
 };
 const LADDER: ApproverRole[] = ['front_desk_lead', 'manager', 'owner'];
 
-/** Types whose approval is limited by an amount (BR-433); the others only by role (rbac 5.1). */
-export const MONEY_LIMITED: ReadonlySet<ApprovalType> = new Set([
+/**
+ * Types whose approval is limited by the FOC/discount amounts of `foc_limits` (BR-433 – money GIVEN AWAY);
+ * the others only by role (rbac 5.1). A `refund` gives back money the guest paid (BR-522): MGR/OWN decide it
+ * whatever the amount (rbac 5.1 "duyệt hoàn"), its ceiling is checked where it is created/paid (≤ credit,
+ * ≤ approved − refunded – A-33), so it is NOT routed by `foc_limits` and does not use the FOC monthly budget.
+ */
+export const MONEY_LIMITED: ReadonlySet<ApprovalType> = new Set(['foc', 'special_discount']);
+
+/** Types that carry an amount of money: amount > 0 required, audit category `money`. */
+export const MONEY_TYPES: ReadonlySet<ApprovalType> = new Set([
   'foc',
   'special_discount',
   'refund',

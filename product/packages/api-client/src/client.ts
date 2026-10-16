@@ -14,6 +14,10 @@ export interface RequestOptions {
   idempotencyKey?: string;
   /** Do not report this failure to the global `onError` (e.g. 401 of a wrong *current* password). */
   local?: boolean;
+  /** multipart/form-data body (uploads – the browser sets the boundary header). Wins over `body`. */
+  form?: FormData;
+  /** Read the 2xx body as a Blob (images – never JSON-parsed, never cached by the client). */
+  blob?: boolean;
 }
 
 export interface ApiResult<T> {
@@ -72,7 +76,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   return {
     async request<T>(method: HttpMethod, template: string, req: RequestOptions = {}) {
       const headers: Record<string, string> = { Accept: 'application/json' };
-      if (req.body !== undefined) headers['Content-Type'] = 'application/json';
+      if (req.body !== undefined && !req.form) headers['Content-Type'] = 'application/json';
       if (method !== 'GET') {
         const csrf = options.getCsrfToken?.();
         if (csrf) headers['X-CSRF-Token'] = csrf;
@@ -86,7 +90,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
           method,
           headers,
           credentials: 'same-origin',
-          body: req.body === undefined ? undefined : JSON.stringify(req.body),
+          body: req.form ?? (req.body === undefined ? undefined : JSON.stringify(req.body)),
         });
       } catch {
         const err = networkError();
@@ -106,6 +110,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
 
       const etag = res.headers.get('etag') ?? undefined;
       if (res.status === 204) return { data: undefined as T, status: res.status, etag };
+      if (req.blob) return { data: (await res.blob()) as T, status: res.status, etag };
       const text = await res.text();
       return { data: (text ? JSON.parse(text) : undefined) as T, status: res.status, etag };
     },

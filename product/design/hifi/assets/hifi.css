@@ -626,3 +626,9 @@ button.photo.add{border:2px dashed var(--line-strong);background:var(--surface);
   .frame-phone{flex-basis:100%;width:100%}
   .search{width:100%}
 }
+
+/* 15. guest-web check-in – chọn loại giấy tờ + bổ sung tại quầy (R2 Sprint 3, duyệt bản MOB) */
+.upload-slot.gw-slot{flex-wrap:wrap}
+.upload-slot.gw-slot .grow{min-width:0;flex:1}
+.gw-docs-row{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.gw-slot > .li-s{flex-basis:100%}

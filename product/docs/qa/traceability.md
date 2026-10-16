@@ -13,14 +13,14 @@
 | AC của story Must R2 (backlog mục 4) | **251** |
 | AC có ≥ 1 TC | **251/251** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **251/251** (100.0%) |
-| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 7 · 5 (danh sách mục 5.7) |
+| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 6 · 5 (danh sách mục 5.7) |
 | Chuyển trạng thái (17 máy, `state-machines.md`) có ≥ 1 TC | **102/122** (83.6%) – chi tiết mục 7 |
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
-| Tổng số TC | **402** (Cao 247 · TB 149 · Thấp 6) · **Smoke (S)** 42 |
-| TC theo nhóm | L2 63 · L3 49 · L4 54 · L5 47 · L6 37 · L7 27 · L8 13 · NT 44 · RB 27 · SEC 25 · X 16 |
-| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 370 · E 143 · P 5 · M 7 |
+| Tổng số TC | **403** (Cao 248 · TB 149 · Thấp 6) · **Smoke (S)** 42 |
+| TC theo nhóm | L2 63 · L3 49 · L4 54 · L5 48 · L6 37 · L7 27 · L8 13 · NT 44 · RB 27 · SEC 25 · X 16 |
+| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 371 · E 143 · P 5 · M 7 |
 | TC cho story ngoài Must R2 (ca chính) | US-041 (2), US-056 (2), US-064 (1), US-081 (5), US-111 (2), US-125 (5), US-128 (5), US-137 (1), US-141 (5) |
 | `operationId` dùng trong TC nhưng không có trong OpenAPI | 0 |
 | Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | 0 · 0 |
@@ -97,9 +97,9 @@
 | US-080 | Báo giá ngắn ngày (UC-01) | AC1: TC-L5-001, TC-L5-002<br>AC2: TC-L5-003<br>AC3: TC-L5-004<br>AC4: TC-L5-005<br>AC5: TC-L5-006 | BR-107, BR-108, BR-110, BR-111, BR-112, BR-305, BR-903 | `calculateQuote`, `searchAvailability` | L5 | 4.5 | ESC-004, ESC-014 |
 | US-082 | Kiểm phòng trống khi báo giá | AC1: TC-L5-019<br>AC2: TC-L5-020 | – | `calculateQuote`, `createHoldFromQuote`, `searchAvailability` | L5 | 4.5 | – |
 | US-083 | Lưu và gửi báo giá (SM-08 Q1–Q4, BR-304) | AC1: TC-L5-015, TC-L5-018<br>AC2: TC-L5-016<br>AC3: TC-L5-017<br>bổ sung: TC-L5-036 | BR-006, BR-007, BR-304 | `createHoldFromQuote`, `extendQuote`, `getQuote`, `getQuoteText`, `listApprovalRequests`, `listQuotes`, `saveQuote`, `withdrawQuote` | L5 | 4.5 | – |
-| US-084 | Tạo đơn giữ chỗ (UC-02, B1, BR-302) | AC1: TC-L5-021, TC-L5-022, TC-X-010<br>AC2: TC-L5-023<br>AC3: TC-L5-024<br>AC4: TC-L5-025<br>bổ sung: TC-L5-037, TC-L5-048, TC-L5-050 | BR-206, BR-302, BR-305, BR-306 | `confirmDeposit`, `createHoldFromQuote`, `createLead`, `createVietQr`, `getBookingRules`, `getQuote`, `getRack`, `listAttentionItems`, `listLeads`, `saveQuote` | L5 | 4.5 | ESC-017 |
+| US-084 | Tạo đơn giữ chỗ (UC-02, B1, BR-302) | AC1: TC-L5-021, TC-L5-022, TC-L5-050, TC-X-010<br>AC2: TC-L5-023<br>AC3: TC-L5-024<br>AC4: TC-L5-025<br>bổ sung: TC-L5-037, TC-L5-048 | BR-206, BR-302, BR-305, BR-306 | `confirmDeposit`, `createHoldFromQuote`, `createLead`, `createVietQr`, `getBookingRules`, `getQuote`, `getRack`, `listAttentionItems`, `listLeads`, `saveQuote` | L5 | 4.5 | ESC-017 |
 | US-085 | Hết hạn giữ chỗ (B3, B6, BR-303) | AC1: TC-L5-026, TC-L5-027, TC-X-010<br>AC2: TC-L5-028<br>AC3: TC-L5-029<br>AC4: TC-L5-030, TC-X-004<br>bổ sung: TC-X-063 | BR-302, BR-303 | `confirmDeposit`, `extendHold`, `getRack`, `getReservation`, `getReservationHistory`, `listAttentionItems`, `listMyNotifications`, `recordPayment` | L5, L2 §2.3 (QA) | 4.2, 4.5 | ESC-006 |
-| US-086 | Xác nhận cọc & sinh hợp đồng (UC-03, UC-07, B4, H1) | AC1: TC-L5-031<br>AC2: TC-L5-032<br>AC4: TC-L5-034<br>AC5: TC-L5-035<br>AC3 (Dời R3): TC-L5-033<br>bổ sung: TC-L5-039, TC-L5-051, TC-X-003 | BR-008, BR-305, BR-527 | `checkIn`, `confirmDeposit`, `createDepositNotice`, `createReservation`, `getLeaseContract`, `listAuditEvents`, `recordPayment`, `saveQuote`, `uploadAttachment` | L5 | 4.5 | ESC-012, ESC-017 |
+| US-086 | Xác nhận cọc & sinh hợp đồng (UC-03, UC-07, B4, H1) | AC1: TC-L5-031<br>AC2: TC-L5-032<br>AC4: TC-L5-034<br>AC5: TC-L5-035, TC-L5-052<br>AC3 (Dời R3): TC-L5-033<br>bổ sung: TC-L5-039, TC-L5-051, TC-X-003 | BR-008, BR-305, BR-527 | `checkIn`, `confirmDeposit`, `createDepositNotice`, `createReservation`, `getLeaseContract`, `listAuditEvents`, `listCommissions`, `listPayments`, `reconcilePayment`, `recordPayment`, `saveQuote`, `uploadAttachment` | L5 | 4.5 | ESC-012, ESC-017 |
 | US-087 | CTV chỉ thấy phần của mình (rbac phạm vi M) | AC1: TC-RB-010<br>AC2: TC-RB-011<br>AC3: TC-RB-001<br>bổ sung: TC-L5-038 | – | `cancelReservation`, `changeLeadStage`, `checkOut`, `getGuest`, `getQuote`, `getReservation`, `listCommissions`, `listLeads`, `listParty`, `listQuotes`, `listReservations`, `searchGuests` | L5 | 4.4, 4.5, 4.6 | – |
 | US-139 | Xung đột đơn OTA trùng (BR-312, SM-01 mục 1.3) – *bước 4: nâng Must R2* | AC1: TC-L2-024, TC-L2-027<br>AC2: TC-L2-025, TC-L2-028<br>AC3: TC-L2-026<br>bổ sung: TC-L2-029, TC-L2-081 | BR-312, BR-316, BR-317 | `assignRoom`, `checkIn`, `createReservation`, `getRack`, `getReservation`, `listAttentionItems`, `listOverbookingIncidents`, `moveReservation`, `previewCheckIn`, `swapRoom`, `updateReservation` | L2, L9, L8 (Cần chú ý) (QA) | 4.5 | – |
 | US-106 | Mở app khách bằng link/QR (ADR-006, A22) | AC1: TC-L7-001, TC-SEC-007<br>AC2: TC-L7-002, TC-SEC-006, TC-SEC-024, TC-SEC-030<br>AC3: TC-L7-003, TC-SEC-001, TC-SEC-002, TC-SEC-003, TC-SEC-004, TC-SEC-008<br>bổ sung: TC-L7-004, TC-SEC-029, TC-X-062 | BR-427 | `completeOnlineCheckin`, `createGuestRequest`, `getGuestFolio`, `getGuestStay`, `getOnlineCheckin`, `getRack`, `getReservation`, `issueGuestLink`, `issueGuestVerificationCode`, `listMyRequests`, `login`, `openGuestSession`, `recordGuestConsent`, `resendGuestLinkFromUnit`, `revokeGuestLink`, `sendGuestOtp`, `setParameter`, `updateOnlineCheckin`, `uploadGuestDocument`, `verifyGuestSession`, `withdrawGuestConsent` | L7 | 4.1, 4.5, 4.11 | – |
@@ -108,7 +108,7 @@
 | US-109 | Khách gửi yêu cầu (UC-15, SM-15) | AC1: TC-L7-030<br>AC2: TC-L7-031 | BR-506 | `createGuestRequest`, `listGuestRequestOptions`, `listMyRequests`, `transitionGuestRequest` | L7 | 4.11 | ESC-016 |
 | US-110 | Định tuyến yêu cầu (BR-811, BR-809) | AC1: TC-L7-032<br>AC2: TC-L7-033, TC-L7-034, TC-L7-035<br>AC3: TC-RB-016<br>bổ sung: TC-L7-036 | BR-809, BR-811 | `createGuestRequest`, `createWorkOrder`, `listAttentionItems`, `listGuestRequests`, `listHkTasks`, `listMyNotifications`, `listMyRequests`, `listWorkOrders`, `transitionGuestRequest`, `transitionWorkOrder` | L7 | 4.2, 4.11 | – |
 | US-112 | App khách tiếng Anh (HR-01) | AC1: TC-L7-050<br>AC2: TC-L7-051<br>AC3: TC-L7-052 | – | `getGuestStay`, `setGuestLocale` | L7 | 4.4, 4.11 | – |
-| US-119 | Ghi nhận thu tiền (SM-12, BR-521) | AC1: TC-L4-060<br>AC2: TC-L4-061<br>AC3: TC-L4-062<br>AC4: TC-L4-063<br>AC6: TC-L4-069<br>AC5 (Dời R3): TC-L5-039<br>bổ sung: TC-L4-066, TC-RB-021 | BR-008, BR-307 | `addFolioLine`, `checkIn`, `confirmCashHandover`, `confirmDeposit`, `confirmPaymentReceived`, `createGuestRequest`, `createRefundRequest`, `createVietQr`, `getFolio`, `getLeaseContract`, `getShiftReport`, `listPayments`, `reconcilePayment`, `recordPayment`, `reversePayment`, `updateReservation` | L4 | 4.5, 4.6 | ESC-012, ESC-017 |
+| US-119 | Ghi nhận thu tiền (SM-12, BR-521) | AC1: TC-L4-060<br>AC2: TC-L4-061<br>AC3: TC-L4-062<br>AC4: TC-L4-063<br>AC6: TC-L4-069, TC-L5-052<br>AC5 (Dời R3): TC-L5-039<br>bổ sung: TC-L4-066, TC-RB-021 | BR-008, BR-307 | `addFolioLine`, `checkIn`, `confirmCashHandover`, `confirmDeposit`, `confirmPaymentReceived`, `createGuestRequest`, `createRefundRequest`, `createVietQr`, `getFolio`, `getLeaseContract`, `getShiftReport`, `listCommissions`, `listPayments`, `reconcilePayment`, `recordPayment`, `reversePayment`, `updateReservation` | L4 | 4.5, 4.6 | ESC-012, ESC-017 |
 | US-120 | VietQR (I2) | AC1: TC-L4-064<br>AC2: TC-L4-065<br>bổ sung: TC-L4-069 | BR-521 | `confirmPaymentReceived`, `createVietQr`, `getFolio`, `recordPayment` | L4 | 4.6 | ESC-010 |
 
 ## 3. Story ngoài Must R2 có test case ca chính trong R1 (Must R3, Should R2)
@@ -185,7 +185,7 @@
 - BR-429
 
 ### 5.6 BR được story tham chiếu nhưng chưa có test case R1 (thường là phân hệ R3)
-- BR-215, BR-313, BR-314, BR-316, BR-317, BR-321, BR-322, BR-323, BR-324, BR-325, BR-326, BR-417, BR-501, BR-504, BR-505, BR-506, BR-513, BR-523, BR-527, BR-613, BR-706, BR-810, BR-902, BR-955, BR-961, BR-962, BR-963, BR-964
+- BR-215, BR-313, BR-314, BR-316, BR-317, BR-321, BR-322, BR-323, BR-324, BR-325, BR-326, BR-417, BR-501, BR-504, BR-505, BR-506, BR-513, BR-523, BR-613, BR-706, BR-810, BR-902, BR-955, BR-961, BR-962, BR-963, BR-964
 
 ### 5.7 Test case bị chặn, chưa có kỳ vọng xác định, hoặc theo giả định QA
 
@@ -194,7 +194,6 @@
 | TC-NT-023 | [BLOCKED: R3 – gộp hồ sơ US-074; decision-log 15/10 PO chuyển US-023 AC2 sang US-074] | US-074/– |
 | TC-NT-042 | [UNDECIDED: erd 9.1 chưa ghi khoảng giá trị cho khóa nghiệp vụ – chờ ARC] | US-005/– |
 | TC-RB-024 | [GIẢ ĐỊNH QA – chờ BA: D01 hiển thị theo màn đang mở] | US-002/AC3 |
-| TC-L2-079 | [UNDECIDED: `ReservationCreate.roomId` bắt buộc – hợp đồng chưa có cách "không chọn căn cụ thể", chờ BA/ARC (s2-report QA)] | US-017/– |
 | TC-L2-029 | [BLOCKED: R2 chỉ có nhánh lễ tân nhập lại theo extranet; nhánh SYS từ channel manager là R3] | US-139/– |
 | TC-L3-073 | [GIẢ ĐỊNH QA – chờ ARC E03-06: tick bổ sung qua `ReservationPatch.doorAccessHandedOver` (chỉ `true`)] | US-025/AC7 |
 | TC-L3-070 | [GIẢ ĐỊNH QA – chờ DOM: "30 ngày sau trả phòng" = xóa ở lần chạy J16 đầu tiên từ 00:00 ngày (ngày trả theo lịch giờ VN + 30); BA-DOM-07] | US-049/AC1 |
@@ -208,7 +207,7 @@
 | TC-L8-006 | [Dời R3 – R-C: AC dời theo INV quyết ESC-012 16/10; giữ TC cho đầu R3, không chạy ở R2] | US-012/AC2 |
 
 ## 6. Danh mục operationId OpenAPI chưa được test case nào dùng (để R2 bổ sung ca)
-- `addReservationGroupMember`, `allocateGroupDeposit`, `assignRoom`, `cancelReservationGroup`, `cancelReservationGroupMember`, `changeLeadStage`, `closeShift`, `confirmCashHandover`, `confirmMy2fa`, `confirmPaymentReceived`, `createHkTask`, `createRefundRequest`, `createReservationGroup`, `createRoom`, `deleteMyPushSubscription`, `disableMy2fa`, `executeCashRefund`, `executeRefund`, `getAttachment`, `getBookingRules`, `getMinibarStandard`, `getMy2fa`, `getMyCurrentShift`, `getPublicUnitPage`, `getRefundDestination`, `getReservationGroup`, `getShiftReport`, `getWorkOrder`, `issueGroupBill`, `listCommissions`, `listGuestRequestOptions`, `listMyNotifications`, `listPayments`, `listReservationGroups`, `listShifts`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `openShift`, `putMyPushSubscription`, `reconcileChannelFee`, `reconcilePayment`, `recordDocumentCheck`, `removeReservationGroupMember`, `reopenShift`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `reviewShift`, `sendGuestOtp`, `setMyApprovalPin`, `setRefundDestination`, `startMy2faSetup`, `startShiftClosing`, `swapRoom`, `updateWorkOrder`, `webhookGet`
+- `addReservationGroupMember`, `allocateGroupDeposit`, `assignRoom`, `cancelReservationGroup`, `cancelReservationGroupMember`, `changeLeadStage`, `closeShift`, `confirmCashHandover`, `confirmMy2fa`, `confirmPaymentReceived`, `createHkTask`, `createRefundRequest`, `createReservationGroup`, `createRoom`, `deleteMyPushSubscription`, `disableMy2fa`, `executeCashRefund`, `executeRefund`, `getAttachment`, `getBookingRules`, `getMinibarStandard`, `getMy2fa`, `getMyCurrentShift`, `getPublicUnitPage`, `getRefundDestination`, `getReservationGroup`, `getShiftReport`, `getWorkOrder`, `issueGroupBill`, `listGuestRequestOptions`, `listMyNotifications`, `listReservationGroups`, `listShifts`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `openShift`, `putMyPushSubscription`, `reconcileChannelFee`, `recordDocumentCheck`, `removeReservationGroupMember`, `reopenShift`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `reviewShift`, `sendGuestOtp`, `setMyApprovalPin`, `setRefundDestination`, `startMy2faSetup`, `startShiftClosing`, `swapRoom`, `updateWorkOrder`, `webhookGet`
 
 ## 7. Chuyển trạng thái (17 máy) → test case
 

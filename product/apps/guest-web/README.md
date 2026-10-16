@@ -1,0 +1,40 @@
+# guest-web – trang khách theo link/QR (ADR-006)
+
+React + Vite, mobile-first, VI / EN / RU (RU nháp, thiếu key → EN). R2 chỉ có **phiên mức 1** (SEC P-R2-4 ĐK-1…6):
+không OTP, không bill, không mã cửa, không họ tên đầy đủ, không lưu gì trên máy khách.
+
+## Chạy
+
+```bash
+# từ product/
+pnpm --filter @ottimo/guest-web dev          # API giả MSW (mặc định) – http://localhost:5175/g/<token>
+pnpm --filter @ottimo/guest-web dev:server   # API thật qua proxy /v1 → :3000 (khi BE-C xong guest-portal)
+pnpm --filter @ottimo/guest-web test
+pnpm --filter @ottimo/guest-web build
+```
+
+Token giả (xem `src/mocks/handlers.ts` → `MOCK_TOKENS`):
+
+| Token | Tình huống |
+|---|---|
+| `demo-guest-link-0123456789abcdef` | Đơn `confirmed`, 2 khách, check-in online mở |
+| `demo-expired-link-0123456789abcd` | 401 `GUEST_LINK_INVALID` |
+| `demo-ended-stay-link-0123456789ab` | 403 `GUEST_STAY_ENDED` |
+| `demo-closed-checkin-0123456789ab` | `onlineCheckinAvailable=false` |
+| `demo-in-house-link-0123456789abc` | `in_house` – có Wi-Fi |
+
+Trạng thái giả nằm trong bộ nhớ: tải lại trang = mất phiên giả ("Liên kết đã hết hạn"); API thật giữ phiên bằng cookie.
+Trình duyệt nhúng không chạy được service worker của MSW → mở bằng Chrome/Safari.
+
+Biến tùy chọn: `VITE_DESK_PHONE` – số công khai hiện ở trang "Liên kết đã hết hạn" (khi chưa có phiên thì không biết SĐT cơ sở).
+
+## Cấu trúc
+
+- `src/main.tsx` – đọc `/g/{token}`, xóa khỏi URL trước khi render (SR-GST-02).
+- `src/app/api.ts` – 8 operation mức 1 (`openGuestSession`, `getGuestStay`, `setGuestLocale`, `getOnlineCheckin`, `updateOnlineCheckin`, `uploadGuestDocument` (XHR để có tiến trình), `recordGuestConsent`, `completeOnlineCheckin`) + bộ lọc trắng khóa mức 1.
+- `src/app/image.ts` – chuẩn hóa ảnh: canvas → JPEG, ≤ 2.500 px, mất EXIF, chỉ trong bộ nhớ.
+- `src/checkin/*` – H18: thông báo → giấy tờ → giờ đến → xác nhận → xong.
+- `src/pages/*` – Lưu trú, Thông tin, các trang trạng thái (hết hạn, đã trả phòng, đã đóng, 429, lỗi).
+- `src/__tests__/guard.test.ts` – quét mã nguồn và `dist` theo s3-checklist G1/G3/G8.
+
+Bản build không có `mockServiceWorker.js` và không đăng ký service worker nào.

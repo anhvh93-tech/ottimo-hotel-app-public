@@ -139,7 +139,14 @@ describe.skipIf(!HAS_DB)(
         const implemented = implementedOperations(fa);
         return Object.entries(OPENAPI_META.operations)
           .filter(
-            ([id, m]) => implemented.has(id) && m.method !== 'GET' && !m.public && !m.trustedDevice,
+            // Guest-session operations (x-roles [guest], BE-C S3) have no staff role: a staff caller is
+            // 401 there, never 403 – covered by rbac-sprint3-bec.test.ts.
+            ([id, m]) =>
+              implemented.has(id) &&
+              m.method !== 'GET' &&
+              !m.public &&
+              !m.trustedDevice &&
+              !m.roles.includes('guest'),
           )
           .map(([id, m]) => ({
             id,

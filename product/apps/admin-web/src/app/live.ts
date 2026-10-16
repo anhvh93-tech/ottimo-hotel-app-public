@@ -56,13 +56,19 @@ export function useLiveReload(propertyId: string, reload: () => void): LiveState
     const sseAvailable = typeof EventSource !== 'undefined' && apiMode() === 'server';
     if (sseAvailable) {
       source = new EventSource(eventStreamPath(propertyId), { withCredentials: true });
+      let opened = false;
       source.onopen = () => {
+        opened = true;
         setStale(false);
         stopPolling();
       };
       source.onerror = () => {
-        // EventSource retries by itself; meanwhile poll so the screen does not go silently old.
-        setStale(true);
+        // BUG-R2-029: a non-200 answer (404 while `streamEvents` is not deployed) closes the stream for
+        // good (readyState CLOSED) – go quietly to polling, no "Đang kết nối lại…". Only a stream that
+        // was open and dropped (EventSource reconnecting) is shown as stale.
+        if (source?.readyState === EventSource.CLOSED) source.close();
+        // Never connected (endpoint missing, first attempt failing): poll quietly.
+        setStale(opened && source?.readyState !== EventSource.CLOSED);
         startPolling();
       };
       for (const ev of RELOAD_EVENTS) source.addEventListener(ev, soon);

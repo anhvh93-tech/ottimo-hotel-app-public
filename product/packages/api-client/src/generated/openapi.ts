@@ -5886,9 +5886,10 @@ export interface components {
         fields: {
           label: string;
           value: string;
+          valueKey?: string;
         }[];
       }[];
-      /** @description Văn bản sao chép đúng thứ tự cổng; client xóa clipboard sau khi dán (R-REG-07) */
+      /** @description Văn bản sao chép đúng thứ tự cổng, giá trị tiếng Việt như `fields[].value` (mỗi người một dòng, các trường cách nhau bằng tab, trường rỗng để trống); client xóa clipboard sau khi dán (R-REG-07) */
       clipboardText?: string;
     };
     RoomStatusEntry: {

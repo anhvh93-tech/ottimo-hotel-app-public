@@ -204,11 +204,14 @@ export function GuestPicker({
           onClose={() => setCreating(false)}
           onSaved={(g: Guest) => {
             setCreating(false);
+            // BUG-R2-028: carry the phone the guest was just created with, so the booking form does
+            // not ask for it again (EP02 3.2) and does not PATCH the profile a second time.
             onSelect({
               id: g.id,
               code: g.code,
               displayName: g.fullName,
               nationalityCode: g.nationalityCode,
+              phoneMasked: maskPhone(g.phone),
             });
             setText(g.fullName);
             setOpen(false);
@@ -224,4 +227,12 @@ export function GuestPicker({
       ) : null}
     </div>
   );
+}
+
+/** Same masking as `GuestSummary.phoneMasked` (0912***678) for a profile the user just saved. */
+function maskPhone(phone: string | undefined | null): string | undefined {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  const local = digits.startsWith('84') ? `0${digits.slice(2)}` : digits;
+  return `${local.slice(0, 4)}***${local.slice(-3)}`;
 }

@@ -61,4 +61,16 @@ export class ReservationCapacityCheck implements RoomCapacityCheck {
       guestCount: Number(r.guest_count),
     }));
   }
+
+  /** A-39: the OVER_CAPACITY_SQL booking condition without the head-count part. */
+  async futureReservationCount(tx: Tx, roomId: string, fromDate: LocalDate): Promise<number> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(DISTINCT r.id)::int AS n
+         FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+        WHERE s.room_id = $1 AND s.active AND s.to_date > $2::date
+          AND (r.status IN ('confirmed', 'in_house') OR (r.status = 'hold' AND r.hold_expires_at > $3))`,
+      [roomId, fromDate, this.clock.now()],
+    );
+    return rows[0]?.n ?? 0;
+  }
 }

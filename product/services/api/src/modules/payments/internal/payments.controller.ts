@@ -1,0 +1,352 @@
+/**
+ * Payments endpoints of Sprint 3 (OpenAPI 0.3.6; EP03-05 mục 2): recordPayment, listPayments,
+ * confirmPaymentReceived, reconcilePayment, confirmCashHandover, reversePayment, createVietQr.
+ * Body checks happen before the unit of work; never a card number (R-PAY-01, V-09). Scope M (SAL/CTV) → 404.
+ */
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res } from '@nestjs/common';
+import { z } from 'zod';
+import { DATABASE, Database, type Tx } from '../../../db/database';
+import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
+import { rejectDryRun } from '../../../shared/http/dry-run';
+import { Operation } from '../../../shared/http/operation';
+import { parseLimit } from '../../../shared/http/pagination';
+import { etag, expectedVersion } from '../../../shared/http/precondition';
+import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
+import { problem } from '../../../shared/problem';
+import { toZonedIso } from '../../../shared/time';
+import { paymentDto } from '../../folio/public/folio-view';
+import type { PaymentRowLite } from '../../folio/public/folio.service';
+import { parseBody } from '../../platform/public/validation';
+import { type ListPaymentsQuery, PaymentsService } from './payments.service';
+
+interface Reply {
+  status(code: number): unknown;
+  header(name: string, value: string): unknown;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const money = z.number().int().max(Number.MAX_SAFE_INTEGER);
+const ROLES = [
+  'owner',
+  'manager',
+  'front_desk_lead',
+  'front_desk',
+  'sales_staff',
+  'collaborator',
+  'housekeeping',
+  'maintenance',
+] as const;
+const METHODS = ['vietqr', 'bank_transfer', 'cash', 'card_pos', 'vnpay', 'momo', 'ota_collect'];
+const STATUSES = ['pending', 'succeeded', 'failed', 'expired', 'reversed'];
+
+export const paymentCreateSchema = z.object({
+  type: z.string().max(40),
+  method: z.string().max(40),
+  amountVnd: money,
+  receivedAt: z.string().max(40).optional(),
+  posAuthCode: z.string().max(12).optional(),
+  note: z.string().max(300).optional(),
+  billingPeriodId: z.string().max(64).optional(),
+  attachmentId: z.string().max(64).optional(),
+});
+
+const confirmSchema = z
+  .object({
+    receivedAt: z.string().max(40).optional(),
+    note: z.string().max(300).optional(),
+    attachmentId: z.string().regex(UUID).optional(),
+  })
+  .optional();
+
+const reconcileSchema = z.object({
+  result: z.enum(['reconciled', 'disputed']),
+  note: z.string().max(300).optional(),
+});
+
+const handoverSchema = z.object({
+  result: z.enum(['received', 'short']),
+  receivedAmountVnd: money.optional(),
+  note: z.string().max(300).optional(),
+});
+
+const reverseSchema = z.object({ reason: z.string().max(500) });
+
+const vietQrSchema = z.object({
+  amountVnd: money,
+  purpose: z.enum(['deposit', 'balance', 'billing_period']).optional(),
+  overBalanceReason: z.string().max(300).optional(),
+});
+
+function principal(req: GuardedRequest) {
+  const p = req.ottimoAuth?.principal;
+  if (!p) throw new Error('handler reached without an authenticated principal');
+  return p;
+}
+
+function oneOf<T extends string>(field: string, raw: unknown, allowed: readonly T[]): T | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw !== 'string' || !allowed.includes(raw as T)) {
+    throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'NOT_IN_LIST' }] });
+  }
+  return raw as T;
+}
+
+@Controller('v1/properties/:propertyId')
+export class PaymentsController {
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    @Inject(UnitOfWork) private readonly uow: UnitOfWork,
+    @Inject(PaymentsService) private readonly payments: PaymentsService,
+  ) {}
+
+  @Post('folios/:folioId/payments')
+  @Operation('recordPayment')
+  async record(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('folioId') folioId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(paymentCreateSchema, body);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const row = await this.payments.record(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        folioId,
+        input,
+      );
+      return { status: 201, body: await this.view(tx, row) };
+    });
+    return applyResult(reply, result);
+  }
+
+  @Get('payments')
+  @Operation('listPayments')
+  async list(@Req() req: GuardedRequest, @Query() query: Record<string, unknown>) {
+    const q: ListPaymentsQuery = {
+      reconciliation:
+        oneOf('reconciliation', query.reconciliation, [
+          'pending',
+          'reconciled',
+          'disputed',
+          'not_required',
+          'any',
+        ] as const) ?? 'pending',
+      receivedFrom: this.date('receivedFrom', query.receivedFrom),
+      receivedTo: this.date('receivedTo', query.receivedTo),
+      recordedBy: this.uuid('recordedBy', query.recordedBy),
+      recordedByRole: oneOf('recordedByRole', query.recordedByRole, ROLES),
+      method: oneOf('method', query.method, METHODS),
+      status: oneOf('status', query.status, STATUSES),
+      cursor: typeof query.cursor === 'string' ? query.cursor : null,
+      limit: parseLimit(query.limit, 50),
+    };
+    const p = principal(req);
+    return this.db.withContext(
+      tenantOf(p),
+      async (tx) => {
+        const out = await this.payments.list(tx, { userId: p.userId, roles: p.roles }, q);
+        return {
+          data: out.rows.map((r) => ({
+            ...paymentDto(r, out.tz, {
+              folioId: r.folio_id,
+              ...(r.reservation_code ? { reservationCode: r.reservation_code } : {}),
+            }),
+            hasAttachment: r.attachment_id !== null,
+            ...PaymentsService.waiting(r, out),
+          })),
+          page: { nextCursor: out.nextCursor, limit: q.limit },
+        };
+      },
+      { readOnly: true },
+    );
+  }
+
+  @Post('payments/:paymentId/actions/confirm-received')
+  @Operation('confirmPaymentReceived')
+  async confirmReceived(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('paymentId') paymentId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(paymentId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(confirmSchema, body ?? undefined) ?? {};
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const row = await this.payments.confirmReceived(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        paymentId,
+        {
+          receivedAt: input.receivedAt ?? null,
+          note: input.note,
+          attachmentId: input.attachmentId ?? null,
+        },
+      );
+      return { status: 200, body: await this.view(tx, row) };
+    });
+    return applyResult(reply, result);
+  }
+
+  @Post('payments/:paymentId/actions/reconcile')
+  @Operation('reconcilePayment')
+  async reconcile(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('paymentId') paymentId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(paymentId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(reconcileSchema, body);
+    const version = expectedVersion(req);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const row = await this.payments.reconcile(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        paymentId,
+        version,
+        { result: input.result, note: input.note },
+      );
+      return { status: 200, body: await this.view(tx, row) };
+    });
+    reply.header('etag', etag(result.body.version as number));
+    return applyResult(reply, result);
+  }
+
+  @Post('payments/:paymentId/actions/confirm-cash-handover')
+  @Operation('confirmCashHandover')
+  async confirmCashHandover(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('paymentId') paymentId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(paymentId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(handoverSchema, body);
+    const version = expectedVersion(req);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const row = await this.payments.confirmCashHandover(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        paymentId,
+        version,
+        {
+          result: input.result,
+          receivedAmountVnd: input.receivedAmountVnd ?? null,
+          note: input.note,
+        },
+      );
+      return { status: 200, body: await this.view(tx, row) };
+    });
+    reply.header('etag', etag(result.body.version as number));
+    return applyResult(reply, result);
+  }
+
+  @Post('payments/:paymentId/actions/reverse')
+  @Operation('reversePayment')
+  async reverse(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('paymentId') paymentId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(paymentId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(reverseSchema, body);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const row = await this.payments.reverse(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        paymentId,
+        input.reason,
+      );
+      return { status: 200, body: await this.view(tx, row) };
+    });
+    return applyResult(reply, result);
+  }
+
+  @Post('folios/:folioId/vietqr')
+  @Operation('createVietQr')
+  async createVietQr(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('folioId') folioId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(vietQrSchema, body);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const out = await this.payments.createVietQr(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        folioId,
+        {
+          amountVnd: input.amountVnd,
+          purpose: input.purpose ?? null,
+          overBalanceReason: input.overBalanceReason,
+        },
+      );
+      const tz = await this.tz(tx);
+      return {
+        status: 201,
+        body: {
+          ...out,
+          payment: await this.view(tx, out.payment),
+          receivingAccountChangedAt: toZonedIso(out.receivingAccountChangedAt as Date, tz),
+        },
+      };
+    });
+    return applyResult(reply, result);
+  }
+
+  private async tz(tx: Tx): Promise<string> {
+    const { rows } = await tx.query<{ timezone: string }>(
+      'SELECT timezone FROM property WHERE id = $1',
+      [tx.ctx.propertyId],
+    );
+    return rows[0]?.timezone ?? 'Asia/Ho_Chi_Minh';
+  }
+
+  private async view(
+    tx: Tx,
+    row: PaymentRowLite & { folio_id?: string },
+  ): Promise<Record<string, unknown>> {
+    const tz = await this.tz(tx);
+    const code = row.reservation_id
+      ? await this.payments.reservationCode(tx, row.reservation_id)
+      : undefined;
+    return paymentDto(row, tz, {
+      ...(row.folio_id ? { folioId: row.folio_id } : {}),
+      ...(code ? { reservationCode: code } : {}),
+    });
+  }
+
+  private date(field: string, raw: unknown): string | null {
+    if (raw === undefined || raw === null || raw === '') return null;
+    if (typeof raw !== 'string' || !DATE.test(raw) || Number.isNaN(Date.parse(raw))) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'DATE_INVALID' }] });
+    }
+    return raw;
+  }
+
+  private uuid(field: string, raw: unknown): string | null {
+    if (raw === undefined || raw === null || raw === '') return null;
+    if (typeof raw !== 'string' || !UUID.test(raw)) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'NOT_IN_LIST' }] });
+    }
+    return raw;
+  }
+}

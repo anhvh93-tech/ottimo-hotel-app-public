@@ -47,6 +47,7 @@ export const NAV: NavItem[] = [
     screen: 'S23',
     section: 'top',
     roles: ['owner', 'manager', 'front_desk_lead'],
+    ready: true,
   },
   {
     id: 'today',
@@ -90,7 +91,9 @@ export const NAV: NavItem[] = [
     label: 'nav.registration',
     screen: 'S09',
     section: 'ops',
+    roles: DESK,
     needsTrustedDevice: true,
+    ready: true,
   },
   {
     id: 'housekeeping',
@@ -136,6 +139,7 @@ export const NAV: NavItem[] = [
     screen: 'S27',
     section: 'admin',
     roles: DESK,
+    ready: true,
   },
   {
     id: 'rooms',

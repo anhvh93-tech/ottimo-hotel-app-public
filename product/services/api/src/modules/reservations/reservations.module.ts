@@ -26,6 +26,7 @@ import { ReservationHooks } from './public/reservation-hooks';
 import { ReservationCapacityCheck } from './public/room-capacity-check';
 import { RESERVATION_SALES_PORT } from './public/sales-port';
 import { StayNightAllocationService } from './public/stay-night-allocation';
+import { ReservationStayPort } from './public/stay-port';
 
 // Audit allowlists (SR-AUD-03): booking state/money facts only – no guest C2/C3 values.
 defineAuditEntity('reservation', [
@@ -71,8 +72,11 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     { provide: RESERVATION_SALES_PORT, useExisting: ReservationSalesAdapter },
     ReservationCapacityCheck,
     { provide: ROOM_CAPACITY_CHECK, useExisting: ReservationCapacityCheck },
+    // Sprint 3 (BE-A): what the front desk module uses (B9…B18, US-022).
+    ReservationStayPort,
   ],
   exports: [
+    ReservationStayPort,
     OccupancyService,
     PricingService,
     ReservationHooks,

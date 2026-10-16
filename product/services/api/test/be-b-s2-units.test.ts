@@ -114,6 +114,7 @@ describe('folio totals (erd 4.6: computed, never stored)', () => {
       paidViaOtaVnd: 100_000,
       depositHeldVnd: 300_000,
       balanceDueVnd: 313_000,
+      creditVnd: 0,
     });
   });
 
@@ -244,6 +245,7 @@ describe('deposit payment rules (BA EP02 10.6, BR-527)', () => {
       note: ' CK Vietcombank ',
     });
     expect(ok).toEqual({
+      attachmentId: null,
       method: 'bank_transfer',
       amountVnd: 1_500_000,
       receivedAt: new Date('2026-10-15T03:12:00.000Z'),

@@ -38,6 +38,11 @@ import {
   isWriteMethod,
   originAllowed,
 } from './csrf';
+import {
+  GUEST_SESSION_RESOLVER,
+  type GuestPrincipal,
+  type GuestSessionResolver,
+} from './guest-session';
 import { OPERATION_KEY, PUBLIC_ROUTE_KEY, operationMeta } from './operation';
 import { parseEntityTag } from './precondition';
 
@@ -78,6 +83,8 @@ export interface RequestAuth {
   operationId: string;
   operation: OperationMeta;
   principal: StaffPrincipal | null;
+  /** Guest-session principal of a guest operation (ADR-006) – set by the guest-portal resolver. */
+  guest?: GuestPrincipal;
   /** Role decision; enforced by the guard, or by UnitOfWork after the idempotent replay lookup. */
   allowed: boolean;
   /** Set once the role decision has been enforced (403 thrown or passed). */
@@ -152,6 +159,21 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   ) {}
 
   private csrfVerifier: CsrfVerifier | null | undefined;
+  private guestResolverRef: GuestSessionResolver | null | undefined;
+
+  /** The guest-portal module's resolver (GUEST_SESSION_RESOLVER), looked up once; null when absent. */
+  private guestResolver(): GuestSessionResolver | null {
+    if (this.guestResolverRef === undefined) {
+      try {
+        this.guestResolverRef = this.moduleRef.get<GuestSessionResolver>(GUEST_SESSION_RESOLVER, {
+          strict: false,
+        });
+      } catch {
+        this.guestResolverRef = null;
+      }
+    }
+    return this.guestResolverRef;
+  }
 
   /** The identity module's verifier (CSRF_VERIFIER), looked up once; null when not registered. */
   private verifier(): CsrfVerifier | null {
@@ -192,9 +214,32 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       req.ottimoAuth = { operationId, operation, principal: null, allowed: true, enforced: true };
       return true;
     }
-    if (operation.roles.includes('guest') || operation.roles.includes('system')) {
-      // Guest-session (ADR-006) and system/webhook principals are handled by their own guards
-      // (guest-portal, integrations-hub). Until those exist, refuse instead of falling through.
+    if (operation.roles.includes('guest')) {
+      // Guest session (ADR-006): guest-portal resolver (cookie __Host-ottimo_gsid → level, booking).
+      // Write methods must come from guest-web (SEC G5); a staff cookie never authenticates here.
+      const resolver = this.guestResolver();
+      if (!resolver) throw problem('UNAUTHENTICATED');
+      if (
+        isWriteMethod(req.method) &&
+        !originAllowed(header(req, 'origin'), this.options.allowedOrigins?.guest ?? [])
+      ) {
+        throw problem('FORBIDDEN_ACTION', { detail: 'Origin not allowed' });
+      }
+      const guest = await resolver.resolve(req, operation);
+      this.checkPreconditionHeaders(req, operation);
+      req.ottimoAuth = {
+        operationId,
+        operation,
+        principal: null,
+        guest,
+        allowed: true,
+        enforced: true,
+      };
+      return true;
+    }
+    if (operation.roles.includes('system')) {
+      // System/webhook principals are handled by their own guard (integrations-hub). Until it exists,
+      // refuse instead of falling through.
       throw problem('UNAUTHENTICATED');
     }
 

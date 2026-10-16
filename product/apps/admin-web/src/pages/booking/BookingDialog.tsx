@@ -39,6 +39,7 @@ import { OccupancyField, type Occupancy } from '../../components/OccupancyField'
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { isRetryable, useWrite } from '../../app/useWrite';
 
 export interface BookingPrefill {
   roomId?: string;
@@ -162,6 +163,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     null,
   );
   const idem = useRef<{ body: string; key: string } | null>(null);
+  const write = useWrite();
 
   const set = (patch: Partial<Form>) => {
     setForm((f) => {
@@ -491,13 +493,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       const b = body(opts.allowUnassigned, opts.roomId ?? form.roomId);
       const sig = JSON.stringify(b);
       if (idem.current?.body !== sig) idem.current = { body: sig, key: newIdempotencyKey() };
-      const res = await api.createReservation({ propertyId }, b, idem.current.key);
+      const key = idem.current.key;
+      // DS 6.21: CONCURRENT_UPDATE / SERVICE_UNAVAILABLE → automatic resend with the same key.
+      const res = await write.run(() => api.createReservation({ propertyId }, b, key));
       removeDraft(DRAFT_KEY);
       notifyChanged();
       toast(t('booking.toast.created', { code: res.data.code }));
       onCreated(res.data);
     } catch (err) {
-      handleError(err);
+      if (!isRetryable(err)) handleError(err);
     } finally {
       setBusy(null);
     }
@@ -612,7 +616,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               type="submit"
               form="booking-form"
               busy={busy === 'create'}
-              busyLabel={t('bk.checking')}
+              busyLabel={write.busyLabel ?? t('bk.checking')}
               disabled={busy !== null || longStay}
             >
               {t('booking.create')}
@@ -643,6 +647,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {t('common.error_generic_title')}
           </Alert>
         ) : null}
+        {write.notice}
         {requestError ? <Alert tone="bad">{problemView(t, requestError).text}</Alert> : null}
         {conflictView}
         {longStay ? (

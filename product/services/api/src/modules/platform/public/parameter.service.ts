@@ -226,6 +226,11 @@ export class ParameterService {
       today: LocalDate;
       statusLabel?: string | null;
       requestId?: string;
+      /**
+       * Audit override for keys whose value must not be logged in clear (payment_receiving_account – SEC F3:
+       * category money, account number masked). Default: category security/config with the raw values.
+       */
+      auditAs?: { category: 'money'; mask: (value: unknown) => unknown };
     },
   ): Promise<{ id: string; previous: unknown }> {
     const { ctx } = tx;
@@ -276,13 +281,14 @@ export class ParameterService {
         errors: [{ field: 'effectiveFrom', code: 'VALIDATION_FAILED' }],
       });
     }
+    const shown = input.auditAs?.mask ?? ((v: unknown) => v);
     await this.audit.record(tx, {
-      category: def.is_security ? 'security' : 'config',
+      category: input.auditAs?.category ?? (def.is_security ? 'security' : 'config'),
       action: 'config.changed',
       entityType: 'config_parameter',
       entityId: input.key,
-      before: { value: previous },
-      after: { value: input.value, effectiveFrom: input.effectiveFrom },
+      before: { value: previous === null ? null : shown(previous) },
+      after: { value: shown(input.value), effectiveFrom: input.effectiveFrom },
       reason: input.reason,
       ...(input.requestId ? { requestId: input.requestId } : {}),
     });

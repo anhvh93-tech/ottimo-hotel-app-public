@@ -1,6 +1,6 @@
 # Danh sách lỗi – Round 2
 
-- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 16/10/2026 – Sprint 2, retest sau Phản hồi & sửa (HEAD `7d42218` + cây làm việc) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8
+- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 16/10/2026 – **khởi động Sprint 3** (ĐK-S2-1 của `qc/s2-qc-gate.md`; PO-S2-01; E2E UI trên stack `ottimo-qa-s3`) – trước đó: Sprint 2 retest (HEAD `7d42218`) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8
 - Lỗi tồn từ R1: `rounds/round-01/qa/bug-list.md` (không chép lại)
 
 ## 1. Tổng hợp
@@ -9,9 +9,11 @@
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 3 | 0 | 0 | 3 |
-| P2 | 11 | 1 | 0 | 10 |
-| P3 | 10 | 1 | 1 | 8 |
-| **Tổng** | **24** | **2** | **1** | **21** |
+| P2 | 14 | 3 | 0 | 11 |
+| P3 | 12 | 2 | 0 | 10 |
+| **Tổng** | **29** | **5** | **0** | **24** |
+
+Đếm lại từng dòng bảng dưới (ĐK-S2-1): bảng cũ ghi "P2 Open 1, P3 Fixed 1" là sai – BUG-R2-023 đã Closed theo CI 38911271416 và BUG-R2-010 đã kiểm UI ở Sprint 3 kickoff. Open: P2 = 025, 026, 027; P3 = 028, 029.
 
 | ID | Mức | Tóm tắt | Vai sửa | Trạng thái |
 |---|---|---|---|---|
@@ -24,11 +26,11 @@
 | BUG-R2-007 | P2 | `setParameter hold_hours_default` = 36 (ngoài `hold_hours_options` 12/24/48) được lưu 200 – thiếu kiểm chéo erd 9.1a | BE (BE-B) | **Closed** (retest S2 16/10) – TC-NT-012 đạt (36 → 422) |
 | BUG-R2-008 | P2 | `lookupGuestByContact` với SAL/CTV: SĐT/email của khách người khác → `{"matches":[]}`, mất tín hiệu `possible_duplicate` (US-087, EP00 6.3) | ARC (schema) + BE (BE-B) | **Closed** (retest S2 16/10) – SAL tra SĐT khách người khác → `match: possible_duplicate` |
 | BUG-R2-009 | P2 | Test admin-web đỏ 2/64 (`auth.test.tsx` tìm nhãn cũ "Số điện thoại hoặc email") → `pnpm test` toàn repo đỏ (QC B1) | FE | **Closed** (retest S2 16/10) – admin-web 108/108 |
-| BUG-R2-010 | P3 | MGR mở thẳng `/settings/users`: hiện trang Người dùng & vai + "Chưa tải được danh sách" + nút "Thử lại", câu "nhờ quản lý" – không phải trang "không có quyền" | FE (+ BA/ARC chốt `screens` S26 của MGR) | Fixed (FE `NoAccessPage` + test đơn vị) – chưa kiểm UI bằng trình duyệt (E2E_UI chưa bật) |
+| BUG-R2-010 | P3 | MGR mở thẳng `/settings/users`: hiện trang Người dùng & vai + "Chưa tải được danh sách" + nút "Thử lại", câu "nhờ quản lý" – không phải trang "không có quyền" | FE (+ BA/ARC chốt `screens` S26 của MGR) | **Closed** (S3 kickoff 16/10) – TC-NT-010 (E) Chromium, web + API thật: heading "Bạn không có quyền mở trang này", không "Thử lại"/"nhờ quản lý" |
 | BUG-R2-011 | P3 | `displayName` (createUser/updateUser) nhận ký tự ngoài V-01 (`(`, `_`, `@`…); `fullName` khách và FE đã chặn đúng | BE (BE-B) | **Closed** (retest S2 16/10) – `displayName` `(`/`_`/`@` → 422 `NAME_INVALID` |
 | BUG-R2-012 | P2 | E2E QA lệch build thật: tên tạm có chữ số (V-01), login thiếu `Origin`, kỳ vọng `actorUserId`/`84…`, không đổi token sau `changeMyPassword`, `If-Match` cũ – 26 ca đỏ giả | QA | Closed (16/10) |
 | BUG-R2-013 | P3 | `smoke/health.spec.ts` TC-X-050c dùng cố định `infra/docker-compose.yml` + `.env` của stack dev → bật `E2E_COMPOSE_CONTROL=1` sẽ dừng PostgreSQL dev thay vì stack dùng một lần | QA | Closed (16/10, sửa CI) |
-| BUG-R2-014 | P3 | `POST /__test__/rate-limits/reset` (test-support) chuyển mọi tài khoản `locked` khớp tiền tố → `active`, kể cả `qa.locked` bị khóa có chủ ý (TC-NT-005) – lẽ ra chỉ xóa khóa tạm (`locked_until` có giá trị) | BE (BE-A) | Open – kiểm lại 16/10: reset tiền tố `qa.locked` → `{users:1}`, `qa.locked` đăng nhập được 200 |
+| BUG-R2-014 | P3 | `POST /__test__/rate-limits/reset` (test-support) chuyển mọi tài khoản `locked` khớp tiền tố → `active`, kể cả `qa.locked` bị khóa có chủ ý (TC-NT-005) – lẽ ra chỉ xóa khóa tạm (`locked_until` có giá trị) | BE (BE-A) | **Closed** (S3 kickoff 16/10) – build `cfcf6d8` (image `ottimo-api:qa-s3`): reset tiền tố `qa.locked` → `qa.locked` vẫn `locked`, đăng nhập 401; khóa tạm `qa.mt` (`locked_until` có giá trị) → `active`, đăng nhập 200 |
 | **BUG-R2-015** | **P1** | Job CI `docker images build · E2E smoke` đỏ (run 38887585274: 289 trượt): CI không nạp seed DS-E → mọi đăng nhập `qa.*` 401; harness thử đăng nhập lại ở từng ca → chạm SR-RL-01 (20/IP/15 phút) → 562 lỗi `429 RATE_LIMITED` | OPS (ci.yml) + QA (harness) | **Closed** (retest S2 16/10) – CI nạp seed DS-E, E2E chạy đủ |
 | BUG-R2-016 | P2 | TC-X-050c dừng PostgreSQL trong khi project `rbac`/`api` chạy song song → có thể sinh 5xx giả ở ca khác | QA | **Closed** (retest S2 16/10) – 6 lần chạy đủ, `db-outage` chạy cuối, 0 ca 5xx |
 | BUG-R2-017 | P2 | Đơn OTA nhập tay bỏ trống giá đêm → `422 nightlyRates:REQUIRED` (EP02 3.2/OpenAPI: bỏ trống = giá mặc định theo lịch giá kênh); gốc: chưa có tham số `ota_base_rate.<group>` (BR-103, BR mục 13) | BE (BE-A) + ARC (catalogue tham số) | **Closed** (retest 16/10) |
@@ -39,6 +41,11 @@
 | BUG-R2-022 | P2 | E2E Sprint 2 của QA lệch build thật – 45 ca đỏ giả ở CI 38902292311 (thiếu cọc `initialPayment`, `note` cho lý do `other`, `otherVersion` 0, mã lý do `guest_cancelled`, ngày 1 đêm rơi T6/T7, kênh OTA trong báo giá, đồng hồ hai file chạy song song…) | QA | Closed (16/10) |
 | BUG-R2-023 | P2 | `createReservation` không kiểm người chốt theo US-017 AC9: kênh CTV không người chốt / người chốt là SAL, nguồn `sales_staff` không người chốt / người chốt là CTV – đều `201` | BE (BE-A) | Closed (CI 38911271416) |
 | BUG-R2-024 | P3 | Harness E2E Sprint 2: dữ liệu dùng chung căn giữa các ca song song gây flaky (TC-L2-021, TC-L2-022, TC-L2-033), dò endpoint lưu kết quả 404 tạm thời → bỏ qua cả ca (TC-NT-008), ngày 1 đêm rơi T6/T7 (TC-L5-015 BR-304-02) | QA | Closed (16/10) |
+| BUG-R2-025 | P2 | `CAPACITY_BELOW_BOOKINGS` không bao giờ được trả: `ROOM_CAPACITY_CHECK` vẫn là stub `NO_BOOKINGS_YET` → hạ sức chứa dưới số khách của đơn tương lai vẫn lưu được (QC-S2-01, US-004 AC3) | BE-A (+ BE-B) | Open – BE-A đã nối `ReservationCapacityCheck` trong cây làm việc (chưa commit); ảnh QA dựng 21:28 chưa có bản sửa: TC-NT-039/040(b)(c) và `api/room-capacity.api.spec.ts` (BE-A) → `200` thay vì `409`. Kiểm lại khi build mới |
+| BUG-R2-026 | P2 | Bên thua khi lưu đồng thời có thể thấy "Máy chủ đang gặp sự cố": thiếu xử lý `409 CONCURRENT_UPDATE` / `503 SERVICE_UNAVAILABLE` (chuỗi + `Retry-After`) (QC-S2-02) | UXD (chuỗi) + FE | Open – chuỗi VI/EN đã có; FE: `CONCURRENT_UPDATE` hiện đúng câu, `SERVICE_UNAVAILABLE` (503) vẫn rơi về `error.server`, chưa thử lại theo `Retry-After` |
+| BUG-R2-027 | P2 | Văn bản báo giá tiếng Nga ra tiếng Anh: `QUOTE_COPY_MISSING.ru` thiếu 5 khóa (`sale.quote_text`, `sale.quote_text_extra_guest`, `occ.*_short`), `--check` chỉ cảnh báo (PO-S2-01, US-083 AC2) | UXD (5 chuỗi RU) + BE-B (sinh lại `quote-copy.ts`, `--check` báo lỗi) | Open – TC-L5-016 (ru) đánh dấu `test.fail` |
+| BUG-R2-028 | P3 | Form Đặt phòng mới: tạo nhanh khách có SĐT xong, form vẫn đòi nhập lại "Số điện thoại / Zalo" (ô đỏ "Bắt buộc với kênh Trực tiếp") rồi PATCH lại hồ sơ khách | FE | Open |
+| BUG-R2-029 | P3 | Sơ đồ phòng luôn hiện "Dữ liệu lúc hh:mm. Đang kết nối lại…" vì `GET /v1/properties/{id}/events` (SSE) trả 404 trên build – lễ tân tưởng mất kết nối | FE (ẩn trạng thái khi endpoint chưa có) / BE-A (SSE – Sprint 4) | Open |
 
 ## 2. Chi tiết
 
@@ -108,11 +115,12 @@
 - Mong đợi: 64/64 xanh; test dùng khóa i18n `auth.login.username` thay vì chữ cứng.
 
 ### BUG-R2-010 – MGR mở thẳng URL Người dùng & vai thấy trang lỗi tải thay vì "không có quyền"
-- Mức: P3 (API vẫn chặn 403; chỉ là trải nghiệm/sai câu chữ) · Vai sửa: FE; BA/ARC chốt `getMe.screens` của MGR có S26 hay không (rbac 20a: MGR ◐ S26 = đổi mật khẩu/phiên của mình) · Trạng thái: **Open**
+- Mức: P3 (API vẫn chặn 403; chỉ là trải nghiệm/sai câu chữ) · Vai sửa: FE; BA/ARC chốt `getMe.screens` của MGR có S26 hay không (rbac 20a: MGR ◐ S26 = đổi mật khẩu/phiên của mình) · Trạng thái: **Closed** (kiểm UI 16/10, Sprint 3 kickoff – xem cuối mục)
 - Bước tái hiện: admin-web (API thật) đăng nhập `qa.mgr` → mở `/settings/users`.
 - Thực tế: trang "Người dùng & vai" với "Chưa tải được danh sách người dùng · Tài khoản của bạn không làm được thao tác này. Nếu cần, nhờ quản lý. · Thử lại". Menu đúng là ẩn mục này. Nguyên nhân: route guard `Screen` chỉ kiểm `screens` (`canOpen`), không kiểm `item.roles` như `isVisible`; server trả S26 cho MGR.
 - Mong đợi: TC-NT-010 (E) – trang "không có quyền" (`NoAccessPage`), không nút "Thử lại", không câu "nhờ quản lý" với chính quản lý.
 - Ghi chú: smoke UI TC-NT-010 vẫn "đạt" theo regex hiện tại; QA siết kỳ vọng khi FE sửa.
+- **Kiểm lại 16/10 (Sprint 3 kickoff)**: stack `ottimo-qa-s3` (web + API thật, Chromium 1366×768), `ui/admin-web.smoke.spec.ts` TC-NT-010 (E) đã siết: `main` có heading "Bạn không có quyền mở trang này" (`shell.no_access_title`), 0 nút "Thử lại", 0 câu "nhờ quản lý", 0 "Chưa tải được danh sách" → **đạt**. Đóng.
 
 ### BUG-R2-011 – `displayName` nhận ký tự ngoài V-01
 - Mức: P3 · Vai sửa: BE-B · Trạng thái: **Open**
@@ -134,6 +142,8 @@
 - Thực tế: câu UPDATE đặt `status = CASE WHEN status = 'locked' THEN 'active' …` cho mọi tài khoản khớp tiền tố → `qa.locked` (DS-E khóa có chủ ý, `locked_until` NULL) thành `active`, TC-NT-005 sẽ đỏ ở lần chạy sau.
 - Mong đợi: chỉ mở khóa tạm do sai mật khẩu (`status='locked' AND locked_until IS NOT NULL`), giống điều kiện `auth.service` dùng khi đăng nhập.
 - Tạm tránh (QA): harness không bao giờ gửi tiền tố `qa.`; dùng `RESET_PREFIXES` = `qa.owner, qa.mgr, qa.fd, qa.hk, qa.mt, qa.sal, qa.ctv` (+ `qa.e2e.lock` chỉ trong project `limits`).
+
+- **Kiểm lại 16/10 (Sprint 3 kickoff, ĐK-S2-1)**: stack mới `ottimo-qa-s3`, ảnh api build từ `cfcf6d8` (`test-support.module.ts:254` chỉ mở khi `locked_until IS NOT NULL`). (1) `qa.locked` (DS-E, `locked`, `locked_until` NULL) → `POST /__test__/rate-limits/reset {usernamePrefix: "qa.locked"}` → `200 {users:1}` (chỉ xóa bộ đếm); DB vẫn `status=locked`; đăng nhập `qa.locked` → `401`. (2) Đối chứng khóa tạm: đặt `qa.mt` `locked` + `locked_until = now()+15'` → reset tiền tố `qa.mt` → DB `active`, `locked_until` NULL; đăng nhập 200. Đúng mong đợi → **Closed**.
 
 ### BUG-R2-015 – CI E2E đỏ: thiếu seed DS-E, harness khuếch đại thành 429
 - Mức: P1 (chặn merge – job bắt buộc đỏ) · Môi trường: GitHub Actions run 38887585274, job `docker images build · E2E smoke` · Vai sửa: OPS (ci.yml) + QA (harness) · Trạng thái: **Fixed** (chờ lần chạy CI trên GitHub)
@@ -206,6 +216,39 @@
 - Thực tế ở lượt retest: 1–2 ca flaky mỗi lần chạy (TC-L2-022, TC-L2-021 lần dò cọc, TC-L2-033, TC-L5-015 BR-304-02); TC-NT-008 bị bỏ qua một lần vì dò endpoint gặp 404 tạm thời và lưu kết quả.
 - Sửa: chọn lại khoảng đêm khi bị ca song song chiếm (`WindowTakenError`, vòng thử TC-L2-022); TC-L2-033 kiểm lý do `requestedRoom.reason` (`blocked`) thay vì "trống"; ngày 1 đêm T2–T5; `isAvailable` thử lại 404 một lần và không lưu kết quả âm.
 - Kiểm lại: 2 lần chạy đủ liên tiếp trên stack mới: 0 trượt, 0 flaky.
+
+### BUG-R2-025 – `CAPACITY_BELOW_BOOKINGS` không bao giờ được trả (QC-S2-01)
+- Mức: **P2** (sai AC US-004 AC3; lễ tân nhận đơn vượt sức chứa mà không được cảnh báo; không sai tiền) · Môi trường: đọc code `cfcf6d8` + stack `ottimo-qa-s3` (ảnh api 21:28) · Vai sửa: BE-A (provider ở reservations), BE-B (platform) · Trạng thái: **Open** (BE-A đang sửa – ĐK-S2-2)
+- Bước: (1) `qa.fd` tạo đơn 302 (định mức 3, tối đa 4) 2 người lớn + 2 trẻ 6–11 tuổi (4 người tính); (2) `qa.owner` `PATCH rooms/302 {maxOccupancy: 3}` có `If-Match`.
+- Thực tế: `200`, sức chứa thành 3 (ca TC-NT-039, chạy với `E2E_BUG_R2_025_FIXED=1` trước khi bỏ cờ). Gốc: `platform.module.ts:43` `{ provide: ROOM_CAPACITY_CHECK, useValue: NO_BOOKINGS_YET }`, module reservations không ghi đè; nhánh 409 ở `rooms.service.ts:375` không chạy.
+- Mong đợi: `409 CAPACITY_BELOW_BOOKINGS`, `conflicts[]` có `reservationCode`, `stayFrom`, `stayTo`, `guestCount` 4; sức chứa giữ 4; trẻ dưới 6 tuổi không tính (TC-NT-040 b).
+- Bằng chứng: `product/tests/e2e/serial/platform-mutations.serial.spec.ts` (TC-NT-039, TC-NT-040(b)(c), chạy tuần tự, tự trả sức chứa về cũ), `e2e/api/room-capacity.api.spec.ts` (ca của BE-A). Cây làm việc 16/10 ~22:00 đã có `ReservationCapacityCheck` + `useExisting` trong `reservations.module.ts:73` – QA chưa build được ảnh mới (mạng tải gói npm trong docker hết thời gian) nên chưa kiểm lại.
+
+### BUG-R2-026 – Bên thua khi lưu đồng thời thấy "Máy chủ đang gặp sự cố" (QC-S2-02)
+- Mức: **P2** · Vai sửa: UXD (chuỗi VI/EN), FE (`problem.ts`, thử lại theo `Retry-After`) · Trạng thái: **Open** (một phần đã sửa)
+- Thực tế (đọc code 16/10 ~22:00 + E2E UI): `strings-vi/en.json` đã có `error.CONCURRENT_UPDATE`, `error.SERVICE_UNAVAILABLE`; `problemView` hiện `error.<CODE>` chỉ khi `status < 500` → `409 CONCURRENT_UPDATE` hiện đúng câu, nhưng `503 SERVICE_UNAVAILABLE` vẫn rơi về `error.server` ("Máy chủ đang gặp sự cố… mã tham chiếu"). Chưa thấy thử lại theo `Retry-After`.
+- Mong đợi: cả hai mã hiện câu riêng, giữ dữ liệu form, nút/tự thử lại sau `Retry-After` (ĐK-S2-3).
+- Bằng chứng: TC-L2-021 (E) `ui/rack-booking.smoke.spec.ts` – 8/8 lần lặp đạt trên stack QA (bên thua nhận `409 ROOM_UNAVAILABLE` → câu "Căn … đã có đơn của … từ … đến …", form giữ nguyên); ca coi câu `error.server` là trượt (ghi rõ "BUG-R2-026"). Chưa tạo được 503 trong E2E (cần làm nghẽn pool DB) – FE thêm test đơn vị.
+
+### BUG-R2-027 – Văn bản báo giá tiếng Nga ra tiếng Anh (PO-S2-01)
+- Mức: **P2** (sai AC Must US-083 AC2; PRD M13 cam kết mẫu VI/EN/RU; sale gửi tiếng Anh cho khách Nga mà không biết; không sai tiền) · Vai sửa: UXD (5 chuỗi RU), BE-B (sinh lại `generated/quote-copy.ts`; `--check` phải báo lỗi khi thiếu khóa) · Trạng thái: **Open** · Hạn: tuần 1 Sprint 3 (PO N-4)
+- Bước: `qa.sal` lưu báo giá 401 2 đêm → `GET /quotes/{id}/text?locale=ru`.
+- Thực tế: `200`, `text` = "OTTIMO Boutique Stay – Quote BG-00001 …" (mẫu tiếng Anh, không có chữ Kirin). `QUOTE_COPY_MISSING.ru` = `sale.quote_text`, `sale.quote_text_extra_guest`, `occ.*_short`.
+- Mong đợi: văn bản tiếng Nga, không lẫn câu mẫu EN, có ngày hết hiệu lực.
+- Bằng chứng: `e2e/api/s3-kickoff.api.spec.ts` "TC-L5-016 (ru)" – `test.fail` (tự báo khi đã sửa; chạy `E2E_BUG_R2_027_FIXED=1` để xem lỗi thật). Bản `en` (TC-L5-016 en) đạt.
+
+### BUG-R2-028 – Tạo nhanh khách trong form Đặt phòng mới làm mất SĐT vừa nhập
+- Mức: P3 (thao tác thừa, có thể lưu đè SĐT khác vào hồ sơ; không sai tiền) · Môi trường: stack `ottimo-qa-s3`, Chromium 1366×768, `qa.fd` · Vai sửa: FE · Trạng thái: **Open**
+- Bước: Sơ đồ phòng → Đặt phòng mới → ô "Khách đứng tên" gõ tên chưa có → "Tạo nhanh khách …" → nhập "Số điện thoại / Zalo" → "Lưu hồ sơ".
+- Thực tế: toast "Đã lưu hồ sơ KH-…"; form đặt phòng hiện thêm ô "Số điện thoại / Zalo" trống, đỏ "Bắt buộc với kênh Trực tiếp và CTV"; khi nhập lại và Tạo đơn, FE gọi thêm `PATCH guests/{id}` ghi SĐT.
+- Mong đợi: khách vừa tạo có SĐT → form không hỏi lại (EP02 3.2).
+- Gốc (đọc code): `components/GuestPicker.tsx:205` `onSaved` chỉ chuyển `id, code, displayName, nationalityCode` – thiếu `phoneMasked`, nên `BookingDialog.tsx:951` coi khách chưa có SĐT.
+- Bằng chứng: E2E `ui/rack-booking.smoke.spec.ts` `fillBooking` (nhánh "phone again if the form still asks"), log mạng: `PATCH guests/… 200` trước `POST reservations`.
+
+### BUG-R2-029 – Sơ đồ phòng luôn báo "Đang kết nối lại…" khi build chưa có SSE
+- Mức: P3 (thông tin sai trạng thái; lễ tân có thể tưởng mất mạng/dữ liệu cũ) · Môi trường: stack `ottimo-qa-s3` · Vai sửa: FE (không hiện "đang kết nối lại" khi `events` trả 404 – chỉ dùng polling), BE-A (SSE `streamEvents` theo kế hoạch Sprint 4) · Trạng thái: **Open**
+- Thực tế: `GET /v1/properties/{id}/events` → 404; vùng `status` của H08 hiện "Dữ liệu lúc 21:29. Đang kết nối lại…" (`fo.rack.stale`) suốt phiên, dù dữ liệu vẫn tải lại qua polling 30 giây.
+- Mong đợi: chỉ báo "đang kết nối lại" khi luồng đã có rồi bị rớt; endpoint chưa có → im lặng (hoặc nhãn "Cập nhật mỗi 30 giây").
 
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 

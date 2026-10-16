@@ -6,9 +6,11 @@
  */
 import { createRuntime } from './bootstrap';
 import { BUILTIN_JOBS } from './jobs/builtin-jobs';
+import { paymentExpiryJob } from './jobs/payment-jobs';
 import { JobRegistry, JobRunner } from './jobs/job-runner';
 import { AuditService } from './modules/audit/public/audit.service';
 import { ParameterService } from './modules/platform/public/parameter.service';
+import { registrationWorkerJobs } from './modules/registration/public/worker-jobs';
 import { reservationWorkerJobs } from './modules/reservations/public/worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
@@ -23,6 +25,17 @@ async function main(): Promise<void> {
   // Business jobs (J1 hold expiry, O2 block activation – reservations module, Sprint 2).
   for (const job of reservationWorkerJobs({ clock: rt.clock, audit, parameters }))
     registry.register(job);
+  // J16 retention.purge (BE-C): hourly safety net of image/attachment deletion (SEC C5, C6).
+  for (const job of registrationWorkerJobs({
+    clock: rt.clock,
+    audit,
+    parameters,
+    database: rt.database,
+    env: rt.env,
+  }))
+    registry.register(job);
+  // J24 payment.expire (BE-A, Sprint 3): pending VietQR past expires_at → expired.
+  registry.register(paymentExpiryJob(audit));
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
   log('info', 'worker started', { jobs: registry.keys() });
 

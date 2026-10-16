@@ -26,6 +26,16 @@ const ReservationsPage = lazy(() =>
 const QuotesPage = lazy(() =>
   import('../pages/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })),
 );
+// Sprint 3: registration (C3), approvals, money log + reconciliation + refunds.
+const RegistrationPage = lazy(() =>
+  import('../pages/registration/RegistrationPage').then((m) => ({ default: m.RegistrationPage })),
+);
+const ApprovalsPage = lazy(() =>
+  import('../pages/approvals/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })),
+);
+const MoneyPage = lazy(() =>
+  import('../pages/money/MoneyPage').then((m) => ({ default: m.MoneyPage })),
+);
 
 function Splash() {
   const { t } = useI18n();
@@ -92,6 +102,9 @@ const PAGES: Record<string, () => ReactNode> = {
   rack: () => <RackPage />,
   reservations: () => <ReservationsPage />,
   quotes: () => <QuotesPage />,
+  registration: () => <RegistrationPage />,
+  approvals: () => <ApprovalsPage />,
+  moneylog: () => <MoneyPage />,
 };
 
 function Home() {

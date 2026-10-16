@@ -49,6 +49,9 @@ export interface HttpOptions {
   logStream?: NodeJS.WritableStream;
 }
 
+/** Largest accepted multipart body: 4 images × 10 MB + the JSON part and headers (addGuestDocument). */
+export const MULTIPART_BODY_LIMIT = 42 * 1024 * 1024;
+
 /** Client-supplied X-Request-Id is reused only when it is a plain token (no log injection). */
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
@@ -79,6 +82,17 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
       },
     },
   });
+  // multipart/form-data (document images, attachments – SR-FILE-02): the raw body as a Buffer, parsed in
+  // memory by files/public/multipart.ts (no temp file in clear – SR-FILE-04). Larger than 4 × 10 MB images
+  // + JSON → 413 PAYLOAD_TOO_LARGE before any handler (Caddy caps the body at 25 MB in front – SEC C3).
+  adapter
+    .getInstance()
+    .addContentTypeParser(
+      'multipart/form-data',
+      { parseAs: 'buffer', bodyLimit: MULTIPART_BODY_LIMIT },
+      (_req: unknown, body: Buffer | string, done: (err: Error | null, body?: unknown) => void) =>
+        done(null, body),
+    );
   adapter
     .getInstance()
     .addHook(

@@ -1,0 +1,202 @@
+# BE-C – Round 2, Sprint 3: crypto, files, registration, guest-portal
+
+- Vai: BE (luồng BE-C, mới) | Ngày: 16/10/2026 | Bước: Sản xuất | **Không commit** (ORC commit) | DB test riêng `ottimo_test_bec`
+- Đầu vào: `outputs/ARC/s3-contract.md` (vùng, cổng public, mục 4.2 migration), `outputs/SEC/s3-checklist.md` (B, C, E, G, I), `specs/EP06-registration.md` v0.2, `specs/EP03-05-stay.md`, OpenAPI 0.3.6-draft, ADR-013, `security/security-requirements.md`, BR v0.3.3.
+
+> Mục "Interface" viết sớm (ngày 1) để BE-B dùng ngay cho số tài khoản hoàn (D15, SEC F8); đã cập nhật theo bản cài cuối. Các mục 1–7 ở cuối file.
+
+## Interface (ngày 1 – cổng public cho BE-A/BE-B)
+
+### 1. `CryptoService` – `services/api/src/modules/crypto/public/crypto.service.ts`
+
+Lớp trừu tượng (token DI là chính lớp `CryptoService`, module `CryptoModule` là `@Global`; bản thật `EnvelopeCryptoService implements CryptoService`). Mọi hàm chạy trong **giao dịch của người gọi** (`tx`), rollback thì không còn khóa nào.
+
+```ts
+interface FieldAad { table: string; column: string; recordId: string }      // vào AAD
+interface DataKeyRequest { purpose: DataKeyPurpose; subjectId: string; expiresAt?: Date }
+// DataKeyPurpose: 'guest_document' | 'document_image' | 'door_credential' | 'payee' | 'child_data'
+//               | 'mfa_secret' | 'refund_account' | 'push_keys' | 'attachment'
+interface DestroyJournal { subjectType: string; subjectId: string; policyKey: string } // purge_journal
+
+abstract class CryptoService {
+  createDataKey(tx, req: DataKeyRequest): Promise<string>;                       // id DEK mới
+  seal(tx, req: DataKeyRequest & { aad: FieldAad }, plaintext: string | Buffer)
+    : Promise<{ dataKeyId: string; ciphertext: Buffer }>;                        // tạo DEK + mã hóa
+  encrypt(tx, dataKeyId, aad: FieldAad, plaintext): Promise<Buffer>;             // cột khác cùng bản ghi
+  decrypt(tx, dataKeyId, aad, ciphertext): Promise<Buffer>;
+  decryptText(tx, dataKeyId, aad, ciphertext): Promise<string>;
+  destroy(tx, dataKeyId, journal: DestroyJournal): Promise<boolean>;             // hủy DEK + purge_journal
+  isDestroyed(tx, dataKeyId): Promise<boolean>;
+  blindIndex(value: string): string;                                             // HMAC-SHA256(ID_HASH_KEY), hex
+  keyedHash(purpose: 'child_name', value: string): string;                       // HKDF(ID_HASH_KEY) theo mục đích
+  rewrap(tx, limit?): Promise<number>;                                           // xoay KEK (SR-KEY-05)
+}
+class DataKeyDestroyedError  // DEK đã hủy / không thấy ở cơ sở này → trả 404, không 500
+class DecryptionError        // sai AAD / bị sửa
+```
+
+Cách dùng cho BE-B (`approval_request.refund_account_enc`, SEC F8 / T09):
+
+```ts
+// setRefundDestination – trong uow.run(tx):
+const { dataKeyId, ciphertext } = await this.crypto.seal(tx, {
+  purpose: 'refund_account', subjectId: approvalId,
+  aad: { table: 'approval_request', column: 'refund_account_enc', recordId: approvalId },
+}, accountNumber);
+// lưu refund_account_enc = ciphertext, refund_account_data_key_id = dataKeyId, last4 riêng (C2)
+// getRefundDestination: await this.crypto.decryptText(tx, dataKeyId, sameAad, ciphertext)
+// hoàn xong (T09): await this.crypto.destroy(tx, dataKeyId,
+//   { subjectType: 'approval_request', subjectId: approvalId, policyKey: 'T09' })
+// đổi tài khoản sau khi duyệt: destroy DEK cũ rồi seal mới (một DEK/bản ghi tại một thời điểm)
+```
+
+Quy tắc: không module nào khác đọc bảng `data_key` hay biến `DATA_KEK_*`/`ID_HASH_KEY` (test `test/crypto-boundary.test.ts` quét `src/`); cột chứa bản mã đặt hậu tố `_enc`; không đưa bản rõ/bản mã vào log, audit, outbox, SSE, `idempotency_key.response_body` (dùng `uow.run(..., { storeBody: false })`).
+
+Bản giả cho unit test: `services/api/src/modules/crypto/public/crypto.fake.ts` – `new FakeCryptoService()` (cùng hợp đồng, khóa trong RAM, `journal[]` để kiểm hủy). Không dùng trong api/worker.
+
+**Đã nối sẵn vào cổng BE-A/BE-B khai báo trong lúc chờ** (`crypto/public/port-adapters.ts`, `CryptoModule` export toàn cục):
+- `REFUND_ACCOUNT_CIPHER` (BE-B `payments/public/refund-account-cipher.ts`) → `RefundAccountCipherAdapter` (DEK `refund_account`; AAD chuỗi của BE-B `approval_request|refund_account_enc|<id>|<v>` được đổi sang AAD trường; `destroy` ghi `purge_journal` policy `T09`). `EphemeralRefundCipher` không còn dùng khi chạy api.
+- `FD_CHILD_DATA_PORT` (BE-A `frontdesk/public/ports.ts`) → `ChildDataCipher` (DEK `child_data` mỗi dòng `reservation_guest`, AAD `reservation_guest|child_name_enc|<member id>`, `nameHmac` = `keyedHash('child_name', TÊN|năm sinh)`).
+
+### 2. `C3AccessGate` – `modules/crypto/public/c3-access-gate.ts` (cho `getRefundDestination` của BE-B, mã cửa của BE-A sau này)
+
+```ts
+gate.assertStepUp(principal)          // TRƯỚC uow.run: 401 REAUTH_REQUIRED nếu hết cửa sổ c3_stepup_minutes
+gate.record(tx, principal, { subjectType, subjectId, action, reservationId?, reasonCode?, requestId },
+            { stepUp: true })        // TRONG giao dịch, TRƯỚC khi trả dữ liệu: SR-RL-06 (60/giờ cảnh báo,
+                                      // 200/giờ → 429) + c3_access_log; lỗi ghi log → 503; gia hạn cửa sổ
+noStore(reply)                        // Cache-Control: no-store + Pragma: no-cache (SR-C3-03)
+```
+Cửa sổ step-up mở bằng `POST /v1/me/step-up` (`stepUp`, đã cài trong module `crypto` – trước đây chưa có ai cài). `c3_access_log.subject_type` của BE-B: `refund_account` (BE-B thêm vào CHECK ở 0040).
+
+### 3. `files` – `modules/files/public/*`
+- `attachment.service.ts`: `AttachmentService.assertUsable(tx, actor, attachmentId, purpose, { reservationId? })` → 422 `VALIDATION_FAILED` `errors[{field:'attachmentId', code:'NOT_IN_LIST'}]` khi không tồn tại / khác cơ sở / khác `purpose` / khác đơn / đã xóa / người gọi không thấy; `bindTo(tx, attachmentId, { type, id, retentionAnchorAt? })` gắn tệp vào bản ghi (`payment`, `approval_request`…) và đặt mốc hạn lưu (SEC I5: `deposit_receipt` → thời điểm `reconciled`).
+- `image-pipeline.ts`: `normalizeImage(buffer)` (magic bytes JPEG/PNG/WebP, HEIC → `FILE_TYPE`, ≤ 10 MB, ≤ 40 MP, mã hóa lại bằng sharp, bỏ EXIF/GPS, tối đa 2 ảnh xử lý song song).
+
+### 4. `registration/public/registration.port.ts` (bind `FD_REGISTRATION_PORT` – cài đúng interface `FrontdeskRegistrationPort` của BE-A)
+- `checkinDocumentStatus(tx, reservationId)` → `{ mainGuestDocument, documentCheckBlock, pendingOnlineCheckin, visaExpiresBeforeDeparture, passportExpiresDuringStay }`
+- `deadlinePreview(tx, id, at)`, `onCheckedIn(tx, id, actualCheckinAt)` → hạn BR-602/603, `onCheckInUndone`, `onDepartureChanged` (NN đã khai → `needs_update`), `onRoomChanged` (không đổi khai báo – BR-424), `onPartyChanged` (requiredCount, K9/K13), `onPartyMemberRemoved(tx, id, memberId)` (hủy DEK giấy tờ + ảnh người bị bỏ cùng giao dịch, `confirmed → needs_update`), `onCheckedOut(tx, id, at)` (B18 **và** B16 – G-17: hạn ảnh T02 = `at` + `id_image_retention_days_after_checkout`, NN → `needs_update`, `visa_alert_on` = NULL, mốc lưu `penalty_evidence`), `onReservationVoided` (K11 + xóa ảnh ngay).
+- Module còn tự nghe `ReservationHooks` (`created` → bản ghi `none`; `transitioned` sang `cancelled`/`no_show` → `void`; khôi phục no-show → K12; `stay_changed` → `requiredCount`) – gọi trùng với cổng là vô hại (idempotent).
+
+### 5. `guest-portal/public/guest-access.port.ts`
+- `GuestAccessPort.revokeAllForReservation(tx, reservationId, reason = 'revoked')` → số token thu hồi – mọi token + phiên khách trong cùng giao dịch (B-13); bind `FD_GUEST_ACCESS_PORT` thay `NoGuestAccessPort`.
+
+
+---
+
+## 1. Đã làm gì
+
+| Việc | Nội dung | Mục SEC |
+|---|---|---|
+| **crypto** (ngày 1) | `CryptoService` (AES-256-GCM, nonce 96 bit ngẫu nhiên, AAD `table\|column\|record_id\|kek_version`, DEK/bản ghi trong `data_key`, bọc bằng KEK `DATA_KEK_CURRENT`; xoay khóa `rewrap` với `DATA_KEK_<n>`; `destroy` = crypto-shredding + `purge_journal`; `blindIndex` HMAC `ID_HASH_KEY`); `FakeCryptoService`; `C3AccessGate` (cửa sổ step-up trượt, SR-RL-06 200/giờ → 429, ghi `c3_access_log` trước dữ liệu, lỗi ghi → 503); route `stepUp`; test ranh giới (không module nào khác đọc `data_key`/KEK/crypto internal) | B1 [CHẶN], B3 [CHẶN] |
+| **files** | Một pipeline ảnh (`normalizeImage`: magic bytes JPEG/PNG/WebP, HEIC/PDF/HTML → `FILE_TYPE`, ≤ 10 MB, ≤ 40 MP đọc từ header trước khi giải mã, mã hóa lại bằng sharp, bỏ EXIF/GPS, tối đa 2 ảnh song song, không tệp tạm); `EncryptedBlobService` (DEK riêng mỗi tệp, AAD `<bảng>\|blob\|<id>`, tên ngẫu nhiên, tệp 0600 / thư mục 0700); parser multipart trong bộ nhớ; `uploadAttachment`/`getAttachment` (purpose đóng, vai theo purpose → 403, phạm vi đọc → 404, header I3, 50 tệp/người/ngày → 429); `AttachmentService.assertUsable/bindTo/setRetentionAnchor/purgeDue` (bind sẵn `ATTACHMENT_USAGE` của BE-B) | C1 [CHẶN], C2 [CHẶN], I1–I7 |
+| **registration** | 13 operation (12 của EP06 + `listC3AccessLog`): giấy tờ C3 mã hóa từng cột `_enc` + `doc_number_hmac` + `last4`, ảnh, đối chiếu tự động BR-605/613 (pass/fail/unverified/not_applicable + `blocking`), kiểm tay + ghi chú (chặn ghi lại số giấy tờ bằng blind index), K1–K13, đồng ý P02b (append-only, rút → xóa ngay nếu đã khai), dữ liệu cổng (mỗi lần lấy = 1 dòng `portal_data view`), K6 theo khối (`mixed`), K7 xóa ngay ảnh người không đồng ý/trẻ em, K8, K10, A74 xóa sớm (OWN/MGR), nhật ký C3 (S28) che số; nghe `ReservationHooks` (K1, K11 void + xóa ảnh, K12, `requiredCount`); `RegistrationPortService` bind `FD_REGISTRATION_PORT` của BE-A; J16 `retention.purge` (api + worker) | B2 [CHẶN], B3, B4, C3, C5 [CHẶN], C6, C7, E1 [CHẶN], E3, E4 |
+| **guest-portal** | `issueGuestLink`/`revokeGuestLink`, `openGuestSession` (cookie `ottimo_gsid` HttpOnly/Secure/SameSite=Strict, luôn mức 1), `getGuestStay`, `setGuestLocale`, `get/updateOnlineCheckin`, `uploadGuestDocument` (thay ảnh cũ = hủy DEK cùng giao dịch), `recordGuestConsent` (chỉ Khách 1, `guest_app`, bản thông báo hiện hành), `completeOnlineCheckin` (điều kiện bước + thông báo FD `online_checkin_completed`); guard phiên khách (`GUEST_SESSION_RESOLVER`), unit-of-work idempotency `guest_session`; serializer cắt trường theo `x-guest-level`; **không đăng ký** 5 route ĐK-1; `GuestAccessPort` bind `FD_GUEST_ACCESS_PORT` + nghe hủy/no-show → thu hồi mọi link/phiên | G1, G2, G4 [CHẶN], G5 (Origin), G7, G9 |
+| Migration | `0050_crypto_files_be_c` (data_key, purge_journal, retention_run, attachment, RLS, grant tối thiểu, 3 tham số), `0051_registration_be_c`, `0052_guest_portal_be_c` (+ `guest_resolve_token`, `guest_resolve_session` SECURITY DEFINER, `search_path … pg_temp`); SQL viết tay từ bản nháp drizzle (không thêm snapshot), journal nối cuối, `when` tăng dần | A1, C2 |
+
+### Bảng operation / trạng thái
+
+| Operation | Trạng thái | Ghi chú kiểm |
+|---|---|---|
+| `stepUp` | Xong | mật khẩu (PIN R3 → 422), 401 `REAUTH_FAILED`, 5 sai → 429 (bộ đếm chung PasswordReauth) |
+| `uploadAttachment` | Xong | 6 purpose, vai/purpose → 403 + access.denied, `reservationId` bắt buộc 2 purpose, SAL/CTV chỉ đơn của mình, 50/ngày → 429, idempotency hash theo SHA-256 tệp |
+| `getAttachment` | Xong | header I3, phạm vi theo purpose → 404, đã xóa → 404 |
+| `listRegistrations` | Xong | `view`, con trỏ; tự tạo bản ghi K1 cho đơn cũ (backfill) |
+| `getRegistration` | Xong | JSON che (last4), ETag, `onlineCheckin.arrivalNote` chỉ FD+ (D23) |
+| `addGuestDocument` | Xong | multipart `data` + 0–4 `image`, trusted device, `DOC_NUMBER_INVALID`/`MAIN_GUEST_DUPLICATE`/`ENTRY_DATE_FUTURE`, trùng số → 409 `PARTY_DUPLICATE`, `c3_access_log create`, `confirmed → needs_update` |
+| `updateGuestDocument` | Xong | If-Match (version khai báo), mã hóa lại bằng DEK của giấy tờ, log `update` |
+| `getGuestDocumentSensitive` | Xong | step-up → lý do → log `view` → dữ liệu, `no-store`, 503 khi không ghi được log, 429 SR-RL-06 |
+| `getDocumentImage` | Xong | như trên + header ảnh; ảnh đã xóa → 404 và không có dòng `view` |
+| `purgeRegistrationImages` | Xong | OWN/MGR, If-Match, `reason`, lần 2 → 409 |
+| `recordImageConsent` | Xong | append-only; `refused→granted` sau khai/đã xóa → 409 `CONSENT_CHANGE_NOT_ALLOWED`; trẻ em/không có ảnh → 422 |
+| `completeRegistrationReview` | Xong | thiếu ghi chú → 422 `CHECK_NOTE_REQUIRED`; thiếu người/đồng ý → 409 `REGISTRATION_INCOMPLETE` |
+| `recordDocumentCheck` | Xong | `unverified` cần `manualResult`; `fail` cấm `manualResult`; `pass` → 409; tính lại `blocksDoorCode` |
+| `getPortalData` | Xong | `scanned`/`needs_update`; `mixed` cần `kind`; `label` = khóa `reg.field.*`; `value` + `clipboardText` **tiếng Việt** (enum "Nữ", "Miễn thị thực"), `valueKey` `reg.value.*` cho enum và trường rỗng (đủ 15/8 trường, rỗng = `''`) – ORC 17/10 |
+| `transitionRegistration` | Xong | `mark-sent` (3–64 ký tự, theo khối), `mark-confirmed` (xóa ảnh ngay), `mark-rejected` (V-08/V-09), `mark-updated` |
+| `listC3AccessLog` | Xong | OWN/MGR, lọc ngày/đơn, `subjectLabel` = loại ••last4, `sessionRef` 8 ký tự |
+| `issueGuestLink` | Xong | token 256 bit, DB chỉ SHA-256, không lưu trong idempotency, `no-store` |
+| `revokeGuestLink` | Xong | thu hồi mọi token + phiên |
+| `openGuestSession` | Xong | 10/phút + 100/ngày theo IP, mức 1, `emailOtpAvailable:false`, `level2ExpiresAt:null`, `Referrer-Policy: no-referrer` |
+| `getGuestStay` | Xong | không `guestFullName`/`doorCode`, Wi-Fi từ ngày đến, `mapUrl` chỉ 5 host https, sau trả phòng → 403 `GUEST_STAY_ENDED` |
+| `setGuestLocale` | Xong | cho phép sau trả phòng |
+| `getOnlineCheckin` | Xong | đúng 9 khóa cho phép (ĐK-2) |
+| `updateOnlineCheckin` | Xong | cổng thông báo, `noticeVersion` hiện hành, `lateArrival → 22:00`, `arrivalNote` ≤ 300 + V-09 + bỏ ký tự điều khiển, không vào audit/JSON khách, 20 ghi/ngày → 429, đóng → 409 `ONLINE_CHECKIN_CLOSED` |
+| `uploadGuestDocument` | Xong | HEIC → 422 `FILE_TYPE`, ≤ 4/người, ≤ 30/đơn, thay ảnh cũ (hủy DEK), K2 `none → pre`, log `create` actor `guest` |
+| `recordGuestConsent` | Xong | chỉ `personIndex = 1`, `channel guest_app` |
+| `completeOnlineCheckin` | Xong | thiếu bước → 409 `INVALID_TRANSITION` + `currentState`; `deferredPeople` 1…n không trùng |
+| `sendGuestOtp`, `verifyGuestSession`, `getGuestFolio`, `withdrawGuestConsent`, `issueGuestVerificationCode` | **Không đăng ký** (ĐK-1) | test: cả 5 → 404 |
+| Job J16 `retention.purge` | Xong | tick + chặn 55 phút; T02/T01/attachment SEC I5/phiên khách hết hạn; `retention_run` (`J16`, `T01`, `T02`, `SEC-I5`); bỏ qua `legal_hold` |
+
+## 2. File tạo / sửa
+
+**Tạo (vùng BE-C)**
+- `product/services/api/src/db/migrations/0050_crypto_files_be_c.sql`, `0051_registration_be_c.sql`, `0052_guest_portal_be_c.sql`
+- `product/services/api/src/db/schema/crypto.ts`, `files.ts`, `registration.ts`, `guest-portal.ts`
+- `product/services/api/src/modules/crypto/**` (`crypto.module.ts`; `internal/keyring.ts`, `envelope-crypto.service.ts`, `step-up.controller.ts`; `public/crypto.service.ts`, `crypto.fake.ts`, `c3-access-gate.ts`, `port-adapters.ts`, `factory.ts`)
+- `product/services/api/src/modules/files/**` (`files.module.ts`; `internal/blob-store.ts`, `attachments.controller.ts`; `public/image-pipeline.ts`, `multipart.ts`, `encrypted-blob.service.ts`, `attachment.service.ts`, `factory.ts`)
+- `product/services/api/src/modules/registration/**` (`registration.module.ts`; `internal/rules.ts`, `stay-reader.ts`, `registration.repo.ts`, `registration.service.ts`, `registration.controller.ts`, `c3-log.service.ts`, `retention.service.ts`; `public/registration.port.ts`, `registration.service.ts`, `worker-jobs.ts`)
+- `product/services/api/src/modules/guest-portal/**` (`guest-portal.module.ts`; `internal/guest-session.resolver.ts`, `guest-unit-of-work.ts`, `guest-portal.service.ts`, `guest.controller.ts`, `guest-links.controller.ts`; `public/guest-access.port.ts`)
+- `product/services/api/src/shared/http/guest-session.ts`
+- Test: `product/services/api/test/crypto-units.test.ts`, `crypto-boundary.test.ts`, `registration-rules.test.ts`, `helpers/registration-fixture.ts`, `integration/crypto-envelope.test.ts`, `integration/registration-flow.test.ts`, `integration/guest-portal.test.ts`, `integration/files-attachments.test.ts`, `integration/rbac-sprint3-bec.test.ts`
+
+**Sửa file dùng chung (chỉ thêm, có chú thích)**
+- `src/db/schema/index.ts` (4 dòng export), `src/db/migrations/meta/_journal.json` (3 entry cuối)
+- `src/modules/feature-modules.ts` (tham số `runtimeEnv` + 4 module dưới "Sprint 3 (BE-C)"), `src/main.ts` (truyền `rt.env`), `src/worker.ts` (đăng ký J16)
+- `src/shared/http/auth.guard.ts` (nhánh khách: resolver + Origin guest-web + header điều kiện; `RequestAuth.guest`), `src/shared/serialization/serialize.interceptor.ts` + `serializer.ts` + `src/shared/openapi-types.ts` (vai `guest`, cờ `g` = `x-guest-level`), `scripts/gen-openapi-meta.mjs` (phát cờ `g`) → `src/generated/openapi-schemas.ts` sinh lại
+- `src/http.ts` (content-type parser `multipart/form-data` dạng Buffer, `MULTIPART_BODY_LIMIT` 42 MB)
+- `services/api/package.json` + `product/pnpm-lock.yaml` (thêm `sharp@0.34.5` – SR-FILE-03, ADR-013 điểm 1)
+- `test/helpers/feature-app.ts` (`rawPayload` trong kiểu phản hồi), `test/integration/role-gate-first.test.ts` (bỏ operation khách khỏi vòng "vai cấm → 403": khách không có vai nhân viên, nhân viên gọi → 401 – phủ ở `rbac-sprint3-bec`)
+- `01-decisions/decision-log.md` (8 dòng BE-C S3), file báo cáo này
+
+## 3. Kết quả lệnh (16/10/2026, DB `ottimo_test_bec` tạo mới từ đầu)
+
+| Lệnh | Kết quả |
+|---|---|
+| `pnpm format:check` | All matched files use Prettier code style |
+| `pnpm lint` (eslint . + typecheck 12 gói) | 0 lỗi (2 cảnh báo cũ ở `mockServiceWorker.js`), 12/12 task |
+| `pnpm build` | 6/6 task |
+| `turbo run test --force` toàn repo | 12/12 task; `@ottimo/api` **50 tệp / 2031 test xanh** (gồm BE-A, BE-B) |
+| Test BE-C riêng | unit 47 (crypto + rules + ranh giới), crypto-envelope 6, registration-flow 7, guest-portal 7, files-attachments 5, rbac-sprint3-bec 277 (276 ca rbac-cases.json + ca phủ) |
+| `node scripts/gen-openapi-meta.mjs --check` | up to date |
+| drizzle lệch | `drizzle-kit generate` vào bản sao (journal ≤ 0019) → 44 câu lệnh của 12 bảng BE-C **trùng nguyên văn** với 0050–0052, lệch 0 (không thêm snapshot – quy tắc 4.2-2) |
+| Migration | chạy sạch trên DB mới; `__drizzle_migrations` = số entry journal (test kiến trúc) |
+
+Lưu ý lần chạy giữa chừng trên DB cũ: `payments-s3` (2 ca) và `frontdesk*` lỗi do migration 0030/0040 của BE-A/BE-B đang sửa dở (DB cũ giữ bản cũ của 0030) – chạy lại trên DB tạo mới thì xanh hết.
+
+## 4. Giả định (đã ghi decision-log khi thuộc quyền BE)
+1. `stepUp` cài trong module `crypto` (chưa ai nhận); thứ tự B3 thực tế: thiết bị → **vai** → step-up → phạm vi → lý do → log → dữ liệu (vai sai 403 trước 401 – nhất quán BUG-R2-005).
+2. "Người" của giấy tờ trước khi có bảng party = `guest_document.id`; `recordImageConsent.partyMemberId` nhận id người trong đơn **hoặc** id giấy tờ. FE dùng `documents[].partyMemberId ?? documents[].id`.
+3. Xóa ảnh K7/K11/rút đồng ý/bỏ người làm **ngay trong giao dịch** (không qua outbox), J16 là lưới an toàn hằng giờ.
+4. K11 `void` áp cho `none/pre/partial/review` **và `scanned`** (chưa khai trên cổng); `sent`/`confirmed` không void.
+5. `mixed` bị cổng từ chối (K8): khai lại phải gửi mã **mọi** khối mới hơn lần gửi trước.
+6. `issueGuestLink` gửi lại cùng `Idempotency-Key` → 201 không có link (token chỉ hiện một lần, không lưu vào `idempotency_key`).
+7. Nhãn `PortalData.people[].fields[].label` là khóa i18n `reg.field.*`; giá trị enum đổi sang tiếng Việt lấy từ `design/copy/strings-vi.json` qua `scripts/gen-portal-copy.mjs` → `src/generated/portal-copy.ts` (không rơi về EN; thiếu khóa → generator lỗi; test `--check` + so với strings-vi.json). Ngày vẫn `YYYY-MM-DD`, quốc tịch vẫn mã ISO alpha-3 – INT/DOM xác nhận định dạng cổng thật. Địa chỉ cổng: NN `https://tbltkbtt.bocongan.gov.vn` (BR-606), VN `https://dichvucong.bocongan.gov.vn` – hằng số kỹ thuật.
+8. `guestFirstName`: tên Việt (có chữ chỉ tiếng Việt dùng) lấy từ cuối, tên Latin lấy từ đầu.
+9. Locale đồng ý tại quầy: `vi`/`en` (EP06 4); guest-web chấp nhận cả `ru` (bản thông báo RU là R3).
+
+## 5. Rủi ro / vướng mắc – việc cần vai khác
+| Ai | Việc |
+|---|---|
+| **BE-A** | (a) Cổng đọc đơn: `registration/internal/stay-reader.ts` đang SELECT trực tiếp `reservation`/`guest`/`reservation_segment`/`room` (và `listRegistrations`, `listC3AccessLog` JOIN `reservation`) – đề nghị expose `stayView(tx, id, actor)` trong `reservations/public`, BE-C chuyển sang ngay. (b) `completeOnlineCheckin` **chưa ghi `Reservation.etaTime`** (bảng của BE-A) – cần cổng `setEta(tx, reservationId, eta, late)`; lễ tân vẫn thấy giờ đến ở `Registration.onlineCheckin.etaTime`. (c) Ports của BE-A đã có bản cài thật: `FD_REGISTRATION_PORT`, `FD_GUEST_ACCESS_PORT`, `FD_CHILD_DATA_PORT`. (d) Khi 0030 lên main: BE-C thêm FK `guest_document.party_member_id → reservation_guest` (0053) và FK `reservation_guest.child_data_key_id → data_key` là việc của BE-A. (e) `worker.ts`: BE-C đã thêm đăng ký J16 (2 dòng) – BE-A giữ khi gộp. |
+| **BE-B** | `REFUND_ACCOUNT_CIPHER`, `ATTACHMENT_USAGE` đã bind bản thật; gọi `attachments.setRetentionAnchor(tx, {id, purpose:'deposit_receipt'}, reconciledAt)` (hoặc `bindTo(..., {retentionAnchorAt})`) khi khoản thu `reconciled` để J16 tính 90 ngày (SEC I5). `AttachmentService` lấy `RESERVATION_SALES_PORT` qua `ModuleRef` (tránh vòng phụ thuộc folio ↔ attachment làm Nest treo lúc khởi động). |
+| **ARC** | Xem 3 chỗ sửa file dùng chung: nhánh khách trong `AuthGuard`, cờ `g` (`x-guest-level`) trong generator + serializer, tham số `runtimeEnv` của `featureModules`. Bảng `consent_record` đặt trong migration registration (P05/P06 R3 dùng chung). |
+| **SEC** | Review: HKDF từ `ID_HASH_KEY` cho `child_name`; SR-RL-06 đếm trong `c3_access_log`; thứ tự B3 (mục 4.1); phản hồi khách mức 1 có `guestFirstName`, `roomNo` (đúng ĐK-2). |
+| **OPS** | `BLOBSTORE_LOCAL_PATH` tuyệt đối trên volume riêng (thư mục 0700, **không** mount vào Caddy) – staging/production thiếu sẽ không khởi động; cảnh báo khi không có `retention_run` policy `J16` trong 26 giờ (C6); che `/g/*` trong log Caddy (G4); body Caddy 25 MB (API nhận tối đa 42 MB multipart). `KEK`/`ID_HASH_KEY` qua `*_FILE`. |
+| **FE/MOB** | Lỗi tệp `422 FILE_REJECTED` `errors[].code` ∈ `FILE_TYPE`/`FILE_TOO_LARGE`/`TOO_MANY_FILES`; `401 REAUTH_REQUIRED` → hộp mật khẩu → `POST /v1/me/step-up` → gửi lại; 409 `INVALID_TRANSITION` của guest-web có `currentState` = bước còn thiếu. UXD thêm chuỗi `reg.field.*` (vi/en). |
+| **QA** | Ca E2E L7 có thể bật (endpoint đã có); dùng tham số `privacy_notice_version` (mặc định `privacy-2026-10-v1`). |
+
+## 6. Việc chưa xong (không chặn)
+- Cổng `stayView` / `setEta` chờ BE-A (mục 5).
+- Nhắc hạn khai báo (`registration_reminder_before_minutes`, BR-611 digest) và mục "Cần chú ý" `registration_due/overdue`, `visa_expiring` (nguồn tính `registerAttentionSource` của BE-A) – làm ở đợt sau khi hub `events` ổn định.
+- `rewrap` mới có hàm + test; runbook xoay KEK (SR-KEY-05) là R3 của OPS.
+
+## 7. ESC mới
+Không có.
+
+
+## 8. Bổ sung 17/10 – dữ liệu cổng tiếng Việt (quyết định ORC theo UXD s3 mục 9)
+- Hợp đồng (thêm, tùy chọn – ARC xem): `PortalData.people[].fields[].valueKey` (`^reg\.value\.[a-z_.]+$`) + mô tả `value`/`clipboardText` là chữ tiếng Việt; sinh lại `openapi-meta.ts`, `openapi-schemas.ts`, `packages/api-client/src/generated/openapi.ts`; `openapi-spec-validator` OK, `gen_rbac_cases --check` OK, `gen_traceability --strict` exit 0.
+- Server: `rules.ts` `portalFields()` / `portalClipboard()` (thuần, có test): đủ trường theo thứ tự cổng kể cả trường rỗng (`value: ''`, `valueKey: 'reg.value.empty'` – chữ "Không có – để trống trên cổng" chỉ để hiện, không bao giờ vào clipboard); giới tính/diện nhập cảnh = chữ tiếng Việt + `valueKey`.
+- Nguồn chữ: `services/api/scripts/gen-portal-copy.mjs` → `src/generated/portal-copy.ts` (cùng kiểu `gen-quote-copy.mjs`).
+- Không sửa `registration/internal/stay-reader.ts` (BE-A đang chuyển sang cổng `stayView`).
+- Lệnh: format:check ✓, lint (eslint + typecheck 12 gói) ✓, build 6/6 ✓, `turbo run test --force` 12/12 – api 50 tệp / **2036** test ✓, `gen-openapi-meta --check`, `gen-portal-copy --check`, api-client `gen --check` ✓.

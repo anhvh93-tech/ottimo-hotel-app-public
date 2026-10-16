@@ -1,7 +1,8 @@
-import type { Commission, Reservation, ReservationStatus } from '@ottimo/api-client';
+import type { Commission, Folio, Reservation, ReservationStatus } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { timeHHmm } from '../../app/dates';
@@ -29,6 +30,17 @@ import {
   NoShowDialog,
   RestoreDialog,
 } from './ReservationDialogs';
+import {
+  AddChargeDialog,
+  ChangeRoomDialog,
+  ConfirmTimeDialog,
+  DoorHandedDialog,
+  ExtendDialog,
+  LateCheckoutDialog,
+  PartyDialog,
+  RefundRequestDialog,
+  UndoCheckInDialog,
+} from '../stay/StayDialogs';
 
 type Open =
   | 'cancel'
@@ -40,6 +52,15 @@ type Open =
   | 'restore'
   | 'assign'
   | 'notice'
+  | 'extend_stay'
+  | 'late'
+  | 'change_room'
+  | 'charge'
+  | 'confirm_time'
+  | 'door'
+  | 'undo'
+  | 'party'
+  | 'refund'
   | null;
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -60,8 +81,9 @@ export function ReservationDrawer({
 }) {
   const { t, vnd, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, deviceTrusted } = useSession();
   const { online } = useOnline();
+  const navigate = useNavigate();
   const rules = useRules(propertyId, roles);
   const catalog = useCatalog(propertyId);
   const now = useNow(30_000);
@@ -77,6 +99,21 @@ export function ReservationDrawer({
   );
   const [commission, setCommission] = useState<Commission | null>(null);
   const r = state.data;
+  // Sprint 3: FD+ sees the live folio of a stay (extras, FOC pending, credit → refund request).
+  const [folio, setFolio] = useState<Folio | null>(null);
+  const folioId = fd && r && ['in_house', 'checked_out'].includes(r.status) ? r.folioId : null;
+  const rVersion = r?.version;
+  useEffect(() => {
+    if (!folioId) return;
+    let stale = false;
+    api.getFolio({ propertyId, folioId }).then(
+      (x) => !stale && setFolio(x.data),
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [folioId, propertyId, rVersion]);
 
   const code = r?.code;
   useEffect(() => {
@@ -206,16 +243,41 @@ export function ReservationDrawer({
             : t('drawer.action.restore_no_show')}
         </Button>
       ) : null}
-      {allowed.has('check_in') ? (
-        // Check-in flow (H13) is Sprint 3 – the button is shown so staff see the next step.
-        <Button
-          variant="pri"
-          aria-disabled="true"
-          aria-describedby={`${drawerId}-checkin`}
-          onClick={() => undefined}
-        >
-          {t('drawer.action.check_in')}
+      {allowed.has('undo_check_in') ? (
+        <Button variant="ghost" onClick={() => setOpen('undo')}>
+          {t('drawer.action.undo_checkin')}
         </Button>
+      ) : null}
+      {allowed.has('change_room') ? (
+        <Button onClick={() => setOpen('change_room')}>{t('drawer.action.change_room')}</Button>
+      ) : null}
+      {allowed.has('set_late_checkout') ? (
+        <Button onClick={() => setOpen('late')}>{t('drawer.action.late_checkout')}</Button>
+      ) : null}
+      {allowed.has('extend_stay') ? (
+        <Button onClick={() => setOpen('extend_stay')}>{t('drawer.action.extend')}</Button>
+      ) : null}
+      {allowed.has('check_out') ? (
+        <Button variant="pri" onClick={() => navigate(`/reservations/${r.id}/check-out`)}>
+          {t('drawer.action.check_out')}
+        </Button>
+      ) : null}
+      {allowed.has('check_in') ? (
+        // H13: C3 steps only on a granted device (rbac 8.7) – elsewhere the button explains why.
+        deviceTrusted || !allowed.get('check_in')?.requiresTrustedDevice ? (
+          <Button variant="pri" onClick={() => navigate(`/reservations/${r.id}/check-in`)}>
+            {t('drawer.action.check_in')}
+          </Button>
+        ) : (
+          <Button
+            variant="pri"
+            aria-disabled="true"
+            aria-describedby={`${drawerId}-checkin`}
+            onClick={() => undefined}
+          >
+            {t('drawer.action.check_in')}
+          </Button>
+        )
       ) : null}
     </>
   );
@@ -307,10 +369,10 @@ export function ReservationDrawer({
               {t('noshow.locked', { time: timeHHmm(new Date(r.noShowAvailableFrom)) })}
             </p>
           ) : null}
-          {allowed.has('check_in') ? (
-            <span className="sr-only" id={`${drawerId}-checkin`}>
-              {t('shell.coming_title')}
-            </span>
+          {allowed.has('check_in') && !deviceTrusted ? (
+            <p className="caption mb-8" id={`${drawerId}-checkin`}>
+              {t('device.blocked_title')}
+            </p>
           ) : null}
           <ol className="progress-steps" aria-label={t('drawer.progress.label')}>
             {steps.map((s, i) => (
@@ -354,6 +416,36 @@ export function ReservationDrawer({
             </dd>
           </dl>
 
+          {r.status === 'in_house' && fd ? (
+            <dl className="dl mt-12">
+              <dt>{t('stay.checkout_time')}</dt>
+              <dd>{r.agreedCheckoutTime ?? t('stay.checkout_std', { time: '12:00' })}</dd>
+              <dt>{t('stay.door')}</dt>
+              <dd>
+                {r.doorAccessHandedOverAt ? (
+                  t('checkin.door_handed_over')
+                ) : (
+                  <Chip tone="warn">{t('rsv.door_not_handed')}</Chip>
+                )}
+                <div className="li-s">{t('stay.door_manual')}</div>
+              </dd>
+            </dl>
+          ) : null}
+          {r.status === 'in_house' && fd && online ? (
+            <div className="row wrap mt-8">
+              <Button size="sm" onClick={() => setOpen('charge')}>
+                {t('stay.add_charge')}
+              </Button>
+              <Button size="sm" onClick={() => setOpen('confirm_time')}>
+                {t('today.confirm_time')}
+              </Button>
+              {!r.doorAccessHandedOverAt ? (
+                <Button size="sm" onClick={() => setOpen('door')}>
+                  {t('drawer.action.door_handed_over')}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {r.extraGuestCount ? (
             <div className="amenity mt-12">
               <Icon name="sofa" />
@@ -433,10 +525,53 @@ export function ReservationDrawer({
             </dl>
           ) : null}
 
-          {r.partyMissingCount ? (
+          {folio ? (
+            <>
+              <table className="sum">
+                <tbody>
+                  {folio.lines
+                    .filter((l) => l.category !== 'room')
+                    .map((l) => (
+                      <tr key={l.id} className="sub">
+                        <td>
+                          {l.description}
+                          {l.lineState === 'pending_approval' ? (
+                            <>
+                              {' '}
+                              <Chip tone="warn">{t('approval.status.pending')}</Chip>
+                            </>
+                          ) : null}
+                        </td>
+                        <td className="r">{vnd(l.amountVnd)}</td>
+                      </tr>
+                    ))}
+                  <tr className="total">
+                    <td>{t('drawer.folio.balance')}</td>
+                    <td className="r">
+                      {vnd(folio.totals.balanceDueVnd ?? 0)} {t('common.vnd_unit')}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              {(folio.totals.creditVnd ?? 0) > 0 && online ? (
+                <Button size="sm" onClick={() => setOpen('refund')}>
+                  {t('refund.request_overpayment', { amount: vnd(folio.totals.creditVnd ?? 0) })}
+                </Button>
+              ) : null}
+            </>
+          ) : null}
+
+          {r.partyMissingCount || (fd && ['confirmed', 'in_house'].includes(r.status)) ? (
             <>
               <h3 className="label-h mt-16 mb-4">{t('rsv.party')}</h3>
-              <Alert tone="warn">{t('rsv.party_missing', { n: r.partyMissingCount })}</Alert>
+              {r.partyMissingCount ? (
+                <Alert tone="warn">{t('rsv.party_missing', { n: r.partyMissingCount })}</Alert>
+              ) : null}
+              {fd && online && ['confirmed', 'in_house'].includes(r.status) ? (
+                <Button size="sm" onClick={() => setOpen('party')}>
+                  {t('rsv.add_person')}
+                </Button>
+              ) : null}
             </>
           ) : null}
         </>
@@ -470,6 +605,38 @@ export function ReservationDrawer({
           rooms={catalog.rooms}
           channelLabel={chName}
           lead={roles.some((x) => LEAD_PLUS.includes(x))}
+        />
+      ) : null}
+      {r && open === 'extend_stay' ? (
+        <ExtendDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'late' ? (
+        <LateCheckoutDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'change_room' ? (
+        <ChangeRoomDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'charge' ? (
+        <AddChargeDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'confirm_time' ? (
+        <ConfirmTimeDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'door' ? (
+        <DoorHandedDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'undo' ? (
+        <UndoCheckInDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'party' ? (
+        <PartyDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'refund' && folio ? (
+        <RefundRequestDialog
+          reservation={r}
+          creditVnd={folio.totals.creditVnd ?? 0}
+          onClose={() => setOpen(null)}
+          onDone={done}
         />
       ) : null}
       {base && open === 'notice' ? (

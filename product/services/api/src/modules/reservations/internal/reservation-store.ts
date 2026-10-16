@@ -63,6 +63,13 @@ export interface ReservationRow {
   internal_note: string | null;
   external_contract: boolean;
   manual_long_stay: Record<string, unknown> | null;
+  // 0030 (Sprint 3 front desk)
+  cards_issued: number | null;
+  door_access_handed_over_at: Date | null;
+  checkout_mode: string | null;
+  checkin_room_status_before: string | null;
+  early_departure_notice_at: Date | null;
+  party_version: number;
   created_at: Date;
   created_by: string | null;
   updated_at: Date;
@@ -78,7 +85,9 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   r.total_room_vnd, r.pricing_snapshot, r.cancelled_at, r.cancel_reason_code, r.cancel_note,
   r.status_before_cancel, r.confirmed_at, r.no_show_marked_at, r.reschedule_count, r.actual_checkin_at,
   r.actual_checkout_at, to_char(r.agreed_checkout_time, 'HH24:MI') AS agreed_checkout_time, r.internal_note,
-  r.external_contract, r.manual_long_stay, r.created_at, r.created_by, r.updated_at, r.version`;
+  r.external_contract, r.manual_long_stay, r.cards_issued, r.door_access_handed_over_at, r.checkout_mode,
+  r.checkin_room_status_before, r.early_departure_notice_at, r.party_version, r.created_at, r.created_by,
+  r.updated_at, r.version`;
 
 export interface Actor {
   userId: string;

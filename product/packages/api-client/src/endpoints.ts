@@ -13,6 +13,7 @@ import type {
   Channel,
   Commission,
   ConfirmDepositBody,
+  PaymentCreate,
   CreateHoldBody,
   DepositNoticeBody,
   Locale,
@@ -42,6 +43,60 @@ import type {
   Room,
   RoomGroup,
   RoomPatch,
+  RoomUpdateResult,
+  ApproveBody,
+  ApprovalStatus,
+  AttachmentPurpose,
+  AttachmentResult,
+  AuditEvent,
+  Bill,
+  CashHandoverBody,
+  CashRefundBody,
+  ChangeRoomBody,
+  ChangeRoomPreview,
+  ChargeCatalogItem,
+  CheckInBody,
+  CheckInPreview,
+  CheckOutBody,
+  CheckOutResult,
+  CheckoutConfirmationBody,
+  CheckoutSummary,
+  CompleteReviewBody,
+  ConfirmReceivedBody,
+  ConsentInput,
+  DocumentCheckBody,
+  DocumentCheckCode,
+  ExtendStayBody,
+  ExtendStayResult,
+  ExtensionOptions,
+  FocRequestInput,
+  Folio,
+  FolioLineCreate,
+  GuestDocumentInput,
+  GuestDocumentSensitive,
+  InvoiceRequest,
+  LateCheckoutBody,
+  LateCheckoutResult,
+  MinibarCheck,
+  MinibarCheckInput,
+  MinibarStandard,
+  Party,
+  PartyMemberCreate,
+  Payment,
+  PaymentListItem,
+  PaymentMethod,
+  PortalData,
+  ReconcileBody,
+  RefundDestination,
+  RefundDestinationBody,
+  RefundRequestBody,
+  Registration,
+  RegistrationSummary,
+  RegistrationTransitionBody,
+  RejectBody,
+  TransferRefundBody,
+  VietQrBody,
+  VietQrResult,
   SetParameterBody,
   TrustDeviceBody,
   TrustedDevice,
@@ -52,6 +107,33 @@ import type {
 type P = { propertyId: string };
 type R = P & { reservationId: string };
 type Q = P & { quoteId: string };
+type F = P & { folioId: string };
+type A = P & { approvalId: string };
+type G = P & { registrationId: string };
+type C3Reason = 'registration' | 'recheck' | 'guest_request' | 'authority_request';
+const FOL = '/v1/properties/{propertyId}/folios/{folioId}';
+const APR = '/v1/properties/{propertyId}/approval-requests/{approvalId}';
+const REG = '/v1/properties/{propertyId}/registrations/{registrationId}';
+const PAY = '/v1/properties/{propertyId}/payments/{paymentId}';
+
+export interface ListPaymentsQuery {
+  reconciliation?: 'pending' | 'reconciled' | 'disputed' | 'not_required' | 'any';
+  receivedFrom?: string;
+  receivedTo?: string;
+  recordedBy?: string;
+  recordedByRole?: string;
+  method?: PaymentMethod;
+  cursor?: string;
+  limit?: number;
+}
+export interface ListAuditQuery {
+  category?: AuditEvent['category'];
+  actorUserId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  cursor?: string;
+  limit?: number;
+}
 const RES = '/v1/properties/{propertyId}/reservations/{reservationId}';
 const QUO = '/v1/properties/{propertyId}/quotes/{quoteId}';
 
@@ -90,7 +172,7 @@ export function createEndpoints(api: ApiClient) {
       body: RoomPatch,
       version: number,
     ) =>
-      r<Room>('PATCH', '/v1/properties/{propertyId}/rooms/{roomId}', {
+      r<RoomUpdateResult>('PATCH', '/v1/properties/{propertyId}/rooms/{roomId}', {
         path: { propertyId, roomId },
         body,
         ifMatch: version,
@@ -353,6 +435,429 @@ export function createEndpoints(api: ApiClient) {
         path: { propertyId },
         query: { limit: 100 },
         local: true,
+      }),
+
+    // ---------- Sprint 3: stay (EP03–EP05, OpenAPI 0.3.6) ----------
+    previewCheckIn: ({ propertyId, reservationId }: R, checkinTime?: string) =>
+      r<CheckInPreview>('GET', `${RES}/check-in-preview`, {
+        path: { propertyId, reservationId },
+        query: { checkinTime },
+      }),
+    /** 200 = Reservation; 202 = ApprovalRequest `checkin_room_not_ready` (FD sent roomNotReadyOverride). */
+    checkIn: ({ propertyId, reservationId }: R, body: CheckInBody, version: number, idem: string) =>
+      r<Reservation | ApprovalRequest>('POST', `${RES}/actions/check-in`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    undoCheckIn: (
+      { propertyId, reservationId }: R,
+      reason: string,
+      version: number,
+      idem: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/undo-check-in`, {
+        path: { propertyId, reservationId },
+        body: { reason } satisfies BodyOf<'undoCheckIn'>,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    getExtensionOptions: ({ propertyId, reservationId }: R) =>
+      r<ExtensionOptions>('GET', `${RES}/extension-options`, {
+        path: { propertyId, reservationId },
+      }),
+    extendStay: (
+      { propertyId, reservationId }: R,
+      body: ExtendStayBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<ExtendStayResult>('POST', `${RES}/actions/extend`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    /** `dryRun=true` → read-only preview (no key / If-Match, SEC A3); 202 = approval request (FD + conflict). */
+    setLateCheckout: (
+      { propertyId, reservationId }: R,
+      body: LateCheckoutBody,
+      version?: number,
+      idem?: string,
+    ) =>
+      r<LateCheckoutResult | ApprovalRequest>('POST', `${RES}/actions/late-checkout`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: body.dryRun ? undefined : version,
+        idempotencyKey: body.dryRun ? undefined : idem,
+        local: body.dryRun,
+      }),
+    previewChangeRoom: ({ propertyId, reservationId }: R, body: ChangeRoomBody) =>
+      r<ChangeRoomPreview>('POST', `${RES}/actions/change-room`, {
+        path: { propertyId, reservationId },
+        body: { ...body, dryRun: true },
+        local: true,
+      }),
+    changeRoom: (
+      { propertyId, reservationId }: R,
+      body: ChangeRoomBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/change-room`, {
+        path: { propertyId, reservationId },
+        body: { ...body, dryRun: false },
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    listCheckoutReminders: ({ propertyId, reservationId }: R) =>
+      r<ResponseOf<'listCheckoutReminders'>>('GET', `${RES}/checkout-confirmations`, {
+        path: { propertyId, reservationId },
+      }),
+    recordCheckoutConfirmation: (
+      { propertyId, reservationId }: R,
+      body: CheckoutConfirmationBody,
+      idem: string,
+    ) =>
+      r<ResponseOf<'recordCheckoutConfirmation'>>('POST', `${RES}/checkout-confirmations`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey: idem,
+      }),
+    getCheckoutSummary: ({ propertyId, reservationId }: R, checkoutTime?: string) =>
+      r<CheckoutSummary>('GET', `${RES}/checkout-summary`, {
+        path: { propertyId, reservationId },
+        query: { checkoutTime },
+      }),
+    checkOut: (
+      { propertyId, reservationId }: R,
+      body: CheckOutBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<CheckOutResult>('POST', `${RES}/actions/check-out`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    listParty: ({ propertyId, reservationId }: R) =>
+      r<Party>('GET', `${RES}/party`, { path: { propertyId, reservationId } }),
+    addPartyMember: ({ propertyId, reservationId }: R, body: PartyMemberCreate, idem?: string) =>
+      r<Party>('POST', `${RES}/party`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey: body.dryRun ? undefined : idem,
+        local: body.dryRun,
+      }),
+    removePartyMember: (
+      { propertyId, reservationId }: R,
+      memberId: string,
+      version: number,
+      idem: string,
+    ) =>
+      r<void>('DELETE', `${RES}/party/{memberId}`, {
+        path: { propertyId, reservationId, memberId },
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    getMinibarStandard: ({ propertyId, reservationId }: R) =>
+      r<MinibarStandard>('GET', `${RES}/minibar-standard`, { path: { propertyId, reservationId } }),
+    recordMinibarCheck: ({ propertyId, reservationId }: R, body: MinibarCheckInput, idem: string) =>
+      r<MinibarCheck>('POST', `${RES}/minibar-checks`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey: idem,
+      }),
+
+    // ---------- folio, payments, bill (EP05/EP15) ----------
+    getFolio: ({ propertyId, folioId }: F) =>
+      r<Folio>('GET', FOL, { path: { propertyId, folioId } }),
+    getChargeCatalog: ({ propertyId }: P) =>
+      r<{ data: ChargeCatalogItem[] }>('GET', '/v1/properties/{propertyId}/charge-catalog', {
+        path: { propertyId },
+      }),
+    addFolioLine: ({ propertyId, folioId }: F, body: FolioLineCreate, idem: string) =>
+      r<Folio>('POST', `${FOL}/lines`, {
+        path: { propertyId, folioId },
+        body,
+        idempotencyKey: idem,
+      }),
+    requestFoc: ({ propertyId, folioId }: F, lineId: string, body: FocRequestInput, idem: string) =>
+      r<ApprovalRequest>('POST', `${FOL}/lines/{lineId}/foc`, {
+        path: { propertyId, folioId, lineId },
+        body,
+        idempotencyKey: idem,
+      }),
+    recordPayment: ({ propertyId, folioId }: F, body: PaymentCreate, idem: string) =>
+      r<Payment>('POST', `${FOL}/payments`, {
+        path: { propertyId, folioId },
+        body,
+        idempotencyKey: idem,
+      }),
+    createVietQr: ({ propertyId, folioId }: F, body: VietQrBody, idem: string) =>
+      r<VietQrResult>('POST', `${FOL}/vietqr`, {
+        path: { propertyId, folioId },
+        body,
+        idempotencyKey: idem,
+      }),
+    createRefundRequest: ({ propertyId, folioId }: F, body: RefundRequestBody, idem: string) =>
+      r<ApprovalRequest>('POST', `${FOL}/refund-requests`, {
+        path: { propertyId, folioId },
+        body,
+        idempotencyKey: idem,
+      }),
+    setInvoiceRequest: ({ propertyId, folioId }: F, body: InvoiceRequest) =>
+      r<InvoiceRequest>('PUT', `${FOL}/invoice-request`, { path: { propertyId, folioId }, body }),
+    getBill: ({ propertyId, folioId }: F) =>
+      r<Bill>('GET', `${FOL}/bill`, { path: { propertyId, folioId } }),
+    listPayments: ({ propertyId }: P, query: ListPaymentsQuery = {}) =>
+      r<Paged<PaymentListItem>>('GET', '/v1/properties/{propertyId}/payments', {
+        path: { propertyId },
+        query: { limit: 100, ...query },
+      }),
+    confirmPaymentReceived: (
+      { propertyId }: P,
+      paymentId: string,
+      body: ConfirmReceivedBody,
+      idem: string,
+    ) =>
+      r<Payment>('POST', `${PAY}/actions/confirm-received`, {
+        path: { propertyId, paymentId },
+        body,
+        idempotencyKey: idem,
+      }),
+    reconcilePayment: (
+      { propertyId }: P,
+      paymentId: string,
+      body: ReconcileBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Payment>('POST', `${PAY}/actions/reconcile`, {
+        path: { propertyId, paymentId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    confirmCashHandover: (
+      { propertyId }: P,
+      paymentId: string,
+      body: CashHandoverBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Payment>('POST', `${PAY}/actions/confirm-cash-handover`, {
+        path: { propertyId, paymentId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    reversePayment: ({ propertyId }: P, paymentId: string, reason: string, idem: string) =>
+      r<Payment>('POST', `${PAY}/actions/reverse`, {
+        path: { propertyId, paymentId },
+        body: { reason } satisfies BodyOf<'reversePayment'>,
+        idempotencyKey: idem,
+      }),
+    /** multipart upload (penalty evidence, receipts, refund proof) – the file never goes to storage. */
+    uploadAttachment: (
+      { propertyId }: P,
+      file: Blob,
+      purpose: AttachmentPurpose,
+      idem: string,
+      reservationId?: string,
+    ) => {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('purpose', purpose);
+      if (reservationId) form.append('reservationId', reservationId);
+      return r<AttachmentResult>('POST', '/v1/properties/{propertyId}/attachments', {
+        path: { propertyId },
+        form,
+        idempotencyKey: idem,
+      });
+    },
+
+    // ---------- approvals, refunds (SM-10, rbac A43/A47/A47a) ----------
+    listApprovalRequests: ({ propertyId }: P, status?: ApprovalStatus) =>
+      r<Paged<ApprovalRequest>>('GET', '/v1/properties/{propertyId}/approval-requests', {
+        path: { propertyId },
+        query: { status, limit: 100 },
+      }),
+    approveRequest: ({ propertyId, approvalId }: A, body: ApproveBody, idem: string) =>
+      r<ApprovalRequest>('POST', `${APR}/actions/approve`, {
+        path: { propertyId, approvalId },
+        body,
+        idempotencyKey: idem,
+        local: true,
+      }),
+    rejectRequest: ({ propertyId, approvalId }: A, body: RejectBody, idem: string) =>
+      r<ApprovalRequest>('POST', `${APR}/actions/reject`, {
+        path: { propertyId, approvalId },
+        body,
+        idempotencyKey: idem,
+        local: true,
+      }),
+    cancelRequest: ({ propertyId, approvalId }: A, idem: string) =>
+      r<ApprovalRequest>('POST', `${APR}/actions/cancel`, {
+        path: { propertyId, approvalId },
+        idempotencyKey: idem,
+      }),
+    setRefundDestination: (
+      { propertyId, approvalId }: A,
+      body: RefundDestinationBody,
+      idem: string,
+    ) =>
+      r<ApprovalRequest>('PUT', `${APR}/refund-destination`, {
+        path: { propertyId, approvalId },
+        body,
+        idempotencyKey: idem,
+      }),
+    getRefundDestination: ({ propertyId, approvalId }: A) =>
+      r<RefundDestination>('GET', `${APR}/refund-destination`, {
+        path: { propertyId, approvalId },
+        local: true,
+      }),
+    /** A47a – cash at the desk (FD+, payer ≠ requester, signed receipt photo required). */
+    executeCashRefund: ({ propertyId, approvalId }: A, body: CashRefundBody, idem: string) =>
+      r<Payment>('POST', `${APR}/actions/execute-cash-refund`, {
+        path: { propertyId, approvalId },
+        body,
+        idempotencyKey: idem,
+      }),
+    /** A47 – bank transfer / original method (OWN/MGR only). */
+    executeRefund: ({ propertyId, approvalId }: A, body: TransferRefundBody, idem: string) =>
+      r<Payment>('POST', `${APR}/actions/execute-refund`, {
+        path: { propertyId, approvalId },
+        body,
+        idempotencyKey: idem,
+      }),
+    listAuditEvents: ({ propertyId }: P, query: ListAuditQuery = {}) =>
+      r<Paged<AuditEvent>>('GET', '/v1/properties/{propertyId}/audit-events', {
+        path: { propertyId },
+        query: { limit: 100, ...query },
+      }),
+    /** Step-up for C3 reads (SR-C3-09): password re-entry, valid `c3_stepup_minutes`. */
+    stepUp: (password: string) =>
+      r<{ validUntil: string }>('POST', '/v1/me/step-up', { body: { password }, local: true }),
+
+    // ---------- registration (EP06 – C3, trusted device only) ----------
+    listRegistrations: ({ propertyId }: P, view: 'action_needed' | 'needs_update' | 'all') =>
+      r<Paged<RegistrationSummary>>('GET', '/v1/properties/{propertyId}/registrations', {
+        path: { propertyId },
+        query: { view, limit: 100 },
+      }),
+    getRegistration: ({ propertyId, registrationId }: G) =>
+      r<Registration>('GET', REG, { path: { propertyId, registrationId } }),
+    addGuestDocument: (
+      { propertyId, registrationId }: G,
+      data: GuestDocumentInput,
+      images: Blob[],
+      idem: string,
+    ) => {
+      const form = new FormData();
+      form.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+      for (const img of images) form.append('image', img);
+      return r<Registration>('POST', `${REG}/documents`, {
+        path: { propertyId, registrationId },
+        form,
+        idempotencyKey: idem,
+      });
+    },
+    updateGuestDocument: (
+      { propertyId, registrationId }: G,
+      documentId: string,
+      body: GuestDocumentInput,
+      version: number,
+    ) =>
+      r<Registration>('PATCH', `${REG}/documents/{documentId}`, {
+        path: { propertyId, registrationId, documentId },
+        body,
+        ifMatch: version,
+      }),
+    getGuestDocumentSensitive: (
+      { propertyId, registrationId }: G,
+      documentId: string,
+      reason?: C3Reason,
+    ) =>
+      r<GuestDocumentSensitive>('GET', `${REG}/documents/{documentId}/sensitive`, {
+        path: { propertyId, registrationId, documentId },
+        query: { reason },
+        local: true,
+      }),
+    getDocumentImage: (
+      { propertyId, registrationId }: G,
+      documentId: string,
+      imageId: string,
+      reason?: C3Reason,
+    ) =>
+      r<Blob>('GET', `${REG}/documents/{documentId}/images/{imageId}`, {
+        path: { propertyId, registrationId, documentId, imageId },
+        query: { reason },
+        blob: true,
+        local: true,
+      }),
+    recordDocumentCheck: (
+      { propertyId, registrationId }: G,
+      documentId: string,
+      checkCode: DocumentCheckCode,
+      body: DocumentCheckBody,
+      version: number,
+    ) =>
+      r<Registration>('PUT', `${REG}/documents/{documentId}/checks/{checkCode}`, {
+        path: { propertyId, registrationId, documentId, checkCode },
+        body,
+        ifMatch: version,
+      }),
+    recordImageConsent: ({ propertyId, registrationId }: G, body: ConsentInput, idem: string) =>
+      r<Registration>('POST', `${REG}/consents`, {
+        path: { propertyId, registrationId },
+        body,
+        idempotencyKey: idem,
+      }),
+    completeRegistrationReview: (
+      { propertyId, registrationId }: G,
+      body: CompleteReviewBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Registration>('POST', `${REG}/actions/complete-review`, {
+        path: { propertyId, registrationId },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    getPortalData: ({ propertyId, registrationId }: G, kind?: PortalData['kind']) =>
+      r<PortalData>('GET', `${REG}/portal-data`, {
+        path: { propertyId, registrationId },
+        query: { kind },
+        local: true,
+      }),
+    transitionRegistration: (
+      { propertyId, registrationId }: G,
+      transition: 'mark-sent' | 'mark-confirmed' | 'mark-rejected' | 'mark-updated',
+      body: RegistrationTransitionBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Registration>('POST', `${REG}/actions/{transition}`, {
+        path: { propertyId, registrationId, transition },
+        body,
+        ifMatch: version,
+        idempotencyKey: idem,
+      }),
+    purgeRegistrationImages: (
+      { propertyId, registrationId }: G,
+      reason: 'guest_request' | 'consent_withdrawn',
+      version: number,
+      idem: string,
+    ) =>
+      r<void>('DELETE', `${REG}/images`, {
+        path: { propertyId, registrationId },
+        query: { reason },
+        ifMatch: version,
+        idempotencyKey: idem,
       }),
 
     // users & devices (S26, owner only)

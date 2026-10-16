@@ -110,6 +110,11 @@ export const reservation = pgTable(
     holdExpiresAt: instant('hold_expires_at'),
     holdExtendedCount: smallint('hold_extended_count').notNull().default(0),
     depositRequiredVnd: bigint('deposit_required_vnd', { mode: 'number' }).notNull().default(0),
+    // 0040 (BE-B, B-29 / DOM BE-11): MGR+ accepted a short deposit at B4 (confirmDeposit.acceptShortfallReason).
+    depositShortfallVnd: bigint('deposit_shortfall_vnd', { mode: 'number' }),
+    depositShortfallAcceptedAt: instant('deposit_shortfall_accepted_at'),
+    depositShortfallAcceptedBy: uuid('deposit_shortfall_accepted_by'),
+    depositShortfallReason: text('deposit_shortfall_reason'),
     totalRoomVnd: bigint('total_room_vnd', { mode: 'number' }).notNull().default(0),
     pricingSnapshot: jsonb('pricing_snapshot').notNull(),
     cancelledAt: instant('cancelled_at'),
@@ -129,6 +134,24 @@ export const reservation = pgTable(
     internalNote: text('internal_note'),
     externalContract: boolean('external_contract').notNull().default(false),
     manualLongStay: jsonb('manual_long_stay'),
+    // 0030 (BE-A Sprint 3, erd 0.3.3/0.3.6): check-in / stay / check-out facts (EP03-05). No door code here.
+    cardsIssued: smallint('cards_issued'),
+    houseRulesSentAt: instant('house_rules_sent_at'),
+    houseRulesSentBy: uuid('house_rules_sent_by'),
+    checkinDocumentOverrideReason: text('checkin_document_override_reason'),
+    checkinDocumentOverrideBy: uuid('checkin_document_override_by'),
+    checkinRoomOverrideReason: text('checkin_room_override_reason'),
+    checkinRoomOverrideBy: uuid('checkin_room_override_by'),
+    checkinRoomStatusBefore: text('checkin_room_status_before'),
+    doorAccessHandedOverAt: instant('door_access_handed_over_at'),
+    doorAccessHandedOverBy: uuid('door_access_handed_over_by'),
+    checkoutMode: text('checkout_mode'),
+    debtDueDate: date('debt_due_date', { mode: 'string' }),
+    debtReason: text('debt_reason'),
+    earlyDepartureNoticeAt: instant('early_departure_notice_at'),
+    // B15 conflict sent for approval (late_checkout_conflict): applied as agreed_checkout_time when approved.
+    lateCheckoutRequestedTime: time('late_checkout_requested_time'),
+    partyVersion: integer('party_version').notNull().default(1),
     ...auditColumns(),
   },
   (t) => [
@@ -198,7 +221,40 @@ export const reservation = pgTable(
       'reservation_external_contract_check',
       sql`NOT ${t.externalContract} OR ${t.stayType} = 'long'`,
     ),
+    check(
+      'reservation_deposit_shortfall_check',
+      sql`(${t.depositShortfallAcceptedAt} IS NULL AND ${t.depositShortfallVnd} IS NULL AND ${t.depositShortfallAcceptedBy} IS NULL AND ${t.depositShortfallReason} IS NULL) OR (${t.depositShortfallAcceptedAt} IS NOT NULL AND ${t.depositShortfallVnd} > 0 AND ${t.depositShortfallAcceptedBy} IS NOT NULL AND char_length(${t.depositShortfallReason}) BETWEEN 3 AND 500)`,
+    ),
     check('reservation_money_check', sql`${t.depositRequiredVnd} >= 0 AND ${t.totalRoomVnd} >= 0`),
+    check(
+      'reservation_cards_issued_check',
+      sql`${t.cardsIssued} IS NULL OR ${t.cardsIssued} BETWEEN 0 AND 2`,
+    ),
+    check(
+      'reservation_checkout_mode_check',
+      sql`${t.checkoutMode} IS NULL OR ${t.checkoutMode} IN ('desk', 'self_service', 'debt')`,
+    ),
+    check(
+      'reservation_debt_check',
+      sql`(${t.debtDueDate} IS NULL AND ${t.debtReason} IS NULL) OR (${t.checkoutMode} = 'debt' AND ${t.debtDueDate} IS NOT NULL AND ${t.debtReason} IS NOT NULL)`,
+    ),
+    check(
+      'reservation_room_status_before_check',
+      sql`${t.checkinRoomStatusBefore} IS NULL OR ${t.checkinRoomStatusBefore} IN ('VC', 'VI', 'VD', 'CL', 'OC', 'OD', 'OOO')`,
+    ),
+    foreignKey({
+      name: 'reservation_door_access_by_fk',
+      columns: [t.organizationId, t.doorAccessHandedOverBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'reservation_house_rules_by_fk',
+      columns: [t.organizationId, t.houseRulesSentBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    index('reservation_parent_idx')
+      .on(t.propertyId, t.parentReservationId)
+      .where(sql`${t.parentReservationId} IS NOT NULL`),
     uniqueIndex('reservation_ota_ref_uk')
       .on(t.propertyId, t.channelId, t.otaRef)
       .where(sql`${t.otaRef} IS NOT NULL AND ${t.status} <> 'cancelled'`),

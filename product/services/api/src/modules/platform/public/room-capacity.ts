@@ -26,4 +26,15 @@ export interface RoomCapacityCheck {
     newMaxOccupancy: number,
     fromDate: LocalDate,
   ): Promise<CapacityConflict[]>;
+  /**
+   * A-39 (ĐK-S2-2): bookings that still keep the room (a night ≥ `fromDate`, confirmed / in house / live
+   * hold) – warning `FUTURE_RESERVATIONS_KEEP_ROOM` when the room stops being sold (never blocks).
+   */
+  futureReservationCount(tx: Tx, roomId: string, fromDate: LocalDate): Promise<number>;
+}
+
+/** OpenAPI 0.3.6 A-39: `updateRoom` 200 = Room + warnings[] (empty when none). */
+export interface RoomWarning {
+  code: 'FUTURE_RESERVATIONS_KEEP_ROOM';
+  count: number;
 }

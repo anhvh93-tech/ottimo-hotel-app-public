@@ -10,7 +10,7 @@ import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
-import { optionalText } from '../../../shared/validation';
+import { optionalText, requireReason } from '../../../shared/validation';
 import { parseBody } from '../../platform/public/validation';
 import { rejectDryRun } from '../../../shared/http/dry-run';
 import { type DepositPaymentInput, DepositsService } from './deposits.service';
@@ -38,6 +38,7 @@ const paymentCreate = z.object({
 const confirmSchema = z.object({
   payment: paymentCreate.optional(),
   existingPaymentId: z.string().regex(UUID).optional(),
+  acceptShortfallReason: z.string().max(500).optional(),
 });
 
 const noticeSchema = z.object({
@@ -79,7 +80,8 @@ export function depositPayment(raw: z.infer<typeof paymentCreate>): DepositPayme
   if (raw.billingPeriodId !== undefined) {
     errors.push({ field: 'payment.billingPeriodId', code: 'NOT_IN_LIST' });
   }
-  if (raw.attachmentId !== undefined) {
+  // 0.3.6: receipt image allowed (A-17 lifted) – checked against the attachment store in the use case.
+  if (raw.attachmentId !== undefined && !UUID.test(raw.attachmentId)) {
     errors.push({ field: 'payment.attachmentId', code: 'NOT_IN_LIST' });
   }
   if (errors.length) throw problem('VALIDATION_FAILED', { errors });
@@ -89,6 +91,7 @@ export function depositPayment(raw: z.infer<typeof paymentCreate>): DepositPayme
     receivedAt,
     posAuthCode: auth,
     note: optionalText('payment.note', raw.note, 300),
+    attachmentId: raw.attachmentId ?? null,
   };
 }
 
@@ -114,6 +117,10 @@ export class DepositsController {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'payment', code: 'REQUIRED' }] });
     }
     const payment = input.payment ? depositPayment(input.payment) : null;
+    const acceptShortfallReason =
+      input.acceptShortfallReason === undefined
+        ? null
+        : requireReason('acceptShortfallReason', input.acceptShortfallReason);
     const version = expectedVersion(req);
     const p = principal(req);
     const result = await this.uow.run(req, async (tx) => {
@@ -122,7 +129,7 @@ export class DepositsController {
         { userId: p.userId, roles: p.roles },
         reservationId,
         version,
-        { payment, existingPaymentId: input.existingPaymentId ?? null },
+        { payment, existingPaymentId: input.existingPaymentId ?? null, acceptShortfallReason },
         req.id,
       );
       return { status: 200, body: out.body };
@@ -144,9 +151,10 @@ export class DepositsController {
     const input = parseBody(noticeSchema, body);
     const errors: FieldError[] = [];
     if (input.amountVnd <= 0) errors.push({ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' });
-    // Receipt images need uploadAttachment (registration/attachments, Sprint 3) – refused until then.
-    if (input.attachmentId !== undefined)
+    // 0.3.6: receipt image allowed (A-17 lifted) – checked against the attachment store in the use case.
+    if (input.attachmentId !== undefined && !UUID.test(input.attachmentId)) {
       errors.push({ field: 'attachmentId', code: 'NOT_IN_LIST' });
+    }
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     const note = optionalText('note', input.note, 500);
     const p = principal(req);
@@ -155,7 +163,7 @@ export class DepositsController {
         tx,
         { userId: p.userId, roles: p.roles },
         reservationId,
-        { amountVnd: input.amountVnd, note },
+        { amountVnd: input.amountVnd, note, attachmentId: input.attachmentId ?? null },
         req.id,
       );
       return { status: 202, body: null };

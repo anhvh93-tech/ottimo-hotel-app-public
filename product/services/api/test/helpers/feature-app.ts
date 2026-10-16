@@ -5,7 +5,7 @@
  */
 import 'reflect-metadata';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { hash } from '@node-rs/argon2';
 import { randomUUID } from 'node:crypto';
 import { AppModule } from '../../src/app.module';
@@ -22,6 +22,8 @@ export interface LightMyRequestResponse {
   statusCode: number;
   headers: Record<string, string | string[] | number | undefined>;
   body: string;
+  /** Raw bytes (binary responses: images). */
+  rawPayload: Buffer;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   json(): any;
 }
@@ -37,11 +39,16 @@ export interface FeatureApp {
 
 export async function startFeatureApp(
   db: Database,
-  opts: { adminOrigins?: string[]; pwaOrigins?: string[] } = {},
+  opts: {
+    adminOrigins?: string[];
+    pwaOrigins?: string[];
+    /** Replace providers (ports of other zones in BE-A Sprint 3 tests – e.g. FrontdeskPorts). */
+    override?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+  } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
   const staffOrigins = [...(opts.adminOrigins ?? []), ...(opts.pwaOrigins ?? [])];
-  const moduleRef = await Test.createTestingModule({
+  const builder = Test.createTestingModule({
     imports: [
       AppModule.register({
         clock,
@@ -60,7 +67,8 @@ export async function startFeatureApp(
         }),
       }),
     ],
-  }).compile();
+  });
+  const moduleRef = await (opts.override ? opts.override(builder) : builder).compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     createHttpAdapter({ logLevel: 'silent', trustProxy: false }),
   );

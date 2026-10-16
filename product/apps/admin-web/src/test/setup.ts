@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { loadLocale } from '@ottimo/i18n';
 import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { clearClientData } from '../app/clientData';
@@ -12,11 +13,16 @@ configure({ asyncUtilTimeout: 5_000 });
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
+  // EN is a lazy chunk in the app; tests that read EN strings get it up front.
+  await loadLocale('en');
   // Warm the lazy route chunks so no single test carries the module-transform cost.
   await Promise.all([
     import('../pages/rack/RackPage'),
     import('../pages/reservations/ReservationsPage'),
     import('../pages/quotes/QuotesPage'),
+    import('../pages/registration/RegistrationPage'),
+    import('../pages/approvals/ApprovalsPage'),
+    import('../pages/money/MoneyPage'),
   ]);
 }, 30_000);
 beforeEach(() => {

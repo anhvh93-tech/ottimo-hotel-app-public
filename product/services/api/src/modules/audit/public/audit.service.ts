@@ -37,7 +37,9 @@ export interface C3AccessEntry {
     | 'door_credential'
     | 'payee_account'
     | 'portal_data'
-    | 'mfa_secret';
+    | 'mfa_secret'
+    // 0.3.6 (BE-B, SEC F8): refund destination account (D15).
+    | 'refund_account';
   subjectId: string;
   action: 'view' | 'create' | 'update' | 'copy' | 'delete' | 'purge';
   reservationId?: string;

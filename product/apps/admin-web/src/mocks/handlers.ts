@@ -6,6 +6,7 @@ import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'ms
 import { todayLocal } from '../app/dates';
 import { nameSearchKey, normalizePhone } from '../app/validation';
 import { createReservationMock } from './reservations';
+import { createStayMock } from './stay';
 import {
   BOOKED_GUESTS,
   MOCK_PASSWORD,
@@ -62,11 +63,20 @@ const reservations = createReservationMock({
   summary: (g, roles) => summary(g, roles),
 });
 
+// Sprint 3 (EP03–EP06, EP15) – reads the EP02 reservations through the same helpers.
+const stay = createStayMock({
+  guard: (request, allowed, opts) => guard(request, allowed, opts),
+  problem: (status, code, extra, headers) => problem(status, code, extra, headers),
+  db: () => db,
+  rsv: () => reservations,
+});
+
 /** Reset state between tests / from the browser console (`__ottimoMock.reset()`). */
 export const mockControl = {
   reset() {
     db = makeDb();
     reservations.reset();
+    stay.reset();
     persist();
   },
   failNext(
@@ -86,6 +96,10 @@ export const mockControl = {
   /** EP02 mock state (reservations, quotes, blocks…) for tests. */
   get rsv() {
     return reservations.state;
+  },
+  /** Sprint 3 mock state (folios, payments, approvals, registrations…) for tests. */
+  get stay() {
+    return stay.state;
   },
 };
 
@@ -318,6 +332,7 @@ export type MockDb = ReturnType<typeof makeDb>;
 export type MockSummary = typeof summary;
 
 export const handlers = [
+  ...stay.handlers,
   ...reservations.handlers,
   // ---------- auth (S01) ----------
   http.post(`${base}/auth/login`, async ({ request }) => {
@@ -424,7 +439,18 @@ export const handlers = [
         nightlyListPriceVnd: Math.round(m / 12 / 1000) * 1000,
       };
     }
-    return HttpResponse.json(room, { headers: { etag: `"${room.version}"` } });
+    // 0.3.6 A-39: stop-sale is not blocked by future bookings – it warns with their count.
+    const keep =
+      body.isSellable === false
+        ? reservations.state.reservations.filter(
+            (r) =>
+              r.roomId === room.id &&
+              ['hold', 'confirmed', 'in_house'].includes(r.status) &&
+              r.departureDate > todayLocal(),
+          ).length
+        : 0;
+    const warnings = keep ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }] : [];
+    return HttpResponse.json({ ...room, warnings }, { headers: { etag: `"${room.version}"` } });
   }),
 
   // ---------- parameters (S24) ----------

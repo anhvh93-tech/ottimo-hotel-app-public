@@ -82,6 +82,15 @@ export const approvalRequest = pgTable(
     decidedAt: instant('decided_at'),
     decisionNote: text('decision_note'),
     escalatedAt: instant('escalated_at'),
+    // 0040 (BE-B Sprint 3, OpenAPI 0.3.6 A-33): refund destination – method, masked parts, the C3 envelope
+    // (refund_account_enc + CryptoService key id), who set it; amount paid out so far (≤ amount_vnd).
+    refundMethod: text('refund_method'),
+    refundBankBin: text('refund_bank_bin'),
+    refundAccountLast4: text('refund_account_last4'),
+    refundAccountKeyId: uuid('refund_account_key_id'),
+    refundDestinationSetAt: instant('refund_destination_set_at'),
+    refundDestinationSetBy: uuid('refund_destination_set_by'),
+    refundedVnd: bigint('refunded_vnd', { mode: 'number' }).notNull().default(0),
     ...auditColumns(),
   },
   (t) => [
@@ -131,6 +140,32 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_decided_check',
       sql`${t.status} NOT IN ('approved', 'rejected') OR (${t.approverId} IS NOT NULL AND ${t.decidedAt} IS NOT NULL)`,
+    ),
+    // 0040 (BE-B): refund rows of `payment` point at (id, requested_by) – SEC F8 payer ≠ requester.
+    unique('approval_request_requester_key').on(t.propertyId, t.id, t.requestedBy),
+    check(
+      'approval_request_refund_method_check',
+      sql`${t.refundMethod} IS NULL OR (${t.type} = 'refund' AND ${t.refundMethod} IN ('cash', 'bank_transfer', 'original_method'))`,
+    ),
+    check(
+      'approval_request_refund_account_check',
+      sql`(${t.refundMethod} = 'bank_transfer') OR (${t.refundAccountEnc} IS NULL AND ${t.refundAccountLast4} IS NULL)`,
+    ),
+    check(
+      'approval_request_refund_last4_check',
+      sql`${t.refundAccountLast4} IS NULL OR ${t.refundAccountLast4} ~ '^[0-9]{4}$'`,
+    ),
+    check(
+      'approval_request_refund_bin_check',
+      sql`${t.refundBankBin} IS NULL OR ${t.refundBankBin} ~ '^[0-9]{6}$'`,
+    ),
+    check(
+      'approval_request_refunded_check',
+      sql`${t.refundedVnd} >= 0 AND ${t.refundedVnd} <= ${t.amountVnd} AND (${t.type} = 'refund' OR ${t.refundedVnd} = 0)`,
+    ),
+    check(
+      'approval_request_refund_no_self_approval',
+      sql`${t.type} <> 'refund' OR ${t.approverId} IS NULL OR ${t.approverId} <> ${t.requestedBy}`,
     ),
     index('approval_request_queue_idx').on(t.propertyId, t.status, t.requestedAt.desc()),
     index('approval_request_requester_idx').on(t.propertyId, t.requestedBy, t.requestedAt.desc()),

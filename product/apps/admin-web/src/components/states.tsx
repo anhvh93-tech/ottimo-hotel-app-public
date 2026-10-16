@@ -86,10 +86,13 @@ export function ErrorBlock({
   titleKey,
   error,
   onRetry,
+  autoRetrySeconds,
 }: {
   titleKey: string;
   error: unknown;
   onRetry: () => void;
+  /** DS 6.21: GET got 503 – the screen reloads itself once (`retry.load_countdown`). */
+  autoRetrySeconds?: number;
 }) {
   const { t } = useI18n();
   const view = problemView(t, error);
@@ -100,6 +103,9 @@ export function ErrorBlock({
       action={<Button onClick={onRetry}>{t('common.retry')}</Button>}
     >
       {view.text}
+      {autoRetrySeconds !== undefined ? (
+        <> {t('retry.load_countdown', { seconds: autoRetrySeconds })}</>
+      ) : null}
     </StateView>
   );
 }

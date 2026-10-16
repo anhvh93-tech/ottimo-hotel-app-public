@@ -53,6 +53,8 @@ export interface DtoInput {
   depositPaidVnd: number;
   /** 0.3.5 A-25: room group the OTA guest booked (unassigned lane). */
   requestedGroup?: { id: string; code: string } | null;
+  /** US-022 AC1: persons recorded on the booking (booker + party members). */
+  partyPresentCount?: number;
 }
 
 export function toReservationDto(d: DtoInput): Record<string, unknown> {
@@ -107,6 +109,14 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     adults: row.adults,
     children6to11: row.children_6_11,
     childrenUnder6: row.children_under_6,
+    ...(d.partyPresentCount !== undefined
+      ? {
+          partyMissingCount: Math.max(
+            0,
+            row.adults + row.children_6_11 + row.children_under_6 - d.partyPresentCount,
+          ),
+        }
+      : {}),
     extraGuestCount: extraGuestCount(row, current?.base_occupancy ?? null),
     ...(row.eta_time ? { etaTime: row.eta_time } : {}),
     ...(row.agreed_checkout_time ? { agreedCheckoutTime: row.agreed_checkout_time } : {}),
@@ -142,6 +152,14 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
         }
       : {}),
     ...(row.internal_note ? { internalNote: row.internal_note } : {}),
+    // B-28 / US-025 AC7: when the desk handed the door code/card over – never the code itself (SEC D2).
+    ...(row.status === 'in_house' || row.status === 'checked_out'
+      ? {
+          doorAccessHandedOverAt: row.door_access_handed_over_at
+            ? d.iso(row.door_access_handed_over_at)
+            : null,
+        }
+      : {}),
     allowedActions: d.actions,
     version: row.version,
   };

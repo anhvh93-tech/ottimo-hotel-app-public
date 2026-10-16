@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Third-party adapters (owner: INT). contracts/ = types, IntegrationError, IntegrationContext only (ADR-011); common/ = scrubCardData, EnvCredentialProvider, assertSafeConfig; notification Mock implemented. Other adapters from R2 per README v0.2.",
+  "description": "Third-party adapters (owner: INT). contracts/ = types only (ADR-011); common/ = scrubCardData, EnvCredentialProvider, assertSafeConfig; qr/ = local QR encoder (browser-safe); payment/ = VietQR; doorlock/ = manual + mock; guest-registration/ = manual; notification Mock.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -21,6 +21,26 @@
       "types": "./dist/common/index.d.ts",
       "import": "./dist/common/index.js",
       "default": "./dist/common/index.js"
+    },
+    "./qr": {
+      "types": "./dist/qr/index.d.ts",
+      "import": "./dist/qr/index.js",
+      "default": "./dist/qr/index.js"
+    },
+    "./payment": {
+      "types": "./dist/payment/index.d.ts",
+      "import": "./dist/payment/index.js",
+      "default": "./dist/payment/index.js"
+    },
+    "./doorlock": {
+      "types": "./dist/doorlock/index.d.ts",
+      "import": "./dist/doorlock/index.js",
+      "default": "./dist/doorlock/index.js"
+    },
+    "./guest-registration": {
+      "types": "./dist/guest-registration/index.d.ts",
+      "import": "./dist/guest-registration/index.js",
+      "default": "./dist/guest-registration/index.js"
     }
   },
   "files": [

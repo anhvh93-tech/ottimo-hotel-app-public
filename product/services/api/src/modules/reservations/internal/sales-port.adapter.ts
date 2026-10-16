@@ -14,6 +14,7 @@ import type {
   HoldFromQuoteInput,
   ReservationOwnership,
   ReservationSalesPort,
+  StayInfo,
 } from '../public/sales-port';
 import { PricingService, type PricedNight } from '../public/pricing.service';
 import { type BookingContext } from './booking-context';
@@ -102,9 +103,62 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
     return { reservationId: row.id, code: row.code };
   }
 
+  async stayInfo(tx: Tx, reservationId: string): Promise<StayInfo | null> {
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      status: string;
+      stay_type: 'short' | 'long';
+      channel_group: string;
+      payment_model: string;
+      folio_id: string | null;
+      parent_reservation_id: string | null;
+      arrival_date: string;
+      departure_date: string;
+      room_id: string | null;
+      room_no: string | null;
+      adults: number;
+      children_6_11: number;
+      children_under_6: number;
+      external_contract: boolean;
+    }>(
+      `SELECT r.id, r.code, r.status, r.stay_type, c.channel_group, r.payment_model, r.folio_id,
+              r.parent_reservation_id, r.arrival_date::text AS arrival_date,
+              r.departure_date::text AS departure_date, s.room_id, rm.room_no, r.adults, r.children_6_11,
+              r.children_under_6, r.external_contract
+         FROM reservation r JOIN channel c ON c.id = r.channel_id
+         LEFT JOIN LATERAL (SELECT room_id FROM reservation_segment
+                             WHERE reservation_id = r.id AND active ORDER BY from_date DESC LIMIT 1) s ON true
+         LEFT JOIN room rm ON rm.id = s.room_id
+        WHERE r.id = $1`,
+      [reservationId],
+    );
+    const v = rows[0];
+    if (!v) return null;
+    return {
+      id: v.id,
+      code: v.code,
+      status: v.status,
+      stayType: v.stay_type,
+      channelGroup: v.channel_group,
+      paymentModel: v.payment_model,
+      folioId: v.folio_id,
+      parentReservationId: v.parent_reservation_id,
+      arrivalDate: v.arrival_date,
+      departureDate: v.departure_date,
+      roomId: v.room_id,
+      roomNo: v.room_no,
+      adults: v.adults,
+      children6to11: v.children_6_11,
+      childrenUnder6: v.children_under_6,
+      externalContract: v.external_contract,
+    };
+  }
+
   async reservationView(tx: Tx, reservationId: string): Promise<Record<string, unknown>> {
     const ctx = await this.ctx(tx);
-    const row = await loadReservation(tx, reservationId, SYSTEM_ACTOR);
+    // SEC H2 (SEC-BE-31): read with the SESSION actor – out of a SAL/CTV scope → 404, never another's data.
+    const row = await loadReservation(tx, reservationId, ctx.actor);
     return this.reservations.dtoOf(tx, ctx, row);
   }
 
@@ -131,8 +185,9 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
   }
 
   async lockForDeposit(tx: Tx, reservationId: string): Promise<DepositTarget | null> {
+    const ctx = await this.ctx(tx);
     try {
-      const r = await loadReservation(tx, reservationId, SYSTEM_ACTOR, { forUpdate: true });
+      const r = await loadReservation(tx, reservationId, ctx.actor, { forUpdate: true });
       return {
         id: r.id,
         code: r.code,
@@ -159,7 +214,7 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
     actor: { userId: string; requestId?: string },
   ): Promise<ConfirmedStay> {
     const ctx = await this.ctx(tx, actor.requestId);
-    const row = await loadReservation(tx, reservationId, SYSTEM_ACTOR, { forUpdate: true });
+    const row = await loadReservation(tx, reservationId, ctx.actor, { forUpdate: true });
     if (row.status !== 'hold')
       throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
     return this.reservations.confirmFromHold(tx, ctx, row);

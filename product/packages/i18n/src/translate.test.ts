@@ -1,7 +1,28 @@
-import { describe, expect, it } from 'vitest';
-import { allKeys, formatInstant, formatLocalDate, formatNumber, translate } from './translate';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  allKeys,
+  formatInstant,
+  formatLocalDate,
+  formatNumber,
+  isLocaleLoaded,
+  loadLocale,
+  translate,
+} from './translate';
+
+describe('lazy EN chunk', () => {
+  it('shows VI text until EN is loaded, then English', async () => {
+    expect(isLocaleLoaded('en')).toBe(false);
+    expect(translate('en', 'login.submit')).toBe(translate('vi', 'login.submit'));
+    expect(() => allKeys('en')).toThrow();
+    await loadLocale('en');
+    expect(isLocaleLoaded('en')).toBe(true);
+    expect(translate('en', 'login.submit')).toBe('Sign in');
+  });
+});
 
 describe('translate', () => {
+  beforeAll(() => loadLocale('en'));
+
   it('interpolates {args} and falls back to the key', () => {
     expect(translate('vi', 'error.RATE_LIMITED', { minutes: 15 })).toContain('15 phút');
     expect(translate('en', 'login.submit')).toBe('Sign in');

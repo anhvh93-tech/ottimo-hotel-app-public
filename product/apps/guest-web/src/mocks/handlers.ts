@@ -1,0 +1,358 @@
+// MSW mock of the guest portal (OpenAPI 0.3.6-draft, tag guest-portal) while BE-C builds the real one.
+// Behaviour follows the contract + SEC s3-checklist G1–G9 so the UI is exercised against the same rules.
+import { http, HttpResponse, delay } from 'msw';
+import type { components } from '@ottimo/api-client';
+
+type Schemas = components['schemas'];
+type OnlineCheckin = Schemas['OnlineCheckin'];
+
+/** Dev links: http://localhost:5175/g/<token> */
+export const MOCK_TOKENS = {
+  ok: 'demo-guest-link-0123456789abcdef',
+  expired: 'demo-expired-link-0123456789abcd',
+  ended: 'demo-ended-stay-link-0123456789ab',
+  closed: 'demo-closed-checkin-0123456789ab',
+  inHouse: 'demo-in-house-link-0123456789abc',
+} as const;
+
+export const CURRENT_NOTICE = 'privacy-2026-10-v1';
+
+interface Scenario {
+  stayEnded: boolean;
+  closed: boolean;
+  inHouse: boolean;
+  /** Next upload fails with this (then clears). */
+  uploadFail?: 'FILE_TYPE' | 'network' | 'TOO_MANY_FILES' | 'rate';
+  /** Simulate a server bug that leaks level-2 keys – the client must drop them (ĐK-2). */
+  leakLevel2: boolean;
+  requiredPeople: number;
+  latencyMs: number;
+}
+
+interface State {
+  session: boolean;
+  locale: Schemas['Locale'];
+  oci: OnlineCheckin;
+  consents: Schemas['ConsentInput'][];
+  uploads: { personIndex: number; docType: string; images: number; bytes: number }[];
+  notes: string[];
+  calls: string[];
+}
+
+const scenario: Scenario = {
+  stayEnded: false,
+  closed: false,
+  inHouse: false,
+  leakLevel2: false,
+  requiredPeople: 2,
+  latencyMs: 0,
+};
+
+function freshOci(required: number): OnlineCheckin {
+  return {
+    currentStep: 'notice',
+    requiredPeople: required,
+    uploadedPeople: [],
+    noticeAccepted: false,
+    consentRecorded: false,
+  };
+}
+
+const state: State = {
+  session: false,
+  locale: 'vi',
+  oci: freshOci(2),
+  consents: [],
+  uploads: [],
+  notes: [],
+  calls: [],
+};
+
+export const mockControl = {
+  state,
+  scenario,
+  reset(patch: Partial<Scenario> = {}) {
+    Object.assign(scenario, {
+      stayEnded: false,
+      closed: false,
+      inHouse: false,
+      uploadFail: undefined,
+      leakLevel2: false,
+      requiredPeople: 2,
+      latencyMs: 0,
+      ...patch,
+    });
+    state.session = false;
+    state.locale = 'vi';
+    state.oci = freshOci(scenario.requiredPeople);
+    state.consents = [];
+    state.uploads = [];
+    state.notes = [];
+    state.calls = [];
+  },
+  /** Pretend a session cookie already exists (page reloaded after the token was exchanged). */
+  openSession() {
+    state.session = true;
+  },
+};
+
+const problem = (status: number, code: string, extra: Record<string, unknown> = {}) =>
+  HttpResponse.json(
+    {
+      type: `/problems/${code.toLowerCase()}`,
+      title: code,
+      status,
+      code,
+      requestId: 'req-mock',
+      ...extra,
+    },
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+
+const noStore = { 'Cache-Control': 'no-store' };
+
+async function guard(name: string) {
+  state.calls.push(name);
+  if (scenario.latencyMs) await delay(scenario.latencyMs);
+  if (!state.session) return problem(401, 'GUEST_LINK_INVALID');
+  if (scenario.stayEnded) return problem(403, 'GUEST_STAY_ENDED');
+  return undefined;
+}
+
+function closedGuard() {
+  return scenario.closed || scenario.inHouse ? problem(409, 'ONLINE_CHECKIN_CLOSED') : undefined;
+}
+
+function stayBody() {
+  const inHouse = scenario.inHouse;
+  const body: Record<string, unknown> = {
+    reservationCode: 'OTM-0150',
+    status: inHouse ? 'in_house' : 'confirmed',
+    stayType: 'short',
+    roomNo: '103',
+    arrivalDate: '2026-10-19',
+    departureDate: '2026-10-22',
+    checkinTime: '14:00',
+    checkoutTime: '12:00',
+    property: {
+      name: 'OTTIMO Boutique Stay',
+      address: '12 Đường Mẫu, Phường 3, Đà Lạt',
+      mapUrl: 'https://maps.google.com/?q=OTTIMO+Da+Lat',
+      phone: '+84 000 000 000',
+    },
+    houseRules:
+      state.locale === 'vi'
+        ? 'Không hút thuốc trong căn (phí vệ sinh 1.000.000 đ).\nGiữ yên lặng sau 22:00.'
+        : 'No smoking inside the unit (cleaning fee 1,000,000 VND).\nQuiet hours after 22:00.',
+    wifi: inHouse ? { ssid: 'OTTIMO-103', password: 'mock-wifi-pass' } : null,
+    onlineCheckinAvailable: !(scenario.closed || inHouse),
+  };
+  if (scenario.leakLevel2) {
+    body.guestFullName = 'Anna Martin';
+    body.doorCode = {
+      code: '582913',
+      validFrom: '2026-10-19T14:00:00+07:00',
+      validTo: '2026-10-22T12:00:00+07:00',
+    };
+  }
+  return body;
+}
+
+function missingStep(): string | undefined {
+  const o = state.oci;
+  if (!o.noticeAccepted) return 'notice';
+  const done = new Set([...(o.uploadedPeople ?? []), ...(o.deferredPeople ?? [])]);
+  for (let p = 1; p <= o.requiredPeople; p++) if (!done.has(p)) return 'documents';
+  if (!o.etaTime) return 'eta';
+  if (!o.consentRecorded) return 'consent';
+  return undefined;
+}
+
+const CARD_RE = /\d[\d -]{11,}\d/;
+
+export const handlers = [
+  http.post('/v1/guest/sessions', async ({ request }) => {
+    state.calls.push('openGuestSession');
+    if (scenario.latencyMs) await delay(scenario.latencyMs);
+    const { token } = (await request.json()) as { token?: string };
+    if (!token || token === MOCK_TOKENS.expired) return problem(401, 'GUEST_LINK_INVALID');
+    if (token === MOCK_TOKENS.ended) scenario.stayEnded = true;
+    if (token === MOCK_TOKENS.closed) scenario.closed = true;
+    if (token === MOCK_TOKENS.inHouse) scenario.inHouse = true;
+    if (!Object.values(MOCK_TOKENS).includes(token as never))
+      return problem(401, 'GUEST_LINK_INVALID');
+    state.session = true;
+    // ĐK-1: always level 1, no OTP offer, no level-2 expiry.
+    return HttpResponse.json({
+      level: 1,
+      reservationCode: 'OTM-0150',
+      stayEnded: scenario.stayEnded,
+      verification: { emailOtpAvailable: false, locked: false },
+      guestFirstName: 'Anna',
+      roomNo: '103',
+      locale: state.locale,
+      expiresAt: '2026-10-23T12:00:00+07:00',
+      level2ExpiresAt: null,
+    });
+  }),
+
+  http.get('/v1/guest/stay', async () => {
+    const g = await guard('getGuestStay');
+    if (g) return g;
+    return HttpResponse.json(stayBody(), { headers: noStore });
+  }),
+
+  http.put('/v1/guest/locale', async ({ request }) => {
+    state.calls.push('setGuestLocale');
+    if (!state.session) return problem(401, 'GUEST_LINK_INVALID');
+    const { locale } = (await request.json()) as { locale: Schemas['Locale'] };
+    if (!['vi', 'en', 'ru'].includes(locale)) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'locale', code: 'NOT_IN_LIST' }],
+      });
+    }
+    state.locale = locale;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get('/v1/guest/online-checkin', async () => {
+    const g = await guard('getOnlineCheckin');
+    if (g) return g;
+    return HttpResponse.json(state.oci);
+  }),
+
+  http.put('/v1/guest/online-checkin', async ({ request }) => {
+    const g = (await guard('updateOnlineCheckin')) ?? closedGuard();
+    if (g) return g;
+    const body = (await request.json()) as Record<string, unknown>;
+    if (body.noticeVersion !== undefined) {
+      if (body.noticeVersion !== CURRENT_NOTICE) {
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'noticeVersion', code: 'NOT_IN_LIST' }],
+        });
+      }
+      state.oci.noticeAccepted = true;
+    }
+    if (!state.oci.noticeAccepted) {
+      return problem(409, 'INVALID_TRANSITION', { currentState: 'notice' });
+    }
+    if (typeof body.arrivalNote === 'string') {
+      if (body.arrivalNote.length > 300 || CARD_RE.test(body.arrivalNote)) {
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'arrivalNote', code: 'CARD_NUMBER_DETECTED' }],
+        });
+      }
+      state.notes.push(body.arrivalNote); // write-only: never echoed back (ĐK-2)
+    }
+    if (typeof body.etaTime === 'string')
+      state.oci.etaTime = body.lateArrival ? '22:00' : body.etaTime;
+    if (typeof body.lateArrival === 'boolean') state.oci.lateArrival = body.lateArrival;
+    if (typeof body.currentStep === 'string') {
+      state.oci.currentStep = body.currentStep as OnlineCheckin['currentStep'];
+    }
+    return HttpResponse.json(state.oci);
+  }),
+
+  http.post('/v1/guest/online-checkin/documents', async ({ request }) => {
+    const g = (await guard('uploadGuestDocument')) ?? closedGuard();
+    if (g) return g;
+    if (!request.headers.get('idempotency-key')) return problem(400, 'IDEMPOTENCY_KEY_REQUIRED');
+    const fail = scenario.uploadFail;
+    scenario.uploadFail = undefined;
+    if (fail === 'network') return HttpResponse.error();
+    if (fail === 'rate') return problem(429, 'RATE_LIMITED');
+    if (fail === 'FILE_TYPE' || fail === 'TOO_MANY_FILES') {
+      return problem(422, 'FILE_REJECTED', { errors: [{ field: 'image', code: fail }] });
+    }
+    const form = await request.formData();
+    const personIndex = Number(form.get('personIndex'));
+    const docType = String(form.get('docType') ?? '');
+    const images = form.getAll('image');
+    if (!personIndex || personIndex > state.oci.requiredPeople) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'personIndex', code: 'NOT_IN_LIST' }],
+      });
+    }
+    if (!['cccd', 'passport', 'child_personal_id', 'other'].includes(docType)) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'docType', code: 'NOT_IN_LIST' }],
+      });
+    }
+    if (!images.length || images.length > 4) {
+      return problem(422, 'FILE_REJECTED', {
+        errors: [{ field: 'image', code: 'TOO_MANY_FILES' }],
+      });
+    }
+    let bytes = 0;
+    for (const img of images) bytes += typeof img === 'string' ? img.length : img.size;
+    state.uploads.push({ personIndex, docType, images: images.length, bytes });
+    const up = new Set(state.oci.uploadedPeople ?? []);
+    up.add(personIndex);
+    state.oci.uploadedPeople = [...up].sort((a, b) => a - b);
+    return HttpResponse.json(state.oci, { status: 201 });
+  }),
+
+  http.post('/v1/guest/consents', async ({ request }) => {
+    const g = (await guard('recordGuestConsent')) ?? closedGuard();
+    if (g) return g;
+    const body = (await request.json()) as Schemas['ConsentInput'];
+    // ĐK-5: only guest 1 decides through the app; nothing else.
+    if (
+      body.personIndex !== 1 ||
+      body.channel !== 'guest_app' ||
+      body.purpose !== 'P02B_ID_IMAGE_RETENTION'
+    ) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'personIndex', code: 'NOT_IN_LIST' }],
+      });
+    }
+    if (body.noticeVersion !== CURRENT_NOTICE) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'noticeVersion', code: 'NOT_IN_LIST' }],
+      });
+    }
+    state.consents.push(body);
+    state.oci.consentRecorded = true;
+    return HttpResponse.json(state.oci, { status: 201 });
+  }),
+
+  http.post('/v1/guest/online-checkin/complete', async ({ request }) => {
+    const g = (await guard('completeOnlineCheckin')) ?? closedGuard();
+    if (g) return g;
+    const text = await request.text();
+    const body = (text ? JSON.parse(text) : {}) as { deferredPeople?: unknown };
+    if (body.deferredPeople !== undefined) {
+      const list = body.deferredPeople;
+      const ok =
+        Array.isArray(list) &&
+        list.every((n) => Number.isInteger(n) && n >= 1 && n <= state.oci.requiredPeople) &&
+        new Set(list).size === list.length;
+      if (!ok) {
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'deferredPeople', code: 'NOT_IN_LIST' }],
+        });
+      }
+      // ĐK-2: the server drops indices that already have a photo.
+      const up = new Set(state.oci.uploadedPeople ?? []);
+      state.oci.deferredPeople = (list as number[]).filter((n) => !up.has(n));
+    }
+    const missing = missingStep();
+    if (missing) return problem(409, 'INVALID_TRANSITION', { currentState: missing });
+    state.oci.currentStep = 'done';
+    state.oci.completedAt = '2026-10-16T20:10:00+07:00';
+    return HttpResponse.json(state.oci);
+  }),
+
+  // ĐK-1 tripwires: guest-web must never call these in R2.
+  ...[
+    '/v1/guest/sessions/otp',
+    '/v1/guest/sessions/verify',
+    '/v1/guest/folio',
+    '/v1/guest/consents/:purpose/withdraw',
+  ].map((path) =>
+    http.all(path, () => {
+      state.calls.push(`FORBIDDEN ${path}`);
+      return problem(403, 'GUEST_VERIFICATION_REQUIRED');
+    }),
+  ),
+];

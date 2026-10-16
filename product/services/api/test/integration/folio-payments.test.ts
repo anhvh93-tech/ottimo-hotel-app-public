@@ -183,6 +183,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       paidViaOtaVnd: 0,
       depositHeldVnd: 1_600_000,
       balanceDueVnd: 4_655_000, // BR-305-02 dueAtCheckinVnd
+      creditVnd: 0,
     });
     const { rows: nights } = await db.withContext(t.ctx(), (tx) =>
       tx.query<{ night_state: string; n: number }>(
@@ -267,10 +268,10 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
     expect((await errs(deposit(1_600_000, { note: 'the 4111 1111 1111 1111' }))).code).toBe(
       'CARD_NUMBER_DETECTED',
     );
-    expect(
-      (await errs(deposit(1_600_000, { attachmentId: '0192a1b0-0000-7000-8000-0000000af001' })))
-        .errors,
-    ).toEqual([{ field: 'payment.attachmentId', code: 'NOT_IN_LIST' }]);
+    // 0.3.6: receipt images are accepted (A-17 lifted) – a malformed id is not.
+    expect((await errs(deposit(1_600_000, { attachmentId: 'not-a-uuid' }))).errors).toEqual([
+      { field: 'payment.attachmentId', code: 'NOT_IN_LIST' },
+    ]);
     expect(
       (
         await errs({
@@ -660,7 +661,9 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       roomVnd: 0,
       otherVnd: fee[0].amountVnd,
       paidVnd: 2_000_000,
-      balanceDueVnd: fee[0].amountVnd - 2_000_000,
+      // 0.3.6 A-34: never a negative balance – the money to give back is the credit.
+      balanceDueVnd: Math.max(0, fee[0].amountVnd - 2_000_000),
+      creditVnd: Math.max(0, 2_000_000 - fee[0].amountVnd),
     });
     const { rows } = await db.withContext(t.ctx(), (tx) =>
       tx.query(`SELECT status FROM commission WHERE reservation_id = $1`, [b.id]),

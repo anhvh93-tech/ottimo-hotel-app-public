@@ -298,9 +298,7 @@ test.describe('L1 – tham số quy tắc (US-005)', { tag: ['@api', '@sprint1']
     }
   });
 
-  test('TC-NT-011 đổi hold_hours_default chỉ áp cho giữ chỗ mới (snapshot BR-006)', async () => {
-    test.skip(true, 'TC-NT-011: chờ createHoldFromQuote/getReservation (Sprint 2)');
-  });
+  // TC-NT-011 (đổi tham số có hiệu lực hôm nay) → e2e/serial/platform-mutations.serial.spec.ts (project serial)
 });
 
 test.describe(
@@ -374,23 +372,13 @@ test.describe(
       expect(JSON.stringify(p.errors)).toContain('MAX_OCCUPANCY_RANGE');
     });
 
-    test('TC-NT-039 giảm sức chứa dưới số khách của đơn → 409 CAPACITY_BELOW_BOOKINGS', async () => {
-      test.skip(true, 'TC-NT-039: chờ DS-0 + createReservation/cancelReservation (Sprint 2)');
-    });
-    test('TC-NT-040(a–d) biên CAPACITY_BELOW_BOOKINGS với đơn tương lai/đang ở', async () => {
-      test.skip(true, 'TC-NT-040(a–d): chờ DS-0 + createReservation (Sprint 2)');
-    });
+    // TC-NT-039, TC-NT-040(a–d), TC-NT-018, TC-NT-019 đổi căn/giá đang hiệu lực → chạy tuần tự trong
+    // e2e/serial/platform-mutations.serial.spec.ts (Sprint 3 kickoff, PO acceptance N-1).
     test('TC-NT-020 sức chứa ở form đặt/giữ chỗ/báo giá → 422 CAPACITY_EXCEEDED', async () => {
       test.skip(
         true,
         'TC-NT-020: chờ createReservation/createHoldFromQuote/calculateQuote (Sprint 2)',
       );
-    });
-    test('TC-NT-018 đổi giá niêm yết không đổi báo giá/đơn đã lưu', async () => {
-      test.skip(true, 'TC-NT-018: chờ calculateQuote/getQuote/getReservation (Sprint 2)');
-    });
-    test('TC-NT-019 căn ngừng bán → 409 ROOM_NOT_SELLABLE', async () => {
-      test.skip(true, 'TC-NT-019: chờ createReservation/getRack (Sprint 2)');
     });
   },
 );

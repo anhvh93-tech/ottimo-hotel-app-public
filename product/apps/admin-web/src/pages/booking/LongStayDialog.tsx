@@ -12,6 +12,7 @@ import { useCatalog } from '../../app/catalog';
 import { readDraft, removeDraft, writeDraft } from '../../app/clientData';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
+import { isRetryable, useWrite } from '../../app/useWrite';
 import { parseVnd } from '../../app/money';
 import { fieldErrorText, problemView } from '../../app/problem';
 import { addDays, nightsBetween, rsvErrorText } from '../../app/reservations';
@@ -92,6 +93,7 @@ export function LongStayDialog({
   const [requestError, setRequestError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const idem = useRef<{ body: string; key: string } | null>(null);
+  const write = useWrite();
   const set = (patch: Partial<Form>) => {
     setForm((f) => {
       const next = { ...f, ...patch };
@@ -175,12 +177,15 @@ export function LongStayDialog({
       };
       const sig = JSON.stringify(body);
       if (idem.current?.body !== sig) idem.current = { body: sig, key: newIdempotencyKey() };
-      const res = await api.createReservation({ propertyId }, body, idem.current.key);
+      const key = idem.current.key;
+      // DS 6.21: CONCURRENT_UPDATE / SERVICE_UNAVAILABLE → automatic resend with the same key.
+      const res = await write.run(() => api.createReservation({ propertyId }, body, key));
       removeDraft(DRAFT_KEY);
       notifyChanged();
       toast(t('booking.toast.created', { code: res.data.code }));
       onCreated(res.data);
     } catch (err) {
+      if (isRetryable(err)) return;
       if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         const out: Record<string, string> = {};
         for (const fe of err.fieldErrors) {
@@ -224,7 +229,7 @@ export function LongStayDialog({
               type="submit"
               form="longstay-form"
               busy={busy}
-              busyLabel={t('common.saving')}
+              busyLabel={write.busyLabel ?? t('common.saving')}
             >
               {t('lsm.create')}
             </Button>
@@ -241,6 +246,7 @@ export function LongStayDialog({
           {t('lsm.flag_body')}
         </Alert>
         {!online ? <Alert tone="warn">{t('bk.offline')}</Alert> : null}
+        {write.notice}
         {requestError ? (
           <Alert tone="bad">
             {isApiError(requestError) && requestError.status === 409

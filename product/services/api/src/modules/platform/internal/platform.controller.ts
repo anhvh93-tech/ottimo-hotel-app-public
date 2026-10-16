@@ -11,6 +11,7 @@ import {
   Controller,
   Get,
   Inject,
+  Optional,
   Param,
   Patch,
   Post,
@@ -26,6 +27,10 @@ import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { ProblemError, problem } from '../../../shared/problem';
+import { EventsService } from '../../events/public/events.service';
+import { PasswordReauth } from '../../identity/public/password-reauth';
+import { notifyStaff } from '../public/staff-notify';
+import { RECEIVING_ACCOUNT_KEY } from '../public/receiving-account';
 import { AuditService } from '../../audit/public/audit.service';
 import { assertNoCardNumber, localDateSchema, parseBody, reasonSchema } from '../public/validation';
 import { ChannelsService, channelDto } from '../public/channels';
@@ -106,6 +111,10 @@ const setParameterSchema = z.object({
   value: z.unknown().refine((v) => v !== undefined, { params: { code: 'REQUIRED' } }),
   effectiveFrom: localDateSchema,
   reason: reasonSchema,
+  // 0.3.6 x-reauth-parameters (SEC F3): payment_receiving_account only; other keys ignore it.
+  reauth: z
+    .object({ authMethod: z.literal('password'), secret: z.string().min(6).max(256) })
+    .optional(),
 });
 
 @Controller('v1/properties/:propertyId')
@@ -118,6 +127,8 @@ export class PlatformController {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ChannelsService) private readonly channels: ChannelsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
+    @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
   /** BR-901/112 channel list; commissionRatePct is removed for SAL/CTV by the role serializer. */
@@ -233,18 +244,46 @@ export class PlatformController {
     const input = parseBody(setParameterSchema, body);
     assertNoCardNumber('reason', input.reason);
     const p = principal(req);
+    const receiving = key === RECEIVING_ACCOUNT_KEY;
     try {
-      const result = await this.uow.run(req, async (tx) => ({
-        status: 200,
-        body: await this.parameters.set(tx, {
+      if (receiving) {
+        // SEC F3: owner only (403 before any password check), then the owner's own password in this request.
+        if (!p.roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
+        if (!input.reauth) {
+          throw problem('VALIDATION_FAILED', { errors: [{ field: 'reauth', code: 'REQUIRED' }] });
+        }
+        await this.reauth.verify(tenantOf(p), input.reauth.secret, {
+          field: 'reauth.secret',
+          purpose: 'receiving_account',
+          requestId: req.id,
+        });
+      }
+      const result = await this.uow.run(req, async (tx) => {
+        const dto = await this.parameters.set(tx, {
           key,
           value: input.value,
           effectiveFrom: input.effectiveFrom,
           reason: input.reason,
           roles: p.roles,
           requestId: req.id,
-        }),
-      }));
+        });
+        if (receiving) {
+          // SEC F3: every owner/manager learns that the account was changed (no number in the push).
+          const pc = await this.property.now(tx);
+          await notifyStaff(
+            tx,
+            this.events,
+            {
+              kind: 'receiving_account_changed',
+              roles: ['owner', 'manager'],
+              refType: 'property',
+              refId: pc.propertyId,
+            },
+            pc.now,
+          );
+        }
+        return { status: 200, body: dto };
+      });
       return applyResult(reply, result);
     } catch (err) {
       // Owner-only keys (A102/A119): a manager is refused per key – log the denial (rbac 8.5, US-002 AC2).

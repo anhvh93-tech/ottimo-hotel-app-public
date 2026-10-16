@@ -22,6 +22,8 @@ export interface SerializeContext {
   roles: readonly string[];
   /** The operation declares x-c3-log (C3 properties allowed). */
   c3?: boolean;
+  /** Guest-session level of a guest caller: properties with a higher x-guest-level are removed (ĐK-2). */
+  guestLevel?: number;
 }
 
 /** Marker for values the serializer removed (so arrays/objects can drop them). */
@@ -62,6 +64,7 @@ function copyFree(v: unknown): Out {
 export function propertyAllowed(p: PropShape, ctx: SerializeContext): boolean {
   if (p.w) return false;
   if (p.c3 && !ctx.c3) return false;
+  if (p.g !== undefined && ctx.guestLevel !== undefined && p.g > ctx.guestLevel) return false;
   if (p.v && !visibleToAllows(p.v, ctx.roles)) return false;
   if (p.f && !rbacFieldAllows(p.f, ctx.roles)) return false;
   return true;

@@ -9549,10 +9549,18 @@ components:
                 items:
                   type: object
                   required: [label, value]
+                  description: >
+                    0.3.6 (ORC 17/10, UXD s3 mục 9): mọi trường của khối theo đúng thứ tự cổng (cả trường rỗng).
+                    `label` = khóa i18n `reg.field.*`. `value` = chữ **tiếng Việt** dán lên cổng Bộ Công an
+                    (enum đã đổi chữ, ví dụ "Nữ", "Miễn thị thực"; trường rỗng = chuỗi rỗng) bất kể ngôn ngữ
+                    giao diện. `valueKey` = khóa `reg.value.*` để client hiện theo ngôn ngữ của mình – chỉ có
+                    với giá trị enum (`reg.value.gender.*`, `reg.value.visa_kind.*`) và trường rỗng
+                    (`reg.value.empty`, client không hiện nút Sao chép).
                   properties:
                     label: { type: string }
                     value: { type: string }
-        clipboardText: { type: string, description: 'Văn bản sao chép đúng thứ tự cổng; client xóa clipboard sau khi dán (R-REG-07)', x-rbac-field: D03 }
+                    valueKey: { type: string, pattern: '^reg\.value\.[a-z_.]+$' }
+        clipboardText: { type: string, description: 'Văn bản sao chép đúng thứ tự cổng, giá trị tiếng Việt như `fields[].value` (mỗi người một dòng, các trường cách nhau bằng tab, trường rỗng để trống); client xóa clipboard sau khi dán (R-REG-07)', x-rbac-field: D03 }
 
     # ── buồng phòng ──
     RoomStatusEntry:

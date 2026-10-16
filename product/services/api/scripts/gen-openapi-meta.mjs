@@ -103,7 +103,8 @@ export function buildMeta(spec) {
 // ───────────── Response shapes for the role serializer (SR-AZ-04, coding-standards 7.7) ─────────────
 // Shape kinds: any (free value) · scalar · ref (component schema) · array · object (declared props; `open`
 // = additionalProperties allowed, `extra` = shape of additional values) · union (oneOf/anyOf of mixed kinds).
-// Property flags: v = x-visible-to roles, f = x-rbac-field code, w = writeOnly, c3 = x-classification C3.
+// Property flags: v = x-visible-to roles, f = x-rbac-field code, w = writeOnly, c3 = x-classification C3,
+// g = x-guest-level (guest callers below that level never receive the property – SEC ĐK-2).
 
 function resolveComponent(spec, schema) {
   const name = typeof schema?.$ref === 'string' ? schema.$ref.split('/').pop() : undefined;
@@ -116,6 +117,7 @@ function propFlags(node) {
   if (typeof node?.['x-rbac-field'] === 'string') flags.f = node['x-rbac-field'];
   if (node?.writeOnly === true) flags.w = true;
   if (node?.['x-classification'] === 'C3') flags.c3 = true;
+  if (typeof node?.['x-guest-level'] === 'number') flags.g = node['x-guest-level'];
   return flags;
 }
 
@@ -142,6 +144,9 @@ function mergeObjects(shapes) {
           ...(v ? { v } : {}),
           ...(prev.w || p.w ? { w: true } : {}),
           ...(prev.c3 || p.c3 ? { c3: true } : {}),
+          ...(prev.g !== undefined || p.g !== undefined
+            ? { g: Math.max(prev.g ?? 0, p.g ?? 0) }
+            : {}),
         };
       }
     }

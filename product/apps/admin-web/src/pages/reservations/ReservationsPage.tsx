@@ -16,6 +16,8 @@ import { labelFor, NAV } from '../../session/nav';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { BookingDialog } from '../booking/BookingDialog';
 import { LongStayDialog } from '../booking/LongStayDialog';
+import { CheckInPage } from '../stay/CheckInPage';
+import { CheckOutPage } from '../stay/CheckOutPage';
 import { ReservationDrawer } from './ReservationDrawer';
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -27,14 +29,21 @@ const ACTIVE: ReservationStatus[] = ['hold', 'confirmed', 'in_house'];
  * thống" = H10 10.2 (`externalContract=true`, US-017 AC5a). SAL/CTV see only their own (server scope).
  */
 export function ReservationsPage() {
+  const params = useParams();
+  // `/reservations/:id/check-in` (H13, S06) and `/reservations/:id/check-out` (H16, S07): full pages.
+  const [id, sub] = (params['*'] ?? '').split('/');
+  if (id && sub === 'check-in') return <CheckInPage key={id} reservationId={id} />;
+  if (id && sub === 'check-out') return <CheckOutPage key={id} reservationId={id} />;
+  return <ReservationsList openId={id || null} />;
+}
+
+function ReservationsList({ openId }: { openId: string | null }) {
   const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const { online } = useOnline();
   const catalog = useCatalog(propertyId);
   const navigate = useNavigate();
-  const params = useParams();
-  const openId = params['*'] || null;
   const fd = roles.some((r) => FD_PLUS.includes(r));
   const [filter, setFilter] = useState<Filter>('active');
   const [q, setQ] = useState('');

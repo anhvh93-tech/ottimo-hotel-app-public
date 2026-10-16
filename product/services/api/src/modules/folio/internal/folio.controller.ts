@@ -1,15 +1,28 @@
 /**
- * Folio endpoints of Sprint 2: getFolio (S04 money block – US-020, US-119), requestFoc (A35, US-007 AC1).
+ * Folio endpoints: getFolio (S04 money block – US-020, US-119), requestFoc (A35, US-007 AC1) – Sprint 2;
+ * Sprint 3 (0.3.6): getChargeCatalog, addFolioLine (A30), adjustFolioLine (A31/A32), getBill (US-037,
+ * G-12/G-13), setInvoiceRequest (US-039, A38).
  * Scope M (x-scope sales_staff: own, collaborator: own_totals_only): a SAL/CTV only reaches the folio of a
  * booking they created or closed – otherwise 404 (never 403, no existence leak). The role serializer then
  * strips lines/payments/other totals for CTV.
  */
-import { Body, Controller, Get, Inject, Optional, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Optional,
+  Param,
+  Post,
+  Put,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
-import { etag } from '../../../shared/http/precondition';
+import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { rejectDryRun } from '../../../shared/http/dry-run';
 import { problem } from '../../../shared/problem';
@@ -21,8 +34,11 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { optionalText } from '../../../shared/validation';
+import { AuditService } from '../../audit/public/audit.service';
 import { folioDto } from '../public/folio-view';
-import { FolioService } from '../public/folio.service';
+import { type FolioRow, FolioService } from '../public/folio.service';
+import { BillService, invoiceDto } from './bill.service';
+import { FolioLinesService } from './folio-lines.service';
 import { FolioFocService } from './foc.service';
 
 interface Reply {
@@ -32,6 +48,39 @@ interface Reply {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FULL_SCOPE = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+
+const money = z.number().int().max(Number.MAX_SAFE_INTEGER);
+
+const lineSchema = z.object({
+  chargeCode: z.string().max(80).optional(),
+  category: z.string().max(40).optional(),
+  description: z.string().max(200).optional(),
+  quantity: z.number().max(1_000_000),
+  unitPriceVnd: money.optional(),
+  serviceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  note: z.string().max(500).optional(),
+  evidenceAttachmentIds: z.array(z.string().regex(UUID)).max(20).optional(),
+  proposedUnitPriceVnd: money.optional(),
+});
+
+const adjustSchema = z.object({
+  newQuantity: z.number().min(0).max(1_000_000).optional(),
+  newUnitPriceVnd: money.optional(),
+  voidLine: z.boolean().optional(),
+  reason: z.string().max(500),
+});
+
+const invoiceSchema = z.object({
+  buyerType: z.string().max(20),
+  companyName: z.string().max(400).optional(),
+  taxCode: z.string().max(40).optional(),
+  email: z.string().max(400).optional(),
+  address: z.string().max(600).optional(),
+  einvoiceStatus: z.string().optional(),
+});
 
 const focSchema = z.object({
   kind: z.enum(['foc', 'special_discount']),
@@ -48,7 +97,7 @@ function principal(req: GuardedRequest) {
   return p;
 }
 
-@Controller('v1/properties/:propertyId/folios')
+@Controller('v1/properties/:propertyId')
 export class FolioController {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -57,12 +106,15 @@ export class FolioController {
     @Inject(FolioFocService) private readonly foc: FolioFocService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(FolioLinesService) private readonly lineService: FolioLinesService,
+    @Inject(BillService) private readonly bills: BillService,
+    @Inject(AuditService) private readonly audit: AuditService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
   ) {}
 
-  @Get(':folioId')
+  @Get('folios/:folioId')
   @Operation('getFolio')
   async get(
     @Req() req: GuardedRequest,
@@ -79,13 +131,7 @@ export class FolioController {
         if (!p.roles.some((r) => FULL_SCOPE.includes(r))) {
           await this.assertOwn(tx, folio.primary_reservation_id, p.userId);
         }
-        const tz = await this.folios.timezone(tx);
-        return folioDto(
-          folio,
-          await this.folios.lines(tx, folio.id),
-          await this.folios.payments(tx, folio.id),
-          tz,
-        );
+        return this.folioBody(tx, folio);
       },
       { readOnly: true },
     );
@@ -93,7 +139,7 @@ export class FolioController {
     return body;
   }
 
-  @Post(':folioId/lines/:lineId/foc')
+  @Post('folios/:folioId/lines/:lineId/foc')
   @Operation('requestFoc')
   async requestFoc(
     @Req() req: GuardedRequest,
@@ -148,6 +194,158 @@ export class FolioController {
         { reservationCode: own?.code ?? null, requestId: req.id },
       );
       return { status: 201, body: await this.approvals.toDto(tx, row) };
+    });
+    return applyResult(reply, result);
+  }
+
+  private async folioBody(tx: Tx, folio: FolioRow): Promise<Record<string, unknown>> {
+    const tz = await this.folios.timezone(tx);
+    const inv = await this.bills.invoice(tx, folio.id);
+    return folioDto(
+      folio,
+      await this.folios.lines(tx, folio.id),
+      await this.folios.payments(tx, folio.id),
+      tz,
+      inv ? invoiceDto(inv) : null,
+    );
+  }
+
+  /** Booking of a folio + its stay dates and code (FD+ endpoints). */
+  private async stayOf(tx: Tx, folio: FolioRow) {
+    if (!this.reservations) throw new Error('reservations module not wired');
+    const v = await this.reservations.reservationView(tx, folio.primary_reservation_id);
+    return {
+      reservationId: folio.primary_reservation_id,
+      code: String(v.code),
+      arrivalDate: String(v.arrivalDate),
+      departureDate: String(v.departureDate),
+    };
+  }
+
+  @Get('charge-catalog')
+  @Operation('getChargeCatalog')
+  async catalog(@Req() req: GuardedRequest) {
+    const p = principal(req);
+    return this.db.withContext(
+      tenantOf(p),
+      async (tx) => ({ data: await this.lineService.catalog(tx) }),
+      {
+        readOnly: true,
+      },
+    );
+  }
+
+  @Post('folios/:folioId/lines')
+  @Operation('addFolioLine')
+  async addLine(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('folioId') folioId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(lineSchema, body);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const folio = await this.folios.get(tx, folioId);
+      if (!folio) throw problem('NOT_FOUND');
+      const stay = await this.stayOf(tx, folio);
+      await this.lineService.add(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        folio.id,
+        input,
+        stay,
+      );
+      const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
+      return { status: 201, body: await this.folioBody(tx, fresh) };
+    });
+    reply.header('etag', etag(result.body.version as number));
+    return applyResult(reply, result);
+  }
+
+  @Post('folios/:folioId/lines/:lineId/adjustments')
+  @Operation('adjustFolioLine')
+  async adjustLine(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('folioId') folioId: string,
+    @Param('lineId') lineId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(folioId) || !UUID.test(lineId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(adjustSchema, body);
+    const version = expectedVersion(req);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const folio = await this.folios.get(tx, folioId);
+      if (!folio) throw problem('NOT_FOUND');
+      const own = this.reservations
+        ? await this.reservations.ownership(tx, folio.primary_reservation_id)
+        : null;
+      await this.lineService.adjust(
+        tx,
+        { userId: p.userId, roles: p.roles, requestId: req.id },
+        folio.id,
+        lineId,
+        version,
+        input,
+        own?.code ?? null,
+      );
+      const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
+      return { status: 201, body: await this.folioBody(tx, fresh) };
+    });
+    reply.header('etag', etag(result.body.version as number));
+    return applyResult(reply, result);
+  }
+
+  @Get('folios/:folioId/bill')
+  @Operation('getBill')
+  async bill(@Req() req: GuardedRequest, @Param('folioId') folioId: string) {
+    if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    const p = principal(req);
+    return this.db.withContext(
+      tenantOf(p),
+      async (tx) => {
+        const folio = await this.folios.get(tx, folioId);
+        if (!folio) throw problem('NOT_FOUND');
+        return this.bills.bill(tx, folio);
+      },
+      { readOnly: true },
+    );
+  }
+
+  @Put('folios/:folioId/invoice-request')
+  @Operation('setInvoiceRequest')
+  async setInvoice(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('folioId') folioId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(folioId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(invoiceSchema, body);
+    const p = principal(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const folio = await this.folios.lock(tx, folioId);
+      if (!folio) throw problem('NOT_FOUND');
+      const row = await this.bills.setInvoice(tx, folio, { userId: p.userId }, input);
+      const own = this.reservations
+        ? await this.reservations.ownership(tx, folio.primary_reservation_id)
+        : null;
+      await this.audit.record(tx, {
+        category: 'state',
+        action: 'invoice_request.set',
+        entityType: 'invoice_request',
+        entityId: folio.id,
+        ...(own ? { entityCode: own.code } : {}),
+        after: { buyerType: row.buyer_type, einvoiceStatus: row.einvoice_status },
+        requestId: req.id,
+      });
+      return { status: 200, body: invoiceDto(row) };
     });
     return applyResult(reply, result);
   }

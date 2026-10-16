@@ -21,7 +21,11 @@ import { AuditService } from '../../audit/public/audit.service';
 import { divideRoundVnd } from '../public/money';
 import { ParameterService } from '../public/parameter.service';
 import { type PropertyNow, PropertyContextService } from '../public/property-context';
-import { ROOM_CAPACITY_CHECK, type RoomCapacityCheck } from '../public/room-capacity';
+import {
+  ROOM_CAPACITY_CHECK,
+  type RoomCapacityCheck,
+  type RoomWarning,
+} from '../public/room-capacity';
 
 export interface RoomGroupDto {
   id: string;
@@ -344,7 +348,7 @@ export class RoomsService {
     expectedVersion: number,
     patch: RoomPatchInput,
     requestId: string,
-  ): Promise<RoomDto> {
+  ): Promise<RoomDto & { warnings: RoomWarning[] }> {
     const pc = await this.property.now(tx);
     const room = await this.loadRoom(tx, roomId, pc.today, true);
     if (room.version !== expectedVersion) {
@@ -448,6 +452,13 @@ export class RoomsService {
       ...(reason ? { reason } : {}),
       requestId,
     });
-    return toDto(await this.loadRoom(tx, roomId, pc.today));
+    const dto = toDto(await this.loadRoom(tx, roomId, pc.today));
+    // A-39 (BE-A, ĐK-S2-2): stopping sales never blocks – it warns about the bookings that keep the room.
+    const warnings: RoomWarning[] = [];
+    if (!dto.isSellable) {
+      const count = await this.capacity.futureReservationCount(tx, roomId, pc.today);
+      if (count > 0) warnings.push({ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count });
+    }
+    return { ...dto, warnings };
   }
 }

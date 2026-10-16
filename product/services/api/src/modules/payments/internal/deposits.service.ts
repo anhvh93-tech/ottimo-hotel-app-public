@@ -25,7 +25,14 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { LeadsService } from '../../sales/public/leads.service';
-import { PaymentService } from '../public/payment.service';
+import { EventsService } from '../../events/public/events.service';
+import { notifyStaff } from '../../platform/public/staff-notify';
+import {
+  ATTACHMENT_USAGE,
+  type AttachmentUsage,
+  anchorPaymentAttachment,
+} from '../public/attachment-usage';
+import { PaymentService, primaryRole, reconciliationFor } from '../public/payment.service';
 
 const FULL_SCOPE = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 /** SEC-BE-28: minimum gap between two pushes of the same open deposit notice. */
@@ -42,6 +49,8 @@ export interface DepositPaymentInput {
   receivedAt: Date | null;
   posAuthCode: string | null;
   note: string | null;
+  /** 0.3.6: receipt image (`uploadAttachment purpose=deposit_receipt`, A-17 lifted). */
+  attachmentId?: string | null;
 }
 
 function own(c: Caller): boolean {
@@ -57,9 +66,11 @@ export class DepositsService {
     @Inject(PaymentService) private readonly payments: PaymentService,
     @Inject(LeadsService) private readonly leads: LeadsService,
     @Inject(ParameterService) private readonly params: ParameterService,
+    @Inject(ATTACHMENT_USAGE) private readonly attachments: AttachmentUsage,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
+    @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
   private port(): ReservationSalesPort {
@@ -84,10 +95,20 @@ export class DepositsService {
     c: Caller,
     reservationId: string,
     version: number,
-    input: { payment: DepositPaymentInput | null; existingPaymentId: string | null },
+    input: {
+      payment: DepositPaymentInput | null;
+      existingPaymentId: string | null;
+      /** 0.3.6 B-29 / DOM BE-11: MGR+ confirms with less than the required deposit. */
+      acceptShortfallReason?: string | null;
+    },
     requestId?: string,
   ): Promise<{ body: Record<string, unknown> }> {
     const port = this.port();
+    const acceptShortfall = input.acceptShortfallReason ?? null;
+    // D12c: only owner/manager may accept a short deposit (FD/FDL/SAL → 403 before anything is read).
+    if (acceptShortfall && !c.roles.some((r) => r === 'owner' || r === 'manager')) {
+      throw problem('FORBIDDEN_ACTION');
+    }
     const t = await this.target(tx, c, reservationId);
     if (t.version !== version) {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: t.version } });
@@ -160,6 +181,12 @@ export class DepositsService {
 
     let recordedNew = false;
     let paymentId: string | null = input.existingPaymentId;
+    if (input.payment?.attachmentId) {
+      await this.attachments.assertUsable(tx, c, input.payment.attachmentId, 'deposit_receipt', {
+        reservationId: t.id,
+        field: 'payment.attachmentId',
+      });
+    }
     if (input.payment) {
       const recorded = await this.payments.recordManual(tx, {
         folioId: folio.id,
@@ -173,16 +200,39 @@ export class DepositsService {
         note: input.payment.note,
         recordedBy: c.userId,
         // SEC-BE-22 (1): whatever the method, a receipt recorded by a sale waits for the desk/bank check.
-        ...(desk ? {} : { reconciliation: 'pending' as const, recordedByRole: 'sales_staff' }),
+        ...(desk ? {} : { reconciliation: 'pending' as const }),
+        recordedByRole: primaryRole(c.roles),
+        attachmentId: input.payment.attachmentId ?? null,
         ...(requestId ? { requestId } : {}),
       });
       recordedNew = true;
       paymentId = recorded.id;
+      if (input.payment.attachmentId) {
+        await this.attachments.bindTo(tx, input.payment.attachmentId, {
+          type: 'payment',
+          id: recorded.id,
+        });
+        // SEC I5: cash/POS at the desk needs no reconciliation → the receipt retention starts now.
+        if (desk && reconciliationFor(input.payment.method) === 'not_required') {
+          await anchorPaymentAttachment(
+            this.attachments,
+            tx,
+            { attachment_id: input.payment.attachmentId, type: 'deposit' },
+            now,
+          );
+        }
+      }
       if (!desk) await this.pushUnverified(tx, t, c.userId);
     }
 
     const paid = await this.folios.depositPaid(tx, folio.id);
-    if (paid < t.depositRequiredVnd) {
+    let shortfall = 0;
+    if (paid < t.depositRequiredVnd && acceptShortfall) {
+      // B-29: a manager accepts the short deposit – only when some money was received.
+      if (paid <= 0) throw problem('INVALID_TRANSITION', { extras: { currentState: t.status } });
+      shortfall = t.depositRequiredVnd - paid;
+    }
+    if (paid < t.depositRequiredVnd && !shortfall) {
       if (!recordedNew) {
         // Nothing written: a 4xx is safe to resend (contract 0.3.5 A-13).
         throw problem('DEPOSIT_INSUFFICIENT', {
@@ -201,6 +251,41 @@ export class DepositsService {
       userId: c.userId,
       ...(requestId ? { requestId } : {}),
     });
+    if (shortfall > 0) {
+      // Columns of 0040 (owned by this use case – ARC s3-contract 5): who, when, how much, why.
+      await tx.query(
+        `UPDATE reservation SET deposit_shortfall_vnd = $2, deposit_shortfall_accepted_at = $3,
+            deposit_shortfall_accepted_by = $4, deposit_shortfall_reason = $5
+          WHERE id = $1`,
+        [t.id, shortfall, now, c.userId, acceptShortfall],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'deposit.shortfall_accepted',
+        entityType: 'reservation',
+        entityId: t.id,
+        entityCode: t.code,
+        after: {
+          shortfallVnd: shortfall,
+          depositRequiredVnd: t.depositRequiredVnd,
+          depositPaidVnd: paid,
+        },
+        reason: acceptShortfall as string,
+        ...(requestId ? { requestId } : {}),
+      });
+      await notifyStaff(
+        tx,
+        this.events,
+        {
+          kind: 'deposit_shortfall_accepted',
+          roles: ['owner'],
+          excludeUserIds: [c.userId],
+          refType: 'reservation',
+          refId: t.id,
+          refCode: t.code,
+        },
+        now,
+      );
+    }
     await this.folios.onReservationConfirmed(tx, stay, {
       userId: c.userId,
       ...(requestId ? { requestId } : {}),
@@ -272,10 +357,16 @@ export class DepositsService {
     tx: Tx,
     c: Caller,
     reservationId: string,
-    input: { amountVnd: number; note: string | null },
+    input: { amountVnd: number; note: string | null; attachmentId?: string | null },
     requestId?: string,
   ): Promise<void> {
     const t = await this.target(tx, c, reservationId);
+    if (input.attachmentId) {
+      await this.attachments.assertUsable(tx, c, input.attachmentId, 'deposit_receipt', {
+        reservationId: t.id,
+        field: 'attachmentId',
+      });
+    }
     if (t.status !== 'hold') {
       throw problem('INVALID_TRANSITION', { extras: { currentState: t.status } });
     }
@@ -291,15 +382,16 @@ export class DepositsService {
     const id = prev?.id ?? uuidv7();
     if (prev) {
       await tx.query(
-        `UPDATE deposit_notice SET amount_vnd = $2, note = $3, updated_at = $4, version = version + 1
+        `UPDATE deposit_notice SET amount_vnd = $2, note = $3, updated_at = $4, version = version + 1,
+            attachment_id = COALESCE($5, attachment_id)
           WHERE id = $1`,
-        [prev.id, input.amountVnd, input.note, now],
+        [prev.id, input.amountVnd, input.note, now, input.attachmentId ?? null],
       );
     } else {
       await tx.query(
         `INSERT INTO deposit_notice (id, organization_id, property_id, reservation_id, amount_vnd, note, status,
-           created_at, created_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $7)`,
+           created_at, created_by, updated_at, attachment_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $7, $9)`,
         [
           id,
           tx.ctx.organizationId,
@@ -309,6 +401,7 @@ export class DepositsService {
           input.note,
           now,
           c.userId,
+          input.attachmentId ?? null,
         ],
       );
     }

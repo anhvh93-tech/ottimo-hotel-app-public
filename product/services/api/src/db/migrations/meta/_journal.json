@@ -141,6 +141,48 @@
       "when": 1792156552584,
       "tag": "0019_deposit_notice_fk_be_b",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792162561120,
+      "tag": "0040_money_s3_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792162561121,
+      "tag": "0041_inventory_minibar_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792162613616,
+      "tag": "0030_frontdesk_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792163188707,
+      "tag": "0050_crypto_files_be_c",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792163188708,
+      "tag": "0051_registration_be_c",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792163188709,
+      "tag": "0052_guest_portal_be_c",
+      "breakpoints": true
     }
   ]
 }

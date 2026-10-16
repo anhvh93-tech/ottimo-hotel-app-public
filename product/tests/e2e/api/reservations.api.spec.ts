@@ -400,10 +400,7 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     track('reservation', e.body.id);
   });
 
-  test.fixme('TC-L2-079 (a) đêm lẻ: không chọn căn → gán 202 (BR-113-02)', async () => {
-    // ReservationCreate.roomId là bắt buộc (OpenAPI 0.3.x) – chưa có cách "không chọn căn cụ thể" để server
-    // gán căn đêm lẻ. Chờ BA/ARC chốt (ghi ở s2-report mục Rủi ro).
-  });
+  // TC-L2-079 (a1–a3) viết lại theo ARC s2-contract 3.3 → api/s3-kickoff.api.spec.ts
 });
 
 test.describe(

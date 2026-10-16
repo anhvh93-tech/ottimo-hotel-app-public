@@ -1,4 +1,10 @@
-import { isApiError, type Room, type RoomGroup, type RoomPatch } from '@ottimo/api-client';
+import {
+  isApiError,
+  type Room,
+  type RoomGroup,
+  type RoomPatch,
+  type RoomUpdateResult,
+} from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal, Stepper, Switch } from '@ottimo/ui';
 import { useId, useState, type FormEvent } from 'react';
@@ -31,7 +37,7 @@ export function RoomDrawer({
   room: Room;
   groups: RoomGroup[];
   onClose: () => void;
-  onSaved: (room: Room) => void;
+  onSaved: (room: RoomUpdateResult) => void;
   onReload: () => void;
 }) {
   const { t, vnd, date } = useI18n();

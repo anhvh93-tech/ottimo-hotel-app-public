@@ -13,6 +13,7 @@ import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
+import { isRetryable, useWrite } from '../../app/useWrite';
 import { addDays, dayMonth, rsvErrorText } from '../../app/reservations';
 import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
@@ -84,6 +85,8 @@ export function QuoteDialog({
   const [extendReason, setExtendReason] = useState('');
   const [extendError, setExtendError] = useState<string | undefined>();
   const extendKey = useRef(newIdempotencyKey());
+  // DS 6.21: busy/concurrent answers are resent automatically with the same key (own keys above).
+  const write = useWrite();
   const extend = async () => {
     if (!saved || busy) return;
     if (!mgr && extendReason.trim().length < 3) {
@@ -94,10 +97,13 @@ export function QuoteDialog({
     setError(null);
     setExtendError(undefined);
     try {
-      const res = await api.extendQuote(
-        { propertyId, quoteId: saved.id },
-        mgr ? undefined : extendReason.trim(),
-        extendKey.current,
+      const key = extendKey.current;
+      const res = await write.run(() =>
+        api.extendQuote(
+          { propertyId, quoteId: saved.id },
+          mgr ? undefined : extendReason.trim(),
+          key,
+        ),
       );
       extendKey.current = newIdempotencyKey();
       if (res.status === 202) {
@@ -108,7 +114,7 @@ export function QuoteDialog({
         setSaved(res.data as Quote);
       }
     } catch (e) {
-      setError(e);
+      if (!isRetryable(e)) setError(e);
     } finally {
       setBusy(false);
     }
@@ -199,26 +205,29 @@ export function QuoteDialog({
     setBusy(true);
     setError(null);
     try {
-      const q = await api.saveQuote(
-        { propertyId },
-        {
-          type: 'short',
-          roomId,
-          arrivalDate: arrival,
-          nights,
-          adults: occ.adults,
-          children6to11: occ.children6to11,
-          childrenUnder6: occ.childrenUnder6,
-          channelId: channel!.id,
-          returnGuestCode: returnCode.trim() || undefined,
-          guestId: guest.id,
-        },
-        keys.current.save,
+      const key = keys.current.save;
+      const q = await write.run(() =>
+        api.saveQuote(
+          { propertyId },
+          {
+            type: 'short',
+            roomId,
+            arrivalDate: arrival,
+            nights,
+            adults: occ.adults,
+            children6to11: occ.children6to11,
+            childrenUnder6: occ.childrenUnder6,
+            channelId: channel!.id,
+            returnGuestCode: returnCode.trim() || undefined,
+            guestId: guest.id,
+          },
+          key,
+        ),
       );
       setSaved(q.data);
       setStep('send');
     } catch (e) {
-      setError(e);
+      if (!isRetryable(e)) setError(e);
     } finally {
       setBusy(false);
     }
@@ -238,15 +247,18 @@ export function QuoteDialog({
     setBusy(true);
     setError(null);
     try {
-      const r = await api.createHoldFromQuote(
-        { propertyId, quoteId: saved.id },
-        { holdHours, depositMethod: 'vietqr' },
-        keys.current.hold,
+      const key = keys.current.hold;
+      const r = await write.run(() =>
+        api.createHoldFromQuote(
+          { propertyId, quoteId: saved.id },
+          { holdHours, depositMethod: 'vietqr' },
+          key,
+        ),
       );
       setHeld(r.data);
       notifyChanged();
     } catch (e) {
-      setError(e);
+      if (!isRetryable(e)) setError(e);
     } finally {
       setBusy(false);
     }
@@ -279,32 +291,34 @@ export function QuoteDialog({
   })();
   const arrivesToday = quoteArrival === today;
 
-  const errView = error ? (
-    isApiError(error) && error.code === 'QUOTE_EXPIRED' ? (
-      <Alert
-        tone="warn"
-        role="alert"
-        actions={
-          <Button
-            size="sm"
-            variant="pri"
-            onClick={() => {
-              setSaved(null);
-              setError(null);
-              keys.current = { save: newIdempotencyKey(), hold: newIdempotencyKey() };
-              setStep('quote');
-            }}
-          >
-            {t('sale.requote')}
-          </Button>
-        }
-      >
-        {t('error.QUOTE_EXPIRED')}
-      </Alert>
-    ) : (
-      <Alert tone="bad">{rsvErrorText(t, error, { roomNo: room?.roomNo })}</Alert>
-    )
-  ) : null;
+  const errView =
+    write.notice ??
+    (error ? (
+      isApiError(error) && error.code === 'QUOTE_EXPIRED' ? (
+        <Alert
+          tone="warn"
+          role="alert"
+          actions={
+            <Button
+              size="sm"
+              variant="pri"
+              onClick={() => {
+                setSaved(null);
+                setError(null);
+                keys.current = { save: newIdempotencyKey(), hold: newIdempotencyKey() };
+                setStep('quote');
+              }}
+            >
+              {t('sale.requote')}
+            </Button>
+          }
+        >
+          {t('error.QUOTE_EXPIRED')}
+        </Alert>
+      ) : (
+        <Alert tone="bad">{rsvErrorText(t, error, { roomNo: room?.roomNo })}</Alert>
+      )
+    ) : null);
 
   const footer =
     step === 'quote' ? (
@@ -313,6 +327,7 @@ export function QuoteDialog({
         <Button
           variant="pri"
           busy={busy}
+          busyLabel={write.busyLabel}
           disabled={!online || !calc || overCapacity || calc.availability?.available === false}
           onClick={() => void save()}
         >
@@ -343,6 +358,7 @@ export function QuoteDialog({
         <Button
           variant="pri"
           busy={busy}
+          busyLabel={write.busyLabel}
           disabled={!online || arrivesToday || quoteArrival < today}
           onClick={() => void createHold()}
         >

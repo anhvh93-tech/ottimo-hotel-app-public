@@ -69,8 +69,6 @@ interface DsE {
 
 /** Fixture blocks loaded by later migrations (module that owns the table). */
 const PENDING_BLOCKS: Record<string, string> = {
-  minibarItems: 'inventory (item) – BE-B',
-  feeCatalog: 'folio (fee catalogue) – BE-B',
   inspectionChecklist: 'housekeeping (checklist) – BE-B',
 };
 /** erd 4.2 device_kind; `property_tablet` = legacy fixture name, kept until QA renames it. */
@@ -93,6 +91,8 @@ export interface SeedReport {
   rooms: number;
   /** channel + first channel_commission_rate (BE-B Sprint 2). */
   channels: number;
+  /** inventory `item` rows from `minibarItems` + `consumableItems` (BE-B Sprint 3). */
+  items: number;
   docSequences: Array<{ docType: string; expected: string; server: string; ok: boolean }>;
   skippedBlocks: Array<{ block: string; owner: string }>;
   warnings: string[];
@@ -148,6 +148,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
     roomGroups: 0,
     channels: 0,
     rooms: 0,
+    items: 0,
     docSequences: [],
     skippedBlocks: Object.entries(PENDING_BLOCKS)
       .filter(([b]) => fixture[b] !== undefined)
@@ -199,6 +200,17 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
         from: firstFrom,
         status: 'GD',
       });
+    }
+    // BR-512 damage table (feeCatalog entries of BR-512) → parameter damage_catalog (BE-B Sprint 3); the other
+    // fee entries are parameters already (adhoc_cleaning_fee, laundry_price_per_kg, smoking_fee, key_card_fee).
+    if (Array.isArray(fixture.feeCatalog)) {
+      const damage = (
+        fixture.feeCatalog as Array<{ code: string; name: string; priceVnd: number; br: string }>
+      )
+        .filter((f) => f.br === 'BR-512')
+        .map((f) => ({ code: f.code, name: f.name, priceVnd: f.priceVnd }));
+      if (damage.length)
+        rows.push({ key: 'damage_catalog', value: damage, from: firstFrom, status: 'GD' });
     }
     for (const r of rows) {
       const def = await tx.query<{
@@ -326,6 +338,44 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
       report.roomGroups = catalog.groups;
       report.rooms = catalog.rooms;
     }
+    // Inventory goods (BL 4.13, BR-701): minibar fridge standard + consumables of BR-812 (BE-B Sprint 3).
+    for (const [block, kind] of [
+      ['minibarItems', 'minibar'],
+      ['consumableItems', 'consumable'],
+    ] as const) {
+      const list = fixture[block];
+      if (!Array.isArray(list)) continue;
+      for (const m of list as Array<{
+        code: string;
+        name: string;
+        unit: string;
+        unitCostVnd?: number;
+        salePriceVnd?: number;
+        standardQtyPerRoom?: number;
+        minStock?: number;
+      }>) {
+        await tx.query(
+          `INSERT INTO item (id, organization_id, property_id, code, kind, name, unit, cost_price_vnd,
+             sale_price_vnd, minibar_standard_qty, min_stock_qty, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
+          [
+            uuidv7(),
+            organizationId,
+            propertyId,
+            m.code,
+            kind,
+            m.name,
+            m.unit,
+            m.unitCostVnd ?? null,
+            m.salePriceVnd ? m.salePriceVnd : null,
+            kind === 'minibar' ? (m.standardQtyPerRoom ?? 0) : 0,
+            m.minStock ?? 0,
+            now,
+          ],
+        );
+        report.items++;
+      }
+    }
     // Sales channels (BR-901, BR-112): group, OTA reference flag, first commission rate.
     if (Array.isArray(fixture.channels)) {
       report.channels = await importChannels(tx, {
@@ -345,6 +395,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
         devices: report.devices,
         rooms: report.rooms,
         channels: report.channels,
+        items: report.items,
       },
     });
 

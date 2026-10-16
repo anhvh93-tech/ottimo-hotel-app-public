@@ -10,6 +10,11 @@ import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { ParameterService } from '../public/parameter.service';
 import { PropertyContextService } from '../public/property-context';
+import {
+  RECEIVING_ACCOUNT_KEY,
+  maskReceivingAccount,
+  parseReceivingAccount,
+} from '../public/receiving-account';
 import { checkStructuredParameter } from './parameter-rules';
 
 export interface ParameterDto {
@@ -67,9 +72,11 @@ export class ParametersService {
 
   private dto(r: Row, iso: (d: Date) => string, defaultFrom: LocalDate): ParameterDto {
     const fromRow = r.effective_from !== null;
+    const raw = fromRow ? r.value : r.default_value;
     return {
       key: r.key,
-      value: fromRow ? r.value : r.default_value,
+      // SEC F3: the receiving account number never leaves the server in clear.
+      value: r.key === RECEIVING_ACCOUNT_KEY ? maskReceivingAccount(raw) : raw,
       effectiveFrom: r.effective_from ?? defaultFrom,
       ...(r.status_label ? { statusLabel: r.status_label } : {}),
       ...(r.br_ref ? { brRef: r.br_ref } : {}),
@@ -161,6 +168,8 @@ export class ParametersService {
     // Role first (403 even for a value out of range), then type/bounds, then structured rules.
     if (!input.roles.some((r) => defs[0]?.edit_roles.includes(r)))
       throw problem('FORBIDDEN_ACTION');
+    const receiving = input.key === RECEIVING_ACCOUNT_KEY;
+    if (receiving) input = { ...input, value: parseReceivingAccount(input.value) };
     await this.params.validate(tx, input.key, input.value);
     await checkStructuredParameter(
       input.key,
@@ -179,6 +188,7 @@ export class ParametersService {
       actorRoles: input.roles,
       today: pc.today,
       requestId: input.requestId,
+      ...(receiving ? { auditAs: { category: 'money' as const, mask: maskReceivingAccount } } : {}),
     });
     const since = await this.propertySince(tx);
     const { rows } = await tx.query<Row>(

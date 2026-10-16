@@ -316,14 +316,19 @@ jobs:
           chmod 0777 tests/fixtures/seed/.out
           docker compose --env-file .env -f infra/docker-compose.yml run --rm seed
       # E2E_COMPOSE_CONTROL=1: TC-X-050c may stop/start postgres – this stack is disposable.
-      - name: E2E smoke (pnpm test:e2e)
+      # E2E_UI=1 (QC Sprint 2 ĐK-S2-4, QA s3-kickoff): project desk-chromium drives admin-web in Chromium against the
+      # real api – UI smoke (login/menus, rack, booking, two desks saving at once) + axe H01–H12 (0 critical/serious).
+      # E2E_WEB_URL must be http://localhost:8081: the browser sends the page origin as Origin and the api only
+      # accepts API_ADMIN_BASE_URL (http://localhost:8081) – 127.0.0.1:8081 would get 403 on every write.
+      - name: E2E (pnpm test:e2e – API, RBAC, UI desk-chromium + axe)
         working-directory: product
         env:
           E2E_API_URL: http://127.0.0.1:3000
-          E2E_WEB_URL: http://127.0.0.1:8081
+          E2E_WEB_URL: http://localhost:8081
           E2E_ORIGIN: http://localhost:8081
           E2E_GUEST_ORIGIN: http://localhost:8083
           E2E_COMPOSE_CONTROL: '1'
+          E2E_UI: '1'
         run: pnpm test:e2e
       # The origin-list cases must really run on this stack (Sprint 1 carry-over: TC-SEC-024 used to skip).
       - name: Origin checks ran (TC-SEC-024 not skipped)
@@ -340,6 +345,26 @@ jobs:
           if skipped:
               sys.exit('::error::TC-SEC-024 skipped – api Origin lists not set on the E2E stack: ' + '; '.join(skipped))
           print(f'TC-SEC-024: {len(cases)} case(s) ran')
+          PY
+      # ĐK-S2-4: the UI cases must really run (no skip because of the environment: browser missing, E2E_UI unset,
+      # login form not found). Allowed skips = test.fixme listed here (QA keeps this list in step with ui/*.spec.ts).
+      - name: UI cases ran (desk-chromium not skipped, axe H01–H12 present)
+        working-directory: product
+        run: |
+          python3 - tests/e2e/test-results/junit.xml <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          ALLOWED_SKIP = ('TC-L2-020 (E)', 'TC-L2-076 (E)')
+          ui = [c for c in ET.parse(sys.argv[1]).iter('testcase') if (c.get('classname') or '').startswith('ui/')]
+          if not ui:
+              sys.exit('::error::no ui/ test case in junit report – desk-chromium did not run')
+          skipped = [c.get('name') for c in ui if c.find('skipped') is not None]
+          bad = [n for n in skipped if not any(a in (n or '') for a in ALLOWED_SKIP)]
+          if bad:
+              sys.exit('::error::UI cases skipped (environment): ' + '; '.join(bad))
+          axe = [c for c in ui if 'TC-X-040' in (c.get('name') or '') and c.find('skipped') is None]
+          if len(axe) < 9:
+              sys.exit(f'::error::axe H01–H12: only {len(axe)} case(s) ran, expected 9')
+          print(f'UI: {len(ui)} case(s), {len(skipped)} allowed skip(s), axe {len(axe)} case(s) ran')
           PY
       - name: Compose logs (on failure)
         if: failure()

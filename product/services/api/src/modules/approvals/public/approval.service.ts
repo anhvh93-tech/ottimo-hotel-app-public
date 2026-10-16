@@ -44,6 +44,7 @@ import { ParameterService } from '../../platform/public/parameter.service';
 import {
   APPROVER_RANK,
   MONEY_LIMITED,
+  MONEY_TYPES,
   approverRoleOf,
   minRoleFor,
   decide,
@@ -111,6 +112,12 @@ export interface ApprovalRow {
   decision_note: string | null;
   escalated_at: Date | null;
   version: number;
+  // 0040 (BE-B, A-33): refund destination – masked parts only; the C3 account number never leaves BE-B.
+  refund_method?: 'cash' | 'bank_transfer' | 'original_method' | null;
+  refund_bank_bin?: string | null;
+  refund_account_last4?: string | null;
+  refund_destination_set_at?: Date | null;
+  refunded_vnd?: number | string | null;
 }
 
 /** OpenAPI ApprovalRequest (the role serializer removes approverRemainingMonthlyVnd for other roles). */
@@ -131,11 +138,21 @@ export interface ApprovalDto {
   decidedAt?: string;
   decisionNote?: string;
   approverRemainingMonthlyVnd?: number;
+  targetType?: string;
+  targetCode?: string;
+  selfApplied?: boolean;
+  refundDestination?: {
+    method: 'cash' | 'bank_transfer' | 'original_method';
+    bankBin?: string;
+    accountNoLast4?: string;
+    setAt?: string;
+  };
+  refundedVnd?: number;
 }
 
 export type DecidedHook = (tx: Tx, request: ApprovalRow) => Promise<void>;
 
-const MONEY_CATEGORY = (type: ApprovalType) => (MONEY_LIMITED.has(type) ? 'money' : 'state');
+const MONEY_CATEGORY = (type: ApprovalType) => (MONEY_TYPES.has(type) ? 'money' : 'state');
 
 /** Which decisions count against a monthly limit (see header). */
 export type MonthlyScope = 'all' | 'others' | 'self';
@@ -183,7 +200,7 @@ export class ApprovalService {
         errors: [{ field: 'amountVnd', code: 'AMOUNT_INVALID' }],
       });
     }
-    if (MONEY_LIMITED.has(input.type) && input.amountVnd <= 0) {
+    if (MONEY_TYPES.has(input.type) && input.amountVnd <= 0) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }],
       });
@@ -292,6 +309,8 @@ export class ApprovalService {
     input: SubmitInput,
     c: { focLimits: unknown; basis: number | null; tz: string; now: Date; today: LocalDate },
   ): Promise<{ role: string; snapshot: Record<string, unknown> } | null> {
+    // SEC F8 (BE-B, 0.3.6): a refund is never self-applied, owner/manager included (CHECK in 0040).
+    if (input.type === 'refund') return null;
     const role = approverRoleOf(actor.roles);
     // (a) owner / manager within their own BR-433 limit.
     if (role === 'owner' || role === 'manager') {
@@ -347,6 +366,7 @@ export class ApprovalService {
 
   /** Could this submission be self-applied (A2)? Then the per-user limit lock is needed. */
   private maySelfApply(actor: Actor, input: SubmitInput): boolean {
+    if (input.type === 'refund') return false;
     const role = approverRoleOf(actor.roles);
     if (role === 'owner' || role === 'manager') return true;
     const fd = actor.roles.includes('front_desk') || actor.roles.includes('front_desk_lead');
@@ -647,6 +667,10 @@ export class ApprovalService {
 
   /** BR-432 / K6: only owner/manager may decide their own request (within limits – checked after). */
   private assertNotSelf(row: ApprovalRow, actor: Actor, role: ApproverRole): void {
+    // SEC F8 (BE-B, 0.3.6): nobody approves the refund they requested – no owner/manager exception.
+    if (row.type === 'refund' && row.requested_by === actor.userId) {
+      throw problem('SELF_APPROVAL_FORBIDDEN');
+    }
     if (row.requested_by === actor.userId && role !== 'owner' && role !== 'manager') {
       throw problem('SELF_APPROVAL_FORBIDDEN');
     }
@@ -808,5 +832,22 @@ export function toApprovalDto(
     ...(row.decided_at ? { decidedAt: toZonedIso(row.decided_at, tz) } : {}),
     ...(row.decision_note ? { decisionNote: row.decision_note } : {}),
     ...(remainingMonthlyVnd !== null ? { approverRemainingMonthlyVnd: remainingMonthlyVnd } : {}),
+    ...(row.target_type ? { targetType: row.target_type } : {}),
+    ...(row.target_code ? { targetCode: row.target_code } : {}),
+    selfApplied: row.self_applied,
+    // A-33 (D15): masked destination of a refund request – never the full account number.
+    ...(row.type === 'refund' && row.refund_method
+      ? {
+          refundDestination: {
+            method: row.refund_method,
+            ...(row.refund_bank_bin ? { bankBin: row.refund_bank_bin } : {}),
+            ...(row.refund_account_last4 ? { accountNoLast4: row.refund_account_last4 } : {}),
+            ...(row.refund_destination_set_at
+              ? { setAt: toZonedIso(row.refund_destination_set_at, tz) }
+              : {}),
+          },
+        }
+      : {}),
+    ...(row.type === 'refund' ? { refundedVnd: Number(row.refunded_vnd ?? 0) } : {}),
   };
 }

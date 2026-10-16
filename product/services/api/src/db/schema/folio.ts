@@ -16,6 +16,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   date,
   foreignKey,
@@ -29,6 +30,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { auditColumns, instant } from './common';
 import { channel } from './channels';
+import { approvalRequest } from './approvals';
 import { appUser } from './identity';
 import { property } from './platform';
 
@@ -52,6 +54,7 @@ export const FOLIO_LINE_CATEGORIES = [
   'discount',
   'foc',
   'adjustment',
+  'room_change_difference',
 ] as const;
 export type FolioLineCategory = (typeof FOLIO_LINE_CATEGORIES)[number];
 
@@ -134,6 +137,12 @@ export const folioLine = pgTable(
     postedAt: instant('posted_at').notNull(),
     postedBy: uuid('posted_by'),
     createdAt: instant('created_at').notNull(),
+    // 0040 (Sprint 3): catalogue code, adjustment reason, evidence (US-032 AC2), post-checkout charge (BR-427).
+    chargeCode: text('charge_code'),
+    reason: text('reason'),
+    note: text('note'),
+    evidenceAttachmentIds: uuid('evidence_attachment_ids').array(),
+    postCheckout: boolean('post_checkout').notNull().default(false),
   },
   (t) => [
     unique('folio_line_property_id_key').on(t.propertyId, t.id),
@@ -159,7 +168,7 @@ export const folioLine = pgTable(
     }),
     check(
       'folio_line_category_check',
-      sql`${t.category} IN ('room', 'early_checkin', 'late_checkout', 'extra_person', 'minibar', 'fnb', 'laundry', 'cleaning', 'service_fee', 'utilities', 'penalty', 'damage', 'cancellation_fee', 'no_show_fee', 'early_departure_fee', 'deposit_forfeit', 'discount', 'foc', 'adjustment')`,
+      sql`${t.category} IN ('room', 'early_checkin', 'late_checkout', 'extra_person', 'minibar', 'fnb', 'laundry', 'cleaning', 'service_fee', 'utilities', 'penalty', 'damage', 'cancellation_fee', 'no_show_fee', 'early_departure_fee', 'deposit_forfeit', 'discount', 'foc', 'adjustment', 'room_change_difference')`,
     ),
     check(
       'folio_line_revenue_group_check',
@@ -183,6 +192,13 @@ export const folioLine = pgTable(
       sql`${t.reversalOfId} IS NOT NULL OR (${t.category} IN ('discount', 'foc') AND ${t.amountVnd} <= 0) OR (${t.category} NOT IN ('discount', 'foc') AND ${t.amountVnd} >= 0) OR ${t.category} = 'adjustment'`,
     ),
     check('folio_line_quantity_check', sql`${t.quantity} > 0`),
+    check(
+      'folio_line_reason_check',
+      sql`${t.reason} IS NULL OR char_length(${t.reason}) BETWEEN 3 AND 500`,
+    ),
+    uniqueIndex('folio_line_one_reversal_key')
+      .on(t.reversalOfId)
+      .where(sql`${t.reversalOfId} IS NOT NULL`),
     index('folio_line_folio_idx').on(t.propertyId, t.folioId, t.postedAt),
     index('folio_line_night_idx')
       .on(t.stayNightId)
@@ -228,6 +244,15 @@ export const payment = pgTable(
     confirmedAt: instant('confirmed_at'),
     confirmedBy: uuid('confirmed_by'),
     ...auditColumns(),
+    // 0040 (Sprint 3, OpenAPI 0.3.6): role snapshot (A-40), refund requester snapshot (SEC F8, checked by the
+    // composite FK), owner self-reconciliation flag (SEC F5), cash short-handover amount (A46a), VietQR
+    // over-balance reason (E15-03), bank reference of a refund (E15-02).
+    recordedByRole: text('recorded_by_role'),
+    approvalRequestedBy: uuid('approval_requested_by'),
+    selfReconciled: boolean('self_reconciled').notNull().default(false),
+    receivedAmountVnd: bigint('received_amount_vnd', { mode: 'number' }),
+    overBalanceReason: text('over_balance_reason'),
+    bankReference: text('bank_reference'),
   },
   (t) => [
     unique('payment_property_id_key').on(t.propertyId, t.id),
@@ -282,6 +307,43 @@ export const payment = pgTable(
       'payment_auth_code_check',
       sql`${t.authCode} IS NULL OR ${t.authCode} ~ '^[A-Za-z0-9]{1,12}$'`,
     ),
+    check(
+      'payment_recorded_by_role_check',
+      sql`${t.recordedByRole} IS NULL OR ${t.recordedByRole} IN ('owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator', 'housekeeping', 'maintenance')`,
+    ),
+    check(
+      'payment_received_amount_check',
+      sql`${t.receivedAmountVnd} IS NULL OR ${t.receivedAmountVnd} >= 0`,
+    ),
+    check(
+      'payment_bank_reference_check',
+      sql`${t.bankReference} IS NULL OR ${t.bankReference} ~ '^[A-Za-z0-9./_-]{1,64}$'`,
+    ),
+    check(
+      'payment_refund_approval_check',
+      sql`(${t.type} = 'refund' AND (${t.approvalRequestId} IS NOT NULL OR ${t.reversalOfId} IS NOT NULL)) OR (${t.type} <> 'refund' AND ${t.approvalRequestId} IS NULL)`,
+    ),
+    check(
+      'payment_refund_not_requester_check',
+      sql`${t.approvalRequestId} IS NULL OR (${t.approvalRequestedBy} IS NOT NULL AND ${t.recordedBy} IS NOT NULL AND ${t.recordedBy} <> ${t.approvalRequestedBy})`,
+    ),
+    check(
+      'payment_reconcile_separation_check',
+      sql`${t.reconciledBy} IS NULL OR ${t.selfReconciled} OR (${t.reconciledBy} IS DISTINCT FROM ${t.recordedBy} AND ${t.reconciledBy} IS DISTINCT FROM ${t.confirmedBy})`,
+    ),
+    check(
+      'payment_cash_handover_not_self_check',
+      sql`NOT ${t.selfReconciled} OR NOT (${t.method} = 'cash' AND ${t.recordedByRole} IN ('sales_staff', 'collaborator'))`,
+    ),
+    foreignKey({
+      name: 'payment_approval_request_fk',
+      columns: [t.propertyId, t.approvalRequestId, t.approvalRequestedBy],
+      foreignColumns: [approvalRequest.propertyId, approvalRequest.id, approvalRequest.requestedBy],
+    }),
+    index('payment_approval_request_idx')
+      .on(t.approvalRequestId)
+      .where(sql`${t.approvalRequestId} IS NOT NULL`),
+    index('payment_list_idx').on(t.propertyId, t.receivedAt, t.id),
     uniqueIndex('payment_provider_txn_key')
       .on(t.provider, t.providerTxnId)
       .where(sql`${t.providerTxnId} IS NOT NULL`),
@@ -415,5 +477,53 @@ export const depositNotice = pgTable(
     check('deposit_notice_amount_check', sql`${t.amountVnd} > 0`),
     check('deposit_notice_status_check', sql`${t.status} IN ('open', 'handled')`),
     index('deposit_notice_reservation_idx').on(t.propertyId, t.reservationId, t.createdAt),
+  ],
+);
+
+/** HĐ GTGT công ty (US-039, D16 C2) – one per folio; MISA issuance R3 (einvoice_status stays not_requested). */
+export const invoiceRequest = pgTable(
+  'invoice_request',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    folioId: uuid('folio_id').notNull(),
+    buyerType: text('buyer_type').notNull(),
+    companyName: text('company_name'),
+    taxCode: text('tax_code'),
+    address: text('address'),
+    email: text('email'),
+    einvoiceStatus: text('einvoice_status').notNull().default('not_requested'),
+    ...auditColumns(),
+  },
+  (t) => [
+    unique('invoice_request_property_id_key').on(t.propertyId, t.id),
+    unique('invoice_request_folio_key').on(t.folioId),
+    foreignKey({
+      name: 'invoice_request_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    foreignKey({
+      name: 'invoice_request_folio_fk',
+      columns: [t.propertyId, t.folioId],
+      foreignColumns: [folio.propertyId, folio.id],
+    }),
+    check(
+      'invoice_request_buyer_type_check',
+      sql`${t.buyerType} IN ('company', 'individual', 'retail')`,
+    ),
+    check(
+      'invoice_request_company_check',
+      sql`${t.buyerType} <> 'company' OR (${t.companyName} IS NOT NULL AND ${t.taxCode} IS NOT NULL AND ${t.email} IS NOT NULL)`,
+    ),
+    check(
+      'invoice_request_tax_code_check',
+      sql`${t.taxCode} IS NULL OR ${t.taxCode} ~ '^[0-9]{10}(-?[0-9]{3})?$'`,
+    ),
+    check(
+      'invoice_request_status_check',
+      sql`${t.einvoiceStatus} IN ('not_requested', 'pending', 'issued', 'failed')`,
+    ),
   ],
 );

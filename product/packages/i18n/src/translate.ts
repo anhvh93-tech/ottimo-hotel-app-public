@@ -1,6 +1,7 @@
 // Strings are owned by UXD in design/copy/strings-{vi,en}.json and imported directly (no copy to drift).
 // A key FE needs that UXD has not written yet is requested from UXD (no local pending copy since R2 S1).
-import enUxd from '../../../design/copy/strings-en.json';
+// VI (default) ships in the main bundle; EN is a separate chunk loaded when a user picks English
+// (`loadLocale`) – halves the strings every Vietnamese user downloads (main bundle < 500 KB).
 import viUxd from '../../../design/copy/strings-vi.json';
 
 export type Locale = 'vi' | 'en';
@@ -8,13 +9,32 @@ export const LOCALES: readonly Locale[] = ['vi', 'en'];
 export type Args = Record<string, string | number>;
 type Dict = Record<string, unknown>;
 
-const DICTS: Record<Locale, Dict> = {
-  vi: viUxd,
-  en: enUxd,
+const DICTS: Partial<Record<Locale, Dict>> = { vi: viUxd };
+const LOADERS: Record<Locale, () => Promise<Dict>> = {
+  vi: async () => viUxd,
+  en: () => import('../../../design/copy/strings-en.json').then((m) => m.default as Dict),
 };
+const pending = new Map<Locale, Promise<void>>();
+
+export function isLocaleLoaded(locale: Locale): boolean {
+  return DICTS[locale] !== undefined;
+}
+
+/** Load a locale's strings once (EN is lazy). Safe to call many times. */
+export function loadLocale(locale: Locale): Promise<void> {
+  if (DICTS[locale]) return Promise.resolve();
+  let p = pending.get(locale);
+  if (!p) {
+    p = LOADERS[locale]().then((d) => {
+      DICTS[locale] = d;
+    });
+    pending.set(locale, p);
+  }
+  return p;
+}
 
 function lookup(locale: Locale, key: string): string | undefined {
-  const v = DICTS[locale][key];
+  const v = DICTS[locale]?.[key];
   return typeof v === 'string' ? v : undefined;
 }
 
@@ -29,14 +49,20 @@ export function interpolate(text: string, args?: Args): string {
   );
 }
 
-/** Locale → EN fallback (strings-vi `_meta.fallback`) → the key itself (visible in QA, never blank). */
+/**
+ * Locale → EN fallback (strings-vi `_meta.fallback`) → VI while EN is still loading → the key itself
+ * (visible in QA, never blank).
+ */
 export function translate(locale: Locale, key: string, args?: Args): string {
-  const text = lookup(locale, key) ?? lookup('en', key) ?? key;
+  const text = lookup(locale, key) ?? lookup('en', key) ?? lookup('vi', key) ?? key;
   return interpolate(text, args);
 }
 
+/** All keys of a loaded locale (call `loadLocale` first for EN). */
 export function allKeys(locale: Locale): Set<string> {
-  return new Set(Object.keys(DICTS[locale]).filter((k) => k !== '_meta'));
+  const d = DICTS[locale];
+  if (!d) throw new Error(`Locale ${locale} not loaded – await loadLocale('${locale}')`);
+  return new Set(Object.keys(d).filter((k) => k !== '_meta'));
 }
 
 const BCP47: Record<Locale, string> = { vi: 'vi-VN', en: 'en-GB' };

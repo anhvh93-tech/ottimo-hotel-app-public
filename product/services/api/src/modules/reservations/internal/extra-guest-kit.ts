@@ -6,7 +6,8 @@
  * Desired state: booking `confirmed`, a room assigned and extraCount > 0 → exactly one open/in-progress
  * `extra_guest_kit_prepare` task for (booking, room) with quantity = extraCount, due = check-in time on the
  * arrival day (BR-812 (2), parameter checkin_time). `hold` bookings have no task.
- * Mid-stay changes and room changes of in-house guests (`transfer`, midstay due) belong to Sprint 3 (B13/B14).
+ * Sprint 3: an `in_house` booking keeps its kit (people changed mid-stay → due = now + midstay minutes, BR-812 (2));
+ * room changes of in-house guests (`transfer`) are handled by the front desk module (B14).
  */
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
@@ -50,7 +51,9 @@ export async function syncExtraGuestKit(tx: Tx, input: KitSyncInput): Promise<Ki
     [input.reservationId],
   );
   const desired =
-    input.status === 'confirmed' && input.roomId !== null && input.extraCount > 0
+    (input.status === 'confirmed' || input.status === 'in_house') &&
+    input.roomId !== null &&
+    input.extraCount > 0
       ? { roomId: input.roomId, quantity: input.extraCount }
       : null;
 

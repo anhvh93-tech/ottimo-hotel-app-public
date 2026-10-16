@@ -1,6 +1,5 @@
 import {
   isApiError,
-  newIdempotencyKey,
   type CancelReasonCode,
   type CancellationQuote,
   type MoveReasonCode,
@@ -11,7 +10,7 @@ import {
 } from '@ottimo/api-client';
 import { formatInstant, hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { timeHHmm } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
@@ -28,6 +27,7 @@ import {
 } from '../../app/reservations';
 import type { RuleParams } from '../../app/rules';
 import { useToast } from '../../app/toast';
+import { isRetryable, useWrite } from '../../app/useWrite';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -52,24 +52,25 @@ export interface DialogBase {
  */
 function useAction(base: DialogBase) {
   const { t, locale } = useI18n();
-  const key = useRef(newIdempotencyKey());
-  const [busy, setBusy] = useState(false);
+  const write = useWrite();
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [version, setVersion] = useState(base.reservation.version);
   const [locked, setLocked] = useState(false);
+  const busy = write.busy;
 
   async function run<T>(fn: (version: number, idem: string) => Promise<T>) {
     if (busy || locked) return undefined;
-    setBusy(true);
     setError(null);
     setFields({});
     try {
-      const out = await fn(version, key.current);
-      key.current = newIdempotencyKey();
+      // DS 6.21: CONCURRENT_UPDATE / SERVICE_UNAVAILABLE are retried inside `write.run` with the same
+      // Idempotency-Key and the same If-Match (`version` is captured for every attempt).
+      const out = await write.run((idem) => fn(version, idem));
       notifyChanged();
       return out;
     } catch (e) {
+      if (isRetryable(e)) return undefined; // the retry notice keeps the form and explains
       setError(e);
       setFields(fieldErrors(t, e));
       if (isApiError(e) && e.code === 'INVALID_TRANSITION') {
@@ -81,8 +82,6 @@ function useAction(base: DialogBase) {
         setLocked(true);
       }
       return undefined;
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -105,6 +104,7 @@ function useAction(base: DialogBase) {
   });
 
   const errorView = (extra?: RsvErrorContext): ReactNode => {
+    if (write.notice) return write.notice;
     if (!error) return null;
     const needsReload =
       locked ||
@@ -130,7 +130,18 @@ function useAction(base: DialogBase) {
     );
   };
 
-  return { run, busy, error, fields, errorView, version, setVersion, locked };
+  return {
+    run,
+    busy,
+    busyLabel: write.busyLabel,
+    label: write.label,
+    error,
+    fields,
+    errorView,
+    version,
+    setVersion,
+    locked,
+  };
 }
 
 const CANCEL_REASONS: Array<{ value: CancelReasonCode; key: string; otaOnly?: boolean }> = [
@@ -263,6 +274,7 @@ export function CancelDialog(
       keepLabel={t('cancel.keep')}
       confirmLabel={hold ? t('cancel.confirm') : t('drawer.action.cancel_booking')}
       busy={act.busy}
+      busyLabel={act.busyLabel}
       confirmDisabled={!quote || act.locked}
       confirmHelpId={!quote ? helpId : undefined}
       onKeep={props.onClose}
@@ -419,7 +431,13 @@ export function DepositDialog(props: DialogBase) {
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            busyLabel={act.busyLabel}
+            disabled={act.locked}
+            onClick={() => void submit()}
+          >
             {value > 0 && value < missing
               ? t('rsv.record_partial', { amount: vnd(value) })
               : t('rsv.deposit_submit')}
@@ -545,6 +563,7 @@ export function ExtendHoldDialog(props: DialogBase & { rules: RuleParams }) {
           <Button
             variant="pri"
             busy={act.busy}
+            busyLabel={act.busyLabel}
             disabled={act.locked || onceError}
             onClick={() => void submit()}
           >
@@ -675,7 +694,13 @@ export function MoveDialog(
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            busyLabel={act.busyLabel}
+            disabled={act.locked}
+            onClick={() => void submit()}
+          >
             {t('rsv.move_submit')}
           </Button>
         </>
@@ -861,6 +886,7 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
       keepLabel={t('noshow.keep')}
       confirmLabel={t('noshow.confirm')}
       busy={act.busy}
+      busyLabel={act.busyLabel}
       confirmDisabled={!ready || act.locked}
       confirmHelpId={!ready ? helpId : undefined}
       onKeep={props.onClose}
@@ -961,7 +987,13 @@ export function RestoreDialog(props: DialogBase & { requiresApproval: boolean })
       footer={
         <>
           <Button onClick={props.onClose}>{t('confirm.keep')}</Button>
-          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            busyLabel={act.busyLabel}
+            disabled={act.locked}
+            onClick={() => void submit()}
+          >
             {props.requiresApproval
               ? t('drawer.action.request_restore')
               : t('drawer.action.restore_no_show')}
@@ -1111,6 +1143,7 @@ export function AssignRoomDialog(
           <Button
             variant="pri"
             busy={act.busy}
+            busyLabel={act.busyLabel}
             disabled={!chosen || act.locked}
             onClick={() => void submit()}
           >
@@ -1178,27 +1211,27 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
   const propertyId = usePropertyId();
   const toast = useToast();
   const { online } = useOnline();
-  const key = useRef(newIdempotencyKey());
+  const write = useWrite();
+  const busy = write.busy;
   const [amount, setAmount] = useState(r.depositRequiredVnd ? vnd(r.depositRequiredVnd) : '');
   const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const value = parseVnd(amount) ?? 0;
   const submit = async () => {
     if (!(value > 0) || busy) return;
-    setBusy(true);
+    setError(null);
     try {
-      await api.createDepositNotice(
-        { propertyId, reservationId: r.id },
-        { amountVnd: value, note: note.trim() || undefined },
-        key.current,
+      await write.run((idem) =>
+        api.createDepositNotice(
+          { propertyId, reservationId: r.id },
+          { amountVnd: value, note: note.trim() || undefined },
+          idem,
+        ),
       );
       toast(t('drawer.deposit_notice.sent', { time: timeHHmm(new Date()) }));
       props.onDone();
     } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
+      if (!isRetryable(e)) setError(e);
     }
   };
   return (
@@ -1214,14 +1247,16 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
           <Button
             variant="pri"
             busy={busy}
+            busyLabel={write.busyLabel}
             disabled={!online || !(value > 0)}
             onClick={() => void submit()}
           >
-            {t('drawer.action.deposit_notice')}
+            {write.label(t('drawer.action.deposit_notice'))}
           </Button>
         </>
       }
     >
+      {write.notice}
       {error ? <Alert tone="bad">{rsvErrorText(t, error)}</Alert> : null}
       <Field label={t('rsv.amount_sent')} required>
         {(p) => (

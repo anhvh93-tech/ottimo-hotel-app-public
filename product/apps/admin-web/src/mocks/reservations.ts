@@ -72,6 +72,8 @@ export const nightsBetween = (from: string, to: string) =>
 const overlaps = (a1: string, a2: string, b1: string, b2: string) => a1 < b2 && b1 < a2;
 
 export interface MockReservation extends Reservation {
+  /** Sprint 3 mock: guest nationality on the booking (drives VN/foreigner registration). */
+  nationality?: string;
   createdBy?: string;
   guestName: string;
   roomId: string | null;
@@ -545,6 +547,18 @@ export function createReservationMock(ctx: Ctx) {
         if (fd && from && Date.now() >= Date.parse(from))
           add('mark_no_show', 'B11', 'mark-no-show');
       }
+    } else if (r.status === 'in_house' && fd) {
+      // Sprint 3 (EP03-05): stay actions by status AND role.
+      add('extend_stay', 'B13', 'extend');
+      add('set_late_checkout', 'B15', 'late-checkout');
+      add('change_room', 'B14', 'change-room');
+      if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
+      if (
+        has(roles, OWN_MGR) &&
+        r.actualCheckinAt &&
+        todayLocal('Asia/Ho_Chi_Minh', new Date(r.actualCheckinAt)) === today()
+      )
+        add('undo_check_in', 'B17', 'undo-check-in');
     } else if (r.status === 'no_show' && fd) {
       add('restore_no_show', 'B12', 'restore-no-show', {
         requiresApproval: !has(roles, OWN_MGR) && r.arrivalDate !== today(),
@@ -563,7 +577,7 @@ export function createReservationMock(ctx: Ctx) {
     return `${r.arrivalDate}T${param('no_show_mark_time', '23:00')}:00+07:00`;
   }
   function view(r: MockReservation, user: MockUser, roles: Role[]): Reservation {
-    const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'holdCreatedAt']);
+    const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'holdCreatedAt', 'nationality']);
     const out: Reservation = {
       ...rest,
       progress:
@@ -1621,6 +1635,11 @@ export function createReservationMock(ctx: Ctx) {
     get state() {
       return state;
     },
+    /** Sprint 3 mock (stay.ts) reuses the same reservation view, scope and idempotency rules. */
+    view,
+    find,
+    idem,
+    remember,
   };
 }
 

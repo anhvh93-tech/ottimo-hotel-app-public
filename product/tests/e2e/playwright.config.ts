@@ -9,6 +9,7 @@
 //   api              – E2E API flows per story (api/*.api.spec.ts) – Playwright request API, no browser
 //   limits           – login lockout + per-IP limit (limits/), serial, after rbac + api
 //   rbac-logout      – logout cases; kill the cached sessions, so they run after rbac + api + limits
+//   serial           – live shared-state changes (serial/): one worker, before clock
 //   clock            – MutableClock scenarios (hold expiry J1/J2, quote J3, no-show J6/J7, OOO J9 – clock/): serial,
 //                      after every other project; enabled in CI or with E2E_CLOCK_CONTROL=1 (moves the shared clock)
 //   db-outage        – TC-X-050c stops PostgreSQL: runs after every other project
@@ -63,6 +64,15 @@ export default defineConfig({
       // desk-chromium reuses the cached sessions (cookie injected – ui/helpers.ts signIn)
       dependencies: ['rbac', 'api', 'limits', 'desk-chromium'],
     },
+    // Live shared-state changes (parameter effective today, room price/sellable/capacity – serial/): one worker,
+    // after every project that books or prices, before clock. Each case restores what it changed.
+    {
+      name: 'serial',
+      testMatch: /serial\/.*\.serial\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium'],
+    },
     // Moving the clock changes "today" and expires every session: serial, after every project that uses the API
     // (UI included). Each test sets/freezes the clock itself; afterAll resets it (support/clock.ts).
     {
@@ -71,7 +81,7 @@ export default defineConfig({
       fullyParallel: false,
       // one worker: two clock files in parallel would move the shared clock under each other
       workers: 1,
-      dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium'],
+      dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium', 'serial'],
     },
     {
       name: 'desk-chromium',
@@ -96,6 +106,7 @@ export default defineConfig({
       dependencies: [
         'smoke',
         'rbac-logout',
+        'serial',
         'clock',
         'desk-chromium',
         'mobile-webkit',

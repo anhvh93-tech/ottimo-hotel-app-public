@@ -2171,7 +2171,11 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                     k: 'array',
                     items: {
                       k: 'object',
-                      props: { label: { s: { k: 'scalar' } }, value: { s: { k: 'scalar' } } },
+                      props: {
+                        label: { s: { k: 'scalar' } },
+                        value: { s: { k: 'scalar' } },
+                        valueKey: { s: { k: 'scalar' } },
+                      },
                       open: false,
                     },
                   },
@@ -2635,7 +2639,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
         },
         houseRules: { s: { k: 'scalar' } },
-        guestFullName: { s: { k: 'scalar' }, f: 'D01' },
+        guestFullName: { s: { k: 'scalar' }, f: 'D01', g: 2 },
         wifi: {
           s: {
             k: 'object',
@@ -2653,6 +2657,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
             },
             open: false,
           },
+          g: 2,
         },
         doorCodeAvailableFrom: { s: { k: 'ref', name: 'Instant' } },
         onlineCheckinAvailable: { s: { k: 'scalar' } },
@@ -2668,9 +2673,9 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         etaTime: { s: { k: 'ref', name: 'LocalTime' } },
         consentRecorded: { s: { k: 'scalar' }, f: 'D20' },
         completedAt: { s: { k: 'ref', name: 'Instant' } },
-        noticeAccepted: { s: { k: 'scalar' } },
-        lateArrival: { s: { k: 'scalar' } },
-        deferredPeople: { s: { k: 'array', items: { k: 'scalar' } } },
+        noticeAccepted: { s: { k: 'scalar' }, g: 1 },
+        lateArrival: { s: { k: 'scalar' }, g: 1 },
+        deferredPeople: { s: { k: 'array', items: { k: 'scalar' } }, g: 1 },
       },
       open: false,
     },

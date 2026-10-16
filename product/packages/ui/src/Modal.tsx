@@ -170,6 +170,8 @@ export interface ConfirmDialogProps {
   onKeep: () => void;
   onConfirm: () => void;
   busy?: boolean;
+  /** Label while busy, e.g. the DS 6.21 countdown "Tự thử lại sau {seconds} giây…". */
+  busyLabel?: ReactNode;
   danger?: boolean;
   /** Confirm stays locked until the consequence is known (US-135) – explain why via `confirmHelpId`. */
   confirmDisabled?: boolean;
@@ -186,6 +188,7 @@ export function ConfirmDialog({
   onKeep,
   onConfirm,
   busy,
+  busyLabel,
   danger = true,
   confirmDisabled,
   confirmHelpId,
@@ -210,6 +213,7 @@ export function ConfirmDialog({
           <Button
             variant={danger ? 'danger' : 'pri'}
             busy={busy}
+            busyLabel={busyLabel}
             disabled={confirmDisabled}
             aria-describedby={confirmHelpId}
             onClick={onConfirm}

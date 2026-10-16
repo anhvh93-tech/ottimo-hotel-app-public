@@ -65,3 +65,54 @@ describe('EP02 endpoints (OpenAPI 0.3.4)', () => {
     expect(eventStreamPath('a b')).toBe('/v1/properties/a%20b/events');
   });
 });
+
+describe('Sprint 3 endpoints (OpenAPI 0.3.6)', () => {
+  it('late-checkout dry run is read-only: no If-Match, no Idempotency-Key (SEC A3)', async () => {
+    const { api, call } = setup();
+    await api.setLateCheckout(
+      R,
+      { checkoutTime: '15:00', dryRun: true, applySurcharge: false },
+      3,
+      'k',
+    );
+    expect(call()[0]).toBe('http://x/v1/properties/p/reservations/r/actions/late-checkout');
+    expect(call()[1].headers).not.toHaveProperty('If-Match');
+    expect(call()[1].headers).not.toHaveProperty('Idempotency-Key');
+  });
+
+  it('check-in carries If-Match + Idempotency-Key', async () => {
+    const { api, call } = setup();
+    await api.checkIn(R, { cardsIssued: 1, houseRulesSent: true }, 7, 'k-ci');
+    expect(call()[1].headers).toMatchObject({ 'If-Match': '"7"', 'Idempotency-Key': 'k-ci' });
+  });
+
+  it('documents are multipart (browser sets the boundary – no JSON content type)', async () => {
+    const { api, call } = setup();
+    await api.addGuestDocument(
+      { propertyId: 'p', registrationId: 'g' },
+      { docType: 'cccd', fullNameOnDoc: 'A B', docNumber: '079123456789' },
+      [new Blob(['x'], { type: 'image/jpeg' })],
+      'k-doc',
+    );
+    const init = call()[1];
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.headers).not.toHaveProperty('Content-Type');
+    expect((init.body as FormData).getAll('image')).toHaveLength(1);
+  });
+
+  it('executeRefund (transfer) and executeCashRefund are separate operations (A47 / A47a)', async () => {
+    const { api, call } = setup();
+    await api.executeCashRefund(
+      { propertyId: 'p', approvalId: 'a' },
+      { amountVnd: 1, paidAt: 'x', attachmentId: 'f' },
+      'k1',
+    );
+    await api.executeRefund(
+      { propertyId: 'p', approvalId: 'a' },
+      { amountVnd: 1, paidAt: 'x' },
+      'k2',
+    );
+    expect(call(0)[0]).toMatch(/approval-requests\/a\/actions\/execute-cash-refund$/);
+    expect(call(1)[0]).toMatch(/approval-requests\/a\/actions\/execute-refund$/);
+  });
+});

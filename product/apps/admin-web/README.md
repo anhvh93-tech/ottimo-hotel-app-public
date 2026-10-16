@@ -25,12 +25,21 @@ Console trình duyệt: `__ottimoMock.reset()`.
   `pages/quotes` H12 (căn trống → báo giá → gửi → giữ chỗ, lưới căn trống theo vai)
 - Cập nhật rack: `app/live.ts` – SSE `streamEvents` khi chạy server thật (`pnpm dev:server`), mất SSE → hiện "Dữ liệu lúc …" + hỏi lại
   mỗi 30 s; chế độ mock/test: hỏi lại 30 s + khi quay lại tab; mọi thao tác ghi gọi `notifyChanged()` → rack tải lại ngay
+- Sprint 3 (EP03–EP06, EP15): `pages/stay` – H13 `CheckInPage` (`/reservations/:id/check-in`), H16 `CheckOutPage`
+  (`/reservations/:id/check-out`, bill `BillDialog`), H15 hộp lưu trú (`StayDialogs.tsx`: gia hạn, trả muộn, đổi phòng,
+  phát sinh, xác nhận giờ trả, giao mã/thẻ, hoàn tác, người đi cùng, đề nghị hoàn), `PaymentPanel` (VietQR vẽ tại chỗ bằng
+  `@ottimo/ui` `QrCode` – SEC F2, tiền mặt, chuyển khoản, POS); `pages/registration` H14 (C3, thiết bị được cấp);
+  `pages/approvals` H17 17.2; `pages/money` H17 17.3 + đối soát/tiền mặt nộp quầy (A46/A46a) + chi hoàn (A47/A47a)
+- Lưu đồng thời / hệ thống bận (DS 6.21): `app/useWrite.tsx` – `409 CONCURRENT_UPDATE` / `503 SERVICE_UNAVAILABLE` giữ form,
+  tự gửi lại cùng `Idempotency-Key` + `If-Match` theo `Retry-After`; GET 503 tự tải lại 1 lần (`hooks/useResource.ts`)
 - `src/components` – khung app, menu người dùng, trạng thái chung, `GuestPicker` (bộ chọn khách dùng chung)
 - `src/mocks` – MSW handlers theo `docs/api/openapi.yaml`; EP02 ở `mocks/reservations.ts` (ngày tương đối "hôm nay",
-  chống trùng 409 + `conflicts[]`/`suggestions[]`, If-Match 412, Idempotency-Key, `allowedActions` theo trạng thái × vai)
+  chống trùng 409 + `conflicts[]`/`suggestions[]`, If-Match 412, Idempotency-Key, `allowedActions` theo trạng thái × vai);
+  Sprint 3 ở `mocks/stay.ts` (folio, thanh toán, VietQR, duyệt, hoàn, khai báo – thứ tự kiểm theo spec EP03-05/EP06)
 
 ## Phím tắt (Desk)
 
 `R` sơ đồ phòng · trong sơ đồ: `T` về hôm nay, `N` đặt phòng mới, mũi tên đi giữa ô, `Home`/`End` đầu/cuối dòng,
 `Enter`/`Space` mở đơn hoặc đặt phòng ở ô trống, `Esc` đóng drawer (focus quay về ô cũ)
+
 - Gói dùng chung: `packages/api-client` (sinh kiểu: `pnpm --filter @ottimo/api-client gen`), `packages/i18n`, `packages/ui` (`pnpm --filter @ottimo/ui sync` khi UXD đổi icon)

@@ -123,3 +123,122 @@ Tham số `{…}` khớp VI/EN (đã kiểm). Bản RU là nháp, cần người
 - Chưa xem lại trong trình duyệt các màn đã sửa (EN, sáng/tối, phóng chữ).
 - Màn Desk cho lễ tân thấy yêu cầu dọn của khách là "dọn bù" hay "lần hai" (DOM: app tự gợi ý) chưa vẽ riêng; khi tới Sprint 4 sẽ làm cùng H19/H03.
 - Style nội tuyến cũ trong H13–H18 chưa chuyển hết sang lớp DS 4.1.
+
+## 8. Đợt 2 – chuỗi còn thiếu của FE/MOB Sprint 3 và duyệt chỗ chọn giấy tờ MOB thêm vào H18 (17/10, ORC giao)
+Đầu vào: `outputs/FE/s3-report.md` mục 5, `apps/admin-web/src/pages/stay/common.tsx` (`PENDING`), `outputs/MOB/s3-report.md` mục 5, `apps/guest-web/src/**`, EP03-05 **v0.2** (2.2, 2.6, 4.5, 5.4, 5.5), EP06 v0.2 (3.1, 8.3).
+
+### 8.1 Khóa mới cho FE (admin-web, VI/EN – 48 khóa)
+Tham số đúng như FE đang truyền. Spec ghi `{creditVnd}` / `{x}`, chuỗi dùng `{amount}`.
+- **Đủ 29 khóa trong `PENDING`**:
+  - `refund.method`, `refund.method.original_method`
+  - `refund.bank_bin`, `refund.account_no`, `refund.account_holder`, `refund.holder_differs`
+  - `refund.set_destination`, `refund.execute_cash`, `refund.execute_transfer`, `refund.proof`, `refund.bank_reference`
+  - `refund.transfer_waits_manager`, `refund.request_overpayment` {amount}, `refund.requested`, `refund.paid` {amount}, `refund.show_account`
+  - `checkout.blocked_credit` {amount}, `checkout.overpay.refund_request` {amount}, `checkout.overpay.retain`, `checkout.late_recalc` {old, new}
+  - `pay.confirm_cash_handover`, `pay.cash_handover_title`, `pay.receiving_account_changed`
+  - `party.missing` {n}, `party.remove`, `party.remove_confirm` {name}
+  - `room_change.door_reminder` {room}, `checkin.fix_guest_count`, `checkin.time_hint`
+- **Các mục FE xin thêm**:
+
+  | Khóa | Dùng khi / thay cho |
+  |---|---|
+  | `mlog.date_from`, `mlog.date_to` | Thay "Khoảng ngày (1)/(2)" |
+  | `rooms.future_keep` {n} | Thay cách ghép `rooms.stop_help` + "Đơn đặt phòng: n" |
+  | `refund.self_execute_forbidden` | 403 `SELF_APPROVAL_FORBIDDEN` khi chi hoàn; thay `error.SELF_APPROVAL_FORBIDDEN` trong ngữ cảnh này |
+  | `checkin.verify.visa_at_arrival`, `checkin.verify.stay_within_visa` | Mã kiểm `visa_valid_at_arrival` / `stay_within_visa`; thay `checkin.verify.visa` |
+  | `refund.title` "Hoàn tiền" | Tab màn Tiền. Đề nghị FE đổi `PENDING.refundTitle` sang khóa này: `lt.settlement.refund` ("Hoàn lại khách") là dòng quyết toán dài hạn, không phải tên tab |
+
+- **Chuỗi spec v0.2 đánh dấu "(mới)" mà chưa có, FE sẽ cần**:
+  - Lỗi: `error.REFUND_DESTINATION_REQUIRED`, `error.REFUND_EXCEEDS_APPROVED` {max}, `error.OVERPAYMENT_HANDLING_REQUIRED`
+  - Thu tiền: `pay.cash_handover_mismatch` {amount} (422 `AMOUNT_INVALID` của `confirmCashHandover`)
+  - Người đi cùng: `party.remove_registered`, `party.reduce_count` {n}
+  - Bill: `bill.ota_prepaid` {n, channel}, `bill.refund` {amount, method}, `bill.refund_due` {amount}
+  - Khác: `folio.post_checkout_tag`, `charge.room_change_difference`, `invoice.address`
+- Sau khi kéo chuỗi mới, FE có thể bỏ hằng `PENDING` và gọi thẳng `t('…')`.
+
+### 8.2 Khóa mới cho MOB (guest-web, VI/EN/RU – 18 khóa)
+| Nhóm | Khóa |
+|---|---|
+| Điều hướng, bước | `gw.nav_label`, `gw.steps_label` |
+| Loại giấy tờ | `gw.doc_type`, `gw.doc.passport`, `gw.doc.cccd`, `gw.doc_type_first`, `gw.doc_hint.passport`, `gw.doc_hint.cccd` |
+| Bổ sung tại quầy | `gw.defer_at_desk`, `gw.defer_help`, `gw.deferred`, `gw.defer_undo`, `gw.docs_have_deferred` {n, m, k} |
+| Trang Lưu trú sau khi hoàn tất | `gw.oci_done_card_title`, `gw.oci_done_card_body` {n, m, eta}, `gw.oci_done_card_deferred` {k}, `gw.oci_done_card_view` (mở màn Xong) |
+| Lỗi máy chủ | `gw.error_server` {request_id} – dùng thay `error.INTERNAL_ERROR`, vì câu đó bảo khách "báo quản lý" |
+
+Hi-fi H18 đã cập nhật:
+- `nav`/`ol` nay dùng `data-i18n-label`.
+- 18.2: chọn loại giấy tờ + "Bổ sung tại quầy", kèm 3 biến thể.
+- 18.5: thẻ "Đã làm thủ tục trước".
+- H23: nhãn điều hướng dùng `gw.nav_label`.
+
+**RU guest-web:** RU nháp cho 18 khóa mới và 91 khóa guest-web đang dùng mà chưa có RU, gồm `error.*`, `field.FILE_*`, `retry.*`, `guest.oci.*`, `gw.*` và `gw.req.*` của ESC-016. RU_EXTRA trong `gen_strings.py`, cần người bản ngữ duyệt (US-115 R3). Sau đợt này, các khóa guest-web còn thiếu RU đều là khóa MOB nên thay hoặc không được dùng:
+- `checkin.docs.field.doc_type`, `ci.doc.cccd`, `ci.doc.passport` → đổi sang `gw.doc*`
+- `error.INTERNAL_ERROR` → đổi sang `gw.error_server`
+- `guest.bill.title`, `guest.verify.title` → chỉ nằm trong test chặn (ĐK-6), đúng thiết kế
+
+### 8.3 Duyệt chỗ chọn CCCD/Hộ chiếu MOB thêm vào H18
+**Đồng ý cách làm.** Chọn loại trước, chụp sau. Seg có `role="group"` + `aria-pressed`. Nút Chụp khóa khi chưa chọn. Không lưu ảnh. Cần sửa 5 điểm, mức Minor:
+1. Thay chuỗi Desk bằng chuỗi khách: `ci.doc.cccd` / `ci.doc.passport` / `checkin.docs.field.doc_type` → `gw.doc.cccd` / `gw.doc.passport` / `gw.doc_type`. Khách nước ngoài không hiểu chữ "CCCD" đứng một mình.
+2. Nhãn nhóm phải **nhìn thấy được** (`gw.doc_type` cạnh Seg), không chỉ nằm trong `aria-label`.
+3. Nút Chụp đang khóa thì phải có câu lý do `gw.doc_type_first`, gắn bằng `aria-describedby`.
+4. Thứ tự và chọn sẵn:
+   - Ngôn ngữ trang `vi`: CCCD trước. Ngôn ngữ khác: Hộ chiếu trước.
+   - Khách 1: không chọn sẵn.
+   - Khách 2…n: chọn sẵn theo loại của khách trước, đổi được.
+5. Câu gợi ý dưới tên khách đổi theo loại: `gw.doc_hint.*` thay `guest.oci.add_doc`. Mỗi nút ≥ 44px (`.touch .seg button`).
+
+Ngoài phần chọn loại:
+- Thêm "Bổ sung tại quầy" (`deferredPeople[]`, E06-06) cho người chưa có ảnh.
+- Trang Lưu trú sau khi hoàn tất: thay thẻ CTA bằng thẻ `gw.oci_done_card_*`. Hiện nút "Làm thủ tục trước" rồi mở ra màn Xong là gây hiểu nhầm.
+
+DS 6.17 đã ghi các quy tắc này.
+
+### 8.4 Kiểm tra
+| Kiểm | Kết quả |
+|---|---|
+| `gen_strings.py` | **2105** chuỗi + 8 mẫu tin, 0 khóa trùng; mọi khóa RU_EXTRA có trong nguồn (assert) |
+| `check_hifi.py` | 25/25 trang ✓, exit 0 |
+| Tham số VI ↔ EN ↔ RU | 0 lệch |
+| Trình duyệt | **Chưa xem được**: Browser pane không mở được tệp cục bộ. H18 18.2 (hàng chọn giấy tờ – lớp mới `.gw-docs-row`, `.upload-slot.gw-slot` ở `hifi.css` mục 15) cần xem lại ở 375px |
+
+### 8.5 File sửa thêm ở đợt 2
+`product/design/tools/gen_strings.py` (2 nhóm mới + `RU_EXTRA`), `copy/strings-{vi,en,ru}.json`, `wireframes/assets/strings.js`, `tools/strings-tables.md`, `content-guide.md` (mục 8, lịch sử 0.3.8), `design-system.md` (6.17), `hifi/18-guest-checkin.html`, `hifi/23-guest-requests.html`, `hifi/assets/hifi.css` (mục 15).
+
+### 8.6 Giả định đợt 2
+- CCCD chụp 2 mặt, hộ chiếu chụp trang ảnh + trang thị thực nếu có – nằm trong giới hạn ≤ 4 ảnh/người `[GIẢ ĐỊNH UXD]`.
+- Khách 1 được chọn "Bổ sung tại quầy" như mọi người khác `[GIẢ ĐỊNH UXD – theo EP06 8.3: server chấp nhận người thiếu ảnh ở trạng thái bổ sung tại quầy]`.
+- "Xem lại" trên thẻ đã hoàn tất chỉ mở màn Xong, không cho sửa giờ đến (spec chưa có thao tác sửa sau khi hoàn tất).
+- Không có ESC mới.
+
+## 9. Đợt 3 – nhãn dữ liệu khai báo trên cổng `reg.field.*` (BE-C `getPortalData`, 17/10, ORC giao)
+Đầu vào: `outputs/BE/s3-be-c.md` (dòng 114, 173, 185) và `services/api/src/modules/registration/internal/registration.service.ts`. Đã đối chiếu: đủ 17 khóa BE đang dùng, không thiếu khóa nào. Nguồn chữ là EP06 v0.2 mục 2.3.
+
+### 9.1 Khóa mới (VI/EN – 32 khóa; tổng 2137 chuỗi + 8 mẫu tin)
+- **Nhãn trường trên cổng (17).** Chữ theo biểu mẫu cổng để lễ tân dò đúng ô:
+  - Người nước ngoài (15 trường, theo thứ tự server): `reg.field.full_name`, `reg.field.date_of_birth`, `reg.field.gender`, `reg.field.nationality`, `reg.field.passport_number`, `reg.field.passport_expiry`, `reg.field.visa_kind`, `reg.field.visa_number`, `reg.field.visa_valid_until`, `reg.field.entry_date`, `reg.field.entry_port`, `reg.field.entry_purpose`, `reg.field.arrival_date`, `reg.field.departure_date`, `reg.field.room_no`.
+  - Công dân VN dùng thêm `reg.field.id_number` và `reg.field.address`.
+  - `reg.field.room_no` = "Số phòng": giữ chữ của cổng, không dùng chữ "căn" của OTTIMO.
+- **Giá trị (7).** Server trả mã enum, client đổi sang chữ trước khi hiện và trước khi sao chép:
+  - Giới tính: `reg.value.gender.male`, `reg.value.gender.female`, `reg.value.gender.other`
+  - Diện nhập cảnh: `reg.value.visa_kind.visa`, `reg.value.visa_kind.visa_exempt`, `reg.value.visa_kind.temp_residence_card`
+  - Trường rỗng: `reg.value.empty`, không có nút Sao chép.
+- **Nhãn ô nhập giấy tờ EP06 2.3 còn thiếu (8):** `checkin.docs.field.gender`, `checkin.docs.field.passport_issue_date`, `checkin.docs.field.issuing_place`, `checkin.docs.field.visa_kind`, `checkin.docs.field.visa_number`, `checkin.docs.field.entry_port`, `checkin.docs.field.entry_purpose`, `checkin.docs.field.address`.
+
+### 9.2 Hi-fi
+H14 14.2: bảng "Trường trên cổng" vẽ lại đủ 15 dòng đúng thứ tự BE-C, dùng `reg.field.*`, có ví dụ giá trị đã đổi chữ và trường rỗng. Đặc tả bên cạnh ghi rõ nhãn là khóa i18n và quy tắc đổi enum.
+
+### 9.3 Đề nghị
+| Gửi | Nội dung |
+|---|---|
+| BE-C | `gender`/`visaKind` hiện vào `fields[].value` dưới dạng mã enum (`female`, `visa_exempt`) và nằm trong `clipboardText`. Cần chọn một trong hai: (a) server trả thêm `valueKey` (`reg.value.*`) để client đổi chữ, hoặc (b) server đổi sang chữ theo `Accept-Language` / ngôn ngữ cổng (tiếng Việt). Đề xuất **(b) cho `clipboardText`**, vì nội dung dán lên cổng Bộ Công an phải là tiếng Việt ("Nữ", "Miễn thị thực") bất kể giao diện lễ tân đang dùng ngôn ngữ nào |
+| FE | Nhãn bảng cổng lấy từ `t(field.label)`; giá trị enum đổi qua `reg.value.*`; trường rỗng hiện `reg.value.empty` và không có nút Sao chép |
+| INT/DOM | Xác nhận chữ nhãn khớp biểu mẫu cổng thật (NN `tbltkbtt.bocongan.gov.vn`, VN `dichvucong.bocongan.gov.vn`). UXD viết theo EP06 mục 2.3, chưa đối chiếu được màn cổng thật |
+
+### 9.4 Kiểm tra
+| Kiểm | Kết quả |
+|---|---|
+| `gen_strings.py` | 2137 chuỗi + 8 mẫu, 0 khóa trùng |
+| `check_hifi.py` | 25/25 trang ✓, exit 0 (H14: 137 chuỗi) |
+| Tham số VI/EN/RU | 0 lệch |
+
+File sửa thêm: `product/design/tools/gen_strings.py`, `copy/strings-{vi,en,ru}.json`, `wireframes/assets/strings.js`, `tools/strings-tables.md`, `content-guide.md` (mục 8, lịch sử 0.3.9), `hifi/14-registration.html`. Không có ESC mới.

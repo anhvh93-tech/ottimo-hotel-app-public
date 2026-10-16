@@ -1,7 +1,8 @@
-import type { Room, RoomGroup } from '@ottimo/api-client';
+import type { Room, RoomGroup, RoomUpdateResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip } from '@ottimo/ui';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../app/api';
 import { Page, Topbar } from '../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../components/states';
@@ -21,6 +22,7 @@ export function RoomsPage() {
   const { roles } = useSession();
   const editable = canEditRooms(roles);
   const [editing, setEditing] = useState<Room | null>(null);
+  const [keepRoom, setKeepRoom] = useState<{ roomNo: string; count: number } | null>(null);
   const { state, reload, mutate } = useResource(async () => {
     const [rooms, groups] = await Promise.all([
       api.listRooms({ propertyId }),
@@ -44,6 +46,27 @@ export function RoomsPage() {
         }
       />
       <Page>
+        {keepRoom ? (
+          // 0.3.6 A-39 (ĐK-S2-2): stop-sale saved, but future bookings still hold the unit – not blocked;
+          // the desk moves them by hand. Count from `warnings[FUTURE_RESERVATIONS_KEEP_ROOM]`.
+          <Alert
+            tone="warn"
+            role="status"
+            title={t('rooms.saved', { room: keepRoom.roomNo })}
+            actions={
+              <>
+                <Link className="btn sm" to="/reservations">
+                  {t('nav.reservations')}
+                </Link>
+                <Button size="sm" variant="ghost" onClick={() => setKeepRoom(null)}>
+                  {t('common.close')}
+                </Button>
+              </>
+            }
+          >
+            {t('rooms.future_keep', { n: keepRoom.count })}
+          </Alert>
+        ) : null}
         <Alert tone="info" icon="sofa" role="note">
           {t('rooms.rule_note')}
         </Alert>
@@ -142,8 +165,11 @@ export function RoomsPage() {
           room={editing}
           groups={groups}
           onClose={() => setEditing(null)}
-          onSaved={(room) => {
+          onSaved={(saved: RoomUpdateResult) => {
+            const { warnings, ...room } = saved;
             mutate((d) => ({ ...d, rooms: d.rooms.map((x) => (x.id === room.id ? room : x)) }));
+            const keep = warnings?.find((w) => w.code === 'FUTURE_RESERVATIONS_KEEP_ROOM');
+            setKeepRoom(keep ? { roomNo: room.roomNo, count: keep.count } : null);
             setEditing(null);
           }}
           onReload={reload}
