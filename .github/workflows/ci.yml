@@ -41,7 +41,8 @@ jobs:
     env:
       # Tests run as the application role, never as the superuser (FB-R1-SEC-OPS-01).
       DATABASE_URL: postgres://ottimo_app:ci_app_only@localhost:5432/ottimo_test
-      MIGRATION_DATABASE_URL: postgres://ottimo_owner:ci_owner_only@localhost:5432/ottimo_test
+      # Migrations (R2) log in as ottimo_migrator and SET ROLE ottimo_owner (NOLOGIN) – erd.md 2.1, BUG-R1-SEC-06.
+      MIGRATION_DATABASE_URL: postgres://ottimo_migrator:ci_migrator_only@localhost:5432/ottimo_test
       TURBO_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -55,7 +56,7 @@ jobs:
           PGPASSWORD: ci_admin_only
           POSTGRES_USER: ottimo_admin
           OTTIMO_DATABASES: ottimo_test
-          OTTIMO_OWNER_DB_PASSWORD: ci_owner_only
+          OTTIMO_MIGRATOR_DB_PASSWORD: ci_migrator_only
           OTTIMO_APP_DB_PASSWORD: ci_app_only
         run: bash infra/postgres/init/02-roles.sh
 
@@ -114,6 +115,19 @@ jobs:
       - name: Build
         run: pnpm build
 
+  test-surface-guard:
+    # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
+    # (they live in docs/api/openapi.test.yaml only). The bundle half runs in docker-build.
+    name: no test endpoints in production contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: openapi.yaml has no /__test__ path
+        run: bash product/infra/ci/check-no-test-surface.sh spec product/docs/api/openapi.yaml
+
   contract-lint:
     # FB-R1-ARC-OPS-08: lint docs/api/openapi.yaml. R1 reports only (continue-on-error); R2 blocks.
     name: OpenAPI lint (Redocly)
@@ -156,8 +170,21 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Build api image
+      - name: Build api image (production build, INCLUDE_TEST_SUPPORT=0)
         run: docker build -f product/infra/docker/Dockerfile.api -t ottimo-api:ci product
+      # BUG-R1-SEC-08: fail if the production image ships TestSupportModule or any /__test__ route.
+      # Must stay green before BE merges TestSupportModule (R2) – do not mark continue-on-error.
+      - name: Production api bundle has no test-only code
+        run: |
+          rm -rf "$RUNNER_TEMP/api-bundle" && mkdir -p "$RUNNER_TEMP/api-bundle"
+          cid=$(docker create ottimo-api:ci)
+          docker cp "$cid:/app/dist" "$RUNNER_TEMP/api-bundle/dist"
+          # Workspace packages bundled into the image (if any) are checked too.
+          docker cp "$cid:/app/node_modules/@ottimo" "$RUNNER_TEMP/api-bundle/ottimo-packages" 2>/dev/null || true
+          docker rm "$cid"
+          dirs="$RUNNER_TEMP/api-bundle/dist"
+          [ -d "$RUNNER_TEMP/api-bundle/ottimo-packages" ] && dirs="$dirs $RUNNER_TEMP/api-bundle/ottimo-packages"
+          bash product/infra/ci/check-no-test-surface.sh bundle $dirs
       - name: Build web image
         run: docker build -f product/infra/docker/Dockerfile.web -t ottimo-web:ci product
       - name: Smoke test GET /health against PostgreSQL (app role, same init scripts as dev)
@@ -167,7 +194,7 @@ jobs:
           docker network create ottimo-ci
           docker run -d --name pg --network ottimo-ci \
             -e POSTGRES_USER=ottimo_admin -e POSTGRES_PASSWORD=ci_admin_only -e POSTGRES_DB=ottimo \
-            -e OTTIMO_OWNER_DB_PASSWORD=ci_owner_only -e OTTIMO_APP_DB_PASSWORD=ci_app_only \
+            -e OTTIMO_MIGRATOR_DB_PASSWORD=ci_migrator_only -e OTTIMO_APP_DB_PASSWORD=ci_app_only \
             -v "$GITHUB_WORKSPACE/product/infra/postgres/init:/docker-entrypoint-initdb.d:ro" \
             "$PG_IMAGE"
           for i in $(seq 1 30); do

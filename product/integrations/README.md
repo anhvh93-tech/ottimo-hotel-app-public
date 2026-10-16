@@ -12,7 +12,7 @@ Lõi nghiệp vụ không gọi SDK/HTTP của đối tác. Đổi nhà cung c�
 
 ### 1.2 Mỗi interface có Mock cấu hình được kịch bản lỗi (ARC-10)
 - Mỗi interface có ít nhất `Mock` (không mạng, dữ liệu xác định) và cài đặt thật.
-- Mock nhận `MockScenario` (mục 3.0) – qua biến `<NHÓM>_MOCK_SCENARIO` (chỉ dev/staging) hoặc qua `setScenario()` trong test:
+- Mock nhận `MockScenario` (mục 3.0) – qua biến `<NHÓM>_MOCK_SCENARIO` (chỉ `APP_ENV=dev|test|staging`) hoặc qua `setScenario()` trong test:
   `ok | timeout | rate_limited | unavailable | auth_error | invalid_signature | duplicate_callback | late_callback | callback_before_response | amount_mismatch | merchant_mismatch | conflict_booking | out_of_order | card_data_in_payload`.
 - Mock thanh toán có `emitCallback(paymentCode, variant)` để test gọi IPN vào API thật (không mạng ngoài). Mock kênh có `emitSignal(externalId, hint)` + kho đơn giả để `fetchBooking` trả về.
 
@@ -20,7 +20,7 @@ Lõi nghiệp vụ không gọi SDK/HTTP của đối tác. Đổi nhà cung c�
 - Quy ước chung: `<NHÓM>_PROVIDER=off|mock|<tên>`; mặc định `off`. Thanh toán theo từng cổng: `PAYMENT_<CỔNG>_MODE=off|mock|sandbox|production` + `PAYMENT_METHODS_ENABLED=<danh sách>` (vd. `vietqr,vnpay`). Cổng/nhóm `off` → Registry trả `null`, giao diện không hiện phương thức đó và **route webhook của nhà cung cấp đó không được đăng ký** (gọi vào → 404) – SR-SECR-05(c).
 - Khi `APP_ENV=production`, ứng dụng **từ chối khởi động** nếu: (a) bất kỳ adapter tiền (`PAYMENT_*`, `BANKFEED_*`), kênh (`CHANNEL_*`), khóa (`DOORLOCK_*`) ở `mock` hoặc `sandbox`; (b) một phương thức trong `PAYMENT_METHODS_ENABLED` có `MODE` khác `production`. `off` luôn hợp lệ (vd. INV bỏ MoMo → `PAYMENT_MOMO_MODE=off`).
 - Route webhook `mock` **không đăng ký** khi `APP_ENV=production`.
-- Không có `if (env === 'prod')` rải trong code: kiểm tra tập trung một chỗ ở `IntegrationRegistry.assertSafeConfig()`.
+- Không có `if (APP_ENV === 'production')` rải trong code: kiểm tra tập trung một chỗ ở `IntegrationRegistry.assertSafeConfig()`.
 
 ### 1.4 Ngữ cảnh cơ sở và khóa (ARC-01, ARC-08)
 - Mọi phương thức nhận tham số đầu `ctx: IntegrationContext = { propertyId, credentialsRef, requestId }`.
@@ -267,7 +267,7 @@ interface GuestRegistrationAdapter {
 
 ## 4. Biến môi trường (chỉ tên – OPS đưa vào `product/infra/.env.example` với giá trị trống; `EnvCredentialProvider` đọc)
 ```
-APP_ENV=development              # development | staging | production (production chặn mock/sandbox – 1.3)
+APP_ENV=dev                      # dev | test | staging | production (theo services/api/src/config.ts APP_ENVS; production chặn mock/sandbox – 1.3)
 # Channel manager
 CHANNEL_PROVIDER=off             # off | mock | beds24
 CHANNEL_MOCK_SCENARIO=ok

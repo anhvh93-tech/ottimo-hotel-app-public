@@ -1,7 +1,7 @@
 {
- "version": "0.2",
+ "version": "0.2.1",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
- "generated": "2026-10-15",
+ "generated": "2026-10-16",
  "author": "BA",
  "roles": [
   "owner",
@@ -479,12 +479,12 @@
     "manager": "allow",
     "front_desk_lead": "allow",
     "front_desk": "allow",
-    "sales_staff": "own",
     "system": "allow"
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [],
+   "note": "SAL không cấp/gửi/sao chép link (quyết định bước 4, SEC-BA-07); OpenAPI x-rbac A22 = issueGuestLink, issueGuestVerificationCode – chỉ FD+ (BUG-R1-006)"
   },
   {
    "id": "A22a",
@@ -1488,8 +1488,7 @@
    "name_vi": "Cấp/thu hồi thiết bị được cấp",
    "event": "manage_trusted_device",
    "roles": {
-    "owner": "allow",
-    "manager": "conditional"
+    "owner": "allow"
    },
    "trusted_device_required": false,
    "c3_access_log": false,
@@ -1497,7 +1496,8 @@
     "listTrustedDevices",
     "trustCurrentDevice",
     "revokeTrustedDevice"
-   ]
+   ],
+   "note": "R2 chỉ owner (rbac ghi chú 20a); ủy quyền MGR theo SR-DEV-01 chưa làm (BUG-R1-006)"
   },
   {
    "id": "A111",
@@ -1619,7 +1619,42 @@
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [
+    "setParameter"
+   ],
+   "note": "Trường hợp riêng của A119 (khóa guest_verify_code_channels)"
+  },
+  {
+   "id": "A119",
+   "name_vi": "Sửa tham số bảo mật (chỉ owner)",
+   "event": "set_security_parameter",
+   "roles": {
+    "owner": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "setParameter"
+   ],
+   "parameter_keys": [
+    "guest_verify_max_attempts",
+    "guest_level2_idle_minutes",
+    "guest_link_grace_hours",
+    "guest_verify_code_channel_minutes",
+    "guest_verify_code_channels",
+    "trusted_device_days",
+    "trusted_device_mobile_days",
+    "c3_stepup_minutes"
+   ],
+   "parameter_keys_source": "product/docs/api/openapi.yaml setParameter x-security-parameters (0.2.1-draft) – biên/mặc định lấy từ đó",
+   "expected_errors": {
+    "manager": "403 FORBIDDEN_ACTION",
+    "other_staff_roles": "403 FORBIDDEN_ACTION",
+    "owner_out_of_range": "422 PARAM_OUT_OF_RANGE (min/max hoặc allowed[])",
+    "wrong_type": "422 VALIDATION_FAILED"
+   },
+   "audit_category": "security",
+   "note": "BUG-R1-SEC-02; rbac-matrix.md 4.7 dòng A119"
   },
   {
    "id": "G-L1",
@@ -1671,7 +1706,7 @@
   }
  ],
  "openapi_check": {
-  "note": "So sánh roles (gộp theo operationId) với x-roles trong api/openapi.yaml lúc sinh file. Dùng để ARC sửa x-roles và QA sinh test phân quyền (SR-AZ-01/09).",
+  "note": "So sánh roles (gộp theo operationId) với x-roles trong api/openapi.yaml lúc sinh file. Dùng để ARC sửa x-roles và QA sinh test phân quyền (SR-AZ-01/09). Bản 0.2.1 (16/10): bỏ khỏi danh sách lệch issueGuestLink (A22 không còn sales_staff) và 3 operation thiết bị (A110 chỉ owner) – đã khớp OpenAPI; các mục còn lại ARC đã xử lý ở bước 4, chờ QA chạy lại gen_traceability --strict. Lượt 2 (16/10): thêm A119 (tham số bảo mật, chỉ owner) ánh xạ setParameter; A118 ánh xạ setParameter.",
   "differences": [
    {
     "operationId": "cancelRequest",
@@ -1684,16 +1719,6 @@
     "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
    },
    {
-    "operationId": "issueGuestLink",
-    "method": "POST",
-    "path": "/v1/properties/{propertyId}/reservations/{reservationId}/guest-link",
-    "missing_in_openapi": [],
-    "extra_in_openapi": [
-     "sales_staff"
-    ],
-    "note": "SEC-BA-07 – SAL chỉ gửi qua kênh hệ thống, không cấp/sao chép link"
-   },
-   {
     "operationId": "listApprovalRequests",
     "method": "GET",
     "path": "/v1/properties/{propertyId}/approval-requests",
@@ -1704,26 +1729,6 @@
     "note": "QA #12 – CTV cần theo dõi/rút yêu cầu gia hạn báo giá của mình (x-scope own)"
    },
    {
-    "operationId": "listTrustedDevices",
-    "method": "GET",
-    "path": "/v1/properties/{propertyId}/trusted-devices",
-    "missing_in_openapi": [
-     "manager"
-    ],
-    "extra_in_openapi": [],
-    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
-   },
-   {
-    "operationId": "revokeTrustedDevice",
-    "method": "POST",
-    "path": "/v1/properties/{propertyId}/trusted-devices/{deviceId}/actions/revoke",
-    "missing_in_openapi": [
-     "manager"
-    ],
-    "extra_in_openapi": [],
-    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
-   },
-   {
     "operationId": "setMyApprovalPin",
     "method": "PUT",
     "path": "/v1/me/approval-pin",
@@ -1732,16 +1737,6 @@
     ],
     "extra_in_openapi": [],
     "note": "SQ-3 – FD tự áp FOC minibar bằng PIN của chính mình"
-   },
-   {
-    "operationId": "trustCurrentDevice",
-    "method": "POST",
-    "path": "/v1/properties/{propertyId}/trusted-devices",
-    "missing_in_openapi": [
-     "manager"
-    ],
-    "extra_in_openapi": [],
-    "note": "Vai thiếu chỉ có quyền có điều kiện (◐); chấp nhận nếu R2 chưa làm ủy quyền"
    }
   ],
   "operations_without_action_mapping": [
@@ -1792,5 +1787,8 @@
    "uploadAttachment"
   ],
   "operations_without_action_mapping_note": "Endpoint đọc theo màn hình – quyền theo rbac-matrix.md mục 3 (màn hình) và mục 6 (trường); chưa gán mã hành động A-xx"
+ },
+ "screen_scope_notes": {
+  "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005)"
  }
 }

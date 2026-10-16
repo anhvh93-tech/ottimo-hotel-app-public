@@ -14,9 +14,9 @@
 | AC có ≥ 1 TC | **267/267** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **267/267** (100.0%) |
 | TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 2 · 6 (danh sách mục 5.7) |
-| Chuyển trạng thái (17 máy, `state-machines.md`) có ≥ 1 TC | **101/121** (83.5%) – chi tiết mục 7 |
-| Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 1 |
-| Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 14 · 0 – chi tiết mục 8 |
+| Chuyển trạng thái (17 máy, `state-machines.md`) có ≥ 1 TC | **102/122** (83.6%) – chi tiết mục 7 |
+| Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
+| Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
 | Tổng số TC | **374** (Cao 226 · TB 142 · Thấp 6) · **Smoke (S)** 39 |
 | TC theo nhóm | L2 56 · L3 48 · L4 54 · L5 45 · L6 34 · L7 27 · L8 12 · NT 38 · RB 26 · SEC 20 · X 14 |
@@ -113,8 +113,8 @@
 | US-141 | Xác minh nhẹ trên app khách (decision-log SEC, PHÂN XỬ ORC) – *mới, Must R2* | AC1: TC-SEC-001, TC-SEC-002<br>AC2: TC-SEC-003, TC-SEC-008<br>AC3: TC-SEC-004 | – | `getGuestFolio`, `getGuestStay`, `issueGuestVerificationCode`, `openGuestSession`, `sendGuestOtp`, `setParameter`, `verifyGuestSession` | L7 (màn xác minh OTP) (QA), L3 §3.5 (cấp mã xác minh) (QA) | 4.5, 4.11 | – |
 | US-119 | Ghi nhận thu tiền (SM-12, BR-521) | AC1: TC-L4-060<br>AC2: TC-L4-061<br>AC3: TC-L4-062<br>AC4: TC-L4-063<br>AC5: TC-L5-039<br>AC6: TC-L4-069<br>bổ sung: TC-L4-066, TC-RB-021 | BR-008, BR-207, BR-307 | `addFolioLine`, `checkIn`, `confirmDeposit`, `createGuestRequest`, `createVietQr`, `getFolio`, `getLeaseContract`, `reconcilePayment`, `recordPayment`, `reversePayment`, `updateReservation` | L4 | 4.5, 4.6 | – |
 | US-120 | VietQR (I2) | AC1: TC-L4-064<br>AC2: TC-L4-065<br>bổ sung: TC-L4-069 | BR-521 | `createVietQr`, `getFolio`, `recordPayment` | L4 | 4.6 | ESC-010 |
-| US-125 | Mẫu tin nhắn đa ngôn ngữ | AC1: TC-L7-060<br>AC2: TC-L7-061<br>AC3: TC-L7-062 | – | `listMessageTemplates`, `renderMessage` | L10 | 4.11 | – |
-| US-128 | Mã cửa trong đơn (BR-403, A21, D22) | AC1: TC-L3-060<br>AC2: TC-RB-013<br>AC3: TC-L3-061<br>bổ sung: TC-L3-062 | BR-403 | `changeRoom`, `checkOut`, `getDoorCredential`, `getGuestStay`, `getReservation`, `listC3AccessLog`, `setDoorCredential` | L3, L7 (QA) | 4.5, 4.11 | ESC-011 |
+| US-125 | Mẫu tin nhắn đa ngôn ngữ | AC1: TC-L7-060<br>AC2: TC-L7-061<br>AC3: TC-L7-062 | – | `listMessageTemplates`, `renderDoorCodeMessage`, `renderMessage` | L10 | 4.11 | – |
+| US-128 | Mã cửa trong đơn (BR-403, A21, D22) | AC1: TC-L3-060<br>AC2: TC-RB-013<br>AC3: TC-L3-061<br>bổ sung: TC-L3-062 | BR-403 | `changeRoom`, `checkOut`, `getDoorCredential`, `getGuestStay`, `getReservation`, `listC3AccessLog`, `renderDoorCodeMessage`, `setDoorCredential` | L3, L7 (QA) | 4.5, 4.11 | ESC-011 |
 
 ## 3. Story ngoài Must R2 có test case ca chính trong R1 (Must R3, Should R2)
 
@@ -200,7 +200,7 @@
 | TC-SEC-008 | [GIẢ ĐỊNH QA – chờ SEC: chỉ owner bật] | US-106/AC3, US-141/AC2 |
 
 ## 6. Danh mục operationId OpenAPI chưa được test case nào dùng (để R2 bổ sung ca)
-- `assignRoom`, `changeLeadStage`, `confirmMy2fa`, `createHkTask`, `createRoom`, `createUser`, `deleteMyPushSubscription`, `disableMy2fa`, `getMy2fa`, `getPublicUnitPage`, `getWorkOrder`, `listCommissions`, `listMyNotifications`, `listRoomGroups`, `listRooms`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `putMyPushSubscription`, `reconcileChannelFee`, `reconcilePayment`, `resendGuestLinkFromUnit`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `sendGuestOtp`, `setMyApprovalPin`, `startMy2faSetup`, `stepUp`, `swapRoom`, `updateWorkOrder`, `webhookGet`, `withdrawGuestConsent`
+- `assignRoom`, `changeLeadStage`, `confirmMy2fa`, `createHkTask`, `createRoom`, `createUser`, `deleteMyPushSubscription`, `disableMy2fa`, `getMy2fa`, `getPublicUnitPage`, `getWorkOrder`, `listCommissions`, `listMyNotifications`, `listRoomGroups`, `listRooms`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `putMyPushSubscription`, `reconcileChannelFee`, `reconcilePayment`, `renderDoorCodeMessage`, `resendGuestLinkFromUnit`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `sendGuestOtp`, `setMyApprovalPin`, `startMy2faSetup`, `stepUp`, `swapRoom`, `updateWorkOrder`, `webhookGet`, `withdrawGuestConsent`
 
 ## 7. Chuyển trạng thái (17 máy) → test case
 
@@ -220,7 +220,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-01 | B7c | `confirmed` → `confirmed` | OTA sửa đơn (đổi ngày, số khách, loại phòng, hủy một phần đê | – | TC-L2-029 |
 | SM-01 | B8 | `confirmed` → `confirmed` | Dời ngày thay vì hủy (BR-309) | `moveReservation` | TC-L2-055 |
 | SM-01 | B9 | `confirmed` → `in_house` | Nhận phòng | `checkIn` | TC-L3-001, TC-L3-007, TC-L3-008 |
-| SM-01 | B9a | `confirmed` → `in_house` | Nhận trước 06:00 – thêm đêm trước | – | TC-L3-008, TC-L3-013 |
+| SM-01 | B9a | `confirmed` → `in_house` | Nhận trước mốc đổi ngày (BR-010, mặc định 06:00) – thêm đêm  | – | TC-L3-008, TC-L3-013 |
 | SM-01 | B10 | `confirmed` → `cancelled` | Hủy đơn đã đảm bảo | `cancelReservation` | TC-L2-052 |
 | SM-01 | B11 | `confirmed` → `no_show` | Đánh dấu không đến | `markNoShow` | TC-L2-071 |
 | SM-01 | B12 | `no_show` → `confirmed` | Khôi phục no-show (DOM SQ-1) | `restoreNoShow` | TC-L2-023, TC-L2-074 |
@@ -264,6 +264,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-05 | K10 | `needs_update` → `updated` | Đã cập nhật | `transitionRegistration` | TC-L3-053 |
 | SM-05 | K11 | `none`/`pre`/`partial`/`review` → `void` | Đơn `cancelled`/`no_show` | – | TC-L2-052 |
 | SM-05 | K12 | `void` → `none` | Khôi phục no-show (B12) | – | TC-L2-074 |
+| SM-05 | K13 | `review` → `partial` | Đổi thành phần khách khi đang đối chiếu | – | TC-L3-055 |
 | SM-06 | H1 | [*] → `signed` | Xác nhận ký quỹ (B4) | – | TC-L5-033 |
 | SM-06 | H2 | `signed` → `active` | Nhận phòng | – | TC-L5-039 |
 | SM-06 | H3 | `signed` → `cancelled` | Hủy trước vào ở | – | **TRỐNG** |
@@ -330,29 +331,12 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-17 | C4 | `closing` → `open` | Quay lại sửa | – | **TRỐNG** |
 | SM-17 | C5 | `closed` → `closed` | MGR+ xem lại, ghi nhận chênh lệch | – | **TRỐNG** |
 
-Tóm tắt theo máy: SM-01 22/22 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 12/12 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 6/6 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 5/5 · SM-16 0/5 · SM-17 0/5
-
-Tham chiếu chuyển không có trong `state-machines.md` (BA bổ sung chuyển hoặc QA sửa TC): TC-L3-055→SM-05 review→partial
+Tóm tắt theo máy: SM-01 22/22 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 13/13 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 6/6 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 5/5 · SM-16 0/5 · SM-17 0/5
 
 ## 8. Kiểm tĩnh quyền – rbac-matrix (nguồn chuẩn) ↔ OpenAPI
 
 Nguồn chuẩn: `rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)`. Với mỗi operation: tập vai được phép = **hợp** các dòng A-xx trong `x-rbac` (nhiều mã thường là phương án thay thế); chỉ khi không có A-xx mới lấy hợp các dòng S-xx; operation chỉ cho `guest` thì chỉ so cột GST; `x-scope: {all: own}` áp mọi vai (bản bước 5); ô `R` chỉ tính cho GET; ô `M` đòi `x-scope: own`) – so với `x-roles`. Với thuộc tính có `x-visible-to`: so với dòng Dxx mục 6 qua bảng ánh xạ của QA (`FIELD_MAP`, đến khi ARC gắn `x-rbac-field`). "OpenAPI cho thêm vai" = nguy cơ rò quyền → lỗi tài liệu **P1** (P0 nếu là C3); "OpenAPI thiếu vai" = P2. Kết quả do người xem lại trước khi mở lỗi (ô `D`, `◐`, ghi chú chân trang có thể giải thích lệch).
 
-| operationId | Method | x-rbac | OpenAPI cho thêm vai (rbac ✖) | OpenAPI thiếu vai (rbac cho phép) | Vai M thiếu `x-scope` |
-|---|---|---|---|---|---|
-| `createGuest` | post | S14 | – | – | collaborator, sales_staff |
-| `createHkTask` | post | A83,A83-create | – | housekeeping | – |
-| `createLead` | post | A52 | – | – | collaborator, sales_staff |
-| `getArrivalsDepartures` | get | S02,S03 | – | collaborator, housekeeping, maintenance, sales_staff | – |
-| `issueGuestLink` | post | A22,A22a | – | sales_staff | – |
-| `issueGuestVerificationCode` | post | A22,A113 | – | sales_staff | – |
-| `listHkTasks` | get | S10 | – | maintenance | – |
-| `listMessageTemplates` | get | S29,A106-use | – | – | collaborator, sales_staff |
-| `listRoomGroups` | get | S25 | housekeeping, maintenance | – | – |
-| `listRooms` | get | S25 | housekeeping, maintenance | – | – |
-| `listTrustedDevices` | get | S26,A110 | – | manager | – |
-| `revokeTrustedDevice` | post | A100,A110 | – | manager | – |
-| `searchAvailability` | get | S03,S15 | – | housekeeping, maintenance | collaborator, sales_staff |
-| `trustCurrentDevice` | post | A100,A110 | – | manager | – |
+- Không có operation lệch.
 
 - Không có thuộc tính lệch.

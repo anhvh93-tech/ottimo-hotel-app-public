@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.2.0-draft
+  version: 0.2.1-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -41,6 +41,7 @@ info:
       PWA nhân viên không bao giờ được cấp. Trực đêm dùng **thiết bị của cơ sở** đã được owner cấp (phân xử ORC 15/10).
     - **App khách** (ADR-006): operation `/v1/guest/*` có `x-guest-level` = `1` (chỉ cần link) hoặc `2` (đã xác minh bằng OTP email hoặc mã lễ tân cấp).
       Sau khi đơn `checked_out` chỉ còn `getGuestFolio` + thanh toán phát sinh (mức 2); mọi operation khác trả `403 GUEST_STAY_ENDED` (SR-GST-11).
+      Mỗi operation khách khai `x-after-checkout: blocked|allowed` (`allowed`: mở phiên, OTP/xác minh, đổi ngôn ngữ, bill, rút đồng ý) để test sinh tự động (BUG-R1-SEC-04).
       Thuộc tính có `x-guest-level: 2` vắng mặt khi phiên mới ở mức 1.
     - **Ba origin** (SR-HDR-04): admin-web, PWA nhân viên, guest-web ở 3 tên miền con; mỗi origin proxy `/v1` tới api (không CORS);
       cookie host-only tiền tố `__Host-`. Ở dev HTTP tên cookie bỏ tiền tố qua cấu hình `COOKIE_SECURE_PREFIX=false`.
@@ -50,7 +51,7 @@ info:
     - **Cấu hình kênh gửi mã xác minh**: tham số cơ sở `guest_verify_code_channels` (mảng con của `airbnb_inbox`, `booking_inbox`, `agoda_inbox`, `zalo`;
       mặc định rỗng = tắt) đọc/sửa qua `GET/PUT /v1/properties/{propertyId}/parameters/{key}` – chỉ owner sửa, ghi audit `security` (SR-GST-13, BUG-R1-SEC-02).
     - **Tham số bảo mật** (BUG-R1-SEC-02): các khóa trong `setParameter.x-security-parameters` chỉ **owner** sửa (vai khác → `403 FORBIDDEN_ACTION`),
-      giá trị phải nằm trong biên cứng do SEC đặt (ngoài biên → `422 VALIDATION_FAILED`, kể cả với owner), mỗi lần sửa ghi `audit_event category='security'`.
+      giá trị phải nằm trong biên cứng do SEC đặt (ngoài biên → `422 PARAM_OUT_OF_RANGE`, kể cả với owner), mỗi lần sửa ghi `audit_event category='security'`.
     - **Nhật ký C3** (`x-c3-log`): operation có thuộc tính này ghi **một** dòng `c3_access_log` (`subject_type`, `action` như khai) **trước khi** trả giá trị C3
       và luôn trả `Cache-Control: no-store`; với operation chỉ trả C3 trong một số trường hợp (ví dụ `getGuestStay` mức 2), chỉ ghi khi giá trị C3 thực sự có trong phản hồi.
     - **Mã trường rbac**: thuộc tính nhạy cảm có `x-rbac-field` (D01…D29 của rbac-matrix mục 6) để QA sinh test trường tự động; phủ dần ở R2.
@@ -126,6 +127,8 @@ info:
     | PASSWORD_CHANGE_REQUIRED | 403 | Đang dùng mật khẩu tạm – chỉ được gọi `POST /v1/me/password` (SR-AUTH-05) |
     | REAUTH_REQUIRED | 401 | Cần xác nhận lại PIN/mật khẩu trước thao tác C3 (SR-C3-09) |
     | PAYLOAD_TOO_LARGE | 413 | Body/tệp vượt giới hạn (webhook 64 KB, tệp 10 MB) |
+    | CAPACITY_BELOW_BOOKINGS | 409 | Giảm sức chứa căn/nhóm xuống dưới số khách của đơn tương lai/đang ở – kèm `conflicts[]` (`reservationCode`, `stayFrom`, `stayTo`, `guestCount`) (US-004, BR-110; BUG-R1-007) |
+    | PARAM_OUT_OF_RANGE | 422 | Giá trị tham số ngoài biên cho phép (`setParameter`) – kèm `min`, `max` (hoặc `allowed[]`) và `errors[{field: value}]`; áp dụng cả biên cứng tham số bảo mật (BUG-R1-007, BUG-R1-SEC-02) |
 
     ## Phạm vi bản nháp
     Phủ 74 story Must R2 (`03-backlog/backlog.md` mục 4). Endpoint R3 chỉ để chỗ và ghi `x-round: R3`.
@@ -135,6 +138,14 @@ info:
     Xác minh khách mức 2 bằng OTP email / mã lễ tân (bỏ `phoneLast4`, `bookingCode`); thiết bị tin cậy; thu hồi phiên; 2FA, đổi mật khẩu, PIN;
     thông báo nhân viên; hoa hồng; webhook có `{propertySlug}`; lọc trường theo vai bổ sung; `TonightKpi.unassignedConflictReservations`;
     đổi chéo căn; gửi lại link từ QR căn; rút đồng ý; thứ tự kiểm idempotency. Chi tiết: `rounds/round-01/responses/ARC-responses.md`.
+
+    ## Thay đổi phiên bản 0.2.1-draft (R1 bước 5 – sửa lỗi QA/SEC; chi tiết `rounds/round-01/qa/fix-notes-ARC.md`)
+    `renderDoorCodeMessage` tách khỏi `renderMessage` (mẫu C3 – FD+, thiết bị tin cậy, step-up, `c3_access_log`); `MessageTemplate.containsC3`;
+    `setParameter.x-security-parameters` (chỉ owner, biên cứng, audit `security`); `resendGuestLinkFromUnit` không thu hồi link đang dùng (link chờ);
+    `GuestForbidden` + `x-after-checkout` cho app khách, `getGuestStay` `x-c3-log`; mô tả `providerSignature`/`webhookGet` (fail-closed theo adapter);
+    `listRooms`/`listRoomGroups` bỏ HK/MT (`RoomStatusEntry.floor`, `roomGroupCode` thay thế); mã lỗi `CAPACITY_BELOW_BOOKINGS`, `PARAM_OUT_OF_RANGE`;
+    quy ước `x-c3-log`; khớp rbac (BUG-R1-006/011/012): `issueGuestLink` A22a, `issueGuestVerificationCode` A113, `createHkTask` A83-create,
+    `getArrivalsDepartures` S02, `searchAvailability` S15, `listHkTasks` thêm MT chỉ xem, `x-scope: own` SAL/CTV cho 4 operation. Không đổi đường dẫn/trường đã có ngoài các mục trên – MOB/FE/BE/INT xem bảng fix-notes.
   contact:
     name: ARC – OTTIMO Desk
 servers:
@@ -787,10 +798,11 @@ paths:
       tags: [platform]
       operationId: listRoomGroups
       description: |
-        Màn S25 (cấu hình căn) chỉ OWN/MGR; các vai khác gọi endpoint này như **danh mục tra cứu** (bộ lọc rack, chọn căn khi báo giá/việc dọn)
-        với phạm vi `catalog_only` – chỉ `id`, `code`, `name` (không giá, không tham số). Đã báo BA ghi rõ trong rbac (QA đối chiếu S25 ✖).
-      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff, collaborator]
-      x-scope: { front_desk_lead: catalog_only, front_desk: catalog_only, housekeeping: catalog_only, maintenance: catalog_only, sales_staff: catalog_only, collaborator: catalog_only }
+        Màn S25 (cấu hình căn) chỉ OWN/MGR; FDL/FD/SAL/CTV gọi endpoint này như **danh mục tra cứu** (bộ lọc rack, chọn căn khi báo giá)
+        với phạm vi `catalog_only` (rbac S25a do BA thêm) – `id`, `code`, `name`, sức chứa (không giá, không tham số).
+        **HK/MT không gọi endpoint này** (BUG-R1-005) → `403 FORBIDDEN_ACTION`; nhóm căn của họ có trong `RoomStatusEntry.roomGroupCode`.
+      x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+      x-scope: { front_desk_lead: catalog_only, front_desk: catalog_only, sales_staff: catalog_only, collaborator: catalog_only }
       x-rbac: [S25]
       responses:
         '200':
@@ -810,10 +822,11 @@ paths:
       operationId: listRooms
       summary: Danh mục căn (US-004). Giá niêm yết chỉ trả cho vai được xem giá.
       description: |
-        Màn S25 chỉ OWN/MGR; vai khác dùng làm danh mục tra cứu (`catalog_only`): HK/MT chỉ `id`, `roomNo`, `floor`, `roomGroupId`
-        (cho việc dọn/phiếu sửa) – không giá, không sức chứa; SAL/CTV thêm sức chứa (báo giá). Đã báo BA ghi rõ phạm vi trường trong rbac.
-      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance, sales_staff, collaborator]
-      x-scope: { front_desk_lead: catalog_only, front_desk: catalog_only, housekeeping: catalog_only, maintenance: catalog_only, sales_staff: catalog_only, collaborator: catalog_only }
+        Màn S25 chỉ OWN/MGR; FDL/FD/SAL/CTV dùng làm danh mục tra cứu (`catalog_only` – rbac S25a do BA thêm): có sức chứa (báo giá, xếp căn),
+        giá niêm yết theo `x-visible-to`. **HK/MT không gọi endpoint này** (BUG-R1-005) – họ lấy số căn, tầng, nhóm căn từ `listRoomStatuses`
+        và `listHkTasks`; HK/MT gọi → `403 FORBIDDEN_ACTION`.
+      x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+      x-scope: { front_desk_lead: catalog_only, front_desk: catalog_only, sales_staff: catalog_only, collaborator: catalog_only }
       x-rbac: [S25]
       x-stories: [US-004]
       parameters:
@@ -880,6 +893,17 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Room' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: CAPACITY_BELOW_BOOKINGS – giảm `maxOccupancy` dưới số khách của đơn `confirmed`/`in_house`/giữ chỗ còn hạn có đêm từ hôm nay (BUG-R1-007)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: /problems/capacity-below-bookings
+                title: Không giảm sức chứa được vì còn đơn vượt sức chứa mới
+                status: 409
+                code: CAPACITY_BELOW_BOOKINGS
+                conflicts: [{ reservationCode: OTM-0152, stayFrom: '2026-10-15', stayTo: '2026-10-19', guestCount: 4 }]
         '412': { $ref: '#/components/responses/VersionConflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/channels:
@@ -954,8 +978,9 @@ paths:
       description: |
         **Chỉ owner** (manager → `403 FORBIDDEN_ACTION`, ghi `audit_event access.denied`): `foc_limits`, tỷ lệ hoa hồng, phí kênh, `vat_rate`, `retention.*`
         và các **tham số bảo mật** liệt kê ở `x-security-parameters` (BUG-R1-SEC-02; erd 9.3 cột "Người sửa / Biên").
-        Tham số bảo mật có **biên cứng** do SEC đặt – giá trị ngoài biên (hoặc sai kiểu, phần tử ngoài tập cho phép) → `422 VALIDATION_FAILED`
-        với `errors[{field: value}]`, áp dụng cả với owner; đổi biên = đổi hợp đồng (SEC duyệt), không phải cấu hình.
+        Tham số bảo mật có **biên cứng** do SEC đặt – giá trị ngoài biên hoặc phần tử ngoài tập cho phép → `422 PARAM_OUT_OF_RANGE`
+        (kèm `min`/`max` hoặc `allowed[]`); sai kiểu → `422 VALIDATION_FAILED`. Áp dụng cả với owner; đổi biên = đổi hợp đồng (SEC duyệt), không phải cấu hình.
+        Khóa không bảo mật có khoảng giá trị (erd 9) cũng trả `PARAM_OUT_OF_RANGE` khi vượt khoảng.
         Mỗi lần sửa tham số bảo mật ghi `audit_event category='security'` (giá trị trước/sau, lý do, người sửa); các khóa khác ghi `category='config'`.
         Kiểm tra thực hiện trên server theo khóa trong đường dẫn – client không quyết định khóa nào là "bảo mật".
       x-roles: [owner, manager]
@@ -989,7 +1014,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Parameter' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '422':
+          description: VALIDATION_FAILED (sai kiểu) / PARAM_OUT_OF_RANGE (ngoài biên – kèm `min`, `max` hoặc `allowed[]`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/param-out-of-range, title: Giá trị ngoài khoảng cho phép, status: 422, code: PARAM_OUT_OF_RANGE, min: 1, max: 30, errors: [{ field: value, code: PARAM_OUT_OF_RANGE }] }
 
   # ───────────────────────── dashboard ─────────────────────────
   /v1/properties/{propertyId}/dashboard/tonight:
@@ -1031,7 +1061,7 @@ paths:
       operationId: getArrivalsDepartures
       summary: Khách đến / khách đi / giữ chỗ chưa cọc hôm nay (US-011, US-031; BR-404, BR-425)
       x-roles: [owner, manager, front_desk_lead, front_desk]
-      x-rbac: [S02, S03]
+      x-rbac: [S02]
       x-stories: [US-011, US-031]
       parameters:
         - name: date
@@ -1161,7 +1191,8 @@ paths:
       operationId: searchAvailability
       summary: Căn trống trong khoảng ngày + gợi ý căn khác (US-082, US-017)
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
-      x-rbac: [S03, S15]
+      x-rbac: [S15]
+      x-scope: { sales_staff: own, collaborator: own }
       x-stories: [US-082, US-017, US-019]
       parameters:
         - name: arrival
@@ -1577,7 +1608,7 @@ paths:
       operationId: restoreNoShow
       summary: Khôi phục no-show (B12) – MGR+ thực hiện ngay; FD/FDL gọi sẽ tạo yêu cầu duyệt `no_show_restore` (A10 = D) (US-136 AC4)
       description: |
-        Chỉ trong ngày nghiệp vụ của đêm đến và khi căn còn trống (BR-906). Đóng lại phòng (outbox), khai báo sinh bản ghi mới `none`.
+        Chỉ trong ngày nghiệp vụ của đêm đến và khi căn còn trống (BR-906). Đóng lại phòng (outbox); khai báo **dùng lại bản ghi của đơn**, chuyển `void → none` (SM-05 K12 – giữ ràng buộc duy nhất `registration.reservation_id`, không tạo bản ghi mới); ảnh giấy tờ đã xóa không khôi phục (US-136 AC4).
         FD/FDL nhận `202` kèm yêu cầu duyệt thay vì đơn đã đổi.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A10]
@@ -2145,7 +2176,7 @@ paths:
       operationId: issueGuestLink
       summary: Cấp (hoặc cấp lại – thu hồi link cũ) link app khách cho đơn (US-106 AC1; ADR-006). Token chỉ trả một lần.
       x-roles: [owner, manager, front_desk_lead, front_desk]
-      x-rbac: [A22]
+      x-rbac: [A22a]
       x-stories: [US-106]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2186,7 +2217,7 @@ paths:
         Chỉ gọi từ origin **admin-web** (PWA → 403). Ghi `audit_event` security mỗi lần cấp: người cấp, kênh, đơn – không ghi mã.
         Luồng khách đến khuya (SR-GST-15): người trực đêm dùng **thiết bị của cơ sở** đã được cấp để đọc mã trực tiếp.
       x-roles: [owner, manager, front_desk_lead, front_desk]
-      x-rbac: [A22]
+      x-rbac: [A113]
       x-stories: [US-106, US-111, US-141]
       x-rate-limit: kênh nhắn tin 3 lần/24 giờ/token; tại quầy/điện thoại 5 lần/giờ/đơn
       parameters:
@@ -2663,6 +2694,7 @@ paths:
       operationId: createLead
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-rbac: [A52]
+      x-scope: { sales_staff: own, collaborator: own }
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -3707,8 +3739,8 @@ paths:
       tags: [housekeeping]
       operationId: listHkTasks
       summary: Việc hôm nay tự sinh, sắp theo ưu tiên BR-807, có chip nguồn (US-054)
-      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping]
-      x-scope: { housekeeping: today }
+      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance]
+      x-scope: { housekeeping: today, maintenance: read_only }
       x-rbac: [S10]
       x-stories: [US-054, US-056]
       parameters:
@@ -3737,7 +3769,7 @@ paths:
       tags: [housekeeping]
       operationId: createHkTask
       x-roles: [owner, manager, front_desk_lead, front_desk]
-      x-rbac: [A83]
+      x-rbac: [A83-create]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -4173,6 +4205,7 @@ paths:
       summary: Tạo hồ sơ khách – trùng SĐT/email → 409 DUPLICATE_GUEST kèm id hồ sơ có sẵn; trùng tên + ngày sinh → cảnh báo (US-071, US-072)
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-rbac: [S14]
+      x-scope: { sales_staff: own, collaborator: own }
       x-stories: [US-071, US-072]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -4347,6 +4380,7 @@ paths:
       description: Mẫu `containsC3 = true` (`door_code`) chỉ trả cho owner/manager/front_desk_lead/front_desk; `sales_staff`, `collaborator` không thấy (BUG-R1-SEC-01).
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-rbac: [S29]
+      x-scope: { sales_staff: own, collaborator: own }
       x-stories: [US-125]
       responses:
         '200':
@@ -4421,7 +4455,7 @@ paths:
         - Thiết bị tin cậy bắt buộc (`403 DEVICE_NOT_TRUSTED`) và step-up trong cửa sổ `c3_stepup_minutes` (`401 REAUTH_REQUIRED`) – thứ tự kiểm theo mục "Thứ tự kiểm".
         - Chỉ khi `door_credential` của đơn còn hiệu lực, đúng ngày đến hoặc đơn `in_house` (SR-LOCK-03) và khai báo không chặn mã cửa
           (`Registration.blocksDoorCode`, BR-613 c); nếu không → `409 INVALID_TRANSITION`.
-        - Ghi **một** dòng `c3_access_log` (`subject_type=door_credential`, `action=copy`, `purpose=send_to_guest`) **trước khi** trả phản hồi; ghi log thất bại → `500`, không trả mã.
+        - Ghi **một** dòng `c3_access_log` (`subject_type=door_credential`, `action=copy`, `reason_code=send_to_guest`) **trước khi** trả phản hồi; ghi log thất bại → `500`, không trả mã.
         - Phản hồi `Cache-Control: no-store`. `message_log` ghi `template_code=door_code`, kênh `manual_copy`, **không** lưu nội dung/mã (giữ nguyên quy tắc).
         - Không có `Idempotency-Key`: gửi lại = thêm một lần xem mã, phải có thêm một dòng `c3_access_log` (không trả lại phản hồi đã lưu chứa C3).
       x-roles: [owner, manager, front_desk_lead, front_desk]
@@ -4584,6 +4618,8 @@ paths:
       x-guest-level: 1
       x-after-checkout: blocked
       x-scope: { guest: reservation }
+      x-classification: C3
+      x-c3-log: { subjectType: door_credential, action: view, actorType: guest, when: doorCode có trong phản hồi }
       x-stories: [US-108, US-128, US-112]
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -4593,6 +4629,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GuestStay' }
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/locale:
@@ -4814,11 +4852,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GuestFolio' }
-        '403':
-          description: GUEST_VERIFICATION_REQUIRED
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/consents/{purpose}/withdraw:
     parameters:
@@ -4841,13 +4874,7 @@ paths:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '204': { description: Đã rút }
-        '403':
-          description: GUEST_VERIFICATION_REQUIRED
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
-
 
   # ───────────────────────── public (QR trong phòng) ─────────────────────────
   /v1/public/units/{unitSlug}:
@@ -4888,8 +4915,15 @@ paths:
       description: |
         Luôn trả cùng một phản hồi `202` "Nếu mã đúng, link đã được gửi tới liên hệ trên đơn" (không lộ đơn có tồn tại hay không).
         Chỉ xử lý khi mã đặt phòng thuộc đúng căn của `unitSlug` và đơn `confirmed`/`in_house`; gửi lại **link đang hiệu lực** không được vì server
-        không giữ token rõ → cấp link mới (thu hồi link cũ) và gửi qua email trên đơn (R2) – không bao giờ trả link trong phản hồi.
-        Giới hạn 5 lần/giờ/IP và 3 lần/ngày/đơn. Không có email trên đơn → không gửi gì (phản hồi vẫn như trên).
+        không giữ token rõ → cấp **link chờ** và gửi qua email trên đơn (R2) – không bao giờ trả link trong phản hồi.
+        **Không thu hồi link đang dùng** (BUG-R1-SEC-03, ADR-006 điểm 4):
+        - Link chờ (`guest_access_token.activation=pending`, `replaces_token_id` = link đang hiệu lực) chỉ thay link cũ khi được **mở lần đầu**
+          (`openGuestSession`): lúc đó link cũ bị thu hồi, mã xác minh gắn link cũ vô hiệu. Trước đó link cũ, phiên và mã đang có vẫn dùng bình thường.
+        - Tối đa **2** token còn hiệu lực/đơn (1 đang dùng + 1 chờ). Gọi lại khi đã có link chờ → thu hồi link **chờ** cũ (chưa ai dùng), cấp link chờ mới; link đang dùng giữ nguyên.
+        - Link chờ **kế thừa** bộ đếm xác minh sai/khóa của link đang dùng (không reset `failed_verify_count`, `verify_locked_until` – SR-GST-08).
+        - Đơn **không có email** → không cấp token, không đổi trạng thái token nào, không gửi gì (phản hồi vẫn như trên).
+        - Mỗi lần xử lý (kể cả không gửi) ghi `audit_event category='security'` (`guest_link.resend_from_unit`, căn, đơn nếu khớp, IP HMAC; không ghi token).
+        Giới hạn 5 lần/giờ/IP và 3 lần/ngày/đơn.
       security: []
       x-roles: [public]
       x-rate-limit: 5/giờ/IP; 3/ngày/đơn
@@ -4922,6 +4956,12 @@ paths:
       tags: [webhooks]
       operationId: webhookGet
       summary: IPN dạng GET (query string) cho cổng yêu cầu – VNPay; cùng xử lý với POST. Caddy che query string `/v1/webhooks/*` trong log
+      description: |
+        Chỉ đăng ký cho provider dùng IPN GET (hiện `vnpay`); provider khác → `404`. Query string ≤ 4 KB (vượt → `414`), tham số trùng tên → từ chối.
+        Chữ ký kiểm bởi **adapter của cổng** theo đặc tả (VNPay: `vnp_SecureHash` HMAC-SHA512 trên các tham số `vnp_*` đã sắp xếp, bỏ `vnp_SecureHash`/`vnp_SecureHashType`),
+        so sánh thời gian hằng; sai/thiếu chữ ký → từ chối **trước khi** đọc dữ liệu nghiệp vụ (fail-closed), phản hồi theo định dạng cổng không lộ lý do
+        (VNPay `RspCode=97`), ghi `integration_log` + `audit_event security` (không ghi query thô). Sau khi chữ ký hợp lệ: cùng luồng xử lý với `webhookPost`
+        (khớp số tiền theo `paymentId`, inbox idempotent). Quy tắc chung ở `components.securitySchemes.providerSignature`.
       security:
         - providerSignature: []
       x-roles: [system]
@@ -4970,7 +5010,13 @@ components:
       type: apiKey
       in: header
       name: X-Provider-Signature
-      description: Chữ ký theo từng nhà cung cấp (HMAC); tên header thật do adapter quyết (INT 3.2).
+      description: |
+        **Không phải API key và không có middleware chung** "có header là qua" (BUG-R1-SEC-05). Khai báo ở đây chỉ để đánh dấu operation webhook
+        không dùng phiên; tên `X-Provider-Signature` là **danh nghĩa**. Vị trí và thuật toán chữ ký do **adapter từng cổng** kiểm theo đặc tả của cổng (INT 3.2):
+        VNPay – query `vnp_SecureHash` (HMAC-SHA512); MoMo – trường `signature` trong body JSON (HMAC-SHA256 trên chuỗi trường theo thứ tự đặc tả);
+        SePay/payOS – header/trường theo tài liệu cổng; Beds24 – theo cấu hình INT. Bí mật chọn theo (`provider`, cơ sở) qua `webhook_resolve_property`.
+        Quy tắc: so sánh thời gian hằng; thiếu/sai chữ ký, provider `off`, cơ sở không khớp → **từ chối trước khi đọc/ghi dữ liệu nghiệp vụ** (fail-closed),
+        phản hồi không lộ lý do; kiểm thêm số tiền/mã giao dịch với `payment` (chữ ký đúng chưa đủ – SR-PAY-01…05). Test hợp đồng: thiếu chữ ký → từ chối với từng provider.
 
   headers:
     ETag:
@@ -5131,6 +5177,16 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
           example: { type: /problems/forbidden-action, title: Bạn không có quyền thực hiện thao tác này, status: 403, code: FORBIDDEN_ACTION }
+    GuestForbidden:
+      description: |
+        App khách: `GUEST_VERIFICATION_REQUIRED` (cần phiên mức 2) hoặc `GUEST_STAY_ENDED` (đơn đã `checked_out` – operation có `x-after-checkout: blocked`,
+        SR-GST-10/11). Operation `x-after-checkout: allowed` không trả `GUEST_STAY_ENDED`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            stayEnded: { value: { type: /problems/guest-stay-ended, title: Kỳ lưu trú đã kết thúc, status: 403, code: GUEST_STAY_ENDED } }
+            verificationRequired: { value: { type: /problems/guest-verification-required, title: Cần xác minh để xem nội dung này, status: 403, code: GUEST_VERIFICATION_REQUIRED } }
     NotFound:
       description: Không tồn tại, thuộc cơ sở khác hoặc ngoài phạm vi dữ liệu của vai
       content:
@@ -5238,9 +5294,12 @@ components:
         code: { type: string, description: Mã máy đọc (bảng mã lỗi ở info.description) }
         requestId: { type: string }
         errors: { type: array, items: { $ref: '#/components/schemas/FieldError' } }
+        min: { description: 'Với PARAM_OUT_OF_RANGE – biên dưới' }
+        max: { description: 'Với PARAM_OUT_OF_RANGE – biên trên' }
+        allowed: { type: array, description: 'Với PARAM_OUT_OF_RANGE – tập giá trị cho phép (tham số dạng tập)', items: {} }
         conflicts:
           type: array
-          description: Với ROOM_UNAVAILABLE – dựng bằng truy vấn sau khi rollback lỗi 23P01 (không đọc từ thông điệp lỗi DB)
+          description: Với ROOM_UNAVAILABLE – dựng bằng truy vấn sau khi rollback lỗi 23P01 (không đọc từ thông điệp lỗi DB); với CAPACITY_BELOW_BOOKINGS – các đơn vượt sức chứa mới
           items: { type: object, additionalProperties: true }
         suggestions:
           type: array
@@ -5291,7 +5350,6 @@ components:
       description: |
         Danh mục BR-308 v0.2 (DOM) – dùng chung mọi luồng hủy. Mã hệ thống: `hold_expired` (J1), `ota_cancelled` (kênh báo hủy, BR-310),
         `overbooking_relocated` (dời khách, BR-312). DATA K-22a loại `hold_expired`, `overbooking_relocated`, `ota_cancelled` khỏi tử số chính
-        (DATA dùng tên cũ `relocated_external`, `channel_cancelled` – đã đề nghị đổi theo BR-308).
       enum: [guest_cancelled, guest_changed_mind, found_other, price, date_change, unreachable, hold_expired, ota_cancelled, overbooking_relocated, group_partial, other]
     DocType: { type: string, enum: [cccd, passport, child_personal_id, other] }
     DocumentCheckCode: { type: string, enum: [name_match, passport_valid_through_departure, visa_valid_through_departure, stay_within_visa, party_count] }
@@ -5374,7 +5432,7 @@ components:
         name: { type: string }
         roomGroupId: { $ref: '#/components/schemas/Uuid' }
         floor: { type: integer }
-        maxOccupancy: { type: integer }
+        maxOccupancy: { type: integer, x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator] }
         isSellable: { type: boolean }
         activeFrom: { $ref: '#/components/schemas/LocalDate' }
         activeTo: { type: [string, 'null'], format: date }
@@ -6434,6 +6492,8 @@ components:
       properties:
         roomId: { $ref: '#/components/schemas/Uuid' }
         roomNo: { type: string }
+        floor: { type: integer, description: 'Thay cho listRooms với HK/MT (BUG-R1-005)' }
+        roomGroupCode: { type: string, example: L12, description: 'Thay cho listRoomGroups với HK/MT (BUG-R1-005)' }
         status: { $ref: '#/components/schemas/RoomStatusCode' }
         statusLabel: { type: string, example: Trống · cần dọn }
         since: { $ref: '#/components/schemas/Instant' }

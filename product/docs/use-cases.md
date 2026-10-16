@@ -1,7 +1,7 @@
 # Use case chính – OTTIMO Desk
 
 - Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC, SEC)
-- "Hôm nay" = **ngày nghiệp vụ** (đổi lúc 06:00 giờ VN – `state-machines.md` 0.2 điểm 7).
+- "Hôm nay" = **ngày nghiệp vụ** (đổi theo **BR-010**, tham số `business_day_rollover`, mặc định 06:00 giờ VN – `state-machines.md` 0.2 điểm 7).
 - Nguồn: `business-processes.md` (P01–P10), `state-machines.md` (mã chuyển B1…, K1…, SM-xx), `rbac-matrix.md` (vai, hành động A-xx), `business-rules.md` (BR-xxx – con số chỉ tham chiếu mã), `03-backlog/backlog.md` (US-xxx).
 - Mỗi use case có: tác nhân, kích hoạt, tiền điều kiện, hậu điều kiện, luồng chính, luồng thay thế/ngoại lệ (A), lỗi (X), quy tắc, story. Dữ liệu và thông báo lỗi ở mức hành vi; giao diện do UXD thiết kế.
 
@@ -123,10 +123,10 @@
 - **Quy tắc**: BR-403, 601, 606, 609; SEC R-CON-01, R-REG-08.
 
 ## UC-11 – Nhận phòng
-- **Tác nhân**: FD (gồm người trực đêm), FDL (ngoại lệ). **Tiền điều kiện**: đơn `confirmed`, `conflict_state` khác `open`; **ngày nghiệp vụ hiện tại = ngày đến** (khách tới 00:00–05:59 của đơn ngày hôm trước vẫn hợp lệ); phiên chạy trên **thiết bị được cấp** mở admin-web (máy quầy hoặc máy tính bảng của cơ sở – phân xử ORC 15/10/2026).
+- **Tác nhân**: FD (gồm người trực đêm), FDL (ngoại lệ). **Tiền điều kiện**: đơn `confirmed`, `conflict_state` khác `open`; **ngày nghiệp vụ hiện tại = ngày đến** (khách tới trước mốc đổi ngày – mặc định 00:00–05:59 – của đơn ngày hôm trước vẫn hợp lệ; BR-010, tham số `business_day_rollover`); phiên chạy trên **thiết bị được cấp** mở admin-web (máy quầy hoặc máy tính bảng của cơ sở – phân xử ORC 15/10/2026).
 - **Hậu điều kiện**: `in_house` (B9); buồng `OC`; giờ nhận; phụ thu (nếu có); mã cửa hiệu lực.
 - **Luồng chính**: (1) Mở đơn từ "Khách đến"; (2) kiểm buồng; (3) giấy tờ người đứng tên đã có (UC-12); (4) thu phần còn lại hoặc xác nhận OTA đã trả; (5) giờ nhận mặc định giờ chuẩn; (6) bấm Nhận phòng; (7) nhập/giao mã cửa, số thẻ; gửi nội quy.
-- **A1**: buồng chưa `VI`/`VC` → FDL+ xác nhận lý do. **A2**: giờ nhận sớm → hệ thống đề xuất phụ thu theo bậc BR-411 (dài hạn BR-413); FD xác nhận; FOC → UC-27. **A3**: ngày nghiệp vụ = ngày đến − 1 (khách tới 00:00–05:59 của ngày đến) → **B9a Thêm đêm trước**: kiểm căn trống đêm trước; đơn Trực tiếp/CTV thêm 1 đêm đầu đơn; đơn OTA tạo đơn con kênh Trực tiếp đi thẳng `in_house`; giá BR-411; căn không trống → không nhận, gợi ý gửi hành lý. **A4**: người trực đêm chỉ có điện thoại cá nhân (PWA) → không nhận phòng được; dùng máy quầy hoặc thiết bị di động của cơ sở đã được cấp (SR-DEV-08/09). Không có người trực và khách chưa GST2 → gọi số trực đêm của quản lý (SR-GST-15). **A5**: mất mạng → UC-33.
+- **A1**: buồng chưa `VI`/`VC` → FDL+ xác nhận lý do. **A2**: giờ nhận sớm → hệ thống đề xuất phụ thu theo bậc BR-411 (dài hạn BR-413); FD xác nhận; FOC → UC-27. **A3**: ngày nghiệp vụ = ngày đến − 1 (khách tới trước mốc đổi ngày của ngày đến – mặc định 00:00–05:59, BR-010) → **B9a Thêm đêm trước**: kiểm căn trống đêm trước; đơn Trực tiếp/CTV thêm 1 đêm đầu đơn; đơn OTA tạo đơn con kênh Trực tiếp đi thẳng `in_house`; giá BR-411; căn không trống → không nhận, gợi ý gửi hành lý. **A4**: người trực đêm chỉ có điện thoại cá nhân (PWA) → không nhận phòng được; dùng máy quầy hoặc thiết bị di động của cơ sở đã được cấp (SR-DEV-08/09). Không có người trực và khách chưa GST2 → gọi số trực đêm của quản lý (SR-GST-15). **A5**: mất mạng → UC-33.
 - **X1**: còn phải thu → chặn. **X2**: thiếu giấy tờ người đứng tên → chặn giao mã cửa. **X3**: đơn chưa gán căn → chặn: "Đơn chưa có căn. Gán căn trước khi nhận phòng." **X4**: thiết bị chưa được cấp → chặn: "Nhận phòng chỉ làm trên máy của cơ sở đã được cấp quyền."
 - **Quy tắc**: BR-003, 401, 402, 403, 411, 413, 414, 422.
 
@@ -253,7 +253,7 @@
 - **Quy tắc**: BR-008, 521, 526 (DOM bổ sung). **Story**: US-124 (đề xuất PO nâng Must R3 theo DOM-PO-06, thêm story đối soát).
 
 ## UC-33 – Vận hành khi mất mạng / mất điện
-- **Tác nhân**: FD, MGR. **Kích hoạt**: quầy mất mạng/mất điện. **Tiền điều kiện**: danh sách dự phòng của ngày đã sinh (06:00).
+- **Tác nhân**: FD, MGR. **Kích hoạt**: quầy mất mạng/mất điện. **Tiền điều kiện**: danh sách dự phòng của ngày đã sinh lúc đầu ngày nghiệp vụ (BR-010, tham số `business_day_rollover`, mặc định 06:00).
 - **Luồng chính**: (1) thử 4G của cơ sở; (2) không được → chế độ giấy: ghi sổ dự phòng (giờ thực tế, căn, khách, tiền, người làm); (3) không nhận đơn mới khi chưa xem được tồn phòng; (4) có mạng lại → nhập bù từng việc theo thứ tự thời gian với giờ thực tế + lý do "nhập bù sau mất mạng"; (5) hệ thống kiểm trùng, đối soát kênh, báo MGR.
 - **A1**: đơn OTA về trong lúc mất mạng trùng việc nhập bù → xử lý như xung đột (UC-04b).
 - **X1**: nhập bù không có lý do → chặn. **X2**: giờ thực tế quá mốc `offline_backfill_max_hours` → cần MGR+.
@@ -264,3 +264,4 @@
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 30 use case, truy vết P/SM/BR/US | BA |
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ; UC-04 A2/X1 tách theo kênh + UC-04b gán căn; UC-05 A3 khôi phục no-show theo SQ-1; UC-10 A2 một link/đơn; UC-11 thiết bị được cấp, B9a, chặn đơn chưa gán; UC-12 hạn khai báo NN; UC-27 FOC tự áp; UC-28 2FA, đổi mật khẩu lần đầu, khóa, đổi người nhanh, thu hồi phiên; UC-30 → US-133/134; thêm UC-31 đơn nhóm, UC-32 đóng ca, UC-33 mất mạng | BA |
+| 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |

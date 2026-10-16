@@ -3,7 +3,7 @@
 # Run from product/:   cp .env.example .env   (fill the *_PASSWORD values)   then   pnpm dev
 # (= docker compose --env-file .env -f infra/docker-compose.yml up --build)
 #
-#   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext + roles ottimo_owner/app/readonly
+#   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext + roles ottimo_owner(NOLOGIN)/migrator/app/readonly
 #   api       127.0.0.1:3000   GET /health (connects as ottimo_app, never as the superuser)
 #   worker    (no port)        same image as api, entrypoint dist/worker.js
 #   web       127.0.0.1:8081   admin-web | :8082 mobile (PWA) | :8083 guest-web  (Caddy, proxies /health and /v1 to api)
@@ -13,6 +13,8 @@ name: ottimo-dev
 x-api-env: &api-env
   APP_ENV: dev
   NODE_ENV: development
+  # MIGRATION_DATABASE_URL (ottimo_migrator) is deliberately NOT given to api/worker; R2 adds a one-shot
+  # `migrate` service using it (erd.md 16). ottimo_owner is NOLOGIN (BUG-R1-SEC-06).
   DATABASE_URL: postgres://ottimo_app:${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
   LOG_LEVEL: ${LOG_LEVEL:-info}
   CLOCK_OVERRIDE: ${CLOCK_OVERRIDE:-}
@@ -26,7 +28,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ottimo_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}
       POSTGRES_DB: ${POSTGRES_DB:-ottimo}
-      OTTIMO_OWNER_DB_PASSWORD: ${OTTIMO_OWNER_DB_PASSWORD:?set OTTIMO_OWNER_DB_PASSWORD in product/.env}
+      OTTIMO_MIGRATOR_DB_PASSWORD: ${OTTIMO_MIGRATOR_DB_PASSWORD:?set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env}
       OTTIMO_APP_DB_PASSWORD: ${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}
       TZ: UTC
     ports:
@@ -46,6 +48,9 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.api
+      args:
+        # Dev keeps /__test__ (MutableClock, run job) for local E2E. Production images never set this.
+        INCLUDE_TEST_SUPPORT: '1'
     environment: *api-env
     ports:
       - '127.0.0.1:3000:3000'

@@ -1,6 +1,6 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.1 (đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
 - Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
@@ -75,7 +75,7 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S22 | Báo cáo FOC (M10) | ✔ | ✔ | M R ¹⁴ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S23 | Hộp duyệt (yêu cầu chờ duyệt SM-10) | ✔ | ✔ | ✔ ¹⁵ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | ✖ |
 | S24 | Tham số quy tắc (bảng BR mục 13) (M0) | ✔ | ✔ ¹⁷ | R | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
-| S25 | Danh mục căn, nhóm căn, giá niêm yết (M0) | ✔ | ✔ | R | R | ✖ | ✖ | R | R | ✖ |
+| S25 | Danh mục căn, nhóm căn, giá niêm yết (M0) | ✔ | ✔ | R ²⁵ᵃ | R ²⁵ᵃ | ✖ ²⁵ᵃ | ✖ ²⁵ᵃ | R ²⁵ᵃ | R ²⁵ᵃ | ✖ |
 | S26 | Người dùng & vai, thiết bị được cấp, phiên đăng nhập, 2FA (M0) | ✔ | ◐ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S27 | Nhật ký thao tác (tiền, trạng thái) (M0) | ✔ | ✔ | M | M | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S28 | Nhật ký truy cập dữ liệu C3 (M0, M3) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
@@ -103,7 +103,8 @@ Ghi chú:
 14. FDL: báo cáo FOC của các yêu cầu mình gửi hoặc duyệt.
 15. FDL: yêu cầu thuộc hạn mức FDL theo BR-433.
 16. M: chỉ thấy trạng thái các yêu cầu mình gửi và rút lại được (A6). CTV gửi gia hạn báo giá (A51) nên cần theo dõi được yêu cầu của mình (QA #12) – ARC thêm `collaborator` với `x-scope: own` vào `listApprovalRequests` và `cancelRequest`.
-20a. MGR chỉ cấp/thu hồi thiết bị khi OWN bật ủy quyền (SR-DEV-01); không gán vai, không đặt lại 2FA người khác.
+20a. **Round 2: chỉ OWN** xem danh sách, cấp, thu hồi thiết bị được cấp (A110 – `listTrustedDevices`, `trustCurrentDevice`, `revokeTrustedDevice`); MGR ✖ – khớp OpenAPI, wireframe L1 và ARC-responses bước 4 ("thiết bị giữ owner"), chặt hơn SR-DEV-01 nên vẫn đạt yêu cầu SEC. Ở S26, MGR chỉ quản lý mật khẩu/PIN/2FA/phiên **của mình** (A112); không gán vai, không đặt lại 2FA người khác. Ủy quyền cho MGR khi OWN bật (tùy chọn của SR-DEV-01) **chưa làm**; khi PO đưa vào round sau, BA thêm lại MGR ◐ kèm tham số bật ủy quyền và báo ARC thêm `manager` vào `x-roles` (BUG-R1-006).
+25a. S25 theo vai (khớp `listRooms`, `listRoomGroups`; BUG-R1-005): OWN/MGR xem đầy đủ + sửa (A101/A103). FDL/FD/SAL/CTV chỉ **xem dạng tra cứu** (`x-scope: catalog_only`): số căn, tầng, nhóm căn, tên, sức chứa (`baseOccupancy`, `maxOccupancy` – cần để xếp khách và báo giá, BR-601) và giá niêm yết hiện hành; không thấy lịch sử giá. **HK/MT ✖: không dùng `listRooms`/`listRoomGroups`.** Số căn, tầng, nhóm căn mà HK/MT cần lấy từ **danh sách việc buồng phòng** (S10 – `listHkTasks`, `listRoomStatuses`), phiếu sửa (S11 – `listWorkOrders`) và rack dạng trạng thái (S03, ghi chú 2). Với HK/MT, `maxOccupancy`, `baseOccupancy` và mọi giá là **K** (không trả về); ARC gắn `x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]` cho `Room.maxOccupancy`, `RoomGroup.maxOccupancy`, `RoomGroup.baseOccupancy` nếu các schema này còn xuất hiện trong response dành cho HK/MT.
 17. MGR sửa tham số vận hành; **không** sửa hạn mức FOC (`foc_limits`), tỷ lệ hoa hồng, phí kênh – chỉ OWN (mục 5.3).
 18. HK/MT: yêu cầu định tuyến tới bộ phận mình (BR-811); đồ thất lạc: HK được tạo bản ghi (người nhặt), không xem danh sách đồ giá trị.
 19. GST: gửi yêu cầu qua app (mức GST2); OWN/MGR xử lý (SEC R-DSR-01). Bản sao dữ liệu giao qua app khách mức 2, không đính kèm email (A77).
@@ -140,7 +141,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A19 | Ghi công nợ khi trả phòng (BR-525) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A20 | Thêm người đi cùng / trẻ em vào đơn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ | ✖ | – |
 | A21 | Nhập/sửa/xem mã cửa, số thẻ phòng (BR-403) | ✔ L Q | ✔ L Q | ✔ L Q | ✔ L Q | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Mã cửa = C3 (D22) |
-| A22 | Gửi link app khách / link check-in **qua kênh hệ thống** (email/ZNS), không thấy link | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | ✖ | ✔ | SEC-BA-07 |
+| A22 | Gửi link app khách / link check-in **qua kênh hệ thống** (email/ZNS), không thấy link | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ | SEC-BA-07. Quyết định bước 4 (ARC bỏ `sales_staff` khỏi `issueGuestLink`): SAL **không** cấp, gửi hay sao chép link; khách của SAL nhận link do hệ thống tự gửi (SYS) hoặc do FD+ gửi. Endpoint A22 (`issueGuestLink`, `issueGuestVerificationCode`) chỉ FD+ (BUG-R1-006) |
 | A22a | Cấp link và **sao chép link** (token hiện một lần khi cấp; xem lại = cấp lại, thu hồi link cũ) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Ghi audit; SR-GST-01, SR-GST-04 |
 | A23 | Tạo/sửa nhóm đơn, phân bổ cọc chung (SM-16) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M ³⁶ | ✖ | ✖ | CTV chỉ tạo nhóm giữ chỗ, không phân bổ tiền |
 
@@ -225,7 +226,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 ### 4.7 Bảo mật tài khoản, thiết bị, link khách (FB-R1-ARC-BA-08, SEC-BA-01/02/06)
 | # | Hành động | OWN | MGR | FDL | FD | HK/MT | SAL | CTV | Ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
-| A110 | Cấp / thu hồi thiết bị được cấp (danh sách ở S26) | ✔ | ◐ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-DEV-01…09; chọn loại `desk`/`facility_mobile` (≤ 30 ngày, ký checklist); OWN rà danh sách hằng tháng; PWA và máy cá nhân không bao giờ được cấp |
+| A110 | Cấp / thu hồi thiết bị được cấp (danh sách ở S26) | ✔ | ✖ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-DEV-01…09; chọn loại `desk`/`facility_mobile` (≤ 30 ngày, ký checklist); OWN rà danh sách hằng tháng; PWA và máy cá nhân không bao giờ được cấp |
 | A111 | Bật / đặt lại 2FA TOTP của **người khác** | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | 2FA bắt buộc OWN/MGR trước dữ liệu thật (R3) – SR-AUTH-06 |
 | A112 | Đặt/đổi PIN duyệt, mật khẩu, 2FA **của mình** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | SR-AUTH-09 |
 | A113 | Cấp mã xác minh cho khách (để lên GST2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | Ghi audit; mặc định đọc tại quầy/điện thoại (SR-GST-07b) |
@@ -233,7 +234,8 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A115 | Xem / thu hồi phiên đăng nhập của người khác | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-SES-07; mỗi người xem/thu hồi phiên của mình (A112) |
 | A116 | Khôi phục tài khoản OWN | – | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Bằng **mã khôi phục in sẵn do INV giữ**, không qua MGR; quy trình ở runbook OPS |
 | A117 | Đổi người nhanh trên máy quầy (đăng xuất + đăng nhập người khác) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | 8.8 |
-| A118 | Bật/tắt gửi mã xác minh qua kênh nhắn tin OTA / Zalo (theo từng kênh) | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | **Mặc định tắt** (phân xử ORC 15/10/2026); rủi ro còn lại ghi trong threat-model |
+| A118 | Bật/tắt gửi mã xác minh qua kênh nhắn tin OTA / Zalo (theo từng kênh) | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | **Mặc định tắt** (phân xử ORC 15/10/2026); rủi ro còn lại ghi trong threat-model; là trường hợp riêng của A119 (khóa `guest_verify_code_channels`) |
+| A119 | Sửa **tham số bảo mật** (8 khóa trong `x-security-parameters` của `setParameter`, erd 9.3): `guest_verify_max_attempts`, `guest_level2_idle_minutes`, `guest_link_grace_hours`, `guest_verify_code_channel_minutes`, `guest_verify_code_channels`, `trusted_device_days`, `trusted_device_mobile_days`, `c3_stepup_minutes` | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | `setParameter` (BUG-R1-SEC-02). MGR (và mọi vai khác) → `403 FORBIDDEN_ACTION` + audit `access.denied`. Giá trị ngoài **biên cứng** SEC đặt (hoặc phần tử ngoài tập kênh cho phép) → `422 PARAM_OUT_OF_RANGE` kèm `min`/`max` hoặc `allowed[]` – **áp cả với OWN**; sai kiểu → `422 VALIDATION_FAILED`. Mỗi lần sửa ghi audit `category='security'` (trước/sau, lý do, người sửa). Server xác định khóa bảo mật theo khóa trong đường dẫn. Biên và mặc định: xem OpenAPI `x-security-parameters` (nguồn chuẩn), không chép lại ở đây |
 
 Ghi chú hành động:
 20. CTV **không xác nhận cọc** vì không kiểm được tiền vào tài khoản OTTIMO; CTV dùng A53, FD/SAL xác nhận A04 `[GIẢ ĐỊNH – chờ INV xác nhận]`.
@@ -281,7 +283,7 @@ Ghi chú hành động:
 ### 5.3 Tách nhiệm vụ (kiểm soát nội bộ) `[GIẢ ĐỊNH – chờ INV xác nhận]`
 - Người đặt hạn mức FOC, tỷ lệ hoa hồng, phí kênh (OWN) khác người duyệt FOC hằng ngày (FDL/MGR).
 - CTV không xác nhận tiền (A04) và không xem dữ liệu khách ngoài khách của mình.
-- MGR không tự gán vai cho mình hay người khác (A100 chỉ OWN); không đổi tài khoản nhận tiền (A108 chỉ OWN).
+- MGR không tự gán vai cho mình hay người khác (A100 chỉ OWN); không đổi tài khoản nhận tiền (A108 chỉ OWN); không sửa tham số bảo mật (A119 chỉ OWN).
 - Người ghi nhận chuyển khoản (FD, SAL) khác người đối soát với sao kê (MGR+, A46). Xác nhận cọc của SAL (A04) tạo giao dịch `reconciliation = pending`, MGR+ đối soát trong ngày (SEC-BA-12).
 - Người thực hiện chuyển khoản hoàn (MGR+) phải đi qua yêu cầu `approved`; MGR tự gửi và tự duyệt hoàn chỉ trong hạn mức BR-433, vượt → OWN.
 
@@ -317,7 +319,7 @@ Cột khách tách theo mức (FB-R1-ARC-BA-02, SEC-BA-02; SR-GST-06/07/11): **G
 | D21 | Vân tay | C3 | K (không lưu trên hệ thống) | K | K | K | K | K | K | K | K |
 | D22 | Mã cửa còn hiệu lực, thẻ từ | C3 | Đầy L Q | Đầy L Q | K | K | K | K | **K** | Đ (chỉ trong khoảng hiệu lực BR-403) | **K** |
 | D23 | Yêu cầu từ app khách, tin nhắn | C2 | Đầy | Đầy | Loại + căn + nội dung (T, định tuyến) | như HK | K | K | Gửi + xem trạng thái | Đ | K |
-| D25 | Token link app khách | C3 | **Một lần khi cấp** (để sao chép/gửi – A22a), không xem lại; xem lại = cấp lại (thu hồi link cũ) | như OWN/MGR | K | K | K (chỉ gửi qua kênh hệ thống – A22) | K (kể cả khi render mẫu tin) | – | – | – |
+| D25 | Token link app khách | C3 | **Một lần khi cấp** (để sao chép/gửi – A22a), không xem lại; xem lại = cấp lại (thu hồi link cũ) | như OWN/MGR | K | K | K (không gửi, không cấp – A22) | K (kể cả khi render mẫu tin) | – | – | – |
 | D26 | CTV/Sale: số tài khoản, CCCD/MST | C3 | Đầy L | K | K | K | Của mình | Của mình | – | – | – |
 | D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình | K | K | K | K | – | – | – |
 | D28 | Lead (tên, liên hệ, nhu cầu) | C2 | Đầy | Đầy | K | K | M | M | – | – | – |
@@ -396,3 +398,5 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 9 vai + hệ thống, 31 màn hình, ~70 hành động, ma trận trường theo D01–D28 và dữ liệu kinh doanh; giải quyết BL 2 và 8.2 #27 | BA |
 | 15/10/2026 | 1 (bước 4) | Màn mặc định FD/FDL = Hôm nay; ký hiệu Q (thiết bị được cấp) theo quyết định SEC + phân xử ORC; GST1/GST2/GSTp; D12 tách a/b/c; D15, D22, D25 sửa; thêm D29; A07a/b, A11a/b, A22a, A23, A45–A47, A77, A108, 4.7 (A110–A118); A10 theo SQ-1; ghi chú 24 theo SQ-3; S23 cho CTV (QA #12); S32–S34; 8.7–8.10; bản máy đọc `rbac-matrix.json` | BA |
+| 16/10/2026 | 1 (bước 5) | BUG-R1-005: ghi chú 25a – S25 dạng tra cứu cho FDL/FD/SAL/CTV, HK/MT không dùng `listRooms`/`listRoomGroups` (dùng danh sách việc buồng phòng), sức chứa ẩn với HK/MT. BUG-R1-006: A22 SAL ✖ (theo quyết định bước 4); A110 MGR ✖ ở R2 (ghi chú 20a). `rbac-matrix.json` v0.2.1 cập nhật theo | BA |
+| 16/10/2026 | 1 (bước 5, lượt 2) | Thêm **A119** "Sửa tham số bảo mật – chỉ OWN" (8 khóa `x-security-parameters` của `setParameter` 0.2.1-draft; MGR 403; ngoài biên 422 `PARAM_OUT_OF_RANGE` kể cả OWN) theo BUG-R1-SEC-02 / fix-notes-ARC; A118 ghi là trường hợp riêng của A119; mục 5.3 thêm A119. `rbac-matrix.json` thêm A119, A118 ánh xạ `setParameter` | BA |

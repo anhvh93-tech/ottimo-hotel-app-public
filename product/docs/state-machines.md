@@ -1,6 +1,6 @@
 # Sơ đồ trạng thái – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
 - Nguồn: `business-rules.md` (mã **BR-xxx** – nguồn sự thật duy nhất cho mọi con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `security/data-risk-assessment.md` (**SEC**), `PRD.md`, `03-backlog/backlog.md` (**US-xxx**), `rbac-matrix.md` (mã vai).
 - Tài liệu này **không chép con số nghiệp vụ**. Mọi mốc giờ, hạn, tỷ lệ, hạn mức đều là tham số trong `business-rules.md` mục 13, ghi bằng mã BR.
 - Đọc cùng: `rbac-matrix.md` (vai được phép), `business-processes.md` (quy trình), `use-cases.md` (UC-xx).
@@ -30,7 +30,7 @@
 4. **Kiểm tra chiếm phòng ở server trong cùng giao dịch** cho mọi chuyển làm thay đổi tồn phòng (BR-906): tạo giữ chỗ, xác nhận, gia hạn, đổi phòng, đổi ngày, khôi phục, tạo/kéo dài khối OOO.
 5. **Mọi thay đổi tồn phòng phát sự kiện đồng bộ kênh** (BR-905) – ghi ở cột "Hệ quả" là `sync`.
 6. Khóa lạc quan (phiên bản bản ghi): hai người cùng chuyển một bản ghi → người sau nhận thông báo "Dữ liệu vừa thay đổi, tải lại" (cùng tinh thần BR-906 S5). Mã HTTP do ARC chốt trong OpenAPI.
-7. **Ngày nghiệp vụ** (decision-log DOM 15/10/2026, FB-R1-DOM-BA-01): "hôm nay" trong mọi bảng dưới đây = **ngày nghiệp vụ**, đổi lúc **06:00** giờ VN (tham số, cùng mốc BR-003). Từ 00:00 đến 05:59 ngày D+1 vẫn là ngày nghiệp vụ D. Ví dụ: đơn đến 20/10, khách tới 01:30 ngày 21/10 → vẫn ở danh sách "Khách đến" của ngày 20/10, nhận phòng bình thường (B9), đêm đầu là đêm 20/10 như đã đặt. Server tính `business_date(now)` ở một chỗ duy nhất, mọi job/màn "Hôm nay" dùng hàm này.
+7. **Ngày nghiệp vụ** (decision-log DOM 15/10/2026, FB-R1-DOM-BA-01): "hôm nay" trong mọi bảng dưới đây = **ngày nghiệp vụ**, đổi theo **BR-010** (tham số `business_day_rollover`, mặc định **06:00** giờ VN, cùng mốc BR-003). Từ 00:00 đến 05:59 ngày D+1 vẫn là ngày nghiệp vụ D. Ví dụ: đơn đến 20/10, khách tới 01:30 ngày 21/10 → vẫn ở danh sách "Khách đến" của ngày 20/10, nhận phòng bình thường (B9), đêm đầu là đêm 20/10 như đã đặt. Server tính `business_date(now)` ở một chỗ duy nhất, mọi job/màn "Hôm nay" dùng hàm này.
 8. **Thiết bị**: mọi chuyển cần đọc/ghi dữ liệu C3 (B9, K3–K10, xem mã cửa) chỉ chạy trên **thiết bị được cấp** mở admin-web (`rbac-matrix.md` 8.7); gọi từ PWA hoặc thiết bị chưa cấp → server từ chối (`DEVICE_NOT_TRUSTED`).
 
 ### 0.3 Danh mục máy trạng thái
@@ -70,7 +70,7 @@ stateDiagram-v2
     hold --> confirmed: Xác nhận cọc / ký quỹ
     hold --> cancelled: Hủy (lý do) / Hết hạn giữ chỗ (SYS)
     confirmed --> confirmed: Đổi căn / đổi ngày / dời ngày / gán căn cho đơn xung đột / OTA sửa đơn
-    confirmed --> in_house: Nhận phòng (kể cả thêm đêm trước khi nhận trước 06:00)
+    confirmed --> in_house: Nhận phòng (kể cả thêm đêm trước khi nhận trước mốc đổi ngày BR-010, mặc định 06:00)
     confirmed --> cancelled: Hủy theo chính sách
     confirmed --> no_show: Đánh dấu không đến
     no_show --> confirmed: Khôi phục no-show (FD+ trong 3 điều kiện, ngoài ra MGR+)
@@ -107,7 +107,7 @@ stateDiagram-v2
 | B7c | `confirmed` → `confirmed` | OTA sửa đơn (đổi ngày, số khách, loại phòng, hủy một phần đêm) | Sự kiện sửa từ kênh (SYS R3) hoặc lễ tân nhập lại theo extranet (R2); kiểm trùng lại khoảng mới (BR-906): trùng → giữ căn cũ cho phần không đổi, phần không xếp được → `conflict_state = open` như B7b; số khách mới ≤ sức chứa căn (BR-110) – vượt → cờ xung đột "sức chứa", không tự đổi căn | SYS (R3); FD+ (R2) | Giá snapshot theo giá OTA mới; số người cần khai báo cập nhật (khai báo đã `confirmed` → `needs_update`, K9); `sync`. Đơn đang `in_house` mà OTA rút ngắn ngày → **không tự áp**: tạo việc "Xác nhận thay đổi từ OTA" cho FD |
 | B8 | `confirmed` → `confirmed` | Dời ngày thay vì hủy (BR-309) | Đơn trực tiếp/CTV đã cọc; chưa dời lần nào; khoảng mới trong giới hạn BR-309 | MGR+ | Giữ nguyên cọc; `sync` |
 | B9 | `confirmed` → `in_house` | Nhận phòng | **Ngày nghiệp vụ hiện tại = ngày đến** (0.2 điểm 7 – khách đến 00:00–05:59 của đơn ngày hôm trước vẫn nhận bình thường); `conflict_state` **không** là `open` (đơn chưa gán căn phải qua B7a trước); thực hiện trên **thiết bị được cấp** (0.2 điểm 8); ngày nghiệp vụ = ngày đến − 1 (ví dụ 04:30 **ngày đến**, khác với 04:30 ngày D+1 vẫn là B9) → đi qua B9a; **BR-402**: (1) buồng `VI` hoặc `VC`, nếu khác → cần FDL+ xác nhận ngoại lệ có lý do; (2) đã thu đủ phần còn lại hoặc OTA đã trả/đảm bảo; (3) có giấy tờ người đứng tên (khai báo ≥ `partial` có người đứng tên); giờ nhận mặc định giờ chuẩn BR-401, phụ thu chỉ khi lễ tân nhập giờ sớm (BR-414) | FD+ | Ghi giờ nhận thực tế; buồng → `OC` (hoặc `OD` nếu nhận vào buồng `VD` theo ngoại lệ) – SM-03; phụ thu nhận sớm vào folio (BR-411/BR-413), FOC qua SM-10; mã cửa hiệu lực (BR-403); hạn khai báo bắt đầu tính (BR-602/603) |
-| B9a | `confirmed` → `in_house` | Nhận trước 06:00 – thêm đêm trước | Ngày nghiệp vụ hiện tại = ngày đến D − 1 (trường hợp điển hình: khách tới 00:00–05:59 **của ngày D**; khách tới tối hôm trước cũng đi đường này); căn của đơn trống đêm D−1 (BR-906) và không có khối OOO; giá đêm thêm theo BR-411 (100% giá đêm – decision-log DOM "nhận trước 06:00 = đêm bán"); cùng các điều kiện BR-402 của B9. Căn không trống đêm D−1 → **không cho nhận**, gợi ý gửi hành lý chờ đến giờ nhận (hoặc đổi căn trống đêm D−1 bằng B7 nếu khách đồng ý giá) | FD+ | Đơn **Trực tiếp/CTV**: thêm 1 đêm vào đầu đơn (ngày đến = D−1), đêm thêm là đêm bán (BR-904). Đơn **OTA** (không đổi ngày đơn OTA – B7): tạo **đơn con kênh Trực tiếp** cho đêm D−1 liên kết đơn gốc (như BR-422), đơn con đi thẳng `in_house` cùng lúc; đơn gốc nhận phòng như B9. Khai báo dùng chung bản ghi đơn gốc (K1). `sync` |
+| B9a | `confirmed` → `in_house` | Nhận trước mốc đổi ngày (BR-010, mặc định 06:00) – thêm đêm trước | Ngày nghiệp vụ hiện tại = ngày đến D − 1 (trường hợp điển hình: khách tới 00:00–05:59 **của ngày D**; khách tới tối hôm trước cũng đi đường này); căn của đơn trống đêm D−1 (BR-906) và không có khối OOO; giá đêm thêm theo BR-411 (100% giá đêm – decision-log DOM "nhận trước 06:00 = đêm bán"); cùng các điều kiện BR-402 của B9. Căn không trống đêm D−1 → **không cho nhận**, gợi ý gửi hành lý chờ đến giờ nhận (hoặc đổi căn trống đêm D−1 bằng B7 nếu khách đồng ý giá) | FD+ | Đơn **Trực tiếp/CTV**: thêm 1 đêm vào đầu đơn (ngày đến = D−1), đêm thêm là đêm bán (BR-904). Đơn **OTA** (không đổi ngày đơn OTA – B7): tạo **đơn con kênh Trực tiếp** cho đêm D−1 liên kết đơn gốc (như BR-422), đơn con đi thẳng `in_house` cùng lúc; đơn gốc nhận phòng như B9. Khai báo dùng chung bản ghi đơn gốc (K1). `sync` |
 | B10 | `confirmed` → `cancelled` | Hủy đơn đã đảm bảo | Lý do bắt buộc (BR-308); đơn trực tiếp/CTV: phí hủy/hoàn theo BR-309 – phần hoàn tạo yêu cầu hoàn (BR-522, MGR+ duyệt); đơn OTA: theo BR-310 (số tiền phạt do kênh báo) | FD+ ; SAL (đơn của mình, chỉ đơn trực tiếp); SYS (đơn OTA hủy từ channel manager – R3) | `sync` mở phòng; khai báo → `void`; hoa hồng → `void`; phần cọc giữ lại ghi "phí hủy" |
 | B11 | `confirmed` → `no_show` | Đánh dấu không đến | Sau mốc đánh dấu BR-311, chưa nhận phòng, đã có ghi chú "đã gọi/nhắn, không liên lạc được"; **không tự động** | FD+ | Đơn trực tiếp: giữ cọc theo BR-311; đơn OTA: tạo việc "báo no-show trên kênh"; mở bán các đêm còn lại (`sync`); khai báo → `void`; hoa hồng → `void` |
 | B12 | `no_show` → `confirmed` | Khôi phục no-show (DOM SQ-1) | Khách đến muộn sau khi đã đánh dấu; lý do bắt buộc. **FD/FDL tự làm** khi đủ cả 3 điều kiện: (1) còn trong ngày nghiệp vụ của đêm đến (trước 06:00 hôm sau); (2) căn của đơn vẫn trống, chưa bán lại, không phải đổi căn (BR-906); (3) không phát sinh hoàn tiền hay đổi giá. Thiếu một điều kiện, hoặc đơn OTA đã báo no-show lên kênh → yêu cầu duyệt SM-10, **MGR+** | FD+ (3 điều kiện); MGR+ (còn lại) | Đóng lại phòng (`sync`); khai báo `void` → `none` (K12, dùng lại bản ghi); hoa hồng `void` → tạo lại `projected` (bản ghi mới, SM-11); MGR nhận thông báo; dòng "Khôi phục no-show" hiện trong báo cáo đóng ca (P11). Đơn OTA: tạo việc "báo kênh hủy no-show" |
@@ -129,8 +129,8 @@ stateDiagram-v2
 | Giao dịch cọc đến **sau** khi giữ chỗ đã tự hủy | Không tự khôi phục; tạo cảnh báo cho FD/SAL "Tiền về cho đơn đã hủy" → tạo đơn mới (B1/B2) nếu căn còn trống, hoặc hoàn tiền (BR-522) |
 | Khách đến khi đơn còn `hold` (chưa cọc) | Không nhận phòng trực tiếp từ `hold`: thu tiền → B4 → B9 |
 | Khách đến khuya, không có lễ tân (BR-611) | Phân xử ORC 15/10/2026, SR-GST-15 (4 nhánh – xem P03 E2): người trực (vai FD) thực hiện B9 trên **thiết bị của cơ sở đã được OWN cấp** (máy quầy hoặc thiết bị di động của cơ sở `device_kind = facility_mobile`, SR-DEV-08) mở **admin-web**; điện thoại cá nhân không bao giờ được cấp (SR-DEV-09); PWA trên điện thoại cá nhân **không bao giờ** làm được B9 vì cần C3. Khuyến khích khách đến khuya check-in online trước (K2) để người trực chỉ đối chiếu. Mã cửa chỉ cấp khi điều kiện BR-402 đạt. Ai trực tối và bằng thiết bị gì: chờ INV trả lời ESC-010 |
-| Khách đến 00:00–05:59 của đơn ngày hôm trước | Vẫn trong ngày nghiệp vụ của ngày đến → B9 bình thường, không tính đêm thêm |
-| Khách đến 00:00–05:59 **của chính ngày đến** | B9a (thêm đêm trước) nếu căn trống đêm trước; không trống → gửi hành lý |
+| Khách đến trước mốc đổi ngày (BR-010, tham số `business_day_rollover`, mặc định 00:00–05:59) của đơn ngày hôm trước | Vẫn trong ngày nghiệp vụ của ngày đến → B9 bình thường, không tính đêm thêm |
+| Khách đến trước mốc đổi ngày (BR-010, mặc định 00:00–05:59) **của chính ngày đến** | B9a (thêm đêm trước) nếu căn trống đêm trước; không trống → gửi hành lý |
 | Mất mạng ở quầy khi khách đến | Theo P12 (`business-processes.md`): nhận khách bằng danh sách dự phòng, nhập bù B9 với "giờ thực tế" trong quá khứ và lý do "nhập bù sau mất mạng" khi có mạng lại |
 | Đơn dài hạn hết HĐ mà khách chưa trả phòng | Đơn vẫn `in_house`; cảnh báo quá hạn trả phòng; MGR+ chọn: gia hạn HĐ (SM-06) hoặc tính ngày lẻ (BR-210) |
 
@@ -253,7 +253,7 @@ stateDiagram-v2
     pre --> review: Lễ tân đối chiếu, đủ người
     none --> partial: Nhập giấy tờ một phần
     partial --> review: Đủ số người (BR-601)
-    review --> partial: Thêm người / bỏ một người
+    review --> partial: Thêm người / bỏ một người (K13)
     review --> scanned: Đối chiếu xong
     scanned --> sent: Đã khai trên cổng, nhập mã hồ sơ
     sent --> confirmed: Cổng xác nhận
@@ -284,6 +284,7 @@ stateDiagram-v2
 | K10 | `needs_update` → `updated` | Đã cập nhật | Nhập ngày đi thực tế / mã khai bổ sung | FD+ | – |
 | K11 | `none`/`pre`/`partial`/`review` → `void` | Đơn `cancelled`/`no_show` | Chưa khai trên cổng | SYS | Ảnh đã nhận xóa theo hạn của SEC mục 7 cho hồ sơ không lưu trú |
 | K12 | `void` → `none` | Khôi phục no-show (B12) | Đơn từ `no_show` về `confirmed` | SYS | **Dùng lại** bản ghi khai báo của đơn (giữ ràng buộc một bản ghi/đơn – erd 4.7 UK); ghi `state_transition`; ảnh đã xóa theo K11 **không** khôi phục, khách nộp lại |
+| K13 | `review` → `partial` | Đổi thành phần khách khi đang đối chiếu | Trước K5 (chưa `scanned`); sau khi thêm khách vào đơn hoặc bỏ giấy tờ của một người, **số người có giấy tờ < số khách đơn** (BR-601). Nếu vẫn đủ người thì ở lại `review` | FD+ (bỏ giấy tờ / thêm khách); SYS (số khách đơn tăng do sửa đơn) | Ghi `state_transition` + nhật ký C3 (SEC R-REG-09); giấy tờ bị bỏ xử lý ảnh theo BR-609; khi đủ lại người → K4 về `review`. Sau `confirmed` thì thêm người đi theo K9, không theo K13 |
 
 **Hạn khai báo** (không phải trạng thái mà là thuộc tính tính toán, hiển thị và nhắc):
 - Công dân VN: theo BR-602 (mốc trong ngày đến). Người nước ngoài: theo BR-603 = **giờ nhận phòng thực tế + số giờ BR-603**, **không** còn áp mốc 23:00 cho khách nước ngoài (decision-log DOM 15/10/2026 – thay dòng trước, `[GIẢ ĐỊNH – chờ luật sư qua ESC-001]`).
@@ -561,6 +562,7 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | K3/K4 | `record_documents` | K5 | `complete_review` | K6 | `mark_sent` |
 | K7 | `mark_confirmed` | K8 | `mark_rejected` | K9 | `require_update` |
 | K10 | `mark_updated` | K11 | `void_registration` | K12 | `restore_registration` |
+| K13 | `change_party` | – | – | – | – |
 | H1 | `sign_contract` | H2 | `activate_contract` | H3 | `cancel_contract` |
 | H4 | `renew_contract` | H5 | `amend_contract` | H6 | `notify_termination` |
 | H7 | `withdraw_termination` | H8 | `start_settlement` | H9 | `close_settlement` |
@@ -586,3 +588,5 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 15 máy trạng thái, bảng chuyển có điều kiện + vai | BA |
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ 06:00; B7a/B7b/B7c (gán căn đơn xung đột, OTA nhập tay vào căn kín, OTA sửa đơn); B9a (nhận trước 06:00 thêm đêm trước); B9 điều kiện thiết bị được cấp + không xung đột; B12 FD tự khôi phục trong 3 điều kiện; K12; R10 từ `CL`; W3 theo SQ-2; SM-10 A2 hạn mức tháng tự áp; SM-11 kỳ chi tháng; SM-12 đối soát; OOO nửa mở; thêm SM-16 nhóm đơn, SM-17 ca làm việc; bảng mã sự kiện | BA |
+| 16/10/2026 | 1 (bước 5) | SM-05 thêm K13 `review → partial` (sự kiện `change_party`) cho khớp sơ đồ – BUG-R1-001; ERD mục 5 cần sửa thành "K1–K13" (ARC, BUG-R1-018) | BA |
+| 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |

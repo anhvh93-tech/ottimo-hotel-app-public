@@ -270,7 +270,7 @@ POS nhà hàng; kế toán tổng hợp/lương; ca làm việc & chấm công; 
 
 ---
 
-## 4. Tiêu chí nghiệm thu – 74 story Must Round 2 (+ story mới Must R3)
+## 4. Tiêu chí nghiệm thu – 77 story Must Round 2 (+ story mới Must R3)
 
 Quy ước (đợt 3):
 - Định dạng **Given / When / Then**, mỗi AC là ít nhất một ca kiểm thử (QA).
@@ -413,7 +413,7 @@ Quy ước (đợt 3):
 - AC1: Given đơn `confirmed` đến hôm nay chưa nhận phòng và không có giờ đến dự kiến, When qua mốc gọi khách của BR-311, Then `front_desk` nhận nhắc gọi/nhắn khách.
 - AC2: Given đã qua mốc đánh dấu của BR-311 và đã ghi kết quả liên lạc, When `front_desk` bấm "No-show" và xác nhận (US-135), Then đơn `no_show`; đơn trực tiếp giữ cọc theo BR-311 (ghi "doanh thu khác" – BR-904); các đêm còn lại mở bán + đồng bộ; khai báo → `void`; hoa hồng → `void`; đơn OTA có việc "Báo no-show trên kênh". Hệ thống **không bao giờ** tự đánh dấu.
 - AC3: Given chưa ghi kết quả liên lạc hoặc chưa qua mốc đánh dấu, Then nút "No-show" bị khóa.
-- AC4 *(bước 4 – theo BR-315, state-machines v0.2 B12)*: Given đơn `no_show`, khách đến muộn **còn trong ngày nghiệp vụ** của đêm đến (trước 06:00 hôm sau – BR-010), căn của đơn vẫn trống/chưa bán lại/không phải đổi căn, và không phát sinh hoàn tiền hay đổi giá, When `front_desk`/`front_desk_lead` bấm "Khôi phục no-show" kèm lý do, Then đơn về `confirmed`, đóng lại phòng, khai báo có bản ghi mới `none`, `manager` nhận thông báo, lần khôi phục hiện trong đóng ca (BR-526).
+- AC4 *(bước 4 – theo BR-315, state-machines v0.2 B12)*: Given đơn `no_show`, khách đến muộn **còn trong ngày nghiệp vụ** của đêm đến (trước 06:00 hôm sau – BR-010), căn của đơn vẫn trống/chưa bán lại/không phải đổi căn, và không phát sinh hoàn tiền hay đổi giá, When `front_desk`/`front_desk_lead` bấm "Khôi phục no-show" kèm lý do, Then đơn về `confirmed`, đóng lại phòng, **bản ghi khai báo của đơn được dùng lại** và chuyển `void` → `none` (SM-05 K12; giữ ràng buộc một bản ghi khai báo/đơn – ERD 4.7, UK `registration.reservation_id`; **không** sinh bản ghi khai báo mới), ảnh giấy tờ đã xóa theo K11 **không** khôi phục – khách/lễ tân nộp lại, `manager` nhận thông báo, lần khôi phục hiện trong đóng ca (BR-526). *(Sửa BUG-R1-002, 16/10)*
 - AC5 *(bước 4)*: Given thiếu một trong 3 điều kiện ở AC4 (căn đã bán lại, phải đổi căn, có tiền ra, đã qua ngày nghiệp vụ) hoặc đơn OTA **đã báo no-show lên kênh**, Then `front_desk` chỉ gửi được yêu cầu duyệt; `manager`/`owner` duyệt (đơn OTA kèm việc "Báo kênh hủy no-show").
 
 ### EP03 – Nhận phòng

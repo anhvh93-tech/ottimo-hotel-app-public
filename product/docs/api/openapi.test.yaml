@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk – API kiểm thử (KHÔNG thuộc hợp đồng production)
-  version: 0.1.0-draft
+  version: 0.1.1-draft
   description: |
     Endpoint chỉ dùng cho QA/E2E ở môi trường `APP_ENV ∈ {dev, test, staging}` (ADR-008 cập nhật R1 bước 4; BE-ARC-04; QA rủi ro kiểm thử).
 
@@ -18,7 +18,9 @@ info:
 servers:
   - url: http://localhost:3000
 security:
+  # Cả hai cùng lúc (AND): X-Test-Token VÀ phiên owner (BUG-R1-SEC-08)
   - testToken: []
+    staffSession: []
 paths:
   /__test__/clock:
     get:
@@ -88,6 +90,11 @@ components:
       type: apiKey
       in: header
       name: X-Test-Token
+    staffSession:
+      type: apiKey
+      in: cookie
+      name: __Host-ottimo_sid
+      description: Phiên nhân viên vai `owner` (cùng scheme với openapi.yaml); vai khác → 403 FORBIDDEN_ACTION.
   schemas:
     ClockState:
       type: object

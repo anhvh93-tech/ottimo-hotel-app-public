@@ -1,7 +1,7 @@
 # Quy trình nghiệp vụ – OTTIMO Desk
 
 - Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC – xem `rounds/round-01/responses/BA-responses.md`)
-- **"Hôm nay" = ngày nghiệp vụ, đổi lúc 06:00 giờ VN** (decision-log DOM 15/10/2026; `state-machines.md` 0.2 điểm 7).
+- **"Hôm nay" = ngày nghiệp vụ, đổi theo BR-010** (tham số `business_day_rollover`, mặc định 06:00 giờ VN; decision-log DOM 15/10/2026; `state-machines.md` 0.2 điểm 7).
 - Nguồn: `business-rules.md` (**BR-xxx**, nguồn sự thật duy nhất cho con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `PRD.md` mục 6, `research/journeys.md`, `security/data-risk-assessment.md` (**SEC**).
 - Trạng thái và vai: theo `state-machines.md` (mã B1…, K1…) và `rbac-matrix.md` (OWN, MGR, FDL, FD, HK, MT, SAL, CTV, GST, SYS).
 - Sơ đồ swimlane vẽ bằng Mermaid `flowchart`, mỗi làn (subgraph) là một vai. Mỗi quy trình có: luồng chính, luồng ngoại lệ (E), luồng lỗi (X).
@@ -200,7 +200,7 @@ flowchart TB
 ## P03 – Nhận phòng + giấy tờ + khai báo lưu trú
 
 **Mục tiêu**: khách vào phòng nhanh, thu đủ tiền, giấy tờ đúng, khai báo đúng hạn.
-**Vai**: GST, FD (gồm người trực đêm), FDL, MGR, HK, SYS. **Kích hoạt**: ngày đến của đơn `confirmed` (theo **ngày nghiệp vụ**, đổi lúc 06:00).
+**Vai**: GST, FD (gồm người trực đêm), FDL, MGR, HK, SYS. **Kích hoạt**: ngày đến của đơn `confirmed` (theo **ngày nghiệp vụ** – BR-010, tham số `business_day_rollover`, mặc định 06:00).
 **Thiết bị**: B9 và mọi bước giấy tờ (C3) chỉ làm trên **thiết bị được cấp** mở admin-web – máy quầy hoặc máy tính bảng của cơ sở (`rbac-matrix.md` 8.7). PWA trên điện thoại cá nhân không làm được nhận phòng.
 **Kết quả**: đơn `in_house`, buồng `OC`, khai báo ≥ `sent` trước hạn, mã cửa đã giao.
 
@@ -257,14 +257,14 @@ flowchart TB
 |---|---|---|---|
 | E1 | Buồng chưa sẵn sàng, khách đến sớm | Gửi hành lý, ưu tiên dọn căn (BR-807); hoặc nhận vào buồng chưa sạch nếu FDL+ đồng ý → `OD` | BR-402, BR-807 |
 | E2 | Khách đến khuya (ngoài `front_desk_hours`) | Phân xử ORC 15/10/2026 + **SR-GST-15**: (1) trước ngày đến, mẫu tin mời check-in online (GST1, chỉ ghi giấy tờ) và xác minh GST2 bằng OTP email hoặc mã lễ tân (đọc tại quầy/điện thoại, hoặc qua kênh OTA/Zalo nếu OWN bật) **trong giờ trực**; (2) mã cửa hiện trong app GST2 từ giờ hiệu lực hoặc gửi bằng mẫu mã cửa đúng ngày đến; (3) khách tới mà chưa có GST2 hoặc chưa đối chiếu giấy tờ → **người trực đêm** (vai FD) dùng **thiết bị của cơ sở đã được cấp** (máy quầy hoặc máy tính bảng/điện thoại của cơ sở theo SR-DEV-08 – hạn cấp ≤ 30 ngày, ở lại cơ sở) mở admin-web để đối chiếu giấy tờ, làm B9, khai báo và đọc mã xác minh trực tiếp; **không** dùng điện thoại cá nhân hay PWA (SR-DEV-09); (4) không có người trực và khách chưa GST2 → khách gọi số trực đêm của quản lý (ESC-010). **Cấm** gửi mã cửa qua chat cá nhân. Nhắc theo mốc BR-611 | BR-611, SR-GST-15 |
-| E2b | Khách đến 00:00–05:59 của đơn có ngày đến là **hôm trước** | Vẫn thuộc ngày nghiệp vụ của ngày đến: đơn nằm trong "Khách đến", nhận phòng bình thường (B9); đêm đầu tính như đã đặt, không phụ thu nhận sớm | Ngày nghiệp vụ (DOM) |
+| E2b | Khách đến trước mốc đổi ngày nghiệp vụ (BR-010, mặc định 00:00–05:59) của đơn có ngày đến là **hôm trước** | Vẫn thuộc ngày nghiệp vụ của ngày đến: đơn nằm trong "Khách đến", nhận phòng bình thường (B9); đêm đầu tính như đã đặt, không phụ thu nhận sớm | Ngày nghiệp vụ (DOM) |
 | E3 | Thiếu giấy tờ người đi cùng | Vẫn nhận phòng nếu có giấy tờ người đứng tên; bổ sung trước hạn khai báo | BR-402, BR-601 |
 | E4 | Thêm người giữa chừng | Cập nhật số khách (kiểm sức chứa BR-110), nhập giấy tờ → `needs_update` khai bổ sung | BR-601 |
 | E5 | Thị thực hết trước ngày đi | Cảnh báo đỏ, khai đến hết hạn thị thực, nhắc khách gia hạn | BR-605 |
 | E6 | Khách không đồng ý lưu ảnh | Vẫn khai báo; ảnh xóa sau khi khai xong; chỉ giữ trường văn bản cần thiết | BR-609, SEC R-REG-05 |
 | E7 | Cổng khai báo từ chối | `sent` → `scanned`, sửa dữ liệu, khai lại | SM-05 K8 |
 | E8 | Đơn đến khi vẫn `hold` | Thu cọc/đủ → B4 → B9 | SM-01 |
-| E9 | Khách nhận trước 06:00 **của chính ngày đến** (xe đêm, bay đêm) | **B9a – Thêm đêm trước**: kiểm căn trống đêm trước (BR-906). Đơn Trực tiếp/CTV: thêm 1 đêm vào đầu đơn. Đơn OTA (không đổi ngày đơn OTA): tạo **đơn con kênh Trực tiếp** cho đêm đó, đi thẳng `in_house`. Giá theo BR-411 (đêm bán). Căn không trống đêm trước → không cho nhận, gợi ý gửi hành lý hoặc đổi sang căn trống (B7) nếu khách đồng ý giá | BR-003, BR-411, BR-422, BR-904 |
+| E9 | Khách nhận trước mốc đổi ngày nghiệp vụ (BR-010, mặc định 06:00) **của chính ngày đến** (xe đêm, bay đêm) | **B9a – Thêm đêm trước**: kiểm căn trống đêm trước (BR-906). Đơn Trực tiếp/CTV: thêm 1 đêm vào đầu đơn. Đơn OTA (không đổi ngày đơn OTA): tạo **đơn con kênh Trực tiếp** cho đêm đó, đi thẳng `in_house`. Giá theo BR-411 (đêm bán). Căn không trống đêm trước → không cho nhận, gợi ý gửi hành lý hoặc đổi sang căn trống (B7) nếu khách đồng ý giá | BR-003, BR-411, BR-422, BR-904 |
 | E10 | Mất mạng/mất điện khi khách đến | Theo P12: nhận khách bằng danh sách dự phòng, nhập bù khi có mạng với giờ thực tế. Mã cửa (C3) **không** nằm trong danh sách dự phòng – cách cấp mã khi mất mạng do INT/SEC chốt theo loại khóa (P12 bước 5) | P12 |
 
 ### Lỗi
@@ -717,7 +717,7 @@ Ngoại lệ: **người trực đêm một mình** – mở ca khi nhận trự
 
 | Bước | Ai | Việc | Quy tắc |
 |---|---|---|---|
-| 1 | SYS → FD | **Phòng ngừa, mỗi sáng sau 06:00** (đầu ngày nghiệp vụ): sinh "Danh sách dự phòng" của ngày – khách đến (tên, căn, số khách, đã cọc/còn phải thu, giờ đến dự kiến, đã check-in online chưa), khách đi (căn, còn phải thu), trạng thái buồng, số điện thoại khẩn (MGR, kỹ thuật, nhà cung cấp mạng/điện). **Không** chứa số giấy tờ, ảnh, mã cửa (C3). FD in giấy hoặc lưu bản đọc offline trên thiết bị được cấp (S34) | rbac 8.7, SEC mục 3 |
+| 1 | SYS → FD | **Phòng ngừa, đầu mỗi ngày nghiệp vụ** (BR-010, tham số `business_day_rollover`, mặc định 06:00): sinh "Danh sách dự phòng" của ngày – khách đến (tên, căn, số khách, đã cọc/còn phải thu, giờ đến dự kiến, đã check-in online chưa), khách đi (căn, còn phải thu), trạng thái buồng, số điện thoại khẩn (MGR, kỹ thuật, nhà cung cấp mạng/điện). **Không** chứa số giấy tờ, ảnh, mã cửa (C3). FD in giấy hoặc lưu bản đọc offline trên thiết bị được cấp (S34) | rbac 8.7, SEC mục 3 |
 | 2 | FD | Mất mạng: thử theo thứ tự – (a) 4G điện thoại **của cơ sở** phát Wi-Fi cho thiết bị quầy; (b) nếu không được → chế độ giấy | – |
 | 3 | FD | Chế độ giấy: ghi sổ dự phòng mỗi việc – giờ thực tế, căn, khách, tiền thu (cách thu), người làm. Nhận khách đã có trong danh sách: cho vào phòng `VI`/`VC` theo danh sách; giấy tờ: xem bản gốc, ghi sổ, nhập lại khi có mạng (hạn khai báo vẫn tính từ giờ nhận thực tế) | BR-402, BR-603 |
 | 4 | FD | **Không** nhận đơn mới (điện thoại/khách vãng lai) khi chưa xem được tồn phòng: ghi thông tin, báo khách "sẽ xác nhận lại khi có hệ thống"; không hứa căn | BR-906 |
@@ -729,7 +729,7 @@ Ngoại lệ: **người trực đêm một mình** – mở ca khi nhận trự
 ```mermaid
 flowchart TB
   subgraph SYS["Hệ thống"]
-    Y1["06:00: sinh danh sách dự phòng (không C3)"]
+    Y1["Đầu ngày nghiệp vụ - BR-010, mặc định 06:00: sinh danh sách dự phòng (không C3)"]
     Y2["Kiểm trùng, đối soát kênh, báo MGR"]
   end
   subgraph FD["Lễ tân"]
@@ -758,3 +758,4 @@ Lỗi: nhập bù trùng căn – đêm với đơn đã có (đơn OTA về tro
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 10 quy trình, swimlane Mermaid, ngoại lệ + lỗi | BA |
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ 06:00; P01: OTA nhập tay vào căn kín (409 + gợi ý / làn chưa gán), E10 OTA sửa đơn, E11 làn chưa gán, mục Đơn nhóm; P03: E2 theo phân xử ORC (thiết bị của cơ sở được cấp, admin-web), E2b, E9 thành B9a, E10 mất mạng, hạn khai báo NN theo BR-603 mới; P05: người thực hiện hoàn là MGR+, FOC minibar tự áp; P07 kiểm tra an toàn; P09 kỳ chi tháng; thêm P11 đóng ca/đối soát, P12 mất mạng/mất điện | BA |
+| 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |

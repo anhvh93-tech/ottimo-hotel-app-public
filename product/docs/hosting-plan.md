@@ -144,8 +144,9 @@ Nếu chọn Resend hoặc SMTP khác: thay khuôn theo hướng dẫn của hã
 |---|---|---|---|---|
 | `DATA_KEK_CURRENT` (+ `DATA_KEK_VERSION`) | mỗi môi trường một khóa | INV + OPS | Docker secret trên máy chủ; bản ngoại tuyến do INV giữ (production) | Khi nghi lộ hoặc người có quyền nghỉ việc; xoay = thêm phiên bản mới, bọc lại DEK (ADR-013) |
 | `ID_HASH_KEY`, `LOG_IP_HMAC_KEY` | mỗi môi trường | OPS | Docker secret | Khi nghi lộ (xoay `ID_HASH_KEY` cần băm lại – runbook R2) |
+| `GUEST_CODE_SIGNING_KEY` (HMAC mã xác minh khách – khóa riêng, ADR-013 điểm 5, BUG-R1-SEC-07) | mỗi môi trường | OPS | Docker secret (`GUEST_CODE_SIGNING_KEY_FILE`), ≥ 32 ký tự | Khi nghi lộ; xoay = mọi mã đang chờ (≤ 30 phút) hết hiệu lực, không cần băm lại |
 | `SESSION_SECRET` | mỗi môi trường | OPS | Docker secret | 12 tháng hoặc khi nghi lộ (mọi phiên bị đăng xuất) |
-| Mật khẩu DB `ottimo_owner`, `ottimo_app`, superuser | mỗi môi trường | OPS | Docker secret | 12 tháng hoặc khi người có quyền nghỉ việc |
+| Mật khẩu DB `ottimo_migrator`, `ottimo_app`, superuser (`ottimo_owner` NOLOGIN – không có mật khẩu; `ottimo_readonly` chỉ đặt mật khẩu tạm theo runbook) | mỗi môi trường | OPS | Docker secret | 12 tháng hoặc khi người có quyền nghỉ việc |
 | `PAYMENT_*_SECRET*`, `CHANNEL_*`, `EINVOICE_*`, `ZALO_APP_SECRET`, `DOORLOCK_*_SECRET` | staging (sandbox) / production | INV (tài khoản) + INT | Docker secret | Theo hãng; khi nghi lộ hoặc đổi người quản lý tài khoản |
 | Khóa `age` giải mã backup | production | INV + OPS | **Ngoài máy chủ** (2 bản ngoại tuyến) | Khi người giữ nghỉ việc |
 | Khóa SSH vào máy chủ | production, staging | từng người (OPS, INV) | máy cá nhân | Thu hồi ngay khi nghỉ việc |

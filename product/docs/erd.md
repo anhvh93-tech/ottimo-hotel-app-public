@@ -39,6 +39,11 @@
 | `ottimo_readonly` | `LOGIN BYPASSRLS` | OPS qua runbook (khắc phục sự cố, đối soát) – không bao giờ là vai của ứng dụng | `SELECT` |
 
 - Biến môi trường: `DATABASE_URL` (vai `ottimo_app`) cho api/worker/test; `MIGRATION_DATABASE_URL` (vai `ottimo_migrator`) chỉ cho bước migrate. Áp cho cả DB `ottimo_test` và CI.
+- **Chốt mô hình 4 vai (BUG-R1-SEC-06, 16/10)**: giữ bảng trên (khuyến nghị SEC) – **không** đổi erd theo `infra/postgres/init/02-roles.sh` hiện tại
+  (`ottimo_owner` LOGIN, không có `ottimo_migrator`). Lý do: lộ `MIGRATION_DATABASE_URL` không được đăng nhập thẳng bằng chủ hàm `SECURITY DEFINER`;
+  `SET ROLE` để lại dấu vết. Việc của OPS (hạn: **trước migration đầu tiên R2**; R1 chưa có migration nên chưa gây hại): `ottimo_owner` → `NOLOGIN`
+  (không mật khẩu), thêm `ottimo_migrator LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE ottimo_owner` (biến `OTTIMO_MIGRATOR_DB_PASSWORD`),
+  `.env.example`/CI `MIGRATION_DATABASE_URL=postgres://ottimo_migrator:…`; test vai kiểm `ottimo_owner` không đăng nhập được. Tên 3 vai còn lại khớp hạ tầng.
 - **Yêu cầu OPS** (OPS sửa compose/CI/init – ARC không sửa file của OPS): script init tạo 4 vai trên; compose và CI tách 2 URL; api/worker **không** dùng `POSTGRES_USER` (superuser luôn bỏ qua RLS và REVOKE → test RLS/K8 vô nghĩa); `trustProxy` của Fastify giới hạn về địa chỉ/subnet của Caddy.
 - Khởi động api/worker kiểm `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` → phải `false,false`, nếu không thì dừng (SR-SECR-05(d)); test kiến trúc kiểm như vậy khi chạy test.
 
@@ -690,11 +695,11 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 
 **`overbooking_incident`** – **nơi lưu bản ghi xung đột OTA** (DATA OverbookingIncident, BR-312, mục 7; trả lời yêu cầu INT `booking_conflict` – dùng bảng này, không tạo bảng mới): `reservation_id` (đơn bị xung đột), `requested_room_id`, `stay_from`, `stay_to`, `conflicting_reservation_ids uuid[]`, `source` (`desk|channel_sync`), `cause` (`sync_delay|manual_entry|channel_overbooked|other`), `detected_at`, `handle_by` (hạn xử lý), `status` (`open|resolved`), `resolution` (`reassigned_same_group|upgraded|relocated_external|cancelled_by_channel` – tương ứng phương án i/ii/iii của INT `integrations.md` 3.1.1), `cost_vnd` (vào GOP – DATA R-08), `decided_by`, `decision_note`, `resolved_at`, `resolved_by`.
 
-**`guest_access_token`** – link app khách (ADR-006). `reservation_id` (đơn gốc), `token_hash` (C3, UK), `issued_by`, `issued_at`, `expires_at` (trả phòng + `guest_link_grace_hours`; dài hạn: HĐ `closed`), `revoked_at`, `last_used_at`. **Bộ đếm xác minh theo token** (SEC-ARC-02, SR-GST-08): `failed_verify_count`, `failed_verify_window_started_at`, `verify_locked_until` (5 sai/24 giờ chung mọi loại mã → khóa), `otp_sent_count`, `otp_window_started_at` (3 OTP/giờ), `channel_code_count`, `channel_code_window_started_at` (mã qua kênh ≤ 3/24 giờ). Mở phiên mới **không** reset bộ đếm.
+**`guest_access_token`** – link app khách (ADR-006). `reservation_id` (đơn gốc), `token_hash` (C3, UK), `issued_by`, `issued_at`, `expires_at` (trả phòng + `guest_link_grace_hours`; dài hạn: HĐ `closed`), `revoked_at`, `last_used_at`, `activation` (`active|pending` – BUG-R1-SEC-03), `replaces_token_id` (FK token, null), `first_opened_at`. **Link chờ**: token cấp từ trang QR căn (`resendGuestLinkFromUnit`) ở `pending`, **không** thu hồi token đang dùng; lần mở đầu (`openGuestSession`) → `active` và thu hồi `replaces_token_id` (mã xác minh gắn token cũ vô hiệu) trong cùng giao dịch. Tối đa 2 token chưa thu hồi/đơn (1 `active` + 1 `pending`); cấp link chờ mới thu hồi link chờ cũ. Link chờ **sao chép** bộ đếm sai/khóa từ token đang dùng. Lễ tân cấp lại (`issueGuestLink`) vẫn thu hồi ngay mọi token cũ (dùng khi link lộ). **Bộ đếm xác minh theo token** (SEC-ARC-02, SR-GST-08): `failed_verify_count`, `failed_verify_window_started_at`, `verify_locked_until` (5 sai/24 giờ chung mọi loại mã → khóa), `otp_sent_count`, `otp_window_started_at` (3 OTP/giờ), `channel_code_count`, `channel_code_window_started_at` (mã qua kênh ≤ 3/24 giờ). Mở phiên mới **không** reset bộ đếm.
 
 **`guest_session`** – `id` (hash cookie `__Host-ottimo_gsid`), `token_id`, `level` (`1|2`), `verified_at`, `verified_method` (`email_otp|desk_code`), `last_active_at`, `level2_expires_at` (30 phút không hoạt động, tối đa 24 giờ), `expires_at`, `ip_hmac`. Không còn bộ đếm sai ở đây.
 
-**`guest_verification_code`** (R2, SR-GST-07/13) – OTP email và mã lễ tân. `token_id` (gắn **token link đang hiệu lực**; cấp lại link → mọi mã cũ vô hiệu), `reservation_id`, `kind` (`email_otp|desk_in_person|desk_phone|desk_channel`), `channel` (null hoặc `airbnb_inbox|booking_inbox|agoda_inbox|zalo`), `code_hash` (C3, HMAC với `ID_HASH_KEY`), `sent_to_masked` (email che), `issued_by` (null với OTP), `issued_at`, `expires_at` (OTP/quầy 10 phút; kênh `guest_verify_code_channel_minutes` mặc định 15, tối đa 30), `used_at`, `invalidated_at`. Mã dùng một lần; cấp mã mới vô hiệu mã cũ cùng loại. Xóa sau 7 ngày. Chỉ mã `desk_in_person|desk_phone` dùng được khi token bị khóa.
+**`guest_verification_code`** (R2, SR-GST-07/13) – OTP email và mã lễ tân. `token_id` (gắn **token link đang hiệu lực**; cấp lại link → mọi mã cũ vô hiệu), `reservation_id`, `kind` (`email_otp|desk_in_person|desk_phone|desk_channel`), `channel` (null hoặc `airbnb_inbox|booking_inbox|agoda_inbox|zalo`), `code_hash` (C3, HMAC-SHA256 với **`GUEST_CODE_SIGNING_KEY`** – khóa riêng, không dùng chung `ID_HASH_KEY` của đối chiếu số giấy tờ; BUG-R1-SEC-07), `sent_to_masked` (email che), `issued_by` (null với OTP), `issued_at`, `expires_at` (OTP/quầy 10 phút; kênh `guest_verify_code_channel_minutes` mặc định 15, tối đa 30), `used_at`, `invalidated_at`. Mã dùng một lần; cấp mã mới vô hiệu mã cũ cùng loại. Xóa sau 7 ngày. Chỉ mã `desk_in_person|desk_phone` dùng được khi token bị khóa.
 
 **`guest_contact_change`** (SR-GST-14) – dùng trong `guest`/`reservation`: cột `reservation.contact_email_changed_at` + `contact_email_reconfirmed_by` – OTP **không** gửi tới email đổi sau khi đã cấp link trong 24 giờ trừ khi FD+ xác nhận lại (ghi `contact_email_reconfirmed_by`).
 
@@ -885,7 +890,7 @@ UK một phần chống sinh trùng: (`room_id`,`type`,`due_date`) WHERE `status
 
 **`online_checkin`** – tiến trình check-in online (US-107 AC2): `reservation_id` UK, `current_step` (`documents|eta|consent|done`), `eta_time`, `completed_at`.
 
-**`message_template`** (US-125): `code` (`booking_confirmation|checkin_link|checkout_reminder|house_rules|apology_hot_water|verify_code|door_code…`; `verify_code` chỉ có mã + hạn, **không chứa link** – SR-GST-13; `door_code` chỉ render đúng ngày đến – SR-LOCK-03), `locale` (`vi|en|ru`), `channel` (`manual_copy|email|zalo_zns`), `subject`, `body` (biến `{{guest_name}}`…; **cấm** biến C3), `version`, `updated_by`. UK (`property_id`,`code`,`locale`,`channel`,`version`).
+**`message_template`** (US-125): `code` (`booking_confirmation|checkin_link|checkout_reminder|house_rules|apology_hot_water|verify_code|door_code…`; `verify_code` chỉ có mã + hạn, **không chứa link** – SR-GST-13; `door_code` chỉ render đúng ngày đến – SR-LOCK-03), `contains_c3 bool` (BUG-R1-SEC-01: mẫu có biến C3 – hiện chỉ `door_code` – chỉ render qua `renderDoorCodeMessage`: FD+, thiết bị tin cậy, step-up, ghi `c3_access_log` `door_credential/copy`; ẩn khỏi danh sách mẫu của SAL/CTV), `locale` (`vi|en|ru`), `channel` (`manual_copy|email|zalo_zns`), `subject`, `body` (biến `{{guest_name}}`…; **cấm** biến C3 trừ mẫu `contains_c3 = true`), `version`, `updated_by`. UK (`property_id`,`code`,`locale`,`channel`,`version`).
 
 **`message_log`**: `reservation_id`, `template_code`, `locale`, `channel`, `status` (`copied|queued|sent|failed`), `idempotency_key` (UK), `provider_msg_id`, `sent_at`, `sent_by`. **Không lưu nội dung đã render** (có thể chứa liên hệ/mã cửa).
 
@@ -933,7 +938,7 @@ UK một phần chống sinh trùng: (`room_id`,`type`,`due_date`) WHERE `status
 | SM-02 | `room_block.status` | `planned, active, released, cancelled` | O1–O5 |
 | SM-03 | `room_status.status` | `VC, VI, VD, CL, OC, OD, OOO` | R1–R11 + danh sách chuyển bị cấm |
 | SM-04 | `work_order.status` | `new, in_progress, waiting_parts, done, cancelled` | W1–W6 |
-| SM-05 | `registration.status` | `none, pre, partial, review, scanned, sent, confirmed, needs_update, updated, void` | K1–K11 |
+| SM-05 | `registration.status` | `none, pre, partial, review, scanned, sent, confirmed, needs_update, updated, void` | K1–K13 (K12 `void → none` khôi phục no-show; K13 `review → partial` sự kiện `change_party` – BUG-R1-018) |
 | SM-06 | `lease_contract.status` | `signed, active, terminating, settling, closed, cancelled` | H1–H9 |
 | SM-07 | `billing_period.status` | `scheduled, due_soon, due, overdue, escalated, paid, waived` | T1–T3 |
 | SM-08 | `quote.status` | `active, expired, converted, withdrawn` | Q1–Q5 |
@@ -1097,26 +1102,28 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 Chỉ OWN sửa; mỗi lần sửa ghi `audit_event category='config'`.
 
 ### 9.3 Khóa hệ thống do ARC thêm (đề xuất – DOM/SEC xác nhận khi review)
-| Khóa | Dùng cho | Nguồn |
-|---|---|---|
-| `guest_link_grace_hours` | Link app khách còn hiệu lực sau trả phòng (phạm vi thu hẹp – SR-GST-11) | ADR-006 |
-| `guest_level2_idle_minutes`, `guest_verify_max_attempts` | Phiên khách mức 2 (30 phút; 5 sai/24 giờ theo token) | ADR-006, SR-GST-08/09 |
-| `guest_verify_code_channels` | Kênh được phép gửi mã xác minh lễ tân: tập con {`airbnb_inbox`, `booking_inbox`, `agoda_inbox`, `zalo`}; **mặc định rỗng (tắt)**; chỉ OWN sửa, audit `config` | SR-GST-13, phân xử ORC 15/10 |
-| `guest_verify_code_channel_minutes` | Hạn mã gửi qua kênh (mặc định 15, tối đa 30) | SR-GST-13 |
-| `trusted_device_days`, `trusted_device_mobile_days` | Hạn cấp thiết bị: máy quầy 180; di động của cơ sở ≤ 30 | SR-DEV-01, -08 |
-| `c3_stepup_minutes` | Cửa sổ trượt xác nhận lại trước thao tác C3 (15) | SR-C3-09 |
-| `business_day_rollover` | Giờ đổi ngày nghiệp vụ (06:00) | BR-010 |
-| `shift_max_hours` | Ca mở quá lâu → "Cần chú ý" | SM-17, BR-526 |
-| `front_desk_hours` | Giờ trực quầy (luồng khách đến khuya SR-GST-15, cảnh báo xem C3 ngoài giờ) | BR-811, SR-LOG-06 |
-| `idempotency_ttl_hours` | Bảng `idempotency_key` | ADR-009 |
-| `registration_reminder_times` | Mốc nhắc khai báo (BR-611: 22:00, 07:00) | BR-611 – chưa có khóa trong BR mục 13 |
-| `registration_reminder_before_minutes` | Nhắc trước hạn (tình huống S8 "nhắc trước 2 giờ") | BR mục 14 S8 – chưa có khóa |
-| `registration_deadline_foreigner_mode` | `hours_only` (**mặc định mới** – decision-log DOM 15/10 THAY dòng cũ: khách NN = giờ đến + 12 giờ, bỏ mốc 23:00; [GIẢ ĐỊNH – chờ luật sư qua ESC-001]) \| `earlier_of` | BR-603 |
-| `post_checkout_charge_window_hours` | Phát sinh sau trả phòng nhanh, `folio.settled → closed` | BR-427 ("24 giờ") – chưa có khóa |
-| `minor_data_age_threshold` | `reservation_guest.is_minor_data` | rbac mục 9 (luật sư chốt) |
-| `hk_self_inspection_enabled` | HK tự kiểm VC→VI | BR-802 |
-| `no_show_auto` | Luôn `false` (BR-311 không tự động) – giữ khóa để không ai viết cứng | BR-311 |
-| `doc_code_format.<doc_type>` | Tiền tố + độ dài mã | BR-007 |
+Tham số **bảo mật** (in đậm OWN ở cột cuối – BUG-R1-SEC-02): chỉ owner sửa; biên cứng do SEC đặt, ngoài biên → `422 PARAM_OUT_OF_RANGE` (kể cả owner);
+mỗi lần sửa ghi `audit_event category='security'`. Danh sách máy đọc: `setParameter.x-security-parameters` trong OpenAPI (nguồn sự thật của biên).
+| Khóa | Dùng cho | Nguồn | Người sửa · Biên (mặc định) |
+|---|---|---|---|
+| `guest_link_grace_hours` | Link app khách còn hiệu lực sau trả phòng (phạm vi thu hẹp – SR-GST-11) | ADR-006 | **OWN** · 0–24 (mặc định 24) |
+| `guest_level2_idle_minutes`, `guest_verify_max_attempts` | Phiên khách mức 2 (30 phút; 5 sai/24 giờ theo token) | ADR-006, SR-GST-08/09 | **OWN** · idle 5–30 (30); số lần sai 3–5 (5) |
+| `guest_verify_code_channels` | Kênh được phép gửi mã xác minh lễ tân: tập con {`airbnb_inbox`, `booking_inbox`, `agoda_inbox`, `zalo`}; **mặc định rỗng (tắt)**; chỉ OWN sửa, audit `security` | SR-GST-13, phân xử ORC 15/10 | **OWN** · tập con 4 kênh (mặc định rỗng) |
+| `guest_verify_code_channel_minutes` | Hạn mã gửi qua kênh (mặc định 15, tối đa 30) | SR-GST-13 | **OWN** · 5–30 (15) |
+| `trusted_device_days`, `trusted_device_mobile_days` | Hạn cấp thiết bị: máy quầy 180; di động của cơ sở ≤ 30 | SR-DEV-01, -08 | **OWN** · máy quầy 1–180 (180); di động 1–30 (30) |
+| `c3_stepup_minutes` | Cửa sổ trượt xác nhận lại trước thao tác C3 (15) | SR-C3-09 | **OWN** · 1–15 (15) |
+| `business_day_rollover` | Giờ đổi ngày nghiệp vụ (06:00) | BR-010 | OWN, MGR |
+| `shift_max_hours` | Ca mở quá lâu → "Cần chú ý" | SM-17, BR-526 | OWN, MGR |
+| `front_desk_hours` | Giờ trực quầy (luồng khách đến khuya SR-GST-15, cảnh báo xem C3 ngoài giờ) | BR-811, SR-LOG-06 | OWN, MGR |
+| `idempotency_ttl_hours` | Bảng `idempotency_key` | ADR-009 | OWN, MGR |
+| `registration_reminder_times` | Mốc nhắc khai báo (BR-611: 22:00, 07:00) | BR-611 – chưa có khóa trong BR mục 13 | OWN, MGR |
+| `registration_reminder_before_minutes` | Nhắc trước hạn (tình huống S8 "nhắc trước 2 giờ") | BR mục 14 S8 – chưa có khóa | OWN, MGR |
+| `registration_deadline_foreigner_mode` | `hours_only` (**mặc định mới** – decision-log DOM 15/10 THAY dòng cũ: khách NN = giờ đến + 12 giờ, bỏ mốc 23:00; [GIẢ ĐỊNH – chờ luật sư qua ESC-001]) \| `earlier_of` | BR-603 | OWN, MGR |
+| `post_checkout_charge_window_hours` | Phát sinh sau trả phòng nhanh, `folio.settled → closed` | BR-427 ("24 giờ") – chưa có khóa | OWN, MGR |
+| `minor_data_age_threshold` | `reservation_guest.is_minor_data` | rbac mục 9 (luật sư chốt) | OWN, MGR |
+| `hk_self_inspection_enabled` | HK tự kiểm VC→VI | BR-802 | OWN, MGR |
+| `no_show_auto` | Luôn `false` (BR-311 không tự động) – giữ khóa để không ai viết cứng | BR-311 | OWN, MGR |
+| `doc_code_format.<doc_type>` | Tiền tố + độ dài mã | BR-007 | OWN, MGR |
 
 ## 10. Mã chứng từ do server cấp (BR-007, BL 8.2 #18, US-023)
 
@@ -1251,7 +1258,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | E4 | `user_session.device_trusted` | **Đóng** – thay bằng bảng `trusted_device` (SR-DEV) |
 | E5 | Khóa tham số mới (BR-427, BR-611, S8, BR-603 mode) | Mở – DOM thêm vào BR mục 13 |
 | E6 | Rời trong ngày (nhận và trả cùng ngày đến) | Mở – giả định giữ đêm đầu (mục 4.5), DOM chốt R2 |
-| E7 | Tên mã lý do hủy: DATA dùng `relocated_external`/`channel_cancelled`, BR-308 dùng `overbooking_relocated`/`ota_cancelled` | Mở – ERD theo BR-308; DATA đổi tên trong K-22a (`void_reason` của `stay_night` giữ tên DATA vì là lý do của đêm) |
+| E7 | Tên mã lý do hủy: DATA dùng `relocated_external`/`channel_cancelled`, BR-308 dùng `overbooking_relocated`/`ota_cancelled` | **Đóng** (R1 bước 5) – DATA sửa BUG-R1-003: K-22a dùng mã BR-308 v0.2 (`hold_expired`, `ota_cancelled`, `overbooking_relocated`); `stay_night.void_reason` giữ tên DATA vì là lý do của đêm |
 
 ## 16. Chiến lược migration (BE-ARC-07)
 
@@ -1269,3 +1276,4 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 |---|---|---|---|
 | 15/10/2026 | 1 – Đợt 3 (Pha B) | Bản đầu: 60+ bảng, RLS, 15 máy trạng thái, tham số, mã chứng từ, C3, thời hạn lưu, xung đột OTA | ARC |
 | 16/10/2026 | 1 – Bước 4 | v0.2: vai DB `ottimo_owner/migrator/app/readonly`; RLS `NULLIF` + `set_config` + hàm đường vào SECURITY DEFINER; `trusted_device`, `guest_verification_code`, bộ đếm theo token; `staff_notification`, `push_subscription`, `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `shift`, `payment_allocation`, `group_bill`; cột DATA v0.2 cho `stay_night`/`reservation`; `commission` đầy đủ; `payment.reconciliation`, `method_detail`; `inbox_message.filtered_payload`; `integration_log.cost_units`; FK cặp cơ sở; EXCLUDE DEFERRABLE; phân vùng nhật ký; OOO nửa mở; bill `F26-000123`; sức chứa theo căn; mục 16 chiến lược migration | ARC |
+| 16/10/2026 | 1 – Bước 5 | v0.2.1 (sửa lỗi QA/SEC – `rounds/round-01/qa/fix-notes-ARC.md`): `message_template.contains_c3` + render mẫu mã cửa tách riêng (SEC-01); 9.3 cột Người sửa · Biên, tham số bảo mật chỉ OWN, audit `security` (SEC-02); `guest_access_token.activation`/`replaces_token_id`/`first_opened_at` – link chờ không thu hồi link đang dùng (SEC-03); `guest_verification_code.code_hash` dùng `GUEST_CODE_SIGNING_KEY` (SEC-07); chốt 4 vai DB, giao OPS (SEC-06); đóng E7; SM-05 K1–K13 (BUG-R1-018) | ARC |

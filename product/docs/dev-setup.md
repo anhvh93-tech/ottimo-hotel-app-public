@@ -31,9 +31,9 @@ Mở `product/.env`. Giá trị mẫu chạy được ngay ở máy dev; nếu �
 |---|---|
 | `POSTGRES_PASSWORD` (superuser `ottimo_admin` – chỉ để quản trị, ứng dụng **không** dùng) | – |
 | `OTTIMO_APP_DB_PASSWORD` (vai `ottimo_app` – api, worker, test) | mật khẩu trong `DATABASE_URL` |
-| `OTTIMO_OWNER_DB_PASSWORD` (vai `ottimo_owner` – chỉ chạy migration) | mật khẩu trong `MIGRATION_DATABASE_URL` |
+| `OTTIMO_MIGRATOR_DB_PASSWORD` (vai `ottimo_migrator` – chỉ chạy migration; `ottimo_owner` là `NOLOGIN`, không có mật khẩu) | mật khẩu trong `MIGRATION_DATABASE_URL` |
 
-Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định mọi tích hợp ở chế độ `mock`/`manual`. `APP_ENV=dev` là bắt buộc (api/worker từ chối khởi động nếu thiếu). Các khóa `SESSION_SECRET`, `DATA_KEK_CURRENT`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY` được để trống ở `dev`/`test`; ở `staging`/`production` thiếu hoặc ngắn hơn 32 ký tự thì ứng dụng **dừng** (tạo bằng `openssl rand -base64 32`).
+Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định mọi tích hợp ở chế độ `mock`/`manual`. `APP_ENV=dev` là bắt buộc (api/worker từ chối khởi động nếu thiếu). Các khóa `SESSION_SECRET`, `DATA_KEK_CURRENT`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`, `GUEST_CODE_SIGNING_KEY` (mỗi mục đích một khóa – ADR-013 điểm 5) được để trống ở `dev`/`test`; ở `staging`/`production` thiếu hoặc ngắn hơn 32 ký tự thì ứng dụng **dừng** (tạo bằng `openssl rand -base64 32`).
 
 ### Vai cơ sở dữ liệu (erd.md 2.1, SR-AZ-06)
 
@@ -42,11 +42,12 @@ Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định 
 | Vai | Dùng cho | Thuộc tính |
 |---|---|---|
 | `ottimo_admin` (`POSTGRES_USER`) | quản trị, script init | superuser – **không bao giờ** nằm trong cấu hình ứng dụng |
-| `ottimo_owner` | migration (`MIGRATION_DATABASE_URL`) | chủ database/schema `public`, không superuser |
+| `ottimo_owner` | chủ database/schema `public`, hàm `SECURITY DEFINER`, schema `pgboss` | `NOLOGIN`, không mật khẩu, không superuser – không ai đăng nhập bằng vai này |
+| `ottimo_migrator` | migration (`MIGRATION_DATABASE_URL`) | `LOGIN NOSUPERUSER NOBYPASSRLS`, thành viên `ottimo_owner` kiểu `NOINHERIT`: migration phải `SET ROLE ottimo_owner` trước khi chạy DDL (để lại dấu vết) |
 | `ottimo_app` | api, worker, test (`DATABASE_URL`) | `NOSUPERUSER NOBYPASSRLS`, không sở hữu bảng; quyền từng bảng do migration `GRANT` |
 | `ottimo_readonly` | sao lưu, tra cứu sự cố | `BYPASSRLS`, tạo ở trạng thái `NOLOGIN`; chỉ bật đăng nhập theo runbook (SR-OPS-04) |
 
-Test `services/api/test/db-role.test.ts` sẽ **đỏ** nếu `DATABASE_URL` trỏ tới superuser hoặc vai có `BYPASSRLS` – đây là chủ ý: test RLS chạy bằng superuser không chứng minh được gì.
+Test `services/api/test/db-role.test.ts` sẽ **đỏ** nếu `DATABASE_URL` trỏ tới superuser hoặc vai có `BYPASSRLS`, nếu `ottimo_owner` đăng nhập được, hoặc `MIGRATION_DATABASE_URL` không phải `ottimo_migrator` – đây là chủ ý: test RLS chạy bằng superuser không chứng minh được gì.
 
 Quy tắc bí mật:
 - `.env` đã nằm trong `.gitignore` – không bao giờ commit. Chỉ `.env.example` (placeholder) được commit.
@@ -61,7 +62,7 @@ pnpm dev          # = docker compose --env-file .env -f infra/docker-compose.yml
 
 | Dịch vụ | Địa chỉ | Ghi chú |
 |---|---|---|
-| PostgreSQL 17 | `localhost:5432` | DB `ottimo` (+ `ottimo_test` cho test); extension `btree_gist`, `pgcrypto`, `citext` và 3 vai `ottimo_owner/app/readonly` tạo sẵn khi volume mới |
+| PostgreSQL 17 | `localhost:5432` | DB `ottimo` (+ `ottimo_test` cho test); extension `btree_gist`, `pgcrypto`, `citext` và 4 vai `ottimo_owner` (NOLOGIN) / `ottimo_migrator` / `ottimo_app` / `ottimo_readonly` tạo sẵn khi volume mới |
 | api | http://localhost:3000/health | trả `{"status":"ok","db":"ok","time":"…+07:00"}`; 503 nếu DB không trả lời |
 | worker | (không có cổng) | khung R1: chỉ khởi động, ping DB, chờ tín hiệu dừng |
 | web – admin-web | http://localhost:8081 | Caddy (chạy user không đặc quyền) phục vụ bản build tĩnh; `/health`, `/v1/*` được chuyển tới api; Caddyfile dev được mount từ `infra/caddy/Caddyfile.dev` |
@@ -129,11 +130,12 @@ product/
 ├── infra/docker/Dockerfile.api|web       # image api/worker và web tĩnh (base image ghim digest)
 ├── infra/caddy/Caddyfile.dev             # mount vào container web, không nằm trong image
 ├── infra/postgres/init/01-extensions.sql
-├── infra/postgres/init/02-roles.sh       # vai ottimo_owner / ottimo_app / ottimo_readonly
+├── infra/postgres/init/02-roles.sh       # vai ottimo_owner (NOLOGIN) / ottimo_migrator / ottimo_app / ottimo_readonly
+├── infra/ci/check-no-test-surface.sh     # CI: chặn /__test__ trong openapi.yaml và bundle api production
 └── tests/e2e | load | fixtures           # R2–R3
 ```
 
-Ngoài `product/`: `.github/workflows/ci.yml` (job `build-test`, `contract-lint`, `secrets-scan`, `docker-build`; action ghim theo SHA), `.github/gitleaks.toml` (allowlist có lý do), `.github/dependabot.yml`.
+Ngoài `product/`: `.github/workflows/ci.yml` (job `build-test`, `test-surface-guard`, `contract-lint`, `secrets-scan`, `docker-build`; action ghim theo SHA), `.github/gitleaks.toml` (allowlist có lý do), `.github/dependabot.yml`.
 
 Sinh kiểu từ OpenAPI (R2): kết quả sinh vào `packages/contracts/src/generated/` và **được commit**; CI kiểm "sinh lại không đổi". Docker build không đọc `docs/` (thẻ FB-R1-ARC-OPS-06).
 
@@ -150,5 +152,6 @@ Lệch so với `architecture.md` mục 17: compose đặt ở `infra/docker-com
 | `password authentication failed for user "ottimo_app"` hoặc vai không tồn tại | Volume DB tạo **trước** khi có `02-roles.sh` (bản khung cũ) hoặc mật khẩu `.env` không khớp → `docker compose … down -v` rồi `pnpm dev` |
 | api/worker thoát ngay với `ConfigError: Invalid configuration: …` | Đọc tên biến trong thông báo (giá trị không bao giờ được in). Thường gặp: thiếu `APP_ENV`, `TRUST_PROXY=true`, khóa ngắn hơn 32 ký tự |
 | `ERR_REQUIRE_ESM` / `ERR_PACKAGE_PATH_NOT_EXPORTED` khi chạy api | Node < 22.12 – nâng Node; test `workspace-packages.test.ts` bắt lỗi này |
+| `set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env` hoặc `password authentication failed for user "ottimo_migrator"` | `.env`/volume tạo trước khi đổi sang 4 vai (R1 bước 5, BUG-R1-SEC-06): chép dòng `OTTIMO_MIGRATOR_DB_PASSWORD` và `MIGRATION_DATABASE_URL` mới từ `.env.example`, xóa `OTTIMO_OWNER_DB_PASSWORD`; rồi `docker compose … down -v` và `pnpm dev`. Không muốn mất dữ liệu: sửa `.env` như trên, `pnpm dev` (container postgres nhận biến mới), rồi chạy lại script trên volume cũ – `docker compose --env-file .env -f infra/docker-compose.yml exec postgres bash /docker-entrypoint-initdb.d/02-roles.sh` (script chạy lại được, chuyển `ottimo_owner` sang NOLOGIN) |
 | `set OTTIMO_APP_DB_PASSWORD in product/.env` | `.env` tạo từ bản `.env.example` cũ – chép lại các dòng `OTTIMO_*_DB_PASSWORD`, `APP_ENV`, `MIGRATION_DATABASE_URL` |
 | `corepack` báo lỗi chữ ký khi tải pnpm | Cập nhật Node 22 lên bản vá mới nhất, hoặc `npm i -g corepack@latest` |
