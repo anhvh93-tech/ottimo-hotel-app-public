@@ -3,10 +3,11 @@
 #
 #   make-ci-env.sh <.env.example> <out .env>
 #
-# Every dev placeholder password (change_me_*_dev_only) and QA_SEED_PASSWORD gets a fresh random value
-# for this run only: nothing is stored as a repo secret and nothing is reused between runs.
+# Every dev placeholder (change_me_*_dev_only: DB passwords, TEST_SUPPORT_TOKEN) and QA_SEED_PASSWORD gets
+# a fresh random value for this run only: nothing is stored as a repo secret and nothing is reused between runs.
 # On GitHub Actions each value is masked (::add-mask::) before anything else can print it, and
-# QA_SEED_PASSWORD is exported to $GITHUB_ENV for the seed loader / E2E login steps (BE sprint 1).
+# QA_SEED_PASSWORD / TEST_SUPPORT_TOKEN are exported to $GITHUB_ENV for the seed loader and the E2E steps
+# that drive /__test__/* (X-Test-Token).
 # Exit 0 = written, 2 = usage / missing input, 1 = a placeholder survived (template changed).
 set -Eeuo pipefail
 
@@ -22,12 +23,14 @@ admin_pw=$(rand) && mask "$admin_pw"
 migrator_pw=$(rand) && mask "$migrator_pw"
 app_pw=$(rand) && mask "$app_pw"
 seed_pw=$(rand) && mask "$seed_pw"
+test_token=$(rand) && mask "$test_token" # 48 hex chars (config.ts needs >= 32)
 
 umask 077
 # Hex values contain no sed metacharacters, so plain substitution is safe.
 sed -e "s/change_me_admin_dev_only/${admin_pw}/g" \
     -e "s/change_me_migrator_dev_only/${migrator_pw}/g" \
     -e "s/change_me_app_dev_only/${app_pw}/g" \
+    -e "s/change_me_test_support_token_dev_only/${test_token}/g" \
     -e "s/^QA_SEED_PASSWORD=.*/QA_SEED_PASSWORD=${seed_pw}/" \
     "$src" > "$out"
 
@@ -37,8 +40,10 @@ if grep -nE 'change_me_' "$out" | sed -E 's/=.*/=<redacted>/' >&2; then
   exit 1
 fi
 grep -q "^QA_SEED_PASSWORD=${seed_pw}$" "$out" || { echo "::error::QA_SEED_PASSWORD line missing in $src" >&2; exit 1; }
+grep -q "^TEST_SUPPORT_TOKEN=${test_token}$" "$out" || { echo "::error::TEST_SUPPORT_TOKEN line missing in $src" >&2; exit 1; }
 
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "QA_SEED_PASSWORD=${seed_pw}" >> "$GITHUB_ENV"
+  echo "TEST_SUPPORT_TOKEN=${test_token}" >> "$GITHUB_ENV"
 fi
-echo "OK: wrote $out (4 random values, masked on CI)"
+echo "OK: wrote $out (5 random values, masked on CI)"

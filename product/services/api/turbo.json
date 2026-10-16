@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/api/openapi.yaml",
+        "$TURBO_ROOT$/docs/api/openapi.test.yaml",
+        "$TURBO_ROOT$/tests/fixtures/seed/*.json"
+      ]
+    }
+  }
+}

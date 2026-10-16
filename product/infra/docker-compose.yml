@@ -4,20 +4,30 @@
 # (= docker compose --env-file .env -f infra/docker-compose.yml up --build)
 #
 #   postgres  127.0.0.1:5432   PostgreSQL 17 + btree_gist/pgcrypto/citext + roles ottimo_owner(NOLOGIN)/migrator/app/readonly
+#   migrate   (one-shot)       node dist/db/migrate-cli.js as ottimo_migrator (SET ROLE ottimo_owner), then exits 0;
+#                              api and worker start only after it completed successfully (erd 16 point 5)
 #   api       127.0.0.1:3000   GET /health (connects as ottimo_app, never as the superuser)
 #   worker    (no port)        same image as api, entrypoint dist/worker.js
 #   web       127.0.0.1:8081   admin-web | :8082 mobile (PWA) | :8083 guest-web  (Caddy, proxies /health and /v1 to api)
+#   seed      (profile seed)   optional: load QA seed DS-E into the dev DB once –
+#                              docker compose --env-file .env -f infra/docker-compose.yml run --rm seed [--allow-code-drift]
 # Ports are bound to 127.0.0.1 only so nothing is exposed on the LAN.
 name: ottimo-dev
 
 x-api-env: &api-env
   APP_ENV: dev
   NODE_ENV: development
-  # MIGRATION_DATABASE_URL (ottimo_migrator) is deliberately NOT given to api/worker; R2 adds a one-shot
-  # `migrate` service using it (erd.md 16). ottimo_owner is NOLOGIN (BUG-R1-SEC-06).
+  # MIGRATION_DATABASE_URL (ottimo_migrator) is deliberately NOT given to api/worker: only the one-shot
+  # `migrate` service gets it (erd.md 16). ottimo_owner is NOLOGIN (BUG-R1-SEC-06).
   DATABASE_URL: postgres://ottimo_app:${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
   LOG_LEVEL: ${LOG_LEVEL:-info}
-  CLOCK_OVERRIDE: ${CLOCK_OVERRIDE:-}
+  # CLOCK_OVERRIDE was removed (R2): the api/worker stop if it is set. Shared fake clock instead (ADR-008).
+  CLOCK_MODE: ${CLOCK_MODE:-mutable}
+  # Runtime switch for /__test__/* – same variable as the api build-arg below (dev keeps them for E2E).
+  INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-1}
+  TEST_SUPPORT_TOKEN: ${TEST_SUPPORT_TOKEN:?set TEST_SUPPORT_TOKEN (>= 32 chars) in product/.env – see .env.example}
+  # Local http: no __Host- cookie prefix (allowed for dev/test only; staging/production must be true).
+  COOKIE_SECURE_PREFIX: ${COOKIE_SECURE_PREFIX:-false}
   # Dev trusts no proxy: X-Forwarded-For is ignored (FB-R1-ARC-OPS-04). Production sets Caddy's IP.
   TRUST_PROXY: ''
 
@@ -43,6 +53,20 @@ services:
       timeout: 3s
       retries: 20
 
+  migrate:
+    # One-shot: apply pending migrations (forward-only, advisory lock, re-run = no-op), then exit 0.
+    # Reuses the image built by `api`; logs in as ottimo_migrator and runs SET ROLE ottimo_owner itself
+    # (services/api/src/db/migrate.ts). Only this service ever receives MIGRATION_DATABASE_URL.
+    image: ottimo-api:dev
+    pull_policy: never
+    command: ['node', 'dist/db/migrate-cli.js']
+    environment:
+      MIGRATION_DATABASE_URL: postgres://ottimo_migrator:${OTTIMO_MIGRATOR_DB_PASSWORD:?set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   api:
     image: ottimo-api:dev
     build:
@@ -50,13 +74,15 @@ services:
       dockerfile: infra/docker/Dockerfile.api
       args:
         # Dev keeps /__test__ (MutableClock, run job) for local E2E. Production images never set this.
-        INCLUDE_TEST_SUPPORT: '1'
+        INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-1}
     environment: *api-env
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health || exit 1']
       interval: 10s
@@ -74,6 +100,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       api:
         condition: service_started
     restart: unless-stopped
@@ -93,6 +121,31 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+  seed:
+    # Optional QA seed DS-E (tests/fixtures/seed/ds-e.json, fake data). Not started by `up`: run it once on a
+    # freshly migrated DB with `docker compose … run --rm seed`. Runs as ottimo_app; device tokens are
+    # written to tests/fixtures/seed/.out/ (gitignored, 0600), never to the log.
+    image: ottimo-api:dev
+    pull_policy: never
+    profiles: ['seed']
+    entrypoint: ['node', 'dist/db/seed/seed-cli.js', '--file', '/fixtures/ds-e.json']
+    command: []
+    environment:
+      APP_ENV: dev
+      NODE_ENV: development
+      DATABASE_URL: postgres://ottimo_app:${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}@postgres:5432/${POSTGRES_DB:-ottimo}
+      CLOCK_MODE: ${CLOCK_MODE:-mutable}
+      # Checked by the seed loader itself (empty = refuses to run); not passed to api/worker.
+      QA_SEED_PASSWORD: ${QA_SEED_PASSWORD:-}
+    volumes:
+      - ../tests/fixtures/seed:/fixtures
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
 
 volumes:
   pgdata:

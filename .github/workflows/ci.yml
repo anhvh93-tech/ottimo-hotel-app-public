@@ -92,6 +92,27 @@ jobs:
       - name: Lint (ESLint once for the workspace + tsc per package)
         run: pnpm lint
 
+      # erd 16.6 (b): the Drizzle schema must match the committed migrations. drizzle-kit generate needs no
+      # database; if it writes anything (new SQL, snapshot, journal) the schema changed without a migration.
+      - name: Schema matches migrations (drizzle-kit generate creates no file)
+        timeout-minutes: 3
+        run: |
+          pnpm --filter @ottimo/api exec drizzle-kit generate < /dev/null
+          drift=$(git status --porcelain --untracked-files=all -- services/api/src/db/migrations)
+          if [ -n "$drift" ]; then
+            echo "$drift"
+            echo "::error::schema and migrations differ – run 'pnpm --filter @ottimo/api db:generate' and commit the migration"
+            exit 1
+          fi
+
+      # Explicit migrate step (same runner as deploys: ottimo_migrator → SET ROLE ottimo_owner, erd 16 point 5).
+      # Vitest's globalSetup migrates too (no-op after this); a broken migration fails here with a clear name.
+      # The runner imports @ottimo/integrations, so the api's workspace dependencies are built first.
+      - name: Migrate test database (pnpm db:migrate as ottimo_migrator)
+        run: |
+          pnpm exec turbo run build --filter=@ottimo/api^...
+          pnpm db:migrate
+
       - name: Test (Vitest, real PostgreSQL as ottimo_app)
         run: pnpm test
 
@@ -144,6 +165,10 @@ jobs:
           "$RUNNER_TEMP/venv/bin/openapi-spec-validator" product/docs/api/openapi.yaml product/docs/api/openapi.test.yaml
       - name: RBAC / traceability static check (gen_traceability.py --strict)
         run: python3 product/tests/tools/gen_traceability.py --strict --out "$RUNNER_TEMP/traceability.md"
+      # QA's role x operation matrix (tests/fixtures/rbac-cases.json|csv) must be regenerated whenever
+      # OpenAPI x-roles/x-rbac/x-scope or the DS-E accounts change: stale files = red.
+      - name: RBAC case matrix up to date (gen_rbac_cases.py --check)
+        run: python3 product/tests/tools/gen_rbac_cases.py --check
 
   secrets-scan:
     name: gitleaks
@@ -203,6 +228,13 @@ jobs:
           for i in $(seq 1 30); do
             docker exec pg pg_isready -h 127.0.0.1 -U ottimo_admin -d ottimo && break; sleep 2
           done
+          # Migrate from the production image itself (dist/db/migrate-cli.js + dist/db/migrations), as a
+          # deploy does: ottimo_migrator → SET ROLE ottimo_owner. Re-run must be a no-op.
+          for run in 1 2; do
+            docker run --rm --network ottimo-ci \
+              -e MIGRATION_DATABASE_URL=postgres://ottimo_migrator:ci_migrator_only@pg:5432/ottimo \
+              ottimo-api:ci node dist/db/migrate-cli.js
+          done
           docker run -d --name api --network ottimo-ci -p 127.0.0.1:3000:3000 -e APP_ENV=test \
             -e DATABASE_URL=postgres://ottimo_app:ci_app_only@pg:5432/ottimo ottimo-api:ci
           for i in $(seq 1 30); do
@@ -259,7 +291,8 @@ jobs:
       # Random per-run passwords (DB roles, QA_SEED_PASSWORD) – masked, never a repo secret.
       - name: Create throwaway product/.env
         run: bash product/infra/ci/make-ci-env.sh product/.env.example product/.env
-      - name: Start compose stack (postgres, api, worker, web)
+      # `migrate` (one-shot) runs first; api/worker wait for it to complete successfully.
+      - name: Start compose stack (postgres, migrate, api, worker, web)
         working-directory: product
         run: docker compose --env-file .env -f infra/docker-compose.yml up --build --detach --wait --wait-timeout 300
       # E2E_COMPOSE_CONTROL=1: TC-X-050c may stop/start postgres – this stack is disposable.
