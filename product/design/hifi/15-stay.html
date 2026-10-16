@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H15 Lưu trú – gia hạn, trả muộn, đổi phòng – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H15</div>
+  <h1>H15 · Lưu trú – khách đang ở: gia hạn, trả muộn có ân hạn 12:30, đổi phòng, xác nhận giờ trả, phát sinh</h1>
+  <div class="doc-meta"><span>Sprint 3 · EP04</span><span>front_desk, front_desk_lead, manager, owner</span><span>Máy quầy (drawer 460px) · điện thoại toàn màn</span><span>US-024, US-028, US-029, US-030, US-031, US-032, US-050, US-135; BR-403, 412, 416, 421–425, 511</span><span>Wireframe gốc: L9 9.1, 9.2, 9.4</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="14-registration.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="16-check-out.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s151">
+  <h2 id="s151"><span class="no">15.1</span>Drawer khách đang ở – OTM-0146 · 402 · Kim Seo-yeon (Airbnb, 14/10 → 18/10)</h2>
+  <p class="lead">Nút theo <code>allowedActions</code> của đơn <code>in_house</code>: Gia hạn, Trả muộn, Đổi phòng, Thêm phát sinh, Xác nhận giờ trả; "Trả phòng" chỉ hiện vào ngày đi. Mỗi hành động mở một hộp riêng, giá và hậu quả lấy từ API trước khi lưu.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal" style="min-height:700px"><div class="scrim-demo right">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="st-h">
+        <div class="modal-h"><div class="grow"><span class="li-s mono">OTM-0146 · Airbnb</span><h2 id="st-h">Kim Seo-yeon</h2></div><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="offline-bar" role="status" data-show="offline" style="padding:8px 18px"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="shell.offline_desk" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Dữ liệu lúc 10:42 – chỉ xem, chưa tạo hay sửa đơn được.</span></div>
+        <div class="modal-b" data-show="normal offline error">
+          <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.VERSION_CONFLICT">Dữ liệu vừa được người khác thay đổi. Tải lại để xem bản mới – thông tin bạn nhập vẫn còn.</div></div>
+          <div class="row" style="margin-bottom:8px"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-bed"/></svg><span data-i18n="status.booking.in_house">Đang ở</span></span><span class="chip info">KR</span><span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="reg2.overdue_chip">Khai báo quá hạn</span></span></div>
+          <ol class="progress-steps" aria-label="Tiến trình đơn"><li class="done" data-i18n="rsv.step_booked">Đặt</li><li class="done" data-i18n="rsv.step_hold">Giữ chỗ</li><li class="done" data-i18n="rsv.step_deposit">Đã cọc</li><li aria-current="step" data-i18n="rsv.step_in">Nhận phòng</li><li data-i18n="rsv.step_out">Trả phòng</li></ol>
+          <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>402 · The Ember (Căn N+) · <span data-i18n="status.room.OD">OD · Có khách, cần dọn</span></dd><dt data-i18n="rsv.dates">Ngày</dt><dd>T4 14/10 → CN 18/10 · 4 đêm</dd><dt data-i18n="stay.checkout_time">Giờ trả</dt><dd><span data-i18n="stay.checkout_std" data-i18n-args='{"time":"12:00"}'>12:00 (giờ chuẩn, chưa xác nhận)</span></dd><dt data-i18n="stay.door">Mã cửa</dt><dd data-i18n="stay.door_manual">Giao tay trên app khóa – không lưu trong OTTIMO (R2)</dd></dl>
+          <h3 class="label-h" style="margin:14px 0 6px" data-i18n="drawer.folio.title">Folio</h3>
+          <table class="sum"><tr><td data-i18n="stay.ota_room_paid">Tiền phòng – Airbnb đã thu</td><td class="r">0</td></tr><tr><td>Giặt ủi · 2,5 kg</td><td class="r">75.000</td></tr><tr class="total"><td data-i18n="drawer.folio.balance">Còn phải thu</td><td class="r">75.000 đ</td></tr></table>
+        </div>
+        <div class="modal-b" data-show="loading" aria-busy="true"><div class="cards"><div class="sk" style="height:28px"></div><div class="sk" style="height:80px"></div><div class="sk" style="height:120px"></div></div></div>
+        <div class="modal-b" data-show="empty"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg></div><h3 data-i18n="stay.no_charges_title">Chưa có phát sinh</h3><p data-i18n="stay.no_charges_body">Folio chỉ có tiền phòng. Thêm phát sinh khi khách dùng dịch vụ hoặc có phí phạt.</p></div></div>
+        <div class="modal-f" data-show="normal error loading empty">
+          <button class="btn" data-open="#dlg-extend" data-i18n="drawer.action.extend">Gia hạn</button>
+          <button class="btn" data-open="#dlg-late" data-i18n="drawer.action.late_checkout">Trả muộn</button>
+          <button class="btn" data-open="#dlg-change" data-i18n="drawer.action.change_room">Đổi phòng</button>
+          <button class="btn" data-open="#dlg-charge" data-i18n="stay.add_charge">Thêm phát sinh</button>
+          <button class="btn pri" data-open="#dlg-confirm-time" data-i18n="today.confirm_time">Xác nhận giờ trả</button>
+        </div>
+        <div class="modal-f" data-show="offline"><button class="btn pri" aria-disabled="true" data-i18n="rsv.need_online">Cần có mạng để thao tác</button></div>
+      </aside>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 15.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-020</span> nút = <code>allowedActions</code> (<code>extend</code> B13, <code>late-checkout</code> B15, <code>change-room</code> B14, <code>early-departure</code> B16 – Should).</li><li><span class="us">US-032</span> AC3 "Còn phải thu" cập nhật khi thêm phát sinh.</li><li>P-R2-5: không có mã cửa trong OTTIMO ở R2 – drawer ghi rõ để lễ tân không tìm.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getReservation</span> · <span class="op">getFolio</span> · <span class="op">listCheckoutReminders</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VERSION_CONFLICT</span> · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">NOT_FOUND</span></li></ul>
+      <h3>Ghi chú dữ liệu</h3><ul><li>DS-0: OTM-0146 402 Airbnb 14→18/10 <code>in_house</code>; tên khách, quốc tịch, giặt ủi là giả định (ghi ở index mục 4).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s152">
+  <h2 id="s152"><span class="no">15.2</span>Gia hạn – đơn OTA thành đơn con kênh Trực tiếp (402 · Airbnb)</h2>
+  <p class="lead">Lấy các đêm liên tiếp còn trống sau ngày đi (402 trống 18/10, 19/10; có khách từ 20/10). Đơn OTA: không sửa đơn trên kênh, phần gia hạn là đơn con kênh Trực tiếp, giá Trực tiếp hiện hành, chung folio.</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:560px"><div class="modal" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 data-i18n="extend.title" data-i18n-args='{"room":"402","guest":"Kim Seo-yeon"}'>Gia hạn · Căn 402 · Kim Seo-yeon</h2></div>
+      <div class="modal-b">
+        <fieldset style="border:0;padding:0;margin:0 0 10px"><legend class="lbl" style="font-weight:500;font-size:.8125rem;margin-bottom:6px" data-i18n="extend.nights">Ở thêm</legend>
+          <label class="check card" style="padding:10px 12px;margin-bottom:6px"><input type="checkbox" checked><span class="grow"><b>CN 18/10</b> · 1.000.000 <span class="chip ok" data-i18n="extend.night_free">Trống</span></span></label>
+          <label class="check card" style="padding:10px 12px;margin-bottom:6px"><input type="checkbox"><span class="grow"><b>T2 19/10</b> · 1.000.000 <span class="chip ok" data-i18n="extend.night_free">Trống</span></span></label>
+          <div class="li" style="padding:6px 12px;opacity:.85"><span class="grow"><b>T3 20/10</b> <span class="chip bad" data-i18n="extend.night_taken">Đã kín</span></span></div>
+        </fieldset>
+        <p class="li-s" data-i18n="extend.max_hint" data-i18n-args='{"max":"2"}'>Tối đa 2 đêm liên tiếp còn trống. Ở lâu hơn → lập báo giá dài hạn.</p>
+        <p class="li-s" data-i18n="extend.rate_source" data-i18n-args='{"source":"Giá Trực tiếp hiện hành của căn 402 – đơn OTA"}'>Nguồn giá: Giá Trực tiếp hiện hành của căn 402 – đơn OTA</p>
+        <div class="amenity" style="margin:8px 0"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="extend.ota_child" data-i18n-args='{"channel":"Airbnb","amount":"155.000"}'>Đơn Airbnb: phần gia hạn thành đơn con kênh Trực tiếp, chung phiếu thanh toán. Tiết kiệm phí kênh ≈ 155.000.</span></div>
+        <ul class="consequence"><li data-i18n="extend.effects" data-i18n-args='{"date":"19/10"}'>Ngày đi đổi thành 19/10; buồng chuyển "Có khách, cần dọn"; khách nước ngoài cần cập nhật khai báo trong ngày.</li><li data-i18n="extend.pay_by" data-i18n-args='{"time":"14:00 18/10"}'>Thu tiền gia hạn muộn nhất 14:00 18/10.</li><li data-i18n="stay.extend_door">Nhớ kéo dài hiệu lực mã cửa trên app khóa tới giờ trả mới.</li></ul>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="extend.submit" data-i18n-args='{"n":"1","amount":"1.000.000"}'>Gia hạn 1 đêm · 1.000.000</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 15.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-028</span> AC1 chọn tối đa min(đêm trống, 7); vượt → báo giá dài hạn; AC2 Trực tiếp giữ giá đơn, ngày đặc biệt lấy giá ngày đó; AC3 OTA → đơn con Trực tiếp + "tiết kiệm phí kênh" theo tỷ lệ cấu hình kênh; AC4 ngày đi đổi, buồng <code>OD</code>, khai báo NN → <code>needs_update</code>, hạn thu BR-423; AC5 hai người gia hạn cùng đêm → chỉ một thành công.</li><li><span class="us">US-050</span> AC2 ngày đi mới sau hạn thị thực → cảnh báo chặn mềm, phải ghi lý do.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getExtensionOptions</span> → <code>maxNights</code>, <code>nights[]</code> (<code>available</code>, <code>defaultRateVnd</code>, sàn/trần), <code>createsChildReservation</code>, <code>channelFeeSavingsVnd</code>, <code>exceedsShortStayLimit</code></li><li><span class="op">extendStay</span> {<code>nights</code>, <code>nightlyRates</code>?} + <code>Idempotency-Key</code> + <code>If-Match</code></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">ROOM_UNAVAILABLE</span> (người khác vừa bán đêm đó – tải lại danh sách đêm) · <span class="pc">RATE_OUT_OF_RANGE</span> (sửa giá ngoài sàn–trần) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">VALIDATION_FAILED</span></li></ul>
+      <h3>Ghi chú</h3><ul><li>Tiết kiệm phí kênh 15,5% × 1.000.000 = 155.000 (tỷ lệ Airbnb theo ví dụ BR-422 – server trả số).</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Đêm vừa bị bán (ROOM_UNAVAILABLE)</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.ROOM_UNAVAILABLE" data-i18n-args='{"room":"402","from":"19/10","to":"20/10"}'>Căn 402 đã kín từ 19/10 đến 20/10. Chọn ngày khác hoặc một căn trống bên dưới.</div></div></div>
+    <div class="variant"><span class="label-h">Ở lâu hơn 7 đêm</span><p data-i18n="stay.long_hint">Khách muốn ở thêm hơn 7 đêm hoặc tổng từ 28 đêm: lập báo giá dài hạn (R3). Ở R2 tạo "đơn dài hạn nhập tay".</p><a class="btn sm" href="10-long-stay-manual.html" data-i18n="stay.to_manual_long">Tạo đơn dài hạn nhập tay</a></div>
+    <div class="variant"><span class="label-h">Ngày đi mới sau hạn thị thực (US-050 AC2)</span><div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="stay.visa_warn" data-i18n-args='{"date":"18/10"}'>Thị thực của khách hết hạn 18/10. Khai báo chỉ tới 18/10; ghi lý do để tiếp tục và nhắc khách gia hạn thị thực.</span></div></div><div class="field"><label for="vw-r"><span data-i18n="ci.reason">Lý do</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="vw-r"></div></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s153">
+  <h2 id="s153"><span class="no">15.3</span>Trả muộn – phụ thu chủ động và ân hạn 12:30 (bấm thử) · OTM-0139 · 201 · Phạm Huy</h2>
+  <p class="lead">Gõ giờ trả để xem kết quả. Căn 201 không có khách đến hôm nay → ân hạn tới 12:30 (gồm 12:30). Bật "Căn có khách đến hôm nay" để thấy ân hạn bị bỏ: 12:20 → 30%. Mốc bậc không dời: (12:00, 15:00] 30%, (15:00, 18:00] 50%, sau 18:00 → gia hạn 1 đêm. Đơn Agoda tính trên giá Trực tiếp hiện hành của đêm cuối (201 = 708.000).</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:560px"><div class="modal" style="box-shadow:none;border:1px solid var(--line)" data-sur="late" data-base-rate="708000">
+      <div class="modal-h"><h2 data-i18n="late.title" data-i18n-args='{"room":"201","guest":"Phạm Huy"}'>Trả muộn · Căn 201 · Phạm Huy</h2></div>
+      <div class="modal-b">
+        <div class="field"><label for="lt-time" data-i18n="late.time">Giờ trả đã hẹn</label><input class="input num" id="lt-time" value="15:00" inputmode="numeric" data-sur-time aria-describedby="lt-out" style="max-width:120px"><span class="help" data-i18n="stay.late_help">Dạng 24 giờ, ví dụ 12:30.</span></div>
+        <p id="lt-out" data-sur-out data-i18n="late.fee" data-i18n-args='{"amount":"212.000","pct":"30"}' aria-live="polite">Phụ thu đề xuất: 212.000 (30% giá đêm cuối)</p>
+        <p class="li-s" data-i18n="extend.rate_source" data-i18n-args='{"source":"Giá Trực tiếp hiện hành đêm 14/10 của căn 201 – đơn OTA"}'>Nguồn giá: Giá Trực tiếp hiện hành đêm 14/10 của căn 201 – đơn OTA</p>
+        <button class="switch" role="switch" aria-checked="false" data-sur-arrival style="margin:6px 0"><i aria-hidden="true"></i><span data-i18n="stay.arrival_toggle">Căn có khách đến hôm nay (minh họa)</span></button>
+        <div class="alert warn" role="status" data-sur-grace hidden><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><span data-i18n="late.grace_off">Căn có khách đến hôm nay – không áp ân hạn 12:30.</span> <span data-i18n="late.arrival_warning" data-i18n-args='{"room":"201","eta":"14:00","rooms":"203"}'>Căn 201 có khách đến lúc 14:00. Còn căn thay thế cùng nhóm: 203.</span></div></div>
+        <div class="alert info" role="status" data-sur-ext hidden><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><div class="txt"><span data-i18n="stay.late_to_extend">Trả sau 18:00 là ở thêm 1 đêm – dùng Gia hạn để khóa đêm trên các kênh.</span><div class="act"><button class="btn sm" data-i18n="drawer.action.extend">Gia hạn</button></div></div></div>
+        <label class="check" data-sur-ack><input type="checkbox"><span data-i18n="ci.told_guest">Tôi đã báo khách khoản phụ thu này</span></label>
+        <ul class="consequence"><li data-i18n="late.effects" data-i18n-args='{"time":"15:00"}'>Việc dọn ghi "dọn sau 15:00"; mã cửa kéo dài tới 15:00.</li><li data-i18n="stay.late_door_manual">R2: kéo dài hiệu lực mã trên app khóa bằng tay.</li></ul>
+        <details><summary class="btn ghost sm" data-i18n="ci.ask_foc">Xin miễn phụ thu (gửi duyệt)</summary><p class="li-s" style="margin-top:6px" data-i18n="ci.ask_foc_help">Chọn lý do. Yêu cầu tự đến người có quyền duyệt – không chọn tên người duyệt. Folio ghi dòng phụ thu và dòng miễn "chờ duyệt".</p></details>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-sur-submit aria-disabled="true" data-i18n="late.submit" data-i18n-args='{"time":"15:00"}'>Lưu giờ trả 15:00</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 15.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-029</span> AC1 giá đêm cuối 700.000, trả 15:00 → khớp BR-412 (đã tính ân hạn), hiện trước khi lưu, chỉ ghi folio khi lễ tân xác nhận; AC2 có khách đến + không còn căn thay thế → FD bị chặn, chỉ MGR/OWN; còn căn → cảnh báo tên khách + giờ đến; AC3 sau mốc 18:00 → gia hạn; AC4 việc dọn "dọn sau &lt;giờ&gt;", mã cửa kéo dài.</li><li>BR-412 ví dụ (giá 700.000, không có khách đến): 12:20 → 0; 12:30 → 0; 12:31 → 210.000; 15:00 → 210.000; 17:00 → 350.000; 19:00 → gia hạn. Có khách đến 14:00: 12:01 hoặc 12:20 → 210.000.</li></ul>
+      <h3>API</h3><ul><li><span class="op">setLateCheckout</span> {<code>checkoutTime</code>, <code>dryRun:true</code>} → <code>tierPct</code>, <code>surchargeVnd</code>, <code>treatAsExtension</code>, <code>arrivalSameDay</code> {<code>guestDisplayName</code>, <code>etaTime</code>, <code>alternativeRoomAvailable</code>}, <code>cleaningNotBefore</code>; lưu: <code>dryRun:false</code>, <code>applySurcharge</code>, <code>requestFocForSurcharge</code>?</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">LATE_CHECKOUT_CONFLICT</span> (FD; MGR+ lưu được hoặc FD gửi yêu cầu <code>late_checkout_conflict</code>) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">VALIDATION_FAILED</span> (giờ sai dạng)</li></ul>
+      <h3>a11y</h3><ul><li>Kết quả đọc bằng <code>aria-live</code>; nút Lưu khóa tới khi tick "đã báo khách" (khi có tiền) – không cần tick khi 0 đ.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Có khách đến, không còn căn thay thế – lễ tân</span>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div class="txt"><span data-i18n="late.conflict_block" data-i18n-args='{"eta":"14:00"}'>Có khách đến lúc 14:00 và không còn căn thay thế. Gửi quản lý duyệt, hoặc gợi ý khách gửi hành lý.</span><div class="act"><button class="btn sm" data-i18n="late.request_approval">Gửi quản lý duyệt</button></div></div></div></div>
+    <div class="variant"><span class="label-h">Trong ân hạn – không cần tick</span><p data-sur-out-static data-i18n="late.fee_zero">Trong giờ ân hạn – không phụ thu</p><p class="li-s" data-i18n="stay.grace_rule">Ân hạn tới 12:30 chỉ khi căn không có khách đến cùng ngày; mốc 15:00 và 18:00 không dời.</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s154">
+  <h2 id="s154"><span class="no">15.4</span>Đổi phòng khi đang ở – lý do bắt buộc, căn mới phải sẵn sàng</h2>
+  <div class="doc-row">
+    <div class="frame" style="max-width:560px"><div class="modal" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 data-i18n="stay.change_title" data-i18n-args='{"room":"402","guest":"Kim Seo-yeon"}'>Đổi phòng · Căn 402 · Kim Seo-yeon</h2></div>
+      <div class="modal-b">
+        <fieldset style="border:0;padding:0;margin:0 0 10px"><legend class="lbl" style="font-weight:500;font-size:.8125rem;margin-bottom:6px" data-i18n="stay.change_cause">Vì sao đổi?</legend>
+          <div class="seg" role="group"><button aria-pressed="true" data-i18n="stay.cause_fault">Sự cố của OTTIMO – giữ giá cũ</button><button aria-pressed="false" data-i18n="stay.cause_guest">Khách yêu cầu – giá căn mới</button></div></fieldset>
+        <div class="field"><label for="cr-r"><span data-i18n="move.reason">Lý do đổi</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="cr-r" value="Mất nước nóng – phiếu sửa WO-00034"></div>
+        <div class="field"><span class="lbl" data-i18n="stay.new_room">Căn mới (đã dọn hoặc đã kiểm)</span>
+          <label class="check card" style="padding:10px 12px;margin-bottom:6px"><input type="radio" name="cr" checked><span class="grow"><b>203 · The Sage</b> · <span data-i18n="status.room.VC">VC · Đã dọn, chờ kiểm</span><br><span class="li-s" data-i18n="stay.free_until" data-i18n-args='{"date":"19/10"}'>Trống tới 19/10</span></span></label>
+          <label class="check card" style="padding:10px 12px;margin-bottom:6px;opacity:.85"><input type="radio" name="cr" disabled><span class="grow"><b>202 · The Valley</b> · <span data-i18n="status.room.VD">VD · Trống, cần dọn</span><br><span class="li-s" data-i18n="stay.not_ready_hint">Chưa dọn – không chọn được</span></span></label></div>
+        <ul class="consequence"><li data-i18n="stay.change_effect_old" data-i18n-args='{"room":"402"}'>Căn 402 chuyển cần dọn và có việc dọn.</li><li data-i18n="stay.change_effect_door" data-i18n-args='{"old":"402","new":"203"}'>Việc "Xóa mã trên app khóa" cho căn 402 và tạo mã mới cho căn 203.</li><li data-i18n="stay.change_effect_reg">Khai báo lưu trú không phải làm lại – chỉ đổi số căn trong hồ sơ.</li></ul>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="stay.change_submit" data-i18n-args='{"room":"203"}'>Đổi sang căn 203</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 15.4">
+      <h3>Story / AC</h3><ul><li><span class="us">US-024</span> AC4 căn mới phải <code>VI</code>/<code>VC</code> (không dùng ngoại lệ BR-402); BR-424 lỗi OTTIMO giữ giá, khách yêu cầu tính giá căn mới; căn cũ → VD/OD + việc dọn; mã cũ hủy, mã mới; khai báo không làm lại.</li><li>Đơn có người vượt định mức → việc "chuyển bộ đồ dùng thêm" (<code>extra_guest_kit_transfer</code>) tự sinh.</li></ul>
+      <h3>API</h3><ul><li><span class="op">searchAvailability</span> (căn trống cùng nhóm, kèm trạng thái buồng) · <span class="op">changeRoom</span> {<code>newRoomId</code>, <code>effectiveDate</code>, <code>cause</code>: <code>property_fault</code>|<code>guest_request</code>, <code>reason</code>}</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">ROOM_NOT_READY</span> (kèm <code>roomStatus</code>) · <span class="pc">ROOM_UNAVAILABLE</span> / <span class="pc">ROOM_BLOCKED</span> (kèm <code>suggestions[]</code>) · <span class="pc">CAPACITY_EXCEEDED</span> · <span class="pc">VERSION_CONFLICT</span></li></ul>
+    </aside>
+  </div>
+  <div class="variants"><div class="variant"><span class="label-h">Căn vừa chuyển trạng thái (ROOM_NOT_READY)</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><div class="txt" data-i18n="error.ROOM_NOT_READY" data-i18n-args='{"room":"203","status":"OD · Có khách, cần dọn"}'>Căn 203 chưa sẵn sàng (OD · Có khách, cần dọn). Chọn căn đã kiểm sẵn sàng hoặc đã dọn.</div></div></div></div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s155">
+  <h2 id="s155"><span class="no">15.5</span>Xác nhận giờ trả (thẻ "Khách đi hôm nay") và thêm phát sinh có bằng chứng</h2>
+  <div class="doc-row">
+    <div class="variants" style="flex:1 1 640px;margin-top:0">
+      <div class="variant"><span class="label-h">Thẻ khách đi hôm nay – trạng thái theo BR-425 (nhãn BA EP03-05 4.4)</span>
+        <div class="task soon"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg></span><div class="grow"><div class="li-t">201 · Phạm Huy</div><div class="li-s" data-i18n="stay.card_waiting">Chờ khách trả lời</div></div></div>
+        <div class="task soon"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></span><div class="grow"><div class="li-t">201 · Phạm Huy</div><div class="li-s" data-i18n="stay.card_call">Chưa trả lời – gọi xác nhận</div></div><button class="btn sm" data-open="#dlg-confirm-time" data-i18n="today.confirm_time">Xác nhận giờ trả</button></div>
+        <div class="task urgent"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></span><div class="grow"><div class="li-t">201 · Phạm Huy</div><div class="li-s" data-i18n="stay.card_overdue">Quá giờ trả phòng</div><div class="li-s" data-i18n="stay.card_overdue_when" data-i18n-args='{"time":"12:31"}'>Báo lúc 12:31 – căn không có khách đến nên tính sau ân hạn.</div></div></div>
+        <div class="task info"><span class="ic"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><div class="grow"><div class="li-t">201 · Phạm Huy</div><div class="li-s" data-i18n="stay.card_answered" data-i18n-args='{"time":"15:00"}'>Đã trả lời – trả lúc 15:00</div></div></div></div>
+      <div class="variant"><span class="label-h">Thêm phát sinh – phí phạt cần bằng chứng</span>
+        <div class="field"><label for="ch-c" data-i18n="stay.charge_item">Khoản</label><select class="input" id="ch-c"><option data-i18n="checkout.extras.smoking">Khử mùi thuốc lá</option><option data-i18n="checkout.extras.card">Thiếu thẻ phòng</option><option data-i18n="checkout.extras.laundry">Giặt ủi</option></select></div>
+        <p class="li-s" data-i18n="stay.charge_default" data-i18n-args='{"amount":"500.000","rule":"nội quy"}'>Giá mặc định 500.000 theo nội quy. Phí phạt không tính vào doanh thu phòng.</p>
+        <div class="field invalid"><span class="lbl" data-i18n="stay.evidence">Ảnh hoặc ghi chú bằng chứng</span><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="stay.add_photo">Thêm ảnh từ buồng phòng</span></button><div class="err" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="field_error.evidence_required">Thêm ảnh hoặc ghi chú bằng chứng cho khoản phạt/hư hỏng.</span></div></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 15.5">
+      <h3>Story / AC</h3><ul><li>R2 chưa có tin nhắc tự động (US-034 R3) → trạng thái đầu là "Chờ khách trả lời", không dùng "Đã nhắc".</li><li><span class="us">US-030</span> AC1 ghi "Gọi điện – khách trả lúc 11:00" + người ghi; AC2 thẻ → "đã trả lời". <span class="us">US-031</span> AC1 thứ tự trạng thái theo mốc BR-425 (căn không có khách đến: báo đỏ 12:31); AC2 căn có khách đến xếp đầu.</li><li><span class="us">US-032</span> AC1 giá mặc định BR-511, loại "Phí phạt"; AC2 thiếu bằng chứng → chặn; AC4 món ngoài bảng → yêu cầu định giá (MGR/OWN).</li></ul>
+      <h3>API</h3><ul><li><span class="op">recordCheckoutConfirmation</span> {<code>channel</code>, <code>replyType</code>, <code>confirmedTime</code>, <code>note</code>} · <span class="op">listCheckoutReminders</span></li><li><span class="op">getChargeCatalog</span> · <span class="op">uploadAttachment</span> · <span class="op">addFolioLine</span> {<code>chargeCode</code>, <code>evidenceAttachmentIds</code>} (không cần <code>If-Match</code>)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (mã trường đề nghị <code>EVIDENCE_REQUIRED</code>, <code>PRICE_NOT_EDITABLE</code> – BA E04-03) · <span class="pc">FOLIO_LOCKED</span> · <span class="pc">CARD_NUMBER_DETECTED</span> (ghi chú)</li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-extend" aria-labelledby="dx-h"><div class="modal">
+  <div class="modal-h"><h2 id="dx-h" tabindex="-1" data-i18n="extend.title" data-i18n-args='{"room":"402","guest":"Kim Seo-yeon"}'>Gia hạn · Căn 402 · Kim Seo-yeon</h2></div>
+  <div class="modal-b"><p data-i18n="extend.max_hint" data-i18n-args='{"max":"2"}'>Tối đa 2 đêm liên tiếp còn trống. Ở lâu hơn → lập báo giá dài hạn.</p><p class="li-s"><a href="#s152" data-i18n="stay.see_full">Xem bản đầy đủ ở mục bên dưới</a></p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="extend.submit" data-i18n-args='{"n":"1","amount":"1.000.000"}'>Gia hạn 1 đêm · 1.000.000</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-late" aria-labelledby="dl-h"><div class="modal">
+  <div class="modal-h"><h2 id="dl-h" tabindex="-1" data-i18n="late.title" data-i18n-args='{"room":"402","guest":"Kim Seo-yeon"}'>Trả muộn · Căn 402 · Kim Seo-yeon</h2></div>
+  <div class="modal-b"><p class="li-s"><a href="#s153" data-i18n="stay.see_full">Xem bản đầy đủ ở mục bên dưới</a></p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-change" aria-labelledby="dc-h"><div class="modal">
+  <div class="modal-h"><h2 id="dc-h" tabindex="-1" data-i18n="stay.change_title" data-i18n-args='{"room":"402","guest":"Kim Seo-yeon"}'>Đổi phòng · Căn 402 · Kim Seo-yeon</h2></div>
+  <div class="modal-b"><p class="li-s"><a href="#s154" data-i18n="stay.see_full">Xem bản đầy đủ ở mục bên dưới</a></p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-charge" aria-labelledby="dg-h"><div class="modal">
+  <div class="modal-h"><h2 id="dg-h" tabindex="-1" data-i18n="stay.add_charge">Thêm phát sinh</h2></div>
+  <div class="modal-b"><div class="field"><label for="dg-i" data-i18n="stay.charge_item">Khoản</label><select class="input" id="dg-i"><option data-i18n="checkout.extras.laundry">Giặt ủi</option><option data-i18n="checkout.extras.food">Đồ ăn gọi thêm</option></select></div><div class="field"><label for="dg-q" data-i18n="stay.qty">Số lượng</label><input class="input num" id="dg-q" value="1" inputmode="decimal"></div></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="stay.add_charge_submit">Thêm vào folio</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-confirm-time" aria-labelledby="ct-h"><div class="modal">
+  <div class="modal-h"><h2 id="ct-h" tabindex="-1" data-i18n="today.confirm_time">Xác nhận giờ trả</h2></div>
+  <div class="modal-b">
+    <div class="field"><span class="lbl" id="ct-ch" data-i18n="stay.reply_channel">Khách trả lời qua</span><div class="seg" role="group" aria-labelledby="ct-ch"><button aria-pressed="true" data-i18n="stay.ch_phone">Gọi điện</button><button aria-pressed="false" data-i18n="stay.ch_in_person">Tại quầy</button><button aria-pressed="false" data-i18n="stay.ch_zalo">Zalo</button></div></div>
+    <div class="field"><label for="ct-t" data-i18n="checkout.departure_time">Giờ trả phòng thực tế</label><input class="input num" id="ct-t" value="11:00" style="max-width:120px" autofocus></div>
+    <div class="field"><label for="ct-n" data-i18n="stay.note">Ghi chú</label><input class="input" id="ct-n" value="Gọi điện – khách trả lúc 11:00"></div>
+    <p class="li-s" data-i18n="stay.after_noon_hint">Giờ sau 12:00 là trả muộn – dùng nút Trả muộn để tính phụ thu.</p></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="common.save">Lưu</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

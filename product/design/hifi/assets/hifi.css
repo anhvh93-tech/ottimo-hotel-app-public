@@ -407,6 +407,63 @@ dialog.dlg .modal{max-width:none;max-height:calc(100vh - 48px);overflow:auto}
 .role-card .nav{padding:8px;background:var(--side)}
 .role-card .home{font-size:.75rem;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
 
+
+/* =====================================================================
+   12. R2 Sprint 3 – nhận/trả phòng, giấy tờ, bill, duyệt, app khách (H13–H18)
+   ===================================================================== */
+/* điều kiện nhận phòng (BR-402) */
+.conds{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.conds li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.conds li .ico{margin-top:2px}
+.conds li.met .ico{color:var(--ok)}
+.conds li.unmet{border-color:var(--bad);border-left-width:4px}
+.conds li.unmet>.ico{color:var(--bad)}
+/* kiểm tra 3 trạng thái (DS 6.4, HR-07) */
+.chk3{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.chk3+.chk3{margin-top:6px}
+.chk3>.ico{margin-top:2px}
+.chk3.ok>.ico{color:var(--ok)}
+.chk3.fail{border-color:var(--bad);border-left-width:4px}.chk3.fail>.ico{color:var(--bad)}
+.chk3.unknown{border-style:dashed;border-color:var(--warn)}.chk3.unknown>.ico{color:var(--warn)}
+.chk3.block{border-color:var(--bad);border-left-width:4px;background:var(--bad-bg)}.chk3.block>.ico{color:var(--bad)}
+.chk3 .full{grid-column:2 / -1}
+/* khối khóa (BR-613 c – chặn giao mã cửa) */
+.lock-box{display:flex;gap:10px;align-items:flex-start;border:2px dashed var(--bad);border-radius:var(--r-md);padding:10px 12px;background:var(--surface);font-size:.8125rem}
+.lock-box>.ico{color:var(--bad);margin-top:1px}
+/* người trong đơn – giấy tờ */
+.person{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.person+.person{margin-top:6px}
+.person.todo{border-style:dashed}
+.masked{font-family:var(--mono);font-size:.8125rem;letter-spacing:.04em}
+/* phụ thu đề xuất (data-sur) */
+[data-sur-out]{font-weight:600;color:var(--ok)}
+[data-sur-out].pos{color:var(--ink)}
+/* bill in (Phiếu thanh toán) – A5 dọc, song ngữ */
+.bill-paper{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:24px 28px;max-width:560px;font-size:.8125rem;box-shadow:var(--shadow-lg)}
+.bill-paper h2{font-size:1.125rem;text-align:center}
+.bill-paper .en{display:block;font-size:.75rem;color:var(--muted);font-weight:400}
+.bill-paper .hdr{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-strong);padding-bottom:10px;margin-bottom:10px}
+.bill-paper table{width:100%;border-collapse:collapse}
+.bill-paper th{text-align:left;font-size:.6875rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line-strong);padding:4px 0}
+.bill-paper td{padding:5px 0;border-bottom:1px dashed var(--line);vertical-align:top}
+.bill-paper td.r,.bill-paper th.r{text-align:right;font-variant-numeric:tabular-nums}
+.bill-paper tr.total td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600;padding-top:8px}
+.bill-paper .foot{margin-top:12px;font-size:.75rem;color:var(--muted)}
+@media print{.doc-head,.doc-bar,.spec,.frame-cap{display:none}.bill-paper{box-shadow:none;border:0;max-width:none}}
+/* bước của luồng (check-in online / trả phòng) */
+.wiz-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--line);background:var(--surface)}
+.touch .wiz-foot{padding:12px 16px}
+.kv-big{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.chip.recon{background:var(--warn-bg);color:var(--warn);border:1px dashed var(--warn)}
+.upload-slot{display:flex;gap:12px;align-items:center;border:1px dashed var(--line-strong);border-radius:var(--r-lg);padding:12px;background:var(--surface)}
+.upload-slot.done{border-style:solid;border-color:var(--ok)}
+.upload-slot .ill{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--oak-soft);color:var(--oak-ink);flex:none}
+.upload-slot.done .ill{background:var(--ok-bg);color:var(--ok)}
+.choice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line-strong);border-radius:var(--r-lg);padding:12px;background:var(--surface);cursor:pointer;min-height:44px}
+.choice+.choice{margin-top:8px}
+.choice:has(input:checked){border-color:var(--ink);border-width:2px;padding:11px}
+.choice input{width:22px;height:22px;margin-top:1px;accent-color:var(--ink);flex:none}
+
 /* ---------- Responsive ---------- */
 @media (max-width:1100px){.role-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){

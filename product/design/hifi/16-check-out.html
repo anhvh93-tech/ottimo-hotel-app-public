@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H16 Trả phòng, Phiếu thanh toán, VietQR – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H16</div>
+  <h1>H16 · Trả phòng 3 bước – minibar, phụ phí, Phiếu thanh toán + VietQR + thu tiền "chờ đối soát", hoàn tất; đối soát của quản lý</h1>
+  <div class="doc-meta"><span>Sprint 3 · EP05 + EP15</span><span>front_desk, front_desk_lead (thu, hoàn tất) · manager, owner (đối soát, công nợ)</span><span>Máy quầy</span><span>US-035, US-036, US-037, US-038, US-039, US-119 AC1–4, AC6, US-120, US-135, US-007 AC5; BR-412, 426, 434, 521, 525, 527, 702</span><span>Wireframe gốc: L4 4.1–4.4</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="15-stay.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="17-approvals-moneylog.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s161">
+  <h2 id="s161"><span class="no">16.1</span>Bước 1 – Minibar (OTM-0139 · 201 · Phạm Huy, trả 15:00)</h2>
+  <p class="lead">Số "còn lại" điền sẵn từ lần buồng phòng kiểm lúc khách báo trả; lễ tân chỉ xác nhận hoặc sửa bằng nút +/−. Món miễn phí vẫn ghi tiêu hao nhưng 0 đ. Dữ liệu ví dụ: Agoda – khách trả tại chỗ, 3 đêm × 820.000 (theo US-037 AC1).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal" style="min-height:560px">
+      <header class="topbar"><h1><span data-i18n="checkout.title" data-i18n-args='{"room":"201","guest":"Phạm Huy"}'>Trả phòng · Căn 201 · Phạm Huy</span><span class="sub">OTM-0139 · Agoda · 12/10 → 15/10 · 3 đêm</span></h1></header>
+      <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="co.offline" data-i18n-args='{"time":"14:58"}'>Mất kết nối lúc 14:58. Không thu tiền và không hoàn tất trả phòng khi chưa có mạng – nhờ khách chờ hoặc ghi giấy và nhập bù.</span></div>
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước trả phòng"><li aria-current="step" data-i18n="checkout.step.minibar">Minibar</li><li data-i18n="checkout.step.extras">Phụ phí</li><li data-i18n="checkout.step.bill">Bill & thu tiền</li></ol>
+        <div data-show="normal offline">
+          <p class="li-s" data-i18n="checkout.minibar.from_hk" data-i18n-args='{"time":"14:40","who":"Ngọc – buồng phòng"}'>Buồng phòng đã kiểm lúc 14:40 (Ngọc – buồng phòng)</p>
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th data-i18n="co.item">Món</th><th class="c" data-i18n="co.std">Chuẩn</th><th class="c" data-i18n="checkout.minibar.left">Còn lại</th><th class="c" data-i18n="checkout.minibar.used">Đã dùng</th><th class="r" data-i18n="co.amount">Tiền</th></tr></thead>
+            <tbody>
+              <tr><td>Coca-Cola 330 ml · 25.000</td><td class="c">2</td><td class="c"><div class="stepper" data-min="0" data-max="2" role="group" aria-label="Coca-Cola – còn lại"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">1</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></td><td class="c">1</td><td class="r">25.000</td></tr>
+              <tr><td>Bia Đà Lạt · 35.000</td><td class="c">2</td><td class="c"><div class="stepper" data-min="0" data-max="2" role="group" aria-label="Bia – còn lại"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">2</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></td><td class="c">0</td><td class="r">0</td></tr>
+              <tr><td>Snack khoai tây · 30.000</td><td class="c">1</td><td class="c"><div class="stepper" data-min="0" data-max="1" role="group" aria-label="Snack – còn lại"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">1</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></td><td class="c">0</td><td class="r">0</td></tr>
+              <tr><td>Nước suối 500 ml · <span data-i18n="checkout.minibar.free">Miễn phí</span></td><td class="c">2</td><td class="c"><div class="stepper" data-min="0" data-max="2" role="group" aria-label="Nước suối – còn lại"><button type="button" data-d="-1" aria-label="Giảm">−</button><output aria-live="polite">0</output><button type="button" data-d="1" aria-label="Tăng">+</button></div></td><td class="c">2</td><td class="r" data-i18n="checkout.minibar.free">Miễn phí</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="4" data-i18n="co.minibar_total">Tổng minibar</td><td class="r">25.000</td></tr></tfoot>
+          </table></div>
+        </div>
+        <div data-show="loading" aria-busy="true"><div class="sk" style="height:36px;margin-bottom:6px"></div><div class="sk" style="height:44px;margin-bottom:6px"></div><div class="sk" style="height:44px;margin-bottom:6px"></div><div class="sk" style="height:44px"></div></div>
+        <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="checkout.minibar.empty">Căn này không có minibar tính tiền.</h3><p data-i18n="co.minibar_skip">Bỏ qua bước này – sang Phụ phí.</p></div>
+        <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="co.error_title">Chưa tải được dữ liệu trả phòng</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JC-9XW3"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JC-9XW3.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+      </div>
+      <div class="wiz-foot" data-show="normal loading empty error"><button class="btn ghost" data-i18n="checkout.minibar.all_full">Không dùng gì – tủ đủ</button><a class="btn pri" href="#s162" data-i18n="co.go_extras">Tiếp tục: Phụ phí</a></div>
+      <div class="wiz-foot" data-show="offline"><span class="li-s" data-i18n="ci.offline_short">Chờ có mạng để tiếp tục.</span><button class="btn pri" aria-disabled="true" data-i18n="rsv.need_online">Cần có mạng để thao tác</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 16.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-035</span> AC1 đã dùng = chuẩn − còn lại, tiền = đã dùng × giá; AC2 món miễn phí ghi "Miễn phí"; AC3 còn lại &gt; chuẩn hoặc âm → chặn (stepper giới hạn 0…chuẩn).</li><li>BR-426: trả phòng 3 bước; buồng phòng kiểm trước để khách không chờ quá 5 phút.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getCheckoutSummary</span> · <span class="op">recordMinibarCheck</span> {<code>mode:"checkout"</code>, <code>lines[{itemId, remainingQty}]</code>} → dòng folio + việc bổ sung minibar</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">VALIDATION_FAILED</span> (mã trường <code>MINIBAR_QTY_OVER_STANDARD</code> → "Không quá {max} (mức chuẩn của tủ)") · <span class="pc">FOLIO_LOCKED</span> · <span class="pc">VERSION_CONFLICT</span></li></ul>
+      <h3>Ghi chú dữ liệu</h3><ul><li>Giá Coca 25.000, giá phòng 820.000/đêm và "Agoda trả tại chỗ" là giả định để khớp ví dụ US-037 AC1 (index mục 4).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s162">
+  <h2 id="s162"><span class="no">16.2</span>Bước 2 – Phụ phí: giờ trả mặc định = giờ đã hẹn, phụ thu theo bậc, miễn đã duyệt</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:520px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước trả phòng"><li class="done" data-i18n="checkout.step.minibar">Minibar</li><li aria-current="step" data-i18n="checkout.step.extras">Phụ phí</li><li data-i18n="checkout.step.bill">Bill & thu tiền</li></ol>
+        <div class="cols-2">
+          <div>
+            <div class="field"><label for="co-t" data-i18n="checkout.departure_time">Giờ trả phòng thực tế</label><input class="input num" id="co-t" value="15:00" style="max-width:120px"><span class="help" data-i18n="co.time_from_late" data-i18n-args='{"time":"15:00"}'>Theo giờ trả muộn đã hẹn 15:00.</span></div>
+            <p><b data-i18n="checkout.late_fee" data-i18n-args='{"amount":"212.000","pct":"30"}'>Phụ thu trả muộn: 212.000 (30% giá đêm cuối)</b></p>
+            <div class="alert ok" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt"><span data-i18n="co.foc_approved" data-i18n-args='{"amount":"212.000","reason":"Khách quen","who":"Hoàng Anh – lễ tân trưởng","time":"14:52"}'>Miễn 212.000 · Khách quen · đã duyệt bởi Hoàng Anh – lễ tân trưởng lúc 14:52</span></div></div>
+            <h3 class="label-h" style="margin:12px 0 6px" data-i18n="co.extras_title">Phát sinh khác</h3>
+            <div class="row"><button class="btn sm" data-i18n="checkout.extras.laundry">Giặt ủi</button><button class="btn sm" data-i18n="checkout.extras.food">Đồ ăn gọi thêm</button><button class="btn sm" data-i18n="checkout.extras.damage">Hư hỏng, mất đồ</button><button class="btn sm" data-i18n="checkout.extras.smoking">Khử mùi thuốc lá</button><button class="btn sm" data-i18n="checkout.extras.card">Thiếu thẻ phòng</button></div>
+          </div>
+          <div class="card">
+            <table class="sum">
+              <tr><td data-i18n="drawer.folio.room" data-i18n-args='{"n":"3"}'>Tiền phòng (3 đêm)</td><td class="r">2.460.000</td></tr>
+              <tr><td data-i18n="guest.bill.line.minibar">Minibar</td><td class="r">25.000</td></tr>
+              <tr><td data-i18n="co.line_late" data-i18n-args='{"time":"15:00"}'>Phụ thu trả muộn (15:00)</td><td class="r">212.000</td></tr>
+              <tr><td data-i18n="bill.foc_line" data-i18n-args='{"reason":"Khách quen"}'>Miễn phí · Khách quen</td><td class="r">−212.000</td></tr>
+              <tr class="sub"><td data-i18n="drawer.folio.paid">Đã thu</td><td class="r">0</td></tr>
+              <tr class="total"><td data-i18n="checkout.summary.balance">Còn phải thu</td><td class="r">2.485.000 đ</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="wiz-foot"><a class="btn ghost" href="#s161" data-i18n="common.back">Quay lại</a><a class="btn pri" href="#s163" data-i18n="co.go_bill">Tiếp tục: Bill & thu tiền</a></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 16.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-036</span> AC1 có hẹn trả muộn → giờ mặc định = giờ hẹn + phụ thu BR-412; không hẹn → 12:00, phụ thu 0 (BR-414); AC2 thêm giặt ủi → "Còn phải thu" cập nhật ngay; AC3 OTA thu hộ → chỉ còn phát sinh.</li><li><span class="us">US-007</span> AC2 dòng phát sinh + dòng FOC âm cùng giá trị, lý do, tên người duyệt thật (BR-434).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getCheckoutSummary</span> → <code>checkoutTime</code>, <code>lateCheckoutSurcharge</code>, <code>lines[]</code>, <code>totalVnd</code>, <code>paidVnd</code>, <code>balanceDueVnd</code>, <code>pendingApprovals</code>, <code>blockers[]</code></li><li><span class="op">getChargeCatalog</span> · <span class="op">addFolioLine</span> · <span class="op">requestFoc</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FOLIO_LOCKED</span> · <span class="pc">VALIDATION_FAILED</span> (phí phạt thiếu bằng chứng)</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Miễn đang chờ duyệt – chặn hoàn tất</span><div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><div class="txt"><span data-i18n="co.foc_pending" data-i18n-args='{"amount":"212.000"}'>Miễn 212.000 đang chờ duyệt. Chưa hoàn tất trả phòng được cho tới khi có kết quả – hoặc rút yêu cầu và thu đủ.</span><div class="act"><a class="btn sm" href="17-approvals-moneylog.html#s172" data-i18n="co.see_approval">Xem yêu cầu</a></div></div></div></div>
+    <div class="variant"><span class="label-h">Không hẹn trả muộn</span><p data-i18n="checkout.late_none">Trả đúng giờ – không phụ thu</p><p class="li-s" data-i18n="co.late_switch_hint">Khách trả sau 12:00 mà chưa hẹn: dùng "Trả muộn" ở drawer đơn để tính và báo khách trước.</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s163">
+  <h2 id="s163"><span class="no">16.3</span>Bước 3 – Bill &amp; thu tiền: VietQR đúng số tiền, ghi nhận "chờ đối soát", hóa đơn công ty</h2>
+  <p class="lead">VietQR mã hóa đúng số tiền và nội dung = mã đơn không dấu cách. Lễ tân ghi nhận khi khách đưa ảnh giao dịch; giao dịch mang cờ "Chờ đối soát" cho tới khi quản lý khớp sao kê – vẫn hoàn tất trả phòng được.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:720px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước trả phòng"><li class="done" data-i18n="checkout.step.minibar">Minibar</li><li class="done" data-i18n="checkout.step.extras">Phụ phí</li><li aria-current="step" data-i18n="checkout.step.bill">Bill & thu tiền</li></ol>
+        <div class="cols-2">
+          <div>
+            <div class="field"><span class="lbl" id="pm-l" data-i18n="pay.method">Cách thanh toán</span><div class="seg" role="group" aria-labelledby="pm-l" data-seg-scope><button aria-pressed="true" data-show-only="qr" data-i18n="pay.vietqr">Chuyển khoản VietQR</button><button aria-pressed="false" data-show-only="cash" data-i18n="pay.cash">Tiền mặt</button><button aria-pressed="false" data-show-only="bank" data-i18n="pay.bank_transfer">Chuyển khoản</button><button aria-pressed="false" data-show-only="pos" data-i18n="pay.card">Thẻ (máy POS tại quầy)</button></div></div>
+            <div data-seg-pane="qr">
+              <div class="row" style="align-items:flex-start;gap:16px"><div class="qr" role="img" aria-label="VietQR 2.485.000 đồng, nội dung OTM0139"></div><div><div class="price-big">2.485.000 đ</div><div class="li-s" data-i18n="pay.qr_note" data-i18n-args='{"ref":"OTM0139"}'>Nội dung chuyển khoản: OTM0139</div><div class="li-s" data-i18n="co.qr_account">Tài khoản thử (R2) – Techcombank</div><button class="btn sm" style="margin-top:6px"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="rsv.copy_qr">Sao chép thông tin chuyển khoản</span></button></div></div>
+              <p class="li-s" style="margin-top:8px" data-i18n="pay.qr_waiting">Chờ khách chuyển khoản… Kiểm tra app ngân hàng của OTTIMO rồi bấm xác nhận.</p>
+              <div class="field"><label for="pm-ref" data-i18n="co.txn_ref">Mã giao dịch / ghi chú (không ghi số thẻ)</label><input class="input" id="pm-ref" value="FT2628811902"></div>
+              <button class="btn pri" data-i18n="pay.record" data-i18n-args='{"amount":"2.485.000"}'>Ghi nhận đã thu 2.485.000</button>
+            </div>
+            <div data-seg-pane="cash" hidden><div class="field"><label for="pm-cash" data-i18n="co.cash_received">Tiền khách đưa</label><div class="input-affix"><input class="input num" id="pm-cash" value="2.500.000"><span class="affix">đ</span></div></div><p data-i18n="co.change_due" data-i18n-args='{"amount":"15.000"}'>Thối lại 15.000 đ</p></div>
+            <div data-seg-pane="pos" hidden><div class="field"><label for="pm-pos" data-i18n="co.pos_code">Mã chuẩn chi trên phiếu POS</label><input class="input mono" id="pm-pos" maxlength="12"></div><p class="li-s" data-i18n="co.pos_no_card">Không nhập số thẻ – chỉ mã chuẩn chi in trên phiếu máy POS.</p></div>
+            <div data-seg-pane="bank" hidden><p class="li-s" data-i18n="rsv.reconcile_note">Chuyển khoản ghi tay được đánh dấu "chờ đối soát" cho tới khi kế toán khớp sao kê.</p></div>
+            <button class="btn ghost sm" style="margin-top:8px" data-i18n="pay.split">+ Thêm cách thanh toán khác</button>
+            <hr class="hr">
+            <button class="switch" role="switch" aria-checked="false" data-reveal="#inv-box"><i aria-hidden="true"></i><span data-i18n="co.invoice_toggle">Khách lấy hóa đơn công ty</span></button>
+            <div id="inv-box" hidden style="margin-top:10px"><div class="g-2"><div class="field span-2"><label for="iv-n" data-i18n="co.company_name">Tên công ty</label><input class="input" id="iv-n"></div><div class="field invalid"><label for="iv-t" data-i18n="co.tax_code">Mã số thuế</label><input class="input mono" id="iv-t" value="03123" aria-describedby="iv-t-e"><div class="err" id="iv-t-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="co.tax_code_err">Mã số thuế gồm 10 hoặc 13 chữ số (có thể có dấu gạch ngang).</span></div></div><div class="field"><label for="iv-e" data-i18n="co.invoice_email">Email nhận hóa đơn</label><input class="input" id="iv-e" type="email"></div></div><p class="li-s" data-i18n="co.invoice_r3">Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất.</p></div>
+          </div>
+          <div>
+            <div class="card">
+              <table class="sum">
+                <tr><td data-i18n="bill.total">Tổng cộng</td><td class="r">2.485.000</td></tr>
+                <tr><td><span data-i18n="pay.vietqr">Chuyển khoản VietQR</span> · 14:58 · Hạnh <span class="chip recon"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="pay.pending_reconcile">Chờ đối soát</span></span></td><td class="r">−2.485.000</td></tr>
+                <tr class="total"><td data-i18n="bill.balance">Còn phải thu</td><td class="r">0 đ</td></tr>
+              </table>
+              <p class="li-s" style="margin-top:6px" data-i18n="co.recon_explain">"Chờ đối soát" vẫn tính là đã thu. Nếu quản lý không thấy tiền về, folio trở lại còn phải thu và quản lý được báo.</p>
+              <div class="row" style="margin-top:8px"><a class="btn sm" href="#s165"><svg class="ico" aria-hidden="true"><use href="#i-printer"/></svg><span data-i18n="co.preview_bill">Xem Phiếu thanh toán</span></a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wiz-foot"><a class="btn ghost" href="#s162" data-i18n="common.back">Quay lại</a><button class="btn pri" data-open="#dlg-complete" data-i18n="checkout.complete">Hoàn tất trả phòng</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 16.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-120</span> AC1 QR đúng số tiền, nội dung = mã đơn/bill không dấu cách; AC2 chưa cấu hình tài khoản → không hiện QR giả.</li><li><span class="us">US-119</span> AC1 nhiều giao dịch <code>succeeded</code>; AC3 sai → chỉ MGR/OWN đảo; AC6 chuyển khoản tự ghi → cờ "chờ đối soát". <span class="us">US-037</span> AC3 "Đã thu" = tổng giao dịch <code>succeeded</code>.</li><li><span class="us">US-039</span> AC1 MST sai dạng → báo tại ô; AC2 lưu đủ → gắn bill + hồ sơ khách.</li></ul>
+      <h3>API</h3><ul><li><span class="op">createVietQr</span> {<code>amountVnd</code>, <code>purpose:"balance"</code>} → giao dịch <code>pending</code> + chuỗi QR</li><li><span class="op">recordPayment</span> {<code>type:"charge"</code>, <code>method</code>: <code>vietqr</code>|<code>bank_transfer</code>|<code>cash</code>, <code>amountVnd</code>, <code>note</code>} → <code>reconciliation:"pending"</code> với chuyển khoản tự ghi</li><li><span class="op">setInvoiceRequest</span> · <span class="op">getBill</span></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">PAYMENT_NOT_CONFIGURED</span> · <span class="pc">CARD_NUMBER_DETECTED</span> (ô ghi chú) · <span class="pc">VALIDATION_FAILED</span> (<code>TAX_CODE_INVALID</code>) · <span class="pc">IDEMPOTENCY_IN_PROGRESS</span> (bấm 2 lần) · <span class="pc">FOLIO_LOCKED</span></li></ul>
+      <h3>Hành vi</h3><ul><li>Không có ô nhập số thẻ ở bất kỳ đâu. Nút ghi nhận dùng <code>Idempotency-Key</code> – bấm lại không ghi 2 lần.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Chưa cấu hình tài khoản nhận – lễ tân</span><div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.PAYMENT_NOT_CONFIGURED">Chưa cài tài khoản nhận chuyển khoản nên chưa tạo được VietQR. Chọn cách thanh toán khác và báo chủ đầu tư cài đặt.</div></div></div>
+    <div class="variant"><span class="label-h">Chưa thấy tiền về</span><div class="alert warn" role="status"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="pay.error_not_received">Chưa thấy tiền về? Đừng hoàn tất. Hỏi khách ảnh chụp giao dịch, hoặc chọn cách khác.</div></div></div>
+    <div class="variant"><span class="label-h">Trả một phần</span><p data-i18n="pay.remaining" data-i18n-args='{"amount":"485.000"}'>Còn thiếu 485.000</p><p class="li-s" data-i18n="co.partial_hint">Ghi nhận phần đã nhận, rồi chọn cách thanh toán khác cho phần còn lại.</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s164">
+  <h2 id="s164"><span class="no">16.4</span>Hoàn tất trả phòng – hộp xác nhận nêu hậu quả; bị chặn khi còn nợ hoặc còn yêu cầu duyệt</h2>
+  <div class="doc-row">
+    <div class="variants" style="flex:1 1 640px;margin-top:0">
+      <div class="variant"><span class="label-h">Hộp xác nhận (US-135)</span>
+        <div class="modal" role="alertdialog" aria-labelledby="cp-h" aria-describedby="cp-b" style="box-shadow:none;border:1px solid var(--line)">
+          <div class="modal-h"><h2 id="cp-h" data-i18n="checkout.complete_confirm_title" data-i18n-args='{"room":"201"}'>Hoàn tất trả phòng căn 201?</h2></div>
+          <div class="modal-b"><ul class="consequence" id="cp-b"><li data-i18n="co.effect_status">Đơn chuyển "Đã trả phòng", buồng chuyển "Trống, cần dọn"; có việc dọn và bổ sung minibar.</li><li data-i18n="co.effect_bill">Server cấp số Phiếu thanh toán; sau bước này không sửa folio (chỉ quản lý ghi điều chỉnh).</li><li data-i18n="co.effect_door" data-i18n-args='{"room":"201"}'>Tạo việc "Xóa mã trên app khóa" cho căn 201 (R2 nhập tay).</li></ul><p class="li-s" data-i18n="co.effect_kit_note">Đơn có khách ngủ sofa: thêm việc thu hồi bộ đồ dùng thêm.</p></div>
+          <div class="modal-f"><button class="btn" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn pri" data-i18n="co.complete_paid" data-i18n-args='{"amount":"2.485.000"}'>Đã thu 2.485.000 – hoàn tất</button></div>
+        </div></div>
+      <div class="variant"><span class="label-h">Còn nợ – lễ tân bị chặn (BALANCE_DUE)</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.BALANCE_DUE" data-i18n-args='{"amount":"485.000"}'>Còn 485.000 chưa ghi nhận thanh toán. Ghi nhận đủ trước khi hoàn tất (hoặc quản lý ghi công nợ).</div></div>
+        <p class="li-s" data-i18n="co.debt_mgr">Quản lý/chủ đầu tư thấy thêm "Ghi công nợ" – bắt buộc hạn thanh toán và lý do.</p></div>
+      <div class="variant"><span class="label-h">Chưa kiểm minibar</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="co.minibar_not_checked">Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất.</div></div></div>
+      <div class="variant"><span class="label-h">Còn yêu cầu duyệt (PENDING_APPROVALS)</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><div class="txt" data-i18n="error.PENDING_APPROVALS" data-i18n-args='{"n":"1"}'>Còn 1 yêu cầu miễn phí/giảm giá đang chờ duyệt. Chờ duyệt xong hoặc rút yêu cầu rồi hoàn tất.</div></div></div>
+      <div class="variant"><span class="label-h">Đã trả phòng</span><div class="alert ok" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt"><b data-i18n="checkout.done">Đã trả phòng. Bill đã lưu.</b><span data-i18n="co.done_tasks" data-i18n-args='{"bill":"F26-000123"}'>Phiếu F26-000123. Đã tạo việc: dọn căn, bổ sung minibar, xóa mã trên app khóa.</span><div class="act"><a class="btn sm" href="#s165" data-i18n="co.print">In phiếu</a><button class="btn sm" data-i18n="checkout.send_bill">Gửi bill cho khách</button></div></div></div></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 16.4">
+      <h3>Story / AC</h3><ul><li><span class="us">US-038</span> AC1 → <code>checked_out</code>, folio <code>settled</code> + số bill server cấp, buồng <code>VD</code>, việc dọn + minibar; khách NN → khai báo <code>needs_update</code>; AC2 folio settled chỉ MGR/OWN điều chỉnh; AC3 còn nợ → chặn, chỉ MGR/OWN ghi công nợ; AC4 còn FOC chờ → chặn.</li><li>R2: mã cửa không nằm trong OTTIMO → hậu quả ghi "việc xóa mã trên app khóa" thay vì "mã cửa bị hủy" (chuỗi cũ <code>checkout.complete_confirm_body</code> giữ cho R3).</li></ul>
+      <h3>API</h3><ul><li><span class="op">checkOut</span> {<code>checkoutTime</code>, <code>applyLateSurcharge</code>, <code>finalPayment</code>?, <code>debt</code>? (MGR/OWN)} + <code>Idempotency-Key</code> + <code>If-Match</code></li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">BALANCE_DUE</span> · <span class="pc">PENDING_APPROVALS</span> · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">IDEMPOTENCY_IN_PROGRESS</span></li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s165">
+  <h2 id="s165"><span class="no">16.5</span>Phiếu thanh toán (in A5) – tiếng Việt hoặc song ngữ Việt – Anh có quy đổi USD tham khảo</h2>
+  <p class="lead">Song ngữ khi khách nước ngoài (theo giấy tờ) hoặc hồ sơ có ngôn ngữ khác tiếng Việt. Nút "In" dùng bản in của trình duyệt; khung thiết kế này ẩn khi in.</p>
+  <div class="doc-row" data-seg-scope>
+    <div style="flex:0 1 600px">
+      <div class="seg" role="group" aria-label="Ngôn ngữ phiếu" style="margin-bottom:10px"><button aria-pressed="false" data-show-only="vi" data-i18n="co.bill_vi">Tiếng Việt</button><button aria-pressed="true" data-show-only="vien" data-i18n="co.bill_vien">Việt – Anh</button></div>
+      <div class="bill-paper" data-seg-pane="vien">
+        <div class="hdr"><div><b>OTTIMO Boutique Stay – Đà Lạt</b><div class="li-s">Công ty Cổ phần UTMG Living · MST ••••••••••</div></div><div style="text-align:right"><b><span data-i18n="bill.no">Số phiếu</span> F26-000123</b><div class="li-s">15/10/2026 15:04</div></div></div>
+        <h2><span data-i18n="bill.title">Phiếu thanh toán</span><span class="en">Folio</span></h2>
+        <p style="margin:8px 0">Phạm Huy · <span data-i18n="booking.field.room">Căn</span> / Room 201 · 12/10 → 15/10/2026 · OTM-0139</p>
+        <table>
+          <thead><tr><th>Nội dung / Description</th><th class="r">Số tiền / Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Tiền phòng đêm 12/10 <span class="en">Room night 12 Oct</span></td><td class="r">820.000</td></tr>
+            <tr><td>Tiền phòng đêm 13/10 <span class="en">Room night 13 Oct</span></td><td class="r">820.000</td></tr>
+            <tr><td>Tiền phòng đêm 14/10 <span class="en">Room night 14 Oct</span></td><td class="r">820.000</td></tr>
+            <tr><td>Minibar – Coca-Cola × 1 <span class="en">Minibar – Coca-Cola × 1</span></td><td class="r">25.000</td></tr>
+            <tr><td>Phụ thu trả muộn (15:00) <span class="en">Late check-out fee (15:00)</span></td><td class="r">212.000</td></tr>
+            <tr><td>Miễn phí · Khách quen <span class="en">Complimentary · Returning guest</span></td><td class="r">−212.000</td></tr>
+            <tr class="total"><td>Tổng cộng <span class="en">Total</span></td><td class="r">2.485.000</td></tr>
+            <tr><td>Đã thu – VietQR 15/10 14:58 <span class="en">Paid – VietQR</span></td><td class="r">−2.485.000</td></tr>
+            <tr class="total"><td>Còn phải thu <span class="en">Balance due</span></td><td class="r">0</td></tr>
+          </tbody>
+        </table>
+        <div class="foot"><p data-i18n="common.approx_usd" data-i18n-args='{"usd":"94,49","rate":"26.300","date":"15/10/2026"}'>≈ 94,49 USD (tỷ giá 26.300, cập nhật 15/10/2026)</p><p>Giá đã gồm thuế GTGT · Prices include VAT. <b data-i18n="bill.paid_stamp">ĐÃ THU ĐỦ</b></p></div>
+      </div>
+      <div class="bill-paper" data-seg-pane="vi" hidden>
+        <div class="hdr"><div><b>OTTIMO Boutique Stay – Đà Lạt</b></div><div style="text-align:right"><b><span data-i18n="bill.no">Số phiếu</span> F26-000123</b></div></div>
+        <h2 data-i18n="bill.title">Phiếu thanh toán</h2>
+        <table><tbody><tr><td data-i18n="bill.night_line" data-i18n-args='{"date":"12/10"}'>Tiền phòng đêm 12/10</td><td class="r">820.000</td></tr><tr><td data-i18n="bill.night_line" data-i18n-args='{"date":"13/10"}'>Tiền phòng đêm 13/10</td><td class="r">820.000</td></tr><tr><td data-i18n="bill.night_line" data-i18n-args='{"date":"14/10"}'>Tiền phòng đêm 14/10</td><td class="r">820.000</td></tr><tr class="total"><td data-i18n="bill.total">Tổng cộng</td><td class="r">2.485.000</td></tr></tbody></table>
+        <p class="foot" data-i18n="bill.vat_note">Giá đã gồm thuế GTGT</p>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="window.print()"><svg class="ico" aria-hidden="true"><use href="#i-printer"/></svg><span data-i18n="co.print">In phiếu</span></button><button class="btn" data-i18n="checkout.send_bill">Gửi bill cho khách</button></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 16.5">
+      <h3>Story / AC</h3><ul><li><span class="us">US-037</span> AC1 3 dòng tiền phòng, 1 minibar, 1 phụ thu, 1 FOC âm cùng giá trị, tổng 2.485.000; AC2 song ngữ + USD tham khảo theo tỷ giá cấu hình kèm ngày (BR-004); AC3 "Đã thu" = tổng giao dịch <code>succeeded</code>.</li><li>Số phiếu <code>BillNo</code> dạng <code>F26-000123</code> do server cấp lúc hoàn tất (BR-007).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getBill</span> → <code>locale</code> (<code>vi</code>|<code>vi_en</code>), <code>lines[]</code>, <code>usdReference</code> {<code>rate</code>, <code>totalUsd</code>, <code>rateUpdatedOn</code>}, <code>vietqrTransferContent</code></li></ul>
+      <h3>Ghi chú</h3><ul><li>Tỷ giá 26.300 là ví dụ – tham số <code>fx_usd_vnd</code>. Dòng in bằng tiếng Anh lấy từ server (mô tả dòng theo <code>locale</code>), không ghép chữ ở client.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s166">
+  <h2 id="s166"><span class="no">16.6</span>Đối soát chuyển khoản ghi tay (quản lý, chủ đầu tư)</h2>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:360px"><div class="page">
+      <div class="row" style="margin-bottom:10px"><h2 class="grow" data-i18n="co.recon_title">Chờ đối soát</h2><label class="search" style="width:auto"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span class="sr-only" data-i18n="co.recon_date">Ngày ghi</span><input value="13/10 – 15/10" aria-label="Ngày ghi"></label><select class="input" style="width:auto" aria-label="Người ghi"><option data-i18n="co.recon_all_staff">Mọi người ghi</option><option>Hạnh</option></select></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th data-i18n="co.recon_time">Ghi lúc</th><th data-i18n="co.recon_booking">Đơn</th><th data-i18n="co.recon_method">Cách</th><th class="r" data-i18n="co.amount">Tiền</th><th data-i18n="co.recon_by">Người ghi</th><th data-i18n="co.txn_ref_short">Mã giao dịch</th><th><span class="sr-only" data-i18n="reg2.col_action">Thao tác</span></th></tr></thead>
+        <tbody>
+          <tr><td>15/10 14:58</td><td>OTM-0139 · 201</td><td data-i18n="pay.vietqr">Chuyển khoản VietQR</td><td class="r">2.485.000</td><td>Hạnh</td><td class="mono">FT2628811902</td><td><div class="row"><button class="btn sm" data-i18n="co.recon_ok">Đã khớp sao kê</button><button class="btn sm ghost" data-i18n="co.recon_missing">Không thấy tiền</button></div></td></tr>
+          <tr><td>13/10 16:20</td><td>OTM-0151 · 202</td><td data-i18n="pay.bank_transfer">Chuyển khoản</td><td class="r">1.000.000</td><td>Hạnh</td><td class="mono">—</td><td><div class="row"><span class="chip bad" data-i18n="co.recon_overdue" data-i18n-args='{"days":"2"}'>Quá 2 ngày</span><button class="btn sm" data-i18n="co.recon_ok">Đã khớp sao kê</button></div></td></tr>
+        </tbody>
+      </table></div>
+      <p class="li-s" style="margin-top:8px" data-i18n="co.recon_missing_effect">"Không thấy tiền": giao dịch đánh dấu tranh chấp, folio trở lại còn phải thu, quản lý được báo.</p>
+    </div></div></div>
+    <aside class="spec" aria-label="Đặc tả 16.6">
+      <h3>Story / AC</h3><ul><li><span class="us">US-119</span> AC6 cờ "chờ đối soát" tới khi MGR/OWN tick khớp sao kê; danh sách lọc theo ngày và người ghi. BR-527: quá <code>bank_reconcile_alert_days</code> (2 ngày) → "Cần chú ý"; không thấy tiền → folio còn phải thu, báo quản lý.</li><li>Màn đóng ca đầy đủ ở US-124 (R3).</li></ul>
+      <h3>API</h3><ul><li><span class="op">reconcilePayment</span> {<code>result</code>: <code>reconciled</code>|<code>disputed</code>, <code>note</code>} + <code>If-Match</code> · danh sách: <span class="op">getFolio</span>/<code>payments[].reconciliation</code> – <b>chưa có operation liệt kê giao dịch chờ đối soát toàn cơ sở</b> (gửi ARC, báo cáo mục 4)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> (FD/FDL) · <span class="pc">SELF_RECONCILE_FORBIDDEN</span> (đề nghị BA E05-03 – người ghi tự đối soát; trừ owner) → "Giao dịch do bạn ghi cần người khác đối soát." · <span class="pc">INVALID_TRANSITION</span> (đã đối soát) · <span class="pc">VERSION_CONFLICT</span></li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-complete" aria-labelledby="dcp-h"><div class="modal" role="alertdialog" aria-labelledby="dcp-h" aria-describedby="dcp-b">
+  <div class="modal-h"><h2 id="dcp-h" data-i18n="checkout.complete_confirm_title" data-i18n-args='{"room":"201"}'>Hoàn tất trả phòng căn 201?</h2></div>
+  <div class="modal-b"><ul class="consequence" id="dcp-b"><li data-i18n="co.effect_status">Đơn chuyển "Đã trả phòng", buồng chuyển "Trống, cần dọn"; có việc dọn và bổ sung minibar.</li><li data-i18n="co.effect_bill">Server cấp số Phiếu thanh toán; sau bước này không sửa folio (chỉ quản lý ghi điều chỉnh).</li><li data-i18n="co.effect_door" data-i18n-args='{"room":"201"}'>Tạo việc "Xóa mã trên app khóa" cho căn 201 (R2 nhập tay).</li></ul></div>
+  <div class="modal-f"><button class="btn" data-close="" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn pri" data-close="force" data-i18n="co.complete_paid" data-i18n-args='{"amount":"2.485.000"}'>Đã thu 2.485.000 – hoàn tất</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# Design System OTTIMO – v0.3
+# Design System OTTIMO – v0.3.2
 
 - Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2; cập nhật Bước 4 (phản hồi review) | Ngày: 15–16/10/2026
 - Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
@@ -267,6 +267,7 @@ Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), 
 - Thiếu dữ liệu → `unknown` "Chưa kiểm được – cần kiểm tay" (viền đứt, icon ?), người dùng đánh dấu sau khi xem giấy tờ gốc; ghi tên người kiểm.
 - `fail` **không chặn** nhận phòng (SEC R-REG-03, state-machines K5) nhưng bắt buộc ô "Cách xử lý" cho từng mục `fail`/`unknown` trước khi sang bước khai báo; người ghi = mọi vai `front_desk` trở lên, lưu tên + thời điểm (`warningNotes`). *(Đợt 4 – thay "chỉ quản lý ghi ngoại lệ".)* **[GIẢ ĐỊNH – chờ ESC-001]**; biến thể nếu luật sư/INV chọn "phải duyệt": nút "Tiếp tục" → "Gửi lễ tân trưởng duyệt" (FB-R1-PO-UXD-06).
 - **Ngoại lệ chặn (Bước 4 – BR-613 c, DOM v0.2):** hộ chiếu/thị thực khách NN **đã hết hạn tại ngày nhận phòng** → `fail` có cờ chặn: icon ổ khóa, chip "Không đạt – chặn giao mã", bước Giao mã khóa ô mã cửa và nút Hoàn tất nêu lý do. Hết hạn trong thời gian ở → vẫn chỉ cảnh báo.
+- **R2 (BA EP03-05 1.3, giả định G-1 – v0.3.2):** chưa có mã cửa trong app nên cờ chặn BR-613 (c) khóa **nút Nhận phòng** (chip "Không đạt – chưa nhận phòng được", điều kiện `checkin.cond.document_ok`); FD thấy "Gửi lễ tân trưởng xác nhận", FDL+ xác nhận nhận tiếp có lý do + cách xử lý. Nhãn kết quả hệ thống: `checkin.verify.result.pass/fail/unknown` = Đạt / Không đạt / Chưa kiểm được. R3 (US-128) quay về chặn cấp mã. Minh họa `hifi/13-check-in.html` 13.3, 13.5.
 
 ### 6.5 Nhắc việc bền vững thay toast (HR-09)
 Nhắc pháp lý/tiền (khai báo còn thiếu, kỳ thu, căn quá giờ trả, đơn vừa về từ OTA) → **Task item** trên Tổng quan/"Hôm nay" + badge, ở lại tới khi xong; nhắc lại theo mốc giờ (BR-611, BR-425).
@@ -306,6 +307,16 @@ Mọi wireframe dùng **DS-0** của QA (`product/docs/qa/test-strategy.md` 4.2)
 
 ### 6.15 Đơn dài hạn nhập tay (R2 tạm – US-017 AC5a)
 - Thanh rack kiểu dài hạn + nhãn "Nhập tay"; chip "HĐ ngoài hệ thống – chuyển vào app ở R3" ở drawer và danh sách lọc. Không vẽ lịch kỳ thu, nhắc thu, hoa hồng; thu tiền ghi từng lần. Minh họa `hifi/10-long-stay-manual.html`.
+
+### 6.16 Nhận/trả phòng R2 – phụ thu chủ động, mã cửa ngoài app, "chờ đối soát" (Sprint 3)
+- Phụ thu nhận sớm / trả muộn: công tắc → ô giờ → câu kết quả `aria-live` (0 đ màu xanh; có tiền màu chữ thường) → tick "Tôi đã báo khách" mới lưu. Trả muộn: ân hạn đến **12:30 (gồm 12:30)** chỉ khi căn không có khách đến cùng ngày; mốc 15:00/18:00 không dời; sau 18:00 → Gia hạn; trước 06:00 → thêm đêm (tiền phòng, không phụ thu). Bản bấm thử: `hifi.js` `[data-sur]` (H13 13.5, H15 15.3) – chỉ minh họa, số thật lấy từ `previewCheckIn` / `setLateCheckout dryRun`.
+- Mã cửa R2 (P-R2-5, US-128 dời R3): OTTIMO không lưu mã. Bước "Giao mã & hoàn tất" là hướng dẫn tạo mã trên app TTLock với hiệu lực BR-403 + ô tick "Đã tạo mã và giao cho khách"; trả phòng / đổi phòng / hoàn tác sinh việc "Xóa mã trên app khóa". Không hiện "mã cửa bị hủy".
+- Thu tiền: chuyển khoản/VietQR lễ tân tự ghi mang chip viền đứt `.chip.recon` "Chờ đối soát" – vẫn tính là đã thu; quản lý đối soát ở H16 16.6. Không có ô số thẻ ở bất kỳ đâu (POS: chỉ mã chuẩn chi).
+- Duyệt FOC: không có ô chọn người duyệt; R2 xác nhận lại bằng **mật khẩu đăng nhập** (không dùng chữ "PIN" tới R3).
+
+### 6.17 guest-web mức 1 (R2 – SEC P-R2-4 ĐK-1…6)
+- Chỉ dữ liệu mức 1: tên (không họ tên đầy đủ), ngày/giờ, chỉ đường, nội quy, Wi-Fi từ ngày nhận. **Không** có tab Hóa đơn, màn OTP/mã xác minh, mã cửa. Các chuỗi `guest.verify.*`, `guest.door_code*`, `guest.late.*` (mã cửa), `guest.tab.bill`, `guest.bill.*` không dùng ở R2; mẫu 6.11 chỉ áp từ R3 – R2 thay bằng "Lễ tân giao mã cửa khi bạn đến / gọi người trực".
+- Check-in online: màn thông báo dữ liệu ("Tôi đã đọc") → 3 bước Giấy tờ · Giờ đến · Xác nhận. Mở lại link chỉ thấy "Đã có giấy tờ của n/m khách" – không hiện lại ảnh/số; không lưu ảnh trên máy khách (mất mạng → chụp lại). Đồng ý lưu ảnh: hai lựa chọn ngang hàng, không chọn sẵn, chỉ hỏi Khách 1; dòng "Muốn rút đồng ý… báo lễ tân". Minh họa `hifi/18-guest-checkin.html`.
 
 ## 7. Trạng thái màn hình (loading / rỗng / lỗi / mất mạng)
 
@@ -361,6 +372,7 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 ## 11. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.3.2 | 16/10/2026 | UXD | R2 Sprint 1 – hi-fi Sprint 3 (H13–H18): mẫu 6.16 (phụ thu chủ động + ân hạn 12:30, mã cửa ngoài app R2, "chờ đối soát", duyệt bằng mật khẩu), 6.17 guest-web mức 1; 6.4 bổ sung BR-613 c ở R2 = chặn nhận phòng (BA G-1); component `.conds`, `.chk3`, `.lock-box`, `.person`, `.bill-paper` (in A5), `.upload-slot`, `.choice`, `.chip.recon`, `.wiz-foot`; icon `printer`, `cash`, `scan`; 363 chuỗi VI/EN mới; sửa `guest.oci.done_body`, `pay.card`, `approval.pin_*`, `error.REAUTH_FAILED`, `checkout.complete_confirm_body`, bỏ `handover.foc_approver` (BA E05-07, E06-10). |
 | 0.3.1 | 16/10/2026 | UXD | R2 Đợt 0 – hi-fi EP00/EP02/EP10/EP11 (`hifi/`, 12 màn): component hi-fi `hifi.css` (chỉ dùng token), bảng 2.2 thêm 8 cặp chữ trên nền màu (0 cặp không đạt); mẫu 6.14 số khách định mức/tối đa + bộ đồ dùng thêm (ESC-014, sofa), 6.15 đơn dài hạn nhập tay; icon mới `monitor`, `sofa`, `sliders`, `chevron`, `filter`; 502 chuỗi VI/EN mới (RU ở R3; gồm mã lỗi OpenAPI 0.3.1); sửa `error.FILE_REJECTED` theo OpenAPI 0.3 (JPG/PNG/WebP ≤ 10 MB). |
 | 0.3 | 16/10/2026 | UXD | Bước 4 (phản hồi UXR, PO, QA): thêm token `--focus-on-dark`; `--line-strong` sáng #8C8578 → #857E71 (đạt 3:1 trên `--side`); bảng 2.2 thêm 12 cặp (focus trên mọi nền có điều khiển, line-strong trên side/surface-2, cột biểu đồ) – 0 cặp không đạt; nút khóa bỏ opacity; cỡ chữ/vùng chạm tối thiểu áp cho toast, seg, thanh dưới, chip, nhãn; VC một tên "Đã dọn – chờ kiểm" tông gỗ sồi; mẫu 6.11 đến muộn, 6.12 chữ tự do của nhân viên, 6.13 dữ liệu mẫu DS-0; wireframe L10 mới. |
 | 0.2 | 15/10/2026 | UXD | Đợt 4: khớp RBAC/máy trạng thái/ERD/API/SEC – thêm màu trạng thái làn "Chưa gán căn", dạng xem `unavailable`, SM-05 `void`, SM-10/11/15; C12 mở rộng; thêm C31 Code input, C32 Code display (32 component); 6.1 theo US-135 (+ không đến, thu hồi thiết bị); 6.4 "Không đạt" không chặn, bắt buộc ghi xử lý; 6.9 nút = `allowedActions`, C3 chỉ trên thiết bị được cấp; mục 7 lỗi theo `Problem.code` + `requestId` |

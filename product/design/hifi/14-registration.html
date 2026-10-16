@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H14 Giấy tờ và khai báo lưu trú – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H14</div>
+  <h1>H14 · Giấy tờ &amp; khai báo – danh sách theo hạn, đối chiếu xong, đồng ý lưu ảnh, khai báo bán tự động, xóa ảnh</h1>
+  <div class="doc-meta"><span>Sprint 3 · EP06</span><span>front_desk, front_desk_lead, manager, owner</span><span>Chỉ thiết bị được cấp (C3)</span><span>US-042, US-044, US-045, US-046, US-047, US-048, US-049, US-050, US-135; BR-602, 603, 604, 606, 609, 610, 611, 613</span><span>Wireframe gốc: L3 3.3, 3.6</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="13-check-in.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="15-stay.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s141">
+  <h2 id="s141"><span class="no">14.1</span>Danh sách cần khai báo – xếp theo hạn (T5 15/10, 10:42)</h2>
+  <p class="lead">Mặc định tab "Cần xử lý" (<code>view=action_needed</code>): quá hạn lên đầu, rồi hạn gần nhất. Hạn hiện bằng giờ tuyệt đối + thời gian còn lại; quá hạn có chữ "Đã quá hạn" và màu đỏ. Tab "Cần cập nhật ngày đi" đang trống – chuyển trạng thái "Rỗng" để xem trang trống của tab chính.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+          <div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+          <button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+          <div class="nav">
+            <div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+            <a href="03-today.html"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+            <a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a>
+            <a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+            <a href="14-registration.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span><span class="badge">3</span></a>
+          </div>
+          <div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+        </nav>
+        <div class="content">
+          <header class="topbar"><h1><span data-i18n="nav.registration">Giấy tờ & khai báo</span><span class="sub" data-i18n="shell.subtitle" data-i18n-args='{"property":"OTTIMO Đà Lạt","date":"Thứ Năm 15/10/2026"}'>OTTIMO Đà Lạt · Thứ Năm 15/10/2026</span></h1><button class="userchip" type="button"><span class="avatar" aria-hidden="true">H</span><span>Hạnh · <span data-i18n="role.front_desk">Lễ tân</span></span></button></header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="reg2.offline" data-i18n-args='{"time":"10:42"}'>Mất kết nối. Danh sách lúc 10:42 – chỉ xem hạn. Không mở được giấy tờ, không sao chép dữ liệu khai báo khi chưa có mạng.</span></div>
+          <div class="page">
+            <div class="tabs" role="tablist" aria-label="Lọc khai báo">
+              <button role="tab" id="t-need" aria-selected="true" aria-controls="p-need"><span data-i18n="reg2.tab_action">Cần xử lý</span> <span class="badge">3</span></button>
+              <button role="tab" id="t-upd" aria-selected="false" aria-controls="p-upd" tabindex="-1"><span data-i18n="reg2.tab_update">Cần cập nhật ngày đi</span> (0)</button>
+              <button role="tab" id="t-all" aria-selected="false" aria-controls="p-all" tabindex="-1" data-i18n="reg2.tab_all">Tất cả</button>
+            </div>
+            <div id="p-need" role="tabpanel" aria-labelledby="t-need">
+              <div class="table-wrap" data-show="normal offline"><table class="table">
+                <thead><tr><th data-i18n="booking.field.room">Căn</th><th data-i18n="reg2.col_guest">Khách</th><th data-i18n="reg2.col_kind">Loại</th><th data-i18n="reg2.col_people">Giấy tờ</th><th data-i18n="reg2.col_status">Trạng thái</th><th data-i18n="reg2.col_deadline">Hạn khai báo</th><th><span class="sr-only" data-i18n="reg2.col_action">Thao tác</span></th></tr></thead>
+                <tbody>
+                  <tr><td><b>402</b></td><td>Kim Seo-yeon<div class="li-s">OTM-0146 · Airbnb</div></td><td><span class="chip info" data-i18n="reg2.kind_foreign">Người nước ngoài</span></td><td class="num">2/2</td><td><span class="chip warn" data-i18n="status.reg.scanned">Đủ giấy tờ · chờ khai báo</span></td><td><span class="countdown bad"><svg class="ico sm" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="reg.deadline_overdue" data-i18n-args='{"duration":"1 giờ 12 phút"}'>Đã quá hạn 1 giờ 12 phút</span></span><div class="li-s" data-i18n="reg2.deadline_at" data-i18n-args='{"time":"09:30 15/10","rule":"nhận 21:30 14/10 + 12 giờ"}'>09:30 15/10 (nhận 21:30 14/10 + 12 giờ)</div></td><td><a class="btn sm pri" href="#s142" data-i18n="reg2.declare">Khai báo</a></td></tr>
+                  <tr><td><b>103</b></td><td>Anna Martin + 1<div class="li-s">OTM-0150 · Booking.com</div></td><td><span class="chip info" data-i18n="reg2.kind_foreign">Người nước ngoài</span></td><td class="num">2/2</td><td><span class="chip neutral" data-i18n="status.reg.pre">Khách đã gửi trước qua app</span></td><td><span data-i18n="reg2.at_checkin">Khi nhận phòng</span><div class="li-s" data-i18n="reg2.at_checkin_rule">giờ nhận + 12 giờ</div></td><td><a class="btn sm" href="#s142" data-i18n="today.open">Mở</a></td></tr>
+                  <tr><td><b>302</b></td><td>Gia đình anh Hưng<div class="li-s">OTM-0152 · Trực tiếp</div></td><td><span class="chip neutral" data-i18n="reg2.kind_citizen">Công dân VN</span></td><td class="num">0/4</td><td><span class="chip warn" data-i18n="status.reg.none">Chưa có giấy tờ</span></td><td><span data-i18n="reg2.before_23">Trước 23:00 hôm nay</span><div class="li-s" data-i18n="reg2.eta" data-i18n-args='{"time":"15:30"}'>dự kiến đến 15:30</div></td><td><a class="btn sm" href="13-check-in.html#s132" data-i18n="reg2.add_docs">Nhập giấy tờ</a></td></tr>
+                </tbody>
+              </table></div>
+              <div data-show="loading" aria-busy="true"><div class="sk" style="height:40px;margin-bottom:6px"></div><div class="sk" style="height:56px;margin-bottom:6px"></div><div class="sk" style="height:56px;margin-bottom:6px"></div><div class="sk" style="height:56px"></div></div>
+              <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="reg2.empty_title">Không còn hồ sơ cần khai báo</h3><p data-i18n="reg2.empty_body">Mọi khách đang ở đã được khai báo. Hồ sơ mới xuất hiện khi khách nhận phòng hoặc gửi giấy tờ qua app.</p></div>
+              <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="reg2.error_title">Chưa tải được danh sách khai báo</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JC-7RT2"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JC-7RT2.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+            </div>
+            <div id="p-upd" role="tabpanel" aria-labelledby="t-upd" hidden><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></div><h3 data-i18n="reg2.upd_empty_title">Không có ngày đi nào cần cập nhật</h3><p data-i18n="reg2.upd_empty_body">Khi khách nước ngoài gia hạn, trả sớm hoặc trả phòng, hồ sơ sẽ hiện ở đây để cập nhật ngày đi trên cổng trong ngày.</p></div></div>
+            <div id="p-all" role="tabpanel" aria-labelledby="t-all" hidden><p class="li-s" data-i18n="reg2.all_note">Tất cả hồ sơ trong 30 ngày, lọc theo trạng thái.</p></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 14.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-042</span> AC1 hạn theo BR-602 (VN) / BR-603 (NN – giờ nhận + 12 giờ); quá hạn trước <code>sent</code> → "Đã quá hạn" + màu + chữ; AC2 nhắc 22:00 và 07:00 (BR-611) qua "Cần chú ý"; AC3 đổi tham số → hạn tính lại (server).</li><li><span class="us">US-047</span> mọi đơn có bản ghi khai báo – kể cả đơn OTA, đơn dài hạn nhập tay; đơn con gia hạn không sinh bản ghi mới mà tạo việc cập nhật ngày đi.</li><li><span class="us">US-050</span> AC1 tab "Cần cập nhật ngày đi" (<code>needs_update</code>).</li></ul>
+      <h3>API</h3><ul><li><span class="op">listRegistrations</span>?<code>view=action_needed|needs_update|all</code> → <code>deadlineAt</code>, <code>deadlineLabel</code> (<code>at_checkin</code>, <code>before_deadline_today</code>, <code>overdue</code>, <code>done</code>, <code>needs_update</code>), <code>isOverdue</code>, <code>requiredCount/submittedCount</code></li><li>SSE <span class="op">streamEvents</span> <code>{type:"registration"}</code> → tải lại danh sách</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> (HK/SAL/CTV – không có mục menu) · 5xx + <code>requestId</code></li></ul>
+      <h3>Ghi chú</h3><ul><li>Danh sách không chứa trường C3 → xem được cả khi mất mạng (dữ liệu cũ); mọi thao tác mở giấy tờ cần mạng + thiết bị được cấp.</li><li>Ví dụ quá hạn: Kim Seo-yeon nhận 21:30 14/10 (giả định ngoài DS-0) → hạn 09:30 15/10 (BR-603).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s142">
+  <h2 id="s142"><span class="no">14.2</span>Chi tiết khai báo – đối chiếu xong, đồng ý lưu ảnh, sao chép lên cổng, ghi mã hồ sơ (103 · Anna Martin + 1)</h2>
+  <p class="lead">Ba khối theo thứ tự làm việc. (1) Đối chiếu xong: mọi cảnh báo đã có cách xử lý và mỗi người đã có quyết định lưu ảnh Có/Không (không chọn sẵn) → <code>scanned</code>. (2) Sao chép từng trường đúng thứ tự cổng Bộ Công an (xác nhận lại mật khẩu, ghi nhật ký). (3) Dán mã hồ sơ → <code>sent</code>; cổng xác nhận / từ chối.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:900px">
+      <div class="page">
+        <div class="row" style="margin-bottom:6px"><h2 class="grow" data-i18n="reg.type.foreigner">Khai báo tạm trú người nước ngoài</h2><span class="chip warn" data-i18n="status.reg.review">Cần kiểm tra</span></div>
+        <p class="li-s">103 · OTM-0150 · 15/10 → 18/10 · <span data-i18n="reg.deadline" data-i18n-args='{"time":"23:05 15/10"}'>Hạn khai báo: 23:05 15/10</span> · <span data-i18n="reg.deadline_left" data-i18n-args='{"duration":"7 giờ 30 phút"}'>còn 7 giờ 30 phút</span></p>
+        <h3 class="label-h" style="margin:14px 0 8px" data-i18n="reg2.block1">1 · Đối chiếu và đồng ý lưu ảnh</h3>
+        <div class="person"><span class="avatar" aria-hidden="true">A</span><div><div class="li-t">Anna Martin · FRA</div><div class="li-s"><span data-i18n="ci.passport_masked" data-i18n-args='{"last4":"7714"}'>Hộ chiếu · số cuối 7714</span> · <span data-i18n="reg2.via_app">gửi qua app 14/10 20:15</span> · <span data-i18n="reg2.checks_handled" data-i18n-args='{"n":"1"}'>1 mục đã ghi cách xử lý</span></div></div><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="reg2.consent_granted_app">Đồng ý lưu ảnh · qua app</span></span></div>
+        <div class="person" style="align-items:start"><span class="avatar" aria-hidden="true">L</span><div><div class="li-t">Lucas Martin · FRA</div><div class="li-s"><span data-i18n="ci.passport_masked" data-i18n-args='{"last4":"2290"}'>Hộ chiếu · số cuối 2290</span> · <span data-i18n="reg2.checks_handled" data-i18n-args='{"n":"1"}'>1 mục đã ghi cách xử lý</span></div>
+          <fieldset style="border:0;padding:0;margin:8px 0 0"><legend class="lbl" style="font-weight:500;font-size:.8125rem" data-i18n="reg2.consent_q">Khách có đồng ý lưu ảnh giấy tờ 30 ngày sau trả phòng không?</legend>
+            <label class="check"><input type="radio" name="cs-l" data-enables="#rv-done"><span data-i18n="checkin.consent.yes">Đồng ý lưu ảnh</span></label>
+            <label class="check"><input type="radio" name="cs-l" data-enables="#rv-done"><span data-i18n="checkin.consent.no">Không đồng ý – xóa ảnh sau khi khai báo</span></label>
+            <p class="help muted" style="font-size:.75rem" data-i18n="checkin.consent.help">Không đồng ý vẫn khai báo được: chỉ lưu các trường cần thiết, không lưu ảnh.</p></fieldset></div><span class="chip warn" data-i18n="reg2.consent_not_recorded">Chưa ghi quyết định</span></div>
+        <div class="row end" style="margin-top:10px"><button class="btn pri" id="rv-done" aria-disabled="true" data-i18n="reg2.review_done">Đối chiếu xong</button></div>
+
+        <h3 class="label-h" style="margin:18px 0 8px" data-i18n="reg2.block2">2 · Sao chép lên cổng khai báo</h3>
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><span class="grow li-s" data-i18n="reg2.copy_help">Dữ liệu chỉ hiện sau khi xác nhận lại mật khẩu, mỗi lần mở được ghi nhật ký. Bấm "Sao chép" từng ô theo thứ tự rồi dán vào cổng.</span><button class="btn sm" data-open="#dlg-stepup2"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="reg2.show_data">Hiện dữ liệu khai báo</span></button></div>
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>#</th><th data-i18n="reg2.portal_field">Trường trên cổng</th><th data-i18n="reg2.portal_value">Giá trị</th><th><span class="sr-only" data-i18n="reg.copy_field">Sao chép</span></th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td data-i18n="checkin.docs.field.full_name">Họ tên (như trên giấy tờ)</td><td>MARTIN ANNA</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copied">Đã chép</span></button></td></tr>
+              <tr><td>2</td><td data-i18n="checkin.docs.field.dob">Ngày sinh</td><td class="masked">••/••/1990</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copy_field">Sao chép</span></button></td></tr>
+              <tr><td>3</td><td data-i18n="checkin.docs.field.nationality">Quốc tịch</td><td>FRA</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copy_field">Sao chép</span></button></td></tr>
+              <tr><td>4</td><td data-i18n="checkin.docs.field.doc_no">Số giấy tờ</td><td class="masked">••••••7714</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copy_field">Sao chép</span></button></td></tr>
+              <tr><td>5</td><td data-i18n="checkin.docs.field.entry_date">Ngày nhập cảnh</td><td class="masked">••/10/2026</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copy_field">Sao chép</span></button></td></tr>
+              <tr><td>6</td><td data-i18n="reg2.stay_to">Tạm trú đến ngày</td><td>18/10/2026</td><td><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="reg.copy_field">Sao chép</span></button></td></tr>
+            </tbody>
+          </table></div>
+          <div class="row" style="margin-top:8px"><a class="btn sm" href="#s142"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span data-i18n="reg.step.open">2. Mở cổng khai báo Bộ Công an</span></a><button class="btn sm ghost" data-i18n="reg2.clear_clipboard">Xóa bộ nhớ tạm</button><span class="li-s" data-i18n="reg2.next_person">Người tiếp theo: Lucas Martin</span></div>
+        </div>
+
+        <h3 class="label-h" style="margin:18px 0 8px" data-i18n="reg2.block3">3 · Ghi kết quả từ cổng</h3>
+        <div class="g-2">
+          <div class="field"><label for="rg-code"><span data-i18n="reg.code_label">Mã hồ sơ</span> <span class="req" aria-hidden="true">*</span></label><input class="input mono" id="rg-code" placeholder="LT-2026-0041872" aria-describedby="rg-code-h"><span class="help" id="rg-code-h" data-i18n="reg2.code_help">Dán đúng mã cổng trả về sau khi gửi.</span></div>
+          <div class="field" style="align-self:end"><button class="btn pri" data-i18n="reg2.mark_sent">Đã gửi khai báo</button></div>
+        </div>
+        <div class="row"><button class="btn" aria-disabled="true" data-i18n="reg2.portal_confirmed">Cổng đã xác nhận</button><button class="btn ghost" aria-disabled="true" data-i18n="reg2.portal_rejected">Cổng từ chối</button><span class="li-s" data-i18n="reg2.after_sent">Bật sau khi đã gửi.</span></div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 14.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-044</span> mọi cảnh báo có ghi chú mới <code>scanned</code> (K5). <span class="us">US-045</span> AC1 bắt buộc chọn Có/Không, không tích sẵn; "Không" vẫn khai báo; AC3 đồng ý qua app ghi kèm thời điểm, hình thức "qua app".</li><li><span class="us">US-046</span> AC1 tiêu đề theo loại (NN / công dân VN); AC2 sao chép đủ trường đúng thứ tự, chỉ trên máy được cấp, có nút xóa bộ nhớ tạm (A73); AC3 dán mã → <code>sent</code>; "Cổng đã xác nhận" → <code>confirmed</code>; "Cổng từ chối" + lý do → <code>scanned</code>.</li><li><span class="us">US-048</span> mỗi lần xem ghi nhật ký C3; không có xuất hàng loạt (A75).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getRegistration</span> · <span class="op">recordImageConsent</span> (<code>P02B_ID_IMAGE_RETENTION</code>, <code>decision</code>, <code>channel=desk</code>, <code>noticeVersion</code>) · <span class="op">completeRegistrationReview</span> (K5)</li><li><span class="op">stepUp</span> → <span class="op">getPortalData</span> (<code>people[].fields[]</code> đúng thứ tự, <code>clipboardText</code>, no-store)</li><li><span class="op">transitionRegistration</span> <code>mark-sent</code> {<code>portalReference</code>} · <code>confirm</code> · <code>reject</code> {<code>rejectedReason</code>} (K6–K8)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">REGISTRATION_INCOMPLETE</span> (thiếu người / cảnh báo chưa ghi xử lý / chưa ghi đồng ý) · <span class="pc">REAUTH_REQUIRED</span> · <span class="pc">DEVICE_NOT_TRUSTED</span> · <span class="pc">RATE_LIMITED</span> · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">VALIDATION_FAILED</span> (mã hồ sơ trống)</li></ul>
+      <h3>Hành vi</h3><ul><li>Giá trị C3 che sẵn (•) tới khi bấm "Hiện dữ liệu khai báo"; ẩn lại sau 2 phút không thao tác hoặc khi rời trang; không lưu vào bộ nhớ trình duyệt.</li><li>"Xóa bộ nhớ tạm" ghi đè clipboard bằng chuỗi rỗng (R-REG-07).</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Chưa đủ để đối chiếu xong</span>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.REGISTRATION_INCOMPLETE">Khai báo chưa đủ: còn thiếu giấy tờ hoặc cảnh báo chưa ghi cách xử lý.</div></div></div>
+    <div class="variant"><span class="label-h">Cổng từ chối – nhập lý do</span>
+      <div class="field"><label for="rj-r"><span data-i18n="reg2.reject_reason">Lý do cổng từ chối</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="rj-r" value="Sai ngày nhập cảnh"></div>
+      <p class="li-s" data-i18n="reg2.reject_effect">Hồ sơ trở về "Đủ giấy tờ · chờ khai báo" để sửa và khai lại.</p></div>
+    <div class="variant"><span class="label-h">Khai báo công dân VN (302)</span>
+      <p><b data-i18n="reg.type.citizen">Thông báo lưu trú công dân Việt Nam</b></p>
+      <p class="li-s" data-i18n="reg2.citizen_note">Trường theo biểu mẫu thông báo lưu trú: họ tên, ngày sinh, số CCCD, ngày đến/đi. Địa chỉ chỉ nhập khi cổng yêu cầu.</p></div>
+    <div class="variant"><span class="label-h">Đã gửi – chờ cổng</span>
+      <span class="chip info" data-i18n="status.reg.sent">Đã gửi khai báo</span>
+      <p class="li-s" style="margin-top:6px" data-i18n="reg2.sent_note" data-i18n-args='{"code":"LT-2026-0041872","time":"11:20"}'>Mã hồ sơ LT-2026-0041872 · gửi lúc 11:20. Ảnh của người không đồng ý sẽ tự xóa khi cổng xác nhận.</p></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s143">
+  <h2 id="s143"><span class="no">14.3</span>Rút đồng ý lưu ảnh qua lễ tân (SEC P-R2-4 ĐK-5) và xóa sớm ảnh (quản lý, chủ đầu tư)</h2>
+  <p class="lead">R2 app khách chưa có nút rút đồng ý (cần xác minh mức 2 – R3). Khách nói với lễ tân → lễ tân đổi quyết định thành "Không đồng ý"; ảnh xóa ngay nếu đã khai xong, hoặc xóa khi cổng xác nhận. Xóa sớm theo yêu cầu khách chỉ quản lý / chủ đầu tư làm, có hộp xác nhận.</p>
+  <div class="doc-row">
+    <div class="variants" style="flex:1 1 640px;margin-top:0">
+      <div class="variant"><span class="label-h">Lễ tân – đổi Đồng ý → Không đồng ý</span>
+        <div class="modal" role="alertdialog" aria-labelledby="wd-h" aria-describedby="wd-b" style="box-shadow:none;border:1px solid var(--line)">
+          <div class="modal-h"><h2 id="wd-h" data-i18n="reg2.withdraw_title" data-i18n-args='{"guest":"Anna Martin"}'>Ghi Anna Martin không đồng ý lưu ảnh?</h2></div>
+          <div class="modal-b"><p id="wd-b" data-i18n="reg2.withdraw_body">Khách rút đồng ý tại quầy. Khai báo đã được cổng xác nhận nên ảnh giấy tờ bị xóa ngay; thông tin đã khai báo vẫn giữ theo luật.</p></div>
+          <div class="modal-f"><button class="btn" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn danger" data-i18n="reg2.withdraw_submit">Ghi không đồng ý</button></div>
+        </div></div>
+      <div class="variant"><span class="label-h">Quản lý – xóa sớm ảnh (US-049 AC3)</span>
+        <div class="modal" role="alertdialog" aria-labelledby="pg-h" aria-describedby="pg-b" style="box-shadow:none;border:1px solid var(--line)">
+          <div class="modal-h"><h2 id="pg-h" data-i18n="confirm.purge_images.title" data-i18n-args='{"guest":"Anna Martin"}'>Xóa sớm ảnh giấy tờ của Anna Martin?</h2></div>
+          <div class="modal-b"><p id="pg-b" data-i18n="confirm.purge_images.body">Ảnh bị xóa vĩnh viễn, không khôi phục được. Thông tin đã khai báo vẫn giữ theo luật.</p></div>
+          <div class="modal-f"><button class="btn" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn danger" data-i18n="reg2.purge_submit">Xóa ảnh</button></div>
+        </div>
+        <p class="li-s" style="margin-top:6px" data-i18n="reg2.purge_fd_note">Lễ tân không thấy nút này.</p></div>
+      <div class="variant"><span class="label-h">Thời hạn lưu ảnh trên hồ sơ</span>
+        <dl class="dl"><dt data-i18n="reg2.retention">Ảnh giấy tờ</dt><dd data-i18n="reg2.retention_value" data-i18n-args='{"date":"17/11/2026"}'>Tự xóa 30 ngày sau trả phòng (17/11/2026)</dd><dt data-i18n="reg2.retention_refused">Người không đồng ý</dt><dd data-i18n="reg2.retention_refused_value">Xóa ngay khi cổng xác nhận</dd></dl></div>
+    </div>
+    <aside class="spec" aria-label="Đặc tả 14.3">
+      <h3>Story / AC</h3><ul><li>SEC P-R2-4 <b>ĐK-5</b>: rút đồng ý qua Desk = <span class="op">recordImageConsent</span> <code>decision=refused</code> ghi đè <code>granted</code> (BA/BE xác nhận API cho phép); trang khách hiện dòng "liên hệ lễ tân để rút đồng ý" (H18).</li><li><span class="us">US-045</span> AC2, <span class="us">US-049</span> AC1–AC3 (BR-609, BR-610: 30 ngày sau trả phòng); <span class="us">US-135</span> hộp xác nhận.</li></ul>
+      <h3>API</h3><ul><li><span class="op">recordImageConsent</span> · <span class="op">purgeRegistrationImages</span> (OWN/MGR, thiết bị được cấp, ghi <code>c3_access_log</code> purge)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">FORBIDDEN_ACTION</span> (FD gọi xóa sớm) · <span class="pc">DEVICE_NOT_TRUSTED</span> · <span class="pc">NOT_FOUND</span> (ảnh đã xóa) · <span class="pc">INVALID_TRANSITION</span></li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-stepup2" aria-labelledby="su2-h"><div class="modal">
+  <div class="modal-h"><h2 id="su2-h" tabindex="-1" data-i18n="ci.stepup_title">Xác nhận lại để xem giấy tờ</h2></div>
+  <div class="modal-b"><p data-i18n="ci.stepup_body">Xem đủ số và ảnh giấy tờ được ghi vào nhật ký truy cập. Nhập lại mật khẩu của bạn – có hiệu lực 15 phút trên máy này.</p>
+    <div class="field"><label for="su2-p" data-i18n="ci.stepup_label">Mật khẩu của bạn</label><input class="input" id="su2-p" type="password" autocomplete="current-password" autofocus></div></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="ci.stepup_submit">Xác nhận</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

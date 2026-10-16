@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H13 Nhận phòng, giấy tờ, giao mã cửa – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../wireframes/assets/tokens.css">
+<link rel="stylesheet" href="assets/hifi.css">
+<script src="../wireframes/assets/icons.js"></script>
+<script src="../wireframes/assets/strings.js"></script>
+<script src="assets/hifi.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H13</div>
+  <h1>H13 · Nhận phòng – điều kiện, giấy tờ C3, kiểm hạn 3 trạng thái, phụ thu nhận sớm chủ động, thu tiền, giao mã cửa nhập tay</h1>
+  <div class="doc-meta"><span>Sprint 3 · EP03 + EP06 + EP15</span><span>front_desk, front_desk_lead (owner, manager)</span><span>Chỉ máy quầy / máy tính bảng của cơ sở đã cấp quyền (C3)</span><span>US-025, US-026, US-043, US-044, US-045, US-048, US-119, US-120, US-135; BR-402, 403, 411, 414, 417, 602, 603, 605, 613</span><span>Wireframe gốc: L3 3.1–3.6</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="empty" aria-pressed="false">Rỗng</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+  <nav class="pager" aria-label="Chuyển màn"><a class="btn sm" href="12-sales-quote.html">← Trước</a><a class="btn sm" href="index.html">Danh sách màn</a><a class="btn sm" href="14-registration.html">Sau →</a></nav>
+</div>
+<main id="main" class="doc-main">
+
+<section class="doc-sec" aria-labelledby="s131">
+  <h2 id="s131"><span class="no">13.1</span>Mở nhận phòng – điều kiện BR-402 (OTM-0152 · 302 · Gia đình anh Hưng, 15:35)</h2>
+  <p class="lead">Mở từ "Hôm nay" hoặc drawer đơn (nút "Nhận phòng" = <code>allowedActions</code> có <code>check_in</code>). Đầu trang là danh sách điều kiện lấy từ <code>previewCheckIn</code>: mục còn thiếu nói rõ làm gì và ở bước nào. Không chặn việc nhập giấy tờ khi chưa thu tiền – chỉ chặn bấm "Nhận phòng" (US-025 AC3). R2 chưa có mã cửa trong app nên mọi điều kiện "trước khi giao mã cửa" (BR-402 (3), BR-613 c) được thực hiện bằng chặn nhận phòng (BA EP03-05 1.3, giả định G-1). Chuyển trạng thái trên thanh công cụ để xem tải / rỗng / lỗi / mất mạng.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk stateful" data-state="normal">
+      <div class="shell">
+        <nav class="side" aria-label="Điều hướng chính">
+          <div class="brand">OTTIMO<small>BOUTIQUE STAY · DESK</small></div>
+          <button class="prop-switch" type="button"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span class="grow">OTTIMO Đà Lạt</span></button>
+          <div class="nav">
+            <div class="sec" data-i18n="nav.sec.ops">Vận hành</div>
+            <a href="03-today.html" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span data-i18n="nav.today">Hôm nay</span></a>
+            <a href="08-rack.html"><svg class="ico" aria-hidden="true"><use href="#i-rack"/></svg><span data-i18n="nav.rack">Sơ đồ phòng</span></a>
+            <a href="11-reservation.html"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="nav.reservations">Đơn đặt phòng</span></a>
+            <a href="14-registration.html"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><span data-i18n="nav.registration">Giấy tờ & khai báo</span><span class="badge">3</span></a>
+            <div class="sec" data-i18n="nav.sec.admin">Quản trị</div>
+            <a href="17-approvals-moneylog.html#s173"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="nav.moneylog">Nhật ký tiền</span></a>
+          </div>
+          <div class="side-foot"><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+        </nav>
+        <div class="content">
+          <header class="topbar">
+            <h1><span data-i18n="checkin.title" data-i18n-args='{"room":"302","guest":"Gia đình anh Hưng"}'>Nhận phòng · Căn 302 · Gia đình anh Hưng</span><span class="sub">OTM-0152 · Trực tiếp · Zalo · T5 15/10 → CN 19/10 · 4 đêm</span></h1>
+            <button class="userchip" type="button" aria-haspopup="menu"><span class="avatar" aria-hidden="true">H</span><span>Hạnh · <span data-i18n="role.front_desk">Lễ tân</span></span></button>
+          </header>
+          <div class="offline-bar" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><span data-i18n="ci.offline" data-i18n-args='{"time":"15:35"}'>Mất kết nối lúc 15:35. Nhận phòng, giấy tờ và thu tiền cần có mạng – không lưu tạm trên máy. Khách chờ: dùng bảng dự phòng, nhập bù khi có mạng.</span></div>
+          <div class="page">
+            <ol class="progress-steps" aria-label="Các bước nhận phòng"><li aria-current="step" data-i18n="checkin.step.docs">Giấy tờ</li><li data-i18n="checkin.step.verify">Kiểm tra</li><li data-i18n="checkin.step.register">Khai báo</li><li data-i18n="checkin.step.handover">Giao mã & hoàn tất</li></ol>
+            <div class="cols-2" data-show="normal offline">
+              <div>
+                <h2 class="label-h" style="margin-bottom:8px" data-i18n="checkin.cond.title">Điều kiện nhận phòng</h2>
+                <ul class="conds">
+                  <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.room_ready">Buồng sẵn sàng (VI hoặc VC)</b><div class="li-s" data-i18n="ci.cond_room" data-i18n-args='{"room":"302","status":"VC · Đã dọn, chờ kiểm"}'>Căn 302 · VC · Đã dọn, chờ kiểm</div></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
+                  <li class="unmet"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><div class="grow"><b data-i18n="checkin.cond.balance_paid">Đã thu đủ hoặc OTA đã trả/đảm bảo</b><div class="li-s" data-i18n="ci.cond_balance" data-i18n-args='{"amount":"3.344.000"}'>Còn phải thu 3.344.000 đ – thu ở bước 4, trước khi giao mã cửa.</div></div><span class="chip bad" data-i18n="ci.unmet">Còn thiếu</span></li>
+                  <li class="unmet"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><div class="grow"><b data-i18n="checkin.cond.main_guest_document">Có giấy tờ người đứng tên</b><div class="li-s" data-i18n="ci.cond_doc">Bắt đầu với người đứng tên ở bước 1. Người đi cùng bổ sung được trước hạn khai báo.</div></div><span class="chip bad" data-i18n="ci.unmet">Còn thiếu</span></li>
+                  <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.not_unassigned">Đơn đã được gán căn</b></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
+                  <li class="met"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="grow"><b data-i18n="checkin.cond.document_ok">Giấy tờ khách nước ngoài hợp lệ tại ngày nhận</b><div class="li-s" data-i18n="ci.cond_na_citizen">Không áp dụng – cả đơn là công dân Việt Nam.</div></div><span class="chip ok" data-i18n="ci.met">Đã đủ</span></li>
+                </ul>
+                <div class="alert warn" role="status" style="margin-top:12px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><div class="txt" data-i18n="checkin.kit_not_ready" data-i18n-args='{"room":"302"}'>Bộ đồ dùng thêm cho căn 302 chưa chuẩn bị. Vẫn nhận phòng được – việc đã được đẩy lên đầu hàng đợi buồng phòng.</div></div>
+                <div class="alert info" role="status" style="margin-top:12px"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><div class="txt"><b data-i18n="ci.time_default" data-i18n-args='{"std":"14:00"}'>Phụ thu tính theo giờ chuẩn 14:00 – hiện là 0 đ.</b><span data-i18n="ci.time_default_help">Giờ nhận thực tế ghi theo lúc bấm "Nhận phòng". Chỉ khi khách nhận sớm, bật "Khách nhận sớm" ở bước 4.</span></div></div>
+              </div>
+              <div>
+                <div class="card">
+                  <dl class="dl"><dt data-i18n="booking.field.room">Căn</dt><dd>302 · The Ivory (Căn N+)</dd><dt data-i18n="booking.field.guests">Số khách</dt><dd><span data-i18n="rsv.guests_line" data-i18n-args='{"adults":"4","base":"3","max":"4"}'>4 người lớn · định mức 3, tối đa 4</span></dd><dt data-i18n="ci.docs_have">Giấy tờ</dt><dd><span data-i18n="checkin.docs.progress" data-i18n-args='{"have":"0","need":"4"}'>Đã có giấy tờ 0/4 người</span></dd><dt data-i18n="ci.reg_kind">Khai báo</dt><dd data-i18n="reg.type.citizen">Thông báo lưu trú công dân Việt Nam</dd><dt data-i18n="drawer.folio.balance">Còn phải thu</dt><dd class="num">3.344.000 đ</dd></dl>
+                  <div class="amenity" style="margin-top:10px"><svg class="ico" aria-hidden="true"><use href="#i-sofa"/></svg><span data-i18n="occ.kit_chip" data-i18n-args='{"n":"1"}'>Vượt định mức 1 · chuẩn bị bộ đồ dùng thêm</span></div>
+                </div>
+              </div>
+            </div>
+            <div data-show="loading" aria-busy="true"><div class="cols-2"><div class="cards"><div class="sk" style="height:48px"></div><div class="sk" style="height:48px"></div><div class="sk" style="height:48px"></div><div class="sk" style="height:48px"></div></div><div class="sk" style="height:180px"></div></div><p class="sr-only" data-i18n="common.loading">Đang tải…</p></div>
+            <div class="state" data-show="empty"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-door"/></svg></div><h3 data-i18n="ci.empty_title">Không còn khách đến hôm nay</h3><p data-i18n="ci.empty_body">Các đơn đến hôm nay đã nhận phòng hoặc đã xử lý không đến. Khách vãng lai: tạo đơn mới rồi nhận phòng.</p><a class="btn" href="09-booking.html" data-i18n="bk.new_cta">Đặt phòng mới</a></div>
+            <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="ci.error_title">Chưa mở được nhận phòng</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JC-4K7Q"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JC-4K7Q.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
+          </div>
+          <div class="wiz-foot" data-show="normal error loading empty"><a class="btn ghost" href="11-reservation.html" data-i18n="ci.back_to_booking">Về chi tiết đơn</a><a class="btn pri" href="#s132" data-i18n="ci.go_docs">Tiếp tục: Giấy tờ</a></div>
+          <div class="wiz-foot" data-show="offline"><span class="li-s" data-i18n="ci.offline_short">Chờ có mạng để tiếp tục.</span><button class="btn pri" aria-disabled="true" data-i18n="rsv.need_online">Cần có mạng để thao tác</button></div>
+        </div>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.1">
+      <h3>Story / AC</h3><ul><li><span class="us">US-025</span> AC1 đủ điều kiện → nhận được, không phụ thu; AC3 còn phải thu &gt; 0 (Trực tiếp/CTV) hoặc thiếu giấy tờ người đứng tên → không hoàn tất, không giao mã cửa.</li><li><span class="us">US-026</span> AC1 mở form giờ nào cũng = giờ chuẩn 14:00, phụ thu 0, chưa có dòng folio.</li><li><span class="us">US-025</span> AC6 ca đêm: "hôm nay" = ngày nghiệp vụ (đổi 06:00) – nhận đơn ngày đến 20/10 lúc 01:30 21/10 được.</li></ul>
+      <h3>API</h3><ul><li><span class="op">previewCheckIn</span> (không truyền <code>checkinTime</code> → giờ chuẩn) → <code>conditions[]</code> (<code>room_ready</code>, <code>balance_paid</code>, <code>main_guest_document</code>, <code>not_unassigned</code>) + <code>registrationDeadlinePreview</code></li><li><span class="op">getReservation</span> (<code>allowedActions[]</code>, <code>requiresTrustedDevice</code>) · <span class="op">getFolio</span> · <span class="op">getRegistration</span></li></ul>
+      <h3>Problem.code</h3><ul><li>Điều kiện <code>document_check_block</code> + <code>warnings[]</code> (<code>extra_guest_kit_not_ready</code>…) là đề nghị ARC E03-01 của BA (chưa có trong 0.3.2) – giao diện đã chừa chỗ.</li><li><span class="pc">DEVICE_NOT_TRUSTED</span> (mở từ máy chưa cấp – xem 13.2 biến thể) · <span class="pc">RESERVATION_UNASSIGNED</span> (đơn OTA xung đột – nút đổi thành "Gán căn") · <span class="pc">NOT_FOUND</span> · 5xx + <code>requestId</code></li></ul>
+      <h3>Hành vi</h3><ul><li>Mất mạng: không có hàng đợi offline cho nhận phòng/C3 (SR-DEV-03) – thông báo đúng sự thật, hướng sang bảng dự phòng (BR-961…964).</li><li>a11y: điều kiện là danh sách có chữ "Đã đủ/Còn thiếu" (không chỉ màu); bước hiện tại <code>aria-current="step"</code>.</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s132">
+  <h2 id="s132"><span class="no">13.2</span>Bước 1 – Giấy tờ từng người (C3, chỉ trên thiết bị được cấp)</h2>
+  <p class="lead">Mỗi người một dòng; người đứng tên trước. Ba cách nhập: quét QR CCCD, đọc dòng MRZ hộ chiếu, nhập tay. Sau khi lưu, chỉ hiện 4 số cuối – xem đủ số hoặc ảnh phải xác nhận lại mật khẩu (step-up) và được ghi nhật ký C3. Trẻ em: số định danh, không bắt ảnh.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:620px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước nhận phòng"><li aria-current="step" data-i18n="checkin.step.docs">Giấy tờ</li><li data-i18n="checkin.step.verify">Kiểm tra</li><li data-i18n="checkin.step.register">Khai báo</li><li data-i18n="checkin.step.handover">Giao mã & hoàn tất</li></ol>
+        <div class="row" style="margin-bottom:10px"><h2 class="grow" data-i18n="checkin.docs.progress" data-i18n-args='{"have":"2","need":"4"}'>Đã có giấy tờ 2/4 người</h2><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="nav.device_trusted">Máy quầy đã cấp quyền</span></span></div>
+        <div class="person"><span class="avatar" aria-hidden="true">H</span><div><div class="li-t">Nguyễn Văn Hưng · <span data-i18n="rsv.booker">Người đứng tên</span></div><div class="li-s"><span data-i18n="ci.doc_masked" data-i18n-args='{"type":"CCCD","last4":"4821"}'>CCCD · số cuối 4821</span> · <span data-i18n="ci.capture_qr">Quét QR CCCD</span> · <span data-i18n="ci.photo_count" data-i18n-args='{"n":"2"}'>2 ảnh</span></div></div><div class="row"><button class="btn sm" data-open="#dlg-stepup" data-i18n="ci.view_full">Xem đủ số / ảnh</button><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="guest.chip.doc_ok">Đã có</span></span></div></div>
+        <div class="person"><span class="avatar" aria-hidden="true">L</span><div><div class="li-t">Lê Thị Lan</div><div class="li-s"><span data-i18n="ci.doc_masked" data-i18n-args='{"type":"CCCD","last4":"0937"}'>CCCD · số cuối 0937</span> · <span data-i18n="ci.capture_manual">Nhập tay</span> · <span data-i18n="ci.photo_count" data-i18n-args='{"n":"1"}'>1 ảnh</span></div></div><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="guest.chip.doc_ok">Đã có</span></span></div>
+        <div class="person todo"><span class="avatar" aria-hidden="true">3</span><div><div class="li-t" data-i18n="guest.oci.person_n" data-i18n-args='{"n":"3"}'>Khách 3</div><div class="li-s" data-i18n="ci.doc_missing">Chưa có giấy tờ</div></div><div class="row"><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-scan"/></svg><span data-i18n="ci.capture_qr">Quét QR CCCD</span></button><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-scan"/></svg><span data-i18n="ci.capture_mrz">Đọc MRZ hộ chiếu</span></button><button class="btn sm" data-open="#dlg-manual" data-i18n="checkin.docs.manual">Nhập tay</button></div></div>
+        <div class="person todo"><span class="avatar" aria-hidden="true">4</span><div><div class="li-t" data-i18n="guest.oci.person_n" data-i18n-args='{"n":"4"}'>Khách 4</div><div class="li-s" data-i18n="ci.doc_missing">Chưa có giấy tờ</div></div><div class="row"><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-scan"/></svg><span data-i18n="ci.capture_qr">Quét QR CCCD</span></button><button class="btn sm"><svg class="ico" aria-hidden="true"><use href="#i-scan"/></svg><span data-i18n="ci.capture_mrz">Đọc MRZ hộ chiếu</span></button><button class="btn sm" data-open="#dlg-manual" data-i18n="checkin.docs.manual">Nhập tay</button></div></div>
+        <div class="alert warn" role="status" style="margin-top:12px"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><div class="txt"><span data-i18n="ci.party_later" data-i18n-args='{"n":"2","deadline":"23:00 hôm nay"}'>Còn 2 người chưa có giấy tờ. Nhận phòng được khi đã có giấy tờ người đứng tên; bổ sung người còn lại trước hạn khai báo 23:00 hôm nay.</span></div></div>
+      </div>
+      <div class="wiz-foot"><a class="btn ghost" href="#s131" data-i18n="common.back">Quay lại</a><a class="btn pri" href="#s133" data-i18n="ci.go_verify">Tiếp tục: Kiểm tra</a></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.2">
+      <h3>Story / AC</h3><ul><li><span class="us">US-043</span> AC1 người thứ nhất → <code>partial</code>, đủ người → <code>review</code>; AC2 trẻ em: <code>child_personal_id</code>, không bắt ảnh; AC3 giấy tờ của người chưa có trong đơn → server tự gắn/khớp; AC4 mỗi lần xem/nhập ghi nhật ký C3.</li><li><span class="us">US-048</span> AC1 FD xem ảnh có nhật ký; AC2 HK/MT/SAL/CTV bị từ chối (không có nút, API 403).</li></ul>
+      <h3>API</h3><ul><li><span class="op">getRegistration</span> (giấy tờ dạng che: <code>docNumberLast4</code>, <code>captureMethod</code>) · <span class="op">addGuestDocument</span> (multipart: <code>data</code> + 0..4 ảnh) · <span class="op">updateGuestDocument</span> (<code>If-Match</code>)</li><li>Xem đủ: <span class="op">stepUp</span> → <span class="op">getGuestDocumentSensitive</span> / <span class="op">getDocumentImage</span> (no-store, không lưu cache, không tải xuống)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">DEVICE_NOT_TRUSTED</span> · <span class="pc">REAUTH_REQUIRED</span> (hết cửa sổ 15 phút) · <span class="pc">FILE_REJECTED</span> (HEIC/PDF, &gt; 10 MB) · <span class="pc">PAYLOAD_TOO_LARGE</span> · <span class="pc">VALIDATION_FAILED</span> (<code>errors[]</code> theo ô) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">RATE_LIMITED</span> (≥ 200 lần xem/giờ)</li></ul>
+      <h3>Hành vi</h3><ul><li>Camera/quét chạy trên máy quầy (webcam/máy quét). Ảnh chuẩn hóa trên máy (canvas → JPEG) trước khi gửi, không ghi ra ổ đĩa, thu hồi object URL sau khi gửi.</li><li>Không hiện số đầy đủ trong danh sách – kể cả cho owner.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Máy chưa cấp quyền (DEVICE_NOT_TRUSTED)</span>
+      <div class="state err" style="padding:16px 8px"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg></div><h3 data-i18n="device.blocked_title">Máy này chưa được cấp quyền</h3><p data-i18n="error.DEVICE_NOT_TRUSTED">Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này.</p></div>
+      <p class="li-s" data-i18n="ci.untrusted_note">Bước giấy tờ, kiểm tra và khai báo bị ẩn. Vẫn xem được điều kiện và folio; nhận phòng cần làm trên máy quầy đã cấp.</p></div>
+    <div class="variant"><span class="label-h">Ảnh sai loại (FILE_REJECTED)</span>
+      <div class="field invalid"><span class="lbl" data-i18n="checkin.docs.scan">Chụp hoặc tải ảnh giấy tờ</span><div class="upload-slot"><span class="ill"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg></span><span class="grow mono">IMG_2207.HEIC</span></div><div class="err" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="error.FILE_REJECTED">Tệp này chưa dùng được. Chỉ nhận ảnh JPG, PNG hoặc WebP, tối đa 10 MB – chụp lại hoặc chọn ảnh khác.</span></div></div></div>
+    <div class="variant"><span class="label-h">Không đọc được QR/MRZ</span>
+      <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="checkin.docs.read_failed">Không đọc được ảnh (mờ hoặc lóa). Chụp lại ở chỗ sáng hơn, hoặc nhập tay.</span><div class="act"><button class="btn sm" data-i18n="common.retry">Thử lại</button><button class="btn sm" data-open="#dlg-manual" data-i18n="checkin.docs.manual">Nhập tay</button></div></div></div></div>
+    <div class="variant"><span class="label-h">Trẻ em (US-043 AC2)</span>
+      <div class="person"><span class="avatar" aria-hidden="true">B</span><div><div class="li-t">Nguyễn Minh Bảo</div><div class="li-s" data-i18n="ci.child_doc" data-i18n-args='{"last4":"6620"}'>Trẻ em · số định danh cá nhân, số cuối 6620 · không cần ảnh</div></div><span class="chip ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="guest.chip.doc_ok">Đã có</span></span></div></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s133">
+  <h2 id="s133"><span class="no">13.3</span>Bước 2 – Kiểm hạn hộ chiếu / thị thực: Đạt · Không đạt · Chưa kiểm được (OTM-0150 · 103 · Anna Martin + 1)</h2>
+  <p class="lead">Khách nước ngoài, ngày trả 18/10. Hệ thống chỉ ghi "Đạt" khi đã so dữ liệu thật; thiếu dữ liệu → "Chưa kiểm được" (viền đứt), lễ tân xem giấy tờ gốc rồi đánh dấu. Mọi mục Không đạt / Chưa kiểm được cần ghi cách xử lý mới sang bước Khai báo. Cảnh báo không chặn nhận phòng – trừ BR-613 (c) ở biến thể bên dưới: R2 chặn <b>nhận phòng</b> (chưa có mã cửa trong app), lễ tân trưởng trở lên xác nhận cho nhận tiếp.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:600px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước nhận phòng"><li class="done" data-i18n="checkin.step.docs">Giấy tờ</li><li aria-current="step" data-i18n="checkin.step.verify">Kiểm tra</li><li data-i18n="checkin.step.register">Khai báo</li><li data-i18n="checkin.step.handover">Giao mã & hoàn tất</li></ol>
+        <h3 style="margin-bottom:8px">Anna Martin · FRA · <span data-i18n="ci.passport_masked" data-i18n-args='{"last4":"7714"}'>Hộ chiếu · số cuối 7714</span></h3>
+        <div class="chk3 ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div><b data-i18n="checkin.verify.name">Tên khớp với đơn</b><div class="li-s" data-i18n="ci.name_match_note" data-i18n-args='{"booking":"Anna Martin","doc":"MARTIN ANNA"}'>Đơn "Anna Martin" · giấy tờ "MARTIN ANNA" – khớp (bỏ dấu, đảo thứ tự).</div></div><span class="chip ok" data-i18n="checkin.verify.result.pass">Đạt</span></div>
+        <div class="chk3 ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div><b data-i18n="checkin.verify.passport" data-i18n-args='{"date":"18/10"}'>Hộ chiếu còn hạn sau ngày trả phòng (18/10)</b><div class="li-s" data-i18n="ci.valid_until" data-i18n-args='{"date":"03/2031"}'>Còn hạn đến 03/2031.</div></div><span class="chip ok" data-i18n="checkin.verify.result.pass">Đạt</span></div>
+        <div class="chk3 ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div><b data-i18n="checkin.verify.passport_at_arrival">Hộ chiếu còn hạn tại ngày nhận phòng</b></div><span class="chip ok" data-i18n="checkin.verify.result.pass">Đạt</span></div>
+        <div class="chk3 ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div><b data-i18n="checkin.verify.entry_record">Có dấu / chứng nhận nhập cảnh</b><div class="li-s" data-i18n="ci.entry_on" data-i18n-args='{"date":"12/10"}'>Nhập cảnh 12/10.</div></div><span class="chip ok" data-i18n="checkin.verify.result.pass">Đạt</span></div>
+        <div class="chk3 unknown"><svg class="ico" aria-hidden="true"><use href="#i-question"/></svg><div><b data-i18n="checkin.verify.visa">Thị thực còn hạn đến ngày trả phòng</b><div class="li-s" data-i18n="checkin.verify.unknown_help">Hệ thống chưa đủ dữ liệu để kiểm. Hãy xem giấy tờ gốc và đánh dấu kết quả.</div></div><span class="chip warn" data-i18n="checkin.verify.result.unknown">Chưa kiểm được</span>
+          <div class="full row"><button class="btn sm" data-i18n="checkin.verify.mark_pass">Tôi đã kiểm – Đạt</button><button class="btn sm" data-i18n="checkin.verify.mark_fail">Tôi đã kiểm – Không đạt</button></div>
+          <div class="full field" style="margin:4px 0 0"><label for="v-note1"><span data-i18n="checkin.verify.note_label">Cách xử lý</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="v-note1" value="Miễn thị thực 45 ngày, dấu nhập cảnh 12/10 – đã xem bản gốc"></div></div>
+        <h3 style="margin:14px 0 8px">Lucas Martin · FRA · <span data-i18n="ci.passport_masked" data-i18n-args='{"last4":"2290"}'>Hộ chiếu · số cuối 2290</span></h3>
+        <div class="chk3 fail"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div><b data-i18n="checkin.verify.passport" data-i18n-args='{"date":"18/10"}'>Hộ chiếu còn hạn sau ngày trả phòng (18/10)</b><div class="li-s" data-i18n="checkin.verify.fail_passport" data-i18n-args='{"date":"17/10","checkout":"18/10"}'>Hộ chiếu hết hạn 17/10, trước ngày trả phòng 18/10. Ghi cách xử lý trước khi sang bước khai báo.</div><div class="li-s" data-i18n="ci.no_block_note">Hết hạn trong thời gian ở: không chặn nhận phòng, vẫn giao mã cửa.</div></div><span class="chip bad" data-i18n="checkin.verify.result.fail">Không đạt</span>
+          <div class="full field invalid" style="margin:4px 0 0"><label for="v-note2"><span data-i18n="checkin.verify.note_label">Cách xử lý</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="v-note2" data-i18n-ph="checkin.verify.note_placeholder" placeholder="Ví dụ: khách xuất trình hộ chiếu mới số …; đã báo khách gia hạn thị thực" aria-describedby="v-note2-e"><div class="err" id="v-note2-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="checkin.verify.note_required">Ghi cách xử lý cho mọi mục Không đạt hoặc Chưa kiểm được để tiếp tục.</span></div></div></div>
+        <div class="chk3 ok"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div><b data-i18n="checkin.verify.headcount" data-i18n-args='{"need":"2"}'>Đủ giấy tờ cho 2 khách</b></div><span class="chip ok" data-i18n="checkin.verify.result.pass">Đạt</span></div>
+      </div>
+      <div class="wiz-foot"><a class="btn ghost" href="#s132" data-i18n="common.back">Quay lại</a><button class="btn pri" aria-disabled="true" data-i18n="ci.go_register">Tiếp tục: Khai báo</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.3">
+      <h3>Story / AC</h3><ul><li><span class="us">US-044</span> AC1 hết hạn trước/đúng ngày trả = Không đạt; AC2 thiếu dữ liệu = Chưa kiểm được, không bao giờ "Đạt" giả; AC3 "Anna Martin" ↔ "MARTIN ANNA" = Đạt (BR-952); AC4 thị thực hết trước ngày đi → đỏ, "Cần chú ý", ngày khai đề xuất = hạn thị thực; mọi mục cần ghi chú trước <code>scanned</code>.</li><li>DS 6.4 (HR-07): 3 kết quả, ghi tên người kiểm.</li></ul>
+      <h3>API</h3><ul><li><span class="op">getRegistration</span> → <code>documents[].checks[]</code> (<code>DocumentCheckCode</code>: <code>name_match</code>, <code>passport_valid_through_departure</code>, <code>visa_valid_through_departure</code>, <code>stay_within_visa</code>, <code>party_count</code>; <code>result</code> ok / warning / not_applicable)</li><li>Đánh dấu kiểm tay + ghi chú: <span class="op">updateGuestDocument</span> (<code>checks[].handledNote</code>) · bước tiếp: <span class="op">completeRegistrationReview</span> (K5)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">REGISTRATION_INCOMPLETE</span> (còn mục chưa ghi cách xử lý) · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">DEVICE_NOT_TRUSTED</span></li></ul>
+      <h3>Ghi chú cho ARC</h3><ul><li><code>result</code> của API có <code>ok/warning/not_applicable</code> – giao diện cần phân biệt <b>Không đạt</b> (có dữ liệu, sai) với <b>Chưa kiểm được</b> (thiếu dữ liệu). Đề nghị thêm giá trị <code>unknown</code> (xem báo cáo UXD mục 4, thẻ gửi ARC).</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">BR-613 (c) – hộ chiếu đã hết hạn tại ngày nhận → R2 chặn nhận phòng</span>
+      <div class="chk3 block"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div><b data-i18n="ci.block_title">Không đạt – chưa nhận phòng được</b><div class="li-s" data-i18n="ci.block_body" data-i18n-args='{"doc":"Hộ chiếu","date":"10/10","arrival":"15/10"}'>Hộ chiếu đã hết hạn 10/10, trước ngày nhận phòng 15/10. Chưa nhận phòng (và chưa giao mã/thẻ) cho tới khi lễ tân trưởng trở lên xác nhận nhận tiếp.</div></div><span class="chip bad" data-i18n="checkin.verify.result.fail">Không đạt</span></div>
+      <p class="li-s" style="margin-top:6px" data-i18n="ci.block_fd">Bạn (lễ tân): gửi lễ tân trưởng xác nhận. Quản lý nhận thông báo.</p>
+      <button class="btn block" data-open="#dlg-block-lead" data-i18n="ci.block_send">Gửi lễ tân trưởng xác nhận</button></div>
+    <div class="variant"><span class="label-h">Thị thực hết trước ngày đi (BR-613 a, BR-605) – không chặn</span>
+      <div class="chk3 fail"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div><b data-i18n="checkin.verify.visa">Thị thực còn hạn đến ngày trả phòng</b><div class="li-s" data-i18n="checkin.verify.visa_short" data-i18n-args='{"date":"16/10","remind":"02/10"}'>Thị thực hết hạn 16/10, trước ngày trả phòng. Khai báo đến 16/10 và nhắc khách gia hạn trước 02/10.</div></div><span class="chip bad" data-i18n="checkin.verify.result.fail">Không đạt</span></div>
+      <p class="li-s" style="margin-top:6px" data-i18n="ci.visa_attention">Đơn vào "Cần chú ý"; ngày đi khai báo đề xuất = ngày hết hạn thị thực.</p></div>
+    <div class="variant"><span class="label-h">Thiếu dấu nhập cảnh – chặn nhận phòng (BR-613 c)</span>
+      <div class="chk3 block"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div><b data-i18n="ci.block_title">Không đạt – chưa nhận phòng được</b><div class="li-s" data-i18n="ci.block_entry">Chưa có dấu nhập cảnh / chứng nhận nhập cảnh. Chưa nhận phòng cho tới khi lễ tân trưởng trở lên xác nhận nhận tiếp.</div></div><span class="chip bad" data-i18n="checkin.verify.result.fail">Không đạt</span></div></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s134">
+  <h2 id="s134"><span class="no">13.4</span>Bước 3 – Khai báo (rút gọn trong luồng nhận phòng)</h2>
+  <p class="lead">Hạn khai báo bắt đầu tính khi bấm "Nhận phòng". Ở bước này lễ tân chọn khai ngay (mở màn H14 chi tiết) hoặc khai sau – việc được giữ ở "Cần chú ý" và nhắc lúc 22:00 / 07:00 tới khi xong.</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:300px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước nhận phòng"><li class="done" data-i18n="checkin.step.docs">Giấy tờ</li><li class="done" data-i18n="checkin.step.verify">Kiểm tra</li><li aria-current="step" data-i18n="checkin.step.register">Khai báo</li><li data-i18n="checkin.step.handover">Giao mã & hoàn tất</li></ol>
+        <div class="g-2">
+          <div class="card"><div class="label-h" data-i18n="reg.type.foreigner">Khai báo tạm trú người nước ngoài</div><p style="margin-top:6px">103 · Anna Martin + 1</p><div class="countdown warn"><svg class="ico sm" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="ci.deadline_foreign" data-i18n-args='{"in":"11:05","deadline":"23:05 15/10"}'>Nhận 11:05 → hạn 23:05 15/10 (giờ nhận + 12 giờ)</span></div></div>
+          <div class="card"><div class="label-h" data-i18n="reg.type.citizen">Thông báo lưu trú công dân Việt Nam</div><p style="margin-top:6px">302 · Gia đình anh Hưng</p><div class="countdown warn"><svg class="ico sm" aria-hidden="true"><use href="#i-clock"/></svg><span data-i18n="ci.deadline_citizen" data-i18n-args='{"in":"15:35","deadline":"23:00 15/10"}'>Nhận 15:35 → hạn 23:00 15/10</span></div><p class="li-s" style="margin-top:4px" data-i18n="ci.deadline_citizen_late">Khách đến từ 23:00 → hạn 08:00 sáng hôm sau.</p></div>
+        </div>
+      </div>
+      <div class="wiz-foot"><button class="btn" data-i18n="reg.later">Khai báo sau (thêm vào việc cần làm)</button><a class="btn pri" href="14-registration.html#s142" data-i18n="ci.reg_now">Khai báo ngay</a></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.4">
+      <h3>Story / AC</h3><ul><li><span class="us">US-025</span> AC4 khai báo chưa <code>sent</code> → hiện hạn BR-602/603, đơn vào "Cần chú ý"; <span class="us">US-042</span> AC1 ví dụ hạn.</li><li>BR-602 VN: trước 23:00 ngày đến (ngày lịch của giờ đến thực tế); đến từ 23:00 → 08:00 hôm sau. BR-603 NN: giờ đến thực tế + 12 giờ (<code>hours_only</code>), không áp mốc 23:00.</li></ul>
+      <h3>API</h3><ul><li><span class="op">previewCheckIn</span> → <code>registrationDeadlinePreview</code> (trước khi nhận) · sau khi nhận: <span class="op">listRegistrations</span> <code>deadlineAt</code>, <code>deadlineLabel</code></li></ul>
+      <h3>Hành vi</h3><ul><li>Hạn hiện bằng giờ tuyệt đối + đếm ngược, đỏ khi quá hạn kèm chữ "Đã quá hạn" (không chỉ màu).</li></ul>
+    </aside>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s135">
+  <h2 id="s135"><span class="no">13.5</span>Bước 4 – Giờ nhận, phụ thu nhận sớm chủ động, thu tiền, giao mã cửa (nhập tay R2), hoàn tất</h2>
+  <p class="lead">Ví dụ nhận sớm: Anna Martin (Booking.com, căn 103) đến 11:05. Phụ thu chỉ xuất hiện khi lễ tân bật "Khách nhận sớm" và nhập giờ; đơn OTA tính trên giá Trực tiếp hiện hành của đêm đầu (103 = 750.000). Gõ thử giờ khác: 14:00 → 0 đ; 08:00 → 50%; 05:30 → thêm đêm hôm trước (không phải phụ thu). Mã cửa ở R2: lễ tân tạo mã trên app khóa TTLock và giao tận tay – OTTIMO không lưu mã (US-128 dời R3).</p>
+  <div class="doc-row">
+    <div class="frame"><div class="frame-desk" style="min-height:900px">
+      <div class="page">
+        <ol class="progress-steps" aria-label="Các bước nhận phòng"><li class="done" data-i18n="checkin.step.docs">Giấy tờ</li><li class="done" data-i18n="checkin.step.verify">Kiểm tra</li><li class="done" data-i18n="checkin.step.register">Khai báo</li><li aria-current="step" data-i18n="checkin.step.handover">Giao mã & hoàn tất</li></ol>
+        <div class="cols-2">
+          <div>
+            <div class="card" data-sur="early" data-base-rate="750000" data-prev-night="14/10">
+              <div class="card-h"><h3 data-i18n="ci.time_title">Giờ nhận & phụ thu</h3></div>
+              <button class="switch" role="switch" aria-checked="true" data-reveal="#early-box"><i aria-hidden="true"></i><span data-i18n="ci.early_toggle">Khách nhận sớm</span></button>
+              <div id="early-box" style="margin-top:10px">
+                <div class="field"><label for="ci-time" data-i18n="ci.early_time">Giờ khách nhận phòng</label><input class="input num" id="ci-time" value="11:00" inputmode="numeric" data-sur-time aria-describedby="ci-out" style="max-width:120px"></div>
+                <p id="ci-out" data-sur-out data-i18n="sur.early_fee" data-i18n-args='{"amount":"225.000","pct":"30"}' aria-live="polite">Phụ thu nhận sớm đề xuất: 225.000 (30% giá đêm đầu)</p>
+                <p class="li-s" data-i18n="extend.rate_source" data-i18n-args='{"source":"Giá Trực tiếp hôm nay của căn 103 – đơn OTA"}'>Nguồn giá: Giá Trực tiếp hôm nay của căn 103 – đơn OTA</p>
+                <div class="alert warn" data-sur-ext hidden role="status"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><div class="txt" data-i18n="ci.extra_night_help">Kiểm căn còn trống đêm hôm trước. Đơn OTA: tạo đơn con kênh Trực tiếp cho đêm đó; căn có khách đêm đó → gợi ý gửi hành lý hoặc căn khác.</div></div>
+                <label class="check" data-sur-ack><input type="checkbox"><span data-i18n="ci.told_guest">Tôi đã báo khách khoản phụ thu này</span></label>
+                <details style="margin-top:6px"><summary class="btn ghost sm" data-i18n="ci.ask_foc">Xin miễn phụ thu (gửi duyệt)</summary><p class="li-s" style="margin-top:6px" data-i18n="ci.ask_foc_help">Chọn lý do. Yêu cầu tự đến người có quyền duyệt – không chọn tên người duyệt. Folio ghi dòng phụ thu và dòng miễn "chờ duyệt".</p><a class="btn sm" href="17-approvals-moneylog.html#s171" data-i18n="foc.open_form">Mở form miễn phí / giảm giá</a></details>
+              </div>
+            </div>
+            <div class="card" style="margin-top:12px">
+              <div class="card-h"><h3 data-i18n="ci.pay_title">Thu tiền trước khi giao mã</h3></div>
+              <div class="kv-big"><span data-i18n="drawer.folio.balance">Còn phải thu</span><span class="price-big">225.000 đ</span></div>
+              <p class="li-s" data-i18n="ci.pay_ota_prepaid">Booking.com đã thu tiền phòng – chỉ còn phụ thu nhận sớm. Đơn Trực tiếp/CTV (ví dụ 302: 3.344.000 đ) phải thu đủ ở đây.</p>
+              <div class="row" style="margin-top:8px"><a class="btn" href="16-check-out.html#s163" data-i18n="ci.pay_open">Thu tiền (VietQR / tiền mặt)</a><span class="chip recon"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="pay.pending_reconcile">Chờ đối soát</span></span></div>
+              <p class="li-s" style="margin-top:6px" data-i18n="ci.recon_ok">Chuyển khoản ghi tay mang cờ "Chờ đối soát" nhưng vẫn tính là đã thu – nhận phòng được.</p>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-h"><svg class="ico" aria-hidden="true"><use href="#i-key"/></svg><h3 data-i18n="ci.door_title">Mã cửa – nhập tay trên app khóa (R2)</h3></div>
+              <dl class="dl"><dt data-i18n="ci.door_valid">Hiệu lực</dt><dd data-i18n="ci.door_valid_value" data-i18n-args='{"from":"11:05 15/10","to":"12:00 18/10"}'>11:05 15/10 → 12:00 18/10</dd><dt data-i18n="ci.door_lock">Khóa</dt><dd>TTLock · 103</dd></dl>
+              <ol style="margin:10px 0 6px;padding-left:18px;font-size:.8125rem"><li data-i18n="ci.door_step1" data-i18n-args='{"room":"103"}'>Mở app TTLock, tạo mã 6 số ngẫu nhiên cho căn 103 với đúng hiệu lực trên.</li><li data-i18n="ci.door_step2">Đọc mã cho khách hoặc đưa thẻ (tối đa 2 thẻ). Không gửi mã qua tin nhắn kèm số căn, địa chỉ.</li><li data-i18n="ci.door_step3">Khách muốn mã theo ngày sinh: ddmm + 3 số ngẫu nhiên (7 số), không dùng đúng ngày sinh.</li></ol>
+              <label class="check"><input type="checkbox" data-enables="#ci-submit"><span data-i18n="ci.door_done">Đã tạo mã trên app khóa và giao cho khách</span></label>
+              <p class="li-s" data-i18n="ci.door_not_stored">OTTIMO không lưu mã cửa ở R2. Khi trả phòng hoặc đổi phòng, hệ thống tạo việc "Xóa mã trên app khóa".</p>
+            </div>
+            <div class="card" style="margin-top:12px">
+              <div class="card-h"><h3 data-i18n="ci.effects_title">Khi bấm Nhận phòng</h3></div>
+              <ul class="consequence" style="margin:0"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wiz-foot"><a class="btn ghost" href="#s134" data-i18n="common.back">Quay lại</a><button class="btn pri" id="ci-submit" aria-disabled="true" data-open="#dlg-checkin" data-i18n="ci.submit" data-i18n-args='{"room":"103"}'>Nhận phòng căn 103</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.5">
+      <h3>Story / AC</h3><ul><li><span class="us">US-026</span> AC2 nhập 11:00 → đề xuất theo BR-411 và chỉ ghi folio khi lễ tân xác nhận (tick "đã báo khách"); AC3 trước 06:00 → thêm đêm (BR-417), không phải phụ thu; AC4 miễn → luồng duyệt US-007.</li><li><span class="us">US-025</span> AC3 còn phải thu → không giao mã; AC1 → <code>in_house</code>, buồng <code>OC</code>.</li><li>BR-415: OTA tính trên giá Trực tiếp hiện hành – 30% × 750.000 = 225.000.</li><li>BR-403: hiệu lực mã = giờ nhận → giờ trả (gồm trả muộn đã duyệt); 6 số ngẫu nhiên; mã ngày sinh = ddmm + 3 số.</li></ul>
+      <h3>API</h3><ul><li><span class="op">previewCheckIn</span>?<code>checkinTime=11:00</code> → <code>earlyCheckinSurcharge</code> (<code>tierPct</code>, <code>amountVnd</code>, <code>addsPreviousNight</code>)</li><li><span class="op">checkIn</span> { <code>checkinTime</code>, <code>applyEarlySurcharge</code>, <code>requestFocForSurcharge</code>?, đề nghị BA: <code>documentBlockOverride{reason}</code> (FDL+, E03-01), <code>addPriorNight</code> + <code>priorNightRateVnd</code> (E03-05) } + <code>Idempotency-Key</code> + <code>If-Match</code></li><li>Thu tiền: <span class="op">createVietQr</span> · <span class="op">recordPayment</span> (H16 16.3)</li><li>R2 <b>không</b> gọi <span class="op">setDoorCredential</span> / <span class="op">getDoorCredential</span> (US-128 dời R3); ô tick là xác nhận thao tác, xem câu hỏi gửi ARC/PO trong báo cáo.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">CHECKIN_CONDITIONS_NOT_MET</span> (<code>unmet[]</code> → tô lại điều kiện 13.1) · <span class="pc">RESERVATION_UNASSIGNED</span> · <span class="pc">INVALID_TRANSITION</span> · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">IDEMPOTENCY_IN_PROGRESS</span> · <span class="pc">ROOM_UNAVAILABLE</span> (thêm đêm trước 06:00 khi căn đã kín)</li></ul>
+      <h3>a11y</h3><ul><li>Kết quả phụ thu <code>aria-live="polite"</code>; nút Nhận phòng khóa (<code>aria-disabled</code>) tới khi tick đã giao mã; tick "đã báo khách" chỉ hiện khi có tiền.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">BR-613 (c) – nút Nhận phòng bị khóa (R2, giả định G-1)</span>
+      <div class="lock-box"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><div><b data-i18n="ci.doc_blocked_title">Chưa nhận phòng được</b><br><span data-i18n="ci.doc_blocked_body">Giấy tờ nước ngoài đã hết hạn tại ngày nhận phòng hoặc thiếu dấu nhập cảnh. Lễ tân trưởng trở lên xác nhận nhận tiếp (ghi lý do và cách xử lý); quản lý nhận thông báo.</span></div></div>
+      <button class="btn block" style="margin-top:8px" data-open="#dlg-block-lead" data-i18n="ci.block_send">Gửi lễ tân trưởng xác nhận</button>
+      <button class="btn pri block" style="margin-top:6px" aria-disabled="true" data-i18n="ci.waiting_lead">Đang chờ lễ tân trưởng xác nhận</button></div>
+    <div class="variant"><span class="label-h">Buồng chưa sẵn sàng – lễ tân (A12 = gửi duyệt)</span>
+      <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><div class="txt" data-i18n="checkin.room_not_ready" data-i18n-args='{"room":"202","status":"VD · Trống, cần dọn"}'>Căn 202 đang "VD · Trống, cần dọn" – chưa sẵn sàng. Gửi lễ tân trưởng xác nhận kèm lý do để nhận phòng.</div></div>
+      <div class="field"><label for="rnr-r"><span data-i18n="ci.reason">Lý do</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="rnr-r" value="Khách đến sớm, chờ được 15 phút"></div>
+      <button class="btn block" data-i18n="ci.send_lead">Gửi lễ tân trưởng xác nhận</button></div>
+    <div class="variant"><span class="label-h">Buồng chưa sẵn sàng – lễ tân trưởng (tự xác nhận)</span>
+      <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-broom"/></svg><div class="txt" data-i18n="checkin.room_not_ready_lead" data-i18n-args='{"room":"202","status":"VD · Trống, cần dọn"}'>Căn 202 đang "VD · Trống, cần dọn" – chưa sẵn sàng. Bạn xác nhận ngoại lệ được: ghi lý do; buồng sẽ chuyển "Có khách, cần dọn" và có việc dọn gấp.</div></div>
+      <p class="li-s" data-i18n="ci.ooo_never">Căn đang khóa sửa chữa (OOO) thì không bao giờ nhận phòng được.</p></div>
+    <div class="variant"><span class="label-h">Lỗi khi bấm – CHECKIN_CONDITIONS_NOT_MET</span>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="error.CHECKIN_CONDITIONS_NOT_MET" data-i18n-args='{"unmet":"còn phải thu 3.344.000 đ"}'>Chưa nhận phòng được: còn phải thu 3.344.000 đ. Xử lý các mục còn thiếu ở danh sách điều kiện.</div></div></div>
+    <div class="variant"><span class="label-h">Nhận trước 06:00 (BR-417) – kiểm đêm trước</span>
+      <div class="alert info" role="status"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><div class="txt"><span data-i18n="checkin.prior_night" data-i18n-args='{"date":"14/10","amount":"750.000"}'>Khách nhận trước 06:00 – thêm đêm 14/10: 750.000. Đây là tiền phòng, không phải phụ thu.</span><div class="act"><button class="btn sm" data-i18n="checkin.prior_night_submit">Thêm đêm và nhận phòng</button></div></div></div>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><div class="txt" data-i18n="checkin.prior_night_unavailable" data-i18n-args='{"room":"103","date":"14/10"}'>Căn 103 có khách đêm 14/10. Gợi ý khách gửi hành lý hoặc đổi sang căn trống.</div></div></div>
+  </div>
+</section>
+
+<section class="doc-sec" aria-labelledby="s136">
+  <h2 id="s136"><span class="no">13.6</span>Sau khi nhận – hoàn tác nhận phòng nhầm (quản lý, chủ đầu tư)</h2>
+  <div class="doc-row">
+    <div class="frame" style="max-width:520px"><div class="modal" role="alertdialog" aria-labelledby="un-h" aria-describedby="un-b" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 id="un-h" data-i18n="ci.undo_title" data-i18n-args='{"room":"302","guest":"Gia đình anh Hưng"}'>Hoàn tác nhận phòng căn 302 – Gia đình anh Hưng?</h2></div>
+      <div class="modal-b"><p id="un-b" data-i18n="ci.undo_body">Đơn trở về "Đã xác nhận", buồng về trạng thái trước khi nhận. Hệ thống tạo việc "Xóa mã trên app khóa". Chỉ làm được trong ngày và khi folio chưa có dòng mới.</p>
+        <div class="field"><label for="un-r"><span data-i18n="ci.reason">Lý do</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="un-r" value="Nhận nhầm đơn – khách đúng là OTM-0151"></div></div>
+      <div class="modal-f"><button class="btn" autofocus data-i18n="confirm.keep">Không, quay lại</button><button class="btn danger" data-i18n="drawer.action.undo_checkin">Hoàn tác nhận phòng</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả 13.6">
+      <h3>Story / AC</h3><ul><li><span class="us">US-025</span> AC5 (B17): MGR/OWN, trong ngày, chưa có dòng folio mới; FD không có nút (A13). US-135 hộp xác nhận nêu hậu quả.</li></ul>
+      <h3>API</h3><ul><li><span class="op">undoCheckIn</span> (<code>If-Match</code>)</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> (đã qua ngày / có dòng folio mới) · <span class="pc">FORBIDDEN_ACTION</span> · <span class="pc">VERSION_CONFLICT</span></li></ul>
+    </aside>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-stepup" aria-labelledby="su-h"><div class="modal">
+  <div class="modal-h"><h2 id="su-h" tabindex="-1" data-i18n="ci.stepup_title">Xác nhận lại để xem giấy tờ</h2></div>
+  <div class="modal-b"><p data-i18n="ci.stepup_body">Xem đủ số và ảnh giấy tờ được ghi vào nhật ký truy cập. Nhập lại mật khẩu của bạn – có hiệu lực 15 phút trên máy này.</p>
+    <div class="field"><label for="su-p" data-i18n="ci.stepup_label">Mật khẩu của bạn</label><input class="input" id="su-p" type="password" autocomplete="current-password" autofocus></div></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="ci.stepup_submit">Xác nhận</button></div>
+</div></dialog>
+<dialog class="dlg" id="dlg-manual" aria-labelledby="mn-h"><div class="modal">
+  <div class="modal-h"><h2 id="mn-h" tabindex="-1" data-i18n="ci.manual_title">Nhập tay giấy tờ</h2></div>
+  <div class="modal-b">
+    <div class="g-2">
+      <div class="field"><label for="mn-t" data-i18n="checkin.docs.field.doc_type">Loại giấy tờ</label><select class="input" id="mn-t"><option data-i18n="ci.doc.cccd">CCCD</option><option data-i18n="ci.doc.passport">Hộ chiếu</option><option data-i18n="ci.doc.child">Số định danh trẻ em</option></select></div>
+      <div class="field"><label for="mn-n"><span data-i18n="checkin.docs.field.doc_no">Số giấy tờ</span> <span class="req" aria-hidden="true">*</span></label><input class="input mono" id="mn-n" autocomplete="off" autofocus></div>
+      <div class="field span-2"><label for="mn-f"><span data-i18n="checkin.docs.field.full_name">Họ tên (như trên giấy tờ)</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="mn-f" autocomplete="off"></div>
+      <div class="field"><label for="mn-d" data-i18n="checkin.docs.field.dob">Ngày sinh</label><input class="input" id="mn-d" inputmode="numeric" placeholder="dd/mm/yyyy"></div>
+      <div class="field"><label for="mn-c" data-i18n="checkin.docs.field.nationality">Quốc tịch</label><input class="input" id="mn-c" value="VNM"></div>
+    </div>
+    <p class="li-s" data-i18n="ci.manual_note">Hộ chiếu: thêm hạn hộ chiếu, thị thực, ngày nhập cảnh để hệ thống tự kiểm. Bỏ trống thì kết quả là "Chưa kiểm được".</p>
+  </div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="ci.manual_save">Lưu giấy tờ</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-block-lead" aria-labelledby="bl-h"><div class="modal">
+  <div class="modal-h"><h2 id="bl-h" tabindex="-1" data-i18n="ci.block_lead_title">Lễ tân trưởng xác nhận nhận tiếp</h2></div>
+  <div class="modal-b"><p data-i18n="ci.block_lead_body">Chỉ lễ tân trưởng, quản lý hoặc chủ đầu tư. Ghi lý do và cách xử lý; quản lý nhận thông báo. Sau khi xác nhận, nút Nhận phòng mở lại.</p>
+    <div class="field"><label for="bl-r"><span data-i18n="ci.reason">Lý do</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="bl-r"></textarea></div>
+    <div class="field"><label for="bl-p" data-i18n="ci.stepup_label">Mật khẩu của bạn</label><input class="input" id="bl-p" type="password" autocomplete="current-password"></div></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-close="force" data-i18n="ci.block_lead_submit">Xác nhận nhận tiếp</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-checkin" aria-labelledby="ck-h"><div class="modal">
+  <div class="modal-h"><h2 id="ck-h" tabindex="-1" data-i18n="ci.confirm_title" data-i18n-args='{"room":"103","guest":"Anna Martin"}'>Nhận phòng căn 103 cho Anna Martin?</h2></div>
+  <div class="modal-b"><ul class="consequence"><li data-i18n="ci.effect_status" data-i18n-args='{"room":"103"}'>Đơn chuyển "Đang ở", buồng 103 chuyển "Có khách, sạch".</li><li data-i18n="ci.effect_deadline" data-i18n-args='{"deadline":"23:05 hôm nay"}'>Hạn khai báo bắt đầu tính: 23:05 hôm nay.</li><li data-i18n="ci.effect_fee" data-i18n-args='{"amount":"225.000"}'>Phụ thu nhận sớm 225.000 đ ghi vào folio (đã báo khách).</li></ul></div>
+  <div class="modal-f"><button class="btn" data-close="" data-i18n="confirm.keep">Không, quay lại</button><button class="btn pri" data-close="force" data-i18n="ci.submit" data-i18n-args='{"room":"103"}'>Nhận phòng căn 103</button></div>
+</div></dialog>
+<dialog class="dlg sm" id="dlg-unsaved" aria-labelledby="dlg-unsaved-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-unsaved-h" aria-describedby="dlg-unsaved-b">
+  <div class="modal-h"><h2 id="dlg-unsaved-h" data-i18n="common.unsaved_title">Bỏ các thay đổi chưa lưu?</h2></div>
+  <div class="modal-b"><p id="dlg-unsaved-b" data-i18n="common.unsaved_body">Bạn đã nhập thông tin trong form này. Nếu đóng, thông tin sẽ mất.</p></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="common.unsaved_keep">Tiếp tục nhập</button><button class="btn danger" data-close="discard" data-i18n="common.unsaved_discard">Bỏ thay đổi</button></div>
+</div></dialog>
+</main>
+</body>
+</html>

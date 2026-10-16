@@ -7,7 +7,8 @@
    - Dialogs: [data-open="#id"] opens a native <dialog> (focus trap, inert background, Esc);
      a dialog containing a form that was edited asks "Bỏ các thay đổi chưa lưu?" before closing (DS §6.2);
      focus returns to the opener (DS C15, WCAG 2.4.3).
-   - Seg / switch / stepper / tabs demos. Occupancy calculator for booking/quote forms (BR-110, ESC-014). */
+   - Seg / switch / stepper / tabs demos. Occupancy calculator for booking/quote forms (BR-110, ESC-014).
+   - R2 Sprint 3: surcharge preview [data-sur] (BR-411/412/414, ân hạn 12:30), [data-enables] checkbox → nút. */
 (function () {
   var S = window.OTTIMO_STRINGS || { vi: {}, en: {} };
   var LANG = 'vi';
@@ -31,7 +32,7 @@
     document.querySelectorAll('[data-i18n-label]').forEach(function (el) { el.setAttribute('aria-label', t(el.getAttribute('data-i18n-label'), argsOf(el))); });
     document.documentElement.setAttribute('lang', lang);
     document.querySelectorAll('[data-set-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang)); });
-    occAll();
+    occAll(); surAll();
   }
 
   /* ---------- occupancy (BR-110 v0.3 + ESC-014: max = base + 1, sofa) ---------- */
@@ -71,6 +72,42 @@
   }
   function occAll() { document.querySelectorAll('[data-occ-form]').forEach(occ); }
 
+  /* ---------- surcharge preview (R2 Sprint 3): BR-411 nhận sớm, BR-412 trả muộn + ân hạn 12:30, BR-414 chủ động, BR-416/417 ----------
+     <div data-sur="early|late" data-base-rate="750000" [data-prev-night="14/10"]>
+       <input data-sur-time value="11:00"> · [role=switch data-sur-arrival] (late: căn có khách đến cùng ngày → bỏ ân hạn)
+       <p data-sur-out data-i18n=…> · [data-sur-ack] (tick "đã báo khách", hiện khi có phụ thu) · [data-sur-ext] (chuyển gia hạn / thêm đêm)
+     Demo only – server (previewCheckIn / setLateCheckout dryRun) is the source of truth. Rounding to 1.000 đ as BR-415 example. */
+  function mins(v) { var m = /^(\d{1,2}):(\d{2})$/.exec((v || '').trim()); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  function sur(box) {
+    var kind = box.getAttribute('data-sur'), base = parseInt(box.getAttribute('data-base-rate') || '0', 10);
+    var inp = box.querySelector('[data-sur-time]'), out = box.querySelector('[data-sur-out]');
+    var tm = mins(inp && inp.value); if (!out) return;
+    if (inp) inp.closest('.field') && inp.closest('.field').classList.toggle('invalid', tm === null);
+    if (tm === null) return;
+    var key, args = {}, pct = 0, ext = false;
+    if (kind === 'early') {
+      if (tm >= 14 * 60) { key = 'sur.early_zero'; args = { std: '14:00' }; }
+      else if (tm >= 10 * 60) pct = 30; else if (tm >= 6 * 60) pct = 50;
+      else { key = 'sur.early_extra_night'; args = { date: box.getAttribute('data-prev-night') || '' }; ext = true; }
+      if (pct) { key = 'sur.early_fee'; }
+    } else {
+      var sw = box.querySelector('[data-sur-arrival]'), arrival = !!sw && sw.getAttribute('aria-checked') === 'true';
+      if (tm <= 12 * 60) key = 'late.std_zero';
+      else if (!arrival && tm <= 12 * 60 + 30) key = 'late.fee_zero';
+      else if (tm <= 15 * 60) pct = 30; else if (tm <= 18 * 60) pct = 50;
+      else { key = 'late.treat_as_extension'; args = { time: '18:00' }; ext = true; }
+      if (pct) key = 'late.fee';
+      box.querySelectorAll('[data-sur-grace]').forEach(function (g) { g.hidden = !arrival; });
+    }
+    if (pct) { args = { amount: VND(Math.round(base * pct / 100 / 1000) * 1000), pct: pct }; }
+    out.setAttribute('data-i18n', key); out.setAttribute('data-i18n-args', JSON.stringify(args)); out.textContent = t(key, args);
+    out.classList.toggle('pos', !!pct);
+    box.querySelectorAll('[data-sur-ack]').forEach(function (a) { a.hidden = !pct; var c = a.querySelector('input'); if (c && !pct) c.checked = false; });
+    box.querySelectorAll('[data-sur-ext]').forEach(function (a) { a.hidden = !ext; });
+    box.querySelectorAll('[data-sur-submit]').forEach(function (b) { var ok = !ext && (!pct || (box.querySelector('[data-sur-ack] input') || {}).checked); if (ok) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); });
+  }
+  function surAll() { document.querySelectorAll('[data-sur]').forEach(sur); }
+
   /* ---------- dialogs ---------- */
   var openers = new WeakMap();
   function openDlg(sel, opener) {
@@ -85,7 +122,7 @@
     }
     d.close(); var o = openers.get(d); if (o && o.focus) o.focus();
   }
-  document.addEventListener('input', function (e) { var d = e.target.closest('dialog'); if (d) d.setAttribute('data-dirty', '1'); });
+  document.addEventListener('input', function (e) { var d = e.target.closest('dialog'); if (d) d.setAttribute('data-dirty', '1'); var sb = e.target.matches('[data-sur-time]') && e.target.closest('[data-sur]'); if (sb) sur(sb); });
   document.addEventListener('cancel', function (e) { var d = e.target; if (d.tagName === 'DIALOG') { e.preventDefault(); closeDlg(d); } }, true);
 
   document.addEventListener('click', function (e) {
@@ -114,6 +151,7 @@
       var on = el.getAttribute('aria-checked') !== 'true'; el.setAttribute('aria-checked', String(on));
       var r = el.getAttribute('data-reveal'); if (r) document.querySelectorAll(r).forEach(function (x) { x.hidden = !on; });
       var c = el.getAttribute('data-conceal'); if (c) document.querySelectorAll(c).forEach(function (x) { x.hidden = on; });
+      var sb2 = el.closest('[data-sur]'); if (sb2) sur(sb2);
       return;
     }
     if ((el = e.target.closest('.stepper button'))) {
@@ -142,6 +180,10 @@
 
   document.addEventListener('change', function (e) {
     var f = e.target.closest('[data-occ-form]'); if (f && e.target.matches('[data-occ-room]')) occ(f);
+    var sb = e.target.closest('[data-sur]'); if (sb && e.target.matches('[data-sur-ack] input')) sur(sb);
+    /* [data-enables="#id"] checkbox/radio: bật nút khi đã tick (vd. "Tôi đã báo khách", chọn đồng ý Có/Không) */
+    var en = e.target.getAttribute && e.target.getAttribute('data-enables');
+    if (en) document.querySelectorAll(en).forEach(function (b) { if (e.target.checked) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); });
   });
   // Roving arrow keys for tablists (WAI-ARIA APG)
   document.addEventListener('keydown', function (e) {
@@ -152,5 +194,5 @@
   });
 
   document.addEventListener('DOMContentLoaded', function () { setLang(document.documentElement.getAttribute('data-init-lang') || 'vi'); });
-  window.OTTIMO_HIFI = { setLang: setLang, t: t, occ: occ, open: openDlg };
+  window.OTTIMO_HIFI = { setLang: setLang, t: t, occ: occ, sur: sur, open: openDlg };
 })();
