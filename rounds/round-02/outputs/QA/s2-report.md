@@ -215,3 +215,65 @@ Không có P0/P1 mới. Không có ESC.
   - architecture 9.1: J9 theo ngày nghiệp vụ 06:00, tên job (BUG-R2-021);
   - thêm `ota_base_rate.<group>` vào catalogue (BUG-R2-017/018).
 - ARC đã chốt "một kênh `direct` + `directSource`" (A-17), trong khi DS-E còn 5 kênh trực tiếp. QA sẽ gộp trong seed khi BE xác nhận loader và dữ liệu cũ. Không chặn: các test chọn kênh `direct` trước, `zalo_phone` sau.
+
+## 8. Bước Phản hồi & sửa (QA, 16/10/2026) – chưa chạy stack (theo ORC: chờ BE-A/FE xong)
+
+### 8.1 Bảng việc
+
+| Việc ORC giao | Kết quả | Trạng thái |
+|---|---|---|
+| TC cho 3 AC mới của PO | **TC-L2-080** (US-017 AC9 người chốt + `listCloserCandidates`), **TC-L3-073** (US-025 AC7 ô "Đã giao mã cửa/thẻ" – tick bổ sung qua `ReservationPatch.doorAccessHandedOver` theo ARC B-28, nhãn GIẢ ĐỊNH chờ 0.3.6), **TC-L8-013** (US-012 AC8 cảnh báo FOC BR-435/436 cho OWN). Sửa TC-L8-007 theo US-012 AC3 mới (mã đơn + căn, không hiện ngày – SR-RET-06) | `gen_traceability --strict` **exit 0** – AC **251/251**, 402 TC |
+| DOM mục E: validator, `extraGuestKitDue`, TC-L5-015 | `validate-fixtures`: 247 dòng, **0 lỗi** (21 dòng mới v0.3.2 qua; 161 dòng tự tính lại). `extraGuestKitDue` thêm nhánh `max(giờ nhận phòng, confirmedAt + extra_guest_kit_midstay_due_minutes)`; BR-812-10 đổi `calc` → tự tính ra 17:00 khớp. TC-L5-015 viết lại theo BR-304-01/02 (ngày lịch lập, mốc nửa mở 00:00) + E2E 2 biến thể (10:00 và 01:30) | Xong |
+| Seed DS-E | **Một kênh `direct`** (thay `zalo_phone`, `walk_in`, `direct_web`, `returning`, `sales_staff`) – ARC A-08/A-17, DOM D-6; DS-0: 5 đơn chuyển `channel: direct` + `directSource`. Thêm 4 tham số: `ota_base_rate` {L12 760.000, N 1.050.000, NPLUS 980.000} (BR-103), `rounding.ota_rate` 10.000, `max_open_holds_per_user` {collaborator 3, sales_staff 5}, `staff_payment_backdate_max_hours` 24 | Xong (tĩnh) – xem 8.2 |
+| E2E cho hành vi đổi | File mới `api/s2-fix.api.spec.ts`. Sửa: TC-L5-032 (A-13 → 200), clock TC-L5-015/017 (extendQuote), TC-L5-030 (c), no-show (đảo folio B11/B12). Runner RBAC thêm `extendQuote`, `listCloserCandidates`, `getBookingRules` | Viết xong, **chưa chạy** |
+| Tin ORC thứ 2 (BE-A sửa xong BUG-R2-017…021) | Bỏ `test.fail` ở TC-L2-012 (b), TC-L2-013, TC-L2-020 (thứ tự kiểm), TC-L2-024 (gợi ý) – nay là ca hồi quy; bỏ `JOB_ALIASES` (gọi thẳng `hold.expire`, `ooo.activate`). Bug-list: 017…021 → **Fixed** (chờ QA kiểm lại ở lượt retest mới Closed). Hành vi mới: bên thua đồng thời có thể là `409 CONCURRENT_UPDATE` + `Retry-After`; `conflicts[]` ẩn mã đơn/tên với SAL/CTV/MT (TC-L2-020 (c)); `dryRun` ngoài operation khai báo → 422 (TC-L5-051 (b)); giữ chỗ có tiền không tự hủy (TC-L5-030 (c)) | Viết xong, chưa chạy |
+
+E2E mới hoặc sửa, theo mã TC:
+
+| Mã TC | Kiểm gì |
+|---|---|
+| TC-L2-080 | Người chốt: thiếu → `REQUIRED`; sai loại → `NOT_IN_LIST`; CTV hoặc SAL đúng loại → 201; danh sách chỉ có `userId`/`displayName`/`kind`; SAL/CTV gọi → 403 |
+| TC-L2-081 | `CAPACITY_EXCEEDED_WARNING` + `max`; có lý do → `capacityConflict`; Trực tiếp → `CAPACITY_EXCEEDED` |
+| TC-L2-082 | Đổi số đêm theo BR-107-03/04: 4.079.000 ↔ 5.205.000, kèm `calendarRateVnd` |
+| TC-L2-053 (b) | Hủy thật: đảo 3 dòng phòng, 1 dòng `cancellation_fee` 350.000, số dư 0 |
+| TC-L5-050 | Dùng CTV tạm riêng: giữ chỗ thứ 4 → `HOLD_LIMIT_REACHED` `max` 3; xác nhận 1 → giữ được |
+| TC-L5-051 (a)(b) | `dryRun` trên `confirmDeposit`/`saveQuote`/`createReservation` → 422 |
+| TC-L5-017 (b)(c)(d) | (b) SAL → 202 `quote_extension`; (c) MGR → 200 với hạn mới; (d) báo giá còn `active` → 409 `currentState` |
+| TC-L2-071/074 | Folio no-show: phòng = 0 + `no_show_fee`; khôi phục thì đảo lại |
+
+- Tổng `--list`: **976 test / 22 file**.
+- Kiểm tĩnh xanh: `tsc`, `eslint`, `prettier`, `validate-fixtures`, `gen_traceability --strict`, `gen_rbac_cases --check`.
+
+### 8.2 Ảnh hưởng tới BE (cần BE làm, QA không sửa `services/**`)
+- **Loader seed** (`db/seed/ds-e.ts`): **không cần đổi**.
+  - 4 tham số mới đã có trong catalogue (migration 0016, 0018, 0019). Kiểu khớp: `ota_base_rate` json (đủ 3 mã nhóm, 100.000–20.000.000), `rounding.ota_rate` int, `max_open_holds_per_user` json, `staff_payment_backdate_max_hours` int trong 0–72.
+  - Kênh nhập qua `importChannels` chung.
+  - Chưa chạy loader thật (ORC dặn chưa dựng stack): sẽ kiểm ở lượt retest.
+- **Test tích hợp của BE sẽ đỏ** khi đọc DS-E mới:
+  - 14 chỗ dùng `ids.channels.zalo_phone` / `channels.zalo_phone`: `reservations.test.ts` (4), `reservations-fix.test.ts` (5), `folio-payments.test.ts` (2), `rbac-sprint2-bea.test.ts` (1), `rbac-sprint2-beb.test.ts` (1), `sales.test.ts` (1).
+  - `helpers/reservations-fixture.ts` lấy kênh từ DS-E. `helpers/sales-fixture.ts` tự khai kênh nên không bị ảnh hưởng.
+  - Cách sửa: đổi sang `channels.direct` (giữ `directSource: 'zalo_phone'`). Đề nghị ORC chuyển cho BE-A/BE-B **trước khi commit chung**, hoặc commit seed cùng lúc với bản sửa test của BE.
+- `integration/seed.test.ts` đếm `parameters = fixture.parameters.length + 2`, nên tự đúng (138 + 2).
+
+### 8.3 Giả định
+- TC-L3-073 bước tick bổ sung dùng `ReservationPatch.doorAccessHandedOver` (ARC B-28, nhóm 0.3.6 – Sprint 3). Ở R2 chỉ phần nhận phòng (`checkIn.doorAccessHandedOver`) chạy được.
+- TC-L8-013 cần `requestFoc`/`approveRequest` có dữ liệu FOC (Sprint 3), ca tự skip tới khi có.
+- `extendQuote` bởi MGR: hạn mới tính từ ngày hiện tại. Test đặt giờ 10:00 để ngày lịch = ngày nghiệp vụ, tránh mập mờ giữa BR-304-02 (ngày lịch) và mô tả OpenAPI ("ngày nghiệp vụ").
+- Folio: dòng đảo nhận diện bằng `category` + `reversalOfId`, tổng theo `amountVnd` (dòng đảo mang số âm).
+
+### 8.4 File tạo/sửa ở bước này
+- Tạo: `product/tests/e2e/api/s2-fix.api.spec.ts`
+- Sửa E2E:
+  - `product/tests/e2e/support/{s2.ts, clock.ts}`
+  - `product/tests/e2e/api/{reservations, booking-conflicts, concurrency, quotes-holds}.api.spec.ts`
+  - `product/tests/e2e/clock/{hold-expiry, no-show}.clock.spec.ts`
+  - `product/tests/e2e/rbac/sprint2-ops.ts`
+- Sửa fixtures và công cụ:
+  - `product/tests/fixtures/br-examples.json` (BR-812-10 `calc`)
+  - `product/tests/tools/validate-fixtures.mjs`
+  - `product/tests/fixtures/seed/{ds-e.json, ds-0.json}`
+- Sửa tài liệu:
+  - `product/tests/test-cases/r1-main-flows.md` (v0.3.5, v0.3.6)
+  - `product/docs/qa/traceability.md` (sinh lại)
+  - `rounds/round-02/qa/bug-list.md` (017…021 Fixed)
+- Chưa commit, chưa chạy stack.

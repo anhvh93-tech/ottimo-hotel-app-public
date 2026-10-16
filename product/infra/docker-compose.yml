@@ -30,6 +30,13 @@ x-api-env: &api-env
   COOKIE_SECURE_PREFIX: ${COOKIE_SECURE_PREFIX:-false}
   # Dev trusts no proxy: X-Forwarded-For is ignored (FB-R1-ARC-OPS-04). Production sets Caddy's IP.
   TRUST_PROXY: ''
+  # Browser origin lists (SR-SES-04/09, config.ts parseAllowedOrigins). Empty = Origin not checked (dev
+  # default: lets FE use any local dev-server port). Opt in through the API_*_BASE_URL keys of .env – CI
+  # does, so TC-SEC-024 runs instead of skipping. The .env keys APP_BASE_URL/GUEST_BASE_URL (used by the
+  # E2E harness) are deliberately NOT passed here.
+  ADMIN_BASE_URL: ${API_ADMIN_BASE_URL:-}
+  STAFF_BASE_URL: ${API_STAFF_BASE_URL:-}
+  GUEST_BASE_URL: ${API_GUEST_BASE_URL:-}
 
 services:
   postgres:

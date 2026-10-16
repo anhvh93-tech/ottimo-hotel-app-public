@@ -81,7 +81,7 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
     arrivalDate: '2026-11-09',
     nights: 7,
     adults: 2,
-    channelId: ids.channels.zalo_phone,
+    channelId: ids.channels.direct,
     ...extra,
   });
 

@@ -73,7 +73,7 @@ test.describe('L2 3.3 – chống đặt trùng (US-018)', { tag: ['@api', '@spr
   test('TC-L2-020 (thứ tự kiểm EP02 3.4) trùng đêm mà chưa kèm cọc → vẫn 409 ROOM_UNAVAILABLE (chống trùng trước tiền)', async ({
     request,
   }) => {
-    test.fail(true, 'BUG-R2-019 (Open) – server kiểm cọc trước khối OOO/chống trùng; xem bug-list');
+    // hồi quy BUG-R2-019 (Fixed – BE-A s2-be-a-fix)
     await requireEndpoints(request, 'TC-L2-020', [EP.createReservation]);
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);
@@ -98,10 +98,7 @@ test.describe('L2 3.3 – chống đặt trùng (US-018)', { tag: ['@api', '@spr
   test('TC-L2-024 (gợi ý) căn trống thay thế: cùng nhóm hoặc nhóm cao hơn, không gợi ý nhóm thấp hơn (BR-312, OpenAPI suggestions)', async ({
     request,
   }) => {
-    test.fail(
-      true,
-      'BUG-R2-020 (Open) – gợi ý gồm cả nhóm thấp hơn, gắn upgrade=true; xem bug-list',
-    );
+    // hồi quy BUG-R2-020 (Fixed – BE-A s2-be-a-fix)
     await requireEndpoints(request, 'TC-L2-024', [EP.createReservation]);
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);

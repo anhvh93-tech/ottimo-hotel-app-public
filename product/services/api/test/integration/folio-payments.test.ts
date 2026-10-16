@@ -76,7 +76,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       arrivalDate,
       nights: 7,
       adults: opts.adults ?? 3,
-      channelId: who === 'ctv' ? ids.channels.collaborator : ids.channels.zalo_phone,
+      channelId: who === 'ctv' ? ids.channels.collaborator : ids.channels.direct,
       guestId: who === 'ctv' ? guestCtv : guestSal,
     });
     expect(q.statusCode, q.body).toBe(201);
@@ -703,7 +703,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       arrivalDate: '2027-03-15',
       nights: 5,
       adults: 2,
-      channelId: ids.channels.zalo_phone,
+      channelId: ids.channels.direct,
       guestId: guestSal,
     });
     expect(q.json().roomTotalVnd).toBe(4_079_000); // 4 × 792.000 + Fri 911.000

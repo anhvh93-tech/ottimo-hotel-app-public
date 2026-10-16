@@ -171,6 +171,29 @@ test.describe(
       });
       expect(m1.status, JSON.stringify(m1.body)).toBe(200);
       expect((await getReservation(request, fd, R1.id)).body.status).toBe('no_show');
+      // FB-R2-DOM-BE-01: no-show (B11) đảo tiền phòng, giữ cọc thành 1 dòng `no_show_fee` (doanh thu khác, BR-904)
+      const hasFolio = await isAvailable(request, 'GET', EP.getFolio[1]);
+      const folioLines = async () => {
+        const s = await sessionOrSkip(request, 'qa.fd');
+        const f = await call<{
+          lines?: Array<{ category: string; amountVnd: number }>;
+          totals?: { balanceDueVnd?: number; paidVnd?: number };
+        }>(request, 'GET', `/v1/properties/${propertyIdOf(s)}/folios/${R1.folioId}`, {
+          session: s,
+        });
+        expect(f.status, JSON.stringify(f.body)).toBe(200);
+        const sum = (cat: string) =>
+          (f.body.lines ?? [])
+            .filter((l) => l.category === cat)
+            .reduce((x, l) => x + l.amountVnd, 0);
+        return { room: sum('room'), fee: sum('no_show_fee'), totals: f.body.totals ?? {} };
+      };
+      if (hasFolio) {
+        const after = await folioLines();
+        expect(after.room).toBe(0);
+        expect(after.fee).toBe(after.totals.paidVnd);
+        expect(after.totals.balanceDueVnd).toBe(0);
+      }
       const rm1 = c.rooms.find((x) => x.id === R1.segments?.[0]?.roomId)!;
       expect(await isRoomFree(request, fd, rm1, addDays(D, 1), addDays(D, 2))).toBe(true);
       for (const r of [R4, R5]) {
@@ -190,7 +213,14 @@ test.describe(
         reason: 'Khach den 01:30, phong con trong',
       });
       expect(r1.status, JSON.stringify(r1.body)).toBe(200);
-      expect((await getReservation(request, fd, R1.id)).body.status).toBe('confirmed');
+      const restored = (await getReservation(request, fd, R1.id)).body;
+      expect(restored.status).toBe('confirmed');
+      if (hasFolio) {
+        // B12: đảo dòng no_show_fee, ghi lại tiền phòng các đêm (trỏ cùng stay_night)
+        const back = await folioLines();
+        expect(back.fee).toBe(0);
+        expect(back.room).toBe(restored.totalRoomVnd);
+      }
       // TC-L2-074 (b): FDL khôi phục không lý do → 422
       const fdl = await sessionOrSkip(request, 'qa.fdl');
       const r4 = await action(request, fdl, R4.id, 'restore-no-show', { reason: '' });

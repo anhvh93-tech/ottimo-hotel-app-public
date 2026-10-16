@@ -41,3 +41,11 @@
 ## 5. Việc chưa xong
 - SEC-BE-31 (truyền actor qua sales-port) – Sprint 3. ARC-S2-12 (J2/J6/J7 + "Cần chú ý") – Sprint 4. SR-RL-09 giới hạn tần suất chung – Sprint 3.
 - QA: bỏ `test.fail` của BUG-R2-017…020, bỏ `JOB_ALIASES` (BUG-R2-021).
+
+## 6. Bổ sung theo ARC s2-contract 8.5 (16/10/2026)
+- Bỏ `EXTRA_CODES`: `statusForCode()` chỉ đọc bảng mã OpenAPI (`INTERNAL_ERROR`, `CONCURRENT_UPDATE` 409, `SERVICE_UNAVAILABLE` 503 đã có trong 0.3.5).
+- Test mới `test/problem-concurrency.test.ts` (6 ca): hai mã có trong bảng; 55P03/40P01/40001 → 409 + `Retry-After: 1`; 57014 → 503 + `Retry-After`, không lộ thông điệp DB; lỗi DB khác → 500. Ca tích hợp chờ khóa → 409 có sẵn ở `reservations-fix.test.ts`.
+- A-28 (`CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason` ở `assignRoom`/`moveReservation`/`updateReservation`) đã có từ lượt sửa trước.
+- Test của BE-A đổi sang kênh `direct` theo DS-E mới (A-08 – QA bỏ 5 kênh trực tiếp).
+- Sinh lại `packages/api-client` (`pnpm --filter @ottimo/api-client gen`) vì kiểu sinh lệch openapi 0.3.5 §8.5 – chỉ tệp sinh, không sửa tay.
+- Kết quả: `format:check` xanh · `lint` 12/12 · `turbo run test --force` **12/12** (api 32 file / 1149 ca; admin-web 108 ca xanh) · `build` 6/6 · `gen-openapi-meta --check` up to date · `drizzle-kit generate` không lệch.

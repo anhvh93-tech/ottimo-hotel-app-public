@@ -97,6 +97,8 @@ info:
     | FORBIDDEN_ACTION | 403 | Vai không được làm hành động |
     | NOT_FOUND | 404 | Không có hoặc ngoài phạm vi |
     | INTERNAL_ERROR | 500 | Lỗi không lường trước ở server – `detail` chung, không lộ SQL/stack; kèm `requestId` để tra log (0.3.2). Mọi operation đều có thể trả; không khai lại ở từng operation |
+    | CONCURRENT_UPDATE | 409 | Tranh chấp khóa DB tạm thời (chờ khóa quá `lock_timeout` 55P03, deadlock 40P01, serialization 40001) – **không có gì được ghi**; kèm header `Retry-After` (giây). Client gửi lại **cùng** `Idempotency-Key`/`If-Match`. Mọi operation ghi đều có thể trả; không khai lại ở từng operation (0.3.5, FB-R2-SEC-BE-23) |
+    | SERVICE_UNAVAILABLE | 503 | Câu lệnh quá `statement_timeout` (57014) hoặc DB/pool tạm không phục vụ – không có gì được ghi; kèm `Retry-After`. Mọi operation đều có thể trả (0.3.5, FB-R2-SEC-BE-23) |
     | ROOM_UNAVAILABLE | 409 | Trùng căn – đêm (BR-906) – kèm `conflicts[]` |
     | ROOM_BLOCKED | 409 | Căn đang khóa OOO (US-019) – khi **mọi** phần tử `conflicts[]` là `kind=ooo`; lẫn đơn → ROOM_UNAVAILABLE (0.3.5) |
     | ROOM_NOT_SELLABLE | 409 | Căn ngừng bán (US-004) |
@@ -199,7 +201,7 @@ info:
     | MIN_STAY_NOT_MET | Ngày đến có ở tối thiểu (BR-113) mà số đêm thấp hơn; FDL+ bỏ qua bằng `minStayOverrideReason` (đơn trực tiếp); không áp đơn OTA nhập tay. 0.3.5: kèm `minStayNights`; nhóm có căn mà khoảng ngày là đêm lẻ → kèm `suggestions[]` `orphanNight=true` (lễ tân chọn căn đó; quầy R2 không tự gán căn) | `createReservation`, `calculateQuote`, `saveQuote` |
     | OTA_REF_DUPLICATE | `otaRef` + kênh trùng đơn khác chưa hủy | `createReservation` |
     | RATE_OUT_OF_RANGE_WARNING | Kênh `ota`: giá đêm ngoài sàn–trần (BR-105) **và** thiếu `rateOverrideReason` → client hiện **cảnh báo** + ô lý do rồi gửi lại; có lý do thì lưu (kênh `direct`/`agent` vẫn là `RATE_OUT_OF_RANGE` chặn) | `createReservation` |
-    | CAPACITY_EXCEEDED_WARNING | **Cảnh báo** (DOM D-1): kênh `ota` có số khách tính (`adults` + `children6to11`) > `maxOccupancy` của căn và thiếu `capacityWarningAckReason` → client hiện hộp cảnh báo + ô lý do rồi gửi lại; có lý do → lưu, đơn `capacityConflict=true`. Kênh khác vẫn `CAPACITY_EXCEEDED` chặn (0.3.5) | `createReservation`, `moveReservation`, `updateReservation` |
+    | CAPACITY_EXCEEDED_WARNING | **Cảnh báo** (DOM D-1; với `assignRoom`/`moveReservation` `field` = `roomId`, với `updateReservation` `field` = `adults`): kênh `ota` có số khách tính (`adults` + `children6to11`) > `maxOccupancy` của căn và thiếu `capacityWarningAckReason` → client hiện hộp cảnh báo + ô lý do rồi gửi lại; có lý do → lưu, đơn `capacityConflict=true`. Kênh khác vẫn `CAPACITY_EXCEEDED` chặn (0.3.5) | `createReservation`, `moveReservation`, `assignRoom`, `updateReservation` |
     | ALLOW_UNASSIGNED_OTA_ONLY | `allowUnassigned=true` cho kênh không phải `ota` | `createReservation` |
     | LONG_STAY_REQUIRES_CONTRACT | Số đêm đạt ngưỡng BR-108 mà không có `manualLongStay` (US-017 AC5) | `createReservation` |
     | MANUAL_LONG_STAY_BELOW_THRESHOLD | `manualLongStay` mà số đêm dưới ngưỡng BR-108 (AC5a) | `createReservation` |
@@ -242,6 +244,7 @@ info:
     **Đổi hành vi (có chủ đích)**: `confirmDeposit` thiếu tiền mà đã ghi giao dịch → `200` (đơn vẫn `hold`) thay `422` – 4xx nghĩa là không ghi gì (A-13).
     **Làm rõ**: `markNoShow` một bước (422/409/412); ROOM_BLOCKED khi mọi xung đột là OOO; `block.endDatePlanned` nửa mở; `affectedReservationsAcknowledged`
     chỉ ghi nhận; một kênh `direct` + `directSource` (đóng erd E8); danh mục sự kiện SSE; `attachmentId` tạm từ chối tới Sprint 3 (A-17).
+    **Bổ sung theo BE-A (A-27, A-28)**: mã `CONCURRENT_UPDATE` (409 + `Retry-After`), `SERVICE_UNAVAILABLE` (503) – không ghi gì, gửi lại cùng key; `capacityWarningAckReason` cho `assignRoom` và `ReservationPatch` (mã trường `CAPACITY_EXCEEDED_WARNING`, `field` = `roomId`/`adults`).
     **Bổ sung theo FE/DOM (A-24…A-26)**: `RackBar.capacityConflict`; `RackBar`/`Reservation` `requestedRoomGroupId`/`requestedRoomGroupCode` cho đơn chưa gán căn; mã trường `HOLD_LIMIT_REACHED`.
     **Bổ sung theo DOM (s2-DOM D-1, D-3, D-5, D-8; A-19…A-23)**: schema `MoveReasonCode` cho `moveReservation.reasonCode`; đơn OTA vượt sức chứa = cảnh báo
     `CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason`, cờ `Reservation.capacityConflict`, điều kiện nhận phòng `capacity_within_max`, mục "Cần chú ý"
@@ -2415,10 +2418,17 @@ paths:
                 roomId: { $ref: '#/components/schemas/Uuid' }
                 resolution: { type: string, enum: [reassigned_same_group, upgraded] }
                 note: { type: string, maxLength: 500 }
+                capacityWarningAckReason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                  description: 'Gán căn có sức chứa nhỏ hơn số khách của đơn OTA → thiếu lý do: 422 mã trường `CAPACITY_EXCEEDED_WARNING` (`field` = `roomId`); có lý do → gán, `capacityConflict=true` (DOM D-1). 0.3.5'
+                  x-rbac-field: D12c
       responses:
         '200': { $ref: '#/components/responses/ReservationOk' }
         '409': { $ref: '#/components/responses/RoomUnavailable' }
         '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/actions/swap-room:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -8012,6 +8022,12 @@ components:
     ReservationPatch:
       type: object
       properties:
+        capacityWarningAckReason:
+          type: string
+          minLength: 3
+          maxLength: 500
+          description: 'Đơn OTA: sửa số khách vượt `maxOccupancy` của căn → thiếu lý do: 422 mã trường `CAPACITY_EXCEEDED_WARNING` (`field` = `adults`); có lý do → lưu, `capacityConflict=true` (DOM D-1). 0.3.5'
+          x-rbac-field: D12c
         adults: { type: integer, minimum: 1 }
         children6to11: { type: integer, minimum: 0 }
         childrenUnder6: { type: integer, minimum: 0 }

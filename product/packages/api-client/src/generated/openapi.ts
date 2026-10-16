@@ -4709,6 +4709,8 @@ export interface components {
       note?: string;
     };
     ReservationPatch: {
+      /** @description Đơn OTA: sửa số khách vượt `maxOccupancy` của căn → thiếu lý do: 422 mã trường `CAPACITY_EXCEEDED_WARNING` (`field` = `adults`); có lý do → lưu, `capacityConflict=true` (DOM D-1). 0.3.5 */
+      capacityWarningAckReason?: string;
       adults?: number;
       children6to11?: number;
       childrenUnder6?: number;
@@ -8591,6 +8593,8 @@ export interface operations {
           /** @enum {string} */
           resolution: 'reassigned_same_group' | 'upgraded';
           note?: string;
+          /** @description Gán căn có sức chứa nhỏ hơn số khách của đơn OTA → thiếu lý do: 422 mã trường `CAPACITY_EXCEEDED_WARNING` (`field` = `roomId`); có lý do → gán, `capacityConflict=true` (DOM D-1). 0.3.5 */
+          capacityWarningAckReason?: string;
         };
       };
     };
@@ -8598,6 +8602,7 @@ export interface operations {
       200: components['responses']['ReservationOk'];
       409: components['responses']['RoomUnavailable'];
       412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   swapRoom: {

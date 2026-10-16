@@ -79,7 +79,7 @@ describe.skipIf(!HAS_DB)(
       );
       const sales = await seedSales(db, t);
       ids.roomId = sales.rooms['202'];
-      ids.channelId = sales.channels.zalo_phone as string;
+      ids.channelId = sales.channels.direct as string;
       ids.guestId = await seedGuest(db, t, null);
       fa = await startFeatureApp(db);
     });

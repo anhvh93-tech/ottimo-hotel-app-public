@@ -60,7 +60,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
   };
   const direct = (over: Record<string, unknown> = {}) => ({
     roomId: ids.rooms['202'],
-    channelId: ids.channels.zalo_phone,
+    channelId: ids.channels.direct,
     directSource: 'zalo_phone',
     arrivalDate: '2026-11-09',
     departureDate: '2026-11-16',
@@ -437,7 +437,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
   it('US-017 AC5a: manual long stay (externalContract) – on the rack as long_stay, no nightly prices', async () => {
     const res = await create({
       roomId: ids.rooms['302'],
-      channelId: ids.channels.zalo_phone,
+      channelId: ids.channels.direct,
       directSource: 'zalo_phone',
       arrivalDate: '2026-11-01',
       departureDate: '2027-05-01',
@@ -474,7 +474,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
     expect(listed.map((x: { id: string }) => x.id)).toContain(r.id);
     const short = await create({
       roomId: ids.rooms['302'],
-      channelId: ids.channels.zalo_phone,
+      channelId: ids.channels.direct,
       directSource: 'zalo_phone',
       arrivalDate: '2027-06-01',
       departureDate: '2027-06-10',
@@ -750,7 +750,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
         const ctx = await svc.context(tx, { userId: t.users.sal!.id, roles: ['sales_staff'] });
         return svc.createHold(tx, ctx, {
           roomId: ids.rooms['203']!,
-          channelId: ids.channels.zalo_phone!,
+          channelId: ids.channels.direct!,
           arrivalDate: '2026-10-20',
           departureDate: '2026-10-22',
           adults: 2,
@@ -928,7 +928,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
       label: 'status.booking.confirmed',
       reservationId: expect.any(String),
       guestDisplayName: 'Nguyễn Thị Hà',
-      channelCode: 'zalo_phone',
+      channelCode: 'direct',
     });
     const hk = (await c.hk!.get(url('/rack?from=2026-11-08&days=14'))).json();
     const hkBar = hk.rooms.find((r: { roomNo: string }) => r.roomNo === '202').bars[0];

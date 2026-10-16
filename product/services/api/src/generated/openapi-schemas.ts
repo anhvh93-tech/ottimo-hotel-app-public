@@ -914,6 +914,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
     ReservationPatch: {
       k: 'object',
       props: {
+        capacityWarningAckReason: { s: { k: 'scalar' }, f: 'D12c' },
         adults: { s: { k: 'scalar' } },
         children6to11: { s: { k: 'scalar' } },
         childrenUnder6: { s: { k: 'scalar' } },

@@ -178,3 +178,13 @@ Không đổi hợp đồng cho FB-R2-DOM-BE-01 (dòng đảo/`cancellation_fee`
 |---|---|---|
 | B-28 | BA E03-06: tick bổ sung "Đã giao mã cửa/thẻ" từ chi tiết đơn (US-025 AC7) | **Chấp nhận**: `ReservationPatch.doorAccessHandedOver` – chỉ nhận `true`, FD+, đơn `in_house`, đặt một lần (đã có → 409 `INVALID_TRANSITION` + `currentState`), ghi `door_access_handed_over_at/_by` + audit; không lưu mã cửa |
 | B-29 | DOM D-9: MGR+ chấp nhận cọc thiếu để xác nhận | **Chấp nhận**: `confirmDeposit.acceptShortfallReason` (3–500, D12c) – chỉ MGR+ (FD/SAL gửi → 403), đơn `hold` có cọc `succeeded` > 0; tổng cọc < `depositRequiredVnd` mà có lý do → B4 `confirmed`, audit tiền + thông báo OWN. Không có lý do → giữ hành vi A-13 (200, vẫn `hold`) |
+
+### 8.5 Theo đề nghị BE-A (ORC chuyển 16/10) – mã lỗi hạ tầng, cảnh báo sức chứa ở gán căn/sửa đơn
+Đã áp vào `openapi.yaml` 0.3.5-draft (đoạn "Bổ sung theo BE-A (A-27, A-28)"); meta đã sinh lại – `OPENAPI_META.problemCodes` nay có `CONCURRENT_UPDATE: 409`, `SERVICE_UNAVAILABLE: 503` (và `INTERNAL_ERROR: 500` có từ 0.3.2).
+
+| ID | Hợp đồng | Ghi chú |
+|---|---|---|
+| A-27 | Bảng `Problem.code`: **`CONCURRENT_UPDATE` 409** (55P03 chờ khóa quá `lock_timeout`, 40P01 deadlock, 40001 serialization) và **`SERVICE_UNAVAILABLE` 503** (57014 `statement_timeout`, DB/pool tạm không phục vụ). Cả hai: **không có gì được ghi**, kèm header `Retry-After` (giây); client gửi lại **cùng** `Idempotency-Key`/`If-Match`. Mọi operation có thể trả – không khai lại ở từng operation (như `INTERNAL_ERROR`) | FB-R2-SEC-BE-23. Phân biệt với `IDEMPOTENCY_IN_PROGRESS` (409, cùng key đang chạy) – client xử lý giống nhau: chờ rồi gửi lại cùng key |
+| A-28 | Mã trường `CAPACITY_EXCEEDED_WARNING` áp thêm cho `assignRoom` và `moveReservation` (`field` = `roomId`) và `updateReservation` (`field` = `adults`); thêm `assignRoom.capacityWarningAckReason` (body) và `ReservationPatch.capacityWarningAckReason` (đúng như server đã nhận) | `moveReservation.capacityWarningAckReason` đã có từ A-20; `assignRoom` thêm response `422` |
+
+**Trả lời BE-A về `EXTRA_CODES` (`shared/problem.ts`)**: **có, gỡ bỏ** sau khi kéo bản meta mới – cả ba mã (`INTERNAL_ERROR`, `CONCURRENT_UPDATE`, `SERVICE_UNAVAILABLE`) giờ đều nằm trong `OPENAPI_META.problemCodes`. `statusForCode()` chỉ đọc meta, giữ nguyên `throw` với mã lạ để mọi mã mới bắt buộc đi qua hợp đồng. Không cần đổi gì khác (header `Retry-After` vẫn đặt như hiện tại). Thêm 1 test: `statusForCode('CONCURRENT_UPDATE') === 409`, `('SERVICE_UNAVAILABLE') === 503`.

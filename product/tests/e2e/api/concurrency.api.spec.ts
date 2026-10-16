@@ -52,19 +52,28 @@ interface RaceOutcome {
   other: Array<ApiResult<Reservation & ProblemFields>>;
 }
 
+/**
+ * Bên thua hợp lệ: `409 ROOM_UNAVAILABLE` (EXCLUDE ADR-009) hoặc `409 CONCURRENT_UPDATE` kèm `Retry-After`
+ * (chờ khóa quá `lock_timeout`/deadlock – BE-A s2-be-a-fix, SEC-25). 503 (statement_timeout) và 5xx khác là lỗi.
+ */
+export function isLoser(r: ApiResult<ProblemFields>): boolean {
+  if (r.status !== 409) return false;
+  if (r.body?.code === 'ROOM_UNAVAILABLE') return true;
+  return r.body?.code === 'CONCURRENT_UPDATE' && !!r.headers['retry-after'];
+}
+
 function tally(rs: Array<ApiResult<Reservation & ProblemFields>>): RaceOutcome {
   return {
     winners: rs.filter((r) => r.status === 201),
-    losers: rs.filter((r) => r.status === 409 && r.body?.code === 'ROOM_UNAVAILABLE'),
-    other: rs.filter(
-      (r) => r.status !== 201 && !(r.status === 409 && r.body?.code === 'ROOM_UNAVAILABLE'),
-    ),
+    losers: rs.filter(isLoser),
+    other: rs.filter((r) => r.status !== 201 && !isLoser(r)),
   };
 }
 
 function describeOutcome(o: RaceOutcome): string {
   const other = o.other.map((r) => `${r.status} ${r.body?.code ?? ''}`).join(', ');
-  return `201×${o.winners.length}, 409 ROOM_UNAVAILABLE×${o.losers.length}${other ? `, khác: ${other}` : ''}`;
+  const conc = o.losers.filter((r) => r.body?.code === 'CONCURRENT_UPDATE').length;
+  return `201×${o.winners.length}, 409×${o.losers.length} (CONCURRENT_UPDATE ${conc})${other ? `, khác: ${other}` : ''}`;
 }
 
 /** N parallel createReservation on the same room-night window, from several sessions. */
@@ -241,7 +250,11 @@ test.describe(
       ).toHaveLength(1);
       for (const [, r] of all.filter(([, r]) => r.status !== 201)) {
         expect(r.status, msg).toBe(409);
-        expect(['ROOM_UNAVAILABLE', 'ROOM_BLOCKED'], msg).toContain((r.body as ProblemFields).code);
+        expect(['ROOM_UNAVAILABLE', 'ROOM_BLOCKED', 'CONCURRENT_UPDATE'], msg).toContain(
+          (r.body as ProblemFields).code,
+        );
+        if ((r.body as ProblemFields).code === 'CONCURRENT_UPDATE')
+          expect(r.headers['retry-after'], msg).toBeTruthy();
       }
     });
 

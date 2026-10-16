@@ -195,6 +195,19 @@ export const SPRINT2_OPS: Record<string, OpDef2> = {
       note: 'quoteId ngẫu nhiên → 404',
     }),
   },
+  extendQuote: {
+    mode: 'valid',
+    prepare: (f) => ({
+      params: P(f, { quoteId: uuid() }),
+      idempotencyKey: true,
+      ifMatch: '"1"',
+      body: { reason: 'E2E RBAC gia han' },
+      accept: [404, 412],
+      note: 'quoteId ngẫu nhiên → 404 (A-18)',
+    }),
+  },
+  listCloserCandidates: read(() => ({ kind: 'all' })),
+  getBookingRules: read(),
   listLeads: read(() => ({ limit: 5 })),
   changeLeadStage: {
     mode: 'valid',

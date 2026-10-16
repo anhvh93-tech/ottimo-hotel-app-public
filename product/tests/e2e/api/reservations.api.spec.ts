@@ -110,11 +110,9 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     test.info().annotations.push({
       type: 'bug',
       description:
-        'BUG-R2-017: server bắt buộc nightlyRates cho OTA (422 REQUIRED) – EP02 3.2/OpenAPI: bỏ trống = giá mặc định theo kênh',
+        'hồi quy BUG-R2-017: OTA bỏ trống giá → giá mặc định theo lịch giá OTA nhóm (EP02 3.2)',
     });
-    // Lỗi đã ghi ở bug-list: ca được đánh dấu 'phải trượt' để các project phụ thuộc (limits, clock…) vẫn chạy trên CI.
-    // Khi BE sửa, Playwright báo 'expected to fail but passed' → QA bỏ dòng này và đóng BUG-R2-017.
-    test.fail(true, 'BUG-R2-017 (Open) – xem rounds/round-02/qa/bug-list.md');
+    // hồi quy BUG-R2-017 (Fixed – BE-A s2-be-a-fix)
     await requireEndpoints(request, 'TC-L2-012', [EP.createReservation, EP.getReservation]);
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);
@@ -146,12 +144,9 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
   }) => {
     test.info().annotations.push({
       type: 'bug',
-      description:
-        'BUG-R2-018: sàn–trần BR-105 server tính theo giá niêm yết từng căn (203: 554.000–1.980.000) thay vì giá nền nhóm (530.000–1.900.000)',
+      description: 'hồi quy BUG-R2-018: sàn–trần BR-105 theo giá nền nhóm (530.000–1.900.000)',
     });
-    // Lỗi đã ghi ở bug-list: ca được đánh dấu 'phải trượt' để các project phụ thuộc (limits, clock…) vẫn chạy trên CI.
-    // Khi BE sửa, Playwright báo 'expected to fail but passed' → QA bỏ dòng này và đóng BUG-R2-018.
-    test.fail(true, 'BUG-R2-018 (Open) – xem rounds/round-02/qa/bug-list.md');
+    // hồi quy BUG-R2-018 (Fixed – BE-A s2-be-a-fix)
     await requireEndpoints(request, 'TC-L2-013', [EP.createReservation]);
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);

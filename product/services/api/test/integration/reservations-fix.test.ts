@@ -66,7 +66,7 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
   }
   const direct = (over: Record<string, unknown> = {}) => ({
     roomId: ids.rooms['202'],
-    channelId: ids.channels.zalo_phone,
+    channelId: ids.channels.direct,
     directSource: 'zalo_phone',
     arrivalDate: '2026-11-09',
     departureDate: '2026-11-14',
@@ -391,7 +391,7 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
         const ctx = await svc.context(tx, { userId: t.users.sal!.id, roles: ['sales_staff'] });
         return svc.createHold(tx, ctx, {
           roomId: ids.rooms['202']!,
-          channelId: ids.channels.zalo_phone!,
+          channelId: ids.channels.direct!,
           arrivalDate: '2026-11-10',
           departureDate: '2026-11-12',
           adults: 2,
@@ -422,7 +422,7 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
         const ctx = await svc.context(tx, { userId: t.users.sal!.id, roles: ['sales_staff'] });
         return svc.createHold(tx, ctx, {
           roomId: ids.rooms['401']!,
-          channelId: ids.channels.zalo_phone!,
+          channelId: ids.channels.direct!,
           arrivalDate: '2026-10-18',
           departureDate: '2026-10-21',
           adults: 2,
@@ -479,7 +479,7 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
         const ctx = await svc.context(tx, { userId: t.users.fd!.id, roles: ['front_desk'] });
         return svc.createHold(tx, ctx, {
           roomId: ids.rooms[room]!,
-          channelId: ids.channels.zalo_phone!,
+          channelId: ids.channels.direct!,
           arrivalDate: '2027-03-20',
           departureDate: '2027-03-22',
           adults: 2,
@@ -705,7 +705,7 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
         arrivalDate,
         nights: 2,
         adults: 2,
-        channelId: ids.channels.zalo_phone,
+        channelId: ids.channels.direct,
         guestId: salGuest,
       });
       expect(qr.statusCode, qr.body).toBe(201);

@@ -11,6 +11,7 @@ import {
   requireEndpoints,
   sessionOrSkip,
   stackToday,
+  isAvailable,
 } from '../support/api.js';
 import {
   expectNear,
@@ -39,6 +40,9 @@ import {
   saveQuote,
   statusOf,
   vnTime,
+  fieldCodes,
+  track,
+  type ProblemFields,
 } from '../support/s2.js';
 
 test.describe.configure({ mode: 'serial' });
@@ -295,6 +299,43 @@ test.describe(
       expect((await getReservation(request, fd2, hold.id)).body.status).toBe('confirmed');
     });
 
+    test('TC-L5-030 (c) giữ chỗ đã thu cọc một phần (A-13: 200, vẫn hold) → quá hạn, J1 chạy: KHÔNG tự hủy (BE-A s2-be-a-fix, DOM-BE-06)', async ({
+      request,
+    }) => {
+      needClock('TC-L5-030');
+      await requireEndpoints(request, 'TC-L5-030', [
+        EP.saveQuote,
+        EP.createHoldFromQuote,
+        EP.confirmDeposit,
+      ]);
+      const D = scenarioDate(realToday);
+      const c = await s2Context(request);
+      await setClock(request, vnTime(D, '10:00'));
+      const sal = await sessionOrSkip(request, 'qa.sal');
+      const { hold } = await makeHold(request, sal, c, {
+        rooms: c.rooms,
+        arrival: addDays(D, 3),
+        nights: 2,
+        holdHours: 24,
+      });
+      const part = Math.floor((hold.depositRequiredVnd ?? 0) / 2);
+      const r = await action(
+        request,
+        sal,
+        hold.id,
+        'confirm-deposit',
+        { payment: { type: 'deposit', method: 'cash', amountVnd: part } },
+        { version: hold.version },
+      );
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      await setClock(request, new Date(ms(hold.hold?.expiresAt ?? '') + 5 * 60_000).toISOString());
+      await runJob(request, 'hold.expire');
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const after = await getReservation(request, fd, hold.id);
+      expect(after.body.status).toBe('hold');
+      expect(after.body.depositPaidVnd).toBe(part);
+    });
+
     for (const ex of ['BR-304-01', 'BR-304-02']) {
       test(`TC-L5-015 + TC-L5-017 (a) hạn báo giá theo ngày lịch lập (${ex}); 23:59:59 ngày cuối còn active, 00:00 hôm sau expired; tạo giữ chỗ → 409 QUOTE_EXPIRED`, async ({
         request,
@@ -345,6 +386,60 @@ test.describe(
         const sal3 = await sessionOrSkip(request, 'qa.sal');
         const h = await createHold(request, sal3, q.body.id, 24);
         expectProblem(h, 409, 'QUOTE_EXPIRED');
+        if (ex !== 'BR-304-01') return;
+
+        // TC-L5-017 (b)(c) – extendQuote (A-18, US-083 AC3): SAL gửi yêu cầu duyệt, MGR gia hạn ngay
+        test.skip(
+          !(await isAvailable(request, 'POST', EP.extendQuote[1])),
+          'TC-L5-017 (b)(c): chờ endpoint extendQuote',
+        );
+        const extDay = addDays(lastDay, 1);
+        await setClock(request, vnTime(extDay, '10:00')); // ngày lịch = ngày nghiệp vụ (tránh mập mờ BR-010)
+        const pid = propertyIdOf(sal3);
+        const ver = async () => {
+          const s = await sessionOrSkip(request, 'qa.sal');
+          const g = await call<{ version: number }>(
+            request,
+            'GET',
+            `/v1/properties/${pid}/quotes/${q.body.id}`,
+            {
+              session: s,
+            },
+          );
+          return g.body.version;
+        };
+        const extend = async (who: string, body: Record<string, unknown>) =>
+          call<Record<string, unknown> & ProblemFields>(
+            request,
+            'POST',
+            `/v1/properties/${pid}/quotes/${q.body.id}/actions/extend`,
+            {
+              session: await sessionOrSkip(request, who),
+              idempotencyKey: true,
+              ifMatch: `"${await ver()}"`,
+              body,
+            },
+          );
+        const noReason = await extend('qa.sal', {});
+        expect(noReason.status, JSON.stringify(noReason.body)).toBe(422);
+        expect(fieldCodes(noReason.body)).toContain('reason:REASON_REQUIRED');
+        const req = await extend('qa.sal', { reason: 'Khach xin giu gia cu them 3 ngay' });
+        expect(req.status, JSON.stringify(req.body)).toBe(202);
+        expect(req.body.type).toBe('quote_extension');
+        expect(req.body.status).toBe('pending');
+        expect(await status()).toBe('expired');
+        const mgrExt = await extend('qa.mgr', {});
+        expect(mgrExt.status, JSON.stringify(mgrExt.body)).toBe(200);
+        expect(mgrExt.body.status).toBe('active');
+        expectNear(
+          String(mgrExt.body.expiresAt),
+          vnTime(addDays(extDay, lastOffset + 1), '00:00'),
+          'hạn mới',
+          0,
+        );
+        const h2 = await createHold(request, await sessionOrSkip(request, 'qa.sal'), q.body.id, 24);
+        expect(h2.status, JSON.stringify(h2.body)).toBe(201);
+        track('reservation', h2.body.id);
       });
     }
   },

@@ -44,6 +44,15 @@ ALTER ROLE ottimo_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NO
 ALTER ROLE ottimo_readonly NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS
   PASSWORD NULL;
 
+-- FB-R2-SEC-BE-23 (OPS part): the runtime role never keeps a connection stuck in an open transaction
+-- (row locks held forever block every booking on that unit) and no single statement runs unbounded.
+-- Role-level defaults, applied at login (new connections only – restart api/worker after a change).
+-- The api's transactions still SET LOCAL their own lock_timeout 5 s / statement_timeout 15 s (job 10 s);
+-- a long report must SET LOCAL a larger statement_timeout itself. ottimo_migrator is NOT limited
+-- (migrations may legitimately run long; role settings follow the login role, not SET ROLE).
+ALTER ROLE ottimo_app SET idle_in_transaction_session_timeout = '30s';
+ALTER ROLE ottimo_app SET statement_timeout = '15s';
+
 -- migrator may only act as owner through SET ROLE (PG 16+: INHERIT FALSE, SET TRUE).
 GRANT ottimo_owner TO ottimo_migrator WITH INHERIT FALSE, SET TRUE;
 -- ottimo_app / ottimo_readonly must never be members of ottimo_owner.

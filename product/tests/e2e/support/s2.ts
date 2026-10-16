@@ -211,6 +211,8 @@ export interface S2Context {
   propertyId: string;
   rooms: Room[];
   channels: Channel[];
+  /** user id of qa.ctv1 – default `closerUserId` for kênh CTV (US-017 AC9: bắt buộc) */
+  agentCloserId: string;
 }
 
 function listOf<T>(body: unknown): T[] {
@@ -229,10 +231,12 @@ export async function s2Context(ctx: APIRequestContext): Promise<S2Context> {
     const channels = await call(ctx, 'GET', `/v1/properties/${propertyId}/channels`, {
       session: owner,
     });
+    const ctv = await session(ctx, 'qa.ctv1');
     return {
       propertyId,
       rooms: rooms.status === 200 ? listOf<Room>(rooms.body) : [],
       channels: channels.status === 200 ? listOf<Channel>(channels.body) : [],
+      agentCloserId: ctv.me.id,
     };
   })();
   const c = await ctxPromise;
@@ -344,6 +348,8 @@ export function reservationBody(c: S2Context, i: BookInput): Record<string, unkn
     paymentModel: ch.channelGroup === 'ota' ? 'ota_prepaid' : 'direct',
   };
   if (ch.channelGroup === 'direct') body.directSource = 'zalo_phone';
+  // US-017 AC9: kênh CTV bắt buộc người chốt là CTV (ca kiểm chính quy tắc này truyền `closerUserId: undefined`)
+  if (ch.channelGroup === 'agent') body.closerUserId = c.agentCloserId;
   if (ch.requiresOtaRef || ch.channelGroup === 'ota') body.otaRef = `E2E${rnd(1e8, 9e8)}`;
   // Đơn OTA nhập tay: lễ tân nhập giá theo extranet. Server hiện BẮT BUỘC giá đêm cho OTA (BUG-R2-017 – EP02 3.2
   // cho phép bỏ trống); mặc định gửi 820.000/đêm để các ca khác (trùng căn, US-139, BR-812) không vướng lỗi đó.

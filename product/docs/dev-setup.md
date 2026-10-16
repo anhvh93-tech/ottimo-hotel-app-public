@@ -72,6 +72,21 @@ Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định 
 | `ottimo_app` | api, worker, test (`DATABASE_URL`) | `NOSUPERUSER NOBYPASSRLS`, không sở hữu bảng; quyền từng bảng do migration `GRANT` |
 | `ottimo_readonly` | sao lưu, tra cứu sự cố | `BYPASSRLS`, tạo ở trạng thái `NOLOGIN`; chỉ bật đăng nhập theo runbook (SR-OPS-04) |
 
+Giới hạn mặc định của vai `ottimo_app` (FB-R2-SEC-BE-23, đặt trong `02-roles.sh` bằng `ALTER ROLE … SET`, áp khi kết nối mới): `idle_in_transaction_session_timeout = 30s` (phiên mở giao dịch rồi bỏ đó quá 30 s bị PostgreSQL ngắt, nhả khóa dòng) và `statement_timeout = 15s`. Giao dịch của api vẫn tự `SET LOCAL lock_timeout 5s / statement_timeout 15s` (job 10 s); báo cáo dài phải tự `SET LOCAL statement_timeout` lớn hơn. `ottimo_migrator` không bị giới hạn (migration có thể chạy lâu). **Volume DB tạo trước Sprint 2 – bước Phản hồi & sửa** chưa có hai giá trị này – áp bằng một trong hai cách (không mất dữ liệu):
+
+```bash
+# cách 1: chạy lại script vai (idempotent)
+docker compose --env-file .env -f infra/docker-compose.yml exec postgres bash /docker-entrypoint-initdb.d/02-roles.sh
+# cách 2: chỉ hai lệnh
+docker compose --env-file .env -f infra/docker-compose.yml exec postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "ALTER ROLE ottimo_app SET idle_in_transaction_session_timeout = '"'"'30s'"'"'" -c "ALTER ROLE ottimo_app SET statement_timeout = '"'"'15s'"'"'"'
+# rồi khởi động lại api/worker để kết nối mới nhận giá trị
+docker compose --env-file .env -f infra/docker-compose.yml restart api worker
+# kiểm tra
+docker compose --env-file .env -f infra/docker-compose.yml exec postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT rolconfig FROM pg_roles WHERE rolname = '"'"'ottimo_app'"'"'"'
+```
+
 Test `services/api/test/db-role.test.ts` sẽ **đỏ** nếu `DATABASE_URL` trỏ tới superuser hoặc vai có `BYPASSRLS`, nếu `ottimo_owner` đăng nhập được, hoặc `MIGRATION_DATABASE_URL` không phải `ottimo_migrator` – đây là chủ ý: test RLS chạy bằng superuser không chứng minh được gì.
 
 Quy tắc bí mật:
@@ -218,6 +233,7 @@ Lệch so với `architecture.md` mục 17: compose đặt ở `infra/docker-com
 | `ERR_REQUIRE_ESM` / `ERR_PACKAGE_PATH_NOT_EXPORTED` khi chạy api | Node < 22.12 – nâng Node; test `workspace-packages.test.ts` bắt lỗi này |
 | `set OTTIMO_MIGRATOR_DB_PASSWORD in product/.env` hoặc `password authentication failed for user "ottimo_migrator"` | `.env`/volume tạo trước khi đổi sang 4 vai (R1 bước 5, BUG-R1-SEC-06): chép dòng `OTTIMO_MIGRATOR_DB_PASSWORD` và `MIGRATION_DATABASE_URL` mới từ `.env.example`, xóa `OTTIMO_OWNER_DB_PASSWORD`; rồi `docker compose … down -v` và `pnpm dev`. Không muốn mất dữ liệu: sửa `.env` như trên, `pnpm dev` (container postgres nhận biến mới), rồi chạy lại script trên volume cũ – `docker compose --env-file .env -f infra/docker-compose.yml exec postgres bash /docker-entrypoint-initdb.d/02-roles.sh` (script chạy lại được, chuyển `ottimo_owner` sang NOLOGIN) |
 | `set OTTIMO_APP_DB_PASSWORD in product/.env` | `.env` tạo từ bản `.env.example` cũ – chép lại các dòng `OTTIMO_*_DB_PASSWORD`, `APP_ENV`, `MIGRATION_DATABASE_URL` |
+| Log PostgreSQL/api: `terminating connection due to idle-in-transaction timeout` hoặc `canceling statement due to statement timeout` (api trả 503) | Đúng thiết kế (SEC-BE-23): code giữ giao dịch mở > 30 s hoặc một câu lệnh > 15 s. Sửa code (không nâng giới hạn của vai); báo cáo dài tự `SET LOCAL statement_timeout` |
 | `corepack` báo lỗi chữ ký khi tải pnpm | Cập nhật Node 22 lên bản vá mới nhất, hoặc `npm i -g corepack@latest` |
 | macOS: postgres đứng mãi `health: starting`, `docker logs` trống, `docker stop` báo "did not receive an exit event" | Docker/OrbStack chưa được macOS cho phép đọc thư mục chứa repo (`~/Desktop`, `~/Documents`, `~/Downloads`) – xem mục 1 "macOS – quyền thư mục". Sau khi cho phép, nếu volume đã tạo mà thiếu vai/`ottimo_test` thì `docker compose … down -v` rồi chạy lại |
 | `ERR_PNPM_OUTDATED_LOCKFILE` / `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` (CI hoặc `docker build`) | Đã sửa `package.json` mà chưa cập nhật lockfile: `pnpm install` ở `product/` rồi commit `pnpm-lock.yaml` |

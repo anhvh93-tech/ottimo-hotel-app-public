@@ -78,7 +78,7 @@ describe.skipIf(!HAS_DB)('rbac-cases.json – Sprint 2 operations (BE-A)', () =>
     const fd = Client.of(fa, t, 'fd');
     const res = await fd.send('POST', `${P(t)}/reservations`, {
       roomId: ids.rooms['202'],
-      channelId: ids.channels.zalo_phone,
+      channelId: ids.channels.direct,
       directSource: 'zalo_phone',
       arrivalDate: '2026-11-03',
       departureDate: '2026-11-05',

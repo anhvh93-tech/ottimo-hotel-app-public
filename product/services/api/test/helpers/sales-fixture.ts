@@ -98,7 +98,7 @@ export async function seedSales(db: Database, t: TestTenant, i = 0): Promise<Sal
     }
     await importChannels(tx, {
       channels: [
-        { code: 'zalo_phone', name: 'Điện thoại / Zalo', group: 'direct', commissionPct: '0' },
+        { code: 'direct', name: 'Trực tiếp', group: 'direct', commissionPct: '0' },
         { code: 'collaborator', name: 'CTV / môi giới', group: 'agent', commissionPct: '0' },
         {
           code: 'airbnb',

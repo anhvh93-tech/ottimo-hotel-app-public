@@ -291,6 +291,16 @@ jobs:
       # Random per-run passwords (DB roles, QA_SEED_PASSWORD) – masked, never a repo secret.
       - name: Create throwaway product/.env
         run: bash product/infra/ci/make-ci-env.sh product/.env.example product/.env
+      # Turn the api's Origin lists on (compose passes API_*_BASE_URL → ADMIN/STAFF/GUEST_BASE_URL; empty in dev)
+      # so TC-SEC-024 (SR-SES-09: staff login from guest-web → 403) runs instead of skipping. Values must equal
+      # the origins the E2E harness sends (E2E_ORIGIN / E2E_GUEST_ORIGIN below). Not secrets.
+      - name: Enable api Origin checks for the E2E stack
+        run: |
+          {
+            echo 'API_ADMIN_BASE_URL=http://localhost:8081'
+            echo 'API_STAFF_BASE_URL=http://localhost:8082'
+            echo 'API_GUEST_BASE_URL=http://localhost:8083'
+          } >> product/.env
       # `migrate` (one-shot) runs first; api/worker wait for it to complete successfully.
       - name: Start compose stack (postgres, migrate, api, worker, web)
         working-directory: product
@@ -311,8 +321,26 @@ jobs:
         env:
           E2E_API_URL: http://127.0.0.1:3000
           E2E_WEB_URL: http://127.0.0.1:8081
+          E2E_ORIGIN: http://localhost:8081
+          E2E_GUEST_ORIGIN: http://localhost:8083
           E2E_COMPOSE_CONTROL: '1'
         run: pnpm test:e2e
+      # The origin-list cases must really run on this stack (Sprint 1 carry-over: TC-SEC-024 used to skip).
+      - name: Origin checks ran (TC-SEC-024 not skipped)
+        working-directory: product
+        run: |
+          junit=tests/e2e/test-results/junit.xml
+          [ -f "$junit" ] || { echo "::error::$junit missing"; exit 1; }
+          python3 - "$junit" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          cases = [c for c in ET.parse(sys.argv[1]).iter('testcase') if 'TC-SEC-024' in (c.get('name') or '')]
+          if not cases:
+              sys.exit('::error::TC-SEC-024 not found in junit report')
+          skipped = [c.get('name') for c in cases if c.find('skipped') is not None]
+          if skipped:
+              sys.exit('::error::TC-SEC-024 skipped – api Origin lists not set on the E2E stack: ' + '; '.join(skipped))
+          print(f'TC-SEC-024: {len(cases)} case(s) ran')
+          PY
       - name: Compose logs (on failure)
         if: failure()
         working-directory: product

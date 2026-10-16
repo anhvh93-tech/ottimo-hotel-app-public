@@ -81,33 +81,21 @@ export interface JobRun {
   stats?: Record<string, unknown>;
 }
 
-/**
- * Job keys: architecture 9.1 names first, then the names the build registered (BE-A dùng
- * `reservation.hold_expiry`, `room_block.activation` – BUG-R2-021). Bỏ alias khi hai bên thống nhất.
- */
-const JOB_ALIASES: Record<string, string[]> = {
-  'hold.expire': ['hold.expire', 'reservation.hold_expiry'],
-  'ooo.activate': ['ooo.activate', 'room_block.activation'],
-};
-
-/** Run job `jobKey` now; null when no alias is registered on the build (404). */
+/** Run job `jobKey` (architecture 9.1 – BUG-R2-021 Fixed) now; null when the build has no such job (404). */
 export async function runJobIfAny(
   ctx: APIRequestContext,
   jobKey: string,
   propertyId?: string,
 ): Promise<JobRun | null> {
   const o = await owner(ctx);
-  for (const key of JOB_ALIASES[jobKey] ?? [jobKey]) {
-    const r = await call<JobRun>(ctx, 'POST', `/__test__/jobs/${key}/run`, {
-      session: o,
-      headers: { 'x-test-token': TEST_TOKEN! },
-      body: { propertyId: propertyId ?? propertyIdOf(o) },
-    });
-    if (r.status === 404) continue;
-    expect(r.status, `run job ${key}: ${JSON.stringify(r.body)}`).toBe(200);
-    return r.body;
-  }
-  return null;
+  const r = await call<JobRun>(ctx, 'POST', `/__test__/jobs/${jobKey}/run`, {
+    session: o,
+    headers: { 'x-test-token': TEST_TOKEN! },
+    body: { propertyId: propertyId ?? propertyIdOf(o) },
+  });
+  if (r.status === 404) return null;
+  expect(r.status, `run job ${jobKey}: ${JSON.stringify(r.body)}`).toBe(200);
+  return r.body;
 }
 
 /** Run job `jobKey` (architecture 9.1) now; skips the test when the job is not registered on the build. */

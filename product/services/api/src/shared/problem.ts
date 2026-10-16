@@ -15,15 +15,6 @@ import {
 import { describeError } from './redact';
 import { OPENAPI_META } from '../generated/openapi-meta';
 
-/** Codes outside the OpenAPI table (proposed to ARC, see d0-foundation.md): unexpected server error. */
-const EXTRA_CODES = {
-  INTERNAL_ERROR: 500,
-  // FB-R2-SEC-BE-23 (proposed to ARC for 0.3.6): lock wait/deadlock/serialization → retryable 409; statement
-  // timeout → 503. Clients retry after `Retry-After`.
-  CONCURRENT_UPDATE: 409,
-  SERVICE_UNAVAILABLE: 503,
-} as const;
-
 export type ProblemCode = string;
 
 export interface FieldError {
@@ -45,8 +36,9 @@ export interface ProblemBody {
 }
 
 export function statusForCode(code: string): number {
-  const status =
-    OPENAPI_META.problemCodes[code] ?? (EXTRA_CODES as Record<string, number>)[code] ?? undefined;
+  // The OpenAPI code table is the only source (INTERNAL_ERROR, CONCURRENT_UPDATE, SERVICE_UNAVAILABLE included
+  // since 0.3.5 §8.5) – a code missing there is a programming error.
+  const status: number | undefined = OPENAPI_META.problemCodes[code];
   if (status === undefined) throw new Error(`Unknown Problem.code ${code} (not in OpenAPI table)`);
   return status;
 }
