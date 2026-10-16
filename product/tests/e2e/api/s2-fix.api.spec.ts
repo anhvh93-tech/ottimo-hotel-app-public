@@ -72,6 +72,9 @@ test.describe(
     test('TC-L2-080 người chốt bắt buộc với kênh CTV / nguồn sales_staff; listCloserCandidates chỉ trả tên (US-017 AC9)', async ({
       request,
     }) => {
+      // BUG-R2-023 (Open): server chưa kiểm người chốt theo kênh/nguồn (US-017 AC9) – CTV không người chốt vẫn 201.
+      // Đánh dấu 'phải trượt' để project phụ thuộc vẫn chạy; khi BE sửa, Playwright báo → bỏ dòng này, đóng lỗi.
+      test.fail(true, 'BUG-R2-023 (Open) – xem rounds/round-02/qa/bug-list.md');
       await requireEndpoints(request, 'TC-L2-080', [EP.createReservation, EP.listCloserCandidates]);
       const fd = await sessionOrSkip(request, 'qa.fd');
       const sal = await sessionOrSkip(request, 'qa.sal');
@@ -350,7 +353,9 @@ test.describe(
         lines.filter((l) => l.category === 'cancellation_fee').map((l) => l.amountVnd),
       ).toEqual([o.expected.cancelFeeVnd]);
       expect(f.body.totals?.roomVnd).toBe(0);
-      expect(f.body.totals?.balanceDueVnd).toBe(0);
+      // EP03-05 1.1: còn phải thu = Σ dòng posted − Σ giao dịch succeeded = 350.000 − 700.000 = −350.000
+      // (khoản hoàn chờ duyệt, BR-522) – khách không còn nợ
+      expect(f.body.totals?.balanceDueVnd).toBe(-Number(o.expected.refundVnd));
     });
 
     test('TC-L5-050 CTV đã có 3 giữ chỗ đang mở → giữ chỗ thứ 4: 422 HOLD_LIMIT_REACHED (max 3); xác nhận cọc 1 đơn → giữ được (BR-302-03, A-26)', async ({

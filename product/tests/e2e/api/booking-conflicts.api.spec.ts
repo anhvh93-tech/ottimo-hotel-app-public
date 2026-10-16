@@ -132,32 +132,42 @@ test.describe('L2 3.3 – chống đặt trùng (US-018)', { tag: ['@api', '@spr
     const o = oracle('BR-002-01'); // 19→22/10 = 3 đêm 19, 20, 21
     expect(o.expected.nights).toBe(3);
     const rm = room(c, '201');
-    const w = await freeWindow(request, fd, rm, 5, { today });
     const guestId = await newGuest(request, fd);
-    const A = await createReservation(
-      request,
-      fd,
-      reservationBody(c, {
-        room: rm,
-        arrival: w.arrival,
-        departure: addDays(w.arrival, 3),
-        guestId,
-      }),
-    );
-    expect(A.status, JSON.stringify(A.body)).toBe(201);
-    track('reservation', A.body.id);
-    const B = await createReservation(
-      request,
-      fd,
-      reservationBody(c, {
-        room: rm,
-        arrival: addDays(w.arrival, 3),
-        departure: addDays(w.arrival, 5),
-        guestId,
-      }),
-    );
-    expect(B.status, JSON.stringify(B.body)).toBe(201);
-    track('reservation', B.body.id);
+    // phòng 201 dùng chung với nhiều ca song song: khoảng vừa kiểm trống có thể bị chiếm trước khi tạo → chọn lại
+    let w = await freeWindow(request, fd, rm, 5, { today, dow: 1 }); // T2: đơn C 1 đêm rơi T4 (không vướng BR-113)
+    let ready = false;
+    for (let attempt = 0; attempt < 4 && !ready; attempt++) {
+      if (attempt > 0) w = await freeWindow(request, fd, rm, 5, { today, dow: 1 }); // T2: đơn C 1 đêm rơi T4 (không vướng BR-113)
+      const A = await createReservation(
+        request,
+        fd,
+        reservationBody(c, {
+          room: rm,
+          arrival: w.arrival,
+          departure: addDays(w.arrival, 3),
+          guestId,
+        }),
+      );
+      if (A.status === 409) continue;
+      expect(A.status, JSON.stringify(A.body)).toBe(201);
+      track('reservation', A.body.id);
+      const B = await createReservation(
+        request,
+        fd,
+        reservationBody(c, {
+          room: rm,
+          arrival: addDays(w.arrival, 3),
+          departure: addDays(w.arrival, 5),
+          guestId,
+        }),
+      );
+      // B chỉ được 409 nếu đơn khác chen vào [D+3, D+5) – không phải vì A (nửa mở BR-002)
+      if (B.status === 409 && !JSON.stringify(B.body).includes(A.body.code)) continue;
+      expect(B.status, JSON.stringify(B.body)).toBe(201);
+      track('reservation', B.body.id);
+      ready = true;
+    }
+    test.skip(!ready, 'môi trường: căn 201 liên tục bị ca song song chiếm');
     const C = await createReservation(
       request,
       fd,

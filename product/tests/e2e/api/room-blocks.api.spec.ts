@@ -225,7 +225,9 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
       reason: 'E2E TC-L6-041',
     });
     const p = expectProblem(b1, 409, 'ROOM_UNAVAILABLE');
-    expect(JSON.stringify(p.conflicts ?? [])).toContain(res.code);
+    // MT: conflicts[] nêu đêm/căn nhưng không lộ mã đơn, tên khách (SEC-23, BE-A s2-be-a-fix); FD+ thấy mã
+    expect(JSON.stringify(p.conflicts ?? [])).toContain(addDays(res.arrivalDate, 0));
+    expect(JSON.stringify(p.conflicts ?? [])).not.toContain(res.code);
     // MGR xác nhận đã có phương án dời: chỉ ghi nhận, không vượt chống trùng – khoảng khóa trùng đơn luôn 409
     // (ARC s2-contract A-03, OpenAPI 0.3.5 `affectedReservationsAcknowledged`; TC-L6-041 v0.3.4)
     const b2 = await createRoomBlock(request, mgr, {

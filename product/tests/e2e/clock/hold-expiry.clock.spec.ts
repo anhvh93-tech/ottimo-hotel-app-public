@@ -43,6 +43,7 @@ import {
   fieldCodes,
   track,
   type ProblemFields,
+  weekdayArrival,
 } from '../support/s2.js';
 
 test.describe.configure({ mode: 'serial' });
@@ -357,7 +358,11 @@ test.describe(
         await setClock(request, vnTime(D, created.slice(11, 16)));
         const sal = await sessionOrSkip(request, 'qa.sal');
         const q = await saveQuote(request, sal, {
-          ...quoteInput(c, { room: room(c, '101'), arrival: addDays(D, 10), nights: 1 }),
+          ...quoteInput(c, {
+            room: room(c, '101'),
+            arrival: weekdayArrival(addDays(D, 10)),
+            nights: 1,
+          }),
           guestId: await newGuest(request, sal),
         });
         expect(q.status, JSON.stringify(q.body)).toBe(201);

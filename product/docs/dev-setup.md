@@ -60,6 +60,18 @@ Biến đồng hồ và kiểm thử (ADR-008, `docs/api/openapi.test.yaml`):
 
 Không điền khóa thật của VNPay/MoMo/MISA/Beds24/Zalo – mặc định mọi tích hợp ở chế độ `mock`/`manual`. `APP_ENV=dev` là bắt buộc (api/worker từ chối khởi động nếu thiếu). Các khóa `SESSION_SECRET`, `DATA_KEK_CURRENT`, `ID_HASH_KEY`, `LOG_IP_HMAC_KEY`, `GUEST_CODE_SIGNING_KEY` (mỗi mục đích một khóa – ADR-013 điểm 5) được để trống ở `dev`/`test`; ở `staging`/`production` thiếu hoặc ngắn hơn 32 ký tự thì ứng dụng **dừng** (tạo bằng `openssl rand -base64 32`).
 
+### Kiểm Origin của api trong compose (SR-SES-04/09)
+
+Compose dev **không** bật danh sách origin của api (`ADMIN_BASE_URL`/`STAFF_BASE_URL`/`GUEST_BASE_URL` rỗng → không kiểm Origin), để FE chạy dev-server ở cổng bất kỳ. Muốn chạy stack giống staging (kiểm Origin, ví dụ để TC-SEC-024 không bị bỏ qua), thêm vào `product/.env` rồi `pnpm dev` lại:
+
+```bash
+API_ADMIN_BASE_URL=http://localhost:8081
+API_STAFF_BASE_URL=http://localhost:8082
+API_GUEST_BASE_URL=http://localhost:8083
+```
+
+Khi bật: mở web bằng `http://localhost:808x` (không dùng `127.0.0.1` – Origin khác → 403), và E2E gửi đúng origin đó (`E2E_ORIGIN`, `E2E_GUEST_ORIGIN`; mặc định lấy `APP_BASE_URL`/`GUEST_BASE_URL` của `.env`). Hai khóa `APP_BASE_URL`/`GUEST_BASE_URL` trong `.env` là cho bộ E2E, compose không chuyển chúng vào api. CI (job `docker-build`) luôn bật ba khóa trên và có bước kiểm TC-SEC-024 thật sự chạy.
+
 ### Vai cơ sở dữ liệu (erd.md 2.1, SR-AZ-06)
 
 `infra/postgres/init/02-roles.sh` tạo khi volume DB mới được tạo (và CI chạy cùng script):

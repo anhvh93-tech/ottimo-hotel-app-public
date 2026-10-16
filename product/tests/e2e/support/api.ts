@@ -183,13 +183,20 @@ export async function isAvailable(
   const key = `${method.toUpperCase()} ${concrete}`;
   const hit = probeCache.get(key);
   if (hit !== undefined) return hit;
-  const r = await call(ctx, method, concrete, {
-    body: WRITE.has(method.toUpperCase()) ? {} : undefined,
-    csrf: false,
-  });
-  const ok = r.status !== 404 && r.status !== 405;
-  probeCache.set(key, ok);
-  return ok;
+  // a 404 is re-checked once and never cached: a transient miss must not silently skip a whole test
+  // (retest 16/10: TC-NT-008 skipped once while listAuditEvents was on the build)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await call(ctx, method, concrete, {
+      body: WRITE.has(method.toUpperCase()) ? {} : undefined,
+      csrf: false,
+    });
+    if (r.status !== 404 && r.status !== 405) {
+      probeCache.set(key, true);
+      return true;
+    }
+    await new Promise((res) => setTimeout(res, 300));
+  }
+  return false;
 }
 
 /** Skip the current test with the TC code when one of the endpoints is not built yet. */

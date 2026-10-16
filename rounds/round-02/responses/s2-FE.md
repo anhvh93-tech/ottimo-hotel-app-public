@@ -94,3 +94,8 @@
 | Mock | Done | Đơn OTA chưa gán căn có `requestedRoomGroupId`; rack trả `requestedRoomGroupId/Code` + `capacityConflict` cho FD+; `searchAvailability?reservationId` tính `upgrade` theo nhóm OTA ánh xạ |
 
 **Kết quả lệnh lượt 2** (toàn repo `product/`): `pnpm format:check` **xanh**; `pnpm lint` **xanh** (12/12 task, ESLint 0 lỗi, còn 1 cảnh báo cũ ở `mockServiceWorker.js`); `turbo test build --continue` **16/16 xanh**, admin-web **108/108**; `docker build -f infra/docker/Dockerfile.web .` **exit 0**.
+
+## Bổ sung – lượt 3 (CI run 38908702473: test "hold: countdown…" không tìm thấy drawer "Lê Minh")
+- Nguyên nhân: test này là test **đầu tiên** của `reservation.test.tsx`. Nó phải chờ Vite biến đổi tại chỗ (on-demand) các chunk route tải lazy (rack/đơn/báo giá). Khi CI chạy nhiều worker song song, thời gian đó vượt 1 s – mức chờ mặc định của `findBy*`. Không phải lỗi mã: sau khi ghi cọc thiếu (A-13), hộp vẫn mở đúng và drawer không đóng/mở lại.
+- Sửa (`apps/admin-web/src/test/setup.ts`): `configure({ asyncUtilTimeout: 5000 })`; `beforeAll` nạp sẵn 3 chunk lazy (giới hạn 30 s), để không test nào phải gánh thời gian biến đổi module. Bỏ phụ thuộc đồng hồ thật: regex đếm ngược `2[12] giờ` → `\d+ giờ` (`reservation.test.tsx`, `rack.test.tsx`).
+- Kiểm: `pnpm --filter @ottimo/admin-web test` ×5 liên tiếp, lần nào cũng 108/108; `turbo run test --force` (toàn repo chạy song song) 12/12 task xanh; prettier, ESLint, tsc admin-web xanh.

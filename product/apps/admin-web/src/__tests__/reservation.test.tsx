@@ -12,7 +12,7 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
   it('hold: countdown + only the allowed buttons; partial deposit keeps the hold, full confirms', async () => {
     const { user } = open('Lê Minh', 'qa.fd');
     const d = await screen.findByRole('dialog', { name: 'Lê Minh' });
-    expect(within(d).getByText(/Hết hạn giữ chỗ sau 2[12] giờ \d\d phút/)).toBeInTheDocument();
+    expect(within(d).getByText(/Hết hạn giữ chỗ sau \d+ giờ \d\d phút/)).toBeInTheDocument();
     expect(within(d).getByRole('button', { name: 'Hủy giữ chỗ' })).toBeInTheDocument();
     expect(within(d).getByRole('button', { name: 'Gia hạn giữ chỗ (1 lần)' })).toBeInTheDocument();
     expect(within(d).queryByRole('button', { name: 'Đổi căn / đổi ngày' })).not.toBeInTheDocument();

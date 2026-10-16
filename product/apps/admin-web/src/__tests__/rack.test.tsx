@@ -50,7 +50,7 @@ describe('H08 Sơ đồ phòng (US-016, US-019, US-139, US-017 AC5a)', () => {
     expect(cellNamed(/Trần Thu Nga, Đang ở/)).toBeTruthy();
     expect(cellNamed(/Emma Laurent, Hợp đồng dài hạn.*Nhập tay/)).toBeTruthy();
     expect(cellNamed(/Gia đình anh Hưng.*Vượt định mức 1/)).toBeTruthy();
-    expect(cellNamed(/Lê Minh, Giữ chỗ · chờ cọc.*còn 2[12] giờ/)).toBeTruthy();
+    expect(cellNamed(/Lê Minh, Giữ chỗ · chờ cọc.*còn \d+ giờ/)).toBeTruthy();
     expect(cellNamed(/Khóa · hỏng bình nóng lạnh/)).toBeTruthy();
     // Today column marked by the business date from the API (not computed by the client).
     expect(within(g).getByRole('columnheader', { name: /Hôm nay/ })).toBeInTheDocument();
