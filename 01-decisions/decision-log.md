@@ -293,3 +293,4 @@
 | 2026-10-16 | 2 | Khách không cọc online được: đơn không cọc chỉ khi đến trong 2 ngày, quản lý duyệt, giữ đến 18:00 ngày đến | DOM | Cách thực hiện ESC-006 A dòng 8 |
 | 2026-10-16 | 2 | Loại hình: doanh nghiệp – CTCP UTMG Living, hóa đơn GTGT; khóa TTLock; tài khoản VietQR cá nhân là rủi ro kế toán – hỏi kế toán (ESC-008) | INV (thông tin) | INV 16/10 |
 | 2026-10-16 | 2 | INV quyết ESC-014: mọi căn nhận vượt định mức tối đa 1 người, ngủ sofa lớn sẵn có (không cần nệm phụ) – max: Studio 3; 301, 401: 5; 302, 402: 4; trẻ < 6 tuổi không tính (theo đề xuất đội); phụ thu người thêm theo ESC-004 A | INV | ESC-014 |
+| 2026-10-16 | 2 | INV: người ở vượt định mức (ngủ sofa) được cấp thêm 1 bộ đồ dùng: 1 mền, bộ khăn tắm, bàn chải và đồ vệ sinh cá nhân… (đã gồm trong phụ thu người thêm) → buồng phòng tự sinh việc chuẩn bị bộ đồ dùng thêm khi đơn có người vượt định mức; DOM bổ sung vào BR-110/BR buồng phòng, BA vào quy trình buồng phòng | INV | Bổ sung ESC-014 |
