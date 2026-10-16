@@ -344,14 +344,8 @@
           "name": "approval_request_property_fk",
           "tableFrom": "approval_request",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -359,14 +353,8 @@
           "name": "approval_request_requested_by_fk",
           "tableFrom": "approval_request",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "requested_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "requested_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -374,14 +362,8 @@
           "name": "approval_request_approver_fk",
           "tableFrom": "approval_request",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "approver_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "approver_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -391,19 +373,12 @@
         "approval_request_property_id_key": {
           "name": "approval_request_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "approval_request_requester_key": {
           "name": "approval_request_requester_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id",
-            "requested_by"
-          ]
+          "columns": ["property_id", "id", "requested_by"]
         }
       },
       "policies": {},
@@ -672,10 +647,7 @@
       "compositePrimaryKeys": {
         "audit_event_pkey": {
           "name": "audit_event_pkey",
-          "columns": [
-            "id",
-            "occurred_at"
-          ]
+          "columns": ["id", "occurred_at"]
         }
       },
       "uniqueConstraints": {},
@@ -846,10 +818,7 @@
       "compositePrimaryKeys": {
         "c3_access_log_pkey": {
           "name": "c3_access_log_pkey",
-          "columns": [
-            "id",
-            "occurred_at"
-          ]
+          "columns": ["id", "occurred_at"]
         }
       },
       "uniqueConstraints": {},
@@ -1037,10 +1006,7 @@
       "compositePrimaryKeys": {
         "state_transition_pkey": {
           "name": "state_transition_pkey",
-          "columns": [
-            "id",
-            "occurred_at"
-          ]
+          "columns": ["id", "occurred_at"]
         }
       },
       "uniqueConstraints": {},
@@ -1150,14 +1116,8 @@
           "name": "channel_property_fk",
           "tableFrom": "channel",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1167,18 +1127,12 @@
         "channel_property_id_key": {
           "name": "channel_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "channel_property_code_key": {
           "name": "channel_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -1259,14 +1213,8 @@
           "name": "channel_commission_rate_channel_fk",
           "tableFrom": "channel_commission_rate",
           "tableTo": "channel",
-          "columnsFrom": [
-            "property_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "channel_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1276,10 +1224,7 @@
         "channel_commission_rate_from_key": {
           "name": "channel_commission_rate_from_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "channel_id",
-            "effective_from"
-          ]
+          "columns": ["channel_id", "effective_from"]
         }
       },
       "policies": {},
@@ -1405,14 +1350,8 @@
           "name": "channel_fee_property_fk",
           "tableFrom": "channel_fee",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1420,14 +1359,8 @@
           "name": "channel_fee_channel_fk",
           "tableFrom": "channel_fee",
           "tableTo": "channel",
-          "columnsFrom": [
-            "property_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "channel_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1437,9 +1370,7 @@
         "channel_fee_reservation_key": {
           "name": "channel_fee_reservation_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "reservation_id"
-          ]
+          "columns": ["reservation_id"]
         }
       },
       "policies": {},
@@ -1619,14 +1550,8 @@
           "name": "commission_property_fk",
           "tableFrom": "commission",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1634,14 +1559,8 @@
           "name": "commission_payee_fk",
           "tableFrom": "commission",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "payee_user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "payee_user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1651,10 +1570,7 @@
         "commission_property_id_key": {
           "name": "commission_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -1797,14 +1713,8 @@
           "name": "deposit_notice_property_fk",
           "tableFrom": "deposit_notice",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1812,14 +1722,8 @@
           "name": "deposit_notice_handled_payment_fk",
           "tableFrom": "deposit_notice",
           "tableTo": "payment",
-          "columnsFrom": [
-            "property_id",
-            "handled_payment_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "handled_payment_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1829,10 +1733,7 @@
         "deposit_notice_property_id_key": {
           "name": "deposit_notice_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -1957,14 +1858,8 @@
           "name": "folio_property_fk",
           "tableFrom": "folio",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1974,25 +1869,17 @@
         "folio_property_id_key": {
           "name": "folio_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "folio_primary_reservation_key": {
           "name": "folio_primary_reservation_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "primary_reservation_id"
-          ]
+          "columns": ["primary_reservation_id"]
         },
         "folio_bill_no_key": {
           "name": "folio_bill_no_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "bill_no"
-          ]
+          "columns": ["property_id", "bill_no"]
         }
       },
       "policies": {},
@@ -2261,14 +2148,8 @@
           "name": "folio_line_property_fk",
           "tableFrom": "folio_line",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2276,14 +2157,8 @@
           "name": "folio_line_folio_fk",
           "tableFrom": "folio_line",
           "tableTo": "folio",
-          "columnsFrom": [
-            "property_id",
-            "folio_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "folio_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2291,14 +2166,8 @@
           "name": "folio_line_related_fk",
           "tableFrom": "folio_line",
           "tableTo": "folio_line",
-          "columnsFrom": [
-            "property_id",
-            "related_line_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "related_line_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2306,14 +2175,8 @@
           "name": "folio_line_reversal_fk",
           "tableFrom": "folio_line",
           "tableTo": "folio_line",
-          "columnsFrom": [
-            "property_id",
-            "reversal_of_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reversal_of_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2323,10 +2186,7 @@
         "folio_line_property_id_key": {
           "name": "folio_line_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -2463,14 +2323,8 @@
           "name": "invoice_request_property_fk",
           "tableFrom": "invoice_request",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2478,14 +2332,8 @@
           "name": "invoice_request_folio_fk",
           "tableFrom": "invoice_request",
           "tableTo": "folio",
-          "columnsFrom": [
-            "property_id",
-            "folio_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "folio_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2495,17 +2343,12 @@
         "invoice_request_property_id_key": {
           "name": "invoice_request_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "invoice_request_folio_key": {
           "name": "invoice_request_folio_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "folio_id"
-          ]
+          "columns": ["folio_id"]
         }
       },
       "policies": {},
@@ -2943,14 +2786,8 @@
           "name": "payment_property_fk",
           "tableFrom": "payment",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2958,14 +2795,8 @@
           "name": "payment_folio_fk",
           "tableFrom": "payment",
           "tableTo": "folio",
-          "columnsFrom": [
-            "property_id",
-            "folio_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "folio_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2973,14 +2804,8 @@
           "name": "payment_reversal_fk",
           "tableFrom": "payment",
           "tableTo": "payment",
-          "columnsFrom": [
-            "property_id",
-            "reversal_of_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reversal_of_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2988,14 +2813,8 @@
           "name": "payment_recorded_by_fk",
           "tableFrom": "payment",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "recorded_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "recorded_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3003,16 +2822,8 @@
           "name": "payment_approval_request_fk",
           "tableFrom": "payment",
           "tableTo": "approval_request",
-          "columnsFrom": [
-            "property_id",
-            "approval_request_id",
-            "approval_requested_by"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id",
-            "requested_by"
-          ],
+          "columnsFrom": ["property_id", "approval_request_id", "approval_requested_by"],
+          "columnsTo": ["property_id", "id", "requested_by"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3022,18 +2833,12 @@
         "payment_property_id_key": {
           "name": "payment_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "payment_property_code_key": {
           "name": "payment_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -3376,12 +3181,8 @@
           "name": "guest_organization_id_organization_id_fk",
           "tableFrom": "guest",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3391,18 +3192,12 @@
         "guest_org_id_key": {
           "name": "guest_org_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "id"
-          ]
+          "columns": ["organization_id", "id"]
         },
         "guest_org_code_key": {
           "name": "guest_org_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "code"
-          ]
+          "columns": ["organization_id", "code"]
         }
       },
       "policies": {},
@@ -3603,12 +3398,8 @@
           "name": "app_user_organization_id_organization_id_fk",
           "tableFrom": "app_user",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3618,17 +3409,12 @@
         "app_user_username_unique": {
           "name": "app_user_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         },
         "app_user_org_id_key": {
           "name": "app_user_org_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "id"
-          ]
+          "columns": ["organization_id", "id"]
         }
       },
       "policies": {},
@@ -3741,14 +3527,8 @@
           "name": "trusted_device_property_fk",
           "tableFrom": "trusted_device",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3758,17 +3538,12 @@
         "trusted_device_token_hash_unique": {
           "name": "trusted_device_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         },
         "trusted_device_property_id_key": {
           "name": "trusted_device_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -3859,14 +3634,8 @@
           "name": "user_property_role_user_fk",
           "tableFrom": "user_property_role",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3874,14 +3643,8 @@
           "name": "user_property_role_property_fk",
           "tableFrom": "user_property_role",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3889,11 +3652,7 @@
       "compositePrimaryKeys": {
         "user_property_role_pkey": {
           "name": "user_property_role_pkey",
-          "columns": [
-            "user_id",
-            "property_id",
-            "role"
-          ]
+          "columns": ["user_id", "property_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -4038,12 +3797,8 @@
           "name": "user_session_trusted_device_id_trusted_device_id_fk",
           "tableFrom": "user_session",
           "tableTo": "trusted_device",
-          "columnsFrom": [
-            "trusted_device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["trusted_device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4051,14 +3806,8 @@
           "name": "user_session_user_fk",
           "tableFrom": "user_session",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4066,14 +3815,8 @@
           "name": "user_session_property_fk",
           "tableFrom": "user_session",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "active_property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "active_property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4187,12 +3930,8 @@
           "name": "idempotency_key_organization_id_organization_id_fk",
           "tableFrom": "idempotency_key",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4200,11 +3939,7 @@
       "compositePrimaryKeys": {
         "idempotency_key_pkey": {
           "name": "idempotency_key_pkey",
-          "columns": [
-            "principal_type",
-            "principal_id",
-            "key"
-          ]
+          "columns": ["principal_type", "principal_id", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -4307,12 +4042,8 @@
           "name": "inbox_message_organization_id_organization_id_fk",
           "tableFrom": "inbox_message",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4320,14 +4051,8 @@
           "name": "inbox_message_property_fk",
           "tableFrom": "inbox_message",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4337,10 +4062,7 @@
         "inbox_message_provider_event_key": {
           "name": "inbox_message_provider_event_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider",
-            "external_event_id"
-          ]
+          "columns": ["provider", "external_event_id"]
         }
       },
       "policies": {},
@@ -4439,14 +4161,8 @@
           "name": "job_run_property_fk",
           "tableFrom": "job_run",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4456,12 +4172,7 @@
         "job_run_slot_key": {
           "name": "job_run_slot_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "job_key",
-            "property_id",
-            "business_date",
-            "slot"
-          ]
+          "columns": ["job_key", "property_id", "business_date", "slot"]
         }
       },
       "policies": {},
@@ -4582,12 +4293,8 @@
           "name": "outbox_message_organization_id_organization_id_fk",
           "tableFrom": "outbox_message",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4595,14 +4302,8 @@
           "name": "outbox_message_property_fk",
           "tableFrom": "outbox_message",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4612,9 +4313,7 @@
         "outbox_message_dedupe_key_unique": {
           "name": "outbox_message_dedupe_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "dedupe_key"
-          ]
+          "columns": ["dedupe_key"]
         }
       },
       "policies": {},
@@ -4710,12 +4409,8 @@
           "name": "config_parameter_key_config_parameter_def_key_fk",
           "tableFrom": "config_parameter",
           "tableTo": "config_parameter_def",
-          "columnsFrom": [
-            "key"
-          ],
-          "columnsTo": [
-            "key"
-          ],
+          "columnsFrom": ["key"],
+          "columnsTo": ["key"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4723,14 +4418,8 @@
           "name": "config_parameter_property_fk",
           "tableFrom": "config_parameter",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4740,11 +4429,7 @@
         "config_parameter_property_key_from_key": {
           "name": "config_parameter_property_key_from_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "key",
-            "effective_from"
-          ]
+          "columns": ["property_id", "key", "effective_from"]
         }
       },
       "policies": {},
@@ -4987,12 +4672,8 @@
           "name": "doc_sequence_organization_id_organization_id_fk",
           "tableFrom": "doc_sequence",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5000,14 +4681,8 @@
           "name": "doc_sequence_property_fk",
           "tableFrom": "doc_sequence",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5089,9 +4764,7 @@
         "organization_code_unique": {
           "name": "organization_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -5220,12 +4893,8 @@
           "name": "property_organization_id_organization_id_fk",
           "tableFrom": "property",
           "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5235,18 +4904,12 @@
         "property_org_code_key": {
           "name": "property_org_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "code"
-          ]
+          "columns": ["organization_id", "code"]
         },
         "property_org_id_key": {
           "name": "property_org_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "id"
-          ]
+          "columns": ["organization_id", "id"]
         }
       },
       "policies": {},
@@ -5427,14 +5090,8 @@
           "name": "room_property_fk",
           "tableFrom": "room",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5442,14 +5099,8 @@
           "name": "room_room_group_fk",
           "tableFrom": "room",
           "tableTo": "room_group",
-          "columnsFrom": [
-            "property_id",
-            "room_group_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_group_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5459,26 +5110,17 @@
         "room_property_id_key": {
           "name": "room_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "room_property_room_no_key": {
           "name": "room_property_room_no_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "room_no"
-          ]
+          "columns": ["property_id", "room_no"]
         },
         "room_property_public_slug_key": {
           "name": "room_property_public_slug_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "public_slug"
-          ]
+          "columns": ["property_id", "public_slug"]
         }
       },
       "policies": {},
@@ -5603,14 +5245,8 @@
           "name": "room_group_property_fk",
           "tableFrom": "room_group",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5620,18 +5256,12 @@
         "room_group_property_id_key": {
           "name": "room_group_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "room_group_property_code_key": {
           "name": "room_group_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -5728,14 +5358,8 @@
           "name": "room_list_price_room_fk",
           "tableFrom": "room_list_price",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5745,10 +5369,7 @@
         "room_list_price_room_from_key": {
           "name": "room_list_price_room_from_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "room_id",
-            "effective_from"
-          ]
+          "columns": ["room_id", "effective_from"]
         }
       },
       "policies": {},
@@ -5900,14 +5521,8 @@
           "name": "lead_property_fk",
           "tableFrom": "lead",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5915,14 +5530,8 @@
           "name": "lead_guest_fk",
           "tableFrom": "lead",
           "tableTo": "guest",
-          "columnsFrom": [
-            "organization_id",
-            "guest_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "guest_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5930,14 +5539,8 @@
           "name": "lead_owner_fk",
           "tableFrom": "lead",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "owner_user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5947,10 +5550,7 @@
         "lead_property_id_key": {
           "name": "lead_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -6262,14 +5862,8 @@
           "name": "quote_property_fk",
           "tableFrom": "quote",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6277,14 +5871,8 @@
           "name": "quote_guest_fk",
           "tableFrom": "quote",
           "tableTo": "guest",
-          "columnsFrom": [
-            "organization_id",
-            "guest_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "guest_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6292,14 +5880,8 @@
           "name": "quote_lead_fk",
           "tableFrom": "quote",
           "tableTo": "lead",
-          "columnsFrom": [
-            "property_id",
-            "lead_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "lead_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6307,14 +5889,8 @@
           "name": "quote_room_fk",
           "tableFrom": "quote",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6322,14 +5898,8 @@
           "name": "quote_room_group_fk",
           "tableFrom": "quote",
           "tableTo": "room_group",
-          "columnsFrom": [
-            "property_id",
-            "room_group_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_group_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6337,14 +5907,8 @@
           "name": "quote_channel_fk",
           "tableFrom": "quote",
           "tableTo": "channel",
-          "columnsFrom": [
-            "property_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "channel_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6352,14 +5916,8 @@
           "name": "quote_closer_fk",
           "tableFrom": "quote",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "closer_user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "closer_user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6369,18 +5927,12 @@
         "quote_property_id_key": {
           "name": "quote_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "quote_property_code_key": {
           "name": "quote_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -6684,14 +6236,8 @@
           "name": "hk_task_room_fk",
           "tableFrom": "hk_task",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6699,14 +6245,8 @@
           "name": "hk_task_reservation_fk",
           "tableFrom": "hk_task",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6716,10 +6256,7 @@
         "hk_task_property_id_key": {
           "name": "hk_task_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -6922,14 +6459,8 @@
           "name": "overbooking_incident_reservation_fk",
           "tableFrom": "overbooking_incident",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6937,14 +6468,8 @@
           "name": "overbooking_incident_room_fk",
           "tableFrom": "overbooking_incident",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "requested_room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "requested_room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7671,14 +7196,8 @@
           "name": "reservation_property_fk",
           "tableFrom": "reservation",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7686,14 +7205,8 @@
           "name": "reservation_channel_fk",
           "tableFrom": "reservation",
           "tableTo": "channel",
-          "columnsFrom": [
-            "property_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "channel_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7701,14 +7214,8 @@
           "name": "reservation_booker_fk",
           "tableFrom": "reservation",
           "tableTo": "guest",
-          "columnsFrom": [
-            "organization_id",
-            "booker_guest_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "booker_guest_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7716,14 +7223,8 @@
           "name": "reservation_closer_fk",
           "tableFrom": "reservation",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "closer_user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "closer_user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7731,14 +7232,8 @@
           "name": "reservation_parent_fk",
           "tableFrom": "reservation",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "parent_reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "parent_reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7746,14 +7241,8 @@
           "name": "reservation_door_access_by_fk",
           "tableFrom": "reservation",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "door_access_handed_over_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "door_access_handed_over_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7761,14 +7250,8 @@
           "name": "reservation_house_rules_by_fk",
           "tableFrom": "reservation",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "house_rules_sent_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "house_rules_sent_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7778,18 +7261,12 @@
         "reservation_property_id_key": {
           "name": "reservation_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "reservation_property_code_key": {
           "name": "reservation_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -7962,14 +7439,8 @@
           "name": "reservation_change_reservation_fk",
           "tableFrom": "reservation_change",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8136,14 +7607,8 @@
           "name": "reservation_segment_reservation_fk",
           "tableFrom": "reservation_segment",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8151,14 +7616,8 @@
           "name": "reservation_segment_room_fk",
           "tableFrom": "reservation_segment",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8168,10 +7627,7 @@
         "reservation_segment_property_id_key": {
           "name": "reservation_segment_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -8335,14 +7791,8 @@
           "name": "room_block_room_fk",
           "tableFrom": "room_block",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8350,14 +7800,8 @@
           "name": "room_block_property_fk",
           "tableFrom": "room_block",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8365,14 +7809,8 @@
           "name": "room_block_ack_by_fk",
           "tableFrom": "room_block",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "affected_reservation_ack_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "affected_reservation_ack_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8380,14 +7818,8 @@
           "name": "room_block_released_by_fk",
           "tableFrom": "room_block",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "released_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "released_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8397,10 +7829,7 @@
         "room_block_property_id_key": {
           "name": "room_block_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -8529,14 +7958,8 @@
           "name": "room_occupancy_room_fk",
           "tableFrom": "room_occupancy",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8544,14 +7967,8 @@
           "name": "room_occupancy_segment_fk",
           "tableFrom": "room_occupancy",
           "tableTo": "reservation_segment",
-          "columnsFrom": [
-            "property_id",
-            "reservation_segment_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_segment_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8559,14 +7976,8 @@
           "name": "room_occupancy_block_fk",
           "tableFrom": "room_occupancy",
           "tableTo": "room_block",
-          "columnsFrom": [
-            "property_id",
-            "room_block_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_block_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8839,14 +8250,8 @@
           "name": "stay_night_reservation_fk",
           "tableFrom": "stay_night",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8854,14 +8259,8 @@
           "name": "stay_night_segment_fk",
           "tableFrom": "stay_night",
           "tableTo": "reservation_segment",
-          "columnsFrom": [
-            "property_id",
-            "reservation_segment_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_segment_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8869,14 +8268,8 @@
           "name": "stay_night_room_fk",
           "tableFrom": "stay_night",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8886,10 +8279,7 @@
         "stay_night_property_id_key": {
           "name": "stay_night_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -9025,14 +8415,8 @@
           "name": "item_property_fk",
           "tableFrom": "item",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9042,18 +8426,12 @@
         "item_property_id_key": {
           "name": "item_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "item_property_code_key": {
           "name": "item_property_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "code"
-          ]
+          "columns": ["property_id", "code"]
         }
       },
       "policies": {},
@@ -9213,14 +8591,8 @@
           "name": "minibar_check_property_fk",
           "tableFrom": "minibar_check",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9228,14 +8600,8 @@
           "name": "minibar_check_reservation_fk",
           "tableFrom": "minibar_check",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9243,14 +8609,8 @@
           "name": "minibar_check_room_fk",
           "tableFrom": "minibar_check",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9258,14 +8618,8 @@
           "name": "minibar_check_checked_by_fk",
           "tableFrom": "minibar_check",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "checked_by"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "checked_by"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9273,14 +8627,8 @@
           "name": "minibar_check_replaces_fk",
           "tableFrom": "minibar_check",
           "tableTo": "minibar_check",
-          "columnsFrom": [
-            "property_id",
-            "replaces_check_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "replaces_check_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9288,14 +8636,8 @@
           "name": "minibar_check_replaced_by_fk",
           "tableFrom": "minibar_check",
           "tableTo": "minibar_check",
-          "columnsFrom": [
-            "property_id",
-            "replaced_by_check_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "replaced_by_check_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9305,10 +8647,7 @@
         "minibar_check_property_id_key": {
           "name": "minibar_check_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -9412,14 +8751,8 @@
           "name": "minibar_check_line_property_fk",
           "tableFrom": "minibar_check_line",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9427,14 +8760,8 @@
           "name": "minibar_check_line_check_fk",
           "tableFrom": "minibar_check_line",
           "tableTo": "minibar_check",
-          "columnsFrom": [
-            "property_id",
-            "check_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "check_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9442,14 +8769,8 @@
           "name": "minibar_check_line_item_fk",
           "tableFrom": "minibar_check_line",
           "tableTo": "item",
-          "columnsFrom": [
-            "property_id",
-            "item_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "item_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9457,14 +8778,8 @@
           "name": "minibar_check_line_folio_line_fk",
           "tableFrom": "minibar_check_line",
           "tableTo": "folio_line",
-          "columnsFrom": [
-            "property_id",
-            "folio_line_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "folio_line_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9474,10 +8789,7 @@
         "minibar_check_line_item_key": {
           "name": "minibar_check_line_item_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "check_id",
-            "item_id"
-          ]
+          "columns": ["check_id", "item_id"]
         }
       },
       "policies": {},
@@ -9634,14 +8946,8 @@
           "name": "attention_event_property_fk",
           "tableFrom": "attention_event",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9754,14 +9060,8 @@
           "name": "checkout_confirmation_reservation_fk",
           "tableFrom": "checkout_confirmation",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9966,14 +9266,8 @@
           "name": "reservation_guest_reservation_fk",
           "tableFrom": "reservation_guest",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9981,14 +9275,8 @@
           "name": "reservation_guest_guest_fk",
           "tableFrom": "reservation_guest",
           "tableTo": "guest",
-          "columnsFrom": [
-            "organization_id",
-            "guest_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "guest_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9998,10 +9286,7 @@
         "reservation_guest_property_id_key": {
           "name": "reservation_guest_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -10079,14 +9364,8 @@
           "name": "room_status_room_fk",
           "tableFrom": "room_status",
           "tableTo": "room",
-          "columnsFrom": [
-            "property_id",
-            "room_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "room_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10094,14 +9373,8 @@
           "name": "room_status_property_fk",
           "tableFrom": "room_status",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10222,14 +9495,8 @@
           "name": "staff_notification_user_fk",
           "tableFrom": "staff_notification",
           "tableTo": "app_user",
-          "columnsFrom": [
-            "organization_id",
-            "user_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "user_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10237,14 +9504,8 @@
           "name": "staff_notification_property_fk",
           "tableFrom": "staff_notification",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10377,14 +9638,8 @@
           "name": "data_key_property_fk",
           "tableFrom": "data_key",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10496,14 +9751,8 @@
           "name": "purge_journal_property_fk",
           "tableFrom": "purge_journal",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10606,14 +9855,8 @@
           "name": "retention_run_property_fk",
           "tableFrom": "retention_run",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -10825,14 +10068,8 @@
           "name": "attachment_property_fk",
           "tableFrom": "attachment",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10840,14 +10077,8 @@
           "name": "attachment_reservation_fk",
           "tableFrom": "attachment",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -10855,12 +10086,8 @@
           "name": "attachment_data_key_fk",
           "tableFrom": "attachment",
           "tableTo": "data_key",
-          "columnsFrom": [
-            "data_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["data_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11011,14 +10238,8 @@
           "name": "consent_record_registration_fk",
           "tableFrom": "consent_record",
           "tableTo": "registration",
-          "columnsFrom": [
-            "property_id",
-            "registration_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "registration_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11195,14 +10416,8 @@
           "name": "document_image_document_fk",
           "tableFrom": "document_image",
           "tableTo": "guest_document",
-          "columnsFrom": [
-            "property_id",
-            "guest_document_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "guest_document_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11210,12 +10425,8 @@
           "name": "document_image_data_key_fk",
           "tableFrom": "document_image",
           "tableTo": "data_key",
-          "columnsFrom": [
-            "data_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["data_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11532,14 +10743,8 @@
           "name": "guest_document_registration_fk",
           "tableFrom": "guest_document",
           "tableTo": "registration",
-          "columnsFrom": [
-            "property_id",
-            "registration_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "registration_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11547,12 +10752,8 @@
           "name": "guest_document_data_key_fk",
           "tableFrom": "guest_document",
           "tableTo": "data_key",
-          "columnsFrom": [
-            "data_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["data_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11562,10 +10763,7 @@
         "guest_document_property_id_key": {
           "name": "guest_document_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         }
       },
       "policies": {},
@@ -11825,14 +11023,8 @@
           "name": "registration_property_fk",
           "tableFrom": "registration",
           "tableTo": "property",
-          "columnsFrom": [
-            "organization_id",
-            "property_id"
-          ],
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsFrom": ["organization_id", "property_id"],
+          "columnsTo": ["organization_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11840,14 +11032,8 @@
           "name": "registration_reservation_fk",
           "tableFrom": "registration",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11857,17 +11043,12 @@
         "registration_property_id_key": {
           "name": "registration_property_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "property_id",
-            "id"
-          ]
+          "columns": ["property_id", "id"]
         },
         "registration_reservation_key": {
           "name": "registration_reservation_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "reservation_id"
-          ]
+          "columns": ["reservation_id"]
         }
       },
       "policies": {},
@@ -11954,14 +11135,8 @@
           "name": "registration_portal_submission_registration_fk",
           "tableFrom": "registration_portal_submission",
           "tableTo": "registration",
-          "columnsFrom": [
-            "property_id",
-            "registration_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "registration_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11971,10 +11146,7 @@
         "registration_portal_submission_kind_key": {
           "name": "registration_portal_submission_kind_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "registration_id",
-            "kind"
-          ]
+          "columns": ["registration_id", "kind"]
         }
       },
       "policies": {},
@@ -12074,14 +11246,8 @@
           "name": "guest_access_token_reservation_fk",
           "tableFrom": "guest_access_token",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12091,9 +11257,7 @@
         "guest_access_token_hash_key": {
           "name": "guest_access_token_hash_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -12206,12 +11370,8 @@
           "name": "guest_session_token_fk",
           "tableFrom": "guest_session",
           "tableTo": "guest_access_token",
-          "columnsFrom": [
-            "token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12221,9 +11381,7 @@
         "guest_session_sid_key": {
           "name": "guest_session_sid_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "sid_hash"
-          ]
+          "columns": ["sid_hash"]
         }
       },
       "policies": {},
@@ -12356,14 +11514,8 @@
           "name": "online_checkin_reservation_fk",
           "tableFrom": "online_checkin",
           "tableTo": "reservation",
-          "columnsFrom": [
-            "property_id",
-            "reservation_id"
-          ],
-          "columnsTo": [
-            "property_id",
-            "id"
-          ],
+          "columnsFrom": ["property_id", "reservation_id"],
+          "columnsTo": ["property_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -12373,9 +11525,7 @@
         "online_checkin_reservation_key": {
           "name": "online_checkin_reservation_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "reservation_id"
-          ]
+          "columns": ["reservation_id"]
         }
       },
       "policies": {},
