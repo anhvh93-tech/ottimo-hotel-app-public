@@ -1,6 +1,6 @@
 # Kế hoạch Round 2 – Xây dựng lõi MVP
 
-- Người lập: PO (cùng ORC) | Ngày: 16/10/2026 | **Trạng thái: Dự thảo – chờ INV trả lời ESC** (chủ yếu ESC-012 câu phụ R-A/R-B/R-C; ngoài ra ESC-002, ESC-010 cho staging và VietQR)
+- Người lập: PO (cùng ORC) | Ngày: 16/10/2026 | **Trạng thái: Đã chốt phạm vi R-C** (INV đồng ý cả 13 ESC ngày 16/10/2026) – chờ ĐK-2 QC: chạy thật khung + CI xanh
 - Phương án phạm vi dùng trong dự thảo: **R-C** (đội đề xuất trong ESC-012, áp dụng khi INV chưa trả lời – decision-log PO 15/10 `[GIẢ ĐỊNH – chờ INV qua ESC-012]`). Phương án thay thế nếu INV chọn R-A hoặc R-B: mục 2.4.
 - Đầu vào: `rounds/round-01/plan.md` (mẫu), `product/docs/PRD.md` (mục 5, D6), `03-backlog/backlog.md` (145 story, 77 Must R2), `02-escalations/ESC-012.md`, `rounds/round-01/reviews/BE-on-ARC.md` (bảng ước lượng theo module), `rounds/round-01/responses/*.md`, `rounds/round-01/qa/bug-list.md`, `test-report.md`, `sec-findings.md`, `product/docs/architecture.md` (mục 1, 11, 15, 19), `product/docs/qa/test-strategy.md`.
 - ARC, QA góp ý dự thảo ở đầu tuần 1; ORC duyệt và ghi decision-log khi commit (giống R1).
