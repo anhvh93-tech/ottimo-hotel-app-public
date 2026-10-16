@@ -25,8 +25,9 @@ export interface EnvCredentialProviderOptions {
 }
 
 /**
- * credentialsRef format: `env:<PREFIX>` where PREFIX is a group from README section 4, optionally
- * narrowed, e.g. `env:PAYMENT_VNPAY` → `{ MODE, TMN_CODE, HASH_SECRET, PAY_URL, API_URL }`
+ * credentialsRef format: `env:<GROUP>_<PROVIDER>[_…]` where GROUP is a group from README section 4,
+ * always narrowed to one provider (FB-R2-SEC-INT-04, least privilege: `env:PAYMENT` would hand the
+ * VNPay adapter the MoMo key too, so a bare group is refused with CONFIG), e.g. `env:PAYMENT_VNPAY` → `{ MODE, TMN_CODE, HASH_SECRET, PAY_URL, API_URL }`
  * (variable names with the prefix and the following '_' removed).
  *
  * `<NAME>_FILE` is read (trimmed, like config.ts) when `<NAME>` is not set. If both are set they must
@@ -54,13 +55,19 @@ export class EnvCredentialProvider implements CredentialProvider {
     const m = REF_RE.exec(credentialsRef);
     const prefix = m?.[1];
     if (!prefix) {
-      throw new IntegrationError('CONFIG', 'credentialsRef must look like env:<PREFIX>');
+      throw new IntegrationError('CONFIG', 'credentialsRef must look like env:<GROUP>_<PROVIDER>');
     }
     const group = prefix.split('_')[0] as string;
     if (!(CREDENTIAL_PREFIXES as readonly string[]).includes(group)) {
       throw new IntegrationError(
         'CONFIG',
         `credentialsRef prefix ${prefix} is not an integration group`,
+      );
+    }
+    if (prefix === group) {
+      throw new IntegrationError(
+        'CONFIG',
+        `credentialsRef must name a provider: env:${group}_<PROVIDER>`,
       );
     }
 

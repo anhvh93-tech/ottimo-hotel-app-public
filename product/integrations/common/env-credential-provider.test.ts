@@ -76,6 +76,18 @@ describe('EnvCredentialProvider', () => {
     expect(await codeOf(p.get('env:PAYMENT_'))).toBe('CONFIG');
   });
 
+  it("FB-R2-SEC-INT-04: a bare group is refused – one adapter never sees another provider's keys", async () => {
+    const p = new EnvCredentialProvider(
+      { ...env, PAYMENT_MOMO_SECRET_KEY: 'momo-secret', BANKFEED_SEPAY_API_KEY: 'a' },
+      { readFile },
+    );
+    for (const g of ['PAYMENT', 'BANKFEED', 'EMAIL', 'CHANNEL', 'EINVOICE', 'DOORLOCK', 'ZALO']) {
+      expect(await codeOf(p.get(`env:${g}`)), g).toBe('CONFIG');
+    }
+    const vnpay = await p.get('env:PAYMENT_VNPAY');
+    expect(Object.values(vnpay)).not.toContain('momo-secret');
+  });
+
   it('treats empty values and empty files as unset; nothing configured → CONFIG', async () => {
     const p = new EnvCredentialProvider(
       { EINVOICE_MISA_APP_ID: '', EINVOICE_MISA_PASSWORD_FILE: '/run/secrets/empty' },
@@ -85,15 +97,15 @@ describe('EnvCredentialProvider', () => {
   });
 
   it('snapshots env at construction and caches per ref', async () => {
-    const live: Record<string, string> = { CHANNEL_PROVIDER: 'mock' };
+    const live: Record<string, string> = { CHANNEL_BEDS24_PROP_KEY: 'k1' };
     let reads = 0;
     const p = new EnvCredentialProvider(
       { ...live, CHANNEL_BEDS24_REFRESH_TOKEN_FILE: '/run/secrets/vnpay_hash' },
       { readFile: (path) => (reads++, readFile(path)) },
     );
-    live.CHANNEL_PROVIDER = 'beds24';
-    expect((await p.get('env:CHANNEL')).PROVIDER).toBe('mock');
-    await p.get('env:CHANNEL');
+    live.CHANNEL_BEDS24_PROP_KEY = 'k2';
+    expect((await p.get('env:CHANNEL_BEDS24')).PROP_KEY).toBe('k1');
+    await p.get('env:CHANNEL_BEDS24');
     expect(reads).toBe(1);
   });
 });

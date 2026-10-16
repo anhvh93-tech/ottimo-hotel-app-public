@@ -24,6 +24,8 @@ const SCENARIO_VARS = /^[A-Z][A-Z0-9_]*_MOCK_SCENARIO$/;
 /** Any selector, including ones added later (BLOBSTORE_PROVIDER, …). */
 const SELECTOR_VARS = /_(PROVIDER|MODE)$/; // same match as the R1 check in services/api config.ts
 const UNSAFE_IN_PRODUCTION = ['mock', 'sandbox'];
+/** Gateways that charge real money at MODE=production – only allowed when APP_ENV=production (SEC-INT-05b). */
+const LIVE_MONEY_MODES = ['PAYMENT_VNPAY_MODE', 'PAYMENT_MOMO_MODE'];
 
 const val = (env: Env, k: string) => (env[k] ?? '').trim();
 
@@ -31,7 +33,10 @@ const val = (env: Env, k: string) => (env[k] ?? '').trim();
  * Returns the list of problems (empty = safe). `appEnv` is APP_ENV already validated by the caller.
  * All environments: known selectors must hold an allowed value; PAYMENT_METHODS_ENABLED must list
  * known gateways. production additionally: no *_PROVIDER/*_MODE = mock|sandbox (rule a), every method
- * in PAYMENT_METHODS_ENABLED at MODE=production (rule b), no *_MOCK_SCENARIO set.
+ * in PAYMENT_METHODS_ENABLED at MODE=production (rule b), no *_MOCK_SCENARIO set. mock/sandbox is
+ * matched case-insensitively (selectors not in INTEGRATION_SELECTORS, FB-R2-SEC-INT-05a).
+ * Outside production: PAYMENT_VNPAY_MODE / PAYMENT_MOMO_MODE = production refused (real money from a
+ * test environment, FB-R2-SEC-INT-05b); VietQR stays allowed (R2 uses a test account – P-R2-6).
  */
 export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] {
   const problems: string[] = [];
@@ -61,7 +66,9 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
 
   if (appEnv === 'production') {
     const unsafe = Object.keys(env)
-      .filter((k) => SELECTOR_VARS.test(k) && UNSAFE_IN_PRODUCTION.includes(val(env, k)))
+      .filter(
+        (k) => SELECTOR_VARS.test(k) && UNSAFE_IN_PRODUCTION.includes(val(env, k).toLowerCase()),
+      )
       .sort();
     if (unsafe.length > 0) {
       problems.push(`mock/sandbox adapters forbidden in production: ${unsafe.join(', ')}`);
@@ -78,6 +85,12 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
       .sort();
     if (scenarios.length > 0) {
       problems.push(`mock scenarios forbidden in production: ${scenarios.join(', ')}`);
+    }
+  } else {
+    for (const name of LIVE_MONEY_MODES) {
+      if (val(env, name).toLowerCase() === 'production') {
+        problems.push(`${name}=production is only allowed when APP_ENV=production`);
+      }
     }
   }
   return problems;

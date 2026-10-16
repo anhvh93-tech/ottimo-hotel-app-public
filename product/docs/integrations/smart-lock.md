@@ -3,7 +3,23 @@
 - Người lập: INT | Round 1 – Bước 2 (Sản xuất, Đợt 1) | Ngày tra cứu: 15/10/2026
 - Đầu vào: decision-log 15/10/2026 ("khóa thông minh có app – mật mã / vân tay / thẻ từ, đặt mã cửa [đã ẩn – INV 19/10: đổi sang mã ngẫu nhiên 8 số]; hãng chưa rõ"); brief mục 5 (mất/nhầm thẻ phòng, phí làm lại thẻ 200k); BL câu 23; plan rủi ro R2
 - Quy ước nguồn: **[Nguồn]** đã thấy trên tài liệu chính thức; **[Bên thứ ba]**; **[Chưa xác minh]**.
+- Sửa Round 2 Đợt 0 (16/10/2026): mục 0 – INV xác nhận TTLock; gateway là điều kiện cho mã có hạn từ xa; câu hỏi cho INV.
 - Sửa Round 1 Bước 4 (15/10/2026): mã sinh nhật `ddmm` + ≥ 3 số (SEC-05, DOM-03, decision-log DOM+SEC); tiêu chí T11; thời điểm tạo/hiệu lực/hiển thị mã (ARC-16); mã nhân viên (DOM-07); `label` không chứa dữ liệu cá nhân (SEC-08); gửi mã mặc định bằng link app khách (SEC-07).
+
+## 0. Cập nhật Round 2 – Đợt 0 (16/10/2026): INV xác nhận dùng TTLock
+- **Đầu vào:** decision-log 16/10/2026 "INV: khóa cửa dùng nền tảng TTLock (có API, tạo mã có hạn qua gateway – INT xác minh gateway ở R2/R3)" (ESC-011); "khóa TTLock" (ESC-008). Bảng mục 2 nay chỉ còn giá trị tham khảo; tiêu chí mục 3 áp cho TTLock như dưới.
+- **Gateway là điều kiện để làm tự động từ xa** (tra lại 16/10/2026):
+  - Mã **tự đặt có hạn** (`keyboardPwd/add`, có `startDate`/`endDate` dạng mili-giây) chỉ gọi thẳng từ máy chủ được với `addType=2` (**qua gateway**); `addType=1` (mặc định) là qua Bluetooth của điện thoại – phải gọi SDK trên điện thoại **đứng gần khóa** trước, máy chủ OTTIMO không tự làm được; `addType=3` cho khóa NB-IoT [Nguồn: euopen.ttlock.com/doc/api/v3/keyboardPwd/add]. Chỉ khóa hỗ trợ **passcode V4** mới đặt được mã tùy ý (cần cho mã sinh nhật mục 5) [Nguồn: cùng trang].
+  - Không có gateway: chỉ còn mã **do thuật toán sinh theo kỳ** (`keyboardPwd/get`) – không đặt được giá trị (không làm được mã sinh nhật), mã kỳ phải dùng lần đầu trong 24 giờ, và **không xóa từ xa được** khi khách trả phòng sớm/hủy (chỉ chờ hết hạn) [Nguồn: euopen.ttlock.com/doc/api/v3/keyboardPwd/get; có chạy không cần gateway: Chưa xác minh – thử trên khóa thật].
+  - Xóa mã/thẻ ngay khi trả phòng (mục 4.1 bước 4), hủy thẻ từ xa khi khách mất thẻ (T5) và đọc nhật ký mở cửa gần thời gian thực (T6) đều cần gateway [Chưa xác minh từng API – kiểm khi cài adapter R3].
+  - Phủ sóng: gateway nói chuyện với khóa qua Bluetooth, tầm ngắn → **1 gateway phủ được mấy căn phụ thuộc vị trí, tường** [Chưa xác minh – đo tại chỗ]; 10 căn có thể cần nhiều gateway.
+- **Kế hoạch kỹ thuật (INT tự quyết):** R2 giữ `DOORLOCK_PROVIDER=manual` (lễ tân đặt mã trên app TTLock, nhập lại vào OTTIMO – mục 4.2), không chặn R2. Adapter `doorlock/ttlock/` làm ở **R3** khi INV đã có gateway + tài khoản TTLock Open Platform do INV tự đăng ký (`DOORLOCK_TTLOCK_*` trong `.env`, ref `env:DOORLOCK_TTLOCK`); căn nào chưa có gateway thì để chế độ thủ công **theo từng căn** (cùng `DoorLockAdapter`). Gọi `addType=2`; lỗi gateway mất kết nối → "Cần chú ý" và quay về thủ công cho căn đó. Mã gửi lên TTLock `label` = mã tham chiếu ngẫu nhiên (SEC-08).
+- **Câu hỏi cho INV** (đội không tạo ESC mới – ORC chuyển trong lượt hỏi INV; ESC-011 vẫn mở phần "thông tin khóa"):
+  1. Khóa đã có **gateway TTLock** chưa? Nếu có: model gateway (vd. G2/G3/G4 – ghi trên tem), bao nhiêu cái, gắn ở đâu, căn nào đang "online" trong app TTLock.
+  2. **Model khóa** (tem nhãn/hộp hoặc trong app TTLock: Cài đặt khóa → Thông tin khóa) và tên thương hiệu bán; khóa có **bàn phím mật mã**, thẻ từ, vân tay?
+  3. Trong app TTLock, khi tạo mật mã có mục **"Tùy chỉnh" (Custom)** với ngày giờ bắt đầu/kết thúc không? (dấu hiệu khóa hỗ trợ passcode V4 + đặt mã từ xa).
+  4. Tài khoản TTLock hiện quản lý khóa là tài khoản của ai (cá nhân INV hay công ty)? Khi lên R3 cần INV tự đăng ký Open Platform bằng tài khoản công ty.
+  5. Khóa có **khóa tạm khi nhập sai nhiều lần** (T11) không – thử trên khóa thật hoặc xem hướng dẫn model.
 
 ## 1. Tóm tắt cho chủ đầu tư
 1. Chưa biết hãng khóa OTTIMO đang dùng → **bước đầu tiên là INV chụp ảnh khóa + tên app đang dùng để mở/quản lý khóa** (rất nhiều khóa bán ở VN thực chất chạy nền tảng **TTLock** hoặc **Tuya** dưới tên thương hiệu khác).
@@ -90,7 +106,7 @@ Cả hai chế độ dùng **chung giao diện** (`DoorLockAdapter`), chuyển b
 2. Số lượng khóa: 10 căn + cửa chính/cổng (nếu có).
 3. Nếu có API: tài khoản nhà phát triển do **INV tự đăng ký** (đội không đăng ký hộ), khóa API do INV tự điền vào biến môi trường (`DOORLOCK_*` trong `.env`, không gửi qua chat).
 
-## 7. Nguồn (tra ngày 15/10/2026)
+## 7. Nguồn (tra ngày 15/10/2026; trang `keyboardPwd/add` tra lại 16/10/2026)
 - TTLock Open API – thêm mã tùy ý: https://euopen.ttlock.com/doc/api/v3/keyboardPwd/add
 - TTLock – thêm thẻ IC: https://euopen.ttlock.com/doc/api/v3/identityCard/add
 - TTLock – vân tay: https://euopen.ttlock.com/doc/api/v3/fingerprint/add

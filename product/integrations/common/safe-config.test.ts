@@ -55,13 +55,17 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
       { DOORLOCK_PROVIDER: 'mock' },
       { EMAIL_PROVIDER: 'mock' },
       { SMS_PROVIDER: 'sandbox' },
+      { BLOBSTORE_PROVIDER: 'MOCK' }, // FB-R2-SEC-INT-05a: case-insensitive for unknown selectors
+      { SMS_PROVIDER: 'Sandbox' },
     ];
     for (const c of cases) {
       const [name] = Object.keys(c);
       expect(() => assertSafeConfig({ ...prodOk, ...c }, 'production')).toThrow(
         new RegExp(name as string),
       );
-      expect(findUnsafeIntegrationConfig({ ...prodOk, ...c }, 'staging')).toEqual([]);
+      expect(
+        findUnsafeIntegrationConfig({ ...prodOk, PAYMENT_VNPAY_MODE: 'sandbox', ...c }, 'staging'),
+      ).toEqual([]);
     }
   });
 
@@ -79,6 +83,21 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
     );
     // dev: enabled-but-off only hides the method
     expect(findUnsafeIntegrationConfig({ PAYMENT_METHODS_ENABLED: 'vietqr' }, 'dev')).toEqual([]);
+  });
+
+  it('FB-R2-SEC-INT-05b: VNPay/MoMo at MODE=production refused outside production; VietQR allowed', () => {
+    for (const appEnv of ['dev', 'test', 'staging']) {
+      expect(findUnsafeIntegrationConfig({ PAYMENT_VNPAY_MODE: 'production' }, appEnv)).toEqual([
+        'PAYMENT_VNPAY_MODE=production is only allowed when APP_ENV=production',
+      ]);
+      expect(findUnsafeIntegrationConfig({ PAYMENT_MOMO_MODE: 'production' }, appEnv)).toHaveLength(
+        1,
+      );
+      expect(findUnsafeIntegrationConfig({ PAYMENT_VIETQR_MODE: 'production' }, appEnv)).toEqual(
+        [],
+      );
+    }
+    expect(findUnsafeIntegrationConfig(prodOk, 'production')).toEqual([]);
   });
 
   it('production refuses *_MOCK_SCENARIO', () => {
