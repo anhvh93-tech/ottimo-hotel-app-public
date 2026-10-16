@@ -4,3 +4,4 @@
 /e2e/.auth/
 # Seed loader output (label → real code map, generated per DB)
 /fixtures/seed/.out/
+test-results/

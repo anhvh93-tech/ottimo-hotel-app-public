@@ -11,7 +11,7 @@ import { inSequence } from '../../../shared/sequence';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type { LocalDate, LocalTime } from '../../../shared/time';
-import { ParameterService } from '../../platform/public/parameter.service';
+import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import {
   type CalendarRules,
   type CancelTier,
@@ -55,10 +55,14 @@ export interface PricingParams {
   rescheduleWindowMonths: number;
   rescheduleMaxTimes: number;
   checkinTime: LocalTime;
+  /** BR-103 OTA base price per room-group code (`ota_base_rate`, {} when not configured). */
+  otaBaseRates: Record<string, number>;
 }
 
 export interface PriceRoom {
   roomId: string;
+  /** room_group.code – key of the OTA base price (`ota_base_rate`, BR-103) used for BR-105 and OTA defaults. */
+  groupCode?: string;
   baseOccupancy: number;
   /** Nightly list price (BR-101, stored rounded) effective per night: list ordered by effectiveFrom. */
   listPrices: ReadonlyArray<{ effectiveFrom: LocalDate; nightlyVnd: number }>;
@@ -80,6 +84,9 @@ export interface PricedNight {
   /** Final price of the night (after calendar and length-of-stay discount) – stay_night gross. */
   amountVnd: number;
   source: 'calendar' | 'manual' | 'ota_amount' | 'complimentary';
+  /** Calendar price BEFORE the length-of-stay discount (BR-104) – kept in the snapshot so a change of the
+   * number of nights re-tiers BR-107 on the agreed calendar prices (DOM D-8). */
+  calendarVnd?: number;
   uplift?: 'special' | 'weekend' | 'none';
   /** BR-105 bounds of the night (direct/agent/ota with a list price). */
   floorVnd?: number;
@@ -135,9 +142,13 @@ export class PricingService {
       checkinTime,
     ] = await inSequence([
       () => g<number>('rounding.night_rate'),
+      // BR-005 OTA rounding: own key `rounding.ota_rate` (ARC s2-contract 8.1, migration 0018). A property seeded
+      // before 0018 has no value yet → the old shared key until QA/OWN set it (same 10.000 today).
       () =>
-        // BR-005: "tiền thuê tháng, giá OTA → 10.000" – one parameter for both (no rounding.ota_rate key).
-        g<number>('rounding.monthly_rent'),
+        g<number>('rounding.ota_rate').catch((err: unknown) => {
+          if (err instanceof ParameterMissingError) return g<number>('rounding.monthly_rent');
+          throw err;
+        }),
       () => g<number>('rounding.deposit'),
       () => g<number>('rounding.fee'),
       () => g<number>('weekend_uplift_pct'),
@@ -163,8 +174,15 @@ export class PricingService {
       () => g<number>('reschedule_max_times'),
       () => g<LocalTime>('checkin_time'),
     ]);
+    let otaBaseRates: Record<string, number> = {};
+    try {
+      otaBaseRates = await this.params.get<Record<string, number>>(tx, 'ota_base_rate', asOf);
+    } catch (err) {
+      if (!(err instanceof ParameterMissingError)) throw err;
+    }
     return {
       asOf,
+      otaBaseRates,
       nightRateUnit,
       otaRateUnit,
       depositUnit,
@@ -214,7 +232,13 @@ export class PricingService {
     const unitFor = group === 'ota' ? p.otaRateUnit : p.nightRateUnit;
     const peak = dates.some((d) => p.calendar.specialDates.some((s) => d >= s.from && d < s.to));
 
+    // BR-105: floor/ceiling per ROOM GROUP from its base price (BUG-R2-018) – the OTA base of the group
+    // (BR-103), rounded like OTA prices; fallback = the room's list price when the base is not configured.
+    const groupBase = input.room.groupCode ? p.otaBaseRates[input.room.groupCode] : undefined;
     const bounds = (date: LocalDate): { floorVnd: number; ceilingVnd: number } | null => {
+      if (groupBase !== undefined) {
+        return rateBounds(groupBase, p.rateFloorPct, p.rateCeilingPct, p.otaRateUnit);
+      }
       const list = PricingService.listPriceOn(input.room, date);
       return list === null ? null : rateBounds(list, p.rateFloorPct, p.rateCeilingPct, unitFor);
     };
@@ -249,6 +273,8 @@ export class PricingService {
         return {
           date,
           amountVnd: amount,
+          // DOM D-8: a price typed at the desk is the agreed calendar price of a direct/agent night.
+          ...(group === 'direct' || group === 'agent' ? { calendarVnd: amount } : {}),
           source: amount === 0 ? 'complimentary' : 'manual',
           ...(b ?? {}),
         };
@@ -261,14 +287,30 @@ export class PricingService {
           errors: [{ field: 'otaRoomAmountVnd', code: 'OTA_AMOUNT_MISMATCH' }],
         });
       }
-    } else if (group === 'ota') {
-      if (input.otaRoomAmountVnd === undefined) {
-        // R2 manual OTA entry: the price comes from the extranet (BR-112) – one of the two is required.
+    } else if (group === 'ota' && input.otaRoomAmountVnd === undefined) {
+      // BUG-R2-017 (EP02 3.2): no price given → the OTA calendar of the channel (BR-103/104).
+      if (groupBase === undefined) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'nightlyRates', code: 'REQUIRED' }],
+          detail: 'ota_base_rate is not configured for this room group',
         });
       }
-      if (!Number.isSafeInteger(input.otaRoomAmountVnd) || input.otaRoomAmountVnd <= 0) {
+      nights = dates.map((date) => {
+        const c = calendarRate(groupBase, date, 'ota', p.calendar, p.otaRateUnit);
+        return {
+          date,
+          amountVnd: c.rateVnd,
+          calendarVnd: c.rateVnd,
+          source: 'calendar',
+          uplift: c.uplift,
+        };
+      });
+    } else if (group === 'ota') {
+      if (
+        input.otaRoomAmountVnd === undefined ||
+        !Number.isSafeInteger(input.otaRoomAmountVnd) ||
+        input.otaRoomAmountVnd <= 0
+      ) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'otaRoomAmountVnd', code: 'AMOUNT_NOT_POSITIVE' }],
         });
@@ -301,6 +343,7 @@ export class PricingService {
       nights = calendar.map((c, i) => ({
         date: c.date,
         amountVnd: discounted[i] as number,
+        calendarVnd: c.rateVnd,
         source: 'calendar',
         uplift: c.uplift,
       }));
@@ -364,6 +407,7 @@ export class PricingService {
         date: n.date,
         amountVnd: n.amountVnd,
         source: n.source,
+        ...(n.calendarVnd !== undefined ? { calendarVnd: n.calendarVnd } : {}),
         ...(n.uplift ? { uplift: n.uplift } : {}),
       })),
       ...extra,

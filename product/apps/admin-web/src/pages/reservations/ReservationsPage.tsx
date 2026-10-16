@@ -1,6 +1,6 @@
 import type { ReservationStatus } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Button, Chip } from '@ottimo/ui';
+import { Button, Chip, StateView } from '@ottimo/ui';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../app/api';
@@ -27,7 +27,7 @@ const ACTIVE: ReservationStatus[] = ['hold', 'confirmed', 'in_house'];
  * thống" = H10 10.2 (`externalContract=true`, US-017 AC5a). SAL/CTV see only their own (server scope).
  */
 export function ReservationsPage() {
-  const { t } = useI18n();
+  const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const { online } = useOnline();
@@ -89,7 +89,7 @@ export function ReservationsPage() {
               aria-pressed={filter === 'active'}
               onClick={() => setFilter('active')}
             >
-              {t('status.booking.confirmed')} / {t('status.booking.hold')}
+              {t('rsv.filter_active')}
             </button>
             <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
               {t('reg2.tab_all')}
@@ -104,12 +104,12 @@ export function ReservationsPage() {
               </button>
             ) : null}
           </div>
-          <label className="search" style={{ maxWidth: 320 }}>
+          <label className="search">
             <span className="sr-only">{t('shell.search_label')}</span>
             <input
               type="search"
               value={q}
-              placeholder={`${t('lsm.col_code')} / OTA / KH-…`}
+              placeholder={t('rsv.search_placeholder')}
               onChange={(e) => setQ(e.target.value)}
             />
           </label>
@@ -118,6 +118,30 @@ export function ReservationsPage() {
           <ErrorBlock titleKey="common.error_generic_title" error={state.error} onRetry={reload} />
         ) : state.status === 'loading' && !state.data ? (
           <LoadingBlock />
+        ) : rows.length === 0 ? (
+          // FB-R2-UXD-FE-S2-07: real empty states, not a "–" row.
+          query ? (
+            <StateView icon="search" title={t('rsv.search_empty', { q: query })} />
+          ) : (
+            <StateView
+              icon="calendar"
+              title={t('rsv.list_empty_title')}
+              action={
+                fd ? (
+                  <Button
+                    variant="pri"
+                    icon="plus"
+                    disabled={!online}
+                    onClick={() => setDialog('booking')}
+                  >
+                    {t('bk.new_cta')}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {t('rsv.list_empty_body')}
+            </StateView>
+          )
         ) : (
           <div className="table-wrap">
             <table className="table">
@@ -167,19 +191,12 @@ export function ReservationsPage() {
                     {fd ? (
                       <td className="r num">
                         {r.balanceDueVnd !== undefined
-                          ? r.balanceDueVnd.toLocaleString('vi-VN')
+                          ? `${vnd(r.balanceDueVnd)} ${t('common.vnd_unit')}`
                           : ''}
                       </td>
                     ) : null}
                   </tr>
                 ))}
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={fd ? 7 : 6} className="li-s">
-                      {query ? t('crm.empty_title', { q: query }) : '–'}
-                    </td>
-                  </tr>
-                ) : null}
               </tbody>
             </table>
           </div>

@@ -27,6 +27,7 @@ import { IDENTITY_OPTIONS, type IdentityOptions } from './public/identity-option
 import { RATE_LIMITER, RateLimiter } from './public/rate-limiter';
 import { SessionService } from './public/session.service';
 import { IdentityParamsService } from './public/identity-params';
+import { CloserCandidatesController } from './internal/closer-candidates.controller';
 import { PasswordReauth } from './public/password-reauth';
 import { assertCommonPasswordList } from './public/passwords';
 import { defineAuditEntity } from '../audit/public/audit-fields';
@@ -60,7 +61,7 @@ export class IdentityModule {
   static register(options: IdentityOptions): DynamicModule {
     return {
       module: IdentityModule,
-      controllers: [AuthController, UsersController, DevicesController],
+      controllers: [AuthController, UsersController, DevicesController, CloserCandidatesController],
       providers: [
         { provide: IDENTITY_OPTIONS, useValue: options },
         CommonPasswordListCheck,

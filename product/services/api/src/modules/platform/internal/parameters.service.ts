@@ -162,8 +162,14 @@ export class ParametersService {
     if (!input.roles.some((r) => defs[0]?.edit_roles.includes(r)))
       throw problem('FORBIDDEN_ACTION');
     await this.params.validate(tx, input.key, input.value);
-    await checkStructuredParameter(input.key, input.value, (other) =>
-      this.params.get(tx, other, input.effectiveFrom),
+    await checkStructuredParameter(
+      input.key,
+      input.value,
+      (other) => this.params.get(tx, other, input.effectiveFrom),
+      async () =>
+        (await tx.query<{ code: string }>('SELECT code FROM room_group ORDER BY code')).rows.map(
+          (r) => r.code,
+        ),
     );
     await this.params.set(tx, {
       key: input.key,

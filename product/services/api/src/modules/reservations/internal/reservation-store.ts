@@ -41,6 +41,8 @@ export interface ReservationRow {
   eta_time: string | null;
   is_complimentary: boolean;
   conflict_state: 'none' | 'open' | 'resolved';
+  capacity_conflict_at: Date | null;
+  capacity_ack_reason: string | null;
   hold_created_at: Date | null;
   hold_hours: number | null;
   hold_expires_at: Date | null;
@@ -71,7 +73,7 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   c.code AS channel_code, c.channel_group, r.payment_model, r.ota_ref, r.ota_booked_at, r.direct_source,
   r.booker_guest_id, r.closer_user_id, r.parent_reservation_id, r.quote_id, r.group_id, r.folio_id,
   r.arrival_date::text AS arrival_date, r.departure_date::text AS departure_date, r.adults, r.children_6_11,
-  r.children_under_6, to_char(r.eta_time, 'HH24:MI') AS eta_time, r.is_complimentary, r.conflict_state,
+  r.children_under_6, to_char(r.eta_time, 'HH24:MI') AS eta_time, r.is_complimentary, r.conflict_state, r.capacity_conflict_at, r.capacity_ack_reason,
   r.hold_created_at, r.hold_hours, r.hold_expires_at, r.hold_extended_count, r.deposit_required_vnd,
   r.total_room_vnd, r.pricing_snapshot, r.cancelled_at, r.cancel_reason_code, r.cancel_note,
   r.status_before_cancel, r.confirmed_at, r.no_show_marked_at, r.reschedule_count, r.actual_checkin_at,
@@ -185,8 +187,8 @@ export async function insertNights(tx: Tx, w: NightWrite, nights: readonly Price
     await tx.query(
       `INSERT INTO stay_night (id, organization_id, property_id, reservation_id, reservation_segment_id, room_id,
          stay_date, night_state, room_revenue_gross_vnd, discount_vnd, room_revenue_vnd, sold_at,
-         is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $9, $10, $11, 'short_stay_rate', $12, $13, $14, $14)`,
+         is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $9, $10, $11, 'short_stay_rate', $12, $13, $14, $14, $15)`,
       [
         uuidv7(),
         tx.ctx.organizationId,
@@ -202,9 +204,41 @@ export async function insertNights(tx: Tx, w: NightWrite, nights: readonly Price
         w.channelId,
         w.stayType,
         w.now,
+        n.calendarVnd ?? null,
       ],
     );
   }
+}
+
+export interface LiveNightRow {
+  id: string;
+  date: LocalDate;
+  grossVnd: number;
+  discountVnd: number;
+  calendarVnd: number | null;
+}
+
+/** Live nights with their calendar price (A-22) – for BR-107 re-tiering on a change of nights. */
+export async function liveNightRows(tx: Tx, reservationId: string): Promise<LiveNightRow[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    date: string;
+    gross: number;
+    discount: number;
+    calendar: number | null;
+  }>(
+    `SELECT id, stay_date::text AS date, room_revenue_gross_vnd AS gross, discount_vnd AS discount,
+            calendar_rate_vnd AS calendar
+       FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
+    [reservationId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    grossVnd: r.gross,
+    discountVnd: r.discount,
+    calendarVnd: r.calendar,
+  }));
 }
 
 /** Void every live night of a booking (optionally only the given dates) – erd 8 "Mọi lần void". */
@@ -220,15 +254,16 @@ export async function voidNights(
     | 'channel_cancelled',
   now: Date,
   dates?: readonly LocalDate[],
-): Promise<number> {
+): Promise<string[]> {
   const r = await tx.query(
     `UPDATE stay_night SET prev_state = night_state, night_state = 'void', voided_at = $3, void_reason = $2,
             updated_at = $3
       WHERE reservation_id = $1 AND night_state <> 'void'
-        AND ($4::date[] IS NULL OR stay_date = ANY($4::date[]))`,
+        AND ($4::date[] IS NULL OR stay_date = ANY($4::date[]))
+      RETURNING id`,
     [reservationId, reason, now, dates ? [...dates] : null],
   );
-  return r.rowCount ?? 0;
+  return r.rows.map((x) => (x as { id: string }).id);
 }
 
 /** hold → sold on B4 (sold_at = first time sold). */
@@ -244,13 +279,26 @@ export async function sellNights(tx: Tx, reservationId: string, now: Date): Prom
 export async function liveNights(
   tx: Tx,
   reservationId: string,
-): Promise<Array<{ date: LocalDate; amountVnd: number; state: 'hold' | 'sold' }>> {
-  const { rows } = await tx.query<{ date: string; amount: number; state: 'hold' | 'sold' }>(
-    `SELECT stay_date::text AS date, room_revenue_gross_vnd AS amount, night_state AS state
+): Promise<
+  Array<{ date: LocalDate; amountVnd: number; calendarVnd: number | null; state: 'hold' | 'sold' }>
+> {
+  const { rows } = await tx.query<{
+    date: string;
+    amount: number;
+    calendar: number | null;
+    state: 'hold' | 'sold';
+  }>(
+    `SELECT stay_date::text AS date, room_revenue_gross_vnd AS amount, calendar_rate_vnd AS calendar,
+            night_state AS state
        FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
     [reservationId],
   );
-  return rows.map((r) => ({ date: r.date, amountVnd: r.amount, state: r.state }));
+  return rows.map((r) => ({
+    date: r.date,
+    amountVnd: r.amount,
+    calendarVnd: r.calendar,
+    state: r.state,
+  }));
 }
 
 export interface TransitionRecord {
@@ -380,7 +428,14 @@ export async function outboxAvailability(
 /** Staff notification through the outbox (`staff.push`, Mock in R2): ids, codes and roles only. */
 export async function outboxStaffPush(
   tx: Tx,
-  payload: { kind: string; roles: string[]; refType: string; refId: string; refCode?: string },
+  payload: {
+    kind: string;
+    roles: string[];
+    userIds?: string[];
+    refType: string;
+    refId: string;
+    refCode?: string;
+  },
   dedupeKey: string,
 ): Promise<void> {
   await tx.query(

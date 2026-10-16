@@ -14,6 +14,7 @@ import {
 } from '../support/api.js';
 import {
   EP,
+  action,
   addDays,
   bookFree,
   cleanupTracked,
@@ -56,7 +57,7 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     const c = await s2Context(request);
     const today = await stackToday(request);
     const rm = room(c, '401');
-    const w = await freeWindow(request, fd, rm, 3, { today, minOffset: 40 });
+    const w = await freeWindow(request, fd, rm, 3, { today, minOffset: 40, dow: 1 }); // T2: đêm giữa là T3
     const blk = await createRoomBlock(request, mt, {
       roomId: rm.id,
       startDate: w.arrival,
@@ -109,7 +110,7 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     const o = oracle('BR-804-02'); // khối [15/10, 17/10) chặn 2 đêm, không trùng đơn từ 17/10
     expect(o.expected.blockedNights).toBe(2);
     const rm = room(c, '401');
-    const w = await freeWindow(request, fd, rm, 4, { today, minOffset: 40 }); // [D-1, D+3)
+    const w = await freeWindow(request, fd, rm, 4, { today, minOffset: 40, dow: 1 }); // [T2, T6) – 1 đêm T2/T4 không vướng BR-113
     const start = addDays(w.arrival, 1);
     const reopen = addDays(start, 2);
     const blk = await createRoomBlock(request, fd, {
@@ -225,7 +226,8 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     });
     const p = expectProblem(b1, 409, 'ROOM_UNAVAILABLE');
     expect(JSON.stringify(p.conflicts ?? [])).toContain(res.code);
-    // MGR xác nhận đã có phương án dời → lưu được
+    // MGR xác nhận đã có phương án dời: chỉ ghi nhận, không vượt chống trùng – khoảng khóa trùng đơn luôn 409
+    // (ARC s2-contract A-03, OpenAPI 0.3.5 `affectedReservationsAcknowledged`; TC-L6-041 v0.3.4)
     const b2 = await createRoomBlock(request, mgr, {
       roomId: rm.id,
       startDate: addDays(res.arrivalDate, -1),
@@ -233,7 +235,17 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
       reason: 'E2E TC-L6-041 đã có phương án dời',
       affectedReservationsAcknowledged: true,
     });
-    expect(b2.status, JSON.stringify(b2.body)).toBe(201);
+    expectProblem(b2, 409, 'ROOM_UNAVAILABLE');
+    // dời đơn đi (hủy) rồi tạo khối → được
+    const off = await action(request, fd, res.id, 'cancel', { reasonCode: 'date_change' });
+    expect(off.status, JSON.stringify(off.body)).toBe(200);
+    const b3ok = await createRoomBlock(request, mgr, {
+      roomId: rm.id,
+      startDate: addDays(res.arrivalDate, -1),
+      endDatePlanned: addDays(res.arrivalDate, 1),
+      reason: 'E2E TC-L6-041 sau khi dời đơn',
+    });
+    expect(b3ok.status, JSON.stringify(b3ok.body)).toBe(201);
 
     // (8) khối trước đơn, kéo dài vào đêm có đơn → 409
     const rm2 = room(c, '301');

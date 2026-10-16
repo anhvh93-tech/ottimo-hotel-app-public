@@ -1,7 +1,7 @@
-import type { Commission, Reservation } from '@ottimo/api-client';
+import type { Commission, Reservation, ReservationStatus } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal } from '@ottimo/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { timeHHmm } from '../../app/dates';
@@ -66,6 +66,7 @@ export function ReservationDrawer({
   const catalog = useCatalog(propertyId);
   const now = useNow(30_000);
   const [open, setOpen] = useState<Open>(null);
+  const drawerId = useId();
   const fd = roles.some((r) => FD_PLUS.includes(r));
   const sales = !fd && roles.some((r) => r === 'sales_staff' || r === 'collaborator');
   const ctv = !fd && roles.includes('collaborator');
@@ -113,8 +114,22 @@ export function ReservationDrawer({
   const ota = catalog.channels.find((c) => c.id === r?.channelId)?.channelGroup === 'ota';
   const left = r?.status === 'hold' ? remaining(r.hold?.expiresAt, now) : null;
 
+  const [changed, setChanged] = useState<ReservationStatus | null>(null);
   const base = r
-    ? { reservation: r, reload: reloadNow, onDone: done, onClose: () => setOpen(null) }
+    ? {
+        reservation: r,
+        reload: reloadNow,
+        onDone: (u?: Reservation) => {
+          setChanged(null);
+          done(u);
+        },
+        onClose: () => setOpen(null),
+        // 409 INVALID_TRANSITION after a successful reload: close the dialog, say what changed here.
+        onTransitionChanged: (status: ReservationStatus) => {
+          setOpen(null);
+          setChanged(status);
+        },
+      }
     : null;
 
   const steps =
@@ -153,6 +168,15 @@ export function ReservationDrawer({
       ) : null}
       {allowed.has('mark_no_show') ? (
         <Button onClick={() => setOpen('noshow')}>{t('drawer.action.no_show')}</Button>
+      ) : r.noShowAvailableFrom ? (
+        // A-04: the server says when marking opens – never the client clock.
+        <Button
+          aria-disabled="true"
+          aria-describedby={`${drawerId}-noshow`}
+          onClick={() => undefined}
+        >
+          {t('drawer.action.no_show')}
+        </Button>
       ) : null}
       {allowed.has('move') ? (
         <Button onClick={() => setOpen('move')}>{t('drawer.action.move')}</Button>
@@ -184,7 +208,12 @@ export function ReservationDrawer({
       ) : null}
       {allowed.has('check_in') ? (
         // Check-in flow (H13) is Sprint 3 – the button is shown so staff see the next step.
-        <Button variant="pri" disabled title={t('shell.coming_title')}>
+        <Button
+          variant="pri"
+          aria-disabled="true"
+          aria-describedby={`${drawerId}-checkin`}
+          onClick={() => undefined}
+        >
           {t('drawer.action.check_in')}
         </Button>
       ) : null}
@@ -216,12 +245,17 @@ export function ReservationDrawer({
         <LoadingBlock />
       ) : (
         <>
-          <div className="row" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+          <div className="row wrap mb-8">
             <Chip tone={STATUS_TONE[r.status]}>{t(STATUS_KEY[r.status])}</Chip>
             {r.stayType === 'long' ? (
               <Chip tone="info">{t('status.booking.long_term')}</Chip>
             ) : null}
             {r.externalContract ? <Chip tone="neutral">{t('lsm.flag')}</Chip> : null}
+            {r.capacityConflict ? (
+              <Chip tone="bad" icon="alert">
+                {t('rsv.capacity_chip')}
+              </Chip>
+            ) : null}
             {r.conflictState === 'open' ? (
               <Chip tone="bad" icon="alert">
                 {t('rsv.conflict_chip')}
@@ -231,6 +265,16 @@ export function ReservationDrawer({
           {r.conflictState === 'open' ? (
             <Alert tone="bad" title={t('error.RESERVATION_UNASSIGNED')}>
               {t('fo.rack.unassigned_help')}
+            </Alert>
+          ) : null}
+          {r.capacityConflict ? (
+            // 0.3.5 A-20: OTA booking above the room maximum – check-in blocked until moved/fixed.
+            <Alert tone="bad" icon="alert">
+              {t('rsv.capacity_conflict_body', {
+                n: r.adults + (r.children6to11 ?? 0),
+                room: r.segments?.[0]?.roomNo ?? '',
+                max: room?.maxOccupancy ?? '',
+              })}
             </Alert>
           ) : null}
           {r.status === 'hold' && left ? (
@@ -253,7 +297,22 @@ export function ReservationDrawer({
             )
           ) : null}
 
-          <ol className="progress-steps">
+          {changed ? (
+            <Alert tone="warn" role="alert">
+              {t('rsv.transition_changed', { status: t(STATUS_KEY[changed]) })}
+            </Alert>
+          ) : null}
+          {r.noShowAvailableFrom && !allowed.has('mark_no_show') ? (
+            <p className="caption mb-8" id={`${drawerId}-noshow`}>
+              {t('noshow.locked', { time: timeHHmm(new Date(r.noShowAvailableFrom)) })}
+            </p>
+          ) : null}
+          {allowed.has('check_in') ? (
+            <span className="sr-only" id={`${drawerId}-checkin`}>
+              {t('shell.coming_title')}
+            </span>
+          ) : null}
+          <ol className="progress-steps" aria-label={t('drawer.progress.label')}>
             {steps.map((s, i) => (
               <li
                 key={s.key}
@@ -296,7 +355,7 @@ export function ReservationDrawer({
           </dl>
 
           {r.extraGuestCount ? (
-            <div className="amenity" style={{ marginTop: 10 }}>
+            <div className="amenity mt-12">
               <Icon name="sofa" />
               <b>{t('occ.kit_chip', { n: r.extraGuestCount })}</b>
             </div>
@@ -304,7 +363,7 @@ export function ReservationDrawer({
 
           {r.externalContract && r.manualLongStay ? (
             <>
-              <dl className="dl" style={{ marginTop: 12 }}>
+              <dl className="dl mt-12">
                 <dt>{t('lsm.rent')}</dt>
                 <dd className="num">
                   {vnd(r.manualLongStay.monthlyRentVnd ?? 0)} {t('common.vnd_unit')}
@@ -332,9 +391,7 @@ export function ReservationDrawer({
 
           {r.stayType !== 'long' && r.totalRoomVnd !== undefined ? (
             <>
-              <h3 className="label-h" style={{ margin: '14px 0 6px' }}>
-                {t('drawer.folio.title')}
-              </h3>
+              <h3 className="label-h mt-16 mb-4">{t('drawer.folio.title')}</h3>
               <table className="sum">
                 <tbody>
                   <tr>
@@ -367,7 +424,7 @@ export function ReservationDrawer({
           ) : null}
 
           {sales && commission ? (
-            <dl className="dl" style={{ marginTop: 12 }}>
+            <dl className="dl mt-12">
               <dt>{t('rsv.commission_mine')}</dt>
               <dd>
                 {vnd(commission.amountVnd)} ({commission.ratePctSnapshot ?? '–'}% – BR-903) ·{' '}
@@ -378,9 +435,7 @@ export function ReservationDrawer({
 
           {r.partyMissingCount ? (
             <>
-              <h3 className="label-h" style={{ margin: '14px 0 6px' }}>
-                {t('rsv.party')}
-              </h3>
+              <h3 className="label-h mt-16 mb-4">{t('rsv.party')}</h3>
               <Alert tone="warn">{t('rsv.party_missing', { n: r.partyMissingCount })}</Alert>
             </>
           ) : null}
@@ -390,6 +445,7 @@ export function ReservationDrawer({
       {base && open === 'cancel' ? (
         <CancelDialog
           {...base}
+          ota={ota}
           canPostpone={
             allowed.has('postpone') && roles.some((x) => x === 'owner' || x === 'manager')
           }
@@ -401,9 +457,7 @@ export function ReservationDrawer({
       {base && (open === 'move' || open === 'postpone') ? (
         <MoveDialog {...base} rooms={catalog.rooms} ota={ota} postpone={open === 'postpone'} />
       ) : null}
-      {base && open === 'noshow' ? (
-        <NoShowDialog {...base} rules={rules} channelName={chName} />
-      ) : null}
+      {base && open === 'noshow' ? <NoShowDialog {...base} channelName={chName} /> : null}
       {base && open === 'restore' ? (
         <RestoreDialog
           {...base}
@@ -414,6 +468,7 @@ export function ReservationDrawer({
         <AssignRoomDialog
           {...base}
           rooms={catalog.rooms}
+          channelLabel={chName}
           lead={roles.some((x) => LEAD_PLUS.includes(x))}
         />
       ) : null}

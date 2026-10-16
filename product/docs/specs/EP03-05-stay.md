@@ -48,6 +48,7 @@ Theo chuỗi `checkin.step.*`: (1) **Giấy tờ** → (2) **Kiểm tra** (đố
 | `conditions[].code` | Chuỗi | Điều kiện (BR-402, SM-01 B9) | Khi chưa đạt |
 |---|---|---|---|
 | `not_unassigned` | `checkin.cond.not_unassigned` | `conflictState ≠ open` | Chặn mọi vai → gán căn trước (EP02 6.3); API 409 `RESERVATION_UNASSIGNED` |
+| `capacity_within_max` (OpenAPI 0.3.5) | **(mới)** `checkin.cond.capacity` "Số khách không vượt sức chứa căn" | `Reservation.capacityConflict = false` (DOM D-1) | Chặn mọi vai, **không** ai bỏ qua được → đổi căn đủ chỗ (B7), tách căn hoặc sửa số người ≤ `max` (EP02 mục 0); API 409 `CHECKIN_CONDITIONS_NOT_MET` có `capacity_within_max` trong `unmet[]` |
 | `room_ready` | `checkin.cond.room_ready` | Buồng `VI`/`VC` | FD: `checkin.room_not_ready` + nút "Gửi lễ tân trưởng xác nhận" (A12 = D); FDL+: `checkin.room_not_ready_lead` + ô lý do. Buồng `OOO` → chặn tuyệt đối, không có ngoại lệ |
 | `balance_paid` | `checkin.cond.balance_paid` | Đơn `direct`/`agent`/`ota_pay_at_property`: `balanceDueVnd` = 0 tính trên tiền phòng + phụ thu người + phụ thu nhận sớm đã xác nhận (BR-305 phần còn lại); đơn `ota_prepaid`: đạt | Nút "Thu tiền" (mục 2) ngay trong dòng điều kiện; **không có ngoại lệ** ở R2 (công nợ chỉ khi trả phòng – BR-525) |
 | `main_guest_document` | `checkin.cond.main_guest_document` | Khai báo ≥ `partial` **và** có giấy tờ của người đứng tên (`isMain = true`) | Chặn; mở bước Giấy tờ |
@@ -68,6 +69,7 @@ R2 **không** có mã cửa trong app: BR-613 (c) "chặn giao mã cửa" và BR
 | `documentBlockOverride.reason` **(E03-01)** | Lý do và cách xử lý giấy tờ | text | ĐK: `document_check_block` chưa đạt | V-08; chỉ FDL+; FD gửi → 403 `FORBIDDEN_ACTION` | `REASON_REQUIRED` |
 | `cardsIssued` **(đề nghị ARC – E03-04)** | Số thẻ phòng đã phát | int | B | 0…2 (BR-511: 1 chính + 1 dự phòng) `[GIẢ ĐỊNH BA: tối đa 2 thẻ/đơn – DOM xác nhận "mỗi khách" là mỗi đơn hay mỗi người]`; dùng để đề xuất phí thiếu thẻ khi trả phòng | `VALUE_OUT_OF_RANGE` |
 | `houseRulesSent` **(E03-04)** | "Đã gửi/giao nội quy VI/EN" | bool | B, phải `true` | Điều kiện để thu phí phạt sau này (BR-511) | `REQUIRED` |
+| `doorAccessHandedOver` | "Đã giao mã cửa/thẻ cho khách" **(mới)** `checkin.door_handed_over` | bool | **K** (mặc định false – US-025 AC7, PO quyết 16/10) | Tick → ghi `Reservation.doorAccessHandedOverAt` + người tick; app **không** lưu, không hiện mã cửa (US-128 dời R3). Không tick vẫn hoàn tất nhận phòng. **Tick bổ sung sau** từ chi tiết đơn `in_house` (khách đến muộn, lễ tân giao thẻ sau): nút "Đã giao mã/thẻ" trên S04 – đường API do ARC chọn (đề nghị **E03-06**: `updateReservation` nhận `doorAccessHandedOver: true`, FD+, `If-Match`; chỉ đặt một lần, không bỏ tick) | – |
 
 ### 1.5 Nhận sớm trước mốc đổi ngày – B9a (US-026 AC3, BR-417)
 - Xảy ra khi ngày nghiệp vụ hiện tại = ngày đến − 1 (khách tới 00:00–05:59 **của chính ngày đến**). `previewCheckIn` trả `earlyCheckinSurcharge.addsPreviousNight = true` và giá đêm thêm (đơn Trực tiếp/CTV: giá đêm của đơn, ngày đặc biệt lấy giá ngày đó; OTA: giá Trực tiếp hiện hành).
@@ -326,6 +328,7 @@ Sau hoàn tất (AC2): sửa dòng → chỉ MGR+ bút toán (3.3); FD+ ghi phá
 |---|---|---|
 | US-025 AC1, AC2, AC4, AC6 | 1.3, 1.4, 1.6 | AC2: A12 = D (FD gửi, FDL+ tự xác nhận) |
 | US-025 AC3 | 1.3 (`balance_paid`, `main_guest_document`) | Phần "không giao mã cửa" → chặn B9 ở R2 (1.3); mã cửa **[Dời R3]** |
+| US-025 AC7 | 1.4 (`doorAccessHandedOver`), E03-06 | Ô không bắt buộc, tick bổ sung từ chi tiết đơn |
 | US-025 AC5 | 1.7 | "Mã cửa bị hủy" **[Dời R3]** |
 | US-026 AC1–AC4 | 1.4, 1.5, 3.4 | AC3 = B9a |
 | US-027 AC1–AC2 | 1.8, 4.2 | Đơn dài hạn R2 = đơn AC5a |
@@ -364,9 +367,11 @@ Sau hoàn tất (AC2): sửa dòng → chỉ MGR+ bút toán (3.3); FD+ ghi phá
 | E05-05 | ARC | `getBill`: xác nhận `locale` do server quyết theo BR-009/ngôn ngữ hồ sơ; `usdReference.totalUsd` 1 chữ số thập phân; dòng FOC đặt ngay dưới dòng gốc (`relatedLineId`) |
 | E05-06 | DOM | (a) `cardsIssued` tối đa 2/đơn hay 2/người (BR-511 "mỗi khách"); (b) khung miễn BR-413 có áp nhận sớm dài hạn không (1.8); (c) R2 chặn B9 thay cho "chặn giao mã cửa" BR-613 c/BR-402 (3); (d) chặn VietQR vượt còn phải thu (2.3) |
 | E05-07 | UXD | Chuỗi **(mới)** trong tài liệu; sửa `pay.card` (POS tại quầy), `handover.foc_approver` (bỏ – BR-432), `approval.pin_*` (mật khẩu ở R2), `checkout.complete_confirm_body` (bỏ mã cửa R2, thêm thu hồi bộ đồ dùng thêm), nhãn trạng thái thẻ khách đi (4.4); chip "Chờ đối soát" |
+| E03-06 | ARC | US-025 AC7: đường API tick bổ sung "Đã giao mã cửa/thẻ" từ chi tiết đơn sau khi đã nhận phòng – đề nghị `ReservationPatch.doorAccessHandedOver` (chỉ `true`, FD+, đơn `in_house`, đặt một lần) |
 | E05-08 | QA | Ca đồng hồ giả lập cho mốc BR-412 (12:30 ân hạn có/không khách đến), BR-425 (4.4), B9a 05:59/06:00; ca đồng thời: hai người cùng ghi thu một folio, gia hạn trùng tạo đơn (US-028 AC5) |
 
 ## 8. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 1) | Bản đầu: đặc tả mức trường EP03, EP04, EP05, EP15 phần R2 (US-119 trừ AC5, US-120), folio + FOC/giảm giá gắn US-007; áp BR-812 vào nhận/lưu trú/trả phòng; R2 không có mã cửa trong app (chặn B9 thay chặn giao mã) | BA |
+| 16/10/2026 | 2 (Sprint 2 – PO quyết) | Nhận phòng: ô `doorAccessHandedOver` không bắt buộc, tick bổ sung từ chi tiết đơn (US-025 AC7, đề nghị E03-06); điều kiện `capacity_within_max` theo OpenAPI 0.3.5 | BA |

@@ -19,7 +19,7 @@
 | Người vượt định mức (`extraCount`) | `max(0, occCount − base)` – tối đa 1 do `max = base + 1`. Người lớn xếp vào định mức trước; người vượt tính theo mức thấp hơn (BR-110) |
 | Nhóm kênh | `channel_group`: `direct` (Trực tiếp), `agent` (CTV), `ota`, `internal` (Nội bộ) – `listChannels` |
 
-**Kiểm sức chứa (dùng ở mọi luồng tạo/sửa đơn, giữ chỗ, báo giá, đổi căn/phòng, thêm người):** `occCount ≤ max` của căn → ngược lại chặn tại ô số khách, `422 CAPACITY_EXCEEDED` → `error.CAPACITY_EXCEEDED` (`{room}`, `{max}`). Đơn OTA nhập tay vượt sức chứa: **không** chặn tạo đơn (giá do OTA quyết, khách đã đặt) mà gắn cờ xung đột "sức chứa" như B7c – lễ tân đổi căn lớn hơn hoặc liên hệ khách `[GIẢ ĐỊNH BA theo SM-01 B7c – DOM xác nhận]`.
+**Kiểm sức chứa (dùng ở mọi luồng tạo/sửa đơn, giữ chỗ, báo giá, đổi căn/phòng, thêm người):** `occCount ≤ max` của căn → ngược lại chặn tại ô số khách, `422 CAPACITY_EXCEEDED` → `error.CAPACITY_EXCEEDED` (`{room}`, `{max}`). **Kênh `ota` vượt sức chứa (DOM D-1; BR-312 (1): không bao giờ từ chối đơn OTA đã về):** không chặn. Server trả **cảnh báo** – mã trường `CAPACITY_EXCEEDED_WARNING` (kèm `roomNo`, `max`; OpenAPI 0.3.5), cùng cách `RATE_OUT_OF_RANGE_WARNING`. Giao diện hiện hộp **(mới)** `booking.capacity_warning` "Căn {room} tối đa {max} người, đơn OTA có {n}. Vẫn lưu đơn? Ghi lý do và liên hệ khách." kèm ô lý do `capacityWarningAckReason` (V-08); gửi lại thì đơn được lưu. Đơn mang cờ **`Reservation.capacityConflict = true`**, vào "Cần chú ý" `capacity_conflict` của FD/FDL và **bị chặn nhận phòng (B9)** – điều kiện `capacity_within_max`, không ai bỏ qua được cho tới khi xử lý bằng một trong ba cách: đổi sang căn đủ chỗ (B7), tách thêm căn, hoặc sửa số người thực tế ≤ `max` sau khi liên hệ khách (mục 5.4). Kênh `direct`/`agent`/`internal` **vẫn chặn** `422 CAPACITY_EXCEEDED`. BR-812 vẫn sinh việc theo `extraCount` thực tế của căn được gán.
 
 **Việc buồng phòng tự sinh (BR-812, ESC-014):** khi một đơn **ở trạng thái `confirmed`** (tạo mới B2, xác nhận cọc B4, khôi phục B12, gán căn B7a) có `extraCount > 0` trên căn đã gán → server sinh việc HK "Chuẩn bị bộ đồ dùng thêm × {extraCount} – căn {room}", hạn = giờ nhận phòng của đơn (BR-812 (2)). Đơn `hold` **chưa** sinh việc. Sửa đơn làm thay đổi `extraCount`/căn/trạng thái → hủy, thêm, chuyển việc theo BR-812 (4). Chi tiết vận hành: `business-processes.md` P07 bước 1a, 4a, 9.
 
@@ -85,12 +85,12 @@ FD+ (A01). SAL/CTV **không** có màn này (AC6) – chỉ tạo giữ chỗ t�
 ### 3.2 Bảng trường
 | Trường | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|---|
-| `channelId` | Kênh (`booking.field.channel`) | uuid | B | V-11; danh sách = BR-901 đang `isActive` + "Nội bộ" (AC8) | `NOT_IN_LIST` |
-| `directSource` **(đề nghị ARC thêm – mục 14)** | Nguồn | enum `zalo_phone` (Zalo/điện thoại) · `website` · `walk_in` (vãng lai) · `returning` (khách quay lại) | ĐK: bắt buộc khi kênh `direct` (AC8) | V-11 | `REQUIRED` |
+| `channelId` | Kênh (`booking.field.channel`) | uuid | B | V-11; danh sách = BR-901 đang `isActive` + "Nội bộ" (AC8). **Chỉ có một kênh Trực tiếp**, mã `direct` (ARC A-08, DOM D-6); không còn các kênh riêng `zalo_phone`/`walk_in`/`direct_web`/`returning`/`sales_staff` | `NOT_IN_LIST` |
+| `directSource` | Nguồn | enum, 5 giá trị (DOM D-6): `website` – khách tự đặt qua web OTTIMO · `zalo_phone` – khách **mới** liên hệ qua Zalo/điện thoại/mạng xã hội · `walk_in` – khách tới quầy không đặt trước · `returning` – khách **đã từng ở** OTTIMO tự liên hệ lại · `sales_staff` – sale nội bộ chủ động tìm/chốt khách. Khi trùng nhiều nguồn, ưu tiên `sales_staff` > `returning` > còn lại. Hồ sơ khách đã có lượt ở trước → **chọn sẵn** `returning` (lễ tân đổi được) và hiện gợi ý **(mới)** `booking.source_hint` "Khách đã từng ở → chọn Quay lại" (FB-R2-DOM-FE-02). CTV/môi giới **không** phải là nguồn mà là kênh `agent` | ĐK: bắt buộc khi kênh thuộc nhóm `direct` (AC8); kênh khác gửi trường này → lỗi | V-11 | `REQUIRED`; `DIRECT_SOURCE_NOT_ALLOWED` |
 | `roomId` | Căn (`booking.field.room`) | uuid | B (trừ OTA lưu chưa gán – mục 6) | V-11; căn `isSellable=true` (AC2 US-004) | 409 `ROOM_NOT_SELLABLE` |
 | `arrivalDate` | Ngày đến | date | B | V-05; ≥ hôm nay − 1 chỉ cho luồng nhận trước mốc đổi ngày (B9a – EP03), còn lại ≥ hôm nay; ≤ hôm nay + `booking_window_days` (BR-112) | `DATE_IN_PAST`; 422 `OUTSIDE_BOOKING_WINDOW` |
 | `departureDate` | Ngày đi | date | B | > ngày đến; số đêm 1…`short_stay_max_nights` (BR-112); số đêm ≥ `long_stay_required_from_nights` (BR-108) → không lưu được, hướng sang AC5a (mục 4) | `DATE_ORDER`; 422 `OUTSIDE_BOOKING_WINDOW`; `LONG_STAY_REQUIRES_CONTRACT` → `field_error.long_stay_requires_contract` **(mới)** "Từ {n} đêm là thuê dài hạn. Chọn 'Đơn dài hạn nhập tay'." |
-| — | Ở tối thiểu | – | – | Ngày đến rơi vào ngày có `min_stay` (BR-113: thứ Sáu, thứ Bảy, ngày đặc biệt → mặc định 2 đêm) mà số đêm < mức đó → chặn, **trừ** (a) ngoại lệ đêm lẻ BR-113 (server tự nhận), (b) FDL+ bỏ qua có lý do cho đơn trực tiếp; **không** áp cho kênh OTA nhập tay (OTA đã kiểm trên kênh) | `MIN_STAY_NOT_MET` **(đề nghị ARC – mục 14)** → `field_error.min_stay` **(mới)** "Ngày đến {date} cần ở tối thiểu {n} đêm." |
+| — | Ở tối thiểu | – | – | Ngày đến rơi vào ngày có `min_stay` (BR-113: thứ Sáu, thứ Bảy, ngày đặc biệt → mặc định 2 đêm) mà số đêm < mức đó → chặn, **trừ** (a) ngoại lệ đêm lẻ BR-113: căn đã chọn là đêm lẻ → nhận; không phải đêm lẻ → lỗi kèm `suggestions[]` các căn đêm lẻ cùng nhóm (`orphanNight=true`), giao diện hiện nút "Dùng căn {room} (đêm lẻ)" (ARC A-05, DOM D-15); (b) FDL+ bỏ qua có lý do cho đơn trực tiếp. **Không** áp cho kênh OTA nhập tay (OTA đã kiểm trên kênh) và kênh **Nội bộ** (không phải bán – DOM D-7) | `MIN_STAY_NOT_MET` **(đề nghị ARC – mục 14)** → `field_error.min_stay` **(mới)** "Ngày đến {date} cần ở tối thiểu {n} đêm." |
 | `adults` | Người lớn (từ 12 tuổi) | int | B | ≥ 1 | `REQUIRED` |
 | `children6to11` | Trẻ 6–11 tuổi | int | K (0) | ≥ 0 | – |
 | `childrenUnder6` | Trẻ dưới 6 tuổi | int | K (0) | ≥ 0; không tính sức chứa | – |
@@ -105,12 +105,12 @@ FD+ (A01). SAL/CTV **không** có màn này (AC6) – chỉ tạo giữ chỗ t�
 | `rateOverrideReason` **(đề nghị ARC thêm)** | Lý do giá ngoài khoảng (OTA) | text | ĐK | V-08 | `REASON_REQUIRED` |
 | `otaRoomAmountVnd` | Tổng tiền phòng OTA | money | K (kênh OTA) | > 0; có cả `nightlyRates` thì Σ phải bằng (erd mục 8) | `OTA_AMOUNT_MISMATCH` **(mới)** "Tổng giá các đêm ({sum}) khác tổng tiền OTA ({total})." |
 | `otaChannelFeeVnd` | Phí kênh OTA báo | money | K | ≥ 0, ≤ `otaRoomAmountVnd` | `AMOUNT_INVALID` |
-| `closerUserId` | Người chốt | uuid | K | Người dùng có vai SAL/CTV/FD+ của cơ sở | `NOT_IN_LIST` |
+| `closerUserId` | Người chốt (`booking.field.closer` **(mới)**) | uuid | **ĐK (US-017 AC9 – PO quyết 16/10)**: **B** khi kênh nhóm `agent` (CTV) – phải là người có vai CTV; **B** khi kênh `direct` nguồn `sales_staff` – phải là sale nội bộ (SAL); kênh/nguồn khác: K (SAL/CTV/FD+) | Chọn từ `listCloserCandidates` (`kind=agent` cho kênh CTV, `kind=staff` cho nguồn `sales_staff`) – chỉ tên hiển thị, không SĐT/email (rbac ghi chú 37); V-11 | `REQUIRED` → **(mới)** `field_error.closer_required` "Chọn người chốt đơn (CTV / sale)."; sai loại người → `NOT_IN_LIST` |
 | `etaTime` | Giờ đến dự kiến | time | K | `HH:mm` | – |
 | `initialPayment` | Thu ngay (khách vãng lai / thu cọc) | `PaymentCreate` | ĐK: kênh `direct`/`agent` **phải** có thanh toán ≥ mức cọc BR-305 (B2 điều kiện b) hoặc là khách vãng lai đến hôm nay đã thu theo BR-402 (c); không đủ → hướng sang giữ chỗ (qua báo giá, mục 10.4) | `type` ∈ `deposit`/`charge`; `method` V-11; `amountVnd` > 0 | 422 `DEPOSIT_INSUFFICIENT` → `error.DEPOSIT_INSUFFICIENT` |
 | `internalNote` | Ghi chú nội bộ | text | K | ≤ 1000, V-09 | `CARD_NUMBER_DETECTED` |
 
-Kênh **Nội bộ** (phòng dùng nội bộ): `paymentModel=direct`, cho phép giá 0, `internalNote` bắt buộc (lý do dùng) `[GIẢ ĐỊNH BA – DOM xác nhận đêm Nội bộ có tính đêm bán (BR-904) hay không]`.
+Kênh **Nội bộ** (phòng dùng nội bộ): `paymentModel=direct`, cho phép giá 0, `internalNote` bắt buộc (lý do dùng). Đêm Nội bộ là **đêm có khách miễn phí** (`is_complimentary`): tính vào Occupancy, **không** tính vào ADR, **không** trừ đêm khả dụng (khác OOO); không áp ở tối thiểu BR-113 (DOM D-7, metrics Q-05).
 
 ### 3.3 Thông tin tính sẵn hiện trước khi lưu
 Gọi `calculateQuote` hoặc `previewOnly` (ARC chốt tên): số đêm (`booking.field.nights`), giá từng đêm + nguồn giá, **phụ thu người** (kênh Trực tiếp/CTV: `extraCount` × mức BR-110 theo bậc tuổi × số đêm – AC7; kênh OTA: 0, chỉ ghi số khách), tổng tiền phòng (`booking.summary.total`), cọc cần thu (BR-305 – **không** gồm phụ thu người, `booking.summary.deposit`), dòng thông tin "Có {extraCount} người ngủ sofa – buồng phòng chuẩn bị bộ đồ dùng thêm" khi `extraCount > 0` (BR-812).
@@ -279,12 +279,12 @@ FD+ mọi đơn; SAL: giữ chỗ của mình + đơn **trực tiếp** của m�
 | Trường | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|
 | `roomId` | uuid | ĐK (ít nhất một trong căn/ngày thay đổi) | Trống khoảng mới, không OOO, bán được, đủ sức chứa; **không** đòi căn đang sạch (AC4) | 409 `ROOM_UNAVAILABLE`, `ROOM_BLOCKED`, `ROOM_NOT_SELLABLE`; 422 `CAPACITY_EXCEEDED` |
-| `arrivalDate`, `departureDate` | date | ĐK | V-05, BR-112; đơn OTA **không** đổi ngày (chỉ căn nội bộ) | `OTA_DATES_LOCKED` **(mới)** "Đơn OTA chỉ đổi ngày theo kênh." |
-| `reasonCode` | text (danh mục **đề nghị DOM**: `guest_request`, `property_fault`, `overbooking`, `upgrade`, `other`) | B | V-11 | `REQUIRED` |
-| `note` | text | ĐK (`other`) | V-08 | `REASON_REQUIRED` |
+| `arrivalDate`, `departureDate` | date | ĐK | V-05, BR-112; đơn OTA **không** đổi ngày (chỉ đổi căn nội bộ). Khách OTA muốn đổi ngày ở R2 (DOM D-5): hủy đơn với lý do `ota_cancelled` (tiền phạt 0) rồi tạo đơn mới cùng mã OTA, ghi chú "OTA sửa đơn"; từ R3 channel manager tự xử lý | `OTA_DATES_LOCKED` → "Đơn OTA chỉ đổi ngày theo kênh." |
+| `reasonCode` | `MoveReasonCode` (OpenAPI 0.3.5, A-19), 7 lý do (DOM D-5): `guest_request` – khách yêu cầu (cũng dùng khi dời ngày thay vì hủy, B8 thường) · `property_fault` – căn hỏng/sự cố, gắn OOO · `overbooking` – xử lý trùng/xung đột, **chỉ hiện** khi đơn `conflictState = open` hoặc `capacityConflict = true` (BR-312) · `upgrade` – nâng hạng chủ động, **chỉ FDL+** (BR-316 (3)) · `inventory_optimize` – sắp căn để tránh đêm lẻ, khách không bị ảnh hưởng, chỉ khi chưa báo số căn cho khách · `force_majeure` – **chỉ** `mode = postpone_instead_of_cancel` (B8), dời ngày miễn phí do bất khả kháng (BR-309), **MGR+**, bắt buộc ghi chú bằng chứng · `other` | B | V-11. Sai vai hoặc sai chế độ (`upgrade` do FD gửi; `force_majeure` do người dưới MGR gửi hoặc dùng ngoài B8) → 403; `overbooking` cho đơn không có cờ xung đột → 422 `NOT_IN_LIST`. Đổi căn đơn OTA sang căn vẫn nhỏ hơn số khách → cảnh báo `CAPACITY_EXCEEDED_WARNING`, gửi lại với `capacityWarningAckReason` | `REQUIRED`; `NOT_IN_LIST`; 403 `FORBIDDEN_ACTION` |
+| `note` | text | ĐK (`other`, `force_majeure`) | V-08 (≥ 3 ký tự) | `REASON_REQUIRED` |
 | `overbookingResolution` | enum | ĐK (`conflictState=open`) | – | `REQUIRED` |
 
-Kết quả (AC1): kiểm trùng server; đêm không đổi giữ snapshot giá (BR-006); đêm mới theo giá hiện hành của kênh; đồng bộ kênh; việc bộ đồ dùng thêm chuyển sang căn mới / tính lại theo định mức căn mới (BR-812 (4)).
+Kết quả (AC1): server kiểm trùng; đêm không đổi giữ **giá lịch** đã chốt (BR-006, BR-106); đêm mới lấy giá lịch hiện hành của kênh. Khi số đêm thay đổi, bậc giảm BR-107 tính lại theo **tổng số đêm cuối cùng** và áp lại cho **mọi đêm còn hiệu lực** trên giá lịch của từng đêm (chỉ kênh `direct`/`agent`; không áp OTA/Nội bộ). Ví dụ căn 202: 5 → 7 đêm = **5.205.000** (BR-107); 7 → 5 đêm = **4.079.000**. Cọc đã thu giữ nguyên, không đòi cọc bổ sung (DOM D-8). Folio đồng bộ trong cùng giao dịch: đảo dòng của đêm bỏ, ghi dòng đêm mới, phụ thu người theo số người mới (FB-R2-DOM-BE-02); đồng bộ kênh; việc bộ đồ dùng thêm chuyển sang căn mới / tính lại theo định mức căn mới (BR-812 (4)).
 
 ### 9.2 Khách đang ở – `changeRoom` (B14)
 | Trường | Kiểu | BB | Kiểm tra | Lỗi |
@@ -315,7 +315,7 @@ Kết quả (AC3): căn cũ → `VD`/`OD` + việc dọn; mã cửa cũ "đã h�
 Kết quả tính tự động khi đổi bất kỳ trường nào (không cần bấm nút): giá từng đêm (BR-104), giảm theo số đêm (BR-107) hoặc mã quay lại – không cộng dồn, lấy mức có lợi hơn (BR-111), phụ thu người (BR-110 – AC5), tổng (khớp ví dụ BR-107 – AC1), cọc (BR-305), hoa hồng người chốt (BR-903 – chỉ OWN/MGR/SAL/CTV thấy), "OTTIMO còn lại" (không hiện cho CTV – AC2), `longStayAlternative` khi số đêm ≥ `long_stay_compare_from_nights` (AC3), `availability` + căn thay thế ≤ 6 (US-082 AC1). Từ ngưỡng bắt buộc BR-108: báo "Từ {n} đêm là thuê dài hạn – báo giá dài hạn có ở bản sau; tạm thời nhờ lễ tân tạo đơn dài hạn nhập tay" `[R2 – R-C]`.
 
 ### 10.2 Lưu báo giá – `saveQuote` (Q1, US-083)
-Như 10.1 + `guestId` (B, bộ chọn khách; SAL/CTV chỉ khách của mình) + `leadId` (K). Kết quả: mã `BG-`, `active`, `expiresAt` theo `quote_validity_days` (BR-304), snapshot giá và tham số (BR-006), lead → `quoted` (SM-09). Báo giá **không** khóa phòng.
+Như 10.1 + `guestId` (B, bộ chọn khách; SAL/CTV chỉ khách của mình) + `leadId` (K). Kết quả: mã `BG-`, `active`, `expiresAt` = **00:00:00 ngày (ngày lập + `quote_validity_days` + 1)**, giờ VN, tính theo **ngày lịch** – không dùng mốc 06:00 của BR-010 (DOM D-2). `now ≥ expiresAt` → báo giá hết hiệu lực. Văn bản gửi khách ghi "Hiệu lực đến 23:59 {dd/mm}" (= ngày lập + `quote_validity_days`). Biên: báo giá lập 15/10 (kể cả lập lúc 01:30 ngày 15/10) → 23:59:59 ngày 18/10 còn hiệu lực, 00:00:00 ngày 19/10 hết hạn (ví dụ BR-304); snapshot giá và tham số (BR-006), lead → `quoted` (SM-09). Báo giá **không** khóa phòng.
 
 ### 10.3 Văn bản gửi khách – `getQuoteText` (US-083 AC2)
 `locale` (B): `vi` / `en` / `ru`. Văn bản gồm căn, ngày, số đêm, giá, tổng, cọc, hạn hiệu lực, cách chuyển cọc; **không** có hoa hồng, "OTTIMO còn lại", SĐT/email khách. Nút "Sao chép gửi Zalo" sao chép văn bản; báo "Đã sao chép".
@@ -330,7 +330,12 @@ Như 10.1 + `guestId` (B, bộ chọn khách; SAL/CTV chỉ khách của mình) 
 
 Kết quả (AC1, AC4): đơn `hold` (viền đứt), hạn = min(thời điểm tạo + `holdHours`, `hold_latest_time_on_arrival` ngày đến) – khớp ví dụ BR-302; căn bị chặn bán + đồng bộ; báo giá → `converted`; lead → `holding`; hiện số tiền cọc (BR-305) và VietQR/nội dung chuyển khoản = mã đơn (US-120). Nút tạo: `booking.create_hold` (`{time}` = hạn).
 
-Báo giá hết hạn: SAL/CTV chỉ "Gửi yêu cầu gia hạn" (A51 = D, SM-10 loại `quote_extension`); MGR+ gia hạn (Q4).
+**Gia hạn báo giá đã hết hạn – `extendQuote`** (Q4, A51; ARC A-18, OpenAPI 0.3.5):
+- Trường `reason`: bắt buộc với SAL/CTV (V-08), không bắt buộc với MGR+.
+- MGR/OWN → 200: báo giá trở lại `active`, hạn mới tính theo cách trên kể từ ngày gia hạn (BR-304), giá giữ snapshot.
+- SAL/CTV (chỉ báo giá của mình) → **202** + yêu cầu duyệt `quote_extension` (SM-10). Hiện chuỗi **(mới)** `quote.extend_requested` "Đã gửi quản lý duyệt gia hạn báo giá {code}."
+- Báo giá không ở trạng thái `expired` → 409 `INVALID_TRANSITION` + `currentState`.
+- FD/FDL: không có nút (A51).
 
 ### 10.5 Gia hạn và hết hạn giữ chỗ (US-085)
 - `extendHold` (B3): `extraHours` (B, int 1…`hold_extension_max_hours`); hạn mới ≤ trần BR-302; chỉ 1 lần (`extendedCount = 0`), trước hạn. Lỗi: lần 2 → 409 `INVALID_TRANSITION` với chuỗi `field_error.hold_extended_once` **(mới)** "Giữ chỗ chỉ gia hạn được 1 lần."; quá hạn → 409 `HOLD_EXPIRED`.
@@ -349,7 +354,16 @@ Báo giá hết hạn: SAL/CTV chỉ "Gửi yêu cầu gia hạn" (A51 = D, SM-1
 | `existingPaymentId` | uuid | K (thay cho `payment`) | Giao dịch `succeeded` của chính đơn, chưa gắn đơn khác | `NOT_IN_LIST` |
 
 - Tổng giao dịch cọc ≥ mức BR-305 → `confirmed`, bỏ hạn giữ chỗ, lead → `won`, hoa hồng → `projected`, việc bộ đồ dùng thêm nếu `extraCount > 0` (BR-812) – AC1.
-- Thiếu → giao dịch vẫn ghi, đơn giữ `hold`, hiện "Còn thiếu {amount}"; nếu người dùng bấm "Xác nhận" khi thiếu → 422 `DEPOSIT_INSUFFICIENT` – AC2.
+- **Cọc thiếu** (ARC A-13, OpenAPI 0.3.5): giao dịch **vẫn được ghi** và server trả **200** + `Reservation` (`status = hold`, `depositPaidVnd`). Server không trả 4xx sau khi đã ghi tiền, để lễ tân không bấm lại và ghi tiền hai lần. Giao diện hiện **(mới)** `booking.deposit_partial` "Đã ghi nhận {paid}, còn thiếu {missing}." (`{missing}` = mức cọc BR-305 − `depositPaidVnd`) – AC2. `422 DEPOSIT_INSUFFICIENT` (kèm `depositRequiredVnd`, `depositPaidVnd`, `shortfallVnd`) chỉ còn dùng khi bấm xác nhận mà **không** có giao dịch mới nào được ghi.
+- **Giữ chỗ có cọc một phần tới hạn** (DOM D-9, BR-303 v0.3.2):
+  - Job J1 **không tự hủy** (đã có tiền của khách), nhưng cũng không giữ vô hạn.
+  - Khi tới hạn: thông báo đỏ một lần cho sale phụ trách + FD/FDL; đơn mang cờ "Giữ chỗ quá hạn – cọc thiếu" **(mới)** `drawer.hold.overdue_partial`.
+  - Phải xử lý trước trần `hold_latest_time_on_arrival` của ngày đến (BR-302), bằng **một trong ba** cách:
+    1. Thu đủ → B4.
+    2. MGR+ chấp nhận cọc thiếu, ghi lý do (V-08) → `confirmed`. Đề nghị ARC thêm tham số, gợi ý `acceptShortfallReason` cho `confirmDeposit`, chỉ MGR+.
+    3. Hủy B5, **hoàn 100 %** phần đã nhận (đơn chưa xác nhận – BR-308 không tính phí).
+  - Quá trần mà chưa xử lý → báo MGR, vẫn **không** tự hủy.
+  - Mục "Cần chú ý" đầy đủ làm ở Sprint 4 (dùng lại cờ này).
 - Chuyển khoản ghi tay (FD, SAL) → giao dịch `reconciliation = pending` ("chờ đối soát", US-119 AC6, SM-12).
 - Nhật ký tiền: số tiền, cách thanh toán, người xác nhận (AC5, BR-008).
 - CTV không có nút (AC4) → "Báo đã chuyển cọc" (`createDepositNotice`): `amountVnd` (B, > 0), `attachmentId` (K – ảnh biên nhận JPEG/PNG/WebP, ≤ 10 MB, tải qua `uploadAttachment`), `note` (K, ≤ 500, V-09) → 202; FD và SAL phụ trách nhận thông báo, xác nhận bằng B4.
@@ -372,14 +386,31 @@ CTV chỉ thấy báo giá, đơn, lead, khách do mình tạo/được gán/là
 |---|---|---|---|---|---|
 | `contactAttemptNote` | Kết quả liên lạc (`noshow.contact_note`) | text | B | V-08 (3–500), V-09 | `REASON_REQUIRED` |
 
-Nút khóa khi chưa qua `no_show_mark_time` (BR-311, trong ngày nghiệp vụ của ngày đến) **hoặc** chưa ghi kết quả liên lạc – hiện `noshow.locked` (AC3); gọi API khi chưa đủ → 409 `INVALID_TRANSITION`. Hệ thống **không bao giờ** tự đánh dấu. Hộp xác nhận EP00 mục 9. Kết quả (AC2): `no_show`; đơn trực tiếp giữ cọc (doanh thu khác – BR-904); mở bán các đêm còn lại + đồng bộ; khai báo → `void`; hoa hồng → `void`; việc bộ đồ dùng thêm chưa làm → hủy; đơn OTA → việc "Báo no-show trên kênh".
+**Thao tác một bước** (ARC A-04): ô kết quả liên lạc nằm ngay trong hộp xác nhận và được lưu cùng giao dịch (`reservation.no_show_contact_note` + nhật ký trạng thái).
+- Nút "Không đến" chỉ hiện theo `allowedActions` (server tính giờ); client **không** tự khóa theo giờ máy.
+- Trước mốc, giao diện hiện "Mở lúc {time}" lấy từ `Reservation.noShowAvailableFrom` (`noshow.locked`, AC3).
+- Nút "Xác nhận" trong hộp chỉ bật khi ô kết quả liên lạc có ≥ 3 ký tự.
+- Thứ tự kiểm ở server: body → `If-Match` → trạng thái + giờ.
+  - Thiếu hoặc quá ngắn `contactAttemptNote` → **422** `errors[{field: contactAttemptNote, code: REASON_REQUIRED}]` (kể cả khi chưa tới giờ).
+  - Đủ ghi chú nhưng chưa tới `no_show_mark_time` (BR-311) → **409 `INVALID_TRANSITION`** + `currentState` + `availableFrom`.
+  - `If-Match` lệch → 412. Hệ thống **không bao giờ** tự đánh dấu. Hộp xác nhận EP00 mục 9. Kết quả (AC2): `no_show`; đơn trực tiếp giữ cọc (doanh thu khác – BR-904); mở bán các đêm còn lại + đồng bộ; khai báo → `void`; hoa hồng → `void`; việc bộ đồ dùng thêm chưa làm → hủy; đơn OTA → việc "Báo no-show trên kênh".
 
 ### 11.3 Khôi phục
 | Trường | Kiểu | BB | Kiểm tra |
 |---|---|---|---|
 | `reason` | text | B | V-08 |
 
-FD/FDL đủ 3 điều kiện BR-315 → 200, đơn `confirmed`, đóng lại phòng, khai báo `void → none` (dùng lại bản ghi, K12), ảnh đã xóa không khôi phục, MGR nhận thông báo, hiện trong đóng ca (AC4). Thiếu điều kiện hoặc đơn OTA đã báo kênh → **202** + yêu cầu duyệt `no_show_restore` → chuỗi `noshow.restore_request_sent` (AC5). MGR+ luôn 200 (nếu căn còn trống; căn đã bán lại → 409 `ROOM_UNAVAILABLE`, phải đổi căn trước).
+FD/FDL đủ 3 điều kiện BR-315 → 200, đơn `confirmed`, đóng lại phòng, khai báo `void → none` (dùng lại bản ghi, K12), ảnh đã xóa không khôi phục, MGR nhận thông báo, hiện trong đóng ca (AC4). Thiếu điều kiện hoặc đơn OTA đã báo kênh → **202** + yêu cầu duyệt `no_show_restore` → chuỗi `noshow.restore_request_sent` (AC5). Đơn kênh OTA → **luôn** đi đường duyệt MGR+, vì R2 chưa lưu được "đã báo no-show lên kênh" (DOM D-3 c).
+
+MGR+ tự làm, hoặc khi yêu cầu được duyệt → 200:
+- Căn cũ đã bán lại / phải đổi căn (DOM D-3 b, OpenAPI 0.3.5): MGR+ gửi thêm `roomId` (căn trống khác; trùng → 409 + `suggestions[]`) **hoặc** `allowUnassigned = true` → đơn về `confirmed` ở **làn chưa gán căn** (`conflictState = open`, sự cố nguồn `no_show_restore`), rồi gán căn bằng `moveReservation` (`reasonCode = overbooking`). Thực hiện từ yêu cầu duyệt đã `approved` **không bao giờ** trả 409 – căn không còn thì tự vào làn chưa gán.
+
+| Trường thêm | Kiểu | BB | Kiểm tra | Lỗi |
+|---|---|---|---|---|
+| `roomId` | uuid | K (MGR+) | Căn trống cả khoảng còn lại, đủ sức chứa | 409 `ROOM_UNAVAILABLE` + `suggestions[]`; FD/FDL gửi → 403 |
+| `allowUnassigned` | bool | K (MGR+, mặc định false) | Không gửi cùng `roomId` `[GIẢ ĐỊNH BA]` | FD/FDL gửi → 403 |
+- Khôi phục sau ngày nghiệp vụ: các đêm đã qua **vẫn tính tiền** theo giá snapshot (BR-311 "đêm vẫn tính"); muốn miễn thì đi FOC BR-434 (D-3 a).
+- Đơn đã khôi phục **không** tính là no-show trong chỉ số (D-3 d).
 
 ---
 
@@ -387,13 +418,17 @@ FD/FDL đủ 3 điều kiện BR-315 → 200, đơn `confirmed`, đóng lại ph
 
 | Trường | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|---|
-| `roomId` | Căn | uuid | B | V-11; căn không có đơn `in_house` trong khoảng (đổi phòng trước – BR-804) | 409 `ROOM_UNAVAILABLE` (kèm đơn đang ở) |
+| `roomId` | Căn | uuid | B | V-11; căn không có đơn `in_house` trong khoảng khóa (đổi phòng trước – BR-804/424) | 409 **`ROOM_OCCUPIED`** + `conflicts[]` (đơn đang ở) – ARC A-03 |
 | `startDate` | Khóa từ | date | B | ≥ hôm nay; = hôm nay → `active`, tương lai → `planned` | `DATE_IN_PAST` |
 | — | Dự kiến sửa xong (ngày cuối còn khóa) | date | B | ≥ `startDate` | `DATE_ORDER` |
 | `endDatePlanned` | Mở bán lại từ | date | B (tính sẵn) | = ngày xong + `ooo_reopen_buffer_days` (BR-804), sửa được, > `startDate`; hiển thị cả hai ngày | `DATE_ORDER` |
 | `reason` | Lý do | text | B | 3–500, V-09 | `REASON_REQUIRED` |
 | `workOrderId` | Phiếu sửa | uuid | ĐK: bắt buộc khi khóa ngay từ sự cố | V-11 | `REQUIRED` |
-| `affectedReservationsAcknowledged` | Đã có phương án cho các đơn bị trùng | bool | ĐK | Khoảng trùng đơn `hold`/`confirmed` → server trả danh sách đơn cần dời; chỉ lưu khi không còn đơn trùng hoặc MGR+ xác nhận `true` (A86 ghi chú) | 409 `ROOM_UNAVAILABLE` + `conflicts[]` |
+| `affectedReservationsAcknowledged` | Quản lý đã biết các đơn bị trùng | bool | K | **Chỉ ghi lại người xác nhận** (MGR+); **không** vượt được chống trùng (ARC A-03, BR-906). Khoảng khóa trùng đơn `hold`/`confirmed` **luôn** trả 409 dù gửi `true` – phải dời/hủy các đơn trùng trước (B7/B10), rồi mới tạo khối | 409 `ROOM_UNAVAILABLE` + `conflicts[]` (`OccupancyConflict`); mọi xung đột đều là khối OOO khác (`kind=ooo`) → 409 `ROOM_BLOCKED` |
+
+Thứ tự lỗi ở server (ARC A-03): `ROOM_NOT_SELLABLE` → `ROOM_OCCUPIED` → `ROOM_BLOCKED` (khi mọi xung đột là OOO) → `ROOM_UNAVAILABLE`.
+
+Mở khóa trước hạn (O4): ngày mở bán lại = **ngày nghiệp vụ hiện tại**, tức căn bán được từ đêm nay (DOM D-4). Hộp xác nhận hiện chuỗi **(mới)** `ooo.release_confirm` "Mở bán từ đêm nay ({dd/mm}). Nhớ báo buồng phòng dọn và kiểm căn trước giờ nhận phòng." (FB-R2-DOM-BE-10).
 
 Kết quả: rack hiện thanh "Khóa phòng" (AC2); tạo đơn/giữ chỗ/báo giá căn đó trong các đêm khóa → 409 `ROOM_BLOCKED` "Phòng đang khóa" (`error.ROOM_BLOCKED`) – AC1; đêm khả dụng trừ đêm khóa (BR-904); đồng bộ kênh. Hủy khối `planned` (O5): hộp xác nhận (EP00 mục 9). Mở khóa không qua phiếu (O4): MGR+, lý do bắt buộc.
 
@@ -404,6 +439,7 @@ Kết quả: rack hiện thanh "Khóa phòng" (AC2); tạo đơn/giữ chỗ/bá
 | Story / AC | Mục |
 |---|---|
 | US-016 AC1–AC4 | 1 |
+| US-017 AC9 | 3.2 `closerUserId` |
 | US-017 AC1–AC4, AC6–AC8 | 3; AC5 → 3.2 (`LONG_STAY_REQUIRES_CONTRACT`); **AC5a** → 4; AC7 → 3.3 |
 | US-018 AC1–AC5 | 3.5, 6 |
 | US-019 AC1–AC2 | 1.2, 3.4, 12 |
@@ -433,10 +469,11 @@ Kết quả: rack hiện thanh "Khóa phòng" (AC2); tạo đơn/giữ chỗ/bá
 | E02-04 | ARC | `cancelReservation`: thêm `otaPenaltyVnd` cho đơn OTA (BR-310) |
 | E02-05 | ARC | `HkTaskType` thêm `extra_guest_kit_prepare`, `extra_guest_kit_collect`, `extra_guest_kit_transfer` (BR-812); `HkTask` có `dueAt`, `quantity`; sinh/hủy trong cùng giao dịch với chuyển trạng thái đơn |
 | E02-06 | ARC + PO + DOM | Q-01 (mục 4): đơn dài hạn nhập tay cho khách **đang ở** (`alreadyInHouse`) |
-| E02-07 | DOM | Danh mục lý do đổi căn/đổi ngày (`reasonCode` mục 9.1); đêm kênh Nội bộ có tính đêm bán không (mục 3.2); đơn OTA nhập tay vượt sức chứa: cờ xung đột "sức chứa" hay chặn (mục 0) |
+| E02-07 | DOM | **Đã trả lời** (s2-DOM D-1, D-5, D-7) – đã áp vào mục 0, 3.2, 9.1 (Sprint 2, bước phản hồi) |
 | E02-08 | UXD | Chuỗi **(mới)** ở tài liệu này; nhãn lý do `ota_cancelled`; nhãn "Nâng hạng – cần lễ tân trưởng xác nhận"; dòng "Có {n} người ngủ sofa – buồng phòng chuẩn bị bộ đồ dùng thêm" trên form đặt phòng và chi tiết đơn |
 
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Đợt 0) | Bản đầu: đặc tả mức trường EP02, EP11 phần R2, US-139, US-017 AC5a; áp ESC-014 (sức chứa = định mức + 1, trẻ < 6 không tính) và BR-812 (việc bộ đồ dùng thêm tự sinh); Q-01 đơn dài hạn đang ở | BA |
+| 16/10/2026 | 2 (Sprint 2 – PO quyết) | Mục 3.2 `closerUserId` bắt buộc theo US-017 AC9; đồng bộ tên OpenAPI 0.3.5: `MoveReasonCode`, `CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason`, `Reservation.capacityConflict`, `restoreNoShow` `roomId`/`allowUnassigned` | BA |

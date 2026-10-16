@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
 
 type User = ReturnType<typeof renderApp>['user'];
 
@@ -104,8 +104,11 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     expect(await within(dlg).findByText(/Căn 101 đã kín/)).toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: 'Lưu chưa gán căn' }));
     const confirm = await screen.findByRole('alertdialog');
-    expect(within(confirm).getByRole('button', { name: 'Quay lại' })).toHaveFocus();
-    await user.click(within(confirm).getByRole('button', { name: 'Lưu chưa gán căn' }));
+    expect(within(confirm).getByRole('button', { name: tv('bk.unassigned_back') })).toHaveFocus();
+    expect(
+      within(confirm).getByText(tv('bk.unassigned_confirm_body', { ota_ref: 'AG-778899' })),
+    ).toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: tv('bk.save_unassigned') }));
     const drawer = await screen.findByRole('dialog', { name: 'Anna Martin' });
     expect(within(drawer).getByText('Xung đột OTA')).toBeInTheDocument();
     expect(mockControl.rsv.reservations.at(-1)!.conflictState).toBe('open');
@@ -124,7 +127,7 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     expect(within(dlg).getByRole('button', { name: 'Tạo đơn' })).toBeDisabled();
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn dài hạn nhập tay' }));
     const ls = await screen.findByRole('dialog', { name: /Đơn dài hạn nhập tay/ });
-    expect(within(ls).getByText('HĐ ngoài hệ thống – chuyển vào app ở R3')).toBeInTheDocument();
+    expect(within(ls).getByText(tv('lsm.flag'))).toBeInTheDocument();
     await user.type(within(ls).getByRole('combobox', { name: 'Khách đứng tên' }), 'Hoàng Gia');
     await user.click(await screen.findByRole('option', { name: /Hoàng Gia Bảo/ }));
     await user.click(within(ls).getByRole('button', { name: 'Tạo đơn dài hạn' }));

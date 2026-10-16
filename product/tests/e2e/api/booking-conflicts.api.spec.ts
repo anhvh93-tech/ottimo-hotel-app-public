@@ -70,6 +70,61 @@ test.describe('L2 3.3 – chống đặt trùng (US-018)', { tag: ['@api', '@spr
     }
   });
 
+  test('TC-L2-020 (thứ tự kiểm EP02 3.4) trùng đêm mà chưa kèm cọc → vẫn 409 ROOM_UNAVAILABLE (chống trùng trước tiền)', async ({
+    request,
+  }) => {
+    test.fail(true, 'BUG-R2-019 (Open) – server kiểm cọc trước khối OOO/chống trùng; xem bug-list');
+    await requireEndpoints(request, 'TC-L2-020', [EP.createReservation]);
+    const fd = await sessionOrSkip(request, 'qa.fd');
+    const c = await s2Context(request);
+    const today = await stackToday(request);
+    const rm = room(c, '201');
+    const a = await bookFree(request, fd, c, { room: rm, nights: 2, today });
+    const r = await createReservation(
+      request,
+      fd,
+      reservationBody(c, {
+        room: rm,
+        arrival: a.arrivalDate,
+        departure: a.departureDate,
+        guestId: await newGuest(request, fd),
+      }),
+      true,
+      { autoDeposit: false },
+    );
+    expectProblem(r, 409, 'ROOM_UNAVAILABLE');
+  });
+
+  test('TC-L2-024 (gợi ý) căn trống thay thế: cùng nhóm hoặc nhóm cao hơn, không gợi ý nhóm thấp hơn (BR-312, OpenAPI suggestions)', async ({
+    request,
+  }) => {
+    test.fail(
+      true,
+      'BUG-R2-020 (Open) – gợi ý gồm cả nhóm thấp hơn, gắn upgrade=true; xem bug-list',
+    );
+    await requireEndpoints(request, 'TC-L2-024', [EP.createReservation]);
+    const fd = await sessionOrSkip(request, 'qa.fd');
+    const c = await s2Context(request);
+    const today = await stackToday(request);
+    const rm = room(c, '402'); // NPLUS – nhóm cao nhất (sortOrder 3 của DS-E)
+    const a = await bookFree(request, fd, c, { room: rm, nights: 2, today });
+    const r = await createReservation(
+      request,
+      fd,
+      reservationBody(c, {
+        room: rm,
+        arrival: a.arrivalDate,
+        departure: a.departureDate,
+        guestId: await newGuest(request, fd),
+      }),
+    );
+    const p = expectProblem(r, 409, 'ROOM_UNAVAILABLE');
+    const sug = (p.suggestions as Array<{ roomNo: string; roomGroupCode?: string }>) ?? [];
+    expect(
+      sug.filter((x) => x.roomGroupCode !== 'NPLUS').map((x) => `${x.roomNo}/${x.roomGroupCode}`),
+    ).toEqual([]);
+  });
+
   test('TC-L2-022 ngày đi của A = ngày đến của B được; chồng 1 đêm thì không (BR-002 nửa mở)', async ({
     request,
   }) => {
@@ -301,7 +356,10 @@ test.describe(
       });
       expectProblem(fa, 409, 'ROOM_UNAVAILABLE');
       // (b): giải phóng căn đó rồi gán → resolved
-      const cancel = await action(request, fd, filler.id, 'cancel', { reasonCode: 'other' });
+      const cancel = await action(request, fd, filler.id, 'cancel', {
+        reasonCode: 'other',
+        note: 'E2E dọn dữ liệu',
+      });
       expect(cancel.status, statusOf(cancel)).toBe(200);
       const fb = await action(request, fd, u.body.id, 'assign-room', {
         roomId: room(c, fullNo).id,

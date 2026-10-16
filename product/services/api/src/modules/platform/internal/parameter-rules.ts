@@ -117,12 +117,35 @@ async function checkTimeOrder(key: string, value: unknown, other: OtherValue): P
   }
 }
 
+/** erd 9.1a `ota_base_rate` (ARC s2-contract 8.1): one price per room-group code. */
+export const OTA_BASE_RATE_MIN_VND = 100_000;
+export const OTA_BASE_RATE_MAX_VND = 20_000_000;
+
 export async function checkStructuredParameter(
   key: string,
   value: unknown,
   other: OtherValue,
+  roomGroupCodes: () => Promise<string[]> = async () => [],
 ): Promise<void> {
   switch (key) {
+    case 'ota_base_rate': {
+      // Every active room-group code exactly once, each 100.000–20.000.000 VND (BR-103).
+      const codes = await roomGroupCodes();
+      const v = value as Record<string, unknown>;
+      const ok =
+        !!v &&
+        typeof v === 'object' &&
+        !Array.isArray(v) &&
+        Object.keys(v).length === codes.length &&
+        codes.every((c) => isInt(v[c])) &&
+        Object.values(v).every(
+          (n) => isInt(n) && n >= OTA_BASE_RATE_MIN_VND && n <= OTA_BASE_RATE_MAX_VND,
+        );
+      if (!ok) {
+        outOfRange({ allowed: codes, min: OTA_BASE_RATE_MIN_VND, max: OTA_BASE_RATE_MAX_VND });
+      }
+      return;
+    }
     case 'rate_floor_pct': {
       const ceiling = await other('rate_ceiling_pct').catch(() => null);
       if (typeof value === 'number' && value > 100) outOfRange({ max: 100 });

@@ -17,6 +17,7 @@ import {
   needClock,
   resetClock,
   runJob,
+  runJobIfAny,
   scenarioDate,
   setClock,
 } from '../support/clock.js';
@@ -294,46 +295,57 @@ test.describe(
       expect((await getReservation(request, fd2, hold.id)).body.status).toBe('confirmed');
     });
 
-    test('TC-L5-015 + TC-L5-017 (a) J3 quote.expire: 23:59 ngày hết hạn vẫn active; 00:05 hôm sau expired; tạo giữ chỗ → 409 QUOTE_EXPIRED', async ({
-      request,
-    }) => {
-      needClock('TC-L5-015');
-      await requireEndpoints(request, 'TC-L5-015', [
-        EP.saveQuote,
-        EP.getQuote,
-        EP.createHoldFromQuote,
-      ]);
-      const D = scenarioDate(realToday);
-      const c = await s2Context(request);
-      await setClock(request, vnTime(D, '10:00'));
-      const sal = await sessionOrSkip(request, 'qa.sal');
-      const q = await saveQuote(request, sal, {
-        ...quoteInput(c, { room: room(c, '101'), arrival: addDays(D, 10), nights: 1 }),
-        guestId: await newGuest(request, sal),
+    for (const ex of ['BR-304-01', 'BR-304-02']) {
+      test(`TC-L5-015 + TC-L5-017 (a) hạn báo giá theo ngày lịch lập (${ex}); 23:59:59 ngày cuối còn active, 00:00 hôm sau expired; tạo giữ chỗ → 409 QUOTE_EXPIRED`, async ({
+        request,
+      }) => {
+        needClock('TC-L5-015');
+        await requireEndpoints(request, 'TC-L5-015', [
+          EP.saveQuote,
+          EP.getQuote,
+          EP.createHoldFromQuote,
+        ]);
+        const o = oracle(ex);
+        const created = String(o.input.quoteCreatedAt); // 10:00 (BR-304-01) hoặc 01:30 – ngày nghiệp vụ hôm trước (BR-304-02)
+        const lastOffset =
+          (ms(`${String(o.expected.lastValidDate)}T00:00:00Z`) -
+            ms(`${created.slice(0, 10)}T00:00:00Z`)) /
+          864e5;
+        const D = scenarioDate(realToday);
+        const c = await s2Context(request);
+        await setClock(request, vnTime(D, created.slice(11, 16)));
+        const sal = await sessionOrSkip(request, 'qa.sal');
+        const q = await saveQuote(request, sal, {
+          ...quoteInput(c, { room: room(c, '101'), arrival: addDays(D, 10), nights: 1 }),
+          guestId: await newGuest(request, sal),
+        });
+        expect(q.status, JSON.stringify(q.body)).toBe(201);
+        // BR-304 v0.3.2: hết hiệu lực từ 00:00 ngày (ngày lịch lập + quote_validity_days + 1) – mốc nửa mở
+        const lastDay = addDays(D, lastOffset);
+        expectNear(q.body.expiresAt, vnTime(addDays(lastDay, 1), '00:00'), `${ex} expiresAt`, 0);
+        const status = async () => {
+          const s = await sessionOrSkip(request, 'qa.sal');
+          const g = await call<{ status: string }>(
+            request,
+            'GET',
+            `/v1/properties/${propertyIdOf(s)}/quotes/${q.body.id}`,
+            { session: s },
+          );
+          return g.body.status;
+        };
+        // J3 quote.expire (architecture 9.1) – nếu build chưa đăng ký job, trạng thái phải tự đúng khi đọc
+        await setClock(request, vnTime(lastDay, '23:59:59'));
+        await runJobIfAny(request, 'quote.expire');
+        expect(await status()).toBe('active');
+        await setClock(request, vnTime(addDays(lastDay, 1), '00:00'));
+        expect(await status()).toBe('expired');
+        await setClock(request, vnTime(addDays(lastDay, 1), '00:05'));
+        await runJobIfAny(request, 'quote.expire');
+        expect(await status()).toBe('expired');
+        const sal3 = await sessionOrSkip(request, 'qa.sal');
+        const h = await createHold(request, sal3, q.body.id, 24);
+        expectProblem(h, 409, 'QUOTE_EXPIRED');
       });
-      expect(q.status, JSON.stringify(q.body)).toBe(201);
-      // [GIẢ ĐỊNH QA – chờ DOM] hạn = 23:59 của (ngày lập + quote_validity_days = 3)
-      const lastDay = addDays(D, 3);
-      expect(q.body.expiresAt.slice(0, 16)).toBe(vnTime(lastDay, '23:59').slice(0, 16));
-      const status = async () => {
-        const s = await sessionOrSkip(request, 'qa.sal');
-        const g = await call<{ status: string }>(
-          request,
-          'GET',
-          `/v1/properties/${propertyIdOf(s)}/quotes/${q.body.id}`,
-          { session: s },
-        );
-        return g.body.status;
-      };
-      await setClock(request, vnTime(lastDay, '23:59'));
-      await runJob(request, 'quote.expire');
-      expect(await status()).toBe('active');
-      await setClock(request, vnTime(addDays(lastDay, 1), '00:05'));
-      await runJob(request, 'quote.expire');
-      expect(await status()).toBe('expired');
-      const sal3 = await sessionOrSkip(request, 'qa.sal');
-      const h = await createHold(request, sal3, q.body.id, 24);
-      expectProblem(h, 409, 'QUOTE_EXPIRED');
-    });
+    }
   },
 );

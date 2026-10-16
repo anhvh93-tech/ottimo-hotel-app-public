@@ -5,8 +5,8 @@ import {
   type RoomConflict,
   type RoomSuggestion,
 } from '@ottimo/api-client';
-import { formatLocalDate, formatNumber, type Args } from '@ottimo/i18n';
-import { problemView } from './problem';
+import { formatInstant, formatLocalDate, formatNumber, type Args } from '@ottimo/i18n';
+import { fieldErrorText, problemView } from './problem';
 
 type T = (key: string, args?: Args) => string;
 
@@ -95,21 +95,32 @@ export interface RsvErrorContext {
 }
 
 /**
- * Request-level message for EP02 problems with the arguments the UXD strings need
- * (room, dates, max, amounts, status). Anything else → the generic `problemView`.
+ * Request-level message for EP02 problems with the arguments the UXD strings need (room, dates, max,
+ * amounts, status). Problem extension fields follow OpenAPI 0.3.5 §3.1 (`currentState`,
+ * `depositRequiredVnd`/`depositPaidVnd`, `roomNo`, `max`, `expiredAt`). Anything else → `problemView`.
  */
 export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): string {
   if (!isApiError(error)) return problemView(t, error).text;
   const p = error.problem as Record<string, unknown>;
-  const vnd = (n: unknown) => formatNumber(ctx.locale ?? 'vi', Number(n ?? 0));
+  const locale = ctx.locale ?? 'vi';
+  const vnd = (n: unknown) => formatNumber(locale, Number(n ?? 0));
   const first = conflictsOf(error)[0];
-  const room = first?.roomNo ?? ctx.roomNo ?? '';
+  const room = (p.roomNo as string | undefined) ?? first?.roomNo ?? ctx.roomNo ?? '';
   switch (error.code) {
     case 'ROOM_UNAVAILABLE': {
       const r = rangeOf(first);
       if (ctx.canSeeGuest && first?.guestDisplayName)
         return t('booking.error.conflict', { room, guest: first.guestDisplayName, ...r });
       return t('booking.error.conflict_noname', { room, ...r });
+    }
+    case 'ROOM_OCCUPIED':
+      return t('error.ROOM_OCCUPIED', { room });
+    case 'VALIDATION_FAILED': {
+      // First field error with the Problem extras as arguments (e.g. HOLD_LIMIT_REACHED {max}).
+      const fe = error.fieldErrors[0];
+      return fe
+        ? fieldErrorText(t, fe, { max: String(p.max ?? ''), n: String(p.minStayNights ?? '') })
+        : problemView(t, error).text;
     }
     case 'ROOM_BLOCKED':
       return t('error.ROOM_BLOCKED', { room, ...rangeOf(first) });
@@ -119,22 +130,27 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
       return t('error.CAPACITY_EXCEEDED', { room, max: String(p.max ?? '') });
     case 'DEPOSIT_INSUFFICIENT':
       return t('error.DEPOSIT_INSUFFICIENT', {
-        required: vnd(p.required ?? ctx.required),
-        paid: vnd(p.paid ?? ctx.paid),
+        required: vnd(p.depositRequiredVnd ?? ctx.required),
+        paid: vnd(p.depositPaidVnd ?? ctx.paid),
       });
     case 'INVALID_TRANSITION': {
-      const st = (p.currentStatus as ReservationStatus | undefined) ?? ctx.status;
-      return t('error.INVALID_TRANSITION', { status: st ? t(STATUS_KEY[st]) : '' });
+      const st = (p.currentState as ReservationStatus | undefined) ?? ctx.status;
+      return st && STATUS_KEY[st]
+        ? t('rsv.transition_changed', { status: t(STATUS_KEY[st]) })
+        : t('rsv.transition_changed_unknown');
     }
     case 'HOLD_EXPIRED':
-      return t('error.HOLD_EXPIRED', { time: String(p.expiredAt ?? '') });
+      return typeof p.expiredAt === 'string'
+        ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })
+        : t('error.HOLD_EXPIRED_notime');
     default:
       return problemView(t, error).text;
   }
 }
 
-/** "Ngày đến – ngày đi" → one label per date input (UXD has no separate keys yet – requested). */
-export function dateLabels(t: T): { arrival: string; departure: string } {
-  const [arrival = '', departure = ''] = t('booking.field.dates').split(/\s+[–-]\s+/);
-  return { arrival, departure: departure.charAt(0).toUpperCase() + departure.slice(1) };
+/** Status of a 409 INVALID_TRANSITION (0.3.5 `currentState`, always present). */
+export function currentStateOf(e: unknown): ReservationStatus | undefined {
+  const p = problemOf(e) as Record<string, unknown> | undefined;
+  const s = p?.currentState;
+  return typeof s === 'string' && s in STATUS_KEY ? (s as ReservationStatus) : undefined;
 }

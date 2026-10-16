@@ -66,6 +66,8 @@ export default defineConfig({
       name: 'clock',
       testMatch: /clock\/.*\.clock\.spec\.ts$/,
       fullyParallel: false,
+      // one worker: two clock files in parallel would move the shared clock under each other
+      workers: 1,
       dependencies: ['smoke', 'rbac', 'api', 'limits', 'rbac-logout', 'desk-chromium'],
     },
     {

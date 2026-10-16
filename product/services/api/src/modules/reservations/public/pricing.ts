@@ -271,9 +271,20 @@ export function lastBookableArrival(today: LocalDate, windowDays: number): Local
   return addDays(today, windowDays - 1);
 }
 
-/** BR-812 (2): kit task due = check-in time on the arrival day (or a confirmed early check-in time). */
-export function extraGuestKitDue(arrival: LocalDate, checkinTime: LocalTime, tz: string): Date {
-  return atLocal(arrival, checkinTime, tz);
+/**
+ * BR-812 (2) + DOM D-10 (BR v0.3.2): kit task due = check-in time on the arrival day, but never before
+ * `confirmedAt + midstayMinutes` (a booking confirmed late gets a task that is not overdue at birth).
+ */
+export function extraGuestKitDue(
+  arrival: LocalDate,
+  checkinTime: LocalTime,
+  tz: string,
+  confirmed?: { at: Date; midstayMinutes: number },
+): Date {
+  const atCheckin = atLocal(arrival, checkinTime, tz);
+  if (!confirmed) return atCheckin;
+  const earliest = new Date(confirmed.at.getTime() + confirmed.midstayMinutes * 60_000);
+  return atCheckin > earliest ? atCheckin : earliest;
 }
 
 /** BR-316: orphan nights a booking would leave on a room (free gap of exactly 1 night on either side). */

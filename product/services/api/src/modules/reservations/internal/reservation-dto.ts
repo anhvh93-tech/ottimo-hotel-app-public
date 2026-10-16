@@ -44,9 +44,15 @@ export interface DtoInput {
   row: ReservationRow;
   segments: SegmentRow[];
   booker: BookerRow | null;
-  nights: Array<{ date: LocalDate; amountVnd: number }>;
+  nights: Array<{ date: LocalDate; amountVnd: number; calendarRateVnd?: number }>;
   actions: AllowedAction[];
   iso(instant: Date): string;
+  /** BR-311 mark time of the arrival day (confirmed, arrival ≤ business date) – 0.3.5 A-04. */
+  noShowAvailableFrom: Date | null;
+  /** Σ succeeded deposits (BR-305) – 0.3.5 A-13. */
+  depositPaidVnd: number;
+  /** 0.3.5 A-25: room group the OTA guest booked (unassigned lane). */
+  requestedGroup?: { id: string; code: string } | null;
 }
 
 export function toReservationDto(d: DtoInput): Record<string, unknown> {
@@ -116,9 +122,15 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
         }
       : {}),
     depositRequiredVnd: row.deposit_required_vnd,
+    depositPaidVnd: d.depositPaidVnd,
+    noShowAvailableFrom: d.noShowAvailableFrom ? d.iso(d.noShowAvailableFrom) : null,
     ...(row.external_contract ? {} : { nightlyRates: d.nights }),
     totalRoomVnd: row.total_room_vnd,
     conflictState: row.conflict_state,
+    capacityConflict: row.capacity_conflict_at !== null,
+    ...(d.requestedGroup
+      ? { requestedRoomGroupId: d.requestedGroup.id, requestedRoomGroupCode: d.requestedGroup.code }
+      : {}),
     progress: progress(row, d.iso),
     ...(row.status === 'cancelled' && row.cancelled_at
       ? {

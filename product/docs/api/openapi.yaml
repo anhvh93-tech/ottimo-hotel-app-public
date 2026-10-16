@@ -169,6 +169,7 @@ info:
     | SURCHARGE_CHANGED | `surchargeVnd` |
     | ROOM_NOT_READY | `roomStatus` |
     | PARAM_OUT_OF_RANGE | `min`, `max`, `allowed[]` |
+    | 422 có `HOLD_LIMIT_REACHED` | `max` |
     | 422 có `MIN_STAY_NOT_MET` | `minStayNights`, `suggestions[]` với `orphanNight=true` (BR-113 a) |
     | 422 có `RATE_OUT_OF_RANGE(_WARNING)` | `dates[]` |
     | 422 `moveReservation` (`overbookingResolution` sai) | `expected` |
@@ -198,6 +199,7 @@ info:
     | MIN_STAY_NOT_MET | Ngày đến có ở tối thiểu (BR-113) mà số đêm thấp hơn; FDL+ bỏ qua bằng `minStayOverrideReason` (đơn trực tiếp); không áp đơn OTA nhập tay. 0.3.5: kèm `minStayNights`; nhóm có căn mà khoảng ngày là đêm lẻ → kèm `suggestions[]` `orphanNight=true` (lễ tân chọn căn đó; quầy R2 không tự gán căn) | `createReservation`, `calculateQuote`, `saveQuote` |
     | OTA_REF_DUPLICATE | `otaRef` + kênh trùng đơn khác chưa hủy | `createReservation` |
     | RATE_OUT_OF_RANGE_WARNING | Kênh `ota`: giá đêm ngoài sàn–trần (BR-105) **và** thiếu `rateOverrideReason` → client hiện **cảnh báo** + ô lý do rồi gửi lại; có lý do thì lưu (kênh `direct`/`agent` vẫn là `RATE_OUT_OF_RANGE` chặn) | `createReservation` |
+    | CAPACITY_EXCEEDED_WARNING | **Cảnh báo** (DOM D-1): kênh `ota` có số khách tính (`adults` + `children6to11`) > `maxOccupancy` của căn và thiếu `capacityWarningAckReason` → client hiện hộp cảnh báo + ô lý do rồi gửi lại; có lý do → lưu, đơn `capacityConflict=true`. Kênh khác vẫn `CAPACITY_EXCEEDED` chặn (0.3.5) | `createReservation`, `moveReservation`, `updateReservation` |
     | ALLOW_UNASSIGNED_OTA_ONLY | `allowUnassigned=true` cho kênh không phải `ota` | `createReservation` |
     | LONG_STAY_REQUIRES_CONTRACT | Số đêm đạt ngưỡng BR-108 mà không có `manualLongStay` (US-017 AC5) | `createReservation` |
     | MANUAL_LONG_STAY_BELOW_THRESHOLD | `manualLongStay` mà số đêm dưới ngưỡng BR-108 (AC5a) | `createReservation` |
@@ -224,6 +226,7 @@ info:
     | CONTACT_CHANNEL_EMPTY | `preferredContact` trỏ tới kênh chưa có giá trị (ví dụ `email` khi chưa có email) – 0.3.4 Q2 | `createGuest`, `updateGuest` |
     | REAUTH_FAILED | Mật khẩu/PIN xác nhận lại sai – nằm trong `401 REAUTH_FAILED` (không phải 422); `field` = ô mật khẩu của operation (`currentPassword` hoặc `secret`) – 0.3.4 Q4 | `changeMyPassword`, `trustCurrentDevice`, `approveRequest`, `rejectRequest` |
     | DUPLICATE_GUEST | Nằm trong `409 DUPLICATE_GUEST`; `field` = `phone` hoặc `email` bị trùng – 0.3.4 Q2/Q5 | `createGuest`, `updateGuest` |
+    | HOLD_LIMIT_REACHED | Người tạo/chốt đã có số giữ chỗ đang mở bằng `max_open_holds_per_user` của vai (CTV 3, SAL 5, FD+ không giới hạn – BR-302 v0.3.2, DOM/SEC BE-28); `field` = `holdHours`, Problem kèm `max`. Không tính giữ chỗ đã hết hạn/hủy (0.3.5, A-26) | `createHoldFromQuote` |
     | HOLD_EXTENDED_ONCE | Giữ chỗ đã gia hạn 1 lần (BR-303) – nằm trong `errors[]` của `409 INVALID_TRANSITION`, `field` = `extraHours` (0.3.5) | `extendHold` |
     | OTA_DATES_LOCKED | Đổi ngày đơn kênh `ota` (ngày do OTA quyết – sửa trên extranet rồi nhập lại) (0.3.5) | `moveReservation` |
     | RETURN_CODE_INVALID | Mã khách quay lại không hợp lệ/hết hạn (BR-111) (0.3.5) | `calculateQuote`, `saveQuote` |
@@ -239,6 +242,11 @@ info:
     **Đổi hành vi (có chủ đích)**: `confirmDeposit` thiếu tiền mà đã ghi giao dịch → `200` (đơn vẫn `hold`) thay `422` – 4xx nghĩa là không ghi gì (A-13).
     **Làm rõ**: `markNoShow` một bước (422/409/412); ROOM_BLOCKED khi mọi xung đột là OOO; `block.endDatePlanned` nửa mở; `affectedReservationsAcknowledged`
     chỉ ghi nhận; một kênh `direct` + `directSource` (đóng erd E8); danh mục sự kiện SSE; `attachmentId` tạm từ chối tới Sprint 3 (A-17).
+    **Bổ sung theo FE/DOM (A-24…A-26)**: `RackBar.capacityConflict`; `RackBar`/`Reservation` `requestedRoomGroupId`/`requestedRoomGroupCode` cho đơn chưa gán căn; mã trường `HOLD_LIMIT_REACHED`.
+    **Bổ sung theo DOM (s2-DOM D-1, D-3, D-5, D-8; A-19…A-23)**: schema `MoveReasonCode` cho `moveReservation.reasonCode`; đơn OTA vượt sức chứa = cảnh báo
+    `CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason`, cờ `Reservation.capacityConflict`, điều kiện nhận phòng `capacity_within_max`, mục "Cần chú ý"
+    `capacity_conflict`; `restoreNoShow` nhận `roomId`/`allowUnassigned` (đã duyệt thì không bao giờ 409), `OverbookingIncident.source` thêm `no_show_restore`;
+    `NightRate.calendarRateVnd` (giá lịch trước bậc giảm BR-107, chỉ đọc); tham số `ota_base_rate` (giá OTA nền theo nhóm – BUG-R2-017) chỉ ở catalogue, không đổi API.
 
     ## Thay đổi phiên bản 0.3.4-draft (R2 Sprint 1 – vòng sửa sau review; quyết định Q1–Q8 ở `rounds/round-02/reviews/ARC-on-BE.md`, SEC `outputs/SEC/s1-decisions.md`; chi tiết `rounds/round-02/outputs/ARC/s1-fix.md`)
     **Thêm (không phá vỡ)**: `lookupGuestByContact` 200 thêm `match: possible_duplicate` (Q1); `Room`/`RoomInput`/`RoomPatch` thêm `bedSetup`, `bedCount`, `areaM2` (Q6);
@@ -1928,8 +1936,14 @@ paths:
                 arrivalDate: { $ref: '#/components/schemas/LocalDate' }
                 departureDate: { $ref: '#/components/schemas/LocalDate' }
                 mode: { type: string, enum: [change, postpone_instead_of_cancel], default: change }
-                reasonCode: { type: string }
-                note: { type: string, maxLength: 500 }
+                reasonCode: { $ref: '#/components/schemas/MoveReasonCode' }
+                note: { type: string, maxLength: 500, description: 'Bắt buộc ≥ 3 ký tự khi `reasonCode` = `other` hoặc `force_majeure` (`REASON_REQUIRED`). 0.3.5' }
+                capacityWarningAckReason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                  description: 'Như `ReservationCreate.capacityWarningAckReason` – đổi căn đơn OTA sang căn có sức chứa nhỏ hơn số khách (DOM D-1). 0.3.5'
+                  x-rbac-field: D12c
                 overbookingResolution:
                   type: string
                   enum: [reassigned_same_group, upgraded]
@@ -1991,6 +2005,10 @@ paths:
         Chỉ trong ngày nghiệp vụ của đêm đến và khi căn còn trống (BR-906). Đóng lại phòng (outbox); khai báo **dùng lại bản ghi của đơn**, chuyển `void → none` (SM-05 K12 – giữ ràng buộc duy nhất `registration.reservation_id`, không tạo bản ghi mới); ảnh giấy tờ đã xóa không khôi phục (US-136 AC4).
         FD/FDL (A10 = ✔/D, ghi chú 35): đủ cả 3 điều kiện BR-315 (còn ngày nghiệp vụ của đêm đến; căn còn trống, không đổi căn; không hoàn tiền/đổi giá) → thực hiện ngay, lý do bắt buộc, báo MGR, hiện trong đóng ca;
         thiếu một điều kiện hoặc đơn OTA đã báo no-show lên kênh → `202` kèm yêu cầu duyệt thay vì đơn đã đổi.
+        **0.3.5 (DOM D-3, A-21)**: đơn kênh `ota` → FD/FDL **luôn** `202` (R2 chưa lưu "đã báo kênh"). Căn cũ đã bán lại: MGR+ gửi `roomId` (căn trống khác – trùng → 409 + `suggestions[]`)
+        hoặc `allowUnassigned: true` → đơn về `confirmed` ở **làn chưa gán căn** (`conflictState=open`, `overbooking_incident.source = no_show_restore`), gán căn sau bằng
+        `moveReservation` (`reasonCode = overbooking`). Thực hiện từ yêu cầu duyệt đã `approved` **không bao giờ** trả 409: căn không còn → tự đi làn chưa gán.
+        Đêm đã qua (khôi phục sau ngày nghiệp vụ, MGR duyệt) vẫn `sold` theo giá snapshot (BR-315 (3)); miễn tiền đi FOC BR-434.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A10]
       x-transition: B12
@@ -2007,6 +2025,8 @@ paths:
               required: [reason]
               properties:
                 reason: { type: string, minLength: 3 }
+                roomId: { $ref: '#/components/schemas/Uuid', description: 'MGR+: khôi phục vào căn trống khác khi căn cũ đã bán lại (0.3.5, DOM D-3 b)' }
+                allowUnassigned: { type: boolean, default: false, description: 'MGR+: không còn căn phù hợp → khôi phục vào làn chưa gán căn (0.3.5, DOM D-3 b)' }
       responses:
         '200': { $ref: '#/components/responses/ReservationOk' }
         '202':
@@ -7571,7 +7591,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, unassigned_with_free_room, data_quality, deposit_after_cancel, no_show_call, no_show_mark, security_alert]
+          enum: [vip_arrival, room_ooo, rent_due_soon, lease_expiring, registration_due, registration_overdue, visa_expiring, work_order_high_open, hold_expiring, meter_not_read, channel_sync_error, foc_threshold, overbooking, unassigned_with_free_room, data_quality, deposit_after_cancel, no_show_call, no_show_mark, security_alert, capacity_conflict]
         source: { type: string, enum: [computed, event], description: 'computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)' }
         eventId: { $ref: '#/components/schemas/Uuid' }
         severity: { type: string, enum: [info, warning, critical] }
@@ -7626,6 +7646,19 @@ components:
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
         conflictState: { $ref: '#/components/schemas/ConflictState' }
         arrivingToday: { type: boolean }
+        capacityConflict:
+          type: boolean
+          description: '= `Reservation.capacityConflict` (đơn OTA vượt sức chứa, DOM D-1) – rack hiện cảnh báo trên thanh. Vắng = false. 0.3.5 (A-24)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        requestedRoomGroupId:
+          $ref: '#/components/schemas/Uuid'
+          description: 'Chỉ thanh ở làn `unassigned`: nhóm căn đơn yêu cầu (căn kênh OTA ánh xạ, hoặc căn cũ khi khôi phục no-show) – FE hiện `rsv.assign_lead` và gọi `searchAvailability?reservationId=`. 0.3.5 (A-25)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        requestedRoomGroupCode:
+          type: string
+          example: L12
+          description: 'Mã nhóm của `requestedRoomGroupId`. 0.3.5 (A-25)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
         reservationCode:
           type: string
           example: OTM-00171
@@ -7679,6 +7712,21 @@ components:
       properties:
         date: { $ref: '#/components/schemas/LocalDate' }
         amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        calendarRateVnd:
+          $ref: '#/components/schemas/MoneyVnd'
+          readOnly: true
+          description: |
+            Chỉ trong phản hồi: giá lịch của đêm (BR-104, hoặc giá lễ tân sửa tay) **trước** bậc giảm số đêm BR-107/mã quay lại BR-111 (erd `stay_night.calendar_rate_vnd`).
+            Đổi số đêm → server áp lại bậc giảm theo **tổng số đêm cuối cùng** trên giá này cho mọi đêm còn hiệu lực (DOM D-8, BR-106); cọc đã thu không đổi. 0.3.5 (A-22)
+    MoveReasonCode:
+      type: string
+      enum: [guest_request, property_fault, overbooking, upgrade, inventory_optimize, force_majeure, other]
+      description: |
+        Lý do đổi căn/ngày B7/B8 (DOM D-5, 0.3.5 A-19). Ràng buộc kiểm ở server:
+        `overbooking` chỉ khi đơn `conflictState=open` hoặc `capacityConflict=true` (khác → 422 `NOT_IN_LIST`);
+        `upgrade` chỉ FDL+ (FD → 403 `FORBIDDEN_ACTION`); `force_majeure` chỉ `mode=postpone_instead_of_cancel`, MGR+, `note` bắt buộc (bằng chứng);
+        `inventory_optimize` – sắp căn tránh đêm lẻ, khách chưa được báo số căn; `other` – `note` bắt buộc. B8 thường (dời thay hủy) dùng `guest_request`.
+        Đơn kênh `ota` không đổi ngày được (`OTA_DATES_LOCKED`) – R2 làm bằng hủy `ota_cancelled` (phạt 0) + tạo đơn mới cùng `otaRef`, ghi chú "OTA sửa đơn".
     ReservationSummary:
       type: object
       required: [id, code, status, stayType, arrivalDate, departureDate]
@@ -7857,6 +7905,22 @@ components:
           $ref: '#/components/schemas/MoneyVnd'
           description: 'Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13)'
           x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+        requestedRoomGroupId:
+          $ref: '#/components/schemas/Uuid'
+          description: |
+            Đơn `conflictState=open` (chưa gán căn): nhóm căn đơn yêu cầu = nhóm của `overbooking_incident.requested_room_id` (căn kênh OTA ánh xạ, hoặc căn cũ khi khôi phục
+            no-show – D-3 b). Null khi đơn đã gán căn. Gán căn cùng nhóm → `overbookingResolution=reassigned_same_group`, nhóm cao hơn → `upgraded` (FDL+). 0.3.5 (A-25)
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        requestedRoomGroupCode:
+          type: string
+          description: 'Mã nhóm của `requestedRoomGroupId`. 0.3.5 (A-25)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        capacityConflict:
+          type: boolean
+          description: |
+            Đơn OTA nhận với số khách > sức chứa căn (DOM D-1). Tự về `false` khi số khách ≤ `maxOccupancy` của căn đang gán (đổi căn B7, sửa số khách sau khi
+            liên hệ khách). `true` → chặn nhận phòng (`CheckInPreview.conditions` `capacity_within_max`), mục "Cần chú ý" `capacity_conflict`. 0.3.5 (A-20)
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
         allowedActions: { type: array, items: { $ref: '#/components/schemas/AllowedAction' } }
         version: { type: integer }
     ReservationCreate:
@@ -7892,6 +7956,15 @@ components:
           minLength: 3
           maxLength: 500
           description: 'FDL+ bỏ qua ở tối thiểu BR-113 cho đơn kênh `direct` (đặc tả BA EP02 3.2 (b)); thiếu khi vi phạm → mã trường `MIN_STAY_NOT_MET`; FD gửi → `403 FORBIDDEN_ACTION`. 0.3.1'
+          x-rbac-field: D12c
+        capacityWarningAckReason:
+          type: string
+          minLength: 3
+          maxLength: 500
+          description: |
+            Chỉ kênh `ota` (DOM D-1, BR-312 (1) không từ chối đơn OTA đã về): số khách tính > `maxOccupancy` của căn mà thiếu trường này → `422` mã trường
+            `CAPACITY_EXCEEDED_WARNING` (+ `roomNo`, `max`); có lý do → lưu, `Reservation.capacityConflict=true`, "Cần chú ý" `capacity_conflict`, chặn nhận phòng
+            (`capacity_within_max`). Kênh khác gửi → bỏ qua (vẫn `CAPACITY_EXCEEDED`). 0.3.5 (A-20)
           x-rbac-field: D12c
         directSource:
           type: string
@@ -7975,8 +8048,8 @@ components:
             properties:
               code:
                 type: string
-                enum: [room_ready, balance_paid, main_guest_document, not_unassigned, document_check_block]
-                description: '`document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`'
+                enum: [room_ready, balance_paid, main_guest_document, not_unassigned, document_check_block, capacity_within_max]
+                description: '`document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)'
               met: { type: boolean }
               detail: { type: string }
               overridableBy: { type: array, items: { $ref: '#/components/schemas/Role' } }
@@ -8169,7 +8242,7 @@ components:
         stayFrom: { $ref: '#/components/schemas/LocalDate' }
         stayTo: { $ref: '#/components/schemas/LocalDate' }
         conflictingReservationCodes: { type: array, items: { type: string } }
-        source: { type: string, enum: [desk, channel_sync] }
+        source: { type: string, enum: [desk, channel_sync, no_show_restore], description: '`no_show_restore` – khôi phục no-show khi căn đã bán lại (0.3.5, DOM D-3 b)' }
         status: { type: string, enum: [open, resolved] }
         resolution: { type: string, enum: [reassigned_same_group, upgraded, relocated_external, cancelled_by_channel] }
         costVnd:

@@ -8,7 +8,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
-import { Client, type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
+import {
+  Client,
+  type FeatureApp,
+  P,
+  TEST_PASSWORD,
+  setPassword,
+  startFeatureApp,
+} from '../helpers/feature-app';
 import { type SalesIds, refreshSessions, seedGuest, seedSales } from '../helpers/sales-fixture';
 import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
@@ -178,6 +185,8 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
     const tooMany = await calc('fd', short({ ...tue, adults: 4 }));
     expect(tooMany.statusCode).toBe(422);
     expect(tooMany.json()).toMatchObject({
+      roomNo: '202',
+      max: 3,
       code: 'CAPACITY_EXCEEDED',
       errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
     });
@@ -224,7 +233,17 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
     expect(ok.statusCode, ok.body).toBe(200);
     expect(ok.json().warnings).toContain('min_stay_orphan_night_exception');
     // 101 has no neighbours that night → still refused (BR-113-03 spirit).
-    expect((await calc('fd', { ...sat, roomId: ids.rooms['101'] })).statusCode).toBe(422);
+    const r101 = await calc('fd', { ...sat, roomId: ids.rooms['101'] });
+    expect(r101.statusCode).toBe(422);
+    // 0.3.5 A-02/A-05: minimum + the room whose gap fits (orphan night) as a suggestion.
+    expect(r101.json()).toMatchObject({
+      minStayNights: 2,
+      suggestions: [expect.objectContaining({ roomNo: '202', orphanNight: true })],
+    });
+    // A-05: a GROUP quote below the minimum stay picks the orphan-night room (202, not the first free 101).
+    const group = await calc('fd', { ...sat, roomId: undefined, roomGroupId: ids.groups.L12 });
+    expect(group.statusCode, group.body).toBe(200);
+    expect(group.json()).toMatchObject({ roomId: ids.rooms['202'], roomNo: '202' });
   });
 
   it('dates, window, long stay, channel, type: field errors (US-080 AC4)', async () => {
@@ -385,6 +404,7 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
       );
       expect(hold.statusCode).toBe(409);
       expect(hold.json().code).toBe('QUOTE_EXPIRED');
+      expect(hold.json().expiredAt).toBe('2026-10-19T00:00:00.000+07:00');
     } finally {
       await back();
     }
@@ -528,6 +548,133 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
     expect((await c.get(`${P(other)}/quotes`)).json().data).toEqual([]);
     expect((await c.get(`${P(other)}/leads`)).json().data).toEqual([]);
     expect((await c.get(`${P(t)}/quotes/${salQuote.id}`)).statusCode).toBe(404); // not their property
+  });
+
+  it('0.3.5 A-14: calculation splits room total / extra-person fee / extra guests and names the room', async () => {
+    const q = (await calc('fd', short({ adults: 3 }))).json();
+    expect(q).toMatchObject({
+      roomId: ids.rooms['202'],
+      roomNo: '202',
+      roomTotalVnd: 5_205_000,
+      extraPersonFeeVnd: 1_050_000,
+      extraGuestCount: 1,
+      totalVnd: 6_255_000,
+    });
+  });
+
+  it('extendQuote (Q4, A-18): MGR → 200 active with a new expiry; SAL → 202 approval, MGR approves → active; refusals', async () => {
+    const save = (who: string, guestId: string) =>
+      Client.of(fa, t, who)
+        .send('POST', `${P(t)}/quotes`, { ...short(), guestId })
+        .then((r) => r.json());
+    const mgrQuote = await save('fd', guestFd);
+    const salQuote2 = await save('sal', guestSal);
+    const ext = (who: string, id: string, version: number, body: unknown = {}) =>
+      Client.of(fa, t, who).send('POST', `${P(t)}/quotes/${id}/actions/extend`, body, {
+        'if-match': `"${version}"`,
+      });
+    // Still active → 409 + currentState.
+    const early = await ext('mgr', mgrQuote.id, mgrQuote.version);
+    expect(early.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'active' });
+    await at('2026-10-20T03:00:00.000Z'); // 10:00 20/10 – both expired (lazy)
+    try {
+      const ok = await ext('mgr', mgrQuote.id, mgrQuote.version);
+      expect(ok.statusCode, ok.body).toBe(200);
+      expect(ok.json()).toMatchObject({
+        status: 'active',
+        expiresAt: '2026-10-24T00:00:00.000+07:00',
+      });
+      expect(ok.json().totalVnd).toBe(mgrQuote.totalVnd); // BR-006 snapshot kept
+      expect((await ext('fd', mgrQuote.id, ok.json().version)).statusCode).toBe(403);
+      expect((await ext('sal', salQuote2.id, salQuote2.version)).json().errors).toEqual([
+        { field: 'reason', code: 'REASON_REQUIRED' },
+      ]);
+      const req = await ext('sal', salQuote2.id, salQuote2.version, {
+        reason: 'Khách xin thêm 2 ngày',
+      });
+      expect(req.statusCode, req.body).toBe(202);
+      expect(req.json()).toMatchObject({ type: 'quote_extension', status: 'pending' });
+      expect(
+        (await ext('sal2', salQuote2.id, salQuote2.version, { reason: 'abc' })).statusCode,
+      ).toBe(404);
+      await setPassword(db, t, 'mgr');
+      const approve = await Client.of(fa, t, 'mgr').send(
+        'POST',
+        `${P(t)}/approval-requests/${req.json().id}/actions/approve`,
+        { authMethod: 'password', secret: TEST_PASSWORD },
+      );
+      expect(approve.statusCode, approve.body).toBe(200);
+      const after = (await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${salQuote2.id}`)).json();
+      expect(after).toMatchObject({ status: 'active', expiresAt: '2026-10-24T00:00:00.000+07:00' });
+    } finally {
+      await back();
+    }
+  });
+
+  it('SEC-BE-21: dryRun on write endpoints that do not compute → 422, nothing saved', async () => {
+    const before = (await Client.of(fa, t, 'fd').get(`${P(t)}/quotes?limit=100`)).json().data
+      .length;
+    const res = await Client.of(fa, t, 'fd').send('POST', `${P(t)}/quotes`, {
+      ...short(),
+      guestId: guestFd,
+      dryRun: true,
+    });
+    expect(res.json().errors).toEqual([{ field: 'dryRun', code: 'NOT_ALLOWED' }]);
+    expect((await Client.of(fa, t, 'fd').get(`${P(t)}/quotes?limit=100`)).json().data.length).toBe(
+      before,
+    );
+    const lead = await Client.of(fa, t, 'sal').send('POST', `${P(t)}/leads`, {
+      guestId: guestSal,
+      dryRun: true,
+    });
+    expect(lead.statusCode).toBe(422);
+  });
+
+  it('SEC-BE-29: another sale cannot withdraw or hold my quote (404)', async () => {
+    const q = (
+      await Client.of(fa, t, 'sal').send('POST', `${P(t)}/quotes`, {
+        ...short(),
+        guestId: guestSal,
+      })
+    ).json();
+    expect(
+      (await Client.of(fa, t, 'sal2').send('POST', `${P(t)}/quotes/${q.id}/actions/withdraw`))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await Client.of(fa, t, 'sal2').send('POST', `${P(t)}/quotes/${q.id}/actions/create-hold`, {
+          holdHours: 24,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
+  it('listCloserCandidates (A-06, SEC-BE-26): active users with a live role, kind agent/staff, no PII', async () => {
+    await db.withContext(t.ctx(), async (tx) => {
+      await tx.query(`UPDATE app_user SET status = 'disabled' WHERE id = $1`, [t.users.sal2!.id]);
+    });
+    try {
+      const all = (await Client.of(fa, t, 'fd').get(`${P(t)}/closer-candidates`)).json().data;
+      const byId = new Map(all.map((c: { userId: string; kind: string }) => [c.userId, c]));
+      expect(byId.get(t.users.ctv!.id)).toMatchObject({ kind: 'agent', displayName: 'ctv' });
+      expect(byId.get(t.users.sal!.id)).toMatchObject({ kind: 'staff' });
+      expect(byId.has(t.users.sal2!.id)).toBe(false); // disabled
+      expect(byId.has(t.users.hk!.id)).toBe(false); // no closer role
+      expect(Object.keys(all[0]).sort()).toEqual(['displayName', 'kind', 'userId']);
+      const agents = (
+        await Client.of(fa, t, 'fd').get(`${P(t)}/closer-candidates?kind=agent`)
+      ).json().data;
+      expect(agents.map((c: { userId: string }) => c.userId)).toEqual([t.users.ctv!.id]);
+      expect((await Client.of(fa, t, 'sal').get(`${P(t)}/closer-candidates`)).statusCode).toBe(403);
+      expect(
+        (await Client.of(fa, t, 'fd').get(`${P(t)}/closer-candidates?kind=x`)).statusCode,
+      ).toBe(422);
+    } finally {
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query(`UPDATE app_user SET status = 'active' WHERE id = $1`, [t.users.sal2!.id]),
+      );
+    }
   });
 
   // ───────────── leads ─────────────

@@ -24,6 +24,8 @@ import {
   freeWindow,
   getReservation,
   isRoomFree,
+  minStayFor,
+  withDeposit,
   newGuest,
   nextWeekday,
   oracle,
@@ -102,9 +104,54 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     track('reservation', ok.body.id);
   });
 
+  test('TC-L2-012 (b) đơn Booking.com bỏ trống giá → giá mặc định theo lịch giá OTA (870.000 T6/T7, 760.000 CN)', async ({
+    request,
+  }) => {
+    test.info().annotations.push({
+      type: 'bug',
+      description:
+        'BUG-R2-017: server bắt buộc nightlyRates cho OTA (422 REQUIRED) – EP02 3.2/OpenAPI: bỏ trống = giá mặc định theo kênh',
+    });
+    // Lỗi đã ghi ở bug-list: ca được đánh dấu 'phải trượt' để các project phụ thuộc (limits, clock…) vẫn chạy trên CI.
+    // Khi BE sửa, Playwright báo 'expected to fail but passed' → QA bỏ dòng này và đóng BUG-R2-017.
+    test.fail(true, 'BUG-R2-017 (Open) – xem rounds/round-02/qa/bug-list.md');
+    await requireEndpoints(request, 'TC-L2-012', [EP.createReservation, EP.getReservation]);
+    const fd = await sessionOrSkip(request, 'qa.fd');
+    const c = await s2Context(request);
+    const today = await stackToday(request);
+    const rm = room(c, '203');
+    const w = await freeWindow(request, fd, rm, 3, { today, dow: 5 }); // T6 → CN
+    const otaBase = Number(oracle('BR-105-01').input.otaBaseRateVnd); // 760.000 nhóm Lầu 1–2
+    const r = await createReservation(
+      request,
+      fd,
+      reservationBody(c, {
+        room: rm,
+        ...w,
+        kind: 'booking',
+        guestId: await newGuest(request, fd),
+        extra: { nightlyRates: undefined },
+      }),
+    );
+    expect(r.status, JSON.stringify(r.body)).toBe(201);
+    track('reservation', r.body.id);
+    const got = await getReservation(request, fd, r.body.id);
+    const nightly = (got.body.nightlyRates as Array<{ amountVnd: number }> | undefined) ?? [];
+    // OTA làm tròn 10.000 (BR-005): 760.000 × 1,15 = 874.000 → 870.000
+    expect(nightly.map((n) => n.amountVnd)).toEqual([870000, 870000, otaBase]);
+  });
+
   test('TC-L2-013 giá đêm ngoài sàn–trần nhóm Lầu 1–2 (BR-105) → RATE_OUT_OF_RANGE', async ({
     request,
   }) => {
+    test.info().annotations.push({
+      type: 'bug',
+      description:
+        'BUG-R2-018: sàn–trần BR-105 server tính theo giá niêm yết từng căn (203: 554.000–1.980.000) thay vì giá nền nhóm (530.000–1.900.000)',
+    });
+    // Lỗi đã ghi ở bug-list: ca được đánh dấu 'phải trượt' để các project phụ thuộc (limits, clock…) vẫn chạy trên CI.
+    // Khi BE sửa, Playwright báo 'expected to fail but passed' → QA bỏ dòng này và đóng BUG-R2-018.
+    test.fail(true, 'BUG-R2-018 (Open) – xem rounds/round-02/qa/bug-list.md');
     await requireEndpoints(request, 'TC-L2-013', [EP.createReservation]);
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);
@@ -134,7 +181,10 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
       const r = await createReservation(request, fd, body(v));
       expect(r.status, `${v}: ${JSON.stringify(r.body)}`).toBe(201);
       track('reservation', r.body.id);
-      const cancel = await action(request, fd, r.body.id, 'cancel', { reasonCode: 'other' });
+      const cancel = await action(request, fd, r.body.id, 'cancel', {
+        reasonCode: 'other',
+        note: 'E2E dọn dữ liệu',
+      });
       expect(cancel.status, statusOf(cancel)).toBe(200);
     }
   });
@@ -150,12 +200,18 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
       (Date.parse(String(o.expected.lastBookableArrivalDate)) - Date.parse(String(o.input.today))) /
       864e5;
     const last = addDays(today, span);
+    const lastNights = minStayFor(last); // ngày cuối rơi T6/T7 → ở tối thiểu 2 đêm (BR-113)
     const guestId = await newGuest(request, fd);
-    const rm = await freeRoom(request, fd, c.rooms, last, addDays(last, 1));
+    const rm = await freeRoom(request, fd, c.rooms, last, addDays(last, lastNights));
     const ok = await createReservation(
       request,
       fd,
-      reservationBody(c, { room: rm, arrival: last, departure: addDays(last, 1), guestId }),
+      reservationBody(c, {
+        room: rm,
+        arrival: last,
+        departure: addDays(last, lastNights),
+        guestId,
+      }),
     );
     expect(ok.status, `ngày đến ${last}: ${JSON.stringify(ok.body)}`).toBe(201);
     track('reservation', ok.body.id);
@@ -164,7 +220,7 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     const r1 = await createReservation(
       request,
       fd,
-      reservationBody(c, { room: rm, arrival: beyond, departure: addDays(beyond, 1), guestId }),
+      reservationBody(c, { room: rm, arrival: beyond, departure: addDays(beyond, 2), guestId }),
     );
     expectProblem(r1, 422, 'OUTSIDE_BOOKING_WINDOW');
 
@@ -277,7 +333,8 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     const guestId = await newGuest(request, fd);
     const w = await freeWindow(request, fd, rm, 2, { today });
     const key = uuid();
-    const body = reservationBody(c, { room: rm, ...w, guestId });
+    // cùng body cho cả 3 lần gửi → kèm sẵn cọc BR-305 (EP02 3.2 initialPayment)
+    const body = await withDeposit(request, fd, reservationBody(c, { room: rm, ...w, guestId }));
     const first = await createReservation(request, fd, body, key);
     expect(first.status, JSON.stringify(first.body)).toBe(201);
     track('reservation', first.body.id);
@@ -432,11 +489,11 @@ test.describe(
         fd,
         res.id,
         'cancel',
-        { reasonCode: 'guest_cancelled', note: 'E2E TC-L2-052' },
+        { reasonCode: 'guest_changed_mind', note: 'E2E TC-L2-052' },
       );
       expect(r.status, JSON.stringify(r.body)).toBe(200);
       expect(r.body.reservation.status).toBe('cancelled');
-      expect(r.body.reservation.cancellation?.reasonCode).toBe('guest_cancelled');
+      expect(r.body.reservation.cancellation?.reasonCode).toBe('guest_changed_mind');
       const rack = await call<{
         rooms: Array<{ roomId: string; bars: Array<{ reservationId?: string }> }>;
       }>(request, 'GET', `/v1/properties/${propertyIdOf(fd)}/rack`, {
@@ -481,25 +538,35 @@ test.describe(
         const l12 = c.rooms.filter((x) =>
           ['101', '102', '103', '201', '202', '203'].includes(x.roomNo),
         );
-        const rm = await freeRoom(request, fd, l12, arrival, departure);
         const guestId = await newGuest(request, fd);
-        const created = await createReservation(
-          request,
-          fd,
-          reservationBody(c, {
-            room: rm,
-            arrival,
-            departure,
-            guestId,
-            extra: {
-              nightlyRates: [0, 1, 2].map((i) => ({
-                date: addDays(arrival, i),
-                amountVnd: 820000,
-              })),
-              initialPayment: { type: 'deposit', method: 'bank_transfer', amountVnd: deposit },
-            },
-          }),
+        // đêm gần hôm nay: các project song song cũng đặt → thử lần lượt các căn Lầu 1–2 khi gặp 409
+        let created: Awaited<ReturnType<typeof createReservation>> | null = null;
+        for (const rm of l12) {
+          if ((await isRoomFree(request, fd, rm, arrival, departure)) === false) continue;
+          created = await createReservation(
+            request,
+            fd,
+            reservationBody(c, {
+              room: rm,
+              arrival,
+              departure,
+              guestId,
+              extra: {
+                nightlyRates: [0, 1, 2].map((i) => ({
+                  date: addDays(arrival, i),
+                  amountVnd: 820000,
+                })),
+                initialPayment: { type: 'deposit', method: 'bank_transfer', amountVnd: deposit },
+              },
+            }),
+          );
+          if (created.status !== 409) break;
+        }
+        test.skip(
+          !created || created.status === 409,
+          `môi trường: Lầu 1–2 kín ${arrival}→${departure}`,
         );
+        created = created!;
         expect(created.status, JSON.stringify(created.body)).toBe(201);
         track('reservation', created.body.id);
         expect(created.body.depositRequiredVnd).toBe(deposit);
@@ -508,7 +575,7 @@ test.describe(
           request,
           'POST',
           `/v1/properties/${propertyIdOf(fd)}/reservations/${created.body.id}/actions/cancel`,
-          { session: fd, body: { reasonCode: 'guest_cancelled', dryRun: true } },
+          { session: fd, body: { reasonCode: 'guest_changed_mind', dryRun: true } },
         );
         expect(dry.status, JSON.stringify(dry.body)).toBe(200);
         expect(dry.body.cancellation.refundableVnd).toBe(o.expected.refundVnd);

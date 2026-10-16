@@ -42,7 +42,8 @@ interface Form {
   note: string;
 }
 
-const DRAFT_KEY = 'booking.longStay';
+/** Draft key scoped to the signed-in user (FB-R2-SEC-FE-05). */
+const draftKey = (userId: string | undefined) => `booking.longStay.${userId ?? 'anon'}`;
 
 /**
  * H10 Đơn dài hạn nhập tay (US-017 AC5a – temporary R2). The booking only occupies the room on the
@@ -62,7 +63,8 @@ export function LongStayDialog({
 }) {
   const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, me } = useSession();
+  const DRAFT_KEY = draftKey(me?.id);
   const rules = useRules(propertyId, roles);
   const catalog = useCatalog(propertyId);
   const toast = useToast();
@@ -294,7 +296,7 @@ export function LongStayDialog({
           </Field>
         </div>
         {belowThreshold ? (
-          <Button size="sm" onClick={onShortStay} style={{ marginBottom: 12 }}>
+          <Button size="sm" className="mb-12" onClick={onShortStay}>
             {t('lsm.to_short')}
           </Button>
         ) : null}

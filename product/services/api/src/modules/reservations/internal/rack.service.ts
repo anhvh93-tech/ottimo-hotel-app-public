@@ -47,6 +47,11 @@ interface SegRow {
   from_date: string;
   to_date: string;
   reservation_id: string;
+  code: string;
+  hold_expires_at: Date | null;
+  capacity_conflict_at: Date | null;
+  req_group_id: string | null;
+  req_group_code: string | null;
   status: ReservationStatus;
   stay_type: 'short' | 'long';
   external_contract: boolean;
@@ -81,6 +86,13 @@ function barKind(s: SegRow): BarKind {
   if (s.status === 'checked_out') return 'checked_out';
   if (s.stay_type === 'long') return 'long_stay';
   return s.status === 'in_house' ? 'in_house' : 'confirmed';
+}
+
+/** Append to a list in a map (no array copy per row – FB-R2-ARC-BE-S2-11). */
+function push<V>(m: Map<string, V[]>, key: string, v: V): void {
+  const list = m.get(key);
+  if (list) list.push(v);
+  else m.set(key, [v]);
 }
 
 /** Merge overlapping/adjacent half-open ranges (SAL/CTV see only "sold out"). */
@@ -129,7 +141,8 @@ export class RackService {
         ),
       () =>
         tx.query<SegRow>(
-          `SELECT s.room_id, s.from_date::text AS from_date, s.to_date::text AS to_date, r.id AS reservation_id,
+          `SELECT s.room_id, s.from_date::text AS from_date, s.to_date::text AS to_date, r.id AS reservation_id, r.code, r.hold_expires_at, r.capacity_conflict_at,
+                rq.group_id AS req_group_id, rq.group_code AS req_group_code,
                 r.status, r.stay_type, r.external_contract, r.conflict_state, r.arrival_date::text AS arrival_date,
                 r.adults, r.children_6_11, rm.base_occupancy, c.code AS channel_code, g.full_name AS guest_name
            FROM reservation_segment s
@@ -137,6 +150,13 @@ export class RackService {
            JOIN channel c ON c.id = r.channel_id
            LEFT JOIN room rm ON rm.id = s.room_id
            LEFT JOIN guest g ON g.id = r.booker_guest_id
+           LEFT JOIN LATERAL (
+             SELECT rg.id AS group_id, rg.code AS group_code
+               FROM overbooking_incident i
+               JOIN room rr ON rr.id = i.requested_room_id
+               JOIN room_group rg ON rg.id = rr.room_group_id
+              WHERE i.reservation_id = r.id AND s.room_id IS NULL
+              ORDER BY i.detected_at DESC LIMIT 1) rq ON true
           WHERE s.active AND s.from_date < $2 AND s.to_date > $1
             AND r.status IN ('hold', 'confirmed', 'in_house', 'checked_out')
           ORDER BY s.from_date`,
@@ -177,6 +197,15 @@ export class RackService {
       };
       if (view === 'full') {
         bar.reservationId = s.reservation_id;
+        bar.reservationCode = s.code; // 0.3.5 A-01
+        if (s.capacity_conflict_at) bar.capacityConflict = true; // 0.3.5 A-24
+        if (s.req_group_id) {
+          // 0.3.5 A-25: group the OTA guest booked, for the unassigned lane.
+          bar.requestedRoomGroupId = s.req_group_id;
+          bar.requestedRoomGroupCode = s.req_group_code;
+        }
+        if (s.status === 'hold' && s.hold_expires_at)
+          bar.holdExpiresAt = ctx.iso(s.hold_expires_at);
         if (s.guest_name) bar.guestDisplayName = s.guest_name;
         bar.channelCode = s.channel_code;
       }
@@ -187,15 +216,15 @@ export class RackService {
       if (s.status === 'in_house' && s.from_date <= ctx.today && s.to_date > ctx.today)
         inHouseToday.add(s.room_id);
       if (s.status !== 'checked_out') {
-        busy.set(s.room_id, [...(busy.get(s.room_id) ?? []), { from: s.from_date, to: s.to_date }]);
+        push(busy, s.room_id, { from: s.from_date, to: s.to_date });
       }
-      byRoom.set(s.room_id, [...(byRoom.get(s.room_id) ?? []), bar]);
+      push(byRoom, s.room_id, bar);
     }
     const oooToday = new Set<string>();
     for (const b of blocks.rows) {
       if (b.status === 'active' && b.start_date <= ctx.today && b.end_date > ctx.today)
         oooToday.add(b.room_id);
-      busy.set(b.room_id, [...(busy.get(b.room_id) ?? []), { from: b.start_date, to: b.end_date }]);
+      push(busy, b.room_id, { from: b.start_date, to: b.end_date });
       const bar: Record<string, unknown> = {
         kind: 'ooo',
         from: b.start_date,
@@ -203,7 +232,7 @@ export class RackService {
         label: LABEL.ooo,
         roomBlockId: b.id,
       };
-      byRoom.set(b.room_id, [...(byRoom.get(b.room_id) ?? []), bar]);
+      push(byRoom, b.room_id, bar);
     }
 
     return {
@@ -241,8 +270,26 @@ export class RackService {
       fromDate: LocalDate;
       toDate: LocalDate;
       persons: number;
+      /** 0.3.5 A-05: the booking being (re)assigned – its own nights are not busy; its room group is the
+       * reference for `upgrade`. */
+      reservationId?: string | undefined;
     },
   ): Promise<AvailabilityAnswer & { requestedRoom?: Record<string, unknown> }> {
+    let exclude: string[] = [];
+    let refGroupId = q.roomGroupId;
+    if (q.reservationId) {
+      const r = await tx.query<{ seg: string; group_id: string | null }>(
+        `SELECT s.id AS seg, COALESCE(rm.room_group_id, rr.room_group_id) AS group_id
+           FROM reservation_segment s
+           LEFT JOIN room rm ON rm.id = s.room_id
+           LEFT JOIN overbooking_incident i ON i.reservation_id = s.reservation_id
+           LEFT JOIN room rr ON rr.id = i.requested_room_id
+          WHERE s.reservation_id = $1 AND s.active`,
+        [q.reservationId],
+      );
+      exclude = r.rows.map((x) => x.seg);
+      refGroupId ??= r.rows.find((x) => x.group_id)?.group_id ?? undefined;
+    }
     if (q.fromDate < today) {
       return {
         available: false,
@@ -272,7 +319,7 @@ export class RackService {
       const rm = rows[0];
       if (!rm)
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
-      const conflicts = await this.occupancy.conflicts(tx, q.roomId, q.fromDate, q.toDate);
+      const conflicts = await this.occupancy.conflicts(tx, q.roomId, q.fromDate, q.toDate, exclude);
       const activeRange =
         rm.active_from <= q.fromDate && (rm.active_to === null || rm.active_to >= q.toDate);
       if (!rm.is_sellable || !activeRange) reason = 'not_sellable';
@@ -296,15 +343,18 @@ export class RackService {
         roomId: q.roomId,
         roomNo: rm.room_no,
         available,
+        orphanNight: orphanGap,
         ...(reason ? { reason } : {}),
       };
     }
     const alternatives = await this.occupancy.suggest(tx, {
       roomId: q.roomId ?? null,
-      roomGroupId: q.roomGroupId ?? null,
+      roomGroupId: refGroupId ?? null,
       from: q.fromDate,
       to: q.toDate,
       persons: q.persons,
+      excludeSegmentIds: exclude,
+      withOrphanFlag: true,
     });
     if (!q.roomId) available = alternatives.length > 0;
     return {

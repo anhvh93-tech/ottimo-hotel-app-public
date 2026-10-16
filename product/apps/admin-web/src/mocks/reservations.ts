@@ -15,6 +15,7 @@ import type {
   ReservationCreate,
   ReservationStatus,
   Role,
+  Parameter,
   Room,
   RoomGroup,
 } from '@ottimo/api-client';
@@ -30,7 +31,13 @@ interface Ctx {
     opts?: { ifMatch?: number },
   ) => Guard;
   problem: (status: number, code: string, extra?: Record<string, unknown>) => Response;
-  db: () => { users: MockUser[]; rooms: Room[]; guests: MockGuest[]; groups: RoomGroup[] };
+  db: () => {
+    users: MockUser[];
+    rooms: Room[];
+    guests: MockGuest[];
+    groups: RoomGroup[];
+    params: Parameter[];
+  };
   summary: (g: MockGuest, roles: Role[]) => Record<string, unknown>;
 }
 
@@ -44,6 +51,16 @@ const has = (roles: Role[], set: Role[]) => roles.some((r) => set.includes(r));
 const uid = (n: number) => `0192a1b0-0000-7000-8000-${String(n).padStart(12, '0')}`;
 const USER = { fd: uid(4), sal: uid(7), ctv: uid(8) };
 export const LONG_STAY_FROM_NIGHTS = 28;
+/** DOM D-5 (s2-DOM) reason codes for move/postpone – `other` needs a note. */
+export const MOVE_REASONS = [
+  'guest_request',
+  'property_fault',
+  'overbooking',
+  'upgrade',
+  'inventory_optimize',
+  'force_majeure',
+  'other',
+] as const;
 
 export function addDays(date: string, n: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -228,6 +245,8 @@ function makeState(rooms: Room[], channels: Channel[]) {
     res('402', 'Kim Seo-yeon', -1, 3, 'in_house', 'airbnb'),
     res('402', 'Trần Quốc Bảo', 5, 8, 'confirmed', 'direct', { depositPaidVnd: 900_000 }),
     res(null, 'Hannah Schmidt', 6, 8, 'confirmed', 'agoda', {
+      // 0.3.5 A-25: group the channel mapped the booking to (Agoda → Lầu 1–2).
+      requestedRoomGroupId: room('203').roomGroupId,
       conflictState: 'open',
       otaRef: '1182736455',
     }),
@@ -285,7 +304,13 @@ function strip<T extends object, K extends keyof T>(o: T, keys: K[]): Omit<T, K>
   for (const k of keys) delete out[k];
   return out;
 }
-const publicQuote = (q: MockQuote): Quote => strip(q, ['createdBy', 'input']);
+/** Quotes past `expiresAt` read as `expired` (job J-x in the real API). */
+const quoteStatus = (q: MockQuote): Quote['status'] =>
+  q.status === 'active' && Date.parse(q.expiresAt) < Date.now() ? 'expired' : q.status;
+const publicQuote = (q: MockQuote): Quote => ({
+  ...strip(q, ['createdBy', 'input']),
+  status: quoteStatus(q),
+});
 
 export function createReservationMock(ctx: Ctx) {
   const { guard, problem } = ctx;
@@ -328,6 +353,17 @@ export function createReservationMock(ctx: Ctx) {
     const block = state.blocks.find((b) => b.roomId === roomId && overlaps(from, to, b.from, b.to));
     return { conflicts, block };
   }
+  /** BR-113 (a): the free gap [from, to) is boxed in by bookings/blocks on both sides. */
+  function isOrphanNight(roomId: string, from: string, to: string) {
+    const c = clash(roomId, from, to);
+    if (c.conflicts.length || c.block) return false;
+    const before = clash(roomId, addDays(from, -1), from);
+    const after = clash(roomId, to, addDays(to, 1));
+    return (
+      (before.conflicts.length > 0 || !!before.block) &&
+      (after.conflicts.length > 0 || !!after.block)
+    );
+  }
   function suggestions(roomId: string | null, from: string, to: string, occ: number) {
     const wanted = roomById(roomId);
     const free = rooms().filter(
@@ -353,7 +389,7 @@ export function createReservationMock(ctx: Ctx) {
         {
           roomNo: roomById(roomId)?.roomNo,
           nights: Array.from({ length: nightsBetween(b.from, b.to) }, (_, i) => addDays(b.from, i)),
-          kind: 'block',
+          kind: 'ooo',
         },
       ],
     });
@@ -390,7 +426,12 @@ export function createReservationMock(ctx: Ctx) {
       const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
       const weekend = dow === 5 || dow === 6;
       const v = Math.round((weekend ? base * 1.15 : base) / 1000) * 1000;
-      return { date, amountVnd: Math.round((v * (100 - losPct)) / 100 / 1000) * 1000 };
+      // 0.3.5 A-22: `calendarRateVnd` = calendar price before the BR-107 length-of-stay step.
+      return {
+        date,
+        amountVnd: Math.round((v * (100 - losPct)) / 100 / 1000) * 1000,
+        calendarRateVnd: v,
+      };
     });
     return { rates, losPct };
   }
@@ -414,6 +455,7 @@ export function createReservationMock(ctx: Ctx) {
     const occ = body.adults + (body.children6to11 ?? 0);
     if (r && occ > (r.maxOccupancy ?? 9))
       return problem(422, 'CAPACITY_EXCEEDED', {
+        roomNo: r.roomNo,
         max: r.maxOccupancy,
         errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
       });
@@ -435,6 +477,12 @@ export function createReservationMock(ctx: Ctx) {
       nightlyRates: rates,
       losDiscountPct: losPct,
       totalVnd: total,
+      // 0.3.5 A-14: split amounts so the client never derives the fee by subtraction.
+      roomTotalVnd: roomTotal,
+      extraPersonFeeVnd: fee,
+      extraGuestCount: Math.max(0, occ - (r?.baseOccupancy ?? 2)),
+      roomId: r!.id,
+      roomNo: r!.roomNo,
       depositVnd: deposit(roomTotal),
       availability: {
         available: !c.conflicts.length && !c.block,
@@ -492,7 +540,10 @@ export function createReservationMock(ctx: Ctx) {
         if (has(roles, OWN_MGR)) add('postpone', 'B8', 'move');
         if (fd || (roles.includes('sales_staff') && own && r.channelCode === 'direct'))
           add('cancel', 'B10', 'cancel');
-        if (fd && r.arrivalDate === today()) add('mark_no_show', 'B11', 'mark-no-show');
+        // A-04: the server decides the time (no_show_mark_time); the UI never uses the client clock.
+        const from = noShowFrom(r);
+        if (fd && from && Date.now() >= Date.parse(from))
+          add('mark_no_show', 'B11', 'mark-no-show');
       }
     } else if (r.status === 'no_show' && fd) {
       add('restore_no_show', 'B12', 'restore-no-show', {
@@ -501,8 +552,18 @@ export function createReservationMock(ctx: Ctx) {
     }
     return out;
   }
+  function param<T>(key: string, d: T): T {
+    const v = ctx.db().params.find((p) => p.key === key)?.value;
+    return v === undefined ? d : (v as T);
+  }
+  /** 0.3.5 `Reservation.noShowAvailableFrom`: arrival day at `no_show_mark_time` (confirmed, arriving today). */
+  function noShowFrom(r: MockReservation): string | null {
+    if (r.status !== 'confirmed' || r.conflictState === 'open' || r.arrivalDate !== today())
+      return null;
+    return `${r.arrivalDate}T${param('no_show_mark_time', '23:00')}:00+07:00`;
+  }
   function view(r: MockReservation, user: MockUser, roles: Role[]): Reservation {
-    const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'depositPaidVnd', 'holdCreatedAt']);
+    const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'holdCreatedAt']);
     const out: Reservation = {
       ...rest,
       progress:
@@ -516,6 +577,10 @@ export function createReservationMock(ctx: Ctx) {
               { step: 'checked_out', done: r.status === 'checked_out' },
             ],
       allowedActions: actionsFor(r, user, roles),
+      noShowAvailableFrom: noShowFrom(r),
+      requestedRoomGroupCode: r.requestedRoomGroupId
+        ? groupCode(r.requestedRoomGroupId)
+        : undefined,
     };
     if (roles.includes('collaborator') && !has(roles, FD_PLUS)) {
       delete out.nightlyRates;
@@ -535,14 +600,10 @@ export function createReservationMock(ctx: Ctx) {
   function invalid(r: MockReservation, allowed: string[]) {
     return allowed.includes(r.status)
       ? null
-      : problem(409, 'INVALID_TRANSITION', { currentStatus: r.status });
+      : problem(409, 'INVALID_TRANSITION', { currentState: r.status });
   }
 
-  function rackBar(
-    r: MockReservation,
-    user: MockUser,
-    roles: Role[],
-  ): RackBar & Record<string, unknown> {
+  function rackBar(r: MockReservation, user: MockUser, roles: Role[]): RackBar {
     const kind: RackBar['kind'] =
       r.stayType === 'long' && ['confirmed', 'in_house'].includes(r.status)
         ? 'long_stay'
@@ -557,25 +618,24 @@ export function createReservationMock(ctx: Ctx) {
         channelCode: r.channelCode,
         conflictState: r.conflictState,
         arrivingToday: r.arrivalDate === today(),
-        // Proposed RackBar fields (FE → ARC, H08 note): manual long stay + sofa icon + hold countdown.
+        // 0.3.5 A-01 (FD+): manual long stay badge, sofa icon, hold countdown, booking code.
         externalContract: r.externalContract,
         extraGuestCount: r.extraGuestCount ?? 0,
         holdExpiresAt: r.hold?.expiresAt,
         reservationCode: r.code,
+        // 0.3.5 A-24 / A-25 (FD+).
+        ...(r.capacityConflict ? { capacityConflict: true } : {}),
+        ...(r.conflictState === 'open' && r.requestedRoomGroupId
+          ? {
+              requestedRoomGroupId: r.requestedRoomGroupId,
+              requestedRoomGroupCode: groupCode(r.requestedRoomGroupId),
+            }
+          : {}),
       };
-    if (has(roles, SALES)) {
-      const own = r.createdBy === user.id || r.closerUserId === user.id;
-      return own
-        ? {
-            kind,
-            from: r.arrivalDate,
-            to: r.departureDate,
-            reservationId: r.id,
-            guestDisplayName: r.guestName,
-            holdExpiresAt: r.hold?.expiresAt,
-          }
-        : { kind: 'unavailable', from: r.arrivalDate, to: r.departureDate };
-    }
+    // SAL/CTV (availability_only, 0.3.5 A-01): nothing identifies a booking, not even their own –
+    // H12 overlays its own bookings from `listReservations` (x-scope own).
+    if (has(roles, SALES)) return { kind: 'unavailable', from: r.arrivalDate, to: r.departureDate };
+    void user;
     // housekeeping / maintenance: all_masked
     return {
       kind,
@@ -654,6 +714,7 @@ export function createReservationMock(ctx: Ctx) {
       balanceDueVnd: total + (typeof fee === 'number' ? fee : fee.fee) - paid,
       nightlyRates: body.manualLongStay ? undefined : rates,
       conflictState: unassigned ? 'open' : 'none',
+      requestedRoomGroupId: unassigned ? r?.roomGroupId : undefined,
       internalNote: body.internalNote,
       allowedActions: [],
       version: 1,
@@ -752,19 +813,26 @@ export function createReservationMock(ctx: Ctx) {
                   : undefined;
         requestedRoom = { roomId, roomNo: r?.roomNo, available: !reason, reason };
       }
+      // 0.3.5 A-05: `upgrade` relative to the booking (reservationId) or the requested room;
+      // same group first, then by group order (BR-316).
+      const rsvId = q.get('reservationId');
+      const rsv = rsvId ? state.reservations.find((x) => x.id === rsvId) : undefined;
+      const wantedGroup = rsv?.requestedRoomGroupId ?? roomById(rsv?.roomId ?? roomId)?.roomGroupId;
       const alternatives = rooms()
         .filter((r) => r.id !== roomId && r.isSellable !== false && (r.maxOccupancy ?? 9) >= adults)
         .filter((r) => {
-          const c = clash(r.id, arrival, departure);
+          const c = clash(r.id, arrival, departure, rsvId ?? undefined);
           return !c.conflicts.length && !c.block;
         })
-        .slice(0, roomId ? 6 : 10)
         .map((r) => ({
           roomId: r.id,
           roomNo: r.roomNo,
           roomGroupCode: groupCode(r.roomGroupId),
           available: true,
-        }));
+          upgrade: !!wantedGroup && r.roomGroupId !== wantedGroup,
+        }))
+        .sort((a, b) => Number(a.upgrade) - Number(b.upgrade))
+        .slice(0, roomId || rsvId ? 6 : 10);
       return json({ arrival, departure, requestedRoom, alternatives });
     }),
 
@@ -873,16 +941,51 @@ export function createReservationMock(ctx: Ctx) {
         if (
           (dow === 5 || dow === 6) &&
           nights < 2 &&
-          !(body.minStayOverrideReason && has(g.roles, LEAD_PLUS))
+          !(body.minStayOverrideReason && has(g.roles, LEAD_PLUS)) &&
+          !(r && isOrphanNight(r.id, body.arrivalDate, body.departureDate))
         )
           errors.push({ field: 'departureDate', code: 'MIN_STAY_NOT_MET' });
       }
-      if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors, min: 2 });
+      if (errors.length) {
+        // 0.3.5 A-05: MIN_STAY_NOT_MET carries `minStayNights` + orphan-night rooms to pick instead.
+        const minStay = errors.some((e) => e.code === 'MIN_STAY_NOT_MET');
+        return problem(422, 'VALIDATION_FAILED', {
+          errors,
+          ...(minStay
+            ? {
+                minStayNights: 2,
+                suggestions: rooms()
+                  .filter(
+                    (x) =>
+                      x.id !== r?.id &&
+                      x.isSellable !== false &&
+                      isOrphanNight(x.id, body.arrivalDate, body.departureDate),
+                  )
+                  .map((x) => ({
+                    roomId: x.id,
+                    roomNo: x.roomNo,
+                    roomGroupCode: groupCode(x.roomGroupId),
+                    upgrade: !!r && x.roomGroupId !== r.roomGroupId,
+                    orphanNight: true,
+                  })),
+              }
+            : {}),
+        });
+      }
       const occ = body.adults + (body.children6to11 ?? 0);
       if (r && occ > (r.maxOccupancy ?? 9) && ch?.channelGroup !== 'ota')
         return problem(422, 'CAPACITY_EXCEEDED', {
+          roomNo: r.roomNo,
           max: r.maxOccupancy,
           errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
+        });
+      // 0.3.5 A-20 (DOM D-1): OTA over capacity is a warning – saved with a reason + capacityConflict.
+      const capacityConflict = !!r && occ > (r.maxOccupancy ?? 9) && ch?.channelGroup === 'ota';
+      if (capacityConflict && !(body.capacityWarningAckReason ?? '').trim())
+        return problem(422, 'VALIDATION_FAILED', {
+          roomNo: r!.roomNo,
+          max: r!.maxOccupancy,
+          errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED_WARNING' }],
         });
       const guest = ctx.db().guests.find((x) => x.id === body.bookerGuestId);
       if (ch && ['direct', 'agent'].includes(ch.channelGroup) && !guest?.phone)
@@ -892,7 +995,7 @@ export function createReservationMock(ctx: Ctx) {
       const unassigned = body.allowUnassigned && ch?.channelGroup === 'ota';
       if (!unassigned) {
         if (!r) return validation([{ field: 'roomId', code: 'REQUIRED' }]);
-        if (r.isSellable === false) return problem(409, 'ROOM_NOT_SELLABLE');
+        if (r.isSellable === false) return problem(409, 'ROOM_NOT_SELLABLE', { roomNo: r.roomNo });
         const c = clash(r.id, body.arrivalDate, body.departureDate);
         if (c.block) return blockedProblem(r.id, c.block);
         if (c.conflicts.length)
@@ -910,9 +1013,15 @@ export function createReservationMock(ctx: Ctx) {
         ).reduce((s, x) => s + x.amountVnd, 0);
         const need = deposit(roomTotal);
         const paid = body.initialPayment?.amountVnd ?? 0;
-        if (paid < need) return problem(422, 'DEPOSIT_INSUFFICIENT', { required: need, paid });
+        if (paid < need)
+          return problem(422, 'DEPOSIT_INSUFFICIENT', {
+            depositRequiredVnd: need,
+            depositPaidVnd: paid,
+            shortfallVnd: need - paid,
+          });
       }
       const created = createRes(body, g.user);
+      if (capacityConflict) created.capacityConflict = true;
       state.reservations.push(created);
       return remember(key, 201, view(created, g.user, g.roles));
     }),
@@ -938,10 +1047,11 @@ export function createReservationMock(ctx: Ctx) {
         const bad = invalid(r, ['hold']);
         if (bad) return bad;
         if ((r.hold?.extendedCount ?? 0) > 0)
-          return problem(409, 'INVALID_TRANSITION', { currentStatus: r.status });
+          return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         const { extraHours } = (await request.json()) as { extraHours: number };
         const exp = new Date(r.hold?.expiresAt ?? Date.now());
-        if (exp.getTime() < Date.now()) return problem(409, 'HOLD_EXPIRED');
+        if (exp.getTime() < Date.now())
+          return problem(409, 'HOLD_EXPIRED', { expiredAt: exp.toISOString() });
         const cap = new Date(`${r.arrivalDate}T12:00:00+07:00`).getTime();
         r.hold = {
           ...r.hold,
@@ -977,11 +1087,11 @@ export function createReservationMock(ctx: Ctx) {
           return validation([{ field: 'payment.posAuthCode', code: 'CARD_NUMBER_DETECTED' }]);
         const need = r.depositRequiredVnd ?? 0;
         if (r.depositPaidVnd + amount < need) {
-          // AC2: the money is recorded, the booking stays on hold – then 422 tells how much is missing.
+          // 0.3.5 A-13: money recorded → 200, booking stays on hold, client shows the shortfall.
           r.depositPaidVnd += amount;
           r.balanceDueVnd = (r.totalRoomVnd ?? 0) - r.depositPaidVnd;
           r.version += 1;
-          return problem(422, 'DEPOSIT_INSUFFICIENT', { required: need, paid: r.depositPaidVnd });
+          return remember(key, 200, view(r, g.user, g.roles));
         }
         r.depositPaidVnd += amount;
         r.balanceDueVnd = (r.totalRoomVnd ?? 0) - r.depositPaidVnd;
@@ -1032,6 +1142,11 @@ export function createReservationMock(ctx: Ctx) {
       if (!body.reasonCode) return validation([{ field: 'reasonCode', code: 'REQUIRED' }]);
       if (body.reasonCode === 'other' && (body.note ?? '').trim().length < 3)
         return validation([{ field: 'note', code: 'REASON_REQUIRED' }]);
+      const isOta = channelById(r.channelId)?.channelGroup === 'ota';
+      if (body.otaPenaltyVnd !== undefined && !isOta)
+        return validation([{ field: 'otaPenaltyVnd', code: 'OTA_PENALTY_OTA_ONLY' }]);
+      if (body.reasonCode === 'ota_cancelled' && !isOta)
+        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
       // BR-309 (mock): ≥ 5 days before arrival → 50 % back; otherwise the deposit is kept.
       const daysBefore = nightsBetween(today(), r.arrivalDate);
       const refundable =
@@ -1074,11 +1189,27 @@ export function createReservationMock(ctx: Ctx) {
         reasonCode?: string;
         note?: string;
         mode?: string;
+        capacityWarningAckReason?: string;
       };
       if (body.mode === 'postpone_instead_of_cancel' && !has(g.roles, OWN_MGR))
         return problem(403, 'FORBIDDEN_ACTION');
+      // DOM D-5 reason list (B7/B8) – `upgrade` FDL+, `force_majeure` only when postponing (MGR+).
+      if (
+        body.reasonCode &&
+        !MOVE_REASONS.includes(body.reasonCode as (typeof MOVE_REASONS)[number])
+      )
+        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+      if (body.reasonCode === 'overbooking' && r.conflictState !== 'open' && !r.capacityConflict)
+        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+      if (body.reasonCode === 'upgrade' && !has(g.roles, LEAD_PLUS))
+        return problem(403, 'FORBIDDEN_ACTION');
+      if (body.reasonCode === 'force_majeure' && body.mode !== 'postpone_instead_of_cancel')
+        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
       if (!body.reasonCode) return validation([{ field: 'reasonCode', code: 'REQUIRED' }]);
-      if (body.reasonCode === 'other' && (body.note ?? '').trim().length < 3)
+      if (
+        ['other', 'force_majeure'].includes(body.reasonCode) &&
+        (body.note ?? '').trim().length < 3
+      )
         return validation([{ field: 'note', code: 'REASON_REQUIRED' }]);
       const isOta = channelById(r.channelId)?.channelGroup === 'ota';
       const datesChanged =
@@ -1091,9 +1222,20 @@ export function createReservationMock(ctx: Ctx) {
       if (from < today()) return validation([{ field: 'arrivalDate', code: 'DATE_IN_PAST' }]);
       if (to <= from) return validation([{ field: 'departureDate', code: 'DATE_ORDER' }]);
       const target = roomById(body.roomId ?? r.roomId)!;
-      if ((target.maxOccupancy ?? 9) < r.adults + (r.children6to11 ?? 0))
-        return problem(422, 'CAPACITY_EXCEEDED', { max: target.maxOccupancy });
-      if (target.isSellable === false) return problem(409, 'ROOM_NOT_SELLABLE');
+      const over = (target.maxOccupancy ?? 9) < r.adults + (r.children6to11 ?? 0);
+      if (over && !isOta)
+        return problem(422, 'CAPACITY_EXCEEDED', {
+          roomNo: target.roomNo,
+          max: target.maxOccupancy,
+        });
+      if (over && !(body.capacityWarningAckReason ?? '').trim())
+        return problem(422, 'VALIDATION_FAILED', {
+          roomNo: target.roomNo,
+          max: target.maxOccupancy,
+          errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
+        });
+      if (target.isSellable === false)
+        return problem(409, 'ROOM_NOT_SELLABLE', { roomNo: target.roomNo });
       const c = clash(target.id, from, to, r.id);
       if (c.block) return blockedProblem(target.id, c.block);
       if (c.conflicts.length)
@@ -1107,6 +1249,7 @@ export function createReservationMock(ctx: Ctx) {
         0,
         r.adults + (r.children6to11 ?? 0) - (target.baseOccupancy ?? 2),
       );
+      r.capacityConflict = over ? true : undefined;
       r.version += 1;
       return remember(key, 200, view(r, g.user, g.roles));
     }),
@@ -1123,7 +1266,7 @@ export function createReservationMock(ctx: Ctx) {
         const { key, replay } = idem(request, `assign:${r.id}`);
         if (replay) return replay;
         if (r.conflictState !== 'open')
-          return problem(409, 'INVALID_TRANSITION', { currentStatus: r.status });
+          return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         const body = (await request.json()) as { roomId: string; resolution: string };
         if (body.resolution === 'upgraded' && !has(g.roles, LEAD_PLUS))
           return problem(403, 'FORBIDDEN_ACTION');
@@ -1159,17 +1302,22 @@ export function createReservationMock(ctx: Ctx) {
         if (isResponse(pre)) return pre;
         const r = find(params, pre);
         if (!r) return problem(404, 'NOT_FOUND');
+        // 0.3.5 A-04 order: body → If-Match → state + server time.
+        const body = (await request.json()) as { contactAttemptNote?: string };
+        if ((body.contactAttemptNote ?? '').trim().length < 3)
+          return validation([{ field: 'contactAttemptNote', code: 'REASON_REQUIRED' }]);
         const g = guard(request, FD_PLUS, { ifMatch: r.version });
         if (isResponse(g)) return g;
         const { key, replay } = idem(request, `noshow:${r.id}`);
         if (replay) return replay;
         const bad = invalid(r, ['confirmed']);
         if (bad) return bad;
-        const body = (await request.json()) as { contactAttemptNote?: string };
-        if ((body.contactAttemptNote ?? '').trim().length < 3)
-          return validation([{ field: 'contactAttemptNote', code: 'REASON_REQUIRED' }]);
-        if (r.arrivalDate !== today())
-          return problem(409, 'INVALID_TRANSITION', { currentStatus: r.status });
+        const from = noShowFrom(r);
+        if (!from || Date.now() < Date.parse(from))
+          return problem(409, 'INVALID_TRANSITION', {
+            currentState: r.status,
+            availableFrom: from ?? undefined,
+          });
         r.status = 'no_show';
         r.version += 1;
         return remember(key, 200, view(r, g.user, g.roles));
@@ -1189,20 +1337,52 @@ export function createReservationMock(ctx: Ctx) {
         if (replay) return replay;
         const bad = invalid(r, ['no_show']);
         if (bad) return bad;
-        const body = (await request.json()) as { reason?: string };
+        const body = (await request.json()) as {
+          reason?: string;
+          roomId?: string;
+          allowUnassigned?: boolean;
+        };
         if ((body.reason ?? '').trim().length < 3)
           return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
-        const c = r.roomId
-          ? clash(r.roomId, r.arrivalDate, r.departureDate, r.id)
-          : { conflicts: [] };
-        if (c.conflicts.length) return unavailable(g.roles, c.conflicts, []);
-        if (!has(g.roles, OWN_MGR) && r.arrivalDate !== today())
+        const mgr = has(g.roles, OWN_MGR);
+        // 0.3.5 A-21: MGR+ may restore into another free room or into the unassigned lane.
+        if ((body.roomId || body.allowUnassigned) && !mgr) return problem(403, 'FORBIDDEN_ACTION');
+        const isOta = channelById(r.channelId)?.channelGroup === 'ota';
+        if (!mgr && (isOta || r.arrivalDate !== today()))
           return remember(key, 202, {
             id: uid(7000 + state.nextRes),
             type: 'no_show_restore',
             status: 'pending',
             targetCode: r.code,
           });
+        if (body.allowUnassigned) {
+          r.requestedRoomGroupId = roomById(r.roomId)?.roomGroupId;
+          r.roomId = null;
+          r.segments = [];
+          r.conflictState = 'open';
+        } else {
+          const target = body.roomId ? roomById(body.roomId) : roomById(r.roomId);
+          const c = target
+            ? clash(target.id, r.arrivalDate, r.departureDate, r.id)
+            : { conflicts: [] };
+          if (c.conflicts.length)
+            return unavailable(
+              g.roles,
+              c.conflicts,
+              mgr ? suggestions(target!.id, r.arrivalDate, r.departureDate, r.adults) : [],
+            );
+          if (target && target.id !== r.roomId) {
+            r.roomId = target.id;
+            r.segments = [
+              {
+                roomId: target.id,
+                roomNo: target.roomNo,
+                fromDate: r.arrivalDate,
+                toDate: r.departureDate,
+              },
+            ];
+          }
+        }
         r.status = 'confirmed';
         r.version += 1;
         return remember(key, 200, view(r, g.user, g.roles));
@@ -1286,8 +1466,8 @@ export function createReservationMock(ctx: Ctx) {
         return problem(404, 'NOT_FOUND');
       const { key, replay } = idem(request, `hold:${q.id}`);
       if (replay) return replay;
-      if (q.status !== 'active' || Date.parse(q.expiresAt) < Date.now())
-        return problem(409, 'QUOTE_EXPIRED');
+      if (quoteStatus(q) !== 'active')
+        return problem(409, 'QUOTE_EXPIRED', { expiredAt: q.expiresAt });
       if (q.arrivalDate === today()) return problem(422, 'HOLD_NOT_ALLOWED_TODAY');
       const guest = ctx.db().guests.find((x) => x.id === q.guestId);
       if (!guest?.phone) return problem(422, 'PHONE_REQUIRED');
@@ -1347,6 +1527,78 @@ export function createReservationMock(ctx: Ctx) {
           payeeUserId: g.user.id,
         });
       return remember(key, 201, view(created, g.user, g.roles));
+    }),
+
+    // ---------- 0.3.5 A-06 closer candidates (FD+) ----------
+    http.get(`${prop}/closer-candidates`, ({ request }) => {
+      const g = guard(request, FD_PLUS);
+      if (isResponse(g)) return g;
+      const kind = new URL(request.url).searchParams.get('kind') ?? 'all';
+      const data = ctx
+        .db()
+        .users.filter((u) => u.status === 'active')
+        .flatMap((u) => {
+          const roles = u.roles.map((x) => x.role);
+          const k = roles.includes('collaborator')
+            ? ('agent' as const)
+            : roles.includes('sales_staff')
+              ? ('staff' as const)
+              : null;
+          return k && (kind === 'all' || kind === k)
+            ? [{ userId: u.id, displayName: u.displayName, kind: k }]
+            : [];
+        });
+      return json({ data });
+    }),
+
+    // ---------- 0.3.5 A-07 booking rules (every booking role) ----------
+    http.get(`${prop}/booking-rules`, ({ request }) => {
+      const g = guard(request, [...FD_PLUS, ...SALES]);
+      if (isResponse(g)) return g;
+      return json({
+        businessDate: today(),
+        holdHoursOptions: param('hold_hours_options', [12, 24, 48]),
+        holdHoursDefault: param('hold_hours_default', 24),
+        holdLatestTimeOnArrival: param('hold_latest_time_on_arrival', '12:00'),
+        holdExtensionMaxHours: param('hold_extension_max_hours', 24),
+        quoteValidityDays: param('quote_validity_days', 3),
+        shortStayDepositPct: param('short_stay_deposit_pct', 30),
+        longStayCompareFromNights: param('long_stay_compare_from_nights', 15),
+        longStayRequiredFromNights: param('long_stay_required_from_nights', LONG_STAY_FROM_NIGHTS),
+        noShowCallTime: param('no_show_call_time', '18:00'),
+        noShowMarkTime: param('no_show_mark_time', '23:00'),
+        checkinTime: param('checkin_time', '14:00'),
+        checkoutTime: param('checkout_time', '12:00'),
+      });
+    }),
+
+    // ---------- 0.3.5 A-18 extend an expired quote (Q4) ----------
+    http.post(`${prop}/quotes/:quoteId/actions/extend`, async ({ request, params }) => {
+      const g = guard(request, [...FD_PLUS, ...SALES]);
+      if (isResponse(g)) return g;
+      const q = state.quotes.find((x) => x.id === params.quoteId);
+      if (!q || (!has(g.roles, FD_PLUS) && q.createdBy !== g.user.id))
+        return problem(404, 'NOT_FOUND');
+      const { key, replay } = idem(request, `extendQuote:${q.id}`);
+      if (replay) return replay;
+      const status = quoteStatus(q);
+      if (status !== 'expired') return problem(409, 'INVALID_TRANSITION', { currentState: status });
+      const body = (await request.json().catch(() => ({}))) as { reason?: string };
+      if (has(g.roles, OWN_MGR)) {
+        q.status = 'active';
+        q.expiresAt = new Date(`${addDays(today(), 3)}T23:59:59+07:00`).toISOString();
+        q.version += 1;
+        return remember(key, 200, publicQuote(q));
+      }
+      if (!has(g.roles, SALES)) return problem(403, 'FORBIDDEN_ACTION');
+      if ((body.reason ?? '').trim().length < 3)
+        return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+      return remember(key, 202, {
+        id: uid(7500 + state.nextQuote),
+        type: 'quote_extension',
+        status: 'pending',
+        targetCode: q.code,
+      });
     }),
 
     // ---------- commissions (US-087: only the caller's own for SAL/CTV) ----------

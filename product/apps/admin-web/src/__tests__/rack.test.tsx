@@ -4,7 +4,7 @@ import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { layoutRow, packLanes } from '../pages/rack/rackModel';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
 
 const grid = () => screen.findByRole('grid', { name: /Sơ đồ phòng/ });
 const cellNamed = (re: RegExp) =>
@@ -55,7 +55,11 @@ describe('H08 Sơ đồ phòng (US-016, US-019, US-139, US-017 AC5a)', () => {
     // Today column marked by the business date from the API (not computed by the client).
     expect(within(g).getByRole('columnheader', { name: /Hôm nay/ })).toBeInTheDocument();
     // US-139 AC1: red alert above the rack.
-    expect(screen.getByText('Đơn OTA chưa gán căn (1)')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        tv('rack.conflict_title', { channel: 'Agoda', code: 'OTM-0160', guest: 'Hannah Schmidt' }),
+      ),
+    ).toBeInTheDocument();
   });
 
   it('keyboard: roving focus with arrows, Enter on a bar opens the booking drawer (AC3)', async () => {

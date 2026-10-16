@@ -138,7 +138,8 @@ test.describe('L1 – phê duyệt (US-007, SM-10)', { tag: ['@api', '@sprint1']
     expect(mine.status).toBe(200);
     for (const a of rows(mine.body)) {
       const by = a.requestedBy ?? a.requestedByUserId ?? (a.requester as Row | undefined)?.id;
-      if (by !== undefined) expect(by).toBe(fd.me.id);
+      // ApprovalRequest.requestedBy là chuỗi hiển thị (OpenAPI: type string) – server trả tên người gửi
+      if (by !== undefined) expect([fd.me.id, fd.me.displayName]).toContain(by);
     }
     const r = await call(
       request,

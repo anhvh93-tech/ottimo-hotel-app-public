@@ -579,6 +579,18 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         },
         conflictState: { s: { k: 'ref', name: 'ConflictState' } },
         arrivingToday: { s: { k: 'scalar' } },
+        capacityConflict: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        requestedRoomGroupId: {
+          s: { k: 'ref', name: 'Uuid' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        requestedRoomGroupCode: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         reservationCode: {
           s: { k: 'scalar' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
@@ -641,9 +653,11 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         date: { s: { k: 'ref', name: 'LocalDate' } },
         amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        calendarRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
       },
       open: false,
     },
+    MoveReasonCode: { k: 'scalar' },
     ReservationSummary: {
       k: 'object',
       props: {
@@ -839,6 +853,18 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           s: { k: 'ref', name: 'MoneyVnd' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
         },
+        requestedRoomGroupId: {
+          s: { k: 'ref', name: 'Uuid' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        requestedRoomGroupCode: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        capacityConflict: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         allowedActions: { s: { k: 'array', items: { k: 'ref', name: 'AllowedAction' } } },
         version: { s: { k: 'scalar' } },
       },
@@ -861,6 +887,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         nightlyRates: { s: { k: 'array', items: { k: 'ref', name: 'NightRate' } } },
         rateOverrideReason: { s: { k: 'scalar' }, f: 'D12c' },
         minStayOverrideReason: { s: { k: 'scalar' }, f: 'D12c' },
+        capacityWarningAckReason: { s: { k: 'scalar' }, f: 'D12c' },
         directSource: { s: { k: 'scalar' } },
         otaRoomAmountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         otaChannelFeeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },

@@ -60,6 +60,31 @@ export default tseslint.config(
     },
   },
   {
+    // One pg client runs one query at a time: never fan out on a transaction (FB-R2-ARC-BE-S2-13). Use
+    // `inSequence` (services/api/src/shared/sequence.ts). Repeats the services rules (this block replaces them).
+    files: ['services/api/src/modules/**/*.ts', 'services/api/src/jobs/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        noFloatMoney,
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message: 'Use the injected Clock instead of new Date() (ADR-008).',
+        },
+        {
+          selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message: 'Use the injected Clock instead of Date.now() (ADR-008).',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='Promise'][callee.property.name=/^(all|allSettled|any|race)$/]",
+          message:
+            'No parallel queries on one transaction – use inSequence() (FB-R2-ARC-BE-S2-13).',
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,

@@ -133,3 +133,48 @@ Nguyên tắc giữ cho đội làm song song: **chỉ thêm hoặc làm rõ** (
 - Rủi ro trung bình: A-13 đổi hành vi một operation BE-B đã code xong và FE đã nối – phải sửa đồng bộ BE-B + FE + QA trong cùng bước phản hồi; nếu ORC không xếp kịp thì tối thiểu FE giữ xử lý riêng mã này và chặn bấm lại (không tạo key mới) cho tới khi sửa.
 - Rủi ro thấp: FE đang đọc tên cũ (`currentStatus`, `required`, `paid`) – khi server thật trả tên mới mà FE chưa đổi thì câu lỗi thiếu số (không sai tiền, không chặn thao tác). Đã đưa vào việc FE ở mục 5.
 - Không có ESC mới: mọi mục thuộc quyền ARC hoặc chuyển SEC/DOM/PO trong đội; không phát sinh chi phí, không đổi phạm vi lớn.
+
+## 8. Bổ sung bước Phản hồi & sửa Sprint 2 (ORC giao 16/10) – việc cho BE-A
+
+Đã áp thẳng vào `openapi.yaml` (vẫn **0.3.5-draft**, đoạn "Bổ sung theo DOM" trong mục thay đổi phiên bản), `erd.md`, `architecture.md` 9.1. Kiểm tra: `gen_traceability --strict` exit 0 (ops/fields mismatched 0, `x-rbac-field` 130), `gen_rbac_cases --check` OK, `gen-openapi-meta --check` OK (đã sinh lại), redocly 0 lỗi (4 cảnh báo cũ), openapi-spec-validator hợp lệ.
+
+### 8.1 Tham số `ota_base_rate` (BUG-R2-017; gốc chung BUG-R2-018)
+| Mục | Quyết định ARC |
+|---|---|
+| Khóa | **Một khóa** `ota_base_rate`, `value_schema = json`, giá trị là bảng theo **mã nhóm căn**: `{"L12": 760000, "N": 1050000, "NPLUS": 980000}` (BR-103, INV-004). Không tạo nhiều khóa `ota_base_rate.L12…`: nhóm do chủ đầu tư thêm/bớt, một khóa có `effective_from` giữ lịch sử giá và snapshot BR-006 trong một bản ghi. Sửa: OWN, MGR |
+| Biên (erd 9.1a) | Mỗi giá trị 100.000–20.000.000; phải có **đủ** mọi `room_group.code` đang hoạt động, không mã lạ → `422 PARAM_OUT_OF_RANGE` + `allowed[]` = danh sách mã nhóm |
+| Làm tròn | Thêm khóa `rounding.ota_rate` (10.000 – BR-005 ghi riêng "giá OTA"); BE-A thôi dùng `rounding.monthly_rent` cho giá OTA |
+| Dùng ở đâu | (1) `createReservation` kênh `ota` **không** gửi `nightlyRates`/`otaRoomAmountVnd` → giá mỗi đêm = làm tròn `rounding.ota_rate`(`ota_base_rate[nhóm của căn]` × (1 + mức tăng BR-104 của đêm)) – TC-L2-012 (b): Lầu 1–2 T6/T7 870.000, CN 760.000. (2) **Sàn–trần BR-105 (BUG-R2-018)** tính theo **nhóm**: sàn = làm tròn 10.000 (`rate_floor_pct` × `ota_base_rate[nhóm]`), trần = làm tròn 10.000 (`rate_ceiling_pct` × `ota_base_rate[nhóm]`), áp cho **mọi kênh** (oracle BR-105-01: Lầu 1–2 → 530.000–1.900.000) – thay cách đang tính theo giá niêm yết từng căn |
+| OpenAPI | **Không đổi**: tham số đọc/ghi qua `listParameters`/`setParameter` sẵn có; `ReservationCreate.nightlyRates` đã ghi "bỏ trống = giá mặc định" |
+| BE-A làm | Migration mới (số kế tiếp – BE-A đã có 0015/0016 đang làm): `INSERT INTO config_parameter_def` hai khóa trên + `bounds`; validator `setParameter` cho kiểu bảng-theo-nhóm; pricing dùng như trên; test oracle BR-103/104/105. Không sửa 0002 (migration đã chạy) |
+| QA làm | Seed DS-E thêm `ota_base_rate` (`INV-004`, 01/10/2026) + `rounding.ota_rate`; bỏ `test.fail` của TC-L2-012 (b); TC-L2-013 theo sàn–trần nhóm |
+
+### 8.2 Job (BUG-R2-021, FB-R2-ARC-BE-S2-03/08)
+- Khóa job **chốt theo architecture 9.1**: `hold.expire` (J1), `ooo.activate` (J9). BE-A đổi mã; sau này `hold.remind`, `no_show.call`, `no_show.mark_prompt`.
+- J9 chạy ở tick, điều kiện theo **ngày nghiệp vụ** (đổi ngày 06:00, BR-010), không phải 00:01 lịch: khối `start_date = D` chỉ `active` từ 06:00 ngày D. Ngày nghiệp vụ lấy qua `ParameterService`, thiếu tham số → lỗi rõ (không mặc định `00:00`).
+- J1 theo DOM D-9: giữ chỗ có cọc thiếu → không hủy, nhưng lần đầu quá hạn ghi thông báo đỏ (sale phụ trách + FD/FDL) và mục "Cần chú ý"; quá trần 12:00 ngày đến → báo MGR. Khóa chống trùng `reservationId:hold_expires_at`.
+
+### 8.3 Hợp đồng cho 4 quyết định DOM (FB-R2-DOM-ARC-01)
+| ID | DOM | Hợp đồng 0.3.5 | DB (erd) | BE-A làm |
+|---|---|---|---|---|
+| A-19 | D-5 lý do đổi căn/ngày | Schema `MoveReasonCode` = `guest_request, property_fault, overbooking, upgrade, inventory_optimize, force_majeure, other`; ràng buộc: `overbooking` chỉ khi đơn có cờ xung đột (`NOT_IN_LIST`), `upgrade` FDL+ (403), `force_majeure` chỉ dời-thay-hủy + MGR+ + `note`, `other` cần `note` (`REASON_REQUIRED`). Đơn OTA đổi ngày: vẫn `OTA_DATES_LOCKED`, làm bằng hủy `ota_cancelled` + tạo đơn mới cùng `otaRef` | `reservation_segment.change_reason_code` CHECK theo enum | Kiểm enum + ràng buộc; FE thay ô chữ tự do bằng danh sách |
+| A-20 | D-1 OTA vượt sức chứa | Kênh `ota`: 422 mã trường **`CAPACITY_EXCEEDED_WARNING`** (+ `roomNo`, `max`) khi thiếu **`capacityWarningAckReason`**; có lý do → 201, **`Reservation.capacityConflict = true`**, "Cần chú ý" **`capacity_conflict`**, điều kiện nhận phòng **`capacity_within_max`** (không ai bỏ qua được). Kênh khác giữ `CAPACITY_EXCEEDED`. Áp cả `moveReservation`/`updateReservation`. Tách khỏi `conflictState` (chỉ dành cho đơn chưa gán căn) để không lẫn làn "Chưa gán căn" và KPI S1c | `reservation.capacity_conflict_at`, `capacity_ack_reason`, `capacity_ack_by` | Sửa giả định "chặn" trong `s2-be-a.md`; test 1 ca OTA vượt → 201 + cờ, 1 ca B9 bị chặn, 1 ca đổi căn đủ chỗ → cờ tự xóa |
+| A-21 | D-3 khôi phục no-show khi căn đã bán lại | `restoreNoShow` thêm `roomId` (MGR+, căn trống khác) và `allowUnassigned` (MGR+, về làn chưa gán, `conflictState=open`, `OverbookingIncident.source = no_show_restore`); thực hiện từ yêu cầu duyệt đã `approved` **không bao giờ 409** – căn không còn thì tự đi làn chưa gán; đơn kênh `ota` → FD/FDL luôn 202; đêm đã qua giữ `sold` giá snapshot | `overbooking_incident.source` thêm `no_show_restore` | Như cột Hợp đồng; nối `approveRequest(no_show_restore)` |
+| A-22 | D-8 tính lại bậc giảm BR-107 khi đổi số đêm | `NightRate.calendarRateVnd` (chỉ đọc) – giá lịch trước bậc giảm; đổi số đêm → áp lại % theo tổng số đêm mới cho mọi đêm còn hiệu lực (kênh `direct`/`agent`; đêm giá sửa tay giữ giá sửa làm giá lịch; OTA/Nội bộ không áp) | `stay_night.calendar_rate_vnd` | Migration thêm cột (đơn cũ: điền bằng giá hiện tại – dữ liệu dev/test); oracle 5→7 đêm = 5.205.000, 7→5 đêm = 4.079.000 |
+
+Không đổi hợp đồng cho FB-R2-DOM-BE-01 (dòng đảo/`cancellation_fee`/`no_show_fee` đã có trong `FolioLineCategory`). D-2 (hạn báo giá), D-4, D-6, D-7, D-10, D-11: không cần đổi API.
+
+### 8.4 Bổ sung nhỏ cho FE (ORC giao 16/10) – BE-A cài (1)(2)(4)
+Đã áp vào `openapi.yaml` 0.3.5-draft (đoạn "Bổ sung theo FE/DOM (A-24…A-26)").
+
+| ID | Hợp đồng | BE-A làm |
+|---|---|---|
+| A-24 (1) | `RackBar.capacityConflict` (bool, FD+) = `Reservation.capacityConflict` (A-20) | `rack.service`: thêm cột `r.capacity_conflict_at IS NOT NULL` vào truy vấn đoạn đơn, gắn vào thanh (view `full`) |
+| A-25 (2) | Đơn chưa gán căn: `Reservation.requestedRoomGroupId` + `requestedRoomGroupCode` (FD+; null khi đã gán) và cùng hai trường trên `RackBar` của làn `unassigned`. Nguồn = nhóm của `overbooking_incident.requested_room_id` (căn kênh OTA ánh xạ, hoặc căn cũ khi khôi phục no-show D-3 b). Tên chọn `requested…` thay `ota…` vì dùng cho cả hai trường hợp. FE dùng để hiện `rsv.assign_lead` và gọi `searchAvailability?reservationId=` | `rack.service` (đã JOIN `room rr` qua `requested_room_id` ở dòng ~268 – trả thêm `rr.room_group_id` + mã nhóm); `reservation-dto` cho `getReservation` |
+| A-26 (4) | Đăng ký mã trường **`HOLD_LIMIT_REACHED`** (422, `field = holdHours`, Problem kèm `max`) cho `createHoldFromQuote` – **đúng như mã BE-A đang trả**; tham số `max_open_holds_per_user` ghi vào erd 9.1 | Không đổi hành vi; chỉ thêm test hợp đồng (có `max`); chỉ đếm giữ chỗ `status='hold'` chưa quá hạn – hiện đếm cả hold đã quá hạn mà J1 chưa chạy (tối đa 1 phút, chấp nhận) |
+
+**Nhóm B (0.3.6 – Sprint 3)**, không cài ở Sprint 2:
+| ID | Đề nghị | Quyết định |
+|---|---|---|
+| B-28 | BA E03-06: tick bổ sung "Đã giao mã cửa/thẻ" từ chi tiết đơn (US-025 AC7) | **Chấp nhận**: `ReservationPatch.doorAccessHandedOver` – chỉ nhận `true`, FD+, đơn `in_house`, đặt một lần (đã có → 409 `INVALID_TRANSITION` + `currentState`), ghi `door_access_handed_over_at/_by` + audit; không lưu mã cửa |
+| B-29 | DOM D-9: MGR+ chấp nhận cọc thiếu để xác nhận | **Chấp nhận**: `confirmDeposit.acceptShortfallReason` (3–500, D12c) – chỉ MGR+ (FD/SAL gửi → 403), đơn `hold` có cọc `succeeded` > 0; tổng cọc < `depositRequiredVnd` mà có lý do → B4 `confirmed`, audit tiền + thông báo OWN. Không có lý do → giữ hành vi A-13 (200, vẫn `hold`) |

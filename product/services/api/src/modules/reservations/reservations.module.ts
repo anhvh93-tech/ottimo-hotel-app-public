@@ -12,6 +12,7 @@ import { holdExpiryJob, roomBlockActivationJob } from '../../jobs/reservation-jo
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
+import { ParameterService } from '../platform/public/parameter.service';
 import { MoneyBridge } from './internal/money-bridge';
 import { RackService } from './internal/rack.service';
 import { ReservationsController } from './internal/reservations.controller';
@@ -22,6 +23,7 @@ import { OccupancyService } from './public/occupancy.service';
 import { PricingService } from './public/pricing.service';
 import { ReservationHooks } from './public/reservation-hooks';
 import { RESERVATION_SALES_PORT } from './public/sales-port';
+import { StayNightAllocationService } from './public/stay-night-allocation';
 
 // Audit allowlists (SR-AUD-03): booking state/money facts only – no guest C2/C3 values.
 defineAuditEntity('reservation', [
@@ -63,6 +65,7 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     RackService,
     RoomBlocksService,
     ReservationSalesAdapter,
+    StayNightAllocationService,
     { provide: RESERVATION_SALES_PORT, useExisting: ReservationSalesAdapter },
   ],
   exports: [
@@ -71,6 +74,7 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     ReservationHooks,
     MoneyBridge,
     RESERVATION_SALES_PORT,
+    StayNightAllocationService,
   ],
 })
 export class ReservationsModule implements OnModuleInit {
@@ -79,10 +83,14 @@ export class ReservationsModule implements OnModuleInit {
     @Inject(ReservationsService) private readonly reservations: ReservationsService,
     @Inject(RoomBlocksService) private readonly blocks: RoomBlocksService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
+    @Inject(ParameterService) private readonly params: ParameterService,
   ) {}
 
   onModuleInit(): void {
-    for (const job of [holdExpiryJob(this.reservations), roomBlockActivationJob(this.blocks)]) {
+    for (const job of [
+      holdExpiryJob(this.reservations, this.params),
+      roomBlockActivationJob(this.blocks, this.params),
+    ]) {
       if (!this.jobs.get(job.key)) this.jobs.register(job);
     }
     // SM-10 → B12: the manager approved a restore outside the BR-315 conditions (US-136 AC5).

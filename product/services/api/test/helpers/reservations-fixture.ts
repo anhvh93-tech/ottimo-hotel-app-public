@@ -51,6 +51,20 @@ export interface BookingIds {
 
 export async function seedBooking(db: Database, t: TestTenant, i = 0): Promise<BookingIds> {
   for (const p of DS_E.parameters) await setParam(db, t, p.param, p.value, '2026-10-01', i);
+  // ARC s2-contract 8.1 (migration 0018) – until QA's DS-E carries them.
+  const have = new Set(DS_E.parameters.map((p) => p.param));
+  if (!have.has('ota_base_rate')) {
+    await setParam(
+      db,
+      t,
+      'ota_base_rate',
+      { L12: 760_000, N: 1_050_000, NPLUS: 980_000 },
+      '2026-10-01',
+      i,
+    );
+  }
+  if (!have.has('rounding.ota_rate'))
+    await setParam(db, t, 'rounding.ota_rate', 10_000, '2026-10-01', i);
   await setParam(db, t, 'lease_terms', DS_E.leaseTerms, '2026-10-01', i);
   await setParam(db, t, 'utility_estimate', DS_E.utilityEstimate, '2026-10-01', i);
   return db.withContext(t.ctx(i), async (tx) => {

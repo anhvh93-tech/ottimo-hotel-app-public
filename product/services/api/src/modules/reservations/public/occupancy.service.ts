@@ -35,6 +35,7 @@ export interface RoomSuggestion {
   roomNo: string;
   roomGroupCode: string;
   upgrade: boolean;
+  orphanNight?: boolean;
 }
 
 export interface SuggestFor {
@@ -46,6 +47,10 @@ export interface SuggestFor {
   /** Counted persons (BR-110) – rooms with a smaller max occupancy are skipped. */
   persons: number;
   limit?: number;
+  /** Segments whose own occupancy does not count as busy (assigning/moving that booking). */
+  excludeSegmentIds?: string[];
+  /** Mark each suggestion with `orphanNight` (BR-113 a – 0.3.5 A-05). */
+  withOrphanFlag?: boolean;
 }
 
 export interface ConflictView {
@@ -296,7 +301,7 @@ export class OccupancyService {
    * then other groups by room_group.sort_order marked `upgrade` (suggestion only, never auto-assigned).
    */
   async suggest(tx: Tx, f: SuggestFor): Promise<RoomSuggestion[]> {
-    const { rows } = await tx.query<{
+    let { rows } = await tx.query<{
       id: string;
       room_no: string;
       group_id: string;
@@ -309,10 +314,18 @@ export class OccupancyService {
           AND rm.max_occupancy >= $3
           AND ($4::uuid IS NULL OR rm.id <> $4::uuid)
           AND NOT EXISTS (SELECT 1 FROM room_occupancy o
-                           WHERE o.room_id = rm.id AND o.active AND o.stay_range && $5::daterange)`,
-      [f.from, f.to, f.persons, f.roomId ?? null, rangeLiteral(f.from, f.to)],
+                           WHERE o.room_id = rm.id AND o.active AND o.stay_range && $5::daterange
+                             AND (o.reservation_segment_id IS NULL
+                                  OR NOT (o.reservation_segment_id = ANY($6::uuid[]))))`,
+      [
+        f.from,
+        f.to,
+        f.persons,
+        f.roomId ?? null,
+        rangeLiteral(f.from, f.to),
+        f.excludeSegmentIds ?? [],
+      ],
     );
-    if (rows.length === 0) return [];
     let groupId = f.roomGroupId ?? null;
     if (!groupId && f.roomId) {
       const g = await tx.query<{ room_group_id: string }>(
@@ -321,6 +334,22 @@ export class OccupancyService {
       );
       groupId = g.rows[0]?.room_group_id ?? null;
     }
+    // BR-312 / BUG-R2-020: same group or HIGHER groups only (room_group.sort_order); a lower group is
+    // never suggested (it would be a downgrade, not an "upgrade").
+    const refOrder = groupId ? rows.find((r) => r.group_id === groupId)?.sort_order : undefined;
+    let refSort = refOrder;
+    if (groupId && refSort === undefined) {
+      const g = await tx.query<{ sort_order: number }>(
+        'SELECT sort_order FROM room_group WHERE id = $1',
+        [groupId],
+      );
+      refSort = g.rows[0]?.sort_order;
+    }
+    if (refSort !== undefined) {
+      const ref = refSort;
+      rows = rows.filter((r) => r.group_id === groupId || r.sort_order > ref);
+    }
+    if (rows.length === 0) return [];
     // Neighbouring occupancy (±2 days) to count the orphan nights a booking would leave (BR-316 (2)).
     const near = await tx.query<{ room_id: string; range: string }>(
       `SELECT room_id, stay_range::text AS range FROM room_occupancy
@@ -333,6 +362,10 @@ export class OccupancyService {
       list.push(parseRange(n.range));
       occ.set(n.room_id, list);
     }
+    const orphanOf = (roomId: string): boolean => {
+      const occ2 = occ.get(roomId) ?? [];
+      return occ2.some((o) => o.to === f.from) && occ2.some((o) => o.from === f.to);
+    };
     const ranked = rows.map((r) => ({
       r,
       same: groupId !== null && r.group_id === groupId,
@@ -349,6 +382,7 @@ export class OccupancyService {
       roomNo: r.room_no,
       roomGroupCode: r.group_code,
       upgrade: groupId !== null && !same,
+      ...(f.withOrphanFlag ? { orphanNight: orphanOf(r.id) } : {}),
     }));
   }
 }
@@ -359,7 +393,9 @@ export function publicConflict(c: OccupancyConflict, view: ConflictView): Record
     roomNo: c.roomNo,
     nights: c.nights,
     kind: c.kind,
-    ...(c.reservationCode ? { reservationCode: c.reservationCode } : {}),
+    // SEC-BE-25: booking codes and names of other people's bookings only for FD+ (SAL/CTV/MT see
+    // "sold out", like their rack – availability_only).
+    ...(view.withNames && c.reservationCode ? { reservationCode: c.reservationCode } : {}),
     ...(view.withNames && c.guestDisplayName ? { guestDisplayName: c.guestDisplayName } : {}),
   };
 }

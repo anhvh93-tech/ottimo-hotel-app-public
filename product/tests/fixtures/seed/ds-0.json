@@ -410,7 +410,7 @@
       "loadOrder": 2,
       "seedPath": "direct",
       "room": "102",
-      "channel": "sales_staff",
+      "channel": "direct",
       "stayType": "long",
       "booker": "g2",
       "party": [],
@@ -421,7 +421,8 @@
       "adults": 1,
       "childrenDob": [],
       "paymentModel": "direct_pay",
-      "note": "HĐ 3 tháng, NV chốt (qa.sal). Xem leases[]"
+      "note": "HĐ 3 tháng, NV chốt (qa.sal). Xem leases[]",
+      "directSource": "sales_staff"
     },
     {
       "seedLabel": "OTM-0136",
@@ -429,7 +430,7 @@
       "loadOrder": 3,
       "seedPath": "direct",
       "room": "203",
-      "channel": "zalo_phone",
+      "channel": "direct",
       "stayType": "short",
       "booker": "g13",
       "party": [],
@@ -447,7 +448,8 @@
       },
       "depositPaidVnd": 3120000,
       "note": "Đã trả phòng 14/10 – test ảnh giấy tờ (TC-L3-070), khóa bill; trực tiếp, đã thu đủ 3.120.000 (snapshot BL)",
-      "snapshotNightRateVnd": 780000
+      "snapshotNightRateVnd": 780000,
+      "directSource": "zalo_phone"
     },
     {
       "seedLabel": "OTM-0137",
@@ -586,7 +588,7 @@
       "loadOrder": 9,
       "seedPath": "api",
       "room": "302",
-      "channel": "zalo_phone",
+      "channel": "direct",
       "stayType": "short",
       "booker": "g8",
       "party": ["g15"],
@@ -608,7 +610,8 @@
       "depositPaidVnd": 1200000,
       "eta": "15:30",
       "note": "4 khách (2 NL + 2 trẻ 6–11), ETA 15:30, kỷ niệm 10 năm. Căn 302 định mức 3 → 1 trẻ vượt: phụ thu 100.000 × 4 = 400.000 (BR-110), 1 bộ đồ dùng thêm (BR-812)",
-      "qaAssumption": "Ngày sinh 2 trẻ do QA điền (prototype chỉ có năm 2016, 2019) – tại 15/10/2026 trẻ 10 và 7 tuổi, cả hai tính định mức. Cọc thu 1.200.000 (prototype 1.100.000) vì BR v0.3 áp lịch giá T6/T7 cho kênh Trực tiếp → tiền phòng 3.944.000, cọc tối thiểu 1.200.000 – QA nâng để đơn giữ trạng thái confirmed"
+      "qaAssumption": "Ngày sinh 2 trẻ do QA điền (prototype chỉ có năm 2016, 2019) – tại 15/10/2026 trẻ 10 và 7 tuổi, cả hai tính định mức. Cọc thu 1.200.000 (prototype 1.100.000) vì BR v0.3 áp lịch giá T6/T7 cho kênh Trực tiếp → tiền phòng 3.944.000, cọc tối thiểu 1.200.000 – QA nâng để đơn giữ trạng thái confirmed",
+      "directSource": "zalo_phone"
     },
     {
       "seedLabel": "OTM-0151",
@@ -616,7 +619,7 @@
       "loadOrder": 10,
       "seedPath": "api",
       "room": "202",
-      "channel": "returning",
+      "channel": "direct",
       "stayType": "short",
       "booker": "g5",
       "party": [],
@@ -634,7 +637,8 @@
         "depositRequiredVnd": 1000000
       },
       "depositPaidVnd": 1000000,
-      "note": "Khách quen; cọc 1.000.000 (test-strategy 4.2) – tiền phòng 3.406.000 sau lịch giá T6/T7 (BR-104 v0.3), 30% = 1.021.800 → 1.000.000"
+      "note": "Khách quen; cọc 1.000.000 (test-strategy 4.2) – tiền phòng 3.406.000 sau lịch giá T6/T7 (BR-104 v0.3), 30% = 1.021.800 → 1.000.000",
+      "directSource": "returning"
     },
     {
       "seedLabel": "OTM-0154",
@@ -745,7 +749,7 @@
       "loadOrder": 15,
       "seedPath": "api",
       "room": "402",
-      "channel": "zalo_phone",
+      "channel": "direct",
       "stayType": "short",
       "booker": "g1",
       "party": [],
@@ -762,7 +766,8 @@
         "roomTotalVnd": 3000000,
         "depositRequiredVnd": 900000
       },
-      "depositPaidVnd": 900000
+      "depositPaidVnd": 900000,
+      "directSource": "zalo_phone"
     },
     {
       "seedLabel": "OTM-0157",

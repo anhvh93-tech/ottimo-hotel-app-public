@@ -4,6 +4,7 @@
 - Nguồn: `product/docs/PRD.md` (phân hệ M0–M15), `product/docs/round-0-baseline.md` (**BL**), `00-brief/investor-brief.md` (**Brief**), `business-rules.md` (**BR-xxx** – nguồn sự thật cho mọi con số), `use-cases.md` (**UC-xx**), `state-machines.md` (**SM-xx**, mã chuyển), `rbac-matrix.md` (mã vai, hành động **A-xx**, trường **Dxx**), `research/heuristic-review-r0.md` (**HR-xx**), `02-escalations/` (**ESC-xxx**).
 - Trạng thái chung: đã qua review bắt buộc BA, DOM (bước 3) và sửa ở bước 4 – xem `rounds/round-01/responses/PO-responses.md`. Bước 4: thêm 6 story (US-140…US-145), US-139 nâng Must R2, US-124 nâng Must R3; tổng **145 story, 77 Must R2**. Đợt 3: mọi con số quy tắc trong tiêu chí nghiệm thu (AC) đã thay bằng **mã BR-xxx**; tên trạng thái theo `state-machines.md`; vai theo mã vai của `rbac-matrix.md`; thêm 7 story (US-133…US-139), nâng US-024 lên Must R2. Chính sách chưa chốt ghi "chờ ESC-xxx".
 - **Round 2 tuần 1 (16/10/2026):** INV đã quyết cả 13 ESC theo đề xuất của đội. Áp **R-C**: 5 story dời đầu R3 (US-081, US-111, US-125, US-128, US-141 – Round = R3, trạng thái "Dời"), 4 story làm một phần ở R2 (US-012 trừ AC2, US-086 trừ AC3, US-108 trừ phần mã cửa của AC2, US-119 trừ AC5); thêm **US-017 AC5a tạm** (đơn dài hạn nhập tay). Còn **72 Must R2**, **24 Must R3**. Chỗ ghi "chờ ESC-xxx" nay ghi "INV quyết ESC-xxx 16/10"; nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` chỉ giữ cho thông tin INV còn phải gửi: sức chứa từng căn (ESC-004), loại hình kinh doanh (ESC-008), tài khoản ngân hàng + tên miền (ESC-010), thông tin khóa (ESC-011).
+- **Round 2 Sprint 2 – Phản hồi & sửa (16/10/2026, PO):** **US-056 dời đầu R3** (cùng HĐ dài hạn – đơn dài hạn nhập tay AC5a mặc định không có gói dọn, BR-204/DOM D-15) → **71 Must R2**; **US-008 Should R3 → Must R3** (chỉ phần "Thêm người dùng" – R2 đã có khóa/mở, đặt lại mật khẩu ở S26 theo US-002) → Must R3 = 26; sửa **US-012 AC3** theo SEC SR-RET-06, thêm **US-012 AC8** (cảnh báo BR-435 cho OWN ở R2, tính khi đọc), **US-017 AC9** (người chốt bắt buộc với kênh CTV và nguồn `sales_staff`), **US-025 AC7** (ô "Đã giao mã cửa/thẻ" không bắt buộc). Chi tiết: `rounds/round-02/responses/s2-PO.md`.
 
 ## 1. Quy ước
 
@@ -29,7 +30,7 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | EP04 | Lưu trú: gia hạn, trả muộn, trả sớm, nhắc trả phòng, phát sinh | M2, M6 | 8 | 5 |
 | EP05 | Trả phòng & bill | M2, M6, M12 | 7 | 5 |
 | EP06 | Giấy tờ, khai báo lưu trú & quyền dữ liệu của khách | M3 | 12 | 9 |
-| EP07 | Buồng phòng | M4 | 9 | 6 |
+| EP07 | Buồng phòng | M4 | 9 | 5 (US-056 dời R3 – Sprint 2) |
 | EP08 | Bảo trì & điện nước | M5 | 5 | 2 |
 | EP09 | Kho F&B / minibar | M6 | 5 | 1 |
 | EP10 | Khách hàng (CRM) | M7 | 9 | 3 |
@@ -55,7 +56,7 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | US-005 | Là **chủ đầu tư** (`owner`), tôi muốn tự chỉnh bảng tham số quy tắc (`business-rules.md` mục 13: giảm giá, phụ thu, cọc, hạn giữ chỗ, giờ chuẩn, đơn giá điện nước, phí phạt, hoa hồng), để đổi chính sách mà không cần lập trình viên | Must | R2 | BL 5 (toàn bộ), BL 4.17, decision-log 15/10 (số quy tắc cấu hình được) | Mới |
 | US-006 | Là **chủ đầu tư** (`owner`), tôi muốn xem nhật ký mọi thao tác liên quan tới tiền (folio, giảm giá, FOC, hủy, thu tiền) với người làm, thời điểm, giá trị cũ/mới, để kiểm soát thất thoát | Must | R2 | BL 5.7, BL 8.2 #24 | Mới |
 | US-007 | Là **quản lý / lễ tân trưởng** (`manager`, `front_desk_lead`), tôi muốn tự xác nhận các khoản FOC/giảm giá cần duyệt bằng chính tài khoản của mình (không để người thao tác chọn tên người duyệt), để việc miễn phí có người chịu trách nhiệm thật | Must | R2 | BL 5.7, BL 8.2 #24, BL 9 #8 | Mới |
-| US-008 | Là **chủ đầu tư** (`owner`), tôi muốn tự thêm, khóa tài khoản và đặt lại mật khẩu cho nhân viên, để không phụ thuộc đội kỹ thuật khi nhân sự thay đổi | Should | R3 | Mới | Mới |
+| US-008 | Là **chủ đầu tư** (`owner`), tôi muốn tự thêm, khóa tài khoản và đặt lại mật khẩu cho nhân viên, để không phụ thuộc đội kỹ thuật khi nhân sự thay đổi | Must (nâng từ Should – R2 Sprint 2, PO) | R3 (phần "Thêm người dùng"; khóa/mở, đặt lại mật khẩu đã có ở R2 – US-002, EP00 mục 2) | Mới | Mới |
 | US-009 | Là **chủ đầu tư** (`owner`), tôi muốn chọn cơ sở khi đăng nhập, để sau này quản lý thêm cơ sở thứ hai trên cùng app | Could | R4+ | BL 9 #24, decision-log (đa cơ sở thiết kế sẵn) | Mới |
 | US-142 | Là **chủ đầu tư** (`owner`), tôi muốn dữ liệu giấy tờ tùy thân (C3) chỉ mở được trên thiết bị của cơ sở do tôi cấp quyền (máy quầy, máy tính bảng của cơ sở), không bao giờ trên điện thoại cá nhân, để giấy tờ khách không rời khách sạn | Must | R2 | Mới; decision-log SEC (C3 chỉ trên thiết bị được cấp), PHÂN XỬ ORC ca tối; SEC SR-DEV-01…07 | Mới |
 | US-143 | Là **chủ đầu tư / quản lý** (`owner`, `manager`), tôi muốn đăng nhập có bước xác thực thứ hai (mã từ ứng dụng xác thực), để tài khoản quyền cao không bị chiếm khi lộ mật khẩu | Must | R3 | Mới; decision-log SEC (2FA TOTP trước dữ liệu thật); SEC SR-AUTH-06 | Mới |
@@ -138,7 +139,7 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | US-053 | Là **buồng phòng** (`housekeeping`), tôi muốn đổi trạng thái buồng chỉ theo các bước hợp lệ (bắt đầu dọn → dọn xong → kiểm đạt…), dọn xong thì việc dọn tự đánh dấu xong, để lễ tân thấy phòng sẵn sàng ngay | Must | R2 | BL 5.15; UC-22 | Mới |
 | US-054 | Là **buồng phòng** (`housekeeping`), tôi muốn danh sách việc hôm nay tự sinh (dọn trả phòng, dọn phòng khách đang ở, bổ sung minibar, yêu cầu từ app khách, lịch dọn dài hạn) và tick xong được, để không cần ai nhắn việc | Must | R2 | BL 3.12, BL 5.15, BL 5.19 | Mới |
 | US-055 | Là **buồng phòng** (`housekeeping`), tôi muốn đi qua checklist kiểm phòng trước khi đánh dấu "đã kiểm · sẵn sàng", để phòng đạt chuẩn OTTIMO | Must | R2 | BL 3.12; UC-23 | Mới |
-| US-056 | Là **buồng phòng** (`housekeeping`), tôi muốn việc dọn của khách dài hạn tự xuất hiện đúng ngày theo gói dọn (BR-204/BR-807) và khung giờ đã hẹn, để không quên lịch | Must | R2 | BL 5.15, BL 3.21 | Mới |
+| US-056 | Là **buồng phòng** (`housekeeping`), tôi muốn việc dọn của khách dài hạn tự xuất hiện đúng ngày theo gói dọn (BR-204/BR-807) và khung giờ đã hẹn, để không quên lịch | Must | R3 (dời đầu R3 cùng HĐ dài hạn – PO R2 Sprint 2, E07-06/B-06) | BL 5.15, BL 3.21 | Dời |
 | US-057 | Là **buồng phòng** (`housekeeping`), tôi muốn báo sự cố từ điện thoại (căn, mô tả, ảnh, mức độ), để kỹ thuật nhận phiếu ngay | Must | R2 | BL 3.14 | Mới |
 | US-058 | Là **buồng phòng** (`housekeeping`), tôi muốn thao tác đổi trạng thái vẫn được ghi nhận khi mạng chập chờn và tự gửi lại khi có mạng, để không phải làm lại | Should | R2 | BL 9 #22 | Mới |
 | US-059 | Là **lễ tân** (`front_desk`), tôi muốn phân việc buồng phòng cho từng người và mỗi người chỉ thấy việc của mình trước, để rõ trách nhiệm | Should | R3 | BL 4.6, BL 9 #13 | Mới |
@@ -326,6 +327,12 @@ Quy ước (đợt 3):
 - AC5: Given folio còn yêu cầu `pending`/`escalated`, When hoàn tất trả phòng, Then bị chặn (SM-10).
 - AC6 *(bước 4 – FB-R1-DOM-PO-01)*: Given `front_desk` gửi FOC loại **minibar** có giá trị ≤ hạn mức tự áp mỗi lần **và** còn trong hạn mức tháng của chính người đó (BR-436, hạn mức tháng mặc định 500.000 đ/người/tháng – INV quyết ESC-007 16/10), When xác thực lại bằng tài khoản của chính mình, Then yêu cầu `approved` ngay (SM-10 A2), dòng FOC ghi "tự áp trong hạn mức", được cộng vào hạn mức tháng, có trong báo cáo đóng ca/cuối ngày cho `front_desk_lead` và tính vào cảnh báo BR-435; vượt hạn mức lần hoặc tháng → đi luồng AC1.
 
+#### US-008 – Thêm người dùng (S26) – *Must R3 (nâng R2 Sprint 2)*
+> R2: màn S26 **ẩn hẳn** nút "Thêm người dùng" (không để nút tắt/"sắp có"); tài khoản tạo bằng seed/lệnh quản trị (US-001 AC4). Khóa/mở, đặt lại mật khẩu đã có ở R2 (US-002).
+- AC1: Given `owner` ở S26, When bấm "Thêm người dùng", nhập tên hiển thị, tên đăng nhập, ít nhất một vai và mật khẩu tạm, Then tài khoản được tạo, buộc đổi mật khẩu ở lần đăng nhập đầu (như US-001 AC4), nhật ký ghi người tạo.
+- AC2: Given tên đăng nhập đã tồn tại, Then báo lỗi tại ô, không tạo tài khoản; Given mật khẩu tạm nằm trong danh sách cấm hoặc ngắn hơn quy định, Then lỗi tại ô.
+- AC3: Given tài khoản không phải `owner`, Then không thấy nút và API trả 403 (A100).
+
 #### US-135 – Xác nhận hành động không đảo ngược (HR-06) – *mới*
 - AC1: Given một trong các hành động: hủy giữ chỗ/hủy đơn, đánh dấu no-show, hoàn tất trả phòng, đóng/mở bán kênh, gộp hồ sơ khách, chuyển phiếu sửa sang `done` (mở khóa phòng), xóa sớm ảnh giấy tờ, When người dùng bấm, Then hiện hộp xác nhận nêu hậu quả cụ thể (ví dụ "Căn 203 sẽ mở bán lại 19–22/10 trên mọi kênh") và nút xác nhận ghi đúng tên hành động.
 - AC2: Given hộp xác nhận đang mở, When bấm Hủy hoặc phím Esc, Then không có dữ liệu nào thay đổi.
@@ -346,10 +353,11 @@ Quy ước (đợt 3):
 #### US-012 – Cần chú ý (BR-907)
 - AC1: Given một đơn đến hôm nay có khai báo ở trạng thái trước `sent`, Then "Cần chú ý" có dòng nêu số đơn chưa khai báo và hạn tính theo BR-602 (khách VN) / BR-603 (khách NN – giờ đến thực tế + số giờ của BR-603); bấm vào mở màn khai báo.
 - AC2 **[Dời R3 – R-C]** *(cùng job J12; R2 chưa có HĐ trong hệ thống)*: Given HĐ có kỳ thu `scheduled`/`due` trong khoảng nhắc của BR-207, Then có dòng nhắc thu (tên khách, số tiền, ngày); When kỳ đó được ghi đã thu (US-119 AC5), Then dòng nhắc biến mất; Given HĐ hết hạn trong khoảng của BR-211, Then có dòng "chào gia hạn".
-- AC3: Given khách NN có thị thực hết hạn trước ngày trả phòng (BR-605), Then có dòng cảnh báo nêu căn và ngày hết hạn.
+- AC3 *(sửa R2 Sprint 2 – E01-06, theo SEC SR-RET-06)*: Given khách NN có thị thực hết hạn trước ngày trả phòng (BR-605), Then có dòng cảnh báo nêu **mã đơn và căn** (không hiện ngày hết hạn trên "Cần chú ý"); When FD+ bấm vào dòng trên thiết bị được cấp (US-142), Then mở màn giấy tờ của đơn, nơi thấy ngày hết hạn thị thực (có nhật ký xem C3); trên thiết bị chưa cấp → thông báo theo US-142.
 - AC4: Given có giữ chỗ trong khoảng nhắc trước hạn của BR-303, một khối OOO, một phiếu sửa mức Cao đang mở (BR-809), Then mỗi loại có một dòng riêng.
 - AC5: Given không có việc nào thỏa điều kiện, Then hiện trạng thái rỗng "Không có việc cần chú ý".
 - AC6: Given tài khoản `front_desk`, Then không thấy dòng cảnh báo FOC (BR-435 chỉ gửi `owner`).
+- AC8 *(mới R2 Sprint 2 – E01-05/B-22)*: Given `owner` mở Tổng quan và tổng FOC lũy kế từ ngày 1 tháng tới hôm nay vượt ngưỡng tỷ lệ của BR-435 so với doanh thu phòng cùng kỳ, Then có một dòng cảnh báo nêu số FOC, tỷ lệ và ngưỡng (khớp ví dụ BR-435); Given một người duyệt vượt ngưỡng số lần trong tháng (gồm lần lễ tân tự áp minibar – BR-436), Then mỗi người một dòng; Given `manager`/`front_desk_lead`/`front_desk`, Then không thấy (AC6). Thông báo đẩy hằng ngày (job J21) thuộc R3.
 - AC7 *(bước 4 – FB-R1-BA-PO-10)*: Given lệnh đồng bộ kênh ở trạng thái lỗi (R2: lớp giả lập; BR-905) quá ngưỡng của BR-905, Then có dòng đỏ "Đồng bộ kênh lỗi" nêu căn/kênh và hướng dẫn đóng bán thủ công trên extranet; Given khách quen hoặc khách gắn nhãn VIP đến hôm nay, Then có dòng riêng. Nguồn "công tơ chưa chốt" của BR-907 thuộc R3 (US-064).
 
 ### EP02 – Room rack & đặt phòng
@@ -370,6 +378,7 @@ Quy ước (đợt 3):
 - AC6: Given tài khoản `sales_staff` hoặc `collaborator`, Then không có màn đặt phòng mới (A01 ✖); chỉ tạo giữ chỗ từ báo giá (US-084).
 - AC7 *(bước 4 – FB-R1-DOM-PO-05)*: Given căn 302, kênh Trực tiếp, 3 người lớn, 3 đêm, Then có dòng phụ thu thêm người khớp ví dụ BR-110 (INV quyết ESC-004 16/10); Given kênh OTA, Then không cộng phụ thu người (OTA đã tính theo số khách), chỉ ghi số khách.
 - AC8 *(bước 4 – T10)*: Given form tạo đơn, Then danh sách kênh = danh sách BR-901 (Traveloka chỉ hiện khi INV xác nhận có dùng) + "Nội bộ" cho phòng dùng nội bộ; kênh "Trực tiếp" có trường phụ bắt buộc "Nguồn" (Zalo/điện thoại, Website, vãng lai, khách quay lại); có ô email khách không bắt buộc (PHÂN XỬ ORC – để gửi mã xác minh app khách).
+- AC9 *(mới R2 Sprint 2 – ARC A-06)*: Given kênh **CTV** (`agent`), When lưu đơn mà chưa chọn người chốt, Then lỗi tại ô "Người chốt" (bắt buộc, phải là một CTV); Given kênh Trực tiếp nguồn `sales_staff`, Then người chốt bắt buộc và là sale nội bộ; các kênh/nguồn khác người chốt không bắt buộc. Người chốt chọn từ danh sách tên hiển thị (không lộ SĐT/email).
 
 #### US-018 – Chống đặt trùng (BR-002, BR-906)
 - AC1: Given căn 201 đã có đơn `confirmed` 20–22/10, When tạo đơn kênh **Trực tiếp, CTV hoặc HĐ** cho căn 201 từ 21/10, Then bị chặn và thông báo nêu khoảng ngày đang trùng.
@@ -428,6 +437,7 @@ Quy ước (đợt 3):
 - AC4: Given khai báo chưa `sent`, When nhận phòng xong, Then hiện hạn khai báo theo BR-602/BR-603 (khách NN tính từ giờ nhận thực tế) và đơn vào "Cần chú ý".
 - AC5: Given nhận nhầm đơn, When `manager`/`owner` bấm "Hoàn tác nhận phòng" trong cùng ngày và chưa có dòng folio mới (B17), Then đơn về `confirmed`, buồng về trạng thái trước, mã cửa bị hủy, nhật ký ghi lý do; `front_desk` không có nút này (A13).
 - AC6 *(bước 4 – FB-R1-DOM-PO-04)*: Given đơn ngày đến 20/10, When người trực nhận phòng lúc 01:30 ngày 21/10, Then nhận được (điều kiện B9 "hôm nay = ngày đến" dùng ngày nghiệp vụ), giờ nhận ghi đúng 01:30 21/10 và hạn khai báo khách NN tính từ giờ này.
+- AC7 *(mới R2 Sprint 2 – ARC Q-P1, UXD S1 #4)*: Given màn nhận phòng, Then có ô "Đã giao mã cửa/thẻ cho khách" **không bắt buộc** (R2 lễ tân giao mã ngoài app – US-128 dời R3); tick → đơn ghi thời điểm + người tick; app **không** lưu, không hiện mã cửa; không tick vẫn hoàn tất được nhận phòng; ô này tick bổ sung được từ chi tiết đơn khi khách đến muộn.
 
 #### US-026 – Phụ thu nhận sớm (BR-411, BR-414; HR-04)
 - AC1: Given mở form nhận phòng vào bất kỳ giờ nào, Then giờ nhận mặc định = giờ chuẩn BR-401, phụ thu = 0 và chưa có dòng folio nào (khắc phục BL 8.2 #2, HR-04).
@@ -579,6 +589,7 @@ Quy ước (đợt 3):
 - AC2: Given tick đủ và lưu, Then biên bản kiểm ghi người kiểm, thời điểm, căn (và ảnh nếu có).
 
 #### US-056 – Lịch dọn khách dài hạn (BR-807)
+> **[Dời R3 – PO R2 Sprint 2]** cùng HĐ dài hạn (US-086 AC3). R2: đơn dài hạn nhập tay (US-017 AC5a) mặc định không có gói dọn (BR-204, DOM D-15) – dọn theo yêu cầu (BR-506) qua yêu cầu khách/việc tạo tay (`createHkTask`); nếu HĐ giấy có hẹn dọn cố định, lễ tân tạo việc tay theo tuần. AC giữ nguyên để làm ở R3.
 - AC1: Given HĐ có gói dọn "2 lần/tuần – thứ Hai, thứ Năm" với khung giờ theo BR-807, When đến thứ Hai, Then việc "Dọn phòng khách dài hạn" kèm khung giờ xuất hiện trong việc hôm nay và buồng `OC` → `OD` theo lịch gói (R8).
 - AC2: Given HĐ kết thúc hoặc khách đổi gói, Then các việc sau ngày đó không còn sinh theo gói cũ.
 
@@ -859,3 +870,4 @@ Trạng thái 16/10/2026: **INV đã quyết cả 13 ESC** theo đề xuất c�
 | 15/10/2026 | 1 (đợt 3) | AC tham chiếu mã BR (bỏ con số quy tắc), dùng tên trạng thái SM-xx và mã vai RBAC; sửa US-045, US-107 theo quyết định SEC/BA; thêm US-133–US-139 (UC-30, HR-06, no-show, trả sớm, trả phòng nhanh, xung đột OTA); US-024 nâng Must R2; tổng 139 story, 74 Must R2; truy vết HR, UC, ESC | PO |
 | 15/10/2026 | 1 (bước 4) | Sửa theo 28 thẻ BA/DOM + 11 lỗi tự nhận (T1–T11): ngày nghiệp vụ 06:00 vào quy ước AC; US-001 màn mặc định "Hôm nay" + AC4 tài khoản R2; US-007 xác thực lại bằng mật khẩu ở R2, AC6 lễ tân tự áp FOC minibar; US-018 AC5 + US-139 nâng Must R2 (đơn OTA trùng); US-023 AC2 đổi (gộp → US-074); US-026 AC3 nhận trước 06:00 = thêm đêm; US-017/022/080 phụ thu người; US-017 AC3 OTA chỉ cảnh báo sàn–trần, AC8 danh sách kênh; US-024 AC4 tách B7/B14; US-061 AC1 khối OOO nửa mở; US-087 AC2 thu hẹp; US-106 AC2 ân hạn link; US-119 AC5 ghi thu kỳ HĐ ở R2; US-012 AC7; bỏ con số không phải quy tắc khỏi AC; thêm US-140 (đơn nhóm, Must R3), US-141 (xác minh khách, Must R2), US-142 (thiết bị được cấp, Must R2), US-143 (2FA, Must R3), US-144 (chốt tháng, Could R3), US-145 (vận hành dự phòng, Should R3); US-124 nâng Must R3 (đóng ca), US-119 AC6 cờ chờ đối soát (R2); US-136 theo BR-315; đối chiếu mã BR với business-rules v0.2; gắn 13 BR chưa có story; bổ sung UC vào cột Nguồn. Tổng **145 story, 77 Must R2**, 19 Must R3 | PO |
 | 16/10/2026 | 2 (tuần 1 – W12) | INV quyết 13 ESC: áp **R-C** – US-081, 111, 125, 128, 141 Round → R3, trạng thái Dời; US-012 (AC2 + J12), US-086 (AC3), US-108 (phần mã cửa AC2), US-119 (AC5) làm một phần, phần dời gắn **[Dời R3 – R-C]**; thêm US-017 AC5a tạm (đơn dài hạn nhập tay, P-R2-3); bảng epic còn **72 Must R2**; "chờ ESC-xxx" → "INV quyết ESC-xxx 16/10", giữ nhãn giả định cho sức chứa (ESC-004), tài khoản ngân hàng (ESC-010), thông tin khóa (ESC-011). QA sinh lại traceability | PO |
+| 16/10/2026 | 2 (Sprint 2 – Phản hồi & sửa) | US-056 → R3 (Dời; EP07 Must R2 6→5, tổng **71 Must R2**); US-008 Should → **Must R3** + AC1–AC3 (R2 ẩn nút "Thêm người dùng"); US-012 AC3 sửa theo SR-RET-06 (mã đơn + căn), thêm AC8 (BR-435 cho OWN, tính khi đọc); US-017 AC9 (người chốt bắt buộc kênh CTV / nguồn `sales_staff`); US-025 AC7 (ô "Đã giao mã cửa/thẻ" không bắt buộc). QA sinh lại traceability | PO |

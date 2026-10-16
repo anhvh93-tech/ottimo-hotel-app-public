@@ -25,6 +25,7 @@ import {
   zonedParts,
 } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
+import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
@@ -111,6 +112,7 @@ export class QuotesService {
     @Inject(DocNumberService) private readonly docNumbers: DocNumberService,
     @Inject(QuotePricingService) private readonly pricing: QuotePricingService,
     @Inject(LeadsService) private readonly leads: LeadsService,
+    @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
@@ -296,6 +298,98 @@ export class QuotesService {
     return { locale, text };
   }
 
+  /**
+   * extendQuote – Q4 (US-083 AC3, BR-304, OpenAPI 0.3.5 A-18). Only an expired quote (lazy expiry counts).
+   * OWN/MGR → 200, new expiresAt as on save (BR-304-01) from today, prices kept (BR-006).
+   * SAL/CTV (own) → 202 + approval `quote_extension` (A51 = D, reason required); an open request of the
+   * same quote is returned instead of a second one; the approver's decision runs Q4 (onExtensionDecided).
+   */
+  async extend(
+    tx: Tx,
+    c: Caller,
+    id: string,
+    version: number,
+    reason: string | null,
+    requestId?: string,
+  ): Promise<{ status: 200; body: Record<string, unknown> } | { status: 202; body: ApprovalRow }> {
+    const row = await this.row(tx, c, id, true);
+    if (!row) throw problem('NOT_FOUND');
+    if (row.version !== version) {
+      throw problem('VERSION_CONFLICT', { extras: { currentVersion: row.version } });
+    }
+    const { timezone, now } = await this.property.now(tx);
+    const status = effectiveStatus(row, now);
+    if (status !== 'expired') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: status } });
+    }
+    if (isOwnScope(c)) {
+      if (!reason) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'reason', code: 'REASON_REQUIRED' }],
+        });
+      }
+      const open = await this.approvals.pendingFor(tx, 'quote', row.id);
+      const existing = open.find((a) => a.type === 'quote_extension');
+      if (existing) return { status: 202, body: existing };
+      const req = await this.approvals.submit(tx, c, {
+        type: 'quote_extension',
+        amountVnd: 0,
+        reasonCode: 'other',
+        reasonNote: reason,
+        targetType: 'quote',
+        targetId: row.id,
+        targetCode: row.code,
+        ...(requestId ? { requestId } : {}),
+      });
+      return { status: 202, body: req };
+    }
+    await this.applyExtension(tx, row, now, timezone, reason, requestId);
+    return { status: 200, body: this.dto((await this.row(tx, c, id)) as QuoteRow, timezone, now) };
+  }
+
+  /** SM-10 hook for `quote_extension`: approved → Q4 on the quote (if still expired). */
+  async onExtensionDecided(tx: Tx, request: ApprovalRow): Promise<void> {
+    if (request.status !== 'approved' || request.target_type !== 'quote' || !request.target_id)
+      return;
+    const { rows } = await tx.query<QuoteRow>(
+      `SELECT ${COLUMNS} FROM quote q WHERE q.id = $1 FOR UPDATE`,
+      [request.target_id],
+    );
+    const row = rows[0];
+    if (!row) return;
+    const { timezone, now } = await this.property.now(tx);
+    if (effectiveStatus(row, now) !== 'expired') return;
+    await this.applyExtension(tx, row, now, timezone, request.reason_note, undefined);
+  }
+
+  private async applyExtension(
+    tx: Tx,
+    row: QuoteRow,
+    now: Date,
+    tz: string,
+    reason: string | null,
+    requestId: string | undefined,
+  ): Promise<void> {
+    const validity = await this.params.get<number>(tx, 'quote_validity_days', localDate(now, tz));
+    const expiresAt = quoteExpiry(now, validity, tz);
+    await tx.query(
+      `UPDATE quote SET status = 'active', expires_at = $2, updated_at = $3, version = version + 1
+        WHERE id = $1`,
+      [row.id, expiresAt, now],
+    );
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'quote.extended',
+      entityType: 'quote',
+      entityId: row.id,
+      entityCode: row.code,
+      before: { status: 'expired', expiresAt: toZonedIso(row.expires_at, tz) },
+      after: { status: 'active', expiresAt: toZonedIso(expiresAt, tz) },
+      ...(reason ? { reason } : {}),
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+
   async withdraw(
     tx: Tx,
     c: Caller,
@@ -306,7 +400,9 @@ export class QuotesService {
     if (!row) throw problem('NOT_FOUND');
     const { timezone, now } = await this.property.now(tx);
     const status = effectiveStatus(row, now);
-    if (status !== 'active' && status !== 'expired') throw problem('INVALID_TRANSITION');
+    if (status !== 'active' && status !== 'expired') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: status } });
+    }
     await tx.query(
       `UPDATE quote SET status = 'withdrawn', withdrawn_at = $2, updated_at = $2, version = version + 1
         WHERE id = $1`,
@@ -339,8 +435,12 @@ export class QuotesService {
     if (!row) throw problem('NOT_FOUND');
     const { timezone: tz, now, today } = await this.property.now(tx);
     const status = effectiveStatus(row, now);
-    if (status === 'expired') throw problem('QUOTE_EXPIRED');
-    if (status !== 'active') throw problem('INVALID_TRANSITION');
+    if (status === 'expired') {
+      throw problem('QUOTE_EXPIRED', { extras: { expiredAt: toZonedIso(row.expires_at, tz) } });
+    }
+    if (status !== 'active') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: status } });
+    }
     if (row.type !== 'short' || !row.room_id || row.nights === null) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'REQUIRED' }] });
     }

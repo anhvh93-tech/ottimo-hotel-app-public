@@ -6,6 +6,8 @@ import type {
   AssignRoomBody,
   AvailabilityResult,
   BodyOf,
+  BookingRules,
+  CloserCandidate,
   CancelReservationBody,
   CancelReservationResult,
   Channel,
@@ -155,11 +157,26 @@ export function createEndpoints(api: ApiClient) {
         roomId?: string;
         roomGroupId?: string;
         adults?: number;
+        /** 0.3.5 A-05: OTA conflict assignment – `upgrade` relative to this booking's group. */
+        reservationId?: string;
       },
     ) =>
       r<AvailabilityResult>('GET', '/v1/properties/{propertyId}/availability', {
         path: { propertyId },
         query,
+      }),
+    /** 0.3.5 A-06: who can be the closer of a booking (FD+). */
+    listCloserCandidates: ({ propertyId }: P, kind: 'agent' | 'staff' | 'all' = 'all') =>
+      r<{ data: CloserCandidate[] }>('GET', '/v1/properties/{propertyId}/closer-candidates', {
+        path: { propertyId },
+        query: { kind },
+        local: true,
+      }),
+    /** 0.3.5 A-07: booking rule values readable by every booking role (no params screen access needed). */
+    getBookingRules: ({ propertyId }: P) =>
+      r<BookingRules>('GET', '/v1/properties/{propertyId}/booking-rules', {
+        path: { propertyId },
+        local: true,
       }),
     listChannels: ({ propertyId }: P) =>
       r<{ data: Channel[] }>('GET', '/v1/properties/{propertyId}/channels', {
@@ -265,13 +282,13 @@ export function createEndpoints(api: ApiClient) {
     /** 200 = restored (Reservation); 202 = approval request created (FD/FDL outside BR-315). */
     restoreNoShow: (
       { propertyId, reservationId }: R,
-      reason: string,
+      body: BodyOf<'restoreNoShow'>,
       version: number,
       idempotencyKey: string,
     ) =>
       r<Reservation | ApprovalRequest>('POST', `${RES}/actions/restore-no-show`, {
         path: { propertyId, reservationId },
-        body: { reason } satisfies BodyOf<'restoreNoShow'>,
+        body,
         ifMatch: version,
         idempotencyKey,
       }),
@@ -321,6 +338,13 @@ export function createEndpoints(api: ApiClient) {
       r<Reservation>('POST', `${QUO}/actions/create-hold`, {
         path: { propertyId, quoteId },
         body,
+        idempotencyKey,
+      }),
+    /** 0.3.5 A-18 (Q4): MGR/OWN → 200 Quote; SAL/CTV → 202 ApprovalRequest `quote_extension`. */
+    extendQuote: ({ propertyId, quoteId }: Q, reason: string | undefined, idempotencyKey: string) =>
+      r<Quote | ApprovalRequest>('POST', `${QUO}/actions/extend`, {
+        path: { propertyId, quoteId },
+        body: reason ? { reason } : {},
         idempotencyKey,
       }),
     /** SAL/CTV: server returns only their own commissions (x-scope own – US-087). */

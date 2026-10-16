@@ -11,6 +11,7 @@ import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { etag } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
+import { rejectDryRun } from '../../../shared/http/dry-run';
 import { problem } from '../../../shared/problem';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import { PasswordReauth } from '../../identity/public/password-reauth';
@@ -102,6 +103,7 @@ export class FolioController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(folioId) || !UUID.test(lineId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const input = parseBody(focSchema, body);
     const note = optionalText('note', input.note, 500);
     // R2: password only (`pin` from R3 – FocRequestInput.authMethod).

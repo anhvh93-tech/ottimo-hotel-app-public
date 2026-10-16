@@ -68,6 +68,8 @@ const TZ = 'Asia/Ho_Chi_Minh';
 
 const params: PricingParams = {
   asOf: '2026-10-15',
+  // BR-103 OTA base per group (DS-E roomGroups.otaBaseRateVnd – `ota_base_rate`, ARC s2-contract 8.1).
+  otaBaseRates: { L12: 760_000, N: 1_050_000, NPLUS: 980_000 },
   nightRateUnit: P('rounding.night_rate'),
   otaRateUnit: P('rounding.monthly_rent'),
   depositUnit: P('rounding.deposit'),
@@ -383,9 +385,16 @@ describe('br-examples.json – booking rules (BE-A Sprint 2)', () => {
       .filter((e) => e.input.arrivalDate && !e.input.confirmedEarlyCheckinTime)
       .map((e) => [e.id, e] as const),
   )('%s kit task due at check-in time (BR-812 (2))', (_id, e) => {
-    expect(extraGuestKitDue(e.input.arrivalDate as string, params.checkinTime, TZ).getTime()).toBe(
-      new Date(e.expected.dueAt as string).getTime(),
-    );
+    expect(
+      extraGuestKitDue(
+        e.input.arrivalDate as string,
+        params.checkinTime,
+        TZ,
+        e.input.confirmedAt
+          ? { at: new Date(e.input.confirmedAt as string), midstayMinutes: 60 }
+          : undefined,
+      ).getTime(),
+    ).toBe(new Date(e.expected.dueAt as string).getTime());
   });
 
   it('BR-113-01: arrival Saturday 24/10, 1 night → minimum 2 nights (all channels)', () => {

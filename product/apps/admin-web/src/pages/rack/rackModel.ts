@@ -1,17 +1,8 @@
 import type { Rack, RackBar } from '@ottimo/api-client';
 import { addDays, nightsBetween } from '../../app/reservations';
 
-/**
- * RackBar + fields FE proposed to ARC for H08 (not in OpenAPI 0.3.4 `RackBar` yet): the "Nhập tay"
- * badge (`externalContract`), the sofa icon (`extraGuestCount`), the hold countdown (`holdExpiresAt`)
- * and the booking code for screen-reader labels. Read only when the server sends them.
- */
-export type RackBarX = RackBar & {
-  externalContract?: boolean;
-  extraGuestCount?: number;
-  holdExpiresAt?: string;
-  reservationCode?: string;
-};
+/** RackBar 0.3.5 (A-01 manual badge / sofa / hold countdown / code, A-24 capacityConflict, A-25 group). */
+export type RackBarX = RackBar;
 
 export interface Slot {
   /** First day column (0-based) the slot covers. */

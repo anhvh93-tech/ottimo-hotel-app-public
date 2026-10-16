@@ -88,7 +88,7 @@
 | `late_checkout` | `guest.req.late` Trả phòng muộn | ✔ | ✔ | Lễ tân |
 | `other` | `guest.req.other` Khác | ✔ | ✔ | Lễ tân |
 
-`[GIẢ ĐỊNH BA – US-109 ghi "khách đang ở"; cho phép 3 loại lễ tân trước ngày đến (đón sân bay, hỏi trả muộn) vì định tuyến tới lễ tân; DOM xác nhận]`. Loại không được phép theo trạng thái → nút ẩn; gọi API → 422 mã trường **(đề nghị E14-02)** `REQUEST_TYPE_NOT_AVAILABLE` → **(mới)** `guest.req.not_available` "Yêu cầu này dùng được khi bạn đã nhận phòng."
+(DOM D-13 a: 3 loại tới lễ tân dùng được trước ngày đến – đón sân bay Liên Khương, hỏi nhận sớm/trả muộn, khác). Danh sách loại dùng được, phí và ô ghi chú bắt buộc lấy từ **`listGuestRequestOptions`** (ARC B-16, OpenAPI 0.3.6 – `[{type, available, unavailableReason, feeVnd|null, noteRequired}]`, mức 1, khóa sau trả phòng; **chờ SEC duyệt ĐK-2**). Loại không được phép theo trạng thái → nút ẩn; gọi API → 422 mã trường `REQUEST_TYPE_NOT_AVAILABLE` (ARC B-14) → **(mới)** `guest.req.not_available` "Yêu cầu này dùng được khi bạn đã nhận phòng."
 
 ### 3.2 Bảng trường – `createGuestRequest` (`Idempotency-Key`)
 | Trường | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
@@ -96,7 +96,7 @@
 | `type` | Bạn cần gì? (`guest.req.title`) | enum | B | Mục 3.1 | `NOT_IN_LIST`; `REQUEST_TYPE_NOT_AVAILABLE` |
 | `note` | `guest.req.note` | text | ĐK: **B** với `report_issue`, `transport_tour`, `other`; K với loại còn lại `[GIẢ ĐỊNH BA – bộ phận cần biết hỏng gì/đặt gì]` | Cắt khoảng trắng; 3–500 ký tự khi bắt buộc, ≤ 500 khi không; V-09 (dãy giống số thẻ → 422); câu nhắc dưới ô **(mới)** `guest.req.note_hint` "Không ghi số giấy tờ, số thẻ thanh toán hay thông tin sức khỏe." (SR-INP-05) | `REQUIRED` → **(mới)** `guest.req.note_required` "Mô tả ngắn giúp chúng tôi xử lý nhanh hơn."; `CARD_NUMBER_DETECTED` → **(mới)** `guest.req.card_detected` "Vui lòng không ghi số thẻ thanh toán." |
 
-- Thông tin phí trước khi gửi (không phải folio – ĐK-6 cho phép): `extra_cleaning` với đơn **dài hạn** → `guest.req.fee_notice` (`{amount}` = phí dọn lẻ BR-506 lấy từ tham số, server trả kèm loại – **E14-04**). Đơn ngắn ngày: không hiện phí `[GIẢ ĐỊNH BA – BR-506 "ngoài gói/lịch dọn"; ngắn ngày đã dọn hằng ngày (BR-807), lần dọn thêm có tính phí hay không → DOM xác nhận]`. Sửa câu `guest.req.fee_notice`: R2 không có hóa đơn trên app → "Dịch vụ này có phí {amount}, sẽ cộng vào khoản thanh toán khi trả phòng." (UXD – E14-06).
+- **Phí trước khi gửi** (không phải folio – ĐK-6 cho phép; ARC B-16 thay đề nghị E14-04 cũ): `feeVnd` của loại lấy từ `listGuestRequestOptions`; `feeVnd > 0` → hiện `guest.req.fee_notice` và ô đồng ý **(mới)** `guest.req.fee_accept` "Tôi đồng ý phí {amount}" (không tích sẵn) → gửi `feeAccepted = true`; thiếu → 422 mã trường `FEE_NOT_ACCEPTED`; server lưu `feeVndSnapshot`. Loại có phí (DOM D-15 B-16): `extra_cleaning` theo cách hiểu BR-506 của DOM D-13 b – **khách ngắn ngày**: dọn bù lần dọn hằng ngày bị bỏ (khách từ chối buổi sáng, chiều gọi) = **miễn phí**; **lần dọn đầy đủ thứ hai trong cùng ngày** = phí BR-506; **khách dài hạn**: mọi lần dọn lẻ ngoài gói = phí BR-506 `[GIẢ ĐỊNH – chờ INV xác nhận cách hiểu ngắn ngày, PO gom ESC cuối round]`; `amenities` (thay khăn, đồ dùng) = miễn phí; `transport_tour` giá báo riêng → `feeVnd = null`, lễ tân báo giá trong `replyNote`. Sửa câu `guest.req.fee_notice`: R2 không có hóa đơn trên app → "Dịch vụ này có phí {amount}, sẽ cộng vào khoản thanh toán khi trả phòng." (UXD – E14-06).
 - Giới hạn: 20 yêu cầu/ngày/đơn (SR-RL-05) → `429 RATE_LIMITED` → **(mới)** `guest.req.too_many` "Bạn đã gửi nhiều yêu cầu hôm nay. Vui lòng gọi lễ tân {phone}."
 - Đơn đã trả phòng → `403 GUEST_STAY_ENDED`; check-in online không ảnh hưởng.
 - Mất mạng: nút gửi khóa + `guest.offline_banner` ("gửi yêu cầu khi có mạng lại") – **không** xếp hàng trên máy (ĐK-3). Nội dung đang gõ giữ trong bộ nhớ trang tới khi gửi được.
@@ -140,7 +140,7 @@ Lọc `status` (mặc định chưa kết thúc: `new`, `acknowledged`, `in_prog
 
 ### 4.3 Hạn trả lời và trả lời tự động (BR-811; AC2)
 - Trong giờ trực [`front_desk_hours.from`, `front_desk_hours.to`) (gồm mốc đầu, không gồm mốc cuối – BR-811): `ackDueAt` = lúc gửi + `guest_request_response_minutes`. Ví dụ BR-811: gửi 21:59 → hạn 22:09 (hạn được phép rơi ra ngoài giờ trực).
-- Ngoài giờ trực: server **ngay lúc tạo** ghi `autoRepliedAt` và `autoReply` theo ngôn ngữ khách **(mới)** `guest.req.auto_reply` "Chúng tôi đã nhận yêu cầu lúc {time}. Lễ tân sẽ xử lý từ {open_time}. Việc gấp, gọi {phone}." `ackDueAt` = mốc mở giờ trực kế tiếp + `guest_request_response_minutes` (ví dụ gửi 22:00 → hạn 07:10 hôm sau) `[GIẢ ĐỊNH BA – BR-811 không ghi hạn cho yêu cầu ngoài giờ]`.
+- Ngoài giờ trực: server **ngay lúc tạo** ghi `autoRepliedAt` và `autoReply` theo ngôn ngữ khách **(mới)** `guest.req.auto_reply` "Chúng tôi đã nhận yêu cầu lúc {time}. Lễ tân sẽ xử lý từ {open_time}. Việc gấp, gọi {phone}." `ackDueAt` = mốc mở giờ trực kế tiếp + `guest_request_response_minutes` (ví dụ gửi 22:00 → hạn 07:10 hôm sau) (DOM D-13 c). **Ngoại lệ `report_issue`**: ngoài giờ vẫn thông báo **ngay** cho người trực đêm/FDL (`work_order_new`/`work_order_high_new` – mất nước nóng, mất điện, khóa cửa không chờ sáng); câu trả lời tự động **luôn** có số điện thoại trực (`{phone}`).
 - J10 (mỗi phút): yêu cầu còn `new` quá `ackDueAt` → `isAckOverdue = true`, thông báo `guest_request_overdue` tới bộ phận định tuyến **và** FD (AC2 "front_desk nhận nhắc"); vào "Cần chú ý" của FD+ (`EP01-dashboard.md` mục 3 – đề nghị kind E14-05).
 
 ### 4.4 Chuyển trạng thái – `transitionGuestRequest` (SM-15) và liên kết việc/phiếu
@@ -156,7 +156,7 @@ Lỗi: chuyển không hợp lệ → 409 `INVALID_TRANSITION`; HK/MT thao tác 
 
 Việc liên kết bị **hủy** (ví dụ khách từ chối dọn) → yêu cầu **không** tự đổi; FD thấy chip **(mới)** `req.linked_cancelled` "Việc liên quan đã hủy – trả lời khách" và phải `complete` hoặc `decline`.
 
-Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP03-05 4.2 – phụ thu do lễ tân xác nhận, BR-414) rồi `complete` yêu cầu với `replyNote` nêu giờ trả đã duyệt. Phí dọn lẻ dài hạn (BR-506): khi việc HK liên kết `done` → SYS ghi dòng folio `adhoc_cleaning` (A30 SYS) `[GIẢ ĐỊNH BA – P04c bước 4; DOM xác nhận ghi tự động hay lễ tân xác nhận]`.
+Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP03-05 4.2 – phụ thu do lễ tân xác nhận, BR-414) rồi `complete` yêu cầu với `replyNote` nêu giờ trả đã duyệt. Phí dọn lẻ dài hạn (BR-506): khi việc HK liên kết `done` → SYS ghi dòng folio `adhoc_cleaning` (A30 SYS) (DOM D-13 d: ghi tự động vì khách đã đồng ý phí qua `feeAccepted`; ghi sai thì lễ tân đảo dòng có lý do – BR-008). Số tiền = `feeVndSnapshot` lúc khách gửi.
 
 ---
 
@@ -198,10 +198,10 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | E14-01 | ARC | Thu hồi mọi `guest_access_token` của đơn khi đơn `cancelled`/`no_show` (B5, B10, B11) trong cùng giao dịch – để link đơn hủy ra trang "hết hạn" thay vì hiện thông tin đơn hủy; ghi rõ ở `openGuestSession` |
 | E14-02 | ARC | Mã trường `REQUEST_TYPE_NOT_AVAILABLE` (422) cho `createGuestRequest` (loại không dùng được với trạng thái đơn – mục 3.1); `note` bắt buộc theo loại (mục 3.2) → `REQUIRED` |
 | E14-03 | ARC → **SEC (ĐK-2)** | `transitionGuestRequest`: `declinedReasonCode` enum (`fully_booked`, `out_of_hours`, `not_offered`, `other`) + `declinedNote`; `complete` nhận `replyNote` (≤ 300, V-09). `GuestRequestForGuest` thêm `declinedReasonCode`, `replyNote` (văn bản do nhân viên viết cho chính khách – không chứa dữ liệu người khác); bỏ `declinedReason` tự do khỏi phía khách. **BE không cài khi SEC chưa duyệt** |
-| E14-04 | ARC | `createGuestRequest`/`GuestStay`: trả phí dọn lẻ hiện hành (`feeVnd` theo loại, chỉ khi áp dụng – BR-506) để guest-web hiện `guest.req.fee_notice` không cần đọc bảng tham số. Là giá công khai (C0) – vẫn báo SEC theo ĐK-2 vì thêm trường vào `GuestStay` |
+| E14-04 | ARC | **Thay bằng ARC B-16** (`listGuestRequestOptions` + `feeAccepted` – không thêm trường vào `GuestStay`). Nội dung cũ: `createGuestRequest`/`GuestStay`: trả phí dọn lẻ hiện hành (`feeVnd` theo loại, chỉ khi áp dụng – BR-506) để guest-web hiện `guest.req.fee_notice` không cần đọc bảng tham số. Là giá công khai (C0) – vẫn báo SEC theo ĐK-2 vì thêm trường vào `GuestStay` |
 | E14-05 | ARC | `AttentionItem.kind` thêm `guest_request_overdue` (yêu cầu quá hạn trả lời – US-110 AC2, BR-811) |
 | E14-06 | UXD | Chuỗi **(mới)** trong tài liệu (VI/EN); sửa `guest.req.reply_time` (giờ trực lấy tham số), `guest.req.fee_notice` (R2 không có hóa đơn trên app); thanh điều hướng 3 mục (ĐK-6); bỏ khối "Mã cửa" khỏi trang Lưu trú R2, thay `guest.stay.door_at_desk` |
-| E14-07 | DOM | Xác nhận: (a) 3 loại yêu cầu lễ tân dùng được trước ngày đến (3.1); (b) phí dọn thêm cho khách ngắn ngày (3.2); (c) hạn trả lời yêu cầu gửi ngoài giờ trực (4.3); (d) phí dọn lẻ ghi folio tự động khi việc xong (4.4) |
+| E14-07 | DOM | **Đã trả lời** (s2-DOM D-13; áp 16/10 Sprint 2; (b) còn chờ INV). Nội dung cũ: Xác nhận: (a) 3 loại yêu cầu lễ tân dùng được trước ngày đến (3.1); (b) phí dọn thêm cho khách ngắn ngày (3.2); (c) hạn trả lời yêu cầu gửi ngoài giờ trực (4.3); (d) phí dọn lẻ ghi folio tự động khi việc xong (4.4) |
 | E14-08 | SEC | Danh sách tên miền bản đồ cho `mapUrl` (2.1); xác nhận guest-web không cache `listMyRequests` (0, ĐK-3) |
 | E14-09 | QA | Test ĐK-2 cho `GuestStay` và `GuestRequestForGuest` (danh sách khóa được phép); ca giờ trực 06:59/07:00/21:59/22:00 (BR-811); link đơn A không đọc đơn B; sau B18 gửi yêu cầu → 403; QR trang căn không lộ đơn (cùng phản hồi 202 cho mã đúng/sai) |
 
@@ -209,3 +209,4 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: guest-web mức 1 R2 – mở trang (link/QR), thông tin lưu trú (Wi-Fi theo khung, không mã cửa), yêu cầu khách + định tuyến + xử lý phía nhân viên, tiếng Anh; áp ĐK-1…6; đề nghị E14-01…09 | BA |
+| 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp DOM D-13 (3 loại trước ngày đến; phí dọn thêm ngắn ngày – chờ INV; `report_issue` ngoài giờ báo ngay; phí ghi folio tự động), D-15 (loại có phí); ARC B-14, B-16 (`listGuestRequestOptions`, `feeAccepted`) – FB-R2-DOM-BA-01 | BA |

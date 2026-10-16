@@ -86,23 +86,18 @@ export function RackGrid(props: RackGridProps) {
           <b>
             {room.roomNo}{' '}
             {roomNames?.[room.roomId] ? (
-              <span
-                className="faint"
-                style={{ fontFamily: 'var(--sans)', fontSize: '.75rem', fontWeight: 500 }}
-              >
-                {roomNames[room.roomId]}
-              </span>
+              <span className="faint rm-name">{roomNames[room.roomId]}</span>
             ) : null}
           </b>
           <span className="hk">{t(`status.room.${room.roomStatus}`)}</span>
-          {room.isSellable === false ? <Chip tone="bad">{t('config.stop_sale')}</Chip> : null}
+          {room.isSellable === false ? <Chip tone="bad">{t('rack.off_sale')}</Chip> : null}
         </>
       ),
       headerLabel: [
         `${t('booking.field.room')} ${room.roomNo}`,
         roomNames?.[room.roomId],
         t(`status.room.${room.roomStatus}`),
-        room.isSellable === false ? t('config.stop_sale') : undefined,
+        room.isSellable === false ? t('rack.off_sale') : undefined,
       ]
         .filter(Boolean)
         .join(', '),
@@ -219,6 +214,8 @@ export function RackGrid(props: RackGridProps) {
       bar.reservationCode,
       bar.externalContract ? `${t('rack.manual_badge')} ${t('rack.manual_legend')}` : undefined,
       bar.extraGuestCount ? t('occ.kit_chip', { n: bar.extraGuestCount }) : undefined,
+      // A-20/A-24 OTA over capacity.
+      bar.capacityConflict ? t('rack.capacity_conflict') : undefined,
       bar.kind === 'hold' && bar.holdExpiresAt ? holdNote(bar.holdExpiresAt) : undefined,
     ];
     return parts.filter(Boolean).join(', ');
@@ -254,16 +251,12 @@ export function RackGrid(props: RackGridProps) {
         ? t('rack.note.ooo', { reason: bar.label ?? '' })
         : bar.kind === 'unavailable'
           ? t('fo.rack.sold_out')
-          : [bar.kind === 'long_stay' ? 'HĐ' : null, bar.guestDisplayName]
+          : [bar.kind === 'long_stay' ? t('rack.long_prefix') : null, bar.guestDisplayName]
               .filter(Boolean)
               .join(' · ');
     const icon = conflict ? 'alert' : KIND_ICON[bar.kind];
     return (
-      <span
-        className={`bar ${kindClass}`}
-        aria-hidden="true"
-        style={urgent ? { borderColor: 'var(--bad)' } : undefined}
-      >
+      <span className={`bar ${kindClass}${urgent ? ' urgent' : ''}`} aria-hidden="true">
         {icon ? <Icon name={icon} /> : null}
         <span>
           {slot.clippedStart ? '‹ ' : ''}
@@ -271,6 +264,11 @@ export function RackGrid(props: RackGridProps) {
           {note ? <> · {note}</> : null}
         </span>
         {bar.externalContract ? <span className="ext">{t('rack.manual_badge')}</span> : null}
+        {bar.capacityConflict ? (
+          <span className="ext">
+            <Icon name="alert" size="sm" />
+          </span>
+        ) : null}
         {bar.extraGuestCount ? (
           <span className="ext" title={t('occ.kit_chip', { n: bar.extraGuestCount })}>
             <Icon name="sofa" size="sm" />
@@ -282,7 +280,7 @@ export function RackGrid(props: RackGridProps) {
 
   const cols = `168px repeat(${rack.days}, minmax(60px, 1fr))`;
   return (
-    <div className="rack-wrap" role="region" aria-label={label}>
+    <div className="rack-wrap">
       <div
         className="rack"
         role="grid"
@@ -293,7 +291,7 @@ export function RackGrid(props: RackGridProps) {
         style={{ gridTemplateColumns: cols, minWidth: 168 + rack.days * 60 }}
         onKeyDown={onKeyDown}
       >
-        <div role="row" aria-rowindex={1} style={{ display: 'contents' }}>
+        <div role="row" aria-rowindex={1} className="contents">
           <div className="hd corner" role="columnheader" style={{ gridRow: 1, gridColumn: 1 }}>
             {t('rack.col_room')}
           </div>
@@ -311,7 +309,7 @@ export function RackGrid(props: RackGridProps) {
           ))}
         </div>
         {rows.map((row, ri) => (
-          <div key={row.key} role="row" aria-rowindex={ri + 2} style={{ display: 'contents' }}>
+          <div key={row.key} role="row" aria-rowindex={ri + 2} className="contents">
             <div
               role="rowheader"
               className={`rm${row.lane ? ' lane' : ''}`}
@@ -344,7 +342,16 @@ export function RackGrid(props: RackGridProps) {
                 ? barLabel(row, slot)
                 : creatable
                   ? t('fo.rack.empty_cell_hint', { room: row.room!.roomNo, date: dayMonth(date) })
-                  : dayMonth(date);
+                  : !row.room
+                    ? dayMonth(date)
+                    : t(
+                        date < rack.today
+                          ? 'rack.cell_past'
+                          : row.room.isSellable === false
+                            ? 'rack.cell_off_sale'
+                            : 'rack.cell_free',
+                        { room: row.room.roomNo, date: dayMonth(date) },
+                      );
               return (
                 <div
                   key={key}

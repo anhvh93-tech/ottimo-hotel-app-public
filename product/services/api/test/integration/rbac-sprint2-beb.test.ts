@@ -43,6 +43,9 @@ const OPS = [
   'createDepositNotice',
   'getFolio',
   'requestFoc',
+  // 0.3.5
+  'extendQuote',
+  'listCloserCandidates',
 ];
 
 const fixture = JSON.parse(

@@ -39,11 +39,22 @@ export interface Tx {
 export interface TxOptions {
   isolation?: 'read committed' | 'repeatable read' | 'serializable';
   readOnly?: boolean;
+  /** Longest wait for a row/table lock in this transaction (default DEFAULT_LOCK_TIMEOUT_MS). */
+  lockTimeoutMs?: number;
 }
+
+/**
+ * Technical limits of every transaction (FB-R2-SEC-BE-23): a request never waits forever for a lock held by a
+ * slow transaction (pool exhaustion) – 55P03 → 409 CONCURRENT_UPDATE; a runaway statement is cancelled
+ * (57014 → 503). Long reports set their own `SET LOCAL statement_timeout`.
+ */
+export const DEFAULT_LOCK_TIMEOUT_MS = 5_000;
+export const DEFAULT_STATEMENT_TIMEOUT_MS = 15_000;
 
 export const SET_CONTEXT_SQL =
   "SELECT set_config('app.organization_id', $1, true), set_config('app.property_id', $2, true), " +
-  "set_config('app.user_id', $3, true), set_config('app.actor_type', $4, true)";
+  "set_config('app.user_id', $3, true), set_config('app.actor_type', $4, true), " +
+  "set_config('lock_timeout', $5, true), set_config('statement_timeout', $6, true)";
 
 /** Context used by the SECURITY DEFINER entry functions only (no tenant visible). */
 export const NO_TENANT: TenantContext = {
@@ -103,6 +114,8 @@ export class Database {
         ctx.propertyId ?? '',
         ctx.userId ?? '',
         ctx.actorType,
+        `${options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS}ms`,
+        `${DEFAULT_STATEMENT_TIMEOUT_MS}ms`,
       ]);
       const result = await fn(makeTx(client, ctx));
       await client.query('COMMIT');

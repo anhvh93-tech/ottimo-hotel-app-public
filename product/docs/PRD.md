@@ -139,6 +139,7 @@ Bảng 5.2 giữ ranh giới MVP; trong cột "MVP – R2" các phần sau **d�
 - **M11:** xem folio/hóa đơn trên app khách (US-111); mã cửa trên app khách (phần mã cửa của US-108 AC2); xác minh mã một lần (US-141). Ở R2 app khách không hiện dữ liệu nhạy cảm nào (plan R2 P-R2-4).
 - **M13:** mẫu tin nhắn đa ngôn ngữ (US-125).
 - **M14:** lễ tân nhập mã cửa vào đơn (US-128) – R2 lễ tân giao mã như hiện nay.
+- **M4 (PO quyết R2 Sprint 2):** lịch dọn tự động cho khách dài hạn (US-056) dời đầu R3 cùng HĐ – đơn dài hạn nhập tay ở R2 mặc định không có gói dọn (BR-204), dọn theo yêu cầu BR-506. Còn **71 story Must R2**. Ở R2 lễ tân chỉ tick "Đã giao mã cửa/thẻ" (US-025 AC7), không lưu mã.
 
 Luồng 6.1: bước "Đặt / Thanh toán" của khách dài hạn (giữ chỗ → hợp đồng, ký quỹ + kỳ đầu) và "xem folio" của bước Lưu trú chuyển R3. Chi tiết: `rounds/round-02/plan.md` mục 2, `03-backlog/backlog.md`.
 
@@ -233,3 +234,4 @@ Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O
 | 15/10/2026 | 1 (đợt 3) | Bỏ con số quy tắc, tham chiếu BR; thêm mã vai RBAC; bổ sung phân hệ (no-show, trả sớm, xác nhận hành động, yêu cầu chủ thể dữ liệu, xung đột OTA, trả phòng nhanh); gắn ESC-001…012 vào phụ thuộc và câu hỏi mở | PO |
 | 15/10/2026 | 1 (bước 4) | Theo review BA/DOM/QA: S1 trỏ S1a/S1b DATA, S2 thống nhất với G5; tách U1 thành `owner`/`manager`; M0 xác thực lại bằng mật khẩu ở R2, PIN + 2FA ở R3, thiết bị được cấp; ngày nghiệp vụ 06:00; xung đột OTA lên R2; ghi thu kỳ HĐ lên R2; đóng ca R3 (tách khỏi X3); đơn nhóm R3; không nhận tiền mã hóa; sửa luồng CTV ở 6.2; N11 theo RPO của OPS; D6 thêm ước lượng lệch và câu phụ ESC-012; thêm giả định A13, A14 | PO |
 | 16/10/2026 | 2 (tuần 1 – W12) | v0.4: áp kết quả 13 ESC INV quyết 16/10 – bỏ nhãn giả định ở G3, G4, S1–S12, X3, N10, A2, A3, A5, A14, D1–D7, quy ước số liệu; giữ nhãn cho thông tin INV còn phải gửi (sức chứa – ESC-004, loại hình kinh doanh – ESC-008, tài khoản ngân hàng + tên miền – ESC-010, thông tin khóa – ESC-011); thêm mục 5.4 phạm vi R2 theo R-C | PO |
+| 16/10/2026 | 2 (Sprint 2 – Phản hồi & sửa) | Mục 5.4 thêm dòng M4: US-056 dời R3 (71 Must R2) | PO |

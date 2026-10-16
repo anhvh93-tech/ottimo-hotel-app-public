@@ -316,7 +316,12 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
     const kept = await create(ota({ allowUnassigned: true }));
     expect(kept.statusCode, kept.body).toBe(201);
     const r = kept.json();
-    expect(r).toMatchObject({ status: 'confirmed', conflictState: 'open', extraGuestCount: 0 });
+    expect(r).toMatchObject({
+      status: 'confirmed',
+      conflictState: 'open',
+      extraGuestCount: 0,
+      requestedRoomGroupCode: 'L12',
+    });
     expect(r.segments).toEqual([expect.objectContaining({ roomId: null, roomNo: null })]);
     expect(r.allowedActions.map((a: { event: string }) => a.event)).toContain('assign_room');
     const incidents = (await c.fd!.get(url('/overbooking-incidents?status=open'))).json().data;
@@ -335,7 +340,11 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
     expect(push[0]!.n).toBe(1);
     const rack = (await c.fd!.get(url('/rack?from=2026-11-28&days=14'))).json();
     expect(rack.unassigned).toContainEqual(
-      expect.objectContaining({ reservationId: r.id, conflictState: 'open' }),
+      expect.objectContaining({
+        reservationId: r.id,
+        conflictState: 'open',
+        requestedRoomGroupCode: 'L12',
+      }),
     );
     // Upgrade (other group) needs FDL+ (BR-312 (4)(ii)); same group by FD.
     const up = await action(r.id, 'assign-room', r.version, {

@@ -35,6 +35,7 @@ import {
   s2Context,
   saveQuote,
   track,
+  withDeposit,
   type ProblemFields,
   type Reservation,
   type S2Context,
@@ -78,12 +79,14 @@ async function race(
   guestId: string,
 ): Promise<RaceOutcome> {
   const rm = room(c, roomNo);
+  // cùng một body (kèm sẵn cọc BR-305 – EP02 3.2) cho mọi yêu cầu; không tự gửi lại khi thiếu cọc
+  const body = await withDeposit(
+    ctx,
+    sessions[0]!,
+    reservationBody(c, { room: rm, arrival, departure, guestId }),
+  );
   const calls = Array.from({ length: n }, (_, i) =>
-    createReservation(
-      ctx,
-      sessions[i % sessions.length]!,
-      reservationBody(c, { room: rm, arrival, departure, guestId }),
-    ),
+    createReservation(ctx, sessions[i % sessions.length]!, body, true, { autoDeposit: false }),
   );
   const rs = await Promise.all(calls);
   const o = tally(rs);
@@ -133,7 +136,10 @@ test.describe(
         expect(await isRoomFree(request, fd, rm, w.arrival, w.departure)).toBe(false);
         // dọn: hủy đơn thắng → căn – đêm mở lại
         const win = o.winners[0]!.body;
-        const cancel = await action(request, fd, win.id, 'cancel', { reasonCode: 'other' });
+        const cancel = await action(request, fd, win.id, 'cancel', {
+          reasonCode: 'other',
+          note: 'E2E dọn dữ liệu',
+        });
         expect(cancel.status, JSON.stringify(cancel.body)).toBe(200);
         expect(await isRoomFree(request, fd, rm, w.arrival, w.departure)).toBe(true);
       }
@@ -195,8 +201,13 @@ test.describe(
       });
       expect(q.status, JSON.stringify(q.body)).toBe(201);
       const pid = propertyIdOf(fd);
+      const resBody = await withDeposit(
+        request,
+        fd,
+        reservationBody(c, { room: rm, ...w, guestId: fdGuest }),
+      );
       const [res, hold, block] = await Promise.all([
-        createReservation(request, fd, reservationBody(c, { room: rm, ...w, guestId: fdGuest })),
+        createReservation(request, fd, resBody, true, { autoDeposit: false }),
         call<Reservation & ProblemFields>(
           request,
           'POST',

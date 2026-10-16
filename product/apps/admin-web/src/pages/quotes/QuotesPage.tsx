@@ -1,6 +1,12 @@
-import type { AvailabilityResult, Quote, RackRoom } from '@ottimo/api-client';
+import type {
+  AvailabilityResult,
+  Quote,
+  Rack,
+  RackRoom,
+  ReservationSummary,
+} from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field } from '@ottimo/ui';
+import { Alert, Button, Chip, Field, StateView } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
@@ -76,6 +82,7 @@ export function QuotesPage() {
             />
           ) : (
             <QuotesList
+              onGoAvailability={() => setTab('availability')}
               onOpen={(q, el) => {
                 returnFocus.current = el;
                 setQuote({ quote: q });
@@ -157,10 +164,18 @@ function AvailabilityPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const rack = useResource(
-    async () => (await api.getRack({ propertyId }, { from: addDays(today, -2), days: 14 })).data,
-    [propertyId],
-  );
+  // 0.3.5 A-01: the rack is availability-only for sale/CTV (no booking ids); their own bookings
+  // come from `listReservations` (x-scope own) and are drawn on top so they can open them.
+  const rack = useResource(async () => {
+    const [r, own] = await Promise.all([
+      api.getRack({ propertyId }, { from: addDays(today, -2), days: 14 }),
+      api
+        .listReservations({ propertyId }, { status: ['hold', 'confirmed', 'in_house'], limit: 100 })
+        .then((x) => x.data.data)
+        .catch(() => []),
+    ]);
+    return overlayOwn(r.data, own);
+  }, [propertyId]);
   useLiveReload(propertyId, rack.reload);
   const room = (id: string) => catalog.rooms.find((r) => r.id === id);
 
@@ -215,7 +230,7 @@ function AvailabilityPanel({
             </select>
           )}
         </Field>
-        <div className="field" style={{ alignSelf: 'end' }}>
+        <div className="field self-end">
           <Button type="submit" variant="pri" busy={busy} disabled={past || !online}>
             {t('shell.search_label')}
           </Button>
@@ -292,7 +307,7 @@ function AvailabilityPanel({
         )
       ) : null}
 
-      <h2 className="label-h" style={{ margin: '20px 0 8px' }}>
+      <h2 className="label-h mt-16 mb-8">
         {t('nav.availability')} · {t('rack.by_room')}
       </h2>
       {rack.state.status === 'error' && !rack.state.data ? (
@@ -321,10 +336,36 @@ function AvailabilityPanel({
   );
 }
 
+function overlayOwn(rack: Rack, own: ReservationSummary[]): Rack {
+  return {
+    ...rack,
+    rooms: rack.rooms.map((room) => ({
+      ...room,
+      bars: room.bars.map((bar) => {
+        const mine = own.find(
+          (o) =>
+            o.roomNo === room.roomNo && o.arrivalDate === bar.from && o.departureDate === bar.to,
+        );
+        return mine
+          ? {
+              ...bar,
+              kind: mine.status === 'hold' ? ('hold' as const) : ('unavailable' as const),
+              reservationId: mine.id,
+              guestDisplayName: mine.guestDisplayName,
+              holdExpiresAt: mine.holdExpiresAt,
+            }
+          : bar;
+      }),
+    })),
+  };
+}
+
 function QuotesList({
   onOpen,
   onOpenReservation,
+  onGoAvailability,
 }: {
+  onGoAvailability: () => void;
   onOpen: (q: Quote, el: HTMLElement) => void;
   onOpenReservation: (id: string, el: HTMLElement) => void;
 }) {
@@ -341,6 +382,16 @@ function QuotesList({
       <ErrorBlock titleKey="common.error_generic_title" error={state.error} onRetry={reload} />
     );
   if (!state.data) return <LoadingBlock />;
+  if (state.data.length === 0)
+    return (
+      <StateView
+        icon="tag"
+        title={t('sale.quotes_empty_title')}
+        action={<Button onClick={onGoAvailability}>{t('nav.availability')}</Button>}
+      >
+        {t('sale.quotes_empty_body')}
+      </StateView>
+    );
   const roomNo = (id?: string) => catalog.rooms.find((r) => r.id === id)?.roomNo ?? '';
   return (
     <div className="table-wrap">
@@ -384,21 +435,16 @@ function QuotesList({
                     className="btn ghost sm"
                     onClick={(e) => onOpenReservation(q.convertedReservationId!, e.currentTarget)}
                   >
-                    {t('status.booking.hold')}
+                    {t('sale.quote_converted')}
                   </button>
+                ) : q.status === 'expired' ? (
+                  <Chip tone="warn">{t('sale.quote_expired')}</Chip>
                 ) : (
                   <Chip>{t('sale.quote_expires', { time: dateTime(q.expiresAt) })}</Chip>
                 )}
               </td>
             </tr>
           ))}
-          {state.data.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="li-s">
-                –
-              </td>
-            </tr>
-          ) : null}
         </tbody>
       </table>
     </div>

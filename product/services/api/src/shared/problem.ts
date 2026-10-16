@@ -16,7 +16,13 @@ import { describeError } from './redact';
 import { OPENAPI_META } from '../generated/openapi-meta';
 
 /** Codes outside the OpenAPI table (proposed to ARC, see d0-foundation.md): unexpected server error. */
-const EXTRA_CODES = { INTERNAL_ERROR: 500 } as const;
+const EXTRA_CODES = {
+  INTERNAL_ERROR: 500,
+  // FB-R2-SEC-BE-23 (proposed to ARC for 0.3.6): lock wait/deadlock/serialization → retryable 409; statement
+  // timeout → 503. Clients retry after `Retry-After`.
+  CONCURRENT_UPDATE: 409,
+  SERVICE_UNAVAILABLE: 503,
+} as const;
 
 export type ProblemCode = string;
 
@@ -145,6 +151,9 @@ export class ProblemFilter implements ExceptionFilter {
       err = fromHttpStatus(exception.getStatus());
     } else if (isFastifyError(exception)) {
       err = fromHttpStatus(exception.statusCode);
+    } else if (concurrencyProblem(exception)) {
+      err = concurrencyProblem(exception) as ProblemError;
+      this.logger?.error(`concurrency requestId=${req.id ?? '-'} ${describeError(exception)}`);
     } else {
       err = new ProblemError('INTERNAL_ERROR');
       // Never the request body (may hold C2/C3); the message itself is redacted (SR-LOG-04, SEC-BE-13):
@@ -158,6 +167,23 @@ export class ProblemFilter implements ExceptionFilter {
       .header('content-type', 'application/problem+json')
       .send(err.toBody(req.id));
   }
+}
+
+/**
+ * PostgreSQL lock/deadlock/serialization/timeout errors (SEC-BE-23): 55P03 lock_not_available, 40P01
+ * deadlock_detected, 40001 serialization_failure → 409 CONCURRENT_UPDATE (+ Retry-After: 1); 57014
+ * query_canceled (statement_timeout) → 503 SERVICE_UNAVAILABLE. Anything else → null.
+ */
+export function concurrencyProblem(e: unknown): ProblemError | null {
+  const code =
+    typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : '';
+  if (code === '55P03' || code === '40P01' || code === '40001') {
+    return new ProblemError('CONCURRENT_UPDATE', { headers: { 'Retry-After': '1' } });
+  }
+  if (code === '57014') {
+    return new ProblemError('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '5' } });
+  }
+  return null;
 }
 
 function isFastifyError(e: unknown): e is { statusCode: number } {

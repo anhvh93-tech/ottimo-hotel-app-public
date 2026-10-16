@@ -43,15 +43,15 @@ export function OccupancyField({
   const max = room?.maxOccupancy ?? base + 1;
   const { occ, extra } = occupancy(value.adults, value.children6to11, base);
   const over = !!room && occ > max;
-  const errText = over ? t('error.CAPACITY_EXCEEDED', { room: room!.roomNo, max }) : error;
+  // OTA (enforceMax=false): over the maximum is a warning only – the server asks for a reason (A-20).
+  const capText = over ? t('error.CAPACITY_EXCEEDED', { room: room!.roomNo, max }) : null;
+  const errText = enforceMax && capText ? capText : error;
+  const warnText = !enforceMax ? capText : null;
   const full = enforceMax && !!room && occ >= max;
   const set = (patch: Partial<Occupancy>) => onChange({ ...value, ...patch });
   const errId = `${id}-err`;
   return (
-    <fieldset
-      className={`card field${errText ? ' invalid' : ''}`}
-      style={{ background: 'var(--bg)', margin: '0 0 14px' }}
-    >
+    <fieldset className={`card inset field${errText ? ' invalid' : ''}`}>
       <legend className="label-h">
         {t('booking.field.guests')}{' '}
         <span className="req" aria-hidden="true">
@@ -99,25 +99,29 @@ export function OccupancyField({
         </div>
       </div>
       {room ? (
-        <p className="li-s" style={{ margin: '8px 0 0' }} aria-live="polite">
+        <p className="li-s mt-8 mb-4" aria-live="polite">
           {t('sale.room_meta', { base, max })}
         </p>
       ) : null}
       {errText ? (
-        <div className="err" id={errId} role="alert" style={{ marginTop: 6 }}>
+        <div className="err" id={errId} role="alert">
           <Icon name="x" />
           <span>{errText}</span>
         </div>
       ) : null}
+      {warnText ? (
+        <div className="amenity mt-8" role="status">
+          <Icon name="alert" />
+          <span>{warnText}</span>
+        </div>
+      ) : null}
       {!over && extra > 0 ? (
-        <div className="amenity" style={{ marginTop: 8 }} role="status">
+        <div className="amenity mt-8" role="status">
           <Icon name="sofa" />
           <span>{t('occ.kit_reminder', { n: extra })}</span>
         </div>
       ) : null}
-      <p className="help muted" style={{ fontSize: '.75rem', margin: '6px 0 0' }}>
-        {footnote ?? t('occ.under6_note')}
-      </p>
+      <p className="caption mt-8">{footnote ?? t('occ.under6_note')}</p>
     </fieldset>
   );
 }

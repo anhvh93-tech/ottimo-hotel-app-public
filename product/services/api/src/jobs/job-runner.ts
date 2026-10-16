@@ -26,6 +26,9 @@ import {
   localDate,
 } from '../shared/time';
 
+/** Jobs wait a little longer for row locks than requests (SEC-BE-23), never forever. */
+export const JOB_LOCK_TIMEOUT_MS = 10_000;
+
 export type JobSchedule =
   /** Runs every tick; correctness comes from row conditions (`… <= $now`), no job_run slot. */
   | { kind: 'tick' }
@@ -110,7 +113,17 @@ export class JobRunner {
   /** Scheduler entry: every property, slot computed from Clock. */
   async runDue(key: string): Promise<JobRunResult[]> {
     const out: JobRunResult[] = [];
-    for (const p of await this.listProperties()) out.push(await this.runOnce(key, p));
+    let firstError: unknown = null;
+    for (const p of await this.listProperties()) {
+      // One failing property must not stop the others (FB-R2-SEC-BE-24 b); the error is re-thrown at the
+      // end so the scheduler logs it and the failed slot is retried next tick.
+      try {
+        out.push(await this.runOnce(key, p));
+      } catch (err) {
+        firstError ??= err;
+      }
+    }
+    if (firstError) throw firstError;
     return out;
   }
 
@@ -129,48 +142,55 @@ export class JobRunner {
       actorType: 'system' as const,
     };
 
-    return this.db.withContext(ctx, async (tx) => {
-      const date = localDate(now, property.timezone);
-      if (job.schedule.kind === 'tick') {
-        const stats = (await job.handler(tx, { ...property, now, date, slot: 'tick' })) ?? {};
-        return { propertyId: property.propertyId, status: 'done', stats };
-      }
-
-      const slot = forcedSlot ?? (await this.dailySlot(tx, job.schedule, date));
-      assertLocalTime(slot);
-      // Latest slot ≤ now: today's if its time has passed, otherwise yesterday's.
-      let slotDate = date;
-      let slotAt = atLocal(date, slot, property.timezone);
-      if (slotAt.getTime() > now.getTime()) {
-        slotDate = addDays(date, -1);
-        slotAt = atLocal(slotDate, slot, property.timezone);
-      }
-      if (job.schedule.catchUp === 'window' && !forcedSlot) {
-        const windowMin = await this.parameters.get<number>(tx, 'job_catchup_minutes', date);
-        if (now.getTime() - slotAt.getTime() > windowMin * 60_000) {
-          const claimed = await this.claim(
-            tx,
-            key,
-            property,
-            slotDate,
-            slot,
-            now,
-            'skipped_catchup',
-          );
-          return {
-            propertyId: property.propertyId,
-            status: claimed ? 'skipped_catchup_window' : 'skipped_already_ran',
-            stats: {},
-          };
+    return this.db.withContext(
+      ctx,
+      async (tx) => {
+        const date = localDate(now, property.timezone);
+        if (job.schedule.kind === 'tick') {
+          const stats = (await job.handler(tx, { ...property, now, date, slot: 'tick' })) ?? {};
+          return { propertyId: property.propertyId, status: 'done', stats };
         }
-      }
-      const runId = await this.claim(tx, key, property, slotDate, slot, now, 'done');
-      if (!runId)
-        return { propertyId: property.propertyId, status: 'skipped_already_ran', stats: {} };
-      const stats = (await job.handler(tx, { ...property, now, date: slotDate, slot })) ?? {};
-      await tx.query('UPDATE job_run SET stats = $2 WHERE id = $1', [runId, JSON.stringify(stats)]);
-      return { propertyId: property.propertyId, status: 'done', stats };
-    });
+
+        const slot = forcedSlot ?? (await this.dailySlot(tx, job.schedule, date));
+        assertLocalTime(slot);
+        // Latest slot ≤ now: today's if its time has passed, otherwise yesterday's.
+        let slotDate = date;
+        let slotAt = atLocal(date, slot, property.timezone);
+        if (slotAt.getTime() > now.getTime()) {
+          slotDate = addDays(date, -1);
+          slotAt = atLocal(slotDate, slot, property.timezone);
+        }
+        if (job.schedule.catchUp === 'window' && !forcedSlot) {
+          const windowMin = await this.parameters.get<number>(tx, 'job_catchup_minutes', date);
+          if (now.getTime() - slotAt.getTime() > windowMin * 60_000) {
+            const claimed = await this.claim(
+              tx,
+              key,
+              property,
+              slotDate,
+              slot,
+              now,
+              'skipped_catchup',
+            );
+            return {
+              propertyId: property.propertyId,
+              status: claimed ? 'skipped_catchup_window' : 'skipped_already_ran',
+              stats: {},
+            };
+          }
+        }
+        const runId = await this.claim(tx, key, property, slotDate, slot, now, 'done');
+        if (!runId)
+          return { propertyId: property.propertyId, status: 'skipped_already_ran', stats: {} };
+        const stats = (await job.handler(tx, { ...property, now, date: slotDate, slot })) ?? {};
+        await tx.query('UPDATE job_run SET stats = $2 WHERE id = $1', [
+          runId,
+          JSON.stringify(stats),
+        ]);
+        return { propertyId: property.propertyId, status: 'done', stats };
+      },
+      { lockTimeoutMs: JOB_LOCK_TIMEOUT_MS },
+    );
   }
 
   private async dailySlot(

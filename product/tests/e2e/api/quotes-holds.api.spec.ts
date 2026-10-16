@@ -23,6 +23,9 @@ import {
   getReservation,
   isRoomFree,
   makeHold,
+  minStayFor,
+  weekdayArrival,
+  fieldCodes,
   ms,
   needFutureDate,
   newGuest,
@@ -74,8 +77,8 @@ test.describe(
       while ([0, 1, 2].some((i) => isSpecial(addDays(fri, i)))) fri = addDays(fri, 7);
       const weekday = oracleNum('BR-104-01', 'rateVnd');
       const weekend = oracleNum('BR-104-02', 'rateVnd');
-      const otaBase = Number(oracle('BR-105-01').input.otaBaseRateVnd); // 760.000 nhóm Lầu 1–2
-      const rates = async (kind: 'direct' | 'booking', arrival: string, nights: number) => {
+      // Báo giá chỉ nhận kênh Trực tiếp/CTV (EP02 10.1 `channelId`); giá OTA mặc định kiểm ở reservations.api.spec.ts
+      const rates = async (kind: 'direct' | 'agent', arrival: string, nights: number) => {
         const r = await calculateQuote(
           request,
           fd,
@@ -85,14 +88,16 @@ test.describe(
         return (r.body.nightlyRates ?? []).map((n) => n.amountVnd);
       };
       expect(await rates('direct', fri, 3)).toEqual([weekend, weekend, weekday]);
-      // OTA làm tròn 10.000 (BR-005): 760.000 × 1,15 = 874.000 → 870.000
-      expect(await rates('booking', fri, 3)).toEqual([870000, 870000, otaBase]);
+      expect(await rates('agent', fri, 3)).toEqual([weekend, weekend, weekday]); // lịch giá áp mọi kênh (BR-104 v0.3)
       // ngày đặc biệt (BR-104-03, BR-104-04): 31/12/2026 +30%
       const o3 = oracle('BR-104-03');
       const sd = String(o3.input.nightDate);
       if (sd > today) {
-        expect(await rates('direct', sd, 1)).toEqual([o3.expected.rateVnd]);
-        expect(await rates('booking', sd, 1)).toEqual([oracle('BR-104-04').expected.rateVnd]);
+        // 31/12 và 1/1 đều là ngày đặc biệt → ở tối thiểu 2 đêm (BR-113); oracle BR-104-03, BR-104-05
+        expect(await rates('direct', sd, 2)).toEqual([
+          o3.expected.rateVnd,
+          oracle('BR-104-05').expected.rateVnd,
+        ]);
       }
     });
 
@@ -133,7 +138,7 @@ test.describe(
       const arrival = String(o.input.arrivalDate);
       needFutureDate(arrival, await stackToday(request), 'TC-L5-002');
       const rm = room(c, '202');
-      const total = async (nights: number, kind: 'direct' | 'agoda' = 'direct') => {
+      const total = async (nights: number, kind: 'direct' = 'direct') => {
         const r = await calculateQuote(
           request,
           sal,
@@ -149,8 +154,14 @@ test.describe(
       expect((await total(7)).totalVnd).toBe(oracle('BR-107-01').expected.roomTotalVnd);
       expect((await total(13)).totalVnd).toBe(9697000);
       expect((await total(14)).totalVnd).toBe(o.expected.roomTotalVnd);
-      const ota = await total(7, 'agoda');
-      expect(ota.losDiscountPct ?? 0).toBe(0);
+      // kênh OTA không báo giá được (EP02 10.1: chỉ direct/agent) → 422 NOT_IN_LIST tại channelId
+      const ota = await calculateQuote(
+        request,
+        sal,
+        quoteInput(c, { room: rm, arrival, nights: 7, kind: 'agoda' }),
+      );
+      expect(ota.status, JSON.stringify(ota.body)).toBe(422);
+      expect(fieldCodes(ota.body).join(',')).toContain('channelId:NOT_IN_LIST');
     });
 
     test('TC-L5-003 CTV không thấy "OTTIMO còn lại"; SAL thấy', async ({ request }) => {
@@ -193,7 +204,13 @@ test.describe(
       const d20 = await q(Number(o.input.nights));
       expect(d20.totalVnd).toBe(o.expected.shortStayTotalVnd);
       expect(d20.longStayAlternative?.totalVnd).toBe(o.expected.oneMonthRentPlusServiceVnd);
-      expect((await q(28)).longStayAlternative?.mandatory).toBe(true);
+      // 28 đêm: báo giá ngắn ngày không nhận (EP02 10.1 nights 1…short_stay_max_nights) → hướng sang dài hạn
+      const r28 = await calculateQuote(request, sal, {
+        ...quoteInput(c, { room: rm, arrival, nights: 28 }),
+        guestCategory: 'vn',
+      });
+      expect(r28.status, JSON.stringify(r28.body)).toBe(422);
+      expect(fieldCodes(r28.body).join(',')).toContain('nights:LONG_STAY_REQUIRES_CONTRACT');
     });
 
     test('TC-L5-005 vượt sức chứa, ngày đã qua, ngoài cửa sổ đặt → 422 tại ô', async ({
@@ -206,7 +223,7 @@ test.describe(
       const rm = room(c, '202');
       const o = oracle('BR-110-05'); // 202, 4 người lớn → chặn
       const cap = await calculateQuote(request, sal, {
-        ...quoteInput(c, { room: rm, arrival: addDays(today, 30), nights: 1 }),
+        ...quoteInput(c, { room: rm, arrival: weekdayArrival(addDays(today, 30)), nights: 1 }),
         ...paxOf(o.input),
       });
       expectProblem(cap, 422, 'CAPACITY_EXCEEDED');
@@ -236,7 +253,7 @@ test.describe(
         const o = oracle(ex);
         const rm = room(c, String(o.input.roomNo));
         const nights = Number(o.input.nights);
-        const arrival = addDays(today, 45);
+        const arrival = weekdayArrival(addDays(today, 45));
         const base = await calculateQuote(request, sal, {
           ...quoteInput(c, { room: rm, arrival, nights }),
           adults: Math.min(Number(o.input.adults), rm.baseOccupancy ?? 2),
@@ -388,7 +405,7 @@ test.describe(
       const today = await stackToday(request);
       expect(oracle('BR-302-02').expected.holdAllowed).toBe(false);
       const q = await saveQuote(request, sal, {
-        ...quoteInput(c, { room: room(c, '101'), arrival: today, nights: 1 }),
+        ...quoteInput(c, { room: room(c, '101'), arrival: today, nights: minStayFor(today) }),
         guestId: await newGuest(request, sal),
       });
       expect(q.status, JSON.stringify(q.body)).toBe(201);
@@ -404,7 +421,11 @@ test.describe(
       const c = await s2Context(request);
       const today = await stackToday(request);
       const q = await saveQuote(request, sal, {
-        ...quoteInput(c, { room: room(c, '102'), arrival: addDays(today, 80), nights: 1 }),
+        ...quoteInput(c, {
+          room: room(c, '102'),
+          arrival: weekdayArrival(addDays(today, 80)),
+          nights: 1,
+        }),
         guestId: await newGuest(request, sal, { withPhone: false }),
       });
       expect(q.status, JSON.stringify(q.body)).toBe(201);
@@ -515,7 +536,9 @@ test.describe(
       expect(after.body.hold?.expiresAt ?? null).toBeNull();
     });
 
-    test('TC-L5-032 cọc thiếu → 422 DEPOSIT_INSUFFICIENT, đơn vẫn hold', async ({ request }) => {
+    test('TC-L5-032 cọc thiếu: giao dịch được ghi → 200, đơn vẫn hold, depositPaidVnd = số đã thu (A-13)', async ({
+      request,
+    }) => {
       await requireEndpoints(request, 'TC-L5-032', [
         EP.saveQuote,
         EP.createHoldFromQuote,
@@ -536,11 +559,15 @@ test.describe(
         sal,
         hold.id,
         'confirm-deposit',
-        { payment: { type: 'deposit', method: 'cash', amountVnd: required - 500000 } },
+        { payment: { type: 'deposit', method: 'cash', amountVnd: Math.floor(required / 2) } },
         { version: hold.version },
       );
-      expectProblem(r, 422, 'DEPOSIT_INSUFFICIENT');
-      expect((await getReservation(request, sal, hold.id)).body.status).toBe('hold');
+      // ARC s2-contract A-13 (OpenAPI 0.3.5): đã ghi tiền thì không trả 4xx – 200 + Reservation (status hold)
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      expect(r.body.status).toBe('hold');
+      const after = await getReservation(request, sal, hold.id);
+      expect(after.body.status).toBe('hold');
+      expect(after.body.depositPaidVnd).toBe(Math.floor(required / 2));
     });
 
     test('TC-L5-034 CTV không xác nhận cọc (403) – gửi "Báo đã chuyển cọc" (202), đơn vẫn hold', async ({
@@ -714,7 +741,7 @@ test.describe(
         { version: s1.version },
       );
       expect(conf.status, statusOf(conf)).toBe(200);
-      const sc = await action(request, sal, s1.id, 'cancel', { reasonCode: 'guest_cancelled' });
+      const sc = await action(request, sal, s1.id, 'cancel', { reasonCode: 'guest_changed_mind' });
       expect(sc.status, statusOf(sc)).toBe(200);
       // CTV: hủy giữ chỗ của mình
       const h2 = (
@@ -751,7 +778,7 @@ test.describe(
         { version: h3.version },
       );
       expect(fc.status, statusOf(fc)).toBe(200);
-      const c3 = await action(request, ctv, h3.id, 'cancel', { reasonCode: 'guest_cancelled' });
+      const c3 = await action(request, ctv, h3.id, 'cancel', { reasonCode: 'guest_changed_mind' });
       expectProblem(c3, 403, 'FORBIDDEN_ACTION');
     });
   },

@@ -47,15 +47,14 @@ export type Quote = Schemas['Quote'];
 export type QuoteStatus = Schemas['QuoteStatus'];
 export type Commission = Schemas['Commission'];
 export type Locale = Schemas['Locale'];
+export type CloserCandidate = Schemas['CloserCandidate'];
+export type MoveReasonCode = Schemas['MoveReasonCode'];
+export type BookingRules = Schemas['BookingRules'];
+export type OccupancyConflict = Schemas['OccupancyConflict'];
 /** `409 ROOM_UNAVAILABLE` body extras (responses.RoomUnavailable example). */
 export type RoomSuggestion = NonNullable<Problem['suggestions']>[number];
-export interface RoomConflict {
-  roomNo?: string;
-  nights?: string[];
-  kind?: 'reservation' | 'block' | string;
-  reservationCode?: string;
-  guestDisplayName?: string;
-}
+/** `conflicts[]` item of 409 ROOM_UNAVAILABLE / ROOM_BLOCKED / ROOM_OCCUPIED (0.3.5 `OccupancyConflict`). */
+export type RoomConflict = OccupancyConflict;
 
 /** JSON request body of an operation (generated from OpenAPI). */
 export type BodyOf<K extends keyof operations> = operations[K] extends {

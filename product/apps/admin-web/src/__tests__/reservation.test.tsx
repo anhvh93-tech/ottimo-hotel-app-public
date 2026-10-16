@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
 
 const idOf = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!.id;
 const open = (guest: string, as: string) => renderApp(`/reservations/${idOf(guest)}`, as);
@@ -23,15 +23,21 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     await user.clear(amount);
     await user.type(amount, '100000');
     await user.click(within(dlg).getByRole('button', { name: 'Ghi nhận 100.000' }));
+    // 0.3.5 A-13: 200 + still on hold → the dialog stays open with the shortfall, next key is new.
     expect(
       await within(dlg).findByText(/Chưa đủ cọc: cần [\d.]+, đã ghi nhận 100.000/),
     ).toBeInTheDocument();
+    const res = mockControl.rsv.reservations.find((x) => x.code === 'OTM-0146')!;
+    expect(res.status).toBe('hold');
+    expect(res.depositPaidVnd).toBe(100_000);
     await user.click(within(dlg).getByRole('button', { name: 'Hủy' }));
 
     await user.click(within(d).getByRole('button', { name: 'Xác nhận đã nhận cọc' }));
     dlg = await screen.findByRole('dialog', { name: /Xác nhận cọc/ });
     await user.click(within(dlg).getByRole('button', { name: 'Xác nhận đã nhận cọc' }));
-    expect(await screen.findByText('OTM-0146 · Đã xác nhận')).toBeInTheDocument();
+    expect(
+      await screen.findByText(tv('rsv.toast.confirmed', { code: 'OTM-0146' })),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(within(d).queryByRole('button', { name: 'Hủy giữ chỗ' })).not.toBeInTheDocument(),
     );
@@ -52,7 +58,9 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     expect(within(box).getByText('Bắt buộc')).toBeInTheDocument();
     await user.selectOptions(within(box).getByLabelText(/Lý do hủy/), 'found_other');
     await user.click(within(box).getByRole('button', { name: 'Hủy đơn' }));
-    expect(await screen.findByText('OTM-0159 · Đã hủy')).toBeInTheDocument();
+    expect(
+      await screen.findByText(tv('rsv.toast.cancelled', { code: 'OTM-0159' })),
+    ).toBeInTheDocument();
     expect(mockControl.rsv.reservations.find((r) => r.code === 'OTM-0159')!.status).toBe(
       'cancelled',
     );
@@ -67,15 +75,18 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
       target: { value: addDays(todayLocal(), 7) },
     });
-    await user.type(within(dlg).getByLabelText(/Lý do đổi/), 'Khách xin căn tầng thấp');
+    // A-19: reason from the DOM list; "other" needs a note.
+    await user.selectOptions(within(dlg).getByLabelText(/^Lý do đổi/), 'other');
+    await user.type(within(dlg).getByLabelText(/^Ghi chú/), 'Khách xin căn tầng thấp');
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(
       await within(dlg).findByText(/Dữ liệu vừa được người khác thay đổi/),
     ).toBeInTheDocument();
-    await user.click(within(dlg).getByRole('button', { name: 'Thử lại' }));
-    expect(within(dlg).getByLabelText(/Lý do đổi/)).toHaveValue('Khách xin căn tầng thấp');
+    await user.click(within(dlg).getByRole('button', { name: tv('common.reload') }));
+    expect(within(dlg).getByLabelText(/^Ghi chú/)).toHaveValue('Khách xin căn tầng thấp');
+    expect(within(dlg).getByLabelText(/^Lý do đổi/)).toHaveValue('other');
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
-    expect(await screen.findByText('Đã lưu')).toBeInTheDocument();
+    expect(await screen.findByText(/^Đã đổi OTM-0\d+/)).toBeInTheDocument();
     expect(mockControl.rsv.reservations.find((r) => r.code === 'OTM-0149')!.departureDate).toBe(
       addDays(todayLocal(), 7),
     );
@@ -93,11 +104,11 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
       within(dlg).getByLabelText(/^Căn/),
       within(dlg).getByRole('option', { name: /^302 / }),
     );
-    await user.type(within(dlg).getByLabelText(/Lý do đổi/), 'Khách yêu cầu');
+    await user.selectOptions(within(dlg).getByLabelText(/^Lý do đổi/), 'guest_request');
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(await within(dlg).findByText(/Căn 302 đã có đơn của Olga Ivanova/)).toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: 'Dùng căn 402' }));
-    expect(await screen.findByText('Đã lưu')).toBeInTheDocument();
+    expect(await screen.findByText(/^Đã đổi OTM-0\d+/)).toBeInTheDocument();
     expect(
       mockControl.rsv.reservations.find((r) => r.guestName === 'Tanaka Yui')!.segments![0]!.roomNo,
     ).toBe('402');
@@ -118,20 +129,23 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     const box = await screen.findByRole('alertdialog', {
       name: /Đánh dấu Gia đình anh Hưng không đến\?/,
     });
-    expect(
-      within(box).getByText(/Mở được từ 00:00 và sau khi ghi kết quả liên lạc/),
-    ).toBeInTheDocument();
+    // A-04: the server opened the action (allowedActions); confirm needs the contact result first.
+    expect(within(box).getByRole('button', { name: 'Đánh dấu không đến' })).toBeDisabled();
     await user.selectOptions(
       within(box).getByLabelText(/Kết quả liên lạc/),
       'rsv.contact_noanswer',
     );
     await user.click(within(box).getByRole('button', { name: 'Đánh dấu không đến' }));
-    expect(await screen.findByText('OTM-0155 · Không đến')).toBeInTheDocument();
+    expect(
+      await screen.findByText(tv('rsv.toast.no_show', { code: 'OTM-0155' })),
+    ).toBeInTheDocument();
     await user.click(await within(d).findByRole('button', { name: 'Khôi phục đơn không đến' }));
     const r = await screen.findByRole('alertdialog', { name: /Khôi phục đơn OTM-0155\?/ });
     await user.type(within(r).getByLabelText(/Lý do/), 'Khách đến lúc 23:40');
     await user.click(within(r).getByRole('button', { name: 'Khôi phục đơn không đến' }));
-    expect(await screen.findByText('OTM-0155 · Đã xác nhận')).toBeInTheDocument();
+    expect(
+      await screen.findByText(tv('rsv.toast.restored', { code: 'OTM-0155' })),
+    ).toBeInTheDocument();
   });
 
   it('INVALID_TRANSITION: the booking changed meanwhile → message names the new status', async () => {
@@ -142,11 +156,15 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     const res = mockControl.rsv.reservations.find((x) => x.code === 'OTM-0146')!;
     res.status = 'confirmed'; // deposit confirmed by a colleague; version unchanged
     await user.click(within(dlg).getByRole('button', { name: /^Gia hạn đến/ }));
+    // FB-R2-UXD-FE-S2-04: reload worked → dialog closes, the drawer says what changed.
     expect(
-      await within(dlg).findByText(
-        'Đơn vừa chuyển sang "Đã xác nhận" nên thao tác này không còn dùng được. Tải lại để xem các nút hiện có.',
+      await within(d).findByText(
+        tv('rsv.transition_changed', { status: tv('status.booking.confirmed') }),
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Gia hạn giữ chỗ (1 lần)' }),
+    ).not.toBeInTheDocument();
   });
 
   it('CTV: own hold shows totals + "Báo đã chuyển cọc", another booking is 404 (US-087)', async () => {

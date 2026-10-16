@@ -7,6 +7,7 @@ import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
+import { FOLIO_STAY_SYNC } from '../reservations/public/folio-sync-port';
 import { FolioController } from './internal/folio.controller';
 import { FolioFocService } from './internal/foc.service';
 import { FolioService } from './public/folio.service';
@@ -20,6 +21,16 @@ defineAuditEntity('folio', [
   'depositPaidVnd',
   'depositRequiredVnd',
   'status',
+  'reversedVnd',
+  'feeVnd',
+]);
+defineAuditEntity('channel_fee', [
+  'channelCode',
+  'baseVnd',
+  'ratePct',
+  'amountEstimatedVnd',
+  'amountActualVnd',
+  'source',
 ]);
 defineAuditEntity('folio_line', ['category', 'amountVnd', 'lineState', 'relatedCategory']);
 defineAuditEntity('commission', [
@@ -35,8 +46,15 @@ defineAuditEntity('commission', [
 @Module({
   imports: [ApprovalsModule],
   controllers: [FolioController],
-  providers: [FolioService, FolioFocService],
-  exports: [FolioService],
+  // StayNightAllocationService (reservations/public, owner of stay_night) is provided by the global
+  // ReservationsModule (ARC S2-07 – moved by BE-A in the Sprint 2 fix round).
+  providers: [
+    FolioService,
+    FolioFocService,
+    // reservations/public/folio-sync-port.ts (BE-A): reversal + resync after posted nights change.
+    { provide: FOLIO_STAY_SYNC, useExisting: FolioService },
+  ],
+  exports: [FolioService, FOLIO_STAY_SYNC],
 })
 export class FolioModule implements OnModuleInit {
   constructor(

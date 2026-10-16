@@ -1296,6 +1296,45 @@
       "br": "BR-964",
       "status": "GD",
       "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "ota_base_rate",
+      "value": {
+        "L12": 760000,
+        "N": 1050000,
+        "NPLUS": 980000
+      },
+      "br": "BR-103",
+      "status": "INV-004",
+      "effectiveFrom": "2026-10-01",
+      "note": "Giá OTA nền theo mã nhóm căn (migration 0018, ARC s2-contract 8.1): Lầu 1–2 760.000 · N 1.050.000 · N+ 980.000"
+    },
+    {
+      "param": "rounding.ota_rate",
+      "value": 10000,
+      "br": "BR-005",
+      "status": "INV-004",
+      "effectiveFrom": "2026-10-01",
+      "note": "Làm tròn giá OTA 10.000 (migration 0018)"
+    },
+    {
+      "param": "max_open_holds_per_user",
+      "value": {
+        "collaborator": 3,
+        "sales_staff": 5
+      },
+      "br": "BR-302",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01",
+      "note": "Giữ chỗ đang mở tối đa mỗi người: CTV 3, SAL 5, FD+ không giới hạn (DOM s2 E.2, SEC-BE-28; migration 0016) – [GIẢ ĐỊNH – chờ INV xác nhận]"
+    },
+    {
+      "param": "staff_payment_backdate_max_hours",
+      "value": 24,
+      "br": "BR-527",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01",
+      "note": "Sale/CTV ghi giờ nhận tiền lùi tối đa 24 giờ (DOM s2 E.2; migration 0019)"
     }
   ],
   "parametersNote": "Giá trị mặc định BR v0.3.1 mục 13. status theo cột 'Trạng thái' BR mục 13: INV-0xx = INV quyết ESC-0xx 16/10 (giá trị chính thức), INV-TT = thông tin INV gửi, GD = [GIẢ ĐỊNH – chờ INV], NGANH, PL = cần xác nhận pháp lý, SEC; ghép bằng '+'. Tham số nội dung lớn (lease_terms, minibar_standard, service_fee, cleaning_package, channel_commission_pct) nằm ở các khối riêng bên dưới. Trường 'param' = config_parameter.key (đặt tên khác 'key' để tránh gitleaks generic-api-key báo nhầm)",
@@ -1358,40 +1397,8 @@
   },
   "channels": [
     {
-      "code": "zalo_phone",
-      "name": "Điện thoại / Zalo",
-      "group": "direct",
-      "commissionPct": "0",
-      "requiresOtaRef": false,
-      "isActive": true
-    },
-    {
-      "code": "walk_in",
-      "name": "Khách vãng lai",
-      "group": "direct",
-      "commissionPct": "0",
-      "requiresOtaRef": false,
-      "isActive": true
-    },
-    {
-      "code": "direct_web",
-      "name": "Website",
-      "group": "direct",
-      "commissionPct": "0",
-      "requiresOtaRef": false,
-      "isActive": true
-    },
-    {
-      "code": "returning",
-      "name": "Khách quay lại",
-      "group": "direct",
-      "commissionPct": "0",
-      "requiresOtaRef": false,
-      "isActive": true
-    },
-    {
-      "code": "sales_staff",
-      "name": "Nhân viên kinh doanh",
+      "code": "direct",
+      "name": "Trực tiếp",
       "group": "direct",
       "commissionPct": "0",
       "requiresOtaRef": false,
@@ -1454,7 +1461,7 @@
       "isActive": true
     }
   ],
-  "channelsNote": "Mã kênh theo erd.md 4.1; tỷ lệ BR-901 (chuỗi thập phân). traveloka, google chưa có tỷ lệ trong BR-901 → không seed",
+  "channelsNote": "Mã kênh theo erd.md 4.1; tỷ lệ BR-901 (chuỗi thập phân). traveloka, google chưa có tỷ lệ trong BR-901 → không seed. 16/10 (ARC A-08 / s2-contract A-17, DOM D-6): **một** kênh `direct` (Trực tiếp); nguồn khách ghi ở `reservation.directSource` (`website`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`) – thay 5 kênh trực tiếp cũ",
   "minibarItems": [
     {
       "code": "nuoc",

@@ -26,6 +26,10 @@ export interface ManualPaymentInput {
   posAuthCode: string | null;
   note: string | null;
   recordedBy: string;
+  /** Override (SEC-BE-22: a sale's receipt is always `pending`); default by method (BR-527). */
+  reconciliation?: 'pending' | 'not_required';
+  /** Role of the recorder when it is not a desk role – kept in the money audit (SEC-BE-22). */
+  recordedByRole?: string;
   requestId?: string;
 }
 
@@ -49,7 +53,7 @@ export class PaymentService {
     const id = uuidv7();
     const now = this.clock.now();
     const code = await this.docNumbers.allocate(tx, 'payment');
-    const reconciliation = reconciliationFor(p.method);
+    const reconciliation = p.reconciliation ?? reconciliationFor(p.method);
     await tx.query(
       `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
          reconciliation, amount_vnd, status, auth_code, received_at, recorded_by, note, created_at,
@@ -85,6 +89,7 @@ export class PaymentService {
         amountVnd: p.amountVnd,
         status: 'succeeded',
         reconciliation,
+        ...(p.recordedByRole ? { recordedByRole: p.recordedByRole } : {}),
       },
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });

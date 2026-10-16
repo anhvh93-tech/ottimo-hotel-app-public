@@ -109,7 +109,11 @@ export const SPRINT2_OPS: Record<string, OpDef2> = {
     payment: { type: 'deposit', method: 'cash', amountVnd: 100000 },
   })),
   cancelReservation: resAction(() => ({ reasonCode: 'other', note: 'E2E RBAC' })),
-  moveReservation: resAction((f) => ({ arrivalDate: f.arrival, reasonCode: 'other' })),
+  moveReservation: resAction((f) => ({
+    arrivalDate: f.arrival,
+    reasonCode: 'other',
+    note: 'E2E RBAC', // EP02 6: `other` bắt buộc ghi chú (REASON_REQUIRED)
+  })),
   markNoShow: resAction(() => ({ contactAttemptNote: 'E2E RBAC' })),
   restoreNoShow: resAction(() => ({ reason: 'E2E RBAC' })),
   changeRoom: resAction((f) => ({
@@ -119,7 +123,7 @@ export const SPRINT2_OPS: Record<string, OpDef2> = {
     reason: 'E2E RBAC',
   })),
   assignRoom: resAction(() => ({ roomId: uuid(), resolution: 'reassigned_same_group' })),
-  swapRoom: resAction(() => ({ otherReservationId: uuid(), otherVersion: 0, reason: 'E2E RBAC' })),
+  swapRoom: resAction(() => ({ otherReservationId: uuid(), otherVersion: 1, reason: 'E2E RBAC' })), // version ≥ 1
   addPartyMember: {
     mode: 'valid',
     prepare: (f) => ({

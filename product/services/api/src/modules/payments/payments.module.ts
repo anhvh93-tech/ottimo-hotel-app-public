@@ -9,7 +9,15 @@ import { DepositsController } from './internal/deposits.controller';
 import { DepositsService } from './internal/deposits.service';
 import { PaymentService } from './public/payment.service';
 
-defineAuditEntity('payment', ['code', 'type', 'method', 'amountVnd', 'status', 'reconciliation']);
+defineAuditEntity('payment', [
+  'code',
+  'type',
+  'method',
+  'amountVnd',
+  'status',
+  'reconciliation',
+  'recordedByRole',
+]);
 defineAuditEntity('deposit_notice', ['amountVnd', 'status']);
 
 @Global()

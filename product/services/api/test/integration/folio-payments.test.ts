@@ -117,22 +117,23 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
   const folio = async (who: string, id: string) =>
     (await Client.of(fa, t, who).get(`${P(t)}/folios/${id}`)).json();
 
-  it('US-086 AC2 + AC1 + AC5: short deposit recorded, hold kept (422); top-up confirms (BR-305 1.600.000)', async () => {
+  it('US-086 AC2 + AC1 + AC5: short deposit recorded, hold kept (200 – A-13); top-up confirms (BR-305 1.600.000)', async () => {
     const b = await hold('sal', '2026-11-09');
     expect((await confirm('sal', b, deposit(1_000_000), '')).statusCode).toBe(428);
     expect((await confirm('sal', b, deposit(1_000_000), '"77"')).json().code).toBe(
       'VERSION_CONFLICT',
     );
 
+    // 0.3.5 A-13: money was written → 200, booking stays `hold`, depositPaidVnd tells what is missing.
     const short = await confirm('sal', b, deposit(1_000_000, { note: 'CK Vietcombank' }));
-    expect(short.statusCode, short.body).toBe(422);
+    expect(short.statusCode, short.body).toBe(200);
     expect(short.json()).toMatchObject({
-      code: 'DEPOSIT_INSUFFICIENT',
+      status: 'hold',
       depositRequiredVnd: 1_600_000,
       depositPaidVnd: 1_000_000,
-      shortfallVnd: 600_000,
     });
     expect((await status(b.id)).status).toBe('hold');
+    b.version = short.json().version;
 
     const ok = await confirm('sal', b, deposit(600_000, { method: 'cash' }));
     expect(ok.statusCode, ok.body).toBe(200);
@@ -157,9 +158,10 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       reconciliation: 'pending',
       amount_vnd: 1_000_000,
     });
+    // SEC-BE-22: a sale's receipt waits for the desk check whatever the method.
     expect(pays[1]).toMatchObject({
       method: 'cash',
-      reconciliation: 'not_required',
+      reconciliation: 'pending',
       amount_vnd: 600_000,
     });
     expect(pays[0]!.code).toMatch(/^PT-\d{6}$/);
@@ -291,12 +293,20 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
   it('existingPaymentId: a succeeded deposit of the same folio counts', async () => {
     const b = await hold('sal', '2026-11-30');
     const first = await confirm('fd', b, deposit(1_600_000 - 1));
-    expect(first.json().code).toBe('DEPOSIT_INSUFFICIENT');
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json().status).toBe('hold');
     const { rows } = await db.withContext(t.ctx(), (tx) =>
       tx.query<{ id: string }>(`SELECT id FROM payment WHERE folio_id = $1`, [b.folioId]),
     );
+    // Nothing new written and still short → 422 with the amounts (safe to resend).
     const again = await confirm('fd', b, { existingPaymentId: rows[0]!.id });
-    expect(again.json().code).toBe('DEPOSIT_INSUFFICIENT');
+    expect(again.statusCode).toBe(422);
+    expect(again.json()).toMatchObject({
+      code: 'DEPOSIT_INSUFFICIENT',
+      depositRequiredVnd: 1_600_000,
+      depositPaidVnd: 1_599_999,
+      shortfallVnd: 1,
+    });
     const top = await confirm('fd', b, deposit(1));
     expect(top.statusCode, top.body).toBe(200);
   });
@@ -523,6 +533,210 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
     expect(rows.map((r) => r.action)).toEqual(
       expect.arrayContaining(['folio.foc_requested', 'folio.foc_posted', 'folio.foc_rejected']),
     );
+  });
+
+  it('SEC-BE-22: sale receipts stay pending + desk push; backdating > 24 h refused; amount capped; FD unchanged', async () => {
+    const b = await hold('sal', '2027-02-01');
+    const back3d = new Date(T0.getTime() - 3 * 86_400_000).toISOString();
+    expect(
+      (await confirm('sal', b, deposit(1_600_000, { method: 'cash', receivedAt: back3d }))).json()
+        .errors,
+    ).toEqual([{ field: 'payment.receivedAt', code: 'DATE_INVALID' }]);
+    const tooHigh = await confirm('sal', b, deposit(160_000_000, { method: 'cash' }));
+    expect(tooHigh.json()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_TOO_HIGH' }],
+    });
+    const ok = await confirm(
+      'sal',
+      b,
+      deposit(tooHigh.json().max > 0 ? 2_000_000 : 0, { method: 'cash' }),
+    );
+    expect(ok.statusCode, ok.body).toBe(200);
+    // The cap is the stay total (room + extra-person fee of the quote; this week has Tết nights – BR-104).
+    expect(tooHigh.json().max).toBe((await folio('fd', b.folioId)).totals.totalVnd);
+    const { rows } = await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `SELECT p.reconciliation, a.after->>'recordedByRole' AS role
+           FROM payment p JOIN audit_event a ON a.entity_id = p.id::text AND a.action = 'payment.recorded'
+          WHERE p.folio_id = $1`,
+        [b.folioId],
+      ),
+    );
+    expect(rows).toEqual([{ reconciliation: 'pending', role: 'sales_staff' }]);
+    const { rows: push } = await db.withContext(t.ctx(), (tx) =>
+      tx.query<{ ids: string[] }>(
+        `SELECT payload->'userIds' AS ids FROM outbox_message
+          WHERE payload->>'kind' = 'deposit_unverified' AND payload->>'refId' = $1`,
+        [b.id],
+      ),
+    );
+    expect(new Set(push[0]!.ids)).toEqual(
+      new Set([t.users.fd!.id, t.users.fdl!.id, t.users.mgr!.id]),
+    );
+    // FD: cash is not_required as before; FD may exceed the cap with a reason in the note.
+    const c = await hold('sal', '2027-02-08');
+    const fd = await confirm(
+      'fd',
+      c,
+      deposit(7_000_000, { method: 'cash', note: 'Khách trả trước toàn bộ' }),
+    );
+    expect(fd.statusCode, fd.body).toBe(200);
+    const { rows: fdPay } = await db.withContext(t.ctx(), (tx) =>
+      tx.query(`SELECT reconciliation FROM payment WHERE folio_id = $1`, [c.folioId]),
+    );
+    expect(fdPay).toEqual([{ reconciliation: 'not_required' }]);
+  });
+
+  it('SEC-BE-22 (2): an overdue hold is never rescued by a sale; FD gets HOLD_EXPIRED + expiredAt for late money', async () => {
+    const b = await hold('sal', '2027-02-15');
+    const deadline = new Date(b.holdExpiresAt);
+    const after = new Date(deadline.getTime() + 60_000);
+    await refreshSessions(db, t, after);
+    fa.clock.set(after);
+    try {
+      const early = new Date(deadline.getTime() - 3_600_000).toISOString();
+      const sal = await confirm('sal', b, deposit(1_600_000, { receivedAt: early }));
+      expect(sal.statusCode).toBe(409);
+      expect(sal.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      expect(new Date(sal.json().expiredAt).getTime()).toBe(deadline.getTime());
+    } finally {
+      await refreshSessions(db, t, T0);
+      fa.clock.set(T0);
+    }
+  });
+
+  it('SEC-BE-21: dryRun is refused (422) on money endpoints that do not compute – nothing written', async () => {
+    const b = await hold('sal', '2027-02-22');
+    const noKey = (url: string, body: unknown) =>
+      fa.app.inject({
+        method: 'POST',
+        url,
+        headers: Client.of(fa, t, 'ctv').headers({}, true),
+        payload: body as object,
+      });
+    const res = await Client.of(fa, t, 'sal').send(
+      'POST',
+      `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
+      { ...deposit(1_600_000), dryRun: true },
+      { 'if-match': `"${b.version}"` },
+    );
+    expect(res.json().errors).toEqual([{ field: 'dryRun', code: 'NOT_ALLOWED' }]);
+    const ctvHold = await hold('ctv', '2027-03-01', { adults: 2 });
+    const n = await noKey(`${P(t)}/reservations/${ctvHold.id}/deposit-notices`, {
+      amountVnd: 1,
+      dryRun: true,
+    });
+    expect(n.statusCode).toBe(422);
+    expect(n.json().errors).toEqual([{ field: 'dryRun', code: 'NOT_ALLOWED' }]);
+    const { rows } = await db.withContext(t.ctx(), (tx) =>
+      tx.query(`SELECT count(*)::int AS n FROM deposit_notice WHERE reservation_id = $1`, [
+        ctvHold.id,
+      ]),
+    );
+    expect(rows).toEqual([{ n: 0 }]);
+  });
+
+  it('DOM-BE-01: cancelling a confirmed booking reverses room + extra-person lines and books the retained deposit (BR-309 < 3 days → 100 % kept)', async () => {
+    const b = await hold('sal', '2026-10-16', { adults: 3 });
+    // 16/10 (Fri) – one 7-night stay starting tomorrow: deposit fully kept when cancelled today (< 3 days).
+    const ok = await confirm('fd', b, deposit(2_000_000));
+    expect(ok.statusCode, ok.body).toBe(200);
+    const before = await folio('fd', b.folioId);
+    expect(before.totals.totalVnd).toBeGreaterThan(0);
+    const cancel = await Client.of(fa, t, 'fd').send(
+      'POST',
+      `${P(t)}/reservations/${b.id}/actions/cancel`,
+      { reasonCode: 'price', dryRun: false },
+      { 'if-match': `"${ok.json().version}"` },
+    );
+    expect(cancel.statusCode, cancel.body).toBe(200);
+    const after = await folio('fd', b.folioId);
+    const reversals = after.lines.filter((l: { reversalOfId?: string }) => l.reversalOfId);
+    expect(reversals).toHaveLength(14); // 7 room + 7 extra-person
+    const fee = after.lines.filter((l: { category: string }) => l.category === 'cancellation_fee');
+    expect(fee).toHaveLength(1);
+    expect(after.totals).toMatchObject({
+      roomVnd: 0,
+      otherVnd: fee[0].amountVnd,
+      paidVnd: 2_000_000,
+      balanceDueVnd: fee[0].amountVnd - 2_000_000,
+    });
+    const { rows } = await db.withContext(t.ctx(), (tx) =>
+      tx.query(`SELECT status FROM commission WHERE reservation_id = $1`, [b.id]),
+    );
+    expect(rows.every((r) => r.status === 'void')).toBe(true);
+    const { rows: audit } = await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `SELECT 1 FROM audit_event WHERE entity_code = $1 AND action = 'folio.stay_reversed'`,
+        [b.code],
+      ),
+    );
+    expect(audit).toHaveLength(1);
+  });
+
+  it('DOM-BE-02: fewer guests → extra-person lines reversed by the resync, balance follows', async () => {
+    const b = await hold('sal', '2027-03-08');
+    const ok = await confirm('fd', b, deposit(1_600_000));
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await folio('fd', b.folioId)).totals.otherVnd).toBe(1_050_000);
+    const patch = await Client.of(fa, t, 'fd').send(
+      'PATCH',
+      `${P(t)}/reservations/${b.id}`,
+      { adults: 2 },
+      { 'if-match': `"${ok.json().version}"` },
+    );
+    expect(patch.statusCode, patch.body).toBe(200);
+    const f = await folio('fd', b.folioId);
+    expect(f.totals).toMatchObject({
+      roomVnd: 5_205_000,
+      otherVnd: 0,
+      balanceDueVnd: 5_205_000 - 1_600_000,
+    });
+  });
+
+  it('DOM-BE-03 (D-8) + BE-02: 5 → 7 nights re-tiers BR-107 on every night; folio follows (4.079.000 → 5.205.000)', async () => {
+    const c = Client.of(fa, t, 'sal');
+    const q = await c.send('POST', `${P(t)}/quotes`, {
+      type: 'short',
+      roomId: ids.rooms['202'],
+      arrivalDate: '2027-03-15',
+      nights: 5,
+      adults: 2,
+      channelId: ids.channels.zalo_phone,
+      guestId: guestSal,
+    });
+    expect(q.json().roomTotalVnd).toBe(4_079_000); // 4 × 792.000 + Fri 911.000
+    const h = (
+      await c.send('POST', `${P(t)}/quotes/${q.json().id}/actions/create-hold`, { holdHours: 24 })
+    ).json();
+    const ok = await Client.of(fa, t, 'fd').send(
+      'POST',
+      `${P(t)}/reservations/${h.id}/actions/confirm-deposit`,
+      deposit(1_300_000),
+      { 'if-match': `"${h.version}"` },
+    );
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await folio('fd', h.folioId)).totals.roomVnd).toBe(4_079_000);
+    const move = await Client.of(fa, t, 'fd').send(
+      'POST',
+      `${P(t)}/reservations/${h.id}/actions/move`,
+      {
+        arrivalDate: '2027-03-15',
+        departureDate: '2027-03-22',
+        reasonCode: 'guest_request',
+        mode: 'change',
+      },
+      { 'if-match': `"${ok.json().version}"` },
+    );
+    expect(move.statusCode, move.body).toBe(200);
+    const f = await folio('fd', h.folioId);
+    expect(f.totals.roomVnd).toBe(5_205_000);
+    expect(
+      f.lines.filter(
+        (l: { category: string; reversalOfId?: string }) => l.category === 'room' && l.reversalOfId,
+      ),
+    ).toHaveLength(5);
   });
 
   it('K8: folio_line and payment amounts are append-only for ottimo_app (column grants only on state)', async () => {

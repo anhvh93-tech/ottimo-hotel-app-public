@@ -1,5 +1,5 @@
 {
- "version": "0.2.1",
+ "version": "0.2.2",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
  "generated": "2026-10-16",
  "author": "BA",
@@ -60,6 +60,23 @@
    "operationIds": [
     "createReservation"
    ]
+  },
+  {
+   "id": "A01-closer",
+   "name_vi": "Xem danh sách người chốt (CTV/sale) khi tạo đơn – S05",
+   "event": null,
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listCloserCandidates"
+   ],
+   "note": "ARC A-06: chỉ userId, displayName (D27 – tên hiển thị người chốt trong S05), kind; không username/SĐT/email/trạng thái khóa"
   },
   {
    "id": "A02",
@@ -786,7 +803,10 @@
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [
+    "extendQuote"
+   ],
+   "note": "ARC A-18 (OpenAPI 0.3.5): MGR/OWN 200; SAL/CTV own -> 202 + ApprovalRequest quote_extension"
   },
   {
    "id": "A51-track",

@@ -24,8 +24,11 @@ import { Operation } from '../../../shared/http/operation';
 import { parseLimit } from '../../../shared/http/pagination';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
+import { rejectDryRun } from '../../../shared/http/dry-run';
 import { problem } from '../../../shared/problem';
 import { localDateSchema, parseBody } from '../../platform/public/validation';
+import { ApprovalService } from '../../approvals/public/approval.service';
+import { requireReason } from '../../../shared/validation';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { LeadsService } from '../public/leads.service';
 import { CommissionsService } from './commissions.service';
@@ -46,7 +49,8 @@ const quoteInput = z.object({
   roomId: uuid.optional(),
   roomGroupId: uuid.optional(),
   arrivalDate: localDateSchema,
-  nights: z.number().int().min(1).max(10_000).optional(),
+  // SEC-BE-28: short stays end far below this (BR-108/112 reject ≥ 28 nights with field codes).
+  nights: z.number().int().min(1).max(60).optional(),
   termMonths: z.number().int().min(1).max(120).optional(),
   adults: count(1),
   children6to11: count(0).optional(),
@@ -64,6 +68,8 @@ const holdInput = z.object({
   holdHours: z.number().int().min(1).max(168),
   depositMethod: z.enum(['vietqr', 'bank_transfer', 'cash', 'vnpay', 'momo']).optional(),
 });
+
+const extendInput = z.object({ reason: z.string().max(500).optional() });
 
 const leadInput = z.object({
   guestId: uuid,
@@ -98,6 +104,7 @@ export class QuotesController {
     @Inject(LeadsService) private readonly leads: LeadsService,
     @Inject(CommissionsService) private readonly commissions: CommissionsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
+    @Inject(ApprovalService) private readonly approvals: ApprovalService,
   ) {}
 
   @Post('quotes/calculate')
@@ -144,6 +151,7 @@ export class QuotesController {
     @Res({ passthrough: true }) reply: Reply,
     @Body() body: unknown,
   ) {
+    rejectDryRun(body);
     const input = parseBody(saveInput, body) as QuoteInput & { guestId: string; leadId?: string };
     const result = await this.uow.run(req, async (tx) => ({
       status: 201,
@@ -196,12 +204,41 @@ export class QuotesController {
     @Req() req: GuardedRequest,
     @Res({ passthrough: true }) reply: Reply,
     @Param('quoteId') quoteId: string,
+    @Body() body: unknown,
   ) {
     if (!UUID.test(quoteId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const result = await this.uow.run(req, async (tx) => ({
       status: 200,
       body: await this.quotes.withdraw(tx, caller(req), quoteId, req.id),
     }));
+    return applyResult(reply, result);
+  }
+
+  @Post('quotes/:quoteId/actions/extend')
+  @Operation('extendQuote')
+  async extend(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('quoteId') quoteId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID.test(quoteId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
+    const input = parseBody(extendInput, body ?? {});
+    const reason = input.reason === undefined ? null : requireReason('reason', input.reason);
+    const version = expectedVersion(req);
+    const result = await this.uow.run(req, async (tx) => {
+      const out = await this.quotes.extend(tx, caller(req), quoteId, version, reason, req.id);
+      if (out.status === 202) {
+        return {
+          status: 202,
+          body: (await this.approvals.toDto(tx, out.body)) as unknown as Record<string, unknown>,
+        };
+      }
+      return { status: 200, body: out.body };
+    });
+    if (result.status === 200) reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
   }
 
@@ -214,6 +251,7 @@ export class QuotesController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(quoteId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const input = parseBody(holdInput, body);
     // R2: VNPay/MoMo are hidden until the gateways exist (R3, ESC-010).
     const depositMethod = input.depositMethod ?? 'vietqr';
@@ -259,6 +297,7 @@ export class QuotesController {
     @Res({ passthrough: true }) reply: Reply,
     @Body() body: unknown,
   ) {
+    rejectDryRun(body);
     const input = parseBody(leadInput, body);
     const result = await this.uow.run(req, async (tx) => {
       const { timezone } = await this.property.now(tx);
@@ -280,6 +319,7 @@ export class QuotesController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(leadId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const input = parseBody(stageInput, body);
     const version = expectedVersion(req);
     const result = await this.uow.run(req, async (tx) => {

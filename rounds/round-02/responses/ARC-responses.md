@@ -20,3 +20,14 @@
 ### FB-R2-SEC-BE-20 (Suggestion) – Phạm vi `session_policy`/`login_lockout`
 - Trạng thái: **Accepted (phương án 2)**
 - Quyết định: giữ lưu theo cơ sở (không thêm tầng tham số tổ chức ở R2); khi đăng nhập/kiểm phiên server dùng giá trị **chặt nhất** trong các cơ sở người dùng có vai đang hoạt động; ngày hiệu lực theo giờ cơ sở. Ghi ở mô tả `x-security-parameters` và erd 9.3. Tham số cấp tổ chức xem lại ở R3 khi có chuỗi nhiều cơ sở thật.
+
+---
+
+## Round 2 – Sprint 2, bước Phản hồi & sửa (16/10/2026)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R2-DOM-ARC-01 | Done | Đã thêm vào `openapi.yaml` 0.3.5-draft (đoạn "Bổ sung theo DOM") + erd 0.3.5: (1) `MoveReasonCode` enum D-5 kèm ràng buộc vai/chế độ; (2) `CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason`, `Reservation.capacityConflict`, điều kiện B9 `capacity_within_max`, kind "Cần chú ý" `capacity_conflict` – cờ **tách** khỏi `conflictState` (không lẫn làn chưa gán/KPI S1c); (3) `restoreNoShow` thêm `roomId` + `allowUnassigned`, đã duyệt thì không bao giờ 409, `OverbookingIncident.source` thêm `no_show_restore`; (4) `stay_night.calendar_rate_vnd` + `NightRate.calendarRateVnd` (chỉ đọc). Việc BE-A: `outputs/ARC/s2-contract.md` mục 8.3 |
+| BUG-R2-017 (phần ARC) | Done | Tham số `ota_base_rate` (một khóa json theo mã nhóm) + biên + `rounding.ota_rate` trong erd 9.1/9.1a; OpenAPI không đổi. BE-A thêm vào catalogue bằng migration mới; QA seed. `s2-contract.md` mục 8.1 |
+| BUG-R2-018 (phần ARC) | Done | Sàn–trần BR-105 tính theo `ota_base_rate[nhóm]`, làm tròn 10.000, mọi kênh – `s2-contract.md` mục 8.1 |
+| BUG-R2-021 (phần ARC) | Done | architecture 9.1 chốt `hold.expire`, `ooo.activate`; J9 theo ngày nghiệp vụ 06:00 (BR-010) |

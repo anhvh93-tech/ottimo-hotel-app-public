@@ -4,8 +4,9 @@
  *   reduces (related_line_id), then ApprovalService.submit() in the same transaction (A1 pending, or A2
  *   self-applied within the requester's limit – then the hook below already posted it).
  * - Approval hooks (same transaction as the decision, registered by FolioModule):
- *   approved → line `posted`; a reduced ROOM night gets discount_vnd += amount on its stay_night
- *   (room_revenue_vnd = gross − discount; 100 % → is_complimentary); rejected/cancelled → line `rejected`
+ *   approved → line `posted`; a reduced ROOM night gets discount_vnd += amount on its stay_night through
+ *   StayNightAllocationService (ARC S2-07; 100 % → is_complimentary); rejected/cancelled → line `rejected`;
+ *   approved after the reduced charge was reversed (cancel/resync) → `rejected` (nothing left to reduce)
  *   (the charge stays payable – A5). Amounts are never updated (BR-008).
  */
 import { Inject, Injectable } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
   type ApprovalRow,
   ApprovalService,
 } from '../../approvals/public/approval.service';
+import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
 import { FolioService } from '../public/folio.service';
 
 export interface FocInput {
@@ -50,6 +52,7 @@ export class FolioFocService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioService) private readonly folios: FolioService,
+    @Inject(StayNightAllocationService) private readonly nights: StayNightAllocationService,
   ) {}
 
   async request(
@@ -152,18 +155,15 @@ export class FolioFocService {
     const line = await this.line(tx, request.folio_line_id);
     if (!line || line.line_state !== 'pending_approval') return;
     if (request.status === 'approved') {
-      await tx.query(`UPDATE folio_line SET line_state = 'posted' WHERE id = $1`, [line.id]);
       const related = line.related_line_id ? await this.line(tx, line.related_line_id) : null;
-      if (related?.category === 'room' && related.stay_night_id) {
-        await tx.query(
-          `UPDATE stay_night
-              SET discount_vnd = LEAST(room_revenue_gross_vnd, discount_vnd + $2),
-                  room_revenue_vnd = room_revenue_gross_vnd - LEAST(room_revenue_gross_vnd, discount_vnd + $2),
-                  is_complimentary = LEAST(room_revenue_gross_vnd, discount_vnd + $2) >= room_revenue_gross_vnd,
-                  updated_at = $3
-            WHERE id = $1`,
-          [related.stay_night_id, -line.amount_vnd, this.clock.now()],
-        );
+      if (!related || related.reversed) {
+        // The charge was reversed meanwhile (cancel / resync): nothing left to reduce.
+        await tx.query(`UPDATE folio_line SET line_state = 'rejected' WHERE id = $1`, [line.id]);
+        return;
+      }
+      await tx.query(`UPDATE folio_line SET line_state = 'posted' WHERE id = $1`, [line.id]);
+      if (related.category === 'room' && related.stay_night_id) {
+        await this.nights.addDiscount(tx, related.stay_night_id, -line.amount_vnd);
       }
     } else if (request.status === 'rejected' || request.status === 'cancelled') {
       await tx.query(`UPDATE folio_line SET line_state = 'rejected' WHERE id = $1`, [line.id]);

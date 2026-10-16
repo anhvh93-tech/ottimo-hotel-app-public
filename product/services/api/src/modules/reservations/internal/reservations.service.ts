@@ -4,7 +4,7 @@
  * business writes → state_transition + reservation_change + audit_event → outbox → hooks.
  * Inventory goes through OccupancyService only (EXCLUDE constraint, 409 + conflicts/suggestions).
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { LeadsService } from '../../sales/public/leads.service';
 import { inSequence } from '../../../shared/sequence';
 import { v7 as uuidv7 } from 'uuid';
@@ -15,6 +15,7 @@ import { ProblemError, problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
+import { attachEmailIfEmpty } from '../../guests/public/guest-contact';
 import { normalizeEmail } from '../../guests/public/normalize';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
@@ -24,6 +25,9 @@ import {
   countedPersons,
   directCancelRefund,
   extraGuestKitDue,
+  extraPersons,
+  applyNightDiscount,
+  losDiscountPct,
   holdDeadline,
   holdExtension,
   isOrphanGap,
@@ -55,6 +59,7 @@ import {
   insertNights,
   insertSegment,
   isOwn,
+  liveNightRows,
   liveNights,
   loadReservation,
   outboxAvailability,
@@ -100,13 +105,27 @@ const USER_CANCEL_REASONS: readonly CancelReasonCode[] = [
   'other',
   'ota_cancelled',
 ];
+/** 0.3.5 A-19 MoveReasonCode (DOM D-5). */
 const MOVE_REASONS = [
   'guest_request',
   'property_fault',
   'overbooking',
   'upgrade',
+  'inventory_optimize',
+  'force_majeure',
   'other',
 ] as const;
+/** Holds handled per J1 run (SEC-BE-24) – technical batch size; the next tick takes the rest. */
+const HOLD_EXPIRY_BATCH = 100;
+
+/** Error code for job reports – never a message with data (SR-LOG-04). */
+function errorCode(err: unknown): string {
+  if (err instanceof ProblemError) return err.code;
+  if (typeof err === 'object' && err !== null && 'code' in err)
+    return String((err as { code: unknown }).code);
+  return err instanceof Error ? err.name : 'error';
+}
+
 /** Input limit of a manual long stay (BA EP02 4 – data-entry guard, not a business rule). */
 const MANUAL_LONG_STAY_MAX_DAYS = 731;
 
@@ -149,7 +168,7 @@ export class ReservationsService {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
     @Inject(MoneyBridge) private readonly money: MoneyBridge,
-    @Optional() @Inject(LeadsService) private readonly leads?: LeadsService,
+    @Inject(LeadsService) private readonly leads: LeadsService,
   ) {}
 
   context(tx: Tx, actor: Actor, requestId?: string): Promise<BookingContext> {
@@ -207,8 +226,12 @@ export class ReservationsService {
       () => liveNights(tx, row.id),
     ]);
     const markTime = await this.params.get<LocalTime>(tx, 'no_show_mark_time', ctx.today);
+    const markAt =
+      row.status === 'confirmed' && row.arrival_date <= ctx.today
+        ? atLocal(row.arrival_date, markTime, ctx.tz)
+        : null;
     let restoreWithinRules = false;
-    if (row.status === 'no_show') {
+    if (row.status === 'no_show' && row.channel_group !== 'ota') {
       const seg = segments[0];
       restoreWithinRules =
         ctx.today === row.arrival_date &&
@@ -217,9 +240,21 @@ export class ReservationsService {
           seg.id,
         ]));
     }
+    const depositPaidVnd = await this.money.depositPaid(tx, row);
+    let requestedGroup: { id: string; code: string } | null = null;
+    if (row.conflict_state === 'open') {
+      const g = await tx.query<{ id: string; code: string }>(
+        `SELECT rg.id, rg.code FROM overbooking_incident i
+           JOIN room rr ON rr.id = i.requested_room_id JOIN room_group rg ON rg.id = rr.room_group_id
+          WHERE i.reservation_id = $1 AND i.status = 'open' ORDER BY i.detected_at DESC LIMIT 1`,
+        [row.id],
+      );
+      requestedGroup = g.rows[0] ?? null;
+    }
     const actions = allowedActions(ctx.actor.roles, {
       status: row.status,
       conflictState: row.conflict_state,
+      capacityConflict: row.capacity_conflict_at !== null,
       channelGroup: row.channel_group,
       arrivalDate: row.arrival_date,
       departureDate: row.departure_date,
@@ -227,9 +262,7 @@ export class ReservationsService {
       holdExpired: !!row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime(),
       holdExtendedCount: row.hold_extended_count,
       own: isOwn(ctx.actor, row),
-      noShowMarkable:
-        ctx.today >= row.arrival_date &&
-        ctx.now.getTime() >= atLocal(row.arrival_date, markTime, ctx.tz).getTime(),
+      noShowMarkable: markAt !== null && ctx.now.getTime() >= markAt.getTime(),
       restoreWithinRules,
       rescheduleCount: row.reschedule_count,
       rescheduleMaxTimes: ctx.params.rescheduleMaxTimes,
@@ -238,9 +271,16 @@ export class ReservationsService {
       row,
       segments,
       booker,
-      nights: nights.map((n) => ({ date: n.date, amountVnd: n.amountVnd })),
+      nights: nights.map((n) => ({
+        date: n.date,
+        amountVnd: n.amountVnd,
+        ...(n.calendarVnd !== null ? { calendarRateVnd: n.calendarVnd } : {}),
+      })),
       actions,
       iso: ctx.iso,
+      noShowAvailableFrom: markAt,
+      depositPaidVnd,
+      requestedGroup,
     });
   }
 
@@ -391,10 +431,24 @@ export class ReservationsService {
         errors: [{ field: 'bookerGuestId', code: 'PHONE_REQUIRED' }],
       });
     }
-    this.assertCapacity(rm, party);
+    // DOM D-1 (BR-312 (1)): an OTA booking is never refused for capacity – warning + reason, then saved with a
+    // `capacity` conflict flag (check-in blocked until solved). Other channels stay blocked (422).
+    let capacityAck: string | undefined;
+    if (group === 'ota' && countedPersons(party) > rm.max_occupancy) {
+      capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
+      f.done();
+      if (!capacityAck) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED_WARNING' }],
+          extras: { roomNo: rm.room_no, max: rm.max_occupancy },
+        });
+      }
+    } else {
+      this.assertCapacity(rm, party);
+    }
 
-    // BR-113 minimum stay (not for OTA manual entry, not for AC5a).
-    if (!manual && group !== 'ota') {
+    // BR-113 minimum stay – not for OTA manual entry, not for the internal channel (DOM D-7), not for AC5a.
+    if (!manual && group !== 'ota' && group !== 'internal') {
       const need = minStayNights(from, group, p.minStay, p.calendar.specialDates);
       if (need > 0 && nights < need) {
         const orphan =
@@ -403,7 +457,13 @@ export class ReservationsService {
           if (!minStayOverrideReason) {
             throw problem('VALIDATION_FAILED', {
               errors: [{ field: 'departureDate', code: 'MIN_STAY_NOT_MET' }],
-              extras: { minStayNights: need },
+              extras: {
+                minStayNights: need,
+                // 0.3.5 A-05: rooms of the group where the asked range IS an orphan night (BR-113 a).
+                suggestions: p.minStayOrphanException
+                  ? await this.orphanRooms(tx, rm, from, to, countedPersons(party))
+                  : [],
+              },
             });
           }
           if (!hasAny(ctx.actor.roles, FDL_PLUS) || group !== 'direct') {
@@ -421,6 +481,7 @@ export class ReservationsService {
       priced = this.pricing.price(p, {
         room: {
           roomId: rm.id,
+          groupCode: rm.group_code,
           baseOccupancy: rm.base_occupancy,
           listPrices: await this.listPrices(tx, rm.id),
         },
@@ -448,21 +509,13 @@ export class ReservationsService {
       }
     }
     const depositRequired = priced?.depositRequiredVnd ?? 0;
-    // B2 condition (b)/(c): a direct/agent booking is guaranteed by a payment ≥ the BR-305 deposit.
-    if ((group === 'direct' || group === 'agent') && !manual) {
-      if (!initialPayment || initialPayment.amountVnd < depositRequired) {
-        throw problem('DEPOSIT_INSUFFICIENT', {
-          errors: [{ field: 'initialPayment', code: 'DEPOSIT_INSUFFICIENT' }],
-          extras: { depositRequiredVnd: depositRequired },
-        });
-      }
-    }
     await this.assertSellable(tx, rm, from, to);
 
     // ── writes ──
     await this.occupancy.lockRooms(tx, [rm.id]);
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
+    const folioId = uuidv7(); // reservation.folio_id ↔ folio.primary_reservation_id, both DEFERRED
     const snapshot = priced
       ? PricingService.snapshot(p, priced, {
           ...(rateOverrideReason ? { rateOverrideReason } : {}),
@@ -475,9 +528,10 @@ export class ReservationsService {
          ota_ref, ota_booked_at, direct_source, booker_guest_id, closer_user_id, arrival_date, departure_date,
          booked_arrival_date, booked_departure_date, adults, children_6_11, children_under_6, eta_time,
          is_complimentary, conflict_state, deposit_required_vnd, total_room_vnd, pricing_snapshot, confirmed_at,
-         internal_note, external_contract, manual_long_stay, stay_group_id, created_at, created_by, updated_at)
+         internal_note, external_contract, manual_long_stay, stay_group_id, created_at, created_by, updated_at,
+         folio_id)
        VALUES ($1, $2, $3, $4, 'confirmed', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $13, $14, $15, $16, $17,
-         $18, $19, 'none', $20, $21, $22, $23, $24, $25, $26, $1, $23, $27, $23)`,
+         $18, $19, 'none', $20, $21, $22, $23, $24, $25, $26, $1, $23, $27, $23, $28)`,
       [
         id,
         tx.ctx.organizationId,
@@ -506,6 +560,7 @@ export class ReservationsService {
         !!manual,
         manual ? JSON.stringify(manual) : null,
         ctx.actor.userId,
+        folioId,
       ],
     );
     const segmentId = await insertSegment(tx, id, rm.id, from, to, ctx.now);
@@ -526,6 +581,38 @@ export class ReservationsService {
       await tx.query('UPDATE reservation_segment SET room_id = NULL WHERE id = $1', [segmentId]);
       await tx.query(`UPDATE reservation SET conflict_state = 'open' WHERE id = $1`, [id]);
       await this.openIncident(tx, ctx, { id, code, from, to, roomId: rm.id });
+    } else if (capacityAck) {
+      // DOM D-1 / A-20: OTA over capacity – kept in its room, flagged, "Cần chú ý" (push FD/FDL/MGR).
+      await tx.query(
+        `UPDATE reservation SET capacity_conflict_at = $2, capacity_ack_reason = $3, capacity_ack_by = $4
+          WHERE id = $1`,
+        [id, ctx.now, capacityAck, ctx.actor.userId],
+      );
+      await outboxStaffPush(
+        tx,
+        {
+          kind: 'capacity_conflict',
+          roles: ['front_desk', 'front_desk_lead', 'manager'],
+          refType: 'reservation',
+          refId: id,
+          refCode: code,
+        },
+        `capacity_conflict:${id}`,
+      );
+    }
+    // EP02 3.4 order: … → OOO → double booking (claim above) → money (BUG-R2-019).
+    if ((group === 'direct' || group === 'agent') && !manual) {
+      const paid = initialPayment?.amountVnd ?? 0;
+      if (paid < depositRequired) {
+        throw problem('DEPOSIT_INSUFFICIENT', {
+          errors: [{ field: 'initialPayment', code: 'DEPOSIT_INSUFFICIENT' }],
+          extras: {
+            depositRequiredVnd: depositRequired,
+            depositPaidVnd: paid,
+            shortfallVnd: depositRequired - paid,
+          },
+        });
+      }
     }
     if (priced) {
       await insertNights(
@@ -543,7 +630,7 @@ export class ReservationsService {
         priced.nights,
       );
     }
-    const folioId = await this.money.openFolio(tx, id, ctx.actor.userId);
+    await this.money.openFolio(tx, id, folioId, ctx.actor.userId);
     if (initialPayment) {
       await this.money.recordInitialPayment(
         tx,
@@ -554,7 +641,14 @@ export class ReservationsService {
         ctx.requestId,
       );
     }
-    if (guestEmail && !booker.email_norm) await this.setGuestEmail(tx, booker.id, guestEmail);
+    if (guestEmail && !booker.email_norm) {
+      await attachEmailIfEmpty(tx, this.audit, {
+        guestId: booker.id,
+        email: guestEmail,
+        now: ctx.now,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
 
     await recordTransition(tx, {
       reservationId: id,
@@ -580,7 +674,9 @@ export class ReservationsService {
         conflictState: conflict ? 'open' : 'none',
         externalContract: !!manual,
       },
-      ...(minStayOverrideReason ? { reason: minStayOverrideReason } : {}),
+      ...(minStayOverrideReason || capacityAck
+        ? { reason: [minStayOverrideReason, capacityAck].filter(Boolean).join(' | ') }
+        : {}),
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
     await this.audit.recordMoney(tx, {
@@ -657,6 +753,7 @@ export class ReservationsService {
       childrenUnder6: input.childrenUnder6,
     };
     this.assertCapacity(rm, party);
+    await this.assertOpenHoldLimit(tx, ctx);
     const p = ctx.params;
     const nights = nightsOf(input.arrivalDate, input.departureDate);
     if (
@@ -674,6 +771,7 @@ export class ReservationsService {
       result = this.pricing.price(p, {
         room: {
           roomId: rm.id,
+          groupCode: rm.group_code,
           baseOccupancy: rm.base_occupancy,
           listPrices: await this.listPrices(tx, rm.id),
         },
@@ -688,14 +786,15 @@ export class ReservationsService {
     await this.occupancy.lockRooms(tx, [rm.id]);
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
+    const folioId = uuidv7();
     await tx.query(
       `INSERT INTO reservation (id, organization_id, property_id, code, status, stay_type, channel_id, payment_model,
          booker_guest_id, closer_user_id, quote_id, arrival_date, departure_date, booked_arrival_date,
          booked_departure_date, adults, children_6_11, children_under_6, conflict_state, hold_created_at, hold_hours,
          hold_expires_at, deposit_required_vnd, total_room_vnd, pricing_snapshot, stay_group_id, created_at,
-         created_by, updated_at, direct_source)
+         created_by, updated_at, direct_source, folio_id)
        VALUES ($1, $2, $3, $4, 'hold', 'short', $5, 'direct', $6, $7, $8, $9, $10, $9, $10, $11, $12, $13, 'none',
-         $14, $15, $16, $17, $18, $19, $1, $14, $20, $14, $21)`,
+         $14, $15, $16, $17, $18, $19, $1, $14, $20, $14, $21, $22)`,
       [
         id,
         tx.ctx.organizationId,
@@ -720,6 +819,7 @@ export class ReservationsService {
         ch.channel_group === 'direct' && ctx.actor.roles.includes('sales_staff')
           ? 'sales_staff'
           : null,
+        folioId,
       ],
     );
     const segmentId = await insertSegment(
@@ -778,7 +878,7 @@ export class ReservationsService {
       },
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
-    await this.money.openFolio(tx, id, ctx.actor.userId);
+    await this.money.openFolio(tx, id, folioId, ctx.actor.userId);
     await outboxAvailability(
       tx,
       [{ roomId: rm.id, from: input.arrivalDate, to: input.departureDate }],
@@ -801,7 +901,7 @@ export class ReservationsService {
     this.assertVersion(row, expectedVersion);
     if (row.status !== 'hold') throw this.invalid(row);
     if (row.hold_expires_at && row.hold_expires_at.getTime() <= ctx.now.getTime()) {
-      throw problem('HOLD_EXPIRED');
+      throw problem('HOLD_EXPIRED', { extras: { expiredAt: ctx.iso(row.hold_expires_at) } });
     }
     const paid = await this.money.depositPaid(tx, row);
     if (paid < row.deposit_required_vnd) {
@@ -891,6 +991,7 @@ export class ReservationsService {
     const etaTime = f.time('etaTime');
     const closerUserId = f.uuid('closerUserId', false);
     const internalNote = f.text('internalNote', 1000);
+    const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
@@ -918,9 +1019,27 @@ export class ReservationsService {
       next.adults !== row.adults ||
       next.children6to11 !== row.children_6_11 ||
       next.childrenUnder6 !== row.children_under_6;
+    let capacityState: 'over' | 'ok' | null = null;
+    let baseOccupancy: number | null = null;
     if (peopleChanged && seg.room_id) {
       const rm = await this.room(tx, seg.room_id);
-      if (rm) this.assertCapacity(rm, next);
+      if (rm) {
+        baseOccupancy = rm.base_occupancy;
+        const over = next.adults + next.children6to11 > rm.max_occupancy;
+        if (over && row.channel_group === 'ota') {
+          // DOM D-1: OTA head count above capacity → warning + reason, flagged (not refused).
+          if (!capacityAck) {
+            throw problem('VALIDATION_FAILED', {
+              errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED_WARNING' }],
+              extras: { roomNo: rm.room_no, max: rm.max_occupancy },
+            });
+          }
+          capacityState = 'over';
+        } else {
+          this.assertCapacity(rm, next);
+          if (row.capacity_conflict_at) capacityState = 'ok';
+        }
+      }
     }
     await tx.query(
       `UPDATE reservation SET adults = $2, children_6_11 = $3, children_under_6 = $4,
@@ -940,6 +1059,25 @@ export class ReservationsService {
         ctx.now,
       ],
     );
+    if (capacityState === 'over') {
+      await this.setCapacityConflict(tx, ctx, row, capacityAck as string);
+    } else if (capacityState === 'ok') {
+      await this.clearCapacityConflict(tx, row.id);
+    }
+    if (peopleChanged && baseOccupancy !== null)
+      await this.repriceExtraPersons(tx, row, next, baseOccupancy);
+    if (closerUserId && closerUserId !== row.closer_user_id) {
+      // SEC-BE-26: the closer decides who earns the commission – a money event.
+      await this.audit.recordMoney(tx, {
+        action: 'reservation.closer_changed',
+        entityType: 'reservation',
+        entityId: row.id,
+        entityCode: row.code,
+        before: { closerUserId: row.closer_user_id },
+        after: { closerUserId },
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
     for (const [field, oldV, newV] of [
       ['adults', row.adults, next.adults],
       ['children_6_11', row.children_6_11, next.children6to11],
@@ -966,9 +1104,85 @@ export class ReservationsService {
     const after = await loadReservation(tx, row.id, ctx.actor);
     if (peopleChanged) {
       await this.syncKit(tx, ctx, after, seg.room_id, seg.base_occupancy);
+      if (after.status !== 'hold') {
+        await this.money.resynced(
+          tx,
+          await this.confirmedStay(tx, after),
+          ctx.actor.userId,
+          ctx.requestId,
+        );
+      }
       await this.hooks.emit(tx, this.event('stay_changed', after, after.status, null, seg.room_id));
     }
     return after;
+  }
+
+  /** A-20: flag (or keep) the capacity conflict of an OTA booking + "Cần chú ý" push once. */
+  private async setCapacityConflict(
+    tx: Tx,
+    ctx: BookingContext,
+    row: Pick<ReservationRow, 'id' | 'code' | 'capacity_conflict_at'>,
+    reason: string,
+  ): Promise<void> {
+    await tx.query(
+      `UPDATE reservation SET capacity_conflict_at = COALESCE(capacity_conflict_at, $2), capacity_ack_reason = $3,
+              capacity_ack_by = $4 WHERE id = $1`,
+      [row.id, ctx.now, reason, ctx.actor.userId],
+    );
+    if (!row.capacity_conflict_at) {
+      await outboxStaffPush(
+        tx,
+        {
+          kind: 'capacity_conflict',
+          roles: ['front_desk', 'front_desk_lead', 'manager'],
+          refType: 'reservation',
+          refId: row.id,
+          refCode: row.code,
+        },
+        `capacity_conflict:${row.id}:${ctx.now.getTime()}`,
+      );
+    }
+  }
+
+  /** A-20: the head count fits the assigned room again (B7 to a bigger room, fewer guests). */
+  private async clearCapacityConflict(tx: Tx, reservationId: string): Promise<void> {
+    await tx.query(
+      `UPDATE reservation SET capacity_conflict_at = NULL, capacity_ack_reason = NULL, capacity_ack_by = NULL
+        WHERE id = $1 AND capacity_conflict_at IS NOT NULL`,
+      [reservationId],
+    );
+  }
+
+  /** BR-110: extra-person fee of the snapshot follows the new head count (direct/agent only). */
+  private async repriceExtraPersons(
+    tx: Tx,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    baseOccupancy: number,
+  ): Promise<void> {
+    const snap = row.pricing_snapshot as {
+      extraAdultFeeVnd?: number;
+      child611FeeVnd?: number;
+      nights?: unknown[];
+    };
+    const charged = row.channel_group === 'direct' || row.channel_group === 'agent';
+    const x = extraPersons(party, baseOccupancy, {
+      adultVnd: snap.extraAdultFeeVnd ?? 0,
+      child611Vnd: snap.child611FeeVnd ?? 0,
+    });
+    const perNight = charged ? x.perNightVnd : 0;
+    const nights = nightsOf(row.arrival_date, row.departure_date);
+    await tx.query(
+      `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
+      [
+        row.id,
+        JSON.stringify({
+          extraCount: x.extraCount,
+          extraPersonFeePerNightVnd: perNight,
+          extraPersonFeeVnd: perNight * nights,
+        }),
+      ],
+    );
   }
 
   // ─────────────────────────── helpers ───────────────────────────
@@ -978,7 +1192,7 @@ export class ReservationsService {
     if (persons > rm.max_occupancy) {
       throw problem('CAPACITY_EXCEEDED', {
         errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
-        extras: { room: rm.room_no, max: rm.max_occupancy },
+        extras: { roomNo: rm.room_no, max: rm.max_occupancy },
       });
     }
   }
@@ -987,7 +1201,7 @@ export class ReservationsService {
   async assertSellable(_tx: Tx, rm: RoomInfo, from: LocalDate, to: LocalDate): Promise<void> {
     const active = rm.active_from <= from && (rm.active_to === null || rm.active_to >= to);
     if (!rm.is_sellable || !active) {
-      throw problem('ROOM_NOT_SELLABLE', { extras: { room: rm.room_no } });
+      throw problem('ROOM_NOT_SELLABLE', { extras: { roomNo: rm.room_no } });
     }
   }
 
@@ -1004,26 +1218,70 @@ export class ReservationsService {
     );
   }
 
+  /**
+   * Closer of a booking (BR-903, SEC-BE-26): an ACTIVE user of the property (role not revoked, account
+   * active) holding a role that may close a sale (SAL, CTV, FD+).
+   */
   private async isPropertyUser(tx: Tx, userId: string): Promise<boolean> {
     const { rows } = await tx.query(
-      `SELECT 1 FROM user_property_role WHERE user_id = $1 AND property_id = $2 LIMIT 1`,
+      `SELECT 1 FROM user_property_role upr JOIN app_user u ON u.id = upr.user_id
+        WHERE upr.user_id = $1 AND upr.property_id = $2 AND upr.revoked_at IS NULL AND u.status = 'active'
+          AND upr.role IN ('owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator')
+        LIMIT 1`,
       [userId, tx.ctx.propertyId],
     );
     return rows.length > 0;
   }
 
-  private async setGuestEmail(tx: Tx, guestId: string, email: string): Promise<void> {
-    await tx.query('SAVEPOINT guest_email');
-    try {
-      await tx.query('UPDATE guest SET email_norm = $2 WHERE id = $1 AND email_norm IS NULL', [
-        guestId,
-        email,
-      ]);
-      await tx.query('RELEASE SAVEPOINT guest_email');
-    } catch {
-      // Another profile already owns this e-mail (BR-951): keep the booking, do not attach it.
-      await tx.query('ROLLBACK TO SAVEPOINT guest_email');
+  /** SEC-BE-28: open holds per SAL/CTV (parameter max_open_holds_per_user); FD+ unlimited. */
+  private async assertOpenHoldLimit(tx: Tx, ctx: BookingContext): Promise<void> {
+    if (hasAny(ctx.actor.roles, FD_PLUS)) return;
+    const limits = await this.params.get<Record<string, number>>(
+      tx,
+      'max_open_holds_per_user',
+      ctx.today,
+    );
+    const caps = ctx.actor.roles
+      .map((r) => limits[r])
+      .filter((n): n is number => typeof n === 'number');
+    if (caps.length === 0) return;
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM reservation
+        WHERE status = 'hold' AND (created_by = $1 OR closer_user_id = $1)`,
+      [ctx.actor.userId],
+    );
+    const max = Math.max(...caps);
+    if ((rows[0]?.n ?? 0) >= max) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'holdHours', code: 'HOLD_LIMIT_REACHED' }],
+        extras: { max },
+      });
     }
+  }
+
+  /** BR-113 (a) suggestions: rooms of the same group where [from, to) is exactly an orphan night. */
+  private async orphanRooms(
+    tx: Tx,
+    rm: RoomInfo,
+    from: LocalDate,
+    to: LocalDate,
+    persons: number,
+  ): Promise<Array<Record<string, unknown>>> {
+    const free = await this.occupancy.suggest(tx, {
+      roomGroupId: rm.room_group_id,
+      from,
+      to,
+      persons,
+      limit: 20,
+    });
+    const out: Array<Record<string, unknown>> = [];
+    for (const s of free) {
+      if (s.upgrade) continue;
+      if (await this.isOrphanNightGap(tx, s.roomId, from, to)) {
+        out.push({ ...s, upgrade: false, orphanNight: true });
+      }
+    }
+    return out;
   }
 
   private parseNightlyRates(f: Fields, raw: unknown) {
@@ -1103,6 +1361,7 @@ export class ReservationsService {
     tx: Tx,
     ctx: BookingContext,
     r: { id: string; code: string; from: LocalDate; to: LocalDate; roomId: string },
+    source: 'desk' | 'no_show_restore' = 'desk',
   ): Promise<void> {
     const ids = await tx.query<{ id: string }>(
       `SELECT DISTINCT s.reservation_id AS id FROM room_occupancy o
@@ -1134,7 +1393,7 @@ export class ReservationsService {
     await tx.query(
       `INSERT INTO overbooking_incident (id, organization_id, property_id, reservation_id, requested_room_id,
          stay_from, stay_to, conflicting_reservation_ids, source, cause, detected_at, handle_by, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'desk', 'manual_entry', $9, $10, 'open')`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $11, $12, $9, $10, 'open')`,
       [
         incidentId,
         tx.ctx.organizationId,
@@ -1146,6 +1405,8 @@ export class ReservationsService {
         ids.rows.map((x) => x.id),
         ctx.now,
         handleBy,
+        source,
+        source === 'desk' ? 'manual_entry' : 'other',
       ],
     );
     await outboxStaffPush(
@@ -1175,11 +1436,27 @@ export class ReservationsService {
       roomId,
       status: row.status,
       extraCount: extra,
-      dueAt: extraGuestKitDue(row.arrival_date, ctx.params.checkinTime, ctx.tz),
+      dueAt: await this.kitDue(tx, ctx, row.arrival_date),
       tz: ctx.tz,
       now: ctx.now,
       today: ctx.today,
       userId: ctx.actor.userId,
+    });
+  }
+
+  /**
+   * BR-812 (2) + DOM D-10: check-in time of the arrival day, but never already overdue when the booking is
+   * confirmed late – max(check-in time, now + extra_guest_kit_midstay_due_minutes).
+   */
+  private async kitDue(tx: Tx, ctx: BookingContext, arrival: LocalDate): Promise<Date> {
+    const minutes = await this.params.get<number>(
+      tx,
+      'extra_guest_kit_midstay_due_minutes',
+      ctx.today,
+    );
+    return extraGuestKitDue(arrival, ctx.params.checkinTime, ctx.tz, {
+      at: ctx.now,
+      midstayMinutes: minutes,
     });
   }
 
@@ -1235,7 +1512,9 @@ export class ReservationsService {
     this.assertVersion(row, expectedVersion);
     if (row.status !== 'hold') throw this.invalid(row);
     if (!row.hold_expires_at || row.hold_expires_at.getTime() <= ctx.now.getTime()) {
-      throw problem('HOLD_EXPIRED');
+      throw problem('HOLD_EXPIRED', {
+        ...(row.hold_expires_at ? { extras: { expiredAt: ctx.iso(row.hold_expires_at) } } : {}),
+      });
     }
     if (row.hold_extended_count > 0) {
       throw problem('INVALID_TRANSITION', {
@@ -1319,7 +1598,7 @@ export class ReservationsService {
       segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
     );
     for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, ctx.now);
-    await voidNights(
+    const voidedIds = await voidNights(
       tx,
       row.id,
       reasonCode === 'ota_cancelled' ? 'channel_cancelled' : 'cancelled',
@@ -1407,9 +1686,23 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'reservation.cancelled',
     );
-    await this.money.voided(tx, row, reasonCode as string, ctx.requestId);
+    const retained = Number(quote.retainedVnd ?? 0);
+    await this.money.voided(
+      tx,
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        folioId: row.folio_id,
+        voidedStayNightIds: voidedIds,
+        retainedVnd: retained,
+        retainedKind: retained > 0 ? 'cancellation_fee' : null,
+        reason: reasonCode as string,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      },
+      ctx.actor.userId,
+    );
     // SM-09: a cancelled hold sends its lead back to `quoted` (B5).
-    if (row.status === 'hold') await this.leads?.onHoldEnded(tx, row.quote_id);
+    if (row.status === 'hold') await this.leads.onHoldEnded(tx, row.quote_id);
     await this.hooks.emit(
       tx,
       this.event('transitioned', after, row.status, transition, seg?.room_id ?? null, reasonCode),
@@ -1485,10 +1778,9 @@ export class ReservationsService {
     const mode =
       f.enumOf('mode', ['change', 'postpone_instead_of_cancel'] as const, false) ?? 'change';
     const reasonCode = f.enumOf('reasonCode', MOVE_REASONS, true);
-    const note = f.text('note', 500, {
-      required: reasonCode === 'other',
-      min: reasonCode === 'other' ? 3 : 0,
-    });
+    const noteRequired = reasonCode === 'other' || reasonCode === 'force_majeure';
+    const note = f.text('note', 500, { required: noteRequired, min: noteRequired ? 3 : 0 });
+    const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
     const resolution = f.enumOf(
       'overbookingResolution',
       ['reassigned_same_group', 'upgraded'] as const,
@@ -1505,7 +1797,21 @@ export class ReservationsService {
     if (row.channel_group === 'ota' && (newArrival || newDeparture))
       f.add('arrivalDate', 'OTA_DATES_LOCKED');
     if (row.conflict_state === 'open' && !resolution) f.add('overbookingResolution', 'REQUIRED');
+    // A-19 rules: `overbooking` only for a flagged booking; `force_majeure` only as B8 (MGR+ below).
+    if (
+      reasonCode === 'overbooking' &&
+      row.conflict_state !== 'open' &&
+      !row.capacity_conflict_at
+    ) {
+      f.add('reasonCode', 'NOT_IN_LIST');
+    }
+    if (reasonCode === 'force_majeure' && mode !== 'postpone_instead_of_cancel') {
+      f.add('reasonCode', 'NOT_IN_LIST');
+    }
     f.done();
+    if (reasonCode === 'upgrade' && !hasAny(ctx.actor.roles, FDL_PLUS)) {
+      throw problem('FORBIDDEN_ACTION', { detail: 'upgrade needs FDL+ (BR-316 (3))' });
+    }
     const from = newArrival ?? row.arrival_date;
     const to = newDeparture ?? row.departure_date;
     const p = ctx.params;
@@ -1541,7 +1847,18 @@ export class ReservationsService {
     const rm = await this.room(tx, targetRoomId);
     if (!rm)
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
-    this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
+    // A-20: OTA over capacity → warning + reason (flag kept); a room that fits clears the flag.
+    const overCapacity = row.adults + row.children_6_11 > rm.max_occupancy;
+    if (overCapacity && row.channel_group === 'ota') {
+      if (!capacityAck && !row.capacity_conflict_at) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
+          extras: { roomNo: rm.room_no, max: rm.max_occupancy },
+        });
+      }
+    } else {
+      this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
+    }
     await this.assertSellable(tx, rm, from, to);
     if (row.conflict_state === 'open') {
       await this.assertResolution(tx, ctx, row, rm, resolution as string);
@@ -1575,7 +1892,9 @@ export class ReservationsService {
       [seg.id, targetRoomId, from, to, reasonCode, note ?? null, ctx.now],
     );
 
-    // Nights: kept nights keep their price (BR-106); dropped nights void; new nights at today's prices.
+    // Nights (BR-106 + DOM D-8 / A-22): dropped nights void; kept nights keep their agreed CALENDAR price,
+    // new nights take today's calendar; then the BR-107 tier of the FINAL number of nights is applied again
+    // to every calendar-priced night (direct/agent only – OTA/internal prices have no tier).
     let totalRoom = row.total_room_vnd;
     if (!row.external_contract) {
       const dropped = datesOutside(row.arrival_date, row.departure_date, from, to);
@@ -1585,40 +1904,9 @@ export class ReservationsService {
         [row.id, targetRoomId, ctx.now, 'void'],
       );
       const added = datesOutside(from, to, row.arrival_date, row.departure_date);
-      if (added.length) {
-        const priced = this.pricing.price(p, {
-          room: {
-            roomId: rm.id,
-            baseOccupancy: rm.base_occupancy,
-            listPrices: await this.listPrices(tx, rm.id),
-          },
-          channelGroup: row.channel_group,
-          arrival: from,
-          departure: to,
-          party: {
-            adults: row.adults,
-            children6to11: row.children_6_11,
-            childrenUnder6: row.children_under_6,
-          },
-        });
-        const newNights: PricedNight[] = priced.nights.filter((n) => added.includes(n.date));
-        await insertNights(
-          tx,
-          {
-            reservationId: row.id,
-            segmentId: seg.id,
-            roomId: targetRoomId,
-            channelId: row.channel_id,
-            stayType: row.stay_type,
-            state: 'sold',
-            isComplimentary: row.is_complimentary,
-            now: ctx.now,
-          },
-          newNights,
-        );
-      }
+      await this.retierNights(tx, ctx, row, rm, from, to, added, seg.id, targetRoomId);
       const live = await liveNights(tx, row.id);
-      totalRoom = live.reduce((s, n) => s + n.amountVnd, 0);
+      totalRoom = live.reduce((sum, n) => sum + n.amountVnd, 0);
     }
     const postpone = mode === 'postpone_instead_of_cancel';
     await tx.query(
@@ -1630,6 +1918,11 @@ export class ReservationsService {
     );
     if (row.conflict_state === 'open')
       await this.resolveIncident(tx, ctx, row.id, resolution as string);
+    if (overCapacity && row.channel_group === 'ota') {
+      await this.setCapacityConflict(tx, ctx, row, capacityAck ?? row.capacity_ack_reason ?? '');
+    } else if (row.capacity_conflict_at) {
+      await this.clearCapacityConflict(tx, row.id);
+    }
     if (from !== row.arrival_date)
       await recordChange(
         tx,
@@ -1693,11 +1986,121 @@ export class ReservationsService {
       ],
       postpone ? 'reservation.postponed' : 'reservation.moved',
     );
+    await this.money.resynced(
+      tx,
+      await this.confirmedStay(tx, after),
+      ctx.actor.userId,
+      ctx.requestId,
+    );
     await this.hooks.emit(
       tx,
       this.event('stay_changed', after, 'confirmed', postpone ? 'B8' : 'B7', targetRoomId),
     );
     return after;
+  }
+
+  /**
+   * DOM D-8 / A-22: insert the `added` nights and re-tier BR-107 over the final [from, to) for direct/agent
+   * bookings. Kept nights keep `calendar_rate_vnd` (older rows without it: their gross); nights entered with
+   * an explicit (manual) rate keep their price.
+   */
+  private async retierNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    rm: RoomInfo,
+    from: LocalDate,
+    to: LocalDate,
+    added: LocalDate[],
+    segmentId: string,
+    roomId: string,
+  ): Promise<void> {
+    const p = ctx.params;
+    const group = row.channel_group;
+    const tiered = group === 'direct' || group === 'agent';
+    const kept = await liveNightRows(tx, row.id);
+    const snapNights = new Map(
+      (
+        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
+      ).map((n) => [n.date, n.source]),
+    );
+    let newNights: PricedNight[] = [];
+    if (added.length) {
+      const priced = this.pricing.price(p, {
+        room: {
+          roomId: rm.id,
+          groupCode: rm.group_code,
+          baseOccupancy: rm.base_occupancy,
+          listPrices: await this.listPrices(tx, rm.id),
+        },
+        channelGroup: group,
+        arrival: from,
+        departure: to,
+        party: {
+          adults: row.adults,
+          children6to11: row.children_6_11,
+          childrenUnder6: row.children_under_6,
+        },
+      });
+      newNights = priced.nights.filter((n) => added.includes(n.date));
+    }
+    const pct = tiered ? losDiscountPct(nightsOf(from, to), p.losTiers) : 0;
+    const unit =
+      (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ?? p.nightRateUnit;
+    if (tiered) {
+      for (const n of kept) {
+        if (snapNights.get(n.date) === 'manual') continue;
+        const calendar = n.calendarVnd ?? n.grossVnd;
+        const amount = applyNightDiscount([calendar], pct, unit)[0] as number;
+        if (amount !== n.grossVnd || n.calendarVnd === null) {
+          await tx.query(
+            `UPDATE stay_night SET room_revenue_gross_vnd = $2, room_revenue_vnd = $2 - discount_vnd,
+                    calendar_rate_vnd = $3, updated_at = $4 WHERE id = $1`,
+            [n.id, amount, calendar, ctx.now],
+          );
+        }
+      }
+      newNights = newNights.map((n) => {
+        const calendar = n.calendarVnd ?? n.amountVnd;
+        return {
+          ...n,
+          calendarVnd: calendar,
+          amountVnd: applyNightDiscount([calendar], pct, unit)[0] as number,
+        };
+      });
+    }
+    if (newNights.length) {
+      await insertNights(
+        tx,
+        {
+          reservationId: row.id,
+          segmentId,
+          roomId,
+          channelId: row.channel_id,
+          stayType: row.stay_type,
+          state: 'sold',
+          isComplimentary: row.is_complimentary,
+          now: ctx.now,
+        },
+        newNights,
+      );
+    }
+    const live = await liveNightRows(tx, row.id);
+    await tx.query(
+      `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
+      [
+        row.id,
+        JSON.stringify({
+          losDiscountPct: pct,
+          nights: live.map((n) => ({
+            date: n.date,
+            amountVnd: n.grossVnd,
+            source: snapNights.get(n.date) ?? 'calendar',
+            ...(n.calendarVnd !== null ? { calendarVnd: n.calendarVnd } : {}),
+          })),
+        }),
+      ],
+    );
   }
 
   /** BR-312 (4): a room of another group is an upgrade – FDL+ only, and must be declared as such. */
@@ -1762,7 +2165,22 @@ export class ReservationsService {
     if (!rm)
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
     await this.assertResolution(tx, ctx, row, rm, resolution as string);
-    this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
+    const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
+    f.done();
+    const overCapacity = row.adults + row.children_6_11 > rm.max_occupancy;
+    if (overCapacity && row.channel_group === 'ota') {
+      // A-20: an OTA booking is never refused – warning + reason, then flagged.
+      if (!capacityAck && !row.capacity_conflict_at) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
+          extras: { roomNo: rm.room_no, max: rm.max_occupancy },
+        });
+      }
+      await this.setCapacityConflict(tx, ctx, row, capacityAck ?? row.capacity_ack_reason ?? '');
+    } else {
+      this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
+      if (row.capacity_conflict_at) await this.clearCapacityConflict(tx, row.id);
+    }
     await this.assertSellable(tx, rm, row.arrival_date, row.departure_date);
     const seg = await singleSegment(tx, row.id);
     await this.occupancy.lockRooms(tx, [rm.id]);
@@ -1954,7 +2372,7 @@ export class ReservationsService {
       segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
     );
     for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, ctx.now);
-    await voidNights(tx, row.id, 'no_show', ctx.now);
+    const voidedIds = await voidNights(tx, row.id, 'no_show', ctx.now);
     await tx.query(
       `UPDATE reservation SET status = 'no_show', status_before_cancel = 'confirmed', no_show_marked_at = $2,
               no_show_marked_by = $3, no_show_contact_note = $4, updated_at = $2, version = version + 1
@@ -2003,7 +2421,22 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'reservation.no_show',
     );
-    await this.money.voided(tx, row, 'no_show', ctx.requestId);
+    // BR-311: a direct/agent no-show keeps the whole deposit (other revenue); OTA → reported on the channel.
+    const kept = row.channel_group === 'ota' ? 0 : deposit;
+    await this.money.voided(
+      tx,
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        folioId: row.folio_id,
+        voidedStayNightIds: voidedIds,
+        retainedVnd: kept,
+        retainedKind: kept > 0 ? 'no_show_fee' : null,
+        reason: 'no_show',
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      },
+      ctx.actor.userId,
+    );
     await this.hooks.emit(
       tx,
       this.event('transitioned', after, 'confirmed', 'B11', seg?.room_id ?? null),
@@ -2023,20 +2456,25 @@ export class ReservationsService {
   ): Promise<{ row: ReservationRow } | { approval: ApprovalRow }> {
     const f = new Fields(body);
     const reason = f.text('reason', 500, { required: true, min: 3 });
+    const newRoomId = f.uuid('roomId', false);
+    const allowUnassigned = f.bool('allowUnassigned') ?? false;
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     if (expectedVersion !== null) this.assertVersion(row, expectedVersion);
     if (row.status !== 'no_show') throw this.invalid(row);
     const seg = await singleSegment(tx, row.id);
     const mgr = hasAny(ctx.actor.roles, MGR_PLUS) || opts.approved === true;
+    // 0.3.5 A-21: another room / the unassigned lane are MGR+ decisions.
+    if ((newRoomId || allowUnassigned) && !mgr) throw problem('FORBIDDEN_ACTION');
     const inBusinessDay = ctx.today === row.arrival_date;
     const free =
       !!seg.room_id &&
       (await this.occupancy.isFree(tx, seg.room_id, row.arrival_date, row.departure_date, [
         seg.id,
       ]));
-    if (!mgr && !(inBusinessDay && free)) {
-      // BR-315: outside the 3 conditions → approval request (SM-10 no_show_restore), 202.
+    // BR-315 + DOM D-3 (c): FD/FDL restore alone only within the 3 conditions and never an OTA booking (it may
+    // already be reported as no-show on the channel) → otherwise approval request (SM-10), 202.
+    if (!mgr && (!(inBusinessDay && free) || row.channel_group === 'ota')) {
       const approval = await this.approvals.submit(tx, ctx.actor, {
         type: 'no_show_restore',
         amountVnd: 0,
@@ -2048,22 +2486,66 @@ export class ReservationsService {
       });
       return { approval };
     }
-    if (!seg.room_id) throw this.invalid(row);
-    await this.occupancy.lockRooms(tx, [seg.room_id]);
-    await this.occupancy.update(
-      tx,
-      { segmentId: seg.id },
-      { roomId: seg.room_id, from: row.arrival_date, to: row.departure_date, active: true },
-      ctx.now,
-      { withNames: true, persons: row.adults + row.children_6_11, excludeSegmentIds: [seg.id] },
-    );
+    let roomId: string | null = newRoomId ?? seg.room_id;
+    let unassigned = false;
+    if (newRoomId) {
+      const rm = await this.room(tx, newRoomId);
+      if (!rm) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
+      }
+      this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
+      await this.assertSellable(tx, rm, row.arrival_date, row.departure_date);
+    } else if (!free && (allowUnassigned || opts.approved === true)) {
+      // DOM D-3 (b): the room was sold again – an approved restore never fails, the booking goes to the
+      // unassigned lane and the desk assigns a room (B7a).
+      roomId = null;
+      unassigned = true;
+    }
+    if (roomId) {
+      await this.occupancy.lockRooms(tx, [roomId, ...(seg.room_id ? [seg.room_id] : [])]);
+      await this.occupancy.update(
+        tx,
+        { segmentId: seg.id },
+        { roomId, from: row.arrival_date, to: row.departure_date, active: true },
+        ctx.now,
+        { withNames: true, persons: row.adults + row.children_6_11, excludeSegmentIds: [seg.id] },
+      );
+      if (roomId !== seg.room_id) {
+        await tx.query(
+          `UPDATE reservation_segment SET room_id = $2, change_reason_code = 'overbooking', updated_at = $3
+            WHERE id = $1`,
+          [seg.id, roomId, ctx.now],
+        );
+        await recordChange(tx, row.id, 'room', seg.room_no, roomId, ctx.now, 'no_show_restore');
+      }
+    } else if (unassigned) {
+      await tx.query(
+        'UPDATE reservation_segment SET room_id = NULL, updated_at = $2 WHERE id = $1',
+        [seg.id, ctx.now],
+      );
+      await tx.query(`UPDATE reservation SET conflict_state = 'open' WHERE id = $1`, [row.id]);
+      await this.openIncident(
+        tx,
+        ctx,
+        {
+          id: row.id,
+          code: row.code,
+          from: row.arrival_date,
+          to: row.departure_date,
+          roomId: seg.room_id as string,
+        },
+        'no_show_restore',
+      );
+    } else {
+      throw this.invalid(row);
+    }
     // Nights sold again with their snapshot prices (BR-315 (3) "không đổi giá"): the voided rows are revived
     // (same stay_night ids, so the folio does not post the same night twice).
     await tx.query(
       `UPDATE stay_night SET night_state = 'sold', voided_at = NULL, void_reason = NULL, prev_state = NULL,
-              updated_at = $2
+              room_id = $3, updated_at = $2
         WHERE reservation_id = $1 AND night_state = 'void' AND void_reason = 'no_show'`,
-      [row.id, ctx.now],
+      [row.id, ctx.now, roomId],
     );
     await tx.query(
       `UPDATE reservation SET status = 'confirmed', status_before_cancel = NULL, no_show_marked_at = NULL,
@@ -2092,94 +2574,180 @@ export class ReservationsService {
       `no_show_restored:${row.id}:${ctx.now.getTime()}`,
     );
     const after = await loadReservation(tx, row.id, ctx.actor);
-    await this.syncKit(tx, ctx, after, seg.room_id, seg.base_occupancy);
+    const base = roomId ? ((await this.room(tx, roomId))?.base_occupancy ?? null) : null;
+    await this.syncKit(tx, ctx, after, roomId, base);
     await outboxAvailability(
       tx,
-      [{ roomId: seg.room_id, from: row.arrival_date, to: row.departure_date }],
+      [{ roomId, from: row.arrival_date, to: row.departure_date }],
       'reservation.restored',
     );
-    await this.money.posted(
+    // DOM D-3 (a): revived nights keep the snapshot price; the folio reverses the no-show fee and re-posts.
+    await this.money.resynced(
       tx,
       await this.confirmedStay(tx, after),
       ctx.actor.userId,
       ctx.requestId,
     );
-    await this.hooks.emit(tx, this.event('transitioned', after, 'no_show', 'B12', seg.room_id));
+    await this.hooks.emit(tx, this.event('transitioned', after, 'no_show', 'B12', roomId));
     return { row: after };
   }
 
   // ─────────────────────────── B6 – hold expiry (SYS) ───────────────────────────
 
   /**
-   * Cancels the expired holds of the property in context (J1). Exactly-once per hold: rows are taken with
-   * FOR UPDATE SKIP LOCKED and re-checked (`status = 'hold' AND hold_expires_at <= $now`), so concurrent or
-   * repeated runs never cancel a hold twice. A hold with a succeeded deposit is not cancelled (late job).
+   * J1 (`hold.expire`, B6) for the property in context. Exactly once per hold: a batch is taken with
+   * FOR UPDATE SKIP LOCKED and re-checked under the lock, so concurrent or repeated runs never cancel twice.
+   * Each hold runs in its own SAVEPOINT – one bad row is reported in `failures` and the others still expire
+   * (FB-R2-SEC-BE-24). A hold with money received (DOM D-9, US-085 AC4) is never auto-cancelled: red push to
+   * its sale + FD/FDL once, and to the manager once the BR-302 cap (12:00 on arrival day) has passed.
    */
-  async expireHolds(tx: Tx, now: Date): Promise<{ expired: number; keptPaid: number }> {
+  async expireHolds(
+    tx: Tx,
+    now: Date,
+    tz: string,
+    today: LocalDate,
+  ): Promise<{
+    expired: number;
+    keptPaid: number;
+    failed: number;
+    failures: Array<{ id: string; code: string }>;
+  }> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM reservation WHERE status = 'hold' AND hold_expires_at <= $1
-        ORDER BY hold_expires_at FOR UPDATE SKIP LOCKED`,
+        ORDER BY hold_expires_at LIMIT ${HOLD_EXPIRY_BATCH} FOR UPDATE SKIP LOCKED`,
       [now],
     );
-    const system = SYSTEM_ACTOR;
+    const latest = await this.params.get<LocalTime>(tx, 'hold_latest_time_on_arrival', today);
     let expired = 0;
     let keptPaid = 0;
-    for (const { id } of rows) {
-      const row = await loadReservation(tx, id, system);
-      if (row.status !== 'hold' || !row.hold_expires_at || row.hold_expires_at > now) continue;
-      if ((await this.money.depositPaid(tx, row)) > 0) {
-        keptPaid += 1;
-        continue;
+    const failures: Array<{ id: string; code: string }> = [];
+    for (const [n, { id }] of rows.entries()) {
+      const sp = `hold_${n}`;
+      await tx.query(`SAVEPOINT ${sp}`);
+      try {
+        const outcome = await this.expireOne(tx, id, now, tz, latest);
+        await tx.query(`RELEASE SAVEPOINT ${sp}`);
+        if (outcome === 'expired') expired += 1;
+        if (outcome === 'kept_paid') keptPaid += 1;
+      } catch (err) {
+        await tx.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+        failures.push({ id, code: errorCode(err) });
       }
-      const segs = await activeSegments(tx, id);
-      for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, now);
-      await voidNights(tx, id, 'hold_expired', now);
-      await tx.query(
-        `UPDATE reservation SET status = 'cancelled', status_before_cancel = 'hold', cancelled_at = $2,
-                cancelled_by_type = 'system', cancel_reason_code = 'hold_expired', updated_at = $2,
-                version = version + 1
-          WHERE id = $1 AND status = 'hold'`,
-        [id, now],
-      );
-      await recordTransition(tx, {
-        reservationId: id,
-        code: row.code,
-        from: 'hold',
-        to: 'cancelled',
-        event: 'B6',
-        reasonCode: 'hold_expired',
-        now,
-      });
-      await this.audit.record(tx, {
-        category: 'state',
-        action: 'reservation.hold_expired',
-        entityType: 'reservation',
-        entityId: id,
-        entityCode: row.code,
-        after: { status: 'cancelled', reasonCode: 'hold_expired' },
-      });
-      await outboxAvailability(
+    }
+    return { expired, keptPaid, failed: failures.length, failures };
+  }
+
+  private async expireOne(
+    tx: Tx,
+    id: string,
+    now: Date,
+    tz: string,
+    latest: LocalTime,
+  ): Promise<'expired' | 'kept_paid' | 'skipped'> {
+    const system = SYSTEM_ACTOR;
+    const row = await loadReservation(tx, id, system);
+    if (row.status !== 'hold' || !row.hold_expires_at || row.hold_expires_at > now)
+      return 'skipped';
+    const recipients = [row.created_by, row.closer_user_id].filter((u): u is string => !!u);
+    if ((await this.money.depositPaid(tx, row)) > 0) {
+      // DOM D-9: money received → not cancelled; the people in charge must act (B4 / MGR accepts / B5 refund).
+      await outboxStaffPush(
         tx,
-        segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
-        'hold.expired',
+        {
+          kind: 'hold_overdue_with_deposit',
+          roles: ['front_desk', 'front_desk_lead'],
+          userIds: [...new Set(recipients)],
+          refType: 'reservation',
+          refId: id,
+          refCode: row.code,
+        },
+        `hold_overdue_partial:${id}:${row.hold_expires_at.toISOString()}`,
       );
-      if (row.created_by) {
+      if (now.getTime() >= atLocal(row.arrival_date, latest, tz).getTime()) {
         await outboxStaffPush(
           tx,
-          { kind: 'hold_expired', roles: [], refType: 'reservation', refId: id, refCode: row.code },
-          `hold_expired:${id}`,
+          {
+            kind: 'hold_overdue_cap',
+            roles: ['manager'],
+            refType: 'reservation',
+            refId: id,
+            refCode: row.code,
+          },
+          `hold_overdue_cap:${id}`,
         );
       }
-      const after = await loadReservation(tx, id, system);
-      await this.money.voided(tx, row, 'hold_expired');
-      await this.leads?.onHoldEnded(tx, row.quote_id); // SM-09 (B6): lead back to `quoted`
-      await this.hooks.emit(
-        tx,
-        this.event('transitioned', after, 'hold', 'B6', segs[0]?.room_id ?? null, 'hold_expired'),
-      );
-      expired += 1;
+      return 'kept_paid';
     }
-    return { expired, keptPaid };
+    const segs = await activeSegments(tx, id);
+    await this.occupancy.lockRooms(
+      tx,
+      segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
+    );
+    for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, now);
+    const voidedIds = await voidNights(tx, id, 'hold_expired', now);
+    await tx.query(
+      `UPDATE reservation SET status = 'cancelled', status_before_cancel = 'hold', cancelled_at = $2,
+              cancelled_by_type = 'system', cancel_reason_code = 'hold_expired', updated_at = $2,
+              version = version + 1
+        WHERE id = $1 AND status = 'hold'`,
+      [id, now],
+    );
+    await recordTransition(tx, {
+      reservationId: id,
+      code: row.code,
+      from: 'hold',
+      to: 'cancelled',
+      event: 'B6',
+      reasonCode: 'hold_expired',
+      now,
+    });
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'reservation.hold_expired',
+      entityType: 'reservation',
+      entityId: id,
+      entityCode: row.code,
+      after: { status: 'cancelled', reasonCode: 'hold_expired' },
+    });
+    await outboxAvailability(
+      tx,
+      segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
+      'hold.expired',
+    );
+    if (recipients.length) {
+      await outboxStaffPush(
+        tx,
+        {
+          kind: 'hold_expired',
+          roles: [],
+          userIds: [...new Set(recipients)],
+          refType: 'reservation',
+          refId: id,
+          refCode: row.code,
+        },
+        `hold_expired:${id}`,
+      );
+    }
+    const after = await loadReservation(tx, id, system);
+    await this.money.voided(
+      tx,
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        folioId: row.folio_id,
+        voidedStayNightIds: voidedIds,
+        retainedVnd: 0,
+        retainedKind: null,
+        reason: 'hold_expired',
+      },
+      null,
+    );
+    await this.leads.onHoldEnded(tx, row.quote_id); // SM-09 (B6): lead back to `quoted`
+    await this.hooks.emit(
+      tx,
+      this.event('transitioned', after, 'hold', 'B6', segs[0]?.room_id ?? null, 'hold_expired'),
+    );
+    return 'expired';
   }
 
   // ─────────────────────────── BR-312 relocation (MGR+) ───────────────────────────
@@ -2206,7 +2774,7 @@ export class ReservationsService {
     if (row.status !== 'confirmed') throw this.invalid(row);
     const segs = await activeSegments(tx, row.id);
     for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, ctx.now);
-    await voidNights(tx, row.id, 'relocated_external', ctx.now);
+    const voidedIds = await voidNights(tx, row.id, 'relocated_external', ctx.now);
     await tx.query(
       `UPDATE reservation SET status = 'cancelled', status_before_cancel = 'confirmed', cancelled_at = $2,
               cancelled_by_type = 'user', cancelled_by = $3, cancel_reason_code = 'overbooking_relocated',
@@ -2242,7 +2810,20 @@ export class ReservationsService {
     });
     const after = await loadReservation(tx, row.id, ctx.actor);
     await this.syncKit(tx, ctx, after, null, null);
-    await this.money.voided(tx, row, 'overbooking_relocated', ctx.requestId);
+    await this.money.voided(
+      tx,
+      {
+        reservationId: row.id,
+        reservationCode: row.code,
+        folioId: row.folio_id,
+        voidedStayNightIds: voidedIds,
+        retainedVnd: 0,
+        retainedKind: null,
+        reason: 'overbooking_relocated',
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      },
+      ctx.actor.userId,
+    );
     await this.hooks.emit(
       tx,
       this.event('transitioned', after, 'confirmed', 'B10', null, 'overbooking_relocated'),

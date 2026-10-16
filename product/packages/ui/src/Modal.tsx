@@ -171,6 +171,9 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   busy?: boolean;
   danger?: boolean;
+  /** Confirm stays locked until the consequence is known (US-135) – explain why via `confirmHelpId`. */
+  confirmDisabled?: boolean;
+  confirmHelpId?: string;
   children?: ReactNode;
 }
 
@@ -184,6 +187,8 @@ export function ConfirmDialog({
   onConfirm,
   busy,
   danger = true,
+  confirmDisabled,
+  confirmHelpId,
   children,
 }: ConfirmDialogProps) {
   const keepRef = useRef<HTMLButtonElement>(null);
@@ -202,7 +207,13 @@ export function ConfirmDialog({
           <Button ref={keepRef} onClick={onKeep}>
             {keepLabel}
           </Button>
-          <Button variant={danger ? 'danger' : 'pri'} busy={busy} onClick={onConfirm}>
+          <Button
+            variant={danger ? 'danger' : 'pri'}
+            busy={busy}
+            disabled={confirmDisabled}
+            aria-describedby={confirmHelpId}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </Button>
         </>

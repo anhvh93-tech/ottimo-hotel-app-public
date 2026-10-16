@@ -183,7 +183,9 @@ export class LeadsService {
     if (lead.version !== version) {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: lead.version } });
     }
-    if (!MANUAL[lead.status].includes(input.toStage)) throw problem('INVALID_TRANSITION');
+    if (!MANUAL[lead.status].includes(input.toStage)) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: lead.status } });
+    }
     let reason: string | null = null;
     let note: string | null = null;
     if (input.toStage === 'lost') {

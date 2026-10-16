@@ -1,7 +1,7 @@
 # Đặc tả mức trường – EP07 Buồng phòng (PWA nhân viên) · EP08 Bảo trì (phần R2)
 
 - Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
-- Phạm vi (Must R2 theo R-C): EP07 – US-052, 053, 054, 055, 056, 057 · EP08 – US-061, 062 · phần buồng phòng của BR-812 (bộ đồ dùng thêm, ESC-014). **Should R2** (làm nếu dư, plan mục 2.1): US-058 hàng đợi offline (mục 8 đặc tả đủ để làm). **R3**: US-060 ảnh sau kiểm (Could), US-063 bảo trì định kỳ (Should R3 – mục 7 chỉ khung), xuất kho khi bổ sung minibar/chuẩn bị bộ đồ dùng (US-068, BR-705 – kho R3).
+- Phạm vi (Must R2 theo R-C): EP07 – US-052, 053, 054, 055, 057 (**US-056 dời R3 – PO quyết 16/10, s2-PO mục 3**) · EP08 – US-061, 062 · phần buồng phòng của BR-812 (bộ đồ dùng thêm, ESC-014). **Should R2** (làm nếu dư, plan mục 2.1): US-058 hàng đợi offline (mục 8 đặc tả đủ để làm). **R3**: US-060 ảnh sau kiểm (Could), US-063 bảo trì định kỳ (Should R3 – mục 7 chỉ khung), xuất kho khi bổ sung minibar/chuẩn bị bộ đồ dùng (US-068, BR-705 – kho R3).
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0 (bảng trường, V-01…V-11, hiển thị lỗi, lỗi chung, hộp xác nhận mục 9). Thứ tự ưu tiên khi lệch: `business-rules.md` **v0.3.1** → backlog (AC) → `state-machines.md` (SM-02, SM-03, SM-04, SM-14, SM-15) → `rbac-matrix.md` (S10, S11, A80–A87) → `api/openapi.yaml` **0.3.4-draft** → `design/copy/strings-vi.json`. Không chép con số nghiệp vụ (ghi mã BR/tham số).
 - Đọc cùng: `specs/EP03-05-stay.md` mục 0.1 (BR-812 trong nhận/lưu trú/trả phòng), `specs/EP02-reservations.md` mục 9.2 (đổi phòng B14), mục 12 (khối OOO US-019), `business-processes.md` P07, P08, P04c/P04d; ADR-005 (PWA, offline); SEC `security-requirements.md` mục 7 (SR-FILE), mục 12 (SR-PWA).
 - Quyết định INV áp dụng: ESC-008 (dọn hằng ngày ngắn ngày, thay ga mỗi 3 đêm – BR-807), **ESC-014** (bộ đồ dùng thêm – BR-812). BR-808 (checklist 12 điểm), BR-809 (mức độ/thời hạn phiếu), BR-811 (định tuyến yêu cầu) còn nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` – đã viết theo tham số, đổi giá trị không đổi đặc tả.
@@ -14,7 +14,7 @@
 |---|---|
 | "Hôm nay" | Ngày nghiệp vụ (BR-010). Danh sách việc của ngày D gồm cả việc phát sinh 00:00–05:59 ngày D+1 |
 | Ứng dụng | HK/MT dùng **PWA** `apps/mobile` ("OTTIMO Staff", ADR-005); FD+ dùng admin-web (màn S10/S11 bản máy tính, cùng API). PWA **không bao giờ** là thiết bị được cấp → không có dữ liệu C3 (rbac 8.7, SR-DEV-09) |
-| Phạm vi T của HK | Căn có việc hôm nay **giao cho người đó** hoặc **chưa giao ai** (việc chưa giao thuộc mọi HK của ca) `[GIẢ ĐỊNH BA – rbac 8.2 chỉ ghi "giao cho người dùng"; cơ sở 10 căn, 2 HK dùng chung hàng việc]`. Việc đã giao người khác: HK thấy dòng (căn, loại, trạng thái), **không** thấy tên khách, không thao tác |
+| Phạm vi T của HK | Căn có việc hôm nay **giao cho người đó** hoặc **chưa giao ai** (việc chưa giao thuộc mọi HK của ca) (DOM D-12 a – đã xác nhận; cơ sở 10 căn, 2 HK dùng chung hàng việc). Việc đã giao người khác: HK thấy dòng (căn, loại, trạng thái), **không** thấy tên khách, không thao tác |
 | Nhãn trạng thái buồng | PWA (HK/MT): câu thường `hk.status.*` (ví dụ "Cần dọn (khách đã đi)") – không hiện mã. admin-web: `status.room.*` (mã + tên, BR-801). US-052 AC1 "nhãn bằng chữ" đạt bằng `hk.status.*` |
 | Thời điểm thao tác | Mọi thao tác ghi từ PWA gửi `performedAt` = giờ trên máy lúc bấm (giờ VN, BR-001); server lưu cả giờ nhận; chấp nhận trong [now − 24 giờ, now + 5 phút] (SR-PWA-05) |
 | Hoàn tác 10 giây | Đổi trạng thái buồng/việc trên PWA: client **giữ thao tác 10 giây** trước khi gửi (toast có nút "Hoàn tác" – wireframe L6). Bấm Hoàn tác = hủy ở máy, **không gọi server** (SM-03 cấm chuyển ngược như `CL → VD`). Hết 10 giây → gửi (hoặc vào hàng đợi khi mất mạng – mục 8) |
@@ -110,7 +110,7 @@ Phiên → vai (A80/A82) → phạm vi T (HK: căn có việc hôm nay của mì
 |---|---|---|---|---|
 | `checkout_clean` | Dọn trả phòng | B18 hoàn tất trả phòng (US-054 AC1); có dòng "Thu hồi bộ đồ dùng thêm × n" nếu căn có bộ thêm (BR-812 (6)) | Trong ngày; trả muộn → `notBeforeTime` = giờ trả đã xác nhận (US-029 AC3) | BR-802, 812 |
 | `stayover_clean` | Dọn phòng khách đang ở | J8 hoặc R8 bằng tay; `linenChange` mỗi `linen_change_every_nights` đêm (đề nghị trường **E07-04**) | Trong ngày | BR-807 |
-| `long_stay_clean` | Dọn phòng khách dài hạn | J8 theo lịch gói (mục 3.5) | `windowStart`–`windowEnd` (BR-807) | US-056 |
+| `long_stay_clean` | Dọn phòng khách dài hạn **[R3 – US-056 dời]** | J8 theo lịch gói (mục 3.5) – R2 không sinh | `windowStart`–`windowEnd` (BR-807) | US-056 |
 | `minibar_refill` | Bổ sung minibar | Sau kiểm minibar có món đã dùng (`refillItems`) | Trong ngày | US-054; kho R3 |
 | `guest_request` | Yêu cầu của khách | Yêu cầu app khách loại `extra_cleaning`/`amenities` (BR-811) – chip `source = guest_app` "App khách" + ghi chú của khách (US-054 AC2) | Theo hạn trả lời BR-811 | `EP14-guest-app.md` mục 4 |
 | `after_repair_clean` | Dọn sau sửa chữa | O4 khối OOO `released` | Trong ngày | R11 |
@@ -118,7 +118,7 @@ Phiên → vai (A80/A82) → phạm vi T (HK: căn có việc hôm nay của mì
 | `adhoc_clean` | Dọn lại / dọn theo yêu cầu | FD+ tạo tay; SYS khi kiểm phòng không đạt (mục 4.4); R1 không có việc | Trong ngày | – |
 | `extra_guest_kit_prepare` / `_transfer` / `_collect` | `hk.task.extra_kit` (chuẩn bị), "Chuyển bộ đồ dùng thêm sang căn {room}" **(mới)**, "Thu hồi bộ đồ dùng thêm" **(mới)** | Chỉ SYS (BR-812; EP03-05 0.1; EP02 mục 0) | `dueAt` = giờ nhận phòng của đơn / lúc xác nhận thêm người + `extra_guest_kit_midstay_due_minutes` / giờ đổi phòng | BR-812 (2)(4) |
 
-Việc **không xong trong ngày**: lúc J8 của ngày mới, `stayover_clean`/`long_stay_clean` còn `open` của hôm trước → `cancelled` lý do `day_ended` (ngày mới đã sinh việc mới); các loại còn lại **giữ lại** và hiện chip "Từ hôm trước" **(mới)** `hk.task.carried_over` `[GIẢ ĐỊNH BA – DOM xác nhận]`.
+Việc **không xong trong ngày**: lúc J8 của ngày mới, `stayover_clean`/`long_stay_clean` còn `open` của hôm trước → `cancelled` lý do `day_ended` (ngày mới đã sinh việc mới); các loại còn lại **giữ lại** và hiện chip "Từ hôm trước" **(mới)** `hk.task.carried_over` (DOM D-12 c).
 
 ### 3.2 Bảng trường mỗi việc (`HkTask`) và theo vai
 | Trường | Hiển thị | HK | MT | FD+ |
@@ -138,7 +138,7 @@ Server tính khi sinh và tính lại khi có sự kiện ảnh hưởng (khách
 |---|---|---|
 | 1 | `priority_clean`; việc bộ đồ dùng thêm **khi khách đã nhận phòng** mà chưa xong (BR-812 (5)) | `dueAt` |
 | 2 | Mọi việc của **căn có khách đến hôm nay** (dọn trả phòng của căn đó, `after_repair_clean`, `extra_guest_kit_prepare`) | Giờ đến (`etaTime`, vắng = `checkin_time`; nhận sớm đã xác nhận = giờ đó) – đến sớm trước (BR-807) |
-| 3 | `guest_request` (khách đang chờ, có hạn trả lời BR-811) `[GIẢ ĐỊNH BA – BR-807 chưa xếp loại này, DOM xác nhận]` | Thời điểm gửi |
+| 3 | `guest_request` (khách đang chờ, có hạn trả lời BR-811) (DOM D-12 b) | Thời điểm gửi |
 | 4 | Dọn phòng ở lại của khách có tag VIP/Khách quen (EP00 11.2) | `roomNo` |
 | 5 | `checkout_clean` (căn không có khách đến hôm nay), `after_repair_clean` không khách đến | Giờ trả thực tế |
 | 6 | `stayover_clean`, `long_stay_clean` (có khung → theo `windowStart`) | Khung, rồi `roomNo` |
@@ -153,9 +153,12 @@ Server tính khi sinh và tính lại khi có sự kiện ảnh hưởng (khách
 
 Lỗi chung: việc đã `done`/`cancelled` → 409 `INVALID_TRANSITION` kèm `currentState` → chuỗi **(mới)** `hk.task_changed` "Việc này đã {state} – có thể do lễ tân hoặc đơn thay đổi." (BR-812: "Việc này đã hủy do đơn thay đổi" khi `cancelled` vì đơn).
 
-### 3.5 Lịch dọn khách dài hạn (US-056, BR-807)
+### 3.5 Lịch dọn khách dài hạn (US-056 – **[Dời R3 – PO quyết 16/10]**, BR-807)
+
+> **R2 không làm**: không có `cleaningPlan`, không sinh `long_stay_clean` (đơn dài hạn nhập tay AC5a mặc định không có gói dọn – BR-204, DOM D-15). Dọn lẻ của khách dài hạn đi qua yêu cầu khách (`guest_request`) hoặc việc lễ tân tạo tay (`adhoc_clean`, mục 3.6) và tính phí BR-506. Nội dung dưới đây giữ làm đặc tả cho R3 (cùng HĐ dài hạn); hợp đồng ARC B-06 giữ thiết kế cho R3, BE không cài ở R2.
+
 - J8 sinh `long_stay_clean` vào ngày trong `weekdays` của gói, kèm khung `windowStart`–`windowEnd`, và chuyển buồng `OC → OD` (R8 d) – AC1. Gói kết thúc (`validTo`) hoặc đổi gói → các ngày sau đó không sinh theo gói cũ (AC2); việc đã sinh của ngày đổi gói **giữ** `[GIẢ ĐỊNH BA]`.
-- **Lỗ hổng R2**: gói dọn (`cleaning_schedule`) gắn với **HĐ dài hạn** (erd 4.5) nhưng R-C dời HĐ sang R3; khách dài hạn R2 là **đơn nhập tay AC5a** (EP02 mục 4) – không có HĐ → không có lịch → US-056 không chạy được. Đề nghị **E07-06** (ARC + PO): cho đơn `externalContract = true` có gói dọn: `manualLongStay.cleaningPlan { weekdays[] (0–3 ngày/tuần – BR-204), windowStart, windowEnd }` và thao tác sửa gói (FD+), `cleaning_schedule.reservation_id` (thay `contract_id` khi chưa có HĐ). Theo BR-204, HĐ đang chạy trước khi dùng app mặc định **không** có gói (chỉ dọn lẻ BR-506) → ô gói để trống mặc định; lễ tân nhập nếu HĐ giấy có thỏa thuận dọn. Câu hỏi PO/DOM: có căn dài hạn nào hiện có lịch dọn cố định không (nếu không, US-056 AC1 chỉ kiểm được bằng dữ liệu mẫu).
+- **Lỗ hổng R2**: gói dọn (`cleaning_schedule`) gắn với **HĐ dài hạn** (erd 4.5) nhưng R-C dời HĐ sang R3; khách dài hạn R2 là **đơn nhập tay AC5a** (EP02 mục 4) – không có HĐ → không có lịch → US-056 không chạy được. Đề nghị **E07-06** (ARC + PO): cho đơn `externalContract = true` có gói dọn: `manualLongStay.cleaningPlan { weekdays[] (0–3 ngày/tuần – BR-204), windowStart, windowEnd }` và thao tác sửa gói (FD+), `cleaning_schedule.reservation_id` (thay `contract_id` khi chưa có HĐ). Theo BR-204 và DOM D-15 (B-06): đơn dài hạn nhập tay mặc định **không có gói** (0 lần/tuần), chỉ dọn lẻ BR-506 → ô gói để trống; lễ tân nhập nếu HĐ giấy có thỏa thuận dọn. Hợp đồng ARC đã thiết kế sẵn (B-06: `ManualLongStayInput.cleaningPlan`, `PUT …/reservations/{id}/cleaning-plan`) – **chờ PO** quyết US-056 có chạy cho đơn nhập tay ở R2. Câu hỏi PO/DOM: có căn dài hạn nào hiện có lịch dọn cố định không (nếu không, US-056 AC1 chỉ kiểm được bằng dữ liệu mẫu).
 - Dọn lẻ ngoài gói (khách gửi qua app hoặc gọi lễ tân) → `guest_request`/`adhoc_clean`; tiền BR-506 ghi folio khi việc `done` (SYS, A30) – chi tiết `EP14-guest-app.md` mục 4.4.
 
 ### 3.6 Tạo việc bằng tay – `createHkTask` (FD+, A83-create)
@@ -178,7 +181,7 @@ Lỗi chung: việc đã `done`/`cancelled` → 409 `INVALID_TRANSITION` kèm `c
 ### 4.2 Checklist (`getInspectionChecklist`)
 - Nội dung theo BR-808 (cấu hình được – AC1): mỗi mục `code`, `label` (VI/EN), `required`, `photoRequired`. Phiên bản `version` tăng khi OWN/MGR sửa danh mục.
 - **Mục động BR-812 (5)**: căn có việc `extra_guest_kit_prepare`/`_transfer` của đơn sắp nhận/đang ở → thêm mục bắt buộc `extra_guest_kit` "Bộ đồ dùng thêm đủ × {n}" **(mới)**. Hợp đồng lấy checklist theo cơ sở, không theo căn → **E07-07** (`?roomId=`).
-- Mục "Ảnh phòng" của BR-808: `photoRequired = true` **chỉ khi tự kiểm** (BR-802); người kiểm FDL+ chụp ảnh là tùy chọn (US-055 AC2 "ảnh nếu có"; ảnh sau kiểm bắt buộc là US-060 – R3) `[GIẢ ĐỊNH BA – BR-808 liệt kê "ảnh" trong 12 điểm; DOM xác nhận]`.
+- Mục "Ảnh phòng" của BR-808: `photoRequired = true` **chỉ khi tự kiểm** (BR-802); người kiểm FDL+ chụp ảnh là tùy chọn (US-055 AC2 "ảnh nếu có"; ảnh sau kiểm bắt buộc là US-060 – R3) (DOM D-12 e).
 
 ### 4.3 Bảng trường – `recordInspection` (`Idempotency-Key`)
 | Trường | Kiểu | BB | Kiểm tra | Lỗi |
@@ -191,7 +194,7 @@ Lỗi chung: việc đã `done`/`cancelled` → 409 `INVALID_TRANSITION` kèm `c
 
 ### 4.4 Kết quả
 - **Đạt** (mọi mục `required` = `passed`): `result = pass`, buồng `VC → VI` (R4); biên bản ghi người kiểm, thời điểm (`performedAt`), căn, ảnh (AC2); chip "Sẵn sàng đón khách" (`hk.status.VI`). Mốc BR-805 tính từ thời điểm kiểm đạt.
-- **Không đạt** (AC1 – còn mục bắt buộc chưa đạt): `result = fail`, buồng **giữ `VC`** (SM-03 không có `VC → CL`); SYS tạo việc `adhoc_clean` "Dọn lại theo kiểm phòng: {danh sách mục không đạt}" **(mới)** `hk.task.redo` cho căn, bậc ưu tiên theo căn (mục 3.3); HK làm xong tick `complete` (không đổi trạng thái buồng) → kiểm lại. `[GIẢ ĐỊNH BA – P07 vẽ "Không đạt → trả lại HK → Bắt đầu dọn" nhưng R1 chỉ từ VD/OD; DOM xác nhận cách "trả lại" này]`.
+- **Không đạt** (AC1 – còn mục bắt buộc chưa đạt): `result = fail`, buồng **giữ `VC`** (SM-03 không có `VC → CL`); SYS tạo việc `adhoc_clean` "Dọn lại theo kiểm phòng: {danh sách mục không đạt}" **(mới)** `hk.task.redo` cho căn, bậc ưu tiên theo căn (mục 3.3); HK làm xong tick `complete` (không đổi trạng thái buồng) → kiểm lại. (DOM D-12 d). Căn mang cờ **"Kiểm chưa đạt"** **(mới)** `hk.inspection_failed` tới khi lần kiểm sau đạt; nhận phòng vào căn này (B9 – `VC` vẫn nhận được theo BR-803) → **cảnh báo** cho lễ tân, không chặn: `CheckInPreview.warnings[]` thêm `inspection_failed` **(đề nghị ARC E07-17)** → **(mới)** `checkin.inspection_failed` "Căn {room} kiểm phòng chưa đạt ({items}). Kiểm lại trước khi giao khách nếu kịp."
 - Giao diện: chưa tick đủ mục bắt buộc → nút "Kiểm đạt" khóa (AC1); server vẫn kiểm (gửi thiếu → `fail`, không phải lỗi).
 - Lịch sử kiểm của căn: hợp đồng chưa có danh sách → **E07-07** `listInspections`.
 
@@ -203,17 +206,17 @@ Lỗi chung: việc đã `done`/`cancelled` → 409 `INVALID_TRANSITION` kèm `c
 | Trường | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|---|
 | `roomId` | Căn | uuid | B | V-11 – chọn trong 10 căn (từ `listRoomStatuses`); mở từ thẻ căn → điền sẵn | `NOT_IN_LIST` |
-| `category` **(đề nghị E07-09)** | Chuyện gì xảy ra? | enum | B | `hot_water` Mất nước nóng · `power` Điện / đèn · `leak` Rò nước · `door_lock` Khóa cửa · `wifi` Wi-Fi · `broken_item` Đồ hỏng · `other` Khác (chip wireframe L6, thêm Wi-Fi vì BR-809 nâng bậc cho khách dài hạn) | `NOT_IN_LIST` |
+| `category` **(đề nghị E07-09)** | Chuyện gì xảy ra? | enum | B | `hot_water` Mất nước nóng · `power` Điện / đèn · `leak` Rò nước · `door_lock` Khóa cửa · `wifi` Wi-Fi · `broken_item` Đồ hỏng · `drain` Tắc bồn cầu / thoát nước **(DOM D-12 f – đề nghị ARC thêm vào enum, E07-09)** · `other` Khác (chip wireframe L6, thêm Wi-Fi vì BR-809 nâng bậc cho khách dài hạn) | `NOT_IN_LIST` |
 | `title` | – | text | B (tự điền) | Client điền "{nhãn category} – căn {room}"; ≤ 120 | `TOO_LONG` |
 | `description` | Mô tả | text | B | 1–2000 (US-061 AC4), V-09; gợi ý "Không ghi tên khách, số giấy tờ" | `REQUIRED` → **(mới)** `wo.error.description` "Mô tả sự cố trước khi gửi."; `CARD_NUMBER_DETECTED` |
 | `severity` | Mức độ (BR-809) | enum | B (điền sẵn) | `high` "Gấp" / `medium` "Trong ngày" / `low` "Không gấp" (wireframe). Mặc định (mục 6.4) | `NOT_IN_LIST` |
 | `photoAttachmentIds` | Chụp ảnh (nên có) | uuid[] | K | 0–4 ảnh `purpose = work_order` (mục 0.1) | `FILE_REJECTED` |
-| `lockRequested` **(đề nghị E07-09)** | "Đề nghị khóa căn – không bán đến khi sửa xong" (`hk.lock_request`, sửa câu – E07-14) | bool | K | Chỉ ghi đề nghị; HK **không** tạo khối OOO (A86 ✖, US-057 AC2). HK gửi `block` → 403 `FORBIDDEN_ACTION` | 403 |
+| `blockRequested` **(đề nghị E07-09)** | "Đề nghị khóa căn – không bán đến khi sửa xong" (`hk.lock_request`, sửa câu – E07-14) | bool | K | Chỉ ghi đề nghị; HK **không** tạo khối OOO (A86 ✖, US-057 AC2). HK gửi `block` → 403 `FORBIDDEN_ACTION` | 403 |
 
 ### 5.2 Kết quả (AC1, AC2)
 - Phiếu `new`, mã `WO-xxxxx` do server cấp (BR-007), `source = housekeeping`, `reportedBy` = người gửi; MT thấy ngay (SSE + thông báo `work_order_new` **(đề nghị kind E07-08)**).
 - Mức `high` → thông báo MT + FD + MGR và vào "Cần chú ý" (`work_order_high_open` – BR-809, BR-907).
-- `lockRequested = true` → thông báo FD + MT "Đề nghị khóa căn {room} – WO-xxxxx" **(mới)**; phiếu hiện chip "Đề nghị khóa" tới khi FD/MT tạo khối (mục 6.2) hoặc bỏ đề nghị (`updateWorkOrder lockRequested=false`, ghi nhật ký). Căn đang có khách `in_house` → chip thêm `hk.lock_by_others` + "Căn đang có khách: lễ tân đổi phòng trước" (BR-804).
+- `blockRequested = true` → thông báo FD + MT "Đề nghị khóa căn {room} – WO-xxxxx" **(mới)**; phiếu hiện chip "Đề nghị khóa" tới khi FD/MT tạo khối (mục 6.2) hoặc bỏ đề nghị (`updateWorkOrder blockRequested=false`, ghi nhật ký). Căn đang có khách `in_house` → chip thêm `hk.lock_by_others` + "Căn đang có khách: lễ tân đổi phòng trước" (BR-804).
 - Sau khi gửi: HK thấy toast "Đã gửi báo sự cố WO-xxxxx" **(mới)**; chỉ khi FD/MT tạo khối, HK mới thấy `hk.lock_done` (wireframe: "Chỉ khi hiện 'Đã khóa'… căn mới thật sự bị khóa").
 - HK xem phiếu: phiếu do mình tạo + phiếu của căn mình đang có việc hôm nay (`own_or_room_today`, rbac ghi chú 8); không đổi trạng thái phiếu.
 
@@ -226,13 +229,13 @@ Lỗi chung: việc đã `done`/`cancelled` → 409 `INVALID_TRANSITION` kèm `c
 |---|:-:|:-:|:-:|:-:|
 | Tạo phiếu (A84) | ✔ | ✔ | ✔ | ✔ (mục 5) |
 | Tạo phiếu **kèm khóa phòng** / tạo, kéo dài khối (A86) | ✔ | ✔ | ✔ | ✖ |
-| Xác nhận đã có phương án cho đơn trùng (`affectedReservationsAcknowledged`) | ✔ | ✖ | ✖ | ✖ |
+| Ghi nhận đã biết đơn trùng (`affectedReservationsAcknowledged` – **không** vượt chống trùng, ARC A-03) | ✔ | ✖ | ✖ | ✖ |
 | Nhận / chờ vật tư / xong / mở lại (A85) | ✔ | ✔ | ✔ | ✖ |
 | Hủy phiếu (W5) | ✔ | ✔ | Chỉ phiếu mình tạo, còn `new` | ✖ |
 | Mở khóa OOO không qua phiếu (A87) | ✔ | ✖ | ✖ | ✖ |
 
 ### 6.2 Tạo phiếu – `createWorkOrder` (FD+/MT; `Idempotency-Key`)
-Trường như 5.1 (trừ `lockRequested`) + `assigneeUserId` (K, người có vai MT; V-11) + khối khóa tùy chọn:
+Trường như 5.1 (trừ `blockRequested`) + `assigneeUserId` (K, người có vai MT; V-11) + khối khóa tùy chọn:
 
 | Trường `block.*` | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|---|
@@ -241,16 +244,17 @@ Trường như 5.1 (trừ `lockRequested`) + `assigneeUserId` (K, người có v
 | `expectedDoneDate` **(đề nghị E07-10)** | Dự kiến sửa xong | date | B | ≥ `startDate` | `DATE_ORDER` |
 | `endDatePlanned` | Mở bán lại từ | date | B (tính sẵn) | **Server tính** = `expectedDoneDate` + `ooo_reopen_buffer_days` (BR-804) khi client không gửi – vì FD/MT không đọc được bảng tham số (S24); form hiện **cả hai ngày** (AC1): "Dự kiến xong 17/10 · Mở bán lại từ 18/10" **(mới)** `wo.block.dates` | `DATE_ORDER` |
 | `reason` | Lý do khóa | text | B | 3–500, V-09; điền sẵn = `title` | `REASON_REQUIRED` |
-| `affectedReservationsAcknowledged` | "Đã có phương án cho các đơn bị trùng" | bool | ĐK | Chỉ MGR+; FD/MT gửi `true` → 403 `FORBIDDEN_ACTION` | 403 |
+| `affectedReservationsAcknowledged` | "Quản lý đã biết các đơn bị trùng" | bool | K | Chỉ ghi người xác nhận (MGR+; FD/MT gửi `true` → 403 `FORBIDDEN_ACTION`). **Không** cho lưu khối trùng đơn: khoảng khóa trùng đơn `hold`/`confirmed` **luôn** 409 (ARC A-03, BR-906) | 403 |
 
-Thứ tự kiểm ở server: quyền (HK gửi `block` → 403) → trường (422 gom lỗi) → căn có đơn `in_house` trong khoảng khóa → **409 `ROOM_UNAVAILABLE`** kèm đơn đang ở (AC3) → khoảng trùng đơn `hold`/`confirmed` → **409 `ROOM_UNAVAILABLE` + `conflicts[]`** (mã đơn, ngày, căn) trừ khi MGR+ gửi `affectedReservationsAcknowledged = true` (AC2, O1) → tạo phiếu + khối + `room_occupancy kind=ooo` + lệnh đồng bộ đóng phòng (BR-905) trong **một** giao dịch.
+Thứ tự kiểm ở server (ARC A-03, OpenAPI 0.3.5): quyền (HK gửi `block` → 403) → trường (422 gom lỗi) → `ROOM_NOT_SELLABLE` → căn có đơn `in_house` trong khoảng khóa → **409 `ROOM_OCCUPIED`** + `conflicts[]` (AC3) → mọi xung đột là khối OOO khác → **409 `ROOM_BLOCKED`** → khoảng trùng đơn `hold`/`confirmed` → **409 `ROOM_UNAVAILABLE` + `conflicts[]`** (`OccupancyConflict`: căn, đêm, loại, mã đơn) – **luôn**, kể cả MGR+ gửi `affectedReservationsAcknowledged = true` (AC2: dời các đơn trước rồi khóa) → tạo phiếu + khối + `room_occupancy kind=ooo` + lệnh đồng bộ đóng phòng (BR-905) trong **một** giao dịch.
 
 Giao diện khi 409:
-- Có khách đang ở → **(mới)** `wo.block.in_house` "Căn {room} đang có khách {code}. Đổi phòng cho khách trước (US-024), rồi khóa." + nút "Đổi phòng" (EP02 9.2) + nút "Tạo phiếu không khóa" (gửi lại bỏ `block`). Không tạo phiếu nửa vời.
-- Trùng đơn tương lai → danh sách `conflicts[]` + **(mới)** `wo.block.conflicts` "Khoảng khóa trùng {n} đơn. Dời các đơn này trước, hoặc quản lý xác nhận đã có phương án." – FD/MT: nút "Tạo phiếu không khóa" và "Gửi quản lý"; MGR+: ô xác nhận rồi lưu.
+- Có khách đang ở (`ROOM_OCCUPIED`) → **(mới)** `wo.block.in_house` "Căn {room} đang có khách {code}. Đổi phòng cho khách trước (US-024), rồi khóa." + nút "Đổi phòng" (EP02 9.2) + nút "Tạo phiếu không khóa" (gửi lại bỏ `block`). Không tạo phiếu nửa vời.
+- Trùng đơn tương lai (`ROOM_UNAVAILABLE`) → danh sách `conflicts[]` + **(mới)** `wo.block.conflicts` "Khoảng khóa trùng {n} đơn. Dời hoặc hủy các đơn này trước, rồi khóa lại." + nút mở từng đơn (đổi căn B7 – lý do `property_fault`, DOM D-5) và nút "Tạo phiếu không khóa". Không có đường "quản lý xác nhận rồi lưu" (ARC A-03).
+- Trùng khối OOO khác (`ROOM_BLOCKED`) → "Căn {room} đã có khóa trong khoảng này" **(mới)** + mở khối hiện có (kéo dài O3 nếu cần).
 - Kết quả thành công: rack thanh "Khóa phòng" (`rack.ooo_until`), tạo đơn trùng đêm khóa → `ROOM_BLOCKED` (US-019), đêm khả dụng trừ đêm khóa (BR-904, metrics Q-04).
 
-Đề nghị khóa từ HK (5.2): FD/MT mở phiếu → nút "Khóa phòng theo đề nghị" → `createRoomBlock` (EP02 mục 12) với `workOrderId` của phiếu; thành công → `lockRequested` tự về false, HK thấy `hk.lock_done`.
+Đề nghị khóa từ HK (5.2): FD/MT mở phiếu → nút "Khóa phòng theo đề nghị" → `createRoomBlock` (EP02 mục 12) với `workOrderId` của phiếu; thành công → `blockRequested` tự về false, HK thấy `hk.lock_done`.
 
 ### 6.3 Cập nhật phiếu – `updateWorkOrder` (`If-Match`; A85)
 | Trường | Kiểu | BB | Kiểm tra | Lỗi |
@@ -258,14 +262,14 @@ Giao diện khi 409:
 | `assigneeUserId` | uuid | K | Người có vai MT (hoặc FD+ nhận thay) của cơ sở | `NOT_IN_LIST` |
 | `severity` | enum | K | FD+ nâng/hạ; MT nâng/hạ có ghi chú `[GIẢ ĐỊNH BA]`. Đổi mức → hạn tính lại từ **thời điểm tạo phiếu** theo mức mới (mục 6.4) | `NOT_IN_LIST` |
 | `partsNote` | text | K | ≤ 500, V-09 | – |
-| `lockRequested` **(E07-09)** | bool | K | FD+/MT bỏ đề nghị khóa | – |
+| `blockRequested` **(E07-09)** | bool | K | FD+/MT bỏ đề nghị khóa | – |
 
 Mỗi lần đổi người xử lý/mức/trạng thái ghi **nhật ký phiếu** (người, thời điểm, giá trị cũ → mới – US-062 AC2) → hợp đồng chưa trả lịch sử trong `WorkOrder` → **E07-11** `WorkOrder.history[]`.
 
 ### 6.4 Mức độ và thời hạn (BR-809, tham số `wo_sla`)
 | Mức | Mặc định khi | Hạn nhận (`ackDueAt`) | Hạn xử lý (`resolveDueAt`) | Dừng hạn khi chờ vật tư |
 |---|---|---|---|---|
-| `high` Cao | `category` ∈ {`hot_water`, `power`, `leak`, `door_lock`} **và** căn có đơn `in_house` | tạo + mức Cao "nhận" | tạo + mức Cao "phương án" (sửa xong **hoặc** đổi phòng/bù sự cố) | **Không** |
+| `high` Cao | `category` ∈ {`hot_water`, `power`, `leak`, `door_lock`, `drain`} **và** căn có đơn `in_house` (DOM D-12 f) | tạo + mức Cao "nhận" | tạo + mức Cao "phương án" (sửa xong **hoặc** đổi phòng/bù sự cố) | **Không** |
 | `medium` Trung bình | Mặc định còn lại khi căn có khách; yêu cầu "Báo hỏng" từ app khách (BR-811 → FD nâng mức) | – | tạo + mức TB | Có, khi `waiting_parts` có `partsExpectedDate` |
 | `low` Thấp | Căn trống và `category` ∉ nhóm Cao | – | tạo + mức Thấp | Có (như TB) |
 
@@ -279,14 +283,14 @@ Mỗi lần đổi người xử lý/mức/trạng thái ghi **nhật ký phiế
 | "Nhận phiếu" **(mới)** `wo.accept` | `accept` | W2 | `new` | — | Người bấm thành người xử lý nếu phiếu chưa giao | `in_progress`, `acceptedAt` (đo hạn nhận) |
 | "Chờ vật tư" | `wait-parts` | W3 | `in_progress` | `note` (vật tư cần, B, 3–500); `partsExpectedDate` **(đề nghị E07-10)** – B với TB/Thấp, K với Cao | `partsExpectedDate` ≥ hôm nay | `waiting_parts`; dừng hạn TB/Thấp |
 | "Có vật tư – làm tiếp" | `resume` | W3 | `waiting_parts` | — | – | `in_progress`; hạn chạy lại |
-| "Sửa xong" | `complete` | W4 | `in_progress` | `resultNote` (B, 3–500, V-09); `photoAttachmentIds` (ảnh sau sửa – **B ≥ 1 với mức Cao**, K với TB/Thấp – SM-04 W4) | Thiếu → 422 `REQUIRED` | `done`; **hộp xác nhận** khi có khối OOO liên kết (US-135, US-062 AC1) **(mới)** `wo.complete_confirm` "Căn {room} sẽ mở bán lại từ {date} trên mọi kênh và chuyển 'Cần dọn'." → khối `released` (O4), `endDateActual` = ngày nghiệp vụ kế tiếp (BR-804: xong sớm → mở bán từ đêm kế tiếp), buồng `OOO → VD`, việc `after_repair_clean`, lệnh đồng bộ mở bán; yêu cầu khách liên kết → `done` |
+| "Sửa xong" | `complete` | W4 | `in_progress` | `resultNote` (B, 3–500, V-09); `photoAttachmentIds` (ảnh sau sửa – **B ≥ 1** khi mức thuộc tham số `wo_done_photo_required_severities` = **`[high, medium]`** (DOM D-15, ARC B-10); mức Thấp tùy chọn; thiếu → 422 `EVIDENCE_REQUIRED`) | Thiếu → 422 `REQUIRED` | `done`; **hộp xác nhận** khi có khối OOO liên kết (US-135, US-062 AC1) **(mới)** `wo.complete_confirm` "Căn {room} sẽ mở bán lại từ {date} trên mọi kênh và chuyển 'Cần dọn'." → khối `released` (O4), `endDateActual` = ngày nghiệp vụ kế tiếp (BR-804: xong sớm → mở bán từ đêm kế tiếp), buồng `OOO → VD`, việc `after_repair_clean`, lệnh đồng bộ mở bán; yêu cầu khách liên kết → `done` |
 | "Hủy phiếu" | `cancel` | W5 | `new`/`waiting_parts` | `cancelReason` (B, V-08) | MT chỉ phiếu mình tạo và còn `new` | `cancelled`; khối liên kết: `planned` → `cancelled` (O5), `active` → `released` (O4 – buồng `VD` + việc dọn). Hộp xác nhận nêu hậu quả mở bán |
-| "Mở lại" | `reopen` | W6 | `done` | `note` (B, V-08) | Trong kỳ lưu trú của khách đang ở căn đó, hoặc trong 7 ngày từ `done` khi căn trống `[GIẢ ĐỊNH BA – SM-04 chỉ ghi "trong cùng kỳ lưu trú"]`; FD+ | `in_progress`, hạn tính lại từ lúc mở lại; cần khóa lại → tạo khối mới (6.2) |
+| "Mở lại" | `reopen` | W6 | `done` | `note` (B, V-08) | Trong kỳ lưu trú của khách đang ở căn đó, hoặc trong 7 ngày từ `done` khi căn trống (DOM D-12 g); FD+ | `in_progress`, hạn tính lại từ lúc mở lại; cần khóa lại → tạo khối mới (6.2) |
 
 Lỗi: không còn trạng thái nguồn → 409 `INVALID_TRANSITION`; `If-Match` lệch → 412 `VERSION_CONFLICT`; MT hủy phiếu người khác → 403 `FORBIDDEN_ACTION`. Mọi chuyển: nhật ký phiếu (AC2).
 
 ### 6.6 Khối OOO sắp hết hạn khi phiếu chưa xong
-Khối lưu nửa mở; tới `endDatePlanned` căn **tự mở bán** dù phiếu chưa xong → nguy cơ bán phòng hỏng. Đề nghị **E07-13**: J9/J11 phát "Cần chú ý" **(mới)** kind `ooo_ending_work_open` cho FD + MT từ 12:00 ngày cuối còn khóa (`endDatePlanned − 1`) khi phiếu liên kết chưa `done`, kèm nút "Kéo dài khóa" (`updateRoomBlock`, O3 – kiểm trùng như O1) `[GIẢ ĐỊNH BA – mốc 12:00; DOM xác nhận]`.
+Khối lưu nửa mở; tới `endDatePlanned` căn **tự mở bán** dù phiếu chưa xong → nguy cơ bán phòng hỏng. Đề nghị **E07-13**: J9/J11 phát "Cần chú ý" **(mới)** kind `ooo_ending_work_open` cho FD + MT từ 12:00 ngày cuối còn khóa (`endDatePlanned − 1`) khi phiếu liên kết chưa `done`, kèm nút "Kéo dài khóa" (`updateRoomBlock`, O3 – kiểm trùng như O1) (DOM D-12 h: trước giờ nhận phòng 14:00, kịp kéo dài khóa và đóng bán OTA).
 
 ### 6.7 Danh sách phiếu – `listWorkOrders` (S11)
 Lọc `status` (mặc định: `new`, `in_progress`, `waiting_parts`), sắp: quá hạn trước, rồi mức (Cao → Thấp), rồi `ackDueAt`/`resolveDueAt`. Cột: mã, căn, tiêu đề, mức, trạng thái, người xử lý, hạn còn lại ("còn 1 giờ 20 phút" / "quá 35 phút" đỏ), chip nguồn ("App khách", "Buồng phòng"), chip "Đề nghị khóa", "Đang khóa đến {date}". MT màn mặc định = danh sách này (rbac mục 1). HK: phạm vi mục 5.2.
@@ -350,7 +354,7 @@ Hai HK cùng bấm "Bắt đầu dọn" căn 202: người gửi sau nhận 409 
 | US-053 AC1–AC4 | 2.1–2.3, 4 | AC3 kiểm đạt qua checklist; AC4 chuyển bị cấm |
 | US-054 AC1–AC4 | 3.1–3.4, 9 | AC1 ngân sách độ trễ = SSE + architecture 16 |
 | US-055 AC1–AC2 | 4.2–4.4 | |
-| US-056 AC1–AC2 | 3.5 | **Phụ thuộc E07-06** (gói dọn cho đơn AC5a) |
+| US-056 AC1–AC2 | 3.5 | **[Dời R3 – PO quyết 16/10]** – không thuộc AC Must R2 |
 | US-057 AC1–AC2 | 5 | |
 | US-061 AC1–AC4 | 6.2, 6.4 | AC1 hai ngày + nửa mở; AC3 409 in_house |
 | US-062 AC1–AC3 | 6.3–6.5 | AC2 nhật ký phiếu – E07-11 |
@@ -370,19 +374,22 @@ Hai HK cùng bấm "Bắt đầu dọn" căn 202: người gửi sau nhận 409 
 | E07-03 | ARC | R5 (BR-805 "đủ 72 giờ là quá") đang ở J8 chạy một lần/ngày → lệch tới 24 giờ so với ví dụ BR-805. Đề nghị quét theo giờ (cùng tick J11 5 phút) hoặc tính khi đọc `listRoomStatuses` |
 | E07-04 | ARC | `HkTask.linenChange` (bool – đêm thay ga theo `linen_change_every_nights`, BR-807); `HkTask.carriedOver` (bool – việc từ hôm trước) |
 | E07-05 | ARC | `transitionHkTask` body: `cancelReasonCode` enum `guest_refused` / `dnd` / `day_ended` (SYS) / `reservation_changed` (SYS) / `room_blocked` (SYS) / `other` + `cancelNote` (bắt buộc khi `other`) thay `cancelReason` tự do |
-| E07-06 | ARC + PO + DOM | Gói dọn cho đơn dài hạn nhập tay AC5a: `manualLongStay.cleaningPlan {weekdays[], windowStart, windowEnd}`, thao tác sửa gói (FD+), `cleaning_schedule.reservation_id` khi chưa có HĐ – không có thì US-056 không chạy được ở R2 |
+| E07-06 | ~~ARC + PO + DOM~~ **Đóng – dời R3** (PO quyết 16/10: US-056 sang R3, không `cleaningPlan` ở R2; ARC B-06 giữ thiết kế cho R3). Nội dung cũ: | Gói dọn cho đơn dài hạn nhập tay AC5a: `manualLongStay.cleaningPlan {weekdays[], windowStart, windowEnd}`, thao tác sửa gói (FD+), `cleaning_schedule.reservation_id` khi chưa có HĐ – không có thì US-056 không chạy được ở R2 |
 | E07-07 | ARC | `getInspectionChecklist?roomId=` trả thêm mục động `extra_guest_kit` (BR-812 (5)); `listInspections?roomId=&from=&to=` (lịch sử biên bản kiểm – US-055 AC2) |
 | E07-08 | ARC | `StaffNotification.kind` thêm: `work_order_new`, `work_order_high_new`, `work_order_lock_requested`, `hk_task_urgent`, `room_awaiting_inspection`, `hk_task_cancelled`. Thống nhất tên sự kiện SSE của việc buồng phòng (`task.assigned` ở OpenAPI ↔ `hk_task.changed` ở erd 4.8) – đề nghị `hk_task.changed` + `work_order.changed` |
-| E07-09 | ARC | `WorkOrderCreate.category` (enum mục 5.1), `WorkOrderCreate.lockRequested`, `WorkOrder.category`, `WorkOrder.lockRequested`, `updateWorkOrder.lockRequested`; `createWorkOrder` của HK có `block` → 403 (ghi rõ trong mô tả, khớp A86) |
+| E07-09 | ARC | `WorkOrderCreate.category` (enum mục 5.1), `WorkOrderCreate.blockRequested`, `WorkOrder.category`, `WorkOrder.blockRequested`, `updateWorkOrder.blockRequested`; `createWorkOrder` của HK có `block` → 403 (ghi rõ trong mô tả, khớp A86) |
 | E07-10 | ARC | `block.expectedDoneDate` (cho `createWorkOrder.block` và `RoomBlockCreate`): server tính `endDatePlanned` = ngày xong + `ooo_reopen_buffer_days` khi client không gửi (FD/MT không đọc được tham số), phản hồi trả cả hai ngày; `transitionWorkOrder` body thêm `partsExpectedDate` (bắt buộc với TB/Thấp ở `wait-parts`); `complete` bắt buộc `resultNote`, mức Cao bắt buộc ≥ 1 ảnh |
-| E07-11 | ARC | `WorkOrder.history[]` (`at`, `byName`, `change`: `status`/`assignee`/`severity`/`lockRequested`, `from`, `to`, `note`) cho US-062 AC2; `WorkOrder.remedySuggested` (bool, J11 – US-062 AC3); `WorkOrder.partsExpectedDate`, `acceptedAt`, `doneAt` |
+| E07-11 | ARC | `WorkOrder.history[]` (`at`, `byName`, `change`: `status`/`assignee`/`severity`/`blockRequested`, `from`, `to`, `note`) cho US-062 AC2; `WorkOrder.remedySuggested` (bool, J11 – US-062 AC3); `WorkOrder.partsExpectedDate`, `acceptedAt`, `doneAt` |
 | E07-12 | SEC | (a) Thời hạn lưu ảnh `attachment` (sự cố, kiểm phòng) – chưa có trong T01–T18; (b) cho phép PWA giữ **ảnh kiểm phòng** chờ gửi trong IndexedDB như ảnh sự cố (SR-PWA-01); (c) xác nhận ghi chú khách (D23) **không** cache offline (8.1) |
 | E07-13 | ARC + DOM | "Cần chú ý" `ooo_ending_work_open` (khối OOO sắp hết mà phiếu chưa xong – mục 6.6), mốc 12:00 ngày cuối còn khóa |
 | E07-14 | UXD | Chuỗi **(mới)** trong tài liệu (VI/EN); sửa `hk.task.extra_kit_items` (đang "1 1 mền…", "(không gối)" – BR-812 (3) không nhắc gối) thành "Mỗi bộ: 1 mền, 1 khăn tắm, 1 khăn mặt, 1 bàn chải, 1 bộ đồ vệ sinh cá nhân"; `hk.lock_request` bản HK = "Đề nghị khóa căn" (HK không tự khóa); nhãn 7 `category` sự cố; chip "Chờ gửi", "Từ hôm trước", "Đề nghị khóa"; danh sách "Không áp dụng được" |
-| E07-15 | DOM | Xác nhận: (a) phạm vi T gồm việc chưa giao (mục 0); (b) `guest_request` bậc 3 trong BR-807 (3.3); (c) việc ở lại không xong hủy cuối ngày, loại khác chuyển ngày (3.1); (d) kiểm không đạt → giữ `VC` + việc dọn lại (4.4); (e) ảnh chỉ bắt buộc khi tự kiểm (4.2); (f) mức mặc định theo `category` (6.4); (g) hạn mở lại phiếu (6.5); (h) mốc 12:00 cảnh báo khối sắp hết (6.6) |
+| E07-15 | DOM | **Đã trả lời** (s2-DOM D-12; áp 16/10 Sprint 2). Nội dung cũ: (a) phạm vi T gồm việc chưa giao (mục 0); (b) `guest_request` bậc 3 trong BR-807 (3.3); (c) việc ở lại không xong hủy cuối ngày, loại khác chuyển ngày (3.1); (d) kiểm không đạt → giữ `VC` + việc dọn lại (4.4); (e) ảnh chỉ bắt buộc khi tự kiểm (4.2); (f) mức mặc định theo `category` (6.4); (g) hạn mở lại phiếu (6.5); (h) mốc 12:00 cảnh báo khối sắp hết (6.6) |
+| E07-17 | ARC | `CheckInPreview.warnings[]` thêm `inspection_failed` (căn có lần kiểm gần nhất `fail` – DOM D-12 d); `WorkOrderCategory` thêm `drain` (D-12 f) |
 | E07-16 | QA | Ca đồng hồ giả lập: BR-805 72 giờ (09:59 vs 10:00), J8 07:00, hạn BR-809 có/không dừng khi chờ vật tư, khối OOO hết hạn khi phiếu chưa xong; ca offline: hai HK cùng bắt đầu dọn, dọn xong khi căn vừa bị khóa, `performedAt` quá 24 giờ, đăng xuất khi còn hàng đợi; dump IndexedDB sau 1 ca (SR-PWA-01) |
 
 ## 12. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: đặc tả mức trường EP07 (US-052…057), EP08 (US-061, 062), BR-812 phía buồng phòng, US-058 offline (Should), khung US-063 (R3); đề nghị E07-01…16 | BA |
+| 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp ARC A-03 (`ROOM_OCCUPIED`; `affectedReservationsAcknowledged` không vượt chống trùng), B-09 (`lockRequested` → `blockRequested`), B-10 (ảnh sau sửa `[high, medium]`); DOM D-12 (bỏ nhãn giả định; cờ "Kiểm chưa đạt" + cảnh báo nhận phòng; loại `drain`), D-15 (B-06 gói dọn mặc định 0) – FB-R2-DOM-BA-01 | BA |
+| 16/10/2026 | 2 (Sprint 2 – PO quyết) | US-056 dời R3 (mục 3.5, truy vết, E07-06 đóng) – không `cleaningPlan` ở R2 | BA |

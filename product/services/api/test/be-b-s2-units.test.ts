@@ -141,6 +141,15 @@ describe('commissions (BR-903, SM-11)', () => {
     expect(applyPct(e.input.roomTotalVnd as number, pct!, 1)).toBe(e.expected.commissionVnd);
   });
 
+  it('BR-903-02 oracle (v0.3.2): sale 3 % of 5.205.000 kept to the đồng = 156.150', () => {
+    const e = ex('BR-903-02');
+    const pct = commissionPctFor(
+      e.params?.short_stay_commission_pct,
+      payeeTypeOf(['sales_staff'])!,
+    );
+    expect(applyPct(e.input.roomTotalVnd as number, pct!, 1)).toBe(e.expected.commissionVnd);
+  });
+
   it('payee by role: CTV → agent, sale → staff, others → none; malformed table → null', () => {
     expect(payeeTypeOf(['collaborator'])).toBe('agent');
     expect(payeeTypeOf(['sales_staff'])).toBe('staff');
@@ -157,6 +166,14 @@ describe('quotes (BR-304)', () => {
     const e = ex('BR-304-01');
     const exp = quoteExpiry(new Date(String(e.input.quoteCreatedAt)), 3, tz);
     expect(exp.toISOString()).toBe(new Date(String(e.expected.expiredFrom)).toISOString());
+  });
+
+  it('BR-304-02 oracle (v0.3.2): created 01:30 15/10 (business day 14/10) still counts the calendar day 15/10', () => {
+    const e = ex('BR-304-02');
+    const exp = quoteExpiry(new Date(String(e.input.quoteCreatedAt)), 3, tz);
+    expect(exp.toISOString()).toBe(new Date(String(e.expected.expiredFrom)).toISOString());
+    const still = new Date(String(e.expected.stillValidAt));
+    expect(effectiveStatus({ status: 'active', expires_at: exp }, still)).toBe('active');
   });
 
   it('created 23:30 local still counts its own calendar day; lazy status flips exactly at expiry', () => {

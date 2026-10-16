@@ -62,6 +62,12 @@ export interface Caller {
 /** OpenAPI QuoteCalculation (short). The role serializer removes commission / ottimoRemainingVnd. */
 export interface QuoteCalculation {
   type: 'short';
+  /** 0.3.5 (A-05, A-14). */
+  roomId: string;
+  roomNo: string;
+  roomTotalVnd: number;
+  extraPersonFeeVnd: number;
+  extraGuestCount: number;
   nights: number;
   nightlyRates: Array<{ date: LocalDate; amountVnd: number }>;
   losDiscountPct: number;
@@ -189,10 +195,25 @@ export class QuotePricingService {
     };
     const counted = countedPersons(party);
 
-    // ── room (requested room, or the first free room of the group – US-082) ──
+    // ── minimum stay of the arrival (BR-113) – needed to pick the room of a group quote (A-05) ──
+    const specials = await p<SpecialDate[]>('special_dates');
+    const minStayRules = await p<MinStayRule[]>('min_stay');
+    const needNights = minStayNights(input.arrivalDate, group, minStayRules ?? [], specials ?? []);
+    const orphanAllowed = await p<boolean>('min_stay_orphan_night_exception');
+    const short = nights < needNights;
+
+    // ── room (requested room, or a free room of the group – US-082, 0.3.5 A-05) ──
     if (!input.roomId && !input.roomGroupId) {
       fail('VALIDATION_FAILED', [{ field: 'roomId', code: 'REQUIRED' }]);
     }
+    const capacity = (r: RoomFacts): void => {
+      if (counted > r.max_occupancy) {
+        throw problem('CAPACITY_EXCEEDED', {
+          errors: [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }],
+          extras: { roomNo: r.room_no, max: r.max_occupancy },
+        });
+      }
+    };
     const warnings: string[] = [];
     let availability: AvailabilityAnswer | null = null;
     let room: RoomFacts | null = null;
@@ -202,53 +223,78 @@ export class QuotePricingService {
       if (input.roomGroupId && input.roomGroupId !== room.room_group_id) {
         fail('VALIDATION_FAILED', [{ field: 'roomGroupId', code: 'NOT_IN_LIST' }]);
       }
+      capacity(room);
     }
-    if (room && counted > room.max_occupancy) {
-      fail('CAPACITY_EXCEEDED', [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }]);
-    }
-    if (this.reservations) {
-      availability = await this.reservations.availability(tx, {
-        ...(room ? { roomId: room.id } : {}),
-        ...(input.roomGroupId ? { roomGroupId: input.roomGroupId } : {}),
+    const ask = (roomId?: string) =>
+      (this.reservations as ReservationSalesPort).availability(tx, {
+        ...(roomId ? { roomId } : {}),
+        ...(!roomId && input.roomGroupId ? { roomGroupId: input.roomGroupId } : {}),
         fromDate: input.arrivalDate,
         toDate: departureDate,
         countedPersons: counted,
       });
+    if (this.reservations) {
+      availability = await ask(room?.id);
     } else {
       warnings.push('availability_unknown');
     }
     if (!room) {
-      const first = availability?.alternatives[0];
-      if (first) room = await this.room(tx, first.roomId);
+      const sameGroup = (availability?.alternatives ?? []).filter((a) => !a.upgrade);
+      let chosen = sameGroup[0];
+      let chosenAnswer: AvailabilityAnswer | null = null;
+      if (short && orphanAllowed) {
+        // BR-113 (a): below the minimum stay, the room whose free gap the stay exactly fills goes first.
+        for (const cand of sameGroup) {
+          const a = await ask(cand.roomId);
+          if (a.available && a.orphanGap) {
+            chosen = cand;
+            chosenAnswer = a;
+            break;
+          }
+        }
+      }
+      if (chosen) room = await this.room(tx, chosen.roomId);
       if (!room) {
         // No free room of the group (or availability unknown): price on the group's first room so the
         // sale still sees a figure; the answer says "not available" (US-080 AC4).
         room = await this.firstRoomOfGroup(tx, input.roomGroupId as string);
         if (!room) fail('VALIDATION_FAILED', [{ field: 'roomGroupId', code: 'NOT_IN_LIST' }]);
-        if (availability) availability = { ...availability, available: false };
+        if (availability) availability = { ...availability, available: false, orphanGap: false };
       } else if (availability) {
         availability = {
           ...availability,
           available: true,
-          alternatives: availability.alternatives.slice(1),
+          orphanGap: chosenAnswer?.orphanGap ?? false,
+          alternatives: availability.alternatives.filter((a) => a.roomId !== room?.id),
         };
       }
-      if (counted > room.max_occupancy) {
-        fail('CAPACITY_EXCEEDED', [{ field: 'adults', code: 'CAPACITY_EXCEEDED' }]);
-      }
+      capacity(room);
     }
     if (!room.is_sellable && availability) {
       availability = { ...availability, available: false, reason: 'not_sellable' };
     }
 
     // ── minimum stay (BR-113, orphan-night exception) ──
-    const specials = await p<SpecialDate[]>('special_dates');
-    const minStayRules = await p<MinStayRule[]>('min_stay');
-    const needNights = minStayNights(input.arrivalDate, group, minStayRules ?? [], specials ?? []);
-    if (nights < needNights) {
-      const orphanOk =
-        (await p<boolean>('min_stay_orphan_night_exception')) && availability?.orphanGap === true;
-      if (!orphanOk) fail('VALIDATION_FAILED', [{ field: 'nights', code: 'MIN_STAY_NOT_MET' }]);
+    if (short) {
+      if (!(orphanAllowed && availability?.orphanGap === true)) {
+        const suggestions: Array<{
+          roomId: string;
+          roomNo: string;
+          roomGroupCode: string;
+          upgrade: boolean;
+          orphanNight: boolean;
+        }> = [];
+        if (orphanAllowed && this.reservations) {
+          for (const cand of availability?.alternatives ?? []) {
+            const a = await ask(cand.roomId);
+            if (a.available && a.orphanGap) suggestions.push({ ...cand, orphanNight: true });
+          }
+        }
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'nights', code: 'MIN_STAY_NOT_MET' }],
+          extras: { minStayNights: needNights, suggestions },
+        });
+      }
       warnings.push('min_stay_orphan_night_exception');
     }
 
@@ -344,6 +390,11 @@ export class QuotePricingService {
 
     const calc: QuoteCalculation = {
       type: 'short',
+      roomId: room.id,
+      roomNo: room.room_no,
+      roomTotalVnd,
+      extraPersonFeeVnd: extraPersonVnd,
+      extraGuestCount: extra.extraCount,
       nights,
       nightlyRates: dates.map((d, i) => ({ date: d, amountVnd: rates[i] as number })),
       losDiscountPct: appliedPct,

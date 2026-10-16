@@ -447,9 +447,15 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     req: GuardedRequest,
     operation: OperationMeta,
   ): number | undefined {
-    // dryRun (tính thử) needs neither header (OpenAPI "dryRun").
+    // dryRun (tính thử) needs neither header – ONLY for operations whose body declares `dryRun`
+    // (FB-R2-SEC-BE-21: fail-closed, a stray flag must never switch off Idempotency-Key).
     const body = req.body as { dryRun?: unknown } | undefined;
-    if (body && typeof body === 'object' && body.dryRun === true) return undefined;
+    if (body && typeof body === 'object' && body.dryRun !== undefined) {
+      if (!operation.dryRun) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'dryRun', code: 'NOT_ALLOWED' }] });
+      }
+      if (body.dryRun === true) return undefined;
+    }
     if (operation.idempotencyKey) {
       const key = header(req, 'idempotency-key');
       if (!key) {

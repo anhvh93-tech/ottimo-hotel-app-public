@@ -1,4 +1,4 @@
-import type { Parameter, Role } from '@ottimo/api-client';
+import type { BookingRules, Parameter, Role } from '@ottimo/api-client';
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import { onClientDataClear } from './clientData';
@@ -17,6 +17,10 @@ export interface RuleParams {
   holdLatestTime: string;
   noShowMarkTime: string;
   holdWarnHours: number;
+  /** BR-305 short-stay deposit % (labels next to the server amount – FB-R2-UXD-FE-S2-08). */
+  depositPct: number;
+  /** BR-304 quote validity in days. */
+  quoteValidityDays: number;
 }
 
 export const RULE_DEFAULTS: RuleParams = {
@@ -28,6 +32,8 @@ export const RULE_DEFAULTS: RuleParams = {
   holdLatestTime: '12:00',
   noShowMarkTime: '23:00',
   holdWarnHours: 2,
+  depositPct: 30,
+  quoteValidityDays: 3,
 };
 
 const READERS: Role[] = ['owner', 'manager', 'front_desk_lead'];
@@ -52,31 +58,60 @@ export function rulesFrom(params: Parameter[]): RuleParams {
     holdLatestTime: str('hold_latest_time_on_arrival', RULE_DEFAULTS.holdLatestTime),
     noShowMarkTime: str('no_show_mark_time', RULE_DEFAULTS.noShowMarkTime),
     holdWarnHours: RULE_DEFAULTS.holdWarnHours,
+    depositPct: num('short_stay_deposit_pct', RULE_DEFAULTS.depositPct),
+    quoteValidityDays: num('quote_validity_days', RULE_DEFAULTS.quoteValidityDays),
+  };
+}
+
+/** 0.3.5 A-07 `getBookingRules` → the same shape (times as HH:mm). */
+export function rulesFromBooking(b: BookingRules): RuleParams {
+  const hhmm = (v: string) => v.slice(0, 5);
+  return {
+    longStayFromNights: b.longStayRequiredFromNights,
+    longStayCompareFromNights: b.longStayCompareFromNights,
+    holdHoursOptions: b.holdHoursOptions,
+    holdHoursDefault: b.holdHoursDefault,
+    holdExtensionMaxHours: b.holdExtensionMaxHours,
+    holdLatestTime: hhmm(b.holdLatestTimeOnArrival),
+    noShowMarkTime: hhmm(b.noShowMarkTime),
+    holdWarnHours: RULE_DEFAULTS.holdWarnHours,
+    depositPct: b.shortStayDepositPct,
+    quoteValidityDays: b.quoteValidityDays,
   };
 }
 
 let cache: { propertyId: string; rules: RuleParams } | null = null;
 
-/** Reads the parameters once per property for roles allowed to; others get the defaults (no 403 noise). */
+/**
+ * Reads the rules once per property: `getBookingRules` (0.3.5, every booking role); if the server does
+ * not have it yet, OWN/MGR/FDL fall back to `listParameters`; everyone else keeps the BR §13 defaults.
+ */
 export function useRules(propertyId: string, roles: Role[]): RuleParams {
-  const allowed = roles.some((r) => READERS.includes(r));
+  const canReadParams = roles.some((r) => READERS.includes(r));
   const [rules, setRules] = useState<RuleParams>(
     cache?.propertyId === propertyId ? cache.rules : RULE_DEFAULTS,
   );
   useEffect(() => {
-    if (!allowed || cache?.propertyId === propertyId) return;
+    if (cache?.propertyId === propertyId) return;
     let stale = false;
-    api.listParameters({ propertyId }, true).then(
-      (r) => {
-        cache = { propertyId, rules: rulesFrom(r.data.data) };
-        if (!stale) setRules(cache.rules);
+    const done = (r: RuleParams) => {
+      cache = { propertyId, rules: r };
+      if (!stale) setRules(r);
+    };
+    api.getBookingRules({ propertyId }).then(
+      (r) => done(rulesFromBooking(r.data)),
+      () => {
+        if (!canReadParams) return;
+        api.listParameters({ propertyId }, true).then(
+          (p) => done(rulesFrom(p.data.data)),
+          () => undefined,
+        );
       },
-      () => undefined,
     );
     return () => {
       stale = true;
     };
-  }, [allowed, propertyId]);
+  }, [canReadParams, propertyId]);
   return rules;
 }
 

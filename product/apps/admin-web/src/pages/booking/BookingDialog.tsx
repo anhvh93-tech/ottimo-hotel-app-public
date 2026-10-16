@@ -3,6 +3,8 @@ import {
   newIdempotencyKey,
   type Channel,
   type ChannelGroup,
+  type CloserCandidate,
+  type RoomSuggestion,
   type DirectSource,
   type GuestSummary,
   type PaymentMethod,
@@ -23,7 +25,6 @@ import { fieldErrorText, problemView } from '../../app/problem';
 import {
   addDays,
   conflictsOf,
-  dateLabels,
   dayMonth,
   nightsBetween,
   occupancy,
@@ -52,7 +53,8 @@ interface Props {
   onLongStay: (p: { roomId: string; arrivalDate: string; departureDate: string }) => void;
 }
 
-const DRAFT_KEY = 'booking.new';
+/** Draft key scoped to the signed-in user (FB-R2-SEC-FE-05, like the guest form). */
+const draftKey = (userId: string | undefined) => `booking.new.${userId ?? 'anon'}`;
 const SOURCES: Array<{ value: DirectSource; key: string }> = [
   { value: 'zalo_phone', key: 'bk.src_zalo' },
   { value: 'website', key: 'bk.src_web' },
@@ -70,6 +72,7 @@ const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
 
 interface Form {
   roomId: string;
+  closerUserId: string;
   arrivalDate: string;
   departureDate: string;
   group: ChannelGroup;
@@ -88,6 +91,7 @@ interface Form {
   internalNote: string;
   rateReason: string;
   minStayReason: string;
+  capacityReason: string;
 }
 
 const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
@@ -101,7 +105,8 @@ const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).
 export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props) {
   const { t, vnd, locale } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, me } = useSession();
+  const DRAFT_KEY = draftKey(me?.id);
   const toast = useToast();
   const { online } = useOnline();
   const rules = useRules(propertyId, roles);
@@ -120,6 +125,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       group: 'direct',
       otaChannelId: '',
       directSource: 'zalo_phone',
+      closerUserId: '',
       otaRef: '',
       paymentModel: 'ota_prepaid',
       occ: { adults: 2, children6to11: 0, childrenUnder6: 0 },
@@ -133,6 +139,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       internalNote: '',
       rateReason: '',
       minStayReason: '',
+      capacityReason: '',
     };
   });
   const [draftAt, setDraftAt] = useState<string | null>(null);
@@ -140,9 +147,14 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [requestError, setRequestError] = useState<unknown>(null);
   const [conflict, setConflict] = useState<unknown>(null);
   const [rateWarn, setRateWarn] = useState(false);
+  /** 0.3.5 A-20: OTA booking above the room maximum → warning + reason, saved with capacityConflict. */
+  const [capWarn, setCapWarn] = useState<{ room: string; max: string; n: number } | null>(null);
+  const [autoReturning, setAutoReturning] = useState<string | null>(null);
   const [minStay, setMinStay] = useState<number | null>(null);
   const [longStay, setLongStay] = useState(false);
   const [askUnassigned, setAskUnassigned] = useState(false);
+  const [minStaySuggest, setMinStaySuggest] = useState<RoomSuggestion[]>([]);
+  const [closers, setClosers] = useState<CloserCandidate[]>([]);
   const [busy, setBusy] = useState<'create' | 'hold' | null>(null);
   const [calc, setCalc] = useState<QuoteCalculation | null>(null);
   const [calcError, setCalcError] = useState<unknown>(null);
@@ -183,6 +195,26 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const { extra } = occupancy(form.occ.adults, form.occ.children6to11, room?.baseOccupancy ?? 2);
   const overCapacity =
     !!room && form.occ.adults + form.occ.children6to11 > (room.maxOccupancy ?? 99);
+
+  // A-06: CTV channel → agent who closed it; direct booking from "Sale nội bộ" → staff closer.
+  const closerKind =
+    form.group === 'agent'
+      ? 'agent'
+      : form.group === 'direct' && form.directSource === 'sales_staff'
+        ? 'staff'
+        : null;
+  // Closer candidates for the CTV channel (A-06); missing operation on an older server → empty list.
+  useEffect(() => {
+    if (!closerKind || closers.length) return;
+    let stale = false;
+    api.listCloserCandidates({ propertyId }, 'all').then(
+      (r) => !stale && setClosers(r.data.data),
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [closerKind, closers.length, propertyId]);
 
   // Default room once the catalog is loaded.
   useEffect(() => {
@@ -292,9 +324,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   const rateList = dates.map((d) => ({ date: d, raw: form.rates[d] ?? '' }));
   const roomTotal = rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0);
-  const calcRoomTotal = (calc?.nightlyRates ?? []).reduce((s, n) => s + n.amountVnd, 0);
-  const extraFee =
-    calc?.totalVnd && calc.totalVnd > calcRoomTotal ? calc.totalVnd - calcRoomTotal : 0;
+  // 0.3.5 A-14: the server splits room total / extra-person fee – no subtraction on the client.
+  const extraFee = calc?.extraPersonFeeVnd ?? 0;
   const ratesTouched =
     !!calc &&
     rateList.some(
@@ -332,6 +363,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       e.deposit = t('field_error.amount_not_positive');
     if (rateWarn && form.rateReason.trim().length < 3)
       e.rateReason = t('field_error.reason_required');
+    if (capWarn && form.capacityReason.trim().length < 3)
+      e.capacityReason = t('field_error.reason_required');
     if (minStay !== null && lead && form.minStayReason.trim().length < 3)
       e.minStayReason = t('field_error.reason_required');
     return e;
@@ -357,9 +390,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       bookerGuestId: form.guest!.id,
       paymentModel: form.group === 'ota' ? form.paymentModel : 'direct',
       directSource: form.group === 'direct' ? form.directSource : undefined,
+      closerUserId: closerKind && form.closerUserId ? form.closerUserId : undefined,
       otaRef: form.group === 'ota' ? form.otaRef.trim() : undefined,
       nightlyRates: nightly,
       rateOverrideReason: rateWarn ? form.rateReason.trim() : undefined,
+      capacityWarningAckReason: capWarn ? form.capacityReason.trim() : undefined,
       minStayOverrideReason: minStay !== null && lead ? form.minStayReason.trim() : undefined,
       allowUnassigned,
       guestEmail: form.email.trim() || undefined,
@@ -415,9 +450,17 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       for (const fe of e.fieldErrors) {
         if (fe.code === 'LONG_STAY_REQUIRES_CONTRACT') setLongStay(true);
         else if (fe.code === 'RATE_OUT_OF_RANGE_WARNING') setRateWarn(true);
+        else if (fe.code === 'CAPACITY_EXCEEDED_WARNING')
+          setCapWarn({
+            room: String(e.problem.roomNo ?? room?.roomNo ?? ''),
+            max: String(e.problem.max ?? room?.maxOccupancy ?? ''),
+            n: form.occ.adults + form.occ.children6to11,
+          });
         else if (fe.code === 'MIN_STAY_NOT_MET') {
-          const n = Number(e.problem.min ?? 2);
+          // 0.3.5 A-05: `minStayNights` + orphan-night rooms the desk can pick instead.
+          const n = Number(e.problem.minStayNights ?? 2);
           setMinStay(n);
+          setMinStaySuggest(suggestionsOf(e).filter((x) => x.orphanNight !== false));
           out.departureDate = t('field.MIN_STAY_NOT_MET', { n });
         } else if (fe.code === 'RATE_OUT_OF_RANGE') {
           out[fe.field] = t('booking.error.rate_range', {
@@ -501,7 +544,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
   }
 
-  const { arrival: arrivalLabel, departure: departureLabel } = dateLabels(t);
+  const arrivalLabel = t('booking.field.arrival');
+  const departureLabel = t('booking.field.departure');
 
   const holdUntil = (() => {
     const cap = Date.parse(`${form.arrivalDate}T${rules.holdLatestTime}:00+07:00`);
@@ -703,6 +747,25 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             ) : null}
           </div>
         </div>
+        {minStay !== null && minStaySuggest.length ? (
+          <div className="conflict-list mb-12">
+            {minStaySuggest.map((x) => (
+              <Button
+                key={x.roomId}
+                size="sm"
+                disabled={busy !== null || (!!x.upgrade && !lead)}
+                onClick={() => {
+                  set({ roomId: x.roomId });
+                  setMinStay(null);
+                  setMinStaySuggest([]);
+                  void submit(undefined, { roomId: x.roomId });
+                }}
+              >
+                {t('bk.use_room_orphan', { room: x.roomNo })}
+              </Button>
+            ))}
+          </div>
+        ) : null}
         {minStay !== null && lead ? (
           <Field label={t('bk.reason_ph')} required error={errors.minStayReason}>
             {(p) => (
@@ -729,6 +792,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             onChange={(group) => {
               set({ group });
               setRateWarn(false);
+              setCapWarn(null);
             }}
             options={[
               { value: 'direct', label: t('bk.ch_direct') },
@@ -740,7 +804,16 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         </div>
         {form.group === 'direct' ? (
           <div className="g-2">
-            <Field label={t('bk.source')} required error={errors.directSource}>
+            <Field
+              label={t('bk.source')}
+              required
+              error={errors.directSource}
+              help={
+                autoReturning && form.directSource === 'returning'
+                  ? t('bk.source_auto_returning', { date: dayMonth(autoReturning) })
+                  : t('bk.source_help')
+              }
+            >
               {(p) => (
                 <select
                   {...p}
@@ -753,6 +826,33 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                       {t(s.key)}
                     </option>
                   ))}
+                </select>
+              )}
+            </Field>
+          </div>
+        ) : null}
+        {closerKind ? (
+          <div className="g-2">
+            {/* 0.3.5 A-06: who closed the deal (commission BR-903) – from listCloserCandidates. */}
+            <Field
+              label={t(closerKind === 'agent' ? 'bk.closer' : 'bk.closer_sales')}
+              error={errors.closerUserId}
+            >
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={form.closerUserId}
+                  onChange={(e) => set({ closerUserId: e.target.value })}
+                >
+                  <option value="">–</option>
+                  {closers
+                    .filter((c) => c.kind === closerKind)
+                    .map((c) => (
+                      <option key={c.userId} value={c.userId}>
+                        {c.displayName}
+                      </option>
+                    ))}
                 </select>
               )}
             </Field>
@@ -841,7 +941,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             initialText={form.guest?.displayName}
             error={errors.bookerGuestId}
             help={t('bk.guest_help')}
-            onSelect={(guest) => set({ guest })}
+            onSelect={(guest) => {
+              // FB-R2-DOM-FE-02 (D-6): a guest who stayed before → preselect "Khách quay lại".
+              const auto = !!guest.lastStayDate && form.directSource === 'zalo_phone';
+              set(auto ? { guest, directSource: 'returning' } : { guest });
+              setAutoReturning(auto ? guest.lastStayDate! : null);
+            }}
           />
           {directLike && form.guest && !form.guest.phoneMasked ? (
             <Field
@@ -923,6 +1028,19 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                         </td>
                         <td className="li-s">
                           {calc ? t(weekend(r.date) ? 'bk.src_weekend' : 'bk.src_list') : '–'}
+                          {(() => {
+                            // 0.3.5 A-22: read-only calendar price before the BR-107 step.
+                            const cal = calc?.nightlyRates?.find(
+                              (n) => n.date === r.date,
+                            )?.calendarRateVnd;
+                            const now = parseVnd(r.raw);
+                            return cal && now !== null && cal !== now ? (
+                              <>
+                                {' '}
+                                <s>{vnd(cal)}</s>
+                              </>
+                            ) : null;
+                          })()}
                         </td>
                       </tr>
                     );
@@ -935,6 +1053,25 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               <span className="help">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</span>
             ) : null}
           </div>
+        ) : null}
+        {capWarn ? (
+          <Alert tone="warn" role="alert" title={t('booking.capacity_warning', capWarn)}>
+            <Field
+              label={t('booking.capacity_reason')}
+              help={t('booking.capacity_reason_help')}
+              required
+              error={errors.capacityReason}
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  value={form.capacityReason}
+                  onChange={(e) => set({ capacityReason: e.target.value })}
+                />
+              )}
+            </Field>
+          </Alert>
         ) : null}
         {rateWarn ? (
           <Alert tone="warn" title={t('bk.ota_rate_warn')}>
@@ -969,7 +1106,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tr>
                 {extraFee > 0 ? (
                   <tr>
-                    <td>{t('occ.fee_line', { n: extra, nights })}</td>
+                    <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
                     <td className="r">{vnd(extraFee)}</td>
                   </tr>
                 ) : null}
@@ -980,12 +1117,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                   </td>
                 </tr>
                 <tr className="sub">
-                  <td>{t('bk.deposit_line', { pct: 30 })}</td>
+                  <td>{t('bk.deposit_line', { pct: rules.depositPct })}</td>
                   <td className="r">{vnd(calc.depositVnd ?? 0)}</td>
                 </tr>
               </tbody>
             </table>
-            <div className="g-2" style={{ marginTop: 12 }}>
+            <div className="g-2 mt-12">
               <Field label={t('rsv.amount_received')} required error={errors.deposit}>
                 {(p) => (
                   <div className="input-affix">
@@ -1023,9 +1160,9 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       {askUnassigned ? (
         <ConfirmDialog
           danger={false}
-          title={`${t('bk.save_unassigned')}?`}
-          body={t('fo.rack.unassigned_help')}
-          keepLabel={t('common.back')}
+          title={t('bk.unassigned_confirm_title')}
+          body={t('bk.unassigned_confirm_body', { ota_ref: form.otaRef.trim() })}
+          keepLabel={t('bk.unassigned_back')}
           confirmLabel={t('bk.save_unassigned')}
           busy={busy !== null}
           onKeep={() => setAskUnassigned(false)}
@@ -1066,11 +1203,10 @@ function ConflictAlert({
       size="sm"
       variant={!s.upgrade && sugg[0] === s && ota ? 'pri' : 'default'}
       disabled={busy || (s.upgrade && !lead)}
-      title={s.upgrade ? t('rsv.upgrade_note') : undefined}
       onClick={() => onUseRoom(s.roomId)}
     >
       {t('bk.use_room', { room: s.roomNo })}
-      {s.upgrade ? ` · ${t('move.resolution.upgrade')}` : ''}
+      {s.upgrade ? ` · ${lead ? t('move.resolution.upgrade') : t('rsv.upgrade_needs_lead')}` : ''}
     </Button>
   ));
   if (ota) {

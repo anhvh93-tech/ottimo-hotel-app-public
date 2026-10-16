@@ -106,6 +106,41 @@
       "when": 1792150652011,
       "tag": "0014_reservations_rls_be_a",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792155992642,
+      "tag": "0015_reservations_fix_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792156006114,
+      "tag": "0016_reservations_fix_rls_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792156381399,
+      "tag": "0017_reservations_capacity_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792156381785,
+      "tag": "0018_reservations_drop_kind_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792156552584,
+      "tag": "0019_deposit_notice_fk_be_b",
+      "breakpoints": true
     }
   ]
 }

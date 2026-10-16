@@ -3,10 +3,10 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "date": "2026-10-16"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md)",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md)",
   "updated": "2026-10-16",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -955,6 +955,85 @@
       }
     },
     {
+      "id": "BR-107-03",
+      "br": "BR-107",
+      "case": "Đổi số đêm (v0.3.2): đơn 7 đêm 9/11–16/11 rút còn 5 đêm 9/11–14/11 → mất bậc giảm, tính lại trên giá lịch đã chốt",
+      "origin": "example",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "los_discount": [
+          {
+            "minNights": 7,
+            "pct": 10
+          },
+          {
+            "minNights": 14,
+            "pct": 15
+          }
+        ],
+        "weekend_uplift_pct": 15,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 30
+      },
+      "calc": "losDiscount",
+      "input": {
+        "roomNo": "202",
+        "nightlyListPriceVnd": 792000,
+        "arrivalDate": "2026-11-09",
+        "nights": 5,
+        "previousNights": 7,
+        "channel": "direct",
+        "nightlyRatesVnd": [792000, 792000, 792000, 792000, 911000]
+      },
+      "expected": {
+        "discountBp": 0,
+        "inputNightlyRatesMatchCalendar": true,
+        "discountedNightlyRatesVnd": [792000, 792000, 792000, 792000, 911000],
+        "roomTotalVnd": 4079000,
+        "wrongKeepOldDiscountTotalVnd": 3672000
+      }
+    },
+    {
+      "id": "BR-107-04",
+      "br": "BR-107",
+      "case": "Đổi số đêm (v0.3.2): đơn 5 đêm 9/11–14/11 (4.079.000) kéo dài tới 16/11 → 7 đêm, giảm 10% áp lại cho cả 7 đêm",
+      "origin": "example",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "los_discount": [
+          {
+            "minNights": 7,
+            "pct": 10
+          },
+          {
+            "minNights": 14,
+            "pct": 15
+          }
+        ],
+        "weekend_uplift_pct": 15,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 30
+      },
+      "calc": "losDiscount",
+      "input": {
+        "roomNo": "202",
+        "nightlyListPriceVnd": 792000,
+        "arrivalDate": "2026-11-09",
+        "nights": 7,
+        "previousNights": 5,
+        "previousRoomTotalVnd": 4079000,
+        "channel": "direct",
+        "nightlyRatesVnd": [792000, 792000, 792000, 792000, 911000, 911000, 792000]
+      },
+      "expected": {
+        "discountBp": 1000,
+        "inputNightlyRatesMatchCalendar": true,
+        "discountedNightlyRatesVnd": [713000, 713000, 713000, 713000, 820000, 820000, 713000],
+        "roomTotalVnd": 5205000,
+        "wrongKeepOldDiscountTotalVnd": 5612000
+      }
+    },
+    {
       "id": "BR-108-01",
       "br": "BR-108",
       "case": "Căn 202, khách VN, 20 đêm 9/11–29/11/2026 (6 đêm T6/T7): ngắn ngày 14.066.000 so với 1 tháng 9.800.000 (+ ký quỹ 4.800.000)",
@@ -1219,6 +1298,37 @@
       }
     },
     {
+      "id": "BR-110-09",
+      "br": "BR-110",
+      "case": "Đơn Agoda nhập tay căn 202 ghi 4 người lớn (vượt tối đa 3) → lưu được sau cảnh báo, cờ 'sức chứa', chặn nhận phòng (v0.3.2)",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "NGÀNH"],
+      "params": {
+        "room.202.base_occupancy": 2,
+        "room.202.max_occupancy": 3,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 100000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "channel": "agoda",
+        "adults": 4,
+        "childrenAges": [],
+        "capacityWarningAckReason": "OTA cho đặt 4 khách"
+      },
+      "expected": {
+        "accepted": true,
+        "warningCode": "capacity_exceeded",
+        "conflictKind": "capacity",
+        "checkInBlocked": true,
+        "directChannelAccepted": false
+      },
+      "qaAssumption": "Tên mã cảnh báo/cờ là tạm, ARC đặt tên ở 0.3.5 (FB-R2-DOM-ARC-01)"
+    },
+    {
       "id": "BR-111-01",
       "br": "BR-111",
       "case": "7 đêm được −10% và có mã OTTIMO-BACK5 → không cộng thêm 5%",
@@ -1357,6 +1467,26 @@
         "orphanNightException": false
       },
       "note": "OTA chỉ mở ngoại lệ khi MỌI căn trống của nhóm đều là đêm lẻ (BR mục 13 min_stay_orphan_night_exception)"
+    },
+    {
+      "id": "BR-113-04",
+      "br": "BR-113",
+      "case": "Kênh Nội bộ: người nhà chủ đầu tư ở 1 đêm thứ Sáu 23/10 → không áp ở tối thiểu (v0.3.2)",
+      "origin": "example",
+      "labels": ["INV-004", "NGÀNH"],
+      "params": {
+        "min_stay_nights": 2
+      },
+      "calc": null,
+      "input": {
+        "channel": "internal",
+        "arrivalDate": "2026-10-23",
+        "nights": 1
+      },
+      "expected": {
+        "accepted": true,
+        "minStayApplied": false
+      }
     },
     {
       "id": "BR-201-01",
@@ -1853,6 +1983,30 @@
       }
     },
     {
+      "id": "BR-302-03",
+      "br": "BR-302",
+      "case": "CTV đang có 3 giữ chỗ chờ cọc, tạo giữ chỗ thứ 4 → chặn; một giữ chỗ được cọc → tạo tiếp được (v0.3.2, SEC BE-28)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "params": {
+        "max_open_holds_per_user": {
+          "agent": 3,
+          "sales": 5
+        }
+      },
+      "calc": null,
+      "input": {
+        "role": "collaborator",
+        "openHolds": 3
+      },
+      "expected": {
+        "holdAllowed": false,
+        "errorCode": "HOLD_LIMIT_REACHED",
+        "holdAllowedAfterOneConfirmed": true
+      },
+      "qaAssumption": "Mã lỗi theo đề xuất SEC BE-28, ARC chốt tên"
+    },
+    {
       "id": "BR-303-01",
       "br": "BR-303",
       "case": "Hạn 10:00 16/10 → nhắc 08:00, 10:00 tự hủy, lead về 'Đã báo giá'",
@@ -1913,11 +2067,33 @@
       }
     },
     {
+      "id": "BR-303-04",
+      "br": "BR-303",
+      "case": "Giữ chỗ cần cọc 1.600.000, khách chuyển 500.000, hạn 10:00 16/10, đến 18/10 → không tự hủy; khách hủy → hoàn 500.000 (v0.3.2)",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "expiresAt": "2026-10-16T10:00:00+07:00",
+        "arrivalDate": "2026-10-18",
+        "depositRequiredVnd": 1600000,
+        "depositPaidVnd": 500000
+      },
+      "expected": {
+        "autoCancelled": false,
+        "alertAt": "2026-10-16T10:00:00+07:00",
+        "alertRoles": ["sales_owner", "front_desk", "front_desk_lead"],
+        "managerAlertAt": "2026-10-18T12:00:00+07:00",
+        "refundOnCancelVnd": 500000,
+        "cancelFeeVnd": 0
+      }
+    },
+    {
       "id": "BR-304-01",
       "br": "BR-304",
       "case": "Báo giá lập 15/10 → hết hiệu lực 23:59 18/10",
       "origin": "example",
-      "labels": ["INV-006"],
+      "labels": ["INV-006", "NGÀNH"],
       "params": {
         "quote_validity_days": 3
       },
@@ -1927,9 +2103,29 @@
       },
       "expected": {
         "lastValidDate": "2026-10-18",
-        "expiredFrom": "2026-10-19T00:00:00+07:00"
+        "expiredFrom": "2026-10-19T00:00:00+07:00",
+        "stillValidAt": "2026-10-18T23:59:59+07:00"
+      }
+    },
+    {
+      "id": "BR-304-02",
+      "br": "BR-304",
+      "case": "Biên mốc hết hiệu lực (v0.3.2): BG lập 01:30 ngày 15/10 (ngày nghiệp vụ 14/10) vẫn tính ngày lập 15/10",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "params": {
+        "quote_validity_days": 3
       },
-      "qaAssumption": "'23:59 18/10' hiểu là hết ngày 18/10 (giờ VN); từ 00:00 19/10 là hết hiệu lực. Giờ lập 10:00 do QA chọn"
+      "calc": null,
+      "input": {
+        "quoteCreatedAt": "2026-10-15T01:30:00+07:00"
+      },
+      "expected": {
+        "lastValidDate": "2026-10-18",
+        "stillValidAt": "2026-10-18T23:59:59+07:00",
+        "expiredFrom": "2026-10-19T00:00:00+07:00",
+        "displayText": "23:59 18/10"
+      }
     },
     {
       "id": "BR-305-01",
@@ -2385,6 +2581,65 @@
         "roomStillVacant": true,
         "requiresRoomChange": false,
         "moneyOut": false
+      },
+      "expected": {
+        "requiresManagerApproval": true
+      }
+    },
+    {
+      "id": "BR-315-03",
+      "br": "BR-315",
+      "case": "Đơn 20–22/10 khôi phục 07:00 21/10 (MGR duyệt) → đêm 20/10 và 21/10 đều tính tiền theo giá snapshot (v0.3.2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-22",
+        "restoreAt": "2026-10-21T07:00:00+07:00",
+        "approvedByManager": true,
+        "roomStillVacant": true
+      },
+      "expected": {
+        "requiresManagerApproval": true,
+        "soldNights": ["2026-10-20", "2026-10-21"],
+        "priceSource": "snapshot",
+        "countedAsNoShow": false
+      }
+    },
+    {
+      "id": "BR-315-04",
+      "br": "BR-315",
+      "case": "Căn 203 đã bán lại đêm 20/10 → MGR duyệt, đơn về confirmed ở làn chưa gán, lễ tân gán 202 (v0.3.2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "arrivalDate": "2026-10-20",
+        "restoreAt": "2026-10-21T01:30:00+07:00",
+        "roomStillVacant": false,
+        "approvedByManager": true
+      },
+      "expected": {
+        "requiresManagerApproval": true,
+        "status": "confirmed",
+        "roomAssigned": false,
+        "conflictOpen": true,
+        "errorAfterApproval": false
+      }
+    },
+    {
+      "id": "BR-315-05",
+      "br": "BR-315",
+      "case": "Đơn OTA no-show, khách đến 01:30 trong ngày nghiệp vụ, căn trống → R2 vẫn cần MGR+ (v0.3.2)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "booking",
+        "arrivalDate": "2026-10-20",
+        "restoreAt": "2026-10-21T01:30:00+07:00",
+        "roomStillVacant": true
       },
       "expected": {
         "requiresManagerApproval": true
@@ -3512,6 +3767,44 @@
       }
     },
     {
+      "id": "BR-429-01",
+      "br": "BR-429",
+      "case": "Mã lý do đổi căn/đổi ngày theo tình huống (v0.3.2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "cases": [
+          "202 sang 203 vì bình nóng lạnh hỏng",
+          "khách xin lùi 1 ngày",
+          "đèo Prenn đóng, dời 2 tháng thay hủy"
+        ]
+      },
+      "expected": {
+        "reasonCodes": ["property_fault", "guest_request", "force_majeure"],
+        "forceMajeureRequires": ["manager", "evidence_note", "postpone_instead_of_cancel"]
+      }
+    },
+    {
+      "id": "BR-429-02",
+      "br": "BR-429",
+      "case": "Booking báo khách sửa 20–22/10 thành 21–23/10 khi chưa có channel manager (R2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "booking",
+        "oldStay": ["2026-10-20", "2026-10-22"],
+        "newStay": ["2026-10-21", "2026-10-23"]
+      },
+      "expected": {
+        "oldCancelReasonCode": "ota_cancelled",
+        "otaPenaltyVnd": 0,
+        "newBookingSameOtaRef": true,
+        "dateMoveAllowedOnOta": false
+      }
+    },
+    {
       "id": "BR-432-01",
       "br": "BR-432",
       "case": "Lễ tân gửi FOC trả muộn 210.000, lý do 'Khách quen'",
@@ -3741,6 +4034,35 @@
       }
     },
     {
+      "id": "BR-506-02",
+      "br": "BR-506",
+      "case": "[CHỜ INV] Khách ngắn ngày căn 202: từ chối dọn sáng, 15:00 gọi dọn → 0 đ; đã dọn 10:00, 20:00 gọi dọn lại toàn bộ → 100.000",
+      "origin": "example",
+      "labels": ["INV-005", "GIẢ ĐỊNH"],
+      "params": {
+        "adhoc_cleaning_fee": 100000
+      },
+      "calc": null,
+      "input": {
+        "stayType": "short",
+        "requests": [
+          {
+            "at": "2026-10-20T15:00:00+07:00",
+            "dailyCleanDoneToday": false
+          },
+          {
+            "at": "2026-10-21T20:00:00+07:00",
+            "dailyCleanDoneToday": true
+          }
+        ]
+      },
+      "expected": {
+        "feesVnd": [0, 100000],
+        "postedAutomaticallyWhenDone": true
+      },
+      "qaAssumption": "Ngày 20–21/10 do DOM chọn; cách hiểu chờ INV xác nhận (BR mục 16 Q-D7)"
+    },
+    {
       "id": "BR-507-01",
       "br": "BR-507",
       "case": "Giặt 2,5 kg",
@@ -3966,6 +4288,38 @@
         "holdUntil": "2026-10-17T18:00:00+07:00"
       },
       "qaAssumption": "Giờ đặt 10:00 do QA chọn; cờ đơn \"Không cọc – thu khi đến\""
+    },
+    {
+      "id": "BR-527-04",
+      "br": "BR-527",
+      "case": "Sale ghi cọc tiền mặt / số tiền vượt / giờ nhận lùi 2 ngày (v0.3.2, SEC BE-22)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "params": {
+        "staff_payment_backdate_max_hours": 24
+      },
+      "calc": null,
+      "input": {
+        "recordedByRole": "sales",
+        "method": "cash",
+        "amountVnd": 1600000,
+        "outstandingVnd": 5205000,
+        "recordedAt": "2026-10-20T16:00:00+07:00",
+        "attempts": [
+          {
+            "amountVnd": 16000000
+          },
+          {
+            "receivedAt": "2026-10-18T16:00:00+07:00"
+          }
+        ]
+      },
+      "expected": {
+        "reconciliation": "pending",
+        "bookingConfirmed": true,
+        "recorderCommissionEarnedBeforeReconcile": false,
+        "attemptResults": ["rejected_amount_over_outstanding", "rejected_backdate_over_24h"]
+      }
     },
     {
       "id": "BR-601-01",
@@ -4436,6 +4790,25 @@
       }
     },
     {
+      "id": "BR-804-03",
+      "br": "BR-804",
+      "case": "Khối 401 [15/10, 18/10), quản lý mở khóa 10:00 ngày 16/10 (v0.3.2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "block": ["2026-10-15", "2026-10-18"],
+        "releasedAt": "2026-10-16T10:00:00+07:00"
+      },
+      "expected": {
+        "block": ["2026-10-15", "2026-10-16"],
+        "blockedNights": 1,
+        "sellableFrom": "2026-10-16",
+        "availableRoomNightsOct": 309,
+        "checkInRequiresVcOrVi": true
+      }
+    },
+    {
       "id": "BR-805-01",
       "br": "BR-805",
       "case": "Kiểm đạt 10:00 15/10 → 10:00 18/10 chuyển VC",
@@ -4547,6 +4920,32 @@
         "inHours": false,
         "autoReply": true
       }
+    },
+    {
+      "id": "BR-811-03",
+      "br": "BR-811",
+      "case": "Ngoài giờ trực (v0.3.2): 'Khác' gửi 22:00 → hạn 07:10 hôm sau; 'Báo hỏng – mất nước nóng' 23:30 → báo ngay người trực",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "requests": [
+          {
+            "type": "other",
+            "sentAt": "2026-10-20T22:00:00+07:00"
+          },
+          {
+            "type": "report_issue",
+            "sentAt": "2026-10-20T23:30:00+07:00"
+          }
+        ]
+      },
+      "expected": {
+        "ackDueAt": ["2026-10-21T07:10:00+07:00", null],
+        "immediatePush": [false, true],
+        "autoReplyHasPhone": true
+      },
+      "qaAssumption": "Ngày 20/10 do DOM chọn"
     },
     {
       "id": "BR-812-01",
@@ -4781,6 +5180,45 @@
       "qaAssumption": "Ngày 10/11 do QA chọn (giữa kỳ đơn BR-812-01)"
     },
     {
+      "id": "BR-812-10",
+      "br": "BR-812",
+      "case": "Đơn vãng lai căn 202, 3 người lớn, xác nhận 16:00 ngày đến 9/11 → hạn 17:00 (v0.3.2)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "params": {
+        "room.202.base_occupancy": 2,
+        "room.202.max_occupancy": 3,
+        "checkin_time": "14:00",
+        "extra_guest_kit_midstay_due_minutes": 60
+      },
+      "calc": "extraGuestKitDue",
+      "input": {
+        "roomNo": "202",
+        "adults": 3,
+        "childrenAges": [],
+        "arrivalDate": "2026-11-09",
+        "confirmedAt": "2026-11-09T16:00:00+07:00"
+      },
+      "expected": {
+        "dueAt": "2026-11-09T17:00:00+07:00"
+      }
+    },
+    {
+      "id": "BR-812-11",
+      "br": "BR-812",
+      "case": "Bộ đã chuẩn bị, đơn giảm người rồi bị hủy → chỉ 1 việc thu hồi (v0.3.2)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "taskState": "done",
+        "events": ["guests_reduced", "cancelled"]
+      },
+      "expected": {
+        "collectTasks": 1
+      }
+    },
+    {
       "id": "BR-901-01",
       "br": "BR-901",
       "case": "Đơn Agoda 2.000.000 → phí 360.000",
@@ -4821,6 +5259,42 @@
       }
     },
     {
+      "id": "BR-903-02",
+      "br": "BR-903",
+      "case": "Sale chốt đơn căn 202, 7 đêm = 5.205.000 → 3% giữ đúng đồng (v0.3.2)",
+      "origin": "example",
+      "labels": ["INV-005", "NGÀNH"],
+      "params": {
+        "short_stay_commission_pct": {
+          "collaborator": 8,
+          "staff": 3
+        }
+      },
+      "calc": "shortCommission",
+      "input": {
+        "roomTotalVnd": 5205000,
+        "closer": "staff"
+      },
+      "expected": {
+        "commissionVnd": 156150
+      }
+    },
+    {
+      "id": "BR-903-03",
+      "br": "BR-903",
+      "case": "Tổng chi kỳ tháng 11 của sale: 156.150 + 98.430 → làm tròn 1.000 (v0.3.2)",
+      "origin": "example",
+      "labels": ["INV-005", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "commissionsVnd": [156150, 98430]
+      },
+      "expected": {
+        "totalVnd": 254580,
+        "payoutVnd": 255000
+      }
+    },
+    {
       "id": "BR-904-01",
       "br": "BR-904",
       "case": "Tháng 10: 10 căn × 31 − 3 đêm OOO",
@@ -4834,6 +5308,27 @@
       },
       "expected": {
         "availableRoomNights": 307
+      }
+    },
+    {
+      "id": "BR-904-02",
+      "br": "BR-904",
+      "case": "Chủ đầu tư dùng căn 301 hai đêm 20–22/10 qua kênh Nội bộ (v0.3.2, DATA Q-05)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "internal",
+        "roomNo": "301",
+        "stay": ["2026-10-20", "2026-10-22"],
+        "oooNightsOct": 3
+      },
+      "expected": {
+        "availableRoomNightsOct": 307,
+        "occupiedNightsAdded": 2,
+        "paidSoldNightsAdded": 0,
+        "inAdr": false,
+        "isComplimentary": true
       }
     },
     {

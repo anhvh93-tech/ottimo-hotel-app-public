@@ -3,13 +3,15 @@ import {
   newIdempotencyKey,
   type CancelReasonCode,
   type CancellationQuote,
+  type MoveReasonCode,
   type PaymentMethod,
   type Reservation,
+  type ReservationStatus,
   type Room,
 } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { formatInstant, hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { timeHHmm } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
@@ -17,30 +19,36 @@ import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
   addDays,
-  dateLabels,
+  currentStateOf,
   dayMonth,
+  problemOf,
   rsvErrorText,
   suggestionsOf,
   type RsvErrorContext,
 } from '../../app/reservations';
 import type { RuleParams } from '../../app/rules';
 import { useToast } from '../../app/toast';
+import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
-import { usePropertyId } from '../../session/SessionProvider';
+import { usePropertyId, useSession } from '../../session/SessionProvider';
 
 export interface DialogBase {
   reservation: Reservation;
-  /** Reload the reservation (after 412 / 409 INVALID_TRANSITION or success). */
+  /** Reload the reservation (after 412 / 409 INVALID_TRANSITION / partial deposit). */
   reload: () => Promise<Reservation | null>;
   onDone: (updated?: Reservation) => void;
   onClose: () => void;
+  /** 409 INVALID_TRANSITION and the reload worked → the drawer closes the dialog and says why. */
+  onTransitionChanged: (status: ReservationStatus) => void;
 }
 
 /**
- * Shared write runner for the drawer actions: one Idempotency-Key per dialog (a retry of the same click
- * reuses it), If-Match from the reservation version, and the conflict rules of EP00 §0.2.4:
- * 412 VERSION_CONFLICT → keep the input, offer reload; 409 INVALID_TRANSITION → reload and say which
- * status the booking is in now. Success → `notifyChanged()` so the rack refreshes immediately.
+ * Shared write runner for the drawer actions (EP00 §0.2.4): one Idempotency-Key per attempt (a network
+ * retry reuses it; a new key after each success), If-Match from the reservation version.
+ * - 412 VERSION_CONFLICT / 428: keep the input, button "Tải lại" reloads the version; the user saves again.
+ * - 409 INVALID_TRANSITION: reload → the drawer closes the dialog with `rsv.transition_changed`;
+ *   reload failed → keep the dialog, lock the main button, `rsv.transition_changed_unknown` + "Tải lại".
+ * Success → `notifyChanged()` so the rack refreshes immediately.
  */
 function useAction(base: DialogBase) {
   const { t, locale } = useI18n();
@@ -49,23 +57,28 @@ function useAction(base: DialogBase) {
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [version, setVersion] = useState(base.reservation.version);
-  const [status, setStatus] = useState(base.reservation.status);
+  const [locked, setLocked] = useState(false);
 
   async function run<T>(fn: (version: number, idem: string) => Promise<T>) {
-    if (busy) return undefined;
+    if (busy || locked) return undefined;
     setBusy(true);
     setError(null);
     setFields({});
     try {
       const out = await fn(version, key.current);
+      key.current = newIdempotencyKey();
       notifyChanged();
       return out;
     } catch (e) {
       setError(e);
       setFields(fieldErrors(t, e));
-      if (isApiError(e) && (e.code === 'VERSION_CONFLICT' || e.code === 'INVALID_TRANSITION')) {
+      if (isApiError(e) && e.code === 'INVALID_TRANSITION') {
         const fresh = await base.reload();
-        if (fresh && e.code === 'INVALID_TRANSITION') setStatus(fresh.status);
+        if (fresh) {
+          base.onTransitionChanged(currentStateOf(e) ?? fresh.status);
+          return undefined;
+        }
+        setLocked(true);
       }
       return undefined;
     } finally {
@@ -75,16 +88,17 @@ function useAction(base: DialogBase) {
 
   const reloadKeepInput = async () => {
     const fresh = await base.reload();
-    if (fresh) {
-      setVersion(fresh.version);
-      setStatus(fresh.status);
-      setError(null);
+    if (!fresh) return;
+    if (locked) {
+      base.onTransitionChanged(fresh.status);
+      return;
     }
+    setVersion(fresh.version);
+    setError(null);
   };
 
   const ctx = (extra: RsvErrorContext = {}): RsvErrorContext => ({
     locale,
-    status,
     roomNo: base.reservation.segments?.[0]?.roomNo ?? undefined,
     canSeeGuest: true,
     ...extra,
@@ -92,71 +106,91 @@ function useAction(base: DialogBase) {
 
   const errorView = (extra?: RsvErrorContext): ReactNode => {
     if (!error) return null;
-    const conflict = isApiError(error) && error.code === 'VERSION_CONFLICT';
+    const needsReload =
+      locked ||
+      (isApiError(error) &&
+        (error.code === 'VERSION_CONFLICT' || error.code === 'PRECONDITION_REQUIRED'));
     return (
       <Alert
         tone="bad"
         actions={
-          conflict ? (
+          needsReload ? (
             <Button size="sm" onClick={() => void reloadKeepInput()}>
-              {t('common.retry')}
+              {t('common.reload')}
             </Button>
           ) : undefined
         }
       >
-        {Object.keys(fields).length && isApiError(error) && error.code === 'VALIDATION_FAILED'
-          ? Object.values(fields)[0]
-          : rsvErrorText(t, error, ctx(extra))}
+        {locked
+          ? t('rsv.transition_changed_unknown')
+          : Object.keys(fields).length && isApiError(error) && error.code === 'VALIDATION_FAILED'
+            ? Object.values(fields)[0]
+            : rsvErrorText(t, error, ctx(extra))}
       </Alert>
     );
   };
 
-  return { run, busy, error, fields, errorView, version };
+  return { run, busy, error, fields, errorView, version, setVersion, locked };
 }
 
-const CANCEL_REASONS: Array<{ value: CancelReasonCode; key: string }> = [
+const CANCEL_REASONS: Array<{ value: CancelReasonCode; key: string; otaOnly?: boolean }> = [
   { value: 'guest_changed_mind', key: 'cancel.reason.changed_mind' },
   { value: 'found_other', key: 'cancel.reason.found_other' },
   { value: 'price', key: 'cancel.reason.price' },
   { value: 'date_change', key: 'cancel.reason.dates' },
   { value: 'unreachable', key: 'cancel.reason.unreachable' },
+  { value: 'ota_cancelled', key: 'cancel.reason.ota_cancelled', otaOnly: true },
   { value: 'other', key: 'cancel.reason.other' },
 ];
 
 /**
- * US-021 + US-135: the irreversible-action box. Opening it calls `cancelReservation` with
- * `dryRun=true` to show the real consequence (room + dates reopened, fee kept, refund needing approval);
- * reason is required; the safe button has focus. MGR+ can postpone instead (B8, AC5).
+ * US-021 + US-135: the irreversible-action box. `cancelReservation` with `dryRun=true` gives the real
+ * consequence (room + dates reopened, fee kept, refund needing approval) – recomputed when the reason or
+ * the OTA penalty changes; "Hủy đơn" stays locked until it is known. Reason required; the safe button
+ * has focus. OTA bookings: "OTA báo hủy" + channel penalty typed from the extranet (BR-310).
  */
-export function CancelDialog(props: DialogBase & { canPostpone: boolean; onPostpone: () => void }) {
-  const { reservation: r } = props;
+export function CancelDialog(
+  props: DialogBase & { canPostpone: boolean; onPostpone: () => void; ota: boolean },
+) {
+  const { reservation: r, ota } = props;
   const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
+  const helpId = useId();
   const [reason, setReason] = useState<CancelReasonCode | ''>('');
   const [note, setNote] = useState('');
+  const [penalty, setPenalty] = useState('');
   const [quote, setQuote] = useState<CancellationQuote | null>(null);
   const [quoteError, setQuoteError] = useState<unknown>(null);
+  const [previewTick, setPreviewTick] = useState(0);
   const [touched, setTouched] = useState(false);
-  const ids = { propertyId, reservationId: r.id };
   const hold = r.status === 'hold';
+  const penaltyVnd = ota && penalty.trim() ? parseVnd(penalty) : undefined;
+  const previewInput = useDebounced(`${reason}|${penaltyVnd ?? ''}|${previewTick}`, 300);
 
   useEffect(() => {
     let stale = false;
-    api.cancelReservationPreview(ids, { reasonCode: 'guest_changed_mind' }).then(
-      (res) => !stale && setQuote(res.data.cancellation),
-      (e: unknown) => !stale && setQuoteError(e),
-    );
+    const [rc, pen] = previewInput.split('|');
+    setQuoteError(null);
+    api
+      .cancelReservationPreview(
+        { propertyId, reservationId: r.id },
+        {
+          reasonCode: (rc || (ota ? 'ota_cancelled' : 'guest_changed_mind')) as CancelReasonCode,
+          otaPenaltyVnd: ota && pen ? Number(pen) : undefined,
+        },
+      )
+      .then(
+        (res) => !stale && setQuote(res.data.cancellation),
+        (e: unknown) => !stale && setQuoteError(e),
+      );
     return () => {
       stale = true;
     };
-    // Preview once per opened dialog.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [previewInput, propertyId, r.id, ota]);
 
-  const seg = r.segments?.[0];
-  const room = seg?.roomNo ?? '–';
+  const room = r.segments?.[0]?.roomNo ?? '–';
   const from = dayMonth(r.arrivalDate);
   const to = dayMonth(r.departureDate);
   const reasonError =
@@ -165,33 +199,58 @@ export function CancelDialog(props: DialogBase & { canPostpone: boolean; onPostp
       : touched && reason === 'other' && note.trim().length < 3
         ? t('field_error.reason_required')
         : act.fields.reasonCode;
+  const penaltyError =
+    ota && penalty.trim() && penaltyVnd === null
+      ? t('field_error.amount_not_positive')
+      : act.fields.otaPenaltyVnd;
 
   const confirm = async () => {
     setTouched(true);
-    if (!reason || (reason === 'other' && note.trim().length < 3)) return;
+    if (!quote || !reason || (reason === 'other' && note.trim().length < 3) || penaltyError) return;
     const out = await act.run((version, idem) =>
       api.cancelReservation(
-        ids,
-        { reasonCode: reason, note: note.trim() || undefined },
+        { propertyId, reservationId: r.id },
+        {
+          reasonCode: reason,
+          note: note.trim() || undefined,
+          otaPenaltyVnd: penaltyVnd ?? undefined,
+        },
         version,
         idem,
       ),
     );
     if (out) {
-      toast(`${r.code} · ${t('status.booking.cancelled')}`);
+      toast(t('rsv.toast.cancelled', { code: r.code }));
       props.onDone(out.data.reservation);
     }
   };
 
-  const body = hold
-    ? t('cancel.consequence', { room, from, to, channels: 7, lead: r.booker?.displayName ?? '' })
-    : t('confirm.cancel_booking.body', {
-        room,
-        from,
-        to,
-        retained: quote ? vnd(quote.retainedVnd) : '…',
-        refund: quote ? vnd(quote.refundableVnd) : '…',
-      });
+  let body: string;
+  if (hold) {
+    // Only bookings that came from a quote have a lead that goes back to "Đã báo giá" (SM-09).
+    body = r.quoteId
+      ? t('cancel.consequence', { room, from, to, lead: r.booker?.displayName ?? '' })
+      : t('cancel.consequence_no_lead', { room, from, to });
+  } else if (!quote) {
+    body = t('cancel.consequence_no_lead', { room, from, to });
+  } else if (quote.retainedVnd > 0 && quote.refundableVnd > 0) {
+    body = t('confirm.cancel_booking.body', {
+      room,
+      from,
+      to,
+      retained: vnd(quote.retainedVnd),
+      refund: vnd(quote.refundableVnd),
+    });
+  } else if (quote.retainedVnd > 0) {
+    body = t('confirm.cancel_booking.body_no_refund', {
+      room,
+      from,
+      to,
+      retained: vnd(quote.retainedVnd),
+    });
+  } else {
+    body = t('confirm.cancel_booking.body_no_money', { room, from, to });
+  }
 
   return (
     <ConfirmDialog
@@ -204,11 +263,30 @@ export function CancelDialog(props: DialogBase & { canPostpone: boolean; onPostp
       keepLabel={t('cancel.keep')}
       confirmLabel={hold ? t('cancel.confirm') : t('drawer.action.cancel_booking')}
       busy={act.busy}
+      confirmDisabled={!quote || act.locked}
+      confirmHelpId={!quote ? helpId : undefined}
       onKeep={props.onClose}
       onConfirm={() => void confirm()}
     >
       {hold ? <p className="li-s">{t('cancel.fee_none')}</p> : null}
-      {quoteError ? <Alert tone="warn">{rsvErrorText(t, quoteError)}</Alert> : null}
+      {!quote && !quoteError ? (
+        <p className="li-s" id={helpId} role="status">
+          {t('cancel.preview_loading')}
+        </p>
+      ) : null}
+      {quoteError ? (
+        <Alert
+          tone="warn"
+          id={helpId}
+          actions={
+            <Button size="sm" onClick={() => setPreviewTick((n) => n + 1)}>
+              {t('common.retry')}
+            </Button>
+          }
+        >
+          {t('cancel.preview_failed')}
+        </Alert>
+      ) : null}
       {act.errorView()}
       <Field label={t('cancel.reason')} required error={reasonError}>
         {(p) => (
@@ -219,7 +297,7 @@ export function CancelDialog(props: DialogBase & { canPostpone: boolean; onPostp
             onChange={(e) => setReason(e.target.value as CancelReasonCode)}
           >
             <option value="">{t('rsv.choose_reason')}</option>
-            {CANCEL_REASONS.map((o) => (
+            {CANCEL_REASONS.filter((o) => !o.otaOnly || ota).map((o) => (
               <option key={o.value} value={o.value}>
                 {t(o.key)}
               </option>
@@ -240,6 +318,26 @@ export function CancelDialog(props: DialogBase & { canPostpone: boolean; onPostp
           )}
         </Field>
       ) : null}
+      {ota ? (
+        <Field
+          label={t('cancel.ota_penalty')}
+          help={t('cancel.ota_penalty_help')}
+          error={penaltyError}
+        >
+          {(p) => (
+            <div className="input-affix">
+              <input
+                {...p}
+                className="input num"
+                inputMode="numeric"
+                value={penalty}
+                onChange={(e) => setPenalty(e.target.value)}
+              />
+              <span className="affix">{t('common.vnd_unit')}</span>
+            </div>
+          )}
+        </Field>
+      ) : null}
       {props.canPostpone && !hold ? (
         <Button size="sm" variant="ghost" onClick={props.onPostpone}>
           {t('drawer.action.postpone')}
@@ -256,15 +354,21 @@ const METHODS: Array<{ value: PaymentMethod; key: string }> = [
   { value: 'card_pos', key: 'pay.card' },
 ];
 
-/** B4 – US-086 AC1/AC2/AC5: ≥ deposit → confirmed; less → money kept, booking stays on hold. */
+/**
+ * B4 – US-086 AC1/AC2/AC5 (0.3.5 A-13): ≥ deposit → `confirmed`; less → still `200`, the money is
+ * recorded, the booking stays on hold and the dialog shows how much is missing (no 4xx after money is
+ * written – a fresh Idempotency-Key is used for the next amount).
+ */
 export function DepositDialog(props: DialogBase) {
-  const { reservation: r } = props;
   const { t, vnd } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
+  const [r, setR] = useState(props.reservation);
   const need = r.depositRequiredVnd ?? 0;
-  const [amount, setAmount] = useState(need ? vnd(need) : '');
+  const paidBefore = r.depositPaidVnd ?? 0;
+  const missing = Math.max(0, need - paidBefore);
+  const [amount, setAmount] = useState(missing ? vnd(missing) : '');
   const [method, setMethod] = useState<PaymentMethod>('vietqr');
   const [posCode, setPosCode] = useState('');
   const [touched, setTouched] = useState(false);
@@ -290,13 +394,19 @@ export function DepositDialog(props: DialogBase) {
         idem,
       ),
     );
-    if (out) {
-      toast(`${r.code} · ${t('status.booking.confirmed')}`);
-      props.onDone(out.data);
-    } else {
-      // AC2: the partial payment was recorded – refresh the balance shown behind the dialog.
+    if (!out) return;
+    if (out.data.status === 'hold') {
+      // Partial (A-13): stay open with the new balance; refresh the drawer behind.
+      setR(out.data);
+      act.setVersion(out.data.version);
+      const left = Math.max(0, (out.data.depositRequiredVnd ?? 0) - (out.data.depositPaidVnd ?? 0));
+      setAmount(left ? vnd(left) : '');
+      setTouched(false);
       void props.reload();
+      return;
     }
+    toast(t('rsv.toast.confirmed', { code: r.code }));
+    props.onDone(out.data);
   };
 
   return (
@@ -309,15 +419,15 @@ export function DepositDialog(props: DialogBase) {
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} onClick={() => void submit()}>
-            {value > 0 && value < need
+          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
+            {value > 0 && value < missing
               ? t('rsv.record_partial', { amount: vnd(value) })
               : t('rsv.deposit_submit')}
           </Button>
         </>
       }
     >
-      <div className="row" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
+      <div className="row mb-12">
         <div>
           <div className="li-s">{t('booking.summary.deposit')}</div>
           <div className="price-big">
@@ -326,7 +436,12 @@ export function DepositDialog(props: DialogBase) {
           <div className="li-s">{t('pay.qr_note', { ref })}</div>
         </div>
       </div>
-      {act.errorView({ required: need })}
+      {paidBefore > 0 && missing > 0 ? (
+        <Alert tone="warn" role="status">
+          {t('error.DEPOSIT_INSUFFICIENT', { required: vnd(need), paid: vnd(paidBefore) })}
+        </Alert>
+      ) : null}
+      {act.errorView({ required: need, paid: paidBefore + value })}
       <div className="g-2">
         <Field
           label={t('rsv.amount_received')}
@@ -376,7 +491,7 @@ export function DepositDialog(props: DialogBase) {
           )}
         </Field>
       ) : null}
-      {value > 0 && value < need ? <p className="li-s">{t('rsv.deposit_partial')}</p> : null}
+      {value > 0 && value < missing ? <p className="li-s">{t('rsv.deposit_partial')}</p> : null}
       {method === 'bank_transfer' || method === 'vietqr' ? (
         <p className="li-s">{t('rsv.reconcile_note')}</p>
       ) : null}
@@ -398,13 +513,22 @@ export function ExtendHoldDialog(props: DialogBase & { rules: RuleParams }) {
   );
   const fmt = (d: Date) => `${timeHHmm(d)} ${dayMonth(d.toISOString().slice(0, 10))}`;
   const hours = Math.max(1, Math.round((next.getTime() - current.getTime()) / 3_600_000));
+  const already = (r.hold?.extendedCount ?? 0) >= 1;
+  const onceError =
+    already ||
+    (isApiError(act.error) && act.error.fieldErrors.some((f) => f.code === 'HOLD_EXTENDED_ONCE'));
 
   const submit = async () => {
     const out = await act.run((version, idem) =>
       api.extendHold({ propertyId, reservationId: r.id }, hours, version, idem),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(
+        t('rsv.toast.hold_extended', {
+          code: r.code,
+          time: out.data.hold?.expiresAt ? fmt(new Date(out.data.hold.expiresAt)) : fmt(next),
+        }),
+      );
       props.onDone(out.data);
     }
   };
@@ -418,49 +542,99 @@ export function ExtendHoldDialog(props: DialogBase & { rules: RuleParams }) {
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} onClick={() => void submit()}>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            disabled={act.locked || onceError}
+            onClick={() => void submit()}
+          >
             {t('rsv.extend_submit', { time: fmt(next) })}
           </Button>
         </>
       }
     >
-      {act.errorView()}
+      {onceError ? (
+        <Alert tone="bad">{t('field_error.hold_extended_once')}</Alert>
+      ) : (
+        act.errorView()
+      )}
       <dl className="dl">
         <dt>{t('rsv.current_expiry')}</dt>
         <dd>{fmt(current)}</dd>
         <dt>{t('rsv.new_expiry')}</dt>
         <dd>{fmt(next)}</dd>
       </dl>
-      <p className="li-s" style={{ marginTop: 8 }}>
+      <p className="li-s mt-8">
         {t('rsv.extend_rule', { hours: rules.holdExtensionMaxHours, time: rules.holdLatestTime })}
       </p>
     </Modal>
   );
 }
 
-/** B7 (US-024 AC1) / B8 postpone (MGR+): new room and/or dates, reason required; OTA keeps dates. */
+/**
+ * DOM D-5 / OpenAPI 0.3.5 A-19 `MoveReasonCode` for B7/B8 (FB-R2-DOM-FE-01). Labels
+ * `move.reason.<code>` come from UXD.
+ */
+const MOVE_REASONS: MoveReasonCode[] = [
+  'guest_request',
+  'property_fault',
+  'overbooking',
+  'upgrade',
+  'inventory_optimize',
+  'force_majeure',
+  'other',
+];
+type MoveReason = MoveReasonCode;
+const MOVE_NOTE_REQUIRED: MoveReason[] = ['other', 'force_majeure'];
+const moveReasonKey = (c: MoveReason) => `move.reason.${c}`;
+
+/**
+ * B7 (US-024 AC1) / B8 postpone (MGR+). Reason from the DOM list when UXD labels exist (`upgrade`
+ * FDL+, `overbooking` only for conflict bookings, `force_majeure` only when postponing); until then a
+ * free-text reason (`other` + note). OTA keeps its dates.
+ */
 export function MoveDialog(
   props: DialogBase & { rooms: Room[]; ota: boolean; postpone?: boolean },
 ) {
   const { reservation: r, rooms, ota, postpone } = props;
   const { t } = useI18n();
   const propertyId = usePropertyId();
+  const { roles } = useSession();
   const toast = useToast();
   const act = useAction(props);
+  const lead = roles.some((x) => x === 'owner' || x === 'manager' || x === 'front_desk_lead');
+  const mgr = roles.some((x) => x === 'owner' || x === 'manager');
+  const listReady = MOVE_REASONS.every((c) => hasKey(moveReasonKey(c)));
+  const reasons = MOVE_REASONS.filter(
+    (c) =>
+      (c !== 'upgrade' || lead) &&
+      (c !== 'overbooking' || r.conflictState === 'open' || !!r.capacityConflict) &&
+      (c !== 'force_majeure' || (postpone && mgr)),
+  );
   const currentRoom = r.segments?.[0]?.roomId ?? '';
   const [roomId, setRoomId] = useState(currentRoom ?? '');
   const [arrival, setArrival] = useState(r.arrivalDate);
   const [departure, setDeparture] = useState(r.departureDate);
-  // H11 dlg-move: free-text reason (DOM's reason list for B7 is still open – EP02 E02-07).
+  const [reason, setReason] = useState<MoveReason>(listReady ? 'guest_request' : 'other');
   const [note, setNote] = useState('');
   const [touched, setTouched] = useState(false);
+  /** A-20: OTA moved into a smaller room → warning + reason, saved with capacityConflict. */
+  const [capReason, setCapReason] = useState('');
+  const capWarn =
+    isApiError(act.error) &&
+    act.error.fieldErrors.some((f) => f.code === 'CAPACITY_EXCEEDED_WARNING');
+  const capProblem = problemOf(act.error) as Record<string, unknown> | undefined;
+  const needNote = !listReady || MOVE_NOTE_REQUIRED.includes(reason);
   const noteError =
-    touched && note.trim().length < 3 ? t('field_error.reason_required') : act.fields.note;
+    touched && needNote && note.trim().length < 3
+      ? t('field_error.reason_required')
+      : act.fields.note;
   const suggestions = suggestionsOf(act.error).filter((s) => !s.upgrade);
 
   const submit = async (override?: string) => {
     setTouched(true);
-    if (note.trim().length < 3) return;
+    if (needNote && note.trim().length < 3) return;
+    if (capWarn && capReason.trim().length < 3) return;
     const target = override ?? roomId;
     if (override) setRoomId(override);
     const out = await act.run((version, idem) =>
@@ -471,15 +645,23 @@ export function MoveDialog(
           arrivalDate: arrival !== r.arrivalDate ? arrival : undefined,
           departureDate: departure !== r.departureDate ? departure : undefined,
           mode: postpone ? 'postpone_instead_of_cancel' : 'change',
-          reasonCode: 'other',
-          note: note.trim(),
+          reasonCode: reason,
+          note: note.trim() || undefined,
+          capacityWarningAckReason: capReason.trim() || undefined,
         },
         version,
         idem,
       ),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(
+        t('rsv.toast.moved', {
+          code: r.code,
+          room: out.data.segments?.[0]?.roomNo ?? '',
+          from: dayMonth(out.data.arrivalDate),
+          to: dayMonth(out.data.departureDate),
+        }),
+      );
       props.onDone(out.data);
     }
   };
@@ -493,13 +675,43 @@ export function MoveDialog(
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} onClick={() => void submit()}>
+          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
             {t('rsv.move_submit')}
           </Button>
         </>
       }
     >
-      {act.errorView()}
+      {capWarn ? (
+        <Alert
+          tone="warn"
+          role="alert"
+          title={t('booking.capacity_warning', {
+            room: String(capProblem?.roomNo ?? ''),
+            max: String(capProblem?.max ?? ''),
+            n: r.adults + (r.children6to11 ?? 0),
+          })}
+        >
+          <Field
+            label={t('booking.capacity_reason')}
+            help={t('booking.capacity_reason_help')}
+            required
+            error={
+              touched && capReason.trim().length < 3 ? t('field_error.reason_required') : undefined
+            }
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                value={capReason}
+                onChange={(e) => setCapReason(e.target.value)}
+              />
+            )}
+          </Field>
+        </Alert>
+      ) : (
+        act.errorView()
+      )}
       {suggestions.length ? (
         <div className="conflict-list">
           {suggestions.map((s) => (
@@ -533,7 +745,7 @@ export function MoveDialog(
         <p className="li-s">{t('move.ota_dates_locked')}</p>
       ) : (
         <div className="g-2">
-          <Field label={dateLabels(t).arrival} error={act.fields.arrivalDate}>
+          <Field label={t('booking.field.arrival')} error={act.fields.arrivalDate}>
             {(p) => (
               <input
                 {...p}
@@ -547,7 +759,7 @@ export function MoveDialog(
               />
             )}
           </Field>
-          <Field label={dateLabels(t).departure} error={act.fields.departureDate}>
+          <Field label={t('booking.field.departure')} error={act.fields.departureDate}>
             {(p) => (
               <input
                 {...p}
@@ -561,42 +773,62 @@ export function MoveDialog(
           </Field>
         </div>
       )}
-      <Field label={t('move.reason')} required error={noteError}>
-        {(p) => (
-          <input
-            {...p}
-            className="input"
-            maxLength={500}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        )}
-      </Field>
+      {listReady ? (
+        <Field label={t('move.reason')} required error={act.fields.reasonCode}>
+          {(p) => (
+            <select
+              {...p}
+              className="input"
+              value={reason}
+              onChange={(e) => setReason(e.target.value as MoveReason)}
+            >
+              {reasons.map((c) => (
+                <option key={c} value={c}>
+                  {t(moveReasonKey(c))}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      ) : null}
+      {needNote ? (
+        <Field label={listReady ? t('stay.note') : t('move.reason')} required error={noteError}>
+          {(p) => (
+            <input
+              {...p}
+              className="input"
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
       <p className="li-s">{t('rsv.move_price_note')}</p>
     </Modal>
   );
 }
 
-const CONTACT = [
-  { value: 'rsv.contact_noanswer' },
-  { value: 'rsv.contact_late' },
-  { value: 'rsv.contact_none' },
-];
+const CONTACT = ['rsv.contact_noanswer', 'rsv.contact_late', 'rsv.contact_none'];
 
-/** B11 – US-136 AC2/AC3: never automatic; locked until `no_show_mark_time` and a contact result. */
-export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelName: string }) {
-  const { reservation: r, rules } = props;
-  const { t, vnd } = useI18n();
+/**
+ * B11 – US-136 AC2/AC3 (0.3.5 A-04): one step; the server decides the time (the button only exists
+ * when `allowedActions` has `mark_no_show`); the dialog asks for the contact result (≥ 3 characters).
+ */
+export function NoShowDialog(props: DialogBase & { channelName: string }) {
+  const { reservation: r } = props;
+  const { t, vnd, locale } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
   const [contact, setContact] = useState('');
   const [detail, setDetail] = useState('');
-  const timeOk = timeHHmm(new Date()) >= rules.noShowMarkTime;
+  const helpId = useId();
   const note = [contact ? t(contact) : '', detail.trim()].filter(Boolean).join(' – ');
-  const ready = timeOk && note.length >= 3;
+  const ready = note.length >= 3;
   const room = r.segments?.[0]?.roomNo ?? '–';
   const ota = r.paymentModel !== 'direct';
+  const availableFrom = problemOf(act.error)?.availableFrom;
 
   const submit = async () => {
     if (!ready) return;
@@ -604,7 +836,7 @@ export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelNam
       api.markNoShow({ propertyId, reservationId: r.id }, note, version, idem),
     );
     if (out) {
-      toast(`${r.code} · ${t('status.booking.no_show')}`);
+      toast(t('rsv.toast.no_show', { code: r.code }));
       props.onDone(out.data);
     }
   };
@@ -620,7 +852,7 @@ export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelNam
               channel: props.channelName,
             })
           : t('noshow.consequence_direct', {
-              amount: vnd((r.totalRoomVnd ?? 0) - (r.balanceDueVnd ?? r.totalRoomVnd ?? 0)),
+              amount: vnd(r.depositPaidVnd ?? 0),
               room,
               from: dayMonth(r.arrivalDate),
               to: dayMonth(r.departureDate),
@@ -629,10 +861,18 @@ export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelNam
       keepLabel={t('noshow.keep')}
       confirmLabel={t('noshow.confirm')}
       busy={act.busy}
+      confirmDisabled={!ready || act.locked}
+      confirmHelpId={!ready ? helpId : undefined}
       onKeep={props.onClose}
       onConfirm={() => void submit()}
     >
-      {act.errorView()}
+      {typeof availableFrom === 'string' ? (
+        <Alert tone="bad">
+          {t('noshow.locked', { time: formatInstant(locale, availableFrom).slice(11) })}
+        </Alert>
+      ) : (
+        act.errorView()
+      )}
       <Field label={t('noshow.contact_note')} required error={act.fields.contactAttemptNote}>
         {(p) => (
           <select
@@ -643,8 +883,8 @@ export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelNam
           >
             <option value="">{t('rsv.choose_reason')}</option>
             {CONTACT.map((c) => (
-              <option key={c.value} value={c.value}>
-                {t(c.value)}
+              <option key={c} value={c}>
+                {t(c)}
               </option>
             ))}
           </select>
@@ -662,18 +902,24 @@ export function NoShowDialog(props: DialogBase & { rules: RuleParams; channelNam
         )}
       </Field>
       {!ready ? (
-        <p className="li-s" role="status">
-          {t('noshow.locked', { time: rules.noShowMarkTime })}
+        <p className="li-s" id={helpId}>
+          {t('field_error.reason_required')}
         </p>
       ) : null}
     </ConfirmDialog>
   );
 }
 
-/** B12 – US-136 AC4/AC5: 200 restored, or 202 approval request for FD/FDL outside BR-315. */
+/**
+ * B12 – US-136 AC4/AC5: 200 restored, or 202 approval request for FD/FDL outside BR-315.
+ * 0.3.5 A-21: when the room was resold, MGR+ restore into another free room (`roomId`) or into the
+ * "Chưa gán căn" lane (`allowUnassigned`) straight from the 409.
+ */
 export function RestoreDialog(props: DialogBase & { requiresApproval: boolean }) {
   const { reservation: r } = props;
   const { t } = useI18n();
+  const { roles } = useSession();
+  const mgr = roles.some((x) => x === 'owner' || x === 'manager');
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
@@ -681,18 +927,27 @@ export function RestoreDialog(props: DialogBase & { requiresApproval: boolean })
   const [touched, setTouched] = useState(false);
   const reasonError =
     touched && reason.trim().length < 3 ? t('field_error.reason_required') : act.fields.reason;
-  const submit = async () => {
+  const resold =
+    mgr && isApiError(act.error) && act.error.code === 'ROOM_UNAVAILABLE'
+      ? suggestionsOf(act.error)
+      : null;
+  const submit = async (opts: { roomId?: string; allowUnassigned?: boolean } = {}) => {
     setTouched(true);
     if (reason.trim().length < 3) return;
     const out = await act.run((version, idem) =>
-      api.restoreNoShow({ propertyId, reservationId: r.id }, reason.trim(), version, idem),
+      api.restoreNoShow(
+        { propertyId, reservationId: r.id },
+        { reason: reason.trim(), ...opts },
+        version,
+        idem,
+      ),
     );
     if (!out) return;
     if (out.status === 202) {
       toast(t('noshow.restore_request_sent'));
       props.onDone();
     } else {
-      toast(`${r.code} · ${t('status.booking.confirmed')}`);
+      toast(t('rsv.toast.restored', { code: r.code }));
       props.onDone(out.data as Reservation);
     }
   };
@@ -706,7 +961,7 @@ export function RestoreDialog(props: DialogBase & { requiresApproval: boolean })
       footer={
         <>
           <Button onClick={props.onClose}>{t('confirm.keep')}</Button>
-          <Button variant="pri" busy={act.busy} onClick={() => void submit()}>
+          <Button variant="pri" busy={act.busy} disabled={act.locked} onClick={() => void submit()}>
             {props.requiresApproval
               ? t('drawer.action.request_restore')
               : t('drawer.action.restore_no_show')}
@@ -721,6 +976,20 @@ export function RestoreDialog(props: DialogBase & { requiresApproval: boolean })
         })}
       </p>
       {act.errorView()}
+      {resold ? (
+        <div className="conflict-list mb-12">
+          {resold
+            .filter((x) => !x.upgrade)
+            .map((x) => (
+              <Button key={x.roomId} size="sm" onClick={() => void submit({ roomId: x.roomId })}>
+                {t('bk.use_room', { room: x.roomNo })}
+              </Button>
+            ))}
+          <Button size="sm" onClick={() => void submit({ allowUnassigned: true })}>
+            {t('bk.save_unassigned')}
+          </Button>
+        </div>
+      ) : null}
       <Field label={t('bk.reason_ph')} required error={reasonError}>
         {(p) => (
           <input
@@ -737,13 +1006,33 @@ export function RestoreDialog(props: DialogBase & { requiresApproval: boolean })
 }
 
 /**
- * B7a – US-139 AC2: choose a free room for an OTA booking saved "chưa gán căn". Suggestions come from
- * `searchAvailability` (same group first; other groups = upgrade, FDL+ only – BR-312 (4)(ii)).
+ * B7a – US-139 AC2: free rooms for an OTA booking saved "chưa gán căn". `searchAvailability` with
+ * `reservationId` (0.3.5 A-05) marks `upgrade` relative to the booking's group; upgrades are FDL+ only
+ * (BR-312 (4)(ii)) – FD sees why the option is locked as visible text, not a tooltip.
  */
-export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: boolean }) {
-  const { reservation: r, rooms, lead } = props;
+export function AssignRoomDialog(
+  props: DialogBase & { rooms: Room[]; lead: boolean; channelLabel: string },
+) {
+  const { reservation: r, rooms, lead, channelLabel } = props;
   const { t } = useI18n();
   const propertyId = usePropertyId();
+  const [groupName, setGroupName] = useState(r.requestedRoomGroupCode ?? '');
+  useEffect(() => {
+    if (!r.requestedRoomGroupCode) return;
+    let stale = false;
+    api.listRoomGroups({ propertyId }).then(
+      (g) =>
+        !stale &&
+        setGroupName(
+          g.data.data.find((x) => x.code === r.requestedRoomGroupCode)?.name ??
+            r.requestedRoomGroupCode!,
+        ),
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [propertyId, r.requestedRoomGroupCode]);
   const toast = useToast();
   const act = useAction(props);
   const [options, setOptions] = useState<Array<{
@@ -759,28 +1048,30 @@ export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: bool
     api
       .searchAvailability(
         { propertyId },
-        { arrival: r.arrivalDate, departure: r.departureDate, adults: r.adults },
+        {
+          arrival: r.arrivalDate,
+          departure: r.departureDate,
+          adults: r.adults,
+          reservationId: r.id,
+        },
       )
       .then(
         (res) => {
           if (stale) return;
-          // Without a requested room every free room is "same group" for the UI except the ones the
-          // server marks with another group code than the first (wanted) group.
-          const firstGroup = res.data.alternatives[0]?.roomGroupCode;
           const list = res.data.alternatives.map((a) => ({
             roomId: a.roomId,
             roomNo: a.roomNo,
-            upgrade: !!firstGroup && a.roomGroupCode !== firstGroup,
+            upgrade: !!a.upgrade,
           }));
           setOptions(list);
-          setChoice(list.find((o) => !o.upgrade)?.roomId ?? '');
+          setChoice(list.find((o) => !o.upgrade || lead)?.roomId ?? '');
         },
         (e: unknown) => !stale && setLoadError(e),
       );
     return () => {
       stale = true;
     };
-  }, [propertyId, r.arrivalDate, r.departureDate, r.adults]);
+  }, [propertyId, r.arrivalDate, r.departureDate, r.adults, r.id, lead]);
 
   // A 409 while saving brings fresh suggestions – show those instead.
   const fresh = suggestionsOf(act.error);
@@ -802,7 +1093,7 @@ export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: bool
       ),
     );
     if (out) {
-      toast(t('common.saved'));
+      toast(t('rsv.toast.assigned', { room: chosen.roomNo, code: r.code }));
       props.onDone(out.data);
     }
   };
@@ -817,26 +1108,36 @@ export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: bool
       footer={
         <>
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
-          <Button variant="pri" busy={act.busy} disabled={!chosen} onClick={() => void submit()}>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            disabled={!chosen || act.locked}
+            onClick={() => void submit()}
+          >
             {t('rsv.assign_submit', { room: chosen?.roomNo ?? '' })}
           </Button>
         </>
       }
     >
-      <p>{t('fo.rack.unassigned_help')}</p>
+      {/* 0.3.5 A-25: the group the channel mapped the booking to. */}
+      <p>
+        {r.requestedRoomGroupCode
+          ? t('rsv.assign_lead', {
+              channel: channelLabel,
+              group: groupName,
+              from: dayMonth(r.arrivalDate),
+              to: dayMonth(r.departureDate),
+              room: groupName,
+            })
+          : t('fo.rack.unassigned_help')}
+      </p>
       {act.errorView()}
       {loadError ? <Alert tone="bad">{rsvErrorText(t, loadError)}</Alert> : null}
       {!options && !loadError ? <p className="li-s">{t('common.loading')}</p> : null}
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend className="label-h" style={{ marginBottom: 6 }}>
-          {t('move.resolution.same_group')}
-        </legend>
+      <fieldset className="fieldset-plain">
+        <legend className="label-h mb-8">{t('rsv.assign_options')}</legend>
         {list.map((o, i) => (
-          <label
-            key={o.roomId}
-            className="check card"
-            style={{ marginBottom: 6, padding: '10px 12px' }}
-          >
+          <label key={o.roomId} className="check card mb-8 p-8">
             <input
               type="radio"
               name="assign-room"
@@ -853,7 +1154,8 @@ export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: bool
                 <>
                   <br />
                   <span className="li-s">
-                    {t('move.resolution.upgrade')} · {t('rsv.upgrade_note')}
+                    {t('move.resolution.upgrade')} ·{' '}
+                    {lead ? t('rsv.upgrade_note') : t('rsv.upgrade_needs_lead')}
                   </span>
                 </>
               ) : null}
@@ -866,8 +1168,11 @@ export function AssignRoomDialog(props: DialogBase & { rooms: Room[]; lead: bool
   );
 }
 
-/** A53 – CTV: "Báo đã chuyển cọc" (US-086 AC4); FD / sale confirm with B4 afterwards. */
-export function DepositNoticeDialog(props: Omit<DialogBase, 'reload'>) {
+/**
+ * A53 – CTV: "Báo đã chuyển cọc" (US-086 AC4); FD / sale confirm with B4 afterwards. No receipt image
+ * field in R2 (0.3.5 A-17: `attachmentId` is rejected until file upload is reviewed – Sprint 3).
+ */
+export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onDone' | 'onClose'>) {
   const { reservation: r } = props;
   const { t, vnd } = useI18n();
   const propertyId = usePropertyId();

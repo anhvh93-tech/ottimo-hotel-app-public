@@ -499,6 +499,15 @@ dialog.dlg .modal{max-width:none;max-height:calc(100vh - 48px);overflow:auto}
 .list-plain{margin:4px 0 0;padding-left:18px}
 .field.flush{margin:0}
 .btn.mt{margin-top:8px}
+/* v0.3.3a – chuyển từ packages/ui app.css (FE S2, FB-R2-UXD-FE-S2-15/19) */
+.p-12{padding:12px}
+.row.wrap{flex-wrap:wrap;gap:6px}
+.input.auto-w{width:auto;min-height:32px}
+.list-none,.plain-list{list-style:none;padding:0;margin:0} /* danh sách không dấu; .plain-list = tên cũ FE, dùng .list-none cho mã mới (khác .list-plain có dấu) */
+.rack .rm .rm-name{font-family:var(--sans);font-size:.75rem;font-weight:500}
+.rack-list .rowlink{width:100%;min-height:44px;border:0;background:transparent;text-align:left;font:inherit;color:inherit}
+.bar.hold.urgent{border-color:var(--bad)}
+.bar.hold.urgent .countdown,.bar.hold.urgent .note{color:var(--bad)}
 /* skeleton kích thước */
 .sk.h-6{height:6px}.sk.h-12{height:12px}.sk.h-32{height:32px}.sk.h-36{height:36px}.sk.h-56{height:56px}.sk.h-80{height:80px}.sk.h-96{height:96px}.sk.h-120{height:120px}.sk.h-300{height:300px}.sk.w-60{width:60%}
 .sk+.sk{margin-top:10px}

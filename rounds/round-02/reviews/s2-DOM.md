@@ -153,7 +153,7 @@
 
 ---
 
-## C. Việc DOM tự làm ở bước Phản hồi & sửa (không cần thẻ)
+## C. Việc DOM tự làm ở bước Phản hồi & sửa (không cần thẻ) – ĐÃ LÀM, xem mục E
 - BR **v0.3.2**: BR-804 (mở bán từ ngày mở khóa – D-4), BR-107 (đổi số đêm – D-8), BR-303 (cọc thiếu – D-9), BR-312/110 (OTA vượt sức chứa – D-1), BR-315 (đêm đã qua, đổi căn, OTA – D-3), BR-904 (đêm Nội bộ – D-7), BR-812 (2) hạn khi xác nhận muộn (D-10), BR-903 (làm tròn ở kỳ chi – D-11), BR-506 cách hiểu ngắn ngày (D-13 b), BR-308 thêm danh mục lý do đổi căn/ngày (D-5). Chỉ làm rõ, không đổi con số INV đã quyết.
 - Seed `special_dates` (QA): khoảng Tết 2027 [05/02, 11/02) = đêm 29/30 Tết → mùng 5 – **đúng**. Gợi ý INV ở ESC cuối round: cân nhắc thêm Giỗ Tổ Hùng Vương (10/3 âm lịch – lễ quốc gia) và đêm 1/9 (khách lên Đà Lạt trước Quốc khánh); hiện ESC-004 P-B chỉ lễ quốc gia theo danh sách BR-104 nên **không** tự thêm.
 
@@ -161,3 +161,22 @@
 1. Chống trùng ở server bằng EXCLUDE + SAVEPOINT, 20 request cùng căn–đêm → đúng 1 thành công; hold/hết hạn J1 đúng-một-lần – đúng BR-906 ở mức lễ tân 2 giờ sáng cần.
 2. `pricing.ts` thuần, mọi con số từ tham số, oracle `br-examples.json` chạy thật: lịch giá không cộng dồn, cọc trên tiền phòng (BR-305), người lớn lấp định mức trước (BR-110), trần 12:00 giữ chỗ và gia hạn (BR-302/303), đêm lẻ BR-113 – khớp ví dụ BR từng đồng.
 3. BR-812 sinh/hủy việc bộ đồ dùng thêm **trong cùng giao dịch** với đơn (không job nền), cả đơn OTA – đúng tinh thần ESC-014; no-show bắt buộc ghi kết quả liên lạc và không tự động (BR-311).
+
+---
+
+## E. Bước Phản hồi & sửa (DOM, 16/10/2026)
+
+### E.1 Đã làm mục C
+- `product/docs/business-rules.md` lên **v0.3.2**: BR-107, 110, 112, 113, 302, 303, 304, 312, 315, 317, **429 (mới)**, 435, 506, 527, 804, 807, 808, 809, 811, 812, 903, 904; mục 13 thêm `max_open_holds_per_user`, `staff_payment_backdate_max_hours`, `wo_done_photo_required_severities`; mục 16 thêm Q-D6…Q-D8; mục 18 lịch sử v0.3.2. Không đổi con số INV đã quyết. Phần chờ INV mang nhãn **[CHỜ INV]**: BR-506 khách ngắn ngày (D-13 b), `special_dates` (Giỗ Tổ, đêm 1/9 – chưa thêm), số giữ chỗ tối đa mỗi người (nhãn GIẢ ĐỊNH).
+- `product/tests/fixtures/br-examples.json` (`source.version` 0.3.2): **không sửa số** của dòng cũ; bỏ `qaAssumption` của BR-304-01 (BR nay ghi rõ mốc) và thêm `stillValidAt`; **thêm 21 dòng**: BR-107-03/04 (calc `losDiscount` – 4.079.000 / 5.205.000), BR-110-09, BR-113-04, BR-302-03, BR-303-04, BR-304-02, BR-315-03/04/05, BR-429-01/02, BR-506-02, BR-527-04, BR-804-03, BR-811-03, BR-812-10/11, BR-903-02 (calc `shortCommission` – 156.150), BR-903-03, BR-904-02. Dòng mới không có calc dùng `calc: null`. Đã tự kiểm bằng script Python mô phỏng validator (nhãn khớp bảng BR, tiền nguyên, ISO +07:00, tính lại BR-107/903): 247 dòng, 0 lỗi. Máy DOM không có Node, **chưa chạy** `pnpm --filter @ottimo/tests test`.
+- Việc cho **QA**: chạy validator; thêm nhánh `max(giờ nhận phòng, confirmedAt + extra_guest_kit_midstay_due_minutes)` vào calc `extraGuestKitDue` rồi đổi BR-812-10 sang calc này (hiện để null để test BE không đỏ); thêm 3 tham số mới vào seed DS-E; sửa TC-L5-015 theo BR-304-02.
+- Việc cho **BE**: `test/reservations-pricing.test.ts` tự chạy thêm BR-107-03/04 (xanh với code hiện tại vì là tính thuần theo số đêm). Phần đổi số đêm thật (FB-R2-DOM-BE-03) và BR-812-10 (FB-BE-09) dùng các dòng oracle mới làm tiêu chí.
+
+### E.2 Trả lời SEC (FB-R2-SEC-BE-22, BE-28) – quyết định DOM, NGÀNH
+| Điểm | Trả lời DOM |
+|---|---|
+| BE-22 – khoản thu do SAL ghi | **Đồng ý SEC phương án 1–4** (không cấm SAL nhận tiền mặt/POS, không đổi quyền SAL theo rbac ghi chú 20). Mọi khoản do người không có vai FD+ ghi → `chờ đối soát` + "Cần chú ý"; tiền mặt sale nhận phải nộp quầy, FD đối chiếu trong đóng ca (BR-526); hoa hồng của chính người ghi chỉ thành "đạt" khi đã đối soát. Đơn vẫn xác nhận ngay khi đủ cọc (khách cần xác nhận đặt phòng – thực tế quầy VN xác nhận theo ảnh chuyển khoản). Ghi vào BR-527 |
+| BE-22 – lùi giờ nhận | **≤ 24 giờ** và không trước lúc tạo giữ chỗ (tham số `staff_payment_backdate_max_hours` = 24); giữ chỗ đã quá hạn chỉ FD+ xác nhận cọc (US-085 AC4) |
+| BE-22 – trần số tiền | **Trần = số còn phải thu của đơn** tại lúc ghi = (tiền phòng + phụ thu người đã biết) − đã thu. **Không** dùng mức cọc tối thiểu (BR-305) làm trần vì khách hay trả trước 100%. Không đặt thêm trần tuyệt đối cho tiền mặt (đã có đối soát + đóng ca). Vượt → `422`, chỉ FD+ ghi được kèm lý do (phần dư là tiền khách gửi trước, hiện trên folio). Ví dụ: đơn còn phải thu 5.205.000, sale ghi 16.000.000 → chặn |
+| BE-28 – giữ chỗ đang mở mỗi người | **Đồng ý CTV 3, SAL 5**, FD+ không giới hạn (tham số `max_open_holds_per_user`, nhãn GIẢ ĐỊNH – INV đổi được, không cần ESC riêng, đã ghi mục 16 Q-D8). Lý do: 10 căn – một CTV giữ 3 căn mùa cao điểm đã là 30% tồn; sale nội bộ cần nhiều hơn cho khách gia đình/đoàn nhỏ. Đếm đơn `hold` người đó tạo **hoặc** là người chốt; mỗi căn của đơn nhóm tính 1; đơn nhóm lớn hơn giới hạn → FD+ tạo hộ. Mã lỗi theo SEC đề xuất `409 HOLD_LIMIT_REACHED` (ARC chốt tên). Ghi vào BR-302 |
+| Có đổi chính sách cọc không? | **Không** – BR-305 (30% tiền phòng), quyền xác nhận cọc của SAL và chính sách hủy giữ nguyên; các điểm trên là kiểm soát vận hành. **Không cần ESC.** |

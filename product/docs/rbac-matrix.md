@@ -104,6 +104,7 @@ Ghi chú:
 15. FDL: yêu cầu thuộc hạn mức FDL theo BR-433.
 16. M: chỉ thấy trạng thái các yêu cầu mình gửi và rút lại được (A6). CTV gửi gia hạn báo giá (A51) nên cần theo dõi được yêu cầu của mình (QA #12) – ARC thêm `collaborator` với `x-scope: own` vào `listApprovalRequests` và `cancelRequest`.
 33a. **S33 theo vai (R2 Sprint 2 – trả lời ARC Q-B1)**: OWN/MGR xem toàn cơ sở và đối soát (A46). FDL, FD, SAL chỉ **xem** giao dịch **của mình** (`recordedBy` hoặc `confirmedBy` = mình – suy từ A33; SAL chỉ cọc đơn của mình) để theo dõi cờ "chờ đối soát"; không đối soát (A46 ✖). Khớp `listPayments` `x-scope: own` (OpenAPI 0.3.3) và EP03-05 mục 2.4. Bản cũ (FDL R toàn bộ, FD ✖) bỏ.
+37. **Danh sách người chốt – `listCloserCandidates`** (ARC A-06, OpenAPI 0.3.5; S05): FD+ thấy **chỉ** `userId`, `displayName` (D27), `kind` (`agent`/`staff`) của CTV/sale nội bộ đang hoạt động để chọn `closerUserId` khi tạo đơn; **không** username, SĐT, email, trạng thái khóa. SAL/CTV ✖ (S05). Bản máy đọc: hành động `A01-closer` trong `rbac-matrix.json`.
 20a. **Round 2: chỉ OWN** xem danh sách, cấp, thu hồi thiết bị được cấp (A110 – `listTrustedDevices`, `trustCurrentDevice`, `revokeTrustedDevice`); MGR ✖ – khớp OpenAPI, wireframe L1 và ARC-responses bước 4 ("thiết bị giữ owner"), chặt hơn SR-DEV-01 nên vẫn đạt yêu cầu SEC. Ở S26, MGR chỉ quản lý mật khẩu/PIN/2FA/phiên **của mình** (A112); không gán vai, không đặt lại 2FA người khác. Ủy quyền cho MGR khi OWN bật (tùy chọn của SR-DEV-01) **chưa làm**; khi PO đưa vào round sau, BA thêm lại MGR ◐ kèm tham số bật ủy quyền và báo ARC thêm `manager` vào `x-roles` (BUG-R1-006).
 25a. S25 theo vai (khớp `listRooms`, `listRoomGroups`; BUG-R1-005): OWN/MGR xem đầy đủ + sửa (A101/A103). FDL/FD/SAL/CTV chỉ **xem dạng tra cứu** (`x-scope: catalog_only`): số căn, tầng, nhóm căn, tên, sức chứa (`baseOccupancy`, `maxOccupancy` – cần để xếp khách và báo giá, BR-601) và giá niêm yết hiện hành; không thấy lịch sử giá. **HK/MT ✖: không dùng `listRooms`/`listRoomGroups`.** Số căn, tầng, nhóm căn mà HK/MT cần lấy từ **danh sách việc buồng phòng** (S10 – `listHkTasks`, `listRoomStatuses`), phiếu sửa (S11 – `listWorkOrders`) và rack dạng trạng thái (S03, ghi chú 2). Với HK/MT, `maxOccupancy`, `baseOccupancy` và mọi giá là **K** (không trả về); ARC gắn `x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]` cho `Room.maxOccupancy`, `RoomGroup.maxOccupancy`, `RoomGroup.baseOccupancy` nếu các schema này còn xuất hiện trong response dành cho HK/MT.
 17. MGR sửa tham số vận hành; **không** sửa hạn mức FOC (`foc_limits`), tỷ lệ hoa hồng, phí kênh – chỉ OWN (mục 5.3).
@@ -169,7 +170,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | # | Hành động | OWN | MGR | FDL | FD | HK | MT | SAL | CTV | Duyệt / ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
 | A50 | Lập/lưu báo giá ngắn ngày và dài hạn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✔ | ✔ | Snapshot BR-006 |
-| A51 | Gia hạn báo giá hết hiệu lực (Q4) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | D | D | BR-304; người gửi theo dõi ở S23 (M) |
+| A51 | Gia hạn báo giá hết hiệu lực (Q4) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | D | D | BR-304; người gửi theo dõi ở S23 (M). Operation `extendQuote` (ARC A-18, OpenAPI 0.3.5): MGR/OWN → 200; SAL/CTV chỉ báo giá của mình → 202 + yêu cầu `quote_extension` |
 | A52 | Tạo / chuyển giai đoạn lead | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | M | – |
 | A53 | Báo "khách đã chuyển cọc" (kèm ảnh biên nhận) | – | – | – | – | ✖ | ✖ | M | M | FD/SAL xác nhận A04 |
 | A54 | Gia hạn HĐ (H4) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | D | ✖ | MGR+ duyệt khi SAL đề xuất |
@@ -322,7 +323,7 @@ Cột khách tách theo mức (FB-R1-ARC-BA-02, SEC-BA-02; SR-GST-06/07/11): **G
 | D23 | Yêu cầu từ app khách, tin nhắn | C2 | Đầy | Đầy | Loại + căn + nội dung (T, định tuyến) | như HK | K | K | Gửi + xem trạng thái | Đ | K |
 | D25 | Token link app khách | C3 | **Một lần khi cấp** (để sao chép/gửi – A22a), không xem lại; xem lại = cấp lại (thu hồi link cũ) | như OWN/MGR | K | K | K (không gửi, không cấp – A22) | K (kể cả khi render mẫu tin) | – | – | – |
 | D26 | CTV/Sale: số tài khoản, CCCD/MST | C3 | Đầy L | K | K | K | Của mình | Của mình | – | – | – |
-| D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình | K | K | K | K | – | – | – |
+| D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình; **tên hiển thị người chốt** (CTV/sale) khi tạo đơn ở S05 ³⁷ | K | K | K | K | – | – | – |
 | D28 | Lead (tên, liên hệ, nhu cầu) | C2 | Đầy | Đầy | K | K | M | M | – | – | – |
 | D29 | Cảnh báo / danh sách đen về khách (`Guest.warnings`, có thể kèm mã khách khác) | C2 | Đầy | Đầy | K | K | K | K | K | K (xem qua S31) | K |
 | – | Tài khoản nhận tiền của cơ sở (VietQR, thông tin chuyển khoản) | C1 – toàn vẹn quan trọng | Đầy; **sửa chỉ OWN** (A108) | Đầy (để hiện QR) | K | K | Đầy (QR của đơn M) | K | K | Đ (trên QR/bill) | Đ |
@@ -402,3 +403,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | 16/10/2026 | 1 (bước 5) | BUG-R1-005: ghi chú 25a – S25 dạng tra cứu cho FDL/FD/SAL/CTV, HK/MT không dùng `listRooms`/`listRoomGroups` (dùng danh sách việc buồng phòng), sức chứa ẩn với HK/MT. BUG-R1-006: A22 SAL ✖ (theo quyết định bước 4); A110 MGR ✖ ở R2 (ghi chú 20a). `rbac-matrix.json` v0.2.1 cập nhật theo | BA |
 | 16/10/2026 | 1 (bước 5, lượt 2) | Thêm **A119** "Sửa tham số bảo mật – chỉ OWN" (8 khóa `x-security-parameters` của `setParameter` 0.2.1-draft; MGR 403; ngoài biên 422 `PARAM_OUT_OF_RANGE` kể cả OWN) theo BUG-R1-SEC-02 / fix-notes-ARC; A118 ghi là trường hợp riêng của A119; mục 5.3 thêm A119. `rbac-matrix.json` thêm A119, A118 ánh xạ `setParameter` | BA |
 | 16/10/2026 | 2 (Sprint 2) | S33: FDL/FD/SAL **M R** (giao dịch của mình – ghi chú 33a), trả lời ARC Q-B1, khớp `listPayments` OpenAPI 0.3.3; `rbac-matrix.json` không đổi (bản máy đọc chỉ có hành động A-xx; `listPayments` đã ánh xạ A33) | BA |
+| 16/10/2026 | 2 (Sprint 2 – phản hồi) | A51 ghi operation `extendQuote` (ARC A-18); ghi chú 37 + D27 cho `listCloserCandidates` (ARC A-06); `rbac-matrix.json` 0.2.2: A51 `operationIds: [extendQuote]`, thêm `A01-closer` → `listCloserCandidates` | BA |

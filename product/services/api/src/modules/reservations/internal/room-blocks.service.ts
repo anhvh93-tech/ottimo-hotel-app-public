@@ -105,14 +105,7 @@ export class RoomBlocksService {
     const withNames = hasAny(ctx.actor.roles, FD_PLUS);
     await this.occupancy.lockRooms(tx, [roomId as string]);
     // BR-804: overlapping bookings must be moved first – list them (in-house guests change room, B14).
-    const conflicts = await this.occupancy.conflicts(tx, roomId as string, from, to);
-    if (conflicts.length > 0) {
-      throw await this.occupancy.unavailable(
-        tx,
-        { roomId: roomId as string, from, to, persons: 1 },
-        { withNames },
-      );
-    }
+    await this.assertFree(tx, roomId as string, from, to, withNames);
     const id = uuidv7();
     const status = from <= ctx.today ? 'active' : 'planned';
     await tx.query(
@@ -177,6 +170,15 @@ export class RoomBlocksService {
       f.add('endDatePlanned', 'DATE_IN_PAST');
     f.done();
     await this.occupancy.lockRooms(tx, [b.room_id]);
+    if ((end as string) > b.end_date_planned) {
+      await this.assertFree(
+        tx,
+        b.room_id,
+        b.end_date_planned,
+        end as LocalDate,
+        hasAny(ctx.actor.roles, FD_PLUS),
+      );
+    }
     await this.occupancy.update(
       tx,
       { roomBlockId: b.id },
@@ -293,6 +295,32 @@ export class RoomBlocksService {
       `room_block.${action}`,
     );
     return this.load(tx, b.id);
+  }
+
+  /**
+   * A block may not cover any booking (BR-804). 0.3.5 A-03: an in-house guest in the range → 409 ROOM_OCCUPIED
+   * (change the guest's room first, BR-424); other bookings → ROOM_UNAVAILABLE / ROOM_BLOCKED, with conflicts.
+   */
+  private async assertFree(
+    tx: Tx,
+    roomId: string,
+    from: LocalDate,
+    to: LocalDate,
+    withNames: boolean,
+  ): Promise<void> {
+    const conflicts = await this.occupancy.conflicts(tx, roomId, from, to);
+    if (conflicts.length === 0) return;
+    const err = await this.occupancy.unavailable(
+      tx,
+      { roomId, from, to, persons: 1 },
+      { withNames },
+    );
+    if (conflicts.some((c) => c.status === 'in_house')) {
+      throw problem('ROOM_OCCUPIED', {
+        ...(err.options.extras ? { extras: err.options.extras } : {}),
+      });
+    }
+    throw err;
   }
 
   /** O2 (SYS): planned blocks whose start date has come become active. */

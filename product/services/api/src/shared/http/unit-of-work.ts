@@ -32,7 +32,14 @@
  */
 import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE, Database, type Tx, pgCode, runInUnitOfWork } from '../../db/database';
+import {
+  DATABASE,
+  DEFAULT_LOCK_TIMEOUT_MS,
+  Database,
+  type Tx,
+  pgCode,
+  runInUnitOfWork,
+} from '../../db/database';
 import { ProblemError, problem } from '../problem';
 import { withoutSecrets } from '../secret-fields';
 import { AuthGuard, type GuardedRequest, tenantOf } from './auth.guard';
@@ -149,7 +156,9 @@ export class UnitOfWork {
     if (!auth?.principal) throw new Error('UnitOfWork.run() needs an authenticated staff request');
     const principal = auth.principal;
     const body = req.body as { dryRun?: unknown } | undefined;
-    const dryRun = !!body && typeof body === 'object' && body.dryRun === true;
+    // SEC-BE-21: only operations that declare `dryRun` (the guard refuses it elsewhere).
+    const dryRun =
+      auth.operation.dryRun === true && !!body && typeof body === 'object' && body.dryRun === true;
     const key =
       auth.operation.idempotencyKey && !dryRun ? headerValue(req, 'idempotency-key') : undefined;
 
@@ -213,7 +222,8 @@ export class UnitOfWork {
       if (pgCode(err) === '55P03') throw problem('IDEMPOTENCY_IN_PROGRESS');
       throw err;
     }
-    await tx.query(`SELECT set_config('lock_timeout', '0', true)`);
+    // Back to the transaction default, never "wait forever" (SEC-BE-23).
+    await tx.query(`SELECT set_config('lock_timeout', $1, true)`, [`${DEFAULT_LOCK_TIMEOUT_MS}ms`]);
     if (inserted) return null;
 
     const { rows } = await tx.query<KeyRow>(

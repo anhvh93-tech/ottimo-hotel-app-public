@@ -12,6 +12,7 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
 import { optionalText } from '../../../shared/validation';
 import { parseBody } from '../../platform/public/validation';
+import { rejectDryRun } from '../../../shared/http/dry-run';
 import { type DepositPaymentInput, DepositsService } from './deposits.service';
 
 interface Reply {
@@ -107,6 +108,7 @@ export class DepositsController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(reservationId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const input = parseBody(confirmSchema, body);
     if ((input.payment === undefined) === (input.existingPaymentId === undefined)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'payment', code: 'REQUIRED' }] });
@@ -123,7 +125,7 @@ export class DepositsController {
         { payment, existingPaymentId: input.existingPaymentId ?? null },
         req.id,
       );
-      return 'fail' in out ? out : { status: 200, body: out.body };
+      return { status: 200, body: out.body };
     });
     if (typeof result.body.version === 'number') reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);
@@ -138,6 +140,7 @@ export class DepositsController {
     @Body() body: unknown,
   ) {
     if (!UUID.test(reservationId)) throw problem('NOT_FOUND');
+    rejectDryRun(body);
     const input = parseBody(noticeSchema, body);
     const errors: FieldError[] = [];
     if (input.amountVnd <= 0) errors.push({ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' });

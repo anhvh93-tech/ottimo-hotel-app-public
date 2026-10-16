@@ -76,7 +76,14 @@ export async function syncExtraGuestKit(tx: Tx, input: KitSyncInput): Promise<Ki
         keep = keep ?? t;
         continue;
       }
-      // Prepared already: recover it at the next cleaning of that room (BR-812 (4)).
+      // Prepared already: recover it at the next cleaning of that room (BR-812 (4)) – ONE collect task per
+      // prepared kit (DOM-BE-08): skip when a collect for this booking + room already exists.
+      const exists = await tx.query(
+        `SELECT 1 FROM hk_task WHERE reservation_id = $1 AND room_id = $2
+            AND type = 'extra_guest_kit_collect' AND status <> 'cancelled' LIMIT 1`,
+        [input.reservationId, t.room_id],
+      );
+      if (exists.rows.length > 0) continue;
       const id = await insertTask(
         tx,
         input,

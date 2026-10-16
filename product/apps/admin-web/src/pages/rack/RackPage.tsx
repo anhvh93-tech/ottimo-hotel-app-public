@@ -195,7 +195,7 @@ function DeskRack({
           </Button>
         </div>
         <Seg
-          label={`${t('rack.view_grid')} / ${t('rack.view_list')}`}
+          label={t('rack.view_label')}
           value={view}
           onChange={setView}
           options={[
@@ -203,14 +203,9 @@ function DeskRack({
             { value: 'list', label: t('rack.view_list') },
           ]}
         />
-        <label className="row" style={{ gap: 6, fontSize: '.8125rem' }}>
+        <label className="row tight caption">
           <span>{t('rack.filter_group')}</span>
-          <select
-            className="input"
-            style={{ width: 'auto', minHeight: 32 }}
-            value={group}
-            onChange={(e) => setGroup(e.target.value)}
-          >
+          <select className="input auto-w" value={group} onChange={(e) => setGroup(e.target.value)}>
             <option value="">{t('rack.all_groups')}</option>
             {groups.map((g) => (
               <option key={g} value={g}>
@@ -237,29 +232,53 @@ function DeskRack({
         </Button>
       </div>
 
+      {!online ? (
+        // H08: say why booking is locked offline (anti double-booking, BR-906).
+        <Alert tone="warn" icon="offline" role="status">
+          {t('rack.offline', { time: timeHHmm(new Date()) })}
+        </Alert>
+      ) : null}
+
       {state.status === 'error' && !rack ? (
         <ErrorBlock titleKey="fo.rack.error_title" error={state.error} onRetry={reload} />
       ) : !rack ? (
         <LoadingBlock rows={6} />
       ) : (
         <>
-          {unassigned.length ? (
+          {unassigned.length === 1 ? (
+            // H08: one conflict → its own title (channel, code, guest) + Gán căn for that booking.
             <Alert
               tone="bad"
-              title={t('today.unassigned_title', { n: unassigned.length })}
+              title={t('rack.conflict_title', {
+                channel: channelName(catalog.channels, unassigned[0]!.channelCode),
+                code: unassigned[0]!.reservationCode ?? '',
+                guest: unassigned[0]!.guestDisplayName ?? '',
+              })}
               actions={
                 <Button size="sm" onClick={(e) => openBar(unassigned[0]!, e.currentTarget)}>
                   {t('fo.rack.assign_room')}
                 </Button>
               }
             >
-              {unassigned
-                .map(
-                  (b) =>
-                    `${b.guestDisplayName ?? ''} · ${channelName(catalog.channels, b.channelCode)} · ${dayMonth(b.from)} → ${dayMonth(b.to)}`,
-                )
-                .join('; ')}
-              . {t('fo.rack.unassigned_help')}
+              {t('fo.rack.unassigned_help')}
+            </Alert>
+          ) : unassigned.length > 1 ? (
+            <Alert tone="bad" title={t('today.unassigned_title', { n: unassigned.length })}>
+              <ul className="list-plain">
+                {unassigned.map((b) => (
+                  <li key={b.reservationId ?? b.from} className="mb-4">
+                    {t('rack.conflict_title', {
+                      channel: channelName(catalog.channels, b.channelCode),
+                      code: b.reservationCode ?? '',
+                      guest: b.guestDisplayName ?? '',
+                    })}{' '}
+                    · {dayMonth(b.from)} → {dayMonth(b.to)}{' '}
+                    <Button size="sm" onClick={(e) => openBar(b, e.currentTarget)}>
+                      {t('fo.rack.assign_room')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </Alert>
           ) : null}
           {noBars ? (
@@ -290,6 +309,17 @@ function DeskRack({
                 focusTodaySignal={todaySignal}
               />
             </>
+          ) : narrow ? (
+            <RackMobileList
+              rack={rack}
+              rooms={rooms}
+              unassigned={unassigned}
+              channels={catalog.channels}
+              onOpen={(id, el) => {
+                returnFocus.current = el;
+                setDrawer(id);
+              }}
+            />
           ) : (
             <RackTable
               rack={rack}
@@ -390,7 +420,7 @@ function RackTable({
           .filter(Boolean)
           .join(' · ');
   const entry = (b: RackBarX, i: number) => (
-    <li key={`${b.from}-${i}`} style={{ marginBottom: 4 }}>
+    <li key={`${b.from}-${i}`} className="mb-4">
       {b.reservationId ? (
         <button
           type="button"
@@ -420,8 +450,8 @@ function RackTable({
         <thead>
           <tr>
             <th scope="col">{t('rack.col_room')}</th>
-            <th scope="col">{t('users.col_status')}</th>
-            <th scope="col">{t('nav.reservations')}</th>
+            <th scope="col">{t('rack.col_status')}</th>
+            <th scope="col">{t('rack.col_bookings')}</th>
           </tr>
         </thead>
         <tbody>
@@ -434,9 +464,7 @@ function RackTable({
                 </Chip>
               </td>
               <td>
-                <ul className="err-list" style={{ listStyle: 'none', padding: 0 }}>
-                  {items(unassigned).map(entry)}
-                </ul>
+                <ul className="list-none">{items(unassigned).map(entry)}</ul>
               </td>
             </tr>
           ) : null}
@@ -450,15 +478,13 @@ function RackTable({
                 {room.isSellable === false ? (
                   <>
                     {' '}
-                    <Chip tone="bad">{t('config.stop_sale')}</Chip>
+                    <Chip tone="bad">{t('rack.off_sale')}</Chip>
                   </>
                 ) : null}
               </td>
               <td>
                 {items(room.bars as RackBarX[]).length ? (
-                  <ul className="err-list" style={{ listStyle: 'none', padding: 0 }}>
-                    {items(room.bars as RackBarX[]).map(entry)}
-                  </ul>
+                  <ul className="list-none">{items(room.bars as RackBarX[]).map(entry)}</ul>
                 ) : (
                   <span className="li-s">{t('sale.free')}</span>
                 )}
@@ -467,6 +493,116 @@ function RackTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * H08 8.3 – phone (< 768 px): one card row per room (current / next booking + chips), 44 px targets;
+ * the desktop "Danh sách" table stays as the screen-reader alternative of the grid.
+ */
+function RackMobileList({
+  rack,
+  rooms,
+  unassigned,
+  channels,
+  onOpen,
+}: {
+  rack: Rack;
+  rooms: RackRoom[];
+  unassigned: RackBarX[];
+  channels: ReturnType<typeof useCatalog>['channels'];
+  onOpen: (id: string, el: HTMLElement) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="rack-list">
+      {unassigned.length ? (
+        <Alert
+          tone="bad"
+          actions={
+            unassigned[0]?.reservationId ? (
+              <Button
+                size="sm"
+                onClick={(e) => onOpen(unassigned[0]!.reservationId!, e.currentTarget)}
+              >
+                {t('fo.rack.assign_room')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {t('rack.unassigned_short', { n: unassigned.length })}
+        </Alert>
+      ) : null}
+      <div className="grp-h">{t('rack.by_room')}</div>
+      <ul className="list">
+        {rooms.map((room) => {
+          const bars = (room.bars as RackBarX[])
+            .filter((b) => b.to > rack.today && b.kind !== 'checked_out')
+            .sort((a, b) => a.from.localeCompare(b.from));
+          const main = bars.find((b) => b.kind !== 'ooo');
+          const ooo = bars.find((b) => b.kind === 'ooo');
+          const hold = bars.find((b) => b.kind === 'hold' && b !== main);
+          const body = (
+            <>
+              <span className="roomno">{room.roomNo}</span>
+              <span className="grow">
+                <span className="li-t">
+                  {main
+                    ? [
+                        main.kind === 'long_stay' ? t('rack.long_prefix') : null,
+                        main.guestDisplayName,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : t(`status.room.${room.roomStatus}`)}
+                  {main && main.from === rack.today ? ` · ${t('rack.note.arrives_today')}` : ''}
+                </span>
+                {main ? (
+                  <>
+                    <br />
+                    <span className="li-s">
+                      {dayMonth(main.from)} → {dayMonth(main.to)}
+                      {main.channelCode ? ` · ${channelName(channels, main.channelCode)}` : ''}
+                    </span>
+                  </>
+                ) : null}
+                <br />
+                {main?.externalContract ? <Chip>{t('rack.manual_badge')}</Chip> : null}
+                {main?.extraGuestCount ? (
+                  <Chip tone="info" icon="sofa">
+                    {t('occ.kit_chip', { n: main.extraGuestCount })}
+                  </Chip>
+                ) : null}
+                {hold ? (
+                  <Chip tone="warn" icon="hourglass">
+                    {hold.guestDisplayName} {dayMonth(hold.from)}–{dayMonth(hold.to)}
+                  </Chip>
+                ) : null}
+                {ooo ? (
+                  <Chip tone="bad">{t('rack.ooo_until', { date: dayMonth(ooo.to) })}</Chip>
+                ) : null}
+                {room.isSellable === false ? <Chip tone="bad">{t('rack.off_sale')}</Chip> : null}
+              </span>
+            </>
+          );
+          return (
+            <li key={room.roomId}>
+              {main?.reservationId ? (
+                <button
+                  type="button"
+                  className="rowlink"
+                  onClick={(e) => onOpen(main.reservationId!, e.currentTarget)}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className="li">{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -496,6 +632,10 @@ function Legend() {
           </>,
         )}
         {sw('hold', 'status.booking.hold')}
+        <span className="sw">
+          <span className="bar hold urgent" aria-hidden="true" />
+          <span>{t('rack.legend_hold_urgent', { hours: 2 })}</span>
+        </span>
         {sw('checked_out', 'status.booking.checked_out')}
         {sw('ooo', 'status.block.ooo')}
         {sw('conflict', 'rack.legend_unassigned')}
@@ -504,9 +644,7 @@ function Legend() {
           <span>{t('rack.legend_kit')}</span>
         </span>
       </div>
-      <p className="li-s" style={{ marginTop: 6 }}>
-        {t('rack.hidden_note')}
-      </p>
+      <p className="li-s mt-8">{t('rack.hidden_note')}</p>
     </>
   );
 }

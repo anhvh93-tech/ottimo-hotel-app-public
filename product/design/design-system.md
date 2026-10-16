@@ -223,6 +223,13 @@ Quy tắc:
 | `<div className="brand" style={{padding:0, marginBottom:18}}>` | `.brand.flush` (16px) |
 | `<ul style={{margin:'6px 0 0', paddingLeft:18}}>` | `.list-plain` |
 | `<Button style={{marginTop:8}}>` | `.btn.mt` hoặc `.mt-8` |
+| `style={{padding:12}}` | `.p-12` (v0.3.3a – từ FE S2) |
+| `<div className="row" style={{flexWrap:'wrap', gap:6}}>` | `.row.wrap` |
+| `<select className="input" style={{width:'auto', minHeight:32}}>` (bộ lọc gọn trên Desk) | `.input.auto-w` – chỉ Desk dùng chuột; màn chạm giữ 44px |
+| `<ul style={{listStyle:'none', padding:0}}>` | `.list-none` (`.plain-list` = tên cũ, giữ tương thích) |
+| Tên căn phụ ở đầu dòng rack | `.rack .rm .rm-name` |
+| Dòng bấm được trong danh sách rack điện thoại | `.rack-list .rowlink` (cao ≥ 44px) |
+| Giữ chỗ sắp hết hạn trên rack | `.bar.hold.urgent` (viền + chữ `--bad`; chú giải `rack.legend_hold_urgent`) |
 | `margin-top/bottom` 4 · 8 · 12 · 16, `margin:0`, `padding:8px` | `.mt-4 .mt-8 .mt-12 .mt-16 .mb-4 .mb-8 .mb-12 .mb-16 .my-8 .m-0 .p-0 .p-8` |
 | skeleton `style={{height:…}}` | `.sk.h-6 .h-12 .h-32 .h-36 .h-56 .h-80 .h-96 .h-120 .h-300`, `.sk.w-60`; các `.sk` liền nhau tự cách 10px |
 | `<tr aria-selected>` để tô hàng đang sửa | `tr.is-editing` (FB-R2-UXD-FE-13) |

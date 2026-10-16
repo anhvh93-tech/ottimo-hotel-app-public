@@ -2180,6 +2180,33 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `field.MANUAL_LONG_STAY_BELOW_THRESHOLD` | Đơn dài hạn nhập tay cần từ {n} đêm. | A manual long-stay booking needs {n} nights or more. | ⟨chừa chỗ⟩ | FE truyền {n} = long_stay_required_from_nights (mặc định 28) |
 | `field.OTA_PENALTY_OTA_ONLY` | Tiền phạt theo kênh chỉ ghi cho đơn OTA. | A channel penalty applies to OTA bookings only. | ⟨chừa chỗ⟩ |  |
 
+#### R2 Sprint 2 – phản hồi FE (s2-FE): lý do đổi căn, nguồn khách, sức chứa OTA, giữ chỗ
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `move.reason.guest_request` | Khách yêu cầu | Guest request | ⟨chừa chỗ⟩ | MoveReasonCode – BR-429; cũng dùng cho dời ngày thay vì hủy |
+| `move.reason.property_fault` | Căn hỏng / sự cố | Room fault | ⟨chừa chỗ⟩ | Gắn khóa phòng BR-804 |
+| `move.reason.overbooking` | Xử lý trùng phòng / xung đột OTA | Overbooking / OTA conflict | ⟨chừa chỗ⟩ | Chỉ hiện khi conflictState=open hoặc capacityConflict |
+| `move.reason.upgrade` | Nâng hạng chủ động | Upgrade | ⟨chừa chỗ⟩ | Chỉ FDL+ |
+| `move.reason.inventory_optimize` | Sắp căn để tránh đêm lẻ | Rearrange to avoid orphan nights | ⟨chừa chỗ⟩ | Chỉ khi chưa báo số căn cho khách |
+| `move.reason.force_majeure` | Bất khả kháng (ghi bằng chứng) | Force majeure (add evidence) | ⟨chừa chỗ⟩ | Chỉ dời ngày thay vì hủy, MGR+, ghi chú bắt buộc |
+| `move.reason.other` | Khác (ghi rõ) | Other (please specify) | ⟨chừa chỗ⟩ | Ghi chú bắt buộc |
+| `bk.source_help` | Khách đã từng ở OTTIMO thì chọn Khách quay lại. CTV/môi giới chọn ở Kênh, không chọn ở đây. | If the guest has stayed at OTTIMO before, choose Returning guest. Agents are a channel, not a source. | ⟨chừa chỗ⟩ | DOM D-6, FB-R2-DOM-FE-02 – dòng gợi ý dưới ô directSource |
+| `bk.source_auto_returning` | Đã chọn sẵn Khách quay lại (lần ở gần nhất {date}). Đổi được nếu không đúng. | Returning guest pre-selected (last stay {date}). Change it if that's not right. | ⟨chừa chỗ⟩ | Khi hồ sơ khách có lastStayDate |
+| `bk.use_room_orphan` | Dùng căn {room} (đêm lẻ) | Use room {room} (orphan night) | ⟨chừa chỗ⟩ | Nút gợi ý khi MIN_STAY_NOT_MET – căn còn đúng khoảng đêm lẻ (A-05) |
+| `bk.closer_sales` | Người chốt | Closed by | ⟨chừa chỗ⟩ | Ô chọn sale nội bộ chốt đơn (A-06); CTV vẫn dùng bk.closer |
+| `sale.extend_requested` | Đã gửi quản lý gia hạn báo giá {code} | Request to extend quote {code} sent to a manager | ⟨chừa chỗ⟩ | Toast 202 extendQuote (A-18) |
+| `rsv.capacity_chip` | Vượt sức chứa (OTA) | Over capacity (OTA) | ⟨chừa chỗ⟩ | Chip drawer/rack khi Reservation.capacityConflict (DOM D-1) |
+| `rsv.capacity_conflict_body` | Đơn có {n} người, căn {room} tối đa {max}. Chưa nhận phòng được cho tới khi đổi căn, thêm căn hoặc sửa số người sau khi hỏi khách. | This booking has {n} guests; room {room} takes {max}. It can't be checked in until you move rooms, add a room, or correct the guest count with the guest. | ⟨chừa chỗ⟩ | Alert trong drawer – thay error.CAPACITY_EXCEEDED |
+| `rack.capacity_conflict` | vượt sức chứa | over capacity | ⟨chừa chỗ⟩ | Ghi chú trên thanh + aria-label rack |
+| `booking.capacity_warning` | Căn {room} tối đa {max} người, đơn OTA có {n}. Vẫn lưu đơn? Ghi lý do và liên hệ khách. | Room {room} takes up to {max} guests; this OTA booking has {n}. Save it anyway? Add a reason and contact the guest. | ⟨chừa chỗ⟩ | EP02 – 422 CAPACITY_EXCEEDED_WARNING (H09, Đổi căn) |
+| `booking.capacity_reason` | Lý do vẫn lưu | Reason for saving anyway | ⟨chừa chỗ⟩ | capacityWarningAckReason, ≥ 3 ký tự |
+| `booking.capacity_reason_help` | Ví dụ: đã gọi khách, sẽ đổi sang căn lớn hơn khi có. | e.g. Called the guest; will move to a bigger room when one frees up. | ⟨chừa chỗ⟩ |  |
+| `field.CAPACITY_EXCEEDED_WARNING` | Số khách vượt tối đa của căn. Ghi lý do để vẫn lưu đơn OTA. | More guests than the room allows. Add a reason to save the OTA booking anyway. | ⟨chừa chỗ⟩ | Mã trường – khi FE không dựng được booking.capacity_warning |
+| `rack.legend_hold_urgent` | Giữ chỗ còn dưới {hours} giờ | Hold with under {hours} h left | ⟨chừa chỗ⟩ | Mẫu chú giải .bar.hold.urgent – {hours} = hold_expiry_reminder_hours |
+| `field.HOLD_LIMIT_REACHED` | Bạn đang có {max} giữ chỗ chưa cọc – mức tối đa. Chốt cọc hoặc hủy bớt rồi giữ thêm. | You already have {max} unpaid holds – the limit. Confirm a deposit or cancel one before adding more. | ⟨chừa chỗ⟩ | SEC-BE-28 – field holdHours; {max} = Problem.max (FE truyền args) |
+| `error.ROOM_OCCUPIED` | Căn {room} đang có khách ở trong khoảng khóa. Đổi phòng cho khách trước rồi mới khóa căn. | Room {room} has a guest in house during this block. Move the guest first, then block the room. | ⟨chừa chỗ⟩ | 409 – createRoomBlock / updateRoomBlock / createWorkOrder.block |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

@@ -6,7 +6,11 @@
  * - onReservationConfirmed()  B2/B4/B12: room line per sold night (snapshot price, stay_night_id), extra-person
  *                             lines (BR-110), commission `projected` (SM-11, BR-903) and OTA channel fee
  *                             (BR-901), each allocated over the nights of stay_night (erd 8, Σ = total).
- * - onReservationVoided()     B5/B6/B10/B11: live commissions → `void` (SM-11).
+ * - resyncStay()              B7/B8/B13/B16/PATCH people: same full sync (reversal + repost – DOM BE-02/03).
+ * - onReservationVoided()     B5/B6/B10/B11/relocation: commissions → `void` (SM-11).
+ * - voidStay()                FOLIO_STAY_SYNC (BE-A port): reversal of the voided nights' lines + one fee line
+ *                             for the retained money (DOM BE-01).
+ * stay_night allocations go through reservations/public StayNightAllocationService (ARC S2-07).
  * - lock()/totals()/view()    for payments (deposit B4) and getFolio.
  * FOC/discount lines are linked to approvals (SM-10) by FolioFocService (approval hooks, BR-434).
  *
@@ -27,7 +31,9 @@ import { AuditService } from '../../audit/public/audit.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { applyPct } from '../../reservations/public/pricing';
+import type { FolioStaySync, VoidStayInput } from '../../reservations/public/folio-sync-port';
 import type { ConfirmedStay } from '../../reservations/public/sales-port';
+import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
 import { allocate } from './allocate';
 
 export type RevenueGroup = 'room' | 'other' | 'non_revenue';
@@ -36,6 +42,26 @@ export type PayeeType = 'agent' | 'staff';
 /** Revenue group of a charge category (BR-904: room revenue excludes surcharges, minibar, fees). */
 export function revenueGroupOf(category: FolioLineCategory): RevenueGroup {
   return category === 'room' ? 'room' : 'other';
+}
+
+export interface SyncResult {
+  roomVnd: number;
+  extraPersonVnd: number;
+  reversedVnd: number;
+  commissionVnd: number;
+}
+
+interface LiveLine {
+  id: string;
+  category: FolioLineCategory;
+  revenue_group: RevenueGroup;
+  description: string;
+  quantity: string;
+  unit_price_vnd: number;
+  amount_vnd: number;
+  service_date: string | null;
+  stay_night_id: string | null;
+  related_line_id: string | null;
 }
 
 export interface FolioRow {
@@ -164,12 +190,13 @@ export function commissionPctFor(table: unknown, payee: PayeeType): number | nul
 }
 
 @Injectable()
-export class FolioService {
+export class FolioService implements FolioStaySync {
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(ChannelsService) private readonly channels: ChannelsService,
+    @Inject(StayNightAllocationService) private readonly nights: StayNightAllocationService,
   ) {}
 
   /** One open folio per primary booking. `folioId` lets the caller pre-generate it (deferred FK). */
@@ -250,34 +277,153 @@ export class FolioService {
   }
 
   /**
-   * B2 / B4 / B12 money postings (see header). Idempotent per night: a night that already has a live room
-   * line is skipped, so restoring a booking never doubles its charges.
+   * B2 / B4 / B12 money postings (see header) – a full sync of the folio with the sold nights (`syncStay`):
+   * idempotent, so a restore (B12) re-posts exactly the nights whose line was reversed at B11.
    */
   async onReservationConfirmed(
     tx: Tx,
-    stay: ConfirmedStay & { commissionRatePctSnapshot?: number | null },
+    stay: ConfirmedStay,
     actor: { userId: string | null; requestId?: string },
-  ): Promise<{ roomVnd: number; extraPersonVnd: number; commissionVnd: number }> {
+  ): Promise<SyncResult> {
+    return this.syncStay(tx, stay, actor, 'folio.charges_posted');
+  }
+
+  /**
+   * B7 / B8 / B13 / B16 / PATCH people (FB-R2-DOM-BE-02): the booking changed nights, prices (BR-107 re-tier,
+   * DOM D-8) or people. Same sync as onReservationConfirmed: lines of nights no longer sold and lines whose
+   * price changed are REVERSED (BR-008), new nights / new prices / new extra-person fee are posted,
+   * commission and OTA channel fee are recomputed and re-allocated.
+   */
+  async resyncStay(
+    tx: Tx,
+    stay: ConfirmedStay,
+    actor: { userId: string | null; requestId?: string },
+  ): Promise<void> {
+    await this.syncStay(tx, stay, actor, 'folio.charges_resynced');
+  }
+
+  /** B5/B6/B10/B11/relocation: live commissions of the booking → void (SM-11). */
+  async onReservationVoided(
+    tx: Tx,
+    input: { reservationId: string; reservationCode: string; reason: string; requestId?: string },
+  ): Promise<number> {
+    return this.voidCommissions(
+      tx,
+      input.reservationId,
+      input.reservationCode,
+      input.reason,
+      this.clock.now(),
+      input.requestId,
+    );
+  }
+
+  /**
+   * FOLIO_STAY_SYNC.voidStay – B10 / B11 / relocation (FB-R2-DOM-BE-01 Blocker):
+   * - reverses the live `room` lines of `voidedStayNightIds` and the `extra_person` lines of the same dates,
+   *   with the posted FOC/discount lines that reduced them (BR-008: reversal lines, never an edit);
+   * - posts ONE line for the retained money (`retainedVnd` > 0): `cancellation_fee` (BR-309) or `no_show_fee`
+   *   (BR-311), revenue "other" (BR-904); the refundable part stays in the refund approval flow (BR-522),
+   *   so until it is paid back the balance shows it as a credit (negative balance);
+   * - holds (B5/B6) have no posted lines → no-op. Money audit `folio.stay_reversed` in the same transaction.
+   * Commissions are voided by onReservationVoided (called by reservations just before).
+   */
+  async voidStay(tx: Tx, input: VoidStayInput, who: { userId: string | null }): Promise<void> {
+    const retained = input.retainedVnd;
+    if (!Number.isSafeInteger(retained) || retained < 0) {
+      throw new RangeError('retainedVnd must be a non-negative safe integer');
+    }
+    const folio = await this.lock(tx, input.folioId);
+    if (!folio) throw new Error(`folio ${input.folioId} not visible for ${input.reservationCode}`);
+    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    const now = this.clock.now();
+    const live = await this.liveLines(tx, folio.id, input.reservationId);
+    const nightIds = new Set(input.voidedStayNightIds);
+    const voidedRoom = live.filter(
+      (l) => l.category === 'room' && l.stay_night_id !== null && nightIds.has(l.stay_night_id),
+    );
+    const dates = new Set(voidedRoom.map((l) => l.service_date));
+    let reversedVnd = 0;
+    for (const l of voidedRoom) {
+      reversedVnd += await this.reverseWithReductions(tx, l, live, who.userId, now);
+    }
+    for (const l of live.filter(
+      (x) => x.category === 'extra_person' && dates.has(x.service_date),
+    )) {
+      reversedVnd += await this.reverseWithReductions(tx, l, live, who.userId, now);
+    }
+    let feeVnd = 0;
+    if (retained > 0) {
+      const category =
+        input.retainedKind ?? (input.reason === 'no_show' ? 'no_show_fee' : 'cancellation_fee');
+      await this.insertLine(tx, {
+        folioId: folio.id,
+        reservationId: input.reservationId,
+        category,
+        description: category,
+        quantity: 1,
+        unitPriceVnd: retained,
+        amountVnd: retained,
+        serviceDate: localDate(now, await this.timezone(tx)),
+        stayNightId: null,
+        source: 'system',
+        postedBy: who.userId,
+        now,
+      });
+      feeVnd = retained;
+    }
+    if (reversedVnd !== 0 || feeVnd > 0) {
+      await this.audit.recordMoney(tx, {
+        action: 'folio.stay_reversed',
+        entityType: 'folio',
+        entityId: folio.id,
+        entityCode: input.reservationCode,
+        after: { reversedVnd, feeVnd, status: input.reason },
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+      });
+    }
+  }
+
+  // ───────────── sync (B2/B4/B7/B8/B12/B13/B16/PATCH) ─────────────
+
+  private async syncStay(
+    tx: Tx,
+    stay: ConfirmedStay,
+    who: { userId: string | null; requestId?: string },
+    action: string,
+  ): Promise<SyncResult> {
     const folio = await this.lock(tx, stay.folioId);
     if (!folio) throw new Error(`folio ${stay.folioId} not visible for ${stay.reservationCode}`);
     if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
     const now = this.clock.now();
     const tz = await this.timezone(tx);
     const today = localDate(now, tz);
+    const by = who.userId;
+    let live = await this.liveLines(tx, folio.id, stay.reservationId);
+    const result: SyncResult = { roomVnd: 0, extraPersonVnd: 0, reversedVnd: 0, commissionVnd: 0 };
 
-    const { rows: posted } = await tx.query<{ stay_night_id: string }>(
-      `SELECT l.stay_night_id FROM folio_line l
-        WHERE l.folio_id = $1 AND l.category = 'room' AND l.stay_night_id = ANY($2::uuid[])
-          AND l.reversal_of_id IS NULL
-          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
-      [folio.id, stay.nights.map((n) => n.stayNightId)],
-    );
-    const already = new Set(posted.map((p) => p.stay_night_id));
-    const nights = stay.nights.filter((n) => !already.has(n.stayNightId));
+    // B12: a restored no-show drops its fee (the nights are charged again below).
+    for (const l of live.filter((x) => x.category === 'no_show_fee')) {
+      result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+    }
 
-    let roomVnd = 0;
-    let extraPersonVnd = 0;
-    for (const n of nights) {
+    // Room nights: keep a live line whose gross (line − nothing) still equals the night, else reverse.
+    const target = new Map(stay.nights.map((n) => [n.stayNightId, n]));
+    const kept = new Set<string>();
+    for (const l of live.filter((x) => x.category === 'room' && x.stay_night_id)) {
+      const night = target.get(l.stay_night_id as string);
+      const reduced = this.reductionOf(l, live);
+      if (
+        night &&
+        !kept.has(night.stayNightId) &&
+        l.amount_vnd === night.roomRevenueVnd + reduced
+      ) {
+        kept.add(night.stayNightId);
+        continue;
+      }
+      result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+    }
+    for (const n of stay.nights) {
+      if (kept.has(n.stayNightId)) continue;
       await this.insertLine(tx, {
         folioId: folio.id,
         reservationId: stay.reservationId,
@@ -289,66 +435,151 @@ export class FolioService {
         serviceDate: n.date,
         stayNightId: n.stayNightId,
         source: 'system',
-        postedBy: actor.userId,
+        postedBy: who.userId,
         now,
       });
-      roomVnd += n.roomRevenueVnd;
-      if (stay.extraPersonPerNightVnd > 0) {
-        await this.insertLine(tx, {
-          folioId: folio.id,
-          reservationId: stay.reservationId,
-          category: 'extra_person',
-          description: `extra_guest x${stay.extraGuestCount}`,
-          quantity: 1,
-          unitPriceVnd: stay.extraPersonPerNightVnd,
-          amountVnd: stay.extraPersonPerNightVnd,
-          serviceDate: n.date,
-          stayNightId: null,
-          source: 'system',
-          postedBy: actor.userId,
-          now,
-        });
-        extraPersonVnd += stay.extraPersonPerNightVnd;
-      }
+      result.roomVnd += n.roomRevenueVnd;
     }
 
-    const commissionVnd = await this.projectCommission(tx, stay, today, now);
-    await this.channelFee(tx, stay, today, now);
+    // Extra-person fee (BR-110): one line per sold night at the current per-night fee.
+    live = await this.liveLines(tx, folio.id, stay.reservationId);
+    const perNight = stay.extraPersonPerNightVnd;
+    const wanted = new Set(perNight > 0 ? stay.nights.map((n) => n.date) : []);
+    const keptDates = new Set<string>();
+    for (const l of live.filter((x) => x.category === 'extra_person')) {
+      const d = l.service_date ?? '';
+      if (wanted.has(d) && !keptDates.has(d) && l.amount_vnd === perNight) {
+        keptDates.add(d);
+        continue;
+      }
+      result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+    }
+    for (const d of wanted) {
+      if (keptDates.has(d)) continue;
+      await this.insertLine(tx, {
+        folioId: folio.id,
+        reservationId: stay.reservationId,
+        category: 'extra_person',
+        description: `extra_guest x${stay.extraGuestCount}`,
+        quantity: 1,
+        unitPriceVnd: perNight,
+        amountVnd: perNight,
+        serviceDate: d,
+        stayNightId: null,
+        source: 'system',
+        postedBy: who.userId,
+        now,
+      });
+      result.extraPersonVnd += perNight;
+    }
 
-    if (nights.length > 0 || commissionVnd > 0) {
+    result.commissionVnd = await this.syncCommission(tx, stay, today, now, who.requestId);
+    await this.syncChannelFee(tx, stay, today, now, who.requestId);
+
+    if (result.roomVnd !== 0 || result.extraPersonVnd !== 0 || result.reversedVnd !== 0) {
       await this.audit.recordMoney(tx, {
-        action: 'folio.charges_posted',
+        action,
         entityType: 'folio',
         entityId: folio.id,
         entityCode: stay.reservationCode,
-        after: { roomVnd, extraPersonVnd, nights: nights.length, commissionVnd },
-        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        after: {
+          roomVnd: result.roomVnd,
+          extraPersonVnd: result.extraPersonVnd,
+          reversedVnd: result.reversedVnd,
+          nights: stay.nights.length,
+          commissionVnd: result.commissionVnd,
+        },
+        ...(who.requestId ? { requestId: who.requestId } : {}),
       });
     }
-    return { roomVnd, extraPersonVnd, commissionVnd };
+    return result;
   }
 
-  /** B5/B6/B10/B11: live commissions of the booking → void (SM-11). */
-  async onReservationVoided(
+  /** Posted, non-reversal, not-yet-reversed lines of one booking on a folio. */
+  private async liveLines(tx: Tx, folioId: string, reservationId: string): Promise<LiveLine[]> {
+    const { rows } = await tx.query<LiveLine>(
+      `SELECT l.id, l.category, l.revenue_group, l.description, l.quantity, l.unit_price_vnd, l.amount_vnd,
+              l.service_date::text AS service_date, l.stay_night_id, l.related_line_id
+         FROM folio_line l
+        WHERE l.folio_id = $1 AND l.reservation_id = $2 AND l.line_state = 'posted'
+          AND l.reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
+        ORDER BY l.posted_at, l.id`,
+      [folioId, reservationId],
+    );
+    return rows;
+  }
+
+  /** Σ of the posted FOC/discount lines that reduce `line` (positive VND). */
+  private reductionOf(line: LiveLine, live: readonly LiveLine[]): number {
+    return live
+      .filter(
+        (r) => r.related_line_id === line.id && (r.category === 'foc' || r.category === 'discount'),
+      )
+      .reduce((a, r) => a - r.amount_vnd, 0);
+  }
+
+  /**
+   * Reversal of a line (BR-008: opposite amount, `reversal_of_id`) and of the posted FOC/discount lines that
+   * reduced it; a reversed room discount is taken back from its night. Returns the net reversed amount.
+   */
+  private async reverseWithReductions(
     tx: Tx,
-    input: { reservationId: string; reservationCode: string; reason: string; requestId?: string },
+    line: LiveLine,
+    live: readonly LiveLine[],
+    by: string | null,
+    now: Date,
   ): Promise<number> {
-    const now = this.clock.now();
+    let net = await this.reverse(tx, line, by, now);
+    for (const r of live.filter(
+      (x) => x.related_line_id === line.id && (x.category === 'foc' || x.category === 'discount'),
+    )) {
+      net += await this.reverse(tx, r, by, now);
+      if (line.category === 'room' && line.stay_night_id) {
+        await this.nights.addDiscount(tx, line.stay_night_id, r.amount_vnd);
+      }
+    }
+    return net;
+  }
+
+  private async reverse(tx: Tx, l: LiveLine, by: string | null, now: Date): Promise<number> {
+    const id = uuidv7();
+    await tx.query(
+      `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category, adjusts_group,
+         revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
+         stay_night_id, line_state, related_line_id, reversal_of_id, source, posted_at, posted_by, created_at)
+       SELECT $2, organization_id, property_id, folio_id, reservation_id, category, adjusts_group, revenue_group,
+              description, quantity, -unit_price_vnd, -amount_vnd, vat_rate_pct, service_date, stay_night_id,
+              'posted', related_line_id, id, 'system', $3, $4, $3
+         FROM folio_line WHERE id = $1`,
+      [l.id, id, now, by],
+    );
+    return l.amount_vnd;
+  }
+
+  private async voidCommissions(
+    tx: Tx,
+    reservationId: string,
+    code: string,
+    reason: string,
+    now: Date,
+    requestId?: string,
+  ): Promise<number> {
     const { rows } = await tx.query<{ id: string; amount_vnd: number }>(
       `UPDATE commission SET status = 'void', void_reason = $2, updated_at = $3, version = version + 1
         WHERE reservation_id = $1 AND status IN ('projected', 'earned')
         RETURNING id, amount_vnd`,
-      [input.reservationId, input.reason, now],
+      [reservationId, reason, now],
     );
     for (const c of rows) {
       await this.audit.recordMoney(tx, {
         action: 'commission.voided',
         entityType: 'commission',
         entityId: c.id,
-        entityCode: input.reservationCode,
+        entityCode: code,
         before: { status: 'projected', amountVnd: c.amount_vnd },
-        after: { status: 'void', voidReason: input.reason },
-        ...(input.requestId ? { requestId: input.requestId } : {}),
+        after: { status: 'void', voidReason: reason },
+        ...(requestId ? { requestId } : {}),
       });
     }
     return rows.length;
@@ -411,112 +642,230 @@ export class FolioService {
     return id;
   }
 
-  /** SM-11 [*] → projected (BR-903): CTV/sale closer, % × room total, allocated over the nights. */
-  private async projectCommission(
-    tx: Tx,
-    stay: ConfirmedStay & { commissionRatePctSnapshot?: number | null },
-    today: LocalDate,
-    now: Date,
-  ): Promise<number> {
-    if (!stay.closerUserId || stay.stayType !== 'short' || stay.nights.length === 0) return 0;
-    const { rows: roleRows } = await tx.query<{ role: string }>(
-      `SELECT role FROM user_property_role WHERE user_id = $1 AND property_id = $2 AND revoked_at IS NULL`,
-      [stay.closerUserId, tx.ctx.propertyId],
-    );
-    const payee = payeeTypeOf(roleRows.map((r) => r.role));
-    if (!payee) return 0;
-    const ratePct =
-      stay.commissionRatePctSnapshot ??
-      commissionPctFor(await this.params.get(tx, 'short_stay_commission_pct', today), payee);
-    if (ratePct === null || ratePct <= 0) return 0;
-    const base = stay.nights.reduce((a, n) => a + n.roomRevenueVnd, 0);
-    const amount = applyPct(base, ratePct, 1);
-    const id = uuidv7();
-    const { rowCount } = await tx.query(
-      `INSERT INTO commission (id, organization_id, property_id, reservation_id, payee_type, payee_user_id,
-         rate_pct_snapshot, base_amount_vnd, amount_vnd, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'projected', $10, $10)
-       ON CONFLICT DO NOTHING`,
-      [
-        id,
-        tx.ctx.organizationId,
-        tx.ctx.propertyId,
-        stay.reservationId,
-        payee,
-        stay.closerUserId,
-        String(ratePct),
-        base,
-        amount,
-        now,
-      ],
-    );
-    if (!rowCount) return 0; // a live commission already exists for this payee
-    const parts = allocate(
-      amount,
-      stay.nights.map((n) => n.roomRevenueVnd),
-    );
-    const column = payee === 'agent' ? 'agent_commission_vnd' : 'staff_commission_vnd';
-    for (const [i, n] of stay.nights.entries()) {
-      await tx.query(`UPDATE stay_night SET ${column} = $2, updated_at = $3 WHERE id = $1`, [
-        n.stayNightId,
-        parts[i],
-        now,
-      ]);
-    }
-    await this.audit.recordMoney(tx, {
-      action: 'commission.projected',
-      entityType: 'commission',
-      entityId: id,
-      entityCode: stay.reservationCode,
-      after: { status: 'projected', payeeType: payee, ratePct, baseVnd: base, amountVnd: amount },
-    });
-    return amount;
-  }
-
-  /** BR-901 / DATA FB-01: OTA channel fee (reported or estimated) allocated over the nights. */
-  private async channelFee(
+  /**
+   * SM-11 (BR-903, BR-006): the live `projected` commission of the closer must equal % × room total of the
+   * sold nights. Changed closer / base / rate → old row `void` (reason `resync`) + new row; always
+   * re-allocated over the current nights (Σ = amount, remainder on the last night).
+   */
+  private async syncCommission(
     tx: Tx,
     stay: ConfirmedStay,
     today: LocalDate,
     now: Date,
+    requestId?: string,
+  ): Promise<number> {
+    let desired: { payee: PayeeType; ratePct: number; base: number; amount: number } | null = null;
+    if (stay.closerUserId && stay.stayType === 'short' && stay.nights.length > 0) {
+      const { rows: roleRows } = await tx.query<{ role: string }>(
+        `SELECT upr.role FROM user_property_role upr JOIN app_user u ON u.id = upr.user_id
+          WHERE upr.user_id = $1 AND upr.property_id = $2 AND upr.revoked_at IS NULL AND u.status = 'active'`,
+        [stay.closerUserId, tx.ctx.propertyId],
+      );
+      const payee = payeeTypeOf(roleRows.map((r) => r.role));
+      const ratePct = payee
+        ? (stay.commissionRatePctSnapshot ??
+          commissionPctFor(await this.params.get(tx, 'short_stay_commission_pct', today), payee))
+        : null;
+      if (payee && ratePct !== null && ratePct > 0) {
+        const base = stay.nights.reduce((a, n) => a + n.roomRevenueVnd, 0);
+        desired = { payee, ratePct, base, amount: applyPct(base, ratePct, 1) };
+      }
+    }
+    const { rows: liveRows } = await tx.query<{
+      id: string;
+      payee_user_id: string;
+      payee_type: PayeeType;
+      rate_pct_snapshot: string;
+      base_amount_vnd: number;
+      amount_vnd: number;
+    }>(
+      `SELECT id, payee_user_id, payee_type, rate_pct_snapshot, base_amount_vnd, amount_vnd FROM commission
+        WHERE reservation_id = $1 AND status = 'projected' FOR UPDATE`,
+      [stay.reservationId],
+    );
+    let current = liveRows.find(
+      (c) =>
+        desired &&
+        c.payee_user_id === stay.closerUserId &&
+        c.payee_type === desired.payee &&
+        Number(c.rate_pct_snapshot) === desired.ratePct &&
+        c.base_amount_vnd === desired.base,
+    );
+    for (const c of liveRows) {
+      if (c === current) continue;
+      await tx.query(
+        `UPDATE commission SET status = 'void', void_reason = 'resync', updated_at = $2, version = version + 1
+          WHERE id = $1`,
+        [c.id, now],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.voided',
+        entityType: 'commission',
+        entityId: c.id,
+        entityCode: stay.reservationCode,
+        before: { status: 'projected', amountVnd: c.amount_vnd },
+        after: { status: 'void', voidReason: 'resync' },
+        ...(requestId ? { requestId } : {}),
+      });
+    }
+    if (desired && !current) {
+      const id = uuidv7();
+      await tx.query(
+        `INSERT INTO commission (id, organization_id, property_id, reservation_id, payee_type, payee_user_id,
+           rate_pct_snapshot, base_amount_vnd, amount_vnd, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'projected', $10, $10)`,
+        [
+          id,
+          tx.ctx.organizationId,
+          tx.ctx.propertyId,
+          stay.reservationId,
+          desired.payee,
+          stay.closerUserId,
+          String(desired.ratePct),
+          desired.base,
+          desired.amount,
+          now,
+        ],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.projected',
+        entityType: 'commission',
+        entityId: id,
+        entityCode: stay.reservationCode,
+        after: {
+          status: 'projected',
+          payeeType: desired.payee,
+          ratePct: desired.ratePct,
+          baseVnd: desired.base,
+          amountVnd: desired.amount,
+        },
+        ...(requestId ? { requestId } : {}),
+      });
+      current = {
+        id,
+        payee_user_id: stay.closerUserId as string,
+        payee_type: desired.payee,
+        rate_pct_snapshot: String(desired.ratePct),
+        base_amount_vnd: desired.base,
+        amount_vnd: desired.amount,
+      };
+    }
+    if (stay.nights.length > 0) {
+      const parts = current
+        ? allocate(
+            current.amount_vnd,
+            stay.nights.map((n) => n.roomRevenueVnd),
+          )
+        : stay.nights.map(() => 0);
+      await this.nights.setCommissions(
+        tx,
+        stay.nights.map((n, i) => ({
+          stayNightId: n.stayNightId,
+          agentVnd: current?.payee_type === 'agent' ? (parts[i] as number) : 0,
+          staffVnd: current?.payee_type === 'staff' ? (parts[i] as number) : 0,
+        })),
+      );
+    }
+    return current?.amount_vnd ?? 0;
+  }
+
+  /** BR-901 / DATA FB-01: OTA channel fee (reported or estimated), money audit, allocated over the nights. */
+  private async syncChannelFee(
+    tx: Tx,
+    stay: ConfirmedStay,
+    today: LocalDate,
+    now: Date,
+    requestId?: string,
   ): Promise<void> {
     if (stay.nights.length === 0) return;
     const channel = await this.channels.byId(tx, stay.channelId, today);
     if (!channel || channel.channelGroup !== 'ota') return;
     const base = stay.nights.reduce((a, n) => a + n.roomRevenueVnd, 0);
-    const ratePct = channel.commissionRatePct ?? 0;
-    const estimated = applyPct(base, ratePct, 1);
-    const actual = stay.otaChannelFeeVnd ?? null;
-    const amount = actual ?? estimated;
-    await tx.query(
-      `INSERT INTO channel_fee (id, organization_id, property_id, reservation_id, channel_id, base_amount_vnd,
-         rate_pct_snapshot, amount_estimated_vnd, amount_actual_vnd, source, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-       ON CONFLICT (reservation_id) DO NOTHING`,
-      [
-        uuidv7(),
-        tx.ctx.organizationId,
-        tx.ctx.propertyId,
-        stay.reservationId,
-        stay.channelId,
-        base,
-        String(ratePct),
-        estimated,
-        actual,
-        actual === null ? 'estimate' : 'manual_reconcile',
-        now,
-      ],
+    const { rows: existing } = await tx.query<{
+      id: string;
+      base_amount_vnd: number;
+      rate_pct_snapshot: string;
+      amount_estimated_vnd: number;
+      amount_actual_vnd: number | null;
+    }>(
+      `SELECT id, base_amount_vnd, rate_pct_snapshot, amount_estimated_vnd, amount_actual_vnd
+         FROM channel_fee WHERE reservation_id = $1 FOR UPDATE`,
+      [stay.reservationId],
     );
+    const old = existing[0];
+    // The rate is snapshotted at the first posting (BR-006); a reported fee wins over the estimate.
+    const ratePct = old ? Number(old.rate_pct_snapshot) : (channel.commissionRatePct ?? 0);
+    const estimated = applyPct(base, ratePct, 1);
+    const actual = stay.otaChannelFeeVnd ?? old?.amount_actual_vnd ?? null;
+    let changed = false;
+    if (!old) {
+      await tx.query(
+        `INSERT INTO channel_fee (id, organization_id, property_id, reservation_id, channel_id, base_amount_vnd,
+           rate_pct_snapshot, amount_estimated_vnd, amount_actual_vnd, source, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+        [
+          uuidv7(),
+          tx.ctx.organizationId,
+          tx.ctx.propertyId,
+          stay.reservationId,
+          stay.channelId,
+          base,
+          String(ratePct),
+          estimated,
+          actual,
+          actual === null ? 'estimate' : 'manual_reconcile',
+          now,
+        ],
+      );
+      changed = true;
+    } else if (
+      old.base_amount_vnd !== base ||
+      old.amount_estimated_vnd !== estimated ||
+      old.amount_actual_vnd !== actual
+    ) {
+      await tx.query(
+        `UPDATE channel_fee SET base_amount_vnd = $2, amount_estimated_vnd = $3, amount_actual_vnd = $4,
+            source = $5, updated_at = $6, version = version + 1
+          WHERE id = $1`,
+        [old.id, base, estimated, actual, actual === null ? 'estimate' : 'manual_reconcile', now],
+      );
+      changed = true;
+    }
+    if (changed) {
+      await this.audit.recordMoney(tx, {
+        action: old ? 'channel_fee.updated' : 'channel_fee.recorded',
+        entityType: 'channel_fee',
+        entityId: stay.reservationId,
+        entityCode: stay.reservationCode,
+        ...(old
+          ? {
+              before: {
+                baseVnd: old.base_amount_vnd,
+                amountEstimatedVnd: old.amount_estimated_vnd,
+                amountActualVnd: old.amount_actual_vnd,
+              },
+            }
+          : {}),
+        after: {
+          channelCode: channel.code,
+          baseVnd: base,
+          ratePct,
+          amountEstimatedVnd: estimated,
+          amountActualVnd: actual,
+          source: actual === null ? 'estimate' : 'manual_reconcile',
+        },
+        ...(requestId ? { requestId } : {}),
+      });
+    }
     const parts = allocate(
-      amount,
+      actual ?? estimated,
       stay.nights.map((n) => n.roomRevenueVnd),
     );
-    for (const [i, n] of stay.nights.entries()) {
-      await tx.query(
-        `UPDATE stay_night SET channel_fee_vnd = $2, channel_fee_is_estimate = $3, updated_at = $4 WHERE id = $1`,
-        [n.stayNightId, parts[i], actual === null, now],
-      );
-    }
+    await this.nights.setChannelFees(
+      tx,
+      stay.nights.map((n, i) => ({ stayNightId: n.stayNightId, amountVnd: parts[i] as number })),
+      actual === null,
+    );
   }
 
   async timezone(tx: Tx): Promise<string> {

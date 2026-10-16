@@ -96,6 +96,8 @@ export const EP = {
   listApprovalRequests: ['GET', `${R}/approval-requests`, 'listApprovalRequests'],
   listHkTasks: ['GET', `${R}/hk-tasks`, 'listHkTasks'],
   getFolio: ['GET', `${R}/folios/{folioId}`, 'getFolio'],
+  extendQuote: ['POST', `${R}/quotes/{quoteId}/actions/extend`, 'extendQuote'],
+  listCloserCandidates: ['GET', `${R}/closer-candidates`, 'listCloserCandidates'],
   listAuditEvents: ['GET', `${R}/audit-events`, 'listAuditEvents'],
 } satisfies Record<string, Ep>;
 
@@ -148,6 +150,32 @@ export function nightsOf(arrival: string, departure: string): string[] {
   for (let d = arrival; d < departure; d = addDays(d, 1)) out.push(d);
   return out;
 }
+const SPECIAL_DATES =
+  ((
+    JSON.parse(readFileSync(new URL('../../fixtures/seed/ds-e.json', import.meta.url), 'utf8')) as {
+      parameters: Array<{ param: string; value: unknown }>;
+    }
+  ).parameters.find((x) => x.param === 'special_dates')?.value as
+    Array<{ from: string; to: string }> | undefined) ?? [];
+
+/** Ngày thuộc special_dates của DS-E (khoảng nửa mở). */
+export function isSpecialDate(date: string): boolean {
+  return SPECIAL_DATES.some((x) => date >= x.from && date < x.to);
+}
+
+/** Ở tối thiểu theo ngày đến (BR-113 mặc định: T6, T7, ngày đặc biệt → 2 đêm; còn lại 1). */
+export function minStayFor(arrival: string): number {
+  const d = weekday(arrival);
+  return d === 5 || d === 6 || isSpecialDate(arrival) ? 2 : 1;
+}
+
+/** Ngày đến gần nhất (từ `from`) mà 1 đêm hợp lệ (T2–T5, không phải ngày đặc biệt). */
+export function weekdayArrival(from: string): string {
+  let d = from;
+  while (minStayFor(d) > 1) d = addDays(d, 1);
+  return d;
+}
+
 export function vnTime(date: string, hhmm: string): string {
   return `${date}T${hhmm.length === 5 ? `${hhmm}:00` : hhmm}+07:00`;
 }
@@ -222,9 +250,9 @@ export function room(c: S2Context, roomNo: string): Room {
 export type ChannelKind = 'direct' | 'agent' | 'internal' | 'booking' | 'agoda' | 'airbnb';
 
 /**
- * Channel by kind. "direct" = the Trực tiếp channel (code `direct` if the build has a single one, else the
- * Zalo/điện thoại entry of group direct – DS-E seeds the direct sources as channels, OpenAPI 0.3.1 also has
- * `directSource`); OTA kinds by code.
+ * Channel by kind. "direct" = the single Trực tiếp channel `direct` (DS-E 16/10 – ARC A-08, DOM D-6; nguồn
+ * khách ở `directSource`); stacks seeded before that still have `zalo_phone` (group direct) as fallback.
+ * OTA kinds by code.
  */
 export function channel(c: S2Context, kind: ChannelKind): Channel {
   const byCode = (code: string) => c.channels.find((x) => x.code === code);
@@ -280,6 +308,9 @@ export interface Reservation {
   extraGuestCount?: number;
   hold?: { hours?: number; expiresAt?: string; extendedCount?: number };
   depositRequiredVnd?: number;
+  depositPaidVnd?: number;
+  totalRoomVnd?: number;
+  capacityConflict?: boolean;
   segments?: Array<{ roomId: string | null; roomNo?: string | null }>;
   allowedActions?: Array<{ event: string; transition: string; action: string }>;
   cancellation?: { reasonCode?: string };
@@ -314,21 +345,82 @@ export function reservationBody(c: S2Context, i: BookInput): Record<string, unkn
   };
   if (ch.channelGroup === 'direct') body.directSource = 'zalo_phone';
   if (ch.requiresOtaRef || ch.channelGroup === 'ota') body.otaRef = `E2E${rnd(1e8, 9e8)}`;
+  // Đơn OTA nhập tay: lễ tân nhập giá theo extranet. Server hiện BẮT BUỘC giá đêm cho OTA (BUG-R2-017 – EP02 3.2
+  // cho phép bỏ trống); mặc định gửi 820.000/đêm để các ca khác (trùng căn, US-139, BR-812) không vướng lỗi đó.
+  // Ca kiểm chính lỗi này truyền `extra: { nightlyRates: undefined }`.
+  if (ch.channelGroup === 'ota' && !(i.extra && 'nightlyRates' in i.extra)) {
+    body.nightlyRates = nightsOf(i.arrival, i.departure).map((date) => ({
+      date,
+      amountVnd: 820000,
+    }));
+  }
   return { ...body, ...(i.extra ?? {}) };
 }
 
+/** Deposit of BR-305 attached to a direct/agent reservation (EP02 3.2 `initialPayment`, B2 điều kiện b). */
+export function depositPayment(amountVnd: number): Record<string, unknown> {
+  return { type: 'deposit', method: 'cash', amountVnd };
+}
+
+/**
+ * createReservation. Kênh `direct`/`agent` phải kèm `initialPayment` ≥ cọc BR-305 (EP02 3.2) – mức cọc phụ thuộc
+ * giá đêm nên test không tự tính: khi server trả `422 DEPOSIT_INSUFFICIENT` (kiểm sau cùng – EP02 3.4, nên mọi lỗi
+ * 409/422 khác vẫn hiện nguyên) và body chưa có `initialPayment`, gửi lại MỘT lần với `depositRequiredVnd` của
+ * phản hồi (khóa Idempotency mới). `autoDeposit: false` cho ca kiểm chính lỗi cọc.
+ */
 export async function createReservation(
   ctx: APIRequestContext,
   s: StaffSession,
   body: Record<string, unknown>,
   idempotencyKey: boolean | string = true,
+  opts: { autoDeposit?: boolean } = {},
 ): Promise<ApiResult<Reservation & ProblemFields>> {
-  return call<Reservation & ProblemFields>(
-    ctx,
-    'POST',
-    `/v1/properties/${propertyIdOf(s)}/reservations`,
-    { session: s, idempotencyKey, body },
+  const send = (b: Record<string, unknown>, key: boolean | string) =>
+    call<Reservation & ProblemFields>(
+      ctx,
+      'POST',
+      `/v1/properties/${propertyIdOf(s)}/reservations`,
+      {
+        session: s,
+        idempotencyKey: key,
+        body: b,
+      },
+    );
+  const r = await send(body, idempotencyKey);
+  const required = (r.body as { depositRequiredVnd?: number } | undefined)?.depositRequiredVnd;
+  if (
+    opts.autoDeposit === false ||
+    body.initialPayment !== undefined ||
+    r.status !== 422 ||
+    r.body?.code !== 'DEPOSIT_INSUFFICIENT' ||
+    !required
+  ) {
+    return r;
+  }
+  return send(
+    { ...body, initialPayment: depositPayment(required) },
+    idempotencyKey === false ? false : true,
   );
+}
+
+/**
+ * Body + `initialPayment` đúng mức cọc, dò bằng một lời gọi không kèm cọc (server trả DEPOSIT_INSUFFICIENT kèm
+ * `depositRequiredVnd`, không ghi gì). Dùng khi cần gửi cùng một body nhiều lần (Idempotency, đua đồng thời).
+ */
+export async function withDeposit(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (body.initialPayment !== undefined) return body;
+  const r = await createReservation(ctx, s, body, true, { autoDeposit: false });
+  if (r.status === 201) {
+    track('reservation', r.body.id); // kênh không cần cọc: đã tạo – dọn sau
+    throw new Error('withDeposit: kênh không cần cọc – đơn đã được tạo ngay ở lần dò');
+  }
+  const required = (r.body as { depositRequiredVnd?: number }).depositRequiredVnd;
+  expect(r.body?.code, `dò cọc: ${JSON.stringify(r.body)}`).toBe('DEPOSIT_INSUFFICIENT');
+  return { ...body, initialPayment: depositPayment(required ?? 0) };
 }
 
 export async function getReservation(
@@ -409,7 +501,11 @@ export async function freeWindow(
   for (let i = 0; i < 25; i++) {
     let arrival = addDays(opts.today, rnd(opts.minOffset ?? 30, opts.maxOffset ?? 320));
     if (opts.dow !== undefined) arrival = nextWeekday(arrival, opts.dow);
+    // 1 đêm: tránh ngày có ở tối thiểu 2 đêm (BR-113: T6, T7, ngày đặc biệt) – ca cần đúng ngày đó tự đặt `dow`
+    else if (nights < minStayFor(arrival)) arrival = weekdayArrival(arrival);
     const departure = addDays(arrival, nights);
+    // tránh ngày đặc biệt (giá +30%, ở tối thiểu 2 đêm) để các ca 1 đêm bên trong khoảng không vướng BR-113
+    if (nightsOf(arrival, addDays(departure, 1)).some(isSpecialDate)) continue;
     const free = await isRoomFree(ctx, s, rm, arrival, departure);
     if (free !== false) return { arrival, departure };
   }
@@ -534,6 +630,8 @@ export async function makeHold(
   },
 ): Promise<{ hold: Reservation; quote: Quote; room: Room }> {
   const guestId = i.guestId ?? (await newGuest(ctx, actor));
+  // BR-113: ngày đến T6/T7/ngày đặc biệt cần ≥ 2 đêm (saveQuote → MIN_STAY_NOT_MET)
+  i = { ...i, nights: Math.max(i.nights, minStayFor(i.arrival)) };
   const departure = addDays(i.arrival, i.nights);
   for (const rm of i.rooms) {
     if ((await isRoomFree(ctx, actor, rm, i.arrival, departure)) === false) continue;

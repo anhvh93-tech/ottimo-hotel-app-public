@@ -121,3 +121,97 @@
   - `product/tests/README.md`
   - `product/docs/qa/traceability.md` (sinh lại)
 - Không sửa file ngoài vùng QA. Cache `e2e/.auth/sessions.json` (gitignore) bị ghi đè trong lúc chạy stack tạm: chỉ là cache, lần chạy sau tự đăng nhập lại.
+
+## 7. Bước Kiểm thử Sprint 2: chạy trên endpoint thật (CI 38902292311, commit `573547c`)
+
+- Đầu vào: log `rounds/round-02/qa/ci-38902292311-e2e.log`. Kết quả CI: 670 đạt, **45 trượt**, 1 flaky, 187 bỏ qua.
+- Đối chiếu bằng: EP02 (`docs/specs/EP02-reservations.md`), OpenAPI 0.3.4 (và các mục 0.3.5 ARC đã quyết trong `outputs/ARC/s2-contract.md`), `outputs/BE/s2-be-a.md`, `s2-be-b.md`, BR v0.3.1.
+
+### 7.1 Phân loại từng nhóm lỗi
+
+| Lỗi ở CI | Số ca | Phân loại | Xử lý |
+|---|---|---|---|
+| `createReservation` kênh Trực tiếp/CTV → `422 DEPOSIT_INSUFFICIENT` (TC-L2-011…079, 019, 020…024, 021, 030…033, 041/042/043/052/076…) | ~30 | **Lỗi test/dữ liệu**: EP02 3.2 bắt buộc `initialPayment` ≥ cọc BR-305 | `createReservation()` tự kèm đúng `depositRequiredVnd` khi gặp `DEPOSIT_INSUFFICIENT` (kiểm sau cùng, nên không che lỗi 409/422 khác); `withDeposit()` cho TC-L2-018 và các ca đua đồng thời |
+| RBAC `moveReservation` → `422 note:REASON_REQUIRED` | 5 | Lỗi test (EP02 6: `other` bắt buộc ghi chú) | Thêm `note` |
+| RBAC `swapRoom` → `422 otherVersion:VALUE_OUT_OF_RANGE` | 5 | Lỗi test (version ≥ 1) | `otherVersion: 1` |
+| `saveQuote`/`createReservation` → `MIN_STAY_NOT_MET` (TC-L5-021, 023, 040, 057, TC-L2-014) | 5 | Lỗi dữ liệu test: ngày 1 đêm rơi T6/T7 (CI chạy thứ Sáu 16/10) – BR-113 | `freeWindow` chọn T2–T5 và tránh ngày đặc biệt; `makeHold` tự tăng lên 2 đêm; TC-L2-014 dùng `minStayFor()` |
+| Hủy `reasonCode: guest_cancelled` → `422 NOT_IN_LIST` (TC-L2-053, 052, 057, 055) | 4 | Lỗi test: EP02 6 – danh sách nhân viên chọn không có `guest_cancelled` (mã cho khách tự hủy) | Đổi sang `guest_changed_mind` |
+| `calculateQuote` kênh Booking/Agoda → `422 channelId:NOT_IN_LIST` (TC-L2-012, TC-L5-002) | 2 | Lỗi test: EP02 10.1 – báo giá chỉ kênh Trực tiếp/CTV | TC-L5-002 kỳ vọng `422`; TC-L2-012 phần OTA chuyển sang tạo đơn (xem BUG-R2-017) |
+| TC-L5-004 28 đêm → `422 LONG_STAY_REQUIRES_CONTRACT` | 1 | Lỗi test (EP02 10.1 `nights` 1…27) | Kỳ vọng 422; sửa TC-L5-004 |
+| TC-L5-032 cọc `required − 500.000` ≤ 0 → `AMOUNT_NOT_POSITIVE` | 1 | Lỗi test | Dùng `required / 2` |
+| OTA (Airbnb/Booking) không gửi giá → `422 nightlyRates:REQUIRED` (TC-L2-011 (c), TC-L6-053 (d)) | 2 | **Lỗi server – BUG-R2-017 (P2)**: trái EP02 3.2 / OpenAPI | Các ca khác gửi giá 820.000; ca riêng "TC-L2-012 (b)" đánh dấu `test.fail` |
+| TC-L2-013: 1.901.000 được nhận (trần BR-105 là 1.900.000); 530.000 bị chặn | 1 | **Lỗi server – BUG-R2-018 (P2)** | `test.fail` + mã lỗi |
+| *(lộ ra khi chạy lại)* ROOM_UNAVAILABLE/ROOM_BLOCKED chỉ hiện sau khi đã đủ cọc | – | **Lỗi server – BUG-R2-019 (P3)**: thứ tự kiểm trái EP02 3.4 | Ca riêng `test.fail` |
+| *(lộ ra khi chạy lại)* gợi ý gồm nhóm thấp hơn, `upgrade:true` | – | **Lỗi server – BUG-R2-020 (P3)** | Ca riêng `test.fail` |
+| *(lộ ra khi chạy lại)* `/__test__/jobs/hold.expire` → 404 | – | **Lệch tài liệu – BUG-R2-021 (P3)**: tên job khác architecture 9.1 | Bảng tên thay thế trong `support/clock.ts` |
+| *(lộ ra khi chạy lại)* TC-L6-041: MGR `affectedReservationsAcknowledged: true` vẫn 409 | 1 | Không phải lỗi server: ARC A-03 (OpenAPI 0.3.5) – chỉ ghi nhận. **EP02 dòng 396 và EP07-08 mục 4 còn ghi "lưu được" → BA sửa đặc tả** | Test + TC-L6-041 theo A-03 |
+| *(lộ ra khi chạy lại)* TC-L6-044 J9 ở 00:01 vẫn `planned` | 1 | Không phải lỗi server: khối bắt đầu theo ngày nghiệp vụ (BR-010, đổi ngày lúc 06:00). Architecture 9.1 ghi "00:01" → ARC sửa | Test + TC-L6-044 dùng 05:59 / 06:00 |
+| *(lộ ra khi chạy lại)* TC-L5-015 `expiresAt` = 00:00 ngày kế (QA giả định 23:59) | 1 | Lỗi giả định test (cùng nghĩa "hết ngày") | Chấp nhận cả hai cách ghi |
+| *(lộ ra khi chạy lại)* Hai file project `clock` chạy song song làm lệch đồng hồ chung (TC-L5-022 sai 23 ngày, TC-L6-044) | 2 | Lỗi harness | Project `clock` `workers: 1`; chờ cache đồng hồ sau `set` |
+| *(lộ ra khi chạy lại)* TC-NT-027 (Sprint 1): `requestedBy` là tên, không phải id | 1 | Lỗi test (OpenAPI `requestedBy: string`; trước đây chưa có yêu cầu duyệt nên ca không chạm tới) | So với id hoặc tên |
+| TC-L6-053 (a): phụ thu trên folio lọc theo `code/type` | 1 | Lỗi test (dòng folio dùng `category: extra_person`) | Lọc theo `category` – đạt (450.000 = oracle BR-110-01) |
+| TC-L2-053 flaky (409 khi chọn căn gần ngày) | 1 | Lỗi test (stack chung, đêm gần hôm nay) | Thử lần lượt các căn Lầu 1–2 |
+
+Tổng hợp lỗi của QA: BUG-R2-022 (P2, Closed).
+
+### 7.2 Lỗi BE ghi vào `rounds/round-02/qa/bug-list.md`
+
+| ID | Mức | Tóm tắt | Vai |
+|---|---|---|---|
+| BUG-R2-017 | P2 | Đơn OTA nhập tay bắt buộc `nightlyRates`, không có giá mặc định theo lịch giá kênh (thiếu tham số `ota_base_rate.<group>`) | BE-A + ARC |
+| BUG-R2-018 | P2 | Sàn–trần BR-105 theo giá niêm yết từng căn: 203 nhận 1.901.000, chặn 530.000–553.000 | BE-A |
+| BUG-R2-019 | P3 | Kiểm cọc trước khối OOO/chống trùng (trái EP02 3.4) | BE-A |
+| BUG-R2-020 | P3 | Gợi ý căn gồm nhóm thấp hơn, gắn `upgrade:true` | BE-A |
+| BUG-R2-021 | P3 | Tên job `reservation.hold_expiry`/`room_block.activation` ≠ architecture 9.1 | BE-A hoặc ARC |
+
+Không có P0/P1 mới. Không có ESC.
+
+### 7.3 Chạy lại như CI
+- Stack dùng một lần `ottimo-qa-s2` (COMPOSE_PROJECT_NAME), cổng 25432/23000/28081–28083:
+  - build `api` + `web` từ **cây làm việc hiện tại** (product/ = `573547c`; ARC đang sửa `openapi.yaml` 0.3.5 chưa commit, không ảnh hưởng image);
+  - `.env` sinh bằng `infra/ci/make-ci-env.sh`;
+  - `down --volumes` → `up --wait` → migrate → `run --rm seed`.
+- Biến như CI: `CI=true`, `E2E_COMPOSE_CONTROL=1` (+ `E2E_COMPOSE_PROJECT/FILE/ENV_FILE` trỏ stack QA), `E2E_API_URL`/`E2E_WEB_URL`/`E2E_ORIGIN`.
+- Lưu ý: trong lúc QA chạy, vai khác đã sửa thêm `services/api/**`, `apps/admin-web/**`, `packages/api-client/**` (git status, không phải QA). Image của lần chạy này build lúc bắt đầu bước sửa (≈ 19:50), nên kết quả chỉ áp cho bản đó. Sau khi BE/FE xong vòng sửa cần chạy lại một lần.
+- **Kết quả cuối (lần 6, stack mới): 932 test – 734 đạt, 4 "phải trượt" (BUG-R2-017…020), 194 bỏ qua, 0 trượt, 0 flaky.** Mọi project đều chạy, kể cả `limits`, `rbac-logout`, `clock`, `db-outage`.
+
+| Project / file | Đạt | Phải trượt | Bỏ qua |
+|---|---|---|---|
+| rbac-sprint1 / rbac-sprint2 | 297 / 330 | – | 77 / 55 |
+| api Sprint 2: reservations, booking-conflicts, concurrency, room-blocks, quotes-holds, extra-guest-kit | 18, 5, 4, 4, 23, 0 | 2, 2, –, –, –, – | 1, 0, 0, 0, 0, 7 |
+| clock (hold-expiry, no-show) | 5, 2 | – | 1, 0 |
+| api Sprint 1, limits, rbac-logout, smoke, db-outage | 30, 2, 11, 2, 1 | – | 11, 1, 0, 23, 0 |
+
+- **Bỏ qua còn lại ở Sprint 2 đều có lý do:**
+  - `listHkTasks` (BR-812, EP07 – Sprint 4). Phần `extraGuestCount` và phụ thu trên folio của các ca này đã chạy và đạt trước bước skip.
+  - `listAttentionItems` / J2 (TC-L5-028).
+  - `addPartyMember` / `listParty` (BE: Sprint 3).
+  - `changeRoom` (B14, Sprint 3).
+  - `listAttentionItems` / `listMyNotifications` trong runner quyền.
+  - UI chờ FE.
+- **Chống đặt trùng chạy thật và đạt:**
+  - TC-L2-021: 8 yêu cầu song song × 20 vòng, mỗi vòng đúng 1 `201`, 7 `409`;
+  - TC-X-001: 50 yêu cầu → 1 `201`, 49 `409`, 0 lỗi 5xx;
+  - TC-X-002, TC-X-003.
+- **Hết hạn giữ chỗ chạy thật với đồng hồ giả và đạt:** TC-L5-026 (J1), TC-L5-022, 029, 030 (a), TC-X-004, TC-L5-015/017 (a), dòng thời gian no-show TC-L2-071/073/074/075 (b), TC-L6-044.
+- Kiểm tĩnh: `tsc`, `eslint`, `prettier`, `validate-fixtures` 0 lỗi, `gen_traceability.py --strict` exit 0.
+- Test case v0.3.4: TC-L6-041, TC-L6-044, TC-L5-002, TC-L5-004, TC-L5-015.
+
+### 7.4 File sửa ở bước này
+- `product/tests/e2e/support/s2.ts`: tự kèm cọc, `withDeposit`, `minStayFor`/`weekdayArrival`/`isSpecialDate`, giá OTA mặc định 820.000
+- `product/tests/e2e/support/clock.ts`: chờ cache, `JOB_ALIASES`, `runJobIfAny`, `scenarioDate` T2–T5
+- `product/tests/e2e/playwright.config.ts`: `clock` `workers: 1`
+- `product/tests/e2e/rbac/sprint2-ops.ts`
+- `product/tests/e2e/api/{reservations, booking-conflicts, concurrency, room-blocks, quotes-holds, extra-guest-kit, audit-approvals}.api.spec.ts`
+- `product/tests/e2e/clock/{hold-expiry, no-show}.clock.spec.ts`
+- `product/tests/test-cases/r1-main-flows.md` (v0.3.4)
+- `product/docs/qa/traceability.md` (sinh lại)
+- `rounds/round-02/qa/bug-list.md` (BUG-R2-017…022)
+- Không sửa `services/**`.
+
+### 7.5 Việc cần vai khác
+- BA: EP02 dòng 396 và EP07-08 mục 4 (`affectedReservationsAcknowledged`) theo ARC A-03.
+- ARC:
+  - architecture 9.1: J9 theo ngày nghiệp vụ 06:00, tên job (BUG-R2-021);
+  - thêm `ota_base_rate.<group>` vào catalogue (BUG-R2-017/018).
+- ARC đã chốt "một kênh `direct` + `directSource`" (A-17), trong khi DS-E còn 5 kênh trực tiếp. QA sẽ gộp trong seed khi BE xác nhận loader và dữ liệu cũ. Không chặn: các test chọn kênh `direct` trước, `zalo_phone` sau.

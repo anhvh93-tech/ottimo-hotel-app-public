@@ -7,6 +7,10 @@ import { AppRoutes } from '../app/routes';
 import { mockControl } from '../mocks/handlers';
 import { MOCK_PASSWORD } from '../mocks/seed';
 
+/** UXD string in Vietnamese – tests read copy from the string files, never hard-coded (FB-R2-UXD-FE-S2-16). */
+export const tv = (key: string, args?: Record<string, string | number>) =>
+  translate('vi', key, args);
+
 /** Login field label read from the UXD strings (a copy change must not break tests – FB-R2-QA-FE-02). */
 export const usernameLabel = () =>
   new RegExp(`^${translate('vi', 'auth.login.username').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);

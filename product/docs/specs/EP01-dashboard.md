@@ -1,7 +1,7 @@
 # Đặc tả mức trường – EP01 Tổng quan / Hôm nay (phần R2)
 
 - Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
-- Phạm vi (Must R2 theo R-C): US-010 (KPI đêm nay), US-011 (khách đến/đi hôm nay), US-012 **trừ AC2** (kỳ thu/HĐ – dời R3 cùng J12, J13). **Should R2**: US-013 (bộ đếm việc vận hành – mục 5, chỉ khung). **R3**: US-014 (ADR, RevPAR, biểu đồ 30 + 14 ngày), K-04…K-22 theo tháng (metrics "Lộ trình hiển thị").
+- Phạm vi (Must R2 theo R-C): US-010 (KPI đêm nay), US-011 (khách đến/đi hôm nay), US-012 **trừ AC2** (kỳ thu/HĐ – dời R3 cùng J12, J13), gồm **AC3 đã sửa theo SEC** và **AC8 mới** (BR-435 cho OWN – PO quyết 16/10). **Should R2**: US-013 (bộ đếm việc vận hành – mục 5, chỉ khung). **R3**: US-014 (ADR, RevPAR, biểu đồ 30 + 14 ngày), K-04…K-22 theo tháng (metrics "Lộ trình hiển thị").
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0. Thứ tự ưu tiên khi lệch: `business-rules.md` **v0.3.1** → backlog (AC) → **`metrics-definitions.md` v0.2** (nguồn sự thật cho công thức – Q-01, Q-03…Q-05, Q-15, K-01…K-03, K-18, S1c, S7) → `state-machines.md` → `rbac-matrix.md` (S02, ghi chú 1, mục 5.2 quy tắc 4) → `api/openapi.yaml` **0.3.4-draft** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`) → `design/copy/strings-vi.json` (`today.*`). Không chép con số nghiệp vụ.
 - Đọc cùng: architecture mục 9 (job J1–J24), 12 (SSE, "Cần chú ý"), 16 (hiệu năng); `EP07-08-housekeeping-maintenance.md`, `EP14-guest-app.md` (nguồn các mục "Cần chú ý" mới).
 
@@ -81,7 +81,7 @@ Biên: một đêm vừa có đơn bán vừa trong khối OOO (dữ liệu sai 
 - Nguyên tắc EP00 0.4: nút theo `allowedActions` do server tính – `ReservationSummary` chưa có trường này → **E01-03**; trước khi có, client hiện nút theo trạng thái như trên và server vẫn kiểm (409 `INVALID_TRANSITION`/`CHECKIN_CONDITIONS_NOT_MET`).
 
 ### 2.4 Tham số `date`
-Mặc định = ngày nghiệp vụ hiện tại. Cho chọn ngày khác trong [hôm nay − 7, hôm nay + 7] để xem kế hoạch `[GIẢ ĐỊNH BA – ràng buộc giao diện]`; ngoài khoảng → 422 `DATE_INVALID`. Ngày khác hôm nay: **không** có nút Nhận/Trả phòng (chỉ xem). 01:30 ngày 21/10 vẫn là ngày 20/10 → đơn đến 20/10 hiện và nhận phòng được (AC3).
+Mặc định = ngày nghiệp vụ hiện tại. Cho chọn ngày khác trong [hôm nay − 7, hôm nay + 7] để xem kế hoạch `[GIẢ ĐỊNH BA – ràng buộc giao diện]`; ngoài khoảng → 422 mã trường **`VALUE_OUT_OF_RANGE`** (ARC B-20 – `DATE_INVALID` chỉ dùng cho ngày sai lịch). Ngày khác hôm nay: **không** có nút Nhận/Trả phòng (chỉ xem). 01:30 ngày 21/10 vẫn là ngày 20/10 → đơn đến 20/10 hiện và nhận phòng được (AC3).
 
 ---
 
@@ -102,7 +102,8 @@ Server lọc theo vai (không lọc ở client). "Mức": `critical` (đỏ), `w
 | `ooo_ending_work_open` **(E07-13)** | Khối OOO tới ngày cuối còn khóa mà phiếu chưa xong | computed | critical | ✔ | ✔ | ✔ | "Căn {room} sẽ mở bán lại {date} nhưng {WO} chưa xong" + nút "Kéo dài khóa" |
 | `vip_arrival` | Khách tag VIP/Khách quen (EP00 11.2) có đơn đến hôm nay (AC7) | computed | info | ✔ | ✔ | ✔ | "Khách {tag} {name} đến hôm nay · căn {room}" → đơn |
 | `no_show_call` / `no_show_mark` | Mốc gọi / mốc đánh dấu không đến (BR-311; J6, J7) | computed | warning | ✔ | ✔ | ✔ | `today.noshow_when`, `today.log_contact` → đơn |
-| `overbooking` | Đơn OTA xung đột chưa gán căn (`overbooking_incident open` – BR-312, BR-317; **S1c**) | event (tự đóng khi gán căn) | critical (đến ≤ 24 giờ), warning (xa hơn) – BR-317 (5) | ✔ | ✔ | ✔ | `today.unassigned_title` + `today.unassigned_hint` → rack làn "Chưa gán căn" |
+| `capacity_conflict` | Đơn OTA nhận với số khách > sức chứa căn (`Reservation.capacityConflict = true` – DOM D-1, OpenAPI 0.3.5); tự hết khi đổi căn đủ chỗ hoặc sửa số khách | computed | `critical` nếu đến hôm nay/ngày mai, còn lại `warning` `[GIẢ ĐỊNH BA – như `overbooking`]` | ✔ | ✔ | ✔ | **(mới)** `today.capacity_conflict` "Đơn {code} · căn {room}: {n} khách, căn tối đa {max} – đổi căn hoặc xác nhận lại số khách" → đơn |
+| `overbooking` | Đơn OTA xung đột chưa gán căn (`overbooking_incident open` – BR-312, BR-317; **S1c**) | event (tự đóng khi gán căn) | `critical` khi (14:00 ngày đến − bây giờ) ≤ 24 giờ hoặc đã tới ngày đến; xa hơn `warning` (BR-317 (5), DOM D-14 c) | ✔ | ✔ | ✔ | `today.unassigned_title` + `today.unassigned_hint` → rack làn "Chưa gán căn" |
 | `unassigned_with_free_room` | Còn căn trống phù hợp mà đơn xung đột chưa gán (R-06b – J17) | event (tự đóng khi gán) | warning | ✔ | ✔ | ✔ | "Có căn trống cho đơn {code} – gán ngay" → rack |
 | `channel_sync_error` | Lệnh đồng bộ lỗi quá ngưỡng BR-905/BR-317 (6) (R2: lớp giả lập – AC7) | event | critical | ✔ | ✔ | ✔ | "Đồng bộ kênh lỗi – {channel}, căn {room}" + hướng dẫn đóng bán thủ công trên extranet **(mới)** → S18 nhật ký đồng bộ (FD xem – rbac ghi chú 12) |
 | `deposit_after_cancel` | Tiền về cho đơn đã tự hủy (giữ chỗ hết hạn) | event | warning | ✔ | ✔ | ✔ | `today.money_after_cancel` + `_body` → đơn |
@@ -110,13 +111,13 @@ Server lọc theo vai (không lọc ở client). "Mức": `critical` (đỏ), `w
 | `extra_guest_kit_overdue` **(E01-04)** | Việc bộ đồ dùng thêm quá `dueAt` chưa xong (BR-812 (5), P07 E-K5) | computed | warning | ✔ | ✔ | ✔ | "Bộ đồ dùng thêm căn {room} chưa chuẩn bị – khách đến {time}" → việc HK |
 | `room_status_mismatch` **(E01-04)** | Lệch buồng – đơn (BR-806): `OC`/`OD` không có đơn `in_house`, hoặc `in_house` mà buồng `VC`/`VD` | computed | warning | ✔ | ✔ | ✔ | "Căn {room}: trạng thái buồng '{status}' không khớp đơn" → S10 |
 | `reconcile_overdue` **(E01-04)** | Giao dịch chờ đối soát quá `bank_reconcile_alert_days` (BR-527, SM-12; `listPayments.reconcileOverdue`) | computed | warning | ✔ | ✔ | ✖ | "{n} giao dịch chờ đối soát quá {days} ngày" → S33 |
-| `foc_threshold` | BR-435 – mục 3.3 (AC6) | computed **(E01-05)** | warning | ✔ | ✖ | ✖ | Mục 3.3 → hộp duyệt/nhật ký FOC |
+| `foc_threshold` | BR-435 – mục 3.3 (AC6, **AC8**) | computed (tính khi OWN mở trang – PO quyết, ARC B-22) | warning | ✔ | ✖ | ✖ | Mục 3.3 → hộp duyệt/nhật ký FOC |
 | `data_quality` | Lệch R-04/R-05/R-06a (J17) | event | warning | ✔ | ✖ | ✖ | "Số liệu cần kiểm tra: {rule}" **(mới)** |
 | `security_alert` | Cảnh báo bảo mật cho OWN (SR-LOG-06; khóa tài khoản nhiều lần…) | event | critical | ✔ | ✖ | ✖ | Theo loại (SEC) → S26/S27 |
 | `rent_due_soon`, `lease_expiring` | **Dời R3** (US-012 AC2, J12, J13) | – | – | – | – | – | Không sinh ở R2 |
 | `meter_not_read` | **R3** (US-064) | – | – | – | – | – | Không sinh ở R2 |
 
-AC4: giữ chỗ trong khoảng nhắc, một khối OOO, một phiếu mức Cao → **ba dòng riêng** (mỗi `kind` một dòng; nhiều đơn cùng `kind` gộp một dòng có `count` – trừ `work_order_*`, `vip_arrival`, `overbooking` mỗi đối tượng một dòng) `[GIẢ ĐỊNH BA – cách gộp]`.
+AC4: giữ chỗ trong khoảng nhắc, một khối OOO, một phiếu mức Cao → **ba dòng riêng** (mỗi `kind` một dòng; nhiều đơn cùng `kind` gộp một dòng có `count` – trừ `work_order_*`, `vip_arrival`, `overbooking` mỗi đối tượng một dòng) (DOM D-14 b).
 
 ### 3.2 Thứ tự, rỗng, đóng mục
 - Sắp: `critical` → `warning` → `info`; trong mức theo `dueAt` tăng dần (mục không có hạn xếp sau).
@@ -134,12 +135,12 @@ AC4: giữ chỗ trong khoảng nhắc, một khối OOO, một phiếu mức Ca
 - **Chỉ OWN** nhận (MGR, FDL, FD không thấy – AC6, rbac ghi chú 1).
 - Hai điều kiện, mỗi điều kiện một dòng:
   - (a) **Tỷ lệ**: giá trị FOC tháng (K-18 – Σ |dòng FOC âm `posted`| có ngày áp dụng trong tháng lịch của ngày nghiệp vụ hiện tại, **gồm** FOC tự áp BR-436 (4); **không** gồm dòng chờ duyệt, bị từ chối, đã đảo) > `foc_alert_pct_of_room_revenue` × doanh thu phòng tháng (K-06 – Σ `stay_night.room_revenue` các đêm `sold` từ ngày 1 tới đêm nay). Dòng **(mới)** `today.foc_alert_pct` "FOC tháng {month}: {foc} = {pct}% doanh thu phòng (ngưỡng {threshold}%)". Doanh thu phòng tháng = 0 mà FOC > 0 → vẫn cảnh báo, `{pct}` hiện "–" (Q-15).
-  - (b) **Số lần theo người duyệt**: số yêu cầu FOC `approved` (SM-10) theo người duyệt trong tháng lịch > `foc_alert_count_per_approver` → mỗi người một dòng **(mới)** `today.foc_alert_count` "{name} đã duyệt {n} FOC trong tháng (ngưỡng {max})" `[GIẢ ĐỊNH BA: đếm cả lần tự áp minibar của FD/FDL vào người tự áp]`.
-- Kỳ so sánh là **lũy kế từ đầu tháng tới hôm nay** `[GIẢ ĐỊNH BA – BR-435 ghi "tháng"; DOM xác nhận lũy kế hay cả tháng đã qua]`. Bấm → danh sách yêu cầu duyệt lọc loại FOC tháng này (S23; báo cáo FOC S22 là R3).
-- Hợp đồng: `foc_threshold` có trong enum nhưng job J21 ghi **R3** (architecture mục 9) → đề nghị **E01-05**: R2 tính khi đọc cho OWN (truy vấn trên `folio_line` + `approval_request` + `stay_night` tháng hiện tại), J21 (thông báo hằng ngày) giữ R3.
+  - (b) **Số lần theo người duyệt**: số yêu cầu FOC `approved` (SM-10) theo người duyệt trong tháng lịch > `foc_alert_count_per_approver` → mỗi người một dòng **(mới)** `today.foc_alert_count` "{name} đã duyệt {n} FOC trong tháng (ngưỡng {max})" (lần tự áp minibar của FD/FDL tính vào người tự áp – DOM D-14 a).
+- Kỳ so sánh là **lũy kế từ đầu tháng tới hôm nay** (cảnh báo sớm – DOM D-14 a). Bấm → danh sách yêu cầu duyệt lọc loại FOC tháng này (S23; báo cáo FOC S22 là R3).
+- **US-012 AC8 (PO quyết 16/10, ARC B-22)**: R2 **tính khi đọc** mỗi lần OWN mở Tổng quan (`listAttentionItems`, truy vấn `folio_line` + `approval_request` + `stay_night` tháng hiện tại) – không lưu, không job. Thông báo đẩy hằng ngày (J21) thuộc R3. MGR/FDL/FD không bao giờ nhận dòng này (AC6). Ví dụ kiểm: ngưỡng tỷ lệ × doanh thu phòng lũy kế theo ví dụ BR-435 (186,4 tr → 5,59 tr).
 
-### 3.4 Lệch giữa US-012 AC3 và SEC SR-RET-06
-US-012 AC3 yêu cầu dòng thị thực "nêu căn và **ngày hết hạn**"; SR-RET-06 (SEC, M9) chỉ cho mục `visa_expiring` chứa **mã đơn** (ngày hết hạn là dữ liệu giấy tờ). Đặc tả này theo SEC (dữ liệu cá nhân ưu tiên): dòng có mã đơn + căn; ngày hết hạn xem ở màn giấy tờ (S09, thiết bị được cấp, có nhật ký). Đề nghị **E01-06**: PO sửa AC3 thành "nêu mã đơn và căn; bấm vào xem ngày hết hạn" – hoặc SEC chấp nhận hiện ngày cho FD+ trên thiết bị được cấp.
+### 3.4 US-012 AC3 theo SEC SR-RET-06 (PO đã sửa AC 16/10)
+US-012 AC3 yêu cầu dòng thị thực "nêu căn và **ngày hết hạn**"; SR-RET-06 (SEC, M9) chỉ cho mục `visa_expiring` chứa **mã đơn** (ngày hết hạn là dữ liệu giấy tờ). **Đã chốt (PO 16/10)**: AC3 theo SEC – dòng `visa_expiring` chỉ có **mã đơn + căn**, **không** có ngày hết hạn; bấm vào mở màn giấy tờ (S09, thiết bị được cấp, có nhật ký C3) để xem ngày. QA sửa TC AC3 (không kiểm ngày trên dòng).
 
 ---
 
@@ -182,11 +183,13 @@ Ba ô trên "Hôm nay": việc buồng phòng chưa xong (`listHkTasks.summary` 
 | US-011 AC1–AC3 | 2.1–2.4 |
 | US-012 AC1 | 3.1 `registration_due`/`_overdue` |
 | US-012 AC2 | **Dời R3** |
-| US-012 AC3 | 3.1 `visa_expiring`, 3.4 (lệch SR-RET-06) |
+| US-012 AC3 | 3.1 `visa_expiring`, 3.4 (mã đơn + căn – theo SEC) |
 | US-012 AC4 | 3.1 (`hold_expiring`, `room_ooo`, `work_order_high_open` – ba dòng) |
 | US-012 AC5 | 3.2 |
 | US-012 AC6 | 3.1, 3.3 |
 | US-012 AC7 | 3.1 `channel_sync_error`, `vip_arrival` |
+| US-012 AC8 | 3.1 `foc_threshold`, 3.3 (tính khi OWN mở trang) |
+| (0.3.5) đơn OTA vượt sức chứa | 3.1 `capacity_conflict` |
 | metrics S1c, S7 | 1.1 `unassignedConflictReservations`; 3.1 `overbooking` · S7 "giữ chỗ treo = 0" theo dõi qua `hold_expiring` + J1 (không có ô riêng ở R2 `[GIẢ ĐỊNH BA]`) |
 
 ---
@@ -198,10 +201,10 @@ Ba ô trên "Hôm nay": việc buồng phòng chưa xong (`listHkTasks.summary` 
 | E01-02 | ARC | `TonightKpi.arrivalsCheckedIn`, `departuresCheckedOut` (để hiện "{đã nhận}/{tổng}"); ghi rõ định nghĩa `arrivals`/`departures` (mục 1.1, BR-404) |
 | E01-03 | ARC | `ArrivalsDepartures` mỗi dòng có `allowedActions[]` (nhận phòng / trả phòng / mở đơn) theo trạng thái + vai + thiết bị; `date` giới hạn ±7 ngày → 422 `DATE_INVALID` |
 | E01-04 | ARC | `AttentionItem.kind` thêm `work_order_overdue`, `extra_guest_kit_overdue`, `room_status_mismatch`, `reconcile_overdue`, `ooo_ending_work_open` (E07-13), `guest_request_overdue` (E14-05), `registration_overdue` (đã có); `AttentionItem` thêm `refCode` (mã WO/đơn để hiện dòng không cần gọi thêm) và `params` (chỉ số, mã – không C2/C3) |
-| E01-05 | ARC + PO | `foc_threshold` tính khi đọc cho OWN ở R2 (mục 3.3); J21 (thông báo hằng ngày) giữ R3. Nếu PO không đồng ý → US-012 AC6 vẫn đạt (FD không thấy), nhưng OWN chưa có cảnh báo BR-435 tới R3 – cần ghi rõ trong round-summary |
-| E01-06 | PO + SEC | US-012 AC3 ↔ SR-RET-06 (mục 3.4) |
+| E01-05 | **Đã quyết** (PO: làm R2, tính khi đọc – US-012 AC8; ARC B-22). Nội dung cũ: ARC + PO | `foc_threshold` tính khi đọc cho OWN ở R2 (mục 3.3); J21 (thông báo hằng ngày) giữ R3. Nếu PO không đồng ý → US-012 AC6 vẫn đạt (FD không thấy), nhưng OWN chưa có cảnh báo BR-435 tới R3 – cần ghi rõ trong round-summary |
+| E01-06 | **Đã quyết** (PO sửa AC3 theo SEC). Nội dung cũ: PO + SEC | US-012 AC3 ↔ SR-RET-06 (mục 3.4) |
 | E01-07 | DATA | Xác nhận: (a) công thức BR-435 lũy kế đầu tháng, gồm FOC tự áp (3.3); (b) `oooRooms` chỉ đếm căn bán được; (c) S7 không có ô riêng ở R2 |
-| E01-08 | DOM | Xác nhận: kỳ BR-435 (lũy kế); cách gộp dòng "Cần chú ý" (3.1); ngưỡng "critical" của `overbooking` theo BR-317 (5) |
+| E01-08 | DOM | **Đã trả lời** (s2-DOM D-14; áp 16/10 Sprint 2). Nội dung cũ: Xác nhận: kỳ BR-435 (lũy kế); cách gộp dòng "Cần chú ý" (3.1); ngưỡng "critical" của `overbooking` theo BR-317 (5) |
 | E01-09 | UXD | Chuỗi **(mới)** trong tài liệu; sửa `today.kpi_occupancy_note` cho rõ "{occupied}/{available} căn có khách đêm nay ({blocked} căn khóa)"; nhãn cho mọi `kind` mới; ẩn thẻ ADR/RevPAR/biểu đồ ở R2 (US-014 R3) |
 | E01-10 | QA | Ca đồng hồ giả lập 05:59/06:00 (đêm nay, khách đến), ví dụ 6/9 (AC1), OOO `planned` không trừ mẫu số, đơn `hold` không vào tử số, đơn OTA chưa gán không vào tử số; FD/MGR không thấy `foc_threshold`; ba dòng riêng AC4 |
 
@@ -209,3 +212,5 @@ Ba ô trên "Hôm nay": việc buồng phòng chưa xong (`listHkTasks.summary` 
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: KPI đêm nay theo metrics v0.2 (Occupancy chỉ đêm đã gán, S1c riêng, giữ chỗ riêng), khách đến/đi BR-404, "Cần chú ý" theo vai + BR-435 (chỉ OWN), SSE; lệch AC3 ↔ SR-RET-06; đề nghị E01-01…10 | BA |
+| 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp DOM D-14 (BR-435 lũy kế, gộp dòng, mức `overbooking`), ARC B-20 (`VALUE_OUT_OF_RANGE`) – FB-R2-DOM-BA-01 | BA |
+| 16/10/2026 | 2 (Sprint 2 – PO quyết) | US-012 AC3 theo SEC (mã đơn + căn), AC8 BR-435 tính khi OWN mở trang; thêm `capacity_conflict` (0.3.5); E01-05, E01-06 đã quyết | BA |

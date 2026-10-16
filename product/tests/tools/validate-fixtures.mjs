@@ -245,9 +245,13 @@ const CALC = {
       return {
         dueAt: fmt(ms(i.midStayConfirmedAt) + (p.extra_guest_kit_midstay_due_minutes ?? 60) * 60e3),
       };
-    return {
-      dueAt: fmt(at(i.arrivalDate, i.confirmedEarlyCheckinTime ?? p.checkin_time ?? '14:00')),
-    };
+    // BR-812 (2) v0.3.2: hạn = giờ nhận phòng của đơn (14:00 hoặc nhận sớm đã xác nhận), nhưng không sớm hơn
+    // lúc xác nhận + extra_guest_kit_midstay_due_minutes (đơn xác nhận sát/sau giờ nhận phòng – BR-812-10)
+    const checkin = at(i.arrivalDate, i.confirmedEarlyCheckinTime ?? p.checkin_time ?? '14:00');
+    const floor = i.confirmedAt
+      ? ms(i.confirmedAt) + (p.extra_guest_kit_midstay_due_minutes ?? 60) * 60e3
+      : -Infinity;
+    return { dueAt: fmt(Math.max(checkin, floor)) };
   },
   forceMajeureReschedule: ({ arrivalDate, depositVnd }, p) => ({
     refundVnd: 0,

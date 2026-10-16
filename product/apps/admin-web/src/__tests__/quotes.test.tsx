@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
 
 type User = ReturnType<typeof renderApp>['user'];
 
@@ -126,7 +126,8 @@ describe('H12 Báo giá & giữ chỗ (US-080, 082–087)', () => {
     });
     const { user } = renderApp('/quotes', 'qa.ctv1');
     await user.click(await screen.findByRole('tab', { name: 'Báo giá' }));
-    await screen.findByRole('table');
+    // Only someone else's quote exists → the CTV sees the empty state (FB-R2-UXD-FE-S2-07).
+    expect(await screen.findByText(tv('sale.quotes_empty_title'))).toBeInTheDocument();
     expect(screen.queryByText('BG-00001')).not.toBeInTheDocument();
   });
 });

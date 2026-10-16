@@ -178,7 +178,7 @@ Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy 
 
 ## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 1938 chuỗi + 8 mẫu tin nhắn (R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE").
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 1960 chuỗi + 8 mẫu tin nhắn (R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
 
 #### Chung
 
@@ -2361,6 +2361,33 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `field.MANUAL_LONG_STAY_BELOW_THRESHOLD` | Đơn dài hạn nhập tay cần từ {n} đêm. | A manual long-stay booking needs {n} nights or more. | ⟨chừa chỗ⟩ | FE truyền {n} = long_stay_required_from_nights (mặc định 28) |
 | `field.OTA_PENALTY_OTA_ONLY` | Tiền phạt theo kênh chỉ ghi cho đơn OTA. | A channel penalty applies to OTA bookings only. | ⟨chừa chỗ⟩ |  |
 
+#### R2 Sprint 2 – phản hồi FE (s2-FE): lý do đổi căn, nguồn khách, sức chứa OTA, giữ chỗ
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `move.reason.guest_request` | Khách yêu cầu | Guest request | ⟨chừa chỗ⟩ | MoveReasonCode – BR-429; cũng dùng cho dời ngày thay vì hủy |
+| `move.reason.property_fault` | Căn hỏng / sự cố | Room fault | ⟨chừa chỗ⟩ | Gắn khóa phòng BR-804 |
+| `move.reason.overbooking` | Xử lý trùng phòng / xung đột OTA | Overbooking / OTA conflict | ⟨chừa chỗ⟩ | Chỉ hiện khi conflictState=open hoặc capacityConflict |
+| `move.reason.upgrade` | Nâng hạng chủ động | Upgrade | ⟨chừa chỗ⟩ | Chỉ FDL+ |
+| `move.reason.inventory_optimize` | Sắp căn để tránh đêm lẻ | Rearrange to avoid orphan nights | ⟨chừa chỗ⟩ | Chỉ khi chưa báo số căn cho khách |
+| `move.reason.force_majeure` | Bất khả kháng (ghi bằng chứng) | Force majeure (add evidence) | ⟨chừa chỗ⟩ | Chỉ dời ngày thay vì hủy, MGR+, ghi chú bắt buộc |
+| `move.reason.other` | Khác (ghi rõ) | Other (please specify) | ⟨chừa chỗ⟩ | Ghi chú bắt buộc |
+| `bk.source_help` | Khách đã từng ở OTTIMO thì chọn Khách quay lại. CTV/môi giới chọn ở Kênh, không chọn ở đây. | If the guest has stayed at OTTIMO before, choose Returning guest. Agents are a channel, not a source. | ⟨chừa chỗ⟩ | DOM D-6, FB-R2-DOM-FE-02 – dòng gợi ý dưới ô directSource |
+| `bk.source_auto_returning` | Đã chọn sẵn Khách quay lại (lần ở gần nhất {date}). Đổi được nếu không đúng. | Returning guest pre-selected (last stay {date}). Change it if that's not right. | ⟨chừa chỗ⟩ | Khi hồ sơ khách có lastStayDate |
+| `bk.use_room_orphan` | Dùng căn {room} (đêm lẻ) | Use room {room} (orphan night) | ⟨chừa chỗ⟩ | Nút gợi ý khi MIN_STAY_NOT_MET – căn còn đúng khoảng đêm lẻ (A-05) |
+| `bk.closer_sales` | Người chốt | Closed by | ⟨chừa chỗ⟩ | Ô chọn sale nội bộ chốt đơn (A-06); CTV vẫn dùng bk.closer |
+| `sale.extend_requested` | Đã gửi quản lý gia hạn báo giá {code} | Request to extend quote {code} sent to a manager | ⟨chừa chỗ⟩ | Toast 202 extendQuote (A-18) |
+| `rsv.capacity_chip` | Vượt sức chứa (OTA) | Over capacity (OTA) | ⟨chừa chỗ⟩ | Chip drawer/rack khi Reservation.capacityConflict (DOM D-1) |
+| `rsv.capacity_conflict_body` | Đơn có {n} người, căn {room} tối đa {max}. Chưa nhận phòng được cho tới khi đổi căn, thêm căn hoặc sửa số người sau khi hỏi khách. | This booking has {n} guests; room {room} takes {max}. It can't be checked in until you move rooms, add a room, or correct the guest count with the guest. | ⟨chừa chỗ⟩ | Alert trong drawer – thay error.CAPACITY_EXCEEDED |
+| `rack.capacity_conflict` | vượt sức chứa | over capacity | ⟨chừa chỗ⟩ | Ghi chú trên thanh + aria-label rack |
+| `booking.capacity_warning` | Căn {room} tối đa {max} người, đơn OTA có {n}. Vẫn lưu đơn? Ghi lý do và liên hệ khách. | Room {room} takes up to {max} guests; this OTA booking has {n}. Save it anyway? Add a reason and contact the guest. | ⟨chừa chỗ⟩ | EP02 – 422 CAPACITY_EXCEEDED_WARNING (H09, Đổi căn) |
+| `booking.capacity_reason` | Lý do vẫn lưu | Reason for saving anyway | ⟨chừa chỗ⟩ | capacityWarningAckReason, ≥ 3 ký tự |
+| `booking.capacity_reason_help` | Ví dụ: đã gọi khách, sẽ đổi sang căn lớn hơn khi có. | e.g. Called the guest; will move to a bigger room when one frees up. | ⟨chừa chỗ⟩ |  |
+| `field.CAPACITY_EXCEEDED_WARNING` | Số khách vượt tối đa của căn. Ghi lý do để vẫn lưu đơn OTA. | More guests than the room allows. Add a reason to save the OTA booking anyway. | ⟨chừa chỗ⟩ | Mã trường – khi FE không dựng được booking.capacity_warning |
+| `rack.legend_hold_urgent` | Giữ chỗ còn dưới {hours} giờ | Hold with under {hours} h left | ⟨chừa chỗ⟩ | Mẫu chú giải .bar.hold.urgent – {hours} = hold_expiry_reminder_hours |
+| `field.HOLD_LIMIT_REACHED` | Bạn đang có {max} giữ chỗ chưa cọc – mức tối đa. Chốt cọc hoặc hủy bớt rồi giữ thêm. | You already have {max} unpaid holds – the limit. Confirm a deposit or cancel one before adding more. | ⟨chừa chỗ⟩ | SEC-BE-28 – field holdHours; {max} = Problem.max (FE truyền args) |
+| `error.ROOM_OCCUPIED` | Căn {room} đang có khách ở trong khoảng khóa. Đổi phòng cho khách trước rồi mới khóa căn. | Room {room} has a guest in house during this block. Move the guest first, then block the room. | ⟨chừa chỗ⟩ | 409 – createRoomBlock / updateRoomBlock / createWorkOrder.block |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
@@ -2385,3 +2412,4 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | 0.3.3 | 16/10/2026 | UXD | R2 Sprint 1 – review FE: chuyển 71 chuỗi FE đang tạm ở `packages/i18n/src/pending.{vi,en}.json` vào nguồn chuẩn (nhóm "R2 Sprint 1 – admin-web EP00"); sửa câu chữ EN cho đúng giọng văn (không đổ lỗi, viết tắt thân thiện), `auth.current_password` bỏ "(mật khẩu tạm)" vì dùng cả ở menu đổi MK. Sửa `auth.login.username` → "Tên đăng nhập / Username" (hợp đồng `username`, vd `hanh.fd`); `error.REAUTH_FAILED` bỏ `{left}` (API không trả, SR-AUTH-04) và `error.REAUTH_REQUIRED` bỏ "PIN duyệt" (R2 chỉ mật khẩu). `device.grant_confirm` bỏ "mã xác thực" (R2 chỉ mật khẩu). Thêm 24 nhãn tham số `params.k.*` (H05 trước đây hiện khóa kỹ thuật), `common.error_network_body` (lỗi mạng không có mã tham chiếu), `login.hide_password`, `common.vnd_unit`, `shell.main_nav`. Hi-fi H01 (bỏ ô "Giữ đăng nhập" – API không có, ví dụ tên đăng nhập `hanh.fd`), H07, H17 cập nhật theo. |
 | 0.3.4 | 16/10/2026 | UXD | R2 Sprint 2 – hi-fi Sprint 4 (H19–H24): 303 chuỗi VI/EN mới – PWA buồng phòng (`hk.*`: nhóm việc, loại việc, bộ đồ dùng thêm chuẩn bị/thu hồi/chuyển, kiểm phòng 12 điểm, hoàn tác đếm lùi, hàng đợi + "Cần xem lại", báo sự cố), bảo trì (`wo.*`: mức Gấp / Trong ngày / Không gấp, trạng thái SM-04, hạn BR-809, nhật ký, khóa phòng BR-804), guest-web yêu cầu (`gw.req.*`, không chữ "hóa đơn/bill" – SEC ĐK-6), Tổng quan + SSE (`ov.*`), 19 loại "Cần chú ý" (`attn.*`), H04 số giường/diện tích (`rooms.*`). Sửa `hk.task.extra_kit_items` ("1 1 mền"); ghi chú `guest.req.fee_notice` không dùng ở guest-web R2. Thuật ngữ: "Gấp / Trong ngày / Không gấp" (Urgent / Today / Not urgent) cho mức phiếu sửa; "Hoàn tác (n)" (Undo (n)). |
 | 0.3.5 | 16/10/2026 | UXD | R2 Sprint 2 – review FE H08–H12: thêm 50 chuỗi (nhóm "R2 Sprint 2 – review FE": `common.reload`, `booking.field.arrival/departure`, `rack.view_label`, `rack.long_prefix`, `rack.col_*`, `rack.off_sale`, `rack.cell_*`, `rsv.toast.*`, `rsv.filter_active`, `rsv.list_empty_*`, `rsv.search_*`, `rsv.transition_changed*`, `rsv.upgrade_needs_lead`, `rsv.assign_options`, `sale.quotes_empty_*`, `sale.quote_converted/expired`, `cancel.consequence_no_lead`, `confirm.cancel_booking.body_no_refund/no_money`, `cancel.preview_*`, `cancel.reason.ota_cancelled`, `cancel.ota_penalty*`, `bk.unassigned_*`, `error.HOLD_EXPIRED_notime`, `field_error.hold_extended_once`, `field.OTA_AMOUNT_MISMATCH`, `field.ALLOW_UNASSIGNED_OTA_ONLY`, `field.DATE_ORDER`, `field.MANUAL_LONG_STAY_BELOW_THRESHOLD`, `field.OTA_PENALTY_OTA_ONLY`). Sửa `rack.conflict_title`, `rsv.assign_lead` (thêm `{channel}`, bỏ chữ Agoda cứng); `cancel.consequence` bỏ `{channels}` → "mọi kênh"; `rack.manual_legend`, `lsm.flag` bỏ mã giai đoạn (R2/R3). Hi-fi H08, H10, H11 cập nhật theo. |
+| 0.3.6 | 16/10/2026 | UXD | R2 Sprint 2 – phản hồi FE (`responses/s2-FE.md`): thêm 22 chuỗi – `move.reason.*` (7 mã MoveReasonCode, BR-429), `bk.source_help`, `bk.source_auto_returning`, `bk.use_room_orphan`, `bk.closer_sales`, `sale.extend_requested`, `rsv.capacity_chip`, `rsv.capacity_conflict_body`, `rack.capacity_conflict`, `booking.capacity_warning/_reason/_reason_help`, `field.CAPACITY_EXCEEDED_WARNING`, `rack.legend_hold_urgent`, `field.HOLD_LIMIT_REACHED`, `error.ROOM_OCCUPIED`. Hi-fi H08 thêm mẫu chú giải giữ chỗ sắp hết hạn (`.bar.hold.urgent`). |

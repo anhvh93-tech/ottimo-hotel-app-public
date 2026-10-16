@@ -11,6 +11,8 @@ export interface OperationMeta {
   idempotencyKey: boolean;
   /** The operation declares If-Match: the middleware requires it (428 when missing). */
   ifMatch: boolean;
+  /** The request body declares `dryRun` (tính thử): only then may `dryRun: true` skip the two headers. */
+  dryRun?: boolean;
   trustedDevice: boolean;
   stepUp: boolean;
   guestLevel?: number;

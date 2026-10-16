@@ -14,12 +14,17 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { isDryRun } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
+import { ParameterService } from '../../platform/public/parameter.service';
 import type { BookingContext } from './booking-context';
+import { nightsOf } from '../public/pricing';
 import { Fields, asBody, pathId } from './inputs';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
 import { ReservationsService } from './reservations.service';
 import { RoomBlocksService, toRoomBlockDto } from './room-blocks.service';
+
+/** Longest availability search (SEC-BE-28) – technical bound, not a business rule. */
+const MAX_AVAILABILITY_NIGHTS = 90;
 
 interface Reply {
   status(code: number): unknown;
@@ -41,6 +46,7 @@ export class ReservationsController {
     @Inject(RackService) private readonly rackService: RackService,
     @Inject(RoomBlocksService) private readonly blocks: RoomBlocksService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
+    @Inject(ParameterService) private readonly params: ParameterService,
   ) {}
 
   private read<T>(
@@ -78,6 +84,7 @@ export class ReservationsController {
     @Query('roomId') roomId?: string,
     @Query('roomGroupId') roomGroupId?: string,
     @Query('adults') adults?: string,
+    @Query('reservationId') reservationId?: string,
   ) {
     const f = new Fields({
       arrival,
@@ -85,15 +92,24 @@ export class ReservationsController {
       roomId,
       roomGroupId,
       adults: adults === undefined ? undefined : Number(adults),
+      reservationId,
     });
     const from = f.date('arrival', true);
     const to = f.date('departure', true);
     const room = f.uuid('roomId', false);
     const group = f.uuid('roomGroupId', false);
     const persons = f.int('adults', { required: false, min: 1, max: 20, fallback: 2 }) as number;
+    const forReservation = f.uuid('reservationId', false);
     f.done();
     if ((to as string) <= (from as string)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'departure', code: 'DATE_ORDER' }] });
+    }
+    // SEC-BE-28: bounded range (technical limit; longer stays are contracts – BR-108).
+    if (nightsOf(from as string, to as string) > MAX_AVAILABILITY_NIGHTS) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'departure', code: 'VALUE_OUT_OF_RANGE' }],
+        extras: { max: MAX_AVAILABILITY_NIGHTS },
+      });
     }
     return this.read(req, async (tx, ctx) => {
       const a = await this.rackService.availability(tx, ctx.today, {
@@ -102,6 +118,7 @@ export class ReservationsController {
         fromDate: from as string,
         toDate: to as string,
         persons,
+        reservationId: forReservation,
       });
       return {
         arrival: from,
@@ -112,7 +129,33 @@ export class ReservationsController {
           roomNo: x.roomNo,
           roomGroupCode: x.roomGroupCode,
           available: true,
+          upgrade: x.upgrade,
+          ...(x.orphanNight !== undefined ? { orphanNight: x.orphanNight } : {}),
         })),
+      };
+    });
+  }
+
+  /** 0.3.5 A-07: parameter values the booking/hold/quote forms need (read-only, no commission/security). */
+  @Get('booking-rules')
+  @Operation('getBookingRules')
+  getBookingRules(@Req() req: GuardedRequest) {
+    return this.read(req, async (tx, ctx) => {
+      const g = <T>(key: string) => this.params.get<T>(tx, key, ctx.today);
+      return {
+        businessDate: ctx.today,
+        holdHoursOptions: await g<number[]>('hold_hours_options'),
+        holdHoursDefault: await g<number>('hold_hours_default'),
+        holdLatestTimeOnArrival: await g<string>('hold_latest_time_on_arrival'),
+        holdExtensionMaxHours: await g<number>('hold_extension_max_hours'),
+        quoteValidityDays: await g<number>('quote_validity_days'),
+        shortStayDepositPct: await g<number>('short_stay_deposit_pct'),
+        longStayCompareFromNights: await g<number>('long_stay_compare_from_nights'),
+        longStayRequiredFromNights: await g<number>('long_stay_required_from_nights'),
+        noShowCallTime: await g<string>('no_show_call_time'),
+        noShowMarkTime: await g<string>('no_show_mark_time'),
+        checkinTime: await g<string>('checkin_time'),
+        checkoutTime: await g<string>('checkout_time'),
       };
     });
   }

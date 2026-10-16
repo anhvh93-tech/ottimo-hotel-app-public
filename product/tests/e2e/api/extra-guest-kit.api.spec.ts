@@ -118,14 +118,14 @@ test.describe(
         if (await isAvailable(request, 'GET', EP.getFolio[1])) {
           // TC-L2-019: phụ thu người trên folio = oracle (đơn OTA: 0 – BR-812-07); không có dòng tiền bộ đồ dùng
           const f = await call<{
-            lines?: Array<{ amountVnd: number; code?: string; type?: string }>;
+            lines?: Array<{ amountVnd: number; category?: string; code?: string; type?: string }>;
           }>(request, 'GET', `/v1/properties/${propertyIdOf(fd)}/folios/${res.folioId}`, {
             session: fd,
           });
           if (f.status === 200 && o.expected.extraPersonFeeVnd !== undefined) {
             const extra = (f.body.lines ?? [])
               .filter((l) =>
-                /extra_person|extra_guest|phu_thu_nguoi/i.test(`${l.code ?? ''} ${l.type ?? ''}`),
+                /extra_person/i.test(`${l.category ?? ''} ${l.code ?? ''} ${l.type ?? ''}`),
               )
               .reduce((s, l) => s + l.amountVnd, 0);
             expect(extra, JSON.stringify(f.body.lines)).toBe(o.expected.extraPersonFeeVnd);
@@ -228,7 +228,9 @@ test.describe(
       expect((await kitTasks(request, fd, a)).map((t) => t.status)).toEqual([o.expected.taskState]);
       // (e) hủy đơn
       const e = await bookFree(request, fd, c, { room: rm, nights: 3, today, adults: 3 });
-      const cancel = await action(request, fd, e.id, 'cancel', { reasonCode: 'guest_cancelled' });
+      const cancel = await action(request, fd, e.id, 'cancel', {
+        reasonCode: 'guest_changed_mind',
+      });
       expect(cancel.status, statusOf(cancel)).toBe(200);
       expect((await kitTasks(request, fd, e)).map((t) => t.status)).toEqual(['cancelled']);
       const after = await getReservation(request, fd, e.id);

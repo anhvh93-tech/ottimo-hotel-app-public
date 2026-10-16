@@ -80,6 +80,39 @@ export function QuoteDialog({
   const [holdHours, setHoldHours] = useState(rules.holdHoursDefault);
   const [held, setHeld] = useState<Reservation | null>(null);
   const keys = useRef({ save: newIdempotencyKey(), hold: newIdempotencyKey() });
+  const mgr = roles.some((r) => r === 'owner' || r === 'manager');
+  const [extendReason, setExtendReason] = useState('');
+  const [extendError, setExtendError] = useState<string | undefined>();
+  const extendKey = useRef(newIdempotencyKey());
+  const extend = async () => {
+    if (!saved || busy) return;
+    if (!mgr && extendReason.trim().length < 3) {
+      setExtendError(t('field_error.reason_required'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setExtendError(undefined);
+    try {
+      const res = await api.extendQuote(
+        { propertyId, quoteId: saved.id },
+        mgr ? undefined : extendReason.trim(),
+        extendKey.current,
+      );
+      extendKey.current = newIdempotencyKey();
+      if (res.status === 202) {
+        // 202: approval request `quote_extension` sent to a manager.
+        toast(t('sale.extend_requested', { code: saved.code }));
+        onClose();
+      } else {
+        setSaved(res.data as Quote);
+      }
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const room = catalog.rooms.find((r) => r.id === roomId);
   const direct = catalog.channels.find((c) => c.channelGroup === 'direct' && c.isActive);
@@ -233,9 +266,11 @@ export function QuoteDialog({
         : null;
     })
     .filter((g): g is NonNullable<typeof g> => !!g);
-  const roomTotal = rates.reduce((s, x) => s + x.amountVnd, 0);
-  const extraFee = calc?.totalVnd && calc.totalVnd > roomTotal ? calc.totalVnd - roomTotal : 0;
-  const extra = Math.max(0, occ.adults + occ.children6to11 - (room?.baseOccupancy ?? 2));
+  // 0.3.5 A-14: amounts split by the server (no client subtraction).
+  const extraFee = calc?.extraPersonFeeVnd ?? 0;
+  const extra =
+    calc?.extraGuestCount ??
+    Math.max(0, occ.adults + occ.children6to11 - (room?.baseOccupancy ?? 2));
   const quoteArrival = saved?.arrivalDate ?? arrival;
   const holdUntil = (() => {
     const cap = Date.parse(`${quoteArrival}T${rules.holdLatestTime}:00+07:00`);
@@ -448,7 +483,7 @@ export function QuoteDialog({
             </Alert>
           ) : null}
           {calc ? (
-            <div className="card" style={{ padding: 12 }}>
+            <div className="card p-12">
               <table className="sum">
                 <tbody>
                   {groups.map((g) => (
@@ -481,14 +516,14 @@ export function QuoteDialog({
                     </td>
                   </tr>
                   <tr className="sub">
-                    <td>{t('sale.deposit_due', { pct: 30 })}</td>
+                    <td>{t('sale.deposit_due', { pct: rules.depositPct })}</td>
                     <td className="r">{vnd(calc.depositVnd ?? 0)}</td>
                   </tr>
                 </tbody>
               </table>
               {calc.commission?.amountVnd !== undefined ? (
                 <>
-                  <hr className="hr" style={{ margin: '10px 0' }} />
+                  <hr className="hr my-8" />
                   <table className="sum">
                     <tbody>
                       <tr>
@@ -510,7 +545,7 @@ export function QuoteDialog({
                 </>
               ) : null}
               {calc.longStayAlternative && !calc.longStayAlternative.mandatory ? (
-                <div className="card" style={{ padding: '10px 12px', marginTop: 10 }}>
+                <div className="card p-12 mt-12">
                   <b>{t('sale.month_option')}</b>
                   <table className="sum">
                     <tbody>
@@ -527,18 +562,51 @@ export function QuoteDialog({
                   <p className="li-s">{t('sale.month_note')}</p>
                 </div>
               ) : null}
-              <p className="li-s" style={{ marginTop: 6 }}>
-                {t('sale.price_source', { days: 3 })}
+              <p className="li-s mt-8">
+                {t('sale.price_source', { days: rules.quoteValidityDays })}
               </p>
             </div>
           ) : null}
         </>
       ) : null}
 
+      {step === 'send' && saved?.status === 'expired' ? (
+        // US-083 AC3 / 0.3.5 A-18: MGR/OWN extend now (200); sale/CTV ask a manager (202 + reason).
+        <Alert tone="warn" role="alert" title={t('error.QUOTE_EXPIRED')}>
+          {!mgr ? (
+            <Field label={t('bk.reason_ph')} required error={extendError}>
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
+                />
+              )}
+            </Field>
+          ) : null}
+          <div className="conflict-list">
+            <Button size="sm" variant="pri" busy={busy} onClick={() => void extend()}>
+              {mgr ? t('drawer.action.extend') : t('sale.ask_extend')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setSaved(null);
+                setError(null);
+                keys.current = { save: newIdempotencyKey(), hold: newIdempotencyKey() };
+                setStep('quote');
+              }}
+            >
+              {t('sale.requote')}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
       {step === 'send' && saved ? (
         <>
           <p className="li-s">{t('sale.quote_expires', { time: dateTime(saved.expiresAt) })}</p>
-          <div className="field" style={{ marginTop: 10 }}>
+          <div className="field mt-12">
             <span className="lbl" id="q-lang">
               {t('sale.text_lang')}
             </span>
@@ -547,8 +615,8 @@ export function QuoteDialog({
               value={lang}
               onChange={setLang}
               options={[
-                { value: 'vi', label: 'Tiếng Việt' },
-                { value: 'en', label: 'English' },
+                { value: 'vi', label: <span lang="vi">Tiếng Việt</span> },
+                { value: 'en', label: <span lang="en">English</span> },
               ]}
             />
           </div>
@@ -568,7 +636,7 @@ export function QuoteDialog({
             title={t('sale.hold_created', { room: room?.roomNo ?? '', code: held.code })}
           >
             {t('sale.hold_next', { hours: rules.holdWarnHours })}
-            <div className="price-big" style={{ marginTop: 8 }}>
+            <div className="price-big mt-8">
               {vnd(held.depositRequiredVnd ?? saved.depositVnd ?? 0)} {t('common.vnd_unit')}
             </div>
             <div className="li-s">{t('pay.qr_note', { ref: held.code.replace(/-/g, '') })}</div>
@@ -592,7 +660,7 @@ export function QuoteDialog({
               />
               <span className="help">{t('sale.hold_until', { time: holdUntil })}</span>
             </div>
-            <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+            <div className="card p-12 mb-12">
               <div className="li-s">{t('sale.deposit_due_short')}</div>
               <div className="price-big">
                 {vnd(saved.depositVnd ?? 0)} {t('common.vnd_unit')}

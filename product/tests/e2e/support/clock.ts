@@ -8,6 +8,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { call, propertyIdOf, session, type StaffSession } from './api.js';
 import { TEST_TOKEN } from './env.js';
+import { weekdayArrival } from './s2.js';
 
 export const CLOCK_ENABLED =
   !!TEST_TOKEN && (!!process.env.CI || process.env.E2E_CLOCK_CONTROL === '1');
@@ -41,6 +42,12 @@ export async function setClock(ctx: APIRequestContext, at: string): Promise<stri
     now = r.body.now;
   }
   expectNear(now, at, 'clock set');
+  // api/worker đọc dev_clock qua cache ≤ 1 giây (openapi.test.yaml): chờ tới khi /health trả đúng giờ mới
+  for (let i = 0; i < 20; i++) {
+    const h = await call<{ time: string }>(ctx, 'GET', '/health');
+    if (Math.abs(new Date(h.body.time).getTime() - new Date(at).getTime()) <= 2000) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
   return now;
 }
 
@@ -74,21 +81,44 @@ export interface JobRun {
   stats?: Record<string, unknown>;
 }
 
-/** Run job `jobKey` (architecture 9.1: hold.expire, hold.remind, quote.expire, no_show.call, …) now. */
+/**
+ * Job keys: architecture 9.1 names first, then the names the build registered (BE-A dùng
+ * `reservation.hold_expiry`, `room_block.activation` – BUG-R2-021). Bỏ alias khi hai bên thống nhất.
+ */
+const JOB_ALIASES: Record<string, string[]> = {
+  'hold.expire': ['hold.expire', 'reservation.hold_expiry'],
+  'ooo.activate': ['ooo.activate', 'room_block.activation'],
+};
+
+/** Run job `jobKey` now; null when no alias is registered on the build (404). */
+export async function runJobIfAny(
+  ctx: APIRequestContext,
+  jobKey: string,
+  propertyId?: string,
+): Promise<JobRun | null> {
+  const o = await owner(ctx);
+  for (const key of JOB_ALIASES[jobKey] ?? [jobKey]) {
+    const r = await call<JobRun>(ctx, 'POST', `/__test__/jobs/${key}/run`, {
+      session: o,
+      headers: { 'x-test-token': TEST_TOKEN! },
+      body: { propertyId: propertyId ?? propertyIdOf(o) },
+    });
+    if (r.status === 404) continue;
+    expect(r.status, `run job ${key}: ${JSON.stringify(r.body)}`).toBe(200);
+    return r.body;
+  }
+  return null;
+}
+
+/** Run job `jobKey` (architecture 9.1) now; skips the test when the job is not registered on the build. */
 export async function runJob(
   ctx: APIRequestContext,
   jobKey: string,
   propertyId?: string,
 ): Promise<JobRun> {
-  const o = await owner(ctx);
-  const r = await call<JobRun>(ctx, 'POST', `/__test__/jobs/${jobKey}/run`, {
-    session: o,
-    headers: { 'x-test-token': TEST_TOKEN! },
-    body: { propertyId: propertyId ?? propertyIdOf(o) },
-  });
-  test.skip(r.status === 404, `job ${jobKey} chưa đăng ký trên build (404)`);
-  expect(r.status, `run job ${jobKey}: ${JSON.stringify(r.body)}`).toBe(200);
-  return r.body;
+  const r = await runJobIfAny(ctx, jobKey, propertyId);
+  test.skip(r === null, `job ${jobKey} chưa đăng ký trên build (404)`);
+  return r!;
 }
 
 /** A random future business date for a clock scenario (far from the dates the api project books). */
@@ -97,5 +127,6 @@ export function scenarioDate(realToday: string, minOffset = 380, maxOffset = 700
   // with leftovers of the parallel projects. The clock is moved there first, so the window is relative to it.
   const d = new Date(`${realToday}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + minOffset + Math.floor(Math.random() * (maxOffset - minOffset)));
-  return d.toISOString().slice(0, 10);
+  // T2–T5, không phải ngày đặc biệt: 1 đêm từ D không vướng ở tối thiểu BR-113
+  return weekdayArrival(d.toISOString().slice(0, 10));
 }

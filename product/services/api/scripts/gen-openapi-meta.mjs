@@ -40,6 +40,20 @@ function headerNames(op, pathItem, spec) {
   return names;
 }
 
+/** The JSON request body declares a `dryRun` property (tính thử – SEC-BE-21: only these may skip headers). */
+function supportsDryRun(op, spec) {
+  let schema = op.requestBody?.content?.['application/json']?.schema;
+  const seen = new Set();
+  while (schema && refName(schema) && !seen.has(refName(schema))) {
+    seen.add(refName(schema));
+    schema = spec.components?.schemas?.[refName(schema)];
+  }
+  const parts = [schema, ...(schema?.allOf ?? [])].map((x) =>
+    refName(x) ? spec.components?.schemas?.[refName(x)] : x,
+  );
+  return parts.some((x) => x?.properties?.dryRun !== undefined);
+}
+
 export function buildMeta(spec) {
   const operations = {};
   for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
@@ -57,6 +71,7 @@ export function buildMeta(spec) {
         ...(op['x-scope'] !== undefined ? { scope: op['x-scope'] } : {}),
         idempotencyKey: headers.has('idempotency-key'),
         ifMatch: headers.has('if-match'),
+        ...(supportsDryRun(op, spec) ? { dryRun: true } : {}),
         trustedDevice: op['x-requires-trusted-device'] === true,
         stepUp: op['x-step-up'] === true,
         ...(op['x-guest-level'] !== undefined ? { guestLevel: op['x-guest-level'] } : {}),

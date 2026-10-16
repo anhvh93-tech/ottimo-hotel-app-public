@@ -594,6 +594,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `eta_time` | time null | Giờ đến dự kiến | C2 | US-107 |
 | `is_complimentary` | bool | Kênh nội bộ, giá 0 | | DATA Q-05 |
 | `conflict_state` | text | `none\|open\|resolved` – **mục 7** | | BR-312 |
+| `capacity_conflict_at`, `capacity_ack_reason`, `capacity_ack_by` | timestamptz null, text null, uuid null | **0.3.5 (DOM D-1)** – đơn OTA nhận với số khách > `room.max_occupancy`: đặt khi lưu với `capacityWarningAckReason`; về null khi số khách ≤ sức chứa căn đang gán (B7, sửa số khách). API `Reservation.capacityConflict` = `capacity_conflict_at IS NOT NULL`; chặn B9 (`capacity_within_max`). Tách khỏi `conflict_state` (chỉ dùng cho đơn chưa gán căn – mục 7) | C2 | BR-312 |
 | `hold_created_at`, `hold_hours`, `hold_expires_at`, `hold_extended_count` | | CHECK `status <> 'hold' OR hold_expires_at IS NOT NULL` | | BR-302/303, DATA |
 | `deposit_required_vnd` | bigint | Cọc/ký quỹ cần thu (snapshot) | C2 | BR-305/306 |
 | `pricing_snapshot` | jsonb | Tham số chốt: tỷ lệ cọc, chính sách hủy, bậc phụ thu sớm/muộn, giảm theo đêm, tỷ lệ hoa hồng, VAT | C2 | BR-006 |
@@ -659,6 +660,7 @@ Quy tắc `active` (ADR-009 mục 3): `hold`, `confirmed`, `in_house` → true; 
 | `stay_date` | date | |
 | `night_state` | text | `hold` (không bán) · `sold` (confirmed/in_house/checked_out) · `void` (đã hủy/no-show/trả sớm – giữ để truy vết) |
 | `room_revenue_gross_vnd` | bigint | Giá đêm đã chốt **trước** giảm trừ (DATA FB-02) |
+| `calendar_rate_vnd` | bigint null | **0.3.5 (DOM D-8)** – giá lịch của đêm (BR-104, hoặc giá lễ tân sửa tay) **trước** bậc giảm số đêm BR-107/mã quay lại BR-111; `room_revenue_gross_vnd` = làm tròn(`calendar_rate_vnd` × (1 − % bậc theo tổng số đêm)). Đổi số đêm → tính lại mọi đêm còn hiệu lực từ cột này. Null với đêm phân bổ HĐ/OTA (giá OTA không có bậc giảm). API: `NightRate.calendarRateVnd` |
 | `discount_vnd` | bigint ≥ 0 | Giảm giá/FOC đã duyệt phân bổ vào đêm |
 | `room_revenue_vnd` | bigint | = gross − discount. Gồm VAT (DATA Q-08); dài hạn = phân bổ Q-10 |
 | `channel_fee_vnd`, `channel_fee_is_estimate` | bigint, bool | Phí OTA phân bổ theo tỷ lệ doanh thu đêm, dư dồn đêm cuối; Σ theo đơn = `channel_fee.amount_actual_vnd` nếu có, không thì `amount_estimated_vnd` (DATA FB-01, Q-12) |
@@ -720,7 +722,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 
 **`checkout_reminder_log`** – nhắc trả phòng (BL 4.15 `DEPC`, US-030/031): `reservation_id`, `slot` (`evening_before|morning|call_due|overdue` – theo `checkout_reminders`), `sent_at`, `channel` (`app|zalo_copy|phone|system`), `reply_type` (`on_time|time|late|extend|none`), `confirmed_time`, `note`, `recorded_by`. UK (`reservation_id`,`slot`) cho phần hệ thống gửi.
 
-**`overbooking_incident`** – **nơi lưu bản ghi xung đột OTA** (DATA OverbookingIncident, BR-312, mục 7; trả lời yêu cầu INT `booking_conflict` – dùng bảng này, không tạo bảng mới): `reservation_id` (đơn bị xung đột), `requested_room_id`, `stay_from`, `stay_to`, `conflicting_reservation_ids uuid[]`, `source` (`desk|channel_sync`), `cause` (`sync_delay|manual_entry|channel_overbooked|other`), `detected_at`, `handle_by` (hạn xử lý), `status` (`open|resolved`), `resolution` (`reassigned_same_group|upgraded|relocated_external|cancelled_by_channel` – tương ứng phương án i/ii/iii của INT `integrations.md` 3.1.1), `cost_vnd` (vào GOP – DATA R-08), `decided_by`, `decision_note`, `resolved_at`, `resolved_by`.
+**`overbooking_incident`** – **nơi lưu bản ghi xung đột OTA** (DATA OverbookingIncident, BR-312, mục 7; trả lời yêu cầu INT `booking_conflict` – dùng bảng này, không tạo bảng mới): `reservation_id` (đơn bị xung đột), `requested_room_id`, `stay_from`, `stay_to`, `conflicting_reservation_ids uuid[]`, `source` (`desk|channel_sync|no_show_restore` – **0.3.5 DOM D-3 b**: khôi phục no-show khi căn cũ đã bán lại → đơn về làn chưa gán), `cause` (`sync_delay|manual_entry|channel_overbooked|other`), `detected_at`, `handle_by` (hạn xử lý), `status` (`open|resolved`), `resolution` (`reassigned_same_group|upgraded|relocated_external|cancelled_by_channel` – tương ứng phương án i/ii/iii của INT `integrations.md` 3.1.1), `cost_vnd` (vào GOP – DATA R-08), `decided_by`, `decision_note`, `resolved_at`, `resolved_by`.
 
 **`guest_access_token`** – link app khách (ADR-006). `reservation_id` (đơn gốc), `token_hash` (C3, UK), `issued_by`, `issued_at`, `expires_at` (trả phòng + `guest_link_grace_hours`; dài hạn: HĐ `closed`), `revoked_at`, `last_used_at`, `activation` (`active|pending` – BUG-R1-SEC-03), `replaces_token_id` (FK token, null), `first_opened_at`. **Link chờ**: token cấp từ trang QR căn (`resendGuestLinkFromUnit`) ở `pending`, **không** thu hồi token đang dùng; lần mở đầu (`openGuestSession`) → `active` và thu hồi `replaces_token_id` (mã xác minh gắn token cũ vô hiệu) trong cùng giao dịch. Tối đa 2 token chưa thu hồi/đơn (1 `active` + 1 `pending`); cấp link chờ mới thu hồi link chờ cũ. Link chờ **sao chép** bộ đếm sai/khóa từ token đang dùng. Lễ tân cấp lại (`issueGuestLink`) vẫn thu hồi ngay mọi token cũ (dùng khi link lộ). **Bộ đếm xác minh theo token** (SEC-ARC-02, SR-GST-08): `failed_verify_count`, `failed_verify_window_started_at`, `verify_locked_until` (5 sai/24 giờ chung mọi loại mã → khóa), `otp_sent_count`, `otp_window_started_at` (3 OTP/giờ), `channel_code_count`, `channel_code_window_started_at` (mã qua kênh ≤ 3/24 giờ). Mở phiên mới **không** reset bộ đếm.
 
@@ -1071,7 +1073,8 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `rounding.night_rate`, `.monthly_rent`, `.deposit`, `.fee` | int | 005 | OWN, MGR | đơn, báo giá, HĐ |
 | `room.<no>.monthly_list_price` | → bảng `room_list_price` | 101 | OWN, MGR | báo giá |
 | `night_from_month_divisor`, `long_stay_daily_divisor` | int | 101, 102 | OWN, MGR | HĐ |
-| `ota_base_rate.<group>` | int VND | 103 | OWN, MGR | – |
+| `ota_base_rate` (BR viết `ota_base_rate.<group>`) | **json** `{"<room_group.code>": int VND}` – một khóa, giá trị là bảng theo **mã nhóm** (`{"L12": 760000, "N": 1050000, "NPLUS": 980000}`), có `effective_from` như mọi tham số (lịch sử giá, snapshot BR-006). **0.3.5 – BUG-R2-017**: catalogue `config_parameter_def` thêm khóa này (migration mới, BE-A) + seed DS-E (QA) | 103, 104, 105 | OWN, MGR | đơn OTA (giá mặc định), sàn–trần BR-105 |
+| `rounding.ota_rate` | int (10.000) | 005 | OWN, MGR | giá đêm OTA – **0.3.5** tách khỏi `rounding.monthly_rent` (BR-005 ghi riêng "giá OTA") |
 | `weekend_uplift_pct`, `weekend_nights` | pct; int[] (ISO weekday) | 103 | OWN, MGR | – |
 | `special_dates[]`, `special_uplift_pct` | [{from,to,name}]; pct | 104 | OWN, MGR | – |
 | `rate_floor_pct`, `rate_ceiling_pct` | pct | 105 | OWN, MGR | – |
@@ -1089,6 +1092,7 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `commission_payout` | [{tranche, pct, condition}] | 212 | **OWN** | HĐ |
 | `deposit_refund_working_days` | int | 214 | OWN, MGR | HĐ |
 | `hold_hours_options`, `hold_hours_default`, `hold_latest_time_on_arrival` | int[]; int; time | 302 | OWN, MGR | đơn (`hold_hours`) |
+| `max_open_holds_per_user` | json `{"<role>": int}` (CTV 3, SAL 5; vai vắng = không giới hạn) – **0.3.5**, catalogue ở migration 0016 (BE-A) | 302 (SEC BE-28, DOM) | OWN, MGR | `createHoldFromQuote` → mã trường `HOLD_LIMIT_REACHED` |
 | `hold_expiry_reminder_hours`, `hold_extension_max_hours` | int | 303 | OWN, MGR | – |
 | `quote_validity_days` | int | 304 | OWN, MGR | báo giá (`expires_at`) |
 | `short_stay_deposit_pct` | pct | 305 | OWN, MGR | đơn |
@@ -1140,6 +1144,8 @@ DOM xem lại biên trong review (đổi biên = migration mới, không sửa g
 | `special_uplift_pct` | 0–200 | % (30) |
 | `rate_floor_pct` | 10–100 | % giá nền (70); **chéo**: `rate_floor_pct` ≤ 100 ≤ `rate_ceiling_pct` |
 | `rate_ceiling_pct` | 100–500 | % giá nền (250) |
+| `ota_base_rate` (mỗi giá trị) | 100.000–20.000.000 | VND/đêm (760.000 / 1.050.000 / 980.000); **phải đủ mọi `room_group.code` đang hoạt động**, không có mã lạ → thiếu/lạ: `PARAM_OUT_OF_RANGE` + `allowed[]` = danh sách mã nhóm (0.3.5) |
+| `rounding.ota_rate` | `allowed` {1.000, 10.000, 100.000} | VND (10.000) (0.3.5) |
 | `long_stay_compare_from_nights` | 7–60 | đêm (15); **chéo**: < `long_stay_required_from_nights` |
 | `long_stay_required_from_nights` | 14–90 | đêm (28); **chéo**: > `short_stay_max_nights` |
 | `foreigner_surcharge_pct` | 0–50 | % (10) |
@@ -1422,6 +1428,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 16/10/2026 | 2 – Sprint 2 (phản hồi) | **0.3.5 bổ sung** (DOM D-1/D-3/D-8, BUG-R2-017): `ota_base_rate` là một khóa json theo mã nhóm + biên 9.1a, `rounding.ota_rate`; `stay_night.calendar_rate_vnd`; `reservation.capacity_conflict_at/_ack_reason/_ack_by`; `overbooking_incident.source` thêm `no_show_restore` | ARC |
 | 16/10/2026 | 2 – Sprint 2 | **0.3.5** (khớp OpenAPI 0.3.5-draft – `rounds/round-02/outputs/ARC/s2-contract.md` A-08, A-16): một kênh `direct` (đóng E8); theo migration 0011–0014 đã chạy: `reservation.no_show_contact_note`, `total_room_vnd`, `reschedule_count`; `reservation.folio_id` nullable tạm; `folio_line.revenue_group` cột thường; `room_group.service_fee_monthly_vnd`; bảng `deposit_notice`; `quote.withdrawn_at`; `hk_task`, `room_block` tạo ở 0013 cùng nhóm bảng đơn | ARC |
 | 16/10/2026 | 2 – Sprint 1 (vòng sửa) | **0.3.4** (khớp OpenAPI 0.3.4-draft; quyết định Q1–Q8 `reviews/ARC-on-BE.md`, SEC s1-decisions): cột `guest.possible_duplicate_at` (Q7, cần migration mới); `guest.phone_e164` ghi rõ API trả có `+`; 9.3 thêm `session_policy`, `login_lockout` là tham số bảo mật (biên SEC, áp giá trị chặt nhất khi đăng nhập). `room.bed_setup`, `bed_count`, `area_m2` đã có – nay lên API (Q6). `online_checkin` hết trạng thái "chờ SEC" (duyệt có điều kiện) | ARC |
 | 16/10/2026 | 2 – Sprint 1 | **0.3.3** (khớp OpenAPI 0.3.3-draft; đề nghị BA E03-01…E05-05, E06-01…E06-07): `reservation.cards_issued`, `house_rules_sent_at/by`, `checkin_document_override_*`; `payment.note`, `attachment_id`, `confirmed_at/by`, vòng đời VietQR `pending` + UK một QR chờ/folio + job J24 `payment.expire`; `minibar_check.replaces_check_id`; `registration.images_purge_*`, `blocks_door_code` là điều kiện B9 ở R2, bảng `registration_portal_submission` (khai báo `mixed`); `guest_document.check_results` 3 kết quả + `blocking`/`manual_result`, `no_entry_record_enc`; `online_checkin` thêm `notice_*`, `late_arrival`, `arrival_note`, `deferred_people` (chờ SEC); câu hỏi mở E10–E12. Theo BE-A: `approval_request.target_code`, `limit_basis_vnd`, `self_applied`; `audit_event.entity_code`. Theo UXD: `reservation.door_access_handed_over_*` | ARC |

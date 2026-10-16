@@ -88,8 +88,8 @@ export const reservation = pgTable(
     stayGroupId: uuid('stay_group_id'),
     quoteId: uuid('quote_id'),
     groupId: uuid('group_id'),
-    // FK + NOT NULL added by the folio module (BE-B) – see file header.
-    folioId: uuid('folio_id'),
+    // NOT NULL since 0016 (FB-R2-ARC-BE-S2-04); FK → folio DEFERRABLE INITIALLY DEFERRED in 0014.
+    folioId: uuid('folio_id').notNull(),
     arrivalDate: date('arrival_date', { mode: 'string' }).notNull(),
     departureDate: date('departure_date', { mode: 'string' }).notNull(),
     bookedArrivalDate: date('booked_arrival_date', { mode: 'string' }),
@@ -100,6 +100,11 @@ export const reservation = pgTable(
     etaTime: time('eta_time'),
     isComplimentary: boolean('is_complimentary').notNull().default(false),
     conflictState: text('conflict_state').notNull().default('none'),
+    // DOM D-1 / 0.3.5 A-20: OTA booking taken above the room's max occupancy (BR-312 (1)) – separate from
+    // conflict_state (unassigned lane only). Cleared when the head count fits the assigned room.
+    capacityConflictAt: instant('capacity_conflict_at'),
+    capacityAckReason: text('capacity_ack_reason'),
+    capacityAckBy: uuid('capacity_ack_by'),
     holdCreatedAt: instant('hold_created_at'),
     holdHours: smallint('hold_hours'),
     holdExpiresAt: instant('hold_expires_at'),
@@ -243,9 +248,18 @@ export const reservationSegment = pgTable(
       foreignColumns: [room.propertyId, room.id],
     }),
     check('reservation_segment_dates_check', sql`${t.toDate} > ${t.fromDate}`),
+    // 0.3.5 A-19 MoveReasonCode (DOM D-5).
+    check(
+      'reservation_segment_reason_check',
+      sql`${t.changeReasonCode} IS NULL OR ${t.changeReasonCode} IN ('guest_request', 'property_fault', 'overbooking', 'upgrade', 'inventory_optimize', 'force_majeure', 'other')`,
+    ),
     index('reservation_segment_reservation_idx').on(t.reservationId),
     index('reservation_segment_room_idx')
       .on(t.propertyId, t.roomId, t.fromDate)
+      .where(sql`${t.active}`),
+    // Rack window over all rooms (FB-R2-ARC-BE-S2-11): to_date > from AND from_date < to.
+    index('reservation_segment_window_idx')
+      .on(t.propertyId, t.toDate, t.fromDate)
       .where(sql`${t.active}`),
   ],
 );
@@ -285,6 +299,16 @@ export const roomBlock = pgTable(
       name: 'room_block_property_fk',
       columns: [t.organizationId, t.propertyId],
       foreignColumns: [property.organizationId, property.id],
+    }),
+    foreignKey({
+      name: 'room_block_ack_by_fk',
+      columns: [t.organizationId, t.affectedReservationAckBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'room_block_released_by_fk',
+      columns: [t.organizationId, t.releasedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
     }),
     check(
       'room_block_status_check',
@@ -364,6 +388,8 @@ export const stayNight = pgTable(
     roomId: uuid('room_id'),
     stayDate: date('stay_date', { mode: 'string' }).notNull(),
     nightState: text('night_state').notNull(),
+    // 0.3.5 A-22 (DOM D-8): calendar price before the BR-107 tier; NULL for OTA/lease nights.
+    calendarRateVnd: bigint('calendar_rate_vnd', { mode: 'number' }),
     roomRevenueGrossVnd: bigint('room_revenue_gross_vnd', { mode: 'number' }).notNull(),
     discountVnd: bigint('discount_vnd', { mode: 'number' }).notNull().default(0),
     roomRevenueVnd: bigint('room_revenue_vnd', { mode: 'number' }).notNull(),
@@ -385,6 +411,8 @@ export const stayNight = pgTable(
     updatedAt: instant('updated_at').notNull(),
   },
   (t) => [
+    // Target of the (property_id, stay_night_id) FK of folio_line (FB-R2-SEC-BE-30, ARC-BE-S2-09).
+    unique('stay_night_property_id_key').on(t.propertyId, t.id),
     foreignKey({
       name: 'stay_night_reservation_fk',
       columns: [t.propertyId, t.reservationId],
@@ -486,7 +514,10 @@ export const overbookingIncident = pgTable(
       columns: [t.propertyId, t.requestedRoomId],
       foreignColumns: [room.propertyId, room.id],
     }),
-    check('overbooking_incident_source_check', sql`${t.source} IN ('desk', 'channel_sync')`),
+    check(
+      'overbooking_incident_source_check',
+      sql`${t.source} IN ('desk', 'channel_sync', 'no_show_restore')`,
+    ),
     check(
       'overbooking_incident_cause_check',
       sql`${t.cause} IN ('sync_delay', 'manual_entry', 'channel_overbooked', 'other')`,

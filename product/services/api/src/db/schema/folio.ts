@@ -406,6 +406,12 @@ export const depositNotice = pgTable(
       columns: [t.organizationId, t.propertyId],
       foreignColumns: [property.organizationId, property.id],
     }),
+    // FB-R2-ARC-BE-S2-09: the receipt that handled the notice stays in the same property.
+    foreignKey({
+      name: 'deposit_notice_handled_payment_fk',
+      columns: [t.propertyId, t.handledPaymentId],
+      foreignColumns: [payment.propertyId, payment.id],
+    }),
     check('deposit_notice_amount_check', sql`${t.amountVnd} > 0`),
     check('deposit_notice_status_check', sql`${t.status} IN ('open', 'handled')`),
     index('deposit_notice_reservation_idx').on(t.propertyId, t.reservationId, t.createdAt),

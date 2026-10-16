@@ -24,6 +24,8 @@ export const hasAny = (roles: readonly string[], set: readonly string[]): boolea
 export interface ActionContext {
   status: ReservationStatus;
   conflictState: 'none' | 'open' | 'resolved';
+  /** A-20: OTA booking above capacity – check-in blocked (`capacity_within_max`). */
+  capacityConflict?: boolean;
   channelGroup: ChannelGroup;
   arrivalDate: LocalDate;
   departureDate: LocalDate;
@@ -59,7 +61,7 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
       if (fd && c.conflictState === 'open') {
         out.push({ event: 'assign_room', transition: 'B7a', action: 'assign-room' });
       }
-      if (fd && c.conflictState !== 'open' && c.today === c.arrivalDate) {
+      if (fd && c.conflictState !== 'open' && !c.capacityConflict && c.today === c.arrivalDate) {
         out.push({
           event: 'check_in',
           transition: 'B9',
