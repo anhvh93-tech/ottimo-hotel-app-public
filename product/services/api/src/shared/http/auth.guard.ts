@@ -1,7 +1,7 @@
 /**
  * Staff authentication + action authorisation driven by the OpenAPI contract (rbac-matrix 8, coding-standards 7).
  *
- * Order (OpenAPI "Thứ tự kiểm"): authenticate → [CSRF/Origin – identity module, BE-B] → trusted device →
+ * Order (OpenAPI "Thứ tự kiểm"): authenticate → CSRF/Origin (write methods, csrf.ts) → trusted device →
  * Idempotency-Key present → If-Match present → roles. For operations with Idempotency-Key the role
  * decision is applied by UnitOfWork AFTER the replay lookup, so an offline retry of a request that already
  * succeeded gets its stored response (not 403/412).
@@ -20,14 +20,23 @@ import {
   Injectable,
   type OnModuleInit,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
 import { cookieNames, readCookie } from './cookies';
+import {
+  type AllowedOrigins,
+  CSRF_HEADER,
+  CSRF_VERIFIER,
+  type CsrfVerifier,
+  isWriteMethod,
+  originAllowed,
+} from './csrf';
 import { OPERATION_KEY, PUBLIC_ROUTE_KEY, operationMeta } from './operation';
+import { parseEntityTag } from './precondition';
 
 export const AUTH_OPTIONS = Symbol('AUTH_OPTIONS');
 
@@ -35,6 +44,8 @@ export interface AuthOptions {
   cookieSecurePrefix: boolean;
   /** Role cache lifetime (≤ 60 s – SR-AZ-08). */
   roleCacheMs?: number;
+  /** Browser origins accepted on write methods (SR-SES-04). Empty/missing = not checked (dev/test only). */
+  allowedOrigins?: AllowedOrigins;
 }
 
 export interface StaffPrincipal {
@@ -55,6 +66,8 @@ export interface RequestAuth {
   allowed: boolean;
   /** Set once the role decision has been enforced (403 thrown or passed). */
   enforced: boolean;
+  /** Version from `If-Match: "<n>"` (operations that declare If-Match; absent for dryRun). */
+  ifMatchVersion?: number;
 }
 
 export interface GuardedRequest {
@@ -75,6 +88,9 @@ interface SessionRow {
   organization_id: string;
   active_property_id: string | null;
   expires_at: Date;
+  /** erd 2.4 v0.3.2 (migration 0005): idle timeout and account status. */
+  idle_expires_at?: Date | null;
+  user_status?: string | null;
   revoked_at: Date | null;
   roles_version: number;
   trusted_device_id: string | null;
@@ -108,7 +124,22 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AUTH_OPTIONS) private readonly options: AuthOptions,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ModuleRef) private readonly moduleRef: ModuleRef,
   ) {}
+
+  private csrfVerifier: CsrfVerifier | null | undefined;
+
+  /** The identity module's verifier (CSRF_VERIFIER), looked up once; null when not registered. */
+  private verifier(): CsrfVerifier | null {
+    if (this.csrfVerifier === undefined) {
+      try {
+        this.csrfVerifier = this.moduleRef.get<CsrfVerifier>(CSRF_VERIFIER, { strict: false });
+      } catch {
+        this.csrfVerifier = null;
+      }
+    }
+    return this.csrfVerifier;
+  }
 
   onModuleInit(): void {
     this.names = cookieNames(this.options.cookieSecurePrefix);
@@ -125,6 +156,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const req = context.switchToHttp().getRequest<GuardedRequest>();
 
     if (operation.public) {
+      // No session yet (login, guest link exchange): Origin still has to be one of ours (login CSRF).
+      if (isWriteMethod(req.method) && !originAllowed(header(req, 'origin'), this.allOrigins())) {
+        throw problem('FORBIDDEN_ACTION', { detail: 'Origin not allowed' });
+      }
       req.ottimoAuth = { operationId, operation, principal: null, allowed: true, enforced: true };
       return true;
     }
@@ -135,14 +170,22 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     }
 
     const principal = await this.authenticate(req);
+    await this.checkCsrf(req, operationId, principal);
     await this.checkTrustedDevice(req, operation, principal);
-    this.checkPreconditionHeaders(req, operation);
+    const ifMatchVersion = this.checkPreconditionHeaders(req, operation);
 
     // any_staff = any authenticated staff member (e.g. getMe), even before a property is chosen.
     const allowed =
       operation.roles.includes('any_staff') ||
       principal.roles.some((r) => operation.roles.includes(r));
-    req.ottimoAuth = { operationId, operation, principal, allowed, enforced: false };
+    req.ottimoAuth = {
+      operationId,
+      operation,
+      principal,
+      allowed,
+      enforced: false,
+      ...(ifMatchVersion !== undefined ? { ifMatchVersion } : {}),
+    };
     if (!operation.idempotencyKey) await this.enforce(req);
     return true;
   }
@@ -179,7 +222,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     });
     const s = rows[0];
     const now = this.clock.now();
-    if (!s || s.revoked_at || s.expires_at.getTime() <= now.getTime()) {
+    if (
+      !s ||
+      s.revoked_at ||
+      s.expires_at.getTime() <= now.getTime() ||
+      (s.idle_expires_at && s.idle_expires_at.getTime() <= now.getTime()) ||
+      (s.user_status && s.user_status !== 'active')
+    ) {
       throw problem('UNAUTHENTICATED');
     }
 
@@ -229,6 +278,39 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     return roles;
   }
 
+  private allOrigins(): string[] {
+    const o = this.options.allowedOrigins;
+    return o ? [...o.staff, ...o.guest] : [];
+  }
+
+  /**
+   * SR-SES-04: staff write methods need an allowed Origin (admin-web / staff PWA) and X-CSRF-Token bound to
+   * the session (csrf.ts). Reads are exempt (SameSite=Lax + no state change). 403 + access.denied.
+   */
+  private async checkCsrf(
+    req: GuardedRequest,
+    operationId: string,
+    p: StaffPrincipal,
+  ): Promise<void> {
+    if (!isWriteMethod(req.method)) return;
+    const origins = this.options.allowedOrigins?.staff ?? [];
+    const verifier = this.verifier();
+    let reason: string | null = null;
+    if (!originAllowed(header(req, 'origin'), origins)) reason = 'ORIGIN';
+    else if (verifier && !verifier.verifyCsrf(p.sessionId, header(req, CSRF_HEADER)))
+      reason = 'CSRF';
+    if (!reason) return;
+    await this.audit.recordDenied(tenantOf(p), {
+      action: 'access.denied',
+      entityType: 'operation',
+      entityId: operationId,
+      reason,
+      requestId: req.id,
+      sessionId: p.sessionId,
+    });
+    throw problem('FORBIDDEN_ACTION', { detail: reason === 'CSRF' ? 'CSRF token' : 'Origin' });
+  }
+
   private async checkTrustedDevice(
     req: GuardedRequest,
     operation: OperationMeta,
@@ -268,10 +350,14 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     p.trustedDeviceId = deviceId;
   }
 
-  private checkPreconditionHeaders(req: GuardedRequest, operation: OperationMeta): void {
+  /** Returns the If-Match version when the operation declares If-Match. */
+  private checkPreconditionHeaders(
+    req: GuardedRequest,
+    operation: OperationMeta,
+  ): number | undefined {
     // dryRun (tính thử) needs neither header (OpenAPI "dryRun").
     const body = req.body as { dryRun?: unknown } | undefined;
-    if (body && typeof body === 'object' && body.dryRun === true) return;
+    if (body && typeof body === 'object' && body.dryRun === true) return undefined;
     if (operation.idempotencyKey) {
       const key = header(req, 'idempotency-key');
       if (!key) {
@@ -283,9 +369,16 @@ export class AuthGuard implements CanActivate, OnModuleInit {
         });
       }
     }
-    if (operation.ifMatch && !header(req, 'if-match')) {
-      throw problem('PRECONDITION_REQUIRED', { detail: 'If-Match header is required' });
+    if (!operation.ifMatch) return undefined;
+    const raw = header(req, 'if-match');
+    if (!raw) throw problem('PRECONDITION_REQUIRED', { detail: 'If-Match header is required' });
+    const version = parseEntityTag(raw);
+    if (version === null) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'If-Match', code: 'VALIDATION_FAILED' }],
+      });
     }
+    return version;
   }
 }
 

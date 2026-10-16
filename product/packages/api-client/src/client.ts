@@ -1,0 +1,117 @@
+import { ApiError, networkError, parseRetryAfter, syntheticProblem } from './errors';
+import type { Problem } from './types';
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface RequestOptions {
+  /** Path params replacing `{name}` in the template. */
+  path?: Record<string, string>;
+  query?: Record<string, string | number | boolean | undefined>;
+  body?: unknown;
+  /** Version for optimistic locking – sent as `If-Match: "<version>"`. */
+  ifMatch?: number | string;
+  /** ADR-009: one key per user click; a network retry of the same click reuses it. */
+  idempotencyKey?: string;
+  /** Do not report this failure to the global `onError` (e.g. 401 of a wrong *current* password). */
+  local?: boolean;
+}
+
+export interface ApiResult<T> {
+  data: T;
+  status: number;
+  etag?: string;
+}
+
+export interface ApiClientOptions {
+  /** Origin used to resolve `/v1/...`. Defaults to `window.location.origin`. */
+  baseUrl?: string;
+  /** CSRF token from `Me.csrfToken`, kept in memory only (never in storage). */
+  getCsrfToken?: () => string | undefined;
+  /** Called for every ApiError before it is thrown (global 401/403 handling). */
+  onError?: (error: ApiError) => void;
+  fetchImpl?: typeof fetch;
+}
+
+export interface ApiClient {
+  request<T>(method: HttpMethod, template: string, options?: RequestOptions): Promise<ApiResult<T>>;
+}
+
+function buildUrl(base: string, template: string, options: RequestOptions): string {
+  const pathname = template.replace(/\{(\w+)\}/g, (_, name: string) => {
+    const value = options.path?.[name];
+    if (value === undefined) throw new Error(`Missing path param ${name} for ${template}`);
+    return encodeURIComponent(value);
+  });
+  const url = new URL(pathname, base);
+  for (const [k, v] of Object.entries(options.query ?? {})) {
+    if (v !== undefined) url.searchParams.set(k, String(v));
+  }
+  return url.toString();
+}
+
+async function readProblem(res: Response): Promise<Problem> {
+  const requestId = res.headers.get('x-request-id') ?? undefined;
+  const type = res.headers.get('content-type') ?? '';
+  if (type.includes('json')) {
+    try {
+      const body = (await res.json()) as Partial<Problem>;
+      if (body && typeof body.code === 'string') {
+        return { ...body, requestId: body.requestId ?? requestId } as Problem;
+      }
+    } catch {
+      /* fall through to synthetic problem */
+    }
+  }
+  return syntheticProblem(res.status, requestId);
+}
+
+export function createApiClient(options: ApiClientOptions = {}): ApiClient {
+  const doFetch = options.fetchImpl ?? ((input, init) => fetch(input, init));
+  const base = () => options.baseUrl ?? globalThis.location?.origin ?? 'http://localhost';
+
+  return {
+    async request<T>(method: HttpMethod, template: string, req: RequestOptions = {}) {
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (req.body !== undefined) headers['Content-Type'] = 'application/json';
+      if (method !== 'GET') {
+        const csrf = options.getCsrfToken?.();
+        if (csrf) headers['X-CSRF-Token'] = csrf;
+      }
+      if (req.ifMatch !== undefined) headers['If-Match'] = `"${req.ifMatch}"`;
+      if (req.idempotencyKey) headers['Idempotency-Key'] = req.idempotencyKey;
+
+      let res: Response;
+      try {
+        res = await doFetch(buildUrl(base(), template, req), {
+          method,
+          headers,
+          credentials: 'same-origin',
+          body: req.body === undefined ? undefined : JSON.stringify(req.body),
+        });
+      } catch {
+        const err = networkError();
+        if (!req.local) options.onError?.(err);
+        throw err;
+      }
+
+      if (!res.ok) {
+        const err = new ApiError(
+          res.status,
+          await readProblem(res),
+          parseRetryAfter(res.headers.get('retry-after')),
+        );
+        if (!req.local) options.onError?.(err);
+        throw err;
+      }
+
+      const etag = res.headers.get('etag') ?? undefined;
+      if (res.status === 204) return { data: undefined as T, status: res.status, etag };
+      const text = await res.text();
+      return { data: (text ? JSON.parse(text) : undefined) as T, status: res.status, etag };
+    },
+  };
+}
+
+export function newIdempotencyKey(): string {
+  return globalThis.crypto.randomUUID();
+}

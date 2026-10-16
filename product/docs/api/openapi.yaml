@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.3.2-draft
+  version: 0.3.3-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -141,6 +141,11 @@ info:
     | USERNAME_TAKEN | 409 | `createUser`: tên đăng nhập đã có trong tổ chức (US-002; 0.3.1) |
     | PARTY_DUPLICATE | 409 | `addPartyMember`: người này đã có trong đơn, kể cả người đứng tên (US-022 AC3; 0.3.1) |
     | ROOM_NOT_READY | 409 | `changeRoom` (B14): căn mới chưa ở trạng thái buồng `VI`/`VC` (BR-803, US-024 AC4) – kèm `roomStatus` (0.3.1) |
+    | SURCHARGE_CHANGED | 409 | `checkIn`/`setLateCheckout`/`checkOut`: phụ thu server tính lại khác `expectedSurchargeVnd` client đã hiển thị (BR-414) – kèm `surchargeVnd` mới; client tải lại preview rồi hỏi lại lễ tân (0.3.3, E03-02) |
+    | MINIBAR_NOT_CHECKED | 409 | `checkOut`: căn có món minibar tính tiền mà chưa có lần kiểm `mode=checkout` (US-035, blocker `minibar_not_checked`) (0.3.3, E05-04) |
+    | SELF_RECONCILE_FORBIDDEN | 403 | `reconcilePayment`: người đối soát là người đã ghi/xác nhận giao dịch, và không phải OWN (rbac A46) (0.3.3, E05-03) |
+    | CONSENT_CHANGE_NOT_ALLOWED | 409 | `recordImageConsent`: đổi `refused → granted` khi ảnh đã xóa (khai báo đã `confirmed` hoặc ảnh đã purge) (BR-609 c) (0.3.3, E06-02) |
+    | ONLINE_CHECKIN_CLOSED | 409 | App khách ghi check-in online khi đã đóng (`onlineCheckinAvailable=false`: lễ tân đã nhập giấy tờ, đơn `in_house` hoặc không còn `confirmed`) (0.3.3, E06-06) |
 
     ## Mã lỗi theo trường (`FieldError.code`, nằm trong `errors[]` của `422 VALIDATION_FAILED`) – 0.3.1
     Tập mã **mở** (schema `FieldError.code` là chuỗi): client không biết mã → hiện `field_error.generic`. Nguồn: BA `specs/EP00-platform.md` mục 0.3 (V-01…V-11),
@@ -173,6 +178,40 @@ info:
     | OTA_AMOUNT_MISMATCH | Σ `nightlyRates` ≠ `otaRoomAmountVnd` | `createReservation` |
     | OTA_PENALTY_OTA_ONLY | `otaPenaltyVnd` cho đơn không thuộc kênh `ota` | `cancelReservation` |
     | DIRECT_SOURCE_NOT_ALLOWED | `directSource` cho kênh không thuộc nhóm `direct` | `createReservation` |
+    | EXTENSION_LIMIT_EXCEEDED | `nights` > `ExtensionOptions.maxNights` (đêm liên tiếp còn trống, giới hạn BR-421) – 0.3.3 E04-01 | `extendStay` |
+    | NIGHTLY_RATES_NOT_ALLOWED | Gửi `nightlyRates` cho đơn `externalContract=true` (đơn dài hạn nhập tay không sinh dòng `room`) – 0.3.3 E04-01 | `extendStay` |
+    | VISA_EXPIRES_BEFORE_DEPARTURE | **Cảnh báo**: khách NN có hạn thị thực/tạm trú < ngày đi mới và thiếu `visaWarningAckReason` → client hiện hộp cảnh báo + ô lý do rồi gửi lại (như `RATE_OUT_OF_RANGE_WARNING`) – BR-605, US-050 AC2; 0.3.3 E04-01 | `extendStay`, `updateReservation`, `moveReservation` |
+    | LATE_CHECKOUT_AFTER_LIMIT | Giờ trả sau mốc cuối `late_checkout_tiers` (BR-412/416) – dùng Gia hạn 1 đêm – 0.3.3 E04-02 | `setLateCheckout`, `checkOut` |
+    | PRICE_NOT_EDITABLE | Gửi `unitPriceVnd` cho khoản danh mục có `priceEditable=false` (giá theo tham số BR) – 0.3.3 E04-03 | `addFolioLine` |
+    | EVIDENCE_REQUIRED | Khoản `evidenceRequired=true` (phạt, hư hỏng) thiếu cả `evidenceAttachmentIds` lẫn `note` ≥ 3 ký tự (US-032 AC2) – 0.3.3 E04-03 | `addFolioLine` |
+    | AMOUNT_EXCEEDS_BALANCE | VietQR `amountVnd` > còn phải thu (hoặc cọc còn thiếu) – **giả định BA, chờ DOM E05-06 (d)**; server bật/tắt theo kết luận DOM, mã giữ cố định – 0.3.3 | `createVietQr` |
+    | DATE_RANGE_TOO_LONG | Khoảng lọc ngày vượt giới hạn (92 ngày, như nhật ký EP00 G-6) – 0.3.3 E05-03 | `listPayments` |
+    | MINIBAR_ITEMS_INCOMPLETE | Kiểm `mode=checkout` thiếu món của tủ chuẩn căn (BR-701) – 0.3.3 E05-04 | `recordMinibarCheck` |
+    | MINIBAR_QTY_OVER_STANDARD | `remainingQty` > mức chuẩn của món (US-035 AC3, BR-702) – 0.3.3 E05-04 | `recordMinibarCheck` |
+    | DOC_NUMBER_INVALID | Số giấy tờ sai dạng theo `docType` (CCCD/định danh trẻ em 12 chữ số; hộ chiếu 6–12 chữ/số; khác 3–30) – 0.3.3 E06-05 | `addGuestDocument`, `updateGuestDocument` |
+    | MAIN_GUEST_DUPLICATE | Đã có giấy tờ `isMain=true` khác trong khai báo – 0.3.3 E06-05 | `addGuestDocument`, `updateGuestDocument` |
+    | ENTRY_DATE_FUTURE | `entryDate` sau hôm nay – 0.3.3 E06-05 | `addGuestDocument`, `updateGuestDocument` |
+    | CHECK_NOTE_REQUIRED | Mục đối chiếu `fail`/`unverified` thiếu ghi chú xử lý 3–500 ký tự (US-044 AC4) – 0.3.3 E06-05 | `recordDocumentCheck`, `completeRegistrationReview` |
+    | PORTAL_REFERENCE_REQUIRED | `mark-sent` thiếu/sai mã hồ sơ cổng (3–64 ký tự `[A-Za-z0-9-/._]` sau cắt khoảng trắng) – 0.3.3 E06-05 | `transitionRegistration` |
+    | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
+
+    ## Thay đổi phiên bản 0.3.3-draft (R2 Sprint 1 – đề nghị BA E03-01…E05-05, E06-01…E06-07; chi tiết `rounds/round-02/outputs/ARC/s1-contract.md`)
+    **Thêm operation**: `listPayments` (danh sách giao dịch / chờ đối soát – US-119 AC6, BR-527), `confirmPaymentReceived` (VietQR `pending → succeeded`, SM-12),
+    `getMinibarStandard` (tủ chuẩn của căn + bản kiểm gần nhất), `recordDocumentCheck` (kiểm tay một mục đối chiếu trước khi nhận phòng).
+    **Thêm trường** (không đổi đường dẫn): `CheckInPreview.warnings[]`, điều kiện `document_check_block`, `priorNight`; `checkIn` thêm `documentBlockOverride`,
+    `expectedSurchargeVnd`, `cardsIssued`, `houseRulesSent`, `addPriorNight`/`priorNightRateVnd`, 202 + yêu cầu duyệt `checkin_room_not_ready`;
+    `Reservation.cardsIssued`, `houseRulesSentAt`; `extendStay`/`updateReservation`/`moveReservation` thêm `visaWarningAckReason`; `setLateCheckout` thêm
+    `requestApproval` (202), `expectedSurchargeVnd`; `checkOut` thêm `expectedSurchargeVnd`; `ChargeCatalogItem.priceEditable`; `FolioLineCreate.proposedUnitPriceVnd`;
+    `PaymentCreate`/`Payment.attachmentId`, `Payment.confirmedAt/confirmedByName/recordedByUserId/folioId/reservationCode/version`; `MinibarCheck.replacesCheckId`;
+    `Bill` mô tả `locale` do server quyết, thứ tự dòng FOC; `GuestDocumentMasked.checks[]` thêm `blocking`, `manualResult`, `handledByName`, `handledAt`;
+    `DocumentCheckCode` thêm `passport_valid_at_arrival`, `visa_valid_at_arrival`, `entry_record_present`; `GuestDocumentInput.noEntryRecord`;
+    `Registration.imagesPurgeScheduledAt`, `imagesPurgedAt`, `imagesPurgeReason`, `portalReferences[]`, `onlineCheckin`; `getPortalData?kind=`, `mark-sent` có `kind`;
+    `OnlineCheckin` thêm bước `notice`, `noticeAccepted`, `lateArrival`, `deferredPeople` (**chờ SEC duyệt – ĐK-2**); mã lỗi mới ở hai bảng trên.
+    **Theo BE-A** (ORC chuyển): `FocRequestInput.authMethod`/`secret` (xác nhận lại khi FD tự áp FOC minibar – US-007 AC6, BR-436); `ApprovalRequest.targetType`,
+    `targetCode`, `selfApplied`; `AuditEvent.entityId` nới từ `Uuid` thành chuỗi, mô tả `entityCode`. **Theo UXD**: `checkIn.doorAccessHandedOver` +
+    `Reservation.doorAccessHandedOverAt` (ô tick "đã giao mã/thẻ" R2, không lưu mã – chờ PO).
+    **Sửa (chặt hơn – chưa có client/BE nào cài các operation này, Sprint 3)**: `checks[].result` thêm `pass|fail|unverified` (`ok`/`warning` **deprecated** – server
+    0.3.3 không trả); `setLateCheckout.applySurcharge` mặc định `true → false` (BR-414); `GuestDocumentInput.nationalityCode` chỉ alpha-3; `reconcilePayment` thêm `x-rbac: [A46]`.
 
     ## Phạm vi bản nháp
     Phủ cả **77 story Must R2** của backlog bản R1 (`03-backlog/backlog.md` mục 4; BUG-R1-017). Sau khi áp phương án **R-C** (ESC-012, INV đồng ý 16/10)
@@ -1722,10 +1761,16 @@ paths:
                   type: string
                   enum: [reassigned_same_group, upgraded]
                   description: Bắt buộc khi đơn đang `conflictState=open`
+                visaWarningAckReason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                  description: 'Đổi ngày đi vượt hạn thị thực/tạm trú của khách NN đã có giấy tờ → thiếu lý do: 422 cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (US-050 AC2; 0.3.3, E04-01)'
       responses:
         '200': { $ref: '#/components/responses/ReservationOk' }
         '409': { $ref: '#/components/responses/RoomUnavailable' }
         '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/actions/mark-no-show:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -1819,6 +1864,10 @@ paths:
                   - { code: room_ready, met: true }
                   - { code: balance_paid, met: false, detail: Còn phải thu 1.660.000 }
                   - { code: main_guest_document, met: true }
+                  - { code: document_check_block, met: true, overridableBy: [owner, manager, front_desk_lead] }
+                warnings:
+                  - { code: extra_guest_kit_not_ready }
+                  - { code: pending_online_checkin }
                 earlyCheckinSurcharge: { tierPct: 30, baseNightVnd: 700000, amountVnd: 210000, ruleRef: BR-411 }
                 registrationDeadlinePreview: '2026-10-15T23:00:00+07:00'
         '401': { $ref: '#/components/responses/Unauthenticated' }
@@ -1834,9 +1883,28 @@ paths:
       description: |
         Buồng chưa VC/VI → cần `roomNotReadyOverride` (FDL+ trực tiếp; FD sẽ tạo yêu cầu duyệt `checkin_room_not_ready` – A12).
         Đơn `conflictState=open` → `409 RESERVATION_UNASSIGNED`.
+
+        **0.3.3 (EP03-05 mục 1, E03-01…05)**
+        - Thứ tự kiểm: thiết bị → quyền → `If-Match` → trạng thái `confirmed` + ngày nghiệp vụ = ngày đến (hoặc = ngày đến − 1 với B9a) (`INVALID_TRANSITION`)
+          → `conflictState` (`RESERVATION_UNASSIGNED`) → điều kiện BR-402 + `document_check_block` (`409 CHECKIN_CONDITIONS_NOT_MET` + `unmet[]`)
+          → phụ thu (`SURCHARGE_CHANGED`) → dữ liệu trường (422).
+        - **FD gửi `roomNotReadyOverride`** → không nhận phòng, trả **202** + `ApprovalRequest` `type=checkin_room_not_ready` (A12 = D). Sau khi FDL+ duyệt,
+          FD gọi lại với `roomNotReadyOverride.approvalRequestId` của yêu cầu `approved` (chỉ hiệu lực **trong ngày nghiệp vụ** duyệt, cùng đơn) → nhận phòng.
+          FDL+ gửi lý do → ghi ngay (buồng → `OD`, việc dọn ưu tiên R7).
+        - Chỉ trên **thiết bị được cấp** (SM-01 B9 điều kiện 0.2 điểm 8, rbac 8.7 – A11 "Q"): khác → `403 DEVICE_NOT_TRUSTED` (0.3.3 bổ sung chú thích máy đọc).
+        - **`documentBlockOverride`** (điều kiện `document_check_block` = `Registration.blocksDoorCode`, BR-613 c): chỉ FDL+; FD gửi → `403 FORBIDDEN_ACTION`.
+          Ghi lý do + cách xử lý vào nhật ký, `staff_notification` cho MGR. R2 chặn **B9** thay cho "chặn giao mã cửa" (giả định BA – chờ DOM E05-06 c).
+        - **`expectedSurchargeVnd`**: bắt buộc khi `applyEarlySurcharge=true` (hoặc `addPriorNight=true` – là `priorNightRateVnd`); server tính lại tại thời điểm ghi,
+          lệch → `409 SURCHARGE_CHANGED` kèm `surchargeVnd` mới (BR-414 "ghi đúng số đang hiển thị").
+        - **B9a** (`addPriorNight=true`, event `check_in_add_prior_night`): chỉ khi ngày nghiệp vụ = ngày đến − 1; căn không trống đêm trước hoặc có OOO →
+          `409 ROOM_UNAVAILABLE` + `suggestions[]`. Trực tiếp/CTV: thêm đêm đầu đơn; OTA: đơn con kênh Trực tiếp `in_house` chung folio (BR-422). `priorNightRateVnd`
+          trong sàn–trần BR-105 (`RATE_OUT_OF_RANGE`). Miễn tiền đêm này = `requestFoc kind=special_discount` trên dòng `room`, không phải FOC phụ thu.
+        - `cardsIssued`, `houseRulesSent` lưu vào đơn (`Reservation.cardsIssued`, `houseRulesSentAt`) – phục vụ phí thiếu thẻ/khử mùi BR-511 khi chưa có US-128.
+        - `actualCheckinAt` = thời điểm bấm (giờ thật, kể cả sau nửa đêm – US-025 AC6); `checkinTime` chỉ dùng tính phụ thu.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A11, A12, S06]
-      x-transition: B9
+      x-requires-trusted-device: true
+      x-transition: [B9, B9a]
       x-stories: [US-025, US-026, US-027]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1847,29 +1915,86 @@ paths:
           application/json:
             schema:
               type: object
+              required: [cardsIssued, houseRulesSent]
               properties:
                 checkinTime: { $ref: '#/components/schemas/LocalTime' }
                 applyEarlySurcharge: { type: boolean, default: false, description: Lễ tân xác nhận ghi phụ thu vào folio (BR-414) }
+                expectedSurchargeVnd:
+                  $ref: '#/components/schemas/MoneyVnd'
+                  description: 'Số phụ thu (hoặc tiền đêm thêm B9a) client đang hiển thị khi lễ tân xác nhận – bắt buộc khi `applyEarlySurcharge=true`; lệch → `409 SURCHARGE_CHANGED` (0.3.3, E03-02)'
                 requestFocForSurcharge: { $ref: '#/components/schemas/FocRequestInput' }
                 roomNotReadyOverride:
                   type: object
                   properties:
                     reason: { type: string, minLength: 3 }
-            example: { checkinTime: '14:30', applyEarlySurcharge: false }
+                    approvalRequestId:
+                      $ref: '#/components/schemas/Uuid'
+                      description: 'FD gọi lại sau khi yêu cầu `checkin_room_not_ready` đã `approved` trong ngày nghiệp vụ (0.3.3, E03-03)'
+                documentBlockOverride:
+                  type: object
+                  description: 'Chỉ FDL+ (FD → 403). Nhận tiếp khi `document_check_block` chưa đạt – lý do + cách xử lý (BR-613 c; 0.3.3, E03-01)'
+                  required: [reason]
+                  properties:
+                    reason: { type: string, minLength: 3, maxLength: 500 }
+                cardsIssued:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                  description: 'Số thẻ phòng đã phát (BR-511: 1 chính + 1 dự phòng). Tối đa 2/đơn là **giả định BA – chờ DOM E05-06 a** (2/đơn hay 2/người); nới biên sau là thay đổi không phá (0.3.3, E03-04)'
+                houseRulesSent:
+                  type: boolean
+                  const: true
+                  description: 'Lễ tân xác nhận đã gửi/giao nội quy VI/EN – điều kiện để thu phí phạt sau này (BR-511). Thiếu/`false` → 422 `REQUIRED` (0.3.3, E03-04)'
+                doorAccessHandedOver:
+                  type: boolean
+                  default: false
+                  description: 'Ô tick "Đã giao mã cửa/thẻ cho khách" (R2 – lễ tân giao tay, app **không** lưu mã cửa; US-128 dời R3). Chỉ ghi thời điểm + người vào `Reservation.doorAccessHandedOverAt`; **không bắt buộc** – chờ PO quyết có bắt buộc trước B9 không (0.3.3, đề nghị UXD)'
+                addPriorNight:
+                  type: boolean
+                  default: false
+                  description: 'B9a – thêm đêm trước khi khách nhận trước mốc đổi ngày (BR-417, BR-010; 0.3.3, E03-05)'
+                priorNightRateVnd:
+                  $ref: '#/components/schemas/MoneyVnd'
+                  description: 'Bắt buộc khi `addPriorNight=true`; mặc định từ `CheckInPreview.priorNight.defaultRateVnd`; trong sàn–trần BR-105'
+            examples:
+              normal: { value: { checkinTime: '14:30', applyEarlySurcharge: false, cardsIssued: 2, houseRulesSent: true } }
+              earlyWithSurcharge: { value: { checkinTime: '11:00', applyEarlySurcharge: true, expectedSurchargeVnd: 210000, cardsIssued: 1, houseRulesSent: true } }
+              priorNight: { value: { checkinTime: '04:30', addPriorNight: true, priorNightRateVnd: 820000, expectedSurchargeVnd: 820000, cardsIssued: 2, houseRulesSent: true } }
       responses:
         '200': { $ref: '#/components/responses/ReservationOk' }
+        '202':
+          description: 'FD gửi `roomNotReadyOverride` không kèm yêu cầu đã duyệt → đã tạo yêu cầu duyệt `checkin_room_not_ready` (A12 = D); đơn chưa nhận phòng'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409':
-          description: CHECKIN_CONDITIONS_NOT_MET / RESERVATION_UNASSIGNED / INVALID_TRANSITION
+          description: CHECKIN_CONDITIONS_NOT_MET / RESERVATION_UNASSIGNED / INVALID_TRANSITION / SURCHARGE_CHANGED / ROOM_UNAVAILABLE (B9a)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-              example:
-                type: /problems/checkin-conditions-not-met
-                title: Chưa đủ điều kiện nhận phòng
-                status: 409
-                code: CHECKIN_CONDITIONS_NOT_MET
-                unmet: [balance_paid]
+              examples:
+                conditionsNotMet:
+                  value:
+                    type: /problems/checkin-conditions-not-met
+                    title: Chưa đủ điều kiện nhận phòng
+                    status: 409
+                    code: CHECKIN_CONDITIONS_NOT_MET
+                    unmet: [balance_paid, document_check_block]
+                surchargeChanged:
+                  value: { type: /problems/surcharge-changed, title: Phụ thu đã thay đổi – tải lại, status: 409, code: SURCHARGE_CHANGED, surchargeVnd: 350000 }
+                priorNightUnavailable:
+                  value:
+                    type: /problems/room-unavailable
+                    title: Căn có khách đêm trước
+                    status: 409
+                    code: ROOM_UNAVAILABLE
+                    conflicts: [{ roomNo: '201', nights: ['2026-10-18'], kind: reservation }]
+                    suggestions: [{ roomId: 0192a1b0-0000-7000-8000-0000000c0202, roomNo: '202', roomGroupCode: L12, upgrade: false }]
         '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
   /v1/properties/{propertyId}/reservations/{reservationId}/actions/undo-check-in:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -1939,11 +2064,16 @@ paths:
               type: object
               required: [nights]
               properties:
-                nights: { type: integer, minimum: 1 }
+                nights: { type: integer, minimum: 1, description: '≤ `ExtensionOptions.maxNights` → vượt: 422 mã trường `EXTENSION_LIMIT_EXCEEDED` (0.3.3). Đơn `externalContract=true` không bị giới hạn BR-421' }
                 nightlyRates:
                   type: array
-                  description: Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105
+                  description: 'Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105. Đơn `externalContract=true` (dài hạn nhập tay) **không** sinh dòng `room` → gửi trường này: 422 `NIGHTLY_RATES_NOT_ALLOWED` (0.3.3, E04-01)'
                   items: { $ref: '#/components/schemas/NightRate' }
+                visaWarningAckReason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                  description: 'Lý do vẫn gia hạn khi hạn thị thực/tạm trú của khách NN < ngày đi mới. Thiếu → 422 mã trường cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (client hiện hộp cảnh báo rồi gửi lại). Ngày đi **khai báo** vẫn không vượt hạn thị thực (BR-605, US-050 AC2; 0.3.3, E04-01)'
             example: { nights: 1 }
       responses:
         '200':
@@ -1986,18 +2116,35 @@ paths:
               type: object
               required: [checkoutTime]
               properties:
-                checkoutTime: { $ref: '#/components/schemas/LocalTime' }
-                applySurcharge: { type: boolean, default: true }
+                checkoutTime: { $ref: '#/components/schemas/LocalTime', description: 'Sau mốc cuối `late_checkout_tiers` → 422 mã trường `LATE_CHECKOUT_AFTER_LIMIT` (dry-run trả `treatAsExtension=true` thay vì lỗi) (0.3.3, E04-02)' }
+                applySurcharge:
+                  type: boolean
+                  default: false
+                  description: '**0.3.3 đổi mặc định `true → false`** (BR-414: lễ tân phải xác nhận số tiền). Client luôn gửi tường minh'
+                expectedSurchargeVnd:
+                  $ref: '#/components/schemas/MoneyVnd'
+                  description: 'Bắt buộc khi `applySurcharge=true` và `dryRun=false`; lệch số server tính → `409 SURCHARGE_CHANGED` (0.3.3, E03-02)'
                 requestFocForSurcharge: { $ref: '#/components/schemas/FocRequestInput' }
+                requestApproval:
+                  type: boolean
+                  default: false
+                  description: 'FD gặp `LATE_CHECKOUT_CONFLICT` → gửi lại với `true` để tạo yêu cầu `late_checkout_conflict` cho MGR+ (A16 = D) → 202 (0.3.3, E04-02)'
                 dryRun: { type: boolean, default: false }
-            example: { checkoutTime: '15:00', applySurcharge: true, dryRun: true }
+            example: { checkoutTime: '15:00', applySurcharge: true, expectedSurchargeVnd: 410000, dryRun: false }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LateCheckoutResult' }
+        '202':
+          description: 'Đã tạo yêu cầu duyệt `late_checkout_conflict` (FD, `requestApproval=true`) – chưa lưu giờ trả muộn'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/actions/change-room:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -2230,6 +2377,11 @@ paths:
       description: |
         Chặn khi còn phải thu > 0 (`409 BALANCE_DUE`) trừ `debt` do MGR+ ghi (BR-525); chặn khi còn yêu cầu duyệt chờ (`409 PENDING_APPROVALS`).
         Khai báo NN → `needs_update` (BR-604). Hóa đơn điện tử: outbox (R3).
+
+        **0.3.3 (EP03-05 mục 5.5)** – blocker kiểm lại ở server theo thứ tự: `minibar_not_checked` (`409 MINIBAR_NOT_CHECKED`) → `pending_approvals`
+        (`409 PENDING_APPROVALS`) → `balance_due` (`409 BALANCE_DUE`; FD/FDL gửi `debt` → `403 FORBIDDEN_ACTION`). `expectedSurchargeVnd` bắt buộc khi
+        `applyLateSurcharge=true`; lệch → `409 SURCHARGE_CHANGED`. Phụ thu trả muộn đã ghi ở `setLateCheckout` → server chỉ ghi **phần chênh** (không ghi hai lần).
+        `checkoutTime` sau mốc cuối BR-412 → 422 `LATE_CHECKOUT_AFTER_LIMIT`. R2: không hủy mã cửa trong app (US-128 dời R3).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A18, A19, S07]
       x-transition: B18
@@ -2247,6 +2399,9 @@ paths:
               properties:
                 checkoutTime: { $ref: '#/components/schemas/LocalTime' }
                 applyLateSurcharge: { type: boolean, default: false }
+                expectedSurchargeVnd:
+                  $ref: '#/components/schemas/MoneyVnd'
+                  description: 'Phụ thu trả muộn client đang hiển thị (từ `getCheckoutSummary`) – bắt buộc khi `applyLateSurcharge=true` (0.3.3, E03-02)'
                 finalPayment: { $ref: '#/components/schemas/PaymentCreate' }
                 debt:
                   type: object
@@ -2271,18 +2426,23 @@ paths:
                   billNo: { $ref: '#/components/schemas/BillNo' }
                   createdTaskIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         '409':
-          description: BALANCE_DUE / PENDING_APPROVALS / INVALID_TRANSITION
+          description: MINIBAR_NOT_CHECKED / PENDING_APPROVALS / BALANCE_DUE / SURCHARGE_CHANGED / INVALID_TRANSITION
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-              example:
-                type: /problems/balance-due
-                title: Còn tiền chưa thu
-                status: 409
-                code: BALANCE_DUE
-                detail: Còn phải thu 2.485.000 đ
-                balanceDueVnd: 2485000
+              examples:
+                balanceDue:
+                  value:
+                    type: /problems/balance-due
+                    title: Còn tiền chưa thu
+                    status: 409
+                    code: BALANCE_DUE
+                    detail: Còn phải thu 2.485.000 đ
+                    balanceDueVnd: 2485000
+                minibarNotChecked:
+                  value: { type: /problems/minibar-not-checked, title: Chưa kiểm minibar, status: 409, code: MINIBAR_NOT_CHECKED }
         '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/party:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -3414,6 +3574,12 @@ paths:
       description: |
         Dòng folio là chỉ-thêm nên **không** cần `If-Match` (ngoại lệ có chủ đích với coding-standards 7.5). Server khóa
         `folio … FOR UPDATE`, kiểm `status='open'` (hoặc trong `post_checkout_window_until`) rồi ghi; bill đã khóa → `409 FOLIO_LOCKED`.
+
+        **0.3.3 (EP03-05 mục 3.2, E04-03)**: khoản danh mục có `priceEditable=false` (phạt, hư hỏng theo bảng, dọn lẻ, giặt ủi – giá theo tham số BR) mà gửi
+        `unitPriceVnd` → 422 `PRICE_NOT_EDITABLE`; khoản `evidenceRequired=true` cần ≥ 1 `evidenceAttachmentIds` **hoặc** `note` ≥ 3 ký tự → thiếu: 422 `EVIDENCE_REQUIRED`.
+        Hư hỏng **ngoài bảng** (`category=damage`, không `chargeCode`) gửi `proposedUnitPriceVnd` → dòng `lineState=pending_approval` (không vào còn phải thu)
+        + yêu cầu duyệt `damage_pricing` cho MGR+ (US-032 AC4, BR-512); phản hồi vẫn là `Folio` (dòng có `approvalRequestId`).
+        Dòng phí phạt khi đơn chưa có `houseRulesSentAt` → vẫn ghi, client hiện cảnh báo (giả định BA, không chặn).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A30, A31]
       x-stories: [US-032, US-006]
@@ -3810,6 +3976,120 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
+  /v1/properties/{propertyId}/payments:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+    get:
+      tags: [folio]
+      operationId: listPayments
+      summary: Danh sách giao dịch của cơ sở – mặc định "Chờ đối soát" (US-119 AC6, BR-527; S33). FD/FDL/SAL chỉ thấy giao dịch do mình ghi/xác nhận.
+      description: |
+        **0.3.3 (E05-03)**. Sắp xếp `receivedAt` tăng dần (chờ lâu nhất lên đầu), phân trang con trỏ. Mặc định `reconciliation=pending`.
+        `receivedFrom`/`receivedTo` là **ngày nghiệp vụ** (BR-010) của `receivedAt`; khoảng > 92 ngày → 422 `DATE_RANGE_TOO_LONG`. `recordedBy` chỉ nhận người dùng
+        của cơ sở (`NOT_IN_LIST`). Phạm vi `own` (FDL, FD, SAL): chỉ giao dịch có `recordedByUserId` hoặc `confirmedByUserId` = người gọi; tham số `recordedBy`
+        khác người gọi bị bỏ qua. Giao dịch chờ > `bank_reconcile_alert_days` có `reconcileOverdue=true` và vào "Cần chú ý" (BR-527).
+        rbac: S33 (OWN/MGR toàn cơ sở). FD/FDL/SAL xem giao dịch **của mình** suy từ A33 (ghi thu) – **BA xác nhận** cập nhật S33 (hiện FD ✖, FDL R toàn bộ).
+      x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
+      x-scope: { front_desk_lead: own, front_desk: own, sales_staff: own }
+      x-rbac: [A33, S33]
+      x-stories: [US-119]
+      parameters:
+        - name: reconciliation
+          in: query
+          schema: { type: string, enum: [pending, reconciled, disputed, not_required, any], default: pending }
+        - name: receivedFrom
+          in: query
+          schema: { $ref: '#/components/schemas/LocalDate' }
+        - name: receivedTo
+          in: query
+          schema: { $ref: '#/components/schemas/LocalDate' }
+        - name: recordedBy
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: method
+          in: query
+          schema: { $ref: '#/components/schemas/PaymentMethod' }
+        - name: status
+          in: query
+          description: Mặc định mọi trạng thái trừ `pending`/`expired`/`failed` khi lọc theo đối soát
+          schema: { $ref: '#/components/schemas/PaymentStatus' }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PaymentListItem' } }
+                  page: { $ref: '#/components/schemas/PageInfo' }
+              example:
+                data:
+                  - id: 0192a1b0-0000-7000-8000-0000000f0231
+                    code: PT-000231
+                    type: charge
+                    method: bank_transfer
+                    amountVnd: 1660000
+                    status: succeeded
+                    reconciliation: pending
+                    receivedAt: '2026-10-19T14:40:00+07:00'
+                    recordedBy: Lan (FD)
+                    reservationCode: OTM-00171
+                    folioId: 0192a1b0-0000-7000-8000-0000000f0001
+                    hasAttachment: true
+                    pendingDays: 2
+                    reconcileOverdue: true
+                    version: 1
+                page: { nextCursor: null, limit: 50 }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/payments/{paymentId}/actions/confirm-received:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [folio]
+      operationId: confirmPaymentReceived
+      summary: Lễ tân xác nhận đã thấy tiền của VietQR đang chờ – `pending → succeeded`, `reconciliation=pending` (SM-12; US-120, US-119 AC6)
+      description: |
+        **0.3.3 (E05-02)**. Chỉ giao dịch `method=vietqr`, `status=pending`, `expiresAt` chưa qua; khác → `409 INVALID_TRANSITION` (kèm `currentState`).
+        Server khóa `payment … FOR UPDATE` + `folio … FOR UPDATE`; ghi `receivedAt` (mặc định bây giờ, ≤ bây giờ), `confirmedAt`, `confirmedBy` = người gọi,
+        `reconciliation=pending` (chờ MGR+ đối soát sao kê – người xác nhận **không** được tự đối soát, A46); "còn phải thu" cập nhật ngay; nhật ký tiền BR-008.
+        Giao dịch của cổng (VNPay/MoMo – R3) chỉ chuyển `succeeded` qua IPN đã xác thực, không qua endpoint này. Không cần `If-Match` (một chuyển trạng thái
+        duy nhất, bảo vệ bằng khóa hàng + `Idempotency-Key`). SAL chỉ với giao dịch cọc (`type=deposit`) của đơn mình – như `recordPayment` (A33 M).
+      x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
+      x-scope: { sales_staff: own_deposit_only }
+      x-rbac: [A33]
+      x-stories: [US-120, US-119]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receivedAt: { $ref: '#/components/schemas/Instant' }
+                note: { type: string, maxLength: 300, description: 'Mã giao dịch ngân hàng, tên người chuyển (V-09 – chặn số thẻ)' }
+                attachmentId: { $ref: '#/components/schemas/Uuid', description: 'Ảnh biên nhận (`uploadAttachment purpose=deposit_receipt`)' }
+            example: { note: 'FT26292001234 – NGUYEN VAN A', receivedAt: '2026-10-19T14:41:00+07:00' }
+      responses:
+        '200':
+          description: Giao dịch `succeeded`, `reconciliation=pending`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
   /v1/properties/{propertyId}/payments/{paymentId}/actions/reconcile:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -3818,7 +4098,13 @@ paths:
       tags: [folio]
       operationId: reconcilePayment
       summary: Đối soát giao dịch chuyển khoản lễ tân tự ghi (BR-527; SM-12 thuộc tính đối soát; US-119 AC6)
+      description: |
+        **0.3.3 (E05-03)**: chỉ giao dịch `status=succeeded` + `reconciliation=pending` (khác → `409 INVALID_TRANSITION`). Người gọi là người đã ghi
+        (`recordedByUserId`) **hoặc** người đã xác nhận thấy tiền (`confirmedByUserId`, `confirmPaymentReceived`) và không phải OWN → `403 SELF_RECONCILE_FORBIDDEN`
+        (rbac A46). `disputed` bắt buộc `note` (V-08, 3–300; thiếu → 422 `REASON_REQUIRED`) → cảnh báo đỏ OWN + MGR; **không tự đảo** – bước tiếp là
+        `reversePayment`. `If-Match` = `Payment.version`.
       x-roles: [owner, manager]
+      x-rbac: [A46]
       x-stories: [US-119]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3832,14 +4118,24 @@ paths:
               required: [result]
               properties:
                 result: { type: string, enum: [reconciled, disputed] }
-                note: { type: string, maxLength: 300 }
+                note: { type: string, maxLength: 300, description: 'Bắt buộc (≥ 3 ký tự) khi `disputed`' }
+            example: { result: disputed, note: Không thấy khoản 1.660.000 trên sao kê ngày 19/10 }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: FORBIDDEN_ACTION / SELF_RECONCILE_FORBIDDEN
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/self-reconcile-forbidden, title: Giao dịch do bạn ghi cần người khác đối soát, status: 403, code: SELF_RECONCILE_FORBIDDEN }
         '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/payments/{paymentId}/actions/reverse:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -3878,6 +4174,16 @@ paths:
       tags: [folio]
       operationId: createVietQr
       summary: Sinh chuỗi VietQR đúng số tiền, nội dung = mã đơn/bill không dấu cách (US-120). Chưa cấu hình tài khoản → 409 PAYMENT_NOT_CONFIGURED.
+      description: |
+        **0.3.3 (E05-02, ARC chốt vòng đời giao dịch `pending`)**
+        - `transferContent`: mã đơn bỏ dấu gạch (`OTM00171`) khi folio `open`; số bill bỏ dấu gạch (`F26000123`) khi folio `settled` (BR-521, US-120 AC1).
+        - Tạo QR mới cho cùng folio → mọi giao dịch `method=vietqr`, `status=pending` **cũ** của folio → `expired` trong **cùng giao dịch DB** (chỉ một QR chờ/folio).
+        - `expiresAt` = mốc đổi ngày nghiệp vụ kế tiếp (`business_day_rollover`, BR-010). Hết hạn: job `payment.expire` (erd 4.6) đặt `expired`;
+          `confirmPaymentReceived` cũng kiểm `expiresAt` tại chỗ (không chờ job). Tiền về sau khi QR hết hạn → lễ tân ghi bằng `recordPayment` (`method=vietqr`,
+          `reconciliation=pending`).
+        - `amountVnd` > còn phải thu (hoặc cọc còn thiếu khi `hold`) → 422 `AMOUNT_EXCEEDS_BALANCE` – **giả định BA, chờ DOM E05-06 (d)**.
+        - `purpose=billing_period` chỉ R3 (kỳ thu HĐ) → R2 trả 422 `NOT_IN_LIST`.
+        - Không vẽ QR giả khi chưa cấu hình tài khoản nhận (`409 PAYMENT_NOT_CONFIGURED`, US-120 AC2).
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff]
       x-scope: { sales_staff: own }
       x-rbac: [A39]
@@ -3906,7 +4212,12 @@ paths:
                   payment: { $ref: '#/components/schemas/Payment' }
                   qrPayload: { type: string }
                   transferContent: { type: string, example: OTM00171 }
+                  expiredPaymentIds:
+                    type: array
+                    description: 'Giao dịch VietQR `pending` cũ của folio vừa chuyển `expired` (0.3.3)'
+                    items: { $ref: '#/components/schemas/Uuid' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/folios/{folioId}/invoice-request:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -3939,6 +4250,10 @@ paths:
       tags: [folio]
       operationId: getBill
       summary: Dữ liệu bill để in (song ngữ VI–EN khi khách NN, quy đổi USD tham khảo theo fx_usd_vnd) (US-037 AC2)
+      description: |
+        **0.3.3 (E05-05)**: `Bill.locale` do **server** quyết – `vi_en` khi có khách NN theo giấy tờ khai báo (BR-009) **hoặc** hồ sơ người đứng tên có ngôn ngữ ≠ `vi`;
+        ngược lại `vi`. `Accept-Language` chỉ đổi `title` của lỗi, **không** đổi ngôn ngữ bill. Thứ tự `lines`: theo `serviceDate` rồi `postedAt`; mỗi dòng FOC/giảm giá
+        **đã duyệt** đặt **ngay dưới** dòng gốc (`relatedLineId`, BR-434); dòng `pending_approval`/`rejected` **không** có trong bill. `usdReference` chỉ khi `vi_en`.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-stories: [US-037]
       parameters:
@@ -3980,6 +4295,11 @@ paths:
       tags: [folio]
       operationId: recordMinibarCheck
       summary: Kiểm minibar (bước 1 trả phòng hoặc giữa kỳ) – tính đã dùng, ghi folio; HK nhập số lượng, không thấy tiền (US-035; A37)
+      description: |
+        **0.3.3 (E05-04)**: `mode=checkout` phải có **đủ mọi món** của tủ chuẩn căn (`getMinibarStandard`) – thiếu → 422 `MINIBAR_ITEMS_INCOMPLETE`; món ngoài tủ chuẩn
+        → `NOT_IN_LIST`; `remainingQty` > mức chuẩn → `MINIBAR_QTY_OVER_STANDARD`. Mỗi món tính tiền có `usedQty > 0` → một dòng folio `minibar`; món miễn phí
+        chỉ ghi tiêu hao. **Kiểm lại lần hai** (`mode=checkout`, cùng đơn, folio còn `open`): bản mới **thay** bản cũ – server đảo (bút toán `reversalOfId`) các dòng
+        minibar của bản cũ và ghi dòng mới trong cùng giao dịch (BR-008); `MinibarCheck.replacesCheckId` trỏ bản cũ. FOC minibar đã áp trên dòng cũ phải gửi lại.
       x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping]
       x-scope: { housekeeping: today }
       x-rbac: [A37]
@@ -3999,6 +4319,31 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MinibarCheck' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/minibar-standard:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    get:
+      tags: [folio]
+      operationId: getMinibarStandard
+      summary: Tủ minibar chuẩn của căn đang gán cho đơn + bản kiểm gần nhất trong ngày (điền sẵn số HK đã kiểm) (US-035 AC1; BR-701)
+      description: |
+        **0.3.3 (E05-04)**. `items` = món đang hoạt động có `minibar_standard_qty > 0`. `latestCheck` = lần kiểm `mode=checkout` cùng ngày nghiệp vụ
+        (thường do HK khi khách báo trả) để FD xác nhận/sửa (`checkout.minibar.from_hk`). Giá bán (`unitPriceVnd`) vắng với HK (rbac ghi chú 26).
+        `items` rỗng → bước 1 trả phòng tự đạt (`checkout.minibar.empty`).
+      x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping]
+      x-scope: { housekeeping: today }
+      x-rbac: [A37]
+      x-stories: [US-035]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MinibarStandard' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ───────────────────────── approvals (SM-10) ─────────────────────────
   /v1/properties/{propertyId}/approval-requests:
@@ -4264,6 +4609,9 @@ paths:
         `multipart/form-data`: phần `data` (JSON `GuestDocumentInput`) + 0..4 phần `image` (JPEG/PNG/WebP theo magic bytes; ≤ 10 MB, ≤ 40 MP;
         không PDF/HEIC – SR-FILE-01/02). Server mã hóa lại ảnh (bỏ EXIF/GPS – SR-FILE-03), mã hóa phong bì ngay khi nhận, không ghi tệp tạm dạng rõ.
         Trẻ em: `docType=child_personal_id`, không bắt ảnh (US-043 AC2).
+        **0.3.3**: tệp bị từ chối → `422 FILE_REJECTED` với `errors[].code` ∈ `FILE_TYPE`, `FILE_TOO_LARGE`, `TOO_MANY_FILES` (E06-07); trường sai dạng → mã trường
+        `DOC_NUMBER_INVALID`, `MAIN_GUEST_DUPLICATE`, `ENTRY_DATE_FUTURE` (E06-05). Hộ chiếu đã hết hạn **vẫn nhận** (để đối chiếu ra `fail`).
+        Sửa giấy tờ khi khai báo `confirmed` → `needs_update` (K9 – "đổi giấy tờ", giả định BA, chờ DOM E06-08).
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A70]
       x-classification: C3
@@ -4379,6 +4727,9 @@ paths:
       tags: [registration]
       operationId: getDocumentImage
       summary: Xem ảnh giấy tờ (stream giải mã, no-store, ghi nhật ký) – HK/SAL/CTV bị từ chối kể cả gọi trực tiếp (US-048 AC2)
+      description: |
+        **0.3.3 (E06-04)**: ảnh đã xóa (DEK đã hủy – J16, rút đồng ý, xóa sớm) → `404 NOT_FOUND` (không bao giờ 500); giải mã thất bại vì DEK đã hủy được
+        ánh xạ thành 404, không ghi `c3_access_log view` (không có dữ liệu trả về). Client hiện "Ảnh đã xóa lúc {imagesPurgedAt} ({imagesPurgeReason})".
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A71]
       x-classification: C3
@@ -4446,9 +4797,17 @@ paths:
       description: |
         Theo SEC R-REG-05, decision-log và US-045 (đợt 3): đồng ý **không** là điều kiện để khai báo. Bắt buộc **ghi quyết định**
         (granted/refused, không mặc định) trước bước `complete-review`; refused → ảnh xóa theo T01.
+
+        **Đổi quyết định tại quầy (0.3.3, E06-02 – SEC P-R2-4 ĐK-5)**: mỗi lần gọi **thêm** một `consent_record` mới (append-only, giữ lịch sử – R-CON-02);
+        quyết định hiện hành = bản ghi mới nhất của người đó.
+        - `granted → refused` (rút đồng ý – NĐ 13/2023): luôn được. Khai báo chưa `confirmed` → ảnh xóa khi `confirmed` (như người không đồng ý);
+          đã `confirmed` → **xóa ngay trong cùng giao dịch** (hủy DEK, `purge_journal`, `c3_access_log purge` actor = người ghi) – BR-609 (c), J16 chỉ là dự phòng.
+        - `refused → granted`: chỉ khi ảnh **còn** (khai báo chưa `confirmed` và chưa purge); ngược lại → `409 CONSENT_CHANGE_NOT_ALLOWED`.
+        - Người dưới ngưỡng dữ liệu (`minor_data_age_threshold`) không được hỏi → `422 NOT_IN_LIST` (ảnh xóa khi khai xong – chờ DOM E06-08).
+        - Phản hồi `Registration` có `imagesPurgeScheduledAt`/`imagesPurgedAt` và `documents[].imagePurgeAt`.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A72]
-      x-stories: [US-045]
+      x-stories: [US-045, US-049]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -4465,6 +4824,13 @@ paths:
               schema: { $ref: '#/components/schemas/Registration' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: CONSENT_CHANGE_NOT_ALLOWED
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/consent-change-not-allowed, title: 'Ảnh đã xóa theo lựa chọn trước đó, không bật lại được', status: 409, code: CONSENT_CHANGE_NOT_ALLOWED }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/registrations/{registrationId}/actions/complete-review:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -4473,7 +4839,13 @@ paths:
       tags: [registration]
       operationId: completeRegistrationReview
       summary: Đối chiếu xong (K5) review → scanned – mọi cảnh báo đối chiếu phải có ghi chú xử lý; cảnh báo không chặn nhận phòng (R-REG-03)
+      description: |
+        **0.3.3 (E06-01, E06-05)**: điều kiện – trạng thái `review`; đủ người (`party_count`); mọi mục `fail`/`unverified` có ghi chú (đã ghi qua
+        `recordDocumentCheck` hoặc gửi trong `warningNotes`), mục `unverified` có `manualResult`; mọi người có ảnh (trừ dưới ngưỡng dữ liệu) đã ghi quyết định
+        đồng ý. Thiếu → `409 REGISTRATION_INCOMPLETE` kèm `errors[]` (mục thiếu) hoặc 422 `CHECK_NOTE_REQUIRED`. Mục BR-613 (c) có kết quả cuối `fail`
+        → `blocksDoorCode=true` (chặn B9 ở R2 – xem `checkIn`), các mục khác chỉ cảnh báo (R-REG-03).
       x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A70]
       x-transition: K5
       x-stories: [US-044, US-045]
       parameters:
@@ -4494,7 +4866,8 @@ paths:
                     properties:
                       documentId: { $ref: '#/components/schemas/Uuid' }
                       checkCode: { $ref: '#/components/schemas/DocumentCheckCode' }
-                      note: { type: string, minLength: 3 }
+                      note: { type: string, minLength: 3, maxLength: 500, description: 'V-09 – không ghi lại số giấy tờ' }
+                      manualResult: { type: string, enum: [pass, fail], description: 'Bắt buộc với mục `unverified` chưa có `manualResult` (0.3.3, E06-01)' }
       responses:
         '200':
           description: OK
@@ -4502,6 +4875,60 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Registration' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/registrations/{registrationId}/documents/{documentId}/checks/{checkCode}:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/RegistrationId'
+      - $ref: '#/components/parameters/DocumentId'
+      - name: checkCode
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/DocumentCheckCode' }
+    put:
+      tags: [registration]
+      operationId: recordDocumentCheck
+      summary: Lễ tân ghi kết quả kiểm tay / ghi chú xử lý cho một mục đối chiếu (nút "Đạt"/"Không đạt" ở bước Kiểm tra) – US-044 AC2, AC4
+      description: |
+        **0.3.3 (E06-01)** – để kết quả kiểm tay có hiệu lực **trước** nhận phòng (B9 chỉ cần khai báo ≥ `partial`, chưa cần K5).
+        - Mục `unverified`: `manualResult` (bắt buộc) + `note`. Mục `fail`: chỉ `note` (`manualResult` gửi lên → 422 `NOT_IN_LIST` – không "sửa" kết quả hệ thống).
+          Mục `pass`/`not_applicable` → `409 INVALID_TRANSITION`.
+        - `note` 3–500 ký tự, V-09, không chứa số giấy tờ (thiếu → 422 `CHECK_NOTE_REQUIRED`).
+        - Server tính lại `blocking` và `Registration.blocksDoorCode` trong cùng giao dịch; ghi nhật ký (người, thời điểm, kết quả) – không phải dữ liệu C3.
+        - Gọi lại = ghi đè kết quả kiểm tay trước (có nhật ký). Khai báo đã `sent`/`confirmed` → `409 INVALID_TRANSITION`.
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A70]
+      x-requires-trusted-device: true
+      x-stories: [US-044]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                manualResult: { type: string, enum: [pass, fail] }
+                note: { type: string, minLength: 3, maxLength: 500 }
+            example: { manualResult: pass, note: 'Đã xem dấu nhập cảnh trên hộ chiếu gốc, trang 12' }
+      responses:
+        '200':
+          description: OK – khai báo sau khi tính lại `blocksDoorCode`
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Registration' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
   /v1/properties/{propertyId}/registrations/{registrationId}/portal-data:
     parameters:
       - $ref: '#/components/parameters/PropertyId'
@@ -4509,7 +4936,13 @@ paths:
     get:
       tags: [registration]
       operationId: getPortalData
-      summary: Dữ liệu sao chép lên cổng BCA đúng thứ tự trường (K6; US-046 AC2) – C3, ghi nhật ký `copy`, chỉ trên máy quầy được cấp (rbac 8.7)
+      summary: Dữ liệu sao chép lên cổng BCA đúng thứ tự trường (K6; US-046 AC2) – C3, ghi nhật ký mỗi lần lấy, chỉ trên máy quầy được cấp (rbac 8.7)
+      description: |
+        **0.3.3 (E06-03)**: khai báo `kind=mixed` → gọi **mỗi khối một lần** với `?kind=foreigner_temp_residence` rồi `?kind=vn_citizen_stay` (thiếu `kind` khi
+        `mixed` → 422 `REQUIRED`; `kind` không có người nào → 422 `NOT_IN_LIST`). Điều kiện: `scanned` hoặc `needs_update` (khác → `409 INVALID_TRANSITION`).
+        **Nhật ký (ARC chốt, SEC xem)**: **mỗi lần gọi** = một dòng `c3_access_log` (`portal_data`, `view`) ghi trước khi trả; **không** có endpoint báo từng lần
+        sao chép – nút sao chép ở client chỉ dùng dữ liệu đã lấy (bản ghi `view` là bằng chứng truy cập; số lần client bấm sao chép không kiểm chứng được ở server).
+        Client xóa clipboard ("Xóa bộ nhớ tạm" + tự xóa sau 60 giây – R-REG-07) và không lưu dữ liệu ra storage.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A73]
       x-classification: C3
@@ -4518,6 +4951,11 @@ paths:
       x-c3-log: { subjectType: portal_data, action: view }
       x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn (SR-RL-06)
       x-stories: [US-046]
+      parameters:
+        - name: kind
+          in: query
+          description: 'Bắt buộc khi khai báo `mixed` (0.3.3, E06-03)'
+          schema: { type: string, enum: [foreigner_temp_residence, vn_citizen_stay] }
       responses:
         '200':
           description: OK
@@ -4557,10 +4995,18 @@ paths:
             schema:
               type: object
               properties:
-                portalReference: { type: string, maxLength: 64, description: Bắt buộc với mark-sent }
+                portalReference: { type: string, maxLength: 64, description: 'Bắt buộc với mark-sent; 3–64 ký tự `[A-Za-z0-9-/._]` sau cắt khoảng trắng → sai/thiếu: 422 `PORTAL_REFERENCE_REQUIRED` (0.3.3)' }
+                kind:
+                  type: string
+                  enum: [foreigner_temp_residence, vn_citizen_stay]
+                  description: |
+                    0.3.3 (E06-03): bắt buộc với `mark-sent` khi khai báo `mixed` – ghi mã của khối đó vào `portalReferences[]`. Khai báo chỉ chuyển `sent` (K6)
+                    khi **mọi** khối đã có mã; trước đó vẫn `scanned` (giả định ARC – BA xác nhận K6 cho `mixed`). `mark-rejected` với `mixed` áp cho cả khai báo.
                 rejectedReason: { type: string }
                 actualDepartureDate: { $ref: '#/components/schemas/LocalDate' }
-            example: { portalReference: LT-2026-0041872 }
+            examples:
+              single: { value: { portalReference: LT-2026-0041872 } }
+              mixedForeignerBlock: { value: { portalReference: LT-2026-0041872, kind: foreigner_temp_residence } }
       responses:
         '200':
           description: OK
@@ -4569,6 +5015,7 @@ paths:
               schema: { $ref: '#/components/schemas/Registration' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
 
   # ───────────────────────── housekeeping ─────────────────────────
   /v1/properties/{propertyId}/room-statuses:
@@ -5679,11 +6126,19 @@ paths:
       tags: [guest-portal]
       operationId: updateOnlineCheckin
       summary: Lưu giờ đến dự kiến / bước hiện tại
+      description: |
+        **0.3.3 (E06-06) – CHỜ SEC DUYỆT theo P-R2-4 ĐK-2 trước khi BE cài** (thêm trường request mức 1; response `OnlineCheckin` thêm trường ở schema).
+        - `noticeVersion`: khách bấm "Tôi đã đọc" ở bước 0 → server ghi phiên bản thông báo xử lý dữ liệu đã hiển thị (+ `locale` phiên) vào `online_checkin`;
+          phiên bản phải là bản hiện hành (khác → 422 `NOT_IN_LIST`). Chưa đọc bản hiện hành → mọi bước khác trả `409 INVALID_TRANSITION` (`currentStep=notice`).
+        - `arrivalNote` (≤ 300, V-09 chặn số thẻ – `CARD_NUMBER_DETECTED`) **chỉ ghi**: không trả lại app khách, chỉ Desk thấy (`Registration.onlineCheckin`).
+        - `lateArrival=true` ("Sau 22:00") → `etaTime` lưu `22:00` (giả định BA).
+        - Đã đóng (`onlineCheckinAvailable=false`) → `409 ONLINE_CHECKIN_CLOSED`.
       security:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
       x-after-checkout: blocked
+      x-sec-review: pending-DK2
       x-stories: [US-107]
       requestBody:
         required: true
@@ -5693,7 +6148,11 @@ paths:
               type: object
               properties:
                 etaTime: { $ref: '#/components/schemas/LocalTime' }
-                currentStep: { type: string, enum: [documents, eta, consent] }
+                currentStep: { type: string, enum: [notice, documents, eta, consent] }
+                noticeVersion: { type: string, maxLength: 64, description: 'Phiên bản thông báo đã đọc (ví dụ `privacy-2026-10-v1`) – 0.3.3' }
+                arrivalNote: { type: string, maxLength: 300, writeOnly: true, description: 'Ghi chú cho lễ tân – chỉ ghi, không đọc lại qua app khách (0.3.3)' }
+                lateArrival: { type: boolean, description: '0.3.3' }
+            example: { etaTime: '22:00', lateArrival: true, currentStep: consent }
       responses:
         '200':
           description: OK
@@ -5701,6 +6160,13 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
+        '409':
+          description: ONLINE_CHECKIN_CLOSED (0.3.3, E06-06)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/online-checkin-closed, title: Lễ tân đã nhận giấy tờ của bạn, status: 409, code: ONLINE_CHECKIN_CLOSED }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/guest/online-checkin/documents:
     post:
       tags: [guest-portal]
@@ -5709,6 +6175,9 @@ paths:
       description: |
         Chỉ ảnh JPEG/PNG/WebP (magic bytes); client chuẩn hóa qua canvas trước khi tải; HEIC/PDF → `422 FILE_REJECTED` kèm hướng dẫn
         "chụp lại bằng nút Chụp trong app". ≤ 10 MB/tệp, ≤ 4 ảnh/người, ≤ 30 tệp/đơn (SR-FILE-01/02, SR-RL-05); server mã hóa lại, bỏ EXIF/GPS.
+        **0.3.3 (E06-07)**: gửi lại cho **cùng `personIndex`** = **thay thế**: ảnh cũ của người đó bị xóa (hủy DEK, `purge_journal`) trong cùng giao dịch, giữ bản mới nhất;
+        lỗi tệp → `errors[].code` ∈ `FILE_TYPE`, `FILE_TOO_LARGE`, `TOO_MANY_FILES` để guest-web hiện đúng câu. Phản hồi chỉ có chỉ số người (`uploadedPeople`) –
+        **không** trả ảnh/loại/số giấy tờ (ĐK-3). Đã đóng → `409 ONLINE_CHECKIN_CLOSED`.
       security:
         - guestSession: []
       x-roles: [guest]
@@ -5741,6 +6210,12 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
+        '409':
+          description: ONLINE_CHECKIN_CLOSED (0.3.3, E06-06)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/online-checkin-closed, title: Lễ tân đã nhận giấy tờ của bạn, status: 409, code: ONLINE_CHECKIN_CLOSED }
   /v1/guest/consents:
     post:
       tags: [guest-portal]
@@ -5764,19 +6239,40 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
         '403': { $ref: '#/components/responses/GuestForbidden' }
+        '409':
+          description: ONLINE_CHECKIN_CLOSED (0.3.3, E06-06)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: /problems/online-checkin-closed, title: Lễ tân đã nhận giấy tờ của bạn, status: 409, code: ONLINE_CHECKIN_CLOSED }
   /v1/guest/online-checkin/complete:
     post:
       tags: [guest-portal]
       operationId: completeOnlineCheckin
       summary: Hoàn tất check-in online – cần đủ giấy tờ + giờ đến + đã ghi quyết định đồng ý Có/Không; chọn Không vẫn hoàn tất (US-107 AC1, AC3)
+      description: |
+        **0.3.3 (E06-06) – CHỜ SEC DUYỆT (ĐK-2)**: body tùy chọn `deferredPeople[]` = chỉ số người khách chọn "Bổ sung tại quầy" (giả định BA). Điều kiện:
+        đã đọc thông báo bản hiện hành; mọi người lớn có giấy tờ cần ảnh **hoặc** nằm trong `deferredPeople`; có `etaTime`; Khách 1 đã ghi Có/Không.
+        Thiếu → `409 INVALID_TRANSITION` kèm `currentState` = bước còn thiếu. Đã đóng → `409 ONLINE_CHECKIN_CLOSED`. Thành công → `completedAt`, `Reservation.etaTime`,
+        thông báo FD; Desk thấy `Registration.onlineCheckin`.
       security:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
       x-after-checkout: blocked
+      x-sec-review: pending-DK2
       x-stories: [US-107]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deferredPeople: { type: array, maxItems: 20, items: { type: integer, minimum: 1 }, description: '0.3.3 – chờ SEC (ĐK-2)' }
+            example: { deferredPeople: [3] }
       responses:
         '200':
           description: OK – lễ tân thấy "Đã nhận trước qua app" + giờ đến
@@ -6491,7 +6987,16 @@ components:
         `overbooking_relocated` (dời khách, BR-312). DATA K-22a loại `hold_expired`, `overbooking_relocated`, `ota_cancelled` khỏi tử số chính
       enum: [guest_cancelled, guest_changed_mind, found_other, price, date_change, unreachable, hold_expired, ota_cancelled, overbooking_relocated, group_partial, other]
     DocType: { type: string, enum: [cccd, passport, child_personal_id, other] }
-    DocumentCheckCode: { type: string, enum: [name_match, passport_valid_through_departure, visa_valid_through_departure, stay_within_visa, party_count] }
+    DocumentCheckCode:
+      type: string
+      enum: [name_match, passport_valid_through_departure, visa_valid_through_departure, stay_within_visa, party_count, passport_valid_at_arrival, visa_valid_at_arrival, entry_record_present]
+      description: '0.3.3 (E06-01) thêm 3 mục BR-613 (c) – kết quả `fail` → `blocking=true` → `Registration.blocksDoorCode`: `passport_valid_at_arrival`, `visa_valid_at_arrival`, `entry_record_present`. Mục thị thực/nhập cảnh/hộ chiếu chỉ áp khách NN; khách VN → `not_applicable`'
+    DocumentCheckResult:
+      type: string
+      enum: [pass, fail, unverified, not_applicable, ok, warning]
+      description: |
+        US-044 AC2 (0.3.3, E06-01): **3 kết quả hiển thị** `pass` (Đạt) · `fail` (Không đạt) · `unverified` (Chưa kiểm được – thiếu dữ liệu, cần kiểm tay);
+        `not_applicable` client **ẩn** dòng. Không bao giờ trả `pass` khi thiếu dữ liệu. `ok`, `warning` là giá trị của ≤ 0.3.2 – **deprecated**, server 0.3.3 không trả.
     HkTaskType:
       type: string
       enum: [checkout_clean, stayover_clean, long_stay_clean, minibar_refill, guest_request, after_repair_clean, adhoc_clean, priority_clean, extra_guest_kit_prepare, extra_guest_kit_collect, extra_guest_kit_transfer]
@@ -6933,6 +7438,20 @@ components:
           x-rbac-field: D12c
           type: string
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        cardsIssued:
+          type: [integer, 'null']
+          description: 'Số thẻ phòng đã phát lúc nhận phòng (BR-511) – gợi ý số lượng phí thiếu thẻ khi trả phòng; null trước B9 (0.3.3, E03-04)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        houseRulesSentAt:
+          type: [string, 'null']
+          format: date-time
+          description: 'Thời điểm lễ tân xác nhận đã gửi/giao nội quy (BR-511) – điều kiện thu phí phạt; null = chưa (0.3.3, E03-04)'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        doorAccessHandedOverAt:
+          type: [string, 'null']
+          format: date-time
+          description: 'Lễ tân tick "đã giao mã/thẻ" lúc nhận phòng (R2, không lưu mã cửa) – 0.3.3, đề nghị UXD, chờ PO'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk]
         allowedActions: { type: array, items: { $ref: '#/components/schemas/AllowedAction' } }
         version: { type: integer }
     ReservationCreate:
@@ -7020,6 +7539,11 @@ components:
         etaTime: { $ref: '#/components/schemas/LocalTime' }
         closerUserId: { $ref: '#/components/schemas/Uuid' }
         internalNote: { type: string, maxLength: 1000, x-rbac-field: D12c }
+        visaWarningAckReason:
+          type: string
+          minLength: 3
+          maxLength: 500
+          description: 'Như `extendStay` – khi sửa làm hạn thị thực của khách NN < ngày đi (US-050 AC2); thiếu → 422 cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (0.3.3)'
     CancellationQuote:
       type: object
       required: [refundableVnd, retainedVnd]
@@ -7043,17 +7567,42 @@ components:
             type: object
             required: [code, met]
             properties:
-              code: { type: string, enum: [room_ready, balance_paid, main_guest_document, not_unassigned] }
+              code:
+                type: string
+                enum: [room_ready, balance_paid, main_guest_document, not_unassigned, document_check_block]
+                description: '`document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`'
               met: { type: boolean }
               detail: { type: string }
               overridableBy: { type: array, items: { $ref: '#/components/schemas/Role' } }
+        warnings:
+          type: array
+          description: 'Cảnh báo **không chặn** (hiện vàng) – 0.3.3, E03-01. Tập mở: client gặp mã lạ thì bỏ qua'
+          items:
+            type: object
+            required: [code]
+            properties:
+              code:
+                type: string
+                enum: [extra_guest_kit_not_ready, visa_expires_before_departure, passport_expires_during_stay, pending_online_checkin]
+                description: '`extra_guest_kit_not_ready` – việc chuẩn bị bộ đồ dùng thêm chưa xong (BR-812, B9 sẽ đẩy việc lên đầu hàng đợi); `visa_expires_before_departure` – BR-613 a (khai đến hạn thị thực); `passport_expires_during_stay` – BR-613 b; `pending_online_checkin` – khách đã gửi giấy tờ qua app, cần đối chiếu bản gốc'
+              detail: { type: string }
+        priorNight:
+          type: object
+          description: 'Chỉ khi `earlyCheckinSurcharge.addsPreviousNight=true` (B9a, BR-417) – 0.3.3, E03-05'
+          properties:
+            date: { $ref: '#/components/schemas/LocalDate' }
+            available: { type: boolean, description: 'Căn trống đêm trước và không có OOO (BR-906)' }
+            defaultRateVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            floorVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            ceilingVnd: { $ref: '#/components/schemas/MoneyVnd' }
+            createsChildReservation: { type: boolean, description: 'Đơn OTA → đơn con kênh Trực tiếp (BR-422)' }
         earlyCheckinSurcharge:
           type: object
           properties:
             tierPct: { $ref: '#/components/schemas/Percent' }
             baseNightVnd: { $ref: '#/components/schemas/MoneyVnd' }
             amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            addsPreviousNight: { type: boolean, description: 'Nhận trước mốc BR-003 → cần đổi ngày đến (B7)' }
+            addsPreviousNight: { type: boolean, description: 'Nhận trước mốc đổi ngày (BR-010) → B9a thêm đêm trước (`checkIn.addPriorNight`); tiền đêm là tiền phòng, không phải phụ thu (0.3.3 sửa mô tả)' }
             ruleRef: { type: string }
         registrationDeadlinePreview: { $ref: '#/components/schemas/Instant' }
     FocRequestInput:
@@ -7064,6 +7613,14 @@ components:
         amountVnd: { $ref: '#/components/schemas/MoneyVnd' }
         reasonCode: { type: string, enum: [regular_vip, room_ready_no_impact, service_recovery, long_stay_guest, other] }
         note: { type: string, maxLength: 500 }
+        authMethod:
+          type: string
+          enum: [password, pin]
+          description: |
+            0.3.3 (BE-A, US-007 AC6, BR-436): xác nhận lại của **chính người gửi** khi yêu cầu được **tự áp** trong hạn mức của vai (FD tự áp FOC minibar).
+            Bắt buộc cùng `secret` khi yêu cầu đủ điều kiện tự áp mà người gửi là FD/FDL; không gửi → yêu cầu đi luồng duyệt thường (không tự áp).
+            R2 chỉ `password`; `pin` từ R3. Sai → `401 REAUTH_FAILED` (dùng chung bộ đếm với duyệt – SR-RL-02).
+        secret: { type: string, writeOnly: true, minLength: 6, maxLength: 256, description: '0.3.3 – đi cùng `authMethod`' }
     ExtensionOptions:
       type: object
       required: [maxNights, nights]
@@ -7378,6 +7935,9 @@ components:
         serviceDate: { $ref: '#/components/schemas/LocalDate' }
         note: { type: string, maxLength: 500 }
         evidenceAttachmentIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        proposedUnitPriceVnd:
+          $ref: '#/components/schemas/MoneyVnd'
+          description: 'Hư hỏng **ngoài bảng** (`category=damage`, không `chargeCode`): giá đề xuất > 0 → dòng `pending_approval` + yêu cầu `damage_pricing` cho MGR+ (US-032 AC4, BR-512). Không gửi kèm `unitPriceVnd` (0.3.3, E04-03)'
     Payment:
       type: object
       required: [id, code, type, method, amountVnd, status]
@@ -7408,6 +7968,28 @@ components:
         reconciledByName: { type: string, x-visible-to: [owner, manager] }
         shiftId: { $ref: '#/components/schemas/Uuid', description: 'Ca đang mở khi ghi tiền mặt (SM-17; erd `payment.shift_id`) – null nếu không phải tiền mặt' }
         reservationGroupId: { $ref: '#/components/schemas/Uuid', description: 'Cọc chung nhóm (SM-16 G2) – phân bổ ở `allocateGroupDeposit`' }
+        folioId: { $ref: '#/components/schemas/Uuid', description: '0.3.3' }
+        reservationCode: { type: string, example: OTM-00171, description: '0.3.3 – cho danh sách đối soát' }
+        recordedByUserId: { $ref: '#/components/schemas/Uuid', description: 'Người ghi/tạo giao dịch (0.3.3, E05-03)' }
+        confirmedAt: { $ref: '#/components/schemas/Instant', description: 'VietQR: lúc lễ tân xác nhận thấy tiền (`confirmPaymentReceived`) – 0.3.3' }
+        confirmedByUserId: { $ref: '#/components/schemas/Uuid', description: '0.3.3' }
+        confirmedByName: { type: string, description: '0.3.3' }
+        note: { type: string, description: 'Ghi chú khi ghi thu/xác nhận (mã giao dịch ngân hàng, tên người chuyển) – 0.3.3' }
+        attachmentId: { $ref: '#/components/schemas/Uuid', description: 'Ảnh biên nhận chuyển khoản (BR-527) – 0.3.3, E05-01' }
+        reconciliationNote:
+          type: string
+          description: 'Ghi chú đối soát (bắt buộc khi `disputed`) – 0.3.3'
+          x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff]
+        version: { type: integer, description: 'Khóa lạc quan cho `reconcilePayment` (`If-Match`) – 0.3.3' }
+    PaymentListItem:
+      description: 'Dòng của `listPayments` (0.3.3, E05-03)'
+      allOf:
+        - $ref: '#/components/schemas/Payment'
+        - type: object
+          properties:
+            hasAttachment: { type: boolean }
+            pendingDays: { type: integer, description: 'Số ngày nghiệp vụ kể từ `receivedAt` khi `reconciliation=pending`' }
+            reconcileOverdue: { type: boolean, description: 'Chờ > `bank_reconcile_alert_days` (BR-527) – "Cần chú ý"' }
     PaymentCreate:
       type: object
       required: [type, method, amountVnd]
@@ -7421,6 +8003,9 @@ components:
         billingPeriodId:
           $ref: '#/components/schemas/Uuid'
           description: 'Ghi thu kỳ hợp đồng dài hạn (US-119 AC5) – cập nhật `billing_period.paid_amount_vnd`, đủ tiền → kỳ `paid` (T2)'
+        attachmentId:
+          $ref: '#/components/schemas/Uuid'
+          description: 'Ảnh biên nhận chuyển khoản – id từ `uploadAttachment purpose=deposit_receipt` của cùng cơ sở (sai → 422 `NOT_IN_LIST`); BR-527 "kèm ảnh/mã giao dịch" (0.3.3, E05-01)'
     Folio:
       type: object
       required: [id, status, lines, payments, totals, version]
@@ -7479,7 +8064,13 @@ components:
         totalVnd: { $ref: '#/components/schemas/MoneyVnd' }
         paidVnd: { $ref: '#/components/schemas/MoneyVnd' }
         balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd' }
-        usdReference: { type: object, properties: { rate: { type: integer }, totalUsd: { type: number }, rateUpdatedOn: { $ref: '#/components/schemas/LocalDate' } } }
+        usdReference:
+          type: object
+          description: 'Chỉ khi `locale=vi_en` (US-037 AC2, BR-004) – 0.3.3 mô tả'
+          properties:
+            rate: { type: integer }
+            totalUsd: { type: number, multipleOf: 0.1, description: 'Tổng ÷ `fx_usd_vnd`, làm tròn 1 chữ số thập phân' }
+            rateUpdatedOn: { $ref: '#/components/schemas/LocalDate' }
         vietqrTransferContent: { type: string }
     ChargeCatalogItem:
       type: object
@@ -7491,6 +8082,9 @@ components:
         defaultUnitPriceVnd: { $ref: '#/components/schemas/MoneyVnd' }
         unit: { type: string }
         evidenceRequired: { type: boolean }
+        priceEditable:
+          type: boolean
+          description: 'false = giá theo tham số BR (phạt, hư hỏng theo bảng, dọn lẻ, giặt ủi) – FD không sửa (`PRICE_NOT_EDITABLE`); true = nhập giá (`fnb`, `service_fee`) (0.3.3, E04-03)'
         ruleRef: { type: string, example: BR-511 }
     MinibarCheckInput:
       type: object
@@ -7532,6 +8126,29 @@ components:
           $ref: '#/components/schemas/MoneyVnd'
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
         refillTaskId: { $ref: '#/components/schemas/Uuid' }
+        replacesCheckId: { $ref: '#/components/schemas/Uuid', description: 'Bản kiểm `checkout` trước bị thay (dòng folio cũ đã đảo) – 0.3.3, E05-04' }
+    MinibarStandard:
+      type: object
+      required: [items]
+      description: '0.3.3, E05-04'
+      properties:
+        roomNo: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [itemId, itemName, standardQty, isFree]
+            properties:
+              itemId: { $ref: '#/components/schemas/Uuid' }
+              itemName: { type: string }
+              standardQty: { type: integer, minimum: 1 }
+              isFree: { type: boolean }
+              unitPriceVnd:
+                $ref: '#/components/schemas/MoneyVnd'
+                x-visible-to: [owner, manager, front_desk_lead, front_desk]
+        latestCheck:
+          oneOf: [{ $ref: '#/components/schemas/MinibarCheck' }, { type: 'null' }]
+          description: 'Lần kiểm `checkout` gần nhất trong ngày nghiệp vụ (HK hoặc FD) để điền sẵn'
 
     # ── duyệt ──
     ApprovalRequest:
@@ -7551,6 +8168,9 @@ components:
         requestedBy: { type: string }
         requestedAt: { $ref: '#/components/schemas/Instant' }
         requiredRole: { $ref: '#/components/schemas/Role' }
+        targetType: { type: string, description: 'Loại đối tượng của yêu cầu (folio_line, reservation, quote…) – 0.3.3' }
+        targetCode: { type: string, description: 'Mã hiển thị của đối tượng (mã đơn, số căn…) – không C2/C3; 0.3.3 (BE-A, erd `approval_request.target_code`)' }
+        selfApplied: { type: boolean, description: 'true = người gửi tự áp trong hạn mức vai (BR-436, US-007 AC6) – trạng thái `approved` ngay, người duyệt = người gửi; 0.3.3' }
         approverName: { type: string }
         approverRole: { $ref: '#/components/schemas/Role' }
         decidedAt: { $ref: '#/components/schemas/Instant' }
@@ -7570,8 +8190,8 @@ components:
         category: { type: string, enum: [money, state, config, access, security, data] }
         action: { type: string, example: folio_line.adjusted }
         entityType: { type: string }
-        entityId: { $ref: '#/components/schemas/Uuid' }
-        entityCode: { type: string }
+        entityId: { type: string, description: 'Id thực thể – thường UUID, một số thực thể khóa text/bigint (erd 4.3 `audit_event.entity_id` text – 0.3.3 nới từ `Uuid`)' }
+        entityCode: { type: string, description: 'Mã chứng từ hiển thị (OTM-00171, PT-000231…) – erd `audit_event.entity_code` (S27)' }
         before: { type: object, additionalProperties: true, description: 'Sinh bằng serializer audit theo danh sách trường cho phép từng thực thể; không bao giờ chứa cột `_enc`/giá trị C3; C2 che theo danh sách (SR-AUD-03)' }
         after: { type: object, additionalProperties: true, description: Như `before` }
         reason: { type: string }
@@ -7624,7 +8244,38 @@ components:
             imageRetentionUntil: { $ref: '#/components/schemas/Instant' }
             blocksDoorCode:
               type: boolean
-              description: 'true khi giấy tờ người nước ngoài hết hạn tại ngày nhận phòng (BR-613 c) – server **không** cho cấp/hiện mã cửa (setDoorCredential → 409, GuestStay.doorCode vắng) cho tới khi xử lý'
+              description: |
+                true khi có mục đối chiếu `blocking=true` (BR-613 c: hộ chiếu/thị thực hết hạn tại ngày nhận, thiếu dấu nhập cảnh) – server **không** cho cấp/hiện mã cửa
+                (setDoorCredential → 409, GuestStay.doorCode vắng) cho tới khi xử lý. **R2 (0.3.3, E03-01/E06-01)**: là điều kiện `document_check_block` của
+                `previewCheckIn`/`checkIn` (chặn B9, FDL+ bỏ qua bằng `documentBlockOverride`) – giả định BA, chờ DOM E05-06 (c).
+            imagesPurgeScheduledAt: { $ref: '#/components/schemas/Instant', description: 'Lần xóa ảnh sớm nhất đã lên lịch (người không đồng ý/rút đồng ý → khi `confirmed`; đồng ý → hạn BR-610) – 0.3.3, E06-02' }
+            imagesPurgedAt: { $ref: '#/components/schemas/Instant', description: 'Lần xóa ảnh gần nhất – 0.3.3, E06-04' }
+            imagesPurgeReason:
+              type: string
+              enum: [retention, no_consent, consent_withdrawn, guest_request, void]
+              description: 'Lý do lần xóa gần nhất (erd `document_image.delete_reason`) – 0.3.3, E06-04'
+            portalReferences:
+              type: array
+              description: 'Khai báo `mixed`: mỗi khối (`kind`) một mã hồ sơ cổng; khai báo đơn loại có 1 phần tử, trùng `portalReference` (0.3.3, E06-03)'
+              items:
+                type: object
+                required: [kind, reference]
+                properties:
+                  kind: { type: string, enum: [foreigner_temp_residence, vn_citizen_stay] }
+                  reference: { type: string }
+                  sentAt: { $ref: '#/components/schemas/Instant' }
+                  sentByName: { type: string, x-rbac-field: D27 }
+            onlineCheckin:
+              type: [object, 'null']
+              description: 'Tóm tắt check-in online cho Desk (US-107 AC1) – null khi khách chưa mở link (0.3.3, E06-06)'
+              properties:
+                completedAt: { $ref: '#/components/schemas/Instant' }
+                etaTime: { $ref: '#/components/schemas/LocalTime' }
+                lateArrival: { type: boolean }
+                arrivalNote: { type: string, maxLength: 300, description: 'Ghi chú khách gửi lễ tân – chỉ Desk thấy, không trả lại app khách' }
+                uploadedCount: { type: integer }
+                requiredCount: { type: integer }
+                deferredPeople: { type: array, items: { type: integer, minimum: 1 }, description: 'Chỉ số người khách chọn "bổ sung tại quầy"' }
             allowedActions: { type: array, items: { $ref: '#/components/schemas/AllowedAction' } }
             version: { type: integer }
     GuestDocumentMasked:
@@ -7638,7 +8289,8 @@ components:
         fullNameOnDoc: { type: string, x-rbac-field: D01 }
         nationalityCode: { type: string, x-rbac-field: D01 }
         docNumberLast4: { type: string, x-rbac-field: D03 }
-        imageIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, x-rbac-field: D06 }
+        imageIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, x-rbac-field: D06, description: 'Rỗng sau khi ảnh bị xóa (J16, rút đồng ý, xóa sớm) – 0.3.3, E06-04' }
+        imagePurgeAt: { $ref: '#/components/schemas/Instant', description: 'Thời điểm dự kiến xóa ảnh của người này theo quyết định đồng ý (BR-609/610) – 0.3.3, E06-02' }
         imageConsent: { type: string, enum: [not_recorded, granted, refused], x-rbac-field: D20 }
         captureMethod: { type: string, enum: [qr_cccd, mrz, manual, guest_upload] }
         checks:
@@ -7648,8 +8300,16 @@ components:
             required: [code, result]
             properties:
               code: { $ref: '#/components/schemas/DocumentCheckCode' }
-              result: { type: string, enum: [ok, warning, not_applicable] }
-              handledNote: { type: string }
+              result: { $ref: '#/components/schemas/DocumentCheckResult' }
+              blocking:
+                type: boolean
+                description: |
+                  0.3.3 (E06-01): true khi mục thuộc BR-613 (c) có kết quả cuối = Không đạt (`result=fail`, hoặc `unverified` mà `manualResult=fail`).
+                  **Giả định ARC – chờ DOM/SEC**: `unverified` của 3 mục (c) cũng `blocking=true` cho tới khi lễ tân ghi `manualResult=pass` (an toàn mặc định).
+              manualResult: { type: [string, 'null'], enum: [pass, fail, null], description: 'Kết quả lễ tân kiểm tay bản gốc cho mục `unverified` (`recordDocumentCheck`)' }
+              handledNote: { type: string, description: 'Ghi chú xử lý (bắt buộc với `fail`/`unverified`) – không chứa số giấy tờ' }
+              handledByName: { type: string, x-rbac-field: D27 }
+              handledAt: { $ref: '#/components/schemas/Instant' }
     GuestDocumentInput:
       type: object
       required: [docType, fullNameOnDoc, docNumber]
@@ -7661,7 +8321,7 @@ components:
         docNumber: { type: string, writeOnly: true, x-classification: C3, x-rbac-field: D03 }
         dateOfBirth: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3, x-rbac-field: D01 }
         gender: { type: string, enum: [male, female, other], x-rbac-field: D01 }
-        nationalityCode: { type: string, pattern: '^[A-Z]{2,3}$', x-rbac-field: D01 }
+        nationalityCode: { type: string, pattern: '^[A-Z]{3}$', x-rbac-field: D01, description: 'ISO 3166-1 alpha-3 (như vùng MRZ); C/T phải `VNM` – 0.3.3 thu về đúng 3 ký tự (E06-05)' }
         passportIssueDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3, x-rbac-field: D04 }
         passportExpiryDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3, x-rbac-field: D04 }
         issuingPlace: { type: string, writeOnly: true, x-classification: C3, x-rbac-field: D04 }
@@ -7671,6 +8331,12 @@ components:
         entryDate: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3, x-rbac-field: D05 }
         entryPort: { type: string, writeOnly: true, x-classification: C3, x-rbac-field: D05 }
         entryPurpose: { type: string, writeOnly: true, x-classification: C3, x-rbac-field: D05 }
+        noEntryRecord:
+          type: boolean
+          writeOnly: true
+          x-classification: C3
+          x-rbac-field: D05
+          description: 'Lễ tân đánh dấu hộ chiếu NN **không có** dấu/chứng nhận nhập cảnh → `entry_record_present = fail` (BR-613 c). Gửi `true` kèm `entryDate` → 422 (0.3.3, E06-01)'
         address: { type: string, writeOnly: true, x-classification: C3, description: 'Chỉ khi biểu mẫu cổng yêu cầu (R-REG-04)', x-rbac-field: D07 }
         captureMethod: { type: string, enum: [qr_cccd, mrz, manual] }
     GuestDocumentSensitive:
@@ -7694,6 +8360,7 @@ components:
         entryDate: { $ref: '#/components/schemas/LocalDate', x-rbac-field: D05 }
         entryPort: { type: string, x-rbac-field: D05 }
         entryPurpose: { type: string, x-rbac-field: D05 }
+        noEntryRecord: { type: boolean, x-rbac-field: D05, description: '0.3.3' }
         address: { type: string, x-rbac-field: D07 }
     ConsentInput:
       type: object
@@ -8122,12 +8789,28 @@ components:
       type: object
       required: [currentStep, requiredPeople, uploadedPeople]
       properties:
-        currentStep: { type: string, enum: [documents, eta, consent, done] }
+        currentStep: { type: string, enum: [notice, documents, eta, consent, done], description: '0.3.3 thêm `notice` (bước 0 – thông báo xử lý dữ liệu)' }
         requiredPeople: { type: integer }
         uploadedPeople: { type: array, items: { type: integer }, description: 'Chỉ số người đã tải giấy tờ – không trả lại ảnh/số' }
         etaTime: { $ref: '#/components/schemas/LocalTime' }
         consentRecorded: { type: boolean, x-rbac-field: D20 }
         completedAt: { $ref: '#/components/schemas/Instant' }
+        noticeAccepted:
+          type: boolean
+          x-guest-level: 1
+          x-sec-review: pending-DK2
+          description: 'true khi khách đã bấm "Tôi đã đọc" cho phiên bản thông báo **hiện hành** (0.3.3, E06-06)'
+        lateArrival:
+          type: boolean
+          x-guest-level: 1
+          x-sec-review: pending-DK2
+          description: '0.3.3, E06-06'
+        deferredPeople:
+          type: array
+          x-guest-level: 1
+          x-sec-review: pending-DK2
+          items: { type: integer, minimum: 1 }
+          description: 'Chỉ số người "bổ sung tại quầy" – không có thông tin nào khác về người đó (0.3.3, E06-06)'
     GuestFolio:
       type: object
       required: [lines, totalVnd, paidVnd, balanceDueVnd]

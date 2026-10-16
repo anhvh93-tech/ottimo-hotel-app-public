@@ -1,4 +1,10 @@
-import { type DynamicModule, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  type DynamicModule,
+  Inject,
+  Module,
+  type OnApplicationShutdown,
+  type Type,
+} from '@nestjs/common';
 import { CLOCK, type Clock } from './clock';
 import { CoreModule } from './core.module';
 import type { Database } from './db/database';
@@ -14,7 +20,7 @@ export interface AppDeps {
   database?: Database;
   auth?: AuthOptions;
   /** Extra modules (feature modules; the test-support module when INCLUDE_TEST_SUPPORT=1). */
-  imports?: DynamicModule[];
+  imports?: (DynamicModule | Type)[];
 }
 
 @Module({})

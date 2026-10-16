@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { findUnsafeIntegrationConfig } from '@ottimo/integrations/common';
+import { type AllowedOrigins, originOf } from './shared/http/csrf';
 
 export const APP_ENVS = ['dev', 'test', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
@@ -33,6 +34,38 @@ export interface AppConfig {
   testSupport: { enabled: boolean; token: string };
   /** Cookie names with the __Host- prefix (needs HTTPS). Only dev/test may turn it off. */
   cookieSecurePrefix: boolean;
+  /** The 3 browser origins (SR-SES-04, SR-HDR-04): Origin check for write methods, no CORS. */
+  allowedOrigins: AllowedOrigins;
+}
+
+/**
+ * ADMIN_BASE_URL (admin-web), STAFF_BASE_URL (staff PWA), GUEST_BASE_URL (guest-web) – architecture 17.
+ * APP_BASE_URL (older .env.example name) is accepted for the admin origin when ADMIN_BASE_URL is unset.
+ * staging/production: all three required, https only. dev/test: optional; an empty list is not checked.
+ */
+export function parseAllowedOrigins(env: NodeJS.ProcessEnv, appEnv: AppEnv): AllowedOrigins {
+  const strict = appEnv === 'staging' || appEnv === 'production';
+  const read = (name: string, value: string | undefined): string[] => {
+    const v = (value ?? '').trim();
+    if (v === '') {
+      if (strict) throw new ConfigError(`${name} is required when APP_ENV=${appEnv}`);
+      return [];
+    }
+    let origin: string;
+    try {
+      origin = originOf(v);
+    } catch {
+      throw new ConfigError(`${name} must be an http(s) URL`);
+    }
+    if (strict && !origin.startsWith('https://')) {
+      throw new ConfigError(`${name} must use https when APP_ENV=${appEnv}`);
+    }
+    return [origin];
+  };
+  const admin = read('ADMIN_BASE_URL', env.ADMIN_BASE_URL || env.APP_BASE_URL);
+  const staff = read('STAFF_BASE_URL', env.STAFF_BASE_URL);
+  const guest = read('GUEST_BASE_URL', env.GUEST_BASE_URL);
+  return { staff: [...new Set([...admin, ...staff])], guest };
 }
 
 export class ConfigError extends Error {
@@ -275,5 +308,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     clockMode,
     testSupport: { enabled: testSupportEnabled, token: testSupportToken },
     cookieSecurePrefix: cookiePrefixRaw === 'true',
+    allowedOrigins: parseAllowedOrigins(env, appEnv),
   };
 }

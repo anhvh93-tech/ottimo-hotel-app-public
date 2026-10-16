@@ -27,6 +27,8 @@ export const auditEvent = pgTable(
     entityType: text('entity_type'),
     // text, not uuid: some audited entities are keyed by text (parameter key, session hash).
     entityId: text('entity_id'),
+    // Display code of the entity (OTM-00171, F26-000123, parameter key) for the S27 log (US-006). R2 S1.
+    entityCode: text('entity_code'),
     before: jsonb('before'),
     after: jsonb('after'),
     reason: text('reason'),
@@ -45,6 +47,8 @@ export const auditEvent = pgTable(
     ),
     index('audit_event_property_category_idx').on(t.propertyId, t.category, t.occurredAt.desc()),
     index('audit_event_entity_idx').on(t.entityType, t.entityId),
+    // listAuditEvents scope `own` (FDL/FD) and the actor filter of OWN/MGR (US-006 AC2).
+    index('audit_event_property_actor_idx').on(t.propertyId, t.actorUserId, t.occurredAt.desc()),
   ],
 );
 

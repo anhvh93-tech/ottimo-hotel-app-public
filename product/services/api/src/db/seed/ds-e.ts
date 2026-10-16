@@ -20,6 +20,11 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { hash } from '@node-rs/argon2';
+import {
+  type RoomGroupImport,
+  type RoomImport,
+  importRoomCatalog,
+} from '../../modules/platform/public/room-catalog-import';
 import { v7 as uuidv7 } from 'uuid';
 import { type Clock, SystemClock } from '../../clock';
 import { AuditService } from '../../modules/audit/public/audit.service';
@@ -63,8 +68,6 @@ interface DsE {
 
 /** Fixture blocks loaded by later migrations (module that owns the table). */
 const PENDING_BLOCKS: Record<string, string> = {
-  roomGroups: 'platform (room_group) – BE-B',
-  rooms: 'platform (room, room_list_price) – BE-B',
   channels: 'platform (channel, channel_commission_rate) – BE-B',
   minibarItems: 'inventory (item) – BE-B',
   feeCatalog: 'folio (fee catalogue) – BE-B',
@@ -85,6 +88,9 @@ export interface SeedReport {
   roles: number;
   devices: number;
   parameters: number;
+  /** room_group / room (+ first room_list_price) loaded by importRoomCatalog (BE-B Sprint 1). */
+  roomGroups: number;
+  rooms: number;
   docSequences: Array<{ docType: string; expected: string; server: string; ok: boolean }>;
   skippedBlocks: Array<{ block: string; owner: string }>;
   warnings: string[];
@@ -137,6 +143,8 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
     roles: 0,
     devices: 0,
     parameters: 0,
+    roomGroups: 0,
+    rooms: 0,
     docSequences: [],
     skippedBlocks: Object.entries(PENDING_BLOCKS)
       .filter(([b]) => fixture[b] !== undefined)
@@ -303,12 +311,29 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
         );
       }
     }
+    // Room catalogue (US-004; QA TC-NT-040e): server computes the nightly list price (BR-101) and checks it
+    // against expectedNightlyListPriceVnd of the fixture.
+    if (Array.isArray(fixture.roomGroups) && Array.isArray(fixture.rooms)) {
+      const catalog = await importRoomCatalog(tx, parameters, {
+        groups: fixture.roomGroups as RoomGroupImport[],
+        rooms: fixture.rooms as RoomImport[],
+        activeFrom: firstFrom,
+        now,
+      });
+      report.roomGroups = catalog.groups;
+      report.rooms = catalog.rooms;
+    }
     await audit.record(tx, {
       category: 'data',
       action: 'seed.loaded',
       entityType: 'dataset',
       entityId: fixture.id,
-      after: { users: report.users, parameters: report.parameters, devices: report.devices },
+      after: {
+        users: report.users,
+        parameters: report.parameters,
+        devices: report.devices,
+        rooms: report.rooms,
+      },
     });
 
     // Verify every counter against the fixture: allocate the first code through DocNumberService inside a

@@ -29,6 +29,34 @@
       "when": 1792133481168,
       "tag": "0003_parameter_bounds",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792139330521,
+      "tag": "0004_rooms_guests",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792139339635,
+      "tag": "0005_identity_rooms_guests_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792139583695,
+      "tag": "0006_approvals_audit_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792139732873,
+      "tag": "0007_approvals_rls_be_a",
+      "breakpoints": true
     }
   ]
 }

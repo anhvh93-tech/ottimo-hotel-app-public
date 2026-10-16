@@ -1,9 +1,13 @@
-/** R1 skeleton page – real UI starts in R2 from product/design (UXD). */
+import { BrowserRouter } from 'react-router-dom';
+import { Providers } from './app/Providers';
+import { AppRoutes } from './app/routes';
+
 export function App() {
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
-      <h1>OTTIMO Desk</h1>
-      <p>Skeleton – Round 1.</p>
-    </main>
+    <Providers>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </Providers>
   );
 }

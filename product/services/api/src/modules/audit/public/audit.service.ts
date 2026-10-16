@@ -1,7 +1,9 @@
 /**
  * Append-only audit writers (erd 4.3): audit_event and c3_access_log.
- * - Callers pass `before`/`after` already reduced to the entity's allowlisted fields (SR-AUD-03):
- *   `_enc` columns and C3 values never go in. This service adds no fields of its own.
+ * - `before`/`after` are reduced to the fields registered for the entity type (audit-fields.ts,
+ *   SR-AUD-03): `_enc` columns and C3 values never go in; an unregistered entity type is refused.
+ * - recordMoney(): the shared writer for money operations (US-006, BR-008, SR-AUD-01) – folio lines,
+ *   discounts, FOC, payments, reversals, refunds, cancellation fees – with the document code shown in S27.
  * - Always written inside the caller's transaction (same commit as the change it records), except
  *   access.denied which is written in its own transaction because the request itself fails.
  */
@@ -9,12 +11,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
 import type { AuditCategory } from '../../../db/schema';
+import type { GuardedRequest } from '../../../shared/http/auth.guard';
+import { pickAuditFields } from './audit-fields';
 
 export interface AuditEntry {
   category: AuditCategory;
   action: string;
   entityType?: string;
   entityId?: string;
+  /** Display code (OTM-00171, F26-000123…) shown in the S27 log. No C2/C3. */
+  entityCode?: string;
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
   reason?: string;
@@ -52,11 +58,13 @@ export class AuditService {
   async record(tx: Tx, entry: AuditEntry): Promise<void> {
     const { ctx } = tx;
     if (!ctx.organizationId) throw new Error('audit_event needs an organization context');
+    const before = pickAuditFields(entry.entityType, entry.before);
+    const after = pickAuditFields(entry.entityType, entry.after);
     await tx.query(
       `INSERT INTO audit_event (organization_id, property_id, occurred_at, actor_type, actor_user_id,
          category, action, entity_type, entity_id, before, after, reason, request_id, ip_hmac,
-         session_id, trusted_device_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+         session_id, trusted_device_id, entity_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         ctx.organizationId,
         ctx.propertyId,
@@ -67,15 +75,27 @@ export class AuditService {
         entry.action,
         entry.entityType ?? null,
         entry.entityId ?? null,
-        entry.before ?? null,
-        entry.after ?? null,
+        before,
+        after,
         entry.reason ?? null,
         entry.requestId ?? null,
         entry.ipHmac ?? null,
         entry.sessionId ?? null,
         entry.trustedDeviceId ?? null,
+        entry.entityCode ?? null,
       ],
     );
+  }
+
+  /**
+   * Money operation (category `money`): who (from the transaction context), when (Clock), before/after,
+   * reason and the document code (BR-008, US-006 AC1). Same transaction as the money write.
+   */
+  async recordMoney(
+    tx: Tx,
+    entry: Omit<AuditEntry, 'category'> & { entityType: string; entityId: string },
+  ): Promise<void> {
+    await this.record(tx, { ...entry, category: 'money' });
   }
 
   /** Written BEFORE the C3 value is returned / in the same transaction as the C3 write (ADR-013). */
@@ -112,4 +132,16 @@ export class AuditService {
   async recordDenied(ctx: TenantContext, entry: Omit<AuditEntry, 'category'>): Promise<void> {
     await this.db.withContext(ctx, (tx) => this.record(tx, { ...entry, category: 'access' }));
   }
+}
+
+/** requestId / session / trusted device of a guarded request, for audit entries. */
+export function auditContextOf(
+  req: GuardedRequest,
+): Pick<AuditEntry, 'requestId' | 'sessionId' | 'trustedDeviceId'> {
+  const p = req.ottimoAuth?.principal;
+  return {
+    requestId: req.id,
+    ...(p ? { sessionId: p.sessionId } : {}),
+    ...(p?.trustedDeviceId ? { trustedDeviceId: p.trustedDeviceId } : {}),
+  };
 }

@@ -11,16 +11,46 @@
  * - Same key, different method/path/body → 422 IDEMPOTENCY_KEY_REUSED.
  * - Before COMMIT the row becomes 'completed' with the response; for C3 endpoints only status + id are
  *   stored (`storeBody: false` – erd 4.12).
+ * - Commit-then-fail: a use case that must keep its writes AND answer with an error (SM-10 A4: the request
+ *   moves to `escalated`, the approver gets 403 APPROVAL_LIMIT_EXCEEDED) returns `{ fail: problem(...) }`.
+ *   The transaction commits (with the problem stored as the idempotent response) and the problem is thrown
+ *   afterwards; a replay of that key throws the same problem again.
  */
 import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { DATABASE, Database, type Tx, pgCode } from '../../db/database';
-import { problem } from '../problem';
+import { ProblemError, problem } from '../problem';
 import { AuthGuard, type GuardedRequest, tenantOf } from './auth.guard';
 
 export interface UseCaseResult<T> {
   status: number;
   body: T;
+}
+
+/** Commit the transaction, then answer with this problem (see "Commit-then-fail" above). */
+export interface UseCaseFailure {
+  fail: ProblemError;
+}
+
+function isFailure(r: unknown): r is UseCaseFailure {
+  return typeof r === 'object' && r !== null && (r as UseCaseFailure).fail instanceof ProblemError;
+}
+
+function replayFailure(stored: UseCaseResult<unknown>): ProblemError | null {
+  if (stored.status < 400) return null;
+  const body = stored.body as { code?: unknown } | null;
+  if (!body || typeof body.code !== 'string') return null;
+  const { code, detail, errors } = body as Record<string, unknown> & { code: string };
+  const extras: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!['type', 'title', 'status', 'code', 'detail', 'requestId', 'errors'].includes(k))
+      extras[k] = v;
+  }
+  return new ProblemError(code, {
+    ...(typeof detail === 'string' ? { detail } : {}),
+    ...(Array.isArray(errors) ? { errors: errors as never } : {}),
+    extras,
+  });
 }
 
 export interface UnitOfWorkResult<T> extends UseCaseResult<T> {
@@ -77,9 +107,19 @@ export class UnitOfWork {
 
   async run<T>(
     req: GuardedRequest,
-    handler: (tx: Tx) => Promise<UseCaseResult<T>>,
+    handler: (tx: Tx) => Promise<UseCaseResult<T> | UseCaseFailure>,
     options: RunOptions = {},
   ): Promise<UnitOfWorkResult<T>> {
+    const out = await this.runInner<T>(req, handler, options);
+    if ('fail' in out) throw out.fail;
+    return out;
+  }
+
+  private async runInner<T>(
+    req: GuardedRequest,
+    handler: (tx: Tx) => Promise<UseCaseResult<T> | UseCaseFailure>,
+    options: RunOptions,
+  ): Promise<UnitOfWorkResult<T> | UseCaseFailure> {
     const auth = req.ottimoAuth;
     if (!auth?.principal) throw new Error('UnitOfWork.run() needs an authenticated staff request');
     const principal = auth.principal;
@@ -97,20 +137,30 @@ export class UnitOfWork {
           hash,
           lockTimeoutMs: options.lockTimeoutMs ?? 3_000,
         });
-        if (replay) return { ...(replay as UseCaseResult<T>), replayed: true };
+        if (replay) {
+          const failure = replayFailure(replay);
+          if (failure) return { fail: failure };
+          return { ...(replay as UseCaseResult<T>), replayed: true };
+        }
       }
       await this.guard.enforce(req);
-      const result = await handler(tx);
+      const outcome = await handler(tx);
+      const result: UseCaseResult<unknown> = isFailure(outcome)
+        ? { status: outcome.fail.status, body: outcome.fail.toBody() }
+        : outcome;
       if (key) {
         const stored =
-          options.storeBody === false ? pickId(result.body) : ((result.body as unknown) ?? null);
+          options.storeBody === false && !isFailure(outcome)
+            ? pickId(result.body)
+            : ((result.body as unknown) ?? null);
         await tx.query(
           `UPDATE idempotency_key SET state = 'completed', response_status = $4, response_body = $5
             WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND organization_id = $3`,
           [principal.userId, key, principal.organizationId, result.status, JSON.stringify(stored)],
         );
       }
-      return { ...result, replayed: false };
+      if (isFailure(outcome)) return outcome;
+      return { ...(outcome as UseCaseResult<T>), replayed: false };
     });
   }
 

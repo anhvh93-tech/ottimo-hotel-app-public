@@ -21,6 +21,10 @@ const prod = {
   DATA_KEK_CURRENT: KEK,
   // Caddy in the internal Docker network (hosting-plan) – required in staging/production (FB-R2-SEC-BE-02).
   TRUST_PROXY: '172.18.0.2',
+  // The 3 browser origins (SR-SES-04) – required in staging/production.
+  ADMIN_BASE_URL: 'https://desk.example.invalid',
+  STAFF_BASE_URL: 'https://staff.example.invalid/',
+  GUEST_BASE_URL: 'https://g.example.invalid',
 };
 const staging = { ...prod, APP_ENV: 'staging' };
 const without = (env: Record<string, string>, name: string) =>
@@ -275,5 +279,39 @@ describe('resolveFileSecrets (FB-R1-SEC-OPS-10)', () => {
     expect(() =>
       resolveFileSecrets({ SESSION_SECRET: 'a', SESSION_SECRET_FILE: '/x' }, () => 'b'),
     ).toThrow(ConfigError);
+  });
+});
+
+describe('allowed origins (SR-SES-04, architecture 17)', () => {
+  it('normalises the 3 base URLs to origins: staff = admin + PWA, guest separate', () => {
+    expect(loadConfig(prod).allowedOrigins).toEqual({
+      staff: ['https://desk.example.invalid', 'https://staff.example.invalid'],
+      guest: ['https://g.example.invalid'],
+    });
+  });
+
+  it('requires all three, https only, in staging and production', () => {
+    for (const env of [prod, staging]) {
+      for (const name of ['ADMIN_BASE_URL', 'STAFF_BASE_URL', 'GUEST_BASE_URL']) {
+        expect(() => loadConfig(without(env, name))).toThrow(new RegExp(name));
+      }
+      expect(() => loadConfig({ ...env, GUEST_BASE_URL: 'http://g.example.invalid' })).toThrow(
+        /https/,
+      );
+    }
+    expect(() => loadConfig({ ...prod, ADMIN_BASE_URL: 'javascript:alert(1)' })).toThrow(
+      /http\(s\) URL/,
+    );
+  });
+
+  it('dev/test: optional; APP_BASE_URL is accepted as the admin origin', () => {
+    expect(loadConfig(base).allowedOrigins).toEqual({ staff: [], guest: [] });
+    expect(
+      loadConfig({
+        ...base,
+        APP_BASE_URL: 'http://localhost:8081',
+        GUEST_BASE_URL: 'http://localhost:8083',
+      }).allowedOrigins,
+    ).toEqual({ staff: ['http://localhost:8081'], guest: ['http://localhost:8083'] });
   });
 });

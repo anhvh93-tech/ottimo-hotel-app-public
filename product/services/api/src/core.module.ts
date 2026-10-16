@@ -1,10 +1,10 @@
 /**
  * Shared foundation providers (BE-A module 1): Clock, Database (RLS transactions), audit writer,
  * parameters, document numbers, auth guard (global, default deny), UnitOfWork, job runner,
- * problem+json filter. Global so feature modules (and the test-support module) can inject them.
+ * problem+json filter, role serializer (SR-AZ-04). Global so feature modules (and the test-support module) can inject them.
  */
 import { type DynamicModule, Global, Module } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { CLOCK, type Clock } from './clock';
 import { DATABASE, type Database } from './db/database';
 import { BUILTIN_JOBS } from './jobs/builtin-jobs';
@@ -15,6 +15,7 @@ import { ParameterService } from './modules/platform/public/parameter.service';
 import { AUTH_OPTIONS, AuthGuard, type AuthOptions } from './shared/http/auth.guard';
 import { UnitOfWork } from './shared/http/unit-of-work';
 import { ProblemFilter } from './shared/problem';
+import { SerializeInterceptor } from './shared/serialization/serialize.interceptor';
 
 export interface CoreDeps {
   clock: Clock;
@@ -60,6 +61,8 @@ export class CoreModule {
         JobRunner,
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_FILTER, useFactory: () => ProblemFilter.create() },
+        // Role serializer on every @Operation response (SR-AZ-04).
+        { provide: APP_INTERCEPTOR, useClass: SerializeInterceptor },
       ],
       exports: exported,
     };

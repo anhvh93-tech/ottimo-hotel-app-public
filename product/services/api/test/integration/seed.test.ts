@@ -48,7 +48,10 @@ describe.skipIf(!HAS_DB)('seed:ds-e loader', () => {
     expect(r.parameters).toBe(f.parameters.length + 2); // + lease_terms, utility_estimate
     expect(r.docSequences.every((d) => d.ok)).toBe(true);
     expect(r.docSequences.map((d) => d.server)).toContain('F26-000001');
-    expect(r.skippedBlocks.map((b) => b.block)).toContain('rooms');
+    expect(r.skippedBlocks.map((b) => b.block)).not.toContain('rooms'); // rooms loaded since Sprint 1 (BE-B)
+    // BE-B: room catalogue through importRoomCatalog (BR-101 nightly price checked against the fixture).
+    expect(r.roomGroups).toBe((f.roomGroups as unknown[]).length);
+    expect(r.rooms).toBe((f.rooms as unknown[]).length);
 
     const ctx = {
       organizationId: r.organizationId,

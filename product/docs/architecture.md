@@ -237,6 +237,7 @@ Nguyên tắc chung cho mọi job:
 | J21 | `foc.alert` | Hằng ngày 06:00 | FOC tháng > ngưỡng % doanh thu phòng hoặc một người duyệt > N lần → báo OWN | `foc_alert_*` | BR-435 | R3 |
 | J22 | `commission.cycle` | Ngày 1 hằng tháng | SM-11 `earned → payable` gộp theo tháng (chờ DOM SQ-4); đợt 2 dài hạn khi qua mốc thời hạn | `commission_payout` | BR-212, 903 | R3 |
 | J23 | `maintenance.plan` / `meter.reminder` | Hằng ngày 07:30 | Bảo trì định kỳ sắp đến hạn; công tơ chưa chốt quanh `meter_reading_day` | `meter_reading_day` | BR-502, 810 | R3 |
+| J24 | `payment.expire` | Mỗi 5 phút | **0.3.3 (E05-02)**: giao dịch `pending` (VietQR R2; VNPay/MoMo R3) có `expires_at ≤ Clock.now()` → `expired` (SM-12, actor `system`). `expires_at` của VietQR = mốc đổi ngày nghiệp vụ kế tiếp; tạo QR mới thì QR chờ cũ của folio hết hạn ngay trong giao dịch tạo (erd 4.6). Không đụng giao dịch `succeeded` | `business_day_rollover` | BR-010, BR-521; US-120 | R2 |
 
 **Mẫu handler job chạy đúng một lần** (BE-ARC-05 – bắt buộc cho mọi job J1–J23):
 ```

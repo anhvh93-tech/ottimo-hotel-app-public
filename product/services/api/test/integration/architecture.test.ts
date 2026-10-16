@@ -184,8 +184,10 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
       'organization_id',
       'active_property_id',
       'expires_at',
+      'idle_expires_at',
       'revoked_at',
       'roles_version',
+      'user_status',
       'trusted_device_id',
     ]);
     expect(await columns('auth_resolve_device')).toEqual([

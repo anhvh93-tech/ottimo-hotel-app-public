@@ -1,0 +1,22 @@
+{
+  "name": "@ottimo/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed HTTP client for admin-web/PWA \u2013 types generated from docs/api/openapi.yaml (openapi-typescript). Source-only internal package (bundled by Vite).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "node scripts/gen.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.4.2",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.12",
+    "@types/node": "^22.10.2"
+  }
+}
