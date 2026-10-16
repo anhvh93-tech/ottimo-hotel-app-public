@@ -67,6 +67,10 @@ class DocsOk implements FrontdeskRegistrationPort {
   async onPartyMemberRemoved() {}
   async onCheckedOut() {}
   async onReservationVoided() {}
+  visa: string | null = null;
+  async earliestVisaValidUntil(): Promise<string | null> {
+    return this.visa;
+  }
 }
 
 const ROLES = {

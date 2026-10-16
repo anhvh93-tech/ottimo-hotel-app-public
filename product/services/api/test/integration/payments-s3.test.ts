@@ -2408,5 +2408,118 @@ describe.skipIf(!HAS_DB)(
         .reduce((a, l) => a + l.amountVnd, 0);
       expect(minibar).toBe(0);
     });
+    // ───────────── Sprint 3 testing, fix round 2 (QA bug-list) ─────────────
+
+    it('BUG-R2-043 (V-09): a card number in posAuthCode → CARD_NUMBER_DETECTED (not TOO_LONG); a long code → TOO_LONG', async () => {
+      await atT0();
+      const b = await booking();
+      const card = await pay('fd', b, {
+        type: 'charge',
+        method: 'card_pos',
+        amountVnd: 100_000,
+        posAuthCode: '4111111111111111',
+      });
+      expect(card.statusCode).toBe(422);
+      expect(card.json()).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'posAuthCode', code: 'CARD_NUMBER_DETECTED' }],
+      });
+      const long = await pay('fd', b, {
+        type: 'charge',
+        method: 'card_pos',
+        amountVnd: 100_000,
+        posAuthCode: 'ABCDEF1234567',
+      });
+      expect(long.json().errors).toEqual([{ field: 'posAuthCode', code: 'TOO_LONG' }]);
+      expect(
+        await q(`SELECT 1 FROM payment WHERE folio_id = $1 AND auth_code LIKE '4111%'`, [
+          b.folioId,
+        ]),
+      ).toHaveLength(0);
+    });
+
+    it('BUG-R2-041 (US-039 AC2, D16): a company invoice is kept on the booker profile', async () => {
+      await atT0();
+      const b = await booking();
+      const set = await c('fd').send('PUT', `${P(t)}/folios/${b.folioId}/invoice-request`, {
+        buyerType: 'company',
+        companyName: 'CONG TY TNHH THU NGHIEM',
+        taxCode: '0312345678',
+        email: 'ketoan@example.test',
+      });
+      expect(set.statusCode, set.body).toBe(200);
+      const [g] = await q(
+        `SELECT g.company_name, g.tax_code FROM guest g JOIN reservation r ON r.booker_guest_id = g.id
+          WHERE r.id = $1`,
+        [b.id],
+      );
+      expect(g).toEqual({ company_name: 'CONG TY TNHH THU NGHIEM', tax_code: '0312345678' });
+      const audit = await q(
+        `SELECT after FROM audit_event WHERE action = 'guest.updated' AND after->>'by' = 'invoice_request'
+          ORDER BY occurred_at DESC LIMIT 1`,
+      );
+      expect(audit[0]!.after).toMatchObject({ fields: ['companyName', 'taxCode'] });
+      expect(JSON.stringify(audit[0]!.after)).not.toContain('0312345678'); // C2 never in the log
+    });
+
+    it('BUG-R2-046 (BR-433 "≤ 1 night"): a FOC on a surcharge / service line carries the night-rate basis – the manager decides it', async () => {
+      await atT0();
+      const b = await booking();
+      await inHouse(b);
+      const post = (category: string, amountVnd: number, serviceDate: string) =>
+        db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
+          fa.app.get(FolioService).postLines(
+            tx,
+            b.folioId,
+            [
+              {
+                reservationId: b.id,
+                category: category as 'service_fee',
+                description: category,
+                quantity: 1,
+                unitPriceVnd: amountVnd,
+                amountVnd,
+                serviceDate,
+                source: 'manual',
+              },
+            ],
+            { userId: t.users.fd!.id, reservationCode: b.code },
+          ),
+        );
+      const f = await folio(b);
+      const nights = (
+        f.lines as Array<{ category: string; serviceDate: string; unitPriceVnd: number }>
+      )
+        .filter((l) => l.category === 'room')
+        .sort((x, y) => x.serviceDate.localeCompare(y.serviceDate));
+      const third = nights[2]!;
+      const last = nights[nights.length - 1]!;
+      const [svc] = (await post('service_fee', 500_000, third.serviceDate)) as [string];
+      const [late] = (await post('late_checkout', 350_000, last.serviceDate)) as [string];
+      const foc = (lineId: string, amountVnd: number) =>
+        c('fd').send('POST', `${P(t)}/folios/${b.folioId}/lines/${lineId}/foc`, {
+          kind: 'foc',
+          amountVnd,
+          reasonCode: 'service_recovery',
+        });
+      const basisOf = async (approvalId: string) =>
+        Number(
+          (await q('SELECT limit_basis_vnd FROM approval_request WHERE id = $1', [approvalId]))[0]!
+            .limit_basis_vnd,
+        );
+      // Service line: basis = the night of its service date; above the FDL limit, within one night → manager.
+      const amount = Math.min(third.unitPriceVnd, 450_000);
+      const r1 = await foc(svc, amount);
+      expect(r1.statusCode, r1.body).toBe(201);
+      expect(await basisOf(r1.json().id)).toBe(third.unitPriceVnd);
+      expect(r1.json().requiredRole).toBe(amount > 300_000 ? 'manager' : 'front_desk_lead');
+      const ok = await approveAs('mgr', r1.json().id);
+      expect(ok.statusCode, ok.body).toBe(200);
+      // Late check-out surcharge: basis = the last night.
+      const r2 = await foc(late, 301_000);
+      expect(r2.statusCode, r2.body).toBe(201);
+      expect(await basisOf(r2.json().id)).toBe(last.unitPriceVnd);
+      expect(r2.json().requiredRole).toBe(last.unitPriceVnd >= 301_000 ? 'manager' : 'owner');
+    });
   },
 );

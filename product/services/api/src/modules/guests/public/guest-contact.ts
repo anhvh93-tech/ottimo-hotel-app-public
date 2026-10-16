@@ -42,3 +42,45 @@ export async function attachEmailIfEmpty(
   }
   return attached;
 }
+
+/**
+ * US-039 AC2 / EP03-05 5.4 (D16, BUG-R2-041): the company invoice details given at the desk are kept on the
+ * booker's profile, so the next stay starts pre-filled. Only a live profile (not merged, not anonymised);
+ * nothing written when the values are already there. Audit `guest.updated` with field NAMES only (C2).
+ * Returns the fields changed.
+ */
+export async function setInvoiceCompany(
+  tx: Tx,
+  audit: AuditService,
+  input: { guestId: string; companyName: string; taxCode: string; now: Date; requestId?: string },
+): Promise<string[]> {
+  const { rows } = await tx.query<{
+    code: string;
+    company_name: string | null;
+    tax_code: string | null;
+  }>(
+    `SELECT code, company_name, tax_code FROM guest
+      WHERE id = $1 AND merged_into_id IS NULL AND anonymized_at IS NULL FOR UPDATE`,
+    [input.guestId],
+  );
+  const g = rows[0];
+  if (!g) return [];
+  const fields: string[] = [];
+  if (g.company_name !== input.companyName) fields.push('companyName');
+  if (g.tax_code !== input.taxCode) fields.push('taxCode');
+  if (fields.length === 0) return [];
+  await tx.query(
+    `UPDATE guest SET company_name = $2, tax_code = $3, updated_at = $4, version = version + 1 WHERE id = $1`,
+    [input.guestId, input.companyName, input.taxCode, input.now],
+  );
+  await audit.record(tx, {
+    category: 'data',
+    action: 'guest.updated',
+    entityType: 'guest',
+    entityId: input.guestId,
+    entityCode: g.code,
+    after: { code: g.code, fields, by: 'invoice_request' },
+    ...(input.requestId ? { requestId: input.requestId } : {}),
+  });
+  return fields;
+}

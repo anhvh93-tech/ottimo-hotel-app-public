@@ -1,5 +1,5 @@
 import { isApiError } from '@ottimo/api-client';
-import { useI18n } from '@ottimo/i18n';
+import { hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal } from '@ottimo/ui';
 import { useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
@@ -13,7 +13,14 @@ import { isRetryable, useWrite } from '../../app/useWrite';
  * One write button on the stay screens: DS 6.21 auto-retry (`useWrite`), field errors of a 422,
  * request-level message otherwise. Success → `notifyChanged()` so rack/lists refresh.
  */
-export function useSubmit() {
+export interface SubmitFieldMap {
+  /** Fields that have an input on screen – their message is shown under that input. */
+  bound?: string[];
+  /** Field (or field prefix before ".") → what the person sees, for fields without an input. */
+  labels?: Record<string, string>;
+}
+
+export function useSubmit(map?: SubmitFieldMap) {
   const { t, locale } = useI18n();
   const write = useWrite();
   const [error, setError] = useState<unknown>(null);
@@ -39,8 +46,26 @@ export function useSubmit() {
   const text = (e: unknown = error, extra: Record<string, unknown> = {}) => {
     if (!e) return '';
     if (isApiError(e) && e.code === 'VALIDATION_FAILED') {
-      const f = Object.values(fieldErrors(t, e));
-      if (f.length) return f[0]!;
+      const f = fieldErrors(t, e, {}, locale);
+      const entries = Object.entries(f);
+      if (entries.length && !map) return entries[0]![1];
+      if (entries.length && map) {
+        // BUG-R2-052: a field without an input on screen must not show a bare "Bắt buộc" – say which
+        // item it is; fields with an input → "Còn {n} ô cần sửa" (the message sits at the input).
+        const unbound = entries.filter(([k]) => !map.bound?.includes(k));
+        if (!unbound.length) return t('error.VALIDATION_FAILED', { n: entries.length });
+        const own = (k: string) =>
+          e.fieldErrors.some(
+            (fe) => fe.field.replace(/^body\./, '') === k && hasKey(`field.${fe.code}`),
+          );
+        return unbound
+          .map(([k, msg]) => {
+            const label = map.labels?.[k] ?? map.labels?.[k.split('.')[0]!];
+            // A code with its own sentence (`field.<CODE>`) already says what to do.
+            return label && !own(k) ? t('error.field_named', { label, message: msg }) : msg;
+          })
+          .join(' ');
+      }
     }
     return rsvErrorText(t, e, { locale, canSeeGuest: true, ...extra });
   };

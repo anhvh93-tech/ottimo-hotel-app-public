@@ -12,10 +12,10 @@
 |---|---|
 | `prettier --check` (admin-web, ui, i18n, api-client) | xanh |
 | `eslint` (cùng phạm vi) | 0 lỗi (1 cảnh báo cũ ở `mockServiceWorker.js` sinh tự động) |
-| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **19 tệp / 148 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
+| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **19 tệp / 149 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
 | `turbo run typecheck build` (toàn repo) | 16/16 xanh |
 | axe-core 4.13 trong jsdom (tắt `color-contrast`, `region`), chạy tạm rồi xóa:<br>• Lần 1: H13; H16 bước 2 (thêm đêm) và bước 3; H14 bảng dữ liệu cổng; H17 nhật ký, Hoàn tiền, Cần duyệt; hộp Gia hạn.<br>• Lần 2 (sau đợt 2): H16 thêm đêm, không thêm được đêm, sau nửa đêm, bước 3, phiếu song ngữ; H17 nhật ký; hộp Gia hạn có "Giữ giá đơn"; H13 | **0 critical / 0 serious** |
-| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`, lại sau đợt 2: `ottimo-web:fe-s3d`) |
+| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`) |
 
 Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồng hồ thật. Cả hai đã sửa:
 - `checkout.test`: cố định `Date` (chỉ `Date`, timer thật) cho mọi ca trả phòng.
@@ -83,7 +83,7 @@ Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồn
 | 7.1-5 `AMOUNT_EXCEEDS_BALANCE` | Done | Mock `recordPayment` dùng mã này; FE hiện `field.AMOUNT_EXCEEDS_BALANCE` |
 
 ## Việc cần vai khác
-- **UXD**: đã nối đủ 72 chuỗi mục E. Không còn khóa thiếu cho phần FE.
+- **UXD**: đã nối đủ 72 chuỗi mục E và 2 khóa của đợt 3 (`ci.go_handover`, `error.field_named`). Không còn khóa thiếu cho phần FE.
 - **ARC (0.3.7)**:
   - `ApprovalRequest.requestedById` (S3-11 ý 4).
   - Mốc cuối trả muộn trong `BookingRules` (S3-15).
@@ -114,4 +114,16 @@ Không có ESC mới.
 | `mlog.a_*` đủ 49 mã + `a_approval_approved` | `MoneyPage.tsx` theo bảng E.3 |
 | Mock theo `line-labels.ts` | `labelFor()` trong `mocks/stay.ts`; bỏ 3 khóa ngoài hợp đồng |
 | Test | admin-web 142 → 148 (`s3-review` +5, `checkout` +1) |
+
+## Đợt 3 – sửa lỗi QA (ORC giao giữa chừng, 17/10)
+| ID | Trạng thái | Đã làm |
+|---|---|---|
+| BUG-R2-032 (P3) | Fixed | Nút bước 3 → 4 của H13 dùng `ci.submit` không có `{room}` nên hiện nguyên "Nhận phòng căn {room}". Nay nút dùng `ci.go_handover` "Tiếp tục: Giao mã & hoàn tất" (UXD thêm 17/10). Test: bước 3 có nút này, không nút nào chứa `{room}` |
+| BUG-R2-052 (phần FE) | Fixed | `useSubmit` nhận thêm tùy chọn `{ bound, labels }`, H13 dùng tùy chọn này:<br>• Lỗi ở trường có ô trên màn (`checkinTime`, `checkinTimeNote`, `roomNotReadyOverride.reason`, `documentBlockOverride.reason` – ô lý do chặn giấy tờ nay hiện lỗi tại ô): câu dưới ô, Alert `error.VALIDATION_FAILED` {n}.<br>• Lỗi ở trường không có ô (`addPriorNight`, `cardsIssued`, `houseRulesSent`, `applyEarlySurcharge`…): Alert dùng `error.field_named` {label}{message}, ví dụ: Mục "Thêm đêm và nhận phòng": Bắt buộc.<br>• Mã có câu riêng `field.<CODE>` giữ nguyên câu đó, không ghép nhãn.<br>Màn khác giữ cách cũ (câu của lỗi đầu tiên). Nguyên nhân lỗi nằm ở BE-A (giờ server 00:00–05:59 bị coi là nhận trước 06:00). Test `s3-review` |
+
+Kết quả lệnh sau đợt 3:
+- Prettier xanh, ESLint 0 lỗi.
+- 4 gói FE `typecheck test build` 9/9 xanh: admin-web 19 tệp / **149 test**.
+- axe H13 bước 3 + bước 4: 0 critical/serious.
+- `docker build` exit 0 (`ottimo-web:fe-s3e`). Lần build đầu lỗi vì OrbStack dừng giữa chừng; đã khởi động lại OrbStack (`orb start`) rồi build lại.
 

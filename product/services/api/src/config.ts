@@ -36,7 +36,15 @@ export interface AppConfig {
   cookieSecurePrefix: boolean;
   /** The 3 browser origins (SR-SES-04, SR-HDR-04): Origin check for write methods, no CORS. */
   allowedOrigins: AllowedOrigins;
+  /**
+   * SR-RL-09 requests per staff user and minute (default 600). dev/test may raise it (shared E2E accounts on
+   * parallel workers – BUG-R2-051); staging/production may only keep or lower it.
+   */
+  staffRequestsPerMinute: number;
 }
+
+/** SR-RL-09 default (security-requirements section 5). Kept equal to auth.guard STAFF_REQUESTS_PER_MINUTE. */
+const STAFF_RPM_DEFAULT = 600;
 
 /**
  * ADMIN_BASE_URL (admin-web), STAFF_BASE_URL (staff PWA), GUEST_BASE_URL (guest-web) – architecture 17.
@@ -299,6 +307,21 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     );
   }
 
+  const rpmRaw = (env.STAFF_REQUESTS_PER_MINUTE ?? '').trim();
+  const staffRequestsPerMinute = rpmRaw === '' ? STAFF_RPM_DEFAULT : Number(rpmRaw);
+  if (
+    !Number.isInteger(staffRequestsPerMinute) ||
+    staffRequestsPerMinute < 60 ||
+    staffRequestsPerMinute > 1_000_000
+  ) {
+    throw new ConfigError('STAFF_REQUESTS_PER_MINUTE must be an integer between 60 and 1000000');
+  }
+  if (strict && staffRequestsPerMinute > STAFF_RPM_DEFAULT) {
+    throw new ConfigError(
+      `STAFF_REQUESTS_PER_MINUTE above ${STAFF_RPM_DEFAULT} is only allowed in dev/test (SR-RL-09)`,
+    );
+  }
+
   return {
     appEnv,
     databaseUrl,
@@ -309,5 +332,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     testSupport: { enabled: testSupportEnabled, token: testSupportToken },
     cookieSecurePrefix: cookiePrefixRaw === 'true',
     allowedOrigins: parseAllowedOrigins(env, appEnv),
+    staffRequestsPerMinute,
   };
 }

@@ -66,6 +66,7 @@ import {
 } from './rules';
 import { onlineCheckinSummary } from '../../guest-portal/public/online-checkin.read';
 import { DEFAULT_PORTAL_URLS, PORTAL_URLS, type PortalUrls } from './portal-config';
+import { RegistrationPartyLink } from '../public/party-port';
 import {
   SYSTEM_ACTOR,
   type StayView,
@@ -153,6 +154,9 @@ export class RegistrationService {
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional() @Inject(AttachmentService) private readonly attachments?: AttachmentService,
     @Optional() @Inject(PORTAL_URLS) private readonly portalUrls: PortalUrls = DEFAULT_PORTAL_URLS,
+    @Optional()
+    @Inject(RegistrationPartyLink)
+    private readonly party: RegistrationPartyLink = new RegistrationPartyLink(),
   ) {}
 
   // ───────────────────────── context helpers ─────────────────────────
@@ -491,6 +495,21 @@ export class RegistrationService {
         ).find((x) => x.code === 'name_match')?.result === 'pass');
     const docId = uuidv7();
     const minor = await this.isMinor(tx, input, stay.arrivalDate, c.today);
+    // US-043 AC3 / BR-951 (BUG-R2-033): another person without `partyMemberId` → BE-A's party port matches
+    // or creates the person (relationship `unknown`); not bound / undecided → the document stays unlinked.
+    let memberId = input.partyMemberId;
+    if (!memberId && !isMain) {
+      const found = await this.party.memberForDocument(tx, {
+        reservationId: reg.reservation_id,
+        docNumberHmac: hmac,
+        fullNameOnDoc: input.fullNameOnDoc,
+        dateOfBirth: input.dateOfBirth,
+        nationalityCode: input.nationalityCode,
+        isMinor: minor,
+        actor: { userId: actor.principal.userId, requestId: actor.requestId },
+      });
+      memberId = found && !docs.some((d) => d.party_member_id === found) ? found : null;
+    }
     const dataKeyId = await this.crypto.createDataKey(tx, {
       purpose: 'guest_document',
       subjectId: docId,
@@ -511,7 +530,7 @@ export class RegistrationService {
           tx.ctx.propertyId,
           reg.id,
           reg.reservation_id,
-          input.partyMemberId,
+          memberId,
           input.docType,
           isMain,
           isForeigner(input.docType, input.nationalityCode),
@@ -919,16 +938,39 @@ export class RegistrationService {
     return out;
   }
 
-  /** P02b days that apply to a person: min(days read at consent, parameter now) – SEC ĐK-2 17/10. */
-  async retentionDaysParam(tx: Tx): Promise<number> {
+  /** Business date of the property (BR-010) – the consent notice parameters are read for it. */
+  private async businessToday(tx: Tx): Promise<LocalDate> {
     const c = await this.ctx(tx);
-    // Same date as guest-web's OnlineCheckin.imageRetentionDays: the property's BUSINESS date (BR-010).
     const rollover = await this.params.get<string>(tx, 'business_day_rollover', c.today);
+    return businessDate(c.now, c.tz, rollover);
+  }
+
+  /** P02b days in force (same value as guest-web's OnlineCheckin.imageRetentionDays – SEC ĐK-2 17/10). */
+  async retentionDaysParam(tx: Tx): Promise<number> {
     return this.params.get<number>(
       tx,
       'id_image_retention_days_after_checkout',
-      businessDate(c.now, c.tz, rollover),
+      await this.businessToday(tx),
     );
+  }
+
+  /**
+   * `Registration.consentNotice` (OpenAPI 0.3.6 bổ sung 3, ARC 17/10): the notice version and the image
+   * retention days the desk shows in the P02b sentence and sends back in `ConsentInput` – the same property
+   * parameters (business date) as OnlineCheckin.currentNoticeVersion / imageRetentionDays.
+   */
+  async consentNotice(
+    tx: Tx,
+  ): Promise<{ currentNoticeVersion: string; imageRetentionDays: number }> {
+    const day = await this.businessToday(tx);
+    return {
+      currentNoticeVersion: await this.params.get<string>(tx, 'privacy_notice_version', day),
+      imageRetentionDays: await this.params.get<number>(
+        tx,
+        'id_image_retention_days_after_checkout',
+        day,
+      ),
+    };
   }
 
   /**
@@ -1641,6 +1683,7 @@ export class RegistrationService {
       ...(reg.confirmed_at ? { confirmedAt: iso(reg.confirmed_at) } : {}),
       documents,
       ...(reg.image_retention_until ? { imageRetentionUntil: iso(reg.image_retention_until) } : {}),
+      consentNotice: await this.consentNotice(tx),
       blocksDoorCode: reg.blocks_door_code,
       ...(scheduled ? { imagesPurgeScheduledAt: iso(scheduled) } : {}),
       ...(reg.images_purged_at ? { imagesPurgedAt: iso(reg.images_purged_at) } : {}),
@@ -1828,6 +1871,29 @@ export class RegistrationService {
     await this.publish(tx, reg.id);
   }
 
+  /**
+   * BUG-R2-037 (BR-605, US-050 AC2): earliest visa / temporary-residence validity of the foreign documents of
+   * the booking – read inside the transaction for the soft block of a new departure (never returned to a
+   * client, never logged: the caller only compares dates). Null = no foreign document with a validity.
+   */
+  async earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>(
+      'SELECT id FROM registration WHERE reservation_id = $1',
+      [reservationId],
+    );
+    const regId = rows[0]?.id;
+    if (!regId) return null;
+    let earliest: string | null = null;
+    for (const doc of (await documentsOf(tx, regId)).filter(isComplete)) {
+      if (!doc.is_foreigner) continue;
+      const f = await decryptFields(tx, this.crypto, doc);
+      if (f.visaValidUntil && (earliest === null || f.visaValidUntil < earliest)) {
+        earliest = f.visaValidUntil;
+      }
+    }
+    return earliest;
+  }
+
   async checkinDocumentStatus(tx: Tx, reservationId: string) {
     const reg = await this.ensure(tx, reservationId);
     if (!reg) {
@@ -1939,6 +2005,66 @@ export class RegistrationService {
    * Read-only progress of the online check-in for guest-portal (ARC FB-S3-15 (f)): no write, no record
    * creation. `uploadedPeople` = person numbers with at least one LIVE image (ARC FB-S3-27 (5)).
    */
+  /**
+   * Declarations not yet sent to the portal (status < `sent`) of active stays, with the deadline in force
+   * NOW (computed from the actual arrival and today's parameters – US-042 AC3; null before check-in).
+   * Read-only; used by J5 `registration.deadline` and the "Cần chú ý" sources (BUG-R2-034/035).
+   */
+  async openDeclarations(
+    tx: Tx,
+  ): Promise<Array<{ reg: RegRow; stay: StayView; deadlineAt: Date | null }>> {
+    const c = await this.ctx(tx);
+    const params = await this.deadlineParams(tx, c.today).catch(() => null);
+    const { rows } = await tx.query<RegRow>(
+      `SELECT ${REG_COLUMNS} FROM registration
+        WHERE status IN ('none', 'pre', 'partial', 'review', 'scanned') AND NOT legal_hold
+        ORDER BY id LIMIT $1`,
+      [OPEN_CAP],
+    );
+    const stays = await readStays(
+      tx,
+      rows.map((r) => r.reservation_id),
+      SYSTEM_ACTOR,
+    );
+    const out: Array<{ reg: RegRow; stay: StayView; deadlineAt: Date | null }> = [];
+    for (const reg of rows) {
+      const stay = stays.get(reg.reservation_id);
+      if (!stay || stay.parentReservationId) continue;
+      if (!['confirmed', 'in_house', 'checked_out'].includes(stay.status)) continue;
+      const arrived = reg.actual_checkin_at ?? stay.actualCheckinAt;
+      const deadlineAt =
+        arrived && params ? registrationDeadline(arrived, c.tz, reg.kind, params).at : null;
+      out.push({ reg, stay, deadlineAt });
+    }
+    return out;
+  }
+
+  /**
+   * BR-605 / EP01 3.1 `visa_expiring`: bookings (in house or still to arrive) with a foreign document whose
+   * visa ends BEFORE the departure (check `visa_valid_through_departure` = fail, manual result included)
+   * and whose reminder date (`visa_alert_on`, J14) has come. Booking ids only – the caller shows code + room
+   * (SR-RET-06: no expiry date outside the document screen).
+   */
+  async visaExpiringReservations(tx: Tx): Promise<StayView[]> {
+    const c = await this.ctx(tx);
+    const { rows } = await tx.query<{ reservation_id: string }>(
+      `SELECT DISTINCT x.reservation_id FROM guest_document d JOIN registration x ON x.id = d.registration_id
+        WHERE d.is_foreigner AND d.removed_at IS NULL AND d.purged_at IS NULL AND x.status <> 'void'
+          AND d.visa_alert_on IS NOT NULL AND d.visa_alert_on <= $1::date
+          AND d.check_results @> '[{"code":"visa_valid_through_departure","result":"fail"}]'::jsonb
+        LIMIT $2`,
+      [c.today, OPEN_CAP],
+    );
+    const stays = await readStays(
+      tx,
+      rows.map((r) => r.reservation_id),
+      SYSTEM_ACTOR,
+    );
+    return [...stays.values()]
+      .filter((s) => s.status === 'in_house' || s.status === 'confirmed')
+      .sort((a, b) => (a.code < b.code ? -1 : 1));
+  }
+
   async guestProgress(
     tx: Tx,
     reservationId: string,

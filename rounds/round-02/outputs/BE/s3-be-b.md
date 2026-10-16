@@ -168,3 +168,25 @@ Bổ sung sau quyết định PO 17/10 (SEC-37, decision-log): OWN được mi�
 - Nhật ký `refund.paid` có `after.ownSelfApprovedAndPaid`.
 - MGR duyệt rồi chi → 403.
 - Test: `payments-s3` ca "PO 17/10 (SEC-37)…".
+
+## 11. Kiểm thử Sprint 3 – sửa lỗi QA đợt 2 (17/10/2026, HEAD `c8b83f3`, `qa/bug-list.md`)
+
+| Lỗi | Sửa | Test |
+|---|---|---|
+| BUG-R2-051 (P2) SR-RL-09 | Cửa sổ đếm 600 request/phút/user chạy theo **đồng hồ đơn điệu của tiến trình** (`MONOTONIC_CLOCK`, `performance.now()`), không theo MutableClock nên tua giờ dev/test không còn ảnh hưởng.<br>`RateLimiter` bỏ qua cửa sổ mở ở thời điểm "tương lai" (đồng hồ lùi), áp cho cả bộ đếm đăng nhập của identity.<br>`/__test__/rate-limits/reset` xóa luôn bộ đếm của guard (`AuthGuard.resetRateLimits()`).<br>Giới hạn đọc từ cấu hình `STAFF_REQUESTS_PER_MINUTE` (mặc định 600; dev/test được tăng, staging/production chỉ được giảm; `.env.example`). | `guard-s3.test.ts`: tua đồng hồ nghiệp vụ lùi 3 năm → `Retry-After` ≤ 60, reset → 200; ca unit đồng hồ lùi. `config.test.ts`: kiểm biên cấu hình |
+| BUG-R2-041 (P2) hóa đơn công ty → hồ sơ khách | `setInvoiceRequest` (`buyerType=company`) ghi `company_name`/`tax_code` (đã chuẩn hóa) vào hồ sơ người đặt, qua cổng của guests module `guests/public/guest-contact.ts` `setInvoiceCompany`.<br>Chỉ ghi khi hồ sơ còn hiệu lực và giá trị thay đổi. Audit `guest.updated` chỉ ghi tên trường (C2). | `payments-s3` "BUG-R2-041" |
+| BUG-R2-043 (P3) số thẻ ở `posAuthCode` | Thứ tự kiểm mới ở `recordPayment` (`recordInTx`) và `confirmDeposit`: Luhn → `CARD_NUMBER_DETECTED` trước, sau đó mới `TOO_LONG` (> 12 ký tự) / `VALIDATION_FAILED`. Zod chỉ còn chặn 64 ký tự. | `payments-s3` "BUG-R2-043" |
+| BUG-R2-046 (P1, cùng BE-A) mốc FOC "≤ 1 đêm" | Cổng mới `FolioService.nightRateBasis(tx, lineId)` trả giá đêm làm mốc:<br>• dòng `room`: giá chính nó;<br>• trả muộn: đêm cuối;<br>• nhận sớm: đêm đầu;<br>• dòng khác: đêm của ngày dịch vụ (không có thì đêm gần nhất trước đó).<br>Dùng ở `foc.service` (`requestFoc`) và ở `stay-support.requestFoc` của BE-A (thêm 1 dòng, đã nhắn BE-A). | `payments-s3` "BUG-R2-046": FOC trên dòng dịch vụ có mốc = giá đêm của ngày đó, MGR duyệt 200; FOC trên dòng trả muộn có mốc = đêm cuối |
+
+Việc cho vai khác:
+- **BE-A**: `createReservation.initialPayment.posAuthCode` (`reservations.service.ts`) đang dùng `pf.text('posAuthCode', 12)`, cùng mẫu lỗi BUG-R2-043.
+- **OPS**: stack E2E có thể đặt `STAFF_REQUESTS_PER_MINUTE` (ví dụ 5000) cho tài khoản `qa.*` dùng chung giữa các worker.
+- **QA**: có thể bỏ `test.fail` ở TC-L4-059, TC-L4-066, TC-NT-029/030/036, TC-L4-056 sau khi gộp.
+
+Kết quả lệnh (DB `ottimo_test_beb` tạo lại):
+- lint + typecheck: xanh 12/12. build: xanh 6/6.
+- api: 53/55 tệp, 2123/2125 ca. Hai ca đỏ nằm ở tệp BE-C đang sửa dở, không liên quan BE-B:
+  - `module-boundaries` báo `ModuleRef` mới trong `registration/*`;
+  - ca mới `BUG-R2-036` của `registration-flow` – chạy riêng thì xanh, chạy cả bộ thì 401 do thứ tự đồng hồ.
+- format:check: 4 tệp chưa format, đều của BE-C (`registration/*`) và BE-A (`frontdesk.test.ts`).
+- Mọi tệp BE-B: xanh.

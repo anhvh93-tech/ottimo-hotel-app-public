@@ -37,6 +37,9 @@ export class UnwiredRegistrationPort implements FrontdeskRegistrationPort {
   async onPartyMemberRemoved(): Promise<void> {}
   async onCheckedOut(): Promise<void> {}
   async onReservationVoided(): Promise<void> {}
+  async earliestVisaValidUntil(): Promise<string | null> {
+    return null;
+  }
 }
 
 export class NoGuestAccessPort implements FrontdeskGuestAccessPort {

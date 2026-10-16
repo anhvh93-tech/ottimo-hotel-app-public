@@ -255,3 +255,35 @@ Mọi thay đổi là **thêm**, trừ 5 thay đổi hành vi có chủ đích �
 | prettier (openapi + tệp sinh) | xanh |
 
 `tsc` của `@ottimo/api` đang đỏ ở `registration/internal/registration.service.ts:524,659` (TS1109). Đó là tệp BE-C đang sửa dở, không liên quan hợp đồng; các tệp sinh không gây lỗi.
+
+### 7.7 Bổ sung 3 (17/10 – lỗi QA trong bước Kiểm thử, BE-A `s3-be-a.md` mục 11)
+| Lỗi | ARC quyết | Hợp đồng | Ai làm |
+|---|---|---|---|
+| **BUG-R2-045** (P2) – `channelFeeSavingsVnd` chỉ một số | **Áp ngay** (thêm trường, rủi ro thấp) | `ExtensionOptions.repricing[].channelFeeSavingsVnd` = Σ giá mặc định các đêm × tỷ lệ hoa hồng kênh OTA của đơn (server tính, chỉ đơn OTA). Trường cũ ở gốc giữ nguyên (1 đêm) để tương thích | **BE-A** tính theo từng `nights`; **FE** đọc theo số đêm khách chọn; QA bỏ `test.fail` |
+| Nguồn phiên bản thông báo / số ngày lưu ảnh cho **Desk** (FE 9.4) | **Áp ngay**, kéo lên từ danh sách 0.3.7. Lý do: 7.1-4 đã bắt buộc `ConsentInput.retentionDays` với P02b ở cả `recordImageConsent`, nên thiếu nguồn thì H14 bị chặn | `Registration.consentNotice {currentNoticeVersion, imageRetentionDays}` | **BE-C** trả từ tham số cơ sở; **FE** H14 gửi lại hai giá trị, bỏ hằng viết cứng |
+| **BUG-R2-038** (P2) – "Đã thu đủ" không tính phụ thu nhận sớm / đêm B9a | **Dời 0.3.7 (đầu Sprint 4)**, thiết kế chốt ngay. Lý do: (1) không mất tiền – phụ thu nằm trên folio và B18 chặn `BALANCE_DUE`; (2) cần đồng thời FE thêm bước thu tiền ở H13, BE-A đổi thứ tự trong giao dịch và trần VietQR – làm trong vòng sửa đang gánh 3 Blocker + 18 Major dễ gây hồi quy; (3) P2, không chặn cổng QC | 0.3.7:<br>• `checkIn.payment` (`PaymentCreate`, như `checkOut.finalPayment`, `fieldPrefix 'payment.'`). Thứ tự trong giao dịch: ghi dòng phụ thu / đêm B9a → ghi khoản thu → mới đánh giá `balance_paid`.<br>• `CheckInPreview.amountDueAtCheckinVnd` = còn phải thu + phụ thu sẽ ghi + đêm B9a.<br>• Trần `createVietQr` ngày đến = `amountDueAtCheckinVnd` (không cần `overBalanceReason`).<br>Tới lúc đó, `balance_paid` **không** gồm phụ thu sắp ghi (giữ như hiện tại) | QA giữ `test.fail` BUG-R2-038; PO/DOM biết rằng BA v0.3 "B9a vào `balance_paid`" cài ở Sprint 4 |
+
+**Danh sách 0.3.7 (đầu Sprint 4) – ARC xác nhận:**
+1. `ApprovalRequest.requestedById` (UXD/FE – ẩn nút chi khi người xem là người tạo).
+2. Mốc cuối trả muộn trong `BookingRules` (`lateCheckoutLastTime` + bậc `late_checkout_tiers`).
+3. `MinibarCheck.checkedByName` (FE S3-14).
+4. Lọc đơn theo căn: `listReservations?roomId=`.
+5. `getGuestSession` `GET /v1/guest/sessions/current` (SEC đã duyệt cách làm).
+6. `updateOnlineCheckin.deferredPeople`.
+7. **`If-Match` cho `approveRequest` loại `refund`**: cần thêm `ApprovalRequest.version` + `ETag`, rồi `If-Match` bắt buộc với loại `refund`. Mục đích: người duyệt không duyệt một nơi nhận đã bị đổi sau khi mình xem. Tạm thời, đổi nơi nhận sau khi duyệt vẫn đưa yêu cầu về `pending` (SEC F8), và `executeRefund` đọc lại nơi nhận có step-up.
+8. BUG-R2-038 (như trên).
+9. Các mục đã ghi ở 7.5: `availableOperations`, mã còn thiếu của `recordPayment`/`reversePayment`, `Payment.receivedAmountVnd`/`selfReconciled`, `getBill?locale=vi_en`.
+
+~~Nguồn Desk cho phiên bản thông báo~~ đã kéo vào bổ sung 3.
+
+**Kiểm tra sau bổ sung 3:**
+
+| Kiểm tra | Kết quả |
+|---|---|
+| spec validator | OK |
+| `gen-openapi-meta --check`, api-client `--check` | up to date |
+| `gen_rbac_cases --check` | 189 op, mismatch [] |
+| `gen_traceability --strict` | exit 0 |
+| `contract.test` | 5/5 |
+| `tsc` api-client / admin-web / guest-web / **api** | 0 lỗi (lỗi `registration.service.ts` của BE-C đã hết) |
+| prettier | xanh |

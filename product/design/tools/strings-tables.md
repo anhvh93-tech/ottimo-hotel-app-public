@@ -2591,6 +2591,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.oci_unavailable_body` | Lúc này chưa làm thủ tục trước qua trang này được. Bạn vẫn nhận phòng bình thường: mang giấy tờ gốc, lễ tân làm thủ tục cho bạn trong vài phút. | Online check-in isn't available on this page right now. You can still check in as usual: bring your original IDs and reception will check you in within a few minutes. | Сейчас онлайн-регистрация на этой странице недоступна. Заселиться можно как обычно: возьмите оригиналы документов – администратор оформит всё за несколько минут. | Không nói lý do kỹ thuật (phiên bản thông báo) với khách |
 | `gw.oci_unavailable_late` | Đến sau {time}? Gọi người trực khi tới nơi. | Arriving after {time}? Call the night staff when you get here. | Приезжаете после {time}? Позвоните дежурному по прибытии. | {time} = mốc đến khuya của khung giờ đến (bước Giờ đến) |
 
+#### R2 Sprint 3 – đợt 3: sửa lỗi QA (BUG-R2-032, BUG-R2-052 – responses/s3-FE.md)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `ci.go_handover` | Tiếp tục: Giao mã & hoàn tất | Continue: Hand over & finish | ⟨chừa chỗ⟩ | H13 nút bước 3 → 4 (cùng mẫu ci.go_*; tên bước = checkin.step.handover) – BUG-R2-032 |
+| `error.field_named` | Mục "{label}": {message} | "{label}": {message} | ⟨chừa chỗ⟩ | Lỗi ở trường không có ô trên màn (vd addPriorNight, cardsIssued, houseRulesSent): {label} = nhãn nút/ô tích tương ứng, {message} = câu field.* / common.required. Mã có câu riêng đủ nghĩa thì không ghép – BUG-R2-052 |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

@@ -31,6 +31,9 @@ import {
   moneyPosition,
 } from '../public/folio.service';
 import { type LabelContext, roomResolver } from '../public/line-labels';
+import { setInvoiceCompany } from '../../guests/public/guest-contact';
+import { normalizeTaxCode } from '../../guests/public/normalize';
+import { AuditService } from '../../audit/public/audit.service';
 
 const TAX_CODE = /^[0-9]{10}(-?[0-9]{3})?$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,6 +94,7 @@ export class BillService {
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
+    @Optional() @Inject(AuditService) private readonly audit?: AuditService,
   ) {}
 
   async invoice(tx: Tx, folioId: string): Promise<InvoiceRequestRow | null> {
@@ -264,7 +268,7 @@ export class BillService {
   async setInvoice(
     tx: Tx,
     folio: FolioRow,
-    actor: { userId: string },
+    actor: { userId: string; requestId?: string },
     input: {
       buyerType: string;
       companyName?: string | undefined;
@@ -318,6 +322,21 @@ export class BillService {
         uuidv7(),
       ],
     );
-    return rows[0] as InvoiceRequestRow;
+    const saved = rows[0] as InvoiceRequestRow;
+    // US-039 AC2 / D16 (BUG-R2-041): a company invoice is also kept on the booker's profile (guests port).
+    if (company && this.reservations && this.audit) {
+      const view = await this.reservations.reservationView(tx, folio.primary_reservation_id);
+      const bookerId = (view.booker as { id?: string } | undefined)?.id;
+      if (bookerId) {
+        await setInvoiceCompany(tx, this.audit, {
+          guestId: bookerId,
+          companyName: name,
+          taxCode: normalizeTaxCode(tax) ?? tax,
+          now,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+    }
+    return saved;
   }
 }

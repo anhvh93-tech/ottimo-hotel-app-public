@@ -2488,6 +2488,11 @@ g("R2 Sprint 3 – phản hồi & sửa: chuỗi còn thiếu FE/MOB (OpenAPI 0.
     ("gw.oci_unavailable_late", "Đến sau {time}? Gọi người trực khi tới nơi.", "Arriving after {time}? Call the night staff when you get here.", "Приезжаете после {time}? Позвоните дежурному по прибытии.", "{time} = mốc đến khuya của khung giờ đến (bước Giờ đến)"),
 ])
 
+g("R2 Sprint 3 – đợt 3: sửa lỗi QA (BUG-R2-032, BUG-R2-052 – responses/s3-FE.md)", [
+    ("ci.go_handover", "Tiếp tục: Giao mã & hoàn tất", "Continue: Hand over & finish", None, "H13 nút bước 3 → 4 (cùng mẫu ci.go_*; tên bước = checkin.step.handover) – BUG-R2-032"),
+    ("error.field_named", "Mục \"{label}\": {message}", "\"{label}\": {message}", None, "Lỗi ở trường không có ô trên màn (vd addPriorNight, cardsIssued, houseRulesSent): {label} = nhãn nút/ô tích tương ứng, {message} = câu field.* / common.required. Mã có câu riêng đủ nghĩa thì không ghép – BUG-R2-052"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

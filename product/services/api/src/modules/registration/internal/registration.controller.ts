@@ -51,6 +51,13 @@ import {
 import { CHECK_CODES, type CheckCode, validateDocumentInput } from './rules';
 import { C3LogService } from './c3-log.service';
 
+/** A real calendar date YYYY-MM-DD (2026-02-31 refused). */
+function isLocalDate(v: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
 interface Reply {
   status(code: number): unknown;
   header(name: string, value: string): unknown;
@@ -398,12 +405,17 @@ export class RegistrationController {
             errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
           });
         }
-        // SEC ĐK-2 17/10: the days read in the consent sentence must be the parameter in force.
-        if (b.retentionDays !== (await this.regs.retentionDaysParam(tx))) {
-          throw problem('VALIDATION_FAILED', {
-            errors: [{ field: 'retentionDays', code: 'NOT_IN_LIST' }],
-          });
+        // SEC ĐK-2 17/10: the notice version and the days read in the consent sentence must be the parameters
+        // in force – the ones `Registration.consentNotice` gave the desk (0.3.6 bổ sung 3).
+        const notice = await this.regs.consentNotice(tx);
+        const mismatch: FieldError[] = [];
+        if (b.noticeVersion !== notice.currentNoticeVersion) {
+          mismatch.push({ field: 'noticeVersion', code: 'NOT_IN_LIST' });
         }
+        if (b.retentionDays !== notice.imageRetentionDays) {
+          mismatch.push({ field: 'retentionDays', code: 'NOT_IN_LIST' });
+        }
+        if (mismatch.length) throw problem('VALIDATION_FAILED', { errors: mismatch });
         const out = await this.regs.recordConsent(
           tx,
           { type: 'user', userId: actor.principal.userId, requestId: req.id },
@@ -571,19 +583,22 @@ export class RegistrationController {
   @Operation('listC3AccessLog')
   async c3Log(
     @Req() req: GuardedRequest,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
+    // Contract parameters DateFrom/DateTo are named `from` / `to` (BUG-R2-048).
+    @Query('from') dateFrom?: string,
+    @Query('to') dateTo?: string,
     @Query('reservationId') reservationId?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
     const errors: FieldError[] = [];
     const date = (k: string, v: string | undefined) => {
-      if (v !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(v))
-        errors.push({ field: k, code: 'DATE_INVALID' });
+      if (v !== undefined && !isLocalDate(v)) errors.push({ field: k, code: 'DATE_INVALID' });
     };
-    date('dateFrom', dateFrom);
-    date('dateTo', dateTo);
+    date('from', dateFrom);
+    date('to', dateTo);
+    if (dateFrom && dateTo && !errors.length && dateFrom > dateTo) {
+      errors.push({ field: 'to', code: 'DATE_INVALID' });
+    }
     if (reservationId !== undefined && !UUID.test(reservationId)) {
       errors.push({ field: 'reservationId', code: 'VALIDATION_FAILED' });
     }

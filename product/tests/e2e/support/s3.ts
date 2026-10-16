@@ -17,6 +17,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
+  DEVICE_COOKIE,
+  DEVICE_FALLBACK,
+  DEVICE_MAP,
+  readFallbackDevices,
+  readSeedDevices,
+} from './device.js';
+import {
   call,
   etag,
   propertyIdOf,
@@ -31,7 +38,6 @@ import {
 import {
   API_URL,
   AUTH_DIR,
-  COOKIE_PREFIX,
   GUEST_COOKIE,
   GUEST_ORIGIN,
   PRODUCT_DIR,
@@ -201,23 +207,18 @@ export function p3(ep: Ep, s: StaffSession, params: Record<string, string> = {})
 
 // ───────────────────────── trusted device (C3) ─────────────────────────
 
-const DEVICE_MAP =
-  process.env.E2E_SEED_OUT ?? `${PRODUCT_DIR}tests/fixtures/seed/.out/ds-e.map.json`;
-export const DEVICE_COOKIE = `${COOKIE_PREFIX}ottimo_did`;
+export { DEVICE_COOKIE } from './device.js';
 
 let deviceCache: Map<string, string> | null = null;
-/** Token of a DS-E trusted device (label from ds-e.json devices). undefined when the seed output is absent. */
+/**
+ * Token of a DS-E trusted device (label from ds-e.json devices): the seed output, else the fallback desk device
+ * global-setup registered when the seed output was unreadable (support/device.ts, BUG-R2-053). undefined when
+ * neither exists.
+ */
 export function deviceToken(label = 'qa-desk-01'): string | undefined {
   if (!deviceCache) {
-    deviceCache = new Map();
-    try {
-      const m = JSON.parse(readFileSync(DEVICE_MAP, 'utf8')) as {
-        devices?: Array<{ label: string; token: string }>;
-      };
-      for (const d of m.devices ?? []) deviceCache.set(d.label, d.token);
-    } catch {
-      /* no seed output on this machine */
-    }
+    const seed = readSeedDevices();
+    deviceCache = seed.tokens.size ? seed.tokens : readFallbackDevices();
   }
   return deviceCache.get(label);
 }
@@ -225,7 +226,7 @@ export function deviceToken(label = 'qa-desk-01'): string | undefined {
 export function needDevice(tc: string): void {
   test.skip(
     !deviceToken() && !virtualDevice,
-    `${tc}: môi trường – thiếu token thiết bị được cấp (seed DS-E → ${DEVICE_MAP}, E2E_SEED_OUT)`,
+    `${tc}: môi trường – thiếu token thiết bị được cấp (seed DS-E → ${DEVICE_MAP}, E2E_SEED_OUT; dự phòng ${DEVICE_FALLBACK})`,
   );
 }
 

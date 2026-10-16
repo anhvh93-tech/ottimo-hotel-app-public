@@ -336,7 +336,12 @@ export class FolioController {
     const result = await this.uow.run(req, async (tx) => {
       const folio = await this.folios.lock(tx, folioId);
       if (!folio) throw problem('NOT_FOUND');
-      const row = await this.bills.setInvoice(tx, folio, { userId: p.userId }, input);
+      const row = await this.bills.setInvoice(
+        tx,
+        folio,
+        { userId: p.userId, requestId: req.id },
+        input,
+      );
       const own = this.reservations
         ? await this.reservations.ownership(tx, folio.primary_reservation_id)
         : null;

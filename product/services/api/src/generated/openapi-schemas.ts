@@ -1054,6 +1054,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 repricedTotalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
                 deltaVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
                 losDiscountPct: { s: { k: 'ref', name: 'Percent' } },
+                channelFeeSavingsVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
               },
               open: false,
             },
@@ -2057,6 +2058,16 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         confirmedAt: { s: { k: 'ref', name: 'Instant' } },
         documents: { s: { k: 'array', items: { k: 'ref', name: 'GuestDocumentMasked' } } },
         imageRetentionUntil: { s: { k: 'ref', name: 'Instant' } },
+        consentNotice: {
+          s: {
+            k: 'object',
+            props: {
+              currentNoticeVersion: { s: { k: 'scalar' } },
+              imageRetentionDays: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+        },
         blocksDoorCode: { s: { k: 'scalar' } },
         imagesPurgeScheduledAt: { s: { k: 'ref', name: 'Instant' } },
         imagesPurgedAt: { s: { k: 'ref', name: 'Instant' } },

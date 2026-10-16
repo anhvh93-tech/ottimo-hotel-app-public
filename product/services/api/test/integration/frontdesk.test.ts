@@ -73,6 +73,10 @@ class FakeRegistration implements FrontdeskRegistrationPort {
   async onReservationVoided(_tx: Tx, id: string) {
     this.calls.push(`voided:${id}`);
   }
+  visa: string | null = null;
+  async earliestVisaValidUntil(): Promise<string | null> {
+    return this.visa;
+  }
 }
 
 class FakeGuestAccess implements FrontdeskGuestAccessPort {

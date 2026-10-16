@@ -149,3 +149,9 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm
 ### 9.4 Còn mở
 - ARC 0.3.7: `requestedById`, mốc cuối trả muộn trong `BookingRules`, nguồn phiên bản thông báo / số ngày lưu ảnh cho Desk, `checkedByName`. `getBill?locale=vi_en` chỉ còn cần cho tham số chữ tự do.
 - FE-S3-20 mục 1 (`aria-disabled` khi đếm ngược) – R3.
+
+### 9.5 Đợt 3 – BUG-R2-032, BUG-R2-052 (phần FE)
+- **BUG-R2-032**: nút bước 3 → 4 của H13 = `ci.go_handover` (trước là `ci.submit` thiếu `{room}`).
+- **BUG-R2-052**: lỗi 422 ở trường không có ô trên màn không còn chỉ hiện "Bắt buộc". H13 dùng `error.field_named` {label}{message}; trường có ô hiện câu tại ô và Alert `error.VALIDATION_FAILED` {n}. Phần nguyên nhân thuộc BE-A.
+- Kết quả: admin-web 149/149 xanh, axe H13 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3e`).
+

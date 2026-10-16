@@ -23,9 +23,6 @@ import { DocsList, VerifyList, resultOf } from './DocsPanel';
 
 type View = 'action_needed' | 'needs_update' | 'all';
 const OWN_MGR = ['owner', 'manager'];
-const NOTICE_VERSION = 'privacy-2026-10-v1';
-/** Days said in `reg2.consent_q` (BR-610 default) – ARC to expose the parameter to the desk. */
-const RETENTION_DAYS = 30;
 
 /** H14 Giấy tờ & khai báo (S09, C3 – the route itself is only reachable on a granted device). */
 export function RegistrationPage() {
@@ -216,9 +213,13 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
   const handled = (d: Registration['documents'][number]) =>
     d.checks.filter((c) => c.handledNote).length;
 
+  // 0.3.6 add. 3: notice version + retention days come from the server; missing → no consent
+  // question at all (fail closed, same as guest-web) – never a hard-coded "30 days".
+  const notice = reg.consentNotice;
   const recordConsent = async (
     doc: Registration['documents'][number],
     decision: 'granted' | 'refused',
+    notice: NonNullable<Registration['consentNotice']>,
   ) => {
     const out = await consent.submit((idem) =>
       api.recordImageConsent(
@@ -227,9 +228,9 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
           partyMemberId: doc.partyMemberId ?? doc.id,
           purpose: 'P02B_ID_IMAGE_RETENTION',
           decision,
-          noticeVersion: NOTICE_VERSION,
-          // 0.3.6 add. 2: the days the guest heard in the consent question (`reg2.consent_q`).
-          retentionDays: RETENTION_DAYS,
+          // 0.3.6 add. 3: send back exactly the notice and days the guest was told.
+          noticeVersion: notice.currentNoticeVersion,
+          retentionDays: notice.imageRetentionDays,
           locale,
           channel: 'desk',
         },
@@ -341,16 +342,20 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                     : ''}
                 </div>
               </div>
-              {d.imageIds?.length ? (
+              {d.imageIds?.length && !notice ? (
+                <span className="li-s">{t('reg2.consent_not_recorded')}</span>
+              ) : d.imageIds?.length && notice ? (
                 <fieldset className="fieldset-plain">
-                  <legend className="li-s">{t('reg2.consent_q')}</legend>
+                  <legend className="li-s">
+                    {t('checkin.consent.label', { days: notice.imageRetentionDays })}
+                  </legend>
                   <label className="check">
                     <input
                       type="radio"
                       name={`consent-${d.id}`}
                       checked={d.imageConsent === 'granted'}
                       disabled={!online || consent.busy}
-                      onChange={() => void recordConsent(d, 'granted')}
+                      onChange={() => void recordConsent(d, 'granted', notice)}
                     />
                     {t('checkin.consent.yes')}
                   </label>
@@ -360,7 +365,7 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                       name={`consent-${d.id}`}
                       checked={d.imageConsent === 'refused'}
                       disabled={!online || consent.busy}
-                      onChange={() => void recordConsent(d, 'refused')}
+                      onChange={() => void recordConsent(d, 'refused', notice)}
                     />
                     {t('checkin.consent.no')}
                   </label>

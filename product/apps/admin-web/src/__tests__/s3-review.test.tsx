@@ -1,11 +1,14 @@
 import { ApiError, type FolioLine } from '@ottimo/api-client';
 import { translate } from '@ottimo/i18n';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { lineLabel } from '../app/folio';
 import { problemView } from '../app/problem';
+import { Providers } from '../app/Providers';
+import { useSubmit } from '../pages/stay/common';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -130,6 +133,9 @@ describe('FE-S3-05 – FD + room not ready: the button sends a request to the le
     );
     await user.click(screen.getByRole('button', { name: tv('ci.go_verify') }));
     await user.click(await screen.findByRole('button', { name: tv('ci.go_register') }));
+    // BUG-R2-032: step 3 → 4 is "Tiếp tục: Giao mã & hoàn tất", never "Nhận phòng căn {room}".
+    expect(await screen.findByRole('button', { name: tv('ci.go_handover') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /\{room\}/ })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: tv('reg.later') }));
     const btn = await screen.findByRole('button', { name: tv('ci.send_lead') });
     // FE-S3-04: still locked, with the first missing thing said next to it.
@@ -417,5 +423,63 @@ describe('UXD s3 E.1 – bill line labels (closed `bill.line.*`, variants) and n
         amount: t('common.currency_vnd', { amount: '300.000' }),
       }),
     );
+  });
+});
+
+describe('BUG-R2-052 (FE) – a 422 on a field without an input is named, not a bare "Bắt buộc"', () => {
+  const t = (k: string, a?: Record<string, string | number>) => translate('vi', k, a);
+  const v422 = (errors: Array<{ field: string; code: string }>) =>
+    new ApiError(
+      422,
+      {
+        type: 'about:blank',
+        title: 'x',
+        status: 422,
+        code: 'VALIDATION_FAILED',
+        requestId: 'r1',
+        errors,
+      } as never,
+      4,
+    );
+  function Probe({ err }: { err: ApiError }) {
+    const act = useSubmit({
+      bound: ['checkinTimeNote'],
+      labels: { addPriorNight: t('checkin.prior_night_submit') },
+    });
+    return (
+      <>
+        <button type="button" onClick={() => void act.submit(() => Promise.reject(err))}>
+          go
+        </button>
+        {act.view()}
+      </>
+    );
+  }
+  const run = async (err: ApiError) => {
+    const user = userEvent.setup();
+    const view = render(
+      <Providers>
+        <Probe err={err} />
+      </Providers>,
+    );
+    await user.click(screen.getByRole('button', { name: 'go' }));
+    const text = (await screen.findByRole('alert')).textContent;
+    view.unmount();
+    return text;
+  };
+
+  it('unbound field → error.field_named; bound field → "Còn {n} ô cần sửa"; own sentence kept', async () => {
+    expect(await run(v422([{ field: 'addPriorNight', code: 'REQUIRED' }]))).toContain(
+      t('error.field_named', {
+        label: t('checkin.prior_night_submit'),
+        message: t('common.required'),
+      }),
+    );
+    expect(await run(v422([{ field: 'checkinTimeNote', code: 'TIME_NOTE_REQUIRED' }]))).toContain(
+      t('error.VALIDATION_FAILED', { n: 1 }),
+    );
+    expect(
+      await run(v422([{ field: 'applyEarlySurcharge', code: 'SURCHARGE_DECISION_REQUIRED' }])),
+    ).toContain(t('field.SURCHARGE_DECISION_REQUIRED'));
   });
 });

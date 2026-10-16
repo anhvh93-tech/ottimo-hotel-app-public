@@ -1,5 +1,5 @@
 /**
- * J16 `retention.purge` (BE-C, ARC s3-contract 4.1): job definition for the api (RegistrationModule
+ * J16 `retention.purge` and J5 `registration.deadline` (BE-C, ARC s3-contract 4.1): job definitions for the api (RegistrationModule
  * registers it in JobRegistry, so the test-support job runner reaches it) and for the worker
  * (worker.ts composes plain objects – no Nest container there; BE-A adds ONE import line).
  * Tick schedule + hourly throttle inside the handler (architecture 9.1 has no hourly slot kind).
@@ -15,6 +15,7 @@ import { AttachmentService } from '../../files/public/attachment.service';
 import { EncryptedBlobService } from '../../files/public/encrypted-blob.service';
 import type { ParameterService } from '../../platform/public/parameter.service';
 import type { Database } from '../../../db/database';
+import { RegistrationDeadlineJob } from '../internal/deadline-job';
 import { RegistrationService } from '../internal/registration.service';
 import { RetentionService } from '../internal/retention.service';
 
@@ -53,16 +54,12 @@ export function registrationWorkerJobs(deps: {
     undefined,
     attachments,
   );
+  const events = new EventsService();
   return [
     retentionJob(
-      new RetentionService(
-        regs,
-        deps.parameters,
-        deps.clock,
-        attachments,
-        blobs,
-        new EventsService(),
-      ),
+      new RetentionService(regs, deps.parameters, deps.clock, attachments, blobs, events),
     ),
+    // J5 registration.deadline (BUG-R2-035): reminders before the deadline + BR-611 digest marks.
+    new RegistrationDeadlineJob(regs, deps.parameters, deps.clock, events).definition(),
   ];
 }

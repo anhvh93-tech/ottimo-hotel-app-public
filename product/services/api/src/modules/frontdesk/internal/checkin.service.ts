@@ -38,6 +38,7 @@ import {
   type EarlyCheckinResult,
   type EarlyTier,
   earlyCheckinSurcharge,
+  minutesOf,
 } from '../public/stay-rules';
 import { StaySupport } from './stay-support';
 
@@ -151,7 +152,13 @@ export class CheckinService {
       addsPreviousNight: false,
       ruleRef: 'BR-411',
     };
-    if (room) {
+    // BUG-R2-052: on the arrival business day a clock time before the rollover (00:00–05:59) is AFTER
+    // midnight – a late arrival (US-025 AC6, BR-010), never "before 06:00 → prior night" (that is B9a only).
+    const afterMidnight =
+      !priorNightWindow &&
+      ctx.today === row.arrival_date &&
+      minutesOf(checkinTime) < minutesOf(rollover);
+    if (room && !afterMidnight) {
       const tiers = await this.s.param<EarlyTier[]>(tx, ctx, 'early_checkin_tiers');
       const base = await this.s.surchargeBase(tx, ctx, row, 'first', room.id);
       const longStay =

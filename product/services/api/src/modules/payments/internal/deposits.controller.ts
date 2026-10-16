@@ -10,7 +10,7 @@ import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { type FieldError, problem } from '../../../shared/problem';
-import { optionalText, requireReason } from '../../../shared/validation';
+import { assertNoCardNumber, optionalText, requireReason } from '../../../shared/validation';
 import { parseBody } from '../../platform/public/validation';
 import { rejectDryRun } from '../../../shared/http/dry-run';
 import { type DepositPaymentInput, DepositsService } from './deposits.service';
@@ -29,7 +29,8 @@ const paymentCreate = z.object({
   method: z.string(),
   amountVnd: money,
   receivedAt: z.string().optional(),
-  posAuthCode: z.string().max(12).optional(),
+  // V-09 before the length (BUG-R2-043): a card number answers CARD_NUMBER_DETECTED, not TOO_LONG.
+  posAuthCode: z.string().max(64).optional(),
   note: z.string().max(300).optional(),
   billingPeriodId: z.string().optional(),
   attachmentId: z.string().optional(),
@@ -73,8 +74,12 @@ export function depositPayment(raw: z.infer<typeof paymentCreate>): DepositPayme
   if (raw.method === 'card_pos' && !auth) {
     errors.push({ field: 'payment.posAuthCode', code: 'REQUIRED' });
   }
+  assertNoCardNumber('payment.posAuthCode', auth);
   if (auth && !/^[A-Za-z0-9]{1,12}$/.test(auth)) {
-    errors.push({ field: 'payment.posAuthCode', code: 'VALIDATION_FAILED' });
+    errors.push({
+      field: 'payment.posAuthCode',
+      code: auth.length > 12 ? 'TOO_LONG' : 'VALIDATION_FAILED',
+    });
   }
   // Long-stay billing periods (US-119 AC5) are R3; uploads of receipts arrive with the attachment module.
   if (raw.billingPeriodId !== undefined) {

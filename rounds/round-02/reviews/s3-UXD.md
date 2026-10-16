@@ -377,3 +377,11 @@ Mã ngoài bảng (không nên xảy ra vì tập đóng) → `mlog.a_other` + m
 - `bill.line.early_checkin` / `late_checkout` chỉ in giờ, không in %, giống hi-fi H16 16.5 (`co.line_late`); % giữ trong `labelParams` cho Desk nếu cần.
 - `bill.line.laundry` ghi đơn vị "kg" vì mã phát sinh hiện hành là `LAUNDRY_KG`; nếu danh mục thêm giặt theo món thì cần biến thể mới.
 - Không có ESC mới.
+
+## F. Đợt 3 – chuỗi cho bản sửa lỗi QA của FE (17/10, ORC giao)
+| Khóa | VI | EN | Dùng khi |
+|---|---|---|---|
+| `ci.go_handover` | Tiếp tục: Giao mã & hoàn tất | Continue: Hand over & finish | H13 nút bước 3 → 4 (BUG-R2-032), thay `common.next`; cùng mẫu `ci.go_*`, tên bước khớp `checkin.step.handover` |
+| `error.field_named` | Mục "{label}": {message} | "{label}": {message} | Lỗi ở trường không có ô trên màn (BUG-R2-052), ví dụ: Mục "Đã gửi/giao nội quy (VI/EN) cho khách": Bắt buộc. `{label}` = nhãn nút/ô tích tương ứng (không dùng tên trường kỹ thuật); `{message}` = câu `field.*` / `common.required`. Mã có câu riêng đủ nghĩa thì giữ nguyên, không ghép |
+
+`gen_strings.py` 2302 chuỗi + 8 mẫu, 0 khóa trùng, tham số 0 lệch; `check_hifi.py` 25/25 ✓; content-guide 0.3.12 (mục 8 sinh lại). Chỉ sửa `product/design/**` và file này, không commit.

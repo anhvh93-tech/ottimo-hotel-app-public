@@ -50,7 +50,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-031** | **P1** | `Reservation` không trả các trường 0.3.6 (`registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd`) → H13 bước Giấy tờ/Kiểm tra treo "Đang tải…" | BE-A | Open |
 | BUG-R2-032 | P3 | H13 bước 3: nút sang bước 4 ghi "Nhận phòng căn {room}" (khóa `ci.submit` không tham số, sai nghĩa) | FE (+UXD khóa mới) | Open |
 | BUG-R2-033 | P2 | Nhập giấy tờ người 2 không `partyMemberId` → không khớp hồ sơ theo BR-951, không tạo người "Chưa rõ" (US-043 AC3) | BE-C + BE-A | Open |
-| BUG-R2-034 | P2 | "Cần chú ý" không có `registration_due`/`registration_overdue`/`visa_expiring` (US-025 AC4, US-044 AC4, US-050 AC2) | BE-C + BE-A | Open (PO xác nhận sprint – nếu Sprint 4 thì Deferred) |
+| BUG-R2-034 | P2 | "Cần chú ý" không có `registration_due`/`registration_overdue`/`visa_expiring` (US-025 AC4, US-044 AC4, US-050 AC2) | BE-C + BE-A | Open – **PO 17/10: thuộc Sprint 3** (nguồn API "Cần chú ý"; khung Tổng quan hiển thị ở Sprint 4), đóng trước cổng QC Sprint 3 |
 | **BUG-R2-035** | **P1** | Job J5 `registration.deadline` chưa đăng ký: không nhắc hạn khai báo, không thông báo tổng hợp 22:00/07:00 (BR-611, US-042 AC2) | BE-C (+ BE-A worker) | Open |
 | BUG-R2-036 | P2 | J16 chặn lượt 55 phút → ảnh người không đồng ý có thể còn quá hạn trên 24 giờ sau `confirmed` khi xóa ngay bị lỗi (BR-609-01) | BE-C | Open |
 | **BUG-R2-037** | **P1** | Gia hạn vượt hạn thị thực không bị chặn mềm (thiếu 422 `VISA_EXPIRES_BEFORE_DEPARTURE`, US-050 AC2) | BE-A | Open |
@@ -297,7 +297,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `ui/stay.h13-h17.spec.ts` TC-L3-001 (E) annotation `observed` "nút bước 3".
 
 ### BUG-R2-033 – Nhập giấy tờ người thứ 2 không gắn người vào đơn theo BR-951 (không khớp hồ sơ, không tạo người "Chưa rõ")
-- Mức: P2 (sai AC US-043 AC3; danh sách người trong đơn/khai báo thiếu người; cách vòng: `addPartyMember` trước rồi gửi `partyMemberId`) · Môi trường: stack `ottimo-qa-s3a`, ảnh `8ca2a47` · Vai sửa: BE-C (registration) + BE-A (party) · Trạng thái: **Open**
+- Mức: P2 (sai AC US-043 AC3; danh sách người trong đơn/khai báo thiếu người; cách vòng: `addPartyMember` trước rồi gửi `partyMemberId`) · Môi trường: stack `ottimo-qa-s3a`, ảnh `8ca2a47` · Vai sửa: BE-C (registration) + BE-A (party) + BE-B (guests) · Trạng thái: **Open** – **PO quyết 17/10 ca (b): phương án A** (decision-log 17/10, US-043 AC3 làm rõ): không khớp hồ sơ → tạo hồ sơ khách **nguồn "từ giấy tờ"** không cần SĐT/email (bỏ `CONTACT_REQUIRED` chỉ cho đường này; form CRM/người đứng tên giữ nguyên), không đồng ý marketing, không vào danh sách tiếp thị, gắn vào đơn `role=companion`, quan hệ `unknown`; vượt số khách của đơn → vẫn gắn + cảnh báo (không tự ghi phụ thu). **Chờ SEC ký** phần dữ liệu cá nhân (tối thiểu trường, hạn lưu hồ sơ không liên hệ, cách lưu khóa số giấy tờ để khớp) trước khi merge
 - Bước: `qa.fd`, đơn confirmed 2 người lớn (ngày xa); `addGuestDocument` người 2 (`isMain: false`, không `partyMemberId`): (a) số CCCD trùng giấy tờ của khách G ở lần ở trước; (b) số không trùng ai.
 - Thực tế: 201, giấy tờ không có `partyMemberId`; `listParty` không thêm người, không khớp G, không tạo người quan hệ "Chưa rõ".
 - Mong đợi: EP06 2.2 (`partyMemberId` bỏ trống → server khớp theo BR-951: số giấy tờ → SĐT → email → tên + ngày sinh; không khớp → người mới quan hệ `unknown`), US-043 AC3.
@@ -305,7 +305,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `api/checkin.s3.api.spec.ts` TC-L3-032 (`test.fail`).
 
 ### BUG-R2-034 – "Cần chú ý" không có mục khai báo / thị thực (`registration_due`, `registration_overdue`, `visa_expiring`)
-- Mức: P2 (sai AC US-025 AC4, US-044 AC4, US-050 AC2 – lễ tân không được nhắc hồ sơ sắp/quá hạn khai báo và thị thực sắp hết; nhãn hạn ở H14 vẫn đúng) · Vai sửa: BE-C (nguồn dữ liệu) + BE-A (`registerAttentionSource`) · Trạng thái: **Open** (PO xác nhận: nếu mục khai báo của "Cần chú ý" thuộc Sprint 4 – EP01 – thì chuyển Deferred, 3 ca đổi sang skip "Sprint 4")
+- Mức: P2 (sai AC US-025 AC4, US-044 AC4, US-050 AC2 – lễ tân không được nhắc hồ sơ sắp/quá hạn khai báo và thị thực sắp hết; nhãn hạn ở H14 vẫn đúng) · Vai sửa: BE-C (nguồn dữ liệu) + BE-A (`registerAttentionSource`) · Trạng thái: **Open** – **PO quyết 17/10: Sprint 3, không Deferred.** BE-C thêm 3 nguồn `registration_due`, `registration_overdue`, `visa_expiring` (tính khi đọc, dùng lại `deadlineLabel`/`isOverdue` và quy tắc BR-602/603/605) qua `registerAttentionSource` của BE-A; `visa_expiring` chỉ trả mã đơn + căn, không ngày hết hạn (US-012 AC3, SEC SR-RET-06). 3 ca TC-L3-004/037/054 giữ `test.fail` tới khi sửa. Phần hiển thị trên Tổng quan/khung "Cần chú ý" vẫn Sprint 4 (EP01) – decision-log 17/10
 - Bước: ⏱ D 10:00 `qa.fd` nhận phòng đơn khách NN khai báo `review` → `GET /attention`; TC-L3-037: thị thực hết trước ngày đi.
 - Thực tế: 200 `data: []` (không có 3 loại trên; enum `AttentionItem.kind` đã có).
 - Mong đợi: EP06 mục 1 ("quá hạn → Cần chú ý", BR-907) và bảng 3.1.

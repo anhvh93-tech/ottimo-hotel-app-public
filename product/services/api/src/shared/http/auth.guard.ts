@@ -27,7 +27,7 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database, type TenantContext } from '../../db/database';
 import { AuditService } from '../../modules/audit/public/audit.service';
-import { RateLimiter } from '../../modules/identity/public/rate-limiter';
+import { MONOTONIC_CLOCK, RateLimiter } from '../../modules/identity/public/rate-limiter';
 import type { OperationMeta } from '../openapi-types';
 import { problem } from '../problem';
 import { cookieNames, readCookie } from './cookies';
@@ -57,7 +57,8 @@ export interface AuthOptions {
   allowedOrigins?: AllowedOrigins;
   /**
    * SR-RL-09 (SEC-BE-35, s3-checklist H1): requests per staff user and minute (SSE opens included) before
-   * 429 RATE_LIMITED + Retry-After. Default 600 (security constant); tests may raise it.
+   * 429 RATE_LIMITED + Retry-After. Default 600 (security constant); env STAFF_REQUESTS_PER_MINUTE
+   * (config.ts – dev/test may raise it, staging/production may only lower it); tests pass their own.
    */
   staffRequestsPerMinute?: number;
 }
@@ -171,9 +172,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   private guestResolverRef: GuestSessionResolver | null | undefined;
   private limiterRef: RateLimiter | undefined;
 
-  /** SR-RL-09: one fixed-window counter per staff user (per api process – see rate-limiter.ts). */
+  /**
+   * SR-RL-09: one fixed-window counter per staff user (per api process – see rate-limiter.ts). Windows run on
+   * the monotonic process clock, never on the business clock (BUG-R2-051: moving the dev/test clock back
+   * produced a Retry-After of years).
+   */
   private async rateLimit(req: GuardedRequest, p: StaffPrincipal): Promise<void> {
-    this.limiterRef ??= new RateLimiter(this.clock);
+    this.limiterRef ??= new RateLimiter(MONOTONIC_CLOCK);
     const rule = {
       limit: this.options.staffRequestsPerMinute ?? STAFF_REQUESTS_PER_MINUTE,
       windowMs: 60_000,
@@ -197,6 +202,11 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       throw problem('RATE_LIMITED', { headers: { 'Retry-After': String(wait) } });
     }
     this.limiterRef.hit(key, rule);
+  }
+
+  /** Test support only (rate-limit reset route of the test-support module, BUG-R2-051): forget every SR-RL-09 window. */
+  resetRateLimits(): void {
+    this.limiterRef?.resetAll();
   }
 
   /** The guest-portal module's resolver (GUEST_SESSION_RESOLVER), looked up once; null when absent. */

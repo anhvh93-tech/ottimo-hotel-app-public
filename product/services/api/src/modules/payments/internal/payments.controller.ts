@@ -45,7 +45,8 @@ export const paymentCreateSchema = z.object({
   method: z.string().max(40),
   amountVnd: money,
   receivedAt: z.string().max(40).optional(),
-  posAuthCode: z.string().max(12).optional(),
+  // V-09 before the length (BUG-R2-043): a card number answers CARD_NUMBER_DETECTED, not TOO_LONG.
+  posAuthCode: z.string().max(64).optional(),
   note: z.string().max(300).optional(),
   billingPeriodId: z.string().max(64).optional(),
   attachmentId: z.string().max(64).optional(),

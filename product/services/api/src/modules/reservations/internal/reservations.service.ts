@@ -12,6 +12,7 @@ import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
+import { assertNoCardNumber } from '../../../shared/validation';
 import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
@@ -279,11 +280,18 @@ export class ReservationsService {
     });
     // US-022: booker + active party members (people recorded on the booking – counted by frontdesk).
     const partyMembers = await this.hooks.partyCount(tx, row.id);
+    // BUG-R2-031: registration (registration module) and the folio's balance due (folio module).
+    const registration = row.parent_reservation_id
+      ? null
+      : await this.hooks.registrationSummary(tx, row.id);
+    const balanceDueVnd = row.folio_id ? await this.money.balanceDue(tx, row) : undefined;
     return toReservationDto({
       row,
       segments,
       booker,
       partyPresentCount: 1 + partyMembers,
+      registration,
+      ...(balanceDueVnd !== undefined ? { balanceDueVnd } : {}),
       nights: nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,
@@ -1440,6 +1448,10 @@ export class ReservationsService {
       true,
     );
     const amount = pf.money('amountVnd', { required: true, positive: true });
+    // V-09 / BUG-R2-043: a card number is refused as such (Luhn first), never as "too long" – and never stored.
+    for (const k of ['posAuthCode', 'note'] as const) {
+      if (typeof o[k] === 'string') assertNoCardNumber(`initialPayment.${k}`, o[k] as string);
+    }
     const note = pf.text('note', 300);
     const posAuthCode = pf.text('posAuthCode', 12);
     for (const e of pf.errors) f.add(`initialPayment.${e.field}`, e.code);

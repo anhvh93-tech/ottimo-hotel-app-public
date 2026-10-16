@@ -138,8 +138,9 @@ export class FolioFocService {
       targetId: folio.primary_reservation_id,
       ...(ctx.reservationCode ? { targetCode: ctx.reservationCode } : {}),
       folioLineId: focLineId,
-      // BR-433 "≤ giá 1 đêm": the night rate of the reduced room line.
-      limitBasisVnd: line.category === 'room' ? line.unit_price_vnd : null,
+      // BR-433 "≤ giá 1 đêm": the night rate of the night the reduced line belongs to (BUG-R2-046 – surcharges,
+      // services and fees too, not only room lines).
+      limitBasisVnd: await this.folios.nightRateBasis(tx, line.id),
       lineCategory: line.category,
       requesterReauthenticated: input.requesterReauthenticated,
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),

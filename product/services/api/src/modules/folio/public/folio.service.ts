@@ -716,6 +716,49 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * BR-433 "≤ giá 1 đêm" basis of a FOC/discount on a folio line (BUG-R2-046): the night rate of the night the
+   * line belongs to – a room line: its own rate; late check-out: the last night; early check-in: the first
+   * night; any other line: the night of its service date (else the latest night before it, else the first).
+   * Live room lines of the line's booking only; null when the booking has no night on the folio.
+   */
+  async nightRateBasis(tx: Tx, lineId: string): Promise<number | null> {
+    const { rows } = await tx.query<{
+      category: string;
+      unit_price_vnd: number;
+      service_date: string | null;
+      folio_id: string;
+      reservation_id: string | null;
+    }>(
+      `SELECT category, unit_price_vnd, service_date::text AS service_date, folio_id, reservation_id
+         FROM folio_line WHERE id = $1`,
+      [lineId],
+    );
+    const line = rows[0];
+    if (!line) return null;
+    if (line.category === 'room') return line.unit_price_vnd;
+    const { rows: nights } = await tx.query<{ unit_price_vnd: number; service_date: string }>(
+      `SELECT l.unit_price_vnd, l.service_date::text AS service_date FROM folio_line l
+        WHERE l.folio_id = $1 AND l.category = 'room' AND l.line_state = 'posted'
+          AND l.reversal_of_id IS NULL AND l.service_date IS NOT NULL
+          AND ($2::uuid IS NULL OR l.reservation_id = $2)
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
+        ORDER BY l.service_date, l.posted_at`,
+      [line.folio_id, line.reservation_id],
+    );
+    if (nights.length === 0) return null;
+    const first = nights[0] as { unit_price_vnd: number; service_date: string };
+    const last = nights[nights.length - 1] as { unit_price_vnd: number; service_date: string };
+    if (line.category === 'late_checkout') return last.unit_price_vnd;
+    if (line.category === 'early_checkin') return first.unit_price_vnd;
+    const d = line.service_date;
+    if (!d) return last.unit_price_vnd;
+    const same = nights.find((n) => n.service_date === d);
+    if (same) return same.unit_price_vnd;
+    const before = nights.filter((n) => n.service_date < d);
+    return (before[before.length - 1] ?? first).unit_price_vnd;
+  }
+
+  /**
    * ARC-BE-S3-15 c (B17 undo check-in): does the booking have live posted lines posted at/after `at`?
    * Lets the desk refuse an undo once money moved, without re-implementing "live line" outside folio.
    */

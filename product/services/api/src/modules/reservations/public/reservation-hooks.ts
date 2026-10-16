@@ -41,10 +41,17 @@ export type ReservationHook = (tx: Tx, event: ReservationEvent) => Promise<void>
 /** Number of active party members recorded on a booking (US-022 – the frontdesk module owns them). */
 export type PartyCounter = (tx: Tx, reservationId: string) => Promise<number>;
 
+/** The booking's registration (EP06 – the registration module owns it); null = none yet. */
+export type RegistrationSummaryReader = (
+  tx: Tx,
+  reservationId: string,
+) => Promise<{ id: string; status: string; deadlineAt: Date | null } | null>;
+
 @Injectable()
 export class ReservationHooks {
   private readonly hooks = new Map<ReservationEventKind, ReservationHook[]>();
   private partyCounter: PartyCounter | null = null;
+  private registrationReader: RegistrationSummaryReader | null = null;
 
   on(kind: ReservationEventKind, hook: ReservationHook): void {
     this.hooks.set(kind, [...(this.hooks.get(kind) ?? []), hook]);
@@ -60,6 +67,23 @@ export class ReservationHooks {
 
   partyCount(tx: Tx, reservationId: string): Promise<number> {
     return this.partyCounter ? this.partyCounter(tx, reservationId) : Promise.resolve(0);
+  }
+
+  /**
+   * BUG-R2-031 (OpenAPI 0.3.6 `Reservation.registrationId/Status/DeadlineAt`): provided by the registration
+   * module – reservations never reads `registration`.
+   */
+  provideRegistrationSummary(reader: RegistrationSummaryReader): void {
+    this.registrationReader = reader;
+  }
+
+  registrationSummary(
+    tx: Tx,
+    reservationId: string,
+  ): Promise<{ id: string; status: string; deadlineAt: Date | null } | null> {
+    return this.registrationReader
+      ? this.registrationReader(tx, reservationId)
+      : Promise.resolve(null);
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {

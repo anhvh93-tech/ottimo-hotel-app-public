@@ -229,3 +229,14 @@ Chi tiết từng thẻ: `rounds/round-02/responses/s3-BE-C.md`. Sửa phiên b�
 - **FE/MOB/QA**: xem "Thay đổi hành vi" trong file phản hồi (retentionDays bắt buộc, định dạng cổng, 422/401/503 của upload, K1 xuất hiện trong ≤ 1 phút).
 
 **ESC mới**: không. DOM S3-5 dùng ESC-018 đã có.
+
+## 10. Bước Kiểm thử – vòng sửa 2 (17/10, bug QA HEAD c8b83f3)
+Chi tiết: `rounds/round-02/responses/s3-BE-C.md` mục "Bước Kiểm thử – vòng sửa 2".
+- **BUG-R2-035 (P1)**: J5 `registration.deadline` mới (`registration/internal/deadline-job.ts`), đăng ký ở api (`RegistrationModule` → `JobRegistry`, chạy được qua test-support) và worker (`registrationWorkerJobs`). Nhắc trước hạn + tổng hợp BR-611 qua `events.notify` (kind `registration_due`), exactly-once bằng `job_run` (`registration.reminder`, `registration.digest`).
+- **BUG-R2-036 (P2)**: J16 – bước ảnh/backfill/quét tệp chạy mỗi tick; phần theo giờ + heartbeat giữ 55 phút.
+- **BUG-R2-048 (P2)**: `listC3AccessLog` đọc `from`/`to`.
+- **BUG-R2-034 (P2, PO chốt Sprint 3)**: `registration/internal/attention-sources.ts` – `registration_due`, `registration_overdue`, `visa_expiring` (chỉ mã đơn + căn).
+- **BUG-R2-033 (P2)**: cổng `RegistrationPartyPort` + `RegistrationPartyLink` (`registration/public/party-port.ts`); BE-A cài `DocumentPartyPort` và `provide()` lúc khởi động. Ca "không khớp ai, không còn người trống" vẫn để trống: cần BE-B cho phép hồ sơ chỉ có giấy tờ hoặc PO quyết.
+- Không migration mới (dùng `job_run`, `staff_notification` sẵn có); drizzle generate không tạo file.
+- Kết quả (DB `ottimo_test_bec` tạo mới): `turbo run test --force` **12/12**, `@ottimo/api` **55 tệp / 2130 test xanh**; `pnpm lint` 0 lỗi (2 cảnh báo cũ `mockServiceWorker.js`), typecheck 12/12; `pnpm build` 6/6; `pnpm format:check` sạch; `gen-openapi-meta --check`, `gen-portal-copy --check`, api-client `gen --check` up to date.
+- Việc cho vai khác: **QA** đổi `test.fail` của TC-L3-004/032/037/039/044/046/048/054 thành ca thường và thêm ca tự động cho `from`/`to` (TC-RB-022); **ARC/UXD**: thông báo tổng hợp dùng `registration_due` + refType `property` không có `refCode` (app mở danh sách khai báo) – nếu cần hiện số hồ sơ thì thêm trường vào `StaffNotification` (0.3.7); **BE-B/PO**: hồ sơ khách chỉ từ giấy tờ (BR-951, BUG-033 ca b).

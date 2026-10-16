@@ -126,7 +126,26 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const [fixGuests, setFixGuests] = useState(false);
   const [waitingLead, setWaitingLead] = useState(false);
   const [verifyTried, setVerifyTried] = useState(false);
-  const act = useSubmit();
+  // BUG-R2-052: fields with an input show their message there; the others are named in the alert.
+  const act = useSubmit({
+    bound: [
+      'checkinTime',
+      'checkinTimeNote',
+      'roomNotReadyOverride.reason',
+      'documentBlockOverride.reason',
+    ],
+    labels: {
+      addPriorNight: t('checkin.prior_night_submit'),
+      priorNightRateVnd: t('checkin.prior_night_submit'),
+      cardsIssued: t('handover.cards'),
+      houseRulesSent: t('ci.house_rules_sent'),
+      doorAccessHandedOver: t('checkin.door_handed_over'),
+      applyEarlySurcharge: t('ci.told_guest'),
+      expectedSurchargeVnd: t('ci.told_guest'),
+      documentBlockOverride: t('ci.doc_blocked_title'),
+      roomNotReadyOverride: t('checkin.cond.room_ready'),
+    },
+  });
 
   const reloadAll = () => {
     res.reload();
@@ -413,7 +432,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                       <b>{t('ci.doc_blocked_title')}</b>
                       <div className="li-s">{t('ci.doc_blocked_body')}</div>
                       {lead ? (
-                        <Field label={t('ci.reason')} required>
+                        <Field
+                          label={t('ci.reason')}
+                          required
+                          error={act.fields['documentBlockOverride.reason']}
+                        >
                           {(fp) => (
                             <textarea
                               {...fp}
@@ -772,7 +795,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     }
     setStep((s) => Math.min(3, s + 1));
   };
-  const nextKey = ['ci.go_verify', 'ci.go_register', 'ci.submit'][step];
+  // BUG-R2-032: step 3 → 4 is "Tiếp tục: Giao mã & hoàn tất", not "Nhận phòng căn {room}".
+  const nextKey = ['ci.go_verify', 'ci.go_register', 'ci.go_handover'][step];
 
   return (
     <>

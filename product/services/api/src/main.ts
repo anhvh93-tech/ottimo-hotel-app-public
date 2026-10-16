@@ -53,6 +53,7 @@ async function bootstrap(): Promise<void> {
       auth: {
         cookieSecurePrefix: config.cookieSecurePrefix,
         allowedOrigins: config.allowedOrigins,
+        staffRequestsPerMinute: config.staffRequestsPerMinute,
       },
       imports,
     }),

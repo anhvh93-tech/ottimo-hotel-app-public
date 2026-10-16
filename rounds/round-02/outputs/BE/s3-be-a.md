@@ -140,3 +140,24 @@ Trả lời từng thẻ: `rounds/round-02/responses/s3-BE-A.md`. Tóm tắt thi
 | `turbo run test --force` | 12/12 task; `@ottimo/api` **55 tệp / 2118 test xanh**; chạy lại api trên DB mới sau 0042 của BE-B: **55 tệp / 2119 xanh** (gồm `frontdesk-s3-fixes` 10, `schema-parity` 6, `module-boundaries` 5, `rbac-sprint3-bea` 214, `guard-s3` của BE-B) |
 | `drizzle-kit generate` (thư mục thật + bản sao) | "No schema changes" – không tạo tệp |
 | `gen-openapi-meta.mjs --check` | up to date |
+
+## 11. Bước Kiểm thử – sửa lỗi QA, đợt 2 (17/10, HEAD `c8b83f3`, chưa commit)
+| Lỗi | Trạng thái | Cách sửa / lý do |
+|---|---|---|
+| BUG-R2-031 (P1) | Fixed | `Reservation` trả `cardsIssued`, `houseRulesSentAt` (cột 0030), `balanceDueVnd` (`MoneyBridge.balanceDue` → FolioService), `registrationId/registrationStatus/registrationDeadlineAt` (registration module đăng ký `ReservationHooks.provideRegistrationSummary` – `registration/public/stay-facts.ts`; reservations không đọc bảng `registration`). Đơn con không có khai báo riêng → không trả |
+| BUG-R2-052 (P1) | Fixed | Ngày nghiệp vụ = ngày đến và giờ < mốc đổi ngày (00:00–05:59) = khách đến khuya: không phụ thu nhận sớm, không đêm trước, B9 thường (`checkin.service.ts evaluate`). B9a chỉ trong cửa sổ ngày nghiệp vụ = ngày đến − 1 |
+| BUG-R2-037 (P1) | Fixed | B13: hạn thị thực/tạm trú sớm nhất của giấy tờ NN (cổng mới `FrontdeskRegistrationPort.earliestVisaValidUntil`, BE-C cài – giải mã trong giao dịch, chỉ so ngày) < ngày đi mới và thiếu `visaWarningAckReason` → 422 `visaWarningAckReason: VISA_EXPIRES_BEFORE_DEPARTURE` |
+| BUG-R2-046 (P1) | Fixed (BE-B + BE-A) | `FolioService.nightRateBasis` (BE-B): FOC trả muộn/nhận sớm/dịch vụ mang `limitBasisVnd` = giá đêm liên quan; `StaySupport.requestFoc` truyền basis. Test: MGR duyệt FOC 334.000 trên dòng trả muộn (đêm 667.000), không lên OWN |
+| BUG-R2-047 (P2) | Fixed | B13: buồng `OC` → `OD` (SM-03, event B13) |
+| BUG-R2-040 (P3) | Fixed | `getRack.roomStatus`: OOO hôm nay → trạng thái đã lưu `room_status` → suy ra (như `RoomStatusService.current`) |
+| BUG-R2-033 (P2) | Fixed một phần (BE-A + BE-C) | `frontdesk/internal/document-party.port.ts` (gắn qua `RegistrationPartyLink.provide()` của BE-C): (1) người trong đơn có hồ sơ khớp số giấy tờ (blind index) / tên + ngày sinh; (2) hồ sơ khách khớp → thêm người đi cùng quan hệ `unknown` khi đơn còn chỗ khai trong nhóm tuổi; (3) người duy nhất chưa có giấy tờ; (4) mơ hồ → null. Ca "không khớp ai" vẫn null: hồ sơ khách bắt buộc SĐT/email (`CONTACT_REQUIRED`) → cần BE-B (hồ sơ chỉ từ giấy tờ) hoặc PO quyết |
+| BUG-R2-034 (P2) | BE-C làm | BE-C đã thêm nguồn "Cần chú ý" `registration_due/overdue`, `visa_expiring` + J5; BE-A bỏ bản nháp trùng |
+| BUG-R2-038 (P2) | Deferred – chờ ARC 0.3.7 | Cộng phụ thu sắp ghi vào `balance_paid` sẽ chặn mọi nhận phòng có phụ thu: `recordPayment` không cho thu quá "còn phải thu" (`AMOUNT_EXCEEDS_BALANCE`) và `checkIn` không có trường thu tiền. Cần hợp đồng `checkIn.payment` (như `checkOut.finalPayment`) hoặc nới trần thu trước nhận phòng – đổi hợp đồng, không làm trong sprint khi ARC chưa duyệt. Tới lúc đó phụ thu nằm trên folio, B18 chặn `BALANCE_DUE` |
+| BUG-R2-045 (P2) | Deferred – chờ ARC | Hợp đồng chỉ có MỘT số `channelFeeSavingsVnd`, server không biết khách chọn bao nhiêu đêm (test QA so với 2 đêm). Đề nghị ARC 0.3.7: `repricing[].channelFeeSavingsVnd` (theo từng số đêm) hoặc `channelCommissionPct` để giao diện tự nhân với `repricing[k].deltaVnd`. Giữ số hiện tại (1 đêm) tới khi có hợp đồng |
+| BUG-R2-043 (phần BE-A, theo BE-B) | Fixed | `createReservation.initialPayment.posAuthCode/note`: kiểm Luhn trước độ dài → 422 `CARD_NUMBER_DETECTED` |
+
+Test mới (`frontdesk-s3-fixes.test.ts`): ca 052/031/040/047/037 (đến 01:30, trường 0.3.6, rack, OD, chặn mềm thị thực) và ca 033 (cổng gắn người). Ca ARC-06/DOM-17 nay MGR duyệt FOC (046).
+
+**Kết quả lệnh** (DB mới `ottimo_test_bea_s3t1`): `prettier --check` xanh; `eslint` 0 lỗi; `turbo run typecheck` 12/12; `turbo run build --force` 6/6; `turbo run test --force` 12/12 – api **55 tệp / 2130 test xanh**; `drizzle-kit generate` "No schema changes"; `gen-openapi-meta --check` up to date.
+
+**Cho QA bỏ `test.fail`**: BUG-R2-031 (TC-L3-030 (E), TC-L3-001 (E) phần `houseRulesSentAt/cardsIssued`), BUG-R2-052 (TC-L3-008 (a), TC-L3-001 (E) < 06:00), BUG-R2-037 (TC-L3-054 phần 422), BUG-R2-046 (TC-NT-029 (b), TC-NT-030 (b), TC-NT-036 (a), TC-L4-056), BUG-R2-047 (TC-L4-004), BUG-R2-033 (TC-L3-032 ca (a) khớp hồ sơ; ca (b) còn mở). Giữ `test.fail` của BUG-R2-038, BUG-R2-045 (chờ ARC).

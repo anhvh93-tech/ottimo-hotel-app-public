@@ -56,4 +56,9 @@ export class RegistrationPortService implements FrontdeskRegistrationPort {
   onReservationVoided(tx: Tx, reservationId: string): Promise<void> {
     return this.regs.onReservationVoided(tx, reservationId);
   }
+
+  /** BUG-R2-037: B13 soft block when the new departure passes the visa (BR-605). */
+  earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null> {
+    return this.regs.earliestVisaValidUntil(tx, reservationId);
+  }
 }

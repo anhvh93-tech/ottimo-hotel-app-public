@@ -27,13 +27,25 @@ export class RateLimiter {
     { count: number; resetAt: number; refusalReported?: boolean }
   >();
 
-  constructor(private readonly clock: Clock) {}
+  constructor(private readonly clock: Pick<Clock, 'now'>) {}
+
+  /**
+   * A bucket whose end lies more than one window ahead was opened at a later time than now – the clock went
+   * back (MutableClock reset in dev/test – BUG-R2-051): it no longer counts.
+   */
+  private live(
+    b: { count: number; resetAt: number } | undefined,
+    now: number,
+    rule: RateRule,
+  ): boolean {
+    return !!b && b.resetAt > now && b.resetAt - now <= rule.windowMs;
+  }
 
   /** Seconds until the window resets when the key is over the limit, else 0 (does not count). */
   retryAfter(key: string, rule: RateRule): number {
     const now = this.clock.now().getTime();
     const b = this.buckets.get(key);
-    if (!b || b.resetAt <= now || b.count < rule.limit) return 0;
+    if (!b || !this.live(b, now, rule) || b.count < rule.limit) return 0;
     return Math.max(1, Math.ceil((b.resetAt - now) / 1000));
   }
 
@@ -41,7 +53,7 @@ export class RateLimiter {
   hit(key: string, rule: RateRule): void {
     const now = this.clock.now().getTime();
     const b = this.buckets.get(key);
-    if (!b || b.resetAt <= now) {
+    if (!b || !this.live(b, now, rule)) {
       this.buckets.set(key, { count: 1, resetAt: now + rule.windowMs });
       this.sweep(now);
       return;
@@ -88,3 +100,12 @@ export class RateLimiter {
 }
 
 export const RATE_LIMITER = Symbol('RATE_LIMITER');
+
+/**
+ * Process clock for windows that must never follow the business clock (BUG-R2-051): monotonic
+ * (`performance.now()`), so moving the shared dev/test clock (dev_clock, ADR-008) neither opens nor
+ * freezes a window. Used by the SR-RL-09 per-user limit of the guard.
+ */
+export const MONOTONIC_CLOCK: Pick<Clock, 'now'> = {
+  now: () => new Date(Math.round(performance.timeOrigin + performance.now())),
+};

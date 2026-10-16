@@ -360,6 +360,7 @@ Quy ước (đợt 3):
 - AC3 *(bước 4 – FB-R1-DOM-PO-04)*: Given đơn `confirmed` ngày đến 20/10, When 01:30 ngày 21/10 mở "Khách đến", Then đơn vẫn hiện và nút "Nhận phòng" dùng được (ngày nghiệp vụ vẫn là 20/10 – BR-010).
 
 #### US-012 – Cần chú ý (BR-907)
+> Sprint 3–4 (PO 17/10, BUG-R2-034): nguồn dữ liệu cho AC1 (khai báo) và AC3 (thị thực) làm ở **Sprint 3** cùng EP06; màn/khung "Cần chú ý" trên Tổng quan và nghiệm thu US-012 ở **Sprint 4**.
 - AC1: Given một đơn đến hôm nay có khai báo ở trạng thái trước `sent`, Then "Cần chú ý" có dòng nêu số đơn chưa khai báo và hạn tính theo BR-602 (khách VN) / BR-603 (khách NN – giờ đến thực tế + số giờ của BR-603); bấm vào mở màn khai báo.
 - AC2 **[Dời R3 – R-C]** *(cùng job J12; R2 chưa có HĐ trong hệ thống)*: Given HĐ có kỳ thu `scheduled`/`due` trong khoảng nhắc của BR-207, Then có dòng nhắc thu (tên khách, số tiền, ngày); When kỳ đó được ghi đã thu (US-119 AC5), Then dòng nhắc biến mất; Given HĐ hết hạn trong khoảng của BR-211, Then có dòng "chào gia hạn".
 - AC3 *(sửa R2 Sprint 2 – E01-06, theo SEC SR-RET-06)*: Given khách NN có thị thực hết hạn trước ngày trả phòng (BR-605), Then có dòng cảnh báo nêu **mã đơn và căn** (không hiện ngày hết hạn trên "Cần chú ý"); When FD+ bấm vào dòng trên thiết bị được cấp (US-142), Then mở màn giấy tờ của đơn, nơi thấy ngày hết hạn thị thực (có nhật ký xem C3); trên thiết bị chưa cấp → thông báo theo US-142.
@@ -448,6 +449,7 @@ Quy ước (đợt 3):
 ### EP03 – Nhận phòng
 
 #### US-025 – Nhận phòng (UC-11, B9, BR-402)
+> Sprint 3 (PO 17/10, BUG-R2-034): AC4 "đơn vào Cần chú ý" = nguồn API `registration_due`/`registration_overdue` làm **trong Sprint 3** (nghiệm thu qua `GET /attention`); khung hiển thị trên Tổng quan nghiệm thu ở Sprint 4 (US-012).
 - AC1: Given đơn `confirmed` đến hôm nay, buồng `VI`, đã thu đủ, có giấy tờ người đứng tên, When `front_desk` nhận phòng lúc 14:30, Then đơn → `in_house`, buồng → `OC`, ghi giờ nhận 14:30, không có phụ thu (BR-401, BR-411).
 - AC2: Given buồng đang `VD`, When `front_desk` nhận phòng, Then phải gửi yêu cầu để FDL+ xác nhận lý do (A12 = D); `front_desk_lead` tự xác nhận được; sau khi nhận, buồng → `OD` và có việc dọn ưu tiên (R7).
 - AC3: Given còn phải thu > 0 (đơn trực tiếp/CTV) hoặc chưa có giấy tờ người đứng tên, Then không hoàn tất được nhận phòng và không giao mã cửa (BR-402).
@@ -532,10 +534,11 @@ Quy ước (đợt 3):
 #### US-043 – Nhập giấy tờ (K3–K5, BR-601, BR-606, BR-612)
 - AC1: Given đơn 2 người lớn, When nhập đủ trường cho người thứ nhất, Then khai báo → `partial`; When nhập đủ người thứ hai, Then → `review` (BR-601).
 - AC2: Given trẻ em, Then loại giấy tờ là số định danh cá nhân (BR-612) và không bắt ảnh.
-- AC3: Given người lớn từ giấy tờ chưa có trong đơn, When lưu, Then được gắn vào đơn: khớp hồ sơ theo khóa định danh BR-951 nếu có, không thì tạo hồ sơ mới quan hệ "Chưa rõ".
+- AC3: Given người lớn từ giấy tờ chưa có trong đơn, When lưu, Then được gắn vào đơn: khớp hồ sơ theo khóa định danh BR-951 nếu có, không thì tạo hồ sơ mới quan hệ "Chưa rõ". *(làm rõ – PO 17/10, BUG-R2-033 (b))* Hồ sơ tạo từ giấy tờ **không cần SĐT/email**: khóa định danh là số giấy tờ (BR-951 khóa 1); hồ sơ mang nguồn "từ giấy tờ", tên lấy theo giấy tờ, không hỏi đồng ý marketing, không vào danh sách/xuất dữ liệu tiếp thị, quan hệ "Chưa rõ"; dữ liệu giấy tờ theo quy tắc C3 hiện có. Given người mới làm số người có mặt vượt số khách của đơn, Then vẫn gắn vào đơn nhưng cảnh báo "Đơn ghi {n} khách" và hướng lễ tân sửa số khách (đơn chưa nhận phòng) hoặc thêm người có ngày hiệu lực (đơn đang ở) – phụ thu người không tự ghi.
 - AC4: Given mỗi lần xem hoặc nhập trường giấy tờ, Then nhật ký truy cập dữ liệu C3 ghi người, thời điểm, đơn (A70 L).
 
 #### US-044 – Đối chiếu tự động (K5, BR-605; HR-07)
+> Sprint 3 (PO 17/10, BUG-R2-034): AC4 "đơn vào Cần chú ý" = nguồn API `visa_expiring` làm **trong Sprint 3**, chỉ nêu mã đơn + căn (US-012 AC3); khung hiển thị ở Sprint 4.
 - AC1: Given hộ chiếu hết hạn trước hoặc đúng ngày trả phòng, Then kiểm "hộ chiếu còn hạn" = **Không đạt** (khắc phục BL 8.2 #3).
 - AC2: Given thiếu dữ liệu để kiểm (ví dụ chưa nhập ngày hết hạn), Then kết quả = **Chưa kiểm được – cần kiểm tay**; mỗi mục kiểm chỉ có 3 kết quả Đạt / Không đạt / Chưa kiểm được và không bao giờ hiện "Đạt" khi chưa thực sự kiểm (HR-07).
 - AC3: Given tên đơn "Daniel Weber" và giấy tờ "WEBER DANIEL", Then kiểm tên = Đạt (bỏ dấu, chấp nhận đảo thứ tự – BR-952).
@@ -568,6 +571,7 @@ Quy ước (đợt 3):
 - AC3: Given khách yêu cầu xóa sớm, When `manager`/`owner` xác nhận (A74, US-135), Then ảnh bị xóa ngay và có nhật ký; `front_desk` không có chức năng này.
 
 #### US-050 – Ngày đi thực tế & hạn tạm trú (K9–K10, BR-604, BR-605)
+> Sprint 3 (PO 17/10, BUG-R2-034): cảnh báo thị thực trong "Cần chú ý" (nguồn `visa_expiring`) làm **trong Sprint 3**; khung hiển thị ở Sprint 4.
 - AC1: Given khách NN có khai báo `confirmed`, When gia hạn, trả sớm hoặc trả phòng, Then khai báo → `needs_update` và có việc "Cập nhật ngày đi" trong ngày cho `front_desk`; nhập xong → `updated`.
 - AC2: Given ngày đi dự kiến sau ngày hết hạn thị thực, When lưu đơn hoặc gia hạn, Then hiện cảnh báo chặn mềm (phải xác nhận lý do), ngày khai không vượt hạn thị thực và có nhắc khách gia hạn trước số ngày của BR-605.
 
@@ -637,7 +641,7 @@ Quy ước (đợt 3):
 ### EP10 – Khách hàng (CRM)
 
 #### US-071 – Tạo/sửa hồ sơ khách
-- AC1: Given form hồ sơ, When thiếu họ tên hoặc thiếu cả SĐT lẫn email, Then không lưu được.
+- AC1: Given form hồ sơ, When thiếu họ tên hoặc thiếu cả SĐT lẫn email, Then không lưu được. *(PO 17/10)* Quy tắc "phải có SĐT hoặc email" áp cho hồ sơ tạo/sửa ở form CRM và người đứng tên đơn; **không** áp cho hồ sơ người đi cùng tạo từ giấy tờ (US-043 AC3) – khi hồ sơ đó được thêm liên hệ hoặc trở thành người đứng tên thì áp đủ quy tắc.
 - AC2: Given SĐT hoặc email sai dạng theo đặc tả trường của BA, Then báo lỗi tại ô tương ứng; SĐT/email được chuẩn hóa theo BR-951 trước khi lưu.
 - AC3: Given form hồ sơ, Then không có ô nhập tay số giấy tờ (chỉ lấy từ bước giấy tờ – BL 3.16).
 
@@ -894,3 +898,5 @@ Trạng thái 16/10/2026: **INV đã quyết cả 13 ESC** theo đề xuất c�
 | 16/10/2026 | 2 (tuần 1 – W12) | INV quyết 13 ESC: áp **R-C** – US-081, 111, 125, 128, 141 Round → R3, trạng thái Dời; US-012 (AC2 + J12), US-086 (AC3), US-108 (phần mã cửa AC2), US-119 (AC5) làm một phần, phần dời gắn **[Dời R3 – R-C]**; thêm US-017 AC5a tạm (đơn dài hạn nhập tay, P-R2-3); bảng epic còn **72 Must R2**; "chờ ESC-xxx" → "INV quyết ESC-xxx 16/10", giữ nhãn giả định cho sức chứa (ESC-004), tài khoản ngân hàng (ESC-010), thông tin khóa (ESC-011). QA sinh lại traceability | PO |
 | 16/10/2026 | 2 (Sprint 2 – Phản hồi & sửa) | US-056 → R3 (Dời; EP07 Must R2 6→5, tổng **71 Must R2**); US-008 Should → **Must R3** + AC1–AC3 (R2 ẩn nút "Thêm người dùng"); US-012 AC3 sửa theo SR-RET-06 (mã đơn + căn), thêm AC8 (BR-435 cho OWN, tính khi đọc); US-017 AC9 (người chốt bắt buộc kênh CTV / nguồn `sales_staff`); US-025 AC7 (ô "Đã giao mã cửa/thẻ" không bắt buộc). QA sinh lại traceability | PO |
 | 16/10/2026 | 2 (Sprint 3 – khởi động) | Nghiệm thu PO Sprint 1 + 2 trên stack tạm (ĐK-S2-5, `outputs/PO/acceptance.md`): thêm trạng thái "Đang nghiệm thu", "Đạt (stack tạm)"; cột Trạng thái 30 story (10 Đạt stack tạm, 19 Đang nghiệm thu, US-022 Dời Sprint 3); dòng "> Nghiệm thu" ghi phần dời (US-019, 020, 022, 024, 085, 136 + 002–007, 016, 018, 021, 083, 086, 135, 139, 142) – mọi phần dời trong R2; áp ESC-015 A (ghi chú US-005), ESC-016 A (US-109 AC1), ESC-017 A (US-084 AC1, US-086 AC5, US-119 AC6). Must R2 vẫn 71 | PO |
+| 17/10/2026 | 2 (Sprint 3) | BUG-R2-034: nguồn "Cần chú ý" cho khai báo/thị thực (US-025 AC4, US-044 AC4, US-050 AC2, US-012 AC1/AC3) làm ở Sprint 3; khung hiển thị Tổng quan ở Sprint 4 – ghi chú dưới 4 story | PO |
+| 17/10/2026 | 2 (Sprint 3) | BUG-R2-033 (b): làm rõ US-043 AC3 (hồ sơ người đi cùng tạo từ giấy tờ, không cần SĐT/email, không tiếp thị; cảnh báo khi vượt số khách) và US-071 AC1 (phạm vi quy tắc liên hệ) – chờ SEC ký phần dữ liệu cá nhân | PO |

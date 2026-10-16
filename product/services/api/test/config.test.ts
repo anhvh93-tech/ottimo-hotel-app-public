@@ -42,6 +42,21 @@ describe('loadConfig (SR-SECR-05)', () => {
     expect(() => loadConfig({ ...base, APP_ENV: 'development' })).toThrow(ConfigError);
   });
 
+  it('SR-RL-09 limit (BUG-R2-051): 600 by default; dev/test may raise it, staging/production only lower it', () => {
+    expect(loadConfig(base).staffRequestsPerMinute).toBe(600);
+    expect(loadConfig({ ...base, STAFF_REQUESTS_PER_MINUTE: '5000' }).staffRequestsPerMinute).toBe(
+      5000,
+    );
+    expect(() => loadConfig({ ...base, STAFF_REQUESTS_PER_MINUTE: '10' })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...base, STAFF_REQUESTS_PER_MINUTE: 'many' })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...prod, STAFF_REQUESTS_PER_MINUTE: '601' })).toThrow(
+      /STAFF_REQUESTS_PER_MINUTE/,
+    );
+    expect(loadConfig({ ...prod, STAFF_REQUESTS_PER_MINUTE: '300' }).staffRequestsPerMinute).toBe(
+      300,
+    );
+  });
+
   it('accepts a complete production config', () => {
     expect(loadConfig(prod).appEnv).toBe('production');
   });

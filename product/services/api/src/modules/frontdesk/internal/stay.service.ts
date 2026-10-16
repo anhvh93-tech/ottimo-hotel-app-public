@@ -146,6 +146,11 @@ export class StayService {
       (beyond || currentNights + maxNights >= ctx.params.longStayRequiredFromNights);
     const currentTotal = kept.reduce((a, n) => a + n.amountVnd, 0);
     const repricing: Array<Record<string, unknown>> = [];
+    // BR-422 / BR-901: the OTA commission the extension does NOT pay (its nights go to the direct channel).
+    const otaPct =
+      row.channel_group === 'ota'
+        ? ((await this.channels.byId(tx, row.channel_id, ctx.today))?.commissionRatePct ?? 0)
+        : 0;
     if (!row.external_contract) {
       for (let k = 1; k <= maxNights; k += 1) {
         const added = defaults.slice(0, k);
@@ -156,6 +161,8 @@ export class StayService {
             repricedTotalVnd: total,
             deltaVnd: total,
             losDiscountPct: 0,
+            // 0.3.6 bổ sung 3 (BUG-R2-045): Σ default rates of the k nights × the OTA channel's commission.
+            channelFeeSavingsVnd: applyPct(total, otaPct, ctx.params.feeUnit),
           });
           continue;
         }
@@ -169,11 +176,10 @@ export class StayService {
         });
       }
     }
+    // Root field kept for compatibility (0.3.6 bổ sung 3): ONE night.
     let savings: number | undefined;
     if (row.channel_group === 'ota' && defaults[0]) {
-      const ch = await this.channels.byId(tx, row.channel_id, ctx.today);
-      const pct = ch?.commissionRatePct ?? 0;
-      savings = applyPct(defaults[0].amountVnd, pct, ctx.params.feeUnit);
+      savings = applyPct(defaults[0].amountVnd, otaPct, ctx.params.feeUnit);
     }
     return {
       rm,
@@ -246,6 +252,17 @@ export class StayService {
     const from = o.from;
     const to = addDays(from, n);
     const dates = nightDates(from, to);
+    // BUG-R2-037 (BR-605, US-050 AC2, E04-01): a foreign guest's visa / temporary residence ending before the
+    // new departure is a SOFT block – the desk confirms with a reason (the declared departure still stops at
+    // the visa – registration module).
+    if (!visaAck) {
+      const visa = await this.s.ports.registration.earliestVisaValidUntil(tx, row.id);
+      if (visa !== null && visa < to) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'visaWarningAckReason', code: 'VISA_EXPIRES_BEFORE_DEPARTURE' }],
+        });
+      }
+    }
     // Rates: default (BR-421) or typed by the desk within BR-105 (one row per added night).
     const byDate = new Map<string, number>();
     for (const r of rates) {
@@ -414,6 +431,14 @@ export class StayService {
       ...this.s.req(ctx),
     });
     await outboxAvailability(tx, [{ roomId: o.rm.id, from, to }], 'reservation.extended');
+    // BUG-R2-047 (SM-01 B13, SM-03, BR-802): the stay goes on – the occupied-clean room needs a stay-over clean.
+    if ((await this.s.roomStatus.of(tx, o.rm.id, ctx.today)) === 'OC') {
+      await this.s.roomStatus.set(tx, o.rm.id, 'OD', {
+        today: ctx.today,
+        now: ctx.now,
+        event: 'B13',
+      });
+    }
     const fresh = await loadReservation(tx, row.id, ctx.actor);
     if (row.channel_group !== 'ota' && !row.external_contract) {
       await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fresh), {

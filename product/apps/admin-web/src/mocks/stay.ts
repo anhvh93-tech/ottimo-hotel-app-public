@@ -681,6 +681,11 @@ export function createStayMock(ctx: Ctx) {
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
+      /** 0.3.6 add. 3: property parameters behind `Registration.consentNotice` (null = not set up). */
+      consentNotice: { currentNoticeVersion: 'privacy-2026-10-v1', imageRetentionDays: 30 } as {
+        currentNoticeVersion: string;
+        imageRetentionDays: number;
+      } | null,
       paymentNotConfigured: false,
       seq: 200,
     };
@@ -1025,6 +1030,7 @@ export function createStayMock(ctx: Ctx) {
       isOverdue: deadlineAt ? Date.parse(deadlineAt) < Date.now() : false,
       portalReference: reg.portalReference,
       blocksDoorCode: reg.blocksDoorCode,
+      ...(st.consentNotice ? { consentNotice: st.consentNotice } : {}),
       documents: reg.documents.map((d) => ({
         id: d.id,
         partyMemberId: d.partyMemberId,
@@ -1330,24 +1336,32 @@ export function createStayMock(ctx: Ctx) {
       // D-8 / BR-107: direct stays that cross 7 nights get the length-of-stay step on every night.
       // `repricing[].nights` = nights ADDED; `repricedTotalVnd` = room total of the whole booking.
       const roomNow = (r.nightlyRates ?? []).reduce((a, x) => a + x.amountVnd, 0);
-      const repricing = ota
-        ? []
-        : Array.from({ length: max }, (_, i) => {
-            const k = i + 1;
-            const pct = (r.nights ?? 0) + k >= 7 && (r.nights ?? 0) < 7 ? 10 : 0;
-            const total = round1000(((roomNow + k * rate) * (100 - pct)) / 100);
-            return {
-              nights: k,
-              repricedTotalVnd: total,
-              deltaVnd: total - roomNow,
-              losDiscountPct: pct,
-            };
-          });
+      // 0.3.6 add. 3 (BUG-R2-045): OTA → child direct booking, no BR-107 step, channel fee saved per k
+      // nights = Σ default rates × the channel commission (mock 15.5 %).
+      const repricing = Array.from({ length: max }, (_, i) => {
+        const k = i + 1;
+        if (ota)
+          return {
+            nights: k,
+            repricedTotalVnd: k * rate,
+            deltaVnd: k * rate,
+            losDiscountPct: 0,
+            channelFeeSavingsVnd: Math.round(k * rate * 0.155),
+          };
+        const pct = (r.nights ?? 0) + k >= 7 && (r.nights ?? 0) < 7 ? 10 : 0;
+        const total = round1000(((roomNow + k * rate) * (100 - pct)) / 100);
+        return {
+          nights: k,
+          repricedTotalVnd: total,
+          deltaVnd: total - roomNow,
+          losDiscountPct: pct,
+        };
+      });
       return json({
         maxNights: max,
         exceedsShortStayLimit: false,
         createsChildReservation: ota,
-        channelFeeSavingsVnd: ota ? round1000(rate * 0.155) : undefined,
+        channelFeeSavingsVnd: ota ? Math.round(rate * 0.155) : undefined,
         currentBookingRateVnd: ota ? null : (r.nightlyRates?.at(-1)?.amountVnd ?? null),
         nights,
         repricing,
@@ -2605,7 +2619,7 @@ export function createStayMock(ctx: Ctx) {
       if (body.purpose === 'P02B_ID_IMAGE_RETENTION') {
         if (body.retentionDays === undefined)
           return validation([{ field: 'retentionDays', code: 'REQUIRED' }]);
-        if (body.retentionDays !== 30)
+        if (body.retentionDays !== st.consentNotice?.imageRetentionDays)
           return validation([{ field: 'retentionDays', code: 'NOT_IN_LIST' }]);
       }
       const d =

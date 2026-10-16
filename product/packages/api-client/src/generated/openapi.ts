@@ -5085,6 +5085,7 @@ export interface components {
       exceedsShortStayLimit?: boolean;
       /** @description Đơn OTA → đơn con kênh Trực tiếp (BR-422) */
       createsChildReservation?: boolean;
+      /** @description Phí kênh tiết kiệm cho **1 đêm** gia hạn (đơn OTA). 0.3.6 bổ sung 3 (QA S3, ARC 17/10): giữ để tương thích – client dùng `repricing[].channelFeeSavingsVnd` theo số đêm khách chọn (BUG-R2-045) */
       channelFeeSavingsVnd?: components['schemas']['MoneyVnd'];
       /**
        * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá **ròng** một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
@@ -5102,6 +5103,11 @@ export interface components {
         /** @description Chênh so với tổng hiện tại (có thể âm khi bậc giảm tăng – kiểu integer) */
         deltaVnd?: components['schemas']['MoneyVnd'];
         losDiscountPct: components['schemas']['Percent'];
+        /**
+         * @description 0.3.6 bổ sung 3 (QA S3, ARC 17/10) (BUG-R2-045): chỉ đơn OTA (`createsChildReservation = true`) – phí kênh OTA **không** phải trả vì `nights` đêm gia hạn đi kênh Trực tiếp
+         *     = Σ giá mặc định các đêm × tỷ lệ hoa hồng kênh OTA của đơn (làm tròn đồng, server tính). Đơn khác: vắng mặt.
+         */
+        channelFeeSavingsVnd?: components['schemas']['MoneyVnd'];
       }[];
       nights: {
         date: components['schemas']['LocalDate'];
@@ -5838,6 +5844,14 @@ export interface components {
       confirmedAt?: components['schemas']['Instant'];
       documents: components['schemas']['GuestDocumentMasked'][];
       imageRetentionUntil?: components['schemas']['Instant'];
+      /**
+       * @description 0.3.6 bổ sung 3 (QA S3, ARC 17/10) (FE s3 mục 9.4, hệ quả của `ConsentInput.retentionDays` bắt buộc với P02b): nguồn cho Desk (H14 `recordImageConsent`) – cùng tham số
+       *     cơ sở như `OnlineCheckin.currentNoticeVersion`/`imageRetentionDays`. Client gửi lại đúng hai giá trị này trong `ConsentInput`; không viết cứng.
+       */
+      consentNotice?: {
+        currentNoticeVersion: string;
+        imageRetentionDays: number;
+      };
       /**
        * @description true khi có mục đối chiếu `blocking=true` (BR-613 c: hộ chiếu/thị thực hết hạn tại ngày nhận, thiếu dấu nhập cảnh) – server **không** cho cấp/hiện mã cửa
        *     (setDoorCredential → 409, GuestStay.doorCode vắng) cho tới khi xử lý. **R2 (0.3.3, E03-01/E06-01)**: là điều kiện `document_check_block` của

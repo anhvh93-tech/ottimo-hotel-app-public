@@ -1,9 +1,12 @@
 /**
  * J16 `retention.purge` – safety net of the immediate deletions (SEC C5, C6; SR-RET-02/03; EP06 6.1;
- * DOM G-17), run HOURLY per property (tick job, throttled by the last retention_run of policy `J16`):
+ * DOM G-17). Tick job (every minute per property). Steps 0–2 and 4 run on EVERY tick, so an image is never
+ * kept more than a minute past its legal ceiling (BR-609-01 `purgeBackstopBy` = confirmed + 24 h –
+ * BUG-R2-036); steps 3 and 5 (attachments, technical rows) and the `J16` heartbeat row run HOURLY
+ * (throttled by the last retention_run of policy `J16`):
  *
- * 0. K1 backfill on every tick (not throttled): bookings without a registration get their `none` record
- *    (moved out of the GET – ARC FB-S3-27 (6));
+ * 0. K1 backfill: bookings without a registration get their `none` record (moved out of the GET –
+ *    ARC FB-S3-27 (6));
  * 1. T02 / SR-RET-02 images whose `delete_after` is due: consenting people of a declared registration →
  *    `retention`; a declaration never confirmed → `unconfirmed` (end of stay + id_image_unconfirmed_max_days,
  *    SEC FB-R2-SEC-BE-32) + a "Cần chú ý" item `registration_overdue` for FD/MGR;
@@ -14,8 +17,9 @@
  * 4. files whose DEK was destroyed in a committed transaction (`blob_pending_delete`, ARC FB-S3-17);
  * 5. technical rows: expired guest sessions; idempotency keys older than `idempotency_ttl_hours`
  *    (SEC FB-R2-SEC-BE-39 – C2 may stay in a response body only that long).
- * Every item runs in its own SAVEPOINT: a poison row is skipped and reported, the run goes on and writes
- * `retention_run` `failed` with the count (ids only, no personal data – ARC FB-S3-27 (2), SEC BE-46).
+ * Every item runs in its own SAVEPOINT: a poison row is skipped and reported, the run goes on; the hourly run
+ * writes `retention_run` `J16` `failed` with the ids and error classes only – no personal data (ARC
+ * FB-S3-27 (2), SEC BE-46). `stats.failures` is returned on every tick (worker log).
  * Registrations under `legal_hold` are skipped. OPS alerts when policy `J16` has no row for 26 hours (C6).
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -32,10 +36,11 @@ import type { ImageRow } from './registration.repo';
 import { type ImageDeleteReason, RegistrationService } from './registration.service';
 import { SYSTEM_ACTOR, readStays } from './stay-reader';
 
-/** Hourly cadence of J16 (architecture 9.1 – technical, not a business parameter). */
+/** Cadence of the hourly part of J16 (architecture 9.1 – technical, not a business parameter). */
 export const J16_INTERVAL_MS = 55 * 60_000;
 
 export interface RetentionStats {
+  /** true when the hourly part (attachments, technical rows, heartbeat) did not run on this tick. */
   skipped?: boolean;
   backfilled: number;
   t02Images: number;
@@ -84,14 +89,13 @@ export class RetentionService {
       stats.backfilled = await this.regs.backfill(tx);
     });
     if (err0) errors.push(`backfill: ${err0.name}`);
+    let hourly = true;
     if (!opts.force) {
       const { rows } = await tx.query<{ last: Date | null }>(
         `SELECT max(run_at) AS last FROM retention_run WHERE policy_key = 'J16'`,
       );
       const last = rows[0]?.last;
-      if (last && now.getTime() - last.getTime() < J16_INTERVAL_MS) {
-        return { ...stats, skipped: true };
-      }
+      hourly = !last || now.getTime() - last.getTime() >= J16_INTERVAL_MS;
     }
     const today = localDate(now, timezone);
     const maxHours = await this.params.get<number>(tx, 'id_image_purge_max_hours', today);
@@ -185,19 +189,27 @@ export class RetentionService {
       }
     }
 
-    // 3. Operational attachments (SEC I5, SEC BE-38).
-    if (this.attachments) {
-      const a = await this.attachments.purgeDue(tx, now, timezone);
-      stats.attachments = a.purged;
-      errors.push(...a.errors);
-    }
-
-    // 4. Files of committed purges.
+    // 4. Files of committed purges (cheap: an empty queue is one indexed DELETE).
     if (this.blobs) {
       const err = await inSavepoint(tx, async () => {
         stats.blobFiles = (await this.blobs?.sweepPending(tx, 500)) ?? 0;
       });
       if (err) errors.push(`blob sweep: ${err.name}`);
+    }
+
+    if (!hourly) {
+      // Non-hourly tick: journal what was deleted; the `J16` row (heartbeat + failures, OPS C6) stays hourly so
+      // a poison row cannot write a row a minute – its failure is recorded by the next hourly run (≤ 55 min).
+      stats.failures = errors.length;
+      await this.journalPolicies(tx, now, stats);
+      return { ...stats, skipped: true };
+    }
+
+    // 3. Operational attachments (SEC I5, SEC BE-38).
+    if (this.attachments) {
+      const a = await this.attachments.purgeDue(tx, now, timezone);
+      stats.attachments = a.purged;
+      errors.push(...a.errors);
     }
 
     // 5. Technical rows.
@@ -217,6 +229,12 @@ export class RetentionService {
     }
 
     stats.failures = errors.length;
+    await this.journalPolicies(tx, now, stats);
+    await this.journalJ16(tx, now, stats, errors);
+    return stats;
+  }
+
+  private async journalPolicies(tx: Tx, now: Date, stats: RetentionStats): Promise<void> {
     for (const [policy, n] of [
       ['T02', stats.t02Images],
       ['SR-RET-02', stats.unconfirmedImages],
@@ -225,6 +243,14 @@ export class RetentionService {
     ] as const) {
       if (n > 0) await this.journal(tx, now, policy, n, 'done', null);
     }
+  }
+
+  private async journalJ16(
+    tx: Tx,
+    now: Date,
+    stats: RetentionStats,
+    errors: readonly string[],
+  ): Promise<void> {
     const total = stats.t02Images + stats.unconfirmedImages + stats.t01Images + stats.attachments;
     await this.journal(
       tx,
@@ -235,7 +261,6 @@ export class RetentionService {
       // ids and error classes only – never personal data (SEC 7).
       errors.length > 0 ? errors.slice(0, 20).join('; ').slice(0, 2000) : null,
     );
-    return stats;
   }
 
   private async journal(

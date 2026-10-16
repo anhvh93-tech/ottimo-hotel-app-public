@@ -64,9 +64,13 @@ describe('module boundaries', () => {
       'modules/payments/public/payment.service.ts':
         'BE-B: lazy ATTACHMENT_USAGE – constructor injection once files no longer needs reservations',
     };
+    const code = (r: string) =>
+      readFileSync(join(SRC, r), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
     const users = files(MODULES)
       .map(rel)
-      .filter((r) => /\bModuleRef\b/.test(readFileSync(join(SRC, r), 'utf8')));
+      .filter((r) => /\bModuleRef\b/.test(code(r)));
     expect(users.filter((r) => !(r in allowed))).toEqual([]);
   });
 });

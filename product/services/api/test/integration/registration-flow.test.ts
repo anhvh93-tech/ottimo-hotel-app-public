@@ -10,8 +10,10 @@ import type { Database } from '../../src/db/database';
 import { AuditService } from '../../src/modules/audit/public/audit.service';
 import { BLOB_STORE, type BlobStore } from '../../src/modules/files/internal/blob-store';
 import { RegistrationPortService } from '../../src/modules/registration/public/registration.port';
+import { JobRegistry } from '../../src/jobs/job-runner';
 import { RegistrationService } from '../../src/modules/registration/internal/registration.service';
 import { RetentionService } from '../../src/modules/registration/internal/retention.service';
+import { RegistrationPartyLink } from '../../src/modules/registration/public/party-port';
 import { serializeResponse } from '../../src/shared/serialization/serializer';
 import {
   type FeatureApp,
@@ -21,7 +23,7 @@ import {
   startFeatureApp,
 } from '../helpers/feature-app';
 import { sampleJpeg, seedStay, setStayStatus, staff } from '../helpers/registration-fixture';
-import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
+import { type BookingIds, seedBooking, seedGuestRow } from '../helpers/reservations-fixture';
 import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
 const MIN = 60_000;
@@ -381,6 +383,37 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     });
     expect(noConsent.statusCode).toBe(409);
     expect(noConsent.json().code).toBe('REGISTRATION_INCOMPLETE');
+    // 0.3.6 bổ sung 3: the desk reads the consent sentence parameters from Registration.consentNotice …
+    const shown = (
+      await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${reg.id}`)
+    ).json();
+    expect(shown.consentNotice).toEqual({
+      currentNoticeVersion: 'privacy-2026-10-v1',
+      imageRetentionDays: 30,
+    });
+    // … and must send back exactly those values (an old version / other days → 422 NOT_IN_LIST, nothing stored).
+    const stale = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/registrations/${reg.id}/consents`,
+      {
+        json: {
+          partyMemberId: d1.id,
+          purpose: 'P02B_ID_IMAGE_RETENTION',
+          decision: 'granted',
+          channel: 'desk',
+          noticeVersion: 'privacy-2026-01-v0',
+          retentionDays: 90,
+          locale: 'vi',
+        },
+      },
+    );
+    expect(stale.json().errors).toEqual([
+      { field: 'noticeVersion', code: 'NOT_IN_LIST' },
+      { field: 'retentionDays', code: 'NOT_IN_LIST' },
+    ]);
     for (const [doc, decision] of [
       [d1, 'granted'],
       [d2, 'refused'],
@@ -613,11 +646,44 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       { policy_key: 'J16', items_count: 1 },
       { policy_key: 'T02', items_count: 1 },
     ]);
-    // Hourly throttle: a second tick right after does nothing.
+    // Hourly throttle: a second tick right after skips the hourly part (no second heartbeat row).
     expect(
       (await db.withContext(t.ctx(), (tx) => retention.run(tx, 'Asia/Ho_Chi_Minh'))).skipped,
     ).toBe(true);
     fa.clock.set(T0);
+  });
+
+  it('BUG-R2-036 / BR-609-01: a refused image left by a failed immediate purge goes at confirmed + 24 h on ANY tick', async () => {
+    const r = await scannedRegistration('Đỗ Văn Em', '079200000020');
+    const sent = await r.act('mark-sent', { portalReference: 'VN-36', kind: 'vn_citizen_stay' });
+    expect(sent.json().status).toBe('sent');
+    const confirmedAt = T0; // 09:00 local
+    expect((await r.act('mark-confirmed', {})).statusCode).toBe(200);
+    // Simulate the failed immediate deletion: the person is now "refused" with the image still alive.
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `INSERT INTO consent_record (id, organization_id, property_id, registration_id, guest_document_id,
+           purpose, decision, channel, notice_version, locale, recorded_at, recorded_by_type, recorded_by,
+           retention_days)
+         SELECT gen_random_uuid(), organization_id, property_id, registration_id, id,
+                'P02B_ID_IMAGE_RETENTION', 'refused', 'desk', 'privacy-2026-10-v1', 'vi', $2, 'user', $3, 30
+           FROM guest_document WHERE id = $1`,
+        [r.documentId, confirmedAt, t.users.fd!.id],
+      ),
+    );
+    const retention = fa.app.get(RetentionService);
+    const tick = async (at: string) => {
+      fa.clock.set(new Date(at));
+      return db.withContext(t.ctx(), (tx) => retention.run(tx, 'Asia/Ho_Chi_Minh'));
+    };
+    // 08:59 next day: hourly run (heartbeat) – not yet due.
+    await tick('2026-10-16T01:59:00.000Z');
+    expect((await imageState(r.documentId)).deleted_at).toBeNull();
+    // 09:00 – one minute later, the hourly part is throttled but the image step still runs.
+    const at = await tick('2026-10-16T02:00:00.000Z');
+    expect(at.skipped).toBe(true);
+    expect(at.t01Images).toBeGreaterThanOrEqual(1);
+    expect(await imageState(r.documentId)).toMatchObject({ delete_reason: 'no_consent' });
   });
 
   it('A74 early purge: OWN/MGR only, If-Match, reason; second time → 409', async () => {
@@ -696,6 +762,24 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect((await staff(fa, tok('fd'), device, 'GET', `${P(t)}/c3-access-log`)).statusCode).toBe(
       403,
     );
+    // BUG-R2-048: the contract's date filter is `from` / `to` (local dates of the property).
+    const logOf = (q: string) =>
+      staff(
+        fa,
+        tok('own'),
+        device,
+        'GET',
+        `${P(t)}/c3-access-log?reservationId=${reservationId}&${q}`,
+      );
+    expect((await logOf('from=2000-01-01&to=2000-01-02')).json().data).toEqual([]);
+    expect((await logOf('from=2026-10-15&to=2026-10-15')).json().data).toHaveLength(2);
+    expect((await logOf('from=2026-10-16')).json().data).toEqual([]);
+    expect((await logOf('from=2026-02-31')).json().errors).toEqual([
+      { field: 'from', code: 'DATE_INVALID' },
+    ]);
+    expect((await logOf('from=2026-10-16&to=2026-10-15')).json().errors).toEqual([
+      { field: 'to', code: 'DATE_INVALID' },
+    ]);
   });
 
   /** Single VN guest reviewed up to `scanned` (consent given). */
@@ -993,5 +1077,228 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       `${P(t)}/registrations/${reg.id}/portal-data?kind=vn_citizen_stay`,
     );
     expect(gone.statusCode).toBe(404);
+  });
+
+  it('BUG-R2-035 / BUG-R2-034: J5 reminds once before the deadline, digest once at 22:00, late mark skipped; "Cần chú ý" due → overdue', async () => {
+    const { reservationId, code } = await seedStay(db, t, ids, {
+      adults: 1,
+      bookerName: 'Hoàng Văn Giáp',
+    });
+    const reg = await registrationOf(reservationId);
+    const at = new Date('2026-10-15T08:00:00.000Z'); // 15:00 local → VN deadline 23:00 (16:00Z)
+    await setStayStatus(db, t, reservationId, 'in_house', { actualCheckinAt: at });
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationPortService).onCheckedIn(tx, reservationId, at),
+    );
+    const job = fa.app.get(JobRegistry).get('registration.deadline');
+    expect(job).toBeDefined();
+    const run = async (iso: string) => {
+      fa.clock.set(new Date(iso));
+      return db.withContext(t.ctx(), (tx) =>
+        job!.handler(tx, {
+          now: fa.clock.now(),
+          organizationId: t.organizationId,
+          propertyId: t.propertyIds[0]!,
+          timezone: 'Asia/Ho_Chi_Minh',
+          date: '2026-10-15',
+          slot: 'tick',
+        }),
+      ) as Promise<Record<string, number>>;
+    };
+    const notes = (refType: string, refId: string) =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ user_id: string; ref_code: string | null }>(
+              `SELECT user_id, ref_code FROM staff_notification
+                WHERE kind = 'registration_due' AND ref_type = $1 AND ref_id = $2 ORDER BY user_id`,
+              [refType, refId],
+            )
+          ).rows,
+      );
+    const attention = async () => {
+      // The Clock moved hours ahead: keep the test sessions alive (idle timeout).
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query(`UPDATE user_session SET idle_expires_at = $1, expires_at = $1`, [
+          new Date(fa.clock.now().getTime() + 3_600_000),
+        ]),
+      );
+      return (await staff(fa, tok('fd'), device, 'GET', `${P(t)}/attention`)).json().data as Array<{
+        kind: string;
+        severity: string;
+        reservationIds?: string[];
+        refCode?: string;
+        params?: Record<string, unknown>;
+      }>;
+    };
+
+    // 20:00 local: "registration_due" with the earliest deadline, no reminder yet (> 120 min left).
+    fa.clock.set(new Date('2026-10-15T13:00:00.000Z'));
+    const dueItem = (await attention()).find((i) => i.kind === 'registration_due');
+    expect(dueItem?.reservationIds).toContain(reservationId);
+    expect(dueItem?.severity).toBe('warning');
+    expect(String(dueItem?.params?.deadline)).toMatch(/^2026-10-15T/);
+    await run('2026-10-15T13:59:00.000Z');
+    expect(await notes('registration', reg.id)).toEqual([]);
+    // 21:01 local: 119 min left → one reminder to FD + FDL + MGR (not OWN, not HK/SAL), booking code only.
+    await run('2026-10-15T14:01:00.000Z');
+    const first = await notes('registration', reg.id);
+    expect(first.map((n) => n.user_id).sort()).toEqual(
+      [t.users.fd!.id, t.users.fdl!.id, t.users.mgr!.id].sort(),
+    );
+    expect(first.every((n) => n.ref_code === code)).toBe(true);
+    await run('2026-10-15T14:30:00.000Z');
+    expect(await notes('registration', reg.id)).toHaveLength(3);
+    // 22:05 local: the BR-611 digest once (refType property), not again at 22:20.
+    const digest = await run('2026-10-15T15:05:00.000Z');
+    expect(digest.digests).toBe(1);
+    const property = t.propertyIds[0]!;
+    expect(await notes('property', property)).toHaveLength(3);
+    expect((await run('2026-10-15T15:20:00.000Z')).digests).toBe(0);
+    expect(await notes('property', property)).toHaveLength(3);
+    // 23:01 local: overdue → critical computed item; no longer "due".
+    fa.clock.set(new Date('2026-10-15T16:01:00.000Z'));
+    const items = await attention();
+    const over = items.find((i) => i.kind === 'registration_overdue' && !('eventId' in i));
+    expect(over?.reservationIds).toContain(reservationId);
+    expect(over?.severity).toBe('critical');
+    expect(items.find((i) => i.kind === 'registration_due')?.reservationIds ?? []).not.toContain(
+      reservationId,
+    );
+    // Worker down until 09:30 local: the 07:00 mark is 150 min late (> job_catchup_minutes 60) → skipped.
+    const late = await run('2026-10-16T02:30:00.000Z');
+    expect(late.digests).toBe(0);
+    expect(late.digestsSkipped).toBe(1);
+    // Sending the declaration ends it: not due, not overdue.
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(`UPDATE registration SET status = 'sent' WHERE id = $1`, [reg.id]),
+    );
+    const after = await attention();
+    for (const kind of ['registration_due', 'registration_overdue']) {
+      expect(
+        after.filter((i) => i.kind === kind).flatMap((i) => i.reservationIds ?? []),
+      ).not.toContain(reservationId);
+    }
+  });
+
+  it('BUG-R2-034: "visa_expiring" – booking code + room only (SR-RET-06), never the expiry date', async () => {
+    const { reservationId, code } = await seedStay(db, t, ids, { adults: 1 });
+    const reg = await registrationOf(reservationId);
+    const add = await addDoc(
+      reg.id,
+      {
+        ...emma,
+        docNumber: 'C77X00V01',
+        visaKind: 'visa',
+        visaNumber: 'V1234567',
+        visaValidUntil: '2026-10-18',
+      },
+      1,
+    );
+    expect(add.statusCode).toBe(201);
+    const data = (await staff(fa, tok('fd'), device, 'GET', `${P(t)}/attention`)).json()
+      .data as Array<Record<string, unknown>>;
+    const item = data.find(
+      (i) =>
+        i.kind === 'visa_expiring' &&
+        (i.reservationIds as string[] | undefined)?.includes(reservationId),
+    );
+    expect(item).toMatchObject({
+      kind: 'visa_expiring',
+      severity: 'warning',
+      refCode: code,
+      roomNos: ['202'],
+    });
+    expect(item).not.toHaveProperty('params');
+    expect(JSON.stringify(item)).not.toMatch(/2026-10-18|18\/10|C77X00V01|SCHMIDT/);
+    // Checked out → the reminder date is cleared, the item disappears.
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app
+        .get(RegistrationPortService)
+        .onCheckedOut(tx, reservationId, new Date('2026-10-15T05:00:00.000Z')),
+    );
+    const later = (await staff(fa, tok('fd'), device, 'GET', `${P(t)}/attention`)).json()
+      .data as Array<{ kind: string; reservationIds?: string[] }>;
+    expect(
+      later.filter((i) => i.kind === 'visa_expiring').flatMap((i) => i.reservationIds ?? []),
+    ).not.toContain(reservationId);
+  });
+
+  it('BUG-R2-033: person 2 without partyMemberId → the party port (BE-A, BR-951) gives the member; main guest never asks', async () => {
+    const { reservationId } = await seedStay(db, t, ids, {
+      adults: 2,
+      bookerName: 'Nguyễn Văn An',
+    });
+    const reg = await registrationOf(reservationId);
+    const memberId = await db.withContext(t.ctx(), async (tx) => {
+      const guestId = await seedGuestRow(db, t, { name: 'Lý Thị Hoa' });
+      const id = randomUUID();
+      await tx.query(
+        `INSERT INTO reservation_guest (id, organization_id, property_id, reservation_id, guest_id, role,
+           relationship, price_age_band, created_at)
+         VALUES ($1, $2, $3, $4, $5, 'companion', 'unknown', 'adult', $6)`,
+        [id, t.organizationId, t.propertyIds[0], reservationId, guestId, T0],
+      );
+      return id;
+    });
+    const calls: Array<Record<string, unknown>> = [];
+    const fake = {
+      memberForDocument: async (_tx: unknown, input: Record<string, unknown>) => {
+        calls.push(input);
+        return input.fullNameOnDoc === 'Lý Thị Hoa' ? memberId : null;
+      },
+    };
+    // BE-A's DocumentPartyPort is handed to RegistrationPartyLink at module init; the test stands in for it.
+    const spy = vi
+      .spyOn(fa.app.get(RegistrationPartyLink), 'memberForDocument')
+      .mockImplementation((tx, input) =>
+        fake.memberForDocument(tx, input as unknown as Record<string, unknown>),
+      );
+    try {
+      // Main guest: no lookup.
+      const main = await addDoc(reg.id, { ...an, isMain: true }, 1);
+      expect(main.statusCode).toBe(201);
+      expect(calls).toHaveLength(0);
+      // Person 2: matched → linked to the member returned by the port.
+      const second = await addDoc(
+        reg.id,
+        {
+          ...an,
+          fullNameOnDoc: 'Lý Thị Hoa',
+          docNumber: '079200000033',
+          dateOfBirth: '1992-05-06',
+        },
+        1,
+      );
+      expect(second.statusCode).toBe(201);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({
+        reservationId,
+        fullNameOnDoc: 'Lý Thị Hoa',
+        dateOfBirth: '1992-05-06',
+        isMinor: false,
+        nationalityCode: 'VNM',
+      });
+      expect(calls[0]!.docNumberHmac).toMatch(/^[0-9a-f]{64}$/);
+      const docs = second.json().documents as Array<{
+        docNumberLast4: string;
+        partyMemberId?: string;
+      }>;
+      expect(docs.find((d) => d.docNumberLast4 === '0033')?.partyMemberId).toBe(memberId);
+      // Undecided (null) → stays unlinked, no error.
+      const third = await addDoc(
+        reg.id,
+        { ...an, fullNameOnDoc: 'Người Lạ', docNumber: '079200000034', dateOfBirth: '1990-01-01' },
+        1,
+      );
+      expect(third.statusCode).toBe(201);
+      const d3 = (
+        third.json().documents as Array<{ docNumberLast4: string; partyMemberId?: string }>
+      ).find((d) => d.docNumberLast4 === '0034');
+      expect(d3?.partyMemberId).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

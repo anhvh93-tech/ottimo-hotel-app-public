@@ -430,6 +430,8 @@ export class StaySupport {
       targetCode: row.code,
       folioLineId: focLineId as string,
       lineCategory: line.category,
+      // BR-433 "≤ giá 1 đêm" (BUG-R2-046, folio port of BE-B): last night for late check-out, first for early.
+      limitBasisVnd: await this.folios.nightRateBasis(tx, line.id),
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
   }

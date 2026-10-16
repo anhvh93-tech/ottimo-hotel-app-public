@@ -2306,6 +2306,8 @@
   "gw.oci_unavailable_title": "Check in at reception",
   "gw.oci_unavailable_body": "Online check-in isn't available on this page right now. You can still check in as usual: bring your original IDs and reception will check you in within a few minutes.",
   "gw.oci_unavailable_late": "Arriving after {time}? Call the night staff when you get here.",
+  "ci.go_handover": "Continue: Hand over & finish",
+  "error.field_named": "\"{label}\": {message}",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",

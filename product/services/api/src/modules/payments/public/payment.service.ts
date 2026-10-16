@@ -19,7 +19,7 @@ import type { Tx } from '../../../db/database';
 import type { PaymentMethod, PaymentType } from '../../../db/schema/folio';
 import { type FieldError, problem } from '../../../shared/problem';
 import { localDate } from '../../../shared/time';
-import { optionalText } from '../../../shared/validation';
+import { assertNoCardNumber, optionalText } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import {
   FolioService,
@@ -265,8 +265,13 @@ export class PaymentService {
     const auth = typeof raw.posAuthCode === 'string' ? raw.posAuthCode.trim() || null : null;
     if (raw.method === 'card_pos' && !auth)
       errors.push({ field: f('posAuthCode'), code: 'REQUIRED' });
+    // V-09 / R-PAY-01 first (BUG-R2-043): a card number in the POS approval code → CARD_NUMBER_DETECTED.
+    assertNoCardNumber(f('posAuthCode'), auth);
     if (auth && !/^[A-Za-z0-9]{1,12}$/.test(auth)) {
-      errors.push({ field: f('posAuthCode'), code: 'VALIDATION_FAILED' });
+      errors.push({
+        field: f('posAuthCode'),
+        code: auth.length > 12 ? 'TOO_LONG' : 'VALIDATION_FAILED',
+      });
     }
     if (raw.billingPeriodId !== undefined && raw.billingPeriodId !== null) {
       // Long-stay billing periods (US-119 AC5) are R3.

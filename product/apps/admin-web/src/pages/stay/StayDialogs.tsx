@@ -147,7 +147,12 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
             <p className="li-s">
               {t('extend.ota_child', {
                 channel: channelName(catalog.channels, r.channelCode, r.channelId),
-                amount: money(o.channelFeeSavingsVnd ?? 0),
+                // BUG-R2-045: the saving for the nights chosen (root field = 1 night, kept for old servers).
+                amount: money(
+                  o.repricing?.find((x) => x.nights === n)?.channelFeeSavingsVnd ??
+                    o.channelFeeSavingsVnd ??
+                    0,
+                ),
               })}
             </p>
           ) : null}

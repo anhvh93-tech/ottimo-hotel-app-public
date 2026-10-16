@@ -55,6 +55,10 @@ export interface DtoInput {
   requestedGroup?: { id: string; code: string } | null;
   /** US-022 AC1: persons recorded on the booking (booker + party members). */
   partyPresentCount?: number;
+  /** 0.3.6 (BUG-R2-031): what the folio still owes (FD+/SAL – x-visible-to). */
+  balanceDueVnd?: number;
+  /** 0.3.6 (BUG-R2-031): the booking's registration (registration module, through ReservationHooks). */
+  registration?: { id: string; status: string; deadlineAt: Date | null } | null;
 }
 
 export function toReservationDto(d: DtoInput): Record<string, unknown> {
@@ -130,6 +134,19 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
             reason: row.deposit_shortfall_reason ?? '',
           }
         : null,
+    // 0.3.3 E03-04 / BUG-R2-031: recorded at B9 (null before).
+    cardsIssued: row.cards_issued,
+    houseRulesSentAt: row.house_rules_sent_at ? d.iso(row.house_rules_sent_at) : null,
+    ...(d.balanceDueVnd !== undefined ? { balanceDueVnd: d.balanceDueVnd } : {}),
+    ...(d.registration
+      ? {
+          registrationId: d.registration.id,
+          registrationStatus: d.registration.status,
+          ...(d.registration.deadlineAt
+            ? { registrationDeadlineAt: d.iso(d.registration.deadlineAt) }
+            : {}),
+        }
+      : {}),
     ...(row.actual_checkin_at ? { actualCheckinAt: d.iso(row.actual_checkin_at) } : {}),
     ...(row.actual_checkout_at ? { actualCheckoutAt: d.iso(row.actual_checkout_at) } : {}),
     ...(row.hold_expires_at

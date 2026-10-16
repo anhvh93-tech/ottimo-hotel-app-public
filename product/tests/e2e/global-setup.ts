@@ -3,12 +3,16 @@
 //     qa.owner session): every CI login comes from ONE IP and SR-RL-01 allows 20 logins/IP/15 min, so a
 //     re-run on the same stack, or a previous project's logins, must not turn into 429 reds;
 //  2. logs the DS-E accounts in sequentially and caches the sessions in e2e/.auth/sessions.json (gitignored,
-//     0600). Workers reuse them (getMe re-validates) and log in again only when a session was revoked.
+//     0600). Workers reuse them (getMe re-validates) and log in again only when a session was revoked;
+//  3. checks the trusted desk device token (seed output tests/fixtures/seed/.out/ds-e.map.json). Unreadable
+//     (CI: written 0600 by the seed container's uid – BUG-R2-053) → registers a fallback desk device through
+//     qa.owner and warns; CI fails here if neither works (instead of ~30 DEVICE_NOT_TRUSTED reds + silent skips).
 // No API / no login endpoint / no password → the specs skip with their own reason. In CI (CI=true) a stack
 // whose DS-E accounts cannot log in (401: seed not loaded / wrong QA_SEED_PASSWORD) fails HERE with one
 // clear message instead of hundreds of red cases.
 import { request as pwRequest } from '@playwright/test';
 import { isAvailable, LoginRateLimited, resetRateLimits, session } from './support/api.js';
+import { ensureDeskDevice } from './support/device.js';
 import { API_URL, SEED_PASSWORD, SUBJECTS, TEST_TOKEN } from './support/env.js';
 
 export default async function globalSetup(): Promise<void> {
@@ -50,6 +54,16 @@ export default async function globalSetup(): Promise<void> {
       }
     }
     console.log(`[e2e setup] phiên DS-E sẵn sàng: ${ok}/${SUBJECTS.length}`);
+    // C3 endpoints need a trusted desk device (seed output, else a fallback device – support/device.ts)
+    if (ok > 0) {
+      try {
+        console.log(`[e2e setup] ${await ensureDeskDevice(ctx)}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.log(msg);
+        if (process.env.CI) throw e;
+      }
+    }
     if (process.env.CI && ok === 0 && failures.some((f) => /UNAUTHENTICATED|\b401\b/.test(f))) {
       throw new Error(
         '[e2e setup] Không tài khoản DS-E nào đăng nhập được (401): stack chưa nạp seed DS-E ' +

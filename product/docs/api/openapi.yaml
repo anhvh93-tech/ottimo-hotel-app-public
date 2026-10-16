@@ -287,6 +287,10 @@ info:
     `Folio.totals` (DOM BE-13); tập đóng `AuditEvent.action` nhóm tiền (UXD). Đổi hành vi có chủ đích: `earlyDeparture` 200 trả `EarlyDepartureResult`; `checkOut` sau
     mốc cuối = "tính thêm 1 đêm" thay vì bắt gia hạn trước.
 
+    **0.3.6 bổ sung 3 (QA S3, ARC 17/10)**: `ExtensionOptions.repricing[].channelFeeSavingsVnd` (BUG-R2-045); `Registration.consentNotice {currentNoticeVersion, imageRetentionDays}` cho Desk.
+    **BUG-R2-038 dời 0.3.7** (thiết kế đã chốt – `s3-contract.md` mục 7.7): `checkIn.payment` + `CheckInPreview.amountDueAtCheckinVnd`; tới lúc đó phụ thu nhận sớm/đêm B9a
+    không tính vào `balance_paid`, thu ở B18 (`BALANCE_DUE` chặn – không mất tiền).
+
     ## Thay đổi phiên bản 0.3.5-draft (R2 Sprint 2 – đề nghị FE/QA/UXD/BA/BE; quyết định `rounds/round-02/outputs/ARC/s2-contract.md` nhóm A, A-01…A-18)
     **Thêm operation**: `listCloserCandidates` (A-06), `getBookingRules` (A-07), `extendQuote` (Q4, A51 – A-18).
     **Thêm trường**: `RackBar.reservationCode/externalContract/extraGuestCount/holdExpiresAt` (A-01); `Reservation.noShowAvailableFrom` (A-04), `depositPaidVnd` (A-13);
@@ -8754,7 +8758,7 @@ components:
         maxNights: { type: integer }
         exceedsShortStayLimit: { type: boolean, description: 'Vượt BR-421/BR-108 → gợi ý báo giá dài hạn' }
         createsChildReservation: { type: boolean, description: 'Đơn OTA → đơn con kênh Trực tiếp (BR-422)' }
-        channelFeeSavingsVnd: { $ref: '#/components/schemas/MoneyVnd' }
+        channelFeeSavingsVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Phí kênh tiết kiệm cho **1 đêm** gia hạn (đơn OTA). 0.3.6 bổ sung 3 (QA S3, ARC 17/10): giữ để tương thích – client dùng `repricing[].channelFeeSavingsVnd` theo số đêm khách chọn (BUG-R2-045)' }
         currentBookingRateVnd:
           oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }]
           description: |
@@ -8773,6 +8777,11 @@ components:
               repricedTotalVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Tổng tiền phòng cả đơn sau gia hạn (đêm cũ còn hiệu lực + đêm mới)' }
               deltaVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Chênh so với tổng hiện tại (có thể âm khi bậc giảm tăng – kiểu integer)' }
               losDiscountPct: { $ref: '#/components/schemas/Percent' }
+              channelFeeSavingsVnd:
+                $ref: '#/components/schemas/MoneyVnd'
+                description: |
+                  0.3.6 bổ sung 3 (QA S3, ARC 17/10) (BUG-R2-045): chỉ đơn OTA (`createsChildReservation = true`) – phí kênh OTA **không** phải trả vì `nights` đêm gia hạn đi kênh Trực tiếp
+                  = Σ giá mặc định các đêm × tỷ lệ hoa hồng kênh OTA của đơn (làm tròn đồng, server tính). Đơn khác: vắng mặt.
         nights:
           type: array
           items:
@@ -9555,6 +9564,15 @@ components:
               type: array
               items: { $ref: '#/components/schemas/GuestDocumentMasked' }
             imageRetentionUntil: { $ref: '#/components/schemas/Instant' }
+            consentNotice:
+              type: object
+              required: [currentNoticeVersion, imageRetentionDays]
+              description: |
+                0.3.6 bổ sung 3 (QA S3, ARC 17/10) (FE s3 mục 9.4, hệ quả của `ConsentInput.retentionDays` bắt buộc với P02b): nguồn cho Desk (H14 `recordImageConsent`) – cùng tham số
+                cơ sở như `OnlineCheckin.currentNoticeVersion`/`imageRetentionDays`. Client gửi lại đúng hai giá trị này trong `ConsentInput`; không viết cứng.
+              properties:
+                currentNoticeVersion: { type: string, pattern: '^[a-z0-9][a-z0-9.-]{2,63}$' }
+                imageRetentionDays: { type: integer, minimum: 1, maximum: 365 }
             blocksDoorCode:
               type: boolean
               description: |

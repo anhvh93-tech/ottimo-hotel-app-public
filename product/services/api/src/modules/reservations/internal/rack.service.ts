@@ -235,6 +235,16 @@ export class RackService {
       push(byRoom, b.room_id, bar);
     }
 
+    // BUG-R2-040: the STORED room status (SM-03 `room_status`, written by B9/B13/B14/B17/B18 – same
+    // aggregate, ARC B-3) wins over the derived one, exactly like RoomStatusService.current().
+    const stored = new Map(
+      (
+        await tx.query<{ room_id: string; status: string }>(
+          'SELECT room_id, status FROM room_status WHERE room_id = ANY($1::uuid[])',
+          [rooms.rows.map((r) => r.id)],
+        )
+      ).rows.map((x) => [x.room_id, x.status]),
+    );
     return {
       from,
       days,
@@ -244,8 +254,11 @@ export class RackService {
         roomNo: r.room_no,
         roomGroupCode: r.group_code,
         isSellable: r.is_sellable,
-        // Room status (SM-03) is owned by housekeeping (Sprint 4); until then derived from today's facts.
-        roomStatus: oooToday.has(r.id) ? 'OOO' : inHouseToday.has(r.id) ? 'OC' : 'VC',
+        // Room status (SM-03; housekeeping owns it from Sprint 4): OOO block today, else the stored status,
+        // else derived from today's facts.
+        roomStatus: oooToday.has(r.id)
+          ? 'OOO'
+          : (stored.get(r.id) ?? (inHouseToday.has(r.id) ? 'OC' : 'VC')),
         bars:
           view === 'availability'
             ? mergeRanges(busy.get(r.id) ?? []).map((x) => ({

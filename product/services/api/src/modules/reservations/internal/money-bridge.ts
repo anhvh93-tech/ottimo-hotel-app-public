@@ -46,6 +46,12 @@ export class MoneyBridge {
     return this.folios.depositPaid(tx, row.folio_id);
   }
 
+  /** 0.3.6 `Reservation.balanceDueVnd` (BUG-R2-031): what the folio still owes. */
+  async balanceDue(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return (await this.folios.balance(tx, row.folio_id)).balanceDueVnd;
+  }
+
   /** A-34 / G-14: money the guest paid above what the folio now charges (refund basis – BE-12). */
   async credit(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');

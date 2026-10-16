@@ -228,10 +228,12 @@ export class TestRateLimitsController {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ModuleRef) private readonly moduleRef: ModuleRef,
+    @Inject(AuthGuard) private readonly guard: AuthGuard,
   ) {}
 
   /**
-   * Re-runnable E2E on one stack: in-memory windows (login per IP, guest lookup) are cleared for the whole
+   * Re-runnable E2E on one stack: in-memory windows (login per IP, guest lookup, SR-RL-09 per user – BUG-R2-051)
+   * are cleared for the whole
    * process; DB counters (login lockout, re-auth lock) only for the caller's organisation and the prefix.
    * Only TEMPORARY locks are lifted (status locked + locked_until); a hard lock without an end (seed
    * account qa.locked, owner-only unlock) is kept (BUG-R2-014).
@@ -245,6 +247,7 @@ export class TestRateLimitsController {
     } catch {
       // identity module not loaded – nothing in memory to clear
     }
+    this.guard.resetRateLimits();
     const p = req.testPrincipal as StaffPrincipal;
     const users = await this.db.withContext(tenantOf(p), async (tx) => {
       const r = await tx.query(

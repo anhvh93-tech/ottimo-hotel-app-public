@@ -13,7 +13,8 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
-import { STAFF_REQUESTS_PER_MINUTE } from '../../src/shared/http/auth.guard';
+import { RateLimiter } from '../../src/modules/identity/public/rate-limiter';
+import { AuthGuard, STAFF_REQUESTS_PER_MINUTE } from '../../src/shared/http/auth.guard';
 import {
   Client,
   type FeatureApp,
@@ -21,7 +22,7 @@ import {
   seedSprint1Params,
   startFeatureApp,
 } from '../helpers/feature-app';
-import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
+import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
 describe.skipIf(!HAS_DB)('guard – Sprint 3 Response & fix (SEC-BE-33/34/35)', () => {
   let db: Database;
@@ -120,8 +121,28 @@ describe.skipIf(!HAS_DB)('guard – Sprint 3 Response & fix (SEC-BE-33/34/35)', 
       [t.users.fd3!.id],
     );
     expect(events[0]!.n).toBe(1);
-    // The window ends with the minute (fixed test clock moved on).
-    fa.clock.set(new Date(fa.clock.now().getTime() + 61_000));
+    // BUG-R2-051: the window runs on the process clock – moving the business clock (dev/test) by years
+    // neither opens it nor stretches Retry-After beyond the minute.
+    fa.clock.set(new Date(T0.getTime() - 3 * 365 * 86_400_000));
+    const later = await me.get('/v1/me');
+    expect(later.statusCode).toBe(429);
+    expect(Number(later.headers['retry-after'])).toBeLessThanOrEqual(60);
+    fa.clock.set(T0);
+    // Test support reset (`POST /__test__/rate-limits/reset`) clears these windows too.
+    fa.app.get(AuthGuard).resetRateLimits();
     expect((await me.get('/v1/me')).statusCode).toBe(200);
+  });
+
+  it('BUG-R2-051: a window opened at a later business time does not count once the clock is back', () => {
+    let now = Date.parse('2029-06-01T00:00:00Z');
+    const limiter = new RateLimiter({ now: () => new Date(now) });
+    const rule = { limit: 2, windowMs: 60_000 };
+    limiter.hit('k', rule);
+    limiter.hit('k', rule);
+    expect(limiter.retryAfter('k', rule)).toBeGreaterThan(0);
+    now = Date.parse('2026-10-15T02:00:00Z'); // clock reset to "now"
+    expect(limiter.retryAfter('k', rule)).toBe(0);
+    limiter.hit('k', rule);
+    expect(limiter.retryAfter('k', rule)).toBe(0);
   });
 });

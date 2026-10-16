@@ -31,6 +31,7 @@ import type {
   CheckinDocumentStatus,
   FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import { RegistrationPartyLink } from '../../src/modules/registration/public/party-port';
 import { ReservationsService } from '../../src/modules/reservations/internal/reservations.service';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
 import {
@@ -72,6 +73,10 @@ class DocsOk implements FrontdeskRegistrationPort {
   async onPartyMemberRemoved() {}
   async onCheckedOut() {}
   async onReservationVoided() {}
+  visa: string | null = null;
+  async earliestVisaValidUntil(): Promise<string | null> {
+    return this.visa;
+  }
 }
 
 const ROLES = { own: ['owner'], mgr: ['manager'], fd: ['front_desk'], sal: ['sales_staff'] };
@@ -86,6 +91,7 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
   let guest: string;
   const companions: string[] = [];
   const c: Record<string, Client> = {};
+  const docs = new DocsOk();
 
   const longDevice = async () => {
     const token = randomBytes(32).toString('base64url');
@@ -119,7 +125,7 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
           .overrideProvider(FrontdeskPorts)
           .useValue(
             new FrontdeskPorts(
-              new DocsOk(),
+              docs,
               new NoGuestAccessPort(),
               new UnwiredChildDataPort(),
               new NoMinibarPort(),
@@ -312,7 +318,9 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
       `SELECT id FROM approval_request WHERE target_id = $1 AND type = 'foc' AND status = 'pending'`,
       [b.id],
     );
-    const ap = await c.own!.send('POST', url(`/approval-requests/${req!.id}/actions/approve`), {
+    // BUG-R2-046: the FOC request carries the night basis (last night 667.000) → within the manager's
+    // "≤ 1 night" limit, no escalation to the owner.
+    const ap = await c.mgr!.send('POST', url(`/approval-requests/${req!.id}/actions/approve`), {
       authMethod: 'password',
       secret: TEST_PASSWORD,
     });
@@ -516,6 +524,23 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
     const o = await ota('302', '2026-12-07', '2026-12-09', 1_800_000);
     await checkIn(o);
     await at('2026-12-08T10:00:00+07:00');
+    // BUG-R2-045 (0.3.6 bổ sung 3): savings per number of nights = Σ default rates × the OTA commission.
+    const opts = (await c.fd!.get(url(`/reservations/${o.id}/extension-options`))).json() as {
+      channelFeeSavingsVnd: number;
+      repricing: Array<{ nights: number; repricedTotalVnd: number; channelFeeSavingsVnd: number }>;
+    };
+    const [rate] = await q<{ pct: string }>(
+      `SELECT r.rate_pct::text AS pct FROM channel_commission_rate r
+        WHERE r.channel_id = $1 ORDER BY r.effective_from DESC LIMIT 1`,
+      [ids.channels.agoda],
+    );
+    const pct = Number(rate!.pct);
+    const fee = (base: number) => Math.round((base * pct) / 100 / 1000) * 1000;
+    expect(opts.repricing.length).toBeGreaterThan(1);
+    for (const r of opts.repricing) {
+      expect(r.channelFeeSavingsVnd, `nights ${r.nights}`).toBe(fee(r.repricedTotalVnd));
+    }
+    expect(opts.channelFeeSavingsVnd).toBe(opts.repricing[0]!.channelFeeSavingsVnd);
     const ext = await act(o.id, 'extend', { nights: 1 });
     expect(ext.statusCode, ext.body).toBe(200);
     expect(ext.json().childReservation).toMatchObject({ departureDate: '2026-12-10' });
@@ -538,6 +563,83 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
       [o.id],
     );
     expect(st.map((x) => x.status)).toEqual(['checked_out', 'checked_out']);
+  });
+
+  it('BUG-R2-052/031/040/047/037: arrival at 01:30 after midnight is a plain B9; Reservation 0.3.6 fields; stored room status; extension → OD; visa soft block', async () => {
+    await at('2026-12-14T15:00:00+07:00');
+    await q(`UPDATE room_status SET status = 'VC' WHERE room_id = $1`, [ids.rooms['101']]);
+    const b = await direct('101', '2026-12-14', '2026-12-16', 1_334_000);
+    // 15/12 01:30 – calendar day after the arrival, business day still 14/12 (BR-010)
+    await at('2026-12-15T01:30:00+07:00');
+    const pv = (await c.fd!.get(url(`/reservations/${b.id}/check-in-preview`))).json();
+    expect(pv.earlyCheckinSurcharge).toMatchObject({ amountVnd: 0, addsPreviousNight: false });
+    const ci = await act(b.id, 'check-in', { cardsIssued: 1, houseRulesSent: true });
+    expect(ci.statusCode, ci.body).toBe(200);
+    expect(ci.json()).toMatchObject({
+      status: 'in_house',
+      actualCheckinAt: '2026-12-15T01:30:00.000+07:00',
+      cardsIssued: 1,
+      houseRulesSentAt: '2026-12-15T01:30:00.000+07:00',
+      balanceDueVnd: 0,
+      registrationId: expect.any(String),
+      registrationStatus: expect.any(String),
+    });
+    expect(await live(b.folioId, 'early_checkin')).toEqual([]);
+    const rackStatus = async () =>
+      (
+        (await c.fd!.get(url('/rack?days=3'))).json().rooms as Array<{
+          roomNo: string;
+          roomStatus: string;
+        }>
+      ).find((r) => r.roomNo === '101')?.roomStatus;
+    expect(await rackStatus()).toBe('OC');
+    // BUG-R2-037: visa ends 16/12 – extending to 17/12 needs the confirmation (soft block)
+    await at('2026-12-15T10:00:00+07:00');
+    docs.visa = '2026-12-16';
+    try {
+      const soft = await act(b.id, 'extend', { nights: 1 });
+      expect(soft.statusCode).toBe(422);
+      expect(soft.json().errors).toContainEqual({
+        field: 'visaWarningAckReason',
+        code: 'VISA_EXPIRES_BEFORE_DEPARTURE',
+      });
+      const ok = await act(b.id, 'extend', {
+        nights: 1,
+        visaWarningAckReason: 'Khách đang làm thủ tục gia hạn thị thực',
+      });
+      expect(ok.statusCode, ok.body).toBe(200);
+    } finally {
+      docs.visa = null;
+    }
+    // BUG-R2-047 / BUG-R2-040: the stay goes on → OD, and the rack shows the stored status
+    expect(await rackStatus()).toBe('OD');
+  });
+
+  it('BUG-R2-033: a document without partyMemberId finds its person (BR-951) – profile match, else the one undocumented member', async () => {
+    await at('2026-12-21T15:00:00+07:00');
+    const b = await direct('102', '2026-12-21', '2026-12-22', 750_000);
+    const hmac = `test-${randomUUID()}`;
+    await q('UPDATE guest SET id_doc_hmac = $2 WHERE id = $1', [companions[0], hmac]);
+    const port = fa.app.get(RegistrationPartyLink, { strict: false });
+    const call = (docNumberHmac: string) =>
+      db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
+        port.memberForDocument(tx, {
+          reservationId: b.id,
+          docNumberHmac,
+          fullNameOnDoc: 'Do Ban Mot',
+          dateOfBirth: null,
+          nationalityCode: 'VNM',
+          isMinor: false,
+          actor: { userId: t.users.fd!.id, requestId: randomUUID() },
+        }),
+      );
+    const first = await call(hmac);
+    expect(first).toEqual(expect.any(String));
+    const party = (await c.fd!.get(url(`/reservations/${b.id}/party`))).json();
+    expect(party.presentCount).toBe(2);
+    expect(await call(hmac)).toBe(first); // same person → same member, no second row
+    // no profile matches → the one member still without a document
+    expect(await call(`other-${randomUUID()}`)).toBe(first);
   });
 
   it('ARC-09: the SSE listener reconnects after its connection is killed – the next event still arrives', async () => {

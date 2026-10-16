@@ -2306,6 +2306,8 @@
   "gw.oci_unavailable_title": "Làm thủ tục tại quầy",
   "gw.oci_unavailable_body": "Lúc này chưa làm thủ tục trước qua trang này được. Bạn vẫn nhận phòng bình thường: mang giấy tờ gốc, lễ tân làm thủ tục cho bạn trong vài phút.",
   "gw.oci_unavailable_late": "Đến sau {time}? Gọi người trực khi tới nơi.",
+  "ci.go_handover": "Tiếp tục: Giao mã & hoàn tất",
+  "error.field_named": "Mục \"{label}\": {message}",
   "msg.booking_confirmed": "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
   "msg.deposit_received": "Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}",
   "msg.checkin_link": "Chào {name}, để nhận phòng nhanh, vui lòng gửi giấy tờ và giờ đến tại: {link} (khoảng 2 phút).",

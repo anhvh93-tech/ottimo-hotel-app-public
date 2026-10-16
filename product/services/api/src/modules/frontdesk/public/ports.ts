@@ -52,6 +52,11 @@ export interface FrontdeskRegistrationPort {
   onCheckedOut(tx: Tx, reservationId: string, actualCheckoutAt: Date): Promise<void>;
   /** B10 / B11 / relocation: registration voided (K11). */
   onReservationVoided(tx: Tx, reservationId: string): Promise<void>;
+  /**
+   * BUG-R2-037 (BR-605, US-050 AC2): earliest visa / temporary-residence validity (YYYY-MM-DD) of the foreign
+   * documents of the booking; null = none known. Used only to compare with a new departure (B13).
+   */
+  earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null>;
 }
 
 export interface FrontdeskGuestAccessPort {

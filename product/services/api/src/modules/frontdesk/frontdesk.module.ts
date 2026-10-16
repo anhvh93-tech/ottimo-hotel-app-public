@@ -11,7 +11,7 @@
  * - approvals 'late_checkout_conflict' → the requested time becomes the agreed check-out time.
  * Job J24 `payment.expire` is registered here (api / test-support) and in worker.ts.
  */
-import { Inject, Module, type OnModuleInit } from '@nestjs/common';
+import { Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
 import { paymentExpiryJob } from '../../jobs/payment-jobs';
 import { AuditService } from '../audit/public/audit.service';
@@ -29,6 +29,7 @@ import {
   UnwiredChildDataPort,
   UnwiredRegistrationPort,
 } from './internal/default-ports';
+import { DocumentPartyPort } from './internal/document-party.port';
 import { FrontdeskController } from './internal/frontdesk.controller';
 import { PartyService } from './internal/party.service';
 import { StayService } from './internal/stay.service';
@@ -44,6 +45,7 @@ import {
   type FrontdeskRegistrationPort,
 } from './public/ports';
 import { RoomStatusService } from './public/room-status.service';
+import { RegistrationPartyLink } from '../registration/public/party-port';
 
 // Audit allowlist of the front desk facts (SR-AUD-03): no guest C2/C3, no door code (SEC D2).
 defineAuditEntity('reservation', [
@@ -94,6 +96,8 @@ defineAuditEntity('reservation', [
     StayService,
     CheckoutService,
     PartyService,
+    // BUG-R2-033: the party member of a document entered without `partyMemberId` (BE-C consumer port).
+    DocumentPartyPort,
   ],
   exports: [RoomStatusService, FrontdeskPorts],
 })
@@ -106,6 +110,8 @@ export class FrontdeskModule implements OnModuleInit {
     @Inject(StayService) private readonly stays: StayService,
     @Inject(JobRegistry) private readonly jobs: JobRegistry,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(DocumentPartyPort) private readonly documentParty: DocumentPartyPort,
+    @Optional() @Inject(RegistrationPartyLink) private readonly partyLink?: RegistrationPartyLink,
   ) {}
 
   onModuleInit(): void {
@@ -114,6 +120,8 @@ export class FrontdeskModule implements OnModuleInit {
     if (this.ports.guestAccess instanceof NoGuestAccessPort && process.env.NODE_ENV !== 'test') {
       throw new Error('FD_GUEST_ACCESS_PORT is not bound (guest-portal module missing)');
     }
+    // BUG-R2-033: registration asks the party which member a document belongs to (BE-C link, BR-951).
+    this.partyLink?.provide(this.documentParty);
     // ARC-BE-S3-15 g: reservations shows the party size without reading reservation_guest itself.
     this.hooks.providePartyCount(async (tx, reservationId) => {
       const { rows } = await tx.query<{ n: number }>(
