@@ -262,7 +262,7 @@ Ký hiệu: **K** khả năng, **TĐ** tác động, **M** mức trước biện
 | TM-30 | Ghi chú, đính kèm, payload CM thô | I | **Dữ liệu thẻ lọt vào hệ thống**: nhân viên gõ số thẻ vào ghi chú; ảnh chụp thẻ làm "biên nhận"; channel manager gửi kèm thẻ ảo (VCC) trong payload thô → `ChannelBookingEvent.raw`/`inbox_message.payload_ref` lưu lại → kéo OTTIMO vào phạm vi PCI DSS | 2 | 3 | **High** | Validator Luhn mọi ô văn bản tự do (R-PAY-07, K10); **lọc bỏ trường thẻ khỏi payload CM trước khi lưu**, chỉ lưu trường trong danh sách cho phép, tắt chuyển thẻ trên Beds24 (SR-PAY-09, R-PAY-06); mục đích đính kèm không có "thẻ"; hướng dẫn nhân viên (SR-PAY-10) | Low |
 | TM-31 | Bank feed SePay/payOS (R3) | S/T | Webhook biến động số dư giả → tự xác nhận chuyển khoản không có thật | 2 | 3 | **High** | Xác thực khóa/chữ ký của nhà cung cấp; **kéo lại giao dịch qua API** của nhà cung cấp trước khi ghi; khớp nội dung `OTM00171` + số tiền chính xác; lệch → "Cần chú ý", không tự ghi (SR-PAY-07) | Low |
 | TM-32 | Folio, thu tiền mặt | R/T | Nhân viên ghi thu tiền mặt rồi đảo, sửa dòng folio, xóa dấu vết | 2 | 2 | Medium | Không xóa, chỉ bút toán đảo (K8); đảo chỉ MGR+ (A34); audit append-only; báo cáo thu theo ca (A44) (SR-AUD-01…03) | Low |
-| TM-33 | Cấu hình | E/T | Adapter `mock` hoặc `CLOCK_OVERRIDE` vô tình bật ở production → ghi tiền giả, sai hạn | 1 | 3 | Medium | Kiểm khi khởi động: `NODE_ENV=production` mà có adapter tiền `mock`, `CLOCK_OVERRIDE` khác rỗng, bí mật trống → **không khởi động** (SR-SECR-05); route webhook `mock` không đăng ký ở production | Low |
+| TM-33 | Cấu hình | E/T | Adapter `mock`, đồng hồ chỉnh được (`CLOCK_MODE=mutable`) hoặc endpoint kiểm thử (`/__test__/*` – chỉnh giờ, chạy job) vô tình bật ở production → ghi tiền giả, sai hạn, lách hạn xóa/khóa | 1 | 3 | Medium | Kiểm khi khởi động theo `APP_ENV`: production mà có adapter tiền `mock`, `CLOCK_MODE` ≠ `system`, `INCLUDE_TEST_SUPPORT=1`/`TEST_SUPPORT_TOKEN`, bí mật trống → **không khởi động**; biến cũ `CLOCK_OVERRIDE` đặt khác rỗng → dừng ở mọi môi trường (SR-SECR-05); mã `test-support` chỉ nạp khi `INCLUDE_TEST_SUPPORT=1`, cần `X-Test-Token` + phiên owner, CI quét bundle production không có `__test__` (fail-closed); route webhook `mock` không đăng ký ở production | Low |
 
 ### 7.6 Channel manager (DF-5)
 
@@ -380,5 +380,6 @@ Kết luận cho QC A14: **28/28 rủi ro Critical/High có ≥ 1 biện pháp c
 
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 16/10/2026 | 2 – Sprint 1 vòng sửa | TM-33: bỏ `CLOCK_OVERRIDE`, thay bằng `CLOCK_MODE` + mặt kiểm thử `INCLUDE_TEST_SUPPORT`/`/__test__/*`, dùng `APP_ENV` (khớp `security-requirements.md` v0.3 SR-SECR-05) | SEC |
 | 15/10/2026 | 1 – Bước 4 | Thêm TM-61 (mã xác minh qua kênh nhắn tin), TM-62 (thiết bị di động của cơ sở), mục 6.4 luồng khách đến khuya; cập nhật TM-16 (không PDF, chuẩn hóa ảnh ở client), TM-21 (rủi ro còn lại khi bật kênh), TM-38 (`ddmm` + ≥ 3 số), TM-46; mục 8 (28/28), mục 9, giả định | SEC |
 | 15/10/2026 | 1 – Đợt 4 | Bản đầu: 16 tài sản, 10 tác nhân, 11 biên tin cậy, 10 luồng, 60 mối đe dọa STRIDE, quan điểm M1/M3/M4/M8/M9 | SEC |
