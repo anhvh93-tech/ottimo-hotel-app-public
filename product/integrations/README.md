@@ -2,7 +2,7 @@
 
 - Chủ sở hữu: INT | Tạo: Round 1 Bước 2 (15/10/2026) | Sửa: **Round 1 Bước 4 (15/10/2026) – Interface v0.2** theo review ARC (FB-R1-ARC-INT-01…18), SEC (FB-R1-SEC-INT-01…12), DOM (FB-R1-DOM-INT-01…08)
 - Ngôn ngữ/khung: **TypeScript**, package `@ottimo/integrations` (ADR-002, ADR-011). Lõi (`services/api`) **chỉ** import `@ottimo/integrations/contracts` (kiểu + lỗi + ngữ cảnh); cài đặt adapter (có SDK/HTTP của đối tác) chỉ được nạp qua `IntegrationRegistry` trong tầng hạ tầng.
-- Trạng thái mã: khung OPS (`notification/`) đã được INT tiếp quản và chỉnh khớp v0.2; `contracts/` có kiểu chung + Notification. Các interface 3.1–3.4, 3.6 dưới đây là **hợp đồng chốt cho R2** – đầu R2 INT chép nguyên vào `contracts/*.ts` (không đổi chữ ký nếu không qua ARC).
+- Trạng thái mã (R2 tuần 1, W9 – 16/10/2026): `contracts/` có **đủ** interface 3.0–3.6 (`common`, `channel`, `payment`, `bankfeed`, `einvoice`, `doorlock`, `notification`, `guest-registration`) – chép nguyên chữ ký v0.2, chỉ đặt tên cho các kiểu tham số/kết quả (vd. `CreatePaymentRequest`, `EInvoiceIssueRequest`). `common/` (export `@ottimo/integrations/common`) có `scrubCardData`, `EnvCredentialProvider`, `assertSafeConfig`/`findUnsafeIntegrationConfig` – `services/api/src/config.ts` gọi hàm này lúc khởi động. Adapter đã cài: Mock Notification. Đổi chữ ký interface phải qua ARC.
 - Danh sách tích hợp, chi phí, việc INV cần cung cấp: `product/docs/integrations.md`
 
 ## 1. Nguyên tắc
@@ -20,12 +20,12 @@ Lõi nghiệp vụ không gọi SDK/HTTP của đối tác. Đổi nhà cung c�
 - Quy ước chung: `<NHÓM>_PROVIDER=off|mock|<tên>`; mặc định `off`. Thanh toán theo từng cổng: `PAYMENT_<CỔNG>_MODE=off|mock|sandbox|production` + `PAYMENT_METHODS_ENABLED=<danh sách>` (vd. `vietqr,vnpay`). Cổng/nhóm `off` → Registry trả `null`, giao diện không hiện phương thức đó và **route webhook của nhà cung cấp đó không được đăng ký** (gọi vào → 404) – SR-SECR-05(c).
 - Khi `APP_ENV=production`, ứng dụng **từ chối khởi động** nếu: (a) bất kỳ adapter tiền (`PAYMENT_*`, `BANKFEED_*`), kênh (`CHANNEL_*`), khóa (`DOORLOCK_*`) ở `mock` hoặc `sandbox`; (b) một phương thức trong `PAYMENT_METHODS_ENABLED` có `MODE` khác `production`. `off` luôn hợp lệ (vd. INV bỏ MoMo → `PAYMENT_MOMO_MODE=off`).
 - Route webhook `mock` **không đăng ký** khi `APP_ENV=production`.
-- Không có `if (APP_ENV === 'production')` rải trong code: kiểm tra tập trung một chỗ ở `IntegrationRegistry.assertSafeConfig()`.
+- Không có `if (APP_ENV === 'production')` rải trong code: kiểm tra tập trung một chỗ ở `common/safe-config.ts` (`assertSafeConfig(env, appEnv)` / `findUnsafeIntegrationConfig`), được `services/api/src/config.ts` gọi khi api và worker khởi động. Thêm: (c) `*_MOCK_SCENARIO` có giá trị → từ chối ở production; (d) mọi môi trường: biến chọn nhà cung cấp ở mục 4 phải có giá trị hợp lệ (vd. `PAYMENT_VIETQR_MODE=sandbox` bị từ chối vì VietQR không có sandbox), `PAYMENT_<X>_MODE` và `PAYMENT_METHODS_ENABLED` chỉ nhận `vietqr|vnpay|momo`. Ở dev/test/staging, phương thức bật mà `MODE=off` chỉ bị ẩn, không lỗi.
 
 ### 1.4 Ngữ cảnh cơ sở và khóa (ARC-01, ARC-08)
 - Mọi phương thức nhận tham số đầu `ctx: IntegrationContext = { propertyId, credentialsRef, requestId }`.
 - `IntegrationRegistry.get(kind, propertyId)` trả instance theo cơ sở (cache theo `propertyId` + phiên bản khóa).
-- Adapter **không đọc `process.env`**; nhận khóa qua `CredentialProvider.get(credentialsRef)`. MVP: `EnvCredentialProvider` đọc biến mục 4; khi > 1 cơ sở: `DbCredentialProvider` (bảng `integration_credential` mã hóa – ARC thêm vào ERD khi cần). Interface adapter không đổi.
+- Adapter **không đọc `process.env`**; nhận khóa qua `CredentialProvider.get(credentialsRef)`. MVP: `EnvCredentialProvider` (`common/env-credential-provider.ts`) đọc biến mục 4: `credentialsRef = env:<TIỀN_TỐ>` (vd. `env:PAYMENT_VNPAY` → `{ MODE, TMN_CODE, HASH_SECRET, … }`), tiền tố phải thuộc nhóm `CHANNEL|PAYMENT|BANKFEED|EINVOICE|DOORLOCK|EMAIL|ZALO` (không lấy được `SESSION_SECRET`, `DATA_KEK_*`…); hỗ trợ `<TÊN>_FILE` (Docker secrets, quy ước OPS) – có cả hai mà khác giá trị → lỗi `CONFIG`; thông báo lỗi chỉ nêu tên biến; khi > 1 cơ sở: `DbCredentialProvider` (bảng `integration_credential` mã hóa – ARC thêm vào ERD khi cần). Interface adapter không đổi.
 
 ### 1.5 Ngày và thời điểm (ARC-02)
 - **Ngày lịch** (`date`, `from`, `to`, `checkIn`, `checkOut`, `issueDate`) = `LocalDate` – chuỗi `YYYY-MM-DD` theo `property.timezone`. Khoảng ngày luôn **nửa mở** `[from, to)` (BR-002).
@@ -50,7 +50,7 @@ Mọi adapter chỉ ném `IntegrationError` (mục 3.0). Worker (`outbox.dispatc
 
 ### 1.8 Lọc theo danh sách trường cho phép – không giữ payload thô (SEC-01 Blocker, ARC-04)
 - Interface **không có trường `raw`**. Mọi DTO đi vào lõi được adapter dựng bằng **ánh xạ tường minh từng trường** (allowlist) – trường không có trong danh sách bị bỏ, kể cả khi đối tác thêm trường mới.
-- Trước khi ánh xạ, adapter chạy `scrubCardData()` trên payload: loại khóa khớp `/(^|_)(card|cc|cvv|cvc|vcc|pan|expir|cardholder)/i` và mọi giá trị chuỗi chứa dãy 13–19 chữ số (bỏ khoảng trắng/gạch) thỏa thuật toán Luhn. Khi loại: tăng bộ đếm `integration_card_data_dropped_total{provider}`, tạo cảnh báo cho SEC/OWN, **không log** giá trị, không log tên trường kèm giá trị.
+- **Sau** khi xác thực chữ ký trên body thô và **trước** khi ánh xạ, adapter chạy `scrubCardData()` (`common/scrub-card-data.ts`) trên payload: (a) loại khóa có **token** (tách theo `_ - .` và camelCase) là `card*`, `cc`, `cvv`, `cvc`, `vcc`, `pan`, `expiry`, `expiration`, `exp`+`month|year|date`, `track1|2`… – bản v0.2 dùng regex `/(^|_)(card|cc|cvv|cvc|vcc|pan|expir|cardholder)/i`, đổi sang token để bắt `creditCard`, `ccNumber` và không xóa nhầm `expiresAt`, `vnp_ExpireDate`, `ccy`, `panel` (decision-log INT 16/10/2026); `allowKeys` miễn **chỉ** luật tên cho trường đã biết không phải thẻ (vd. `vnp_CardType`); (b) mọi giá trị chuỗi hoặc số nguyên chứa dãy 13–19 chữ số (bỏ khoảng trắng/gạch) thỏa thuật toán Luhn – không có ngoại lệ. Hàm trả bản sao đã lọc + **số lượng** trường bị loại (không trả tên/giá trị). Khi loại: tăng bộ đếm `integration_card_data_dropped_total{provider}`, tạo cảnh báo cho SEC/OWN, **không log** giá trị, không log tên trường kèm giá trị.
 - `rawFiltered` (tùy chọn) chỉ chứa các trường trong allowlist phục vụ đối soát; lưu trong `inbox_message`, **xóa sau 90 ngày** (job dọn).
 - Body thô chỉ tồn tại trong bộ nhớ của request; không ghi file, DB, log, APM, thông báo lỗi.
 - Bắt buộc: test với payload mẫu có trường thẻ (Mock scenario `card_data_in_payload`) → không xuất hiện trong DB/log/outbox (checklist mục 5).
@@ -71,9 +71,9 @@ product/integrations/
 ├── README.md
 ├── index.ts                  # export gốc "." (contracts + Mock dùng cho test/dev)
 ├── contracts/                # export "./contracts" – CHỈ kiểu, IntegrationError, IntegrationContext, MockScenario
-│   ├── common.ts
-│   └── index.ts
-├── common/                   # (R2) registry, assertSafeConfig, CredentialProvider, scrubCardData, signature helpers
+│   ├── common.ts, index.ts
+│   └── channel.ts, payment.ts, bankfeed.ts, einvoice.ts, doorlock.ts, notification.ts, guest-registration.ts
+├── common/                   # export "./common": scrubCardData, EnvCredentialProvider, assertSafeConfig (có mã); R2: registry, signature helpers
 ├── channel/                  # ChannelAdapter: mock/, beds24/
 ├── payment/                  # PaymentAdapter: mock/, vietqr/, vnpay/, momo/
 ├── bankfeed/                 # BankFeedAdapter: mock/, sepay/ | payos/

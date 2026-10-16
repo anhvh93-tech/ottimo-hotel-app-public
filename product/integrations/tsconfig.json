@@ -7,5 +7,5 @@
     "rootDir": ".",
     "declaration": true
   },
-  "include": ["index.ts", "contracts", "notification"]
+  "include": ["index.ts", "contracts", "common", "notification"]
 }

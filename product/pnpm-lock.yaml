@@ -128,6 +128,9 @@ importers:
 
   integrations:
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.5
       typescript:
         specifier: ~5.8.3
         version: 5.8.3
@@ -155,6 +158,9 @@ importers:
       '@nestjs/platform-fastify':
         specifier: ^11.0.0
         version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@ottimo/integrations':
+        specifier: workspace:*
+        version: link:../../integrations
       pg:
         specifier: ^8.13.1
         version: 8.23.1
@@ -171,9 +177,6 @@ importers:
       '@ottimo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@ottimo/integrations':
-        specifier: workspace:*
-        version: link:../../integrations
       '@swc/core':
         specifier: ^1.10.1
         version: 1.16.18

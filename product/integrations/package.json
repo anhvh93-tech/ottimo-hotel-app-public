@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Third-party adapters (owner: INT). contracts/ = types, IntegrationError, IntegrationContext only (ADR-011); notification Mock implemented. Other adapters from R2 per README v0.2.",
+  "description": "Third-party adapters (owner: INT). contracts/ = types, IntegrationError, IntegrationContext only (ADR-011); common/ = scrubCardData, EnvCredentialProvider, assertSafeConfig; notification Mock implemented. Other adapters from R2 per README v0.2.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -16,6 +16,11 @@
       "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.js",
       "default": "./dist/contracts/index.js"
+    },
+    "./common": {
+      "types": "./dist/common/index.d.ts",
+      "import": "./dist/common/index.js",
+      "default": "./dist/common/index.js"
     }
   },
   "files": [
@@ -28,6 +33,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "typescript": "~5.8.3",
     "vitest": "^4.1.12"
   }
