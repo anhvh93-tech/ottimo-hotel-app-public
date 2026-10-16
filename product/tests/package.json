@@ -1,0 +1,20 @@
+{
+  "name": "@ottimo/tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "QA: fixtures (br-examples oracle, seed DS-E/DS-0), fixture validator, Playwright E2E (test-strategy section 2)",
+  "scripts": {
+    "test": "node tools/validate-fixtures.mjs",
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.10.2",
+    "typescript": "~5.8.3"
+  },
+  "engines": {
+    "node": ">=22.12.0 <23"
+  }
+}

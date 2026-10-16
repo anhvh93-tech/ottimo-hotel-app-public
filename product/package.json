@@ -12,6 +12,8 @@
   "scripts": {
     "lint": "eslint . && turbo run typecheck",
     "test": "turbo run test",
+    "test:fixtures": "pnpm --filter @ottimo/tests test",
+    "test:e2e": "pnpm --filter @ottimo/tests test:e2e",
     "build": "turbo run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

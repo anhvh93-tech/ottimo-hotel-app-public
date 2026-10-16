@@ -1,0 +1,1657 @@
+{
+  "$comment": "DS-E (rỗng) – test-strategy mục 4.1. Dữ liệu GIẢ, không có đơn. Seed loader của BE (sprint 1) đọc file này; QA sở hữu nội dung.",
+  "id": "DS-E",
+  "schemaVersion": 1,
+  "fakeDataOnly": true,
+  "updated": "2026-10-16",
+  "sources": [
+    "product/docs/qa/test-strategy.md mục 4.1–4.3",
+    "product/docs/business-rules.md v0.2 mục 13",
+    "product/docs/round-0-baseline.md 4.1, 4.13, 5.2",
+    "product/docs/erd.md 4.1 (channel)"
+  ],
+  "organization": {
+    "code": "OTTIMO",
+    "name": "OTTIMO Boutique Stay"
+  },
+  "property": {
+    "code": "DLT",
+    "name": "OTTIMO Đà Lạt",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "businessDayRollover": "06:00"
+  },
+  "roomGroups": [
+    {
+      "code": "L12",
+      "name": "Lầu 1–2",
+      "sortOrder": 1,
+      "defaultMaxOccupancy": 3,
+      "otaBaseRateVnd": 760000,
+      "serviceFeeMonthlyVnd": 300000,
+      "fixedCostMonthlyVnd": 150000,
+      "cleaningPackage": [
+        {
+          "perWeek": 1,
+          "priceVnd": 180000,
+          "costVnd": 100000
+        },
+        {
+          "perWeek": 2,
+          "priceVnd": 160000,
+          "costVnd": 100000
+        },
+        {
+          "perWeek": 3,
+          "priceVnd": 150000,
+          "costVnd": 100000
+        }
+      ]
+    },
+    {
+      "code": "N",
+      "name": "Căn N",
+      "sortOrder": 2,
+      "defaultMaxOccupancy": 4,
+      "otaBaseRateVnd": 1050000,
+      "serviceFeeMonthlyVnd": 400000,
+      "fixedCostMonthlyVnd": 200000,
+      "cleaningPackage": [
+        {
+          "perWeek": 1,
+          "priceVnd": 250000,
+          "costVnd": 140000
+        },
+        {
+          "perWeek": 2,
+          "priceVnd": 230000,
+          "costVnd": 140000
+        },
+        {
+          "perWeek": 3,
+          "priceVnd": 210000,
+          "costVnd": 140000
+        }
+      ]
+    },
+    {
+      "code": "NPLUS",
+      "name": "Căn N+",
+      "sortOrder": 3,
+      "defaultMaxOccupancy": 4,
+      "otaBaseRateVnd": 980000,
+      "serviceFeeMonthlyVnd": 350000,
+      "fixedCostMonthlyVnd": 180000,
+      "cleaningPackage": [
+        {
+          "perWeek": 1,
+          "priceVnd": 220000,
+          "costVnd": 120000
+        },
+        {
+          "perWeek": 2,
+          "priceVnd": 200000,
+          "costVnd": 120000
+        },
+        {
+          "perWeek": 3,
+          "priceVnd": 180000,
+          "costVnd": 120000
+        }
+      ]
+    }
+  ],
+  "roomGroupsNote": "sortOrder (thứ tự nâng hạng BR-316) là [GIẢ ĐỊNH QA]: L12 < N < N+ – INV cấu hình thật",
+  "rooms": [
+    {
+      "roomNo": "101",
+      "name": "The Amber",
+      "group": "L12",
+      "monthlyListPriceVnd": 8000000,
+      "expectedNightlyListPriceVnd": 667000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "102",
+      "name": "The Fern",
+      "group": "L12",
+      "monthlyListPriceVnd": 9000000,
+      "expectedNightlyListPriceVnd": 750000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "103",
+      "name": "The Bloom",
+      "group": "L12",
+      "monthlyListPriceVnd": 9000000,
+      "expectedNightlyListPriceVnd": 750000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "201",
+      "name": "The Mist",
+      "group": "L12",
+      "monthlyListPriceVnd": 8500000,
+      "expectedNightlyListPriceVnd": 708000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "202",
+      "name": "The Valley",
+      "group": "L12",
+      "monthlyListPriceVnd": 9500000,
+      "expectedNightlyListPriceVnd": 792000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "203",
+      "name": "The Sage",
+      "group": "L12",
+      "monthlyListPriceVnd": 9500000,
+      "expectedNightlyListPriceVnd": 792000,
+      "maxOccupancy": 3,
+      "isSellable": true
+    },
+    {
+      "roomNo": "301",
+      "name": "The Velvet",
+      "group": "N",
+      "monthlyListPriceVnd": 11500000,
+      "expectedNightlyListPriceVnd": 958000,
+      "maxOccupancy": 4,
+      "isSellable": true
+    },
+    {
+      "roomNo": "302",
+      "name": "The Ivory",
+      "group": "NPLUS",
+      "monthlyListPriceVnd": 11000000,
+      "expectedNightlyListPriceVnd": 917000,
+      "maxOccupancy": 4,
+      "isSellable": true
+    },
+    {
+      "roomNo": "401",
+      "name": "The Pine",
+      "group": "N",
+      "monthlyListPriceVnd": 12500000,
+      "expectedNightlyListPriceVnd": 1042000,
+      "maxOccupancy": 4,
+      "isSellable": true
+    },
+    {
+      "roomNo": "402",
+      "name": "The Ember",
+      "group": "NPLUS",
+      "monthlyListPriceVnd": 12000000,
+      "expectedNightlyListPriceVnd": 1000000,
+      "maxOccupancy": 4,
+      "isSellable": true
+    }
+  ],
+  "roomsNote": "maxOccupancy = mặc định nhóm (BR-110); số thật từng căn chờ INV (ESC-004 A). expectedNightlyListPriceVnd là kết quả mong đợi BR-101, server tự tính – không nạp cột này",
+  "parameters": [
+    {
+      "param": "timezone",
+      "value": "Asia/Ho_Chi_Minh",
+      "br": "BR-001",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "business_day_rollover",
+      "value": "06:00",
+      "br": "BR-010",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "fx_usd_vnd",
+      "value": 26200,
+      "br": "BR-004",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rounding.night_rate",
+      "value": 1000,
+      "br": "BR-005",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rounding.monthly_rent",
+      "value": 10000,
+      "br": "BR-005",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rounding.deposit",
+      "value": 100000,
+      "br": "BR-005",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rounding.fee",
+      "value": 1000,
+      "br": "BR-005",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "night_from_month_divisor",
+      "value": 12,
+      "br": "BR-101",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "long_stay_daily_divisor",
+      "value": 30,
+      "br": "BR-102",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "weekend_uplift_pct",
+      "value": 15,
+      "br": "BR-103",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "weekend_nights",
+      "value": ["FRI", "SAT"],
+      "br": "BR-103",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "special_dates",
+      "value": [
+        {
+          "name": "Tết Nguyên đán 2027",
+          "from": "2027-02-05",
+          "to": "2027-02-11"
+        },
+        {
+          "name": "30/4–1/5",
+          "from": "2027-04-30",
+          "to": "2027-05-02"
+        },
+        {
+          "name": "Quốc khánh",
+          "from": "2027-09-02",
+          "to": "2027-09-03"
+        },
+        {
+          "name": "Giáng sinh – Năm mới",
+          "from": "2026-12-24",
+          "to": "2027-01-02"
+        }
+      ],
+      "br": "BR-104",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01",
+      "note": "Khoảng nửa mở [from, to). Ngày Tết 2027 do QA điền theo lịch âm (mùng 1 = 06/02/2027, khoảng 29 Tết – mùng 5) – DOM/INV xác nhận; ESC-004 P-B: R2 chỉ lễ quốc gia"
+    },
+    {
+      "param": "special_uplift_pct",
+      "value": 30,
+      "br": "BR-104",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rate_floor_pct",
+      "value": 70,
+      "br": "BR-105",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rate_ceiling_pct",
+      "value": 250,
+      "br": "BR-105",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "los_discount",
+      "value": [
+        {
+          "minNights": 7,
+          "pct": 10
+        },
+        {
+          "minNights": 14,
+          "pct": 15
+        }
+      ],
+      "br": "BR-107",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "long_stay_compare_from_nights",
+      "value": 15,
+      "br": "BR-108",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "long_stay_required_from_nights",
+      "value": 28,
+      "br": "BR-108",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foreigner_surcharge_pct",
+      "value": 10,
+      "br": "BR-109",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "base_occupancy",
+      "value": 2,
+      "br": "BR-110",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "extra_adult_fee",
+      "value": 150000,
+      "br": "BR-110",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "adult_from_age",
+      "value": 12,
+      "br": "BR-110",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "child_free_under_age",
+      "value": 6,
+      "br": "BR-110",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "child_fee_6_11",
+      "value": 100000,
+      "br": "BR-110",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "return_guest_code",
+      "value": "OTTIMO-BACK5",
+      "br": "BR-111",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "return_guest_pct",
+      "value": 5,
+      "br": "BR-111",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "stackable",
+      "value": false,
+      "br": "BR-111",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "booking_window_days",
+      "value": 365,
+      "br": "BR-112",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "short_stay_max_nights",
+      "value": 27,
+      "br": "BR-112",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "min_stay",
+      "value": [],
+      "br": "BR-113",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01",
+      "note": "BR v0.2: TẮT (= 1 đêm). ESC-004 đã quyết A (M-A: 2 đêm cho đến T6, T7, ngày lễ) – chờ DOM cập nhật BR rồi QA đổi giá trị seed"
+    },
+    {
+      "param": "rent_reminder_days",
+      "value": 7,
+      "br": "BR-207",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rent_overdue_alert_days",
+      "value": 3,
+      "br": "BR-207",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "rent_overdue_escalate_days",
+      "value": 10,
+      "br": "BR-207",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "lease_renewal_offer_days",
+      "value": 30,
+      "br": "BR-211",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "commission_payable_day",
+      "value": 1,
+      "br": "BR-212",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "commission_pay_by_day",
+      "value": 10,
+      "br": "BR-212",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "deposit_refund_working_days",
+      "value": 7,
+      "br": "BR-214",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hold_hours_options",
+      "value": [12, 24, 48],
+      "br": "BR-302",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hold_hours_default",
+      "value": 24,
+      "br": "BR-302",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hold_latest_time_on_arrival",
+      "value": "12:00",
+      "br": "BR-302",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hold_expiry_reminder_hours",
+      "value": 2,
+      "br": "BR-303",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hold_extension_max_hours",
+      "value": 24,
+      "br": "BR-303",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "quote_validity_days",
+      "value": 3,
+      "br": "BR-304",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "short_stay_deposit_pct",
+      "value": 30,
+      "br": "BR-305",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "cancel_policy_direct",
+      "value": [
+        {
+          "minDays": 7,
+          "refundPct": 100
+        },
+        {
+          "minDays": 3,
+          "refundPct": 50
+        },
+        {
+          "minDays": 0,
+          "refundPct": 0
+        }
+      ],
+      "br": "BR-309",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "cancel_peak_no_refund",
+      "value": true,
+      "br": "BR-309",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "reschedule_max_times",
+      "value": 1,
+      "br": "BR-309",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "reschedule_window_months",
+      "value": 3,
+      "br": "BR-309",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "no_show_call_time",
+      "value": "18:00",
+      "br": "BR-311",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "no_show_mark_time",
+      "value": "23:00",
+      "br": "BR-311",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "early_termination",
+      "value": [
+        {
+          "minDays": 30,
+          "forfeitPct": 50
+        },
+        {
+          "minDays": 0,
+          "forfeitPct": 100
+        }
+      ],
+      "br": "BR-313",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "conflict_resolve_minutes_urgent",
+      "value": 60,
+      "br": "BR-317",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "conflict_urgent_window_hours",
+      "value": 24,
+      "br": "BR-317",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "conflict_resolve_deadline_far",
+      "value": "12:00",
+      "br": "BR-317",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "channel_sync_outage_alert_minutes",
+      "value": 15,
+      "br": "BR-317",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "manual_close_when_rooms_left_le",
+      "value": 1,
+      "br": "BR-317",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "group_rooming_list_days",
+      "value": 3,
+      "br": "BR-323",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "group_min_rooms",
+      "value": 2,
+      "br": "BR-324",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "checkin_time",
+      "value": "14:00",
+      "br": "BR-401",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "checkout_time",
+      "value": "12:00",
+      "br": "BR-401",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "door_code_min_digits",
+      "value": 6,
+      "br": "BR-403",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "birthday_code_random_digits",
+      "value": 3,
+      "br": "BR-403",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "early_checkin_tiers",
+      "value": [
+        {
+          "from": "10:00",
+          "to": "14:00",
+          "pct": 30
+        },
+        {
+          "from": "06:00",
+          "to": "10:00",
+          "pct": 50
+        }
+      ],
+      "br": "BR-411",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "late_checkout_tiers",
+      "value": [
+        {
+          "after": "12:00",
+          "until": "15:00",
+          "pct": 30
+        },
+        {
+          "after": "15:00",
+          "until": "18:00",
+          "pct": 50
+        }
+      ],
+      "br": "BR-412",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "late_grace_until",
+      "value": "12:00",
+      "br": "BR-412",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01",
+      "note": "ESC-007 đã quyết A (12:30) ngày 16/10 – chờ DOM cập nhật BR rồi QA đổi giá trị seed"
+    },
+    {
+      "param": "late_grace_requires_no_same_day_arrival",
+      "value": true,
+      "br": "BR-412",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "ota_surcharge_base",
+      "value": "direct_current_rate",
+      "br": "BR-415",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "long_stay_free_late_until",
+      "value": "15:00",
+      "br": "BR-413",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "extension_max_nights",
+      "value": 7,
+      "br": "BR-421",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "extension_payment_deadline",
+      "value": "14:00",
+      "br": "BR-423",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "checkout_reminders",
+      "value": ["20:00-1d", "09:00", "11:00", "12:00"],
+      "br": "BR-425",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "post_checkout_charge_hours",
+      "value": 24,
+      "br": "BR-427",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_limits",
+      "value": {
+        "front_desk_lead": {
+          "perTimeVnd": 300000,
+          "perMonthVnd": 1500000
+        },
+        "manager": {
+          "perTime": "one_night_rate"
+        },
+        "owner": {
+          "perTime": "unlimited"
+        }
+      },
+      "br": "BR-433",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_self_apply.front_desk.per_time",
+      "value": 100000,
+      "br": "BR-436",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_self_apply.front_desk.per_month",
+      "value": 500000,
+      "br": "BR-436",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_self_apply.front_desk.categories",
+      "value": ["minibar"],
+      "br": "BR-436",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_alert_pct_of_room_revenue",
+      "value": 3,
+      "br": "BR-435",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_alert_count_per_approver",
+      "value": 10,
+      "br": "BR-435",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "electricity_price",
+      "value": 3500,
+      "br": "BR-501",
+      "status": "GD+PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "water_price",
+      "value": 25000,
+      "br": "BR-501",
+      "status": "GD+PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "meter_anomaly_factor",
+      "value": 2,
+      "br": "BR-503",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "meter_anomaly_default_kwh",
+      "value": 300,
+      "br": "BR-503",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "meter_anomaly_default_m3",
+      "value": 10,
+      "br": "BR-503",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "utility_bill_due_days",
+      "value": 5,
+      "br": "BR-504",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "adhoc_cleaning_fee",
+      "value": 100000,
+      "br": "BR-506",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "laundry_price_per_kg",
+      "value": 30000,
+      "br": "BR-507",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "smoking_fee",
+      "value": 500000,
+      "br": "BR-511",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "key_card_fee",
+      "value": 200000,
+      "br": "BR-511",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "key_cards_per_booking",
+      "value": 2,
+      "br": "BR-511",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "lost_found_keep_days",
+      "value": 30,
+      "br": "BR-513",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "lost_found_notify_hours",
+      "value": 24,
+      "br": "BR-513",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "vat_rate",
+      "value": 8,
+      "br": "BR-523",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "prices_include_vat",
+      "value": true,
+      "br": "BR-523",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "bank_reconcile_alert_days",
+      "value": 2,
+      "br": "BR-527",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "cash_variance_requires_reason",
+      "value": true,
+      "br": "BR-526",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "registration_deadline_vn",
+      "value": {
+        "before": "23:00",
+        "lateArrivalFrom": "23:00",
+        "lateArrivalDeadlineNextDay": "08:00"
+      },
+      "br": "BR-602",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "registration_deadline_foreigner_hours",
+      "value": 12,
+      "br": "BR-603",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "registration_deadline_foreigner_mode",
+      "value": "hours_only",
+      "br": "BR-603",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "registration_reminder_before_minutes",
+      "value": 120,
+      "br": "BR-603",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "registration_digest_times",
+      "value": ["22:00", "07:00"],
+      "br": "BR-611",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "visa_expiry_warning_days.long_stay",
+      "value": 30,
+      "br": "BR-605",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "visa_expiry_warning_days.short_stay",
+      "value": 14,
+      "br": "BR-605",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "id_image_retention_days_after_checkout",
+      "value": 30,
+      "br": "BR-610",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "id_image_purge_max_hours",
+      "value": 24,
+      "br": "BR-609",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "minor_data_age_threshold",
+      "value": 16,
+      "br": "BR-612",
+      "status": "PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "stocktake_variance_approval_pct",
+      "value": 5,
+      "br": "BR-705",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "expiry_warning_days",
+      "value": 7,
+      "br": "BR-706",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "hk_self_inspection_enabled",
+      "value": false,
+      "br": "BR-802",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "vacant_reinspect_days",
+      "value": 3,
+      "br": "BR-805",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "ooo_reopen_buffer_days",
+      "value": 1,
+      "br": "BR-804",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "room_status_reconcile_time",
+      "value": "07:00",
+      "br": "BR-806",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "daily_clean_status_time",
+      "value": "07:00",
+      "br": "BR-802",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "linen_change_every_nights",
+      "value": 3,
+      "br": "BR-807",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "long_stay_cleaning_window",
+      "value": ["09:00", "11:00"],
+      "br": "BR-807",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "wo_sla",
+      "value": {
+        "high": {
+          "ackMinutes": 15,
+          "planHours": 2
+        },
+        "medium": {
+          "doneHours": 24
+        },
+        "low": {
+          "doneHours": 72
+        }
+      },
+      "br": "BR-809",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "maintenance_due_warning_days",
+      "value": 7,
+      "br": "BR-810",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "guest_request_response_minutes",
+      "value": 10,
+      "br": "BR-811",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "front_desk_hours",
+      "value": ["07:00", "22:00"],
+      "br": "BR-811",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "short_stay_commission_pct",
+      "value": {
+        "collaborator": 8,
+        "staff": 3
+      },
+      "br": "BR-903",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "contingency_sheet_time",
+      "value": "06:30",
+      "br": "BR-961",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "offline_backfill_max_hours",
+      "value": 24,
+      "br": "BR-963",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "power_outage_escalate_hours",
+      "value": 4,
+      "br": "BR-964",
+      "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    }
+  ],
+  "parametersNote": "Giá trị mặc định BR v0.2 mục 13. status: GD = [GIẢ ĐỊNH – chờ INV], NGANH, PL = cần xác nhận pháp lý. Tham số nội dung lớn (lease_terms, minibar_standard, service_fee, cleaning_package, channel_commission_pct) nằm ở các khối riêng bên dưới. Trường 'param' = config_parameter.key (đặt tên khác 'key' để tránh gitleaks generic-api-key báo nhầm)",
+  "leaseTerms": [
+    {
+      "months": 1,
+      "discountPct": 0,
+      "depositFactorVn": "0.5",
+      "depositFactorForeign": "1",
+      "billingCycleMonths": 1,
+      "commissionStaffPct": "3",
+      "commissionCollaboratorPct": "5"
+    },
+    {
+      "months": 3,
+      "discountPct": 5,
+      "depositFactorVn": "1",
+      "depositFactorForeign": "1",
+      "billingCycleMonths": 3,
+      "commissionStaffPct": "4",
+      "commissionCollaboratorPct": "6"
+    },
+    {
+      "months": 6,
+      "discountPct": 8,
+      "depositFactorVn": "1",
+      "depositFactorForeign": "1.5",
+      "billingCycleMonths": 3,
+      "commissionStaffPct": "5",
+      "commissionCollaboratorPct": "7"
+    },
+    {
+      "months": 12,
+      "discountPct": 12,
+      "depositFactorVn": "1",
+      "depositFactorForeign": "2",
+      "billingCycleMonths": 3,
+      "commissionStaffPct": "6",
+      "commissionCollaboratorPct": "8.3"
+    },
+    {
+      "months": 24,
+      "discountPct": 15,
+      "depositFactorVn": "2",
+      "depositFactorForeign": "2",
+      "billingCycleMonths": 3,
+      "commissionStaffPct": "4",
+      "commissionCollaboratorPct": "6"
+    }
+  ],
+  "utilityEstimate": {
+    "vn": {
+      "kwhPerPerson": 120,
+      "m3PerPersonTenths": 35
+    },
+    "foreign": {
+      "kwhPerPerson": 170,
+      "m3PerPersonTenths": 40
+    }
+  },
+  "channels": [
+    {
+      "code": "zalo_phone",
+      "name": "Điện thoại / Zalo",
+      "group": "direct",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "walk_in",
+      "name": "Khách vãng lai",
+      "group": "direct",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "direct_web",
+      "name": "Website",
+      "group": "direct",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "returning",
+      "name": "Khách quay lại",
+      "group": "direct",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "sales_staff",
+      "name": "Nhân viên kinh doanh",
+      "group": "direct",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "collaborator",
+      "name": "CTV / môi giới",
+      "group": "agent",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    },
+    {
+      "code": "airbnb",
+      "name": "Airbnb",
+      "group": "ota",
+      "commissionPct": "15.5",
+      "requiresOtaRef": true,
+      "isActive": true
+    },
+    {
+      "code": "booking",
+      "name": "Booking.com",
+      "group": "ota",
+      "commissionPct": "15",
+      "requiresOtaRef": true,
+      "isActive": true
+    },
+    {
+      "code": "agoda",
+      "name": "Agoda",
+      "group": "ota",
+      "commissionPct": "18",
+      "requiresOtaRef": true,
+      "isActive": true
+    },
+    {
+      "code": "expedia",
+      "name": "Expedia",
+      "group": "ota",
+      "commissionPct": "18",
+      "requiresOtaRef": true,
+      "isActive": true
+    },
+    {
+      "code": "tripcom",
+      "name": "Trip.com",
+      "group": "ota",
+      "commissionPct": "15",
+      "requiresOtaRef": true,
+      "isActive": true
+    },
+    {
+      "code": "internal",
+      "name": "Nội bộ",
+      "group": "internal",
+      "commissionPct": "0",
+      "requiresOtaRef": false,
+      "isActive": true
+    }
+  ],
+  "channelsNote": "Mã kênh theo erd.md 4.1; tỷ lệ BR-901 (chuỗi thập phân). traveloka, google chưa có tỷ lệ trong BR-901 → không seed",
+  "minibarItems": [
+    {
+      "code": "nuoc",
+      "name": "Nước suối 500ml",
+      "unit": "chai",
+      "unitCostVnd": 4000,
+      "salePriceVnd": 0,
+      "complimentary": true,
+      "standardQtyPerRoom": 2,
+      "openingStock": 120,
+      "minStock": 48
+    },
+    {
+      "code": "coca",
+      "name": "Coca-Cola lon",
+      "unit": "lon",
+      "unitCostVnd": 8000,
+      "salePriceVnd": 25000,
+      "complimentary": false,
+      "standardQtyPerRoom": 2,
+      "openingStock": 48,
+      "minStock": 24
+    },
+    {
+      "code": "bia",
+      "name": "Bia Larue lon",
+      "unit": "lon",
+      "unitCostVnd": 12000,
+      "salePriceVnd": 35000,
+      "complimentary": false,
+      "standardQtyPerRoom": 2,
+      "openingStock": 48,
+      "minStock": 24
+    },
+    {
+      "code": "sua",
+      "name": "Sữa tươi Đà Lạt 180ml",
+      "unit": "hộp",
+      "unitCostVnd": 7000,
+      "salePriceVnd": 20000,
+      "complimentary": false,
+      "standardQtyPerRoom": 2,
+      "openingStock": 36,
+      "minStock": 20
+    },
+    {
+      "code": "caphe",
+      "name": "Cà phê phin giấy Đà Lạt",
+      "unit": "gói",
+      "unitCostVnd": 6000,
+      "salePriceVnd": 0,
+      "complimentary": true,
+      "standardQtyPerRoom": 2,
+      "openingStock": 100,
+      "minStock": 30
+    },
+    {
+      "code": "atiso",
+      "name": "Trà atiso túi lọc",
+      "unit": "túi",
+      "unitCostVnd": 2500,
+      "salePriceVnd": 0,
+      "complimentary": true,
+      "standardQtyPerRoom": 2,
+      "openingStock": 80,
+      "minStock": 30
+    },
+    {
+      "code": "snack",
+      "name": "Snack khoai tây",
+      "unit": "gói",
+      "unitCostVnd": 9000,
+      "salePriceVnd": 30000,
+      "complimentary": false,
+      "standardQtyPerRoom": 1,
+      "openingStock": 24,
+      "minStock": 10
+    },
+    {
+      "code": "mi",
+      "name": "Mì ly",
+      "unit": "ly",
+      "unitCostVnd": 7000,
+      "salePriceVnd": 25000,
+      "complimentary": false,
+      "standardQtyPerRoom": 2,
+      "openingStock": 30,
+      "minStock": 12
+    },
+    {
+      "code": "macca",
+      "name": "Hạt macca Lâm Đồng 100g",
+      "unit": "túi",
+      "unitCostVnd": 45000,
+      "salePriceVnd": 95000,
+      "complimentary": false,
+      "standardQtyPerRoom": 1,
+      "openingStock": 12,
+      "minStock": 6
+    },
+    {
+      "code": "vang",
+      "name": "Vang Đà Lạt 187ml",
+      "unit": "chai",
+      "unitCostVnd": 38000,
+      "salePriceVnd": 90000,
+      "complimentary": false,
+      "standardQtyPerRoom": 1,
+      "openingStock": 10,
+      "minStock": 5
+    }
+  ],
+  "minibarNote": "BL 4.13: 10 mặt hàng, tổng chuẩn mỗi tủ 17 đơn vị (= '17 món' của BR-701)",
+  "feeCatalog": [
+    {
+      "code": "adhoc_cleaning",
+      "name": "Dọn phòng lẻ",
+      "priceVnd": 100000,
+      "br": "BR-506"
+    },
+    {
+      "code": "laundry_per_kg",
+      "name": "Giặt ủi (theo kg)",
+      "priceVnd": 30000,
+      "br": "BR-507"
+    },
+    {
+      "code": "smoking",
+      "name": "Khử mùi thuốc lá",
+      "priceVnd": 500000,
+      "br": "BR-511"
+    },
+    {
+      "code": "key_card",
+      "name": "Mất/hỏng thẻ phòng",
+      "priceVnd": 200000,
+      "br": "BR-511"
+    },
+    {
+      "code": "bath_towel",
+      "name": "Khăn tắm",
+      "priceVnd": 150000,
+      "br": "BR-512"
+    },
+    {
+      "code": "glass",
+      "name": "Ly",
+      "priceVnd": 50000,
+      "br": "BR-512"
+    },
+    {
+      "code": "remote",
+      "name": "Remote",
+      "priceVnd": 200000,
+      "br": "BR-512"
+    }
+  ],
+  "inspectionChecklist": [
+    "Ga gối",
+    "Phòng tắm",
+    "Khăn (2 tắm, 2 mặt, 1 chân)",
+    "Amenity",
+    "Bếp",
+    "Bàn làm việc",
+    "Wi-Fi ≥ 50 Mbps",
+    "Rèm / cửa sổ",
+    "Mùi",
+    "Remote / điều hòa / sưởi",
+    "Thẻ chào + Wi-Fi",
+    "Ảnh"
+  ],
+  "users": [
+    {
+      "username": "qa.owner",
+      "roles": ["owner"],
+      "status": "active",
+      "purpose": "Cấu hình, gán vai, duyệt mọi mức",
+      "displayName": "QA OWNER"
+    },
+    {
+      "username": "qa.mgr",
+      "roles": ["manager"],
+      "status": "active",
+      "purpose": "Duyệt FOC/hoàn tiền, khôi phục no-show",
+      "displayName": "QA MGR"
+    },
+    {
+      "username": "qa.fdl",
+      "roles": ["front_desk_lead"],
+      "status": "active",
+      "purpose": "Duyệt trong hạn mức BR-433",
+      "displayName": "QA FDL"
+    },
+    {
+      "username": "qa.fd",
+      "roles": ["front_desk"],
+      "status": "active",
+      "purpose": "Luồng lễ tân",
+      "displayName": "QA FD"
+    },
+    {
+      "username": "qa.fd2",
+      "roles": ["front_desk"],
+      "status": "active",
+      "purpose": "Ca đồng thời",
+      "displayName": "QA FD2"
+    },
+    {
+      "username": "qa.hk",
+      "roles": ["housekeeping"],
+      "status": "active",
+      "purpose": "Buồng phòng",
+      "displayName": "QA HK"
+    },
+    {
+      "username": "qa.mt",
+      "roles": ["maintenance"],
+      "status": "active",
+      "purpose": "Phiếu sửa, khối OOO",
+      "displayName": "QA MT"
+    },
+    {
+      "username": "qa.sal",
+      "roles": ["sales_staff"],
+      "status": "active",
+      "purpose": "Báo giá, giữ chỗ",
+      "displayName": "QA SAL"
+    },
+    {
+      "username": "qa.ctv1",
+      "roles": ["collaborator"],
+      "status": "active",
+      "purpose": "CTV Minh Anh – phạm vi M",
+      "displayName": "QA CTV1"
+    },
+    {
+      "username": "qa.ctv2",
+      "roles": ["collaborator"],
+      "status": "active",
+      "purpose": "CTV khác – 'người khác' của phạm vi M",
+      "displayName": "QA CTV2"
+    },
+    {
+      "username": "qa.fdsal",
+      "roles": ["front_desk", "sales_staff"],
+      "status": "active",
+      "purpose": "Hợp quyền",
+      "displayName": "QA FDSAL"
+    },
+    {
+      "username": "qa.hkmt",
+      "roles": ["housekeeping", "maintenance"],
+      "status": "active",
+      "purpose": "Hợp quyền P3",
+      "displayName": "QA HKMT"
+    },
+    {
+      "username": "qa.locked",
+      "roles": ["front_desk"],
+      "status": "locked",
+      "purpose": "Đăng nhập bị chặn",
+      "displayName": "QA LOCKED"
+    }
+  ],
+  "usersNote": "Mật khẩu KHÔNG ghi trong file (tránh lộ khi commit, gitleaks). Loader đọc biến môi trường QA_SEED_PASSWORD (chỉ dev/CI/staging) và đặt cho mọi tài khoản qa.*; qa.locked tạo xong chuyển 'locked'",
+  "passwordSource": "env:QA_SEED_PASSWORD",
+  "devices": [
+    {
+      "label": "qa-desk-01",
+      "type": "desk",
+      "registeredBy": "qa.owner",
+      "trusted": true,
+      "purpose": "Mọi ca C3 (SR-DEV)"
+    },
+    {
+      "label": "qa-tablet-night",
+      "type": "property_tablet",
+      "registeredBy": "qa.owner",
+      "trusted": true,
+      "purpose": "Ca trực đêm (TC-SEC-015)"
+    }
+  ],
+  "docSequences": [
+    {
+      "docType": "reservation",
+      "prefix": "OTM-",
+      "padWidth": 5,
+      "scope": "property",
+      "periodKey": "all",
+      "nextValue": 1
+    },
+    {
+      "docType": "quote",
+      "prefix": "BG-",
+      "padWidth": 5,
+      "scope": "property",
+      "periodKey": "all",
+      "nextValue": 1
+    },
+    {
+      "docType": "work_order",
+      "prefix": "WO-",
+      "padWidth": 5,
+      "scope": "property",
+      "periodKey": "all",
+      "nextValue": 1
+    },
+    {
+      "docType": "group",
+      "prefix": "GRP-",
+      "padWidth": 5,
+      "scope": "property",
+      "periodKey": "all",
+      "nextValue": 1
+    },
+    {
+      "docType": "receipt",
+      "prefix": "PT-",
+      "padWidth": 6,
+      "scope": "property",
+      "periodKey": "all",
+      "nextValue": 1
+    },
+    {
+      "docType": "bill",
+      "prefix": "F{yy}-",
+      "padWidth": 6,
+      "scope": "property",
+      "periodKey": "year",
+      "nextValue": 1
+    },
+    {
+      "docType": "guest",
+      "prefix": "KH-",
+      "padWidth": 4,
+      "scope": "organization",
+      "periodKey": "all",
+      "nextValue": 1
+    }
+  ],
+  "docSequencesNote": "BR-007: mọi bộ đếm bắt đầu từ 1 trên DB mới. Không nối tiếp số prototype (QSEQ=48, OSEQ=170) – erd mục 8 ý 8: chỉ khi INV muốn"
+}

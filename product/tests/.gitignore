@@ -1,0 +1,6 @@
+# Playwright output
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/.auth/
+# Seed loader output (label → real code map, generated per DB)
+/fixtures/seed/.out/

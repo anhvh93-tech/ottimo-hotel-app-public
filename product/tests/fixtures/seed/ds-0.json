@@ -1,0 +1,964 @@
+{
+  "$comment": "DS-0 (mẫu BL) = DS-E + dữ liệu mẫu prototype quy đổi về ngày thật, T0 = Thứ Năm 15/10/2026 (test-strategy mục 4.1–4.2). Dữ liệu GIẢ.",
+  "id": "DS-0",
+  "schemaVersion": 1,
+  "extends": "DS-E",
+  "fakeDataOnly": true,
+  "updated": "2026-10-16",
+  "t0": "2026-10-15",
+  "clockAfterLoad": "2026-10-15T08:00:00+07:00",
+  "sources": [
+    "product/docs/qa/test-strategy.md mục 4.2",
+    "product/docs/round-0-baseline.md 4.4, 4.5, 4.7, 4.9, 4.11",
+    "product/legacy/round-0-prototype/ottimo-desk.html (BK, G, WO, METER, CONTRACTS)"
+  ],
+  "codeConvention": {
+    "decision": "BUG-R1-016 – QA chốt 16/10: mã 4 số kiểu OTM-0142 trong tài liệu/TC/wireframe là NHÃN SEED (seedLabel), không phải mã thật. Mã thật do server cấp theo BR-007 (OTM-{n:05}, KH-{n:04}, WO-{n:05}).",
+    "deterministic": "DS-0 nạp vào DB mới (mọi doc_sequence = 1) theo đúng loadOrder, mọi đường nạp (api và direct) đều lấy số từ doc_sequence → mã thật xác định trước = expectedCode. Loader phải so mã server trả với expectedCode và DỪNG nếu lệch.",
+    "lookup": "TC/E2E tra đơn theo nhãn qua bảng ánh xạ do loader xuất ra (tests/fixtures/seed/.out/ds-0.map.json: seedLabel → expectedCode, id). Không tra theo mã 4 số trên giao diện.",
+    "noCollision": "Nhãn 4 chữ số không bao giờ trùng mã thật 5 chữ số (BR-007), nên thấy 'OTM-0xxx' ở bất kỳ màn hình nào là lỗi dữ liệu.",
+    "labelsInDocs": "Tài liệu cũ giữ nhãn 4 số (không phải sửa 102 chỗ); đọc là 'đơn có nhãn seed OTM-0151'."
+  },
+  "loadProcedure": [
+    "1. Nạp DS-E (DB mới, doc_sequence = 1).",
+    "2. Đặt MutableClock = 2026-10-01T09:00:00+07:00 (trước mọi ngày đến của đơn seedPath=api, trong cửa sổ BR-112).",
+    "3. Tạo khách theo thứ tự guests[] → KH-0001…KH-0017 (đường API createGuest; g14 tạo như hồ sơ từ đơn OTA).",
+    "4. Tạo đơn theo loadOrder: seedPath=api đi qua API (createReservation/createHold + confirmDeposit cho đơn trực tiếp/CTV; đơn OTA nhập tay kèm otaRef giả); seedPath=direct ghi thẳng DB như snapshot cũ (BR-006), lấy số từ doc_sequence, cột seed_source = 'direct'.",
+    "5. Tiến đồng hồ theo thời gian: 14/10 09:00 tạo phiếu sửa WO (nhãn WO-031) + khối OOO 401 [15/10, 17/10); nhận phòng các đơn in_house seedPath=api lúc 14:00 ngày đến (giấy tờ người đứng tên trước – BR-402).",
+    "6. Ghi trạng thái buồng T0 (roomStatusAtT0) bằng đường seed trực tiếp (seed_source = direct).",
+    "7. Đặt đồng hồ = clockAfterLoad; xuất .out/ds-0.map.json; so số lượng: 17 khách, 17 đơn, 1 khối OOO, 2 HĐ."
+  ],
+  "guests": [
+    {
+      "seedLabel": "g1",
+      "expectedCode": "KH-0001",
+      "fullName": "Nguyễn Minh Khoa",
+      "nationality": "VN",
+      "dob": "1991-06-12",
+      "phone": "0000 000 001",
+      "email": "test.nguyen.minh.khoa@ottimo.test",
+      "tags": ["Lần đầu"],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100037"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g2",
+      "expectedCode": "KH-0002",
+      "fullName": "Emma Laurent",
+      "nationality": "FR",
+      "dob": "1989-02-14",
+      "phone": "0000 000 002",
+      "email": "test.emma.laurent@ottimo.test",
+      "tags": ["Dài hạn", "Làm việc từ xa"],
+      "document": {
+        "type": "passport",
+        "number": "TESTP000100074"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "visa": {
+        "visaExpiry": "2026-11-20",
+        "visaType": "DN"
+      }
+    },
+    {
+      "seedLabel": "g3",
+      "expectedCode": "KH-0003",
+      "fullName": "Trần Thu Hà",
+      "nationality": "VN",
+      "dob": "1995-09-03",
+      "phone": "0000 000 003",
+      "email": "test.tran.thu.ha@ottimo.test",
+      "tags": ["Lần đầu"],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100111"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g4",
+      "expectedCode": "KH-0004",
+      "fullName": "Lê Quang Huy",
+      "nationality": "VN",
+      "dob": "1987-11-20",
+      "phone": "0000 000 004",
+      "email": "test.le.quang.huy@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100148"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g5",
+      "expectedCode": "KH-0005",
+      "fullName": "Phạm Ngọc Thắng",
+      "nationality": "VN",
+      "dob": "1983-04-08",
+      "phone": "0000 000 005",
+      "email": "test.pham.ngoc.thang@ottimo.test",
+      "tags": ["Khách quen"],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100185"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g6",
+      "expectedCode": "KH-0006",
+      "fullName": "Kim Ji-woo",
+      "nationality": "KR",
+      "dob": "1996-07-25",
+      "phone": "0000 000 006",
+      "email": "test.kim.ji-woo@ottimo.test",
+      "tags": ["Lần đầu"],
+      "document": {
+        "type": "passport",
+        "number": "TESTP000100222"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "visa": {
+        "visaExpiry": null,
+        "visaType": "visa_exempt"
+      }
+    },
+    {
+      "seedLabel": "g7",
+      "expectedCode": "KH-0007",
+      "fullName": "Daniel Weber",
+      "nationality": "DE",
+      "dob": "1988-04-02",
+      "phone": "0000 000 007",
+      "email": "test.daniel.weber@ottimo.test",
+      "tags": ["Dài hạn", "VIP"],
+      "document": {
+        "type": "passport",
+        "number": "TESTP000100259"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "visa": {
+        "visaExpiry": "2027-07-31",
+        "visaType": "DN 12 tháng"
+      }
+    },
+    {
+      "seedLabel": "g8",
+      "expectedCode": "KH-0008",
+      "fullName": "Hoàng Gia Bảo",
+      "nationality": "VN",
+      "dob": "1986-01-30",
+      "phone": "0000 000 008",
+      "email": "test.hoang.gia.bao@ottimo.test",
+      "tags": ["VIP", "Kỷ niệm"],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100296"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g9",
+      "expectedCode": "KH-0009",
+      "fullName": "Võ Thanh Tâm",
+      "nationality": "VN",
+      "dob": "1993-05-17",
+      "phone": "0000 000 009",
+      "email": "test.vo.thanh.tam@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100333"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g10",
+      "expectedCode": "KH-0010",
+      "fullName": "Sarah Chen",
+      "nationality": "SG",
+      "dob": "1992-10-09",
+      "phone": "0000 000 010",
+      "email": "test.sarah.chen@ottimo.test",
+      "tags": ["Lần đầu"],
+      "document": {
+        "type": "passport",
+        "number": "TESTP000100370"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "visa": {
+        "visaExpiry": null,
+        "visaType": "visa_exempt"
+      }
+    },
+    {
+      "seedLabel": "g11",
+      "expectedCode": "KH-0011",
+      "fullName": "Lê Hoàng Nam",
+      "nationality": "VN",
+      "dob": "1990-12-01",
+      "phone": "0000 000 011",
+      "email": "test.le.hoang.nam@ottimo.test",
+      "tags": ["Qua CTV"],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100407"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g12",
+      "expectedCode": "KH-0012",
+      "fullName": "Đỗ Mai Anh",
+      "nationality": "VN",
+      "dob": "1994-08-19",
+      "phone": "0000 000 012",
+      "email": "test.maianh.do@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100444"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g13",
+      "expectedCode": "KH-0013",
+      "fullName": "Ngô Đức Long",
+      "nationality": "VN",
+      "dob": "1985-03-27",
+      "phone": "0000 000 013",
+      "email": "test.ngo.duc.long@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100481"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g14",
+      "expectedCode": "KH-0014",
+      "fullName": "Do Mai Anh",
+      "nationality": "VN",
+      "dob": null,
+      "phone": null,
+      "email": "test.maianh.do@ottimo.test",
+      "tags": [],
+      "document": null,
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "note": "Hồ sơ tạo tự động từ đơn Airbnb (OTM-0158); trùng email cố ý với g12 để test gộp (US-072, BR-951)",
+      "otaRef": "TEST-HMX4K2"
+    },
+    {
+      "seedLabel": "g15",
+      "expectedCode": "KH-0015",
+      "fullName": "Lê Thị Ngọc",
+      "nationality": "VN",
+      "dob": "1990-09-21",
+      "phone": "0000 000 015",
+      "email": "test.le.thi.ngoc@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100555"
+      },
+      "consent": {
+        "marketing": "granted",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g16",
+      "expectedCode": "KH-0016",
+      "fullName": "Phan Thảo Vy",
+      "nationality": "VN",
+      "dob": "1997-12-02",
+      "phone": "0000 000 016",
+      "email": "test.phan.thao.vy@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "cccd",
+        "number": "TEST000100592"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      }
+    },
+    {
+      "seedLabel": "g17",
+      "expectedCode": "KH-0017",
+      "fullName": "Lim Daniel",
+      "nationality": "SG",
+      "dob": "1989-05-05",
+      "phone": "0000 000 017",
+      "email": "test.lim.daniel@ottimo.test",
+      "tags": [],
+      "document": {
+        "type": "passport",
+        "number": "TESTP000100629"
+      },
+      "consent": {
+        "marketing": "not_asked",
+        "documentImage": "not_asked"
+      },
+      "visa": {
+        "visaExpiry": null,
+        "visaType": "visa_exempt"
+      }
+    }
+  ],
+  "guestsNote": "Tên lấy từ prototype (nhân vật hư cấu). SĐT dạng '0000 000 nnn' (đầu số 0000 không tồn tại ở VN), email miền .test (RFC 2606), số giấy tờ tiền tố TEST – dữ liệu giả theo test-strategy mục 4",
+  "reservations": [
+    {
+      "seedLabel": "OTM-0091",
+      "expectedCode": "OTM-00001",
+      "loadOrder": 1,
+      "seedPath": "direct",
+      "room": "301",
+      "channel": "collaborator",
+      "stayType": "long",
+      "booker": "g7",
+      "party": [],
+      "arrivalDate": "2026-08-01",
+      "departureDate": "2027-08-01",
+      "nights": 365,
+      "status": "in_house",
+      "adults": 1,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "note": "HĐ dài hạn 1 năm qua CTV Minh Anh (qa.ctv1). Xem leases[]"
+    },
+    {
+      "seedLabel": "OTM-0108",
+      "expectedCode": "OTM-00002",
+      "loadOrder": 2,
+      "seedPath": "direct",
+      "room": "102",
+      "channel": "sales_staff",
+      "stayType": "long",
+      "booker": "g2",
+      "party": [],
+      "arrivalDate": "2026-09-05",
+      "departureDate": "2026-12-04",
+      "nights": 90,
+      "status": "in_house",
+      "adults": 1,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "note": "HĐ 3 tháng, NV chốt (qa.sal). Xem leases[]"
+    },
+    {
+      "seedLabel": "OTM-0136",
+      "expectedCode": "OTM-00003",
+      "loadOrder": 3,
+      "seedPath": "direct",
+      "room": "203",
+      "channel": "zalo_phone",
+      "stayType": "short",
+      "booker": "g13",
+      "party": [],
+      "arrivalDate": "2026-10-10",
+      "departureDate": "2026-10-14",
+      "nights": 4,
+      "status": "checked_out",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "expected": {
+        "nightRateVnd": 780000,
+        "roomTotalVnd": 3120000,
+        "depositRequiredVnd": 900000
+      },
+      "depositPaidVnd": 3120000,
+      "note": "Đã trả phòng 14/10 – test ảnh giấy tờ (TC-L3-070), khóa bill; trực tiếp, đã thu đủ 3.120.000 (snapshot BL)",
+      "snapshotNightRateVnd": 780000
+    },
+    {
+      "seedLabel": "OTM-0137",
+      "expectedCode": "OTM-00004",
+      "loadOrder": 4,
+      "seedPath": "direct",
+      "room": "103",
+      "channel": "agoda",
+      "stayType": "short",
+      "booker": "g4",
+      "party": [],
+      "arrivalDate": "2026-10-11",
+      "departureDate": "2026-10-14",
+      "nights": 3,
+      "status": "checked_out",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "expected": {
+        "nightRateVnd": 720000,
+        "roomTotalVnd": 2160000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "Đã trả phòng 14/10",
+      "snapshotNightRateVnd": 720000
+    },
+    {
+      "seedLabel": "OTM-0139",
+      "expectedCode": "OTM-00005",
+      "loadOrder": 5,
+      "seedPath": "api",
+      "room": "201",
+      "channel": "agoda",
+      "stayType": "short",
+      "booker": "g4",
+      "party": [],
+      "arrivalDate": "2026-10-12",
+      "departureDate": "2026-10-15",
+      "nights": 3,
+      "status": "in_house",
+      "adults": 1,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 700000,
+      "expected": {
+        "nightRateVnd": 700000,
+        "roomTotalVnd": 2100000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "Đi hôm nay (T0)"
+    },
+    {
+      "seedLabel": "OTM-0142",
+      "expectedCode": "OTM-00006",
+      "loadOrder": 6,
+      "seedPath": "api",
+      "room": "101",
+      "channel": "airbnb",
+      "stayType": "short",
+      "booker": "g1",
+      "party": ["g16"],
+      "arrivalDate": "2026-10-13",
+      "departureDate": "2026-10-17",
+      "nights": 4,
+      "status": "in_house",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 720000,
+      "expected": {
+        "nightRateVnd": 720000,
+        "roomTotalVnd": 2880000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "2 khách; g16 đi cùng"
+    },
+    {
+      "seedLabel": "OTM-0146",
+      "expectedCode": "OTM-00007",
+      "loadOrder": 7,
+      "seedPath": "api",
+      "room": "402",
+      "channel": "airbnb",
+      "stayType": "short",
+      "booker": "g10",
+      "party": ["g17"],
+      "arrivalDate": "2026-10-14",
+      "departureDate": "2026-10-18",
+      "nights": 4,
+      "status": "in_house",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 990000,
+      "expected": {
+        "nightRateVnd": 990000,
+        "roomTotalVnd": 3960000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "g17 đi cùng"
+    },
+    {
+      "seedLabel": "OTM-0150",
+      "expectedCode": "OTM-00008",
+      "loadOrder": 8,
+      "seedPath": "api",
+      "room": "103",
+      "channel": "booking",
+      "stayType": "short",
+      "booker": "g3",
+      "party": [],
+      "arrivalDate": "2026-10-15",
+      "departureDate": "2026-10-18",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "pay_at_property",
+      "otaNightRateVnd": 780000,
+      "expected": {
+        "nightRateVnd": 780000,
+        "roomTotalVnd": 2340000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "eta": "14:00",
+      "note": "Đến hôm nay, ETA 14:00"
+    },
+    {
+      "seedLabel": "OTM-0152",
+      "expectedCode": "OTM-00009",
+      "loadOrder": 9,
+      "seedPath": "api",
+      "room": "302",
+      "channel": "zalo_phone",
+      "stayType": "short",
+      "booker": "g8",
+      "party": ["g15"],
+      "arrivalDate": "2026-10-15",
+      "departureDate": "2026-10-19",
+      "nights": 4,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": ["2016-06-01", "2019-03-10"],
+      "paymentModel": "direct_pay",
+      "expected": {
+        "nightRateVnd": 917000,
+        "roomTotalVnd": 3668000,
+        "depositRequiredVnd": 1100000,
+        "extraPersonFeeVnd": 800000
+      },
+      "depositPaidVnd": 1100000,
+      "eta": "15:30",
+      "note": "4 khách (2 NL + 2 trẻ), ETA 15:30, kỷ niệm 10 năm",
+      "qaAssumption": "Ngày sinh 2 trẻ do QA điền (prototype chỉ có năm 2016, 2019); cọc tính trên tiền phòng, KHÔNG gồm phụ thu người (BR-305 'tổng tiền phòng', BR-904) – chờ DOM xác nhận"
+    },
+    {
+      "seedLabel": "OTM-0151",
+      "expectedCode": "OTM-00010",
+      "loadOrder": 10,
+      "seedPath": "api",
+      "room": "202",
+      "channel": "returning",
+      "stayType": "short",
+      "booker": "g5",
+      "party": [],
+      "arrivalDate": "2026-10-16",
+      "departureDate": "2026-10-20",
+      "nights": 4,
+      "status": "confirmed",
+      "adults": 1,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "expected": {
+        "nightRateVnd": 792000,
+        "roomTotalVnd": 3168000,
+        "depositRequiredVnd": 1000000
+      },
+      "depositPaidVnd": 1000000,
+      "note": "Khách quen; cọc 1.000.000 (test-strategy 4.2)"
+    },
+    {
+      "seedLabel": "OTM-0154",
+      "expectedCode": "OTM-00011",
+      "loadOrder": 11,
+      "seedPath": "api",
+      "room": "401",
+      "channel": "airbnb",
+      "stayType": "short",
+      "booker": "g9",
+      "party": [],
+      "arrivalDate": "2026-10-17",
+      "departureDate": "2026-10-21",
+      "nights": 4,
+      "status": "confirmed",
+      "adults": 3,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 1000000,
+      "expected": {
+        "nightRateVnd": 1000000,
+        "roomTotalVnd": 4000000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "Bán từ 17/10 sau khối OOO [15/10, 17/10)"
+    },
+    {
+      "seedLabel": "OTM-0155",
+      "expectedCode": "OTM-00012",
+      "loadOrder": 12,
+      "seedPath": "api",
+      "room": "201",
+      "channel": "collaborator",
+      "stayType": "short",
+      "booker": "g11",
+      "party": [],
+      "arrivalDate": "2026-10-17",
+      "departureDate": "2026-10-19",
+      "nights": 2,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "expected": {
+        "nightRateVnd": 708000,
+        "roomTotalVnd": 1416000,
+        "depositRequiredVnd": 400000
+      },
+      "depositPaidVnd": 500000,
+      "note": "CTV Minh Anh (qa.ctv1) chốt; cọc thu 500.000 theo BL; mức cọc tối thiểu BR-305 = 400.000 – cọc thực thu lớn hơn mức tối thiểu (hợp lệ)"
+    },
+    {
+      "seedLabel": "OTM-0156",
+      "expectedCode": "OTM-00013",
+      "loadOrder": 13,
+      "seedPath": "api",
+      "room": "101",
+      "channel": "booking",
+      "stayType": "short",
+      "booker": "g12",
+      "party": [],
+      "arrivalDate": "2026-10-18",
+      "departureDate": "2026-10-21",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "pay_at_property",
+      "otaNightRateVnd": 690000,
+      "expected": {
+        "nightRateVnd": 690000,
+        "roomTotalVnd": 2070000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0
+    },
+    {
+      "seedLabel": "OTM-0153",
+      "expectedCode": "OTM-00014",
+      "loadOrder": 14,
+      "seedPath": "api",
+      "room": "203",
+      "channel": "booking",
+      "stayType": "short",
+      "booker": "g6",
+      "party": [],
+      "arrivalDate": "2026-10-19",
+      "departureDate": "2026-10-22",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "pay_at_property",
+      "otaNightRateVnd": 820000,
+      "expected": {
+        "nightRateVnd": 820000,
+        "roomTotalVnd": 2460000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "Ji-woo, 820.000/đêm (BR-415)"
+    },
+    {
+      "seedLabel": "OTM-0159",
+      "expectedCode": "OTM-00015",
+      "loadOrder": 15,
+      "seedPath": "api",
+      "room": "402",
+      "channel": "zalo_phone",
+      "stayType": "short",
+      "booker": "g1",
+      "party": [],
+      "arrivalDate": "2026-10-20",
+      "departureDate": "2026-10-23",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "direct_pay",
+      "expected": {
+        "nightRateVnd": 1000000,
+        "roomTotalVnd": 3000000,
+        "depositRequiredVnd": 900000
+      },
+      "depositPaidVnd": 900000
+    },
+    {
+      "seedLabel": "OTM-0157",
+      "expectedCode": "OTM-00016",
+      "loadOrder": 16,
+      "seedPath": "api",
+      "room": "302",
+      "channel": "agoda",
+      "stayType": "short",
+      "booker": "g13",
+      "party": [],
+      "arrivalDate": "2026-10-21",
+      "departureDate": "2026-10-24",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 900000,
+      "expected": {
+        "nightRateVnd": 900000,
+        "roomTotalVnd": 2700000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0
+    },
+    {
+      "seedLabel": "OTM-0158",
+      "expectedCode": "OTM-00017",
+      "loadOrder": 17,
+      "seedPath": "api",
+      "room": "203",
+      "channel": "airbnb",
+      "stayType": "short",
+      "booker": "g14",
+      "party": [],
+      "arrivalDate": "2026-10-23",
+      "departureDate": "2026-10-26",
+      "nights": 3,
+      "status": "confirmed",
+      "adults": 2,
+      "childrenDob": [],
+      "paymentModel": "ota_collect",
+      "otaNightRateVnd": 800000,
+      "expected": {
+        "nightRateVnd": 800000,
+        "roomTotalVnd": 2400000,
+        "depositRequiredVnd": 0
+      },
+      "depositPaidVnd": 0,
+      "note": "Người đặt g14 (hồ sơ trùng của g12)"
+    }
+  ],
+  "reservationsNote": "Giá đơn trực tiếp/CTV do server tính từ lịch giá kênh Trực tiếp = giá đêm niêm yết (BR-104); 'expected' là kết quả mong đợi để loader kiểm, không phải giá trị nạp. Đơn OTA nạp otaNightRateVnd. Kênh 'Trực tiếp' của prototype ánh xạ zalo_phone, khách quen g5 → returning [GIẢ ĐỊNH QA]",
+  "roomBlocks": [
+    {
+      "seedLabel": "OOO-007",
+      "room": "401",
+      "range": ["2026-10-15", "2026-10-17"],
+      "reason": "Bình nóng lạnh rò nước",
+      "workOrder": "WO-031",
+      "status": "active",
+      "note": "Khoảng nửa mở [bắt đầu, ngày mở bán lại) – đêm 15, 16 (BR-804, decision-log 15/10 DOM)"
+    }
+  ],
+  "workOrders": [
+    {
+      "seedLabel": "WO-031",
+      "expectedCode": "WO-00001",
+      "room": "401",
+      "title": "Bình nóng lạnh rò nước, khóa phòng",
+      "priority": "high",
+      "status": "in_progress",
+      "assignee": "qa.mt",
+      "reportedDate": "2026-10-14"
+    },
+    {
+      "seedLabel": "WO-032",
+      "expectedCode": "WO-00002",
+      "room": "203",
+      "title": "Bóng đèn ban công chập chờn",
+      "priority": "low",
+      "status": "new",
+      "assignee": null,
+      "reportedDate": "2026-10-15"
+    },
+    {
+      "seedLabel": "WO-030",
+      "expectedCode": "WO-00003",
+      "room": "102",
+      "title": "Wi-Fi yếu ở góc bàn làm việc",
+      "priority": "medium",
+      "status": "waiting_parts",
+      "assignee": "qa.mt",
+      "reportedDate": "2026-10-12",
+      "partsExpectedDate": "2026-10-17"
+    },
+    {
+      "seedLabel": "WO-028",
+      "expectedCode": "WO-00004",
+      "room": "301",
+      "title": "Rèm cửa sổ kẹt ray",
+      "priority": "low",
+      "status": "done",
+      "assignee": "qa.mt",
+      "reportedDate": "2026-10-09"
+    }
+  ],
+  "workOrdersNote": "Thứ tự tạo = thứ tự trong mảng (WO-031 tạo trước để gắn khối OOO). partsExpectedDate của WO-030 là [GIẢ ĐỊNH QA] (BR-809 cần ngày dự kiến để tạm dừng hạn)",
+  "leases": [
+    {
+      "reservation": "OTM-0091",
+      "guest": "g7",
+      "room": "301",
+      "termMonths": 12,
+      "start": "2026-08-01",
+      "end": "2027-08-01",
+      "guestClass": "foreign",
+      "closer": {
+        "type": "collaborator",
+        "user": "qa.ctv1"
+      },
+      "monthlyRentVnd": 11130000,
+      "depositVnd": 22300000,
+      "serviceFeeMonthlyVnd": 400000,
+      "cleaningPackage": {
+        "perWeek": 1,
+        "weekday": "FRI"
+      },
+      "billingCycleMonths": 3,
+      "nextBillingDate": "2026-11-01",
+      "nextBillingAmountVnd": 36030000,
+      "nextBillingAmountReason": "Thỏa thuận riêng (BR-006 ví dụ) – sửa tay có lý do, người duyệt qa.mgr",
+      "commission": {
+        "rateBp": 930,
+        "totalVnd": 12421080,
+        "paidVnd": 6210540
+      }
+    },
+    {
+      "reservation": "OTM-0108",
+      "guest": "g2",
+      "room": "102",
+      "termMonths": 3,
+      "start": "2026-09-05",
+      "end": "2026-12-04",
+      "guestClass": "foreign",
+      "closer": {
+        "type": "staff",
+        "user": "qa.sal"
+      },
+      "monthlyRentVnd": 9410000,
+      "depositVnd": 9400000,
+      "serviceFeeMonthlyVnd": 300000,
+      "cleaningPackage": {
+        "perWeek": 2,
+        "weekdays": ["MON", "THU"]
+      },
+      "billingCycleMonths": 3,
+      "nextBillingDate": null,
+      "commission": {
+        "rateBp": 500,
+        "totalVnd": 1411500,
+        "paidVnd": 705750
+      },
+      "note": "Ngày kết thúc 04/12 giữ theo BL (snapshot, BR-006) dù BR-209 cho 05/09 + 3 tháng = 05/12. Hoa hồng tính theo BR-212 (4% + 1% NN) = 1.411.500; prototype ghi 1.975.000 (tỷ lệ cũ) – không dùng"
+    }
+  ],
+  "meters": [
+    {
+      "room": "102",
+      "guest": "g2",
+      "electricityStart": 2140,
+      "waterStart": 188
+    },
+    {
+      "room": "301",
+      "guest": "g7",
+      "electricityStart": 3312,
+      "waterStart": 254
+    }
+  ],
+  "roomStatusAtT0": {
+    "101": "OD",
+    "102": "OD",
+    "103": "VI",
+    "201": "OD",
+    "202": "VD",
+    "203": "VC",
+    "301": "OC",
+    "302": "VC",
+    "401": "OOO",
+    "402": "OD"
+  },
+  "registrations": [
+    {
+      "reservation": "OTM-0091",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0108",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0136",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0137",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0139",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0142",
+      "status": "partial",
+      "note": "g16 đi cùng chưa có giấy tờ (link gửi 13/10)"
+    },
+    {
+      "reservation": "OTM-0146",
+      "status": "confirmed"
+    },
+    {
+      "reservation": "OTM-0152",
+      "status": "pre",
+      "note": "g15 điền qua link 14/10"
+    }
+  ],
+  "registrationsNote": "Đơn không có dòng = trạng thái none. Mã hồ sơ công an dạng TEST-REG-<nhãn>"
+}

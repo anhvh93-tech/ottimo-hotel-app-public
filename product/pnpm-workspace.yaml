@@ -4,3 +4,4 @@ packages:
   - 'services/*'
   - 'packages/*'
   - 'integrations'
+  - 'tests'

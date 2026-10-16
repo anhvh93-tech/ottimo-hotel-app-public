@@ -4,6 +4,7 @@
 - Căn cứ: `rounds/round-01/plan.md` mục 6 (bước 5 cho round tài liệu) và mục 7 (tiêu chí QC A1–C5); `product/docs/qa/test-strategy.md`
 - Đầu vào lượt 2: `qa/fix-notes-{ARC,BA,PO,DATA,INT,OPS}.md`, `qa/sec-findings.md` (Phần B: 9 lỗi; Phần D: SEC kiểm lại và 2 lỗi mới SEC-10, SEC-11), `rounds/round-02/plan.md` (dự thảo)
 - Đọc cùng: `rounds/round-01/qa/bug-list.md` (34 lỗi), `product/docs/qa/traceability.md` (sinh lại 16/10 chiều)
+- **Cập nhật R2 tuần 1 (16/10, sau lần chạy thật của OPS):** TC-X-050, TC-X-065, TC-X-066 (a–c) chuyển **Đạt (chạy thật cục bộ)**; TC-X-066 (d) và CI trên GitHub vẫn **chưa có**. Chi tiết mục 9.
 - Lượt 1 (sáng 16/10): 22 lỗi QA, 0 P0/P1. Nội dung lượt 1 vẫn đúng ở các mục không nhắc lại dưới đây. Bản lượt 1 lưu trong lịch sử file.
 
 ## 1. Kết luận ngắn
@@ -69,8 +70,8 @@ Bảng số lỗi theo mức và trạng thái:
 | Mục | Kết quả | Bằng chứng |
 |---|---|---|
 | Công cụ trên máy | **Chưa có** | `which node pnpm docker` (16/10 chiều): `node not found`, `pnpm not found`, `docker not found` |
-| TC-X-050 (`docker compose up` + `GET /health`) | **BLOCKED (môi trường)** | Như trên. Không báo đạt |
-| CI khung, TC-X-065 (vai DB), TC-X-066 (bundle không có `__test__`) | **BLOCKED (môi trường)** | Chưa có lần chạy CI nào. Chưa có lockfile |
+| TC-X-050 (`docker compose up` + `GET /health`) | ~~BLOCKED (môi trường)~~ → **Đạt (chạy thật cục bộ, 16/10 R2 W1)** | Xem mục 9 |
+| CI khung, TC-X-065 (vai DB), TC-X-066 (bundle không có `__test__`) | ~~BLOCKED~~ → TC-X-065 **Đạt**, TC-X-066 (a)(b)(c) **Đạt**, (d) **chưa chứng minh được**; CI GitHub **chưa chạy** (16/10 R2 W1) | Các bước CI chạy cục bộ đủ (OPS `w1-skeleton-run.md`); lockfile đã có. Xem mục 9 |
 | OpenAPI hợp lệ | **Đạt** | openapi-spec-validator: `openapi.yaml` 0.2.1-draft OK; `openapi.test.yaml` 0.1.1-draft OK |
 | `bash -n` | **Đạt** | `infra/postgres/init/02-roles.sh`, `infra/ci/check-no-test-surface.sh` |
 | YAML | **Đạt** | `.github/workflows/ci.yml` (5 job: build-test, test-surface-guard, contract-lint, secrets-scan, docker-build), `infra/docker-compose.yml` |
@@ -111,7 +112,7 @@ Rủi ro kiểm tĩnh không bắt được (QA ghi để kiểm khi có Docker)
 | B4 | Đạt (sơ bộ) | Giả định có nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` |
 | B5 | **Đạt (tĩnh)** | Không có bí mật thật; placeholder mới hợp allowlist. Gitleaks trên lịch sử git cần CI |
 | C1 | **Đạt** | 0 ô trống trong ma trận 77 story × (TC, endpoint, wireframe, ERD) |
-| C2 | **BLOCKED (môi trường)** | Chưa có node/pnpm/docker. Chưa có `/health` OK, chưa có CI xanh. Phần OPS sửa vòng này kiểm tĩnh đạt. Theo dõi: plan R2 W4 |
+| C2 | **BLOCKED (môi trường)** → cập nhật 16/10 R2 W1: **Đạt một phần** | `/health` OK chạy thật (compose + Caddy), 4 vai DB đúng, test 28→35 xanh có DB, bundle/spec sạch. **Còn thiếu**: link một lần chạy CI GitHub xanh đủ 5 job (chưa có repo – ESC-013 phương án B) |
 | C3 | Đạt (sơ bộ) | ADR-009/erd (chống trùng), mã duy nhất, OOO chặn bán, job, múi giờ. Thêm: kiểm soát C3 cho mẫu tin mã cửa (SEC-01) |
 | C4 | **Đạt** | Thẻ Blocker/Major đều đã trả lời (lượt 1). Vòng sửa lỗi: 6 vai có fix-notes (ARC, BA, PO, DATA, INT, OPS); mọi lỗi báo Fixed đều qua kiểm lại, 0 Reopened. UXD chưa sửa BUG-R1-015 (P3, theo dõi W11) |
 | C5 | **Đạt có điều kiện** | Đã có `rounds/round-02/plan.md` (dự thảo, PO + ORC, 16/10): mục tiêu, phạm vi R-C, phân việc, việc chuyển từ R1 (W1–W14), tiêu chí QC R2. Điều kiện: (1) chờ INV trả lời ESC-012 rồi chốt; (2) bổ sung 3 lỗi Deferred chưa có dòng theo dõi (mục 7) |
@@ -135,3 +136,22 @@ Nhận định của QA về cổng QC: nhóm A và B đạt theo đánh giá c�
 - Mới đọc tay 4/10 wireframe ↔ RBAC. Các trang L2, L3, L4, L7, L8, L9 chỉ được kiểm gián tiếp.
 - Cột ERD trong ma trận chưa chứng minh đủ cột cho từng AC.
 - SEC-10 là kẽ hở C3 trên giấy. Nếu không sửa contract trước khi BE cài A21, đường xem mã cửa sẽ không có step-up.
+
+## 9. Cập nhật R2 tuần 1 (16/10) – chạy thật TC-X-050, TC-X-065, TC-X-066
+
+Nguồn: lần chạy thật của OPS (`rounds/round-02/outputs/OPS/w1-skeleton-run.md`, Node 22.23.3, pnpm 9.15.4, Docker 29.8.2 + Compose v5.5.0 trên OrbStack, PostgreSQL 17.11) và **QA tự chạy lại** cùng ngày trên cùng máy (`rounds/round-02/outputs/QA/w1-report.md` mục 3). Trạng thái chỉ chuyển "Đạt" khi có ít nhất một lần chạy QA tự làm hoặc tự đọc được log chi tiết.
+
+| TC | Kết quả OPS | QA tự chạy lại (16/10) | Trạng thái |
+|---|---|---|---|
+| TC-X-050 (a) api `/health` | 200 `{"status":"ok","db":"ok","time":"…+07:00"}` | Playwright `TC-X-050a` **pass** (200, `db: ok`, `time` đúng `+07:00`) | **Đạt** |
+| TC-X-050 (b) qua Caddy `:8081/health` | 200 | Playwright `TC-X-050b` **pass** | **Đạt** |
+| TC-X-050 (c) dừng PostgreSQL → 503, bật lại → 200 | 503 `{"status":"error","db":"down"}` → 200 | **Không chạy lại**: PostgreSQL dev đang được vai khác dùng song song (có phiên `ottimo_admin` mở). Ca `TC-X-050c` có sẵn trong Playwright, bật bằng `E2E_COMPOSE_CONTROL=1` | **Đạt (theo log OPS)** – QA chạy lại khi có stack riêng / trên CI |
+| TC-X-065 vai DB | Bảng thuộc tính 4 vai đúng; owner đăng nhập → `FATAL … not permitted to log in`; volume cũ được đưa về đúng 4 vai | `pnpm test` với `DATABASE_URL` (ottimo_app) + `MIGRATION_DATABASE_URL` (ottimo_migrator) trên `ottimo_test`: `db-role.test.ts` 5/5 pass, **0 skipped**; api 35/35. `psql -U ottimo_owner` → `FATAL: role "ottimo_owner" is not permitted to log in`. `pg_roles`: app/migrator LOGIN, không super, không BYPASSRLS, NOINHERIT; owner NOLOGIN; readonly NOLOGIN BYPASSRLS | **Đạt**. Phần "chạy lại script trên volume cũ" theo log OPS (QA không phá volume dùng chung) |
+| TC-X-066 (a) `spec openapi.yaml` | exit 0 | exit 0 `OK: … has no /__test__ path` | **Đạt** |
+| TC-X-066 (b) `spec openapi.test.yaml` (đối chứng) | exit 1 | exit 1, chỉ ra `/__test__/clock`, `/__test__/jobs/{jobKey}/run` | **Đạt** |
+| TC-X-066 (c) image mặc định, `bundle /app/dist` | exit 0 | Chép `/app/dist` từ image `ottimo-api:ci` → exit 0 `OK: no test-only code` | **Đạt** |
+| TC-X-066 (d) image `INCLUDE_TEST_SUPPORT=1` → phải exit 1 | exit 0 (chưa có `src/test-support/`) | Image `ottimo-api:dev` (build arg = 1) → exit 0, vì `services/api/src` chưa có `test-support` | **Chưa chứng minh được** – chờ BE merge TestSupportModule (không phải lỗi) |
+| CI GitHub (5 job) | Chưa chạy (chưa có repo) | – | **Chưa có** – ESC-013 phương án B (INV tạo repo). Không báo xanh |
+
+Hệ quả cho lỗi: BUG-R1-SEC-06 (vai DB) và phần spec/bundle của BUG-R1-SEC-08 đủ bằng chứng chạy thật cục bộ – **SEC quyết đóng** (đề nghị đóng SEC-06; SEC-08 giữ mở phần (d)). BUG-R1-016 (mã DS-0): QA chốt quy ước nhãn seed (test-strategy 0.3 mục 4.5) → chuyển **Fixed (quy ước)**, đóng khi loader của BE nạp DS-0 khớp `expectedCode`.
+

@@ -1,6 +1,6 @@
 # Chiến lược kiểm thử – OTTIMO Desk
 
-- Tác giả: QA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (sửa theo review BA, PO – `rounds/round-01/responses/QA-responses.md`)
+- Tác giả: QA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (sửa theo review BA, PO – `rounds/round-01/responses/QA-responses.md`) · **0.3 (16/10, R2 tuần 1)**: mục 2.1 có file thật + script kiểm; mục 4 mật khẩu seed qua biến môi trường; **mục 4.5 quy ước mã DS-0 (BUG-R1-016)**; mục 6 bộ smoke = manifest + Playwright
 - Thay đổi bản 0.2: kiểm quyền lấy **rbac-matrix** làm chuẩn (tầng R, C + kiểm tĩnh mới); truy vết **chuyển trạng thái → TC**; nhãn `[BLOCKED]`/`[UNDECIDED]`/`[GIẢ ĐỊNH QA]`; bộ **Smoke**; bước **PO nghiệm thu**; áp quyết định 15/10 (OOO nửa mở, BR-603 +12 giờ, ngày nghiệp vụ 06:00, đơn OTA nhập tay căn kín → 409, màn mặc định "Hôm nay", OTP/mã lễ tân, thiết bị được cấp, `MutableClock`, xóa ảnh ngay khi `confirmed`); ca bảo mật SR-SES/SR-DEV/SR-GST.
 - Nguồn: `03-backlog/backlog.md` (US-xxx, AC), `business-rules.md` (BR-xxx – nguồn sự thật mọi con số), `state-machines.md` (SM-xx, mã chuyển B/K/R/O/W/A…), `rbac-matrix.md` (vai, A-xx, S-xx, Dxx), `use-cases.md`, `erd.md` (ràng buộc K1–K10), `api/openapi.yaml` (operationId, mã lỗi), `architecture.md` (job J1–J23, ngân sách hiệu năng mục 16), ADR-008 (Clock), ADR-009 (chống đặt trùng, idempotency), `security/data-risk-assessment.md` (R-REG, R-PAY, T01–T18, F01–F14), `round-0-baseline.md` (**BL**), wireframe L1–L8.
 - Tài liệu đi kèm: `product/tests/test-cases/r1-main-flows.md` (test case), `product/docs/qa/traceability.md` (ma trận truy vết).
@@ -48,6 +48,9 @@ Quy tắc phân bổ: **quy tắc tiền và thời gian kiểm chính ở tần
 ### 2.1 Bộ "oracle" từ ví dụ BR
 QA lập (R2, tuần đầu) file `product/tests/fixtures/br-examples.json`: mỗi dòng = mã BR, đầu vào, kết quả mong đợi lấy đúng cột ví dụ của `business-rules.md` (vd. BR-411: giá 700.000, nhận 11:00 → 210.000). Test unit của BE đọc file này. Khi DOM sửa ví dụ BR, chỉ cần sửa file này → mọi tầng tự cập nhật. Đây là cách đáp ứng quy ước "khớp ví dụ BR-xxx" của backlog.
 
+**Trạng thái (16/10, bản 1)**: 196 dòng, phủ 113/118 BR có ví dụ số (5 BR còn lại ghi lý do ở `notCovered`). Mỗi dòng: `id` (`BR-411-01`), `br`, `case`, `origin` (`example` = đúng ví dụ BR; `rule-boundary` = mốc biên QA suy từ câu quy tắc; `derived-table`), `labels` (NGÀNH / GIẢ ĐỊNH / PHÁP LÝ theo BR mục 0.1), `params` (khóa BR mục 13), `input`, `expected`, `calc`, và khi cần `qaAssumption` ([GIẢ ĐỊNH QA] – chi tiết QA tự điền như ngày/giờ khi ví dụ BR thiếu), `escNote` (INV đã quyết nhưng BR chưa cập nhật), `issue` (lỗi ví dụ BR đã báo DOM). Quy ước: tiền số nguyên VND (khóa `…Vnd`), phần trăm basis point (`…Bp`), thời điểm ISO `+07:00`, khoảng ngày nửa mở.
+Script `product/tests/tools/validate-fixtures.mjs` (`pnpm test:fixtures`, cũng chạy trong `pnpm test`/CI) kiểm cấu trúc, nhãn khớp bảng BR, độ phủ so với cột ví dụ của `business-rules.md`, và **tự tính lại** mọi dòng có `calc` (133 dòng) bằng bộ tính tham chiếu độc lập – sai số học trong ví dụ BR hoặc trong file oracle làm CI đỏ.
+
 ## 3. Môi trường kiểm thử
 
 | Môi trường | Dựng bằng | Dữ liệu | Đồng hồ | Dùng cho |
@@ -63,7 +66,7 @@ Tích hợp ở R2: mọi adapter chạy `mock`/`manual` (`.env.example`); QA ki
 
 ## 4. Dữ liệu kiểm thử
 
-Nguyên tắc: **dữ liệu giả**, không dùng dữ liệu khách thật; số giấy tờ, SĐT, email đều bịa và đánh dấu tiền tố `TEST`. Seed nằm ở `product/tests/fixtures/` (R2), mật khẩu tài khoản test ghi trong file seed (không ghi trong tài liệu hay chat).
+Nguyên tắc: **dữ liệu giả**, không dùng dữ liệu khách thật; số giấy tờ, SĐT, email đều bịa và đánh dấu tiền tố `TEST`. Seed nằm ở `product/tests/fixtures/seed/` (`ds-e.json`, `ds-0.json` – dữ liệu dạng JSON, loader của BE đọc ở sprint 1). Mật khẩu tài khoản test **không** ghi trong file seed (gitleaks và rủi ro lộ khi commit – thay đổi bản 0.3): loader đặt mọi tài khoản `qa.*` bằng biến môi trường `QA_SEED_PASSWORD` (chỉ dev/CI/staging, lấy từ `.env`/secret CI); không ghi trong tài liệu hay chat.
 
 ### 4.1 Hai bộ dữ liệu chuẩn
 - **DS-E (rỗng)**: 1 cơ sở "OTTIMO Đà Lạt" (`Asia/Ho_Chi_Minh`), 10 căn BL 4.1, nhóm căn, tham số mặc định đúng BR mục 13, kênh và tỷ lệ phí BR-901, danh mục minibar 17 món BL 4.13, danh mục phí BR-511/512, checklist BR-808, tài khoản mục 4.3. **Không có đơn**. Dùng cho test API/ unit cô lập – mỗi test case tự tạo dữ liệu ghi ở cột "Tiền điều kiện".
@@ -130,6 +133,12 @@ Trạng thái buồng lúc T0 (BL 4.5): 101 OD · 102 OD · 103 VI · 201 OD · 
 - Dữ liệu thử trong AC của backlog (vd. US-017 AC1 "203 trống 19–22/10", US-018 AC1 "201 có đơn 20–22/10") **khác** DS-0 → các test case đó chạy trên DS-E + dữ liệu tự tạo.
 - Wireframe dùng dữ liệu khác BL (Emma ở 302 thay vì 102, mã `OTM-000171` 6 chữ số, 202 có 4 khách vượt sức chứa BR-110). Không dùng wireframe làm nguồn dữ liệu test.
 
+### 4.5 Quy ước mã DS-0 – nhãn seed (chốt 16/10, đóng BUG-R1-016)
+- Mã 4 chữ số kiểu `OTM-0151`, `WO-031`, `OOO-007`, `g12` trong tài liệu, test case, wireframe là **nhãn seed** (`seedLabel`), **không phải mã thật**. Mã thật do server cấp theo BR-007 (`OTM-{n:05}`, `KH-{n:04}`, `WO-{n:05}`).
+- DS-0 nạp vào DB mới (mọi `doc_sequence` = 1) theo đúng `loadOrder`; cả hai đường nạp (`api` và `direct`) đều lấy số từ `doc_sequence` → mã thật **xác định trước** và ghi sẵn ở trường `expectedCode` (vd. nhãn `OTM-0151` → `OTM-00010`, `g12` → `KH-0012`). Loader so mã server trả với `expectedCode` và **dừng** nếu lệch.
+- TC/E2E tra đơn theo nhãn qua bảng ánh xạ loader xuất ra (`tests/fixtures/seed/.out/ds-0.map.json`). Không sửa 102 chỗ nhãn 4 số trong tài liệu cũ: đọc là "đơn có nhãn seed OTM-0151". Nhãn 4 số không bao giờ trùng mã thật 5 số → thấy `OTM-0xxx` trên giao diện là lỗi dữ liệu.
+- Quy trình nạp 7 bước (đồng hồ nạp 01/10/2026 09:00, tiến đồng hồ để nhận phòng các đơn `in_house`, kết thúc ở T0 08:00) ghi trong `ds-0.json` mục `loadProcedure`.
+
 ## 5. Đồng hồ giả cho các ca theo giờ (ADR-008)
 
 ### 5.1 Cơ chế
@@ -178,7 +187,7 @@ Nếu chưa có (1)–(2) ở đầu R2: QA chạy ca theo giờ bằng cách kh
 ### Round 2 (lõi MVP)
 - **Vào (mỗi story)**: dev báo "xong code" + test unit/API của logic chính xanh trên CI; endpoint khớp OpenAPI (contract test xanh); seed DS-E/DS-0 và đồng hồ điều khiển được (mục 5.2) có trên staging.
 - **Nghiệm thu từng story (PO)**: QA chạy hết TC Cao của story → báo PO → PO xem demo trên staging, đối chiếu từng AC → **Accepted** hoặc **Trả lại** (ghi lý do vào backlog). Story chưa Accepted không tính là xong (DoD).
-- **Smoke mỗi PR**: các TC có nhãn **(S)** (≈ 38 ca – đặt trùng/đồng thời, tiền, C3, hạn pháp lý, phiên/thiết bị); TC Cao còn lại chạy hằng đêm.
+- **Smoke mỗi PR**: các TC có nhãn **(S)** (42 ca – đặt trùng/đồng thời, tiền, C3, hạn pháp lý, phiên/thiết bị) + TC-X-050; TC Cao còn lại chạy hằng đêm. Danh sách ở `product/tests/e2e/smoke-manifest.json` (script kiểm khớp nhãn (S) của test case); ca chưa có tính năng hiện trong báo cáo Playwright là **skipped** kèm mã TC và sprint chờ; chạy `pnpm test:e2e` (cần stack `pnpm dev` hoặc `E2E_API_URL`/`E2E_WEB_URL`).
 - **Ra (round)**: 100% TC ưu tiên **Cao** đã chạy và đạt; ≥ 95% TC **TB** đã chạy; 0 lỗi **P0/P1** mở; E2E đặt phòng → nhận phòng → trả phòng → thu tiền (Mock/VietQR) xanh trên CI; ca đồng thời TC-X-001 … TC-X-004, TC-L2-021, TC-L4-005 đạt 10 lần liên tiếp; ma trận quyền tự sinh (tầng R) đạt 100%; test-report ghi trung thực phần chưa test được.
 
 ### Round 3 (RC)

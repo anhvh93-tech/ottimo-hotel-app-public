@@ -9,3 +9,7 @@ docs
 design
 legacy
 **/*.md
+# Playwright output + seed loader output (QA, see tests/.gitignore)
+tests/e2e/test-results
+tests/e2e/playwright-report
+tests/fixtures/seed/.out

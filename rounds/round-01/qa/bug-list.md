@@ -17,6 +17,8 @@
 | P3 | 21 | 4 | 0 | 8 | 9 (7 R2 · 2 R3) |
 | **Tổng** | **34** | **4** | **0** | **20** | **10** |
 
+Cập nhật 16/10 (R2 tuần 1, QA): BUG-R1-016 Deferred → **Fixed (quy ước)** (P3 Deferred còn 8); SEC-06 và phần spec/bundle SEC-08 đã có bằng chứng chạy thật cục bộ – chờ SEC quyết đóng (test-report mục 9). Bảng trên giữ số lượt 2.
+
 Lượt 1 (sáng 16/10): 22 lỗi QA (0 P0/P1). Lượt 2: gộp 9 lỗi SEC bước 5 + 2 lỗi SEC phát hiện khi kiểm lại (SEC-10, SEC-11) + 1 lỗi QA mới (023). **Không còn lỗi P0/P1 mở.** Không có lỗi Reopened.
 
 | ID | Mức | Tóm tắt | Vai sửa | Trạng thái |
@@ -40,7 +42,7 @@ Lượt 1 (sáng 16/10): 22 lỗi QA (0 P0/P1). Lượt 2: gộp 9 lỗi SEC bư
 | BUG-R1-013 | P3 | Script kiểm quyền của QA báo 6 lệch giả | QA | Closed (lượt 1) |
 | BUG-R1-014 | P3 | Ví dụ `billNo` trong OpenAPI theo mẫu cũ `F-yymmdd-nnnn` | ARC | **Open** (plan R2 W11) |
 | BUG-R1-015 | P3 | Wireframe dùng `WO-031`, `WO-034` (3 số) | UXD | **Open** (plan R2 W11) |
-| BUG-R1-016 | P3 | Mã đơn DS-0 4 số `OTM-0151` | QA (+ UXD) | **Deferred R2** (plan R2 W6) |
+| BUG-R1-016 | P3 | Mã đơn DS-0 4 số `OTM-0151` | QA (+ UXD) | **Fixed (quy ước, 16/10 R2 W6)** – đóng khi loader BE nạp DS-0 khớp `expectedCode` |
 | BUG-R1-017 | P3 | Số đếm cũ "74 story Must R2" | ARC (PO đã sửa phần mình) | **Open** – còn phần ARC (plan R2 W11) |
 | BUG-R1-018 | P3 | ERD mục 5 ghi SM-05 "K1–K11" | ARC | **Closed** |
 | BUG-R1-019 | P3 | Tài liệu BA ghi cứng "06:00" không dẫn BR-010 | BA | **Closed** |
@@ -162,10 +164,12 @@ Lượt 1: không có lỗi P0/P1 của QA. Hai lỗi P1 sơ bộ ở bước 2 
 - Kiểm lại lượt 2 (16/10): **chưa sửa** – `grep -rnoE "WO-[0-9]{3}\b" product/design/wireframes` còn ở 01, 02, 06, 08, 09 và index (UXD không có fix-notes). Theo dõi: plan R2 **W11**.
 
 ### BUG-R1-016 – Mã đơn DS-0 4 số
-- Mức: P3 · Vai sửa: **QA** (test-strategy + seed R2), **UXD** đổi theo nếu QA đổi bộ mã · Trạng thái: **Deferred R2**
+- Mức: P3 · Vai sửa: **QA** (test-strategy + seed R2), **UXD** đổi theo nếu QA đổi bộ mã · Trạng thái: ~~Deferred R2~~ → **Fixed (quy ước)** 16/10
 - Thực tế: test-strategy (DS-0), test case và wireframe dùng `OTM-0091`…`OTM-0163` (mã prototype BL 4.4), trong khi mẫu chuẩn là `OTM-{n:05}` và quyết định QA 15/10: đơn còn hiệu lực của DS-0 nạp **qua API** → server cấp mã mới, không giữ mã DS-0 → TC tra theo `OTM-0151` sẽ không tìm thấy đơn.
 - Đề xuất (R2 tuần 1, cùng seed): coi mã DS-0 là **nhãn seed** lưu ở `reservation.external_ref`/ghi chú, TC tra đơn theo nhãn; hoặc nạp DS-0 với `doc_sequence` khởi đầu để mã sinh ra trùng nhãn. Ghi quyết định vào test-strategy.
 - Kiểm lại lượt 2 (16/10): chưa sửa (việc của QA, gắn với seed). Còn 102 chỗ mã đơn 4 số trong design/docs/tests (gồm ví dụ mới `OTM-0152` ở response 409 `updateRoom`). Theo dõi: plan R2 **W6** (seed DS-E/DS-0 + quy ước mã).
+
+- **Sửa (16/10, R2 W6 – QA):** chốt phương án 2 có kiểm: mã 4 số là **nhãn seed** (`seedLabel`); DS-0 nạp vào DB mới theo `loadOrder` nên mã thật xác định trước (`expectedCode`, vd. `OTM-0151` → `OTM-00010`), loader so và dừng nếu lệch; TC tra theo nhãn qua `.out/ds-0.map.json`. Không cần trường DB mới, không sửa 102 chỗ nhãn cũ, UXD không phải đổi wireframe. Ghi ở `product/docs/qa/test-strategy.md` 0.3 mục 4.5 và `product/tests/fixtures/seed/ds-0.json` (`codeConvention`); `validate-fixtures.mjs` kiểm `expectedCode` liên tục. Trạng thái **Fixed** – QA đóng khi BE chạy loader (sprint 1) và mã khớp.
 
 ### BUG-R1-017 – Số đếm cũ "74 story Must R2"
 - Mức: P3 · Vai sửa: **ARC** (OpenAPI `info.description` "Phủ 74 story Must R2") + **PO** (backlog tiêu đề mục 4 "74 story Must Round 2") · Trạng thái: **Open** (phần ARC)
