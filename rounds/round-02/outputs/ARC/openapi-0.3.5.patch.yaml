@@ -1,0 +1,466 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OpenAPI 0.3.4-draft → 0.3.5-draft – NHÓM A (Sprint 2: rack / đặt phòng / báo giá)
+# Tác giả: ARC | R2 Sprint 2, bước Sản xuất (phần hợp đồng) | 16/10/2026
+# Quyết định + lý do: rounds/round-02/outputs/ARC/s2-contract.md (mục 2 – A-01…A-12)
+#
+# CHƯA ÁP vào product/docs/api/openapi.yaml (BE-A/BE-B đang code theo 0.3.4).
+# ORC cho phép → ARC áp: (1) các `actions` dưới đây (định dạng OpenAPI Overlay 1.0.0:
+# `update` = trộn đệ quy vào đích, mảng thì nối thêm; `remove: true` = xóa đích);
+# (2) các SỬA CHỮ ở khối chú thích cuối file (chèn vào info.description và mô tả dài);
+# (3) sinh lại packages/contracts + services/api/src/generated, chạy openapi-spec-validator,
+#     redocly lint, gen_traceability.py --strict.
+# Đã thử áp lên bản sao trong scratchpad: openapi-spec-validator 0.7.x → OK (s2-contract.md mục 6).
+#
+# Mọi thay đổi là THÊM hoặc LÀM RÕ; không đổi/xóa đường dẫn, không đổi kiểu trường cũ.
+# Nhóm B (Sprint 3–4) KHÔNG có trong file này – đi bản 0.3.6 sau khi SEC/DOM/PO trả lời.
+# ─────────────────────────────────────────────────────────────────────────────
+overlay: 1.0.0
+info:
+  title: OTTIMO Desk API – 0.3.5 nhóm A (Sprint 2)
+  version: 0.3.5-draft
+actions:
+
+  # ── phiên bản ──
+  - target: $.info
+    update:
+      version: 0.3.5-draft
+
+  # ── A-01 RackBar thêm 4 trường (FE S2 mục 5; H08) ──
+  - target: $.components.schemas.RackBar.properties
+    update:
+      reservationCode:
+        type: string
+        example: OTM-00171
+        description: 'Mã đơn – hiện trên thanh và trong aria-label (H08). Vắng với thanh `ooo`/`unavailable`. 0.3.5 (A-01)'
+        x-visible-to: [owner, manager, front_desk_lead, front_desk]
+      externalContract:
+        type: boolean
+        description: 'Đơn dài hạn nhập tay (US-017 AC5a) → nhãn "Nhập tay" (= `Reservation.externalContract`). Vắng = false. 0.3.5 (A-01)'
+        x-visible-to: [owner, manager, front_desk_lead, front_desk]
+      extraGuestCount:
+        type: integer
+        minimum: 0
+        description: 'Số người vượt định mức (= `Reservation.extraGuestCount`, BR-812) → icon sofa; HK/MT thấy để chuẩn bị bộ đồ dùng thêm. Vắng/0 = không. 0.3.5 (A-01)'
+        x-visible-to: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance]
+      holdExpiresAt:
+        $ref: '#/components/schemas/Instant'
+        description: 'Chỉ thanh `kind=hold` – hạn giữ chỗ (= `Reservation.hold.expiresAt`) để đếm ngược. 0.3.5 (A-01)'
+        x-visible-to: [owner, manager, front_desk_lead, front_desk]
+
+  - target: $.paths['/v1/properties/{propertyId}/rack'].get
+    update:
+      description: |
+        Thanh đơn gồm loại (`in_house`, `confirmed`, `long_stay`, `hold`, `checked_out`, `ooo`) để client hiện màu **và** nhãn chữ (US-016 AC2).
+        Làn `unassigned` chứa đơn OTA xung đột chưa gán căn (erd mục 7).
+        Lọc trường theo vai: HK/MT chỉ thấy trạng thái căn + có/không khách đến + `extraGuestCount`; SAL/CTV chỉ thấy trống/hết, không tên khách/kênh/giá/mã đơn
+        – kể cả đơn của chính họ (rbac ghi chú 2, 3). Màn H12 tô "đơn của tôi" bằng cách ghép `listReservations` (x-scope own) – rack không lọc theo người (0.3.5, A-01).
+
+  # ── A-02 Problem: trường mở rộng chuẩn theo code (FE S2 mục 5; BA E07-02 phần chung) ──
+  - target: $.components.schemas.Problem.properties.conflicts.items
+    remove: true
+  - target: $.components.schemas.Problem.properties.conflicts
+    update:
+      description: |
+        Với ROOM_UNAVAILABLE / ROOM_BLOCKED / ROOM_OCCUPIED – dựng bằng truy vấn sau khi rollback lỗi 23P01 (không đọc từ thông điệp lỗi DB);
+        với CAPACITY_BELOW_BOOKINGS – các đơn vượt sức chứa mới (`reservationCode`, `stayFrom`, `stayTo`, `guestCount`). Phần tử theo `OccupancyConflict` (0.3.5).
+      items: { $ref: '#/components/schemas/OccupancyConflict' }
+  - target: $.components.schemas.Problem.properties.suggestions
+    update:
+      description: |
+        ROOM_UNAVAILABLE / ROOM_BLOCKED / ROOM_OCCUPIED – căn trống thay thế (cùng nhóm trước, `upgrade=true` nếu nhóm cao hơn theo `room_group.sort_order`).
+        **422 có lỗi trường `MIN_STAY_NOT_MET`** (0.3.5, A-05): căn trong nhóm mà khoảng ngày yêu cầu là **đêm lẻ** (BR-113 a) – `orphanNight=true`; rỗng/vắng = không có ngoại lệ.
+  - target: $.components.schemas.Problem.properties.suggestions.items.properties
+    update:
+      orphanNight:
+        type: boolean
+        description: 'Khoảng ngày yêu cầu là đêm lẻ của căn này (BR-113 ngoại lệ a) – tạo đơn vào căn này không vướng ở tối thiểu. 0.3.5'
+  - target: $.components.schemas.Problem.properties.max
+    update:
+      description: 'PARAM_OUT_OF_RANGE – biên trên; CAPACITY_EXCEEDED – sức chứa tối đa của căn (0.3.5)'
+  - target: $.components.schemas.Problem.properties
+    update:
+      currentState:
+        type: string
+        description: |
+          **Luôn có** với `409 INVALID_TRANSITION` (mọi operation – đơn, giao dịch, khối OOO, phiếu sửa, việc HK, trạng thái buồng, check-in online):
+          trạng thái hiện tại của đối tượng. Client tải lại và nêu trạng thái mới; PWA dùng để xếp mục hàng đợi vào "Đã áp dụng"/"Không áp dụng được". 0.3.5 (A-02)
+      availableFrom:
+        $ref: '#/components/schemas/Instant'
+        description: '`409 INVALID_TRANSITION` của hành động mở theo giờ (R2: `markNoShow` – mốc `no_show_mark_time` của ngày đến, BR-311): thời điểm sớm nhất được làm. 0.3.5 (A-04)'
+      allowedActions:
+        type: array
+        description: '`409 INVALID_TRANSITION` của đơn – hành động hợp lệ hiện tại (tùy chọn; client vẫn nên tải lại đơn). 0.3.5'
+        items: { $ref: '#/components/schemas/AllowedAction' }
+      expiredAt:
+        $ref: '#/components/schemas/Instant'
+        description: '`409 HOLD_EXPIRED` – lúc giữ chỗ hết hạn; `409 QUOTE_EXPIRED` – lúc báo giá hết hiệu lực. 0.3.5 (A-02)'
+      depositRequiredVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: '`422 DEPOSIT_INSUFFICIENT` – cọc tối thiểu BR-305 của đơn. 0.3.5 (A-02)'
+      depositPaidVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: '`422 DEPOSIT_INSUFFICIENT` – đã ghi nhận (`createReservation`: số tiền `initialPayment`, 0 nếu không gửi; `confirmDeposit`: tổng cọc `succeeded`). 0.3.5 (A-02)'
+      roomNo:
+        type: string
+        description: '`ROOM_NOT_SELLABLE`, `CAPACITY_EXCEEDED` – số căn liên quan. 0.3.5 (A-02)'
+      currentVersion:
+        type: integer
+        description: '`412 VERSION_CONFLICT` – phiên bản hiện tại (đã có trong ví dụ từ 0.2; khai báo chính thức 0.3.5)'
+
+  - target: $.components.schemas
+    update:
+      OccupancyConflict:
+        type: object
+        description: |
+          Phần tử `Problem.conflicts[]` (0.3.5, A-02). ROOM_*: `roomNo`, `nights`, `kind`, `reservationCode` (khi `kind` ≠ `ooo`), `guestDisplayName` (chỉ FD+).
+          CAPACITY_BELOW_BOOKINGS: `reservationCode`, `stayFrom`, `stayTo`, `guestCount`.
+        properties:
+          roomNo: { type: string }
+          nights: { type: array, items: { $ref: '#/components/schemas/LocalDate' } }
+          kind: { type: string, enum: [reservation, hold, ooo] }
+          reservationCode: { type: string, example: OTM-00168 }
+          guestDisplayName:
+            type: string
+            x-rbac-field: D01
+            x-visible-to: [owner, manager, front_desk_lead, front_desk]
+          stayFrom: { $ref: '#/components/schemas/LocalDate' }
+          stayTo: { $ref: '#/components/schemas/LocalDate' }
+          guestCount: { type: integer }
+        additionalProperties: true
+
+  # ── A-03 ROOM_OCCUPIED, ROOM_BLOCKED (UXD #4; QA TC-L2-032) ──
+  - target: $.components.responses.RoomUnavailable
+    update:
+      description: |
+        ROOM_UNAVAILABLE / ROOM_BLOCKED / ROOM_NOT_SELLABLE / ROOM_OCCUPIED – kèm đêm và đơn/khối đang chiếm (US-018 AC1). Thứ tự (0.3.5, A-03):
+        căn ngừng bán/ngoài hiệu lực → `ROOM_NOT_SELLABLE`; (chỉ thao tác khóa phòng) đơn `in_house` giao khoảng khóa → `ROOM_OCCUPIED`;
+        mọi phần tử `conflicts[]` là `kind=ooo` → `ROOM_BLOCKED`; còn lại → `ROOM_UNAVAILABLE`.
+  - target: $.paths['/v1/properties/{propertyId}/work-orders'].post.responses['409']
+    update:
+      description: |
+        `ROOM_OCCUPIED` – căn đang có khách ở trong khoảng khóa (đổi phòng cho khách trước – BR-804, BR-424); `ROOM_UNAVAILABLE` – khoảng khóa trùng đơn tương lai.
+        Cả hai trả `conflicts[]` để lễ tân xử lý trước (US-061 AC2/AC3). 0.3.5 (A-03)
+  - target: $.components.schemas.WorkOrderCreate.properties.block.properties.affectedReservationsAcknowledged
+    update:
+      description: 'MGR+ xác nhận đã có phương án dời (O1) – **chỉ ghi nhận người xác nhận**; không vượt chống trùng: khoảng khóa trùng đơn luôn `409` (EXCLUDE, ADR-009). 0.3.5 (A-03)'
+  - target: $.components.schemas.RoomBlockCreate.properties.affectedReservationsAcknowledged
+    update:
+      description: 'Như `WorkOrderCreate.block.affectedReservationsAcknowledged` – chỉ ghi nhận, khoảng khóa trùng đơn luôn `409`. 0.3.5 (A-03)'
+  - target: $.components.schemas.WorkOrderCreate.properties.block.properties.endDatePlanned
+    update:
+      description: 'Như `RoomBlockCreate.endDatePlanned`: **nửa mở – ngày mở bán lại** (khối chiếm `[startDate, endDatePlanned)`); UI "khóa đến hết ngày X" = `endDatePlanned − 1`. 0.3.5 (A-10, trả lời UXD #5)'
+
+  # ── A-04 markNoShow một bước + mốc mở nút (QA (b); FE giả định 6) ──
+  - target: $.components.schemas.Reservation.properties
+    update:
+      noShowAvailableFrom:
+        type: [string, 'null']
+        format: date-time
+        description: |
+          Đơn `confirmed` có ngày đến ≤ ngày nghiệp vụ và chưa nhận phòng: thời điểm sớm nhất được đánh dấu không đến (`no_show_mark_time` của ngày đến, BR-311);
+          `null` với trạng thái/ngày khác. `allowedActions` chỉ có `mark_no_show` khi giờ server ≥ mốc này – client **không** tự so giờ máy với tham số. 0.3.5 (A-04)
+        x-visible-to: [owner, manager, front_desk_lead, front_desk]
+  - target: $.paths['/v1/properties/{propertyId}/reservations/{reservationId}/actions/mark-no-show'].post
+    update:
+      description: |
+        **Một bước** (0.3.5, A-04): kết quả liên lạc (`contactAttemptNote`) ghi cùng lệnh đánh dấu, lưu `reservation.no_show_contact_note` + `state_transition.note` (xem `getReservationHistory`);
+        R2 không có operation ghi lần gọi riêng. "Đã ghi kết quả liên lạc" (US-136 AC2/AC3) = ô bắt buộc trong hộp xác nhận.
+        Thứ tự kiểm: body (`contactAttemptNote` thiếu/< 3 ký tự → `422 VALIDATION_FAILED`, `errors[{field: contactAttemptNote, code: REASON_REQUIRED}]`)
+        → `If-Match` → trạng thái `confirmed` và giờ server ≥ `noShowAvailableFrom` (khác → `409 INVALID_TRANSITION` kèm `currentState`, `availableFrom`).
+      responses:
+        '412': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '428': { $ref: '#/components/responses/PreconditionRequired' }
+
+  # ── A-05 BR-113 đêm lẻ không cần "không chọn căn" (QA (a); FE mục 5 gán căn OTA) ──
+  - target: $.paths['/v1/properties/{propertyId}/availability'].get.parameters
+    update:
+      - name: reservationId
+        in: query
+        description: 'Gán căn cho đơn (OTA chưa gán, đổi căn): nhóm tham chiếu để đánh dấu `upgrade` = nhóm căn đơn yêu cầu; đêm của chính đơn không tính là bận. 0.3.5 (A-05)'
+        schema: { $ref: '#/components/schemas/Uuid' }
+  - target: $.components.schemas.AvailabilityResult.properties.requestedRoom.properties
+    update:
+      orphanNight:
+        type: boolean
+        description: 'Khoảng ngày là đêm lẻ của căn (BR-113 a) – không vướng ở tối thiểu. 0.3.5 (A-05)'
+  - target: $.components.schemas.AvailabilityResult.properties.alternatives.items.properties
+    update:
+      upgrade:
+        type: boolean
+        description: 'Nhóm cao hơn nhóm tham chiếu (`roomGroupId`, nhóm của `roomId` hoặc của `reservationId`) – nâng hạng cần FDL+ (BR-316). 0.3.5 (A-05)'
+      orphanNight:
+        type: boolean
+        description: 'Khoảng ngày là đêm lẻ của căn này (BR-113 a). 0.3.5 (A-05)'
+  - target: $.components.schemas.QuoteCalculation.properties
+    update:
+      roomId:
+        $ref: '#/components/schemas/Uuid'
+        description: |
+          Căn server dùng để tính (báo giá theo căn: căn đó; theo nhóm: căn server chọn – số đêm < ở tối thiểu thì **ưu tiên căn có đêm lẻ** (BR-113 a),
+          sau đó căn để lại ít đêm lẻ nhất (BR-316)). `createHoldFromQuote` giữ đúng căn này nếu còn trống. 0.3.5 (A-05)
+      roomNo: { type: string, description: 'Số căn của `roomId`. 0.3.5' }
+
+  # ── A-06 Danh sách người chốt cho FD (FE mục 5) ──
+  - target: $.paths
+    update:
+      /v1/properties/{propertyId}/closer-candidates:
+        parameters:
+          - $ref: '#/components/parameters/PropertyId'
+        get:
+          tags: [reservations]
+          operationId: listCloserCandidates
+          summary: Người chốt chọn được cho đơn (`closerUserId`) – ô "Người chốt / CTV chốt đơn" khi FD+ tạo/sửa đơn (0.3.5, A-06)
+          description: |
+            Người dùng `active` của cơ sở có vai `collaborator` (`kind=agent`) hoặc `sales_staff`, `front_desk`, `front_desk_lead`, `manager`, `owner` (`kind=staff`)
+            – khớp kiểm `closerUserId` của EP02 mục 3 (`NOT_IN_LIST`). Chỉ trả id, tên hiển thị, loại: **không** username, SĐT, email, trạng thái khóa (D27).
+            Không phân trang (≤ 200). SAL/CTV không gọi (mặc định người chốt = chính họ).
+          x-roles: [owner, manager, front_desk_lead, front_desk]
+          x-rbac: [S05]
+          x-stories: [US-017]
+          parameters:
+            - name: kind
+              in: query
+              schema: { type: string, enum: [agent, staff, all], default: all }
+          responses:
+            '200':
+              description: OK
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required: [data]
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/CloserCandidate' } }
+                  example:
+                    data:
+                      - { userId: 0192a1b0-0000-7000-8000-0000000e0031, displayName: Minh Anh (CTV), kind: agent }
+                      - { userId: 0192a1b0-0000-7000-8000-0000000e0012, displayName: Thu Trang, kind: staff }
+            '401': { $ref: '#/components/responses/Unauthenticated' }
+            '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ── A-07 Tham số đặt phòng chỉ đọc cho form (FE giả định 5) – Should ──
+      /v1/properties/{propertyId}/booking-rules:
+        parameters:
+          - $ref: '#/components/parameters/PropertyId'
+        get:
+          tags: [reservations]
+          operationId: getBookingRules
+          summary: Giá trị tham số đặt phòng/giữ chỗ/báo giá đang hiệu lực mà form cần – chỉ đọc, không cần quyền bảng tham số S24 (0.3.5, A-07)
+          description: |
+            Tập cố định, không có tiền hoa hồng, không tham số bảo mật. Giá trị theo ngày nghiệp vụ hiện tại của cơ sở. Server vẫn kiểm lại mọi quy tắc khi ghi –
+            dữ liệu này chỉ để form hiện đúng lựa chọn/mặc định (thay mặc định BR mục 13 cứng trong client). Dữ liệu không theo người: `x-scope` của SAL/CTV chỉ để khớp rbac S15 (M).
+          x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+          x-scope: { sales_staff: own, collaborator: own }
+          x-rbac: [S05, S15]
+          x-stories: [US-017, US-084]
+          responses:
+            '200':
+              description: OK
+              content:
+                application/json:
+                  schema: { $ref: '#/components/schemas/BookingRules' }
+            '401': { $ref: '#/components/responses/Unauthenticated' }
+            '403': { $ref: '#/components/responses/Forbidden' }
+
+  - target: $.components.schemas
+    update:
+      CloserCandidate:
+        type: object
+        required: [userId, displayName, kind]
+        properties:
+          userId: { $ref: '#/components/schemas/Uuid' }
+          displayName: { type: string, x-rbac-field: D27 }
+          kind: { type: string, enum: [agent, staff], description: 'agent = CTV (hoa hồng `payeeType=agent`); staff = nhân viên (hoa hồng `payeeType=staff` khi là sale)' }
+      BookingRules:
+        type: object
+        description: 'Ánh xạ khóa tham số (BR mục 13) – 0.3.5 (A-07)'
+        required: [businessDate, holdHoursOptions, holdHoursDefault, holdLatestTimeOnArrival, holdExtensionMaxHours, quoteValidityDays, shortStayDepositPct, longStayCompareFromNights, longStayRequiredFromNights, noShowCallTime, noShowMarkTime, checkinTime, checkoutTime]
+        properties:
+          businessDate: { $ref: '#/components/schemas/LocalDate' }
+          holdHoursOptions: { type: array, items: { type: integer }, description: '`hold_hours_options` (BR-302)' }
+          holdHoursDefault: { type: integer, description: '`hold_hours_default`' }
+          holdLatestTimeOnArrival: { $ref: '#/components/schemas/LocalTime', description: '`hold_latest_time_on_arrival`' }
+          holdExtensionMaxHours: { type: integer, description: '`hold_extension_max_hours` (BR-303)' }
+          quoteValidityDays: { type: integer, description: '`quote_validity_days` (BR-304)' }
+          shortStayDepositPct: { $ref: '#/components/schemas/Percent', description: '`short_stay_deposit_pct` (BR-305)' }
+          longStayCompareFromNights: { type: integer, description: '`long_stay_compare_from_nights` (BR-108)' }
+          longStayRequiredFromNights: { type: integer, description: '`long_stay_required_from_nights` (BR-108)' }
+          noShowCallTime: { $ref: '#/components/schemas/LocalTime', description: '`no_show_call_time` (BR-311)' }
+          noShowMarkTime: { $ref: '#/components/schemas/LocalTime', description: '`no_show_mark_time` (BR-311)' }
+          checkinTime: { $ref: '#/components/schemas/LocalTime', description: '`checkin_time` (BR-401)' }
+          checkoutTime: { $ref: '#/components/schemas/LocalTime', description: '`checkout_time` (BR-401)' }
+
+  # ── A-08 Kênh Trực tiếp: một kênh `direct` + `directSource` (QA (c); đóng erd E8) ──
+  - target: $.components.schemas.Channel.properties.code
+    update:
+      description: 'Mã kênh (UK theo cơ sở). Nhóm `direct` có **đúng một** kênh mã `direct`; nguồn chi tiết ở `Reservation.directSource` (0.3.5, A-08 – đóng erd E8)'
+  - target: $.components.schemas.ReservationCreate.properties.directSource
+    update:
+      description: |
+        Nguồn của đơn kênh `direct` (US-017 AC8; erd `reservation.direct_source`): Website · Zalo/điện thoại · Khách vãng lai · Khách quay lại ·
+        Sale nội bộ (metrics Q-11). **Bắt buộc** khi kênh thuộc nhóm `direct` (`REQUIRED`); kênh khác gửi → `DIRECT_SOURCE_NOT_ALLOWED`. 0.3.1.
+        0.3.5 (A-08): danh mục kênh chỉ có **một** kênh nhóm `direct` (mã `direct`) – nguồn không còn mô hình bằng 5 kênh riêng.
+
+  # ── A-09 Danh mục sự kiện SSE (BA E07-08 phần tên; BE-A đã phát `hk_task.changed`) ──
+  - target: $.paths['/v1/properties/{propertyId}/events'].get.responses['200']
+    update:
+      description: |
+        text/event-stream; payload `{id}` (không dữ liệu). Sự kiện (0.3.5, A-09): `reservation.changed`, `room.status_changed`, `attention.changed`,
+        `hk_task.changed`, `work_order.changed` (Sprint 4), `guest_request.changed` (Sprint 4), `notification.created` (chỉ gửi tới người nhận).
+        Bỏ `task.assigned`, `request.created` của 0.2 (chưa client/BE nào dùng) – thay bằng `hk_task.changed`, `guest_request.changed`.
+
+  # ── A-13 confirmDeposit thiếu tiền: 200 + đơn vẫn hold, KHÔNG 422-đã-ghi (BE-B S2-2; deposits.service) ──
+  - target: $.paths['/v1/properties/{propertyId}/reservations/{reservationId}/actions/confirm-deposit'].post
+    update:
+      description: |
+        Ghi giao dịch `succeeded` (nếu gửi `payment`) rồi, **nếu tổng cọc đã đủ** `depositRequiredVnd`, chuyển `hold → confirmed` (B4) trong cùng giao dịch; kiểm trùng lại (BR-906).
+        **Chưa đủ (US-086 AC2, 0.3.5 A-13)**: giao dịch vẫn được ghi, đơn giữ `hold` → **`200`** trả `Reservation` (`status=hold`, `depositPaidVnd` mới) – client báo
+        "Đã ghi nhận, còn thiếu {depositRequiredVnd − depositPaidVnd}". Không trả 4xx khi đã ghi tiền (4xx = không có gì được ghi; client gửi lại an toàn).
+        `422 DEPOSIT_INSUFFICIENT` chỉ khi **không** gửi `payment` mới (dùng `existingPaymentId` hoặc gọi lại) mà tổng cọc vẫn thiếu – không ghi gì.
+        Giữ chỗ đã quá hạn chỉ xác nhận khi tiền về trước hạn (`receivedAt` < `hold.expiresAt`, US-085 AC4), ngược lại `409 HOLD_EXPIRED` (+ `expiredAt`).
+        CTV **không** được gọi (rbac ghi chú 20) – CTV dùng `.../deposit-notices`.
+  - target: $.components.schemas.Reservation.properties
+    update:
+      depositPaidVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: 'Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13)'
+        x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
+
+  # ── A-14 QuoteCalculation tách tiền phòng / phụ thu người (BE-B S2-1; US-080 AC5, BR-305) ──
+  - target: $.components.schemas.QuoteCalculation.properties
+    update:
+      roomTotalVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: 'Tiền phòng sau lịch giá và giảm số đêm/mã quay lại (cơ sở tính cọc BR-305). 0.3.5 (A-14)'
+      extraPersonFeeVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: 'Phụ thu người vượt định mức cả kỳ (BR-110); `totalVnd = roomTotalVnd + extraPersonFeeVnd`. 0.3.5 (A-14)'
+      extraGuestCount:
+        type: integer
+        minimum: 0
+        description: 'Số người vượt định mức của căn tính giá (BR-812) – nhắc bộ đồ dùng thêm/sofa. 0.3.5 (A-14)'
+
+  # ── A-15 Trường mở rộng BE đã dùng (BE-A mục 7 (2), BE-B S2-2) ──
+  - target: $.components.schemas.Problem.properties
+    update:
+      shortfallVnd:
+        $ref: '#/components/schemas/MoneyVnd'
+        description: '`422 DEPOSIT_INSUFFICIENT` – còn thiếu (= depositRequiredVnd − depositPaidVnd). 0.3.5 (A-15)'
+      minStayNights:
+        type: integer
+        description: '422 có lỗi trường `MIN_STAY_NOT_MET` – số đêm tối thiểu áp cho ngày đến (BR-113). 0.3.5 (A-15)'
+      dates:
+        type: array
+        items: { $ref: '#/components/schemas/LocalDate' }
+        description: '422 có lỗi trường `RATE_OUT_OF_RANGE`/`RATE_OUT_OF_RANGE_WARNING` – các đêm có giá ngoài sàn–trần (BR-105). 0.3.5 (A-15)'
+      expected:
+        type: string
+        description: '422 `moveReservation` gán căn đơn OTA xung đột – giá trị `overbookingResolution` đúng theo nhóm căn mới (`reassigned_same_group` | `upgraded`). 0.3.5 (A-15)'
+
+  # ── A-17 Ảnh biên nhận tạm chưa nhận (BE-B S2-4) ──
+  - target: $.components.schemas.PaymentCreate.properties.attachmentId
+    update:
+      description: |
+        Ảnh biên nhận chuyển khoản – id từ `uploadAttachment purpose=deposit_receipt` của cùng cơ sở (sai → 422 `NOT_IN_LIST`); BR-527 "kèm ảnh/mã giao dịch" (0.3.3, E05-01).
+        **R2 Sprint 2**: luôn `422 NOT_IN_LIST` tới khi `uploadAttachment` + `getAttachment` cài xong (Sprint 3, SEC duyệt SR-FILE) – client ẩn ô ảnh (0.3.5, A-17).
+
+  # ── A-18 Gia hạn báo giá Q4 – thiếu operation cho A51 (US-083 AC3; BE-B mục 6; QA TC-L5-017 b, c) ──
+  - target: $.paths
+    update:
+      /v1/properties/{propertyId}/quotes/{quoteId}/actions/extend:
+        parameters:
+          - $ref: '#/components/parameters/PropertyId'
+          - $ref: '#/components/parameters/QuoteId'
+        post:
+          tags: [quotes]
+          operationId: extendQuote
+          summary: Gia hạn báo giá hết hiệu lực (Q4, BR-304) – MGR+ làm ngay; SAL/CTV gửi yêu cầu duyệt `quote_extension` (A51 = D) – 0.3.5 (A-18)
+          description: |
+            Chỉ báo giá `expired` (kể cả hết hạn "lười" – `active` đã quá `expiresAt`); khác → `409 INVALID_TRANSITION` (+ `currentState`).
+            MGR/OWN → `200` báo giá `active`, `expiresAt` mới tính như lúc lưu (BR-304-01) từ ngày nghiệp vụ hiện tại, **giá giữ nguyên snapshot** (BR-006).
+            SAL/CTV (báo giá của mình) → `202` + `ApprovalRequest` loại `quote_extension`; người duyệt `approveRequest` → server thực hiện Q4. Lý do bắt buộc với SAL/CTV.
+            Giá niêm yết đã đổi không chặn gia hạn – người duyệt thấy giá cũ trong yêu cầu.
+          x-roles: [owner, manager, sales_staff, collaborator]
+          x-scope: { sales_staff: own, collaborator: own }
+          x-rbac: [A51]
+          x-transition: Q4
+          x-stories: [US-083]
+          parameters:
+            - $ref: '#/components/parameters/IdempotencyKey'
+            - $ref: '#/components/parameters/IfMatch'
+          requestBody:
+            required: false
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    reason: { type: string, minLength: 3, maxLength: 500, description: 'Bắt buộc với SAL/CTV (`REASON_REQUIRED`)', x-rbac-field: D12c }
+          responses:
+            '200':
+              description: Đã gia hạn (MGR+)
+              headers:
+                ETag: { $ref: '#/components/headers/ETag' }
+              content:
+                application/json:
+                  schema: { $ref: '#/components/schemas/Quote' }
+            '202':
+              description: Đã gửi yêu cầu duyệt `quote_extension` (SAL/CTV)
+              content:
+                application/json:
+                  schema: { $ref: '#/components/schemas/ApprovalRequest' }
+            '403': { $ref: '#/components/responses/Forbidden' }
+            '404': { $ref: '#/components/responses/NotFound' }
+            '409': { $ref: '#/components/responses/Conflict' }
+            '412': { $ref: '#/components/responses/VersionConflict' }
+            '422': { $ref: '#/components/responses/ValidationFailed' }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SỬA CHỮ (áp tay cùng lượt – chuỗi dài trong info.description / mô tả operation)
+#
+# T1. info.description, mục "Thời gian thực": thay danh sách sự kiện bằng câu của A-09.
+# T2. info.description, bảng "Mã lỗi (Problem.code)" – thêm dòng sau ROOM_NOT_SELLABLE:
+#     | ROOM_OCCUPIED | 409 | Khóa phòng (`createRoomBlock`, `updateRoomBlock`, `createWorkOrder.block`) giao đơn đang ở (`in_house`) – đổi phòng cho khách trước (BR-804, BR-424); kèm `conflicts[]` (0.3.5) |
+#     và sửa dòng ROOM_BLOCKED: "Căn đang khóa OOO (US-019) – khi **mọi** phần tử `conflicts[]` là `kind=ooo`; lẫn đơn → ROOM_UNAVAILABLE (0.3.5)".
+# T3. info.description – thêm bảng ngay sau bảng mã lỗi:
+#     ## Trường mở rộng của Problem theo code (0.3.5)
+#     | code | Trường |
+#     |---|---|
+#     | INVALID_TRANSITION | `currentState` (luôn có), `availableFrom` (hành động mở theo giờ), `allowedActions` (đơn, tùy chọn) |
+#     | HOLD_EXPIRED · QUOTE_EXPIRED | `expiredAt` |
+#     | DEPOSIT_INSUFFICIENT | `depositRequiredVnd`, `depositPaidVnd`, `shortfallVnd` (không còn `paymentCode` – A-13: đã ghi tiền thì trả 200) |
+#     | ROOM_UNAVAILABLE · ROOM_BLOCKED · ROOM_OCCUPIED | `conflicts[]` (`OccupancyConflict`), `suggestions[]` |
+#     | ROOM_NOT_SELLABLE | `roomNo` |
+#     | CAPACITY_EXCEEDED | `roomNo`, `max` |
+#     | CAPACITY_BELOW_BOOKINGS | `conflicts[]` |
+#     | VERSION_CONFLICT | `currentVersion` |
+#     | SURCHARGE_CHANGED | `surchargeVnd` · ROOM_NOT_READY: `roomStatus` · PARAM_OUT_OF_RANGE: `min`, `max`, `allowed[]` |
+#     | 422 có `MIN_STAY_NOT_MET` | `minStayNights`, `suggestions[]` với `orphanNight=true` (BR-113 a) |
+#     | 422 có `RATE_OUT_OF_RANGE(_WARNING)` | `dates[]` |
+#     | 422 `moveReservation` (`overbookingResolution` sai) | `expected` |
+#     Tên trường cố định; client chỉ đọc các trường này (không đọc `detail`).
+# T4. info.description, bảng mã trường – dòng MIN_STAY_NOT_MET thêm: "… nếu trong nhóm có căn mà khoảng ngày là đêm lẻ → kèm `suggestions[]` `orphanNight=true`
+#     (lễ tân chọn căn đó; R2 quầy không tự gán căn – web R3 mới tự gán) (0.3.5)". Dòng `REASON_REQUIRED` thêm `markNoShow.contactAttemptNote`, `extendQuote.reason`.
+#     Thêm dòng (A-15, mã BE đã dùng):
+#     | HOLD_EXTENDED_ONCE | Giữ chỗ đã gia hạn 1 lần (BR-303) – nằm trong `errors[]` của `409 INVALID_TRANSITION`, `field` = `extraHours` | `extendHold` |
+#     | OTA_DATES_LOCKED | Đổi ngày đơn kênh `ota` (ngày do OTA quyết – sửa trên extranet rồi nhập lại) | `moveReservation` |
+#     | RETURN_CODE_INVALID | Mã khách quay lại không hợp lệ/hết hạn (BR-111) | `calculateQuote`, `saveQuote` |
+# T5. createReservation.description – thêm đoạn:
+#     "**Ở tối thiểu và đêm lẻ (BR-113, 0.3.5 A-05)**: `roomId` vẫn bắt buộc. Khoảng ngày là đêm lẻ của căn đã chọn → nhận (ngoại lệ a). Không phải →
+#     `422` mã trường `MIN_STAY_NOT_MET` kèm `suggestions[]` các căn cùng nhóm có đêm lẻ (`orphanNight=true`); FDL+ bỏ qua bằng `minStayOverrideReason`."
+# T6. calculateQuote/saveQuote mô tả – "Báo giá theo nhóm: server chọn căn theo `QuoteCalculation.roomId` (A-05)".
+# T7. info.description – đoạn "## Thay đổi phiên bản 0.3.5-draft" (đặt trên đoạn 0.3.4):
+#     "(R2 Sprint 2 – đề nghị FE/QA/UXD/BA; quyết định `rounds/round-02/outputs/ARC/s2-contract.md` nhóm A.) **Thêm operation**: `listCloserCandidates`,
+#     `getBookingRules`. **Thêm trường**: `RackBar.reservationCode/externalContract/extraGuestCount/holdExpiresAt`; `Reservation.noShowAvailableFrom`;
+#     `Problem.currentState/availableFrom/allowedActions/expiredAt/depositRequiredVnd/depositPaidVnd/roomNo/currentVersion`, `suggestions[].orphanNight`,
+#     schema `OccupancyConflict`; `AvailabilityResult` `upgrade`/`orphanNight`, tham số `reservationId`; `QuoteCalculation.roomId/roomNo`; mã `ROOM_OCCUPIED`.
+#     **Làm rõ**: `markNoShow` một bước (422/409/412); ROOM_BLOCKED khi mọi xung đột là OOO; `block.endDatePlanned` nửa mở; kênh `direct` duy nhất (đóng erd E8);
+#     danh mục sự kiện SSE (`hk_task.changed` thay `task.assigned`). **Theo BE (A-13…A-18)**: `confirmDeposit` thiếu tiền trả 200 (đơn vẫn `hold`) thay 422-đã-ghi;
+#     `Reservation.depositPaidVnd`; `QuoteCalculation.roomTotalVnd/extraPersonFeeVnd/extraGuestCount`; `Problem.shortfallVnd/minStayNights/dates/expected`;
+#     mã trường `HOLD_EXTENDED_ONCE`, `OTA_DATES_LOCKED`, `RETURN_CODE_INVALID`; operation `extendQuote` (Q4, A51).
+# T8. erd.md: mục 4.1 `channel` bỏ 5 mã direct_* → một mã `direct`; mục 14 E8 → Đóng (ARC S2 A-08). architecture.md mục 12: danh sách sự kiện SSE như A-09.
+#     erd theo mã BE đã chạy (A-16): `reservation.total_room_vnd`, `no_show_contact_note`, `reschedule_count`; `hk_task`/`room_block` tạo ở migration 0013;
+#     `folio_line.revenue_group` là cột thường do FolioService ghi (bỏ chữ "generated"); `room_group.service_fee_monthly_vnd`; bảng `deposit_notice` (A53);
+#     `quote.withdrawn_at`.
+# ─────────────────────────────────────────────────────────────────────────────

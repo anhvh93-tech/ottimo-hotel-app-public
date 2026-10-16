@@ -1,6 +1,6 @@
 # Mô hình dữ liệu (ERD) – OTTIMO Desk
 
-- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Sprint 1 (16/10/2026): 0.3.4** – khớp OpenAPI 0.3.4-draft (xem mục 15)
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Sprint 1 (16/10/2026): 0.3.4** · **R2 Sprint 2 (16/10/2026): 0.3.5** – khớp OpenAPI 0.3.5-draft và migration 0011–0014 đã chạy (xem mục 15)
 - Trạng thái: **Đã sửa theo review bước 3** (SEC-on-ARC 26 thẻ, BE-on-ARC 18 thẻ, DATA-on-ARC 11 thẻ – xem `rounds/round-01/responses/ARC-responses.md`) và quyết định mới trong decision-log (SEC, DOM, PO, DATA, phân xử ORC 15/10). Đối chiếu `metrics-definitions.md` v0.2 mục 9, `security-requirements.md` v0.2
 - Đầu vào: `architecture.md` (ADR-001…013), `state-machines.md` (SM-01…SM-15), `rbac-matrix.md`, `business-rules.md` (BR, mục 13 tham số), `metrics-definitions.md` (mục 9 – trường bắt buộc), `security/data-risk-assessment.md` (C0–C3, D01–D28, T01–T18), `integrations.md`, `product/integrations/README.md`, `round-0-baseline.md` (BL mục 4), `03-backlog/backlog.md` (Must R2)
 - Đọc cùng: `api/openapi.yaml` (hợp đồng API), `coding-standards.md` (quy tắc migration, đặt tên), `architecture.md` mục 9 (job theo lịch) và mục 9a (mã chứng từ)
@@ -425,7 +425,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `wifi_info_i18n` | jsonb | | C1 | Hiện cho khách từ ngày nhận phòng (US-108) |
 | `status` | text | `active\|inactive` | | |
 
-**`room_group`** – nhóm căn (Lầu 1–2 / Căn N / Căn N+). `code`, `name_i18n`, `sort_order`, `base_occupancy`, `max_occupancy` (mặc định nhóm – BR-110), `ota_room_ref` (để ánh xạ kênh theo nhóm).
+**`room_group`** – nhóm căn (Lầu 1–2 / Căn N / Căn N+). `code`, `name_i18n`, `sort_order`, `base_occupancy`, `max_occupancy` (mặc định nhóm – BR-110), `ota_room_ref` (để ánh xạ kênh theo nhóm), `service_fee_monthly_vnd` bigint null (CHECK ≥ 0 – phí dịch vụ tháng theo nhóm cho báo giá dài hạn BR-204; **0.3.5**, migration 0011).
 
 **`room`** – căn (BL 4.1).
 | Cột | Kiểu | Ràng buộc | Ghi chú |
@@ -457,7 +457,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 
 **`doc_sequence`** – bộ đếm mã chứng từ (mục 10). Hai cột rõ ràng (BE-ARC-10): `organization_id uuid not null`, `property_id uuid null` (null = mã cấp tổ chức như `KH-`); `doc_type`, `period_key`, `prefix`, `pad_width`, `next_value bigint`. UK một phần: (`property_id`,`doc_type`,`period_key`) WHERE `property_id IS NOT NULL` và (`organization_id`,`doc_type`,`period_key`) WHERE `property_id IS NULL`. Policy RLS riêng (mục 2.3).
 
-**`channel`** – kênh bán (DATA Q-11). `code` (UK theo cơ sở: `direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`, `collaborator`, `airbnb`, `booking`, `agoda`, `expedia`, `tripcom`, `traveloka`, `google`, `internal` – **lệch mở E8**: metrics Q-11/US-017 AC8 mô tả một kênh "Trực tiếp" + trường nguồn, còn danh mục này và seed QA DS-E/DS-0 có 5 kênh nhóm `direct`; R2 giữ nguyên danh mục, `direct_source` vẫn bắt buộc cho đơn nhóm `direct`), `name_i18n`, `channel_group` (`direct|agent|ota|internal`), `is_active`, `requires_ota_ref` bool.
+**`channel`** – kênh bán (DATA Q-11). `code` (UK theo cơ sở: **`direct`** (một kênh duy nhất của nhóm `direct` – **0.3.5, đóng E8**; nguồn chi tiết ở `reservation.direct_source`), `collaborator`, `airbnb`, `booking`, `agoda`, `expedia`, `tripcom`, `traveloka`, `google`, `internal` – E8 đóng 0.3.5: trước đây seed có 5 kênh `direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`), `name_i18n`, `channel_group` (`direct|agent|ota|internal`), `is_active`, `requires_ota_ref` bool.
 
 **`channel_commission_rate`** – `channel_id`, `effective_from`, `rate_pct` (BR-901). Chỉ OWN sửa (rbac A102).
 
@@ -604,6 +604,9 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `direct_source` | text null | Nguồn đơn kênh Trực tiếp: CHECK ∈ (`website`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`) **0.3.1** (US-017 AC8 + "Sale nội bộ" của metrics Q-11); CHECK `direct_source IS NULL` khi kênh không thuộc nhóm `direct` (kiểm ở ứng dụng vì nhóm kênh ở bảng khác). API: bắt buộc khi tạo đơn kênh `direct` ở quầy (`createReservation`); null = "Chưa rõ nguồn" (đơn cũ, đơn tạo từ báo giá/web R3) | | metrics v0.2, US-017 AC8 |
 | `has_contact_at_eligibility` | bool | Cờ có liên hệ dùng được tại thời điểm đơn đủ điều kiện gửi link (metrics S5 v0.2) – chỉ cờ | | metrics v0.2 |
 | `no_show_marked_at`, `no_show_marked_by` | | | | BR-311 |
+| `no_show_contact_note` | text null | **0.3.5** (migration 0013) – kết quả liên lạc ghi cùng lệnh B11 (`markNoShow.contactAttemptNote`, 3–500 ký tự); cũng ở `state_transition.note` | C2 | US-136 AC2 |
+| `total_room_vnd` | bigint NOT NULL default 0 | **0.3.5** (migration 0013) – tiền phòng snapshot (sau lịch giá, giảm số đêm) – cơ sở cọc BR-305; CHECK ≥ 0 | C2 | BR-305 |
+| `reschedule_count` | smallint NOT NULL default 0 | **0.3.5** (migration 0013) – số lần dời ngày B8 (≤ `reschedule_max_times`) | | BR-309 |
 | `actual_checkin_at`, `actual_checkout_at` | timestamptz | | C2 | |
 | `cards_issued` | smallint null | **0.3.3** – số thẻ phòng phát lúc B9; CHECK `0 ≤ cards_issued ≤ 2` (giả định BA "2/đơn" – chờ DOM E05-06 a; nới biên = migration mới thay CHECK) | | BR-511 |
 | `door_access_handed_over_at`, `door_access_handed_over_by` | timestamptz null, uuid null | **0.3.3** (đề nghị UXD) – ô tick "đã giao mã/thẻ" R2; **không** lưu mã cửa; chờ PO quyết bắt buộc hay không | | US-025 AC3 |
@@ -696,6 +699,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 | `pricing_snapshot` | C2 | toàn bộ tham số + kết quả tính (BR-006) |
 | `total_vnd`, `deposit_vnd`, `commission_vnd`, `ottimo_remaining_vnd` | C2 | `ottimo_remaining_vnd` không trả cho CTV (rbac ghi chú 34) |
 | `started_at`, `sent_at`, `expires_at`, `converted_reservation_id` | | DATA S6; BR-304 |
+| `withdrawn_at` | | **0.3.5** (migration 0011) – Q5 rút báo giá |
 
 **`lease_contract`** (SM-06) – phần dài hạn của đơn (DATA Contract).
 | Cột | C | Ghi chú |
@@ -731,7 +735,8 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 ### 4.6 `folio` – tiền (R2; hóa đơn điện tử R3)
 
 **`folio`** (SM-13). `primary_reservation_id` (UK, NOT NULL), `status` (`open|settled|closed`), `bill_no` (UK theo cơ sở, dạng **`F26-000123`** – BR-007 v0.2, cấp khi `settled`), `settled_at`, `settled_by`, `closed_at`, `post_checkout_window_until` (BR-427), `debt_due_date`, `debt_approved_by` (BR-525). Số dư **tính** từ dòng và giao dịch (view `v_folio_balance` `WITH (security_invoker = true)`), không lưu cột tổng để tránh lệch. `checkOut`, `recordPayment`, `addFolioLine` khóa `folio … FOR UPDATE` trước khi tính số dư.
-**Khóa ngoại vòng** (BE-ARC-09): `reservation.folio_id` NOT NULL là FK `DEFERRABLE INITIALLY DEFERRED`; ứng dụng sinh cả hai UUIDv7 rồi INSERT đơn và folio trong **một** giao dịch.
+**Khóa ngoại vòng** (BE-ARC-09): `reservation.folio_id` là FK `DEFERRABLE INITIALLY DEFERRED` (migration 0014, cùng `folio.primary_reservation_id`); ứng dụng sinh cả hai UUIDv7 rồi INSERT đơn và folio trong **một** giao dịch. **0.3.5**: cột còn **nullable** tạm thời (BE-A S2) – thêm NOT NULL bằng migration riêng khi mọi đường tạo đơn đã mở folio (theo dõi FB-R2-ARC-BE S2).
+**`deposit_notice`** (**0.3.5**, migration 0011 – A53, `createDepositNotice`): `reservation_id`, `amount_vnd` (> 0), `attachment_id`, `note`, `status` (`open|handled`), `handled_payment_id`, `created_by`. CTV/SAL báo "khách đã chuyển cọc"; B4 thành công → `handled`.
 **Bill gộp nhóm** (BR-325, SM-16): bảng `group_bill(id, reservation_group_id, bill_no, folio_ids uuid[], issued_at, issued_by)` – mỗi bill gộp một số `F`; folio từng đơn vẫn `settled` riêng (R3 nếu PO dời đơn nhóm).
 
 **`folio_line`** – dòng folio, không xóa (BR-008).
@@ -739,7 +744,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 |---|---|---|
 | `category` | | `room, early_checkin, late_checkout, extra_person, minibar, fnb, laundry, cleaning, service_fee, utilities, penalty, damage, cancellation_fee, no_show_fee, early_departure_fee, deposit_forfeit, discount, foc, adjustment` (DATA) |
 | `adjusts_group` | | `room\|other\|non_revenue` – **bắt buộc** khi `category='adjustment'` (CHECK), null với loại khác (DATA FB-07) |
-| `revenue_group` | | `room\|other\|non_revenue` = `coalesce(adjusts_group, revenue_group_of(category))` – cột generated, hàm `IMMUTABLE` |
+| `revenue_group` | | `room\|other\|non_revenue` – **0.3.5: cột thường** do `FolioService` ghi lúc INSERT (dòng FOC/giảm giá lấy nhóm của dòng gốc – không suy được từ `category` nên bỏ cột generated); CHECK tập giá trị; append-only nên không lệch |
 | `description_i18n` | | |
 | `quantity`, `unit_price_vnd`, `amount_vnd` | C2 | CHECK `amount_vnd = quantity * unit_price_vnd` trừ dòng `room` dài hạn/điều chỉnh |
 | `vat_rate_pct` | | snapshot BR-523 |
@@ -1396,7 +1401,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | E4 | `user_session.device_trusted` | **Đóng** – thay bằng bảng `trusted_device` (SR-DEV) |
 | E5 | Khóa tham số mới (BR-427, BR-611, S8, BR-603 mode) | Mở – DOM thêm vào BR mục 13 |
 | E6 | Rời trong ngày (nhận và trả cùng ngày đến) | Mở – giả định giữ đêm đầu (mục 4.5), DOM chốt R2 |
-| E8 | Danh mục kênh nhóm `direct`: 5 kênh (`direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff` – erd/seed QA) hay 1 kênh `direct` + `direct_source` (metrics Q-11, US-017 AC8)? Hợp đồng 0.3.1 có `directSource` dùng được cho cả hai cách | Mở – PO + DATA chốt trong Sprint 1; nếu gộp 1 kênh thì QA đổi seed DS-E/DS-0/`br-examples.json` (ARC không đổi seed) |
+| E8 | Danh mục kênh nhóm `direct`: 5 kênh (`direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff` – erd/seed QA) hay 1 kênh `direct` + `direct_source` (metrics Q-11, US-017 AC8)? Hợp đồng 0.3.1 có `directSource` dùng được cho cả hai cách | **Đóng 16/10 (ARC S2 A-08)**: một kênh `direct` + `direct_source` – khớp metrics Q-11, US-017 AC8; QA đổi seed DS-E/DS-0/`br-examples.json` |
 | E9 | Q-01 BA: đơn dài hạn nhập tay cho khách **đang ở** (`manualLongStay.alreadyInHouse`) | Mở – chờ PO + DOM; hợp đồng 0.3.1 **chưa** thêm trường (giả định BA: nhập ngày vào = hôm nay rồi B9) |
 | E10 | `reservation.cards_issued` tối đa 2/đơn hay 2/người (BR-511) | Mở – DOM (E05-06 a); CHECK theo giả định BA |
 | E11 | `unverified` ở 3 mục BR-613 (c) có `blocking` không (ARC giả định **có**, an toàn mặc định) | Mở – DOM + SEC (s1-contract Q-D3) |
@@ -1417,6 +1422,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 16/10/2026 | 2 – Sprint 2 | **0.3.5** (khớp OpenAPI 0.3.5-draft – `rounds/round-02/outputs/ARC/s2-contract.md` A-08, A-16): một kênh `direct` (đóng E8); theo migration 0011–0014 đã chạy: `reservation.no_show_contact_note`, `total_room_vnd`, `reschedule_count`; `reservation.folio_id` nullable tạm; `folio_line.revenue_group` cột thường; `room_group.service_fee_monthly_vnd`; bảng `deposit_notice`; `quote.withdrawn_at`; `hk_task`, `room_block` tạo ở 0013 cùng nhóm bảng đơn | ARC |
 | 16/10/2026 | 2 – Sprint 1 (vòng sửa) | **0.3.4** (khớp OpenAPI 0.3.4-draft; quyết định Q1–Q8 `reviews/ARC-on-BE.md`, SEC s1-decisions): cột `guest.possible_duplicate_at` (Q7, cần migration mới); `guest.phone_e164` ghi rõ API trả có `+`; 9.3 thêm `session_policy`, `login_lockout` là tham số bảo mật (biên SEC, áp giá trị chặt nhất khi đăng nhập). `room.bed_setup`, `bed_count`, `area_m2` đã có – nay lên API (Q6). `online_checkin` hết trạng thái "chờ SEC" (duyệt có điều kiện) | ARC |
 | 16/10/2026 | 2 – Sprint 1 | **0.3.3** (khớp OpenAPI 0.3.3-draft; đề nghị BA E03-01…E05-05, E06-01…E06-07): `reservation.cards_issued`, `house_rules_sent_at/by`, `checkin_document_override_*`; `payment.note`, `attachment_id`, `confirmed_at/by`, vòng đời VietQR `pending` + UK một QR chờ/folio + job J24 `payment.expire`; `minibar_check.replaces_check_id`; `registration.images_purge_*`, `blocks_door_code` là điều kiện B9 ở R2, bảng `registration_portal_submission` (khai báo `mixed`); `guest_document.check_results` 3 kết quả + `blocking`/`manual_result`, `no_entry_record_enc`; `online_checkin` thêm `notice_*`, `late_arrival`, `arrival_note`, `deferred_people` (chờ SEC); câu hỏi mở E10–E12. Theo BE-A: `approval_request.target_code`, `limit_basis_vnd`, `self_applied`; `audit_event.entity_code`. Theo UXD: `reservation.door_access_handed_over_*` | ARC |
 | 15/10/2026 | 1 – Đợt 3 (Pha B) | Bản đầu: 60+ bảng, RLS, 15 máy trạng thái, tham số, mã chứng từ, C3, thời hạn lưu, xung đột OTA | ARC |

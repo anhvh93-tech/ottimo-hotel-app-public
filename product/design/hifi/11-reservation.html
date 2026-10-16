@@ -105,7 +105,7 @@
       <div class="modal lg" role="dialog" aria-modal="true" aria-labelledby="as-h">
         <div class="modal-h"><h2 id="as-h" data-i18n="rsv.assign_title" data-i18n-args='{"code":"OTM-0162","guest":"Hannah Schmidt"}'>Gán căn cho OTM-0162 · Hannah Schmidt</h2><span class="chip bad"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="rsv.conflict_chip">Xung đột OTA</span></span></div>
         <div class="modal-b">
-          <p data-i18n="rsv.assign_lead" data-i18n-args='{"group":"Lầu 1–2","from":"21/10","to":"23/10","room":"203"}'>Agoda gửi đơn nhóm Lầu 1–2, 21/10 → 23/10 khi căn 203 đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất.</p>
+          <p data-i18n="rsv.assign_lead" data-i18n-args='{"channel":"Agoda","group":"Lầu 1–2","from":"21/10","to":"23/10","room":"203"}'>Agoda gửi đơn nhóm Lầu 1–2, 21/10 → 23/10 khi căn 203 đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất.</p>
           <fieldset style="border:0;padding:0;margin:0"><legend class="label-h" style="margin-bottom:6px" data-i18n="move.resolution.same_group">Gán căn trống cùng nhóm</legend>
             <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as" checked><span class="grow"><b>101 · The Amber</b> <span class="chip ok" data-i18n="rsv.best_fit">Phù hợp nhất</span><br><span class="li-s" data-i18n="rsv.fit_contiguous" data-i18n-args='{"prev":"Sophie Martin"}'>Nối tiếp đơn Sophie Martin – không tạo đêm lẻ</span></span></label>
             <label class="check card" style="margin-bottom:6px;padding:10px 12px"><input type="radio" name="as"><span class="grow"><b>103 · The Bloom</b><br><span class="li-s" data-i18n="rsv.fit_after_hold" data-i18n-args='{"prev":"Lê Minh"}'>Nối tiếp giữ chỗ Lê Minh (chưa cọc)</span></span></label>
@@ -183,7 +183,7 @@
 
 <dialog class="dlg sm" id="dlg-cancel-hold" aria-labelledby="ch-h"><div class="modal" role="alertdialog" aria-labelledby="ch-h" aria-describedby="ch-b">
   <div class="modal-h"><h2 id="ch-h" data-i18n="cancel.title" data-i18n-args='{"room":"103"}'>Hủy giữ chỗ căn 103?</h2></div>
-  <div class="modal-b"><p id="ch-b" data-i18n="cancel.consequence" data-i18n-args='{"room":"103","from":"19/10","to":"21/10","channels":"7","lead":"Lê Minh"}'>Căn 103 sẽ mở bán lại từ 19/10 đến 21/10 trên 7 kênh. Khách tiềm năng Lê Minh trở về "Đã báo giá".</p>
+  <div class="modal-b"><p id="ch-b" data-i18n="cancel.consequence" data-i18n-args='{"room":"103","from":"19/10","to":"21/10","lead":"Lê Minh"}'>Căn 103 sẽ mở bán lại từ 19/10 đến 21/10 trên mọi kênh. Khách tiềm năng Lê Minh trở về "Đã báo giá".</p>
     <div class="field"><label for="ch-r"><span data-i18n="cancel.reason">Lý do hủy</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="ch-r"><option data-i18n="rsv.choose_reason">Chọn lý do</option><option data-i18n="cancel.reason.changed_mind">Khách đổi ý</option><option data-i18n="cancel.reason.found_other">Khách tìm được chỗ khác</option><option data-i18n="cancel.reason.price">Giá chưa phù hợp</option><option data-i18n="cancel.reason.dates">Đổi ngày</option><option data-i18n="cancel.reason.unreachable">Không liên lạc được</option><option data-i18n="cancel.reason.other">Khác (ghi rõ)</option></select></div>
     <p class="li-s" data-i18n="cancel.fee_none">Không thu phí (giữ chỗ chưa cọc)</p></div>
   <div class="modal-f"><button class="btn" data-close="force" autofocus data-i18n="cancel.keep">Giữ lại đơn</button><button class="btn danger" data-close="force" data-i18n="cancel.confirm">Hủy giữ chỗ</button></div>
@@ -202,7 +202,7 @@
 </div></dialog>
 <dialog class="dlg sm" id="dlg-cancel-booking" aria-labelledby="cbk-h"><div class="modal" role="alertdialog" aria-labelledby="cbk-h" aria-describedby="cbk-b">
   <div class="modal-h"><h2 id="cbk-h" data-i18n="confirm.cancel_booking.title" data-i18n-args='{"code":"OTM-0152","guest":"Gia đình anh Hưng"}'>Hủy đơn OTM-0152 của Gia đình anh Hưng?</h2></div>
-  <div class="modal-b"><p id="cbk-b" data-i18n="confirm.cancel_booking.body" data-i18n-args='{"room":"302","from":"15/10","to":"19/10","retained":"1.200.000","refund":"0"}'>Căn 302 mở bán lại 15/10 → 19/10 trên mọi kênh. Giữ lại 1.200.000 (phí hủy); hoàn 0 – cần quản lý duyệt.</p>
+  <div class="modal-b"><p id="cbk-b" data-i18n="confirm.cancel_booking.body_no_refund" data-i18n-args='{"room":"302","from":"15/10","to":"19/10","retained":"1.200.000"}'>Căn 302 mở bán lại 15/10 → 19/10 trên mọi kênh. Giữ lại 1.200.000 (phí hủy), không hoàn tiền.</p>
   <div class="field"><label for="cbk-r"><span data-i18n="cancel.reason">Lý do hủy</span> <span class="req" aria-hidden="true">*</span></label><select class="input" id="cbk-r"><option data-i18n="rsv.choose_reason">Chọn lý do</option><option data-i18n="cancel.reason.changed_mind">Khách đổi ý</option></select></div></div>
   <div class="modal-f"><button class="btn" data-close="force" autofocus data-i18n="cancel.keep">Giữ lại đơn</button><button class="btn danger" data-close="force" data-i18n="drawer.action.cancel_booking">Hủy đơn</button></div>
 </div></dialog>

@@ -291,7 +291,7 @@ Bộ đếm `doc_sequence` theo `(cơ sở hoặc tổ chức, loại mã, kỳ)
 Lễ tân mất mạng tại quầy (tình huống S7): admin-web giữ rack đã tải ở chế độ chỉ xem + banner; khi có mạng, worker đẩy lại tồn và đối soát kênh. **UXD** cần thiết kế: banner mất kết nối, huy hiệu "đang chờ gửi (n)", danh sách mục không áp dụng được.
 
 ## 12. Cập nhật thời gian thực
-SSE `GET /v1/properties/{id}/events` phát sự kiện nhẹ (`room.status_changed`, `reservation.changed`, `attention.changed`, `task.assigned`, `notification.created` – chỉ tới người nhận) chỉ chứa ID + loại; client gọi lại API để lấy dữ liệu theo quyền của mình (không đẩy dữ liệu nhạy cảm qua kênh sự kiện). Mất kết nối → TanStack Query refetch khi online/focus + poll 30 giây.
+SSE `GET /v1/properties/{id}/events` phát sự kiện nhẹ (0.3.5: `reservation.changed`, `room.status_changed`, `attention.changed`, `hk_task.changed`, `work_order.changed`, `guest_request.changed`, `notification.created` – chỉ tới người nhận) chỉ chứa ID + loại; client gọi lại API để lấy dữ liệu theo quyền của mình (không đẩy dữ liệu nhạy cảm qua kênh sự kiện). Mất kết nối → TanStack Query refetch khi online/focus + poll 30 giây.
 
 ### 12.1 "Cần chú ý" và thông báo nhân viên (BE-ARC-06)
 | Loại | Lưu ở | Cách sinh | Đóng |

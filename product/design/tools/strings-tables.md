@@ -170,7 +170,7 @@
 | `fo.rack.arriving_tomorrow` | Có khách đến ngày mai | Arrival tomorrow | ⟨chừa chỗ⟩ |  |
 | `fo.rack.sold_out` | Đã kín | Taken | ⟨chừa chỗ⟩ | Rack dạng xem của sales_staff/collaborator (`RackBar.kind = unavailable`) |
 | `cancel.title` | Hủy giữ chỗ căn {room}? | Cancel the hold on room {room}? | ⟨chừa chỗ⟩ |  |
-| `cancel.consequence` | Căn {room} sẽ mở bán lại từ {from} đến {to} trên {channels} kênh. Khách tiềm năng {lead} trở về "Đã báo giá". | Room {room} will be back on sale from {from} to {to} on {channels} channels. Lead {lead} returns to "Quoted". | ⟨chừa chỗ⟩ |  |
+| `cancel.consequence` | Căn {room} sẽ mở bán lại từ {from} đến {to} trên mọi kênh. Khách tiềm năng {lead} trở về "Đã báo giá". | Room {room} will be back on sale from {from} to {to} on all channels. Lead {lead} returns to "Quoted". | ⟨chừa chỗ⟩ | R2 S2: bỏ {channels} (FE không có số kênh – FB-R2-UXD-FE-S2-02). Không có lead → cancel.consequence_no_lead |
 | `cancel.reason` | Lý do hủy | Cancellation reason | ⟨chừa chỗ⟩ |  |
 | `cancel.reason.changed_mind` | Khách đổi ý | Guest changed their mind | ⟨chừa chỗ⟩ |  |
 | `cancel.reason.found_other` | Khách tìm được chỗ khác | Guest found another place | ⟨chừa chỗ⟩ |  |
@@ -890,7 +890,7 @@
 | `lsm.export` | Xuất danh sách (.csv) | Export list (.csv) | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
 | `lsm.extra_note` | Phụ thu người thêm của khách dài hạn ghi theo hợp đồng giấy – app không tự tính ở đơn này. | Extra-guest charges for long-stay guests follow the paper lease – the app doesn't calculate them for this booking. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
 | `lsm.filter_chip` | Lọc: HĐ ngoài hệ thống | Filter: lease outside the app | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
-| `lsm.flag` | HĐ ngoài hệ thống – chuyển vào app ở R3 | Lease outside the app – moved into the app in R3 | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
+| `lsm.flag` | HĐ ngoài hệ thống – sẽ chuyển vào app | Lease outside the app – to be moved into the app | ⟨chừa chỗ⟩ | 10-long-stay-manual.html; R2 S2: bỏ 'R3' (mã giai đoạn nội bộ) |
 | `lsm.flag_body` | Hợp đồng, lịch thu theo kỳ và ký quỹ vẫn làm như hiện nay. Đơn này giữ phòng trên sơ đồ; tiền thu được ghi từng lần trong folio. Khi app có hợp đồng, đơn được chuyển sang, giữ nguyên mã đơn. | The lease, payment schedule and security deposit are handled as today. This booking holds the room on the rack; payments are recorded one by one in the folio. When the app supports leases, the booking is moved over with the same booking ID. | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
 | `lsm.list_title` | Đơn dài hạn nhập tay | Manual long-stay bookings | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
 | `lsm.move_in` | Ngày vào | Move-in date | ⟨chừa chỗ⟩ | 10-long-stay-manual.html |
@@ -1047,7 +1047,7 @@
 | `rack.by_room` | Theo căn · 14 ngày | By room · 14 days | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.col_room` | Căn | Room | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.conflict_body` | Đơn về khi căn {room} đã kín {from} → {to}. Đơn vẫn được nhận và nằm ở làn "Chưa gán căn". Căn trống gợi ý: {rooms}. | It arrived when room {room} was already booked {from} → {to}. The booking is still accepted and sits in the "Unassigned" lane. Suggested free rooms: {rooms}. | ⟨chừa chỗ⟩ | 08-rack.html |
-| `rack.conflict_title` | Đơn Agoda {code} ({guest}) chưa có căn | Agoda booking {code} ({guest}) has no room | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.conflict_title` | Đơn {channel} {code} ({guest}) chưa có căn | {channel} booking {code} ({guest}) has no room | ⟨chừa chỗ⟩ | 08-rack.html; R2 S2: {channel} = tên kênh từ listChannels (bỏ chữ Agoda cứng) |
 | `rack.dep_unconfirmed` | Căn {room}: khách {guest} trả phòng hôm nay, chưa xác nhận giờ trả (đã nhắc {time}). | Room {room}: guest {guest} checks out today, check-out time not confirmed (reminded at {time}). | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.filter_group` | Nhóm căn | Room group | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.hidden_note` | Đơn đã hủy, không đến không hiện trên sơ đồ. Căn ngừng bán hiện nhãn "Ngừng bán" ở đầu dòng. | Cancelled and no-show bookings aren't shown. Rooms off sale show "Off sale" at the start of the row. | ⟨chừa chỗ⟩ | 08-rack.html |
@@ -1059,7 +1059,7 @@
 | `rack.legend_kit` | Có khách vượt định mức – chuẩn bị bộ đồ dùng thêm | Guest over standard occupancy – prepare extra amenity kit | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.legend_unassigned` | Chưa gán căn (xung đột OTA) | Unassigned (OTA conflict) | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.manual_badge` | Nhập tay | Manual | ⟨chừa chỗ⟩ | 08-rack.html |
-| `rack.manual_legend` | = HĐ ngoài hệ thống (R2) | = lease outside the app (R2) | ⟨chừa chỗ⟩ | 08-rack.html |
+| `rack.manual_legend` | = HĐ ngoài hệ thống | = lease outside the app | ⟨chừa chỗ⟩ | 08-rack.html; R2 S2: bỏ '(R2)' |
 | `rack.next` | Tới 7 ngày | Forward 7 days | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.not_selling` | Không bán | Not for sale | ⟨chừa chỗ⟩ | 08-rack.html |
 | `rack.note.arrives_today` | đến hôm nay | arrives today | ⟨chừa chỗ⟩ | 08-rack.html |
@@ -1126,7 +1126,7 @@
 | `rsv.amount_received` | Số tiền đã nhận | Amount received | ⟨chừa chỗ⟩ | 11-reservation.html |
 | `rsv.amount_sent` | Số tiền khách chuyển | Amount the guest transferred | ⟨chừa chỗ⟩ | 11-reservation.html |
 | `rsv.assign_effect` | Sau khi gán: đơn rời làn "Chưa gán căn", cảnh báo đỏ tắt, nhận phòng được như đơn thường. | After assigning: the booking leaves the "Unassigned" lane, the red alert clears, and check-in works as normal. | ⟨chừa chỗ⟩ | 11-reservation.html |
-| `rsv.assign_lead` | Agoda gửi đơn nhóm {group}, {from} → {to} khi căn {room} đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất. | Agoda sent a {group} booking for {from} → {to} when room {room} was already booked. Pick a free room – suggestions are sorted by fewest orphan nights. | ⟨chừa chỗ⟩ | 11-reservation.html |
+| `rsv.assign_lead` | {channel} gửi đơn nhóm {group}, {from} → {to} khi căn {room} đã kín. Chọn căn trống – gợi ý xếp theo ít tạo đêm lẻ nhất. | {channel} sent a {group} booking for {from} → {to} when room {room} was already booked. Pick a free room – suggestions are sorted by fewest orphan nights. | ⟨chừa chỗ⟩ | 11-reservation.html; R2 S2: {channel} thay chữ Agoda cứng |
 | `rsv.assign_submit` | Gán vào căn {room} | Assign to room {room} | ⟨chừa chỗ⟩ | 11-reservation.html |
 | `rsv.assign_title` | Gán căn cho {code} · {guest} | Assign a room to {code} · {guest} | ⟨chừa chỗ⟩ | 11-reservation.html |
 | `rsv.attach_receipt` | Đính kèm ảnh biên nhận | Attach receipt photo | ⟨chừa chỗ⟩ | 11-reservation.html |
@@ -2124,6 +2124,61 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `rooms.area` | Diện tích (không bắt buộc) | Area (optional) | ⟨chừa chỗ⟩ |  |
 | `rooms.area_help` | Số nguyên. Để trống nếu chưa đo. | Whole number. Leave blank if not measured. | ⟨chừa chỗ⟩ |  |
 | `rooms.bed_count_help` | Giường lớn và giường đơn, không tính sofa (1–10). | Double and single beds, not the sofa (1–10). | ⟨chừa chỗ⟩ |  |
+
+#### R2 Sprint 2 – review FE: rack, đặt phòng, chi tiết đơn, sale (H08–H12)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `common.reload` | Tải lại | Reload | ⟨chừa chỗ⟩ | Nút khi 412 VERSION_CONFLICT / 428 – khác 'Thử lại' (gửi lại) |
+| `booking.field.arrival` | Ngày đến | Arrival | ⟨chừa chỗ⟩ | Thay việc tách chuỗi booking.field.dates |
+| `booking.field.departure` | Ngày đi | Departure | ⟨chừa chỗ⟩ |  |
+| `rack.view_label` | Kiểu xem | View | ⟨chừa chỗ⟩ | Nhãn nhóm Seg Lưới / Danh sách |
+| `drawer.progress.label` | Tiến trình đơn | Booking progress | ⟨chừa chỗ⟩ | aria-label thanh tiến trình H11 |
+| `rack.long_prefix` | HĐ | Lease | ⟨chừa chỗ⟩ | Tiền tố tên trên thanh dài hạn (H08) – thay chữ 'HĐ' viết cứng |
+| `rack.col_status` | Tình trạng buồng | Room status | ⟨chừa chỗ⟩ | Cột bảng Danh sách H08 |
+| `rack.col_bookings` | Đơn trong khoảng ngày | Bookings in this range | ⟨chừa chỗ⟩ | Cột bảng Danh sách H08 |
+| `rack.off_sale` | Ngừng bán | Off sale | ⟨chừa chỗ⟩ | Chip đầu dòng căn ngừng bán – khớp rack.hidden_note (EN 'Off sale') |
+| `rack.cell_free` | Căn {room}, {date}: trống | Room {room}, {date}: free | ⟨chừa chỗ⟩ | aria-label ô trống không đặt được (đã qua / mất mạng) |
+| `rack.cell_past` | Căn {room}, {date}: đã qua | Room {room}, {date}: past | ⟨chừa chỗ⟩ |  |
+| `rack.cell_off_sale` | Căn {room}, {date}: ngừng bán | Room {room}, {date}: off sale | ⟨chừa chỗ⟩ |  |
+| `rsv.upgrade_needs_lead` | Nâng hạng – cần lễ tân trưởng xác nhận | Upgrade – needs a senior receptionist | ⟨chừa chỗ⟩ | Lý do nút căn nâng hạng bị khóa với FD (EP02 E02-08) |
+| `rsv.assign_options` | Căn trống phù hợp | Suitable free rooms | ⟨chừa chỗ⟩ | legend danh sách căn ở hộp Gán căn (gồm cả nâng hạng) |
+| `rsv.toast.hold_extended` | Đã gia hạn giữ chỗ {code} đến {time} | Hold {code} extended to {time} | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.moved` | Đã đổi {code}: căn {room}, {from} → {to} | {code} changed: room {room}, {from} → {to} | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.assigned` | Đã gán căn {room} cho {code} | Room {room} assigned to {code} | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.cancelled` | Đã hủy đơn {code} | Booking {code} cancelled | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.confirmed` | Đơn {code} đã xác nhận | Booking {code} confirmed | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.no_show` | Đã đánh dấu {code} không đến | {code} marked as no-show | ⟨chừa chỗ⟩ |  |
+| `rsv.toast.restored` | Đã khôi phục đơn {code} | Booking {code} restored | ⟨chừa chỗ⟩ |  |
+| `rsv.filter_active` | Đang hiệu lực | Active | ⟨chừa chỗ⟩ | Bộ lọc màn Đơn đặt phòng (giữ chỗ + đã xác nhận + đang ở) |
+| `rsv.search_placeholder` | Mã đơn, mã OTA, mã khách hoặc tên | Booking code, OTA reference, guest code or name | ⟨chừa chỗ⟩ |  |
+| `rsv.list_empty_title` | Chưa có đơn nào | No bookings yet | ⟨chừa chỗ⟩ |  |
+| `rsv.list_empty_body` | Đơn mới sẽ hiện ở đây. Bấm Đặt phòng mới để tạo đơn. | New bookings will show here. Click New booking to create one. | ⟨chừa chỗ⟩ |  |
+| `rsv.search_empty` | Không có đơn nào khớp "{q}" | No bookings match "{q}" | ⟨chừa chỗ⟩ |  |
+| `sale.quotes_empty_title` | Bạn chưa có báo giá nào | You have no quotes yet | ⟨chừa chỗ⟩ |  |
+| `sale.quotes_empty_body` | Tìm căn ở tab Căn trống rồi lập báo giá để gửi khách. | Find a room in the Availability tab, then make a quote to send. | ⟨chừa chỗ⟩ |  |
+| `sale.quote_converted` | Đã tạo giữ chỗ | Hold created | ⟨chừa chỗ⟩ | Trạng thái báo giá đã chuyển thành giữ chỗ (không dùng nhãn trạng thái đơn) |
+| `sale.quote_expired` | Hết hiệu lực | Expired | ⟨chừa chỗ⟩ |  |
+| `cancel.consequence_no_lead` | Căn {room} sẽ mở bán lại từ {from} đến {to} trên mọi kênh. | Room {room} will be back on sale from {from} to {to} on all channels. | ⟨chừa chỗ⟩ | Hủy giữ chỗ không gắn khách tiềm năng |
+| `confirm.cancel_booking.body_no_refund` | Căn {room} mở bán lại {from} → {to} trên mọi kênh. Giữ lại {retained} (phí hủy), không hoàn tiền. | Room {room} goes back on sale {from} → {to} on all channels. {retained} is kept (cancellation fee); nothing is refunded. | ⟨chừa chỗ⟩ | refundableVnd = 0 |
+| `confirm.cancel_booking.body_no_money` | Căn {room} mở bán lại {from} → {to} trên mọi kênh. Đơn chưa thu tiền nên không có phí hủy hay khoản hoàn. | Room {room} goes back on sale {from} → {to} on all channels. No money was taken, so there's no fee or refund. | ⟨chừa chỗ⟩ | retainedVnd = 0 và refundableVnd = 0 |
+| `cancel.preview_loading` | Đang tính phí hủy… | Working out the cancellation fee… | ⟨chừa chỗ⟩ | Nút Hủy đơn khóa trong lúc này |
+| `cancel.preview_failed` | Chưa tính được phí hủy nên chưa hủy được. Bấm Thử lại. | Couldn't work out the cancellation fee, so the booking can't be cancelled yet. Tap Try again. | ⟨chừa chỗ⟩ | Lỗi dryRun – nút Hủy đơn khóa |
+| `cancel.reason.ota_cancelled` | OTA báo hủy | Cancelled by the OTA | ⟨chừa chỗ⟩ | Chỉ hiện với đơn kênh ota (EP02 B6) |
+| `cancel.ota_penalty` | Tiền phạt theo kênh | Channel penalty | ⟨chừa chỗ⟩ | BR-310 – đơn OTA, nhập tay |
+| `cancel.ota_penalty_help` | Nhập đúng số kênh báo; ghi 0 nếu kênh miễn phạt. | Enter the amount the channel reports; 0 if the channel waives it. | ⟨chừa chỗ⟩ |  |
+| `bk.unassigned_confirm_title` | Lưu đơn OTA chưa gán căn? | Save the OTA booking without a room? | ⟨chừa chỗ⟩ | EP02 6.2 |
+| `bk.unassigned_confirm_body` | Đơn {ota_ref} sẽ vào làn "Chưa gán căn" và chưa nhận phòng được. Quản lý nhận cảnh báo ngay. | Booking {ota_ref} will go to the "Unassigned" lane and can't be checked in yet. Managers are alerted straight away. | ⟨chừa chỗ⟩ | EP02 6.2 – hạn có phương án hiện trong drawer khi server trả |
+| `bk.unassigned_back` | Quay lại chọn căn | Back to choose a room | ⟨chừa chỗ⟩ |  |
+| `rsv.transition_changed` | Đơn vừa chuyển sang "{status}" nên thao tác này không còn dùng được. Các nút đã cập nhật theo trạng thái mới. | This booking just changed to "{status}", so this action no longer applies. The buttons now match the new status. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION sau khi FE đã tự tải lại – hiện trong drawer, đóng hộp thoại |
+| `rsv.transition_changed_unknown` | Đơn vừa thay đổi nên thao tác này không còn dùng được. Bấm Tải lại để xem trạng thái mới. | This booking just changed, so this action no longer applies. Click Reload to see its new status. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION khi tải lại thất bại / không biết trạng thái |
+| `error.HOLD_EXPIRED_notime` | Giữ chỗ đã hết hạn và căn đã mở bán lại. Tạo giữ chỗ mới nếu căn còn trống. | The hold has expired and the room is back on sale. Create a new hold if it's still free. | ⟨chừa chỗ⟩ | Khi Problem không có expiredAt |
+| `field_error.hold_extended_once` | Giữ chỗ chỉ gia hạn được 1 lần. | A hold can only be extended once. | ⟨chừa chỗ⟩ | EP02 B3 |
+| `field.OTA_AMOUNT_MISMATCH` | Tổng giá các đêm khác tổng tiền OTA. Kiểm tra lại giá từng đêm. | The nightly rates don't add up to the OTA total. Check each night's rate. | ⟨chừa chỗ⟩ | Không dùng tham số – FieldError không mang số tiền |
+| `field.ALLOW_UNASSIGNED_OTA_ONLY` | Chỉ đơn kênh OTA mới lưu chưa gán căn được. | Only OTA bookings can be saved without a room. | ⟨chừa chỗ⟩ |  |
+| `field.DATE_ORDER` | Ngày đi phải sau ngày đến. | Departure must be after arrival. | ⟨chừa chỗ⟩ |  |
+| `field.MANUAL_LONG_STAY_BELOW_THRESHOLD` | Đơn dài hạn nhập tay cần từ {n} đêm. | A manual long-stay booking needs {n} nights or more. | ⟨chừa chỗ⟩ | FE truyền {n} = long_stay_required_from_nights (mặc định 28) |
+| `field.OTA_PENALTY_OTA_ONLY` | Tiền phạt theo kênh chỉ ghi cho đơn OTA. | A channel penalty applies to OTA bookings only. | ⟨chừa chỗ⟩ |  |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
