@@ -118,6 +118,13 @@ export function seedRooms(): Room[] {
     floor: Number(roomNo[0]),
     baseOccupancy: base,
     maxOccupancy: base + 1,
+    // Hi-fi H04 sample texts (studio / 2BR / 1BR+); real values come from DS-E seed.
+    bedSetup:
+      gi === 0
+        ? 'Studio · 1 giường'
+        : gi === 1
+          ? '2 phòng ngủ · 2 giường lớn'
+          : '1 giường lớn + 1 giường 1m4',
     isSellable: true,
     activeFrom: '2026-01-01',
     activeTo: null,

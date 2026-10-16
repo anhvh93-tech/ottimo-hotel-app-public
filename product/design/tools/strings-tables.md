@@ -457,7 +457,7 @@
 | `error.FOLIO_LOCKED` | Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh. | The folio is locked after check-out. Only a manager can post an adjustment. | ⟨chừa chỗ⟩ | 409 – US-038 |
 | `error.SELF_APPROVAL_FORBIDDEN` | Bạn không tự duyệt yêu cầu của chính mình được. Yêu cầu vẫn chờ người duyệt khác. | You can't approve your own request. It's still waiting for another approver. | ⟨chừa chỗ⟩ | 403 – BR-432 |
 | `error.APPROVAL_LIMIT_EXCEEDED` | Số tiền vượt hạn mức duyệt của bạn. Yêu cầu đã chuyển lên {approver}. | The amount is above your approval limit. The request has gone to {approver}. | ⟨chừa chỗ⟩ | 403 – BR-433 |
-| `error.REAUTH_FAILED` | Mật khẩu chưa đúng. Còn {left} lần thử. | Incorrect password. {left} attempts left. | ⟨chừa chỗ⟩ | 401 – R2 xác nhận lại bằng mật khẩu (BA E05-07); R3 thêm PIN duyệt |
+| `error.REAUTH_FAILED` | Mật khẩu chưa đúng. Nhập lại mật khẩu đăng nhập của bạn. | That password isn't right. Re-enter your sign-in password. | ⟨chừa chỗ⟩ | 401 – R2 chỉ mật khẩu (BA E05-07). Bỏ {left}: API không trả số lần còn lại, và không nêu số lần (SR-AUTH-04). R3 thêm biến thể PIN |
 | `error.DUPLICATE_GUEST` | SĐT/email này đã thuộc hồ sơ {guest}. Dùng hồ sơ đó? | This phone/email belongs to {guest}. Use that profile? | ⟨chừa chỗ⟩ | 409 + `existingGuestId` – BR-951 |
 | `error.CARD_NUMBER_DETECTED` | Ô ghi chú có dãy số giống số thẻ thanh toán. Xóa dãy số đó – OTTIMO không lưu số thẻ. | The note contains what looks like a card number. Remove it – OTTIMO doesn't store card numbers. | ⟨chừa chỗ⟩ | 422 – R-PAY-07 |
 | `error.PAYMENT_NOT_CONFIGURED` | Chưa cài tài khoản nhận chuyển khoản nên chưa tạo được VietQR. Chọn cách thanh toán khác và báo chủ đầu tư cài đặt. | No receiving account is set up, so VietQR can't be created. Choose another method and ask the owner to set it up. | ⟨chừa chỗ⟩ | 409 – US-120 |
@@ -567,7 +567,7 @@
 | `device.this_untrusted` | Máy này chưa được cấp quyền xem dữ liệu giấy tờ và mã cửa. | This device isn't approved for ID data and door codes. | ⟨chừa chỗ⟩ |  |
 | `device.grant` | Cấp quyền thiết bị này | Approve this device | ⟨chừa chỗ⟩ | Chỉ owner (manager nếu owner bật); trên chính máy đó |
 | `device.grant_name` | Tên máy | Device name | ⟨chừa chỗ⟩ | Ví dụ: Máy quầy 1 |
-| `device.grant_confirm` | Nhập lại mật khẩu (và mã xác thực) để cấp quyền | Re-enter your password (and authentication code) to approve | ⟨chừa chỗ⟩ |  |
+| `device.grant_confirm` | Nhập lại mật khẩu đăng nhập để cấp quyền | Re-enter your sign-in password to approve | ⟨chừa chỗ⟩ | R2 chỉ mật khẩu; R3 thêm mã xác thực (TOTP) |
 | `device.grant_checklist` | Máy đã mã hóa ổ đĩa, khóa màn hình sau 5 phút, không cài tiện ích trình duyệt, tắt lịch sử/đồng bộ clipboard | Disk encrypted, screen locks after 5 minutes, no browser extensions, clipboard history/sync off | ⟨chừa chỗ⟩ | SR-DEV-07 |
 | `device.expires` | Hết hạn {date} | Expires {date} | ⟨chừa chỗ⟩ | `trusted_device_days` |
 | `device.last_seen` | Dùng gần nhất {time} | Last used {time} | ⟨chừa chỗ⟩ |  |
@@ -661,7 +661,7 @@
 | `night.late_arrivals` | Khách đến muộn ({n}) | Late arrivals ({n}) | ⟨chừa chỗ⟩ |  |
 | `night.reg_due` | Khai báo cần xong trước {time} | Registration due by {time} | ⟨chừa chỗ⟩ |  |
 | `auth.login.error_generic` | Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại. | Incorrect username or password. Forgot it? Ask the owner to reset it. | ⟨chừa chỗ⟩ | Luôn giống nhau, không nêu số lần còn lại (SR-AUTH-04, FB-R1-UXR-UXD-14) |
-| `auth.login.username` | Số điện thoại hoặc email | Phone number or email | ⟨chừa chỗ⟩ |  |
+| `auth.login.username` | Tên đăng nhập | Username | ⟨chừa chỗ⟩ | Hợp đồng login dùng `username` (vd hanh.fd) – không phải SĐT/email (FE S1) |
 | `auth.code_label.totp` | Mã trong ứng dụng xác thực (6 số) | Code from your authenticator app (6 digits) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.recovery` | Mã khôi phục (8 ký tự) | Recovery code (8 characters) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.pin` | PIN duyệt của bạn (4–6 số) | Your approval PIN (4–6 digits) | ⟨chừa chỗ⟩ |  |
@@ -841,7 +841,7 @@
 | `error.CAPACITY_BELOW_BOOKINGS` | Chưa giảm số người được: có đơn đã nhận nhiều khách hơn. Đổi số khách hoặc đổi căn cho các đơn trong danh sách trước. | Can't lower the occupancy: some bookings already have more guests. Change their guest count or move them first. | ⟨chừa chỗ⟩ | 409 – kèm conflicts[] (BUG-R1-007) |
 | `error.MFA_REQUIRED` | Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. | Enter the code from your authenticator app to finish signing in. | ⟨chừa chỗ⟩ | 401 – sang màn nhập mã |
 | `error.PASSWORD_CHANGE_REQUIRED` | Bạn đang dùng mật khẩu tạm. Đặt mật khẩu riêng để tiếp tục. | You're using a temporary password. Set your own password to continue. | ⟨chừa chỗ⟩ | 403 – sang màn đổi mật khẩu |
-| `error.REAUTH_REQUIRED` | Để tiếp tục, nhập lại mật khẩu (hoặc PIN duyệt) của bạn. | To continue, re-enter your password (or approval PIN). | ⟨chừa chỗ⟩ | 401 – step-up C3 |
+| `error.REAUTH_REQUIRED` | Để tiếp tục, nhập lại mật khẩu đăng nhập của bạn. | To continue, re-enter your sign-in password. | ⟨chừa chỗ⟩ | 401 – step-up C3. R2 chỉ mật khẩu; R3 thêm PIN duyệt |
 | `error.GUEST_VERIFICATION_LOCKED` | Đã thử sai quá nhiều lần. Gọi hoặc nhắn lễ tân để nhận mã xác minh mới. | Too many wrong attempts. Call or message the front desk for a new verification code. | ⟨chừa chỗ⟩ | 429 – app khách (SR-GST-08) |
 | `error.GUEST_STAY_ENDED` | Bạn đã trả phòng. Trang này chỉ còn xem phiếu thanh toán. | You've checked out. This page now only shows your bill. | ⟨chừa chỗ⟩ | 403 – app khách (SR-GST-11) |
 | `error.DELIVERY_CHANNEL_DISABLED` | Gửi mã qua tin nhắn đang tắt. Chủ đầu tư bật trong Tham số › Kênh gửi mã, hoặc đọc mã cho khách. | Sending codes by message is off. The owner can turn it on in Settings › Code delivery, or read the code to the guest. | ⟨chừa chỗ⟩ | 409 |
@@ -1687,6 +1687,115 @@ This quote is valid until {expires}. | ⟨chừa chỗ⟩ | US-083 AC2 – getQu
 | `sur.early_extra_night` | Nhận trước 06:00 = bán thêm đêm {date} (không phải phụ thu). Hệ thống kiểm căn còn trống đêm đó. | Check-in before 06:00 = selling an extra night on {date} (not a surcharge). The system checks the room is free that night. | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `sur.early_fee` | Phụ thu nhận sớm đề xuất: {amount} ({pct}% giá đêm đầu) | Suggested early check-in surcharge: {amount} ({pct}% of first night) | ⟨chừa chỗ⟩ | 13-check-in.html |
 | `sur.early_zero` | Nhận từ {std} – không phụ thu | Checking in from {std} – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
+
+#### R2 Sprint 1 – admin-web EP00 (chuyển từ packages/i18n pending, FE S1)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `field_error.too_long` | Tối đa {max} ký tự. | Up to {max} characters. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.name_invalid` | Họ tên chỉ gồm chữ cái, dấu cách, dấu gạch ngang. | Names may contain letters, spaces and hyphens only. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.phone_country` | Số nước ngoài cần bắt đầu bằng + và mã nước, ví dụ +7 912 345 6789. | Foreign numbers start with + and the country code, e.g. +7 912 345 6789. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.email_invalid` | Email chưa đúng dạng, ví dụ ten@gmail.com. | Check the email format, e.g. name@gmail.com. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.reason_required` | Ghi lý do (ít nhất 3 ký tự). | Add a reason (at least 3 characters). | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.password_short` | Mật khẩu cần ít nhất {min} ký tự. | Password needs at least {min} characters. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.password_reused` | Mật khẩu mới phải khác mật khẩu cũ và tên đăng nhập. | New password must differ from the old one and the username. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.current_password_wrong` | Mật khẩu hiện tại chưa đúng. | That's not your current password. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.not_in_list` | Chọn một giá trị trong danh sách. | Choose a value from the list. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.contact_required` | Cần ít nhất SĐT hoặc email. | Add at least a phone number or an email. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.contact_channel_empty` | Nhập {channel} trước khi chọn làm liên hệ ưu tiên. | Enter {channel} before choosing it as preferred contact. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.duplicate` | {value} đã có trong danh sách. | {value} is already in the list. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.checklist_required` | Kiểm đủ checklist trước khi cấp quyền. | Complete the checklist before granting access. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.possible_duplicate_other` | SĐT/email này đã có hồ sơ. Nhờ lễ tân kiểm tra trước khi tạo. | This phone/email already has a profile. Ask the front desk to check before creating one. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.value_out_of_range` | Giá trị phải từ {min} đến {max}. | Value must be between {min} and {max}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `field_error.amount_not_positive` | Nhập số tiền lớn hơn 0. | Enter an amount greater than 0. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `error.PARAM_OUT_OF_RANGE_MINMAX` | Giá trị phải từ {min} đến {max}. | Value must be between {min} and {max}. | ⟨chừa chỗ⟩ | Biến thể có min/max của PARAM_OUT_OF_RANGE (H05) |
+| `auth.current_password` | Mật khẩu hiện tại | Current password | ⟨chừa chỗ⟩ | Dùng cả khi đổi MK tạm và đổi MK từ menu – không ghi '(mật khẩu tạm)' |
+| `auth.mfa_later` | Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập. | Two-step sign-in comes in a later release. Ask the owner for help signing in. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.coming_title` | Màn này đang được làm | This screen is being built | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.coming_body` | Màn {screen} có ở đợt sau của bản thử. Các màn khác vẫn dùng được. | {screen} comes in a later trial build. Other screens work as usual. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.theme` | Giao diện | Appearance | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.theme_auto` | Theo máy | System | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.theme_light` | Sáng | Light | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.theme_dark` | Tối | Dark | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.skip` | Bỏ qua tới nội dung | Skip to content | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `shell.user_menu` | Tài khoản | Account | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.grp_security` | Bảo mật | Security | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.grp_other` | Khác | Other | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.saved` | Đã lưu {name}, hiệu lực từ {date}. | Saved {name}, effective {date}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `rooms.saved` | Đã lưu căn {room}. | Saved unit {room}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `rooms.view_only` | Bạn đang xem danh mục căn. Chỉ chủ đầu tư và quản lý sửa được. | You are viewing the unit list. Only the owner and managers can edit. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `rooms.below_item` | {code} · {from} → {to} · {n} khách | {code} · {from} → {to} · {n} guests | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.prompt_title` | Tìm khách để bắt đầu | Search for a guest to start | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.prompt_body` | Gõ ít nhất 2 ký tự của tên, mã KH hoặc SĐT/email. | Type at least 2 characters of the name, guest code or phone/email. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.saved` | Đã lưu hồ sơ {code}. | Saved profile {code}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.edit_title` | Hồ sơ {code} | Profile {code} | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.gender` | Giới tính | Gender | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.gender_male` | Nam | Male | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.gender_female` | Nữ | Female | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.gender_other` | Khác | Other | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.zalo` | Zalo | Zalo | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `crm.note_hint` | Không ghi số giấy tờ, số thẻ, thông tin sức khỏe. | Do not write ID numbers, card numbers or health information. | ⟨chừa chỗ⟩ | SEC – không ghi dữ liệu nhạy cảm vào ghi chú |
+| `users.status_locked` | Tạm khóa do sai mật khẩu | Locked after wrong passwords | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.roles_confirm_title` | Đổi vai của {name}? | Change roles of {name}? | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.roles_confirm_body` | Người này sẽ bị đăng xuất ngay trên mọi máy. | They will be signed out on every device right away. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.roles_min` | Chọn ít nhất 1 vai | Choose at least 1 role | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.reset_pw` | Đặt lại mật khẩu | Reset password | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.reset_pw_title` | Đặt lại mật khẩu cho {name}? | Reset password for {name}? | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.reset_pw_body` | Người này bị đăng xuất trên mọi máy và phải đổi mật khẩu tạm ở lần đăng nhập tới. | They are signed out everywhere and must change the temporary password at next sign-in. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.temp_pw_title` | Mật khẩu tạm của {name} | Temporary password for {name} | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.temp_pw_once` | Chỉ hiện một lần. Đưa trực tiếp cho người dùng, không gửi qua chat. | Shown only once. Hand it over in person; don't send it by chat. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.lock` | Khóa tài khoản | Lock account | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.lock_title` | Khóa tài khoản của {name}? | Lock the account of {name}? | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.lock_body` | Người này bị đăng xuất ngay trên mọi máy và không đăng nhập được tới khi mở khóa. | They are signed out on every device and cannot sign in until unlocked. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.saved` | Đã lưu thay đổi cho {name}. | Saved changes for {name}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `users.never` | Chưa đăng nhập | Never signed in | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.status_active` | Còn hạn | Active | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.status_expired` | Hết hạn | Expired | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.status_revoked` | Đã thu hồi | Revoked | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.revoke_reason` | Lý do (không bắt buộc) | Reason (optional) | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.granted` | Đã cấp quyền cho {device}. | Access granted to {device}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.revoked` | Đã thu hồi {device}. | Revoked {device}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.empty` | Chưa có thiết bị nào được cấp quyền. | No device has been granted access yet. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.this_trusted` | Máy này đã được cấp quyền. | This device has access. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `device.error_title` | Chưa tải được danh sách thiết bị | Couldn't load devices | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.unit_days` | ngày | days | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.unit_minutes` | phút | minutes | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.unit_age` | tuổi | years | ⟨chừa chỗ⟩ | Đơn vị tham số tuổi trẻ em |
+| `params.value_json` | Giá trị (JSON) | Value (JSON) | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `params.history_empty` | Chưa có thay đổi nào. | No changes yet. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+
+#### R2 Sprint 1 – review FE: nhãn tham số H05 + lỗi mạng
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `params.k.hold_hours_options` | Các mức giữ chỗ cho chọn | Hold duration options | ⟨chừa chỗ⟩ | Khóa API hold_hours_options |
+| `params.k.hold_expiry_reminder_hours` | Nhắc trước khi hết hạn giữ chỗ | Reminder before a hold expires | ⟨chừa chỗ⟩ | Khóa API hold_expiry_reminder_hours |
+| `params.k.hold_extension_max_hours` | Gia hạn giữ chỗ tối đa | Maximum hold extension | ⟨chừa chỗ⟩ | Khóa API hold_extension_max_hours |
+| `params.k.adult_from_age` | Tính là người lớn từ | Counted as an adult from | ⟨chừa chỗ⟩ | Khóa API adult_from_age |
+| `params.k.checkin_time` | Giờ nhận phòng chuẩn | Standard check-in time | ⟨chừa chỗ⟩ | Khóa API checkin_time |
+| `params.k.checkout_time` | Giờ trả phòng chuẩn | Standard check-out time | ⟨chừa chỗ⟩ | Khóa API checkout_time |
+| `params.k.late_grace_until` | Ân hạn trả muộn tới | Late check-out grace until | ⟨chừa chỗ⟩ | Khóa API late_grace_until |
+| `params.k.no_show_call_time` | Giờ gọi khách chưa đến | Time to call guests not yet arrived | ⟨chừa chỗ⟩ | Khóa API no_show_call_time |
+| `params.k.no_show_mark_time` | Giờ được đánh dấu không đến | Time a no-show can be marked | ⟨chừa chỗ⟩ | Khóa API no_show_mark_time |
+| `params.k.foc_self_apply_front_desk_per_time` | Lễ tân tự áp miễn phí (FOC) – mỗi lần | Front desk complimentary limit – per time | ⟨chừa chỗ⟩ | Khóa API foc_self_apply_front_desk_per_time – FE map trong paramCatalog; Desk viết 'miễn phí (FOC)' theo thuật ngữ mục 3 |
+| `params.k.foc_self_apply_front_desk_per_month` | Lễ tân tự áp miễn phí (FOC) – mỗi tháng | Front desk complimentary limit – per month | ⟨chừa chỗ⟩ | Khóa API foc_self_apply_front_desk_per_month – FE map trong paramCatalog; Desk viết 'miễn phí (FOC)' theo thuật ngữ mục 3 |
+| `params.k.foc_limits` | Hạn mức duyệt miễn phí (FOC) theo vai | Complimentary approval limits by role | ⟨chừa chỗ⟩ | Khóa API foc_limits – FE map trong paramCatalog; Desk viết 'miễn phí (FOC)' theo thuật ngữ mục 3 |
+| `params.k.foc_alert_pct_of_room_revenue` | Cảnh báo khi miễn phí (FOC) vượt % doanh thu phòng | Alert when complimentary exceeds (% of room revenue) | ⟨chừa chỗ⟩ | Khóa API foc_alert_pct_of_room_revenue – FE map trong paramCatalog; Desk viết 'miễn phí (FOC)' theo thuật ngữ mục 3 |
+| `params.k.short_stay_commission_pct` | Hoa hồng sale/CTV – khách ngắn ngày | Sales/agent commission – short stays | ⟨chừa chỗ⟩ | Khóa API short_stay_commission_pct |
+| `params.k.vat_rate` | Thuế suất VAT | VAT rate | ⟨chừa chỗ⟩ | Khóa API vat_rate |
+| `params.k.trusted_device_days` | Hạn cấp quyền máy quầy/laptop | Approval period – desk computer/laptop | ⟨chừa chỗ⟩ | Khóa API trusted_device_days |
+| `params.k.trusted_device_mobile_days` | Hạn cấp quyền máy tính bảng | Approval period – tablet | ⟨chừa chỗ⟩ | Khóa API trusted_device_mobile_days |
+| `params.k.c3_stepup_minutes` | Thời gian xem giấy tờ sau khi nhập lại mật khẩu | ID viewing time after re-entering password | ⟨chừa chỗ⟩ | Khóa API c3_stepup_minutes |
+| `params.k.guest_verify_max_attempts` | Số lần khách nhập sai mã tối đa | Maximum wrong code attempts by a guest | ⟨chừa chỗ⟩ | Khóa API guest_verify_max_attempts |
+| `params.k.guest_level2_idle_minutes` | Khách tự thoát sau thời gian không dùng | Guest signed out after inactivity | ⟨chừa chỗ⟩ | Khóa API guest_level2_idle_minutes |
+| `params.k.guest_link_grace_hours` | Link khách còn mở được sau khi trả phòng | Guest link stays open after check-out | ⟨chừa chỗ⟩ | Khóa API guest_link_grace_hours |
+| `params.k.guest_verify_code_channel_minutes` | Hạn mã gửi qua kênh nhắn tin | Validity of codes sent by message | ⟨chừa chỗ⟩ | Khóa API guest_verify_code_channel_minutes |
+| `params.k.guest_verify_code_channels` | Kênh được gửi mã cho khách | Channels allowed to send guest codes | ⟨chừa chỗ⟩ | Khóa API guest_verify_code_channels |
+| `params.k.channel_commission_pct` | Phí kênh {channel} | {channel} channel fee | ⟨chừa chỗ⟩ | Khóa API channel_commission_pct.<kênh> |
+| `shell.main_nav` | Menu chính | Main menu | ⟨chừa chỗ⟩ | aria-label của thanh menu trái (H02) |
+| `login.hide_password` | Ẩn | Hide | ⟨chừa chỗ⟩ | Nút hiện/ẩn mật khẩu đổi chữ theo trạng thái (H01) |
+| `common.vnd_unit` | đ | VND | ⟨chừa chỗ⟩ | Hậu tố ô nhập tiền (input-affix) – H04, H05 |
+| `common.error_network_body` | Chưa kết nối được tới máy chủ. Kiểm tra mạng rồi bấm Thử lại. Dữ liệu của bạn không bị mất. | Couldn't reach the server. Check the connection, then tap Try again. Nothing has been lost. | ⟨chừa chỗ⟩ | Dùng khi lỗi mạng (không có requestId) – thay common.error_generic_body với '—' |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

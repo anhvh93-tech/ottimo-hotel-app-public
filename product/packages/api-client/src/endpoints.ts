@@ -7,6 +7,7 @@ import type {
   Guest,
   GuestInput,
   GuestSummary,
+  ResponseOf,
   LoginBody,
   LookupGuestBody,
   Me,
@@ -33,9 +34,10 @@ export function createEndpoints(api: ApiClient) {
     login: (body: LoginBody) => r<Me>('POST', '/v1/auth/login', { body, local: true }),
     logout: () => r<void>('POST', '/v1/auth/logout'),
     getMe: () => r<Me>('GET', '/v1/me'),
-    // 401 here means "current password wrong" (EP00 1.3), not an expired session.
-    changeMyPassword: (body: ChangePasswordBody) =>
-      r<void>('POST', '/v1/me/password', { body, local: true }),
+    // 0.3.4 Q4: a wrong current password is `401 REAUTH_FAILED` + errors[] (field error); only
+    // `401 UNAUTHENTICATED` is an expired session – the global handler decides by `code`, not status.
+    // Q3: 204 + new session cookie → callers reload getMe() for the new csrfToken.
+    changeMyPassword: (body: ChangePasswordBody) => r<void>('POST', '/v1/me/password', { body }),
 
     // rooms (S25)
     listRooms: ({ propertyId }: P) =>
@@ -79,7 +81,7 @@ export function createEndpoints(api: ApiClient) {
         query: { q, picker: picker || undefined, limit: picker ? 5 : 20 },
       }),
     lookupGuestByContact: ({ propertyId }: P, body: LookupGuestBody) =>
-      r<{ matches: GuestSummary[] }>('POST', '/v1/properties/{propertyId}/guests/lookup', {
+      r<ResponseOf<'lookupGuestByContact'>>('POST', '/v1/properties/{propertyId}/guests/lookup', {
         path: { propertyId },
         body,
       }),
@@ -123,7 +125,6 @@ export function createEndpoints(api: ApiClient) {
         path: { propertyId },
         body,
         idempotencyKey,
-        local: true,
       }),
     revokeTrustedDevice: (
       { propertyId, deviceId }: P & { deviceId: string },

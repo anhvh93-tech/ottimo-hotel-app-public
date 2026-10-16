@@ -46,6 +46,8 @@ export function RoomDrawer({
   const initialMonthly = room.currentListPrice?.monthlyListPriceVnd;
 
   const [name, setName] = useState(room.name ?? '');
+  // 0.3.4 Q6: bedSetup (free text, ≤ 100). bedCount/areaM2 are in the contract but not in hi-fi H04 yet.
+  const [bedSetup, setBedSetup] = useState(room.bedSetup ?? '');
   const [groupId, setGroupId] = useState(room.roomGroupId);
   const [base, setBase] = useState(initialBase);
   const [max, setMax] = useState(initialMax);
@@ -65,6 +67,7 @@ export function RoomDrawer({
   const nightly = monthly !== null ? nightlyFromMonthly(monthly) : null;
   const dirty =
     name !== (room.name ?? '') ||
+    bedSetup !== (room.bedSetup ?? '') ||
     groupId !== room.roomGroupId ||
     base !== initialBase ||
     max !== initialMax ||
@@ -82,6 +85,7 @@ export function RoomDrawer({
   const validate = () => {
     const e: Record<string, string> = {};
     if (name.length > 60) e.name = t('field_error.too_long', { max: 60 });
+    if (bedSetup.length > 100) e.bedSetup = t('field_error.too_long', { max: 100 });
     if (max !== base && max !== base + 1) e.maxOccupancy = t('field.MAX_OCCUPANCY_RANGE');
     if (priceChanged) {
       if (monthly === null || monthly <= 0)
@@ -104,6 +108,7 @@ export function RoomDrawer({
     }
     const patch: RoomPatch = {};
     if (name !== (room.name ?? '')) patch.name = name.trim();
+    if (bedSetup !== (room.bedSetup ?? '')) patch.bedSetup = bedSetup.trim() || null;
     if (groupId !== room.roomGroupId) patch.roomGroupId = groupId;
     if (base !== initialBase) patch.baseOccupancy = base;
     if (max !== initialMax || base !== initialBase) patch.maxOccupancy = max;
@@ -210,6 +215,17 @@ export function RoomDrawer({
             )}
           </Field>
         </div>
+        <Field label={t('rooms.col_beds')} error={errors.bedSetup}>
+          {(p) => (
+            <input
+              {...p}
+              className="input"
+              value={bedSetup}
+              maxLength={100}
+              onChange={(e) => setBedSetup(e.target.value)}
+            />
+          )}
+        </Field>
         <fieldset className="card" style={{ background: 'var(--bg)', margin: '0 0 14px' }}>
           <legend className="label-h">{t('rooms.capacity')}</legend>
           <div className="occ-row">
@@ -290,7 +306,7 @@ export function RoomDrawer({
                     onChange={(e) => setMonthlyText(e.target.value)}
                     onBlur={() => monthly !== null && setMonthlyText(vnd(monthly))}
                   />
-                  <span className="affix">đ</span>
+                  <span className="affix">{t('common.vnd_unit')}</span>
                 </div>
               )}
             </Field>
@@ -303,7 +319,7 @@ export function RoomDrawer({
                     readOnly
                     value={nightly !== null ? vnd(nightly) : ''}
                   />
-                  <span className="affix">đ</span>
+                  <span className="affix">{t('common.vnd_unit')}</span>
                 </div>
               )}
             </Field>

@@ -1,3 +1,5 @@
+import { hasKey } from '@ottimo/i18n';
+
 /**
  * How the parameter screen (H05) groups and labels keys from `listParameters`. Keys follow erd §9 /
  * business-rules §13. Unknown keys still show (group "Khác", label = key). Values/bounds come from the
@@ -87,7 +89,22 @@ export const UNIT_KEY: Partial<Record<ParamUnit, string>> = {
   age: 'params.unit_age',
 };
 
-export function paramLabel(t: (k: string) => string, key: string): string {
+const CHANNEL_PREFIX = 'channel_commission_pct.';
+
+/**
+ * Human label (FB-R2-UXD-FE-03): the curated `meta.label`, else UXD's `params.k.<key>` (dots → `_`),
+ * `channel_commission_pct.<channel>` → `params.k.channel_commission_pct` with {channel}; the technical
+ * key only when no string exists (the key is still shown under the label as `<code>`).
+ */
+export function paramLabel(
+  t: (k: string, args?: Record<string, string | number>) => string,
+  key: string,
+): string {
   const meta = paramMeta(key);
-  return meta.label ? t(meta.label) : key;
+  if (meta.label) return t(meta.label);
+  if (key.startsWith(CHANNEL_PREFIX) && hasKey('params.k.channel_commission_pct')) {
+    return t('params.k.channel_commission_pct', { channel: key.slice(CHANNEL_PREFIX.length) });
+  }
+  const k = `params.k.${key.replace(/\./g, '_')}`;
+  return hasKey(k) ? t(k) : key;
 }

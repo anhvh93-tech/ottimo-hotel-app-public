@@ -92,6 +92,13 @@ export function restoreMockSession() {
 }
 
 let reqSeq = 0;
+let csrfSeq = 0;
+
+/** 0.3.4 Q4: `401 REAUTH_FAILED` always carries `errors[{field, code: REAUTH_FAILED}]`. */
+function reauthFailed(field: string) {
+  return problem(401, 'REAUTH_FAILED', { errors: [{ field, code: 'REAUTH_FAILED' }] });
+}
+
 function problem(
   status: number,
   code: string,
@@ -272,6 +279,21 @@ function duplicateOf(body: Record<string, unknown>, selfId?: string) {
   );
 }
 
+/** 0.3.4 Q5: 409 names the clashing field; existingGuest* only when the caller may see that profile. */
+function duplicateGuest(
+  dup: MockGuest,
+  user: MockUser,
+  roles: Role[],
+  body: Record<string, unknown>,
+) {
+  const pk = phoneKey(body.phone as string | undefined);
+  const field = pk && phoneKey(dup.phone) === pk ? 'phone' : 'email';
+  return problem(409, 'DUPLICATE_GUEST', {
+    errors: [{ field, code: 'DUPLICATE_GUEST' }],
+    ...(inScope(dup, user, roles) ? { existingGuestId: dup.id, existingGuestCode: dup.code } : {}),
+  });
+}
+
 export const handlers = [
   // ---------- auth (S01) ----------
   http.post(`${base}/auth/login`, async ({ request }) => {
@@ -310,13 +332,17 @@ export const handlers = [
     const g = guard(request, 'any', { allowPasswordChange: true });
     if (isResponse(g)) return g;
     const body = (await request.json()) as { currentPassword?: string; newPassword?: string };
-    if (body.currentPassword !== MOCK_PASSWORD) return problem(401, 'UNAUTHENTICATED');
+    // 0.3.4 Q4: wrong confirmation = field error inside 401 REAUTH_FAILED, NOT an expired session.
+    if (body.currentPassword !== MOCK_PASSWORD) return reauthFailed('currentPassword');
     if (!body.newPassword || body.newPassword.length < 10)
       return validation([{ field: 'newPassword', code: 'PASSWORD_TOO_SHORT' }]);
     if (body.newPassword === body.currentPassword || body.newPassword === g.user.username) {
       return validation([{ field: 'newPassword', code: 'PASSWORD_REUSED' }]);
     }
     g.user.mustChangePassword = false;
+    // 0.3.4 Q3: every session is revoked and a new cookie issued – new CSRF token, User.version + 1.
+    db.csrf = `mock-csrf-${++csrfSeq}`;
+    g.user.version = (g.user.version ?? 1) + 1;
     return new HttpResponse(null, { status: 204 });
   }),
 
@@ -358,6 +384,8 @@ export const handlers = [
     if (conflicts.length) return problem(409, 'CAPACITY_BELOW_BOOKINGS', { conflicts });
     Object.assign(room, {
       name: (body.name as string | undefined) ?? room.name,
+      bedSetup:
+        'bedSetup' in body ? ((body.bedSetup as string | null) ?? undefined) : room.bedSetup,
       roomGroupId: (body.roomGroupId as string | undefined) ?? room.roomGroupId,
       baseOccupancy: base,
       maxOccupancy: max,
@@ -468,9 +496,9 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown>;
     const hit = duplicateOf(body);
     if (!hit) return HttpResponse.json({ matches: [] });
-    // exists_only_or_own: SAL/CTV learn only that a profile exists, not whose.
+    // exists_only_or_own (0.3.4 Q1): SAL/CTV learn only that a profile exists – no id, code or name.
     if (!inScope(hit, g.user, g.roles))
-      return HttpResponse.json({ matches: [{ id: hit.id, code: '', displayName: '' }] });
+      return HttpResponse.json({ matches: [], match: 'possible_duplicate' });
     return HttpResponse.json({ matches: [summary(hit, g.roles)] });
   }),
   http.post(`${prop}/guests`, async ({ request }) => {
@@ -481,11 +509,7 @@ export const handlers = [
     const errors = guestFieldErrors(body);
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body);
-    if (dup)
-      return problem(409, 'DUPLICATE_GUEST', {
-        existingGuestId: dup.id,
-        existingGuestCode: dup.code,
-      });
+    if (dup) return duplicateGuest(dup, g.user, g.roles, body);
     const n = db.nextGuest++;
     const guest: MockGuest = {
       ...(body as Partial<MockGuest>),
@@ -517,11 +541,7 @@ export const handlers = [
     const errors = guestFieldErrors(body);
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body, guest.id);
-    if (dup)
-      return problem(409, 'DUPLICATE_GUEST', {
-        existingGuestId: dup.id,
-        existingGuestCode: dup.code,
-      });
+    if (dup) return duplicateGuest(dup, g.user, g.roles, body);
     Object.assign(guest, body, { version: guest.version + 1 });
     return HttpResponse.json(guestView(guest, g.roles));
   }),
@@ -587,7 +607,7 @@ export const handlers = [
       currentPassword?: string;
       hardeningChecklistConfirmed?: boolean;
     };
-    if (body.currentPassword !== MOCK_PASSWORD) return problem(401, 'REAUTH_FAILED');
+    if (body.currentPassword !== MOCK_PASSWORD) return reauthFailed('currentPassword');
     if (!body.hardeningChecklistConfirmed)
       return validation([{ field: 'hardeningChecklistConfirmed', code: 'CHECKLIST_REQUIRED' }]);
     if (db.devices.some((d) => !d.revokedAt && d.name === body.name))

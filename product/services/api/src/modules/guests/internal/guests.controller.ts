@@ -6,9 +6,10 @@ import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
+import { AuditService } from '../../audit/public/audit.service';
 import { localDateSchema, parseBody } from '../../platform/public/validation';
-import { type Caller, type GuestInput, GuestsService } from './guests.service';
+import { type Caller, type GuestInput, GuestsService, ownScopeUser } from './guests.service';
 
 interface Reply {
   status(code: number): unknown;
@@ -61,7 +62,42 @@ export class GuestsController {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(GuestsService) private readonly guests: GuestsService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
+
+  /**
+   * FB-R2-SEC-BE-09: a SAL/CTV create/update refused with 409 DUPLICATE_GUEST for a profile OUTSIDE their
+   * scope told them "this contact is a guest of ours" – logged like lookupGuestByContact (never the value).
+   * Written after UnitOfWork rolled back (own transaction, no nested connection).
+   */
+  private async run<T>(
+    req: GuardedRequest,
+    c: Caller & { p: ReturnType<typeof principal> },
+    fn: () => Promise<T>,
+  ) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (
+        err instanceof ProblemError &&
+        err.code === 'DUPLICATE_GUEST' &&
+        ownScopeUser(c) !== null &&
+        err.options.extras?.existingGuestId === undefined
+      ) {
+        await this.db.withContext(tenantOf(c.p), (tx) =>
+          this.audit.record(tx, {
+            category: 'access',
+            action: 'guest.lookup',
+            entityType: 'guest',
+            after: { by: (err.options.errors ?? []).map((e) => e.field), matches: 1 },
+            requestId: req.id,
+            sessionId: c.p.sessionId,
+          }),
+        );
+      }
+      throw err;
+    }
+  }
 
   @Get()
   @Operation('searchGuests')
@@ -108,10 +144,12 @@ export class GuestsController {
   ) {
     const input = parseBody(guestInput, body) as GuestInput;
     const c = caller(req);
-    const result = await this.uow.run(req, async (tx) => ({
-      status: 201,
-      body: await this.guests.create(tx, c, input, req.id),
-    }));
+    const result = await this.run(req, c, () =>
+      this.uow.run(req, async (tx) => ({
+        status: 201,
+        body: await this.guests.create(tx, c, input, req.id),
+      })),
+    );
     reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
   }
@@ -162,10 +200,12 @@ export class GuestsController {
     const input = parseBody(guestInput, body) as GuestInput;
     const version = expectedVersion(req);
     const c = caller(req);
-    const result = await this.uow.run(req, async (tx) => ({
-      status: 200,
-      body: await this.guests.update(tx, c, guestId, version, input, req.id),
-    }));
+    const result = await this.run(req, c, () =>
+      this.uow.run(req, async (tx) => ({
+        status: 200,
+        body: await this.guests.update(tx, c, guestId, version, input, req.id),
+      })),
+    );
     reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
   }

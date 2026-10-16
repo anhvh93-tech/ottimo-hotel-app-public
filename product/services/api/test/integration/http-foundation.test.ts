@@ -379,6 +379,39 @@ describe.skipIf(!HAS_DB)(
         );
         expect((await post(`${T}/jobs/nope/run`, {}, h)).statusCode).toBe(404);
       });
+
+      it('resets lockouts of the prefixed accounts of the caller organisation only (FB-R2-QA-BE-07)', async () => {
+        const h = { cookie: cookie('owner'), 'x-test-token': token };
+        const lock = (tenant: TestTenant, user: string) =>
+          db.withContext(tenant.ctx(), (tx) =>
+            tx.query(
+              `UPDATE app_user SET failed_login_count = 3, approval_pin_failed_count = 4,
+                 approval_pin_locked_until = now() + interval '15 minutes' WHERE id = $1`,
+              [tenant.users[user]!.id],
+            ),
+          );
+        await lock(t, 'hk');
+        await lock(t, 'fd');
+        await lock(other, 'owner');
+        const res = await post(`${T}/rate-limits/reset`, { usernamePrefix: 't.hk.' }, h);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ users: 1 });
+        const counters = async (tenant: TestTenant, user: string) =>
+          (
+            await db.withContext(tenant.ctx(), (tx) =>
+              tx.query<{ f: number; a: number }>(
+                'SELECT failed_login_count AS f, approval_pin_failed_count AS a FROM app_user WHERE id = $1',
+                [tenant.users[user]!.id],
+              ),
+            )
+          ).rows[0];
+        expect(await counters(t, 'hk')).toEqual({ f: 0, a: 0 });
+        expect(await counters(t, 'fd')).toEqual({ f: 3, a: 4 }); // other prefix
+        expect(await counters(other, 'owner')).toEqual({ f: 3, a: 4 }); // other organisation
+        expect((await post(`${T}/rate-limits/reset`, { usernamePrefix: 'x' }, h)).statusCode).toBe(
+          422,
+        );
+      });
     });
   },
 );

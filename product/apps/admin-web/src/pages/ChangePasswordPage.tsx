@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
+import { useOnline } from '../hooks/useOnline';
 import { useAfterLoginPath } from './LoginPage';
 import { useSession } from '../session/SessionProvider';
 
@@ -18,6 +19,7 @@ export function ChangePasswordPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const afterLogin = useAfterLoginPath();
+  const { online } = useOnline();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -53,7 +55,8 @@ export function ChangePasswordPage() {
       toast(t('common.saved'));
       navigate(afterLogin(), { replace: true });
     } catch (err) {
-      if (isApiError(err) && err.status === 401) {
+      if (isApiError(err) && err.code === 'REAUTH_FAILED') {
+        // 0.3.4 Q4: field error, not an expired session (UNAUTHENTICATED is handled globally).
         setErrors({ currentPassword: t('field_error.current_password_wrong') });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err, { min: PASSWORD_MIN }));
@@ -70,6 +73,11 @@ export function ChangePasswordPage() {
       <form className="card" onSubmit={onSubmit} noValidate aria-labelledby="pw-h">
         <h2 id="pw-h">{forced ? t('pw.title') : t('shell.change_password')}</h2>
         {forced ? <p className="muted">{t('pw.lead')}</p> : null}
+        {!online ? (
+          <Alert tone="warn" icon="offline">
+            {t('login.offline')}
+          </Alert>
+        ) : null}
         {banner ? <Alert tone="bad">{banner}</Alert> : null}
         <Field label={t('auth.current_password')} required error={errors.currentPassword}>
           {(p) => (
@@ -125,7 +133,14 @@ export function ChangePasswordPage() {
             />
           )}
         </Field>
-        <Button type="submit" variant="pri" block busy={busy} busyLabel={t('common.saving')}>
+        <Button
+          type="submit"
+          variant="pri"
+          block
+          busy={busy}
+          busyLabel={t('common.saving')}
+          disabled={!online}
+        >
           {t('pw.submit')}
         </Button>
         {!forced ? (

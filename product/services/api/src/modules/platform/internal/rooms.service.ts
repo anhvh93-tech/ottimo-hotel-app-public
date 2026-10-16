@@ -7,6 +7,8 @@
  * - Lowering maxOccupancy below bookings → 409 CAPACITY_BELOW_BOOKINGS (ROOM_CAPACITY_CHECK port).
  * - Price changes never edit a past row: effectiveFrom ≥ business today (DATE_IN_PAST); a row with the same
  *   future/today date is replaced. Existing bookings keep their snapshot (BR-006).
+ * - Bed setup / bed count / area (OpenAPI 0.3.4 Q6, erd 4.1 columns from 0004): visible to every role
+ *   that may list rooms, edited by OWN/MGR like the other fields; `null` in a patch clears them.
  * - audit_event category config for every change (before/after allowlisted fields).
  */
 import { randomBytes } from 'node:crypto';
@@ -38,6 +40,9 @@ export interface RoomDto {
   floor?: number;
   baseOccupancy: number;
   maxOccupancy: number;
+  bedSetup?: string;
+  bedCount?: number;
+  areaM2?: number;
   isSellable: boolean;
   activeFrom: LocalDate;
   activeTo: LocalDate | null;
@@ -57,6 +62,9 @@ interface RoomRow {
   floor: number | null;
   base_occupancy: number;
   max_occupancy: number;
+  bed_setup: string | null;
+  bed_count: number | null;
+  area_m2: number | null;
   is_sellable: boolean;
   active_from: string;
   active_to: string | null;
@@ -67,7 +75,7 @@ interface RoomRow {
 }
 
 const ROOM_SELECT = `SELECT r.id, r.room_no, r.name, r.room_group_id, r.floor, r.base_occupancy, r.max_occupancy,
-    r.is_sellable, r.active_from::text AS active_from, r.active_to::text AS active_to, r.version,
+    r.bed_setup, r.bed_count, r.area_m2, r.is_sellable, r.active_from::text AS active_from, r.active_to::text AS active_to, r.version,
     lp.effective_from::text AS price_from, lp.monthly_list_price_vnd AS monthly, lp.nightly_list_price_vnd AS nightly
   FROM room r
   LEFT JOIN LATERAL (
@@ -82,6 +90,9 @@ export interface RoomCreateInput {
   floor?: number | undefined;
   baseOccupancy?: number | undefined;
   maxOccupancy?: number | undefined;
+  bedSetup?: string | undefined;
+  bedCount?: number | undefined;
+  areaM2?: number | undefined;
   monthlyListPriceVnd: number;
   activeFrom?: LocalDate | undefined;
 }
@@ -91,6 +102,9 @@ export interface RoomPatchInput {
   roomGroupId?: string | undefined;
   baseOccupancy?: number | undefined;
   maxOccupancy?: number | null | undefined;
+  bedSetup?: string | null | undefined;
+  bedCount?: number | null | undefined;
+  areaM2?: number | null | undefined;
   isSellable?: boolean | undefined;
   activeTo?: LocalDate | null | undefined;
   listPrice?:
@@ -112,6 +126,9 @@ function toDto(r: RoomRow): RoomDto {
     ...(r.floor !== null ? { floor: r.floor } : {}),
     baseOccupancy: r.base_occupancy,
     maxOccupancy: r.max_occupancy,
+    ...(r.bed_setup !== null ? { bedSetup: r.bed_setup } : {}),
+    ...(r.bed_count !== null ? { bedCount: r.bed_count } : {}),
+    ...(r.area_m2 !== null ? { areaM2: r.area_m2 } : {}),
     isSellable: r.is_sellable,
     activeFrom: r.active_from,
     activeTo: r.active_to,
@@ -126,6 +143,12 @@ function toDto(r: RoomRow): RoomDto {
       : {}),
     version: r.version,
   };
+}
+
+function constraintOf(err: unknown): string | undefined {
+  return typeof err === 'object' && err !== null && 'constraint' in err
+    ? String((err as { constraint: unknown }).constraint)
+    : undefined;
 }
 
 /** ESC-014: maxOccupancy must be base or base + 1. */
@@ -254,8 +277,9 @@ export class RoomsService {
       await tx.query('SAVEPOINT create_room');
       await tx.query(
         `INSERT INTO room (id, organization_id, property_id, room_group_id, room_no, name, floor,
-           base_occupancy, max_occupancy, public_slug, is_sellable, active_from, created_at, created_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13, $12)`,
+           base_occupancy, max_occupancy, public_slug, is_sellable, active_from, created_at, created_by, updated_at,
+           bed_setup, bed_count, area_m2)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13, $12, $14, $15, $16)`,
         [
           id,
           tx.ctx.organizationId,
@@ -270,11 +294,16 @@ export class RoomsService {
           activeFrom,
           pc.now,
           tx.ctx.userId,
+          input.bedSetup ?? null,
+          input.bedCount ?? null,
+          input.areaM2 ?? null,
         ],
       );
       await tx.query('RELEASE SAVEPOINT create_room');
     } catch (err) {
-      if (pgCode(err) === '23505') {
+      // Only the room-number key is a user error; anything else (e.g. a public_slug collision) is a
+      // server error, not "DUPLICATE roomNo" (FB-R2-ARC-BE-18).
+      if (pgCode(err) === '23505' && constraintOf(err) === 'room_property_room_no_key') {
         await tx.query('ROLLBACK TO SAVEPOINT create_room');
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomNo', code: 'DUPLICATE' }] });
       }
@@ -297,6 +326,9 @@ export class RoomsService {
         roomGroupId: g.id,
         baseOccupancy: base,
         maxOccupancy: max,
+        ...(input.bedSetup !== undefined ? { bedSetup: input.bedSetup } : {}),
+        ...(input.bedCount !== undefined ? { bedCount: input.bedCount } : {}),
+        ...(input.areaM2 !== undefined ? { areaM2: input.areaM2 } : {}),
         monthlyListPriceVnd: input.monthlyListPriceVnd,
         nightlyListPriceVnd: nightly,
         activeFrom,
@@ -360,12 +392,19 @@ export class RoomsService {
     track('maxOccupancy', room.max_occupancy, max);
     track('isSellable', room.is_sellable, isSellable);
     track('activeTo', room.active_to, activeTo);
+    const bedSetup = patch.bedSetup !== undefined ? patch.bedSetup : room.bed_setup;
+    const bedCount = patch.bedCount !== undefined ? patch.bedCount : room.bed_count;
+    const areaM2 = patch.areaM2 !== undefined ? patch.areaM2 : room.area_m2;
+    track('bedSetup', room.bed_setup, bedSetup);
+    track('bedCount', room.bed_count, bedCount);
+    track('areaM2', room.area_m2, areaM2);
 
     await tx.query(
       `UPDATE room SET name = $2, room_group_id = $3, base_occupancy = $4, max_occupancy = $5,
-           is_sellable = $6, active_to = $7, updated_at = $8, version = version + 1
+           is_sellable = $6, active_to = $7, updated_at = $8, version = version + 1,
+           bed_setup = $9, bed_count = $10, area_m2 = $11
         WHERE id = $1`,
-      [roomId, name, groupId, base, max, isSellable, activeTo, pc.now],
+      [roomId, name, groupId, base, max, isSellable, activeTo, pc.now, bedSetup, bedCount, areaM2],
     );
     let reason: string | undefined;
     if (patch.listPrice) {

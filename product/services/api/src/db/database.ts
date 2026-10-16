@@ -8,6 +8,7 @@
  * request carries no context ('' → NULLIF → NULL → policies match 0 rows). There is deliberately no
  * API that runs a query on a bare pool connection.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import * as schema from './schema';
@@ -52,6 +53,25 @@ export const NO_TENANT: TenantContext = {
   actorType: 'system',
 };
 
+/**
+ * Marks code running inside a UnitOfWork handler (shared/http/unit-of-work.ts). Opening a second
+ * connection there (withContext/entry) is a programming error: the handler already holds a pooled
+ * connection and row/key locks, so N concurrent requests waiting for a second connection exhaust the pool
+ * (FB-R2-ARC-BE-01, coding-standards 6 "một use case = một giao dịch"). Work that needs its own
+ * transaction (re-auth counters, access.denied audit) runs BEFORE or AFTER the unit of work.
+ */
+const unitOfWorkScope = new AsyncLocalStorage<string>();
+
+/** Run `fn` with the "inside a unit of work" marker (label = operationId, for the error message). */
+export function runInUnitOfWork<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  return unitOfWorkScope.run(label, fn);
+}
+
+/** Leave the marker for code that legitimately runs after the unit of work (never inside a handler). */
+export function outsideUnitOfWork<T>(fn: () => T): T {
+  return unitOfWorkScope.exit(fn);
+}
+
 export class Database {
   constructor(readonly pool: Pool) {}
 
@@ -61,6 +81,13 @@ export class Database {
     fn: (tx: Tx) => Promise<T>,
     options: TxOptions = {},
   ): Promise<T> {
+    const uow = unitOfWorkScope.getStore();
+    if (uow !== undefined) {
+      throw new Error(
+        `nested database connection inside the unit of work of ${uow}: use the handler's tx ` +
+          '(re-auth / access.denied belong before or after UnitOfWork.run)',
+      );
+    }
     const client = await this.pool.connect();
     let broken = false;
     try {

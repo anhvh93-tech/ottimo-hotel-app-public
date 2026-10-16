@@ -1,3 +1,5 @@
+import { translate } from '@ottimo/i18n';
+import { paramLabel } from '../pages/paramCatalog';
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '../test/render';
@@ -36,7 +38,8 @@ describe('H05 Tham số quy tắc (US-005)', () => {
   it('security parameters: owner edits within hard bounds (client check first)', async () => {
     const { user } = renderApp('/settings/parameters', 'qa.owner');
     await user.click(await screen.findByRole('tab', { name: 'Bảo mật' }));
-    const dlg = await edit(user, 'c3_stepup_minutes');
+    // FB-R2-UXD-FE-03: human label from params.k.* instead of the technical key.
+    const dlg = await edit(user, 'Thời gian xem giấy tờ sau khi nhập lại mật khẩu');
     const value = within(dlg).getByLabelText(/Giá trị mới/);
     await user.clear(value);
     await user.type(value, '60');
@@ -84,5 +87,17 @@ describe('H05 Tham số quy tắc (US-005)', () => {
       'true',
     );
     expect(screen.getByRole('link', { name: 'Mở danh mục căn' })).toBeInTheDocument();
+  });
+});
+
+describe('paramLabel (FB-R2-UXD-FE-03)', () => {
+  it('uses params.k.<key> (dots → _), the channel template, and the key only as last resort', () => {
+    const t = (k: string, a?: Record<string, string | number>) => translate('vi', k, a);
+    expect(paramLabel(t, 'checkin_time')).toBe('Giờ nhận phòng chuẩn');
+    expect(paramLabel(t, 'foc_self_apply.front_desk.per_time')).toBe(
+      'Lễ tân tự áp miễn phí (FOC) – mỗi lần',
+    );
+    expect(paramLabel(t, 'channel_commission_pct.agoda')).toBe('Phí kênh agoda');
+    expect(paramLabel(t, 'brand_new_key')).toBe('brand_new_key');
   });
 });

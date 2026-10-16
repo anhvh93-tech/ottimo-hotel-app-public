@@ -50,6 +50,14 @@ function principal(req: Req) {
 const money = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const occupancy = z.number().int().min(1).max(10);
 
+// OpenAPI 0.3.4 Q6 (erd 4.1): free text in one language in R2, C0.
+const bedSetup = z
+  .string()
+  .transform((s) => s.trim().replace(/\s+/g, ' '))
+  .pipe(z.string().min(1).max(100));
+const bedCount = z.number().int().min(1).max(10);
+const areaM2 = z.number().int().min(1).max(2_147_483_647); // contract: minimum 1 (int column)
+
 const roomInput = z.object({
   roomNo: z.string().regex(/^[0-9A-Z]{1,6}$/),
   name: z
@@ -61,6 +69,9 @@ const roomInput = z.object({
   floor: z.number().int().min(-5).max(200).optional(),
   baseOccupancy: occupancy.optional(),
   maxOccupancy: z.number().int().min(1).max(11).optional(),
+  bedSetup: bedSetup.optional(),
+  bedCount: bedCount.optional(),
+  areaM2: areaM2.optional(),
   monthlyListPriceVnd: money,
   activeFrom: localDateSchema.optional(),
 });
@@ -74,6 +85,9 @@ const roomPatch = z.object({
   roomGroupId: z.string().regex(UUID).optional(),
   baseOccupancy: occupancy.optional(),
   maxOccupancy: z.number().int().min(1).max(11).nullable().optional(),
+  bedSetup: bedSetup.nullable().optional(),
+  bedCount: bedCount.nullable().optional(),
+  areaM2: areaM2.nullable().optional(),
   isSellable: z.boolean().optional(),
   activeTo: localDateSchema.nullable().optional(),
   listPrice: z
@@ -137,6 +151,7 @@ export class PlatformController {
     @Body() body: unknown,
   ): Promise<RoomDto> {
     const input = parseBody(roomInput, body);
+    assertNoCardNumber('bedSetup', input.bedSetup);
     const result = await this.uow.run(req, async (tx) => ({
       status: 201,
       body: await this.rooms.create(tx, input, req.id),
@@ -156,6 +171,7 @@ export class PlatformController {
     if (!UUID.test(roomId)) throw problem('NOT_FOUND');
     const input = parseBody(roomPatch, body);
     if (input.listPrice) assertNoCardNumber('listPrice.reason', input.listPrice.reason);
+    assertNoCardNumber('bedSetup', input.bedSetup ?? undefined);
     const version = expectedVersion(req);
     const result = await this.uow.run(req, async (tx) => ({
       status: 200,

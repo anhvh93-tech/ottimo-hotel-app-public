@@ -2,6 +2,8 @@
  * TestSupportModule – test-only endpoints of docs/api/openapi.test.yaml (ADR-008, BUG-R1-SEC-08):
  *   GET/POST /__test__/clock            MutableClock (dev_clock shared by api + worker)
  *   POST     /__test__/jobs/{key}/run   run a scheduled job now through the exactly-once runner
+ *   POST     /__test__/rate-limits/reset  clear in-memory rate limits + login/re-auth lockouts of the
+ *                                       caller's organisation test accounts (FB-R2-QA-BE-07)
  *
  * Safety (SR-SECR-05): this folder is the ONLY place the strings "__test__" / "TestSupportModule" may
  * appear in src/ (CI scans the production bundle). main.ts loads it with a dynamic import only when
@@ -26,11 +28,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { z } from 'zod';
 import { CLOCK, type Clock, MutableClock } from '../clock';
 import { DATABASE, Database } from '../db/database';
 import { JobRegistry, JobRunner, type JobRunResult } from '../jobs/job-runner';
+import { defineAuditEntity } from '../modules/audit/public/audit-fields';
 import { AuditService } from '../modules/audit/public/audit.service';
+import { RATE_LIMITER, type RateLimiter } from '../modules/identity/public/rate-limiter';
 import {
   AuthGuard,
   type GuardedRequest,
@@ -203,12 +208,71 @@ export class TestJobsController {
   }
 }
 
+defineAuditEntity('rate_limit', ['usernamePrefix', 'users']);
+
+const rateLimitBody = z
+  .object({
+    // Only accounts whose username starts with this prefix (QA seed accounts are "qa.*").
+    usernamePrefix: z
+      .string()
+      .regex(/^[a-z0-9._-]{2,40}$/)
+      .default('qa.'),
+  })
+  .default({ usernamePrefix: 'qa.' });
+
+@Controller('__test__/rate-limits')
+@PublicRoute()
+@UseGuards(TestSupportGuard)
+export class TestRateLimitsController {
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ModuleRef) private readonly moduleRef: ModuleRef,
+  ) {}
+
+  /**
+   * Re-runnable E2E on one stack: in-memory windows (login per IP, guest lookup) are cleared for the whole
+   * process; DB counters (login lockout, re-auth lock) only for the caller's organisation and the prefix.
+   */
+  @Post('reset')
+  @HttpCode(200)
+  async reset(@Body() body: unknown, @Req() req: TestRequest): Promise<{ users: number }> {
+    const input = parse(rateLimitBody, body ?? undefined);
+    try {
+      this.moduleRef.get<RateLimiter>(RATE_LIMITER, { strict: false }).resetAll();
+    } catch {
+      // identity module not loaded – nothing in memory to clear
+    }
+    const p = req.testPrincipal as StaffPrincipal;
+    const users = await this.db.withContext(tenantOf(p), async (tx) => {
+      const r = await tx.query(
+        `UPDATE app_user
+            SET failed_login_count = 0, lock_count_24h = 0, locked_until = NULL,
+                approval_pin_failed_count = 0, approval_pin_locked_until = NULL,
+                status = CASE WHEN status = 'locked' THEN 'active' ELSE status END
+          WHERE organization_id = $1 AND starts_with(username, $2)`,
+        [p.organizationId, input.usernamePrefix],
+      );
+      await this.audit.record(tx, {
+        category: 'config',
+        action: 'test.rate_limits_reset',
+        entityType: 'rate_limit',
+        after: { usernamePrefix: input.usernamePrefix, users: r.rowCount ?? 0 },
+        requestId: req.id,
+        sessionId: p.sessionId,
+      });
+      return r.rowCount ?? 0;
+    });
+    return { users };
+  }
+}
+
 @Module({})
 export class TestSupportModule {
   static register(opts: { token: string }): DynamicModule {
     return {
       module: TestSupportModule,
-      controllers: [TestClockController, TestJobsController],
+      controllers: [TestClockController, TestJobsController, TestRateLimitsController],
       providers: [{ provide: TEST_SUPPORT_TOKEN, useValue: opts.token }, TestSupportGuard],
     };
   }

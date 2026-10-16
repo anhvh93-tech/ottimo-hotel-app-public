@@ -5,6 +5,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
+import { sha256Hex } from '../../src/shared/http/auth.guard';
 import {
   Client,
   type FeatureApp,
@@ -215,7 +216,19 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
         newPassword: 'Another-fake-pass-99',
       });
       expect(ok.statusCode).toBe(204);
+      const versionBefore = await db.withContext(t.ctx(), (tx) =>
+        tx.query<{ version: number }>(`SELECT version FROM app_user WHERE id = $1`, [
+          t.users.temp!.id,
+        ]),
+      );
       const fresh = new Client(fa, cookieValue(ok, 'ottimo_sid')!);
+      // OpenAPI 0.3.4 Q3 / FB-R2-QA-BE-05: every session (also the calling one) is revoked, a new cookie
+      // is issued, the CSRF token changes and User.version went up by one.
+      expect(fresh.token).not.toBe(c.token);
+      expect(fa.sessions.csrfToken(sha256Hex(fresh.token!))).not.toBe(
+        fa.sessions.csrfToken(sha256Hex(c.token!)),
+      );
+      expect(versionBefore.rows[0]!.version).toBeGreaterThanOrEqual(2);
       expect((await c.get('/v1/me')).statusCode).toBe(401);
       expect((await Client.of(fa, t, 'temp').get('/v1/me')).statusCode).toBe(401);
       const me = await fresh.get('/v1/me');
@@ -353,8 +366,9 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
         { status: 'disabled' },
         { 'if-match': '"1"' },
       );
+      // Own status/password are never changed through updateUser (FB-R2-SEC-BE-15).
       expect(disable.statusCode).toBe(422);
-      expect(disable.json().errors).toEqual([{ field: 'status', code: 'LAST_OWNER' }]);
+      expect(disable.json().errors).toEqual([{ field: 'status', code: 'NOT_ALLOWED_FOR_SELF' }]);
 
       const ok = await Client.of(fa, t, 'owner').send(
         'PATCH',

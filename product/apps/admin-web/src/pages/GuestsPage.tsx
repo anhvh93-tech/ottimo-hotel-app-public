@@ -1,6 +1,6 @@
 import type { Guest, GuestSummary } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Button, Chip, Icon, StateView } from '@ottimo/ui';
+import { Alert, Button, Chip, Icon, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../app/api';
 import { findGuests } from '../app/guestSearch';
@@ -25,7 +25,8 @@ export function GuestsPage() {
   const [dialog, setDialog] = useState<{ mode: 'new' } | { mode: 'edit'; guest: Guest } | null>(
     null,
   );
-  const [openError, setOpenError] = useState<string | null>(null);
+  /** Opening a profile failed: one alert with Thử lại, gone when the search changes (FB-R2-UXD-FE-12). */
+  const [openError, setOpenError] = useState<{ text: string; guestId: string } | null>(null);
   const active = query.length >= 2;
   const { state, reload } = useResource(
     async () => (active ? findGuests(propertyId, query, false) : ([] as GuestSummary[])),
@@ -38,7 +39,7 @@ export function GuestsPage() {
       const { data } = await api.getGuest({ propertyId, guestId: id });
       setDialog({ mode: 'edit', guest: data });
     } catch (err) {
-      setOpenError(problemView(t, err).text);
+      setOpenError({ text: problemView(t, err).text, guestId: id });
     }
   };
 
@@ -74,7 +75,10 @@ export function GuestsPage() {
               placeholder={t('crm.search_ph')}
               value={q}
               autoComplete="off"
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setOpenError(null);
+              }}
             />
           </label>
           {active && state.status === 'ready' ? (
@@ -84,9 +88,22 @@ export function GuestsPage() {
           ) : null}
         </div>
         {openError ? (
-          <StateView kind="error" title={t('crm.error_title')}>
-            {openError}
-          </StateView>
+          <Alert
+            tone="bad"
+            title={t('crm.error_title')}
+            actions={
+              <>
+                <Button size="sm" onClick={() => void openGuest(openError.guestId)}>
+                  {t('common.retry')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setOpenError(null)}>
+                  {t('common.close')}
+                </Button>
+              </>
+            }
+          >
+            {openError.text}
+          </Alert>
         ) : null}
         {!active ? (
           <StateView icon="search" title={t('crm.prompt_title')}>
@@ -133,6 +150,15 @@ export function GuestsPage() {
                       >
                         <b>{g.displayName}</b>
                       </button>
+                      {/* 0.3.4 Q7: same name + date of birth as another profile (FD+ only). */}
+                      {g.possibleDuplicate ? (
+                        <>
+                          {' '}
+                          <Chip tone="warn" icon="alert">
+                            {t('crm.suspect_dup')}
+                          </Chip>
+                        </>
+                      ) : null}
                     </td>
                     <td className="num">{g.phoneMasked ?? '–'}</td>
                     <td>{g.nationalityCode ?? '–'}</td>

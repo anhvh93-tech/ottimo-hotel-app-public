@@ -16,7 +16,8 @@ import {
   type ReactNode,
 } from 'react';
 import { api, onApiError, setCsrfToken } from '../app/api';
-import { readSession, removeSession, writeSession } from '../app/storage';
+import { clearClientData } from '../app/clientData';
+import { readSession, writeSession } from '../app/storage';
 
 export type SessionStatus = 'loading' | 'anonymous' | 'authenticated';
 
@@ -56,8 +57,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [expired, setExpired] = useState(false);
   const statusRef = useRef(status);
   statusRef.current = status;
+  /** Last signed-in user in this tab: a different user signing in wipes the previous one's data. */
+  const lastUserId = useRef<string | null>(null);
 
   const setMe = useCallback((next: Me | null) => {
+    if (next) {
+      if (lastUserId.current && lastUserId.current !== next.id) clearClientData();
+      lastUserId.current = next.id;
+    }
     setMeState(next);
     setCsrfToken(next?.csrfToken);
     setPropertyId(pickProperty(next)?.propertyId ?? null);
@@ -116,7 +123,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       /* already signed out server-side – clear locally anyway */
     }
-    removeSession(PROPERTY_KEY);
+    // SR-PWA-04: sign-out / "Đổi ca" wipes drafts and every ottimo.* sessionStorage key.
+    clearClientData();
+    lastUserId.current = null;
     setExpired(false);
     setMe(null);
   }, [setMe]);

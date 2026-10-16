@@ -84,7 +84,7 @@ export function DevicesPage() {
       list.reload();
     } catch (err) {
       setPassword('');
-      if (isApiError(err) && (err.code === 'REAUTH_FAILED' || err.status === 401)) {
+      if (isApiError(err) && err.code === 'REAUTH_FAILED') {
         setErrors({ currentPassword: t('field_error.current_password_wrong') });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err, { value: name.trim() }));

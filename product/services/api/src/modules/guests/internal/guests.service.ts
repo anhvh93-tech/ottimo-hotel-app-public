@@ -3,11 +3,16 @@
  * - Normalisation BR-951 (normalize.ts); phone OR e-mail required; no ID-number input (US-071 AC3).
  * - Duplicate phone/e-mail among live profiles → 409 DUPLICATE_GUEST (+ existingGuestId/Code when the
  *   caller may see that profile); race-safe through the partial unique indexes (23505 → same 409).
- * - Similar name (BR-952) + same date of birth (or same nationality when a DOB is missing) → warning only.
+ * - Similar name (BR-952) + same date of birth (or same nationality when a DOB is missing) → warning only,
+ *   computed on create/update with the trigram index (`%` operator, threshold 0.3 – FB-R2-ARC-BE-07) and
+ *   stored as guest.possible_duplicate_at on BOTH profiles (OpenAPI 0.3.4 Q7 → GuestSummary
+ *   .possibleDuplicate); getGuest only recomputes the list for a flagged profile (no scan per view).
  * - Scope (x-scope own): a caller whose roles are only sales_staff/collaborator sees the profiles they
  *   created; anything else → 404 (search/picker filter in SQL – coding-standards 7.7).
- * - SAL/CTV lookups and searches: 30/hour/user (SR-RL-07); every contact lookup writes audit_event access
- *   without the looked-up value.
+ * - SAL/CTV contact probes: searches, lookups AND create/update carrying a phone/e-mail share one counter
+ *   of 30/hour/user (SR-RL-07); every contact lookup – and a create/update refused because the contact
+ *   belongs to a profile outside the caller's scope – writes audit_event access `guest.lookup` without the
+ *   looked-up value (FB-R2-SEC-BE-09; the controller writes it after the rollback).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -65,7 +70,10 @@ export function ownScopeUser(c: Caller): string | null {
 const GUEST_COLUMNS = `g.id, g.code, g.full_name, g.name_search, g.phone_e164, g.email_norm, g.messaging_handles,
   g.date_of_birth::text AS date_of_birth, g.gender, g.nationality_code, g.is_foreigner, g.preferred_locale,
   g.preferred_contact, g.company_name, g.tax_code, g.tags, g.service_notes, g.free_note, g.id_doc_last4,
-  g.crm_consent, g.created_by, g.version`;
+  g.crm_consent, g.created_by, g.possible_duplicate_at, g.version`;
+
+/** BR-952 name similarity threshold for the trigram `%` operator (uses guest_name_search_trgm_idx). */
+const NAME_SIMILARITY = '0.3';
 
 const LIVE = 'g.merged_into_id IS NULL AND g.anonymized_at IS NULL';
 
@@ -313,15 +321,21 @@ export class GuestsService {
     });
   }
 
-  /** BR-952 warnings: similar name AND (same DOB, or same nationality when a DOB is missing). */
-  private async warnings(tx: Tx, row: GuestRow): Promise<GuestWarning[]> {
+  /**
+   * BR-952 look-alikes: similar name AND (same DOB, or same nationality when a DOB is missing). `%` with
+   * pg_trgm.similarity_threshold (transaction-local) runs on the GIN trigram index; namesLookAlike then
+   * applies the word-order-insensitive rule.
+   */
+  private async lookAlikes(tx: Tx, row: GuestRow): Promise<GuestWarning[]> {
+    await tx.query(`SELECT set_config('pg_trgm.similarity_threshold', $1, true)`, [
+      NAME_SIMILARITY,
+    ]);
     const { rows } = await tx.query<{ id: string; code: string; name_search: string }>(
       `SELECT g.id, g.code, g.name_search FROM guest g
-        WHERE ${LIVE} AND g.id <> $1
+        WHERE g.name_search % $4 AND ${LIVE} AND g.id <> $1
           AND (($2::date IS NOT NULL AND g.date_of_birth = $2::date)
                OR (($2::date IS NULL OR g.date_of_birth IS NULL) AND $3::text IS NOT NULL
                    AND g.nationality_code = $3))
-          AND similarity(g.name_search, $4) >= 0.3
         ORDER BY similarity(g.name_search, $4) DESC LIMIT 10`,
       [row.id, row.date_of_birth, row.nationality_code, row.name_search],
     );
@@ -330,17 +344,42 @@ export class GuestsService {
       .map((r) => ({ code: 'possible_duplicate_name_dob', guestId: r.id, guestCode: r.code }));
   }
 
-  private async withWarnings(
-    tx: Tx,
-    row: GuestRow,
-    caller: Caller,
-  ): Promise<Record<string, unknown>> {
-    const fdPlus = caller.roles.some((r) => FULL_SCOPE_ROLES.includes(r));
-    return guestDto(row, fdPlus ? await this.warnings(tx, row) : undefined);
+  /** After a create/update: recompute look-alikes and store the flag on this profile and on theirs (Q7). */
+  private async flagLookAlikes(tx: Tx, row: GuestRow): Promise<GuestWarning[]> {
+    const found = await this.lookAlikes(tx, row);
+    const now = this.clock.now();
+    if (found.length) {
+      // Derived flag: no version bump (would turn other clients' If-Match into 412 for nothing).
+      await tx.query(
+        `UPDATE guest SET possible_duplicate_at = COALESCE(possible_duplicate_at, $2)
+          WHERE id = ANY($1::uuid[])`,
+        [[row.id, ...found.map((w) => w.guestId)], now],
+      );
+      row.possible_duplicate_at = row.possible_duplicate_at ?? now;
+    } else if (row.possible_duplicate_at) {
+      await tx.query(`UPDATE guest SET possible_duplicate_at = NULL WHERE id = $1`, [row.id]);
+      row.possible_duplicate_at = null;
+    }
+    return found;
+  }
+
+  private isFdPlus(caller: Caller): boolean {
+    return caller.roles.some((r) => FULL_SCOPE_ROLES.includes(r));
   }
 
   async get(tx: Tx, caller: Caller, guestId: string): Promise<Record<string, unknown>> {
-    return this.withWarnings(tx, await this.load(tx, caller, guestId), caller);
+    const row = await this.load(tx, caller, guestId);
+    // Only a flagged profile pays for the look-alike query; warnings are FD+ only (D29).
+    const warnings =
+      this.isFdPlus(caller) && row.possible_duplicate_at
+        ? await this.lookAlikes(tx, row)
+        : undefined;
+    return guestDto(row, warnings);
+  }
+
+  /** SR-RL-07 / FB-R2-SEC-BE-09: a SAL/CTV write that carries a contact counts as a contact probe. */
+  private probeLimit(caller: Caller, input: GuestInput): void {
+    if (input.phone !== undefined || input.email !== undefined) this.rateLimit(caller);
   }
 
   async create(
@@ -351,6 +390,7 @@ export class GuestsService {
   ): Promise<Record<string, unknown>> {
     const pc = await this.property.now(tx);
     const p = await this.prepare(tx, input, null, caller, pc.today);
+    this.probeLimit(caller, input);
     await this.assertNoDuplicate(tx, caller, p, null);
     const code = await this.docs.allocate(tx, 'guest');
     const id = uuidv7();
@@ -363,11 +403,9 @@ export class GuestsService {
       after: { code },
       requestId,
     });
-    return this.withWarnings(
-      tx,
-      await this.load(tx, { ...caller, roles: FULL_SCOPE_ROLES }, id),
-      caller,
-    );
+    const created = await this.load(tx, { ...caller, roles: FULL_SCOPE_ROLES }, id);
+    const warnings = await this.flagLookAlikes(tx, created);
+    return guestDto(created, this.isFdPlus(caller) ? warnings : undefined);
   }
 
   async update(
@@ -402,6 +440,7 @@ export class GuestsService {
       free_note: row.free_note,
     };
     const p = await this.prepare(tx, input, base, caller, pc.today);
+    this.probeLimit(caller, input);
     await this.assertNoDuplicate(tx, caller, p, guestId);
     await this.write(tx, caller, 'update', guestId, p);
     const changed = (Object.keys(base) as (keyof Prepared)[]).filter(
@@ -416,7 +455,9 @@ export class GuestsService {
       after: { fields: changed },
       requestId,
     });
-    return this.withWarnings(tx, await this.load(tx, caller, guestId), caller);
+    const updated = await this.load(tx, caller, guestId);
+    const warnings = await this.flagLookAlikes(tx, updated);
+    return guestDto(updated, this.isFdPlus(caller) ? warnings : undefined);
   }
 
   private async write(

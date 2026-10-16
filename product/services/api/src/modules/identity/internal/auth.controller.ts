@@ -8,6 +8,7 @@ import { Operation } from '../../../shared/http/operation';
 import { UnitOfWork } from '../../../shared/http/unit-of-work';
 import { parseBody } from '../../platform/public/validation';
 import { SessionService } from '../public/session.service';
+import { IdentityParamsService } from '../public/identity-params';
 import { PasswordReauth } from '../public/password-reauth';
 import { AuthService } from './auth.service';
 import { type Me, MeService } from './me.service';
@@ -52,6 +53,7 @@ export class AuthController {
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(IdentityParamsService) private readonly identityParams: IdentityParamsService,
   ) {}
 
   @Post('auth/login')
@@ -118,8 +120,11 @@ export class AuthController {
       purpose: 'password_change',
       requestId: req.id,
     });
+    // Own transactions → before the unit of work (no nested connection, FB-R2-ARC-BE-01).
+    const { session: sessionPolicy } = await this.identityParams.forUser(tenantOf(p));
     const result = await this.uow.run(req, async (tx) => {
       const session = await this.auth.changeMyPassword(tx, {
+        sessionPolicy,
         userId: p.userId,
         sessionId: p.sessionId,
         currentPassword: input.currentPassword,

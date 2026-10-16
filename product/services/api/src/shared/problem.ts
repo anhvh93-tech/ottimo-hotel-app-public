@@ -12,6 +12,7 @@ import {
   Logger,
   type LoggerService,
 } from '@nestjs/common';
+import { describeError } from './redact';
 import { OPENAPI_META } from '../generated/openapi-meta';
 
 /** Codes outside the OpenAPI table (proposed to ARC, see d0-foundation.md): unexpected server error. */
@@ -146,10 +147,9 @@ export class ProblemFilter implements ExceptionFilter {
       err = fromHttpStatus(exception.statusCode);
     } else {
       err = new ProblemError('INTERNAL_ERROR');
-      // Log the error class/message only; never the request body (may hold C2/C3).
-      this.logger?.error(
-        `unhandled error requestId=${req.id ?? '-'} ${exception instanceof Error ? `${exception.name}: ${exception.message}` : typeof exception}`,
-      );
+      // Never the request body (may hold C2/C3); the message itself is redacted (SR-LOG-04, SEC-BE-13):
+      // PostgreSQL errors → code/constraint/routine only, others → class + redacted message.
+      this.logger?.error(`unhandled error requestId=${req.id ?? '-'} ${describeError(exception)}`);
     }
     for (const [name, value] of Object.entries(err.options.headers ?? {}))
       reply.header(name, value);

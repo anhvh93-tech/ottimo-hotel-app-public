@@ -214,6 +214,13 @@ importers:
         version: 4.1.12(@types/node@22.20.5)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.20.5)(typescript@5.8.3))(vite@7.3.7(@types/node@22.20.5)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/ui:
+    dependencies:
+      '@fontsource/be-vietnam-pro':
+        specifier: 5.2.8
+        version: 5.2.8
+      '@fontsource/lora':
+        specifier: 5.2.8
+        version: 5.2.8
     devDependencies:
       '@testing-library/jest-dom':
         specifier: ^6.10.0
@@ -983,6 +990,12 @@ packages:
 
   '@fastify/proxy-addr@5.1.2':
     resolution: {integrity: sha512-uqB4QsgVoro0XDC+DIftIMGXHdBPn+lK6Ek3xXAIxPMCJfqxnbtyEoMCm2KPUVOuIosd7Cyw9HawEqMFM/UA+g==}
+
+  '@fontsource/be-vietnam-pro@5.2.8':
+    resolution: {integrity: sha512-lqTtfpkAy0GdFH0fqwR0sW4VP+3CNGaQV6SpW2TSZaNmixZMlou+2dp5ErGidrS1MPiDDPfPbfW2i358PVFLZA==}
+
+  '@fontsource/lora@5.2.8':
+    resolution: {integrity: sha512-AQlfsHw4TP1x/eb2IZ6VjQ70ctKa39m9JN9A4zlvDOeKYLrCs+GaYIEQ86Y6YfSPGHn01bErXkRcyktOW0LOPQ==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -4045,6 +4058,10 @@ snapshots:
     dependencies:
       '@fastify/forwarded': 3.1.1
       ipaddr.js: 2.5.0
+
+  '@fontsource/be-vietnam-pro@5.2.8': {}
+
+  '@fontsource/lora@5.2.8': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

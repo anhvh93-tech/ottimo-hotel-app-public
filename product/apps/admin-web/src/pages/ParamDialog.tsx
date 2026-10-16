@@ -18,7 +18,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 function suffix(t: T, key: string): string {
   const unit = paramMeta(key).unit;
   if (unit === 'pct') return '%';
-  if (unit === 'vnd') return 'đ';
+  if (unit === 'vnd') return t('common.vnd_unit');
   const k = UNIT_KEY[unit];
   return k ? t(k) : '';
 }

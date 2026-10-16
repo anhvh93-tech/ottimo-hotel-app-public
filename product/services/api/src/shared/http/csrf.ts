@@ -30,6 +30,13 @@ export interface AllowedOrigins {
   staff: string[];
   /** guest-web (g.<domain>). */
   guest: string[];
+  /**
+   * The two parts of `staff`, for the identity module's session classification (admin-web vs staff PWA –
+   * session lifetime SR-SES-03, trusted devices SR-DEV-04). Same validated values as `staff`
+   * (FB-R2-ARC-BE-12 b: one source of origins).
+   */
+  admin?: string[];
+  staffPwa?: string[];
 }
 
 export function isWriteMethod(method: string): boolean {

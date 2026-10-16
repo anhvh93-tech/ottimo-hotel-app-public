@@ -50,6 +50,9 @@ export const guest = pgTable(
     crmConsent: text('crm_consent').notNull().default('not_asked'),
     mergedIntoId: uuid('merged_into_id'),
     anonymizedAt: instant('anonymized_at'),
+    // erd 4.4 0.3.4 (ARC Q7): set when a create/edit found a BR-952 look-alike (on both profiles);
+    // GuestSummary.possibleDuplicate reads it (no similarity per list row); cleared by merge (R3).
+    possibleDuplicateAt: instant('possible_duplicate_at'),
     ...auditColumns(),
   },
   (t) => [

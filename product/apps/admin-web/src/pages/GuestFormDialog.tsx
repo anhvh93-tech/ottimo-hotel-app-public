@@ -11,7 +11,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { timeHHmm, todayLocal } from '../app/dates';
 import { fieldErrorText, fieldErrors, problemView } from '../app/problem';
-import { readSession, removeSession, writeSession } from '../app/storage';
+import { readDraft, removeDraft, writeDraft } from '../app/clientData';
 import { useToast } from '../app/toast';
 import { checkEmail, checkName, checkTaxCode, normalizePhone } from '../app/validation';
 import { useOnline } from '../hooks/useOnline';
@@ -121,7 +121,7 @@ export function GuestFormDialog({
   const [form, setForm] = useState<FormState>(() => {
     if (!isCreate || prefillName) return initial;
     try {
-      const saved = readSession(draftKey);
+      const saved = readDraft(draftKey);
       return saved ? { ...EMPTY, ...(JSON.parse(saved) as Partial<FormState>) } : initial;
     } catch {
       return initial;
@@ -142,10 +142,11 @@ export function GuestFormDialog({
     );
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
-  // DS D5: the create form keeps a draft on this device (sessionStorage, per user) – survives an expired session.
+  // DS D5: the create form keeps a draft in memory (per user, never Web Storage – FB-R2-SEC-FE-01);
+  // it survives closing the dialog and an expired session of the same user, not sign-out or reload.
   useEffect(() => {
     if (!isCreate || !dirty) return;
-    writeSession(draftKey, JSON.stringify(form));
+    writeDraft(draftKey, JSON.stringify(form));
     setDraftAt(new Date());
   }, [form, dirty, isCreate, draftKey]);
 
@@ -215,7 +216,12 @@ export function GuestFormDialog({
         field === 'phone' ? { phone: value } : { email: value },
       );
       const other = data.matches.find((m) => m.id !== guest?.id);
-      setDup(other ? { field, match: other } : dup?.field === field ? null : dup);
+      // 0.3.4 Q1: SAL/CTV get `{ matches: [], match: possible_duplicate }` for a profile outside
+      // their scope – warn "ask the front desk" without any id/name (FB-R2-QA-FE-03, BUG-R2-008).
+      const possible = !other && data.match === 'possible_duplicate';
+      setDup(
+        other ? { field, match: other } : possible ? { field } : dup?.field === field ? null : dup,
+      );
     } catch {
       /* lookup is only an early warning – save re-checks */
     }
@@ -257,16 +263,24 @@ export function GuestFormDialog({
       const { data } = guest
         ? await api.updateGuest({ propertyId, guestId: guest.id }, buildBody(), guest.version)
         : await api.createGuest({ propertyId }, buildBody(), idemKey.current);
-      if (isCreate) removeSession(draftKey);
+      if (isCreate) removeDraft(draftKey);
       toast(t('crm.saved', { code: data.code }));
       onSaved(data);
     } catch (err) {
       if (isApiError(err) && err.code === 'DUPLICATE_GUEST') {
         const p = err.problem as { existingGuestId?: string; existingGuestCode?: string };
-        setBanner({
-          text: t('error.DUPLICATE_GUEST', { guest: p.existingGuestCode ?? '' }),
-          existingId: p.existingGuestId,
-        });
+        if (p.existingGuestId) {
+          setBanner({
+            text: t('error.DUPLICATE_GUEST', { guest: p.existingGuestCode ?? '' }),
+            existingId: p.existingGuestId,
+          });
+        } else {
+          // Outside the caller's scope (0.3.4 Q5): no id/code – same "ask the front desk" sentence.
+          const field = err.fieldErrors.find((f) => f.code === 'DUPLICATE_GUEST')?.field;
+          const target = field?.replace(/^body\./, '') === 'email' ? 'email' : 'phone';
+          setDup({ field: target });
+          setBanner({ text: t('field_error.possible_duplicate_other') });
+        }
       } else if (
         isApiError(err) &&
         (err.code === 'VALIDATION_FAILED' || err.code === 'CARD_NUMBER_DETECTED')
@@ -301,7 +315,7 @@ export function GuestFormDialog({
       meta={draftAt ? t('crm.draft_saved', { time: timeHHmm(draftAt) }) : undefined}
       closeLabel={t('common.close')}
       onClose={() => {
-        if (isCreate) removeSession(draftKey);
+        if (isCreate) removeDraft(draftKey);
         onClose();
       }}
       dirty={dirty}

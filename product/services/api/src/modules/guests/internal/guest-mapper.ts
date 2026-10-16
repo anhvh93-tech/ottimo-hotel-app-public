@@ -35,6 +35,8 @@ export interface GuestRow {
   id_doc_last4: string | null;
   crm_consent: string;
   created_by: string | null;
+  /** erd 4.4 0.3.4 (Q7): BR-952 look-alike found at create/update. */
+  possible_duplicate_at?: Date | null;
   version: number;
 }
 
@@ -78,5 +80,7 @@ export function summaryDto(row: GuestRow): Record<string, unknown> {
     nationalityCode: row.nationality_code,
     phoneMasked: row.phone_e164 ? maskPhone(row.phone_e164) : null,
     tags: row.tags && row.tags.length ? row.tags : null,
+    // 0.3.4 Q7: stored flag, FD+ only (x-visible-to – the serializer removes it for other roles).
+    possibleDuplicate: !!row.possible_duplicate_at,
   });
 }

@@ -2,9 +2,12 @@
  * Staff authentication + action authorisation driven by the OpenAPI contract (rbac-matrix 8, coding-standards 7).
  *
  * Order (OpenAPI "Thứ tự kiểm"): authenticate → CSRF/Origin (write methods, csrf.ts) → trusted device →
- * Idempotency-Key present → If-Match present → roles. For operations with Idempotency-Key the role
- * decision is applied by UnitOfWork AFTER the replay lookup, so an offline retry of a request that already
- * succeeded gets its stored response (not 403/412).
+ * Idempotency-Key present → If-Match present → roles. All of it runs in the guard, i.e. BEFORE the
+ * controller parses the body or asks for a password (BUG-R2-005: a forbidden role gets 403 + access.denied,
+ * never 422/401/429). One exception keeps the replay rule of ADR-009: a forbidden role whose
+ * Idempotency-Key is already COMPLETED for this user (role removed after an offline success) is left to
+ * UnitOfWork, which answers the stored response. The lookup only runs for forbidden roles (no cost on the
+ * normal path).
  *
  * - Session: cookie → SHA-256 → auth_resolve_session() (SECURITY DEFINER, erd 2.4); expiry checked with Clock.
  * - Property: `{propertyId}` path parameter, else the session's active property.
@@ -56,6 +59,19 @@ export interface StaffPrincipal {
   propertyId: string | null;
   roles: string[];
   trustedDeviceId: string | null;
+  /**
+   * Session state read by the same auth_resolve_session call (0.3.4, FB-R2-ARC-BE-05) – used by the
+   * identity SessionPolicyInterceptor (idle sliding, temporary password) without another query.
+   */
+  session?: SessionState;
+}
+
+export interface SessionState {
+  clientOrigin: 'admin' | 'staff_pwa';
+  expiresAt: Date;
+  idleExpiresAt: Date | null;
+  lastActiveAt: Date | null;
+  mustChangePassword: boolean;
 }
 
 export interface RequestAuth {
@@ -80,6 +96,9 @@ export interface GuardedRequest {
   ottimoAuth?: RequestAuth;
 }
 
+/** trusted_device.last_seen_at resolution (SR-DEV-06 needs "recently used", not every request). */
+export const DEVICE_TOUCH_MS = 5 * 60_000;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface SessionRow {
@@ -94,6 +113,10 @@ interface SessionRow {
   revoked_at: Date | null;
   roles_version: number;
   trusted_device_id: string | null;
+  /** 0.3.4 (migration 0009_identity_hardening_be_b). */
+  client_origin?: 'admin' | 'staff_pwa' | null;
+  last_active_at?: Date | null;
+  must_change_password?: boolean | null;
 }
 
 interface DeviceRow {
@@ -116,6 +139,7 @@ function header(req: GuardedRequest, name: string): string | undefined {
 @Injectable()
 export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly roleCache = new Map<string, { roles: string[]; until: number }>();
+  private readonly deviceTouched = new Map<string, number>();
   private names!: { session: string; device: string };
 
   constructor(
@@ -156,8 +180,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const req = context.switchToHttp().getRequest<GuardedRequest>();
 
     if (operation.public) {
-      // No session yet (login, guest link exchange): Origin still has to be one of ours (login CSRF).
-      if (isWriteMethod(req.method) && !originAllowed(header(req, 'origin'), this.allOrigins())) {
+      // No session yet (login, guest link exchange): Origin still has to be one of ours (login CSRF), and
+      // the RIGHT one: staff login only from admin-web/staff PWA, guest operations only from guest-web
+      // (SR-SES-09, FB-R2-SEC-BE-12 – no staff session created on the guest origin).
+      if (
+        isWriteMethod(req.method) &&
+        !originAllowed(header(req, 'origin'), this.publicOrigins(operation))
+      ) {
         throw problem('FORBIDDEN_ACTION', { detail: 'Origin not allowed' });
       }
       req.ottimoAuth = { operationId, operation, principal: null, allowed: true, enforced: true };
@@ -186,8 +215,35 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       enforced: false,
       ...(ifMatchVersion !== undefined ? { ifMatchVersion } : {}),
     };
-    if (!operation.idempotencyKey) await this.enforce(req);
+    if (!allowed && !(await this.hasCompletedKey(req, operation, principal))) {
+      await this.enforce(req);
+    } else if (!operation.idempotencyKey) {
+      await this.enforce(req);
+    }
     return true;
+  }
+
+  /** Forbidden role: is this request an idempotent replay of a key this user already completed? */
+  private async hasCompletedKey(
+    req: GuardedRequest,
+    operation: OperationMeta,
+    p: StaffPrincipal,
+  ): Promise<boolean> {
+    if (!operation.idempotencyKey) return false;
+    const key = header(req, 'idempotency-key');
+    if (!key || !UUID.test(key)) return false;
+    return this.db.withContext(
+      tenantOf(p),
+      async (tx) => {
+        const r = await tx.query(
+          `SELECT 1 FROM idempotency_key
+            WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND state = 'completed'`,
+          [p.userId, key],
+        );
+        return (r.rowCount ?? 0) > 0;
+      },
+      { readOnly: true },
+    );
   }
 
   /** Apply the role decision (403 + audit). Called by the guard, or by UnitOfWork after replay lookup. */
@@ -227,7 +283,9 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       s.revoked_at ||
       s.expires_at.getTime() <= now.getTime() ||
       (s.idle_expires_at && s.idle_expires_at.getTime() <= now.getTime()) ||
-      (s.user_status && s.user_status !== 'active')
+      // Only a DISABLED account ends live sessions. A login lock (temporary, or hard status=locked) blocks
+      // new sign-ins only (SR-AUTH-04 v0.3, FB-R2-SEC-BE-05).
+      s.user_status === 'disabled'
     ) {
       throw problem('UNAUTHENTICATED');
     }
@@ -246,6 +304,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       propertyId,
       roles,
       trustedDeviceId: s.trusted_device_id,
+      session: {
+        clientOrigin: s.client_origin === 'staff_pwa' ? 'staff_pwa' : 'admin',
+        expiresAt: s.expires_at,
+        idleExpiresAt: s.idle_expires_at ?? null,
+        lastActiveAt: s.last_active_at ?? null,
+        mustChangePassword: s.must_change_password === true,
+      },
     };
   }
 
@@ -278,9 +343,15 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     return roles;
   }
 
-  private allOrigins(): string[] {
+  /** Origins of a public operation: guest-web for guest/public-page operations, staff apps otherwise. */
+  private publicOrigins(operation: OperationMeta): string[] {
     const o = this.options.allowedOrigins;
-    return o ? [...o.staff, ...o.guest] : [];
+    if (!o) return [];
+    const guestSide =
+      operation.roles.includes('guest') ||
+      operation.path.startsWith('/v1/guest/') ||
+      operation.path.startsWith('/v1/public/');
+    return guestSide ? o.guest : o.staff;
   }
 
   /**
@@ -348,6 +419,27 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       throw problem('DEVICE_NOT_TRUSTED');
     }
     p.trustedDeviceId = deviceId;
+    if (deviceId) await this.touchDevice(p, deviceId);
+  }
+
+  /**
+   * SR-DEV-06 / FB-R2-ARC-BE-13: trusted_device.last_seen_at for S26 ("lần dùng gần nhất") and the owner's
+   * monthly review. At most once per DEVICE_TOUCH_MS per device and process (memory throttle + SQL
+   * condition), in the tenant context the guard has just verified (device property = request property).
+   */
+  private async touchDevice(p: StaffPrincipal, deviceId: string): Promise<void> {
+    const now = this.clock.now();
+    const last = this.deviceTouched.get(deviceId);
+    if (last !== undefined && now.getTime() - last < DEVICE_TOUCH_MS) return;
+    this.deviceTouched.set(deviceId, now.getTime());
+    if (this.deviceTouched.size > 10_000) this.deviceTouched.clear();
+    await this.db.withContext(tenantOf(p), (tx) =>
+      tx.query(
+        `UPDATE trusted_device SET last_seen_at = $2
+          WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < $3)`,
+        [deviceId, now, new Date(now.getTime() - DEVICE_TOUCH_MS)],
+      ),
+    );
   }
 
   /** Returns the If-Match version when the operation declares If-Match. */

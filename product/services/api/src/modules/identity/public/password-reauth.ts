@@ -1,11 +1,11 @@
 /**
  * Re-authentication with the signed-in user's own password (SR-RL-02: 5 failures → 15 min lock), for
- * changeMyPassword and trustCurrentDevice. ONE counter per user shared with the approvals module
- * (approvals/internal/reauth.ts – same columns, same limits): app_user.approval_pin_failed_count /
+ * changeMyPassword, trustCurrentDevice and approveRequest/rejectRequest (approvals, purpose 'approval').
+ * The ONE implementation (FB-R2-ARC-BE-02): one counter per user in app_user.approval_pin_failed_count /
  * approval_pin_locked_until, so failures on any re-auth screen add up and survive restarts/replicas.
+ * Callers run it BEFORE UnitOfWork.run (never inside – nested connection, FB-R2-ARC-BE-01).
  * - Runs in its OWN transaction so a failure is counted (and audited) although the request fails.
  * - Locked → 429 RATE_LIMITED + Retry-After; wrong password → 401 REAUTH_FAILED (errors[] on `field`).
- * TODO(BE-A): approvals/internal/reauth.ts can delegate its password branch to this class.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';

@@ -287,6 +287,8 @@ describe('allowed origins (SR-SES-04, architecture 17)', () => {
     expect(loadConfig(prod).allowedOrigins).toEqual({
       staff: ['https://desk.example.invalid', 'https://staff.example.invalid'],
       guest: ['https://g.example.invalid'],
+      admin: ['https://desk.example.invalid'],
+      staffPwa: ['https://staff.example.invalid'],
     });
   });
 
@@ -305,13 +307,23 @@ describe('allowed origins (SR-SES-04, architecture 17)', () => {
   });
 
   it('dev/test: optional; APP_BASE_URL is accepted as the admin origin', () => {
-    expect(loadConfig(base).allowedOrigins).toEqual({ staff: [], guest: [] });
+    expect(loadConfig(base).allowedOrigins).toEqual({
+      staff: [],
+      guest: [],
+      admin: [],
+      staffPwa: [],
+    });
     expect(
       loadConfig({
         ...base,
         APP_BASE_URL: 'http://localhost:8081',
         GUEST_BASE_URL: 'http://localhost:8083',
       }).allowedOrigins,
-    ).toEqual({ staff: ['http://localhost:8081'], guest: ['http://localhost:8083'] });
+    ).toEqual({
+      staff: ['http://localhost:8081'],
+      guest: ['http://localhost:8083'],
+      admin: ['http://localhost:8081'],
+      staffPwa: [],
+    });
   });
 });

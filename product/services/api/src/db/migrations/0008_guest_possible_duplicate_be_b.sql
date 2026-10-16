@@ -1,0 +1,1 @@
+ALTER TABLE "guest" ADD COLUMN "possible_duplicate_at" timestamp with time zone;

@@ -1,7 +1,10 @@
 /**
- * Fixed-window in-memory counters for SR-RL-01/07 (login per IP, guest
- * lookups by SAL/CTV). Per api process: with one api replica (R2 hosting plan) this is exact; with several
- * replicas each one counts separately (limit × replicas) – move to PostgreSQL/Redis before scaling out.
+ * Fixed-window in-memory counters for SR-RL-01/07 (login per IP; guest contact probes by SAL/CTV –
+ * searchGuests, lookupGuestByContact, createGuest/updateGuest with a phone/e-mail share one counter).
+ * Per api process: with one api replica (R2 hosting plan, decision-log assumption accepted by SEC –
+ * FB-R2-SEC-BE-14) this is exact; restarts reset the windows and several replicas count separately
+ * (limit × replicas) – move to a PostgreSQL rate_limit_counter table (atomic UPSERT) before scaling out
+ * (R3, before GL). Account lockout and re-auth counters are already in PostgreSQL.
  * Window lengths and limits are technical security constants (SEC section 5), not business parameters.
  */
 import type { Clock } from '../../../clock';
@@ -19,7 +22,10 @@ export const RATE_RULES = {
 } as const satisfies Record<string, RateRule>;
 
 export class RateLimiter {
-  private readonly buckets = new Map<string, { count: number; resetAt: number }>();
+  private readonly buckets = new Map<
+    string,
+    { count: number; resetAt: number; refusalReported?: boolean }
+  >();
 
   constructor(private readonly clock: Clock) {}
 
@@ -55,8 +61,24 @@ export class RateLimiter {
     this.hit(key, rule);
   }
 
+  /**
+   * True exactly once per window for a key that is over its limit – the caller writes one security event
+   * per IP/user and window instead of one per refused request.
+   */
+  firstRefusal(key: string): boolean {
+    const b = this.buckets.get(key);
+    if (!b || b.refusalReported) return false;
+    b.refusalReported = true;
+    return true;
+  }
+
   reset(key: string): void {
     this.buckets.delete(key);
+  }
+
+  /** Test support (FB-R2-QA-BE-07): forget every window. Never called by production code. */
+  resetAll(): void {
+    this.buckets.clear();
   }
 
   private sweep(now: number): void {

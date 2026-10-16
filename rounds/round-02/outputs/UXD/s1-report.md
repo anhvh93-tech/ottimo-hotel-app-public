@@ -61,3 +61,10 @@ Không có ESC mới (mọi việc trong quyền UXD hoặc chuyển vai khác).
 - Hi-fi Sprint 4: PWA buồng phòng (việc, checklist, sự cố, hàng đợi offline), phiếu sửa, yêu cầu khách + định tuyến, Tổng quan + "Cần chú ý" (SSE) – phải xong trước tuần 8.
 - Trả sớm (US-137 – Should) chưa vẽ hi-fi (dùng wireframe L9 nếu PO kéo vào).
 - Kiểm VoiceOver / phóng chữ 200% / mô phỏng mù màu trên bản build (review UXD-on-FE, UXD-on-MOB).
+
+## Phụ lục – Review FE (bắt buộc UXD → FE) và chuyển chuỗi pending (16/10/2026)
+- Đã làm: review admin-web H01–H07 + `packages/ui`, `packages/i18n` → `rounds/round-02/reviews/UXD-on-FE.md` (0 Blocker · 4 Major · 9 Minor · 3 Suggestion). Dev server mock chạy được nhưng MSW không đăng ký được trong Browser pane → review bằng đọc mã + chạy test.
+- Chuỗi: chuyển 71 khóa `packages/i18n/src/pending.{vi,en}.json` vào `gen_strings.py` (chỉnh 9 câu); sửa `auth.login.username`, `error.REAUTH_FAILED` (bỏ `{left}`), `error.REAUTH_REQUIRED`, `device.grant_confirm`; thêm 24 `params.k.*`, `common.error_network_body`, `login.hide_password`, `common.vnd_unit`, `shell.main_nav`. Tổng 1585 chuỗi + 8 mẫu; content-guide mục 8 sinh lại, lịch sử 0.3.3.
+- Hi-fi: H01 (bỏ ô "Giữ đăng nhập", ví dụ `hanh.fd`, nhãn Tên đăng nhập), H07, H17 theo chuỗi mới.
+- Kiểm: `gen_strings.py` 1585 + 8 ✓; `check_hifi.py` 19/19 ✓; `gen_tokens.py` fails 0; admin-web test 62/64 (2 đỏ do nhãn đăng nhập – thẻ FB-R2-UXD-FE-01); i18n test 1 đỏ (khóa pending trùng – chờ FE xóa pending).
+- File: `product/design/tools/gen_strings.py`, `tools/strings-tables.md`, `copy/strings-{vi,en,ru}.json`, `wireframes/assets/strings.js`, `content-guide.md`, `hifi/01-login.html`, `hifi/07-users-devices.html`, `hifi/17-approvals-moneylog.html`, `01-decisions/decision-log.md`.

@@ -10,14 +10,24 @@ import 'reflect-metadata';
 import { createHmac, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Body, Controller, Global, Module, Param, Patch, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Global,
+  Module,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { hash } from '@node-rs/argon2';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
-import { MutableClock, SystemClock } from '../../src/clock';
-import { PgClockStore } from '../../src/db/clock-store';
+import { FixedClock } from '../../src/clock';
 import type { Database, Tx } from '../../src/db/database';
 import { createHttpAdapter } from '../../src/http';
 import { ApprovalsModule } from '../../src/modules/approvals/approvals.module';
@@ -27,6 +37,7 @@ import {
 } from '../../src/modules/approvals/public/approval.service';
 import { AuditModule } from '../../src/modules/audit/audit.module';
 import { AuditService } from '../../src/modules/audit/public/audit.service';
+import { PasswordReauth } from '../../src/modules/identity/public/password-reauth';
 import { type GuardedRequest, sha256Hex } from '../../src/shared/http/auth.guard';
 import { CSRF_VERIFIER } from '../../src/shared/http/csrf';
 import { Operation } from '../../src/shared/http/operation';
@@ -43,10 +54,14 @@ const csrfFor = (sessionToken: string) =>
     .update(`csrf:${sha256Hex(sessionToken)}`)
     .digest('base64url');
 
-/** Stand-in for the identity module's SessionService (same algorithm). */
+/**
+ * Stand-in for the identity module's SessionService (same algorithm) + the real PasswordReauth that the
+ * identity module exports (approvals re-authenticate through it – FB-R2-ARC-BE-02).
+ */
 @Global()
 @Module({
   providers: [
+    PasswordReauth,
     {
       provide: CSRF_VERIFIER,
       useValue: {
@@ -56,7 +71,7 @@ const csrfFor = (sessionToken: string) =>
       },
     },
   ],
-  exports: [CSRF_VERIFIER],
+  exports: [CSRF_VERIFIER, PasswordReauth],
 })
 class TestCsrfModule {}
 
@@ -100,6 +115,13 @@ class ProbeController {
   login(): Record<string, never> {
     return {};
   }
+
+  /** An operation that needs a trusted device (x-requires-trusted-device) – guard behaviour only. */
+  @Get('properties/:propertyId/registrations/:registrationId/portal-data')
+  @Operation('getPortalData')
+  portalData(): Record<string, never> {
+    return {};
+  }
 }
 
 const rbacCases = JSON.parse(
@@ -116,7 +138,8 @@ describe.skipIf(!HAS_DB)(
   () => {
     let db: Database;
     let app: NestFastifyApplication;
-    let clock: MutableClock;
+    // Own clock (not dev_clock): other test files move the shared fake clock concurrently.
+    let clock: FixedClock;
     let approvals: ApprovalService;
     let audit: AuditService;
     let t: TestTenant;
@@ -160,11 +183,7 @@ describe.skipIf(!HAS_DB)(
 
     beforeAll(async () => {
       db = appDatabase(12);
-      clock = new MutableClock(
-        new PgClockStore(db.pool, process.env.DATABASE_URL as string),
-        new SystemClock(),
-      );
-      await clock.start();
+      clock = new FixedClock(new Date());
       const moduleRef = await Test.createTestingModule({
         imports: [
           AppModule.register({
@@ -187,7 +206,6 @@ describe.skipIf(!HAS_DB)(
       t = await setup();
     });
     afterAll(async () => {
-      await clock?.stop();
       await app?.close();
       await db?.close();
     });
@@ -316,7 +334,7 @@ describe.skipIf(!HAS_DB)(
         expect(res.json().detail).toBe('CSRF token');
       });
 
-      it('reads need neither; public write (login) needs an allowed Origin', async () => {
+      it('reads need neither; public write (login) needs an allowed STAFF Origin (guest-web refused – SEC-BE-12)', async () => {
         expect((await get(`${P()}/approval-requests`, 'fd')).statusCode).toBe(200);
         const bad = await app.inject({
           method: 'POST',
@@ -325,13 +343,55 @@ describe.skipIf(!HAS_DB)(
           headers: { origin: 'https://evil.example' },
         });
         expect(bad.statusCode).toBe(403);
-        const ok = await app.inject({
+        const guestOrigin = await app.inject({
           method: 'POST',
           url: '/v1/auth/login',
           payload: {},
           headers: { origin: GUEST },
         });
+        expect(guestOrigin.statusCode).toBe(403);
+        const ok = await app.inject({
+          method: 'POST',
+          url: '/v1/auth/login',
+          payload: {},
+          headers: { origin: ADMIN },
+        });
         expect(ok.statusCode).toBe(201);
+      });
+    });
+
+    // ───────────────────────── Trusted device (SR-DEV-06) ─────────────────────────
+    describe('trusted device: last_seen_at (FB-R2-ARC-BE-13)', () => {
+      it('a request with a valid device cookie sets last_seen_at, at most once per 5 minutes', async () => {
+        const tt = await setup();
+        const token = await tt.deviceToken(0);
+        const url = `${P(tt)}/registrations/${randomUUID()}/portal-data`;
+        const lastSeen = async () =>
+          (
+            await db.withContext(tt.ctx(), (tx) =>
+              tx.query<{ last_seen_at: Date | null }>(
+                'SELECT last_seen_at FROM trusted_device WHERE organization_id = $1',
+                [tt.organizationId],
+              ),
+            )
+          ).rows[0]?.last_seen_at ?? null;
+        expect(await lastSeen()).toBeNull();
+        const noDevice = await get(url, 'fd', tt);
+        expect(noDevice.json().code).toBe('DEVICE_NOT_TRUSTED');
+        const ok = await app.inject({
+          method: 'GET',
+          url,
+          headers: { cookie: `${cookie('fd', tt)}; ottimo_did=${token}` },
+        });
+        expect(ok.statusCode).toBe(200);
+        const first = await lastSeen();
+        expect(first).not.toBeNull();
+        await app.inject({
+          method: 'GET',
+          url,
+          headers: { cookie: `${cookie('fdl', tt)}; ottimo_did=${token}` },
+        });
+        expect((await lastSeen())?.getTime()).toBe(first?.getTime()); // throttled
       });
     });
 
@@ -396,8 +456,9 @@ describe.skipIf(!HAS_DB)(
         expect(push.rows[0]?.payload.userIds).not.toContain(t.users.owner!.id);
       });
 
-      it('AC4 / BR-432: nobody approves their own request (FDL → 403 SELF_APPROVAL_FORBIDDEN); MGR may within limit', async () => {
+      it("AC4 / BR-432: nobody approves their own request (FDL → 403 SELF_APPROVAL_FORBIDDEN); a lead's request goes to the manager (ARC-BE-09)", async () => {
         const own = await submit('fdl');
+        expect(own.required_role).toBe('manager'); // not front_desk_lead: leads never approve each other
         const res = await approve(own.id, 'fdl');
         expect(res.statusCode).toBe(403);
         expect(res.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
@@ -412,8 +473,14 @@ describe.skipIf(!HAS_DB)(
             ),
           ),
         ).rejects.toThrow(/approval_request_no_self_approval/);
-        // another FDL can approve it
-        expect((await approve(own.id, 'fdl2')).statusCode).toBe(200);
+        // another FDL cannot approve it either (routed to the manager – 403, nothing written)
+        const other = await approve(own.id, 'fdl2');
+        expect(other.statusCode).toBe(403);
+        expect(other.json()).toMatchObject({
+          code: 'APPROVAL_LIMIT_EXCEEDED',
+          approver: 'manager',
+        });
+        expect((await approve(own.id, 'mgr')).statusCode).toBe(200);
       });
 
       it('A2: manager submitting within 1 night is self-applied; FD minibar self-apply only after re-auth and within month', async () => {
@@ -443,18 +510,27 @@ describe.skipIf(!HAS_DB)(
         expect(notMinibar.status).toBe('pending');
       });
 
-      it('AC3 / BR-433: 521.000 > FDL 300.000 → FDL gets 403 APPROVAL_LIMIT_EXCEEDED, request escalated (committed) → manager approves', async () => {
+      it('AC3 / BR-433: 521.000 > FDL 300.000 → routed to the manager; FDL gets 403 APPROVAL_LIMIT_EXCEEDED and NOTHING changes (ARC-BE-08) → manager approves', async () => {
         const r = await submit('fd', { amountVnd: 521000 });
         expect(r.required_role).toBe('manager'); // routed directly (≤ 1 night 1.042.000)
         const pending = await submit('fd', { amountVnd: 250000 });
-        // force the FDL path: FDL monthly limit used up → escalate
         const res = await approve(r.id, 'fdl');
         expect(res.statusCode).toBe(403);
         expect(res.json()).toMatchObject({ code: 'APPROVAL_LIMIT_EXCEEDED', approver: 'manager' });
-        const after = await get(`${P()}/approval-requests?status=escalated`, 'owner');
-        expect(after.json().data.find((d: { id: string }) => d.id === r.id)?.status).toBe(
-          'escalated',
+        const after = await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ status: string; version: number }>(
+            'SELECT status, version FROM approval_request WHERE id = $1',
+            [r.id],
+          ),
         );
+        expect(after.rows[0]).toMatchObject({ status: 'pending', version: r.version });
+        const escalatedAudit = await db.withContext(t.ctx(), (tx) =>
+          tx.query(
+            `SELECT 1 FROM audit_event WHERE action = 'approval.escalated' AND entity_id = $1`,
+            [r.id],
+          ),
+        );
+        expect(escalatedAudit.rowCount).toBe(0);
         expect((await approve(r.id, 'mgr')).json().status).toBe('approved');
         // above one night → owner
         const big = await submit('fd', { amountVnd: 2000000 });

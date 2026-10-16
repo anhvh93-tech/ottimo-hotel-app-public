@@ -57,6 +57,27 @@
       "when": 1792139732873,
       "tag": "0007_approvals_rls_be_a",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792144204453,
+      "tag": "0008_guest_possible_duplicate_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792144209211,
+      "tag": "0009_identity_hardening_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792144631504,
+      "tag": "0010_approvals_open_target_idx_be_a",
+      "breakpoints": true
     }
   ]
 }

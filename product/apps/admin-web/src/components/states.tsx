@@ -65,10 +65,15 @@ export function ComingSoonPage({ titleKey }: { titleKey: string }) {
 }
 
 export function LoadingBlock({ rows = 3 }: { rows?: number }) {
+  const { t } = useI18n();
   const show = useDelayed(true);
   if (!show) return null;
   return (
     <div className="cards" aria-busy="true">
+      {/* WCAG 4.1.3 – the skeleton cells are aria-hidden, so announce the loading state (FB-R2-UXD-FE-09). */}
+      <span className="sr-only" role="status">
+        {t('common.loading')}
+      </span>
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} height={i === 0 ? 36 : 56} />
       ))}

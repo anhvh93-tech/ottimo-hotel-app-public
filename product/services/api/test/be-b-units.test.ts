@@ -3,6 +3,9 @@
  * normalisation, BR-952 name similarity, password policy (V-10, SR-AUTH-02), screens per role (rbac 3),
  * structured parameter rules (erd 9.1a), card-number detector (V-09), role field stripping (US-003).
  */
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FixedClock } from '../src/clock';
 import { serializeSchema } from '../src/shared/serialization/serializer';
@@ -16,7 +19,12 @@ import {
   normalizeTaxCode,
 } from '../src/modules/guests/public/normalize';
 import { screensFor } from '../src/modules/identity/internal/screens';
-import { passwordPolicyErrors } from '../src/modules/identity/public/passwords';
+import {
+  COMMON_PASSWORDS_MIN,
+  assertCommonPasswordList,
+  commonPasswordCount,
+  passwordPolicyErrors,
+} from '../src/modules/identity/public/passwords';
 import { RateLimiter } from '../src/modules/identity/public/rate-limiter';
 import { checkStructuredParameter } from '../src/modules/platform/internal/parameter-rules';
 import { occupancyErrors } from '../src/modules/platform/internal/rooms.service';
@@ -87,8 +95,52 @@ describe('passwords (V-10, SR-AUTH-02)', () => {
       'PASSWORD_REUSED',
     );
     expect(passwordPolicyErrors('p', 'ottimo2026!', 'u')[0]!.code).toBe('PASSWORD_TOO_COMMON');
-    expect(passwordPolicyErrors('p', '12345678abc'.padEnd(10, 'x'), 'u')).toEqual([]);
     expect(passwordPolicyErrors('p', '1234567890', 'u')[0]!.code).toBe('PASSWORD_TOO_COMMON');
+  });
+
+  it('SR-AUTH-02 offline list (SEC s1-decisions 2): examples, normalisation, stripped suffix', () => {
+    const common = (pw: string) => passwordPolicyErrors('p', pw, 'zz.user')[0]?.code;
+    for (const pw of [
+      '12345678abc', // letters alone = a base word
+      'ottimo2026', // brand
+      'Dalat123456!', // base word + digits/symbols at the end
+      'Khachsan@2026', // source-B combination
+      'MATKHAU1234', // case-insensitive
+      'ｍａｔｋｈａｕ１２３４', // full-width → NFKC
+      ' matkhau2026 ', // trimmed
+      'qwertyuiop',
+    ]) {
+      expect({ pw, code: common(pw) }).toEqual({ pw, code: 'PASSWORD_TOO_COMMON' });
+    }
+    for (const pw of ['Xq7#mP2vLk9!', 'cay-thong-xanh-tren-doi', 'tR0ng.Hoa.N4m']) {
+      expect({ pw, errors: passwordPolicyErrors('p', pw, 'zz.user') }).toEqual({ pw, errors: [] });
+    }
+  });
+
+  it('common-passwords.txt matches SOURCE.md (count + SHA-256 of the latest import row)', () => {
+    const dir = join(__dirname, '..', 'src', 'modules', 'identity', 'public');
+    const text = readFileSync(join(dir, 'common-passwords.txt'), 'utf8');
+    const lines = text.split('\n').filter(Boolean);
+    expect(commonPasswordCount()).toBe(lines.length);
+    expect(new Set(lines).size).toBe(lines.length);
+    expect([...lines].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))).toEqual(lines);
+    for (const l of lines) {
+      expect(l).toBe(l.normalize('NFKC').toLowerCase().trim());
+      expect(l.length).toBeGreaterThanOrEqual(10);
+    }
+    const source = readFileSync(join(dir, 'common-passwords.SOURCE.md'), 'utf8');
+    const rows = source.split('\n').filter((r) => /^\| \d{2}\/\d{2}\/\d{4} \|/.test(r));
+    const last = rows[rows.length - 1]!.split('|').map((c) => c.trim());
+    expect(Number(last[4])).toBe(lines.length);
+    expect(last[5]).toBe(createHash('sha256').update(text, 'utf8').digest('hex'));
+  });
+
+  it('staging/production refuse to start below 10.000 entries; dev/test do not', () => {
+    expect(() => assertCommonPasswordList('dev')).not.toThrow();
+    expect(() => assertCommonPasswordList('test')).not.toThrow();
+    const check = () => assertCommonPasswordList('production');
+    if (commonPasswordCount() < COMMON_PASSWORDS_MIN) expect(check).toThrow(/SR-AUTH-02/);
+    else expect(check).not.toThrow();
   });
 });
 
@@ -100,6 +152,12 @@ describe('screens per role (rbac 3)', () => {
     const union = screensFor(['front_desk', 'sales_staff']);
     expect(union).toContain('S17');
     expect(union).toContain('S05');
+  });
+
+  it('OpenAPI 0.3.4 Me.screens (ARC Q8): R2 manager has no S26 – users/devices are owner only', () => {
+    expect(screensFor(['manager'])).not.toContain('S26');
+    expect(screensFor(['manager'])).toContain('S24');
+    expect(screensFor(['owner', 'manager'])).toContain('S26');
   });
 });
 

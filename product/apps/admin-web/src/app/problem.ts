@@ -21,17 +21,24 @@ function argsFor(error: ApiError): Args {
   if (p.min !== undefined) args.min = String(p.min);
   if (p.max !== undefined) args.max = String(p.max);
   if (Array.isArray(p.allowed)) args.allowed = p.allowed.join(', ');
-  args.request_id = p.requestId ?? '—';
+  if (p.requestId) args.request_id = p.requestId;
   return args;
+}
+
+/** Strings with `{request_id}` are only used when the server gave a real id (FB-R2-UXD-FE-04). */
+function serverError(t: T, requestId: string | undefined): ProblemView {
+  // No reference to quote (non-JSON 5xx from a proxy, client-side failure): the network sentence.
+  if (!requestId) return { text: t('common.error_network_body') };
+  return { text: t('error.server', { request_id: requestId }), reference: requestId };
 }
 
 /**
  * Request-level message (EP00 0.2): `error.<CODE>` from the UXD strings; never the raw `detail`.
- * Unknown codes / 5xx → `error.server` + requestId. Network failure → generic "check the network".
+ * Unknown codes / 5xx → `error.server` + requestId. Network failure → `common.error_network_body`.
  */
 export function problemView(t: T, error: unknown): ProblemView {
-  if (!isApiError(error)) return { text: t('error.server', { request_id: '—' }) };
-  if (error.isNetwork) return { text: t('common.error_generic_body', { request_id: '—' }) };
+  if (!isApiError(error)) return serverError(t, undefined);
+  if (error.isNetwork) return { text: t('common.error_network_body') };
   const code = error.code;
   const args = argsFor(error);
   if (code === 'PARAM_OUT_OF_RANGE' && args.allowed === undefined) {
@@ -40,7 +47,7 @@ export function problemView(t: T, error: unknown): ProblemView {
   if (code !== 'INTERNAL_ERROR' && error.status < 500 && hasKey(`error.${code}`)) {
     return { text: t(`error.${code}`, args) };
   }
-  return { text: t('error.server', args), reference: error.requestId };
+  return serverError(t, error.requestId ?? error.problem.requestId);
 }
 
 const FIELD_FALLBACK: Record<string, string> = {

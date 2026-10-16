@@ -82,11 +82,41 @@ export function checkValueSchema(schema: string, value: unknown): string | null 
 export function checkSecurityBounds(key: string, value: unknown): void {
   const b: SecurityParameterBounds | undefined = OPENAPI_META.securityParameters[key];
   if (!b) throw new Error(`${key} is not a security parameter in openapi.yaml`);
-  const fieldError = [{ field: 'value', code: 'PARAM_OUT_OF_RANGE' }];
+  checkBounds(key, b, value, 'value');
+}
+
+// 0.3.4: object-typed security keys (session_policy, login_lockout) carry nested bounds; the
+// field path names the offending sub-key (e.g. value.admin.idleMinutes). Cross-key rules
+// (idleMinutes ≤ maxHours × 60) stay in parameter-rules.ts.
+function checkBounds(
+  key: string,
+  b: Omit<SecurityParameterBounds, 'default'>,
+  value: unknown,
+  field: string,
+): void {
+  const fieldError = [{ field, code: 'PARAM_OUT_OF_RANGE' }];
+  if (b.type === 'object') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'VALIDATION_FAILED' }] });
+    }
+    const v = value as Record<string, unknown>;
+    for (const [k, child] of Object.entries(b.properties ?? {})) {
+      if (v[k] === undefined) {
+        if (b.required?.includes(k)) {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: `${field}.${k}`, code: 'REQUIRED' }],
+          });
+        }
+        continue;
+      }
+      checkBounds(key, child, v[k], `${field}.${k}`);
+    }
+    return;
+  }
   if (b.type === 'integer') {
     if (!Number.isSafeInteger(value)) {
       throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'value', code: 'VALIDATION_FAILED' }],
+        errors: [{ field, code: 'VALIDATION_FAILED' }],
       });
     }
     const n = value as number;
@@ -101,7 +131,7 @@ export function checkSecurityBounds(key: string, value: unknown): void {
   if (b.type === 'array') {
     if (!Array.isArray(value)) {
       throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'value', code: 'VALIDATION_FAILED' }],
+        errors: [{ field, code: 'VALIDATION_FAILED' }],
       });
     }
     const allowed = b.items?.enum ?? [];

@@ -1,10 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { translate } from '@ottimo/i18n';
 import { MemoryRouter } from 'react-router-dom';
 import { Providers } from '../app/Providers';
 import { AppRoutes } from '../app/routes';
 import { mockControl } from '../mocks/handlers';
 import { MOCK_PASSWORD } from '../mocks/seed';
+
+/** Login field label read from the UXD strings (a copy change must not break tests – FB-R2-QA-FE-02). */
+export const usernameLabel = () =>
+  new RegExp(`^${translate('vi', 'auth.login.username').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 
 /** Render the whole app at `path`, optionally already signed in as a mock user (qa.*). */
 export function renderApp(path = '/', as?: string) {
@@ -25,7 +30,7 @@ export async function signIn(
   username: string,
   password = MOCK_PASSWORD,
 ) {
-  await user.type(await screen.findByLabelText(/Số điện thoại hoặc email|Tên đăng nhập/), username);
+  await user.type(await screen.findByLabelText(usernameLabel()), username);
   await user.type(screen.getByLabelText(/^Mật khẩu/), password);
   await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
 }

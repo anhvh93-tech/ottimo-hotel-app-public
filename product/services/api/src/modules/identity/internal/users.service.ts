@@ -6,6 +6,14 @@
  *   session of the user (SR-SES-06, SR-AZ-08); audit_event category security (SR-AUTH-07).
  * - LAST_OWNER (rbac 5.3): the owner rows of the affected properties are locked FOR UPDATE so two owners
  *   cannot remove each other concurrently; a property must keep ≥ 1 active owner.
+ * - Account-wide changes (resetPassword, status) act on EVERY property of the person, so the caller must
+ *   own every property where the person holds a live role; otherwise 403 FORBIDDEN_ACTION (+ access.denied
+ *   written by the controller after the rollback) – no lateral escalation across properties
+ *   (FB-R2-SEC-BE-07). displayName stays editable by any owner of one of the person's properties.
+ * - Not on oneself: resetPassword/status of the caller's own account → 422 NOT_ALLOWED_FOR_SELF (own
+ *   password goes through changeMyPassword with the current password – SR-AUTH-05, FB-R2-SEC-BE-15).
+ * - `status` shown = effective status: a temporary login lock (locked_until in the future, status still
+ *   active – FB-R2-SEC-BE-05) is shown as `locked`; updateUser status=active unlocks it.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -38,9 +46,13 @@ interface UserRow {
   username: string;
   display_name: string;
   status: 'active' | 'locked' | 'disabled';
+  locked_until: Date | null;
   last_login_at: Date | null;
   version: number;
 }
+
+const USER_COLUMNS =
+  'u.id, u.username, u.display_name, u.status, u.locked_until, u.last_login_at, u.version';
 
 const ROLE_SET = new Set<string>(STAFF_ROLES);
 
@@ -83,13 +95,19 @@ export class UsersService {
       id: u.id,
       username: u.username,
       displayName: u.display_name,
-      status: u.status,
+      status: this.effectiveStatus(u),
       roles: rows
         .filter((r) => r.user_id === u.id)
         .map((r) => ({ propertyId: r.property_id, role: r.role })),
       ...(u.last_login_at ? { lastLoginAt: toZonedIso(u.last_login_at, tz) } : {}),
       version: u.version,
     }));
+  }
+
+  private effectiveStatus(u: UserRow): UserDto['status'] {
+    if (u.status === 'active' && u.locked_until && u.locked_until > this.clock.now())
+      return 'locked';
+    return u.status;
   }
 
   async list(
@@ -99,7 +117,7 @@ export class UsersService {
   ): Promise<{ data: UserDto[]; page: { nextCursor: string | null; limit: number } }> {
     const owned = await this.ownedProperties(tx, ownerId);
     const { rows } = await tx.query<UserRow>(
-      `SELECT u.id, u.username, u.display_name, u.status, u.last_login_at, u.version
+      `SELECT ${USER_COLUMNS}
          FROM app_user u
         WHERE EXISTS (SELECT 1 FROM user_property_role r
                        WHERE r.user_id = u.id AND r.property_id = ANY($1::uuid[]))
@@ -117,7 +135,7 @@ export class UsersService {
 
   private async load(tx: Tx, owned: string[], userId: string, lock = false): Promise<UserRow> {
     const { rows } = await tx.query<UserRow>(
-      `SELECT u.id, u.username, u.display_name, u.status, u.last_login_at, u.version
+      `SELECT ${USER_COLUMNS}
          FROM app_user u
         WHERE u.id = $1 AND EXISTS (SELECT 1 FROM user_property_role r
                                      WHERE r.user_id = u.id AND r.property_id = ANY($2::uuid[]))
@@ -210,6 +228,17 @@ export class UsersService {
       requestId: input.requestId,
     });
     return (await this.toDtos(tx, [await this.load(tx, owned, id)], owned))[0] as UserDto;
+  }
+
+  /** SEC-BE-07: every live role of the person must be at a property the caller owns. */
+  private async assertOwnsEveryProperty(tx: Tx, owned: string[], userId: string): Promise<void> {
+    // RLS: user_property_role is organisation-level, so roles at the caller's other properties are visible.
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM user_property_role
+        WHERE user_id = $1 AND revoked_at IS NULL AND NOT (property_id = ANY($2::uuid[]))`,
+      [userId, owned],
+    );
+    if ((rows[0]?.n ?? 0) > 0) throw problem('FORBIDDEN_ACTION', { detail: 'other property' });
   }
 
   /** Lock owner rows of the properties, then count active owners if `exceptUserId` lost `owner`. */
@@ -328,6 +357,18 @@ export class UsersService {
     if (user.version !== expectedVersion) {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: user.version } });
     }
+    const accountWide = patch.resetPassword !== undefined || patch.status !== undefined;
+    if (accountWide && userId === ownerId) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [
+          {
+            field: patch.resetPassword !== undefined ? 'resetPassword' : 'status',
+            code: 'NOT_ALLOWED_FOR_SELF',
+          },
+        ],
+      });
+    }
+    if (accountWide) await this.assertOwnsEveryProperty(tx, owned, userId);
     const now = this.clock.now();
     const sets: string[] = ['version = version + 1', 'updated_at = $2'];
     const params: unknown[] = [userId, now];
@@ -341,7 +382,8 @@ export class UsersService {
       before.displayName = user.display_name;
       after.displayName = patch.displayName;
     }
-    if (patch.status !== undefined && patch.status !== user.status) {
+    const currentStatus = this.effectiveStatus(user);
+    if (patch.status !== undefined && patch.status !== currentStatus) {
       if (patch.status === 'disabled') {
         const { rows } = await tx.query<{ property_id: string }>(
           `SELECT property_id FROM user_property_role
@@ -361,7 +403,7 @@ export class UsersService {
       }
       params.push(patch.status);
       sets.push(`status = $${params.length}`);
-      before.status = user.status;
+      before.status = currentStatus;
       after.status = patch.status;
     }
     if (patch.resetPassword !== undefined) {

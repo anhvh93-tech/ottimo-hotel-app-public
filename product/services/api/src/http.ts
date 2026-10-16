@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { TrustProxy } from './config';
+import { SECRET_BODY_FIELDS } from './shared/secret-fields';
 
 const SENSITIVE_KEYS = [
   'password',
@@ -23,7 +24,8 @@ const SENSITIVE_KEYS = [
 ];
 
 export const REDACT_PATHS = [
-  ...SENSITIVE_KEYS.map((k) => `*.${k}`),
+  // One secret-field list with the idempotency hash (shared/secret-fields.ts).
+  ...[...new Set([...SENSITIVE_KEYS, ...SECRET_BODY_FIELDS])].map((k) => `*.${k}`),
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["x-csrf-token"]',

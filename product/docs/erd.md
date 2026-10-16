@@ -1,6 +1,6 @@
 # Mô hình dữ liệu (ERD) – OTTIMO Desk
 
-- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Sprint 1 (16/10/2026): 0.3.3** – khớp OpenAPI 0.3.3-draft (xem mục 15)
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Sprint 1 (16/10/2026): 0.3.4** – khớp OpenAPI 0.3.4-draft (xem mục 15)
 - Trạng thái: **Đã sửa theo review bước 3** (SEC-on-ARC 26 thẻ, BE-on-ARC 18 thẻ, DATA-on-ARC 11 thẻ – xem `rounds/round-01/responses/ARC-responses.md`) và quyết định mới trong decision-log (SEC, DOM, PO, DATA, phân xử ORC 15/10). Đối chiếu `metrics-definitions.md` v0.2 mục 9, `security-requirements.md` v0.2
 - Đầu vào: `architecture.md` (ADR-001…013), `state-machines.md` (SM-01…SM-15), `rbac-matrix.md`, `business-rules.md` (BR, mục 13 tham số), `metrics-definitions.md` (mục 9 – trường bắt buộc), `security/data-risk-assessment.md` (C0–C3, D01–D28, T01–T18), `integrations.md`, `product/integrations/README.md`, `round-0-baseline.md` (BL mục 4), `03-backlog/backlog.md` (Must R2)
 - Đọc cùng: `api/openapi.yaml` (hợp đồng API), `coding-standards.md` (quy tắc migration, đặt tên), `architecture.md` mục 9 (job theo lịch) và mục 9a (mã chứng từ)
@@ -538,7 +538,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `code` | text | UK theo tổ chức | C1 | `KH-0018` (mục 10) |
 | `full_name` | text | not null | C2 | D01 |
 | `name_search` | text | | C2 | bỏ dấu, in hoa (BR-951), chỉ mục trigram cho US-073 |
-| `phone_e164` | text | UK một phần: (`organization_id`, `phone_e164`) WHERE `merged_into_id IS NULL AND anonymized_at IS NULL` | C2 | BR-951 chuẩn hóa `84…` |
+| `phone_e164` | text | UK một phần: (`organization_id`, `phone_e164`) WHERE `merged_into_id IS NULL AND anonymized_at IS NULL` | C2 | BR-951 chuẩn hóa `84…` (không dấu `+`); API trả E.164 **có** `+` – thêm/bỏ ở tầng API (OpenAPI 0.3.4) |
 | `email_norm` | text | UK một phần như trên | C2 | |
 | `messaging_handles` | jsonb | | C2 | Zalo/WhatsApp/Kakao |
 | `date_of_birth` | date null | | C2 | D01 (người lớn). Trẻ em không có hồ sơ `guest` |
@@ -555,6 +555,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `crm_consent` | text | `not_asked\|granted\|refused` | | BR-955 (bản ghi chi tiết ở `consent_record`) |
 | `merged_into_id` | uuid null | | | BR-953 (R3) |
 | `anonymized_at` | timestamptz | | | T05/T06 |
+| `possible_duplicate_at` | timestamptz null | | C1 | **0.3.4 (Q7)** – đặt khi tạo/sửa phát hiện nghi trùng tên + ngày sinh (BR-952), cho **cả hai** hồ sơ; xóa khi gộp (R3). Nguồn của `GuestSummary.possibleDuplicate` – không tính similarity khi liệt kê |
 
 **`guest_code_alias`** (R3) – `old_code` PK, `guest_id` – mã cũ sau gộp vẫn tra được (US-023 AC2). **`guest_merge_log`** (R3) – `kept_guest_id`, `merged_guest_id`, `moved_refs jsonb`, `merged_by`, `merged_at`.
 
@@ -925,7 +926,7 @@ UK một phần bộ đồ dùng thêm (0.3.1): (`reservation_id`,`room_id`,`typ
 
 **`guest_request`** (SM-15): `reservation_id`, `type` (`extra_cleaning|amenities|report_issue|transport_tour|late_checkout|other`), `note` (C2 – D23), `status` (`new|acknowledged|in_progress|done|declined`), `routed_to` (`housekeeping|maintenance|front_desk` – BR-811), `ack_due_at`, `acknowledged_at`, `acknowledged_by`, `auto_replied_at`, `hk_task_id`, `work_order_id`, `declined_reason_i18n`, `purge_after` (T13).
 
-**`online_checkin`** – tiến trình check-in online (US-107 AC2): `reservation_id` UK, `current_step` (`notice|documents|eta|consent|done` – **0.3.3** thêm `notice`), `eta_time`, `completed_at`; **0.3.3 (E06-06 – chờ SEC duyệt ĐK-2)**: `notice_version`, `notice_locale`, `notice_accepted_at` (bằng chứng đã hiển thị thông báo – R-CON-02), `late_arrival bool`, `arrival_note` (C2, ≤ 300, lọc V-09; chỉ Desk đọc; xóa theo T13 cùng `guest_request`), `deferred_people smallint[]`. Ảnh tải lại cho cùng người: ảnh cũ xóa (hủy DEK + `purge_journal`) trong cùng giao dịch (E06-07).
+**`online_checkin`** – tiến trình check-in online (US-107 AC2): `reservation_id` UK, `current_step` (`notice|documents|eta|consent|done` – **0.3.3** thêm `notice`), `eta_time`, `completed_at`; **0.3.3 (E06-06 – SEC duyệt có điều kiện 16/10, xem OpenAPI `updateOnlineCheckin`)**: `notice_version`, `notice_locale`, `notice_accepted_at` (bằng chứng đã hiển thị thông báo – R-CON-02), `late_arrival bool`, `arrival_note` (C2, ≤ 300, lọc V-09; chỉ Desk đọc; xóa theo T13 cùng `guest_request`), `deferred_people smallint[]`. Ảnh tải lại cho cùng người: ảnh cũ xóa (hủy DEK + `purge_journal`) trong cùng giao dịch (E06-07).
 
 **`message_template`** (US-125): `code` (`booking_confirmation|checkin_link|checkout_reminder|house_rules|apology_hot_water|verify_code|door_code…`; `verify_code` chỉ có mã + hạn, **không chứa link** – SR-GST-13; `door_code` chỉ render đúng ngày đến – SR-LOCK-03), `contains_c3 bool` (BUG-R1-SEC-01: mẫu có biến C3 – hiện chỉ `door_code` – chỉ render qua `renderDoorCodeMessage`: FD+, thiết bị tin cậy, step-up, ghi `c3_access_log` `door_credential/copy`; ẩn khỏi danh sách mẫu của SAL/CTV), `locale` (`vi|en|ru`), `channel` (`manual_copy|email|zalo_zns`), `subject`, `body` (biến `{{guest_name}}`…; **cấm** biến C3 trừ mẫu `contains_c3 = true`), `version`, `updated_by`. UK (`property_id`,`code`,`locale`,`channel`,`version`).
 
@@ -1246,6 +1247,8 @@ mỗi lần sửa ghi `audit_event category='security'`. Danh sách máy đọc:
 | `guest_verify_code_channel_minutes` | Hạn mã gửi qua kênh (mặc định 15, tối đa 30) | SR-GST-13 | **OWN** · 5–30 (15) |
 | `trusted_device_days`, `trusted_device_mobile_days` | Hạn cấp thiết bị: máy quầy 180; di động của cơ sở ≤ 30 | SR-DEV-01, -08 | **OWN** · máy quầy 1–180 (180); di động 1–30 (30) |
 | `c3_stepup_minutes` | Cửa sổ trượt xác nhận lại trước thao tác C3 (15) | SR-C3-09 | **OWN** · 1–15 (15) |
+| `session_policy` (json) | Thời gian phiên theo kênh `admin`/`staff_pwa`: `idleMinutes`, `maxHours`; `idleMinutes ≤ maxHours × 60`. Áp cho đăng nhập: giá trị **chặt nhất** trong các cơ sở người dùng có vai (0.3.4, FB-R2-SEC-BE-20) | SR-SES-03, SEC s1-decisions mục 1 | **OWN** · admin idle 5–30 (30), max 1–12 (12); PWA idle 60–4320 (4320), max 24–720 (720) |
+| `login_lockout` (json) | Khóa đăng nhập theo tài khoản: `maxFailures`, `lockMinutes`, `hardLockAfterLocks`, `lockWindowHours`; chỉ chặn đăng nhập mới, không hủy phiên đang sống. Áp: giá trị chặt nhất trong các cơ sở | SR-AUTH-04, SEC s1-decisions mục 1 | **OWN** · 3–5 (5); 15–60 phút (15); 2–3 (3); 24–72 giờ (24) |
 | `business_day_rollover` | Giờ đổi ngày nghiệp vụ (06:00) | BR-010 | OWN, MGR |
 | `shift_max_hours` | Ca mở quá lâu → "Cần chú ý" | SM-17, BR-526 | OWN, MGR |
 | `front_desk_hours` | Giờ trực quầy (luồng khách đến khuya SR-GST-15, cảnh báo xem C3 ngoài giờ) | BR-811, SR-LOG-06 | OWN, MGR |
@@ -1414,6 +1417,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 16/10/2026 | 2 – Sprint 1 (vòng sửa) | **0.3.4** (khớp OpenAPI 0.3.4-draft; quyết định Q1–Q8 `reviews/ARC-on-BE.md`, SEC s1-decisions): cột `guest.possible_duplicate_at` (Q7, cần migration mới); `guest.phone_e164` ghi rõ API trả có `+`; 9.3 thêm `session_policy`, `login_lockout` là tham số bảo mật (biên SEC, áp giá trị chặt nhất khi đăng nhập). `room.bed_setup`, `bed_count`, `area_m2` đã có – nay lên API (Q6). `online_checkin` hết trạng thái "chờ SEC" (duyệt có điều kiện) | ARC |
 | 16/10/2026 | 2 – Sprint 1 | **0.3.3** (khớp OpenAPI 0.3.3-draft; đề nghị BA E03-01…E05-05, E06-01…E06-07): `reservation.cards_issued`, `house_rules_sent_at/by`, `checkin_document_override_*`; `payment.note`, `attachment_id`, `confirmed_at/by`, vòng đời VietQR `pending` + UK một QR chờ/folio + job J24 `payment.expire`; `minibar_check.replaces_check_id`; `registration.images_purge_*`, `blocks_door_code` là điều kiện B9 ở R2, bảng `registration_portal_submission` (khai báo `mixed`); `guest_document.check_results` 3 kết quả + `blocking`/`manual_result`, `no_entry_record_enc`; `online_checkin` thêm `notice_*`, `late_arrival`, `arrival_note`, `deferred_people` (chờ SEC); câu hỏi mở E10–E12. Theo BE-A: `approval_request.target_code`, `limit_basis_vnd`, `self_applied`; `audit_event.entity_code`. Theo UXD: `reservation.door_access_handed_over_*` | ARC |
 | 15/10/2026 | 1 – Đợt 3 (Pha B) | Bản đầu: 60+ bảng, RLS, 15 máy trạng thái, tham số, mã chứng từ, C3, thời hạn lưu, xung đột OTA | ARC |
 | 16/10/2026 | 1 – Bước 4 | v0.2: vai DB `ottimo_owner/migrator/app/readonly`; RLS `NULLIF` + `set_config` + hàm đường vào SECURITY DEFINER; `trusted_device`, `guest_verification_code`, bộ đếm theo token; `staff_notification`, `push_subscription`, `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `shift`, `payment_allocation`, `group_bill`; cột DATA v0.2 cho `stay_night`/`reservation`; `commission` đầy đủ; `payment.reconciliation`, `method_detail`; `inbox_message.filtered_payload`; `integration_log.cost_units`; FK cặp cơ sở; EXCLUDE DEFERRABLE; phân vùng nhật ký; OOO nửa mở; bill `F26-000123`; sức chứa theo căn; mục 16 chiến lược migration | ARC |

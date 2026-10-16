@@ -99,9 +99,11 @@ describe.skipIf(!HAS_DB)('schema architecture (erd 2.3, 16)', () => {
       const {
         default: dflt,
         ref: _ref,
+        description: _description, // prose only (0.3.4 object keys) – not stored in bounds
         ...bounds
       } = OPENAPI_META.securityParameters[r.key] as unknown as Record<string, unknown>;
       void _ref;
+      void _description;
       expect(r.bounds).toEqual(bounds);
       expect(r.default_value).toEqual(dflt);
       expect(r.edit_roles).toEqual(['owner']);
@@ -189,6 +191,10 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
       'roles_version',
       'user_status',
       'trusted_device_id',
+      // 0.3.4 (0009_identity_hardening_be_b, FB-R2-ARC-BE-05): one session read per request.
+      'client_origin',
+      'last_active_at',
+      'must_change_password',
     ]);
     expect(await columns('auth_resolve_device')).toEqual([
       'device_id',
@@ -214,7 +220,22 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
     for (const r of rows) {
       expect(r.secdef).toBe(true);
       expect(r.owner).toBe('ottimo_owner');
-      expect(r.config).toContain('search_path=pg_catalog, public');
+      expect(r.config).toContain('search_path=pg_catalog, public, pg_temp');
+    }
+  });
+
+  it('every SECURITY DEFINER function puts pg_temp last in search_path (FB-R2-SEC-BE-10)', async () => {
+    const { rows } = await db.pool.query<{ proname: string; config: string[] | null }>(
+      `SELECT p.proname, p.proconfig AS config FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.prosecdef ORDER BY p.proname`,
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(5);
+    for (const r of rows) {
+      const sp = (r.config ?? []).find((c) => c.startsWith('search_path='));
+      expect({ fn: r.proname, sp }).toEqual({
+        fn: r.proname,
+        sp: expect.stringMatching(/, pg_temp$/),
+      });
     }
   });
 

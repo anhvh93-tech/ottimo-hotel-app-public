@@ -64,6 +64,7 @@ export function RoomsPage() {
                 <tr>
                   <th scope="col">{t('rooms.col_room')}</th>
                   <th scope="col">{t('rooms.col_group')}</th>
+                  <th scope="col">{t('rooms.col_beds')}</th>
                   <th scope="col" className="c">
                     {t('rooms.col_base')}
                   </th>
@@ -86,11 +87,12 @@ export function RoomsPage() {
               </thead>
               <tbody>
                 {rooms.map((r) => (
-                  <tr key={r.id} aria-selected={editing?.id === r.id || undefined}>
+                  <tr key={r.id} className={editing?.id === r.id ? 'is-editing' : undefined}>
                     <td>
                       <b>{r.roomNo}</b> {r.name}
                     </td>
                     <td>{groupName(r.roomGroupId)}</td>
+                    <td>{r.bedSetup ?? '–'}</td>
                     <td className="c num">{r.baseOccupancy ?? '–'}</td>
                     <td className="c num">{r.maxOccupancy ?? '–'}</td>
                     <td className="r num">

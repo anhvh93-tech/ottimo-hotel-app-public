@@ -1,3 +1,4 @@
+import { NAV, canOpen } from '../session/nav';
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderApp, signIn } from '../test/render';
@@ -131,9 +132,10 @@ describe('H02 navigation by role (US-001 AC1, US-002, rbac §3)', () => {
     expect(await screen.findByText('Màn này đang được làm')).toBeInTheDocument();
   });
 
-  it('Hôm nay shows the designed empty state (H03 skeleton)', async () => {
+  it('Hôm nay shows "being built", never the "no guests today" empty state (FB-R2-UXD-FE-02)', async () => {
     renderApp('/today', 'qa.fdl');
-    expect(await screen.findByText('Hôm nay không có việc theo giờ')).toBeInTheDocument();
+    expect(await screen.findByText('Màn này đang được làm')).toBeInTheDocument();
+    expect(screen.queryByText('Hôm nay không có việc theo giờ')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mở sơ đồ phòng' })).toHaveAttribute('href', '/rack');
   });
 
@@ -145,5 +147,15 @@ describe('H02 navigation by role (US-001 AC1, US-002, rbac §3)', () => {
     expect(await screen.findByText(/Mất kết nối\. Dữ liệu lúc/)).toBeInTheDocument();
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     window.dispatchEvent(new Event('online'));
+  });
+});
+
+describe('route guard = menu rule (BUG-R2-010)', () => {
+  it('a manager whose screens include S26 still cannot open Người dùng & vai (owner-only card)', () => {
+    const users = NAV.find((n) => n.id === 'users')!;
+    expect(
+      canOpen(users, { roles: ['manager'], screens: ['S24', 'S26'], deviceTrusted: true }),
+    ).toBe(false);
+    expect(canOpen(users, { roles: ['owner'], screens: ['S26'], deviceTrusted: false })).toBe(true);
   });
 });

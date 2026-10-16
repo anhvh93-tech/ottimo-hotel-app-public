@@ -15,11 +15,26 @@
  *   moves to `escalated`, the approver gets 403 APPROVAL_LIMIT_EXCEEDED) returns `{ fail: problem(...) }`.
  *   The transaction commits (with the problem stored as the idempotent response) and the problem is thrown
  *   afterwards; a replay of that key throws the same problem again.
+ *
+ * Role decision (FB-R2-QA-BE-01 / BUG-R2-005, FB-R2-ARC-BE-01):
+ * - AuthGuard already answered 403 for a forbidden role BEFORE the controller parsed the body or asked for
+ *   a password, unless the same user's key is already completed (offline replay of an old success).
+ * - The rare remaining case (decision deferred, but no completed key found here) rolls the transaction
+ *   back FIRST and only then writes access.denied (own connection) and answers 403 – no second connection
+ *   while this one is held.
+ *
+ * Connections: the handler must only use its `tx`. `db.withContext`/`db.entry` inside the handler throws
+ * (database.ts runInUnitOfWork). Work with its own transaction (password re-auth counters, …) runs before
+ * `run()`.
+ *
+ * Request hash: SHA-256 of method, path and the canonical body WITHOUT secret fields (shared/secret-fields:
+ * password, secret, pin…) – the table never holds a fast hash of a password (FB-R2-SEC-BE-06).
  */
 import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE, Database, type Tx, pgCode } from '../../db/database';
+import { DATABASE, Database, type Tx, pgCode, runInUnitOfWork } from '../../db/database';
 import { ProblemError, problem } from '../problem';
+import { withoutSecrets } from '../secret-fields';
 import { AuthGuard, type GuardedRequest, tenantOf } from './auth.guard';
 
 export interface UseCaseResult<T> {
@@ -84,9 +99,12 @@ export function canonicalJson(value: unknown): string {
 
 export function requestHash(method: string, path: string, body: unknown): string {
   return createHash('sha256')
-    .update(`${method.toUpperCase()} ${path}\n${canonicalJson(body)}`)
+    .update(`${method.toUpperCase()} ${path}\n${canonicalJson(withoutSecrets(body))}`)
     .digest('hex');
 }
+
+/** Thrown inside the transaction to roll it back before the 403 + access.denied are written. */
+class DeniedAfterLookup extends Error {}
 
 function headerValue(req: GuardedRequest, name: string): string | undefined {
   const v = req.headers[name];
@@ -110,7 +128,14 @@ export class UnitOfWork {
     handler: (tx: Tx) => Promise<UseCaseResult<T> | UseCaseFailure>,
     options: RunOptions = {},
   ): Promise<UnitOfWorkResult<T>> {
-    const out = await this.runInner<T>(req, handler, options);
+    let out: UnitOfWorkResult<T> | UseCaseFailure;
+    try {
+      out = await this.runInner<T>(req, handler, options);
+    } catch (err) {
+      // Transaction rolled back and its connection returned: now audit + 403 (FB-R2-ARC-BE-01 b).
+      if (err instanceof DeniedAfterLookup) await this.guard.enforce(req);
+      throw err;
+    }
     if ('fail' in out) throw out.fail;
     return out;
   }
@@ -143,8 +168,9 @@ export class UnitOfWork {
           return { ...(replay as UseCaseResult<T>), replayed: true };
         }
       }
-      await this.guard.enforce(req);
-      const outcome = await handler(tx);
+      if (!auth.enforced && !auth.allowed) throw new DeniedAfterLookup();
+      await this.guard.enforce(req); // allowed: marks the decision as applied, no I/O
+      const outcome = await runInUnitOfWork(auth.operationId, () => handler(tx));
       const result: UseCaseResult<unknown> = isFailure(outcome)
         ? { status: outcome.fail.status, body: outcome.fail.toBody() }
         : outcome;

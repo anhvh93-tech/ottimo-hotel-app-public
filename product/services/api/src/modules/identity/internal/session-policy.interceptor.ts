@@ -1,14 +1,15 @@
 /**
  * Per-request session policy for authenticated staff requests (runs after the global AuthGuard, before
  * the handler – so nothing of the business runs when it refuses):
- * 1. Session still valid: not revoked, before expires_at AND idle_expires_at, user status active
- *    (SR-SES-03, SR-SES-06, erd 2.4 0.3.2) → else 401 UNAUTHENTICATED. Slides idle_expires_at.
- * 2. Temporary password (must_change_password) → 403 PASSWORD_CHANGE_REQUIRED except changeMyPassword,
+ * 1. Validity (revoked, expires_at, idle_expires_at, disabled account → 401) is decided by the AuthGuard
+ *    from the single auth_resolve_session call (0.3.4 returns client_origin, last_active_at,
+ *    must_change_password too – FB-R2-ARC-BE-05). This interceptor reads that state from the principal:
+ *    no extra query on the request path.
+ * 2. Sliding idle timeout: at most once a minute per session (idle precision ±1 min) one UPDATE moves
+ *    last_active_at / idle_expires_at (session_policy by client – SR-SES-03).
+ * 3. Temporary password (must_change_password) → 403 PASSWORD_CHANGE_REQUIRED except changeMyPassword,
  *    getMe, logout (SR-AUTH-05, OpenAPI login).
  * CSRF/Origin (SR-SES-04) are checked by the AuthGuard with SessionService as CSRF_VERIFIER.
- *
- * TODO(BE-A): moving steps 1–2 into AuthGuard.authenticate() (it already receives idle_expires_at and
- * user_status from auth_resolve_session 0.3.2) would make the 401 precede role/CSRF 403s exactly.
  */
 import {
   type CallHandler,
@@ -19,26 +20,16 @@ import {
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { CLOCK, type Clock } from '../../../clock';
-import { DATABASE, Database } from '../../../db/database';
+import { DATABASE, Database, type TenantContext } from '../../../db/database';
 import type { GuardedRequest } from '../../../shared/http/auth.guard';
 import { problem } from '../../../shared/problem';
-import { localDate } from '../../../shared/time';
-import { type SessionPolicy, SessionService } from '../public/session.service';
+import { IdentityParamsService } from '../public/identity-params';
+import type { SessionPolicy } from '../public/session.service';
 
 const ALLOWED_WITH_TEMP_PASSWORD = new Set(['changeMyPassword', 'getMe', 'logout']);
 /** Write last_active_at at most once a minute per session (idle precision ±1 min). */
 const TOUCH_EVERY_MS = 60_000;
 const POLICY_CACHE_MS = 60_000;
-
-interface SessionStateRow {
-  client_origin: 'admin' | 'staff_pwa';
-  expires_at: Date;
-  idle_expires_at: Date;
-  revoked_at: Date | null;
-  last_active_at: Date;
-  status: string;
-  must_change_password: boolean;
-}
 
 @Injectable()
 export class SessionPolicyInterceptor implements NestInterceptor {
@@ -47,7 +38,7 @@ export class SessionPolicyInterceptor implements NestInterceptor {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     @Inject(CLOCK) private readonly clock: Clock,
-    @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(IdentityParamsService) private readonly identityParams: IdentityParamsService,
   ) {}
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
@@ -55,51 +46,39 @@ export class SessionPolicyInterceptor implements NestInterceptor {
     const auth = req.ottimoAuth;
     const p = auth?.principal;
     if (!auth || !p) return next.handle();
+    const s = p.session;
+    if (!s)
+      throw new Error('AuthGuard principal without session state (auth_resolve_session < 0.3.4)');
 
     const now = this.clock.now();
-    const ctx = {
-      organizationId: p.organizationId,
-      propertyId: p.propertyId,
-      userId: p.userId,
-      actorType: 'user' as const,
-    };
-    const state = await this.db.withContext(ctx, async (tx) => {
-      const { rows } = await tx.query<SessionStateRow>(
-        `SELECT s.client_origin, s.expires_at, s.idle_expires_at, s.revoked_at, s.last_active_at,
-                u.status, u.must_change_password
-           FROM user_session s JOIN app_user u ON u.id = s.user_id
-          WHERE s.id = $1`,
-        [p.sessionId],
+    if (!s.lastActiveAt || now.getTime() - s.lastActiveAt.getTime() >= TOUCH_EVERY_MS) {
+      const ctx: TenantContext = {
+        organizationId: p.organizationId,
+        propertyId: p.propertyId,
+        userId: p.userId,
+        actorType: 'user',
+      };
+      // Strictest session_policy across the user's properties (0.3.4), cached ≤ 60 s per user.
+      const policy = await this.policy(
+        p.userId,
+        async () => (await this.identityParams.forUser(ctx)).session,
       );
-      const s = rows[0];
-      if (
-        !s ||
-        s.revoked_at ||
-        s.status !== 'active' ||
-        s.expires_at.getTime() <= now.getTime() ||
-        s.idle_expires_at.getTime() <= now.getTime()
-      ) {
-        return null;
-      }
-      if (now.getTime() - s.last_active_at.getTime() >= TOUCH_EVERY_MS) {
-        const policy = await this.policy(ctx.propertyId ?? ctx.organizationId, () =>
-          this.sessions.policy(tx, localDate(now, 'UTC')),
-        );
+      await this.db.withContext(ctx, async (tx) => {
         const idle = new Date(
           Math.min(
-            now.getTime() + policy[s.client_origin].idleMinutes * 60_000,
-            s.expires_at.getTime(),
+            now.getTime() + policy[s.clientOrigin].idleMinutes * 60_000,
+            s.expiresAt.getTime(),
           ),
         );
+        // Guarded by revoked_at: a revoke committed after our read is never undone.
         await tx.query(
-          `UPDATE user_session SET last_active_at = $2, idle_expires_at = $3 WHERE id = $1`,
+          `UPDATE user_session SET last_active_at = $2, idle_expires_at = $3
+            WHERE id = $1 AND revoked_at IS NULL`,
           [p.sessionId, now, idle],
         );
-      }
-      return s;
-    });
-    if (!state) throw problem('UNAUTHENTICATED');
-    if (state.must_change_password && !ALLOWED_WITH_TEMP_PASSWORD.has(auth.operationId)) {
+      });
+    }
+    if (s.mustChangePassword && !ALLOWED_WITH_TEMP_PASSWORD.has(auth.operationId)) {
       throw problem('PASSWORD_CHANGE_REQUIRED');
     }
     return next.handle();

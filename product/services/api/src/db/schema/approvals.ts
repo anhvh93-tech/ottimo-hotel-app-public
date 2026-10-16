@@ -135,5 +135,9 @@ export const approvalRequest = pgTable(
     index('approval_request_queue_idx').on(t.propertyId, t.status, t.requestedAt.desc()),
     index('approval_request_requester_idx').on(t.propertyId, t.requestedBy, t.requestedAt.desc()),
     index('approval_request_approver_idx').on(t.propertyId, t.approverId, t.decidedAt),
+    // pendingFor(): checkout guard 409 PENDING_APPROVALS (AC5) – open requests of one target only.
+    index('approval_request_open_target_idx')
+      .on(t.propertyId, t.targetType, t.targetId)
+      .where(sql`${t.status} IN ('pending', 'escalated')`),
   ],
 );

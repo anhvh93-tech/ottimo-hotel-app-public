@@ -8,33 +8,19 @@
  *   to show the confirmation dialog content (US-135 AC1).
  */
 import { type FieldError, problem } from './problem';
+import { luhnValid } from './redact';
 
 export interface ReasonOptions {
   min?: number;
   max?: number;
 }
 
-/** Luhn check on a digit string. */
-export function luhnValid(digits: string): boolean {
-  let sum = 0;
-  let double = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = digits.charCodeAt(i) - 48;
-    if (d < 0 || d > 9) return false;
-    if (double) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-    double = !double;
-  }
-  return sum % 10 === 0;
-}
+export { luhnValid };
 
 /** True when `text` contains something that looks like a payment card number (V-09). */
 export function containsCardNumber(text: string): boolean {
-  // Same rule as platform/public/validation.ts (BE-B): any 13–19 digit window (spaces/dashes allowed
-  // between digits) that passes Luhn. Both must stay identical until one re-exports the other.
+  // Any 13–19 digit window (spaces/dashes allowed between digits) that passes Luhn. The single copy:
+  // platform/public/validation.ts re-exports this module (FB-R2-ARC-BE-18).
   const candidates = text.match(/\d(?:[ -]?\d){12,18}/g) ?? [];
   for (const c of candidates) {
     const digits = c.replace(/[ -]/g, '');

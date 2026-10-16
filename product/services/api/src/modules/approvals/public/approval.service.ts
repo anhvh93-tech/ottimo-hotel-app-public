@@ -13,6 +13,18 @@
  * owner/manager within their own limit and the A2 self-application; limits per time and per calendar month
  * from `foc_limits` (BR-433); above the limit → `escalated` + 403 APPROVAL_LIMIT_EXCEEDED (A4) with the
  * escalation committed. Push (BR-432 v0.3, `foc_approval_push_roles`) goes to the outbox (Mock in R2).
+ *
+ * Monthly limits (BR-433/436, FB-R2-ARC-BE-04): per user one advisory lock `approval-limit:<userId>` taken by
+ * approve() AND by a submit() that may self-apply, so two concurrent decisions/self-applications of the same
+ * person never both use the same remainder. Lock order everywhere: approval row (FOR UPDATE) → limit lock.
+ * What counts against which budget (`monthlyApprovedBy` scope):
+ *   owner/manager  – ONE monthly budget: approvals for others + own self-applications ('all');
+ *   front_desk_lead – approvals for others ('others', BR-433 "duyệt cho người khác");
+ *   front_desk/front_desk_lead self-applied minibar FOC – separate budget foc_self_apply.front_desk.per_month
+ *   ('self', BR-436).
+ * Routing (FB-R2-ARC-BE-09, assumption until BA/DOM confirm BR-433 wording): a request submitted by a
+ * front_desk_lead (not the BR-436 self-application) needs at least a manager – two leads never approve
+ * each other's requests.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -33,6 +45,7 @@ import {
   APPROVER_RANK,
   MONEY_LIMITED,
   approverRoleOf,
+  minRoleFor,
   decide,
   pushRoles,
   remainingMonthly,
@@ -124,9 +137,29 @@ export type DecidedHook = (tx: Tx, request: ApprovalRow) => Promise<void>;
 
 const MONEY_CATEGORY = (type: ApprovalType) => (MONEY_LIMITED.has(type) ? 'money' : 'state');
 
+/** Which decisions count against a monthly limit (see header). */
+export type MonthlyScope = 'all' | 'others' | 'self';
+
+/** Monthly budget of an approver role when deciding/self-applying (owner/manager share one budget). */
+function budgetScope(role: ApproverRole): MonthlyScope {
+  return role === 'front_desk_lead' ? 'others' : 'all';
+}
+
+export interface ApprovalContext {
+  propertyId: string;
+  tz: string;
+  today: LocalDate;
+  now: Date;
+}
+
 @Injectable()
 export class ApprovalService {
   private readonly hooks = new Map<ApprovalType, DecidedHook[]>();
+  /** Per-transaction memo: time zone/today and foc_limits are read once per request (FB-R2-ARC-BE-06). */
+  private readonly perTx = new WeakMap<
+    Tx,
+    { ctx?: Promise<ApprovalContext>; focLimits?: Promise<unknown> }
+  >();
 
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
@@ -177,11 +210,20 @@ export class ApprovalService {
     assertNoCardNumber('note', note);
 
     const { propertyId, tz, today, now } = await this.context(tx);
-    const focLimits = await this.params.get(tx, 'foc_limits', today);
+    const focLimits = await this.focLimits(tx);
     const basis = input.limitBasisVnd ?? null;
-    const requiredRole = requiredRoleFor(input.type, input.amountVnd, focLimits, basis);
+    let requiredRole = requiredRoleFor(input.type, input.amountVnd, focLimits, basis);
+    // FB-R2-ARC-BE-09: a lead's own request is decided above the lead level.
+    if (
+      approverRoleOf(actor.roles) === 'front_desk_lead' &&
+      APPROVER_RANK[requiredRole] < APPROVER_RANK.manager
+    ) {
+      requiredRole = 'manager';
+    }
 
-    // A2 – self-application within the requester's own limit (rbac 5.2 point 2).
+    // A2 – self-application within the requester's own limit (rbac 5.2 point 2). Serialised per user with
+    // approve() (same advisory lock) so concurrent self-applications cannot both use the remainder.
+    if (this.maySelfApply(actor, input)) await this.lockLimit(tx, actor.userId);
     const self = await this.selfApplication(tx, actor, input, { focLimits, basis, tz, now, today });
 
     const id = uuidv7();
@@ -262,7 +304,7 @@ export class ApprovalService {
         ? roleLimit(c.focLimits, role, c.basis)
         : { perTime: 'unlimited' as const, perMonth: 'unlimited' as const };
       if (!within(input.amountVnd, limit.perTime)) return null;
-      const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, false);
+      const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, 'all');
       if (limit.perMonth !== 'unlimited' && used + input.amountVnd > limit.perMonth) return null;
       return {
         role,
@@ -295,12 +337,25 @@ export class ApprovalService {
       c.today,
     );
     if (input.amountVnd > perTime) return null;
-    const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, true);
+    const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, 'self');
     if (used + input.amountVnd > perMonth) return null;
     return {
       role: actor.roles.includes('front_desk_lead') ? 'front_desk_lead' : 'front_desk',
       snapshot: { selfApply: 'front_desk', perTime, perMonth, usedVnd: used },
     };
+  }
+
+  /** Could this submission be self-applied (A2)? Then the per-user limit lock is needed. */
+  private maySelfApply(actor: Actor, input: SubmitInput): boolean {
+    const role = approverRoleOf(actor.roles);
+    if (role === 'owner' || role === 'manager') return true;
+    const fd = actor.roles.includes('front_desk') || actor.roles.includes('front_desk_lead');
+    return fd && input.type === 'foc' && !!input.requesterReauthenticated;
+  }
+
+  /** Transaction-scoped advisory lock on one user's monthly limits (released at COMMIT/ROLLBACK). */
+  private async lockLimit(tx: Tx, userId: string): Promise<void> {
+    await tx.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`approval-limit:${userId}`]);
   }
 
   // ───────────────────────── A3 / A4 ─────────────────────────
@@ -315,14 +370,21 @@ export class ApprovalService {
     const role = approverRoleOf(actor.roles);
     if (!role) throw problem('FORBIDDEN_ACTION');
     this.assertNotSelf(row, actor, role);
+    // FB-R2-ARC-BE-08: a request routed above this approver is decided at that level – 403, nothing written
+    // (same as reject). Escalation (A4) is only for an approver of the routed level who exceeds a limit.
+    const needed =
+      APPROVER_RANK[row.required_role] >= APPROVER_RANK[minRoleFor(row.type)]
+        ? row.required_role
+        : minRoleFor(row.type);
+    if (APPROVER_RANK[role] < APPROVER_RANK[needed]) {
+      throw problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: needed } });
+    }
 
     const { tz, today, now } = await this.context(tx);
-    const focLimits = await this.params.get(tx, 'foc_limits', today);
+    const focLimits = await this.focLimits(tx);
     // Serialise the monthly limit of this approver (two approvals at once cannot both use the remainder).
-    await tx.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
-      `approval-limit:${actor.userId}`,
-    ]);
-    const used = await this.monthlyApprovedBy(tx, actor.userId, tz, now, false);
+    await this.lockLimit(tx, actor.userId);
+    const used = await this.monthlyApprovedBy(tx, actor.userId, tz, now, budgetScope(role));
     const d = decide({
       type: row.type,
       amountVnd: row.amount_vnd,
@@ -478,11 +540,15 @@ export class ApprovalService {
 
   /** Open requests (pending/escalated) of a target – checkout guard (AC5, 409 PENDING_APPROVALS). */
   async pendingFor(tx: Tx, targetType: string, targetId: string): Promise<ApprovalRow[]> {
+    const propertyId = tx.ctx.propertyId;
+    if (!propertyId) throw new Error('approvals need a property context');
+    // Index approval_request_open_target_idx (partial, pending/escalated – FB-R2-ARC-BE-16).
     const { rows } = await tx.query<ApprovalRow>(
       `SELECT * FROM approval_request
-        WHERE target_type = $1 AND target_id = $2 AND status IN ('pending', 'escalated')
+        WHERE property_id = $1 AND target_type = $2 AND target_id = $3
+          AND status IN ('pending', 'escalated')
         ORDER BY requested_at`,
-      [targetType, targetId],
+      [propertyId, targetType, targetId],
     );
     return rows;
   }
@@ -534,11 +600,11 @@ export class ApprovalService {
     >(sqlText, params);
     let remainingMonthlyVnd: number | null = null;
     if (role) {
-      const { tz, today, now } = await this.context(tx);
-      const focLimits = await this.params.get(tx, 'foc_limits', today);
+      const { tz, now } = await this.context(tx);
+      const focLimits = await this.focLimits(tx);
       const limit = roleLimit(focLimits, role, null);
       if (limit.perMonth !== 'unlimited') {
-        const used = await this.monthlyApprovedBy(tx, actor.userId, tz, now, false);
+        const used = await this.monthlyApprovedBy(tx, actor.userId, tz, now, budgetScope(role));
         remainingMonthlyVnd = remainingMonthly(limit, used);
       }
     }
@@ -586,32 +652,53 @@ export class ApprovalService {
     }
   }
 
-  private async context(
-    tx: Tx,
-  ): Promise<{ propertyId: string; tz: string; today: LocalDate; now: Date }> {
-    const propertyId = tx.ctx.propertyId;
-    if (!propertyId) throw new Error('approvals need a property context');
-    const { rows } = await tx.query<{ timezone: string }>(
-      'SELECT timezone FROM property WHERE id = $1',
-      [propertyId],
-    );
-    const tz = rows[0]?.timezone;
-    if (!tz) throw problem('NOT_FOUND');
-    const now = this.clock.now();
-    return { propertyId, tz, now, today: localDate(now, tz) };
+  /**
+   * Property time zone, clock instant and calendar date of this request – read once per transaction.
+   * Calendar (not business) date on purpose: monthly limits follow the calendar month (BR-433).
+   */
+  context(tx: Tx): Promise<ApprovalContext> {
+    const memo = this.memo(tx);
+    memo.ctx ??= (async () => {
+      const propertyId = tx.ctx.propertyId;
+      if (!propertyId) throw new Error('approvals need a property context');
+      const { rows } = await tx.query<{ timezone: string }>(
+        'SELECT timezone FROM property WHERE id = $1',
+        [propertyId],
+      );
+      const tz = rows[0]?.timezone;
+      if (!tz) throw problem('NOT_FOUND');
+      const now = this.clock.now();
+      return { propertyId, tz, now, today: localDate(now, tz) };
+    })();
+    return memo.ctx;
+  }
+
+  private focLimits(tx: Tx): Promise<unknown> {
+    const memo = this.memo(tx);
+    memo.focLimits ??= this.context(tx).then((c) => this.params.get(tx, 'foc_limits', c.today));
+    return memo.focLimits;
+  }
+
+  private memo(tx: Tx): { ctx?: Promise<ApprovalContext>; focLimits?: Promise<unknown> } {
+    let m = this.perTx.get(tx);
+    if (!m) {
+      m = {};
+      this.perTx.set(tx, m);
+    }
+    return m;
   }
 
   /**
    * Σ approved amounts of money-limited requests decided by `userId` in the current calendar month
-   * (property time zone). `selfApplied` = the BR-436 self-application budget (separate from approving
-   * for others – BR-433 "FDL ≤ 1.500.000/tháng duyệt cho người khác").
+   * (property time zone). Scope: 'others' = approved for other people, 'self' = own self-applications
+   * (BR-436 budget), 'all' = both (owner/manager – one budget, FB-R2-ARC-BE-04).
    */
   async monthlyApprovedBy(
     tx: Tx,
     userId: string,
     tz: string,
     now: Date,
-    selfApplied: boolean,
+    scope: MonthlyScope,
   ): Promise<number> {
     const today = localDate(now, tz);
     const monthStart = `${today.slice(0, 7)}-01`;
@@ -619,11 +706,11 @@ export class ApprovalService {
     const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
     const { rows } = await tx.query<{ total: string | number | null }>(
       `SELECT COALESCE(SUM(amount_vnd), 0) AS total FROM approval_request
-        WHERE approver_id = $1 AND status = 'approved' AND self_applied = $2
+        WHERE approver_id = $1 AND status = 'approved' AND ($2::boolean IS NULL OR self_applied = $2)
           AND type = ANY($3::text[]) AND decided_at >= $4 AND decided_at < $5`,
       [
         userId,
-        selfApplied,
+        scope === 'all' ? null : scope === 'self',
         [...MONEY_LIMITED],
         atLocal(monthStart, '00:00', tz),
         atLocal(next, '00:00', tz),

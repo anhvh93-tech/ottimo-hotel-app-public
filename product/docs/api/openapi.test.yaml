@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk – API kiểm thử (KHÔNG thuộc hợp đồng production)
-  version: 0.1.1-draft
+  version: 0.1.2-draft
   description: |
     Endpoint chỉ dùng cho QA/E2E ở môi trường `APP_ENV ∈ {dev, test, staging}` (ADR-008 cập nhật R1 bước 4; BE-ARC-04; QA rủi ro kiểm thử).
 
@@ -10,7 +10,7 @@ info:
     - CI kiểm bundle production không chứa chuỗi `__test__` (OPS thêm bước).
     - Khởi động production mà `CLOCK_MODE ≠ system` hoặc bảng `dev_clock` có dòng → dừng khởi động.
     - Mọi lời gọi cần header `X-Test-Token` = `TEST_SUPPORT_TOKEN` (biến môi trường, ≥ 32 byte, chỉ có ở dev/staging) **và** phiên vai `owner`.
-    - Mỗi lời gọi ghi `audit_event` (`category=config`, `action=test.clock_changed` / `test.job_run`).
+    - Mỗi lời gọi ghi `audit_event` (`category=config`, `action=test.clock_changed` / `test.job_run` / `test.rate_limits_reset`).
 
     Cơ chế giờ giả (`MutableClock`): offset lưu ở bảng 1 dòng `dev_clock(offset_ms, frozen_at)`; api và worker đọc chung (cache 1 giây,
     xóa cache khi `NOTIFY clock_changed`). Job viết dạng "quét điều kiện theo `Clock.now()`" nên `POST /__test__/jobs/{jobKey}/run` cho kết quả
@@ -84,6 +84,32 @@ paths:
                 properties:
                   status: { type: string, enum: [done, skipped_already_ran, skipped_catchup_window] }
                   stats: { type: object, additionalProperties: true }
+  /__test__/rate-limits/reset:
+    post:
+      operationId: testResetRateLimits
+      x-roles: [owner]
+      summary: Xóa bộ đếm giới hạn để chạy lại E2E trên cùng stack (FB-R2-QA-BE-07)
+      description: |
+        Xóa toàn bộ cửa sổ đếm trong RAM của tiến trình (đăng nhập theo IP, tra cứu khách theo người dùng) và đặt lại
+        bộ đếm trong DB (sai mật khẩu đăng nhập, khóa tạm, sai xác nhận lại mật khẩu/duyệt) của các tài khoản thuộc
+        **tổ chức của người gọi** có `username` bắt đầu bằng `usernamePrefix` (mặc định `qa.`). Tài khoản `locked` → `active`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usernamePrefix: { type: string, pattern: '^[a-z0-9._-]{2,40}$', default: qa. }
+      responses:
+        '200':
+          description: Số tài khoản đã đặt lại
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users: { type: integer }
 components:
   securitySchemes:
     testToken:

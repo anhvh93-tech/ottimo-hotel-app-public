@@ -1,26 +1,21 @@
 // Strings are owned by UXD in design/copy/strings-{vi,en}.json and imported directly (no copy to drift).
-// pending.*.json holds keys FE needs that UXD has not added yet – the test fails once UXD adds them.
+// A key FE needs that UXD has not written yet is requested from UXD (no local pending copy since R2 S1).
 import enUxd from '../../../design/copy/strings-en.json';
 import viUxd from '../../../design/copy/strings-vi.json';
-import enPending from './pending.en.json';
-import viPending from './pending.vi.json';
 
 export type Locale = 'vi' | 'en';
 export const LOCALES: readonly Locale[] = ['vi', 'en'];
 export type Args = Record<string, string | number>;
 type Dict = Record<string, unknown>;
 
-const DICTS: Record<Locale, Dict[]> = {
-  vi: [viUxd, viPending],
-  en: [enUxd, enPending],
+const DICTS: Record<Locale, Dict> = {
+  vi: viUxd,
+  en: enUxd,
 };
 
 function lookup(locale: Locale, key: string): string | undefined {
-  for (const dict of DICTS[locale]) {
-    const v = dict[key];
-    if (typeof v === 'string') return v;
-  }
-  return undefined;
+  const v = DICTS[locale][key];
+  return typeof v === 'string' ? v : undefined;
 }
 
 export function hasKey(key: string, locale: Locale = 'vi'): boolean {
@@ -41,18 +36,7 @@ export function translate(locale: Locale, key: string, args?: Args): string {
 }
 
 export function allKeys(locale: Locale): Set<string> {
-  const keys = new Set<string>();
-  for (const dict of DICTS[locale])
-    for (const k of Object.keys(dict)) if (k !== '_meta') keys.add(k);
-  return keys;
-}
-
-export function uxdKeys(locale: Locale): Set<string> {
-  return new Set(Object.keys(DICTS[locale][0]!).filter((k) => k !== '_meta'));
-}
-
-export function pendingKeys(locale: Locale): Set<string> {
-  return new Set(Object.keys(DICTS[locale][1]!).filter((k) => k !== '_meta'));
+  return new Set(Object.keys(DICTS[locale]).filter((k) => k !== '_meta'));
 }
 
 const BCP47: Record<Locale, string> = { vi: 'vi-VN', en: 'en-GB' };

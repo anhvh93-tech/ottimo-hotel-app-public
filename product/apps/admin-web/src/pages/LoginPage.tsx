@@ -13,6 +13,8 @@ type Banner = {
   title?: string;
   text: string;
   role?: 'alert' | 'status';
+  /** 429: text computed from the remaining lock time at render. */
+  rateLimited?: boolean;
 } | null;
 
 /** Where to go after sign-in: the deep link the user opened if their role may open it (US-001 AC2). */
@@ -51,10 +53,15 @@ export function LoginPage() {
   const userRef = useRef<HTMLInputElement>(null);
 
   // 429: lock the button until Retry-After passes (H01 variant).
+  // The banner text is derived from `lockedUntil` on every tick, so the minutes count down and the
+  // banner disappears when the lock ends (FB-R2-UXD-FE-05).
   useEffect(() => {
     if (!lockedUntil) return;
     const id = setInterval(() => {
-      if (Date.now() >= lockedUntil) setLockedUntil(null);
+      if (Date.now() >= lockedUntil) {
+        setLockedUntil(null);
+        setBanner(null);
+      }
       setTick((x) => x + 1);
     }, 1000);
     return () => clearInterval(id);
@@ -92,7 +99,7 @@ export function LoginPage() {
         setBanner({ tone: 'warn', text: t('login.offline') });
       } else if (err.code === 'RATE_LIMITED') {
         setLockedUntil(Date.now() + (err.retryAfterSeconds ?? 900) * 1000);
-        setBanner({ tone: 'bad', text: problemView(t, err).text });
+        setBanner({ tone: 'bad', text: '', rateLimited: true });
       } else if (err.code === 'MFA_REQUIRED') {
         // R3: TOTP step (auth.totp.*). R2 only reserves the place.
         setBanner({
@@ -123,6 +130,11 @@ export function LoginPage() {
   };
 
   const locked = lockedUntil !== null && Date.now() < lockedUntil;
+  const bannerText = banner?.rateLimited
+    ? t('error.RATE_LIMITED', {
+        minutes: Math.max(1, Math.ceil(((lockedUntil ?? Date.now()) - Date.now()) / 60_000)),
+      })
+    : banner?.text;
 
   return (
     <div className="center-page">
@@ -145,7 +157,7 @@ export function LoginPage() {
         ) : null}
         {banner ? (
           <Alert tone={banner.tone} title={banner.title} role={banner.role ?? 'alert'}>
-            {banner.text}
+            {bannerText}
           </Alert>
         ) : null}
         <Field label={t('auth.login.username')} required error={errors.username}>
@@ -153,6 +165,7 @@ export function LoginPage() {
             <input
               {...p}
               ref={userRef}
+              name="username"
               className="input"
               autoComplete="username"
               autoCapitalize="none"
@@ -168,6 +181,7 @@ export function LoginPage() {
               <input
                 {...p}
                 className="input"
+                name="password"
                 type={showPw ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={password}
@@ -180,7 +194,7 @@ export function LoginPage() {
                 aria-pressed={showPw}
                 onClick={() => setShowPw((v) => !v)}
               >
-                {t('login.show_password')}
+                {t(showPw ? 'login.hide_password' : 'login.show_password')}
               </button>
             </div>
           )}

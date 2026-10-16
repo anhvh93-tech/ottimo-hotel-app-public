@@ -8,8 +8,9 @@ import { useSession } from '../session/SessionProvider';
 
 /**
  * H03 "Hôm nay" – Sprint 1 skeleton. Arrivals/departures, "Cần chú ý" and KPIs come with their APIs
- * (getArrivalsDepartures, listAttentionItems, getTonightKpi – Sprint 3/4); until then the page shows
- * the designed empty state.
+ * (getArrivalsDepartures, listAttentionItems, getTonightKpi – Sprint 3/4). Until then the page shows
+ * the "being built" state – never `today.empty_*`, which would claim there are no guests today
+ * (FB-R2-UXD-FE-02). `today.empty_*` is for an empty API answer only.
  */
 export function TodayPage() {
   const { t, locale } = useI18n();
@@ -32,8 +33,8 @@ export function TodayPage() {
       />
       <Page>
         <StateView
-          icon="sparkle"
-          title={t('today.empty_title')}
+          icon="clock"
+          title={t('shell.coming_title')}
           action={
             canRack ? (
               <Link className="btn" to={rack.path}>
@@ -42,7 +43,7 @@ export function TodayPage() {
             ) : undefined
           }
         >
-          {t('today.empty_body')}
+          {t('shell.coming_body', { screen: t('today.title') })}
         </StateView>
       </Page>
     </>

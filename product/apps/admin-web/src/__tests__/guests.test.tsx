@@ -2,7 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../mocks/node';
-import { renderApp } from '../test/render';
+import { renderApp, usernameLabel } from '../test/render';
+import { MOCK_PASSWORD } from '../mocks/seed';
 import { GuestPicker } from '../components/GuestPicker';
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -142,6 +143,27 @@ describe('H06 Khách hàng (US-071…073)', () => {
     await user.click(screen.getByRole('button', { name: 'Thêm khách' }));
     dlg = await screen.findByRole('dialog', { name: 'Hồ sơ khách mới' });
     expect(within(dlg).getByLabelText(/Họ và tên/)).toHaveValue('Phạm Nháp');
+  });
+
+  it('draft keeps C2 data out of Web Storage and is wiped on sign-out (FB-R2-SEC-FE-01, SR-PWA-07)', async () => {
+    const { user } = renderApp('/guests', 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: 'Thêm khách' }));
+    let dlg = await screen.findByRole('dialog', { name: 'Hồ sơ khách mới' });
+    await user.type(within(dlg).getByLabelText(/Họ và tên/), 'Phạm Nháp');
+    await user.type(within(dlg).getByLabelText(/Số điện thoại/), '0912 000 111');
+    const dump = JSON.stringify({ ...sessionStorage }) + JSON.stringify({ ...localStorage });
+    expect(dump).not.toMatch(/Phạm Nháp|0912|ottimo\.draft/);
+    await user.click(within(dlg).getByRole('button', { name: 'Đóng (giữ nháp)' }));
+    await user.click(screen.getByRole('button', { name: /Hạnh · Lễ tân/ }));
+    await user.click(screen.getByRole('button', { name: 'Đăng xuất' }));
+    await user.type(await screen.findByLabelText(usernameLabel()), 'qa.fd');
+    await user.type(screen.getByLabelText(/^Mật khẩu/), MOCK_PASSWORD);
+    await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
+    await screen.findByRole('heading', { level: 1, name: /Hôm nay/ });
+    await user.click(screen.getByRole('link', { name: /Khách/ }));
+    await user.click(await screen.findByRole('button', { name: 'Thêm khách' }));
+    dlg = await screen.findByRole('dialog', { name: 'Hồ sơ khách mới' });
+    expect(within(dlg).getByLabelText(/Họ và tên/)).toHaveValue('');
   });
 });
 

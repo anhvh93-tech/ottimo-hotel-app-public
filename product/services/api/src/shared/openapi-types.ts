@@ -21,11 +21,15 @@ export interface OperationMeta {
 }
 
 export interface SecurityParameterBounds {
-  type: 'integer' | 'array';
+  /** 'object' (0.3.4: session_policy, login_lockout) = nested bounds in `properties`. */
+  type: 'integer' | 'array' | 'object';
   minimum?: number;
   maximum?: number;
   uniqueItems?: boolean;
   items?: { enum: string[] };
+  required?: string[];
+  properties?: Record<string, Omit<SecurityParameterBounds, 'default'> & { default?: unknown }>;
+  description?: string;
   default: unknown;
   ref?: string;
 }

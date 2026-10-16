@@ -1,8 +1,9 @@
 /**
  * Staff sessions (erd 4.2 user_session, SR-SES-01…06).
  * - Token: 256-bit random, cookie only; DB keeps SHA-256 (user_session.id).
- * - Lifetime by client (parameter session_policy, SR-SES-03): idle_expires_at slides on activity,
- *   expires_at is the hard maximum. Checked on every request by SessionPolicyInterceptor.
+ * - Lifetime by client (parameter session_policy – strictest across the user's properties,
+ *   IdentityParamsService; SR-SES-03): idle_expires_at slides on activity, expires_at is the hard maximum.
+ *   Checked on every request by the AuthGuard; slid by SessionPolicyInterceptor.
  * - CSRF token = HMAC-SHA256(SESSION_SECRET, session id) – synchroniser token bound to the session,
  *   returned in Me.csrfToken, sent back in X-CSRF-Token (SR-SES-04). No extra column needed.
  * - revokeAll(): role change, disable, password reset/change (SR-SES-06) – same transaction as the change.
@@ -13,7 +14,6 @@ import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import { cookieNames } from '../../../shared/http/cookies';
-import { ParameterService } from '../../platform/public/parameter.service';
 import { IDENTITY_OPTIONS, type IdentityOptions } from './identity-options';
 
 export type ClientOrigin = 'admin' | 'staff_pwa';
@@ -49,7 +49,6 @@ export class SessionService {
 
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
-    @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
   ) {
     // dev/test without SESSION_SECRET: random per process (tokens die on restart – acceptable there).
@@ -57,11 +56,6 @@ export class SessionService {
       ? Buffer.from(options.sessionSecret, 'utf8')
       : randomBytes(32);
     this.names = cookieNames(options.cookieSecurePrefix);
-  }
-
-  /** session_policy for the context property (catalogue default without a property). */
-  async policy(tx: Tx, asOf: string): Promise<SessionPolicy> {
-    return this.params.get<SessionPolicy>(tx, 'session_policy', asOf);
   }
 
   async create(

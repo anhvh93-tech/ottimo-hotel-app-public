@@ -65,7 +65,7 @@ export function parseAllowedOrigins(env: NodeJS.ProcessEnv, appEnv: AppEnv): All
   const admin = read('ADMIN_BASE_URL', env.ADMIN_BASE_URL || env.APP_BASE_URL);
   const staff = read('STAFF_BASE_URL', env.STAFF_BASE_URL);
   const guest = read('GUEST_BASE_URL', env.GUEST_BASE_URL);
-  return { staff: [...new Set([...admin, ...staff])], guest };
+  return { staff: [...new Set([...admin, ...staff])], guest, admin, staffPwa: staff };
 }
 
 export class ConfigError extends Error {

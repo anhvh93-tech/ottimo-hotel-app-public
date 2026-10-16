@@ -6,9 +6,7 @@ import { AppModule } from './app.module';
 import { createRuntime } from './bootstrap';
 import { PgPinger } from './db/pinger';
 import { createHttpAdapter } from './http';
-import { ApprovalsModule } from './modules/approvals/approvals.module';
-import { AuditModule } from './modules/audit/audit.module';
-import { featureModules, originsFrom } from './modules/feature-modules';
+import { featureModules } from './modules/feature-modules';
 import { CSRF_VERIFIER } from './shared/http/csrf';
 
 const log = (msg: string): void => console.log(JSON.stringify({ level: 'info', msg }));
@@ -20,18 +18,19 @@ async function bootstrap(): Promise<void> {
 
   // Test-only endpoints: dynamic import, never in production (config refuses the flag there), and the
   // folder is absent from production images (Dockerfile.api) – openapi.test.yaml, SR-SECR-05.
-  // Feature modules (BE-A Sprint 1): S27 activity log, S23 approvals.
-  const imports: (DynamicModule | Type)[] = [AuditModule, ApprovalsModule];
-  // Feature modules (BE-B Sprint 1): platform (US-004/005), identity (US-001/002/142), guests (US-071…073).
-  imports.push(
+  // Feature modules: the single list in modules/feature-modules.ts (platform, identity, guests, audit,
+  // approvals).
+  const imports: (DynamicModule | Type)[] = [
     ...featureModules({
       sessionSecret: rt.env.SESSION_SECRET ?? '',
       cookieSecurePrefix: config.cookieSecurePrefix,
-      adminOrigins: originsFrom(rt.env.ADMIN_BASE_URL || rt.env.APP_BASE_URL),
-      pwaOrigins: originsFrom(rt.env.STAFF_BASE_URL),
+      // Same validated origins as the guard (config.ts: https in staging/production) – ARC-BE-12 (b).
+      adminOrigins: config.allowedOrigins.admin ?? [],
+      pwaOrigins: config.allowedOrigins.staffPwa ?? [],
       ipHmacKey: rt.env.LOG_IP_HMAC_KEY ?? '',
+      appEnv: config.appEnv,
     }),
-  );
+  ];
   if (config.testSupport.enabled && config.appEnv !== 'production') {
     // CommonJS build: a synchronous require of the folder (dist/test-support) – it only exists in images
     // built with INCLUDE_TEST_SUPPORT=1; a missing folder fails startup loudly.

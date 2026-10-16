@@ -18,9 +18,10 @@ import { tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
+import { AuditService } from '../../audit/public/audit.service';
 import { parseBody } from '../../platform/public/validation';
-import { normalizeName } from '../../guests/public/normalize';
+import { isValidName, normalizeName } from '../../guests/public/normalize';
 import { type HttpRequest, type Reply, principalOf } from './auth.controller';
 import { type UserDto, UsersService } from './users.service';
 
@@ -34,7 +35,8 @@ const displayName = z
       .string()
       .min(1)
       .max(80)
-      .refine((s) => /\p{L}/u.test(s) && !/\d/.test(s), { params: { code: 'NAME_INVALID' } }),
+      // V-01 – the same rule as guest names (letters of any script, space - ' .): BUG-R2-011.
+      .refine((s) => isValidName(s), { params: { code: 'NAME_INVALID' } }),
   );
 
 const propertyRole = z.object({ propertyId: z.string().regex(UUID), role: z.string() });
@@ -88,6 +90,7 @@ export class UsersController {
     @Inject(DATABASE) private readonly db: Database,
     @Inject(UsersService) private readonly users: UsersService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   @Get()
@@ -128,10 +131,28 @@ export class UsersController {
     const input = parseBody(updateSchema, body);
     const version = expectedVersion(req);
     const p = principalOf(req);
-    const result = await this.uow.run(req, async (tx) => ({
-      status: 200,
-      body: await this.users.update(tx, p.userId, userId, version, input, req.id),
-    }));
+    let result;
+    try {
+      result = await this.uow.run(req, async (tx) => ({
+        status: 200,
+        body: await this.users.update(tx, p.userId, userId, version, input, req.id),
+      }));
+    } catch (err) {
+      // SEC-BE-07: reset/status of a person with roles at a property the caller does not own. The
+      // transaction is rolled back and its connection returned – now the denial is logged (US-002 AC2).
+      if (err instanceof ProblemError && err.code === 'FORBIDDEN_ACTION') {
+        await this.audit.recordDenied(tenantOf(p), {
+          action: 'access.denied',
+          entityType: 'app_user',
+          entityId: userId,
+          reason: 'OTHER_PROPERTY',
+          requestId: req.id,
+          sessionId: p.sessionId,
+          after: { operationId: 'updateUser', roles: p.roles },
+        });
+      }
+      throw err;
+    }
     reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);
   }

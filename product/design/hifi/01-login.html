@@ -39,14 +39,13 @@
           <div class="alert warn" role="status" data-show="offline"><svg class="ico" aria-hidden="true"><use href="#i-offline"/></svg><div class="txt" data-i18n="login.offline">Không có mạng. Cần kết nối để đăng nhập.</div></div>
           <div class="alert bad" role="alert" data-show="error"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="auth.login.error_generic">Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại.</div></div>
           <div class="field">
-            <label for="u1" data-i18n="auth.login.username">Số điện thoại hoặc email</label>
-            <input class="input" id="u1" autocomplete="username" value="0905 111 222">
+            <label for="u1" data-i18n="auth.login.username">Tên đăng nhập</label>
+            <input class="input" id="u1" autocomplete="username" value="hanh.fd">
           </div>
           <div class="field">
             <label for="p1" data-i18n="login.password">Mật khẩu</label>
             <div class="input-affix"><input class="input" id="p1" type="password" autocomplete="current-password" value="••••••••••"><button type="button" class="btn ghost sm" style="border-radius:0" data-i18n="login.show_password">Hiện</button></div>
           </div>
-          <label class="check"><input type="checkbox"><span data-i18n="login.remember">Giữ đăng nhập trên máy này (máy của khách sạn)</span></label>
           <div style="margin-top:16px">
             <button class="btn pri block" data-show="normal error offline" data-i18n="login.submit">Đăng nhập</button>
             <button class="btn pri block busy" aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span><span data-i18n="login.submitting">Đang đăng nhập…</span></button>
@@ -64,7 +63,7 @@
         <div class="variant"><span class="label-h">Điện thoại (PWA nhân viên)</span>
           <div class="touch" style="border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;background:var(--bg)">
             <div class="brand" style="padding:0;margin-bottom:12px">OTTIMO<small>STAFF</small></div>
-            <div class="field"><label for="u2" data-i18n="auth.login.username">Số điện thoại hoặc email</label><input class="input" id="u2" autocomplete="username"></div>
+            <div class="field"><label for="u2" data-i18n="auth.login.username">Tên đăng nhập</label><input class="input" id="u2" autocomplete="username"></div>
             <div class="field"><label for="p2" data-i18n="login.password">Mật khẩu</label><input class="input" id="p2" type="password" autocomplete="current-password"></div>
             <button class="btn pri block" data-i18n="login.submit">Đăng nhập</button>
           </div></div>

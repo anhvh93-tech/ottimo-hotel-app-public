@@ -9,3 +9,11 @@ const target = join(api, 'dist', 'db', 'migrations');
 rmSync(target, { recursive: true, force: true });
 cpSync(join(api, 'src', 'db', 'migrations'), target, { recursive: true });
 console.log('copied migrations to dist/db/migrations');
+
+// SR-AUTH-02 offline common-password list (identity module loads it next to the compiled passwords.js).
+const pwDir = join(api, 'src', 'modules', 'identity', 'public');
+const pwTarget = join(api, 'dist', 'modules', 'identity', 'public');
+for (const f of ['common-passwords.txt', 'common-password-bases.json']) {
+  cpSync(join(pwDir, f), join(pwTarget, f));
+}
+console.log('copied common-passwords.txt to dist/modules/identity/public');

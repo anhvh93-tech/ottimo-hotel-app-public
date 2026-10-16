@@ -134,3 +134,11 @@ body {
   padding: 8px 12px;
   user-select: all;
 }
+/* Route wrapper carrying data-screen for E2E selectors (admin-web routes.tsx) – no layout box. */
+.screen-root {
+  display: contents;
+}
+/* Row being edited in a drawer (plain tables must not use aria-selected – FB-R2-UXD-FE-13). */
+.table tr.is-editing td {
+  background: var(--oak-soft);
+}

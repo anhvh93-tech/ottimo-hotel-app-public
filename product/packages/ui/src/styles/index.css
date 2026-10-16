@@ -4,4 +4,13 @@
    - app.css: only what the hi-fi demo pages fake statically (real overlays, toasts, layout). */
 @import '../../../../design/wireframes/assets/tokens.css';
 @import '../../../../design/hifi/assets/hifi.css';
+/* Self-hosted DS fonts (OFL-1.1, FB-R2-UXD-FE-10): Lora 500/600 for headings, Be Vietnam Pro 400/500/600
+   for text. Imported AFTER hifi.css so these url() faces replace its local()-only faces; each file
+   carries unicode-range subsets (latin, vietnamese, cyrillic…), so a browser only downloads what a page
+   uses, with font-display: swap. Vite copies the woff2 files into dist/assets (no external CDN – CSP). */
+@import '@fontsource/lora/500.css';
+@import '@fontsource/lora/600.css';
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css';
 @import './app.css';

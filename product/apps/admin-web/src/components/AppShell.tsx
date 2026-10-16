@@ -54,7 +54,7 @@ export function AppShell() {
       <a className="skip" href="#main">
         {t('shell.skip')}
       </a>
-      <nav className="side" aria-label={t('nav.sec.ops')}>
+      <nav className="side" aria-label={t('shell.main_nav')}>
         <div className="brand">
           OTTIMO<small>BOUTIQUE STAY · DESK</small>
         </div>
@@ -79,7 +79,7 @@ export function AppShell() {
               <div key={sec} style={{ display: 'contents' }}>
                 <div className="sec">{t(SECTION_LABEL[sec])}</div>
                 {inSec.map((n) => (
-                  <NavLink key={n.id} to={n.path}>
+                  <NavLink key={n.id} to={n.path} data-screen={n.screen}>
                     <Icon name={n.icon} />
                     <span>{t(labelFor(n, session.roles))}</span>
                     {n.kbd ? <kbd aria-hidden="true">{n.kbd}</kbd> : null}

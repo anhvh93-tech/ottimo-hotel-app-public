@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { server } from '../mocks/node';
 import { mockControl } from '../mocks/handlers';
 import { MOCK_PASSWORD } from '../mocks/seed';
-import { renderApp, signIn } from '../test/render';
+import { renderApp, signIn, usernameLabel } from '../test/render';
 
-const usernameField = () => screen.findByLabelText(/Số điện thoại hoặc email/);
+const usernameField = () => screen.findByLabelText(usernameLabel());
 
 describe('H01 sign-in (US-001)', () => {
   it('deep link while signed out → login, then back to the page if the role may open it (AC2)', async () => {

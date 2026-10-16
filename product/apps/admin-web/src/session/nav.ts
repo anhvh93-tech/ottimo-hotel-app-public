@@ -17,7 +17,7 @@ export interface NavItem {
   labelOwn?: string;
   screen: string;
   section: Section;
-  /** Only draw for these roles (hi-fi role cards). Route access still only needs `screen`. */
+  /** Only for these roles (hi-fi role cards). Menu AND route guard use it (BUG-R2-010); the API is the real check. */
   roles?: Role[];
   /** C3 screens are hidden on devices not granted by the owner (US-142 AC2, EP00 10.4). */
   needsTrustedDevice?: boolean;
@@ -216,13 +216,19 @@ export interface Access {
   deviceTrusted: boolean;
 }
 
+/**
+ * Route guard: screen code from `screens` AND the item's role cards – the same rule as the menu, so a
+ * deep link to a hidden item shows "no access" instead of a page whose API call fails (BUG-R2-010).
+ * The trusted-device check is separate (the route shows DeviceBlocked instead).
+ */
 export function canOpen(item: NavItem, access: Access): boolean {
-  return access.screens.includes(item.screen);
+  if (!access.screens.includes(item.screen)) return false;
+  if (item.roles && !item.roles.some((r) => access.roles.includes(r))) return false;
+  return true;
 }
 
 export function isVisible(item: NavItem, access: Access): boolean {
   if (!canOpen(item, access)) return false;
-  if (item.roles && !item.roles.some((r) => access.roles.includes(r))) return false;
   if (item.needsTrustedDevice && !access.deviceTrusted) return false;
   return true;
 }

@@ -63,7 +63,12 @@ function Screen({ item, children }: { item: NavItem; children: ReactNode }) {
       </>
     );
   }
-  return <>{children}</>;
+  // Stable hook for E2E selectors by screen code (FB-R2-QA-FE-05); `display: contents` – no layout box.
+  return (
+    <div className="screen-root" data-screen={item.screen}>
+      {children}
+    </div>
+  );
 }
 
 const PAGES: Record<string, () => ReactNode> = {
