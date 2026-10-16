@@ -18,7 +18,7 @@
 | Round | Đối tượng kiểm thử | Hình thức |
 |---|---|---|
 | R1 (tài liệu) | PRD, backlog, BR, BA (SM, RBAC, UC), ERD, OpenAPI, wireframe, khung repo | Kiểm truy vết, kiểm nhất quán chéo, chạy CI khung + `health` (plan R1 mục 6) |
-| R2 (lõi MVP) | 74 story Must R2: rack, đặt/giữ chỗ, nhận/trả phòng, folio, thu tiền (VietQR, ghi tay), khai báo bán tự động, buồng phòng, bảo trì, app khách VI/EN, phân quyền | Unit + API + E2E + kiểm thử thủ công khám phá; đồng thời; mốc giờ |
+| R2 (lõi MVP) | 77 story Must R2: rack, đặt/giữ chỗ, nhận/trả phòng, folio, thu tiền (VietQR, ghi tay), khai báo bán tự động, buồng phòng, bảo trì, app khách VI/EN, phân quyền | Unit + API + E2E + kiểm thử thủ công khám phá; đồng thời; mốc giờ |
 | R3 (RC) | Story Must R3 (dài hạn quyết toán, OTA thật qua channel manager, MISA, RU, xung đột OTA, quyền chủ thể dữ liệu) + hồi quy toàn bộ | Hồi quy, hiệu năng (k6), đa ngôn ngữ, thiết bị, mất mạng, bảo mật cùng SEC |
 | R4+ | Lỗi chủ đầu tư báo | Tái hiện → test chống tái phát → xác nhận bản sửa |
 

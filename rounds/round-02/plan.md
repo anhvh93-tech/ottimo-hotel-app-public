@@ -106,7 +106,7 @@ Quy ước như R1: mỗi vai nộp `rounds/round-02/outputs/<VAI>/report.md` (�
 | # | Việc | Vai | Nguồn | Điều kiện xong |
 |---|---|---|---|---|
 | W1 | Endpoint + enum nhóm đơn (SM-16) và đóng ca (SM-17) trong OpenAPI (hợp đồng, code R3) | ARC | ARC-responses mục 5; BUG-R1-010 | Spec hợp lệ, có `x-stories` US-140/US-124 |
-| W2 | Rà 14 operation lệch `x-roles` ↔ rbac; phủ `x-rbac-field` mọi thuộc tính nhạy cảm | ARC + BA + QA | ARC report "Việc chưa xong"; BUG-R1-005, 006, 011, 012 | `gen_traceability.py --strict` exit 0 |
+| W2 | Giữ 0 operation lệch `x-roles` ↔ rbac (đã đạt cuối R1); phủ `x-rbac-field` mọi thuộc tính nhạy cảm | ARC + BA + QA | ARC report "Việc chưa xong"; BUG-R1-005, 006, 011, 012 | `gen_traceability.py --strict` exit 0 |
 | W3 | Bỏ nhánh `--no-frozen-lockfile` (CI + 2 Dockerfile) sau khi commit lockfile; `turbo prune` | OPS (SEC kiểm) | OPS-responses SEC-OPS-05, ARC-OPS-06; SEC-R1-24 | SEC đóng SEC-R1-24 |
 | W4 | Chạy thật CI (format, lint, test + PostgreSQL, build, Redocly, gitleaks, build ảnh + smoke `/health`) khi có Node/Docker và repo | OPS + QA | test-report mục 3; QC R1 C2 | Có link một lần chạy xanh; TC-X-050 Đạt |
 | W5 | Bật chặn `contract-lint`; thêm job `api-contract` (sau W2) | OPS | ARC-OPS-08; BUG-R1-021 | CI đỏ khi OpenAPI cho thêm vai |
@@ -115,10 +115,14 @@ Quy ước như R1: mỗi vai nộp `rounds/round-02/outputs/<VAI>/report.md` (�
 | W8 | Khung E2E Playwright + bộ smoke (S) chạy trong CI | QA | QA report | Smoke chạy mỗi PR (cho phép đỏ ở ca chưa có tính năng, đánh dấu skip) |
 | W9 | Chép interface INT vào contracts; `scrubCardData`, `EnvCredentialProvider`, `assertSafeConfig()` | INT + BE | INT report; OPS-responses mục 5 | Build + test xanh |
 | W10 | Chốt thẻ BE-ARC 01–07 | ARC + BE | BE-on-ARC giả định ước lượng | Không chốt → cộng 1–1,5 tuần BE (rủi ro R2-3) |
-| W11 | Lỗi tài liệu R1 còn Open: BUG-R1-001, 003, 004, 007, 014, 015, 017 (OpenAPI), 018, 019 | BA, DATA, INT, ARC, UXD | bug-list | QA chuyển Closed |
+| W11 | Lỗi tài liệu R1 còn Open (P3): BUG-R1-014, 015, 017 (phần ARC), 023 | ARC, UXD, BA | bug-list | QA chuyển Closed |
 | W12 | Áp phương án phạm vi vào backlog (R-C hoặc R-A/R-B) | PO | ESC-012 | Backlog cập nhật, QA sinh lại traceability |
 | W13 | Ước lượng FE, MOB theo màn; BE xác nhận lại bảng mục 3.3 | FE, MOB, BE | – | ORC chốt lịch sprint |
 | W14 | DNS email, chọn VPS staging (báo giá ≥ 2 hãng) | OPS | OPS report R4; INT-ARC-17 | Phụ thuộc ESC-002, ESC-010 |
+| W15 | Step-up + `x-c3-log` + 401/403 cho `getDoorCredential`/`setDoorCredential` | ARC + BE (SEC kiểm) | BUG-R1-SEC-10 (P2); decision-log 16/10 | **Phải xong trước khi BE cài A21 (mã cửa)** |
+| W16 | Đồng bộ `x-c3-log`, 401/403 cho mọi operation C3; thêm A119 vào `x-rbac` của `setParameter` | ARC | BUG-R1-SEC-11 (P3) | QA script + SEC xác nhận |
+| W17 | `GUEST_CODE_SIGNING_KEY` vào `REQUIRED_SECRETS`; mỗi mục đích một khóa (ADR-013 điểm 5) | BE | BUG-R1-SEC-07 (phần BE) | Test config đỏ khi thiếu khóa |
+| W18 | Đóng SEC-06, SEC-08 khi CI chạy xanh lần đầu (vai DB 4 vai trên PostgreSQL thật; quét bundle `__test__`) | OPS + SEC | BUG-R1-SEC-06, 08 | Gắn với W4 |
 
 ### 3.3 Ước lượng BE và chia luồng (phương án R-C)
 

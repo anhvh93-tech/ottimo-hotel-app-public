@@ -152,3 +152,36 @@
 - Chạy TC-X-050 và CI ngay khi máy có node, pnpm, Docker (test-report mục 5).
 - Kiểm lại các lỗi khi tác giả báo Fixed.
 - R2 tuần 1: BUG-R1-016 (quy ước mã DS-0) và -020; TC cho 2 mã lỗi mới (BUG-R1-007).
+
+---
+
+## Cập nhật bước 5 – lượt 2/3 (kiểm lại sau vòng sửa, 16/10/2026)
+
+**Đã làm gì**
+- Kiểm lại từng lỗi tác giả báo Fixed. Nguồn: fix-notes của ARC, BA, PO, DATA, INT, OPS và sec-findings Phần B, D. QA tự grep và tự chạy script trên OpenAPI 0.2.1-draft và rbac.json 0.2.1, không dựa vào lời báo. Không lỗi nào phải mở lại.
+- Gộp 11 lỗi SEC (`BUG-R1-SEC-01…11`, giữ mã) vào bug-list. Thêm BUG-R1-023 (P3, BA). Tổng: 34 lỗi, gồm 20 Closed, 4 Open (P3), 10 Deferred, 0 Reopened. **Không còn P0/P1 mở.**
+- Chạy lại `gen_traceability.py --strict`: exit 0, 0 operation lệch quyền, chuyển trạng thái 102/122. Chạy openapi-spec-validator: cả 2 spec OK.
+- Thêm 9 TC: TC-NT-039, TC-RB-027, TC-SEC-026…030, TC-X-065, TC-X-066. Tổng 383 TC, Smoke 42. Bỏ ghi chú lệch ở TC-L2-074 và giả định ở TC-SEC-008. Sửa "74" → "77 story" ở test-strategy (phần QA của BUG-R1-017).
+- Kiểm tĩnh phần OPS: `bash -n`, YAML, chạy `check-no-test-surface.sh` cả ca đúng lẫn ca đối chứng. C2 vẫn BLOCKED vì máy chưa có node, pnpm, docker.
+- Kiểm C5: đã có `rounds/round-02/plan.md` (dự thảo, chờ ESC-012).
+
+**File tạo/sửa (lượt 2)**
+- `rounds/round-01/qa/bug-list.md`, `rounds/round-01/qa/test-report.md`
+- `product/tests/test-cases/r1-main-flows.md` (v0.2.2), `product/docs/qa/test-strategy.md` (số đếm 77)
+- `product/docs/qa/traceability.md` (script sinh lại)
+
+**Giả định**
+- "Deferred" chỉ dùng khi có nơi theo dõi. SEC-06 và SEC-08 đã sửa đúng theo kiểm tĩnh nhưng để Deferred R2 cho đến khi CI chạy thật (khớp "Đạt có điều kiện" của SEC).
+- SEC-09 là trùng lỗi BUG-R1-004 và đóng cùng lỗi đó.
+- BUG-R1-019 đóng dù còn 1 chỗ nhỏ (state-machines dòng 113), vì cùng bảng đã dẫn BR-010 ở quy ước.
+
+**Rủi ro / vướng mắc**
+- C2 chưa có bằng chứng chạy.
+- Ba lỗi Deferred chưa có dòng trong plan R2: SEC-10, SEC-11 và phần BE của SEC-07. Đã đề nghị PO/ORC thêm (test-report mục 7).
+
+**ESC mới:** không có.
+
+**Việc chưa xong**
+- Kiểm lại 014, 015, 017 (phần ARC) và 023 khi tác giả sửa.
+- Chạy TC-X-050, 065, 066 và CI khi có công cụ, rồi đóng SEC-06 và SEC-08.
+- W5/W6 ở R2: luật kiểm SEC-11 trong `--strict`, quy ước mã DS-0.
