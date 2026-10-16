@@ -36,6 +36,7 @@ import {
   saveQuote,
   track,
   withDeposit,
+  WindowTakenError,
   type ProblemFields,
   type Reservation,
   type S2Context,
@@ -103,6 +104,23 @@ async function race(
   return o;
 }
 
+/** Chọn đêm trống rồi đua; nếu lần dò cọc thấy đêm vừa bị ca song song chiếm (WindowTakenError) thì chọn đêm khác. */
+async function raceOnFreeNight(
+  pick: () => Promise<{ arrival: string; departure: string }>,
+  run: (w: { arrival: string; departure: string }) => Promise<RaceOutcome>,
+): Promise<{ w: { arrival: string; departure: string }; o: RaceOutcome }> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const w = await pick();
+    try {
+      return { w, o: await run(w) };
+    } catch (e) {
+      if (!(e instanceof WindowTakenError)) throw e;
+    }
+  }
+  test.skip(true, 'môi trường: đêm trống liên tục bị ca song song chiếm');
+  throw new Error('unreachable');
+}
+
 test.describe(
   'Đồng thời – chống đặt trùng (US-018 AC2)',
   { tag: ['@api', '@sprint2', '@concurrency'] },
@@ -125,8 +143,10 @@ test.describe(
       const rm = room(c, String(o906.input.room)); // 203
       const results: string[] = [];
       for (let round = 0; round < ROUNDS; round++) {
-        const w = await freeWindow(request, fd, rm, 1, { today, minOffset: 20, maxOffset: 340 });
-        const o = await race(request, sessions, c, rm.roomNo, w.arrival, w.departure, N, guestId);
+        const { w, o } = await raceOnFreeNight(
+          () => freeWindow(request, fd, rm, 1, { today, minOffset: 20, maxOffset: 340 }),
+          (w) => race(request, sessions, c, rm.roomNo, w.arrival, w.departure, N, guestId),
+        );
         results.push(`${w.arrival}: ${describeOutcome(o)}`);
         const log = results.join('\n');
         expect(o.other.filter((r) => r.status >= 500).length, log).toBe(0);
@@ -165,16 +185,9 @@ test.describe(
       const sessions = await Promise.all(BOOKERS.map((u) => sessionOrSkip(request, u)));
       const guestId = await newGuest(request, sessions[0]!);
       const rm = room(c, '203');
-      const w = await freeWindow(request, sessions[0]!, rm, 1, { today, minOffset: 20 });
-      const o = await race(
-        request,
-        sessions,
-        c,
-        rm.roomNo,
-        w.arrival,
-        w.departure,
-        N_X001,
-        guestId,
+      const { o } = await raceOnFreeNight(
+        () => freeWindow(request, sessions[0]!, rm, 1, { today, minOffset: 20 }),
+        (w) => race(request, sessions, c, rm.roomNo, w.arrival, w.departure, N_X001, guestId),
       );
       const msg = describeOutcome(o);
       test.info().annotations.push({ type: 'outcome', description: msg });

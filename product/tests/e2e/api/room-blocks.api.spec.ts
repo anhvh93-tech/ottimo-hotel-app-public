@@ -196,10 +196,20 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     });
     expect(blk.status, JSON.stringify(blk.body)).toBe(201);
     expect(nightsOf(start, reopen)).toHaveLength((o.expected.blockedNights as string[]).length);
-    for (const n of nightsOf(start, reopen)) {
-      expect(await isRoomFree(request, fd, rm, n, addDays(n, 1)), n).toBe(false);
-    }
-    expect(await isRoomFree(request, fd, rm, reopen, addDays(reopen, 1))).toBe(true);
+    // lý do căn không trống (searchAvailability.requestedRoom.reason): đêm khóa = `blocked`; ngày mở bán lại không
+    // còn bị khối chặn (có thể `booked` nếu ca song song vừa đặt 401 – không phải lỗi của khối)
+    const reason = async (n: string) => {
+      const r = await call<{ requestedRoom?: { available?: boolean; reason?: string } }>(
+        request,
+        'GET',
+        `/v1/properties/${propertyIdOf(fd)}/availability`,
+        { session: fd, query: { arrival: n, departure: addDays(n, 1), roomId: rm.id } },
+      );
+      expect(r.status).toBe(200);
+      return r.body.requestedRoom?.available ? 'free' : (r.body.requestedRoom?.reason ?? '?');
+    };
+    for (const n of nightsOf(start, reopen)) expect(await reason(n), n).toBe('blocked');
+    expect(await reason(reopen)).not.toBe('blocked');
   });
 
   test('TC-L6-041 + TC-L2-023 (7)(8) khối trùng đơn → 409 kèm danh sách đơn; MGR xác nhận → lưu; kéo dài vào đêm có đơn → 409', async ({

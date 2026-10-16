@@ -49,3 +49,10 @@
 - Test của BE-A đổi sang kênh `direct` theo DS-E mới (A-08 – QA bỏ 5 kênh trực tiếp).
 - Sinh lại `packages/api-client` (`pnpm --filter @ottimo/api-client gen`) vì kiểu sinh lệch openapi 0.3.5 §8.5 – chỉ tệp sinh, không sửa tay.
 - Kết quả: `format:check` xanh · `lint` 12/12 · `turbo run test --force` **12/12** (api 32 file / 1149 ca; admin-web 108 ca xanh) · `build` 6/6 · `gen-openapi-meta --check` up to date · `drizzle-kit generate` không lệch.
+
+## 7. Sửa BUG-R2-023 và BUG-R2-014 trước QC (16/10/2026)
+- **BUG-R2-023 (US-017 AC9, EP02 3.2)**: `createReservation` kiểm người chốt theo kênh. Nhóm `agent` (CTV) → `closerUserId` bắt buộc và phải là CTV (`kind=agent`); kênh `direct` nguồn `sales_staff` → bắt buộc và phải là người nội bộ (`kind=staff`). Thiếu → `422 closerUserId:REQUIRED`; sai loại / không hoạt động / không thuộc cơ sở → `422 closerUserId:NOT_IN_LIST`. Kênh/nguồn khác: không bắt buộc. Phân loại `agent`/`staff` dùng đúng quy tắc của `listCloserCandidates` (`closerKind()` thay `isPropertyUser()`). `updateReservation` đổi người chốt áp cùng quy tắc (không bắt bổ sung người chốt cho đơn cũ không có).
+- **BUG-R2-014**: `POST /__test__/rate-limits/reset` chỉ mở khóa tạm (`status='locked' AND locked_until IS NOT NULL`); khóa cứng không hạn (seed `qa.locked`) giữ nguyên; bộ đếm vẫn về 0.
+- Test mới: `reservations-fix.test.ts` ca "BUG-R2-023" (4 bước QA + người lạ + 3 ca hợp lệ + PATCH đổi người chốt sai loại); `http-foundation.test.ts` ca "BUG-R2-014" (khóa cứng giữ, khóa tạm mở).
+- Giả định: nguồn `sales_staff` chấp nhận mọi người `kind=staff` (SAL, FD+) như danh sách chọn `listCloserCandidates kind=staff`, không chỉ vai SAL – nếu BA/PO muốn chỉ SAL thì đổi một dòng. `createHold`/tạo giữ chỗ từ báo giá (BE-B) chưa áp quy tắc này.
+- Kết quả: `format:check` xanh · `lint` (eslint + typecheck) 12/12, 0 lỗi (1 cảnh báo có sẵn ở `admin-web/public/mockServiceWorker.js`, không thuộc BE) · `turbo test` 12/12 (api 1151 ca) · `build` 6/6. Không commit.

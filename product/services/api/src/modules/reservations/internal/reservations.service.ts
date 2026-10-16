@@ -361,8 +361,8 @@ export class ReservationsService {
     if (!channel || !channel.is_active) f.add('channelId', 'NOT_IN_LIST');
     if (!room) f.add('roomId', 'NOT_IN_LIST');
     if (!guest) f.add('bookerGuestId', 'NOT_IN_LIST');
-    if (closerUserId && !(await this.isPropertyUser(tx, closerUserId)))
-      f.add('closerUserId', 'NOT_IN_LIST');
+    const closerKind = closerUserId ? await this.closerKind(tx, closerUserId) : null;
+    if (closerUserId && !closerKind) f.add('closerUserId', 'NOT_IN_LIST');
     f.done();
     const ch = channel as ChannelInfo;
     const rm = room as RoomInfo;
@@ -401,6 +401,13 @@ export class ReservationsService {
     }
     if (group === 'direct' && !directSource) f.add('directSource', 'REQUIRED');
     if (group !== 'direct' && directSource) f.add('directSource', 'DIRECT_SOURCE_NOT_ALLOWED');
+    this.checkCloserForChannel(
+      f,
+      group,
+      group === 'direct' ? directSource : null,
+      closerUserId,
+      closerKind,
+    );
     if (ch.requires_ota_ref && !otaRef) f.add('otaRef', 'REQUIRED');
     if (allowUnassigned && group !== 'ota') f.add('allowUnassigned', 'ALLOW_UNASSIGNED_OTA_ONLY');
     if (group === 'internal' && !internalNote) f.add('internalNote', 'REQUIRED');
@@ -996,8 +1003,10 @@ export class ReservationsService {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
     if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.invalid(row);
-    if (closerUserId && !(await this.isPropertyUser(tx, closerUserId))) {
-      f.add('closerUserId', 'NOT_IN_LIST');
+    if (closerUserId) {
+      const kind = await this.closerKind(tx, closerUserId);
+      if (!kind) f.add('closerUserId', 'NOT_IN_LIST');
+      else this.checkCloserForChannel(f, row.channel_group, row.direct_source, closerUserId, kind);
     }
     // The closer drives the commission: after confirmation only MGR+ may change it (EP02 5.4).
     if (
@@ -1220,17 +1229,43 @@ export class ReservationsService {
 
   /**
    * Closer of a booking (BR-903, SEC-BE-26): an ACTIVE user of the property (role not revoked, account
-   * active) holding a role that may close a sale (SAL, CTV, FD+).
+   * active) holding a role that may close a sale (SAL, CTV, FD+). Kind as in listCloserCandidates: `agent`
+   * = only the CTV role, `staff` = any internal role (SAL, FD+). null = not a valid closer.
    */
-  private async isPropertyUser(tx: Tx, userId: string): Promise<boolean> {
-    const { rows } = await tx.query(
-      `SELECT 1 FROM user_property_role upr JOIN app_user u ON u.id = upr.user_id
+  private async closerKind(tx: Tx, userId: string): Promise<'agent' | 'staff' | null> {
+    const { rows } = await tx.query<{ agent: boolean }>(
+      `SELECT bool_or(upr.role = 'collaborator') AND NOT bool_or(upr.role <> 'collaborator') AS agent
+         FROM user_property_role upr JOIN app_user u ON u.id = upr.user_id
         WHERE upr.user_id = $1 AND upr.property_id = $2 AND upr.revoked_at IS NULL AND u.status = 'active'
           AND upr.role IN ('owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator')
-        LIMIT 1`,
+        GROUP BY upr.user_id`,
       [userId, tx.ctx.propertyId],
     );
-    return rows.length > 0;
+    if (rows.length === 0) return null;
+    return rows[0]!.agent ? 'agent' : 'staff';
+  }
+
+  /**
+   * US-017 AC9 / EP02 3.2 (BUG-R2-023): channel group `agent` needs a CTV closer; direct source
+   * `sales_staff` needs an internal closer (kind `staff`); other channels/sources: closer optional.
+   */
+  private checkCloserForChannel(
+    f: Fields,
+    group: string,
+    directSource: string | null | undefined,
+    closerUserId: string | undefined,
+    kind: 'agent' | 'staff' | null,
+  ): void {
+    if (f.has('closerUserId')) return;
+    const need: 'agent' | 'staff' | null =
+      group === 'agent'
+        ? 'agent'
+        : group === 'direct' && directSource === 'sales_staff'
+          ? 'staff'
+          : null;
+    if (!need) return;
+    if (!closerUserId) f.add('closerUserId', 'REQUIRED');
+    else if (kind !== need) f.add('closerUserId', 'NOT_IN_LIST');
   }
 
   /** SEC-BE-28: open holds per SAL/CTV (parameter max_open_holds_per_user); FD+ unlimited. */

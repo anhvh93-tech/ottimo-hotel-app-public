@@ -233,6 +233,8 @@ export class TestRateLimitsController {
   /**
    * Re-runnable E2E on one stack: in-memory windows (login per IP, guest lookup) are cleared for the whole
    * process; DB counters (login lockout, re-auth lock) only for the caller's organisation and the prefix.
+   * Only TEMPORARY locks are lifted (status locked + locked_until); a hard lock without an end (seed
+   * account qa.locked, owner-only unlock) is kept (BUG-R2-014).
    */
   @Post('reset')
   @HttpCode(200)
@@ -249,7 +251,7 @@ export class TestRateLimitsController {
         `UPDATE app_user
             SET failed_login_count = 0, lock_count_24h = 0, locked_until = NULL,
                 approval_pin_failed_count = 0, approval_pin_locked_until = NULL,
-                status = CASE WHEN status = 'locked' THEN 'active' ELSE status END
+                status = CASE WHEN status = 'locked' AND locked_until IS NOT NULL THEN 'active' ELSE status END
           WHERE organization_id = $1 AND starts_with(username, $2)`,
         [p.organizationId, input.usernamePrefix],
       );

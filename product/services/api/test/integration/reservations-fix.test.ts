@@ -734,4 +734,51 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
     expect(await leadStatus(b.leadId)).toBe('quoted');
     await at('2026-10-15T09:00:00+07:00');
   });
+
+  it('BUG-R2-023 / US-017 AC9: CTV channel needs a CTV closer, direct sales_staff source an internal closer', async () => {
+    const base = (over: Record<string, unknown>) =>
+      direct({
+        roomId: ids.rooms['102'],
+        arrivalDate: '2027-03-09',
+        departureDate: '2027-03-11',
+        initialPayment: { type: 'deposit', method: 'cash', amountVnd: 700_000 },
+        ...over,
+      });
+    const ctvCh = { channelId: ids.channels.collaborator, directSource: undefined };
+    const salSrc = { directSource: 'sales_staff' };
+    const fieldErr = async (body: Record<string, unknown>) => {
+      const res = await create(body);
+      expect(res.statusCode, res.body).toBe(422);
+      return res.json().errors.find((e: { field: string }) => e.field === 'closerUserId')?.code;
+    };
+    // QA steps (1)–(4)
+    expect(await fieldErr(base(ctvCh))).toBe('REQUIRED');
+    expect(await fieldErr(base({ ...ctvCh, closerUserId: t.users.sal!.id }))).toBe('NOT_IN_LIST');
+    expect(await fieldErr(base(salSrc))).toBe('REQUIRED');
+    expect(await fieldErr(base({ ...salSrc, closerUserId: t.users.ctv!.id }))).toBe('NOT_IN_LIST');
+    // Unknown user stays NOT_IN_LIST; other direct sources keep the closer optional.
+    expect(await fieldErr(base({ ...ctvCh, closerUserId: randomUUID() }))).toBe('NOT_IN_LIST');
+    const ok1 = await create(base({ ...ctvCh, closerUserId: t.users.ctv!.id }));
+    expect(ok1.statusCode, ok1.body).toBe(201);
+    expect(ok1.json().closerUserId).toBe(t.users.ctv!.id);
+    const ok2 = await create(
+      base({ ...salSrc, roomId: ids.rooms['103'], closerUserId: t.users.sal!.id }),
+    );
+    expect(ok2.statusCode, ok2.body).toBe(201);
+    const ok3 = await create(
+      base({ roomId: ids.rooms['201'], arrivalDate: '2027-03-16', departureDate: '2027-03-18' }),
+    );
+    expect(ok3.statusCode, ok3.body).toBe(201);
+    // Same rule when the closer of a CTV booking is changed (confirmed: MGR+ only).
+    const ch = await c.mgr!.send(
+      'PATCH',
+      url(`/reservations/${ok1.json().id}`),
+      {
+        closerUserId: t.users.sal!.id,
+      },
+      { 'if-match': `"${ok1.json().version}"` },
+    );
+    expect(ch.statusCode, ch.body).toBe(422);
+    expect(ch.json().errors).toEqual([{ field: 'closerUserId', code: 'NOT_IN_LIST' }]);
+  });
 });

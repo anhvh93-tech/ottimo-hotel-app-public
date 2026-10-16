@@ -412,6 +412,36 @@ describe.skipIf(!HAS_DB)(
           422,
         );
       });
+
+      it('keeps hard-locked accounts locked; lifts only temporary locks (BUG-R2-014)', async () => {
+        const h = { cookie: cookie('owner'), 'x-test-token': token };
+        const set = (user: string, lockedUntil: string | null) =>
+          db.withContext(t.ctx(), (tx) =>
+            tx.query(
+              `UPDATE app_user SET status = 'locked', failed_login_count = 5,
+                 locked_until = $2::timestamptz WHERE id = $1`,
+              [t.users[user]!.id, lockedUntil],
+            ),
+          );
+        await set('hk', null); // like seed qa.locked: intentional, owner-only unlock
+        await set('fd', '2099-01-01T00:00:00Z'); // temporary lockout
+        const res = await post(`${T}/rate-limits/reset`, { usernamePrefix: 't.' }, h);
+        expect(res.statusCode).toBe(200);
+        const state = async (user: string) =>
+          (
+            await db.withContext(t.ctx(), (tx) =>
+              tx.query<{ status: string; lu: Date | null; f: number }>(
+                'SELECT status, locked_until AS lu, failed_login_count AS f FROM app_user WHERE id = $1',
+                [t.users[user]!.id],
+              ),
+            )
+          ).rows[0];
+        expect(await state('hk')).toEqual({ status: 'locked', lu: null, f: 0 });
+        expect(await state('fd')).toEqual({ status: 'active', lu: null, f: 0 });
+        await db.withContext(t.ctx(), (tx) =>
+          tx.query(`UPDATE app_user SET status = 'active' WHERE id = $1`, [t.users.hk!.id]),
+        );
+      });
     });
   },
 );

@@ -413,6 +413,9 @@ export async function createReservation(
  * Body + `initialPayment` đúng mức cọc, dò bằng một lời gọi không kèm cọc (server trả DEPOSIT_INSUFFICIENT kèm
  * `depositRequiredVnd`, không ghi gì). Dùng khi cần gửi cùng một body nhiều lần (Idempotency, đua đồng thời).
  */
+/** Lần dò cọc gặp 409: khoảng vừa kiểm trống đã bị ca song song chiếm – người gọi chọn khoảng khác. */
+export class WindowTakenError extends Error {}
+
 export async function withDeposit(
   ctx: APIRequestContext,
   s: StaffSession,
@@ -424,6 +427,7 @@ export async function withDeposit(
     track('reservation', r.body.id); // kênh không cần cọc: đã tạo – dọn sau
     throw new Error('withDeposit: kênh không cần cọc – đơn đã được tạo ngay ở lần dò');
   }
+  if (r.status === 409) throw new WindowTakenError(`dò cọc: ${statusOf(r)}`);
   const required = (r.body as { depositRequiredVnd?: number }).depositRequiredVnd;
   expect(r.body?.code, `dò cọc: ${JSON.stringify(r.body)}`).toBe('DEPOSIT_INSUFFICIENT');
   return { ...body, initialPayment: depositPayment(required ?? 0) };

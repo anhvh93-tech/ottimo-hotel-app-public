@@ -72,9 +72,6 @@ test.describe(
     test('TC-L2-080 người chốt bắt buộc với kênh CTV / nguồn sales_staff; listCloserCandidates chỉ trả tên (US-017 AC9)', async ({
       request,
     }) => {
-      // BUG-R2-023 (Open): server chưa kiểm người chốt theo kênh/nguồn (US-017 AC9) – CTV không người chốt vẫn 201.
-      // Đánh dấu 'phải trượt' để project phụ thuộc vẫn chạy; khi BE sửa, Playwright báo → bỏ dòng này, đóng lỗi.
-      test.fail(true, 'BUG-R2-023 (Open) – xem rounds/round-02/qa/bug-list.md');
       await requireEndpoints(request, 'TC-L2-080', [EP.createReservation, EP.listCloserCandidates]);
       const fd = await sessionOrSkip(request, 'qa.fd');
       const sal = await sessionOrSkip(request, 'qa.sal');
