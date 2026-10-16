@@ -7,7 +7,16 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
-import { API_URL, AUTH_DIR, GUEST_COOKIE, ORIGIN, SEED_PASSWORD, SESSION_COOKIE } from './env.js';
+import {
+  API_URL,
+  AUTH_DIR,
+  GUEST_COOKIE,
+  ORIGIN,
+  SEED_PASSWORD,
+  SESSION_COOKIE,
+  TEST_TOKEN,
+  WEB_URL,
+} from './env.js';
 
 export interface Problem {
   type?: string;
@@ -234,7 +243,8 @@ export function sessionTokenFrom(setCookies: string[]): string | undefined {
   return undefined;
 }
 
-export async function login(
+/** One login call, no retry – for cases that assert the limits themselves (limits/, TC-NT-043). */
+export async function loginRaw(
   ctx: APIRequestContext,
   username: string,
   password: string,
@@ -248,11 +258,33 @@ export async function login(
   return { ...r, token: sessionTokenFrom(r.setCookies) };
 }
 
+/**
+ * Login as a test step. A 429 RATE_LIMITED caused by the harness's own login volume (SR-RL-01: one IP for
+ * the whole CI run) is not the behaviour under test: reset the limiter (test-support) and retry ONCE.
+ * An account lockout of a qa.e2e.lock.* account survives the reset (RESET_PREFIXES), so it still answers 429.
+ */
+export async function login(
+  ctx: APIRequestContext,
+  username: string,
+  password: string,
+  base?: string,
+): Promise<ApiResult<Me | Problem> & { token?: string }> {
+  const r = await loginRaw(ctx, username, password, base);
+  if (r.status !== 429 || !(await resetRateLimits(ctx, `429 khi đăng nhập ${username}`))) return r;
+  return loginRaw(ctx, username, password, base);
+}
+
 export async function getMe(ctx: APIRequestContext, token: string): Promise<ApiResult<Me>> {
   return call<Me>(ctx, 'GET', '/v1/me', { cookie: `${SESSION_COOKIE}=${token}` });
 }
 
-/** Fresh login (not cached) – for tests that revoke / log out / need a second session. */
+/**
+ * Fresh login (not cached) – for tests that revoke / log out / need a second session.
+ * A 429 (SR-RL-01 20 logins/IP/15 min: every CI login comes from one IP) is NOT a product failure here:
+ * the harness clears the limiter through /__test__/rate-limits/reset and retries ONCE; a second 429
+ * throws LoginRateLimited (sessionOrSkip turns it into a skip). Tests that assert the limit itself call
+ * loginRaw() and run in project "limits" (serial, after rbac + api) – never through this helper.
+ */
 export async function freshSession(
   ctx: APIRequestContext,
   username: string,
@@ -266,19 +298,109 @@ export async function freshSession(
   return { username, token: r.token!, me: r.body as Me };
 }
 
-/** Cached session of a DS-E account (reused across workers/runs while still valid). */
-export async function session(ctx: APIRequestContext, username: string): Promise<StaffSession> {
-  const f = readSessionFile();
-  const cached = f.sessions[username];
-  if (cached) {
-    const me = await getMe(ctx, cached.token);
-    if (me.status === 200) return { username, token: cached.token, me: me.body };
+/** Per-worker memory of validated sessions (avoids re-reading the file; getMe still re-validates). */
+const memSessions = new Map<string, string>();
+
+async function cachedSession(
+  ctx: APIRequestContext,
+  username: string,
+): Promise<StaffSession | null> {
+  const tokens = [memSessions.get(username), readSessionFile().sessions[username]?.token];
+  for (const token of tokens) {
+    if (!token) continue;
+    const me = await getMe(ctx, token);
+    if (me.status === 200) {
+      memSessions.set(username, token);
+      return { username, token, me: me.body };
+    }
   }
-  const s = await freshSession(ctx, username);
+  memSessions.delete(username);
+  return null;
+}
+
+function storeSession(s: StaffSession): void {
+  memSessions.set(s.username, s.token);
   const g = readSessionFile();
-  g.sessions[username] = { token: s.token };
+  g.sessions[s.username] = { token: s.token };
   writeSessionFile(g);
+}
+
+/**
+ * Cached session of a DS-E account, shared by every worker (e2e/.auth/sessions.json) and every run while
+ * valid. A new login happens ONLY when the cached session was revoked/expired (getMe → 401) – e.g. after
+ * logout. Flows that revoke sessions on purpose (changeMyPassword, role change, reset, disable) use their
+ * own throwaway accounts qa.e2e.* (createThrowawayUser), never a DS-E account.
+ */
+export async function session(ctx: APIRequestContext, username: string): Promise<StaffSession> {
+  const hit = await cachedSession(ctx, username);
+  if (hit) return hit;
+  const s = await freshSession(ctx, username);
+  storeSession(s);
   return s;
+}
+
+// ───────────────────────── rate-limit reset (openapi.test.yaml testResetRateLimits) ─────────────────────────
+
+/**
+ * Username prefixes whose DB counters (login lockout, re-auth lock) are cleared by a harness reset.
+ * Deliberately NOT "qa.": the endpoint also turns status 'locked' → 'active', which would unlock the
+ * DS-E account qa.locked (admin-locked on purpose, TC-NT-005) – BUG-R2-014. Nor "qa.e2e.": the lockout
+ * test accounts qa.e2e.lock.* must keep their lock while TC-NT-043 runs. The in-memory windows (login per
+ * IP, guest lookup) are cleared by every call whatever the prefix.
+ */
+export const RESET_PREFIXES = ['qa.owner', 'qa.mgr', 'qa.fd', 'qa.hk', 'qa.mt', 'qa.sal', 'qa.ctv'];
+
+let resetUnavailable = false;
+
+/** An owner session for /__test__ calls: cache first, then login on the api, then through Caddy (other IP). */
+async function ownerForTestSupport(ctx: APIRequestContext): Promise<StaffSession | null> {
+  const hit = await cachedSession(ctx, 'qa.owner');
+  if (hit) return hit;
+  if (!SEED_PASSWORD) return null;
+  for (const base of [API_URL, WEB_URL]) {
+    const r = await loginRaw(ctx, 'qa.owner', SEED_PASSWORD, base).catch(() => null);
+    if (r?.status === 200 && r.token) {
+      const s = { username: 'qa.owner', token: r.token, me: r.body as Me };
+      storeSession(s);
+      return s;
+    }
+  }
+  return null;
+}
+
+/**
+ * POST /__test__/rate-limits/reset (X-Test-Token + owner session) for each prefix. Returns false – and the
+ * caller keeps the original 429 – when the stack has no test support (no TEST_SUPPORT_TOKEN, production
+ * image, INCLUDE_TEST_SUPPORT=0) or no owner session can be obtained.
+ */
+export async function resetRateLimits(
+  ctx: APIRequestContext,
+  why: string,
+  prefixes: string[] = RESET_PREFIXES,
+): Promise<boolean> {
+  if (!TEST_TOKEN || resetUnavailable) return false;
+  const owner = await ownerForTestSupport(ctx);
+  if (!owner) {
+    console.log(`[e2e] reset giới hạn (${why}): không có phiên qa.owner – bỏ qua`);
+    return false;
+  }
+  for (const usernamePrefix of prefixes) {
+    const r = await call<{ users?: number }>(ctx, 'POST', '/__test__/rate-limits/reset', {
+      session: owner,
+      headers: { 'x-test-token': TEST_TOKEN },
+      body: { usernamePrefix },
+    });
+    if (r.status === 404) {
+      resetUnavailable = true; // build without TestSupportModule / older build without this route
+      console.log(`[e2e] reset giới hạn (${why}): /__test__/rate-limits/reset chưa có trên build`);
+      return false;
+    }
+    if (r.status !== 200) {
+      console.log(`[e2e] reset giới hạn (${why}) ${usernamePrefix}: HTTP ${r.status}`);
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Like session(), but turns an IP login rate-limit (SR-RL-01, 20/IP/15 min) into a skip, not a red. */
@@ -297,6 +419,7 @@ export async function sessionOrSkip(
 }
 
 export function forgetSession(username: string): void {
+  memSessions.delete(username);
   if (!existsSync(SESSION_FILE)) return;
   const f = readSessionFile();
   delete f.sessions[username];

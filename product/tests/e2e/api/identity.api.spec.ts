@@ -1,8 +1,9 @@
 // E2E API – EP00 identity (US-001, US-002; SR-AUTH, SR-SES). TC: test-cases/r1-main-flows.md.
 // Destructive steps (lockout, role change, disable, reset) only touch throwaway accounts qa.e2e.* created by
-// qa.owner – never the shared DS-E accounts. Logins are budgeted against SR-RL-01 (20/IP/15 min): the lockout
-// and disable/reset flows go through Caddy (E2E_WEB_URL), which the api sees as another client IP.
-import { expect, test } from '@playwright/test';
+// qa.owner – never the shared DS-E accounts. SR-RL-01 (20 logins/IP/15 min): freshSession() resets the limiter
+// through /__test__/rate-limits/reset and retries once on 429; the disable/reset flow still goes through Caddy
+// (E2E_WEB_URL, another client IP). The lockout cases (TC-NT-043) live in limits/ – serial project "limits".
+import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   activateUser,
   call,
@@ -15,8 +16,8 @@ import {
   needSeedPassword,
   propertyIdOf,
   requireEndpoints,
+  resetRateLimits,
   sessionOrSkip,
-  testClock,
   uniq,
   uniqName,
   type Me,
@@ -24,10 +25,10 @@ import {
 } from '../support/api.js';
 import {
   COOKIE_PREFIX,
+  GUEST_ORIGIN,
   ORIGIN,
   SEED_PASSWORD,
   SESSION_COOKIE,
-  TEST_TOKEN,
   WEB_URL,
 } from '../support/env.js';
 
@@ -52,6 +53,16 @@ const AUDIT: [string, string, string] = [
   '/v1/properties/{propertyId}/audit-events',
   'listAuditEvents',
 ];
+
+/** Raw POST /v1/auth/login (custom cookie/Origin); a harness-volume 429 → reset + one retry (SR-RL-01). */
+async function loginCall(
+  request: APIRequestContext,
+  o: Parameters<typeof call>[3],
+): Promise<Awaited<ReturnType<typeof call<Me & Problem>>>> {
+  const r = await call<Me & Problem>(request, 'POST', '/v1/auth/login', o);
+  if (r.status !== 429 || !(await resetRateLimits(request, 'loginCall'))) return r;
+  return call<Me & Problem>(request, 'POST', '/v1/auth/login', o);
+}
 
 function cookieAttrs(setCookie: string): Record<string, string | true> {
   const out: Record<string, string | true> = {};
@@ -99,7 +110,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
   }) => {
     await requireEndpoints(request, 'TC-SEC-020', [LOGIN, ME]);
     const planted = 'A'.repeat(43);
-    const r = await call<Me>(request, 'POST', '/v1/auth/login', {
+    const r = await loginCall(request, {
       cookie: `${SESSION_COOKIE}=${planted}`,
       body: { username: 'qa.fdl', password: SEED_PASSWORD },
       // login is a public write: the api checks Origin (login CSRF, SR-SES-04) when origins are configured
@@ -109,6 +120,31 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     const sid = r.setCookies.find((c) => c.startsWith(`${SESSION_COOKIE}=`)) ?? '';
     expect(sid).not.toContain(planted);
     expect((await getMe(request, planted)).status).toBe(401);
+  });
+
+  test('TC-SEC-024 (đăng nhập) login từ origin guest-web → 403, không cấp phiên nhân viên (SR-SES-09, FB-R2-SEC-BE-12)', async ({
+    request,
+  }) => {
+    await requireEndpoints(request, 'TC-SEC-024', [LOGIN]);
+    // The check only exists when the api has its origin lists (ADMIN/STAFF/GUEST_BASE_URL – required on
+    // staging/production). The dev compose stack leaves them empty → origins are not checked at all.
+    const foreign = await loginCall(request, {
+      body: { username: 'qa.fd', password: SEED_PASSWORD },
+      headers: { origin: 'https://origin-la.example' },
+    });
+    test.skip(
+      foreign.status === 200,
+      'stack không cấu hình danh sách origin (compose dev: ADMIN_BASE_URL/GUEST_BASE_URL rỗng) – kiểm trên stack có origin',
+    );
+    expect(foreign.status, JSON.stringify(foreign.body)).toBe(403);
+    const r = await loginCall(request, {
+      body: { username: 'qa.fd', password: SEED_PASSWORD },
+      headers: { origin: GUEST_ORIGIN },
+    });
+    expectProblem(r, 403, 'FORBIDDEN_ACTION');
+    expect(r.setCookies.some((c) => c.startsWith(`${SESSION_COOKIE}=`) && !/=;/.test(c))).toBe(
+      false,
+    );
   });
 
   test('TC-NT-005 tài khoản locked đăng nhập đúng mật khẩu → từ chối chung, không lộ trạng thái', async ({
@@ -128,61 +164,6 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
       title: pu.title,
       detail: pu.detail,
     });
-  });
-
-  test('TC-NT-043 sai mật khẩu 5 lần → lần 6 bị khóa 429 RATE_LIMITED, kể cả mật khẩu đúng', async ({
-    request,
-  }) => {
-    await requireEndpoints(request, 'TC-NT-043', [LOGIN, ME, USERS]);
-    const owner = await sessionOrSkip(request, 'qa.owner');
-    const u = await createThrowawayUser(request, owner, 'front_desk', 'qa.e2e.lock');
-    const unknown = await login(request, `nobody.${uniq()}`, 'Wrong-password-123', WEB_URL);
-    test.skip(
-      unknown.status === 429,
-      'môi trường: IP qua Caddy đã chạm SR-RL-01 – chạy lại sau 15 phút',
-    );
-    for (let i = 1; i <= 5; i++) {
-      const r = await login(request, u.username, `Wrong-password-${i}`, WEB_URL);
-      expect(r.status, `lần ${i}: ${JSON.stringify(r.body)}`).toBe(401);
-      // generic message, never "n lần còn lại" (content-guide auth.login.error_generic)
-      expect((r.body as Problem).code).toBe((unknown.body as Problem).code);
-      expect(JSON.stringify(r.body)).not.toMatch(/remaining|còn lại|attempt/i);
-    }
-    const sixth = await login(request, u.username, u.password, WEB_URL);
-    expectProblem(sixth, 429, 'RATE_LIMITED');
-    expect(sixth.token).toBeUndefined();
-  });
-
-  test('TC-NT-043 (b) hết 15 phút khóa → đăng nhập lại được (MutableClock)', async ({
-    request,
-  }) => {
-    test.skip(
-      process.env.E2E_CLOCK_CONTROL !== '1' || !TEST_TOKEN,
-      'Cần E2E_CLOCK_CONTROL=1 + TEST_SUPPORT_TOKEN (tua đồng hồ dùng chung – chỉ stack dùng một lần)',
-    );
-    await requireEndpoints(request, 'TC-NT-043', [
-      LOGIN,
-      ME,
-      USERS,
-      ['GET', '/__test__/clock', 'testClock'],
-    ]);
-    const owner = await sessionOrSkip(request, 'qa.owner');
-    const u = await createThrowawayUser(request, owner, 'front_desk', 'qa.e2e.lock');
-    for (let i = 1; i <= 5; i++) await login(request, u.username, `Wrong-password-${i}`, WEB_URL);
-    expect((await login(request, u.username, u.password, WEB_URL)).status).toBe(429);
-    try {
-      expect(
-        (await testClock(request, owner, TEST_TOKEN!, { op: 'advance', advanceMs: 14 * 60_000 }))
-          .status,
-      ).toBe(200);
-      expect((await login(request, u.username, u.password, WEB_URL)).status).toBe(429);
-      expect(
-        (await testClock(request, owner, TEST_TOKEN!, { op: 'advance', advanceMs: 61_000 })).status,
-      ).toBe(200);
-      expect((await login(request, u.username, u.password, WEB_URL)).status).toBe(200);
-    } finally {
-      await testClock(request, owner, TEST_TOKEN!, { op: 'reset' });
-    }
   });
 
   test('TC-NT-044 tạo tài khoản trùng tên đăng nhập → 409 USERNAME_TAKEN (không phân biệt hoa thường); mật khẩu không lộ', async ({

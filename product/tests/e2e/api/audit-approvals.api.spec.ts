@@ -166,6 +166,9 @@ test.describe('L1 – phê duyệt (US-007, SM-10)', { tag: ['@api', '@sprint1']
     test.fixme(true, 'TC-NT-030: fixture FOC chưa viết – viết khi Sprint 2–3 có folio');
   });
 
+  // When written (Sprint 2–3): TC-NT-029 (d) – an approver BELOW the routed level gets 403
+  // APPROVAL_LIMIT_EXCEEDED and the request status does NOT change (no `escalated`); only the routed
+  // approver exceeding a limit escalates (BE-A responses round-02 "Thay đổi hành vi" 2).
   test('TC-NT-028/029/031/033…036 duyệt/từ chối/rút, hạn mức, chặn trả phòng', async () => {
     test.skip(true, 'TC-NT-028…036: chờ requestFoc + folio + checkOut (Sprint 2–3)');
   });

@@ -28,6 +28,10 @@ export const WEB_URL = process.env.E2E_WEB_URL ?? 'http://127.0.0.1:8081';
 /** Origin sent on write requests (SR-SES-04: CSRF token + valid Origin). Default = admin-web origin of .env APP_BASE_URL. */
 export const ORIGIN =
   process.env.E2E_ORIGIN ?? fromDotEnv('APP_BASE_URL') ?? 'http://localhost:8081';
+/** guest-web origin (GUEST_BASE_URL): a staff login from it must be refused (SR-SES-09). */
+export const GUEST_ORIGIN = new URL(
+  process.env.E2E_GUEST_ORIGIN ?? fromDotEnv('GUEST_BASE_URL') ?? 'http://localhost:8083',
+).origin;
 export const SEED_PASSWORD = secret('QA_SEED_PASSWORD');
 export const TEST_TOKEN = secret('TEST_SUPPORT_TOKEN');
 /** Dev over HTTP drops the __Host- prefix (COOKIE_SECURE_PREFIX=false). */

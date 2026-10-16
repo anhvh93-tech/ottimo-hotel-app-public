@@ -7,7 +7,9 @@
 //   smoke            – the (S) suite, every PR (API-level checks need no browser)
 //   rbac             – role-gate runner over fixtures/rbac-cases.json (Sprint 1 operations, rbac/)
 //   api              – E2E API flows per story (api/*.api.spec.ts) – Playwright request API, no browser
-//   rbac-logout      – logout cases; kill the cached sessions, so they run after rbac + api
+//   limits           – login lockout + per-IP limit (limits/), serial, after rbac + api
+//   rbac-logout      – logout cases; kill the cached sessions, so they run after rbac + api + limits
+//   db-outage        – TC-X-050c stops PostgreSQL: runs after every other project
 //   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke needs E2E_UI=1 + chromium)
 //   mobile-webkit    – Safari iOS 390×844 (housekeeping PWA, guest-web)
 //   android-chromium – Chrome Android 360×800
@@ -18,7 +20,8 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: '.',
-  // Logs the DS-E accounts in once (SR-RL-01: 20 logins/IP/15 min) – sessions cached in e2e/.auth/.
+  // Resets the login limiter (/__test__/rate-limits/reset) and logs the DS-E accounts in once
+  // (SR-RL-01: 20 logins/IP/15 min) – sessions cached in e2e/.auth/, reused until revoked.
   globalSetup: './global-setup.ts',
   outputDir: './test-results',
   fullyParallel: true,
@@ -42,10 +45,18 @@ export default defineConfig({
     { name: 'smoke', testMatch: /smoke\/.*\.spec\.ts$/ },
     { name: 'rbac', testMatch: /rbac\/rbac-sprint1\.spec\.ts$/ },
     { name: 'api', testMatch: /api\/.*\.api\.spec\.ts$/ },
+    // TC-NT-043 lockout / SR-RL-01 IP window: serial, after every project that logs in through the
+    // harness (a 429 there triggers /__test__/rate-limits/reset, which would wipe a lockout in progress).
+    {
+      name: 'limits',
+      testMatch: /limits\/.*\.spec\.ts$/,
+      fullyParallel: false,
+      dependencies: ['rbac', 'api'],
+    },
     {
       name: 'rbac-logout',
       testMatch: /rbac\/rbac-logout\.spec\.ts$/,
-      dependencies: ['rbac', 'api'],
+      dependencies: ['rbac', 'api', 'limits'],
     },
     {
       name: 'desk-chromium',
@@ -62,6 +73,12 @@ export default defineConfig({
       name: 'android-chromium',
       testMatch: /flows\/.*\.mobile\.spec\.ts$/,
       use: { ...devices['Pixel 5'], viewport: { width: 360, height: 800 } },
+    },
+    // TC-X-050c stops PostgreSQL (E2E_COMPOSE_CONTROL=1 only): last, after every project using the DB.
+    {
+      name: 'db-outage',
+      testMatch: /outage\/.*\.spec\.ts$/,
+      dependencies: ['smoke', 'rbac-logout', 'desk-chromium', 'mobile-webkit', 'android-chromium'],
     },
   ],
 });

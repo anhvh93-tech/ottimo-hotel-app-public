@@ -7,6 +7,7 @@
       "extra": true,
       "status": "implemented",
       "spec": "smoke/health.spec.ts",
+      "note": "TC-X-050a/b ở project smoke; TC-X-050c (dừng PostgreSQL) ở outage/db-outage.spec.ts – project db-outage, chạy cuối",
       "layers": "A+M",
       "title": "docker compose + GET /health (api và qua Caddy)",
       "endpoints": "getHealth"

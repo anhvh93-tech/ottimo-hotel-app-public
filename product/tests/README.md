@@ -10,8 +10,10 @@ Gói workspace `@ottimo/tests` (QA). Chiến lược: `docs/qa/test-strategy.md`
 | `e2e/` | Playwright: `smoke/` (bộ (S) mọi PR – `smoke-manifest.json`), `flows/` (luồng L1–L8, từ sprint 1) | `pnpm test:e2e` (cần `pnpm dev` hoặc `E2E_API_URL`/`E2E_WEB_URL`) |
 | `e2e/rbac/` | Runner quyền động từ `fixtures/rbac-cases.json` (operation Sprint 1 – `sprint1-ops.ts`); `rbac-logout` chạy cuối | `… playwright test -c e2e/playwright.config.ts --project=rbac --project=rbac-logout` |
 | `e2e/api/` | E2E API theo story Sprint 1 (mã TC trong tiêu đề; endpoint chưa có → skipped) | `--project=api` |
+| `e2e/limits/` | TC-NT-043 khóa đăng nhập + SR-RL-01 (20/IP/15 phút): chạy tuần tự sau `rbac` + `api`, tự reset bộ đếm trước/sau | `--project=limits` (cần `TEST_SUPPORT_TOKEN`) |
+| `e2e/outage/` | TC-X-050c dừng PostgreSQL – project `db-outage` chạy cuối, chỉ khi `E2E_COMPOSE_CONTROL=1` (stack dùng một lần: đặt `E2E_COMPOSE_PROJECT`/`E2E_COMPOSE_ENV_FILE`) | `--project=db-outage` |
 | `e2e/ui/` | Smoke giao diện admin-web (đăng nhập, điều hướng theo vai) – chờ FE | `E2E_UI=1 … --project=desk-chromium` |
-| `e2e/global-setup.ts`, `e2e/support/` | Đăng nhập DS-E một lần, cache phiên `e2e/.auth/` (SR-RL-01); client API (CSRF, Idempotency-Key, If-Match, dò endpoint) | – |
+| `e2e/global-setup.ts`, `e2e/support/` | Reset giới hạn đăng nhập (`/__test__/rate-limits/reset`), đăng nhập DS-E một lần, cache phiên `e2e/.auth/` – chỉ đăng nhập lại khi phiên bị thu hồi; gặp `429` → reset + thử lại 1 lần (SR-RL-01, không nới giới hạn trong API); client API (CSRF, Idempotency-Key, If-Match, dò endpoint). Stack phải đã nạp seed DS-E (`docker compose … run --rm seed`) | – |
 | `test-cases/` | Tài liệu test case | – |
 | `tools/gen_rbac_cases.py` → `fixtures/rbac-cases.json`, `.csv` | Ma trận test quyền sinh từ OpenAPI `x-roles`/`x-scope`/`x-rbac` × tài khoản DS-E: kỳ vọng cổng vai 2xx / 403 / 401 (sai loại phiên); đối chiếu rbac-matrix. **Không sửa tay** | `python3 tools/gen_rbac_cases.py` · CI: `--check` |
 | `tools/gen_traceability.py` | Sinh `docs/qa/traceability.md`, kiểm tĩnh rbac ↔ OpenAPI | `python3 tools/gen_traceability.py --strict` |
