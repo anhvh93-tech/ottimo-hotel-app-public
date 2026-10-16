@@ -26,6 +26,7 @@ import {
   importRoomCatalog,
 } from '../../modules/platform/public/room-catalog-import';
 import { v7 as uuidv7 } from 'uuid';
+import { type ChannelImport, importChannels } from '../../modules/platform/public/channels';
 import { type Clock, SystemClock } from '../../clock';
 import { AuditService } from '../../modules/audit/public/audit.service';
 import {
@@ -68,7 +69,6 @@ interface DsE {
 
 /** Fixture blocks loaded by later migrations (module that owns the table). */
 const PENDING_BLOCKS: Record<string, string> = {
-  channels: 'platform (channel, channel_commission_rate) – BE-B',
   minibarItems: 'inventory (item) – BE-B',
   feeCatalog: 'folio (fee catalogue) – BE-B',
   inspectionChecklist: 'housekeeping (checklist) – BE-B',
@@ -91,6 +91,8 @@ export interface SeedReport {
   /** room_group / room (+ first room_list_price) loaded by importRoomCatalog (BE-B Sprint 1). */
   roomGroups: number;
   rooms: number;
+  /** channel + first channel_commission_rate (BE-B Sprint 2). */
+  channels: number;
   docSequences: Array<{ docType: string; expected: string; server: string; ok: boolean }>;
   skippedBlocks: Array<{ block: string; owner: string }>;
   warnings: string[];
@@ -144,6 +146,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
     devices: 0,
     parameters: 0,
     roomGroups: 0,
+    channels: 0,
     rooms: 0,
     docSequences: [],
     skippedBlocks: Object.entries(PENDING_BLOCKS)
@@ -323,6 +326,14 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
       report.roomGroups = catalog.groups;
       report.rooms = catalog.rooms;
     }
+    // Sales channels (BR-901, BR-112): group, OTA reference flag, first commission rate.
+    if (Array.isArray(fixture.channels)) {
+      report.channels = await importChannels(tx, {
+        channels: fixture.channels as ChannelImport[],
+        from: firstFrom,
+        now,
+      });
+    }
     await audit.record(tx, {
       category: 'data',
       action: 'seed.loaded',
@@ -333,6 +344,7 @@ export async function seedDsE(opts: SeedOptions): Promise<SeedReport> {
         parameters: report.parameters,
         devices: report.devices,
         rooms: report.rooms,
+        channels: report.channels,
       },
     });
 

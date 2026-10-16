@@ -1,0 +1,62 @@
+/**
+ * Extension points of the reservations module for the modules built in parallel (folio, registration,
+ * commissions, payments – BE-B). Everything runs in the SAME transaction as the booking change
+ * (coding-standards 6 "Giao dịch"): a failing hook rolls the whole use case back.
+ *
+ * - ReservationHooks.on('created' | 'transitioned' | 'stay_changed', fn)
+ *     created      – B1/B2 after the booking, its segment, occupancy, nights and folio exist: registration
+ *                    creates its `none` record (BR-608, US-047).
+ *     transitioned – every SM-01 transition (B3…B12, B7a): registration void/restore (K11/K12), commission
+ *                    void/projected (SM-11), refunds…
+ *     stay_changed – room/dates/people changed without a status change (B7, B7a, swap, PATCH people).
+ * Money postings (folio, payments) are not hooks: internal/money-bridge.ts calls FolioService/PaymentService.
+ */
+import { Injectable } from '@nestjs/common';
+import type { Tx } from '../../../db/database';
+import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
+import type { LocalDate } from '../../../shared/time';
+
+export type ReservationEventKind = 'created' | 'transitioned' | 'stay_changed';
+
+export interface ReservationEvent {
+  kind: ReservationEventKind;
+  reservationId: string;
+  code: string;
+  status: ReservationStatus;
+  previousStatus: ReservationStatus | null;
+  /** SM-01 transition code (B1, B2, B4, B10…), null for stay_changed without transition. */
+  transition: string | null;
+  channelGroup: ChannelGroup;
+  roomId: string | null;
+  arrivalDate: LocalDate;
+  departureDate: LocalDate;
+  /** Persons to declare (BR-608: everyone, children under 6 included). */
+  personsTotal: number;
+  externalContract: boolean;
+  reasonCode?: string | undefined;
+}
+
+export type ReservationHook = (tx: Tx, event: ReservationEvent) => Promise<void>;
+
+@Injectable()
+export class ReservationHooks {
+  private readonly hooks = new Map<ReservationEventKind, ReservationHook[]>();
+
+  on(kind: ReservationEventKind, hook: ReservationHook): void {
+    this.hooks.set(kind, [...(this.hooks.get(kind) ?? []), hook]);
+  }
+
+  async emit(tx: Tx, event: ReservationEvent): Promise<void> {
+    for (const hook of this.hooks.get(event.kind) ?? []) await hook(tx, event);
+  }
+}
+
+export interface InitialPayment {
+  type: 'deposit' | 'charge';
+  method: string;
+  amountVnd: number;
+  receivedAt?: string | undefined;
+  posAuthCode?: string | undefined;
+  note?: string | undefined;
+  attachmentId?: string | undefined;
+}

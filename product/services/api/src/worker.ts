@@ -9,6 +9,7 @@ import { BUILTIN_JOBS } from './jobs/builtin-jobs';
 import { JobRegistry, JobRunner } from './jobs/job-runner';
 import { AuditService } from './modules/audit/public/audit.service';
 import { ParameterService } from './modules/platform/public/parameter.service';
+import { reservationWorkerJobs } from './modules/reservations/public/worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
@@ -17,7 +18,11 @@ async function main(): Promise<void> {
   const rt = await createRuntime((m) => log('info', m));
   const registry = new JobRegistry();
   for (const job of BUILTIN_JOBS) registry.register(job);
-  const parameters = new ParameterService(rt.clock, new AuditService(rt.clock, rt.database));
+  const audit = new AuditService(rt.clock, rt.database);
+  const parameters = new ParameterService(rt.clock, audit);
+  // Business jobs (J1 hold expiry, O2 block activation – reservations module, Sprint 2).
+  for (const job of reservationWorkerJobs({ clock: rt.clock, audit, parameters }))
+    registry.register(job);
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
   log('info', 'worker started', { jobs: registry.keys() });
 

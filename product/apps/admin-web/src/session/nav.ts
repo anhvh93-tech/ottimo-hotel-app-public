@@ -63,20 +63,25 @@ export const NAV: NavItem[] = [
     path: '/rack',
     icon: 'rack',
     label: 'nav.rack',
+    labelOwn: 'nav.rooms_status',
     screen: 'S03',
     section: 'ops',
     // Sale/CTV see availability inside "Báo giá & giữ chỗ" (S15), not the rack (H02 2.2 role cards).
     roles: [...DESK, 'housekeeping', 'maintenance'],
     kbd: 'R',
+    ready: true,
   },
   {
     id: 'reservations',
     path: '/reservations',
     icon: 'calendar',
     label: 'nav.reservations',
+    labelOwn: 'nav.my_bookings',
     screen: 'S04',
     section: 'ops',
-    roles: DESK,
+    // Sale/CTV: "Đơn của tôi" (H02 2.2 role cards) – the API scopes the list to their own (US-087).
+    roles: [...DESK, 'sales_staff', 'collaborator'],
+    ready: true,
   },
   {
     id: 'registration',
@@ -121,6 +126,7 @@ export const NAV: NavItem[] = [
     label: 'nav.quotes',
     screen: 'S15',
     section: 'sales',
+    ready: true,
   },
   {
     id: 'moneylog',

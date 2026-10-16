@@ -34,6 +34,8 @@ export const roomGroup = pgTable(
     baseOccupancy: smallint('base_occupancy').notNull(),
     maxOccupancy: smallint('max_occupancy').notNull(),
     otaRoomRef: text('ota_room_ref'),
+    // BR-204 fixed monthly service fee of the group (BR-108 one-month comparison in short quotes; HĐ R3).
+    serviceFeeMonthlyVnd: bigint('service_fee_monthly_vnd', { mode: 'number' }),
     ...auditColumns(),
   },
   (t) => [
@@ -46,6 +48,10 @@ export const roomGroup = pgTable(
     }),
     check('room_group_base_occupancy_check', sql`${t.baseOccupancy} BETWEEN 1 AND 10`),
     check('room_group_max_occupancy_check', sql`${t.maxOccupancy} >= ${t.baseOccupancy}`),
+    check(
+      'room_group_service_fee_check',
+      sql`${t.serviceFeeMonthlyVnd} IS NULL OR ${t.serviceFeeMonthlyVnd} >= 0`,
+    ),
   ],
 );
 

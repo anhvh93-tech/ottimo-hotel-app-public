@@ -1,5 +1,5 @@
 import { useI18n } from '@ottimo/i18n';
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { ComingSoonPage, DeviceBlocked, NoAccessPage } from '../components/states';
@@ -15,6 +15,17 @@ import { UsersPage } from '../pages/UsersPage';
 import { NAV, canOpen, homePath, type NavItem } from '../session/nav';
 import { useSession } from '../session/SessionProvider';
 import { Page, Topbar } from '../components/AppShell';
+
+// Sprint 2 booking screens are split out of the first bundle (rack/grid, forms, sale flow).
+const RackPage = lazy(() =>
+  import('../pages/rack/RackPage').then((m) => ({ default: m.RackPage })),
+);
+const ReservationsPage = lazy(() =>
+  import('../pages/reservations/ReservationsPage').then((m) => ({ default: m.ReservationsPage })),
+);
+const QuotesPage = lazy(() =>
+  import('../pages/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })),
+);
 
 function Splash() {
   const { t } = useI18n();
@@ -78,6 +89,9 @@ const PAGES: Record<string, () => ReactNode> = {
   params: () => <ParamsPage />,
   users: () => <UsersPage />,
   devices: () => <DevicesPage />,
+  rack: () => <RackPage />,
+  reservations: () => <ReservationsPage />,
+  quotes: () => <QuotesPage />,
 };
 
 function Home() {
@@ -105,7 +119,9 @@ export function AppRoutes() {
             path={`${item.path}/*`}
             element={
               <Screen item={item}>
-                {PAGES[item.id]?.() ?? <ComingSoonPage titleKey={item.label} />}
+                <Suspense fallback={<Splash />}>
+                  {PAGES[item.id]?.() ?? <ComingSoonPage titleKey={item.label} />}
+                </Suspense>
               </Screen>
             }
           />

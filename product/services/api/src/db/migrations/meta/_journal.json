@@ -78,6 +78,34 @@
       "when": 1792144631504,
       "tag": "0010_approvals_open_target_idx_be_a",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792149501080,
+      "tag": "0011_sales_folio_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792149515499,
+      "tag": "0012_sales_folio_rls_be_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792150640269,
+      "tag": "0013_reservations_be_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792150652011,
+      "tag": "0014_reservations_rls_be_a",
+      "breakpoints": true
     }
   ]
 }

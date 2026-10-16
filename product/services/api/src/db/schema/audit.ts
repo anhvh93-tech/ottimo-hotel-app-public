@@ -4,7 +4,17 @@
  * itself is hand-written in the migration (drizzle-kit does not know it).
  */
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, jsonb, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { instant } from './common';
 
 export const AUDIT_CATEGORIES = ['money', 'state', 'config', 'access', 'security', 'data'] as const;
@@ -94,5 +104,39 @@ export const c3AccessLog = pgTable(
     ),
     index('c3_access_log_property_occurred_idx').on(t.propertyId, t.occurredAt.desc()),
     index('c3_access_log_subject_idx').on(t.subjectType, t.subjectId),
+  ],
+);
+
+/**
+ * State history of every state machine (erd 4.3 `state_transition`, state-machines 0.2.2). Append-only
+ * (K8) and partitioned monthly like the other logs (BE-ARC-18 – partitioning in the custom migration).
+ * `rejected = true` records refused transitions (US-002 AC2). Metrics read reservation_change instead.
+ */
+export const stateTransition = pgTable(
+  'state_transition',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    machine: text('machine').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    fromState: text('from_state'),
+    toState: text('to_state').notNull(),
+    eventCode: text('event_code').notNull(),
+    actorType: text('actor_type').notNull(),
+    actorUserId: uuid('actor_user_id'),
+    reasonCode: text('reason_code'),
+    reasonNote: text('reason_note'),
+    occurredAt: instant('occurred_at').notNull(),
+    performedAt: instant('performed_at'),
+    rejected: boolean('rejected').notNull().default(false),
+    requestId: text('request_id'),
+  },
+  (t) => [
+    primaryKey({ name: 'state_transition_pkey', columns: [t.id, t.occurredAt] }),
+    check('state_transition_actor_type_check', sql`${t.actorType} IN ('user', 'guest', 'system')`),
+    check('state_transition_machine_check', sql`${t.machine} ~ '^SM-[0-9]{2}$'`),
+    index('state_transition_entity_idx').on(t.entityId, t.occurredAt),
+    index('state_transition_property_idx').on(t.propertyId, t.machine, t.occurredAt.desc()),
   ],
 );

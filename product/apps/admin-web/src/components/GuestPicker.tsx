@@ -1,7 +1,7 @@
 import type { Guest, GuestSummary } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Icon } from '@ottimo/ui';
-import { useEffect, useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { findGuests } from '../app/guestSearch';
 import { useDebounced } from '../hooks/useDebounced';
 import { GuestFormDialog } from '../pages/GuestFormDialog';
@@ -10,6 +10,12 @@ import { usePropertyId } from '../session/SessionProvider';
 export interface GuestPickerProps {
   label: string;
   onSelect: (guest: GuestSummary) => void;
+  /** Text shown when the form reopens with a chosen guest (draft / prefill). */
+  initialText?: string;
+  required?: boolean;
+  /** Field error (EP00 0.2.1) – linked with aria-describedby. */
+  error?: string;
+  help?: ReactNode;
 }
 
 /**
@@ -17,11 +23,18 @@ export interface GuestPickerProps {
  * From 2 characters, 300 ms after typing; max 5 results (`picker=true`); last option = quick create.
  * Used by booking, long-stay, quotes and party forms (Sprint 2+).
  */
-export function GuestPicker({ label, onSelect }: GuestPickerProps) {
+export function GuestPicker({
+  label,
+  onSelect,
+  initialText = '',
+  required,
+  error,
+  help,
+}: GuestPickerProps) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const id = useId();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<GuestSummary[]>([]);
   const [failed, setFailed] = useState(false);
@@ -83,8 +96,18 @@ export function GuestPicker({ label, onSelect }: GuestPickerProps) {
   };
 
   return (
-    <div className="field combo">
-      <label htmlFor={`${id}-in`}>{label}</label>
+    <div className={`field combo${error ? ' invalid' : ''}`}>
+      <label htmlFor={`${id}-in`}>
+        {label}
+        {required ? (
+          <>
+            {' '}
+            <span className="req" aria-hidden="true">
+              *
+            </span>
+          </>
+        ) : null}
+      </label>
       <input
         id={`${id}-in`}
         className="input"
@@ -93,6 +116,12 @@ export function GuestPicker({ label, onSelect }: GuestPickerProps) {
         aria-controls={`${id}-list`}
         aria-autocomplete="list"
         aria-activedescendant={expanded ? `${id}-o${activeIdx}` : undefined}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={
+          [error ? `${id}-err` : '', help ? `${id}-help` : ''].filter(Boolean).join(' ') ||
+          undefined
+        }
         autoComplete="off"
         value={text}
         onChange={(e) => {
@@ -157,6 +186,17 @@ export function GuestPicker({ label, onSelect }: GuestPickerProps) {
             ),
           )}
         </ul>
+      ) : null}
+      {help ? (
+        <span className="help" id={`${id}-help`}>
+          {help}
+        </span>
+      ) : null}
+      {error ? (
+        <div className="err" id={`${id}-err`}>
+          <Icon name="x" />
+          <span>{error}</span>
+        </div>
       ) : null}
       {creating ? (
         <GuestFormDialog

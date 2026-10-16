@@ -142,3 +142,48 @@ body {
 .table tr.is-editing td {
   background: var(--oak-soft);
 }
+
+/* H08 rack as an ARIA grid: the focused cell (roving tabindex) carries the ring, not the bar. */
+.rack [role='gridcell'],
+.rack [role='rowheader'] {
+  outline: none;
+}
+.rack [role='gridcell']:focus-visible,
+.rack [role='rowheader']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  z-index: 2;
+}
+.rack .cell.actionable {
+  cursor: pointer;
+}
+.rack .cell:focus-visible .empty {
+  background: var(--oak-soft);
+}
+.rack .cell:focus-visible .empty::after {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.125rem;
+  color: var(--oak-ink);
+  font-weight: 600;
+}
+.rack .bar {
+  pointer-events: none;
+}
+.rack-tools .num {
+  min-width: 140px;
+  text-align: center;
+}
+/* Booking / sale forms (H09, H10, H12) */
+.rate-table .cell-input {
+  width: 120px;
+}
+.conflict-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}

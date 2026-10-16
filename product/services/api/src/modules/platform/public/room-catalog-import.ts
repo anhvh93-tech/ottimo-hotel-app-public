@@ -18,6 +18,8 @@ export interface RoomGroupImport {
   sortOrder: number;
   baseOccupancy: number;
   maxOccupancy: number;
+  /** BR-204 fixed monthly service fee of the group (DS-E roomGroups.serviceFeeMonthlyVnd). */
+  serviceFeeMonthlyVnd?: number;
 }
 
 export interface RoomImport {
@@ -56,8 +58,8 @@ export async function importRoomCatalog(
     const id = uuidv7();
     await tx.query(
       `INSERT INTO room_group (id, organization_id, property_id, code, name, sort_order, base_occupancy,
-         max_occupancy, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+         max_occupancy, service_fee_monthly_vnd, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $10, $9, $9)`,
       [
         id,
         organizationId,
@@ -68,6 +70,7 @@ export async function importRoomCatalog(
         g.baseOccupancy,
         g.maxOccupancy,
         input.now,
+        g.serviceFeeMonthlyVnd ?? null,
       ],
     );
     groupIds.set(g.code, { id, base: g.baseOccupancy });

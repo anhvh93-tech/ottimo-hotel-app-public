@@ -128,7 +128,7 @@ describe('H02 navigation by role (US-001 AC1, US-002, rbac §3)', () => {
   });
 
   it('later-sprint screens render the "coming later" state, not a blank page', async () => {
-    renderApp('/rack', 'qa.fd');
+    renderApp('/housekeeping', 'qa.fd');
     expect(await screen.findByText('Màn này đang được làm')).toBeInTheDocument();
   });
 

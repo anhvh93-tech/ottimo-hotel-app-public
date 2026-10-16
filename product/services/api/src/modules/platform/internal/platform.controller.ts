@@ -1,6 +1,6 @@
 /**
  * US-004 / US-005 endpoints: listRoomGroups, listRooms, createRoom, updateRoom, listParameters,
- * getParameterHistory, setParameter.
+ * getParameterHistory, setParameter; listChannels (BR-901, Sprint 2).
  *
  * Field visibility (x-visible-to): Room.baseOccupancy/maxOccupancy/currentListPrice are visible to every
  * role that may call listRooms (HK/MT are refused by x-roles), so no field is removed here.
@@ -28,6 +28,8 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { ProblemError, problem } from '../../../shared/problem';
 import { AuditService } from '../../audit/public/audit.service';
 import { assertNoCardNumber, localDateSchema, parseBody, reasonSchema } from '../public/validation';
+import { ChannelsService, channelDto } from '../public/channels';
+import { PropertyContextService } from '../public/property-context';
 import { type ParameterDto, ParametersService } from './parameters.service';
 import { type RoomDto, RoomsService } from './rooms.service';
 
@@ -114,7 +116,23 @@ export class PlatformController {
     @Inject(ParametersService) private readonly parameters: ParametersService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ChannelsService) private readonly channels: ChannelsService,
+    @Inject(PropertyContextService) private readonly property: PropertyContextService,
   ) {}
+
+  /** BR-901/112 channel list; commissionRatePct is removed for SAL/CTV by the role serializer. */
+  @Get('channels')
+  @Operation('listChannels')
+  async listChannels(@Req() req: Req) {
+    return this.db.withContext(
+      tenantOf(principal(req)),
+      async (tx) => {
+        const { today } = await this.property.now(tx);
+        return { data: (await this.channels.list(tx, today)).map(channelDto) };
+      },
+      { readOnly: true },
+    );
+  }
 
   @Get('room-groups')
   @Operation('listRoomGroups')

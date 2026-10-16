@@ -5,6 +5,7 @@ import type { Me, Parameter, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
 import { nameSearchKey, normalizePhone } from '../app/validation';
+import { createReservationMock } from './reservations';
 import {
   BOOKED_GUESTS,
   MOCK_PASSWORD,
@@ -52,11 +53,20 @@ function makeDb() {
 }
 
 let db = makeDb();
+// EP02 (Sprint 2) lives in its own module; it gets the shared guard/problem helpers and the user/room/guest
+// tables through this context (no import cycle).
+const reservations = createReservationMock({
+  guard: (request, allowed, opts) => guard(request, allowed, opts),
+  problem: (status, code, extra) => problem(status, code, extra),
+  db: () => db,
+  summary: (g, roles) => summary(g, roles),
+});
 
 /** Reset state between tests / from the browser console (`__ottimoMock.reset()`). */
 export const mockControl = {
   reset() {
     db = makeDb();
+    reservations.reset();
     persist();
   },
   failNext(
@@ -72,6 +82,10 @@ export const mockControl = {
   },
   get db() {
     return db;
+  },
+  /** EP02 mock state (reservations, quotes, blocks…) for tests. */
+  get rsv() {
+    return reservations.state;
   },
 };
 
@@ -294,7 +308,17 @@ function duplicateGuest(
   });
 }
 
+export type MockGuard = typeof guard;
+export type MockProblem = (
+  status: number,
+  code: string,
+  extra?: Record<string, unknown>,
+) => Response;
+export type MockDb = ReturnType<typeof makeDb>;
+export type MockSummary = typeof summary;
+
 export const handlers = [
+  ...reservations.handlers,
   // ---------- auth (S01) ----------
   http.post(`${base}/auth/login`, async ({ request }) => {
     const { username, password } = (await request.json()) as {

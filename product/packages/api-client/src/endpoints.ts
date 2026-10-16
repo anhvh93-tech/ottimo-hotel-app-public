@@ -2,7 +2,30 @@
 // generated contract, so a contract change breaks the build here instead of at runtime.
 import type { ApiClient } from './client';
 import type {
+  ApprovalRequest,
+  AssignRoomBody,
+  AvailabilityResult,
   BodyOf,
+  CancelReservationBody,
+  CancelReservationResult,
+  Channel,
+  Commission,
+  ConfirmDepositBody,
+  CreateHoldBody,
+  DepositNoticeBody,
+  Locale,
+  MoveReservationBody,
+  Quote,
+  QuoteCalculation,
+  QuoteInput,
+  QuoteStatus,
+  Rack,
+  Reservation,
+  ReservationCreate,
+  ReservationPatch,
+  ReservationStatus,
+  ReservationSummary,
+  SaveQuoteBody,
   ChangePasswordBody,
   Guest,
   GuestInput,
@@ -25,6 +48,20 @@ import type {
 } from './types';
 
 type P = { propertyId: string };
+type R = P & { reservationId: string };
+type Q = P & { quoteId: string };
+const RES = '/v1/properties/{propertyId}/reservations/{reservationId}';
+const QUO = '/v1/properties/{propertyId}/quotes/{quoteId}';
+
+export interface ListReservationsQuery {
+  status?: ReservationStatus[];
+  stayFrom?: string;
+  stayTo?: string;
+  q?: string;
+  externalContract?: boolean;
+  cursor?: string;
+  limit?: number;
+}
 type Paged<T> = { data: T[]; page: PageInfo };
 
 export function createEndpoints(api: ApiClient) {
@@ -58,9 +95,10 @@ export function createEndpoints(api: ApiClient) {
       }),
 
     // parameters (S24)
-    listParameters: ({ propertyId }: P) =>
+    listParameters: ({ propertyId }: P, local = false) =>
       r<{ data: Parameter[] }>('GET', '/v1/properties/{propertyId}/parameters', {
         path: { propertyId },
+        local,
       }),
     getParameterHistory: ({ propertyId, key }: P & { key: string }) =>
       r<{ current: Parameter; history: Parameter[] }>(
@@ -106,6 +144,193 @@ export function createEndpoints(api: ApiClient) {
         ifMatch: version,
       }),
 
+    // rack / availability (S03, S15 – EP02 §1–2)
+    getRack: ({ propertyId }: P, query: { from?: string; days?: number } = {}) =>
+      r<Rack>('GET', '/v1/properties/{propertyId}/rack', { path: { propertyId }, query }),
+    searchAvailability: (
+      { propertyId }: P,
+      query: {
+        arrival: string;
+        departure: string;
+        roomId?: string;
+        roomGroupId?: string;
+        adults?: number;
+      },
+    ) =>
+      r<AvailabilityResult>('GET', '/v1/properties/{propertyId}/availability', {
+        path: { propertyId },
+        query,
+      }),
+    listChannels: ({ propertyId }: P) =>
+      r<{ data: Channel[] }>('GET', '/v1/properties/{propertyId}/channels', {
+        path: { propertyId },
+      }),
+
+    // reservations (SM-01 – EP02 §3–11)
+    listReservations: ({ propertyId }: P, query: ListReservationsQuery = {}) =>
+      r<Paged<ReservationSummary>>('GET', '/v1/properties/{propertyId}/reservations', {
+        path: { propertyId },
+        query: { ...query, status: query.status?.join(',') },
+      }),
+    createReservation: ({ propertyId }: P, body: ReservationCreate, idempotencyKey: string) =>
+      r<Reservation>('POST', '/v1/properties/{propertyId}/reservations', {
+        path: { propertyId },
+        body,
+        idempotencyKey,
+      }),
+    getReservation: ({ propertyId, reservationId }: R) =>
+      r<Reservation>('GET', RES, { path: { propertyId, reservationId } }),
+    updateReservation: (
+      { propertyId, reservationId }: R,
+      body: ReservationPatch,
+      version: number,
+    ) =>
+      r<Reservation>('PATCH', RES, { path: { propertyId, reservationId }, body, ifMatch: version }),
+    extendHold: (
+      { propertyId, reservationId }: R,
+      extraHours: number,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/extend-hold`, {
+        path: { propertyId, reservationId },
+        body: { extraHours } satisfies BodyOf<'extendHold'>,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    confirmDeposit: (
+      { propertyId, reservationId }: R,
+      body: ConfirmDepositBody,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/confirm-deposit`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    createDepositNotice: (
+      { propertyId, reservationId }: R,
+      body: DepositNoticeBody,
+      idempotencyKey: string,
+    ) =>
+      r<void>('POST', `${RES}/deposit-notices`, {
+        path: { propertyId, reservationId },
+        body,
+        idempotencyKey,
+      }),
+    /** US-021 AC3: `dryRun=true` (no Idempotency-Key / If-Match) returns the consequence for the dialog. */
+    cancelReservationPreview: ({ propertyId, reservationId }: R, body: CancelReservationBody) =>
+      r<CancelReservationResult>('POST', `${RES}/actions/cancel`, {
+        path: { propertyId, reservationId },
+        body: { ...body, dryRun: true },
+      }),
+    cancelReservation: (
+      { propertyId, reservationId }: R,
+      body: CancelReservationBody,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<CancelReservationResult>('POST', `${RES}/actions/cancel`, {
+        path: { propertyId, reservationId },
+        body: { ...body, dryRun: false },
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    moveReservation: (
+      { propertyId, reservationId }: R,
+      body: MoveReservationBody,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/move`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    markNoShow: (
+      { propertyId, reservationId }: R,
+      contactAttemptNote: string,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/mark-no-show`, {
+        path: { propertyId, reservationId },
+        body: { contactAttemptNote } satisfies BodyOf<'markNoShow'>,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    /** 200 = restored (Reservation); 202 = approval request created (FD/FDL outside BR-315). */
+    restoreNoShow: (
+      { propertyId, reservationId }: R,
+      reason: string,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation | ApprovalRequest>('POST', `${RES}/actions/restore-no-show`, {
+        path: { propertyId, reservationId },
+        body: { reason } satisfies BodyOf<'restoreNoShow'>,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    assignRoom: (
+      { propertyId, reservationId }: R,
+      body: AssignRoomBody,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${RES}/actions/assign-room`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+
+    // quotes / sale (EP11 R2 – EP02 §10)
+    calculateQuote: ({ propertyId }: P, body: QuoteInput) =>
+      r<QuoteCalculation>('POST', '/v1/properties/{propertyId}/quotes/calculate', {
+        path: { propertyId },
+        body,
+        local: true,
+      }),
+    listQuotes: ({ propertyId }: P, status?: QuoteStatus) =>
+      r<Paged<Quote>>('GET', '/v1/properties/{propertyId}/quotes', {
+        path: { propertyId },
+        query: { status, limit: 50 },
+      }),
+    saveQuote: ({ propertyId }: P, body: SaveQuoteBody, idempotencyKey: string) =>
+      r<Quote>('POST', '/v1/properties/{propertyId}/quotes', {
+        path: { propertyId },
+        body,
+        idempotencyKey,
+      }),
+    getQuote: ({ propertyId, quoteId }: Q) =>
+      r<Quote>('GET', QUO, { path: { propertyId, quoteId } }),
+    getQuoteText: ({ propertyId, quoteId }: Q, locale: Locale) =>
+      r<{ locale: Locale; text: string }>('GET', `${QUO}/text`, {
+        path: { propertyId, quoteId },
+        query: { locale },
+      }),
+    createHoldFromQuote: (
+      { propertyId, quoteId }: Q,
+      body: CreateHoldBody,
+      idempotencyKey: string,
+    ) =>
+      r<Reservation>('POST', `${QUO}/actions/create-hold`, {
+        path: { propertyId, quoteId },
+        body,
+        idempotencyKey,
+      }),
+    /** SAL/CTV: server returns only their own commissions (x-scope own – US-087). */
+    listCommissions: ({ propertyId }: P) =>
+      r<Paged<Commission>>('GET', '/v1/properties/{propertyId}/commissions', {
+        path: { propertyId },
+        query: { limit: 100 },
+        local: true,
+      }),
+
     // users & devices (S26, owner only)
     listUsers: () => r<Paged<User>>('GET', '/v1/users', { query: { limit: 100 } }),
     setUserRoles: (userId: string, roles: PropertyRole[], version: number) =>
@@ -140,3 +365,8 @@ export function createEndpoints(api: ApiClient) {
 }
 
 export type Endpoints = ReturnType<typeof createEndpoints>;
+
+/** `streamEvents` (SSE, text/event-stream): open with `new EventSource(path, { withCredentials: true })`. */
+export function eventStreamPath(propertyId: string): string {
+  return `/v1/properties/${encodeURIComponent(propertyId)}/events`;
+}
