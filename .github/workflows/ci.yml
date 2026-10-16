@@ -299,7 +299,12 @@ jobs:
       # the harness used to retry until SR-RL-01 answered 429 (run 38887585274). QA, round-02 s1-report mục 8.
       - name: Load QA seed DS-E (one-shot, profile seed)
         working-directory: product
-        run: docker compose --env-file .env -f infra/docker-compose.yml run --rm seed
+        # The seed container runs as `node` (uid 1000) and writes device tokens to the bind-mounted
+        # tests/fixtures/seed/.out; the runner checkout belongs to another uid, so pre-create it writable.
+        run: |
+          mkdir -p tests/fixtures/seed/.out
+          chmod 0777 tests/fixtures/seed/.out
+          docker compose --env-file .env -f infra/docker-compose.yml run --rm seed
       # E2E_COMPOSE_CONTROL=1: TC-X-050c may stop/start postgres – this stack is disposable.
       - name: E2E smoke (pnpm test:e2e)
         working-directory: product
