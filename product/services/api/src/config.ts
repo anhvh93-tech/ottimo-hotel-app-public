@@ -7,8 +7,11 @@ import { readFileSync } from 'node:fs';
 export const APP_ENVS = ['dev', 'test', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 
-/** false = trust no proxy; number = hop count; string[] = trusted proxy IPs/CIDRs. */
-export type TrustProxy = false | number | string[];
+/**
+ * false = trust no proxy; string[] = trusted proxy IPs/CIDRs.
+ * Hop counts are rejected: Fastify >= 5.12 ignores them (cannot validate the peer, GHSA-3m5p-2c4r-xxw2).
+ */
+export type TrustProxy = false | string[];
 
 export interface AppConfig {
   appEnv: AppEnv;
@@ -53,10 +56,12 @@ export function parseTrustProxy(raw: string | undefined): TrustProxy {
   if (value === 'true') {
     throw new ConfigError('TRUST_PROXY=true trusts any X-Forwarded-For; set the proxy IP/CIDR');
   }
-  if (/^\d+$/.test(value)) return Number(value);
+  if (/^\d+$/.test(value)) {
+    throw new ConfigError('TRUST_PROXY hop counts are not supported; set the proxy IP/CIDR list');
+  }
   const list = value.split(',').map((s) => s.trim());
   if (list.some((s) => !/^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s))) {
-    throw new ConfigError('TRUST_PROXY must be empty, a hop count or a comma list of IP/CIDR');
+    throw new ConfigError('TRUST_PROXY must be empty or a comma list of IP/CIDR');
   }
   return list;
 }

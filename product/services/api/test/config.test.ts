@@ -62,9 +62,9 @@ describe('parseTrustProxy (FB-R1-ARC-OPS-04)', () => {
     expect(parseTrustProxy('')).toBe(false);
   });
 
-  it('refuses "true" and parses hops or IP/CIDR lists', () => {
+  it('refuses "true" and hop counts, parses IP/CIDR lists', () => {
     expect(() => parseTrustProxy('true')).toThrow(ConfigError);
-    expect(parseTrustProxy('1')).toBe(1);
+    expect(() => parseTrustProxy('1')).toThrow(ConfigError);
     expect(parseTrustProxy('172.30.0.10, 10.0.0.0/8')).toEqual(['172.30.0.10', '10.0.0.0/8']);
     expect(() => parseTrustProxy('caddy')).toThrow(ConfigError);
   });

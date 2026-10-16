@@ -8,7 +8,8 @@ export type Locale = 'vi' | 'en' | 'ru';
  * Sending verification_code via ota_message / zalo_* is OFF by default; the core checks the
  * per-channel owner setting before calling the adapter (ORC ruling 2026-10-15).
  */
-export type NotificationPurpose = 'transactional' | 'verification_code' | 'door_code' | 'security_alert';
+export type NotificationPurpose =
+  'transactional' | 'verification_code' | 'door_code' | 'security_alert';
 
 export interface NotificationMessage {
   channel: NotificationChannel;

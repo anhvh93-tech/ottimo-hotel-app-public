@@ -17,4 +17,7 @@ regexes = [
   # Dev/CI-only placeholder passwords in .env.example, compose, CI and docs (never valid anywhere else).
   '''change_me_[a-z_]*dev_only''',
   '''ci_[a-z]*_?only''',
+  # Fake marker values in log-redaction tests (services/api/test/http.test.ts): the test asserts they
+  # never reach the log. Convention: <prefix>_SECRET_<digits>; real keys never look like this.
+  '''[a-z]+_SECRET_[0-9]+''',
 ]

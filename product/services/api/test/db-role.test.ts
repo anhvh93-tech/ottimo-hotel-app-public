@@ -39,7 +39,12 @@ describe.skipIf(!process.env.DATABASE_URL)('database role used by the app and te
 
   it('sees ottimo_owner as NOLOGIN and the 4 roles exist with the erd 2.1 attributes', async () => {
     const { rows } = await withPool(url, (pool) =>
-      pool.query<{ rolname: string; rolcanlogin: boolean; rolsuper: boolean; rolbypassrls: boolean }>(
+      pool.query<{
+        rolname: string;
+        rolcanlogin: boolean;
+        rolsuper: boolean;
+        rolbypassrls: boolean;
+      }>(
         `SELECT rolname, rolcanlogin, rolsuper, rolbypassrls FROM pg_roles
           WHERE rolname IN ('ottimo_owner', 'ottimo_migrator', 'ottimo_app', 'ottimo_readonly')
           ORDER BY rolname`,

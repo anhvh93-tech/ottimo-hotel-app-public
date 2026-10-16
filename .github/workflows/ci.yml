@@ -67,29 +67,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: product/.nvmrc
-          # Only enable the pnpm cache once the lockfile is committed (setup-node fails without it).
-          cache: ${{ hashFiles('product/pnpm-lock.yaml') != '' && 'pnpm' || '' }}
+          cache: pnpm
           cache-dependency-path: product/pnpm-lock.yaml
 
+      # Lockfile is mandatory (ADR-012, SEC-R1-24): a missing or stale pnpm-lock.yaml fails the job.
       - name: Install dependencies
-        id: install
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            echo "::warning title=Missing lockfile::product/pnpm-lock.yaml is not committed yet. Install is not reproducible. Download the 'pnpm-lock' artifact of this run and commit it (docs/dev-setup.md section 6). This fallback is removed in Round 2."
-            pnpm install --no-frozen-lockfile
-            echo "generated_lockfile=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # FB-R1-ARC-OPS-02: hand the generated lockfile back so it can be committed without a local Node.
-      - name: Upload generated lockfile
-        if: steps.install.outputs.generated_lockfile == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: pnpm-lock
-          path: product/pnpm-lock.yaml
-          retention-days: 7
+        run: pnpm install --frozen-lockfile
 
       # FB-R1-SEC-OPS-05 (SR-SUP-01): fail on High/Critical advisories. Accepted exceptions go in
       # package.json > pnpm.auditConfig.ignoreCves, each with an expiry noted in the PR.

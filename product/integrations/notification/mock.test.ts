@@ -45,7 +45,10 @@ describe('MockNotificationAdapter', () => {
 
   it('throws retryable IntegrationError on timeout scenario', async () => {
     const adapter = new MockNotificationAdapter({ scenario: 'timeout' });
-    await expect(adapter.send(ctx, msg)).rejects.toMatchObject({ code: 'TIMEOUT', retryable: true });
+    await expect(adapter.send(ctx, msg)).rejects.toMatchObject({
+      code: 'TIMEOUT',
+      retryable: true,
+    });
   });
 
   it('throws non-retryable IntegrationError on auth_error and reports down', async () => {

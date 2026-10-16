@@ -7,8 +7,7 @@ export type LocalDate = string & { readonly __brand: 'LocalDate' };
 export type IsoInstant = string & { readonly __brand: 'IsoInstant' };
 
 const LOCAL_DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-const ISO_INSTANT_RE =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 
 export function localDate(value: string): LocalDate {
   if (!LOCAL_DATE_RE.test(value)) {

@@ -7,13 +7,20 @@ FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18
 RUN npm install -g pnpm@9.15.4
 WORKDIR /repo
 
-FROM base AS build
+# Prune the workspace to @ottimo/api and its workspace deps (FB-R1-ARC-OPS-06): out/json = manifests +
+# pruned lockfile (install layer only changes when dependencies change), out/full = sources.
+FROM base AS prune
+RUN npm install -g turbo@2.11.8
 COPY . .
-# Lockfile is mandatory once committed (ADR-012). Until the first `pnpm install` is committed,
-# fall back to a non-frozen install and say so loudly. R2: remove the fallback (FB-R1-SEC-OPS-05)
-# and switch to `turbo prune @ottimo/api --docker` (FB-R1-ARC-OPS-06), which needs the lockfile.
-RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
-    else echo "WARNING: pnpm-lock.yaml missing - non-reproducible install" && pnpm install --no-frozen-lockfile; fi
+RUN turbo prune @ottimo/api --docker
+
+FROM base AS build
+COPY --from=prune /repo/out/json/ .
+# Lockfile is mandatory (ADR-012, FB-R1-SEC-OPS-05, SEC-R1-24): no lockfile or a stale one = build fails.
+RUN pnpm install --frozen-lockfile
+COPY --from=prune /repo/out/full/ .
+# Root config that turbo prune does not copy (shared compiler options).
+COPY --from=prune /repo/tsconfig.base.json ./
 RUN pnpm exec turbo run build --filter=@ottimo/api...
 # Test-only endpoints (/__test__/*, TestSupportModule – openapi.test.yaml, ADR-008) live in
 # services/api/src/test-support/. Default image = production build: the folder is removed from dist and
