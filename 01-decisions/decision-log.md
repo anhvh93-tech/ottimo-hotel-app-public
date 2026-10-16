@@ -252,3 +252,5 @@
 | 2026-10-16 | 1 | Step-up bắt buộc cho `getDoorCredential` và `setDoorCredential` (cùng mã cửa với renderDoorCodeMessage); làm ở R2, phải xong trước khi BE cài A21 (BUG-R1-SEC-10) | SEC | Tránh đường vòng lấy mã cửa không step-up |
 | 2026-10-16 | 1 | Kết luận kiểm thử R1 lượt 2: 34 lỗi – 20 Closed, 4 Open (P3), 10 Deferred (R2/R3, đều có dòng theo dõi plan R2 W1–W18); 0 P0/P1 mở; C2 BLOCKED do môi trường | QA | rounds/round-01/qa/test-report.md |
 | 2026-10-16 | 1 | Plan R2 mục 3.2 bổ sung W15–W18 (SEC-10 trước A21, SEC-11, SEC-07 phần BE, đóng SEC-06/08 khi CI xanh) | ORC | Đề nghị QA/SEC |
+| 2026-10-16 | 1 | QC Round 1: **ĐẠT CÓ ĐIỀU KIỆN** – A 16/16, B 5/5; C2 (khung chưa chạy, CI chưa xanh) và C4 (thẻ FB-R1-ARC-OPS-02 Escalated chưa có ESC) KHÔNG; ĐK-1 tạo ESC-013 (đã làm), ĐK-2 chạy thật khung + CI xanh trước hết tuần 1 R2 | QC | rounds/round-01/qc/qc-gate.md |
+| 2026-10-16 | 1 | THAY dòng ORC 16/10 "không mở ESC repo GitHub": lập ESC-013 (Gấp) ghi nhận INV đã chọn cài Node/Docker tại máy (A), repo GitHub riêng tư là phương án B còn mở | ORC | QC ĐK-1 |

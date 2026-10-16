@@ -245,7 +245,7 @@ QC chấm từng dòng ĐẠT / KHÔNG. **ĐẠT** = mọi dòng nhóm A–C đ�
 | # | Rủi ro | Ảnh hưởng | Giảm thiểu |
 |---|---|---|---|
 | R2-1 | Chỉ chạy được 1 luồng BE | R2 kéo dài 4–5 tháng lịch | ORC chốt tuần 1; nếu 1 luồng → đề xuất INV R-B hoặc chia R2 thành 2 mốc demo |
-| R2-2 | Máy chưa có Node/pnpm/Docker, chưa có repo | CI không chạy, B1 không đạt | W4 ưu tiên số 1 tuần 1; INV cài công cụ; ESC repo của OPS |
+| R2-2 | Máy chưa có Node/pnpm/Docker, chưa có repo | CI không chạy, B1 không đạt | W4 ưu tiên số 1 tuần 1; INV cài công cụ (ESC-013 phương án A đã chọn); repo GitHub riêng tư là phương án B của ESC-013 |
 | R2-3 | Thẻ BE-ARC 01–07 chưa chốt tuần 1 | +1–1,5 tuần BE | ARC chốt trong 3 ngày đầu (W10) |
 | R2-4 | FE/MOB chưa có ước lượng | Lịch sprint có thể vỡ ở phía giao diện | W13; UXD đi trước một sprint |
 | R2-5 | Staging chậm do ESC-002 | A1–A7 không chạy trên staging | Nâng "Gấp" hết tuần 2; dùng môi trường CI dùng một lần |
