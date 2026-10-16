@@ -38,9 +38,12 @@ import {
 } from './s2.js';
 import {
   EP3,
+  autoDecision,
   callMultipart,
   cleanRooms,
+  decisionRequired,
   dev,
+  noDecision,
   p3,
   payBalance,
   png,
@@ -209,13 +212,31 @@ export async function lateCheckout(
 ): Promise<ApiResult<LateResult & ProblemFields>> {
   const path = p3(EP3.setLateCheckout, s, { reservationId });
   if (dryRun) return call(ctx, 'POST', path, { session: s, body: { ...body, dryRun: true } });
-  const cur = await getReservation(ctx, s, reservationId);
-  return call(ctx, 'POST', path, {
-    session: s,
-    idempotencyKey: true,
-    ifMatch: versionTag(cur.body.version),
-    body,
-  });
+  const send = async (b: Record<string, unknown>) => {
+    const cur = await getReservation(ctx, s, reservationId);
+    return call<LateResult & ProblemFields>(ctx, 'POST', path, {
+      session: s,
+      idempotencyKey: true,
+      ifMatch: versionTag(cur.body.version),
+      body: b,
+    });
+  };
+  const r = await send(body);
+  // 0.3.6 (DOM S3-12): surcharge > 0 needs applySurcharge=true (+ expected) or a FOC request – a case that is not
+  // about the surcharge takes the desk default (post the amount the dry run shows).
+  if (r.status === 422 && noDecision(body) && decisionRequired(r.body)) {
+    const dry = await call<LateResult>(ctx, 'POST', path, {
+      session: s,
+      body: { ...body, dryRun: true },
+    });
+    if (dry.status === 200 && dry.body.surchargeVnd > 0) {
+      autoDecision(
+        `setLateCheckout ${String(body.checkoutTime)}: applySurcharge ${dry.body.surchargeVnd}`,
+      );
+      return send({ ...body, applySurcharge: true, expectedSurchargeVnd: dry.body.surchargeVnd });
+    }
+  }
+  return r;
 }
 
 export interface CheckoutSummary {

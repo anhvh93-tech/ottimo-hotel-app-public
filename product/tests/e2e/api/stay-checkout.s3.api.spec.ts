@@ -399,10 +399,7 @@ test.describe(
           expect(add.status, JSON.stringify(add.body)).toBe(201);
           const f = await getFolio(request, fd, res.folioId);
           expect(liveLines(f, 'room').length).toBe(3);
-          test.fail(
-            (f.totals.paidViaOtaVnd ?? 0) === 0,
-            'BUG-R2-044: đơn OTA thu hộ (ota_prepaid) không có khoản "Đã thu qua OTA" (ota_collect) → tiền phòng bị tính vào "Còn phải thu" (BR-307, US-119 AC2)',
-          );
+          // BUG-R2-044 đã sửa ở 229db99 – QA kiểm lại 17/10, đóng; bỏ test.fail có điều kiện để hồi quy báo đỏ
           expect(f.totals.paidViaOtaVnd).toBe(f.totals.roomVnd);
           expect(f.totals.balanceDueVnd).toBe(oracleNum('BR-507-01', 'amountVnd'));
         },
@@ -803,10 +800,7 @@ test.describe(
             amountVnd: deposit,
             note: 'Coc CK E2E',
           });
-          test.fail(
-            okDep.status === 422,
-            'BUG-R2-042: qa.sal ghi thu cọc giữ chỗ của mình (US-119 AC4, A33 own_deposit_only) bị 422 AMOUNT_TOO_HIGH max 0 – trần recordPayment của folio giữ chỗ = còn phải thu = 0 (createVietQr cùng đơn lấy trần = cọc còn thiếu)',
-          );
+          // BUG-R2-042 đã sửa ở 229db99 – QA kiểm lại 17/10, đóng; bỏ test.fail có điều kiện để hồi quy báo đỏ
           expect(okDep.status, JSON.stringify(okDep.body)).toBe(201);
           expect(okDep.body.reconciliation).toBe('pending');
         },

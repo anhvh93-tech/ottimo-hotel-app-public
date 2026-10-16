@@ -40,6 +40,8 @@ import {
 import {
   EP3,
   PRIVACY_NOTICE,
+  portalDate,
+  IMAGE_RETENTION_DAYS,
   addDocument,
   callMultipart,
   completeReview,
@@ -221,7 +223,8 @@ test.describe(
           const dobs = pd.body.people.map(
             (p) => p.fields.find((f) => f.label === 'reg.field.date_of_birth')?.value,
           );
-          expect(dobs).toContain(dob);
+          // OpenAPI 0.3.6 addendum: portal values use `portal_date_format` (default dd/MM/yyyy) – one server format
+          expect(dobs).toContain(portalDate(dob));
         },
       );
 
@@ -556,6 +559,7 @@ test.describe(
               purpose: 'P02B_ID_IMAGE_RETENTION',
               decision: 'granted',
               noticeVersion: PRIVACY_NOTICE,
+              retentionDays: IMAGE_RETENTION_DAYS,
               locale: 'vi',
               channel: 'guest_app',
             },
@@ -698,14 +702,14 @@ test.describe(
           const val = (k: string) => f.find((x) => x.label === `reg.field.${k}`)?.value;
           // đủ trường bắt buộc BR-606 (thứ tự theo server – đúng thứ tự form cổng)
           expect(val('full_name')).toBe(String(data.fullNameOnDoc));
-          expect(val('date_of_birth')).toBe(String(data.dateOfBirth));
-          expect(val('nationality')).toBe('DEU');
+          expect(val('date_of_birth')).toBe(portalDate(String(data.dateOfBirth)));
+          expect(val('nationality')).toMatch(/\(DEU\)$/); // "Đức (DEU)" – portal_nationality_format
           expect(val('passport_number')).toBe(String(data.docNumber));
           expect(val('visa_number')).toBe('DV1234567');
-          expect(val('visa_valid_until')).toBe(String(data.visaValidUntil));
-          expect(val('entry_date')).toBe(String(data.entryDate));
-          expect(val('arrival_date')).toBe(st.res.arrivalDate);
-          expect(val('departure_date')).toBe(st.res.departureDate);
+          expect(val('visa_valid_until')).toBe(portalDate(String(data.visaValidUntil)));
+          expect(val('entry_date')).toBe(portalDate(String(data.entryDate)));
+          expect(val('arrival_date')).toBe(portalDate(st.res.arrivalDate));
+          expect(val('departure_date')).toBe(portalDate(st.res.departureDate));
           expect(f.findIndex((x) => x.label === 'reg.field.full_name')).toBe(0);
           expect(f.findIndex((x) => x.label === 'reg.field.arrival_date')).toBeLessThan(
             f.findIndex((x) => x.label === 'reg.field.departure_date'),

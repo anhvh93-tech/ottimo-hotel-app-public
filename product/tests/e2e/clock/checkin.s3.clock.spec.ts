@@ -55,6 +55,7 @@ import {
   vnDoc,
   type Stay,
   type StayInput,
+  portalDate,
 } from '../support/s3.js';
 import {
   at,
@@ -578,6 +579,8 @@ test.describe(
           );
           await at(request, vnAt);
           fd = await fdOf(request);
+          // (a) chạy hết trước, lỗi (nếu có) báo ở cuối ca để phần (b) B9a vẫn được kiểm
+          let lateArrival = '';
           for (const st of [vn, fo]) {
             const pv = await preview(request, fd, st.res.id);
             expect(pv.status, JSON.stringify(pv.body)).toBe(200);
@@ -586,13 +589,18 @@ test.describe(
               'không phụ thu',
             ).toBe(0);
             const r = await checkIn(request, fd, st.res.id);
-            expect(r.status, `B9 ${st.res.code}: ${JSON.stringify(r.body)}`).toBe(200);
+            if (r.status !== 200) {
+              lateArrival = `B9 ${st.res.code} lúc 01:30 ngày D+1: HTTP ${r.status} ${JSON.stringify(r.body)}`;
+              break;
+            }
             expect(r.body.arrivalDate, 'không đổi ngày đến').toBe(D);
             expectNear(String(r.body.actualCheckinAt), vnAt, 'giờ nhận ghi đúng 01:30 ngày D+1');
           }
           // hạn khai báo: theo ngày lịch của giờ đến thực tế (BR-602-02) / giờ đến + N giờ (BR-603-04)
-          expectNear((await regOf(request, fd, vn.regId)).deadlineAt, vnDue, 'VN');
-          expectNear((await regOf(request, fd, fo.regId)).deadlineAt, foDue, 'NN');
+          if (!lateArrival) {
+            expectNear((await regOf(request, fd, vn.regId)).deadlineAt, vnDue, 'VN');
+            expectNear((await regOf(request, fd, fo.regId)).deadlineAt, foDue, 'NN');
+          }
           // vẫn ở "Khách đến hôm nay" của ngày nghiệp vụ D (getArrivalsDepartures – EP01, Sprint 4)
           if (
             await isAvailable(request, EP3.getArrivalsDepartures[0], EP3.getArrivalsDepartures[1])
@@ -640,9 +648,11 @@ test.describe(
             createsChildReservation: true,
           });
           expect(prior.defaultRateVnd, 'giá Trực tiếp hiện hành (BR-417-01)').toBe(oc.rateVnd);
+          // 0.3.6 bổ sung 2: B9a bắt buộc expectedSurchargeVnd = priorNightRateVnd (số đang hiển thị)
           const r = await checkIn(request, fd, ota.res.id, {
             addPriorNight: true,
             priorNightRateVnd: Number(prior.defaultRateVnd),
+            expectedSurchargeVnd: Number(prior.defaultRateVnd),
           });
           expect(r.status, JSON.stringify(r.body)).toBe(200);
           expect(r.body.status).toBe('in_house');
@@ -660,6 +670,12 @@ test.describe(
           // khai báo dùng chung bản ghi đơn gốc: đơn con không có bản ghi riêng
           expect(await regRow(request, fd, String(child!.id))).toBeUndefined();
           expect(await regRow(request, fd, ota.res.id)).toBeTruthy();
+          // (a) khách đến sau nửa đêm của ngày đến (ngày nghiệp vụ vẫn = ngày đến): B9 thường, không phụ thu
+          test.fail(
+            !!lateArrival,
+            'BUG-R2-052: nhận phòng lúc 01:30 ngày D+1 (ngày nghiệp vụ = ngày đến D) bị tính như nhận sớm trước 06:00 → 422 addPriorNight REQUIRED (preview cùng lúc báo phụ thu 0)',
+          );
+          expect(lateArrival, 'US-025 AC6 / BR-602-02').toBe('');
         },
       );
 
@@ -910,6 +926,7 @@ test.describe(
             const r = await checkIn(request, fd, st.res.id, {
               addPriorNight: true,
               priorNightRateVnd: Number(p.defaultRateVnd),
+              expectedSurchargeVnd: Number(p.defaultRateVnd),
             });
             expect(r.status, `${label}: ${JSON.stringify(r.body)}`).toBe(200);
             expect(r.body.arrivalDate, `${label}: ngày đến = D − 1`).toBe(prev);
@@ -933,6 +950,7 @@ test.describe(
           const r3 = await checkIn(request, fd, s3.res.id, {
             addPriorNight: true,
             priorNightRateVnd: RATE_700(),
+            expectedSurchargeVnd: RATE_700(),
           });
           expectProblem(r3, 409, 'ROOM_UNAVAILABLE');
           expect((await getReservation(request, fd, s3.res.id)).body.status).toBe('confirmed');
@@ -1030,10 +1048,7 @@ test.describe(
             checkinTime: time,
             applyEarlySurcharge: false,
           });
-          test.fail(
-            true,
-            'BUG-R2-039: checkIn chấp nhận giờ nhận có phụ thu > 0 mà applyEarlySurcharge=false (bỏ qua im lặng) – thiếu 422 SURCHARGE_DECISION_REQUIRED',
-          );
+          // BUG-R2-039 đã sửa (229db99) – kiểm lại 17/10, bỏ test.fail
           expect(skip.status, JSON.stringify(skip.body).slice(0, 300)).toBe(422);
           expect(JSON.stringify(skip.body)).toContain('SURCHARGE_DECISION_REQUIRED');
         },
@@ -1223,7 +1238,7 @@ test.describe(
           expect(pd.status, JSON.stringify(pd.body).slice(0, 300)).toBe(200);
           expect(
             pd.body.people[0]!.fields.find((f) => f.label === 'reg.field.departure_date')?.value,
-          ).toBe(visa);
+          ).toBe(portalDate(visa));
           // đơn vào "Cần chú ý"
           const items = await attention(request, fd);
           test.fail(
@@ -1841,7 +1856,7 @@ test.describe(
           expect(
             pd.body.people[0]!.fields.find((f) => f.label === 'reg.field.departure_date')?.value,
             'declareUntil = hạn thị thực (BR-605-02)',
-          ).toBe(visa);
+          ).toBe(portalDate(visa));
           expect(remindDays).toBeGreaterThan(0);
           // gia hạn thêm mà không nhập lý do → chặn mềm 422 VISA_EXPIRES_BEFORE_DEPARTURE (OpenAPI E04-01)
           const e2 = await stayAction(request, fd, st.res.id, 'extend', { nights: 1 });
@@ -2026,7 +2041,11 @@ test.describe(
           expect((await checkOutStay(request, fd, a.st.res.id, '10:30')).status).toBe(200);
           await at(request, vnTime(out, '23:59'));
           fd = await fdOf(request);
-          expect((await checkOutStay(request, fd, b.st.res.id, '12:00')).status).toBe(200);
+          // giờ nhập sớm hơn giờ thao tác quá manual_time_tolerance_minutes → bắt buộc ghi chú (0.3.6 bổ sung 2, E03-07)
+          const outB = await checkOutStay(request, fd, b.st.res.id, '12:00', {
+            checkoutTimeNote: 'E2E: khách trả 12:00, lễ tân ghi lúc 23:59',
+          });
+          expect(outB.status, JSON.stringify(outB.body)).toBe(200);
           const days = 30; // id_image_retention_days_after_checkout (DS-E) – BR-610
           const img = async (x: typeof a) => {
             fd = await fdOf(request);

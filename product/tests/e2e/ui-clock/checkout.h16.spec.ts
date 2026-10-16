@@ -62,6 +62,9 @@ test.describe(
           sameSite: 'Lax',
         },
       ]);
+      // Đồng hồ trình duyệt = đồng hồ ảo của stack (MutableClock): H16 mặc định giờ trả = "bây giờ" của trình duyệt
+      // (E03-07, không ghi giờ tương lai) – để giờ thật của máy chạy test sẽ thành 422 TIME_AFTER_ACTION giả.
+      await page.clock.setFixedTime(new Date(vnTime(departure, '11:00')));
       await signIn(page, 'qa.fd');
       await page.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
       // bước 1 minibar: bảng chuẩn của căn, nút +/− không vượt 0…chuẩn (BR-702)

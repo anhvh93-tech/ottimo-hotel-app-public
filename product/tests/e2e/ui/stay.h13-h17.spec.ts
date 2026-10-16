@@ -23,6 +23,7 @@ import {
   makeStay,
   stackBusinessDate,
   type Stay,
+  serverLocalTime,
 } from '../support/s3.js';
 import { go, scan } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
@@ -132,6 +133,12 @@ test.describe(
       await expect(dialog).toBeVisible();
       await scan(page, info, 'H13-confirm-dialog');
       await dialog.getByRole('button', { name: tf('ci.submit', { room: st.room.roomNo }) }).click();
+      // Chạy từ 00:00 tới trước mốc đổi ngày (06:00): ngày nghiệp vụ vẫn = ngày đến, nhận phòng phải là B9 thường
+      // (US-025 AC6). Build 229db99 đòi addPriorNight → alert "Bắt buộc" (BUG-R2-052, tái hiện qua giao diện 01:15).
+      test.fail(
+        (await serverLocalTime(request)) < '06:00',
+        'BUG-R2-052: sau nửa đêm (ngày nghiệp vụ = ngày đến) H13 báo "Bắt buộc" (addPriorNight REQUIRED) – không nhận phòng được',
+      );
       await expect(
         page.getByText(new RegExp(`Đã nhận phòng căn ${st.room.roomNo}`)).first(),
       ).toBeVisible({

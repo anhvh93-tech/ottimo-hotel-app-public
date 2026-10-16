@@ -18,6 +18,7 @@ import { bookFree, cleanupTracked, getReservation, room, s2Context } from '../su
 import {
   EP3,
   PRIVACY_NOTICE,
+  IMAGE_RETENTION_DAYS,
   callMultipart,
   getRegistration,
   guestCall,
@@ -97,6 +98,11 @@ async function fullOnlineCheckin(
     body: { noticeVersion: PRIVACY_NOTICE, currentStep: 'documents' },
   });
   expect(n.status, JSON.stringify(n.body)).toBe(200);
+  // OpenAPI 0.3.6 addendum (SEC ĐK-2): every OnlineCheckin carries the notice version + the image retention days
+  // the P02b sentence shows (BR-610) – the client sends them back in the consent.
+  const oc = n.body as { currentNoticeVersion?: string; imageRetentionDays?: number };
+  expect(oc.currentNoticeVersion, JSON.stringify(n.body)).toBe(PRIVACY_NOTICE);
+  expect(oc.imageRetentionDays, JSON.stringify(n.body)).toBe(IMAGE_RETENTION_DAYS);
   for (let i = 1; i <= people; i++) {
     const u = await upload(request, cookie, i);
     expect(u.status, `upload người ${i}: ${JSON.stringify(u.body)}`).toBe(201);
@@ -105,12 +111,32 @@ async function fullOnlineCheckin(
     body: { etaTime: eta, currentStep: 'consent' },
   });
   expect(e.status, JSON.stringify(e.body)).toBe(200);
+  // retentionDays: missing → 422 REQUIRED; not the current parameter → 422 NOT_IN_LIST (nothing recorded)
+  const consentBody = {
+    personIndex: 1,
+    purpose: 'P02B_ID_IMAGE_RETENTION',
+    decision,
+    noticeVersion: PRIVACY_NOTICE,
+    locale,
+    channel: 'guest_app',
+  };
+  for (const [days, code] of [
+    [undefined, 'REQUIRED'],
+    [IMAGE_RETENTION_DAYS + 1, 'NOT_IN_LIST'],
+  ] as const) {
+    const bad = await guestCall(request, 'POST', EP3.recordGuestConsent[1], cookie, {
+      body: { ...consentBody, ...(days !== undefined ? { retentionDays: days } : {}) },
+    });
+    expect(bad.status, `retentionDays ${days}: ${JSON.stringify(bad.body)}`).toBe(422);
+    expect(JSON.stringify(bad.body), `retentionDays ${days}`).toContain(code);
+  }
   const k = await guestCall(request, 'POST', EP3.recordGuestConsent[1], cookie, {
     body: {
       personIndex: 1,
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision,
       noticeVersion: PRIVACY_NOTICE,
+      retentionDays: IMAGE_RETENTION_DAYS,
       locale,
       channel: 'guest_app',
     },
@@ -492,6 +518,7 @@ test.describe(
               purpose: 'P02B_ID_IMAGE_RETENTION',
               decision: 'granted',
               noticeVersion: PRIVACY_NOTICE,
+              retentionDays: IMAGE_RETENTION_DAYS,
               locale: 'vi',
               channel: 'guest_app',
             },

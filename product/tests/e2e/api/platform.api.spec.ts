@@ -1,7 +1,9 @@
 // E2E API – EP00 platform: tham số quy tắc (US-005, BR mục 13, erd 9.1a), tham số bảo mật (BUG-R1-SEC-02),
 // căn – định mức/sức chứa (US-004, BR-110, ESC-014). TC: test-cases/r1-main-flows.md.
-// Every parameter write in this file uses a random FUTURE effectiveFrom (2028–2030): it is recorded as a
-// new version but never changes today's behaviour of the shared stack – no restore needed.
+// Every parameter write in this file uses a random FAR-FUTURE effectiveFrom (2090–2092): it is recorded as a
+// new version but never changes today's behaviour of the shared stack – no restore needed. Not 2028–2030 any more:
+// the clock project books on virtual days from today + 800 (support/s3.ts virtualDay) and would inherit those
+// versions (QA S3 testing 17/10: checkin_time 14:30 leaked into TC-L3-010).
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
@@ -76,7 +78,7 @@ const SECURITY: Record<string, { min?: number; max?: number; def: unknown }> = {
 };
 
 function futureDate(): string {
-  const y = 2028 + Math.floor(Math.random() * 3);
+  const y = 2090 + Math.floor(Math.random() * 3);
   const d = new Date(Date.UTC(y, 0, 1) + Math.floor(Math.random() * 360) * 86_400_000);
   return d.toISOString().slice(0, 10);
 }

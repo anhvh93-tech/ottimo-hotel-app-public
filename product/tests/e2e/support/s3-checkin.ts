@@ -14,6 +14,7 @@ import { addDays, freeWindow, type ProblemFields, type Room, type S2Context } fr
 import {
   EP3,
   PRIVACY_NOTICE,
+  IMAGE_RETENTION_DAYS,
   dev,
   getRegistration,
   makeStay,
@@ -116,6 +117,7 @@ export async function consentFor(
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision,
       noticeVersion: PRIVACY_NOTICE,
+      retentionDays: IMAGE_RETENTION_DAYS,
       locale: 'vi',
       channel: 'desk',
     },

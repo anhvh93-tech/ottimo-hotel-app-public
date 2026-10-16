@@ -72,6 +72,8 @@ export interface CallOptions {
   headers?: Record<string, string>;
   /** Base URL override, e.g. WEB_URL to go through Caddy (another client IP for SR-RL-01 per-IP limits). */
   base?: string;
+  /** true → return a staff 429 RATE_LIMITED as is (a case that asserts SR-RL-09 itself). */
+  noRateLimitWait?: boolean;
 }
 
 export interface ApiResult<T = unknown> {
@@ -83,6 +85,9 @@ export interface ApiResult<T = unknown> {
 }
 
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/** Harness waits caused by SR-RL-09 in this worker (reported by the S3 test report, BUG-R2-051). */
+export const rateLimitWaits = { count: 0, seconds: 0 };
 
 export function uuid(): string {
   return randomUUID();
@@ -126,15 +131,41 @@ export async function call<T = unknown>(
   if (o.ifMatch !== undefined) headers['if-match'] = o.ifMatch;
   const params: Record<string, string> = {};
   for (const [k, v] of Object.entries(o.query ?? {})) if (v !== undefined) params[k] = String(v);
-  const res = await ctx.fetch(`${o.base ?? API_URL}${path}`, {
-    method: m,
-    headers,
-    params,
-    ...(o.body !== undefined ? { data: o.body } : {}),
-    failOnStatusCode: false,
-    maxRedirects: 0,
-  });
-  const text = await res.text();
+  const send = () =>
+    ctx.fetch(`${o.base ?? API_URL}${path}`, {
+      method: m,
+      headers,
+      params,
+      ...(o.body !== undefined ? { data: o.body } : {}),
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    });
+  let res = await send();
+  let text = await res.text();
+  // SR-RL-09 (600 requests/min per staff user, Sprint 3): every parallel worker of the suite shares the seed
+  // users qa.*, so the harness itself can exceed the window. The guard's counter is not cleared by
+  // /__test__/rate-limits/reset (BUG-R2-051) → wait Retry-After (≤ 65 s, test timeout extended) and resend
+  // the SAME request (the guard refuses before any handler/idempotency record – safe for writes). Under a
+  // frozen MutableClock the window never ends: after 2 waits the 429 is returned to the case.
+  for (
+    let attempt = 0;
+    res.status() === 429 && o.session && !o.noRateLimitWait && attempt < 2;
+    attempt++
+  ) {
+    const wait = Number(res.headers()['retry-after'] ?? NaN);
+    if (!/"RATE_LIMITED"/.test(text) || !(wait > 0 && wait <= 65)) break;
+    rateLimitWaits.count++;
+    rateLimitWaits.seconds += wait;
+    console.log(`[e2e] SR-RL-09 429 ${m} ${path.split('?')[0]} → chờ ${wait} giây (BUG-R2-051)`);
+    try {
+      test.info().setTimeout(test.info().timeout + (wait + 10) * 1000);
+    } catch {
+      /* outside a test (global setup) – nothing to extend */
+    }
+    await new Promise((r) => setTimeout(r, wait * 1000 + 250));
+    res = await send();
+    text = await res.text();
+  }
   let body: unknown = text;
   try {
     body = text ? JSON.parse(text) : undefined;

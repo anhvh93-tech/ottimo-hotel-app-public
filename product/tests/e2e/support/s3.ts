@@ -579,14 +579,30 @@ export async function deskConsent(
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision,
       noticeVersion: PRIVACY_NOTICE,
+      retentionDays: IMAGE_RETENTION_DAYS,
       locale: 'vi',
       channel: 'desk',
     },
   });
 }
 
+/**
+ * PortalData.fields[].value of a date (OpenAPI 0.3.6 addendum, ARC 17/10): `portal_date_format`, default dd/MM/yyyy
+ * (DOM S3-5 – assumption pending ESC-018). Nationality is "Vietnamese country name (alpha-3)".
+ */
+export function portalDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
 /** privacy_notice_version default (catalogue 0052 – DS-E does not override it). */
 export const PRIVACY_NOTICE = 'privacy-2026-10-v1';
+
+/**
+ * DS-E `id_image_retention_days_after_checkout` (BR-610) = 30. OpenAPI 0.3.6 addendum (SEC ĐK-2, 17/10):
+ * `ConsentInput.retentionDays` is REQUIRED for P02B (the number of days the person read) – a different value → 422.
+ */
+export const IMAGE_RETENTION_DAYS = 30;
 
 /** completeRegistrationReview with If-Match (warningNotes for fail/unverified checks). */
 export async function completeReview(
@@ -960,14 +976,62 @@ export async function checkIn(
   body: CheckInBody = {},
   opts: { device?: boolean; idempotencyKey?: string } = {},
 ): Promise<ApiResult<Reservation & ProblemFields>> {
-  const cur = await getReservation(ctx, s, reservationId);
   const o = opts.device === false ? { session: s } : dev(s);
-  return call(ctx, 'POST', p3(EP3.checkIn, s, { reservationId }), {
-    ...o,
-    idempotencyKey: opts.idempotencyKey ?? true,
-    ifMatch: versionTag(cur.body.version),
-    body: { cardsIssued: 1, houseRulesSent: true, ...body },
-  });
+  const send = async (b: CheckInBody) => {
+    const cur = await getReservation(ctx, s, reservationId);
+    return call<Reservation & ProblemFields>(ctx, 'POST', p3(EP3.checkIn, s, { reservationId }), {
+      ...o,
+      idempotencyKey: opts.idempotencyKey ?? true,
+      ifMatch: versionTag(cur.body.version),
+      body: { cardsIssued: 1, houseRulesSent: true, ...b },
+    });
+  };
+  const r = await send(body);
+  // 0.3.6 (DOM S3-12, BUG-R2-039 fixed): an early check-in with a surcharge > 0 needs an explicit decision
+  // (422 SURCHARGE_DECISION_REQUIRED). A case whose body says nothing about the surcharge (it is not the subject)
+  // takes the desk default: post the amount previewCheckIn shows for the same time (typed, else server time).
+  if (r.status === 422 && !opts.idempotencyKey && noDecision(body) && decisionRequired(r.body)) {
+    const time = body.checkinTime ?? (await serverLocalTime(ctx));
+    const pv = await preview(ctx, s, reservationId, time);
+    const early = pv.body.earlyCheckinSurcharge as {
+      amountVnd?: number;
+      addsPreviousNight?: boolean;
+    };
+    if ((early?.amountVnd ?? 0) > 0 && !early?.addsPreviousNight) {
+      autoDecision(`checkIn ${time}: applyEarlySurcharge ${early.amountVnd}`);
+      return send({ ...body, applyEarlySurcharge: true, expectedSurchargeVnd: early.amountVnd });
+    }
+  }
+  return r;
+}
+
+/** True when the body takes no surcharge decision (checkIn / setLateCheckout). */
+export function noDecision(body: object): boolean {
+  return !['applyEarlySurcharge', 'applySurcharge', 'addPriorNight', 'requestFocForSurcharge'].some(
+    (k) => k in body,
+  );
+}
+
+/** 422 with a field error SURCHARGE_DECISION_REQUIRED (OpenAPI 0.3.6, DOM S3-12). */
+export function decisionRequired(body: unknown): boolean {
+  return JSON.stringify(body ?? '').includes('SURCHARGE_DECISION_REQUIRED');
+}
+
+/** HH:MM of the stack clock (GET /health time is +07:00 and follows the MutableClock). */
+export async function serverLocalTime(ctx: APIRequestContext): Promise<string> {
+  const h = await call<{ time: string }>(ctx, 'GET', '/health');
+  return h.body.time.slice(11, 16);
+}
+
+/** Visible trace of a surcharge decision taken by the harness for a case that is not about it. */
+export function autoDecision(what: string): void {
+  try {
+    test
+      .info()
+      .annotations.push({ type: 'harness', description: `quyết định phụ thu mặc định – ${what}` });
+  } catch {
+    /* outside a test */
+  }
 }
 
 export async function preview(

@@ -1278,15 +1278,23 @@ test.describe(
         // (b) đã tự miễn 450.000 trong tháng (dữ liệu TC) → FOC 90.000 vượt 500.000 → pending, không tự áp
         const usedB = 450_000;
         expect(usedB + lineA.amountVnd).toBeGreaterThan(SELF_PER_MONTH);
+        // Kiểm minibar giữa kỳ (mode=stayover) bị đóng tới US-033 (DOM BE-29, build 229db99) → dòng minibar để lấp hạn
+        // mức lấy từ kiểm trả phòng của 2 đơn khác cùng tháng: đơn 2 dùng mọi món tính tiền, đơn 3 dùng 1 vang.
+        const st2 = await inHouse(request, c, fd, {
+          room: room(c, '402'),
+          alternatives: c.rooms.filter((r) => !['401', '402'].includes(r.roomNo)),
+          arrival: D,
+        });
+        const std2 = await minibarStd(request, fd, st2.res.id);
         const all: Record<string, number> = {};
-        for (const i of std.items) if (!i.isFree) all[i.itemId] = i.standardQty;
-        await minibarCheck(request, fd, st.res.id, 'stayover', all);
-        f = await getFolio(request, fd, folioId);
+        for (const i of std2.items) if (!i.isFree) all[i.itemId] = i.standardQty;
+        await minibarCheck(request, fd, st2.res.id, 'checkout', all);
+        const f2 = await getFolio(request, fd, st2.res.folioId!);
         let need = usedB - (await selfAppliedIn(request, fd, month));
-        for (const l of liveLines(f, 'minibar').filter((x) => x.id !== lineA.id)) {
+        for (const l of liveLines(f2, 'minibar')) {
           if (need <= 0) break;
           const amt = Math.min(SELF_PER_TIME, l.amountVnd, need);
-          const r = await requestFoc(request, fd, folioId, l.id, {
+          const r = await requestFoc(request, fd, st2.res.folioId!, l.id, {
             amountVnd: amt,
             password: true,
           });
@@ -1294,15 +1302,23 @@ test.describe(
           expect(r.body.status, 'lấp hạn mức tự miễn').toBe('approved');
           need -= amt;
         }
+        expect(need, 'đủ dòng minibar để lấp 450.000').toBeLessThanOrEqual(0);
         expect(await selfAppliedIn(request, fd, month)).toBe(usedB);
-        await minibarCheck(request, fd, st.res.id, 'stayover', { [vangId!]: 1 });
-        f = await getFolio(request, fd, folioId);
-        const used = new Set(f.lines.map((l) => l.relatedLineId).filter(Boolean));
-        const lineB = liveLines(f, 'minibar').find(
-          (l) => l.amountVnd === vang.salePriceVnd && !used.has(l.id) && l.id !== lineA.id,
-        )!;
+        const st3 = await inHouse(request, c, fd, {
+          room: room(c, '301'),
+          alternatives: c.rooms.filter(
+            (r) => !['401', '402', '301', st2.room.roomNo].includes(r.roomNo),
+          ),
+          arrival: D,
+        });
+        const std3 = await minibarStd(request, fd, st3.res.id);
+        const vang3 = std3.items.find((i) => i.itemName === vang.name)?.itemId;
+        expect(vang3, 'món vang trong tủ chuẩn căn 3').toBeTruthy();
+        await minibarCheck(request, fd, st3.res.id, 'checkout', { [vang3!]: 1 });
+        const f3 = await getFolio(request, fd, st3.res.folioId!);
+        const lineB = liveLines(f3, 'minibar').find((l) => l.amountVnd === vang.salePriceVnd)!;
         expect(lineB, 'dòng minibar 90.000 thứ hai').toBeTruthy();
-        const b = await requestFoc(request, fd, folioId, lineB.id, {
+        const b = await requestFoc(request, fd, st3.res.folioId!, lineB.id, {
           amountVnd: lineB.amountVnd,
           reasonCode: 'regular_vip',
           password: true,

@@ -453,7 +453,7 @@ test.describe(
       expect(txt).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
     });
 
-    test('TC-L5-052 ESC-017 A: tiền SAL ghi → chờ đối soát, hoa hồng chưa đạt; SAL tự đối soát 403; MGR đối soát → đạt', async ({
+    test('TC-L5-052 ESC-017 A: tiền SAL ghi → chờ đối soát, hoa hồng chưa đạt; SAL tự đối soát 403; MGR đối soát → vẫn "dự kiến" tới khi trả phòng + thu đủ (BR-527/903 v0.3.4)', async ({
       request,
     }) => {
       await requireEndpoints(request, 'TC-L5-052', [
@@ -516,7 +516,11 @@ test.describe(
       expectProblem(await rec(sal), 403);
       const ok = await rec(mgr);
       expect(ok.status, JSON.stringify(ok.body)).toBe(200);
-      expect(await comm(), 'hoa hồng đạt sau đối soát (BR-527)').toBe('earned');
+      // BR-527/BR-903 v0.3.4 (DOM S3-3, 17/10): đối soát là điều kiện cần, không đủ – đơn chưa trả phòng/thu đủ nên
+      // hoa hồng vẫn "dự kiến"; "đạt" ở sự kiện sau cùng (trả phòng) – phần đó kiểm ở ca trả phòng (clock)
+      expect(await comm(), 'hoa hồng chưa đạt khi đơn chưa trả phòng (BR-903 v0.3.4)').not.toBe(
+        'earned',
+      );
     });
   },
 );

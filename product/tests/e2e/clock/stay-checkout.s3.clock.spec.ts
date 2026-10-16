@@ -801,10 +801,9 @@ test.describe(
           // (b) còn 202 trống → qa.fd đặt được, kèm cảnh báo tên khách đến + giờ đến dự kiến
           await at(request, vnTime(D1, '09:00'));
           fd = await fresh(request, 'qa.fd');
-          const okB = await lateCheckout(request, fd, b.res.id, {
-            checkoutTime: '15:00',
-            applySurcharge: false,
-          });
+          // 0.3.6: không còn "đặt giờ, không ghi phụ thu" (applySurcharge=false → 422 SURCHARGE_DECISION_REQUIRED) –
+          // ca này kiểm cảnh báo khách đến, phụ thu theo mặc định của quầy (support lateCheckout)
+          const okB = await lateCheckout(request, fd, b.res.id, { checkoutTime: '15:00' });
           expect(okB.status, JSON.stringify(okB.body)).toBe(200);
           expect(okB.body.saved).toBe(true);
           expect(okB.body.arrivalSameDay).toMatchObject({
@@ -1259,22 +1258,29 @@ test.describe(
             const s = await fresh(request, 'qa.fd');
             const since = new Date().toISOString();
             const cur = await getReservation(request, s, st.res.id);
-            const r = await call<Reservation & ProblemFields>(
-              request,
-              'POST',
-              p3(EP3.earlyDeparture, s, { reservationId: st.res.id }),
+            // 0.3.6 bổ sung 2 (E04-06): phản hồi EarlyDepartureResult {reservation, earlyDepartureFeeVnd, refundVnd, refundRequestId}
+            const r = await call<
               {
-                session: s,
-                idempotencyKey: true,
-                ifMatch: versionTag(cur.body.version),
-                body: {
-                  newDepartureDate: map(String(o.input.newDepartureDate)),
-                  noticeGivenAt: new Date(noticeAt).toISOString(),
-                },
+                reservation: Reservation;
+                earlyDepartureFeeVnd: number;
+                refundVnd?: number;
+                refundRequestId?: string | null;
+              } & ProblemFields
+            >(request, 'POST', p3(EP3.earlyDeparture, s, { reservationId: st.res.id }), {
+              session: s,
+              idempotencyKey: true,
+              ifMatch: versionTag(cur.body.version),
+              body: {
+                newDepartureDate: map(String(o.input.newDepartureDate)),
+                noticeGivenAt: new Date(noticeAt).toISOString(),
               },
-            );
+            });
             expect(r.status, `${ex}: ${JSON.stringify(r.body)}`).toBe(200);
-            expect(r.body.departureDate).toBe(map(String(o.input.newDepartureDate)));
+            expect(r.body.reservation?.departureDate).toBe(map(String(o.input.newDepartureDate)));
+            expect(r.body.refundVnd ?? 0, `${ex}: refundVnd`).toBe(oracleNum(ex, 'refundVnd'));
+            expect(!!r.body.refundRequestId, `${ex}: refundRequestId`).toBe(
+              oracleNum(ex, 'refundVnd') > 0,
+            );
             // các đêm bỏ mở bán lại (searchAvailability) + lệnh đồng bộ kênh
             const dropped = (o.expected.cancelledNights as string[]).map(map);
             expect(
@@ -1850,10 +1856,7 @@ test.describe(
           expect(bill.body.otaPrepaidNote).toContain('Đã thu qua');
           const sum = await checkoutSummary(request, fd, a.res.id);
           expect(sum.status).toBe(200);
-          test.fail(
-            sum.body.balanceDueVnd !== minibar,
-            'BUG-R2-044: đơn OTA thu hộ – tiền phòng bị tính vào "Còn phải thu" (không có khoản ota_collect) – BR-307',
-          );
+          // BUG-R2-044 đã sửa ở 229db99 – QA kiểm lại 17/10, đóng; bỏ test.fail có điều kiện để hồi quy báo đỏ
           expect(sum.body.balanceDueVnd).toBe(minibar);
           expect(bill.body.balanceDueVnd).toBe(minibar);
         },
@@ -1902,10 +1905,7 @@ test.describe(
           expect(sum.body.lateCheckoutSurcharge?.amountVnd).toBe(expected);
           const late = sum.body.lines.filter((l) => l.category === 'late_checkout');
           expect(late.reduce((x, l) => x + l.amountVnd, 0)).toBe(expected);
-          test.fail(
-            sum.body.balanceDueVnd !== expected,
-            'BUG-R2-044: đơn OTA thu hộ – tiền phòng bị tính vào "Còn phải thu" (không có khoản ota_collect) – BR-307/BR-415',
-          );
+          // BUG-R2-044 đã sửa ở 229db99 – QA kiểm lại 17/10, đóng; bỏ test.fail có điều kiện để hồi quy báo đỏ
           expect(sum.body.balanceDueVnd, 'chỉ còn phụ thu thu tại quầy').toBe(expected);
         },
       );
