@@ -6,7 +6,7 @@
   "updated": "2026-10-16",
   "sources": [
     "product/docs/qa/test-strategy.md mục 4.1–4.3",
-    "product/docs/business-rules.md v0.2 mục 13",
+    "product/docs/business-rules.md v0.3.1 mục 13",
     "product/docs/round-0-baseline.md 4.1, 4.13, 5.2",
     "product/docs/erd.md 4.1 (channel)"
   ],
@@ -25,6 +25,7 @@
       "code": "L12",
       "name": "Lầu 1–2",
       "sortOrder": 1,
+      "defaultBaseOccupancy": 2,
       "defaultMaxOccupancy": 3,
       "otaBaseRateVnd": 760000,
       "serviceFeeMonthlyVnd": 300000,
@@ -51,7 +52,8 @@
       "code": "N",
       "name": "Căn N",
       "sortOrder": 2,
-      "defaultMaxOccupancy": 4,
+      "defaultBaseOccupancy": 4,
+      "defaultMaxOccupancy": 5,
       "otaBaseRateVnd": 1050000,
       "serviceFeeMonthlyVnd": 400000,
       "fixedCostMonthlyVnd": 200000,
@@ -77,6 +79,7 @@
       "code": "NPLUS",
       "name": "Căn N+",
       "sortOrder": 3,
+      "defaultBaseOccupancy": 3,
       "defaultMaxOccupancy": 4,
       "otaBaseRateVnd": 980000,
       "serviceFeeMonthlyVnd": 350000,
@@ -108,6 +111,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 8000000,
       "expectedNightlyListPriceVnd": 667000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -117,6 +121,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 9000000,
       "expectedNightlyListPriceVnd": 750000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -126,6 +131,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 9000000,
       "expectedNightlyListPriceVnd": 750000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -135,6 +141,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 8500000,
       "expectedNightlyListPriceVnd": 708000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -144,6 +151,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 9500000,
       "expectedNightlyListPriceVnd": 792000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -153,6 +161,7 @@
       "group": "L12",
       "monthlyListPriceVnd": 9500000,
       "expectedNightlyListPriceVnd": 792000,
+      "baseOccupancy": 2,
       "maxOccupancy": 3,
       "isSellable": true
     },
@@ -162,7 +171,8 @@
       "group": "N",
       "monthlyListPriceVnd": 11500000,
       "expectedNightlyListPriceVnd": 958000,
-      "maxOccupancy": 4,
+      "baseOccupancy": 4,
+      "maxOccupancy": 5,
       "isSellable": true
     },
     {
@@ -171,6 +181,7 @@
       "group": "NPLUS",
       "monthlyListPriceVnd": 11000000,
       "expectedNightlyListPriceVnd": 917000,
+      "baseOccupancy": 3,
       "maxOccupancy": 4,
       "isSellable": true
     },
@@ -180,7 +191,8 @@
       "group": "N",
       "monthlyListPriceVnd": 12500000,
       "expectedNightlyListPriceVnd": 1042000,
-      "maxOccupancy": 4,
+      "baseOccupancy": 4,
+      "maxOccupancy": 5,
       "isSellable": true
     },
     {
@@ -189,11 +201,12 @@
       "group": "NPLUS",
       "monthlyListPriceVnd": 12000000,
       "expectedNightlyListPriceVnd": 1000000,
+      "baseOccupancy": 3,
       "maxOccupancy": 4,
       "isSellable": true
     }
   ],
-  "roomsNote": "maxOccupancy = mặc định nhóm (BR-110); số thật từng căn chờ INV (ESC-004 A). expectedNightlyListPriceVnd là kết quả mong đợi BR-101, server tự tính – không nạp cột này",
+  "roomsNote": "baseOccupancy = định mức từng căn (INV gửi 16/10, BR-110 – INV-TT); maxOccupancy = định mức + 1 người ngủ sofa (INV quyết ESC-014 16/10: Studio 3; 301, 401: 5; 302, 402: 4); trẻ dưới 6 tuổi không tính. Loader nạp vào room.base_occupancy / room.max_occupancy (khóa BR mục 13 room.<no>.*). expectedNightlyListPriceVnd là kết quả mong đợi BR-101, server tự tính – không nạp cột này",
   "parameters": [
     {
       "param": "timezone",
@@ -220,35 +233,35 @@
       "param": "rounding.night_rate",
       "value": 1000,
       "br": "BR-005",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "rounding.monthly_rent",
       "value": 10000,
       "br": "BR-005",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "rounding.deposit",
       "value": 100000,
       "br": "BR-005",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "rounding.fee",
       "value": 1000,
       "br": "BR-005",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "night_from_month_divisor",
       "value": 12,
       "br": "BR-101",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -262,15 +275,23 @@
       "param": "weekend_uplift_pct",
       "value": 15,
       "br": "BR-103",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "weekend_nights",
       "value": ["FRI", "SAT"],
       "br": "BR-103",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "weekend_uplift_channels",
+      "value": "all",
+      "br": "BR-103",
+      "status": "INV-004",
+      "effectiveFrom": "2026-10-01",
+      "note": "v0.3: lịch giá áp mọi kênh, gồm Trực tiếp/CTV (ESC-004 A)"
     },
     {
       "param": "special_dates",
@@ -297,7 +318,7 @@
         }
       ],
       "br": "BR-104",
-      "status": "GD",
+      "status": "INV-004+GD",
       "effectiveFrom": "2026-10-01",
       "note": "Khoảng nửa mở [from, to). Ngày Tết 2027 do QA điền theo lịch âm (mùng 1 = 06/02/2027, khoảng 29 Tết – mùng 5) – DOM/INV xác nhận; ESC-004 P-B: R2 chỉ lễ quốc gia"
     },
@@ -305,7 +326,14 @@
       "param": "special_uplift_pct",
       "value": 30,
       "br": "BR-104",
-      "status": "GD",
+      "status": "INV-004+GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "special_uplift_channels",
+      "value": "all",
+      "br": "BR-104",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -335,63 +363,56 @@
         }
       ],
       "br": "BR-107",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "long_stay_compare_from_nights",
       "value": 15,
       "br": "BR-108",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "long_stay_required_from_nights",
       "value": 28,
       "br": "BR-108",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "foreigner_surcharge_pct",
       "value": 10,
       "br": "BR-109",
-      "status": "GD",
-      "effectiveFrom": "2026-10-01"
-    },
-    {
-      "param": "base_occupancy",
-      "value": 2,
-      "br": "BR-110",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "extra_adult_fee",
       "value": 150000,
       "br": "BR-110",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "adult_from_age",
       "value": 12,
       "br": "BR-110",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "child_free_under_age",
       "value": 6,
       "br": "BR-110",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "child_fee_6_11",
       "value": 100000,
       "br": "BR-110",
-      "status": "GD",
+      "status": "INV-004",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -431,11 +452,28 @@
     },
     {
       "param": "min_stay",
-      "value": [],
+      "value": [
+        {
+          "arrivalWeekdays": ["FRI", "SAT"],
+          "nights": 2,
+          "channels": "all"
+        },
+        {
+          "arrivalOnSpecialDates": true,
+          "nights": 2,
+          "channels": "all"
+        }
+      ],
       "br": "BR-113",
-      "status": "GD",
-      "effectiveFrom": "2026-10-01",
-      "note": "BR v0.2: TẮT (= 1 đêm). ESC-004 đã quyết A (M-A: 2 đêm cho đến T6, T7, ngày lễ) – chờ DOM cập nhật BR rồi QA đổi giá trị seed"
+      "status": "INV-004",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "min_stay_orphan_night_exception",
+      "value": true,
+      "br": "BR-113",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
     },
     {
       "param": "rent_reminder_days",
@@ -469,71 +507,79 @@
       "param": "commission_payable_day",
       "value": 1,
       "br": "BR-212",
-      "status": "GD",
+      "status": "INV-005",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "commission_pay_by_day",
       "value": 10,
       "br": "BR-212",
-      "status": "GD",
+      "status": "INV-005",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "deposit_refund_working_days",
       "value": 7,
       "br": "BR-214",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "hold_hours_options",
       "value": [12, 24, 48],
       "br": "BR-302",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "hold_hours_default",
       "value": 24,
       "br": "BR-302",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "hold_latest_time_on_arrival",
       "value": "12:00",
       "br": "BR-302",
-      "status": "GD",
+      "status": "NGANH",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "hold_expiry_reminder_hours",
       "value": 2,
       "br": "BR-303",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "hold_extension_max_hours",
       "value": 24,
       "br": "BR-303",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "quote_validity_days",
       "value": 3,
       "br": "BR-304",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "short_stay_deposit_pct",
       "value": 30,
       "br": "BR-305",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "deposit_base",
+      "value": "room_total_after_calendar_and_discount",
+      "br": "BR-305",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01",
+      "note": "Không gồm phụ thu người/nhận sớm/trả muộn, dịch vụ (DOM trả lời Q1 – BR-305 v0.3)"
     },
     {
       "param": "cancel_policy_direct",
@@ -552,42 +598,49 @@
         }
       ],
       "br": "BR-309",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "cancel_peak_no_refund",
       "value": true,
       "br": "BR-309",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "reschedule_max_times",
       "value": 1,
       "br": "BR-309",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "reschedule_window_months",
       "value": 3,
       "br": "BR-309",
-      "status": "GD",
+      "status": "INV-006",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "force_majeure_reschedule_months",
+      "value": 3,
+      "br": "BR-309",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "no_show_call_time",
       "value": "18:00",
       "br": "BR-311",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "no_show_mark_time",
       "value": "23:00",
       "br": "BR-311",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -603,7 +656,7 @@
         }
       ],
       "br": "BR-313",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -645,14 +698,14 @@
       "param": "group_rooming_list_days",
       "value": 3,
       "br": "BR-323",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "group_min_rooms",
       "value": 2,
       "br": "BR-324",
-      "status": "GD",
+      "status": "INV-006",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -673,14 +726,21 @@
       "param": "door_code_min_digits",
       "value": 6,
       "br": "BR-403",
-      "status": "GD",
+      "status": "INV-011+SEC",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "birthday_code_random_digits",
       "value": 3,
       "br": "BR-403",
-      "status": "GD",
+      "status": "INV-011+SEC",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "door_lock_vendor",
+      "value": "TTLock",
+      "br": "BR-403",
+      "status": "INV-TT",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -698,7 +758,7 @@
         }
       ],
       "br": "BR-411",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -716,36 +776,35 @@
         }
       ],
       "br": "BR-412",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "late_grace_until",
-      "value": "12:00",
+      "value": "12:30",
       "br": "BR-412",
-      "status": "GD",
-      "effectiveFrom": "2026-10-01",
-      "note": "ESC-007 đã quyết A (12:30) ngày 16/10 – chờ DOM cập nhật BR rồi QA đổi giá trị seed"
+      "status": "INV-007",
+      "effectiveFrom": "2026-10-01"
     },
     {
       "param": "late_grace_requires_no_same_day_arrival",
       "value": true,
       "br": "BR-412",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "ota_surcharge_base",
       "value": "direct_current_rate",
       "br": "BR-415",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "long_stay_free_late_until",
       "value": "15:00",
       "br": "BR-413",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -764,7 +823,11 @@
     },
     {
       "param": "checkout_reminders",
-      "value": ["20:00-1d", "09:00", "11:00", "12:00"],
+      "value": {
+        "before": ["20:00-1d", "09:00", "11:00"],
+        "overdueWithSameDayArrival": "12:00",
+        "overdueOtherwise": "12:31"
+      },
       "br": "BR-425",
       "status": "GD",
       "effectiveFrom": "2026-10-01"
@@ -773,7 +836,7 @@
       "param": "post_checkout_charge_hours",
       "value": 24,
       "br": "BR-427",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -791,56 +854,64 @@
         }
       },
       "br": "BR-433",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "foc_approval_push_roles",
+      "value": "lowest_sufficient_role_plus_manager",
+      "br": "BR-432",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01",
+      "note": "Chủ đầu tư nhận thông báo đẩy khi vượt hạn mức quản lý hoặc không có quản lý đang hoạt động; hàng chờ duyệt gồm mọi vai đủ hạn mức (kể cả owner)"
     },
     {
       "param": "foc_self_apply.front_desk.per_time",
       "value": 100000,
       "br": "BR-436",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "foc_self_apply.front_desk.per_month",
       "value": 500000,
       "br": "BR-436",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "foc_self_apply.front_desk.categories",
       "value": ["minibar"],
       "br": "BR-436",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "foc_alert_pct_of_room_revenue",
       "value": 3,
       "br": "BR-435",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "foc_alert_count_per_approver",
       "value": 10,
       "br": "BR-435",
-      "status": "GD",
+      "status": "INV-007",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "electricity_price",
       "value": 3500,
       "br": "BR-501",
-      "status": "GD+PL",
+      "status": "INV-008+PL",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "water_price",
       "value": 25000,
       "br": "BR-501",
-      "status": "GD+PL",
+      "status": "INV-008+PL",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -875,7 +946,7 @@
       "param": "adhoc_cleaning_fee",
       "value": 100000,
       "br": "BR-506",
-      "status": "GD",
+      "status": "INV-005",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -931,7 +1002,14 @@
       "param": "prices_include_vat",
       "value": true,
       "br": "BR-523",
-      "status": "PL",
+      "status": "INV-008+PL",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "business_entity_type",
+      "value": "enterprise",
+      "br": "BR-524",
+      "status": "INV-TT+PL",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -939,6 +1017,20 @@
       "value": 2,
       "br": "BR-527",
       "status": "GD",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "no_deposit_max_lead_days",
+      "value": 2,
+      "br": "BR-527",
+      "status": "INV-006+NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "no_deposit_hold_until",
+      "value": "18:00",
+      "br": "BR-527",
+      "status": "INV-006+NGANH",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -984,7 +1076,7 @@
       "param": "registration_digest_times",
       "value": ["22:00", "07:00"],
       "br": "BR-611",
-      "status": "GD",
+      "status": "INV-010",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -1012,7 +1104,7 @@
       "param": "id_image_purge_max_hours",
       "value": 24,
       "br": "BR-609",
-      "status": "PL",
+      "status": "PL+SEC",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -1068,20 +1160,70 @@
       "param": "daily_clean_status_time",
       "value": "07:00",
       "br": "BR-802",
-      "status": "GD",
+      "status": "INV-008",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "linen_change_every_nights",
       "value": 3,
       "br": "BR-807",
-      "status": "GD",
+      "status": "INV-008",
       "effectiveFrom": "2026-10-01"
     },
     {
       "param": "long_stay_cleaning_window",
       "value": ["09:00", "11:00"],
       "br": "BR-807",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "extra_guest_kit_items",
+      "value": [
+        {
+          "item": "blanket",
+          "qty": 1,
+          "stock": false
+        },
+        {
+          "item": "bath_towel",
+          "qty": 1,
+          "stock": false
+        },
+        {
+          "item": "face_towel",
+          "qty": 1,
+          "stock": false
+        },
+        {
+          "item": "toothbrush",
+          "qty": 1,
+          "stock": true,
+          "stockCode": "ban_chai"
+        },
+        {
+          "item": "amenity_kit",
+          "qty": 1,
+          "stock": true,
+          "stockCode": "bo_ve_sinh"
+        }
+      ],
+      "br": "BR-812",
+      "status": "INV-014+GD",
+      "effectiveFrom": "2026-10-01",
+      "note": "Thành phần bộ khăn (1 tắm + 1 mặt): GĐ. stockCode do QA đặt [GIẢ ĐỊNH QA] – khớp consumableItems bên dưới"
+    },
+    {
+      "param": "extra_guest_kit_due",
+      "value": "booking_checkin_time",
+      "br": "BR-812",
+      "status": "NGANH",
+      "effectiveFrom": "2026-10-01"
+    },
+    {
+      "param": "extra_guest_kit_midstay_due_minutes",
+      "value": 60,
+      "br": "BR-812",
       "status": "GD",
       "effectiveFrom": "2026-10-01"
     },
@@ -1131,7 +1273,7 @@
         "staff": 3
       },
       "br": "BR-903",
-      "status": "GD",
+      "status": "INV-005",
       "effectiveFrom": "2026-10-01"
     },
     {
@@ -1156,7 +1298,7 @@
       "effectiveFrom": "2026-10-01"
     }
   ],
-  "parametersNote": "Giá trị mặc định BR v0.2 mục 13. status: GD = [GIẢ ĐỊNH – chờ INV], NGANH, PL = cần xác nhận pháp lý. Tham số nội dung lớn (lease_terms, minibar_standard, service_fee, cleaning_package, channel_commission_pct) nằm ở các khối riêng bên dưới. Trường 'param' = config_parameter.key (đặt tên khác 'key' để tránh gitleaks generic-api-key báo nhầm)",
+  "parametersNote": "Giá trị mặc định BR v0.3.1 mục 13. status theo cột 'Trạng thái' BR mục 13: INV-0xx = INV quyết ESC-0xx 16/10 (giá trị chính thức), INV-TT = thông tin INV gửi, GD = [GIẢ ĐỊNH – chờ INV], NGANH, PL = cần xác nhận pháp lý, SEC; ghép bằng '+'. Tham số nội dung lớn (lease_terms, minibar_standard, service_fee, cleaning_package, channel_commission_pct) nằm ở các khối riêng bên dưới. Trường 'param' = config_parameter.key (đặt tên khác 'key' để tránh gitleaks generic-api-key báo nhầm)",
   "leaseTerms": [
     {
       "months": 1,
@@ -1426,6 +1568,25 @@
     }
   ],
   "minibarNote": "BL 4.13: 10 mặt hàng, tổng chuẩn mỗi tủ 17 đơn vị (= '17 món' của BR-701)",
+  "consumableItems": [
+    {
+      "code": "ban_chai",
+      "name": "Bàn chải đánh răng (bộ đồ dùng thêm)",
+      "unit": "cái",
+      "unitCostVnd": 6000,
+      "openingStock": 40,
+      "minStock": 10
+    },
+    {
+      "code": "bo_ve_sinh",
+      "name": "Bộ đồ vệ sinh cá nhân (amenity)",
+      "unit": "bộ",
+      "unitCostVnd": 18000,
+      "openingStock": 25,
+      "minStock": 10
+    }
+  ],
+  "consumableItemsNote": "Hàng tiêu hao cho bộ đồ dùng thêm BR-812 (xuất khác, ghi chi phí phòng). Giá vốn, tồn đầu theo ví dụ BR-812 (6.000; 18.000; tồn 40, 25) – dữ liệu giả, không phải minibar (không tính vào 17 món BR-701)",
   "feeCatalog": [
     {
       "code": "adhoc_cleaning",

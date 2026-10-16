@@ -10,7 +10,7 @@
 //
 // Usage: node tools/validate-fixtures.mjs [--verbose]   (exit 1 on any error)
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -112,6 +112,43 @@ const tierFor = (months) => [...LEASE_TIERS].reverse().find((t) => t.months <= m
 const pctOfRate = (rate, pct) => roundTo(rate * pct, 100, 1000);
 const earlyPct = (hm) => (hm >= '14:00' ? 0 : hm >= '10:00' ? 30 : hm >= '06:00' ? 50 : null);
 let MINIBAR = {};
+let SPECIAL_DATES = []; // DS-E special_dates (half-open [from, to)), loaded by validateSeeds
+let SEED_PARAMS = {};
+
+// BR-103/104 v0.3: rate calendar applies to every channel (direct included). Special date and weekend do
+// not stack – special (+30%) wins. Direct rates round to 1.000, OTA rates to 10.000 (BR-005).
+const isSpecial = (date, list = SPECIAL_DATES) => list.some((s) => s.from <= date && date < s.to);
+const calendarRateFor = (baseVnd, date, channel = 'direct', p = {}) => {
+  const step = channel === 'ota' ? 10000 : 1000;
+  const weekend = p.weekend_nights ?? ['FRI', 'SAT'];
+  if (isSpecial(date, p.special_dates ?? SPECIAL_DATES))
+    return roundTo(baseVnd * (100 + (p.special_uplift_pct ?? 30)), 100, step);
+  if (weekend.includes(weekday(date)))
+    return roundTo(baseVnd * (100 + (p.weekend_uplift_pct ?? 15)), 100, step);
+  return baseVnd;
+};
+const nightlyRates = (baseVnd, arrivalDate, nights, channel, p) =>
+  nightsBetween(arrivalDate, addDays(arrivalDate, nights)).map((d) =>
+    calendarRateFor(baseVnd, d, channel, p),
+  );
+const ageAt = (dob, date) => {
+  const [y, m, d] = dob.split('-').map(Number);
+  const [Y, M, D] = date.split('-').map(Number);
+  return Y - y - (M < m || (M === m && D < d) ? 1 : 0);
+};
+// BR-110 v0.3.1: persons counted = adults + children >= child_free_under_age. Adults fill the base first,
+// so the persons over base are the cheapest ones. Returns null when over max occupancy.
+const occupancy = ({ adults, childrenAges }, p) => {
+  const freeUnder = p.child_free_under_age ?? 6;
+  const adultFrom = p.adult_from_age ?? 12;
+  const fees = [
+    ...Array(adults).fill(p.extra_adult_fee ?? 150000),
+    ...childrenAges
+      .filter((a) => a >= freeUnder)
+      .map((a) => (a >= adultFrom ? (p.extra_adult_fee ?? 150000) : (p.child_fee_6_11 ?? 100000))),
+  ].sort((a, b) => b - a);
+  return { counted: fees.length, fees };
+};
 
 const CALC = {
   holdDeadline: ({ createdAt, holdHours, arrivalDate }) => {
@@ -164,25 +201,70 @@ const CALC = {
     floorVnd: roundTo(otaBaseRateVnd * 70, 100, 10000),
     ceilingVnd: roundTo(otaBaseRateVnd * 250, 100, 10000),
   }),
-  losDiscount: ({ nightlyRateVnd, nights, channel }) => {
+  calendarRate: ({ baseRateVnd, nightDate, channel }, p) => ({
+    rateVnd: calendarRateFor(baseRateVnd, nightDate, channel, p),
+  }),
+  losDiscount: (i, p) => {
+    const { nights, channel } = i;
     const bp = channel === 'ota' ? 0 : nights >= 14 ? 1500 : nights >= 7 ? 1000 : 0;
-    const r = roundTo(nightlyRateVnd * (10000 - bp), 10000, 1000);
+    const disc = (r) => roundTo(r * (10000 - bp), 10000, 1000);
+    if (i.nightlyRatesVnd) {
+      // v0.3: discount applies to each night after the rate calendar (BR-107)
+      const cal = nightlyRates(i.nightlyListPriceVnd, i.arrivalDate, nights, 'direct', p);
+      const out = i.nightlyRatesVnd.map(disc);
+      return {
+        discountBp: bp,
+        nightlyRatesVnd: cal,
+        inputNightlyRatesMatchCalendar: deepEq(cal, i.nightlyRatesVnd),
+        discountedNightlyRatesVnd: out,
+        roomTotalVnd: out.reduce((a, b) => a + b, 0),
+      };
+    }
+    const r = disc(i.nightlyRateVnd);
     return { discountBp: bp, discountedNightlyRateVnd: r, roomTotalVnd: r * nights };
   },
-  extraPersonFee: ({ adults, childrenAges, nights }, p) => {
-    const perNight =
-      Math.max(0, adults - p.base_occupancy) * p.extra_adult_fee +
-      childrenAges.reduce(
-        (s, age) =>
-          s +
-          (age >= p.adult_from_age
-            ? p.extra_adult_fee
-            : age >= p.child_free_under_age
-              ? p.child_fee_6_11
-              : 0),
-        0,
-      );
-    return { extraPersonFeeVnd: perNight * nights };
+  extraPersonFee: (i, p) => {
+    const base = p[`room.${i.roomNo}.base_occupancy`] ?? p.base_occupancy;
+    const max = p[`room.${i.roomNo}.max_occupancy`];
+    const { counted, fees } = occupancy(i, p);
+    if (max !== undefined && counted > max)
+      return { accepted: false, countedPersons: counted, extraPersonFeeVnd: 0, extraGuestKits: 0 };
+    const over = Math.max(0, counted - base);
+    // OTA (BR-110): no fee for persons already included in the OTA guest count; kit still issued (BR-812)
+    const charged = Math.max(0, counted - Math.max(base, i.otaGuestCount ?? 0));
+    const perNight = fees.slice(fees.length - charged).reduce((a, b) => a + b, 0);
+    return {
+      accepted: true,
+      countedPersons: counted,
+      extraPersonFeeVnd: charged ? perNight * i.nights : 0,
+      extraGuestKits: over,
+    };
+  },
+  extraGuestKitDue: (i, p) => {
+    if (i.midStayConfirmedAt)
+      return {
+        dueAt: fmt(ms(i.midStayConfirmedAt) + (p.extra_guest_kit_midstay_due_minutes ?? 60) * 60e3),
+      };
+    return {
+      dueAt: fmt(at(i.arrivalDate, i.confirmedEarlyCheckinTime ?? p.checkin_time ?? '14:00')),
+    };
+  },
+  forceMajeureReschedule: ({ arrivalDate, depositVnd }, p) => ({
+    refundVnd: 0,
+    rescheduleAllowed: true,
+    latestNewArrivalDate: addMonths(arrivalDate, p.force_majeure_reschedule_months ?? 3),
+    depositKeptVnd: depositVnd,
+  }),
+  noDepositBooking: ({ bookedAt, arrivalDate }, p) => {
+    const lead = diffDays(arrivalDate, businessDate(ms(bookedAt)));
+    return lead <= (p.no_deposit_max_lead_days ?? 2)
+      ? {
+          leadDays: lead,
+          accepted: true,
+          approverRole: 'manager',
+          holdUntil: fmt(at(arrivalDate, p.no_deposit_hold_until ?? '18:00')),
+        }
+      : { leadDays: lead, accepted: false };
   },
   bookingWindow: ({ today }, p) => ({
     lastBookableArrivalDate: addDays(today, p.booking_window_days - 1),
@@ -267,9 +349,16 @@ const CALC = {
       reportMonthAllocationVnd: alloc,
     };
   },
-  shortDeposit: ({ roomTotalVnd }) => {
+  shortDeposit: ({ roomTotalVnd, extraPersonFeeVnd }) => {
+    // BR-305 v0.3: deposit base = room total only (no extra-person fee, early/late fees, services)
     const dep = roundTo(roomTotalVnd * 30, 100, 100000);
-    return { depositVnd: dep, remainingAtCheckinVnd: roomTotalVnd - dep };
+    return {
+      depositVnd: dep,
+      remainingAtCheckinVnd: roomTotalVnd - dep,
+      ...(extraPersonFeeVnd !== undefined
+        ? { dueAtCheckinVnd: roomTotalVnd - dep + extraPersonFeeVnd }
+        : {}),
+    };
   },
   directCancelRefund: ({ depositVnd, arrivalDate, notifiedAt, peakNight }) => {
     const days = diffDays(arrivalDate, businessDate(ms(notifiedAt)));
@@ -322,11 +411,21 @@ const CALC = {
     const pct = checkoutTime > '15:00' ? 50 : checkoutTime > '12:00' ? 30 : 0;
     return { baseNightRateVnd: base, surchargeVnd: pctOfRate(base, pct) };
   },
-  extension: ({ channel, nightRateVnd, directCurrentRateVnd, extraNights }) => ({
-    extensionVnd:
-      (['direct', 'collaborator'].includes(channel) ? nightRateVnd : directCurrentRateVnd) *
-      extraNights,
-  }),
+  extension: (i, p) => {
+    const { channel, nightRateVnd, directCurrentRateVnd, extraNights } = i;
+    if (i.extraNightDates && i.directListPriceVnd && !['direct', 'collaborator'].includes(channel))
+      // BR-421 v0.3: OTA extension = current direct rate per night, rate calendar included (BR-104)
+      return {
+        extensionVnd: i.extraNightDates
+          .map((d) => calendarRateFor(i.directListPriceVnd, d, 'direct', p))
+          .reduce((a, b) => a + b, 0),
+      };
+    return {
+      extensionVnd:
+        (['direct', 'collaborator'].includes(channel) ? nightRateVnd : directCurrentRateVnd) *
+        extraNights,
+    };
+  },
   channelSaving: ({ extensionVnd }, p) => {
     const [n, d] = ratio(p['channel_commission_pct.airbnb']);
     return { savingBp: (n * 100) / d, savingVnd: roundTo(extensionVnd * n, d * 100, 1000) };
@@ -453,6 +552,18 @@ const CALC = {
 };
 
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const INV_RE = /^INV-\d{3}$/;
+// ESC files whose status line says "Đã quyết" → INV-0xx label allowed
+const ESC_DECIDED = new Set(
+  readdirSync(join(PRODUCT, '..', '02-escalations'))
+    .filter((f) => /^ESC-\d{3}\.md$/.test(f))
+    .filter((f) =>
+      /Trạng thái:\s*\**\s*Đã quyết/.test(
+        readFileSync(join(PRODUCT, '..', '02-escalations', f), 'utf8'),
+      ),
+    )
+    .map((f) => `INV-${f.slice(4, 7)}`),
+);
 
 // ---------------------------------------------------------------- 1. br-examples.json
 function brRowsFromMarkdown() {
@@ -494,8 +605,16 @@ function validateBrExamples() {
         err(w, `nhãn GIẢ ĐỊNH nhưng BR ghi "${md.label.slice(0, 40)}"`);
       if (!row.labels.includes('GIẢ ĐỊNH') && md.label.startsWith('[GIẢ ĐỊNH'))
         err(w, 'BR mang nhãn GIẢ ĐỊNH nhưng dòng oracle thiếu nhãn');
+      // v0.3: INV-0xx = "INV quyết ESC-0xx 16/10" (BR mục 0.1 / mục 13)
+      const invInMd = new Set([...md.label.matchAll(/ESC-(\d{3})/g)].map((m) => `INV-${m[1]}`));
+      for (const l of row.labels.filter((x) => INV_RE.test(x))) {
+        if (!invInMd.has(l)) err(w, `nhãn ${l} nhưng BR ghi "${md.label.slice(0, 50)}"`);
+        if (!ESC_DECIDED.has(l)) err(w, `nhãn ${l} nhưng ESC-${l.slice(4)} chưa "Đã quyết"`);
+      }
+      if (md.label.startsWith('INV quyết') && !row.labels.some((x) => INV_RE.test(x)))
+        err(w, `BR ghi "${md.label.slice(0, 30)}" nhưng dòng oracle thiếu nhãn INV-0xx`);
     }
-    for (const l of row.labels) if (!LABELS.has(l)) err(w, `nhãn lạ '${l}'`);
+    for (const l of row.labels) if (!LABELS.has(l) && !INV_RE.test(l)) err(w, `nhãn lạ '${l}'`);
     if (!ORIGINS.has(row.origin)) err(w, `origin lạ '${row.origin}'`);
     // money / time conventions
     const walk = (o, path) => {
@@ -573,12 +692,26 @@ function validateSeeds() {
     if (n !== r.expectedNightlyListPriceVnd)
       err(W, `căn ${r.roomNo}: giá đêm ${r.expectedNightlyListPriceVnd} ≠ BR-101 ${n}`);
   }
+  for (const r of rooms.values()) {
+    // BR-110 v0.3.1 (ESC-014): max = base + 1 for every room
+    if (!Number.isInteger(r.baseOccupancy)) err(W, `căn ${r.roomNo}: thiếu baseOccupancy (BR-110)`);
+    else if (r.maxOccupancy !== r.baseOccupancy + 1)
+      err(W, `căn ${r.roomNo}: maxOccupancy ${r.maxOccupancy} ≠ định mức + 1 (ESC-014)`);
+  }
   const pkeys = new Set();
+  const STATUS = /^(GD|NGANH|PL|INV-\d{3}|INV-TT)(\+(GD|NGANH|PL|INV-\d{3}|INV-TT|SEC))*$/;
   for (const p of dse.parameters) {
     if (pkeys.has(p.param)) err(W, `tham số trùng ${p.param}`);
     pkeys.add(p.param);
     if (!/^BR-\d{3}$/.test(p.br)) err(W, `tham số ${p.param}: br '${p.br}'`);
+    if (!STATUS.test(p.status)) err(W, `tham số ${p.param}: status lạ '${p.status}'`);
+    for (const inv of p.status.match(/INV-\d{3}/g) ?? [])
+      if (!ESC_DECIDED.has(inv)) err(W, `tham số ${p.param}: ${inv} nhưng ESC chưa quyết`);
+    SEED_PARAMS[p.param] = p.value;
   }
+  SPECIAL_DATES = SEED_PARAMS.special_dates ?? [];
+  if (pkeys.has('base_occupancy'))
+    err(W, 'base_occupancy chung đã bỏ ở BR v0.3 – dùng rooms[].baseOccupancy');
   const channels = new Map(dse.channels.map((c) => [c.code, c]));
   if (channels.size !== dse.channels.length) err(W, 'mã kênh trùng');
   const stdTotal = dse.minibarItems.reduce((s, i) => s + i.standardQtyPerRoom, 0);
@@ -624,18 +757,47 @@ function validateSeeds() {
       err(w, 'đơn nạp qua API phải đến sau đồng hồ nạp 01/10');
     if (r.status === 'checked_out' && r.seedPath !== 'direct')
       err(w, 'đơn checked_out nạp trực tiếp (test-strategy 4.2)');
-    const pax = r.adults + r.childrenDob.length;
-    if (pax > rooms.get(r.room)?.maxOccupancy)
-      err(w, `${pax} khách vượt sức chứa căn ${r.room} (BR-110)`);
+    const room = rooms.get(r.room);
+    const ages = r.childrenDob.map((d) => ageAt(d, r.arrivalDate));
+    const occP = {
+      ...SEED_PARAMS,
+      [`room.${r.room}.base_occupancy`]: room?.baseOccupancy,
+      [`room.${r.room}.max_occupancy`]: room?.maxOccupancy,
+    };
+    const pax = CALC.extraPersonFee(
+      { roomNo: r.room, adults: r.adults, childrenAges: ages, nights: r.nights },
+      occP,
+    );
+    if (!pax.accepted)
+      err(
+        w,
+        `${pax.countedPersons} khách (không tính trẻ < 6) vượt sức chứa căn ${r.room} (BR-110)`,
+      );
+    else if (r.expected && pax.extraGuestKits !== (r.expected.extraGuestKits ?? 0))
+      err(w, `bộ đồ dùng thêm ${r.expected.extraGuestKits ?? 0} ≠ BR-812 ${pax.extraGuestKits}`);
     if (r.stayType === 'short' && r.paymentModel === 'direct_pay' && r.seedPath === 'api') {
-      const nr = rooms.get(r.room).expectedNightlyListPriceVnd;
+      const nr = room.expectedNightlyListPriceVnd;
       if (r.expected.nightRateVnd !== nr)
-        err(w, `giá đêm trực tiếp ${r.expected.nightRateVnd} ≠ niêm yết ${nr} (BR-104)`);
-      const dep = roundTo(nr * r.nights * 30, 100, 100000);
+        err(w, `giá niêm yết ${r.expected.nightRateVnd} ≠ BR-101 ${nr}`);
+      const cal = nightlyRates(nr, r.arrivalDate, r.nights, 'direct', SEED_PARAMS);
+      if (!deepEq(r.expected.nightlyRatesVnd, cal))
+        err(
+          w,
+          `giá từng đêm ${JSON.stringify(r.expected.nightlyRatesVnd)} ≠ lịch giá BR-104 ${JSON.stringify(cal)}`,
+        );
+      const total = cal.reduce((a, b) => a + b, 0);
+      if (r.expected.roomTotalVnd !== total)
+        err(w, `tiền phòng ${r.expected.roomTotalVnd} ≠ ${total} (BR-104)`);
+      const dep = roundTo(total * 30, 100, 100000);
       if (r.expected.depositRequiredVnd !== dep)
         err(w, `cọc ${r.expected.depositRequiredVnd} ≠ BR-305 ${dep}`);
       if (r.depositPaidVnd < dep)
         err(w, 'cọc đã thu nhỏ hơn mức BR-305 nhưng trạng thái confirmed');
+      if ((r.expected.extraPersonFeeVnd ?? 0) !== pax.extraPersonFeeVnd)
+        err(
+          w,
+          `phụ thu người ${r.expected.extraPersonFeeVnd ?? 0} ≠ BR-110 ${pax.extraPersonFeeVnd}`,
+        );
     }
     if (!['cancelled', 'no_show'].includes(r.status))
       occ.push([r.room, r.arrivalDate, r.departureDate, r.seedLabel]);

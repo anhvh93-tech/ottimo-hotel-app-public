@@ -19,6 +19,7 @@ Round 1 step 4 additions (QA responses FB-R1-BA-QA-02/03/04, FB-R1-PO-QA-03/07):
     clash with round numbers, ERD constraints K1-K10, SEC T01-T18 and RBAC A01-A107)
   * section 8  static RBAC check: rbac-matrix (truth) vs OpenAPI x-rbac/x-roles/x-scope and Dxx vs x-visible-to
   * tags in a TC row: [BLOCKED: ...], [UNDECIDED: ...] -> not counted as "runnable in R2 with a fixed oracle";
+    [Dời R3 – R-C ...] -> TC of an AC marked [Dời R3 – R-C] in the backlog (ESC-012); such ACs are left out of the R2 counts
     [GIẢ ĐỊNH QA ...] -> counted but listed
   * priority cell "Cao (S)" = smoke subset run on every PR
   * column "ESC" per story = ESC-xxx cited in its AC and TCs
@@ -26,7 +27,9 @@ Round 1 step 4 additions (QA responses FB-R1-BA-QA-02/03/04, FB-R1-PO-QA-03/07):
 Usage (from repo root):  python3 product/tests/tools/gen_traceability.py [--out PATH] [--strict]
   --out     write the matrix somewhere else (dry run); default product/docs/qa/traceability.md
   --strict  exit 1 when the RBAC static check finds a role that OpenAPI grants but rbac-matrix denies (operation or
-            field leak), a property with x-classification lacks x-rbac-field, or an x-rbac-field code is unknown (CI gate)
+            field leak), a property with x-classification lacks x-rbac-field, or an x-rbac-field code is unknown (CI gate);
+            since R2 Đợt 0 also on bad AC refs, unknown operationIds, duplicate TC ids, an R2 AC without TC, or a TC on a
+            deferred AC without the [Dời R3] tag
 """
 from __future__ import annotations
 
@@ -56,7 +59,7 @@ OUT = P('product', 'docs', 'qa', 'traceability.md')
 ROLE_CODES = OrderedDict([('OWN', 'owner'), ('MGR', 'manager'), ('FDL', 'front_desk_lead'), ('FD', 'front_desk'),
                           ('HK', 'housekeeping'), ('MT', 'maintenance'), ('SAL', 'sales_staff'),
                           ('CTV', 'collaborator'), ('GST', 'guest')])
-TAG_RE = re.compile(r'\[(BLOCKED|UNDECIDED|GIẢ ĐỊNH QA)[^\]]*\]')
+TAG_RE = re.compile(r'\[(BLOCKED|UNDECIDED|GIẢ ĐỊNH QA|Dời R3)[^\]]*\]')
 
 DASH = '[–—…-]'  # en dash, em dash, ellipsis, hyphen
 
@@ -98,20 +101,26 @@ def parse_backlog():
     sec3 = t[t.index('## 3. User story'):t.index('## 4. Ti')]
     stories = OrderedDict()
     for line in sec3.splitlines():
-        m = re.match(r'^\|\s*(US-\d{3})\s*\|(.*?)\|\s*(Must|Should|Could|Won\'t)\s*\|\s*(R\d\+?)\s*\|', line)
+        # Round cell may carry a note since R-C (ESC-012): "R2 (một phần; AC3 → R3 …)" -> R2
+        m = re.match(r'^\|\s*(US-\d{3})\s*\|(.*?)\|\s*(Must|Should|Could|Won\'t)\s*\|\s*(R\d\+?)\b[^|]*\|', line)
         if m:
             stories[m.group(1)] = {'moscow': m.group(3), 'round': m.group(4), 'text': m.group(2).strip()}
     sec4 = t[t.index('## 4. Ti'):t.index('## 5. Truy')]
     acs: dict[str, OrderedDict] = {}
+    deferred: dict[str, set] = defaultdict(set)
     titles: dict[str, str] = {}
     for block in re.split(r'^#### ', sec4, flags=re.M)[1:]:
         head = block.splitlines()[0]
         sid = head.split()[0]
         titles[sid] = head.split('–', 1)[1].strip() if '–' in head else head
         acs[sid] = OrderedDict()
-        for m in re.finditer(r'^- (AC\d+)(?:\s*\*\([^)]*\)\*)?\s*:\s*(.*)$', block, flags=re.M):
-            acs[sid][m.group(1)] = m.group(2)
-    return stories, acs, titles, t
+        # "- AC5a **[tạm cho R2 …]**: …", "- AC3 **[Dời R3 – R-C]** *(…)*: …" (R-C, ESC-012)
+        for m in re.finditer(r'^- (AC\d+[a-z]?)((?:\s*\*\*\[[^\]]*\]\*\*)?)(?:\s*\*\([^)]*\)\*)?\s*:\s*(.*)$',
+                             block, flags=re.M):
+            acs[sid][m.group(1)] = m.group(3)
+            if 'Dời R3' in m.group(2):
+                deferred[sid].add(m.group(1))
+    return stories, acs, titles, t, deferred
 
 
 # ---------------------------------------------------------------- test cases
@@ -126,12 +135,12 @@ def parse_tcs():
             continue
         tc, storyac, rules, layer, prio, pre, steps, expect, eps = cells
         refs = []
-        for m in re.finditer(r'(US-\d{3})/(AC\d+(?:\s*,\s*AC\d+)*|–|-)', storyac):
+        for m in re.finditer(r'(US-\d{3})/(AC\d+[a-z]?(?:\s*,\s*AC\d+[a-z]?)*|–|-)', storyac):
             sid = m.group(1)
             if m.group(2) in ('–', '-'):
                 refs.append((sid, None))
             else:
-                for ac in re.findall(r'AC\d+', m.group(2)):
+                for ac in re.findall(r'AC\d+[a-z]?', m.group(2)):
                     refs.append((sid, ac))
         endpoints = [e.strip() for e in eps.split(',') if e.strip() and e.strip() not in ('—', '–', '-', '(mọi operation)')]
         tags = [m.group(0) for m in TAG_RE.finditer(line)]
@@ -140,6 +149,7 @@ def parse_tcs():
             'smoke': '(S)' in prio, 'tags': tags, 'line': line,
             'blocked': any(t.startswith('[BLOCKED') or t.startswith('[UNDECIDED') for t in tags),
             'assumed': any(t.startswith('[GIẢ ĐỊNH QA') for t in tags),
+            'deferred': any(t.startswith('[Dời R3') for t in tags),
             'sm_refs': parse_sm_refs(rules),
             'endpoints': endpoints, 'br': expand_br(rules + ' ' + expect), 'bl': expand_bl(rules),
             'all_ops': '(mọi operation)' in eps, 'missing_ep': '\u2014' in eps,
@@ -598,7 +608,9 @@ def main(argv=None):
     if '--out' in argv:
         out_path = os.path.abspath(argv[argv.index('--out') + 1])
     strict = '--strict' in argv
-    stories, acs, titles, backlog_text = parse_backlog()
+    stories, acs_all, titles, backlog_text, deferred = parse_backlog()
+    # R2 acceptance = ACs not marked [Dời R3 – R-C] (backlog section 4 convention, ESC-012)
+    acs = {s: OrderedDict((a, v) for a, v in d.items() if a not in deferred.get(s, set())) for s, d in acs_all.items()}
     tcs = parse_tcs()
     ops, ops_by_story, op_meta, visible = parse_openapi()
     sms = parse_state_machines()
@@ -628,7 +640,11 @@ def main(argv=None):
             br_by_tc[b].add(r['tc'])
 
     unknown_ops = sorted({(r['tc'], e) for r in tcs for e in r['endpoints'] if e not in ops})
-    bad_refs = sorted({(r['tc'], f'{s}/{a}') for r in tcs for s, a in r['refs'] if a and (s not in acs or a not in acs[s])})
+    bad_refs = sorted({(r['tc'], f'{s}/{a}') for r in tcs for s, a in r['refs'] if a and (s not in acs_all or a not in acs_all[s])})
+    # a TC on a deferred AC must carry [Dời R3 …]; a [Dời R3] TC must reference at least one deferred AC or R3 story
+    deferred_untagged = sorted({(r['tc'], f'{s}/{a}') for r in tcs for s, a in r['refs']
+                                if a and a in deferred.get(s, set()) and not r['deferred']})
+    deferred_tc = [r['tc'] for r in tcs if r['deferred']]
 
     # runnable in R2 with a fixed oracle (FB-R1-BA-QA-04)
     tc_by_id = {r['tc']: r for r in tcs}
@@ -718,7 +734,7 @@ def main(argv=None):
     w = L.append
     w('# Ma trận truy vết – Story ↔ AC ↔ BR ↔ Test case ↔ Endpoint ↔ Wireframe')
     w('')
-    w(f'- Tác giả: QA | Round 1 – Bước 5 (Kiểm thử) | Ngày: {now} | Phiên bản: 0.3 (bản cuối R1)')
+    w(f'- Tác giả: QA | Round 2 – Đợt 0 | Ngày: {now} | Phiên bản: 0.4 (backlog R-C – ESC-012: 72 Must R2; AC `[Dời R3 – R-C]` tách khỏi nghiệm thu R2; AC5a)')
     w('- **File này do script sinh** – không sửa tay: `python3 product/tests/tools/gen_traceability.py` (chạy từ thư mục gốc repo). Nguồn: `03-backlog/backlog.md` (story, AC), `product/tests/test-cases/r1-main-flows.md` (TC), `product/docs/api/openapi.yaml` (`operationId`, `x-stories`), `product/docs/business-rules.md`, `product/docs/baseline-issues-triage.md`, `product/design/wireframes/NN-*.html` 01–10 (dòng `wf-meta` đầu trang liệt kê US), `product/docs/erd.md` mục 4, `product/docs/state-machines.md`, `product/docs/rbac-matrix.json`/`.md`.')
     w('- Đọc cùng `product/docs/qa/test-strategy.md`. Cột **Endpoint** = hợp của `x-stories` trong OpenAPI và endpoint QA dùng trong TC. Cột **Wireframe** = trang có ghi US ở đầu trang (`L2`…); mục có hậu tố "(QA)" = QA tự đối chiếu màn hình khi đầu trang không ghi US. Cột **ERD** = mục từ điển bảng `erd.md` 4.x: mục nêu US trực tiếp, hợp với mục suy từ `tags` của operation (bảng ánh xạ `TAG_ERD` của QA) – kiểm có bảng, chưa kiểm từng cột.')
     w('')
@@ -741,7 +757,8 @@ def main(argv=None):
     w('| TC theo tầng (một TC có thể nhiều tầng) | ' + ' · '.join(f'{k} {layers[k]}' for k in 'UAEPM' if layers[k]) + ' |')
     w(f'| TC cho story ngoài Must R2 (ca chính) | ' + ', '.join(f'{s} ({len(set(tc_by_story[s]))})' for s in sorted(set(must_r3_with_ac) | {'US-041', 'US-064', 'US-137'}) if tc_by_story.get(s)) + ' |')
     w(f'| `operationId` dùng trong TC nhưng không có trong OpenAPI | {len(unknown_ops)} |')
-    w(f'| Tham chiếu AC sai (AC không tồn tại) | {len(bad_refs)} |')
+    w(f'| Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | {len(bad_refs)} · {len(deferred_untagged)} |')
+    w(f'| AC `[Dời R3 – R-C]` (không thuộc nghiệm thu R2) · TC mang nhãn `[Dời R3]` | {sum(len(v) for k, v in deferred.items() if k in must_r2)} ({", ".join(f"{k}/{a}" for k in must_r2 for a in sorted(deferred.get(k, [])))}) · {len(deferred_tc)} ({", ".join(deferred_tc)}) |')
     w(f'| Mã TC trùng | {len(dup_ids)} |')
     w(f'| Story Must R2 **không có endpoint** (OpenAPI lẫn TC) | {len(no_ep)} |')
     w(f'| Story Must R2 có endpoint trong TC nhưng OpenAPI chưa gắn `x-stories` | {len(only_tc_ep)} |')
@@ -763,6 +780,9 @@ def main(argv=None):
     if bad_refs:
         w('')
         w('Tham chiếu AC sai: ' + ', '.join(f'{t}→{x}' for t, x in bad_refs))
+    if deferred_untagged:
+        w('')
+        w('TC trỏ AC dời R3 nhưng thiếu nhãn `[Dời R3 – R-C]`: ' + ', '.join(f'{t}→{x}' for t, x in deferred_untagged))
     w('')
     w('## 2. Ma trận story Must R2')
     w('')
@@ -773,7 +793,10 @@ def main(argv=None):
         for a in acs.get(s, {}):
             t = tc_by_ac.get((s, a), [])
             ac_cells.append(f'{a}: {", ".join(t) if t else "**TRỐNG**"}')
-        extra = sorted({t for t in tc_by_story.get(s, []) if t not in {x for a in acs.get(s, {}) for x in tc_by_ac.get((s, a), [])}})
+        for a in sorted(deferred.get(s, [])):
+            t = tc_by_ac.get((s, a), [])
+            ac_cells.append(f'{a} (Dời R3): {", ".join(t) if t else "–"}')
+        extra = sorted({t for t in tc_by_story.get(s, []) if t not in {x for a in acs_all.get(s, {}) for x in tc_by_ac.get((s, a), [])}})
         if extra:
             ac_cells.append('bổ sung: ' + ', '.join(extra))
         brs = sorted(set().union(*[expand_br(v) for v in acs.get(s, {}).values()]) if acs.get(s) else set())
@@ -904,7 +927,7 @@ def main(argv=None):
     # console summary
     print(f'Must R2 stories: {len(must_r2)}; covered: {len(story_cov)}')
     print(f'AC: {cov_ac}/{total_ac}; uncovered: {uncovered_ac}')
-    print(f'TCs: {len(tcs)}; dup: {dup_ids}; unknown ops: {unknown_ops}; bad refs: {bad_refs}')
+    print(f'TCs: {len(tcs)}; dup: {dup_ids}; unknown ops: {unknown_ops}; bad refs: {bad_refs}; deferred-AC refs untagged: {deferred_untagged}; [Dời R3] TCs: {deferred_tc}')
     print(f'no endpoint: {no_ep}; only TC ep: {only_tc_ep}; no wireframe: {no_wf}; no erd: {no_erd}')
     print(f'BR unref: {br_unref}; BR story-no-TC: {br_story_no_tc}')
     print('BL no TC:', [n for n in range(1, 31) if not bl_tc.get(n)])
@@ -915,7 +938,10 @@ def main(argv=None):
     print(f'x-rbac-field: tagged {f_tagged}; untagged {f_untagged}; unknown codes {f_unknown}')
     print(f'Smoke: {sum(r["smoke"] for r in tcs)}; written to {out_path}')
     if strict and (any(extra for _, _, _, extra, _, _ in op_bad) or any(leak for _, _, _, leak, _ in field_bad)
-                   or f_untagged or f_unknown):
+                   or f_untagged or f_unknown
+                   # R2 Đợt 0: traceability itself must be sound (bad AC refs, unknown operationIds, duplicate TC ids,
+                   # uncovered R2 AC, deferred AC referenced without the tag)
+                   or bad_refs or unknown_ops or dup_ids or uncovered_ac or deferred_untagged):
         sys.exit(1)
 
 

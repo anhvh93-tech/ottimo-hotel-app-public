@@ -571,14 +571,16 @@
       "paymentModel": "direct_pay",
       "expected": {
         "nightRateVnd": 917000,
-        "roomTotalVnd": 3668000,
-        "depositRequiredVnd": 1100000,
-        "extraPersonFeeVnd": 800000
+        "nightlyRatesVnd": [917000, 1055000, 1055000, 917000],
+        "roomTotalVnd": 3944000,
+        "depositRequiredVnd": 1200000,
+        "extraPersonFeeVnd": 400000,
+        "extraGuestKits": 1
       },
-      "depositPaidVnd": 1100000,
+      "depositPaidVnd": 1200000,
       "eta": "15:30",
-      "note": "4 khách (2 NL + 2 trẻ), ETA 15:30, kỷ niệm 10 năm",
-      "qaAssumption": "Ngày sinh 2 trẻ do QA điền (prototype chỉ có năm 2016, 2019); cọc tính trên tiền phòng, KHÔNG gồm phụ thu người (BR-305 'tổng tiền phòng', BR-904) – chờ DOM xác nhận"
+      "note": "4 khách (2 NL + 2 trẻ 6–11), ETA 15:30, kỷ niệm 10 năm. Căn 302 định mức 3 → 1 trẻ vượt: phụ thu 100.000 × 4 = 400.000 (BR-110), 1 bộ đồ dùng thêm (BR-812)",
+      "qaAssumption": "Ngày sinh 2 trẻ do QA điền (prototype chỉ có năm 2016, 2019) – tại 15/10/2026 trẻ 10 và 7 tuổi, cả hai tính định mức. Cọc thu 1.200.000 (prototype 1.100.000) vì BR v0.3 áp lịch giá T6/T7 cho kênh Trực tiếp → tiền phòng 3.944.000, cọc tối thiểu 1.200.000 – QA nâng để đơn giữ trạng thái confirmed"
     },
     {
       "seedLabel": "OTM-0151",
@@ -599,11 +601,12 @@
       "paymentModel": "direct_pay",
       "expected": {
         "nightRateVnd": 792000,
-        "roomTotalVnd": 3168000,
+        "nightlyRatesVnd": [911000, 911000, 792000, 792000],
+        "roomTotalVnd": 3406000,
         "depositRequiredVnd": 1000000
       },
       "depositPaidVnd": 1000000,
-      "note": "Khách quen; cọc 1.000.000 (test-strategy 4.2)"
+      "note": "Khách quen; cọc 1.000.000 (test-strategy 4.2) – tiền phòng 3.406.000 sau lịch giá T6/T7 (BR-104 v0.3), 30% = 1.021.800 → 1.000.000"
     },
     {
       "seedLabel": "OTM-0154",
@@ -650,11 +653,12 @@
       "paymentModel": "direct_pay",
       "expected": {
         "nightRateVnd": 708000,
-        "roomTotalVnd": 1416000,
-        "depositRequiredVnd": 400000
+        "nightlyRatesVnd": [814000, 708000],
+        "roomTotalVnd": 1522000,
+        "depositRequiredVnd": 500000
       },
       "depositPaidVnd": 500000,
-      "note": "CTV Minh Anh (qa.ctv1) chốt; cọc thu 500.000 theo BL; mức cọc tối thiểu BR-305 = 400.000 – cọc thực thu lớn hơn mức tối thiểu (hợp lệ)"
+      "note": "CTV Minh Anh (qa.ctv1) chốt; cọc thu 500.000 theo BL = mức BR-305 v0.3 (tiền phòng 1.522.000 sau lịch giá T7, 30% = 456.600 → 500.000)"
     },
     {
       "seedLabel": "OTM-0156",
@@ -726,6 +730,7 @@
       "paymentModel": "direct_pay",
       "expected": {
         "nightRateVnd": 1000000,
+        "nightlyRatesVnd": [1000000, 1000000, 1000000],
         "roomTotalVnd": 3000000,
         "depositRequiredVnd": 900000
       },
@@ -783,7 +788,7 @@
       "note": "Người đặt g14 (hồ sơ trùng của g12)"
     }
   ],
-  "reservationsNote": "Giá đơn trực tiếp/CTV do server tính từ lịch giá kênh Trực tiếp = giá đêm niêm yết (BR-104); 'expected' là kết quả mong đợi để loader kiểm, không phải giá trị nạp. Đơn OTA nạp otaNightRateVnd. Kênh 'Trực tiếp' của prototype ánh xạ zalo_phone, khách quen g5 → returning [GIẢ ĐỊNH QA]",
+  "reservationsNote": "Giá đơn trực tiếp/CTV do server tính từ lịch giá kênh Trực tiếp: giá niêm yết (BR-101) + lịch giá T6/T7 +15%, ngày đặc biệt +30% (BR-103/104 v0.3 – áp mọi kênh, ESC-004 A); expected.nightRateVnd = giá niêm yết, expected.nightlyRatesVnd = giá từng đêm sau lịch giá; 'expected' là kết quả mong đợi để loader kiểm, không phải giá trị nạp. Cọc = 30% tiền phòng, không gồm phụ thu người (BR-305 v0.3). expected.extraGuestKits = số bộ đồ dùng thêm BR-812 (người vượt định mức căn). Đơn OTA nạp otaNightRateVnd. Kênh 'Trực tiếp' của prototype ánh xạ zalo_phone, khách quen g5 → returning [GIẢ ĐỊNH QA]",
   "roomBlocks": [
     {
       "seedLabel": "OOO-007",
