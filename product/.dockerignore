@@ -22,5 +22,11 @@
 # docs/api/openapi.yaml into packages/contracts/src/generated (FB-R1-ARC-OPS-06).
 # tests/ is kept in the context because tests/e2e becomes a workspace package (lockfile importer).
 docs
-design
 legacy
+# design/ stays out except the three generated files the web build imports
+# (packages/ui/src/styles/index.css, packages/i18n/src/translate.ts).
+design/**
+!design/wireframes/assets/tokens.css
+!design/hifi/assets/hifi.css
+!design/copy/strings-vi.json
+!design/copy/strings-en.json
