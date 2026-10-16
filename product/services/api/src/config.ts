@@ -3,6 +3,8 @@
  * A wrong configuration must stop the process. Error messages name the variable, never its value.
  */
 import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
+import { findUnsafeIntegrationConfig } from '@ottimo/integrations/common';
 
 export const APP_ENVS = ['dev', 'test', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
@@ -28,8 +30,22 @@ export class ConfigError extends Error {
   }
 }
 
-/** Keys that must be at least 32 characters when set, and must be set outside dev/test. */
-const REQUIRED_SECRETS = ['SESSION_SECRET', 'ID_HASH_KEY', 'LOG_IP_HMAC_KEY'] as const;
+/**
+ * Keys that must be at least 32 characters when set, and must be set outside dev/test.
+ * One key per purpose (ADR-013 point 5, BUG-R1-SEC-07): rotating one key must not affect another.
+ * - SESSION_SECRET: staff session cookie signing
+ * - ID_HASH_KEY: HMAC of ID-document numbers (returning-guest matching) only
+ * - LOG_IP_HMAC_KEY: HMAC of client IPs in logs/audit
+ * - GUEST_CODE_SIGNING_KEY: HMAC of guest verification codes (guest_verification_code.code_hash)
+ */
+export const REQUIRED_SECRETS = [
+  'SESSION_SECRET',
+  'ID_HASH_KEY',
+  'LOG_IP_HMAC_KEY',
+  'GUEST_CODE_SIGNING_KEY',
+] as const;
+/** Every key material that must never be shared between purposes (includes the KEK). */
+const DISTINCT_KEYS = [...REQUIRED_SECRETS, 'DATA_KEK_CURRENT'] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
 
 /**
@@ -60,10 +76,21 @@ export function parseTrustProxy(raw: string | undefined): TrustProxy {
     throw new ConfigError('TRUST_PROXY hop counts are not supported; set the proxy IP/CIDR list');
   }
   const list = value.split(',').map((s) => s.trim());
-  if (list.some((s) => !/^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(s))) {
+  if (!list.every(isIpOrCidr)) {
     throw new ConfigError('TRUST_PROXY must be empty or a comma list of IP/CIDR');
   }
   return list;
+}
+
+/** Strict IP or CIDR check (node:net), so a typo fails at startup instead of trusting the wrong peer. */
+function isIpOrCidr(entry: string): boolean {
+  const [addr, prefix, extra] = entry.split('/');
+  if (extra !== undefined || !addr) return false;
+  const family = isIP(addr);
+  if (family === 0) return false;
+  if (prefix === undefined) return true;
+  if (!/^\d{1,3}$/.test(prefix)) return false;
+  return Number(prefix) <= (family === 4 ? 32 : 128);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -82,6 +109,16 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     if (v !== '' && v.length < 32) throw new ConfigError(`${key} must be at least 32 characters`);
   }
 
+  // One key per purpose (ADR-013 point 5): reusing a value across purposes defeats separate rotation.
+  const seen = new Map<string, string>();
+  for (const key of DISTINCT_KEYS) {
+    const v = env[key] ?? '';
+    if (v === '') continue;
+    const other = seen.get(v);
+    if (other) throw new ConfigError(`${key} must differ from ${other} (one key per purpose)`);
+    seen.set(v, key);
+  }
+
   const kek = env.DATA_KEK_CURRENT ?? '';
   if (kek === '' && strict) {
     throw new ConfigError(`DATA_KEK_CURRENT is required when APP_ENV=${appEnv}`);
@@ -90,15 +127,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new ConfigError('DATA_KEK_CURRENT must be 32 bytes, base64-encoded');
   }
 
-  if (appEnv === 'production') {
-    if (env.CLOCK_OVERRIDE) throw new ConfigError('CLOCK_OVERRIDE is forbidden in production');
-    const mocks = Object.keys(env).filter(
-      (k) => /_(PROVIDER|MODE)$/.test(k) && ['mock', 'sandbox'].includes(env[k]?.trim() ?? ''),
-    );
-    if (mocks.length > 0) {
-      throw new ConfigError(`mock/sandbox adapters forbidden in production: ${mocks.join(', ')}`);
-    }
+  if (appEnv === 'production' && env.CLOCK_OVERRIDE) {
+    throw new ConfigError('CLOCK_OVERRIDE is forbidden in production');
   }
+  // Integration adapters (mock/sandbox in production, PAYMENT_METHODS_ENABLED, *_MOCK_SCENARIO,
+  // allowed selector values): one shared rule set owned by INT – integrations README 1.3, W9.
+  const unsafe = findUnsafeIntegrationConfig(env, appEnv);
+  if (unsafe.length > 0) throw new ConfigError(unsafe.join('; '));
 
   const port = Number(env.PORT ?? 3000);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {

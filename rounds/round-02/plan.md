@@ -1,7 +1,7 @@
 # Kế hoạch Round 2 – Xây dựng lõi MVP
 
 - Người lập: PO (cùng ORC) | Ngày: 16/10/2026 | **Trạng thái: Đã chốt phạm vi R-C** (INV đồng ý cả 13 ESC ngày 16/10/2026) – chờ ĐK-2 QC: chạy thật khung + CI xanh
-- Phương án phạm vi dùng trong dự thảo: **R-C** (đội đề xuất trong ESC-012, áp dụng khi INV chưa trả lời – decision-log PO 15/10 `[GIẢ ĐỊNH – chờ INV qua ESC-012]`). Phương án thay thế nếu INV chọn R-A hoặc R-B: mục 2.4.
+- Phương án phạm vi: **R-C – INV quyết ESC-012 16/10** (trước đó là giả định của PO 15/10). R-C đã áp vào `03-backlog/backlog.md` (W12, 16/10). Mục 2.4 (R-A/R-B) chỉ còn để tham khảo.
 - Đầu vào: `rounds/round-01/plan.md` (mẫu), `product/docs/PRD.md` (mục 5, D6), `03-backlog/backlog.md` (145 story, 77 Must R2), `02-escalations/ESC-012.md`, `rounds/round-01/reviews/BE-on-ARC.md` (bảng ước lượng theo module), `rounds/round-01/responses/*.md`, `rounds/round-01/qa/bug-list.md`, `test-report.md`, `sec-findings.md`, `product/docs/architecture.md` (mục 1, 11, 15, 19), `product/docs/qa/test-strategy.md`.
 - ARC, QA góp ý dự thảo ở đầu tuần 1; ORC duyệt và ghi decision-log khi commit (giống R1).
 
@@ -57,7 +57,7 @@ Biến bộ tài liệu R1 thành **phần mềm chạy được trên staging**
 ### 2.3 Quyết định phạm vi của PO trong round này (ORC ghi decision-log khi commit)
 | # | Quyết định | Lý do |
 |---|---|---|
-| P-R2-1 | Phạm vi R2 theo **R-C** cho tới khi INV trả lời ESC-012; INV chọn khác thì áp mục 2.4 ngay trong tuần 1 | ESC-012 "Nếu chưa trả lời"; phân xử ORC 15/10 |
+| P-R2-1 | Phạm vi R2 theo **R-C** – INV quyết ESC-012 16/10; đã áp vào backlog (W12) | ESC-012; decision-log INV 16/10 |
 | P-R2-2 | Không cắt 4 phần dù chọn phương án nào: nền tảng + phân quyền, chống đặt trùng, folio/thu tiền, bảo vệ giấy tờ (C3) | PRD D6, BE-on-ARC "phần không được cắt" |
 | P-R2-3 | Khi dời báo giá dài hạn + HĐ, **khách dài hạn vẫn phải chiếm phòng trên rack** để chống trùng đúng. PO thêm (tuần 1) **US-017 AC5a tạm cho R2**: FD+ tạo "đơn dài hạn nhập tay" (căn, ngày vào/ra, số tiền/tháng nhập tay, cờ "HĐ ngoài hệ thống – chuyển vào app ở R3"), đơn chiếm tồn phòng như mọi đơn; thu tiền ghi bằng US-119 AC1 (không gắn kỳ). R3 chuyển các đơn này sang HĐ đầy đủ (US-086 AC3) | Nếu không, 4–6 căn dài hạn (mục tiêu G2) không có trên rack → sai tồn phòng, sai KPI; "dài hạn vẫn làm tay như hiện nay thêm một round" (ESC-012) chỉ áp cho tính tiền/hợp đồng |
 | P-R2-4 | Dời US-141 với điều kiện: ở R2 app khách **không** hiển thị dữ liệu nhạy cảm nào – không mã cửa, không folio, không hiện lại số giấy tờ hay ảnh đã tải khi khách mở lại link check-in (US-107 AC2 chỉ hiện "đã tải n/m người" và cho tải lại). **SEC xác nhận điều kiện này trong tuần 1**; SEC không đồng ý thì US-141 quay lại R2 (+ khoảng 0,5 tuần-người BE, MOB tương ứng) | Phiên khách mức 1 chỉ dựa vào link; SEC SR-GST-07…11 |
@@ -66,6 +66,7 @@ Biến bộ tài liệu R1 thành **phần mềm chạy được trên staging**
 | P-R2-7 | Mỗi story chỉ "Xong" khi QA chạy hết TC Cao và **PO nghiệm thu từng AC trên staging** (Accepted / Trả lại) | Decision-log QA + PO 15/10; DoD |
 
 ### 2.4 Phương án thay thế nếu INV chọn R-A hoặc R-B
+> Tham khảo – **không áp dụng**: INV chọn R-C (ESC-012, 16/10/2026).
 
 | | R-C (dự thảo này) | R-A – giữ đủ 77 story | R-B – thu hẹp theo D6 |
 |---|---|---|---|
@@ -116,7 +117,7 @@ Quy ước như R1: mỗi vai nộp `rounds/round-02/outputs/<VAI>/report.md` (�
 | W9 | Chép interface INT vào contracts; `scrubCardData`, `EnvCredentialProvider`, `assertSafeConfig()` | INT + BE | INT report; OPS-responses mục 5 | Build + test xanh |
 | W10 | Chốt thẻ BE-ARC 01–07 | ARC + BE | BE-on-ARC giả định ước lượng | Không chốt → cộng 1–1,5 tuần BE (rủi ro R2-3) |
 | W11 | Lỗi tài liệu R1 còn Open (P3): BUG-R1-014, 015, 017 (phần ARC), 023 | ARC, UXD, BA | bug-list | QA chuyển Closed |
-| W12 | Áp phương án phạm vi vào backlog (R-C hoặc R-A/R-B) | PO | ESC-012 | Backlog cập nhật, QA sinh lại traceability |
+| W12 | Áp phương án phạm vi vào backlog (R-C – INV quyết ESC-012 16/10) | PO | ESC-012 | Backlog cập nhật (**PO xong 16/10** – `outputs/PO/w1-report.md`); QA sinh lại traceability |
 | W13 | Ước lượng FE, MOB theo màn; BE xác nhận lại bảng mục 3.3 | FE, MOB, BE | – | ORC chốt lịch sprint |
 | W14 | DNS email, chọn VPS staging (báo giá ≥ 2 hãng) | OPS | OPS report R4; INT-ARC-17 | Phụ thuộc ESC-002, ESC-010 |
 | W15 | Step-up + `x-c3-log` + 401/403 cho `getDoorCredential`/`setDoorCredential` | ARC + BE (SEC kiểm) | BUG-R1-SEC-10 (P2); decision-log 16/10 | **Phải xong trước khi BE cài A21 (mã cửa)** |
@@ -200,7 +201,7 @@ Ngoài review: **PO nghiệm thu từng story** trên staging (P-R2-7) – kết
 
 ## 7. Tiêu chí QC ĐẠT Round 2 – "luồng chính chạy từ đầu đến cuối"
 
-QC chấm từng dòng ĐẠT / KHÔNG. **ĐẠT** = mọi dòng nhóm A–C đạt và không còn thẻ Blocker/Major Open. **ĐẠT CÓ ĐIỀU KIỆN** = nhóm A và B đạt, nhóm C thiếu ≤ 2 dòng có kế hoạch xử lý đầu R3. Còn lại **KHÔNG ĐẠT**. (Nếu INV chọn R-A/R-B, nhóm A đổi theo mục 2.4.)
+QC chấm từng dòng ĐẠT / KHÔNG. **ĐẠT** = mọi dòng nhóm A–C đạt và không còn thẻ Blocker/Major Open. **ĐẠT CÓ ĐIỀU KIỆN** = nhóm A và B đạt, nhóm C thiếu ≤ 2 dòng có kế hoạch xử lý đầu R3. Còn lại **KHÔNG ĐẠT**. (INV đã chọn R-C – nhóm A giữ như dưới.)
 
 ### A. Luồng chính chạy từ đầu đến cuối trên **staging** (E2E tự động + QA chạy tay một lần có ghi hình/ảnh)
 - [ ] A1. **Khách ngắn ngày trực tiếp**: sale báo giá ngắn ngày → giữ chỗ (căn bị chặn bán) → VietQR cọc → xác nhận cọc → `confirmed` → khách check-in online qua link (VI/EN) → lễ tân nhận phòng (giấy tờ, đối chiếu, đồng ý lưu ảnh, khai báo bán tự động `sent` → `confirmed`) → lưu trú (thêm phát sinh, gia hạn 1 đêm, yêu cầu khách) → trả phòng 3 bước (minibar, phụ thu trả muộn, FOC có duyệt) → bill VI/EN đúng công thức + số bill `F26-xxxxxx` → thu nốt bằng VietQR/ghi thu → hoàn tất → buồng `VD` + việc dọn tự sinh → buồng phòng dọn, kiểm checklist trên PWA → `VI`. Mọi số tiền khớp `br-examples.json`.
@@ -226,18 +227,23 @@ QC chấm từng dòng ĐẠT / KHÔNG. **ĐẠT** = mọi dòng nhóm A–C đ�
 - [ ] C5. UXR có `usability-report-r2.md` với ≥ 3 kịch bản (lễ tân, buồng phòng, khách check-in online) và danh sách việc sửa cho R3.
 - [ ] C6. Có `rounds/round-03/plan.md` dự thảo (PO + ORC), gồm các phần dời theo phương án INV chọn.
 
-## 8. Phụ thuộc vào ESC (INV trả lời)
+## 8. Phụ thuộc vào ESC – **INV đã quyết cả 13 ESC ngày 16/10/2026** (theo đề xuất của đội)
 
-| ESC | Ảnh hưởng R2 | Nếu chưa trả lời |
-|---|---|---|
-| **ESC-012** (phạm vi R2, MVP, logo) | Chọn R-A/R-B/R-C | Theo R-C (dự thảo này); logo L-A |
-| **ESC-002** (vị trí máy chủ, chi phí hosting, tên miền) | Dựng staging (tuần 2–3) | OPS chuẩn bị theo phương án A (VN). **Chưa trả lời hết tuần 2 → ORC nâng thành "Gấp"** vì chặn A1–A7 trên staging; tạm chạy E2E trên môi trường Docker dùng một lần trong CI |
-| **ESC-010** (tài khoản bên thứ ba) | Tài khoản nhận VietQR thật, email SES, DNS | VietQR dùng số tài khoản thử (placeholder); email Mock ghi log |
-| **ESC-003** (kiểm chứng người dùng thật) | Ưu tiên UX, H-05 buồng phòng tự dùng app | Làm theo persona mô phỏng; UXR test kịch bản trên staging |
-| ESC-004 … ESC-008 (chính sách giá, dài hạn, hủy, phụ thu/FOC, VAT) | Giá trị tham số | Dùng mặc định trong BR (đã cấu hình được – US-005); INV trả lời chỉ đổi tham số |
-| ESC-001 (luật sư dữ liệu cá nhân) | Hạn lưu ảnh, hạn khai báo khách NN | Mặc định hiện hành trong BR/SEC |
-| ESC-009 (channel manager), ESC-011 (khóa cửa) | Không ảnh hưởng R2 (Mock / nhập tay) | – |
-| Đề xuất ESC của OPS: repo GitHub riêng tư (OPS-responses mục 6 – ORC chưa tạo/gộp) | Chạy CI thật (W4) | ORC quyết tạo ESC mới hoặc gộp vào ESC-002; không có repo thì CI chạy cục bộ khi máy có Node/Docker – B1 có nguy cơ không đạt |
+| ESC | Quyết định INV 16/10 | Ảnh hưởng R2 | Còn chờ INV gửi / theo dõi |
+|---|---|---|---|
+| **ESC-012** (phạm vi R2, MVP, logo) | A (ranh giới MVP, mục tiêu) + **R-C** + logo L-A | Phạm vi mục 2.1–2.3 là chính thức; backlog đã áp (W12) | – |
+| **ESC-002** (vị trí máy chủ, hosting) | A – toàn bộ dữ liệu khách ở VN; gói hosting H-B | OPS thuê 1 VPS VN cho staging (tuần 2–3, W14) | Tên miền: gửi cùng ESC-010 `[GIẢ ĐỊNH – chờ INV xác nhận]` |
+| **ESC-010** (tài khoản bên thứ ba) | B – VietQR + báo tiền về + VNPay + MISA + email; ca tối T-A; gửi mã qua kênh Z-A (mặc định tắt) | R2: VietQR + ghi thu chờ đối soát (P-R2-6); email Mock ghi log; VNPay sandbox R3 | **Tài khoản ngân hàng nhận VietQR + tên miền** `[GIẢ ĐỊNH – chờ INV xác nhận]` – tới khi có: tài khoản thử, email Mock. Chưa có tên miền hết tuần 2 → ORC nâng "Gấp" (chặn staging HTTPS, SPF/DKIM) |
+| **ESC-003** (kiểm chứng người dùng thật) | A – INV kiểm chứng theo phiếu 1 trang trước bước Sản xuất R2 | UXR áp luật quyết định H-05 khi có kết quả phiếu | Kết quả phiếu của INV |
+| ESC-004 (giá ngắn ngày) | A – bộ chính sách giá khuyến nghị | DOM chỉnh tham số BR nếu khác mặc định | **Sức chứa thật từng căn** `[GIẢ ĐỊNH – chờ INV xác nhận]` – tạm dùng số trong BL (US-004, US-017 AC3) |
+| ESC-005 (dài hạn, hoa hồng) | A | Phần dài hạn dời R3 theo R-C; R2 chỉ đơn dài hạn nhập tay (AC5a) | – |
+| ESC-006 (hủy, hoàn, giữ chỗ) | A – "linh hoạt vừa" | US-021, US-085, US-136 theo BR mặc định | – |
+| ESC-007 (phụ thu, FOC) | A – ân hạn 12:30, FOC theo cấp, lễ tân tự miễn minibar ≤ 500.000 đ/người/tháng | DOM đổi BR-412 từ tạm B sang A (nếu chưa); `br-examples.json` theo A | – |
+| ESC-008 (điện nước, VAT) | A – đơn giá cố định sau khi kế toán xác nhận, giá gồm VAT | Điện nước R3; VAT tham số có ngày hiệu lực | **Loại hình kinh doanh** (doanh nghiệp hay hộ kinh doanh) `[GIẢ ĐỊNH – chờ INV xác nhận]` – ảnh hưởng loại hóa đơn (US-039, MISA R3) |
+| ESC-001 (luật sư dữ liệu cá nhân) | A – thuê luật sư rà soát trước khi đưa dữ liệu khách thật vào (cuối R2) | Hạn lưu ảnh, hạn khai báo NN, ngưỡng trẻ em dùng mặc định BR/SEC | Kết quả rà soát của luật sư (trước dữ liệu thật) |
+| ESC-009 (channel manager) | A – Beds24 | R2 Mock; INT chuẩn bị máy tính giá Beds24 cho R3 | Tài khoản Beds24 (R3) |
+| ESC-011 (khóa cửa) | A – mã ngẫu nhiên; mã sinh nhật ddmm + 3 số khi khách muốn | Không ảnh hưởng R2 (mã cửa dời R3 theo R-C) | **Thông tin hãng/model khóa** `[GIẢ ĐỊNH – chờ INV xác nhận]` |
+| ESC-013 (môi trường chạy thử) | C – INV cài Node 22 + Docker tại máy; thêm repo GitHub riêng tư | W4 CI chạy thật (khung đã chạy 16/10 – OPS `w1-skeleton-run.md`) | Repo GitHub riêng tư do INV tạo |
 
 ## 9. Rủi ro và giả định
 
@@ -254,9 +260,9 @@ QC chấm từng dòng ĐẠT / KHÔNG. **ĐẠT** = mọi dòng nhóm A–C đ�
 | R2-8 | Chính sách INV trả lời giữa round khác mặc định | Sửa test, ví dụ BR | Chỉ đổi tham số + `br-examples.json`; DOM cập nhật BR |
 
 ### 9.2 Giả định dùng cho Round 2
-- `[GIẢ ĐỊNH – chờ INV qua ESC-012]` Phạm vi R2 theo R-C (decision-log PO 15/10).
+- Phạm vi R2 theo R-C – INV quyết ESC-012 16/10.
 - `[GIẢ ĐỊNH – ORC xác nhận]` 2 luồng BE song song, R2 ≈ 10–11 tuần lịch.
-- `[GIẢ ĐỊNH – chờ INV qua ESC-002]` Staging trên 1 VPS tại Việt Nam, trong ngân sách ≤ 1 tr/tháng (ADR-010).
-- `[GIẢ ĐỊNH – chờ INV qua ESC-010]` VietQR dùng tài khoản thử ở R2; tài khoản thật điền vào cấu hình khi INV cấp.
-- Mọi con số quy tắc là tham số mặc định chờ ESC-004…008 (như R1).
+- Staging trên 1 VPS tại Việt Nam, gói H-B trong ngân sách ≤ 1 tr/tháng (ADR-010) – INV quyết ESC-002 16/10.
+- VietQR dùng tài khoản thử ở R2 (bộ kênh B – INV quyết ESC-010 16/10); tài khoản ngân hàng thật `[GIẢ ĐỊNH – chờ INV xác nhận]` – điền vào cấu hình khi INV gửi.
+- Mọi con số quy tắc là tham số mặc định theo phương án A – INV quyết ESC-004…008 16/10; sức chứa thật từng căn (ESC-004) và loại hình kinh doanh (ESC-008) `[GIẢ ĐỊNH – chờ INV xác nhận]`.
 - Ngôn ngữ R2: VI + EN; tiếng Nga ở R3 (US-115) – mẫu tin RU dời cùng US-125.

@@ -1,12 +1,12 @@
 # PRD – OTTIMO Desk · App All-in-one cho OTTIMO Boutique Stay (MVP)
 
-- Người viết: PO | Round 1 – Bước 2, đợt 1 (cập nhật đợt 3; sửa ở bước 4 theo review BA, DOM, QA) | Ngày: 15/10/2026
-- Trạng thái: **BẢN NHÁP v0.3** – đã qua review bắt buộc của BA, DOM (bước 3) và sửa ở bước 4 (`rounds/round-01/responses/PO-responses.md`). Phạm vi MVP chờ INV xác nhận qua **ESC-012** (câu hỏi BL 9 #21). Kết cục 26 câu hỏi BL mục 9: `open-questions-resolution.md`.
+- Người viết: PO | Round 1 – Bước 2, đợt 1 (cập nhật đợt 3; sửa ở bước 4 theo review BA, DOM, QA; Round 2 tuần 1 – W12 áp kết quả 13 ESC) | Ngày: 16/10/2026
+- Trạng thái: **v0.4** – đã qua review bắt buộc của BA, DOM (bước 3) và sửa ở bước 4 (`rounds/round-01/responses/PO-responses.md`). Phạm vi MVP: **INV quyết ESC-012 16/10** – phương án A (ranh giới, mục tiêu), **R-C** cho Round 2 (mục 5.4), logo L-A (câu hỏi BL 9 #21). INV đã quyết cả 13 ESC theo đề xuất của đội; thông tin INV còn phải gửi vẫn giữ nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` (mục 10). Kết cục 26 câu hỏi BL mục 9: `open-questions-resolution.md`.
 - Đầu vào: `00-brief/investor-brief.md` (gọi tắt **Brief**), `01-decisions/decision-log.md`, `product/docs/round-0-baseline.md` (gọi tắt **BL**), `rounds/round-01/plan.md`.
 - Tài liệu liên quan: `business-rules.md` (DOM – nguồn sự thật cho mọi con số quy tắc, mã BR-xxx), `use-cases.md`, `state-machines.md`, `rbac-matrix.md` (BA), `metrics-definitions.md` (DATA), `architecture.md` (ARC), `baseline-issues-triage.md` (DOM), `research/personas.md`, `research/journeys.md` (UXR), `integrations.md` (INT), `security/data-risk-assessment.md` (SEC).
 - Backlog chi tiết: `03-backlog/backlog.md`.
 
-> **Quy ước số liệu:** PRD này không là nguồn sự thật cho giá, %, giờ, phí – chỉ tham chiếu mã **BR-xxx** của `business-rules.md` (tiêu chí QC B3). Con số còn lại trong PRD là mục tiêu kinh doanh (mục 3) hoặc số liệu hiện trạng từ BL, không phải quy tắc. Mọi con số quy tắc là **giá trị mặc định cấu hình được** `[GIẢ ĐỊNH – chờ INV xác nhận]` (decision-log 15/10/2026).
+> **Quy ước số liệu:** PRD này không là nguồn sự thật cho giá, %, giờ, phí – chỉ tham chiếu mã **BR-xxx** của `business-rules.md` (tiêu chí QC B3). Con số còn lại trong PRD là mục tiêu kinh doanh (mục 3) hoặc số liệu hiện trạng từ BL, không phải quy tắc. Mọi con số quy tắc là **giá trị mặc định cấu hình được** (decision-log 15/10/2026); chính sách theo phương án A – **INV quyết ESC-004…ESC-008 16/10**, vẫn đổi được bằng tham số.
 
 ---
 
@@ -46,12 +46,12 @@ Nguyên tắc sản phẩm (dùng để nói "không" với tính năng thừa):
 |---|---|---|---|---|
 | G1 | Công suất phòng tháng | 71,3% (T9/2026) | **≥ 80%** mỗi tháng | Brief mục 1 |
 | G2 | Nền khách dài hạn | Trong dữ liệu mẫu: 2 hợp đồng đang chạy | **4–6 căn** dài hạn cùng lúc | Brief mục 1 |
-| G3 | Giảm phí kênh bằng cách kéo khách về kênh trực tiếp | Trực tiếp 52,2/186,4 tr ≈ **28%** doanh thu phòng T9; phí kênh ≈ 18,1 tr/tháng | Trực tiếp **≥ 35%** doanh thu phòng sau 3 tháng vận hành `[GIẢ ĐỊNH – chờ INV xác nhận]` | BL 5.11 |
-| G4 | Giữ biên lợi nhuận gộp | GOP ~61% (T9) | **≥ 60%** `[GIẢ ĐỊNH – chờ INV xác nhận]` | BL 5.11 |
+| G3 | Giảm phí kênh bằng cách kéo khách về kênh trực tiếp | Trực tiếp 52,2/186,4 tr ≈ **28%** doanh thu phòng T9; phí kênh ≈ 18,1 tr/tháng | Trực tiếp **≥ 35%** doanh thu phòng sau 3 tháng vận hành (CTV không tính là kênh trực tiếp – INV quyết ESC-012 16/10) | BL 5.11 |
+| G4 | Giữ biên lợi nhuận gộp | GOP ~61% (T9) | **≥ 60%** (INV quyết ESC-012 16/10) | BL 5.11 |
 | G5 | Tuân thủ pháp lý | Khai báo làm tay | **100%** khách được khai báo đúng hạn (mục tiêu kinh doanh – nghĩa vụ pháp lý); 0 sự cố lộ dữ liệu giấy tờ | BL 5.12, 5.13 |
 
 ### 3.2 Chỉ số thành công của sản phẩm (đo sau khi INV vận hành thật từ Round 4)
-Các chỉ số dưới đây là đích đội đề xuất `[GIẢ ĐỊNH – chờ INV xác nhận]`; công thức chính xác do DATA chốt trong `metrics-definitions.md`.
+Các chỉ số dưới đây là đích đội đề xuất, INV đồng ý (INV quyết ESC-012 16/10 – phương án A); công thức chính xác do DATA chốt trong `metrics-definitions.md`.
 
 | # | Chỉ số | Đích | Cách đo (dự kiến) |
 |---|---|---|---|
@@ -111,7 +111,7 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | M14 | **Khóa cửa thông minh** | Brief mục 7 #3 | Lễ tân **nhập tay** mã cửa vào đơn, app khách hiển thị đúng thời hạn | – | Tích hợp API hãng khóa: sinh mã theo ngày sinh nhật, mã có hạn (khi đã chọn hãng) |
 | M15 | **Trang đặt phòng trực tiếp** (booking engine công khai) | BL 3.19 (kênh Website), Brief mục 1 | – | **Should**: trang xem phòng trống + giá trực tiếp + gửi yêu cầu giữ chỗ (sale xác nhận) | Đặt và thanh toán tức thì không cần người duyệt |
 
-**Vì sao ranh giới như vậy** (PO tự quyết theo quyền ưu tiên backlog, chờ INV xác nhận phạm vi lớn qua ESC-012):
+**Vì sao ranh giới như vậy** (PO tự quyết theo quyền ưu tiên backlog; phạm vi lớn: INV quyết ESC-012 16/10 – phương án A):
 - R2 tập trung vào **4 việc hằng ngày có rủi ro cao nhất**: không đặt trùng, đúng tiền khi nhận/trả phòng, khai báo đúng hạn, buồng phòng biết căn nào cần dọn. Đây là những gì INV cần để "vận hành OTTIMO thật" (Brief mục 6).
 - Tích hợp thật (channel manager, VNPay/MoMo, MISA, Zalo ZNS) để **R3** vì đều cần **tài khoản/hợp đồng do INV cấp** (protocol mục 8) – R2 chạy với giả lập/sandbox và nhập tay.
 - Kho F&B đầy đủ, CRM gộp hồ sơ, báo cáo, kanban sale có giá trị nhưng **không chặn vận hành hằng ngày** → R3.
@@ -122,7 +122,7 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 |---|---|---|
 | X1 | POS nhà hàng/quầy bar | OTTIMO không có nhà hàng; Brief mục 7 #3: chưa dùng POS |
 | X2 | Kế toán tổng hợp, sổ sách thuế, tính lương | Dùng phần mềm kế toán riêng; app chỉ cung cấp số liệu doanh thu/chi phí vận hành |
-| X3 | Xếp lịch ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – đề xuất, chờ INV xác nhận. **Không gồm** đóng ca/bàn giao tiền – đó là kiểm soát tiền, nằm trong MVP R3 (US-124) |
+| X3 | Xếp lịch ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – INV quyết ESC-012 16/10 (không làm chấm công). **Không gồm** đóng ca/bàn giao tiền – đó là kiểm soát tiền, nằm trong MVP R3 (US-124) |
 | X4 | Ký số hợp đồng điện tử (chữ ký số có giá trị pháp lý) | Cần nhà cung cấp chữ ký số và tư vấn pháp lý; MVP chỉ xuất PDF hợp đồng (BL 9 #17) |
 | X5 | Kết nối trực tiếp từng OTA (không qua channel manager) | Airbnb chỉ mở API cho đối tác lớn; dùng channel manager (BL 3.19) |
 | X6 | Đồng bộ lịch bằng iCal | Chậm, dễ đặt trùng (BL 3.19) |
@@ -131,6 +131,16 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | X9 | Đa tiền tệ thanh toán | Thu VND; chỉ hiển thị quy đổi USD tham khảo (BL 9 #24) |
 | X10 | App cài từ App Store/Google Play cho khách | Khách không phải cài app (BL 3.21); hình thức kỹ thuật app nhân viên do ARC quyết |
 | X11 | Tiếng Hàn, tiếng Trung | Thay bằng tiếng Nga (decision-log P4); có thể thêm sau theo feedback |
+
+### 5.4 Điều chỉnh phạm vi Round 2 theo R-C (INV quyết ESC-012 16/10)
+Bảng 5.2 giữ ranh giới MVP; trong cột "MVP – R2" các phần sau **dời sang đầu Round 3** (vẫn Must, vẫn trong MVP):
+- **M8:** báo giá dài hạn (US-081); sinh HĐ + lịch kỳ thu (US-086 AC3); ghi nhận đã thu từng kỳ (US-119 AC5). R2 thay bằng **đơn dài hạn nhập tay** (US-017 AC5a) để khách dài hạn vẫn chiếm phòng trên rack; thu tiền ghi bằng US-119 AC1.
+- **M1:** nhắc kỳ thu / chào gia hạn HĐ trong "Cần chú ý" (US-012 AC2, job J12).
+- **M11:** xem folio/hóa đơn trên app khách (US-111); mã cửa trên app khách (phần mã cửa của US-108 AC2); xác minh mã một lần (US-141). Ở R2 app khách không hiện dữ liệu nhạy cảm nào (plan R2 P-R2-4).
+- **M13:** mẫu tin nhắn đa ngôn ngữ (US-125).
+- **M14:** lễ tân nhập mã cửa vào đơn (US-128) – R2 lễ tân giao mã như hiện nay.
+
+Luồng 6.1: bước "Đặt / Thanh toán" của khách dài hạn (giữ chỗ → hợp đồng, ký quỹ + kỳ đầu) và "xem folio" của bước Lưu trú chuyển R3. Chi tiết: `rounds/round-02/plan.md` mục 2, `03-backlog/backlog.md`.
 
 ## 6. Luồng chính cần bao phủ
 
@@ -163,42 +173,42 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 | N7 | Thanh toán | Không lưu số thẻ; dùng cổng thanh toán |
 | N8 | Truy vết | Mọi thao tác tiền (folio, FOC, giảm giá, hủy, hoàn cọc) ghi ai – lúc nào – giá trị cũ/mới |
 | N9 | Khả dụng | Truy cập được bằng bàn phím; trạng thái không chỉ bằng màu (khắc phục BL 8.3) |
-| N10 | Chi phí hạ tầng | ≤ 1 triệu đ/tháng (chưa gồm channel manager, SMS/Zalo) `[GIẢ ĐỊNH – chờ INV xác nhận]`; gói hosting chờ duyệt ở ESC-002 |
+| N10 | Chi phí hạ tầng | ≤ 1 triệu đ/tháng (chưa gồm channel manager, SMS/Zalo); dữ liệu khách đặt tại Việt Nam, gói hosting H-B – INV quyết ESC-002 16/10. Tên miền `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi (ESC-010) |
 | N11 | Sao lưu | Theo mục tiêu khôi phục của OPS (decision-log: mất tối đa ~15 phút dữ liệu – RPO ≤ 15 phút); backup ≤ 35 ngày (SEC) |
 
 ## 8. Phụ thuộc và rủi ro sản phẩm
 | # | Phụ thuộc / rủi ro | Ảnh hưởng tới phạm vi | Cách xử lý |
 |---|---|---|---|
-| D1 | Chính sách giá, hủy, phụ thu, ký quỹ, FOC, điện nước, VAT chưa được INV chốt (BL 9 #1–12, #16) | Tiêu chí nghiệm thu dùng giá trị mặc định của BR | Mọi con số là tham số; ESC-004 … ESC-008 |
-| D2 | Channel manager chưa chọn (BL 9 #18) | M9 R3 có thể trễ | R2 nhập tay + giả lập; ESC-009 |
-| D3 | Tài khoản Zalo OA, merchant VNPay/MoMo, VietQR, MISA, cổng BCA (BL 9 #15, #19, #20) | Tích hợp R3 bị chặn nếu INV chưa cấp | R2 làm phần không cần tài khoản; ESC-010 |
-| D4 | Hãng khóa cửa chưa rõ; mã sinh nhật dễ đoán | M14 tự động để sau MVP | Nhập mã tay trong MVP; ESC-011 |
-| D5 | Persona/hành trình là mô phỏng | Ưu tiên có thể lệch nhu cầu thật | INV kiểm chứng với lễ tân, buồng phòng, khách dài hạn trước R2 (ESC-003) |
-| D6 | Phạm vi R2 lớn (M0–M5, M8, M11, M12 cùng lúc); ước lượng lệch: ARC 9–11, BE 20–25 tuần-người backend | Trễ R2 | Thứ tự ưu tiên trong R2: M0 → M2/M8 (đơn, chống trùng) → M3 → M4/M5 → M11; story Should R2 được dời R3 nếu thiếu thời gian; **không được cắt**: nền tảng, chống trùng, folio/thanh toán, bảo vệ giấy tờ. 77 story Must R2 – câu phụ phạm vi R2 trong **ESC-012** (R-A kéo dài / R-B thu hẹp theo thứ tự này / R-C dời có chọn lọc – đội đề xuất). Vòng đời HĐ dài hạn: tạo + ghi thu kỳ ở cùng một round; trả phòng dài hạn, điện nước ở R3 |
-| D7 | Thời hạn lưu ảnh giấy tờ cần luật sư (BL 9 #14) | Tự xóa dùng giá trị mặc định | Tham số cấu hình; ESC-001 (luật sư) |
+| D1 | Chính sách giá, hủy, phụ thu, ký quỹ, FOC, điện nước, VAT (BL 9 #1–12, #16) – INV quyết ESC-004…008 16/10 theo phương án A; còn chờ INV gửi sức chứa thật từng căn (ESC-004) và loại hình kinh doanh (ESC-008) `[GIẢ ĐỊNH – chờ INV xác nhận]` | Tiêu chí nghiệm thu dùng giá trị mặc định của BR | Mọi con số là tham số; ESC-004 … ESC-008 |
+| D2 | Channel manager chưa chọn (BL 9 #18) | M9 R3 có thể trễ | R2 nhập tay + giả lập; R3 Beds24 – INV quyết ESC-009 16/10 |
+| D3 | Tài khoản Zalo OA, merchant VNPay/MoMo, VietQR, MISA, cổng BCA (BL 9 #15, #19, #20) | Tích hợp R3 bị chặn nếu INV chưa cấp | R2 làm phần không cần tài khoản; bộ kênh B (VietQR + báo tiền về + VNPay + MISA + email) – INV quyết ESC-010 16/10; tài khoản ngân hàng `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi |
+| D4 | Hãng khóa cửa chưa rõ; mã sinh nhật dễ đoán | M14 tự động để sau MVP | Nhập mã tay trong MVP; mã ngẫu nhiên, mã sinh nhật ddmm + 3 số khi khách muốn – INV quyết ESC-011 16/10; thông tin khóa `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi |
+| D5 | Persona/hành trình là mô phỏng | Ưu tiên có thể lệch nhu cầu thật | INV kiểm chứng với lễ tân, buồng phòng, khách dài hạn theo phiếu 1 trang trước bước Sản xuất R2 – INV quyết ESC-003 16/10 |
+| D6 | Phạm vi R2 lớn (M0–M5, M8, M11, M12 cùng lúc); ước lượng lệch: ARC 9–11, BE 20–25 tuần-người backend | Trễ R2 | Thứ tự ưu tiên trong R2: M0 → M2/M8 (đơn, chống trùng) → M3 → M4/M5 → M11; story Should R2 được dời R3 nếu thiếu thời gian; **không được cắt**: nền tảng, chống trùng, folio/thanh toán, bảo vệ giấy tờ. **INV quyết ESC-012 16/10: R-C** – 72 story Must R2 (5 story dời đầu R3, 4 story làm một phần – mục 5.4). Vòng đời HĐ dài hạn: tạo + ghi thu kỳ ở cùng một round (cả hai dời đầu R3 theo R-C; R2 có đơn dài hạn nhập tay để chiếm phòng trên rack); trả phòng dài hạn, điện nước ở R3 |
+| D7 | Thời hạn lưu ảnh giấy tờ cần luật sư (BL 9 #14) | Tự xóa dùng giá trị mặc định | Tham số cấu hình; INV quyết ESC-001 16/10: thuê luật sư rà soát trước khi đưa dữ liệu khách thật vào (cuối R2) |
 
 ## 9. Giả định (dùng cho PRD này)
-Mọi giả định cần ghi vào `decision-log.md` (ORC ghi khi commit) với nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]`.
+Mọi giả định cần ghi vào `decision-log.md` (ORC ghi khi commit) với nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]`. Từ 16/10/2026 các giả định gắn với ESC-001…013 đã được INV quyết theo đề xuất của đội (ghi "INV quyết ESC-xxx 16/10"); nhãn chỉ còn ở thông tin INV phải gửi và giả định không thuộc ESC.
 
 | # | Giả định | Ảnh hưởng nếu sai |
 |---|---|---|
 | A1 | Mọi con số quy tắc ở BL mục 5 là giá trị mặc định cấu hình được (đã có trong decision-log) | Phải sửa tham số, không sửa code |
-| A2 | Mục tiêu kênh trực tiếp ≥ 35% doanh thu phòng và GOP ≥ 60% là đích hợp lý (G3, G4) | Chỉ ảnh hưởng chỉ số đo, không ảnh hưởng tính năng |
-| A3 | Đích S1–S12 do đội đề xuất | Điều chỉnh đích sau khi INV vận hành |
+| A2 | Mục tiêu kênh trực tiếp ≥ 35% doanh thu phòng và GOP ≥ 60% là đích hợp lý (G3, G4) – INV quyết ESC-012 16/10 | Chỉ ảnh hưởng chỉ số đo, không ảnh hưởng tính năng |
+| A3 | Đích S1–S12 do đội đề xuất – INV quyết ESC-012 16/10 | Điều chỉnh đích sau khi INV vận hành |
 | A4 | Không có vai F&B, kế toán riêng; quyền của `manager` khác `owner` đã chốt ở `rbac-matrix.md` mục 5.3 – chờ INV xác nhận | Thêm vai con trong RBAC |
-| A5 | Lễ tân trưởng là lễ tân có thêm quyền duyệt FOC trong hạn mức; lễ tân được **tự miễn** minibar trong hạn mức lần + hạn mức tháng [GIẢ ĐỊNH 500.000 đ/người/tháng] (hạn mức chờ ESC-007) | Đổi quyền duyệt |
+| A5 | Lễ tân trưởng là lễ tân có thêm quyền duyệt FOC trong hạn mức; lễ tân được **tự miễn** minibar trong hạn mức lần + hạn mức tháng 500.000 đ/người/tháng (INV quyết ESC-007 16/10) | Đổi quyền duyệt |
 | A6 | Khách tìm phòng chủ yếu qua OTA và hỏi trực tiếp Zalo/CTV; booking engine công khai chỉ là Should R3 | Nếu INV coi website đặt phòng là bắt buộc → tăng phạm vi R3 |
-| A7 | Khóa cửa: MVP lễ tân nhập mã tay; tự động sinh mã sau MVP | Nếu INV muốn tự động ngay → phụ thuộc chọn hãng có API |
-| A8 | R2 chạy thanh toán ở chế độ ghi nhận + VietQR (mã QR theo số tiền, không tự đối soát); cổng VNPay/MoMo ở R3 | Nếu cần thu online ngay R2 → cần tài khoản sandbox sớm |
+| A7 | Khóa cửa: MVP lễ tân nhập mã tay; tự động sinh mã sau MVP (INV quyết ESC-011 16/10; thông tin khóa `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi) | Nếu INV muốn tự động ngay → phụ thuộc chọn hãng có API |
+| A8 | R2 chạy thanh toán ở chế độ ghi nhận + VietQR (mã QR theo số tiền, không tự đối soát); cổng VNPay ở R3 (INV quyết ESC-010 16/10 – bộ B; tài khoản ngân hàng `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi, R2 dùng tài khoản thử) | Nếu cần thu online ngay R2 → cần tài khoản sandbox sớm |
 | A9 | Nhân viên dùng giao diện tiếng Việt; khách dùng VI/EN (RU từ R3) | Thêm ngôn ngữ giao diện nhân viên |
 | A10 | Thiết bị: lễ tân máy tính, buồng phòng/sale điện thoại; không yêu cầu chạy offline hoàn toàn (BL 9 #22) | Nếu cần offline đầy đủ → thay đổi kiến trúc |
 | A11 | MVP 1 cơ sở, thiết kế sẵn đa cơ sở (đã có trong decision-log) | – |
 | A12 | P&L R3: nhập chi phí trực tiếp trong app mức đơn giản, chưa có thuê nhà/khấu hao (BL 9 #26) | Thêm phân hệ chi phí |
 | A13 | "Hôm nay" trong app = ngày nghiệp vụ đổi lúc 06:00 (BR-010) | Khách đến sau nửa đêm biến khỏi danh sách nếu sai |
-| A14 | Người trực đêm dùng thiết bị của cơ sở (máy quầy/máy tính bảng) được owner cấp quyền (PHÂN XỬ ORC) – ai trực và thiết bị nào chờ ESC-010 | Nếu không có người/thiết bị → khách khuya phải check-in online trước |
+| A14 | Người trực đêm dùng thiết bị của cơ sở (máy quầy/máy tính bảng) được owner cấp quyền (PHÂN XỬ ORC) – ca tối phương án T-A: INV quyết ESC-010 16/10 | Nếu không có người/thiết bị → khách khuya phải check-in online trước |
 
 ## 10. Câu hỏi mở → ESC (đợt 3)
-Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O-1…O-3, BA, UXD, OPS) đã có kết cục – bảng truy vết ở `open-questions-resolution.md`. Các việc chờ chủ đầu tư quyết (đều mức Bình thường, không chặn code Round 2):
+Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O-1…O-3, BA, UXD, OPS) đã có kết cục – bảng truy vết ở `open-questions-resolution.md`. **Trạng thái 16/10/2026: INV đã quyết cả 13 ESC (001–013) theo đề xuất của đội** (`02-escalations/escalations-index.md`). Thông tin INV còn phải gửi, giữ nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` tới khi nhận: sức chứa thật từng căn (ESC-004), loại hình kinh doanh – doanh nghiệp hay hộ kinh doanh (ESC-008), tài khoản ngân hàng nhận VietQR + tên miền (ESC-010), thông tin hãng/model khóa cửa (ESC-011). Danh sách ESC:
 
 | ESC | Nội dung | Ảnh hưởng PRD |
 |---|---|---|
@@ -214,6 +224,7 @@ Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O
 | ESC-010 | Tài khoản thanh toán, hóa đơn, Zalo, email, cổng khai báo; ai trực tối, ở đâu, thiết bị gì; gửi mã xác minh qua OTA/Zalo | M3, M11, M12, M13 |
 | ESC-011 | Khóa cửa và mã sinh nhật | M14 |
 | ESC-012 | Phạm vi MVP, phạm vi Round 2 khi ước lượng vượt, mục tiêu G3/G4 (CTV có tính kênh trực tiếp), logo | Mục 3, 5, D6 |
+| ESC-013 | Môi trường chạy thử khung + kiểm tra tự động (INV cài Node 22 + Docker, tạo repo GitHub riêng tư) | Hạ tầng R2 (không đổi phạm vi) |
 
 ## 11. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
@@ -221,3 +232,4 @@ Toàn bộ 26 câu hỏi BL mục 9 và các câu mới (DOM Q-D1…Q-D5, DATA O
 | 15/10/2026 | 1 (đợt 1) | Bản nháp đầu tiên | PO |
 | 15/10/2026 | 1 (đợt 3) | Bỏ con số quy tắc, tham chiếu BR; thêm mã vai RBAC; bổ sung phân hệ (no-show, trả sớm, xác nhận hành động, yêu cầu chủ thể dữ liệu, xung đột OTA, trả phòng nhanh); gắn ESC-001…012 vào phụ thuộc và câu hỏi mở | PO |
 | 15/10/2026 | 1 (bước 4) | Theo review BA/DOM/QA: S1 trỏ S1a/S1b DATA, S2 thống nhất với G5; tách U1 thành `owner`/`manager`; M0 xác thực lại bằng mật khẩu ở R2, PIN + 2FA ở R3, thiết bị được cấp; ngày nghiệp vụ 06:00; xung đột OTA lên R2; ghi thu kỳ HĐ lên R2; đóng ca R3 (tách khỏi X3); đơn nhóm R3; không nhận tiền mã hóa; sửa luồng CTV ở 6.2; N11 theo RPO của OPS; D6 thêm ước lượng lệch và câu phụ ESC-012; thêm giả định A13, A14 | PO |
+| 16/10/2026 | 2 (tuần 1 – W12) | v0.4: áp kết quả 13 ESC INV quyết 16/10 – bỏ nhãn giả định ở G3, G4, S1–S12, X3, N10, A2, A3, A5, A14, D1–D7, quy ước số liệu; giữ nhãn cho thông tin INV còn phải gửi (sức chứa – ESC-004, loại hình kinh doanh – ESC-008, tài khoản ngân hàng + tên miền – ESC-010, thông tin khóa – ESC-011); thêm mục 5.4 phạm vi R2 theo R-C | PO |
