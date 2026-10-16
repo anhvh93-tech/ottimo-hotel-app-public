@@ -5,7 +5,10 @@
 //
 // Projects
 //   smoke            – the (S) suite, every PR (API-level checks need no browser)
-//   desk-chromium    – front desk PC 1366×768 (flows/, from sprint 1)
+//   rbac             – role-gate runner over fixtures/rbac-cases.json (Sprint 1 operations, rbac/)
+//   api              – E2E API flows per story (api/*.api.spec.ts) – Playwright request API, no browser
+//   rbac-logout      – logout cases; kill the cached sessions, so they run after rbac + api
+//   desk-chromium    – front desk PC 1366×768 (flows/, ui/ – UI smoke needs E2E_UI=1 + chromium)
 //   mobile-webkit    – Safari iOS 390×844 (housekeeping PWA, guest-web)
 //   android-chromium – Chrome Android 360×800
 import { defineConfig, devices } from '@playwright/test';
@@ -15,6 +18,8 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: '.',
+  // Logs the DS-E accounts in once (SR-RL-01: 20 logins/IP/15 min) – sessions cached in e2e/.auth/.
+  globalSetup: './global-setup.ts',
   outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: isCI,
@@ -35,9 +40,17 @@ export default defineConfig({
   },
   projects: [
     { name: 'smoke', testMatch: /smoke\/.*\.spec\.ts$/ },
+    { name: 'rbac', testMatch: /rbac\/rbac-sprint1\.spec\.ts$/ },
+    { name: 'api', testMatch: /api\/.*\.api\.spec\.ts$/ },
+    {
+      name: 'rbac-logout',
+      testMatch: /rbac\/rbac-logout\.spec\.ts$/,
+      dependencies: ['rbac', 'api'],
+    },
     {
       name: 'desk-chromium',
-      testMatch: /flows\/.*\.spec\.ts$/,
+      testMatch: /(flows|ui)\/.*\.spec\.ts$/,
+      testIgnore: /\.mobile\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
     },
     {

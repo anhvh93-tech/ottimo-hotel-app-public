@@ -16,10 +16,12 @@
       "story": "US-001/AC1",
       "layers": "A+E",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "status": "implemented",
       "title": "Vào màn Hôm nay (màn mặc định của `front_desk`); tên người dùng ở đầu trang; Sơ đồ phòng (room rack) mở bằng 1 lần bấm; ",
-      "endpoints": "login, getMe"
+      "endpoints": "login, getMe",
+      "spec": "api/identity.api.spec.ts",
+      "project": "api",
+      "note": "Phần API (login, getMe, cookie); phần UI ở ui/admin-web.smoke.spec.ts (chờ FE, E2E_UI=1)"
     },
     {
       "tc": "TC-NT-008",
@@ -27,9 +29,10 @@
       "layers": "A",
       "priority": "Cao (S)",
       "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "waitingFor": "Sprint 2 – createReservation (biến thể listUsers đã viết)",
       "title": "`403 FORBIDDEN_ACTION`; không tạo đơn; `audit_event` có người = `qa.hk`, hành động = A01/createReservation, đối tượng (c",
-      "endpoints": "createReservation, listAuditEvents"
+      "endpoints": "createReservation, listAuditEvents",
+      "note": "Biến thể Sprint 1 (listUsers thay createReservation) ở api/audit-approvals.api.spec.ts; ca gốc chờ createReservation (Sprint 2)"
     },
     {
       "tc": "TC-NT-028",
@@ -96,10 +99,12 @@
       "story": "US-002/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "status": "implemented",
       "title": "100% trả `403 FORBIDDEN_ACTION` (khách: 401/403), mỗi lần 1 `audit_event`; vai ô `M` với dữ liệu người khác → 404; vai r",
-      "endpoints": "(mọi operation)"
+      "endpoints": "(mọi operation)",
+      "spec": "rbac/rbac-sprint1.spec.ts",
+      "project": "rbac",
+      "note": "Runner từ rbac-cases.json – lượt này phủ operation Sprint 1 (385 ca); operation Sprint 2+ thêm vào rbac/sprint1-ops.ts khi có"
     },
     {
       "tc": "TC-RB-022",
@@ -116,10 +121,11 @@
       "story": "US-002/AC2",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "status": "implemented",
       "title": "0 operation \"OpenAPI cho thêm vai so với rbac\" (CI đỏ nếu có); các lệch còn lại liệt kê ở traceability mục 8, BA/ARC xác",
-      "endpoints": "(mọi operation)"
+      "endpoints": "(mọi operation)",
+      "spec": "tools/gen_traceability.py --strict",
+      "project": "ci"
     },
     {
       "tc": "TC-L2-020",
@@ -396,10 +402,11 @@
       "story": "US-002/AC1",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "status": "implemented",
       "title": "Sau mỗi thao tác: request kế tiếp của mọi phiên cũ → `401` (không chờ đăng nhập lại); có `audit_event` loại `security`",
-      "endpoints": "setUserRoles, updateUser, getMe"
+      "endpoints": "setUserRoles, updateUser, getMe",
+      "spec": "api/identity.api.spec.ts",
+      "project": "api"
     },
     {
       "tc": "TC-SEC-026",
@@ -426,10 +433,11 @@
       "story": "US-005/–",
       "layers": "A",
       "priority": "Cao (S)",
-      "status": "pending",
-      "waitingFor": "Sprint 1 – EP00 nền tảng (đăng nhập, phân quyền, tham số, phê duyệt)",
+      "status": "implemented",
       "title": "(a) mọi lần `403 FORBIDDEN_ACTION` + `audit_event access.denied`, giá trị không đổi; (b) mọi lần `422 PARAM_OUT_OF_RANGE",
-      "endpoints": "setParameter, listAuditEvents"
+      "endpoints": "setParameter, listAuditEvents",
+      "spec": "api/platform.api.spec.ts",
+      "project": "api"
     }
   ]
 }
