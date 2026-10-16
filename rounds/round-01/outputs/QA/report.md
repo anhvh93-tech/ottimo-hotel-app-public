@@ -103,3 +103,52 @@
 - Lập `qa/bug-list.md`: lỗi tài liệu P2 cho DOM từ các nhãn giả định, 20 lệch rbac ↔ OpenAPI.
 - Chạy CI khung và `GET /health`.
 - TC cho SM-16, SM-17 và SM-06 H3–H9 khi có story/AC.
+
+---
+
+## Bước 5 – Kiểm thử (16/10/2026)
+
+**Đã làm gì**
+- **Sinh lại ma trận truy vết** `product/docs/qa/traceability.md` v0.3, bản cuối R1. Script được sửa ba điểm:
+  - đọc đủ wireframe 01–10 qua dòng `wf-meta` (bản cũ bỏ sót L10);
+  - thêm cột **ERD**, gồm mục `erd.md` 4.x nêu US và mục suy từ tag của operation;
+  - bỏ 6 lệch quyền báo giả.
+- **Kết quả truy vết:**
+  - 77/77 story Must R2 có đủ TC, endpoint, wireframe và ERD; 0 ô trống QC C1;
+  - AC 267/267, AC chạy được ở R2 267/267;
+  - chuyển trạng thái 101/121;
+  - BR được tham chiếu 150/150;
+  - BL 8.2 có TC 26/30 (#11, #14, #22, #25 thuộc R3).
+- **Kiểm nhất quán chéo:** đối chiếu bằng script và đọc tay:
+  - 15/15 enum trạng thái khớp;
+  - mã lỗi khớp, trừ wireframe 10;
+  - định dạng mã chứng từ;
+  - 20 lệch rbac ↔ `x-roles`: 6 báo giả, còn 14 operation đã phân loại vào bug.
+- **Kiểm kỹ thuật:**
+  - chưa có node, pnpm, docker, nên TC-X-050 và CI là **BLOCKED (môi trường)**, không báo đạt;
+  - 29/29 YAML/JSON hợp lệ; OpenAPI qua openapi-spec-validator;
+  - không tìm thấy bí mật thật; `.env.example` chỉ chứa placeholder.
+- **Lập `qa/bug-list.md`:** 22 lỗi, gồm **P0 0 · P1 0 · P2 9 · P3 13**. Đã đóng 3 lỗi: 2 lỗi QA tự sửa (mẫu số bill trong TC, script) và ví dụ BR-107 đã khớp. Lập `qa/test-report.md`, có đánh giá QA cho từng dòng QC A1–C5.
+
+**File đã tạo/sửa**
+- `product/docs/qa/traceability.md` (sinh lại, v0.3)
+- `product/tests/tools/gen_traceability.py`
+- `product/tests/test-cases/r1-main-flows.md` (v0.2.1: TC-NT-022, TC-L4-053 theo BR-007 v0.2)
+- `rounds/round-01/qa/bug-list.md`, `rounds/round-01/qa/test-report.md` (mới)
+- `rounds/round-01/outputs/QA/report.md` (phần này)
+
+**Giả định**
+- Cột ERD được suy từ tag OpenAPI qua bảng `TAG_ERD` của QA. Cột này chứng minh mỗi story có bảng, chưa chứng minh đủ cột.
+- Kiểm quyền: nếu operation có mã A-xx thì bỏ mã màn hình S-xx; nhiều mã A-xx tính hợp. `listRooms` cho HK/MT được xếp **P2** thay vì P1 mặc định, sau khi xem lại từng trường: giá đã che bằng `x-visible-to`, không lộ C2/C3.
+
+**Rủi ro / vướng mắc**
+- C2 chưa có bằng chứng `/health` OK và CI xanh.
+- Kiểm wireframe ↔ RBAC mới đọc tay 4/10 trang.
+- `gen_traceability.py --strict` còn exit 1 cho đến khi đóng BUG-R1-005.
+
+**ESC mới:** không có. Việc chờ cài công cụ không cần INV quyết.
+
+**Việc chưa xong**
+- Chạy TC-X-050 và CI ngay khi máy có node, pnpm, Docker (test-report mục 5).
+- Kiểm lại các lỗi khi tác giả báo Fixed.
+- R2 tuần 1: BUG-R1-016 (quy ước mã DS-0) và -020; TC cho 2 mã lỗi mới (BUG-R1-007).

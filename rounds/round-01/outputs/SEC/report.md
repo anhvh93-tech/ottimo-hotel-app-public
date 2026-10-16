@@ -178,3 +178,32 @@ Không có ESC "Gấp". Các quyết định khác ở mục 6 thuộc quyền k
 ## 5. Việc chưa xong
 - Bước 5: soát lại OpenAPI/ERD sau khi ARC sửa (SR-GST-13/14, SR-DEV-08, SR-FILE-01), chuyển phát hiện vào `qa/bug-list.md`.
 - Dự thảo ESC kiểm thử bảo mật độc lập: đã được ORC dời trình INV cuối Round 2.
+
+---
+
+# Báo cáo SEC – Round 1 · Bước 5 Kiểm thử (soát lại OpenAPI/ERD/hạ tầng theo security-requirements v0.2)
+
+## 1. Đã làm gì
+- Soát lại `openapi.yaml` 0.2.0-draft (140 path, đọc bằng script), `openapi.test.yaml`, `erd.md` v0.2, `architecture.md` v0.2, ADR-006/007/010/011/013, `product/infra/**`, `ci.yml`, `.env.example`, `services/api/src/**` (+ test), INT README, rbac-matrix mục 4.7 và 6.
+- Đối chiếu từng mục: **SEC-R1-01…33: 32 Đạt, 1 Đạt có điều kiện** (SEC-R1-24 – còn nhánh `--no-frozen-lockfile` tới đầu R2); **25/25 thẻ Blocker/Major** (2 Blocker, 23 Major) của SEC-on-ARC/INT/OPS/BA **Đạt**, có bằng chứng dòng/mục.
+- Kiểm 5 câu hỏi được giao: C3 qua endpoint có nhật ký + thiết bị tin cậy (8/8 operation C3 nhân viên đạt; 1 đường vòng mới), `x-visible-to` khớp rbac D-xx (đạt), `/__test__` không có trong spec production (đạt), webhook đúng đường dẫn và fail-closed (đạt, có kiểm trong `config.ts` + test), dò lại bí mật toàn repo kể cả `product/legacy/` (không có bí mật/dữ liệu thật).
+- Ghi **9 lỗi mới** theo mẫu QA vào `rounds/round-01/qa/sec-findings.md`: P0 1, P1 1, P2 1, P3 6.
+
+## 2. File đã tạo/sửa
+- Tạo: `rounds/round-01/qa/sec-findings.md`
+- Sửa: file này (thêm phần Bước 5)
+- Không sửa file của vai khác, `bug-list.md`, `decision-log.md`, `02-escalations/`.
+
+## 3. Giả định
+- `[GIẢ ĐỊNH]` Mức lỗi tài liệu theo test-strategy mục 8: contract "sẽ dẫn tới lộ C3 nếu code theo" = P0 (BUG-R1-SEC-01). QA có quyền đổi mức; SEC đề nghị giữ vì là mã cửa.
+- `[GIẢ ĐỊNH]` Biên tham số bảo mật đề xuất ở BUG-R1-SEC-02 (ví dụ `guest_verify_max_attempts` 3–5, `c3_stepup_minutes` 1–15) là tham số kỹ thuật SEC đặt, không phải chính sách kinh doanh.
+- Số dòng trích dẫn là của `openapi.yaml` ngày 16/10; ARC sửa file thì dòng có thể dịch.
+
+## 4. Rủi ro / vướng mắc
+- **BUG-R1-SEC-01 (P0)**: `renderMessage` mẫu `door_code` cho SAL/CTV lấy mã cửa, không qua thiết bị tin cậy, không ghi `c3_access_log` – phải sửa contract trước khi BE code US-125/US-128 ở R2; QC không nên ĐẠT khi lỗi này còn mở (sửa chỉ vài dòng contract).
+- **BUG-R1-SEC-02 (P1)**: MGR nới được các tham số bảo mật qua `setParameter` – cần chốt "chỉ OWN + biên cứng" trước khi BE làm US-005.
+- Không có ESC mới: cả hai lỗi nằm trong quyền kỹ thuật của SEC/ARC, sửa được trong round.
+
+## 5. Việc chưa xong
+- Soát lại sau khi ARC/OPS/INT sửa BUG-R1-SEC-01…09 (vòng lặp bước 4–5).
+- R2: review mã OWASP/MASVS; kiểm bỏ nhánh `--no-frozen-lockfile`, bước CI chặn `__test__`, header/rate limit/Caddyfile production.

@@ -48,7 +48,11 @@ info:
       `all` toàn cơ sở, `own` của mình, `today` việc hôm nay, `reservation` đơn của khách). Vai không có trong `x-roles` → `403 FORBIDDEN_ACTION`
       và ghi nhật ký lần bị từ chối (US-002 AC2). Bản ghi ngoài phạm vi hoặc thuộc cơ sở khác → `404 NOT_FOUND` (không lộ sự tồn tại).
     - **Cấu hình kênh gửi mã xác minh**: tham số cơ sở `guest_verify_code_channels` (mảng con của `airbnb_inbox`, `booking_inbox`, `agoda_inbox`, `zalo`;
-      mặc định rỗng = tắt) đọc/sửa qua `GET/PUT /v1/properties/{propertyId}/parameters/{key}` – chỉ owner sửa, ghi audit `config` (SR-GST-13).
+      mặc định rỗng = tắt) đọc/sửa qua `GET/PUT /v1/properties/{propertyId}/parameters/{key}` – chỉ owner sửa, ghi audit `security` (SR-GST-13, BUG-R1-SEC-02).
+    - **Tham số bảo mật** (BUG-R1-SEC-02): các khóa trong `setParameter.x-security-parameters` chỉ **owner** sửa (vai khác → `403 FORBIDDEN_ACTION`),
+      giá trị phải nằm trong biên cứng do SEC đặt (ngoài biên → `422 VALIDATION_FAILED`, kể cả với owner), mỗi lần sửa ghi `audit_event category='security'`.
+    - **Nhật ký C3** (`x-c3-log`): operation có thuộc tính này ghi **một** dòng `c3_access_log` (`subject_type`, `action` như khai) **trước khi** trả giá trị C3
+      và luôn trả `Cache-Control: no-store`; với operation chỉ trả C3 trong một số trường hợp (ví dụ `getGuestStay` mức 2), chỉ ghi khi giá trị C3 thực sự có trong phản hồi.
     - **Mã trường rbac**: thuộc tính nhạy cảm có `x-rbac-field` (D01…D29 của rbac-matrix mục 6) để QA sinh test trường tự động; phủ dần ở R2.
     - **Lọc trường theo vai**: thuộc tính schema có `x-visible-to` chỉ xuất hiện trong JSON khi người gọi có một trong các vai đó;
       với vai khác thuộc tính **vắng mặt** (không phải `null`). Thuộc tính có `x-classification: C3` chỉ trả qua endpoint `.../sensitive`
@@ -946,10 +950,26 @@ paths:
     put:
       tags: [platform]
       operationId: setParameter
-      summary: Thêm giá trị mới có ngày hiệu lực (không sửa giá trị quá khứ). Khóa `foc_limits`, tỷ lệ hoa hồng, phí kênh, `vat_rate`, `retention.*` chỉ OWN (rbac 5.3).
+      summary: Thêm giá trị mới có ngày hiệu lực (không sửa giá trị quá khứ). Khóa `foc_limits`, tỷ lệ hoa hồng, phí kênh, `vat_rate`, `retention.*` và mọi tham số bảo mật chỉ OWN (rbac 5.3, A118).
+      description: |
+        **Chỉ owner** (manager → `403 FORBIDDEN_ACTION`, ghi `audit_event access.denied`): `foc_limits`, tỷ lệ hoa hồng, phí kênh, `vat_rate`, `retention.*`
+        và các **tham số bảo mật** liệt kê ở `x-security-parameters` (BUG-R1-SEC-02; erd 9.3 cột "Người sửa / Biên").
+        Tham số bảo mật có **biên cứng** do SEC đặt – giá trị ngoài biên (hoặc sai kiểu, phần tử ngoài tập cho phép) → `422 VALIDATION_FAILED`
+        với `errors[{field: value}]`, áp dụng cả với owner; đổi biên = đổi hợp đồng (SEC duyệt), không phải cấu hình.
+        Mỗi lần sửa tham số bảo mật ghi `audit_event category='security'` (giá trị trước/sau, lý do, người sửa); các khóa khác ghi `category='config'`.
+        Kiểm tra thực hiện trên server theo khóa trong đường dẫn – client không quyết định khóa nào là "bảo mật".
       x-roles: [owner, manager]
-      x-rbac: [A101, A102]
+      x-rbac: [A101, A102, A118]
       x-stories: [US-005]
+      x-security-parameters:
+        guest_verify_max_attempts: { type: integer, minimum: 3, maximum: 5, default: 5, ref: SR-GST-08 }
+        guest_level2_idle_minutes: { type: integer, minimum: 5, maximum: 30, default: 30, ref: SR-GST-09 }
+        guest_link_grace_hours: { type: integer, minimum: 0, maximum: 24, default: 24, ref: SR-GST-05/11 }
+        guest_verify_code_channel_minutes: { type: integer, minimum: 5, maximum: 30, default: 15, ref: SR-GST-13 }
+        guest_verify_code_channels: { type: array, uniqueItems: true, items: { enum: [airbnb_inbox, booking_inbox, agoda_inbox, zalo] }, default: [], ref: SR-GST-13 }
+        trusted_device_days: { type: integer, minimum: 1, maximum: 180, default: 180, ref: SR-DEV-01 }
+        trusted_device_mobile_days: { type: integer, minimum: 1, maximum: 30, default: 30, ref: SR-DEV-08 }
+        c3_stepup_minutes: { type: integer, minimum: 1, maximum: 15, default: 15, ref: SR-C3-09 }
       requestBody:
         required: true
         content:
@@ -4324,6 +4344,7 @@ paths:
     get:
       tags: [messaging]
       operationId: listMessageTemplates
+      description: Mẫu `containsC3 = true` (`door_code`) chỉ trả cho owner/manager/front_desk_lead/front_desk; `sales_staff`, `collaborator` không thấy (BUG-R1-SEC-01).
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-rbac: [S29]
       x-stories: [US-125]
@@ -4349,8 +4370,10 @@ paths:
         Mẫu chứa link app khách (`checkin_link`, `guest_link`) đi qua cùng kiểm quyền với A22 `issueGuestLink`: CTV → `403 FORBIDDEN_ACTION` (SR-MSG-03).
         Render **không** cấp token mới và không thu hồi link khách đang dùng: server không giữ token rõ nên biến `{{guest_link}}` chỉ điền được khi
         gọi kèm `guestLinkUrl` vừa nhận từ `issueGuestLink` trong cùng thao tác; thiếu → `409 INVALID_TRANSITION` với hướng dẫn "Cấp link trước".
-        Mẫu `verify_code` **không** render ở đây (chỉ có trong phản hồi `issueGuestVerificationCode`). Mẫu cấm biến C3 trừ `door_code`
-        (chỉ đúng ngày đến, SR-LOCK-03). Email escape HTML.
+        Mẫu `verify_code` **không** render ở đây (chỉ có trong phản hồi `issueGuestVerificationCode`).
+        **Không render mẫu chứa C3** (BUG-R1-SEC-01): `door_code` và mọi mẫu có `MessageTemplate.containsC3 = true` → `422 VALIDATION_FAILED`
+        (`errors[{field: templateCode, code: C3_TEMPLATE_USE_DEDICATED_ENDPOINT}]`) với **mọi vai**; nhân viên FD+ dùng `renderDoorCodeMessage`.
+        Phản hồi của operation này không bao giờ chứa giá trị C3. Email escape HTML.
       x-roles: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
       x-scope: { sales_staff: own, collaborator: own }
       x-stories: [US-125]
@@ -4380,6 +4403,69 @@ paths:
                   subject: { type: string }
                   text: { type: string }
               example: { locale: ru, text: 'Здравствуйте, Daniel! Ваше бронирование OTM-00171: заезд 19.10, выезд 22.10. Онлайн-регистрация: https://guest.example.invalid/g/…' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /v1/properties/{propertyId}/reservations/{reservationId}/messages/render-door-code:
+    parameters:
+      - $ref: '#/components/parameters/PropertyId'
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [messaging]
+      operationId: renderDoorCodeMessage
+      summary: Điền mẫu tin chứa mã cửa (C3) để sao chép gửi khách – chỉ FD+ trên thiết bị được cấp, step-up, ghi c3_access_log (US-125, US-128; BUG-R1-SEC-01)
+      description: |
+        Operation **riêng** cho mọi mẫu `MessageTemplate.containsC3 = true` (hiện chỉ `door_code`) để kiểm soát C3 giống `getDoorCredential` (rbac A21, D22):
+        - Vai: owner, manager, front_desk_lead, front_desk. `sales_staff`, `collaborator` và vai khác → `403 FORBIDDEN_ACTION` (ghi `audit_event access.denied`).
+        - Thiết bị tin cậy bắt buộc (`403 DEVICE_NOT_TRUSTED`) và step-up trong cửa sổ `c3_stepup_minutes` (`401 REAUTH_REQUIRED`) – thứ tự kiểm theo mục "Thứ tự kiểm".
+        - Chỉ khi `door_credential` của đơn còn hiệu lực, đúng ngày đến hoặc đơn `in_house` (SR-LOCK-03) và khai báo không chặn mã cửa
+          (`Registration.blocksDoorCode`, BR-613 c); nếu không → `409 INVALID_TRANSITION`.
+        - Ghi **một** dòng `c3_access_log` (`subject_type=door_credential`, `action=copy`, `purpose=send_to_guest`) **trước khi** trả phản hồi; ghi log thất bại → `500`, không trả mã.
+        - Phản hồi `Cache-Control: no-store`. `message_log` ghi `template_code=door_code`, kênh `manual_copy`, **không** lưu nội dung/mã (giữ nguyên quy tắc).
+        - Không có `Idempotency-Key`: gửi lại = thêm một lần xem mã, phải có thêm một dòng `c3_access_log` (không trả lại phản hồi đã lưu chứa C3).
+      x-roles: [owner, manager, front_desk_lead, front_desk]
+      x-rbac: [A21]
+      x-classification: C3
+      x-requires-trusted-device: true
+      x-step-up: true
+      x-c3-log: { subjectType: door_credential, action: copy }
+      x-rate-limit: 60/giờ/người cảnh báo, 200/giờ chặn – chung bộ đếm với getDoorCredential (SR-RL-06)
+      x-stories: [US-125, US-128]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateCode, locale]
+              properties:
+                templateCode: { type: string, enum: [door_code] }
+                locale: { $ref: '#/components/schemas/Locale' }
+            example: { templateCode: door_code, locale: en }
+      responses:
+        '200':
+          description: OK – văn bản chứa mã cửa, chỉ hiển thị để sao chép, client không lưu (không cache, không đưa vào hàng đợi offline)
+          headers:
+            Cache-Control: { schema: { type: string, enum: [no-store] } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text, locale, validFrom, validTo]
+                properties:
+                  locale: { $ref: '#/components/schemas/Locale' }
+                  subject: { type: string }
+                  text: { type: string, x-classification: C3, x-rbac-field: D22 }
+                  validFrom: { $ref: '#/components/schemas/Instant' }
+                  validTo: { $ref: '#/components/schemas/Instant' }
+              example: { locale: en, text: 'Hi Daniel, your door code for unit 201 is 582913, valid 19/10 14:00 – 22/10 12:00.', validFrom: '2026-10-19T14:00:00+07:00', validTo: '2026-10-22T12:00:00+07:00' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   # ───────────────────────── guest portal (ADR-006) ─────────────────────────
   /v1/guest/sessions:
@@ -4393,6 +4479,7 @@ paths:
       security: []
       x-roles: [guest]
       x-guest-level: 0
+      x-after-checkout: allowed
       x-rate-limit: 10/phút/IP, 100/ngày/IP (SR-RL-03)
       x-stories: [US-106]
       requestBody:
@@ -4426,6 +4513,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: allowed
       x-rate-limit: 3 OTP/giờ/token (SR-RL-04)
       x-stories: [US-106, US-141]
       parameters:
@@ -4458,6 +4546,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: allowed
       x-rate-limit: 5 sai/token/24 giờ (SR-RL-04)
       x-stories: [US-106, US-141]
       requestBody:
@@ -4493,6 +4582,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-scope: { guest: reservation }
       x-stories: [US-108, US-128, US-112]
       parameters:
@@ -4504,6 +4594,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/GuestStay' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/locale:
     put:
       tags: [guest-portal]
@@ -4513,6 +4604,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: allowed
       requestBody:
         required: true
         content:
@@ -4533,6 +4625,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-107]
       responses:
         '200':
@@ -4540,6 +4633,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
     put:
       tags: [guest-portal]
       operationId: updateOnlineCheckin
@@ -4548,6 +4642,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-107]
       requestBody:
         required: true
@@ -4564,6 +4659,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/online-checkin/documents:
     post:
       tags: [guest-portal]
@@ -4576,6 +4672,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-classification: C3
       x-transition: K2
       x-stories: [US-107]
@@ -4600,6 +4697,7 @@ paths:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/consents:
     post:
       tags: [guest-portal]
@@ -4609,6 +4707,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-107, US-045]
       requestBody:
         required: true
@@ -4621,6 +4720,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/online-checkin/complete:
     post:
       tags: [guest-portal]
@@ -4630,6 +4730,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-107]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -4640,6 +4741,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OnlineCheckin' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/requests:
     get:
       tags: [guest-portal]
@@ -4648,6 +4750,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-109]
       responses:
         '200':
@@ -4659,6 +4762,7 @@ paths:
                 required: [data]
                 properties:
                   data: { type: array, items: { $ref: '#/components/schemas/GuestRequestForGuest' } }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
     post:
       tags: [guest-portal]
       operationId: createGuestRequest
@@ -4667,6 +4771,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 1
+      x-after-checkout: blocked
       x-stories: [US-109, US-110]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -4688,6 +4793,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/GuestRequestForGuest' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/folio:
     get:
       tags: [guest-portal]
@@ -4697,6 +4803,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 2
+      x-after-checkout: allowed
       x-scope: { guest: reservation_level2 }
       x-stories: [US-111, US-106]
       parameters:
@@ -4712,6 +4819,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
   /v1/guest/consents/{purpose}/withdraw:
     parameters:
       - name: purpose
@@ -4727,6 +4835,7 @@ paths:
         - guestSession: []
       x-roles: [guest]
       x-guest-level: 2
+      x-after-checkout: allowed
       x-stories: [US-133]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -4737,6 +4846,8 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+        '403': { $ref: '#/components/responses/GuestForbidden' }
+
 
   # ───────────────────────── public (QR trong phòng) ─────────────────────────
   /v1/public/units/{unitSlug}:
@@ -5009,13 +5120,13 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Reservation' }
     Unauthenticated:
-      description: UNAUTHENTICATED / REAUTH_FAILED / GUEST_LINK_INVALID
+      description: UNAUTHENTICATED / REAUTH_FAILED / REAUTH_REQUIRED (step-up hết cửa sổ) / GUEST_LINK_INVALID
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
           example: { type: /problems/unauthenticated, title: Cần đăng nhập, status: 401, code: UNAUTHENTICATED }
     Forbidden:
-      description: FORBIDDEN_ACTION / SELF_APPROVAL_FORBIDDEN / APPROVAL_LIMIT_EXCEEDED / GUEST_VERIFICATION_REQUIRED – lần bị từ chối được ghi nhật ký
+      description: FORBIDDEN_ACTION / SELF_APPROVAL_FORBIDDEN / APPROVAL_LIMIT_EXCEEDED / DEVICE_NOT_TRUSTED / GUEST_VERIFICATION_REQUIRED / GUEST_STAY_ENDED – lần bị từ chối được ghi nhật ký
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
@@ -6634,6 +6745,9 @@ components:
         name: { type: string }
         locales: { type: array, items: { $ref: '#/components/schemas/Locale' } }
         channel: { type: string, enum: [manual_copy, email, zalo_zns] }
+        containsC3:
+          type: boolean
+          description: 'Mẫu có biến C3 (hiện chỉ `door_code`) – chỉ render qua `renderDoorCodeMessage`; không trả trong `listMessageTemplates` cho `sales_staff`/`collaborator` (BUG-R1-SEC-01)'
 
     # ── app khách ──
     GuestSession:

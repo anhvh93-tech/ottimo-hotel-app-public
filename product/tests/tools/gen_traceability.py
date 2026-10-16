@@ -46,7 +46,7 @@ TCFILE = P('product', 'tests', 'test-cases', 'r1-main-flows.md')
 OPENAPI = P('product', 'docs', 'api', 'openapi.yaml')
 BRFILE = P('product', 'docs', 'business-rules.md')
 TRIAGE = P('product', 'docs', 'baseline-issues-triage.md')
-WF_GLOB = P('product', 'design', 'wireframes', '0*.html')
+WF_GLOB = P('product', 'design', 'wireframes', '[0-9][0-9]-*.html')
 SMFILE = P('product', 'docs', 'state-machines.md')
 RBAC_MD = P('product', 'docs', 'rbac-matrix.md')
 RBAC_JSON = P('product', 'docs', 'rbac-matrix.json')
@@ -162,18 +162,23 @@ def parse_openapi():
     meta: dict[str, dict] = {}
     current = None
     method = None
+    tags: list[str] = []
     prop = None
     visible = defaultdict(list)
     for line in t.splitlines():
         m = re.match(r'^    (get|post|put|patch|delete):\s*$', line)
         if m:
-            method, current = m.group(1), None
+            method, current, tags = m.group(1), None, []
+            continue
+        m = re.match(r'^      tags:\s*(\[.*\])', line)
+        if m:
+            tags = _yaml_list(m.group(1))
             continue
         m = re.match(r'^\s+operationId:\s*(\w+)', line)
         if m:
             current = m.group(1)
             ops[current] = []
-            meta[current] = {'method': method, 'roles': [], 'scope': {}, 'rbac': [], 'transition': []}
+            meta[current] = {'method': method, 'tags': list(tags), 'roles': [], 'scope': {}, 'rbac': [], 'transition': []}
             continue
         if current:
             m = re.match(r'^\s+x-stories:\s*(.*)$', line)
@@ -419,16 +424,29 @@ def rbac_check(meta, visible, acts, fields, op_actions=None):
         missing_codes = [c for c in codes if c not in acts]
         if missing_codes:
             unknown.append((op, missing_codes))
-        exp, own = set(), set()
-        for c in codes:
+        # Step 5 (16/10): when an operation cites action codes (A-xx) the screen codes (S-xx) only give context.
+        # Several A-xx on one operation are usually alternatives (A31 within limit / A32 above) -> union.
+        a_codes = [c for c in codes if c.startswith('A') and c in acts]
+        use = a_codes or [c for c in codes if c in acts]
+        per_code = []
+        own = set()
+        for c in use:
+            ok = set()
             for role, lv in acts.get(c, {}).items():
                 if lv == 'Y' or lv == 'M' or (lv == 'R' and m['method'] == 'get'):
-                    exp.add(role)
+                    ok.add(role)
                 if lv == 'M':
                     own.add(role)
+            per_code.append(ok)
+        exp = set().union(*per_code) if per_code else set()
+        own &= exp
         if not exp:
             continue
         got = set(m['roles'])
+        if got == {'guest'}:  # /guest/* operation: only the guest column is relevant (staff use their own operation)
+            exp &= {'guest'}
+        if m['scope'].get('all'):  # x-scope: { all: own } applies to every role
+            m = dict(m, scope={r: m['scope']['all'] for r in ROLE_CODES.values()})
         if 'any_staff' in got:  # OpenAPI alias = every internal role
             got = (got - {'any_staff'}) | {r for r in ROLE_CODES.values() if r != 'guest'}
         if 'guest' not in got:  # GST reaches its data only through /guest/* operations (ADR-006)
@@ -471,17 +489,21 @@ def parse_triage():
 
 
 def parse_wireframes():
-    """US numbers listed in the header (meta line) of each wireframe page."""
+    """US numbers listed in the header (`wf-meta` line, else first US run) of each wireframe page 01..NN."""
     res = defaultdict(list)
     for path in sorted(glob.glob(WF_GLOB)):
         name = os.path.basename(path)
-        code = 'L' + name[1]
-        text = html.unescape(re.sub(r'<[^>]+>', ' ', read(path)))
+        code = 'L' + str(int(name[:2]))
+        raw = read(path)
+        meta = re.search(r'class="wf-meta">(.*?)</div>', raw, flags=re.S)
+        if meta and 'US-' not in meta.group(1):
+            meta = None
+        text = html.unescape(re.sub(r'<[^>]+>', ' ', meta.group(1) if meta else raw))
         text = re.sub(r'\s+', ' ', text)
-        m = re.search(r'US-\d{3}(?:\s*[,\u2013-]\s*\d{3})*', text)
+        m = re.search(r'US-\d{3}(?:\s*[,\u2013-]\s*(?:US-)?\d{3})*', text)
         if not m:
             continue
-        seg = m.group(0)
+        seg = m.group(0).replace('US-', '')
         nums: set[int] = set()
         for a, b in re.findall(r'(\d{3})\s*[–-]\s*(\d{3})', seg):
             nums.update(range(int(a), int(b) + 1))
@@ -489,6 +511,27 @@ def parse_wireframes():
         for n in sorted(nums):
             res[f'US-{n:03d}'].append(code)
     return res
+
+
+ERDFILE = P('product', 'docs', 'erd.md')
+# QA map: OpenAPI tag -> ERD dictionary section (erd.md mục 4) holding the tables the operation writes/reads
+TAG_ERD = {'auth': '4.2', 'users': '4.2', 'devices': '4.2', 'notifications': '4.2', 'platform': '4.1', 'public': '4.1',
+           'dashboard': '4.5', 'rack': '4.5', 'reservations': '4.5', 'quotes': '4.5', 'doorlock': '4.5',
+           'folio': '4.6', 'approvals': '4.6', 'commissions': '4.6', 'audit': '4.3', 'registration': '4.7',
+           'housekeeping': '4.8', 'maintenance': '4.9', 'inventory': '4.10', 'guests': '4.4',
+           'guest-portal': '4.11', 'guest-requests': '4.11', 'messaging': '4.11', 'webhooks': '4.12'}
+
+
+def parse_erd_refs():
+    """US-xxx cited inside erd.md section 4 (table dictionary) -> set of '4.x'."""
+    t = read(ERDFILE)
+    a, b = t.index('## 4. '), t.index('## 5. ')
+    out = defaultdict(set)
+    for part in re.split(r'^### ', t[a:b], flags=re.M)[1:]:
+        sec = part.split()[0]
+        for sid in re.findall(r'US-\d{3}', part):
+            out[sid].add(sec)
+    return out
 
 
 # QA mapping for stories a wireframe page shows but does not list in its header
@@ -500,7 +543,9 @@ WF_QA = {
     'US-030': ['L2 §2.1 (Xác nhận giờ trả)'], 'US-031': ['L2 §2.1, §2.4'], 'US-135': ['L2 §2.3', 'L4 §4.4'],
     'US-029': ['L4 §4.2 (trả muộn)'], 'US-032': ['L4 §4.2 (phí phạt)'], 'US-085': ['L5 (bộ đếm giữ chỗ)', 'L2 §2.3'],
     'US-082': ['L5 (hết căn + gợi ý)'], 'US-022': ['L3 §3.1 (người thứ 2)'],
-    'US-003': ['L1 §1.2 (cột Không được thấy)', 'L4 §4.1 (ghi chú giá vốn)'], 'US-048': ['L3 §3.1 (nút Xem giấy tờ)'], 'US-128': ['L3 §3.4', 'L7'], 'US-139': ['L8 (Cần chú ý)'],
+    'US-003': ['L1 §1.2 (cột Không được thấy)', 'L4 §4.1 (ghi chú giá vốn)'],
+    'US-027': ['L4 §4.2', 'L9'], 'US-049': ['L3 §3.1'], 'US-050': ['L8', 'L9 §9.1–9.2'],
+    'US-141': ['L7 (màn xác minh OTP)', 'L3 §3.5 (cấp mã xác minh)'], 'US-142': ['L3 §3.5 (máy chưa cấp quyền)', 'L1 (cảnh báo thiết bị)'], 'US-048': ['L3 §3.1 (nút Xem giấy tờ)'], 'US-128': ['L3 §3.4', 'L7'], 'US-139': ['L8 (Cần chú ý)'],
 }
 
 
@@ -519,6 +564,7 @@ def main(argv=None):
     br_cat = parse_br_catalogue()
     triage = parse_triage()
     wf_hdr = parse_wireframes()
+    erd_us = parse_erd_refs()
 
     must_r2 = [s for s, v in stories.items() if v['moscow'] == 'Must' and v['round'] == 'R2']
     must_r3_with_ac = [s for s in acs if s not in must_r2]
@@ -590,7 +636,16 @@ def main(argv=None):
         qa = [w for w in WF_QA.get(s, []) if not any(w.startswith(h) for h in hdr)]
         return hdr, qa
 
+    def erd_of(s):
+        secs = set(erd_us.get(s, set()))
+        for op in ops_by_story.get(s, []):
+            for tg in op_meta.get(op, {}).get('tags', []):
+                if tg in TAG_ERD:
+                    secs.add(TAG_ERD[tg])
+        return sorted(secs, key=lambda x: [int(n) for n in x.split('.')])
+
     no_ep = [s for s in must_r2 if not endpoints_of(s)]
+    no_erd = [s for s in must_r2 if not erd_of(s)]
     only_tc_ep = [s for s in must_r2 if not ops_by_story.get(s) and eps_by_story.get(s)]
     no_wf = [s for s in must_r2 if not any(wf_of(s))]
 
@@ -614,14 +669,14 @@ def main(argv=None):
             layers[l] += 1
     dup_ids = [k for k, v in Counter(r['tc'] for r in tcs).items() if v > 1]
 
-    now = _dt.date(2026, 10, 15).strftime('%d/%m/%Y')
+    now = _dt.date(2026, 10, 16).strftime('%d/%m/%Y')
     L = []
     w = L.append
     w('# Ma trận truy vết – Story ↔ AC ↔ BR ↔ Test case ↔ Endpoint ↔ Wireframe')
     w('')
-    w(f'- Tác giả: QA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: {now} | Phiên bản: 0.2')
-    w('- **File này do script sinh** – không sửa tay: `python3 product/tests/tools/gen_traceability.py` (chạy từ thư mục gốc repo). Nguồn: `03-backlog/backlog.md` (story, AC), `product/tests/test-cases/r1-main-flows.md` (TC), `product/docs/api/openapi.yaml` (`operationId`, `x-stories`), `product/docs/business-rules.md`, `product/docs/baseline-issues-triage.md`, `product/design/wireframes/0*.html` (dòng đầu trang liệt kê US).')
-    w('- Đọc cùng `product/docs/qa/test-strategy.md`. Cột **Endpoint** = hợp của `x-stories` trong OpenAPI và endpoint QA dùng trong TC. Cột **Wireframe** = trang có ghi US ở đầu trang (`L2`…); mục có hậu tố "(QA)" = QA tự đối chiếu màn hình khi đầu trang không ghi US. Cột ERD không nằm trong ma trận này (QC C1 – ARC đã có `erd.md` mục 13 truy vết thực thể).')
+    w(f'- Tác giả: QA | Round 1 – Bước 5 (Kiểm thử) | Ngày: {now} | Phiên bản: 0.3 (bản cuối R1)')
+    w('- **File này do script sinh** – không sửa tay: `python3 product/tests/tools/gen_traceability.py` (chạy từ thư mục gốc repo). Nguồn: `03-backlog/backlog.md` (story, AC), `product/tests/test-cases/r1-main-flows.md` (TC), `product/docs/api/openapi.yaml` (`operationId`, `x-stories`), `product/docs/business-rules.md`, `product/docs/baseline-issues-triage.md`, `product/design/wireframes/NN-*.html` 01–10 (dòng `wf-meta` đầu trang liệt kê US), `product/docs/erd.md` mục 4, `product/docs/state-machines.md`, `product/docs/rbac-matrix.json`/`.md`.')
+    w('- Đọc cùng `product/docs/qa/test-strategy.md`. Cột **Endpoint** = hợp của `x-stories` trong OpenAPI và endpoint QA dùng trong TC. Cột **Wireframe** = trang có ghi US ở đầu trang (`L2`…); mục có hậu tố "(QA)" = QA tự đối chiếu màn hình khi đầu trang không ghi US. Cột **ERD** = mục từ điển bảng `erd.md` 4.x: mục nêu US trực tiếp, hợp với mục suy từ `tags` của operation (bảng ánh xạ `TAG_ERD` của QA) – kiểm có bảng, chưa kiểm từng cột.')
     w('')
     w('## 1. Kết quả đếm (script)')
     w('')
@@ -647,6 +702,8 @@ def main(argv=None):
     w(f'| Story Must R2 **không có endpoint** (OpenAPI lẫn TC) | {len(no_ep)} |')
     w(f'| Story Must R2 có endpoint trong TC nhưng OpenAPI chưa gắn `x-stories` | {len(only_tc_ep)} |')
     w(f'| Story Must R2 **không có wireframe** | {len(no_wf)} |')
+    w(f'| Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | {len(no_erd)} {", ".join(no_erd)} |')
+    w(f'| Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **{sum(1 for s in must_r2 if tc_by_story.get(s) and endpoints_of(s) and any(wf_of(s)) and erd_of(s))}/{len(must_r2)}** |')
     w(f'| BR trong danh mục / BR không được story hay TC nào tham chiếu | {len(br_cat)} / {len(br_unref)} |')
     w('')
     if uncovered_ac:
@@ -665,8 +722,8 @@ def main(argv=None):
     w('')
     w('## 2. Ma trận story Must R2')
     w('')
-    w('| Story | Tên (backlog mục 4) | AC → TC | BR trong AC | Endpoint (operationId) | Wireframe | ESC liên quan |')
-    w('|---|---|---|---|---|---|---|')
+    w('| Story | Tên (backlog mục 4) | AC → TC | BR trong AC | Endpoint (operationId) | Wireframe | ERD (erd.md mục) | ESC liên quan |')
+    w('|---|---|---|---|---|---|---|---|')
     for s in must_r2:
         ac_cells = []
         for a in acs.get(s, {}):
@@ -681,7 +738,8 @@ def main(argv=None):
         wf = ', '.join(hdr + [f'{q} (QA)' for q in qa]) or '**TRỐNG**'
         ep = ', '.join(f'`{e}`' for e in eps) or '**TRỐNG**'
         esc = ', '.join(sorted(esc_by_story.get(s, []))) or '–'
-        w(f'| {s} | {titles.get(s, "")} | {"<br>".join(ac_cells)} | {", ".join(brs) or "–"} | {ep} | {wf} | {esc} |')
+        erd = ', '.join(erd_of(s)) or '**TRỐNG**'
+        w(f'| {s} | {titles.get(s, "")} | {"<br>".join(ac_cells)} | {", ".join(brs) or "–"} | {ep} | {wf} | {erd} | {esc} |')
     w('')
     w('## 3. Story ngoài Must R2 có test case ca chính trong R1 (Must R3, Should R2)')
     w('')
@@ -766,7 +824,7 @@ def main(argv=None):
     w('')
     w('## 8. Kiểm tĩnh quyền – rbac-matrix (nguồn chuẩn) ↔ OpenAPI')
     w('')
-    w(f'Nguồn chuẩn: `{rbac_src}`. Với mỗi operation: tập vai được phép = hợp các vai có ô khác ✖ ở dòng `x-rbac` (A-xx/S-xx; ô `R` chỉ tính cho GET; ô `M` đòi `x-scope: own`) – so với `x-roles`. Với thuộc tính có `x-visible-to`: so với dòng Dxx mục 6 qua bảng ánh xạ của QA (`FIELD_MAP`, đến khi ARC gắn `x-rbac-field`). "OpenAPI cho thêm vai" = nguy cơ rò quyền → lỗi tài liệu **P1** (P0 nếu là C3); "OpenAPI thiếu vai" = P2. Kết quả do người xem lại trước khi mở lỗi (ô `D`, `◐`, ghi chú chân trang có thể giải thích lệch).')
+    w(f'Nguồn chuẩn: `{rbac_src}`. Với mỗi operation: tập vai được phép = **hợp** các dòng A-xx trong `x-rbac` (nhiều mã thường là phương án thay thế); chỉ khi không có A-xx mới lấy hợp các dòng S-xx; operation chỉ cho `guest` thì chỉ so cột GST; `x-scope: {{all: own}}` áp mọi vai (bản bước 5); ô `R` chỉ tính cho GET; ô `M` đòi `x-scope: own`) – so với `x-roles`. Với thuộc tính có `x-visible-to`: so với dòng Dxx mục 6 qua bảng ánh xạ của QA (`FIELD_MAP`, đến khi ARC gắn `x-rbac-field`). "OpenAPI cho thêm vai" = nguy cơ rò quyền → lỗi tài liệu **P1** (P0 nếu là C3); "OpenAPI thiếu vai" = P2. Kết quả do người xem lại trước khi mở lỗi (ô `D`, `◐`, ghi chú chân trang có thể giải thích lệch).')
     w('')
     if op_bad:
         w('| operationId | Method | x-rbac | OpenAPI cho thêm vai (rbac ✖) | OpenAPI thiếu vai (rbac cho phép) | Vai M thiếu `x-scope` |')
@@ -793,7 +851,7 @@ def main(argv=None):
     print(f'Must R2 stories: {len(must_r2)}; covered: {len(story_cov)}')
     print(f'AC: {cov_ac}/{total_ac}; uncovered: {uncovered_ac}')
     print(f'TCs: {len(tcs)}; dup: {dup_ids}; unknown ops: {unknown_ops}; bad refs: {bad_refs}')
-    print(f'no endpoint: {no_ep}; only TC ep: {only_tc_ep}; no wireframe: {no_wf}')
+    print(f'no endpoint: {no_ep}; only TC ep: {only_tc_ep}; no wireframe: {no_wf}; no erd: {no_erd}')
     print(f'BR unref: {br_unref}; BR story-no-TC: {br_story_no_tc}')
     print('BL no TC:', [n for n in range(1, 31) if not bl_tc.get(n)])
     print(f'AC runnable in R2: {cov_ac_run}/{total_ac}; only blocked: {ac_only_blocked}')
