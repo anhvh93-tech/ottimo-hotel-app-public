@@ -1,6 +1,6 @@
 # Sơ đồ trạng thái – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
+- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
 - Nguồn: `business-rules.md` (mã **BR-xxx** – nguồn sự thật duy nhất cho mọi con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `security/data-risk-assessment.md` (**SEC**), `PRD.md`, `03-backlog/backlog.md` (**US-xxx**), `rbac-matrix.md` (mã vai).
 - Tài liệu này **không chép con số nghiệp vụ**. Mọi mốc giờ, hạn, tỷ lệ, hạn mức đều là tham số trong `business-rules.md` mục 13, ghi bằng mã BR.
 - Đọc cùng: `rbac-matrix.md` (vai được phép), `business-processes.md` (quy trình), `use-cases.md` (UC-xx).
@@ -95,8 +95,8 @@ stateDiagram-v2
 ### 1.2 Bảng chuyển trạng thái
 | # | Từ → Đến | Sự kiện | Điều kiện (server kiểm) | Ai được chuyển | Hệ quả |
 |---|---|---|---|---|---|
-| B1 | [*] → `hold` | Tạo giữ chỗ | Căn trống cả khoảng (BR-906), không có khối OOO (BR-804); ngày đến không phải hôm nay (BR-302); có khách với SĐT (BL 5.16); số khách ≤ sức chứa (BR-110); ngắn ngày trong giới hạn BR-112, dài hạn từ ngưỡng BR-108; hạn giữ = công thức BR-302 | FD+, SAL, CTV (khách của mình) | Sinh mã đơn (BR-007); sinh bản ghi khai báo `none` (BR-608); lead → `holding`; `sync` đóng phòng |
-| B2 | [*] → `confirmed` | Tạo đơn đã đảm bảo | Như B1 trừ điều kiện "không phải hôm nay"; **một trong**: (a) kênh OTA, có mã OTA và kiểu thanh toán (BR-307); (b) đã ghi giao dịch cọc ≥ mức BR-305 (ngắn ngày) – xem SM-12; (c) khách vãng lai, đến hôm nay, đã thu theo BR-402 | FD+ ; SYS (đơn OTA từ channel manager – R3) | Như B1; giá từng đêm được snapshot (BR-106, BR-006) |
+| B1 | [*] → `hold` | Tạo giữ chỗ | Căn trống cả khoảng (BR-906), không có khối OOO (BR-804); ngày đến không phải hôm nay (BR-302); có khách với SĐT (BL 5.16); số người tính sức chứa (người lớn + trẻ 6–11, trẻ dưới 6 không tính) ≤ sức chứa tối đa của căn = định mức + 1 (BR-110, INV quyết ESC-014); ngắn ngày trong giới hạn BR-112, dài hạn từ ngưỡng BR-108; hạn giữ = công thức BR-302 | FD+, SAL, CTV (khách của mình) | Sinh mã đơn (BR-007); sinh bản ghi khai báo `none` (BR-608); lead → `holding`; `sync` đóng phòng |
+| B2 | [*] → `confirmed` | Tạo đơn đã đảm bảo | Như B1 trừ điều kiện "không phải hôm nay"; **một trong**: (a) kênh OTA, có mã OTA và kiểu thanh toán (BR-307); (b) đã ghi giao dịch cọc ≥ mức BR-305 (ngắn ngày) – xem SM-12; (c) khách vãng lai, đến hôm nay, đã thu theo BR-402 | FD+ ; SYS (đơn OTA từ channel manager – R3) | Như B1; giá từng đêm được snapshot (BR-106, BR-006); số người tính định mức vượt định mức căn → sinh việc HK "Chuẩn bị bộ đồ dùng thêm" (SM-14, BR-812) – áp cả B4, B7a, B12 |
 | B3 | `hold` → `hold` | Gia hạn giữ chỗ | Trước khi hết hạn; chưa gia hạn lần nào; mức gia hạn tối đa BR-303; vẫn không vượt trần BR-302 | Người tạo đơn (SAL/CTV của mình), FD+ | Ghi hạn mới; nhắc lại theo BR-303 |
 | B4 | `hold` → `confirmed` | Xác nhận cọc / ký quỹ | Có giao dịch `succeeded` (SM-12) đủ số tiền: ngắn ngày BR-305; dài hạn = ký quỹ BR-206/BR-306; kiểm trùng lại (BR-906) | FD+, SAL ; SYS (IPN/webhook đã xác thực – R3). **CTV không được** (chỉ gửi "báo đã chuyển cọc", xem rbac-matrix 4.3) | Lead → `won`; dài hạn: sinh HĐ `signed` (SM-06) + lịch kỳ thu (SM-07); hoa hồng → `projected` (SM-11); nhật ký tiền (BR-008) |
 | B5 | `hold` → `cancelled` | Hủy giữ chỗ | Lý do bắt buộc từ danh mục BR-308; không phí | Người tạo (SAL/CTV của mình), FD+ | Lead → `quoted`; `sync` mở phòng; khai báo → `void` |
@@ -485,12 +485,12 @@ Chuyển: `open` → `settled` cùng lúc B18; `settled` → `closed` do SYS khi
 
 | Từ → Đến | Sự kiện | Ai |
 |---|---|---|
-| [*] → `open` | SYS sinh (trả phòng, gia hạn, lịch dọn dài hạn BR-807, OC→OD, yêu cầu khách BR-811, bổ sung minibar) hoặc FD+ tạo tay | SYS, FD+ |
+| [*] → `open` | SYS sinh (trả phòng, gia hạn, lịch dọn dài hạn BR-807, OC→OD, yêu cầu khách BR-811, bổ sung minibar, **chuẩn bị / chuyển / thu hồi bộ đồ dùng thêm** khi đơn `confirmed` có người vượt định mức – BR-812) hoặc FD+ tạo tay | SYS, FD+ |
 | `open` → `in_progress` | Bắt đầu dọn (R1) hoặc nhận việc | HK |
 | `in_progress`/`open` → `done` | Dọn xong (R2/R3) hoặc tick xong; việc "Bổ sung minibar" → trừ kho (US-068) | HK, FD+ |
-| `open` → `cancelled` | Khách từ chối dọn, khối OOO, đơn hủy | HK (khách từ chối – ghi lý do), FD+, SYS |
+| `open` → `cancelled` | Khách từ chối dọn, khối OOO, đơn hủy; việc bộ đồ dùng thêm khi đơn giảm người còn ≤ định mức, đổi căn, hủy, no-show **trước** khi chuẩn bị (BR-812 (4)) | HK (khách từ chối – ghi lý do), FD+, SYS |
 
-Thứ tự ưu tiên danh sách việc theo BR-807.
+Thứ tự ưu tiên danh sách việc theo BR-807. Việc "Chuẩn bị bộ đồ dùng thêm" có hạn = giờ nhận phòng của đơn (BR-812 (2)); khách đã đến mà việc chưa xong → việc lên **đầu** hàng đợi, **không** chặn nhận phòng B9 (BR-812 (5)). Quy trình: `business-processes.md` P07 bước 1a, 4a, 9.
 
 ---
 
@@ -516,8 +516,8 @@ Mỗi căn trong đoàn vẫn là **một đơn SM-01 riêng** (chống đặt t
 |---|---|---|---|---|---|
 | G1 | [*] → `open` | Tạo nhóm từ báo giá nhiều căn hoặc gom các đơn có sẵn | ≥ 2 đơn cùng cơ sở, cùng **người đặt/người trả** (khách đầu mối); các đơn ở `hold`/`confirmed`; mỗi đơn qua B1/B2 riêng | FD+, SAL, CTV (khách của mình) | Mã nhóm (BR-007); đơn mang `group_id` |
 | G2 | `open` → `open` | Cọc chung | Một giao dịch gắn **nhóm**, phân bổ theo căn: mặc định theo tỷ lệ tổng tiền phòng từng đơn, lễ tân sửa được; tổng phân bổ = số tiền giao dịch; mỗi đơn đạt mức BR-305 mới sang `confirmed` (B4 từng đơn) | FD+, SAL | Giao dịch có các dòng phân bổ; nhật ký tiền |
-| G3 | `open` → `open` | Hủy một căn trong nhóm | B10/B5 cho **đơn đó**; phí hủy/hoàn tính theo BR-309 trên **phần cọc đã phân bổ cho căn bị hủy**; phần hoàn mặc định giữ lại làm cọc của các căn còn lại nếu khách đồng ý, nếu không → yêu cầu hoàn (SM-10) | FD+ ; SAL (đơn trực tiếp của mình) | Đơn còn lại không đổi |
-| G4 | `open` → `open` | Thêm/bớt đơn khỏi nhóm | Đơn chưa `checked_out`; bớt đơn → phần cọc đã phân bổ đi theo đơn | FD+ | – |
+| G3 | `open` → `open` | Hủy một căn trong nhóm | B10/B5 cho **đơn đó**; phí hủy/hoàn tính theo BR-309 trên **phần cọc đã phân bổ cho căn bị hủy**; phần hoàn mặc định giữ lại làm cọc của các căn còn lại nếu khách đồng ý, nếu không → yêu cầu hoàn (SM-10) | FD+ ; SAL (đơn trực tiếp của mình – `own_direct_only`); CTV (chỉ đơn `hold` của mình – `own_hold_only`) – theo rbac A05/A06 | Đơn còn lại không đổi |
+| G4 | `open` → `open` | Thêm/bớt đơn khỏi nhóm | Đơn chưa `checked_out`; bớt đơn → phần cọc đã phân bổ đi theo đơn. SAL/CTV: chỉ đơn **của mình** (đơn mình tạo/chốt, cùng khách đầu mối của mình); CTV chỉ thêm/bớt đơn `hold` (CTV không phân bổ cọc – A33, rbac ghi chú 36) | FD+ ; SAL, CTV (của mình) – **nguồn: rbac A23** (chốt R2 Đợt 0) | – |
 | G5 | `open` → `closed` | Mọi đơn trong nhóm ở trạng thái kết thúc | – | SYS | – |
 
 Trả phòng: người trả có thể chọn **bill gộp** (một bill liệt kê từng căn, số bill server cấp cho bill gộp; folio từng đơn vẫn `settled` riêng) hoặc **bill tách** theo từng căn. Đơn trong nhóm vẫn nhận phòng/trả phòng riêng (khách đi lệch ngày là bình thường). Khai báo lưu trú theo **từng đơn** (K1), không theo nhóm. Phạm vi R2/R3 do PO chốt.
@@ -590,3 +590,4 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ 06:00; B7a/B7b/B7c (gán căn đơn xung đột, OTA nhập tay vào căn kín, OTA sửa đơn); B9a (nhận trước 06:00 thêm đêm trước); B9 điều kiện thiết bị được cấp + không xung đột; B12 FD tự khôi phục trong 3 điều kiện; K12; R10 từ `CL`; W3 theo SQ-2; SM-10 A2 hạn mức tháng tự áp; SM-11 kỳ chi tháng; SM-12 đối soát; OOO nửa mở; thêm SM-16 nhóm đơn, SM-17 ca làm việc; bảng mã sự kiện | BA |
 | 16/10/2026 | 1 (bước 5) | SM-05 thêm K13 `review → partial` (sự kiện `change_party`) cho khớp sơ đồ – BUG-R1-001; ERD mục 5 cần sửa thành "K1–K13" (ARC, BUG-R1-018) | BA |
 | 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |
+| 16/10/2026 | 2 (Đợt 0) | **SM-16 G4** (và G3) chốt một nguồn = **rbac A23/A05/A06** (khớp OpenAPI 0.3): thêm/bớt đơn khỏi nhóm FD+, SAL/CTV phạm vi của mình (CTV chỉ đơn `hold`); bỏ ghi "FD+" cũ – theo đề nghị ARC (w1-report). B1 ghi rõ cách tính sức chứa (ESC-014). B2 + SM-14: việc HK chuẩn bị/chuyển/thu hồi bộ đồ dùng thêm (BR-812) | BA |

@@ -1,6 +1,6 @@
 # Quy trình nghiệp vụ – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2 (đã xử lý review DOM, ARC – xem `rounds/round-01/responses/BA-responses.md`)
+- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.3 (R2: P07 bộ đồ dùng thêm BR-812; bản 0.2 đã xử lý review DOM, ARC R1 – xem `rounds/round-01/responses/BA-responses.md`)
 - **"Hôm nay" = ngày nghiệp vụ, đổi theo BR-010** (tham số `business_day_rollover`, mặc định 06:00 giờ VN; decision-log DOM 15/10/2026; `state-machines.md` 0.2 điểm 7).
 - Nguồn: `business-rules.md` (**BR-xxx**, nguồn sự thật duy nhất cho con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `PRD.md` mục 6, `research/journeys.md`, `security/data-risk-assessment.md` (**SEC**).
 - Trạng thái và vai: theo `state-machines.md` (mã B1…, K1…) và `rbac-matrix.md` (OWN, MGR, FDL, FD, HK, MT, SAL, CTV, GST, SYS).
@@ -106,7 +106,7 @@ flowchart TB
 | X1b | Nhập tay đơn **trực tiếp/CTV** vào căn đã kín | Chặn: "Căn {số} đã có đơn {ngày}–{ngày}. Chọn căn khác." kèm gợi ý căn trống | BR-906 |
 | X3 | Tiền cọc về sau khi giữ chỗ đã tự hủy | Cảnh báo "Tiền về cho đơn đã hủy" → tạo lại đơn nếu căn trống, không thì hoàn | SM-01 mục 1.3 |
 | X4 | Giá trống/0 hoặc ngoài sàn–trần | Báo lỗi tại ô, không lưu | BR-105 |
-| X5 | Số khách vượt sức chứa | Chặn: "Căn {số} tối đa {n} khách" | BR-110 |
+| X5 | Số khách vượt sức chứa (người lớn + trẻ 6–11; trẻ dưới 6 không tính; tối đa = định mức + 1 người ngủ sofa – INV quyết ESC-014) | Chặn: "Căn {số} tối đa {n} khách" | BR-110 |
 | X6 | Thiếu SĐT với đơn trực tiếp/CTV | Chặn lưu | BL 5.16 |
 | X7 | Đồng bộ kênh lỗi | Cảnh báo lễ tân, tự thử lại | BR-905 |
 
@@ -490,18 +490,21 @@ Lỗi: thiếu ảnh → chặn lưu; chỉ nhập một trong hai chỉ số �
 
 ## P07 – Buồng phòng / kiểm phòng
 
-**Vai**: HK, FDL/MGR (kiểm), FD, SYS. **Kích hoạt**: đầu ca; sự kiện trả phòng, gia hạn, yêu cầu khách, lịch dọn dài hạn.
+**Vai**: HK, FDL/MGR (kiểm), FD, SYS. **Kích hoạt**: đầu ca; sự kiện trả phòng, gia hạn, yêu cầu khách, lịch dọn dài hạn; **đơn `confirmed` có người vượt định mức (BR-812)**.
 
 | Bước | Ai | Việc | Quy tắc |
 |---|---|---|---|
 | 1 | SYS | Sinh việc hôm nay: dọn trả phòng, dọn phòng khách ở (theo mốc hằng ngày, thay ga theo chu kỳ), lịch gói dài hạn, bổ sung minibar, yêu cầu khách; sắp theo ưu tiên | BR-802, BR-807 |
+| 1a | SYS | **Việc "Chuẩn bị bộ đồ dùng thêm × n – căn X"** (INV quyết ESC-014 16/10): sinh **ngay khi** đơn vào `confirmed` (B2, B4, B7a, B12) mà số người tính định mức (người lớn + trẻ 6–11; trẻ dưới 6 không tính) vượt định mức căn đã gán – mọi kênh kể cả OTA, không phụ thuộc có thu phụ thu. Hạn = giờ nhận phòng của đơn (giờ chuẩn BR-401 hoặc giờ nhận sớm đã xác nhận BR-411); việc hiện trong danh sách của **ngày nghiệp vụ** ngày đến, cùng mức ưu tiên căn có khách đến. Thêm người giữa kỳ ở (lễ tân xác nhận theo BR-110) → sinh ngay, hạn `extra_guest_kit_midstay_due_minutes`. Đơn `hold` chưa sinh việc | BR-110, **BR-812** (1)(2), BR-807 |
 | 2 | HK | Mở điện thoại, xem việc theo thứ tự ưu tiên (căn có khách đến hôm nay trước) | BR-807 |
 | 3 | HK | Bắt đầu dọn (R1: `VD`/`OD` → `CL`) | BR-802 |
 | 4 | HK | Kiểm minibar khi dọn phòng có khách; báo sự cố/đồ thất lạc nếu có | BR-703, BR-513 |
+| 4a | HK | Với căn có việc 1a: đặt **1 bộ/người vượt định mức** (`extra_guest_kit_items`: 1 mền, 1 bộ khăn tắm, 1 bàn chải, 1 bộ đồ vệ sinh cá nhân) lên sofa lớn có sẵn (không nệm phụ) → bấm **"Đã chuẩn bị"**: SYS ghi **xuất khác** kho 1 bàn chải + 1 bộ đồ vệ sinh/người (giá vốn bình quân → chi phí phòng, không tính tiền khách); tồn không đủ vẫn cho bấm, ghi "thiếu kho" + cảnh báo Cần nhập. Mền, khăn là đồ vải luân chuyển – không trừ kho. Không có dòng tiền trên folio (đã gồm trong phụ thu người) | **BR-812** (3)(7), BR-705, BR-701 |
 | 5 | HK | Dọn xong (R2/R3: → `OC` hoặc `VC`); việc tự xong | BR-802 |
-| 6 | FDL/MGR (hoặc HK tự kiểm khi được phép) | Checklist kiểm phòng đủ mục (+ ảnh) → `VI` | BR-802, BR-808 |
+| 6 | FDL/MGR (hoặc HK tự kiểm khi được phép) | Checklist kiểm phòng đủ mục (+ ảnh) → `VI`; căn có việc 1a thêm điểm kiểm **"bộ đồ dùng thêm đủ"** | BR-802, BR-808, **BR-812** (5) |
 | 7 | HK | Bổ sung minibar → kho tự trừ | US-068 |
 | 8 | SYS | Đối chiếu buồng – đơn theo mốc, cảnh báo lệch; `VC`/`VI` quá hạn → kiểm lại | BR-805, BR-806 |
+| 9 | SYS → HK | **Thu hồi bộ đồ dùng thêm**: việc dọn trả phòng (B18) của căn có bộ thêm tự có dòng "Thu hồi bộ đồ dùng thêm" – mền, khăn đưa đi giặt cùng đồ vải của căn; bàn chải, đồ vệ sinh đã mở bỏ đi. Khách ở nhiều đêm: khăn bộ thêm thay theo lịch dọn hằng ngày, mền thay theo lịch thay ga | **BR-812** (6), BR-807 |
 
 ```mermaid
 flowchart TB
@@ -520,13 +523,22 @@ flowchart TB
     C2["Đạt: VI"]
     C3["Không đạt: trả lại HK"]
   end
+  subgraph KIT["Bộ đồ dùng thêm (BR-812)"]
+    K1["SYS: đơn confirmed có người vượt định mức → việc Chuẩn bị bộ × n, hạn = giờ nhận phòng"]
+    K2["HK: đặt bộ lên sofa, bấm Đã chuẩn bị → kho xuất khác bàn chải + đồ vệ sinh"]
+    K3["SYS: dọn trả phòng có dòng Thu hồi bộ → mền, khăn đi giặt"]
+  end
   Y1 --> H1 --> H2 --> H3
+  Y1 --> K1 --> K2 --> C1
+  K2 -.-> K3
   H3 -- "Căn trống" --> C1
   C1 -- "Có" --> C2 --> H4
   C1 -- "Không" --> C3 --> H1
   H3 -- "Còn khách" --> H4
   H4 --> Y2
 ```
+
+Ngoại lệ bộ đồ dùng thêm (BR-812 (4)(5)): **(E-K1)** đơn giảm người còn ≤ định mức, đổi căn chưa nhận phòng, hủy, no-show **trước** khi HK bấm "Đã chuẩn bị" → SYS hủy việc (`cancelled`, kho không đổi); **sau** khi đã chuẩn bị → việc chuyển thành "Thu hồi bộ đồ dùng thêm" ở lần dọn kế tiếp của căn cũ. **(E-K2)** đổi căn đơn tương lai (B7) → hủy việc ở căn cũ, sinh việc ở căn mới theo định mức căn mới. **(E-K3)** đổi phòng khách đang ở (B14) → việc "Chuyển bộ đồ dùng thêm sang căn {mới}" hạn = giờ đổi phòng. **(E-K4)** khách đến khi việc chưa xong → **không chặn** nhận phòng (B9): lễ tân thấy cảnh báo "Bộ đồ dùng thêm chưa chuẩn bị", việc tự nâng lên **đầu** hàng đợi HK. **(E-K5)** quá hạn mà chưa xong → "Cần chú ý" cho FD. Lỗi: HK bấm "Đã chuẩn bị" cho việc đã bị hủy → server từ chối (SM-14), hiện "Việc này đã hủy do đơn thay đổi".
 
 Ngoại lệ: khách từ chối dọn → việc `cancelled` có lý do (BR-807); khách treo biển không làm phiền → hoãn, báo FD; **kiểm tra an toàn** (FB-R1-DOM-BA-09): căn từ chối dọn hoặc treo biển liên tục quá tham số `welfare_check_hours` (DOM đề xuất 48 giờ, đưa vào BR-807) → SYS tạo việc "Liên hệ khách" cho FD; không liên lạc được → MGR + 1 nhân viên vào kiểm, ghi biên bản (giờ, người, ảnh nếu cần); khách dài hạn từ chối dọn → kiểm tình trạng phòng tối thiểu 1 lần/tháng, báo trước 24 giờ (căn cứ khấu trừ ký quỹ BR-214); mất mạng → thao tác lưu trên máy và gửi lại khi có mạng (US-058, ARC quyết cách làm). Lỗi: chuyển trạng thái không hợp lệ (ví dụ `VD` → `VI`) → server từ chối (SM-03).
 
@@ -759,3 +771,4 @@ Lỗi: nhập bù trùng căn – đêm với đơn đã có (đơn OTA về tro
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 10 quy trình, swimlane Mermaid, ngoại lệ + lỗi | BA |
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ 06:00; P01: OTA nhập tay vào căn kín (409 + gợi ý / làn chưa gán), E10 OTA sửa đơn, E11 làn chưa gán, mục Đơn nhóm; P03: E2 theo phân xử ORC (thiết bị của cơ sở được cấp, admin-web), E2b, E9 thành B9a, E10 mất mạng, hạn khai báo NN theo BR-603 mới; P05: người thực hiện hoàn là MGR+, FOC minibar tự áp; P07 kiểm tra an toàn; P09 kỳ chi tháng; thêm P11 đóng ca/đối soát, P12 mất mạng/mất điện | BA |
 | 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |
+| 16/10/2026 | 2 (Đợt 0) | P07 thêm bước 1a, 4a, 9 và ngoại lệ E-K1…E-K5: việc **chuẩn bị / thu hồi bộ đồ dùng thêm** tự sinh khi đơn `confirmed` có người vượt định mức (INV quyết ESC-014 + bổ sung 16/10; **BR-812**, BR-110); điểm kiểm "bộ đồ dùng thêm đủ" khi kiểm phòng; sơ đồ thêm làn KIT | BA |
