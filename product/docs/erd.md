@@ -1,6 +1,6 @@
 # Mô hình dữ liệu (ERD) – OTTIMO Desk
 
-- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2
+- Người viết: ARC | Round 1 – Bước 4 | Ngày: 15/10/2026 | Phiên bản: 0.2 · **R2 Đợt 0 (16/10/2026): 0.3.1** – khớp OpenAPI 0.3.1-draft (xem mục 15)
 - Trạng thái: **Đã sửa theo review bước 3** (SEC-on-ARC 26 thẻ, BE-on-ARC 18 thẻ, DATA-on-ARC 11 thẻ – xem `rounds/round-01/responses/ARC-responses.md`) và quyết định mới trong decision-log (SEC, DOM, PO, DATA, phân xử ORC 15/10). Đối chiếu `metrics-definitions.md` v0.2 mục 9, `security-requirements.md` v0.2
 - Đầu vào: `architecture.md` (ADR-001…013), `state-machines.md` (SM-01…SM-15), `rbac-matrix.md`, `business-rules.md` (BR, mục 13 tham số), `metrics-definitions.md` (mục 9 – trường bắt buộc), `security/data-risk-assessment.md` (C0–C3, D01–D28, T01–T18), `integrations.md`, `product/integrations/README.md`, `round-0-baseline.md` (BL mục 4), `03-backlog/backlog.md` (Must R2)
 - Đọc cùng: `api/openapi.yaml` (hợp đồng API), `coding-standards.md` (quy tắc migration, đặt tên), `architecture.md` mục 9 (job theo lịch) và mục 9a (mã chứng từ)
@@ -148,6 +148,7 @@ erDiagram
     uuid id PK
     uuid property_id FK
     text code
+    int base_occupancy
     int max_occupancy }
   room {
     uuid id PK
@@ -421,7 +422,8 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `room_group_id` | uuid FK | not null | |
 | `room_no` | text | UK (`property_id`, `room_no`) | `201` |
 | `name`, `floor`, `area_m2`, `bed_setup` | text/int | | Mô tả (C0) |
-| `max_occupancy` | smallint | **not null** | Sức chứa là **thuộc tính từng căn** (BR-110 v0.2, decision-log DOM 15/10); `room_group.max_occupancy` chỉ là mặc định khi tạo căn. Số từng căn chờ INV (ESC-004) |
+| `base_occupancy` | smallint | **not null**, CHECK 1–10 | **Định mức** – số người (người lớn + trẻ 6–11) đã gồm trong giá, **thuộc tính từng căn** (BR-110 v0.3.1: Studio 2; 301, 401: 4; 302, 402: 3); `room_group.base_occupancy` chỉ là mặc định khi tạo căn. Đơn chụp định mức vào `pricing_snapshot` (BR-006) – đổi định mức chỉ áp cho đơn mới. OpenAPI `Room.baseOccupancy` (0.3.1) |
+| `max_occupancy` | smallint | **not null**, CHECK `max_occupancy >= base_occupancy` | Sức chứa tối đa, thuộc tính từng căn. INV quyết **ESC-014**: = định mức hoặc định mức + 1 (một người ngủ sofa; Studio 3; 301, 401: 5; 302, 402: 4); trẻ dưới 6 tuổi **không** tính. Quy tắc "+1" kiểm ở tầng ứng dụng (`422` mã trường `MAX_OCCUPANCY_RANGE`), DB chỉ giữ `max ≥ base` để đổi chính sách không cần migration |
 | `bed_count` | smallint | | Số giường của căn (BR-110) |
 | `public_slug` | text | UK theo cơ sở, ngẫu nhiên ≥ 8 ký tự | Trang công khai QR trong căn (`/v1/public/units/{unitSlug}`, SR-GST-12) – không lộ số căn đoán được |
 | `is_sellable` | bool | not null | "Ngừng bán" (US-004 AC2) |
@@ -444,7 +446,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 
 **`doc_sequence`** – bộ đếm mã chứng từ (mục 10). Hai cột rõ ràng (BE-ARC-10): `organization_id uuid not null`, `property_id uuid null` (null = mã cấp tổ chức như `KH-`); `doc_type`, `period_key`, `prefix`, `pad_width`, `next_value bigint`. UK một phần: (`property_id`,`doc_type`,`period_key`) WHERE `property_id IS NOT NULL` và (`organization_id`,`doc_type`,`period_key`) WHERE `property_id IS NULL`. Policy RLS riêng (mục 2.3).
 
-**`channel`** – kênh bán (DATA Q-11). `code` (UK theo cơ sở: `direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`, `collaborator`, `airbnb`, `booking`, `agoda`, `expedia`, `tripcom`, `traveloka`, `google`, `internal`), `name_i18n`, `channel_group` (`direct|agent|ota|internal`), `is_active`, `requires_ota_ref` bool.
+**`channel`** – kênh bán (DATA Q-11). `code` (UK theo cơ sở: `direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`, `collaborator`, `airbnb`, `booking`, `agoda`, `expedia`, `tripcom`, `traveloka`, `google`, `internal` – **lệch mở E8**: metrics Q-11/US-017 AC8 mô tả một kênh "Trực tiếp" + trường nguồn, còn danh mục này và seed QA DS-E/DS-0 có 5 kênh nhóm `direct`; R2 giữ nguyên danh mục, `direct_source` vẫn bắt buộc cho đơn nhóm `direct`), `name_i18n`, `channel_group` (`direct|agent|ota|internal`), `is_active`, `requires_ota_ref` bool.
 
 **`channel_commission_rate`** – `channel_id`, `effective_from`, `rate_pct` (BR-901). Chỉ OWN sửa (rbac A102).
 
@@ -585,7 +587,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `confirmed_at` | timestamptz | Lần đầu thành `confirmed` (DATA FB-05) | | K-22 |
 | `status_before_cancel` | text | `hold\|confirmed` – điền khi `cancelled`/`no_show` (CHECK) | | K-22 |
 | `ota_booked_at` | timestamptz null | Lúc khách đặt trên OTA (lead time) – R2 nhập tay | | DATA FB-05 |
-| `direct_source` | text null | Nguồn đơn trực tiếp (`phone`, `zalo`, `walk_in`, `facebook`, `referral`, `other`) – decision-log PO "trường nguồn" | | metrics v0.2 |
+| `direct_source` | text null | Nguồn đơn kênh Trực tiếp: CHECK ∈ (`website`, `zalo_phone`, `walk_in`, `returning`, `sales_staff`) **0.3.1** (US-017 AC8 + "Sale nội bộ" của metrics Q-11); CHECK `direct_source IS NULL` khi kênh không thuộc nhóm `direct` (kiểm ở ứng dụng vì nhóm kênh ở bảng khác). API: bắt buộc khi tạo đơn kênh `direct` ở quầy (`createReservation`); null = "Chưa rõ nguồn" (đơn cũ, đơn tạo từ báo giá/web R3) | | metrics v0.2, US-017 AC8 |
 | `has_contact_at_eligibility` | bool | Cờ có liên hệ dùng được tại thời điểm đơn đủ điều kiện gửi link (metrics S5 v0.2) – chỉ cờ | | metrics v0.2 |
 | `no_show_marked_at`, `no_show_marked_by` | | | | BR-311 |
 | `actual_checkin_at`, `actual_checkout_at` | timestamptz | | C2 | |
@@ -843,8 +845,10 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 **`hk_task`** (SM-14).
 | Cột | Ghi chú |
 |---|---|
-| `room_id`, `reservation_id` | |
-| `type` | `checkout_clean\|stayover_clean\|long_stay_clean\|minibar_refill\|guest_request\|after_repair_clean\|adhoc_clean\|priority_clean` |
+| `room_id`, `reservation_id` | `reservation_id` **not null** với 3 loại `extra_guest_kit_*` (CHECK) |
+| `type` | `checkout_clean\|stayover_clean\|long_stay_clean\|minibar_refill\|guest_request\|after_repair_clean\|adhoc_clean\|priority_clean\|extra_guest_kit_prepare\|extra_guest_kit_collect\|extra_guest_kit_transfer` (3 loại cuối **0.3.1**, BR-812: chuẩn bị / thu hồi / chuyển bộ đồ dùng cho người ngủ sofa – **chỉ hệ thống sinh**, `source=system`) |
+| `quantity` | smallint not null default 1, CHECK ≥ 1 – số bộ (= `extraCount`, hiện tối đa 1) (0.3.1) |
+| `due_at` | timestamptz null – hạn theo giờ (BR-812 (2): giờ nhận phòng của đơn hoặc giờ nhận sớm đã xác nhận; thêm người giữa kỳ = lúc xác nhận + `extra_guest_kit_midstay_due_minutes`). `due_date` = ngày nghiệp vụ của `due_at` (0.3.1) |
 | `status` | `open\|in_progress\|done\|cancelled` |
 | `due_date`, `window_start`, `window_end`, `not_before_time` (trả muộn – US-029 AC3) | |
 | `priority_rank` | Tính theo BR-807 khi sinh (căn có khách đến > VIP > trả phòng > ở lại) |
@@ -854,6 +858,8 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 | `started_at`, `done_at`, `done_by`, `cancel_reason` | |
 | `client_mutation_id`, `performed_at` | Hàng đợi offline (ADR-005) |
 UK một phần chống sinh trùng: (`room_id`,`type`,`due_date`) WHERE `status IN ('open','in_progress') AND type IN ('stayover_clean','long_stay_clean','checkout_clean')`.
+UK một phần bộ đồ dùng thêm (0.3.1): (`reservation_id`,`room_id`,`type`) WHERE `status IN ('open','in_progress') AND type LIKE 'extra_guest_kit_%'` – đổi số người thì **cập nhật `quantity`** của việc đang mở thay vì sinh việc mới.
+**Sinh/hủy/chuyển việc `extra_guest_kit_*` trong cùng giao dịch** với chuyển trạng thái đơn (B2, B4, B7, B7a, B12 sinh `prepare`; B5/B10/B11, giảm người, đổi căn trước khi chuẩn bị → `cancelled`; đã `done` mà đơn đổi → sinh `collect`; B14 đổi phòng đang ở → `transfer`), cùng giao dịch ghi outbox SSE `hk_task.changed` – không dùng job nền (tránh lệch khi rollback). Thu hồi khi trả phòng là **một dòng trong việc `checkout_clean`** (BR-812 (6)), không sinh việc `collect` riêng.
 
 **`inspection`** – kiểm phòng (BR-808, US-055): `room_id`, `inspected_by`, `inspected_at`, `checklist_version`, `items jsonb` (mã mục → đạt/không), `photo_attachment_ids uuid[]`, `result` (`pass|fail`), `self_inspection bool`.
 
@@ -1038,7 +1044,7 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `los_discount` | [{min_nights, pct}] | 107 | OWN, MGR | đơn, báo giá |
 | `long_stay_compare_from_nights`, `long_stay_required_from_nights` | int | 108 | OWN, MGR | – |
 | `foreigner_surcharge_pct` | pct | 109 | OWN, MGR | HĐ |
-| `base_occupancy`, `extra_adult_fee`, `child_free_under_age`, `child_fee_6_11`, `max_occupancy.<group>` | int | 110 | OWN, MGR | đơn |
+| `extra_adult_fee`, `adult_from_age`, `child_free_under_age`, `child_fee_6_11` (định mức/sức chứa **không** là tham số: cột `room.base_occupancy`/`max_occupancy`, mặc định nhóm ở `room_group` – 0.3.1) | int | 110 | OWN, MGR | đơn |
 | `return_guest_code`, `return_guest_pct`, `stackable` | text; pct; bool | 111 | OWN, MGR | đơn |
 | `booking_window_days`, `short_stay_max_nights` | int | 112 | OWN, MGR | – |
 | `lease_terms[]` | [{months, discount_pct, deposit_factor_vn, deposit_factor_foreigner, cycle_months, commission_staff_pct, commission_agent_pct}] | 201 | **OWN** (có tỷ lệ hoa hồng) | báo giá, HĐ |
@@ -1082,6 +1088,103 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `guest_request_response_minutes`, `front_desk_hours` | int; {from,to} | 811 | OWN, MGR | `guest_request.ack_due_at` |
 | `channel_commission_pct.<channel>` | → bảng `channel_commission_rate` | 901 | **OWN** | `channel_fee` |
 | `short_stay_commission_pct` | {staff, agent} | 903 | **OWN** | `commission` |
+
+### 9.1a Biên kiểm tra khóa nghiệp vụ (min–max) – R2 Đợt 0, ARC (QA TC-NT-042)
+Biên **kỹ thuật chống nhập sai** (không phải giá trị nghiệp vụ – giá trị mặc định vẫn ở BR mục 13, ghi trong ngoặc để đối chiếu biên chứa mặc định).
+`setParameter` ngoài biên → `422 PARAM_OUT_OF_RANGE` kèm `min`, `max` (hoặc `allowed[]` với dạng tập) và `errors[{field: value}]` – áp cho cả OWN.
+Lưu ở cột `config_parameter_def.bounds` jsonb: `{"min": a, "max": b}` hoặc `{"allowed": [...]}`; ràng buộc **chéo** (giữa hai khóa) kiểm ở tầng ứng dụng khi lưu một trong hai khóa,
+lỗi cũng là `PARAM_OUT_OF_RANGE` với `min`/`max` tính từ khóa kia. Tham số bảo mật giữ biên ở mục 9.3 / `setParameter.x-security-parameters`.
+DOM xem lại biên trong review (đổi biên = migration mới, không sửa giá trị nghiệp vụ). `%` là số phần trăm (15 = 15%).
+
+| Khóa (kiểu `int`/`pct`) | Biên | Đơn vị (mặc định BR 13) · ràng buộc chéo |
+|---|---|---|
+| `fx_usd_vnd` | 10.000–100.000 | VND/USD (26.200) |
+| `rounding.night_rate`, `.monthly_rent`, `.deposit`, `.fee` | tập {1, 100, 1.000, 10.000, 100.000} | VND (1.000/10.000/100.000/1.000) |
+| `night_from_month_divisor` | 1–31 | (12) |
+| `long_stay_daily_divisor` | 28–31 | (30) |
+| `weekend_uplift_pct` | 0–100 | % (15) |
+| `special_uplift_pct` | 0–200 | % (30) |
+| `rate_floor_pct` | 10–100 | % giá nền (70); **chéo**: `rate_floor_pct` ≤ 100 ≤ `rate_ceiling_pct` |
+| `rate_ceiling_pct` | 100–500 | % giá nền (250) |
+| `long_stay_compare_from_nights` | 7–60 | đêm (15); **chéo**: < `long_stay_required_from_nights` |
+| `long_stay_required_from_nights` | 14–90 | đêm (28); **chéo**: > `short_stay_max_nights` |
+| `foreigner_surcharge_pct` | 0–50 | % (10) |
+| `extra_adult_fee`, `child_fee_6_11` | 0–2.000.000 | VND/đêm (150.000; 100.000) |
+| `adult_from_age` | 6–18 | tuổi (12); **chéo**: > `child_free_under_age` |
+| `child_free_under_age` | 0–12 | tuổi (6) |
+| `return_guest_pct` | 0–50 | % (5) |
+| `booking_window_days` | 30–730 | ngày (365) |
+| `short_stay_max_nights` | 1–89 | đêm (27) |
+| `rent_reminder_days`, `rent_overdue_alert_days` | 0–30 | ngày (7; 3) |
+| `rent_overdue_escalate_days` | 1–60 | ngày (10); **chéo**: > `rent_overdue_alert_days` |
+| `lease_renewal_offer_days` | 0–90 | ngày (30) |
+| `commission_payable_day`, `commission_pay_by_day` | 1–28 | ngày trong tháng (1; 10) |
+| `deposit_refund_working_days` | 0–30 | ngày làm việc (7) |
+| `hold_hours_default` | 1–72 | giờ (24); **chéo**: ∈ `hold_hours_options` (mỗi phần tử 1–72) |
+| `hold_expiry_reminder_hours` | 0–24 | giờ (2) |
+| `hold_extension_max_hours` | 0–72 | giờ (24) |
+| `quote_validity_days` | 1–30 | ngày (3) |
+| `short_stay_deposit_pct` | 0–100 | % (30) |
+| `reschedule_max_times` | 0–5 | lần (1) |
+| `reschedule_window_months`, `force_majeure_reschedule_months` | 0–12 | tháng (3; 3) |
+| `conflict_resolve_minutes_urgent` | 5–240 | phút (60) |
+| `conflict_urgent_window_hours` | 1–72 | giờ (24) |
+| `channel_sync_outage_alert_minutes` | 5–240 | phút (15) |
+| `manual_close_when_rooms_left_le` | 0–10 | căn (1) |
+| `group_rooming_list_days` | 0–30 | ngày (3) |
+| `group_min_rooms` | 2–10 | căn (2) |
+| `door_code_min_digits` | 6–9 | chữ số (6) – SEC xác nhận biên dưới |
+| `birthday_code_random_digits` | 3–6 | chữ số (3; BR-403 v0.3 bỏ lựa chọn 2) |
+| `post_checkout_charge_hours` | 0–72 | giờ (24) |
+| `extension_max_nights` | 0–27 | đêm (7) |
+| `foc_self_apply.front_desk.per_time` | 0–5.000.000 | VND (100.000); **chéo**: ≤ `…per_month` |
+| `foc_self_apply.front_desk.per_month` | 0–50.000.000 | VND (500.000) |
+| `foc_alert_pct_of_room_revenue` | 0–100 | % (3) |
+| `foc_alert_count_per_approver` | 1–1.000 | lần (10) |
+| `electricity_price` | 0–20.000 | VND/kWh (3.500) |
+| `water_price` | 0–200.000 | VND/m³ (25.000) |
+| `meter_anomaly_factor` | 1–10 | lần (2) |
+| `meter_anomaly_default_kwh` | 1–5.000 | kWh (300) |
+| `meter_anomaly_default_m3` | 1–500 | m³ (10) |
+| `utility_bill_due_days` | 0–30 | ngày (5) |
+| `adhoc_cleaning_fee`, `key_card_fee` | 0–5.000.000 | VND (100.000; 200.000) |
+| `laundry_price_per_kg` | 0–1.000.000 | VND (30.000) |
+| `smoking_fee` | 0–20.000.000 | VND (500.000) |
+| `key_cards_per_booking` | 1–10 | thẻ (2) |
+| `lost_found_keep_days` | 1–365 | ngày (30) |
+| `lost_found_notify_hours` | 1–168 | giờ (24) |
+| `vat_rate` | tập {0, 5, 8, 10} | % (8) – kế toán xác nhận khi luật đổi |
+| `bank_reconcile_alert_days` | 1–30 | ngày (2) |
+| `no_deposit_max_lead_days` | 0–7 | ngày (2) |
+| `registration_deadline_foreigner_hours` | 1–24 | giờ (12) – PHÁP LÝ, không nới quá luật |
+| `registration_reminder_before_minutes` | 0–720 | phút (120) |
+| `visa_expiry_warning_days.long_stay` | 1–180 | ngày (30) |
+| `visa_expiry_warning_days.short_stay` | 1–90 | ngày (14) |
+| `id_image_retention_days_after_checkout` | 0–30 | ngày (30) – SEC T02: chỉ được giảm, không nới quá mặc định |
+| `id_image_purge_max_hours` | 1–72 | giờ (24) |
+| `minor_data_age_threshold` | 14–18 | tuổi (16) |
+| `stocktake_variance_approval_pct` | 0–100 | % (5) |
+| `expiry_warning_days` | 0–90 | ngày (7) |
+| `vacant_reinspect_days` | 1–30 | ngày (3) |
+| `ooo_reopen_buffer_days` | 0–7 | ngày (1) |
+| `linen_change_every_nights` | 1–14 | đêm (3) |
+| `extra_guest_kit_midstay_due_minutes` | 15–480 | phút (60) – BR-812 |
+| `maintenance_due_warning_days` | 0–60 | ngày (7) |
+| `guest_request_response_minutes` | 1–120 | phút (10) |
+| `offline_backfill_max_hours` | 1–72 | giờ (24) |
+| `power_outage_escalate_hours` | 1–48 | giờ (4) |
+| `idempotency_ttl_hours` | 24–720 | giờ (48) |
+| `job_catchup_minutes` | 1–1.440 | phút (60) |
+| `shift_max_hours` | 1–24 | giờ (DOM đặt mặc định) |
+
+**Khóa dạng khác** (kiểm bằng schema zod, lỗi cũng `PARAM_OUT_OF_RANGE`):
+- `time` (`HH:mm`): 00:00–23:59; **chéo**: `checkout_time` < `late_grace_until` ≤ mốc đầu `late_checkout_tiers`; `no_show_call_time` < `no_show_mark_time`; `hold_latest_time_on_arrival` ≤ `checkin_time`.
+- Bậc giờ (`early_checkin_tiers`, `late_checkout_tiers`, `long_stay_cleaning_window`, `front_desk_hours`): khoảng `[from, to)` không chồng nhau, `pct` 0–100.
+- Danh sách % theo mốc (`los_discount`, `cancel_policy_direct`, `early_termination`, `early_departure_refund`, `lease_terms`, `short_stay_commission_pct`, `commission_payout`): mỗi `pct` 0–100, mốc (`min_nights`, `min_days_before`, `months`…) ≥ 0 và tăng dần không trùng; `commission_payout` Σ `pct` = 100.
+- `weekend_nights`: tập con {1…7} (ISO weekday), không rỗng; `hold_hours_options`: 1–5 phần tử, mỗi phần tử 1–72; `min_stay`: số đêm 1–7.
+- `foc_limits`: mỗi mức tiền 0–100.000.000 VND, số đêm 0–30; `wo_sla`: phút 5–1.440, giờ 1–720.
+- `bool`, `text` enum (`deposit_base`, `ota_surcharge_base`, `registration_deadline_foreigner_mode`, `business_entity_type`…): giá trị ngoài danh mục → `PARAM_OUT_OF_RANGE` với `allowed[]`.
+- Cột căn (không phải tham số): `room.base_occupancy` 1–10; `room.max_occupancy` ∈ {base, base + 1} (ESC-014) → `MAX_OCCUPANCY_RANGE` (mục 4.1).
 
 ### 9.2 Khóa thời hạn lưu (SEC mục 7 – chờ ESC-001)
 | Khóa | Mã SEC | Ghi chú |
@@ -1141,7 +1244,8 @@ mỗi lần sửa ghi `audit_event category='security'`. Danh sách máy đọc:
 | `work_order` | cơ sở | `-` | `WO-{n:05}` | `WO-00034` |
 | `lease_contract` | cơ sở | `-` | `HD-{n:05}` | `HD-00012` |
 | `bill` | cơ sở | **năm** cơ sở `yy` (đặt lại 1/1 giờ VN) | `F{yy}-{n:06}` | `F26-000123` (BR-007 v0.2) |
-| `reservation_group` | cơ sở | `-` | `NH-{n:05}` | `NH-00007` |
+| `reservation_group` | cơ sở | `-` | `NH-{n:05}` | `NH-00007` – **chốt R2 Đợt 0**: `NH-` chỉ dùng cho nhóm đơn (SM-16) |
+| `household` (R3, chưa có bảng) | tổ chức | `-` | `HH-{n:05}` | `HH-00003` – nhóm hộ CRM; đổi từ `NH-` để không trùng tiền tố nhóm đơn (đề nghị BA E00-04, ARC chốt 16/10). Khóa `doc_code_format.household` thêm khi tạo bảng ở R3 |
 | `payment` | cơ sở | `-` | `PT-{n:06}` | `PT-000231` |
 | `guest` | **tổ chức** | `-` | `KH-{n:04}` | `KH-0018` |
 Số vượt độ rộng thì tự dài thêm (không tràn). Tiền tố đọc từ `doc_code_format.<doc_type>`.
@@ -1261,6 +1365,8 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | E4 | `user_session.device_trusted` | **Đóng** – thay bằng bảng `trusted_device` (SR-DEV) |
 | E5 | Khóa tham số mới (BR-427, BR-611, S8, BR-603 mode) | Mở – DOM thêm vào BR mục 13 |
 | E6 | Rời trong ngày (nhận và trả cùng ngày đến) | Mở – giả định giữ đêm đầu (mục 4.5), DOM chốt R2 |
+| E8 | Danh mục kênh nhóm `direct`: 5 kênh (`direct_web`, `zalo_phone`, `walk_in`, `returning`, `sales_staff` – erd/seed QA) hay 1 kênh `direct` + `direct_source` (metrics Q-11, US-017 AC8)? Hợp đồng 0.3.1 có `directSource` dùng được cho cả hai cách | Mở – PO + DATA chốt trong Sprint 1; nếu gộp 1 kênh thì QA đổi seed DS-E/DS-0/`br-examples.json` (ARC không đổi seed) |
+| E9 | Q-01 BA: đơn dài hạn nhập tay cho khách **đang ở** (`manualLongStay.alreadyInHouse`) | Mở – chờ PO + DOM; hợp đồng 0.3.1 **chưa** thêm trường (giả định BA: nhập ngày vào = hôm nay rồi B9) |
 | E7 | Tên mã lý do hủy: DATA dùng `relocated_external`/`channel_cancelled`, BR-308 dùng `overbooking_relocated`/`ota_cancelled` | **Đóng** (R1 bước 5) – DATA sửa BUG-R1-003: K-22a dùng mã BR-308 v0.2 (`hold_expired`, `ota_cancelled`, `overbooking_relocated`); `stay_night.void_reason` giữ tên DATA vì là lý do của đêm |
 
 ## 16. Chiến lược migration (BE-ARC-07)
@@ -1281,3 +1387,4 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | 16/10/2026 | 1 – Bước 4 | v0.2: vai DB `ottimo_owner/migrator/app/readonly`; RLS `NULLIF` + `set_config` + hàm đường vào SECURITY DEFINER; `trusted_device`, `guest_verification_code`, bộ đếm theo token; `staff_notification`, `push_subscription`, `attention_event`, `user_activity_day`, `purge_journal`, `dev_clock`, `reservation_group`, `shift`, `payment_allocation`, `group_bill`; cột DATA v0.2 cho `stay_night`/`reservation`; `commission` đầy đủ; `payment.reconciliation`, `method_detail`; `inbox_message.filtered_payload`; `integration_log.cost_units`; FK cặp cơ sở; EXCLUDE DEFERRABLE; phân vùng nhật ký; OOO nửa mở; bill `F26-000123`; sức chứa theo căn; mục 16 chiến lược migration | ARC |
 | 16/10/2026 | 1 – Bước 5 | v0.2.1 (sửa lỗi QA/SEC – `rounds/round-01/qa/fix-notes-ARC.md`): `message_template.contains_c3` + render mẫu mã cửa tách riêng (SEC-01); 9.3 cột Người sửa · Biên, tham số bảo mật chỉ OWN, audit `security` (SEC-02); `guest_access_token.activation`/`replaces_token_id`/`first_opened_at` – link chờ không thu hồi link đang dùng (SEC-03); `guest_verification_code.code_hash` dùng `GUEST_CODE_SIGNING_KEY` (SEC-07); chốt 4 vai DB, giao OPS (SEC-06); đóng E7; SM-05 K1–K13 (BUG-R1-018) | ARC |
 | 16/10/2026 | 2 – Tuần 1 (W1, W11, BUG-R1-SEC-06) | 2.1 `ottimo_readonly` = **NOLOGIN** BYPASSRLS (khớp `02-roles.sh`), đoạn "việc của OPS" → đã làm (OPS W1); `reservation.group_id`, `external_contract`, `manual_long_stay` (US-017 AC5a); `reservation_group` tách `booker_guest_id`/`payer_guest_id` (BR-321) – khớp OpenAPI 0.3.0 (`reservation-groups`, `shifts`) | ARC |
+| 16/10/2026 | 2 – Đợt 0 | **0.3.1** (khớp OpenAPI 0.3.1-draft; đề nghị BA E00-01/04, E02-01/05; ESC-014; BR v0.3.1): `room.base_occupancy` (định mức từng căn) + `max_occupancy ≥ base_occupancy`, quy tắc +1 ở ứng dụng; `room_group.base_occupancy` vào sơ đồ; `reservation.direct_source` enum theo US-017 AC8 (+ `sales_staff`); `hk_task` 3 loại `extra_guest_kit_*`, `quantity`, `due_at`, UK một phần, sinh/hủy trong cùng giao dịch; mã `HH-` cho nhóm hộ CRM (R3), `NH-` giữ cho nhóm đơn; **9.1a biên min–max** khóa nghiệp vụ (QA TC-NT-042, `PARAM_OUT_OF_RANGE`); 9.1 bỏ `base_occupancy`/`max_occupancy.<group>` khỏi tham số (là cột căn/nhóm); câu hỏi mở E8 (kênh direct), E9 (Q-01) | ARC |
