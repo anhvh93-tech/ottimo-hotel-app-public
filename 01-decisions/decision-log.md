@@ -312,3 +312,4 @@
 | 2026-10-16 | 2 | INV: bộ đồ dùng người thêm không gồm gối (sofa có sẵn gối); "bộ khăn tắm" = 1 khăn tắm + 1 khăn mặt (bỏ nhãn GIẢ ĐỊNH ở BR-812) | INV | Trả lời ORC |
 | 2026-10-16 | 2 | INV về khóa TTLock: mở được bằng mật mã, thẻ từ và vân tay; app TTLock tạo được mật mã tùy chỉnh có giờ bắt đầu/kết thúc (dấu hiệu hỗ trợ mã có hạn); khóa tự khóa bàn phím khi nhập sai nhiều lần; tài khoản TTLock đứng tên cá nhân; gateway: INV chưa rõ – ORC hướng dẫn kiểm | INV | ESC-011 |
 | 2026-10-16 | 2 | INV xác nhận đã có gateway TTLock → đủ điều kiện tự tạo/xóa mã cửa có hạn từ xa qua API (adapter TTLock ở R3); cần xác nhận gateway phủ đủ 10 căn | INV | ESC-011 |
+| 2026-10-16 | 2 | INV xác nhận gateway TTLock phủ đủ 10 căn (hạ tầng có sẵn) → không cần mua thêm thiết bị cho tự động mã cửa ở R3 | INV | ESC-011 |
