@@ -32,7 +32,7 @@ services:
       OTTIMO_APP_DB_PASSWORD: ${OTTIMO_APP_DB_PASSWORD:?set OTTIMO_APP_DB_PASSWORD in product/.env}
       TZ: UTC
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro

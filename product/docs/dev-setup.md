@@ -88,6 +88,8 @@ curl -i http://localhost:8081/health      # qua Caddy
 docker compose --env-file .env -f infra/docker-compose.yml ps
 ```
 
+E2E smoke (Playwright, `tests/e2e`) trên stack đang chạy: `pnpm test:e2e`. TC-X-050c (dừng/bật postgres) chỉ chạy khi `E2E_COMPOSE_CONTROL=1` – đừng bật trên DB dev dùng chung. Chạy thử như CI mà không đụng stack dev: `COMPOSE_PROJECT_NAME=ottimo-ci POSTGRES_HOST_PORT=55432` (stack dev phải tắt api/web vì trùng cổng 3000/8081), `.env` sinh bằng `bash infra/ci/make-ci-env.sh .env.example .env` trong một bản sao thư mục `product/`.
+
 Dừng: `pnpm dev:down`. Xóa sạch dữ liệu DB dev: `docker compose --env-file .env -f infra/docker-compose.yml down -v` (mất toàn bộ dữ liệu DB dev – chỉ dữ liệu giả).
 
 ## 4. Làm việc hằng ngày (chạy code ngoài container cho nhanh)

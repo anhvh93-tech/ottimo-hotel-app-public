@@ -112,11 +112,10 @@ jobs:
         run: bash product/infra/ci/check-no-test-surface.sh spec product/docs/api/openapi.yaml
 
   contract-lint:
-    # FB-R1-ARC-OPS-08: lint docs/api/openapi.yaml. R1 reports only (continue-on-error); R2 blocks.
+    # FB-R1-ARC-OPS-08: lint docs/api/openapi.yaml. Blocking since R2 (Redocly 0 errors, OpenAPI 0.3.0).
     name: OpenAPI lint (Redocly)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -126,6 +125,25 @@ jobs:
           node-version-file: product/.nvmrc
       - name: Redocly lint
         run: npx --yes @redocly/cli@1.34.21 lint product/docs/api/openapi.yaml
+
+  api-contract:
+    # BUG-R1-021 (plan R2 W5): structural validity of both contracts + the static RBAC check of
+    # tests/tools/gen_traceability.py --strict (OpenAPI x-roles/x-rbac/x-rbac-field vs rbac-matrix).
+    # The matrix is written to a temp file: the committed docs/qa/traceability.md is QA's to regenerate.
+    name: API contract (spec validator · RBAC --strict)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: openapi-spec-validator (openapi.yaml + openapi.test.yaml)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check openapi-spec-validator==0.7.2
+          "$RUNNER_TEMP/venv/bin/openapi-spec-validator" product/docs/api/openapi.yaml product/docs/api/openapi.test.yaml
+      - name: RBAC / traceability static check (gen_traceability.py --strict)
+        run: python3 product/tests/tools/gen_traceability.py --strict --out "$RUNNER_TEMP/traceability.md"
 
   secrets-scan:
     name: gitleaks
@@ -145,10 +163,12 @@ jobs:
             detect --source=/repo --config=/repo/.github/gitleaks.toml --redact --verbose --exit-code 1
 
   docker-build:
-    name: docker images build
+    name: docker images build · E2E smoke
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: build-test
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -199,3 +219,76 @@ jobs:
           docker logs pg
           docker logs api
           exit 1
+      - name: Remove production-image smoke containers (frees port 3000 for the compose stack)
+        if: always()
+        run: |
+          docker rm -f api pg >/dev/null 2>&1 || true
+          docker network rm ottimo-ci >/dev/null 2>&1 || true
+
+      # ---- E2E smoke (QA W8, rounds/round-02/outputs/QA/w1-report.md): the dev compose stack, one-shot ----
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          package_json_file: product/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: product/.nvmrc
+          cache: pnpm
+          cache-dependency-path: product/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: product
+        run: pnpm install --frozen-lockfile
+      - name: Playwright version
+        id: pw
+        working-directory: product
+        run: echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
+      # Browsers are cached; their OS libraries (apt) are not, so install-deps runs on a cache hit too.
+      - name: Install Playwright browsers (chromium, webkit – projects in e2e/playwright.config.ts)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        working-directory: product
+        run: pnpm --filter @ottimo/tests exec playwright install --with-deps chromium webkit
+      - name: Install Playwright OS dependencies (browser cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        working-directory: product
+        run: pnpm --filter @ottimo/tests exec playwright install-deps chromium webkit
+      # Random per-run passwords (DB roles, QA_SEED_PASSWORD) – masked, never a repo secret.
+      - name: Create throwaway product/.env
+        run: bash product/infra/ci/make-ci-env.sh product/.env.example product/.env
+      - name: Start compose stack (postgres, api, worker, web)
+        working-directory: product
+        run: docker compose --env-file .env -f infra/docker-compose.yml up --build --detach --wait --wait-timeout 300
+      # E2E_COMPOSE_CONTROL=1: TC-X-050c may stop/start postgres – this stack is disposable.
+      - name: E2E smoke (pnpm test:e2e)
+        working-directory: product
+        env:
+          E2E_API_URL: http://127.0.0.1:3000
+          E2E_WEB_URL: http://127.0.0.1:8081
+          E2E_COMPOSE_CONTROL: '1'
+        run: pnpm test:e2e
+      - name: Compose logs (on failure)
+        if: failure()
+        working-directory: product
+        run: docker compose --env-file .env -f infra/docker-compose.yml logs --no-color --tail 300
+      # Test data is fake (test-strategy section 4); reports hold no secrets (passwords are masked/not logged).
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            product/tests/e2e/playwright-report
+            product/tests/e2e/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stop compose stack
+        if: always()
+        working-directory: product
+        run: |
+          [ -f .env ] || exit 0
+          docker compose --env-file .env -f infra/docker-compose.yml down --volumes --remove-orphans
+          rm -f .env
