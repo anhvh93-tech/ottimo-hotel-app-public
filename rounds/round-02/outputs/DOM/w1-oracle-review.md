@@ -127,3 +127,33 @@ Sau khi đổi: `pnpm test:fixtures` để `validate-fixtures.mjs` tính lại; 
 - **ESC-008**: đã thêm câu hỏi kế toán K-9 về tài khoản nhận cá nhân (theo ORC).
 - **ESC-014** (mới): sức chứa tối đa từng căn.
 - **Bug list R2** (QA cập nhật trạng thái): BUG-R2-001, -002, -003 đã sửa trong BR v0.3 – đề nghị QA chuyển **Fixed** và kiểm lại.
+
+## 8. Bổ sung BR v0.3.1 (Đợt 0 – INV quyết ESC-014, 16/10)
+
+INV quyết ESC-014: mọi căn nhận vượt định mức tối đa 1 người, ngủ **sofa lớn có sẵn** (không nệm phụ); trẻ dưới 6 tuổi không tính; người ở thêm được cấp 1 bộ đồ dùng (BR-812 mới). Giá trị sức chứa **không đổi** so với mục 3/4/6 ở trên – chỉ đổi nhãn và thêm ca.
+
+**Sửa**
+| ID | Sửa gì | Lý do |
+|---|---|---|
+| (gốc file) | `source.version` = `0.3.1` | BR v0.3.1 |
+| BR-110-01, -02 | Nhãn sức chứa tối đa: bỏ `GIẢ ĐỊNH` → `INV-014` (giữ `INV-004` cho định mức/phụ thu) | ESC-014 đã quyết |
+| BR-110-05 (dòng đề nghị ở mục 4) | Kỳ vọng "Chặn – vượt tối đa 3", nhãn `INV-014` (bỏ "GĐ ESC-014") | Như trên |
+| Seed `rooms[].maxOccupancy` (mục 6) | Giữ 3/5/4, status `INV-014`, bỏ ghi chú GĐ | Như trên |
+
+**Thêm**
+| ID đề nghị | Ca | Kỳ vọng |
+|---|---|---|
+| BR-110-06 | 302 (định mức 3, tối đa 4), 4 người lớn, 3 đêm | Nhận; phụ thu 150.000 × 3 = **450.000**; `extraGuestKits` = 1 |
+| BR-110-07 | 302, 5 người lớn | **Chặn** (vượt tối đa 4) |
+| BR-110-08 | 401 (định mức 4, tối đa 5), 5 người lớn + 1 trẻ 3 tuổi, 1 đêm | Nhận (trẻ 3 tuổi không tính); phụ thu **150.000**; `extraGuestKits` = 1 |
+| BR-812-01 | Đơn 202, 3 người lớn, đến 9/11/2026 đi 12/11, xác nhận 20/10 | Sinh 1 việc `extra_guest_kit_prepare`, `dueAt` = `2026-11-09T14:00:00+07:00`; folio không có dòng tiền riêng; phụ thu 450.000 |
+| BR-812-02 | Như 01, buồng phòng bấm "Đã chuẩn bị" 11:20 9/11; tồn bàn chải 40, bộ đồ vệ sinh 25 | Kho: bàn chải **39**, đồ vệ sinh **24** (loại xuất `other`, ghi chi phí phòng); mền/khăn **không** trừ kho |
+| BR-812-03 | Như 01, trả phòng 12/11 | Việc dọn trả phòng có dòng "Thu hồi bộ đồ dùng thêm" (1 mền + 1 bộ khăn → giặt) |
+| BR-812-04 | 202, 2 người lớn + 1 trẻ 4 tuổi | **Không** sinh việc |
+| BR-812-05 | 302, 3 người lớn | Không sinh việc (người thứ 3 ngủ giường 1m4 trong định mức); 302, 4 người lớn → 1 việc |
+| BR-812-06 | Đơn 202 sửa từ 3 xuống 2 người lớn ngày 5/11 (chưa chuẩn bị) | Việc **hủy**, kho không đổi |
+| BR-812-07 | Đơn Booking 202, `otaGuestCount` = 3 (OTA đã tính giá 3 khách) | Phụ thu người = 0 (BR-110) nhưng **vẫn** sinh 1 việc bộ đồ dùng |
+| BR-812-08 | Đơn có nhận sớm đã xác nhận 11:00 ngày đến | `dueAt` = 11:00 ngày đến (không phải 14:00) |
+| BR-812-09 | Thêm 1 người lớn giữa kỳ, lễ tân xác nhận 19:10 | Sinh việc ngay, `dueAt` = 20:10 (60 phút, tham số GĐ) |
+
+Tham số seed mới: `extra_guest_kit_items` (mền 1, khăn tắm 1, khăn mặt 1, bàn chải 1 – mã kho, đồ vệ sinh 1 – mã kho), `extra_guest_kit_due` = giờ nhận phòng của đơn, `extra_guest_kit_midstay_due_minutes` = 60.
