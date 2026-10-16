@@ -113,7 +113,8 @@ test.describe(
       });
       expect(ok.status, JSON.stringify(ok.body)).toBe(201);
       const g = ok.body;
-      if (g.phone !== undefined) expect(g.phone).toBe(`84${digits.slice(1)}`);
+      // V-02 stores 84… (no "+"); the API serialises E.164 with or without "+" (contract leaves it open)
+      if (g.phone !== undefined) expect(g.phone.replace(/^\+/, '')).toBe(`84${digits.slice(1)}`);
       if (g.email !== undefined) expect(g.email).toBe(`${local.toLowerCase()}@mail.example.test`);
     });
 

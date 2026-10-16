@@ -73,9 +73,14 @@ export function uuid(): string {
   return randomUUID();
 }
 
-/** Short unique suffix for throwaway records (usernames, phones, names). */
+/** Short unique suffix for throwaway records (usernames, phones, e-mails). */
 export function uniq(len = 6): string {
   return randomBytes(8).toString('hex').slice(0, len);
+}
+
+/** Letters-only suffix for person names: V-01 (EP00 3) forbids digits in fullName/displayName. */
+export function uniqName(len = 6): string {
+  return Array.from(randomBytes(len), (b) => String.fromCharCode(97 + (b % 26))).join('');
 }
 
 export function fillPath(path: string, params: Record<string, string>): string {
@@ -357,7 +362,7 @@ export async function createThrowawayUser(
     idempotencyKey: true,
     body: {
       username,
-      displayName: `E2E ${role}`,
+      displayName: `Qa Tam ${role.replace(/[^a-z]/g, ' ')} ${uniqName(4)}`,
       initialPassword: password,
       roles: [{ propertyId: propertyIdOf(owner), role }],
     },
@@ -386,9 +391,12 @@ export async function activateUser(
       body: { currentPassword: u.password, newPassword },
     });
     expect(r.status, `changeMyPassword ${u.username}: ${JSON.stringify(r.body)}`).toBe(204);
-    const me = await getMe(ctx, s.token);
+    // SR-SES-02: a password change revokes every session and issues a fresh cookie for this client
+    // (auth.service changeMyPassword) – continue with the rotated token, the old one is now 401.
+    const token = sessionTokenFrom(r.setCookies) ?? s.token;
+    const me = await getMe(ctx, token);
     expect(me.status).toBe(200);
-    return { session: { ...s, me: me.body }, password: newPassword };
+    return { session: { ...s, token, me: me.body }, password: newPassword };
   }
   return { session: s, password: u.password };
 }

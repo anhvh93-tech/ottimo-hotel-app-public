@@ -76,3 +76,11 @@
 ## 6. File tạo/sửa
 - Tạo: `product/tests/e2e/support/env.ts`, `product/tests/e2e/support/api.ts`, `product/tests/e2e/global-setup.ts`, `product/tests/e2e/rbac/cases.ts`, `product/tests/e2e/rbac/sprint1-ops.ts`, `product/tests/e2e/rbac/rbac-sprint1.spec.ts`, `product/tests/e2e/rbac/rbac-logout.spec.ts`, `product/tests/e2e/api/identity.api.spec.ts`, `product/tests/e2e/api/platform.api.spec.ts`, `product/tests/e2e/api/guests.api.spec.ts`, `product/tests/e2e/api/audit-approvals.api.spec.ts`, `product/tests/e2e/ui/admin-web.smoke.spec.ts`, `rounds/round-02/outputs/QA/s1-report.md`
 - Sửa: `product/tests/e2e/playwright.config.ts`, `product/tests/e2e/smoke-manifest.json`, `product/tests/tsconfig.json`, `product/tests/README.md`, `product/tests/test-cases/r1-main-flows.md` (v0.3.1: TC-NT-043, TC-NT-044), `product/docs/qa/test-strategy.md` (0.4), `product/docs/qa/traceability.md` (sinh lại), `product/.prettierignore` (1 dòng)
+
+## 7. Bước Kiểm thử Sprint 1 (16/10/2026, commit `d7d42e4`)
+- Đã làm: dựng stack compose dùng một lần `ottimo-qa-r2s1` (cổng 15432/13000/18081), migrate + seed DS-E; chạy thật RBAC runner, E2E API, smoke; UI smoke admin-web chạy tay trên trình duyệt với API thật (Playwright chưa có trình duyệt); review QA→BE (8 thẻ), QA→FE (5 thẻ); dọn stack.
+- Kết quả: RBAC 288 đạt / 9 trượt / 88 bỏ qua; API 29 / 3 / 10; smoke 3 / 0 / 37; UI tay 11 / 0 / 0; vitest admin-web 62 / 2. Chi tiết `rounds/round-02/qa/s1-test-report.md`.
+- Lỗi mới: BUG-R2-005 (P1, BE), BUG-R2-006 (P1, FE+OPS), 007/008/009 (P2), 010/011 (P3), 012 (P2, QA – Closed), 013 (P3, QA – Fixed).
+- File tạo/sửa: `rounds/round-02/qa/{s1-test-report.md, bug-list.md}`, `rounds/round-02/reviews/{QA-on-BE.md, QA-on-FE.md}`, `product/tests/e2e/{support/api.ts, rbac/sprint1-ops.ts, api/identity.api.spec.ts, api/guests.api.spec.ts, api/audit-approvals.api.spec.ts, smoke/health.spec.ts}`, `product/tests/README.md`, `01-decisions/decision-log.md` (2 dòng QA).
+- Giả định: định dạng SĐT API `+84…` chấp nhận tạm (chờ ARC chốt); `changeMyPassword` xoay cookie là đúng (SR-SES-02) dù OpenAPI ghi "giữ phiên hiện tại".
+- Rủi ro / chưa xong: chưa có staging; Playwright UI chưa chạy tự động; ca tua đồng hồ chạy song song làm lệch mốc thời gian – tách project tuần tự ở Sprint 2.

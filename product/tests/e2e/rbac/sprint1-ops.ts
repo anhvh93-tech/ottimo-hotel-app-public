@@ -11,7 +11,15 @@
 //   logout   – kills the session → run last, in project rbac-logout
 //   r3       – story Must R3 (2FA) → pending
 import type { APIRequestContext } from '@playwright/test';
-import { call, propertyIdOf, session, uniq, uuid, type StaffSession } from '../support/api.js';
+import {
+  call,
+  propertyIdOf,
+  session,
+  uniq,
+  uniqName,
+  uuid,
+  type StaffSession,
+} from '../support/api.js';
 import type { Subject } from '../support/env.js';
 
 export type Mode = 'read' | 'invalid' | 'valid' | 'logout' | 'r3';
@@ -76,8 +84,10 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
     prepare: async () => ({
       params: {},
       body: { currentPassword: 'x'.repeat(8), newPassword: 'short' },
-      accept: [422],
-      note: 'newPassword < 10 ký tự → 422 (không đổi mật khẩu)',
+      // Server re-authenticates before validating newPassword (identity me.controller) → 401 REAUTH_FAILED
+      // also proves the role gate let the call through.
+      accept: [401, 422],
+      note: 'mật khẩu hiện tại sai / newPassword < 10 ký tự → 401 REAUTH_FAILED hoặc 422 (không đổi mật khẩu)',
     }),
   },
   setMyApprovalPin: {
@@ -102,7 +112,7 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
       idempotencyKey: true,
       body: {
         username: `qa.e2e.rb${uniq(8)}`,
-        displayName: 'E2E RBAC (tạm)',
+        displayName: 'Qa Rbac tạm',
         initialPassword: `E2e-${uniq(12)}-tmp`,
         roles: [{ propertyId: f.propertyId, role: 'housekeeping' }],
       },
@@ -210,7 +220,7 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
     prepare: async (_c, _s, _sub, f) => ({
       params: P(f),
       idempotencyKey: true,
-      body: { fullName: `E2E Rbac ${uniq()}`, email: `e2e.rb.${uniq(8)}@example.test` },
+      body: { fullName: `Qa Rbac ${uniqName()}`, email: `e2e.rb.${uniq(8)}@example.test` },
     }),
   },
   getGuest: {
@@ -288,7 +298,7 @@ async function createGuestAs(
   const r = await call<{ id?: string }>(ctx, 'POST', `/v1/properties/${propertyId}/guests`, {
     session: s,
     idempotencyKey: true,
-    body: { fullName: `E2E Rbac ${uniq()}`, email: `e2e.rbfx.${uniq(8)}@example.test` },
+    body: { fullName: `Qa Rbac ${uniqName()}`, email: `e2e.rbfx.${uniq(8)}@example.test` },
   });
   return r.status === 201 && r.body?.id ? r.body.id : null;
 }

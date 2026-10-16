@@ -18,10 +18,24 @@ async function health(request: APIRequestContext, url: string) {
   };
 }
 
+// Which stack to stop: default = the dev compose (CI's disposable stack). A disposable stack on other ports
+// (QA, BUG-R2-013) MUST point these at its own files/project, or the dev PostgreSQL would be stopped.
+const COMPOSE_FILE = process.env.E2E_COMPOSE_FILE ?? 'infra/docker-compose.yml';
+const COMPOSE_ENV_FILE = process.env.E2E_COMPOSE_ENV_FILE ?? '.env';
+const COMPOSE_PROJECT = process.env.E2E_COMPOSE_PROJECT;
+
 function compose(...args: string[]) {
   execFileSync(
     'docker',
-    ['compose', '--env-file', '.env', '-f', 'infra/docker-compose.yml', ...args],
+    [
+      'compose',
+      ...(COMPOSE_PROJECT ? ['-p', COMPOSE_PROJECT] : []),
+      '--env-file',
+      COMPOSE_ENV_FILE,
+      '-f',
+      COMPOSE_FILE,
+      ...args,
+    ],
     {
       cwd: PRODUCT_DIR,
       stdio: 'pipe',

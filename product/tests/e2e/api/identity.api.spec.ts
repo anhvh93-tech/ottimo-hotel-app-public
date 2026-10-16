@@ -18,11 +18,13 @@ import {
   sessionOrSkip,
   testClock,
   uniq,
+  uniqName,
   type Me,
   type Problem,
 } from '../support/api.js';
 import {
   COOKIE_PREFIX,
+  ORIGIN,
   SEED_PASSWORD,
   SESSION_COOKIE,
   TEST_TOKEN,
@@ -100,6 +102,8 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     const r = await call<Me>(request, 'POST', '/v1/auth/login', {
       cookie: `${SESSION_COOKIE}=${planted}`,
       body: { username: 'qa.fdl', password: SEED_PASSWORD },
+      // login is a public write: the api checks Origin (login CSRF, SR-SES-04) when origins are configured
+      headers: { origin: ORIGIN },
     });
     expect(r.status).toBe(200);
     const sid = r.setCookies.find((c) => c.startsWith(`${SESSION_COOKIE}=`)) ?? '';
@@ -194,7 +198,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
         idempotencyKey: true,
         body: {
           username,
-          displayName: 'E2E trùng',
+          displayName: 'Qa trùng',
           initialPassword: `E2e-${uniq(12)}-tmp`,
           roles: [{ propertyId: propertyIdOf(owner), role: 'housekeeping' }],
         },
@@ -250,10 +254,17 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     }
     const s2 = await freshSession(request, x.username, password);
 
-    // owner: front_desk → housekeeping (If-Match = version of the user)
+    // owner: front_desk → housekeeping (If-Match = CURRENT version: the password change above bumped it)
+    const users = await call<{ data?: Array<{ id: string; version: number }> }>(
+      request,
+      'GET',
+      '/v1/users',
+      { session: owner, query: { limit: 100 } },
+    );
+    const current = (users.body.data ?? []).find((u) => u.id === x.id)?.version ?? x.version;
     const r = await call(request, 'PUT', `/v1/users/${x.id}/roles`, {
       session: owner,
-      ifMatch: `"${x.version}"`,
+      ifMatch: `"${current}"`,
       body: { roles: [{ propertyId, role: 'housekeeping' }] },
     });
     expect(r.status, JSON.stringify(r.body)).toBe(200);
@@ -269,7 +280,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     const denied = await call<Problem>(request, 'POST', `/v1/properties/${propertyId}/guests`, {
       session: s3,
       idempotencyKey: true,
-      body: { fullName: `E2E ${uniq()}`, email: `e2e.${uniq(8)}@example.test` },
+      body: { fullName: `Qa Khach ${uniqName()}`, email: `e2e.${uniq(8)}@example.test` },
     });
     expectProblem(denied, 403, 'FORBIDDEN_ACTION');
 
@@ -349,6 +360,48 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     expectProblem(self, 403, 'FORBIDDEN_ACTION');
     const me = await getMe(request, mgr.token);
     expect(me.body.properties.flatMap((p) => p.roles)).not.toContain('owner');
+  });
+
+  // BUG-R2-005 (R2 S1): OpenAPI "Thứ tự kiểm" = … → quyền vai/phạm vi → nghiệp vụ. A forbidden role must get
+  // 403 FORBIDDEN_ACTION (+ audit access.denied) even when its body is invalid or its password re-check is wrong.
+  test('TC-NT-008 (thứ tự kiểm, BUG-R2-005) vai bị cấm + body sai/mật khẩu sai → 403 trước 422/401', async ({
+    request,
+  }) => {
+    await requireEndpoints(request, 'TC-NT-008', [LOGIN, ME, USERS, CREATE_GUEST]);
+    const mgr = await sessionOrSkip(request, 'qa.mgr');
+    const hk = await sessionOrSkip(request, 'qa.hk');
+    const fd = await sessionOrSkip(request, 'qa.fd');
+    const pid = propertyIdOf(fd);
+    const results = {
+      createUser_mgr: await call<Problem>(request, 'POST', '/v1/users', {
+        session: mgr,
+        idempotencyKey: true,
+        body: { username: 'x', displayName: '1' },
+      }),
+      createGuest_hk: await call<Problem>(request, 'POST', `/v1/properties/${pid}/guests`, {
+        session: hk,
+        idempotencyKey: true,
+        body: { fullName: '' },
+      }),
+      trustCurrentDevice_fd: await call<Problem>(
+        request,
+        'POST',
+        `/v1/properties/${pid}/trusted-devices`,
+        {
+          session: fd,
+          idempotencyKey: true,
+          body: { name: 'Qa', deviceKind: 'desk', currentPassword: 'wrong-password-e2e' },
+        },
+      ),
+    };
+    const actual = Object.fromEntries(
+      Object.entries(results).map(([k, r]) => [k, `${r.status} ${r.body?.code ?? ''}`]),
+    );
+    expect(actual).toEqual({
+      createUser_mgr: '403 FORBIDDEN_ACTION',
+      createGuest_hk: '403 FORBIDDEN_ACTION',
+      trustCurrentDevice_fd: '403 FORBIDDEN_ACTION',
+    });
   });
 
   test('TC-NT-002 (A) không có cookie → 401 UNAUTHENTICATED, thân lỗi không chứa dữ liệu', async ({

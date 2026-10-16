@@ -104,11 +104,14 @@ test.describe('L1 – nhật ký thao tác (US-006, US-002 AC2)', { tag: ['@api'
     const fdl = await sessionOrSkip(request, 'qa.fdl');
     const mine = await audit(request, fd, {});
     expect(mine.status).toBe(200);
-    for (const e of rows(mine.body)) expect(actorOf(e), JSON.stringify(e)).toBe(fd.me.id);
+    // AuditEvent (openapi 0.3.3) carries actorName only – no actor id field
+    const isFd = (e: Row) =>
+      actorOf(e) !== undefined ? actorOf(e) === fd.me.id : e.actorName === fd.me.displayName;
+    for (const e of rows(mine.body)) expect(isFd(e), JSON.stringify(e)).toBe(true);
     const other = await audit(request, fd, { actorUserId: fdl.me.id });
     expect([200, 404]).toContain(other.status);
     for (const e of rows(other.body))
-      expect(actorOf(e), 'không lộ nhật ký người khác').toBe(fd.me.id);
+      expect(isFd(e), `không lộ nhật ký người khác: ${JSON.stringify(e)}`).toBe(true);
   });
 
   test('TC-NT-016 điều chỉnh dòng folio có nhật ký trước/sau, không xóa được', async () => {
