@@ -9,14 +9,17 @@
  *   guest request + another room → every moved night takes the CURRENT calendar of the new room (BR-104, the
  *   booking's channel), BR-107 re-tiered on the final number of nights, both ways; a typed/agreed price does not
  *   travel (g) – flagged `MANUAL_RATE_REPRICED` with a same-% suggestion (NÊN). OTTIMO causes and `other`: booked
- *   prices kept (dates-only changes: kept nights keep their calendar, new nights take today's calendar, re-tier).
+ *   prices kept (dates-only changes: kept nights keep their calendar, new nights take today's calendar, re-tier);
+ *   v0.3.8: a night added in an OTTIMO room move takes the OLD room's calendar (b1). A booking made from a quote
+ *   carries its BR-111 return-guest % – re-pricing takes the better of it and the BR-107 tier (a1).
  *   OTA: OTA price kept; guest request → `room_change_difference` per night = max(0, direct(new) − direct(ORIGIN
  *   room)), the live differences from the first moved night are reversed and re-posted (never cumulative);
  *   an OTTIMO move keeps every line. A manual long stay (`externalContract`) is never re-priced (h).
  * - BR-110 fee per night (BR-429 v0.3.4, BR-424): guest request → the new room's standard occupancy; OTTIMO
  *   (property_fault, overbooking, upgrade, inventory_optimize, other, B7a) → min(old fee, new fee) = the fee at
  *   max(old base, new base), kept on the night (`stay_night.extra_person_base`) so a later change of the people
- *   keeps the protection. OTA: above max(base, OTA guest count) (`nightExtra`).
+ *   keeps the protection; v0.3.8 (b2): never above the fee the night carries now (a typed fee included).
+ *   OTA: above max(base, OTA guest count) (`nightExtra`).
  *
  * Pure reads only: nothing here writes (the preview runs it in a READ ONLY transaction – SEC A3).
  */
@@ -27,10 +30,13 @@ import { divideRoundVnd } from '../../platform/public/money';
 import { ParameterMissingError } from '../../platform/public/parameter.service';
 import {
   type ChannelGroup,
-  applyNightDiscount,
+  type ReturnGuestDiscount,
   calendarRate,
+  discountedNight,
+  effectiveDiscountPct,
   losDiscountPct,
   nightDates,
+  returnGuestOf,
 } from '../public/pricing';
 import { PricingService } from '../public/pricing.service';
 import type { BookingContext } from './booking-context';
@@ -87,8 +93,15 @@ export interface PlanNight {
 export interface BookingMovePlan {
   reservationId: string;
   basis: PricingBasis;
-  /** BR-107 % of the final stay (direct/agent, 0 otherwise). */
+  /**
+   * % in force on the final stay (direct/agent, 0 otherwise): the BR-107 tier, or the BR-111 return-guest % when
+   * better (BR-429 (a1) v0.3.8 – never both unless the quote stacked them). Stored as `losDiscountPct`.
+   */
   losPct: number;
+  /** BR-107 tier of the final number of nights (0 for OTA/internal/manual long stays). */
+  tierPct: number;
+  /** BR-111 % applied on the re-priced nights (0 = none or the tier is better) – `MovePreview.returningGuestDiscountPct`. */
+  returningGuestPct: number;
   /** Nights from the first moved night, in date order (B7: every night of the final stay). */
   nights: PlanNight[];
   /** Nights the change drops (B7/B8 dates), with what they carried. */
@@ -175,6 +188,8 @@ interface NightRow {
   fee_base: number | null;
   room_base: number | null;
 }
+
+const NO_RETURN: ReturnGuestDiscount = { pct: 0, stacked: false };
 
 export class MovePlanner {
   constructor(private readonly deps: PlannerDeps) {}
@@ -301,11 +316,16 @@ export class MovePlanner {
     const removedRows = live.filter((n) => !finalDates.includes(n.date));
     // BR-107 tier of the final stay (direct/agent). Kept nights are re-tiered only when the % changes (B7/B8
     // number of nights) or the night is re-priced; otherwise their gross stays exactly as booked.
-    const losPct = tiered ? losDiscountPct(finalDates.length, ctx.params.losTiers) : 0;
+    // BR-429 (a1) v0.3.8 (DOM-S4-03): the return-guest % of a booking made from a quote is applied again on every
+    // re-pricing – the better of it and the tier, not stacked.
+    const ret: ReturnGuestDiscount = tiered ? returnGuestOf(row.pricing_snapshot) : NO_RETURN;
+    const tierPct = tiered ? losDiscountPct(finalDates.length, ctx.params.losTiers) : 0;
+    const losPct = tiered ? effectiveDiscountPct(tierPct, ret) : 0;
     const currentPct =
       (row.pricing_snapshot as { losDiscountPct?: number }).losDiscountPct ??
-      (tiered ? losDiscountPct(live.length, ctx.params.losTiers) : 0);
+      (tiered ? effectiveDiscountPct(losDiscountPct(live.length, ctx.params.losTiers), ret) : 0);
     const retier = tiered && losPct !== currentPct;
+    const price = (calendarVnd: number) => discountedNight(calendarVnd, tierPct, ret, unit);
     const curEff = (n: NightRow): number | null => n.fee_base ?? n.room_base;
     const keptRows = live.filter((n) => finalDates.includes(n.date));
     const keptEff = keptRows.map(curEff).filter((x): x is number => x !== null);
@@ -355,7 +375,13 @@ export class MovePlanner {
       let newGross = n?.gross ?? 0;
       if (tiered) {
         if (repriceToNewRoom || added) {
-          const target = roomId ?? oldRoom;
+          // BR-429 (b1) v0.3.8 (DOM-S4-01): a night added in the same change as an OTTIMO room move (OTTIMO causes,
+          // `other`, `force_majeure`) takes the current calendar of the OLD room – the guest never pays more because
+          // OTTIMO picked a pricier room. Guest request: the new room's.
+          const target =
+            !repriceToNewRoom && input.cause === 'ottimo'
+              ? (oldRoom ?? roomId)
+              : (roomId ?? oldRoom);
           if (!target) throw new Error(`night ${date} of ${row.code} has no room to price`);
           const fresh = await this.calendar(tx, ctx, cache, target, date, group);
           if (repriceToNewRoom && n && oldRoom) {
@@ -370,10 +396,10 @@ export class MovePlanner {
           }
           calendarVnd = fresh;
           manual = false;
-          newGross = applyNightDiscount([fresh], losPct, unit)[0] as number;
+          newGross = price(fresh);
         } else if (retier && !manual && n) {
           calendarVnd = n.calendar ?? n.gross;
-          newGross = applyNightDiscount([calendarVnd], losPct, unit)[0] as number;
+          newGross = price(calendarVnd);
         }
       }
 
@@ -401,8 +427,15 @@ export class MovePlanner {
         }
         if (eff !== null) {
           const x = this.deps.nightExtra(ctx, row, party, eff);
-          feeVnd = x.feeVnd;
-          feeCount = x.count;
+          // BR-429 (b2) v0.3.8 (DOM-S4-02): an OTTIMO move never charges a night more than it carries now – the
+          // fee typed by the desk (S4-35) included: min(fee recorded, fee at the protected base).
+          // A night without a room yet (conflict booking, B7a) carries no fee to keep.
+          const keepRecorded =
+            input.cause === 'ottimo' && n !== undefined && n.room_id !== null && oldFee < x.feeVnd;
+          if (!keepRecorded) {
+            feeVnd = x.feeVnd;
+            feeCount = x.count;
+          }
           feeBase = roomBase !== null && eff !== roomBase ? eff : null;
         }
       }
@@ -476,6 +509,8 @@ export class MovePlanner {
       reservationId: row.id,
       basis,
       losPct,
+      tierPct,
+      returningGuestPct: ret.stacked || ret.pct > tierPct ? ret.pct : 0,
       nights,
       removed,
       diffLinesToReverse: repostDiff

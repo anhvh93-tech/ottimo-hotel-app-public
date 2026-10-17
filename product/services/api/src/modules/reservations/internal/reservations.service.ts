@@ -12,7 +12,7 @@ import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import { CANCEL_REASON_CODES, type CancelReasonCode } from '../../../db/schema';
 import { ProblemError, problem } from '../../../shared/problem';
-import { assertNoCardNumber } from '../../../shared/validation';
+import { assertNoCardNumber, containsCardNumber } from '../../../shared/validation';
 import { type LocalDate, type LocalTime, addDays, atLocal } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { ApprovalService, type ApprovalRow } from '../../approvals/public/approval.service';
@@ -27,8 +27,10 @@ import {
   directCancelRefund,
   extraGuestKitDue,
   extraPersons,
-  applyNightDiscount,
+  discountedNight,
+  effectiveDiscountPct,
   losDiscountPct,
+  returnGuestOf,
   holdDeadline,
   holdExtension,
   isOrphanGap,
@@ -167,6 +169,12 @@ function retainLinesOf(f: Fields, raw: unknown): Array<{ lineId: string; reason:
       return;
     }
     const reason = typeof it.reason === 'string' ? it.reason : '';
+    // V-09 (BE-A review S4, as the other reason fields): a card number answers CARD_NUMBER_DETECTED – checked
+    // before the length (BUG-R2-043), never stored nor logged.
+    if (containsCardNumber(reason)) {
+      f.add(`retainLines[${i}].reason`, 'CARD_NUMBER_DETECTED');
+      return;
+    }
     if (reason.length > 500) {
       f.add(`retainLines[${i}].reason`, 'TOO_LONG');
       return;
@@ -2345,14 +2353,18 @@ export class ReservationsService {
   ): { pct: number; kept: StayNightPrice[]; added: StayNightPrice[] } {
     const tiered =
       (row.channel_group === 'direct' || row.channel_group === 'agent') && !row.external_contract;
-    const pct = tiered ? losDiscountPct(kept.length + added.length, ctx.params.losTiers) : 0;
+    const tier = tiered ? losDiscountPct(kept.length + added.length, ctx.params.losTiers) : 0;
+    // BR-429 (a1) v0.3.8 (DOM-S4-03): a booking from a quote keeps its BR-111 return-guest % – the better of it
+    // and the tier on every re-tiering, not stacked (`pct` = the % in force, stored as `losDiscountPct`).
+    const ret = tiered ? returnGuestOf(row.pricing_snapshot) : { pct: 0, stacked: false };
+    const pct = tiered ? effectiveDiscountPct(tier, ret) : 0;
     const unit =
       (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ??
       ctx.params.nightRateUnit;
     const apply = (n: StayNightPrice): StayNightPrice =>
       n.manual || !tiered
         ? { ...n }
-        : { ...n, amountVnd: applyNightDiscount([n.calendarVnd], pct, unit)[0] as number };
+        : { ...n, amountVnd: discountedNight(n.calendarVnd, tier, ret, unit) };
     return { pct, kept: kept.map(apply), added: added.map(apply) };
   }
 
@@ -2729,14 +2741,14 @@ export class ReservationsService {
         policyRef: 'BR-310',
       };
     }
-    // Verification 17/10 (DOM BE-14, BE-B): what is already requested back (an open refund request) is never
-    // requested a second time by the cancellation.
-    const { open, base, bookingValue } = await this.retainableDeposit(tx, row, depositPaid);
-    const requestable = (vnd: number) => Math.max(0, Math.min(vnd, depositPaid - open));
+    // BR-309 v0.3.8 (DOM-S4-14): the fee base is min(deposit paid, deposit REQUIRED, booking value) – money paid
+    // above the required deposit is excess, and an open refund request never lowers the fee (BE-B's one refund
+    // request – BR-522 – adds the shortfall or replaces a pending request that asks more than the excess).
+    const { cap } = await this.retainableDeposit(tx, row, depositPaid);
     if (row.status === 'hold' || depositPaid === 0) {
       return {
         depositPaidVnd: depositPaid,
-        refundableVnd: requestable(depositPaid),
+        refundableVnd: depositPaid,
         retainedVnd: 0,
         policyRef: 'BR-308',
       };
@@ -2750,11 +2762,8 @@ export class ReservationsService {
     const tiers = snap.cancelPolicy ?? ctx.params.cancelPolicy;
     const peakNoRefund =
       (snap.cancelPeakNoRefund ?? ctx.params.cancelPeakNoRefund) && !!snap.hasPeakNight;
-    // Re-verification 17/10 (VER-BE-S3-01, BE-B): the fee is charged on the deposit still held that nobody has
-    // asked back yet (`base`), and never above the value of the booking – deposit paid above that value is
-    // excess, always refundable. Refundable = base − the fee (so open requests + this one ≤ the excess left).
     const r = directCancelRefund(
-      Math.min(base, bookingValue),
+      cap,
       noticeDays(row.arrival_date, ctx.today),
       tiers,
       peakNoRefund,
@@ -2762,15 +2771,16 @@ export class ReservationsService {
     );
     return {
       depositPaidVnd: depositPaid,
-      refundableVnd: base - r.cancelFeeVnd,
+      refundableVnd: depositPaid - r.cancelFeeVnd,
       retainedVnd: r.cancelFeeVnd,
       policyRef: 'BR-309',
     };
   }
 
   /**
-   * The deposit OTTIMO may keep or charge a fee on – ONE rule for B10 (BR-309 fee) and B11 (BR-311 no-show)
-   * (re-verification 17/10, BE-B): `base` = deposit still held that no open refund request asks back;
+   * The deposit OTTIMO may keep or charge a fee on – ONE rule for B10 (BR-309 fee) and B11 (BR-311 no-show):
+   * BR-309 v0.3.8 (DOM-S4-14) `base` = min(deposit paid, deposit required) – money paid above the required
+   * deposit is excess, and an open refund request does NOT lower it (it used to: VER-BE-S3-01, now overturned);
    * `cap` = min(base, booking value). Booking value (DOM 17/10, REFUND #3) = live room + extra-person lines
    * after FOC/discounts, minus OTA-collected money (FolioService.bookingValueVnd) – never the snapshot.
    */
@@ -2787,7 +2797,7 @@ export class ReservationsService {
   }> {
     const paid = depositPaid ?? (await this.money.depositPaid(tx, row));
     const open = paid > 0 ? await this.money.openRefunds(tx, row) : 0;
-    const base = Math.max(0, paid - open);
+    const base = Math.max(0, Math.min(paid, Number(row.deposit_required_vnd ?? 0)));
     const bookingValue = await this.money.bookingValue(tx, row);
     return { depositPaid: paid, open, base, bookingValue, cap: Math.min(base, bookingValue) };
   }
@@ -3044,7 +3054,9 @@ export class ReservationsService {
       extraPersonNewVnd: plan.feeNewVnd,
       ...(ota ? { roomChangeDifferenceVnd: plan.diffNewVnd } : {}),
       folioDeltaVnd: pm.folioDeltaVnd,
-      losDiscountPct: plan.losPct,
+      // BR-429 (a1) v0.3.8: the better of the BR-107 tier and the BR-111 return-guest % – only one is > 0.
+      losDiscountPct: plan.returningGuestPct > 0 && plan.losPct !== plan.tierPct ? 0 : plan.tierPct,
+      ...(plan.returningGuestPct > 0 ? { returningGuestDiscountPct: plan.returningGuestPct } : {}),
       depositPaidVnd: depositPaid,
       // BR-429 (e): the deposit never changes; what is left is due at check-in, a surplus goes to BR-522.
       balanceDueAfterVnd: Math.max(0, balance - credit + pm.folioDeltaVnd),
@@ -3072,23 +3084,23 @@ export class ReservationsService {
     const targetRoomId = rm.id;
     const reasonCode = m.reasonCode;
     const note = m.note;
-    // BR-429 (d) / BR-414: a guest-requested move to another room is saved only with "Đã báo khách số tiền mới"
-    // and the amount the desk showed (the SAME plan – a stale preview → 409, never a silent other amount).
-    // OTTIMO's causes keep the prices: `applyDifference` / `expectedDeltaVnd` are ignored (0.3.7 contract). A guest
-    // request that only changes the dates may still send the amount shown – then it must match.
-    const told = reasonCode === 'guest_request' && pm.roomChanges && !row.external_contract;
-    const checkShown =
-      reasonCode === 'guest_request' &&
-      m.expectedDeltaVnd !== undefined &&
-      m.expectedDeltaVnd !== pm.folioDeltaVnd;
-    if (told || checkShown) {
-      if (told && !m.applyDifference) {
+    // BR-429 (d) / (d1) v0.3.8 (DOM-S4-06, BA E02-10) / BR-414: EVERY B7/B8 that changes the money of the booking
+    // (folioDeltaVnd ≠ 0 – any reason: a guest's date change, a force-majeure postponement, an OTTIMO move that
+    // lowers the BR-110 fee) is saved only with "Đã báo khách số tiền mới" and the amount the desk showed (the SAME
+    // plan – a stale preview → 409, never a silent other amount); a guest-requested move to another room needs
+    // them even at 0. BR-429 (d2) v0.3.8 (DOM-S4-19): an amount the caller sent must match even when the tick is not
+    // required – the guest heard that number (else 409, nothing saved); not sent → nothing to compare.
+    const told =
+      (reasonCode === 'guest_request' && pm.roomChanges && !row.external_contract) ||
+      pm.folioDeltaVnd !== 0;
+    if (told) {
+      if (!m.applyDifference) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'applyDifference', code: 'REQUIRED' }],
           extras: { folioDeltaVnd: pm.folioDeltaVnd },
         });
       }
-      if (told && m.expectedDeltaVnd === undefined) {
+      if (m.expectedDeltaVnd === undefined) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'expectedDeltaVnd', code: 'REQUIRED' }],
           extras: { folioDeltaVnd: pm.folioDeltaVnd },
@@ -3099,6 +3111,10 @@ export class ReservationsService {
           extras: { surchargeVnd: pm.folioDeltaVnd, folioDeltaVnd: pm.folioDeltaVnd },
         });
       }
+    } else if (m.expectedDeltaVnd !== undefined && m.expectedDeltaVnd !== pm.folioDeltaVnd) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: pm.folioDeltaVnd, folioDeltaVnd: pm.folioDeltaVnd },
+      });
     }
 
     await this.assertCapacityStable(tx, [rm]);
@@ -3794,8 +3810,8 @@ export class ReservationsService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    // BR-311 with the B10 rule (re-verification 17/10, BE-B): keep the deposit still held that no open refund
-    // request asks back, never above the booking value; OTA → reported on the channel (kept 0).
+    // BR-311 with the B10 rule (BR-309 v0.3.8, DOM-S4-14): keep min(deposit paid, deposit required), never above
+    // the booking value – what was paid above it is excess (BR-522); OTA → reported on the channel (kept 0).
     const retainable = await this.retainableDeposit(tx, row);
     const kept = row.channel_group === 'ota' ? 0 : retainable.cap;
     // S4-08 (BE-B): checks `retainLines` against the folio (422 before anything is committed).

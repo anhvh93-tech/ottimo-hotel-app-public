@@ -1,380 +1,461 @@
-# Landing page OTTIMO – Concept v1.1
+# Landing page OTTIMO – Concept v1.2.1
 
-- Người viết: UXD | Round 2 (song song Sprint 4, lịch P1) | Ngày: 17/10/2026
-- Trạng thái: **Bản v1.1 chờ review** – bắt buộc: UXR, PO; khuyến nghị: FE, DOM, SEC. v1.1 = sửa theo kiểm độc lập brand + a11y (M1, M2, L1, L2, L3, L5 – mục 13.2).
-- Mock: `mock/index.html` (một tệp + thư mục `mock/img/`), ảnh chụp: `mock/shots/`, nguồn ảnh: `mock/img/CREDITS.md`, công cụ ảnh: `tools/optimize-images.mjs`.
-- Căn cứ: **OTTIMO Brand Guidelines v1.0** (`00-brief/context/brand/brand-guidelines.md`, trang logo p12–p16), e-brochure 2026 (`00-brief/context/landing/ebrochure-text.md` + ảnh trang), 45 ảnh gốc, `rounds/round-02/outputs/PO/landing-scope.md` (EP19), ESC-020, ESC-021, ADR-014, `rounds/round-02/reviews/landing-zalo-SEC.md`.
-- Quy ước: **[Chưa xác minh]** = đội chưa kiểm được · **[Chờ INV]** = chỉ INV có thông tin hoặc quyền quyết.
+- Người viết: UXD | Round 2 – Sprint 4, luồng **LP-v1** (ESC-020, ADR-014, EP19) | Ngày: 17/10/2026 | Bước: **Phản hồi & sửa** (theo phản biện thiết kế `rounds/round-02/reviews/landing-v12-critic.md` và SEC `landing-booking-SEC.md` thẻ UXD-04…08)
+- Trạng thái: **Bản v1.2.1 – sửa xong theo phản biện, chờ ORC trình INV.** Trả lời từng mục: `rounds/round-02/responses/landing-v12-UXD.md`.
+- Mock: `mock/index.html` v1.2.1 (bản xem trước đồng bộ ở thư mục `landing-preview` của phiên; một tệp + `mock/img/` như v1.1), ảnh chụp: `mock/shots/`, nguồn ảnh: `mock/img/CREDITS.md`.
+- Căn cứ: `04-investor-feedback/FB-INV-002.md` (5 ý + **INV chọn A**, 17/10); **OTTIMO Brand Guidelines v1.0** (`00-brief/context/brand/brand-guidelines.md`); `rounds/round-02/outputs/DOM/landing-positioning.md`; `product/docs/business-rules.md` **v0.3.8** (BR-110, BR-112, BR-305, BR-811, BR-911…916, mục 13 tham số); `02-escalations/ESC-020.md` (L1–L7 đã quyết A); ADR-014 mục 4.3–4.9; hợp đồng `openapi.yaml` 0.3.7 bổ sung 2 (`WebsiteBookingRequestInput`, `WebsiteBookingRequestAccepted`); SEC `landing-zalo-SEC.md`, `landing-booking-SEC.md` (Phụ lục A); backlog EP19 (US-146…160, US-155).
+- Quy ước: **[Chưa xác minh]** = đội chưa kiểm được · **[Chờ INV]** = chỉ INV có thông tin hoặc quyền quyết · **[GIẢ ĐỊNH]** = đội tạm dùng, ghi ở mục 15.
 
 ---
 
 ## 0. Tóm tắt
-- Một trang dài, ưu tiên điện thoại, **tiếng Anh mặc định, nút chuyển sang tiếng Việt** (cả hai bản nằm sẵn trong trang). Không form, không ô nhập, không đo lường.
-- Màu, chữ, giọng văn **đúng Brand Guidelines**: nền Ivory/Cream, chữ Ink, nhấn Oak/Earth Brown, Sage ≤ 5% chỉ để trang trí. **Bỏ hẳn terracotta và biến thể B** của v0.1.
-- Ảnh thật: 18 ảnh chọn từ 45 ảnh gốc, WebP + AVIF ở 480/960/1600 px, tổng 4,54 MB (thư mục). **Điện thoại (< 768 px) chỉ tải tối đa bản 960 px, bất kể DPR**; ảnh hero 16 KB (DPR 1) / 48 KB (DPR 2–3). Ngân sách dung lượng theo DPR ở mục 11.2.
-- Bốn hạng phòng theo e-brochure; tên phòng thiên nhiên (The Pine … The Ember) hiện như một "vũ trụ tên", **không gán cho căn nào** (chờ bảng ghép của INV).
-- Thanh liên hệ dính đáy trên điện thoại: WhatsApp · Zalo · Call (bản EN), Zalo · WhatsApp · Gọi (bản VI).
-- Kiểm bằng Chromium không giao diện: 320/375/1280 px × EN/VI – không cuộn ngang (quét thêm 98 bề rộng 320–1920 px), đúng một H1, mọi cặp chữ–nền đạt AA (thấp nhất 4,53), axe-core 0 lỗi, 0 ký tự rơi sang font dự phòng, logo đạt cỡ tối thiểu, LCP đo được 0,61 giây (lab) – mục 11.
 
-## 1. Mục tiêu và phạm vi v1
+| Ý INV (FB-INV-002) | v1.2.1 làm gì | Kiểm bằng |
+|---|---|---|
+| 1. Không nhắc số phòng | Không câu nào nói số phòng/căn, không liệt kê đủ bộ tên phòng, không `numberOfRooms`. v1.2.1 bỏ thêm H2 tiếng Việt "Bốn hạng phòng" (dễ đọc lướt thành "bốn phòng") → "Chọn phòng hợp với bạn"; bỏ chữ "căn" còn sót ở lead và FAQ tiếng Việt. | Script quét chữ hiện + `<title>` + meta + JSON-LD, EN và VI: 0 lần khớp (mục 12.1) |
+| 2. Boutique stay, không phải căn hộ dịch vụ | Câu định vị theo DOM: **"The care of a small hotel, with a kitchen, a washer-dryer and a desk in every room."** Mục 2 **"Stay a night, or a season."** – hai lời hứa ngang hàng. v1.2.1: "utilities by meter / điện nước theo công tơ" rời mục 2 sang FAQ ở dài ngày; "monthly agreement / hợp đồng theo tháng" → "clear monthly terms / điều khoản theo tháng rõ ràng"; bớt lặp bếp – máy giặt – bàn làm việc. | Danh sách từ cấm (mục 2.3); đếm lặp (mục 12.1) |
+| 3. Đặt phòng trực tiếp, về Desk nguồn website | **INV đã chọn A** (17/10): yêu cầu đặt phòng vào Desk, xác nhận qua Zalo, không thanh toán online. Mục **"Request to book"**: 3 bước + form + trang cảm ơn. v1.2.1: câu đồng ý theo SEC Phụ lục A, form thu **một** cách liên hệ, trẻ em đếm theo nhóm tuổi, tên khóa theo hợp đồng nơi chỉ khác tên. | Luồng form bằng Playwright (mục 12.1) |
+| 4. Zalo OA là chính | Zalo có ở hero, thanh đáy, header (từ 768 px), Liên hệ (nút chính), chân trang, trang cảm ơn. WhatsApp · Telegram · Viber chỉ trong ô gập **"Other channels"** ở mục Liên hệ. Facebook là liên kết thường. | Không request tới facebook.com/zalo.me khi tải trang |
+| 5. Bố cục rối | 8 mục, mỗi mục một ý. v1.2.1: chân trang còn một dòng link (bỏ lặp địa chỉ, hotline, "Other channels"); một thứ bậc nút cho hero và thanh đáy; thanh đáy ẩn ở Liên hệ và chân trang; FAQ còn 4 câu. Trang 375 px: 9.314 → **8.870 px**. | Chiều cao mục, ảnh chụp (mục 12.3) |
+
+- **Không có ESC mới.** Câu chữ có số và nội dung cần INV duyệt nằm trong ESC-020 L5 (PO gom ở `rounds/round-02/outputs/PO/landing-inv-questions.md`); danh sách ở mục 15.1.
+
+### 0.1 Đã sửa theo phản biện (v1.2 → v1.2.1)
+
+| Mục phản biện | Đã sửa | Ở đâu |
+|---|---|---|
+| **N1** Liên hệ + chân trang lặp | Chân trang chỉ còn lockup, tagline, một dòng link **Zalo · Facebook · Email**, dòng © và link "Privacy notice". Bỏ cột địa chỉ, hotline và ô gập "Other channels" ở chân trang. Mục Liên hệ bỏ dòng Address (mục Vị trí đã có). Ở 375 px: Liên hệ 761 → 680 px, chân trang 780 → 384 px (−477 px). Địa chỉ còn 1 lần, "Other channels" còn 1 lần. | 3.1, 6; mock `#contact`, `footer` |
+| **N2** Thứ bậc nút đảo khi cuộn; hai nút Zalo đặc | Chốt **một** thứ bậc: nút đặc = **Request to book**, Zalo = nút viền, ở cả hero và thanh đáy (cùng thứ tự). Zalo chỉ là nút đặc ở mục Liên hệ và trang cảm ơn – nơi không có nút đặt phòng. Thanh đáy ẩn khi hero, mục Book, **mục Liên hệ hoặc chân trang** đang trên màn hình. | 3.3; mock `.stickybar`, IntersectionObserver |
+| **N3** "utilities by meter" ở mục 2 | Thẻ "For a month, or longer" chỉ còn "Monthly rates and a housekeeping plan to suit you." "Utilities by meter" chuyển vào FAQ "How do long stays work?"; "a simple monthly agreement" → "clear monthly terms" (VI: "điều khoản theo tháng rõ ràng"). | 2.2, 2.3; mock `#why`, `#faq-long` |
+| **N4** Không có lối Zalo giữa trang trên máy tính | Header từ 768 px có link chữ **"Chat on Zalo"** (biểu tượng bong bóng + chữ, không phải nút đặc) cạnh nút viền "Request to book". Header dính nên lối Zalo luôn ở đầu màn hình. | 3.1; mock `.h-zalo` |
+| **T1** "Bốn hạng phòng", chữ "căn" | H2 VI → "Chọn phòng hợp với bạn". Lead VI → "…mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng."; FAQ VI → "phòng nào cũng có…"; meta description VI sửa theo. Script thêm từ cấm "căn" đứng riêng và "bốn hạng phòng". | 2.3; mock hero, `#rooms`, FAQ |
+| **T2** Lặp bếp / máy giặt / bàn | Thẻ "For a few nights" nói giấc ngủ, yên tĩnh, dọn phòng, rộng hơn mong đợi, ban công. Thẻ ở dài nói nhịp sống (đi chợ, nấu bữa ở nhà, giờ làm việc bên cửa sổ), không kê thiết bị. Studio City: "City lights from your window". Lời dẫn Rooms bỏ "balcony". Chữ hiện (FAQ đóng), EN: kitchen 4 → 2, washer 3 → 2, desk 5 → 3, balcony 4 → 3; VI: bếp 5 → 3, giặt 5 → 3. | 2.2; mock `#why`, `#rooms` |
+| **T3** FAQ lặp (không bắt buộc) | Bỏ câu "Is my request a confirmed booking?" (trùng bước 3 và dòng "No payment on this website"). Câu ở dài ngày giữ vì nay chứa chi tiết riêng (điện nước, điều khoản). FAQ giữ vị trí sau form: đường từ Vị trí tới form ngắn hơn. | 3.1; mock `#faq` |
+| **T4** Nút Zalo hero bị cắt ở 375×812 | Ảnh hero điện thoại cao tối đa 36svh → **30svh**; khoảng ảnh – chữ và lead – nút 32 → 24 px (< 768 px). Thanh MOCK một dòng trên điện thoại (73 → 37 px). Đo ở 375×812: hai nút kết thúc ở 739/799 px **có** thanh MOCK, 702/762 px không có. | 10; mock `.hero` |
+| **T5** Chữ nút không thống nhất | Mọi nút/link dẫn tới form: **"Request to book" / "Yêu cầu đặt phòng"** (header, menu, hero, thanh đáy, H2 mục Book). Nút gửi: "Send booking request" / "Gửi yêu cầu đặt phòng". Không còn "Book" hay "Đặt phòng" trơn (script kiểm). | 3.3, 5.1 |
+| **T6** Khoảng cách lẻ (không bắt buộc) | Sửa CSS về thang: nút 22 → 24 px; ô nhập 11/14 → 12/16 px (viền lỗi 2 px làm bằng `box-shadow`, không đổi padding); `.btn-sm` 10 → 8 px; `gap` 6 → 8 px; `.brand` 10 → 12 px (lockup 187 px, vẫn ≥ 180); `.wm-sub` 6 → 8 px; mũi tên link .4em → 8 px; bước 2 → 4 px. Ngoại lệ có chủ ý: độ lệch vòng focus, độ lệch gạch chân, độ dày viền, `p` cách 1em, thanh MOCK và chip Notes. | 3.3 |
+| **T7** Xuống dòng | "280 L", "280 lít", "1 Gbps", "55-inch", "55 inch", "07:00–22:00" không ngắt (`.nw`). Dòng thông số phòng: rút gọn ("Sleeps 2–3 · 29 m² · City view") và dấu "·" không bao giờ đứng cuối hay đầu dòng (CSS `clip-path`). Nút chọn kiểu ở: "By the night / By the month" – "Theo đêm / Theo tháng" (một dòng từ 320 px). Ô hạng phòng: tên ngắn, số khách sang dòng gợi ý dưới ô; "Hạng nào cũng được" (VI). Đo: không nút chọn nào hai dòng, không chữ nào bị cắt trong ô chọn ở 320–1280 px. Ô ngày hiện theo ngôn ngữ trình duyệt (mm/dd/yyyy ở Chrome tiếng Anh) – ghi cho FE-LP và QA ở mục 13. | 4, 5.2, 13 |
+| **T8** WhatsApp ngang Zalo trong form | **Giữ.** Form là lối chính cho mọi khách, kể cả khách nước ngoài chưa có Zalo (DOM R1); Zalo đứng đầu và chọn sẵn; bốn ô cùng cỡ để dễ chạm. Ngoài form, WhatsApp vẫn chỉ ở ô gập. ORC nói rõ với INV đây là chủ ý. | 5.2, 15.1 |
+| **T9** Link Zalo chưa phải OA | Ghi nhận: tạm `zalo.me/0844440909`, đổi sang link OA khi xác thực (ESC-021) – một chỗ cấu hình (`CFG.zaloUrl` / `site.json`). | 6 |
+| Ánh xạ hạng phòng (ORC nhắc) | Đã đúng theo DOM ở mục 4 và G-14: **Premium = 302/402 (Căn N+), Signature = 301/401 (Căn N)**. Mục 7 của v1.2 là bảng màu, không chứa ánh xạ. Trang không ghi số căn. | 4, 15.3 |
+| DOM qua ORC: tên khóa tham số | Bỏ `web_inquiry.*`, `public_site.*`. Câu hứa đọc `web_request_public_promise_minutes` (60) và `web_request_public_promise_next_morning_by` (09:00), giờ trực `front_desk_hours`. Hạn nội bộ `web_request_response_minutes` = **15** phút tính `replyBy` – trang **không** hiện `replyBy`. | 5.4, 13 |
+
+### 0.2 Áp thẻ SEC (phần giao diện)
+
+| Thẻ | Đã làm |
+|---|---|
+| FB-R2-SEC-UXD-04 | Ô đồng ý dùng đúng câu **A.1**; ngay dưới là dòng thông báo **A.2** (luôn hiện) và link "Privacy notice / Thông báo xử lý dữ liệu" tới `/privacy/#booking-requests` (`/vi/privacy/#yeu-cau-dat-phong`), mở cùng thẻ. `consentVersion` lấy từ tệp thông báo phát hành cùng bản dựng (mock ghi `{privacy_notice_version}`). Câu pháp lý không dịch máy. |
+| FB-R2-SEC-UXD-05 | Ô bẫy: nhãn "Leave this field empty", ra ngoài màn hình bằng class, thêm `data-1p-ignore`, `data-lpignore="true"` (FE-LP tra đủ danh sách). Trang cảm ơn thêm dòng lối thoát: "If you have not heard from us by {giờ}, call 08.4444.0909 or message us on Zalo with this number." – **{giờ} là mốc của câu hứa công khai, không phải `replyBy`** (BR-912 v0.3.8, xem 5.4). |
+| FB-R2-SEC-UXD-06 | FAQ chống giả danh theo câu SEC chốt, có `{receivingAccountHolder}` (lấy từ `payment_receiving_account` lúc dựng trang; chờ tên pháp nhân). Thêm câu "Our Facebook page is for news…" – **chờ INV xác nhận** nhân viên không xác nhận đặt phòng/nhận cọc qua Messenger. |
+| FB-R2-SEC-UXD-07 | Tên khóa theo `WebsiteBookingRequestInput` nơi chỉ khác tên: `guestName`, `preferredChannel`, `note`, `roomType` (slug theo quy tắc của hợp đồng). Mã yêu cầu theo bảng Crockford của server (`^[0-9A-HJKMNP-TV-Z]{8}$`), hiển thị 4 + 4 bằng khoảng cách CSS (không có ký tự gạch nối/khoảng trắng – chép ra là đúng 8 ký tự Desk tìm). Phần lệch còn lại ghi ở 5.2 để ARC sửa hợp đồng. |
+| FB-R2-SEC-UXD-08 | Thẻ `<form>` render với `hidden`, **không** có `action`; script form bỏ `hidden`. Không JS → không bao giờ gửi được. Mã, tên, ngày không vào URL/hash/tiêu đề. Nút "Open Zalo" chỉ là link OA, không chèn dữ liệu khách. |
+
+### 0.3 Theo PO (qua ORC, 17/10)
+
+| Điểm PO | Đã làm | Ở đâu |
+|---|---|---|
+| (1) Gỡ G-9 | INV đã chọn A – bỏ dòng G-9 khỏi bảng giả định; bỏ mọi nhãn chờ INV về A | 15.3 |
+| (2) Premium "extra bed" sai so với ESC-014 | Mock: EN "A bedroom, a living room **and a sofa for one more guest**." · VI "Phòng ngủ riêng, phòng khách riêng **và sofa ngủ thêm một người**." Câu VI đúng như PO. Câu EN bỏ chữ "bed" ("sofa bed" → "sofa"): BR-110 ghi người vượt định mức ngủ **sofa lớn có sẵn, không nệm phụ**, và DOM dặn không viết "sofa bed" – để khách không chờ một chiếc sofa giường. PO đưa câu vào Q4 cho INV duyệt. **Lưu ý cho PO/DOM:** BR-110 cũng ghi Premium (302, 402) có 1 giường lớn + **1 giường 1m4** trong định mức 3 – câu mới không nhắc giường này; INV xác nhận ở Q4 | 4; mock thẻ Premium |
+| (3) Không tự nhận "hotel"/"khách sạn", hạng sao | Rà toàn trang: bỏ một chỗ không cần ("hotel check-in times" ở FAQ). Còn 3 chỗ, đều là **so sánh**, không tự nhận loại hình – lý do từng chỗ ở mục 2.4. Script chặn "is a hotel / là khách sạn", hạng sao, "luxury/sang trọng", JSON-LD `@type: Hotel` | 2.4; 12.1 |
+| (4) Link fanpage về `#book` (PO chốt) | Link "Book now" = trang chủ + `#book`; form nằm trong trang chủ như mock | 5.7 |
+| (5) Câu hứa "trong 1 giờ (07:00–22:00); ngoài giờ trước 09:00" | Bước 2 mục Book, khối "form tắt" và trang cảm ơn dùng đúng cấu trúc này | 5.1, 5.4 |
+
+## 1. Mục tiêu và phạm vi
+
 | Mục tiêu | Cách trang đáp ứng |
 |---|---|
-| Kéo khách về kênh trực tiếp (PRD G3) | Mọi nút dẫn về WhatsApp/Telegram/Viber/Zalo/điện thoại của cơ sở, không dẫn sang OTA |
-| Lấp căn dài hạn (G2) | Hero, khối "A month, or longer", hỏi đáp thuê tháng |
-| Ấn tượng boutique, đúng thương hiệu | Brand Guidelines v1.0, ảnh thật, câu ngắn – điềm tĩnh |
-| Nhanh trên 4G | LCP mục tiêu ≤ 2,5 giây (phân vị 75) |
+| Kéo khách về kênh trực tiếp (PRD G3 ≥ 35%) | Form yêu cầu là lối chính cho mọi khách; Zalo là kênh chat chính; không link OTA |
+| Đo được khách từ website/Facebook (ý 3) | Yêu cầu vào Desk `directSource = website` + nguồn phụ theo hợp đồng (`facebook`, `instagram`, `google`, `zalo`, `qr`, `other`, rỗng – BR-911 v0.3.8); UTM đọc ngay trên trang, không cookie |
+| Hai nhóm khách cùng hài lòng (ý 2) | Mục 2 "Stay a night, or a season." + câu từng hạng phòng (DOM mục 4) |
+| Calm, đúng thương hiệu (ý 5) | Bộ lọc quyết định của guideline áp cho từng mục (mục 3.2) |
+| Nhanh trên 4G | Trần ảnh 960 px trên điện thoại, ngân sách DPR (mục 12.2) |
 
-Phạm vi và không-phạm-vi theo PO (`landing-scope.md` mục 3): không form, không giá đêm, không phòng trống/thanh toán, không widget chat, không pixel, không link OTA.
+Ngoài phạm vi: thanh toán online (L7-C), phòng trống/giá thật (L7-B – chỉ thiết kế chỗ chờ, mục 5.6), tiếng Nga (US-156), trang thông báo xử lý dữ liệu (SEC soạn, luật sư duyệt), tên phòng gắn theo hạng (chờ bảng ghép của INV).
 
-Khác v0.1: mock v1 **bỏ ô "Hỏi phòng trống"** (ngày, số khách). Lý do: trang hoàn toàn tĩnh, không ô nhập nào (SEC UXD-03 dễ chứng minh). Thay bằng nút "Ask about this room" ở từng hạng phòng, mở WhatsApp với câu soạn sẵn tên hạng phòng. PO quyết có đưa lại ô này ở v1.1 không.
+## 2. Định vị và giọng văn
 
-## 2. Màu – đúng bảng 80/15/5
+### 2.1 Câu định vị (theo DOM 1.1)
+- EN: *OTTIMO is a boutique stay in Da Lat: the care of a small hotel, in rooms with a full kitchen, a washer-dryer, a desk and a private balcony. For a few nights, more than you expected. For a few months, exactly what you need.*
+- Trên trang: nhãn **"Boutique stay · Da Lat"** + H1 tagline + lead **"The care of a small hotel, with a kitchen, a washer-dryer and a desk in every room."** / **"Sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng."**
+- Thứ tự kể (DOM): *dẫn bằng kỳ nghỉ → chứng minh bằng căn phòng → chốt bằng độ dài ở*. Không chê khách sạn.
+- Thiết bị kể **một lần** ở lead hero và **chi tiết** ở Tiện nghi; các mục khác kể bằng trải nghiệm (giấc ngủ, nhịp sống), không kê lại thiết bị (T2).
 
-### 2.1 Token (chỉ 7 màu của guideline + trắng)
-| Token | HEX | Nhóm | Vai trò trên landing |
-|---|---|---|---|
-| `--ivory` | #F4F0E8 | Neutrals | Nền chính của trang, header, thanh đáy |
-| `--cream` | #EDE6D8 | Neutrals | Dải xen kẽ (About, Why, Contact), thẻ, nền chờ ảnh |
-| `--stone` | #6B6760 | Neutrals | Chữ phụ (mô tả, chú thích) trên Ivory/Cream; nét núi sau của monogram |
-| `--ink` | #2B2B28 | Neutrals | Chữ chính; dải tối "Lobby & location"; chân trang; viền nút phụ; vòng focus |
-| `--oak` | #B08D57 | Warm Woods | Nét kẻ mảnh (hairline), vạch trước nhãn, gạch dưới wordmark; **chữ nhãn chỉ trên nền Ink** |
-| `--earth` | #7A5C44 | Warm Woods | **Nền nút chính** (chữ trắng), nhãn mục, link, số thứ tự, dấu "·" giữa tên phòng |
-| `--sage` | #8A9079 | Botanical | Chỉ trang trí: chấm tròn ở danh sách sự thật hero và bảng khoảng cách (< 1% diện tích) |
-| `--white` | #FFFFFF | – | Chỉ cho chữ trên nút Earth Brown |
-
-- Tỷ lệ thực tế (không tính ảnh): Ivory/Cream/Ink chiếm gần hết diện tích; Earth/Oak chỉ ở nút, nhãn, nét kẻ; Sage dưới 1%.
-- **Đã xóa** `--clay`, `--clay-ink`, `--clay-soft`, `--clay-deep`, `--band*` và biến thể B. Không còn màu ngoài bảng.
-- **Không có chế độ tối** cho landing (UXD quyết): thương hiệu dựa trên nền Ivory; dải Ink đã tạo nhịp sáng–tối. Trang khai báo `color-scheme: light` để trình duyệt không tự đảo màu.
-
-### 2.2 Cặp chữ–nền và tương phản (đo bằng công thức WCAG, kiểm lại trên DOM thật – mục 11)
-| Chữ | Nền | Tỷ lệ | Dùng ở | AA (≥ 4,5) |
-|---|---|---|---|---|
-| Ink | Ivory | 12,49 | Thân bài, tiêu đề | Đạt |
-| Ink | Cream | 11,43 | Chữ trên dải/thẻ Cream | Đạt |
-| Ivory | Ink | 12,49 | Dải Vị trí, chân trang, nút EN/VI đang chọn | Đạt |
-| Cream | Ink | 11,43 | Chữ phụ trên nền tối | Đạt |
-| Stone | Ivory | 4,95 | Chữ phụ | Đạt |
-| Stone | Cream | 4,53 | Chữ phụ trong thẻ Cream | Đạt (sát ngưỡng – không dùng Stone dưới 14 px trên Cream) |
-| Earth | Ivory | 5,37 | Nhãn, link | Đạt |
-| Earth | Cream | 4,91 | Nhãn, link trên Cream; dấu "·" giữa tên phòng (v1 dùng Oak 2,49 – đã sửa) | Đạt |
-| White | Earth | 6,10 | Nút chính | Đạt |
-| Oak | Ink | 4,59 | Nhãn mục trên nền tối | Đạt |
-
-Thành phần không phải chữ: viền nút phụ Ink trên Ivory 12,49; vòng focus Ink (nền sáng) / Ivory (nền tối) ≥ 11:1.
-
-### 2.3 Chỗ guideline cần chỉnh (UXD ghi lệch, đề xuất guideline v1.1)
-| Guideline nói | Đo được | Landing làm | Đề xuất |
-|---|---|---|---|
-| "White trên Oak/Earth cho nút, nhãn" | White/Oak **3,09:1** – không đạt AA cho chữ thường (chỉ đạt chữ ≥ 24 px) | Nút dùng **Earth Brown** (6,10:1). Oak không làm nền chữ | Guideline v1.1: "White trên Earth Brown cho nút; Oak chỉ cho nét kẻ, chữ ≥ 24 px, hoặc chữ Ink trên Oak (4,59)" |
-| "Tránh Sage/Oak làm chữ trên nền sáng" | Oak/Ivory 2,72; Sage/Ivory 2,91 | Đúng – không dùng | Giữ |
-| Tracking "+4", "+10" không ghi đơn vị | – | Hiểu là % cỡ chữ (như Figma): H1 0,04em, H2 0,02em, nhãn 0,1em | Hỏi người làm guideline đơn vị (1/1000 em hay %) |
-
-## 3. Chữ – theo thang chữ của guideline, chuyển sang px web
-| Cấp guideline | Font | Guideline (in) | Web: điện thoại → máy tính | Dòng | Giãn chữ | Dùng ở |
-|---|---|---|---|---|---|---|
-| H1 Display | Lora 400 | 40–64 pt | 36 → 60 px (`clamp`) | 1,1 | 0,04em | Tagline – **một H1 duy nhất** |
-| H2 Heading | Lora 400 | 26–32 pt | 28 → 40 px | 1,2 | 0,02em | Tiêu đề mục; tên hạng phòng dùng H2 thu nhỏ 22 → 26 px (như brochure) |
-| H3 Subhead | Be Vietnam Pro 600 | 16–20 pt | 18 → 20 px | 1,3 | 0 | Tiêu đề ý, thẻ, câu hỏi |
-| Body | Be Vietnam Pro 400 | 11–13 pt | 16 → 17 px (đoạn dẫn 18 → 20) | 1,5 | 0 | Thân bài |
-| Label | Be Vietnam Pro 500, CHỮ HOA | 9–11 pt | 13 px | 1,4 | 0,1em | Nhãn mục (có vạch Oak 28 px phía trước), chỉ số phòng |
-| Mono | JetBrains Mono 400 | 10–13 pt | 11–12 px | 1,4 | 0 | **Chỉ cho mã.** Landing thật không có mã (không wifi, không mã đặt phòng) → bản production **không tải** font Mono. Mock chỉ dùng cho thanh "MOCK" và chip mã ảnh |
-
-- Quy đổi tham chiếu: **1 pt = 1,333 px** (định nghĩa của CSS). Theo cách đọc này thân bài 16–17 px (12–12,75 pt) và nhãn 13 px (9,75 pt) nằm trong khoảng guideline; H1/H2 ở máy tính cũng nằm trong khoảng. Chỗ lệch nằm ở **H1/H2 trên điện thoại** và **H3** – bảng 3.1.
-- Thân bài tối thiểu 16 px để dễ đọc và iOS không tự phóng khi chạm.
-- Dự phòng: Georgia / Arial / Courier New (theo guideline). Cả ba font Google đều có bộ ký tự tiếng Việt.
-- Đơn vị `rem`, phóng chữ 200% không mất nội dung.
-
-### 3.1 Điều chỉnh cỡ tiêu đề cho web (so với bảng chữ guideline p22)
-Đo trên mock (Chromium, font Lora/Be Vietnam Pro đã tải). "Trong khoảng" tính theo 1 pt = 1,333 px.
-
-| Cấp | Guideline (in) | = px CSS | Web 320–375 px | Web 1280 px | So với guideline | Lý do |
-|---|---|---|---|---|---|---|
-| H1 Display (tagline) | Lora 40–64 pt | 53,3–85,3 px | **36 px** (27 pt), 4 dòng | 58,9 px (44 pt), tối đa 60 px từ 1323 px | Điện thoại **thấp hơn**; máy tính trong khoảng | Tagline 52 ký tự. Ở 53,3 px (40 pt) tagline thành **6 dòng, cao 352 px** ở cả 320 và 375 px – gần nửa màn hình chỉ cho một câu. Ở 40 px: 5 dòng ở 320 px. 36 px giữ 4 dòng ở 320–375 px. |
-| H2 Heading | Lora 26–32 pt | 34,7–42,7 px | **28 px** (21 pt) | 39,8 px (29,9 pt), tối đa 40 px | Điện thoại **thấp hơn**; máy tính trong khoảng | Giữ thứ bậc với H1 điện thoại 36 px (tỉ lệ 1,29). Nếu H2 = 34,7 px thì gần bằng H1 36 px, mất bậc. |
-| H3 Subhead | Be Vietnam Pro SemiBold 16–20 pt | 21,3–26,7 px | 18 px (13,5 pt) | 20 px (15 pt) | **Thấp hơn** ở mọi khổ | H3 trên landing là tiêu đề thẻ ngắn đứng ngay trên thân bài 16–17 px. 18–20 px SemiBold vẫn khác rõ thân bài (đậm + lớn hơn) mà không chen vào H2 28 px ở điện thoại. |
-| Tên hạng phòng (thẻ `h3`) | Guideline p21: "Lora: wordmark, **tên phòng**, tiêu đề, signage" | – | Lora 400, 22 px | Lora 400, 26 px | Dùng **Lora** thay vì Be Vietnam Pro SemiBold của H3 | Xem 3.2 |
-
-- Không đổi: Body 16–17 px, Label 13 px, Mono 11–12 px (Mono chỉ ở chip mock, production không tải).
-- Tracking giữ như bảng trên (0,04em / 0,02em / 0,1em) – giả định G-6.
-
-### 3.2 Vì sao tên hạng phòng dùng Lora dù nằm ở cấp H3
-- Guideline p21 xếp **tên phòng** vào vai của Lora (cùng wordmark, tiêu đề, signage). Bảng cấp chữ p22 chỉ định font cho cấp H3 nói chung. Hai trang mâu thuẫn ở đúng chỗ này; landing theo p21 vì tên hạng phòng là **tên riêng**, không phải tiêu đề phụ.
-- E-brochure (trang 6–29) đặt tên hạng phòng bằng chữ serif. Khối "Inspired by nature" (The Pine … The Ember) cũng là Lora. Cùng một font cho mọi tên phòng giúp khách nhận ra đây là "tên", không phải nhãn chức năng.
-- Về ngữ nghĩa HTML vẫn là `h3` (dưới H2 "Four ways to stay longer in Da Lat") để trình đọc màn hình đi đúng cây tiêu đề. Chỉ hình thức chữ khác.
-- Mọi H3 khác (thẻ "A few nights", 5 ý Why OTTIMO, thẻ liên hệ, tiện nghi) dùng Be Vietnam Pro SemiBold đúng p22.
-- Đề xuất guideline v1.1: ghi rõ "Tên phòng / hạng phòng: Lora 400, cỡ giữa H2 và H3" (gộp vào mục 14 #11).
-
-### 3.3 Ký tự ngoài bộ font
-- Bộ con Latin của Google Fonts (và bản tự host theo cùng subset) **không có** "→" (U+2192) và "≈" (U+2248). v1 để trình duyệt vẽ hai ký tự này bằng Arial.
-- v1.1: mũi tên trong link "Ask for our direct rate" / "Monthly stays" là **SVG nội tuyến** 1em, `currentColor`, `aria-hidden`; "≈ 28 km" thành "about 28 km" / "khoảng 28 km". Chip ghi chú của mock cũng bỏ "←", "↔".
-- Kiểm bằng CDP `CSS.getPlatformFontsForNode` trên mọi phần tử và giả phần tử: chỉ còn Lora, Be Vietnam Pro, JetBrains Mono (0 glyph Arial/Courier New) ở 320/375/1280 × EN/VI, kể cả khi bật Notes.
-- Quy tắc cho FE và người viết nội dung: chỉ dùng ký tự có trong subset latin + latin-ext + vietnamese; mũi tên, biểu tượng là SVG.
-
-## 4. Logo – bản giữ chỗ
-- Header và chân trang dùng **lockup ngang**: monogram núi | vạch Oak | wordmark "OTTIMO" (Lora 400, giãn 0,12em) + "BOUTIQUE STAY" (Be Vietnam Pro 500, giãn 0,2em, Stone).
-- Monogram vẽ lại bằng SVG nội tuyến theo trang p12: hai dãy núi lồng nhau, núi trước Ink có khấc tuyết, núi sau + đường chân Stone. Trên nền Ink: núi trước Ivory, núi sau Stone (theo p15).
-- Kích thước (v1.1, đo trên DOM): wordmark "OTTIMO" Lora 26 px = **122 px** (tối thiểu 120); lockup = monogram 40 + khoảng 10 + vạch 1 + khoảng 10 + wordmark 122 = **183 px** (tối thiểu 180); monogram 40 px (tối thiểu 32). Khi Lora chưa tải (Georgia): 121 px / 182 px – vẫn đạt.
-- Header: **≥ 375 px dùng lockup ngang**; 320–374 px chỉ hiện wordmark (lockup + nút EN/VI + menu không đủ chỗ). Chân trang **luôn dùng lockup** ở mọi khổ. Ở 375 px header còn dư 10 px.
-- v1 sai: wordmark 23 px = 108 px ở 320 px, lockup 177 px ở header/chân trang – dưới cỡ tối thiểu (kiểm độc lập M1).
-- Tên truy cập: bỏ `aria-label`, chữ "OTTIMO Boutique Stay" đọc thẳng từ nội dung (chữ hoa bằng CSS); chân trang thêm "– back to top / – về đầu trang" ẩn trực quan. Sửa lỗi axe `label-content-name-mismatch` mà v1 có.
-- Favicon là monogram (32 px) dạng data URI.
-- **Đây là bản giữ chỗ** – mock ghi rõ ở thanh trên cùng. Thay bằng tệp SVG gốc khi INV gửi (ESC-020 "Còn thiếu" #6). Không kéo giãn, không đổi màu ngoài bảng.
-
-## 5. Giọng văn và nội dung
-- **Tiếng Anh dẫn dắt, tiếng Việt hỗ trợ.** Bản EN có một dòng tiếng Việt nhỏ dưới hero ("Một căn hộ ở Đà Lạt — để ở lại một tháng, hay lâu hơn."); bản VI có dòng tiếng Anh tương ứng. H1 luôn là tagline tiếng Anh (gắn `lang="en"`).
-- **Tagline:** *A refined stay inspired by the calm spirit of Dalat.* – giữ nguyên văn ("Dalat"); thân bài viết "Da Lat" như brochure [Chờ INV xác nhận cách viết].
-- Câu ngắn, lịch sự, không emoji, không cảm thán, không IN HOA để nhấn (chữ hoa chỉ ở nhãn theo guideline).
-- Nguồn chữ: e-brochure 2026 (L5-A), UXD biên tập cho web:
-
-| Chỗ | Brochure | Landing v1 | Lý do |
-|---|---|---|---|
-| Tên thương hiệu trong câu | "Ottimo" | "OTTIMO" | Theo guideline ("Welcome to OTTIMO.") |
-| Tiện nghi giấc ngủ | "Five-star sleep · chuẩn 5 sao"; "Chuẩn thiết bị resort 5 sao" | "Hotel-grade sleep · Dunlopillo" | Tránh lời quảng cáo hạng sao chưa có căn cứ; guideline "không luxury dát vàng" [Chờ INV duyệt ở L5] |
-| Studio City View | "for one long-stay guest" | bỏ cụm này | Hạng phòng ghi 2 khách – tránh mâu thuẫn |
-| Câu mở trang | "A hotel is for visiting. Ottimo is for living." | Giữ, đặt làm trích dẫn ở About | Câu đắt nhất của brochure |
-| Email | email cá nhân in ở trang cuối | `booking@ottimo.vn` (INV xác nhận 17/10) | Không đăng dữ liệu cá nhân; chờ hộp thư chung trên tên miền (ESC-020 #3) |
-
-- Câu chống giả danh (SEC/DOM-06) ở Hỏi đáp: "OTTIMO only messages you from the numbers on this page, our official Zalo account and your booking platform's inbox. We never ask for card numbers and never change bank details by message."
-- Không hứa "ưu đãi cho lần sau" (SEC UXD-03). Không có câu "không lưu thông tin bạn nhập" vì trang không có ô nhập; thay bằng "This site has no forms and no tracking cookies."
-
-## 6. Sơ đồ trang (mock v1)
-| # | Mục | Neo | Nền | Nội dung chính (EN) | Nút |
-|---|---|---|---|---|---|
-| 0 | Header dính | – | Ivory | Lockup, menu (Rooms · Amenities · Location · FAQ), EN/VI | Book direct (≥ 768 px); ☰ (< 1024 px) |
-| 1 | Hero | `#top` | Ivory | Ảnh mặt tiền chạng vạng (LCP), nhãn "Boutique stay · Da Lat", H1 tagline, đoạn dẫn, 4 sự thật: Check-in 14:00 · Check-out 12:00 · 1 Gbps fibre · In-room washer-dryer | Book direct · View the rooms |
-| 2 | Hai cách ở (US-146) | – | Ivory, thẻ Cream | "A few nights" / "A month, or longer" | Ask for our direct rate · Monthly stays (link + mũi tên SVG) |
-| 3 | About | `#about` | Cream | "Move in, not check in." + ảnh sảnh + trích dẫn | – |
-| 4 | Hạng phòng | `#rooms` | Ivory | "Four ways to stay longer in Da Lat" – 4 thẻ (mục 7) + khối tên phòng | Ask about this room (WhatsApp/Zalo theo ngôn ngữ) |
-| 5 | Why OTTIMO | `#why` | Cream | "Runs like your own home, in every detail." – 5 ý của brochure | – |
-| 6 | Tiện nghi | `#amenities` | Ivory | "Everything a home has — ready to move in." – 12 tiện nghi đúng hãng/model | – |
-| 7 | Sảnh & vị trí | `#location` | **Ink** | "Groceries, cafés, the office — all minutes away." / "Home, in silence." – địa chỉ, bảng 8 khoảng cách, ảnh flycam + ban công | Open in Google Maps · Copy address |
-| 8 | Hỏi đáp | `#faq` | Ivory | 5 câu: giờ nhận/trả, thuê tháng, cách đặt, hỗ trợ, chống giả danh | – |
-| 9 | Đặt trực tiếp | `#contact` | Cream | "Talk to us directly." – 3 thẻ kênh (mục 10) | WhatsApp · Telegram · Viber · Chat on Zalo · Call |
-| 10 | Chân trang | – | Ink | Lockup trên nền tối, tagline, địa chỉ, liên hệ, © 2026 | – |
-| – | Thanh dính đáy (< 768 px) | – | Ivory | 3 nút cao 48 px | WhatsApp · Zalo · Call |
-
-Bố cục: khung tối đa 1200 px; lề 16/24/32 px; khoảng mục 64/80/104 px; bo góc 4 px (gần vuông như brochure); nét kẻ Oak 1 px. Chuyển động: chỉ chuyển màu nút 200 ms; tôn trọng `prefers-reduced-motion`. Chữ không đặt trên ảnh.
-
-## 7. Bốn hạng phòng (theo e-brochure trang 6–29)
-| # | Hạng (EN · VI) | Sức chứa | Diện tích | Hướng | Ảnh trên landing |
-|---|---|---|---|---|---|
-| 01 | Standard Studio · City View — Studio — Hướng thành phố | 2 khách · 1 giường đôi | 29 m² | Thành phố | `city-living`, `city-bed`, `city-view` |
-| 02 | Standard Studio · Garden View — Studio — Hướng vườn | 2 khách · 1 giường đôi | 28–34 m² | Vườn | `garden-oak`, `garden-navy`, `garden-balcony` |
-| 03 | Premium · One Bedroom + 1 — Premium — 1 phòng ngủ + 1 | 3 khách · 1 giường đôi + 1 đơn | 37 m² | Vườn | `premium-kitchen`, `premium-bed`, `premium-living` |
-| 04 | Signature · Two Bedrooms — Signature — 2 phòng ngủ | 4 khách · 2 giường đôi | 47 m² | Vườn | `signature-dining`, `signature-bed`, `signature-bath` |
-
-- Mỗi thẻ: ảnh chính 3:2 + 2 ảnh nhỏ, chỉ số + hướng, tên EN (tên VI làm dòng phụ – bản VI đảo lại), bảng Sleeps/Size/View, mô tả brochure đã biên tập, dòng giá, nút hỏi.
-- Giá: "Nightly and monthly rates on request." – chưa hiện "Monthly from …" vì L3 chưa quyết và chưa có bảng ghép hạng ↔ giá (decision-log 17/10, PO).
-- Số căn mỗi hạng **không ghi** [Chờ INV]. Suy đoán từ brief (6 căn lầu 1–2 = Studio; Căn N 301/401 = Premium; Căn N+ 302/402 = Signature) [Chưa xác minh].
-- **Vũ trụ tên phòng:** khối "Inspired by nature – Ten apartments, ten names — none of them numbers." liệt kê The Pine · The Mist · The Fern · The Bloom · The Valley · The Amber · The Sage · The Velvet · The Ivory · The Ember. **Không gán tên cho căn hay hạng** tới khi INV gửi bảng ghép.
-
-## 8. Ảnh
-
-### 8.1 Ánh xạ thư mục Drive → hạng phòng (UXD đối chiếu ảnh với trang brochure)
-| Thư mục | Hạng phòng / khu | Bằng chứng (trang brochure dùng chính ảnh đó) | Độ tin cậy |
-|---|---|---|---|
-| Mặt tiền + Sảnh (6) | Mặt tiền chiều (01a, 02), chạng vạng (03, 04.1), flycam ban ngày (05.2), sảnh lễ tân (01b) | p31 = 01b; p33 = cùng loạt mặt tiền | Cao |
-| Phòng 1 (7) | Standard Studio · Garden View – bản **gỗ sáng** ("rộng nhất tầng") | p13 = 7, p14 = 1, p15 = 3, p16 = 4 | Cao |
-| Phòng 2 (6) | Standard Studio · Garden View – bản **navy** ("gọn") | p16 (ảnh nhỏ) = 01, p17 = 02 + 03, p18 = 04, p19 = 05, p30 = 06 | Cao |
-| Phòng 3 (10) | Standard Studio · City View (kem – xám) | p7 = 04, p8 = 03, p9 = 02, p10 = 05/06/07, p11 = 09 + 01.1, p12 = 10 + 08 | Cao |
-| Phòng 4 (9) | Signature · Two Bedrooms | p25 = 3, p26 = 4, p27 = 5, p28 = 6/7/8, p29 = 9 | Cao |
-| Phòng 5 (7) | Premium · One Bedroom + 1 | p20 = 1, p21 = 2, p22 = 3, p23 = 4/5/6, p24 = 7 | Cao |
-
-- Lưu ý: brochure p24 (Premium) còn dùng **Phòng 1/6.png** (phòng khách gỗ sáng, đúng phong cách Phòng 1) – có thể brochure dàn trang nhầm [Chờ INV]. Landing không dùng ảnh này.
-- Bản gỗ sáng 34 m², bản navy 28 m² là suy luận từ câu "largest on the floor / compact" [Chưa xác minh].
-- Thư mục "Phòng n" là **một căn đại diện** cho hạng, không phải căn cụ thể nào được công bố.
-
-### 8.2 Bộ 18 ảnh
-| ID | Nguồn | Dùng ở |
+### 2.2 Lời hứa kép – ai đọc thấy gì
+| Nhóm khách | Lời hứa | Chỗ trên trang |
 |---|---|---|
-| `hero-facade-dusk` | mat-tien-sanh/04.1.png | Hero – ảnh LCP, có preload |
-| `lobby` | mat-tien-sanh/01b.png | About |
-| `aerial-hillside` | mat-tien-sanh/05.2.png | Vị trí |
-| `city-living`, `city-bed`, `city-view` | phong-3/03, 06, 08 | Hạng 01 |
-| `garden-oak`, `garden-navy`, `garden-balcony` | phong-1/1, phong-2/05, phong-1/7 | Hạng 02 |
-| `premium-kitchen`, `premium-bed`, `premium-living` | phong-5/5, 2, 4 | Hạng 03 |
-| `signature-dining`, `signature-bed`, `signature-bath` | phong-4/3, 6, 5 | Hạng 04 |
-| `detail-laundry-desk` | phong-2/02.png | Why OTTIMO |
-| `detail-kitchen` | phong-1/3.png | Tiện nghi |
-| `detail-balcony-sunset` | phong-2/06.png | Vị trí |
+| Đặt kiểu khách sạn (vài đêm) | **Beyond what a hotel room gives you** – "Check in at 14:00 to a quiet room, a bed made for deep sleep and daily housekeeping. And more space than you expected, with a balcony of your own." | Mục 2 thẻ trái; mô tả từng hạng; Tiện nghi "Small luxuries for one night" |
+| Ở dài (một tháng trở lên) | **Made for living here** – "Unpack once and settle into your own rhythm: market mornings, dinners cooked at home, quiet hours of work by the window. Monthly rates and a housekeeping plan to suit you." | Mục 2 thẻ phải; mô tả từng hạng ("a quiet desk for the weeks after"); Tiện nghi "The essentials for a month"; FAQ "How do long stays work?"; form "By the month" |
 
-Chi tiết (kích thước gốc, trang brochure, alt EN/VI): `mock/img/CREDITS.md`, `mock/img/manifest.json`.
+- Hai thẻ ngang hàng, cùng cỡ, không thẻ nào "chính".
+- "Dọn phòng mỗi ngày" chỉ nói cho **khách ngắn ngày** (BR-807); khách tháng là "gói dọn phòng tùy chọn" (BR-204).
+- "Điện nước theo công tơ" (BR-501) và "điều khoản theo tháng rõ ràng" **chỉ ở FAQ ở dài ngày** – nơi chỉ khách ở dài mở ra đọc (N3).
 
-Lọc theo SEC (FB-R2-SEC-UXD-02): không người; không cận khóa cửa/bàn phím; không số căn; không màn hình có dữ liệu. Loại `phong-3/01.1` (cửa có khóa điện tử và bảng nội quy chiếm nhiều khung hình). `detail-laundry-desk` và `city-living` có tay nắm khóa ở xa, không đọc được hãng – chấp nhận. TV chỉ hiện logo OTTIMO.
-
-### 8.3 Đường ống
-- `node product/design/landing/tools/optimize-images.mjs` – dùng `sharp` có sẵn trong repo (services/api hoặc kho pnpm), không thêm phụ thuộc.
-- WebP q72 + AVIF q50; rộng 480 / 960 / 1600 px; xoay theo EXIF, trải nền Ivory cho ảnh có kênh alpha, xuất sRGB, **xóa toàn bộ metadata**.
-- Kết quả: 18 ảnh × 3 cỡ × 2 định dạng = 108 tệp, **4,54 MB** (< 6 MB). Ảnh hero 960w: AVIF 48 KB / WebP 68 KB.
-- Trang: `<picture>` AVIF → WebP, `srcset` + `sizes` khớp bố cục; ảnh khác hero `loading="lazy" decoding="async"`; mọi ảnh có `width`/`height`; nền chờ Cream.
-- **Trần ảnh điện thoại (v1.1):** 10 ảnh có bản 1600 px được thêm cặp `<source media="(max-width: 767px)">` (AVIF + WebP) chỉ gồm 480/960 px. Điện thoại DPR 3 tải 960 thay vì 1600 (mật độ thực 2,56× ở 375 px – mắt thường không phân biệt với ảnh chụp). Ảnh nhỏ trong thẻ phòng vốn chỉ có 480/960.
-- **Hero:** `fetchpriority="high"` + hai `<link rel="preload" as="image">` tách theo `media` (`max-width: 767px` → 480/960, `sizes="100vw"`; `min-width: 768px` → 480/960/1600) – trùng hệt `media`/`srcset`/`sizes` của `<source>` nên ảnh chỉ tải **một lần** (đã đo ở DPR 1/2/3 và máy tính).
-- Vì sao không thêm bản 720/1200: Chromium chọn bản nhỏ nhất ≥ số px cần. Ở 375 px DPR 2 cần 750 px → bản 720 không được chọn, vẫn tải 960; ở DPR 3 cần 1125 px → bản 1200 được chọn, nặng hơn 960. Trần 960 rẻ hơn và không phải chạy lại đường ống ảnh.
-- Ảnh gốc PNG không vào git. Khi FE dựng `product/apps/landing-web` (ADR-014), chuyển `img/` và script sang app đó (thêm tham số thư mục ra).
-- Ảnh chia sẻ link (OG 1200×630, JPEG) chưa xuất – làm cùng FE khi có tên miền.
-
-## 9. Vị trí (e-brochure trang 31–32)
-- Địa chỉ: **30/3 Triệu Việt Vương, Phường Xuân Hương, Đà Lạt, Lâm Đồng**. Nút "Open in Google Maps" dùng link chỉ đường theo địa chỉ (chỉ mở khi bấm, không nhúng bản đồ). Đổi sang ghim chính xác khi INV gửi (ESC-020 #2).
-- Bảng thời gian đi ô tô (Google Maps, ước tính – theo brochure). Trên trang: bản EN viết số thập phân bằng dấu chấm (1.7 km), **bản VI bằng dấu phẩy (1,7 km; 3,3 km)**; không dùng ký tự "≈".
-
-| Điểm đến (EN · VI) | Khoảng cách | Thời gian |
-|---|---|---|
-| Bao Dai Summer Palace · Dinh Bảo Đại III | 1,7 km | 4 phút |
-| Da Lat Cathedral · Nhà thờ Con Gà | 2,5 km | 6 phút |
-| Truc Lam Zen Monastery · Thiền viện Trúc Lâm | 3,3 km | 7 phút |
-| Da Lat Market · Xuan Huong Lake · Chợ Đà Lạt · Hồ Xuân Hương | 3,3 km | 7 phút |
-| Intercity bus station · Bến xe liên tỉnh | 3,7 km | 8 phút |
-| Lam Vien Square · Quảng trường Lâm Viên | 3,8 km | 8 phút |
-| Tuyen Lam Lake · Hồ Tuyền Lâm | 4,1 km | 9 phút |
-| Lien Khuong Airport · Sân bay Liên Khương | khoảng 28 km (EN: about 28 km) | 30 phút |
-
-## 10. Liên hệ và nút
-| Kênh | Số / địa chỉ (công khai trong brochure) | Link | Ghi chú |
-|---|---|---|---|
-| WhatsApp | +84 84 444 0909 | `https://wa.me/84844440909` (+ `?text=` theo hạng phòng) | [Chưa xác minh trên máy thật – QA thử] |
-| Telegram | +84 84 444 0909 | `https://t.me/+84844440909` | [Chưa xác minh] |
-| Viber | +84 84 444 0909 | `viber://chat?number=%2B84844440909` | Máy không cài Viber sẽ không mở [Chưa xác minh] |
-| Zalo | 08.4444.0909 (hotline) | `https://zalo.me/0844440909` | Tạm Zalo số hotline cơ sở; đổi sang link OA khi xác thực (ESC-021) – chỉ sửa cấu hình |
-| Gọi | 08.4444.0909 | `tel:+84844440909` | |
-| Email | `booking@ottimo.vn` (INV xác nhận 17/10) | chưa có link | Chờ tên miền + hộp thư chung (ESC-020 #3) |
-
-- Thứ tự theo ngôn ngữ (ESC-020 L2-A): bản EN đưa WhatsApp/Telegram/Viber lên trước và tô nút WhatsApp; bản VI đưa Zalo lên trước và tô nút Zalo – áp cho thanh đáy và thẻ liên hệ.
-- Thanh dính đáy (< 768 px): 3 nút cao 48 px, nút đầu Earth Brown; trang chừa `padding-bottom` để không che chân trang; `scroll-padding` để header/thanh đáy không che phần tử đang focus.
-- Không dùng logo của WhatsApp, Zalo… (nhãn hiệu bên khác) – chỉ chữ + biểu tượng chung (bong bóng chat, điện thoại).
-
-## 11. Kiểm tra (Chromium không giao diện, Playwright 1.63 + axe-core 4.14 của repo – v1.1, 17/10/2026)
-
-### 11.1 Bố cục, a11y, thương hiệu
-| Hạng mục | 320 EN/VI | 375 EN/VI | 1280 EN/VI |
-|---|---|---|---|
-| Cuộn ngang (trước và sau khi cuộn hết trang) | Không | Không | Không |
-| Số H1 | 1 | 1 | 1 |
-| Trùng `id` | 0 | 0 | 0 |
-| Vùng chạm < 44 px (trừ thanh MOCK) | 0 | 0 | 0 |
-| axe-core (WCAG 2.0/2.1/2.2 A + AA), hỏi đáp mở hết, Notes bật | 0 lỗi | 0 lỗi | 0 lỗi |
-| Tương phản chữ–nền (mọi nút chữ + giả phần tử `::before/::after`) | 10 cặp, thấp nhất 4,53 | như trái | như trái |
-| Glyph vẽ bằng font dự phòng (Arial, Courier New…) | 0 | 0 | 0 |
-| Logo header | wordmark 122 px | lockup 183 px | lockup 183 px |
-| Logo chân trang | lockup 183 px | lockup 183 px | lockup 183 px |
-| Lỗi console | 0 | 0 | 0 |
-| Menu điện thoại mở, không tràn | Đạt | Đạt | – |
-
-- **Quét bề rộng thêm**: 320–480 px mỗi 2 px và 17 mốc 540–1920 px × EN/VI = 196 lần – **0 cuộn ngang**. Lần quét này bắt được một lỗi có từ v1: bản VI tràn 3 px ở 360–362 px (4 "sự thật" ở hero đặt cột `max-content`) → đổi sang cột `auto`.
-- **Font chặn** (giả lập Google Fonts không tải được, Georgia thay Lora): 320–1024 px không cuộn ngang; wordmark 121 px, lockup 182 px – vẫn trên cỡ tối thiểu.
-- **Tương phản**: script đi qua mọi nút chữ đang hiện và giả phần tử có nội dung, lấy màu chữ và nền thật → 10 cặp, đúng bảng mục 2.2; **0 cặp dưới 4,5**. v1 có 11 cặp, cặp thứ 11 là Oak trên Cream 2,49 (dấu "·" giữa tên phòng) – đã sửa.
-- **Font dự phòng**: CDP `CSS.getPlatformFontsForNode` trên mọi phần tử → chỉ Lora, Be Vietnam Pro, JetBrains Mono. v1 có "→" ×2 và "≈" vẽ bằng Arial, "←"/"↔" ở chip mock vẽ bằng Courier New.
-- **axe v1 đo lại bằng cùng script**: 1 lỗi `label-content-name-mismatch` (2 nút: link logo header/chân trang có `aria-label` không chứa chữ đang hiện). v1.1 hết lỗi (mục 4).
-
-### 11.2 Dung lượng theo DPR và ngân sách
-Cách đo: Chromium, xóa bộ nhớ đệm, cộng `encodedDataLength` của CDP (byte truyền thật, gồm header); máy chủ cục bộ nén gzip HTML; trình duyệt chọn AVIF; font từ Google Fonts (chỉ ở mock). "Lúc mở trang" = sau `load` + mạng rảnh, chưa cuộn (đã gồm ảnh lười mà Chromium tải trước vì nằm gần màn hình). "Cuộn hết" = cuộn từng đoạn tới cuối trang.
-
-**Đo được – điện thoại 375 px, bản EN** (v1 → v1.1):
-| | DPR 1 | DPR 2 | DPR 3 |
-|---|---|---|---|
-| Ảnh hero | 480 px · 16 KB | 960 px · 48 KB | v1: 1600 px · 116 KB → **960 px · 48 KB** |
-| Lúc mở trang | 214 KB / 18 yêu cầu (ảnh 77 · font 117 · HTML 19) | 283 KB / 18 (ảnh 147) | v1: 502 KB → **364 KB** / 18 (ảnh 227) |
-| Cuộn hết | 313 KB / 28 (ảnh 176) | 532 KB / 28 (ảnh 395) | v1: 1.081 KB → **656 KB** / 28 (ảnh 520) |
-
-- Bản VI (thêm bộ chữ tiếng Việt của Google, +60 KB): DPR 2 = 343 KB lúc mở / 591 KB cuộn hết; DPR 3 = 423 KB / 716 KB (v1: 561 KB / 1.140 KB).
-- Ảnh hero chỉ tải **một lần** ở mọi lần đo (preload và `<source>` khớp nhau).
-- DPR 1 và 2 không đổi so với v1 (trần 960 chỉ tác động khi điện thoại cần hơn 960 px).
-- Máy tính 1280 px, EN (không đổi so với v1): DPR 1 – hero 960 px · 48 KB, mở 349 KB, cuộn hết 506 KB; DPR 2 – hero 1600 px · 116 KB, mở 662 KB, cuộn hết 1.032 KB.
-
-**Ngân sách** (FE giữ khi dựng `landing-web`; QA đo lại bằng cùng cách):
-| Điện thoại 375 px, EN | DPR 1 | DPR 2 | DPR 3 | Kết quả v1.1 |
-|---|---|---|---|---|
-| Ảnh hero | ≤ 20 KB | ≤ 50 KB | ≤ 50 KB | Đạt (16 / 48 / 48) |
-| Lúc mở trang | ≤ 250 KB | ≤ 320 KB | ≤ 400 KB | Đạt (214 / 283 / 364) |
-| Cuộn hết trang | ≤ 350 KB | ≤ 600 KB | ≤ 700 KB | Đạt (313 / 532 / 656) |
-
-- Bản VI được cộng thêm ≤ 70 KB cho bộ chữ tiếng Việt → VI DPR 3: 423 ≤ 470, 716 ≤ 770 – Đạt.
-- Máy tính 1280 px: DPR 1 – hero ≤ 50 KB, mở ≤ 400 KB, cuộn hết ≤ 600 KB; DPR 2 – hero ≤ 120 KB, mở ≤ 700 KB, cuộn hết ≤ 1.100 KB. Đạt.
-- Quy tắc giữ ngân sách: điện thoại không bao giờ tải ảnh > 960 px; ảnh mới phải qua `tools/optimize-images.mjs`; font production tự host chỉ gồm subset cần dùng (không lớn hơn số đo của Google Fonts ở trên).
-
-### 11.3 LCP
-- Phần tử LCP là ảnh hero. Máy đo lab 412×823 @1,75 cần 721 px → bản 960 (48 KB) ở cả v1 và v1.1, nên số đo không đổi.
-- Đo lab (Slow 4G giả lập qua CDP: 150 ms, 1,6 Mbps, CPU chậm 4×; máy chủ cục bộ; 3 lần): **trung vị 0,61 giây**. Chưa tính DNS/TCP/TLS tới máy chủ thật.
-- Ước tính cho VPS thật trên Slow 4G: kết nối ~0,45 s + HTML ~0,25 s + ảnh hero ~0,4 s (song song CSS/font) + giải mã/vẽ ~0,2 s ≈ **1,3–1,6 giây** (font tự host); thêm ~0,3–0,5 s nếu vẫn gọi Google Fonts. Đều dưới mục tiêu 2,5 giây. Điện thoại DPR 3 nay tải hero 48 KB thay vì 116 KB – bớt khoảng 0,3 s ở 1,6 Mbps.
-- Bên thứ ba khi tải trang: chỉ `fonts.googleapis.com` / `fonts.gstatic.com` (mock). Bản production tự host font → **0 bên thứ ba** (SEC C-1).
-
-### 11.4 Ảnh chụp
-`mock/shots/`, chế độ "Notes: off", PNG bảng màu, tổng **1,35 MB** (< 1,5 MB):
-| Tệp | Khung | Dung lượng |
-|---|---|---|
-| `mobile-375-en-top.png` | 375×812, lockup ngang ở header | 81 KB |
-| `mobile-375-vi-top.png` | 375×812 | 82 KB |
-| `mobile-320-en-top.png` | 320×640, header chỉ wordmark (mới ở v1.1) | 59 KB |
-| `desktop-1280-en-top.png` | 1280×800 | 203 KB |
-| `mobile-375-en-full.png` | cả trang 375 px, thu về 320 px | 588 KB |
-| `desktop-1280-en-full.png` | cả trang 1280 px, thu về 640 px | 364 KB |
-
-## 12. Bàn giao FE – production khác mock ở đâu
-| Mock | Production (`product/apps/landing-web`, ADR-014) |
+### 2.3 Từ dùng – từ tránh (gộp DOM 2.1, 2.2; script kiểm ở mục 12.1)
+| Dùng | Tránh |
 |---|---|
-| Google Fonts | Tự host woff2 (OFL), subset latin + latin-ext + vietnamese; preload Lora 400; không tải JetBrains Mono |
-| `<style>`, `<script>` nội tuyến | Tệp CSS/JS có mã băm, CSP `style-src 'self'` (SEC C-1, UXD-01). Mock đã bỏ hết thuộc tính `style=""` để FE chép dễ |
-| Chuyển ngôn ngữ bằng nút + `localStorage` | Hai URL `/` và `/en/` (hoặc `/vi/`) có `hreflang`; vào lần đầu theo ngôn ngữ trình duyệt (L1-A). Nút EN/VI là link |
-| Thanh "MOCK" + nút Notes + chip ghi chú | Bỏ |
-| Email `booking@ottimo.vn` (INV xác nhận 17/10) | Email chung thật hoặc ẩn dòng email |
-| Monogram vẽ tay | SVG gốc của INV |
-| Không có OG/JSON-LD đầy đủ | OG 1200×630 + JSON-LD `LodgingBusiness` (mock đã có khung JSON-LD) |
-| `<picture>` có cặp `<source media="(max-width: 767px)">` 480/960 + 2 preload hero theo `media` | Giữ nguyên cấu trúc (trần 960 px trên điện thoại, mục 8.3); giữ ngân sách mục 11.2 |
-| Logo: wordmark 26 px, lockup 183 px, header < 375 px chỉ wordmark | Giữ cỡ tối thiểu khi thay bằng SVG gốc: wordmark ≥ 120 px, lockup ≥ 180 px, monogram ≥ 32 px ở mọi khổ |
-| Mũi tên link là SVG nội tuyến; không dùng "→", "≈", "←" trong chữ | Chỉ dùng ký tự có trong subset font tự host; biểu tượng là SVG (mục 3.3) |
-- Dùng token ở mục 2.1, không thêm màu. Mọi nút là `<a href>` thật – trang dùng được khi JavaScript lỗi (chỉ nút "Copy address" cần JS).
+| boutique stay · room, studio, one-/two-bedroom · phòng, hạng phòng | apartment, serviced apartment, aparthotel, unit · căn hộ, căn hộ dịch vụ, **căn**, chung cư |
+| reception, housekeeping, check-in/out · lễ tân, dọn phòng, nhận/trả phòng | self check-in, no reception · tự nhận phòng |
+| by the night / by the month, a few nights / a month or longer · theo đêm / theo tháng, ở dài ngày | lease, rental, move in, **monthly agreement** · thuê nhà, thuê tháng, dọn vào, **hợp đồng theo tháng** |
+| clear monthly terms · điều khoản theo tháng rõ ràng (chỉ ở FAQ ở dài) | – |
+| booking request, deposit · yêu cầu đặt phòng, cọc | instant confirmation · xác nhận ngay |
+| Request to book · Yêu cầu đặt phòng | **"Book", "Đặt phòng" trơn trên nút** (gợi đặt chắc – trái phương án A) |
+| "the care of a small hotel", "hotel-grade bedding" | hotel (tự nhận), 5-star, luxury · khách sạn (tự nhận), 5 sao, sang trọng |
+| EN "Four ways to stay"; VI "Chọn phòng hợp với bạn" | ten rooms, mười căn, **"Bốn hạng phòng"**, only 2 left, liệt kê đủ bộ tên phòng |
 
-## 13. Đã xử lý review
+- Script kiểm: `/apartment/i, /serviced/i, /căn hộ/i, /(?<!\p{L})căn(?!\p{L})/iu, /\bten (rooms|apartments|names)\b/i, /\bmười\b/i, /\b10 (căn|phòng|rooms|apartments)\b/i, /numberOfRooms/, /The Pine|The Ember|The Mist/, /monthly agreement/i, /hợp đồng theo tháng/i, /\blease\b/i, /thuê tháng/i, /bốn hạng phòng/i`; thêm: không nút/link nào có chữ đúng bằng "Book" hoặc "Đặt phòng"; mục `#why` không chứa "meter"/"công tơ".
+- Giọng: ngắn, lịch sự, không cảm thán, không emoji, không IN HOA để nhấn. EN dẫn dắt, VI là bản biên tập. H1 luôn là tagline tiếng Anh (`lang="en"`).
 
-### 13.1 Review SEC (17/10)
-| Thẻ | Xử lý trong v1 |
-|---|---|
-| FB-R2-SEC-UXD-01 | Ghi "MOCK v1 · not production code" trên đầu trang; bỏ thuộc tính `style`; ghi rõ tự host font, không CSS nội tuyến ở production (mục 12); không còn `localStorage` cho sáng/tối (bỏ chế độ tối) |
-| FB-R2-SEC-UXD-02 | Danh sách kiểm ảnh áp cho 18 ảnh (mục 8.2, CREDITS.md); không có bản đồ tĩnh hay QR Zalo trong trang (chỉ link khi bấm); metadata ảnh đã xóa |
-| FB-R2-SEC-UXD-03 | Không hứa ưu đãi; có câu chống giả danh; trang không có ô nhập nào |
+### 2.4 Chữ "hotel / khách sạn" trên trang (US-146 AC5, ESC-001 LZ-9)
+Quy tắc: trang **không tự nhận** là khách sạn/hotel, không nêu hạng sao, không "luxury/sang trọng"; loại hình là **boutique stay**; JSON-LD `LodgingBusiness`. So sánh với khách sạn được dùng khi nó là cách nói ngắn nhất cho định vị "giữa khách sạn và boutique stay" (Brand Guidelines mục 1) và cho lời hứa với nhóm khách đặt kiểu khách sạn (FB-INV-002 ý 2).
 
-### 13.2 Kiểm độc lập brand + a11y (17/10) – sửa trong v1.1
-| Mục | Vấn đề | Xử lý | Bằng chứng |
+| Chỗ | Câu | Vì sao giữ | Nếu luật sư (LZ-9) không cho |
 |---|---|---|---|
-| M1 | Wordmark 108 px ở 320 px (tối thiểu 120); lockup header/chân trang 177 px (tối thiểu 180) | `.wm-name` 23 → 26 px; monogram 44 → 40 px, khoảng cách 12 → 10 px; header < 375 px chỉ wordmark; chân trang luôn lockup | Wordmark 122 px, lockup 183 px ở 320/375/1280 (Georgia dự phòng: 121/182) – mục 4, 11.1 |
-| M2 | DPR 3 tải hero 1600 px (116 KB) vì `sizes=100vw` | Trần 960 px cho mọi ảnh trên điện thoại bằng `<source media>`; preload hero tách theo `media`; ghi ngân sách DPR 1/2/3 | 375 px DPR 3: hero 48 KB, mở 364 KB (v1: 502), cuộn hết 656 KB (v1: 1.081) – mục 8.3, 11.2 |
-| L1 | Dấu "·" giữa tên phòng: Oak trên Cream 2,49 | Đổi sang Earth Brown (4,91) | Tương phản thấp nhất toàn trang 4,53 – mục 2.2 |
-| L2 | Cỡ H1/H2 điện thoại lệch bảng chữ; tên phòng dùng Lora ở cấp H3 | Ghi bảng điều chỉnh web và lý do giữ Lora (guideline p21) | Mục 3.1, 3.2 |
-| L3 | "→" và "≈" vẽ bằng Arial | Mũi tên SVG; "about / khoảng 28 km"; chip mock bỏ "←", "↔" | 0 glyph dự phòng – mục 3.3, 11.1 |
-| L5 | Bản VI viết 1.7 km, 3.3 km | Ô khoảng cách tách EN/VI: VI dùng dấu phẩy (1,7 km; 3,3 km…) | Mục 9 |
-| Thêm | axe `label-content-name-mismatch` ở 2 link logo (có từ v1) | Bỏ `aria-label`, tên lấy từ chữ hiện; "back to top" ẩn trực quan | axe 0 lỗi – mục 4 |
-| Thêm | Bản VI tràn 3 px ở 360–362 px (có từ v1) | Cột "sự thật" hero `max-content` → `auto` | Quét 196 bề rộng × ngôn ngữ: 0 tràn – mục 11.1 |
+| Lead hero (+ meta description) | "The care of a small hotel, with a kitchen, a washer-dryer and a desk in every room." / "Sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có…" | Là **so sánh mức chăm sóc** ("sự chăm chút **của** một khách sạn nhỏ"), không phải câu "OTTIMO là khách sạn". Ngay trên là nhãn "Boutique stay · Da Lat" gọi đúng loại hình. Đây là câu định vị DOM chốt (DOM 1.1) – cũng là vai đã nêu LZ-9 | "Thoughtful service every day, with a kitchen, a washer-dryer and a desk in every room." / "Chăm chút như một nơi lưu trú chuyên nghiệp; mỗi phòng đều có…" |
+| H3 thẻ "For a few nights" | "Beyond what a hotel room gives you" / "Vượt những gì một phòng khách sạn mang lại" | So sánh **để nói OTTIMO khác** khách sạn ("beyond"). Là lời INV muốn nói với khách đặt kiểu khách sạn (ý 2: "vượt mong đợi") | "More than a room for the night" / "Hơn một phòng nghỉ qua đêm" |
+| Tiện nghi – Giấc ngủ | "Hotel-grade Dunlopillo mattress and bedding" / "Nệm và chăn ga Dunlopillo chuẩn khách sạn" | So sánh **tiêu chuẩn đồ dùng**, DOM 2.4 dùng thay "5 sao". LZ-9 hỏi đích danh cụm này | "Dunlopillo mattress and bedding" / "Nệm và chăn ga Dunlopillo" |
 
-## 14. Việc chờ INV và câu hỏi mở (gom vào ESC-020 "Còn thiếu" và lượt duyệt nội dung L5 – không mở ESC mới)
-1. Bảng ghép tên phòng ↔ số căn ↔ hạng; số căn mỗi hạng; xác nhận bảng ánh xạ ảnh ở mục 8.1.
-2. Logo SVG gốc.
-3. Email công khai trên tên miền mới.
-4. Quyền dùng 45 ảnh cho website/quảng cáo (L6).
-5. Giá "Monthly from …" theo hạng (L3).
-6. Giờ lễ tân có mặt (brochure không ghi) – FAQ hiện chưa nêu giờ.
-7. Đậu xe, thang máy, thú cưng.
-8. Đồng ý đổi "chuẩn 5 sao / resort 5 sao" thành "hotel-grade" (và sửa brochure cho khớp).
-9. Brochure p24 dùng ảnh Phòng 1/6.png cho hạng Premium – nhầm hay đúng?
-10. Cách viết "Dalat" (tagline) và "Da Lat" (thân bài) – giữ cả hai như hiện tại?
-11. Guideline v1.1: nút Earth Brown thay vì "White on Oak"; đơn vị tracking "+4/+10"; ghi rõ tên phòng/hạng phòng dùng Lora (p21 và p22 đang lệch nhau ở cấp H3) và bảng cỡ chữ riêng cho màn hình điện thoại (mục 3.1). Không cần INV quyết ngay – gửi người làm guideline khi có dịp.
-12. Link trang Facebook (brochure có QR) – có đưa vào chân trang không.
+- Đã bỏ: "hotel check-in times / giờ nhận – trả phòng như khách sạn" ở FAQ (nói thẳng giờ là đủ).
+- Script kiểm (mục 12.1): đếm 3 chỗ trên; chặn "is a hotel", "là khách sạn", "N star/sao", "luxury/sang trọng", `"@type": "Hotel"`.
 
-## 15. Giả định
+## 3. Kiến trúc thông tin
+
+### 3.1 Sơ đồ trang
+| # | Mục | Neo | Nền | Một ý | Nội dung | Nút / liên kết |
+|---|---|---|---|---|---|---|
+| 0 | Header dính | – | Ivory | Định hướng | Lockup, menu (Rooms · Amenities · Location · FAQ, ≥ 1024 px), EN/VI | ≥ 768 px: link chữ **"Chat on Zalo"** + nút viền "Request to book"; ☰ (< 1024 px) |
+| 1 | Hero | `#top` | Ivory | OTTIMO là gì | Ảnh mặt tiền, nhãn, H1 tagline, lead định vị | **Request to book** (đặc) · Chat on Zalo (viền) |
+| 2 | Why OTTIMO | `#why` | Ivory | Lời hứa kép | "Stay a night, or a season." + 2 thẻ có ảnh | – |
+| 3 | Rooms | `#rooms` | Cream | Chọn hạng | "Four ways to stay" / "Chọn phòng hợp với bạn" – 4 thẻ, mỗi thẻ 1 ảnh, một dòng thông số, 1–2 câu | "Request this room" (link, chọn sẵn hạng trong form) |
+| 4 | Amenities | `#amenities` | Ivory | Chi tiết cảm nhận mỗi ngày | 4 nhóm: Sleep · Kitchen & laundry · Work & rest · Reception & arrival | – |
+| 5 | Location | `#location` | **Ink** | Ở đâu, đi lại dễ không | Địa chỉ (**chỗ duy nhất**), bảng 6 điểm, ảnh flycam | Open in Google Maps · Copy address (viền) |
+| 6 | Book | `#book` | Ivory, thẻ Cream | Cách đặt + gửi yêu cầu | "Request to book": 3 bước, "No payment on this website", form | **Send booking request** (đặc) |
+| 7 | FAQ | `#faq` | Ivory (nét kẻ Oak) | Gỡ băn khoăn còn lại | **4 câu**: loại hình · dọn phòng · ở dài ngày (điện nước, điều khoản) · tin nhắn thật hay giả | – |
+| 8 | Contact | `#contact` | Cream | Nói chuyện với người thật | "Talk to us." | **Chat on Zalo** (đặc); Hotline, Email, Facebook (dòng chữ); "Other channels" (gập – **chỗ duy nhất**) |
+| – | Footer | – | Ink | – | Lockup, tagline, một dòng **Zalo · Facebook · Email**, © + "Privacy notice" | – |
+| – | Thanh dính đáy (< 768 px) | – | Ivory | Hành động nhanh | Chỉ khi hero, Book, Contact, chân trang **không** trên màn hình | **Request to book** (đặc, 3/5) · Chat on Zalo (viền, 2/5; dưới 360 px chỉ "Zalo" + biểu tượng) |
+
+### 3.2 Đối chiếu bộ lọc quyết định của guideline (p.10)
+Bốn câu: (1) Có yên tĩnh không? (2) Có lý do tồn tại không? (3) Khách có cảm nhận mỗi ngày không? (4) Có khiến khách muốn quay lại không?
+
+| Mục | (1) Yên tĩnh | (2) Lý do tồn tại | (3) Cảm nhận mỗi ngày | (4) Muốn quay lại |
+|---|---|---|---|---|
+| Hero | Một ảnh, một câu, hai nút | Trả lời "đây là gì" trong 5 giây (US-146) | Lead nói đúng thứ có trong phòng | Ấn tượng đầu đúng thương hiệu |
+| Why OTTIMO | Hai thẻ cân nhau, không kê thiết bị | Sửa hiểu nhầm "căn hộ dịch vụ" (ý 2) | Mỗi thẻ là một ngày ở thật | Khách ngắn ngày thấy "dư"; khách dài thấy "vừa" |
+| Rooms | 1 ảnh mỗi thẻ; điện thoại vuốt ngang | Chọn hạng (US-147) | Câu theo cách dùng | "for the weeks after" |
+| Amenities | 4 nhóm | Một chỗ duy nhất kê thiết bị (DOM 3.3) | Đúng câu (3) | Trụ cột "Utilities that just work" |
+| Location | Một dải tối duy nhất | Đi lại có tiện không (US-148) | Thời gian đi xe | "Calm evenings at home" |
+| Book | Thẻ form tách nền | Ý 3 của INV (US-155) | – | Biết trước quy trình |
+| FAQ | 4 câu, đóng sẵn | Băn khoăn còn lại; chống giả danh | Dọn phòng, điện nước tháng | Tin tưởng khi chuyển cọc |
+| Contact | Một nút; kênh khác gập | Ý 4 của INV (US-151) | – | Có người thật trả lời |
+| Footer | Một dòng link | Lối cuối trang + quyền riêng tư | – | – |
+
+### 3.3 Nhịp, khoảng trắng, thứ bậc nút
+- **Thang khoảng cách:** 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 128 px (`--s1`…`--s10`) cho mọi `padding`, `margin`, `gap` của bố cục và thành phần. Ngoại lệ có chủ ý (không phải khoảng bố cục): độ lệch vòng focus (2–3 px), độ lệch gạch chân (3 px), độ dày viền, khoảng đoạn văn `p` = 1em, thanh MOCK và chip Notes (chỉ ở mock). Kích thước (ô cao 48, cột nhãn 88, nút chạm 44) không thuộc thang.
+- Lề trang 16 / 24 / 32 px (điện thoại / ≥ 768 / ≥ 1024). Khoảng mục 64 / 96 / 128 px. Khoảng tiêu đề → nội dung 32 / 48 px.
+- Hai mục cùng nền liền nhau dùng **một** khoảng (Hero → Why) hoặc khoảng + nét kẻ Oak (Book → FAQ).
+- Nhịp nền: Ivory · Ivory · **Cream** · Ivory · **Ink** · Ivory (thẻ Cream) · Ivory · **Cream** · **Ink**.
+- **Thứ bậc nút (chốt v1.2.1 – N2):**
+  - Ở mọi chỗ có cả hai hành động (hero, thanh đáy): **Request to book = nút đặc, đứng trước; Chat on Zalo = nút viền, đứng sau.** Cùng thứ tự, cùng thứ bậc khi khách cuộn.
+  - Lý do: đặt phòng là việc chính của trang và là đường duy nhất Desk ghi được nguồn `website` (ý 3); Zalo là kênh **chat** chính (ý 4) – luôn có mặt, một chạm, nhưng là lựa chọn thứ hai khi đứng cạnh nút đặt phòng.
+  - Zalo là nút đặc **chỉ** ở mục Liên hệ, trang cảm ơn ("Open Zalo") và khối "form tắt" – những chỗ không có nút đặt phòng.
+  - Header: link chữ "Chat on Zalo" + nút viền "Request to book" (không tranh với hero).
+  - **Một nút đặc mỗi màn hình**: hero, form, Liên hệ, trang cảm ơn. Mọi hành động khác là nút viền hoặc link chữ.
+- **Thanh dính đáy:** ẩn khi bất kỳ phần nào của nút hero, mục Book, mục Liên hệ hoặc chân trang đang trên màn hình (IntersectionObserver) → không bao giờ có hai nút đặc cùng lúc, không che bàn phím khi điền form, không lặp nút Zalo của Liên hệ, không che chân trang. Ẩn bằng `transform` + `visibility`; tôn trọng `prefers-reduced-motion`. Không có IntersectionObserver/JS → thanh luôn hiện và chân trang có thêm khoảng đệm bằng chiều cao thanh.
+- Chuyển động: đổi màu nút 200 ms, trượt thanh đáy 250 ms. Chữ không đặt trên ảnh.
+
+## 4. Thẻ hạng phòng (4 hạng theo e-brochure; sức chứa theo BR-110, câu theo DOM mục 4)
+| # | Hạng (EN · VI) | Dòng thông số (EN · VI) | Câu trên thẻ (EN) | Ảnh |
+|---|---|---|---|---|
+| 01 | Standard Studio · City View — Studio — Hướng thành phố | Sleeps 2–3 · 29 m² · City view · 2–3 khách · 29 m² · Nhìn ra phố | City lights from your window. Easy for a weekend, easy for a month. | `city-living` |
+| 02 | Standard Studio · Garden View — Studio — Hướng vườn | Sleeps 2–3 · 28–34 m² · Garden view | Glass to the garden and a private balcony. Morning light for a short stay; a quiet desk for the weeks after. | `garden-oak` |
+| 03 | Premium · One Bedroom + 1 — Premium — 1 phòng ngủ + 1 | Sleeps 3–4 · 37 m² · Garden view | A bedroom, a living room and a sofa for one more guest. The space of a suite for a short stay; room for family on a long one. (VI: "Phòng ngủ riêng, phòng khách riêng và sofa ngủ thêm một người.") | `premium-kitchen` |
+| 04 | Signature · Two Bedrooms — Signature — 2 phòng ngủ | Sleeps 4–5 · 47 m² · Garden view | Two bedrooms, a table for four and a sunset balcony. One booking for the whole family, or for two remote workers over a season. | `signature-dining` |
+
+- Dòng chung dưới lưới: "The higher number includes one guest on the sofa, with an extra-guest fee. Rates by the night or by the month, on request." / "Số lớn hơn là khi thêm một khách ngủ sofa (có phụ thu). Giá theo đêm hoặc theo tháng, báo khi bạn gửi yêu cầu." Giá "from …" chờ L3 + bảng ghép hạng – nhóm giá.
+- Dòng thông số: mỗi mục không ngắt; dấu "·" nằm giữa hai mục, bị cắt nếu rơi vào đầu dòng (không bao giờ đứng cuối/đầu dòng – T7).
+- Premium: câu sofa theo PO (ESC-014) – PO Q4, INV duyệt. EN dùng "sofa", không "sofa bed" (BR-110: sofa lớn có sẵn, không nệm phụ). Giường 1m4 trong định mức 3 (BR-110) không còn nhắc trên thẻ – INV xác nhận ở Q4 (mục 0.3).
+- **Ánh xạ nội bộ (theo DOM 4, đã kiểm lại):** Premium = Căn N+ (**302, 402**); Signature = Căn N (**301, 401**); hai hạng Studio = Lầu 1–2 [GIẢ ĐỊNH – chờ bảng ghép chính thức của INV, hẹn 19/10]. Trang không ghi số căn mỗi hạng.
+- Điện thoại (< 768 px): 4 thẻ là hàng **vuốt ngang** (scroll-snap, thẻ rộng 80%). ≥ 768 px: lưới 2 × 2.
+- Tên phòng thiên nhiên (The Pine …) không hiện; khi có bảng ghép, tên hiện trong thư viện ảnh **từng hạng** (DOM 2.3).
+
+## 5. Đặt phòng trực tiếp – "Request to book" (phương án A – INV chọn 17/10)
+
+### 5.1 Luồng của khách
+1. Bấm **Request to book** (hero, header, menu, thanh đáy, link "Request this room" – chọn sẵn hạng) hoặc nút **"Book now" của fanpage Facebook**.
+2. Đọc 3 bước: *Send a request* → *We confirm on Zalo* ("Within 1 hour (07:00–22:00, Da Lat time); outside these hours, before 09:00 the next morning." / "Trong 1 giờ (07:00–22:00, giờ Đà Lạt); ngoài giờ, trước 09:00 sáng hôm sau." – BR-912 (4)) → *Secure your room* (giữ phòng khi xác nhận và chuyển cọc 30% qua QR – BR-305). Dòng cam kết: "No payment on this website. A request does not commit you to anything."
+3. Điền form (≤ 1 phút) → **Send booking request**.
+4. Trang cảm ơn trong cùng thẻ (mục 5.4).
+
+Tổng: 1 màn, 1 lần bấm gửi – đạt checklist "đặt phòng ≤ 4 bước".
+
+### 5.2 Trường của form
+Tên khóa theo `WebsiteBookingRequestInput` (hợp đồng 0.3.7 bổ sung 2) ở những chỗ chỉ khác tên (SEC UXD-07). Chỗ còn lệch ghi ở bảng "Việc cho ARC" ngay dưới.
+
+| Nhóm | Trường (nhãn EN / VI) | Kiểu | Khóa gửi đi | Quy tắc |
+|---|---|---|---|---|
+| Your stay | Length of stay: **By the night / By the month** · Theo đêm / Theo tháng | 2 nút chọn (radio, legend ẩn "Length of stay") | `stayType` `short`\|`long` | Mặc định `short`. Một dòng từ 320 px |
+| | Check-in, Check-out / Nhận phòng, Trả phòng | `date` ×2 | `arrival`, `departure` | `arrival` từ hôm nay (giờ Đà Lạt) đến +365 ngày (BR-112); chọn ngày đến thì ngày đi tự +2 đêm nếu trống/sai; hiện "n nights"; ≥ 28 đêm hiện "We will quote our long-stay rate" (server ghi `stayKind = long`, BR-108) |
+| | Arrival + Length of stay / Ngày đến + Thời gian ở | `date` + select | `arrival`, `months` | 1 · 2 · 3 · 6 tháng · 1 năm · 2 năm · "Not sure yet" (`null`) |
+| | Adults / Người lớn · Ages 6–11 / Trẻ 6–11 tuổi · Under 6 / Dưới 6 tuổi | 3 select | `adults` (1–6), `children6to11` (0–3), `childrenUnder6` (0–3) | **Đếm theo nhóm tuổi BR-110, không thu tuổi chính xác (SEC ARC-14).** Tên khóa theo ví dụ của SEC; ARC chốt |
+| | Room type / Hạng phòng | select + dòng gợi ý | `roomType` | Tùy chọn: "Any room – suggest one" / "Hạng nào cũng được" (rỗng) · `standard-studio-city-view` · `standard-studio-garden-view` · `premium-one-bedroom-1` · `signature-two-bedrooms` (slug theo quy tắc hợp đồng: slug của `publicRoomType`). Chữ trong ô là tên ngắn của hạng; dòng gợi ý dưới ô đổi theo lựa chọn: "Sleeps 2–3. The higher number uses the sofa." / "We suggest a room that suits your group." `adults + children6to11` > sức chứa tối đa (3/3/4/5) → lỗi |
+| How we reach you | Your name / Tên của bạn | text | `guestName` | Bắt buộc, ≤ 80 ký tự, `autocomplete="name"` |
+| | Reply on / Trả lời qua: Zalo · WhatsApp · Phone call · Email | 4 nút chọn | `preferredChannel` | Mặc định **Zalo**. Bốn ô cùng cỡ (T8 – giữ có chủ ý). Telegram/Viber có trong enum hợp đồng nhưng không hiện ở form (khách dùng các kênh này nhắn qua "Other channels") |
+| | Zalo number / WhatsApp number / Phone number **hoặc** Email | `tel` hoặc `email` | `phone` **hoặc** `email` | **Đúng một cách liên hệ (SEC ARC-14 chốt).** Chọn Email → ô SĐT tắt, không gửi `phone`; chọn kênh khác → không có ô email. SĐT 8–15 chữ số, có thể có `+` |
+| Note | Anything we should know? (optional) | textarea | `note` | ≤ 500 ký tự, bộ đếm; gợi ý "Please no card or ID numbers"; chuỗi 13–19 chữ số → lỗi |
+| Consent | **A.1** "I agree that OTTIMO may use the details in this form only to reply to this request." / "Tôi đồng ý để OTTIMO chỉ dùng thông tin trong biểu mẫu này để trả lời yêu cầu này." | checkbox **không tích sẵn** | `consent`, `consentVersion` | Dưới ô, luôn hiện, chữ nhỏ: **A.2** "If you do not book, we delete these details within 180 days. We reply only from the channels listed on this page." / "Nếu bạn không đặt phòng, OTTIMO xóa thông tin này trong tối đa 180 ngày. OTTIMO chỉ trả lời từ các kênh ghi trên trang này." + link riêng một dòng **"Privacy notice" / "Thông báo xử lý dữ liệu"** → `/privacy/#booking-requests` · `/vi/privacy/#yeu-cau-dat-phong` (cùng thẻ). `consentVersion` = phiên bản tệp thông báo phát hành cùng bản dựng (`YYYY-MM-DD`). Câu pháp lý: luật sư duyệt, không dịch máy |
+| Ẩn | Honeypot `website` | text | `website` | Ra ngoài màn hình bằng class `.hp`, nhãn "Leave this field empty", `tabindex="-1"`, `autocomplete="off"`, `data-1p-ignore`, `data-lpignore="true"`, khối `aria-hidden` |
+| Ẩn | – | – | `locale`, `utm{source,medium,campaign}`, `landingPath`, `refHost`, `formToken` | UTM đọc từ URL lúc gửi; `refHost` = chỉ tên miền của `document.referrer` khi khác origin (theo hợp đồng – FE-LP thêm, mock chưa gửi); không cookie, không localStorage |
+
+**Việc cho ARC – hợp đồng 0.3.7 bổ sung 2 còn lệch với form (làm theo SEC):**
+| # | Hợp đồng hiện tại | Form v1.2.1 (theo SEC) | ARC sửa |
+|---|---|---|---|
+| A1 | `phone` bắt buộc; `email` tùy chọn, bắt buộc khi `preferredChannel = email` | Gửi **đúng một**: `phone` (Zalo/WhatsApp/gọi) **hoặc** `email` (Email) | Theo SEC ARC-14 (1): kênh SĐT → `phone` bắt buộc, `email` không được gửi; `email` → `email` bắt buộc, `phone` không được gửi |
+| A2 | `children` + `childrenAges` (tuổi chính xác 0–17) | `children6to11`, `childrenUnder6` (số đếm) | Theo SEC ARC-14 (3): bỏ `childrenAges`/cột `children_ages`, thêm hai số đếm theo nhóm BR-110; tên khóa ARC chốt |
+| A3 | Một cặp `arrival` + `departure` bắt buộc cho mọi khách | "By the month": `arrival` + `months` (1–24 hoặc `null` = "Not sure yet"), không có `departure` | ARC + UXD thống nhất qua ORC (SEC mục 8). Đề xuất UXD: thêm `months` tùy chọn; khi có `months` thì `departure` không bắt buộc và server ghi `stayKind = long`. Phương án khác: trang tự tính `departure = arrival + months` (khi "Not sure yet" thì không gửi được – kém hơn) |
+| A4 | `roomType` slug của `publicRoomType` | Đã theo | – |
+| A5 | `guestName`, `preferredChannel`, `note` | Đã theo | – |
+
+### 5.3 Kiểm lỗi và thông báo
+- Kiểm khi bấm gửi; sau lần đầu thì kiểm lại theo từng thao tác. Lỗi hiện dưới ô (biểu tượng + chữ Earth Brown, viền 2 px, `aria-invalid`, `aria-describedby`) **và** khối tóm tắt đầu form ("Please check 3 fields") nhận focus, mỗi dòng là link nhảy tới ô lỗi.
+
+| Trường hợp | EN | VI |
+|---|---|---|
+| Thiếu ngày | Choose your check-in date. | Chọn ngày nhận phòng. |
+| Ngày ngoài cửa sổ bán | Choose a date from today to {date}. | Chọn ngày từ hôm nay đến {ngày}. |
+| Ngày đi ≤ ngày đến | Check-out must be after check-in. | Ngày trả phòng phải sau ngày nhận phòng. |
+| Quá sức chứa | This room sleeps up to {n} (children under 6 not counted). Choose a larger room, or "Any room". | Hạng phòng này ở tối đa {n} người (không tính trẻ dưới 6 tuổi). Chọn hạng lớn hơn, hoặc "Hạng nào cũng được". |
+| Thiếu tên | Tell us your name. | Cho OTTIMO biết tên của bạn. |
+| SĐT sai | Enter a {Zalo/WhatsApp/phone} number we can reach. | Nhập số {Zalo/WhatsApp/điện thoại} để OTTIMO liên hệ. |
+| Email sai | Enter an email like name@example.com. | Nhập email dạng ten@vidu.com. |
+| Số thẻ trong ghi chú | Please remove card numbers from the note. | Vui lòng xóa số thẻ khỏi ghi chú. |
+| Chưa đồng ý (SEC A.3 giữ) | Please tick the box so we can reply. | Vui lòng đánh dấu ô đồng ý để OTTIMO trả lời. |
+
+| Server | EN | VI |
+|---|---|---|
+| Mất mạng / lỗi khác | We could not send your request. Check your connection and try again, or chat with us on Zalo. | Chưa gửi được yêu cầu. Kiểm tra kết nối rồi thử lại, hoặc nhắn OTTIMO qua Zalo. |
+| `503` trần ngày (SEC ARC-02) | We are receiving many requests right now. Please message us on Zalo or call 08.4444.0909. | OTTIMO đang nhận nhiều yêu cầu. Vui lòng nhắn Zalo hoặc gọi 08.4444.0909. |
+| `429` | Too many requests from this connection. Please try again later, or chat with us on Zalo. | Kết nối này đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau, hoặc nhắn OTTIMO qua Zalo. |
+
+- Vượt giới hạn **theo liên hệ** trả `202` giống hệt (SEC ARC-04) → khách thấy trang cảm ơn bình thường.
+- Đang gửi: nút "Sending… / Đang gửi…", `aria-busy`, khóa bấm lại.
+
+### 5.4 Trang cảm ơn
+- Tiêu đề **"Request sent" / "Đã gửi yêu cầu"** nhận focus.
+- "Thank you, {name}. This is a request, not yet a booking." (tên chèn bằng `textContent`).
+- **Request number**: `refCode` của server (Crockford base32, 8 ký tự), JetBrains Mono, hiển thị thành hai nhóm 4 + 4 **bằng khoảng cách CSS** – không chèn gạch nối hay khoảng trắng, nên khách chép ra đúng 8 ký tự; Desk vẫn bỏ gạch/khoảng trắng và chuyển chữ hoa trước khi tìm (SEC UXD-07 (2)).
+- Câu theo kênh: Zalo → "For the fastest reply, open Zalo and send us this number." + nút đặc **Open Zalo**; WhatsApp → "We will message you on WhatsApp."; gọi → "We will call you."; email → "We will reply by email."
+- **Câu hứa công khai (BR-912 (4))** theo giờ Đà Lạt lúc gửi: trong `front_desk_hours` [07:00, 22:00) → "We reply within 1 hour (07:00–22:00, Da Lat time)." (`web_request_public_promise_minutes` = 60); ngoài giờ → "Our reception opens at 07:00. We will reply before 09:00." (`web_request_public_promise_next_morning_by` = 09:00).
+- **Dòng lối thoát (SEC UXD-05):** "If you have not heard from us by {promiseBy}, call 08.4444.0909 or message us on Zalo with this number." / "Nếu đến {giờ} OTTIMO chưa liên hệ, vui lòng gọi 08.4444.0909 hoặc nhắn Zalo kèm mã này." – số hotline là link `tel:` trong câu.
+  - `{promiseBy}` = lúc gửi + 60 phút (trong giờ trực) hoặc 09:00 (ngoài giờ) – **mốc của câu hứa công khai**.
+  - **Không dùng `replyBy`** của phản hồi 202: đó là hạn nội bộ `web_request_response_minutes` = **15** phút (BR-912 v0.3.8), trang không hiện. Lệch chữ so với đề xuất của SEC (`{replyBy}`) – cùng ý, khác nguồn giờ; SEC xác nhận.
+  - ARC chọn một trong hai: thêm trường hứa công khai vào 202, hoặc FE-LP tự tính từ hai tham số công khai (BR-912 ghi cả hai cách).
+- Ngày đến là hôm nay → thêm "Arriving tonight? Calling is fastest: 08.4444.0909".
+- Nút viền "Send another request" (xóa form, quay lại ô ngày).
+- Không tự gửi email/Zalo xác nhận tới liên hệ khách nhập (ADR-014 4.3). Đổi ngôn ngữ sau khi gửi: trang cảm ơn đổi theo.
+
+### 5.5 Công tắc form và trường hợp không có JavaScript
+- `booking.mode` (`site.json`): **`chat`** – trước khi đủ điều kiện bật form trên production (luật sư LZ-8/LZ-2, Desk chạy thật, SEC C-1…C-3, C-11…C-13): thẻ form thay bằng khối "Send your dates on Zalo"; mọi nút "Request to book" vẫn trỏ `#book`. **`request`** – phương án A (mock mặc định). **`live`** – phương án B (5.6). Mock có nút "Form: on/off".
+- **SEC UXD-08:** thẻ `<form>` render với `hidden`, không có `action`; module script bỏ `hidden`. Không JavaScript → form không hiện, không bao giờ gửi được; hiện câu "The request form needs JavaScript…" + link Zalo.
+
+### 5.6 Chuyển sang phương án B (phòng trống + giá thật – US-131) – chỉ thay một ô
+- Sau khi khách chọn ngày + số khách, trang gọi `getPublicOffers` (ADR-014 4.7). Ô **Room type** đổi từ select sang danh sách 4 dòng (radio): tên hạng · "Available – from {giá}/night" hoặc "Not available for these dates". Hợp đồng B chỉ trả còn/hết – không bao giờ hiện số phòng còn lại (BR-916 (4), FB-INV-002 ý 1).
+- Thêm dòng "Rates shown are a guide; we confirm yours." Payload thêm `offerSnapshot`; Desk áp BR-916.
+- Không đổi: khóa dữ liệu, 3 bước, trang cảm ơn, lỗi, công tắc.
+
+### 5.7 Nguồn "website" và nút "Book now" của fanpage (BR-112, BR-911)
+- Yêu cầu từ form luôn `directSource = website`; nguồn phụ server suy từ UTM rồi `refHost`.
+- Link cho nút "Book now" – **PO chốt 17/10**: trang chủ + `#book`, form nằm trong trang chủ: `https://<tên-miền>/vi/?utm_source=facebook&utm_medium=social&utm_campaign=page_book_button#book` (bản EN bỏ `/vi`). Không có trang `/book/` riêng; `landingPath` là `/` hoặc `/vi/`. Khi form tắt (`booking.mode = chat`), `#book` vẫn là khối "Send your dates on Zalo" – link không bao giờ chết (SEC UXD-07 (3), ADR-014 4.2). ARC sửa ví dụ `/book/` trong mô tả `landingPath`.
+- Mock (bật Notes) hiện "Desk receives: booking_inquiry · source = website · facebook" + payload đã che dữ liệu C2. Thử: `index.html?utm_source=facebook#book`.
+
+## 6. Kênh chat và liên hệ (ý 4)
+| Kênh | Chỗ xuất hiện | Link | Ghi chú |
+|---|---|---|---|
+| **Zalo** (chính, mọi ngôn ngữ) | Header ≥ 768 px (link chữ), hero (nút viền), thanh đáy (nút viền), Liên hệ (nút đặc), chân trang, trang cảm ơn, khối "form tắt" | `https://zalo.me/0844440909` | Tạm Zalo số hotline; đổi sang link **Zalo OA** khi xác thực (ESC-021) – một chỗ cấu hình (T9) |
+| Hotline | Liên hệ (dòng), trang cảm ơn (dòng lối thoát), lỗi 503 | `tel:+84844440909` | Không còn ở chân trang (N1) |
+| Email | Liên hệ (dòng), chân trang | `mailto:booking@ottimo.vn` | [GIẢ ĐỊNH – tên miền INV đang mua] |
+| **Facebook** | Liên hệ ("OTTIMO on Facebook"), chân trang | `https://www.facebook.com/profile.php?id=100091335431646`, `target="_blank" rel="noopener noreferrer"` | Liên kết thường – không SDK, plugin, pixel (SEC C-1). JSON-LD `sameAs` |
+| WhatsApp · Telegram · Viber | **Chỉ** ô gập "Other channels / Kênh khác" ở mục Liên hệ | `wa.me/84844440909` · `t.me/+84844440909` · `viber://chat?number=%2B84844440909` | "Khó tìm một chút" nhưng một chạm (ý 4). Bỏ khỏi chân trang (N1) |
+
+- Không dùng logo của Zalo/WhatsApp/Facebook – chỉ chữ + biểu tượng bong bóng chung.
+- Dòng cuối mục Liên hệ: "Chat apps and Facebook open only when you tap them. This site uses no tracking cookies."
+- FAQ "How do I know a message is really from OTTIMO?" (SEC UXD-06):
+  - EN: "We only contact you from the channels listed on this page, or your booking platform's inbox. We never ask for card numbers. Deposits go only to an account in the name of {receivingAccountHolder}, and we never change bank details by message." + "Our Facebook page is for news. We do not confirm bookings or take deposits through Facebook messages."
+  - VI: "OTTIMO chỉ liên hệ bạn qua các kênh ghi trên trang này, hoặc hộp thư của nền tảng bạn đặt phòng. OTTIMO không bao giờ hỏi số thẻ. Tiền cọc chỉ chuyển vào tài khoản đứng tên {receivingAccountHolder}; OTTIMO không bao giờ đổi số tài khoản qua tin nhắn." + "Fanpage Facebook dùng để đăng tin. OTTIMO không xác nhận đặt phòng hay nhận cọc qua tin nhắn Facebook."
+  - `{receivingAccountHolder}` lấy từ `payment_receiving_account` lúc dựng trang (mock hiện tên khóa dạng chữ Mono gạch chân đứt). Câu Facebook: **chờ INV xác nhận** nhân viên không dùng Messenger để xác nhận/nhận cọc; nếu có dùng thì bỏ câu này và thêm Messenger vào "các kênh ghi trên trang".
+- Việc INV tự làm (SEC UXD-06, ORC đưa vào danh sách "INV cần làm" – không phải câu hỏi): đặt tên người dùng cho fanpage, bật xác thực 2 lớp cho quản trị viên fanpage, ghim bài "Kênh chính thức của OTTIMO" có link về website.
+
+## 7. Màu – đúng bảng 80/15/5 (không đổi bảng; thêm vai)
+| Token | HEX | Vai trên landing |
+|---|---|---|
+| `--ivory` | #F4F0E8 | Nền chính, header, thanh đáy, khối tóm tắt lỗi, mã yêu cầu |
+| `--cream` | #EDE6D8 | Dải Rooms, Contact; thẻ form; nền chờ ảnh |
+| `--stone` | #6B6760 | Chữ phụ; viền ô nhập |
+| `--ink` | #2B2B28 | Chữ chính; dải Location, chân trang; nút chọn đang chọn; vòng focus; link "Chat on Zalo" ở header |
+| `--oak` | #B08D57 | Nét kẻ; nhãn mục trên nền Ink |
+| `--earth` | #7A5C44 | Nút đặc (chữ trắng), nhãn, link (`.link`, `.link-in`), số bước; chữ lỗi + viền 2 px ô lỗi; chỗ giữ giá trị cấu hình `{…}` |
+| `--sage` | #8A9079 | Không dùng |
+| `--white` | #FFFFFF | Chữ trên nút Earth; nền ô nhập |
+
+- Không có đỏ/xanh lá cho lỗi/thành công.
+- Cặp chữ–nền đo trên DOM thật (mục 12.1, kể cả FAQ mở): 11 cặp, thấp nhất **4,53** (Stone trên Cream).
+- Không chế độ tối (G-7).
+
+## 8. Chữ
+- H1 Lora 36 → 60 px; H2 Lora 28 → 40 px; tên hạng phòng Lora 22 → 26 px; H3 Be Vietnam Pro 600 18 → 20 px; thân 16 → 17 px; nhãn 13 px chữ hoa giãn 0,1em.
+- **JetBrains Mono chỉ cho mã yêu cầu** ở trang cảm ơn (và chỗ giữ `{receivingAccountHolder}` trong mock). v1.2.1 chuyển thanh MOCK và chip Notes sang Be Vietnam Pro: Mono không còn tải khi mở trang, giống production; chip Notes tiếng Việt hết rơi sang font dự phòng.
+- Kiểm CDP: 0 glyph font dự phòng (mục 12.1).
+
+## 9. Logo – bản giữ chỗ
+- Lockup ngang ở header (≥ 375 px) và chân trang; < 375 px header chỉ wordmark. Đo v1.2.1: wordmark **125 px** (tối thiểu 120), lockup **187 px** (tối thiểu 180).
+- Thay bằng SVG gốc khi INV gửi.
+
+## 10. Ảnh – 9 trong 18 ảnh của v1.1
+| Ảnh | Mục | Tỉ lệ điện thoại → máy tính |
+|---|---|---|
+| `hero-facade-dusk` | Hero (LCP, preload theo `media`) | 4:5, cao tối đa **30svh** (v1.2: 36svh – T4) → 3:2 (768) → 4:5 (1024) |
+| `signature-bed` | Why – vài đêm | 16:9 → 3:2 |
+| `detail-laundry-desk` | Why – ở dài | 16:9 → 3:2 |
+| `city-living`, `garden-oak`, `premium-kitchen`, `signature-dining` | Rooms | 3:2 |
+| `detail-kitchen` | Amenities | 3:2 → 4:5 (1024) |
+| `aerial-hillside` | Location | 16:9 → 4:3 (768) → 4:5 (1024) |
+
+- Giữ quy tắc v1.1: điện thoại không tải ảnh > 960 px; mọi ảnh có `width/height`; ảnh không phải hero `loading="lazy"`; alt EN/VI.
+
+## 11. Vị trí (không đổi)
+Dinh Bảo Đại III 1,7 km · 4 phút; Nhà thờ Con Gà 2,5 km · 6 phút; Chợ Đà Lạt · Hồ Xuân Hương 3,3 km · 7 phút; Bến xe liên tỉnh 3,7 km · 8 phút; Hồ Tuyền Lâm 4,1 km · 9 phút; Sân bay Liên Khương khoảng 28 km · 30 phút.
+
+## 12. Kiểm tra (Chromium không giao diện, Playwright 1.63 + axe-core 4.14 của repo – 17/10/2026, bản v1.2.1)
+
+### 12.1 Bố cục, a11y, thương hiệu, luồng form
+| Hạng mục | 320 EN/VI | 375 EN/VI | 768 EN/VI | 1280 EN/VI |
+|---|---|---|---|---|
+| Cuộn ngang (đầu trang và sau khi cuộn hết) | Không | Không | Không | Không |
+| Số H1 / trùng `id` | 1 / 0 | 1 / 0 | 1 / 0 | 1 / 0 |
+| Vùng chạm < 44 px (trừ thanh MOCK; link trong câu theo ngoại lệ inline của WCAG 2.5.8) | 0 | 0 | 0 | 0 |
+| axe-core WCAG 2.0/2.1/2.2 A + AA – mặc định; ô gập + Notes mở; form đang lỗi; trang cảm ơn | 0 lỗi | 0 lỗi | 0 lỗi | 0 lỗi |
+| Tương phản (mọi chữ đang hiện, kể cả FAQ mở) | 11 cặp, thấp nhất 4,53 | như trái | như trái | như trái |
+| Glyph font dự phòng (CDP, Notes bật, trang cảm ơn, tóm tắt lỗi) | 0 | 0 | – | 0 |
+| Từ cấm (gồm "is a hotel / là khách sạn", hạng sao, "luxury", "extra bed"), "Book" trơn, "meter" ở mục 2 | 0 | 0 | 0 | 0 |
+| Chỗ có "hotel / khách sạn" (đều là so sánh – 2.4) | 3 | 3 | 3 | 3 |
+| Địa chỉ / "Other channels" trên trang | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Câu đồng ý = SEC A.1, A.2; link Privacy đúng theo ngôn ngữ | Đạt | Đạt | Đạt | Đạt |
+| Lỗi console | 0 | 0 | 0 | 0 |
+| Request tới tên miền ngoài khi tải | chỉ Google Fonts (mock) | như trái | như trái | như trái |
+
+- **Quét bề rộng:** 320–480 px mỗi 2 px + 17 mốc 540–1920 px × EN/VI × 2 biến thể form (theo đêm + Zalo; theo tháng + Email) = **392 lần, 0 cuộn ngang**.
+- **Vừa chữ** (320, 360, 375, 390, 768, 1024, 1280 × EN/VI): nút chọn kiểu ở và kênh trả lời đều một dòng (cao 48 px); chữ trong ô chọn không bị cắt; header không chồng (1024 VI: mép phải 992/1024); thanh đáy không tràn chữ.
+- **Luồng form** (320 EN; 375, 768, 1280 × EN/VI): gửi trống → tóm tắt 5 lỗi nhận focus; sức chứa (Studio 3 người lớn + 2 trẻ dưới 6 → hợp lệ; 4 người lớn → lỗi "up to 3"); "By the month" bật ô ngày đến + số tháng; "Email" hiện ô email, tắt ô SĐT; "Request this room" chọn sẵn hạng + dòng gợi ý "4–5"; giả lập `503` → thông báo có "Zalo", dữ liệu còn; gửi hợp lệ → trang cảm ơn nhận focus, mã đúng `^[0-9A-HJKMNP-TV-Z]{8}$`, dòng lối thoát có giờ HH:MM + hotline, nút Open Zalo khi chọn Zalo; payload có `guestName`, `preferredChannel`, `roomType`, `note`, `children6to11`, `childrenUnder6`, `phone`, **không** có `email`, `childrenAges`; link "Privacy notice" trong mock không rời trang (báo "MOCK: …"); công tắc form off → khối Zalo; tắt JavaScript → câu thông báo, `<form>` ẩn và không có `action`.
+- **Thanh dính đáy** (320, 375 × EN/VI): ẩn ở đầu trang khi nút hero trên màn hình, hiện ở Rooms, ẩn ở Book, hiện ở FAQ, **ẩn ở Liên hệ và cuối trang**. 320 × 640 VI: nút hero nằm dưới màn hình đầu → thanh hiện ngay (luôn có một lối hành động).
+- **Nút hero ở 375 × 812 (có thanh MOCK):** kết thúc 739 / 799 px – cả hai nút trong màn hình đầu (T4).
+- **Header ≥ 768 px:** link "Chat on Zalo" hiện, cao 44 px.
+- **Logo:** wordmark 125 px, lockup 187 px ở 320/375/768/1280 (header 320 chỉ wordmark).
+
+### 12.2 Dung lượng (CDP `encodedDataLength`, xóa cache, HTML gzip, Google Fonts của mock)
+| | Ảnh hero | Lúc mở trang | Cuộn hết trang | Ngân sách (mở / cuộn hết) |
+|---|---|---|---|---|
+| 375 px DPR 1, EN | 480 px · 16 KB | 190 KB / 17 yêu cầu (ảnh 65 · font 94 · HTML 29) | 222 KB | ≤ 250 / ≤ 350 – Đạt |
+| 375 px DPR 2, EN | 960 px · 48 KB | **302 KB** (ảnh 176) | 408 KB | ≤ 320 / ≤ 600 – Đạt |
+| 375 px DPR 3, EN | 960 px · 48 KB | 302 KB | 408 KB | ≤ 400 / ≤ 700 – Đạt |
+| 375 px DPR 3, VI | 960 px · 48 KB | 343 KB | 449 KB | ≤ 470 / ≤ 770 – Đạt |
+| 1280 px DPR 1, EN | 960 px · 48 KB | 290 KB | 322 KB | ≤ 400 / ≤ 600 – Đạt |
+| 1280 px DPR 2, EN | 1600 px · 116 KB | 498 KB | 604 KB | ≤ 700 / ≤ 1.100 – Đạt |
+
+- HTML mock 29 KB gzip (v1.2: 27 KB) do câu đồng ý, dòng gợi ý hạng phòng, dòng lối thoát và script đi kèm. Lúc mở trang giảm 21 KB so với v1.2 vì JetBrains Mono không còn tải khi mở trang (thanh MOCK dùng Be Vietnam Pro) – đúng cách production chỉ tải Mono ở trang cảm ơn. DPR 2 nay cách trần 18 KB.
+
+### 12.3 Chiều cao trang và ảnh chụp
+| | v1.1 | v1.2 | v1.2.1 | Ghi chú |
+|---|---|---|---|---|
+| Điện thoại 375 px (EN) | ~14.300 px | 9.314 px | **8.870 px** | Liên hệ 761 → 680, chân trang 780 → 384, FAQ 546 → 489; Book 2.104 → 2.214 (+ thông báo A.2, link Privacy, dòng gợi ý hạng phòng) |
+| Máy tính 1280 px (EN) | ~9.280 px | 8.277 px | **8.161 px** | Chân trang 366 → 268 |
+
+`mock/shots/` (Notes off, PNG bảng màu, chụp lại 17/10 bản v1.2.1):
+| Tệp | Khung |
+|---|---|
+| `mobile-375-en-top.png`, `mobile-375-vi-top.png` | 375 × 812 (có thanh MOCK; thấy đủ hai nút hero) |
+| `mobile-320-en-top.png` | 320 × 640 |
+| `desktop-1280-en-top.png` | 1280 × 800 (header có "Chat on Zalo") |
+| `mobile-375-en-full-1.png`, `mobile-375-en-full-2.png` | cả trang 375 px, **tách 2 phần** (mỗi phần 4.435 px) |
+| `desktop-1280-en-full.png` | cả trang 1280 px, thu về 640 px |
+| `mobile-375-en-book.png` | mục Book (3 bước + form + câu đồng ý A.1/A.2) 375 px |
+| `mobile-375-en-sent.png` | trang cảm ơn (kênh Zalo, trong giờ, dòng lối thoát) |
+
+## 13. Bàn giao FE-LP – production khác mock ở đâu
+`product/apps/landing-web` dựng theo v1.1 → FE-LP cập nhật theo mục 3.1, 3.3, 5, 6 và bảng dưới.
+
+| Mock | Production |
+|---|---|
+| Google Fonts | Tự host woff2 subset; JetBrains Mono chỉ subset latin cho mã yêu cầu (chỉ tải khi trang cảm ơn hiện) |
+| `<style>`, `<script>` nội tuyến | Tệp CSS/JS có mã băm, CSP `style-src 'self'`; script form là module riêng, `defer`; `<form hidden>` không `action`, module bỏ `hidden` (SEC UXD-08) |
+| Submit giả lập (`setTimeout`), nút "Submit" trên thanh MOCK | `POST` JSON tới endpoint công khai ARC chốt (ADR-014 4.3, 4.8) cùng origin; `formToken` lần đầu khách focus vào form; `422 FORM_TOKEN_INVALID` → lấy token mới, gửi lại **một** lần. Schema zod sinh từ `WebsiteBookingRequestInput` (`packages/contracts`) – không tự đặt tên khóa (SEC UXD-07); các khóa A1–A3 ở 5.2 chờ ARC sửa hợp đồng |
+| Nút "Form: on/off" | `booking.mode` = `chat` \| `request` \| `live` (5.5) |
+| Câu "1 giờ / 09:00 / 07:00–22:00 / 30%" và giờ ở dòng lối thoát viết trong chuỗi/`CFG` | Đọc tham số công khai: `web_request_public_promise_minutes` (60), `web_request_public_promise_next_morning_by` (09:00), `front_desk_hours` [07:00, 22:00), cọc BR-305. **Không** hiện `replyBy` của 202 (hạn nội bộ `web_request_response_minutes` = 15 phút – BR-912 v0.3.8) |
+| `refCode()` sinh ở trình duyệt | `refCode` từ 202; hiển thị hai `<span>` 4 + 4, không ký tự phân cách |
+| Link "Privacy notice" bị chặn, hiện "MOCK: …" | Link thật `/privacy/#booking-requests` · `/vi/privacy/#yeu-cau-dat-phong`, cùng thẻ; form giữ dữ liệu trong bộ nhớ trang khi khách quay lại (không lưu trình duyệt) |
+| `{receivingAccountHolder}` hiện tên khóa | Chèn tên chủ tài khoản từ `payment_receiving_account` lúc dựng trang |
+| Ô ngày `type="date"` | Giữ ô ngày gốc. **Định dạng hiện theo ngôn ngữ trình duyệt/hệ điều hành, không theo `lang` của trang** (Chrome tiếng Anh: mm/dd/yyyy, kể cả bản VI). FE-LP không tự vẽ lịch ở v1; QA kiểm trên Chrome Android, Safari iOS, Samsung Internet với cả hai ngôn ngữ máy; nhãn ô và câu lỗi vẫn đúng ngôn ngữ trang (T7) |
+| `localStorage` cho ngôn ngữ, Notes, công tắc form | Bỏ (ngôn ngữ = URL `/` và `/vi/`) |
+| Chuỗi EN/VI nằm cạnh nhau, `option` đổi chữ bằng `data-en/data-vi`; link đổi theo `data-href-vi` | File chuỗi theo `locale`; mỗi URL một ngôn ngữ |
+| Thanh đáy ẩn bằng IntersectionObserver (hero, Book, Contact, footer) | Giữ; không JS thì luôn hiện + đệm chân trang |
+| Thanh MOCK, Notes, chip ghi chú, khối payload, `.mock-toast` | Bỏ |
+- Mọi nút là `<a href>` thật trừ Copy address, nút gửi, nút chọn của form. Link trong câu dùng `.link-in` (không ép cao 44 px). Không thêm màu ngoài token mục 7.
+
+## 14. Đã xử lý
+### 14.1 FB-INV-002 – xem bảng mục 0.
+### 14.2 Phản biện thiết kế v1.2 – xem bảng mục 0.1; trả lời từng mục: `rounds/round-02/responses/landing-v12-UXD.md`.
+### 14.3 Thẻ SEC
+- FB-R2-SEC-UXD-04…08: mục 0.2.
+- FB-R2-SEC-UXD-01: mock vẫn ghi "MOCK v1.2.1 · not production code"; production tự host font, không CSS/JS nội tuyến (mục 13).
+- FB-R2-SEC-UXD-03: không hứa ưu đãi; không ô nhận ưu đãi trên form.
+### 14.4 Ghi chú định vị của DOM (`landing-positioning.md`) – như v1.2
+| DOM | Áp dụng | Ghi chú |
+|---|---|---|
+| 1.1 câu định vị; 3.1 lead hero | Dùng nguyên ý | VI lead bỏ chữ "căn" |
+| 1.3 sáu câu gây hiểu nhầm | Bỏ cả sáu | |
+| 2.1–2.4 từ dùng/tránh, không số phòng, chỉ hứa điều đang làm | Áp toàn bộ | "monthly agreement" thêm vào danh sách tránh |
+| 3.2 hai thẻ | Biên tập lại theo T2: không kê thiết bị ở thẻ | Giữ ý "dọn phòng mỗi ngày" (ngắn ngày) và "gói dọn phòng tùy chọn" (tháng) |
+| 3.5 theo tháng | FAQ "How do long stays work?" chứa điện nước theo công tơ + điều khoản rõ ràng | Giá "from …" chờ L3 |
+| 3.6 đặt trực tiếp + trang cảm ơn | 3 bước, "Send booking request", trang cảm ơn mục 5.4 | Không hiện dòng "Not on Zalo? …" – khách đã chọn kênh trong form |
+| 3.8 liên hệ | Zalo nút chính ở Liên hệ; Facebook "OTTIMO on Facebook" | Kênh khác: ô gập ở Liên hệ |
+| 3.1 nút phụ hero "See the rooms" | **Không áp** – nút phụ hero là "Chat on Zalo" (ý 4) | |
+
+## 15. Việc chờ và giả định
+### 15.1 Chờ INV (trong ESC-020 L5 và các ESC đã có – không mở ESC mới)
+1. Câu có số: trả lời trong 1 giờ (07:00–22:00), ngoài giờ trước 09:00; lễ tân 07:00–22:00; cọc 30% qua QR; nhận 14:00 / trả 12:00; "180 ngày" ở câu thông báo (SEC A.2 – kèm luật sư); câu sofa của Premium (PO Q4); "Sleeps 2–3 / 3–4 / 4–5, số lớn hơn là khi có khách ngủ sofa, có phụ thu".
+2. Câu Facebook trong FAQ: nhân viên có xác nhận đặt phòng/nhận cọc qua Messenger không (SEC UXD-06).
+3. Tên chủ tài khoản nhận cọc `{receivingAccountHolder}` (tên pháp nhân – ESC-008); tên công ty + MST ở chân trang.
+4. Bảng ghép tên phòng ↔ căn ↔ hạng (hẹn 19/10); logo SVG; giá "from …/month" (L3); link Zalo OA (ESC-021).
+5. Để INV biết (trong quyền UXD, không cần chọn): Request to book là nút chính ở hero và thanh đáy, Zalo nút phụ (N2); WhatsApp ngang Zalo trong ô "Trả lời qua" của form (T8). Tùy chọn từ v1.2: mở sẵn "Other channels" ở bản EN.
+6. Không đăng e-brochure bản hiện tại ("mười căn hộ", "5 sao") – DOM 2.3.
+
+### 15.2 Việc cho vai khác (qua ORC)
+| Vai | Việc |
+|---|---|
+| ARC | Sửa hợp đồng theo 5.2 A1 (một cách liên hệ), A2 (trẻ em theo nhóm tuổi), A3 (`months`); chọn cách trang biết giờ câu hứa công khai (trường mới trong 202 hoặc FE tự tính – 5.4); ví dụ `landingPath` bỏ `/book/` (5.7); endpoint + form token (ADR-014 4.8) |
+| SEC | Xác nhận dòng lối thoát dùng giờ câu hứa công khai thay `{replyBy}` (5.4); trang thông báo xử lý dữ liệu + `privacy_notice_version` |
+| PO/DOM | AC US-155 theo 5.2–5.4 (một cách liên hệ, ba ô đếm người, dòng lối thoát, không hiện `replyBy`); gom danh sách 15.1 vào `landing-inv-questions.md`; Q4 Premium: xác nhận cả giường 1m4 lẫn câu sofa (mục 0.3) |
+| FE-LP | Cập nhật `landing-web` theo mục 3.1, 3.3, 5, 6, 13 |
+| QA | Ca kiểm từ mục 12.1 (luồng form, thanh đáy gồm Liên hệ + chân trang, quét bề rộng, vừa chữ, ô ngày theo ngôn ngữ máy) |
+
+### 15.3 Giả định
 | # | Giả định | Nếu sai |
 |---|---|---|
-| G-1 | Ánh xạ "Phòng 1–5" ↔ hạng như mục 8.1 | Đổi ảnh giữa các thẻ hạng phòng (chạy lại script, sửa HTML) |
-| G-2 | Hotline 08.4444.0909 = +84 84 444 0909 là số công khai của cơ sở, dùng cho Zalo/WhatsApp/Telegram/Viber | Sửa một chỗ cấu hình |
-| G-3 | Giờ nhận/trả 14:00/12:00 theo BR-401 (brochure không ghi) | Sửa hero + FAQ |
-| G-4 | "Điện nước theo công tơ, ở lâu giá tốt hơn" theo đề xuất ESC-020 L3-A | Sửa khối "A month, or longer" + FAQ |
-| G-5 | Mọi căn có ban công riêng, bếp, máy giặt sấy (brochure trang 5) | Sửa câu ở mục Hạng phòng |
-| G-6 | Tracking guideline tính theo % cỡ chữ | Đổi 3 giá trị `letter-spacing` |
-| G-7 | Landing không cần chế độ tối | Thêm token tối (Ink nền, Ivory chữ) |
-| G-8 | Khoảng cách/thời gian trong brochure còn đúng | Đo lại khi có ghim Maps |
+| G-1…G-8 | Như v1.1 (ánh xạ ảnh – INV xác nhận 17/10; hotline; giờ 14:00/12:00; điện nước theo công tơ; mọi phòng có bếp, máy giặt sấy, ban công; tracking %em; không chế độ tối; khoảng cách brochure) | Như v1.1 |
+| G-10 | Câu hứa BR-912 (4) (60 phút / trước 09:00) và giờ lễ tân BR-811 (07:00–22:00) | Sửa tham số, không sửa bố cục |
+| G-11 | Cọc 30% (BR-305) được nói công khai | Bỏ "30%" ở bước 3 |
+| G-12 | Sức chứa có sofa 3/3/4/5 (BR-110) | Sửa `data-cap`, `data-min` và dòng thông số |
+| G-13 | Slug `roomType` theo quy tắc hợp đồng (`standard-studio-city-view`…) | Đổi giá trị `option` |
+| G-14 | Ánh xạ nội bộ Premium = 302/402 (Căn N+), Signature = 301/401 (Căn N) (DOM) | Không ảnh hưởng trang (không ghi số căn) |
+| G-15 | Nhân viên không xác nhận đặt phòng/nhận cọc qua Messenger | Bỏ câu Facebook ở FAQ, thêm Messenger vào "các kênh ghi trên trang" |
+
+### 15.4 Đề xuất dòng decision-log (ORC ghi khi commit)
+- `| 2026-10-17 | 2 | Landing v1.2 (UXD, trong quyền giao diện): 8 mục một ý (Hero → Why "Stay a night, or a season." → Rooms → Amenities → Location → Book → FAQ → Contact); thang khoảng cách 4…128; Zalo là kênh chat chính, WhatsApp/Telegram/Viber trong ô gập; Facebook là liên kết thường; form yêu cầu đặt phòng (L7-A) một cách liên hệ, ba ô đếm người, trang cảm ơn theo kênh; thẻ phòng vuốt ngang trên điện thoại | UXD | FB-INV-002; DOM landing-positioning; concept.md v1.2 |`
+- `| 2026-10-17 | 2 | Landing v1.2.1 (UXD, theo phản biện thiết kế + SEC UXD-04…08): một thứ bậc nút – "Request to book" nút đặc, Zalo nút viền ở hero và thanh đáy; thanh đáy ẩn khi hero/Book/Liên hệ/chân trang trên màn hình; header ≥ 768 px có link "Chat on Zalo"; chân trang một dòng link (Zalo · Facebook · Email); câu đồng ý theo SEC Phụ lục A; dòng lối thoát trang cảm ơn dùng giờ câu hứa công khai, không hiện replyBy (BR-912 v0.3.8) | UXD | landing-v12-critic.md; landing-booking-SEC.md; concept.md v1.2.1 |`
 
 ## 16. Lịch sử
 | Phiên bản | Ngày | Nội dung |
 |---|---|---|
-| 0.1 | 17/10/2026 | Bản đầu: tiếng Việt trước, hướng A "kem – sồi, chạm đất nung" + biến thể B, ô ảnh trống, ô Hỏi phòng trống |
-| 1.0 | 17/10/2026 | Theo Brand Guidelines v1.0: bỏ terracotta và biến thể B; tiếng Anh dẫn dắt; 4 hạng phòng và nội dung e-brochure; 18 ảnh thật (WebP/AVIF); logo giữ chỗ; thanh liên hệ đáy; kiểm Playwright 320/375/1280 |
-| 1.1 | 17/10/2026 | Sửa theo kiểm độc lập brand + a11y (mục 13.2): logo đạt cỡ tối thiểu, trần ảnh 960 px trên điện thoại + ngân sách DPR, dấu "·" Earth, bảng điều chỉnh cỡ chữ web, bỏ ký tự ngoài font, số thập phân VI; thêm sửa axe link logo và tràn 3 px VI 360 px; ảnh chụp mới (thêm 320 px) |
-
-> **Cập nhật 17/10 tối (ORC):** INV xác nhận email chung `booking@ottimo.vn` và **bảng ghép thư mục ảnh → hạng phòng là chính xác** (Phòng 1, 2 → Studio Garden View; Phòng 3 → Studio City View; Phòng 4 → Signature; Phòng 5 → Premium; Mặt tiền + Sảnh). Tên miền giả định `ottimo.vn` [GIẢ ĐỊNH – INV đang mua ở Mắt Bão].
+| 0.1 | 17/10/2026 | Bản đầu: tiếng Việt trước, hướng "kem – sồi, chạm đất nung" + biến thể B, ô Hỏi phòng trống |
+| 1.0 | 17/10/2026 | Theo Brand Guidelines v1.0; 4 hạng phòng và nội dung e-brochure; 18 ảnh thật; logo giữ chỗ; thanh liên hệ đáy |
+| 1.1 | 17/10/2026 | Sửa theo kiểm độc lập brand + a11y: logo đạt cỡ tối thiểu, trần ảnh 960 px điện thoại + ngân sách DPR, bảng cỡ chữ web, bỏ ký tự ngoài font |
+| 1.2 | 17/10/2026 | Theo FB-INV-002 + ghi chú DOM: bỏ mọi chỗ nhắc số phòng; định vị boutique stay với lời hứa kép; form "Request to book" (L7-A); Zalo là kênh chính, kênh khác trong ô gập, link Facebook; kiến trúc 8 mục; ảnh 18 → 9; trang điện thoại ngắn hơn 35% |
+| 1.2.1 | 17/10/2026 | Theo phản biện thiết kế (N1–N4, T1–T9), SEC UXD-04…08 và DOM (tên khóa tham số): chân trang một dòng, Liên hệ bỏ địa chỉ; một thứ bậc nút hero = thanh đáy, thanh đáy ẩn ở Liên hệ + chân trang; link Zalo ở header ≥ 768 px; điện nước sang FAQ, "clear monthly terms"; bỏ "Bốn hạng phòng", chữ "căn"; bớt lặp thiết bị; nút hero vừa màn hình 375 × 812; chữ nút thống nhất "Request to book"; khoảng cách về thang; không ngắt số + đơn vị, nhãn form một dòng; câu đồng ý A.1/A.2, form một cách liên hệ, trẻ em theo nhóm tuổi, tên khóa theo hợp đồng; mã Crockford 4 + 4; dòng lối thoát dùng giờ câu hứa công khai; form `hidden` không `action`; INV đã chọn A. Theo PO: gỡ G-9; câu sofa của Premium; rà chữ "hotel" (mục 2.4); link fanpage `#book`; câu hứa "trong 1 giờ (07:00–22:00); ngoài giờ trước 09:00". Kiểm thêm khổ 768; trang 375 px 8.870 px |

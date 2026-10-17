@@ -29,6 +29,7 @@ import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
 import { roomNamesOf, snapshotSettledRoomNames } from '../../folio/public/room-names';
 import type { FolioLineRow } from '../../folio/public/folio.service';
+import { DocumentProfileService } from '../../guests/public/document-profile.service';
 import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
 import {
   type BookingContext,
@@ -84,6 +85,7 @@ export class CheckoutService {
     @Inject(StayService) private readonly stays: StayService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(PaymentService) private readonly payments: PaymentService,
+    @Inject(DocumentProfileService) private readonly profiles: DocumentProfileService,
   ) {}
 
   /** Post-midnight window at `at` for a stay leaving on `departure` (DOM S3-9 b). */
@@ -171,6 +173,86 @@ export class CheckoutService {
   }
 
   /** B18 is called on the folio's primary booking; its children (B9a/B13) leave with it. */
+  /**
+   * 0.3.7 (S4-47): what B18 would leave due if completed now at this time – the late charge re-computed (its
+   * approved FOC follows: min(Σ approved, new charge) – BR-434) and the extra night after the last tier at
+   * `extraNightRateVnd` (default rate when absent). One calculation for getCheckoutSummary, the `finalPayment`
+   * cap and the check-out VietQR cap (S4-10).
+   */
+  private async dueAtCheckout(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    d: Departure,
+    extraNightRateVnd: number | undefined,
+  ): Promise<number> {
+    const folioId = row.folio_id as string;
+    const balance = await this.s.folios.balance(tx, folioId);
+    const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
+    const newVnd = d.extraNight ? 0 : d.quote.r.amountVnd;
+    const focAfter = Math.min(await this.approvedOn(tx, folioId, 'late_checkout'), newVnd);
+    const extra = d.extraNight
+      ? await this.extraNightDelta(
+          tx,
+          ctx,
+          row,
+          d,
+          extraNightRateVnd ?? d.extraNight.defaultRateVnd,
+        )
+      : 0;
+    return Math.max(
+      0,
+      balance.balanceDueVnd -
+        balance.rawCreditVnd +
+        (newVnd - focAfter) -
+        (old.grossVnd - old.focVnd) +
+        extra,
+    );
+  }
+
+  /**
+   * 0.3.7 `createVietQr purpose = check_out` (S4-10 – BE-B's cap through ReservationSalesPort.amountDueFor): the
+   * amount of getCheckoutSummary at `checkoutAt` (absent = now) with the extra night at `extraNightRateVnd`.
+   * Same gates as B18: in house, the primary booking, the departure business day (or the post-midnight window).
+   */
+  async amountDueForQr(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    q: { checkoutAt?: Date | undefined; extraNightRateVnd?: number | undefined },
+  ): Promise<number> {
+    const row = await loadReservation(tx, id, ctx.actor);
+    if (row.status !== 'in_house') throw this.s.stay.invalid(row);
+    this.primaryFor(row);
+    if (!row.folio_id) throw problem('NOT_FOUND');
+    const stay = await this.s.effectiveStay(tx, ctx, row);
+    const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
+    const nowWindow = this.postMidnight(ctx, rollover, stay.departureDate, ctx.now);
+    if (stay.departureDate !== ctx.today && !nowWindow) {
+      throw problem('INVALID_TRANSITION', {
+        extras: { currentState: row.status },
+        detail: 'check-out QR on the departure business day',
+      });
+    }
+    // `checkoutAt` absent = the server clock (contract), not the standard time of the summary's form default.
+    const d = await this.departure(tx, ctx, row, undefined, q.checkoutAt ?? ctx.now);
+    const rate = q.extraNightRateVnd;
+    if (rate !== undefined) {
+      if (!d.extraNight) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'extraNightRateVnd', code: 'NOT_ALLOWED' }],
+        });
+      }
+      if (rate < d.extraNight.floorVnd || rate > d.extraNight.ceilingVnd) {
+        throw problem('RATE_OUT_OF_RANGE', {
+          errors: [{ field: 'extraNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
+          extras: { min: d.extraNight.floorVnd, max: d.extraNight.ceilingVnd },
+        });
+      }
+    }
+    return this.dueAtCheckout(tx, ctx, row, d, rate);
+  }
+
   private primaryFor(row: ReservationRow): void {
     if (row.parent_reservation_id) {
       throw problem('INVALID_TRANSITION', {
@@ -216,20 +298,12 @@ export class CheckoutService {
     const tz = ctx.tz;
     // BR-012 (0.3.7 D1): `room` / `from` / `to` label params are room names.
     const roomName = await roomNamesOf(tx, row.folio_id);
-    // 0.3.7 (S4-47): what B18 would leave due if completed now at this time – the late charge re-computed
-    // (its approved FOC follows: min(Σ approved, new charge) – BR-434) and the extra night after the last tier.
-    const focNow = old.focVnd;
-    const focAfter = Math.min(await this.approvedOn(tx, row.folio_id, 'late_checkout'), newVnd);
-    const extra = d.extraNight
-      ? await this.extraNightDelta(tx, ctx, row, d, d.extraNight.defaultRateVnd)
-      : 0;
-    const amountDueAtCheckoutVnd = Math.max(
-      0,
-      balance.balanceDueVnd -
-        balance.rawCreditVnd +
-        (newVnd - focAfter) -
-        (old.grossVnd - focNow) +
-        extra,
+    const amountDueAtCheckoutVnd = await this.dueAtCheckout(
+      tx,
+      ctx,
+      row,
+      d,
+      d.extraNight?.defaultRateVnd,
     );
     return {
       serverTime: ctx.iso(ctx.now),
@@ -491,6 +565,21 @@ export class CheckoutService {
               debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1
         WHERE id = ANY($1::uuid[])`,
       [all, ctx.now, debt ? 'debt' : 'desk', debt?.dueDate ?? null, debt?.reason ?? null],
+    );
+    // S4-11/32 (BE-C, T05): the last check-out of every guest of the stay (bookers + present members) – the
+    // retention of a profile "from the document" counts from it (J25 also catches up; this is the exact time).
+    const { rows: stayGuests } = await tx.query<{ id: string }>(
+      `SELECT booker_guest_id AS id FROM reservation
+        WHERE id = ANY($1::uuid[]) AND booker_guest_id IS NOT NULL
+       UNION
+       SELECT guest_id FROM reservation_guest
+        WHERE reservation_id = ANY($1::uuid[]) AND guest_id IS NOT NULL AND removed_at IS NULL`,
+      [all],
+    );
+    await this.profiles.touchLastStay(
+      tx,
+      stayGuests.map((g) => g.id),
+      ctx.now,
     );
     for (const k of kids) {
       await recordTransition(tx, {

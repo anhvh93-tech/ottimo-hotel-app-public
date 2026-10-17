@@ -135,7 +135,7 @@ export function registrationAttentionSources(regs: RegistrationService): Attenti
         count: found.length,
         reservationIds: found.map((f) => f.stay.reservationId),
         roomNos: roomsOf(found.map((f) => f.stay)),
-        ...(first ? { dueAt: ctx.iso(first.dueAt) } : {}),
+        ...(first?.dueAt ? { dueAt: ctx.iso(first.dueAt) } : {}),
         ...(found.length === 1 && first ? { refCode: first.stay.code } : {}),
         link: '/registrations',
         params: { check: UNCLAIMED_DOCUMENTS_CHECK },

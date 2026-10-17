@@ -89,6 +89,15 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
   });
   const create = (body: Record<string, unknown>, who = 'fd') =>
     c[who]!.send('POST', url('/reservations'), body);
+  /** BR-429 (d1) v0.3.8 (DOM-S4-06): a B7/B8 that changes the money is saved with the amount shown. */
+  const shown = async (id: string, body: Record<string, unknown>, who = 'fd') => {
+    const qs = new URLSearchParams(
+      Object.entries(body).map(([k, v]) => [k, String(v)] as [string, string]),
+    );
+    const pv = await c[who]!.get(url(`/reservations/${id}/move-preview?${qs}`));
+    expect(pv.statusCode, pv.body).toBe(200);
+    return { ...body, applyDifference: true, expectedDeltaVnd: pv.json().folioDeltaVnd as number };
+  };
   const action = (
     id: string,
     verb: string,
@@ -112,18 +121,22 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
     expect(r.nightlyRates.map((n: { calendarRateVnd: number }) => n.calendarRateVnd)).toEqual([
       792_000, 792_000, 792_000, 792_000, 911_000,
     ]);
-    const longer = await action(r.id, 'move', r.version, {
-      departureDate: '2026-11-16',
-      reasonCode: 'guest_request',
-    });
+    const longer = await action(
+      r.id,
+      'move',
+      r.version,
+      await shown(r.id, { departureDate: '2026-11-16', reasonCode: 'guest_request' }),
+    );
     expect(longer.statusCode, longer.body).toBe(200);
     expect(longer.json().totalRoomVnd).toBe(5_205_000);
     expect(sum(longer.json())).toBe(5_205_000);
     // BR-107-03: back to 5 nights → no tier any more (4.079.000, not 3.672.000).
-    const shorter = await action(r.id, 'move', longer.json().version, {
-      departureDate: '2026-11-14',
-      reasonCode: 'guest_request',
-    });
+    const shorter = await action(
+      r.id,
+      'move',
+      longer.json().version,
+      await shown(r.id, { departureDate: '2026-11-14', reasonCode: 'guest_request' }),
+    );
     expect(shorter.statusCode, shorter.body).toBe(200);
     expect(shorter.json().totalRoomVnd).toBe(4_079_000);
   });

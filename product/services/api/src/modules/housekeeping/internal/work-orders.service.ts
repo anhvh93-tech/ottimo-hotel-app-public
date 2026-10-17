@@ -25,7 +25,7 @@ import {
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
 import { assertVersion } from '../../../shared/http/precondition';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate } from '../../../shared/time';
+import { type LocalDate, addDays } from '../../../shared/time';
 import { assertNoCardNumber, stripControlChars } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
@@ -373,6 +373,14 @@ export class WorkOrdersService {
       errors.push({ field: 'blockRequested', code: 'VALIDATION_FAILED' });
     }
     const block = this.parseBlock(errors, body.block, roles, c.today);
+    // BR-804: the block ends `ooo_reopen_buffer_days` after the expected end of the repair – with a buffer of 0 an
+    // expected end on the start day would be an empty block (review BE-A 17/10).
+    if (block?.expectedDoneDate && !errors.some((e) => e.field === 'block.expectedDoneDate')) {
+      const buffer = await this.params.get<number>(tx, 'ooo_reopen_buffer_days', c.today);
+      if (addDays(block.expectedDoneDate, buffer) <= block.startDate) {
+        errors.push({ field: 'block.expectedDoneDate', code: 'DATE_ORDER' });
+      }
+    }
     if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
     assertNoCardNumber('title', title);
     assertNoCardNumber('description', description);

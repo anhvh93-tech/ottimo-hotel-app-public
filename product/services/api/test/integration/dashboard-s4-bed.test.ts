@@ -466,7 +466,48 @@ describe.skipIf(!HAS_DB)(
       const pct = lines.find(
         (l) => (l.params as Record<string, unknown>).check === 'foc_pct_of_room_revenue',
       )!;
-      expect((pct.params as Record<string, number>).pct).toBeGreaterThan(3);
+      const pctFoc = (pct.params as Record<string, number>).pct!;
+      expect(pctFoc).toBeGreaterThan(3);
+      // BR-435 v0.3.8 (DOM-S4-08, oracle BR-435-02): a special discount counts in the value AND in the
+      // approver's count; a request cancelled by rule no longer counts.
+      const folio103 = (await c.fd!.get(url(`/folios/${b['103']!.folioId}`))).json();
+      const room103 = folio103.lines.find(
+        (l: { category: string; serviceDate?: string }) =>
+          l.category === 'room' && l.serviceDate === '2026-10-15',
+      );
+      const sd = await c.own!.send(
+        'POST',
+        url(`/folios/${b['103']!.folioId}/lines/${room103.id}/foc`),
+        { kind: 'special_discount', amountVnd: 200_000, reasonCode: 'service_recovery' },
+      );
+      expect(sd.statusCode, sd.body).toBe(201);
+      expect(sd.json().status).toBe('approved');
+      const after = (await attention('own')).filter((i) => i.kind === 'foc_threshold');
+      const pctAfter = after.find(
+        (l) => (l.params as Record<string, unknown>).check === 'foc_pct_of_room_revenue',
+      )!;
+      expect((pctAfter.params as Record<string, number>).pct).toBeGreaterThan(pctFoc);
+      expect(after).toContainEqual(
+        expect.objectContaining({ params: { check: 'foc_count_per_approver', count: 2, max: 0 } }),
+      );
+      await q(
+        `UPDATE approval_request SET foc_state = 'cancelled', foc_cancel_reason = 'night_removed'
+          WHERE id = $1`,
+        [sd.json().id],
+      );
+      expect(
+        (await attention('own')).filter(
+          (i) =>
+            i.kind === 'foc_threshold' &&
+            (i.params as Record<string, unknown>).check === 'foc_count_per_approver',
+        ),
+      ).toEqual([
+        expect.objectContaining({ params: { check: 'foc_count_per_approver', count: 1, max: 0 } }),
+      ]);
+      await q(
+        `UPDATE approval_request SET foc_state = 'applied', foc_cancel_reason = NULL WHERE id = $1`,
+        [sd.json().id],
+      );
       for (const who of ['mgr', 'fdl', 'fd']) {
         expect(
           (await attention(who)).some((i) => i.kind === 'foc_threshold'),

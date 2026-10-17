@@ -25,7 +25,9 @@ import {
 } from './device.js';
 import {
   call,
+  createFakeGuest,
   etag,
+  fakeMobile,
   propertyIdOf,
   resetRateLimits,
   session,
@@ -939,15 +941,12 @@ export async function namedGuest(
   const pick = (n: number) =>
     Array.from({ length: n }, () => letters[Math.floor(Math.random() * letters.length)]).join('');
   const fullName = `Nguyen Thi ${pick(1).toUpperCase()}${pick(5)}`;
-  const r = await call<{ id: string }>(ctx, 'POST', `/v1/properties/${propertyIdOf(s)}/guests`, {
-    session: s,
-    idempotencyKey: true,
-    body: {
-      fullName,
-      phone: `0939${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`,
-      email: `e2e.s3.${uuid().slice(0, 8)}@example.test`,
-      ...extra,
-    },
+  // SĐT do harness sinh (không trùng – support/api.ts fakeMobile); 409 trùng hồ sơ cũ → thử số khác (createFakeGuest)
+  const r = await createFakeGuest(ctx, s, {
+    fullName,
+    phone: fakeMobile(),
+    email: `e2e.s3.${uuid().slice(0, 8)}@example.test`,
+    ...extra,
   });
   expect(r.status, `createGuest: ${JSON.stringify(r.body)}`).toBe(201);
   return { id: r.body.id, fullName: String(extra.fullName ?? fullName) };

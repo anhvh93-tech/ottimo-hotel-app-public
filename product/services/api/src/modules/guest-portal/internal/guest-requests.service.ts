@@ -49,6 +49,7 @@ import {
 import { guestRequestSlaJob } from '../public/guest-request-jobs';
 import { GuestRequestLifecycle, sseRoles } from './guest-request-lifecycle';
 import {
+  FULL_CLEAN_TASK_TYPES,
   GUEST_REQUESTS_PER_DAY,
   OPEN_PAID_REQUESTS_MAX,
   type RoutedTo,
@@ -64,7 +65,6 @@ import {
 
 const OPEN: readonly GuestRequestStatus[] = ['new', 'acknowledged', 'in_progress'];
 const DESK = ['front_desk_lead', 'front_desk'] as const;
-const FULL_CLEAN_TYPES = ['stayover_clean', 'long_stay_clean', 'adhoc_clean', 'priority_clean'];
 
 export interface GuestRequestRow {
   id: string;
@@ -204,8 +204,8 @@ export class GuestRequestsService implements OnModuleInit {
 
   /**
    * BR-506 short stay: time of the last FULL clean of this stay done today (business day) in the room – the
-   * daily clean, a long-stay/ad-hoc/priority clean, or an earlier `extra_cleaning` request's task. A clean
-   * before this guest checked in (room preparation) does not count.
+   * daily clean, a long-stay/ad-hoc clean, or an earlier `extra_cleaning` request's task (FULL_CLEAN_TASK_TYPES –
+   * v0.3.8: a priority clean preparing the room is NOT one). A clean before this guest checked in does not count.
    */
   private async lastFullClean(
     tx: Tx,
@@ -224,7 +224,7 @@ export class GuestRequestsService implements OnModuleInit {
         WHERE t.room_id = $1 AND t.status = 'done' AND t.done_at >= $2 AND t.done_at <= $3
           AND (t.type = ANY($4::text[]) OR (t.type = 'guest_request' AND g.type = 'extra_cleaning'))
         ORDER BY t.done_at DESC LIMIT 1`,
-      [roomId, since, c.now, FULL_CLEAN_TYPES],
+      [roomId, since, c.now, FULL_CLEAN_TASK_TYPES],
     );
     const at = rows[0]?.done_at;
     return at ? toZonedIso(at, c.tz).slice(11, 16) : null;

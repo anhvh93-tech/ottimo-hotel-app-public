@@ -82,6 +82,10 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     await user.type(within(dlg).getByLabelText(/^Ghi chú/), 'Khách xin căn tầng thấp');
     // S4-21: the change is priced by the server before it can be saved.
     await within(dlg).findByRole('region', { name: tv('move.preview_title') });
+    // BR-429 (d1) v0.3.8 (DOM-S4-06): a longer stay changes the money → told + ticked before saving.
+    const told = () =>
+      within(dlg).getByRole('checkbox', { name: new RegExp(`^${tv('move.told_guest')}`) });
+    await user.click(told());
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(
       await within(dlg).findByText(/Dữ liệu vừa được người khác thay đổi/),
@@ -89,6 +93,7 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     await user.click(within(dlg).getByRole('button', { name: tv('common.reload') }));
     expect(within(dlg).getByLabelText(/^Ghi chú/)).toHaveValue('Khách xin căn tầng thấp');
     expect(within(dlg).getByLabelText(/^Lý do đổi/)).toHaveValue('other');
+    if (!(told() as HTMLInputElement).checked) await user.click(told());
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(await screen.findByText(/^Đã đổi OTM-0\d+/)).toBeInTheDocument();
     expect(mockControl.rsv.reservations.find((r) => r.code === 'OTM-0149')!.departureDate).toBe(

@@ -14,7 +14,14 @@
 // still answers 403 FORBIDDEN_ACTION (role gate) and an allowed one reaches the handler. C3 reads behind step-up
 // answer 401 REAUTH_REQUIRED for an allowed role without a step-up window (gate passed – accepted).
 import type { APIRequestContext } from '@playwright/test';
-import { call, propertyIdOf, session, uuid, type StaffSession } from '../support/api.js';
+import {
+  call,
+  fakeMobile,
+  propertyIdOf,
+  session,
+  uuid,
+  type StaffSession,
+} from '../support/api.js';
 import { addDays } from '../support/s2.js';
 import { guestLink, openGuest } from '../support/s3.js';
 
@@ -100,7 +107,7 @@ async function guestBooking(
     idempotencyKey: true,
     body: {
       fullName: 'Khach Rbac Ba',
-      phone: `0939${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`,
+      phone: fakeMobile(),
     },
   });
   if (!direct || guest.status !== 201) return null;

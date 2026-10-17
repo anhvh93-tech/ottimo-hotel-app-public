@@ -12,14 +12,8 @@ import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
 export const OPEN: Readonly<Record<string, string>> = {
-  'BUG-R2-033':
-    'S4-11 – nhập giấy tờ người 2 không partyMemberId: khớp hồ sơ theo số giấy tờ / người "Chưa rõ" (BR-951; 0.3.7 nhóm D mục A) – BE-C',
-  'BUG-R2-054':
-    'S4-12 – xóa ảnh khai báo chưa confirmed không ghi Registration.imagesPurgedAt/imagesPurgeReason – BE-C',
   'US-151/AC7':
     'Landing mock v1.2 (FB-INV-002 ý 4): thanh cố định/đầu trang chỉ "Đặt phòng" + "Chat Zalo"; WhatsApp/Telegram/Viber trong "Kênh khác" thu gọn – FE-LP',
-  'S4-10':
-    'Phần còn lại của BUG-R2-038: createVietQr purpose=check_in (VietQR thu trước B9 – mô tả checkIn 0.3.7) trả 422 NOT_IN_LIST trên cây làm việc 17/10 – BE-A/BE-B',
 };
 
 function fixedByEnv(): Set<string> {
@@ -38,7 +32,8 @@ function fixedByEnv(): Set<string> {
  */
 export function knownBug(...ids: string[]): void {
   const bad = ids.filter(
-    (id) => !/^(BUG-R2-\d{3}|S4-\d{2}[a-c]?|B-\d{1,2}|US-\d{3}(\/AC\d+[a-z]?)?)$/.test(id),
+    (id) =>
+      !/^(BUG-R2-\d{3}|S4-\d{2}[a-c]?|DOM-S4-\d{2}|B-\d{1,2}|US-\d{3}(\/AC\d+[a-z]?)?)$/.test(id),
   );
   if (bad.length) throw new Error(`knownBug: mã không đúng dạng ${bad.join(', ')}`);
   const fixed = fixedByEnv();

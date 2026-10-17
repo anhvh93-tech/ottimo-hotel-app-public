@@ -73,9 +73,18 @@ const handoverSchema = z.object({
 
 const reverseSchema = z.object({ reason: z.string().max(500) });
 
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// 0.3.7 (BUG-R2-038 / S4-47; S4-10): `check_in` / `check_out` QR at the desk steps, with the time inputs of
+// previewCheckIn / getCheckoutSummary that the cap is computed from (purpose cross-checks in the service).
 const vietQrSchema = z.object({
   amountVnd: money,
-  purpose: z.enum(['deposit', 'balance', 'billing_period']).optional(),
+  purpose: z.enum(['deposit', 'balance', 'check_in', 'check_out', 'billing_period']).optional(),
+  checkinTime: z.string().regex(TIME).optional(),
+  addPriorNight: z.boolean().optional(),
+  priorNightRateVnd: money.optional(),
+  checkoutAt: z.string().max(40).optional(),
+  extraNightRateVnd: money.optional(),
   overBalanceReason: z.string().max(300).optional(),
 });
 
@@ -288,6 +297,15 @@ export class PaymentsController {
     if (!UUID.test(folioId)) throw problem('NOT_FOUND');
     rejectDryRun(body);
     const input = parseBody(vietQrSchema, body);
+    let checkoutAt: Date | undefined;
+    if (input.checkoutAt !== undefined) {
+      if (Number.isNaN(Date.parse(input.checkoutAt))) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'checkoutAt', code: 'DATE_INVALID' }],
+        });
+      }
+      checkoutAt = new Date(input.checkoutAt);
+    }
     const p = principal(req);
     const result = await this.uow.run(req, async (tx) => ({
       status: 201,
@@ -300,6 +318,17 @@ export class PaymentsController {
           amountVnd: input.amountVnd,
           purpose: input.purpose ?? null,
           overBalanceReason: input.overBalanceReason,
+          stay: {
+            ...(input.checkinTime !== undefined ? { checkinTime: input.checkinTime } : {}),
+            ...(input.addPriorNight !== undefined ? { addPriorNight: input.addPriorNight } : {}),
+            ...(input.priorNightRateVnd !== undefined
+              ? { priorNightRateVnd: input.priorNightRateVnd }
+              : {}),
+            ...(checkoutAt ? { checkoutAt } : {}),
+            ...(input.extraNightRateVnd !== undefined
+              ? { extraNightRateVnd: input.extraNightRateVnd }
+              : {}),
+          },
         },
       ),
     }));

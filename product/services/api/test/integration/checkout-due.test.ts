@@ -17,7 +17,13 @@ import {
   type FrontdeskChildDataPort,
   type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import {
+  type AmountDueQuery,
+  RESERVATION_SALES_PORT,
+  type ReservationSalesPort,
+} from '../../src/modules/reservations/public/sales-port';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
+import { ProblemError } from '../../src/shared/problem';
 import {
   Client,
   type FeatureApp,
@@ -211,6 +217,18 @@ describe.skipIf(!HAS_DB)('check-out amount due – S4-47 (BE-A Sprint 4)', () =>
     });
     expect(out.statusCode, out.body).toBe(200);
     expect(await totals(b.folioId)).toMatchObject({ balanceDueVnd: 0, creditVnd: 0 });
+    // S4-11/32 (BE-C J25 retention): B18 stamps the last check-out of the stay's guests.
+    const [g] = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ at: Date }>(
+            'SELECT last_stay_checkout_at AS at FROM guest WHERE id = $1',
+            [guest],
+          )
+        ).rows,
+    );
+    expect(g!.at.toISOString()).toBe(new Date('2026-11-18T15:00:00+07:00').toISOString());
   });
 
   it('a late charge with an approved FOC, guest leaves at 13:00: the FOC follows (min) – the due shown is what B18 leaves', async () => {
@@ -317,5 +335,85 @@ describe.skipIf(!HAS_DB)('check-out amount due – S4-47 (BE-A Sprint 4)', () =>
     });
     expect(out.statusCode, out.body).toBe(200);
     expect(await totals(b.folioId)).toMatchObject({ balanceDueVnd: 0, creditVnd: 0 });
+  });
+
+  it('S4-10 (BE-A part): ReservationSalesPort.amountDueFor = previewCheckIn / getCheckoutSummary amounts; wrong day → 409, SAL → 403, rate checks → 422', async () => {
+    const port = fa.app.get<ReservationSalesPort>(RESERVATION_SALES_PORT, { strict: false });
+    const due = (q: Omit<AmountDueQuery, 'actor'>, roles: string[] = ['front_desk']) =>
+      db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
+        port.amountDueFor(tx, { ...q, actor: { userId: t.users.fd!.id, roles } }),
+      );
+    const code = async (p: Promise<unknown>) => {
+      try {
+        await p;
+        return 'ok';
+      } catch (e) {
+        return e instanceof ProblemError ? `${e.status} ${e.code}` : String(e);
+      }
+    };
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await create({
+      roomId: ids.rooms['202'],
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      adults: 2,
+      bookerGuestId: guest,
+      paymentModel: 'direct',
+      arrivalDate: '2026-11-26',
+      departureDate: '2026-11-28',
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: 500_000 },
+    });
+    // check_in: the day before → 409; on the arrival day at 11:00 = previewCheckIn(11:00) (early surcharge in).
+    await at('2026-11-25T10:00:00+07:00');
+    expect(
+      await code(due({ reservationId: b.id, purpose: 'check_in', checkinTime: '11:00' })),
+    ).toBe('409 INVALID_TRANSITION');
+    await at('2026-11-26T11:00:00+07:00');
+    const pv = (
+      await c.fd!.get(url(`/reservations/${b.id}/check-in-preview?checkinTime=11:00`))
+    ).json();
+    expect(pv.amountDueAtCheckinVnd).toBeGreaterThan(pv.balanceDueVnd); // the early surcharge is in
+    expect(await due({ reservationId: b.id, purpose: 'check_in', checkinTime: '11:00' })).toBe(
+      pv.amountDueAtCheckinVnd,
+    );
+    expect(await code(due({ reservationId: b.id, purpose: 'check_in', addPriorNight: true }))).toBe(
+      '422 VALIDATION_FAILED',
+    );
+    expect(await code(due({ reservationId: b.id, purpose: 'check_in' }, ['sales_staff']))).toBe(
+      '403 FORBIDDEN_ACTION',
+    );
+    expect(await code(due({ reservationId: b.id, purpose: 'check_out' }))).toBe(
+      '409 INVALID_TRANSITION',
+    ); // not in house yet
+    // check_out at 15:00 on the departure day = getCheckoutSummary(15:00).
+    await stay(b, '2026-11-26');
+    await at('2026-11-27T15:00:00+07:00');
+    expect(await code(due({ reservationId: b.id, purpose: 'check_out' }))).toBe(
+      '409 INVALID_TRANSITION',
+    ); // not the departure day
+    await at('2026-11-28T15:00:00+07:00');
+    const s = await summary(b.id, '15:00');
+    expect(s.amountDueAtCheckoutVnd).toBeGreaterThan(0);
+    expect(await due({ reservationId: b.id, purpose: 'check_out' })).toBe(s.amountDueAtCheckoutVnd);
+    expect(
+      await due({
+        reservationId: b.id,
+        purpose: 'check_out',
+        checkoutAt: new Date('2026-11-28T15:00:00+07:00'),
+      }),
+    ).toBe(s.amountDueAtCheckoutVnd);
+    expect(
+      await code(due({ reservationId: b.id, purpose: 'check_out', extraNightRateVnd: 900_000 })),
+    ).toBe('422 VALIDATION_FAILED'); // no extra night at 15:00
+    // after the last tier: the extra night at the default rate = the summary; outside floor–ceiling → 422.
+    await at('2026-11-28T19:00:00+07:00');
+    const late = await summary(b.id, '19:00');
+    expect(late.extraNightRequired).toBe(true);
+    expect(await due({ reservationId: b.id, purpose: 'check_out' })).toBe(
+      late.amountDueAtCheckoutVnd,
+    );
+    expect(
+      await code(due({ reservationId: b.id, purpose: 'check_out', extraNightRateVnd: 1_000 })),
+    ).toBe('422 RATE_OUT_OF_RANGE');
   });
 });

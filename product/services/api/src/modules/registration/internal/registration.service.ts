@@ -125,6 +125,15 @@ export const UNCLAIMED_DOCUMENTS_CHECK = 'registration_party_docs_unlinked';
  * 422 of `removePartyMember?guestUploadPersonIndex=` (0.3.7, S4-39): `personIndexes` = the open guest-link slots
  * the desk may choose from – numbers only, never an image or a name (SEC-BE-53 (2)).
  */
+/** BR-601 v0.3.8 (DOM-S4-16 b): a minor's unlinked document stays until the stay is declared (BR-602/603). */
+const DECLARED: readonly string[] = ['confirmed', 'updated'];
+function childKeptUndeclared(
+  reg: Pick<RegRow, 'status'>,
+  d: Pick<DocRow, 'is_minor_data'>,
+): boolean {
+  return d.is_minor_data && !DECLARED.includes(reg.status);
+}
+
 function guestUploadProblem(code: 'REQUIRED' | 'NOT_ALLOWED' | 'NOT_IN_LIST', slots: number[]) {
   return problem('VALIDATION_FAILED', {
     errors: [{ field: 'guestUploadPersonIndex', code }],
@@ -152,13 +161,20 @@ const POLICY_OF: Record<ImageDeleteReason, string> = {
   party_removed: 'party_removed',
   unconfirmed: 'SR-RET-02',
 };
-const SUMMARY_REASONS: readonly string[] = [
-  'retention',
-  'no_consent',
-  'consent_withdrawn',
-  'guest_request',
-  'void',
-];
+/**
+ * `Registration.imagesPurgeReason` of a purge (contract enum = DB CHECK `registration_purge_reason_check`).
+ * S4-12 / BUG-R2-054: a declaration never confirmed (SR-RET-02 `unconfirmed`) loses its images at a deadline –
+ * shown as `retention` (the keeping time ran out) [GIẢ ĐỊNH BE-C – ARC: the enum has no `unconfirmed`].
+ * `replaced` / `party_removed` remove one person's document, not the declaration's images – no summary.
+ */
+const SUMMARY_OF: Partial<Record<ImageDeleteReason, string>> = {
+  retention: 'retention',
+  no_consent: 'no_consent',
+  consent_withdrawn: 'consent_withdrawn',
+  guest_request: 'guest_request',
+  void: 'void',
+  unconfirmed: 'retention',
+};
 
 const OPEN_STATUSES: readonly string[] = ['none', 'pre', 'partial', 'review'];
 /** Technical cap of open registrations read for one list (a 10-room property has tens). */
@@ -476,10 +492,11 @@ export class RegistrationService {
       });
       n++;
     }
-    if (n > 0 && SUMMARY_REASONS.includes(reason)) {
+    const summary = SUMMARY_OF[reason];
+    if (n > 0 && summary) {
       await tx.query(
         `UPDATE registration SET images_purged_at = $2, images_purge_reason = $3, updated_at = $2 WHERE id = $1`,
-        [reg.id, now, reason],
+        [reg.id, now, summary],
       );
     }
     return n;
@@ -2398,7 +2415,9 @@ export class RegistrationService {
    * keeps it, otherwise J16 removes it at the deadline. An earlier deadline is never extended.
    */
   private async markUnclaimed(tx: Tx, reg: RegRow, docs: readonly DocRow[]): Promise<number> {
-    const unlinked = docs.filter(isOpenGuestSlot);
+    // BR-601 v0.3.8 (DOM-S4-16 b): a child's document is never removed by the "unclaimed" deadline before the
+    // stay is declared – the declaration still needs the child; the desk links it (Cần chú ý).
+    const unlinked = docs.filter((d) => isOpenGuestSlot(d) && !childKeptUndeclared(reg, d));
     if (unlinked.length === 0) return 0;
     const now = this.clock.now();
     const until = new Date(now.getTime() + UNCLAIMED_DOCUMENT_HOURS * 3_600_000);
@@ -2474,7 +2493,10 @@ export class RegistrationService {
         let reg = await lockRegistration(tx, r.registration_id);
         if (!reg || reg.legal_hold) return;
         const due = (await documentsOf(tx, reg.id)).filter(
-          (d) => isUnclaimed(d) && (d.fields_purge_after as Date) <= now,
+          (d) =>
+            isUnclaimed(d) &&
+            (d.fields_purge_after as Date) <= now &&
+            !childKeptUndeclared(reg as RegRow, d),
         );
         if (due.length === 0) return;
         const images = await imagesOf(tx, reg.id);
@@ -2544,13 +2566,16 @@ export class RegistrationService {
    * guest-link documents, with the earliest removal deadline – booking ids only (SEC J). A booking under
    * `legal_hold` is left out: J16 does not remove anything there, so the deadline would be wrong (SEC-BE-57).
    */
-  async unclaimedDocumentStays(tx: Tx): Promise<Array<{ stay: StayView; dueAt: Date }>> {
-    const { rows } = await tx.query<{ reservation_id: string; due: Date }>(
+  async unclaimedDocumentStays(tx: Tx): Promise<Array<{ stay: StayView; dueAt: Date | null }>> {
+    // BR-601 v0.3.8 (DOM-S4-16 b): also a child's document linked to nobody (desk-entered – no profile for a
+    // minor, S4-11 – or a guest-link slot) while the stay is not declared: no deadline, the desk links it.
+    const { rows } = await tx.query<{ reservation_id: string; due: Date | null }>(
       `SELECT x.reservation_id, min(d.fields_purge_after) AS due
          FROM guest_document d JOIN registration x ON x.id = d.registration_id
-        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND d.person_index >= 2
-          AND d.fields_purge_after IS NOT NULL AND x.status <> 'void' AND NOT x.legal_hold
-        GROUP BY x.reservation_id ORDER BY min(d.fields_purge_after) LIMIT $1`,
+        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND x.status <> 'void' AND NOT x.legal_hold
+          AND ((d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
+               OR (d.is_minor_data AND NOT d.is_main AND x.status NOT IN ('confirmed', 'updated')))
+        GROUP BY x.reservation_id ORDER BY min(d.fields_purge_after) NULLS LAST LIMIT $1`,
       [OPEN_CAP],
     );
     const stays = await readStays(
@@ -2558,7 +2583,7 @@ export class RegistrationService {
       rows.map((r) => r.reservation_id),
       SYSTEM_ACTOR,
     );
-    const out: Array<{ stay: StayView; dueAt: Date }> = [];
+    const out: Array<{ stay: StayView; dueAt: Date | null }> = [];
     for (const r of rows) {
       const stay = stays.get(r.reservation_id);
       if (stay) out.push({ stay, dueAt: r.due });

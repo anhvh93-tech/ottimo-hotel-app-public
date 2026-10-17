@@ -43,3 +43,5 @@
 **Mục D (FE-A):** FE-A 1 đã theo (thẻ FE-S4-02). Gợi ý FE-A 4 (dùng ngày nghiệp vụ cho gợi ý "Đã thực hiện") chưa làm: chỉ là gợi ý, không có thẻ. Sẽ làm khi `getBusinessDate` có sẵn ở Desk.
 
 **Kiểm (17/10 tối):** admin-web vitest 307/307; `tsc`, eslint, prettier xanh; i18n 19/19; `check_hifi` xanh. Ca `i18n-keys` đỏ mà FE-B báo (khóa `ci.pay_received`) đã xanh sau khi FE-A thêm chuỗi và sinh lại.
+
+**DOM-S4-06 (phần FE-A, BR-429 (d1) v0.3.8):** Done. Mọi B7/B8 có `folioDeltaVnd ≠ 0` bắt buộc tick "Đã báo khách số tiền mới" và gửi `applyDifference` + `expectedDeltaVnd`. Khách tự xin đổi căn bắt buộc tick kể cả khi chênh 0, trừ đơn hợp đồng giấy. Unit + E2E **TC-L2-103** (a) đạt; (b) phía server để `knownBug('DOM-S4-06')`, chờ BE-A.

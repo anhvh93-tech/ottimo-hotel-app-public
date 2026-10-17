@@ -1,9 +1,10 @@
 // E2E API – EP09 hồ sơ khách & bộ chọn khách (US-071…073, US-087 phạm vi M). TC: r1-main-flows.md 6.3.
-// Guests are throwaway (fake): email miền .test, SĐT di động ngẫu nhiên đầu 0939 (test-strategy mục 4).
+// Guests are throwaway (fake): email miền .test, SĐT di động giả không trùng `fakeMobile()` (test-strategy mục 4).
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
   expectProblem,
+  fakeMobile,
   needSeedPassword,
   propertyIdOf,
   requireEndpoints,
@@ -53,7 +54,7 @@ const letters = () =>
   Array.from({ length: 5 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join(
     '',
   );
-const mobile = () => `0939${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`; // 10 số, đầu 09x
+const mobile = fakeMobile; // 10 số 0[35789]xxxxxxxx, không trùng giữa các worker/lượt (support/api.ts)
 const mail = (tag = 'g') => `e2e.${tag}.${uniq(8)}@example.test`;
 
 async function create(ctx: APIRequestContext, s: StaffSession, body: Record<string, unknown>) {

@@ -103,6 +103,65 @@ export function uniqName(len = 6): string {
   return Array.from(randomBytes(len), (b) => String.fromCharCode(97 + (b % 26))).join('');
 }
 
+// ───────────────────────── fake phone numbers that do not repeat ─────────────────────────
+// BR-951: a phone belongs to one live guest profile → a repeated number is 409 DUPLICATE_GUEST while building data
+// (breg-3 / TC-L3-013 in S3, TC-L2-103 in S4: "0939 + 6 random digits" = 10⁶ numbers, birthday clashes on long-lived
+// stacks). Now: value = clock in 0.1 s (strictly increasing per process) × 100 + Playwright parallel slot × 10 + a
+// random digit per process, mod 5·10⁸, written as a VN mobile 0[35789] + 8 digits (normalizePhone: 84 + 9 digits).
+//   - no repeat inside one run (workers have different slots; the main process takes slot 9);
+//   - none across runs for ~5.8 days, as long as one process makes ≤ 10 numbers a second on average;
+//   - two runs on the same stack at the same 0.1 s differ by the random digit (9 in 10).
+// What is left (wrap-around, a seed profile with the same number) is covered by createFakeGuest's retry.
+const PHONE_LEAD = ['3', '5', '7', '8', '9'] as const;
+const PHONE_SLOT = ((): number => {
+  const p = Number(process.env.TEST_PARALLEL_INDEX);
+  return Number.isInteger(p) && p >= 0 ? p % 10 : 9;
+})();
+const PHONE_SALT = randomBytes(1)[0]! % 10;
+let phoneTick = 0;
+
+/** Fake VN mobile, 10 digits (0[35789]xxxxxxxx), not repeated – see above. */
+export function fakeMobile(): string {
+  phoneTick = Math.max(phoneTick + 1, Math.floor(Date.now() / 100));
+  const v = (phoneTick * 100 + PHONE_SLOT * 10 + PHONE_SALT) % 500_000_000;
+  return `0${PHONE_LEAD[Math.floor(v / 100_000_000)]}${String(v % 100_000_000).padStart(8, '0')}`;
+}
+
+/**
+ * POST /guests for a throwaway profile while building data. 409 DUPLICATE_GUEST on `phone` (a profile left by another
+ * run – not the subject of the case) → try again with a new `fakeMobile()`, at most 3 calls, annotation `harness`.
+ * Only for numbers the harness made up: a case that checks duplicate phones calls `call` itself.
+ */
+export async function createFakeGuest<T = { id: string }>(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  let b = body;
+  for (let attempt = 1; ; attempt++) {
+    const r = await call<T>(ctx, 'POST', `/v1/properties/${propertyIdOf(s)}/guests`, {
+      session: s,
+      idempotencyKey: true,
+      body: b,
+    });
+    const p = r.body as Problem;
+    const phoneClash =
+      r.status === 409 &&
+      p?.code === 'DUPLICATE_GUEST' &&
+      (p.errors ?? []).some((e) => e.field === 'phone');
+    if (!phoneClash || b.phone === undefined || attempt >= 3) return r;
+    try {
+      test.info().annotations.push({
+        type: 'harness',
+        description: `createGuest: SĐT giả trùng hồ sơ có sẵn (409 DUPLICATE_GUEST, lần ${attempt}) – thử số khác`,
+      });
+    } catch {
+      /* outside a test (global setup) */
+    }
+    b = { ...b, phone: fakeMobile() };
+  }
+}
+
 export function fillPath(path: string, params: Record<string, string>): string {
   return path.replace(/\{(\w+)\}/g, (_, k: string) => {
     const v = params[k];

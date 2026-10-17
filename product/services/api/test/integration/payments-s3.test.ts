@@ -2710,9 +2710,9 @@ describe.skipIf(!HAS_DB)(
       expect(open.statusCode, open.body).toBe(201);
       const after = (await cancel({ reasonCode: 'found_other', dryRun: true })).json()
         .cancellation as { depositPaidVnd: number; refundableVnd: number };
-      expect(after.refundableVnd).toBe(
-        Math.max(0, Math.min(before.refundableVnd, before.depositPaidVnd - 500_000)),
-      );
+      // BR-309 v0.3.8 (DOM-S4-14, BE-A): an open refund request never changes the fee nor the deposit part
+      // refunded – the ONE refund request (BR-522) adds only what is missing (checked below).
+      expect(after.refundableVnd).toBe(before.refundableVnd);
       const v = (await q('SELECT version FROM reservation WHERE id = $1', [b.id]))[0]!.version;
       const done = await cancel({ reasonCode: 'found_other' }, { 'if-match': `"${v}"` });
       expect(done.statusCode, done.body).toBe(200);
@@ -2735,12 +2735,13 @@ describe.skipIf(!HAS_DB)(
         await atT0();
         const b = await booking({ deposit: null });
         const [r] = await q(
-          `SELECT version, total_room_vnd, arrival_date::text AS arrival,
+          `SELECT version, total_room_vnd, deposit_required_vnd, arrival_date::text AS arrival,
                   (pricing_snapshot->>'hasPeakNight')::boolean AS peak
              FROM reservation WHERE id = $1`,
           [b.id],
         );
         const value = Number(r!.total_room_vnd);
+        const required = Number(r!.deposit_required_vnd);
         const dep = await c('fd').send(
           'POST',
           `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
@@ -2761,7 +2762,14 @@ describe.skipIf(!HAS_DB)(
           reason: 'Hoàn phần chuyển dư',
         });
         expect(open.statusCode, open.body).toBe(201);
-        return { b, value, deposit: value + 500_000, arrival: String(r!.arrival), peak: !!r!.peak };
+        return {
+          b,
+          value,
+          required,
+          deposit: value + 500_000,
+          arrival: String(r!.arrival),
+          peak: !!r!.peak,
+        };
       };
       const quoteAt = async (b: Booking, day: string) => {
         fa.clock.set(new Date(`${day}T03:00:00.000Z`));
@@ -2778,19 +2786,21 @@ describe.skipIf(!HAS_DB)(
         };
       };
 
-      // 0 % tier (the day before arrival): the fee is the booking value, never the excess deposit.
+      // BR-309 v0.3.8 (DOM-S4-14 – BE-A; replaces VER-BE-S3-01): the fee base is min(deposit paid, deposit
+      // REQUIRED, booking value) – money paid above the required deposit is excess, and an open refund request
+      // never lowers the fee. 0 % tier (the day before arrival): fee = the required deposit.
       const z = await excessBooking();
+      expect(z.required).toBeLessThan(z.value);
       const q0 = await quoteAt(z.b, addDays(z.arrival, -1));
-      expect(q0.retainedVnd).toBe(z.value);
-      expect(q0.refundableVnd).toBe(0);
-      expect(500_000 + q0.refundableVnd + q0.retainedVnd).toBe(z.deposit);
+      expect(q0.retainedVnd).toBe(z.required);
+      expect(q0.refundableVnd + q0.retainedVnd).toBe(z.deposit);
 
-      // 50 % tier (5 days before): fee on the booking value only; open + new requests = the excess left.
+      // 50 % tier (5 days before): fee on the required deposit; open + new requests = the excess left.
       const h = await excessBooking();
       const q5 = await quoteAt(h.b, addDays(h.arrival, -5));
-      expect(q5.retainedVnd).toBeLessThanOrEqual(h.value);
-      if (!h.peak) expect(q5.retainedVnd).toBeLessThan(h.value);
-      expect(500_000 + q5.refundableVnd + q5.retainedVnd).toBe(h.deposit);
+      expect(q5.retainedVnd).toBeLessThanOrEqual(h.required);
+      if (!h.peak) expect(q5.retainedVnd).toBeLessThan(h.required);
+      expect(q5.refundableVnd + q5.retainedVnd).toBe(h.deposit);
       const v = (await q('SELECT version FROM reservation WHERE id = $1', [h.b.id]))[0]!.version;
       const done = await c('fd').send(
         'POST',
@@ -2809,7 +2819,7 @@ describe.skipIf(!HAS_DB)(
         )[0]!.total,
       );
       const after = (await folio(h.b)).totals as { creditVnd: number; unhandledCreditVnd: number };
-      expect(asked).toBe(500_000 + q5.refundableVnd);
+      expect(asked).toBe(q5.refundableVnd); // the open 500.000 + what the cancellation added
       expect(asked).toBeLessThanOrEqual(after.creditVnd); // never more requested than the excess left
       expect(after.unhandledCreditVnd).toBe(after.creditVnd - asked);
       await atT0();
@@ -2818,10 +2828,12 @@ describe.skipIf(!HAS_DB)(
       await atT0();
       const b = await booking({ deposit: null });
       const [r] = await q(
-        `SELECT version, total_room_vnd, arrival_date::text AS arrival FROM reservation WHERE id = $1`,
+        `SELECT version, total_room_vnd, deposit_required_vnd, arrival_date::text AS arrival
+           FROM reservation WHERE id = $1`,
         [b.id],
       );
       const value = Number(r!.total_room_vnd);
+      const required = Number(r!.deposit_required_vnd);
       const dep = await c('fd').send(
         'POST',
         `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
@@ -2868,8 +2880,13 @@ describe.skipIf(!HAS_DB)(
         `SELECT amount_vnd FROM folio_line WHERE folio_id = $1 AND category = 'no_show_fee'`,
         [b.folioId],
       );
-      expect(fees.map((x) => Number(x.amount_vnd))).toEqual([value]);
-      expect((await folio(b)).totals).toMatchObject({ creditVnd: 500_000, unhandledCreditVnd: 0 });
+      // BR-309/311 v0.3.8 (DOM-S4-14 – BE-A): no-show keeps min(deposit paid, deposit required, booking value);
+      // the rest is excess – the open 500.000 plus ONE request for what is left (nothing unhandled).
+      expect(fees.map((x) => Number(x.amount_vnd))).toEqual([required]);
+      expect((await folio(b)).totals).toMatchObject({
+        creditVnd: value + 500_000 - required,
+        unhandledCreditVnd: 0,
+      });
       // The open request (routed + approved before) is paid out (cash, signed receipt).
       const paid = await c('fd2').send(
         'POST',
@@ -2881,7 +2898,11 @@ describe.skipIf(!HAS_DB)(
         },
       );
       expect(paid.statusCode, paid.body).toBe(201);
-      expect((await folio(b)).totals).toMatchObject({ creditVnd: 0, balanceDueVnd: 0 });
+      expect((await folio(b)).totals).toMatchObject({
+        creditVnd: value - required,
+        unhandledCreditVnd: 0,
+        balanceDueVnd: 0,
+      });
       await atT0();
     });
     it('Round 5 (REFUND #3, DOM 17/10): booking value = live room + extra-person lines after FOC – not the snapshot, not services', async () => {

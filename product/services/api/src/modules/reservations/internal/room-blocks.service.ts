@@ -125,6 +125,10 @@ export class RoomBlocksService {
           : undefined);
       if (buffer === undefined) throw new Error('ooo_reopen_buffer_days unavailable');
       end = addDays(expectedDone, buffer);
+      // With a buffer of 0 an expected end on the start day would make an empty block (review BE-A 17/10).
+      if (expectedDone >= (start as string) && end <= (start as string)) {
+        f.add('expectedDoneDate', 'DATE_ORDER');
+      }
     } else if ((end as string) <= (start as string)) f.add('endDatePlanned', 'DATE_ORDER');
     const room = await tx.query<{ id: string }>('SELECT id FROM room WHERE id = $1', [roomId]);
     if (!room.rows[0]) f.add('roomId', 'NOT_IN_LIST');

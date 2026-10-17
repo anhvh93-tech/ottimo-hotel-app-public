@@ -58,6 +58,49 @@ import {
 import { buildVietQrPayload, transferContentOf } from './vietqr';
 
 const SALES_ROLES = ['sales_staff', 'collaborator'];
+
+/** createVietQr 0.3.7: the time inputs of previewCheckIn / getCheckoutSummary the step cap is computed from. */
+export interface StayQrInput {
+  checkinTime?: string;
+  addPriorNight?: boolean;
+  priorNightRateVnd?: number;
+  checkoutAt?: Date;
+  extraNightRateVnd?: number;
+}
+
+const CHECKIN_FIELDS = ['checkinTime', 'addPriorNight', 'priorNightRateVnd'] as const;
+const CHECKOUT_FIELDS = ['checkoutAt', 'extraNightRateVnd'] as const;
+
+/**
+ * 0.3.7: `checkinTime`/`addPriorNight`/`priorNightRateVnd` only with `purpose=check_in` (the rate only with
+ * `addPriorNight`), `checkoutAt`/`extraNightRateVnd` only with `purpose=check_out` – else 422 NOT_ALLOWED.
+ */
+function stayFieldErrors(purpose: string | null, stay: StayQrInput): void {
+  const errors: Array<{ field: string; code: string }> = [];
+  for (const k of CHECKIN_FIELDS) {
+    if (stay[k] !== undefined && purpose !== 'check_in')
+      errors.push({ field: k, code: 'NOT_ALLOWED' });
+  }
+  for (const k of CHECKOUT_FIELDS) {
+    if (stay[k] !== undefined && purpose !== 'check_out') {
+      errors.push({ field: k, code: 'NOT_ALLOWED' });
+    }
+  }
+  if (
+    purpose === 'check_in' &&
+    stay.priorNightRateVnd !== undefined &&
+    stay.addPriorNight !== true
+  ) {
+    errors.push({ field: 'priorNightRateVnd', code: 'NOT_ALLOWED' });
+  }
+  for (const k of ['priorNightRateVnd', 'extraNightRateVnd'] as const) {
+    const v = stay[k];
+    if (v !== undefined && v <= 0 && !errors.some((e) => e.field === k)) {
+      errors.push({ field: k, code: 'AMOUNT_NOT_POSITIVE' });
+    }
+  }
+  if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
+}
 const MAX_RANGE_DAYS = 92;
 
 export interface ListPaymentsQuery {
@@ -671,17 +714,29 @@ export class PaymentsService {
     tx: Tx,
     actor: PaymentActor,
     folioId: string,
-    input: { amountVnd: number; purpose: string | null; overBalanceReason: unknown },
+    input: {
+      amountVnd: number;
+      purpose: string | null;
+      overBalanceReason: unknown;
+      /** 0.3.7: time inputs of the desk step (`check_in` / `check_out` only). */
+      stay?: StayQrInput;
+    },
   ): Promise<{ paymentId: string; expiredPaymentIds: string[] }> {
     if (input.purpose === 'billing_period') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
     }
+    const stay = input.stay ?? {};
+    const stayPurpose =
+      input.purpose === 'check_in' || input.purpose === 'check_out' ? input.purpose : null;
+    stayFieldErrors(input.purpose, stay);
     if (!Number.isSafeInteger(input.amountVnd) || input.amountVnd <= 0) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }],
       });
     }
     const desk = isDesk(actor.roles);
+    // 0.3.7: the QR of the check-in / check-out step is a desk action (SAL/CTV → 403, never their scope 404).
+    if (stayPurpose && !desk) throw problem('FORBIDDEN_ACTION');
     // D12c (x-rbac-field): only FD+ may ask for more than the balance.
     if (input.overBalanceReason !== undefined && input.overBalanceReason !== null && !desk) {
       throw problem('FORBIDDEN_ACTION');
@@ -696,6 +751,10 @@ export class PaymentsService {
     if (!desk && target.createdBy !== actor.userId && target.closerUserId !== actor.userId) {
       throw problem('NOT_FOUND');
     }
+    // 0.3.7 (S4-10): `check_in` on a `confirmed` booking, `check_out` on an `in_house` one – else 409.
+    if (stayPurpose && target.status !== (stayPurpose === 'check_in' ? 'confirmed' : 'in_house')) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: target.status } });
+    }
     // A QR on a hold collects its deposit (a `charge` would not count for B4/J1 – verification 17/10).
     if (target.status === 'hold' && input.purpose !== null && input.purpose !== 'deposit') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
@@ -707,6 +766,23 @@ export class PaymentsService {
     const tz = await this.folios.timezone(tx);
     const rollover = await this.rollover(tx, tz, now);
     const today = businessDate(now, tz, rollover);
+    // 0.3.7 (S4-10): the check-in / check-out step owes what B9 / B18 would leave due at the typed time –
+    // `CheckInPreview.amountDueAtCheckinVnd` (BR-402 v0.3.6: surcharge / B9a night included, pending FOC on
+    // incidental charges not due) / `CheckoutSummary.amountDueAtCheckoutVnd`: the front desk's calculation
+    // through the reservations port (BE-A), which also checks the step's day (arrival or B9a window; departure
+    // or post-midnight window → else 409 INVALID_TRANSITION), the B9a / extra-night options and FD+.
+    const stepDueVnd = stayPurpose
+      ? await this.port().amountDueFor(tx, {
+          reservationId: target.id,
+          purpose: stayPurpose,
+          actor: {
+            userId: actor.userId,
+            roles: actor.roles,
+            ...(actor.requestId ? { requestId: actor.requestId } : {}),
+          },
+          ...stay,
+        })
+      : null;
     const account = await receivingAccountInEffect(tx, today, tz);
     if (!account) throw problem('PAYMENT_NOT_CONFIGURED');
 
@@ -714,7 +790,8 @@ export class PaymentsService {
     const hold = target.status === 'hold';
     const purpose = input.purpose ?? (hold ? 'deposit' : 'balance');
     let capVnd: number;
-    if (hold)
+    if (stayPurpose) capVnd = stepDueVnd ?? 0;
+    else if (hold)
       capVnd = Math.max(
         0,
         target.depositRequiredVnd - (await this.folios.depositPaid(tx, folio.id)),

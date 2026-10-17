@@ -705,7 +705,14 @@ export function createReservationMock(ctx: Ctx) {
       }
       if (guest && roomMoved) r.roomDisclosedToGuest = true;
     };
-    return { preview, apply, needTold: guest && roomMoved, over };
+    // BR-429 (d1) v0.3.8 (DOM-S4-06): told + exact figure for any change of money; a guest room change also at 0.
+    return {
+      preview,
+      apply,
+      needTold:
+        (guest && roomMoved && basis !== 'external_contract') || preview.folioDeltaVnd !== 0,
+      over,
+    };
   }
 
   // ---------- views ----------
@@ -1512,7 +1519,7 @@ export function createReservationMock(ctx: Ctx) {
           max: roomById(plan.preview.roomId)?.maxOccupancy,
           errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
         });
-      // ESC-019 A / BR-414: the guest asked for another room → told the new amount, the exact figure.
+      // ESC-019 A / BR-414, BR-429 (d1) v0.3.8: told the new amount, the exact figure (DOM-S4-06).
       if (plan.needTold && (body.applyDifference !== true || body.expectedDeltaVnd === undefined))
         return validation([{ field: 'applyDifference', code: 'REQUIRED' }]);
       if (plan.needTold && body.expectedDeltaVnd !== plan.preview.folioDeltaVnd)

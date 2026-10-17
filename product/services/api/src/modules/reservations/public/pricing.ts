@@ -112,6 +112,46 @@ export function applyNightDiscount(rates: readonly number[], pct: number, unit: 
   return rates.map((r) => applyPct(r, 100 - pct, unit));
 }
 
+/**
+ * BR-111 / BR-429 (a1) v0.3.8: the return-guest % a booking made from a quote carries (`pricing_snapshot.quote`
+ * – BR-006 snapshot of the quote) and whether that quote stacked it on the BR-107 tier (`stackable`).
+ */
+export interface ReturnGuestDiscount {
+  pct: number;
+  stacked: boolean;
+}
+
+export function returnGuestOf(snapshot: unknown): ReturnGuestDiscount {
+  const q = (snapshot as { quote?: { returnGuestPct?: unknown; calc?: { warnings?: unknown } } })
+    ?.quote;
+  const pct = typeof q?.returnGuestPct === 'number' && q.returnGuestPct > 0 ? q.returnGuestPct : 0;
+  const warnings = Array.isArray(q?.calc?.warnings) ? (q?.calc?.warnings as unknown[]) : [];
+  return { pct, stacked: pct > 0 && warnings.includes('return_code_stacked') };
+}
+
+/**
+ * The % a re-priced stay carries (BR-429 (a1)): the better of the BR-107 tier of the new number of nights and
+ * the return-guest %, never both – unless the quote stacked them (then the tier, the return % applied after).
+ * Stored as `pricing_snapshot.losDiscountPct` (the % in force) so a later change compares like with like.
+ */
+export function effectiveDiscountPct(losPct: number, ret: ReturnGuestDiscount): number {
+  return ret.stacked ? losPct : Math.max(losPct, ret.pct);
+}
+
+/** Gross of a night from its calendar price with the BR-107 tier and the BR-111 % (BR-429 (a1)). */
+export function discountedNight(
+  calendarVnd: number,
+  losPct: number,
+  ret: ReturnGuestDiscount,
+  unit: number,
+): number {
+  if (ret.stacked && ret.pct > 0) {
+    const tier = applyNightDiscount([calendarVnd], losPct, unit)[0] as number;
+    return applyNightDiscount([tier], ret.pct, unit)[0] as number;
+  }
+  return applyNightDiscount([calendarVnd], effectiveDiscountPct(losPct, ret), unit)[0] as number;
+}
+
 /** BR-105: floor/ceiling of a base price (rate_floor_pct / rate_ceiling_pct), rounded to `unit`. */
 export function rateBounds(
   baseVnd: number,

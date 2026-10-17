@@ -723,15 +723,21 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
     );
     expect(ok.statusCode, ok.body).toBe(200);
     expect((await folio('fd', h.folioId)).totals.roomVnd).toBe(4_079_000);
+    const moveBody = {
+      arrivalDate: '2027-03-15',
+      departureDate: '2027-03-22',
+      reasonCode: 'guest_request',
+      mode: 'change',
+    };
+    // BR-429 (d1) v0.3.8 (DOM-S4-06): a change of money is saved with the amount shown (preview = write).
+    const pv = await Client.of(fa, t, 'fd').get(
+      `${P(t)}/reservations/${h.id}/move-preview?${new URLSearchParams(moveBody)}`,
+    );
+    expect(pv.statusCode, pv.body).toBe(200);
     const move = await Client.of(fa, t, 'fd').send(
       'POST',
       `${P(t)}/reservations/${h.id}/actions/move`,
-      {
-        arrivalDate: '2027-03-15',
-        departureDate: '2027-03-22',
-        reasonCode: 'guest_request',
-        mode: 'change',
-      },
+      { ...moveBody, applyDifference: true, expectedDeltaVnd: pv.json().folioDeltaVnd },
       { 'if-match': `"${ok.json().version}"` },
     );
     expect(move.statusCode, move.body).toBe(200);

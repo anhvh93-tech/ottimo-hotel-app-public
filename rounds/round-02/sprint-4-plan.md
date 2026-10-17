@@ -1,6 +1,6 @@
 # Kế hoạch Sprint 4 – Round 2 (buồng phòng & bảo trì · app khách · Tổng quan · đóng nợ tiền)
 
-- Người lập: PO | Ngày: 17/10/2026 | Bước: **Lập kế hoạch → đóng băng (D1)** | Trạng thái: **ĐÓNG BĂNG D1 – 17/10/2026** (ORC chốt sau critic kiểm lại – decision-log dòng ORC "chốt đóng băng D1 Sprint 4", quyết định 1–4). Đổi kế hoạch sau đóng băng: PO đề xuất, ORC duyệt, ghi decision-log trong ngày. Đổi hợp đồng sau đóng băng: qua ARC, báo trong ngày (8.1).
+- Người lập: PO | Ngày: 17/10/2026 | Bước: **Lập kế hoạch → đóng băng (D1)** | Trạng thái: **ĐÓNG BĂNG D1 – 17/10/2026** (ORC chốt sau critic kiểm lại – decision-log dòng ORC "chốt đóng băng D1 Sprint 4", quyết định 1–4). Đổi kế hoạch sau đóng băng: PO đề xuất, ORC duyệt, ghi decision-log trong ngày. Đổi hợp đồng sau đóng băng: qua ARC, báo trong ngày (8.1). **Thay đổi sau đóng băng đã duyệt: mục 16** (17/10 – US-155 vào LP-v1, cổng LP-v1 hai mốc, điều kiện bật form, xếp lịch DOM-S4-17, DOM-S4-11 phần (2), Q-W09); nội dung cũ giữ nguyên, các mục bị ảnh hưởng có ghi chú trỏ về mục 16.
 - Sửa khi đóng băng (critic kiểm lại `reviews/s4-kickoff-critic.md` phần cuối, ORC quyết định 1–4):
   - **S4-23 phần thứ tự = CỔNG, BE-B** (DOM chốt BR-434 v0.3.6; cài trong hàm đồng bộ của S4-02) – mục 0, 3, 4, 6, 7, 8.3, 10, 11, 12, 14 và `s4-carryover.md`;
   - **BR-012 phía folio** (`labelParams.room`, `folio.settled_room_names`, `Bill.roomName`) chuyển **BE-A từ D1** để BE-B còn dự phòng – mục 6 (S4-52), 8.1, 8.3, 12.1;
@@ -76,7 +76,7 @@ Chi tiết ở mục 3:
 - Tự gửi tin Zalo/email (US-126, US-161, US-162 – R3; ESC-021 A).
 - Mọi story đã dời R3 theo R-C.
 - Đổi toolchain FE (React 19, Vite 8 – S4-16 phần còn lại).
-- Hộp yêu cầu đặt phòng trên website (US-155 – R3).
+- Hộp yêu cầu đặt phòng trên website (US-155 – R3). *(Thay đổi sau đóng băng 17/10 – mục 16.1: US-155 nay là Must "R2 – LP-v1"; BE-D phần nhận yêu cầu trong Sprint 4, phần Desk sang tuần Ổn định; vẫn **không** tính vào cổng QC Sprint 4.)*
 
 ## 2. Đầu vào số liệu (17/10 tối)
 
@@ -413,6 +413,7 @@ Bảng này thay chỗ lệch giữa dự thảo kế hoạch và `outputs/ARC/o
   - INV đồng ý bản xem thử.
 - Rào chắn: Sprint 4 trễ việc tiền (M1) thì ORC tạm dừng FE-LP, phần UXD giữ (landing-scope 7.2, rào 3).
 - Lưu ý commit (ĐK-S3-13): tệp landing và brand commit **riêng** với mã Sprint 4. Trước cổng LP-v1 chạy `gen_traceability.py --strict --strict-track LP-v1`.
+- *(Thay đổi sau đóng băng 17/10 – mục 16.1, 16.2: luồng LP-v1 thêm **US-155** (form "Yêu cầu đặt phòng" – INV chọn ESC-020 L7 = A); FE-LP dựng theo bản mẫu **v1.2.1** (thay v1.1) sau khi INV xem; lên mạng tách mốc "trang" và mốc "form".)*
 
 ### 9.2 Chat Zalo OA (ESC-021 = A, K1 = A)
 - **Không lập trình trong Sprint 4.** Chat bắt đầu trên OA Manager ngay khi OA được xác thực. INV nộp bằng ĐKKD CTCP UTMG Living, hẹn 19/10. Zalo xác thực khoảng 2–3 ngày làm việc.
@@ -487,6 +488,8 @@ Gồm landing-scope mục 8, cùng:
 - US-153 AC1 (Brand Guidelines, UXD ký duyệt bản dựng);
 - INV đã duyệt nội dung và đồng ý bản xem thử.
 
+*(Thay đổi sau đóng băng 17/10 – mục 16.2: cổng LP-v1 tách **mốc "trang"** (các điều kiện trên, form tắt trên mạng) và **mốc "form"** (US-155; chỉ bật production sau SEC C-1…C-13 và luật sư trả lời ESC-001 LZ-2, LZ-8).)*
+
 ## 12. Năng lực, rủi ro, thứ tự cắt
 
 ### 12.1 Ước lượng theo luồng (bản đóng băng D1, theo bảng phân việc ORC và quyết định đóng băng 2–4)
@@ -504,6 +507,8 @@ Ngày-người, ước tính của PO. Các vai xác nhận ở D1. Năng lực 
 | UXD | ≈ 6,5 | landing ≈ 3,0 | ≈ 9,5 | Vừa sát (thêm #18, #19). Landing dừng ở bước 4 |
 | QA | ≈ 10,25 | ≈ 2,25 | ≈ 12,5 | **Thiếu ≈ 2,5** → bước cắt QA (12.3): T9 thu hẹp từ D1 (≈ −1,0), TC LP-v1 dừng cùng FE-LP (≈ −0,75), S4-33 sang Ổn định (≈ −1,0) → ≈ 9,75 |
 | ARC · DOM · SEC · OPS | ≈ 6,25 · 4,5 · 5 · 3 | – | – | Đủ (ARC, DOM thêm việc D1 từ critic) |
+
+*(Thay đổi sau đóng băng 17/10 – mục 16.1: US-155 thêm vào BE-D ≈ 2–2,5 trong Sprint 4 (phần nhận yêu cầu) và ≈ 1,5–2 ở tuần Ổn định (phần Desk); FE-B ≈ 1,5–2 ở tuần Ổn định; FE-LP ≈ 1,5–2; QA ≈ 1,75–2,25 (viết TC sớm ≈ 0,5); ARC ≈ 0,75–1; SEC ≈ 1–1,5. Bảng trên giữ số bản D1.)*
 
 Sprint 3 cần 9 vòng sửa sau kiểm chứng đối kháng. Nếu Sprint 4 có tỉ lệ sửa lại 30–50 % trên việc tiền và module mới, BE-B và BE-C vẫn có thể thiếu 1–3 ngày. Với BE-B, mốc D3 là điểm quyết định: trễ D3 phía BE-B thì US-066 + US-003 AC2 và S4-20 sang BE-D ngay (4.2), BE-B chỉ còn việc tiền. Mốc D3/D5/D7 (4.1) và quy tắc lùi cổng D8 (11.2) là cách xử lý, không ép tiến độ bằng cách giảm kiểm chứng.
 
@@ -534,6 +539,7 @@ Trễ mốc D3/D5/D7 thì ORC tự chạy tới bước 4 (dừng FE-LP) và chu
 3. **P3 giao diện:** S4-50c, S4-12, phần chọn ngân hàng theo tên của S4-45 → R3.
 4. **FE-LP tạm dừng** (rào 3 landing). UXD chỉ làm landing khi việc CỔNG của UXD đã xong.
    - **QA-2:** TC LP-v1 (T11) dừng cùng lúc với FE-LP; chạy lại khi FE-LP mở lại.
+   - *(Thay đổi sau đóng băng 17/10 – mục 16.1: bước 4 nay dừng cả **US-155** – BE-D phần nhận yêu cầu, FE-LP phần form, chạy TC US-155; BE-D quay về nhận việc chuyển theo 4.2. Phần Desk của US-155 đã ở tuần Ổn định nên không tính vào bước cắt Sprint 4.)*
 5. **S4-43** (mở rộng hoàn tiền) → R3. Tạm thời MGR nhập nơi nhận.
 6. **P2 hiển thị** (S4-50b **gồm BUG-078**, phần năm sinh trẻ em của S4-45) → giai đoạn Ổn định. Không sang R3; phải xong trước lần INV thử thứ hai.
    - **QA-3:** S4-33 → giai đoạn Ổn định. US-024 AC4 (nhánh `ROOM_NOT_READY`), US-139 AC3, US-022 giữ "Đang nghiệm thu" tới khi có ca.
@@ -577,3 +583,45 @@ Trễ mốc D3/D5/D7 thì ORC tự chạy tới bước 4 (dừng FE-LP) và chu
 
   Nếu INV muốn tự chuyển thì báo đội.
 - Nếu cổng S4 lùi sang tuần Ổn định theo quy tắc D8, ORC báo INV ở tổng kết (không cần ESC: không đổi mốc cuối Round 2 nếu Ổn định vẫn đủ ngày; nếu ảnh hưởng mốc cuối Round 2 thì ORC tạo ESC theo protocol mục 8).
+
+## 16. Thay đổi sau đóng băng (17/10, ORC duyệt)
+
+Đề xuất: PO (`outputs/PO/landing-scope.md` mục 0.5–0.6; lượt Phản hồi & sửa sau workflow landing). Duyệt: ORC 17/10. Căn cứ: `04-investor-feedback/FB-INV-002.md` (INV chọn ESC-020 L7 = **A** ngày 17/10); `reviews/landing-booking-SEC.md`; `reviews/landing-v12-critic.md`; `business-rules.md` **v0.3.8** (nhóm 11A BR-911…916 vẫn ghi v0.3.7 – DOM giữ số cho luồng LP-v1); decision-log dòng DOM v0.3.8. Mục này **không** đổi cổng QC Sprint 4 (mục 11.1, 11.2), mốc D3/D5/D7/D8, danh sách "không bao giờ cắt".
+
+### 16.1 US-155 vào luồng LP-v1
+- **US-155 Should R3 → Must "R2 – LP-v1"** (PO, quyền ưu tiên backlog). Không thuộc cổng QC Sprint 4 / Round 2 – tính ở cổng LP-v1 riêng (9.1, 11.3, 16.2).
+- Phương án **ESC-020 L7-A** (INV 17/10): yêu cầu đặt phòng vào Desk, nguồn `website` (nhãn `facebook` khi vào từ fanpage), lễ tân xác nhận qua Zalo, không thanh toán online.
+
+| Vai | Phần việc | Khi | Ngày-người [ước tính PO] | Điều kiện |
+|---|---|---|--:|---|
+| ARC | Operation bổ sung sau đóng băng ("0.3.7 bổ sung 2" – đã có) + sửa theo SEC ARC-13…ARC-23; `erd.md` 4.14; ADR-014 (gỡ nhãn chờ INV, link `#book`) | Sprint 4, sau việc CỔNG | 0,75–1 | Chỉ thêm, không sửa operation có sẵn; báo BE/FE/QA trong ngày; **không** tính lệch hợp đồng ở cổng S4 (như 8.2b) |
+| BA | `rbac-matrix` (mã hành động, trường D30 – SEC ARC-19) **cùng commit** với ARC; SM-18 đã có | Cùng ARC | 0,5 | `--strict` phải xanh trước commit (RL14) |
+| **BE-D** | **Phần nhận yêu cầu:** bảng + migration, form token, endpoint công khai, kiểm đầu vào, ô bẫy, giới hạn RAM trước DB + bulkhead (SEC ARC-13), giới hạn trong DB, trần "bận", job hạn xóa mọi trạng thái (C-2), `erase` (ARC-16), tham số bật form có kiểm điều kiện (ARC-17); test Phụ lục B.1 | **Sprint 4, sau mốc D5** | 2–2,5 | BE-D đã nhận việc chuyển đợt D3 (US-066 + US-003 AC2, S4-20): làm US-155 chỉ khi các việc này xong và không phải nhận đợt chuyển D5 (4.2). ORC duyệt ngoại lệ so với landing-scope 0.5 ("đã nhận việc chuyển → sang Ổn định"). Không đủ chỗ ở D5 → sang tuần Ổn định |
+| **BE-D** | **Phần Desk:** list/get/transition theo phạm vi vai, chuyển đơn WR6, thông báo, SSE, "Cần chú ý", Q-W09 (16.3 mục c); test Phụ lục B.2 | **Tuần Ổn định** | 1,5–2 | Sau G1 xanh |
+| **FE-B** | Hàng chờ "Yêu cầu từ website" (S35): danh sách, chi tiết, nhận/đóng/spam/mở lại/xóa, "Chuyển thành báo giá", hiển thị dữ liệu lạ an toàn (SEC ARC-21) | **Tuần Ổn định**, sau mọi việc CỔNG của FE-B | 1,5–2 | Dựng trên MSW theo hợp đồng nếu BE-D chưa xong |
+| FE-LP | Form VI/EN, trang cảm ơn, công tắc theo tham số server (không cờ build – ARC-17), nhãn nguồn lấy từ link | Tuần 2, **sau phần trang**; theo bản mẫu v1.2.1 INV đã xem | 1,5–2 | Vượt tuần 2 → tuần Ổn định |
+| UXD | Màn form, cảm ơn (có ở v1.2); hàng chờ Desk; chữ VI/EN | Sau việc CỔNG | 1–1,5 | – |
+| SEC | Review PR BE-D, FE-LP, FE-B; khung thông báo xử lý dữ liệu (Phụ lục A) chờ luật sư | Theo PR | 1–1,5 | – |
+| QA | TC 11 AC của US-155 gắn `[BLOCKED …]` trước mốc "trang" (≈ 0,5); chạy TC + Phụ lục B ở tuần Ổn định | Như cột trái | 1,75–2,25 | – |
+
+- Ưu tiên không đổi: việc sửa lỗi tiền luôn đi trước; **không** lấy giờ của BE-A, BE-B, BE-C, FE-A; không làm chậm D3, D5, D7, D8.
+- Bước cắt 4 (12.3) dừng cả US-155 (BE-D phần nhận yêu cầu, FE-LP phần form, chạy TC).
+
+### 16.2 Cổng LP-v1 – hai mốc (thay 11.3 khi lệch)
+- **Mốc "trang"** (đưa trang giới thiệu lên mạng): các điều kiện 11.3 + landing-scope mục 8; AC mới US-146 AC5–AC7, US-147 AC6, US-151 AC7–AC8; **form tắt** trên mạng (nút "Đặt phòng" mở chat Zalo); `gen_traceability.py --strict --strict-track LP-v1` exit 0 – mọi AC Must của luồng, gồm US-155, có TC (TC US-155 được gắn `[BLOCKED …]`).
+- **Mốc "form"** (bật form trên production): US-155 AC1–AC11 đạt trên bản thử (QA, không lỗi P0/P1); review bắt buộc ARC + SEC (phần BE), UXD + QA (phần FE); trang quyền riêng tư có phần form (US-149 AC5, US-155 AC10); QC chấm mốc form ĐẠT hoặc ĐẠT CÓ ĐIỀU KIỆN; **và** điều kiện ở 16.2a.
+- **16.2a – Form chỉ bật production khi đủ cả hai:**
+  1. **SEC xác nhận C-1…C-13** (`reviews/landing-booking-SEC.md` mục 1: C-1, C-2, C-3 mở rộng, C-11, C-12, C-13) và SEC-G1/G2 (Desk chạy thật, được nhận dữ liệu khách thật);
+  2. **luật sư trả lời ESC-001 LZ-2 và LZ-8** (LZ-8 theo Luật TMĐT 2025 + NĐ 248/2026), hoặc OTTIMO đã làm xong thủ tục thông báo/đăng ký.
+  - Tới khi đủ: form chỉ chạy ở bản thử có chặn truy cập (SEC ARC-10). Dự kiến sớm nhất **đầu Round 3** (cần Desk chạy thật).
+- Sau khi trang lên mạng, INV tự đặt nút "Đặt ngay" của fanpage trỏ về link `#book` có UTM (ESC-020 mục "Việc anh/chị tự làm cho fanpage") – không cần chờ mốc "form".
+
+### 16.3 Xếp lịch việc mới từ DOM (BR v0.3.8, decision-log dòng DOM 17/10) và BA Q-W09
+| # | Việc | Mức | Xếp | Lý do | Tạm thời |
+|---|---|---|---|---|---|
+| a | **DOM-S4-17** – thao tác "khách để lại" tiền dư cho **đơn đã đóng** (`cancelled`/`no_show` có `closed_reservation_credit`), chỉ MGR+, bắt buộc đính kèm/ghi bằng chứng khách đồng ý (BR-522 v0.3.8) | NÊN | **R3 – Sprint 1** (cùng US-124 đóng ca); không vào Sprint 4, không vào tuần Ổn định | Đường ghi tiền mới: cần operation mới (đổi hợp đồng sau đóng băng), mã hành động rbac, ví dụ oracle DOM, ca kiểm chứng tiền như S4-38 – BE-B Sprint 4 đã kín năng lực (12.1). R2 chỉ có dữ liệu giả nên không có rủi ro sai tiền thật. Phải xong **trước RC** | Mục "Cần chú ý" `closed_reservation_credit` giữ mở tới khi chi hoàn đủ (S4-06 – đã là CỔNG); khách muốn để lại thì MGR ghi chú trên đơn, chưa đóng mục. PO thêm AC vào US-021 khi lập `round-03/plan.md` (không thêm AC bây giờ để không đỏ `--strict`) |
+| b | **DOM-S4-11 phần (2)** – người đi cùng đã gắn hồ sơ mang nhóm VIP/Khách quen cũng sinh dòng "khách VIP/khách quen đến hôm nay" (BR-956 (2)) | NÊN | **R3 – Sprint 1** (cùng US-075 phân khúc khách, có nhóm "người đi cùng") | Module `reporting` chưa được đọc bảng người đi cùng; thêm bảng vào `REPORTING_READ_TABLES` cần **ARC duyệt** (điều kiện C5); BE-D Sprint 4 đã nhận thêm việc chuyển + US-155 | US-012 AC7 (dòng VIP/khách quen) nghiệm thu R2 theo **người đứng tên** (VIP/Khách quen hoặc đã từng ở – phần (1) BE-D đã làm). ARC trả lời câu C5 trong Sprint 4 để R3 làm ngay |
+| c | **Q-W09** – BR-912 (2) báo lên lễ tân trưởng + quản lý khi yêu cầu website quá 30 phút chưa phản hồi; BR-912 (3) yêu cầu có ngày đến là **hôm nay** (kể cả ngoài giờ) báo ngay người trực | Must của US-155 (AC7, AC8) | **LP-v1 – mốc "form"** (không thuộc mốc "trang", không thuộc cổng S4). ARC thêm cờ `arrivesToday` + loại thông báo `website_request_overdue` (FDL + MGR, một lần mỗi yêu cầu, theo mẫu `guest_request_overdue` – DOM-S4-10) trong Sprint 4 cùng hợp đồng US-155; **BE-D làm ở tuần Ổn định** cùng phần Desk; FE-B hiển thị; FE-LP: trang cảm ơn của yêu cầu "đến hôm nay" luôn hiện số gọi | Khi form bật thật mà yêu cầu "đến tối nay" không ai thấy thì khách tới không có phòng – đây là rủi ro vận hành chính của form. Chi phí nhỏ vì dùng lại mẫu thông báo đã có | Ngoài giờ trực chỉ có thông báo trong app (FD/FDL đang trực) + trang cảm ơn mời khách gọi; **không** có kênh đẩy ngoài app (SMS/Zalo cho nhân viên) ở LP-v1 `[GIẢ ĐỊNH – người trực đêm mở Desk trên máy quầy; DOM xác nhận]`. PO đã ghi vào US-155 AC8 (sửa chữ, không thêm AC) |
+
+### 16.4 Việc ghi decision-log (ORC ghi khi commit)
+- ORC duyệt 16.1–16.3 (dòng PO "Thay đổi sau đóng băng Sprint 4 – landing" trong báo cáo PO gửi ORC 17/10).

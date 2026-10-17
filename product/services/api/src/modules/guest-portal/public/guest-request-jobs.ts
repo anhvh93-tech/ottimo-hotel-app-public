@@ -1,7 +1,8 @@
 /**
  * J10 `guest_request.sla` (architecture 9.1; BR-811; US-110 AC2 – BE-D Sprint 4): every tick, a guest request
  * still `new` after its reply deadline (`ack_due_at`) is reminded ONCE – staff notification
- * `guest_request_overdue` to the department it is routed to AND the desk (FD/FDL – "front_desk nhận nhắc"),
+ * `guest_request_overdue` to the department it is routed to, the desk (FD/FDL – "front_desk nhận nhắc") and the
+ * MANAGER as the escalation step (BR-811 v0.3.8 – DOM-S4-10; the owner is not notified),
  * SSE `guest_request.changed`. Exactly once by the row itself: `overdue_notified_at` is set in the same UPDATE
  * that selects the row (a repeated or overlapping tick finds nothing). The "Cần chú ý" line is computed at read
  * time (guestRequestOverdueSource). The auto reply out of hours happens at creation, never here.
@@ -10,6 +11,7 @@
 import type { Tx } from '../../../db/database';
 import type { JobDefinition } from '../../../jobs/job-runner';
 import type { EventsService } from '../../events/public/events.service';
+import { overdueRecipients } from '../internal/guest-request-rules';
 
 export const GUEST_REQUEST_SLA_JOB_KEY = 'guest_request.sla';
 
@@ -37,7 +39,7 @@ export function guestRequestSlaJob(events: EventsService): JobDefinition {
           tx,
           {
             kind: 'guest_request_overdue',
-            roles: [...dept, 'front_desk_lead', 'front_desk'],
+            roles: overdueRecipients(r.routed_to),
             refType: 'guest_request',
             refId: r.id,
             ...(r.room_no ? { refCode: r.room_no } : {}),

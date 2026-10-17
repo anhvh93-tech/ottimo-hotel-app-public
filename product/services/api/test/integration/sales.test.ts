@@ -452,7 +452,15 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
         totalRoomVnd: q.totalVnd,
         closerUserId: t.users.sal!.id,
       });
-      expect(r.nightlyRates).toEqual(q.nightlyRates); // BR-006 snapshot of the quote
+      // BR-006 snapshot of the quote; BR-429 (a1) v0.3.8 (DOM-S4-04, BE-A): the calendar price of each night is
+      // kept too (2 nights – no BR-107 tier, so calendar = price).
+      const rates = r.nightlyRates as Array<{
+        date: string;
+        amountVnd: number;
+        calendarRateVnd: number;
+      }>;
+      expect(rates.map(({ date, amountVnd }) => ({ date, amountVnd }))).toEqual(q.nightlyRates);
+      expect(rates.map((n) => n.calendarRateVnd)).toEqual(rates.map((n) => n.amountVnd));
       expect(r).not.toHaveProperty('commission');
       const after = (await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${q.id}`)).json();
       expect(after.status).toBe('converted');

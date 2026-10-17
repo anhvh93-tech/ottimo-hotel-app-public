@@ -228,16 +228,26 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     const pv = (await c.fd!.get(url(`/reservations/${o.id}/check-in-preview`))).json();
     expect(pv.priorNight).toMatchObject({ available: true, createsChildReservation: true });
     const rate = pv.priorNight.defaultRateVnd as number;
-    const ci = await act(o.id, 'check-in', {
+    // BR-402 v0.3.8 (DOM-S4-05, BR-402-02): the B9a night of the direct child is room money – paid at the desk
+    // before the check-in even on an OTA-prepaid booking (without it → 409 balance_paid).
+    expect(pv.amountDueAtCheckinVnd).toBe(rate);
+    const body = {
       cardsIssued: 1,
       houseRulesSent: true,
       addPriorNight: true,
       priorNightRateVnd: rate,
       expectedSurchargeVnd: rate,
+    };
+    const unpaid = await act(o.id, 'check-in', body);
+    expect(unpaid.statusCode).toBe(409);
+    expect(unpaid.json()).toMatchObject({ unmet: ['balance_paid'], balanceDueVnd: rate });
+    const ci = await act(o.id, 'check-in', {
+      ...body,
+      payment: { type: 'charge', method: 'cash', amountVnd: rate },
     });
     expect(ci.statusCode, ci.body).toBe(200);
     expect(await otaCollect(o)).toEqual([{ reservation_id: o.id, amount_vnd: 1_800_000 }]);
-    expect((await folio(o)).totals.balanceDueVnd).toBe(rate);
+    expect((await folio(o)).totals.balanceDueVnd).toBe(0);
 
     // People: the 2nd booked adult is in the OTA count (no fee); a 3rd adult is above it → desk surcharge.
     await at('2026-11-10T10:00:00+07:00');
@@ -263,7 +273,7 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     expect(extra).toBeGreaterThan(0);
     // DOM 17/10: the fee is not covered by the OTA receipt – it stays due at the desk.
     expect(await otaCollect(o)).toEqual([{ reservation_id: o.id, amount_vnd: 1_800_000 }]);
-    expect((await folio(o)).totals.balanceDueVnd).toBe(rate + extra);
+    expect((await folio(o)).totals.balanceDueVnd).toBe(extra);
 
     // B18 at 19:00 on the departure day: E05-11 "charge one more night" → a direct child in the same transaction.
     await at('2026-11-12T19:00:00+07:00');
@@ -272,7 +282,7 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     ).json();
     expect(s.extraNightRequired, JSON.stringify(s)).toBe(true);
     const night = s.extraNightDefaultRateVnd as number;
-    expect(s.balanceDueVnd).toBe(rate + extra);
+    expect(s.balanceDueVnd).toBe(extra);
     // The extra night is a direct night for 3 adults in a room for 2 → its own BR-110 fee (same per night).
     const perNightFee = extra / 2;
     const out = await act(o.id, 'check-out', {
@@ -281,7 +291,7 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
       finalPayment: {
         type: 'charge',
         method: 'cash',
-        amountVnd: rate + extra + night + perNightFee,
+        amountVnd: extra + night + perNightFee,
       },
     });
     expect(out.statusCode, out.body).toBe(200);

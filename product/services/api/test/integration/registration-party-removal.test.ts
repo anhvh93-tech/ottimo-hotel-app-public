@@ -731,6 +731,32 @@ describe.skipIf(!HAS_DB)('BUG-R2-083 – party removal and guest-link documents 
     expect(k1.deleteReasons).toEqual(['unconfirmed']);
   });
 
+  it('BR-601 v0.3.8 (DOM-S4-16 b): a child\'s unlinked document is not removed by the "unclaimed" deadline before the stay is declared – it stays in "Cần chú ý" without a deadline', async () => {
+    const { reservationId } = await threeInHouse();
+    // Khách 3 is a child's document (minor data – kept by the declaration, BR-601/602).
+    const before = await docs(reservationId);
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE guest_document SET is_minor_data = true WHERE id = $1', [
+        person(before, 3).id,
+      ]),
+    );
+    await cutHeadCount(reservationId, 1);
+    let s = await docs(reservationId);
+    expectPending(person(s, 2));
+    expectUntouched(person(s, 3)); // no deadline for the child
+    const item = await unclaimedAttention();
+    expect(item?.reservationIds).toContain(reservationId);
+    // Past the deadline: the adult's slot goes, the child's stays (the stay is not declared).
+    await runJ16(new Date(DEADLINE.getTime() + 60_000));
+    s = await docs(reservationId);
+    expectDestroyed(person(s, 2));
+    expect(person(s, 3)).toMatchObject({ removed: false, purged: false, liveImages: 1 });
+    await at(new Date(DEADLINE.getTime() + 2 * 60_000));
+    const still = await unclaimedAttention();
+    expect(still?.reservationIds).toContain(reservationId);
+    expect(still).not.toHaveProperty('dueAt'); // nothing will be removed by itself
+  });
+
   it('24 h (fallback) – the desk links Khách 3 to B within 24 h → kept; Khách 2 (not linked) removed at the deadline; a removed person cannot be used to keep one', async () => {
     const { reservationId, a, b } = await threeInHouse();
     await cutHeadCount(reservationId, 2);

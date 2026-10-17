@@ -117,6 +117,19 @@ Module mới **`reporting`** (architecture 5.1 – M1), tính khi đọc trong g
   - "chạy job ngay" đóng băng đồng hồ ở 16/10 03:30 và gửi `slot: '03:00'`.
 - Kết quả: chạy 3 lần liền 2 tệp song song – xanh.
 
+### 1.8 Phản hồi & sửa – DOM v0.3.8 (DOM-S4-07…11)
+| Mã | Sửa | Ở đâu | Oracle / test |
+|---|---|---|---|
+| DOM-S4-07 (BR-311) | Đơn chính còn `confirmed` có ngày đến < ngày nghiệp vụ luôn ở `no_show_mark` (critical), mọi giờ – không rơi lúc 06:00; hạn dòng = giờ đánh dấu của ngày đến cũ nhất. Trước 23:00 hôm nay: dòng "đánh dấu" (đơn quá ngày) + dòng "gọi" (đơn hôm nay) | `frontdesk/internal/attention-sources.ts` (`noShows` – **nhờ BE-A review**) | BR-311-02 (a/b/c + ngày nghiệp vụ) – `attention-dom-s4-bed.test.ts` |
+| DOM-S4-08 (BR-435, K-18) | Giá trị = FOC **+ giảm giá đặc biệt** (dòng `foc` + `discount` đã ghi, đảo dòng tự trừ), ngày ghi quy về ngày nghiệp vụ; số lần = yêu cầu `foc` + `special_discount` còn sống (`foc_state` applied/dormant – cùng tập BR-433), đầu kỳ = 1 của tháng lúc đổi ngày nghiệp vụ. `pct` (K-18 trên Tổng quan) theo cùng giá trị. Hàm thuần `focValueCheck`, `focCountAlert` | `reporting/internal/attention-sources.ts` | BR-435-02 (2.900.000 > 2.700.000; đếm 10 → không) – units; dashboard: giảm giá đặc biệt nâng `pct`, đếm 2; bị hủy theo quy tắc → 1 |
+| DOM-S4-09 (BR-506) | "Lần dọn đầy đủ" = `stayover_clean`, `long_stay_clean`, `adhoc_clean` + việc "Dọn thêm"; bỏ `priority_clean` | `guest-request-rules.ts` (`FULL_CLEAN_TASK_TYPES`, `countsAsFullClean`) | BR-506-03 – units; guest-requests: dọn gấp 08:40 → `feeVnd` null |
+| DOM-S4-10 (BR-811) | Quá hạn trả lời → bộ phận + FD + FDL + **MGR**; OWN không nhận | `guest-request-rules.ts` (`overdueRecipients`), J10 | BR-811-04 – units; guest-requests J10: fd, fdl, mgr |
+| DOM-S4-11 (BR-956, NÊN) | `vip_arrival` thêm người đứng tên đã có đơn `checked_out` (khách quay lại, không cần nhãn); cờ "có thể là khách quen" từ giấy tờ không tính; nhận phòng → hết dòng | `reporting/internal/attention-sources.ts` | BR-956-01 – `attention-dom-s4-bed.test.ts` |
+
+- Đã bỏ `pendingFix` của 5 oracle trên trong `product/tests/fixtures/br-examples.json`; `validate-fixtures.mjs` OK (1 cảnh báo cũ của `ds-0.json`).
+- Chưa làm (NÊN, BR-956 (2)): người đi cùng mang nhãn VIP/Khách quen. Lý do: `reporting` không đọc bảng người đi cùng; thêm bảng cần ARC duyệt (C5).
+- Danh mục nhóm khách (VIP, Khách quen, Dài hạn, Doanh nghiệp, Đoàn) thuộc module `guests`; `vip_arrival` chỉ xét VIP, Khách quen (giữ bí danh `returning`, `regular`).
+
 ## 2. Interface / việc cho vai khác
 ### 2.1 FE-B (Hôm nay H03 / Tổng quan H24)
 - `getTonightKpi`, `getArrivalsDepartures` đúng schema 0.3.7; dòng khách đi dùng `departureDate` = ngày đi hiệu lực; nút chỉ theo `allowedActions` (ngày khác hôm nay → rỗng).
@@ -200,7 +213,25 @@ Phát bằng `EventsService.openAttention(tx, { kind: 'closed_reservation_credit
     - `test/integration/platform.test.ts`, `test/integration/http-foundation.test.ts` (S4-20).
   - `01-decisions/decision-log.md` (+2 dòng BE-D).
 
+- **Phản hồi & sửa (DOM v0.3.8)**:
+  - Tạo: `test/integration/attention-dom-s4-bed.test.ts`.
+  - Sửa mã:
+    - `src/modules/frontdesk/internal/attention-sources.ts` (nhờ BE-A review);
+    - `src/modules/reporting/internal/attention-sources.ts`;
+    - `src/modules/guest-portal/internal/guest-request-rules.ts`, `guest-requests.service.ts`;
+    - `src/modules/guest-portal/public/guest-request-jobs.ts`.
+  - Sửa test: `test/be-d-s4-units.test.ts`, `test/integration/dashboard-s4-bed.test.ts`, `test/integration/guest-requests-s4-bed.test.ts`.
+  - Ngoài api: `product/tests/fixtures/br-examples.json` (bỏ 5 `pendingFix`), `01-decisions/decision-log.md` (+1 dòng BE-D).
+
 ## 4. Kết quả lệnh
+**Phản hồi & sửa** (17/10/2026 ~21:30, DB `ottimo_test_bed` tạo lại sau khi ORC sắp journal theo số):
+| Lệnh | Kết quả |
+|---|---|
+| `vitest run` toàn bộ api | **67/77 tệp, 2603/2625 test xanh**. `schema-parity` nay xanh. **22 ca đỏ ở 10 tệp – không thuộc BE-D**: việc đang làm của luồng khác trên cây chung. 14 ca là 422 `applyDifference` `REQUIRED` (DOM-S4-06, BE-A), ví dụ `move-pricing`, `reservations`, `foc-keys-s4`, `foc-resync`, `folio-payments`. 2 ca là 409 `balance_paid` trước khi nhận phòng (DOM-S4-05). Còn lại: `payments-s3` (3), `sales` (1) |
+| Tệp BE-D + liên quan (units, attention-dom, dashboard, guest-requests, module-boundaries, frontdesk) | 6 tệp, 85 test xanh; trong lần chạy toàn bộ cũng xanh |
+| `validate-fixtures.mjs` | OK – 0 lỗi, 1 cảnh báo cũ (`ds-0.json` OTM-0108) |
+| `tsc --noEmit`, `eslint`, `prettier --check` (tệp đã sửa, cả `br-examples.json`) | sạch |
+
 **Đợt 3** (17/10/2026 ~20:20, Node 22.23, DB riêng `ottimo_test_bed`, script `scratchpad/bed-s4/` – chỉ nhận DB này):
 | Lệnh | Kết quả |
 |---|---|

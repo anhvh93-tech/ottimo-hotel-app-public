@@ -9,7 +9,8 @@
  * - ID_HASH_KEY       – HMAC-SHA256 key for document numbers only (blind index, SR-KEY-07).
  *
  * dev/test without values: a random per-process key (data written by that process is unreadable after a
- * restart – acceptable for local work, never for staging/production, which config.ts refuses).
+ * restart – acceptable for local work, never for staging/production, which config.ts refuses); the process
+ * logs one `warn` line naming the missing variables (S4-46).
  * Nothing here is ever logged or returned; errors name the variable, never the value.
  */
 import { randomBytes } from 'node:crypto';
@@ -39,6 +40,25 @@ function decodeKek(name: string, value: string): Buffer {
   return buf;
 }
 
+/**
+ * S4-46: the warning line of a dev/test process running on temporary random keys – names of the missing
+ * variables only, never a value. null = all keys set (or staging/production, which refuse to start instead).
+ */
+export function temporaryKeyWarning(env: NodeJS.ProcessEnv): string | null {
+  const appEnv = env.APP_ENV ?? 'dev';
+  if (appEnv === 'staging' || appEnv === 'production') return null;
+  const missing = (['DATA_KEK_CURRENT', 'ID_HASH_KEY'] as const).filter((k) => !env[k]);
+  if (missing.length === 0) return null;
+  return JSON.stringify({
+    level: 'warn',
+    msg: 'crypto: temporary random keys – documents encrypted by this process cannot be read after a restart; set the variables in product/.env (S4-46)',
+    appEnv,
+    missing,
+  });
+}
+
+let temporaryKeysWarned = false;
+
 export function keyringFromEnv(env: NodeJS.ProcessEnv): Keyring {
   const appEnv = env.APP_ENV ?? 'dev';
   const strict = appEnv === 'staging' || appEnv === 'production';
@@ -66,6 +86,12 @@ export function keyringFromEnv(env: NodeJS.ProcessEnv): Keyring {
   }
   if (idRaw !== '' && idRaw.length < 32) throw new KeyringError('ID_HASH_KEY is too short');
   const idHashKey = idRaw === '' ? randomBytes(32) : Buffer.from(idRaw, 'utf8');
+  const warning = temporaryKeyWarning(env);
+  // Once per process (api and worker each say it at startup); not in the unit/integration test runner.
+  if (warning && !temporaryKeysWarned && !process.env.VITEST) {
+    temporaryKeysWarned = true;
+    console.warn(warning);
+  }
   return staticKeyring(currentVersion, keks, idHashKey, ephemeral || idRaw === '');
 }
 

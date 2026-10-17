@@ -908,8 +908,14 @@ export function MoveDialog(
     preview !== null &&
     previewFor ===
       JSON.stringify({ roomId, arrival, departure, reason, postpone: !!postpone, tick });
-  // BR-429 (d) / BR-414: a guest asking for another room is told the new amount before saving.
-  const needTold = reason === 'guest_request' && roomChanged;
+  // BR-429 (d1) v0.3.8 (DOM-S4-06, like B14): any B7/B8 that changes the booking's money (folioDeltaVnd ≠ 0 –
+  // dates moved by the guest, force-majeure postponement, an OTTIMO move lowering the extra-guest fee …) is
+  // told to the guest and ticked before saving; a guest asking for another room ticks even at 0 (BR-414).
+  const deltaShown = current ? preview!.folioDeltaVnd : 0;
+  // (h): a long stay on a paper contract is not repriced – its room change needs no tick at 0.
+  const paperContract = current && preview!.pricingBasis === 'external_contract';
+  const needTold =
+    (reason === 'guest_request' && roomChanged && !paperContract) || deltaShown !== 0;
   const suggestions = suggestionsOf(previewError ?? act.error).filter((s) => !s.upgrade);
   const whyLocked = !changed
     ? null
@@ -940,6 +946,7 @@ export function MoveDialog(
             reasonCode: reason,
             note: note.trim() || undefined,
             capacityWarningAckReason: capReason.trim() || undefined,
+            // DOM-S4-06: sent for every change with a difference (and a guest room change at 0).
             applyDifference: needTold ? true : undefined,
             expectedDeltaVnd: needTold && preview ? preview.folioDeltaVnd : undefined,
           },

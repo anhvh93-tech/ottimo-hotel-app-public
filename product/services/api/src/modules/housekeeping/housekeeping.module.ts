@@ -34,7 +34,8 @@ defineAuditEntity('inspection', ['result', 'selfInspection', 'checklistVersion']
     GuestRequestWorkAdapter,
     { provide: GUEST_REQUEST_WORK_PORT, useExisting: GuestRequestWorkAdapter },
   ],
-  exports: [GUEST_REQUEST_WORK_PORT, HousekeepingService],
+  // B-14: the one RoomStatusService of the app (the front desk injects this one).
+  exports: [GUEST_REQUEST_WORK_PORT, HousekeepingService, RoomStatusService],
 })
 export class HousekeepingModule implements OnModuleInit {
   constructor(

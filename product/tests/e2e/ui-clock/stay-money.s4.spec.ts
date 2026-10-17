@@ -347,7 +347,8 @@ test.describe(
       await toStep4(page, st.res.id);
       await expect(dueRow(page)).toContainText(money(due), { timeout: 15_000 });
       const reason = 'Khach cho khong duoc, buong dang don';
-      await page.getByLabel(t('ci.reason'), { exact: true }).fill(reason);
+      // nhãn "Lý do *" (dấu * của ô bắt buộc nằm trong <label>) – khớp đầu chuỗi, không exact
+      await page.getByLabel(new RegExp(`^${esc(t('ci.reason'))}(\\s*\\*)?$`)).fill(reason);
       // nhánh 202 không ghi tiền: không còn tiền mặt / chuyển khoản / POS, không hứa "ghi cùng lúc"
       await expect(page.getByText(tf('ci.pay_after_lead', { amount: money(due) }))).toBeVisible();
       await expect(page.getByRole('button', { name: t('pay.cash'), exact: true })).toHaveCount(0);

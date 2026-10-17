@@ -2,7 +2,7 @@
 // Labels come from design/copy/strings-vi.json so a copy change breaks loudly here, not silently.
 import { readFileSync } from 'node:fs';
 import { expect, type Browser, type Page } from '@playwright/test';
-import { resetRateLimits, session } from '../support/api.js';
+import { fakeMobile, resetRateLimits, session } from '../support/api.js';
 import { SEED_PASSWORD, SESSION_COOKIE, WEB_URL } from '../support/env.js';
 
 export const UI = process.env.E2E_UI === '1';
@@ -110,8 +110,9 @@ export function lettersOnly(len = 6): string {
 }
 
 /** Unique VN mobile number 09xxxxxxxx (fake test data). */
+/** Fake VN mobile typed into Desk forms – same non-repeating generator as the API harness (support/api.ts). */
 export function fakePhone(): string {
-  return `093${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`;
+  return fakeMobile();
 }
 
 /**

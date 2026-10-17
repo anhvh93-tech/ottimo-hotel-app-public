@@ -1,6 +1,6 @@
 # Kế hoạch kiểm thử Sprint 4 – Round 2
 
-- Tác giả: QA | Ngày: 17/10/2026 (D1) | Bước: Sản xuất / Kiểm thử song song | Phiên bản: 1.1 (17/10 tối: thêm 3.5, 5.3, 5.4, 12 – rà ca nháp FE-A, FE-LP, FE-B; TC-L3-077)
+- Tác giả: QA | Ngày: 17/10/2026 (D1) | Bước: Sản xuất / Kiểm thử song song | Phiên bản: 1.1 (17/10 tối: thêm 3.5, 5.3, 5.4, 12 – rà ca nháp FE-A, FE-LP, FE-B; TC-L3-077) · **1.2 (17/10 ~21:40)**: 5.4 đã làm – TC-L3-077 theo 0.3.7
 - Căn cứ:
   - `rounds/round-02/sprint-4-plan.md` (ĐÓNG BĂNG D1): mục 4.1 (mốc D3/D5/D7/D8), 10 (T1–T12), 11 (G1–G8), 12.3 (bước cắt QA-1…QA-3);
   - `product/docs/qa/test-strategy.md` (tầng test, mức lỗi P0–P3, dữ liệu DS-E);
@@ -215,6 +215,7 @@ Ca chuỗi A4 viết khi đủ: PWA H21/H22 (MOB), API phiếu sửa + khối OO
 - **TC-L3-077** (`ui-clock/party-docs.h14.spec.ts`, đang trong `WRITES`) kiểm "Gắn người" kiểu 0.3.6 và bỏ người không gửi số ô.
 - Khi BE-C gộp S4-39, QA sửa ca này trong **cùng PR**: hộp Gắn người mới chỉ gửi `{partyMemberId}`, hộp chọn ô "Khách n" (`guestUploadPersonIndex`). Ca mới TC-L3-080 (a)(b) của FE-A đã có.
 - Không sửa trước. Nếu sửa trước, ca trong `WRITES` đỏ trên nhánh chính.
+- **Đã làm (17/10 ~21:40, bước Kiểm thử – CI `b6153b7` đỏ TC-L3-077 cả 2 lượt).** Ca chuyển sang đường **giảm số khách** (`updateReservation` 3 → 2 người lớn): đây là đường duy nhất còn hẹn 24 giờ (`unclaimedUntil`) và "Cần chú ý" `registration_party_docs_unlinked` theo 0.3.7. Đường bỏ người có chọn ô thuộc TC-L3-080 (a). Số đêm theo `minStayFor(ngày đến)` (BR-113). "Gắn người" kiểm thân đúng `{partyMemberId}`, không đọc C3. Kết quả: 3/3 đạt + 1 lượt ép ngày đến thứ Sáu đạt (`s4-test-report.md` mục 6). Desk gửi `guestUploadPersonIndex` đúng (H15 `StayDialogs.tsx`, TC-L3-080 (a) đạt) – không có lỗi FE.
 
 ## 6. Bài học BUG-R2-064 – đã sửa ở test (S4-24 phần CỔNG)
 

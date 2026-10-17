@@ -18,6 +18,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { AuditService } from '../../audit/public/audit.service';
+import { EventsService } from '../../events/public/events.service';
 import { DocumentProfileService } from '../../guests/public/document-profile.service';
 import { nameSearchKey } from '../../guests/public/normalize';
 import { ParameterService } from '../../platform/public/parameter.service';
@@ -52,6 +53,7 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(DocumentProfileService) private readonly profiles: DocumentProfileService,
+    @Inject(EventsService) private readonly events: EventsService,
   ) {}
 
   async memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<DocumentPersonMatch | null> {
@@ -196,6 +198,8 @@ export class DocumentPartyPort implements RegistrationPartyPort {
           : `document (BR-951 key match${overCount ? ', over the declared count' : ''})`,
       ...(input.actor.requestId ? { requestId: input.actor.requestId } : {}),
     });
+    // The party changed (review BE-A): screens holding the booking reload it, like addPartyMember does.
+    await this.events.publish(tx, 'reservation.changed', row.id);
     const possibleReturningGuest =
       (
         await this.profiles.lookAlikes(tx, input.fullNameOnDoc, input.dateOfBirth, [

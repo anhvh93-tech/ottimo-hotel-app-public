@@ -757,6 +757,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         noShowMarkTime: { s: { k: 'ref', name: 'LocalTime' } },
         checkinTime: { s: { k: 'ref', name: 'LocalTime' } },
         checkoutTime: { s: { k: 'ref', name: 'LocalTime' } },
+        oooReopenBufferDays: { s: { k: 'scalar' } },
         lateCheckout: {
           s: {
             k: 'object',
@@ -2754,6 +2755,17 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         id: { s: { k: 'ref', name: 'Uuid' } },
         code: { s: { k: 'scalar' } },
         name: { s: { k: 'scalar' } },
+        nameI18n: {
+          s: {
+            k: 'object',
+            props: {
+              vi: { s: { k: 'scalar' } },
+              en: { s: { k: 'scalar' } },
+              ru: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+        },
         unit: { s: { k: 'scalar' } },
         isFree: { s: { k: 'scalar' } },
         salePriceVnd: {
@@ -3202,6 +3214,20 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         token: { s: { k: 'scalar' } },
         notBefore: { s: { k: 'ref', name: 'Instant' } },
         expiresAt: { s: { k: 'ref', name: 'Instant' } },
+        minDelaySeconds: { s: { k: 'scalar' } },
+        powChallenge: {
+          s: {
+            k: 'object',
+            props: {
+              algorithm: { s: { k: 'scalar' } },
+              challenge: { s: { k: 'scalar' } },
+              salt: { s: { k: 'scalar' } },
+              maxNumber: { s: { k: 'scalar' } },
+              signature: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+        },
       },
       open: false,
     },
@@ -3220,11 +3246,13 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         formToken: { s: { k: 'scalar' }, w: true },
         website: { s: { k: 'scalar' }, w: true },
+        stayType: { s: { k: 'scalar' } },
         arrival: { s: { k: 'ref', name: 'LocalDate' } },
         departure: { s: { k: 'ref', name: 'LocalDate' } },
+        months: { s: { k: 'scalar' } },
         adults: { s: { k: 'scalar' } },
         children: { s: { k: 'scalar' } },
-        childrenAges: { s: { k: 'array', items: { k: 'scalar' } } },
+        infants: { s: { k: 'scalar' } },
         roomType: { s: { k: 'scalar' } },
         guestName: { s: { k: 'scalar' }, f: 'D28', w: true },
         phone: { s: { k: 'scalar' }, f: 'D28', w: true },
@@ -3237,13 +3265,27 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         utm: { s: { k: 'ref', name: 'WebsiteUtm' } },
         refHost: { s: { k: 'scalar' } },
         landingPath: { s: { k: 'scalar' } },
+        pow: { s: { k: 'scalar' }, w: true },
         offerSnapshot: { s: { k: 'ref', name: 'PublicOfferSnapshot' } },
       },
       open: false,
     },
     WebsiteBookingRequestAccepted: {
       k: 'object',
-      props: { refCode: { s: { k: 'scalar' } }, replyBy: { s: { k: 'ref', name: 'Instant' } } },
+      props: {
+        refCode: { s: { k: 'scalar' } },
+        promise: {
+          s: {
+            k: 'object',
+            props: {
+              kind: { s: { k: 'scalar' } },
+              by: { s: { k: 'ref', name: 'Instant' } },
+              minutes: { s: { k: 'scalar' } },
+            },
+            open: false,
+          },
+        },
+      },
       open: false,
     },
     WebsiteBookingRequestStatus: { k: 'scalar' },
@@ -3253,6 +3295,18 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         reasonCode: { s: { k: 'ref', name: 'WebsiteBookingRequestDeclineReason' } },
         note: { s: { k: 'scalar' }, f: 'D28' },
+        verificationMethod: { s: { k: 'scalar' } },
+        verifiedContact: { s: { k: 'scalar' }, f: 'D28', w: true },
+      },
+      open: false,
+    },
+    WebsiteBookingRequestRef: {
+      k: 'object',
+      props: {
+        id: { s: { k: 'ref', name: 'Uuid' } },
+        refCode: { s: { k: 'scalar' } },
+        status: { s: { k: 'ref', name: 'WebsiteBookingRequestStatus' } },
+        createdAt: { s: { k: 'ref', name: 'Instant' } },
       },
       open: false,
     },
@@ -3261,14 +3315,16 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         id: { s: { k: 'ref', name: 'Uuid' } },
         refCode: { s: { k: 'scalar' } },
+        aliasRefCodes: { s: { k: 'array', items: { k: 'scalar' } } },
         status: { s: { k: 'ref', name: 'WebsiteBookingRequestStatus' } },
         arrival: { s: { k: 'ref', name: 'LocalDate' } },
-        departure: { s: { k: 'ref', name: 'LocalDate' } },
+        departure: { s: { k: 'union', of: [{ k: 'ref', name: 'LocalDate' }, { k: 'scalar' }] } },
         nights: { s: { k: 'scalar' } },
         stayKind: { s: { k: 'scalar' } },
+        months: { s: { k: 'scalar' } },
         adults: { s: { k: 'scalar' } },
         children: { s: { k: 'scalar' } },
-        childrenAges: { s: { k: 'array', items: { k: 'scalar' } } },
+        infants: { s: { k: 'scalar' } },
         roomType: { s: { k: 'scalar' } },
         roomTypeLabel: { s: { k: 'scalar' } },
         guestName: { s: { k: 'scalar' }, f: 'D28' },
@@ -3286,7 +3342,9 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         refHost: { s: { k: 'scalar' } },
         landingPath: { s: { k: 'scalar' } },
         suspiciousFlags: { s: { k: 'array', items: { k: 'scalar' } } },
+        relatedRefCodes: { s: { k: 'array', items: { k: 'scalar' } } },
         duplicateCount: { s: { k: 'scalar' } },
+        arrivesToday: { s: { k: 'scalar' } },
         replyBy: { s: { k: 'ref', name: 'Instant' } },
         isReplyOverdue: { s: { k: 'scalar' } },
         assignedUserId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
@@ -3321,6 +3379,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         totalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         computedAt: { s: { k: 'ref', name: 'Instant' } },
         priceVersion: { s: { k: 'scalar' } },
+        offerToken: { s: { k: 'scalar' } },
       },
       open: false,
     },
@@ -3380,6 +3439,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 losDiscountPct: { s: { k: 'ref', name: 'Percent' } },
                 depositPct: { s: { k: 'ref', name: 'Percent' } },
                 cancellationPolicyKey: { s: { k: 'scalar' } },
+                offerToken: { s: { k: 'scalar' } },
+                offerTokenExpiresAt: { s: { k: 'ref', name: 'Instant' } },
               },
               open: false,
             },
@@ -4282,6 +4343,28 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         open: false,
       },
     },
+    listAssignableStaff: {
+      '200': {
+        k: 'object',
+        props: {
+          data: {
+            s: {
+              k: 'array',
+              items: {
+                k: 'object',
+                props: {
+                  userId: { s: { k: 'ref', name: 'Uuid' } },
+                  displayName: { s: { k: 'scalar' } },
+                  department: { s: { k: 'scalar' } },
+                },
+                open: false,
+              },
+            },
+          },
+        },
+        open: false,
+      },
+    },
     listWorkOrders: {
       '200': {
         k: 'object',
@@ -4463,5 +4546,14 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
     },
     getWebsiteBookingRequest: { '200': { k: 'ref', name: 'WebsiteBookingRequest' } },
     transitionWebsiteBookingRequest: { '200': { k: 'ref', name: 'WebsiteBookingRequest' } },
+    lookupWebsiteBookingRequests: {
+      '200': {
+        k: 'object',
+        props: {
+          data: { s: { k: 'array', items: { k: 'ref', name: 'WebsiteBookingRequestRef' } } },
+        },
+        open: false,
+      },
+    },
   },
 };

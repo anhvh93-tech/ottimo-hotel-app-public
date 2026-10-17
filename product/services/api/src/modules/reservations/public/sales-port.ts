@@ -17,12 +17,17 @@
  *                         the booking scopes (minibar count by HK, payment lists): status, dates, current room,
  *                         folio, channel. No guest name/phone (C2), RLS only – the CALLER applies its own
  *                         operation scope (e.g. HK only `in_house`). null when not visible.
+ * - amountDueFor()        0.3.7 `createVietQr` `purpose` `check_in` / `check_out` (S4-10, BE-B): the cap of the QR =
+ *                         `CheckInPreview.amountDueAtCheckinVnd` / `CheckoutSummary.amountDueAtCheckoutVnd` for the
+ *                         given time and options – the SAME calculation as those reads (front desk module, through
+ *                         ReservationHooks). Wrong state / day → 409 INVALID_TRANSITION; a non-desk actor → 403
+ *                         FORBIDDEN_ACTION; a B9a / extra-night rate outside floor–ceiling → 422 RATE_OUT_OF_RANGE.
  * - ConfirmedStay         what folio.onReservationConfirmed() needs to post room/extra-person lines (B2/B4/B12).
  *
  * (Re-created by BE-A from the call sites of folio/sales/payments after an overwrite – same members.)
  */
 import type { Tx } from '../../../db/database';
-import type { LocalDate } from '../../../shared/time';
+import type { LocalDate, LocalTime } from '../../../shared/time';
 import type { RoomSuggestion } from './occupancy.service';
 
 export const RESERVATION_SALES_PORT = Symbol('RESERVATION_SALES_PORT');
@@ -154,6 +159,24 @@ export interface StayInfo {
   externalContract: boolean;
 }
 
+/** amountDueFor(): createVietQr `check_in` / `check_out` (OpenAPI 0.3.7 – fields of that request). */
+export interface AmountDueQuery {
+  reservationId: string;
+  purpose: 'check_in' | 'check_out';
+  /** The caller (FD+ – SAL/CTV get 403). */
+  actor: { userId: string; roles: readonly string[]; requestId?: string };
+  /** check_in: like `previewCheckIn.checkinTime` – absent = the server clock (what B9 would charge now). */
+  checkinTime?: LocalTime;
+  /** check_in (B9a): the prior night is taken … */
+  addPriorNight?: boolean;
+  /** … at this rate (absent = its default rate). */
+  priorNightRateVnd?: number;
+  /** check_out: like `getCheckoutSummary.checkoutAt` – absent = the server clock. */
+  checkoutAt?: Date;
+  /** check_out after the last tier: the extra night at this rate (absent = `extraNightDefaultRateVnd`). */
+  extraNightRateVnd?: number;
+}
+
 export interface ReservationSalesPort {
   stayInfo(tx: Tx, reservationId: string): Promise<StayInfo | null>;
   availability(tx: Tx, q: AvailabilityQuery): Promise<AvailabilityAnswer>;
@@ -169,4 +192,6 @@ export interface ReservationSalesPort {
     reservationId: string,
     actor: { userId: string; requestId?: string },
   ): Promise<ConfirmedStay>;
+  /** Cap of a check-in / check-out VietQR (≥ 0) – see the file header. */
+  amountDueFor(tx: Tx, q: AmountDueQuery): Promise<number>;
 }

@@ -280,12 +280,15 @@ describe.skipIf(!HAS_DB)(
         defaultRateVnd: 917_000,
         createsChildReservation: true,
       });
+      // BR-402 v0.3.8 (DOM-S4-05): the B9a night of an OTA-prepaid booking is room money due at the desk.
+      expect(p.amountDueAtCheckinVnd).toBe(917_000);
       const res = await act(b.id, 'check-in', b.version, {
         cardsIssued: 0,
         houseRulesSent: true,
         addPriorNight: true,
         priorNightRateVnd: 917_000,
         expectedSurchargeVnd: 917_000,
+        payment: { type: 'charge', method: 'cash', amountVnd: 917_000 },
       });
       expect(res.statusCode, res.body).toBe(200);
       expect(res.json()).toMatchObject({ arrivalDate: '2026-10-22', status: 'in_house' });

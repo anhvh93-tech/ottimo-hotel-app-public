@@ -7,6 +7,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type {
+  AmountDueQuery,
   AvailabilityAnswer,
   AvailabilityQuery,
   ConfirmedStay,
@@ -16,8 +17,10 @@ import type {
   ReservationSalesPort,
   StayInfo,
 } from '../public/sales-port';
+import { nightDates } from '../public/pricing';
 import { PricingService, type PricedNight } from '../public/pricing.service';
 import { readOwnership, readStayInfo } from '../public/read-port';
+import { ReservationHooks } from '../public/reservation-hooks';
 import { type BookingContext } from './booking-context';
 import { RackService } from './rack.service';
 import { loadReservation } from './reservation-store';
@@ -28,7 +31,13 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
   constructor(
     @Inject(ReservationsService) private readonly reservations: ReservationsService,
     @Inject(RackService) private readonly rack: RackService,
+    @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
   ) {}
+
+  /** 0.3.7 (S4-10): the front desk's calculation (previewCheckIn / getCheckoutSummary) – one source. */
+  amountDueFor(tx: Tx, q: AmountDueQuery): Promise<number> {
+    return this.hooks.amountDue(tx, q);
+  }
 
   private async ctx(tx: Tx, requestId?: string): Promise<BookingContext> {
     const userId = tx.ctx.userId ?? SYSTEM_ACTOR.userId;
@@ -63,18 +72,35 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
   ): Promise<{ reservationId: string; code: string }> {
     const ctx = await this.ctx(tx, input.requestId);
     const p = ctx.params;
-    const nights: PricedNight[] = input.nightlyRates.map((n) => ({
-      date: n.date,
-      amountVnd: n.amountVnd,
-      source: 'calendar',
-    }));
+    // BR-429 (a1) v0.3.8 (DOM-S4-04): the quote's calendar price of each night and the % it applied (BR-107 tier
+    // or BR-111 return code – `calc.losDiscountPct`) are kept, so a later change re-tiers from the calendar and
+    // never discounts a discounted price a second time.
+    const quote = input.pricingSnapshot as {
+      calendarRatesVnd?: unknown;
+      calc?: { losDiscountPct?: unknown };
+    };
+    const calendar = Array.isArray(quote.calendarRatesVnd)
+      ? (quote.calendarRatesVnd as unknown[])
+      : [];
+    const quoteDates = nightDates(input.arrivalDate, input.departureDate);
+    const nights: PricedNight[] = input.nightlyRates.map((n) => {
+      const c = calendar[quoteDates.indexOf(n.date)];
+      return {
+        date: n.date,
+        amountVnd: n.amountVnd,
+        source: 'calendar',
+        ...(typeof c === 'number' && c > 0 ? { calendarVnd: c } : {}),
+      };
+    });
+    const appliedPct =
+      typeof quote.calc?.losDiscountPct === 'number' ? quote.calc.losDiscountPct : 0;
     const hasPeakNight = nights.some((n) =>
       p.calendar.specialDates.some((s) => n.date >= s.from && n.date < s.to),
     );
     const result = {
       nights,
       totalRoomVnd: input.totalRoomVnd,
-      losDiscountPct: 0,
+      losDiscountPct: appliedPct,
       extraCount: input.extraGuestCount,
       extraPersonFeePerNightVnd: input.extraPersonPerNightVnd,
       extraPersonFeeVnd: input.extraPersonPerNightVnd * nights.length,

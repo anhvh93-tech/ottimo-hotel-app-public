@@ -13,6 +13,8 @@ import { readFileSync } from 'node:fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
+  createFakeGuest,
+  fakeMobile,
   propertyIdOf,
   session,
   uniq,
@@ -275,9 +277,10 @@ export function channel(c: S2Context, kind: ChannelKind): Channel {
 
 // ───────────────────────── guests ─────────────────────────
 
-export const mobile = () => `0939${String(rnd(0, 999_999)).padStart(6, '0')}`;
+/** Fake VN mobile that does not repeat (support/api.ts `fakeMobile` – 409 DUPLICATE_GUEST at setup, TC-L2-103). */
+export const mobile = fakeMobile;
 
-/** Throwaway booker (fake: e-mail .test, mobile 0939xxxxxx). withPhone=false → PHONE_REQUIRED cases. */
+/** Throwaway booker (fake: e-mail .test, mobile `fakeMobile()`). withPhone=false → PHONE_REQUIRED cases. */
 export async function newGuest(
   ctx: APIRequestContext,
   s: StaffSession,
@@ -288,11 +291,7 @@ export async function newGuest(
     email: `e2e.s2.${uniq(8)}@example.test`,
   };
   if (opts.withPhone !== false) body.phone = mobile();
-  const r = await call<{ id: string }>(ctx, 'POST', `/v1/properties/${propertyIdOf(s)}/guests`, {
-    session: s,
-    idempotencyKey: true,
-    body,
-  });
+  const r = await createFakeGuest(ctx, s, body);
   expect(r.status, `createGuest: ${JSON.stringify(r.body)}`).toBe(201);
   return r.body.id;
 }

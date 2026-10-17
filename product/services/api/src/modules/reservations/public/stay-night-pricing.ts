@@ -20,7 +20,7 @@ import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { PropertyContextService } from '../../platform/public/property-context';
-import { applyNightDiscount, rateBounds } from './pricing';
+import { discountedNight, rateBounds, returnGuestOf } from './pricing';
 import { PricingService } from './pricing.service';
 
 export interface SetNightRateInput {
@@ -159,8 +159,9 @@ export class StayNightPricingPort {
       }
     }
     const unit = snap.nightRateUnit ?? p.nightRateUnit;
+    // BR-429 (a1) v0.3.8 (DOM-S4-03): the % in force (tier, or the BR-111 return-guest % when better / stacked).
     const gross = tiered
-      ? (applyNightDiscount([price], snap.losDiscountPct ?? 0, unit)[0] as number)
+      ? discountedNight(price, snap.losDiscountPct ?? 0, returnGuestOf(row.pricing_snapshot), unit)
       : price;
     await tx.query(
       `UPDATE stay_night SET calendar_rate_vnd = $2::bigint, room_revenue_gross_vnd = $3::bigint,

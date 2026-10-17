@@ -9,18 +9,23 @@
  * A room without a row yet has a derived status: OOO when an OOO block is active today, OC when a booking is
  * in house on it today, else VC (the rack rule of Sprint 2). An active OOO block always wins.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
 import type { RoomStatusCode } from '../../../db/schema/frontdesk';
 import type { LocalDate } from '../../../shared/time';
 import { EventsService } from '../../events/public/events.service';
+import { ParameterService } from '../../platform/public/parameter.service';
+import { linenChangeDue } from '../internal/rules';
 
 export type { RoomStatusCode };
 
 @Injectable()
 export class RoomStatusService {
-  constructor(@Inject(EventsService) private readonly events: EventsService) {}
+  constructor(
+    @Inject(EventsService) private readonly events: EventsService,
+    @Optional() @Inject(ParameterService) private readonly params?: ParameterService,
+  ) {}
 
   /** Current status of each room (derived when no row). */
   async current(
@@ -121,29 +126,36 @@ export class RoomStatusService {
     roomId: string,
     input: { today: LocalDate; now: Date },
   ): Promise<void> {
-    const { rows: stay } = await tx.query<{ reservation_id: string }>(
-      `SELECT s.reservation_id FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+    const { rows: stay } = await tx.query<{ reservation_id: string; nights: number }>(
+      `SELECT s.reservation_id, ($2::date - COALESCE(p.arrival_date, r.arrival_date)) AS nights
+         FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+         LEFT JOIN reservation p ON p.id = r.parent_reservation_id
         WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
           AND s.to_date > $2::date
         ORDER BY s.from_date DESC LIMIT 1`,
       [roomId, input.today],
     );
     const reservationId = stay[0]?.reservation_id ?? null;
+    // DOM-S4-16 (a): the same linen rule as J8 (every `linen_change_every_nights` nights of the stay).
+    const every = this.params
+      ? await this.params.get<number>(tx, 'linen_change_every_nights', input.today)
+      : 0;
+    const linen = linenChangeDue(every, stay[0]?.nights ?? 0);
     const { rows: changed } = await tx.query<{ id: string }>(
       `UPDATE hk_task SET type = 'stayover_clean', reservation_id = COALESCE($3, reservation_id),
-              not_before_time = NULL, updated_at = $4, version = version + 1
+              not_before_time = NULL, linen_change = $5, updated_at = $4, version = version + 1
         WHERE room_id = $1 AND due_date = $2::date AND type = 'checkout_clean' AND status = 'open'
           AND NOT EXISTS (SELECT 1 FROM hk_task o WHERE o.room_id = $1 AND o.due_date = $2::date
                             AND o.type = 'stayover_clean' AND o.status IN ('open', 'in_progress'))
         RETURNING id`,
-      [roomId, input.today, reservationId, input.now],
+      [roomId, input.today, reservationId, input.now, linen],
     );
     const id = changed[0]?.id ?? uuidv7();
     if (!changed[0]) {
       const { rows } = await tx.query<{ id: string }>(
         `INSERT INTO hk_task (id, organization_id, property_id, room_id, reservation_id, type, status, due_date,
-           source, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 'stayover_clean', 'open', $6, 'system', $7, $7)
+           source, linen_change, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'stayover_clean', 'open', $6, 'system', $8, $7, $7)
          ON CONFLICT DO NOTHING RETURNING id`,
         [
           id,
@@ -153,6 +165,7 @@ export class RoomStatusService {
           reservationId,
           input.today,
           input.now,
+          linen,
         ],
       );
       if (!rows[0]) return;

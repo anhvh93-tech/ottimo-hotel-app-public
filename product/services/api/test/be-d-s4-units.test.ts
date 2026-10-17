@@ -8,6 +8,7 @@
  * - BR-425 state of a departure row; tag normalisation of vip_arrival.
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Tx } from '../src/db/database';
@@ -28,15 +29,21 @@ import {
 import {
   ackDueOf,
   cleaningFee,
+  countsAsFullClean,
   deskHoursOf,
   hasSensitiveDigits,
   needsInHouse,
   noteRequired,
+  overdueRecipients,
   renderAutoReply,
   routeOf,
 } from '../src/modules/guest-portal/internal/guest-request-rules';
 import { isAllowedMapUrl } from '../src/modules/platform/internal/parameter-rules';
-import { normalizeTag } from '../src/modules/reporting/internal/attention-sources';
+import {
+  focCountAlert,
+  focValueCheck,
+  normalizeTag,
+} from '../src/modules/reporting/internal/attention-sources';
 import { reminderState } from '../src/modules/reporting/internal/dashboard.service';
 import { checkInAction, checkOutAction } from '../src/modules/reporting/internal/stay-actions';
 import { occupancyPct } from '../src/modules/reporting/internal/tonight-kpi';
@@ -521,5 +528,97 @@ describe('EP14 guest requests – rules (BR-811, BR-506, SEC B-15, E14-08)', () 
     ).not.toThrow();
     expect(GUEST_REQUEST_COPY.vi?.['guest.req.status.new']).toBe('Đã gửi');
     expect(GUEST_REQUEST_COPY.en?.['guest.req.status.declined']).toBeDefined();
+  });
+});
+
+/** DOM v0.3.8 oracles (product/tests/fixtures/br-examples.json) – BE-D fixes DOM-S4-08…10. */
+describe('BR v0.3.8 oracles (DOM-S4-08, DOM-S4-09, DOM-S4-10)', () => {
+  interface Oracle {
+    id: string;
+    pendingFix?: string;
+    params?: Record<string, unknown>;
+    input: Record<string, unknown>;
+    expected: Record<string, unknown>;
+  }
+  const examples = (
+    JSON.parse(
+      readFileSync(join(__dirname, '../../../tests/fixtures/br-examples.json'), 'utf8'),
+    ) as { examples: Oracle[] }
+  ).examples;
+  const oracle = (id: string): Oracle => {
+    const o = examples.find((x) => x.id === id);
+    if (!o) throw new Error(`oracle ${id} missing`);
+    return o;
+  };
+
+  it('BR-435-02: FOC + special discount 2.900.000 > 2.700.000 alerts; 10 live approvals do not (> 10)', () => {
+    const o = oracle('BR-435-02');
+    const i = o.input as {
+      roomRevenueVnd: number;
+      focAppliedVnd: number;
+      specialDiscountAppliedVnd: number;
+      approverDecisions: { foc: number; special_discount: number; cancelledByRule: number };
+    };
+    const p = o.params as {
+      foc_alert_pct_of_room_revenue: number;
+      foc_alert_count_per_approver: number;
+    };
+    const reduction = i.focAppliedVnd + i.specialDiscountAppliedVnd;
+    const v = focValueCheck(reduction, i.roomRevenueVnd, p.foc_alert_pct_of_room_revenue);
+    // Live approvals: every foc + special discount the approver decided, minus those cancelled by rule.
+    const count =
+      i.approverDecisions.foc +
+      i.approverDecisions.special_discount -
+      i.approverDecisions.cancelledByRule;
+    expect({
+      thresholdVnd: v.thresholdVnd,
+      reductionValueVnd: reduction,
+      valueAlert: v.valueAlert,
+      approverCount: count,
+      countAlert: focCountAlert(count, p.foc_alert_count_per_approver),
+    }).toEqual(o.expected);
+    // FOC alone (the HEAD behaviour) would not alert – the special discount matters.
+    expect(focValueCheck(i.focAppliedVnd, i.roomRevenueVnd, 3).valueAlert).toBe(false);
+    expect(focValueCheck(500_000, 0, 3)).toEqual({ thresholdVnd: 0, valueAlert: true });
+  });
+
+  it('BR-506-03: a priority clean preparing the room is not a full clean → the evening clean is free', () => {
+    const o = oracle('BR-506-03');
+    const e = o.expected as { feeVnd: number; countsAsFullClean: Record<string, boolean> };
+    for (const [type, counts] of Object.entries(e.countsAsFullClean)) {
+      expect(countsAsFullClean(type), type).toBe(counts);
+    }
+    const tasks = (o.input.tasksDone as Array<{ type: string; doneAt: string }>).filter((t) =>
+      countsAsFullClean(t.type),
+    );
+    const fee = cleaningFee({
+      stayType: 'short',
+      feeVnd: (o.params as { adhoc_cleaning_fee: number }).adhoc_cleaning_fee,
+      lastFullCleanTime: tasks.length > 0 ? tasks.at(-1)!.doneAt.slice(11, 16) : null,
+    });
+    expect(fee.feeVnd ?? 0).toBe(e.feeVnd);
+  });
+
+  it('BR-811-04: overdue → department + FD + FDL + manager, never the owner; deadline 15:10', () => {
+    const o = oracle('BR-811-04');
+    const e = o.expected as {
+      ackDueAt: string;
+      overdueRecipients: string[];
+      ownerNotified: boolean;
+    };
+    const p = o.params as { guest_request_response_minutes: number; front_desk_hours: string[] };
+    const sent = new Date(o.input.sentAt as string);
+    const due = ackDueOf(
+      sent,
+      'Asia/Ho_Chi_Minh',
+      deskHoursOf(p.front_desk_hours),
+      p.guest_request_response_minutes,
+    );
+    expect(due.ackDueAt).toEqual(new Date(e.ackDueAt));
+    expect(new Date(o.input.checkAt as string).getTime()).toBeGreaterThan(due.ackDueAt.getTime());
+    const to = overdueRecipients(routeOf(o.input.type as never));
+    expect([...to].sort()).toEqual([...e.overdueRecipients].sort());
+    expect(to.includes('owner')).toBe(e.ownerNotified);
+    expect(overdueRecipients('front_desk')).toEqual(['front_desk', 'front_desk_lead', 'manager']);
   });
 });

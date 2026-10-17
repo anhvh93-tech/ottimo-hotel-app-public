@@ -1,7 +1,7 @@
 /**
  * frontdesk module (BE-A Sprint 3, ARC s3-contract 4.1): check-in B9/B9a/B17, stay B13/B14/B15/B16 + departure
- * reminders, check-out B18, party US-022 (EP03-05). Global export RoomStatusService (SM-03 store – the
- * housekeeping module takes the cleaning transitions over in Sprint 4).
+ * reminders, check-out B18, party US-022 (EP03-05). RoomStatusService (SM-03 store) is the housekeeping
+ * module's since 0.3.7 B-14 – injected from there (one instance).
  *
  * Ports of other zones (public/ports.ts) are resolved here: an owner binds its implementation as a GLOBAL
  * provider under the token (e.g. BE-C `{ provide: FD_REGISTRATION_PORT, useExisting: RegistrationPortImpl }`);
@@ -13,6 +13,7 @@
  */
 import { Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
+import { problem } from '../../shared/problem';
 import { paymentExpiryJob } from '../../jobs/payment-jobs';
 import { AuditService } from '../audit/public/audit.service';
 import { ApprovalService } from '../approvals/public/approval.service';
@@ -44,7 +45,6 @@ import {
   type FrontdeskMinibarPort,
   type FrontdeskRegistrationPort,
 } from './public/ports';
-import { RoomStatusService } from './public/room-status.service';
 import { RegistrationPartyLink } from '../registration/public/party-port';
 
 // Audit allowlist of the front desk facts (SR-AUD-03): no guest C2/C3, no door code (SEC D2).
@@ -68,8 +68,8 @@ defineAuditEntity('reservation', [
 @Module({
   imports: [ApprovalsModule],
   controllers: [FrontdeskController],
+  // RoomStatusService: one instance, provided and exported by the (global) housekeeping module – B-14.
   providers: [
-    RoomStatusService,
     {
       provide: FrontdeskPorts,
       useFactory: (
@@ -99,7 +99,7 @@ defineAuditEntity('reservation', [
     // BUG-R2-033: the party member of a document entered without `partyMemberId` (BE-C consumer port).
     DocumentPartyPort,
   ],
-  exports: [RoomStatusService, FrontdeskPorts],
+  exports: [FrontdeskPorts],
 })
 export class FrontdeskModule implements OnModuleInit {
   constructor(
@@ -111,6 +111,9 @@ export class FrontdeskModule implements OnModuleInit {
     @Inject(JobRegistry) private readonly jobs: JobRegistry,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(DocumentPartyPort) private readonly documentParty: DocumentPartyPort,
+    @Inject(StaySupport) private readonly support: StaySupport,
+    @Inject(CheckinService) private readonly checkin: CheckinService,
+    @Inject(CheckoutService) private readonly checkout: CheckoutService,
     @Optional() @Inject(RegistrationPartyLink) private readonly partyLink?: RegistrationPartyLink,
   ) {}
 
@@ -124,6 +127,27 @@ export class FrontdeskModule implements OnModuleInit {
     this.partyLink?.provide(this.documentParty);
     // 0.3.7 D1 (S4-09): `updateReservation.roomReturnRecorded` – room statuses / cleaning / door access live here.
     this.hooks.provideRoomReturn((tx, input) => this.stays.recordRoomReturn(tx, input));
+    // 0.3.7 (S4-10): the cap of a check-in / check-out VietQR = previewCheckIn / getCheckoutSummary amounts
+    // (ReservationSalesPort.amountDueFor – payments, BE-B). FD+ only (SAL/CTV → 403, as the contract).
+    this.hooks.provideAmountDue(async (tx, q) => {
+      const desk = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+      if (!q.actor.roles.some((r) => desk.includes(r))) throw problem('FORBIDDEN_ACTION');
+      const ctx = await this.support.stay.context(
+        tx,
+        { userId: q.actor.userId, roles: q.actor.roles },
+        q.actor.requestId,
+      );
+      return q.purpose === 'check_in'
+        ? this.checkin.amountDueForQr(tx, ctx, q.reservationId, {
+            checkinTime: q.checkinTime,
+            addPriorNight: q.addPriorNight,
+            priorNightRateVnd: q.priorNightRateVnd,
+          })
+        : this.checkout.amountDueForQr(tx, ctx, q.reservationId, {
+            checkoutAt: q.checkoutAt,
+            extraNightRateVnd: q.extraNightRateVnd,
+          });
+    });
     // ARC-BE-S3-15 g: reservations shows the party size without reading reservation_guest itself.
     this.hooks.providePartyCount(async (tx, reservationId) => {
       const { rows } = await tx.query<{ n: number }>(

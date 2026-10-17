@@ -2280,7 +2280,8 @@ test.describe(
           for (const id of regs.regIds) {
             const reg = await regOf(request, fd, id);
             expect(reg.imagesPurgedAt, `imagesPurgedAt của ${id}`).toBeTruthy();
-            expect(reg.imagesPurgeReason, `imagesPurgeReason của ${id}`).toBeTruthy();
+            // J16 xóa theo hạn lưu (erd `document_image.delete_after` T01/T02) → lý do `retention` (OpenAPI enum 0.3.3)
+            expect(reg.imagesPurgeReason, `imagesPurgeReason của ${id}`).toBe('retention');
           }
         },
       );

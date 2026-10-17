@@ -8,10 +8,15 @@
   - Email công khai là hộp thư chung, không dùng email cá nhân in trong e-brochure (mục 4.2).
   - DNS gốc + `www` đã chuyển vào `hosting-plan.md` mục 10, kèm bảo vệ tài khoản tên miền theo SEC ARC-10 (mục 8).
 - Sửa 17/10/2026 (khuya, ARC – FB-INV-002 ý 3, 4; OpenAPI 0.3.7 bổ sung 2):
-  - Mục 4 viết lại: L1 = **phương án A** "Yêu cầu đặt phòng" (đội đề xuất, chờ INV), bản ghi đổi tên `website_booking_request`; chuyển thành giữ chỗ/đơn qua `saveQuote`/`createHoldFromQuote`/`createReservation` kèm liên kết (bỏ bước lead bắt buộc); nguồn `website` + nguồn phụ `directSubSource` (ví dụ `facebook`).
+  - Mục 4 viết lại: L1 = **phương án A** "Yêu cầu đặt phòng" (đội đề xuất – INV đã chọn A 17/10), bản ghi đổi tên `website_booking_request`; chuyển thành giữ chỗ/đơn qua `saveQuote`/`createHoldFromQuote`/`createReservation` kèm liên kết (bỏ bước lead bắt buộc); nguồn `website` + nguồn phụ `directSubSource` (ví dụ `facebook`).
   - Phương án B (phòng trống + giá) chỉ là contract-ahead; bỏ bảng `public_listing` – dùng `room.public_room_type`.
   - Zalo OA là kênh chính ở cả EN và VI; WhatsApp/Telegram/Viber vào "Kênh khác"; fanpage Facebook chỉ là link (không SDK/plugin); nút "Book now" của fanpage trỏ `/book/?utm_source=facebook…` (mục 4.2).
   - Áp thẻ SEC `landing-zalo-SEC.md` ARC-02, 03, 04, 05, 06, 07, 08, 12 (mục 4.3–4.6). Hợp đồng đã vào `openapi.yaml` + `erd.md` 4.14 – mục 4.8, 4.9 chỉ còn bảng tóm tắt.
+- Sửa 17/10/2026 (Phản hồi & sửa Sprint 4 – ARC theo ORC; review SEC `rounds/round-02/reviews/landing-booking-SEC.md`, DOM BR v0.3.8, PO landing-scope 0.10, FE-LP `outputs/FE/lp-v1-report.md` mục 3):
+  - **INV đã chọn phương án A** (FB-INV-002, 17/10) – bỏ mọi nhãn "chờ INV" của mục 4.
+  - **Form nằm trong mục `#book` của trang chủ** (`/`, `/vi/`) – không có trang `/book/` riêng; nút fanpage theo PO: `/vi/?utm_source=facebook&utm_medium=social&utm_campaign=page_book_button#book` (mục 4.2).
+  - Áp review SEC: bước 0 trong RAM + giới hạn đồng thời trước DB, thiếu `Origin` → 403, giới hạn /48 (ARC-13); một cách liên hệ, trẻ em theo nhóm tuổi (ARC-14); idempotency mọi nhánh (ARC-15); xóa theo yêu cầu `erase` + tìm theo liên hệ (ARC-16); một công tắc bật form là tham số bảo mật (ARC-17); ký ảnh chụp giá phương án B (ARC-18); SAL không thấy C2 yêu cầu chưa giao (ARC-19); tên khóa thống nhất BR v0.3.8 (ARC-20); hiển thị dữ liệu người lạ an toàn, log không dữ liệu cá nhân (ARC-21); **không Turnstile**, tầng 2 proof-of-work tự host (ARC-22); `minDelaySeconds` (ARC-23); `rel="noopener noreferrer"` (UXD-08) – mục 4.2–4.8.
+  - Xác nhận lệch của FE-LP: **Astro 7.3.8** (thay 6.x – lý do bảo mật), token sao chép tự động có test, font Lora 400/400 nghiêng, JSON-LD `LodgingBusiness`, 404 ở `/404.html`, biến build `LANDING_INDEXABLE`/`LANDING_SITE_URL` – mục 1.4, 2.2, 2.5, 5 và mục 15.
 - Trả lời: ADR-004 điểm 3 (`booking-web` cần SEO, chọn công nghệ bằng ADR riêng). ADR này **gộp** landing và trang đặt phòng trực tiếp (EP18) vào **một** app `product/apps/landing-web`. Thư mục giữ chỗ `apps/booking-web` bỏ đi.
 - Đầu vào: FB-INV-001 (17/10), tin nhắn INV 17/10 ("Làm landing page nha…", Zalo OA để chăm sóc khách), PRD M13, M15, A6; backlog EP18 (US-131, US-132), US-034, US-040, US-108, US-116, US-126, US-138; `integrations.md` I7 + mục 3.4 + ESC-INT-B; ESC-010; `hosting-plan.md` mục 5.1, 10.1; ADR-004, ADR-006, ADR-009, ADR-010, ADR-012; `security-requirements.md` SR-HDR, SR-RL; `data-risk-assessment.md`; `design-system.md` v0.3.5; `00-brief/context/landing/README.md`. Bổ sung khi sửa 17/10 tối: `00-brief/context/brand/brand-guidelines.md` (Brand Guidelines v1.0); `00-brief/context/landing/ebrochure-text.md`; ESC-020, ESC-021; `rounds/round-02/outputs/PO/landing-scope.md`; `rounds/round-02/reviews/landing-zalo-SEC.md` (C-1, ARC-06, ARC-10, ARC-11); backlog US-152, US-153.
 - Liên quan: ADR-001 (contract-first), ADR-007 (đa cơ sở, RLS), ADR-008 (giờ cơ sở).
@@ -37,10 +42,10 @@
 | # | Chủ đề | Quyết định |
 |---|---|---|
 | 1 | Nơi chạy | App tĩnh riêng `product/apps/landing-web`, build trong CI, **Caddy trên chính VPS production** phục vụ ở tên miền gốc (`www.` chuyển hướng 301 về gốc). Không dùng CDN ở bản đầu. Có điều kiện đo được để thêm CDN **chỉ cho ảnh** (mục 1.3) |
-| 2 | Công nghệ | **Astro 6** xuất tĩnh (`output: 'static'`), không đảo (island) ở trang nội dung; JS tối thiểu bằng `<script>` module ngoài. Dùng token + font chung với `packages/ui`. Không có tiến trình Node chạy thường trực |
+| 2 | Công nghệ | **Astro 7** (7.3.8 – sửa 17/10 theo FE-LP, lý do bảo mật, mục 2.2) xuất tĩnh (`output: 'static'`), không đảo (island) ở trang nội dung; JS tối thiểu bằng `<script>` module ngoài. Dùng token + font chung với `packages/ui`. Không có tiến trình Node chạy thường trực |
 | 3 | Ngôn ngữ *(sửa 17/10)* | **Tiếng Anh ở gốc, không tiền tố** (`/`, `/rooms/<slug>/`…); tiếng Việt ở `/vi/…`; tiếng Nga ở `/ru/…` khi phát hành. **Không tự chuyển hướng theo ngôn ngữ** (không đọc `Accept-Language`, không 302, không cookie ngôn ngữ). Trang chỉ **gợi ý** đổi ngôn ngữ bằng một dải nhỏ, khách bấm mới đổi. `hreflang` 2 chiều cho mọi ngôn ngữ đã phát hành + `x-default` = bản tiếng Anh của cùng trang (mục 3) |
-| 4 | Đặt phòng *(sửa 17/10 khuya – FB-INV-002)* | **L0** chat: **Zalo OA là kênh chính**; WhatsApp/Telegram/Viber, gọi, email ở "Kênh khác"; fanpage Facebook chỉ là link. **L1 = phương án A** (đội đề xuất, chờ INV): form "Yêu cầu đặt phòng" → `createWebsiteBookingRequest` tạo **`website_booking_request`** (hàng chờ Desk), **không** giữ chỗ/lead/hồ sơ khách, không thanh toán; nhân viên chuyển thành giữ chỗ/đơn qua `saveQuote` → `createHoldFromQuote` hoặc `createReservation` kèm liên kết → đơn `direct`, nguồn `website` + nguồn phụ (ví dụ `facebook`). **L2 = phương án B** (US-131) phòng trống + giá: contract-ahead, không cài. **L3 (R4+, US-132)** đặt + trả tiền ngay – ADR riêng |
-| 5 | SEO | HTML tĩnh theo ngôn ngữ, `sitemap-index.xml` có `xhtml:link`, `robots.txt`, JSON-LD `Hotel` + `HotelRoom` + `BreadcrumbList`; **không** tự gắn sao đánh giá |
+| 4 | Đặt phòng *(sửa 17/10 khuya – FB-INV-002)* | **L0** chat: **Zalo OA là kênh chính**; WhatsApp/Telegram/Viber, gọi, email ở "Kênh khác"; fanpage Facebook chỉ là link. **L1 = phương án A** (INV đã chọn 17/10): form "Yêu cầu đặt phòng" → `createWebsiteBookingRequest` tạo **`website_booking_request`** (hàng chờ Desk), **không** giữ chỗ/lead/hồ sơ khách, không thanh toán; nhân viên chuyển thành giữ chỗ/đơn qua `saveQuote` → `createHoldFromQuote` hoặc `createReservation` kèm liên kết → đơn `direct`, nguồn `website` + nguồn phụ (ví dụ `facebook`). **L2 = phương án B** (US-131) phòng trống + giá: contract-ahead, không cài. **L3 (R4+, US-132)** đặt + trả tiền ngay – ADR riêng |
+| 5 | SEO | HTML tĩnh theo ngôn ngữ, `sitemap-index.xml` có `xhtml:link`, `robots.txt`, JSON-LD `LodgingBusiness` (sửa 17/10 theo FE-LP) + `HotelRoom` + `BreadcrumbList`; **không** tự gắn sao đánh giá; mặc định `noindex` tới khi `LANDING_INDEXABLE=true` |
 | 6 | Đo lường | Bộ đếm **tổng hợp theo ngày** ghi trong DB của OTTIMO (không cookie, không lưu IP, không định danh). **Không cần banner đồng ý** khi giữ đúng điều kiện ở mục 6.3 [SEC xác nhận]. Google Search Console xác minh bằng DNS (không gắn script) |
 | 7 | Ảnh | Ảnh gốc **không vào git**. Script nạp ảnh (chạy trên máy UXD/FE) tạo bản "master" đã giảm cỡ, bỏ EXIF → vào git (≤ 30 MB tổng). Build tạo AVIF + WebP nhiều cỡ có tên băm |
 | 8 | Chi phí | **0 đ/tháng tăng thêm** so với ADR-010 (cùng VPS, cùng tên miền). CDN ảnh (nếu cần sau) 0–50.000 đ/tháng [Chưa xác minh] và cần SEC/INV đồng ý vì dữ liệu truy cập ra nước ngoài |
@@ -67,6 +72,7 @@
 - Chọn **A**. Lý do: không tốn thêm tiền; dữ liệu khách (form) không ra nước ngoài; một chỗ cấu hình header; một pipeline. Khách nước ngoài chủ yếu đến từ OTA (PRD A6), nên tốc độ từ châu Âu là quan trọng nhưng chưa phải chặn.
 - Landing là **site thứ 4** trên Caddy (origin riêng, như SR-HDR-04). Ở v1 (L0), origin này **không** proxy gì tới api. Từ L1, nó **chỉ** proxy 5 đường dẫn công khai của mục 1.4 (SEC ARC-06); mọi `/v1/*` khác trả 404 ở origin này. Không cookie, không phiên.
 - Tệp build nằm trong image `ottimo-web` cùng 3 app (thêm `/srv/landing-web`), deploy và rollback bằng `deploy.sh` hiện có. Xem lại khi landing cần deploy > 1 lần/ngày (khi đó tách image `ottimo-landing` + volume chỉ đọc cho Caddy).
+- *(Sửa 17/10 – xác nhận FE-LP)* Hai biến build: `LANDING_SITE_URL` (tên miền production, mặc định `https://ottimo.vn` [GIẢ ĐỊNH – INV đang mua tên miền]; build kiểm email công khai cùng tên miền) và `LANDING_INDEXABLE` (mặc định `false` → mọi trang `noindex` + `robots.txt` chặn; OPS đặt `true` chỉ cho bản production sau cổng LP-v1). Khai trong `turbo.json` + `.env.example` (OPS).
 - Build **một lần**, dùng cho cả staging và production: URL tuyệt đối (canonical, hreflang, sitemap, `og:url`) luôn là tên miền production (`LANDING_SITE_URL`). Staging trả `X-Robots-Tag: noindex, nofollow` và `robots.txt` chặn toàn bộ, nên trỏ canonical về production là chấp nhận được.
 
 ### 1.3 Điều kiện chuyển sang C (thêm CDN cho ảnh)
@@ -89,7 +95,8 @@ Khi chuyển: host ảnh riêng (ví dụ `static.<tên-miền>`) kéo từ VPS;
 | `/robots.txt`, `/sitemap-*.xml`, `/favicon.ico`, `/site.webmanifest` | `file_server` | `public, max-age=3600` |
 | `/v1/public/properties/{slug}/(form-token\|booking-requests)`; phương án B thêm `availability\|offers`; US-158 thêm `site-events` *(sửa 17/10 khuya)* | **v1 (L0): không có** – trả 404 như dòng dưới (v1 không gọi API). Từ L1: `reverse_proxy api:3000` **chỉ** các đường dẫn đã bật này (SEC ARC-06); giới hạn body **16 KB** | do api đặt (`no-store` cho form) |
 | `/v1/*` khác, `/health`, `/__test__/*` | 404 | – |
-| Không tìm thấy | `handle_errors 404` → `/vi/404/index.html` nếu đường dẫn bắt đầu bằng `/vi/`, `/ru/404/index.html` nếu bắt đầu bằng `/ru/` (khi đã phát hành), còn lại `/404/index.html` (tiếng Anh) | `no-store` |
+| Không tìm thấy | `handle_errors 404` → `/vi/404/index.html` nếu đường dẫn bắt đầu bằng `/vi/`, `/ru/404/index.html` nếu bắt đầu bằng `/ru/` (khi đã phát hành), còn lại **`/404.html`** (tiếng Anh – cách Astro xuất; sửa 17/10 theo FE-LP, thay `/404/index.html`) | `no-store` |
+| `/book/`, `/vi/book/` *(mới 17/10)* | 301 → `/#book`, `/vi/#book` (form nằm trong trang chủ – mục 4.2; phòng link cũ trong tài liệu/QR) | – |
 | `www.<tên-miền>` | 301 → `https://<tên-miền>{uri}` | – |
 
 Header (khác 3 app ở chỗ **không** gắn `X-Robots-Tag` ở production):
@@ -119,7 +126,7 @@ Header (khác 3 app ở chỗ **không** gắn `X-Robots-Tag` ở production):
 | Dùng lại React của `packages/ui` | Được khi cần (R3: widget đặt phòng) | Được | Không |
 
 ### 2.2 Quyết định
-- **Astro 6.x** (bản ổn định mới nhất khi OPS khóa lockfile; khớp Vite 7 của monorepo), `output: 'static'`, `build.format: 'directory'`, `trailingSlash: 'always'`.
+- ~~Astro 6.x~~ → **Astro 7.3.8** *(sửa 17/10 – xác nhận lệch FE-LP; đây là bản ghi "lên major mới cần ADR" của dòng cuối mục này)*: mọi bản Astro < 7.2.8 dính khuyến cáo **critical** GHSA-26w7-cxv4-gfx2 (tối ưu ảnh AVIF) và sharp < 0.35.5 có 3 khuyến cáo **high**, nhánh 6.x không có bản vá → `pnpm audit --audit-level=high` đỏ cho cả repo [Nguồn: FE-LP `lp-v1-report.md` mục 3 + `pnpm audit` trong CI; ARC chưa đọc trực tiếp khuyến cáo]. Astro 7 dùng **Vite 8** – **chỉ** trong `apps/landing-web` (3 app còn lại giữ Vite 7; không chia sẻ cấu hình Vite giữa landing và app); Node ≥ 22.12 như monorepo; cách dùng không đổi (static, không island, CSP mục 2.4). Ghim đúng bản trong lockfile; nâng bản vá theo `pnpm audit`, nâng major tiếp theo cần ADR. `output: 'static'`, `build.format: 'directory'`, `trailingSlash: 'always'`.
 - Đây là lựa chọn ứng viên đã nêu ở ADR-004 điểm 3. Không cần tiến trình Node ở production (giữ nguyên tắc ADR-004: Caddy phục vụ tệp tĩnh).
 - Không chọn Vite + prerender: phải tự làm i18n, sitemap, ảnh – nhiều mã hơn mà kết quả như nhau. Không chọn HTML thuần: 3 ngôn ngữ × ~8 trang = ~24 tệp chép tay, rất dễ lệch nội dung và hreflang.
 - Quy tắc ADR-012 áp dụng như mọi app: lockfile, `pnpm audit --prod` mức high, ESLint, Prettier, Vitest; Astro là **khung chạy production mới** → cần ADR (chính là ADR này); lên major mới của Astro cần ADR tiếp theo.
@@ -164,7 +171,7 @@ Landing tuân theo **OTTIMO Brand Guidelines v1.0** (`00-brief/context/brand/bra
 - **Không terracotta.** Brochure 2026 có nét nhấn đất nung nhưng không được dùng. Nhấn bằng Oak, Earth Brown, Sage.
 
 **Token chung, không mã màu trong landing**
-- UXD thêm **nhóm màu thương hiệu** vào token Design System (DS v0.4, sinh bằng `design/tools/gen_tokens.py`). Giá trị đúng HEX của guideline. Landing dùng chính các token đó qua `@ottimo/ui/tokens.css`, cùng nguồn với app. Không có bảng màu riêng cho landing.
+- UXD thêm **nhóm màu thương hiệu** vào token Design System (DS v0.4, sinh bằng `design/tools/gen_tokens.py`). Giá trị đúng HEX của guideline. Không có bảng màu riêng cho landing. *(Sửa 17/10 – xác nhận FE-LP)*: LP-v1 dùng **bản sao sinh tự động** nhóm `--brand-*` trong `apps/landing-web/src/styles/tokens.css` (cùng nguồn DS, test chặn lệch) thay cho export `@ottimo/ui/tokens.css` – để FE-LP chỉ sửa trong thư mục landing khi `packages/ui` đang có người sửa, và landing không nhận token app/chế độ tối. Gộp về export chung khi `packages/ui` rảnh (R3); test chặn lệch là điều kiện bắt buộc tới lúc đó.
 - Các token màu riêng của app (`surface`, `side`, `line`, `deco`, màu trạng thái ok/warn/bad/info…) **không** được dùng ở landing: chúng lệch nhẹ khỏi bảng (brand-guidelines mục 7). Nếu cần màu chức năng (ví dụ viền lỗi khi có form ở L1), UXD ghi ngoại lệ trong DS và có kiểm tương phản.
 - CSS của landing chỉ dùng `var(--…)` thuộc danh sách token thương hiệu. Test (Vitest) chặn:
   - mã màu cứng (`#…`, `rgb(`, `hsl(`) trong `src/styles` và `src/components`;
@@ -176,13 +183,13 @@ Landing tuân theo **OTTIMO Brand Guidelines v1.0** (`00-brief/context/brand/bra
 
 **Font: Lora, Be Vietnam Pro, JetBrains Mono, tự host**
 - `@ottimo/ui/fonts.css` gồm:
-  - Lora 500/600 cho tiêu đề;
+  - Lora cho tiêu đề – *(sửa 17/10 theo mock UXD v1.2 và FE-LP)* **400 và 400 nghiêng** (thay 500/600; độ đậm là quyết định của UXD trong guideline);
   - Be Vietnam Pro 400/500/600 cho nội dung và UI;
   - JetBrains Mono 400 cho mã và thông số (guideline mục 6) – chỉ tải khi trang có dùng.
 - Tự host qua `@fontsource`, có tập ký tự Việt và Cyrillic (cho tiếng Nga sau này).
 - **Không** dùng Google Fonts hay CDN font (SEC C-1).
 - **Không** import `hifi.css` (thành phần của app nhân viên, nặng và không cần).
-- Preload 1 tệp Lora 600 (tập Latin + Việt) cho tiêu đề đầu trang; còn lại `font-display: swap`. Fallback theo guideline: Georgia / Arial / Courier New.
+- Preload 1 tệp **Lora 400** (tập Latin + Việt) cho tiêu đề đầu trang (sửa 17/10); còn lại `font-display: swap`. Fallback theo guideline: Georgia / Arial / Courier New.
 
 **Logo và chữ khách đọc**
 - Logo theo guideline mục 4: wordmark Lora, cỡ tối thiểu, vùng an toàn, không đổi màu ngoài bảng. Favicon dùng monogram núi khi INV gửi SVG; trước đó dùng chữ "OTTIMO" (ESC-012 L-A).
@@ -298,7 +305,7 @@ Quy tắc chung phải đạt 3 điều kiện:
 | Nấc | Nội dung | Phương án FB-INV-002 | Trạng thái |
 |---|---|---|---|
 | **L0** | Trang tĩnh + chat. Nút chính **Zalo OA**; WhatsApp · Telegram · Viber, gọi, email ở "Kênh khác"; link fanpage Facebook (4.2) | – (sửa theo ý 4) | LP-v1 |
-| **L1** | **"Yêu cầu đặt phòng"**: khách chọn ngày, số người, hạng phòng, để tên + SĐT (Zalo) → hàng chờ Desk, nguồn `website` + nguồn phụ (ví dụ `facebook`). Không giữ chỗ, không thanh toán. Sale/lễ tân xác nhận qua Zalo, giữ chỗ, gửi QR cọc | **A – đội đề xuất, chờ INV** | Hợp đồng chốt (0.3.7 bổ sung 2). Cài theo lịch ORC. Bật trên mạng sau SEC C-2, C-3, SEC-G1/G2 và ESC-001 (LZ-2, LZ-8) |
+| **L1** | **"Yêu cầu đặt phòng"**: khách chọn ngày, số người, hạng phòng, để tên + SĐT (Zalo) → hàng chờ Desk, nguồn `website` + nguồn phụ (ví dụ `facebook`). Không giữ chỗ, không thanh toán. Sale/lễ tân xác nhận qua Zalo, giữ chỗ, gửi QR cọc | **A – INV đã chọn 17/10** (FB-INV-002) | Hợp đồng chốt (0.3.7 bổ sung 2). Cài theo lịch ORC. Bật trên mạng sau SEC C-2, C-3, SEC-G1/G2 và ESC-001 (LZ-2, LZ-8) |
 | **L2** | Như L1, thêm bước xem còn/hết phòng và giá trực tiếp trước khi gửi (US-131) | B | **Contract-ahead**: `getPublicAvailability`, `getPublicOffers`, `offerSnapshot` – chỉ cài khi INV chọn B (~1 sprint sau A) |
 | **L3** | Đặt + trả tiền ngay (US-132) | C | R4+, **ADR riêng** (cổng thanh toán – ESC-010) |
 
@@ -309,13 +316,14 @@ Quy tắc chung phải đạt 3 điều kiện:
   - Link OA do INV lấy từ trang quản lý OA, lưu trong `site.json` (`contact.zaloOaUrl`). Dạng link chính xác **[Chưa xác minh]** – không tự ghép từ OA ID.
   - **Không** nhúng widget/SDK chat của Zalo (script bên thứ ba, cookie, phải nới CSP, dữ liệu người xem gửi sang Zalo trước khi khách bấm).
 - **WhatsApp · Telegram · Viber**: vẫn có, nhưng ở chỗ phụ – một nút "Kênh khác" mở danh sách trong phần Liên hệ và trang cảm ơn. Không ở thanh đáy, không ở màn đầu.
-- **Fanpage Facebook** (`https://www.facebook.com/profile.php?id=100091335431646`, INV gửi 17/10): **chỉ là link** `<a href … rel="noopener">` ở chân trang và phần Liên hệ.
+- **Fanpage Facebook** (`https://www.facebook.com/profile.php?id=100091335431646`, INV gửi 17/10): **chỉ là link** `<a href … rel="noopener noreferrer">` ở chân trang và phần Liên hệ (sửa 17/10 – SEC UXD-08, như mock).
   - **Không** nhúng Facebook Page Plugin, SDK, nút Like/Share hay chat Messenger: đó là script bên thứ ba và cookie → phá SEC C-1 và kéo theo banner đồng ý (mục 6.3).
   - Không dùng logo Facebook (nhãn hiệu bên khác): chữ "Facebook" + biểu tượng chung, như các kênh chat (concept mục 10).
   - CSP mục 1.4 không đổi – link điều hướng không cần nới CSP.
-- **Nút "Book now" trên fanpage** (INV tự đặt trong phần cài đặt trang Facebook): trỏ `https://<tên-miền>/book/?utm_source=facebook&utm_medium=page_button&utm_campaign=book_now` (khách Việt: `/vi/book/…`).
-  - Trang `/book/` chứa form L1. Khi form **chưa bật**, `/book/` vẫn sống và hiện nút Zalo + "Kênh khác" – link trên fanpage không bao giờ 404.
-  - Link nội bộ của landing giữ nguyên query UTM (không cookie, không localStorage), nên khách đi từ trang chủ sang `/book/` vẫn mang nguồn.
+- **Nút "Book now" trên fanpage** (INV tự đặt trong phần cài đặt trang Facebook) – *sửa 17/10 theo PO (landing-scope 0.10, một link chuẩn – SEC UXD-07)*: trỏ `https://<tên-miền>/vi/?utm_source=facebook&utm_medium=social&utm_campaign=page_book_button#book` (bản EN: không `/vi`).
+  - **Form L1 nằm trong mục `#book` của trang chủ** (`/`, `/vi/`) – **một** chỗ, không có trang `/book/` riêng (`/book/` cũ → 301 về `/#book`, mục 1.4). `#book` chỉ là neo, không mang dữ liệu (SEC UXD-08). Script form là module ngoài, chỉ chạy khi mục `#book` có trên trang; form token lấy khi khách chạm ô đầu tiên; điều kiện SEC C-1 áp cho trang chủ.
+  - Khi form **chưa bật** (form token 404), mục `#book` hiện nút Zalo + "Kênh khác" – link trên fanpage không bao giờ hỏng. Không JS → form ẩn (`hidden`, không `action` trỏ API – SEC UXD-08).
+  - UTM nằm ngay trên URL trang chủ nên form đọc được trực tiếp (không cookie, không localStorage); link nội bộ khác vẫn giữ query UTM.
 - **Điện thoại**: `tel:` số hotline công khai (C0).
 - **Email**: `mailto:booking@<tên-miền>` – hộp thư chung, **không** dùng email cá nhân in trong e-brochure (sửa 17/10). `site.json` chỉ nhận email có đuôi là tên miền OTTIMO; tên miền chưa có thì ẩn nút.
 - **Bản đồ**: ảnh tĩnh tự host + link "Mở Google Maps / Apple Maps"; không iframe.
@@ -352,35 +360,39 @@ Quy tắc chung phải đạt 3 điều kiện:
 
 ### 4.4 Chống spam (theo tầng)
 **Tầng 1 – mặc định, không bên thứ ba:**
+0. *(mới 17/10 – SEC ARC-13, điều kiện C-11)* **Bước 0 trong RAM, trước mọi truy cập DB**: bộ đếm theo IP cho mọi `/v1/public/*`, tính cả kết quả 4xx (POST và form token 30/giờ/IP, IPv6 /64) → 429; **giới hạn đồng thời** của module `public-site` 4 request, không xếp hàng → `503 SERVICE_UNAVAILABLE`; `statement_timeout` 2 giây cho giao dịch công khai; cache RAM 60 giây cho `public_resolve_property`. Lý do: api + Postgres dùng chung VPS với Desk (ADR-010) – form công khai không được làm chậm lễ tân.
 1. **Ô bẫy** `website`: ẩn bằng class CSS (không `style=`), `tabindex="-1"`, `autocomplete="off"`, `aria-hidden="true"`. Có giá trị → `202` **giống hệt** nhưng không lưu; chỉ tăng bộ đếm `spam_honeypot`.
 2. **Form token có chữ ký** (`getPublicFormToken`): HMAC(`PUBLIC_FORM_SIGNING_KEY_FILE`, cơ sở | thời điểm cấp | nonce). Từ chối nếu gửi < 3 giây sau khi cấp, quá 2 giờ, sai chữ ký, khác cơ sở hoặc dùng lại → `422 FORM_TOKEN_INVALID`; trang lấy mã mới và gửi lại **một** lần.
 3. **Origin = `LANDING_BASE_URL`**, khai theo operation `x-allowed-origins: [landing]` (SEC ARC-06):
    - sai → `403 FORBIDDEN_ACTION` – mã chung của guard hiện có; bỏ mã riêng `ORIGIN_NOT_ALLOWED` của phác thảo;
    - operation nhân viên/khách không bao giờ nhận origin landing; endpoint công khai bỏ qua mọi cookie;
-   - chỉ `application/json`, body ≤ 8 KB (Caddy chặn ở 16 KB), trường lạ → 422.
-4. **`Idempotency-Key` bắt buộc** (principal `public_site` + cơ sở): mạng chập chờn gửi lại không tạo bản thứ hai. Phản hồi cũ được trả **trước** khi kiểm form token, nên không tiêu token mới.
+   - chỉ `application/json` (khác → 422), body ≤ 8 KB (413; Caddy chặn ở 16 KB), trường lạ → 422;
+   - *(17/10 – SEC ARC-13)* **thiếu `Origin` hoặc `Origin: null`** → 403; form token: header `Sec-Fetch-Site` có mà khác `same-origin` → 403.
+4. **`Idempotency-Key` bắt buộc** (principal `public_site` + cơ sở): mạng chập chờn gửi lại không tạo bản thứ hai. Phản hồi cũ được trả **trước** khi kiểm form token, nên không tiêu token mới. *(17/10 – SEC ARC-15)* Ghi khóa ở **mọi** nhánh 202 (lưu thật, ô bẫy, liên hệ vượt giới hạn) → phát lại luôn cùng kết quả, cùng header; mã trả cho lần bị chặn được thêm vào `aliasRefCodes` của yêu cầu mới nhất cùng liên hệ (lễ tân tìm được). Gặp `FORM_TOKEN_INVALID`, trang lấy mã mới và chờ `minDelaySeconds` (đồng hồ trình duyệt) rồi gửi lại một lần (ARC-23).
 5. **Giới hạn tần suất** – đếm trong DB `rate_limit_counter` ngay từ ngày bật (SEC ARC-05 điểm 4, SR-RL-11):
    - theo IP: 5/giờ và 20/ngày, IPv6 theo /64 → `429 RATE_LIMITED` + `Retry-After`;
-   - theo SĐT: 3/ngày, khóa = HMAC bằng khóa dẫn xuất riêng `web_request_contact` (SEC ARC-07) → **`202` giống hệt**, không lưu; tăng `duplicateCount` + cờ `repeat_contact` trên yêu cầu mới nhất của SĐT đó (SEC ARC-04);
+   - *(17/10 – SEC ARC-13 điểm 5)* theo dải IPv6 /48: 40/ngày → 429 (IPv4 **không** gộp /24 – CGNAT di động sẽ chặn khách thật);
+   - theo **liên hệ** (SĐT hoặc email – một cách liên hệ, SEC ARC-14): 3/ngày, khóa = HMAC bằng khóa dẫn xuất riêng `web_request_contact` (SEC ARC-07) → **`202` giống hệt**, không lưu; tăng `duplicateCount` + cờ `repeat_contact` trên yêu cầu mới nhất của liên hệ đó (SEC ARC-04);
    - trần cơ sở `public_booking_request_daily_cap` (100/ngày, biên 50–500 – tham số bảo mật) → **`503 SITE_BUSY`** + `Retry-After`, không lưu, **không** giả thành công; một cảnh báo OWN mỗi ngày (SEC ARC-02).
    - IP lấy từ `X-Forwarded-For` do Caddy ghi (`TRUST_PROXY`), chỉ lưu dạng HMAC (`LOG_IP_HMAC_KEY`).
-6. **Gắn cờ nghi ngờ** (không chặn): `contains_url`, `unexpected_script`, `far_future`, `repeat_contact`, `room_type_unmatched` – nhân viên lọc.
+6. **Gắn cờ nghi ngờ** (không chặn): `contains_url`, `unexpected_script`, `far_future`, `repeat_contact`, `room_type_unmatched`; *(17/10)* `possible_duplicate` (NÊN – DOM Q-W10), `offer_unverified` (phương án B – SEC ARC-18) – nhân viên lọc.
 
-**Tầng 2 – bật khi tầng 1 không đủ** (ARC quyết, không tốn tiền): spam lọt > 10 yêu cầu/tuần (đếm theo số lần nhân viên `mark-spam`) trong 2 tuần liên tiếp → bật thử thách **proof-of-work tự host** (ví dụ ALTCHA – mã nguồn MIT, máy chủ xác minh chạy trong api, không gửi dữ liệu ra ngoài) [Nguồn: altcha.org; giấy phép phần máy chủ cần đọc lại trước khi dùng – Chưa xác minh]. Bật bằng tham số cơ sở, không sửa trang.
+**Tầng 2 – bật khi tầng 1 không đủ** (ARC quyết, không tốn tiền; *sửa 17/10 theo SEC ARC-22*): bật bằng tham số bảo mật `public_booking_request_pow_enabled` (không sửa trang) khi **một trong ba**: `mark-spam` > `public_booking_request_spam_pow_threshold_per_week` (10, biên 5–50) hai tuần liền; chạm trần cơ sở ≥ 2 ngày trong 7 ngày; ô bẫy + form token sai > 200/ngày. Hợp đồng đã có sẵn `PublicFormToken.powChallenge` + `WebsiteBookingRequestInput.pow` (contract-ahead, mã trường `POW_INVALID`); thư viện dùng Web Worker thì CSP thêm `worker-src 'self'` (không `blob:`). Cơ chế: thử thách **proof-of-work tự host** (ví dụ ALTCHA – mã nguồn MIT, máy chủ xác minh chạy trong api, không gửi dữ liệu ra ngoài) [Nguồn: altcha.org; giấy phép phần máy chủ cần đọc lại trước khi dùng – Chưa xác minh]. Bật bằng tham số cơ sở, không sửa trang.
 
-**Tầng 3 – chỉ khi có ESC**: Cloudflare Turnstile **[Chưa xác minh hiệu quả với site này]**. Gói Free miễn phí, không bắt buộc dùng Cloudflare proxy [Nguồn: Turnstile plans], cần thêm `https://challenges.cloudflare.com` vào `script-src` và `frame-src` [Nguồn: Turnstile CSP]. Gửi dữ liệu trình duyệt của khách sang Cloudflare (nước ngoài) → phải cập nhật thông báo xử lý dữ liệu và danh sách chuyển dữ liệu ra nước ngoài (ESC-002) → SEC đánh giá, INV quyết.
+**Tầng 3 – Turnstile: KHÔNG dùng** *(SEC quyết 17/10 – `landing-booking-SEC.md` ARC-22)*: chỉ xét lại qua ESC mới khi tầng 2 đã bật mà spam vẫn làm hỏng hàng chờ; lúc đó SEC đánh giá lại việc chuyển dữ liệu ra nước ngoài. Ghi chú cũ giữ để tham khảo: Cloudflare Turnstile **[Chưa xác minh hiệu quả với site này]**. Gói Free miễn phí, không bắt buộc dùng Cloudflare proxy [Nguồn: Turnstile plans], cần thêm `https://challenges.cloudflare.com` vào `script-src` và `frame-src` [Nguồn: Turnstile CSP]. Gửi dữ liệu trình duyệt của khách sang Cloudflare (nước ngoài) → phải cập nhật thông báo xử lý dữ liệu và danh sách chuyển dữ liệu ra nước ngoài (ESC-002) → SEC đánh giá, INV quyết.
 
 ### 4.5 Kiểm dữ liệu đầu vào (zod dùng chung từ `packages/contracts`, sinh từ `WebsiteBookingRequestInput`)
 | Trường | Quy tắc |
 |---|---|
 | `arrival` | ≥ hôm nay theo giờ cơ sở (ADR-008), ≤ hôm nay + `booking_window_days` (BR-112) |
-| `departure` | > `arrival`, tối đa 366 đêm. **Một ô ngày cho mọi khách** – boutique stay, không tách form "căn hộ dịch vụ"/thuê tháng (FB-INV-002 ý 2). Từ 28 đêm server ghi `stayKind = long` (BR-108), sale báo giá dài hạn; không báo lỗi. Bỏ `stayType`/`months` của phác thảo |
-| `adults`, `children`, `childrenAges` | 1–12; 0–8; tuổi 0–17, đủ `children` phần tử nếu gửi. Không chặn theo sức chứa (nhóm nhiều căn vẫn gửi được – sale xử lý) |
+| `stayType`, `months` *(mới 17/10 – UXD v1.2, DOM 5.1)* | `short` (mặc định) → `departure` bắt buộc; `long` → `months` 1–24 hoặc `null` = "Not sure yet", không gửi `departure`; server ghi `departure = arrival + months` khi có |
+| `departure` | *(chỉ `short`)* > `arrival`, tối đa 366 đêm. ~~Một ô ngày cho mọi khách~~ (thay bằng `stayType` 17/10) – boutique stay, không tách form "căn hộ dịch vụ"/thuê tháng (FB-INV-002 ý 2). Từ 28 đêm server ghi `stayKind = long` (BR-108), sale báo giá dài hạn; không báo lỗi. Bỏ `stayType`/`months` của phác thảo |
+| `adults`, `children`, `infants` *(sửa 17/10 – SEC ARC-14)* | 1–12; trẻ 6–11: 0–8; trẻ dưới 6: 0–8 (BR-110). **Không** thu tuổi chính xác (bỏ `childrenAges`). Không chặn theo sức chứa (nhóm nhiều căn vẫn gửi được – sale xử lý) |
 | `roomType` | Slug của `Room.publicRoomType`; vắng = "tư vấn giúp"; không khớp hạng đang bán → vẫn nhận + cờ `room_type_unmatched` |
-| `guestName` | 1–80 ký tự, bỏ ký tự điều khiển |
-| `phone` | **Bắt buộc** (Zalo là kênh chính); V-02; số nước ngoài cần `+mã nước` |
-| `email` | Tùy chọn (V-03); bắt buộc khi `preferredChannel = email` |
-| `preferredChannel` | `zalo` (mặc định, đứng đầu) · `whatsapp` · `telegram` · `viber` · `phone` · `email` |
+| `guestName` | 1–80 ký tự; *(17/10 – SEC ARC-21)* NFC, bỏ ký tự điều khiển và ký tự định dạng hướng (U+200E/F, U+202A–E, U+2066–9) trước khi kiểm độ dài; số thẻ/số giấy tờ → từ chối như `note` |
+| `phone`, `email` *(sửa 17/10 – SEC ARC-14, một cách liên hệ)* | `preferredChannel` ≠ `email` → `phone` bắt buộc (V-02; số nước ngoài cần `+mã nước`), không gửi `email`; `preferredChannel = email` → `email` bắt buộc (V-03), không gửi `phone`. Thiếu → `REQUIRED`, thừa → `NOT_ALLOWED` |
+| `preferredChannel` | **Bắt buộc**: `zalo` (chọn sẵn, đứng đầu) · `whatsapp` · `telegram` · `viber` · `phone` · `email` |
+| `pow` *(contract-ahead tầng 2)* | Chỉ khi `public_booking_request_pow_enabled = true` – sai/thiếu → `POW_INVALID` |
 | `note` | ≤ 500 ký tự; số thẻ → `CARD_NUMBER_DETECTED` (SR-PAY-09); số CCCD/hộ chiếu/MRZ → `ID_NUMBER_DETECTED` (SEC ARC-08). Cả hai không lưu |
 | `consent`, `consentVersion` | `true` (ô không tích sẵn, một mục đích – SEC C-3) + phiên bản thông báo đã đăng của `locale` → lỗi `CONSENT_REQUIRED`, `NOTICE_VERSION_INVALID` |
 | `locale` | `vi` \| `en` \| `ru` |
@@ -389,7 +401,7 @@ Quy tắc chung phải đạt 3 điều kiện:
 | `offerSnapshot` | Contract-ahead phương án B – phương án A bỏ qua |
 
 ### 4.6 Tối thiểu hóa dữ liệu cá nhân, hạn lưu, quyền xem
-- Chỉ hỏi: tên gọi, SĐT (email tùy chọn), ngày, số người, hạng phòng, lời nhắn. **Không** hỏi quốc tịch, giấy tờ, ngày sinh, địa chỉ, số thẻ.
+- Chỉ hỏi: tên gọi, **một** cách liên hệ (SĐT **hoặc** email theo kênh khách chọn – SEC ARC-14, sửa 17/10), ngày, số người lớn + số trẻ theo nhóm tuổi, hạng phòng, lời nhắn. **Không** hỏi quốc tịch, giấy tờ, ngày sinh, địa chỉ, số thẻ, tuổi chính xác của trẻ.
 - C2 (rbac D28): `guestName`, `phone`, `email`, `note`, `declineNote`. Không vào log, URL, thông báo đẩy, tiêu đề email. Không lưu IP rõ, không User-Agent; `ip_hmac` giữ 30 ngày.
 - **Hạn lưu cho mọi trạng thái** (SEC C-2, ARC-03 – bảng đầy đủ ở erd 4.14):
   - `new`/`in_progress` không hoạt động 30 ngày → `declined` (`stale`);
@@ -398,10 +410,11 @@ Quy tắc chung phải đạt 3 điều kiện:
   - `converted`: xóa C2 ngay khi chuyển (dữ liệu đã ở hồ sơ khách với hạn lưu riêng – T05/T06).
   - Biên do SEC đặt là **tham số bảo mật** (`x-security-parameters`, bật cùng PR US-155); job xóa không phụ thuộc chuyển trạng thái.
 - **Thông báo xử lý dữ liệu có phiên bản** (SEC C-3, ARC-05): bảng `privacy_notice_version` (băm văn bản, ngày đăng); văn bản đầy đủ trong repo landing; trang `/privacy/`, `/vi/privacy/` có trước khi bật form. Căn cứ ghi "Luật 91/2025 + NĐ 356/2025" thay "NĐ 13/2023" [Chưa xác minh – luật sư, ESC-001].
-- Yêu cầu của chủ thể dữ liệu (UC-30): tìm theo SĐT quét cả `website_booking_request` qua `contact_hmac`.
+- Yêu cầu của chủ thể dữ liệu (UC-30): tìm theo SĐT/email quét cả `website_booking_request` qua `contact_hmac`. *(17/10 – SEC ARC-16, điều kiện C-3 (d))*: người gửi form chưa là khách nên SR-DSR-01 không áp → **`lookupWebsiteBookingRequests`** (OWN/MGR/FDL, liên hệ trong thân, không vào URL) và hành động **`erase`** (WR8 – OWN/MGR/FDL; xác minh: yêu cầu đến từ chính liên hệ trên yêu cầu (`same_contact`, server so HMAC) hoặc nhân viên gọi lại đúng số (`called_back`); xóa C2 + `contact_hmac` + `ip_hmac` ngay, `purge_journal` `dsr_erase`, audit `security`; không mở lại; đã `converted` → quy trình khách SR-DSR-01). Bản sao dữ liệu chỉ gửi tới đúng liên hệ trên yêu cầu. Trang thông báo ghi kênh xin xóa + hạn trả lời (luật sư – ESC-001).
+- *(17/10 – SEC ARC-21, C-12)* Desk hiển thị dữ liệu người lạ **dạng chữ**: không tự tạo link (cờ `contains_url` chỉ hiện nhãn cảnh báo), không `dangerouslySetInnerHTML`; link liên hệ chỉ `tel:` và `https://wa.me/` dựng từ SĐT E.164 server trả; **không** nút mở chat Zalo/Telegram/Viber tới SĐT khách – "Sao chép SĐT" + nhắc dùng tài khoản OTTIMO (BR-913 (4)). Log ứng dụng/Caddy/Postgres không chứa tên, SĐT, email, lời nhắn – Postgres `log_parameter_max_length = 0`, `log_parameter_max_length_on_error = 0` (OPS); có test snapshot thông báo/SSE/outbox/audit.
 - **Quyền xem** (SEC ARC-12):
   - OWN, MGR, FDL, FD thấy mọi yêu cầu của cơ sở;
-  - **SAL** chỉ thấy yêu cầu `new` chưa ai nhận và yêu cầu giao cho mình (`x-scope: unassigned_or_own`; ngoài phạm vi → 404);
+  - **SAL** chỉ thấy yêu cầu `new` chưa ai nhận và yêu cầu giao cho mình (`x-scope: unassigned_or_own`; ngoài phạm vi → 404); *(17/10 – SEC ARC-19)* yêu cầu chưa giao trả **không có** tên/liên hệ/lời nhắn – đủ ngày, số khách, hạng, kênh để quyết định nhận; `createHoldFromQuote` chỉ chuyển yêu cầu khi người gọi FD+ hoặc đang được giao;
   - **không** cho CTV, HK, MT. BA thêm màn + hành động vào `rbac-matrix.md`.
 
 ### 4.7 L2 – phương án B (contract-ahead, US-131): phòng trống + giá công khai
@@ -427,7 +440,7 @@ Quy tắc chung phải đạt 3 điều kiện:
 
 **Giới hạn tần suất**: 60/phút/IP và 1.000/ngày/IP mỗi endpoint đọc (SR-RL-13); vượt → 429.
 
-**Không giữ chỗ, giá chỉ để tham khảo**: form gửi kèm `offerSnapshot` (hạng, tổng tiền, thời điểm tính, phiên bản giá). Desk hiện "Giá trên web lúc gửi" cạnh giá tính lại; lệch thì sale quyết. Trang ghi rõ "Giá tham khảo, nhân viên xác nhận".
+**Không giữ chỗ, giá chỉ để tham khảo**: form gửi kèm `offerSnapshot` (hạng, tổng tiền, thời điểm tính, phiên bản giá, *17/10 – SEC ARC-18* **`offerToken`**: HMAC khóa dẫn xuất `keyedHash('public_offer')` trên cơ sở, hạng, ngày, số người theo nhóm tuổi, tổng tiền, phiên bản giá, thời điểm; hạn 24 giờ). Server chỉ lưu snapshot có chữ ký đúng và khớp yêu cầu; sai/thiếu → không lưu, cờ `offer_unverified`; BR-916 (2) "giữ giá chụp" chỉ áp cho snapshot đã kiểm. Lưu ý khi INV chọn B: lịch còn/hết theo hạng cho đối thủ thấy mức lấp đầy theo ngày (ESC-020 L7-B – ORC thêm vào nhược điểm). Desk hiện "Giá trên web lúc gửi" cạnh giá tính lại; lệch thì sale quyết. Trang ghi rõ "Giá tham khảo, nhân viên xác nhận".
 
 **Chính sách giá công khai** (PO/DOM/INV – ESC-020 L3 đã chọn "chỉ thuê tháng từ …"): hiện giá đêm trên web là đổi chính sách → cần INV quyết lại khi chọn B; điều khoản ngang giá OTA [Chưa xác minh]. Kiến trúc không đổi theo lựa chọn – tham số `public_show_prices` (mặc định tắt).
 
@@ -435,14 +448,17 @@ Quy tắc chung phải đạt 3 điều kiện:
 | Operation / trường | Kiểu | Phương án | Ghi chú |
 |---|---|---|---|
 | `getPublicFormToken` | GET công khai | A | 200 / 404 / 429; `Cache-Control: no-store` |
-| `createWebsiteBookingRequest` | POST công khai | A | 202 / 403 / 404 / 409 / 422 / 428 / 429 / 503 |
-| `listWebsiteBookingRequests`, `getWebsiteBookingRequest`, `transitionWebsiteBookingRequest` | Desk | A | FD+; SAL `unassigned_or_own`; hành động `claim`, `release`, `decline`, `mark-spam`, `reopen` |
+| `createWebsiteBookingRequest` | POST công khai | A | 202 (`refCode` + câu hứa công khai `promise` – không `replyBy`, DOM-S4-18) / 403 / 404 / 409 / 413 / 422 / 428 / 429 / 503 |
+| `listWebsiteBookingRequests`, `getWebsiteBookingRequest`, `transitionWebsiteBookingRequest` | Desk | A | FD+; SAL `unassigned_or_own`; hành động `claim`, `release`, `decline`, `mark-spam`, `reopen`, *(17/10)* `erase` (OWN/MGR/FDL) |
+| `lookupWebsiteBookingRequests` *(mới 17/10 – SEC ARC-16)* | Desk, POST | A | OWN, MGR, FDL – tìm theo liên hệ trong thân; chỉ trả mã/trạng thái |
 | `saveQuote.websiteBookingRequestId`, `Quote.websiteBookingRequestId`, `createHoldFromQuote` (mô tả), `ReservationCreate.websiteBookingRequestId`, `Reservation.directSubSource` | Thêm trường | A | Chuyển thành giữ chỗ/đơn qua luồng có sẵn |
 | `AttentionItem.kind` `website_request_new`; `StaffNotification.kind` `website_request_new`, `website_request_cap_reached`; SSE `website_request.changed` | Thêm giá trị | A | Không tên/SĐT trong thông báo |
 | `getPublicAvailability`, `getPublicOffers`, `WebsiteBookingRequestInput.offerSnapshot`, `PublicOfferSnapshot` | Contract-ahead | B | Không cài |
 | `recordSiteEvent` (bộ đếm mục 6) | – | US-158 | **Chưa** vào hợp đồng – làm cùng US-158; áp SEC ARC-09 lúc đó |
 
-- Mã mới: `FORM_TOKEN_INVALID` (422), `SITE_BUSY` (503). Mã trường mới: `CONSENT_REQUIRED`, `NOTICE_VERSION_INVALID`, `ID_NUMBER_DETECTED`.
+- Mã mới: `FORM_TOKEN_INVALID` (422), `SITE_BUSY` (503); *(17/10)* `PUBLIC_FORM_NOT_READY` (422 – bật form khi thiếu thông báo xử lý dữ liệu/khóa ký, SEC ARC-17). Mã trường mới: `CONSENT_REQUIRED`, `NOTICE_VERSION_INVALID`, `ID_NUMBER_DETECTED`; *(17/10)* `CONTACT_MISMATCH`, `POW_INVALID`.
+- *(17/10 – SEC ARC-17)* **Một công tắc** việc nhận dữ liệu lúc chạy: tham số bảo mật `public_booking_requests_enabled` (chỉ OWN; bật cần `privacy_notice_version` cho mỗi ngôn ngữ đang phát hành + khóa ký). Cờ build của landing chỉ chọn `request` (A) hay `live` (B) – không bật/tắt việc nhận dữ liệu; trang luôn có sẵn mã form.
+- *(17/10 – SEC ARC-20, DOM v0.3.8)* Tên khóa tham số: theo catalogue hợp đồng (`x-security-parameters` ghi chú + erd 9.3) – `public_booking_requests_enabled`, `public_booking_request_daily_cap`, `public_booking_request_spam_pow_threshold_per_week`, `public_booking_request_pow_enabled`, `retention.web_request_*`, `web_request_response_minutes` (15), `web_request_escalate_minutes`, `web_request_public_promise_*`, `web_request_same_day_after_hours_minutes`, `web_request_duplicate_window_hours`, `web_request_offer_honor_hours`. ADR này không dùng tên `web_inquiry.*` (đã kiểm 17/10).
 - Bỏ `ORIGIN_NOT_ALLOWED` của phác thảo (dùng `403 FORBIDDEN_ACTION` như guard hiện có).
 - Mọi operation mới có `x-round: R3` cho tới khi ORC xếp lịch US-155. Kéo vào luồng LP → ARC bỏ `x-round` của 5 operation phương án A, sinh lại `rbac-cases`.
 
@@ -463,7 +479,7 @@ Quy tắc chung phải đạt 3 điều kiện:
 - `sitemap-index.xml` sinh bởi `@astrojs/sitemap` (tùy chọn `i18n`), chỉ gồm trang đã phát hành; không gồm 404, trang cảm ơn.
 - `robots.txt` (production): `User-agent: *`, `Allow: /`, `Disallow: /v1/`, `Sitemap: https://<tên-miền>/sitemap-index.xml`. Staging: `Disallow: /` + header `noindex`.
 - **JSON-LD** (dữ liệu từ `site.json`, một nguồn cho cả trang và schema):
-  - Trang chủ: `Hotel` (kiểu con của `LodgingBusiness`) với `@id` `https://<tên-miền>/#hotel`, `name`, `url`, `image`, `address` (`PostalAddress` – địa chỉ đầy đủ do INV cung cấp), `geo`, `telephone`, `email`, `checkinTime`/`checkoutTime` (theo BR-401 – hiện là giả định chờ INV xác nhận), `amenityFeature`, `availableLanguage`, `numberOfRooms` (10), `sameAs` (link trang OTA, Zalo OA, mạng xã hội) [Nguồn: schema.org Hotel, LodgingBusiness]; kèm `WebSite` có `inLanguage`.
+  - Trang chủ: *(sửa 17/10 – xác nhận FE-LP, mục 15)* **`LodgingBusiness`** (thay `Hotel`) với `@id` `https://<tên-miền>/#hotel`, `name`, `url`, `image`, `address` (`PostalAddress` – địa chỉ đầy đủ do INV cung cấp), `geo` (khi INV gửi tọa độ – chưa có), `telephone`, `email`, `checkinTime`/`checkoutTime` (theo BR-401 – hiện là giả định chờ INV xác nhận), `amenityFeature`, `availableLanguage`, ~~`numberOfRooms` (10)~~ (bỏ – FB-INV-002 ý 1: landing không nêu số phòng), `sameAs` (link trang OTA, Zalo OA, mạng xã hội) [Nguồn: schema.org Hotel, LodgingBusiness]; kèm `WebSite` có `inLanguage`.
   - Trang loại căn: `HotelRoom` có `containedInPlace` → `#hotel`, `occupancy`, `bed`, `floorSize`, `amenityFeature`; `BreadcrumbList`.
   - **Không** gắn `aggregateRating`/`review` tự đăng: Google không hiện sao cho trang mà chính cơ sở kiểm soát đánh giá [Nguồn: Google review snippet]. Không dùng `VacationRental` (chỉ dành cho đối tác có Hotel Center) [Nguồn: Google vacation rental]. Không đưa giá tĩnh vào schema (dễ lỗi thời); R3 cân nhắc khi có API giá.
 - Kiểm tra trong CI: Lighthouse CI điểm SEO ≥ 95; test kiểm mỗi trang có đủ title, description, canonical, thẻ hreflang của mọi ngôn ngữ đã phát hành + `x-default` (mục 3.3), JSON-LD hợp lệ (parse được, có `@type`).
@@ -613,7 +629,7 @@ Playwright kiểm:
 | **SEC** | Thêm SR-RL cho endpoint công khai (SR-RL-10…13 – số ở 4.4, 4.7); xác nhận 4 điều kiện "không cần banner" (6.3); hạn lưu `website_booking_request`, `ip_hmac` (4.6 – đã dùng biên ARC-03, SEC đặt mã T19); soạn thông báo xử lý dữ liệu có phiên bản; review CSP landing; thêm `PUBLIC_FORM_SIGNING_KEY` vào sổ bí mật | Review ADR này + trước L1 |
 | **OPS** | Site thứ 4 trong `Caddyfile.prod` (mục 1.4, bản sửa 17/10: không chuyển hướng theo ngôn ngữ; `/en/*` → 301; 404 theo tiền tố; v1 không proxy `/v1/*`; staging có basic auth/IP) + bản dev; `Dockerfile.web` thêm `/srv/landing-web` + cache BuildKit cho ảnh; biến `LANDING_HOST`, `LANDING_SITE_URL` (biến build CI), `LANDING_BASE_URL` (api, bắt buộc https ở staging/production khi bật website), `PUBLIC_FORM_SIGNING_KEY` (`_FILE`, ≥ 32 ký tự); khai biến build trong `turbo.json` `env` (quy tắc 4 ADR-012); `expected-headers.sh` kiểm header landing (không `X-Robots-Tag` ở production, có ở staging); job Lighthouse CI; hosting-plan mục 5, 5.1, 10 **ARC đã cập nhật 17/10** (DNS gốc, `www`, `staging`, bảo vệ tài khoản tên miền) – OPS rà lại và kiểm theo checklist mục 10.1 (HSTS, CAA, `dig`); hỏi hạn mức băng thông quốc tế khi xin báo giá VPS | Khi dựng L0 |
 | **UXD** | Thiết kế landing theo **Brand Guidelines v1.0** (mục 2.5):<br>• thêm nhóm màu thương hiệu vào token DS v0.4 qua `gen_tokens.py` (đúng HEX guideline, có kiểm tương phản), **không** token đất nung;<br>• giọng tiếng Anh dẫn dắt;<br>• danh sách ô ảnh + `alt` EN/VI;<br>• nội dung EN + VI theo `content-guide.md` (RU theo ESC-020 L1);<br>• khóa chuỗi `landing.*`, gồm dải gợi ý ngôn ngữ;<br>• sửa concept 3.1, 4.1, 9.1, 9.3 theo quy tắc ngôn ngữ mục 3: EN ở gốc, `x-default` = EN, không nút "sắp có", nút ngôn ngữ luôn thấy ở đầu trang | L0 |
-| **FE** | *(17/10 khuya: tách FE-LP – form `/book/`, FE-B – hàng chờ Desk; bảng việc `openapi-0.3.7.md` mục 12)* Dựng `apps/landing-web` theo mục 2–3, 5–7, 9; xóa `apps/booking-web/README.md` (thay bằng landing-web); thêm export `@ottimo/ui/tokens.css`, `@ottimo/ui/fonts.css` (Lora, Be Vietnam Pro, JetBrains Mono) trong `packages/ui`; module gợi ý ngôn ngữ (mục 3.2); test chặn màu ngoài bảng và tài nguyên ngoài (mục 2.5, 2.6); L1: script form + màn Desk "Yêu cầu từ website"; R3: widget đặt phòng | L0, L1, L2 |
+| **FE** | *(17/10 khuya: tách FE-LP – form ~~`/book/`~~ trong mục `#book` của trang chủ (sửa 17/10 theo PO), FE-B – hàng chờ Desk; bảng việc `openapi-0.3.7.md` mục 12)* Dựng `apps/landing-web` theo mục 2–3, 5–7, 9; xóa `apps/booking-web/README.md` (thay bằng landing-web); thêm export `@ottimo/ui/tokens.css`, `@ottimo/ui/fonts.css` (Lora, Be Vietnam Pro, JetBrains Mono) trong `packages/ui`; module gợi ý ngôn ngữ (mục 3.2); test chặn màu ngoài bảng và tài nguyên ngoài (mục 2.5, 2.6); L1: script form + màn Desk "Yêu cầu từ website"; R3: widget đặt phòng | L0, L1, L2 |
 | **BE** (BE-D) | Module `public-site`: `getPublicFormToken`, `createWebsiteBookingRequest`, hàng chờ Desk (`list/get/transitionWebsiteBookingRequest`), cổng `WebsiteRequestPort` cho `saveQuote`/`createHoldFromQuote`/`createReservation`, job `web_request.stale`/`web_request.purge`; meta `allowedOrigins` + guard Origin theo operation; `recordSiteEvent` cùng US-158; phương án B (availability/offers + cache + NOTIFY) chỉ khi INV chọn B – bảng việc `openapi-0.3.7.md` mục 12 | L1 (theo lịch ORC), L2 |
 | **INT** | Lấy link Zalo OA chính thức (INV cấp); khi ESC-010 đổi sang dùng Zalo OA: thiết kế lời chào tự động **sau** khi nhân viên liên hệ (4.3), không gửi tới liên hệ chưa xác minh | Theo ESC mới về Zalo |
 | **DATA** | Định nghĩa chỉ số landing (lượt xem theo ngôn ngữ, tỉ lệ bấm liên hệ, yêu cầu → đơn web theo nguồn phụ `directSubSource`, lý do từ chối – nhu cầu mất) từ `web_metric_daily` + `website_booking_request` | R3 |
@@ -629,6 +645,8 @@ Dòng đề xuất cho `decision-log.md` (ORC ghi khi commit):
 - `| 2026-10-17 | 2 | (khuya, FB-INV-002) Hợp đồng "Yêu cầu đặt phòng" phương án A (OpenAPI 0.3.7 bổ sung 2): website_booking_request (thay tên booking_inquiry), không giữ chỗ/lead/hồ sơ; chuyển thành giữ chỗ/đơn qua saveQuote/createHoldFromQuote/createReservation kèm websiteBookingRequestId; nguồn website + directSubSource suy từ UTM/nguồn giới thiệu; phương án B chỉ contract-ahead; mọi operation mới x-round R3 tới khi ORC xếp lịch | ARC | Một đường duy nhất qua ràng buộc chống trùng/giá; INV chưa xác nhận A/B |`
 - `| 2026-10-17 | 2 | (khuya) Endpoint công khai landing: Origin khai theo operation (x-allowed-origins: [landing]) → 403 FORBIDDEN_ACTION khi sai; Idempotency-Key bắt buộc (principal public_site); giới hạn IP 429, theo SĐT 202 giống hệt, trần cơ sở 503 SITE_BUSY; đếm trong DB rate_limit_counter | ARC | SEC ARC-02, 04, 05, 06, 07 |`
 - `| 2026-10-17 | 2 | (khuya) Fanpage Facebook chỉ là link (không SDK/plugin); Zalo OA đứng đầu ở cả bản EN và VI; nút "Book now" của fanpage trỏ /book/?utm_source=facebook… | ARC (+ UXD/PO cập nhật concept, US-151 AC1) | FB-INV-002 ý 4; SEC C-1 |`
+- `| 2026-10-17 | 2 | ADR-014 sửa theo FE-LP: Astro 7.3.8 (Vite 8 chỉ trong apps/landing-web) thay 6.x vì khuyến cáo critical/high không có bản vá cho 6.x; token thương hiệu sao chép tự động có test (gộp về @ottimo/ui ở R3); Lora 400/400i; JSON-LD LodgingBusiness; 404 ở /404.html; biến build LANDING_INDEXABLE (mặc định noindex) + LANDING_SITE_URL | ARC | Bảo mật, cách ly app; FE-LP lp-v1-report mục 3 |`
+- `| 2026-10-17 | 2 | Form yêu cầu đặt phòng nằm trong mục #book của trang chủ (không trang /book/; /book/ → 301 /#book); nút fanpage theo PO landing-scope 0.10 | ARC | Một link chuẩn (SEC UXD-07); PO chốt |`
 
 ## 11. Giả định
 
@@ -677,3 +695,17 @@ Dòng đề xuất cho `decision-log.md` (ORC ghi khi commit):
 - schema.org `Hotel`, `LodgingBusiness`, `HotelRoom`: https://schema.org/Hotel, https://schema.org/LodgingBusiness, https://schema.org/HotelRoom [Nguồn]
 - Cloudflare Turnstile – CSP: https://developers.cloudflare.com/turnstile/reference/content-security-policy/ [Nguồn]; Plans (Free): https://developers.cloudflare.com/turnstile/plans/ [Nguồn]
 - ALTCHA (MIT, tự host): https://altcha.org/open-source-captcha/ [Nguồn – phần máy chủ cần đọc lại kho mã]
+
+## 15. Xác nhận lệch của FE-LP (`rounds/round-02/outputs/FE/lp-v1-report.md` mục 3) – ARC 17/10
+
+| # | FE-LP làm | ARC | Ghi chú / việc kèm |
+|---|---|---|---|
+| 1 | Astro **7.3.8** thay 6.x | **Xác nhận** – mục 2.2 | Lý do bảo mật (khuyến cáo critical + high không có bản vá cho 6.x). Vite 8 chỉ trong landing; ghim bản; nâng major sau cần ADR. SEC ghi nhận khi review bản dựng (C-1) |
+| 2 | Thư mục `product/apps/landing-web` | **Xác nhận** | Đúng ADR; `apps/landing` trong sprint-4-plan chỉ là ví dụ – ORC sửa câu |
+| 3 | Token `--brand-*` sao chép tự động + test, không export `@ottimo/ui/tokens.css`; font theo mock | **Xác nhận có điều kiện** – mục 2.5 | Test chặn lệch là bắt buộc; gộp về export chung ở R3. Font Lora 400/400 nghiêng, preload Lora 400 (theo UXD v1.2) |
+| 4 | JSON-LD `LodgingBusiness`, chưa có `geo` | **Xác nhận** – mục 5 | `LodgingBusiness` hợp với boutique stay có bếp; `HotelRoom` + `containedInPlace` giữ nguyên. Thêm `geo` khi INV gửi tọa độ (không suy từ link rút gọn `property_map_url`) |
+| 5 | 404 EN ở `/404.html`, VI ở `/vi/404/index.html` | **Xác nhận** – mục 1.4 | OPS sửa `handle_errors` trong `Caddyfile.prod` theo đường dẫn mới |
+| 6 | `LANDING_INDEXABLE` (mặc định `noindex`), `LANDING_SITE_URL` (mặc định `https://ottimo.vn` [GIẢ ĐỊNH]) | **Xác nhận** – mục 1.2 | OPS khai trong `.env.example` + CI; production đặt `LANDING_INDEXABLE=true` sau cổng LP-v1; staging luôn `noindex` |
+| 7–9 | Chuỗi chưa vào `strings-*.json`; phần FE tự thêm (UXD duyệt); `apps/booking-web/README.md` | Không thuộc ARC | UXD/ORC |
+| – | Form theo hợp đồng sau review (17/10) | **Việc FE-LP** | Dùng schema zod sinh từ `WebsiteBookingRequestInput` (tên khóa hợp đồng: `roomType`, `guestName`, `preferredChannel`, `note`, `children`/`infants`, `stayType`/`months`); trang cảm ơn đọc `promise` (không `replyBy`); chờ `minDelaySeconds` khi gửi lại; form trong mục `#book` |
+

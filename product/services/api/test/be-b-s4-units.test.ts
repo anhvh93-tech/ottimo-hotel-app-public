@@ -17,6 +17,7 @@ import {
   maxNewRequestVnd,
   previewNightReductions,
 } from '../src/modules/folio/public/reductions';
+import { refundPlan } from '../src/modules/folio/public/refund-plan';
 
 const ORACLES = JSON.parse(
   readFileSync(join(__dirname, '../../../tests/fixtures/br-examples.json'), 'utf8'),
@@ -210,5 +211,33 @@ describe('previewNightReductions (BE-A M2 – xem trước = lệnh ghi)', () =>
       nights: [{ date: '2026-12-17', roomVnd: 792_000, extraPersonVnd: 0 }],
     });
     expect(out.get('2026-12-17')?.roomFocVnd).toBe(0);
+  });
+});
+
+describe('DOM-S4-14 refundPlan (BR-522 v0.3.8, oracle BR-522-05)', () => {
+  it('supplementary request below the excess, none when equal, pending auto-cancelled above', () => {
+    const ex = oracle('BR-522-05') as unknown as {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      input: Record<string, any>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expected: Record<string, any>;
+    };
+    for (const k of ex.input.cases as Array<{ key: string; openRefundVnd: number }>) {
+      const plan = refundPlan(ex.expected.excessAfterFeeVnd[k.key], [
+        { id: 'open', status: 'pending', remainingVnd: k.openRefundVnd },
+      ]);
+      expect(plan.createVnd, k.key).toBe(ex.expected.newRefundRequestVnd[k.key]);
+      expect(plan.cancelIds.includes('open'), k.key).toBe(
+        ex.expected.openRequestAutoCancelled[k.key],
+      );
+    }
+    // an APPROVED request is never cancelled: the new one is what it does not cover (payout ≤ credit anyway)
+    expect(
+      refundPlan(300_000, [
+        { id: 'a', status: 'approved', remainingVnd: 200_000 },
+        { id: 'p', status: 'pending', remainingVnd: 400_000 },
+      ]),
+    ).toEqual({ cancelIds: ['p'], createVnd: 100_000 });
+    expect(refundPlan(0, [])).toEqual({ cancelIds: [], createVnd: 0 });
   });
 });

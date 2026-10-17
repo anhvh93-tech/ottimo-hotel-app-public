@@ -15,6 +15,7 @@ import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
 import type { LocalDate } from '../../../shared/time';
+import type { AmountDueQuery } from './sales-port';
 
 export type ReservationEventKind = 'created' | 'transitioned' | 'stay_changed';
 
@@ -74,6 +75,12 @@ export type RoomReturnHandler = (
   input: { reservationId: string; userId: string; roles: readonly string[]; requestId?: string },
 ) => Promise<void>;
 
+/**
+ * 0.3.7 (S4-10 – `createVietQr` `check_in` / `check_out`): the check-in / check-out amounts are the front desk's
+ * (previewCheckIn / getCheckoutSummary) – it provides the calculation; ReservationSalesPort.amountDueFor calls it.
+ */
+export type AmountDueHandler = (tx: Tx, q: AmountDueQuery) => Promise<number>;
+
 @Injectable()
 export class ReservationHooks {
   private readonly hooks = new Map<ReservationEventKind, ReservationHook[]>();
@@ -81,6 +88,7 @@ export class ReservationHooks {
   private registrationReader: RegistrationSummaryReader | null = null;
   private depositNoticeReader: DepositNoticeReader | null = null;
   private roomReturnHandler: RoomReturnHandler | null = null;
+  private amountDueHandler: AmountDueHandler | null = null;
 
   on(kind: ReservationEventKind, hook: ReservationHook): void {
     this.hooks.set(kind, [...(this.hooks.get(kind) ?? []), hook]);
@@ -135,6 +143,16 @@ export class ReservationHooks {
     if (!this.roomReturnHandler)
       throw new Error('room return handler not wired (frontdesk module)');
     await this.roomReturnHandler(tx, input);
+  }
+
+  /** 0.3.7 (S4-10): provided by the front desk module. */
+  provideAmountDue(handler: AmountDueHandler): void {
+    this.amountDueHandler = handler;
+  }
+
+  async amountDue(tx: Tx, q: AmountDueQuery): Promise<number> {
+    if (!this.amountDueHandler) throw new Error('amount due handler not wired (frontdesk module)');
+    return this.amountDueHandler(tx, q);
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {

@@ -427,6 +427,37 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s4-FE.md` (mục FE-A). T�
 
 ---
 
+## Phần FE-A – đợt 6: sửa ca đỏ trên stack `ottimo-qa-s4` + BUG-R2-106 (17/10/2026 tối)
+
+Chạy trên stack `ottimo-qa-s4`: api bản QA (cây làm việc + patch B-6). Container `web` được tạo lại để dùng admin-web build từ cây làm việc (`scratchpad/fea-s4/aw-dist`, `compose.web-fea.yml`); không dựng ảnh mới. Mỗi ca chạy 3 lượt, `--retries=0`.
+- **TC-L3-079 (a)**: 3/3 đạt. Ca chờ dòng phụ thu "+210.000" (số không kèm "đ", có dấu, FE-S4-03) – đã sửa ở HEAD.
+- **TC-L3-081**: 3/3 đạt. Lỗi 401 cũ do tua đồng hồ hai lần sau khi đã đăng nhập. `br40201(request, '14:30')` nay mở ngày ảo thẳng ở 14:30 nên không phải tua lần hai (đã có ở HEAD).
+- **TC-L3-082**: 3/3 đạt. Lỗi `locator.fill` quá 90s do tìm nhãn `getByLabel('Lý do', { exact: true })`, mà nhãn có dấu `*` của ô bắt buộc nằm trong `<label>`. Đổi sang regex `^Lý do(\s*\*)?$`. DB xác nhận mỗi lượt có 1 yêu cầu `approved` và 1 khoản tiền mặt 1.500.000.
+- **TC-NT-052 / BUG-R2-106**: 9/9 đạt (3 + 6 lượt). Nguyên nhân: sau "Tải lại", thẻ cũ (version cũ) còn trên màn trong lúc đọc lại hàng chờ; mở hộp duyệt từ thẻ đó sẽ gửi `expectedVersion` cũ. Sửa ở `ApprovalsPage.tsx`: nút Duyệt/Từ chối khóa cho tới khi lần đọc lại xong (`rereading`), nên hộp duyệt luôn mở trên dữ liệu vừa tải lại. Unit: giữ lần đọc lại → nút khóa → thả → nút mở → gửi đúng version mới.
+
+---
+
+## Phần FE-A – đợt 7: DOM-S4-06 – báo khách khi đổi căn/ngày làm đổi tiền (BR-429 (d1) v0.3.8) (17/10/2026 tối)
+
+- `MoveDialog` (`ReservationDialogs.tsx`): ô "Đã báo khách số tiền mới" bắt buộc trong hai trường hợp:
+  - Bản tính thử đang hiện có `folioDeltaVnd ≠ 0`, với mọi lý do và mọi kiểu đổi (B7 đổi ngày, dời B8, đổi căn do OTTIMO làm đổi phụ thu…).
+  - Khách tự xin đổi căn, kể cả khi chênh 0. Trừ đơn hợp đồng giấy (`pricingBasis = external_contract`, BR-429 (h)).
+- Khi phải tick, lệnh ghi gửi `applyDifference: true` + `expectedDeltaVnd` = số đang hiện. Chênh 0 và không phải khách xin đổi căn thì không cần tick, không gửi hai trường này.
+- `MovePreviewBox` không phải sửa: dòng tổng đã hiện chênh có dấu.
+- Không thêm chuỗi mới: `move.told_guest` và `move.save_needs_told` đã đủ nghĩa cho mọi trường hợp.
+- Mock `reservations.ts`: theo luật mới, thiếu cờ thì 422 `applyDifference` `REQUIRED`, lệch số thì 409 `SURCHARGE_CHANGED`.
+- Unit (`s4-money.test.tsx`):
+  - Khách dời ngày, giữ căn: nút khóa, không gửi lệnh tới khi tick; lệnh ghi có `applyDifference` + `expectedDeltaVnd` = chênh thật, không có `roomId`.
+  - API mock từ chối khi thiếu cờ.
+  - `reservation.test.tsx` (ca 412 khi đổi ngày) sửa thêm bước tick.
+  - admin-web 309/309; `tsc`, eslint xanh.
+- E2E **TC-L2-103** (`r1-main-flows.md` v0.3.20), tệp `e2e/ui/desk-writes.s4.spec.ts`; chạy trên stack `ottimo-qa-s4`, mỗi ca 3 lượt:
+  - **(a)** Desk bấm thật, oracle BR-429-12 (+119.000, tổng 2.495.000): đạt 3/3. Lượt đầu có 1 lần đỏ ở bước dựng dữ liệu, do `createGuest` trả 409 `DUPLICATE_GUEST` (số điện thoại ngẫu nhiên `mobile()` trùng). Đây là lỗi môi trường, `precondition()` đã báo đúng.
+  - **(b)** Server: `knownBug('DOM-S4-06')`, đã thêm vào `OPEN`, regex nhận mã `DOM-S4-xx`. Stack (api cây làm việc lúc 20:22) vẫn trả 200 khi thiếu cờ, nên lỗi còn mở. Code BE-A trong cây làm việc đã chặn. Khi gộp BE-A phải xóa dòng `DOM-S4-06` khỏi `OPEN`; trước đó kiểm bằng `E2E_FIXED_BUGS=DOM-S4-06`.
+- Ghi chú stack: lần đầu build lại admin-web, container `web` vẫn phục vụ bản cũ vì `vite --emptyOutDir` tạo lại thư mục mà bind mount không theo. Đã tạo lại container (`--force-recreate`); từ nay build qua `scratchpad/fea-s4/build-aw.sh` (rsync vào thư mục cũ). Các ca của đợt 6 đã chạy trên bản build có đủ thay đổi của đợt đó.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

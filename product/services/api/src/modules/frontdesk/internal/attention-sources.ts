@@ -63,6 +63,9 @@ async function overbooking(tx: Tx): Promise<AttentionItem[]> {
  * date and not in yet, from the call time on. A booking whose guest gave an ETA still ahead ("đã báo đến trễ –
  * giữ phòng cả đêm") is left out until that ETA has passed – both for the call line and the mark line; times
  * compared on the business-day axis (an ETA of 00:30 is after 23:00). Never marks anything itself.
+ * BR-311 v0.3.8 (DOM-S4-07, oracle BR-311-02): a booking whose arrival business date is already PAST and is still
+ * `confirmed` stays in the mark line (critical) at every hour – it no longer drops out at the 06:00 rollover –
+ * until the desk marks it, checks it in or cancels it.
  */
 async function noShows(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
   const call = await ctx.param<LocalTime>('no_show_call_time');
@@ -70,31 +73,45 @@ async function noShows(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionIt
   const rollover = (await ctx.param<LocalTime>('business_day_rollover')) ?? '06:00';
   if (!call || !mark) return [];
   const callAt = atLocal(ctx.today, call, ctx.tz);
-  if (ctx.now.getTime() < callAt.getTime()) return [];
   const markAt = atLocal(ctx.today, mark, ctx.tz);
   const nowMinutes = businessMinutes(ctx.iso(ctx.now).slice(11, 16), rollover);
-  const { rows } = await tx.query<{ id: string; eta_time: string | null }>(
-    `SELECT id, to_char(eta_time, 'HH24:MI') AS eta_time FROM reservation
-      WHERE status = 'confirmed' AND arrival_date = $1 AND parent_reservation_id IS NULL
-      ORDER BY id`,
+  const { rows } = await tx.query<{ id: string; arrival_date: string; eta_time: string | null }>(
+    `SELECT id, arrival_date::text AS arrival_date, to_char(eta_time, 'HH24:MI') AS eta_time FROM reservation
+      WHERE status = 'confirmed' AND arrival_date <= $1 AND parent_reservation_id IS NULL
+      ORDER BY arrival_date, id`,
     [ctx.today],
   );
-  const due = rows.filter(
-    (r) => r.eta_time === null || businessMinutes(r.eta_time, rollover) <= nowMinutes,
-  );
-  if (due.length === 0) return [];
+  const overdue = rows.filter((r) => r.arrival_date < ctx.today);
+  const today =
+    ctx.now.getTime() < callAt.getTime()
+      ? []
+      : rows.filter(
+          (r) =>
+            r.arrival_date === ctx.today &&
+            (r.eta_time === null || businessMinutes(r.eta_time, rollover) <= nowMinutes),
+        );
   const marking = ctx.now.getTime() >= markAt.getTime();
-  return [
-    {
-      kind: marking ? 'no_show_mark' : 'no_show_call',
-      source: 'computed',
-      severity: marking ? 'critical' : 'warning',
-      count: due.length,
-      dueAt: ctx.iso(markAt),
-      reservationIds: due.slice(0, LIST_CAP).map((r) => r.id),
-      params: { count: due.length, time: marking ? mark : call },
-    },
-  ];
+  const item = (
+    kind: 'no_show_mark' | 'no_show_call',
+    list: typeof rows,
+    dueAt: Date,
+  ): AttentionItem => ({
+    kind,
+    source: 'computed',
+    severity: kind === 'no_show_mark' ? 'critical' : 'warning',
+    count: list.length,
+    dueAt: ctx.iso(dueAt),
+    reservationIds: list.slice(0, LIST_CAP).map((r) => r.id),
+    params: { count: list.length, time: kind === 'no_show_mark' ? mark : call },
+  });
+  const toMark = marking ? [...overdue, ...today] : overdue;
+  const out: AttentionItem[] = [];
+  if (toMark.length > 0) {
+    // Oldest arrival first: its mark time is the line's deadline.
+    out.push(item('no_show_mark', toMark, atLocal(toMark[0]!.arrival_date, mark, ctx.tz)));
+  }
+  if (!marking && today.length > 0) out.push(item('no_show_call', today, markAt));
+  return out;
 }
 
 async function holdsExpiring(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {

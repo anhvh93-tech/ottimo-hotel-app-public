@@ -65,6 +65,31 @@ export function ackDueOf(
 }
 
 /**
+ * BR-506 v0.3.8 (DOM-S4-09, oracle BR-506-03): hk_task types that are a "full clean" FOR THE GUEST STAYING (the
+ * second one of the business day is charged to a short stay). NOT counted: `checkout_clean`, `priority_clean`
+ * (urgent room preparation at check-in – BR-402 (1) exception: preparing the room, not a clean for the guest),
+ * `after_repair_clean`, towels/amenities, minibar. The task of an earlier "Dọn thêm" request also counts (read
+ * with its request type).
+ */
+export const FULL_CLEAN_TASK_TYPES: readonly string[] = [
+  'stayover_clean',
+  'long_stay_clean',
+  'adhoc_clean',
+];
+
+export const countsAsFullClean = (taskType: string): boolean =>
+  FULL_CLEAN_TASK_TYPES.includes(taskType);
+
+/**
+ * BR-811 v0.3.8 (DOM-S4-10, oracle BR-811-04): who is told that a guest request is still unanswered after its
+ * deadline – the department it is routed to, the desk (FD, FDL) and, as the escalation step, the MANAGER. The
+ * owner is not notified.
+ */
+export function overdueRecipients(routed: RoutedTo): string[] {
+  return [...(routed === 'front_desk' ? [] : [routed]), 'front_desk', 'front_desk_lead', 'manager'];
+}
+
+/**
  * Out-of-hours auto reply (US-112, EP14 3.3; UXD `guest.req.auto_reply`, params {time} {open_time} {phone}).
  * A property without a public phone (`property.phone_public` empty) gets the text WITHOUT the sentence holding
  * {phone} – never a blank number, never an invented fallback (ORC 17/10).

@@ -23,6 +23,7 @@ import { type LocalDate, type LocalTime, atLocal, businessDate } from '../../../
 import type { EventsService } from '../../events/public/events.service';
 import type { ParameterService } from '../../platform/public/parameter.service';
 import { type RoomReturn, roomReturnsOn } from '../../reservations/public/room-return';
+import { linenChangeDue } from '../internal/rules';
 import { RoomStatusService } from './room-status.service';
 
 export const HK_DAILY_JOB_KEY = 'hk.daily';
@@ -107,8 +108,10 @@ export async function runHkDaily(
     reservation_id: string;
     nights: number;
   }>(
-    `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id, ($1::date - r.arrival_date) AS nights
+    `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id,
+            ($1::date - COALESCE(p.arrival_date, r.arrival_date)) AS nights
        FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+       LEFT JOIN reservation p ON p.id = r.parent_reservation_id
       WHERE s.active AND r.status = 'in_house' AND r.stay_type = 'short'
         AND s.from_date <= $1::date AND s.to_date > $1::date
       ORDER BY s.room_id, s.from_date DESC`,
@@ -128,7 +131,7 @@ export async function runHkDaily(
       dirty++;
     }
     if (status === 'OOO') continue;
-    const linen = every > 0 && s.nights > 0 && s.nights % every === 0;
+    const linen = linenChangeDue(every, s.nights);
     const id = uuidv7();
     const r = await tx.query<{ id: string }>(
       `INSERT INTO hk_task (id, organization_id, property_id, room_id, reservation_id, type, status, due_date,
@@ -338,7 +341,7 @@ export function housekeepingJobs(deps: {
   events: EventsService;
   rooms?: RoomStatusService;
 }): JobDefinition[] {
-  const rooms = deps.rooms ?? new RoomStatusService(deps.events);
+  const rooms = deps.rooms ?? new RoomStatusService(deps.events, deps.params);
   const d = { params: deps.params, events: deps.events, rooms };
   return [
     {

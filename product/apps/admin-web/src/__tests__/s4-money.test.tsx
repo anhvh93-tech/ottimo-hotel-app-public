@@ -3,10 +3,12 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isApiError, newIdempotencyKey } from '@ottimo/api-client';
+import { api } from '../app/api';
 import { todayLocal } from '../app/dates';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
-import { MOCK_PASSWORD } from '../mocks/seed';
+import { MOCK_PASSWORD, PROPERTY_ID } from '../mocks/seed';
 import { renderApp, tv } from '../test/render';
 
 type User = ReturnType<typeof renderApp>['user'];
@@ -206,6 +208,73 @@ describe('S4-21 Đổi căn có tính thử – ESC-019 A (US-024 AC5–AC7, BR-
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(await screen.findByText(/^Đã đổi OTM-0159/)).toBeInTheDocument();
     expect(rsvOf('Trần Quốc Bảo').totalRoomVnd).toBe(before.totalRoomVnd);
+  });
+
+  it('DOM-S4-06 (BR-429 (d1) v0.3.8): guest moves the dates, same room – money changes → told box, exact delta sent', async () => {
+    const before = { ...rsvOf('Trần Quốc Bảo') };
+    const bodies: Array<Record<string, unknown>> = [];
+    const on = ({ request }: { request: Request }) => {
+      if (/\/actions\/move$/.test(request.url))
+        void request
+          .clone()
+          .json()
+          .then((b: Record<string, unknown>) => bodies.push(b));
+    };
+    server.events.on('request:start', on);
+    const { user } = openRsv('Trần Quốc Bảo', 'qa.fd');
+    const dlg = await openMove(user, 'Trần Quốc Bảo');
+    expect(within(dlg).getByLabelText(/^Lý do đổi/)).toHaveValue('guest_request');
+    // One more night at the end (current rate) – no room change.
+    const plusOne = new Date(`${before.departureDate}T00:00:00Z`);
+    plusOne.setUTCDate(plusOne.getUTCDate() + 1);
+    fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
+      target: { value: plusOne.toISOString().slice(0, 10) },
+    });
+    const box = await within(dlg).findByRole('region', { name: tv('move.preview_title') });
+    await within(box).findByText(tv('move.delta_up'));
+    const save = within(dlg).getByRole('button', { name: 'Lưu thay đổi' });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(within(dlg).getByText(tv('move.save_needs_told'))).toBeInTheDocument();
+    await user.click(save);
+    expect(bodies).toHaveLength(0);
+    await user.click(within(dlg).getByRole('checkbox', { name: /Đã báo khách số tiền mới/ }));
+    expect(save).not.toHaveAttribute('aria-disabled');
+    await user.click(save);
+    expect(await screen.findByText(/^Đã đổi OTM-0159/)).toBeInTheDocument();
+    server.events.removeListener('request:start', on);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const after = rsvOf('Trần Quốc Bảo');
+    const delta = after.totalRoomVnd! - before.totalRoomVnd!;
+    expect(delta).toBeGreaterThan(0);
+    expect(bodies[0]).toMatchObject({
+      reasonCode: 'guest_request',
+      applyDifference: true,
+      expectedDeltaVnd: delta,
+    });
+    expect(bodies[0]).not.toHaveProperty('roomId');
+  });
+
+  it('DOM-S4-06: without the told flag the server refuses a change of money (422 applyDifference REQUIRED)', async () => {
+    const r = rsvOf('Trần Quốc Bảo');
+    mockControl.signInAs('qa.fd');
+    const plusOne = new Date(`${r.departureDate}T00:00:00Z`);
+    plusOne.setUTCDate(plusOne.getUTCDate() + 1);
+    const res = await api
+      .moveReservation(
+        { propertyId: PROPERTY_ID, reservationId: r.id },
+        {
+          departureDate: plusOne.toISOString().slice(0, 10),
+          mode: 'change',
+          reasonCode: 'guest_request',
+        },
+        r.version,
+        newIdempotencyKey(),
+      )
+      .catch((e: unknown) => e);
+    expect(isApiError(res) && res.status).toBe(422);
+    expect(isApiError(res) && res.fieldErrors).toEqual([
+      expect.objectContaining({ field: 'applyDifference', code: 'REQUIRED' }),
+    ]);
   });
 
   it('409 SURCHARGE_CHANGED: price moved after the guest was told → new figures, tell again', async () => {

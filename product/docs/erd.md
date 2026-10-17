@@ -860,7 +860,7 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 | `image_retention_until` | | Tính khi `confirmed` theo đồng ý (T01/T02) |
 | `legal_hold` | | Chặn job xóa (SEC mục 7) |
 | `blocks_door_code` | | true khi có mục đối chiếu `blocking` (BR-613 c: hộ chiếu/thị thực hết hạn tại ngày nhận, thiếu dấu nhập cảnh) – chặn cấp/hiện mã cửa; **R2 (0.3.3)** còn là điều kiện `document_check_block` của B9. Tính lại trong cùng giao dịch mỗi lần thêm/sửa giấy tờ, `recordDocumentCheck`, K5 |
-| `images_purge_scheduled_at`, `images_purged_at`, `images_purge_reason` | | **0.3.3** (E06-02/04) – tóm tắt từ `document_image.delete_after`/`deleted_at`/`delete_reason` (cập nhật cùng giao dịch xóa); lý do `retention\|no_consent\|consent_withdrawn\|guest_request\|void` |
+| `images_purge_scheduled_at`, `images_purged_at`, `images_purge_reason` | | **0.3.3** (E06-02/04) – tóm tắt từ `document_image.delete_after`/`deleted_at`/`delete_reason` (cập nhật cùng giao dịch xóa); lý do `retention\|no_consent\|consent_withdrawn\|guest_request\|void`; **0.3.7 bổ sung 3**: thêm `unconfirmed` (khai báo chưa bao giờ `confirmed` – SR-RET-02; BE-C mở rộng CHECK `registration_purge_reason_check` + `document_image.delete_reason` bằng migration số ORC cấp) |
 
 **`guest_document`** – giấy tờ từng người (D03–D05, D07, D09). Mọi cột `_enc` mã hóa bằng DEK của chính bản ghi (`data_key_id`).
 | Cột | Kiểu | C | Ghi chú |
@@ -1044,26 +1044,30 @@ Module mới `public-site` (api): operation công khai `getPublicFormToken`, `cr
 | `organization_id`, `property_id` | | FK cặp (mục 1) |
 | `ref_code` | | 8 ký tự Crockford base32 ngẫu nhiên (CSPRNG, 40 bit); UK (`property_id`, `ref_code`) – trùng thì sinh lại |
 | `status` | | CHECK ∈ (`new`, `in_progress`, `converted`, `declined`, `spam`) |
-| `arrival_date`, `departure_date` | | CHECK `departure_date > arrival_date` và `departure_date <= arrival_date + 366` |
-| `adults`, `children`, `children_ages` | | smallint (1–12, 0–8); `children_ages smallint[]` null, CHECK số phần tử = `children` khi có |
+| `arrival_date`, `departure_date` | | **Phản hồi review (17/10)**: `departure_date` null được khi `stay_kind = long` và `stay_months` null ("Not sure yet"); có thì CHECK `departure_date > arrival_date` và `<= arrival_date + 366`. `long` + số tháng → server ghi `departure_date = arrival_date + stay_months` tháng lịch |
+| `stay_kind`, `stay_months` | | **Phản hồi review (UXD v1.2)**: `stay_kind` CHECK ∈ (`short`, `long`) – `long` khi khách chọn ở dài hoặc ≥ 28 đêm; `stay_months` smallint null (1–24), chỉ `long` |
+| `adults`, `children`, `infants` | | smallint (1–12, 0–8, 0–8) – `children` = trẻ 6–11, `infants` = trẻ dưới 6 (BR-110). **Bỏ** `children_ages` (SEC ARC-14 – không thu tuổi chính xác) |
 | `room_type_slug` | | text null – slug của `room.public_room_type` khách chọn (không FK – hạng có thể đổi tên) |
 | `locale`, `preferred_channel` | | `vi\|en\|ru`; CHECK ∈ (`zalo`, `whatsapp`, `telegram`, `viber`, `phone`, `email`) |
 | `guest_name`, `phone_e164`, `email`, `note` | C2 (D28) | `phone_e164` không dấu `+` như `guest.phone_e164` (API thêm `+`); NULL sau khi xóa |
-| `contact_hmac` | C2 (bút danh) | HMAC-SHA256 khóa dẫn xuất `keyedHash('web_request_contact')` của SĐT E.164 (SEC ARC-07) – giới hạn 3/ngày/SĐT, tìm cho yêu cầu chủ thể dữ liệu (UC-30); NULL cùng lúc xóa C2 |
+| `contact_hmac` | C2 (bút danh) | HMAC-SHA256 khóa dẫn xuất `keyedHash('web_request_contact')` của **đúng liên hệ đã gửi** – SĐT E.164 hoặc email chuẩn hóa BR-951 (SEC ARC-07, ARC-14) – giới hạn 3/ngày/liên hệ, `lookupWebsiteBookingRequests`, kiểm `erase` (`same_contact`), cờ có thể trùng; NULL cùng lúc xóa C2. **Một cách liên hệ**: CHECK đúng một trong `phone_e164`, `email` có giá trị khi chưa xóa C2 |
+| `alias_ref_codes` | | `text[]` mặc định `{}`, tối đa 5 – mã đã trả cho khách ở các lần cùng liên hệ bị giới hạn chặn im lặng (SEC ARC-15); chỉ mục GIN cho tìm theo mã |
+| `related_request_ids` | | `uuid[]` mặc định `{}` – yêu cầu "có thể trùng" (NÊN – DOM Q-W10); API trả `relatedRefCodes` |
 | `consent_version`, `consent_at` | | FK (`organization_id`, `consent_version`, `locale`) → `privacy_notice_version` (SEC C-3) |
 | `utm_source`, `utm_medium`, `utm_campaign`, `ref_host`, `landing_path` | | không định danh – giữ sau khi xóa C2 cho DATA (US-158) |
 | `sub_source` | | CHECK ∈ (`facebook`, `instagram`, `google`, `zalo`, `qr`, `other`) hoặc NULL – suy lúc nhận theo OpenAPI `DirectSubSource` |
 | `suspicious_flags` | | `text[]` mặc định `{}` (`contains_url`, `unexpected_script`, `far_future`, `repeat_contact`, `room_type_unmatched`) |
 | `duplicate_count`, `last_duplicate_at` | | lần cùng SĐT gửi thêm bị giới hạn chặn im lặng (SEC ARC-04) |
 | `ip_hmac` | | `bytea` null – HMAC `LOG_IP_HMAC_KEY` (IPv6 theo /64); NULL sau `retention.web_request_ip_hmac_days`. Không lưu IP rõ, không User-Agent |
-| `reply_by` | | hạn trả lời (BR-811 `front_desk_hours` + `web_request_response_minutes`) |
+| `reply_by` | | hạn trả lời **nội bộ** theo BR-912 v0.3.8 (`front_desk_hours` + `web_request_response_minutes` **15**; ngoài giờ = mở trực + 15; chỉ gọi điện → ≥ 08:15; đến hôm nay ngoài giờ → + `web_request_same_day_after_hours_minutes`) – không trả cho khách |
+| `overdue_notified_at` | | thông báo `website_request_overdue` (FDL + MGR) đã gửi – đúng một lần (BR-912 (2)) |
 | `assigned_user_id`, `claimed_at` | | CHECK `status <> 'in_progress' OR assigned_user_id IS NOT NULL` |
 | `decline_reason_code`, `decline_note` | `decline_note` C2 | CHECK `status <> 'declined' OR decline_reason_code IS NOT NULL` |
 | `quote_id` | | FK `quote` – báo giá gần nhất gắn yêu cầu |
 | `reservation_id`, `converted_at`, `converted_by` | | CHECK `(status = 'converted') = (reservation_id IS NOT NULL)` |
 | `offer_snapshot` | | `jsonb` null – **contract-ahead phương án B**; phương án A luôn NULL |
 | `last_activity_at` | | đổi ở mỗi chuyển và khi gắn báo giá – job `web_request.stale` đọc |
-| `pii_purged_at` | | CHECK `pii_purged_at IS NOT NULL OR (guest_name IS NOT NULL AND phone_e164 IS NOT NULL)` |
+| `pii_purged_at` | | CHECK `pii_purged_at IS NOT NULL OR (guest_name IS NOT NULL AND (phone_e164 IS NOT NULL) <> (email IS NOT NULL))` (một cách liên hệ – SEC ARC-14); xóa theo `erase` cũng đặt cột này |
 | `created_at`, `updated_at`, `version` | | `version` → ETag/If-Match |
 
 Chỉ mục: (`property_id`, `status`, `reply_by`); (`property_id`, `contact_hmac`, `created_at`) WHERE `contact_hmac IS NOT NULL`; (`property_id`, `assigned_user_id`) WHERE `status = 'in_progress'`.
@@ -1079,7 +1083,8 @@ Chỉ mục: (`property_id`, `status`, `reply_by`); (`property_id`, `contact_hma
 **Bảng có sẵn đổi theo**:
 - `reservation.direct_sub_source` (mục 4.5) – chỉ server ghi khi chuyển từ yêu cầu (WR6).
 - `quote.website_booking_request_id` uuid null FK (mục 4.5 `quote`).
-- `idempotency_key.principal_type` CHECK thêm `public_site` (`principal_id` = `property_id`); phản hồi lưu chỉ `refCode` + `replyBy` (không C2).
+- `idempotency_key.principal_type` CHECK thêm `public_site` (`principal_id` = `property_id`); **phản hồi review (SEC ARC-15)**: ghi khóa ở **mọi** nhánh 202 (lưu thật, ô bẫy, liên hệ vượt giới hạn) – phản hồi lưu chỉ `refCode` + `promise`; phản hồi lưu chỉ `refCode` + `replyBy` (không C2).
+- (phản hồi review) `staff_notification.kind` thêm `website_request_overdue` (FDL + MGR, một lần – BR-912 (2)), `website_request_linked_hold` (SEC ARC-19), `public_booking_toggled` (OWN + MGR – SEC ARC-17); `purge_journal.policy_key` thêm `dsr_erase` (hành động `erase` – WR8, SEC ARC-16); bộ đếm IP lớp 1 nằm trong **RAM** trước mọi truy cập DB (SEC ARC-13), `rate_limit_counter` thêm khóa `webreq:ip48:<hmac>` (40/ngày/dải IPv6 /48).
 - `staff_notification.kind` thêm `website_request_new`, `website_request_cap_reached`; `ref_type` thêm `website_booking_request`. `state_transition` nhận thực thể `website_booking_request` (WR1–WR7); audit `category='state'` không ghi C2.
 
 **Máy trạng thái** (SM-18 đề xuất – BA chốt mã ở `state-machines.md`): WR1 `new → in_progress` (claim) · WR2 `in_progress → new` (release) · WR3 `new|in_progress → declined` (lý do bắt buộc) · WR4 `new|in_progress → spam` · WR5 `declined|spam → in_progress` (reopen – khi C2 chưa xóa và chưa quá `max_age`) · WR6 `new|in_progress → converted` (hệ thống: `createHoldFromQuote`/`createReservation` có liên kết) · WR7 `new|in_progress → declined` lý do `stale` (job).
@@ -1391,9 +1396,16 @@ mỗi lần sửa ghi `audit_event category='security'`. Danh sách máy đọc:
 | `business_day_rollover` | Giờ đổi ngày nghiệp vụ (06:00) | BR-010 | OWN, MGR |
 | `shift_max_hours` | Ca mở quá lâu → "Cần chú ý" | SM-17, BR-526 | OWN, MGR |
 | `front_desk_hours` | Giờ trực quầy (luồng khách đến khuya SR-GST-15, cảnh báo xem C3 ngoài giờ) | BR-811, SR-LOG-06 | OWN, MGR |
-| `public_booking_requests_enabled` | Bật form "Yêu cầu đặt phòng" trên website (US-155); `false` → endpoint công khai 404, trang hiện nút Zalo. Chỉ bật khi đạt SEC C-2, C-3, SEC-G1/G2, ESC-001 | ADR-014 4.3 – 0.3.7 bổ sung 2 | OWN · bool (`false`) |
+| `public_booking_requests_enabled` | Bật form "Yêu cầu đặt phòng" trên website (US-155); `false` → endpoint công khai 404, trang hiện nút Zalo. **Phản hồi review (SEC ARC-17)**: tham số **bảo mật** (audit `security`); bật cần dòng `privacy_notice_version` đang hiệu lực cho mỗi ngôn ngữ landing + khóa ký form → khác 422 `PUBLIC_FORM_NOT_READY`; đổi → thông báo OWN + MGR. Công tắc duy nhất lúc chạy (cờ build landing chỉ chọn A/B). Bật production chỉ khi đạt SEC C-1…C-3, C-11…C-13, SEC-G1/G2 | ADR-014 4.3 – 0.3.7 bổ sung 2 | **OWN** · bool (`false`) – `x-security-parameters` bật cùng PR US-155 |
+| `public_booking_request_spam_pow_threshold_per_week` | Số yêu cầu bị đánh dấu spam/tuần (2 tuần liền) để đề nghị bật tầng 2 (BR-914 (6)) | SEC ARC-20/22 – phản hồi review | **OWN** · 5–50 (10) |
+| `public_booking_request_pow_enabled` | Bật tầng 2 proof-of-work tự host (contract-ahead: `powChallenge`/`pow`) – không Turnstile | SEC ARC-22 – phản hồi review | **OWN** · bool (`false`) |
 | `public_booking_request_daily_cap` | Trần yêu cầu website/ngày/cơ sở – vượt → 503 `SITE_BUSY` (SEC ARC-02) | SR-RL-11 – 0.3.7 bổ sung 2 | **OWN** · 50–500 (100) – `x-security-parameters` bật cùng PR US-155 |
-| `web_request_response_minutes` | Hạn trả lời yêu cầu website trong giờ trực → `replyBy`, mục chú ý `website_request_new` mức `warning` | BR-811 – 0.3.7 bổ sung 2 [GIẢ ĐỊNH – DOM chốt số] | OWN, MGR · 5–240 (30) |
+| `web_request_response_minutes` | Hạn trả lời **nội bộ** yêu cầu website trong giờ trực → `replyBy`, mục chú ý `website_request_new` mức `warning` | BR-912 v0.3.8 (DOM-S4-18) | OWN, MGR · 5–240 (**15**) |
+| `web_request_escalate_minutes` | Còn `new` sau số phút này (tính trong giờ trực) → thông báo `website_request_overdue` FDL + MGR, một lần | BR-912 (2) v0.3.8 | OWN, MGR · 10–240 (30) |
+| `web_request_public_promise_minutes`, `web_request_public_promise_next_morning_by` | Câu hứa công khai trên trang cảm ơn (`WebsiteBookingRequestAccepted.promise`) – tách khỏi `replyBy` | BR-912 (4) v0.3.8 (DOM-S4-18) | OWN, MGR · 15–240 (60); giờ 07:00–12:00 (09:00) |
+| `web_request_same_day_after_hours_minutes` | Yêu cầu đến hôm nay gửi ngoài giờ: hạn nội bộ + `promise.kind = call_now` | BR-912 (3) v0.3.8 | OWN, MGR · 10–120 (30) |
+| `web_request_duplicate_window_hours` | Cửa sổ cờ `possible_duplicate` (NÊN) | BR-914 (3) v0.3.8 | OWN, MGR · 1–72 (24) |
+| `web_request_offer_honor_hours` | Phương án B: giữ giá chụp đã ký trong số giờ này | BR-916 (2) | OWN, MGR · 1–72 (24) – chỉ khi B |
 | `idempotency_ttl_hours` | Bảng `idempotency_key` | ADR-009 | OWN, MGR |
 | `registration_reminder_times` | Mốc nhắc khai báo (BR-611: 22:00, 07:00) | BR-611 – chưa có khóa trong BR mục 13 | OWN, MGR |
 | `registration_reminder_before_minutes` | Nhắc trước hạn (tình huống S8 "nhắc trước 2 giờ") | BR mục 14 S8 – chưa có khóa | OWN, MGR |
@@ -1562,6 +1574,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 17/10/2026 | 2 – Sprint 4 (luồng LP, FB-INV-002) | **0.3.7 bổ sung 2** (`openapi-0.3.7.md` mục 12, ADR-014 mục 4): mục **4.14 mới** `public-site` – `website_booking_request` (SM-18 đề xuất, hạn lưu SEC ARC-03, T19 giả định), `privacy_notice_version`, `public_form_nonce`, `rate_limit_counter`, hàm `public_resolve_property`; 4.5 `reservation.direct_sub_source`, `quote.website_booking_request_id`; `idempotency_key.principal_type` + `public_site`; mục 5 SM-18; 9.2/9.3 khóa mới; 12 job `web_request.purge`. Cài theo lịch ORC (OpenAPI `x-round: R3`) | ARC |
+| 17/10/2026 | 2 – Sprint 4 (Phản hồi & sửa) | **0.3.7 bổ sung 2 – phản hồi review SEC + DOM v0.3.8** (`openapi-0.3.7.md` mục 13): 4.14 `website_booking_request` – `stay_kind`/`stay_months`, `departure_date` null khi ở dài chưa rõ, `infants` thay `children_ages`, một cách liên hệ (`contact_hmac` của SĐT hoặc email), `alias_ref_codes`, `related_request_ids`, `overdue_notified_at`, `reply_by` 15 phút; kind thông báo mới, `dsr_erase`, idempotency mọi nhánh; 9.3 tên khóa theo BR v0.3.8 + 2 khóa bảo mật mới. **0.3.7 bổ sung 3**: `registration.images_purge_reason` + `document_image.delete_reason` thêm `unconfirmed` | ARC |
 | 17/10/2026 | 2 – Sprint 4 (giữa sprint) | **0.3.7 bổ sung 1** (`openapi-0.3.7.md` mục 11): 4.6 `deposit_notice` – đọc lại qua `Reservation.depositNotices[]` bằng cổng của `payments`; `Bill.settledAt` = `folio.settled_at` (không thêm cột); 4.11 `guest_request` ghi đúng cột/CHECK/chỉ mục của migration `0058` (BE-D) – `room_id` null khi đơn chưa có căn, `declined_reason_code` + `reply_note` thay `declined_reason_i18n`, phí BR-506, `overdue_notified_at`, `closed_at/by`; 9.3 khóa `property_map_url` (OWN, host SEC E14-08); 4.1 `property.map_url` thành dự phòng; 4.5 `guest_session.locale_chosen_at` (ngôn ngữ phiên khách theo P-S4-10) | ARC |
 | 17/10/2026 | 2 – Sprint 4 D1 (đóng băng) | **0.3.7 bổ sung D1** (critic s4-kickoff #7–#12 – `openapi-0.3.7.md` mục 10): 4.1 `room.public_room_type`, nghĩa `room.name` (BR-012); 4.5 `reservation.room_disclosed_to_guest`, S4-35 dùng `stay_night.calendar_rate_vnd` có sẵn cho giá đêm sửa tay (BR-429 (g) – không thêm cột); 4.6 `folio.settled_room_names` (chụp tên phòng khi `settled`; `folio_line` vẫn chỉ-thêm), `approval_request.foc_state`/`foc_cancel_reason`/`line_change`/`auto_cancel_reason`, hạn mức tháng chỉ FOC còn sống (BR-433 v0.3.5); `attention_event.kind` + `ota_no_show_report`, `closed_reservation_credit`. Cột mới cần migration của BE chủ module (BE-C room, BE-A reservation/stay_night, BE-B folio/approval) | ARC |
 | 17/10/2026 | 2 – Sprint 4 khởi động | **0.3.7** (khớp OpenAPI 0.3.7-draft – `rounds/round-02/outputs/ARC/openapi-0.3.7.md`): 4.4 `guest.source`, `last_stay_checkout_at`, `id_doc_hmac` v1 (`guest_doc`), điều kiện ghi `id_doc_last4`, CHECK 1–3, 2 chỉ mục, job J25 (nháp A.2, SEC s3 mục 7); 4.7 ghi rõ `party_member_id`, `person_index` (dồn số), `removed_at`, `fields_purge_after` = hạn chờ gắn người, `policy_key` `party_removed`, audit khai báo (S4-39); 4.8 `hk_task.cancel_reason_code/cancel_note/linen_change/carried_over`, `inspection.redo_task_id` (B-04, B-05, B-07); 4.9 `work_order.category/block_requested/parts_expected_date/remedy_suggested_at`, `room_block.expected_done_date` (B-09…B-11); 9.1 `wo_done_photo_required_severities`, `room_move_pricing`; 9.3 `document_profile_retention_months` | ARC |

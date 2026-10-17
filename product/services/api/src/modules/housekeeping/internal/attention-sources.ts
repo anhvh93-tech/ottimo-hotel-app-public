@@ -7,11 +7,12 @@
  * - `ooo_ending_work_open` (DOM D-12 h, EP07 6.6): from 12:00 of the last blocked day (`endDatePlanned − 1`) an
  *   active block whose work order is not done – extend it before the room re-opens for sale;
  * - `room_status_mismatch` (BR-806): OC/OD without a guest in house, or a guest in house in a VC/VD/VI room –
- *   reported, never corrected automatically.
+ *   reported, never corrected automatically (a BR-424-05 return room is waited for until the next morning).
  * `params` keys are kept only when the events allow-list knows them (ATTENTION_PARAM_KEYS – BE-D).
  */
 import type { Tx } from '../../../db/database';
 import { addDays } from '../../../shared/time';
+import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
   ATTENTION_PARAM_KEYS,
   type AttentionItem,
@@ -119,6 +120,11 @@ export function housekeepingAttentionSources(): AttentionSource[] {
   };
 
   const mismatch: AttentionSource = async (tx, ctx) => {
+    // BR-424-05: on the return day the room the guest comes back to is empty until the desk records the move
+    // back – not a mismatch that day; still unrecorded the next morning → reported (the stay is in house).
+    const waiting = (await roomReturnsOn(tx, ctx.today))
+      .filter((r) => !r.recorded)
+      .map((r) => r.returnRoomId);
     const { rows } = await tx.query<{ room_no: string }>(
       `WITH stay AS (
          SELECT DISTINCT s.room_id FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
@@ -126,9 +132,10 @@ export function housekeepingAttentionSources(): AttentionSource[] {
        SELECT rm.room_no FROM room_status rs JOIN room rm ON rm.id = rs.room_id
          LEFT JOIN stay ON stay.room_id = rs.room_id
         WHERE (rs.status IN ('OC', 'OD') AND stay.room_id IS NULL)
-           OR (rs.status IN ('VC', 'VD', 'VI') AND stay.room_id IS NOT NULL)
+           OR (rs.status IN ('VC', 'VD', 'VI') AND stay.room_id IS NOT NULL
+               AND NOT (rs.room_id = ANY($2::uuid[])))
         ORDER BY rm.room_no`,
-      [ctx.today],
+      [ctx.today, waiting],
     );
     if (rows.length === 0) return [];
     return [

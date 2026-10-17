@@ -141,15 +141,53 @@
 - [GIẢ ĐỊNH] BR-804 v0.3.2 ghi `endDateActual`, hợp đồng ghi ngày nghiệp vụ → khi nhả khối dùng **ngày nghiệp vụ**.
 - [GIẢ ĐỊNH] `dnd` (khách treo biển) chỉ phát SSE, không có loại thông báo riêng.
 - [GIẢ ĐỊNH] `createHkTask` vào căn đang khóa → 409 `ROOM_BLOCKED` (mã chưa khai trong hợp đồng – ARC xem). Tạo trùng việc dọn khách ở lại trong ngày → trả việc đã có.
-- [GIẢ ĐỊNH] Việc dọn khách ở lại sinh do B13 không có cờ thay ga (`linenChange = false`); J8 ngày sau tính lại.
+- ~~[GIẢ ĐỊNH] Việc dọn khách ở lại sinh do B13 không có cờ thay ga~~ → đã theo DOM-S4-16 (a), xem mục 7.
 - [GIẢ ĐỊNH] Hiện chưa ghi `state_transition` cho các lần chuyển trạng thái bị từ chối.
 
 ## 5. Rủi ro
 - Snapshot 0056–0061 chưa có → `schema-parity` đỏ tới khi ORC sinh.
-- 0057 thêm FK `guest_request` chỉ khi bảng đã tồn tại. Nếu ORC đổi thứ tự journal để 0057 chạy trước 0058, phải thêm 3 FK vào migration tạo bảng `guest_request` (BE-D) hoặc một migration sau.
-- `RoomStatusService` hiện được khai ở cả FrontdeskModule và HousekeepingModule (2 instance, cùng mã, không giữ trạng thái). Việc dời provider của B-14 mới làm một phần.
-- TC-L3-032(a) của QA cần thêm điều kiện P05 vì khóa giấy tờ nay chỉ có ở hồ sơ P05 (SEC F03).
+- ~~0057 thêm FK `guest_request` chỉ khi bảng đã tồn tại~~ – ORC đã chuyển 3 FK sang 0058 khi tích hợp.
+- ~~`RoomStatusService` khai ở 2 module~~ – nay chỉ HousekeepingModule cung cấp (mục 7).
+- ~~TC-L3-032(a) cần điều kiện P05~~ – đã thêm vào tiền điều kiện của ca (mục 7).
 
 ## 6. Việc chưa xong (NÊN) và ghi chú
-- S4-12 (`imagesPurgedAt`), S4-46, US-058 phía server: chưa làm.
+- S4-12, S4-46, US-058 phía server: đã làm ở lượt 2 (mục 7).
 - Không ESC mới.
+
+## 7. Lượt 2 (sau tích hợp của ORC 17/10, HEAD 0b605f3/b6153b7)
+
+### 7.1 Đã làm
+| Việc | Cách làm | Test |
+|---|---|---|
+| **BR-424-05 phần HK** (S4-09) | J8 dùng `roomReturnsOn()` của BE-A. **Căn khách chuyển về** không sinh `stayover_clean` và không đổi `OC→OD`. Căn sạch (VC/VI/OC) → không làm gì. Căn chưa sạch (VD/OD/CL): việc dọn đang mở được đặt hạn = `checkout_time`; nếu không có việc nào mở thì sinh `priority_clean` (hạn `checkout_time`, `priority_rank` 2, ghi chú `room_return`). Mỗi ngày chỉ một lần. **Căn khách rời đi** không bị J8 đặt `VD`. `listHkTasks` xếp mọi việc dọn của căn khách chuyển về ở hạng "khách đến" (2), kể cả `priority_clean`. BR-806: căn đang chờ khách về **không** báo lệch trong ngày về; nếu sáng hôm sau vẫn chưa ghi chuyển về thì báo lệch (`notRecordedByNextMorningCheck`). Đã **bỏ `pendingFix: S4-09`** của BR-424-05 trong `tests/fixtures/br-examples.json` | `housekeeping-s4` – ca BR-424-05 đọc oracle (đủ 3 kịch bản + kiểm tra lệch BR-806); `move-pricing` (phần BE-A) vẫn xanh |
+| **S4-12 / BUG-R2-054** | J16 xóa ảnh của khai báo chưa bao giờ `confirmed` (SR-RET-02 `unconfirmed`) nay ghi `Registration.imagesPurgedAt` + `imagesPurgeReason = retention` (enum hợp đồng không có `unconfirmed` – [GIẢ ĐỊNH BE-C, ARC xem]). `replaced`/`party_removed` không ghi vì chỉ là xóa giấy tờ của một người | `registration-flow` (SEC BE-32). **E2E TC-L3-074 (a)+(b) đạt** trên stack riêng → đã xóa `BUG-R2-054` khỏi `OPEN` |
+| **BUG-R2-033** (S4-11) | Ca TC-L3-032 (a) viết lại theo hợp đồng 0.3.7: trong tiền điều kiện, người đứng tên lần ở trước đồng ý **P05_CRM** (SEC F03: khóa giấy tờ chỉ có ở hồ sơ P05) | **E2E TC-L3-032 (a)+(b) đạt** → đã xóa `BUG-R2-033` khỏi `OPEN` (QA review tệp `known-bugs.ts` và ca (a)) |
+| **Minor review BE-A** – khối OOO rỗng | Khi `ooo_reopen_buffer_days = 0` mà `expectedDoneDate = startDate` thì khối có 0 đêm → 422 `DATE_ORDER` (`createRoomBlock`: `expectedDoneDate`; `createWorkOrder`: `block.expectedDoneDate`). Kiểm `end > start` sau khi đã cộng đệm | `housekeeping-s4` – ca BR-804 đệm 0 |
+| **DOM-S4-16 (a)** | Hàm chung `linenChangeDue(every, nights)`. Số đêm tính từ ngày đến **đầu tiên** của lượt ở (đơn con gia hạn tính theo đơn cha), dùng cho cả J8 và việc dọn khách ở lại sinh do B13 (sinh mới hoặc đổi từ `checkout_clean`) | `housekeeping-s4` – S4-31: 2 đêm → không thay ga, 3 đêm → thay ga |
+| **DOM-S4-16 (b)** – BR-601 v0.3.8 | Giấy tờ **trẻ em** chưa gắn người không bị đặt hạn "chưa gắn" và không bị J16 xóa khi khai báo chưa `confirmed`/`updated`. Giấy tờ trẻ em chưa gắn người (lễ tân nhập, hoặc ô của link) hiện ở "Cần chú ý" `registration_party_docs_unlinked` **không kèm `dueAt`** | `registration-party-removal` (ca mới), `guest-document-profiles` (giấy tờ trẻ em không khớp ai) |
+| **S4-46** | Tiến trình dev/test chạy bằng khóa tạm sẽ ghi **một** dòng `warn` khi khởi động, chỉ nêu **tên** biến thiếu (`DATA_KEK_CURRENT`, `ID_HASH_KEY`), không bao giờ ghi giá trị. Không ghi trong lúc chạy vitest. Sửa chú thích trong `product/.env.example`. Việc điền khóa vào `product/.env` của máy thuộc OPS – BE-C không đụng `.env` | `crypto-units` (ca mới) |
+| **US-058 phía server** | Kiểm đủ các điều kiện EP07 mục 8.3–8.4: gửi lại cùng `Idempotency-Key` → trả kết quả lần đầu, chỉ một lần chuyển; HK thứ hai → 409 với `currentState` = đích ("đã áp dụng"); "Dọn xong" xếp hàng lúc 10:42, khách trả phòng 10:50, gửi 11:05 → `VC` (R3) theo dữ liệu lúc nhận, lịch sử giữ `performed_at` của máy; căn bị khóa trong lúc mất mạng → 409 `OOO`. Không cần đổi mã | `housekeeping-s4` – ca US-058 |
+| Gợi ý BE-A | (1) `RoomStatusService` **chỉ còn 1 instance**: bỏ provider/export ở `frontdesk.module.ts` (tệp BE-A – sửa 3 dòng + chú thích đầu tệp), HousekeepingModule (global) export. (2) `addCompanion` (document-party port) phát `reservation.changed` | toàn bộ vitest |
+
+### 7.2 Kết quả kiểm
+- Vitest api, **cây cô lập** (HEAD + BE-C), DB mới: **75/75 tệp, 2620/2620 đạt**.
+- Vitest api, **cây chung**, DB `ottimo_test_bec_s4` mới: 2635/2636 đạt. Chỉ đỏ `contract.test.ts`, vì `docs/api/openapi.yaml` đang được sửa dở (+342/−101 dòng, không phải BE-C) mà chưa sinh lại `src/generated/*` – ARC/ORC chạy `gen:openapi`.
+- E2E trên stack riêng `ottimo-bec-s4` (ảnh `ottimo-api:bec-s4b` = dist của cây cô lập; DS-E; `E2E_COMPOSE_PROJECT=ottimo-bec-s4`): TC-L3-032 (a)(b), TC-L3-074 (a)(b) đạt.
+- `tsc` (api, cây chung), eslint, prettier các tệp BE-C, `validate-fixtures` (0 lỗi): sạch.
+
+### 7.3 Tệp lượt 2
+- Của BE-C:
+  - `services/api/src/modules/housekeeping/{public/worker-jobs.ts, public/room-status.service.ts, internal/housekeeping.service.ts, internal/attention-sources.ts, internal/rules.ts, internal/work-orders.service.ts, housekeeping.module.ts}`;
+  - `services/api/src/modules/registration/internal/{registration.service.ts, attention-sources.ts}`;
+  - `services/api/src/modules/crypto/internal/keyring.ts`;
+  - test: `housekeeping-s4`, `registration-flow`, `registration-party-removal`, `guest-document-profiles`, `crypto-units`.
+- Chạm module khác, cần chủ module review:
+  - BE-A: `frontdesk/frontdesk.module.ts`, `frontdesk/internal/document-party.port.ts`, `reservations/internal/room-blocks.service.ts`;
+  - QA: `tests/e2e/support/known-bugs.ts` (xóa BUG-R2-033, BUG-R2-054), `tests/e2e/api/checkin.s3.api.spec.ts` (tiền điều kiện P05 của TC-L3-032 a), `tests/fixtures/br-examples.json` (bỏ `pendingFix` của BR-424-05);
+  - OPS: `product/.env.example` (chú thích).
+
+### 7.4 Giả định mới
+- [GIẢ ĐỊNH BE-C – ARC] `imagesPurgeReason` của SR-RET-02 (khai báo không bao giờ `confirmed`) = `retention`.
+- [GIẢ ĐỊNH BE-C] Căn khách chuyển về: "chưa sạch" = VD/OD/CL; căn vẫn OOO thì không làm gì (J11 hủy việc dọn).
+- [GIẢ ĐỊNH BE-C] "Khai báo xong" của BR-601 v0.3.8 = registration `confirmed`/`updated`.
+

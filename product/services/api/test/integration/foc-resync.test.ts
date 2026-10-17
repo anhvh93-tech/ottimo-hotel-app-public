@@ -136,6 +136,14 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     (await db.withContext(t.ctx(), (tx) => tx.query<R>(sql, p))).rows;
   const version = async (id: string) =>
     (await c.fd!.get(url(`/reservations/${id}`))).json().version as number;
+  /** BR-429 (d1) v0.3.8 (DOM-S4-06): a B7/B8 that changes the money is saved with the amount shown. */
+  const shown = async (id: string, body: Record<string, string>) => {
+    const pv = await c.fd!.get(
+      url(`/reservations/${id}/move-preview?${new URLSearchParams(body)}`),
+    );
+    expect(pv.statusCode, pv.body).toBe(200);
+    return { ...body, applyDifference: true, expectedDeltaVnd: pv.json().folioDeltaVnd as number };
+  };
   const act = async (id: string, verb: string, body: unknown, who = 'fd') =>
     c[who]!.send('POST', url(`/reservations/${id}/actions/${verb}`), body, {
       'if-match': `"${await version(id)}"`,
@@ -240,11 +248,15 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
       return r;
     };
     // B8 to other dates (no overlap): night 3 → new night 3.
-    const mv = await act(b.id, 'move', {
-      arrivalDate: '2026-12-17',
-      departureDate: '2026-12-20',
-      reasonCode: 'guest_request',
-    });
+    const mv = await act(
+      b.id,
+      'move',
+      await shown(b.id, {
+        arrivalDate: '2026-12-17',
+        departureDate: '2026-12-20',
+        reasonCode: 'guest_request',
+      }),
+    );
     expect(mv.statusCode, mv.body).toBe(200);
     const r1 = await expectFocOnNight(3);
     expect(r1.map((l) => l.serviceDate)).toEqual(['2026-12-17', '2026-12-18', '2026-12-19']);
@@ -260,11 +272,15 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     // Overlapping move (17–20 → 18–21, DOM S4-14): 19/12 is still in the stay, so it keeps its FOC (now night 2);
     // the dropped 17/12 (no FOC) maps to the added 20/12 – nothing to carry. The 19/12 line is not re-posted.
     const before19 = (await rooms()).find((l) => l.serviceDate === '2026-12-19')!;
-    const mv2 = await act(b.id, 'move', {
-      arrivalDate: '2026-12-18',
-      departureDate: '2026-12-21',
-      reasonCode: 'guest_request',
-    });
+    const mv2 = await act(
+      b.id,
+      'move',
+      await shown(b.id, {
+        arrivalDate: '2026-12-18',
+        departureDate: '2026-12-21',
+        reasonCode: 'guest_request',
+      }),
+    );
     expect(mv2.statusCode, mv2.body).toBe(200);
     const r2 = await expectFocOnNight(2);
     expect(r2.map((l) => l.serviceDate)).toEqual(['2026-12-18', '2026-12-19', '2026-12-20']);
@@ -403,7 +419,11 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
       .sort((x, y) => `${x[0]}${x[1]}`.localeCompare(`${y[0]}${y[1]}`));
   };
   const moveTo = async (b: Booking, body: Record<string, unknown>) => {
-    const r = await act(b.id, 'move', { reasonCode: 'guest_request', ...body });
+    const r = await act(
+      b.id,
+      'move',
+      await shown(b.id, { reasonCode: 'guest_request', ...body } as Record<string, string>),
+    );
     expect(r.statusCode, r.body).toBe(200);
   };
   const totalOf = async (b: Booking) => (await folio(b)).totals.totalVnd as number;

@@ -8,7 +8,11 @@ import { crc32 } from 'node:zlib';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { fieldAad, gcmOpen, gcmSeal } from '../src/modules/crypto/internal/envelope-crypto.service';
-import { KeyringError, keyringFromEnv } from '../src/modules/crypto/internal/keyring';
+import {
+  KeyringError,
+  keyringFromEnv,
+  temporaryKeyWarning,
+} from '../src/modules/crypto/internal/keyring';
 import { FakeCryptoService } from '../src/modules/crypto/public/crypto.fake';
 import {
   DataKeyDestroyedError,
@@ -245,5 +249,27 @@ describe('multipart parser', () => {
     expect(() =>
       parseMultipart(Buffer.from('junk'), `multipart/form-data; boundary=${boundary}`),
     ).toThrow(ProblemError);
+  });
+});
+
+describe('S4-46 – temporary keys warning (dev/test)', () => {
+  const kek = Buffer.alloc(32, 7).toString('base64');
+  const idKey = 'i'.repeat(32);
+  it('names the missing variables only, never a value; silent with every key set or in staging/production', () => {
+    const w = temporaryKeyWarning({ APP_ENV: 'dev', DATA_KEK_CURRENT: kek });
+    expect(JSON.parse(w!)).toMatchObject({
+      level: 'warn',
+      appEnv: 'dev',
+      missing: ['ID_HASH_KEY'],
+    });
+    expect(w).not.toContain(kek);
+    expect(JSON.parse(temporaryKeyWarning({ APP_ENV: 'test' })!).missing).toEqual([
+      'DATA_KEK_CURRENT',
+      'ID_HASH_KEY',
+    ]);
+    expect(
+      temporaryKeyWarning({ APP_ENV: 'dev', DATA_KEK_CURRENT: kek, ID_HASH_KEY: idKey }),
+    ).toBeNull();
+    expect(temporaryKeyWarning({ APP_ENV: 'production' })).toBeNull();
   });
 });

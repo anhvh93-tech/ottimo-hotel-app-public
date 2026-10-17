@@ -53,6 +53,7 @@ import {
   keyOf,
   previewNightReductions,
 } from './reductions';
+import { type OpenRefund, refundPlan } from './refund-plan';
 
 export { focDateMap } from './reductions';
 
@@ -60,6 +61,18 @@ export { focDateMap } from './reductions';
  * S4-08 (BR-309 v0.3.4, ARC 0.3.7 D1 assumption (b) – DOM to confirm): charge lines of a booking that are
  * "services" for a cancellation / no-show – reversed by default, kept only with a reason (`retainLines`).
  */
+/** Lines that follow their night when a booking is cancelled / marked no-show (BR-309 v0.3.8, DOM-S4-13). */
+const NIGHT_FOLLOWERS: ReadonlySet<string> = new Set([
+  'room',
+  'extra_person',
+  'room_change_difference',
+]);
+
+/** Reason of the reversal of a room-change difference voided with its night – B12 posts it again. */
+const DIFFERENCE_VOID_REASON = 'night voided with its booking (BR-429 (c))';
+
+export { type OpenRefund, refundPlan };
+
 export const SERVICE_CATEGORIES: ReadonlySet<string> = new Set([
   'early_checkin',
   'late_checkout',
@@ -105,6 +118,11 @@ export interface ReductionSyncOptions {
   cause?: LineChangeCause;
   /** B12 (BR-315 (g)): dates of the nights sold again – the FOC suspended at the no-show comes back. */
   restoreDates?: ReadonlySet<string>;
+  /**
+   * DOM-S4-15 (BR-434 v0.3.8): B12 of this booking – the FOC suspended at the no-show on a service line the desk
+   * kept (`retainLines`) comes back with it.
+   */
+  restoreReservationId?: string;
   /** Requests whose key moved to another date in this sync: id → previous date (lineChangedNote dates). */
   movedFrom?: ReadonlyMap<string, string>;
 }
@@ -948,6 +966,26 @@ export class FolioService implements FolioStaySync {
     return Number(rows[0]?.total ?? 0);
   }
 
+  /** The open refund requests behind openRefundVnd, oldest first (DOM-S4-14). */
+  private async openRefunds(
+    tx: Tx,
+    folioId: string,
+    opts: { lock?: boolean } = {},
+  ): Promise<OpenRefund[]> {
+    const folio = await this.get(tx, folioId);
+    if (!folio) return [];
+    const ids = new Set<string>([folio.primary_reservation_id]);
+    for (const l of await this.lines(tx, folioId)) if (l.reservation_id) ids.add(l.reservation_id);
+    const { rows } = await tx.query<{ id: string; status: string; remaining: string | number }>(
+      `SELECT id, status, amount_vnd - refunded_vnd AS remaining FROM approval_request
+        WHERE type = 'refund' AND target_type = 'reservation' AND target_id = ANY($1::uuid[])
+          AND status IN ('pending', 'escalated', 'approved') AND refunded_vnd < amount_vnd
+        ORDER BY requested_at, id${opts.lock ? ' FOR UPDATE' : ''}`,
+      [[...ids]],
+    );
+    return rows.map((r) => ({ id: r.id, status: r.status, remainingVnd: Number(r.remaining) }));
+  }
+
   /**
    * "Giá trị đơn" (DOM 17/10, REFUND #3 – BR-309/BR-429 addendum): Σ of the live `room` + `extra_person`
    * lines of the booking at the moment of the cancellation / no-show, after their FOC and special discounts
@@ -1220,6 +1258,19 @@ export class FolioService implements FolioStaySync {
       (x) => x.category === 'extra_person' && dates.has(x.service_date),
     )) {
       reversedVnd += await this.reverseWithReductions(tx, l, live, who.userId, now);
+    }
+    // DOM-S4-13 (BR-309 / BR-429 (c) v0.3.8): the OTA room-change difference of a voided night goes with it.
+    for (const l of live.filter(
+      (x) => x.category === 'room_change_difference' && dates.has(x.service_date),
+    )) {
+      reversedVnd += await this.reverseWithReductions(
+        tx,
+        l,
+        live,
+        who.userId,
+        now,
+        DIFFERENCE_VOID_REASON,
+      );
     }
     // S4-08 (BR-309 v0.3.4): service lines not performed go with the booking (with their FOC); the desk keeps
     // the ones with a cost already incurred (reason in the audit below).
@@ -1596,13 +1647,20 @@ export class FolioService implements FolioStaySync {
       result.extraPersonVnd += fee;
     }
 
+    // DOM-S4-13: B12 (the folio of a no-show synced again – a void booking is never synced, voidStay is its
+    // path) brings back the OTA room-change difference voided with its night (BR-429 (c) – it follows the night
+    // both ways). Nothing to do for any other booking (no difference reversed for that reason).
+    await this.repostVoidedDifferences(tx, folio.id, stay, by, now);
+
     // FOC / special discounts of every key of the folio (S4-02/S4-18/S4-22/S4-23) – B12 brings back the FOC
-    // suspended at the no-show on the nights sold again (BR-315 (g)).
+    // suspended at the no-show on the nights sold again (BR-315 (g)) and on the services the desk kept
+    // (DOM-S4-15).
     await this.syncReductions(tx, folio.id, {
       userId: who.userId,
       ...(who.requestId ? { requestId: who.requestId } : {}),
       ...(who.cause ? { cause: who.cause } : {}),
       restoreDates: new Set(newNights.map((n) => n.date)),
+      restoreReservationId: stay.reservationId,
       movedFrom,
     });
 
@@ -1728,11 +1786,16 @@ export class FolioService implements FolioStaySync {
     reqs: readonly FolioReductionRequest[],
     idx: LineIndex,
     restoreDates?: ReadonlySet<string>,
+    restoreReservationId?: string,
   ): ReductionKeyPlan[] {
     const groups = new Map<string, ReductionKeyPlan>();
     for (const r of reqs) {
       if (r.status === 'approved' && r.focState === 'suspended') {
-        if (!(r.serviceDate && restoreDates?.has(r.serviceDate))) continue;
+        const back =
+          keyKindOf(r.category) !== 'night'
+            ? !!restoreReservationId && idx.keyLine(r).line?.reservation_id === restoreReservationId
+            : !!r.serviceDate && !!restoreDates?.has(r.serviceDate);
+        if (!back) continue;
       }
       const k = keyOf(r);
       let g = groups.get(k);
@@ -1777,7 +1840,7 @@ export class FolioService implements FolioStaySync {
     const approvals = this.requireApprovals();
     const now = this.clock.now();
     const idx = new LineIndex(await this.lines(tx, folio.id));
-    for (const g of this.planReductions(reqs, idx, opts.restoreDates)) {
+    for (const g of this.planReductions(reqs, idx, opts.restoreDates, opts.restoreReservationId)) {
       for (const r of [...g.approved.map((x) => x.r), ...g.pending.map((x) => x.r)]) {
         // 0060: the key date is stored (legacy rows fall back to the date of their line).
         if (r.serviceDate && r.storedServiceDate === null) {
@@ -2069,6 +2132,7 @@ export class FolioService implements FolioStaySync {
     const noShow = input.reason === 'no_show';
     const approvals = this.requireApprovals();
     const idx = new LineIndex(await this.lines(tx, folioId));
+    const retainedIds = new Set((input.services?.retainLines ?? []).map((x) => x.lineId));
     const opts = { userId: who.userId, ...(input.requestId ? { requestId: input.requestId } : {}) };
     for (const r of reqs) {
       const night = keyKindOf(r.category) === 'night';
@@ -2077,9 +2141,21 @@ export class FolioService implements FolioStaySync {
         : ownLines.has(r.originLineId);
       if (!mine) continue;
       if (phase === 'after') {
+        if (night || r.status !== 'approved') continue;
+        const line = idx.keyLine(r).line;
         // Other lines of the booking: approved FOC whose line the cancellation reversed → cancelled.
-        if (!night && r.status === 'approved' && !idx.keyLine(r).line) {
+        if (!line) {
           await this.cancelFoc(tx, r, 'reservation_cancelled', idx, opts);
+          continue;
+        }
+        // DOM-S4-15 (BR-434 v0.3.8): a service the desk KEPT (`retainLines`) is money OTTIMO collects – its
+        // FOC is cancelled with the booking, suspended by a no-show (back at B12; a folio settled while it is
+        // suspended cancels it). Lines that are no service (penalty, damage, adjustment…) keep their FOC.
+        if (!retainedIds.has(line.id)) continue;
+        if (!noShow) {
+          await this.cancelFoc(tx, r, 'reservation_cancelled', idx, opts);
+        } else if (r.focState !== 'suspended') {
+          await this.suspendFoc(tx, r, idx, opts);
         }
         continue;
       }
@@ -2103,10 +2179,100 @@ export class FolioService implements FolioStaySync {
     }
   }
 
-  /** B18 (BR-434 "folio chốt mà FOC còn ngủ"): dormant FOC of a settling folio → cancelled, "không áp". */
+  /**
+   * DOM-S4-13 (BR-429 (c) v0.3.8): B12 – the OTA room-change difference voided with its night at the no-show
+   * (reversal reason DIFFERENCE_VOID_REASON) is posted again for every night sold again (same amount, label,
+   * revenue group); a night that already has a live difference line is left alone (idempotent).
+   */
+  private async repostVoidedDifferences(
+    tx: Tx,
+    folioId: string,
+    stay: ConfirmedStay,
+    by: string | null,
+    now: Date,
+  ): Promise<void> {
+    const { rows } = await tx.query<{
+      service_date: string;
+      amount_vnd: number;
+      unit_price_vnd: number;
+      quantity: string;
+      description: string;
+      revenue_group: RevenueGroup;
+      charge_code: string | null;
+      label_params: Record<string, string | number> | null;
+    }>(
+      `SELECT o.service_date::text AS service_date, o.amount_vnd, o.unit_price_vnd, o.quantity, o.description,
+              o.revenue_group, o.charge_code, o.label_params
+         FROM folio_line o JOIN folio_line r ON r.reversal_of_id = o.id
+        WHERE o.folio_id = $1 AND o.reservation_id = $2 AND o.category = 'room_change_difference'
+          AND o.service_date IS NOT NULL AND r.reason = $3
+        ORDER BY o.service_date, o.posted_at`,
+      [folioId, stay.reservationId, DIFFERENCE_VOID_REASON],
+    );
+    if (rows.length === 0) return;
+    const all = await this.lines(tx, folioId);
+    const idx = new LineIndex(all);
+    const sold = new Set(stay.nights.map((n) => n.date));
+    const live = new Set(
+      all
+        .filter(
+          (l) =>
+            l.category === 'room_change_difference' &&
+            l.reservation_id === stay.reservationId &&
+            idx.isLive(l),
+        )
+        .map((l) => l.service_date),
+    );
+    for (const o of rows) {
+      if (!sold.has(o.service_date) || live.has(o.service_date)) continue;
+      await this.insertLine(tx, {
+        folioId,
+        reservationId: stay.reservationId,
+        category: 'room_change_difference',
+        revenueGroup: o.revenue_group,
+        description: o.description,
+        quantity: Number(o.quantity),
+        unitPriceVnd: Number(o.unit_price_vnd),
+        amountVnd: Number(o.amount_vnd),
+        serviceDate: o.service_date,
+        stayNightId: null,
+        source: 'system',
+        postedBy: by,
+        now,
+        chargeCode: o.charge_code,
+        labelParams: o.label_params,
+        reason: 'B12 – night sold again (BR-429 (c))',
+      });
+      live.add(o.service_date);
+    }
+  }
+
+  /**
+   * DOM-S4-15 (BR-434 v0.3.8, BR-315 (g)): a no-show suspends the approved FOC on a service the desk kept – the
+   * FOC line is reversed (the guest pays the line), the request stays `approved` (out of the monthly limit and
+   * the FOC report), B12 brings it back.
+   */
+  private async suspendFoc(
+    tx: Tx,
+    r: FolioReductionRequest,
+    idx: LineIndex,
+    opts: Pick<ReductionSyncOptions, 'userId' | 'requestId'>,
+  ): Promise<void> {
+    const now = this.clock.now();
+    for (const l of idx.linesOf(r)) {
+      if (idx.isLive(l)) await this.reverseFocLine(tx, l, r, opts, now);
+    }
+    await this.requireApprovals().setFocState(tx, r.id, { focState: 'suspended' });
+    await this.auditFocState(tx, r, 'suspended', 0, opts, null);
+  }
+
+  /**
+   * B18 (BR-434 "folio chốt mà FOC còn ngủ"; v0.3.8 "chốt folio khi còn tạm dừng → hủy"): dormant or suspended
+   * FOC of a settling folio → cancelled, "không áp" (contract reason `settled_while_dormant`).
+   */
   private async cancelDormantOnSettle(tx: Tx, folioId: string, actor: FolioActor): Promise<void> {
     const reqs = (await this.reductionRequests(tx, folioId, { lock: true })).filter(
-      (r) => r.status === 'approved' && r.focState === 'dormant',
+      (r) => r.status === 'approved' && (r.focState === 'dormant' || r.focState === 'suspended'),
     );
     if (reqs.length === 0) return;
     const idx = new LineIndex(await this.lines(tx, folioId));
@@ -2274,15 +2440,16 @@ export class FolioService implements FolioStaySync {
       else if (byId.has(r.lineId)) retained.set(r.lineId, reason);
     });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
+    const noShow = input.feeCategory === 'no_show_fee';
     const removed = new Set<string>();
     const serviceLines: ServiceLineQuote[] = services.map((l) => {
       const reds = reductionsOf(l.id);
       const net = l.amount_vnd + reds.reduce((a, r) => a + r.amount_vnd, 0);
       const keep = retained.has(l.id);
-      if (!keep) {
-        removed.add(l.id);
-        for (const r of reds) removed.add(r.id);
-      }
+      if (!keep) removed.add(l.id);
+      // DOM-S4-15 (BR-434 v0.3.8): a kept service is money OTTIMO collects – its FOC goes too (cancel →
+      // cancelled, no-show → suspended): the guest pays the line in full.
+      for (const r of reds) removed.add(r.id);
       const { labelKey, labelParams } = lineLabel(l);
       return {
         lineId: l.id,
@@ -2290,15 +2457,20 @@ export class FolioService implements FolioStaySync {
         labelKey,
         ...(labelParams ? { labelParams } : {}),
         ...(l.service_date ? { serviceDate: l.service_date } : {}),
-        amountVnd: net,
-        performed: !!l.service_date && l.service_date < input.today,
+        // DOM-S4-12 (BR-309 v0.3.8): a hint only – cancel: service date < business date; no-show: ≤ (marked
+        // from `no_show_mark_time`, the arrival-day service is past – the car already left for the airport).
+        amountVnd: keep ? l.amount_vnd : net,
+        performed:
+          !!l.service_date &&
+          (noShow ? l.service_date <= input.today : l.service_date < input.today),
         retained: keep,
         ...(keep ? { retainReason: retained.get(l.id) as string } : {}),
       };
     });
-    // The nights of the booking (room + extra person) go with their reductions (voidStay).
+    // The nights of the booking (room + extra person + OTA room-change difference – DOM-S4-13) go with their
+    // reductions (voidStay).
     for (const l of own) {
-      if (l.category !== 'room' && l.category !== 'extra_person') continue;
+      if (!NIGHT_FOLLOWERS.has(l.category)) continue;
       removed.add(l.id);
       for (const r of reductionsOf(l.id)) removed.add(r.id);
     }
@@ -2337,14 +2509,15 @@ export class FolioService implements FolioStaySync {
       ];
     }
     const m = moneyPosition(lines, payments);
-    const open = await this.openRefundVnd(tx, folioId);
+    const plan = refundPlan(m.creditVnd, await this.openRefunds(tx, folioId));
     const reversed = serviceLines.filter((x) => !x.retained).reduce((a, x) => a + x.amountVnd, 0);
     const kept = serviceLines.filter((x) => x.retained).reduce((a, x) => a + x.amountVnd, 0);
     return {
       serviceLines,
       serviceReversedVnd: reversed,
       serviceRetainedVnd: kept,
-      refundRequestVnd: Math.max(0, m.creditVnd - open),
+      // DOM-S4-14: the request the close makes (supplementary, or again after the pending ones are cancelled).
+      refundRequestVnd: plan.createVnd,
     };
   }
 
@@ -2369,11 +2542,27 @@ export class FolioService implements FolioStaySync {
     },
   ): Promise<{ id: string; amountVnd: number } | null> {
     const b = await this.balance(tx, input.folioId);
+    const approvals = this.requireApprovals();
+    // DOM-S4-14 (BR-522 v0.3.8): open requests above the overpayment → the pending ones are cancelled (requester
+    // told) and one request of the right amount is made again; below it → a supplementary request.
+    const plan = refundPlan(
+      b.rawCreditVnd,
+      await this.openRefunds(tx, input.folioId, { lock: true }),
+    );
+    const cancelReason =
+      plan.createVnd > 0
+        ? ('superseded' as const)
+        : input.reasonCode === 'no_show'
+          ? ('reservation_no_show' as const)
+          : ('reservation_cancelled' as const);
+    for (const id of plan.cancelIds) {
+      await approvals.autoCancel(tx, id, cancelReason, input.requestId);
+    }
     let request: { id: string; amountVnd: number } | null = null;
-    if (b.unhandledCreditVnd > 0) {
-      const row = await this.requireApprovals().submit(tx, input.actor, {
+    if (plan.createVnd > 0) {
+      const row = await approvals.submit(tx, input.actor, {
         type: 'refund',
-        amountVnd: b.unhandledCreditVnd,
+        amountVnd: plan.createVnd,
         reasonCode: input.reasonCode,
         ...(input.reasonNote ? { reasonNote: input.reasonNote } : {}),
         targetType: 'reservation',

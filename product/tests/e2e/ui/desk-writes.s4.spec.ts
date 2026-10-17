@@ -6,15 +6,24 @@
 //   - S4-28 / TC-L5-025 (a): chuyển sang ui-clock/deposit-qr.s4.spec.ts (cần tài khoản nhận VietQR – chỉ ngày ảo).
 //   - S4-21 / TC-L2-097 (a)–(d): hộp đổi căn – bản tính thử BR-429-03, ô "Đã báo khách", 409 SURCHARGE_CHANGED.
 //   - S4-08 / TC-L2-102 (a): hộp Hủy đơn – giữ dòng dịch vụ kèm lý do, retainLines giống hệt ở tính thử và lần lưu.
+//   - DOM-S4-06 / TC-L2-103 (a)(b): dời ngày có chênh → tick "Đã báo khách", applyDifference + expectedDeltaVnd.
 //   - #6 / TC-NT-052: Cần duyệt – duyệt hoàn với expectedVersion; nơi nhận đổi sau khi mở → 412 → "Tải lại" → duyệt lại.
 // Ca cần đồng hồ (S4-10 nhận phòng, S4-08 no-show, S4-39 giấy tờ): ui-clock/stay-money.s4.spec.ts.
 import { expect, test } from '@playwright/test';
 import { call, session, stackToday } from '../support/api.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
 import { knownBug, precondition } from '../support/known-bugs.js';
-import { cleanupTracked, getReservation, oracle, room, s2Context, weekday } from '../support/s2.js';
+import {
+  addDays,
+  cleanupTracked,
+  getReservation,
+  oracle,
+  room,
+  s2Context,
+  weekday,
+} from '../support/s2.js';
 import { EP3, addLine, dev, getFolio, liveLines, p3, recordPayment } from '../support/s3.js';
-import { approvalById, bookMoney, totalOf } from '../support/s4-money.js';
+import { approvalById, bookMoney, move, totalOf } from '../support/s4-money.js';
 import { scan, settle } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
 import { dialogs, recordWrites, vnd, waitWrite } from './write-steps.js';
@@ -59,6 +68,27 @@ test.describe(
         num(ex.expected.bookedRoomTotalVnd),
       );
       return { ex, c, fd, b, to };
+    }
+
+    /** BR-429-12: đơn 202, 3 đêm thường × 792.000; đêm sau ngày đi cũng trống (dời +1 ngày). */
+    async function br42912(request: Parameters<typeof s2Context>[0]) {
+      const ex = oracle('BR-429-12');
+      const c = await s2Context(request);
+      const fd = await session(request, 'qa.fd');
+      const booked = ex.input.bookedNightRatesVnd as Record<string, number>;
+      const rates = Object.values(booked);
+      const b = await bookMoney(request, c, fd, {
+        room: room(c, String(ex.input.roomNo)),
+        today: await stackToday(request),
+        dow: weekday(Object.keys(booked)[0]!),
+        nights: rates.length,
+        span: rates.length + 1,
+        rate: rates[0]!,
+      });
+      expect(totalOf(await getFolio(request, fd, b.folioId), 'room')).toBe(
+        rates.reduce((a, x) => a + x, 0),
+      );
+      return { ex, fd, b };
     }
 
     async function openMove(page: import('@playwright/test').Page, id: string, code: string) {
@@ -295,6 +325,77 @@ test.describe(
       expect(live, 'dòng không giữ bị đảo (BR-309)').not.toContain(
         keptId === kept.id ? other.id : kept.id,
       );
+    });
+
+    test('TC-L2-103 (E) (a) US-024/– H11 khách xin dời 1 ngày, giữ căn 202: tiền đơn +119.000 → bản tính thử, Lưu khóa tới khi tick "Đã báo khách số tiền mới", lệnh ghi gửi applyDifference + expectedDeltaVnd 119.000 (BR-429 (d1) v0.3.8, DOM-S4-06)', async ({
+      page,
+      request,
+    }) => {
+      test.slow();
+      const { ex, fd, b } = await precondition(
+        'đơn 202 3 đêm thường × 792.000 (BR-429-12), ngày sau ngày đi trống',
+        () => br42912(request),
+      );
+      const delta = num(ex.expected.folioDeltaVnd);
+      const arrival = addDays(b.arrivalDate, 1);
+      const departure = addDays(b.departureDate, 1);
+      await signIn(page, 'qa.fd');
+      const moves = recordWrites(page, 'POST', /\/reservations\/[^/]+\/actions\/move$/);
+      const dlg = await openMove(page, b.id, b.code);
+      await expect(dlg.getByLabel(t('move.reason'))).toHaveValue('guest_request');
+      await dlg.getByLabel(t('booking.field.departure')).fill(departure);
+      await dlg.getByLabel(t('booking.field.arrival')).fill(arrival);
+      const box = dlg.getByRole('region', { name: t('move.preview_title') });
+      // giữ căn, chỉ đổi ngày: đêm giữ lại theo giá đã chốt, đêm thêm theo giá hiện hành → +119.000
+      await expect(
+        box.getByRole('row', { name: new RegExp(esc(t('move.delta_up'))) }),
+      ).toContainText(`+${money(delta)}`, { timeout: 15_000 });
+      await settle(page);
+      await scan(page, test.info(), 'H11-move-dates-told');
+      const save = dlg.getByRole('button', { name: t('rsv.move_submit'), exact: true });
+      await expect(save).toHaveAttribute('aria-disabled', 'true');
+      await expect(dlg.getByText(t('move.save_needs_told'))).toBeVisible();
+      // lễ tân vẫn bấm thử (Playwright coi aria-disabled là khóa → force: vẫn là cú bấm thật)
+      await save.click({ force: true });
+      expect(moves, 'chưa tick → không gửi lệnh ghi').toHaveLength(0);
+      await dlg.getByRole('checkbox', { name: new RegExp(esc(t('move.told_guest'))) }).check();
+      await expect(save).not.toHaveAttribute('aria-disabled', 'true');
+      await save.click();
+      const w = await waitWrite(moves, 'moveReservation dời ngày có chênh', 200);
+      expect(w.request).toMatchObject({
+        arrivalDate: arrival,
+        departureDate: departure,
+        reasonCode: 'guest_request',
+        applyDifference: true,
+        expectedDeltaVnd: delta,
+      });
+      expect(w.request, 'giữ căn – không gửi roomId').not.toHaveProperty('roomId');
+      const after = await getReservation(request, fd, b.id);
+      expect(after.body.arrivalDate).toBe(arrival);
+      expect(totalOf(await getFolio(request, fd, b.folioId), 'room')).toBe(
+        num(ex.expected.newRoomTotalVnd),
+      );
+    });
+
+    test('TC-L2-103 (E) (b) US-024/– server: lệnh dời ngày có chênh mà thiếu "Đã báo khách" (applyDifference) → 422 REQUIRED, không ghi (BR-429 (d1) v0.3.8, DOM-S4-06 – BE-A)', async ({
+      request,
+    }) => {
+      knownBug('DOM-S4-06');
+      const { fd, b } = await precondition(
+        'đơn 202 3 đêm thường × 792.000 (BR-429-12), ngày sau ngày đi trống',
+        () => br42912(request),
+      );
+      const r = await move(request, fd, b.id, {
+        arrivalDate: addDays(b.arrivalDate, 1),
+        departureDate: addDays(b.departureDate, 1),
+        mode: 'change',
+        reasonCode: 'guest_request',
+      });
+      expect(r.status, JSON.stringify(r.body)).toBe(422);
+      expect(r.body.errors ?? []).toContainEqual(
+        expect.objectContaining({ field: 'applyDifference', code: 'REQUIRED' }),
+      );
+      expect((await getReservation(request, fd, b.id)).body.arrivalDate).toBe(b.arrivalDate);
     });
 
     test('TC-NT-052 (E) US-007/– H17 Cần duyệt: duyệt hoàn gửi expectedVersion đang xem; nơi nhận đổi sau khi mở → 412 → "Tải lại" → mở lại, duyệt với phiên bản mới (#6, B-6)', async ({

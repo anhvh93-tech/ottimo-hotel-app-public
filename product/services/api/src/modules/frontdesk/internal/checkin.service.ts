@@ -136,6 +136,55 @@ export class CheckinService {
     };
   }
 
+  /**
+   * 0.3.7 `createVietQr purpose = check_in` (S4-10 – BE-B's cap through ReservationSalesPort.amountDueFor):
+   * `amountDueAtCheckinVnd` of previewCheckIn at `checkinTime` (absent = the server clock, what B9 would charge
+   * now), the B9a night at `priorNightRateVnd` when `addPriorNight`. Same gates as B9: `confirmed`, the arrival
+   * business day or the B9a window (else 409 INVALID_TRANSITION); the rate within floor–ceiling (422).
+   */
+  async amountDueForQr(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    q: {
+      checkinTime?: LocalTime | undefined;
+      addPriorNight?: boolean | undefined;
+      priorNightRateVnd?: number | undefined;
+    },
+  ): Promise<number> {
+    const row = await loadReservation(tx, id, ctx.actor);
+    if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
+    const e = await this.evaluate(tx, ctx, row, q.checkinTime, 'write');
+    if (ctx.today !== row.arrival_date && !e.priorNightWindow) {
+      throw problem('INVALID_TRANSITION', {
+        extras: { currentState: row.status },
+        detail: 'check-in QR on the arrival business day (or the B9a window)',
+      });
+    }
+    if (!e.priorNight || !q.addPriorNight) {
+      if (q.addPriorNight || q.priorNightRateVnd !== undefined) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [
+            {
+              field: q.addPriorNight ? 'addPriorNight' : 'priorNightRateVnd',
+              code: 'NOT_ALLOWED',
+            },
+          ],
+        });
+      }
+      return e.amountDueAtCheckinVnd;
+    }
+    const rate = q.priorNightRateVnd ?? e.priorNight.defaultRateVnd;
+    if (rate < e.priorNight.floorVnd || rate > e.priorNight.ceilingVnd) {
+      throw problem('RATE_OUT_OF_RANGE', {
+        errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
+        extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
+      });
+    }
+    // evaluate() counts the B9a night at its default rate – swap in the rate the desk will post.
+    return Math.max(0, e.amountDueAtCheckinVnd - e.priorNight.defaultRateVnd + rate);
+  }
+
   private async evaluate(
     tx: Tx,
     ctx: BookingContext,
@@ -222,12 +271,20 @@ export class CheckinService {
     const pendingIncidentalFocVnd = row.folio_id
       ? await this.pendingIncidentalFoc(tx, row.folio_id)
       : 0;
-    const toPost = Math.max(0, early.amountVnd) + (priorNight ? priorNight.defaultRateVnd : 0);
-    const amountDueAtCheckinVnd = Math.max(
-      0,
-      balanceDueVnd - creditVnd + toPost - pendingIncidentalFocVnd,
-    );
-    const balancePaid = row.payment_model === 'ota_prepaid' || amountDueAtCheckinVnd === 0;
+    // BR-402 v0.3.8 (DOM-S4-05): an OTA-prepaid booking owes the ROOM money collected at the desk before check-in
+    // (`room_change_difference`, the B9a night of its direct child booking) – its incidental charges (early
+    // check-in, extra person, minibar…) wait for the check-out (BR-307 "Đã thu qua OTA" covers only the OTA room).
+    const otaPrepaid = row.payment_model === 'ota_prepaid';
+    const notYetDue = otaPrepaid
+      ? row.folio_id
+        ? await this.incidentalNet(tx, row.folio_id)
+        : 0
+      : pendingIncidentalFocVnd;
+    const toPost =
+      (otaPrepaid ? 0 : Math.max(0, early.amountVnd)) +
+      (priorNight ? priorNight.defaultRateVnd : 0);
+    const amountDueAtCheckinVnd = Math.max(0, balanceDueVnd - creditVnd + toPost - notYetDue);
+    const balancePaid = amountDueAtCheckinVnd === 0;
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
@@ -298,6 +355,29 @@ export class CheckinService {
       pending.map((r) => ({ id: r.id, folio_line_id: r.folioLineId })),
     );
     return pending.reduce((a, r) => a + (views.get(r.id)?.effectiveAmountVnd ?? 0), 0);
+  }
+
+  /**
+   * BR-402 v0.3.8 (DOM-S4-05): what the folio carries in INCIDENTAL charges (every category but room money –
+   * `room`, `room_change_difference`), net of their FOC / discounts / reversals – for an OTA-prepaid booking they
+   * are due at the check-out, not at the check-in.
+   */
+  private async incidentalNet(tx: Tx, folioId: string): Promise<number> {
+    const lines = (await this.s.folios.lines(tx, folioId)).filter((l) => l.line_state === 'posted');
+    const byId = new Map(lines.map((l) => [l.id, l]));
+    const categoryOf = (l: (typeof lines)[number]): string => {
+      const target = l.reversal_of_id ?? l.related_line_id;
+      const t = target ? byId.get(target) : undefined;
+      return t && (l.reversal_of_id || l.category === 'foc' || l.category === 'discount')
+        ? categoryOfOriginal(t)
+        : l.category;
+    };
+    const categoryOfOriginal = (l: (typeof lines)[number]): string =>
+      l.reversal_of_id ? (byId.get(l.reversal_of_id)?.category ?? l.category) : l.category;
+    return Math.max(
+      0,
+      lines.reduce((a, l) => (ROOM_MONEY.has(categoryOf(l)) ? a : a + l.amount_vnd), 0),
+    );
   }
 
   /** US-027 / BR-413: no in-house or departed booking leaving this room on the arrival day. */
@@ -567,10 +647,14 @@ export class CheckinService {
     }
     // BR-402 (2) on the real folio (after the surcharge / B9a night and the payment): not met → 409 and the
     // whole transaction (lines, payment) is rolled back – nothing is written.
-    if (row.payment_model !== 'ota_prepaid' && row.folio_id) {
+    if (row.folio_id) {
       const b = await this.s.folios.balance(tx, row.folio_id);
       const due =
-        b.balanceDueVnd - b.rawCreditVnd - (await this.pendingIncidentalFoc(tx, row.folio_id));
+        b.balanceDueVnd -
+        b.rawCreditVnd -
+        (row.payment_model === 'ota_prepaid'
+          ? await this.incidentalNet(tx, row.folio_id)
+          : await this.pendingIncidentalFoc(tx, row.folio_id));
       if (due > 0) {
         throw problem('CHECKIN_CONDITIONS_NOT_MET', {
           extras: { unmet: ['balance_paid'], balanceDueVnd: due },

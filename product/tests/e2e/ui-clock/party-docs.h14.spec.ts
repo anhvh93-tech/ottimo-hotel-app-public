@@ -1,17 +1,31 @@
-// E2E UI – H14: bỏ người khỏi đoàn khi khách đã gửi giấy tờ qua link → lễ tân gắn giấy tờ của người còn ở trên Desk
-// (FB-R2-SEC-FE-07, BUG-R2-083, SEC-G1 a). Project desk-clock (Chromium 1366×768, MutableClock, tuần tự sau clock):
+// E2E UI – H14: giấy tờ khách gửi qua link chờ gắn người → lễ tân gắn vào người còn ở trên Desk (FB-R2-SEC-FE-07,
+// BUG-R2-083, SEC-G1 a; OpenAPI 0.3.7 S4-39). Project desk-clock (Chromium 1366×768, MutableClock, tuần tự sau clock):
 // ngày ảo riêng; giờ đóng băng nên "24 giờ" và J16 kiểm được đúng mốc.
-//   - chuẩn bị bằng API (không phải đối tượng kiểm): đơn confirmed 3 người lớn, người đi cùng A và B, khách gửi ảnh giấy tờ
-//     Khách 1–3 qua link, lễ tân đã nhập trường của Khách 3 (như admin-web cũ – chưa gắn người), bỏ A khỏi đoàn;
-//   - bước đang kiểm bấm trên Desk: thấy "Cần chú ý" + nhãn "Chờ gắn người – tự xóa lúc …", "Gắn người" → chọn B →
-//     Lưu giấy tờ; request trình duyệt gửi được ghi lại (ui/write-steps.ts) và phải 200, mang partyMemberId;
+// 0.3.7 (S4-39): bỏ người khỏi đoàn (`removePartyMember`) nay bắt buộc chọn ô "Khách n" (`guestUploadPersonIndex`) – ô đó
+// hủy ngay, không còn hẹn 24 giờ (ca của đường này: TC-L3-080 (a), ui-clock/stay-money.s4.spec.ts). Hẹn 24 giờ + "Cần chú ý"
+// `registration_party_docs_unlinked` CHỈ còn cho đường giảm người không có lựa chọn của lễ tân (`updateReservation` giảm
+// số khách, đơn OTA sửa) → ca này dùng đường đó (QA 17/10, CI b6153b7 đỏ: thiếu `guestUploadPersonIndex`).
+//   - chuẩn bị bằng API (không phải đối tượng kiểm): đơn confirmed 3 người lớn, người đi cùng B, khách gửi ảnh giấy tờ
+//     Khách 1–3 qua link, lễ tân đã nhập trường của Khách 3 (chưa gắn người), giảm còn 2 người lớn;
+//   - bước đang kiểm bấm trên Desk: thấy "Cần chú ý" + nhãn "Chờ gắn người – tự xóa lúc …" (theo `unclaimedUntil`),
+//     "Gắn người" → chọn B → Gắn; request trình duyệt gửi được ghi lại (ui/write-steps.ts), phải 200 và CHỈ mang
+//     `partyMemberId` (thân `GuestDocumentLink`), không đọc C3 khi gắn;
 //   - kết quả đọc lại bằng API; J16 sau hạn: giấy tờ đã gắn còn (ảnh đọc được – DEK sống), giấy tờ không ai nhận bị xóa.
-// TC: product/tests/test-cases/r1-main-flows.md v0.3.11 – TC-L3-077.
+// TC: product/tests/test-cases/r1-main-flows.md – TC-L3-077 (v0.3.19 theo 0.3.7).
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { call, session, stackToday, versionTag, type StaffSession } from '../support/api.js';
 import { needClock, resetClock, runJob, setClock } from '../support/clock.js';
 import { GUEST_ORIGIN, SEED_PASSWORD, WEB_URL } from '../support/env.js';
-import { addDays, cleanupTracked, s2Context, vnTime, type Room } from '../support/s2.js';
+import {
+  addDays,
+  cleanupTracked,
+  getReservation,
+  minStayFor,
+  s2Context,
+  vnTime,
+  type Room,
+} from '../support/s2.js';
+import { patchReservation } from '../support/s3-checkin.js';
 import {
   EP3,
   PRIVACY_NOTICE,
@@ -35,7 +49,7 @@ import {
 } from '../support/s3.js';
 import { scan, settle } from '../ui/axe.js';
 import { UI, signIn, t } from '../ui/helpers.js';
-import { dialogs, recordWrites, trustedDesk, waitWrite } from '../ui/write-steps.js';
+import { recordWrites, trustedDesk, waitWrite } from '../ui/write-steps.js';
 
 const J16 = 'retention.purge';
 const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -47,7 +61,11 @@ const vnDateTime = (iso: string): string => {
   return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)} ${d.slice(11, 16)}`;
 };
 
-type Doc = GuestDocument & { captureMethod?: string; imagePurgeAt?: string };
+type Doc = GuestDocument & {
+  captureMethod?: string;
+  unclaimedUntil?: string | null;
+  personIndex?: number | null;
+};
 type Reg = Registration;
 const docs = (reg: Reg): Doc[] => reg.documents as Doc[];
 
@@ -55,15 +73,6 @@ async function regNow(request: APIRequestContext, s: StaffSession, regId: string
   const r = await getRegistration(request, s, regId);
   expect(r.status, `getRegistration: ${JSON.stringify(r.body).slice(0, 300)}`).toBe(200);
   return r.body as Reg;
-}
-
-async function party(request: APIRequestContext, s: StaffSession, reservationId: string) {
-  const r = await call<{
-    version: number;
-    members?: Array<{ id: string; role: string; guest?: { id: string } }>;
-  }>(request, 'GET', p3(EP3.listParty, s, { reservationId }), { session: s });
-  expect(r.status, `listParty: ${JSON.stringify(r.body).slice(0, 300)}`).toBe(200);
-  return r.body;
 }
 
 async function companion(
@@ -93,13 +102,13 @@ test.afterEach(async ({ request }) => cleanupTracked(request));
 test.afterAll(async ({ request }) => resetClock(request));
 
 test.describe(
-  'UI H14 – giấy tờ khách gửi qua link chờ gắn người sau khi bỏ người khỏi đoàn (MutableClock, FB-R2-SEC-FE-07)',
+  'UI H14 – giấy tờ khách gửi qua link chờ gắn người sau khi giảm số khách (MutableClock, FB-R2-SEC-FE-07, S4-39)',
   { tag: ['@ui', '@sprint3', '@clock', '@write', '@c3'] },
   () => {
     test.skip(!UI, 'Chạy với E2E_UI=1');
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
 
-    test('TC-L3-077 (E) US-022/– H14 bỏ người khi khách đã gửi giấy tờ qua link: Desk hiện "Chờ gắn người – tự xóa lúc …", lễ tân gắn giấy tờ vào người còn ở → nhãn hết, giấy tờ còn sau J16; giấy tờ không ai nhận bị xóa (BUG-R2-083)', async ({
+    test('TC-L3-077 (E) US-022/– H14 giảm số khách khi khách đã gửi giấy tờ qua link (đường không có lựa chọn của lễ tân): Desk hiện "Chờ gắn người – tự xóa lúc …", lễ tân gắn giấy tờ vào người còn ở chỉ bằng partyMemberId → nhãn hết, giấy tờ còn sau J16; giấy tờ không ai nhận bị xóa (BUG-R2-083, S4-39)', async ({
       page,
       request,
     }) => {
@@ -111,19 +120,20 @@ test.describe(
       const c = await s2Context(request);
       const fd = await session(request, 'qa.fd');
       // 3 người lớn trong định mức (không phụ thu – không phải chủ đề); đơn đến D+2: trong 24 giờ chờ không có
-      // nhận phòng / không đến.
+      // nhận phòng / không đến. Số đêm theo ở tối thiểu của ngày đến (BR-113: đến thứ Sáu/thứ Bảy → 2 đêm – CI b6153b7
+      // lượt 1: 422 MIN_STAY_NOT_MET khi D+2 rơi vào thứ Sáu).
       const big: Room[] = c.rooms.filter((r) => (r.baseOccupancy ?? 0) >= 3);
       const rooms = big.length ? big : c.rooms.filter((r) => (r.maxOccupancy ?? 0) >= 3);
       expect(rooms.length, 'DS-E có căn cho 3 người lớn').toBeGreaterThan(0);
+      const arrival = addDays(D, 2);
       const st = await makeStay(request, c, fd, {
         room: rooms[0]!,
         alternatives: rooms,
-        arrival: addDays(D, 2),
-        nights: 1,
+        arrival,
+        nights: minStayFor(arrival),
         adults: 3,
         doc: false,
       });
-      const A = await companion(request, fd, st.res.id);
       const B = await companion(request, fd, st.res.id);
 
       // ── khách gửi ảnh giấy tờ qua link: Khách 1 (1 ảnh), Khách 2 (1 ảnh), Khách 3 (2 ảnh – để nhận ra) ──
@@ -174,24 +184,21 @@ test.describe(
         200,
       );
 
-      // ── bỏ A khỏi đoàn (API) → Khách 2/3 chờ 24 giờ ──
-      const p0 = await party(request, fd, st.res.id);
-      const del = await call(
-        request,
-        'DELETE',
-        p3(EP3.removePartyMember, fd, { reservationId: st.res.id, memberId: A.memberId }),
-        { session: fd, idempotencyKey: true, ifMatch: versionTag(p0.version) },
+      // ── giảm còn 2 người lớn (đường không có lựa chọn của lễ tân) → Khách 2/3 chờ gắn người 24 giờ ──
+      const cur = (await getReservation(request, fd, st.res.id)).body;
+      const fewer = await patchReservation(request, fd, st.res.id, cur.version, { adults: 2 });
+      expect(fewer.status, `updateReservation adults 3 → 2: ${JSON.stringify(fewer.body)}`).toBe(
+        200,
       );
-      expect(del.status, `removePartyMember: ${JSON.stringify(del.body)}`).toBe(204);
       reg = await regNow(request, fd, st.regId);
       const due = new Date(new Date(t0).getTime() + 24 * 3_600_000).getTime();
       for (const id of [k2.id, k3.id]) {
         const d = docs(reg).find((x) => x.id === id);
-        expect(d?.imagePurgeAt, `giấy tờ ${id} chờ gắn người`).toBeTruthy();
-        expect(Math.abs(new Date(d!.imagePurgeAt!).getTime() - due)).toBeLessThanOrEqual(60_000);
+        expect(d?.unclaimedUntil, `giấy tờ ${id} chờ gắn người (unclaimedUntil)`).toBeTruthy();
+        expect(Math.abs(new Date(d!.unclaimedUntil!).getTime() - due)).toBeLessThanOrEqual(60_000);
       }
       const label = tf('reg.link.pending_chip', {
-        time: vnDateTime(docs(reg).find((x) => x.id === k3.id)!.imagePurgeAt!),
+        time: vnDateTime(docs(reg).find((x) => x.id === k3.id)!.unclaimedUntil!),
       });
 
       // ── Desk: "Cần chú ý" trên H14 → mở đơn, tới giấy tờ chờ ──
@@ -223,7 +230,7 @@ test.describe(
         page.getByText(
           tf('reg.link.banner', {
             n: 2,
-            time: vnDateTime(docs(reg).find((x) => x.id === k2.id)!.imagePurgeAt!),
+            time: vnDateTime(docs(reg).find((x) => x.id === k2.id)!.unclaimedUntil!),
           }),
         ),
       ).toBeVisible();
@@ -273,26 +280,31 @@ test.describe(
       await row.getByRole('button', { name: t('ci.view_hide'), exact: true }).click();
       await expect(imgs).toHaveCount(0);
 
-      // ── lễ tân gắn Khách 3 vào B ──
+      // ── lễ tân gắn Khách 3 vào B: hộp "Gắn người" chỉ chọn người (0.3.7 `GuestDocumentLink`), không đọc C3 ──
       const writes = recordWrites(page, 'PATCH', /\/registrations\/[^/]+\/documents\/[^/]+$/);
+      const c3reads: string[] = [];
+      page.on('request', (r) => {
+        if (/\/sensitive|\/images\//.test(r.url())) c3reads.push(r.url());
+      });
       await row.getByRole('button', { name: t('reg.link.action'), exact: true }).click();
-      const dlg = dialogs(page).filter({ hasText: t('ci.manual_title') });
+      const dlg = page.getByRole('dialog', { name: t('reg.link.action') });
       await expect(dlg).toBeVisible({ timeout: 10_000 });
+      await expect(dlg).toContainText(tf('guest.oci.person_n', { n: 3 }));
       const pick = dlg.getByLabel(t('reg.link.member'));
       await expect(pick).toBeEnabled({ timeout: 10_000 });
       await expect(pick, 'không chọn sẵn').toHaveValue('');
-      // trường đã nhập điền sẵn sau step-up – không gõ lại
-      await expect(dlg.getByLabel(t('checkin.docs.field.doc_no'))).toHaveValue(bNumber);
       await scan(page, test.info(), 'H14-link-dialog');
       await pick.selectOption({ label: B.name });
-      await dlg.getByRole('button', { name: t('ci.manual_save') }).click();
+      await dlg.getByRole('button', { name: t('reg.link.action'), exact: true }).click();
       const sent = await waitWrite(writes, 'updateGuestDocument gắn Khách 3 vào B', 200);
       expect(sent.path).toMatch(new RegExp(`/documents/${esc(k3.id)}$`));
-      expect(sent.request, 'gắn người kèm đủ trường (OpenAPI 0.3.6)').toMatchObject({
+      expect(
+        sent.request,
+        'gắn người chỉ gửi partyMemberId (OpenAPI 0.3.7 GuestDocumentLink)',
+      ).toEqual({
         partyMemberId: B.memberId,
-        docType: 'cccd',
-        docNumber: bNumber,
       });
+      expect(c3reads, 'gắn người không đọc dữ liệu C3').toEqual([]);
       await expect(dlg).toBeHidden({ timeout: 10_000 });
       await expect(row.getByText(t('guest.chip.doc_ok'))).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(label, { exact: true })).toHaveCount(1);
@@ -301,8 +313,8 @@ test.describe(
       reg = await regNow(request, fd, st.regId);
       const k3now = docs(reg).find((x) => x.id === k3.id);
       expect(k3now?.partyMemberId).toBe(B.memberId);
-      expect(k3now?.imagePurgeAt, 'giấy tờ đã gắn không còn hạn xóa 24 giờ').toBeUndefined();
-      expect(docs(reg).find((x) => x.id === k2.id)?.imagePurgeAt).toBeTruthy();
+      expect(k3now?.unclaimedUntil ?? null, 'giấy tờ đã gắn không còn hạn chờ').toBeNull();
+      expect(docs(reg).find((x) => x.id === k2.id)?.unclaimedUntil).toBeTruthy();
 
       // ── J16 sau hạn: giấy tờ đã gắn còn (ảnh đọc được), giấy tờ không ai nhận bị xóa ──
       await useVirtualDevice(request, await setClock(request, vnTime(addDays(D, 1), '09:01')));

@@ -238,6 +238,28 @@ describe.skipIf(!HAS_DB)(
           ?.possibleReturningGuest,
       ).toBe(true);
 
+      // A child matched by nobody: no profile (rbac 9), the document waits for the desk in "Cần chú ý" without
+      // a removal deadline (BR-601 v0.3.8, DOM-S4-16 b).
+      const kid = await addDoc(reg2, {
+        docType: 'child_personal_id',
+        fullNameOnDoc: 'Nguyễn Bé Con',
+        docNumber: '079219001234',
+        dateOfBirth: '2019-05-05',
+        isMain: false,
+      });
+      expect(kid.statusCode, kid.body).toBe(201);
+      const kidDoc = (kid.json().documents as Array<Record<string, unknown>>).find(
+        (d) => d.docNumberLast4 === '1234',
+      )!;
+      expect(kidDoc.partyMemberId ?? null).toBeNull();
+      const attention = (await staff(fa, tok('fd'), device, 'GET', `${P(t)}/attention`)).json()
+        .data as Array<{ kind: string; params?: { check?: string }; reservationIds?: string[] }>;
+      const unlinked = attention.find(
+        (i) => i.kind === 'data_quality' && i.params?.check === 'registration_party_docs_unlinked',
+      );
+      expect(unlinked?.reservationIds).toContain(s2.reservationId);
+      expect(unlinked).not.toHaveProperty('dueAt');
+
       // P05 withdrawn (SEC F03): key and last 4 go in the same transaction; the API shows no last 4.
       const refused = await crm(reg1, d1.id, 'refused');
       expect(refused.statusCode, refused.body).toBe(201);

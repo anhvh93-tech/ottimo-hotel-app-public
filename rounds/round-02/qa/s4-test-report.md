@@ -5,7 +5,7 @@
 - Ngày: 17/10/2026, ~17:00–19:40
 - Bản kiểm: **HEAD `94c711d`** (nhánh chính; bản sửa BE-A/BE-B Sprint 4 chưa gộp)
 - Hợp đồng: OpenAPI **0.3.7** (đóng băng D1). Quy tắc: BR v0.3.6. Oracle: `product/tests/fixtures/br-examples.json`.
-- Kế hoạch: `qa/s4-test-plan.md`. Lỗi: `qa/bug-list.md` mục 11 (11.4 đối chiếu cây làm việc). Mục 5: cập nhật 17/10 tối.
+- Kế hoạch: `qa/s4-test-plan.md`. Lỗi: `qa/bug-list.md` mục 11 (11.4 đối chiếu cây làm việc). Mục 5: cập nhật 17/10 tối. Mục 6: bước Kiểm thử ~21:10–21:45 (CI `b6153b7`, TC-L3-077).
 - Báo cáo này cập nhật theo từng mốc D3 / D5 / D7 / D8.
 
 ## 0. Kết luận D1
@@ -131,3 +131,80 @@ Chi tiết ở `bug-list.md` 11.4. Tóm tắt:
 - **Còn mở:** B-6 (chờ patch), BUG-R2-033 (a) (kỳ vọng cần viết lại theo 0.3.7 mục A), BUG-R2-054, S4-10 (VietQR `check_in`), US-151/AC7 (landing v1.2).
 - **Lỗi đóng khi CI của commit gộp xanh** (QA không đóng trên cây làm việc).
 - **Dòng S4-35, S4-08, BUG-R2-085 giữ trong `OPEN`** (không còn ca nào dùng) để patch B-6 áp đúng ngữ cảnh. ORC/BE xóa sau khi áp patch.
+
+## 6. Kiểm thử 17/10 ~21:10–21:45 – CI `b6153b7` đỏ TC-L3-077 (kế hoạch 5.4)
+
+### 6.1 Môi trường
+- Stack `ottimo-qa-s4`. api biên dịch lúc 21:12 từ cây làm việc = HEAD `b6153b7` + thay đổi chưa commit (có S4-39 của BE-C, #6, bản sửa S4-11/S4-12 BE-C đang làm). Migration áp đủ, health OK.
+- admin-web, guest-web build từ cây làm việc lúc 21:12.
+- **Lưu ý cho FE-A:** lệnh `up --force-recreate … web` của QA lúc 21:12 đã thay container `web` mà FE-A tạo trước đó (`compose.web-fea.yml`, admin-web build 20:37). Bản admin-web của QA mới hơn (21:12, cùng cây làm việc). Từ lúc nhận lưu ý của ORC, QA không tạo lại `web` nữa.
+- Ngày ảo của QA: 2033-01-10 … 2033-03-08 (`qa-s4/auth`). Không trùng dải của FE-A (từ 2033-07-01). Trước mỗi lượt, QA kiểm không có tiến trình Playwright nào khác đang chạy vào api 43000 (đồng hồ ảo dùng chung).
+
+### 6.2 TC-L3-077 – nguyên nhân đỏ và cách sửa
+CI `b6153b7` đỏ cả 2 lượt. **Nguyên nhân nằm ở ca kiểm, không phải lỗi sản phẩm:**
+
+| Lượt CI | Lỗi | Nguyên nhân | Sửa trong ca |
+|---|---|---|---|
+| 1 | `createReservation 301 2032-04-30` → 422 `MIN_STAY_NOT_MET` (`minStayNights` 2) | Ngày đến D+2 rơi vào thứ Sáu. BR-113: đến thứ Sáu/thứ Bảy phải ở 2 đêm, ca đặt cố định 1 đêm | Số đêm = `minStayFor(ngày đến)` (helper `s2.ts`, cùng bảng ngày đặc biệt như server) |
+| 2 | `removePartyMember` → 422 `guestUploadPersonIndex` `REQUIRED` (`personIndexes` [2, 3]) | Hợp đồng 0.3.7 (S4-39) bắt buộc chọn ô "Khách n" khi còn giấy tờ khách gửi chưa gắn. Ca vẫn theo 0.3.6. Thay đổi này đã lường trước ở kế hoạch 5.4 | Xem dưới |
+
+Theo 0.3.7, đường **bỏ người có chọn ô** hủy ngay ô được chọn, không hẹn 24 giờ. Đường này đã có TC-L3-080 (a). Hẹn 24 giờ (`unclaimedUntil`) và "Cần chú ý" `registration_party_docs_unlinked` chỉ còn ở đường **không có lựa chọn của lễ tân**: giảm số khách (`updateReservation`) hoặc đơn OTA sửa. Vì vậy TC-L3-077 đổi bước dựng dữ liệu:
+- bỏ người đi cùng A; đơn 3 người lớn + B; giảm còn 2 người lớn bằng `updateReservation`;
+- kiểm `unclaimedUntil` của Khách 2, Khách 3 = mốc + 24 giờ (± 1 phút);
+- nhãn "Chờ gắn người – tự xóa lúc …" và dải cảnh báo tính theo `unclaimedUntil` (trước đây theo `imagePurgeAt`);
+- "Gắn người": hộp mới (tên hộp và nút = `reg.link.action`). Request phải 200, thân **đúng** `{partyMemberId}` (`GuestDocumentLink`), không có request đọc C3 (`/sensitive`, `/images/`) lúc gắn;
+- sau khi gắn: `partyMemberId` = B, `unclaimedUntil` rỗng, Khách 2 vẫn chờ;
+- phần "Xem đủ số / ảnh" và J16 giữ nguyên.
+
+### 6.3 Kết quả (desk-clock, `--no-deps`, `--retries=0`, mỗi lượt một lần gọi riêng)
+
+| Lượt | Ngày ảo D (thứ) | Ngày đến | Số đêm | Kết quả |
+|---|---|---|---|---|
+| 1 | 2033-01-10 (Hai) | Tư | 1 | Đạt (5,2 s) |
+| 2 | 2033-01-17 (Hai) | Tư | 1 | Đạt (3,7 s) |
+| 3 | 2033-01-24 (Hai) | Tư | 1 | Đạt (3,7 s) |
+| Thêm | 2033-03-02 (Tư) – QA đặt ngày bắt đầu trong tệp ngày ảo của mình | **Sáu** | **2** | Đạt (3,9 s) – đúng tình huống của lượt 1 CI |
+
+Kiểm ngoài ca: `prettier`, `eslint`, `tsc` của `product/tests` sạch.
+
+### 6.4 Desk H14/H15 có gửi `guestUploadPersonIndex` không – **không có lỗi FE**
+- Desk chỉ có một chỗ gọi `removePartyMember`: H15 `apps/admin-web/src/pages/stay/StayDialogs.tsx:1162`. Chỗ này truyền số ô đã chọn. `packages/api-client/src/endpoints.ts:604-617` gửi `?guestUploadPersonIndex=`. Lỗi 422 của trường này được xử lý ở `StayDialogs.tsx:1178`.
+- H14 không có nút bỏ người, nên không phải gửi trường này.
+- Chạy thật TC-L3-080 (a)(b) (FE-A, `ui-clock/stay-money.s4.spec.ts`) trên cùng stack: **2/2 đạt**. (a) bấm thật gửi `DELETE …?guestUploadPersonIndex=2`; (b) "Gắn người" chỉ gửi `partyMemberId`.
+
+### 6.5 TC-L3-074 (b) – BUG-R2-054
+- Ở HEAD `b6153b7`, `BUG-R2-054` còn trong `OPEN`. CI ghi "✘" xanh ở ca này nghĩa là hỏng đúng dự kiến; ca không nằm trong 2 ca đỏ.
+- Trên cây làm việc, BE-C đã bỏ `BUG-R2-054` (S4-12) và `BUG-R2-033` (S4-11) khỏi `OPEN`.
+- QA siết kỳ vọng: `imagesPurgeReason` phải = `retention` (J16 xóa theo hạn lưu – erd `document_image.delete_after`; enum OpenAPI 0.3.3), không chỉ "có giá trị".
+- TC-L3-074 + (b): **3/3 đạt** (project `clock`, `--no-deps`).
+- Kèm theo, TC-L3-032 (a)(b) (BUG-R2-033): **2/2 đạt**. BE-C có sửa tiền điều kiện (a): ghi đồng ý P05_CRM cho người đứng tên lần trước. QA đã rà: đúng hợp đồng, vì khóa `id_doc_hmac` chỉ có khi đã đồng ý P05 (erd 0.3.7, SEC F03).
+- BUG-R2-054 và BUG-R2-033 **chưa đóng**. QA chỉ đóng khi CI của commit gộp bản sửa BE-C xanh.
+
+### 6.6 Ngoài phạm vi được giao – báo ORC
+CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082** (FE-A, `ui-clock/stay-money.s4.spec.ts`): `locator.fill` quá 90 s ở cả 2 lượt. Cây làm việc đã có thay đổi của FE-A trên tệp này. QA không sửa và chưa chạy lại ca này.
+
+### 6.7 Việc thêm của ORC (~21:30–21:45)
+
+**(1) 409 `DUPLICATE_GUEST` khi dựng dữ liệu (FE-A gặp ở TC-L2-103) – lỗi harness, không phải lỗi sản phẩm.**
+- Nguyên nhân: BR-951 bắt SĐT là duy nhất trong các hồ sơ còn hiệu lực. Bốn chỗ sinh số tự viết riêng, đều chỉ có 10⁶ hoặc 10⁷ số: `0939` + 6 số ngẫu nhiên (`s2.ts mobile`, `s3.ts namedGuest`, `rbac/sprint3-ops.ts`, `api/guests.api.spec.ts`) và `093` + 7 số (`ui/helpers.ts fakePhone`). Trên stack dùng lâu, vài nghìn hồ sơ là đã có số trùng (bài toán ngày sinh) – cùng loại breg-3 / TC-L3-013 ở S3.
+- Sửa ở `support/api.ts`:
+  - `fakeMobile()` – một bộ sinh dùng chung, ra số di động VN `0[35789]` + 8 số. Giá trị = đồng hồ theo 0,1 giây (mỗi tiến trình tăng nghiêm ngặt) × 100 + ô worker Playwright (`TEST_PARALLEL_INDEX`) × 10 + một chữ số ngẫu nhiên của tiến trình, lấy mod 5·10⁸.
+    - Trong một lượt chạy: không trùng.
+    - Giữa các lượt: không trùng trong khoảng 5,8 ngày.
+    - Hai lượt chạy cùng lúc trên một stack: khác nhau ở chữ số ngẫu nhiên.
+    - Mọi số đều hợp lệ với `normalizePhone` của server (kiểm 300.000 số, ô 3 và ô 9).
+  - `createFakeGuest()` – gặp 409 `DUPLICATE_GUEST` trên trường `phone` thì thử lại với số mới, tối đa 3 lần, ghi annotation `harness`. Chỉ áp cho số do harness sinh. Ca kiểm trùng SĐT (TC-L5-043) vẫn gọi thẳng API.
+  - `newGuest` (s2), `namedGuest` (s3) dùng `createFakeGuest`. `mobile`, `fakePhone`, rbac và guests.api dùng `fakeMobile`.
+- Kiểm: `guests.api` + `checkin.s3.api` + `money-s4.api` với 4 worker → 62 đạt, 2 bỏ qua (có sẵn). TC-L2-103 (a)(b) đạt trên api dựng lại.
+
+**(2) Rà thay đổi của FE-A trong `known-bugs.ts` – đồng ý.**
+- Regex `knownBug` thêm dạng `DOM-S4-\d{2}`: đúng. `DOM-S4-xx` là mã quyết định của DOM có trong decision-log (dòng DOM 17/10, BR v0.3.8) và `br-examples.json`, nên truy được. Regex vẫn chặt: không nhận mã lạ khác.
+- Lúc QA rà, BE-A đã bỏ `DOM-S4-06` khỏi `OPEN` (cùng `S4-10`). `OPEN` chỉ còn `US-151/AC7`.
+- Với api cây làm việc 21:12 (chưa có bản sửa BE-A), TC-L2-103 (b) đỏ: `moveReservation` trả 200 thay vì 422. Đó là do stack cũ hơn registry, không phải lỗi. QA dựng lại api lúc 21:35 từ cây làm việc (`api-dist4`; lúc 21:31 cây còn lỗi tsc ở `folio.service.ts`, đợi BE-B sửa xong mới dựng). Sau đó TC-L2-103 (a)(b) đạt 2/2.
+- Đề nghị giữ quy ước: mã nào có trong `OPEN` thì phải có dòng trong `bug-list.md` hoặc kế hoạch S4. `DOM-S4-06` đã đóng nên không cần thêm dòng.
+- Hồi quy trên api 21:35 (web là admin-web của FE-A, `fea-s4/aw-dist`):
+  - TC-L3-077 + TC-L3-080 (a)(b): 3/3 đạt;
+  - TC-L3-074 + (b): 2/2 đạt.
+
+**(3) A1/A4 liền mạch (kế hoạch 5.3) – mới khảo sát, chưa viết ca.** Xem kết quả trả về cho ORC.
+

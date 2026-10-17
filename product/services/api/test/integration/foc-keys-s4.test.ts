@@ -309,8 +309,20 @@ describe.skipIf(!HAS_DB)('S4 FOC keys (BE-B: S4-02, S4-18, S4-22, S4-23, S4-34, 
     });
     expect(r.statusCode, r.body).toBe(200);
   };
+  /** B7 date change: BR-429 (d1) v0.3.8 (DOM-S4-06) – a change of money is saved with the amount shown. */
+  const shown = async (b: Booking, body: Record<string, string>) => {
+    const pv = await c.fd!.get(
+      url(`/reservations/${b.id}/move-preview?${new URLSearchParams(body)}`),
+    );
+    expect(pv.statusCode, pv.body).toBe(200);
+    return { ...body, applyDifference: true, expectedDeltaVnd: pv.json().folioDeltaVnd as number };
+  };
   const moveDates = async (b: Booking, arrivalDate: string, departureDate: string) => {
-    const r = await act(b.id, 'move', { arrivalDate, departureDate, reasonCode: 'guest_request' });
+    const r = await act(
+      b.id,
+      'move',
+      await shown(b, { arrivalDate, departureDate, reasonCode: 'guest_request' }),
+    );
     expect(r.statusCode, r.body).toBe(200);
   };
   const patchPeople = async (b: Booking, body: Record<string, unknown>) => {
@@ -910,16 +922,20 @@ describe.skipIf(!HAS_DB)('S4 FOC keys (BE-B: S4-02, S4-18, S4-22, S4-23, S4-34, 
       const n1 = (await liveBy(b, 'room')).find((l) => l.serviceDate === from)!;
       const p = await requestReduction(b, n1.id, n1.amountVnd);
       const v = await version(b.id);
-      const [ap, mv] = await Promise.all([
+      const moveBody = { arrivalDate: from, departureDate: longTo, reasonCode: 'guest_request' };
+      const [ap, first] = await Promise.all([
         decide('mgr', p.id),
-        c.fd!.send(
-          'POST',
-          url(`/reservations/${b.id}/actions/move`),
-          { arrivalDate: from, departureDate: longTo, reasonCode: 'guest_request' },
-          { 'if-match': `"${v}"` },
-        ),
+        c.fd!.send('POST', url(`/reservations/${b.id}/actions/move`), await shown(b, moveBody), {
+          'if-match': `"${v}"`,
+        }),
       ]);
       expect(ap.statusCode, ap.body).toBe(200);
+      // DOM-S4-06: the approval may commit first and change the amount the desk showed → 409, the desk shows
+      // the new amount and saves again (never a silent other amount).
+      const mv =
+        first.statusCode === 409 && first.json().code === 'SURCHARGE_CHANGED'
+          ? await act(b.id, 'move', await shown(b, moveBody))
+          : first;
       expect(mv.statusCode, mv.body).toBe(200);
       await assertInvariant(b);
       const night = (await liveBy(b, 'room')).find((l) => l.serviceDate === from)!;
@@ -1031,6 +1047,17 @@ describe.skipIf(!HAS_DB)('S4 FOC keys (BE-B: S4-02, S4-18, S4-22, S4-23, S4-34, 
       { field: 'retainLines[0].lineId', code: 'NOT_IN_LIST' },
       { field: 'retainLines[1].reason', code: 'REASON_REQUIRED' },
     ]);
+    // V-09 (BE-A review S4): a card number in the reason → 422 CARD_NUMBER_DETECTED, before the length check
+    const card = await cancel({
+      reasonCode: 'found_other',
+      dryRun: true,
+      retainLines: [{ lineId: pickup.id, reason: `Thẻ 4111 1111 1111 1111 ${'x'.repeat(500)}` }],
+    });
+    expect(card.statusCode).toBe(422);
+    expect(card.json()).toMatchObject({
+      code: 'CARD_NUMBER_DETECTED',
+      errors: [{ field: 'retainLines[0].reason', code: 'CARD_NUMBER_DETECTED' }],
+    });
     const keep = [{ lineId: pickup.id, reason: 'Xe đã đón khách' }];
     const dry2 = (
       await cancel({ reasonCode: 'found_other', dryRun: true, retainLines: keep })

@@ -924,6 +924,22 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect(await fa.app.get<BlobStore>(BLOB_STORE).get(gone.blob_key)).toBeNull();
     // Legal hold: still there.
     expect((await imageState(held.documentId)).deleted_at).toBeNull();
+    // S4-12 / BUG-R2-054: the declaration shows when and why its images went (EP06 6.1) – SR-RET-02 reads as
+    // `retention`; the held one shows nothing.
+    fa.clock.set(T0); // staff sessions of this file live at T0
+    for (const [r, at] of [
+      [cancelled, '2026-10-22T09:01:00.000+07:00'],
+      [out, '2026-10-27T11:01:00.000+07:00'],
+    ] as const) {
+      const reg = (
+        await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${r.registrationId}`)
+      ).json();
+      expect(reg).toMatchObject({ imagesPurgedAt: at, imagesPurgeReason: 'retention' });
+    }
+    const heldReg = (
+      await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${held.registrationId}`)
+    ).json();
+    expect(heldReg).not.toHaveProperty('imagesPurgedAt');
     // FD/MGR see a "Cần chú ý" item for each declaration that never reached `confirmed`.
     const attention = await db.withContext(t.ctx(), async (tx) =>
       (

@@ -229,9 +229,10 @@ test.describe(
         },
       );
 
-      // BUG-R2-064 (S4-24): mỗi phần lỗi đã biết là một ca riêng, test.fail ở DÒNG ĐẦU (knownBug), dựng dữ liệu trong
-      // precondition – hỏng ở đó là đỏ thật. Kỳ vọng giữ như R2 Sprint 3; khi S4-11 (0.3.7 nhóm D mục A: Guest.source,
-      // possibleReturningGuest, id_doc_hmac chỉ khi P05) vào, QA viết lại kỳ vọng (a)(b) theo hợp đồng mới cùng PR đó.
+      // BUG-R2-064 (S4-24): mỗi phần lỗi đã biết là một ca riêng, knownBug ở DÒNG ĐẦU, dựng dữ liệu trong precondition.
+      // BUG-R2-033 đã đóng (BE-C S4-11, 0.3.7 nhóm D mục A): khóa giấy tờ `id_doc_hmac` chỉ có trên hồ sơ đã đồng ý P05
+      // (SEC F03) → tiền điều kiện (a) ghi P05_CRM cho người đứng tên lần ở trước; không P05 thì người 2 thành hồ sơ
+      // "từ giấy tờ" mới (đúng hợp đồng – ca guest-document-profiles của API).
       test(
         'TC-L3-032 (a) US-043/AC3 người 2 trùng số giấy tờ với hồ sơ có sẵn → gắn hồ sơ đó (BUG-R2-033 a) [A · TB]',
         { annotation: [story('US-043/AC3'), eps('addGuestDocument, listParty')] },
@@ -249,6 +250,25 @@ test.describe(
               const known = vnDoc(prev.guestName);
               const kd = await addDocument(request, fd, prev.regId, known);
               expect(kd.status, JSON.stringify(kd.body)).toBe(201);
+              // người đứng tên đồng ý P05_CRM tại quầy (BR-955) → hồ sơ G giữ khóa giấy tờ v1 + 4 số cuối
+              const p05 = await call(
+                request,
+                'POST',
+                p3(EP3.recordImageConsent, fd, { registrationId: prev.regId }),
+                {
+                  session: fd,
+                  idempotencyKey: true,
+                  body: {
+                    partyMemberId: mainDoc(kd.body).id,
+                    purpose: 'P05_CRM',
+                    decision: 'granted',
+                    noticeVersion: PRIVACY_NOTICE,
+                    locale: 'vi',
+                    channel: 'desk',
+                  },
+                },
+              );
+              expect(p05.status, JSON.stringify(p05.body)).toBe(201);
               const prevBooker = (await getReservation(request, fd, prev.res.id)).body.booker as
                 { id?: string } | undefined;
               // đơn mới 2 khách (người đứng tên khác)
@@ -256,8 +276,8 @@ test.describe(
               return { fd, st, known, prevBooker };
             },
           );
-          // (a) người thứ 2 trùng số giấy tờ N với hồ sơ G, không chọn partyMemberId. Gốc (QA 17/10): cổng khớp
-          // (frontdesk/internal/document-party.port.ts) chỉ so guest.id_doc_hmac mà không chỗ nào ghi cột này.
+          // (a) người thứ 2 trùng số giấy tờ N với hồ sơ G (P05), không chọn partyMemberId → G vào đơn (người đi cùng
+          // "Chưa rõ") – cổng khớp frontdesk/internal/document-party.port.ts bước 2.
           const a = await addDocument(request, fd, st.regId, { ...known, isMain: false });
           expect(a.status, JSON.stringify(a.body)).toBe(201);
           const docA = a.body.documents.find((d) => !d.isMain);
@@ -275,7 +295,7 @@ test.describe(
         'TC-L3-032 (b) US-043/AC3 người 2 không khớp ai → người mới quan hệ "Chưa rõ" (BUG-R2-033 b) [A · TB]',
         { annotation: [story('US-043/AC3'), eps('addGuestDocument, listParty')] },
         async ({ request }) => {
-          // BUG-R2-033 (b) đã xanh trên cây làm việc 17/10 20:18 (BE-C S4-11) – ca phải đạt; phần (a) vẫn mở
+          // BUG-R2-033 (b) đã xanh trên cây làm việc 17/10 20:18 (BE-C S4-11) – ca phải đạt
 
           const { fd, st, before } = await precondition(
             'đơn mới 2 khách có giấy tờ người đứng tên',

@@ -270,6 +270,25 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
   });
 
   it("BR-506 short stay: after today's full clean (10:00) a second clean costs the fee", async () => {
+    await at('2026-10-15T09:00:00+07:00');
+    // BR-506-03 (v0.3.8, DOM-S4-09): a priority clean preparing the room at check-in is NOT a full clean.
+    await q(
+      `INSERT INTO hk_task (id, organization_id, property_id, room_id, reservation_id, type, status, due_date, source,
+         done_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'priority_clean', 'done', '2026-10-15', 'system', $6, $6, $6)`,
+      [
+        uuidv7(),
+        t.organizationId,
+        t.propertyIds[0],
+        ids.rooms['202'],
+        stays.a!.reservationId,
+        new Date('2026-10-15T08:40:00+07:00'),
+      ],
+    );
+    expect((await options(stays.a!.sid)).extra_cleaning).toMatchObject({
+      available: true,
+      feeVnd: null,
+    });
     await at('2026-10-15T11:00:00+07:00');
     await q(
       `INSERT INTO hk_task (id, organization_id, property_id, room_id, reservation_id, type, status, due_date, source,
@@ -543,7 +562,7 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
     ]);
   });
 
-  it('J10 guest_request.sla: a request still new after its deadline reminds the department + desk once; "Cần chú ý" FD+', async () => {
+  it('J10 guest_request.sla: a request still new after its deadline reminds the department + desk + manager once; "Cần chú ý" FD+', async () => {
     await at('2026-10-16T09:00:00+07:00');
     const r = await create(stays.c!.sid, { type: 'other', note: 'Cho mượn bàn ủi' });
     expect(r.statusCode, r.body).toBe(201);
@@ -565,7 +584,8 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
     expect((await runner.runOnce(GUEST_REQUEST_SLA_JOB_KEY, property)).stats).toEqual({
       reminded: 0,
     });
-    expect(await notified('guest_request_overdue', id)).toEqual(['fd', 'fdl']);
+    // BR-811-04 (v0.3.8, DOM-S4-10): the manager is the escalation step; the owner is not told.
+    expect(await notified('guest_request_overdue', id)).toEqual(['fd', 'fdl', 'mgr']);
     const attn = await staff(fa, tok('fd'), null, 'GET', `${P(t)}/attention`);
     expect(attn.json().data).toContainEqual(
       expect.objectContaining({

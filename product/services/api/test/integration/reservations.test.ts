@@ -84,6 +84,15 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
   });
   const create = (body: Record<string, unknown>, who = 'fd') =>
     c[who]!.send('POST', url('/reservations'), body);
+  /** BR-429 (d1) v0.3.8 (DOM-S4-06): a B7/B8 that changes the money is saved with the amount shown. */
+  const shown = async (id: string, body: Record<string, unknown>, who = 'fd') => {
+    const qs = new URLSearchParams(
+      Object.entries(body).map(([k, v]) => [k, String(v)] as [string, string]),
+    );
+    const pv = await c[who]!.get(url(`/reservations/${id}/move-preview?${qs}`));
+    expect(pv.statusCode, pv.body).toBe(200);
+    return { ...body, applyDifference: true, expectedDeltaVnd: pv.json().folioDeltaVnd as number };
+  };
   const action = (
     id: string,
     verb: string,
@@ -571,11 +580,18 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
     const before = r.nightlyRates;
     // BR-429 (b) v0.3.5: a move OTTIMO makes keeps the booked prices (a guest request re-prices – ESC-019 A,
     // move-pricing tests).
-    const res = await action(r.id, 'move', r.version, {
-      roomId: ids.rooms['101'],
-      departureDate: '2027-01-14',
-      reasonCode: 'property_fault',
-    });
+    // v0.3.8 (DOM-S4-01/06): the added night takes the OLD room's calendar; a change of money is saved with
+    // the amount shown.
+    const res = await action(
+      r.id,
+      'move',
+      r.version,
+      await shown(r.id, {
+        roomId: ids.rooms['101'],
+        departureDate: '2027-01-14',
+        reasonCode: 'property_fault',
+      }),
+    );
     expect(res.statusCode, res.body).toBe(200);
     const m = res.json();
     expect(m.segments[0]).toMatchObject({
@@ -599,12 +615,16 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
       r.id,
       'move',
       m.version,
-      {
-        arrivalDate: '2027-02-01',
-        departureDate: '2027-02-03',
-        mode: 'postpone_instead_of_cancel',
-        reasonCode: 'guest_request',
-      },
+      await shown(
+        r.id,
+        {
+          arrivalDate: '2027-02-01',
+          departureDate: '2027-02-03',
+          mode: 'postpone_instead_of_cancel',
+          reasonCode: 'guest_request',
+        },
+        'mgr',
+      ),
       'mgr',
     );
     expect(pm.statusCode, pm.body).toBe(200);

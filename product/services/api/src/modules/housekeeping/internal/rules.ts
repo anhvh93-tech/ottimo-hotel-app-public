@@ -112,6 +112,14 @@ export const CLEAN_TYPES: readonly HkTaskType[] = [
   'guest_request',
 ];
 
+/**
+ * BR-807 / ESC-008: a stay-over clean changes the linen every `every` nights of the stay (`nights` = nights
+ * already slept, counted from the first arrival of the stay – an extension child counts its parent's). J8 and
+ * the B13 stay-over clean use this one rule (DOM-S4-16 a).
+ */
+export const linenChangeDue = (every: number, nights: number): boolean =>
+  every > 0 && nights > 0 && nights % every === 0;
+
 /** Types the desk may create by hand (EP07 3.6); the others are system-only. */
 export const MANUAL_TASK_TYPES: readonly HkTaskType[] = [
   'adhoc_clean',

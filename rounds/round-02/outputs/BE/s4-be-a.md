@@ -157,3 +157,126 @@ Oracle: đã bỏ `pendingFix` của **10 dòng** BR-402-01, BR-424-04, BR-429-0
 | eslint + prettier tệp BE-A đợt 2 | xanh |
 
 Giả định mới (decision-log, chờ DOM): (k) ghi chuyển về **không chặn** khi minibar căn đơn gốc chưa đếm (hợp đồng không khai `MINIBAR_NOT_CHECKED`), đã đếm thì sinh việc bổ sung như B18; (l) chỉ ghi được trong ngày về, quên → BR-806; (m) `finalPayment` vượt trần bị chặn cứng. **ESC mới: không.**
+
+## 10. Đợt 3 (ORC 17/10 tối): review BE-C, `amountDueFor` (S4-10), `touchLastStay`
+
+### 10.1 Review các sửa của BE-C trong module BE-A – **Đồng ý, 2 Minor + 3 gợi ý**
+So với commit `94c711d` (`git diff HEAD`), đọc cùng `outputs/BE/s4-be-c.md` mục 1.1, 1.3, 1.4, 3.
+
+| Tệp | Kết luận |
+|---|---|
+| `frontdesk/public/ports.ts` | Đồng ý: `GuestUploadChoice = number \| 'none'`, tham số tùy chọn ở `onPartyMemberRemoved` – các bản cài cũ (mặc định, test) không gãy |
+| `frontdesk/internal/frontdesk.controller.ts` | Đồng ý: `guestUploadPersonIndex` là số nguyên 2…20 hoặc `none`, sai → 422 `NOT_IN_LIST`, vắng hoặc rỗng = không gửi. Kiểm trước khi mở UoW |
+| `frontdesk/internal/party.service.ts` | Đồng ý: chuyển tiếp lựa chọn. 422 `REQUIRED`/`NOT_ALLOWED` của cổng registration xảy ra trong cùng giao dịch → cả lệnh bỏ người hoàn lại (khóa đơn trước, rồi mới gọi registration – đúng thứ tự khóa) |
+| `frontdesk/public/room-status.service.ts` (shim B-14) | Đồng ý: chỉ re-export, đường import của desk giữ nguyên. Hành vi mới của `set` (S4-31: sự kiện `B13` `OC → OD` sinh hoặc đổi sang `stayover_clean`) **không ảnh hưởng** luồng BE-A: B9/B14/B17/B18/ghi chuyển về dùng sự kiện khác. B13 gia hạn giữa kỳ thì căn thường đã `OD` sau J8, còn trùng việc thì `ON CONFLICT DO NOTHING`. **Gợi ý (R3):** `RoomStatusService` hiện được cung cấp ở hai nơi (FrontdeskModule và HousekeepingModule `@Global`). Hiện cùng lớp, không giữ trạng thái nên vô hại; nên bỏ provider/export ở FrontdeskModule để chỉ còn một instance |
+| `frontdesk/internal/document-party.port.ts` (viết lại theo nhóm D mục A) | Đồng ý với thứ tự khớp: thành viên theo khóa → tên + ngày sinh → hồ sơ P05 ngoài đơn → hồ sơ "từ giấy tờ". Trẻ không khớp → null; trùng tên + ngày sinh ngoài đơn chỉ bật cờ. **Minor (có từ S3, không do BE-C):** `addDocument` khóa `registration` rồi mới khóa `reservation FOR UPDATE` ở đây. B9/B16/B18/bỏ người khóa theo chiều ngược lại (đơn → registration), nên hai lệnh đồng thời trên cùng đơn có thể deadlock. Lỗi tự hết khi chạy lại (409/40P01). Đề nghị R3: registration khóa đơn trước qua cổng của reservations. **Gợi ý:** `addCompanion` không phát `reservation.changed` (chỉ có `registration.changed`) nên danh sách người trên Desk không tự làm mới. **Lưu ý nghiệp vụ:** người vượt số khai (`overCount`) không đổi `adults`/phụ thu BR-110. Nhưng lần `addPartyMember` sau, `PartyService.add` tính `max(khai, hiện có)` nên nâng số khai và phụ thu **cả người vượt từ giấy tờ** từ `effectiveFrom`. Nhất quán với "lễ tân quyết", FE-A cần hiện cảnh báo `overCount` |
+| `reservations/internal/room-blocks.service.ts` | Đồng ý: đúng một trong `endDatePlanned`/`expectedDoneDate`, server cộng `ooo_reopen_buffer_days` (BR-804), giữ `expected_done_date`, `get()`, `viaWorkOrder` chỉ đi qua `RoomBlockPort`. **Minor:** tham số `ooo_reopen_buffer_days` cho phép **0** (`0003_parameter_bounds`: min 0). Khi đó `expectedDoneDate = startDate` cho khối rỗng `[start, start)`, lỗi chỉ lộ ra ở tầng tồn phòng. Đề nghị kiểm `end > start` **sau** khi cộng đệm (422 `expectedDoneDate DATE_ORDER`) |
+| `reservations/public/room-block.port.ts` | Đồng ý: mọi khối OOO vẫn đi qua aggregate đặt phòng (ADR-009). Cùng kiểm tra và 409 như `createRoomBlock`, khóa `room_block` trước rồi `transition` (cùng giao dịch). Đóng phiếu không qua quy tắc MGR+ (A87 chỉ áp cho mở khóa **không** có phiếu) |
+| `reservations/reservations.module.ts` | Đồng ý: provider/export `RoomBlockPort` (cạnh `StayNightPricingPort` của BE-A) |
+| `test/integration/frontdesk-s3-fixes.test.ts` (BUG-R2-033) | Đồng ý: ca viết lại đúng hành vi mới (cờ khách quen, P05 theo khóa, hồ sơ từ giấy tờ, trẻ → null, `name_search` không dấu). **Gợi ý:** thêm kiểm `adults` và dòng `extra_person` không đổi sau người `overCount` |
+
+### 10.2 `ReservationSalesPort.amountDueFor` (S4-10 phía BE-A – cho BE-B làm trần `createVietQr purpose=check_in/check_out`)
+- **Hàm:** `amountDueFor(tx: Tx, q: AmountDueQuery): Promise<number>` (`reservations/public/sales-port.ts`). Kiểu:
+  `AmountDueQuery = { reservationId: string; purpose: 'check_in' | 'check_out'; actor: { userId: string; roles: readonly string[]; requestId?: string }; checkinTime?: LocalTime; addPriorNight?: boolean; priorNightRateVnd?: number; checkoutAt?: Date; extraNightRateVnd?: number }`.
+- **Một nguồn tính:** `check_in` = `CheckInPreview.amountDueAtCheckinVnd` (đêm B9a tính theo `priorNightRateVnd` khi `addPriorNight`); `check_out` = `CheckoutSummary.amountDueAtCheckoutVnd` (`dueAtCheckout` dùng chung với `getCheckoutSummary` và trần `finalPayment`). Module frontdesk cài qua `ReservationHooks.provideAmountDue`, không tạo vòng phụ thuộc.
+- **Mặc định giờ:** vắng `checkinTime`/`checkoutAt` = giờ server (đúng thứ B9/B18 tính lúc đó). Lưu ý: khác mặc định của **form** xem trước (giờ chuẩn), nên Desk cần gửi cùng giờ đang hiển thị.
+- **Lỗi** (ném `ProblemError`, BE-B để nổi lên):
+  - không phải FD+ → 403 `FORBIDDEN_ACTION`;
+  - sai trạng thái (`confirmed`/`in_house`), sai ngày (ngày đến hoặc cửa sổ B9a; ngày đi hoặc cửa sổ sau nửa đêm), đơn con khi trả phòng → 409 `INVALID_TRANSITION`;
+  - `addPriorNight`/`priorNightRateVnd` khi không có đêm B9a, hoặc `extraNightRateVnd` khi không có đêm thêm → 422 `VALIDATION_FAILED` `NOT_ALLOWED`;
+  - giá ngoài sàn–trần → 422 `RATE_OUT_OF_RANGE` (field `priorNightRateVnd`/`extraNightRateVnd`, `min`/`max`);
+  - `checkoutAt` khác ngày đi → 422 `checkoutAt DATE_INVALID`.
+- **Phần BE-B còn làm** (module payments): zod `purpose` thêm `check_in`/`check_out` + các trường kèm theo (422 `NOT_ALLOWED` khi sai purpose), gọi `amountDueFor` làm `capVnd`.
+
+### 10.3 `touchLastStay` (việc BE-C nhờ)
+B18 gọi `DocumentProfileService.touchLastStay(tx, guestIds, now)` cho người đứng tên của mọi đơn trong lượt ở (đơn gốc + đơn con) và các thành viên còn trong đoàn – cùng tập J25 tự bù. B16 không trả phòng (chỉ rút ngày đi, B18 làm sau) nên không gọi ở B16.
+
+### 10.4 File đợt 3
+- Sửa:
+  - `src/modules/reservations/public/sales-port.ts` (`AmountDueQuery`, `amountDueFor`), `src/modules/reservations/public/reservation-hooks.ts` (`provideAmountDue`), `src/modules/reservations/internal/sales-port.adapter.ts`;
+  - `src/modules/frontdesk/frontdesk.module.ts` (đăng ký handler), `src/modules/frontdesk/internal/checkin.service.ts` (`amountDueForQr`), `src/modules/frontdesk/internal/checkout.service.ts` (`dueAtCheckout` dùng chung, `amountDueForQr`, `touchLastStay`);
+  - `test/integration/checkout-due.test.ts` (+1 ca S4-10, +kiểm `last_stay_checkout_at`).
+- Không sửa module payments (của BE-B).
+
+### 10.5 Kết quả lệnh (17/10 ~20:45)
+| Lệnh | Kết quả |
+|---|---|
+| vitest `services/api` toàn bộ, cây chung, DB mới `ottimo_test_bea_s4l` (sau khi ORC đổi journal) | **2620/2620 xanh, 76/76 tệp**. Gồm `vietqr-stay-step.test.ts` của BE-B (3 ca S4-10) chạy **qua `amountDueFor` của BE-A**. Một lượt trước đó đỏ 2 ca này là do BE-B đang sửa `payments.service.ts` giữa chừng; chạy lại thì xanh |
+| `checkout-due.test.ts` | 5/5 (S4-47 4 ca + S4-10 phía BE-A) |
+| `tsc --noEmit`, eslint, prettier tệp BE-A đợt 3 | xanh |
+
+## 11. Phản hồi & sửa theo BR v0.3.8 (ORC 17/10 tối – DOM-S4-01…06, DOM-S4-14 phần BE-A)
+
+### 11.1 Kết quả theo oracle (chạy thật trên PostgreSQL, `move-pricing.test.ts`)
+| Mã DOM | Oracle | Kết quả | Sửa ở |
+|---|---|---|---|
+| DOM-S4-01 | BR-429-11: `force_majeure` dời 2 đêm thường sang thứ Sáu + thứ Bảy, OTTIMO xếp 202 → 401 | **1.822.000** (lịch 202), chênh +238.000; không tick → 422 `applyDifference REQUIRED`, không số → 422 `expectedDeltaVnd REQUIRED` | `move-planner.ts` (căn tính giá đêm thêm) |
+| DOM-S4-02 | BR-429-14: 3 người lớn 202, lễ tân sửa phụ thu đêm 1 còn 100.000 (`adjustFolioLine`) → OTTIMO đổi 203 | đêm 1 giữ **100.000**, đêm 2 giữ 150.000, định mức bảo vệ 2, chênh 0 | `move-planner.ts` (min với phụ thu đang ghi, chỉ đêm đã có căn) |
+| DOM-S4-03 | BR-429-15: báo giá mã OTTIMO-BACK5, 101 → 401 | **990.000/đêm, 1.980.000**, `returningGuestDiscountPct` 5, `losDiscountPct` 0, chênh 712.000 | `pricing.ts` (hàm BR-111 chung), `move-planner.ts`, `retierStay`, `stay-night-pricing.ts` |
+| DOM-S4-04 | BR-429-16: báo giá 7 đêm −10 % dời 1 ngày | **5.205.000**, đêm thêm 713.000, chênh 0 (không giảm lần hai); `calendarRateVnd` từng đêm có trong đơn | `sales-port.adapter.ts` (`createHoldFromQuote`) |
+| DOM-S4-05 | BR-402-02: Agoda 203 → 401 (khách xin) | (a) 14:00: phải thu **500.000** – không thu → 409 `balance_paid`, thu đủ → nhận phòng; (b) 04:30 B9a: **1.542.000** | `checkin.service.ts` (`incidentalNet`; xem trước, điều kiện, kiểm cuối) |
+| DOM-S4-06 | BR-429-12: khách đổi ngày giữ căn +119.000 | 422 thiếu tick, 409 `SURCHARGE_CHANGED` khi số cũ (0), đúng số → 200, 2.495.000 | `reservations.service.ts` `move()` |
+| DOM-S4-14 | BR-309-10; phí BR-522-05 (a)(b)(c) | phí **700.000**, hoàn 300.000; (a) 350.000, (b) 700.000, (c) 700.000 (trước là 0) | `retainableDeposit`, `cancellationQuote` |
+
+- Đã bỏ `pendingFix` của **BR-429-11, -12, -14, -15, -16, BR-402-02, BR-309-10**.
+- **Giữ** `pendingFix` của BR-522-05, vì phần "bổ sung yêu cầu hoàn / tự hủy yêu cầu chờ duyệt vượt dư" là của BE-B. Phần phí của BE-A đã kiểm trong cùng ca.
+- Ghi chú: API không cho tạo yêu cầu hoàn khi folio chưa có tiền thừa (`REFUND_EXCEEDS_APPROVED`). Vì vậy ca "yêu cầu hoàn tạo nhầm" phải ghi dòng `approval_request` trực tiếp trong fixture.
+- Đã xóa `DOM-S4-06` khỏi `OPEN` (`product/tests/e2e/support/known-bugs.ts`) theo ORC. Ca TC-L2-103 (b) chưa chạy E2E UI ở máy BE-A; hành vi server được kiểm bằng BR-429-12.
+
+### 11.2 Test cũ sửa theo quy tắc mới (thay đổi hành vi có chủ ý)
+- **Tệp của BE-B – xin BE-B review:**
+  - `foc-keys-s4.test.ts`:
+    - helper `moveDates` qua `move-preview` rồi gửi tick + số đã hiện (ca BR-434-07, -09, -10, BR-433-03, S4-01);
+    - ca đua S4-13: nếu duyệt FOC commit trước làm đổi số thì nhận 409 `SURCHARGE_CHANGED`, xem lại rồi lưu lại – đúng như Desk làm.
+  - `foc-resync.test.ts`: helper `shown`; `moveTo` và 2 lệnh dời ngày ở ca (A) (các ca c2, d4, BR-434-03).
+  - `folio-payments.test.ts`: ca DOM-BE-03, xem trước rồi lưu.
+  - `payments-s3.test.ts`: 3 ca viết theo quy tắc phí cũ VER-BE-S3-01, nay DOM-S4-14 đã thay:
+    - DOM BE-14: `refundableVnd` không đổi khi có yêu cầu hoàn mở;
+    - VER-BE-S3-01: phí = cọc yêu cầu, không phải giá trị đơn;
+    - REFUND #1: no-show giữ cọc yêu cầu, phần còn lại có yêu cầu hoàn – không còn tiền thừa chưa xử lý.
+  - `sales.test.ts` BR-302-01: đơn từ báo giá nay có `calendarRateVnd` (DOM-S4-04).
+- **Tệp của BE-A:**
+  - `move-pricing.test.ts`: BR-429-08, BUG-058 (c) (OTTIMO giảm phụ thu −450.000 → phải tick), BR-434-09;
+  - `reservations.test.ts` US-024: đêm thêm theo lịch căn cũ, tick khi có chênh;
+  - `reservations-fix.test.ts` BR-107-04;
+  - `frontdesk-stay.test.ts` và `ota-prepaid-flow.test.ts`: đơn OTA B9a phải thu đêm trước khi nhận phòng (409 khi không thu).
+
+### 11.3 Review BE-D `frontdesk/internal/attention-sources.ts` `noShows` (DOM-S4-07) – **Đồng ý**
+- Đơn `confirmed` có ngày đến đã qua luôn ở dòng `no_show_mark` (critical), mọi giờ, kể cả sau 06:00 hôm sau. Hạn của dòng = giờ đánh dấu của đơn đến sớm nhất.
+- Đơn đến hôm nay vẫn theo giờ gọi/giờ đánh dấu và ETA (ETA 01:30 vào dòng sau 01:30 trên trục ngày nghiệp vụ, sang ngày mới thì thành đơn quá hạn).
+- Khớp B11 của BE-A: `markNoShow` cho phép mọi lúc sau giờ đánh dấu của ngày đến, kể cả các ngày sau.
+- Gợi ý cũ vẫn còn: `business_day_rollover ?? '06:00'`.
+
+### 11.4 Kết quả lệnh (17/10 ~21:35)
+| Lệnh | Kết quả |
+|---|---|
+| vitest api toàn bộ, cây chung, DB mới `ottimo_test_bea_s4r` | **2635/2636**. Ca đỏ duy nhất là `contract.test.ts` "OpenAPI-generated metadata is up to date": `openapi.yaml` đang được sửa lúc 21:32 (ARC, mô tả DOM-S4-06?) mà chưa chạy `gen:openapi`. BE-A không sửa hợp đồng. Một lượt trước đó đỏ 236 ca do `FolioService.repostVoidedDifferences` của BE-B đang viết dở; chạy lại thì hết |
+| `move-pricing.test.ts` | 25/25 (7 ca v0.3.8 mới) |
+| tsc, eslint, prettier (tệp BE-A + test đã sửa) | xanh |
+| `validate-fixtures` | OK – 0 lỗi |
+
+**Lưu ý tệp oracle:** lúc bỏ `pendingFix`, BE-A ghi lại `br-examples.json` bằng bộ đọc JSON.
+- 324/349 dòng không đổi so với HEAD giữ đúng nguyên văn.
+- 25 dòng DOM thêm/sửa hôm nay (chưa commit) được prettier định dạng lại: nội dung không đổi, đã so từng dòng; chỉ khác xuống dòng.
+
+Giả định mới (decision-log, chờ DOM): (n) no-show cùng cơ sở mới; (o) đơn OTA trả trước thu khoản phát sinh khi trả phòng; (p) không bắt buộc tick thì bỏ qua số gửi kèm; (q) báo giá đã cộng dồn mã quay lại thì tính lại vẫn cộng dồn; (r) không sửa dữ liệu đơn báo giá cũ. **ESC mới: không.**
+
+### 11.5 Review lượt 2 của BE-C trong module BE-A (`s4-be-c.md` mục 7) – **Đồng ý, không mâu thuẫn với các sửa DOM-S4**
+- `frontdesk/frontdesk.module.ts`:
+  - Đã bỏ provider/export `RoomStatusService`. Nay chỉ còn một instance, do HousekeepingModule (`@Global`) cung cấp. `StaySupport` vẫn import qua tệp re-export `frontdesk/public/room-status.service.ts`.
+  - Phần đăng ký `provideRoomReturn` và `provideAmountDue` của BE-A còn nguyên.
+- `frontdesk/internal/document-party.port.ts`: `addCompanion` phát `reservation.changed` như `addPartyMember`, đúng gợi ý. Không đụng tiền hay đổi căn.
+- `reservations/internal/room-blocks.service.ts`:
+  - Kiểm `end > start` sau khi cộng `ooo_reopen_buffer_days`. Đệm 0 mà `expectedDoneDate = startDate` → 422 `DATE_ORDER`; `expectedDoneDate < startDate` vẫn báo lỗi như trước.
+  - Không liên quan DOM-S4-14 (phần đó nằm ở `reservations.service.ts`).
+- Kiểm: tsc sạch. Vitest api toàn bộ trên cây chung, DB mới `ottimo_test_bea_s4s`: **2641/2641, 78/78 tệp** (ARC đã sinh lại metadata nên `contract.test` xanh).
+
+### 11.6 DOM-S4-19 (sửa giả định (p)) + oracle BR-311-03, BR-429-18
+| Mã | Kết quả |
+|---|---|
+| DOM-S4-19 / BR-429-19 | `move()`: tick không bắt buộc mà bên gọi vẫn gửi `expectedDeltaVnd` lệch → 409 `SURCHARGE_CHANGED`, không lưu. OTTIMO 202 → 203 (chênh 0) gửi 119.000 → 409, căn vẫn 202; không gửi → 200. Đã bỏ `pendingFix` (sửa trực tiếp trên văn bản, chỉ xóa 1 dòng) |
+| BR-311-03 ((n)) | No-show: cọc đã thu 800.000, cọc yêu cầu 500.000 → dòng `no_show_fee` **500.000**, đúng một yêu cầu hoàn **300.000** – xanh, không cần sửa mã |
+| BR-429-18 ((q)) | Báo giá lập lúc `stackable = true` (dòng `config_parameter` chỉ hiệu lực ngày lập báo giá), 101 → 401 khách xin → đêm thường **891.000** (1.042.000 → 938.000 → 891.000), `losDiscountPct` 10 + `returningGuestDiscountPct` 5 – xanh, không cần sửa mã |
+
+E2E `money-s4.api.spec.ts` TC-L2-092 (a) không gửi `expectedDeltaVnd` (helper `move` thường) nên không bị ảnh hưởng; Desk chỉ gửi số khi phải tick (FE-A).
+Kiểm: `move-pricing.test.ts` 28/28; vitest api toàn bộ trên DB mới `ottimo_test_bea_s4v` **2645/2645, 78/78 tệp**; tsc, eslint, prettier, `validate-fixtures` sạch.
