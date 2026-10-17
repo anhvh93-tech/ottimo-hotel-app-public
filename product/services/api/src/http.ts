@@ -101,6 +101,7 @@ function httpError(statusCode: number, message: string): Error & { statusCode: n
 
 interface Closable {
   once?(event: 'close', fn: () => void): unknown;
+  removeListener?(event: 'close', fn: () => void): unknown;
 }
 
 interface RawLike extends Closable {
@@ -122,6 +123,7 @@ interface BodyStream {
   on(event: 'data', fn: (chunk: Buffer) => void): unknown;
   on(event: 'end' | 'close' | 'aborted', fn: () => void): unknown;
   on(event: 'error', fn: (err: Error) => void): unknown;
+  removeListener?(event: string, fn: (...args: never[]) => void): unknown;
   resume(): unknown;
   destroyed?: boolean;
   readableEnded?: boolean;
@@ -212,16 +214,18 @@ export function readMultipart(
       }
       const holder = req as { [UPLOAD_SLOT]?: () => void; [UPLOAD_HANDED]?: boolean };
       holder[UPLOAD_SLOT] = slot;
-      // Safety net WHILE the body is read: the client goes away → the slot comes back. Once the body has been
-      // handed to the handler, the handler holds it in memory until it replies, so only onSend / onResponse /
-      // onRequestAbort give the slot back – a closed socket must not free a slot whose 42 MB are still alive
-      // (s3-round5-verification: 16 handlers / 672 MB with uploadsInFlight() = 1).
+      // Safety net WHILE the body is read: the request goes away → the slot comes back. Attached to the
+      // per-request IncomingMessage only – NEVER to the socket: a keep-alive socket (Caddy's pooled upstream)
+      // would keep every request and its body alive until it closes (s3-round6-verification: 672 MB held with
+      // uploadsInFlight() = 0) – and removed as soon as the read ends. Once the body has been handed to the
+      // handler, the handler holds it until it replies, so only onSend / onResponse / onRequestAbort give the
+      // slot back (s3-round5-verification).
       const net = () => {
         if (!holder[UPLOAD_HANDED]) releaseUploadSlot(req);
       };
       req.raw?.once?.('close', net);
-      req.raw?.socket?.once?.('close', net);
       readBody(payload, declared, (err, body) => {
+        req.raw?.removeListener?.('close', net);
         if (err) releaseUploadSlot(req);
         else holder[UPLOAD_HANDED] = true;
         done(err, body);
@@ -240,17 +244,7 @@ function readBody(
   const body = Buffer.allocUnsafe(declared);
   let size = 0;
   let settled = false;
-  const finish = (err: Error | null, out?: Buffer) => {
-    if (settled) return;
-    settled = true;
-    done(err, out);
-  };
-  const gone = () => finish(httpError(400, 'client went away'));
-  if (payload.destroyed) {
-    gone();
-    return;
-  }
-  payload.on('data', (chunk: Buffer) => {
+  const onData = (chunk: Buffer) => {
     if (settled) return;
     if (size + chunk.length > declared) {
       finish(httpError(413, 'body larger than its Content-Length'));
@@ -259,17 +253,37 @@ function readBody(
     }
     chunk.copy(body, size);
     size += chunk.length;
-  });
-  payload.on('end', () => {
+  };
+  const onEnd = () => {
     if (size !== declared) finish(httpError(400, 'body shorter than its Content-Length'));
     else finish(null, body);
-  });
+  };
+  const onClose = () => {
+    if (!payload.readableEnded) gone();
+  };
+  const onError = (err: Error) => finish(err);
+  const finish = (err: Error | null, out?: Buffer) => {
+    if (settled) return;
+    settled = true;
+    // Nothing of this read stays referenced from the stream (its buffer belongs to the handler now).
+    payload.removeListener?.('data', onData);
+    payload.removeListener?.('end', onEnd);
+    payload.removeListener?.('aborted', gone);
+    payload.removeListener?.('close', onClose);
+    done(err, out);
+  };
+  const gone = () => finish(httpError(400, 'client went away'));
+  if (payload.destroyed) {
+    gone();
+    return;
+  }
+  payload.on('data', onData);
+  payload.on('end', onEnd);
   // A stream that closes or aborts before 'end' never ends: fail now and give the slot back.
   payload.on('aborted', gone);
-  payload.on('close', () => {
-    if (!payload.readableEnded) gone();
-  });
-  payload.on('error', (err) => finish(err));
+  payload.on('close', onClose);
+  // Kept after the read: a late stream error must never be unhandled (it only reaches a settled finish).
+  payload.on('error', onError);
 }
 
 export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {

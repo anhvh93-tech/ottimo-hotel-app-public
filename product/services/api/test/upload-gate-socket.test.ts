@@ -8,6 +8,8 @@
  * - a guest cookie never opens a staff route's body, and the other way round.
  */
 import net from 'node:net';
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MULTIPART_SESSION_CHECK, createHttpAdapter } from '../src/http';
 import {
@@ -339,5 +341,84 @@ describe('upload slots – client gone after its full body, behind a proxy', () 
       /^HTTP\/1\.1 4(00|22) /,
     );
     expect(uploadsInFlight()).toBe(0);
+  });
+});
+
+/**
+ * s3-round6-verification: nothing of an upload may stay attached to a KEEP-ALIVE socket (a client's own, or
+ * Caddy's pooled upstream connection shared by every client) – no listener per request on the socket, and
+ * the body buffer collectable as soon as the reply is out.
+ */
+describe('upload slots – keep-alive socket keeps nothing of a finished upload', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let app: any;
+  let port = 0;
+  const refs: WeakRef<Buffer>[] = [];
+  let serverSocket: net.Socket | null = null;
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc') as () => void;
+
+  beforeAll(async () => {
+    app = createHttpAdapter({ trustProxy: ['127.0.0.1'], logLevel: 'silent' }).getInstance();
+    app[MULTIPART_SESSION_CHECK] = async (headers: Record<string, string | undefined>) => {
+      const m = /ottimo_gsid=([^;\s]+)/.exec(headers.cookie ?? '');
+      return m ? `guest:${m[1]}` : null;
+    };
+    // Like a controller that rejects the upload (422) without replacing request.body.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    app.post(GUEST, async (req: any, reply: any) => {
+      serverSocket = req.raw.socket;
+      refs.push(new WeakRef(req.body as Buffer));
+      reply.code(422);
+      return { code: 'VALIDATION_FAILED' };
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    port = app.server.address().port;
+  });
+  afterAll(async () => app?.close());
+
+  it('N sequential uploads on one keep-alive connection: socket close listeners do not grow, bodies are collected', async () => {
+    const size = 1024 * 1024;
+    const body = Buffer.alloc(size, 0x7a);
+    const sock = net.connect(port, '127.0.0.1');
+    await new Promise<void>((r) => sock.once('connect', () => r()));
+    let buf = Buffer.alloc(0);
+    let waiter: ((status: string) => void) | null = null;
+    sock.on('data', (d: Buffer) => {
+      buf = Buffer.concat([buf, d]);
+      const text = buf.toString('latin1');
+      const end = text.indexOf('\r\n\r\n');
+      if (end < 0 || !waiter) return;
+      const len = Number(/content-length:\s*(\d+)/i.exec(text.slice(0, end))?.[1] ?? 0);
+      if (buf.length < end + 4 + len) return;
+      const status = text.split('\r\n')[0] ?? '';
+      buf = buf.subarray(end + 4 + len);
+      const w = waiter;
+      waiter = null;
+      w(status);
+    });
+    const upload = () =>
+      new Promise<string>((resolve) => {
+        waiter = resolve;
+        sock.write(
+          `POST ${GUEST} HTTP/1.1\r\nHost: x\r\nX-Forwarded-For: 203.0.113.9\r\n` +
+            `Cookie: __Host-ottimo_gsid=${'keepalive'.padEnd(43, 'k')}\r\n` +
+            `Content-Type: multipart/form-data; boundary=xx\r\nContent-Length: ${size}\r\n` +
+            `Connection: keep-alive\r\n\r\n`,
+        );
+        sock.write(body);
+      });
+    expect(await upload()).toBe('HTTP/1.1 422 Unprocessable Entity');
+    const baseline = serverSocket!.listenerCount('close');
+    for (let i = 0; i < 8; i++) expect(await upload()).toBe('HTTP/1.1 422 Unprocessable Entity');
+    expect(serverSocket!.listenerCount('close')).toBe(baseline);
+    expect(uploadsInFlight()).toBe(0);
+    await sleep(50);
+    gc();
+    await sleep(50);
+    gc();
+    const alive = refs.filter((r) => r.deref() !== undefined).length;
+    expect({ uploads: refs.length, alive }).toEqual({ uploads: 9, alive: 0 });
+    sock.destroy();
   });
 });

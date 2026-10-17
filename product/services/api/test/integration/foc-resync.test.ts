@@ -190,8 +190,9 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
   const value = (b: Booking, rid = b.id) =>
     db.withContext(t.ctx(), (tx) => fa.app.get(FolioService).bookingValueVnd(tx, b.folioId, rid));
 
-  it('(A) FOC 300k → B8 to other dates → follows the first new night (min) → PATCH people → kept once; value and B10 fee right', async () => {
+  it('(A) FOC on night 3 → B8 to other dates → new night 3 (k → k, min) → PATCH people → overlapping move → B10 fee ≤ value → B16 drops night 3 with its FOC', async () => {
     await at('2026-10-20T10:00:00+07:00');
+    await vacant('101');
     const b = await create({
       roomId: ids.rooms['101'],
       channelId: ids.channels.direct,
@@ -199,66 +200,100 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
       adults: 2,
       bookerGuestId: guest,
       paymentModel: 'direct',
-      arrivalDate: '2026-12-07',
-      departureDate: '2026-12-10',
+      arrivalDate: '2026-12-10',
+      departureDate: '2026-12-13',
       initialPayment: { type: 'deposit', method: 'cash', amountVnd: 1_000_000 },
     });
-    const nights0 = (await liveLines(b))
-      .filter((l) => l.category === 'room')
-      .sort((x, y) => String(x.serviceDate).localeCompare(String(y.serviceDate)));
-    const focId = await requestFoc(b, nights0[0]!.id, 300_000);
     const rooms = async () =>
       (await liveLines(b))
         .filter((l) => l.category === 'room')
         .sort((x, y) => String(x.serviceDate).localeCompare(String(y.serviceDate)));
     const focs = async () => (await liveLines(b)).filter((l) => l.category === 'foc');
-    // B8: the whole stay to other dates (guest request) – nights re-priced on the new dates.
+    const roomSum = (ls: Line[]) => ls.reduce((acc, l) => acc + l.amountVnd, 0);
+    const nights0 = await rooms();
+    expect(nights0.map((l) => l.serviceDate)).toEqual(['2026-12-10', '2026-12-11', '2026-12-12']);
+    // The FOC is on night 3 – NOT night 1 (round 7: a test on night 1 passed by coincidence).
+    const focId = await requestFoc(b, nights0[2]!.id, 300_000);
+    /** The live FOC sits on night `rank` (1-based) of the stay, = −min(300k, that night's rate). */
+    const expectFocOnNight = async (rank: number) => {
+      const r = await rooms();
+      const f = await focs();
+      expect(f).toHaveLength(1);
+      expect(f[0]).toMatchObject({
+        relatedLineId: r[rank - 1]!.id,
+        amountVnd: -Math.min(300_000, r[rank - 1]!.amountVnd),
+      });
+      const [n] = await q<{ discount_vnd: number }>(
+        `SELECT discount_vnd FROM stay_night WHERE reservation_id = $1 AND stay_date = $2::date`,
+        [b.id, r[rank - 1]!.serviceDate],
+      );
+      expect(Number(n!.discount_vnd)).toBe(-f[0]!.amountVnd);
+      const [link] = await q<{ approval_request_id: string }>(
+        'SELECT approval_request_id FROM folio_line WHERE id = $1',
+        [f[0]!.id],
+      );
+      expect(link!.approval_request_id).toBe(focId); // no re-approval
+      expect(await value(b)).toBe(roomSum(r) + f[0]!.amountVnd);
+      return r;
+    };
+    // B8 to other dates (no overlap): night 3 → new night 3.
     const mv = await act(b.id, 'move', {
-      arrivalDate: '2026-12-14',
-      departureDate: '2026-12-17',
+      arrivalDate: '2026-12-17',
+      departureDate: '2026-12-20',
       reasonCode: 'guest_request',
     });
     expect(mv.statusCode, mv.body).toBe(200);
-    let r1 = await rooms();
-    expect(r1.map((l) => l.serviceDate)).toEqual(['2026-12-14', '2026-12-15', '2026-12-16']);
-    let f1 = await focs();
-    expect(f1).toHaveLength(1);
-    expect(f1[0]).toMatchObject({
-      amountVnd: -Math.min(300_000, r1[0]!.amountVnd),
-      relatedLineId: r1[0]!.id,
-    });
-    const [night] = await q<{ discount_vnd: number }>(
-      `SELECT discount_vnd FROM stay_night WHERE reservation_id = $1 AND stay_date = '2026-12-14'`,
-      [b.id],
-    );
-    expect(Number(night!.discount_vnd)).toBe(300_000);
-    const roomSum = (ls: Line[]) => ls.reduce((a, l) => a + l.amountVnd, 0);
-    expect(await value(b)).toBe(roomSum(r1) - 300_000);
-    // The FOC line keeps its approval (no re-approval).
-    const [link] = await q<{ approval_request_id: string }>(
-      `SELECT approval_request_id FROM folio_line WHERE id = $1`,
-      [f1[0]!.id],
-    );
-    expect(link!.approval_request_id).toBe(focId);
-    // PATCH people (another resync): still exactly one FOC of 300k on the first night.
-    const v = await version(b.id);
+    const r1 = await expectFocOnNight(3);
+    expect(r1.map((l) => l.serviceDate)).toEqual(['2026-12-17', '2026-12-18', '2026-12-19']);
+    // PATCH people (another sync): the FOC stays on night 3, once.
     const patch = await c.fd!.send(
       'PATCH',
       url(`/reservations/${b.id}`),
       { adults: 1 },
-      { 'if-match': `"${v}"` },
+      { 'if-match': `"${await version(b.id)}"` },
     );
     expect(patch.statusCode, patch.body).toBe(200);
-    r1 = await rooms();
-    f1 = await focs();
-    expect(f1.map((l) => l.amountVnd)).toEqual([-300_000]);
-    expect(f1[0]!.relatedLineId).toBe(r1[0]!.id);
-    expect(await value(b)).toBe(roomSum(r1) - 300_000);
-    // B10 (0 % tier on the eve of arrival): the fee never exceeds the booking value.
-    await at('2026-12-13T10:00:00+07:00');
+    await expectFocOnNight(3);
+    // Overlapping move (17–20 → 18–21): k → k as well – night 3 is now 20/12.
+    const mv2 = await act(b.id, 'move', {
+      arrivalDate: '2026-12-18',
+      departureDate: '2026-12-21',
+      reasonCode: 'guest_request',
+    });
+    expect(mv2.statusCode, mv2.body).toBe(200);
+    const r2 = await expectFocOnNight(3);
+    expect(r2[2]!.serviceDate).toBe('2026-12-20');
+    // B10 on the eve (0 % tier): the fee never exceeds the booking value.
+    await at('2026-12-17T10:00:00+07:00');
     const quote = (await act(b.id, 'cancel', { reasonCode: 'found_other', dryRun: true })).json()
       .cancellation as { retainedVnd: number };
     expect(quote.retainedVnd).toBeLessThanOrEqual(await value(b));
+    // Check in, pay, then B16 dropping night 3: its FOC goes with it, nothing moves to another night.
+    await at('2026-12-18T15:00:00+07:00');
+    const due = (await folio(b)).totals.balanceDueVnd as number;
+    if (due > 0) {
+      const p = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due,
+      });
+      expect(p.statusCode, p.body).toBe(201);
+    }
+    expect((await act(b.id, 'check-in', { cardsIssued: 1, houseRulesSent: true })).statusCode).toBe(
+      200,
+    );
+    await at('2026-12-19T10:00:00+07:00');
+    const ed = await act(b.id, 'early-departure', {
+      newDepartureDate: '2026-12-20',
+      noticeGivenAt: '2026-12-19T10:00:00+07:00',
+    });
+    expect(ed.statusCode, ed.body).toBe(200);
+    expect((await rooms()).map((l) => l.serviceDate)).toEqual(['2026-12-18', '2026-12-19']);
+    expect(await focs()).toEqual([]);
+    // BR-428 base = the dropped night NET of its FOC.
+    expect(ed.json().refundVnd).toBe(
+      applyPct(r2[2]!.amountVnd - Math.min(300_000, r2[2]!.amountVnd), 50, 1000),
+    );
   });
 
   it('(B) FOC 200k on an extension child night → B14 property fault keeps the folio total → B16 refund on the net night', async () => {

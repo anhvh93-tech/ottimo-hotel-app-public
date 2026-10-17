@@ -2859,9 +2859,10 @@ export class ReservationsService {
       ],
       postpone ? 'reservation.postponed' : 'reservation.moved',
     );
+    // BR-434 (BE-B round 7): a moved stay carries its FOC night k → night k.
     await this.money.resynced(
       tx,
-      await this.confirmedStay(tx, after),
+      { ...(await this.confirmedStay(tx, after)), focFollowsNightIndex: true },
       ctx.actor.userId,
       ctx.requestId,
     );

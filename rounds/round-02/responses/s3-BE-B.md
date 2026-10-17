@@ -172,3 +172,14 @@ Kết quả (DB `ottimo_test_beb` tạo lại):
 Kết quả (DB `ottimo_test_beb` tạo lại):
 - toàn repo xanh: format:check, lint + typecheck, build, test (turbo 12/12; api 58 tệp / 2.173 ca).
 - `drizzle-kit generate`: không có thay đổi. Đợt này không thêm migration.
+
+## 12. Sửa đợt 7 (`reviews/s3-round6-verification.md`) – FOC theo chỉ số đêm khi dời đơn (BR-434, decision-log 17/10)
+
+| ID | Trạng thái mới | Phản hồi |
+|---|---|---|
+| MONEY – B8 đặt FOC sai đêm | Done | Đơn được **dời** (B7/B8 – `ConfirmedStay.focFollowsNightIndex`, do `move()` của reservations đặt) → đồng bộ đêm ghi lại mọi đêm. FOC đã duyệt của đêm thứ k (theo ngày) của lưu trú cũ chuyển sang đêm thứ k của lưu trú mới. Đếm cả các đêm không có FOC, áp cả khi khoảng ngày cũ và mới chồng nhau. Số tiền = min(FOC, giá mới), không duyệt lại.<br>Các lần đồng bộ khác (B13/B14/B16/B9a/đổi số người): FOC ở lại đêm của nó; đêm bị bỏ thì FOC đi theo. Bỏ cách ghép theo vị trí của đợt 6 (`if (!reductions.length) continue` trước khi xếp hàng – lỗi gốc).<br>Test `foc-resync` (A) viết lại: FOC trên **đêm 3**.<br>• B8 dời hẳn → FOC ở đêm mới thứ 3 (min, discount của đêm, approval cũ, giá trị đơn đúng).<br>• Đổi số khách → giữ nguyên.<br>• Dời chồng 17–20 → 18–21 → đêm 3 = 20/12.<br>• Phí B10 ≤ giá trị đơn.<br>• B16 bỏ đêm 3 → FOC bị hủy; hoàn tính trên giá net.<br>Chạy ca này trên code HEAD cũ → đỏ. Đã thay ca cũ chỉ đặt FOC ở `nights0[0]`. |
+| Đã biết – lỗi 500 với đơn có người chốt khi FOC > giá mới (`allocate` RangeError) | Sprint 4 | Theo ORC: ngoài phạm vi đợt này, ghi nhận là lỗi đã biết. |
+
+Kết quả (DB `ottimo_test_beb` tạo lại):
+- toàn repo xanh: format:check, lint + typecheck, build, test (turbo 12/12; api 58 tệp / 2.173 ca).
+- `drizzle-kit generate`: không có thay đổi.

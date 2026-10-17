@@ -1227,57 +1227,51 @@ export class FolioService implements FolioStaySync {
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
     }
 
-    // Room nights: keep a live line whose gross (night net + its approved reductions) still equals the
-    // night, else reverse. Approved FOC/discounts FOLLOW the re-posted night (round 6 (A); DOM 17/10, BR-431/
-    // BR-434: min(approved, new rate), no re-approval, never more than approved): same night re-priced (B7/B8/
-    // B14/B16, people) → that night; B8 move to other dates → the new nights in date order; a night dropped
-    // without a new one (B16, shorter stay) → its FOC goes with it.
+    // Room nights. Approved FOC/discounts FOLLOW the re-posted nights (DOM 17/10, BR-431/BR-434: min(approved,
+    // new rate), no re-approval, never more than approved; decision-log 17/10 night index rule):
+    // - a move of the stay (B7/B8 – `focFollowsNightIndex`): night k of the old stay → night k of the new stay,
+    //   by date, nights without FOC counted too (round 7: overlapping moves follow k → k as well) – every old
+    //   night line is re-posted;
+    // - any other sync (B13/B14/B16/B9a/people): a night keeps its own FOC when re-priced; a dropped night
+    //   takes its FOC with it.
     const target = new Map(stay.nights.map((n) => [n.stayNightId, n]));
-    const roomLines = live.filter((x) => x.category === 'room' && x.stay_night_id);
-    const hadLine = new Set(roomLines.map((l) => l.stay_night_id as string));
+    const roomLines = live
+      .filter((x) => x.category === 'room' && x.stay_night_id)
+      .sort((x, y) => (x.service_date ?? '').localeCompare(y.service_date ?? ''));
+    const byIndex = stay.focFollowsNightIndex === true;
     const kept = new Set<string>();
-    const sameNight = new Map<string, LiveLine[]>();
-    const droppedNights: Array<{ date: string; reductions: LiveLine[] }> = [];
+    const ownReductions = new Map<string, LiveLine[]>();
+    const byRank: LiveLine[][] = [];
     for (const l of roomLines) {
       const night = target.get(l.stay_night_id as string);
-      const reduced = this.reductionOf(l, live);
-      if (
-        night &&
-        !kept.has(night.stayNightId) &&
-        l.amount_vnd === night.roomRevenueVnd + reduced
-      ) {
-        kept.add(night.stayNightId);
-        continue;
+      if (!byIndex) {
+        const reduced = this.reductionOf(l, live);
+        if (
+          night &&
+          !kept.has(night.stayNightId) &&
+          l.amount_vnd === night.roomRevenueVnd + reduced
+        ) {
+          kept.add(night.stayNightId);
+          continue;
+        }
       }
       const reductions = this.reductionsOf(l, live);
+      byRank.push(reductions);
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
-      if (!reductions.length) continue;
-      if (night) {
-        sameNight.set(night.stayNightId, [
-          ...(sameNight.get(night.stayNightId) ?? []),
+      if (night && reductions.length) {
+        ownReductions.set(night.stayNightId, [
+          ...(ownReductions.get(night.stayNightId) ?? []),
           ...reductions,
         ]);
-      } else {
-        droppedNights.push({ date: l.service_date ?? '', reductions });
       }
     }
-    // B8: nights that never had a line (new dates) take the FOC of the dropped nights, in date order.
-    droppedNights.sort((a, b) => a.date.localeCompare(b.date));
-    const moved = new Map<string, LiveLine[]>();
-    stay.nights
-      .filter((n) => !hadLine.has(n.stayNightId))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .forEach((n, i) => {
-        const from = droppedNights[i];
-        if (from) moved.set(n.stayNightId, from.reductions);
-      });
-    for (const n of stay.nights) {
+    const newNights = [...stay.nights].sort((x, y) => x.date.localeCompare(y.date));
+    for (const [rank, n] of newNights.entries()) {
       if (kept.has(n.stayNightId)) continue;
-      // `roomRevenueVnd` was read with the night's own discount still on it (gross − discount); the reversal
-      // above took that discount back, so the gross of a re-priced night = net + its own reductions. A new
-      // night (moved FOC) has no discount yet: its net is its gross.
-      const own = sameNight.get(n.stayNightId) ?? [];
-      const gross = n.roomRevenueVnd + own.reduce((a, r) => a - r.amount_vnd, 0);
+      // `roomRevenueVnd` was read with the night's OWN discount still on it (gross − discount); the reversal
+      // above took that discount back, so the gross = net + that night's own reductions (0 for a new night).
+      const own = ownReductions.get(n.stayNightId) ?? [];
+      const gross = n.roomRevenueVnd + own.reduce((acc, r) => acc - r.amount_vnd, 0);
       const lineId = await this.insertLine(tx, {
         folioId: folio.id,
         reservationId: stay.reservationId,
@@ -1303,7 +1297,7 @@ export class FolioService implements FolioStaySync {
         lineAmountVnd: gross,
         serviceDate: n.date,
         stayNightId: n.stayNightId,
-        reductions: [...own, ...(moved.get(n.stayNightId) ?? [])],
+        reductions: byIndex ? (byRank[rank] ?? []) : own,
         who,
         now,
       });

@@ -274,3 +274,8 @@ Chi tiết: `rounds/round-02/responses/s3-BE-C.md` mục "Vòng sửa 4".
 - **`membound.ts` (r5) chạy lại**: 16 × 42 MB từ 1 phiên → đỉnh **2 handler / 84 MB** thân (trần 168 MB), RSS đỉnh 276 MB, xả xong 0 chỗ. `leak.ts`, `leak2.ts`, `leak3.ts` sạch.
 - `test/upload-gate-socket.test.ts` 10 ca: chỗ còn trong lúc handler chạy rồi về 0; 1 phiên gửi liên tiếp 8 thân → ≤ 2 handler; 10 phiên → ≤ 4; NAT chung staff/khách.
 - Kết quả (DB mới, `--continue`): api 2170/2171 – ca đỏ `platform.test.ts` (NOTIFY đồng hồ dùng chung, phụ thuộc thời gian khi chạy song song; chạy riêng 2 lần 16/16 xanh, không liên quan upload); admin-web 165, guest-web 50, các gói khác xanh. build 6/6; format sạch; drizzle không tạo file; typecheck sạch. `pnpm lint` đỏ 3 lỗi biến thừa ở `test/integration/foc-resync.test.ts` (BE-B đang viết).
+
+## 16. Vòng sửa 7 – không gắn gì vào socket keep-alive (17/10)
+- `src/http.ts`: lưới 'close' chỉ gắn `req.raw` (theo request), gỡ khi đọc thân xong; `readBody` gỡ listener `data/end/aborted/close` khi kết thúc. Test mới trong `test/upload-gate-socket.test.ts` (11 ca): keep-alive 9 upload → listener 'close' của socket không tăng, mọi thân bị GC.
+- Số đo: `keepalive.ts` 0/16 thân còn giữ, RSS ≤ 330 MB; `proxy.ts` 0/16, RSS 274 MB; `membound.ts` đỉnh 2 handler / 84 MB, RSS 264 MB; `leak.ts`/`leak2.ts`/`leak3.ts` 0 chỗ treo.
+- Kết quả (DB mới, `--continue`): **12/12 task xanh**, api 58 tệp / **2174** test, admin-web 165, guest-web 50; `pnpm lint` 0 lỗi (typecheck 12/12); build 6/6; format sạch; drizzle không tạo file.

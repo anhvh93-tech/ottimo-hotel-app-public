@@ -127,6 +127,12 @@ export interface ConfirmedStay {
   /** Commission % of the quote (BR-006 snapshot) – null = the parameter in force (direct bookings). */
   commissionRatePctSnapshot?: number | null;
   /**
+   * Round 7 (BR-434, decision-log 17/10): the stay was MOVED (B7/B8) – the folio sync re-posts every night and
+   * an approved FOC of night k goes to night k of the new stay (by date), min(FOC, new rate). Absent = a FOC
+   * stays on its own night (re-priced) or goes with a dropped night.
+   */
+  focFollowsNightIndex?: boolean;
+  /**
    * Review S3 (DOM BE-13, BE-B): `ota_prepaid` → folio keeps one system `ota_collect` receipt equal to the
    * OTA-covered charges (BR-307 "Đã thu qua OTA"). Optional so older callers keep compiling.
    */
