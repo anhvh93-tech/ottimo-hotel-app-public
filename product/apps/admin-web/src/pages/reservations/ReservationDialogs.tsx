@@ -274,6 +274,14 @@ export function CancelDialog(
       to,
       retained: vnd(quote.retainedVnd),
     });
+  } else if (quote.refundableVnd > 0) {
+    // UXR #5: the whole deposit goes back (no fee) – never "no money was taken".
+    body = t('confirm.cancel_booking.body_full_refund', {
+      room,
+      from,
+      to,
+      refund: vnd(quote.refundableVnd),
+    });
   } else {
     body = t('confirm.cancel_booking.body_no_money', { room, from, to });
   }

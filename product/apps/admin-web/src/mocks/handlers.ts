@@ -1,7 +1,13 @@
 // MSW handlers emulating the OTTIMO API contract (docs/api/openapi.yaml 0.3.x) for the endpoints admin-web
 // uses in Sprint 1. Rules mirrored from the spec: x-roles → 403 FORBIDDEN_ACTION, x-visible-to field
 // filtering, If-Match → 428/412, CSRF on writes, problem+json with requestId.
-import type { Me, Parameter, Role, Room } from '@ottimo/api-client';
+import {
+  isIdempotencyKey,
+  type Me,
+  type Parameter,
+  type Role,
+  type Room,
+} from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
 import { nameSearchKey, normalizePhone } from '../app/validation';
@@ -332,6 +338,13 @@ export type MockDb = ReturnType<typeof makeDb>;
 export type MockSummary = typeof summary;
 
 export const handlers = [
+  // UXR #2: like the API (auth.guard.ts), any Idempotency-Key that is not a UUID → 422 on every write.
+  http.all(`${base}/*`, ({ request }) => {
+    const key = request.headers.get('idempotency-key');
+    if (key !== null && !isIdempotencyKey(key))
+      return validation([{ field: 'Idempotency-Key', code: 'VALIDATION_FAILED' }]);
+    return undefined;
+  }),
   ...stay.handlers,
   ...reservations.handlers,
   // ---------- auth (S01) ----------

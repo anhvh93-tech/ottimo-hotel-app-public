@@ -102,8 +102,13 @@ export function ReservationDrawer({
   const [commission, setCommission] = useState<Commission | null>(null);
   const r = state.data;
   // Sprint 3: FD+ sees the live folio of a stay (extras, FOC pending, credit → refund request).
+  // UXR #6: "Đã thu" comes from the folio (`totals.paidVnd`) for every role that sees the balance – it
+  // is never "room total − balance" (wrong with a hold, extras, FOC or a refund).
   const [folio, setFolio] = useState<Folio | null>(null);
-  const folioId = fd && r && ['in_house', 'checked_out'].includes(r.status) ? r.folioId : null;
+  const folioId =
+    r && r.stayType !== 'long' && r.balanceDueVnd !== undefined && r.folioId ? r.folioId : null;
+  const folioLines = fd && !!r && ['in_house', 'checked_out'].includes(r.status);
+  const paidVnd = folio?.id === folioId ? folio?.totals.paidVnd : undefined;
   const rVersion = r?.version;
   useEffect(() => {
     if (!folioId) return;
@@ -511,10 +516,12 @@ export function ReservationDrawer({
                   ) : null}
                   {r.balanceDueVnd !== undefined ? (
                     <>
-                      <tr className="sub">
-                        <td>{t('drawer.folio.paid')}</td>
-                        <td className="r">−{vnd(r.totalRoomVnd - r.balanceDueVnd)}</td>
-                      </tr>
+                      {paidVnd !== undefined ? (
+                        <tr className="sub">
+                          <td>{t('drawer.folio.paid')}</td>
+                          <td className="r">{paidVnd > 0 ? `−${vnd(paidVnd)}` : vnd(0)}</td>
+                        </tr>
+                      ) : null}
                       <tr className="total">
                         <td>{t('drawer.folio.balance')}</td>
                         <td className="r">
@@ -538,7 +545,7 @@ export function ReservationDrawer({
             </dl>
           ) : null}
 
-          {folio ? (
+          {folio && folioLines ? (
             <>
               <table className="sum">
                 <tbody>

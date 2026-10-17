@@ -118,6 +118,7 @@ export interface MockApproval {
   requestedByUserId: string;
   requestedAt: string;
   approverName?: string;
+  approverUserId?: string;
   decidedAt?: string;
   refundDestination?: {
     method: string;
@@ -125,6 +126,7 @@ export interface MockApproval {
     accountNo?: string;
     accountHolder?: string;
     setAt: string;
+    setByUserId?: string;
   };
   refundedVnd?: number;
 }
@@ -1745,7 +1747,80 @@ export function createStayMock(ctx: Ctx) {
       const members = st.party.get(r.id) ?? [];
       if (body.guestId && members.some((m) => m.id === body.guestId))
         return problem(409, 'PARTY_DUPLICATE');
+      if (!body.dryRun && !request.headers.get('idempotency-key'))
+        return problem(428, 'PRECONDITION_REQUIRED');
+      // UXR #7 (party.service.ts, BR-110 per night): in house, a person above the counted guests of the
+      // booking and above the room's standard occupancy (OTA: above the guests the OTA priced) carries a
+      // surcharge from tonight × remaining nights; the desk must confirm it (no silent skip – DOM S3-12).
+      const band = body.role === 'child' ? 'child_6_11' : 'adult';
+      let occupancyChange: Body | undefined;
+      let surcharge = 0;
+      let remainingNights = 0;
+      let newExtra = r.extraGuestCount ?? 0;
+      if (r.status === 'in_house') {
+        if (!body.effectiveFrom) return validation([{ field: 'effectiveFrom', code: 'REQUIRED' }]);
+        const declared = r.adults + (r.children6to11 ?? 0);
+        const present = members.filter((m) => m.priceAgeBand !== 'child_under_6').length + 1;
+        const next = Math.max(declared, present);
+        if (next !== declared) {
+          const base = Math.max(roomOf(r)?.baseOccupancy ?? 2, r.otaGuestCount ?? 0);
+          const delta = Math.max(0, next - base) - Math.max(0, declared - base);
+          remainingNights = Math.max(
+            0,
+            Math.round(
+              (Date.parse(`${r.departureDate}T00:00:00Z`) -
+                Date.parse(`${String(body.effectiveFrom)}T00:00:00Z`)) /
+                86_400_000,
+            ),
+          );
+          surcharge = delta * (band === 'adult' ? 150_000 : 100_000) * remainingNights;
+          newExtra = Math.max(0, next - (roomOf(r)?.baseOccupancy ?? 2));
+          occupancyChange = {
+            adults: band === 'adult' ? r.adults + 1 : r.adults,
+            children6to11: band === 'adult' ? (r.children6to11 ?? 0) : (r.children6to11 ?? 0) + 1,
+            childrenUnder6: r.childrenUnder6 ?? 0,
+            extraCount: newExtra,
+            surchargeVnd: surcharge,
+            nights: remainingNights,
+            surchargeApplied: false,
+            extraGuestKitTaskCreated: false,
+          };
+        }
+        if (!body.dryRun && surcharge > 0) {
+          if (body.applyExtraPersonSurcharge !== true)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'applyExtraPersonSurcharge', code: 'SURCHARGE_DECISION_REQUIRED' }],
+              surchargeVnd: surcharge,
+            });
+          if (body.expectedSurchargeVnd === undefined)
+            return validation([{ field: 'expectedSurchargeVnd', code: 'REQUIRED' }]);
+          if (body.expectedSurchargeVnd !== surcharge)
+            return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: surcharge });
+        }
+      }
       if (!body.dryRun) {
+        if (occupancyChange) {
+          r.adults = occupancyChange.adults as number;
+          r.children6to11 = occupancyChange.children6to11 as number;
+          r.extraGuestCount = newExtra;
+          if (surcharge > 0) {
+            const perNight = surcharge / remainingNights;
+            for (let i = 0; i < remainingNights; i++)
+              addLine(
+                r,
+                {
+                  category: 'extra_person',
+                  amountVnd: perNight,
+                  description: 'extra_person x1',
+                  serviceDate: addDays(String(body.effectiveFrom), i),
+                  postedAt: nowIso(),
+                },
+                x.g.user.displayName,
+              );
+            occupancyChange.surchargeApplied = true;
+          }
+          occupancyChange.extraGuestKitTaskCreated = true;
+        }
         members.push({
           id: uid(83_500 + next()),
           role: body.role === 'child' ? 'child' : 'companion',
@@ -1773,6 +1848,7 @@ export function createStayMock(ctx: Ctx) {
             guest: { id: m.id, code: '', displayName: m.displayName },
             priceAgeBand: m.priceAgeBand,
           })),
+          ...(occupancyChange ? { occupancyChange } : {}),
         },
         body.dryRun ? 200 : 201,
       );
@@ -2437,9 +2513,23 @@ export function createStayMock(ctx: Ctx) {
     http.post(`${prop}/attachments`, async ({ request }) => {
       const g = guard(request, [...FD_PLUS, 'housekeeping', 'maintenance', ...SALES]);
       if (isResponse(g)) return g;
+      if (!request.headers.get('idempotency-key')) return problem(428, 'PRECONDITION_REQUIRED');
+      // Same parts as the API (attachments.controller.ts): `file` (a file part), `purpose` and
+      // `reservationId` as plain text parts.
+      const form = await request.formData();
+      const file = form.get('file');
+      const purpose = form.get('purpose');
+      const reservationId = form.get('reservationId');
+      const errors: Array<{ field: string; code: string }> = [];
+      if (!file || typeof file === 'string') errors.push({ field: 'file', code: 'REQUIRED' });
+      if (typeof purpose !== 'string' || !purpose.trim())
+        errors.push({ field: 'purpose', code: 'REQUIRED' });
+      if (reservationId !== null && typeof reservationId !== 'string')
+        errors.push({ field: 'reservationId', code: 'VALIDATION_FAILED' });
+      if (errors.length) return validation(errors);
       const id = uid(92_000 + next());
       st.attachments.add(id);
-      return json({ id, purpose: 'refund_proof', sizeBytes: 1024 }, 201);
+      return json({ id, purpose, sizeBytes: 1024 }, 201);
     }),
 
     // ---------- approvals + refunds ----------
@@ -2481,6 +2571,7 @@ export function createStayMock(ctx: Ctx) {
           });
         a.status = 'approved';
         a.approverName = g.user.displayName;
+        a.approverUserId = g.user.id;
         a.decidedAt = nowIso();
         const f = a.folioId ? st.folios.get(a.folioId) : undefined;
         const line = f?.lines.find((l) => l.approvalRequestId === a.id);
@@ -2547,6 +2638,7 @@ export function createStayMock(ctx: Ctx) {
           accountNo: body.accountNo as string | undefined,
           accountHolder: body.accountHolder as string | undefined,
           setAt: nowIso(),
+          setByUserId: g.user.id,
         };
         // SEC F8: a destination changed after approval goes back to approval.
         if (a.status === 'approved') a.status = 'pending';
@@ -2660,7 +2752,10 @@ export function createStayMock(ctx: Ctx) {
       const { reg, r } = x;
       const form = await request.formData();
       const raw = form.get('data');
-      const data = JSON.parse(typeof raw === 'string' ? raw : await (raw as Blob).text()) as Body;
+      // UXR #3: like the API's `textPart`, only a plain text part counts – a Blob/File part (it carries a
+      // filename on the wire) is ignored → 422 `data REQUIRED`.
+      if (typeof raw !== 'string') return validation([{ field: 'data', code: 'REQUIRED' }]);
+      const data = JSON.parse(raw) as Body;
       const images = form.getAll('image');
       const errors: Array<{ field: string; code: string }> = [];
       const no = String(data.docNumber ?? '')
@@ -3014,8 +3109,17 @@ export function createStayMock(ctx: Ctx) {
     if (kind === 'cash' && dest !== 'cash') return problem(403, 'FORBIDDEN_ACTION');
     if (kind === 'transfer' && dest === 'cash')
       return problem(409, 'INVALID_TRANSITION', { currentState: a.status });
-    // A47a / F8: the payer must differ from the person who created the refund request.
-    if (a.requestedByUserId === g.user.id) return problem(403, 'SELF_APPROVAL_FORBIDDEN');
+    // refunds.service.ts (PO 17/10, SEC-37): the payer is never the requester; for a transfer also never
+    // the approver or whoever set the destination – except an owner paying a transfer.
+    const ownerTransfer = kind === 'transfer' && g.roles[0] === 'owner';
+    if (a.requestedByUserId === g.user.id && !ownerTransfer)
+      return problem(403, 'SELF_REFUND_FORBIDDEN');
+    if (
+      kind === 'transfer' &&
+      !ownerTransfer &&
+      (a.approverUserId === g.user.id || a.refundDestination?.setByUserId === g.user.id)
+    )
+      return problem(403, 'SELF_REFUND_FORBIDDEN');
     const { key, replay } = rsv().idem(request, `refund:${a.id}`);
     if (replay) return replay;
     const body = (await request.json()) as Body;

@@ -120,3 +120,47 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
 export function newIdempotencyKey(): string {
   return globalThis.crypto.randomUUID();
 }
+
+/** The API refuses any other shape with 422 (`auth.guard.ts` UUID check on `Idempotency-Key`). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isIdempotencyKey(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/** 32-bit FNV-1a over UTF-16 code units, then the murmur3 finaliser (better spread of short inputs). */
+function hash32(text: string, seed: number): number {
+  let h = (0x811c9dc5 ^ seed) >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/**
+ * Key for a sub-request of ONE user action – e.g. the photo upload that runs before the write it belongs
+ * to (refund proof, penalty evidence). UXR #2: a suffix (`${key}-a`) is not a UUID and every upload got
+ * 422. The derived key is a UUID (RFC 9562 version 8, "custom") and deterministic: the automatic resend
+ * of the same action (DS 6.21, same `key`) derives the same upload key, so the upload is replayed instead
+ * of stored twice; another `purpose` (or another action) gives another key.
+ */
+export function deriveIdempotencyKey(key: string, purpose: string): string {
+  const input = `${key}\u0000${purpose}`;
+  const hex = [0x9e3779b9, 0x85ebca77, 0xc2b2ae3d, 0x27d4eb2f]
+    .map((seed) => hash32(input, seed).toString(16).padStart(8, '0'))
+    .join('');
+  const variant = ((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `8${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join('-');
+}

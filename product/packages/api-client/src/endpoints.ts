@@ -766,7 +766,9 @@ export function createEndpoints(api: ApiClient) {
       idem: string,
     ) => {
       const form = new FormData();
-      form.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+      // UXR #3: a plain string part (no filename). A Blob part gets `filename="blob"` from the browser and
+      // the API's `textPart` reads only non-file parts → 422 `data REQUIRED`. The JSON stays the value.
+      form.append('data', JSON.stringify(data));
       for (const img of images) form.append('image', img);
       return r<Registration>('POST', `${REG}/documents`, {
         path: { propertyId, registrationId },

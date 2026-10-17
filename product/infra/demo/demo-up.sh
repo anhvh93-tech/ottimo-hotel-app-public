@@ -5,7 +5,8 @@
 #                                                 check-in, check-out + VietQR, guest link) – then reseeds a clean demo
 #   bash product/infra/demo/demo-up.sh --ref <git ref>   build another commit (default HEAD)
 #   bash product/infra/demo/demo-up.sh --no-build        reuse the images already built (only reseed)
-# Addresses: desk http://localhost:8181 · staff app http://localhost:8182 · guest web http://localhost:8183
+# Addresses: desk http://localhost:8181 (EVERY staff role logs in here, housekeeping/maintenance/sales/CTV included)
+#            · guest web http://localhost:8183 · :8182 = staff PWA shell only (no business screens in Demo 1)
 # Accounts (random passwords), guest link, device fallback: product/infra/demo/.out/demo-accounts.md (0600, never
 # committed, never printed). Guide: rounds/round-02/outputs/OPS/demo-1.md
 set -Eeuo pipefail
@@ -51,7 +52,10 @@ if [ "$build" -eq 1 ]; then
   build_image ottimo-api:demo-seed Dockerfile.api INCLUDE_TEST_SUPPORT=1
   say "build image web (desk, staff, guest)"
   build_image ottimo-web:demo Dockerfile.web
-  # Fresh secrets for every build (random DB passwords, test token, seed password) – same generator as CI.
+  # Fresh secrets for every build (random DB passwords, test token, seed password) – same generator as CI. The key
+  # material (KEK, HMAC keys, session secret) is generated once and kept across rebuilds (ensure_demo_keys, lib.sh).
+  prev_env=""
+  if [ -f "$ENV_FILE" ]; then prev_env="$WORK/demo.env.prev" && cp -p "$ENV_FILE" "$prev_env"; fi
   CI_STAFF_RPM=600 bash "$SRC/product/infra/ci/make-ci-env.sh" "$SRC/product/.env.example" "$ENV_FILE" >/dev/null
   {
     echo "API_ADMIN_BASE_URL=$DEMO_DESK_URL"
@@ -59,9 +63,12 @@ if [ "$build" -eq 1 ]; then
     echo "API_GUEST_BASE_URL=$DEMO_GUEST_URL"
   } >> "$ENV_FILE"
   chmod 600 "$ENV_FILE"
+  ensure_demo_keys "$prev_env"
+  [ -z "$prev_env" ] || rm -f "$prev_env"
 else
   [ -f "$ENV_FILE" ] && [ -d "$SRC/product" ] || die "chưa build lần nào – bỏ --no-build"
   docker image inspect ottimo-api:demo ottimo-api:demo-seed ottimo-web:demo >/dev/null 2>&1 || die "thiếu image demo – bỏ --no-build"
+  ensure_demo_keys
 fi
 
 seed_all
@@ -73,8 +80,7 @@ if [ "$smoke" -eq 1 ]; then
 fi
 
 say "XONG – demo từ commit $(cat "$WORK/built-from" 2>/dev/null || echo '?'):"
-say "  Lễ tân / quản lý (desk):  $DEMO_DESK_URL"
-say "  App nhân viên (staff):    $DEMO_STAFF_URL"
+say "  Mọi vai nhân viên (desk): $DEMO_DESK_URL  (cả buồng phòng, kỹ thuật, sale, CTV)"
 say "  Web khách (guest):        $DEMO_GUEST_URL  (link trong tệp tài khoản)"
 say "  Tài khoản + mật khẩu:     $OUT/demo-accounts.md  (chỉ mở bằng: open -e \"$OUT/demo-accounts.md\")"
 say "  Tắt: bash product/infra/demo/demo-down.sh · Làm mới dữ liệu: bash product/infra/demo/demo-reset.sh"

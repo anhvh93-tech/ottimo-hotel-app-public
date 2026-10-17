@@ -2,3 +2,6 @@
 .out/
 # Older location of the working copy (now ~/.ottimo-demo)
 .work/
+# Demo env (DB passwords, key material) lives in ~/.ottimo-demo/demo.env; never commit a copy placed here
+demo.env
+demo.env.*

@@ -8,6 +8,20 @@
 #   - own ports: desk 8181, staff 8182, guest 8183, api 3100; PostgreSQL not published
 #   - APP_ENV=dev, CLOCK_MODE=system and INCLUDE_TEST_SUPPORT=0 come from .work/demo.env (the seeding phase alone
 #     runs ottimo-api:demo-seed with the fake clock to create stays that started in the past – demo-up.sh)
+#   - key material is REQUIRED (UXR 17/10 #1): without it the api falls back to random per-process keys (dev design),
+#     so the phase-1 → phase-2 switch or any restart made earlier ID documents unreadable (500 DecryptionError).
+#     lib.sh generates the keys once into demo.env (0600, outside the repository) and reuses them. They are set here,
+#     not only in the base file, so an older archive (base file without the pass-through) still gets them.
+x-demo-keyring: &demo-keyring
+  DATA_KEK_CURRENT: ${DATA_KEK_CURRENT:?DATA_KEK_CURRENT missing in demo.env – run infra/demo/demo-reset.sh}
+  DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+  ID_HASH_KEY: ${ID_HASH_KEY:?ID_HASH_KEY missing in demo.env – run infra/demo/demo-reset.sh}
+x-demo-keys: &demo-keys
+  <<: *demo-keyring
+  SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET missing in demo.env – run infra/demo/demo-reset.sh}
+  LOG_IP_HMAC_KEY: ${LOG_IP_HMAC_KEY:?LOG_IP_HMAC_KEY missing in demo.env – run infra/demo/demo-reset.sh}
+  GUEST_CODE_SIGNING_KEY: ${GUEST_CODE_SIGNING_KEY:?GUEST_CODE_SIGNING_KEY missing in demo.env – run infra/demo/demo-reset.sh}
+
 services:
   postgres:
     ports: !reset []
@@ -17,10 +31,12 @@ services:
   api:
     image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
     build: !reset null
+    environment: *demo-keys
     ports: !override
       - '127.0.0.1:3100:3000'
   worker:
     image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
+    environment: *demo-keys
   web:
     image: ottimo-web:demo
     build: !reset null
@@ -30,3 +46,4 @@ services:
       - '127.0.0.1:8183:8083'
   seed:
     image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
+    environment: *demo-keyring

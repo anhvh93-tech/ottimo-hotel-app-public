@@ -7,6 +7,10 @@
 #   - prod: a service other than web publishes a port; web publishes anything but 80/443; postgres is not only on
 #     the internal `db` network; a container is not read_only / cap_drop ALL / no-new-privileges; api/worker get a
 #     secret as a plain variable instead of *_FILE; a retired PAYMENT_VIETQR_* account variable is passed
+#   - dev + demo (UXR 17/10 #1): api and worker do not receive the same key material (DATA_KEK_CURRENT,
+#     DATA_KEK_VERSION, ID_HASH_KEY, SESSION_SECRET, LOG_IP_HMAC_KEY, GUEST_CODE_SIGNING_KEY) from the env file, seed
+#     not the same keyring (KEK + ID_HASH_KEY); the demo overlay resolves although the keys are missing; prod api/worker
+#     lack DATA_KEK_CURRENT_FILE / ID_HASH_KEY_FILE
 #   check-compose.sh                (from anywhere; uses product/.env.example and infra/server/env.example)
 # Exit 0 = ok, 1 = a rule is broken, 2 = usage / tooling.
 set -Eeuo pipefail
@@ -17,6 +21,9 @@ DEV_FILE="${DEV_COMPOSE:-$product/infra/docker-compose.yml}"
 PROD_FILE="${PROD_COMPOSE:-$product/infra/docker-compose.prod.yml}"
 command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 2; }
 
+DEMO_FILE="${DEMO_COMPOSE:-$product/infra/demo/docker-compose.demo.yml}"
+command -v openssl >/dev/null || { echo "openssl is required" >&2; exit 2; }
+
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/compose-check.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 docker compose -p ottimo-compose-check --env-file "$product/.env.example" -f "$DEV_FILE" \
@@ -24,8 +31,26 @@ docker compose -p ottimo-compose-check --env-file "$product/.env.example" -f "$D
 IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-compose-check \
   --env-file "$product/infra/server/env.example" -f "$PROD_FILE" \
   --profile deploy --profile seed config --format json > "$tmp/prod.json"
+# Key wiring (UXR 17/10 #1): the template with throw-away random keys (never printed – only names are reported)
+umask 077
+sed -e "s|^DATA_KEK_CURRENT=$|DATA_KEK_CURRENT=$(openssl rand -base64 32)|" \
+    -e "s|^ID_HASH_KEY=$|ID_HASH_KEY=$(openssl rand -hex 32)|" \
+    -e "s|^SESSION_SECRET=$|SESSION_SECRET=$(openssl rand -hex 32)|" \
+    -e "s|^LOG_IP_HMAC_KEY=$|LOG_IP_HMAC_KEY=$(openssl rand -hex 32)|" \
+    -e "s|^GUEST_CODE_SIGNING_KEY=$|GUEST_CODE_SIGNING_KEY=$(openssl rand -hex 32)|" \
+    "$product/.env.example" > "$tmp/keys.env"
+docker compose -p ottimo-compose-check --env-file "$tmp/keys.env" -f "$DEV_FILE" \
+  --profile seed config --format json > "$tmp/devk.json"
+DEMO_API_IMAGE=ottimo-api:demo docker compose -p ottimo-compose-check --env-file "$tmp/keys.env" \
+  -f "$DEV_FILE" -f "$DEMO_FILE" --profile seed config --format json > "$tmp/demo.json"
+if DEMO_API_IMAGE=ottimo-api:demo docker compose -p ottimo-compose-check --env-file "$product/.env.example" \
+  -f "$DEV_FILE" -f "$DEMO_FILE" --profile seed config --quiet >/dev/null 2>&1; then
+  echo "FAIL demo: docker-compose.demo.yml resolves without DATA_KEK_CURRENT/ID_HASH_KEY (must refuse – UXR #1)"
+  echo "::error::compose rules: demo overlay accepts missing key material"
+  exit 1
+fi
 
-python3 - "$tmp/dev.json" "$tmp/prod.json" <<'PY'
+python3 - "$tmp/dev.json" "$tmp/prod.json" "$tmp/devk.json" "$tmp/demo.json" <<'PY'
 import json, sys
 
 fails = []
@@ -70,8 +95,30 @@ def check_blob(label, cfg):
     if web.get('secrets'):
         bad(f'{label}: web gets secrets {[s.get("source") for s in web["secrets"]]}')
 
+KEYS = ['DATA_KEK_CURRENT', 'DATA_KEK_VERSION', 'ID_HASH_KEY', 'SESSION_SECRET', 'LOG_IP_HMAC_KEY',
+        'GUEST_CODE_SIGNING_KEY']
+KEYRING = ['DATA_KEK_CURRENT', 'DATA_KEK_VERSION', 'ID_HASH_KEY']
+
+def check_keys(label, cfg):
+    """api/worker: same non-empty key material; seed: the same keyring (values compared, never printed)."""
+    services = cfg['services']
+    envs = {n: (services.get(n) or {}).get('environment') or {} for n in ('api', 'worker', 'seed')}
+    for name in ('api', 'worker'):
+        missing = [k for k in KEYS if not envs[name].get(k)]
+        if missing:
+            bad(f'{label}: {name} does not receive {missing} from the env file (random per-process keys – UXR #1)')
+    differ = [k for k in KEYS if envs['api'].get(k) != envs['worker'].get(k)]
+    if differ:
+        bad(f'{label}: api and worker get different {differ}')
+    if 'seed' in services:
+        seed_differ = [k for k in KEYRING if envs['seed'].get(k) != envs['api'].get(k)]
+        if seed_differ:
+            bad(f'{label}: seed keyring differs from api {seed_differ}')
+
 dev = json.load(open(sys.argv[1]))
 prod = json.load(open(sys.argv[2]))
+check_keys('dev', json.load(open(sys.argv[3])))
+check_keys('demo', json.load(open(sys.argv[4])))
 check_blob('dev', dev)
 check_blob('prod', prod)
 
@@ -100,6 +147,10 @@ for name, svc in prod['services'].items():
     retired = sorted(k for k in env if k in RETIRED)
     if retired:
         bad(f'prod: {name} passes retired variables {retired} (SEC-INT-06)')
+    if name in ('api', 'worker'):
+        no_file = [k for k in KEYS if k != 'DATA_KEK_VERSION' and not env.get(f'{k}_FILE')]
+        if no_file:
+            bad(f'prod: {name} lacks {[k + "_FILE" for k in no_file]}')
 pg = prod['services'].get('postgres', {})
 if sorted((pg.get('networks') or {}).keys()) != ['db']:
     bad(f'prod: postgres networks {sorted((pg.get("networks") or {}).keys())} (only db)')
@@ -112,5 +163,6 @@ if fails:
         print('FAIL ' + f)
     print(f'::error::compose rules: {len(fails)} problem(s)')
     sys.exit(1)
-print('OK: compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening, no plain secrets)')
+print('OK: compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening, no plain secrets, '
+      'one keyring for api/worker/seed in dev + demo, demo refuses missing keys)')
 PY

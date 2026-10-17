@@ -1,5 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, NETWORK_ERROR, createApiClient } from './index';
+import {
+  ApiError,
+  NETWORK_ERROR,
+  createApiClient,
+  deriveIdempotencyKey,
+  isIdempotencyKey,
+  newIdempotencyKey,
+} from './index';
+
+describe('Idempotency-Key (UXR #2 – the API accepts only a UUID)', () => {
+  it('a derived key is a UUID, stable for the same action and different per purpose', () => {
+    const base = newIdempotencyKey();
+    const up = deriveIdempotencyKey(base, 'attachment');
+    expect(isIdempotencyKey(base)).toBe(true);
+    expect(isIdempotencyKey(up)).toBe(true);
+    expect(up).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    // Same click resent (DS 6.21) → same upload key; never the action's own key.
+    expect(deriveIdempotencyKey(base, 'attachment')).toBe(up);
+    expect(up).not.toBe(base);
+    expect(deriveIdempotencyKey(base, 'other')).not.toBe(up);
+    expect(deriveIdempotencyKey(newIdempotencyKey(), 'attachment')).not.toBe(up);
+    expect(isIdempotencyKey(`${base}-a`)).toBe(false);
+  });
+
+  it('1 000 derived keys: all UUIDs, no collision', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const k = deriveIdempotencyKey(newIdempotencyKey(), 'attachment');
+      expect(isIdempotencyKey(k)).toBe(true);
+      seen.add(k);
+    }
+    expect(seen.size).toBe(1000);
+  });
+});
 
 function res(status: number, body?: unknown, headers: Record<string, string> = {}) {
   return new Response(body === undefined ? null : JSON.stringify(body), {

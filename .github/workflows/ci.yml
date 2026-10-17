@@ -404,15 +404,23 @@ jobs:
           PY
       # ĐK-S2-4: the UI cases must really run (no skip because of the environment: browser missing, E2E_UI unset,
       # login form not found). Allowed skips = test.fixme listed here (QA keeps this list in step with ui/*.spec.ts).
-      - name: UI cases ran (desk-chromium not skipped, axe H01–H12 present)
+      - name: UI cases ran (desk-chromium + desk-clock not skipped, write steps, axe H01–H12 present)
         working-directory: product
         run: |
           python3 - tests/e2e/test-results/junit.xml <<'PY'
           import sys, xml.etree.ElementTree as ET
           ALLOWED_SKIP = ('TC-L2-020 (E)', 'TC-L2-076 (E)')
-          ui = [c for c in ET.parse(sys.argv[1]).iter('testcase') if (c.get('classname') or '').startswith('ui/')]
+          cases = list(ET.parse(sys.argv[1]).iter('testcase'))
+          ui = [c for c in cases if (c.get('classname') or '').startswith(('ui/', 'ui-clock/'))]
           if not ui:
               sys.exit('::error::no ui/ test case in junit report – desk-chromium did not run')
+          if not any((c.get('classname') or '').startswith('ui-clock/') for c in ui):
+              sys.exit('::error::no ui-clock/ test case in junit report – desk-clock did not run')
+          # QC-S3-09: cases that really click the write steps (fix round 9) must run, never silently skip.
+          WRITES = ('TC-L3-075', 'TC-L4-093', 'TC-L4-094', 'TC-L2-085', 'TC-L2-086', 'TC-L3-076', 'TC-L4-095')
+          ran = {w for w in WRITES for c in ui if w in (c.get('name') or '') and c.find('skipped') is None}
+          if ran != set(WRITES):
+              sys.exit('::error::UI write-step cases missing or skipped: ' + ', '.join(sorted(set(WRITES) - ran)))
           skipped = [c.get('name') for c in ui if c.find('skipped') is not None]
           bad = [n for n in skipped if not any(a in (n or '') for a in ALLOWED_SKIP)]
           if bad:

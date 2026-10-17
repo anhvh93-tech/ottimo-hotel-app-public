@@ -49,6 +49,19 @@ x-api-env: &api-env
   # SR-RL-09 requests per staff user and minute (empty = 600). dev/test may raise it: the CI E2E stack sets 5000
   # (infra/ci/make-ci-env.sh) because parallel Playwright workers share the qa.* accounts (BUG-R2-051).
   STAFF_REQUESTS_PER_MINUTE: ${STAFF_REQUESTS_PER_MINUTE:-}
+  # Key material (ADR-013; services/api keyring.ts + config.ts). api and worker MUST get the same values.
+  # Empty = the api's intentional dev/test fallback: a random key PER PROCESS – api and worker disagree, and after any
+  # restart every document written before is unreadable (500 DecryptionError, UXR 17/10 #1) and CSRF tokens die.
+  # Set them in product/.env to keep data across restarts: openssl rand -base64 32 (DATA_KEK_CURRENT, exactly 32
+  # bytes), openssl rand -hex 32 (the others, >= 32 chars, all different). CI and the demo always generate them
+  # (infra/ci/make-ci-env.sh, infra/demo/lib.sh). DATA_KEK_<n> (older KEK versions during a rotation) is not passed:
+  # dev/demo never rotate. Staging/production use *_FILE secrets instead (docker-compose.prod.yml).
+  DATA_KEK_CURRENT: ${DATA_KEK_CURRENT:-}
+  DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+  ID_HASH_KEY: ${ID_HASH_KEY:-}
+  SESSION_SECRET: ${SESSION_SECRET:-}
+  LOG_IP_HMAC_KEY: ${LOG_IP_HMAC_KEY:-}
+  GUEST_CODE_SIGNING_KEY: ${GUEST_CODE_SIGNING_KEY:-}
 
 services:
   postgres:
@@ -185,6 +198,11 @@ services:
       CLOCK_MODE: ${CLOCK_MODE:-mutable}
       # Checked by the seed loader itself (empty = refuses to run); not passed to api/worker.
       QA_SEED_PASSWORD: ${QA_SEED_PASSWORD:-}
+      # Same keyring as api/worker, so anything a seed encrypts or hashes (C3, document-number HMAC) stays readable.
+      # The DS-E loader writes no C3 data today; session/log/guest-code keys are not needed here.
+      DATA_KEK_CURRENT: ${DATA_KEK_CURRENT:-}
+      DATA_KEK_VERSION: ${DATA_KEK_VERSION:-1}
+      ID_HASH_KEY: ${ID_HASH_KEY:-}
     volumes:
       - ../tests/fixtures/seed:/fixtures
     depends_on:

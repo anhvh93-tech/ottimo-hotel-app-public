@@ -100,6 +100,59 @@ describe('Sprint 3 endpoints (OpenAPI 0.3.6)', () => {
     expect((init.body as FormData).getAll('image')).toHaveLength(1);
   });
 
+  // UXR #3: the API reads `data`, `purpose`, `reservationId` with `textPart` – only parts WITHOUT a
+  // filename (services/api multipart.ts). Checked on the real wire format, for every multipart call.
+  it('every multipart text field goes on the wire without a filename; files keep theirs', async () => {
+    const { api, call } = setup();
+    await api.addGuestDocument(
+      { propertyId: 'p', registrationId: 'g' },
+      { docType: 'cccd', fullNameOnDoc: 'A B', docNumber: '079123456789' },
+      [new Blob(['x'], { type: 'image/jpeg' })],
+      'k-doc',
+    );
+    await api.uploadAttachment(
+      { propertyId: 'p' },
+      new Blob(['y'], { type: 'image/jpeg' }),
+      'refund_proof',
+      'k-up',
+      'r1',
+    );
+    const wire = async (i: number) => {
+      const form = call(i)[1].body as FormData;
+      const res = new Response(form);
+      const text = await res.text();
+      const boundary = /boundary=(.+)$/.exec(res.headers.get('content-type') ?? '')![1]!;
+      return text
+        .split(`--${boundary}`)
+        .slice(1, -1)
+        .map((part) => {
+          const head = part.slice(0, part.indexOf('\r\n\r\n'));
+          return {
+            name: /name="([^"]+)"/.exec(head)![1]!,
+            isFile: /filename=/.test(head),
+            value: part.slice(part.indexOf('\r\n\r\n') + 4, -2),
+          };
+        });
+    };
+    const doc = await wire(0);
+    expect(doc.find((p) => p.name === 'data')).toMatchObject({ isFile: false });
+    expect(JSON.parse(doc.find((p) => p.name === 'data')!.value)).toMatchObject({
+      docType: 'cccd',
+      docNumber: '079123456789',
+    });
+    expect(doc.filter((p) => p.name === 'image').every((p) => p.isFile)).toBe(true);
+    const up = await wire(1);
+    expect(up.find((p) => p.name === 'purpose')).toMatchObject({
+      isFile: false,
+      value: 'refund_proof',
+    });
+    expect(up.find((p) => p.name === 'reservationId')).toMatchObject({
+      isFile: false,
+      value: 'r1',
+    });
+    expect(up.find((p) => p.name === 'file')).toMatchObject({ isFile: true });
+  });
+
   it('executeRefund (transfer) and executeCashRefund are separate operations (A47 / A47a)', async () => {
     const { api, call } = setup();
     await api.executeCashRefund(

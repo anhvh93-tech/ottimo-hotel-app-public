@@ -1,4 +1,6 @@
 import {
+  deriveIdempotencyKey,
+  isApiError,
   type AvailabilityResult,
   type GuestSummary,
   type ChangeRoomPreview,
@@ -642,7 +644,7 @@ export function AddChargeDialog({
           { propertyId },
           photo,
           'penalty_evidence',
-          `${idem}-a`,
+          deriveIdempotencyKey(idem, 'attachment'),
           r.id,
         );
         evidence = [up.data.id];
@@ -956,7 +958,7 @@ export function UndoCheckInDialog({ reservation: r, onClose, onDone }: StayDialo
  */
 /** Closing reloads the booking (members may have changed) – `onDone`, not `onClose`. */
 export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
-  const { t } = useI18n();
+  const { t, money } = useI18n();
   const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
@@ -969,42 +971,128 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const [year, setYear] = useState('');
   const [companion, setCompanion] = useState<GuestSummary | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
-  const act = useSubmit();
+  const act = useSubmit({ bound: ['guestId', 'childName', 'childBirthYear'] });
   const del = useSubmit();
   const reduceAct = useSubmit({ bound: ['partyChangeSource', 'otaModificationRef'] });
   const ready = kind === 'child' ? name.trim().length >= 2 : !!companion;
+  const inHouse = r.status === 'in_house';
+  const member = (decision: { apply: boolean; expected?: number }, dryRun = false) => {
+    const common = {
+      effectiveFrom: inHouse ? todayLocal() : undefined,
+      applyExtraPersonSurcharge: decision.apply,
+      expectedSurchargeVnd: decision.apply ? decision.expected : undefined,
+      dryRun,
+    };
+    return kind === 'child'
+      ? {
+          role: 'child' as const,
+          childName: name.trim(),
+          childBirthYear: Number(year) || undefined,
+          ...common,
+        }
+      : {
+          role: 'companion' as const,
+          guestId: companion!.id,
+          relationship: 'unknown' as const,
+          ...common,
+        };
+  };
+
+  // UXR #7 (BR-110, DOM S3-12): adding a person while the guest is in house may carry a per-night
+  // surcharge. The amount comes from the API (`dryRun` → occupancyChange) and the desk confirms it;
+  // a surcharge is never skipped silently (the API answers 422 SURCHARGE_DECISION_REQUIRED).
+  const sig =
+    inHouse && ready && (kind === 'companion' || /^\d{4}$/.test(year.trim()))
+      ? [kind, companion?.id ?? '', name.trim(), year.trim()].join('|')
+      : '';
+  const debouncedSig = useDebounced(sig, 300);
+  const [previewTick, setPreviewTick] = useState(0);
+  const [preview, setPreview] = useState<{
+    sig: string;
+    tick: number;
+    surchargeVnd: number;
+    nights: number;
+    error?: unknown;
+  } | null>(null);
+  useEffect(() => {
+    if (!debouncedSig || debouncedSig !== sig) return;
+    let stale = false;
+    const tick = previewTick;
+    api.addPartyMember(R, member({ apply: false }, true)).then(
+      (res) =>
+        !stale &&
+        setPreview({
+          sig: debouncedSig,
+          tick,
+          surchargeVnd: res.data.occupancyChange?.surchargeVnd ?? 0,
+          nights: res.data.occupancyChange?.nights ?? 0,
+        }),
+      (error: unknown) =>
+        !stale && setPreview({ sig: debouncedSig, tick, surchargeVnd: 0, nights: 0, error }),
+    );
+    return () => {
+      stale = true;
+    };
+    // `member()` reads the same state `sig` encodes – re-run only when that (or a retry) changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSig, sig, previewTick, propertyId, r.id]);
+  const current = preview && preview.sig === sig && preview.tick === previewTick ? preview : null;
+  const previewError = current?.error;
+  const previewRetry =
+    previewError !== undefined &&
+    (!isApiError(previewError) || previewError.isNetwork || previewError.status >= 500);
+  const surcharge = current && !previewError ? current.surchargeVnd : 0;
+  const waiting = !!sig && !current;
+  // The tick belongs to one person and one amount – a new amount (or person) must be confirmed again.
+  const [toldFor, setToldFor] = useState<string | null>(null);
+  const told = surcharge > 0 && toldFor === `${sig}|${surcharge}`;
+  const blockedReason = surcharge > 0 && !told ? t('party.surcharge_needs_confirm') : null;
+  const helpId = `${ids}-sur`;
+
+  // Shown for the person it was about only (picking someone else clears it).
+  const [surchargeProblem, setSurchargeProblem] = useState<{
+    key: 'party.surcharge_required' | 'party.surcharge_changed';
+    amount: number;
+    sig: string;
+  } | null>(null);
+  const surchargeNotice = surchargeProblem?.sig === sig ? surchargeProblem : null;
   const add = async () => {
-    if (!ready) return;
-    const effectiveFrom = r.status === 'in_house' ? todayLocal() : undefined;
+    if (!ready || waiting || previewError !== undefined || blockedReason) return;
+    setSurchargeProblem(null);
+    const caught: { error?: unknown } = {};
     const out = await act.submit((idem) =>
-      api.addPartyMember(
-        R,
-        kind === 'child'
-          ? {
-              role: 'child',
-              childName: name.trim(),
-              childBirthYear: Number(year) || undefined,
-              effectiveFrom,
-              applyExtraPersonSurcharge: false,
-              dryRun: false,
-            }
-          : {
-              role: 'companion',
-              guestId: companion!.id,
-              relationship: 'unknown',
-              effectiveFrom,
-              applyExtraPersonSurcharge: false,
-              dryRun: false,
-            },
-        idem,
-      ),
+      api
+        .addPartyMember(
+          R,
+          member(told ? { apply: true, expected: surcharge } : { apply: false }),
+          idem,
+        )
+        .catch((e: unknown) => {
+          caught.error = e;
+          throw e;
+        }),
     );
     if (out) {
       setName('');
       setYear('');
       setCompanion(null);
+      setToldFor(null);
       toast(t('common.saved'));
       party.reload();
+      return;
+    }
+    // 422 SURCHARGE_DECISION_REQUIRED / 409 SURCHARGE_CHANGED: say it in this dialog's words (not the
+    // check-in/late check-out sentence) and read the amount again.
+    const failed = caught.error;
+    if (isApiError(failed)) {
+      const amount = Number(failed.problem.surchargeVnd ?? surcharge);
+      if (failed.code === 'SURCHARGE_CHANGED') {
+        setSurchargeProblem({ key: 'party.surcharge_changed', amount, sig });
+        setPreviewTick((n) => n + 1);
+      } else if (failed.fieldErrors.some((fe) => fe.code === 'SURCHARGE_DECISION_REQUIRED')) {
+        setSurchargeProblem({ key: 'party.surcharge_required', amount, sig });
+        setPreviewTick((n) => n + 1);
+      }
     }
   };
   const [reduce, setReduce] = useState<{ n: number; version: number } | null>(null);
@@ -1122,7 +1210,11 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
                 </Field>
               ) : null}
               {kind === 'child' ? (
-                <Field label={t('party.child_birth_year')} help={t('rsv.child_note')}>
+                <Field
+                  label={t('party.child_birth_year')}
+                  help={t('rsv.child_note')}
+                  error={act.fields.childBirthYear}
+                >
                   {(fp) => (
                     <input
                       {...fp}
@@ -1136,10 +1228,69 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
                 </Field>
               ) : null}
             </div>
-            {act.view()}
-            <Button busy={act.busy} disabled={!ready} onClick={() => void add()}>
+            {sig ? (
+              <div aria-live="polite" className="stack">
+                {previewRetry ? (
+                  <Alert
+                    tone="warn"
+                    actions={
+                      <Button size="sm" onClick={() => setPreviewTick((n) => n + 1)}>
+                        {t('common.retry')}
+                      </Button>
+                    }
+                  >
+                    {t('party.surcharge_preview_failed')}
+                  </Alert>
+                ) : previewError !== undefined ? (
+                  <Alert tone="bad">{act.text(previewError)}</Alert>
+                ) : waiting ? (
+                  <p className="li-s" role="status">
+                    {t('party.surcharge_loading')}
+                  </p>
+                ) : surcharge > 0 ? (
+                  <>
+                    <h3 className="label-h">{t('party.surcharge_title')}</h3>
+                    <p>
+                      <b>
+                        {t('party.surcharge_line', {
+                          amount: money(surcharge),
+                          nights: current?.nights ?? 0,
+                        })}
+                      </b>
+                    </p>
+                    <Checkbox
+                      checked={told}
+                      onChange={(v) => setToldFor(v ? `${sig}|${surcharge}` : null)}
+                    >
+                      {t('party.surcharge_confirm', { amount: money(surcharge) })}
+                    </Checkbox>
+                    <p className="li-s">{t('party.surcharge_waiver_note')}</p>
+                  </>
+                ) : (
+                  <p className="li-s">{t('party.surcharge_zero')}</p>
+                )}
+              </div>
+            ) : null}
+            {surchargeNotice ? (
+              <Alert tone="bad">
+                {t(surchargeNotice.key, { amount: money(surchargeNotice.amount) })}
+              </Alert>
+            ) : (
+              act.view()
+            )}
+            <Button
+              busy={act.busy}
+              disabled={!ready || waiting || previewError !== undefined || !!blockedReason}
+              aria-describedby={blockedReason ? helpId : undefined}
+              onClick={() => void add()}
+            >
               {t('rsv.add_submit')}
             </Button>
+            {blockedReason ? (
+              <p className="li-s" id={helpId}>
+                {blockedReason}
+              </p>
+            ) : null}
           </fieldset>
           {del.view()}
         </>

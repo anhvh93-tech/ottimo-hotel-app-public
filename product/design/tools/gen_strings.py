@@ -2529,6 +2529,25 @@ g("R2 Sprint 3 – đợt 5: Cần chú ý đơn chưa đóng (BE-C) + OpenAPI 0
     ("rsv.guest_link.revoked_toast", "Đã thu hồi link của đơn {code}.", "Link for booking {code} revoked."),
 ])
 
+g("R2 Sprint 3 – vòng sửa 9: lỗi Desk UXR #5, #7, #8 (FE viết theo content guide – chờ UXD duyệt)", [
+    # UXR #5 – hộp Hủy đơn khi hoàn 100 % cọc (CancellationQuote.refundableVnd > 0, retainedVnd = 0)
+    ("confirm.cancel_booking.body_full_refund", "Căn {room} mở bán lại {from} → {to} trên mọi kênh. Không giữ phí hủy; hoàn đủ {refund} cho khách – cần quản lý duyệt.", "Room {room} goes back on sale {from} → {to} on all channels. No cancellation fee; the full {refund} is refunded – needs manager approval.", None, "UXR #5: refundableVnd > 0, retainedVnd = 0. {refund} cùng cách ghi số với confirm.cancel_booking.body"),
+    # UXR #7 – thêm người khi khách đang ở, vượt định mức (addPartyMember dryRun → occupancyChange.surchargeVnd; BR-110, DOM S3-12)
+    ("party.surcharge_title", "Phụ thu người vượt định mức", "Extra-guest surcharge", None, "Tiêu đề khối trong hộp Người ở (chỉ đơn Đang ở)"),
+    ("party.surcharge_loading", "Đang tính phụ thu…", "Working out the surcharge…", None, "addPartyMember dryRun đang chạy – nút Thêm vào đơn khóa"),
+    ("party.surcharge_line", "Thêm người này vượt định mức căn: phụ thu {amount} cho {nights} đêm còn lại, tính từ đêm nay (BR-110).", "Adding this person goes over the room's standard occupancy: a {amount} surcharge for the {nights} remaining night(s), from tonight (BR-110).", None, "{amount} ← occupancyChange.surchargeVnd (kèm đơn vị); {nights} ← occupancyChange.nights"),
+    ("party.surcharge_zero", "Thêm người này không có phụ thu (vẫn trong định mức căn).", "No surcharge for this person (still within the room's standard occupancy).", None, "dryRun: không có occupancyChange hoặc surchargeVnd = 0"),
+    ("party.surcharge_confirm", "Ghi phụ thu {amount} vào folio – tôi đã báo khách", "Add the {amount} surcharge to the folio – I've told the guest", None, "Ô tick bắt buộc → applyExtraPersonSurcharge = true + expectedSurchargeVnd. Không có \"bỏ qua\" (DOM S3-12)"),
+    ("party.surcharge_needs_confirm", "Tick ô phụ thu để thêm người này.", "Tick the surcharge box to add this person.", None, "Lý do nút Thêm vào đơn đang khóa"),
+    ("party.surcharge_waiver_note", "Khách xin miễn? Vẫn ghi phụ thu rồi báo quản lý – Desk chưa có nút xin miễn cho phụ thu người.", "Guest asking for a waiver? Add the surcharge anyway and tell a manager – the desk can't request a waiver for this surcharge yet.", None, "addPartyMember không có trường FOC; nút xin FOC trên Desk chờ S4-25 sau S4-02/S4-18 (QC ĐK-S3-6, S4-34)"),
+    ("party.surcharge_required", "Thêm người này có phụ thu {amount}. Báo khách, tick ô phụ thu rồi bấm Thêm vào đơn.", "Adding this person carries a {amount} surcharge. Tell the guest, tick the surcharge box, then select Add to booking.", None, "422 applyExtraPersonSurcharge SURCHARGE_DECISION_REQUIRED (thay câu nhận sớm/trả muộn – UXR #7)"),
+    ("party.surcharge_changed", "Phụ thu vừa đổi thành {amount}. Xem số mới, báo khách rồi tick lại.", "The surcharge has just changed to {amount}. Check the new amount, tell the guest, then tick again.", None, "409 SURCHARGE_CHANGED khi thêm người"),
+    ("party.surcharge_preview_failed", "Chưa tính được phụ thu nên chưa thêm được người này. Bấm Thử lại.", "Couldn't work out the surcharge, so this person can't be added yet. Tap Try again.", None, "dryRun lỗi mạng/5xx"),
+    # UXR #8 – 403 SELF_REFUND_FORBIDDEN (executeRefund / executeCashRefund – rbac A47/A47a, PO 17/10 SEC-37)
+    ("error.SELF_REFUND_FORBIDDEN", "Người đã tạo, duyệt hoặc nhập tài khoản nhận của khoản hoàn này không tự chi được. Nhờ một người khác có quyền chi hoàn.", "Whoever requested, approved or entered the account for this refund can't also pay it out. Ask another colleague who can pay refunds.", None, "403 – câu chung; màn chi hoàn dùng câu riêng theo cách hoàn"),
+    ("refund.self_execute_forbidden_transfer", "Bạn đã tạo, duyệt hoặc nhập tài khoản nhận cho khoản hoàn này nên không tự chi được. Nhờ quản lý khác hoặc chủ đầu tư ghi khoản chi này.", "You requested, approved or entered the account for this refund, so you can't also pay it out. Ask another manager or the owner to record this payout.", None, "403 SELF_REFUND_FORBIDDEN ở executeRefund (chuyển khoản). Tiền mặt: refund.self_execute_forbidden (chỉ người tạo bị chặn)"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

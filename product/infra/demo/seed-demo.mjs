@@ -13,8 +13,9 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path';
 
 const API = process.env.DEMO_API_URL ?? 'http://127.0.0.1:3100';
+// Every staff role (housekeeping, maintenance, sales and CTV included) logs in on the desk web app; the staff PWA
+// (:8182) is only a shell in Demo 1, so the accounts file never points there.
 const DESK = process.env.DEMO_DESK_URL ?? 'http://localhost:8181';
-const STAFF = process.env.DEMO_STAFF_URL ?? 'http://localhost:8182';
 const STATE = process.env.DEMO_STATE ?? '.work/state.json';
 const OUT = process.env.DEMO_OUT ?? '.out';
 const TZ = 'Asia/Ho_Chi_Minh';
@@ -191,55 +192,48 @@ async function loadContext(s) {
 
 // Demo staff – one per role (display names are fictional).
 const STAFF_ACCOUNTS = [
-  { key: 'OWN', username: 'chunha', displayName: 'Chủ nhà OTTIMO', role: 'owner', app: 'desk' },
+  { key: 'OWN', username: 'chunha', displayName: 'Chủ nhà OTTIMO', role: 'owner' },
   {
     key: 'MGR',
     username: 'quanly.thao',
     displayName: 'Quản lý Thảo',
     role: 'manager',
-    app: 'desk',
   },
   {
     key: 'FDL',
     username: 'truongca.khoa',
     displayName: 'Trưởng ca Khoa',
     role: 'front_desk_lead',
-    app: 'desk',
   },
   {
     key: 'FD',
     username: 'letan.linh',
     displayName: 'Lễ tân Linh',
     role: 'front_desk',
-    app: 'desk',
   },
   {
     key: 'SAL',
     username: 'sale.duc',
     displayName: 'Sale Đức',
     role: 'sales_staff',
-    app: 'desk + staff',
   },
   {
     key: 'CTV',
     username: 'ctv.minhanh',
     displayName: 'CTV Minh Anh',
     role: 'collaborator',
-    app: 'desk + staff',
   },
   {
     key: 'HK',
     username: 'buongphong.hoa',
     displayName: 'Buồng phòng Hoa',
     role: 'housekeeping',
-    app: 'staff',
   },
   {
     key: 'MT',
     username: 'kythuat.tam',
     displayName: 'Kỹ thuật Tâm',
     role: 'maintenance',
-    app: 'staff',
   },
 ];
 
@@ -1029,13 +1023,14 @@ function writeAccounts(st, D) {
   const file = join(OUT, 'demo-accounts.md');
   const rows = STAFF_ACCOUNTS.map(
     (a) =>
-      `| ${a.key} | ${a.displayName} | \`${a.username}\` | \`${st.accounts[a.key].password}\` | ${a.app === 'staff' ? STAFF : a.app === 'desk' ? DESK : `${DESK} · ${STAFF}`} |`,
+      `| ${a.key} | ${a.displayName} | \`${a.username}\` | \`${st.accounts[a.key].password}\` | ${DESK} |`,
   );
   const text = `# Demo OTTIMO – tài khoản (BÍ MẬT – không gửi qua chat, không commit)
 
 Tạo lúc: ${new Date().toLocaleString('vi-VN', { timeZone: TZ })} · ngày nghiệp vụ: ${D} · dữ liệu GIẢ (trừ tài khoản nhận VietQR).
 Giữ chỗ D5 (201) hết hạn lúc: ${st.holdExpiresAt ?? '-'}. Ảnh mẫu giả: anh-giay-to-mau.png, anh-bien-nhan-mau.png (cùng thư mục).
 Mỗi lần chạy demo-up.sh / demo-reset.sh mật khẩu đổi mới.
+Mọi vai (kể cả buồng phòng, kỹ thuật, sale, CTV) đăng nhập ở ${DESK}. Cổng 8182 chỉ là khung app nhân viên, chưa dùng trong demo này.
 
 | Vai | Tên hiển thị | Đăng nhập | Mật khẩu | Mở ở |
 |---|---|---|---|---|

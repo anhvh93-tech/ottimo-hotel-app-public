@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom/vitest';
+import { isIdempotencyKey } from '@ottimo/api-client';
 import { loadLocale } from '@ottimo/i18n';
 import { cleanup, configure } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect } from 'vitest';
 import { clearClientData } from '../app/clientData';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -10,6 +11,15 @@ import { server } from '../mocks/node';
 // lazy route chunks (rack / reservations / quotes). 1 s (default) was too short there – 5 s keeps
 // findBy*/waitFor deterministic without slowing green runs (they resolve as soon as the UI is ready).
 configure({ asyncUtilTimeout: 5_000 });
+
+// UXR #2: every Idempotency-Key any test sends must be a UUID (the API answers 422 otherwise) – checked
+// for every request of every test, not only the screens that upload.
+const badKeys: string[] = [];
+server.events.on('request:start', ({ request }) => {
+  const key = request.headers.get('idempotency-key');
+  if (key !== null && !isIdempotencyKey(key))
+    badKeys.push(`${request.method} ${new URL(request.url).pathname} → ${key}`);
+});
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
@@ -34,5 +44,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   server.resetHandlers();
+  const bad = badKeys.splice(0);
+  expect(bad, 'Idempotency-Key must be a UUID').toEqual([]);
 });
 afterAll(() => server.close());

@@ -155,6 +155,12 @@ export type DecidedHook = (tx: Tx, request: ApprovalRow) => Promise<void>;
 
 const MONEY_CATEGORY = (type: ApprovalType) => (MONEY_TYPES.has(type) ? 'money' : 'state');
 
+/**
+ * Desk roles that pay out an approved cash refund (rbac A47a – FD+; OWN/MGR already see every request).
+ * They see the refund pay-out queue in the listing (see `list`).
+ */
+const REFUND_PAYOUT_DESK_ROLES: ReadonlySet<string> = new Set(['front_desk', 'front_desk_lead']);
+
 /** Which decisions count against a monthly limit (see header). */
 export type MonthlyScope = 'all' | 'others' | 'self';
 
@@ -685,6 +691,13 @@ export class ApprovalService {
   /**
    * x-scope: OWN/MGR all; FDL `within_limit_or_own` = requests routed to FDL + own + decided by me;
    * FD/HK/MT/SAL/CTV `own`. Multi-role callers get the widest scope of their roles.
+   *
+   * Refund pay-out queue (UXR #4, QC-S3-08; BR-522 a/b, rbac A47a, EP03-05 2.6.3): FD and FDL pay out an
+   * APPROVED cash refund someone else asked for, so they also see every `refund` that is `approved` and not
+   * fully paid yet – whoever requested or approved it. Transfer refunds are in the queue too (masked
+   * destination only, D15): the desk tells the guest it waits for MGR/OWN (`refund.transfer_waits_manager`);
+   * paying one stays MGR/OWN (A47, executeRefund role gate). Pending refunds of others stay out of the FD/FDL
+   * view (they are decided by MGR/OWN – S23 inbox unchanged); a fully paid refund leaves the queue.
    */
   async list(
     tx: Tx,
@@ -701,13 +714,16 @@ export class ApprovalService {
       params.push(v);
       return `$${params.length}`;
     };
+    const payoutQueue = actor.roles.some((r) => REFUND_PAYOUT_DESK_ROLES.has(r))
+      ? ` OR (a.type = 'refund' AND a.status = 'approved' AND a.refunded_vnd < a.amount_vnd)`
+      : '';
     if (role === 'front_desk_lead') {
       const me = p(actor.userId);
       where.push(
-        `(a.requested_by = ${me} OR a.approver_id = ${me} OR a.required_role = 'front_desk_lead')`,
+        `(a.requested_by = ${me} OR a.approver_id = ${me} OR a.required_role = 'front_desk_lead'${payoutQueue})`,
       );
     } else if (role !== 'owner' && role !== 'manager') {
-      where.push(`a.requested_by = ${p(actor.userId)}`);
+      where.push(`(a.requested_by = ${p(actor.userId)}${payoutQueue})`);
     }
     if (q.status) where.push(`a.status = ${p(q.status)}`);
     if (q.after) {

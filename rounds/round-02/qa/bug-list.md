@@ -1,17 +1,21 @@
 # Danh sách lỗi – Round 2
 
-- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 17/10/2026 – **Sprint 3 bước Kiểm thử** (E2E S3 trên stack dùng một lần `ottimo-qa-s3`; lượt chính trên ảnh build từ **HEAD `229db99`** (commit Phản hồi & sửa) – trước đó `a297273` + `product/infra`; báo cáo `qa/s3-test-report.md`) – trước đó: khởi động Sprint 3 (ĐK-S2-1) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8
+- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 17/10/2026 chiều – **vòng sửa 9 Sprint 3** (ghi lỗi UXR #1–#11 và FB-R2-SEC-BE-53 thành BUG-R2-065…083; 7 ca E2E-UI bấm thật bước ghi – QC-S3-09, mục 8) – trước đó: **cổng QC Sprint 3** (ĐK-S3-3 mở rộng theo ORC: lỗi tiền đã biết của `s4-carryover.md`, PO-S3-04/07, QC-S3-04, đóng BUG-R2-053, điều tra TC-L3-011 – mục 7) – trước đó: **Sprint 3 bước Kiểm thử** (E2E S3 trên stack dùng một lần `ottimo-qa-s3`; lượt chính trên ảnh build từ **HEAD `229db99`** (commit Phản hồi & sửa) – trước đó `a297273` + `product/infra`; báo cáo `qa/s3-test-report.md`) – trước đó: khởi động Sprint 3 (ĐK-S2-1) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8
 - Lỗi tồn từ R1: `rounds/round-01/qa/bug-list.md` (không chép lại)
 
 ## 1. Tổng hợp
 
 | Mức | Số lỗi | Open | Fixed | Deferred | Closed |
 |---|---|---|---|---|---|
-| P0 | 1 | 0 | 0 | 0 | 1 |
-| P1 | 12 | 0 | 1 | 0 | 11 |
-| P2 | 25 | 1 | 0 | 1 | 23 |
-| P3 | 16 | 1 | 0 | 0 | 15 |
-| **Tổng** | **54** | **2** | **1** | **1** | **50** |
+| P0 | 10 | 7 | 2 | 0 | 1 |
+| P1 | 18 | 1 | 5 | 0 | 12 |
+| P2 | 32 | 8 | 0 | 1 | 23 |
+| P3 | 23 | 8 | 0 | 0 | 15 |
+| **Tổng** | **83** | **24** | **7** | **1** | **51** |
+
+**Vòng sửa 9 (17/10 chiều – QC gate bản 2 KHÔNG ĐẠT, ĐK-S3-3 phần bản 2, mục 8):** ghi 10 lỗi UXR đi thử demo (#1–#10) thành BUG-R2-065…074, 8 điểm nhỏ (#11) thành BUG-R2-075…082, thẻ SEC FB-R2-SEC-BE-53 thành **BUG-R2-083**. Mức do QA quyết theo test-strategy mục 8; mức UXR chỉ là đề xuất. **Không hạ mức lỗi nào** so với UXR/SEC. **Nâng:** BUG-R2-083 (SEC Major → **P0**: hủy nhầm giấy tờ C3 của khách còn ở = mất dữ liệu C3), BUG-R2-076, 078, 080 (P3 → P2). **Giữ như UXR:** P0 – 065 (#1), 066 (#2); P1 – 067…071 (#3…#7; BUG-R2-070 là lỗi tiền nhưng chỉ hiển thị – lý do ghi ở mục chi tiết); P2 – 072…074. **3 P0 mới**, không thuộc ngoại lệ "sai tiền đường hiếm" của ORC (dòng 593 (1)): 066 đã **Fixed** trên cây làm việc; 065 **Fixed** phần compose dev/CI (phần demo chờ OPS smoke, ĐK-S3-10); 083 có hạn SEC-G1 (trước cổng QC Sprint 4 và trước dữ liệu thật) – việc cho qua cổng Sprint 3 khi 083 còn mở là quyền QC/ORC. Ca UI mới bấm thật bước ghi: TC-L3-075, TC-L3-076, TC-L4-093, TC-L4-094, TC-L4-095, TC-L2-085, TC-L2-086 – **7/7 đỏ đúng lỗi trên mã cũ, 7/7 xanh trên ảnh dựng từ cây làm việc** (17/10 13:23–13:25) → 066…071 chuyển **Fixed**, Closed khi có commit + CI xanh.
+
+**Cổng QC Sprint 3 (17/10, ĐK-S3-3 mở rộng theo ORC – mục 7):** ghi 7 lỗi tiền đã biết trong `s4-carryover.md` thành BUG-R2-055…061 (S4-01/03, S4-02 + mở rộng, S4-05, S4-07, S4-18 + mở rộng, S4-22, S4-34/QC-S3-03), PO-S3-04 → BUG-R2-062, PO-S3-07 → BUG-R2-063, QC-S3-04 → BUG-R2-064; đóng BUG-R2-053. **6 lỗi P0 Open** – đều là sai tiền, mức theo test-strategy mục 8 ("sai tiền" = P0, lỗi tiền mặc định P0) và protocol mục 6/9; **không hạ mức vì đường đi hiếm** – đường đi/tần suất ghi ở từng dòng chỉ dùng để xếp thứ tự sửa. Được vào Sprint 4 nhờ ngoại lệ cổng sprint của ORC (decision-log ORC 17/10): **hạn sửa xong trước cổng QC Sprint 4**, mỗi mục có test oracle; còn sót thì cổng cuối Round 2 KHÔNG ĐẠT, và QA lập ESC nếu P0 không sửa kịp trong Round 2. Hai mục với tới từ Desk: **BUG-R2-058** (S4-07) và **BUG-R2-057** (S4-05) – sửa trước. BUG-R2-055 (S4-01) là P1: giao dịch rollback, không sai tiền, nhưng đổi đơn bị chặn bằng lỗi 500. Thẻ trong bảng đã đếm lại từng dòng.
 
 Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…054. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **054 Open** (P3 – mới, TC-L3-074), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới. **Kiểm lại toàn bộ trên `9e9fd64` (vòng sửa 4, 08:05–08:10, mục 6): 2 lượt như CI 1.773 đạt / 0 trượt – trạng thái các lỗi không đổi.**
 
@@ -69,8 +73,37 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-050** | **P1** | `apps/guest-web/build/used-keys.ts` không có trong git (bị `.gitignore` gốc `build/` loại) mà `vite.config.ts`/`guard.test.ts` import → checkout sạch: `tsc` guest-web đỏ, ảnh `ottimo-web` không build được; CI 38940900970 (`229db99`) đỏ ở Lint, E2E/publish/deploy bị bỏ | FE (guest-web) + OPS (.gitignore) | **Closed** (CI 38980363276, `c8b83f3`: job "format · lint · audit · test · build" xanh, ảnh web build được) |
 | BUG-R2-051 | P2 | Giới hạn SR-RL-09 (600 request/phút/người) ở `AuthGuard` dùng bộ đếm riêng: `/__test__/rate-limits/reset` không xóa được, không cấu hình được, cửa sổ theo MutableClock → sau khi tua đồng hồ về hiện tại `Retry-After` = 247.743.660 giây (≈ 7,8 năm), tài khoản bị khóa tới khi khởi động lại api; E2E dùng chung `qa.*` song song chạm 429 | BE-B (+ OPS) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – STAFF_REQUESTS_PER_MINUTE=60: 429 `Retry-After: 60`; `/__test__/rate-limits/reset` xóa được; đồng hồ đóng băng +20 phút rồi trả về → `Retry-After` vẫn 60 (không còn hàng năm); CI dùng 5000 (`make-ci-env.sh`) |
 | **BUG-R2-052** | **P1** | Khách đến sau nửa đêm (00:00–05:59, ngày nghiệp vụ vẫn = ngày đến): `checkIn` coi là nhận sớm trước 06:00 → 422 `addPriorNight: REQUIRED` (preview cùng lúc báo phụ thu 0); H13 chỉ hiện "Bắt buộc", không nhận phòng được (US-025 AC6, BR-602-02) | BE-A (+ FE thông báo) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-008 (a): 01:30 ngày D+1 → B9 thường, không phụ thu (BE); phần chữ báo lỗi của H13 lúc 00:00–05:59 chưa chạy được giao diện ban đêm ở lượt này |
-| **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Fixed** – `ci.yml` chạy seed `--user "$(id -u):$(id -g)"` + `test -r` (commit `c52d149`); harness: báo rõ + thiết bị quầy dự phòng (`support/device.ts`). Closed khi job CI E2E xanh (CI 38989147610 trên `9e9fd64` đang chạy lúc QA ghi) |
+| **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Closed** (cổng QC S3, 17/10 – mục 7) – CI 38998735861 (`6af7173`): bước seed `--user` + `test -r` chạy, global-setup đọc token thiết bị từ seed (không dùng dự phòng), TC-RB-001/002/022 ✓, TC-SEC-010 ✓, RBAC Sprint 3 737 ✓, 0 ca trượt `DEVICE_NOT_TRUSTED`, job E2E xanh; cũng đúng ở CI 38989147610 (`9e9fd64`) và 38995279907 (`aeb479e`) |
 | BUG-R2-054 | P3 | Xóa ảnh của khai báo chưa `confirmed` (SR-RET-02, lý do `unconfirmed`) không ghi `Registration.imagesPurgedAt`/`imagesPurgeReason` → H14 không hiện "Ảnh đã xóa lúc …" (ảnh vẫn bị xóa đúng hạn) | BE-C (+ ARC enum) | Open |
+| **BUG-R2-055** | **P1** | Đơn có người chốt (CTV/sale) có FOC trên đêm phòng **lớn hơn giá đêm mới**: B14 sang căn rẻ hơn, B7 làm hạ bậc giảm theo số đêm, B13 trên đơn FOC 100 % → `500 INTERNAL_ERROR` (`RangeError` `allocate.ts:13`), giao dịch rollback – không sai tiền nhưng không đổi được đơn. Kèm S4-03: base hoa hồng còn cũ ngay sau B8 dời FOC (đúng lại ở lần đồng bộ sau). Đường: **chỉ API** (Desk chưa xin FOC trên đêm phòng) · Tần suất: hiếm | BE-B | **Open** – S4-01 (+S4-03). Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-056** | **P0** | FOC đi theo dòng mới lấy min(FOC **đang có**, giá mới) thay vì min(**số đã duyệt**, giá mới) (BR-434): giá đêm xuống rồi lên lại thì FOC không hồi (FOC 100 % 1.000.000 → còn 900.000, khách trả thừa 100.000); **mở rộng**: phụ thu người về 0 rồi tăng lại thì FOC mất hẳn (4A→2A→4A: 2.901.000 thay vì 2.751.000, +150.000). Đường: **chỉ API** · Tần suất: hiếm | BE-B | **Open** – S4-02 (gồm mở rộng s3-round8). Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-057** | **P0** | B14 đơn OTA đổi phòng nhiều lần: chênh lệch BR-424 tính so với căn **đang ở** và chỉ ghi thêm dòng, không đảo dòng cũ → 203→401→203→401 thu 750.000 thay vì 250.000 (+500.000; một đêm bị thu 2 lần, đêm ngủ ở chính căn đã đặt vẫn bị thu). Đường: **Desk** (Đổi phòng, H15) · Tần suất: hiếm (≥ 2 lần đổi theo yêu cầu khách, có lần quay về căn rẻ hơn) | BE-A | **Open** – S4-05. Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-058** | **P0** | B7 (dời căn/ngày) và B7a (gán căn) sang căn **khác định mức** không tính lại phụ thu người từng đêm (BR-429 bổ sung 17/10): nâng hạng 202→302 vẫn thu 300.000 (đúng 0); khách xin 302→202 mất 300.000; OTA 101→301 thu 2.400.000 thay vì 2.100.000; đơn OTA chưa gán căn không bao giờ có phụ thu "khách báo trực tiếp". Đường: **Desk** (dời căn, gán căn) · Tần suất: thường gặp nhất trong nhóm này (xếp lại căn trước ngày đến cho đơn có người vượt định mức) | BE-A | **Open** – S4-07. Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-059** | **P0** | FOC **chờ duyệt** mà dòng đêm bị ghi lại (B8 dời đơn; đổi giá do giảm theo số đêm khi B7 thêm đêm, B9a, B13, B14) → duyệt xong yêu cầu `approved` nhưng dòng FOC `rejected`, khách không được miễn (X2b: 5.205.000, FOC 300.000 không trừ), hạn mức tháng người duyệt vẫn bị trừ; **mở rộng**: FOC đã duyệt bị hủy theo quy tắc (đêm bỏ, phụ thu về 0) không có audit `folio.*`, vẫn tính vào `monthlyApprovedBy`/báo cáo FOC tháng. Đường: **chỉ API** · Tần suất: hiếm | BE-B | **Open** – S4-18 (gồm mở rộng s3-round8). Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-060** | **P0** (tạm – chờ DOM) | B12 khôi phục đơn no-show có FOC đã duyệt: đêm phòng ghi lại không có FOC, khách trả thêm đúng số FOC (căn 103: 1.200.000 → 1.500.000, +300.000), yêu cầu vẫn `approved`. BR-434 chưa nói B12; BR-315(a) "dùng lại đêm cũ, giữ giá" → nhiều khả năng FOC phải quay lại. Đường: **chỉ API** (FOC đêm phòng) + B12 · Tần suất: rất hiếm | DOM (chốt) → BE-B | **Open** – S4-22. Hạn: DOM chốt trước (ĐK-S3-5), sửa trước cổng QC Sprint 4 (decision-log ORC 17/10) |
+| **BUG-R2-061** | **P0** | FOC trên **phụ thu trả muộn** khi đổi giờ trả (B15 `setLateCheckout` → `replaceLateCharge`): FOC 210.000 đã duyệt → đổi 12:30 → đổi lại 15:00: FOC mất, còn phải thu 210.000; FOC 350.000 → 15:00 → 17:00: FOC còn 210.000, khách trả thêm 140.000; FOC **chờ duyệt** rồi đổi giờ → duyệt `approved`, dòng `rejected`, hạn mức lễ tân trưởng bị trừ 210.000. QA tái hiện trên `6af7173`. Đường: hôm nay **chỉ API**; thành thao tác **hằng ngày** khi S4-25* mở nút xin FOC trả muộn trên Desk (QC-S3-03) | BE-B (+ BE-A, DOM) | **Open** – S4-34/QC-S3-03. Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10), và **trước khi phát hành S4-25*** |
+| BUG-R2-062 | P3 | H12 trước khi giữ chỗ ghi "Mã QR có nội dung là mã đơn, tạo ngay sau khi giữ chỗ" (`sale.qr_after`) nhưng sau giữ chỗ H12/H11 không vẽ mã QR cọc (PO-S3-04) | FE (+ UXD chuỗi) | **Open** – sửa cùng S4-28* (vẽ QR) hoặc sửa chuỗi |
+| BUG-R2-063 | P2 | `guest.id_doc_last4` không có lệnh ghi nào → hồ sơ CRM không hiện 4 ký tự cuối giấy tờ (US-048 AC3, PO-S3-07); cùng gốc BUG-R2-033 (a) | BE-C (+ BE-B, SEC) | **Open** – S4-32*/S4-11 |
+| BUG-R2-064 | P3 | Harness E2E: TC-L3-011, TC-L3-032, TC-L3-074 gọi `test.fail()` **giữa ca** → lỗi xảy ra trước dòng đó làm Playwright chạy lại, lượt 2 tới được `test.fail` nên cả ca tính "đúng dự kiến", không ghi flaky (CI 38998735861: TC-L3-011 lượt 1 hỏng bị che – QC-S3-04, mục 7) | QA | **Open** – S4-24 |
+| **BUG-R2-065** | **P0** | Demo/dev compose: api, worker và pha seed không nhận `DATA_KEK_CURRENT`/`ID_HASH_KEY` (`x-api-env` của `infra/docker-compose.yml:21-51` không truyền dù `demo.env` có) → mỗi tiến trình tự sinh khóa ngẫu nhiên (`keyring.ts:56-68`): giấy tờ của đơn dựng sẵn báo 500 `DecryptionError` (Gia hạn, Thêm người trên D4); khởi động lại là mọi giấy tờ trước đó không đọc được. Prod không bị (`*_FILE` + strict) (UXR #1) | OPS | **Fixed** (cây làm việc) – QA kiểm 17/10 13:29 phần compose dev/CI: giấy tờ + ảnh đọc được sau khi khởi động lại api + worker (đối chứng không truyền khóa → 500, mục 8.3). Phần demo (`docker-compose.demo.yml`, `lib.sh`) chờ OPS smoke + UXR đi lại KB6 (ĐK-S3-10) rồi mới Closed |
+| **BUG-R2-066** | **P0** | Mọi lần tải ảnh đính kèm từ Desk trả 422: `Idempotency-Key` = `${idem}-a` không phải UUID (`MoneyPage.tsx:771`, `StayDialogs.tsx:645`; `auth.guard.ts:575`) → không ghi được khoản chi hoàn (tiền mặt và chuyển khoản, kể cả chủ đầu tư) vì API bắt buộc ảnh (`EVIDENCE_REQUIRED`); phát sinh phạt/hư hỏng kèm ảnh cũng hỏng (UXR #2) | FE | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L4-093, TC-L4-094, TC-L4-095 xanh. Closed khi có commit + CI xanh |
+| **BUG-R2-067** | **P1** | Desk không thêm được giấy tờ (Nhập tay, có hay không ảnh): `addGuestDocument` gửi phần `data` dạng Blob → trình duyệt gắn filename → `textPart` của API bỏ qua → 422 `data REQUIRED` ("Bắt buộc") (`api-client/src/endpoints.ts:769`, `files/public/multipart.ts:70-72`) (UXR #3) | FE (api-client) | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L3-075 xanh. Closed khi có commit + CI xanh |
+| **BUG-R2-068** | **P1** | Lễ tân trưởng (và lễ tân khác người tạo yêu cầu) không thấy khoản hoàn quản lý đã duyệt ở tab Hoàn tiền → không chi tiền mặt được bằng vai quầy (`approval.service.ts:704-707`: FDL/FD chỉ thấy yêu cầu "của mình") (UXR #4) | BE-A | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L4-093 (bước 3) xanh. Closed khi có commit + CI xanh |
+| **BUG-R2-069** | **P1** | Hộp Hủy đơn ghi "Đơn chưa thu tiền nên không có phí hủy hay khoản hoàn" khi khách được hoàn 100 % cọc (BR-309-03); app vẫn tạo đúng yêu cầu hoàn – lễ tân dễ báo sai cho khách (`ReservationDialogs.tsx:262-279`, thiếu nhánh hoàn > 0, giữ lại = 0) (UXR #5) | FE (+ UXD câu) | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L2-085 xanh. Closed khi có commit + CI xanh |
+| **BUG-R2-070** | **P1** | Drawer: "Đã thu" = tiền phòng − còn phải thu (`ReservationDrawer.tsx:515`): giữ chỗ chưa cọc hiện −1.416.000 (D5), đơn đã hủy mới cọc 500.000 hiện −1.822.000, D1 đang ở có phụ thu hiện 1.354.000 thay vì 1.613.000. Folio, bill, màn trả phòng vẫn đúng (UXR #6) | FE | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L2-086, TC-L3-076 (phần "Đã thu") xanh. Closed khi có commit + CI xanh |
+| **BUG-R2-071** | **P1** | Thêm người lớn vượt định mức khi khách đang ở bị chặn: Desk luôn gửi `applyExtraPersonSurcharge: false`, không hiện số phụ thu, không có ô xác nhận → 422 `SURCHARGE_DECISION_REQUIRED` (450.000 ở D1); câu báo là câu của màn nhận phòng ("tick 'Tôi đã báo khách…'" – không có ô nào để tick) (`StayDialogs.tsx:988, 996`) (UXR #7) | FE + UXD | **Fixed** – QA kiểm trên cây làm việc 17/10 13:23 (ảnh `qa-r9`, mục 8.3): TC-L3-076 xanh. Closed khi có commit + CI xanh; UXD còn phải duyệt hộp (ĐK-S3-9) |
+| BUG-R2-072 | P2 | Quản lý tự chi khoản mình đã duyệt: API trả đúng 403 `SELF_REFUND_FORBIDDEN`, nhưng Desk hiện "Máy chủ đang gặp sự cố…" (`MoneyPage.tsx:877` so mã `SELF_APPROVAL_FORBIDDEN`; chưa có chuỗi `error.SELF_REFUND_FORBIDDEN` → `problemView` rơi về `error.server`) (UXR #8) | FE (+ UXD chuỗi) | **Open** – FE đang sửa (cây làm việc có chuỗi mới) |
+| BUG-R2-073 | P2 | Câu báo còn ký hiệu thô: `{n}` ở "Còn {n} ô cần sửa" khi lỗi 422 đi qua `problemView` (không truyền `n` – `app/problem.ts:65-66`; ảnh 121); `{room}`/`{from}`/`{to}` ở câu báo căn đang khóa khi tạo đơn (ảnh 141) (UXR #9) | FE | **Open** |
+| BUG-R2-074 | P2 | Ô "Ngân hàng nhận" (nơi nhận hoàn chuyển khoản) chỉ nhận mã BIN 6 số: chữ gõ vào bị xóa im lặng (`MoneyPage.tsx:680-690`: `replace(/\D/g, '')`, `maxLength 6`) rồi báo "Bắt buộc"; chưa có danh sách chọn ngân hàng (UXR #10) | FE + UXD | **Open** – S4 |
+| BUG-R2-075 | P3 | KB2: sau **Tạo nhanh khách**, ô "Khách đứng tên" có lúc vẫn đỏ "Bắt buộc" dù đã chọn khách; bấm Tạo đơn vẫn được (UXR #11) | FE | Open – S4 |
+| BUG-R2-076 | P2 | KB2: nút **Dùng căn …** (khi đặt trùng) tạo đơn ngay ở căn gợi ý với giá tính lại theo căn mới; lễ tân không được xem giá trước khi tạo (UXR #11 – QA nâng P3 → P2) | FE + UXD/PO | Open – chờ UXD/PO |
+| BUG-R2-077 | P3 | Danh sách Đơn đặt phòng: ô Tìm kiếm chỉ tìm theo mã đơn, mã OTA, mã khách; chưa tìm theo tên khách (UXR #11) | FE (+ BE-A nếu API chưa hỗ trợ) | Open – S4 |
+| BUG-R2-078 | P2 | Danh sách Đơn đặt phòng: cột "Còn phải thu" luôn trống – dữ liệu danh sách không có `balanceDueVnd` (`ReservationsPage.tsx:204`) (UXR #11 – QA nâng P3 → P2) | FE + BE-A | Open – S4 |
+| BUG-R2-079 | P3 | Phím Esc không đóng khung chi tiết đơn sau khi đã mở rồi đóng hộp link check-in / xác nhận cọc; nút X vẫn đóng được (UXR #11) | FE | Open – S4 |
+| BUG-R2-080 | P2 | KB3: hộp báo giá chỉ cho chọn Tiếng Việt/English, không có tiếng Nga (`QuoteDialog.tsx:79, 634-635`), trong khi US-083 AC2 (Must R2) yêu cầu Việt/Anh/Nga và API đã có bản RU (BUG-R2-027) (UXR #11 – QA nâng P3 → P2) | FE (+ PO xác nhận phạm vi) | Open – chờ PO |
+| BUG-R2-081 | P3 | KB3: lễ tân xác nhận cọc không thấy số tiền và ghi chú CTV đã báo chuyển (UXR #11) | FE (+ PO phạm vi) | Open – chờ PO |
+| BUG-R2-082 | P3 | KB7: nút **Giặt ủi** ở bước Phụ phí mở hộp "Thêm phát sinh" chưa chọn sẵn khoản – preset `LAUNDRY_KG` (`CheckOutPage.tsx:36`) không khớp mã danh mục `laundry_per_kg` (UXR #11) | FE | Open – S4 |
+| **BUG-R2-083** | **P0** | Bỏ người khỏi đoàn hủy giấy tờ khách tải qua link **theo vị trí ô**, không theo người (`registration.service.ts:1921-1955`, điều kiện `person_index > persons` ở :1931): bỏ người giữa → hủy không hoàn tác giấy tờ của khách **còn ở**, giữ giấy tờ của người đã rời đoàn; bỏ người trước ngày đến → không hủy gì, link báo đủ người bằng hộ chiếu của người không ở; `required_count` không giảm. SEC tái hiện trên PostgreSQL thật (FB-R2-SEC-BE-53, SEC xếp Major) – QA xếp **P0** theo test-strategy mục 8 (mất/hỏng dữ liệu C3; C3 mặc định P0) | BE-C, BE-A, ARC (+ FE/UXD hộp xác nhận) | **Open** – S4-39. Hạn SEC-G1: trước cổng QC Sprint 4 **và** trước dữ liệu khách thật |
 
 ## 2. Chi tiết
 
@@ -429,7 +462,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `clock/checkin.s3.clock.spec.ts` TC-L3-008 (a) (`test.fail` ở cuối ca, phần (b) B9a vẫn kiểm); `ui/stay.h13-h17.spec.ts` TC-L3-001 (E) (`test.fail` khi giờ stack < 06:00).
 
 ### BUG-R2-053 – CI E2E: token thiết bị của seed không đọc được trên runner → `403 DEVICE_NOT_TRUSTED` ở mọi ca C3
-- Mức: **P1** (cổng CI E2E đỏ: 28 ca trượt – c3-at-rest, checkin.s3 mục 4.2/4.3, stay-checkout.s3 TC-L4-051/062, UI H13/H14; tệ hơn là **103 ca bị bỏ qua im lặng**: 100 ca RBAC Sprint 3 cần thiết bị + TC-RB-001/002/022 – kết quả "xanh" giả nếu không có các ca đỏ kia; không ảnh hưởng sản phẩm) · Môi trường: CI run 38980363276 (main `c8b83f3`, GitHub-hosted ubuntu, runner uid 1001), job `docker images build · E2E smoke` · Vai sửa: OPS (`.github/workflows/ci.yml`) + QA (harness) · Trạng thái: **Fixed** (chờ commit + CI xanh)
+- Mức: **P1** (cổng CI E2E đỏ: 28 ca trượt – c3-at-rest, checkin.s3 mục 4.2/4.3, stay-checkout.s3 TC-L4-051/062, UI H13/H14; tệ hơn là **103 ca bị bỏ qua im lặng**: 100 ca RBAC Sprint 3 cần thiết bị + TC-RB-001/002/022 – kết quả "xanh" giả nếu không có các ca đỏ kia; không ảnh hưởng sản phẩm) · Môi trường: CI run 38980363276 (main `c8b83f3`, GitHub-hosted ubuntu, runner uid 1001), job `docker images build · E2E smoke` · Vai sửa: OPS (`.github/workflows/ci.yml`) + QA (harness) · Trạng thái: **Closed** (17/10, cổng QC Sprint 3 – QA kiểm lại trên log CI 38998735861, mục 7.1)
 - Gốc (đã tái hiện): `services/api/src/db/seed/ds-e.ts:430–436` ghi `ds-e.map.json` với `{ mode: 0o600 }`; container `seed` chạy bằng user của ảnh `node` (uid 1000); `ci.yml:364–366` tạo `.out` 0777 rồi `docker compose … run --rm seed` → tệp thuộc uid 1000, mode 600; tiến trình Playwright chạy bằng `runner` (uid 1001) → `readFileSync` EACCES; `tests/e2e/support/s3.ts` (bản `c8b83f3`, `deviceToken()` dòng ~211–220) nuốt lỗi trong `catch {}` → `dev()` không gửi cookie `ottimo_did` → 403; `needDevice()`/runner RBAC (`rbac-sprint3.spec.ts:117`) coi là "môi trường" → skip. Không phải giả thuyết (a): SEC-BE-34 chỉ loại phiên `staff_pwa` và Origin ngoài danh sách admin – CI gửi `E2E_ORIGIN=http://localhost:8081` = `API_ADMIN_BASE_URL`, đăng nhập bằng Origin admin → phiên `admin`; stack QA cũng bật danh sách Origin (38081/38082/38083) và qua.
 - Tái hiện: (1) Docker volume Linux: ghi tệp bằng `node` uid 1000 với `mode 0o600` đúng như loader, đọc bằng uid 1001 theo đúng logic `deviceToken()` → `EACCES`, `deviceToken() = undefined`. (2) Stack dùng một lần `ottimo-qa-s3`, Origin bật như CI, `chmod 000` tệp map → chạy c3-at-rest, c3-access, checkin.s3.api, rbac-sprint3, ui/stay.h13-h17: **26 trượt `DEVICE_NOT_TRUSTED` + 100 ca RBAC + 3 ca TC-RB bỏ qua** – khớp log CI. (3) Cùng điều kiện sau khi sửa harness: **775 đạt, 0 trượt vì thiết bị**, RBAC S3 737/737 không bỏ qua; global-setup in cảnh báo rõ nguyên nhân.
 - Sửa: OPS (cây làm việc): `ci.yml` bước "Load QA seed DS-E" chạy `run --rm --user "$(id -u):$(id -g)" seed`, `.out` 0700, `test -r …/ds-e.map.json || exit 1`. QA (`e3959ec` + cây làm việc): `tests/e2e/support/device.ts` – đọc map và phân biệt ENOENT/EACCES; `global-setup.ts` kiểm token thiết bị, không đọc được thì đăng ký thiết bị quầy dự phòng qua `qa.owner` (trustCurrentDevice, xác thực lại – cùng đường của project clock) và in `CẢNH BÁO … BUG-R2-053`; trên CI cả hai cách đều hỏng → dừng ở global-setup với một thông báo thay vì ~30 ca đỏ + skip im lặng.
@@ -442,6 +475,199 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Mong đợi: `imagesPurgedAt` = thời điểm xóa, `imagesPurgeReason` có giá trị (hợp đồng chưa có giá trị cho trường hợp này: enum `[retention, no_consent, consent_withdrawn, guest_request, void]` – ARC chọn thêm `unconfirmed` hoặc ánh xạ).
 - Gốc: `registration/internal/registration.service.ts:118–124` `SUMMARY_REASONS` không có `unconfirmed` → dòng 435–439 không ghi `images_purged_at`; OpenAPI `Registration.imagesPurgeReason` (≈ dòng 9584) thiếu giá trị.
 - Bằng chứng: `clock/checkin.s3.clock.spec.ts` TC-L3-074 (`test.fail` ở bước cuối; các bước còn ảnh ngày 6 / mất ảnh ở hạn + 1 phút / hủy khi `sent` không `void` đều đạt).
+
+> **BUG-R2-055…061 – quy ước chung (cổng QC Sprint 3, 17/10).** Nguồn: kiểm chứng đối kháng vòng 4–8 (`reviews/s3-round4…8-verification.md`, chạy trên PostgreSQL thật hoặc code thật + SQL giả lập như ghi ở từng mục) và lượt tái hiện của QA (BUG-R2-061). Mã nguồn đối chiếu: `6af7173` (= `product/` của HEAD). **Mức:** test-strategy mục 8 – "sai tiền" là P0, "lỗi tiền … mặc định P0 cho đến khi chứng minh không ảnh hưởng tiền"; protocol mục 6 (Blocker = sai tiền) và mục 9 (P0 = sai tiền). Mức **không** hạ vì đường đi hiếm hay chỉ qua API: API là sản phẩm, và Sprint 4 sẽ mở thêm nút trên Desk (S4-25*). **Đường đi** = nơi người dùng thật với tới được hôm nay (Desk / chỉ API). **Tần suất** = ước lượng định tính của QA theo điều kiện cần có, chưa có số liệu vận hành. **Hạn:** trước cổng QC Sprint 4 (decision-log ORC 17/10 – ngoại lệ cổng sprint); còn sót thì cổng cuối Round 2 KHÔNG ĐẠT; P0 không sửa kịp trong Round 2 → QA lập ESC. Mỗi bản sửa phải có test đọc `fixtures/br-examples.json` và qua kiểm chứng đối kháng lại phần FOC (ĐK-S3-6). Môi trường chung: code `6af7173`, CI 38998735861 xanh (không ca nào phủ các kịch bản này).
+
+### BUG-R2-055 – FOC lớn hơn giá đêm mới trên đơn có người chốt → đổi đơn trả 500 (S4-01, kèm S4-03)
+- Mức: **P1** (không sai tiền – giao dịch rollback sạch, s3-round6 "repro C"; nhưng B14/B7/B13 trên đơn đó bị chặn bằng `500 INTERNAL_ERROR` "Máy chủ đang gặp sự cố", không có cách vòng trên Desk – test-strategy P1 "cách vòng rất tốn công") · Vai sửa: BE-B · Trạng thái: **Open** – S4-01 (+S4-03) · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10)
+- Đường đi: **chỉ API** – cần FOC trên đêm phòng (`requestFoc` dòng `room`), Desk chỉ xin FOC phụ thu nhận sớm (`CheckInPage.tsx:234`). Tần suất: hiếm (đơn CTV/sale + FOC đêm phòng + giá đêm mới < FOC).
+- Bước (ví dụ BR-434): đơn Trực tiếp có người chốt `qa.ctv1`, đêm 202 giá 792.000, FOC 100 % 792.000 đã duyệt → khách xin B14 sang căn giá 700.000 (hoặc B7 kéo dài làm hạ bậc BR-107, hoặc B13 trên đơn FOC 100 %).
+- Thực tế: `500 INTERNAL_ERROR`; log `RangeError: allocate: weights must be non-negative safe integers`; đơn giữ nguyên. Đơn không có người chốt: đúng (FOC 700.000, khách trả 0).
+- Mong đợi: 200; FOC mới = min(792.000, 700.000) = 700.000, khách trả 0 (BR-434); hoa hồng tính trên doanh thu phòng sau FOC.
+- Gốc: `frontdesk/internal/stay.service.ts:970` ghi `room_revenue_vnd = giá mới − discount_vnd` (FOC cũ) → âm; `folio/public/folio.service.ts:1794-1799` (`syncCommission`) lấy `roomRevenueVnd` làm trọng số `allocate` (`folio/public/allocate.ts:13` ném lỗi, không map). Nghi vấn chưa chạy: phân bổ phí kênh `folio.service.ts:1901` dùng cùng trọng số → đơn OTA trả tại chỗ có FOC có thể gặp cùng lỗi.
+- Kèm (S4-03, Minor tiền hoa hồng): sau B8 dời FOC, base hoa hồng còn tính trên đêm đọc trước khi chuyển FOC (2.000.000 thay vì 1.700.000 – s3-round6 repro H), đúng lại ở lần đồng bộ sau; trả phòng có gọi `resyncStay` (`checkout.service.ts:650`) nên QA chưa thấy đường hoa hồng chốt sai – QA kiểm lại khi sửa (đọc lại đêm sau khi chuyển FOC).
+- Bằng chứng: `reviews/s3-round6-verification.md` FOC-RESYNC phản chứng 2 + Minor (b); critic: Major-defer-S4.
+
+### BUG-R2-056 – FOC đi theo dòng mới lấy min(FOC đang có) thay vì min(số đã duyệt); FOC mất hẳn khi phụ thu về 0 rồi tăng lại (S4-02 + mở rộng)
+- Mức: **P0** (sai tiền – khách trả thừa phần FOC đã được duyệt) · Vai sửa: BE-B · Trạng thái: **Open** – S4-02 (gồm mở rộng s3-round8) · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10)
+- Đường đi: **chỉ API** (FOC trên đêm phòng/phụ thu người). Tần suất: hiếm (≥ 2 lần đổi giá ngược chiều trên cùng đêm có FOC).
+- Bước / thực tế: (a) FOC 100 % trên đêm 1.000.000; đổi giá đêm xuống 900.000 (FOC → 900.000, đúng) rồi lên lại 1.000.000 → FOC giữ 900.000, khách trả 100.000 (s3-round6 repro D); phụ thu người 150.000 → 100.000 → 200.000 → FOC còn 100.000 (repro G). (b) Mở rộng: căn 302, 4 người lớn, FOC 150.000 trên phụ thu ngày 20/01; sửa số khách 3 NL + 1 trẻ (FOC 100.000, đúng) → 2 NL (phụ thu 0, FOC hủy) → 4 NL: phụ thu 150.000 × 3 quay lại, FOC **không** quay lại – tổng 2.901.000 (s3-round8 N11, PostgreSQL thật).
+- Mong đợi: BR-434 – FOC mới = min(**số đã duyệt** = số trên yêu cầu duyệt, giá trị dòng mới); ngày 20/01 vẫn là ngày giữ → (a) FOC 1.000.000, khách trả 0; (b) tổng **2.751.000**.
+- Gốc: `folio/public/folio.service.ts:1486` `Math.min(-r.amount_vnd, left)` lấy số của dòng FOC đang có; phụ thu về 0 → `wanted` không có ngày đó (`:1337-1362`) → dòng và FOC bị đảo, lần đồng bộ sau không còn dòng FOC nào để mang theo. Sửa phải đọc số đã duyệt từ `approval_request` (kể cả khi dòng FOC đã bị đảo) – kèm test 4A→2A→4A.
+- Bằng chứng: `reviews/s3-round6-verification.md` Minor (a); `reviews/s3-round8-verification.md` mny-2 / N11; DOM 17/10 "số đã duyệt" (decision-log, BR-434).
+
+### BUG-R2-057 – B14 đơn OTA đổi phòng nhiều lần: chênh lệch BR-424 cộng dồn, không so căn gốc (S4-05)
+- Mức: **P0** (sai tiền – thu thừa 500.000 trong ví dụ) · Vai sửa: BE-A · Trạng thái: **Open** – S4-05 · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) – **sửa trong tuần đầu Sprint 4** (thứ tự ORC: S4-28 → S4-07, S4-05 → …)
+- Đường đi: **Desk** – "Đổi phòng" khách đang ở (H15, `StayDialogs.tsx:465` → `changeRoom`). Tần suất: hiếm (đơn OTA đang ở, khách xin đổi ≥ 2 lần, có lần quay về căn rẻ hơn) – nhưng lễ tân không được báo gì: bản xem trước chỉ hiện chênh lệch của lần đổi hiện tại.
+- Bước: Agoda 203, 01–04/05 giá 900.000, đơn con Trực tiếp 04–06; giá Trực tiếp 203 = 792.000, 401 = 1.042.000; mọi lần đổi `guest_request`. (1) Ngày 02 đổi 203→401; (2) cùng ngày quay lại 203; (3) ngày 03 đổi 203→401.
+- Thực tế: chênh lệch đã ghi: đêm 02 = 250.000, đêm 03 = 500.000 → **750.000**.
+- Mong đợi: DOM 17/10 (2) + BR-424: so với **căn gốc** (căn gán lúc nhận phòng, trước nâng hạng do OTTIMO), mỗi lần đổi đảo dòng chênh lệch từ đêm đổi và ghi lại max(0, giá Trực tiếp căn mới − căn gốc), không cộng dồn → đêm 02 = 0 (ngủ ở 203), đêm 03 = 250.000 → **250.000**.
+- Gốc: `frontdesk/internal/stay.service.ts:809-820` `otaDiffs` = max(0, direct(căn mới) − direct(căn **hiện tại** của đêm)); `:1061-1082` chỉ ghi thêm dòng `room_change_difference`, không đảo dòng cũ; chỉ B16 đảo loại dòng này.
+- Bằng chứng: `reviews/s3-round5-verification.md` B14-STAY (script `scratchpad/r5/b14-stay-repro.ts`, `StayService.changeRoom` thật + folio giả lập); decision-log DOM 17/10 (2).
+
+### BUG-R2-058 – B7/B7a đổi/gán căn khác định mức không tính lại phụ thu người (S4-07)
+- Mức: **P0** (sai tiền cả hai chiều: thu thừa khi OTTIMO nâng hạng, thất thu khi khách xin xuống căn nhỏ) · Vai sửa: BE-A · Trạng thái: **Open** – S4-07 · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) – **sửa trong tuần đầu Sprint 4**
+- Đường đi: **Desk** – dời căn/ngày (`ReservationDialogs.tsx:695` → `moveReservation`), gán căn (`:1152` → `assignRoom`). Tần suất: **thường gặp nhất trong nhóm lỗi tiền này** – xếp lại căn trước ngày đến là việc hằng tuần; chỉ cần đơn có người vượt định mức (gia đình 3–4 người) và căn mới khác định mức (OTTIMO có căn định mức 2, 3, 4). [GIẢ ĐỊNH QA – chưa có số liệu đặt phòng thật]
+- Bước / thực tế: (a) 3 người lớn, 2 đêm, 202 (định mức 2, phụ thu 300.000) → nâng hạng `upgrade` sang 302 (định mức 3): phụ thu giữ 300.000; (b) ngược lại khách xin 302 → 202: phụ thu giữ 0; (c) Agoda trả trước căn 101, "khách báo trực tiếp" 3 người lớn (150.000 × 3 đêm), dời 101 → 102 → 301 (định mức 4): phụ thu vẫn 150.000 × 3, tổng **2.400.000** (s3-round8 N16, PostgreSQL thật); (d) đơn OTA chưa gán căn: PATCH "khách báo trực tiếp" có `baseOccupancy` null → không bao giờ có phụ thu.
+- Mong đợi: BR-429 (bổ sung 17/10, ví dụ trong BR): tính lại **từng đêm** theo nguyên nhân – `guest_request` theo định mức căn mới; do OTTIMO (`property_fault`, `overbooking`, `upgrade`, `inventory_optimize`, B7a đơn xung đột) lấy min(cũ, mới); OTA tính trên max(định mức, số khách OTA); giá đêm giữ nguyên, bộ đồ dùng theo căn mới → (a) **0**; (b) **300.000**; (c) **2.100.000**.
+- Gốc: `reservations/internal/reservations.service.ts:2639` `move` chỉ đổi `room_id`; `:3024` `assignRoom` không đồng bộ tiền; phụ thu từng đêm chỉ do `repriceExtraPersons` (`:1350`) ghi khi sửa số khách.
+- Bằng chứng: `reviews/s3-round4-verification.md` (E); `reviews/s3-round8-verification.md` N16 (ca đỏ duy nhất của 29 ca tiền vòng 8). Ca kiểm: TC-L2-084 (mới, `tests/test-cases/r1-main-flows.md`).
+
+### BUG-R2-059 – FOC chờ duyệt bị "duyệt" mà không áp; FOC bị hủy theo quy tắc vẫn trừ hạn mức, không audit (S4-18 + mở rộng)
+- Mức: **P0** (sai tiền so với quyết định đã duyệt: người duyệt thấy `approved`, khách không được miễn và không ai được báo; kèm lệch hạn mức FOC tháng và báo cáo FOC – BR-433/434). QA không chấp nhận lập luận "tiền folio đúng theo A5": A5 là *từ chối* yêu cầu khi dòng bị đảo, còn build để yêu cầu ở `approved` · Vai sửa: BE-B · Trạng thái: **Open** – S4-18 (gồm mở rộng s3-round8) · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10)
+- Đường đi: **chỉ API** cho đêm phòng/phụ thu người; cùng cơ chế trên phụ thu trả muộn – xem BUG-R2-061 (c). Tần suất: hiếm (FOC đang chờ duyệt khi dòng đêm bị ghi lại).
+- Bước / thực tế: (a) căn 203, 23–26/11, lễ tân xin FOC 300.000 cho đêm 24/11 (chờ duyệt); B7 đổi ngày đi thành 30/11 (7 đêm, giảm theo số đêm 10 % → đêm 24/11 đổi giá, dòng ghi lại); quản lý duyệt: HTTP 200, yêu cầu `approved`, dòng FOC `rejected`, tổng **5.205.000** (s3-round8 X2b, PostgreSQL thật; X2a đối chứng giữ giá → `posted`, 1.703.000 – đúng). Cùng hiện tượng khi B8 dời đơn (s3-round7 (j), FOC-5). (b) Mở rộng: căn 203, 03–06/12 → 04–06/12, FOC 792.000 đã duyệt trên 03/12 bị hủy đúng quy tắc (đêm bỏ không có đêm thêm) – folio đúng 1.822.000 nhưng không có audit `folio.*`, yêu cầu vẫn `approved`, `monthlyApprovedBy` vẫn cộng 792.000 (s3-round8 R1c, N2: 200.000).
+- Mong đợi: FOC chờ duyệt đi theo dòng mới khi được duyệt = min(số xin, dòng mới) – hoặc yêu cầu bị hủy/báo người gửi trước khi duyệt và **không** trừ hạn mức (DOM chốt – ĐK-S3-5); FOC bị hủy theo quy tắc có audit `folio.foc_cancelled`, không tính vào hạn mức tháng/báo cáo FOC.
+- Gốc: `folio/public/folio.service.ts` – dòng đêm có FOC đang chờ bị đảo trong đồng bộ; `folio/internal/foc.service.ts` (≈ `:184` theo s3-round7) duyệt khi dòng liên quan đã đảo → dòng FOC `rejected` nhưng yêu cầu vẫn `approved`; audit đồng bộ chỉ ghi khi `roomVnd`/`extraPersonVnd`/`reversedVnd` ≠ 0 (`folio.service.ts:1407`) – FOC và dòng đêm triệt tiêu nhau nên không có audit; `approvals/public/approval.service.ts` `monthlyApprovedBy` cộng mọi yêu cầu `approved`.
+- Bằng chứng: `reviews/s3-round7-verification.md` FOC-5 / (j); `reviews/s3-round8-verification.md` mny-3 (X2b), code-1 + breg-2 (R1c, N2). Ca kiểm: TC-NT-046.
+
+### BUG-R2-060 – B12 khôi phục no-show làm mất FOC đã duyệt (S4-22)
+- Mức: **P0 – tạm, chờ DOM** (khách trả thêm đúng số FOC đã duyệt; test-strategy: lỗi tiền mặc định P0 tới khi chứng minh không ảnh hưởng tiền). DOM chốt "FOC hủy là đúng" → QA đóng "Không sửa (đúng quy tắc)" và ghi lý do · Vai sửa: DOM (chốt quy tắc, ĐK-S3-5) → BE-B · Trạng thái: **Open** – S4-22 · Hạn: DOM chốt trước; sửa trước cổng QC Sprint 4 (decision-log ORC 17/10)
+- Đường đi: **chỉ API** (FOC đêm phòng trước ngày đến) + khôi phục no-show (Desk có). Tần suất: rất hiếm (FOC trước khi đến → no-show → khôi phục).
+- Bước: căn 103, 07–09/12, FOC 300.000 trên đêm 07/12 (tổng 1.200.000) → đánh dấu no-show 23:30 (tổng 500.000 – giữ cọc) → khôi phục 01:30 cùng ngày nghiệp vụ.
+- Thực tế: 2 dòng phòng 750.000 ghi lại, 0 dòng FOC → tổng **1.500.000** (+300.000); yêu cầu FOC vẫn `approved` (s3-round8 X1, PostgreSQL thật; vòng 7 giống hệt – không phải hồi quy).
+- Mong đợi: [chờ DOM] BR-315(a) "khôi phục dùng lại chính các đêm-phòng đã hủy, giữ giá snapshot" + điều kiện (3) "không đổi giá" → FOC quay lại, tổng **1.200.000**.
+- Gốc: `folio.service.ts:997` `voidStay` đảo cả dòng phòng lẫn FOC; `reservations.service.ts:3328` `restoreNoShow` chỉ đồng bộ lại – không còn dòng phòng sống nên `focDateMap` không có gì để chuyển.
+- Bằng chứng: `reviews/s3-round8-verification.md` mny-1 / X1.
+
+### BUG-R2-061 – FOC trên phụ thu trả muộn bị giảm/mất hoặc "duyệt mà không áp" khi đổi giờ trả (S4-34, QC-S3-03)
+- Mức: **P0** (sai tiền: khách trả thêm 210.000 / 140.000 trong ví dụ; hạn mức FOC bị trừ cho khoản không áp) · Môi trường: stack dùng một lần `ottimo-qa-s3`, ảnh api build từ `6af7173` (`ottimo-api:qa-gate-6af`, `INCLUDE_TEST_SUPPORT=1`), seed DS-E, ⏱ MutableClock (ngày ảo 2036-06/07), 17/10 12:10 · Vai sửa: BE-B (+ BE-A `stay-support`, DOM chốt phần (c)) · Trạng thái: **Open** – S4-34/QC-S3-03 · Hạn: trước cổng QC Sprint 4 (decision-log ORC 17/10) và **trước khi phát hành S4-25*** (QC: phát hành S4-25* khi lỗi này chưa sửa → Sprint 4 KHÔNG ĐẠT mục tiền)
+- Đường đi: hôm nay **chỉ API** (`requestFoc` trên dòng `late_checkout`; Desk chưa có nút). Khi S4-25* mở nút xin FOC trả muộn trên Desk, đây là thao tác **hằng ngày** (khách đổi giờ trả) → tần suất cao.
+- Bước (oracle BR-412, giá đêm 700.000; đơn Trực tiếp 1 đêm `in_house`, ⏱ ngày đến 14:30): (a) hẹn trả 15:00 (210.000) → `qa.fd` xin FOC 210.000 → `qa.fdl` duyệt → đổi giờ trả 12:30 (0) → đổi lại 15:00; (b) hẹn 17:00 (350.000) → FOC 350.000, `qa.mgr` duyệt → đổi 15:00 → đổi lại 17:00; (c) hẹn 15:00, FOC 210.000 **chờ duyệt** → đổi 17:00 → `qa.fdl` duyệt.
+- Thực tế: (a) sau 12:30 dòng trả muộn và FOC bị đảo; sau 15:00 dòng 210.000 **không có FOC**, còn phải thu **210.000**, yêu cầu vẫn `approved`. (b) 15:00: FOC −210.000 (đúng, min); 17:00: FOC vẫn −210.000, còn phải thu **140.000**. (c) duyệt trả 200 `approved`, dòng FOC `rejected`, còn phải thu **350.000**, hạn mức tháng còn lại của `qa.fdl` 1.500.000 → **1.290.000**.
+- Mong đợi: BR-434 / BR-412-12, -13 (G-10): FOC mới = min(**số đã duyệt**, dòng mới), không duyệt lại → (a) FOC 210.000, còn phải thu **0**; (b) FOC 350.000, còn phải thu **0**; (c) như BUG-R2-059 – không để `approved` mà không áp; nếu FOC đi theo dòng mới thì min(210.000, 350.000), còn phải thu 140.000 [chờ DOM chốt, ĐK-S3-5].
+- Gốc: `frontdesk/internal/stay-support.ts:515-575` `replaceLateCharge`: đảo dòng cũ (FOC đi theo), `if (input.amountVnd <= 0) return` → không giữ lại gì để mang sang; `carried = Math.min(old.focVnd, input.amountVnd)` với `old.focVnd` = FOC **đang có** (`liveSurchargeLines` `:469-507`, chỉ dòng `posted`) – cùng lớp BUG-R2-056 / BUG-R2-059. Cùng hàm được gọi từ B13 gia hạn và trả phòng (`stay.service.ts:375, 581, 1429`; `checkout.service.ts:356`) – B13 chưa chạy thử.
+- Bằng chứng: spec tạm của QA (không commit) `scratchpad/gate/QA/tests-copy/e2e/clock/zz-qa-gate-latefoc.clock.spec.ts`, log `scratchpad/gate/QA/gate-latefoc.log` (QA-GATE-1/2/3, 3/3 tái hiện). Ca kiểm: TC-NT-045 (a)(b), TC-NT-046 (c)(d).
+
+### BUG-R2-062 – H12 hứa "Mã QR … tạo ngay sau khi giữ chỗ" nhưng không vẽ mã QR cọc (PO-S3-04)
+- Mức: P3 (câu chữ sai/hứa điều chưa có; sale vẫn có số tiền + nội dung chuyển khoản `pay.qr_note` để gửi khách). Phần thiếu chức năng (vẽ QR – US-084 AC4, US-120, Must R2) là S4-28*, không tính vào lỗi này · Môi trường: đọc code `6af7173` · Vai sửa: FE (+ UXD nếu đổi chuỗi) · Trạng thái: **Open**
+- Bước: H12 báo giá → bước giữ chỗ: dòng `sale.qr_after` (`QuoteDialog.tsx:684`): VI "Mã QR có nội dung là mã đơn, tạo ngay sau khi giữ chỗ." / EN "The QR code uses the booking ID as the transfer note and is created right after the hold." → bấm giữ chỗ.
+- Thực tế: sau giữ chỗ H12 chỉ hiện số tiền cọc và `pay.qr_note` (`QuoteDialog.tsx:658`), không có mã QR; H11 Xác nhận cọc cũng không. Admin-web chỉ gọi `createVietQr` ở `pages/stay/PaymentPanel.tsx` (thu tiền lưu trú).
+- Mong đợi: hoặc vẽ mã VietQR `purpose=deposit` sau giữ chỗ (S4-28*), hoặc chuỗi không hứa QR.
+- Bằng chứng: `outputs/PO/s3-acceptance.md` US-084 AC4 (PO-S3-04); QA đọc lại `QuoteDialog.tsx`, `design/copy/strings-vi.json:1045`, `strings-en.json:1045`.
+
+### BUG-R2-063 – `guest.id_doc_last4` không được ghi → CRM không hiện 4 ký tự cuối giấy tờ (PO-S3-07)
+- Mức: **P2** – QA nâng so với đề nghị P3 của PO/QC/ORC: đây không phải câu chữ mà là trường dữ liệu không bao giờ được ghi (US-048 AC3, Must R2), cùng lớp BUG-R2-033 (a) đang là P2; có cách khắc phục (bản ghi khai báo vẫn có `docNumberLast4`) nên không lên P1 · Môi trường: đọc code `6af7173` · Vai sửa: BE-C (+ BE-B hồ sơ khách, SEC chốt điều kiện ghi như `id_doc_hmac` – 0.3.7) · Trạng thái: **Open** – S4-32* (gộp S4-11)
+- Bước: nhận phòng có giấy tờ người đứng tên → mở hồ sơ khách (CRM) bằng `qa.fd`.
+- Thực tế: `idDocLast4` rỗng. `grep id_doc_last4|idDocLast4` trong `services/api/src` (trừ migration): chỉ khai báo cột `db/schema/guests.ts:48` và 2 chỗ đọc (`guests.service.ts:72`, `guest-mapper.ts:68`) – không có lệnh ghi.
+- Mong đợi: US-048 AC3 – CRM chỉ hiện 4 ký tự cuối (không lộ số đầy đủ – TC-RB-001 đạt phần này).
+- Bằng chứng: `outputs/PO/s3-acceptance.md` US-048 AC3 (PO-S3-07); QA grep lại trên `6af7173`.
+
+### BUG-R2-064 – `test.fail()` gọi giữa ca che lỗi thật của lượt chạy đầu (QC-S3-04)
+- Mức: P3 (hạ tầng test – không ảnh hưởng sản phẩm, nhưng làm mất tín hiệu hồi quy ở bước trước dòng `test.fail`) · Môi trường: CI 38998735861 (`6af7173`), Playwright `retries: 1` trên CI · Vai sửa: QA · Trạng thái: **Open** – S4-24 (ĐK-S3-7: "không có `test.fail` giữa chuỗi")
+- Vị trí: `e2e/clock/checkin.s3.clock.spec.ts` TC-L3-011 (`:773`, `test.fail` ở `:834` – BUG-R2-038), TC-L3-074 (`:2098`, `test.fail` ở `:2215` – BUG-R2-054); `e2e/api/checkin.s3.api.spec.ts` TC-L3-032 (`:231`, `test.fail` ở `:257` và `:268` – BUG-R2-033 (a)(b)).
+- Cơ chế: lỗi xảy ra **trước** dòng `test.fail` → kết quả `failed` trong khi `expectedStatus` còn `passed` → Playwright chạy lại; lượt 2 tới được `test.fail` và hỏng đúng dự kiến → cả ca tính "expected" (cả hai lượt `failed` = `expectedStatus` cuối), không ghi flaky, reporter `list` không in lỗi, artifact chỉ tải lên khi job đỏ → lỗi lượt 1 mất dấu. Đã xảy ra ở TC-L3-011 trong CI 38998735861 (mục 7).
+- Sửa (QA, Sprint 4): tách bước lỗi đã biết thành ca riêng chỉ chứa bước đó (`test.fail` ở đầu ca), phần còn lại phải xanh; CI báo đỏ khi một ca có annotation BUG/`test.fail` bị chạy lại; tải `junit.xml` + `test-results` lên **mọi** lần chạy (`if: always()` – báo OPS vì sửa `ci.yml`).
+
+### BUG-R2-065 – Demo/dev: api, worker, seed không nhận khóa mã hóa cố định → giấy tờ không đọc được, 500 sau khi khởi động lại (UXR #1)
+- Mức: **P0** (mất/hỏng dữ liệu C3 trên bản demo giao INV: giấy tờ đã lưu không giải mã được; Gia hạn, Thêm người trên đơn dựng sẵn trả 500). Chỉ ở cách dựng demo/dev – prod đọc khóa qua `*_FILE` + chế độ strict (`docker-compose.prod.yml:42-44`, `keyring.ts:47`) nên không bị. QA không hạ mức: bản demo là thứ INV dùng thử · Môi trường: demo `ottimo-demo` (`adc0a47` = mã `6af7173`), UXR bấm 17/10 12:31–13:00; dev compose `infra/docker-compose.yml`; CI E2E cũng chạy với khóa ngẫu nhiên theo tiến trình (chưa gây đỏ vì CI không khởi động lại giữa chừng) · Vai sửa: OPS · Trạng thái: **Fixed** (cây làm việc: `infra/docker-compose.yml`, `infra/demo/docker-compose.demo.yml`, `infra/demo/lib.sh`, `infra/ci/make-ci-env.sh`) – QA kiểm phần compose dev/CI (mục 8.3); phần demo chờ OPS smoke + UXR đi lại KB6 (ĐK-S3-10) rồi mới Closed
+- Liên quan: ADR-013 (mã hóa C3), ĐK-S3-10, QC-S3-08
+- Bước: dựng demo (`demo-up.sh`: pha seed chạy riêng, rồi api/worker) → mở D4 (đơn đang ở dựng sẵn) → Gia hạn hoặc Thêm người; hoặc nhập giấy tờ cho D1, khởi động lại api, mở lại giấy tờ.
+- Thực tế: 500 "Máy chủ đang gặp sự cố…" (`DecryptionError` trong log api – ảnh 073, 077); giấy tờ lưu trước lần khởi động lại không mở được.
+- Mong đợi: api, worker, seed dùng chung một bộ khóa từ `demo.env`/`.env`; khởi động lại không mất khả năng đọc dữ liệu (ĐK-S3-10: "khởi động lại api rồi mở giấy tờ D4").
+- Gốc: `x-api-env` (`infra/docker-compose.yml:21-51`) không có `DATA_KEK_CURRENT`, `ID_HASH_KEY` → `keyring.ts:56-68` dùng khóa `ephemeral` khi biến rỗng và `APP_ENV=dev`.
+- Bằng chứng: ảnh UXR 073, 077 (`scratchpad/gate/uxr/shots/`); QC-S3-08 (đọc mã).
+- Kiểm lại (QA 17/10 13:29, mục 8.3): stack dùng một lần dựng từ cây làm việc, khóa sinh như `make-ci-env.sh`: tạo giấy tờ có ảnh → đọc đủ số (step-up) + ảnh: 200 → khởi động lại api + worker → đọc lại: **200**, đúng 4 số cuối, log không có `DecryptionError`. Đối chứng cùng stack nhưng env không có khóa: sau khi khởi động lại → **500**, log có lỗi giải mã – cách kiểm phân biệt được lỗi. Chưa kiểm: bản demo (QA không đụng `ottimo-demo`), J16 sau khởi động lại. Chưa có ca tự động – ghi vào S4-24: ca smoke "khởi động lại api giữa chừng".
+
+### BUG-R2-066 – Tải ảnh đính kèm từ Desk luôn 422 (`Idempotency-Key` "…-a") → không ghi được khoản chi hoàn, phát sinh kèm ảnh (UXR #2)
+- Mức: **P0** (không thanh toán được – chi hoàn tiền – và không có cách vòng trên Desk: API bắt buộc ảnh chứng từ cho cả tiền mặt và chuyển khoản, kể cả vai chủ đầu tư) · Môi trường: demo `ottimo-demo` (`adc0a47`), UXR 17/10; QA tái hiện bằng ca UI mới trên stack dùng một lần `ottimo-qa-s3` (api `6af7173`, web dựng từ `9e9fd64` – các dòng lỗi giống hệt `6af7173`), 17/10 13:15–13:25 · Vai sửa: FE · Trạng thái: **Fixed** (cây làm việc: `deriveIdempotencyKey` ở api-client, `MoneyPage.tsx`, `StayDialogs.tsx`, test FE `idempotency-keys.test.ts`) – QA kiểm 17/10 13:23 trên ảnh dựng từ cây làm việc: TC-L4-093, TC-L4-094, TC-L4-095 xanh (mục 8.3); Closed khi có commit + CI xanh
+- Liên quan: US-021 AC4, US-032 AC2, BR-522, rbac A47/A47a, E15-02; `uploadAttachment`, `executeCashRefund`, `executeRefund`, `addFolioLine`
+- Bước: Nhật ký tiền › Hoàn tiền › khoản đã duyệt › Chi hoàn tiền mặt (hoặc Ghi đã hoàn chuyển khoản) → đính ảnh → bấm chi. Hoặc drawer đơn đang ở › Thêm phát sinh › khoản phạt/hư hỏng › Thêm ảnh từ buồng phòng › Thêm vào folio.
+- Thực tế: `POST …/attachments` → **422** `{"errors":[{"field":"Idempotency-Key","code":"VALIDATION_FAILED"}]}`, Desk báo "Còn {n} ô cần sửa" (BUG-R2-073); không đính ảnh thì nút chi tiền mặt bị khóa, chuyển khoản → 422 `EVIDENCE_REQUIRED` (ảnh 111, 121, 123).
+- Mong đợi: lần tải ảnh có khóa Idempotency là một UUID riêng; ảnh trả 201; giao dịch chi / dòng phát sinh mang đúng `attachmentId`.
+- Gốc: `MoneyPage.tsx:771`, `StayDialogs.tsx:645` gửi `${idem}-a`; `auth.guard.ts:575` chỉ nhận UUID. Test FE giả lập API nên không bắt được (QC-S3-09).
+- Bằng chứng: mục 8 – TC-L4-094 trên mã cũ: `uploadAttachment refund_proof … 422 … "field":"Idempotency-Key"`; TC-L4-095: cùng lỗi với `penalty_evidence`.
+- Ca chống tái phát: TC-L4-093, TC-L4-094 (`e2e/ui/desk-writes.s3.spec.ts`), TC-L4-095 (`e2e/ui-clock/stay-writes.h15.spec.ts`).
+
+### BUG-R2-067 – "Nhập tay giấy tờ" trên Desk luôn 422 `data REQUIRED` (UXR #3)
+- Mức: **P1** (bước Giấy tờ của nhận phòng không làm được trên Desk; có cách vòng nhưng rất tốn công: mở link check-in cho khách đang đứng ở quầy, khách tự tải ảnh, lễ tân mở và sửa – test-strategy mục 8 P1) · Môi trường: như BUG-R2-066 · Vai sửa: FE (api-client) · Trạng thái: **Fixed** (`endpoints.ts`: phần `data` gửi dạng chuỗi) – TC-L3-075 xanh trên cây làm việc 17/10 13:23 (mục 8.3); Closed khi có commit + CI xanh
+- Liên quan: US-043 AC1, US-025, EP06 3.1, BR-601; `addGuestDocument`
+- Bước: H13 bước Giấy tờ (hoặc H14) → Nhập tay → điền đủ → Lưu giấy tờ (có hoặc không ảnh).
+- Thực tế: 422 `{"errors":[{"field":"data","code":"REQUIRED"}]}`, ô báo "Bắt buộc", không lưu (ảnh 042).
+- Mong đợi: 201; dòng "CCCD · số cuối xxxx"; khai báo `none → partial → review` (BR-601).
+- Gốc: `packages/api-client/src/endpoints.ts:769` `form.append('data', new Blob(...))` → trình duyệt gửi `filename="blob"`; `services/api/src/modules/files/public/multipart.ts:70-72` `textPart` chỉ đọc phần không phải tệp. Ca API (`callMultipart`) gửi `data` dạng chuỗi nên luôn xanh.
+- Bằng chứng: mục 8 – TC-L3-075 trên mã cũ: `addGuestDocument người 1 (nhập tay, không ảnh): mong đợi 201, thực tế: 422 … "field":"data","code":"REQUIRED"`.
+
+### BUG-R2-068 – Lễ tân trưởng không thấy khoản hoàn quản lý đã duyệt (UXR #4)
+- Mức: **P1** (phân quyền sai ở hành động: rbac A47a cho FD+ chi hoàn tiền mặt, nhưng danh sách chỉ trả yêu cầu "của mình" → vai quầy không chi được; cách vòng: chủ đầu tư hoặc quản lý khác chi) · Môi trường: như BUG-R2-066 · Vai sửa: BE-A · Trạng thái: **Fixed** (cây làm việc: `approval.service.ts` thêm hàng chờ chi hoàn cho FD/FDL + `approvals-refund-payout.test.ts`) – TC-L4-093 bước (3) xanh trên cây làm việc 17/10 13:23 (mục 8.3); Closed khi có commit + CI xanh
+- Liên quan: US-021 AC4, BR-522, rbac A47a; `listApprovalRequests`
+- Bước: FD tạo yêu cầu hoàn, quản lý duyệt → `qa.fdl` mở Nhật ký tiền › Hoàn tiền.
+- Thực tế: "Không có khoản hoàn nào cần xử lý" (ảnh 113, 115).
+- Mong đợi: khoản `approved` chưa chi đủ hiện cho FD/FDL để chi tiền mặt; người tạo yêu cầu vẫn bị chặn tự chi (SEC F8).
+- Gốc: `approval.service.ts:704-707` – FDL chỉ thấy `requested_by = me OR approver_id = me OR required_role = front_desk_lead`; FD chỉ `requested_by = me`.
+- Bằng chứng: mục 8 – TC-L4-093 trên mã cũ: bước (1) FD nhập nơi nhận đạt; bước (3) `qa.fdl` không thấy khoản của đơn `OTM-00680`.
+
+### BUG-R2-069 – Hộp Hủy đơn nói "chưa thu tiền" khi khách được hoàn 100 % cọc (UXR #5)
+- Mức: **P1** (US-021 AC2/AC4 Must: hộp xác nhận phải nêu khoản hoàn; câu sai ngay ở thao tác tiền không hoàn tác được → lễ tân báo nhầm cho khách. Không P0 vì số tiền ghi đúng: yêu cầu hoàn vẫn tạo đúng số, chờ duyệt) · Môi trường: như BUG-R2-066 · Vai sửa: FE (+ UXD câu) · Trạng thái: **Fixed** (cây làm việc: nhánh `confirm.cancel_booking.body_full_refund`) – TC-L2-085 xanh 17/10 13:25 (mục 8.3); Closed khi có commit + CI xanh
+- Liên quan: US-021 AC2, AC4; BR-309 (oracle BR-309-03), BR-522; `cancelReservation` (dryRun)
+- Bước: đơn Trực tiếp đã cọc, ngày đến còn ≥ 7 ngày → Hủy đơn.
+- Thực tế: "…Đơn chưa thu tiền nên không có phí hủy hay khoản hoàn." (ảnh 099).
+- Mong đợi: câu nêu hoàn đủ cọc (có số tiền), cần quản lý duyệt.
+- Gốc: `ReservationDialogs.tsx:262-279` thiếu nhánh `refundableVnd > 0 && retainedVnd = 0`.
+- Bằng chứng: mục 8 – TC-L2-085 trên mã cũ: hộp có đúng câu "Đơn chưa thu tiền nên không có phí hủy hay khoản hoàn.".
+
+### BUG-R2-070 – Dòng "Đã thu" trên drawer tính sai (UXR #6)
+- Mức: **P1**. Lỗi tiền mặc định P0 (test-strategy mục 8). QA xếp P1 vì đã kiểm là **không ảnh hưởng tiền đã ghi**: số này chỉ hiển thị, không đi vào lệnh ghi nào; "Còn phải thu" cùng khối lấy `balanceDueVnd` của server (đúng); thu tiền, điều kiện nhận phòng `balance_paid`, bill, màn trả phòng đều tính ở server. Vẫn P1 vì là số tiền sai trên màn dùng hằng ngày (US-020) · Môi trường: như BUG-R2-066 · Vai sửa: FE · Trạng thái: **Fixed** (cây làm việc: đọc `folio.totals.paidVnd`) – TC-L2-086 và phần "Đã thu" của TC-L3-076 xanh 17/10 13:23–13:25 (mục 8.3); Closed khi có commit + CI xanh
+- Liên quan: US-020, US-032 AC3; `getFolio`
+- Bước: mở drawer của (a) giữ chỗ chưa cọc D5; (b) đơn A đã cọc 500.000 rồi hủy; (c) D1 đang ở có phụ thu nhận sớm.
+- Thực tế: (a) "Đã thu −1.416.000", "Còn phải thu 0 đ" (ảnh 006); (b) "Đã thu −1.822.000" (ảnh 100); (c) "Đã thu −1.354.000" thay vì 1.613.000 (ảnh 081, 033).
+- Mong đợi: "Đã thu" = tiền đã thu thật của folio (`totals.paidVnd`): (a) 0; (b) 500.000; (c) 1.613.000.
+- Gốc: `ReservationDrawer.tsx:515` `−{vnd(r.totalRoomVnd - r.balanceDueVnd)}`.
+- Ghi chú: "Còn phải thu 0 đ" của giữ chỗ chưa cọc là số server trả (`balanceDueVnd` khi đơn `hold`); nên để "Cọc cần thu" là dòng chính khi đơn `hold` – UXD/PO xem, không tính vào lỗi này.
+- Bằng chứng: mục 8 – TC-L2-086 trên mã cũ: giữ chỗ chưa cọc "Đã thu" = 750.000, mong đợi 0.
+
+### BUG-R2-071 – Không thêm được người lớn vượt định mức khi khách đang ở (UXR #7)
+- Mức: **P1** (US-022 AC4 Must không làm được trên Desk, không có cách vòng ngoài API; hệ quả: không thu được phụ thu người, người đó không vào khai báo lưu trú. Không P0 vì không có số tiền bị ghi sai – thao tác bị chặn) · Môi trường: như BUG-R2-066 · Vai sửa: FE + UXD · Trạng thái: **Fixed** (cây làm việc: thử trước `dryRun`, hiện số phụ thu, ô xác nhận, câu `party.surcharge_*`) – TC-L3-076 xanh 17/10 13:25 (mục 8.3); UXD còn phải duyệt hộp (ĐK-S3-9); Closed khi có commit + CI xanh
+- Liên quan: US-022 AC4, BR-110 (oracle BR-110-06), BR-414, DOM S3-12; `addPartyMember`
+- Bước: D1 đang ở (2 người lớn, định mức 2) → Thêm người đi cùng → người lớn thứ 3 → Thêm vào đơn.
+- Thực tế: 422 `SURCHARGE_DECISION_REQUIRED` (450.000); hộp báo "Giờ này có phụ thu – tick 'Tôi đã báo khách khoản phụ thu này' hoặc xin miễn." nhưng không có ô nào, không nêu số tiền (ảnh 081, 082).
+- Mong đợi: hộp hiện phụ thu (150.000 × số đêm còn lại); lễ tân xác nhận đã báo khách → gửi `applyExtraPersonSurcharge: true` + `expectedSurchargeVnd` → 201; folio có dòng `extra_person`.
+- Gốc: `StayDialogs.tsx:988`, `:996` gửi cứng `applyExtraPersonSurcharge: false`; câu báo dùng `field.SURCHARGE_DECISION_REQUIRED` của màn nhận phòng.
+- Bằng chứng: mục 8 – TC-L3-076 trên mã cũ: hộp Người ở chỉ có câu báo trên và nút "Thêm vào đơn", không có số 450.000. TC-L3-056 chỉ chạy API (đã sửa nhãn tầng "A+E" → "A").
+
+### BUG-R2-072 – Người duyệt tự chi hoàn: Desk báo "Máy chủ đang gặp sự cố" (UXR #8)
+- Mức: P2 (thông báo gây hiểu nhầm – lễ tân tưởng hệ thống hỏng; có cách khắc phục: nhờ người khác chi; API chặn đúng) · Môi trường: như BUG-R2-066 · Vai sửa: FE (+ UXD chuỗi) · Trạng thái: **Open** – FE đang sửa (cây làm việc có chuỗi `error.SELF_REFUND_FORBIDDEN`)
+- Bước: `qa.mgr` duyệt khoản hoàn chuyển khoản rồi tự bấm Ghi đã hoàn chuyển khoản.
+- Thực tế: "Máy chủ đang gặp sự cố…" (ảnh 112). API: 403 `SELF_REFUND_FORBIDDEN` (đúng – SEC-37).
+- Mong đợi: câu riêng "người tạo/duyệt/nhập nơi nhận không tự chi".
+- Gốc: `MoneyPage.tsx:877` so `act.code === 'SELF_APPROVAL_FORBIDDEN'`; chưa có chuỗi `error.SELF_REFUND_FORBIDDEN` → `problemView` (`app/problem.ts:65-68`) rơi về `error.server`.
+
+### BUG-R2-073 – Câu báo còn ký hiệu thô `{n}`, `{room}`/`{from}`/`{to}` (UXR #9)
+- Mức: P2 (thông báo lỗi không nêu số ô sai, căn và ngày bị chặn – test-strategy mục 8 P2) · Vai sửa: FE · Trạng thái: **Open**
+- Bước và thực tế: (a) lỗi 422 đi qua `problemView` → "Còn {n} ô cần sửa – xem dòng đỏ dưới từng ô." (ảnh 121, lúc tải ảnh 422 – BUG-R2-066); (b) KB2 chọn căn đang khóa rồi Tạo đơn → "Căn {room} đang khóa sửa chữa từ {from} đến {to}…" (ảnh 141).
+- Gốc (đọc mã): (a) `app/problem.ts:65-66` gọi `t('error.VALIDATION_FAILED', args)` mà `argsFor` không đặt `n`; (b) đường lỗi của form Đặt phòng mới không qua `rsvErrorText` (`app/reservations.ts:125-126` có điền `room`/`from`/`to`) – FE xác nhận đường cụ thể.
+- Mong đợi: không câu nào hiện `{…}`. QA đề nghị FE thêm kiểm tự động "không chuỗi hiển thị nào còn `{`" trong test FE.
+
+### BUG-R2-074 – Ô "Ngân hàng nhận" chỉ nhận mã BIN, xóa chữ im lặng (UXR #10)
+- Mức: P2 (UX gây nhầm, có cách khắc phục: gõ mã BIN 6 số) · Vai sửa: FE + UXD · Trạng thái: **Open** – Sprint 4
+- Bước: Hoàn tiền › Nhập nơi nhận hoàn › Chuyển khoản › gõ "Vietcombank".
+- Thực tế: chữ bị xóa, ô trống, báo "Bắt buộc" (ảnh 103). `MoneyPage.tsx:680-690`: `inputMode="numeric"`, `maxLength={6}`, `replace(/\D/g, '')`.
+- Mong đợi: danh sách chọn ngân hàng (tên + BIN), hoặc ít nhất câu hướng dẫn "nhập mã BIN 6 số, ví dụ 970436".
+
+### BUG-R2-075…082 – Điểm nhỏ UXR #11 (đi thử demo 17/10)
+Môi trường: demo `ottimo-demo` (`adc0a47`), UXR 17/10. Đường đi và bằng chứng: `demo-1-limits.md` mục C (dòng "mới" của UXR) và ảnh UXR. QA đọc mã các điểm có ghi vị trí; các điểm khác ghi theo quan sát của UXR, QA chưa tái hiện riêng. Trạng thái cả nhóm: **Open**, PO xếp vào Sprint 4 (ĐK-S3-4: "thêm mục cho lỗi UXR P2/P3 không sửa ở vòng 9").
+
+| ID | Mức | Điểm (thực tế → mong đợi) | Vai sửa | Vì sao mức này |
+|---|---|---|---|---|
+| BUG-R2-075 | P3 | KB2 Tạo nhanh khách → ô "Khách đứng tên" có lúc vẫn đỏ "Bắt buộc" (ảnh 013–014) → hết đỏ khi đã chọn khách | FE | Chỉ hiển thị, tạo đơn vẫn được |
+| BUG-R2-076 | **P2** (nâng từ P3) | KB2 "Dùng căn …" tạo đơn ngay, giá tính lại theo căn mới, lễ tân không xem lại giá (ảnh 018–019) → xem giá mới rồi mới tạo | FE + UXD/PO | Tiền của đơn đổi mà người tạo không thấy trước – dễ báo khách giá cũ; có cách khắc phục (mở drawer, dời căn) nên không P1. Chờ UXD/PO chốt luồng |
+| BUG-R2-077 | P3 | Ô Tìm kiếm danh sách đơn chưa tìm theo tên khách (ảnh 097, 100) → tìm được theo tên | FE (+ BE-A nếu API chưa có) | Chưa có AC riêng; tìm theo mã vẫn được |
+| BUG-R2-078 | **P2** (nâng từ P3) | Cột "Còn phải thu" của danh sách đơn luôn trống (`ReservationsPage.tsx:204` – dữ liệu danh sách không có `balanceDueVnd`) → hiện số | FE + BE-A | Cột tiền trống dễ hiểu thành "không còn nợ"; chức năng phụ sai |
+| BUG-R2-079 | P3 | Esc không đóng khung chi tiết đơn sau khi đóng hộp con → Esc đóng | FE | Nút X vẫn tới được bằng Tab |
+| BUG-R2-080 | **P2** (nâng từ P3) | Hộp báo giá chỉ có Tiếng Việt/English (`QuoteDialog.tsx:79, 634-635`) → có tiếng Nga | FE (+ PO xác nhận) | US-083 AC2 (Must R2) yêu cầu Việt/Anh/Nga và API đã có bản RU (BUG-R2-027 đóng bằng ca API) → PO nên rà lại "Đạt" của US-083 AC2 trên giao diện. Có cách khắc phục (sale tự dịch) nên không P1 |
+| BUG-R2-081 | P3 | Lễ tân xác nhận cọc không thấy số tiền, ghi chú CTV đã báo → hiện để đối chiếu | FE (+ PO phạm vi) | Lễ tân vẫn đối chiếu với sao kê; chờ PO |
+| BUG-R2-082 | P3 | Nút Giặt ủi mở hộp phát sinh chưa chọn khoản: preset `LAUNDRY_KG` (`CheckOutPage.tsx:36`) ≠ mã danh mục `laundry_per_kg` (ảnh 086) → chọn sẵn "Giặt ủi (theo kg)" | FE | Chọn lại được trong danh sách |
+
+Ghi chú: QC ghi "9 điểm P3". Trong `demo-1-limits.md` mục C, ngoài #1–#10, QA đếm được 8 điểm "mới" (bảng trên). Nếu danh sách gốc của UXR có điểm thứ 9 không nằm trong limits, ORC/UXR chuyển để QA ghi thêm.
+
+### BUG-R2-083 – Bỏ người khỏi đoàn hủy nhầm / giữ nhầm giấy tờ khách tải qua link (FB-R2-SEC-BE-53)
+- Mức: **P0**. SEC xếp thẻ Major (rủi ro bảo mật Trung bình: không lộ cho người không có quyền, hạn giữ có trần nhờ J16). Mức lỗi sản phẩm do QA quyết theo test-strategy mục 8: (1) **hủy không hoàn tác** giấy tờ C3 của khách **còn ở** = mất dữ liệu; (2) giữ hộ chiếu/CCCD của người đã rời đoàn quá mục đích (A-38/T03, NĐ 13/2023); (3) link báo đủ người bằng giấy tờ của người không ở → nguy cơ khai báo lưu trú sai người. Quy tắc "C3 mặc định P0 cho đến khi chứng minh không ảnh hưởng dữ liệu" không loại được lỗi này. QA không hạ mức vì tần suất hay vì hạn SEC đặt ở Sprint 4 · Môi trường: SEC tái hiện trên PostgreSQL thật, mã `6af7173` (DB `ottimo_verify_sec_gate`, endpoint thật `DELETE …/party/{memberId}`), 17/10 · Vai sửa: BE-C (`registration.service.ts`), BE-A (`party.service.ts` – số người của khai báo), ARC (`removePartyMember` nhận `guestUploadPersonIndex`), FE + UXD (hộp hỏi "ảnh nào là của <tên>") · Trạng thái: **Open** – S4-39 · Hạn (SEC-G1): trước cổng QC Sprint 4 **và** trước dữ liệu khách thật (gửi link check-in cho khách thật hoặc nhập giấy tờ thật), mốc nào trước. Không cần trước buổi INV thử demo (dữ liệu giả); demo có câu cảnh báo SEC-G4 trong limits mục C
+- Liên quan: US-022, US-049, A-38, T03, FB-R2-SEC-BE-32 (Major b); `removePartyMember`, `guestUpload`
+- Bước (SEC mục 9.3): đơn `in_house` 3 người lớn, thành viên A (thứ 1), B (thứ 2); khách tải giấy tờ Khách 1/2/3 qua link; lễ tân bỏ A (giữa) – R1; bỏ B – R2; đơn `confirmed` bỏ người đi cùng – R3; khai 3 người, chỉ ghi 1 người đi cùng rồi bỏ – R4.
+- Thực tế: R1, R2, R4: giấy tờ Khách 3 (người còn ở) bị hủy (DEK hủy, tệp mất), Khách 2 giữ nguyên; `required_count` vẫn 3. R3: không hủy giấy tờ nào; link báo đủ 2/2 bằng hộ chiếu của người đã bỏ.
+- Mong đợi: hủy đúng giấy tờ của người bị bỏ (theo lựa chọn của lễ tân hoặc theo `party_member_id`) trong cùng giao dịch; dồn số ô; `required_count` theo số người mới (đề xuất 1–5 của thẻ SEC).
+- Bằng chứng: `reviews/s3-SEC.md` mục 9.3 (bảng R1–R6); test tái hiện của SEC ngoài repo (`scratchpad/gate/sec/a38.test.ts`, `report.json`). QA không chạy lại (SEC đã đo trên DB thật).
+- Hệ quả cổng: ngoại lệ ORC dòng 593 (1) chỉ áp cho "sai tiền đã biết ở đường hiếm"; lỗi này là C3/dữ liệu và chưa có ngoại lệ → QC/ORC quyết khi chấm lại cổng Sprint 3 (QA chỉ quyết mức). Nếu không sửa kịp trong Round 2, QA lập ESC theo protocol.
 
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 
@@ -513,3 +739,95 @@ Ca đổi theo build mới (không phải lỗi): TC-L4-063 – SAL ghi `charge`
 | BUG-R2-054 | TC-L3-074 vẫn trượt đúng bước cuối (`imagesPurgedAt` vắng mặt); mọi bước xóa ảnh đúng hạn đạt | **Open** (P3) |
 
 Ca mới đạt ở lượt này: TC-L4-090, TC-L4-091, TC-L2-083 (api), TC-L4-092 (clock) – OpenAPI 0.3.6 bổ sung 4 (BE vòng 4); TC-L3-074 (SR-RET-02) trừ bước BUG-R2-054. Oracle bỏ `pendingFix` (BE đã xanh): BR-110-14/15/16, BR-307-02/03/04, BR-310-01/02, BR-428-06.
+
+## 7. Cổng QC Sprint 3 – ĐK-S3-3 mở rộng theo ORC (QA, 17/10/2026 11:45–12:20)
+
+Cách kiểm: đọc log CI bằng `gh run view --job … --log` (run 38998735861 và 5 run khác trên `main`); dựng lại stack dùng một lần `ottimo-qa-s3` với ảnh api build từ **`6af7173`** (git archive, `INCLUDE_TEST_SUPPORT=1`; web giữ ảnh cũ – không dùng ở các ca dưới), seed DS-E mới, Playwright như CI (`CI=true`, project `clock`, `--no-deps`); đọc code `6af7173` (= `product/` của HEAD, cây làm việc sạch trong `product/` trước khi QA sửa test case). Không đăng nhập bản demo.
+
+### 7.1 Kiểm lại BUG-R2-053 → **Closed**
+
+| Bằng chứng | Kết quả |
+|---|---|
+| `ci.yml` tại `6af7173` (dòng 372–373): seed chạy `--user "$(id -u):$(id -g)"`, `test -r …/ds-e.map.json` | Có; log run 38998735861 cho thấy bước này chạy và qua |
+| global-setup run 38998735861 | `[e2e setup] token thiết bị quầy: seed (…/tests/fixtures/seed/.out/ds-e.map.json)` – đọc được tệp của seed, **không** dùng thiết bị dự phòng |
+| Ca C3 cần thiết bị | TC-RB-001 ✓, TC-RB-002 ✓, TC-RB-022 ✓, TC-SEC-010 ✓; RBAC Sprint 3 (`rbac-sprint3`) **737 ✓**; 0 ca trượt `DEVICE_NOT_TRUSTED`; 21 dòng "bỏ qua" in ra đều là ca bỏ qua có chủ đích từ trước (extra-guest-kit, TC-L4-070/071, TC-L2-020/076 …), không ca C3/RBAC nào |
+| Các run khác sau bản sửa | 38989147610 (`9e9fd64`), 38995279907 (`aeb479e`), 39000299109 (`adc0a47`): global-setup đều đọc token từ seed. Run `9e9fd64` đỏ vì TC-L4-092 (luật OTA, đã sửa sau) – không liên quan |
+
+### 7.2 TC-L3-011 ở CI 38998735861 – lượt 1 hỏng vì sao, có che lỗi thật không
+
+**Dữ kiện:**
+- Log job E2E: `✘ 1784 … TC-L3-011 … (966ms)` rồi `✘ 1785 … (retry #1) (1.5s)`. Run chạy 1 worker, `retries: 1`.
+- Có lượt chạy lại nghĩa là lượt 1 hỏng **trước** dòng `test.fail` (`checkin.s3.clock.spec.ts:834`). Nếu lượt 1 đã tới dòng đó thì nó được tính "đúng dự kiến" và không chạy lại – như TC-L3-032 (#1555) và TC-L3-074 (#1804) cùng run.
+- **Không tìm được thông điệp lỗi của lượt 1.** Run không có artifact: `gh api …/runs/38998735861/artifacts` → `total_count: 0`, vì bước "Upload Playwright report" chỉ chạy `if: failure()` mà job xanh. Reporter `list` không in lỗi của ca có kết quả cuối "expected", và quanh dòng #1784 không có dòng stdout nào (không có chờ 429, không có cảnh báo harness).
+- Thời lượng: ở 5 run CI khác (38989147610, 38995279907, 38995318918, 38995426050, 39000299109 – run cuối cùng mã `6af7173`), TC-L3-011 chạy **một lượt**, tới `test.fail` và hỏng đúng dự kiến trong **840 ms – 1,3 s**. Lượt 1 ở run này kéo dài 966 ms, tức đã đi gần hết ca. Nhiều khả năng nó hỏng ở nửa sau: tạo đơn thứ hai 202 (`makeStay`: tạo khách, tạo đơn, thu đủ, thêm giấy tờ) hoặc bước nhận phòng có xác nhận phụ thu trước đó. Đây là suy luận, không phải bằng chứng.
+- 17 lượt chạy đủ của QA trên stack dùng một lần, ở ba build `229db99`, `16941c6`, `9e9fd64` (`scratchpad/qa-s3/*.json`): TC-L3-011 lượt 1 luôn tới `test.fail`, 0 lần chạy lại.
+- **Tái hiện trên `6af7173`:** chạy riêng TC-L3-011 **300 lần liên tiếp** (`--repeat-each=300 --retries=0`, 3,5 phút, có worker tick mỗi 60 giây chạy song song). Kết quả 300/300 tới `test.fail` và hỏng đúng bước BUG-R2-038 (`r2` nhận 200); 0 lần hỏng sớm. Log api trong khoảng đó: 0 lỗi 5xx; 300 lần `409` (SURCHARGE_CHANGED, đúng dự kiến); 600 lần `422` và 1.800 lần `401` là các bước dự kiến của harness (quyết định phụ thu, phiên hết hạn khi tua đồng hồ). Thêm một lượt chạy đủ cả tệp `checkin.s3.clock.spec.ts`: 30/30 đúng dự kiến.
+
+**Kết luận:**
+1. **Có che lỗi.** Một lỗi thật đã xảy ra ở lượt 1 rồi bị lượt chạy lại che đi (cơ chế BUG-R2-064). Nguyên nhân **không xác định được** từ dữ liệu của run, vì không có artifact và log không in lỗi. QA không tái hiện được lỗi này trong 300 + 17 lượt (cùng mã và mã trước đó). Vậy lỗi này **không xảy ra thường xuyên**, và không thuộc loại "mã sai cố định" ở các bước AC2. Nó có thể là lỗi chập chờn của sản phẩm (ví dụ `409 CONCURRENT_UPDATE` do khóa – cùng họ với TC-L2-057, S4-37) hoặc của harness (ví dụ trùng số điện thoại ngẫu nhiên – S4-24). QA không loại trừ được khả năng nào.
+2. **US-026 AC2 giữ được "Accepted (stack tạm)"**, kèm điều kiện. Lý do:
+   - Ở chính run này, lượt 2 trên cùng mã `6af7173` đã qua mọi bước AC2 trước `test.fail`: đề xuất phụ thu khớp BR-411-01; số xác nhận lệch → `409 SURCHARGE_CHANGED`, không ghi folio; xác nhận đúng → đúng 1 dòng `early_checkin`.
+   - TC-L3-012 (các bậc giờ) đạt ngay lượt đầu.
+   - 5 run CI khác và 300 lần chạy của QA đều qua các bước này.
+   - **Điều kiện:** khi QA tách ca (BUG-R2-064, S4-24) mà phần AC2 của TC-L3-011 đỏ ở bất kỳ run CI nào, AC2 quay về "Đang nghiệm thu" và QA ghi lỗi mới.
+3. **Để lần sau không mất dấu**, đề nghị OPS cho bước tải `junit.xml` + `test-results` chạy với `if: always()` (thời hạn lưu 7 ngày), và cho CI báo đỏ khi một ca có annotation BUG/`test.fail` bị chạy lại. Ghi ở BUG-R2-064.
+
+### 7.3 Lượt tái hiện lỗi FOC trả muộn (BUG-R2-061) và hồi quy FOC trên `6af7173`
+- Spec tạm `zz-qa-gate-latefoc.clock.spec.ts`: bản chép `approvals-foc.s3.clock.spec.ts` cộng 3 ca QA-GATE, đặt trong `scratchpad/gate/QA/tests-copy/`, ngoài repo, không commit.
+- Kết quả: 15/15 ca chạy hết. 12 ca TC-NT-016…036 có sẵn **đạt** trên `6af7173`, nên luồng duyệt FOC thường không hồi quy. 3 ca QA-GATE ghi lại số thực tế (đã ghi ở BUG-R2-061): **3/3 tái hiện** lỗi tiền.
+- Chưa chạy: FOC đã duyệt rồi gia hạn (B13), và FOC khi trả phòng thật sớm hơn giờ hẹn (BR-412-12/13).
+- Tính lại phụ thu theo giờ trả thật (G-10) có ca tích hợp của BE: `services/api/test/integration/frontdesk.test.ts:665`. QA không thấy test nào trong repo dùng oracle BR-412-12/13 (FOC mang sang) → thêm vào S4-24.
+
+## 8. Vòng sửa 9 – lỗi UXR đi thử demo, FB-R2-SEC-BE-53, ca UI bấm thật bước ghi (QA, 17/10/2026 13:00–)
+
+Việc ORC giao: (1) ghi UXR #1–#11 và FB-R2-SEC-BE-53 vào sổ, QA chốt mức; (2) sửa QC-S3-09 – ca E2E-UI bấm thật các bước ghi, đỏ trên mã cũ và xanh sau bản sửa FE; (3) chạy các ca mới trên stack dựng từ cây làm việc khi FE báo xong. QA không đăng nhập bản demo `ottimo-demo` (INV có thể đang dùng); mọi lượt chạy dùng stack dùng một lần `ottimo-qa-s3` của QA.
+
+### 8.1 Mức lỗi – QA chốt (test-strategy mục 8)
+
+| UXR / SEC | Mức đề xuất | Mức QA | BUG | Lý do khi khác đề xuất, hoặc điểm cần nói rõ |
+|---|---|---|---|---|
+| #1 | P0 | **P0** | 065 | Giữ. Chỉ ở cách dựng demo/dev, nhưng demo là thứ INV dùng thử và dữ liệu C3 không đọc lại được |
+| #2 | P0 | **P0** | 066 | Giữ. Không chi hoàn được, không có cách vòng |
+| #3 | P1 | **P1** | 067 | Giữ. Có cách vòng (link khách) nhưng rất tốn công |
+| #4 | P1 | **P1** | 068 | Giữ. Phân quyền sai ở hành động |
+| #5 | P1 | **P1** | 069 | Giữ. Câu sai ở thao tác tiền; số tiền ghi vẫn đúng nên không lên P0 |
+| #6 | P1 | **P1** | 070 | Giữ. Lỗi tiền mặc định P0; QA đã kiểm số này chỉ hiển thị, không vào lệnh ghi nào (chi tiết ở BUG-R2-070) |
+| #7 | P1 | **P1** | 071 | Giữ. Thao tác bị chặn, không có tiền ghi sai |
+| #8, #9, #10 | P2 | **P2** | 072, 073, 074 | Giữ |
+| #11 (8 điểm) | P3 | P3 ×5, **P2 ×3** | 075…082 | Nâng 076 (giá đổi mà lễ tân không thấy), 078 (cột tiền trống), 080 (thiếu phần Nga của US-083 AC2 – Must) |
+| FB-R2-SEC-BE-53 | Major (SEC) | **P0** | 083 | Nâng: hủy không hoàn tác giấy tờ C3 của khách còn ở, giữ C3 quá mục đích, nguy cơ khai báo sai người – C3 mặc định P0 |
+
+Không hạ mức lỗi nào. Hai P0 phải sửa ở vòng 9 (065, 066) – ĐK-S3-9, ĐK-S3-10. BUG-R2-083 có hạn SEC-G1 (trước cổng QC Sprint 4 và trước dữ liệu thật); đây là P0 mới không thuộc ngoại lệ "sai tiền đường hiếm" (dòng 593 (1)) → QC/ORC quyết khi chấm lại cổng Sprint 3. Nếu P0 nào không sửa kịp trong Round 2, QA lập ESC.
+
+### 8.2 Ca UI mới bấm thật bước ghi (QC-S3-09)
+
+Cách viết: dữ liệu chuẩn bị bằng API (không phải đối tượng kiểm); bước đang kiểm bấm trên giao diện; request trình duyệt thật sự gửi được ghi lại (`e2e/ui/write-steps.ts` `recordWrites`) và phải trả 2xx – khi đỏ, thông báo in nguyên câu trả lời của server; kết quả đọc lại bằng API; tiền so với oracle `br-examples.json` hoặc folio. Ca cần đơn **đang ở** chạy ở project `desk-clock` trên ngày ảo (không chiếm căn của hôm nay, không cần hoàn tác nhận phòng sau khi đã ghi folio).
+
+| TC | Tệp (project) | Lỗi | Bước ghi bấm thật | Trên mã cũ (17/10 13:15–13:25) |
+|---|---|---|---|---|
+| TC-L3-075 | `ui/desk-writes.s3.spec.ts` (desk-chromium) | 067 | Nhập tay giấy tờ người 1 (không ảnh), người 2 (kèm ảnh) ở H13 | **Đỏ**: `addGuestDocument` 422 `data REQUIRED` |
+| TC-L4-093 | như trên | 066, 068 | FD nhập nơi nhận tiền mặt; FDL chi hoàn tiền mặt kèm ảnh biên nhận | **Đỏ**: FD nhập nơi nhận đạt (200); FDL không thấy khoản đã duyệt |
+| TC-L4-094 | như trên | 066 | Chủ đầu tư ghi hoàn chuyển khoản: mã giao dịch + ảnh ủy nhiệm chi | **Đỏ**: `uploadAttachment` 422 `Idempotency-Key` |
+| TC-L2-085 | như trên | 069 | Hủy đơn đã cọc, hoàn 100 % (BR-309-03) | **Đỏ**: hộp có câu "Đơn chưa thu tiền…" |
+| TC-L2-086 | như trên | 070 | (đọc) drawer giữ chỗ chưa cọc, đơn đã hủy có cọc | **Đỏ**: giữ chỗ chưa cọc "Đã thu" 750.000, mong đợi 0 |
+| TC-L3-076 | `ui-clock/stay-writes.h15.spec.ts` (desk-clock) | 071, 070 | Thêm người lớn thứ 3 khi đang ở, xác nhận phụ thu 450.000 | **Đỏ**: hộp không hiện số phụ thu, chỉ có câu "tick…" của màn nhận phòng |
+| TC-L4-095 | như trên | 066 | Thêm phát sinh phạt/hư hỏng kèm ảnh | **Đỏ**: `uploadAttachment` 422 `Idempotency-Key` |
+
+Stack mã cũ: `ottimo-qa-s3`, api `6af7173` (`ottimo-api:qa-gate-6af`), web dựng từ `9e9fd64` (`ottimo-web:qa-s3-head`) – QA đối chiếu các dòng lỗi (`${idem}-a`, `new Blob` cho `data`, `totalRoomVnd - balanceDueVnd`, nhánh `body_no_money`, `applyExtraPersonSurcharge: false`) giống hệt ở `6af7173`. Lệnh: `playwright test --project desk-chromium|desk-clock --no-deps --retries=0 <tệp>`; log `scratchpad/r9/run-old-*.log`. Ca chạy song song trên đồng hồ thật (5 worker) không đụng nhau.
+
+### 8.3 Chạy lại sau bản sửa (cây làm việc, 17/10 13:23–13:31)
+
+- Ảnh: `ottimo-api:qa-r9`, `ottimo-web:qa-r9` dựng từ bản chụp `product/` của cây làm việc lúc 13:23 (HEAD `1e62da8` + thay đổi chưa commit của FE, BE-A, OPS, UXD; `INCLUDE_TEST_SUPPORT=1`). Sau bản chụp, FE/BE/OPS không đổi tệp nào nữa (QA so lại lúc 13:26: chỉ khác tệp test của QA). Stack `ottimo-qa-s3` dựng mới, seed DS-E mới, khóa mã hóa sinh như `make-ci-env.sh`.
+- **7 ca mới riêng:** 7/7 **đạt** (`--retries=0`). Một lần đỏ đầu của TC-L2-085 do harness QA (cắt thân phản hồi 500 ký tự rồi `JSON.parse`) – QA sửa `write-steps.ts`, chạy lại đạt; không phải lỗi sản phẩm.
+- **Toàn bộ E2E như CI** (mọi project, `CI=true`, `retries: 1`, stack dựng mới): **1.783 đạt, 0 trượt**, 82 bỏ qua (có chủ đích, như các lượt trước), **1 flaky**: TC-L2-057 (`quotes-holds.api`, lượt 2 đạt – cùng họ `409 CONCURRENT_UPDATE` đã biết, S4-37). 7 ca mới đạt ngay lượt đầu trong lượt chạy đủ. Các ca `test.fail` đã biết (TC-L3-011, TC-L3-032, TC-L3-074 – BUG-R2-038, 033, 054) vẫn "đúng dự kiến". Log `scratchpad/r9/full.log`, `full.json`.
+- **BUG-R2-065 phần compose dev/CI:** xem mục chi tiết BUG-R2-065 (đọc lại giấy tờ + ảnh sau khi khởi động lại api + worker: 200; đối chứng không truyền khóa: 500).
+- Kết luận: BUG-R2-066…071 **Fixed**, BUG-R2-065 **Fixed** phần dev/CI. Chuyển **Closed** khi ORC commit và CI xanh trên commit đó (ca mới chạy trong job E2E). UXD còn phải duyệt hộp phụ thu (BUG-R2-071, ĐK-S3-9); UXR đi lại KB4, KB6, KB8 trên bản demo dựng mới (ĐK-S3-10).
+
+### 8.4 Giới hạn và việc còn lại
+
+- Bước "UI cases ran" của CI chỉ kiểm ca `ui/` không bị bỏ qua. Hai ca mới ở `ui-clock/` (TC-L3-076, TC-L4-095) chạy trong project `desk-clock` mà bước này không kiểm → đề nghị OPS mở rộng bước kiểm sang `ui-clock/` (sửa `ci.yml` – không thuộc tệp của QA).
+- `product/docs/qa/traceability.md` chưa sinh lại cho 7 TC mới (vòng này QA chỉ sửa `product/tests/**` và `rounds/round-02/qa/**`). `gen_traceability.py --strict` chạy qua (exit 0), 251/251 AC R2 có TC. ORC cho phép thì QA sinh lại tệp này trong lần commit vòng 9.
+- Chưa có ca UI bấm thật cho: BUG-R2-072 (403 tự chi), 073 (ký hiệu thô), 074 (ô ngân hàng) – P2, FE sửa một phần ở cây làm việc nhưng QA chưa kiểm; giữ **Open**.
+- BUG-R2-083 (SEC-BE-53) chưa sửa (S4-39); QA không chạy lại, dùng số đo của SEC.
+- Không đăng nhập bản demo, không dùng tài khoản demo. Mọi dữ liệu là dữ liệu giả của DS-E.
+

@@ -1,4 +1,5 @@
 import {
+  deriveIdempotencyKey,
   isApiError,
   type ApprovalRequest,
   type AuditEvent,
@@ -743,6 +744,8 @@ function ExecuteRefundDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const cash = a.refundDestination?.method === 'cash';
+  // The API asks for the proof photo for cash and for a bank transfer (EVIDENCE_REQUIRED – E15-02).
+  const proofRequired = cash || a.refundDestination?.method === 'bank_transfer';
   const left = a.amountVnd - (a.refundedVnd ?? 0);
   const [amount, setAmount] = useState(vnd(left));
   const [ref, setRef] = useState('');
@@ -768,7 +771,13 @@ function ExecuteRefundDialog({
       let attachmentId: string | undefined;
       if (proof)
         attachmentId = (
-          await api.uploadAttachment({ propertyId }, proof, 'refund_proof', `${idem}-a`)
+          await api.uploadAttachment(
+            { propertyId },
+            proof,
+            'refund_proof',
+            // UXR #2: a UUID derived from the click's key (a "-a" suffix was refused with 422).
+            deriveIdempotencyKey(idem, 'attachment'),
+          )
         ).data.id;
       const paidAt = new Date().toISOString();
       return cash
@@ -810,7 +819,7 @@ function ExecuteRefundDialog({
             variant="danger"
             busy={act.busy}
             busyLabel={act.busyLabel}
-            disabled={!proof && cash}
+            disabled={!proof && proofRequired}
             aria-describedby="refund-effect"
             onClick={() => void save()}
           >
@@ -866,15 +875,18 @@ function ExecuteRefundDialog({
         file={proof}
         onChange={setProof}
         error={act.fields.attachmentId}
-        required={cash}
+        required={proofRequired}
       />
       <p id="refund-effect" className="li-s">
         {t(cash ? 'refund.execute_effect_cash' : 'refund.execute_effect_transfer', {
           amount: money(amountOf(amount)),
         })}
       </p>
-      {act.code === 'SELF_APPROVAL_FORBIDDEN' ? (
-        <Alert tone="bad">{t('refund.self_execute_forbidden')}</Alert>
+      {act.code === 'SELF_REFUND_FORBIDDEN' ? (
+        // UXR #8: a 403 the API explains – never "Máy chủ đang gặp sự cố".
+        <Alert tone="bad">
+          {t(cash ? 'refund.self_execute_forbidden' : 'refund.self_execute_forbidden_transfer')}
+        </Alert>
       ) : (
         act.view()
       )}

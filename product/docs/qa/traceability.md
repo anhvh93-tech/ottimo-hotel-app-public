@@ -13,14 +13,14 @@
 | AC của story Must R2 (backlog mục 4) | **251** |
 | AC có ≥ 1 TC | **251/251** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **251/251** (100.0%) |
-| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 6 · 5 (danh sách mục 5.7) |
+| TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 7 · 5 (danh sách mục 5.7) |
 | Chuyển trạng thái (17 máy, `state-machines.md`) có ≥ 1 TC | **102/122** (83.6%) – chi tiết mục 7 |
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
-| Tổng số TC | **408** (Cao 253 · TB 149 · Thấp 6) · **Smoke (S)** 43 |
-| TC theo nhóm | L2 64 · L3 50 · L4 57 · L5 48 · L6 37 · L7 27 · L8 13 · NT 44 · RB 27 · SEC 25 · X 16 |
-| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 376 · E 143 · P 5 · M 7 |
+| Tổng số TC | **418** (Cao 263 · TB 149 · Thấp 6) · **Smoke (S)** 43 |
+| TC theo nhóm | L2 67 · L3 52 · L4 60 · L5 48 · L6 37 · L7 27 · L8 13 · NT 46 · RB 27 · SEC 25 · X 16 |
+| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 379 · E 149 · P 5 · M 7 |
 | TC cho story ngoài Must R2 (ca chính) | US-041 (2), US-056 (2), US-064 (1), US-081 (5), US-111 (2), US-125 (5), US-128 (5), US-137 (2), US-141 (5) |
 | `operationId` dùng trong TC nhưng không có trong OpenAPI | 0 |
 | Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | 0 · 0 |
@@ -31,7 +31,7 @@
 | Story Must R2 **không có wireframe** | 0 |
 | Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | 0  |
 | Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **71/71** |
-| BR trong danh mục / BR không được story hay TC nào tham chiếu | 152 / 1 |
+| BR trong danh mục / BR không được story hay TC nào tham chiếu | 152 / 0 |
 
 **Không còn AC nào của story Must R2 thiếu test case.**
 
@@ -45,7 +45,7 @@
 | US-004 | Danh mục căn | AC1: TC-NT-018<br>AC2: TC-NT-019<br>AC3: TC-NT-020, TC-NT-039, TC-NT-040 | BR-006, BR-101, BR-106, BR-110 | `calculateQuote`, `cancelReservation`, `createHoldFromQuote`, `createReservation`, `createRoom`, `getQuote`, `getRack`, `getReservation`, `listRooms`, `updateRoom` | L10 | 4.1 | ESC-004, ESC-014 |
 | US-005 | Bảng tham số quy tắc (BR mục 13) | AC1: TC-NT-011, TC-NT-012<br>AC2: TC-NT-013, TC-NT-014<br>AC3: TC-NT-015<br>bổ sung: TC-NT-041, TC-NT-042, TC-SEC-028 | BR-006, BR-302 | `createHoldFromQuote`, `getParameterHistory`, `getReservation`, `listAuditEvents`, `listParameters`, `setParameter` | L10 | 4.1 | – |
 | US-006 | Nhật ký thao tác tiền (BR-008) | AC1: TC-NT-016<br>AC2: TC-NT-017 | BR-008 | `addFolioLine`, `adjustFolioLine`, `getReservationHistory`, `listAuditEvents` | L10 | 4.3, 4.5, 4.6 | – |
-| US-007 | Phê duyệt FOC/giảm giá (UC-27, SM-10) | AC1: TC-NT-027<br>AC2: TC-NT-028<br>AC3: TC-NT-029<br>AC4: TC-NT-030<br>AC5: TC-NT-031<br>AC6: TC-NT-032<br>bổ sung: TC-L4-091, TC-NT-033, TC-NT-034, TC-NT-035, TC-NT-036, TC-X-064 | BR-432, BR-433, BR-434, BR-435, BR-436 | `approveRequest`, `cancelRequest`, `checkOut`, `getFolio`, `listApprovalRequests`, `listAuditEvents`, `rejectRequest`, `requestFoc`, `setMyApprovalPin` | L8 | 4.2, 4.6 | ESC-007 |
+| US-007 | Phê duyệt FOC/giảm giá (UC-27, SM-10) | AC1: TC-NT-027<br>AC2: TC-NT-028, TC-NT-045, TC-NT-046<br>AC3: TC-NT-029<br>AC4: TC-NT-030<br>AC5: TC-NT-031<br>AC6: TC-NT-032<br>bổ sung: TC-L4-091, TC-NT-033, TC-NT-034, TC-NT-035, TC-NT-036, TC-X-064 | BR-432, BR-433, BR-434, BR-435, BR-436 | `approveRequest`, `cancelRequest`, `checkOut`, `extendStay`, `getFolio`, `listApprovalRequests`, `listAuditEvents`, `rejectRequest`, `requestFoc`, `setLateCheckout`, `setMyApprovalPin` | L8 | 4.2, 4.6 | ESC-007 |
 | US-142 | Thiết bị được cấp cho dữ liệu C3 (decision-log SEC) – *mới, Must R2* | AC1: TC-SEC-011, TC-SEC-013<br>AC2: TC-RB-022, TC-SEC-010, TC-SEC-012<br>AC3: TC-SEC-015 | – | `addGuestDocument`, `checkIn`, `getDocumentImage`, `getDoorCredential`, `getGuestDocumentSensitive`, `getMe`, `getPortalData`, `listTrustedDevices`, `purgeRegistrationImages`, `revokeTrustedDevice`, `setDoorCredential`, `trustCurrentDevice`, `updateGuestDocument` | L3 §3.5 (máy chưa cấp quyền) (QA), L1 (cảnh báo thiết bị) (QA) | 4.2 | – |
 | US-135 | Xác nhận hành động không đảo ngược (HR-06) – *mới* | AC1: TC-NT-024<br>AC2: TC-NT-025<br>AC3: TC-NT-026, TC-X-040<br>bổ sung: TC-L5-051 | – | `cancelReservation`, `cancelReservationGroup`, `checkOut`, `confirmDeposit`, `createReservation`, `getCheckoutSummary`, `getReservation`, `markNoShow`, `purgeRegistrationImages`, `saveQuote`, `transitionWorkOrder` | L9, L2 §2.3 (QA), L4 §4.4 (QA) | 4.5 | – |
 | US-010 | KPI đêm nay | AC1: TC-L8-001<br>AC2: TC-L8-002<br>AC3: TC-L8-011 | BR-010, BR-804, BR-904 | `getArrivalsDepartures`, `getTonightKpi` | L8 | 4.5 | – |
@@ -55,11 +55,11 @@
 | US-017 | Tạo đơn ngắn ngày đã đảm bảo (UC-04, B2) | AC1: TC-L2-010<br>AC2: TC-L2-011<br>AC3: TC-L2-012, TC-L2-013, TC-L2-082<br>AC4: TC-L2-014<br>AC5: TC-L2-015<br>AC5a: TC-L2-076, TC-L2-077, TC-L2-078<br>AC6: TC-L2-016<br>AC7: TC-L2-081, TC-L2-019<br>AC8: TC-L2-006<br>AC9: TC-L2-080<br>bổ sung: TC-L2-017, TC-L2-079 | BR-101, BR-103, BR-104, BR-105, BR-108, BR-110, BR-112, BR-307, BR-608, BR-901, BR-905 | `calculateQuote`, `createReservation`, `getBookingRules`, `getFolio`, `getRack`, `getReservation`, `listChannels`, `listCloserCandidates`, `listRegistrations`, `listReservations`, `moveReservation`, `recordPayment`, `searchAvailability` | L2 | 4.5 | ESC-004, ESC-014 |
 | US-018 | Chống đặt trùng (BR-002, BR-906) | AC1: TC-L2-020<br>AC2: TC-L2-021, TC-X-001<br>AC3: TC-L2-022<br>AC4: TC-L2-023, TC-X-002<br>AC5: TC-L2-024, TC-L2-027<br>bổ sung: TC-L2-018 | BR-002, BR-316 | `assignRoom`, `changeRoom`, `confirmDeposit`, `createHoldFromQuote`, `createReservation`, `createRoomBlock`, `extendStay`, `getRack`, `listAttentionItems`, `listOverbookingIncidents`, `moveReservation`, `restoreNoShow`, `updateRoomBlock` | L2 | 4.5 | – |
 | US-019 | Phòng khóa chặn bán (SM-02, BR-804) | AC1: TC-L2-030, TC-L6-044<br>AC2: TC-L2-031<br>bổ sung: TC-L2-032, TC-L2-033, TC-L6-052 | BR-904 | `calculateQuote`, `createHoldFromQuote`, `createReservation`, `createRoomBlock`, `createWorkOrder`, `getRack`, `getTonightKpi`, `listRoomBlocks`, `listRoomStatuses`, `searchAvailability`, `transitionRoomBlock` | L2, L6 (QA) | 4.5, 4.9 | – |
-| US-020 | Chi tiết đơn | AC1: TC-L2-040<br>AC2: TC-L2-041<br>AC3: TC-RB-012<br>AC4: TC-L2-042<br>bổ sung: TC-L2-043 | BR-315 | `cancelReservation`, `checkIn`, `checkOut`, `confirmDeposit`, `getFolio`, `getReservation`, `listReservations`, `updateReservation` | L2 | 4.5, 4.6 | – |
-| US-021 | Hủy đơn / hủy giữ chỗ (UC-05, B5, B10) | AC1: TC-L2-050<br>AC2: TC-L2-051<br>AC3: TC-L2-052, TC-X-010<br>AC4: TC-L2-053, TC-L2-054<br>AC5: TC-L2-055<br>AC6: TC-L2-056<br>bổ sung: TC-L2-057, TC-L2-083 | BR-308, BR-309, BR-310, BR-522 | `cancelReservation`, `getFolio`, `getRack`, `getReservationHistory`, `listApprovalRequests`, `listAttentionItems`, `markNoShow`, `moveReservation` | L2 | 4.5 | ESC-006 |
-| US-022 | Người đi cùng | AC1: TC-L2-060<br>AC2: TC-L2-061<br>AC3: TC-L2-062<br>AC4: TC-L3-056<br>bổ sung: TC-L2-063, TC-L3-055, TC-L4-090 | BR-110, BR-414, BR-601 | `addPartyMember`, `getFolio`, `getRegistration`, `getReservation`, `listHkTasks`, `listParty`, `removePartyMember`, `updateReservation` | L3 §3.1 (người thứ 2) (QA) | 4.5 | ESC-001 |
+| US-020 | Chi tiết đơn | AC1: TC-L2-040<br>AC2: TC-L2-041<br>AC3: TC-RB-012<br>AC4: TC-L2-042<br>bổ sung: TC-L2-043, TC-L2-086 | BR-315 | `cancelReservation`, `checkIn`, `checkOut`, `confirmDeposit`, `createHoldFromQuote`, `getFolio`, `getReservation`, `listReservations`, `updateReservation` | L2 | 4.5, 4.6 | – |
+| US-021 | Hủy đơn / hủy giữ chỗ (UC-05, B5, B10) | AC1: TC-L2-050<br>AC2: TC-L2-051, TC-L2-085<br>AC3: TC-L2-052, TC-X-010<br>AC4: TC-L2-053, TC-L2-054, TC-L2-085, TC-L4-093, TC-L4-094<br>AC5: TC-L2-055<br>AC6: TC-L2-056<br>bổ sung: TC-L2-057, TC-L2-083 | BR-308, BR-309, BR-310, BR-522 | `approveRequest`, `cancelReservation`, `executeCashRefund`, `executeRefund`, `getFolio`, `getRack`, `getReservationHistory`, `listApprovalRequests`, `listAttentionItems`, `markNoShow`, `moveReservation`, `setRefundDestination`, `uploadAttachment` | L2 | 4.5 | ESC-006 |
+| US-022 | Người đi cùng | AC1: TC-L2-060<br>AC2: TC-L2-061<br>AC3: TC-L2-062<br>AC4: TC-L3-056, TC-L3-076<br>bổ sung: TC-L2-063, TC-L3-055, TC-L4-090 | BR-110, BR-414, BR-601 | `addPartyMember`, `getFolio`, `getRegistration`, `getReservation`, `listHkTasks`, `listParty`, `removePartyMember`, `updateReservation` | L3 §3.1 (người thứ 2) (QA) | 4.5 | ESC-001 |
 | US-023 | Mã duy nhất (BR-007) | AC1: TC-NT-021, TC-NT-022<br>AC2: TC-NT-038 | BR-007 | `cancelReservation`, `checkOut`, `createGuest`, `createGuestRequest`, `createReservation`, `createWorkOrder`, `getGuest`, `getReservation`, `saveQuote`, `updateGuest` | L2 | 4.4, 4.5, 4.9 | – |
-| US-024 | Đổi căn / đổi ngày / đổi phòng (UC-16, B7, B14, BR-424) | AC1: TC-L2-082, TC-L2-065<br>AC2: TC-L2-066<br>AC3: TC-L2-067<br>AC4: TC-L2-068 | BR-006, BR-403, BR-424, BR-906 | `changeRoom`, `createReservation`, `getDoorCredential`, `getFolio`, `getReservation`, `listHkTasks`, `moveReservation`, `swapRoom` | L9 | 4.5 | – |
+| US-024 | Đổi căn / đổi ngày / đổi phòng (UC-16, B7, B14, BR-424) | AC1: TC-L2-082, TC-L2-065, TC-L2-084<br>AC2: TC-L2-066<br>AC3: TC-L2-067<br>AC4: TC-L2-068 | BR-006, BR-403, BR-424, BR-906 | `assignRoom`, `changeRoom`, `createReservation`, `getDoorCredential`, `getFolio`, `getReservation`, `listHkTasks`, `moveReservation`, `swapRoom` | L9 | 4.5 | – |
 | US-136 | Đánh dấu no-show (UC-05, B11, B12, BR-311) – *mới* | AC1: TC-L2-070<br>AC2: TC-L2-071, TC-L2-072<br>AC3: TC-L2-073<br>AC4: TC-L2-074<br>AC5: TC-L2-075 | BR-010, BR-311, BR-526, BR-904 | `approveRequest`, `getFolio`, `getRegistration`, `getReservation`, `listApprovalRequests`, `listAttentionItems`, `listAuditEvents`, `listMyNotifications`, `markNoShow`, `restoreNoShow` | L2, L9 | 4.2, 4.5 | – |
 | US-025 | Nhận phòng (UC-11, B9, BR-402) | AC1: TC-L3-001<br>AC2: TC-L3-002<br>AC3: TC-L3-003, TC-L3-007, TC-L3-062<br>AC4: TC-L3-004<br>AC5: TC-L3-005<br>AC6: TC-L3-008<br>AC7: TC-L3-073<br>bổ sung: TC-L3-006, TC-X-061 | BR-401, BR-402, BR-411, BR-602, BR-603 | `checkIn`, `getRegistration`, `getReservation`, `listApprovalRequests`, `listAttentionItems`, `listHkTasks`, `previewCheckIn`, `recordPayment`, `setDoorCredential`, `undoCheckIn`, `updateReservation` | L3 | 4.5 | – |
 | US-026 | Phụ thu nhận sớm (BR-411, BR-414; HR-04) | AC1: TC-L3-010<br>AC2: TC-L3-011, TC-L3-012<br>AC3: TC-L3-008, TC-L3-013<br>AC4: TC-L3-014 | BR-401, BR-411, BR-417, BR-421, BR-422, BR-904, BR-906 | `checkIn`, `previewCheckIn`, `requestFoc` | L3 | 4.5, 4.6 | – |
@@ -68,14 +68,14 @@
 | US-029 | Trả muộn (B15, BR-412, BR-414, BR-416) | AC1: TC-L4-010, TC-L4-011<br>AC2: TC-L4-012<br>AC3: TC-L4-013<br>AC4: TC-L4-014 | BR-403, BR-412, BR-414, BR-416 | `getDoorCredential`, `getExtensionOptions`, `listCheckoutReminders`, `listHkTasks`, `requestFoc`, `setLateCheckout`, `setParameter` | L9, L4 §4.2 (trả muộn) (QA) | 4.5, 4.6, 4.8 | ESC-007 |
 | US-030 | Xác nhận giờ trả (UC-14) | AC1: TC-L4-020<br>AC2: TC-L4-021 | – | `getArrivalsDepartures`, `listCheckoutReminders`, `recordCheckoutConfirmation` | L2 §2.1 (Xác nhận giờ trả) (QA) | 4.5 | – |
 | US-031 | Thẻ khách trả phòng hôm nay chưa trả (BR-425) | AC1: TC-L4-022<br>AC2: TC-L4-023<br>bổ sung: TC-L4-024 | BR-001, BR-425 | `getArrivalsDepartures`, `listCheckoutReminders` | L2 §2.1, §2.4 (QA) | 4.5 | – |
-| US-032 | Dòng phát sinh / phí phạt (UC-17, BR-511, BR-512) | AC1: TC-L4-030<br>AC2: TC-L4-031<br>AC3: TC-L4-032<br>AC4: TC-L4-033<br>bổ sung: TC-L4-034 | BR-511, BR-512, BR-904 | `addFolioLine`, `adjustFolioLine`, `getChargeCatalog`, `getFolio`, `getGuestFolio`, `listApprovalRequests` | L4 §4.2 (phí phạt) (QA) | 4.6 | – |
+| US-032 | Dòng phát sinh / phí phạt (UC-17, BR-511, BR-512) | AC1: TC-L4-030<br>AC2: TC-L4-031, TC-L4-095<br>AC3: TC-L4-032<br>AC4: TC-L4-033<br>bổ sung: TC-L4-034 | BR-511, BR-512, BR-904 | `addFolioLine`, `adjustFolioLine`, `getChargeCatalog`, `getFolio`, `getGuestFolio`, `listApprovalRequests`, `uploadAttachment` | L4 §4.2 (phí phạt) (QA) | 4.6 | – |
 | US-035 | Trả phòng bước 1: minibar (BR-701, BR-702) | AC1: TC-L4-040<br>AC2: TC-L4-041<br>AC3: TC-L4-042<br>bổ sung: TC-L4-043 | BR-701, BR-702 | `getCheckoutSummary`, `getMinibarStandard`, `recordMinibarCheck` | L4 | 4.6 | – |
 | US-036 | Trả phòng bước 2: phụ phí | AC1: TC-L4-044<br>AC2: TC-L4-045<br>AC3: TC-L4-046, TC-L4-047, TC-L4-048 | BR-307, BR-401, BR-412, BR-414 | `checkOut`, `getCheckoutSummary` | L4 | 4.5 | – |
 | US-037 | Trả phòng bước 3: bill | AC1: TC-L4-050<br>AC2: TC-L4-051<br>AC3: TC-L4-052 | BR-004, BR-009, BR-412 | `getBill`, `getCheckoutSummary`, `getFolio` | L4 | 4.5, 4.6 | – |
 | US-038 | Hoàn tất trả phòng (UC-18, B18, SM-13) | AC1: TC-L4-053<br>AC2: TC-L4-054<br>AC3: TC-L4-055<br>AC4: TC-L4-056<br>bổ sung: TC-L4-057, TC-L4-067, TC-L4-068, TC-X-060 | BR-007, BR-525, BR-604 | `addFolioLine`, `adjustFolioLine`, `checkOut`, `getCheckoutSummary`, `getFolio`, `getReservation`, `listAttentionItems`, `listHkTasks`, `listRoomStatuses` | L4 | 4.5, 4.6 | – |
 | US-039 | Thông tin hóa đơn GTGT công ty | AC1: TC-L4-058<br>AC2: TC-L4-059 | BR-524 | `getBill`, `getGuest`, `setInvoiceRequest` | L4 | 4.6 | – |
 | US-042 | Danh sách cần khai báo (UC-12, BR-602, BR-603, BR-611) | AC1: TC-L3-044, TC-L3-045, TC-L3-046<br>AC2: TC-L3-048<br>AC3: TC-L3-049<br>bổ sung: TC-L3-047 | BR-602, BR-603, BR-611 | `checkIn`, `getRegistration`, `listAttentionItems`, `listRegistrations`, `setParameter` | L3 | 4.5, 4.7 | ESC-001 |
-| US-043 | Nhập giấy tờ (K3–K5, BR-601, BR-606, BR-612) | AC1: TC-L3-030<br>AC2: TC-L3-031<br>AC3: TC-L3-032<br>AC4: TC-L3-033 | BR-601, BR-612, BR-951 | `addGuestDocument`, `getGuestDocumentSensitive`, `getRegistration`, `listC3AccessLog`, `listParty`, `updateGuestDocument` | L3 | 4.7 | – |
+| US-043 | Nhập giấy tờ (K3–K5, BR-601, BR-606, BR-612) | AC1: TC-L3-030, TC-L3-075<br>AC2: TC-L3-031<br>AC3: TC-L3-032<br>AC4: TC-L3-033 | BR-601, BR-612, BR-951 | `addGuestDocument`, `getGuestDocumentSensitive`, `getRegistration`, `listC3AccessLog`, `listParty`, `updateGuestDocument` | L3 | 4.7 | – |
 | US-044 | Đối chiếu tự động (K5, BR-605; HR-07) | AC1: TC-L3-034<br>AC2: TC-L3-035<br>AC3: TC-L3-036<br>AC4: TC-L3-037 | BR-605, BR-613, BR-952 | `addGuestDocument`, `checkIn`, `completeRegistrationReview`, `getRegistration`, `listAttentionItems`, `recordDocumentCheck` | L3 | 4.5, 4.7 | ESC-001 |
 | US-045 | Ghi nhận đồng ý lưu ảnh giấy tờ (K5, BR-609) | AC1: TC-L3-038<br>AC2: TC-L3-039<br>AC3: TC-L3-040 | BR-609 | `completeRegistrationReview`, `getDocumentImage`, `getRegistration`, `recordGuestConsent`, `recordImageConsent`, `transitionRegistration` | L3 | 4.7, 4.11 | – |
 | US-046 | Khai báo bán tự động (K6–K8, BR-606) | AC1: TC-L3-041<br>AC2: TC-L3-042<br>AC3: TC-L3-043 | BR-606 | `getPortalData`, `getRegistration`, `listC3AccessLog`, `listRegistrations`, `transitionRegistration` | L3 | 4.7 | ESC-018 |
@@ -182,7 +182,7 @@
 
 ### 5.5 BR trong danh mục chưa được story hay test case nào tham chiếu
 Đa số thuộc phân hệ Round 3 hoặc ngoài MVP (điện nước, VAT, kho, P&L, chấm dứt HĐ, đồ thất lạc, độ đầy đủ hồ sơ). Plan R1 mục 6 yêu cầu mỗi BR có ≥ 1 story/TC tham chiếu → đề nghị PO gắn các BR này vào story R3 tương ứng (US-064/065, US-122, US-093, US-118, US-078…), QA viết TC khi story có AC.
-- BR-429
+- Không có.
 
 ### 5.6 BR được story tham chiếu nhưng chưa có test case R1 (thường là phân hệ R3)
 - BR-215, BR-313, BR-314, BR-316, BR-317, BR-321, BR-322, BR-323, BR-324, BR-325, BR-326, BR-417, BR-501, BR-504, BR-505, BR-506, BR-513, BR-523, BR-613, BR-706, BR-810, BR-902, BR-955, BR-961, BR-962, BR-963, BR-964
@@ -193,6 +193,7 @@
 |---|---|---|
 | TC-NT-023 | [BLOCKED: R3 – gộp hồ sơ US-074; decision-log 15/10 PO chuyển US-023 AC2 sang US-074] | US-074/– |
 | TC-NT-042 | [UNDECIDED: erd 9.1 chưa ghi khoảng giá trị cho khóa nghiệp vụ – chờ ARC] | US-005/– |
+| TC-NT-046 | [UNDECIDED: DOM chốt FOC chờ duyệt khi dòng bị đặt lại – QC-S3-03, ĐK-S3-5] | US-007/AC2 |
 | TC-RB-024 | [GIẢ ĐỊNH QA – chờ BA: D01 hiển thị theo màn đang mở] | US-002/AC3 |
 | TC-L2-029 | [BLOCKED: R2 chỉ có nhánh lễ tân nhập lại theo extranet; nhánh SYS từ channel manager là R3] | US-139/– |
 | TC-L3-073 | [GIẢ ĐỊNH QA – chờ ARC E03-06: tick bổ sung qua `ReservationPatch.doorAccessHandedOver` (chỉ `true`)] | US-025/AC7 |
@@ -207,7 +208,7 @@
 | TC-L8-006 | [Dời R3 – R-C: AC dời theo INV quyết ESC-012 16/10; giữ TC cho đầu R3, không chạy ở R2] | US-012/AC2 |
 
 ## 6. Danh mục operationId OpenAPI chưa được test case nào dùng (để R2 bổ sung ca)
-- `addReservationGroupMember`, `allocateGroupDeposit`, `assignRoom`, `cancelReservationGroup`, `cancelReservationGroupMember`, `changeLeadStage`, `closeShift`, `confirmCashHandover`, `confirmMy2fa`, `confirmPaymentReceived`, `createHkTask`, `createRefundRequest`, `createReservationGroup`, `createRoom`, `deleteMyPushSubscription`, `disableMy2fa`, `executeCashRefund`, `executeRefund`, `getAttachment`, `getBookingRules`, `getMinibarStandard`, `getMy2fa`, `getMyCurrentShift`, `getPublicUnitPage`, `getRefundDestination`, `getReservationGroup`, `getShiftReport`, `getWorkOrder`, `issueGroupBill`, `listGuestRequestOptions`, `listMyNotifications`, `listReservationGroups`, `listShifts`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `openShift`, `putMyPushSubscription`, `reconcileChannelFee`, `recordDocumentCheck`, `removeReservationGroupMember`, `reopenShift`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `reviewShift`, `sendGuestOtp`, `setMyApprovalPin`, `setRefundDestination`, `startMy2faSetup`, `startShiftClosing`, `swapRoom`, `updateWorkOrder`, `webhookGet`
+- `addReservationGroupMember`, `allocateGroupDeposit`, `cancelReservationGroup`, `cancelReservationGroupMember`, `changeLeadStage`, `closeShift`, `confirmCashHandover`, `confirmMy2fa`, `confirmPaymentReceived`, `createHkTask`, `createRefundRequest`, `createReservationGroup`, `createRoom`, `deleteMyPushSubscription`, `disableMy2fa`, `getAttachment`, `getBookingRules`, `getMinibarStandard`, `getMy2fa`, `getMyCurrentShift`, `getPublicUnitPage`, `getRefundDestination`, `getReservationGroup`, `getShiftReport`, `getWorkOrder`, `issueGroupBill`, `listGuestRequestOptions`, `listMyNotifications`, `listReservationGroups`, `listShifts`, `loginMfa`, `markCommissionPayoutPaid`, `markNotificationRead`, `openShift`, `putMyPushSubscription`, `reconcileChannelFee`, `recordDocumentCheck`, `removeReservationGroupMember`, `reopenShift`, `resolveAttentionEvent`, `resolveOverbookingExternal`, `reviewShift`, `sendGuestOtp`, `setMyApprovalPin`, `startMy2faSetup`, `startShiftClosing`, `swapRoom`, `updateWorkOrder`, `webhookGet`
 
 ## 7. Chuyển trạng thái (17 máy) → test case
 
@@ -221,14 +222,14 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-01 | B4 | `hold` → `confirmed` | Xác nhận cọc / ký quỹ | `confirmDeposit` | TC-L2-023, TC-L2-040, TC-L5-031, TC-L5-032 |
 | SM-01 | B5 | `hold` → `cancelled` | Hủy giữ chỗ | `cancelReservation` | TC-L2-040, TC-L2-050, TC-L2-052 |
 | SM-01 | B6 | `hold` → `cancelled` | Hết hạn giữ chỗ | – | TC-L5-026, TC-X-063 |
-| SM-01 | B7 | `confirmed` → `confirmed` | Đổi căn / đổi ngày | `moveReservation`, `swapRoom` | TC-L2-023, TC-L2-065 |
+| SM-01 | B7 | `confirmed` → `confirmed` | Đổi căn / đổi ngày | `moveReservation`, `swapRoom` | TC-L2-023, TC-L2-065, TC-L2-084 |
 | SM-01 | B7a | `confirmed` → `confirmed` | Gán căn cho đơn xung đột / chưa gán căn | `assignRoom` | TC-L2-028 |
 | SM-01 | B7b | `confirmed` → `confirmed` | Lễ tân nhập tay đơn OTA vào căn đã kín (R2) | – | TC-L2-024, TC-L2-027 |
 | SM-01 | B7c | `confirmed` → `confirmed` | OTA sửa đơn (đổi ngày, số khách, loại phòng, hủy một phần đê | – | TC-L2-029 |
 | SM-01 | B8 | `confirmed` → `confirmed` | Dời ngày thay vì hủy (BR-309) | `moveReservation` | TC-L2-055 |
 | SM-01 | B9 | `confirmed` → `in_house` | Nhận phòng | `checkIn` | TC-L3-001, TC-L3-007, TC-L3-008 |
 | SM-01 | B9a | `confirmed` → `in_house` | Nhận trước mốc đổi ngày (BR-010, mặc định 06:00) – thêm đêm  | `checkIn` | TC-L3-008, TC-L3-013 |
-| SM-01 | B10 | `confirmed` → `cancelled` | Hủy đơn đã đảm bảo | `cancelReservation` | TC-L2-052 |
+| SM-01 | B10 | `confirmed` → `cancelled` | Hủy đơn đã đảm bảo | `cancelReservation` | TC-L2-052, TC-L2-085 |
 | SM-01 | B11 | `confirmed` → `no_show` | Đánh dấu không đến | `markNoShow` | TC-L2-071 |
 | SM-01 | B12 | `no_show` → `confirmed` | Khôi phục no-show (DOM SQ-1) | `restoreNoShow` | TC-L2-023, TC-L2-074 |
 | SM-01 | B13 | `in_house` → `in_house` | Gia hạn | `extendStay` | TC-L2-023, TC-L4-002 |
@@ -261,8 +262,8 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-04 | W6 | `done` → `in_progress` | Mở lại | `transitionWorkOrder` | TC-L6-046 |
 | SM-05 | K1 | [*] → `none` | Đơn sinh (B1, B2) | – | TC-L3-050 |
 | SM-05 | K2 | `none` → `pre` | Check-in online | `uploadGuestDocument` | TC-L7-010 |
-| SM-05 | K3 | `pre`/`none` → `partial`/`review` | Nhập/đối chiếu giấy tờ | `addGuestDocument` | TC-L3-030 |
-| SM-05 | K4 | `partial` → `review` | Đủ người | – | TC-L3-030 |
+| SM-05 | K3 | `pre`/`none` → `partial`/`review` | Nhập/đối chiếu giấy tờ | `addGuestDocument` | TC-L3-030, TC-L3-075 |
+| SM-05 | K4 | `partial` → `review` | Đủ người | – | TC-L3-030, TC-L3-075 |
 | SM-05 | K5 | `review` → `scanned` | Đối chiếu xong | `completeRegistrationReview` | TC-L3-037 |
 | SM-05 | K6 | `scanned` → `sent` | Đã khai | `transitionRegistration` | TC-L3-043 |
 | SM-05 | K7 | `sent` → `confirmed` | Cổng xác nhận | `transitionRegistration` | TC-L3-043 |
@@ -300,7 +301,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-10 | A2 | [*] → `approved` (tự áp) | Quy tắc chung (DOM SQ-3): không ai duyệt yêu cầu của chính m | `requestFoc` | TC-NT-032, TC-NT-036 |
 | SM-10 | A3 | `pending` → `approved` | Người duyệt khác người gửi (trừ MGR/OWN); giá trị ≤ hạn mức  | `approveRequest` | TC-L2-075, TC-NT-028 |
 | SM-10 | A4 | `pending` → `escalated` | Giá trị vượt hạn mức người duyệt hiện tại | `approveRequest` | TC-NT-029, TC-NT-034 |
-| SM-10 | A5 | `pending`/`escalated` → `rejected` | Lý do từ chối | `rejectRequest` | TC-NT-033, TC-NT-034 |
+| SM-10 | A5 | `pending`/`escalated` → `rejected` | Lý do từ chối | `rejectRequest` | TC-NT-033, TC-NT-034, TC-NT-046 |
 | SM-10 | A6 | `pending` → `cancelled` | – | `cancelRequest` | TC-NT-035 |
 | SM-11 | – | [*] → `projected` | Đơn/HĐ có người chốt SAL/CTV được xác nhận (B4) | – | TC-L5-031 |
 | SM-11 | – | `projected` → `earned` | Ngắn ngày: đơn `checked_out` và thu đủ (BR-903). Dài hạn: ch | – | TC-L4-053, TC-L5-038 |

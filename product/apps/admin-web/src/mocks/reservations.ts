@@ -1168,10 +1168,11 @@ export function createReservationMock(ctx: Ctx) {
         return validation([{ field: 'otaPenaltyChannelFeeVnd', code: 'NOT_ALLOWED' }]);
       if (body.reasonCode === 'ota_cancelled' && !isOta)
         return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
-      // BR-309 (mock): ≥ 5 days before arrival → 50 % back; otherwise the deposit is kept.
+      // BR-309 (ESC-006 A): ≥ 7 days before arrival → 100 % of the deposit back; 3–6 days → 50 %;
+      // < 3 days → kept (peak dates and force majeure are not mocked).
       const daysBefore = nightsBetween(today(), r.arrivalDate);
-      const refundable =
-        r.status === 'hold' ? 0 : daysBefore >= 5 ? Math.round(r.depositPaidVnd / 2) : 0;
+      const share = daysBefore >= 7 ? 1 : daysBefore >= 3 ? 0.5 : 0;
+      const refundable = r.status === 'hold' ? 0 : Math.round(r.depositPaidVnd * share);
       const cancellation = {
         depositPaidVnd: r.depositPaidVnd,
         refundableVnd: refundable,

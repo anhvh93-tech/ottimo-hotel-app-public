@@ -1,5 +1,5 @@
 import { isApiError, type ApiError, type FieldError } from '@ottimo/api-client';
-import { formatNumber, hasKey, translate, type Args } from '@ottimo/i18n';
+import { formatLocalDate, formatNumber, hasKey, translate, type Args } from '@ottimo/i18n';
 
 type T = (key: string, args?: Args) => string;
 
@@ -32,10 +32,32 @@ function argsFor(error: ApiError, locale: 'vi' | 'en' = 'vi'): Args {
   if (typeof money === 'number')
     args.amount = translate(locale, 'common.currency_vnd', { amount: formatNumber(locale, money) });
   if (typeof p.pendingApprovals === 'number') args.n = p.pendingApprovals;
+  // UXR #9: "Còn {n} ô cần sửa" – the number of fields the server listed (at least 1).
+  else if (p.code === 'VALIDATION_FAILED') args.n = Math.max(1, error.fieldErrors.length);
   if (p.min !== undefined) args.min = String(p.min);
   if (p.max !== undefined) args.max = String(p.max);
   if (Array.isArray(p.allowed)) args.allowed = p.allowed.join(', ');
   if (p.requestId) args.request_id = p.requestId;
+  // UXR #9: room / dates / guest of a conflict (ROOM_BLOCKED, ROOM_UNAVAILABLE, ROOM_OCCUPIED,
+  // LATE_CHECKOUT_CONFLICT…) – `{room}` `{from}` `{to}` are never shown raw. The guest name is only
+  // there when the API lets this role see it (x-visible-to).
+  const conflicts = Array.isArray(p.conflicts)
+    ? (p.conflicts as Array<Record<string, unknown>>)
+    : [];
+  const first = conflicts[0];
+  const room = p.roomNo ?? first?.roomNo;
+  if (typeof room === 'string' || typeof room === 'number') args.room = String(room);
+  const nights = (Array.isArray(first?.nights) ? (first.nights as string[]) : []).slice().sort();
+  if (nights.length) {
+    const last = new Date(`${nights.at(-1)}T00:00:00Z`);
+    last.setUTCDate(last.getUTCDate() + 1);
+    args.from = formatLocalDate(nights[0]);
+    args.to = formatLocalDate(last.toISOString().slice(0, 10));
+  }
+  const guest = p.guestDisplayName ?? p.guest ?? first?.guestDisplayName;
+  if (typeof guest === 'string') args.guest = guest;
+  const eta = p.etaTime ?? p.eta;
+  if (typeof eta === 'string') args.eta = eta;
   return args;
 }
 
@@ -65,6 +87,8 @@ export function problemView(t: T, error: unknown, locale: 'vi' | 'en' = 'vi'): P
   if (code !== 'INTERNAL_ERROR' && error.status < 500 && hasKey(`error.${code}`)) {
     return { text: t(`error.${code}`, args) };
   }
+  // UXR #8: a refusal the client has no sentence for is still a refusal, not a server fault.
+  if (error.status === 403) return { text: t('error.FORBIDDEN_ACTION') };
   return serverError(t, error.requestId ?? error.problem.requestId);
 }
 
@@ -91,7 +115,8 @@ export function fieldErrorText(t: T, fe: FieldError, args: Args = {}): string {
     `field.${fe.code}`,
     `field_error.${fe.code.toLowerCase()}`,
     FIELD_FALLBACK[fe.code],
-    `error.${fe.code}`,
+    // UXR #9: `error.VALIDATION_FAILED` is the form summary ("Còn {n} ô…"), not a field sentence.
+    fe.code === 'VALIDATION_FAILED' ? undefined : `error.${fe.code}`,
   ].filter((k): k is string => Boolean(k));
   const key = candidates.find((k) => hasKey(k)) ?? 'field_error.generic';
   return t(key, args);

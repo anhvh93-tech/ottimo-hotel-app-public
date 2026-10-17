@@ -1,4 +1,4 @@
-import { isApiError } from '@ottimo/api-client';
+import { isApiError, newIdempotencyKey } from '@ottimo/api-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { api } from '../app/api';
@@ -47,7 +47,7 @@ describe('Hoàn tiền tách quyền theo phương thức (PO 16/10 – A47a ti�
     expect(paid.attachmentId).toBeTruthy();
   });
 
-  it('FD: own cash refund → 403 SELF_APPROVAL_FORBIDDEN; bank transfer → no pay button, waits for the manager', async () => {
+  it('FD: own cash refund → 403 SELF_REFUND_FORBIDDEN; bank transfer → no pay button, waits for the manager', async () => {
     const { user } = renderApp('/audit', 'qa.fd');
     await refundTab(user);
     const kim = res('Kim Seo-yeon');
@@ -73,7 +73,7 @@ describe('Hoàn tiền tách quyền theo phương thức (PO 16/10 – A47a ti�
       .executeRefund(
         { propertyId: PROPERTY_ID, approvalId: mockControl.stay.approvals[1]!.id },
         { amountVnd: 1_200_000, paidAt: new Date().toISOString() },
-        'k-1',
+        newIdempotencyKey(),
       )
       .catch((e: unknown) => e);
     expect(isApiError(err) && err.code).toBe('FORBIDDEN_ACTION');

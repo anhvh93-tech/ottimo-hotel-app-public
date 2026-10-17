@@ -21,7 +21,7 @@ import { readDraft, removeDraft, writeDraft } from '../../app/clientData';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
-import { fieldErrorText, problemView } from '../../app/problem';
+import { fieldErrorText } from '../../app/problem';
 import {
   addDays,
   conflictsOf,
@@ -648,7 +648,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           </Alert>
         ) : null}
         {write.notice}
-        {requestError ? <Alert tone="bad">{problemView(t, requestError).text}</Alert> : null}
+        {requestError ? (
+          // UXR #9: ROOM_BLOCKED / ROOM_NOT_SELLABLE… need the room and dates of the conflict.
+          <Alert tone="bad">
+            {rsvErrorText(t, requestError, { canSeeGuest: true, roomNo: room?.roomNo, locale })}
+          </Alert>
+        ) : null}
         {conflictView}
         {longStay ? (
           <Alert
