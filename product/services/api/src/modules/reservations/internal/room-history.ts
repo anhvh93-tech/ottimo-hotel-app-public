@@ -51,6 +51,20 @@ export function firstRoomOf(history: readonly RoomChange[]): string | null {
   return history.find((c) => c.oldRoomId !== null)?.oldRoomId ?? null;
 }
 
+/**
+ * BR-417-07 / BR-429 (b1) v0.3.8 bổ sung 18/10 (BUG-R2-134): the room the guest BOUGHT – the room of the last
+ * guest-requested move, else the booking's origin room (stored, else the first room of the history). null = the
+ * booking never changed room (it is in the room it bought).
+ */
+export function boughtRoomOf(
+  history: readonly RoomChange[],
+  originRoomId: string | null,
+): string | null {
+  let bought: string | null = null;
+  for (const c of history) if (c.guestRequest && c.newRoomId) bought = c.newRoomId;
+  return bought ?? originRoomId ?? firstRoomOf(history);
+}
+
 /** Protected base kept by OTTIMO moves since the last guest-requested move (null = none). */
 export function protectedBaseOf(history: readonly RoomChange[]): number | null {
   let base: number | null = null;

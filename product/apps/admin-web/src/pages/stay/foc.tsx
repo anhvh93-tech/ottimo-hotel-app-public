@@ -114,11 +114,14 @@ export function SurchargeFocFields({
   value,
   onChange,
   error,
+  label,
 }: {
   value: SurchargeFoc;
   onChange: (v: SurchargeFoc) => void;
   /** Field error of the last write (`requestFocForSurcharge.*`). */
   error?: string;
+  /** Switch label when the waiver is not "sent for approval" (BR-416-06: the confirming manager applies it). */
+  label?: string;
 }) {
   const { t } = useI18n();
   const ids = useId();
@@ -126,7 +129,7 @@ export function SurchargeFocFields({
   return (
     <>
       <Switch checked={value.on} onChange={(on) => set({ on })}>
-        {t('ci.ask_foc')}
+        {label ?? t('ci.ask_foc')}
       </Switch>
       {value.on ? (
         <fieldset className="fieldset-plain">

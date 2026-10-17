@@ -46,7 +46,7 @@ import {
   nightsOf,
 } from '../public/stay-rules';
 import { CheckinService } from './checkin.service';
-import { StaySupport, TASK_RANK } from './stay-support';
+import { type AddedNightContext, StaySupport, TASK_RANK } from './stay-support';
 
 /** Technical bound of the free-night scan of an external long-stay contract (no BR-421 limit). */
 const LONG_SCAN_NIGHTS = 62;
@@ -82,28 +82,6 @@ export class StayService {
 
   // ───────────────────────── B13 – extension ─────────────────────────
 
-  /**
-   * Default price of an added night (BR-421): the direct calendar of the night (list price + weekend/special
-   * uplift, BR-104) – for OTA bookings that is "giá kênh Trực tiếp hiện hành"; the desk may type another price
-   * within the BR-105 bounds. Direct/agent nights are then re-tiered (BR-107, D-8).
-   */
-  private async defaultNight(
-    tx: Tx,
-    ctx: BookingContext,
-    roomId: string,
-    date: LocalDate,
-    agreedVnd: number | null = null,
-  ) {
-    const direct = await this.s.directRate(tx, ctx, roomId, date);
-    return {
-      // BR-421 v0.3.8: the booking's agreed (typed) price, else the direct calendar of the night; a special date
-      // always its own calendar.
-      calendarVnd: direct.special || agreedVnd === null ? direct.rateVnd : agreedVnd,
-      floorVnd: direct.floorVnd,
-      ceilingVnd: direct.ceilingVnd,
-    };
-  }
-
   async extensionOptions(tx: Tx, ctx: BookingContext, id: string) {
     const row = await loadReservation(tx, id, ctx.actor);
     this.assertInHouse(row);
@@ -120,7 +98,11 @@ export class StayService {
       ? LONG_SCAN_NIGHTS
       : await this.s.param<number>(tx, ctx, 'extension_max_nights');
     const kept = await this.s.stay.pricedNights(tx, row);
-    const agreed = await this.s.agreedRate(tx, row, 'last');
+    // BR-421 / BR-417-07 (BUG-R2-134): default of each added night – one rule with B9a/B18 (`addedNightRate`).
+    const nc = row.external_contract
+      ? null
+      : await this.s.addedNightContext(tx, row, 'last', rm.id);
+    let keepRate: number | null = null;
     const nights: Array<Record<string, unknown>> = [];
     const defaults: NightPrice[] = [];
     let maxNights = 0;
@@ -134,12 +116,14 @@ export class StayService {
         nights.push({ date, available });
         continue;
       }
-      const d = await this.defaultNight(tx, ctx, rm.id, date, agreed);
-      defaults.push({ date, calendarVnd: d.calendarVnd, amountVnd: d.calendarVnd, manual: false });
+      const d = await this.s.addedNightRate(tx, ctx, nc as AddedNightContext, date);
+      if (i === 0) keepRate = d.keepVnd;
+      // BUG-R2-134: a default that is not this room's calendar (agreed price, OTTIMO min) is written as typed.
+      defaults.push({ date, calendarVnd: d.rateVnd, amountVnd: d.rateVnd, manual: d.typed });
       nights.push({
         date,
         available,
-        defaultRateVnd: d.calendarVnd,
+        defaultRateVnd: d.rateVnd,
         floorVnd: d.floorVnd,
         ceilingVnd: d.ceilingVnd,
       });
@@ -203,26 +187,13 @@ export class StayService {
         exceedsShortStayLimit: exceeds,
         createsChildReservation: row.channel_group === 'ota',
         ...(savings !== undefined ? { channelFeeSavingsVnd: savings } : {}),
-        currentBookingRateVnd: await this.currentBookingRate(tx, row),
+        // E04-07 "Giữ giá đơn" (BUG-R2-132/-134, ARC 16.6 (a)): the agreed price (or the OTTIMO min) as the first
+        // added night would take it – null = the current room's calendar (calendar booking, guest move).
+        currentBookingRateVnd: keepRate,
         repricing,
         nights,
       },
     };
-  }
-
-  /**
-   * E04-07 (DOM S3-6, FB-R2-DOM-BE-31): net price of the latest night whose price was agreed (typed / quoted –
-   * `manual` in the snapshot) so the desk can offer "keep the booking's price"; null = calendar-priced.
-   */
-  /**
-   * E04-07 "Giữ giá đơn": the agreed price of the booking's latest typed night, as the CALENDAR price the desk
-   * types back into `nightlyRates` (BR-107 v0.3.8, S4-38 – a typed price is a calendar price and the tier of the
-   * stay applies on it; returning the discounted price made B13 discount it twice). null = calendar prices.
-   */
-  private async currentBookingRate(tx: Tx, row: ReservationRow): Promise<number | null> {
-    // BUG-R2-132: only an AGREED booking (priced by hand at booking) has a "booking price" – the same rule as the
-    // suggested rates (BUG-R2-126); a calendar booking with typed nights later (S4-35, B13) → null.
-    return this.s.agreedRate(tx, row, 'last');
   }
 
   async extend(
@@ -306,18 +277,21 @@ export class StayService {
             });
           })();
         const typed = byDate.get(date);
-        if (typed !== undefined) {
-          const bounds = (o.dto.nights as Array<Record<string, unknown>>).find(
-            (x) => x.date === date,
-          );
-          const floor = Number(bounds?.floorVnd ?? 0);
-          const ceiling = Number(bounds?.ceilingVnd ?? Number.MAX_SAFE_INTEGER);
-          if (typed < floor || typed > ceiling) {
-            throw problem('RATE_OUT_OF_RANGE', {
-              errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
-              extras: { date, min: floor, max: ceiling },
-            });
-          }
+        const bounds = (o.dto.nights as Array<Record<string, unknown>>).find(
+          (x) => x.date === date,
+        );
+        const floor = Number(bounds?.floorVnd ?? 0);
+        const ceiling = Number(bounds?.ceilingVnd ?? Number.MAX_SAFE_INTEGER);
+        // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate, and typing the default
+        // is leaving it (same night, same source).
+        const rate = typed ?? d.calendarVnd;
+        if (rate < floor || rate > ceiling) {
+          throw problem('RATE_OUT_OF_RANGE', {
+            errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }],
+            extras: { date, min: floor, max: ceiling },
+          });
+        }
+        if (typed !== undefined && typed !== d.calendarVnd) {
           added.push({ date, calendarVnd: typed, amountVnd: typed, manual: true });
         } else {
           added.push({ ...d });
@@ -1082,6 +1056,10 @@ export class StayService {
       rank: arrivalOld ? TASK_RANK.arrivalToday : TASK_RANK.checkoutNoArrival,
       note: 'room_change',
     });
+    // BUG-R2-136 (BR-703-01, BR-424; DOM 18/10 (c)): the old room's minibar is left like a check-out – a count
+    // already taken there for this stay gets its refill task now (same port as B18 and the room return). Never
+    // blocks the move (assumption (k)); a count taken after the move gets its task from the inventory module.
+    await this.s.ports.minibar.onCheckedOut(tx, row.id, oldRoom.id);
     await this.transferKits(tx, ctx, row, oldRoom, newRoom, oldExtra, newExtra);
     await this.s.ports.registration.onRoomChanged(tx, row.id, newRoom.room_no);
     await outboxAvailability(

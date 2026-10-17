@@ -3123,7 +3123,42 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkout.due_computing` | Đang tính số cần thu theo giá đêm thêm… | Working out the amount due at this night rate… | ⟨chừa chỗ⟩ | H16: đang hỏi máy chủ số cần thu theo giá gõ (ARC 0.3.7 bổ sung 4) |
 | `checkout.typed_due_failed` | Chưa tính được số cần thu theo giá này – số bên dưới theo giá mặc định; máy chủ tính lại khi hoàn tất. | Couldn't work out the amount due at this rate – the figure below uses the default rate; the server works it out again when you complete. | ⟨chừa chỗ⟩ | H16: không đọc được trần của máy chủ |
 | `checkin.prior_night_taken` | Đêm {date} căn này đã có khách nên không thêm được đêm trước. Trước 06:00 chưa nhận phòng được – nhận từ 06:00, hoặc đổi sang căn còn trống. | The night of {date} is already booked in this room, so no extra night before can be added. Check-in isn't possible before 06:00 – check in from 06:00, or move to a free room. | ⟨chừa chỗ⟩ | BUG-R2-127 (P1): priorNight.available = false – không gửi addPriorNight, không thu đêm đó; nút Nhận phòng khóa (BR-417, BR-906) |
+| `checkout.due_without_extra_night` | Còn phải thu chưa gồm đêm thêm: đêm nay căn đã có khách nên không bán thêm đêm được. | Balance due excludes the extra night: the room is booked tonight, so no extra night can be sold. | ⟨chừa chỗ⟩ | BUG-R2-139 (P2): H16 extraNightAvailable = false – không cộng đêm thêm, không gửi vào QR check_out; cách tính thay thế chờ DOM |
 | `drawer.deposit_fee_base` | Cơ sở phí hủy (cọc theo tiền phòng hiện tại) | Cancellation fee base (deposit on the current room total) | ⟨chừa chỗ⟩ | Drawer, đơn từ confirmed: depositRequiredVnd là cơ sở phí hủy, không đòi cọc thêm (ARC 0.3.7 bổ sung 4 #2, BR-309-11) |
+
+#### R2 Sprint 4 – FE-A: phụ thu trả muộn bằng giá 1 đêm (BR-416-06), tủ minibar theo căn, QR vượt số còn phải thu (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_cabinet` | Tủ minibar cần đếm | Minibar to count | ⟨chừa chỗ⟩ | H16 bước 1: chọn tủ khi lượt ở có căn cũ chưa đếm (BR-703-01, minibar M-1) |
+| `co.minibar_cabinet_room` | Căn {room} (đang ở) | Room {room} (current) | ⟨chừa chỗ⟩ | Lựa chọn tủ của căn đang gán |
+| `co.minibar_cabinet_old` | Căn {room} (đã chuyển đi) | Room {room} (moved out) | ⟨chừa chỗ⟩ | Lựa chọn tủ của căn cũ trước B14 |
+| `co.minibar_folio_adjusted` | Folio đã sửa sau lần đếm trước | Folio corrected after the last count | ⟨chừa chỗ⟩ | DOM (e): adjustedAfterLastCheck – số điền sẵn theo folio |
+| `co.minibar_folio_vs_count` | {item}: folio ghi {folio}, lần đếm trước {count}. Số bên dưới theo folio. | {item}: folio shows {folio}, last count {count}. The figure below follows the folio. | ⟨chừa chỗ⟩ | Một dòng mỗi món đã sửa – số = đã dùng |
+| `co.late_fee_as_night_body` | Đêm nay căn đã có khách nên không bán thêm đêm được. Thay vào đó thu phụ thu trả muộn bằng giá 1 đêm: {amount}. Quản lý xác nhận ở bước Hóa đơn. | The room is booked tonight, so no extra night can be sold. A late check-out fee of one night applies instead: {amount}. A manager confirms it on the Bill step. | ⟨chừa chỗ⟩ | H16 bước 2: lateFeeAsNightVnd (BR-416-06, BUG-R2-139) |
+| `co.late_fee_as_night_line` | Gồm phụ thu trả muộn bằng giá 1 đêm {amount}, không gồm đêm thêm. | Includes a one-night late check-out fee of {amount}; no extra night. | ⟨chừa chỗ⟩ | Dòng phụ dưới Còn phải thu – thay checkout.due_without_extra_night khi máy chủ có lateFeeAsNightVnd |
+| `co.late_fee_confirm_title` | Quản lý xác nhận phụ thu trả muộn {amount} | Manager confirms the late check-out fee of {amount} | ⟨chừa chỗ⟩ | H16 bước 3: hộp xác nhận tại quầy (ARC 16.6 (d), D5) |
+| `co.late_fee_confirm_help` | Quản lý nhập tên đăng nhập và mật khẩu của mình tại quầy. Mật khẩu chỉ dùng cho lần xác nhận này, không được lưu. | The manager enters their own username and password here. The password is used for this confirmation only and is not saved. | ⟨chừa chỗ⟩ | SEC FE-08: mật khẩu xóa sau mỗi lần gửi/khi đóng hộp |
+| `co.late_fee_reason` | Lý do | Reason | ⟨chừa chỗ⟩ | lateFeeInsteadOfNight.reason (≥ 3 ký tự) |
+| `co.late_fee_approver` | Tên đăng nhập của quản lý | Manager's username | ⟨chừa chỗ⟩ | approverUsername – bắt buộc khi người gọi là FD/FDL |
+| `co.late_fee_approver_self` | Bỏ trống nếu bạn tự xác nhận. | Leave empty to confirm yourself. | ⟨chừa chỗ⟩ | OWN/MGR gọi: chỉ nhập lại mật khẩu của mình |
+| `co.late_fee_secret` | Mật khẩu của quản lý | Manager's password | ⟨chừa chỗ⟩ | secret – ô che, không tự điền (autocomplete new-password) |
+| `co.late_fee_needs_confirm` | Điền lý do và xác nhận của quản lý cho phụ thu trả muộn. | Add the reason and the manager's confirmation for the late check-out fee. | ⟨chừa chỗ⟩ | Lý do nút Hoàn tất bị khóa |
+| `co.late_fee_foc` | Miễn/giảm khoản phụ thu này (quản lý xác nhận áp ngay) | Waive or reduce this fee (applied when the manager confirms) | ⟨chừa chỗ⟩ | requestFoc của lateFeeInsteadOfNight – không gửi duyệt riêng (DOM 18/10) |
+| `co.late_fee_sum_title` | Quản lý cho phép | What the manager allows | ⟨chừa chỗ⟩ | aria-label bảng 3 số trong hộp xác nhận (SEC FE-08) |
+| `co.late_fee_sum_fee` | Phụ thu trả muộn (giá 1 đêm) | Late check-out fee (one night) | ⟨chừa chỗ⟩ | Bảng 3 số – dòng 1 |
+| `co.late_fee_sum_foc` | Miễn/giảm | Waived | ⟨chừa chỗ⟩ | Bảng 3 số – dòng 2 (requestFoc) |
+| `co.late_fee_sum_guest` | Khách trả cho khoản này | Guest pays for this fee | ⟨chừa chỗ⟩ | Bảng 3 số – dòng 3 = phụ thu − miễn/giảm |
+| `co.late_fee_auth_failed` | Không xác nhận được. Kiểm tra tên đăng nhập và mật khẩu của quản lý rồi thử lại. | Couldn't confirm. Check the manager's username and password, then try again. | ⟨chừa chỗ⟩ | 401 REAUTH_FAILED ở lateFeeInsteadOfNight.secret – một câu chung, không nói sai tên hay sai mật khẩu (SR-AUTH-04, SEC FE-08) |
+| `co.late_fee_locked` | Xác nhận tạm khóa vì nhập sai nhiều lần. Thử lại sau {minutes} phút. | Confirmation is locked for now after several failed attempts. Try again in {minutes} minutes. | ⟨chừa chỗ⟩ | 429 RATE_LIMITED (SR-RL-02) – {minutes} từ Retry-After |
+| `pay.qr_over_note` | Khách chuyển {amount}, nhiều hơn số còn phải thu {max}. Ghi lý do thu vượt trước khi xác nhận; phần dư thành tiền thừa của khách. | The guest sent {amount}, more than the {max} still due. Note why before confirming; the extra becomes guest credit. | ⟨chừa chỗ⟩ | DOM (f): amountVnd > Payment.amountDueNowVnd hoặc 422 REASON_REQUIRED ở note (max) |
+| `pay.qr_pending_earlier` | Có mã VietQR tạo trước đang chờ: {amount}, hết hạn {time}. Kiểm tra app ngân hàng rồi xác nhận đã nhận. | A VietQR made earlier is still waiting: {amount}, expires {time}. Check the bank app, then confirm receipt. | ⟨chừa chỗ⟩ | H13: QR check_in còn pending từ lần mở trước |
+
+#### R2 Sprint 4 – FE-B H11 xác nhận QR cọc vượt (DOM (f); dùng cùng pay.qr_over_note của FE-A)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `dep.qr_over_reason` | Lý do thu vượt | Reason for the extra amount | ⟨chừa chỗ⟩ | H11 DepositDialog: confirmPaymentReceived.note – bắt buộc (≥ 3 ký tự) khi QR cọc > Payment.amountDueNowVnd hoặc 422 REASON_REQUIRED (max); lỗi dùng field_error.reason_required |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

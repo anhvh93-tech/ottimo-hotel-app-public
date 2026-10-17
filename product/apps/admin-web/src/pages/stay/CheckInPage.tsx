@@ -848,6 +848,12 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               pay={pay}
               onPay={setPay}
               requestOnly={requestOnly}
+              // DOM (f): a check-in VietQR made earlier and still waiting is confirmed here (above what is
+              // due now → a note); QR of other purposes stay with the drawer / money screens.
+              pendingQr={(folio.state.data?.payments ?? []).find(
+                (x) =>
+                  x.method === 'vietqr' && x.status === 'pending' && x.qrPurpose === 'check_in',
+              )}
               fields={act.fields}
               onPaid={() => {
                 folio.reload();

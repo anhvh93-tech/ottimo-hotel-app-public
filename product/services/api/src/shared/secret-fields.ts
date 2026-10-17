@@ -30,6 +30,10 @@ export const SECRET_PLACEHOLDER = '[secret]';
 export function withoutSecrets(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withoutSecrets);
   if (value === null || typeof value !== 'object') return value;
+  // SEC BE-61: only plain JSON objects are copied – an Error, Date, Buffer… is kept as it is (the logger's own
+  // serializers handle them; their fields are not request input).
+  const proto = Object.getPrototypeOf(value) as unknown;
+  if (proto !== Object.prototype && proto !== null) return value;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     out[k] = SECRET_BODY_FIELDS.has(k) && v !== undefined ? SECRET_PLACEHOLDER : withoutSecrets(v);

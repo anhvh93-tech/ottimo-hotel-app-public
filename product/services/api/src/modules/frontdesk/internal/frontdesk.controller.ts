@@ -17,6 +17,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
@@ -25,6 +26,7 @@ import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { isDryRun } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
+import { PasswordReauth } from '../../identity/public/password-reauth';
 import { nightsOf } from '../../reservations/public/pricing';
 import type { GuestUploadChoice } from '../public/ports';
 import {
@@ -83,7 +85,75 @@ export class FrontdeskController {
     @Inject(CheckoutService) private readonly checkout: CheckoutService,
     @Inject(PartyService) private readonly party: PartyService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
+    @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
+
+  /**
+   * 0.3.7 bổ sung 4 (ARC 16.6 (d), BR-416-06): `checkOut.lateFeeInsteadOfNight` – OWN/MGR of the property
+   * confirms at the desk with their own credentials (`approverUsername`; OWN/MGR calling: their own password),
+   * checked in its own transaction BEFORE the unit of work (PasswordReauth.verifyApprover – one 401 for a wrong
+   * name, password or role; the approver's SR-RL-02 counter). null = no such part in the body.
+   */
+  private async lateFeeApprover(
+    req: GuardedRequest,
+    id: string,
+    body: Record<string, unknown>,
+  ): Promise<{ userId: string; username: string; roles: string[]; self: boolean } | null> {
+    const v = body.lateFeeInsteadOfNight;
+    if (v === undefined || v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+    const o = v as Record<string, unknown>;
+    const p = principal(req);
+    const field = 'lateFeeInsteadOfNight';
+    const errors: Array<{ field: string; code: string }> = [];
+    if (o.authMethod !== 'password') {
+      errors.push({
+        field: `${field}.authMethod`,
+        code: o.authMethod === undefined ? 'REQUIRED' : 'NOT_IN_LIST',
+      });
+    }
+    const secret = o.secret;
+    if (typeof secret !== 'string' || secret.length < 6 || secret.length > 256) {
+      errors.push({
+        field: `${field}.secret`,
+        code: secret === undefined ? 'REQUIRED' : 'VALIDATION_FAILED',
+      });
+    }
+    const name = o.approverUsername;
+    if (
+      name !== undefined &&
+      name !== null &&
+      (typeof name !== 'string' || name.length < 1 || name.length > 100)
+    ) {
+      errors.push({ field: `${field}.approverUsername`, code: 'VALIDATION_FAILED' });
+    }
+    const username = typeof name === 'string' && name.length > 0 ? name : null;
+    const mgr = p.roles.includes('owner') || p.roles.includes('manager');
+    if (!username && !mgr) errors.push({ field: `${field}.approverUsername`, code: 'REQUIRED' });
+    if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
+    // SEC BE-64: the read-only business checks (night unsellable, amount shown) before any password is tried.
+    await this.read(req, (tx, ctx) => this.checkout.lateFeePrecheck(tx, ctx, id, body));
+    return this.reauth.verifyApprover(
+      tenantOf(p),
+      { username, password: secret as string },
+      {
+        field: `${field}.secret`,
+        purpose: 'late_fee_as_night',
+        roles: ['owner', 'manager'],
+        requestId: req.id,
+        // SEC BE-62: a user locked by this confirmation is told (`security_alert`).
+        onLocked: async (tx, userIds) => {
+          for (const userId of userIds) {
+            await this.s.events.notify(
+              tx,
+              { kind: 'security_alert', userIds: [userId], refType: 'user', refId: userId },
+              this.clock.now(),
+            );
+          }
+        },
+      },
+    );
+  }
 
   private ctx(tx: Tx, req: GuardedRequest): Promise<BookingContext> {
     const p = principal(req);
@@ -355,9 +425,11 @@ export class FrontdeskController {
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
+    const body = asBody(raw);
+    const approver = await this.lateFeeApprover(req, id, body);
     const result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
-      const r = await this.checkout.checkOut(tx, ctx, id, expectedVersion(req), asBody(raw));
+      const r = await this.checkout.checkOut(tx, ctx, id, expectedVersion(req), body, { approver });
       return {
         status: 200,
         body: {

@@ -45,6 +45,8 @@ interface Ctx {
 }
 
 const OWN_MGR: Role[] = ['owner', 'manager'];
+/** Mock BR-433: what a manager may waive on the BR-416-06 late fee at once (the owner: no limit). */
+const LATE_FEE_FOC_LIMIT_MGR = 1_000_000;
 const LEAD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead'];
 const FD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 const SALES: Role[] = ['sales_staff', 'collaborator'];
@@ -77,6 +79,16 @@ export interface MockLine {
   approvalRequestId?: string;
   postedAt: string;
   postedBy?: string;
+  /** Minibar M-1 (0.3.7 add. 4): the cabinet (room) a minibar line was counted in; absent = the room assigned now. */
+  cabinetRoomId?: string;
+}
+/** 0.3.7 add. 4 (DOM (f)): what `createVietQr` was for, kept to price "still due" when the desk confirms it. */
+export interface MockQrContext {
+  checkinTime?: string;
+  addPriorNight?: boolean;
+  checkoutTime?: string;
+  extraNightRateVnd?: number;
+  lateFeeAsNight?: boolean;
 }
 export interface MockPayment {
   id: string;
@@ -98,6 +110,9 @@ export interface MockPayment {
   note?: string;
   attachmentId?: string;
   approvalRequestId?: string;
+  /** VietQR only: `purpose` of `createVietQr` + its context (`payment.qr_purpose` / `qr_context`). */
+  qrPurpose?: 'deposit' | 'balance' | 'check_in' | 'check_out';
+  qrContext?: MockQrContext;
   version: number;
 }
 interface MockFolio {
@@ -701,6 +716,20 @@ export function createStayMock(ctx: Ctx) {
       approvals,
       audit,
       minibarChecks: new Map<string, Array<{ itemId: string; remainingQty: number }>>(),
+      /** BR-416-06 desk confirmation: failed attempts per caller (mock SR-RL-02, no expiry). */
+      lateFeeFails: new Map<string, number>(),
+      /**
+       * Minibar M-1 (BR-703-01): cabinets of earlier rooms of a stay (after B14), by reservation id; `lines` =
+       * their `checkout` count (absent = not counted yet). The room assigned now stays in `minibarChecks`.
+       */
+      minibarOldRooms: new Map<
+        string,
+        Array<{
+          roomId: string;
+          roomNo: string;
+          lines?: Array<{ itemId: string; remainingQty: number }>;
+        }>
+      >(),
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
@@ -712,6 +741,8 @@ export function createStayMock(ctx: Ctx) {
         imageRetentionDays: number;
       } | null,
       paymentNotConfigured: false,
+      /** Tests: a server before 0.3.7 add. 4 (no `lateFeeAsNightVnd`, the unsold night still priced in the due). */
+      legacyNoLateFeeAsNight: false,
       seq: 200,
     };
   }
@@ -845,6 +876,8 @@ export function createStayMock(ctx: Ctx) {
   function paymentView(p: MockPayment) {
     return {
       ...p,
+      qrContext: undefined,
+      amountDueNowVnd: qrDueNow(p),
       pendingDays: Math.floor((Date.now() - Date.parse(p.receivedAt ?? nowIso())) / 86_400_000),
     };
   }
@@ -1099,15 +1132,87 @@ export function createStayMock(ctx: Ctx) {
    * late charge re-priced, or after the last tier one more night at `rate` (default: list price) with the BR-107
    * step of the longer stay (mock: 10 % from 7 nights), credit taken off, clamped once.
    */
-  function dueAtCheckout(r: MockReservation, time: string, rate?: number) {
+  function dueAtCheckout(r: MockReservation, time: string, rate?: number, lateFee = false) {
     const s = lateSurcharge(r, time);
     const tt = totals(r);
     const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
     const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
     const calendar = rate ?? roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
     const pct = (r.nights ?? 0) + 1 >= 7 ? 10 : 0;
-    const night = s.treatAsExtension ? Math.round((calendar * (100 - pct)) / 100 / 1000) * 1000 : 0;
-    return Math.max(0, tt.balanceDueVnd - tt.creditVnd + (lateNew - live) + night);
+    // BUG-R2-139 / BR-416-06: a night that cannot be sold is never added; with `lateFee` the late fee of one
+    // night (`lateFeeAsNightVnd`, no BR-107 step) is.
+    const fee = lateFeeAsNight(r, time);
+    const night =
+      s.treatAsExtension && fee === undefined
+        ? Math.round((calendar * (100 - pct)) / 100 / 1000) * 1000
+        : 0;
+    return Math.max(
+      0,
+      tt.balanceDueVnd - tt.creditVnd + (lateNew - live) + night + (lateFee ? (fee ?? 0) : 0),
+    );
+  }
+  /** `CheckoutSummary.lateFeeAsNightVnd`: after the last tier while the night of departure is sold. */
+  function lateFeeAsNight(r: MockReservation, time: string) {
+    if (st.legacyNoLateFeeAsNight) return undefined;
+    return lateSurcharge(r, time).treatAsExtension && arrivalSameDay(r)
+      ? (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000)
+      : undefined;
+  }
+  /** `Payment.amountDueNowVnd` (DOM (f)): the cap of the QR's purpose re-priced now with the context it was made with. */
+  function qrDueNow(p: MockPayment) {
+    if (p.method !== 'vietqr' || p.status !== 'pending' || !p.qrPurpose) return undefined;
+    const r = rsv().state.reservations.find((x) => x.folioId === p.folioId);
+    if (!r) return undefined;
+    const c = p.qrContext ?? {};
+    if (p.qrPurpose === 'deposit')
+      return Math.max(0, (r.depositRequiredVnd ?? 0) - r.depositPaidVnd);
+    if (p.qrPurpose === 'check_in')
+      return dueAtCheckin(r, c.checkinTime ?? '14:00', !!c.addPriorNight && !priorTaken(r));
+    if (p.qrPurpose === 'check_out')
+      return dueAtCheckout(
+        r,
+        c.checkoutTime ?? r.agreedCheckoutTime ?? '12:00',
+        c.extraNightRateVnd,
+        !!c.lateFeeAsNight,
+      );
+    return totals(r).balanceDueVnd;
+  }
+
+  // ---------- minibar M-1 (0.3.7 add. 4): one cabinet per (stay, room) ----------
+  const currentCabinet = (r: MockReservation) => ({
+    roomId: r.segments?.[0]?.roomId ?? r.roomId ?? '',
+    roomNo: r.segments?.[0]?.roomNo ?? roomOf(r)?.roomNo ?? '',
+  });
+  /** `CheckoutSummary.minibarUncheckedRooms`: earlier rooms not counted yet, then the room assigned now. */
+  function uncheckedCabinets(r: MockReservation) {
+    const out = (st.minibarOldRooms.get(r.id) ?? [])
+      .filter((c) => !c.lines)
+      .map((c) => ({ roomId: c.roomId, roomNo: c.roomNo }));
+    if (!st.minibarChecks.has(r.id)) out.push(currentCabinet(r));
+    return out;
+  }
+  /** R1: the cabinet a `roomId` names – the room assigned now (absent / same) or an earlier room of the stay. */
+  function cabinetOf(r: MockReservation, roomId?: string) {
+    const here = currentCabinet(r);
+    if (!roomId || roomId === here.roomId)
+      return { ...here, current: true, lines: st.minibarChecks.get(r.id) };
+    const old = (st.minibarOldRooms.get(r.id) ?? []).find((c) => c.roomId === roomId);
+    return old ? { ...old, current: false } : undefined;
+  }
+  /** R6: the live minibar line of an item in a cabinet (`chargeCode` = item), and whether it was ever charged. */
+  function minibarLive(r: MockReservation, cabinetRoomId: string, itemId: string) {
+    const f = folioOf(r);
+    const here = currentCabinet(r).roomId;
+    const reversed = new Set(f.lines.map((l) => l.reversalOfId).filter(Boolean));
+    const all = f.lines.filter(
+      (l) =>
+        l.category === 'minibar' &&
+        l.chargeCode === itemId &&
+        !l.reversalOfId &&
+        (l.cabinetRoomId ?? here) === cabinetRoomId,
+    );
+    const live = all.find((l) => l.lineState === 'posted' && !reversed.has(l.id));
+    return { live, ever: all.length > 0 };
   }
 
   function replaceLate(r: MockReservation, amountVnd: number, label: string, by: string) {
@@ -2258,10 +2363,32 @@ export function createStayMock(ctx: Ctx) {
     http.get(`${prop}/reservations/:reservationId/minibar-standard`, ({ request, params }) => {
       const x = withRes(request, params, [...FD_PLUS, 'housekeeping']);
       if (isResponse(x)) return x;
-      const latest = st.minibarChecks.get(x.r.id);
+      const cab = cabinetOf(x.r, new URL(request.url).searchParams.get('roomId') ?? undefined);
+      if (!cab) return validation([{ field: 'roomId', code: 'NOT_IN_LIST' }]);
+      const latest = cab.lines;
+      // DOM (e): the four folio fields are FD+ only (HK sees no money of the folio).
+      const fd = has(x.g.roles, FD_PLUS);
       return json({
-        roomNo: x.r.segments?.[0]?.roomNo,
-        items: MINIBAR,
+        roomNo: cab.roomNo,
+        items: MINIBAR.map((m) => {
+          const last = latest?.find((l) => l.itemId === m.itemId);
+          const lastUsed = last ? m.standardQty - last.remainingQty : null;
+          const { live, ever } = minibarLive(x.r, cab.roomId, m.itemId);
+          const folioUsed = live ? live.quantity : ever ? 0 : null;
+          return {
+            ...m,
+            lastCheckUsedQty: lastUsed,
+            ...(fd
+              ? {
+                  folioLineId: live?.id ?? null,
+                  folioUsedQty: folioUsed,
+                  folioAmountVnd: live?.amountVnd,
+                  adjustedAfterLastCheck:
+                    lastUsed !== null && folioUsed !== null && folioUsed !== lastUsed,
+                }
+              : {}),
+          };
+        }),
         latestCheck: latest
           ? {
               id: uid(90_001),
@@ -2281,8 +2408,12 @@ export function createStayMock(ctx: Ctx) {
       const { r, g } = x;
       const body = (await request.json()) as {
         mode: string;
+        roomId?: string;
         lines: Array<{ itemId: string; remainingQty: number }>;
       };
+      // R1: the room assigned now (absent) or an earlier room of this stay; any other room → NOT_IN_LIST.
+      const cab = cabinetOf(r, body.roomId);
+      if (!cab) return validation([{ field: 'roomId', code: 'NOT_IN_LIST' }]);
       const errors: Array<{ field: string; code: string }> = [];
       if (MINIBAR.some((m) => !body.lines.some((l) => l.itemId === m.itemId)))
         errors.push({ field: 'lines', code: 'MINIBAR_ITEMS_INCOMPLETE' });
@@ -2297,13 +2428,36 @@ export function createStayMock(ctx: Ctx) {
           errors.push({ field: `lines[${i}].remainingQty`, code: 'MINIBAR_QTY_OVER_STANDARD' });
       });
       if (errors.length) return problem(422, 'VALIDATION_FAILED', { errors, max: 2 });
-      // Second check replaces the first: reverse the previous minibar lines (BR-008 – mock drops them).
       const f = folioOf(r);
-      f.lines = f.lines.filter((l) => l.category !== 'minibar');
       let total = 0;
       const lines = body.lines.map((l) => {
         const std = MINIBAR.find((m) => m.itemId === l.itemId)!;
         const used = std.standardQty - l.remainingQty;
+        const prev = cab.lines?.find((p) => p.itemId === l.itemId);
+        const lastUsed = prev ? std.standardQty - prev.remainingQty : null;
+        const { live, ever } = minibarLive(r, cab.roomId, l.itemId);
+        const folioUsed = live ? live.quantity : ever ? 0 : null;
+        // R6 (DOM (e)): the last count confirmed, or the number on the folio (corrected / voided with a
+        // reason) → that live line stays as it is, with its FOC and label.
+        if (used === lastUsed || (folioUsed !== null && used === folioUsed)) {
+          const kept = live?.amountVnd ?? 0;
+          total += kept;
+          return {
+            itemId: l.itemId,
+            itemName: std.itemName,
+            standardQty: std.standardQty,
+            remainingQty: l.remainingQty,
+            usedQty: used,
+            isFree: std.isFree,
+            amountVnd: kept,
+          };
+        }
+        // R7: a new count – the live line is reversed (BR-008; the mock drops it) and one new line is written.
+        if (live) {
+          f.lines = f.lines.filter((z) => z !== live);
+          f.version += 1;
+          syncReservation(r);
+        }
         const amount = std.isFree ? 0 : used * std.unitPriceVnd;
         total += amount;
         if (amount > 0)
@@ -2316,6 +2470,8 @@ export function createStayMock(ctx: Ctx) {
               unitPriceVnd: std.unitPriceVnd,
               description: `minibar ${std.itemName} x${used}`,
               labelParams: { item: std.itemName },
+              chargeCode: l.itemId,
+              cabinetRoomId: cab.roomId,
             },
             g.user.displayName,
           );
@@ -2329,7 +2485,11 @@ export function createStayMock(ctx: Ctx) {
           amountVnd: amount,
         };
       });
-      st.minibarChecks.set(r.id, body.lines);
+      if (cab.current) st.minibarChecks.set(r.id, body.lines);
+      else {
+        const old = (st.minibarOldRooms.get(r.id) ?? []).find((c) => c.roomId === cab.roomId);
+        if (old) old.lines = body.lines;
+      }
       return json(
         { id: uid(90_000 + next()), mode: body.mode, checkedAt: nowIso(), lines, totalVnd: total },
         201,
@@ -2345,7 +2505,8 @@ export function createStayMock(ctx: Ctx) {
       const tt = totals(r);
       const f = folioOf(r);
       const blockers: string[] = [];
-      if (!st.minibarChecks.has(r.id)) blockers.push('minibar_not_checked');
+      const unchecked = uncheckedCabinets(r);
+      if (unchecked.length) blockers.push('minibar_not_checked');
       if (tt.pendingApprovals) blockers.push('pending_approvals');
       if (tt.balanceDueVnd > 0) blockers.push('balance_due');
       if (tt.unhandledCreditVnd > 0) blockers.push('credit_balance');
@@ -2365,6 +2526,8 @@ export function createStayMock(ctx: Ctx) {
         extraNightRequired: s.treatAsExtension === true,
         extraNightDefaultRateVnd: s.treatAsExtension ? extraRate : undefined,
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
+        lateFeeAsNightVnd: lateFeeAsNight(r, time),
+        minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
         postMidnightWindow: postMidnightWindow(r),
         unhandledCreditVnd: tt.unhandledCreditVnd,
         lateSurchargeRecalc: liveLate(r).length
@@ -2375,7 +2538,7 @@ export function createStayMock(ctx: Ctx) {
         paidVnd: tt.paidVnd,
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
-        amountDueAtCheckoutVnd: dueAtCheckout(r, time),
+        amountDueAtCheckoutVnd: dueAtCheckout(r, time, undefined, true),
         pendingApprovals: tt.pendingApprovals,
         blockers,
       });
@@ -2396,14 +2559,96 @@ export function createStayMock(ctx: Ctx) {
         if (timeErr) return timeErr;
         const s = lateSurcharge(r, time);
         const extraNight = body.extraNight as { rateVnd?: number } | undefined;
-        if (s.treatAsExtension && !extraNight)
-          return validation([{ field: 'extraNight', code: 'LATE_CHECKOUT_AFTER_LIMIT' }]);
+        // BR-416-06 (0.3.7 add. 4): the night of departure is sold → a late fee of one night, confirmed at the
+        // desk by an OWN/MGR (password), instead of the extra night.
+        const lf = body.lateFeeInsteadOfNight as Body | undefined;
+        const feeVnd = lateFeeAsNight(r, time);
+        if (s.treatAsExtension && !extraNight && !lf)
+          return validation([
+            {
+              field: feeVnd !== undefined ? 'lateFeeInsteadOfNight' : 'extraNight',
+              code: 'LATE_CHECKOUT_AFTER_LIMIT',
+            },
+          ]);
+        if (lf && feeVnd === undefined)
+          return validation([{ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' }]);
+        let lfApprover: MockUser | undefined;
+        const lfFoc = lf?.requestFoc as Body | undefined;
+        if (lf && feeVnd !== undefined) {
+          // SEC BE-64: every read-only business check first, the password last.
+          const selfOk = has(g.roles, OWN_MGR);
+          const errs: Array<{ field: string; code: string }> = [];
+          if (String(lf.reason ?? '').trim().length < 3)
+            errs.push({ field: 'lateFeeInsteadOfNight.reason', code: 'REASON_REQUIRED' });
+          if (!selfOk && !String(lf.approverUsername ?? '').trim())
+            errs.push({ field: 'lateFeeInsteadOfNight.approverUsername', code: 'REQUIRED' });
+          if (lf.authMethod !== 'password')
+            errs.push({ field: 'lateFeeInsteadOfNight.authMethod', code: 'NOT_IN_LIST' });
+          if (lfFoc) {
+            if (lfFoc.authMethod !== undefined || lfFoc.secret !== undefined)
+              errs.push({
+                field: 'lateFeeInsteadOfNight.requestFoc.authMethod',
+                code: 'NOT_ALLOWED',
+              });
+            if (!(Number(lfFoc.amountVnd) > 0))
+              errs.push({
+                field: 'lateFeeInsteadOfNight.requestFoc.amountVnd',
+                code: 'AMOUNT_NOT_POSITIVE',
+              });
+            if (lfFoc.reasonCode === 'other' && String(lfFoc.note ?? '').trim().length < 3)
+              errs.push({
+                field: 'lateFeeInsteadOfNight.requestFoc.note',
+                code: 'REASON_REQUIRED',
+              });
+          }
+          if (errs.length) return validation(errs);
+          if (lfFoc && Number(lfFoc.amountVnd) > feeVnd)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [
+                { field: 'lateFeeInsteadOfNight.requestFoc.amountVnd', code: 'VALUE_OUT_OF_RANGE' },
+              ],
+              max: feeVnd,
+            });
+          if (Number(lf.amountVnd) !== feeVnd)
+            return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: feeVnd });
+          // SR-RL-02 (mock): 5 failures of the caller → locked 15 minutes.
+          if ((st.lateFeeFails.get(g.user.id) ?? 0) >= 5)
+            return problem(429, 'RATE_LIMITED', {}, { 'retry-after': '900' });
+          const name = String(lf.approverUsername ?? '').trim();
+          lfApprover =
+            !name || name === g.user.username
+              ? selfOk
+                ? g.user
+                : undefined
+              : ctx
+                  .db()
+                  .users.find(
+                    (u) =>
+                      u.username === name &&
+                      u.status === 'active' &&
+                      u.roles.some((x) => OWN_MGR.includes(x.role)),
+                  );
+          // Unknown name, not OWN/MGR, wrong password: the same 401 (SR-AUTH-04).
+          if (!lfApprover || lf.secret !== MOCK_PASSWORD) {
+            st.lateFeeFails.set(g.user.id, (st.lateFeeFails.get(g.user.id) ?? 0) + 1);
+            return problem(401, 'REAUTH_FAILED', {
+              errors: [{ field: 'lateFeeInsteadOfNight.secret', code: 'REAUTH_FAILED' }],
+            });
+          }
+          // BR-433 (mock): a manager applies a waiver up to 1.000.000 đ; the owner has no limit.
+          if (
+            lfFoc &&
+            !lfApprover.roles.some((x) => x.role === 'owner') &&
+            Number(lfFoc.amountVnd) > LATE_FEE_FOC_LIMIT_MGR
+          )
+            return problem(403, 'APPROVAL_LIMIT_EXCEEDED', { limitVnd: LATE_FEE_FOC_LIMIT_MGR });
+        }
         if (s.treatAsExtension && extraNight && !(Number(extraNight.rateVnd) > 0))
           return validation([{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }]);
         // The room is sold tonight (a same-day arrival) → no extra night (0.3.6 add. 2).
         if (s.treatAsExtension && extraNight && arrivalSameDay(r))
           return problem(409, 'ROOM_UNAVAILABLE', { roomNo: roomOf(r)?.roomNo });
-        if (!st.minibarChecks.has(r.id)) return problem(409, 'MINIBAR_NOT_CHECKED');
+        if (uncheckedCabinets(r).length) return problem(409, 'MINIBAR_NOT_CHECKED');
         // checkout.service B18: the surcharge at the actual time vs the live late charge (B15).
         const lateOld = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
         const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
@@ -2440,12 +2685,14 @@ export function createStayMock(ctx: Ctx) {
           states: f0.lines.map((l) => l.lineState),
           version: f0.version,
           pays: st.payments.length,
+          approvals: st.approvals.length,
         };
         const fail = (resp: Response) => {
           f0.lines.length = snap.lines;
           f0.lines.forEach((l, i) => (l.lineState = snap.states[i]!));
           f0.version = snap.version;
           st.payments.length = snap.pays;
+          st.approvals.length = snap.approvals;
           syncReservation(r);
           return resp;
         };
@@ -2463,6 +2710,58 @@ export function createStayMock(ctx: Ctx) {
           );
         if (lateNew < lateOld || (lateRaise && body.applyLateSurcharge))
           replaceLate(r, lateNew, `late_checkout ${time} ${s.tierPct}%`, g.user.displayName);
+        if (lf && feeVnd !== undefined && lfApprover) {
+          // `late_checkout` · `late_fee_as_night` (other revenue, not a night sold); the tiered charge goes.
+          for (const l of liveLate(r)) l.lineState = 'rejected';
+          const feeLine = addLine(
+            r,
+            {
+              category: 'late_checkout',
+              amountVnd: feeVnd,
+              description: `late_fee_as_night ${time}`,
+              chargeCode: 'late_fee_as_night',
+            },
+            g.user.displayName,
+          );
+          if (lfFoc) {
+            const a: MockApproval = {
+              id: uid(89_000 + next()),
+              type: String(lfFoc.kind ?? 'foc'),
+              status: 'approved',
+              reservationCode: r.code,
+              folioId: folioOf(r).id,
+              folioLineId: feeLine.id,
+              amountVnd: Number(lfFoc.amountVnd),
+              reasonCode: String(lfFoc.reasonCode),
+              reasonNote: lfFoc.note as string | undefined,
+              requestedBy: g.user.displayName,
+              requestedByUserId: g.user.id,
+              requestedAt: nowIso(),
+              approverName: lfApprover.displayName,
+              approverUserId: lfApprover.id,
+              decidedAt: nowIso(),
+            };
+            st.approvals.push(a);
+            addLine(
+              r,
+              {
+                category: String(lfFoc.kind ?? 'foc') === 'special_discount' ? 'discount' : 'foc',
+                amountVnd: -Number(lfFoc.amountVnd),
+                description: `foc ${feeLine.id}`,
+                labelParams: { reason: String(lfFoc.reasonCode) },
+                relatedLineId: feeLine.id,
+                approvalRequestId: a.id,
+              },
+              g.user.displayName,
+            );
+          }
+          audit(g, 'reservation.late_fee_instead_of_night', r.code, {
+            amountVnd: feeVnd,
+            reason: String(lf.reason),
+            approverUserId: lfApprover.id,
+            confirmChannel: lfApprover.id === g.user.id ? 'self' : 'desk',
+          });
+        }
         if (body.finalPayment) {
           const errs = paymentErrors(body.finalPayment as Body);
           if (errs.length)
@@ -2667,6 +2966,7 @@ export function createStayMock(ctx: Ctx) {
             labelParams: l.labelParams,
             serviceDate: l.serviceDate,
             chargeCode: l.chargeCode,
+            cabinetRoomId: l.cabinetRoomId,
           },
           g.user.displayName,
         );
@@ -2722,18 +3022,42 @@ export function createStayMock(ctx: Ctx) {
       const hold = r.status === 'hold';
       if (hold && body.purpose && body.purpose !== 'deposit')
         return validation([{ field: 'purpose', code: 'NOT_IN_LIST' }]);
+      const outTime =
+        typeof body.checkoutAt === 'string'
+          ? String(body.checkoutAt).slice(11, 16)
+          : (r.agreedCheckoutTime ?? '12:00');
+      // 0.3.7 add. 4 (BUG-R2-139, BR-416-06): `lateFeeAsNight` only while the night of departure is sold;
+      // then no typed extra-night rate either.
+      const unsold = body.purpose === 'check_out' && lateFeeAsNight(r, outTime) !== undefined;
+      if (body.lateFeeAsNight === true && !unsold)
+        return validation([{ field: 'lateFeeAsNight', code: 'NOT_ALLOWED' }]);
+      if (body.extraNightRateVnd !== undefined && unsold)
+        return validation([{ field: 'extraNightRateVnd', code: 'NOT_ALLOWED' }]);
+      const purpose: NonNullable<MockPayment['qrPurpose']> = hold
+        ? 'deposit'
+        : body.purpose === 'check_in' || body.purpose === 'check_out' || body.purpose === 'deposit'
+          ? body.purpose
+          : 'balance';
+      const qrContext: MockQrContext =
+        purpose === 'check_in'
+          ? {
+              checkinTime: String(body.checkinTime ?? '14:00'),
+              addPriorNight: !!body.addPriorNight,
+            }
+          : purpose === 'check_out'
+            ? {
+                checkoutTime: outTime,
+                extraNightRateVnd:
+                  body.extraNightRateVnd !== undefined ? Number(body.extraNightRateVnd) : undefined,
+                lateFeeAsNight: body.lateFeeAsNight === true,
+              }
+            : {};
       const cap = hold
         ? Math.max(0, (r.depositRequiredVnd ?? 0) - r.depositPaidVnd)
         : body.purpose === 'check_in'
           ? dueAtCheckin(r, String(body.checkinTime ?? '14:00'), !!body.addPriorNight)
           : body.purpose === 'check_out'
-            ? dueAtCheckout(
-                r,
-                typeof body.checkoutAt === 'string'
-                  ? String(body.checkoutAt).slice(11, 16)
-                  : (r.agreedCheckoutTime ?? '12:00'),
-                body.extraNightRateVnd !== undefined ? Number(body.extraNightRateVnd) : undefined,
-              )
+            ? dueAtCheckout(r, outTime, qrContext.extraNightRateVnd, qrContext.lateFeeAsNight)
             : totals(r).balanceDueVnd;
       if (amount > cap && !body.overBalanceReason)
         return problem(422, 'VALIDATION_FAILED', {
@@ -2764,11 +3088,13 @@ export function createStayMock(ctx: Ctx) {
         recordedBy: g.user.displayName,
         recordedByUserId: g.user.id,
         recordedByRole: g.roles[0],
+        qrPurpose: purpose,
+        qrContext,
         version: 1,
       };
       st.payments.push(p);
       return rsv().remember(key, 201, {
-        payment: p,
+        payment: paymentView(p),
         qrPayload,
         transferContent: content,
         receivingAccountMasked: '9704••••7777',
@@ -2785,6 +3111,17 @@ export function createStayMock(ctx: Ctx) {
         if (p.status !== 'pending')
           return problem(409, 'INVALID_TRANSITION', { currentState: p.status });
         const body = (await request.json()) as Body;
+        // 0.3.7 add. 4 (DOM (f)): above what the QR's purpose still leaves due → a note (≥ 3) says why.
+        const dueNow = qrDueNow(p);
+        if (
+          dueNow !== undefined &&
+          p.amountVnd > dueNow &&
+          String(body.note ?? '').trim().length < 3
+        )
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+            max: dueNow,
+          });
         p.status = 'succeeded';
         p.receivedAt = nowIso();
         p.note = (body.note as string | undefined) ?? p.note;
@@ -2799,7 +3136,7 @@ export function createStayMock(ctx: Ctx) {
           method: 'vietqr',
           reconciliation: 'pending',
         });
-        return json(p);
+        return json(paymentView(p));
       },
     ),
     http.get(`${prop}/payments`, ({ request }) => {

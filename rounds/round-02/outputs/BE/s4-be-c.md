@@ -269,3 +269,18 @@
   - `tests/e2e/support/known-bugs.ts` (xóa BUG-R2-108 – QA review).
 - Mới: `services/api/test/be-c-s4-units.test.ts`.
 
+## 10. Tuần Ổn định – BR-807-01 (DOM v0.3.8): khách đến hôm nay không phải khách ở tiếp
+- **J8 `hk.daily`**: chỉ chuyển `OC → OD` và sinh `stayover_clean` khi ngày đến của lượt ở < ngày nghiệp vụ < ngày đi.
+  - Đơn con gia hạn tính theo ngày đến của đơn cha, nên khách gia hạn vẫn được dọn ở tiếp vào ngày đi cũ.
+  - Không dùng điều kiện đoạn ở `from_date < today` theo câu chữ: điều kiện đó bỏ sót khách gia hạn qua đơn con và khách đổi phòng trong ngày.
+- **B13 vào đúng ngày đến**: `RoomStatusService.set(…, 'OD', B13)` giữ `OC`, không sinh việc dọn. 07:00 hôm sau J8 làm cả hai.
+- **Căn khách chuyển về (BR-424-05)**: không đổi – đã nằm ngoài nhánh khách ở tiếp.
+- Đã bỏ `pendingFix: S438R3-G-J8` của BR-807-01.
+- Test: `housekeeping-s4`, ca BR-807-01 đọc oracle (J8 chạy bù 15:00 → `OC`, không việc; 07:00 hôm sau → `OD` + việc; B13 ngày đến → `OC`).
+- Vitest api toàn bộ: cây chung **83/83 tệp, 2709/2709**; cây cô lập (HEAD + BE-C) 2709/2709. `tsc`, eslint, prettier, validate-fixtures: sạch.
+- Tệp:
+  - `services/api/src/modules/housekeeping/public/{worker-jobs,room-status.service}.ts`;
+  - `services/api/test/integration/housekeeping-s4.test.ts`;
+  - `tests/fixtures/br-examples.json` (QA review).
+- **BE-A cần biết:** nhánh OD của B13 (BUG-R2-047) nay không đổi trạng thái khi khách đến hôm nay.
+

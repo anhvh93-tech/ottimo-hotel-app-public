@@ -336,7 +336,14 @@ export async function ensureReceivingAccount(
       reason: 'E2E: tai khoan nhan thu (du lieu test)',
     },
   );
-  expect(r.status, `setParameter payment_receiving_account: ${JSON.stringify(r.body)}`).toBe(200);
+  // Cùng tài khoản đã hiệu lực ở ngày đó (stack dùng lại, ngày ảo chạy lại) → không cần thêm dòng: 422 "already effective"
+  const already =
+    r.status === 422 &&
+    /already effective/i.test(String((r.body as { detail?: string })?.detail ?? ''));
+  expect(
+    r.status === 200 || already,
+    `setParameter payment_receiving_account: ${JSON.stringify(r.body)}`,
+  ).toBe(true);
 }
 
 // ───────────────────────── VietQR (EMVCo) ─────────────────────────

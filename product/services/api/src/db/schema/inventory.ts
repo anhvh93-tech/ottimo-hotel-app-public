@@ -122,8 +122,10 @@ export const minibarCheck = pgTable(
     }),
     check('minibar_check_mode_check', sql`${t.mode} IN ('checkout', 'stayover')`),
     check('minibar_check_total_check', sql`${t.totalVnd} >= 0`),
+    // 0065 (mô hình minibar M-1, ARC R1 – BUG-R2-136): one live `checkout` count per FRIDGE = (stay, room); a
+    // mid-stay room change (B14) leaves two fridges, never one replacing the other.
     uniqueIndex('minibar_check_live_checkout_key')
-      .on(t.reservationId)
+      .on(t.reservationId, t.roomId)
       .where(sql`${t.mode} = 'checkout' AND ${t.replacedByCheckId} IS NULL`),
     index('minibar_check_reservation_idx').on(t.propertyId, t.reservationId, t.checkedAt),
   ],
@@ -174,6 +176,92 @@ export const minibarCheckLine = pgTable(
     check(
       'minibar_check_line_amount_check',
       sql`${t.amountVnd} >= 0 AND (${t.unitPriceVndSnapshot} IS NULL OR ${t.unitPriceVndSnapshot} >= 0)`,
+    ),
+  ],
+);
+
+/**
+ * 0065 (mô hình minibar M-1, ARC `openapi-0.3.7.md` mục 16.3; BR-702-02, BUG-R2-138): a FILL of a fridge = the
+ * level and the sale price of each item put in it (R2: at check-in / moving in – written copy-on-write when the
+ * catalogue changes during a stay; R3: mid-stay refill). The latest fill of a fridge (largest `filled_at`) gives
+ * its items, their mark (`qty`) and their price (R3–R5). Records: INSERT-only.
+ */
+export const minibarFill = pgTable(
+  'minibar_fill',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    /** The primary booking of the stay (its folio). */
+    reservationId: uuid('reservation_id').notNull(),
+    roomId: uuid('room_id').notNull(),
+    source: text('source').notNull(),
+    filledAt: instant('filled_at').notNull(),
+    createdBy: uuid('created_by'),
+    createdAt: instant('created_at').notNull(),
+  },
+  (t) => [
+    unique('minibar_fill_property_id_key').on(t.propertyId, t.id),
+    foreignKey({
+      name: 'minibar_fill_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    foreignKey({
+      name: 'minibar_fill_reservation_fk',
+      columns: [t.propertyId, t.reservationId],
+      foreignColumns: [reservation.propertyId, reservation.id],
+    }),
+    foreignKey({
+      name: 'minibar_fill_room_fk',
+      columns: [t.propertyId, t.roomId],
+      foreignColumns: [room.propertyId, room.id],
+    }),
+    foreignKey({
+      name: 'minibar_fill_created_by_fk',
+      columns: [t.organizationId, t.createdBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check('minibar_fill_source_check', sql`${t.source} IN ('check_in', 'refill', 'backfill')`),
+    index('minibar_fill_fridge_idx').on(t.propertyId, t.reservationId, t.roomId, t.filledAt),
+  ],
+);
+
+export const minibarFillLine = pgTable(
+  'minibar_fill_line',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    fillId: uuid('fill_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    qty: integer('qty').notNull(),
+    /** null = complimentary at that fill (BR-701). */
+    unitPriceVndSnapshot: bigint('unit_price_vnd_snapshot', { mode: 'number' }),
+    /** C2 – owner/manager only. */
+    unitCostVndSnapshot: bigint('unit_cost_vnd_snapshot', { mode: 'number' }),
+  },
+  (t) => [
+    foreignKey({
+      name: 'minibar_fill_line_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    foreignKey({
+      name: 'minibar_fill_line_fill_fk',
+      columns: [t.propertyId, t.fillId],
+      foreignColumns: [minibarFill.propertyId, minibarFill.id],
+    }),
+    foreignKey({
+      name: 'minibar_fill_line_item_fk',
+      columns: [t.propertyId, t.itemId],
+      foreignColumns: [item.propertyId, item.id],
+    }),
+    unique('minibar_fill_line_item_key').on(t.fillId, t.itemId),
+    check('minibar_fill_line_qty_check', sql`${t.qty} >= 1`),
+    check(
+      'minibar_fill_line_price_check',
+      sql`(${t.unitPriceVndSnapshot} IS NULL OR ${t.unitPriceVndSnapshot} >= 0) AND (${t.unitCostVndSnapshot} IS NULL OR ${t.unitCostVndSnapshot} >= 0)`,
     ),
   ],
 );

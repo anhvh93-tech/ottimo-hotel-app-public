@@ -187,6 +187,44 @@ export class CheckinService {
     return (await this.evaluate(tx, ctx, row, q.checkinTime, 'write', rate)).amountDueAtCheckinVnd;
   }
 
+  /**
+   * ARC 16.6 (f) D7 (`confirmPaymentReceived`): what a `check_in` VietQR may take NOW, from the context stored
+   * when it was created – `amountDueForQr`'s calculation, never refused: a B9a night no longer free (or a rate out
+   * of bounds) is dropped, a booking past check-in (or not confirmed) owes its folio balance.
+   */
+  async amountDueNow(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    q: {
+      checkinTime?: LocalTime | undefined;
+      addPriorNight?: boolean | undefined;
+      priorNightRateVnd?: number | undefined;
+    },
+  ): Promise<number> {
+    const row = await loadReservation(tx, id, ctx.actor);
+    if (!row.folio_id) return 0;
+    if (row.status !== 'confirmed') {
+      return Math.max(0, (await this.s.folios.balance(tx, row.folio_id)).balanceDueVnd);
+    }
+    const e = await this.evaluate(tx, ctx, row, q.checkinTime, 'write');
+    const p = e.priorNight;
+    const rate = q.priorNightRateVnd;
+    if (
+      q.addPriorNight &&
+      p &&
+      p.available &&
+      rate !== undefined &&
+      rate !== p.defaultRateVnd &&
+      rate >= p.floorVnd &&
+      rate <= p.ceilingVnd
+    ) {
+      return (await this.evaluate(tx, ctx, row, q.checkinTime, 'write', rate))
+        .amountDueAtCheckinVnd;
+    }
+    return e.amountDueAtCheckinVnd;
+  }
+
   private async evaluate(
     tx: Tx,
     ctx: BookingContext,
@@ -246,13 +284,18 @@ export class CheckinService {
     let priorNight: Evaluation['priorNight'] = null;
     if (room && early.addsPreviousNight) {
       const date = addDays(row.arrival_date, -1);
-      const direct = await this.s.directRate(tx, ctx, room.id, date);
       // S438-DOM-01 (BR-417 (2), BR-421 v0.3.4): the default of the B9a night is the direct calendar of THAT night
       // (a Saturday is a Saturday), never the first night of the booking; a long stay keeps its nightly basis.
-      // CI 72fa486 / BR-411-07: a booking with an agreed (typed) price suggests that price (its first typed night,
-      // before the tier) – except on a special date (BR-421).
-      const agreed = direct.special ? null : await this.s.agreedRate(tx, row, 'first');
-      const own = row.stay_type === 'long' ? early.baseNightVnd : (agreed ?? direct.rateVnd);
+      // CI 72fa486 / BR-411-07, BUG-R2-134 (BR-417-07): an agreed price typed in this room is suggested; after an
+      // OTTIMO move min(what the guest bought, this room's calendar); always within BR-105.
+      const r = await this.s.addedNightRate(
+        tx,
+        ctx,
+        await this.s.addedNightContext(tx, row, 'first', room.id),
+        date,
+      );
+      const direct = { rateVnd: r.calendarVnd, floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd };
+      const own = row.stay_type === 'long' ? early.baseNightVnd : r.rateVnd;
       priorNight = {
         date,
         available:

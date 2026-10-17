@@ -202,7 +202,8 @@ export class StayNightPricingPort {
       const dep = snap as { depositPct?: number; depositUnit?: number; depositHeldVnd?: number };
       const r = requiredDepositAfterChange({
         oldRequiredVnd: Number(tot[0]?.required ?? 0),
-        heldVnd: dep.depositHeldVnd ?? 0,
+        // BR-309 (v) bổ sung 18/10: a `hold` has no held level – it needs 30 % of its current room money.
+        heldVnd: row.status === 'hold' ? 0 : (dep.depositHeldVnd ?? 0),
         totalRoomVnd: Number(tot[0]?.total ?? 0),
         depositPct: dep.depositPct ?? p.depositPct,
         depositUnit: dep.depositUnit ?? p.depositUnit,

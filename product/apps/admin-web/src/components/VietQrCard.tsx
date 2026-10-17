@@ -1,4 +1,4 @@
-import type { VietQrResult } from '@ottimo/api-client';
+import { isApiError, type Payment, type VietQrResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, QrCode } from '@ottimo/ui';
 import { monoArgs } from '../app/mono';
@@ -51,4 +51,23 @@ export function VietQrCard({ qr, size = 184 }: { qr: VietQrResult; size?: number
       </div>
     </div>
   );
+}
+
+/**
+ * DOM (f), ARC 0.3.7 bổ sung 4 (16.6): confirming a QR larger than what is due NOW (the cap of its purpose,
+ * re-computed – `Payment.amountDueNowVnd`) needs a note; the excess becomes the guest's credit (BR-522).
+ * Returns that amount due when the QR exceeds it (known before the click, or from 422 `REASON_REQUIRED`
+ * on `note` with `max`), else null.
+ */
+export function qrOverDue(payment: Payment | undefined, error: unknown): number | null {
+  if (
+    isApiError(error) &&
+    error.fieldErrors.some(
+      (f) => f.field.replace(/^body\./, '') === 'note' && f.code === 'REASON_REQUIRED',
+    ) &&
+    typeof error.problem.max === 'number'
+  )
+    return error.problem.max;
+  const due = payment?.amountDueNowVnd;
+  return payment && typeof due === 'number' && payment.amountVnd > due ? due : null;
 }

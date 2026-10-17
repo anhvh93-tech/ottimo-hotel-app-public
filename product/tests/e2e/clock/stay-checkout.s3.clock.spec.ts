@@ -3225,7 +3225,7 @@ test.describe(
         async ({ request }) => {
           // Tiền điều kiện: Folio đã có dòng Coca giá cũ
           // Bước: qa.owner đổi giá Coca; kiểm minibar đơn khác
-          // Kỳ vọng: Lần kiểm sau dùng giá mới; dòng folio cũ giữ giá cũ
+          // Kỳ vọng: Lượt nhận phòng sau khi đổi giá dùng giá mới (M-1 R5 – giá lúc nạp); dòng folio cũ giữ giá cũ
           // Quy tắc: BR-006
           needClock('TC-L4-071');
           await requireEndpoints(request, 'TC-L4-071', [
@@ -3237,7 +3237,6 @@ test.describe(
           const fd = await fresh(request, 'qa.fd');
           const coca = minibarItem('coca');
           const a = await stay(request, c, fd, '203', D, 1);
-          const b = await stay(request, c, fd, '202', D, 1);
           expect((await minibarCheck(request, fd, a.res.id, { coca: 1 })).status).toBe(201);
           const owner = await fresh(request, 'qa.owner');
           const items = await call<{ data: Array<{ id: string; code: string; version: number }> }>(
@@ -3262,6 +3261,9 @@ test.describe(
           });
           expect(upd.status, JSON.stringify(upd.body)).toBe(200);
           try {
+            // M-1 (ARC openapi-0.3.7.md 16.2 R2/R5): giá bán là giá lúc nạp tủ – lượt NHẬN PHÒNG SAU khi đổi giá dùng giá
+            // mới; lượt đang ở từ trước giữ giá cũ tới lần nạp sau (bảng ca minibar MX-A1, TC-L4-102)
+            const b = await stay(request, c, fd, '202', D, 1);
             expect((await minibarCheck(request, fd, b.res.id, { coca: 1 })).status).toBe(201);
             expect(sumOf(await getFolio(request, fd, b.res.folioId!), 'minibar')).toBe(newPrice);
             expect(sumOf(await getFolio(request, fd, a.res.folioId!), 'minibar')).toBe(

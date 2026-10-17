@@ -6,8 +6,8 @@
     "version": "0.3.8",
     "date": "2026-10-17"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01",
-  "updated": "2026-10-17",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật",
+  "updated": "2026-10-18",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -1663,7 +1663,6 @@
       "case": "Thêm người giữa kỳ (v0.3.4): căn 202, 2 người lớn ở 20–24/10, ngày 22/10 thêm 1 người lớn → phụ thu từ đêm 22/10, không tính các đêm đã qua (qua sửa số khách hay thêm người đi cùng đều như nhau)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-16",
       "params": {
         "room.202.base_occupancy": 2,
         "room.202.max_occupancy": 3,
@@ -1688,7 +1687,7 @@
         "chargedNights": ["2026-10-22", "2026-10-23"],
         "extraPersonFeeVnd": 300000
       },
-      "note": "Không phải 600.000 (tính cả đêm 20, 21)"
+      "note": "Không phải 600.000 (tính cả đêm 20, 21) · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
     },
     {
       "id": "BR-110-11",
@@ -1696,7 +1695,6 @@
       "case": "Như BR-110-10 rồi gia hạn 1 đêm (đêm 24/10) → phụ thu giữa kỳ không mất, đêm thêm cũng tính (v0.3.4)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-16",
       "params": {
         "room.202.base_occupancy": 2,
         "room.202.max_occupancy": 3,
@@ -1725,7 +1723,7 @@
         "chargedNights": ["2026-10-22", "2026-10-23", "2026-10-24"],
         "extraPersonFeeVnd": 450000
       },
-      "note": "Code HEAD: resync sau gia hạn đảo mất dòng phụ thu giữa kỳ → 0"
+      "note": "Code HEAD: resync sau gia hạn đảo mất dòng phụ thu giữa kỳ → 0 · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
     },
     {
       "id": "BR-110-12",
@@ -1733,7 +1731,6 @@
       "case": "Căn 202 có 1 người lớn + 1 trẻ 8 tuổi (tính 2 = định mức), ngày 22/10 thêm 1 người lớn → người vượt là trẻ (người lớn vào định mức trước) → 100.000/đêm (v0.3.4)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-16",
       "params": {
         "room.202.base_occupancy": 2,
         "room.202.max_occupancy": 3,
@@ -1759,7 +1756,7 @@
         "extraPersonFeePerNightVnd": 100000,
         "extraPersonFeeVnd": 200000
       },
-      "note": "Code HEAD tính theo người vừa thêm (người lớn) → 150.000/đêm"
+      "note": "Code HEAD tính theo người vừa thêm (người lớn) → 150.000/đêm · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
     },
     {
       "id": "BR-110-13",
@@ -1767,7 +1764,6 @@
       "case": "Trẻ chỉ ghi năm sinh 2020, đến 20/10/2026 → coi 5 tuổi (tuổi nhỏ nhất có thể) → không tính định mức, không phụ thu (v0.3.4)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-16",
       "params": {
         "room.202.base_occupancy": 2,
         "room.202.max_occupancy": 3,
@@ -1790,7 +1786,7 @@
         "extraPersonFeeVnd": 0,
         "extraGuestKits": 0
       },
-      "note": "Code HEAD (BE-A giả định 11): năm đến − năm sinh = 6 → 100.000/đêm"
+      "note": "Code HEAD (BE-A giả định 11): năm đến − năm sinh = 6 → 100.000/đêm · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
     },
     {
       "id": "BR-110-14",
@@ -1873,6 +1869,47 @@
         "sourceRequiredInUi": true
       },
       "qaAssumption": "ARC chọn bắt buộc trường nguồn (OpenAPI 0.3.6 bổ sung 4): thiếu `partyChangeSource` → 422 REQUIRED; client chọn sẵn `guest_direct` – kết quả nghiệp vụ như trên"
+    },
+    {
+      "id": "BR-110-17",
+      "br": "BR-110",
+      "case": "(v0.3.8) Đêm con Trực tiếp của đơn OTA: phụ thu theo định mức căn đêm đó, không dùng số khách OTA; OTTIMO dời căn thì hưởng định mức bảo vệ",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "otaGuestCount": 3,
+        "adults": 3,
+        "bookedRoomNo": "302",
+        "baseOccupancy": {
+          "302": 3,
+          "202": 2
+        },
+        "cases": [
+          {
+            "key": "ottimo",
+            "reasonCode": "property_fault",
+            "toRoomNo": "202"
+          },
+          {
+            "key": "guest",
+            "reasonCode": "guest_request",
+            "toRoomNo": "202"
+          }
+        ]
+      },
+      "expected": {
+        "otaNightFeeVnd": {
+          "ottimo": 0,
+          "guest": 0
+        },
+        "b9aChildNightFeeVnd": {
+          "ottimo": 0,
+          "guest": 150000
+        }
+      },
+      "note": "Khớp lựa chọn BE-A (N1, N2) và cách đọc của người kiểm (A3, D4) – recheck3 mục Gaps"
     },
     {
       "id": "BR-111-01",
@@ -3423,6 +3460,32 @@
       "note": "Nếu INV chọn ESC-023 B/C thì không tạo mức giữ (thu phí lúc rút ngắn) – dòng này viết theo phương án A hiện hành"
     },
     {
+      "id": "BR-309-15",
+      "br": "BR-309",
+      "case": "(v0.3.8) Dời ngày muộn rồi hủy: bậc hoàn không tốt hơn bậc lúc dời",
+      "origin": "example",
+      "labels": ["INV-006"],
+      "calc": null,
+      "input": {
+        "channel": "direct",
+        "arrivalDate": "2026-10-22",
+        "depositPaidVnd": 500000,
+        "depositRequiredVnd": 500000,
+        "movedAt": "2026-10-17T10:00:00+07:00",
+        "newArrivalDate": "2026-12-17",
+        "cancelledAt": "2026-10-18T10:00:00+07:00"
+      },
+      "expected": {
+        "noticeDaysAtMove": 5,
+        "refundPctAtMove": 50,
+        "refundPctAtCancelByLetter": 100,
+        "refundVnd": 250000,
+        "feeVnd": 250000,
+        "wrongRefundVnd": 500000
+      },
+      "note": "Mức giữ (ii) và khóa bậc (iv) chỉ áp cho đơn đã có cọc; đơn hold tính lại bình thường (v) · QA cấp BUG-R2-143 (18/10, ORC chốt; P1, BE-A) thay S438R3-GAP-Q1"
+    },
+    {
       "id": "BR-310-01",
       "br": "BR-310",
       "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
@@ -4004,7 +4067,11 @@
         "roomNo": "201",
         "arrivalDate": "2026-10-20",
         "departureDate": "2026-10-23",
-        "nightRatesVnd": { "2026-10-20": 700000, "2026-10-21": 700000, "2026-10-22": 700000 },
+        "nightRatesVnd": {
+          "2026-10-20": 700000,
+          "2026-10-21": 700000,
+          "2026-10-22": 700000
+        },
         "depositPaidVnd": 600000,
         "checkinTime": "11:00",
         "earlySurchargeVnd": 210000,
@@ -4017,7 +4084,10 @@
           "status": "pending"
         },
         "partialFocRequestedVnd": 100000,
-        "managerSelfApply": { "actorRole": "manager", "requestedVnd": 210000 }
+        "managerSelfApply": {
+          "actorRole": "manager",
+          "requestedVnd": 210000
+        }
       },
       "expected": {
         "roomTotalVnd": 2100000,
@@ -4681,7 +4751,6 @@
       "case": "Hẹn trả 17:00 (708.000 → 354.000) đã FOC toàn bộ, trả thực tế 13:00 → 212.000, FOC đi theo → khách trả 0 (v0.3.4 – G-10, S3-11)",
       "origin": "example",
       "labels": ["INV-007", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-17",
       "params": {
         "late_checkout_tiers": [
           {
@@ -4713,7 +4782,7 @@
         "guestPaysVnd": 0,
         "reapprovalNeeded": false
       },
-      "note": "Code HEAD: đảo dòng cũ cùng FOC, ghi 212.000 không FOC → khách nợ 212.000"
+      "note": "Code HEAD: đảo dòng cũ cùng FOC, ghi 212.000 không FOC → khách nợ 212.000 · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-17)"
     },
     {
       "id": "BR-412-13",
@@ -4721,7 +4790,6 @@
       "case": "Như BR-412-12 nhưng FOC chỉ 200.000 → FOC mới = min(200.000, 212.000) → khách trả 12.000 (v0.3.4)",
       "origin": "rule-boundary",
       "labels": ["INV-007", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-17",
       "params": {
         "late_checkout_tiers": [
           {
@@ -4752,7 +4820,8 @@
         "carriedFocVnd": 200000,
         "guestPaysVnd": 12000,
         "reapprovalNeeded": false
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-17)"
     },
     {
       "id": "BR-412-14",
@@ -4760,7 +4829,6 @@
       "case": "Căn có giữ chỗ đã cọc một phần (hold, cọc 500.000) đến cùng ngày; khách trả 12:20 → không ân hạn → 210.000 (S3-14)",
       "origin": "example",
       "labels": ["INV-007", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-28",
       "params": {
         "late_checkout_tiers": [
           {
@@ -4790,7 +4858,7 @@
         "sameDayArrival": true,
         "surchargeVnd": 210000
       },
-      "note": "Code HEAD chỉ xét đơn confirmed → ân hạn → 0"
+      "note": "Code HEAD chỉ xét đơn confirmed → ân hạn → 0 · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-28)"
     },
     {
       "id": "BR-412-15",
@@ -4904,7 +4972,6 @@
       "case": "Không có \"bỏ qua\" phụ thu và giờ nhập tay lệch giờ thao tác > 30 phút (v0.3.4 – S3-12)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-18",
       "params": {
         "manual_time_tolerance_minutes": 30
       },
@@ -4939,7 +5006,8 @@
           "rejected_surcharge_decision_required"
         ],
         "proposedSurchargeVnd": 210000
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-18)"
     },
     {
       "id": "BR-415-01",
@@ -4998,7 +5066,6 @@
       "case": "Khách rời 19:00 ngày đi 23/10 (giá 700.000, căn không có khách đến) → một thao tác: thêm đêm 23/10 và trả phòng ngay (v0.3.4 – S3-9, thay G-16)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-19",
       "calc": null,
       "input": {
         "departureDate": "2026-10-23",
@@ -5015,7 +5082,7 @@
         "roomStatusAfter": "VD",
         "waitsForBusinessDayChange": false
       },
-      "note": "Code HEAD: phải gia hạn trước, rồi B18 bị chặn tới 06:00 ngày 24/10 | v0.3.8: 700.000 là giá thỏa thuận của đơn (đêm 23/10/2026 là thứ Sáu – đơn theo lịch giá thì lấy lịch thứ Sáu của căn, BR-416 v0.3.8)"
+      "note": "Code HEAD: phải gia hạn trước, rồi B18 bị chặn tới 06:00 ngày 24/10 | v0.3.8: 700.000 là giá thỏa thuận của đơn (đêm 23/10/2026 là thứ Sáu – đơn theo lịch giá thì lấy lịch thứ Sáu của căn, BR-416 v0.3.8) · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-19)"
     },
     {
       "id": "BR-416-03",
@@ -5023,7 +5090,6 @@
       "case": "Đơn đã gia hạn tới 24/10, khách rời 01:00 ngày 24/10 (ngày nghiệp vụ 23/10) → trả phòng được ngay, phụ thu 0, không hoàn (cửa sổ sau nửa đêm – S3-9)",
       "origin": "rule-boundary",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-19",
       "calc": null,
       "input": {
         "departureDate": "2026-10-24",
@@ -5034,7 +5100,8 @@
         "checkoutAllowed": true,
         "lateSurchargeVnd": 0,
         "refundVnd": 0
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-19)"
     },
     {
       "id": "BR-416-04",
@@ -5097,6 +5164,32 @@
         "previewEqualsWrite": true
       },
       "note": "Theo BR-416/BR-107 v0.3.8 (đêm thêm 16/11 cũng −10%: 900.000). Trước khi sửa S438-PAY-04 lệnh ghi cần 470.000"
+    },
+    {
+      "id": "BR-416-06",
+      "br": "BR-416",
+      "case": "(v0.3.8) Rời 19:00 khi đêm ngày đi không bán được (căn có khách đến, không dời được): phụ thu trả muộn bằng giá 1 đêm, quản lý xác nhận, xem trước = trần QR = lệnh ghi",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "stay": ["2030-04-16", "2030-04-18"],
+        "paidVnd": 1584000,
+        "sameDayArrival": true,
+        "alternativeRoom": false,
+        "leftAt": "2030-04-18T19:00:00+07:00",
+        "departureNightVnd": 792000
+      },
+      "expected": {
+        "extraNightAdded": false,
+        "lateCheckoutFeeVnd": 792000,
+        "requiresManagerConfirm": true,
+        "recordedCheckoutTime": "19:00",
+        "amountDueAtCheckoutVnd": 792000,
+        "qrCheckOutMaxVnd": 792000
+      },
+      "note": "Không có đường này thì xem trước/QR không được cộng đêm không bán được (critic: 0/0)"
     },
     {
       "id": "BR-417-01",
@@ -5235,6 +5328,169 @@
       }
     },
     {
+      "id": "BR-417-07",
+      "br": "BR-417",
+      "case": "(v0.3.8) Giá thỏa thuận gắn căn nơi nhập: khách xin đổi căn (B14) thì đêm thêm theo lịch căn mới; OTTIMO đổi căn thì min",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "201",
+        "agreedNightVnd": 700000,
+        "moveOn": "2027-03-02",
+        "toRoomNo": "401",
+        "extendNight": "2027-03-04",
+        "calendarVnd": {
+          "401": 1042000
+        }
+      },
+      "expected": {
+        "suggestedExtendNightVnd": {
+          "guestRequest": 1042000,
+          "noMove": 700000,
+          "propertyFault": 700000
+        },
+        "suggestedAlwaysWithinFloorCeiling": true,
+        "previewEqualsWrite": true
+      },
+      "note": "Số đầy đủ từ critic: 302 thỏa thuận 1.000.000 → 101 từ 16/03: B13 18/03 = 667.000, B18 thứ Sáu 19/03 = 767.000, tổng 3.768.000"
+    },
+    {
+      "id": "BR-417-08",
+      "br": "BR-417",
+      "case": "(v0.3.8, S4-38 lượt 2 – BUG-R2-127) B9a khi đêm trước còn khách ở (không bán được, BR-417 (1)+(5)): xem trước và trần QR không tính đêm đó; QR `check_in` kèm `addPriorNight` → 422; B9a → 409; nhận phòng thường lúc 14:00 không để nợ hay thừa tiền",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "priorGuestStay": ["2026-11-08", "2026-11-10"],
+        "arriveAt": "2026-11-10T04:30:00+07:00",
+        "priorNight": "2026-11-09",
+        "cases": [
+          {
+            "key": "a",
+            "roomNo": "103",
+            "stay": ["2026-11-10", "2026-11-12"],
+            "roomTotalVnd": 1500000,
+            "paidVnd": 500000
+          },
+          {
+            "key": "b",
+            "roomNo": "302",
+            "stay": ["2026-11-10", "2026-11-12"],
+            "roomTotalVnd": 1834000,
+            "paidVnd": 600000,
+            "qrWithoutFlagConfirmed": true,
+            "plainCheckInAt": "2026-11-10T14:00:00+07:00"
+          }
+        ]
+      },
+      "expected": {
+        "priorNightAvailable": false,
+        "amountDueAtCheckinVnd": {
+          "a": 1000000,
+          "b": 1234000
+        },
+        "wrongAmountDueAtCheckinVnd": {
+          "a": 1750000
+        },
+        "qrCheckInWithAddPriorNight": {
+          "httpStatus": 422,
+          "code": "NOT_ALLOWED"
+        },
+        "b9aHttpStatus": 409,
+        "afterPlainCheckIn": {
+          "b": {
+            "totalVnd": 1834000,
+            "balanceDueVnd": 0,
+            "creditVnd": 0
+          }
+        }
+      },
+      "note": "Dòng lượt 2 còn thiếu (critic lượt 3, điều kiện 1). Test: `r3pay/old-w-r2pay-1-0` E1, E1b. Nguồn số: critic `reviews/s4-money-recheck3.md` (bảng Major-fix-now) và test của người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/`"
+    },
+    {
+      "id": "BR-417-09",
+      "br": "BR-417",
+      "case": "(v0.3.8, S4-38 lượt 2 – BUG-R2-126) BR-417 (2): đơn theo lịch giá có đêm sửa giá sau khi đặt (S4-35) – kể cả mọi đêm – KHÔNG thành đơn giá thỏa thuận: giá mặc định đêm thêm = lịch Trực tiếp của chính đêm đó (B9a, B13, B18 như nhau)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "bookingRateSource": "calendar",
+        "cases": [
+          {
+            "key": "b9a",
+            "roomNo": "203",
+            "stay": ["2026-11-10", "2026-11-11"],
+            "repricedNightsVnd": {
+              "2026-11-10": 650000
+            },
+            "addedNight": "2026-11-09",
+            "at": "2026-11-10T04:30:00+07:00"
+          },
+          {
+            "key": "b13",
+            "roomNo": "201",
+            "stay": ["2026-11-24", "2026-11-25"],
+            "repricedNightsVnd": {
+              "2026-11-24": 600000
+            },
+            "addedNight": "2026-11-25"
+          },
+          {
+            "key": "b18",
+            "roomNo": "101",
+            "stay": ["2026-11-24", "2026-11-26"],
+            "repricedNightsVnd": {
+              "2026-11-24": 600000,
+              "2026-11-25": 600000
+            },
+            "addedNight": "2026-11-26",
+            "leftAt": "2026-11-26T19:00:00+07:00"
+          }
+        ]
+      },
+      "expected": {
+        "addedNightDefaultVnd": {
+          "b9a": 792000,
+          "b13": 708000,
+          "b18": 667000
+        },
+        "totalRoomVnd": {
+          "b9a": 1442000,
+          "b13": 1308000
+        },
+        "agreedRateUsed": false
+      },
+      "note": "Dòng lượt 2 còn thiếu (critic lượt 3, điều kiện 1). Đơn giá thỏa thuận (gõ tay lúc đặt, `manual_agreed`) xem BR-417-07, BR-421-01. Test: `w-r2pay-0-0/w-r2pay-defaults` W-D2, W-D2b, W-D2c. Nguồn số: critic `reviews/s4-money-recheck3.md` (bảng Major-fix-now) và test của người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/`"
+    },
+    {
+      "id": "BR-417-10",
+      "br": "BR-417",
+      "case": "(v0.3.8, DOM 18/10 – r3-1 sửa phạm vi) Đêm con Trực tiếp của đơn OTA (B9a, gia hạn, B18) sau khi OTTIMO đổi căn: giá gợi ý = min(lịch căn khách mua, lịch căn hiện tại), như định mức bảo vệ BR-110; ngày đặc biệt lấy min giữa lịch ngày đặc biệt của hai căn",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "bookedRoomNo": "203",
+        "moveReasonCode": "property_fault",
+        "toRoomNo": "401",
+        "addedNightWeekday": "WED",
+        "calendarVnd": {
+          "203": 792000,
+          "401": 1042000
+        }
+      },
+      "expected": {
+        "childNightDefaultVnd": 792000,
+        "guestRequestMoveDefaultVnd": 1042000,
+        "previewEqualsWrite": true
+      },
+      "note": "Ví dụ DOM 18/10 (ORC): Agoda tự gán 203, OTTIMO dời sang 401 vì sự cố, khách gia hạn đêm thứ Tư → min(792.000, 1.042.000) = 792.000. Khách tự xin sang 401 → lịch 401 (1.042.000)"
+    },
+    {
       "id": "BR-421-01",
       "br": "BR-421",
       "case": "Đơn trực tiếp 201 giá 700.000 thêm 2 đêm",
@@ -5339,7 +5595,6 @@
       "case": "3 người lớn căn 202 (định mức 2) xin chuyển sang 302 (định mức 3) cho 2 đêm thường còn lại 27–28/10 → giá phòng căn mới, phụ thu người về 0 (v0.3.4 – S3-13)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-16",
       "calc": null,
       "input": {
         "fromRoom": "202",
@@ -5358,7 +5613,8 @@
         "extraPersonDeltaVnd": -300000,
         "folioDeltaVnd": -50000,
         "newExtraPersonPerNightVnd": 0
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
     },
     {
       "id": "BR-424-03",
@@ -5366,7 +5622,6 @@
       "case": "Khách Booking căn 203 xin chuyển 401 đêm thứ Ba 27/10 → chênh lệch theo giá Trực tiếp hai căn (cơ sở BR-415), là doanh thu phòng (v0.3.4 – S3-15)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-26",
       "calc": null,
       "input": {
         "channel": "booking",
@@ -5382,7 +5637,7 @@
         "roomChangeDifferenceVnd": 250000,
         "revenueGroup": "room"
       },
-      "note": "Code HEAD: 1.042.000 − giá OTA 820.000 = 222.000, nhóm doanh thu other"
+      "note": "Code HEAD: 1.042.000 − giá OTA 820.000 = 222.000, nhóm doanh thu other · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-26)"
     },
     {
       "id": "BR-424-04",
@@ -5663,7 +5918,6 @@
       "case": "Đơn 4 đêm 20–24/10 × 700.000, đêm 23/10 đã FOC 100% (bù sự cố); báo 21/10 rời 22/10 → cơ sở chỉ 700.000 (v0.3.4 – S3-2)",
       "origin": "example",
       "labels": ["INV-006", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-23",
       "calc": null,
       "input": {
         "arrivalDate": "2026-10-20",
@@ -5696,7 +5950,7 @@
         "refundVnd": 350000,
         "earlyDepartureFeeVnd": 350000
       },
-      "note": "Code HEAD dùng giá trước FOC → cơ sở 1.400.000, phí 700.000"
+      "note": "Code HEAD dùng giá trước FOC → cơ sở 1.400.000, phí 700.000 · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-23)"
     },
     {
       "id": "BR-428-05",
@@ -6024,7 +6278,11 @@
         "toRoomNo": "401",
         "arrivalDate": "2026-11-10",
         "departureDate": "2026-11-13",
-        "bookedNightRatesVnd": { "2026-11-10": 600000, "2026-11-11": 600000, "2026-11-12": 600000 },
+        "bookedNightRatesVnd": {
+          "2026-11-10": 600000,
+          "2026-11-11": 600000,
+          "2026-11-12": 600000
+        },
         "bookedRateSource": "manual_within_floor_ceiling",
         "oldRoomCurrentCalendarRateVnd": 667000,
         "currentDirectRatesToRoomVnd": {
@@ -6055,7 +6313,11 @@
           "balanceDueAtCheckInVnd": 2311000,
           "via": "S4-35 setNightRate, within BR-105 floor-ceiling of the new room group"
         },
-        "ottimoCause": { "cause": "property_fault", "newRoomTotalVnd": 1800000, "differenceVnd": 0 }
+        "ottimoCause": {
+          "cause": "property_fault",
+          "newRoomTotalVnd": 1800000,
+          "differenceVnd": 0
+        }
       },
       "note": "Giữ cùng mức giảm: 1.042.000 × 600.000 ÷ 667.000 = 937.331 → 937.000 (BR-005). Gợi ý giá là NÊN; lễ tân tự nhập nếu chưa có"
     },
@@ -6369,6 +6631,72 @@
       "note": "Mã HEAD: không bắt buộc tick thì bỏ qua số gửi kèm và lưu"
     },
     {
+      "id": "BR-429-20",
+      "br": "BR-429",
+      "case": "(v0.3.8, S4-38 lượt 2 – BUG-R2-125) BR-429 (b2): OTTIMO đổi căn (B7 sự cố trước ngày đến, hoán đổi căn) → đêm thêm B9a ở căn mới hưởng định mức bảo vệ: phụ thu người 0; xem trước = trần QR = lệnh ghi. Đối chứng: không đổi căn thì phụ thu theo định mức căn",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "adults": 3,
+        "baseOccupancy": {
+          "302": 3,
+          "402": 3,
+          "202": 2,
+          "101": 2,
+          "103": 2
+        },
+        "arriveAt": "04:30",
+        "cases": [
+          {
+            "key": "b7",
+            "bookedRoomNo": "302",
+            "toRoomNo": "202",
+            "reasonCode": "property_fault",
+            "stay": ["2029-03-13", "2029-03-15"],
+            "bookedTotalVnd": 1834000,
+            "addedNight": "2029-03-12"
+          },
+          {
+            "key": "swap",
+            "bookedRoomNo": "402",
+            "toRoomNo": "101",
+            "reasonCode": "swap",
+            "stay": ["2029-04-03", "2029-04-05"],
+            "bookedTotalVnd": 2000000,
+            "addedNight": "2029-04-02"
+          },
+          {
+            "key": "control",
+            "bookedRoomNo": "103",
+            "toRoomNo": null,
+            "stay": ["2029-04-10", "2029-04-12"],
+            "bookedTotalVnd": 1800000,
+            "addedNight": "2029-04-09"
+          }
+        ]
+      },
+      "expected": {
+        "addedNightRateVnd": {
+          "b7": 792000,
+          "swap": 667000,
+          "control": 750000
+        },
+        "addedNightPersonFeeVnd": {
+          "b7": 0,
+          "swap": 0,
+          "control": 150000
+        },
+        "totalVnd": {
+          "b7": 2626000,
+          "swap": 2667000,
+          "control": 2700000
+        },
+        "previewEqualsQrCapEqualsWrite": true
+      },
+      "note": "Dòng lượt 2 còn thiếu (critic lượt 3, điều kiện 1). B18 sau B14 sự cố 302 → 202 lúc 19:00: summary = trần QR = 792.000, phụ thu 0 (critic lượt 3 BUG-R2-125). Đơn OTA: BR-110-17. Test: `r3pay/old-w-r2move-0-1` W1, W4, W5. Nguồn số: critic `reviews/s4-money-recheck3.md` (bảng Major-fix-now) và test của người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/`"
+    },
+    {
       "id": "BR-432-01",
       "br": "BR-432",
       "case": "Lễ tân gửi FOC trả muộn 210.000, lý do 'Khách quen'",
@@ -6514,21 +6842,31 @@
         "flow": "B7",
         "roomNo": "202",
         "channel": "direct",
-        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
-        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-21" },
+        "from": {
+          "arrivalDate": "2026-12-17",
+          "departureDate": "2026-12-20"
+        },
+        "to": {
+          "arrivalDate": "2026-12-18",
+          "departureDate": "2026-12-21"
+        },
         "nightRatesVnd": {
           "2026-12-17": 792000,
           "2026-12-18": 911000,
           "2026-12-19": 911000,
           "2026-12-20": 792000
         },
-        "focApprovedByDateVnd": { "2026-12-19": 911000 }
+        "focApprovedByDateVnd": {
+          "2026-12-19": 911000
+        }
       },
       "expected": {
         "keptDates": ["2026-12-18", "2026-12-19"],
         "droppedDates": ["2026-12-17"],
         "addedDates": ["2026-12-20"],
-        "focByDateVnd": { "2026-12-19": 911000 },
+        "focByDateVnd": {
+          "2026-12-19": 911000
+        },
         "roomPayableVnd": 1703000,
         "wrongWholeStayKtoKVnd": 1822000
       }
@@ -6544,8 +6882,14 @@
         "flow": "B7",
         "roomNo": "202",
         "channel": "direct",
-        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
-        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-22" },
+        "from": {
+          "arrivalDate": "2026-12-17",
+          "departureDate": "2026-12-20"
+        },
+        "to": {
+          "arrivalDate": "2026-12-18",
+          "departureDate": "2026-12-22"
+        },
         "nightRatesVnd": {
           "2026-12-17": 792000,
           "2026-12-18": 911000,
@@ -6553,13 +6897,17 @@
           "2026-12-20": 792000,
           "2026-12-21": 792000
         },
-        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+        "focApprovedByDateVnd": {
+          "2026-12-17": 792000
+        }
       },
       "expected": {
         "keptDates": ["2026-12-18", "2026-12-19"],
         "droppedDates": ["2026-12-17"],
         "addedDates": ["2026-12-20", "2026-12-21"],
-        "focByDateVnd": { "2026-12-20": 792000 },
+        "focByDateVnd": {
+          "2026-12-20": 792000
+        },
         "roomPayableVnd": 2614000,
         "wrongPerDateCancelVnd": 3406000
       }
@@ -6575,14 +6923,22 @@
         "flow": "B7",
         "roomNo": "202",
         "channel": "direct",
-        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
-        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-20" },
+        "from": {
+          "arrivalDate": "2026-12-17",
+          "departureDate": "2026-12-20"
+        },
+        "to": {
+          "arrivalDate": "2026-12-18",
+          "departureDate": "2026-12-20"
+        },
         "nightRatesVnd": {
           "2026-12-17": 792000,
           "2026-12-18": 911000,
           "2026-12-19": 911000
         },
-        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+        "focApprovedByDateVnd": {
+          "2026-12-17": 792000
+        }
       },
       "expected": {
         "keptDates": ["2026-12-18", "2026-12-19"],
@@ -6604,8 +6960,14 @@
         "flow": "B8",
         "roomNo": "202",
         "channel": "direct",
-        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
-        "to": { "arrivalDate": "2026-12-10", "departureDate": "2026-12-12" },
+        "from": {
+          "arrivalDate": "2026-12-17",
+          "departureDate": "2026-12-20"
+        },
+        "to": {
+          "arrivalDate": "2026-12-10",
+          "departureDate": "2026-12-12"
+        },
         "nightRatesVnd": {
           "2026-12-10": 792000,
           "2026-12-11": 911000,
@@ -6613,13 +6975,17 @@
           "2026-12-18": 911000,
           "2026-12-19": 911000
         },
-        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+        "focApprovedByDateVnd": {
+          "2026-12-17": 792000
+        }
       },
       "expected": {
         "keptDates": [],
         "droppedDates": ["2026-12-17", "2026-12-18", "2026-12-19"],
         "addedDates": ["2026-12-10", "2026-12-11"],
-        "focByDateVnd": { "2026-12-10": 792000 },
+        "focByDateVnd": {
+          "2026-12-10": 792000
+        },
         "roomPayableVnd": 911000
       }
     },
@@ -6818,7 +7184,11 @@
           }
         ],
         "roomSequence": ["401", "302", "101", "401"],
-        "nightRateByRoomVnd": { "101": 667000, "302": 917000, "401": 1042000 }
+        "nightRateByRoomVnd": {
+          "101": 667000,
+          "302": 917000,
+          "401": 1042000
+        }
       },
       "expected": {
         "specialDiscountAppliedSequenceVnd": [250000, 250000, 250000, 250000],
@@ -6826,7 +7196,10 @@
         "reductionNightNetSequenceVnd": [0, 0, 0, 0],
         "roomTotalSequenceVnd": [1042000, 917000, 667000, 1042000],
         "wrongIndependentMinRoomTotalAt302Vnd": 792000,
-        "reversedOrderSplitAt302Vnd": { "foc": 792000, "specialDiscount": 125000 },
+        "reversedOrderSplitAt302Vnd": {
+          "foc": 792000,
+          "specialDiscount": 125000
+        },
         "reversedOrderRoomTotalAt302Vnd": 917000,
         "reapprovalNeeded": false
       },
@@ -6844,14 +7217,30 @@
         "arrivalDate": "2026-11-11",
         "departureDate": "2026-11-13",
         "reductionNight": "2026-11-11",
-        "approved": [{ "kind": "special_discount", "approvedVnd": 250000 }],
-        "pending": { "kind": "foc", "requestedVnd": 792000, "approverRole": "manager" },
+        "approved": [
+          {
+            "kind": "special_discount",
+            "approvedVnd": 250000
+          }
+        ],
+        "pending": {
+          "kind": "foc",
+          "requestedVnd": 792000,
+          "approverRole": "manager"
+        },
         "events": ["request_foc_at_401", "move_to_302", "approve_foc", "move_to_401"],
-        "nightRateByRoomVnd": { "302": 917000, "401": 1042000 }
+        "nightRateByRoomVnd": {
+          "302": 917000,
+          "401": 1042000
+        }
       },
       "expected": {
         "maxRequestAt401Vnd": 792000,
-        "queueNoteVnd": { "oldLine": 1042000, "newLine": 917000, "willApply": 667000 },
+        "queueNoteVnd": {
+          "oldLine": 1042000,
+          "newLine": 917000,
+          "willApply": 667000
+        },
         "focAppliedAfterApprovalVnd": 667000,
         "roomTotalAfterApprovalVnd": 917000,
         "maxNewRequestAt302Vnd": 0,
@@ -6966,6 +7355,60 @@
         "approverLimitCountedOnce": true
       },
       "note": "Thay giả định BE-B (m) (\"dòng mới không nối chuỗi, FOC cũ vẫn ngủ\")"
+    },
+    {
+      "id": "BR-434-16",
+      "br": "BR-434",
+      "case": "(v0.3.8, 18/10 – BUG-R2-135) Hai FOC trên cùng một món đặt ở hai mắt chuỗi khác nhau (đếm lại hoặc lễ tân sửa số giữa hai lần duyệt): khóa lượt × minibar × món → tổng FOC áp ≤ tiền món đang sống, FOC sau ngủ; hạn mức BR-433 tính một lần",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "item": "beer",
+        "unitPriceVnd": 35000,
+        "focEachVnd": 35000,
+        "cases": [
+          {
+            "key": "zeroPath",
+            "roomNo": "102",
+            "stay": ["2028-04-12", "2028-04-13"],
+            "sequence": "2 → FOC A → 0 → 2 → FOC B → 1"
+          },
+          {
+            "key": "recount",
+            "roomNo": "202",
+            "stay": ["2028-04-19", "2028-04-20"],
+            "sequence": "1 → FOC A → 2 → FOC B → 1"
+          },
+          {
+            "key": "adjustments",
+            "roomNo": "203",
+            "stay": ["2028-04-19", "2028-04-20"],
+            "sequence": "1 → FOC A → sửa SL 2 → FOC B → sửa SL 1"
+          }
+        ]
+      },
+      "expected": {
+        "focState": {
+          "A": "applied",
+          "B": "dormant"
+        },
+        "minibarNetVnd": 0,
+        "folioTotalVnd": {
+          "zeroPath": 750000,
+          "recount": 792000,
+          "adjustments": 792000
+        },
+        "b18HttpStatus": 200,
+        "b18CollectVnd": 0,
+        "afterSettle": {
+          "B": "cancelled",
+          "cancelReason": "settled_while_dormant"
+        },
+        "approverLimitUsedVnd": 35000,
+        "wrongMinibarNetVnd": -35000
+      },
+      "note": "Đường 2 → 0 → 2 là hồi quy của bản sửa BUG-R2-129. Coca cùng đường 0 (301): folio 958.000. Đối chứng đang đúng: hai FOC trên cùng một dòng; một FOC 2 → 0 → 2 → 1 (BR-434-15). Test: `r3mini/r3mini-minibar-chain` R4, R5, R5b. Nguồn số: critic `reviews/s4-money-recheck3.md` (bảng Major-fix-now) và test của người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/`"
     },
     {
       "id": "BR-435-01",
@@ -7348,7 +7791,6 @@
       "case": "Trả sớm đã tạo yêu cầu hoàn 700.000 (chưa duyệt), sáng hôm sau trả phòng → số dư thừa chưa xử lý 0, không tạo yêu cầu thứ hai (v0.3.4)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-14",
       "calc": null,
       "input": {
         "openRefundRequests": [
@@ -7367,7 +7809,7 @@
         "refundRequestsTotalVnd": 700000,
         "maxPayableVnd": 700000
       },
-      "note": "Code HEAD: B18 bắt chọn cách xử lý và tạo thêm yêu cầu 700.000; chi không chặn theo số dư thừa"
+      "note": "Code HEAD: B18 bắt chọn cách xử lý và tạo thêm yêu cầu 700.000; chi không chặn theo số dư thừa · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-14)"
     },
     {
       "id": "BR-522-03",
@@ -7720,7 +8162,6 @@
       "case": "Sale ghi cọc tiền mặt 1.600.000 lúc 16:00 20/10 cho đơn 9/11–16/11, lễ tân xác nhận 18:00 cùng ngày → đối soát xong nhưng hoa hồng vẫn dự kiến; khách trả phòng 16/11 thu đủ → đạt (v0.3.4 – S3-3)",
       "origin": "example",
       "labels": ["NGÀNH", "INV-017"],
-      "pendingFix": "FB-R2-DOM-BE-15",
       "calc": null,
       "input": {
         "recordedBy": "sales_1",
@@ -7744,7 +8185,8 @@
         "recorderCommissionAfterCheckout": "earned",
         "earnedAt": "2026-11-16T10:00:00+07:00",
         "commissionVnd": 156150
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-15)"
     },
     {
       "id": "BR-601-01",
@@ -8143,6 +8585,155 @@
       "note": "Giá bán lấy từ danh mục minibar DS-E (BL 4.13)"
     },
     {
+      "id": "BR-702-02",
+      "br": "BR-702",
+      "case": "(v0.3.8) \"Chuẩn\" = mức sau lần bổ sung gần nhất; số folio lễ tân sửa thắng lần đếm cũ",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "103",
+        "beer": {
+          "unitPriceVnd": 35000,
+          "standardAtRestock": 2,
+          "catalogStandardNow": 1,
+          "countLeft": 0
+        },
+        "snack": {
+          "unitPriceVnd": 30000,
+          "standardAtRestock": 1,
+          "catalogStandardNow": 2,
+          "countLeft": 0
+        },
+        "dispute": {
+          "countedUsed": 2,
+          "folioEditedQty": 1,
+          "resubmitSameCount": true
+        }
+      },
+      "expected": {
+        "beerVnd": 70000,
+        "snackVnd": 30000,
+        "disputeFolioVnd": 35000,
+        "deskWarnsWhenFolioDiffersFromLatestCheck": true
+      },
+      "note": "Phần \"số folio thắng lần đếm cũ\" (R2FOC-03, R3MINI-05) là Note: BE-B sửa dòng chép sang theo dòng folio đang sống; FE-A cảnh báo, mặc định giữ folio"
+    },
+    {
+      "id": "BR-702-04",
+      "br": "BR-702",
+      "case": "(v0.3.8) Một đơn giá cho cả kỳ nạp = giá lúc nạp: đổi giá hay chuyển miễn phí giữa hai lần đếm không đổi giá phần dùng thêm",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "roomTotalVnd": 792000,
+        "item": "beer",
+        "priceAtRestockVnd": 35000,
+        "firstCountUsed": 1,
+        "secondCountUsedTotal": 2,
+        "cases": {
+          "priceChange": 40000,
+          "madeFree": null
+        }
+      },
+      "expected": {
+        "minibarVnd": {
+          "priceChange": 70000,
+          "madeFree": 70000
+        },
+        "folioTotalVnd": 862000,
+        "wrongPriceChangeVnd": 75000
+      },
+      "note": "ARC openapi-0.3.7.md mục 16 (M-1 R5, Q1/Q2 – MX-A1-B2, MX-A3/A4-B2)"
+    },
+    {
+      "id": "BR-702-03",
+      "br": "BR-702",
+      "case": "(v0.3.8, BUG-R2-137) Món đổi sang miễn phí (giá null hoặc 0) giữa hai lần đếm, đếm lại cùng số: giữ dòng khách đã dùng theo giá lúc dùng, không đảo (cùng phán quyết BUG-R2-130)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "item": "beer",
+        "unitPriceVndAtUse": 35000,
+        "used": 2,
+        "recountSameUsed": true,
+        "cases": [
+          {
+            "key": "null",
+            "roomNo": "302",
+            "stay": ["2028-06-07", "2028-06-08"],
+            "newPrice": null
+          },
+          {
+            "key": "zero",
+            "roomNo": "402",
+            "stay": ["2028-06-07", "2028-06-08"],
+            "newPrice": 0
+          }
+        ]
+      },
+      "expected": {
+        "minibarVnd": 70000,
+        "folioTotalVnd": {
+          "null": 987000,
+          "zero": 1070000
+        },
+        "b18CollectVnd": 70000,
+        "controls": {
+          "priceTo40000KeepsVnd": 70000,
+          "deactivatedKeepsVnd": 70000
+        }
+      },
+      "note": "H16 bước 1 luôn gửi lại lần đếm nên đây là luồng mặc định. Đổi giá 40.000 rồi đếm lại: tiền giữ 70.000 nhưng lần đếm phải ghi đúng giá chụp (BUG-R2-140, P3). Test: `r3mini/r3mini-minibar-chain` R11, R12. Nguồn số: critic `reviews/s4-money-recheck3.md` (bảng Major-fix-now) và test của người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/`"
+    },
+    {
+      "id": "BR-703-01",
+      "br": "BR-703",
+      "case": "(v0.3.8) Đổi phòng B14 giữa lượt: hai tủ hai chuỗi đếm, tiền minibar = tổng; FOC theo món qua hai tủ",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "from": "202",
+        "to": "203",
+        "reasonCode": "property_fault",
+        "beerUnitVnd": 35000,
+        "cases": [
+          {
+            "key": "a",
+            "usedOld": 2,
+            "usedNew": 1
+          },
+          {
+            "key": "b",
+            "usedOld": 2,
+            "usedNew": 0
+          },
+          {
+            "key": "c",
+            "usedOld": 2,
+            "usedNew": 1,
+            "approvedBeerFocVnd": 70000
+          }
+        ]
+      },
+      "expected": {
+        "minibarVnd": {
+          "a": 105000,
+          "b": 70000,
+          "c": 105000
+        },
+        "minibarNetVnd": {
+          "c": 35000
+        },
+        "oldRoomRestockTask": true,
+        "roomChangeBlockedUntilCounted": false
+      }
+    },
+    {
       "id": "BR-705-01",
       "br": "BR-705",
       "case": "Tồn 10 lon bia giá 12.000, nhập 24 lon giá 13.000",
@@ -8289,6 +8880,32 @@
       "expected": {
         "status": "VI"
       }
+    },
+    {
+      "id": "BR-807-01",
+      "br": "BR-807",
+      "case": "(v0.3.8) Khách đến hôm nay không nhận việc dọn ở tiếp, kể cả khi lịch dọn chạy bù muộn",
+      "origin": "example",
+      "labels": ["INV-008", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "arrivalDate": "2026-10-20",
+        "checkedInAt": "2026-10-20T14:00:00+07:00",
+        "j8RunAt": "2026-10-20T15:00:00+07:00",
+        "nextRunAt": "2026-10-21T07:00:00+07:00"
+      },
+      "expected": {
+        "afterLateRun": {
+          "roomStatus": "OC",
+          "stayoverTaskCreated": false
+        },
+        "afterNextRun": {
+          "roomStatus": "OD",
+          "stayoverTaskCreated": true
+        }
+      },
+      "note": "Khách ở tiếp = ngày đến < ngày nghiệp vụ < ngày đi. QA cấp BUG-R2-142 (18/10); BE-C đã sửa ở cây làm việc và bỏ pendingFix (test `housekeeping-s4` đọc dòng này)"
     },
     {
       "id": "BR-809-01",
@@ -8769,7 +9386,6 @@
       "case": "CTV chốt đơn căn 202, 7 đêm 9/11–16/11 = 5.205.000; mọi khoản thu do lễ tân ghi; trả phòng 16/11 10:00 thu đủ → hoa hồng 416.400 đạt lúc trả phòng (v0.3.4 – S3-3)",
       "origin": "example",
       "labels": ["INV-005", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-15",
       "params": {
         "short_stay_commission_pct": {
           "collaborator": 8,
@@ -8789,7 +9405,8 @@
         "statusBeforeCheckout": "projected",
         "statusAfterCheckout": "earned",
         "earnedAt": "2026-11-16T10:00:00+07:00"
-      }
+      },
+      "note": "18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-15)"
     },
     {
       "id": "BR-904-01",

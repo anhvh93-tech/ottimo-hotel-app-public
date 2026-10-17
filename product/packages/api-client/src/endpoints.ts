@@ -618,8 +618,12 @@ export function createEndpoints(api: ApiClient) {
         ifMatch: version,
         idempotencyKey: idem,
       }),
-    getMinibarStandard: ({ propertyId, reservationId }: R) =>
-      r<MinibarStandard>('GET', `${RES}/minibar-standard`, { path: { propertyId, reservationId } }),
+    /** 0.3.7 bổ sung 4 (minibar M-1): `roomId` = the cabinet (absent = the room assigned now). */
+    getMinibarStandard: ({ propertyId, reservationId }: R, roomId?: string) =>
+      r<MinibarStandard>('GET', `${RES}/minibar-standard`, {
+        path: { propertyId, reservationId },
+        query: { roomId },
+      }),
     recordMinibarCheck: ({ propertyId, reservationId }: R, body: MinibarCheckInput, idem: string) =>
       r<MinibarCheck>('POST', `${RES}/minibar-checks`, {
         path: { propertyId, reservationId },

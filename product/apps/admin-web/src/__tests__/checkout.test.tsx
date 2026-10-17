@@ -233,6 +233,8 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
     next.roomId = r.roomId;
     next.arrivalDate = r.departureDate;
     mockControl.stay.minibarChecks.set(r.id, []);
+    // A server before 0.3.7 bổ sung 4 (no `lateFeeAsNightVnd`) – BR-416-06 is covered in s4-416-fea.test.tsx.
+    mockControl.stay.legacyNoLateFeeAsNight = true;
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     fireEvent.change(await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))), {

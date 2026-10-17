@@ -35,6 +35,7 @@ import { useToast } from '../../app/toast';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
+import { qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DepositQr, pendingDepositQr } from './DepositQr';
 import { DepositNotices } from './DepositNotices';
@@ -495,6 +496,10 @@ export function DepositDialog(props: DialogBase) {
   const [qrReceived, setQrReceived] = useState<string | null>(null);
   const [qrExpired, setQrExpired] = useState(false);
   const qrAct = useSubmit();
+  /** FE-B – DOM (f): why a QR above the deposit still missing is confirmed (`confirmPaymentReceived.note`). */
+  const [qrNote, setQrNote] = useState('');
+  /** 422 `REASON_REQUIRED` + `max` for that QR – kept while the next press is on its way. */
+  const [qrOverMax, setQrOverMax] = useState<{ paymentId: string; max: number } | null>(null);
   useEffect(() => {
     let stale = false;
     api.getFolio({ propertyId, folioId: r.folioId }).then(
@@ -507,6 +512,14 @@ export function DepositDialog(props: DialogBase) {
   }, [propertyId, r.folioId]);
   const qrPayment = qr?.payment ?? pending;
   const viaQr = method === 'vietqr' && !!qrPayment && value === qrPayment.amountVnd;
+  // FE-B – DOM (f), 0.3.7 add. 4: a QR above the deposit missing NOW (`amountDueNowVnd`, or the server's 422
+  // `max`) is confirmed only with a note; the excess becomes the guest's credit (BR-522).
+  const qrOver =
+    viaQr && qrPayment
+      ? (qrOverDue(qrPayment, qrAct.error) ??
+        (qrOverMax?.paymentId === qrPayment.id ? qrOverMax.max : null))
+      : null;
+  const qrNoteMissing = qrOver !== null && qrNote.trim().length < 3;
 
   /**
    * US-120 / SM-12: money in on the QR the guest paid → `confirmPaymentReceived` (pending → succeeded,
@@ -517,12 +530,22 @@ export function DepositDialog(props: DialogBase) {
     if (qrReceived !== paymentId) {
       let failed: unknown = null;
       const ok = await qrAct.submit((idem) =>
-        api.confirmPaymentReceived({ propertyId }, paymentId, {}, idem).catch((e: unknown) => {
-          failed = e;
-          throw e;
-        }),
+        api
+          .confirmPaymentReceived(
+            { propertyId },
+            paymentId,
+            { note: qrNote.trim() || undefined },
+            idem,
+          )
+          .catch((e: unknown) => {
+            failed = e;
+            throw e;
+          }),
       );
       if (!ok) {
+        // FE-B – DOM (f): above what is due now → the note box opens with the server's figure.
+        const max = qrOverDue(undefined, failed);
+        if (max !== null) setQrOverMax({ paymentId, max });
         // 409 INVALID_TRANSITION carries the PAYMENT state: already received → go on with B4;
         // expired → the money is recorded by hand (next press), the QR is gone.
         const state =
@@ -554,7 +577,7 @@ export function DepositDialog(props: DialogBase) {
 
   const submit = async () => {
     setTouched(true);
-    if (!(value > 0)) return;
+    if (!(value > 0) || qrNoteMissing) return;
     const out = viaQr
       ? await submitViaQr(qrPayment!.id)
       : await act.run((version, idem) =>
@@ -644,7 +667,7 @@ export function DepositDialog(props: DialogBase) {
           {t('dep.qr_expired')}
         </Alert>
       ) : null}
-      {qrAct.view()}
+      {qrOver !== null ? null : qrAct.view()}
       {act.errorView({ required: need, paid: paidBefore + value })}
       <div className="g-2">
         <Field
@@ -682,6 +705,28 @@ export function DepositDialog(props: DialogBase) {
           )}
         </Field>
       </div>
+      {qrOver !== null && qrPayment ? (
+        <>
+          <Alert tone="warn" role="status">
+            {t('pay.qr_over_note', { amount: money(qrPayment.amountVnd), max: money(qrOver) })}
+          </Alert>
+          <Field
+            label={t('dep.qr_over_reason')}
+            required
+            error={touched && qrNoteMissing ? t('field_error.reason_required') : qrAct.fields.note}
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                maxLength={300}
+                value={qrNote}
+                onChange={(e) => setQrNote(e.target.value)}
+              />
+            )}
+          </Field>
+        </>
+      ) : null}
       {method === 'card_pos' ? (
         <Field label={t('co.txn_ref')} error={act.fields['payment.posAuthCode']}>
           {(p) => (

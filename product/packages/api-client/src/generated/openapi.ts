@@ -1463,6 +1463,13 @@ export interface paths {
      *       Trần `finalPayment.amountVnd` = còn phải thu **sau** các dòng đó (= `CheckoutSummary.amountDueAtCheckoutVnd` với giá đêm thêm đã chọn) → 422 `AMOUNT_EXCEEDS_BALANCE`
      *       (`field` = `finalPayment.amountVnd`, `max`). Tiền đêm thêm sau 18:00 thu bằng `finalPayment` (hoặc VietQR `purpose=check_out` + `confirmPaymentReceived` trước B18) – không ghi
      *       `recordPayment` trước B18 (vượt còn phải thu). Giờ mặc định của bước 2 lấy `CheckoutSummary.serverTime`.
+     *     - **0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06 – DOM 18/10)**: giờ trả sau mốc cuối mà đêm ngày đi **không bán được** (`extraNightAvailable = false`) → gửi `lateFeeInsteadOfNight`
+     *       thay `extraNight` (thiếu cả hai → 422 `LATE_CHECKOUT_AFTER_LIMIT`, `field` = `lateFeeInsteadOfNight`; gửi `extraNight` → 409 `ROOM_UNAVAILABLE` như cũ; gửi `lateFeeInsteadOfNight` khi
+     *       đêm còn bán được hoặc giờ trả chưa qua mốc cuối → 422 `NOT_ALLOWED`). Cùng giao dịch: đảo dòng `late_checkout` theo bậc đang sống, ghi dòng `late_checkout` (`charge_code =
+     *       late_fee_as_night`, doanh thu khác, **không** đêm bán/`stay_night`, không vào công suất) = `CheckoutSummary.lateFeeAsNightVnd`; FOC trả muộn đã duyệt đi theo (khóa cả lượt);
+     *       giờ trả = giờ rời thật; rồi B18. Audit `money` `reservation.late_fee_instead_of_night` (người làm, người xác nhận, lý do, số tiền).
+     *     - **0.3.7 bổ sung 4 (SEC ARC-24)**: 401 `REAUTH_FAILED` (xác nhận `lateFeeInsteadOfNight` sai) / `UNAUTHENTICATED`; 403 `APPROVAL_LIMIT_EXCEEDED` (`requestFoc` vượt hạn mức người
+     *       xác nhận) / `FORBIDDEN_ACTION` (`debt` của FD/FDL); 429 `RATE_LIMITED` (bộ đếm xác nhận lại đang khóa).
      */
     post: operations['checkOut'];
     delete?: never;
@@ -2473,6 +2480,10 @@ export interface paths {
      *     `reconciliation=pending` (chờ MGR+ đối soát sao kê – người xác nhận **không** được tự đối soát, A46); "còn phải thu" cập nhật ngay; nhật ký tiền BR-008.
      *     Giao dịch của cổng (VNPay/MoMo – R3) chỉ chuyển `succeeded` qua IPN đã xác thực, không qua endpoint này. Không cần `If-Match` (một chuyển trạng thái
      *     duy nhất, bảo vệ bằng khóa hàng + `Idempotency-Key`). SAL chỉ với giao dịch cọc (`type=deposit`) của đơn mình – như `recordPayment` (A33 M).
+     *     **0.3.7 bổ sung 4 (DOM (f), R3PAY-02, BR-417 v0.3.8)**: không chặn xác nhận khi đêm B9a đã bán. Số tiền QR > **số còn phải thu lúc xác nhận** (`Payment.amountDueNowVnd` – trần đúng mục đích
+     *     QR tính lại bây giờ với ngữ cảnh đã lưu lúc tạo: `check_in` như `amountDueAtCheckinVnd` (đêm B9a chỉ khi còn trống), `check_out` như `amountDueAtCheckoutVnd`, `deposit` = cọc còn thiếu,
+     *     `balance` = còn phải thu folio) → **bắt buộc `note`** (3–300); thiếu → 422 `REASON_REQUIRED` (`field` = `note`, Problem `max` = số còn phải thu lúc xác nhận). Phần vượt nằm ở
+     *     `Folio.totals.creditVnd`/`unhandledCreditVnd`, xử lý theo BR-522 (B18 `overpaymentHandling` hoặc `createRefundRequest`) – không tự tạo yêu cầu hoàn. Audit `money` ghi số vượt.
      */
     post: operations['confirmPaymentReceived'];
     delete?: never;
@@ -2698,7 +2709,19 @@ export interface paths {
      * @description **0.3.3 (E05-04)**: `mode=checkout` phải có **đủ mọi món** của tủ chuẩn căn (`getMinibarStandard`) – thiếu → 422 `MINIBAR_ITEMS_INCOMPLETE`; món ngoài tủ chuẩn
      *     → `NOT_IN_LIST`; `remainingQty` > mức chuẩn → `MINIBAR_QTY_OVER_STANDARD`. Mỗi món tính tiền có `usedQty > 0` → một dòng folio `minibar`; món miễn phí
      *     chỉ ghi tiêu hao. **Kiểm lại lần hai** (`mode=checkout`, cùng đơn, folio còn `open`): bản mới **thay** bản cũ – server đảo (bút toán `reversalOfId`) các dòng
-     *     minibar của bản cũ và ghi dòng mới trong cùng giao dịch (BR-008); `MinibarCheck.replacesCheckId` trỏ bản cũ. FOC minibar đã áp trên dòng cũ phải gửi lại.
+     *     minibar của bản cũ và ghi dòng mới trong cùng giao dịch (BR-008); `MinibarCheck.replacesCheckId` trỏ bản cũ. ~~FOC minibar đã áp trên dòng cũ phải gửi lại.~~
+     *     **0.3.7 bổ sung 4 – mô hình minibar M-1 (ARC 18/10, `openapi-0.3.7.md` mục 16; BUG-R2-135…138, 140; BR-434-15, BR-702/703)**:
+     *     - **Tủ của lượt** = (lượt ở – folio của đơn chính, căn): lần đếm `checkout` **thay** bản cũ **cùng lượt và cùng căn** (không thay bản của căn khác – B14 giữa lượt có hai tủ). `roomId`
+     *       (tùy chọn) chọn tủ: vắng = căn đang gán; được đếm tủ căn cũ của **chính lượt này** sau B14 (căn khác → 422 `NOT_IN_LIST`).
+     *     - **Mốc** (BR-702-02, DOM 18/10) của món trong tủ = mức của tủ sau **lần nạp gần nhất** trong lượt – lần đầu là **mức lúc nhận phòng** (lúc vào căn, với tủ căn mới sau B14);
+     *       danh mục tủ, định mức và giá bán đổi giữa lượt chỉ áp từ lần nạp sau (R3 bổ sung giữa kỳ). `remainingQty` > mốc → `MINIBAR_QTY_OVER_STANDARD`; đã dùng = mốc − còn lại.
+     *       Món của tủ = món có trong lần nạp (kể cả món đã rời danh mục/đổi miễn phí sau đó); món thêm vào danh mục sau lần nạp chưa có trong tủ → `NOT_IN_LIST`.
+     *     - **Giữ dòng** (DOM (e)): đã dùng bằng **lần đếm trước** của món trong tủ (xác nhận lại) **hoặc** bằng số trên **dòng folio sống** của món (lễ tân đã sửa có lý do) → **giữ** dòng folio sống
+     *       (kể cả dòng thay của `adjustFolioLine`; đã void thì giữ không dòng), FOC và nhãn – bất kể giá/định mức/danh mục hiện hành; lần đếm mới **chép** giá, số tiền và `folio_line_id` theo dòng
+     *       folio sống. Khác cả hai = **lần đếm thật mới** → đảo dòng sống, ghi dòng mới = đã dùng × giá bán của lần nạp. Lần đếm đầu sau một lần nạp (R3) luôn là lần đếm mới.
+     *     - **FOC minibar** khóa **lượt × minibar × món** (qua mọi tủ của lượt): "giá trị dòng" = Σ dòng sống của món trong lượt; mọi yêu cầu trên mọi dòng của món gom vào một khóa,
+     *       áp theo thứ tự S4-23 – tổng FOC ≤ giá trị; về 0 → ngủ, có lại → tự khôi phục, không duyệt lại, không trừ hạn mức BR-433 hai lần.
+     *     - **Tủ căn cũ sau B14** (BR-703-01): đếm như trả phòng (`roomId` = căn cũ) → sinh việc bổ sung minibar cho căn cũ; B14 không bị chặn. B18 xét mọi tủ (`CheckoutSummary.minibarUncheckedRooms`).
      *     **0.3.7 (B-02)**: lệnh HK từ hàng đợi offline có `performedAt` ngoài [giờ server − 24 giờ, + 5 phút] → 422 `PERFORMED_AT_OUT_OF_RANGE`. `MinibarCheck.checkedByName` (nháp B-8).
      */
     post: operations['recordMinibarCheck'];
@@ -2723,6 +2746,11 @@ export interface paths {
      * @description **0.3.3 (E05-04)**. `items` = món đang hoạt động có `minibar_standard_qty > 0`. `latestCheck` = lần kiểm `mode=checkout` cùng ngày nghiệp vụ
      *     (thường do HK khi khách báo trả) để FD xác nhận/sửa (`checkout.minibar.from_hk`). Giá bán (`unitPriceVnd`) vắng với HK (rbac ghi chú 26).
      *     `items` rỗng → bước 1 trả phòng tự đạt (`checkout.minibar.empty`).
+     *     **0.3.7 bổ sung 4 (mô hình M-1, BUG-R2-138)**: `items` = món của **lần nạp gần nhất** của tủ (lúc nhận phòng/vào căn), `standardQty` = **mốc** (mức lúc nạp), `unitPriceVnd` = giá bán
+     *     của lần nạp – không phải danh mục hiện hành; gồm cả món đã rời danh mục (BUG-R2-130). `roomId` chọn tủ (vắng = căn đang gán; căn cũ của lượt sau B14).
+     *     **DOM (e) – số folio đã sửa thắng lần đếm cũ**: mỗi món có `folioLineId`/`folioUsedQty`/`folioAmountVnd` (dòng folio sống của món trong tủ), `lastCheckUsedQty`, `adjustedAfterLastCheck`.
+     *     `adjustedAfterLastCheck = true` → Desk cảnh báo "Folio đã sửa sau lần đếm", **mặc định giữ folio**: điền `remainingQty = standardQty − folioUsedQty` (server giữ dòng, không ghi đè);
+     *     lễ tân đổi số khác cả `lastCheckUsedQty` lẫn `folioUsedQty` = lần đếm thật mới. Các trường folio vắng với HK (như giá).
      */
     get: operations['getMinibarStandard'];
     put?: never;
@@ -4628,7 +4656,7 @@ export interface components {
       errors?: components['schemas']['FieldError'][];
       /** @description Với PARAM_OUT_OF_RANGE – biên dưới */
       min?: unknown;
-      /** @description PARAM_OUT_OF_RANGE – biên trên; CAPACITY_EXCEEDED – sức chứa tối đa của căn (0.3.5) */
+      /** @description PARAM_OUT_OF_RANGE – biên trên; CAPACITY_EXCEEDED – sức chứa tối đa của căn (0.3.5); `confirmPaymentReceived` 422 `REASON_REQUIRED` – số còn phải thu lúc xác nhận (0.3.7 bổ sung 4) */
       max?: unknown;
       /** @description Với PARAM_OUT_OF_RANGE – tập giá trị cho phép (tham số dạng tập) */
       allowed?: unknown[];
@@ -5957,6 +5985,14 @@ export interface components {
        *     **0.3.7 bổ sung 4 (BUG-R2-132 – sửa chữ "giá ròng")**: là **giá thỏa thuận của đêm = giá lịch** (trước bậc BR-107/BR-111 – cùng nghĩa giá gõ tay BR-107 v0.3.8), không phải giá sau bậc.
        *     Có giá trị **chỉ** với đơn giá thỏa thuận, xác định bằng **cờ nguồn giá của đơn** (BE-A ghi cho mọi đơn – migration `0064`, bù cờ cho đơn cũ theo các đêm lúc đặt); **`null`** với đơn
        *     theo lịch giá, **kể cả** khi đơn có đêm sửa giá tay S4-35, đêm B9a/B13/B18 gõ tay – các thao tác đó không đổi nguồn giá của đơn.
+       *     **BUG-R2-134 (bổ sung 4, BR-417 v0.3.8 – DOM 18/10 (a))**: giá thỏa thuận **chỉ gắn căn nơi nó được nhập** (lúc đặt hoặc S4-35). Một hàm "giá gợi ý đêm kề" (đêm cuối cho B13/B18,
+       *     đêm đầu cho B9a) dùng chung cho trường này, `CheckoutSummary.extraNightDefaultRateVnd`, giá mặc định B9a, theo **thứ tự** (DOM chốt 18/10, BR-417 v0.3.8):
+       *     (1) **OTTIMO đã đổi căn** (sự cố, swap, B7a – căn hiện tại ≠ căn khách mua = căn của lần khách xin đổi cuối, không có thì căn gốc) → **min**(giá khách mua, lịch Trực tiếp căn
+       *     hiện tại); giá khách mua = giá nhập tay của đêm kề (thỏa thuận lúc đặt, hoặc S4-35 – **kể cả sửa sau khi đổi căn**, vẫn qua min), không có thì lịch của căn khách mua; ngày đặc
+       *     biệt: min giữa lịch ngày đặc biệt của hai căn. Áp cả đơn lịch giá và **đêm con Trực tiếp của đơn OTA** (B9a, gia hạn, B18) – sự cố 201 → 401: **700.000**; Agoda 203 → 401
+       *     (OTTIMO dời), gia hạn thứ Tư: **792.000**. (2) Không có (1): đêm kề ở **căn hiện tại** có giá nhập tay → giá đó. (3) Khách xin đổi căn (B7/B14 `guest_request`) và không có (1), (2)
+       *     → `null` = lịch Trực tiếp căn hiện tại (201 → 401: B13 04/03 = **1.042.000**). Luôn **kẹp sàn–trần** BR-105 của căn hiện tại (BR-417-07) – gõ đúng số gợi ý luôn ghi được.
+       *     Trường này `null` khi gợi ý chính là lịch Trực tiếp căn hiện tại. Xem trước B9a/B13/B18 = lệnh ghi.
        */
       currentBookingRateVnd?: components['schemas']['MoneyVnd'] | null;
       /**
@@ -6047,10 +6083,21 @@ export interface components {
       unhandledCreditVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11): giờ trả (`checkoutTime`/`checkoutAt`) sau mốc cuối BR-412 → `checkOut` phải gửi `extraNight` */
       extraNightRequired?: boolean;
-      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): lịch giá Trực tiếp đêm ngày đi (BR-421); có khi `extraNightRequired` */
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): lịch giá Trực tiếp đêm ngày đi (BR-421); có khi `extraNightRequired`. **0.3.7 bổ sung 4 (BUG-R2-134, BR-417 v0.3.8)**: = giá gợi ý đêm kề như `ExtensionOptions.currentBookingRateVnd` (thỏa thuận chỉ khi đêm cuối ở căn hiện tại; sau OTTIMO đổi căn = min; kẹp sàn–trần căn hiện tại), vắng giá đó thì lịch giá Trực tiếp căn hiện tại */
       extraNightDefaultRateVnd?: components['schemas']['MoneyVnd'];
-      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả) */
+      /**
+       * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06 – DOM 18/10): **phụ thu trả muộn bằng giá 1 đêm** – có khi `extraNightRequired = true` **và** `extraNightAvailable = false` (đêm ngày đi không
+       *     bán được). = `extraNightDefaultRateVnd` (giá 1 đêm của đêm ngày đi; không thêm đêm nên không tính lại bậc BR-107 các đêm). Ghi bằng `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận).
+       *     Ví dụ 203, 16–18/04/2030, đã thu đủ, căn có khách đến 18/04, rời 19:00 → **792.000**
+       */
+      lateFeeAsNightVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả). **0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06)**: `false` → không bao giờ cộng đêm thêm; đường trả phòng là `lateFeeInsteadOfNight` (`lateFeeAsNightVnd`), hoặc dời khách đến sang căn khác rồi tóm tắt lại */
       extraNightAvailable?: boolean;
+      /** @description 0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136): các tủ của lượt (mọi căn lượt đã ở, gồm căn cũ trước B14) có món tính tiền mà chưa có lần đếm `checkout` – blocker `minibar_not_checked` xét **mọi** tủ trong danh sách. Vắng/rỗng = đã đủ */
+      minibarUncheckedRooms?: {
+        roomId: components['schemas']['Uuid'];
+        roomNo?: string;
+      }[];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): đang trong cửa sổ sau nửa đêm (ngày nghiệp vụ = ngày đi − 1, ngày lịch = ngày đi) – B18 hợp lệ, phụ thu 0 */
       postMidnightWindow?: boolean;
       /** @description `credit_balance` (0.3.6, DOM G-15): `creditVnd > 0` – gỡ bằng `checkOut.overpaymentHandling`. 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): theo `unhandledCreditVnd > 0` */
@@ -6062,6 +6109,9 @@ export interface components {
        *     đêm thêm theo `extraNightDefaultRateVnd` (dòng `late_checkout` sống bị đảo). Là trần của `checkOut.finalPayment` và `createVietQr purpose=check_out`. Không âm (dư → `creditVnd`).
        *     **0.3.7 bổ sung 4 (S4-38, BR-416-04/05)**: một hàm tính cho bản tóm tắt, trần QR `check_out` và lệnh B18 – lễ tân gõ giá đêm thêm khác mặc định: client **không** tự cộng chênh,
        *     số đúng là trần QR `check_out` gửi kèm `extraNightRateVnd` hoặc `max` của 422 `AMOUNT_EXCEEDS_BALANCE` ở `finalPayment`.
+       *     **BUG-R2-139 (bổ sung 4, BR-416-06 – DOM 18/10)**: đêm thêm **chỉ** cộng khi `extraNightAvailable = true`. `extraNightRequired = true` và `extraNightAvailable = false` → số này
+       *     = còn phải thu sau khi đảo dòng `late_checkout` theo bậc **cộng `lateFeeAsNightVnd`** (FOC trả muộn đã duyệt đi theo, khóa cả lượt BR-434) – xem trước = trần QR `check_out` với
+       *     `lateFeeAsNight = true` = lệnh B18 `lateFeeInsteadOfNight` (ví dụ 203: **792.000**). QR `check_out` gửi `extraNightRateVnd` khi đó → 422 `NOT_ALLOWED` (như BUG-R2-127 ở B9a).
        */
       amountDueAtCheckoutVnd?: components['schemas']['MoneyVnd'];
     };
@@ -6517,6 +6567,13 @@ export interface components {
       note?: string;
       /** @description Ảnh biên nhận chuyển khoản (BR-527) – 0.3.3, E05-01 */
       attachmentId?: components['schemas']['Uuid'];
+      /**
+       * @description 0.3.7 bổ sung 4 (DOM (f)): `purpose` lúc `createVietQr` (chỉ `method=vietqr`)
+       * @enum {string}
+       */
+      qrPurpose?: 'deposit' | 'balance' | 'check_in' | 'check_out' | 'billing_period';
+      /** @description 0.3.7 bổ sung 4 (DOM (f)): chỉ giao dịch VietQR `pending` – số còn phải thu **lúc đọc** theo mục đích QR (xem `confirmPaymentReceived`). `amountVnd` > số này → Desk hiện cảnh báo vượt và ô `note` bắt buộc trước khi xác nhận */
+      amountDueNowVnd?: components['schemas']['MoneyVnd'];
       /** @description Giao dịch hoàn (`type=refund`): yêu cầu duyệt `refund` đã thực hiện (0.3.6, A-33) */
       approvalRequestId?: components['schemas']['Uuid'];
       /** @description Ghi chú đối soát (bắt buộc khi `disputed`) – 0.3.3 */
@@ -6680,6 +6737,8 @@ export interface components {
         remainingQty: number;
       }[];
       performedAt?: components['schemas']['Instant'];
+      /** @description 0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136, BR-703): tủ được đếm – vắng = căn đang gán; căn cũ của **chính lượt này** (sau B14) được; căn khác → 422 `NOT_IN_LIST` */
+      roomId?: components['schemas']['Uuid'];
     };
     MinibarCheck: {
       id: components['schemas']['Uuid'];
@@ -6702,7 +6761,7 @@ export interface components {
       /** @description 0.3.7 (nháp B-8, FE S3-14): tên hiển thị người kiểm (HK hoặc FD) */
       checkedByName?: string;
     };
-    /** @description 0.3.3, E05-04 */
+    /** @description 0.3.3, E05-04. 0.3.7 bổ sung 4: `standardQty` = mốc của tủ (lượt × căn) – mô hình minibar M-1 */
     MinibarStandard: {
       roomNo?: string;
       items: {
@@ -6711,6 +6770,16 @@ export interface components {
         standardQty: number;
         isFree: boolean;
         unitPriceVnd?: components['schemas']['MoneyVnd'];
+        /** @description 0.3.7 bổ sung 4 (DOM (e)): đã dùng ở lần đếm trước của món trong tủ (cùng kỳ nạp); `null` = chưa đếm */
+        lastCheckUsedQty?: number | null;
+        /** @description 0.3.7 bổ sung 4 (DOM (e)): dòng folio **sống** của món trong tủ (dòng thay của `adjustFolioLine` nếu đã sửa); `null` = không có dòng sống (chưa tính, đếm 0, đã void) */
+        folioLineId?: components['schemas']['Uuid'] | null;
+        /** @description 0.3.7 bổ sung 4 (DOM (e)): số lượng trên dòng folio sống (0 khi dòng đã void/đảo sau lần đếm); `null` = món chưa từng được tính trong tủ */
+        folioUsedQty?: number | null;
+        /** @description 0.3.7 bổ sung 4 (DOM (e)): số tiền dòng folio sống (trước FOC) */
+        folioAmountVnd?: components['schemas']['MoneyVnd'];
+        /** @description 0.3.7 bổ sung 4 (DOM (e)): dòng folio của món bị sửa/void có lý do sau lần đếm trước → Desk cảnh báo, mặc định giữ folio */
+        adjustedAfterLastCheck?: boolean;
       }[];
       /** @description Lần kiểm `checkout` gần nhất trong ngày nghiệp vụ (HK hoặc FD) để điền sẵn */
       latestCheck?: components['schemas']['MinibarCheck'] | null;
@@ -6845,7 +6914,7 @@ export interface components {
        *     `folio.foc_suspended`, `folio.foc_restored`, `folio.damage_posted`, `folio.damage_rejected`,
        *     `refund.destination_set`, `refund.paid`, `refund.cash_paid`, `deposit.shortfall_accepted`, `reservation.deposit_confirmed`,
        *     `reservation.no_show_deposit_retained`, `reservation.cancellation_fee`, `reservation.debt_on_checkout`, `reservation.early_departure`,
-       *     `reservation.extended`, `reservation.prior_night_added`, `reservation.extra_night_on_checkout`, `reservation.priced`, `reservation.repriced`,
+       *     `reservation.extended`, `reservation.prior_night_added`, `reservation.extra_night_on_checkout`, `reservation.late_fee_instead_of_night`, `reservation.priced`, `reservation.repriced`,
        *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
        *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `config.changed` (chỉ khóa `payment_receiving_account`).
@@ -11314,6 +11383,43 @@ export interface operations {
           extraNight?: {
             rateVnd: components['schemas']['MoneyVnd'];
           };
+          /**
+           * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): "Trả phòng – phụ thu trả muộn bằng giá 1 đêm" khi đêm ngày đi không bán được – **quản lý trở lên xác nhận tại quầy** (ARC 18/10):
+           *     lễ tân làm B18, quản lý nhập tên đăng nhập + mật khẩu của mình (`approverUsername`, `authMethod`, `secret`); người gọi là OWN/MGR thì bỏ `approverUsername`, nhập lại mật khẩu
+           *     của chính mình. Không tạo yêu cầu duyệt. Người xác nhận phải là OWN/MGR **của cơ sở** và đang hoạt động; sai mật khẩu, tên không có hoặc không đủ vai đều trả **cùng** 401
+           *     `REAUTH_FAILED` (`field` = `lateFeeInsteadOfNight.secret`) – không lộ tên tài khoản; chung bộ đếm 5 sai/15 phút với duyệt (SR-RL-02), đếm theo người xác nhận. R3: `pin`.
+           *     **SEC 18/10 (`reviews/s4-SEC-lateFee-reauth.md`, ngoại lệ có phạm vi SR-AUTH-11 – chỉ đường này và `requestFoc` lồng)**: người xác nhận tìm theo cơ sở trên đường dẫn
+           *     (OWN/MGR chưa thu hồi, `active`, không khóa đăng nhập, không `must_change_password`; có 2FA mà chưa kiểm được yếu tố thứ hai → coi như không đủ điều kiện) – mọi nhánh
+           *     401 giống hệt, thời gian phản hồi đồng đều. Sai → tăng bộ đếm của **cả người gọi và người xác nhận**; một trong hai đang khóa → 429 `RATE_LIMITED` (`Retry-After`).
+           *     Điều kiện nghiệp vụ (422/409) kiểm **trước** mật khẩu và không đếm. Người xác nhận ≠ người gọi → thông báo `account_security_change` tới người xác nhận.
+           *     **R3 (contract-ahead)**: đường này chỉ nhận `pin`, hoặc `password` kèm `totpCode`; bắt buộc phiên máy quầy `device_trusted` (thiếu → 403 `DEVICE_NOT_TRUSTED`,
+           *     kiểm trước mật khẩu; OWN/MGR tự xác nhận không cần) và trần theo ngày (≥ 2 lần khóa/24 giờ cùng người gọi hoặc người xác nhận → khóa đường này 24 giờ + cảnh báo OWN) –
+           *     trước GL. Xác nhận từ xa trên máy của quản lý: backlog R3 (`openapi-0.3.7.md` 16.10).
+           *     `amountVnd` = số client đang hiện (`CheckoutSummary.lateFeeAsNightVnd`) – lệch → 409 `SURCHARGE_CHANGED`. Giảm/miễn: FOC trả muộn đã duyệt đi theo; FOC mới cho khoản này gửi
+           *     kèm `requestFoc` (B18 chốt folio ngay, không còn chỗ xin sau – DOM 18/10). `applyLateSurcharge`/`expectedSurchargeVnd` không dùng ở đường này. Không có `lateFeeAsNightVnd`
+           *     (không thêm đêm) nên không tính lại bậc BR-107 (DOM xác nhận 18/10).
+           */
+          lateFeeInsteadOfNight?: {
+            amountVnd: components['schemas']['MoneyVnd'];
+            reason: string;
+            /** @description Bắt buộc khi người gọi là FD/FDL (thiếu → 422 `REQUIRED`); OWN/MGR bỏ trống = tự xác nhận */
+            approverUsername?: string;
+            /**
+             * @description R2 chỉ `password` (`pin` → 422 `NOT_IN_LIST`, không đếm). R3: `pin`, hoặc `password` + `totpCode` (contract-ahead, SEC ARC-24)
+             * @enum {string}
+             */
+            authMethod: 'password' | 'pin';
+            secret: string;
+            /**
+             * @description 0.3.7 bổ sung 4 (DOM 18/10, như `setLateCheckout.requestFocForSurcharge`) – tùy chọn: FOC/giảm giá cho khoản phụ thu này, **người xác nhận** của `lateFeeInsteadOfNight`
+             *     **tự áp** trong hạn mức BR-433 của mình (cùng giao dịch B18, yêu cầu `approved`, người gửi = người gọi, người duyệt = người xác nhận). Dùng `kind` (**chỉ `foc`** –
+             *     `special_discount` chỉ cho dòng phòng → 422 `NOT_IN_LIST`, `field` = `lateFeeInsteadOfNight.requestFoc.kind`; ARC duyệt BE-A r3-4), `amountVnd`, `reasonCode`, `note`; **không** gửi `authMethod`/`secret` ở đây (→ 422 `NOT_ALLOWED`) – mật khẩu của `lateFeeInsteadOfNight` đã là xác nhận. Cùng khóa FOC trả muộn cả lượt (BR-434):
+             *     FOC đã duyệt đi theo trước, tổng ≤ `lateFeeAsNightVnd`; `amountVnd` > `lateFeeAsNightVnd` → 422 `VALUE_OUT_OF_RANGE`. Vượt hạn mức người xác nhận → 403
+             *     `APPROVAL_LIMIT_EXCEEDED`, **không ghi gì** (không để yêu cầu chờ chặn B18). Trần `finalPayment` = còn phải thu sau phụ thu và FOC này.
+             *     Ví dụ 203: phụ thu 792.000, miễn 50 % → FOC **396.000**, khách trả **396.000**
+             */
+            requestFoc?: components['schemas']['FocRequestInput'];
+          };
           /** @default false */
           applyLateSurcharge?: boolean;
           /** @description Phụ thu trả muộn client đang hiển thị (từ `getCheckoutSummary`) – bắt buộc khi `applyLateSurcharge=true` (0.3.3, E03-02) */
@@ -11355,6 +11461,8 @@ export interface operations {
           };
         };
       };
+      401: components['responses']['ReauthFailed'];
+      403: components['responses']['Forbidden'];
       /** @description MINIBAR_NOT_CHECKED / PENDING_APPROVALS / BALANCE_DUE / SURCHARGE_CHANGED / INVALID_TRANSITION / ROOM_UNAVAILABLE (`extraNight` – 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)) */
       409: {
         headers: {
@@ -11366,6 +11474,7 @@ export interface operations {
       };
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   listParty: {
@@ -13326,7 +13435,7 @@ export interface operations {
          */
         'application/json': {
           receivedAt?: components['schemas']['Instant'];
-          /** @description Mã giao dịch ngân hàng, tên người chuyển (V-09 – chặn số thẻ) */
+          /** @description Mã giao dịch ngân hàng, tên người chuyển (V-09 – chặn số thẻ). **0.3.7 bổ sung 4 (DOM (f))**: bắt buộc (≥ 3) khi `amountVnd` > `Payment.amountDueNowVnd` – ghi lý do thu vượt */
           note?: string;
           /** @description Ảnh biên nhận (`uploadAttachment purpose=deposit_receipt`) */
           attachmentId?: components['schemas']['Uuid'];
@@ -13546,8 +13655,10 @@ export interface operations {
           priorNightRateVnd?: components['schemas']['MoneyVnd'];
           /** @description 0.3.7 – chỉ `purpose=check_out` (như `getCheckoutSummary.checkoutAt`; vắng = giờ server) */
           checkoutAt?: components['schemas']['Instant'];
-          /** @description 0.3.7 – chỉ `purpose=check_out` khi cần đêm thêm (vắng = `extraNightDefaultRateVnd`) */
+          /** @description 0.3.7 – chỉ `purpose=check_out` khi cần đêm thêm (vắng = `extraNightDefaultRateVnd`). **0.3.7 bổ sung 4 (BUG-R2-139)**: `CheckoutSummary.extraNightAvailable = false` → 422 `NOT_ALLOWED` (`field` = `extraNightRateVnd`) – không bao giờ cộng đêm không bán được; dùng `lateFeeAsNight` */
           extraNightRateVnd?: components['schemas']['MoneyVnd'];
+          /** @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): chỉ `purpose=check_out`, khi tóm tắt (theo `checkoutAt`) có `extraNightRequired = true` và `extraNightAvailable = false` – trần = `CheckoutSummary.amountDueAtCheckoutVnd` gồm `lateFeeAsNightVnd` (= lệnh `checkOut.lateFeeInsteadOfNight`). Ngoài trường hợp đó → 422 `NOT_ALLOWED` (`field` = `lateFeeAsNight`). Vắng/false → trần không gồm khoản này */
+          lateFeeAsNight?: boolean;
           /** @description 0.3.6 (DOM G-4, BA E15-03): **FD+** cho QR vượt còn phải thu khi "thu trước dịch vụ/ký quỹ"; SAL/CTV gửi → 403. Không có lý do mà vượt → 422 `AMOUNT_EXCEEDS_BALANCE` */
           overBalanceReason?: string;
         };
@@ -13768,7 +13879,10 @@ export interface operations {
   };
   getMinibarStandard: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description 0.3.7 bổ sung 4 – tủ cần xem (vắng = căn đang gán; căn cũ của chính lượt này sau B14) */
+        roomId?: components['schemas']['Uuid'];
+      };
       header?: never;
       path: {
         propertyId: components['parameters']['PropertyId'];
@@ -13870,6 +13984,7 @@ export interface operations {
       409: components['responses']['Conflict'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   rejectRequest: {
@@ -13930,6 +14045,7 @@ export interface operations {
       409: components['responses']['Conflict'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   cancelRequest: {

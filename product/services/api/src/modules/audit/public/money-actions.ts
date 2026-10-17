@@ -40,6 +40,8 @@ export const MONEY_AUDIT_ACTIONS = [
   'reservation.extended',
   'reservation.prior_night_added',
   'reservation.extra_night_on_checkout',
+  // 0.3.7 bổ sung 4 (BR-416-06, ARC 16.6 (d)): late charge of one night, OWN/MGR confirmed at the desk.
+  'reservation.late_fee_instead_of_night',
   'reservation.priced',
   'reservation.repriced',
   'reservation.room_change_repriced',

@@ -32,6 +32,11 @@ export const DATED_KEY_CATEGORIES: ReadonlySet<string> = new Set([
 /** Categories with ONE key per stay (BR-412: early check-in, late check-out). */
 export const STAY_KEY_CATEGORIES: ReadonlySet<string> = new Set(['early_checkin', 'late_checkout']);
 
+/** ARC R8: the item code of a minibar request (null = legacy minibar line without code → its own line key). */
+export function itemKeyCode(r: { category: string; itemCode?: string | null }): string | null {
+  return r.category === 'minibar' && r.itemCode ? r.itemCode : null;
+}
+
 export function keyKindOf(category: string): FocKeyKind {
   if (DATED_KEY_CATEGORIES.has(category)) return 'night';
   if (STAY_KEY_CATEGORIES.has(category)) return 'stay';
@@ -142,10 +147,19 @@ export interface ReductionRequest extends KeyClaim {
   serviceDate: string | null;
   /** Line key: the line the request was made on (start of the adjustFolioLine replacement chain). */
   originLineId: string;
+  /**
+   * Mô hình minibar M-1 (ARC R8, BR-434-15/16 – BUG-R2-135): `charge_code` (= item code) of a minibar line – the
+   * key is then stay × minibar × item (`item:minibar:<code>`), its value = Σ live minibar lines of the item.
+   */
+  itemCode?: string | null;
   reasonCode: string;
 }
 
-export const keyOf = (r: Pick<ReductionRequest, 'category' | 'serviceDate' | 'originLineId'>) => {
+export const keyOf = (
+  r: Pick<ReductionRequest, 'category' | 'serviceDate' | 'originLineId' | 'itemCode'>,
+) => {
+  const item = itemKeyCode(r);
+  if (item) return `item:minibar:${item}`;
   const kind = keyKindOf(r.category);
   return kind === 'night'
     ? `night:${r.category}:${r.serviceDate ?? ''}`

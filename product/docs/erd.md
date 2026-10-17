@@ -797,7 +797,8 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 | `received_at`, `recorded_by` | | K-20 |
 | `reversal_of_id`, `reversal_reason` | | A34 (MGR+) |
 | `approval_request_id` | | Hoàn tiền cần duyệt (BR-522) |
-| `note` | C2 | **0.3.3** – mã giao dịch ngân hàng, tên người chuyển; lọc mẫu số thẻ (V-09) |
+| `note` | C2 | **0.3.3** – mã giao dịch ngân hàng, tên người chuyển; lọc mẫu số thẻ (V-09). **0.3.7 bổ sung 4 (DOM (f))**: bắt buộc khi xác nhận VietQR vượt số còn phải thu lúc xác nhận |
+| `qr_purpose`, `qr_context` | | **0.3.7 bổ sung 4** – chỉ VietQR: `purpose` và ngữ cảnh lúc `createVietQr` (jsonb: `checkinTime`, `addPriorNight`, `priorNightRateVnd`, `checkoutAt`, `extraNightRateVnd`, `lateFeeAsNight`) để tính trần đúng mục đích lúc `confirmPaymentReceived` (`Payment.amountDueNowVnd`) |
 | `attachment_id` | | **0.3.3** FK cặp (`property_id`,`attachment_id`) → `attachment` `purpose='deposit_receipt'` – ảnh biên nhận (BR-527, E05-01) |
 | `confirmed_at`, `confirmed_by` | | **0.3.3** – VietQR `pending → succeeded` do lễ tân xác nhận (`confirmPaymentReceived`, SM-12). Quy tắc A46: người đối soát ≠ `recorded_by` **và** ≠ `confirmed_by` trừ OWN (`SELF_RECONCILE_FORBIDDEN`) |
 | `version` | | Khóa lạc quan (`reconcilePayment` `If-Match`) – cột chung mục 1 |
@@ -842,6 +843,11 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các yêu cầu `approved` của người duyệt trong tháng **có `foc_state IN ('applied','dormant')`** (BR-433 v0.3.5 – chỉ FOC còn sống; 0.3.7 bổ sung D1) (truy vấn, không cột cache). Số đang áp (`effectiveAmountVnd`, báo cáo FOC) = dòng FOC sống, tính lúc đọc.
 
 **`minibar_check`** + **`minibar_check_line`** – kiểm minibar (BR-702/703, US-035): `reservation_id`, `room_id`, `mode` (`checkout|stayover`), `checked_by`, `checked_at`, `replaces_check_id` (**0.3.3** – bản `checkout` thứ hai thay bản trước: dòng folio của bản cũ được đảo bằng bút toán, UK một phần (`reservation_id`) `WHERE mode='checkout' AND replaced_by_check_id IS NULL` (cột `replaced_by_check_id` đặt khi bị thay)); dòng: `item_id`, `standard_qty`, `remaining_qty` (CHECK 0 ≤ remaining ≤ standard), `used_qty` (generated), `unit_price_vnd_snapshot` (null = miễn phí), `unit_cost_vnd_snapshot` (C2 – `item.avg_cost_vnd` nếu có, không thì `cost_price_vnd`; DATA FB-09), `amount_vnd`, `folio_line_id`.
+**0.3.7 bổ sung 4 – mô hình minibar M-1** (`openapi-0.3.7.md` mục 16; DOM 18/10 BR-702-02, BR-703-01, BR-434-15): **tủ** = (lượt ở, căn) – UK một phần đổi thành (`reservation_id`, `room_id`)
+`WHERE mode='checkout' AND replaced_by_check_id IS NULL` (B14 giữa lượt có hai tủ, không thay nhau). Bảng mới **`minibar_fill`** (`property_id`, `reservation_id` – đơn chính, `room_id`,
+`source` `check_in|refill|backfill`, `filled_at`, `created_by`) + **`minibar_fill_line`** (`fill_id`, `item_id`, `qty` ≥ 1, `unit_price_vnd_snapshot` – null = miễn phí, `unit_cost_vnd_snapshot` C2):
+mốc, món và giá của tủ lấy từ lần nạp gần nhất; ghi `check_in` theo kiểu **chụp khi danh mục đổi** (sửa `item` → tủ của lượt đang ở chưa có lần nạp được chụp danh mục trước khi sửa);
+tủ chưa có lần nạp dùng danh mục hiện hành (= mức lúc nhận phòng). Dòng folio `minibar` có `charge_code = item.code` (khóa FOC `item:minibar:<code>`; `adjustFolioLine` chép sang dòng thay).
 
 ### 4.7 `registration` – khai báo lưu trú và dữ liệu C3 (R2)
 
@@ -960,6 +966,9 @@ Nhật ký phiếu (`WorkOrder.history[]`, B-11): dựng từ `state_transition`
 ### 4.10 `inventory` (R2 danh mục; xuất nhập tồn R3)
 
 **`item`** – mặt hàng minibar/F&B (BL 4.13, US-066): `code`, `name_i18n`, `unit`, `cost_price_vnd` (**C2** – chỉ OWN/MGR, rbac M3), `sale_price_vnd` (null = miễn phí; C0), `minibar_standard_qty`, `min_stock_qty`, `is_active`, `avg_cost_vnd` (R3, BR-705).
+
+**`minibar_fill`** + **`minibar_fill_line`** (**0.3.7 bổ sung 4**, R2) – lần nạp tủ theo (lượt ở, căn); xem đoạn `minibar_check` ở 4.6 và `openapi-0.3.7.md` mục 16. R3: bổ sung giữa kỳ ghi `source = refill`
+(cùng `stock_movement` `minibar_refill`).
 
 **`stock_movement`** (R3, BL 4.14 `FTX`): `item_id`, `kind` (`purchase|minibar_sale|minibar_refill|free_use|kitchen_welcome|damage_expired|internal_use|stocktake_adjust`), `quantity`, `unit_cost_vnd_snapshot`, `ref_type`, `ref_id`, `occurred_at`, `by`. **`stocktake`** (R3). **`lost_found_item`** (R3, BR-513).
 
@@ -1574,6 +1583,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 18/10/2026 | 2 – Sprint 4 (tuần Ổn định) | **0.3.7 bổ sung 4 – mô hình minibar M-1** (`openapi-0.3.7.md` mục 16): `minibar_check` UK theo (`reservation_id`, `room_id`); bảng mới `minibar_fill(_line)` (mốc = mức lúc nhận phòng, chụp khi danh mục đổi); `folio_line.charge_code = item.code` cho dòng minibar; `payment.qr_purpose`, `qr_context` (xác nhận QR vượt, DOM (f)) | ARC |
 | 17/10/2026 | 2 – Sprint 4 (luồng LP, FB-INV-002) | **0.3.7 bổ sung 2** (`openapi-0.3.7.md` mục 12, ADR-014 mục 4): mục **4.14 mới** `public-site` – `website_booking_request` (SM-18 đề xuất, hạn lưu SEC ARC-03, T19 giả định), `privacy_notice_version`, `public_form_nonce`, `rate_limit_counter`, hàm `public_resolve_property`; 4.5 `reservation.direct_sub_source`, `quote.website_booking_request_id`; `idempotency_key.principal_type` + `public_site`; mục 5 SM-18; 9.2/9.3 khóa mới; 12 job `web_request.purge`. Cài theo lịch ORC (OpenAPI `x-round: R3`) | ARC |
 | 17/10/2026 | 2 – Sprint 4 (Phản hồi & sửa, sau S4-38) | **0.3.7 bổ sung 4** (`openapi-0.3.7.md` mục 15): 4.5 `deposit_required_vnd` hai nghĩa theo trạng thái (BR-309-11); 4.6 `approval_request.auto_cancel_reason` thêm `no_show_restored`; 9.3 `web_request_public_promise_call_now_minutes` (60) | ARC |
 | 17/10/2026 | 2 – Sprint 4 (Phản hồi & sửa) | **0.3.7 bổ sung 2 – phản hồi review SEC + DOM v0.3.8** (`openapi-0.3.7.md` mục 13): 4.14 `website_booking_request` – `stay_kind`/`stay_months`, `departure_date` null khi ở dài chưa rõ, `infants` thay `children_ages`, một cách liên hệ (`contact_hmac` của SĐT hoặc email), `alias_ref_codes`, `related_request_ids`, `overdue_notified_at`, `reply_by` 15 phút; kind thông báo mới, `dsr_erase`, idempotency mọi nhánh; 9.3 tên khóa theo BR v0.3.8 + 2 khóa bảo mật mới. **0.3.7 bổ sung 3**: `registration.images_purge_reason` + `document_image.delete_reason` thêm `unconfirmed` | ARC |

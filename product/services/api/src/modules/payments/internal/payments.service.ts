@@ -16,7 +16,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { decodeCursor, page } from '../../../shared/http/pagination';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
 import { type LocalDate, addDays, atLocal, businessDate, localDate } from '../../../shared/time';
 import { optionalText, requireReason } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
@@ -59,6 +59,31 @@ import { buildVietQrPayload, transferContentOf } from './vietqr';
 
 const SALES_ROLES = ['sales_staff', 'collaborator'];
 
+/** payment.qr_context (0065): the stay inputs of a check-in / check-out VietQR, as JSON. */
+function qrContextOf(stay: StayQrInput): Record<string, unknown> {
+  return {
+    ...(stay.checkinTime !== undefined ? { checkinTime: stay.checkinTime } : {}),
+    ...(stay.addPriorNight !== undefined ? { addPriorNight: stay.addPriorNight } : {}),
+    ...(stay.priorNightRateVnd !== undefined ? { priorNightRateVnd: stay.priorNightRateVnd } : {}),
+    ...(stay.checkoutAt !== undefined ? { checkoutAt: stay.checkoutAt.toISOString() } : {}),
+    ...(stay.extraNightRateVnd !== undefined ? { extraNightRateVnd: stay.extraNightRateVnd } : {}),
+    ...(stay.lateFeeAsNight !== undefined ? { lateFeeAsNight: stay.lateFeeAsNight } : {}),
+  };
+}
+
+/** Back from payment.qr_context. */
+function stayOfContext(ctx: Record<string, unknown> | null): StayQrInput {
+  if (!ctx) return {};
+  const out: StayQrInput = {};
+  if (typeof ctx.checkinTime === 'string') out.checkinTime = ctx.checkinTime;
+  if (typeof ctx.addPriorNight === 'boolean') out.addPriorNight = ctx.addPriorNight;
+  if (typeof ctx.priorNightRateVnd === 'number') out.priorNightRateVnd = ctx.priorNightRateVnd;
+  if (typeof ctx.checkoutAt === 'string') out.checkoutAt = new Date(ctx.checkoutAt);
+  if (typeof ctx.extraNightRateVnd === 'number') out.extraNightRateVnd = ctx.extraNightRateVnd;
+  if (typeof ctx.lateFeeAsNight === 'boolean') out.lateFeeAsNight = ctx.lateFeeAsNight;
+  return out;
+}
+
 /** createVietQr 0.3.7: the time inputs of previewCheckIn / getCheckoutSummary the step cap is computed from. */
 export interface StayQrInput {
   checkinTime?: string;
@@ -66,10 +91,12 @@ export interface StayQrInput {
   priorNightRateVnd?: number;
   checkoutAt?: Date;
   extraNightRateVnd?: number;
+  /** 0.3.7 bổ sung 4 (BR-416-06): check_out – the late fee charged as one night (cap includes it). */
+  lateFeeAsNight?: boolean;
 }
 
 const CHECKIN_FIELDS = ['checkinTime', 'addPriorNight', 'priorNightRateVnd'] as const;
-const CHECKOUT_FIELDS = ['checkoutAt', 'extraNightRateVnd'] as const;
+const CHECKOUT_FIELDS = ['checkoutAt', 'extraNightRateVnd', 'lateFeeAsNight'] as const;
 
 /**
  * 0.3.7: `checkinTime`/`addPriorNight`/`priorNightRateVnd` only with `purpose=check_in` (the rate only with
@@ -370,6 +397,49 @@ export class PaymentsService {
     return { pendingDays, reconcileOverdue: overdue };
   }
 
+  /**
+   * 0.3.7 bổ sung 4 (DOM (f), ARC D7): "còn phải thu lúc xác nhận" of a VietQR = the cap of ITS purpose computed
+   * now with the inputs kept at creation – `check_in` / `check_out` through the reservations port
+   * (`amountDueNowFor`, BE-A: previewCheckIn / getCheckoutSummary at confirmation), `deposit` = the deposit still missing,
+   * `balance` = the balance due of the folio. A step that no longer applies (the stay moved on, a non-desk actor)
+   * falls back to the balance due now. Legacy rows (no purpose): deposit type → deposit, else balance.
+   */
+  async amountDueNow(
+    tx: Tx,
+    actor: { userId: string; roles: readonly string[]; requestId?: string },
+    p: Pick<PaymentRowLite, 'type' | 'reservation_id' | 'qr_purpose' | 'qr_context'> & {
+      folio_id: string;
+    },
+  ): Promise<number> {
+    const purpose = p.qr_purpose ?? (p.type === 'deposit' ? 'deposit' : 'balance');
+    const balance = async () => (await this.folios.balance(tx, p.folio_id)).balanceDueVnd;
+    if ((purpose === 'check_in' || purpose === 'check_out') && p.reservation_id) {
+      try {
+        // BE-A's cap at confirmation (D7): options no longer valid are dropped, a stay past the step answers
+        // the folio balance.
+        return await this.port().amountDueNowFor(tx, {
+          reservationId: p.reservation_id,
+          purpose,
+          actor: {
+            userId: actor.userId,
+            roles: actor.roles,
+            ...(actor.requestId ? { requestId: actor.requestId } : {}),
+          },
+          ...stayOfContext(p.qr_context ?? null),
+        });
+      } catch (e) {
+        if (e instanceof ProblemError) return balance();
+        throw e;
+      }
+    }
+    if (purpose === 'deposit' && p.reservation_id) {
+      const view = await this.port().reservationView(tx, p.reservation_id);
+      const required = Number(view.depositRequiredVnd ?? 0);
+      return Math.max(0, required - (await this.folios.depositPaid(tx, p.folio_id)));
+    }
+    return balance();
+  }
+
   // ───────────── confirmPaymentReceived (2.3, SM-12) ─────────────
 
   async confirmReceived(
@@ -393,6 +463,15 @@ export class PaymentsService {
     if (p.method !== 'vietqr' || p.status !== 'pending' || expired) {
       throw problem('INVALID_TRANSITION', {
         extras: { currentState: expired ? 'expired' : p.status },
+      });
+    }
+    // 0.3.7 bổ sung 4 (DOM (f), ARC D7): more than what is due NOW for the QR's purpose needs a note (the over
+    // part becomes credit, handled by BR-522 – never an automatic refund request).
+    const dueNow = await this.amountDueNow(tx, actor, { ...p, folio_id: folioId });
+    if (p.amount_vnd > dueNow && (!note || note.length < 3)) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+        extras: { max: dueNow },
       });
     }
     const at = receivedAt ?? now;
@@ -452,6 +531,7 @@ export class PaymentsService {
         amountVnd: p.amount_vnd,
         method: p.method,
         reconciliation: 'pending',
+        ...(p.amount_vnd > dueNow ? { overVnd: p.amount_vnd - dueNow } : {}),
       },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
@@ -815,8 +895,9 @@ export class PaymentsService {
     await tx.query(
       `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
          reconciliation, amount_vnd, status, expires_at, recorded_by, recorded_by_role, over_balance_reason,
-         created_at, created_by, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'vietqr', 'pending', $8, 'pending', $9, $10, $11, $12, $13, $10, $13)`,
+         created_at, created_by, updated_at, qr_purpose, qr_context)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'vietqr', 'pending', $8, 'pending', $9, $10, $11, $12, $13, $10, $13,
+               $14, $15)`,
       [
         id,
         tx.ctx.organizationId,
@@ -831,6 +912,9 @@ export class PaymentsService {
         primaryRole(actor.roles),
         overReason,
         now,
+        purpose,
+        // 0.3.7 bổ sung 4 (ARC D7): the inputs of the cap, so the confirmation recomputes the SAME purpose.
+        stayPurpose ? JSON.stringify(qrContextOf(stay)) : null,
       ],
     );
     await this.audit.recordMoney(tx, {

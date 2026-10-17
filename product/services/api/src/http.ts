@@ -10,7 +10,7 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { TrustProxy } from './config';
 import { tryAcquireUploadSlot, uploadRefused } from './modules/files/public/upload-gate';
 import { problem } from './shared/problem';
-import { SECRET_BODY_FIELDS } from './shared/secret-fields';
+import { SECRET_BODY_FIELDS, withoutSecrets } from './shared/secret-fields';
 
 const SENSITIVE_KEYS = [
   'password',
@@ -336,6 +336,11 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
       level: opts.logLevel,
       ...(opts.logStream ? { stream: opts.logStream } : {}),
       redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+      // SEC BE-61: `*.secret` above masks ONE level only – a secret nested deeper (`reauth.secret`,
+      // `lateFeeInsteadOfNight.secret`) is replaced at any depth before the line is written.
+      formatters: {
+        log: (o: Record<string, unknown>) => withoutSecrets(o) as Record<string, unknown>,
+      },
       serializers: {
         req: (req: LoggedRequest) => ({
           id: req.id,

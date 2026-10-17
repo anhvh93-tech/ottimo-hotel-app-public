@@ -84,6 +84,15 @@ export class RoomStatusService {
     );
     const row = stored.rows[0];
     if (row?.status === status) return status;
+    // BR-807-01 (DOM, v0.3.8): a guest who arrived today is not a stay-over yet – an extension (B13) on the
+    // arrival day keeps the room OC, without a stay-over clean (07:00 J8 of the next day does both).
+    if (
+      status === 'OD' &&
+      input.event === 'B13' &&
+      (await this.arrivedToday(tx, roomId, input.today))
+    ) {
+      return row?.status ?? (await this.of(tx, roomId, input.today));
+    }
     const before = row?.status ?? (await this.of(tx, roomId, input.today));
     const userId = tx.ctx.actorType === 'user' ? tx.ctx.userId : null;
     await tx.query(
@@ -114,6 +123,20 @@ export class RoomStatusService {
     await this.events.publish(tx, 'room.status_changed', roomId);
     if (status === 'OD' && input.event === 'B13') await this.stayContinues(tx, roomId, input);
     return before;
+  }
+
+  /** The in-house stay of the room arrived on `today` (an extension child counts its parent's arrival). */
+  private async arrivedToday(tx: Tx, roomId: string, today: LocalDate): Promise<boolean> {
+    const { rows } = await tx.query<{ arrival: string }>(
+      `SELECT COALESCE(p.arrival_date, r.arrival_date)::text AS arrival
+         FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+         LEFT JOIN reservation p ON p.id = r.parent_reservation_id
+        WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
+          AND s.to_date > $2::date
+        ORDER BY s.from_date DESC LIMIT 1`,
+      [roomId, today],
+    );
+    return !!rows[0] && rows[0].arrival >= today;
   }
 
   /**

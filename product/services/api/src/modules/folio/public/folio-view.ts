@@ -48,7 +48,7 @@ export function folioLineDto(
 export function paymentDto(
   p: PaymentRowLite,
   tz: string,
-  extra: { folioId?: string; reservationCode?: string } = {},
+  extra: { folioId?: string; reservationCode?: string; amountDueNowVnd?: number } = {},
 ): Record<string, unknown> {
   return defined({
     id: p.id,
@@ -80,6 +80,10 @@ export function paymentDto(
     approvalRequestId: p.approval_request_id,
     note: p.note,
     attachmentId: p.attachment_id,
+    // 0.3.7 bổ sung 4 (DOM (f)): what a VietQR was for, and – pending only – what is due now for that purpose.
+    qrPurpose: p.method === 'vietqr' ? (p.qr_purpose ?? undefined) : undefined,
+    amountDueNowVnd:
+      p.method === 'vietqr' && p.status === 'pending' ? extra.amountDueNowVnd : undefined,
     version: p.version,
   });
 }
@@ -92,6 +96,8 @@ export function folioDto(
   invoice: Record<string, unknown> | null = null,
   labels: LabelContext = {},
   openRefundVnd = 0,
+  /** 0.3.7 bổ sung 4 (DOM (f)): Payment.amountDueNowVnd of the pending VietQR payments (id → amount). */
+  dueNow: ReadonlyMap<string, number> = new Map(),
 ): Record<string, unknown> {
   const reservationIds = [
     folio.primary_reservation_id,
@@ -107,7 +113,12 @@ export function folioDto(
     billNo: folio.bill_no,
     reservationIds,
     lines: lines.map((l) => folioLineDto(l, tz, labels)),
-    payments: payments.map((p) => paymentDto(p, tz, { folioId: folio.id })),
+    payments: payments.map((p) =>
+      paymentDto(p, tz, {
+        folioId: folio.id,
+        ...(dueNow.has(p.id) ? { amountDueNowVnd: dueNow.get(p.id) as number } : {}),
+      }),
+    ),
     totals: computeTotals(lines, payments, openRefundVnd),
     ...(invoice ? { invoiceRequest: invoice } : {}),
     pendingApprovals: lines.filter((l) => l.line_state === 'pending_approval').length,

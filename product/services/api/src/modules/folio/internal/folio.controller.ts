@@ -131,7 +131,7 @@ export class FolioController {
         if (!p.roles.some((r) => FULL_SCOPE.includes(r))) {
           await this.assertOwn(tx, folio.primary_reservation_id, p.userId);
         }
-        return this.folioBody(tx, folio);
+        return this.folioBody(tx, folio, { userId: p.userId, roles: p.roles });
       },
       { readOnly: true },
     );
@@ -198,18 +198,24 @@ export class FolioController {
     return applyResult(reply, result);
   }
 
-  private async folioBody(tx: Tx, folio: FolioRow): Promise<Record<string, unknown>> {
+  private async folioBody(
+    tx: Tx,
+    folio: FolioRow,
+    actor?: { userId: string; roles: readonly string[] },
+  ): Promise<Record<string, unknown>> {
     const tz = await this.folios.timezone(tx);
     const inv = await this.bills.invoice(tx, folio.id);
     const lines = await this.folios.lines(tx, folio.id);
+    const payments = await this.folios.payments(tx, folio.id);
     return folioDto(
       folio,
       lines,
-      await this.folios.payments(tx, folio.id),
+      payments,
       tz,
       inv ? invoiceDto(inv) : null,
       await this.bills.labelContext(tx, folio),
       await this.folios.openRefundVnd(tx, folio.id, lines),
+      actor ? await this.folios.qrDueNow(tx, actor, folio.id, payments) : new Map(),
     );
   }
 

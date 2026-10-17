@@ -1,10 +1,10 @@
 import type { Payment, Reservation, VietQrResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Button, Chip, Field, Seg } from '@ottimo/ui';
+import { Alert, Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useToast } from '../../app/toast';
-import { VietQrCard } from '../../components/VietQrCard';
+import { VietQrCard, qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
 
@@ -95,6 +95,7 @@ export function CheckInPayment({
   fields,
   onPaid,
   requestOnly = false,
+  pendingQr,
 }: {
   reservation: Reservation;
   due: number;
@@ -108,8 +109,13 @@ export function CheckInPayment({
   onPaid: (p: Payment) => void;
   /** The button sends a request to the lead (202) – no payment goes with it. */
   requestOnly?: boolean;
+  /**
+   * A check-in VietQR made earlier and still waiting (folio payments – e.g. before the page was reloaded): confirm
+   * it rather than draw another (a new QR expires it). DOM (f): above what is due now → a note is required.
+   */
+  pendingQr?: Payment;
 }) {
-  const { t, vnd, money } = useI18n();
+  const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
@@ -138,12 +144,15 @@ export function CheckInPayment({
     );
     if (out) setQr(out.data);
   };
+  const waiting = qr?.payment ?? pendingQr;
+  const over = qrOverDue(waiting, payAct.error);
   const confirmQr = async () => {
-    if (!qr) return;
+    if (!waiting) return;
+    if (over !== null && qrNote.trim().length < 3) return;
     const out = await payAct.submit((idem) =>
       api.confirmPaymentReceived(
         { propertyId },
-        qr.payment.id,
+        waiting.id,
         { note: qrNote.trim() || undefined },
         idem,
       ),
@@ -155,6 +164,46 @@ export function CheckInPayment({
       onPaid(out.data);
     }
   };
+
+  // Note + "Ghi nhận đã thu" of the QR waiting (made now or earlier); DOM (f): above what is due now → note required.
+  const confirmFields = waiting ? (
+    <>
+      {over !== null ? (
+        <Alert tone="warn">
+          {t('pay.qr_over_note', { amount: money(waiting.amountVnd), max: money(over) })}
+        </Alert>
+      ) : null}
+      <Field
+        label={t('co.txn_ref')}
+        required={over !== null}
+        error={
+          over !== null && qrNote.trim().length < 3
+            ? t('field_error.reason_required')
+            : payAct.fields.note
+        }
+      >
+        {(p) => (
+          <input
+            {...p}
+            className="input"
+            maxLength={300}
+            value={qrNote}
+            onChange={(e) => setQrNote(e.target.value)}
+          />
+        )}
+      </Field>
+      <p className="li-s">{t('pay.error_not_received')}</p>
+      {over !== null ? null : payAct.view()}
+      <Button
+        variant="pri"
+        busy={payAct.busy}
+        busyLabel={payAct.busyLabel}
+        onClick={() => void confirmQr()}
+      >
+        {payAct.label(t('pay.record', { amount: money(waiting.amountVnd) }))}
+      </Button>
+    </>
+  ) : null;
 
   const methods: Array<{ value: CheckInPayMethod; label: string }> = [
     { value: 'vietqr', label: t('pay.vietqr') },
@@ -226,26 +275,27 @@ export function CheckInPayment({
                 <p className="li-s" role="status">
                   {t('pay.qr_waiting')}
                 </p>
-                <Field label={t('co.txn_ref')} error={payAct.fields.note}>
-                  {(p) => (
-                    <input
-                      {...p}
-                      className="input"
-                      maxLength={300}
-                      value={qrNote}
-                      onChange={(e) => setQrNote(e.target.value)}
-                    />
-                  )}
-                </Field>
-                <p className="li-s">{t('pay.error_not_received')}</p>
-                {payAct.view()}
+                {confirmFields}
+              </div>
+            ) : pendingQr ? (
+              <div className="card inset stack">
+                <p role="status">
+                  {t('pay.qr_pending_earlier', {
+                    amount: money(pendingQr.amountVnd),
+                    time: pendingQr.expiresAt ? dateTime(pendingQr.expiresAt) : '–',
+                  })}
+                </p>
+                {confirmFields}
+                {/* The guest has not paid that code: a new one for the amount due now (the old one expires). */}
+                {qrAct.view()}
                 <Button
-                  variant="pri"
-                  busy={payAct.busy}
-                  busyLabel={payAct.busyLabel}
-                  onClick={() => void confirmQr()}
+                  variant="ghost"
+                  icon="scan"
+                  busy={qrAct.busy}
+                  busyLabel={qrAct.busyLabel}
+                  onClick={() => void createQr()}
                 >
-                  {payAct.label(t('pay.record', { amount: money(qr.payment.amountVnd) }))}
+                  {qrAct.label(t('pay.vietqr_create', { amount: money(due) }))}
                 </Button>
               </div>
             ) : (

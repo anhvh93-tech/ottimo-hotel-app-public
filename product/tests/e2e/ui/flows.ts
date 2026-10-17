@@ -4,7 +4,7 @@
 import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 import { call, session } from '../support/api.js';
 import { setClock } from '../support/clock.js';
-import { SESSION_COOKIE, STAFF_URL } from '../support/env.js';
+import { SESSION_COOKIE, STAFF_URL, WEB_URL } from '../support/env.js';
 import { vnTime } from '../support/s2.js';
 import { EP3, PNG_16X16, p3 } from '../support/s3.js';
 import { signIn, t } from './helpers.js';
@@ -26,6 +26,22 @@ export async function desk(browser: Browser, user: string, iso: string): Promise
   await trustedDesk(page);
   await signIn(page, user);
   return page;
+}
+
+/**
+ * Mở H16 Trả phòng và chờ số cần thu đã tính theo giờ trả mặc định (`GET checkout-summary?checkoutTime=…` = 200) rồi
+ * mới thao tác – như lễ tân nhìn thấy số trước khi bấm. Bấm "Tiếp tục: Phụ phí" sớm hơn (trước khi giờ mặc định được
+ * gửi đi) chạm BUG-R2-141: lần tải lại sau khi lưu minibar bỏ mất giờ trả, nút "Tiếp tục: Bill & thu tiền" chờ mãi
+ * (CI 39059529608, TC-X-070). Ca hồi quy riêng của lỗi: TC-L4-100 (ui-clock/checkout.h16.spec.ts).
+ */
+export async function openCheckOut(page: Page, reservationId: string): Promise<void> {
+  const priced = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'GET' && /\/checkout-summary\?(.*&)?checkoutTime=/.test(r.url()),
+    { timeout: 20_000 },
+  );
+  await page.goto(`${WEB_URL}/reservations/${reservationId}/check-out`);
+  expect((await priced).status(), 'checkout-summary theo giờ trả mặc định').toBe(200);
 }
 
 /**

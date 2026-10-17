@@ -49,6 +49,7 @@ import {
   type ReductionRequest,
   allocateKey,
   focDateMap,
+  itemKeyCode,
   keyKindOf,
   keyOf,
   previewNightReductions,
@@ -282,6 +283,9 @@ export interface PaymentRowLite {
   received_amount_vnd: number | null;
   provider: string | null;
   version: number;
+  /** 0065 (DOM (f)): purpose of a VietQR and the inputs of its cap. */
+  qr_purpose?: string | null;
+  qr_context?: Record<string, unknown> | null;
 }
 
 export interface FolioTotals {
@@ -506,9 +510,19 @@ export const PAYMENT_COLUMNS = `p.id, p.code, p.type, p.method, p.amount_vnd, p.
   uq.display_name AS reconciled_by_name, p.reconciliation_note, p.self_reconciled, p.payer_name, p.card_brand,
   p.card_last4, p.reversal_of_id, p.expires_at, p.method_detail, p.note, p.attachment_id, p.confirmed_at,
   p.confirmed_by, uc.display_name AS confirmed_by_name, p.reservation_id, p.approval_request_id, p.shift_id,
-  p.received_amount_vnd, p.provider, p.version`;
+  p.received_amount_vnd, p.provider, p.version, p.qr_purpose, p.qr_context`;
 export const PAYMENT_JOINS = `LEFT JOIN app_user ur ON ur.id = p.recorded_by
   LEFT JOIN app_user uc ON uc.id = p.confirmed_by LEFT JOIN app_user uq ON uq.id = p.reconciled_by`;
+
+/**
+ * 0.3.7 bổ sung 4 (DOM (f)): "còn phải thu lúc đọc" of a pending VietQR – provided by the payments module (which
+ * owns the purposes and their caps); the folio module only shows it (getFolio.payments[].amountDueNowVnd).
+ */
+export type QrDueNowReader = (
+  tx: Tx,
+  actor: { userId: string; roles: readonly string[] },
+  payment: PaymentRowLite & { folio_id: string },
+) => Promise<number | null>;
 
 /** Commission payee of a closer by role in the property (BR-903): CTV → agent, sale → staff. */
 export function payeeTypeOf(roles: readonly string[]): PayeeType | null {
@@ -587,10 +601,26 @@ class LineIndex {
   }
 
   /** Current line of the key of a request (null = no line now); `gone` = night left the stay. */
-  keyLine(r: Pick<FolioReductionRequest, 'category' | 'serviceDate' | 'originLineId'>): {
+  keyLine(
+    r: Pick<FolioReductionRequest, 'category' | 'serviceDate' | 'originLineId' | 'itemCode'>,
+  ): {
     line: FolioLineRow | null;
     gone: boolean;
   } {
+    // Mô hình minibar M-1 (ARC R8, BR-434-15/16): the key of a minibar item is every live minibar line of that
+    // item on the folio (every fridge, every count) – its value is their sum; the FOC lines sit on the first one.
+    const item = itemKeyCode(r);
+    if (item) {
+      const live = this.all.filter(
+        (l) => l.category === 'minibar' && l.charge_code === item && this.isLive(l),
+      );
+      const first = live[0];
+      if (!first) return { line: null, gone: false };
+      return {
+        line: { ...first, amount_vnd: live.reduce((a, l) => a + l.amount_vnd, 0) },
+        gone: false,
+      };
+    }
     const kind = keyKindOf(r.category);
     if (kind === 'night') {
       const night = r.serviceDate ? this.liveOn('room', r.serviceDate) : null;
@@ -681,6 +711,30 @@ export class FolioService implements FolioStaySync {
       [folioId],
     );
     return this.lock(tx, folioId);
+  }
+
+  private qrDueNowReader: QrDueNowReader | null = null;
+
+  /** 0.3.7 bổ sung 4 (DOM (f)): the payments module provides "còn phải thu" of a pending VietQR. */
+  provideQrDueNow(reader: QrDueNowReader): void {
+    this.qrDueNowReader = reader;
+  }
+
+  /** Payment.amountDueNowVnd of the pending VietQR of a folio (id → amount; absent when unknown). */
+  async qrDueNow(
+    tx: Tx,
+    actor: { userId: string; roles: readonly string[] },
+    folioId: string,
+    payments: readonly PaymentRowLite[],
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (!this.qrDueNowReader) return out;
+    for (const p of payments) {
+      if (p.method !== 'vietqr' || p.status !== 'pending') continue;
+      const v = await this.qrDueNowReader(tx, actor, { ...p, folio_id: folioId });
+      if (v !== null) out.set(p.id, v);
+    }
+    return out;
   }
 
   async get(tx: Tx, folioId: string): Promise<FolioRow | null> {
@@ -1768,10 +1822,12 @@ export class FolioService implements FolioStaySync {
       origin_line_id: string;
       origin_category: string;
       origin_date: string | null;
+      origin_charge_code: string | null;
     }>(
       `SELECT a.id, a.type, a.status, a.foc_state, a.amount_vnd, a.decided_at, a.requested_at, a.reason_code,
               a.target_code, a.folio_line_id, a.line_change, a.foc_service_date::text AS foc_service_date,
-              c.id AS origin_line_id, c.category AS origin_category, c.service_date::text AS origin_date
+              c.id AS origin_line_id, c.category AS origin_category, c.service_date::text AS origin_date,
+              c.charge_code AS origin_charge_code
          FROM approval_request a
          JOIN folio_line f0 ON f0.id = a.folio_line_id
          JOIN folio_line c ON c.id = f0.related_line_id
@@ -1798,6 +1854,7 @@ export class FolioService implements FolioStaySync {
         serviceDate: dated ? (r.foc_service_date ?? r.origin_date) : null,
         storedServiceDate: r.foc_service_date,
         originLineId: r.origin_line_id,
+        itemCode: r.origin_category === 'minibar' ? r.origin_charge_code : null,
         targetCode: r.target_code,
         folioLineId: r.folio_line_id,
         lineChange: r.line_change,
@@ -2688,6 +2745,31 @@ export class FolioService implements FolioStaySync {
    * sits on the CURRENT line of the key (syncReductions), so this is the key's headroom. The line must be live.
    */
   async reductionHeadroomVnd(tx: Tx, lineId: string): Promise<number> {
+    // Mô hình minibar M-1 (ARC R8, BUG-R2-135): a minibar item is ONE key – its value is every live line of the
+    // item, minus every reduction (posted or asked) on any of them.
+    const { rows: item } = await tx.query<{
+      folio_id: string;
+      charge_code: string | null;
+      category: string;
+    }>('SELECT folio_id, charge_code, category FROM folio_line WHERE id = $1', [lineId]);
+    const code = item[0]?.category === 'minibar' ? item[0].charge_code : null;
+    if (item[0] && code) {
+      const { rows: agg } = await tx.query<{ amount: string | number; used: string | number }>(
+        `WITH live AS (
+           SELECT l.id, l.amount_vnd FROM folio_line l
+            WHERE l.folio_id = $1 AND l.category = 'minibar' AND l.charge_code = $2
+              AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+              AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id))
+         SELECT COALESCE((SELECT SUM(amount_vnd) FROM live), 0) AS amount,
+                COALESCE((SELECT -SUM(f.amount_vnd) FROM folio_line f
+                           WHERE f.related_line_id IN (SELECT id FROM live)
+                             AND f.category IN ('foc', 'discount')
+                             AND f.line_state IN ('posted', 'pending_approval') AND f.reversal_of_id IS NULL
+                             AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)), 0) AS used`,
+        [item[0].folio_id, code],
+      );
+      return Math.max(0, Number(agg[0]?.amount ?? 0) - Number(agg[0]?.used ?? 0));
+    }
     const { rows } = await tx.query<{ amount: string | number; used: string | number }>(
       `SELECT l.amount_vnd AS amount,
               COALESCE((SELECT -SUM(f.amount_vnd) FROM folio_line f

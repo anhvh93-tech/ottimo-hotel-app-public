@@ -6,8 +6,10 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
+import { api } from '../app/api';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
+import { PROPERTY_ID } from '../mocks/seed';
 import { renderApp, tv } from '../test/render';
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -259,5 +261,36 @@ describe('BUG-R2-127 – đêm trước ngày đến đã có khách: không th�
     expect(checkins.sent).toHaveLength(0);
     expect(qrs.sent[0]).toMatchObject({ purpose: 'check_in', amountVnd: r.balanceDueVnd });
     expect(qrs.sent[0]).not.toHaveProperty('addPriorNight', true);
+  });
+});
+
+describe('BUG-R2-139 – đêm thêm không bán được (đêm nay căn đã có khách)', () => {
+  it('19:30: còn phải thu = số dư folio, không cộng đêm thêm, nói rõ vì sao; không hỏi QR check_out kèm đêm thêm', async () => {
+    at('19:40');
+    const r = res('Phạm Huy');
+    const next = res('Gia đình anh Hưng');
+    next.roomId = r.roomId;
+    next.arrivalDate = r.departureDate;
+    mockControl.stay.minibarChecks.set(r.id, []);
+    // A server before 0.3.7 bổ sung 4 (no `lateFeeAsNightVnd`) – BR-416-06 is covered in s4-416-fea.test.tsx.
+    mockControl.stay.legacyNoLateFeeAsNight = true;
+    const qrs = capture('POST', /\/vietqr$/);
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    fireEvent.change(await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))), {
+      target: { value: '19:30' },
+    });
+    expect(await screen.findByText(tv('checkout.due_without_extra_night'))).toBeInTheDocument();
+    const balanceRow = screen.getByRole('row', {
+      name: new RegExp(`^${tv('checkout.summary.balance')}\\s*\\d`),
+    });
+    // The server's summary: the folio balance, and a due that prices the night it cannot sell.
+    const sum = (
+      await api.getCheckoutSummary({ propertyId: PROPERTY_ID, reservationId: r.id }, '19:30')
+    ).data;
+    expect(sum.amountDueAtCheckoutVnd).toBe(sum.balanceDueVnd + 708_000);
+    await waitFor(() => expect(num(balanceRow.textContent ?? '')).toBe(sum.balanceDueVnd));
+    qrs.stop();
+    expect(qrs.sent.filter((b) => b.extraNightRateVnd !== undefined)).toHaveLength(0);
   });
 });

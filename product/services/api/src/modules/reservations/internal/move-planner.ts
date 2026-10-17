@@ -40,7 +40,7 @@ import {
 } from '../public/pricing';
 import { PricingService } from '../public/pricing.service';
 import type { BookingContext } from './booking-context';
-import { firstRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
+import { boughtRoomOf, firstRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
 import type { ReservationRow } from './reservation-store';
 
 /** Who made the room move (BR-429 (a)/(b)): only `guest_request` is the guest's. */
@@ -374,6 +374,11 @@ export class MovePlanner {
     }
     const repostDiff = ota && basis === 'new_room_rate';
     const origin = await this.originRoom(tx, row, input);
+    // BR-429 (b1) v0.3.8 bổ sung 18/10 (BUG-R2-134): the room the guest bought before this change (null = never
+    // moved) – an added night in a room OTTIMO chose costs at most what the guest bought.
+    const boughtBefore = tiered
+      ? boughtRoomOf(await roomChangeHistory(tx, row.id), row.origin_room_id)
+      : null;
 
     const nights: PlanNight[] = [];
     for (const date of inScope) {
@@ -391,15 +396,23 @@ export class MovePlanner {
       let newGross = n?.gross ?? 0;
       if (tiered) {
         if (repriceToNewRoom || added) {
-          // BR-429 (b1) v0.3.8 (DOM-S4-01): a night added in the same change as an OTTIMO room move (OTTIMO causes,
-          // `other`, `force_majeure`) takes the current calendar of the OLD room – the guest never pays more because
-          // OTTIMO picked a pricier room. Guest request: the new room's.
-          const target =
-            !repriceToNewRoom && input.cause === 'ottimo'
-              ? (oldRoom ?? roomId)
-              : (roomId ?? oldRoom);
+          // BR-429 (b1) v0.3.8 bổ sung 18/10 (BUG-R2-134 – replaces DOM-S4-01 "the OLD room's calendar"): a night
+          // added while the guest is (or is being put) in a room OTTIMO chose (OTTIMO causes, `other`,
+          // `force_majeure`, or an earlier OTTIMO move) costs min(the calendar of the room the guest bought, the
+          // calendar of the room of the night) – never more because OTTIMO picked a pricier room, the cheaper
+          // room's when OTTIMO picked a cheaper one. Guest request to another room: the new room's.
+          const target = roomId ?? oldRoom;
           if (!target) throw new Error(`night ${date} of ${row.code} has no room to price`);
-          const fresh = await this.calendar(tx, ctx, cache, target, date, group);
+          let fresh = await this.calendar(tx, ctx, cache, target, date, group);
+          if (!repriceToNewRoom) {
+            const bought =
+              input.cause === 'guest' && roomChanged
+                ? null
+                : (boughtBefore ?? (input.cause === 'ottimo' && roomChanged ? oldRoom : null));
+            if (bought && bought !== target) {
+              fresh = Math.min(fresh, await this.calendar(tx, ctx, cache, bought, date, group));
+            }
+          }
           if (repriceToNewRoom && n && oldRoom) {
             // BR-429 (g): a night whose price is not the old room's current calendar (typed/agreed price, or an
             // older calendar) now takes the new room's – flagged, with the same-% suggestion (NÊN).

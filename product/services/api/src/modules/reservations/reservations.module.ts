@@ -55,6 +55,15 @@ defineAuditEntity('reservation', [
   'refundableVnd',
   'otaPenaltyVnd',
   'costVnd',
+  // 0.3.7 bổ sung 4 (BR-416-06): `reservation.late_fee_instead_of_night` – the charge and both people.
+  'amountVnd',
+  'checkoutTime',
+  'date',
+  'confirmedBy',
+  'confirmedByUsername',
+  'channel',
+  'authMethod',
+  'focVnd',
 ]);
 defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
 

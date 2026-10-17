@@ -129,7 +129,7 @@ export class FrontdeskModule implements OnModuleInit {
     this.hooks.provideRoomReturn((tx, input) => this.stays.recordRoomReturn(tx, input));
     // 0.3.7 (S4-10): the cap of a check-in / check-out VietQR = previewCheckIn / getCheckoutSummary amounts
     // (ReservationSalesPort.amountDueFor – payments, BE-B). FD+ only (SAL/CTV → 403, as the contract).
-    this.hooks.provideAmountDue(async (tx, q) => {
+    this.hooks.provideAmountDue(async (tx, q, opts = {}) => {
       const desk = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
       if (!q.actor.roles.some((r) => desk.includes(r))) throw problem('FORBIDDEN_ACTION');
       const ctx = await this.support.stay.context(
@@ -137,16 +137,25 @@ export class FrontdeskModule implements OnModuleInit {
         { userId: q.actor.userId, roles: q.actor.roles },
         q.actor.requestId,
       );
+      const checkIn = {
+        checkinTime: q.checkinTime,
+        addPriorNight: q.addPriorNight,
+        priorNightRateVnd: q.priorNightRateVnd,
+      };
+      const checkOut = {
+        checkoutAt: q.checkoutAt,
+        extraNightRateVnd: q.extraNightRateVnd,
+        lateFeeAsNight: q.lateFeeAsNight,
+      };
+      // ARC 16.6 (f) D7: `now` = at `confirmPaymentReceived` (amountDueNowFor) – never refused.
+      if (opts.now) {
+        return q.purpose === 'check_in'
+          ? this.checkin.amountDueNow(tx, ctx, q.reservationId, checkIn)
+          : this.checkout.amountDueNow(tx, ctx, q.reservationId, checkOut);
+      }
       return q.purpose === 'check_in'
-        ? this.checkin.amountDueForQr(tx, ctx, q.reservationId, {
-            checkinTime: q.checkinTime,
-            addPriorNight: q.addPriorNight,
-            priorNightRateVnd: q.priorNightRateVnd,
-          })
-        : this.checkout.amountDueForQr(tx, ctx, q.reservationId, {
-            checkoutAt: q.checkoutAt,
-            extraNightRateVnd: q.extraNightRateVnd,
-          });
+        ? this.checkin.amountDueForQr(tx, ctx, q.reservationId, checkIn)
+        : this.checkout.amountDueForQr(tx, ctx, q.reservationId, checkOut);
     });
     // ARC-BE-S3-15 g: reservations shows the party size without reading reservation_guest itself.
     this.hooks.providePartyCount(async (tx, reservationId) => {

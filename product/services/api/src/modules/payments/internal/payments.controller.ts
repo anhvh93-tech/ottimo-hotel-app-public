@@ -85,6 +85,8 @@ const vietQrSchema = z.object({
   priorNightRateVnd: money.optional(),
   checkoutAt: z.string().max(40).optional(),
   extraNightRateVnd: money.optional(),
+  // 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): `check_out` only – the late fee charged as one night.
+  lateFeeAsNight: z.boolean().optional(),
   overBalanceReason: z.string().max(300).optional(),
 });
 
@@ -129,7 +131,7 @@ export class PaymentsController {
         folioId,
         input,
       );
-      return { status: 201, body: await this.view(tx, row) };
+      return { status: 201, body: await this.view(tx, row, p) };
     });
     return applyResult(reply, result);
   }
@@ -160,15 +162,20 @@ export class PaymentsController {
       tenantOf(p),
       async (tx) => {
         const out = await this.payments.list(tx, { userId: p.userId, roles: p.roles }, q);
-        return {
-          data: out.rows.map((r) => ({
+        const data: Array<Record<string, unknown>> = [];
+        for (const r of out.rows) {
+          data.push({
             ...paymentDto(r, out.tz, {
               folioId: r.folio_id,
               ...(r.reservation_code ? { reservationCode: r.reservation_code } : {}),
+              ...(await this.dueNow(tx, r, p)),
             }),
             hasAttachment: r.attachment_id !== null,
             ...PaymentsService.waiting(r, out),
-          })),
+          });
+        }
+        return {
+          data,
           page: { nextCursor: out.nextCursor, limit: q.limit },
         };
       },
@@ -199,7 +206,7 @@ export class PaymentsController {
           attachmentId: input.attachmentId ?? null,
         },
       );
-      return { status: 200, body: await this.view(tx, row) };
+      return { status: 200, body: await this.view(tx, row, p) };
     });
     return applyResult(reply, result);
   }
@@ -225,7 +232,7 @@ export class PaymentsController {
         version,
         { result: input.result, note: input.note },
       );
-      return { status: 200, body: await this.view(tx, row) };
+      return { status: 200, body: await this.view(tx, row, p) };
     });
     reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
@@ -256,7 +263,7 @@ export class PaymentsController {
           note: input.note,
         },
       );
-      return { status: 200, body: await this.view(tx, row) };
+      return { status: 200, body: await this.view(tx, row, p) };
     });
     reply.header('etag', etag(result.body.version as number));
     return applyResult(reply, result);
@@ -281,7 +288,7 @@ export class PaymentsController {
         paymentId,
         input.reason,
       );
-      return { status: 200, body: await this.view(tx, row) };
+      return { status: 200, body: await this.view(tx, row, p) };
     });
     return applyResult(reply, result);
   }
@@ -328,6 +335,7 @@ export class PaymentsController {
             ...(input.extraNightRateVnd !== undefined
               ? { extraNightRateVnd: input.extraNightRateVnd }
               : {}),
+            ...(input.lateFeeAsNight !== undefined ? { lateFeeAsNight: input.lateFeeAsNight } : {}),
           },
         },
       ),
@@ -339,7 +347,7 @@ export class PaymentsController {
         const tz = await this.tz(tx);
         return {
           ...out,
-          payment: await this.view(tx, out.payment),
+          payment: await this.view(tx, out.payment, p),
           receivingAccountChangedAt: toZonedIso(out.receivingAccountChangedAt, tz),
           expiredPaymentIds: result.body.expiredPaymentIds,
         };
@@ -361,6 +369,7 @@ export class PaymentsController {
   private async view(
     tx: Tx,
     row: PaymentRowLite & { folio_id?: string },
+    actor?: { userId: string; roles: readonly string[] },
   ): Promise<Record<string, unknown>> {
     const tz = await this.tz(tx);
     const code = row.reservation_id
@@ -369,7 +378,23 @@ export class PaymentsController {
     return paymentDto(row, tz, {
       ...(row.folio_id ? { folioId: row.folio_id } : {}),
       ...(code ? { reservationCode: code } : {}),
+      ...(await this.dueNow(tx, row, actor)),
     });
+  }
+
+  /** 0.3.7 bổ sung 4 (DOM (f)): Payment.amountDueNowVnd of a pending VietQR. */
+  private async dueNow(
+    tx: Tx,
+    row: PaymentRowLite & { folio_id?: string },
+    actor?: { userId: string; roles: readonly string[] },
+  ): Promise<{ amountDueNowVnd?: number }> {
+    if (!actor || !row.folio_id || row.method !== 'vietqr' || row.status !== 'pending') return {};
+    return {
+      amountDueNowVnd: await this.payments.amountDueNow(tx, actor, {
+        ...row,
+        folio_id: row.folio_id,
+      }),
+    };
   }
 
   private date(field: string, raw: unknown): string | null {

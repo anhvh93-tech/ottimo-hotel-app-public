@@ -574,6 +574,54 @@ API dùng theo `outputs/BE/s4-be-b.md` mục 9 (bản vá BE-B ORC đã áp vào
 
 ---
 
+## Phần FE-A – đợt 12: BUG-R2-139 (P2) và BUG-R2-141 (P3) ở H16 (18/10/2026)
+
+- **BUG-R2-139** (`CheckOutPage.tsx`) – khi `extraNightAvailable = false` (đêm nay căn đã có khách):
+  - "Còn phải thu" = số dư folio của máy chủ (`balanceDueVnd`), không lấy `amountDueAtCheckoutVnd` vì số đó đã cộng đêm thêm theo giá mặc định.
+  - Không gửi đêm thêm vào QR. Dòng dưới tổng nói rõ lý do (`checkout.due_without_extra_night`, chuỗi mới chờ UXD).
+  - Chưa làm cách tính thay thế (vd quản lý duyệt phụ thu trả muộn thay đêm), chờ DOM chốt.
+- **BUG-R2-141** (`hooks/useResource.ts`) – lỗi: một handler tạo ở lần render cũ gọi `reload`, lần tải này dùng đầu vào cũ và về sau cùng nên đè phản hồi đúng.
+  - Sửa: `reload` gọi `runRef.current()`, nên luôn đọc bằng đầu vào mới nhất; tham chiếu `reload` không đổi giữa các lần render.
+  - Mọi trang admin-web dùng chung hook này nên cùng được sửa. Mobile/guest-web không có bản sao hook.
+  - Đã xóa `BUG-R2-141` khỏi `OPEN` (TC-L4-100 phải đạt).
+- Kiểm thử:
+  - Unit: `use-resource.test.tsx` (mới); thêm 1 ca BUG-R2-139 trong `s4-38-fea.test.tsx`. admin-web **326/326**; `tsc`, eslint xanh.
+  - E2E qua `clock-run.sh` (admin-web build lại), 3 lượt: TC-L4-100, TC-L4-053/040, TC-L4-096, TC-X-070 đạt **12/12**.
+
+---
+
+## Phần FE-A – đợt 13: ARC 0.3.7 bổ sung 4 mục 16.6 (d)(e)(f) + FB-R2-SEC-FE-08 (18/10/2026)
+
+Căn cứ: `rounds/round-02/outputs/ARC/openapi-0.3.7.md` mục 16 (DOM chốt 18/10), `reviews/s4-SEC-lateFee-reauth.md` thẻ FE-08. Server (BE-A/BE-B) đang cài nên phần này chạy trên mock; E2E làm khi server xong.
+
+- **(d) BR-416-06 – phụ thu trả muộn bằng giá 1 đêm** (`CheckOutPage.tsx`, `PaymentPanel.tsx`):
+  - Khi `extraNightRequired` và `extraNightAvailable = false` mà máy chủ gửi `lateFeeAsNightVnd`: bước 2 báo "thu phụ thu bằng giá 1 đêm"; "Còn phải thu" = `amountDueAtCheckoutVnd` (đã gồm phụ thu, không gồm đêm); dòng phụ `co.late_fee_as_night_line`. Máy chủ cũ (không có trường) giữ cách của BUG-R2-139.
+  - QR `check_out` gửi `lateFeeAsNight: true`, không gửi `extraNightRateVnd`.
+  - Bước 3 có hộp "Quản lý xác nhận": lý do, FOC tùy chọn (dùng lại form FOC, nhãn riêng `co.late_fee_foc` vì quản lý áp ngay, không gửi duyệt), bảng 3 số (phụ thu, miễn/giảm, khách trả), tên đăng nhập + mật khẩu quản lý. OWN/MGR bỏ trống tên = tự xác nhận. Nút Hoàn tất khóa tới khi đủ.
+  - B18 gửi `lateFeeInsteadOfNight { amountVnd, reason, approverUsername?, authMethod: 'password', secret, requestFoc? }`; `requestFoc` không có `authMethod`/`secret`. Số cần thu trừ FOC đang gửi (ví dụ 50 %: khách trả nửa phụ thu). Tiền thu trước cho khoản này không bị coi là tiền thừa.
+- **FB-R2-SEC-FE-08** (cùng hộp trên):
+  - Không có `<form>`, ô tên `name` khác `username`, `autoComplete="off"`, `maxLength` 100; ô mật khẩu che, `autoComplete="new-password"`.
+  - Mật khẩu bị xóa sau mỗi lần gửi, khi rời bước 3/đóng hộp, và khi phụ thu hoặc FOC đổi (quản lý phải thấy đúng số mình cho phép).
+  - 401 `REAUTH_FAILED` hiện **một câu chung** (`co.late_fee_auth_failed`), không phân biệt sai tên hay sai mật khẩu, ở ô mật khẩu và ô lỗi chung. 429 hiện `co.late_fee_locked` ({minutes} từ `Retry-After`).
+  - Việc ngoài FE: checklist SR-DEV-07 (trình duyệt quầy tắt trình quản lý mật khẩu bằng chính sách) – OPS/SEC.
+- **(e) Minibar M-1** (`CheckOutPage.tsx`, `endpoints.ts`):
+  - `getMinibarStandard(R, roomId?)`. Bước 1 có chọn tủ khi `minibarUncheckedRooms` có căn cũ; tự chọn tủ căn cũ trước; lưu xong chuyển sang tủ còn lại rồi mới sang bước 2. `recordMinibarCheck` gửi `roomId` (vắng = căn đang gán).
+  - `adjustedAfterLastCheck`: cảnh báo "Folio đã sửa sau lần đếm trước", liệt kê từng món (folio/lần đếm), mặc định điền `còn lại = standardQty − folioUsedQty` để máy chủ giữ dòng (R6).
+- **(f) Xác nhận QR vượt** (`VietQrCard.tsx` `qrOverDue`, `PaymentPanel.tsx`, `CheckInPayment.tsx`, `CheckInPage.tsx`):
+  - So `amountVnd` với `Payment.amountDueNowVnd`, hoặc đọc 422 `REASON_REQUIRED` ở `note` + `max`: hiện cảnh báo vượt, ô ghi chú bắt buộc (≥ 3), chặn nút xác nhận tới khi có ghi chú.
+  - H13: QR nhận phòng tạo trước còn `pending` (`qrPurpose = check_in`) được hiện lại để xác nhận (kèm nút tạo mã mới).
+  - Chưa làm "NÊN" (cảnh báo QR chờ khi bán đêm) – R3 theo ARC D8.
+- **Mock** (`mocks/stay.ts`): `lateFeeAsNightVnd`, due gồm phụ thu, QR `lateFeeAsNight`/`NOT_ALLOWED`, lệnh B18 đường `lateFeeInsteadOfNight` (kiểm nghiệp vụ trước, 401 giống nhau, 429 sau 5 lần, 409 `SURCHARGE_CHANGED`, 422 `VALUE_OUT_OF_RANGE`, 403 `APPROVAL_LIMIT_EXCEEDED` – hạn mức MGR giả định 1.000.000), `Payment.qrPurpose/amountDueNowVnd`, `confirm-received` 422 `REASON_REQUIRED` + `max`, tủ minibar theo căn (`minibarOldRooms`, `minibarUncheckedRooms`, `roomId`, 5 trường DOM (e), giữ dòng R6). Cờ test `legacyNoLateFeeAsNight` giả lập máy chủ cũ.
+- **Chuỗi**: 23 khóa mới, nhóm "R2 Sprint 4 – FE-A: phụ thu trả muộn bằng giá 1 đêm …" trong `gen_strings.py` – **chờ UXD duyệt**.
+- Kiểm thử:
+  - Unit: `s4-416-fea.test.tsx` (mới, 8 ca: BR-416-06 FD + FOC 50 % + 401 + B18; MGR tự xác nhận + QR `lateFeeAsNight`; 429; xóa mật khẩu khi rời bước; QR vượt ở H16 (422) và H13 (`amountDueNowVnd`); tủ căn cũ trước; folio đã sửa giữ dòng). Hai ca cũ BUG-R2-139 chạy với cờ máy chủ cũ. admin-web **334/334**, api-client 30/30; `tsc`, eslint xanh.
+  - E2E: **chưa chạy** – chờ BE-A/BE-B xong và QA dựng lại api trên `ottimo-qa-s4`.
+- Rủi ro cần theo dõi:
+  - H16 bước 3 ghi thu tiền mặt/chuyển khoản (`recordPayment`) **trước** B18 cho khoản chưa ghi folio (đêm thêm, phụ thu giá 1 đêm): máy chủ thật có thể đòi `overBalanceReason`/ghi chú. Đường thiết kế là `finalPayment` của B18 – kiểm khi E2E.
+  - DepositDialog (FE-B) xác nhận QR không có ô ghi chú: nếu QR cọc vượt số còn thiếu thì máy chủ trả 422 `REASON_REQUIRED` – FE-B cần đọc lỗi này.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).
@@ -879,3 +927,25 @@ Hai chỗ cùng kiểu lỗi FE-A đã nêu ở đợt 8 nay dùng `listApproval
   - Tổng quan OWN: 320 chờ duyệt → "Cần duyệt (300+)", đúng 3 lượt đọc `pending`.
 - **Kiểm:** admin-web vitest **313/313**; `tsc` 0 lỗi; eslint và prettier xanh trên các tệp đã sửa.
 - **File:** `apps/admin-web/src/{app/approvals.ts, pages/money/MoneyPage.tsx, pages/dashboard/useDashboard.ts, pages/OverviewPage.tsx, __tests__/s4-feb-approvals-paging.test.tsx (mới)}`.
+
+---
+
+## Phần FE-B – đợt 7: H11 xác nhận QR cọc vượt số cọc còn thiếu (ARC 0.3.7 bổ sung 4 mục 16, DOM (f)) (18/10/2026)
+
+- **`DepositDialog`** (`pages/reservations/ReservationDialogs.tsx`) dùng lại `qrOverDue` của FE-A (`components/VietQrCard.tsx`). Cảnh báo vượt và ô ghi chú bắt buộc hiện trong hai trường hợp:
+  - biết trước khi bấm: lễ tân xác nhận theo QR (số đã nhận bằng số trên mã) và `amountVnd > Payment.amountDueNowVnd` của QR đang chờ;
+  - server báo: `confirmPaymentReceived` trả 422 `REASON_REQUIRED` ở `note`, kèm `max`. Số `max` được giữ theo mã QR, nên ô ghi chú không biến mất khi bấm lại.
+- **Cách hiện:**
+  - cảnh báo `pay.qr_over_note` (chuỗi FE-A) ghi số khách chuyển và số còn phải thu;
+  - ô "Lý do thu vượt" bắt buộc, cần ít nhất 3 ký tự, lỗi `field_error.reason_required` hiện sau lần bấm đầu;
+  - thiếu ghi chú thì không gọi API;
+  - `note` gửi kèm `confirmPaymentReceived`, rồi chạy B4 `existingPaymentId` như cũ;
+  - lỗi chung của `qrAct` ẩn khi đã có cảnh báo vượt (cùng kiểu `PaymentPanel`).
+- **Không đổi:** luồng QR hết hạn, QR đã ghi nhận, số khác mã QR (ghi như chuyển khoản tay) và `DepositQr`.
+- **Chuỗi:** nhóm mới trong `gen_strings.py` có `dep.qr_over_reason` ("Lý do thu vượt" / "Reason for the extra amount"); đã chạy lại `strings-*.json`.
+- **Unit** `__tests__/s4-feb-deposit-qr-over.test.tsx`, 3 ca:
+  - 422 → cảnh báo kèm số đúng, ô bắt buộc, bấm lại thiếu ghi chú không gửi, có ghi chú thì QR `succeeded` có `note` và đơn `confirmed`;
+  - QR chờ có `amountDueNowVnd` thấp hơn → cảnh báo hiện ngay, không gọi API cho tới khi có ghi chú;
+  - QR không vượt → không có ô, gửi `{}`.
+- **Kiểm:** admin-web vitest **337/337**; `tsc` 0 lỗi; eslint, prettier xanh. Chưa xem trên trình duyệt: Browser pane đang dùng chung với FE-LP.
+- **File:** `apps/admin-web/src/pages/reservations/ReservationDialogs.tsx` (chỉ `DepositDialog`), `apps/admin-web/src/__tests__/s4-feb-deposit-qr-over.test.tsx` (mới), `design/tools/gen_strings.py` và `design/copy/strings-{vi,en,ru}.json`, `design/tools/strings-tables.md`, `design/wireframes/assets/strings.js` (sinh lại).

@@ -270,6 +270,10 @@ export const payment = pgTable(
     bankReference: text('bank_reference'),
     // 0042 (review S3, SEC F5 / ARC 12): role snapshot of the reconciler (self-reconcile = owner only).
     reconciledByRole: text('reconciled_by_role'),
+    // 0065 (0.3.7 bổ sung 4 – DOM (f), ARC D7): the purpose and the inputs of a VietQR, kept so the confirmation
+    // recomputes "còn phải thu" of THAT purpose (Payment.qrPurpose / amountDueNowVnd).
+    qrPurpose: text('qr_purpose'),
+    qrContext: jsonb('qr_context').$type<Record<string, unknown>>(),
   },
   (t) => [
     unique('payment_property_id_key').on(t.propertyId, t.id),
@@ -331,6 +335,14 @@ export const payment = pgTable(
     check(
       'payment_received_amount_check',
       sql`${t.receivedAmountVnd} IS NULL OR ${t.receivedAmountVnd} >= 0`,
+    ),
+    check(
+      'payment_qr_purpose_check',
+      sql`${t.qrPurpose} IS NULL OR (${t.method} = 'vietqr' AND ${t.qrPurpose} IN ('deposit', 'balance', 'check_in', 'check_out', 'billing_period'))`,
+    ),
+    check(
+      'payment_qr_context_check',
+      sql`${t.qrContext} IS NULL OR jsonb_typeof(${t.qrContext}) = 'object'`,
     ),
     check(
       'payment_bank_reference_check',

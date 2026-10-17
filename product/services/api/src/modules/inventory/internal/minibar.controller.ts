@@ -2,7 +2,7 @@
  * Minibar endpoints (OpenAPI 0.3.3 E05-04; US-035, US-003): recordMinibarCheck (A37 – FD+ and HK "today"),
  * getMinibarStandard. Money fields are removed for HK by the role serializer (x-visible-to, rbac note 26).
  */
-import { Body, Controller, Get, Inject, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { z } from 'zod';
 import { DATABASE, Database } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
@@ -29,6 +29,8 @@ const checkSchema = z.object({
     )
     .max(100),
   performedAt: z.string().max(40).optional(),
+  // 0.3.7 bổ sung 4 (mô hình minibar M-1, R1/R9): the fridge – absent = the room the booking is in now.
+  roomId: z.string().regex(UUID).optional(),
 });
 
 function principal(req: GuardedRequest) {
@@ -64,7 +66,12 @@ export class MinibarController {
         tx,
         { userId: p.userId, roles: p.roles, requestId: req.id },
         reservationId,
-        { mode: input.mode, lines: input.lines, performedAt },
+        {
+          mode: input.mode,
+          lines: input.lines,
+          performedAt,
+          ...(input.roomId ? { roomId: input.roomId } : {}),
+        },
       ),
     }));
     return applyResult(reply, result);
@@ -72,12 +79,19 @@ export class MinibarController {
 
   @Get('minibar-standard')
   @Operation('getMinibarStandard')
-  async standard(@Req() req: GuardedRequest, @Param('reservationId') reservationId: string) {
+  async standard(
+    @Req() req: GuardedRequest,
+    @Param('reservationId') reservationId: string,
+    @Query('roomId') roomId?: string,
+  ) {
     if (!UUID.test(reservationId)) throw problem('NOT_FOUND');
+    if (roomId !== undefined && roomId !== '' && !UUID.test(roomId)) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }] });
+    }
     const p = principal(req);
     return this.db.withContext(
       tenantOf(p),
-      (tx) => this.minibar.standard(tx, p.roles, reservationId),
+      (tx) => this.minibar.standard(tx, p.roles, reservationId, roomId || undefined),
       { readOnly: true },
     );
   }

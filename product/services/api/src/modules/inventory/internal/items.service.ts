@@ -12,13 +12,16 @@
  *   column grants of 0042/0061); createItem: duplicate code → 422 DUPLICATE (as the room catalogue).
  * - Audit `config` item.created / item.updated – prices as numbers, the cost price only as "changed" (C2).
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import { type Tx, pgCode } from '../../../db/database';
 import { assertVersion } from '../../../shared/http/precondition';
 import { problem } from '../../../shared/problem';
+import { businessDate, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
+import { ParameterService } from '../../platform/public/parameter.service';
+import { snapshotFridgesBeforeCatalogueChange } from './fridge';
 
 export interface ItemInput {
   code: string;
@@ -90,7 +93,30 @@ export class ItemsService {
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Optional() @Inject(ParameterService) private readonly params?: ParameterService,
   ) {}
+
+  /**
+   * Mô hình minibar M-1, ARC D1 / R2 (BE-B, BUG-R2-130/137/138): a catalogue change applies from the next fill
+   * only – BEFORE it, every fridge of a stay in house without a fill keeps the catalogue as it is now (its level
+   * since the guest moved in) as a `check_in` fill, in this transaction.
+   */
+  private async keepFridgesBeforeChange(tx: Tx): Promise<void> {
+    const now = this.clock.now();
+    const { rows } = await tx.query<{ timezone: string }>(
+      'SELECT timezone FROM property WHERE id = $1',
+      [tx.ctx.propertyId],
+    );
+    const tz = rows[0]?.timezone ?? 'Asia/Ho_Chi_Minh';
+    const rollover = this.params
+      ? await this.params.get<string>(tx, 'business_day_rollover', localDate(now, tz))
+      : '06:00';
+    await snapshotFridgesBeforeCatalogueChange(tx, {
+      today: businessDate(now, tz, rollover),
+      now,
+      userId: tx.ctx.userId ?? null,
+    });
+  }
 
   async list(tx: Tx): Promise<Array<Record<string, unknown>>> {
     const { rows } = await tx.query<ItemRow>(
@@ -102,6 +128,7 @@ export class ItemsService {
   async create(tx: Tx, input: ItemInput, requestId: string): Promise<Record<string, unknown>> {
     const id = uuidv7();
     const now = this.clock.now();
+    await this.keepFridgesBeforeChange(tx);
     await this.insertUnique(tx, 'create_item', () =>
       tx.query(
         `INSERT INTO item (id, organization_id, property_id, code, kind, name, name_i18n, unit, cost_price_vnd,
@@ -151,6 +178,7 @@ export class ItemsService {
     if (input.code !== before.code) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'code', code: 'NOT_EDITABLE' }] });
     }
+    await this.keepFridgesBeforeChange(tx);
     await tx.query(
       `UPDATE item SET name = $2, name_i18n = $3, unit = $4, cost_price_vnd = $5, sale_price_vnd = $6,
                 minibar_standard_qty = $7, min_stock_qty = $8, is_active = $9, updated_at = $10,

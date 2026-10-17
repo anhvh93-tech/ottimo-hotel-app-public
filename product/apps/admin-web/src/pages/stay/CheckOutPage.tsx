@@ -93,9 +93,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     [propertyId, reservationId, qTime],
   );
   const s = sum.state.data;
+  // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
+  // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
+  const [cabinet, setCabinet] = useState<string | undefined>(undefined);
   const std = useResource(
-    async () => (await api.getMinibarStandard(R)).data,
-    [propertyId, reservationId],
+    async () => (await api.getMinibarStandard(R, cabinet)).data,
+    [propertyId, reservationId, cabinet],
   );
   const [left, setLeft] = useState<Record<string, number>>({});
   const [lateTold, setLateTold] = useState(false);
@@ -116,6 +119,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [debtOn, setDebtOn] = useState(false);
   const [debtDue, setDebtDue] = useState('');
   const [debtReason, setDebtReason] = useState('');
+  // BR-416-06 (ARC 0.3.7 bổ sung 4, 16.6 (d)): the night of departure cannot be sold → a late fee of one night,
+  // confirmed at the desk by a manager (username + password; OWN/MGR: their own password) with a reason.
+  const [lfReason, setLfReason] = useState('');
+  const [lfUser, setLfUser] = useState('');
+  const [lfSecret, setLfSecret] = useState('');
+  // Optional FOC on that fee, applied by the confirming manager within their BR-433 limit (same B18 call).
+  const [lfFoc, setLfFoc] = useState<SurchargeFoc>(noSurchargeFoc);
+  const [lfFocAmount, setLfFocAmount] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [bill, setBill] = useState<Bill | null>(null);
   const [done, setDone] = useState<{ billNo: string } | null>(null);
@@ -138,7 +149,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       Object.fromEntries(
         items.map((i) => [
           i.itemId,
-          latest?.find((l) => l.itemId === i.itemId)?.remainingQty ?? i.standardQty,
+          // DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last
+          // count – sending `standard − folioUsed` keeps that line (R6); another number = a new count.
+          i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
+            ? Math.max(0, i.standardQty - i.folioUsedQty)
+            : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ?? i.standardQty),
         ]),
       ),
     );
@@ -174,6 +189,25 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     noteRef.current?.focus();
     setFocusNote(false);
   }, [focusNote, step]);
+
+  // SEC FB-R2-SEC-FE-08: the manager's password lives only while the confirmation box is open with the same
+  // figures – leaving the bill step, the box closing, or the fee / waiver changing clears it.
+  const lfShownKey =
+    step === 2 && s?.extraNightRequired && s.extraNightAvailable === false
+      ? `${s.lateFeeAsNightVnd ?? ''}|${lfFoc.on ? lfFocAmount || 'all' : ''}`
+      : '';
+  useEffect(() => {
+    setLfSecret('');
+  }, [lfShownKey]);
+
+  // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
+  useEffect(() => {
+    const here = r?.segments?.[0]?.roomId;
+    const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== here);
+    if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
+    // first summary / reservation only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s?.minibarUncheckedRooms, r?.segments]);
 
   // ARC 0.3.7 bổ sung 4 (S4-38, BR-416-04/05): at a typed extra-night rate the amount due is the server's too –
   // the cap of a check-out VietQR at that rate (422 AMOUNT_EXCEEDS_BALANCE `max`; nothing is written), never
@@ -249,6 +283,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
 
   const room = r.segments?.[0]?.roomNo ?? '';
+  const currentRoomId = r.segments?.[0]?.roomId ?? '';
+  // The choice of cabinet only when the stay has more than one to count (B14 mid-stay).
+  const cabinets = (() => {
+    const list = [...(s?.minibarUncheckedRooms ?? [])];
+    if (cabinet && !list.some((c) => c.roomId === cabinet)) return list;
+    if (list.length && !list.some((c) => c.roomId === currentRoomId))
+      list.push({ roomId: currentRoomId, roomNo: room });
+    return list;
+  })();
   const guest = r.booker?.displayName ?? '';
   const items = std.state.data?.items ?? [];
   const chargeable = items.some((i) => !i.isFree);
@@ -287,13 +330,60 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // re-priced, extra night stepped, FOC that follows, credit, clamped once) – never summed here.
   const typedDueNow = rateTyped && typedDue?.key === typedKey ? typedDue : null;
   const dueComputing = rateTyped && !typedDueNow;
-  const balance =
-    (rateTyped ? typedDueNow?.due : undefined) ??
-    s?.amountDueAtCheckoutVnd ??
-    s?.balanceDueVnd ??
-    0;
+  // BUG-R2-139: the room is sold tonight (`extraNightAvailable = false`) → no extra night can be posted, so the
+  // server's due (which prices it at the default rate) is not what is owed: the folio balance is (no night added,
+  // none sent to a QR). What to charge instead waits for DOM (e.g. a late fee approved by the manager).
+  const lateFeeAsNight = extraUnavailable ? s?.lateFeeAsNightVnd : undefined;
+  const lateFeeMode = lateFeeAsNight !== undefined && lateFeeAsNight > 0;
+  const lfFocVnd = lateFeeMode && lfFoc.on ? amountOf(lfFocAmount) || (lateFeeAsNight ?? 0) : 0;
+  const lfFocBody =
+    lfFocVnd > 0 ? surchargeFocBody(lfFoc, Math.min(lfFocVnd, lateFeeAsNight ?? 0)) : undefined;
+  const lfFocError =
+    lfFocVnd > (lateFeeAsNight ?? 0)
+      ? t('foc.over_max', { amount: money(lateFeeAsNight ?? 0) })
+      : act.fields['lateFeeInsteadOfNight.requestFoc.amountVnd'];
+  // What the summary of the box shows as waived: the amount that would be sent (never above the fee).
+  const lfFocShown = lfFocBody?.amountVnd ?? 0;
+  // SEC FB-R2-SEC-FE-08: one sentence for any failed confirmation – never "wrong name" vs "wrong password" –
+  // and a lock (429) says it is temporary.
+  const lfAuthError = !lateFeeMode
+    ? undefined
+    : act.code === 'REAUTH_FAILED'
+      ? t('co.late_fee_auth_failed')
+      : act.code === 'RATE_LIMITED'
+        ? t('co.late_fee_locked', {
+            minutes:
+              isApiError(act.error) && act.error.retryAfterSeconds !== undefined
+                ? Math.max(1, Math.ceil(act.error.retryAfterSeconds / 60))
+                : 15,
+          })
+        : undefined;
+  const actView = () => (lfAuthError ? <Alert tone="bad">{lfAuthError}</Alert> : act.view());
+  const lfReady =
+    !lateFeeMode ||
+    (lfReason.trim().length >= 3 &&
+      (mgr || lfUser.trim().length > 0) &&
+      lfSecret.length > 0 &&
+      !surchargeFocMissing(t, lfFoc) &&
+      lfFocVnd <= (lateFeeAsNight ?? 0));
+  const balance = extraUnavailable
+    ? // 0.3.7 bổ sung 4: the server's due then includes the one-night late fee and never the unsold night;
+      // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139).
+      lateFeeMode
+      ? // the FOC asked in this B18 call is not known to the summary (like H13 – BR-402): taken off here.
+        Math.max(0, (s?.amountDueAtCheckoutVnd ?? 0) - (lfFocBody?.amountVnd ?? 0))
+      : Math.max(0, s?.balanceDueVnd ?? 0)
+    : ((rateTyped ? typedDueNow?.due : undefined) ??
+      s?.amountDueAtCheckoutVnd ??
+      s?.balanceDueVnd ??
+      0);
+  // BR-416-06: the late fee (less the waiver sent with it) is posted by B18 too – money taken for it before is
+  // not a credit to hand back.
+  const lateFeeNet = lateFeeMode ? Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown) : 0;
   const credit =
-    balance > 0 ? 0 : Math.max(0, credit0 - extraNightVnd - lateDelta - (s?.balanceDueVnd ?? 0));
+    balance > 0
+      ? 0
+      : Math.max(0, credit0 - extraNightVnd - lateFeeNet - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
   const today = todayLocal(property?.timezone);
   const debtActive = mgr && debtOn && balance > 0;
@@ -304,16 +394,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     res.reload();
   };
 
+  // Cabinets still to count (current room included when it is); the old room's first (BR-703-01).
+  const toCount = s?.minibarUncheckedRooms ?? [];
+  const nextCabinet = (doneRoom: string | undefined) =>
+    toCount.find((c) => c.roomId !== (doneRoom ?? currentRoomId));
   const saveMinibar = async () => {
     if (!chargeable) {
-      setStep(1);
+      const next = nextCabinet(cabinet);
+      if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
+      else setStep(1);
       return;
     }
+    const counted = cabinet;
     const out = await minibarAct.submit((idem) =>
       api.recordMinibarCheck(
         R,
         {
           mode: 'checkout',
+          roomId: counted,
           lines: items.map((i) => ({
             itemId: i.itemId,
             remainingQty: left[i.itemId] ?? i.standardQty,
@@ -324,7 +422,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
     if (out) {
       sum.reload();
-      setStep(1);
+      const next = nextCabinet(counted);
+      if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
+      else setStep(1);
     }
   };
 
@@ -353,7 +453,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       applyLateSurcharge: lateRaise && lateTold,
       expectedSurchargeVnd: lateRaise && lateTold ? lateNew : undefined,
       // E05-11: after the last late tier the check-out itself adds one night at this rate.
-      extraNight: extraNightNeeded ? { rateVnd: extraNightVnd } : undefined,
+      extraNight: extraNightNeeded && !extraUnavailable ? { rateVnd: extraNightVnd } : undefined,
+      lateFeeInsteadOfNight: lateFeeMode
+        ? {
+            amountVnd: lateFeeAsNight ?? 0,
+            reason: lfReason.trim(),
+            approverUsername: mgr ? lfUser.trim() || undefined : lfUser.trim(),
+            authMethod: 'password',
+            secret: lfSecret,
+            requestFoc: lfFocBody,
+          }
+        : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
       // S4-26: only OWN/MGR (FD/FDL → 403 on the server too); only while something is left to collect.
       debt: debtActive ? { dueDate: debtDue, reason: debtReason.trim() } : undefined,
@@ -366,6 +476,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       }),
     );
     setConfirm(false);
+    // The manager's password is never kept after the call (SEC – it is typed for this one confirmation).
+    setLfSecret('');
     if (!out) {
       sum.reload();
       const e = caught.error;
@@ -534,6 +646,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {money(balance)}
               </td>
             </tr>
+            {extraUnavailable ? (
+              <tr className="sub">
+                <td colSpan={2}>
+                  {lateFeeMode
+                    ? t('co.late_fee_as_night_line', { amount: money(lateFeeAsNight ?? 0) })
+                    : t('checkout.due_without_extra_night')}
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       )}
@@ -564,8 +685,44 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </div>
     );
   } else if (step === 0) {
+    const adjusted = (std.state.data?.items ?? []).filter((i) => i.adjustedAfterLastCheck);
     body = (
       <section className="card stack">
+        {cabinets.length > 1 ? (
+          // BR-703-01 (M-1): after B14 the old room's cabinet is counted as at check-out, then this one.
+          <div className="field">
+            <span className="label-h" id={`${ids}-cab`}>
+              {t('co.minibar_cabinet')}
+            </span>
+            <Seg
+              labelledBy={`${ids}-cab`}
+              options={cabinets.map((c) => ({
+                value: c.roomId,
+                label:
+                  c.roomId === currentRoomId
+                    ? t('co.minibar_cabinet_room', { room: c.roomNo ?? '' })
+                    : t('co.minibar_cabinet_old', { room: c.roomNo ?? '' }),
+              }))}
+              value={cabinet ?? currentRoomId}
+              onChange={(v) => setCabinet(v === currentRoomId ? undefined : v)}
+            />
+          </div>
+        ) : null}
+        {adjusted.length ? (
+          <Alert tone="warn" title={t('co.minibar_folio_adjusted')}>
+            <ul className="list-plain">
+              {adjusted.map((i) => (
+                <li key={i.itemId}>
+                  {t('co.minibar_folio_vs_count', {
+                    item: i.itemName,
+                    folio: i.folioUsedQty ?? 0,
+                    count: i.lastCheckUsedQty ?? 0,
+                  })}
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        ) : null}
         {!std.state.data ? (
           std.state.status === 'error' ? (
             <ErrorBlock titleKey="co.error_title" error={std.state.error} onRetry={std.reload} />
@@ -703,9 +860,16 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           // E05-11: one more night instead of a late surcharge; the rate defaults to the direct
           // calendar price of that night. The room taken tonight → no extra night possible.
           extraUnavailable ? (
-            <Alert tone="bad" title={t('checkout.extra_night_title')}>
-              {t('checkout.extra_night_unavailable')}
-            </Alert>
+            lateFeeMode ? (
+              // BR-416-06: no night is added; a late fee of one night, confirmed by a manager at the desk.
+              <Alert tone="warn" title={t('checkout.extra_night_title')}>
+                {t('co.late_fee_as_night_body', { amount: money(lateFeeAsNight ?? 0) })}
+              </Alert>
+            ) : (
+              <Alert tone="bad" title={t('checkout.extra_night_title')}>
+                {t('checkout.extra_night_unavailable')}
+              </Alert>
+            )
           ) : (
             <div className="stack">
               <Alert tone="warn" title={t('checkout.extra_night_title')}>
@@ -788,13 +952,114 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       <div className="stack">
         {/* S4-25 / BR-426: a FOC still waiting blocks "Hoàn tất" – said on the bill step too. */}
         {focPending}
+        {/* BR-416-06: decided before collecting – the optional waiver changes what the guest pays now. */}
+        {lateFeeMode ? (
+          <section className="card stack" aria-labelledby={`${ids}-lf`}>
+            <h3 className="label-h" id={`${ids}-lf`}>
+              {t('co.late_fee_confirm_title', { amount: money(lateFeeAsNight ?? 0) })}
+            </h3>
+            <p className="li-s">{t('co.late_fee_confirm_help')}</p>
+            <Field
+              label={t('co.late_fee_reason')}
+              required
+              error={act.fields['lateFeeInsteadOfNight.reason']}
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  maxLength={300}
+                  value={lfReason}
+                  onChange={(e) => setLfReason(e.target.value)}
+                />
+              )}
+            </Field>
+            {/* Optional waiver of that fee – applied by the confirming manager within their limit (BR-433). */}
+            <SurchargeFocFields
+              value={lfFoc}
+              onChange={setLfFoc}
+              label={t('co.late_fee_foc')}
+              error={act.fields['lateFeeInsteadOfNight.requestFoc.note']}
+            />
+            {lfFoc.on ? (
+              <MoneyField
+                label={t('foc.amount')}
+                help={t('foc.max', { amount: money(lateFeeAsNight ?? 0) })}
+                required
+                value={lfFocAmount || vnd(lateFeeAsNight ?? 0)}
+                onChange={setLfFocAmount}
+                error={lfFocError}
+              />
+            ) : null}
+            {/* SEC FB-R2-SEC-FE-08: what the manager allows, right above where they type their password. */}
+            <dl className="dl" aria-label={t('co.late_fee_sum_title')}>
+              <dt>{t('co.late_fee_sum_fee')}</dt>
+              <dd className="num">{money(lateFeeAsNight ?? 0)}</dd>
+              <dt>{t('co.late_fee_sum_foc')}</dt>
+              <dd className="num">{lfFocShown > 0 ? `− ${money(lfFocShown)}` : money(0)}</dd>
+              <dt>{t('co.late_fee_sum_guest')}</dt>
+              <dd className="num">{money(Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown))}</dd>
+            </dl>
+            {/* No <form> and no username/password pair: the counter browser must not offer to save or fill
+                the manager's password (SEC FE-08); the password is cleared after every call. */}
+            <Field
+              label={t('co.late_fee_approver')}
+              required={!mgr}
+              help={mgr ? t('co.late_fee_approver_self') : undefined}
+              error={act.fields['lateFeeInsteadOfNight.approverUsername']}
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  name="lf-confirming-manager"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={100}
+                  value={lfUser}
+                  onChange={(e) => setLfUser(e.target.value)}
+                />
+              )}
+            </Field>
+            <Field
+              label={t('co.late_fee_secret')}
+              required
+              error={lfAuthError ?? act.fields['lateFeeInsteadOfNight.secret']}
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  type="password"
+                  className="input"
+                  name="lf-confirming-secret"
+                  autoComplete="new-password"
+                  value={lfSecret}
+                  onChange={(e) => setLfSecret(e.target.value)}
+                />
+              )}
+            </Field>
+          </section>
+        ) : null}
         <section className="card stack">
           <p className="kv-big num">
             {t('bill.total')}: {money(s?.totalVnd ?? 0)}
           </p>
           {balance > 0 ? (
             online ? (
-              <PaymentPanel reservation={r} balanceVnd={balance} onPaid={reload} />
+              <PaymentPanel
+                reservation={r}
+                balanceVnd={balance}
+                checkout={{
+                  checkoutAt: /^\d{2}:\d{2}$/.test(time)
+                    ? `${r.departureDate}T${time}:00+07:00`
+                    : undefined,
+                  extraNightRateVnd:
+                    extraNightNeeded && !extraUnavailable && rateTyped ? typedRate : undefined,
+                  lateFeeAsNight: lateFeeMode || undefined,
+                }}
+                onPaid={reload}
+              />
             ) : (
               <p className="li-s">{t('rsv.need_online')}</p>
             )
@@ -956,15 +1221,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }
 
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
-  const whyLocked = extraUnavailable
-    ? t('checkout.extra_night_unavailable')
-    : lateRaise && !lateTold
-      ? t('checkout.complete_needs_told')
-      : debtActive && !debtReady
-        ? t('co.debt_needs')
-        : credit > 0 && overReason.trim().length < 3
-          ? t('checkout.overpay.needs_reason')
-          : null;
+  const whyLocked =
+    extraUnavailable && !lateFeeMode
+      ? t('checkout.extra_night_unavailable')
+      : !lfReady
+        ? t('co.late_fee_needs_confirm')
+        : lateRaise && !lateTold
+          ? t('checkout.complete_needs_told')
+          : debtActive && !debtReady
+            ? t('co.debt_needs')
+            : credit > 0 && overReason.trim().length < 3
+              ? t('checkout.overpay.needs_reason')
+              : null;
   const completeLabel = debtActive
     ? t('co.complete_debt', { amount: money(balance) })
     : balance === 0 && (s?.paidVnd ?? 0) > 0
@@ -984,7 +1252,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         <div className="cols-2">
           <div className="stack">
             {body}
-            {done ? null : act.view()}
+            {done ? null : actView()}
           </div>
           <div className="stack">{summaryCard}</div>
         </div>
@@ -1090,7 +1358,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               <li>{t('co.debt_effect', { amount: money(balance), date: date(debtDue) })}</li>
             ) : null}
           </ul>
-          {act.view()}
+          {actView()}
         </ConfirmDialog>
       ) : null}
       {extra ? (

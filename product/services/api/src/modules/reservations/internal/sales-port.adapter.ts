@@ -39,6 +39,11 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
     return this.hooks.amountDue(tx, q);
   }
 
+  /** ARC 16.6 (f) D7: the same calculation at confirmation, never refused (see the port). */
+  amountDueNowFor(tx: Tx, q: AmountDueQuery): Promise<number> {
+    return this.hooks.amountDue(tx, q, { now: true });
+  }
+
   private async ctx(tx: Tx, requestId?: string): Promise<BookingContext> {
     const userId = tx.ctx.userId ?? SYSTEM_ACTOR.userId;
     const { rows } = await tx.query<{ role: string }>(

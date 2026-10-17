@@ -80,3 +80,12 @@
 | DOM-S4-06, DOM-S4-18, DOM-S4-19 | Done | `moveReservation` mô tả; EP19 như trên; `expectedDeltaVnd` đã gửi thì phải khớp |
 | UXD v1.2 (`infants`, `months = null`) | Done | `stayType` + `months` (`null` = "Not sure yet"), `infants` |
 | PO landing-scope 0.10 | Done | Form trong mục `#book` của trang chủ; `/book/` → 301 `/#book` |
+
+## Tuần Ổn định – thẻ SEC D5 (`reviews/s4-SEC-lateFee-reauth.md`) – trả lời 18/10/2026 (chi tiết `outputs/ARC/openapi-0.3.7.md` mục 16.10)
+
+| Thẻ | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R2-SEC-ARC-24 (Minor) | Done | `checkOut` khai `401 ReauthFailed`, `403 Forbidden`, `429 RateLimited`; `approveRequest`/`rejectRequest` khai `429`; mô tả điều kiện SEC; R3 contract-ahead: chỉ `pin` hoặc `password` + `totpCode` |
+| FB-R2-SEC-ARC-25 (Major) | Trả lời; cài R3 | PO thêm backlog R3 "xác nhận từ xa trên máy quản lý" (ARC chọn: yêu cầu đồng bộ hạn ngắn + push + SSE, không treo khoản sau B18); PO/DOM thêm dòng hướng dẫn vận hành cấm đọc mật khẩu qua điện thoại. Cho lễ tân tự ghi khi vắng quản lý = chính sách → ORC mở ESC nếu PO/DOM muốn |
+| FB-R2-SEC-ARC-26 (Minor) | Việc R3/GL | Trần theo ngày + bắt buộc `device_trusted` – ghi contract-ahead, BE-A cài R3, SEC kiểm trước GL |
+

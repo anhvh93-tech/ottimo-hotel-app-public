@@ -194,3 +194,59 @@ Ghi chú test skeptic (chạy trên bản sao `wt4`):
 - `r2foc-attack` M8/M8b đỏ: thuộc R2FOC-03, đã được xếp Note (DOM/UXD/FE-A), không phải việc BE-B.
 
 Kiểm chứng (18/10, DB mới `ottimo_test_beb_s4r`): toàn bộ `@ottimo/api` **2.694/2.694 xanh, 82/82 tệp**; tsc 0 lỗi; eslint và prettier xanh trên tệp chạm; `validate-fixtures` 0 lỗi. Tệp: sửa `src/modules/inventory/internal/minibar.service.ts`, `test/integration/s438-beb.test.ts` (thêm 5 ca: oracle BR-434-15, void rồi đếm lại, chuỗi 2 → 1 → 2 → 0 → 1, món rời danh mục, món định mức 0), `product/tests/fixtures/br-examples.json` (bỏ `pendingFix` BR-434-15), `01-decisions/decision-log.md` (gỡ (m), thêm 1 dòng).
+
+## 13. Phản hồi & sửa vòng 3 – mô hình minibar M-1 (ARC `openapi-0.3.7.md` mục 16) + DOM (f) QR, 18/10
+
+Thay cách "nối chuỗi" của mục 12 (đã để lọt BUG-R2-135) bằng mô hình M-1 do ARC duyệt. Mục 12 (BUG-R2-129 nối chuỗi) nay **bị thay** bởi khóa theo mã món.
+
+| Phần | Cách làm (theo R1–R10) | Kiểm chứng |
+|---|---|---|
+| **Migration 0065** `0065_minibar_fill.sql` | Bảng `minibar_fill` + `minibar_fill_line`: RLS theo cơ sở, chỉ SELECT/INSERT. UK `minibar_check_live_checkout_key` đổi sang (`reservation_id`, `room_id`). Bù `folio_line.charge_code` = `item.code` cho dòng minibar (cả dòng thay và dòng đảo). Bù lần nạp `backfill` cho tủ của đơn `in_house` đã có lần đếm (mốc/giá theo lần đếm, `filled_at` ngay trước lần đếm đầu). `payment.qr_purpose` (CHECK chỉ `vietqr`) + `qr_context`. Snapshot sinh qua thư mục tạm (`prevId` = 0064), journal idx 42 | `drizzle-kit generate` ở thư mục thật: "No schema changes"; `schema-parity`, `migrations-journal`, `rls` xanh. Phần bù chạy thử trên DB có dữ liệu (BEGIN … ROLLBACK): 79/85 dòng minibar được gắn mã, 6 dòng lễ tân tự ghi không qua đếm để trống; 17 lần nạp `backfill` |
+| **Tủ = (lượt, căn)** (R1, R9) | `inventory/internal/fridge.ts` (mới). Lượt = đơn chính của folio. Phòng của lượt = phòng trong segment, cộng mọi tủ đã có lần nạp/lần đếm. Lý do: B14 ngay đêm đầu ghi đè segment tại chỗ, nên tủ căn cũ chỉ còn biết qua lần nạp/đếm. `roomId` của căn khác → 422 `NOT_IN_LIST`. `onCheckedOut` (B14 và B18 gọi) **ghi nhận tủ** (lần nạp `check_in` nếu chưa có), nên tủ căn cũ không mất. Đếm tủ căn cũ sau B14 → sinh việc bổ sung ngay | Ca 3 / BR-703-01 (a, b, c) + `NOT_IN_LIST` |
+| **Lần nạp chụp khi danh mục đổi** (R2, D1) | `items.service` `create`/`update`: trước khi ghi, mọi tủ của lượt `in_house` chưa có lần nạp nhận một lần nạp `check_in` = danh mục trước khi sửa, cùng giao dịch. Ngày nạp không sau lần đếm đầu của tủ. [GIẢ ĐỊNH BE-B – ARC] Danh mục chưa có món minibar nào thì không chụp, để tủ không bị trống suốt lượt khi đang khai báo danh mục lúc có khách ở | Ca 5, 11; test BE-D chỉnh theo R2/R3/R5 (xem dưới) |
+| **`record()` viết lại** (R3–R7) | Món, mốc, giá lấy từ lần nạp gần nhất (chưa có thì lấy danh mục hiện hành). Món ngoài tủ → `NOT_IN_LIST`; món đã tắt hoặc đổi miễn phí sau lần nạp vẫn đếm được. **Giữ dòng** khi số dùng = lần đếm trước của tủ (cùng kỳ nạp) **hoặc** = số trên dòng folio sống; nếu dòng đã bị void thì giữ "không dòng". Khác cả hai thì đảo dòng sống rồi ghi **một** dòng = dùng × giá lần nạp, `chargeCode = item.code`. Lần đếm mới chép giá, số tiền và `folio_line_id` theo dòng được giữ. `latestCheck`/lần đếm hiện số tiền **dòng folio sống** (R10). Tủ căn cũ: `latestCheck` là lần đếm sống bất kể ngày | Ca 4, 5, 6, 8, 9, 10; BR-702-02/03/04 |
+| **Khóa FOC theo món** (R8, D2) | `reductions.ts`: `keyOf` cho minibar có mã → `item:minibar:<code>`. `LineIndex.keyLine` lấy giá trị = Σ dòng minibar sống cùng mã (mọi tủ, mọi kỳ); dòng FOC gắn vào dòng sống đầu tiên. `reductionRequests` đọc `charge_code` của dòng gốc. `reductionHeadroomVnd` tính theo cả món. `adjustFolioLine` vốn đã chép `charge_code`; dòng minibar có mã món vẫn sửa giá được (miễn `PRICE_NOT_EDITABLE`) | Ca 1, ca 2 / BR-434-16 (zeroPath 750.000, recount 792.000, adjustments 792.000; A applied, B dormant; B18 thu 0; B `cancelled` `settled_while_dormant`) |
+| **`checkoutStatus`/`uncheckedRooms`** (R9) | Theo từng tủ (món tính tiền theo lần nạp). `uncheckedRooms` cho `CheckoutSummary.minibarUncheckedRooms` (BE-A đã dùng). Loại việc bổ sung tủ căn cũ: `hk_task.type = minibar_refill`, `source = system` | Ca 3: B18 chặn tới khi đếm tủ căn mới |
+| **`getMinibarStandard`** | `items` theo lần nạp (`standardQty` = mốc, `unitPriceVnd` = giá lần nạp) + `lastCheckUsedQty`, `folioLineId`, `folioUsedQty`, `folioAmountVnd`, `adjustedAfterLastCheck` (4 trường folio chỉ tính cho FD+). Tham số `roomId` | Ca 5 (tranh chấp DOM (e)), ca 9 (void) |
+| **QR – DOM (f)** (D7) | `createVietQr` lưu `qr_purpose` + `qr_context` (`checkinTime`, `addPriorNight`, `priorNightRateVnd`, `checkoutAt`, `extraNightRateVnd`, `lateFeeAsNight`); nhận `lateFeeAsNight` (chỉ `check_out`, khác → 422 `NOT_ALLOWED`). `confirmPaymentReceived`: tính "còn phải thu lúc xác nhận" theo đúng mục đích. `check_in`/`check_out` qua `ReservationSalesPort.amountDueNowFor` của BE-A; `deposit` = cọc còn thiếu; `balance` = số dư folio. Vượt mà thiếu `note` (≥ 3) → 422 `REASON_REQUIRED` (`field` = `note`, `max` = số còn phải thu); audit ghi `overVnd`. `Payment.qrPurpose` + `amountDueNowVnd` (chỉ VietQR `pending`) trong `getFolio.payments[]`, `listPayments` và các phản hồi payment | Ca DOM (f): QR 300.000 khi còn thu 200.000 |
+
+**Test đã sửa kỳ vọng theo M-1** (tệp của vai khác, ghi rõ):
+- `minibar-catalog-s4-bed.test.ts` (BE-D):
+  - khách vào ở **sau** khi có danh mục (R2);
+  - khách đang ở khi đổi giá giữ giá lần nạp: 50.000 thay vì 60.000. Khách vào sau khi đổi giá trả 60.000 (R5);
+  - món tắt vẫn trong tủ đã nạp; khách vào sau thì không có món đó (R3).
+- Tệp của tôi: `s438-beb.test.ts` (bỏ kỳ vọng nối chuỗi; ca void theo ca 9; ca món tắt và định mức 0 sửa qua `updateItem`). `minibar-m1.test.ts` (mới, 9 ca).
+
+**E2E** – ma trận QA `e2e/clock/minibar-matrix.s4.clock.spec.ts` chạy trên stack riêng `ottimo-beb-s4` (dựng từ cây chung, có 0065), **không đụng `ottimo-qa-s4`**, đã gỡ (`down -v`):
+- Chạy cả tệp trên stack sạch, không còn mã nào trong `OPEN`: **17/20 đạt** (TC-L4-101…117).
+- TC-L4-118, 119, 122 đỏ ở bước dựng: `changeRoom` trả 409 `ROOM_NOT_READY` vì căn đích đang `VD`, do các ca trước trong cùng lượt đã trả phòng. Đặt lại các căn về sạch rồi chạy riêng từng ca: **cả 3 đạt**.
+- **Báo QA qua ORC**: ba ca B14 cần dọn căn đích trong `precondition`.
+- Đã xóa BUG-R2-135, 136, 137, 138, 140 khỏi `OPEN` (`known-bugs.ts`). BUG-R2-140 còn phần hiển thị của FE-A; QA tự gắn lại mã riêng nếu ca UI cần.
+
+**Kiểm chứng** (18/10, DB mới): toàn bộ `@ottimo/api` **2.731/2.731 xanh, 85/85 tệp**; tsc 0 lỗi; eslint và prettier xanh (cả 6 tệp ORC nhắc); `validate-fixtures` 0 lỗi. Oracle bỏ `pendingFix`: BR-434-16, BR-702-02, BR-702-03, BR-702-04, BR-703-01.
+
+**Giả định / điểm ARC xác nhận:**
+- (n) Danh mục trống thì không chụp lần nạp.
+- (o) Phòng của lượt gồm cả tủ đã có lần nạp/lần đếm, vì B14 đêm đầu ghi đè segment tại chỗ; B14/B18 ghi nhận tủ qua `onCheckedOut`.
+- (p) `latestCheck` của tủ căn cũ là lần đếm sống bất kể ngày; tủ đang ở vẫn theo ngày nghiệp vụ.
+- (q) Dòng minibar mang mã món vẫn sửa được giá.
+- (r) Đọc `reservation_segment` (module reservations) ở chế độ chỉ đọc trong `inventory/internal/fridge.ts`; nhờ BE-A review.
+
+Tệp đợt này:
+- Tạo:
+  - `src/db/migrations/0065_minibar_fill.sql`, `src/db/migrations/meta/0065_snapshot.json`
+  - `src/modules/inventory/internal/fridge.ts`
+  - `test/integration/minibar-m1.test.ts`
+- Sửa – BE-B:
+  - `src/db/migrations/meta/_journal.json`, `src/db/schema/inventory.ts`, `src/db/schema/folio.ts`
+  - `src/modules/inventory/internal/{minibar.service,minibar.controller,items.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`
+  - `src/modules/folio/public/{folio.service,reductions,folio-view}.ts`, `src/modules/folio/internal/{folio.controller,folio-lines.service}.ts`
+  - `src/modules/payments/internal/{payments.service,payments.controller}.ts`, `src/modules/payments/payments.module.ts`
+  - `test/integration/s438-beb.test.ts`
+- Sửa – module khác (ghi rõ):
+  - `src/modules/inventory/internal/items.service.ts` (BE-D: chụp lần nạp);
+  - `test/integration/minibar-catalog-s4-bed.test.ts` (BE-D);
+  - `product/tests/e2e/support/known-bugs.ts` (QA: xóa 5 mã);
+  - `product/tests/fixtures/br-examples.json` (bỏ 5 `pendingFix`).
+
+ARC 18/10 đồng ý (n), (p), (q); (o) có điều kiện: B14 phải ghi nhận tủ căn cũ trong mọi trường hợp. Mã đã đáp ứng: `onCheckedOut` (B14 gọi) luôn chụp lần nạp cho tủ chưa có, kể cả tủ chưa đếm và danh mục chưa đổi (`registerFridge`); chỉ bỏ qua khi danh mục trống, khi đó không có món tính tiền nên không có gì để chặn. Thêm ca `minibar-m1.test.ts`: B14 đêm đầu (segment bị ghi đè sang 203), tủ 202 chưa đếm → `minibarUncheckedRooms` = [202], B18 409; đếm tủ 202 (`roomId`) → B18 200, thu 35.000, có việc bổ sung tủ 202. Toàn bộ API **2.732/2.732, 85/85 tệp**; tsc, eslint, prettier xanh.

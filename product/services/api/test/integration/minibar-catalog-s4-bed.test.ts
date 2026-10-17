@@ -40,7 +40,13 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
     });
     ids = await seedBooking(db, t);
     fa = await startFeatureApp(db);
-    // X leaves today (HK may count it); Y stays until 17/10 (the desk counts it).
+  });
+  /**
+   * X leaves today (HK may count it); Y stays until 17/10 (the desk counts it). Mô hình minibar M-1 (ARC R2/R3,
+   * BE-B 18/10): a fridge holds the catalogue of its check-in – the stays move in once the goods exist.
+   */
+  const stays = async () => {
+    if (x) return;
     x = await seedStay(db, t, ids, {
       status: 'in_house',
       roomNo: '202',
@@ -53,7 +59,7 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
       arrival: '2026-10-13',
       departure: '2026-10-17',
     });
-  });
+  };
   afterAll(async () => {
     await fa?.close();
     await db?.close();
@@ -178,6 +184,7 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
   });
 
   it('AC1 / BR-701 + US-003 AC2: HK checkout count – free water recorded, not charged; HK never sees money', async () => {
+    await stays();
     const std = await staff(
       fa,
       tok('hk'),
@@ -265,8 +272,36 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
       },
     );
     expect(r.statusCode, r.body).toBe(201);
-    expect(r.json().totalVnd).toBe(60_000);
+    // Mô hình minibar M-1 (ARC R5/D4, BE-B 18/10): Y was in house when the price changed – its fridge keeps the
+    // price of its fill (25.000); the new price is for the next fill (a guest moving in after the change).
+    expect(r.json().totalVnd).toBe(50_000);
     expect(await minibarLines(y.reservationId)).toEqual([
+      { amount_vnd: 50_000, quantity: '2.00', unit_price_vnd: 25_000, reversal: false },
+    ]);
+    const z = await seedStay(db, t, ids, {
+      status: 'in_house',
+      roomNo: '101',
+      arrival: '2026-10-14',
+      departure: '2026-10-16',
+    });
+    const rz = await staff(
+      fa,
+      tok('fd'),
+      null,
+      'POST',
+      `${P(t)}/reservations/${z.reservationId}/minibar-checks`,
+      {
+        json: {
+          mode: 'checkout',
+          lines: [
+            { itemId: items.nuoc!.id, remainingQty: 2 },
+            { itemId: items.coca!.id, remainingQty: 0 },
+          ],
+        },
+      },
+    );
+    expect(rz.statusCode, rz.body).toBe(201);
+    expect(await minibarLines(z.reservationId)).toEqual([
       { amount_vnd: 60_000, quantity: '2.00', unit_price_vnd: 30_000, reversal: false },
     ]);
     expect(await minibarLines(x.reservationId)).toEqual([
@@ -281,18 +316,29 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
     expect(audit[0]!.before).toMatchObject({ salePriceVnd: 25_000 });
     expect(audit[0]!.after).toMatchObject({ salePriceVnd: 30_000, costChanged: true });
     expect(JSON.stringify(audit[0])).not.toContain('costPriceVnd');
-    // Deactivated item leaves the standard fridge (no longer asked at the next count).
+    // A deactivated item leaves the standard fridge of the NEXT fills; a fridge filled before keeps it until its
+    // next fill (M-1 R3 – BUG-R2-130: what the guest used there is still counted).
     const off = await update('mgr', items.nuoc!.id, 1, { ...water, isActive: false });
     expect(off.statusCode, off.body).toBe(200);
-    const std = await staff(
-      fa,
-      tok('fd'),
-      null,
-      'GET',
-      `${P(t)}/reservations/${y.reservationId}/minibar-standard`,
-    );
-    expect((std.json().items as Array<{ itemId: string }>).map((i) => i.itemId)).toEqual([
-      items.coca!.id,
-    ]);
+    const fridge = async (reservationId: string) =>
+      (
+        (
+          await staff(
+            fa,
+            tok('fd'),
+            null,
+            'GET',
+            `${P(t)}/reservations/${reservationId}/minibar-standard`,
+          )
+        ).json().items as Array<{ itemId: string }>
+      ).map((i) => i.itemId);
+    expect(await fridge(y.reservationId)).toEqual([items.coca!.id, items.nuoc!.id]);
+    const w = await seedStay(db, t, ids, {
+      status: 'in_house',
+      roomNo: '102',
+      arrival: '2026-10-14',
+      departure: '2026-10-16',
+    });
+    expect(await fridge(w.reservationId)).toEqual([items.coca!.id]);
   });
 });

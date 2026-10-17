@@ -607,4 +607,178 @@ Quyết định ARC: (a) `depositRequiredVnd` giữ một trường, hai nghĩa 
 | BUG-R2-128 (kèm) | `depositRequiredVnd` tính lại mỗi khi tiền phòng đổi, gồm sửa giá S4-35 | BE-A |
 | BUG-R2-129 | **Chỉ ghi nhận**: BE-B chọn cách nối chuỗi minibar để FOC tự khôi phục (`relatedLineId` hay khóa lượt × minibar × món); ARC xác nhận khi ORC chuyển. Yêu cầu của ARC khi xác nhận: không trừ đôi hạn mức BR-433, đúng "bất kể lịch sử thao tác" (S4-23 (4)) | BE-B → ARC |
 | DOM MOVE-06 (BR-424-07) | `changeRoom.expectedDeltaVnd` đã gửi thì luôn phải khớp số tính lúc ghi, kể cả chênh 0 – lệch → 409 `SURCHARGE_CHANGED`, không lưu (như DOM-S4-19 cho B7) | BE-A |
-| BUG-R2-129 – **ARC xác nhận** (18/10) | Cách BE-B nối chuỗi (`minibar.service.ts` `record()`: dòng cuối của chuỗi `related_line_id` theo từng món, gieo từ các lần đếm `checkout` của lượt ở, đi qua cả dòng đã đảo/đếm 0/void và dòng thay của `adjustFolioLine`; đếm lại > 0 nối `related_line_id` vào dòng cuối) tương đương khóa lượt × minibar × món (BR-434-15): FOC tự khôi phục = min(số đã duyệt, dòng mới), không duyệt lại, không trừ hạn mức BR-433 lần hai; không đổi hợp đồng, không migration. Điều kiện giữ: chuỗi chỉ gieo từ lần đếm `checkout` (dòng tiêu thụ `stayover` là khoản riêng, không nối); test hồi quy giữ các ca đếm 0 → đếm lại, void → đếm lại, sửa dòng → đếm lại, món rời danh mục (BUG-R2-130) | BE-B (đã sửa) |
+| BUG-R2-129 – **ARC xác nhận** (18/10) | Cách BE-B nối chuỗi (`minibar.service.ts` `record()`: dòng cuối của chuỗi `related_line_id` theo từng món, gieo từ các lần đếm `checkout` của lượt ở, đi qua cả dòng đã đảo/đếm 0/void và dòng thay của `adjustFolioLine`; đếm lại > 0 nối `related_line_id` vào dòng cuối) tương đương khóa lượt × minibar × món (BR-434-15): FOC tự khôi phục = min(số đã duyệt, dòng mới), không duyệt lại, không trừ hạn mức BR-433 lần hai; không đổi hợp đồng, không migration. Điều kiện giữ: chuỗi chỉ gieo từ lần đếm `checkout` (dòng tiêu thụ `stayover` là khoản riêng, không nối); test hồi quy giữ các ca đếm 0 → đếm lại, void → đếm lại, sửa dòng → đếm lại, món rời danh mục (BUG-R2-130). **~~Xác nhận này~~ thay bằng mục 16 (18/10)**: kiểm lại lần 3 cho thấy chuỗi không đủ (BUG-R2-135) – FOC minibar chuyển sang khóa theo mã món | BE-B (đã sửa) → mục 16 |
+
+## 16. Mô hình minibar M-1 + BR-416-06 + xác nhận QR vượt (ARC, 18/10 – tuần Ổn định, thiết kế trước khi code)
+
+Căn cứ: `reviews/s4-money-recheck3.md` (BUG-R2-134…140), DOM chốt 18/10 (BR v0.3.8 bổ sung, decision-log dòng DOM "chốt kiểm lại lần 3"), bảng ca nháp của QA
+`product/tests/test-cases/s4-minibar-matrix.md`. Ba vòng vá minibar (095/109 → 129/130 → 135…138, 140) đều vá từng nhánh của `record()`; mục này thay bằng **một mô hình** để BE-B
+làm một lần. Cách "nối chuỗi, không đổi khóa" ARC xác nhận ở mục 15 **bỏ**: chuỗi không giữ được tổng FOC ≤ giá trị món khi có nhiều yêu cầu trên các mắt khác nhau (BUG-R2-135).
+
+### 16.1 Khái niệm
+
+| Khái niệm | Định nghĩa | Lưu ở đâu |
+|---|---|---|
+| Lượt ở | Folio của đơn chính (đơn con B9a/B13/B18 dùng chung folio) | `folio` |
+| **Tủ** | (lượt ở, căn) – mỗi căn lượt đã ở là một tủ; B14 giữa lượt → hai tủ | `minibar_check.reservation_id` (= đơn chính) + `room_id` |
+| **Lần nạp** | Mức và giá bán từng món trong tủ tại một thời điểm: lúc nhận phòng/vào căn (R2), bổ sung giữa kỳ (R3) | bảng mới `minibar_fill` + `minibar_fill_line` (16.3) |
+| **Mốc** | Số lượng của món ở lần nạp gần nhất của tủ (BR-702-02) | `minibar_fill_line.qty` (vắng → danh mục hiện hành, xem R2) |
+| Lần đếm | Bản `checkout` của **một tủ**; lần sau thay lần trước **cùng tủ** | `minibar_check` (UK đổi, 16.3) |
+| Dòng sống của món | Dòng folio `minibar` chưa đảo của món, trong tủ | `folio_line` `category = minibar`, **`charge_code = item.code`** |
+| **Khóa FOC minibar** | `item:minibar:<item.code>` trên folio – lượt × minibar × món (BR-434-15), qua mọi tủ, mọi kỳ nạp | `reductions.ts` `keyOf` |
+
+### 16.2 Quy tắc
+
+| # | Quy tắc |
+|---|---|
+| R1 | **Tủ và thay thế**: lần đếm `checkout` thay bản cũ **cùng (lượt, căn)**; không bao giờ thay bản của căn khác. `roomId` vắng = căn đang gán; căn cũ của chính lượt được; căn khác → 422 `NOT_IN_LIST`. |
+| R2 | **Mốc = mức lúc nhận phòng** (DOM (b), BR-702-02) – ARC **chọn chụp mức tủ lúc nhận phòng**, cài theo kiểu **chụp khi danh mục đổi** (copy-on-write): mỗi lần sửa danh mục (định mức, giá bán, miễn phí, tắt món, thêm món), **trong cùng giao dịch**, mọi tủ của lượt đang ở **chưa có lần nạp** được ghi lần nạp `source = check_in` bằng **danh mục trước khi sửa**. Tủ chưa có lần nạp ⇒ danh mục chưa đổi từ lúc vào căn ⇒ danh mục hiện hành **chính là** mức lúc nhận phòng. Kết quả đúng như chụp ở B9/B14 nhưng gọn trong module `inventory`, không móc vào B9/B14 của BE-A, không ghi gì khi danh mục không đổi. Giả định R2: tủ căn trống được nạp theo danh mục hiện hành (HK bổ sung sau trả phòng; R3 theo dõi tồn từng tủ). |
+| R3 | **Món của tủ** = món trong lần nạp gần nhất (qty > 0); tủ chưa có lần nạp → món đang hoạt động có định mức > 0. Món đã tắt/định mức 0/đổi miễn phí **sau** lần nạp vẫn ở trong tủ, vẫn hiện và vẫn đếm được tới lần nạp sau. Món thêm vào danh mục sau lần nạp → `NOT_IN_LIST`. `mode = checkout` vẫn phải đủ mọi món của tủ (`MINIBAR_ITEMS_INCOMPLETE`). |
+| R4 | Đã dùng = mốc − còn lại (BR-702); còn lại > mốc → `MINIBAR_QTY_OVER_STANDARD`. |
+| R5 | **Giá** = giá bán trong lần nạp (`null` = miễn phí) cho **toàn bộ** số đã dùng của kỳ nạp – cùng nguyên tắc với định mức: "đổi danh mục áp từ lần nạp sau". Một món trong một kỳ nạp chỉ có một đơn giá. DOM xác nhận 18/10 (BR-702-04); trả lời Q1/Q2 của QA ở 16.5 |
+| R6 | **Giữ dòng** (DOM (e)): đã dùng = **lần đếm trước** của món trong tủ (xác nhận lại) **hoặc** = số trên **dòng folio sống** (lễ tân đã sửa/void có lý do) → giữ dòng folio sống (kể cả dòng thay của `adjustFolioLine`; void thì giữ "không dòng"), giữ FOC và nhãn; dòng của lần đếm mới **chép** `unit_price`, `amount_vnd`, `folio_line_id` theo dòng folio sống. Không phụ thuộc giá/định mức/trạng thái danh mục hiện hành (sửa 130, 137, 140). |
+| R7 | **Lần đếm thật mới** (khác cả hai số ở R6; hoặc lần đếm đầu sau một lần nạp – R3) → đảo dòng sống (BR-008), ghi **một** dòng mới: `quantity` = đã dùng, `unit_price` = giá R5, `charge_code = item.code`, `serviceDate` = ngày đếm. Đã dùng 0 → chỉ đảo. |
+| R8 | **FOC minibar** (BR-434-15): mọi yêu cầu FOC/giảm giá trên **bất kỳ** dòng minibar nào của món gom vào khóa `item:minibar:<code>`; **giá trị khóa** = Σ dòng sống của món trên folio (mọi tủ, mọi kỳ). Gom xong mới gọi `allocateKey(giá trị, đã duyệt theo thứ tự duyệt S4-23, chờ duyệt)` → áp_i = min(duyệt_i, giá trị − Σ áp trước); **Σ FOC ≤ giá trị** luôn đúng. Về 0 → ngủ; > 0 lại → tự khôi phục, không duyệt lại; hạn mức BR-433 trừ **một lần** lúc duyệt; chốt folio khi còn ngủ → hủy `settled_while_dormant` (BR-434-16). Dòng FOC gắn `related_line_id` vào dòng sống đầu tiên của món (hiển thị), không dùng để tính khóa. |
+| R9 | **B14 giữa lượt** (DOM (c), BR-703-01): tủ căn cũ đếm như trả phòng (`roomId` = căn cũ) → sinh việc bổ sung minibar căn cũ; B14 **không** bị chặn. B18 chặn `minibar_not_checked` khi **còn tủ nào** của lượt có món tính tiền chưa đếm (`CheckoutSummary.minibarUncheckedRooms`). |
+| R10 | Hiển thị: `latestCheck.totalVnd` = Σ tiền dòng folio sống của tủ = số H16 bước 1 = số B18 thu (M7 của QA). HK không thấy giá/tiền/trường folio. |
+
+### 16.3 Dữ liệu (BE-B; số migration ORC cấp)
+
+- `minibar_fill` (`property_id`, `reservation_id` – đơn chính, `room_id`, `source` `check_in|refill|backfill`, `filled_at`, `created_by`) + `minibar_fill_line` (`fill_id`, `item_id`, `qty` ≥ 1,
+  `unit_price_vnd_snapshot` – null = miễn phí, `unit_cost_vnd_snapshot` C2). Lần nạp gần nhất = `filled_at` lớn nhất của tủ. RLS theo `property_id` như mọi bảng.
+- `minibar_check`: UK một phần đổi từ (`reservation_id`) thành (`reservation_id`, `room_id`) `WHERE mode='checkout' AND replaced_by_check_id IS NULL`.
+- `folio_line.charge_code = item.code` cho mọi dòng `minibar` (mã món bất biến – `NOT_EDITABLE`); bù cho dòng cũ từ `minibar_check_line.folio_line_id` → `item.code`; `adjustFolioLine` chép `charge_code` sang dòng thay.
+- Bù lần nạp (`source = backfill`) cho tủ của lượt đang ở **đã có lần đếm**: `qty = minibar_check_line.standard_qty`, giá = `unit_price_vnd_snapshot` của lần đếm đó. Tủ chưa đếm: không bù (R2).
+  Dữ liệu thử đã đổi danh mục trước migration có thể lệch – QA tạo lại ca.
+- `payment.qr_purpose` + `payment.qr_context` (jsonb: `checkinTime`, `addPriorNight`, `priorNightRateVnd`, `checkoutAt`, `extraNightRateVnd`, `lateFeeAsNight`) – ghi lúc `createVietQr` để tính
+  "còn phải thu lúc xác nhận" (16.6).
+
+### 16.4 Bảng ca (số đúng – nguồn recheck3 + DOM 18/10)
+
+| # | Ca | Diễn biến | Đúng | Quy tắc |
+|---|---|---|---|---|
+| 1 | BUG-R2-095/109/129 | Bia dùng 2 (70.000), FOC 70.000 duyệt → đếm lại còn 2 (dùng 0) → đếm lại còn 0 | FOC ngủ ở bước giữa; cuối: tự khôi phục 70.000, ròng 0, không duyệt lại, hạn mức trừ 1 lần | R7, R8 |
+| 2 | BUG-R2-135 | 102: bia 2 → FOC A 70.000 → 0 → 2 → FOC B (trên dòng mới) → dùng 1 | Giá trị khóa 35.000: A áp 35.000, B 0 (ngủ); ròng 0; folio **750.000**; B18 thu 0 | R8 |
+| 3 | BUG-R2-136 | 202 → 203 (B14 sự cố); tủ 202 dùng 2 bia, tủ 203 dùng 1 | Hai lần đếm không thay nhau; minibar **105.000**, tổng **1.689.000**; FOC 70.000 xin trên dòng bia 202 → ròng **35.000** | R1, R8, R9 |
+| 4 | BUG-R2-137 | 302: bia sang miễn phí sau nhận phòng, đếm lại cùng 2 | Giữ **70.000**, folio **987.000**; đếm lại 3 → **105.000** (giá lần nạp) | R5, R6 |
+| 5 | BUG-R2-138 | 103: bia dùng 2, OWN hạ định mức 2 → 1, đếm lại còn 0 | Mốc 2 (lần nạp chụp khi sửa) → dùng 2 → giữ **70.000**, folio **820.000**; snack nâng 1 → 2 → mốc 1 → **30.000** (không 60.000) | R2 |
+| 6 | BUG-R2-140 | 301: đổi giá bia 40.000, đếm lại 2 | Giữ 70.000; lần đếm `totalVnd` = `latestCheck.totalVnd` = **70.000**, `unitPriceVnd` 35.000 | R5, R6 |
+| 7 | BUG-R2-130 | Món tắt sau nhận phòng, đếm lại | Món vẫn trong `items`; cùng số giữ dòng; khác số tính theo giá lần nạp | R3 |
+| 8 | DOM (e) | Bia đếm 2 (70.000) → lễ tân sửa folio còn 1 (35.000, lý do) | `adjustedAfterLastCheck = true`, `folioUsedQty = 1`; Desk mặc định gửi còn = mốc − 1 → giữ 35.000; HK đếm lại dùng 2 (xác nhận lần cũ) → giữ 35.000; dùng 3 → lần đếm mới **105.000** | R6, R7 |
+| 9 | DOM (e) void | Lễ tân void dòng bia (lý do) → đếm lại dùng 2 | Giữ "không dòng" (0); dùng 1 → **35.000** | R6 |
+| 10 | Món mới | Thêm món vào danh mục sau nhận phòng | Không trong tủ → `NOT_IN_LIST`; vào tủ từ lượt/lần nạp sau | R3 |
+| 11 | Sửa danh mục hai lần | Định mức 2 → 1 → 3 khi lượt đang ở | Mốc vẫn 2 (chỉ lần sửa đầu chụp) | R2 |
+
+### 16.5 Đối chiếu bảng ca nháp của QA (`s4-minibar-matrix.md`) – QA sửa bảng theo đây
+
+| Chỗ của QA | Mô hình M-1 | QA sửa |
+|---|---|---|
+| **Q1** phần dùng thêm sau đổi giá theo giá hiện hành | **Không** – một đơn giá cho cả kỳ nạp = giá lúc nạp (R5). Lý do: lần đếm chỉ cho tổng đã dùng, không biết khách dùng trước hay sau lúc đổi giá; bảng giá trong phòng chỉ đổi khi nạp lại; cùng nguyên tắc DOM chốt cho định mức. Muốn ưu đãi cho khách thì dùng FOC. DOM xác nhận 18/10 (BR-702-04) | MX-A1-B2 = **70.000** / folio **862.000** (không 75.000); MX-A2-B2 = **70.000** / **862.000** (không 65.000); MX-A1-B2-C1 ròng **35.000** (không 40.000) |
+| **Q2** món đã chuyển miễn phí, phần thêm 0 đ | **Không** – theo R5, phần thêm tính giá lúc nạp (35.000) | MX-A3-B2 và MX-A4-B2 = **70.000** / folio **862.000** (không 35.000) |
+| **Q3** món đã tắt (hoặc định mức 0) không đếm được ở H16 | Vẫn **hiện và đếm được** tới lần nạp sau (R3); `getMinibarStandard.items` lấy theo lần nạp; lệnh đếm `checkout` phải có món đó | MX-A5-B2 = 70.000, MX-A5-B3 = 35.000, MX-A5-B4 = 0 (dòng đảo); MX-A7-B2…B4 như A6 (mốc 2) |
+| **Q4** mốc khi chưa có lần đếm trước | Mức lúc nhận phòng/vào căn (DOM (b)), cài bằng chụp khi danh mục đổi (R2) | MX-A8 giữ nguyên số; MX-D1-A6: tủ 203 mốc = danh mục lúc vào căn (định mức đã hạ trước B14 → **1**), tủ 202 mốc 2 |
+| M2 "mốc = `standard_qty` của dòng đếm trước" | Nguồn chính là **lần nạp gần nhất**; `standard_qty` lần đếm trước luôn bằng nó trong cùng kỳ | Ghi lại câu M2 |
+| M3 "chép giá chụp và tiền của dòng được giữ" | Chép theo **dòng folio sống** (số lễ tân sửa thắng – DOM (e)); giữ cả khi đã dùng = số trên folio | Thêm ô ca 8, 9 của 16.4 |
+| M4 "dòng mới nối chuỗi; phần thêm giá hiện hành" | Lần đếm thật mới đảo dòng sống, ghi **một** dòng mới = đã dùng × giá lần nạp; chuỗi không còn dùng cho FOC | Sửa câu M4 |
+| M5, M6 "(DOM (c) chưa chốt)" | DOM đã chốt: FOC theo món qua hai tủ (R8, R9) | Bỏ chú thích "chưa chốt"; MX-D1-c giữ ròng 35.000 |
+| Thiếu ô | Ca 8–11 của 16.4; ca HK mở H16 tủ căn cũ (`roomId`) trong ngày | Thêm |
+
+Các ô còn lại của QA (A0, A6, A8, tầng ii trừ A1-B2-C1, tầng iii) **khớp** mô hình. Số tiền phòng của MX-D2-a QA tự đối chiếu (ngoài phạm vi minibar).
+
+### 16.6 Ba điểm DOM chốt cho FE-A (bổ sung 4 – trường đã chốt)
+
+**(d) BR-416-06 – phụ thu trả muộn bằng giá 1 đêm khi đêm ngày đi không bán được (BUG-R2-139)**
+
+| Chỗ | Trường | Ý nghĩa |
+|---|---|---|
+| Xem trước | `CheckoutSummary.lateFeeAsNightVnd` | Có khi `extraNightRequired = true` và `extraNightAvailable = false`; = `extraNightDefaultRateVnd` (giá 1 đêm của đêm ngày đi, không tính lại bậc vì không thêm đêm) |
+| Xem trước | `CheckoutSummary.amountDueAtCheckoutVnd` | Trường hợp trên: **gồm** `lateFeeAsNightVnd` (sau khi đảo phụ thu theo bậc; FOC trả muộn đã duyệt đi theo – khóa cả lượt); không bao giờ gồm đêm không bán được. Ví dụ 203: **792.000** |
+| QR | `createVietQr.lateFeeAsNight: true` (`purpose = check_out`) | Trần = `amountDueAtCheckoutVnd` ở trên. Gửi ngoài trường hợp trên → 422 `NOT_ALLOWED`; gửi `extraNightRateVnd` khi không bán được → 422 `NOT_ALLOWED` |
+| Lệnh ghi | `checkOut.lateFeeInsteadOfNight { amountVnd, reason, approverUsername?, authMethod, secret }` | Thay `extraNight`. Ghi dòng `late_checkout` `charge_code = late_fee_as_night` (doanh thu khác, không `stay_night`), giờ trả = giờ rời thật. Thiếu cả hai → 422 `LATE_CHECKOUT_AFTER_LIMIT` (`field` = `lateFeeInsteadOfNight`); `amountVnd` lệch → 409 `SURCHARGE_CHANGED` |
+| Xác nhận | **Quyết định ARC**: quản lý xác nhận **tại quầy** – lễ tân làm B18, quản lý nhập tên đăng nhập + mật khẩu của mình (OWN/MGR gọi thì chỉ nhập lại mật khẩu của mình); **không** tạo loại yêu cầu duyệt | Người xác nhận phải là OWN/MGR của cơ sở, đang hoạt động; sai mật khẩu / tên không có / không đủ vai đều trả **cùng** 401 `REAUTH_FAILED` (`field` = `lateFeeInsteadOfNight.secret`); bộ đếm 5 sai/15 phút theo người xác nhận (SR-RL-02); audit `money` `reservation.late_fee_instead_of_night` ghi cả hai người. R3 chuyển sang PIN |
+
+Lý do chọn xác nhận tại quầy: khách đang đứng ở quầy, cần xong ngay; luồng yêu cầu duyệt bất đồng bộ sẽ kẹt đơn ở `in_house` (đúng lỗi recheck3 thấy); `secret` đã nằm trong
+`SECRET_BODY_FIELDS` (không vào băm idempotency, không vào log). Rủi ro mới: lễ tân thấy quản lý gõ mật khẩu trên máy quầy và endpoint kiểm được mật khẩu người khác – đã chặn
+bằng phản hồi giống nhau + bộ đếm; **SEC xem lại** trong tuần Ổn định (không chặn BE-A). Giảm/miễn khoản này (DOM 18/10): FOC trả muộn đã duyệt đi theo; FOC mới gửi kèm
+**`lateFeeInsteadOfNight.requestFoc`** (`FocRequestInput`: `kind`, `amountVnd`, `reasonCode`, `note`; không `authMethod`/`secret`) – người xác nhận tự áp trong hạn mức BR-433, cùng giao dịch B18;
+vượt phụ thu → 422 `VALUE_OUT_OF_RANGE`; vượt hạn mức → 403 `APPROVAL_LIMIT_EXCEEDED`, không ghi gì. Ví dụ 203: miễn 50 % → FOC 396.000, khách trả 396.000. DOM đã xác nhận: giá lúc nạp
+(BR-702-04) và `lateFeeAsNightVnd` không tính lại bậc BR-107.
+
+**(e) Minibar – số folio đã sửa thắng lần đếm cũ**: `getMinibarStandard.items[]` thêm `lastCheckUsedQty`, `folioLineId`, `folioUsedQty`, `folioAmountVnd`, `adjustedAfterLastCheck`
+(bốn trường folio chỉ FD+). "Giữ số folio" **không cần cờ riêng**: Desk gửi `remainingQty = standardQty − folioUsedQty` → server giữ dòng (R6). Đếm khác cả hai số = lần đếm thật mới.
+
+**(f) Xác nhận QR vượt số còn phải thu**
+
+| Câu hỏi | Chốt |
+|---|---|
+| Số còn phải thu lúc xác nhận | **Trần đúng mục đích QR tính lại lúc xác nhận** với ngữ cảnh lưu lúc tạo (`check_in` như `amountDueAtCheckinVnd` – đêm B9a chỉ khi còn trống; `check_out` như `amountDueAtCheckoutVnd`; `deposit` = cọc còn thiếu; `balance` = còn phải thu folio). Không so với số dư folio: QR B9a/B18 luôn lớn hơn số dư trước khi ghi đêm |
+| Desk đọc ở đâu | `Payment.amountDueNowVnd` (chỉ VietQR `pending`, tính lúc đọc – trong `getFolio.payments[]`, `listPayments`) + `Payment.qrPurpose` |
+| Thiếu `note` | 422 `REASON_REQUIRED`, `field` = `note`, Problem `max` = số còn phải thu lúc xác nhận; `note` ≥ 3 ký tự |
+| Phần vượt | Vào `creditVnd`/`unhandledCreditVnd`, theo BR-522 (B18 `overpaymentHandling` hoặc `createRefundRequest`); không tự tạo yêu cầu hoàn; audit ghi số vượt |
+| NÊN: đêm có QR `addPriorNight` chờ | **Xếp R3** (không thêm trường lúc này). Thiết kế sẵn: `searchAvailability` mỗi căn-đêm thêm `pendingPriorNightQr: { reservationCode, expiresAt }` (FD+) – Desk cảnh báo khi bán/gán |
+
+**(a) `ExtensionOptions.currentBookingRateVnd`** – một hàm "giá gợi ý đêm kề" (BE-A `addedNightRate`) cho trường này, `CheckoutSummary.extraNightDefaultRateVnd`, giá mặc định B9a, theo thứ tự DOM chốt 18/10: (1) OTTIMO đã đổi căn (sự cố, swap, B7a; căn khách mua = căn của lần khách xin đổi cuối, không có thì căn gốc) → min(giá khách mua – giá nhập tay của đêm kề, kể cả S4-35 sửa sau khi đổi, không có thì lịch căn khách mua; lịch căn hiện tại), áp cả đơn lịch giá và đêm con Trực tiếp của đơn OTA (sự cố 201 → 401: **700.000**; Agoda 203 → 401, gia hạn thứ Tư: **792.000**); (2) đêm kề ở căn hiện tại có giá nhập tay → giá đó; (3) khách xin đổi căn → `null` = lịch căn hiện tại (201 → 401: **1.042.000**); luôn kẹp sàn–trần BR-105 căn hiện tại.
+
+### 16.7 Quyết định ARC
+
+| # | Quyết định | Phương án bỏ |
+|---|---|---|
+| D1 | Mốc = mức lúc nhận phòng, cài bằng **chụp khi danh mục đổi** (R2) | Chụp ở B9/B14 (cần cổng sang BE-A, ghi cho mọi lượt); định mức mới chỉ từ lần bổ sung sau mà không chụp (không có mốc cho tủ chưa đếm) |
+| D2 | FOC minibar khóa theo **mã món** `item:minibar:<code>` (R8) | Nối chuỗi `related_line_id` (mục 15) – không giữ Σ FOC ≤ giá trị khi nhiều yêu cầu |
+| D3 | Tủ = (lượt, căn) (R1, R9) | Một bản `checkout`/đơn |
+| D4 | Một đơn giá/kỳ nạp = giá lúc nạp (R5) – DOM xác nhận 18/10 (BR-702-04) | Phần thêm theo giá hiện hành (QA Q1) – một món nhiều giá, không biết lúc dùng |
+| D5 | BR-416-06 xác nhận tại quầy bằng mật khẩu quản lý, không yêu cầu duyệt [SEC xem lại] | Loại yêu cầu duyệt mới / chỉ OWN/MGR tự làm B18 |
+| D6 | QR `check_out` dùng cờ tường minh `lateFeeAsNight` (như `addPriorNight`) | Tự cộng khi không bán được (QR vượt nếu sau đó dời được khách đến) |
+| D7 | QR vượt so với trần mục đích tính lại lúc xác nhận; lưu ngữ cảnh QR | So với số dư folio |
+| D8 | Cảnh báo QR chờ khi bán đêm: R3 | Thêm trường ngay |
+
+### 16.8 Việc
+
+| Ai | Việc |
+|---|---|
+| **BE-B** (inventory + folio) | (1) Migration: `minibar_fill(_line)`, UK `minibar_check` theo (`reservation_id`, `room_id`), bù `folio_line.charge_code` minibar, bù lần nạp `backfill`, `payment.qr_purpose/qr_context`. (2) `items.service`: chụp khi danh mục đổi (R2) trong cùng giao dịch. (3) `minibar.service.record()` viết lại theo R1–R7 (mốc/món/giá từ lần nạp; giữ dòng theo R6; một dòng mới theo R7; `chargeCode = item.code`); bỏ chặn giữ dòng theo giá hiện hành; `roomId`. (4) `reductions.ts`: khóa `item:minibar:<chargeCode>` cho `category = minibar`, giá trị = Σ dòng sống cùng mã; `adjustFolioLine` chép `charge_code`; bỏ logic chuỗi khỏi FOC. (5) `MinibarCheckoutPort.checkoutStatus` trả theo từng tủ; `onCheckedOut`/đếm tủ căn cũ sinh việc bổ sung. (6) `getMinibarStandard`: `items` theo lần nạp + 5 trường DOM (e), `roomId`. (7) `createVietQr` lưu ngữ cảnh + `lateFeeAsNight`; `confirmPaymentReceived` kiểm vượt → `note` bắt buộc, `Payment.qrPurpose`/`amountDueNowVnd`. Test hồi quy: 11 ca của 16.4 + bảng QA đã sửa |
+| **BE-A** (reservations/checkout) | (1) BUG-R2-139: `dueAtCheckout`/`amountDueForQr` không cộng đêm không bán được; `lateFeeAsNightVnd`; `checkOut.lateFeeInsteadOfNight` (xác nhận người khác: kiểm vai OWN/MGR cơ sở, phản hồi 401 giống nhau, bộ đếm SR-RL-02 theo người xác nhận, audit hai người; kiểm `REDACT_PATHS` che `secret` lồng). (2) BUG-R2-134: hàm giá gợi ý đêm kề (16.6 (a)) dùng chung B9a/B13/B18 + `currentBookingRateVnd`. (3) `CheckoutSummary.minibarUncheckedRooms` + blocker theo mọi tủ (gọi cổng mới của BE-B). (4) Cổng tính trần theo mục đích cho BE-B dùng ở `confirmPaymentReceived` |
+| **FE-A** | H16 bước 1: chọn tủ (`roomId`) khi `minibarUncheckedRooms` có căn cũ; cảnh báo `adjustedAfterLastCheck`, mặc định điền theo folio; CheckOutPage đường "phụ thu bằng giá 1 đêm" (hộp quản lý xác nhận: tên đăng nhập + mật khẩu + lý do; không hiện "còn phải thu" gồm đêm khi `extraNightAvailable = false`); QR `check_out` gửi `lateFeeAsNight`; xác nhận QR: so `amountVnd` với `amountDueNowVnd`, ô `note` bắt buộc khi vượt, đọc 422 `REASON_REQUIRED` + `max` |
+| **DOM** | Đã xác nhận 18/10: R5 giá lúc nạp (BR-702-04), `lateFeeAsNightVnd` không tính lại bậc, cần `requestFoc` (đã thêm) |
+| **SEC** | Xem lại D5 (xác nhận mật khẩu quản lý tại quầy) |
+| **QA** | Sửa `s4-minibar-matrix.md` theo 16.5; thêm ca 8–11; ca BR-416-06 (203: 792.000, xác nhận sai → 401 giống nhau); ca QR vượt (`note` thiếu → 422) |
+| **BA** | Ghi chú rbac A18: đường BR-416-06 cần OWN/MGR xác nhận tại quầy; mã lỗi trường `REASON_REQUIRED` thêm `confirmPaymentReceived.note` |
+
+### 16.9 Kiểm tra (18/10, sau bổ sung 4 phần minibar/BR-416-06/QR)
+
+| Kiểm | Kết quả |
+|---|---|
+| spec-validator | OK |
+| Redocly | 0 lỗi, 4 cảnh báo cũ |
+| `gen-openapi-meta --check` | Up to date (sinh lại sau mỗi khối sửa yaml) |
+| api-client | Sinh lại, lần 2 up to date |
+| `gen_rbac_cases --check` | OK (không thêm operation) |
+| `gen_traceability --strict` | exit 0 – x-rbac-field 170, 0 thiếu, 0 mã lạ |
+| vitest api `contract`/`serializer`/`module-boundaries` | 26/26 |
+| prettier | Xanh |
+
+Tất cả là **bổ sung** (trường tùy chọn, tham số query tùy chọn, mô tả) – không đổi trường cũ, không thêm operation, không `dryRun` mới.
+
+### 16.10 Phản hồi SEC review D5 (`reviews/s4-SEC-lateFee-reauth.md`, 18/10) – ĐỒNG Ý CÓ ĐIỀU KIỆN
+
+| Thẻ | Trạng thái | Cách xử lý |
+|---|---|---|
+| FB-R2-SEC-ARC-24 (Minor) | Done (hợp đồng) | `checkOut.responses` thêm `401 ReauthFailed`, `403 Forbidden` (`APPROVAL_LIMIT_EXCEEDED` của `requestFoc`, `FORBIDDEN_ACTION` của `debt`), `429 RateLimited`; `approveRequest`/`rejectRequest` thêm `429`. Mô tả `lateFeeInsteadOfNight` ghi điều kiện SEC (tìm người xác nhận theo cơ sở, 2FA chưa kiểm được → 401 giống hệt, đếm cả người gọi và người xác nhận, nghiệp vụ trước mật khẩu, thông báo người xác nhận); `authMethod`: R2 `pin` → 422 `NOT_IN_LIST`; **R3 (contract-ahead)**: chỉ `pin` hoặc `password` + `totpCode` |
+| FB-R2-SEC-ARC-25 (Major) | Trả lời trong round; cài R3 | (a) **PO**: mục backlog R3 "Xác nhận phụ thu trả muộn từ xa trên máy của quản lý". ARC chọn hướng cho R3: Desk tạo yêu cầu đồng bộ hạn ngắn (vd 10 phút) loại `late_fee_as_night`, push tới OWN/MGR; quản lý duyệt trên phiên của mình bằng PIN/2FA; Desk nhận qua SSE rồi gọi B18 kèm mã yêu cầu đã duyệt (thay `approverUsername`/`secret`). Bỏ hướng "B18 treo khoản chờ duyệt, chốt folio sau" vì phá bất biến B18 (folio `settled` không còn yêu cầu tiền chờ). (b) **PO/DOM**: thêm một dòng vào hướng dẫn vận hành: *không bao giờ đọc mật khẩu qua điện thoại hoặc tin nhắn; nghi lộ thì đổi ngay*; UXR đưa vào kịch bản test khả dụng. Nếu PO/DOM kết luận phải cho lễ tân tự ghi khoản này khi vắng quản lý thì đó là chính sách → ORC mở ESC (ARC không mở) |
+| FB-R2-SEC-ARC-26 (Minor, trước GL) | Ghi việc R3/GL | Trần theo ngày (≥ 2 lần khóa/24 giờ cùng người gọi hoặc người xác nhận → khóa đường này 24 giờ + cảnh báo OWN, SR-LOG-06) và bắt buộc phiên máy quầy `device_trusted` (thiếu → 403 `DEVICE_NOT_TRUSTED`, kiểm trước mật khẩu; tự xác nhận không cần) – đã ghi contract-ahead trong mô tả; tham số vào `x-security-parameters` khi cài (R3, trước GL). Việc: BE-A (R3), SEC kiểm trước GL |
+
+Việc BE-A theo SEC (BE-59…64) giữ nguyên như thẻ SEC; ARC không đổi trường nào ngoài `responses` và mô tả.
+
+### 16.11 Duyệt vòng sửa 3 của BE-A (`outputs/BE/s4-be-a.md` mục 14, 18/10)
+
+| Điểm | Kết luận ARC |
+|---|---|
+| Mã audit `reservation.late_fee_instead_of_night` vào danh sách đóng `AuditEvent.action` (`openapi.yaml`) + `money-actions.ts` | **Đồng ý** – mã mô tả `checkOut` đã dùng; test `module-boundaries` giữ hai bên khớp. UXD/FE thêm câu `mlog.a_reservation_late_fee_instead_of_night` (thiếu thì `mlog.a_other`) |
+| `ReservationSalesPort.amountDueNowFor(tx, AmountDueQuery)` (D7) | **Đồng ý** – cùng hàm tính với `amountDueFor`, không từ chối (bỏ tùy chọn hết hiệu lực; đơn đã qua bước → số dư folio), đúng 16.6 (f). Đã soát thứ tự khóa: `confirmPaymentReceived` khóa `payment` + `folio` rồi gọi cổng; đường `amountDueNow` chỉ **đọc** đơn (`loadReservation` không `forUpdate`, không khóa đơn con) nên không đảo thứ tự khóa "đơn → folio" của B9/B18. Điều kiện giữ: cổng này không bao giờ thêm `FOR UPDATE` |
+| (r3-1) "căn khách mua" = căn của lần khách xin đổi cuối, không có thì căn gốc; min chỉ Trực tiếp/CTV; ngày đặc biệt min giữa hai lịch đặc biệt | DOM chốt 18/10: **sửa phạm vi** – min áp cả đêm con Trực tiếp của đơn OTA (B9a, gia hạn, B18; Agoda 203 → 401 gia hạn thứ Tư 792.000). Việc BE-A. Mô tả `currentBookingRateVnd` đã sửa |
+| (r3-2) đêm S4-35 gõ sau OTTIMO đổi căn vẫn qua min | DOM chốt 18/10: **đồng ý** – min sau OTTIMO đổi căn đứng trước "giá nhập tay ở căn hiện tại"; 16.6 (a) và mô tả `currentBookingRateVnd` đã đổi thứ tự (mã BE-A `addedNightRate` đã đúng) |
+| (r3-4) `requestFoc` của BR-416-06 chỉ `kind = foc` | **Đồng ý** – đã ghi vào mô tả `lateFeeInsteadOfNight.requestFoc` (`special_discount` → 422 `NOT_IN_LIST`, `field` = `lateFeeInsteadOfNight.requestFoc.kind`) |
+| (r3-5) người xác nhận không đủ điều kiện không bị tăng bộ đếm | Đúng thẻ SEC BE-60 |
+
+**16.12 Giả định BE-B khi cài M-1 (`outputs/BE/s4-be-b.md` mục 13, 18/10) – ARC xác nhận**: (n) danh mục chưa có món minibar thì không chụp lần nạp – **đồng ý** (chỉ lệch một lần lúc bắt đầu dùng minibar giữa lượt: món đầu tiên vào luôn tủ đang ở, chấp nhận ở R2); (o) phòng của lượt = segment + mọi tủ đã có lần nạp/lần đếm, B14/B18 ghi nhận tủ qua `onCheckedOut` – **đồng ý có điều kiện**: `onCheckedOut` ở B14 phải ghi nhận tủ căn cũ **vô điều kiện** (chụp lần nạp nếu tủ chưa có), kể cả khi chưa đếm và chưa đổi danh mục, để B14 đêm đầu (ghi đè segment) không làm mất tủ khỏi `minibarUncheckedRooms` – test: B14 đêm đầu không đếm trước → B18 chặn tới khi đếm tủ cũ; (p) `latestCheck` tủ căn cũ = lần đếm sống bất kể ngày, tủ đang ở theo ngày nghiệp vụ – **đồng ý**; (q) dòng minibar mang mã món vẫn sửa giá (miễn `PRICE_NOT_EDITABLE`) – **đồng ý**, đúng DOM (e); `adjustFolioLine` chép `charge_code` nên khóa FOC giữ nguyên.
+

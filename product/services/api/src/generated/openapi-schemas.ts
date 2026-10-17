@@ -1299,7 +1299,18 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         unhandledCreditVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         extraNightRequired: { s: { k: 'scalar' } },
         extraNightDefaultRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        lateFeeAsNightVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         extraNightAvailable: { s: { k: 'scalar' } },
+        minibarUncheckedRooms: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: { roomId: { s: { k: 'ref', name: 'Uuid' } }, roomNo: { s: { k: 'scalar' } } },
+              open: false,
+            },
+          },
+        },
         postMidnightWindow: { s: { k: 'scalar' } },
         blockers: { s: { k: 'array', items: { k: 'scalar' } } },
         serverTime: { s: { k: 'ref', name: 'Instant' } },
@@ -1853,6 +1864,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         confirmedByName: { s: { k: 'scalar' } },
         note: { s: { k: 'scalar' } },
         attachmentId: { s: { k: 'ref', name: 'Uuid' } },
+        qrPurpose: { s: { k: 'scalar' } },
+        amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
         reconciliationNote: {
           s: { k: 'scalar' },
@@ -1903,6 +1916,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         confirmedByName: { s: { k: 'scalar' } },
         note: { s: { k: 'scalar' } },
         attachmentId: { s: { k: 'ref', name: 'Uuid' } },
+        qrPurpose: { s: { k: 'scalar' } },
+        amountDueNowVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
         reconciliationNote: {
           s: { k: 'scalar' },
@@ -2106,6 +2121,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
         },
         performedAt: { s: { k: 'ref', name: 'Instant' } },
+        roomId: { s: { k: 'ref', name: 'Uuid' } },
       },
       open: false,
     },
@@ -2166,6 +2182,23 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 isFree: { s: { k: 'scalar' } },
                 unitPriceVnd: {
                   s: { k: 'ref', name: 'MoneyVnd' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                },
+                lastCheckUsedQty: { s: { k: 'scalar' } },
+                folioLineId: {
+                  s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                },
+                folioUsedQty: {
+                  s: { k: 'scalar' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                },
+                folioAmountVnd: {
+                  s: { k: 'ref', name: 'MoneyVnd' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                },
+                adjustedAfterLastCheck: {
+                  s: { k: 'scalar' },
                   v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
                 },
               },

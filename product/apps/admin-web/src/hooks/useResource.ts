@@ -57,5 +57,10 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
     setState((s) => (s.status === 'ready' ? { ...s, data: update(s.data) } : s));
   }, []);
 
-  return { state, reload: run, mutate };
+  // BUG-R2-141: `reload` always reads with the LATEST inputs. A handler made in an earlier render (e.g. "save the
+  // minibar, then reload the summary" while the departure time was still empty) used to call that render's `run`,
+  // whose request – sent last – overwrote the answer for the current inputs. Stable identity, too.
+  const reload = useCallback(() => runRef.current(), []);
+
+  return { state, reload, mutate };
 }

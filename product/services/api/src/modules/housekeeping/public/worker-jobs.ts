@@ -114,6 +114,10 @@ export async function runHkDaily(
        LEFT JOIN reservation p ON p.id = r.parent_reservation_id
       WHERE s.active AND r.status = 'in_house' AND r.stay_type = 'short'
         AND s.from_date <= $1::date AND s.to_date > $1::date
+        -- BR-807-01 (DOM, v0.3.8): a stay-over guest is "arrival < business date < departure" – a guest arriving
+        -- today keeps OC and gets no stay-over clean, even when J8 runs late (catch-up after the check-in).
+        -- The arrival of the stay: an extension child counts its parent's.
+        AND COALESCE(p.arrival_date, r.arrival_date) < $1::date
       ORDER BY s.room_id, s.from_date DESC`,
     [today],
   );

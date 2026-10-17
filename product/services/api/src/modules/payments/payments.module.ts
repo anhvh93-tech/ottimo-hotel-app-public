@@ -9,6 +9,7 @@
  * c3_access_log before data) for getRefundDestination.
  */
 import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/common';
+import { FolioService } from '../folio/public/folio.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { defineAuditEntity } from '../audit/public/audit-fields';
@@ -25,6 +26,8 @@ import { PaymentService } from './public/payment.service';
 import { reconcileOverdueSource } from './public/reconcile-attention';
 
 defineAuditEntity('payment', [
+  // 0.3.7 bổ sung 4 (DOM (f)): a VietQR confirmed above what was due for its purpose.
+  'overVnd',
   'code',
   'type',
   'method',
@@ -54,6 +57,8 @@ export class PaymentsModule implements OnModuleInit {
     @Inject(RefundsService) private readonly refunds: RefundsService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional() @Inject(ReservationHooks) private readonly hooks?: ReservationHooks,
+    @Optional() @Inject(FolioService) private readonly folios?: FolioService,
+    @Optional() @Inject(PaymentsService) private readonly paymentsSvc?: PaymentsService,
   ) {}
 
   onModuleInit(): void {
@@ -66,5 +71,8 @@ export class PaymentsModule implements OnModuleInit {
       | (ReservationHooks & { provideDepositNotices?: (reader: DepositNoticesReader) => void })
       | undefined;
     port?.provideDepositNotices?.(readDepositNotices);
+    // 0.3.7 bổ sung 4 (DOM (f)): getFolio.payments[].amountDueNowVnd – the cap of the QR's purpose, now.
+    const svc = this.paymentsSvc;
+    if (svc) this.folios?.provideQrDueNow((tx, actor, p) => svc.amountDueNow(tx, actor, p));
   }
 }

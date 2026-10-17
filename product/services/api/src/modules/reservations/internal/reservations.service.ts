@@ -47,7 +47,7 @@ import { type InitialPayment, ReservationHooks } from '../public/reservation-hoo
 import type { ConfirmedStay } from '../public/sales-port';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
-import { protectedBaseOf, roomChangeHistory } from './room-history';
+import { boughtRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
 import { FDL_PLUS, FD_PLUS, MGR_PLUS, allowedActions, hasAny } from './allowed-actions';
 import { type BookingContext, bookingContext } from './booking-context';
 import { syncExtraGuestKit } from './extra-guest-kit';
@@ -2169,6 +2169,15 @@ export class ReservationsService {
    * kept a higher one on the night (0059 `extra_person_base` – S4-07: the guest never pays more because OTTIMO
    * moved them, also when the people change afterwards).
    */
+  /**
+   * BUG-R2-134 (BR-417-07, BR-429 (b1) bổ sung 18/10): the room the guest bought (last guest-requested move, else
+   * the origin room) – null when the booking never changed room. A booking whose current room differs was put
+   * there by OTTIMO: an added night costs min(what the guest bought, the current room's calendar).
+   */
+  async boughtRoomId(tx: Tx, row: ReservationRow): Promise<string | null> {
+    return boughtRoomOf(await roomChangeHistory(tx, row.id), row.origin_room_id);
+  }
+
   async nightBases(tx: Tx, reservationId: string): Promise<Map<LocalDate, number>> {
     const out = new Map<LocalDate, number>();
     // S438-REGR-03: nights without a stored base keep what the booking's OTTIMO moves protected (room history).
@@ -2837,7 +2846,11 @@ export class ReservationsService {
       hasPeakNight?: boolean;
       feeUnit?: number;
     };
-    const tiers = snap.cancelPolicy ?? ctx.params.cancelPolicy;
+    // BR-309 (iv) v0.3.8 bổ sung 18/10 (BR-309-15): a late guest date move locked the refund tier.
+    const pctCap = (row.pricing_snapshot as { refundPctCap?: number }).refundPctCap;
+    const tiers = (snap.cancelPolicy ?? ctx.params.cancelPolicy).map((t) =>
+      pctCap === undefined ? t : { ...t, refundPct: Math.min(t.refundPct, pctCap) },
+    );
     // BR-309 v0.3.8 (S438-CANCEL-02): a special night among the nights the booking has now, or kept from a move
     // (`hasPeakNight` – see writePlannedNights).
     const livePeak = this.hasPeakNight(
@@ -2868,6 +2881,36 @@ export class ReservationsService {
    * it with less than 7 days to the arrival keeps the former one (no "move then cancel" to get the deposit back).
    * The desk never asks the guest for a top-up (BR-429 (e)) – only the fee base moves. OTA/internal: unchanged.
    */
+  /**
+   * BR-309 (iv) v0.3.8 bổ sung 18/10 (S438R3-GAP-Q1): refund % cap after a guest-requested date move of a paid
+   * direct/agent short stay made with < 7 days to the OLD arrival = min(cap so far, the tier % at the move) – null
+   * when the move does not lock anything.
+   */
+  private refundPctCapAfter(
+    ctx: BookingContext,
+    row: ReservationRow,
+    newArrival: LocalDate,
+    reasonCode: string,
+    depositPaidVnd: number,
+  ): number | null {
+    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
+    if (row.external_contract || row.stay_type !== 'short' || row.status === 'hold') return null;
+    if (depositPaidVnd <= 0 || reasonCode !== 'guest_request' || newArrival === row.arrival_date) {
+      return null;
+    }
+    const notice = noticeDays(row.arrival_date, ctx.today);
+    if (notice >= 7) return null;
+    const snap = row.pricing_snapshot as {
+      cancelPolicy?: Array<{ minDays: number; refundPct: number }>;
+      refundPctCap?: number;
+    };
+    const tiers = [...(snap.cancelPolicy ?? ctx.params.cancelPolicy)].sort(
+      (a, b) => b.minDays - a.minDays,
+    );
+    const pct = tiers.find((t) => notice >= t.minDays)?.refundPct ?? 0;
+    return Math.min(snap.refundPctCap ?? 100, pct);
+  }
+
   /** BR-104 special dates (`special_dates`) among the nights – the BR-309 "ngày cao điểm" test. */
   private hasPeakNight(ctx: BookingContext, dates: readonly LocalDate[]): boolean {
     return dates.some((d) => isSpecialDate(d, ctx.params.calendar.specialDates));
@@ -2878,6 +2921,7 @@ export class ReservationsService {
     row: ReservationRow,
     totalRoomVnd: number,
     reasonCode: string,
+    depositPaidVnd: number,
   ): { requiredVnd: number; heldVnd: number } {
     const old = Number(row.deposit_required_vnd ?? 0);
     const snap = row.pricing_snapshot as {
@@ -2891,13 +2935,16 @@ export class ReservationsService {
     }
     if (row.external_contract || row.stay_type !== 'short')
       return { requiredVnd: old, heldVnd: held };
+    // BR-309 (v) v0.3.8 bổ sung 18/10: the held level is for a booking that has a deposit – a `hold` (or a
+    // booking with nothing paid) always needs 30 % of its current room money.
+    const paid = row.status !== 'hold' && depositPaidVnd > 0;
     return requiredDepositAfterChange({
       oldRequiredVnd: old,
-      heldVnd: held,
+      heldVnd: paid ? held : 0,
       totalRoomVnd,
       depositPct: snap.depositPct ?? ctx.params.depositPct,
       depositUnit: snap.depositUnit ?? ctx.params.depositUnit,
-      guestRequest: reasonCode === 'guest_request',
+      guestRequest: paid && reasonCode === 'guest_request',
       lateNotice: noticeDays(row.arrival_date, ctx.today) < 7,
     });
   }
@@ -3288,7 +3335,8 @@ export class ReservationsService {
     }
     const postpone = m.mode === 'postpone_instead_of_cancel';
     const disclose = reasonCode === 'guest_request' && pm.roomChanges;
-    const required = this.requiredDepositAfter(ctx, row, totalRoom, reasonCode);
+    const depositPaid = await this.money.depositPaid(tx, row);
+    const required = this.requiredDepositAfter(ctx, row, totalRoom, reasonCode, depositPaid);
     await tx.query(
       `UPDATE reservation SET arrival_date = $2, departure_date = $3, total_room_vnd = $4,
               deposit_required_vnd = $9,
@@ -3312,6 +3360,16 @@ export class ReservationsService {
         required.heldVnd,
       ],
     );
+    // BR-309 (iv) v0.3.8 bổ sung 18/10 (S438R3-GAP-Q1, BR-309-15): a guest-requested date move with < 7 days to
+    // the OLD arrival locks the refund tier of a paid booking – a later cancellation refunds at most that %.
+    const refundCap = this.refundPctCapAfter(ctx, row, from, reasonCode, depositPaid);
+    if (refundCap !== null) {
+      await tx.query(
+        `UPDATE reservation SET pricing_snapshot = pricing_snapshot || jsonb_build_object('refundPctCap', $2::int)
+          WHERE id = $1`,
+        [row.id, refundCap],
+      );
+    }
     if (row.conflict_state === 'open')
       await this.resolveIncident(tx, ctx, row.id, m.resolution as string);
     if (pm.overCapacity && row.channel_group === 'ota') {
@@ -3605,7 +3663,10 @@ export class ReservationsService {
         WHERE id = $1`,
       [row.id, roomDelta, plan.originRoomId],
     );
-    if (roomDelta !== 0 && !row.external_contract) {
+    // BUG-R2-134: a guest-requested move re-prices typed nights to the new room's calendar – the snapshot forgets
+    // that they were typed even when the room money happens not to change.
+    const repriced = plan.nights.some((x) => x.manualRepriced);
+    if ((roomDelta !== 0 || repriced) && !row.external_contract) {
       const manual = new Set(plan.nights.filter((x) => x.manual).map((x) => x.date));
       const prior = new Map(
         (

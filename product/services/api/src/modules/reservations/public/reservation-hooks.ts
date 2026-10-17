@@ -79,7 +79,11 @@ export type RoomReturnHandler = (
  * 0.3.7 (S4-10 – `createVietQr` `check_in` / `check_out`): the check-in / check-out amounts are the front desk's
  * (previewCheckIn / getCheckoutSummary) – it provides the calculation; ReservationSalesPort.amountDueFor calls it.
  */
-export type AmountDueHandler = (tx: Tx, q: AmountDueQuery) => Promise<number>;
+export type AmountDueHandler = (
+  tx: Tx,
+  q: AmountDueQuery,
+  opts?: { now?: boolean },
+) => Promise<number>;
 
 @Injectable()
 export class ReservationHooks {
@@ -150,9 +154,9 @@ export class ReservationHooks {
     this.amountDueHandler = handler;
   }
 
-  async amountDue(tx: Tx, q: AmountDueQuery): Promise<number> {
+  async amountDue(tx: Tx, q: AmountDueQuery, opts: { now?: boolean } = {}): Promise<number> {
     if (!this.amountDueHandler) throw new Error('amount due handler not wired (frontdesk module)');
-    return this.amountDueHandler(tx, q);
+    return this.amountDueHandler(tx, q, opts);
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {

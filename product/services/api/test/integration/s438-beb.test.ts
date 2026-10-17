@@ -376,7 +376,7 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect(await netOf(b, 'minibar')).toBe(35_000);
   });
 
-  it('FOC-01: approved FOC 70.000 on 2 beers, recount 1 beer → the new line replaces the old one, FOC = min(70.000, 35.000) = 35.000; recount 0 → dormant', async () => {
+  it('FOC-01: approved FOC 70.000 on 2 beers, recount 1 beer → FOC of the item = min(70.000, 35.000) = 35.000; recount 0 → dormant', async () => {
     await at('2026-11-18T15:00:00+07:00');
     await vacant('202');
     const b = await direct('202', '2026-11-18', '2026-11-19');
@@ -388,7 +388,7 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     await minibarCheck(b, { bia: 1 });
     const now = await liveBy(b, 'minibar');
     expect(now.map((l) => l.amountVnd)).toEqual([35_000]);
-    expect(now[0]!.relatedLineId).toBe(beer.id);
+    // mô hình minibar M-1 (ARC R8): the key is the item (charge_code), not the replacement chain
     expect((await request(foc)).foc_state).toBe('applied');
     expect(await netOf(b, 'minibar')).toBe(0);
     await minibarCheck(b, {});
@@ -454,7 +454,7 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     await run('b', '2028-03-29', '2028-03-30');
   });
 
-  it('BUG-R2-129 (b): the desk voids the beer line (adjustments) then the recount posts 2 beers → FOC 35.000 back; 2 → 0 → 1 → net 0', async () => {
+  it('BUG-R2-129 (b) / M-1 case 9: the desk voids the beer line (with a reason) – a re-count of the same 2 keeps "no line" (FOC dormant); a new count of 1 → 35.000 and the FOC back (net 0)', async () => {
     await at('2028-03-15T15:00:00+07:00');
     await vacant('203');
     const b = await direct('203', '2028-03-15', '2028-03-16');
@@ -471,10 +471,18 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     );
     expect(v.statusCode, v.body).toBe(201);
     expect((await request(foc)).foc_state).toBe('dormant');
+    const std = await c.fd!.get(url(`/reservations/${b.id}/minibar-standard`));
+    expect(
+      (std.json().items as Array<Record<string, unknown>>).find((i) => i.itemId === items.bia),
+    ).toMatchObject({
+      lastCheckUsedQty: 2,
+      folioLineId: null,
+      folioUsedQty: 0,
+      adjustedAfterLastCheck: true,
+    });
     await minibarCheck(b, { bia: 2 });
-    expect((await request(foc)).foc_state).toBe('applied');
-    expect(await netOf(b, 'minibar')).toBe(35_000);
-    await minibarCheck(b, {});
+    expect(await liveBy(b, 'minibar')).toEqual([]);
+    expect((await request(foc)).foc_state).toBe('dormant');
     await minibarCheck(b, { bia: 1 });
     expect((await request(foc)).foc_state).toBe('applied');
     expect(await netOf(b, 'minibar')).toBe(0);
@@ -495,7 +503,43 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect(await remainingOf('fdl')).toBe(limit);
   });
 
-  it('BUG-R2-130 (a): 402, 2 beers (70.000) counted, beer taken off the list → recount keeps 70.000 (row carried); +1 snack = 100.000; B18 bills it', async () => {
+  /** OWN edits an item through updateItem (US-066) – the catalogue change that keeps the fridges first (ARC D1). */
+  const editItem = async (code: string, change: Record<string, unknown>) => {
+    const listed = await c.own!.get(url('/items'));
+    expect(listed.statusCode, listed.body).toBe(200);
+    const it = (listed.json().data as Array<Record<string, unknown>>).find((x) => x.code === code)!;
+    const body = {
+      code: it.code,
+      name: { vi: it.name },
+      unit: it.unit,
+      salePriceVnd: it.salePriceVnd ?? null,
+      costPriceVnd: it.costPriceVnd,
+      minibarStandardQty: it.minibarStandardQty,
+      minStockQty: it.minStockQty,
+      isActive: it.isActive,
+      ...change,
+    };
+    const r = await c.own!.send('PATCH', url(`/items/${it.id}`), body, {
+      'if-match': `"${it.version}"`,
+    });
+    expect(r.statusCode, r.body).toBe(200);
+  };
+  const countFridge = async (b: Booking, used: Record<string, number>) => {
+    const std = await c.fd!.get(url(`/reservations/${b.id}/minibar-standard`));
+    expect(std.statusCode, std.body).toBe(200);
+    const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      lines: (std.json().items as Array<{ itemId: string; standardQty: number }>).map((i) => ({
+        itemId: i.itemId,
+        remainingQty:
+          i.standardQty - (used[Object.keys(items).find((k) => items[k] === i.itemId)!] ?? 0),
+      })),
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    return r.json();
+  };
+
+  it('BUG-R2-130 (a) / M-1 R3: 402, 2 beers (70.000), beer deactivated → still in the fridge, re-count keeps 70.000; +1 snack = 100.000; B18 bills it', async () => {
     await at('2026-12-01T15:00:00+07:00');
     await vacant('402');
     const b = await direct('402', '2026-12-01', '2026-12-02');
@@ -503,29 +547,16 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     await at('2026-12-02T09:00:00+07:00');
     await minibarCheck(b, { bia: 2 });
     const room = (await liveBy(b, 'room')).reduce((a, l) => a + l.amountVnd, 0);
-    await q('UPDATE item SET is_active = false WHERE id = $1', [items.bia]);
+    await editItem('bia', { isActive: false });
     try {
-      const count = async (snack: number) => {
-        const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
-          mode: 'checkout',
-          lines: DS_E.minibarItems
-            .filter((m) => m.code !== 'bia')
-            .map((m) => ({
-              itemId: items[m.code],
-              remainingQty: m.standardQtyPerRoom - (m.code === 'snack' ? snack : 0),
-            })),
-        });
-        expect(r.statusCode, r.body).toBe(201);
-        return r.json();
-      };
-      const first = await count(0);
+      const first = await countFridge(b, { bia: 2 });
       expect(await netOf(b, 'minibar')).toBe(70_000);
       expect(
         (first.lines as Array<{ itemId: string; amountVnd: number }>).find(
           (l) => l.itemId === items.bia,
         )?.amountVnd,
       ).toBe(70_000);
-      await count(1);
+      await countFridge(b, { bia: 2, snack: 1 });
       expect(await netOf(b, 'minibar')).toBe(100_000);
       await at('2026-12-02T11:00:00+07:00');
       const s = await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=11:00`));
@@ -538,29 +569,23 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
       expect(out.statusCode, out.body).toBe(200);
       expect((await totals(b)).totalVnd).toBe(room + 100_000);
     } finally {
-      await q('UPDATE item SET is_active = true WHERE id = $1', [items.bia]);
+      await editItem('bia', { isActive: true });
     }
   });
 
-  it('BUG-R2-130 (b): coca counted (25.000), then its standard quantity set to 0 → recount keeps 25.000', async () => {
+  it('BUG-R2-130 (b): coca counted (25.000), its standard quantity set to 0 → still in the fridge, re-count keeps 25.000', async () => {
     await at('2026-12-08T15:00:00+07:00');
     await vacant('401');
     const b = await direct('401', '2026-12-08', '2026-12-09');
     await checkIn(b);
     await at('2026-12-09T09:00:00+07:00');
     await minibarCheck(b, { coca: 1 });
-    await q('UPDATE item SET minibar_standard_qty = 0 WHERE id = $1', [items.coca]);
+    await editItem('coca', { minibarStandardQty: 0 });
     try {
-      const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
-        mode: 'checkout',
-        lines: DS_E.minibarItems
-          .filter((m) => m.code !== 'coca')
-          .map((m) => ({ itemId: items[m.code], remainingQty: m.standardQtyPerRoom })),
-      });
-      expect(r.statusCode, r.body).toBe(201);
+      await countFridge(b, { coca: 1 });
       expect(await netOf(b, 'minibar')).toBe(25_000);
     } finally {
-      await q('UPDATE item SET minibar_standard_qty = 2 WHERE id = $1', [items.coca]);
+      await editItem('coca', { minibarStandardQty: 2 });
     }
   });
 

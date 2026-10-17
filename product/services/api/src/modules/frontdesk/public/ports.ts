@@ -110,4 +110,14 @@ export interface FrontdeskMinibarPort {
   checkoutStatus(tx: Tx, reservationId: string, roomId: string): Promise<MinibarCheckoutStatus>;
   /** B18: refill task when the checkout count used items – returns the task id (createdTaskIds). */
   onCheckedOut(tx: Tx, reservationId: string, roomId: string): Promise<string | null>;
+  /**
+   * 0.3.7 bổ sung 4 (ARC 16.2 R9, BUG-R2-136): the minibars of the stay (every room it lived in – the old room
+   * before a B14 included) with a chargeable item and no `checkout` count yet – `CheckoutSummary.
+   * minibarUncheckedRooms` and the B18 blocker. Optional while BE-B wires it: absent → the desk asks
+   * `checkoutStatus` room by room.
+   */
+  uncheckedRooms?(
+    tx: Tx,
+    reservationId: string,
+  ): Promise<Array<{ roomId: string; roomNo: string }>>;
 }

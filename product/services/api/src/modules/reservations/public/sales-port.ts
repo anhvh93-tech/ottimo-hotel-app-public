@@ -175,6 +175,12 @@ export interface AmountDueQuery {
   checkoutAt?: Date;
   /** check_out after the last tier: the extra night at this rate (absent = `extraNightDefaultRateVnd`). */
   extraNightRateVnd?: number;
+  /**
+   * check_out (0.3.7 bổ sung 4, BR-416-06 – `createVietQr.lateFeeAsNight`): include the late charge of one night
+   * when the night of the departure day is required and cannot be sold (`CheckoutSummary.lateFeeAsNightVnd`);
+   * amountDueFor refuses it otherwise (422 NOT_ALLOWED, `field` = `lateFeeAsNight`).
+   */
+  lateFeeAsNight?: boolean;
 }
 
 export interface ReservationSalesPort {
@@ -194,4 +200,11 @@ export interface ReservationSalesPort {
   ): Promise<ConfirmedStay>;
   /** Cap of a check-in / check-out VietQR (≥ 0) – see the file header. */
   amountDueFor(tx: Tx, q: AmountDueQuery): Promise<number>;
+  /**
+   * ARC 16.6 (f) D7 (`confirmPaymentReceived`): what a check-in / check-out VietQR may take NOW, from the
+   * context stored at `createVietQr` – the same calculation as `amountDueFor`, never refused: the step's day,
+   * options that no longer apply (B9a night taken since, extra night sold / unsellable since, a rate out of
+   * bounds) are dropped; a stay past that step owes its folio balance. FD+ (SAL/CTV → 403) like amountDueFor.
+   */
+  amountDueNowFor(tx: Tx, q: AmountDueQuery): Promise<number>;
 }

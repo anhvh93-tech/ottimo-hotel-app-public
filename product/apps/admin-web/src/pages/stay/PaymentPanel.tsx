@@ -1,10 +1,10 @@
 import type { Payment, PaymentMethod, Reservation, VietQrResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Button, Chip, Field, Seg } from '@ottimo/ui';
+import { Alert, Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useToast } from '../../app/toast';
-import { VietQrCard } from '../../components/VietQrCard';
+import { VietQrCard, qrOverDue } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
 
@@ -21,11 +21,17 @@ export function PaymentPanel({
   reservation,
   balanceVnd,
   purpose = 'balance',
+  checkout,
   onPaid,
 }: {
   reservation: Reservation;
   balanceVnd: number;
   purpose?: 'balance' | 'deposit';
+  /**
+   * H16 step 3 (0.3.7 S4-10, bổ sung 4): the QR of the check-out step – capped by `amountDueAtCheckoutVnd` at this
+   * time, with the typed extra-night rate or the one-night late fee (BR-416-06), not by the folio balance.
+   */
+  checkout?: { checkoutAt?: string; extraNightRateVnd?: number; lateFeeAsNight?: boolean };
   onPaid: (p: Payment) => void;
 }) {
   const { t, vnd, money } = useI18n();
@@ -54,13 +60,27 @@ export function PaymentPanel({
   const createQr = async () => {
     if (!(value > 0)) return;
     const out = await qrAct.submit((idem) =>
-      api.createVietQr(folio, { amountVnd: value, purpose }, idem),
+      api.createVietQr(
+        folio,
+        checkout
+          ? {
+              amountVnd: value,
+              purpose: 'check_out',
+              checkoutAt: checkout.checkoutAt,
+              extraNightRateVnd: checkout.extraNightRateVnd,
+              lateFeeAsNight: checkout.lateFeeAsNight,
+            }
+          : { amountVnd: value, purpose },
+        idem,
+      ),
     );
     if (out) setQr(out.data);
   };
 
+  const over = qr ? qrOverDue(qr.payment, payAct.error) : null;
   const confirmQr = async () => {
     if (!qr) return;
+    if (over !== null && note.trim().length < 3) return;
     const out = await payAct.submit((idem) =>
       api.confirmPaymentReceived(
         { propertyId },
@@ -141,7 +161,23 @@ export function PaymentPanel({
             <p className="li-s" role="status">
               {t('pay.qr_waiting')}
             </p>
-            <Field label={t('co.txn_ref')} error={payAct.fields.note}>
+            {over !== null ? (
+              <Alert tone="warn">
+                {t('pay.qr_over_note', {
+                  amount: money(qr.payment.amountVnd),
+                  max: money(over),
+                })}
+              </Alert>
+            ) : null}
+            <Field
+              label={t('co.txn_ref')}
+              required={over !== null}
+              error={
+                over !== null && note.trim().length < 3
+                  ? t('field_error.reason_required')
+                  : payAct.fields.note
+              }
+            >
               {(p) => (
                 <input
                   {...p}
@@ -153,7 +189,7 @@ export function PaymentPanel({
               )}
             </Field>
             <p className="li-s">{t('pay.error_not_received')}</p>
-            {payAct.view()}
+            {over !== null ? null : payAct.view()}
             <Button
               variant="pri"
               busy={payAct.busy}

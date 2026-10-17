@@ -28,6 +28,8 @@ Tên đăng nhập và mật khẩu: mở file **`product/infra/demo/.out/demo-a
 
 Màn **"Màn này đang được làm"** (Hôm nay, Tổng quan, Buồng phòng, Bảo trì) là **đúng kế hoạch** (Sprint 4), không phải lỗi.
 
+> **Quy tắc an toàn mật khẩu** *(PO thêm 18/10 theo SEC FB-R2-SEC-ARC-25 – áp ngay, kể cả khi thử và khi vận hành thật)*: **không bao giờ đọc hay nhắn mật khẩu, PIN hay mã xác thực qua điện thoại, Zalo hay tin nhắn** – kể cả giữa quản lý và lễ tân. Thao tác cần quản lý xác nhận tại quầy (ví dụ "phụ thu trả muộn bằng giá 1 đêm" khi khách rời quá muộn) mà quản lý vắng: **gọi quản lý tới quầy, hoặc mời khách chờ tới khi quản lý duyệt**. Từ Round 3 quản lý duyệt từ xa trên máy của mình (US-164); cách làm khi quản lý không trả lời chờ anh/chị quyết ở ESC-024. Nghi mật khẩu đã lộ: đổi ngay và báo chủ đầu tư.
+
 **Bước 0 – một lần, 2 phút (Chủ đầu tư):** menu **Quản trị › Thiết bị được cấp** → ô **Tên máy**: "Mac demo" → tick các mục **Kiểm máy trước khi cấp** (nút cuối ghi "còn n mục kiểm" cho tới khi đủ 4 mục bắt buộc; mục "Đội kỹ thuật đã kiểm máy này" không bắt buộc) → **Nhập lại mật khẩu đăng nhập** → **Cấp quyền thiết bị này**. *Mong đợi:* "Máy này đã được cấp quyền.", dòng "Mac demo · Máy này" trong bảng, góc trái dưới hiện "Máy quầy đã cấp quyền". Bảng có sẵn một máy mẫu của đội ("Máy quầy lễ tân (demo)") – bỏ qua, đừng thu hồi. Vì sao: giấy tờ khách và số tài khoản hoàn tiền chỉ mở trên máy quầy được cấp. **Vẫn cần làm Bước 0**: OPS không cấp sẵn được cho trình duyệt của anh/chị (quyền máy nằm trong cookie của chính trình duyệt đó). Nếu nút không có hoặc báo lỗi, tệp tài khoản có cách dự phòng (dán 1 dòng vào Console).
 
 ## 3. Dữ liệu demo (OPS điền: căn · khách · mã đơn)

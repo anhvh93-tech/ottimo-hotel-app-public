@@ -382,3 +382,26 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
   - ca E2E cho FOC-01 qua H16 (S4-25) và các gap ở điều kiện 8;
   - chạy lại E2E trên commit sửa 125…132 và kiểm các ca E2E có số theo luật BR v0.3.8.
 
+
+### 7.9 Tuần Ổn định – CI 39059529608 trên `42fb458`: TC-X-070 đỏ, TC-L4-004 chập chờn (QA, 18/10 ~02:00–03:00)
+- **Kết luận TC-X-070 (A1):** đỏ ở H16 bước 2 → 3 (`Tổng cộng` không hiện), không ở H13. Nguyên nhân là kẽ hở đua ở FE: lưu minibar tải lại tóm tắt trả phòng bằng `sum.reload` của lần render cũ (chưa có giờ trả), nên số cần thu tính theo 12:00 trong khi ô giờ là 11:00, và nút "Tiếp tục: Bill & thu tiền" chờ mãi. Ca kiểm bấm nhanh hơn người nên lộ ra. Không do `priorNight.available` (FE-A) hay số cần thu phía server (BE-A): H13 qua bình thường, tóm tắt server trả đúng cho cả hai cách hỏi.
+  - Lỗi: **BUG-R2-141** (P3, **FE-A**), chi tiết và bằng chứng ở `bug-list.md` mục 2 và 11.11.
+  - Ca kiểm đã sửa: H16 mở bằng `openCheckOut` (chờ tóm tắt có `checkoutTime` = 200 rồi mới bấm) ở TC-X-070, TC-X-071, TC-L4-053, TC-L4-096. Nội dung và kỳ vọng các ca không đổi.
+  - Ca hồi quy mới **TC-L4-100** (`ui-clock/checkout.h16.spec.ts`, `knownBug('BUG-R2-141')`): dựng đúng thứ tự request của CI bằng cổng chặn route, không phụ thuộc tốc độ máy. Hiện = "expected failure"; với `E2E_FIXED_BUGS=BUG-R2-141` đỏ đúng chỗ CI. Đóng lỗi = PR sửa xóa dòng `OPEN`.
+  - Chạy lại trên `ottimo-qa-s4` (cây = `42fb458`, có khóa đồng hồ): `checkout.h16` + `flow-a1.s4` – 5 ca đạt (TC-L4-100 expected failure). `gen_traceability --strict` exit 0. Prettier, ESLint, tsc sạch.
+  - Ca có thể cùng kiểu, chưa sửa vì không phải tệp của QA: `ui-clock/foc.s4.spec.ts` TC-NT-053 (E) (bấm minibar ngay khi mở H16, rồi mở form FOC ở bước 2 – không qua nút Bill nên ít khả năng treo). FE-A có thể dùng `openCheckOut`.
+- **TC-L4-004 (clock):** lượt 1 nhận `OD` thay `OC` ngay sau nhận phòng, lượt chạy lại đạt. **Không liên quan bản sửa** – worker chạy bù J8 `hk.daily` của ngày ảo mới sau khi ca vừa nhận phòng (tick 60 giây, `catchUp: 'always'`, chung MutableClock) → R8 `OC → OD`. Lúc đầu QA ghi là chập chờn, không mở mã. **Cập nhật 18/10:** DOM chốt khách đến hôm nay không phải khách ở tiếp (oracle BR-807-01) → QA cấp **BUG-R2-142** (P3, BE-C); không đổi `vday()` (ORC). Cách làm ca bền hơn (chưa làm, cần ORC đồng ý vì chạm mọi ca dùng `vday`): chạy `/__test__/jobs/hk.daily/run` sau khi tua sang ngày ảo, trước khi nhận phòng. Ghi chú cho BE-C/DOM ở `bug-list.md` 11.11 (J8 chạy bù muộn coi khách đến hôm nay là khách ở tiếp).
+
+### 7.10 Kiểm lại lần 3 S4-38 trên `42fb458` – trạng thái mã (QA ghi theo critic và ORC, 18/10 ~03:30)
+- **Căn cứ:** `rounds/round-02/reviews/s4-money-recheck3.md`; decision-log ORC 18/10. Chi tiết: `bug-list.md` mục 2 "BUG-R2-134…140" và mục 11.12.
+- **Closed:** 111, 125…130 (P1), 131, 132 (P2) – 10/10 mã vòng sửa 2 đã sửa, có số.
+- **Open mới:** BUG-R2-134 (P1, BE-A – giá thỏa thuận sau B14 khách xin); 135…138 (P1, BE-B – minibar: hai FOC hai mắt chuỗi, đổi phòng giữa lượt, món sang miễn phí, đổi định mức); 139 (P2, BE-A + FE-A – B18 đêm thêm không bán được, sửa trước cổng); 140 (P3, BE-B + FE-A). Thêm 141 (P3, FE-A – H16, mục 7.9), 142 (P3, BE-C – J8 chạy bù) và **143** (P1, BE-A – dời ngày muộn rồi hủy, oracle BR-309-15; ORC chốt 18/10); cả hai đã có bản sửa ở cây làm việc → **Fixed** (141 QA kiểm lại đạt: TC-L4-100 phải đạt và đạt, H16 + A1 5/5; 142 QA chưa kiểm lại).
+- **G1, G7 chưa đạt:** 6 mã P1 Open (134…138, 143) và 2 ca "xem trước ≠ lệnh ghi" (134, 139). Cổng QC Sprint 4 vẫn ở tuần Ổn định.
+- **Oracle:** 3 dòng lượt 2 còn thiếu (BR-417-08, BR-417-09, BR-429-20) và dòng cho 135, 137 (BR-434-16, BR-702-03) – QA thêm; dòng cho 134, 136, 138, 139 – DOM thêm. Bỏ `pendingFix` 16 dòng. `validate-fixtures` 0 lỗi.
+- **Việc QA tiếp theo:** bảng ca tổ hợp minibar (`product/tests/test-cases/s4-minibar-matrix.md`) → test API gắn `knownBug` theo mã sau khi ARC duyệt mô hình; lượt kiểm lại lần 4 chạy lại toàn bộ `r3*`, `x-r3*`.
+
+### 7.11 Ca hồi quy minibar M-1 và BUG-R2-139 (QA, 18/10 ~03:45–04:30)
+- `s4-minibar-matrix.md` v0.2 sửa theo ARC mục 16.5 (Q1–Q4 đã trả lời; M2–M4 thay bằng R1–R10; bỏ chú thích "DOM (c) chưa chốt"; thêm ca 8–11).
+- Test: `e2e/clock/minibar-matrix.s4.clock.spec.ts` (TC-L4-101…119) và `e2e/clock/late-fee-qr.s4.clock.spec.ts` (TC-L4-120, 121), gắn `knownBug` theo mã. Đặt ở project `clock`, không ở `e2e/api/` (cần đồng hồ ảo và sửa danh mục dùng chung).
+- Trên `ottimo-qa-s4` (api `42fb458`): 21/21 đúng kỳ vọng (3 đối chứng đạt, 18 `knownBug` hỏng đúng lỗi). Chi tiết: `bug-list.md` mục 11.13. TC-L4-071 sửa theo R5, chạy lại đạt.
+- **Cập nhật ~05:20:** stack QA dựng lại api-dist10 từ cây chung (M-1/0065 của BE-B, 139 của BE-A) → 22/22 đạt (thêm TC-L4-122 – việc `minibar_refill` tủ căn cũ). BUG-R2-135…139 → Fixed (QA kiểm đạt); 140 còn phần Desk. Commit gộp phải xóa mã đã sửa khỏi `OPEN`.

@@ -479,7 +479,9 @@ export class FolioLinesService {
       } else if (
         line.charge_code &&
         line.charge_code !== 'fnb' &&
-        line.charge_code !== 'service_fee'
+        line.charge_code !== 'service_fee' &&
+        // mô hình minibar M-1: charge_code of a minibar line is the item code (FOC key), not a fixed-price service
+        line.category !== 'minibar'
       ) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'newUnitPriceVnd', code: 'PRICE_NOT_EDITABLE' }],

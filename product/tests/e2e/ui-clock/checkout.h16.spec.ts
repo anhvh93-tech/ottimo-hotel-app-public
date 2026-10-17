@@ -3,6 +3,7 @@
 // lễ tân (máy quầy được cấp – thiết bị ảo, support/s3.ts useVirtualDevice) làm trả phòng trên giao diện.
 // axe mỗi bước + hộp xác nhận: 0 critical/serious (ĐK-S2-4). TC-L4-040 (E), TC-L4-053 (E), TC-X-040 (H16).
 // TC-L4-096 (E) – KB7 (UXR 17/10, vòng sửa 9c): trả phòng sau giờ ân hạn vào thẳng H16 – phụ thu trả muộn phải vào số cần thu.
+// TC-L4-100 (E) – BUG-R2-141 (CI 39059529608): bấm "Tiếp tục: Phụ phí" trước khi số cần thu theo giờ mặc định về.
 import { expect, test } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
@@ -17,7 +18,9 @@ import {
   s2Context,
   vnTime,
 } from '../support/s2.js';
+import { checkOutStay } from '../support/s3-checkin.js';
 import { checkoutSummary } from '../support/s3-stay.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   DEVICE_COOKIE,
   activeDeviceToken,
@@ -29,6 +32,7 @@ import {
   virtualDay,
 } from '../support/s3.js';
 import { scan } from '../ui/axe.js';
+import { desk, openCheckOut } from '../ui/flows.js';
 import { UI, signIn, t } from '../ui/helpers.js';
 import { amountRe, vnd } from '../ui/write-steps.js';
 
@@ -78,7 +82,7 @@ test.describe(
       // (E03-07, không ghi giờ tương lai) – để giờ thật của máy chạy test sẽ thành 422 TIME_AFTER_ACTION giả.
       await page.clock.setFixedTime(new Date(vnTime(departure, '11:00')));
       await signIn(page, 'qa.fd');
-      await page.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
+      await openCheckOut(page, st.res.id); // BUG-R2-141: chờ số cần thu theo giờ mặc định rồi mới bấm
       // bước 1 minibar: bảng chuẩn của căn, nút +/− không vượt 0…chuẩn (BR-702)
       const minibar = page.getByRole('table', { name: t('checkout.step.minibar') });
       await expect(minibar).toBeVisible({ timeout: 15_000 });
@@ -195,7 +199,7 @@ test.describe(
       ]);
       await page.clock.setFixedTime(new Date(vnTime(departure, '14:00')));
       await signIn(page, 'qa.fd');
-      await page.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
+      await openCheckOut(page, st.res.id); // BUG-R2-141: chờ số cần thu theo giờ mặc định rồi mới bấm
       await expect(page.getByRole('table', { name: t('checkout.step.minibar') })).toBeVisible({
         timeout: 15_000,
       });
@@ -265,6 +269,100 @@ test.describe(
       expect(f.status).toBe('settled');
       expect(f.totals.balanceDueVnd).toBe(0);
       expect(liveLines(f, 'late_checkout').reduce((a, l) => a + l.amountVnd, 0)).toBe(fee);
+    });
+
+    test('TC-L4-100 (E) BUG-R2-141 H16: lễ tân bấm "Tiếp tục: Phụ phí" khi số cần thu theo giờ trả mặc định chưa về → bước 2 vẫn tính theo giờ đó và "Tiếp tục: Bill & thu tiền" mở bước 3 (không chờ mãi)', async ({
+      browser,
+      request,
+    }) => {
+      knownBug('BUG-R2-141');
+      test.slow();
+      needClock('TC-L4-100 (E)');
+      const { st, departure } = await precondition(
+        'khách đang ở 1 đêm, hôm nay là ngày đi 11:00 (trước giờ trả chuẩn)',
+        async () => {
+          const D = virtualDay(await stackToday(request), 3);
+          await useVirtualDevice(request, await setClock(request, vnTime(D, '14:00')));
+          cleanRooms();
+          const c = await s2Context(request);
+          const st = await inHouse(request, c, await session(request, 'qa.fd'), {
+            room: room(c, '203'),
+            alternatives: c.rooms,
+            arrival: D,
+            nights: 1,
+          });
+          const departure = addDays(D, 1);
+          await setClock(request, vnTime(departure, '11:00'));
+          return { st, departure };
+        },
+      );
+      // Thứ tự của CI 39059529608 dựng bằng cổng chặn request (tất định, không dựa vào tốc độ máy):
+      //   (1) GET summary đầu tiên (chưa có giờ) giữ lại tới khi lễ tân đã bấm lưu minibar → nút được bấm khi giờ
+      //       mặc định chưa có;
+      //   (2) POST minibar-checks giữ tới khi GET summary?checkoutTime=11:00 đã gửi;
+      //   (3) GET summary?checkoutTime=11:00 giữ tới khi lần tải lại sau lưu minibar đã gửi.
+      // Đúng: lần tải lại mang giờ đang hiện (11:00) → bước 3 mở. Lỗi: lần tải lại không mang giờ (closure cũ của
+      // sum.reload) → server trả theo 12:00 ≠ 11:00 → "priced" sai mãi → nút chờ mãi.
+      const gate = () => {
+        let open: () => void = () => undefined;
+        const p = new Promise<void>((r) => (open = r));
+        return { p, open: () => open() };
+      };
+      const within = (p: Promise<void>, ms: number) =>
+        Promise.race([p, new Promise<void>((r) => setTimeout(r, ms))]);
+      const mbSent = gate();
+      const timedSent = gate();
+      const reloaded = gate();
+      const seen: string[] = [];
+      let untimed = 0;
+      let timed = 0;
+      const page = await desk(browser, 'qa.fd', vnTime(departure, '11:00'));
+      try {
+        await page.route(/\/checkout-summary(\?|$)/, async (route) => {
+          const q = new URL(route.request().url()).searchParams.get('checkoutTime');
+          seen.push(q ? `summary@${q}` : 'summary');
+          if (!q && ++untimed === 1) await within(mbSent.p, 15_000);
+          else if (q && ++timed === 1) {
+            timedSent.open();
+            await within(reloaded.p, 15_000);
+          } else reloaded.open();
+          await route.continue();
+        });
+        await page.route(/\/minibar-checks$/, async (route) => {
+          if (route.request().method() === 'POST') {
+            seen.push('POST minibar');
+            mbSent.open();
+            await within(timedSent.p, 15_000);
+          }
+          await route.continue();
+        });
+        await page.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
+        await expect(page.getByRole('table', { name: t('checkout.step.minibar') })).toBeVisible({
+          timeout: 15_000,
+        });
+        // minibar còn đủ: vẫn ghi một lần kiểm (B17) – không phát sinh tiền, để dọn bằng API được
+        await page.getByRole('button', { name: t('co.go_extras') }).click();
+        await expect(page.getByLabel(new RegExp(t('checkout.departure_time')))).toHaveValue(
+          '11:00',
+          {
+            timeout: 20_000,
+          },
+        );
+        await page.getByRole('button', { name: t('co.go_bill') }).click();
+        await expect(page.getByText(t('bill.total')).first()).toBeVisible({ timeout: 15_000 });
+      } finally {
+        test.info().annotations.push({ type: 'summary-requests', description: seen.join(' → ') });
+        await page.context().close();
+        // dọn: không để đơn kẹt in_house trên stack dùng lại (minibar đủ, tiền phòng đã thu khi nhận phòng)
+        const out = await checkOutStay(
+          request,
+          await session(request, 'qa.fd'),
+          st.res.id,
+          '11:00',
+        ).catch((e: unknown) => ({ status: 0, body: { detail: String(e) } }));
+        if (out.status !== 200)
+          test.info().annotations.push({ type: 'cleanup', description: `checkOut ${out.status}` });
+      }
     });
   },
 );

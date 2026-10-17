@@ -47,7 +47,7 @@ import {
   virtualDay,
 } from '../support/s3.js';
 import { settle } from '../ui/axe.js';
-import { desk, pwaCleanInspect } from '../ui/flows.js';
+import { desk, openCheckOut, pwaCleanInspect } from '../ui/flows.js';
 import { UI, t } from '../ui/helpers.js';
 import { dialogs, recordWrites, vnd, waitWrite } from '../ui/write-steps.js';
 
@@ -294,7 +294,8 @@ test.describe(
       const qr2 = recordWrites(fd3, 'POST', /\/folios\/[^/]+\/vietqr$/);
       const recv2 = recordWrites(fd3, 'POST', /\/payments\/[^/]+\/actions\/confirm-received$/);
       const outs = recordWrites(fd3, 'POST', /\/reservations\/[^/]+\/actions\/check-out$/);
-      await fd3.goto(`${WEB_URL}/reservations/${res.id}/check-out`);
+      // chờ số cần thu theo giờ trả 11:00 rồi mới bấm (người thật nhìn số trước) – bấm sớm hơn chạm BUG-R2-141
+      await openCheckOut(fd3, res.id);
       const mb = fd3.getByRole('table', { name: t('checkout.step.minibar') });
       await expect(mb).toBeVisible({ timeout: 15_000 });
       const used = oracle('BR-702-01').input.used as Record<string, number>;
@@ -394,7 +395,7 @@ test.describe(
       );
       const fdPage = await desk(browser, 'qa.fd', vnTime(departure, '14:00'));
       const lates = recordWrites(fdPage, 'POST', /\/reservations\/[^/]+\/actions\/late-checkout$/);
-      await fdPage.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
+      await openCheckOut(fdPage, st.res.id); // BUG-R2-141: chờ số cần thu theo giờ 14:00 rồi mới bấm
       await fdPage.getByRole('button', { name: t('co.go_extras') }).click();
       await expect(
         fdPage.getByText(new RegExp(`^${esc(t('checkout.late_fee').split('{')[0]!)}`)),

@@ -66,6 +66,16 @@ export interface FocRequestInput {
   note: string | null;
 }
 
+/** BUG-R2-134: per-stay inputs of `addedNightRate`. */
+export interface AddedNightContext {
+  /** The room the added night goes to. */
+  roomId: string;
+  /** The agreed price next to the added night in that room (null = none). */
+  agreedVnd: number | null;
+  /** The room the guest bought (null = never moved / not a direct-agent booking). */
+  boughtRoomId: string | null;
+}
+
 @Injectable()
 export class StaySupport {
   constructor(
@@ -191,8 +201,19 @@ export class StaySupport {
    * added night (B9a: its first typed night, B13/B18: its last) – the typed CALENDAR price, before the tier; a
    * special date always takes its own calendar (caller). null = a calendar-priced booking (S438-DOM-01: the
    * direct calendar of the added night itself).
+   *
+   * BUG-R2-134 (BR-417-07 v0.3.8 bổ sung 18/10): the agreed price belongs to the room where it was typed – it is
+   * offered only when the night NEXT TO the added one (the booking's first night for B9a, its last for B13/B18) is
+   * a typed night (at booking or S4-35) in the room the added night goes to (`at.roomId`; a guest-requested move
+   * re-prices the moved nights to the new room's calendar, an OTTIMO move keeps them). Callers go through
+   * `addedNightRate` (min after an OTTIMO move, BR-105 clamp).
    */
-  async agreedRate(tx: Tx, row: ReservationRow, pick: 'first' | 'last'): Promise<number | null> {
+  async agreedRate(
+    tx: Tx,
+    row: ReservationRow,
+    pick: 'first' | 'last',
+    at: { roomId: string; floorVnd?: number; ceilingVnd?: number },
+  ): Promise<number | null> {
     if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
     if (row.external_contract || row.stay_type !== 'short') return null;
     // BUG-R2-126: only a booking PRICED BY HAND AT BOOKING is an agreed one (`bookingRateSource`, written for every
@@ -200,9 +221,89 @@ export class StaySupport {
     // never make a calendar booking agreed.
     const flag = (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource;
     if (flag !== 'manual_agreed') return null;
-    const typed = (await this.stay.pricedNights(tx, row)).filter((n) => n.manual);
-    const n = pick === 'first' ? typed[0] : typed[typed.length - 1];
-    return n ? n.calendarVnd : null;
+    const nights = await this.stay.pricedNights(tx, row);
+    const n = pick === 'first' ? nights[0] : nights[nights.length - 1];
+    if (!n || !n.manual) return null;
+    const { rows } = await tx.query<{ room_id: string | null }>(
+      `SELECT room_id FROM stay_night WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
+      [row.id, n.date],
+    );
+    if (rows[0]?.room_id !== at.roomId) return null;
+    if (at.floorVnd !== undefined && n.calendarVnd < at.floorVnd) return null;
+    if (at.ceilingVnd !== undefined && n.calendarVnd > at.ceilingVnd) return null;
+    return n.calendarVnd;
+  }
+
+  /** What `addedNightRate` needs once per stay (the agreed price next to the added nights, the room bought). */
+  async addedNightContext(
+    tx: Tx,
+    row: ReservationRow,
+    pick: 'first' | 'last',
+    roomId: string,
+  ): Promise<AddedNightContext> {
+    // BR-417 v0.3.8 (DOM 18/10, r3-1 sửa phạm vi): the OTTIMO min applies to the direct child nights of an OTA
+    // booking too (B9a, B13, B18 – like the protected base of BR-110); not to a manual long stay / internal use.
+    const minApplies =
+      (row.channel_group === 'direct' ||
+        row.channel_group === 'agent' ||
+        row.channel_group === 'ota') &&
+      !row.external_contract;
+    return {
+      roomId,
+      agreedVnd: await this.agreedRate(tx, row, pick, { roomId }),
+      boughtRoomId: minApplies ? await this.stay.boughtRoomId(tx, row) : null,
+    };
+  }
+
+  /**
+   * BR-417 (2)/(7), BR-421, BR-416 v0.3.8 (bổ sung 18/10 – BUG-R2-134): default price of a night added next to the
+   * stay (B9a `first`, B13/B18 `last`) in the context's room on `date`:
+   * - the agreed price of the night next to it when that night is typed in this room (`agreedRate`), else the
+   *   direct calendar of this room (a special date always a calendar – BR-421);
+   * - the booking is in a room OTTIMO chose (room bought ≠ this room – fault, swap, B7a, no-show restore):
+   *   min(what the guest bought – the agreed price, else the bought room's calendar of that night – this room's
+   *   calendar) – BR-429 (b1);
+   * - always within this room's BR-105 floor–ceiling.
+   * `typed` = the default is not this room's calendar (B13 writes it as a typed night). `keepVnd` =
+   * `ExtensionOptions.currentBookingRateVnd` (ARC 16.6 (a)): the agreed price (rule 1, min/clamped), or the OTTIMO
+   * min (rule 3, calendar bookings too); null = this room's calendar (no agreed price here, or a guest move).
+   */
+  async addedNightRate(
+    tx: Tx,
+    ctx: BookingContext,
+    c: AddedNightContext,
+    date: LocalDate,
+  ): Promise<{
+    rateVnd: number;
+    calendarVnd: number;
+    floorVnd: number;
+    ceilingVnd: number;
+    special: boolean;
+    typed: boolean;
+    keepVnd: number | null;
+  }> {
+    const direct = await this.directRate(tx, ctx, c.roomId, date);
+    const clamp = (v: number) => Math.min(direct.ceilingVnd, Math.max(direct.floorVnd, v));
+    const moved = c.boughtRoomId !== null && c.boughtRoomId !== c.roomId;
+    const agreedVnd =
+      c.agreedVnd === null
+        ? null
+        : clamp(moved ? Math.min(c.agreedVnd, direct.rateVnd) : c.agreedVnd);
+    let rate = direct.rateVnd;
+    if (agreedVnd !== null && !direct.special) rate = agreedVnd;
+    else if (moved) {
+      const bought = await this.directRate(tx, ctx, c.boughtRoomId as string, date);
+      rate = clamp(Math.min(bought.rateVnd, direct.rateVnd));
+    }
+    return {
+      rateVnd: rate,
+      calendarVnd: direct.rateVnd,
+      floorVnd: direct.floorVnd,
+      ceilingVnd: direct.ceilingVnd,
+      special: direct.special,
+      typed: rate !== direct.rateVnd,
+      keepVnd: agreedVnd ?? (moved ? rate : null),
+    };
   }
 
   async directRate(
@@ -414,13 +515,19 @@ export class StaySupport {
     folioId: string,
     line: { id: string; amountVnd: number; category: string; serviceDate?: string | null },
     input: FocRequestInput,
+    opts: { field?: string; kind?: 'foc' | 'special_discount' } = {},
   ): Promise<ApprovalRow> {
     // S4-25 (BE-B) – S4-23 (6), BR-434 v0.3.6: a FOC already approved / pending on the same key (late check-out is
     // ONE key per stay) leaves less to ask: max = line − (applied + asked).
     const max = await this.folios.reductionHeadroomVnd(tx, line.id);
     if (input.amountVnd <= 0 || input.amountVnd > max) {
       throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'requestFocForSurcharge.amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
+        errors: [
+          {
+            field: `${opts.field ?? 'requestFocForSurcharge'}.amountVnd`,
+            code: 'VALUE_OUT_OF_RANGE',
+          },
+        ],
         extras: { max },
       });
     }
@@ -560,6 +667,8 @@ export class StaySupport {
       amountVnd: number;
       reason: string;
       source: 'checkout' | 'manual';
+      /** BR-416-06: `late_fee_as_night` – the late charge of one night when that night cannot be sold. */
+      chargeCode?: string;
     },
   ): Promise<{ lineId: string | null; carriedFocVnd: number }> {
     const actor = {
@@ -595,6 +704,7 @@ export class StaySupport {
           serviceDate: input.serviceDate,
           source: input.source,
           labelParams: { time: input.time, pct: input.tierPct },
+          ...(input.chargeCode ? { chargeCode: input.chargeCode } : {}),
         },
       ],
       actor,

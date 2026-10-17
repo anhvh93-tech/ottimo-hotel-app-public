@@ -1383,6 +1383,73 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(late.statusCode).toBe(409);
   });
 
+  it('BR-807-01 (DOM v0.3.8): a guest arriving today is not a stay-over – J8 run late after the check-in keeps OC without a stay-over clean, the next 07:00 run gives OD + the clean; an extension (B13) on the arrival day keeps OC too', async () => {
+    const o = ORACLES.examples.find((x) => x.id === 'BR-807-01')!;
+    expect(o.pendingFix).toBeUndefined();
+    // Same pattern on this suite's day (oracle 20/10 → 15/10): check-in 14:00, J8 catch-up 15:00.
+    await seedStay(db, t, ids, {
+      roomNo: o.input.roomNo,
+      status: 'in_house',
+      arrival: TODAY,
+      departure: '2026-10-17',
+    });
+    await setStatus(o.input.roomNo, 'OC');
+    const deps = {
+      params: fa.app.get(ParameterService),
+      events: fa.app.get(EventsService),
+      rooms: fa.app.get(RoomStatusService),
+    };
+    const stayovers = async (roomNo: string, day: string) =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ n: number }>(
+              `SELECT count(*)::int AS n FROM hk_task WHERE room_id = $1 AND type = 'stayover_clean'
+                AND due_date = $2::date`,
+              [room(roomNo), day],
+            )
+          ).rows[0]!.n,
+      );
+    const lateRun = new Date(T0.getTime() + 6 * 3_600_000); // 15:00 local
+    await db.withContext(t.ctx(), (tx) => runHkDaily(tx, deps, lateRun, TODAY));
+    expect((await entry('fd', o.input.roomNo)).status).toBe(o.expected.afterLateRun.roomStatus);
+    expect((await stayovers(o.input.roomNo, TODAY)) > 0).toBe(
+      o.expected.afterLateRun.stayoverTaskCreated,
+    );
+    // B13 on the arrival day: no OC → OD, no stay-over clean.
+    await seedStay(db, t, ids, {
+      roomNo: '203',
+      status: 'in_house',
+      arrival: TODAY,
+      departure: '2026-10-17',
+    });
+    await setStatus('203', 'OC');
+    const kept = await db.withContext({ ...t.ctx(), userId: uid('fd'), actorType: 'user' }, (tx) =>
+      deps.rooms.set(tx, room('203'), 'OD', { today: TODAY, now: lateRun, event: 'B13' }),
+    );
+    expect(kept).toBe('OC');
+    expect((await entry('fd', '203')).status).toBe('OC');
+    expect(await stayovers('203', TODAY)).toBe(0);
+    // Next day 07:00: both rooms are stay-overs now.
+    const next = '2026-10-16';
+    await at(new Date(T0.getTime() + 22 * 3_600_000));
+    await db.withContext(t.ctx(), (tx) =>
+      runHkDaily(tx, deps, new Date(T0.getTime() + 22 * 3_600_000), next),
+    );
+    const statusOn = async (roomNo: string) =>
+      db.withContext(
+        t.ctx(),
+        async (tx) => (await deps.rooms.of(tx, room(roomNo), next)) as string,
+      );
+    expect(await statusOn(o.input.roomNo)).toBe(o.expected.afterNextRun.roomStatus);
+    expect((await stayovers(o.input.roomNo, next)) > 0).toBe(
+      o.expected.afterNextRun.stayoverTaskCreated,
+    );
+    expect(await statusOn('203')).toBe('OD');
+    expect(await stayovers('203', next)).toBe(1);
+  });
+
   it('EP14 port (BE-D): a guest request becomes a guest_request task (rank 3) or a work order (guest_app, medium); decline cancels the open task', async () => {
     const port = fa.app.get<GuestRequestWorkPort>(GUEST_REQUEST_WORK_PORT);
     const { reservationId } = await seedStay(db, t, ids, { roomNo: '203', status: 'in_house' });

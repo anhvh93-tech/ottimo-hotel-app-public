@@ -189,6 +189,7 @@ Chưa có ca, sẽ viết khi BE giao (không cần đổi hợp đồng):
 **Đã làm (17/10 ~22:30): A1 chạy được, xanh 3/3 trên stack QA.**
 - Ca: TC-X-070, `e2e/ui-clock/flow-a1.s4.spec.ts`, project `desk-clock`. Chuỗi đủ 6 bước: H12 → H11 → H13 → H17 → H16 → PWA dọn, kiểm → `VI`.
 - FOC trong chuỗi: xin lúc nhận sớm, duyệt ở H17 (ORC 17/10). Phần "xin FOC ở bước trả phòng" tách thành ca **TC-X-071**, `knownBug('S4-25')` ở dòng đầu (đã thêm `S4-25` vào `OPEN`). Ca này đỏ đúng chỗ thiếu nút "Mở form miễn phí / giảm giá".
+- **18/10 (CI 39059529608 trên `42fb458`):** TC-X-070 đỏ ở bước 5 (H16 bước 2 → 3) do BUG-R2-141 (P3, FE-A – lưu minibar tải lại tóm tắt không kèm giờ trả). Các ca H16 mở màn bằng `openCheckOut` (chờ số cần thu theo giờ mặc định rồi mới bấm); ca hồi quy riêng TC-L4-100. Chi tiết: `s4-test-report.md` mục 7.9.
 - Đề nghị OPS/ORC đưa **TC-X-070** vào `WRITES`. TC-X-071 vào khi S4-25 gộp. Chuỗi A4 đi H21 → H22 → form OOO Desk → `VD` → dọn → bán lại, phụ thuộc BE-C, MOB, FE-B, dự kiến D7–D8.
 
 ### 5.3 Ca UI cho màn vận hành của FE-B (nối vào A4)
