@@ -1,5 +1,54 @@
 # Báo cáo QC – Round 2, Sprint 3 (cổng QC giữa round)
 
+## Bản 3 – chấm lại rút gọn sau vòng sửa 9, 9b, 9c (QC tự ghi, 17/10/2026 ~16:00)
+
+- Vai: QC | Bước 6 (cổng sprint) | Code `fe4b166`, CI 39015560449 (7 job xanh, 2 job staging/GHCR bỏ qua; api 2.201/2.201; E2E 1.786/0, 0 lần chạy lại).
+- **Quyết định: ĐẠT CÓ ĐIỀU KIỆN**, có hiệu lực khi QA đóng BUG-R2-083 (ĐK-S3-12). Nếu QA giữ P0 thì cổng tự chuyển thành KHÔNG ĐẠT.
+- **Demo lần 1: gửi được** sau ĐK-S3-1 (ghi smoke `fe4b166` vào `outputs/OPS/demo-1.md`). D5 hết hạn 20:45 ngày 17/10.
+
+### 1. Đã làm gì
+1. Đọc lại CI 39015560449 bằng `gh` (headSha, job, log test, E2E, các bước kiểm `WRITES`, "UI cases ran", audit). Số liệu tự đọc, không dùng số tự khai.
+2. Đọc mã 4 tệp ca bấm thật (`desk-writes.s3`, `stay-writes.h15`, `party-docs.h14`, `checkout.h16`): bước ghi đi qua nút trên Desk, không giả lập API. Đối chiếu lỗi UXR #2–#7, FE-07 và KB7 với từng ca.
+3. Đọc mã sửa BUG-R2-083 (`onPartyMemberRemoved`, `DocsPanel` gửi `partyMemberId`, `ci.yml` có TC-L3-077); khớp SEC 9.5/9.6.
+4. Đếm lại sổ lỗi bằng script (84 lỗi; P0/P1 Open: 055…061 và 083).
+5. Probe demo chỉ đọc (cổng 8181/8182/8183, `/health`, `built-from` = `fe4b166`). Grep log của UXR chỉ lấy dòng smoke/XONG/D5.
+6. Chạy `gen_traceability.py --strict` trên cây làm việc: exit 1 vì backlog EP19 chưa commit. Đây là rủi ro khi commit (ĐK-S3-13).
+7. Đọc mã "Đã thu −500.000": hiển thị theo kiểu khấu trừ, không sai tiền ở máy chủ.
+8. Kiểm ĐK-S3-1…11. Xong: ĐK-S3-9, ĐK-S3-10. Thu hẹp: ĐK-S3-11. Thêm: ĐK-S3-12 (điều kiện hiệu lực), ĐK-S3-13. Viết mục V3 trong `qc/s3-qc-gate.md`, ghi 1 dòng decision-log.
+
+### 2. File tạo/sửa
+- `rounds/round-02/qc/s3-qc-gate.md`: thêm mục V3 (bản 3); ghi chú đầu tệp; đổi tiêu đề mục 1 thành "Quyết định bản 2". Nội dung bản 1 và bản 2 giữ nguyên.
+- `01-decisions/decision-log.md`: 1 dòng QC ở cuối tệp.
+- `rounds/round-02/outputs/QC/report.md`: phần bản 3 này.
+- Tệp tạm ngoài repo: `scratchpad/regate/qc/` (log CI, kết quả traceability trên cây làm việc).
+- Không commit.
+
+### 3. Giả định
+- Đổi trạng thái BUG-R2-083 là quyền của QA. Điều kiện QA tự đặt ("chờ SEC kết luận FE-07") đã thỏa ở `s3-SEC.md` 9.6.
+- Câu SEC-G4 do UXR viết vào limits mục C được tính cho phần việc của ORC ở ĐK-S3-10, vì nội dung khớp câu SEC đưa ra ở 9.4.
+- UXD chưa duyệt hộp phụ thu #7, nhưng ĐK-S3-9 vẫn tính là xong: chức năng đã có ca bấm thật, UXR đi KB6 đạt. Phần duyệt chuyển sang ĐK-S3-5.
+- Ngoại lệ tiền (dòng 593 (1), dòng 597) giữ nguyên cho 055…061.
+
+### 4. Rủi ro / vướng mắc
+- Commit backlog EP19 (Round "R2 – LP-v1") cùng lúc sẽ làm đỏ job "API contract".
+- TC-L3-076 không còn bắt được lỗi đua ô chọn khách; chỉ còn unit giữ.
+- Phương án dự phòng 083: lễ tân bỏ qua "Cần chú ý" quá 24 giờ thì giấy tờ của người còn ở bị xóa.
+- Ba stack QA cũ khởi động lại liên tục trên máy chạy demo.
+- Sprint 4 nặng thêm (S4-40…S4-49). Vẫn chưa có staging.
+
+### 5. Việc chưa xong
+- **Trước khi cổng có hiệu lực:** ĐK-S3-12 (QA).
+- **Khi commit bước QC:** ĐK-S3-13 (ORC).
+- **Trước khi gửi demo:** ĐK-S3-1 (OPS/ORC).
+- **Trước tuần đầu Sprint 4:** ĐK-S3-3 và ĐK-S3-4 phần bản 3 (QA, ORC, PO).
+- **Trước cổng QC Sprint 4:** ĐK-S3-5, 6, 7, 11.
+- **Khi có VPS:** ĐK-S3-8.
+- QC chưa đọc mã N1–N6; KB5 và KB10 chưa ai đi lại sau vòng 9; QC không đăng nhập demo, không chạy lại E2E hay test SEC.
+
+---
+
+## Bản 2 (lịch sử)
+
 > Nội dung do QC soạn (17/10/2026). ORC ghi tệp hộ vì phiên QC không ghi được tệp này.
 
 - Vai: QC | 17/10/2026 | Bước 6 (cổng sprint) | Code 6af7173, CI 38998735861 (7 job xanh, 2 job staging/GHCR bỏ qua)

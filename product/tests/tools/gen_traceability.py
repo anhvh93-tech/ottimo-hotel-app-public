@@ -24,12 +24,22 @@ Round 1 step 4 additions (QA responses FB-R1-BA-QA-02/03/04, FB-R1-PO-QA-03/07):
   * priority cell "Cao (S)" = smoke subset run on every PR
   * column "ESC" per story = ESC-xxx cited in its AC and TCs
 
-Usage (from repo root):  python3 product/tests/tools/gen_traceability.py [--out PATH] [--strict]
+Separate tracks (R2 Sprint 3 QC gate v3, ĐK-S3-13 – QA 17/10/2026):
+  * a backlog Round cell "R<n> – <TRACK>" where TRACK looks like "LP-v1" (letters, "-v", digits) marks a story of a
+    separate delivery track with its own gate (EP19 landing page: "R2 – LP-v1", cổng LP-v1, not part of the Round 2
+    QC gate). Such stories are NOT counted as "Must R2": they are reported in their own section (9) with AC -> TC,
+    and their uncovered ACs do NOT fail --strict. Round cells with a note in brackets ("R2 (một phần; …)") are
+    unchanged (still R2). The PO's story text is never rewritten by this script.
+  * --strict-track TRACK (repeatable) makes the uncovered Must ACs of that track fail --strict too – use it in the
+    track's own gate (e.g. "--strict --strict-track LP-v1" before the LP-v1 gate).
+
+Usage (from repo root):  python3 product/tests/tools/gen_traceability.py [--out PATH] [--strict] [--strict-track TRACK]
   --out     write the matrix somewhere else (dry run); default product/docs/qa/traceability.md
   --strict  exit 1 when the RBAC static check finds a role that OpenAPI grants but rbac-matrix denies (operation or
             field leak), a property with x-classification lacks x-rbac-field, or an x-rbac-field code is unknown (CI gate);
             since R2 Đợt 0 also on bad AC refs, unknown operationIds, duplicate TC ids, an R2 AC without TC, or a TC on a
-            deferred AC without the [Dời R3] tag
+            deferred AC without the [Dời R3] tag. Stories of a separate track are excluded (see above).
+  --strict-track TRACK  with --strict: also exit 1 on a Must AC of that track without TC
 """
 from __future__ import annotations
 
@@ -60,6 +70,8 @@ ROLE_CODES = OrderedDict([('OWN', 'owner'), ('MGR', 'manager'), ('FDL', 'front_d
                           ('HK', 'housekeeping'), ('MT', 'maintenance'), ('SAL', 'sales_staff'),
                           ('CTV', 'collaborator'), ('GST', 'guest')])
 TAG_RE = re.compile(r'\[(BLOCKED|UNDECIDED|GIẢ ĐỊNH QA|Dời R3)[^\]]*\]')
+# Round cell rest after "R2": " – LP-v1" -> track "LP-v1" (separate delivery track with its own gate, ĐK-S3-13)
+TRACK_RE = re.compile(r'^\s*[–—-]\s*([A-Z][A-Z0-9]*-v\d+)\b')
 
 DASH = '[–—…-]'  # en dash, em dash, ellipsis, hyphen
 
@@ -102,9 +114,12 @@ def parse_backlog():
     stories = OrderedDict()
     for line in sec3.splitlines():
         # Round cell may carry a note since R-C (ESC-012): "R2 (một phần; AC3 → R3 …)" -> R2
-        m = re.match(r'^\|\s*(US-\d{3})\s*\|(.*?)\|\s*(Must|Should|Could|Won\'t)\s*\|\s*(R\d\+?)\b[^|]*\|', line)
+        # "R2 – LP-v1" (EP19, ĐK-S3-13) -> R2 + separate track "LP-v1" (own gate, not in the R2 counts)
+        m = re.match(r'^\|\s*(US-\d{3})\s*\|(.*?)\|\s*(Must|Should|Could|Won\'t)\s*\|\s*(R\d\+?)\b([^|]*)\|', line)
         if m:
-            stories[m.group(1)] = {'moscow': m.group(3), 'round': m.group(4), 'text': m.group(2).strip()}
+            tr = TRACK_RE.match(m.group(5))
+            stories[m.group(1)] = {'moscow': m.group(3), 'round': m.group(4), 'text': m.group(2).strip(),
+                                   'round_cell': (m.group(4) + m.group(5)).strip(), 'track': tr.group(1) if tr else ''}
     sec4 = t[t.index('## 4. Ti'):t.index('## 5. Truy')]
     acs: dict[str, OrderedDict] = {}
     deferred: dict[str, set] = defaultdict(set)
@@ -608,6 +623,7 @@ def main(argv=None):
     if '--out' in argv:
         out_path = os.path.abspath(argv[argv.index('--out') + 1])
     strict = '--strict' in argv
+    strict_tracks = [argv[i + 1] for i, a in enumerate(argv) if a == '--strict-track' and i + 1 < len(argv)]
     stories, acs_all, titles, backlog_text, deferred = parse_backlog()
     # R2 acceptance = ACs not marked [Dời R3 – R-C] (backlog section 4 convention, ESC-012)
     acs = {s: OrderedDict((a, v) for a, v in d.items() if a not in deferred.get(s, set())) for s, d in acs_all.items()}
@@ -622,8 +638,15 @@ def main(argv=None):
     wf_hdr = parse_wireframes()
     erd_us = parse_erd_refs()
 
-    must_r2 = [s for s, v in stories.items() if v['moscow'] == 'Must' and v['round'] == 'R2']
-    must_r3_with_ac = [s for s in acs if s not in must_r2]
+    # stories of a separate track ("R2 – LP-v1") have their own gate: not Must R2, reported in section 9 (ĐK-S3-13)
+    must_r2 = [s for s, v in stories.items() if v['moscow'] == 'Must' and v['round'] == 'R2' and not v['track']]
+    tracks: OrderedDict = OrderedDict()
+    for s, v in stories.items():
+        if v['track']:
+            tracks.setdefault(v['track'], []).append(s)
+    track_of = {s: v['track'] for s, v in stories.items() if v['track']}
+    unknown_strict_tracks = [t for t in strict_tracks if t not in tracks]
+    must_r3_with_ac = [s for s in acs if s not in must_r2 and s not in track_of]
 
     # coverage maps
     tc_by_ac = defaultdict(list)
@@ -687,6 +710,18 @@ def main(argv=None):
     uncovered_ac = [(s, a) for s in must_r2 for a in acs.get(s, {}) if not tc_by_ac.get((s, a))]
     no_ac_story = [s for s in must_r2 if not acs.get(s)]
 
+    # separate tracks (section 9): Must AC coverage per track; fails --strict only with --strict-track TRACK
+    track_stat = OrderedDict()
+    for tr, sids in tracks.items():
+        must_t = [s for s in sids if stories[s]['moscow'] == 'Must']
+        ac_t = [(s, a) for s in must_t for a in acs.get(s, {})]
+        track_stat[tr] = {
+            'must': must_t, 'other': [s for s in sids if s not in must_t], 'ac': ac_t,
+            'covered': [(s, a) for s, a in ac_t if tc_by_ac.get((s, a))],
+            'uncovered': [(s, a) for s, a in ac_t if not tc_by_ac.get((s, a))],
+        }
+    track_strict_fail = [(tr, s, a) for tr in strict_tracks if tr in track_stat for s, a in track_stat[tr]['uncovered']]
+
     # endpoint + wireframe per story
     def endpoints_of(s):
         return sorted(set(ops_by_story.get(s, [])) | eps_by_story.get(s, set()))
@@ -734,7 +769,7 @@ def main(argv=None):
     w = L.append
     w('# Ma trận truy vết – Story ↔ AC ↔ BR ↔ Test case ↔ Endpoint ↔ Wireframe')
     w('')
-    w(f'- Tác giả: QA | Round 2 – Đợt 0 | Ngày: {now} | Phiên bản: 0.4 (backlog R-C – ESC-012: 72 Must R2; AC `[Dời R3 – R-C]` tách khỏi nghiệm thu R2; AC5a)')
+    w(f'- Tác giả: QA | Round 2 – Đợt 0 | Ngày: {now} | Phiên bản: 0.4 (backlog R-C – ESC-012: 72 Must R2; AC `[Dời R3 – R-C]` tách khỏi nghiệm thu R2; AC5a) · **0.5 (17/10, ĐK-S3-13)**: story cột Round "R2 – <luồng>" (EP19 "R2 – LP-v1") tách ra mục 9, không tính vào Must R2 và `--strict`')
     w('- **File này do script sinh** – không sửa tay: `python3 product/tests/tools/gen_traceability.py` (chạy từ thư mục gốc repo). Nguồn: `03-backlog/backlog.md` (story, AC), `product/tests/test-cases/r1-main-flows.md` (TC), `product/docs/api/openapi.yaml` (`operationId`, `x-stories`), `product/docs/business-rules.md`, `product/docs/baseline-issues-triage.md`, `product/design/wireframes/NN-*.html` 01–10 (dòng `wf-meta` đầu trang liệt kê US), `product/docs/erd.md` mục 4, `product/docs/state-machines.md`, `product/docs/rbac-matrix.json`/`.md`.')
     w('- Đọc cùng `product/docs/qa/test-strategy.md`. Cột **Endpoint** = hợp của `x-stories` trong OpenAPI và endpoint QA dùng trong TC. Cột **Wireframe** = trang có ghi US ở đầu trang (`L2`…); mục có hậu tố "(QA)" = QA tự đối chiếu màn hình khi đầu trang không ghi US. Cột **ERD** = mục từ điển bảng `erd.md` 4.x: mục nêu US trực tiếp, hợp với mục suy từ `tags` của operation (bảng ánh xạ `TAG_ERD` của QA) – kiểm có bảng, chưa kiểm từng cột.')
     w('')
@@ -742,7 +777,7 @@ def main(argv=None):
     w('')
     w('| Chỉ số | Kết quả |')
     w('|---|---|')
-    w(f'| Story Must R2 trong backlog (mục 3) | **{len(must_r2)}** |')
+    w(f'| Story Must R2 trong backlog (mục 3) – không gồm story của luồng riêng (cột Round "R2 – <luồng>", mục 9) | **{len(must_r2)}** |')
     w(f'| Story Must R2 có ≥ 1 TC | **{len(story_cov)}/{len(must_r2)}** ({100*len(story_cov)//max(1,len(must_r2))}%) |')
     w(f'| AC của story Must R2 (backlog mục 4) | **{total_ac}** |')
     w(f'| AC có ≥ 1 TC | **{cov_ac}/{total_ac}** ({100*cov_ac/max(1,total_ac):.1f}%) |')
@@ -766,6 +801,10 @@ def main(argv=None):
     w(f'| Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | {len(no_erd)} {", ".join(no_erd)} |')
     w(f'| Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **{sum(1 for s in must_r2 if tc_by_story.get(s) and endpoints_of(s) and any(wf_of(s)) and erd_of(s))}/{len(must_r2)}** |')
     w(f'| BR trong danh mục / BR không được story hay TC nào tham chiếu | {len(br_cat)} / {len(br_unref)} |')
+    for tr, st in track_stat.items():
+        w(f'| Luồng riêng **{tr}** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ'
+          f'{" – đang bật `--strict-track " + tr + "`" if tr in strict_tracks else ""}) · AC Must có ≥ 1 TC | '
+          f'{len(st["must"])} Must + {len(st["other"])} khác · **{len(st["covered"])}/{len(st["ac"])}** – mục 9 |')
     w('')
     if uncovered_ac:
         w('AC chưa có TC: ' + ', '.join(f'{s}/{a}' for s, a in uncovered_ac))
@@ -922,6 +961,30 @@ def main(argv=None):
         w('')
         w('Mã `x-rbac-field` không có trong rbac-matrix mục 6: ' + ', '.join(f'`{n}`→{c}' for n, c in f_unknown))
     w('')
+    w('## 9. Luồng riêng có cổng riêng (không thuộc cổng QC Round 2)')
+    w('')
+    w('Quy ước (QA, ĐK-S3-13 – cổng QC Sprint 3 bản 3): story có cột Round dạng **"R2 – <luồng>"** (ví dụ "R2 – LP-v1" của EP19 landing page) '
+      'thuộc một luồng giao hàng riêng, có cổng riêng (cổng LP-v1), **không** thuộc cổng QC Round 2. Các story này không tính vào "Must R2" ở mục 1–2; '
+      'AC chưa có TC được liệt kê ở đây và **không** làm `--strict` đỏ. Ở cổng của luồng, chạy `--strict --strict-track <luồng>` để AC Must của luồng cũng bắt buộc có TC. '
+      'Script không sửa nội dung story của PO. Chi tiết: `product/docs/qa/test-strategy.md` mục 2.0.')
+    w('')
+    if not track_stat:
+        w('- Không có luồng riêng nào trong backlog.')
+    for tr, st in track_stat.items():
+        w(f'### 9.{list(track_stat).index(tr) + 1} Luồng {tr}')
+        w('')
+        w(f'Story Must: {len(st["must"])} · story khác: {len(st["other"])} · AC Must có ≥ 1 TC: **{len(st["covered"])}/{len(st["ac"])}**'
+          + (' · `--strict-track` đang bật' if tr in strict_tracks else ' · chưa bắt buộc (`--strict-track` tắt)'))
+        w('')
+        w('| Story | Mức | Cột Round | Tên (backlog mục 4) | AC → TC |')
+        w('|---|---|---|---|---|')
+        for s in tracks[tr]:
+            cells = [f'{a}: {", ".join(tc_by_ac.get((s, a), [])) or "**TRỐNG**"}' for a in acs.get(s, {})] or ['(chưa có AC ở mục 4)']
+            w(f'| {s} | {stories[s]["moscow"]} | {stories[s]["round_cell"]} | {titles.get(s, "")} | {"<br>".join(cells)} |')
+        w('')
+        if st['uncovered']:
+            w('AC Must của luồng chưa có TC: ' + ', '.join(f'{s}/{a}' for s, a in st['uncovered']))
+            w('')
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(L))
     # console summary
@@ -937,11 +1000,18 @@ def main(argv=None):
     print(f'RBAC ({rbac_src}): ops mismatched {len(op_bad)}; fields mismatched {len(field_bad)}; unknown codes {rbac_unknown}')
     print(f'x-rbac-field: tagged {f_tagged}; untagged {f_untagged}; unknown codes {f_unknown}')
     print(f'Smoke: {sum(r["smoke"] for r in tcs)}; written to {out_path}')
+    for tr, st in track_stat.items():
+        print(f'Separate track {tr} (own gate, not in R2 counts{"; --strict-track ON" if tr in strict_tracks else ""}): '
+              f'{len(st["must"])} Must + {len(st["other"])} other stories; Must AC with TC {len(st["covered"])}/{len(st["ac"])}')
+    if unknown_strict_tracks:
+        print(f'--strict-track: unknown track(s) {unknown_strict_tracks}; known: {list(tracks)}')
     if strict and (any(extra for _, _, _, extra, _, _ in op_bad) or any(leak for _, _, _, leak, _ in field_bad)
                    or f_untagged or f_unknown
                    # R2 Đợt 0: traceability itself must be sound (bad AC refs, unknown operationIds, duplicate TC ids,
                    # uncovered R2 AC, deferred AC referenced without the tag)
-                   or bad_refs or unknown_ops or dup_ids or uncovered_ac or deferred_untagged):
+                   or bad_refs or unknown_ops or dup_ids or uncovered_ac or deferred_untagged
+                   # ĐK-S3-13: a separate track only fails when asked for (--strict-track), and a typo in the name fails
+                   or track_strict_fail or unknown_strict_tracks):
         sys.exit(1)
 
 

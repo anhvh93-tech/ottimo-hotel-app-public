@@ -93,6 +93,15 @@ Thêm: 2 khách nữa đến hôm nay (203 Booking.com OTM-00009, 201 khách que
 | Khóa mã hóa (BUG-R2-065) | Khởi động lại api + worker vẫn mở lại được số và ảnh giấy tờ |
 | Làm mới cho chủ đầu tư | `demo-reset.sh` – dòng XONG **14:20:08**, giữ chỗ D5 hết hạn **19:19**; 8181/8182/8183 và /health trả 200 |
 
+### 6c. Kiểm chứng sau vòng sửa 9b/9c (17/10/2026 chiều, ORC ghi – ĐK-S3-1 bản 3)
+
+| Kiểm | Kết quả |
+|---|---|
+| `demo-up.sh --smoke` từ commit **fe4b166** (UXR chạy) | **SMOKE ĐẠT** 18/18 dòng, dòng XONG 15:20:02 |
+| UXR đi lại KB1–KB4, KB6–KB9 + FE-07 | Đạt; KB7 vào thẳng Trả phòng sau 12:30 được (không cần đi vòng); 6 lỗi mới mức P3 (N1–N6, QA ghi sổ) |
+| QC kiểm chỉ đọc 15:51 | 8181/8182/8183 và `/health` trả 200, `built-from` = fe4b166 |
+| Làm mới cho chủ đầu tư | `demo-reset.sh` – XONG **15:46:04**, giữ chỗ D5 hết hạn **20:45 ngày 17/10**. Thử ngày khác: chạy `demo-reset.sh` trước |
+
 ## 7. Việc khi QC Sprint 3 đạt
 
 `./product/infra/demo/demo-up.sh --smoke` ngay trước buổi demo (dựng từ HEAD mới, ~2–8 phút), gửi anh/chị câu "XONG" + nhắc mở tệp tài khoản. Nếu HEAD đổi thứ tự/quy tắc làm smoke đỏ, script dừng và in lỗi – OPS sửa `seed-demo.mjs` theo hợp đồng mới.

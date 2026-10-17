@@ -2,7 +2,7 @@
 // project desk-clock (MutableClock, tuần tự, sau project clock): nhận phòng ngày ảo D (API) → tua sang D+1 11:00 →
 // lễ tân (máy quầy được cấp – thiết bị ảo, support/s3.ts useVirtualDevice) làm trả phòng trên giao diện.
 // axe mỗi bước + hộp xác nhận: 0 critical/serious (ĐK-S2-4). TC-L4-040 (E), TC-L4-053 (E), TC-X-040 (H16).
-// KB7 (UXR 17/10, vòng sửa 9): trả phòng sau giờ ân hạn vào thẳng H16 – phụ thu trả muộn phải vào số cần thu.
+// TC-L4-096 (E) – KB7 (UXR 17/10, vòng sửa 9c): trả phòng sau giờ ân hạn vào thẳng H16 – phụ thu trả muộn phải vào số cần thu.
 import { expect, test } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
@@ -150,12 +150,12 @@ test.describe(
       expect(f.totals.balanceDueVnd).toBe(0);
     });
 
-    test('KB7 (E) H16 trả phòng sau giờ ân hạn, vào thẳng màn Trả phòng: giờ mặc định = giờ hiện tại, phụ thu trả muộn ở bước 2 → tick → bước 3 thu đủ kèm phụ thu → hoàn tất (không 409 BALANCE_DUE)', async ({
+    test('TC-L4-096 (E) US-036/AC1 KB7 H16 trả phòng sau giờ ân hạn, vào thẳng màn Trả phòng: giờ mặc định = giờ hiện tại, phụ thu trả muộn ở bước 2 → tick → bước 3 thu đủ kèm phụ thu → hoàn tất (không 409 BALANCE_DUE)', async ({
       page,
       request,
     }, info) => {
       test.slow();
-      needClock('KB7 (E)');
+      needClock('TC-L4-096 (E)');
       const D = virtualDay(await stackToday(request), 5);
       await useVirtualDevice(request, await setClock(request, vnTime(D, '14:00')));
       cleanRooms();

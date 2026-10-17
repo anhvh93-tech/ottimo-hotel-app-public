@@ -417,7 +417,7 @@ jobs:
           if not any((c.get('classname') or '').startswith('ui-clock/') for c in ui):
               sys.exit('::error::no ui-clock/ test case in junit report – desk-clock did not run')
           # QC-S3-09: cases that really click the write steps (fix round 9) must run, never silently skip.
-          WRITES = ('TC-L3-075', 'TC-L4-093', 'TC-L4-094', 'TC-L2-085', 'TC-L2-086', 'TC-L3-076', 'TC-L4-095', 'TC-L3-077')
+          WRITES = ('TC-L3-075', 'TC-L4-093', 'TC-L4-094', 'TC-L2-085', 'TC-L2-086', 'TC-L3-076', 'TC-L4-095', 'TC-L3-077', 'TC-L4-096')
           ran = {w for w in WRITES for c in ui if w in (c.get('name') or '') and c.find('skipped') is None}
           if ran != set(WRITES):
               sys.exit('::error::UI write-step cases missing or skipped: ' + ', '.join(sorted(set(WRITES) - ran)))

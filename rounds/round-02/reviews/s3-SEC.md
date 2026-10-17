@@ -472,7 +472,8 @@ Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 
 - **Kiểm lại 17/10 (`ea29582`, vòng 9b – phương án dự phòng):** phần BE **Verified 17/10 (ea29582)** – R1–R6 và Major a đo lại trên PostgreSQL thật, DB riêng mới `ottimo_verify_sec_9b`, kết quả đúng như BE-C mô tả (mục 9.5). **Còn thiếu** để đạt SEC-G1:
   - FE + UXD: Desk gắn giấy tờ khách tải qua link vào người còn ở, hiện hạn chờ trên từng giấy tờ và mục "Cần chú ý" → **FB-R2-SEC-FE-07** (Major). Chưa có phần này thì người còn ở vẫn mất giấy tờ sau 24 giờ;
   - phương án chính (đề xuất 2–5: `guestUploadPersonIndex` + hộp chọn ô + dồn số ô) – dời trước cổng QC Sprint 4 (S4-39).
-- Trạng thái: Open – BE dự phòng Verified 17/10 (`ea29582`); chờ FB-R2-SEC-FE-07 và phương án chính
+- **Kiểm lại 17/10 (`fe4b166`, vòng 9c):** FB-R2-SEC-FE-07 **Verified** đầu–cuối trên Desk bấm thật (mục 9.6). Phương án dự phòng (BE + FE) dùng được: SEC-G1 (a) đạt.
+- Trạng thái: Open – phương án dự phòng Verified đầu–cuối 17/10 (`ea29582` BE, `fe4b166` FE). Chỉ còn phương án chính (đề xuất 2–5, S4-39 / SEC-G1 b), hạn cổng QC Sprint 4
 
 ### 9.4 Kết luận của SEC (quyền chặn – protocol mục 1)
 
@@ -480,10 +481,10 @@ Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 
 
 | # | Điều kiện | Ai | Hạn |
 |---|---|---|---|
-| SEC-G1 | Sửa FB-R2-SEC-BE-53 theo đề xuất của thẻ, có test PostgreSQL thật; SEC kiểm lại. **Cập nhật 17/10 (`ea29582`, mục 9.5):** phần BE dự phòng **Verified**. Còn lại: (a) **FB-R2-SEC-FE-07** + test E2E-UI bấm thật (bỏ người → gắn Khách n vào người còn ở trên Desk → J16 quá hạn → giấy tờ còn) – **trước dữ liệu khách thật** và để đóng BUG-R2-083; (b) phương án chính (`guestUploadPersonIndex`, hộp chọn ô, dồn số ô) – trước cổng QC Sprint 4 | BE-C, BE-A, ARC (hợp đồng API), FE/UXD (ô chọn người, hộp xác nhận) | (a) trước dữ liệu khách thật; (b) trước cổng QC Sprint 4 |
+| SEC-G1 | Sửa FB-R2-SEC-BE-53 theo đề xuất của thẻ, có test PostgreSQL thật; SEC kiểm lại. **Cập nhật 17/10 (`ea29582`, mục 9.5):** phần BE dự phòng **Verified**. Còn lại: (a) **FB-R2-SEC-FE-07** + test E2E-UI bấm thật (bỏ người → gắn Khách n vào người còn ở trên Desk → J16 quá hạn → giấy tờ còn) – **trước dữ liệu khách thật** và để đóng BUG-R2-083; (b) phương án chính (`guestUploadPersonIndex`, hộp chọn ô, dồn số ô) – trước cổng QC Sprint 4. **Cập nhật 17/10 (`fe4b166`, mục 9.6): (a) ĐẠT** – FE-07 Verified, TC-L3-077 + ca SEC bấm thật xanh. Còn (b) | BE-C, BE-A, ARC (hợp đồng API), FE/UXD (ô chọn người, hộp xác nhận) | (a) xong 17/10; (b) trước cổng QC Sprint 4 |
 | SEC-G2 | SEC smoke Caddy/HSTS/cookie/Origin/log trên staging thật rồi đóng SEC-OPS-03 | OPS deploy, SEC kiểm | Theo ĐK-S3-8. Trước link khách thật và dữ liệu thật |
 | SEC-G3 | SEC kiểm lại 8 Major còn lại (BE-33…38, FE-06, MOB-01) | SEC | ĐK-S3-5: trước deploy staging đầu tiên và trước cổng QC Sprint 4 |
-| SEC-G4 | Bản demo localhost: thêm vào giới hạn đã biết một câu "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: hệ thống có thể xóa nhầm ảnh của người còn ở – đang sửa ở Sprint 4". **Cập nhật 17/10 (mục 9.5), nếu demo dựng từ `ea29582` mà chưa có FE-07, dùng câu:** "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: giấy tờ từ 'Khách 2' trở đi chờ 24 giờ rồi tự xóa. Desk chưa có chỗ gắn giấy tờ vào người, nên giấy tờ của người còn ở cũng bị xóa; lễ tân nhập lại nếu cần. Đang sửa." | ORC (`demo-1-limits.md` mục C) | Trước khi gửi demo cho INV |
+| SEC-G4 | Bản demo localhost: thêm vào giới hạn đã biết một câu "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: hệ thống có thể xóa nhầm ảnh của người còn ở – đang sửa ở Sprint 4". **Cập nhật 17/10 (mục 9.5), nếu demo dựng từ `ea29582` mà chưa có FE-07, dùng câu:** "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: giấy tờ từ 'Khách 2' trở đi chờ 24 giờ rồi tự xóa. Desk chưa có chỗ gắn giấy tờ vào người, nên giấy tờ của người còn ở cũng bị xóa; lễ tân nhập lại nếu cần. Đang sửa." **Cập nhật 17/10 (mục 9.6), demo dựng từ `fe4b166` trở đi:** bỏ dòng cảnh báo cũ ở `demo-1-limits.md` mục C, thay bằng câu: "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: giấy tờ từ 'Khách 2' trở đi hiện nhãn 'Chờ gắn người – tự xóa lúc …' và có mục 'Cần chú ý'. Lễ tân bấm **Gắn người** và chọn người còn ở trong 24 giờ để giữ; không gắn thì hệ thống tự xóa." | ORC (`demo-1-limits.md` mục C) | Trước khi gửi demo cho INV |
 
 Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC. Câu hỏi pháp lý về thời hạn giữ vẫn nằm trong ESC-001.
 
@@ -556,7 +557,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
   4. BE-C (khuyến nghị): cho phép gắn bằng PATCH chỉ có `partyMemberId`, không bắt nhập lại toàn bộ trường. `addDocument` trùng số với giấy tờ đang chờ thì trả mã riêng (vd. `DOCUMENT_UNCLAIMED_EXISTS`, kèm id giấy tờ) để Desk mở đúng giấy tờ đó.
   5. Test E2E-UI bấm thật: bỏ người → gắn Khách n vào người còn ở trên Desk → J16 quá hạn → giấy tờ còn, DEK sống.
 - Hạn: **trước dữ liệu khách thật** (SEC-G1 a) và để đóng BUG-R2-083.
-- Trạng thái: Open
+- Trạng thái: **Verified 17/10 (`fe4b166`) – Closed** (mục 9.6): bước 1–3 và 5 đạt trên Desk bấm thật. Bước 4 (PATCH chỉ `partyMemberId`, `DOCUMENT_UNCLAIMED_EXISTS` kèm id) là khuyến nghị cho BE/ARC, dời contract 0.3.7 (S4-39)
 
 ### FB-R2-SEC-BE-54
 - Mức độ: Minor
@@ -565,7 +566,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: khai báo lưu trú thiếu người (cần DOM xác nhận mức nghiệp vụ).
 - Đề xuất sửa: khi số được tính giảm dưới `required` ở trạng thái `scanned` → về `partial` (sự kiện kiểu K13); hoặc `mark-sent` trả `REGISTRATION_INCOMPLETE` khi `submitted < required`. Test PostgreSQL.
 - Hạn: trước cổng QC Sprint 4.
-- Trạng thái: Open
+- Trạng thái: **Verified 17/10 (`e6d1a7d`)** – mục 9.6 d). Mô tả lỗi 409 trong OpenAPI còn ở 0.3.7 (S4-39, ARC)
 
 ### FB-R2-SEC-BE-55
 - Mức độ: Minor
@@ -574,7 +575,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: trái nguyên tắc dự phòng "không bao giờ giữ ảnh vô chủ".
 - Đề xuất sửa: chỉ `claim` khi mọi ảnh cũ đã thật sự bị xóa. Nếu không, `claim` chỉ bỏ hạn của ảnh mới; ảnh cũ giữ hạn chờ. Test PostgreSQL.
 - Hạn: trước cổng QC Sprint 4.
-- Trạng thái: Open
+- Trạng thái: **Verified 17/10 (`e6d1a7d`)** – mục 9.6 d)
 
 ### FB-R2-SEC-BE-56
 - Mức độ: Minor
@@ -583,7 +584,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: ảnh của người chưa đồng ý có thể bị giữ tới T02 thay vì xóa ở T01 (P02b, NĐ 13/2023 – cần xác nhận pháp lý).
 - Đề xuất sửa: khi ô được nhận do khách gửi lại sau khi bỏ người, coi các đồng ý P02b trước đó của giấy tờ/ô là hết hiệu lực (lọc `recorded_at` trước lần tải mới, hoặc ghi một dòng `withdrawn` hệ thống). Người mới phải đồng ý lại. Test PostgreSQL.
 - Hạn: trước cổng QC Sprint 4.
-- Trạng thái: Open
+- Trạng thái: **Verified 17/10 (`e6d1a7d`)** – mục 9.6 d)
 
 ### FB-R2-SEC-BE-57
 - Mức độ: Minor
@@ -594,7 +595,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: `legal_hold` là cam kết không hủy gì; lễ tân hiểu nhầm hạn.
 - Đề xuất sửa: dưới hold, `onPartyMemberRemoved` không hủy trường/DEK, chỉ đặt hạn (giống J16), xử lý khi gỡ hold. Mục "Cần chú ý" lọc `NOT legal_hold` hoặc gắn cờ "đang giữ pháp lý".
 - Hạn: trước cổng QC Sprint 4.
-- Trạng thái: Open
+- Trạng thái: Open (S4-39). Bổ sung 17/10 (mục 9.6 d): `retireUnclaimed` ghi log C3 `delete` cả khi đơn đang `legal_hold` và chưa xóa gì – sửa cùng thẻ này
 
 ### FB-R2-SEC-BE-58
 - Mức độ: Suggestion
@@ -603,7 +604,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: cảnh báo sai; tăng phạm vi phải gắn lại trong 24 giờ.
 - Đề xuất sửa: (1) thêm điều kiện loại giấy tờ chờ vào truy vấn visa; (2) cân nhắc cùng phương án chính (`guestUploadPersonIndex` sẽ thay cách đoán này).
 - Hạn: cùng S4-39.
-- Trạng thái: Open
+- Trạng thái: (1) **Verified 17/10 (`e6d1a7d`)**; (2) Open – cùng S4-39
 
 **e) Kết luận của SEC**
 
@@ -622,5 +623,85 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
    - BE-54, BE-55, BE-56, BE-57, BE-58;
    - phần ARC đã ghi ở S4-39 (erd 4.7 `fields_purge_after`, audit, `retention_run.policy_key = party_removed`, `RegistrationPartyPort`).
 5. **Chặn dữ liệu khách thật: vẫn giữ.** Cần đủ: SEC-G1 (a) – FE-07 có test E2E-UI và SEC kiểm lại; **và** SEC-G2 – smoke Caddy/HSTS/cookie/Origin/log trên staging thật (chưa làm). Phương án chính (SEC-G1 b) chỉ là điều kiện cổng QC Sprint 4, không còn là điều kiện dữ liệu thật nếu FE-07 đạt.
+
+Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC.
+
+### 9.6 Kiểm lại vòng sửa 9c – FE-07 đầu–cuối, BE-54/55/56 (SEC, 17/10/2026)
+
+- Yêu cầu: ORC 17/10 – chấm lại cổng QC Sprint 3 sau vòng sửa 9, 9b, 9c; SEC-G1 (a).
+- Mã kiểm: HEAD **`fe4b166`** (FE 9c), **`e6d1a7d`** (BE-C 9c). Ảnh Docker và test E2E dựng từ đúng `fe4b166` (`git archive`). Test BE chạy trên `services/api` của cây làm việc; thư mục này không có thay đổi nào so với `fe4b166` (`git diff` rỗng). Lần kiểm này không gồm các thay đổi chưa commit của vai khác. CI 39015560449 trên `fe4b166`: 7 job xanh, 2 job bỏ qua theo thiết kế (GHCR, deploy staging); bước "UI cases ran" bắt buộc TC-L3-077.
+- Cách làm:
+  - stack dùng một lần `ottimo-sec-rg` (cổng riêng 47000, 47081–47083, 47432), ảnh dựng từ `git archive fe4b166`, `.env` sinh bằng `infra/ci/make-ci-env.sh`, seed DS-E. Không chạm stack demo (8181–8183, 3100) và stack `ottimo-fe07`;
+  - Playwright `desk-clock` (Chromium, MutableClock): TC-L3-077 chạy 2 lần; thêm một ca của SEC, nằm **ngoài repo** (`scratchpad/regate/sec/…/ui-clock/sec-fe07.sec.spec.ts`), chạy 2 lần, chụp trạng thái DB trước khi test dọn dữ liệu;
+  - test repo của BE-C `registration-party-removal.test.ts` + `registration-flow.test.ts` trên DB PostgreSQL **mới** `ottimo_verify_sec_9c` (chạy đủ migration), cộng repro SEC X5/X6 ngoài repo;
+  - đọc mã: `DocsPanel.tsx`, `docImages.ts`, `partyDocs.ts`, `RegistrationPage.tsx`, `api-client/src/client.ts`, diff `e6d1a7d` của `registration.service.ts`.
+- Dữ liệu giả. Không in mật khẩu, token hay link khách. Không tấn công hệ thống nào.
+
+**a) TC-L3-077 (repo):** 2/2 xanh.
+
+**b) Ca SEC trên Desk bấm thật** – `qa.fd2` đăng nhập mới bằng form (phiên chưa step-up), thiết bị được cấp. Đơn 3 người lớn, người đi cùng A và B; khách gửi Khách 1/2/3 qua link; lễ tân đã nhập trường Khách 3 nhưng chưa gắn người; Khách 2 không có trường; bỏ A. Đây là biến thể của TC-L3-077: gắn giấy tờ **không có trường**, để giấy tờ **có trường** không ai nhận.
+
+| # | Điểm kiểm | Kết quả | Bằng chứng |
+|---|---|---|---|
+| 1 | Bỏ người → Desk hiện mục "Cần chú ý" và nhãn chờ | Đạt | Danh sách H14 có mục "Đơn OTM-… có giấy tờ khách gửi qua link chưa gắn người – tự xóa lúc …" và nút "Mở đơn". Trong đơn: 2 nhãn "Chờ gắn người – tự xóa lúc …" (Khách 2, 3) và dải cảnh báo. Mục chỉ có mã đơn và giờ, không có tên hay số giấy tờ |
+| 2 | Step-up trước khi xem | Đạt | Khách 2 (chỉ có ảnh): bấm "Xem đủ số / ảnh" → hộp "Xác nhận lại để xem giấy tờ"; request ảnh trả 401 `REAUTH_REQUIRED`, không ảnh nào hiện. Khách 3 (có số): lần đọc số trả 401 và không có request ảnh nào. Nhập mật khẩu trong hộp xong thì ảnh hiện |
+| 3 | Lý do và no-store | Đạt | Request có `reason=registration`, kèm `Cache-Control: no-cache` + `Pragma: no-cache` (dấu hiệu của fetch `cache: 'no-store'`). Phản hồi có `Cache-Control: no-store`, `Content-Security-Policy: sandbox; default-src 'none'`, `nosniff`, `Cross-Origin-Resource-Policy: same-origin`. Sau khi ẩn, `fetch(…, {cache: 'only-if-cached'})` báo lỗi mạng: ảnh không nằm trong HTTP cache |
+| 4 | Thu hồi object URL | Đạt | `blob:` đọc được khi ảnh đang hiện. Không đọc được nữa ngay sau "Ẩn số". Tự ẩn sau 60 giây (đo 60 268 và 60 307 ms), URL không đọc được nữa. Ẩn tab (`visibilitychange`): ảnh mất, URL hết. Rời màn (sang Sơ đồ phòng): URL hết |
+| 5 | Không lưu ở trình duyệt | Đạt | Khi ảnh đang hiện và sau khi rời màn: localStorage và sessionStorage trống (không có `blob:`, `data:image` hay số giấy tờ); IndexedDB 0; CacheStorage 0; service worker 0 |
+| 6 | Log C3 | Đạt | Mỗi lần mở ảnh có 1 dòng `c3_access_log` `document_image/view`, `reason_code = registration`, có thiết bị (4 lần trên UI + 1 lần qua API) |
+| 7 | "Nhập tay" trùng số của giấy tờ đang chờ | Đạt (ghi chú e1) | POST → 409 `PARTY_DUPLICATE`, không tạo giấy tờ mới. Hộp hiện câu `reg.link.dup_pending` và nút "Mở giấy tờ chờ gắn người"; bấm thì hộp đóng, focus vào giấy tờ chờ **đầu tiên** (Khách 2, không phải Khách 3 mang số trùng) |
+| 8 | Gắn Khách 2 (không có trường) vào B | Đạt | Ô "Người trong đoàn" không chọn sẵn. Lưu khi chưa chọn → báo "Bắt buộc", không gửi request. Chọn B → PATCH 200, có `partyMemberId` = B. Nhãn Khách 2 thành "Đã có"; Khách 3 vẫn chờ |
+| 9 | J16 sau hạn (ngày ảo +1, 09:01) | Đạt | **Khách 2 còn:** `fields_purge_after` NULL; chưa removed/purged; số mã hóa còn; DEK giấy tờ sống; ảnh chưa xóa, `delete_after` NULL, DEK ảnh sống, tệp blob còn; đọc ảnh qua API → 200. **Khách 3 (không ai nhận, có trường):** đặt `removed_at` + `purged_at`, các cột mã hóa NULL, DEK giấy tờ hủy; 2 ảnh xóa với lý do `party_removed`, DEK ảnh hủy, tệp blob mất. `purge_journal`: giấy tờ `null_columns` + `destroy_dek`; ảnh `destroy_dek` + `delete_blob` ×2. `c3_access_log`: `delete` (system) + `purge` ×2 |
+
+Sau khi test xong, bước dọn dữ liệu hủy đơn → `void`, ảnh còn lại bị xóa với lý do `void`. Đây là đúng K11, không phải lỗi.
+
+**c) Đọc mã FE – khớp với số đo**
+- `DocsPanel.tsx`:
+  - :188 đọc ảnh qua `getDocumentImage(…, 'registration')`;
+  - :260 nhãn chờ;
+  - :420/:424 bắt buộc chọn người và gửi `partyMemberId`;
+  - :503 hướng dẫn khi gặp 409 `PARTY_DUPLICATE`.
+- `docImages.ts`: dùng `useC3Reveal` (60 giây, ẩn tab, unmount, `onClientDataClear`). Mọi URL bị thu hồi khi không còn hiện (:32, :47); lần đọc còn dở bị hủy thì thu hồi luôn (:83, :92). Không ghi vào storage.
+- `api-client/client.ts:95`: mọi request blob dùng `cache: 'no-store'`.
+- `partyDocs.ts`: nếu không đọc được "Cần chú ý" thì dựa vào `imagePurgeAt` (thà cảnh báo thừa). Theo mã, phương án này đúng hướng an toàn.
+- `Caddyfile.prod` đã có `img-src 'self' blob: data:` từ `229db99`. Vòng 9c không đổi `infra/`, CSP không bị nới.
+
+**d) BE-C vòng 9c (`e6d1a7d`) – BE-54/55/56, BE-58 (1)**
+
+Test repo 34/34 xanh (12 + 22) trên DB mới.
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| BE-54 | **Verified** | `mark-sent` đếm `countsForDeclaration`; ít hơn `required_count` thì trả 409 `REGISTRATION_INCOMPLETE` (`registration.service.ts:1492`). Test "SEC-BE-54": đơn `scanned`, bỏ A → 1/2 → 409, trạng thái giữ `scanned`; gắn Khách 3 vào B → 200 `sent`. Desk hiện câu "Còn thiếu giấy tờ của {n} người…" |
+| BE-55 | **Verified** | Khách gửi lại ô đang chờ → `retireUnclaimed` (`:765`): giấy tờ cũ được đặt `removed_at`, ảnh cũ bị thay ngay. Khi đang hold, ảnh cũ **giữ hạn 24 giờ** và bị J16 xóa sau khi gỡ hold; giấy tờ mới không có hạn. `claim` chỉ còn ở đường lễ tân gắn người. Test "SEC-BE-55" xanh. Repro SEC X5/X6: ô chờ mà lễ tân đã nhập trường thì khách không gửi lại được (`ONLINE_CHECKIN_CLOSED`, `:2330`). Vì vậy đường "retire" không bao giờ gặp giấy tờ có trường C3. Việc bỏ qua `destroyDocumentFields` khi đang hold chỉ để lại một DEK không mã hóa trường nào |
+| BE-56 | **Verified** | Giấy tờ mới của ô không có đồng ý (`imageConsent = not_recorded`). Bản ghi đồng ý cũ vẫn trỏ vào giấy tờ đã bị thay (append-only). Đồng ý do lễ tân ghi luôn gắn với một giấy tờ (`registration.controller.ts`, `recordImageConsent`). guest-web chỉ nhận `personIndex = 1` (`guest-portal.service.ts:607`), mà ô 1 không bao giờ ở trạng thái chờ. Vì vậy nhánh `person_index` trong truy vấn J16 không áp vào ô chờ |
+| BE-58 (1) | **Verified** | Truy vấn visa loại giấy tờ chờ (`:2437`). Test "SEC-BE-58 (1)" xanh |
+| BE-57 | Vẫn Open (S4-39) | Thêm một điểm: `retireUnclaimed` ghi log C3 `delete` ngay cả khi đơn đang hold và chưa xóa gì |
+
+**e) Ghi chú – không tạo thẻ mới (đã thuộc S4-39 / contract 0.3.7)**
+1. Nút "Mở giấy tờ chờ gắn người" chỉ đưa tới giấy tờ chờ **đầu tiên**, vì 409 `PARTY_DUPLICATE` chưa kèm id. Khi có từ 2 giấy tờ chờ trở lên, lễ tân có thể mở nhầm giấy tờ. Rủi ro đã giảm vì lễ tân xem được ảnh để đối chiếu trước khi gắn. Sửa bằng `DOCUMENT_UNCLAIMED_EXISTS` kèm id (0.3.7).
+2. Với OpenAPI 0.3.6, "Gắn người" phải đọc đủ trường C3 vào hộp sửa (có step-up, `reason=registration`, có log) rồi gửi lại cả bộ. Hộp sửa không tự đóng sau 60 giây hay khi ẩn tab, giống nút "Sửa" có từ trước; dữ liệu mất khi đóng hộp, rời màn hoặc đăng xuất. **Yêu cầu cho S4-39:** khi đã có PATCH chỉ `partyMemberId`, FE không được đọc C3 chỉ để gắn người.
+3. Đăng xuất: mới kiểm bằng đọc mã (`onClientDataClear` trong `useC3Reveal` và `useC3DocReveal`), chưa có ca E2E riêng.
+4. CI 39015560449 có 7 job xanh và 2 job bỏ qua (GHCR, deploy staging), không phải "9/9 job xanh".
+
+**f) Kết luận của SEC**
+1. **FB-R2-SEC-FE-07: Verified 17/10 (`fe4b166`) – Closed.**
+2. **SEC-G1 (a): ĐẠT.** SEC-G1 (b) – phương án chính (S4-39) – còn, hạn trước cổng QC Sprint 4. FB-R2-SEC-BE-53 chỉ còn Open vì phần này.
+3. BE-54, BE-55, BE-56, BE-58 (1): **Verified** (`e6d1a7d`). BE-57 và BE-58 (2): Open, đi cùng S4-39.
+4. **BUG-R2-083 cho cổng Sprint 3: SEC đồng ý đóng (Closed).** Đổi trạng thái là việc của QA.
+   - Lý do đóng:
+     - không còn hủy theo vị trí ô;
+     - không còn giữ hay tính đủ người bằng giấy tờ của người đã rời đoàn;
+     - giấy tờ của người còn ở giữ được trên Desk thật trong 24 giờ, nhờ nhãn chờ, mục "Cần chú ý" và chỗ xem ảnh để đối chiếu;
+     - đường xóa đi qua C5 đầy đủ;
+     - CI bắt buộc chạy ca E2E TC-L3-077.
+   - Phần còn lại không còn là mất dữ liệu C3 ngoài ý muốn. Đó là các việc cải tiến, theo dõi ở S4-39 (Major SEC): chọn ô khi bỏ người, gắn người không cần đọc C3, 409 kèm id giấy tờ, `legal_hold`.
+   - Rủi ro còn lại được chấp nhận theo thiết kế dự phòng: nếu lễ tân bỏ qua mục "Cần chú ý" quá 24 giờ thì giấy tờ của người còn ở bị xóa. Khách có thể chụp lại; đổi lại, hệ thống không bao giờ giữ ảnh vô chủ.
+5. **Trước dữ liệu khách thật** (gửi link check-in cho khách thật, hoặc nhập giấy tờ thật trên staging/production) còn hai điều kiện:
+   - **SEC-G2:** SEC smoke Caddy/HSTS/cookie `__Host-`/Origin/log trên staging thật, rồi đóng SEC-OPS-03 (chờ VPS, ĐK-S3-8);
+   - **SEC-G3:** SEC kiểm lại 8 Major (BE-33…38, FE-06, MOB-01) trước lần deploy staging đầu tiên, tức là cũng trước dữ liệu thật.
+   - SEC-G1 không còn là điều kiện cho dữ liệu thật. S4-39 (phương án chính) là điều kiện của cổng QC Sprint 4.
+   - Thời hạn giữ dữ liệu vẫn chờ luật sư theo ESC-001. Đội đã cài đặt các biện pháp, nhưng cần xác nhận pháp lý.
+6. **SEC-G4** (demo dựng từ `fe4b166`, xem `~/.ottimo-demo/built-from`): ORC thay dòng cảnh báo ở `demo-1-limits.md` mục C bằng câu mới ở mục 9.4. Dòng KB4 "chưa mở được ảnh" cũng đã cũ, vì từ `fe4b166` ảnh đã mở được; UXR/ORC rà lại.
 
 Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC.

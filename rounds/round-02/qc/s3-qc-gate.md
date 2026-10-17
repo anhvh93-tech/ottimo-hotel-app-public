@@ -1,5 +1,7 @@
 # Cổng QC giữa round – Round 2, Sprint 3 (nhận phòng, lưu trú, trả phòng 3 bước, bill, VietQR, thu tiền, giấy tờ C3, khai báo, check-in online)
 
+> **Bản đang hiệu lực: Bản 3 (17/10 ~16:00) – ĐẠT CÓ ĐIỀU KIỆN, có hiệu lực khi QA đóng BUG-R2-083 (ĐK-S3-12).** Xem mục **V3** ngay dưới phần đầu. Mục 0–11 là bản 2 (KHÔNG ĐẠT), giữ nguyên làm lịch sử; bản 1 (ĐẠT CÓ ĐIỀU KIỆN, commit `97c170b`) đã được bản 2 thay.
+
 - Người kiểm: QC | Ngày: 17/10/2026 | **Bản 2 (chiều 17/10)**. Bản này thay bản 1 (sáng 17/10, ĐẠT CÓ ĐIỀU KIỆN, commit `97c170b`). Bản 2 xử lý 9 phát hiện của critic, dùng kết quả SEC (gỡ chặn có điều kiện), QA (sổ lỗi 64 lỗi) và UXR (đi thử demo). QC không sửa sản phẩm, không commit. QC chỉ sửa file này và thêm 1 dòng vào `decision-log.md`. Nội dung `outputs/QC/report.md` được gửi cho ORC ghi (mục 0, dòng 8).
 - Bản kiểm: code **`6af7173`**, khớp `headSha` của CI run **38998735861**. HEAD `97c170b` chỉ thêm tài liệu: `git diff 6af7173 HEAD -- product` rỗng. Cây làm việc có thay đổi tài liệu chưa commit của QA, SEC, UXR và ORC. Trong `product/` chỉ có 2 tệp tài liệu QA bị đổi: `docs/qa/traceability.md` và `tests/test-cases/r1-main-flows.md`.
 - Chuẩn chấm:
@@ -10,6 +12,149 @@
   - các điều kiện ĐK-S2-1…7 của cổng Sprint 2;
   - ngoại lệ ORC tại `decision-log.md` dòng 593 (mục 1.1).
 - Đây là cổng sprint, không phải QC gate cuối Round 2.
+
+## V3. Bản 3 – chấm lại rút gọn sau vòng sửa 9, 9b, 9c (17/10/2026 ~16:00) – **bản đang hiệu lực**
+
+- Người kiểm: QC. Bản kiểm: code **`fe4b166`**, khớp `headSha` của CI **39015560449** (QC tự đọc lại bằng `gh run view` và log, không dùng số tự khai).
+- HEAD `d5dff3e` = `fe4b166` + 2 commit tài liệu (`940423c` ảnh/brochure landing, `d5dff3e` brand). `git diff fe4b166 HEAD -- product` rỗng. HEAD chưa push (ahead 2).
+- Cây làm việc có thay đổi chưa commit của QA (đổi tên ca KB7 thành TC-L4-096, `ci.yml` dòng `WRITES`, `r1-main-flows.md` v0.3.12, `traceability.md`), SEC, UXR, PO (backlog EP19) và các tệp landing/Zalo. Không thay đổi nào trong số đó là mã sản phẩm Sprint 3.
+- Đầu vào: QA (`qa/bug-list.md` mục 9, `qa/s3-retest-2.md`), SEC (`reviews/s3-SEC.md` mục 9.5–9.6), UXR (đi lại demo `fe4b166`, guide/limits v1.3), decision-log dòng 597–606.
+- QC không sửa sản phẩm, không commit. QC chỉ sửa tệp này, thêm 1 dòng vào `decision-log.md` và ghi `outputs/QC/report.md`.
+
+### V3.1 Quyết định: **ĐẠT CÓ ĐIỀU KIỆN** – có hiệu lực khi QA đóng BUG-R2-083 (ĐK-S3-12)
+
+**Lý do:**
+- Các lỗi làm bản 2 KHÔNG ĐẠT đã được sửa. Mỗi lỗi có ca E2E-UI bấm thật trên Desk tới API thật, và CI bắt buộc các ca này chạy, không được bỏ qua (V3.4). Ba thao tác Must nay làm được trên Desk: thêm giấy tờ tại quầy, ghi chi hoàn có ảnh, thêm người có phụ thu khi đang ở. Cũng đã sửa: dòng "Đã thu", Lễ tân trưởng thấy khoản hoàn đã duyệt, hộp hủy khi hoàn 100 % cọc.
+- CI xanh trên đúng commit: 7 job xanh, 2 job bỏ qua theo thiết kế; api 2.201/2.201; E2E 1.786 đạt, 0 trượt, 0 lần chạy lại.
+- SEC: không có lỗi Critical/Blocker. FB-R2-SEC-FE-07 Verified đầu–cuối, SEC-G1 (a) đạt, SEC đồng ý đóng BUG-R2-083 cho cổng Sprint 3 (`s3-SEC.md` 9.6 f, decision-log dòng 606).
+- UXR đi lại demo dựng từ `fe4b166`: smoke ĐẠT; KB4, KB6, KB7, KB8, KB9 + FE-07 đạt; không có lỗi P0/P1/P2 mới (6 điểm mới, UXR đề xuất P3).
+- P0/P1 còn Open trong sổ: BUG-R2-055…061 (sai tiền đã biết, ngoại lệ ORC dòng 593 (1) và dòng 597, hạn trước cổng QC Sprint 4) và **BUG-R2-083**.
+
+**BUG-R2-083 – đang bị chặn bởi gì:** Không còn việc kỹ thuật nào. Chặn duy nhất là **trạng thái trong sổ lỗi**.
+- QA ghi: "giữ Open, giữ P0 tới khi SEC ghi kết luận về FE-07 trong `s3-SEC.md`" (bug-list dòng 108 và mục chi tiết BUG-R2-083, decision-log dòng 605).
+- Điều kiện QA đặt ra nay đã có: `s3-SEC.md` mục 9.6 viết xong – FE-07 Verified, SEC-G1 (a) ĐẠT, "SEC đồng ý đóng (Closed)", và dòng SEC 606.
+- Đổi trạng thái và chấm mức phần còn lại là quyền của QA; QC không tự đóng lỗi. ORC đã ghi "không cấp ngoại lệ cho P0 C3" (dòng 600), nên QC **không** cho qua cổng khi 083 còn Open P0.
+- Vì vậy:
+  - QA đóng 083, hoặc đóng phần P0 rồi tách phần còn lại thành lỗi mới mức ≤ P1 gắn S4-39 → quyết định ĐẠT CÓ ĐIỀU KIỆN có hiệu lực ngay, QC không cần chấm lại. Phần còn lại gồm: phương án chính `guestUploadPersonIndex`, contract 0.3.7, BE-57, BE-58 (2), giấy tờ lễ tân tự nhập chưa gắn người khi bỏ người.
+  - QA giữ P0 cho phần còn lại → quyết định này tự chuyển thành **KHÔNG ĐẠT**. QC chấm lại khi 083 được đóng.
+- QC đã tự đọc mã phần sửa của 083 (V3.4 mục 3), khớp kết quả SEC.
+
+**Hệ quả:**
+- Sprint 3 qua cổng sprint khi xong ĐK-S3-12. Theo P-R2-7, story chỉ ở mức "Đạt (stack tạm)"; chưa story nào "Xong" khi chưa có staging.
+- Mức "đủ dùng" Sprint 3 (A1 trên staging) vẫn **KHÔNG ĐẠT** (K7). Sprint 4 tiếp tục nhờ ngoại lệ dòng 593 (2). Mục 4.2 (hệ quả cho cổng cuối Round 2) giữ nguyên.
+- Demo lần 1: **gửi được** sau ĐK-S3-1 (V3.6).
+- Không cần ESC: cổng sprint Round 2, quyền QC.
+
+### V3.2 Bảng kiểm – các dòng đổi so với bản 2
+
+| # | Bản 2 | Bản 3 | Bằng chứng |
+|---|---|---|---|
+| K1 CI | Đạt (`6af7173`) | **Đạt** (`fe4b166`) | `gh run view 39015560449`: `headSha` `fe4b1663…`, conclusion success. 7 job success; `publish images (GHCR)` và `deploy staging` skipped. "9/9 xanh" nghĩa là 7 xanh + 2 bỏ qua (QC-S3-05).<br>Log: api `Tests 2201 passed (2201)`. E2E `1786 passed`, `82 skipped`; không có dòng failed/flaky; **0 dòng `retry #`**.<br>3 ca ✘ đúng dự kiến: #1555 TC-L3-032, #1789 TC-L3-011, #1808 TC-L3-074. Cả ba tới `test.fail` ngay lượt đầu nên lần này không che lỗi (BUG-R2-064 vẫn Open, S4-24).<br>Bước "UI cases ran": `UI: 49 case(s), 2 allowed skip(s), axe 13 case(s) ran`; `WRITES` 8 ca bắt buộc. Ca KB7 chạy dưới tên cũ (#1864 ✓); tên TC-L4-096 và dòng `WRITES` mới chưa commit (ĐK-S3-13).<br>`pnpm audit --audit-level=high`: 3 moderate, 0 high. `check-compose`: "one keyring for api/worker/seed in dev + demo" |
+| K2 0 P0/P1 Open | Không đạt | **Đạt có điều kiện** (ĐK-S3-12) | QC đếm lại từng dòng bảng mục 2 của bug-list bằng script: 84 lỗi. P0 10 (7 Open, 3 Closed); P1 19 (1 Open); P2 32 (5 Open, 2 Deferred); P3 23 (8 Open). Khớp bảng tổng.<br>P0/P1 Open: 055…061 (ngoại lệ tiền) và 083 (chỉ chờ đổi trạng thái).<br>Đóng ở vòng này: 065, 066 (P0); 067…071, 084 (P1); 072, 073 (P2). 074 Deferred (S4-45). Không lỗi nào bị hạ mức; 076, 078, 080, 083 được nâng, có lý do |
+| K3 Thẻ Blocker/Major | Đạt một phần | **Đạt một phần** | FB-R2-SEC-FE-07 (Major) Verified, Closed. FB-R2-SEC-BE-53 còn Open chỉ vì phương án chính (S4-39). BE-54, 55, 56 và BE-58 (1) Verified. BE-57 (Minor) và BE-58 (2) (Suggestion) Open, thuộc S4-39.<br>Từ bản 2 tới nay **không có Verified mới** của ARC, DOM, UXD (`s3-ARC.md` sửa lần cuối 16/10, `s3-DOM.md` 00:29 và `s3-UXD.md` 07:55 ngày 17/10). Khoảng 45/47 Major vẫn chỉ có tác giả ghi Done (ĐK-S3-5).<br>Vòng 9/9b/9c chưa có ARC xem phần BE, UXD chưa duyệt chuỗi mới (S4-41, S4-48) → gộp vào ĐK-S3-5 |
+| K4 Tiền | Đạt có điều kiện nhờ ngoại lệ | **Không đổi** | 055…061 chưa sửa (ĐK-S3-6).<br>Đã sửa: "Đã thu" trên drawer (070, TC-L2-086). KB7 sau 12:30 nay thu đủ phụ thu trả muộn (084, TC-L4-096). UXR 15:33: bill 2.195.000, cần thu 582.000, VietQR 582.000.<br>Các điểm mới của UXR chỉ sai **hiển thị**, bill và số thu vẫn đúng:<br>• N2: ở bước 1–2, khung Folio cộng phụ thu trả muộn trước khi có dòng phụ thu.<br>• "Đã thu −500.000" ở đơn đã hủy và đã hoàn. QC đọc mã: drawer in số đã thu kèm dấu trừ theo kiểu khấu trừ (`ReservationDrawer.tsx:522`). `paidVnd` của server không trừ khoản hoàn (`folio.service.ts:252`). Chỉ thiếu dòng "Đã hoàn" |
+| K5 Bảo mật | Đạt có điều kiện | **Đạt có điều kiện** | SEC 9.6, kiểm trên stack dựng từ `git archive fe4b166`:<br>• TC-L3-077 đạt 2/2; ca SEC bấm thật đạt 2/2.<br>• Xem ảnh phải step-up, có `reason=registration`, no-store, object URL bị thu hồi; không lưu gì ở trình duyệt; mỗi lần xem có log C3.<br>• J16: giấy tờ đã gắn người được giữ; giấy tờ không ai nhận bị xóa qua C5.<br>Chặn dữ liệu khách thật còn **SEC-G2** (smoke staging) và **SEC-G3** (8 Major). SEC-G1 không còn là điều kiện cho dữ liệu thật |
+| K6 Story | Đạt một phần; đề nghị PO hạ US-021, US-022 | **Đạt một phần** | **QC rút đề nghị hạ US-021**: AC4 trên Desk có TC-L4-093/094, AC2 có TC-L2-085, UXR đi lại KB8 đạt.<br>**US-022**: AC4 nay có TC-L3-076; AC1 vẫn chỉ có test tầng dưới (TC-L2-060 → S4-33). "Accepted (stack tạm)" kèm ghi chú của PO là chấp nhận được.<br>US-043 AC1 có TC-L3-075; US-020 "Đã thu" có TC-L2-086.<br>**Mới:** BUG-R2-080 (hộp báo giá thiếu tiếng Nga) chạm US-083 AC2 (Must R2) → PO rà lại "Accepted" của US-083 trên giao diện (ĐK-S3-4) |
+| K7 "Đủ dùng" | Không đạt | **Không đạt** (ngoại lệ dòng 593 (2)) | Chưa có VPS |
+| K8 Staging | Không đạt | **Không đạt** | `deploy staging` skipped |
+| K9 Giao diện | Đạt một phần | **Đạt một phần** | Đã sửa: 403 có câu riêng (072), ký hiệu thô (073). Có 9 ca UI bấm thật các bước ghi, QC-S3-09 đã xử lý.<br>Còn: 074 (S4-45), 075…082, N1–N6; chuỗi mới chờ UXD duyệt (S4-41, S4-48) |
+| K10 Truy vết | Đạt | **Đạt; rủi ro khi commit** | QA sinh lại từ `backlog.md` đã commit: 420 TC, 251/251 AC, `--strict` exit 0. Job "API contract" của CI 39015560449 xanh.<br>QC chạy `gen_traceability.py --strict` trên **cây làm việc**: **exit 1**, AC 251/287. 32 AC của US-146…153 (EP19 Landing, cột Round "R2 – LP-v1", chưa commit) không có TC. Commit backlog như hiện tại sẽ làm **đỏ job "API contract"** (ĐK-S3-13) |
+| K11 ĐK-S2 | Đạt 6/7 | Không đổi | – |
+| K12 Demo | Chưa đạt để gửi | **Đạt để gửi**, sau ĐK-S3-1 | `~/.ottimo-demo/built-from` = `fe4b166`. Log của UXR có "SMOKE ĐẠT" và "XONG – demo từ commit fe4b166" lúc 15:20:02. Log reset: D5 (OTM-00006) hết hạn 20:45 ngày 17/10.<br>QC probe chỉ đọc lúc 15:51: 8181, 8182, 8183 trả 200; `/health` status ok, db ok.<br>`git diff 9a221ee fe4b166 -- product/infra` rỗng, nên phép thử khởi động lại api/worker (BUG-R2-065, `demo-1.md` 6b) vẫn áp.<br>Limits mục C v1.3 đã có câu SEC-G4 mới. **Còn thiếu:** bản ghi smoke `fe4b166` trong `outputs/OPS/demo-1.md` |
+
+### V3.3 Kiểm từng điều kiện của bản 2
+
+| ĐK | Trạng thái bản 3 | Bằng chứng / còn gì |
+|---|---|---|
+| ĐK-S3-1 | **Gần xong – còn ghi chép** | Smoke ĐẠT trên `fe4b166` lúc 15:20:02 (UXR chạy `demo-up.sh --smoke`, `scratchpad/regate/uxr/demo-up.log`), reset 15:46:04.<br>Còn: ghi vào `outputs/OPS/demo-1.md` (mục 6 và 6b mới tới `9a221ee`), và gửi INV câu "XONG" kèm mốc D5 |
+| ĐK-S3-2 | Xong (bản 2) | – |
+| ĐK-S3-3 | **Phần bản 2: xong.** Còn (a) 083 → ĐK-S3-12; (b) các điểm UXR mới | Đã xong: bug-list 065…084 có mức và vai sửa; không hạ mức lỗi nào; mức được nâng đều có lý do.<br>Còn: các điểm "mới" của UXR (limits mục C v1.2/v1.3: N1–N6 và khoảng 8 dòng khác) chưa vào sổ (bug-list mục 9.4) |
+| ĐK-S3-4 | **Một phần** | Đã xong:<br>• S4-39 ghi đủ 9b/9c và phần còn lại;<br>• thêm S4-40…S4-48;<br>• ngoại lệ cho 061: ORC ghi ở dòng 597.<br>Còn:<br>• mã BUG cạnh S4-01/02/05/07/18/22/34: chưa mục nào ghi BUG-R2-055…061;<br>• mục S4 cho 075, 076, 078, 079, 080, 081, 082: hiện chỉ 077 → S4-44 và 074 → S4-45 |
+| ĐK-S3-5 | **Còn** | Không có Verified mới của ARC, DOM, UXD. SEC-G3 chưa làm. Bổ sung ở bản 3: UXD duyệt chuỗi vòng 9/9c; ARC xem phần BE 9b/9c |
+| ĐK-S3-6 | Còn (ngoại lệ) | 055…061 Open |
+| ĐK-S3-7 | Còn | 9 ca bấm thật của vòng 9 dùng lại được cho chuỗi A1 |
+| ĐK-S3-8 | Còn | Chưa có VPS |
+| **ĐK-S3-9** | **Xong** | UXR #2…#7 (BUG-R2-066…071) Closed. Mỗi lỗi có ca E2E-UI bấm thật tới API thật, CI bắt buộc chạy (V3.4). UXR đi lại KB4, KB6, KB8 đạt trên `fe4b166`.<br>UXD **chưa** duyệt hộp phụ thu #7 (S4-41) → chuyển sang ĐK-S3-5. Không chặn: chức năng đã đúng (TC-L3-076, UXR KB6), câu chữ đúng nghĩa |
+| **ĐK-S3-10** | **Xong** | #1 Closed (065). Bản dựng có bản sửa #2. Câu SEC-G4 mới đã vào limits mục C (dòng "Bỏ một người khỏi đoàn…"); UXR viết thay ORC, nội dung đúng câu ở `s3-SEC.md` 9.4. UXR đi lại KB4, KB6, KB8; guide/limits v1.3; mốc D5 20:45 |
+| ĐK-S3-11 | **Thu hẹp** | SEC-G1 (a) ĐẠT (9.6). Còn SEC-G1 (b), hạn cổng QC Sprint 4. Không còn là điều kiện cho dữ liệu khách thật |
+
+### V3.4 Tự kiểm mẫu của QC ở bản 3
+
+1. **CI:** đọc lại bằng `gh` (K1). Log lưu ở `scratchpad/regate/qc/ci-39015560449.log`.
+2. **Các ca bấm thật:** QC đọc `e2e/ui/desk-writes.s3.spec.ts`, `ui-clock/stay-writes.h15.spec.ts`, `ui-clock/party-docs.h14.spec.ts`, `ui-clock/checkout.h16.spec.ts`.
+   - Bước ghi đi qua nút trên Desk (`getByRole(…).click()`), ảnh đính bằng `setInputFiles`.
+   - Bốn tệp này không có `page.route` (không giả lập API).
+   - Trong log CI, mọi ca đều ✓: desk-writes #1724–1728, KB7 #1864, party-docs #1865, stay-writes #1866–1867.
+
+   | Lỗi | Ca E2E-UI |
+   |---|---|
+   | #2 – BUG-R2-066 | TC-L4-093, TC-L4-094, TC-L4-095 |
+   | #3 – 067 | TC-L3-075 |
+   | #4 – 068 | TC-L4-093 bước (3) |
+   | #5 – 069 | TC-L2-085 |
+   | #6 – 070 | TC-L2-086, TC-L3-076 |
+   | #7 – 071 | TC-L3-076 |
+   | FE-07 – 083 | TC-L3-077 |
+   | KB7 – 084 | TC-L4-096 (CI 39015560449 chạy dưới tên cũ) |
+3. **Mã của BUG-R2-083:**
+   - `registration.service.ts:2041-2097` (`onPartyMemberRemoved`) chỉ hủy ngay giấy tờ đã gắn đúng người bị bỏ (`own`). Giấy tờ chưa gắn từ Khách 2 trở đi chỉ được đặt hạn 24 giờ (`fields_purge_after`, `delete_after`). Không còn điều kiện `person_index > persons`. `required_count` theo số người.
+   - `DocsPanel.tsx:420-424` bắt buộc chọn người và gửi `partyMemberId`.
+   - `ci.yml:420` có TC-L3-077 trong `WRITES`.
+   - Khớp SEC 9.5 và 9.6.
+4. **Sổ lỗi:** đếm lại bằng script, khớp bảng tổng (K2).
+5. **Demo:** probe chỉ đọc. Grep log của UXR chỉ lấy dòng smoke/XONG/D5, không in mật khẩu, token hay link (K12).
+6. **Truy vết:** chạy `--strict` trên cây làm việc (K10).
+7. **"Đã thu −500.000":** đọc mã (K4). Không phải lỗi tiền ở máy chủ.
+
+### V3.5 Điều kiện còn lại (bản 3)
+
+| # | Điều kiện | Vai | Hạn | Cách kiểm |
+|---|---|---|---|---|
+| **ĐK-S3-12** (mới – **điều kiện hiệu lực**) | QA chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6: đóng lỗi, hoặc đóng phần P0 rồi tách phần còn lại thành lỗi mới mức ≤ P1 gắn S4-39. Sửa bảng tổng, ghi 1 dòng decision-log | QA | Trước khi ORC commit bước QC này, và trước khi báo INV Sprint 3 qua cổng | Dòng 083 trong bug-list là Closed; P0 Open chỉ còn 056…061 (đều thuộc ngoại lệ). **QA giữ P0 → cổng KHÔNG ĐẠT** |
+| **ĐK-S3-13** (mới) | **Commit sạch, CI xanh:**<br>• commit cùng lúc: spec đã đổi tên TC-L4-096, `ci.yml` (`WRITES` 9 ca), `r1-main-flows.md` v0.3.12, `traceability.md`, bug-list, tệp này;<br>• **không** đưa backlog EP19 (cột Round "R2 – LP-v1") hay tệp landing/Zalo vào cùng commit, trừ khi `gen_traceability.py --strict` trên cây đó exit 0;<br>• push, rồi chờ CI trên commit đó | ORC (QA, PO hỗ trợ) | Khi commit bước QC | `gh run view` success; bước "UI cases ran" đạt với 9 ca `WRITES` (có TC-L4-096); job "API contract" xanh |
+| ĐK-S3-1 (còn ghi chép) | • Ghi mục 6c vào `outputs/OPS/demo-1.md`: smoke `fe4b166` ĐẠT lúc 15:20:02, reset lúc 15:46:04, D5 hết hạn 20:45 ngày 17/10.<br>• Gửi INV câu "XONG" kèm mốc D5.<br>• Nếu INV thử sau 20:45 hoặc ngày khác: chạy `demo-reset.sh` ngay trước khi thử. Nếu `product/` đã đổi so với `fe4b166` thì chạy `demo-up.sh --smoke` | OPS (hoặc ORC, như mục 6b), ORC | Trước khi gửi demo | Mục 6c có dòng smoke và dòng reset |
+| ĐK-S3-3 (phần bản 3) | Ghi vào bug-list, có mức, các điểm UXR mới:<br>• N1–N6 (lượt đi lại 15:20–15:45);<br>• các dòng "mới" của limits mục C: dấu trừ ở "Đã ghi hoàn -500.000", mã lý do thô, tiêu đề hộp step-up khi xem số tài khoản, mã BIN thay tên ngân hàng, cặp dòng minibar khi mở lại H16, câu "Phí phạt" ở Giặt ủi, "Đã thu −500.000" ở đơn đã hủy và đã hoàn, 2 dòng "Còn phải thu", dòng đỏ ghi chú giờ ở KB4 | QA (UXR gửi danh sách và ảnh) | Trước buổi lập kế hoạch tuần đầu Sprint 4 | Mỗi dòng "mới" trong limits mục C có mã BUG |
+| ĐK-S3-4 (phần bản 3) | • Thêm mục S4 cho 075, 076, 078, 079, 080, 081, 082 và các lỗi mới của ĐK-S3-3.<br>• Ghi mã BUG cạnh S4-01 (055), S4-02 (056), S4-05 (057), S4-07 (058), S4-18 (059), S4-22 (060), S4-34 (061), S4-39 (083).<br>• PO quyết 076, 080, 081 và rà "Accepted" của US-083 AC2 | ORC, PO | Cùng mốc ĐK-S3-3 | QC đối chiếu |
+| ĐK-S3-5 (bổ sung) | Như bản 2. Thêm:<br>• UXD duyệt chuỗi vòng 9/9c: hộp phụ thu #7 (S4-41), chuỗi FE-07 và KB7 (S4-48);<br>• ARC xem lại phần BE 9b/9c khi chốt contract 0.3.7 | SEC, DOM, ARC, UXD | Như bản 2 | Như bản 2 |
+| ĐK-S3-6 | Không đổi | BE-A, BE-B, QA, DOM | Trước cổng QC Sprint 4 | Như bản 2 |
+| ĐK-S3-7 | Không đổi. Vẫn phải sửa BUG-R2-064 | QA (FE, BE, OPS) | Trước cổng QC Sprint 4 | Như bản 2 |
+| ĐK-S3-8 | Không đổi | ORC, OPS, SEC, QA, PO | Khi có VPS; chậm nhất trước giai đoạn Ổn định | Như bản 2 |
+| ĐK-S3-11 (thu hẹp) | SEC-G1 (b), SEC Verified cho:<br>• phương án chính S4-39 (`guestUploadPersonIndex`, hộp chọn ô, dồn số ô);<br>• contract 0.3.7: PATCH chỉ `partyMemberId` để FE không phải đọc C3 chỉ để gắn người, `DOCUMENT_UNCLAIMED_EXISTS` kèm id;<br>• BE-57, BE-58 (2) | BE-C, BE-A, ARC, FE, UXD, SEC | Trước cổng QC Sprint 4 | SEC ghi Verified |
+
+Ba tình huống làm cổng QC Sprint 4 **KHÔNG ĐẠT** (cuối mục 6 bản 2) giữ nguyên. Tình huống thứ ba nay đọc là: "S4-39 (SEC-G1 b) chưa được SEC Verified".
+
+### V3.6 Demo lần 1: **gửi được**, sau khi xong ĐK-S3-1 (phần ghi chép)
+
+- Bản đang chạy an toàn và đủ tốt để INV bấm thử: dữ liệu giả, chạy localhost, dựng từ `fe4b166`, smoke ĐẠT, UXR đi lại các KB chính đều đạt.
+- KB5 và KB10 chưa ai đi lại sau vòng 9 (lượt cuối là trên `adc0a47`). Smoke không phủ hết hai KB này. Rủi ro nhỏ.
+- **Mốc giờ:** D5 hết hạn 20:45 ngày 17/10. Thử sau mốc này hoặc ngày khác thì chạy `demo-reset.sh` ngay trước. Sau reset, mật khẩu và link khách đổi, nên phải làm lại Bước 0.
+- **Câu cần sửa trong limits mục C** (không chặn): dòng "Bỏ một người khỏi đoàn…" ghi "Chưa dùng dữ liệu khách thật tới khi SEC kiểm lại phần này và có máy chủ chạy thử". SEC đã kiểm lại phần này. Điều kiện còn lại là SEC-G2 và SEC-G3 trên staging. Kết luận "chưa dùng dữ liệu thật" vẫn đúng; UXR hoặc ORC sửa câu khi tiện.
+- Demo **không thay** staging (giữ mục 4.3).
+
+### V3.7 Rủi ro cập nhật (bổ sung mục 8 và 9)
+
+1. Sau khi FE neo locator, TC-L3-076 không còn bắt được lỗi đua ở ô chọn khách. Lớp lỗi này chỉ còn unit `guest-picker-race` giữ. Khi viết chuỗi A1 (ĐK-S3-7), QA tránh để việc ổn định harness che lỗi sản phẩm.
+2. **Phương án dự phòng của 083:**
+   - Lễ tân bỏ qua mục "Cần chú ý" quá 24 giờ thì giấy tờ của người còn ở bị xóa. SEC chấp nhận theo thiết kế.
+   - Mục này mới hiện ở H14; trang Hôm nay còn là khung (EP01, Sprint 4).
+   - "Gắn người" phải nhập lại mọi trường (N6), dễ bị bỏ dở. Nên làm sớm contract 0.3.7.
+3. Việc landing/Zalo/brand (EP19, ADR-014, S4-49) đang chạy song song trên cùng cây làm việc. Commit lẫn vào luồng Sprint 3/4 có thể làm đỏ CI (K10) và khó truy lỗi. S4-49 đổi token Design System sau cổng, có nguy cơ hồi quy giao diện và axe: chạy lại đủ ca UI và axe.
+4. Ba stack QA cũ `ottimo-qa-s3a/b/c` khởi động lại liên tục, chiếm tài nguyên của máy chạy demo. Chủ máy hoặc ORC dừng chúng trước buổi INV thử.
+5. Sprint 4 nặng thêm: S4-40…S4-49, trong đó S4-49 (brand) là Must theo INV. Mục 8 rủi ro 1 càng đúng; ORC chốt sớm thứ tự cắt.
+
+**Rủi ro INV cần biết (ORC đưa vào round-summary; thay mục 9 gạch đầu dòng 2):**
+- Ba thao tác trên màn lễ tân vướng ở bản trước (nhập giấy tờ tại quầy, ghi khoản đã hoàn, thêm người có phụ thu) đã được sửa. Nay có kiểm tra tự động bấm thật trên giao diện. Đội đã tự đi lại bản demo: các kịch bản chính chạy trọn.
+- Bản demo đã sẵn sàng. Đơn giữ chỗ mẫu D5 hết hạn 20:45 hôm nay; thử muộn hơn thì chạy lệnh làm mới trước.
+- Các gạch đầu dòng khác của mục 9 giữ nguyên: chưa có máy chủ chạy thử; lỗi lệch tiền ở trường hợp hiếm phải sửa trong Sprint 4; chưa dùng dữ liệu khách thật.
+
+### V3.8 QC không kiểm được (bản 3)
+
+- Không đăng nhập demo, không bấm giao diện. Kết quả bấm lấy từ UXR, SEC, QA và CI.
+- Không chạy lại E2E, bộ api hay test SEC; không dựng ảnh từ `fe4b166`.
+- Chưa đọc mã các điểm UXR mới N1–N6, trừ "Đã thu −500.000".
+- KB5 và KB10 chưa ai đi lại sau vòng 9.
+- Phần đăng xuất xóa số và ảnh giấy tờ mới chỉ được kiểm bằng đọc mã (SEC 9.6 e, ghi chú 3).
+- Không kiểm: thiết bị thật, VoiceOver, p95, Caddy prod.
 
 ## 0. Bản 2 sửa gì so với bản 1
 
@@ -26,7 +171,7 @@
 | 9 | K3 xếp ARC-BE-S3-30 và UXD-FE-S3-20 (1) vào nhóm Blocker/Major | Sửa thành Minor |
 | – | **UXR đi thử demo, tìm ra lỗi mới** | QC đọc mã và xác nhận 7 lỗi Desk có thật (QC-S3-08). Đây là lý do đổi quyết định (mục 1) |
 
-## 1. Quyết định: **KHÔNG ĐẠT** – chấm lại rút gọn sau vòng sửa 9
+## 1. Quyết định bản 2: **KHÔNG ĐẠT** – chấm lại rút gọn sau vòng sửa 9 *(đã được bản 3 thay – mục V3)*
 
 **Lý do:** Phần API của nhận phòng, lưu trú, trả phòng, thu tiền, giấy tờ C3 và check-in online đã chạy đúng trên CI (API 2.187/2.187, E2E 1.777/0). 7 Blocker đã có người kiểm độc lập. SEC đã gỡ chặn. Nhưng UXR bấm thử bản demo thì thấy ba thao tác hằng ngày trên Desk **không làm được**:
 - **Thêm giấy tờ cho khách tại quầy**, cả nhập tay lẫn kèm ảnh.

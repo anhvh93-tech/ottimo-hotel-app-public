@@ -1,6 +1,6 @@
 # Ma trận truy vết – Story ↔ AC ↔ BR ↔ Test case ↔ Endpoint ↔ Wireframe
 
-- Tác giả: QA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.4 (backlog R-C – ESC-012: 72 Must R2; AC `[Dời R3 – R-C]` tách khỏi nghiệm thu R2; AC5a)
+- Tác giả: QA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.4 (backlog R-C – ESC-012: 72 Must R2; AC `[Dời R3 – R-C]` tách khỏi nghiệm thu R2; AC5a) · **0.5 (17/10, ĐK-S3-13)**: story cột Round "R2 – <luồng>" (EP19 "R2 – LP-v1") tách ra mục 9, không tính vào Must R2 và `--strict`
 - **File này do script sinh** – không sửa tay: `python3 product/tests/tools/gen_traceability.py` (chạy từ thư mục gốc repo). Nguồn: `03-backlog/backlog.md` (story, AC), `product/tests/test-cases/r1-main-flows.md` (TC), `product/docs/api/openapi.yaml` (`operationId`, `x-stories`), `product/docs/business-rules.md`, `product/docs/baseline-issues-triage.md`, `product/design/wireframes/NN-*.html` 01–10 (dòng `wf-meta` đầu trang liệt kê US), `product/docs/erd.md` mục 4, `product/docs/state-machines.md`, `product/docs/rbac-matrix.json`/`.md`.
 - Đọc cùng `product/docs/qa/test-strategy.md`. Cột **Endpoint** = hợp của `x-stories` trong OpenAPI và endpoint QA dùng trong TC. Cột **Wireframe** = trang có ghi US ở đầu trang (`L2`…); mục có hậu tố "(QA)" = QA tự đối chiếu màn hình khi đầu trang không ghi US. Cột **ERD** = mục từ điển bảng `erd.md` 4.x: mục nêu US trực tiếp, hợp với mục suy từ `tags` của operation (bảng ánh xạ `TAG_ERD` của QA) – kiểm có bảng, chưa kiểm từng cột.
 
@@ -8,7 +8,7 @@
 
 | Chỉ số | Kết quả |
 |---|---|
-| Story Must R2 trong backlog (mục 3) | **71** |
+| Story Must R2 trong backlog (mục 3) – không gồm story của luồng riêng (cột Round "R2 – <luồng>", mục 9) | **71** |
 | Story Must R2 có ≥ 1 TC | **71/71** (100%) |
 | AC của story Must R2 (backlog mục 4) | **251** |
 | AC có ≥ 1 TC | **251/251** (100.0%) |
@@ -18,9 +18,9 @@
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
-| Tổng số TC | **418** (Cao 263 · TB 149 · Thấp 6) · **Smoke (S)** 43 |
-| TC theo nhóm | L2 67 · L3 52 · L4 60 · L5 48 · L6 37 · L7 27 · L8 13 · NT 46 · RB 27 · SEC 25 · X 16 |
-| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 379 · E 149 · P 5 · M 7 |
+| Tổng số TC | **420** (Cao 265 · TB 149 · Thấp 6) · **Smoke (S)** 43 |
+| TC theo nhóm | L2 67 · L3 53 · L4 61 · L5 48 · L6 37 · L7 27 · L8 13 · NT 46 · RB 27 · SEC 25 · X 16 |
+| TC theo tầng (một TC có thể nhiều tầng) | U 43 · A 379 · E 151 · P 5 · M 7 |
 | TC cho story ngoài Must R2 (ca chính) | US-041 (2), US-056 (2), US-064 (1), US-081 (5), US-111 (2), US-125 (5), US-128 (5), US-137 (2), US-141 (5) |
 | `operationId` dùng trong TC nhưng không có trong OpenAPI | 0 |
 | Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | 0 · 0 |
@@ -32,6 +32,7 @@
 | Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | 0  |
 | Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **71/71** |
 | BR trong danh mục / BR không được story hay TC nào tham chiếu | 152 / 0 |
+| Luồng riêng **LP-v1** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ) · AC Must có ≥ 1 TC | 7 Must + 2 khác · **0/36** – mục 9 |
 
 **Không còn AC nào của story Must R2 thiếu test case.**
 
@@ -57,7 +58,7 @@
 | US-019 | Phòng khóa chặn bán (SM-02, BR-804) | AC1: TC-L2-030, TC-L6-044<br>AC2: TC-L2-031<br>bổ sung: TC-L2-032, TC-L2-033, TC-L6-052 | BR-904 | `calculateQuote`, `createHoldFromQuote`, `createReservation`, `createRoomBlock`, `createWorkOrder`, `getRack`, `getTonightKpi`, `listRoomBlocks`, `listRoomStatuses`, `searchAvailability`, `transitionRoomBlock` | L2, L6 (QA) | 4.5, 4.9 | – |
 | US-020 | Chi tiết đơn | AC1: TC-L2-040<br>AC2: TC-L2-041<br>AC3: TC-RB-012<br>AC4: TC-L2-042<br>bổ sung: TC-L2-043, TC-L2-086 | BR-315 | `cancelReservation`, `checkIn`, `checkOut`, `confirmDeposit`, `createHoldFromQuote`, `getFolio`, `getReservation`, `listReservations`, `updateReservation` | L2 | 4.5, 4.6 | – |
 | US-021 | Hủy đơn / hủy giữ chỗ (UC-05, B5, B10) | AC1: TC-L2-050<br>AC2: TC-L2-051, TC-L2-085<br>AC3: TC-L2-052, TC-X-010<br>AC4: TC-L2-053, TC-L2-054, TC-L2-085, TC-L4-093, TC-L4-094<br>AC5: TC-L2-055<br>AC6: TC-L2-056<br>bổ sung: TC-L2-057, TC-L2-083 | BR-308, BR-309, BR-310, BR-522 | `approveRequest`, `cancelReservation`, `executeCashRefund`, `executeRefund`, `getFolio`, `getRack`, `getReservationHistory`, `listApprovalRequests`, `listAttentionItems`, `markNoShow`, `moveReservation`, `setRefundDestination`, `uploadAttachment` | L2 | 4.5 | ESC-006 |
-| US-022 | Người đi cùng | AC1: TC-L2-060<br>AC2: TC-L2-061<br>AC3: TC-L2-062<br>AC4: TC-L3-056, TC-L3-076<br>bổ sung: TC-L2-063, TC-L3-055, TC-L4-090 | BR-110, BR-414, BR-601 | `addPartyMember`, `getFolio`, `getRegistration`, `getReservation`, `listHkTasks`, `listParty`, `removePartyMember`, `updateReservation` | L3 §3.1 (người thứ 2) (QA) | 4.5 | ESC-001 |
+| US-022 | Người đi cùng | AC1: TC-L2-060<br>AC2: TC-L2-061<br>AC3: TC-L2-062<br>AC4: TC-L3-056, TC-L3-076<br>bổ sung: TC-L2-063, TC-L3-055, TC-L3-077, TC-L4-090 | BR-110, BR-414, BR-601 | `addPartyMember`, `getDocumentImage`, `getFolio`, `getGuestDocumentSensitive`, `getRegistration`, `getReservation`, `listAttentionItems`, `listHkTasks`, `listParty`, `removePartyMember`, `updateGuestDocument`, `updateReservation`, `uploadGuestDocument` | L3 §3.1 (người thứ 2) (QA) | 4.5 | ESC-001 |
 | US-023 | Mã duy nhất (BR-007) | AC1: TC-NT-021, TC-NT-022<br>AC2: TC-NT-038 | BR-007 | `cancelReservation`, `checkOut`, `createGuest`, `createGuestRequest`, `createReservation`, `createWorkOrder`, `getGuest`, `getReservation`, `saveQuote`, `updateGuest` | L2 | 4.4, 4.5, 4.9 | – |
 | US-024 | Đổi căn / đổi ngày / đổi phòng (UC-16, B7, B14, BR-424) | AC1: TC-L2-082, TC-L2-065, TC-L2-084<br>AC2: TC-L2-066<br>AC3: TC-L2-067<br>AC4: TC-L2-068 | BR-006, BR-403, BR-424, BR-906 | `assignRoom`, `changeRoom`, `createReservation`, `getDoorCredential`, `getFolio`, `getReservation`, `listHkTasks`, `moveReservation`, `swapRoom` | L9 | 4.5 | – |
 | US-136 | Đánh dấu no-show (UC-05, B11, B12, BR-311) – *mới* | AC1: TC-L2-070<br>AC2: TC-L2-071, TC-L2-072<br>AC3: TC-L2-073<br>AC4: TC-L2-074<br>AC5: TC-L2-075 | BR-010, BR-311, BR-526, BR-904 | `approveRequest`, `getFolio`, `getRegistration`, `getReservation`, `listApprovalRequests`, `listAttentionItems`, `listAuditEvents`, `listMyNotifications`, `markNoShow`, `restoreNoShow` | L2, L9 | 4.2, 4.5 | – |
@@ -70,7 +71,7 @@
 | US-031 | Thẻ khách trả phòng hôm nay chưa trả (BR-425) | AC1: TC-L4-022<br>AC2: TC-L4-023<br>bổ sung: TC-L4-024 | BR-001, BR-425 | `getArrivalsDepartures`, `listCheckoutReminders` | L2 §2.1, §2.4 (QA) | 4.5 | – |
 | US-032 | Dòng phát sinh / phí phạt (UC-17, BR-511, BR-512) | AC1: TC-L4-030<br>AC2: TC-L4-031, TC-L4-095<br>AC3: TC-L4-032<br>AC4: TC-L4-033<br>bổ sung: TC-L4-034 | BR-511, BR-512, BR-904 | `addFolioLine`, `adjustFolioLine`, `getChargeCatalog`, `getFolio`, `getGuestFolio`, `listApprovalRequests`, `uploadAttachment` | L4 §4.2 (phí phạt) (QA) | 4.6 | – |
 | US-035 | Trả phòng bước 1: minibar (BR-701, BR-702) | AC1: TC-L4-040<br>AC2: TC-L4-041<br>AC3: TC-L4-042<br>bổ sung: TC-L4-043 | BR-701, BR-702 | `getCheckoutSummary`, `getMinibarStandard`, `recordMinibarCheck` | L4 | 4.6 | – |
-| US-036 | Trả phòng bước 2: phụ phí | AC1: TC-L4-044<br>AC2: TC-L4-045<br>AC3: TC-L4-046, TC-L4-047, TC-L4-048 | BR-307, BR-401, BR-412, BR-414 | `checkOut`, `getCheckoutSummary` | L4 | 4.5 | – |
+| US-036 | Trả phòng bước 2: phụ phí | AC1: TC-L4-044, TC-L4-096<br>AC2: TC-L4-045<br>AC3: TC-L4-046, TC-L4-047, TC-L4-048 | BR-307, BR-401, BR-412, BR-414 | `checkOut`, `getCheckoutSummary`, `getFolio`, `recordPayment`, `setLateCheckout` | L4 | 4.5 | ESC-007 |
 | US-037 | Trả phòng bước 3: bill | AC1: TC-L4-050<br>AC2: TC-L4-051<br>AC3: TC-L4-052 | BR-004, BR-009, BR-412 | `getBill`, `getCheckoutSummary`, `getFolio` | L4 | 4.5, 4.6 | – |
 | US-038 | Hoàn tất trả phòng (UC-18, B18, SM-13) | AC1: TC-L4-053<br>AC2: TC-L4-054<br>AC3: TC-L4-055<br>AC4: TC-L4-056<br>bổ sung: TC-L4-057, TC-L4-067, TC-L4-068, TC-X-060 | BR-007, BR-525, BR-604 | `addFolioLine`, `adjustFolioLine`, `checkOut`, `getCheckoutSummary`, `getFolio`, `getReservation`, `listAttentionItems`, `listHkTasks`, `listRoomStatuses` | L4 | 4.5, 4.6 | – |
 | US-039 | Thông tin hóa đơn GTGT công ty | AC1: TC-L4-058<br>AC2: TC-L4-059 | BR-524 | `getBill`, `getGuest`, `setInvoiceRequest` | L4 | 4.6 | – |
@@ -234,10 +235,10 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-01 | B12 | `no_show` → `confirmed` | Khôi phục no-show (DOM SQ-1) | `restoreNoShow` | TC-L2-023, TC-L2-074 |
 | SM-01 | B13 | `in_house` → `in_house` | Gia hạn | `extendStay` | TC-L2-023, TC-L4-002 |
 | SM-01 | B14 | `in_house` → `in_house` | Đổi phòng | `changeRoom`, `swapRoom` | TC-L2-023, TC-L2-066 |
-| SM-01 | B15 | `in_house` → `in_house` | Đặt trả muộn | `setLateCheckout` | TC-L4-010 |
+| SM-01 | B15 | `in_house` → `in_house` | Đặt trả muộn | `setLateCheckout` | TC-L4-010, TC-L4-096 |
 | SM-01 | B16 | `in_house` → `in_house` | Trả sớm (báo trước ngày đi) | `earlyDeparture` | TC-L4-025 |
 | SM-01 | B17 | `in_house` → `confirmed` | Hoàn tác nhận phòng nhầm (DOM xác nhận) | `undoCheckIn` | TC-L3-005 |
-| SM-01 | B18 | `in_house` → `checked_out` | Hoàn tất trả phòng | `checkOut` | TC-L4-048, TC-L4-053, TC-L4-067, TC-NT-031 |
+| SM-01 | B18 | `in_house` → `checked_out` | Hoàn tất trả phòng | `checkOut` | TC-L4-048, TC-L4-053, TC-L4-067, TC-L4-096, TC-NT-031 |
 | SM-02 | O1 | [*] → `planned`/`active` | Tạo khối | `createRoomBlock`, `createWorkOrder` | TC-L2-023, TC-L2-032, TC-L2-033, TC-L6-031, TC-L6-040, TC-L6-041, TC-L6-042, TC-RB-025 |
 | SM-02 | O2 | `planned` → `active` | Đến ngày bắt đầu | – | TC-L6-044 |
 | SM-02 | O3 | `active` → `active` | Đổi khoảng ngày | `updateRoomBlock` | TC-L2-023 |
@@ -350,3 +351,25 @@ Nguồn chuẩn: `rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)`. Với m
 - Không có thuộc tính lệch.
 
 Phủ `x-rbac-field` (W2 R2): 148 thuộc tính đã gắn mã Dxx; thiếu mã: 0; mã Dxx lạ: 0. Bắt buộc gắn: mọi thuộc tính có `x-classification` và mọi thuộc tính có `x-visible-to` nằm trong `FIELD_MAP`. So sánh trường dùng `x-rbac-field` trước, `FIELD_MAP` chỉ là dự phòng.
+
+## 9. Luồng riêng có cổng riêng (không thuộc cổng QC Round 2)
+
+Quy ước (QA, ĐK-S3-13 – cổng QC Sprint 3 bản 3): story có cột Round dạng **"R2 – <luồng>"** (ví dụ "R2 – LP-v1" của EP19 landing page) thuộc một luồng giao hàng riêng, có cổng riêng (cổng LP-v1), **không** thuộc cổng QC Round 2. Các story này không tính vào "Must R2" ở mục 1–2; AC chưa có TC được liệt kê ở đây và **không** làm `--strict` đỏ. Ở cổng của luồng, chạy `--strict --strict-track <luồng>` để AC Must của luồng cũng bắt buộc có TC. Script không sửa nội dung story của PO. Chi tiết: `product/docs/qa/test-strategy.md` mục 2.0.
+
+### 9.1 Luồng LP-v1
+
+Story Must: 7 · story khác: 2 · AC Must có ≥ 1 TC: **0/36** · chưa bắt buộc (`--strict-track` tắt)
+
+| Story | Mức | Cột Round | Tên (backlog mục 4) | AC → TC |
+|---|---|---|---|---|
+| US-146 | Must | R2 – LP-v1 | Trang giới thiệu – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG** |
+| US-147 | Must | R2 – LP-v1 | 10 căn theo nhóm – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG** |
+| US-148 | Must | R2 – LP-v1 | Tiện nghi và vị trí – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG** |
+| US-149 | Must | R2 – LP-v1 | Tóm tắt chính sách – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG** |
+| US-150 | Should | R2 – LP-v1 | Câu hỏi thường gặp – *Should, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG** |
+| US-151 | Must | R2 – LP-v1 | Liên hệ và nút "Đặt phòng" (v1) – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG** |
+| US-152 | Must | R2 – LP-v1 | Song ngữ Việt – Anh – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG** |
+| US-153 | Must | R2 – LP-v1 | Nhận diện, ảnh, tốc độ, truy cập – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: **TRỐNG**<br>AC8: **TRỐNG** |
+| US-154 | Should | R2 – LP-v1 | Tìm kiếm và xem trước khi chia sẻ link – *Should, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG** |
+
+AC Must của luồng chưa có TC: US-146/AC1, US-146/AC2, US-146/AC3, US-146/AC4, US-147/AC1, US-147/AC2, US-147/AC3, US-147/AC4, US-147/AC5, US-148/AC1, US-148/AC2, US-148/AC3, US-148/AC4, US-149/AC1, US-149/AC2, US-149/AC3, US-149/AC4, US-149/AC5, US-151/AC1, US-151/AC2, US-151/AC3, US-151/AC4, US-151/AC5, US-151/AC6, US-152/AC1, US-152/AC2, US-152/AC3, US-152/AC4, US-153/AC1, US-153/AC2, US-153/AC3, US-153/AC4, US-153/AC5, US-153/AC6, US-153/AC7, US-153/AC8
