@@ -1610,7 +1610,6 @@
       "case": "Agoda 302, 3 người lớn, 2 đêm; trước ngày đến khách nhắn Zalo OTTIMO thêm 1 người → nguồn 'khách báo trực tiếp': giữ số khách OTA 3, phụ thu tại quầy (v0.3.4 bổ sung)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "params": {
         "room.302.base_occupancy": 3,
         "room.302.max_occupancy": 4,
@@ -1643,7 +1642,6 @@
       "case": "Như BR-110-14 nhưng Agoda gửi thông báo sửa đơn thành 4 khách → nguồn 'OTA sửa đơn': số khách OTA = 4, không phụ thu (v0.3.4 bổ sung)",
       "origin": "example",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "params": {
         "room.302.base_occupancy": 3,
         "room.302.max_occupancy": 4,
@@ -1676,7 +1674,6 @@
       "case": "Đổi số người đơn OTA không chọn nguồn / không có bằng chứng sửa đơn trên kênh → coi là 'khách báo trực tiếp' (v0.3.4 bổ sung)",
       "origin": "rule-boundary",
       "labels": ["INV-004", "INV-014", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "calc": null,
       "input": {
         "channel": "agoda",
@@ -1687,7 +1684,7 @@
         "effectiveSource": "guest_direct",
         "sourceRequiredInUi": true
       },
-      "qaAssumption": "API có thể bắt buộc trường nguồn (ARC chọn); nếu bắt buộc thì thiếu nguồn → 422 REQUIRED, kết quả nghiệp vụ như trên"
+      "qaAssumption": "ARC chọn bắt buộc trường nguồn (OpenAPI 0.3.6 bổ sung 4): thiếu `partyChangeSource` → 422 REQUIRED; client chọn sẵn `guest_direct` – kết quả nghiệp vụ như trên"
     },
     {
       "id": "BR-111-01",
@@ -2587,7 +2584,6 @@
       "case": "Agoda trả trước căn 302, 2 đêm 1.800.000, minibar 70.000 → \"Đã thu qua OTA\" là khoản thu hệ thống, còn phải thu 70.000 (v0.3.4)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13",
       "calc": null,
       "input": {
         "channel": "agoda",
@@ -2603,7 +2599,7 @@
         "billBalanceDueVnd": 70000,
         "otaMoneyInRefundFlow": false
       },
-      "note": "Code HEAD: không có khoản ota_collect → còn phải thu 1.870.000, B18 BALANCE_DUE"
+      "note": "Đã sửa (DOM-BE-13, BUG-R2-044 – có khoản thu hệ thống ota_collect); E2E TC-L4-061/046 đạt 17/10"
     },
     {
       "id": "BR-307-03",
@@ -2611,7 +2607,6 @@
       "case": "Agoda trả trước 302, 2 đêm 1.800.000, mất nước nóng: FOC đêm phòng → chặn; FOC minibar 70.000 → còn phải thu 0, 'Đã thu qua OTA' vẫn 1.800.000 (v0.3.4 bổ sung)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "calc": null,
       "input": {
         "channel": "agoda",
@@ -2641,7 +2636,6 @@
       "case": "Quản lý sửa giá một đêm OTA trả trước sau khi trả phòng (900.000 → 850.000 theo extranet) → 'Đã thu qua OTA' đồng bộ cùng giao dịch, folio vẫn còn phải thu 0 (v0.3.4 bổ sung)",
       "origin": "rule-boundary",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "calc": null,
       "input": {
         "channel": "agoda",
@@ -2951,7 +2945,6 @@
       "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "params": {
         "channel_commission_pct.booking": 15
       },
@@ -2978,7 +2971,6 @@
       "case": "Đơn OTA trả tại chỗ hủy có tiền phạt 900.000 → còn phải thu 900.000; tiền phạt 0 → không ghi dòng (v0.3.4 bổ sung)",
       "origin": "rule-boundary",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "calc": null,
       "input": {
         "cases": [
@@ -4674,7 +4666,6 @@
       "case": "Agoda 302, 4 đêm 20–24/10, 4 người lớn (số khách OTA 3), đã thu phụ thu 600.000 tại quầy; rời 22/10 → B16 tạo một yêu cầu hoàn 300.000, B18 không tạo thêm (v0.3.4 bổ sung)",
       "origin": "example",
       "labels": ["INV-006", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
       "calc": null,
       "input": {
         "channel": "agoda",
