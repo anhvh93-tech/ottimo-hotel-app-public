@@ -19,6 +19,6 @@
 | [ADR-011](ADR-011-integration-adapters.md) | Lớp adapter tích hợp + outbox/inbox (xác nhận thiết kế INT, có bổ sung) | Đề xuất | ESC chọn channel manager (INT) |
 | [ADR-012](ADR-012-monorepo-toolchain.md) | Monorepo pnpm + Turborepo; ESLint, Prettier, Vitest, Playwright, k6 | Đề xuất | – |
 | [ADR-013](ADR-013-sensitive-file-storage.md) | Lưu ảnh giấy tờ: mã hóa phong bì (envelope), xóa bằng hủy khóa | Đề xuất | ESC-001 (thời hạn lưu) |
-| [ADR-014](ADR-014-landing-site.md) | Website giới thiệu + đặt phòng trực tiếp ở tên miền gốc: `apps/landing-web` (Astro 6 tĩnh) trên Caddy cùng VPS; form tạo `booking_inquiry`; API công khai phòng trống/giá R3 | Đề xuất | Tên miền (ESC-010); cho tải ảnh Drive; chính sách hiện giá công khai (PO) |
+| [ADR-014](ADR-014-landing-site.md) | Website giới thiệu + đặt phòng trực tiếp ở tên miền gốc: `apps/landing-web` (Astro 6 tĩnh) trên Caddy cùng VPS; tiếng Anh ở gốc, `/vi/`, không tự chuyển hướng theo ngôn ngữ (sửa 17/10); theo Brand Guidelines v1.0 qua token chung; v1 không tải gì của bên thứ ba; form tạo `booking_inquiry`; API công khai phòng trống/giá R3 | Đề xuất (sửa 17/10) | Tên miền (ESC-020 L4); chính sách hiện giá công khai (ESC-020 L3) |
 
 Mẫu ADR: Bối cảnh · Quyết định · Phương án đã cân nhắc · Hệ quả (tốt / phải chấp nhận) · Điều kiện xem lại · Liên quan.

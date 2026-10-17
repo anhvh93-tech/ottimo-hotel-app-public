@@ -1,6 +1,6 @@
 # Phạm vi Landing page ottimo.vn (EP19) – PO
 
-- Người viết: PO | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày: 17/10/2026 | Trạng thái: **bản đề xuất – chờ ORC xếp lịch, chờ INV trả lời ESC-020 (L1–L5)**
+- Người viết: PO | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày: 17/10/2026 | Trạng thái: **ORC đã xếp lịch P1 (17/10) – chờ INV trả lời ESC-020 (L1–L6)**
 - Đầu vào: `04-investor-feedback/FB-INV-001.md`; tin nhắn INV 17/10 (landing + Zalo OA); `00-brief/investor-brief.md`; `product/docs/PRD.md` (M13, M15, A6); `03-backlog/backlog.md` (EP18, US-034/040/108/116/126/138); `product/docs/integrations.md` (I7, NotificationAdapter); `product/docs/hosting-plan.md` 5.1; `02-escalations/ESC-010.md`; `product/design/design-system.md`, `content-guide.md`; `00-brief/context/landing/README.md`; `rounds/round-02/plan.md` mục 4; `rounds/round-02/s4-carryover.md`.
 - Đầu ra: backlog **EP19** (US-146…US-160, có AC) · `02-escalations/ESC-020.md` · dòng ESC-020 trong `escalations-index.md` · file này.
 
@@ -10,6 +10,8 @@
 > - **ESC-020** nay có 6 câu phụ L1–L6 (L6 = ảnh); L2-A thêm WhatsApp/Telegram/Viber; điều kiện SEC C-1 là điều kiện cổng LP-v1.
 > - **ARC (ADR-014):** app riêng `product/apps/landing-web` (Astro, tĩnh), chạy trên VPS production, 0 đ thêm – trả lời câu hỏi nội bộ mục 6.
 > - **Zalo OA (mục 9):** trình ở **ESC-021**; khoảng trống "nhắc trước ngày đến" đã thành **US-162** (Must R3), danh sách gửi tay **US-161** (Must R3).
+> - **Lịch (mục 7.2) – ORC đã chọn P1 (17/10, `decision-log.md` dòng ORC "ORC chọn lịch landing P1"):** chạy song song Sprint 4 – tuần 1 UXD làm lại concept/mock theo Brand Guidelines + 45 ảnh thật + nội dung e-brochure; tuần 2 một luồng FE riêng dựng v1. Cổng riêng **LP-v1**, không tính vào cổng QC Round 2. ORC được tạm dừng luồng FE landing nếu Sprint 4 trễ việc sửa lỗi sai tiền (BUG-R2-055…061). Lên mạng khi có tên miền + VPS, bảng ghép phòng và INV duyệt nội dung.
+> - **Pháp lý:** câu banner đồng ý (LZ-1), form yêu cầu đặt phòng v2 (LZ-2) và thông báo website TMĐT với Bộ Công Thương (LZ-8) đã vào ESC-001. Trang quyền riêng tư cho v1: SEC trả lời "nên có", không chặn LP-v1 (`reviews/landing-zalo-SEC.md` mục 6). Form v2 (US-155) chưa bật khi chưa có trả lời LZ-2, LZ-8.
 
 ---
 
@@ -116,13 +118,13 @@ Nhận diện: giữ Design System OTTIMO (kem – gỗ sồi, Lora + Be Vietnam
 **v2 (R3, không gồm US-131 – US-131 đã có trong kế hoạch R3):** US-155 ≈ 5,5–8 (BE 2–3, FE 2–3, SEC 0,5–1, QA 1); US-156 ≈ 1–1,5 + người bản ngữ duyệt; US-157 ≈ 2–3; US-158 ≈ 1,25–1,75 → **≈ 10–14 ngày-người**.
 
 ### 7.2 Phương án xếp lịch
-| | P1 – Song song Sprint 4 (**PO đề xuất**) | P2 – Dời hết sang đầu R3 |
+| | P1 – Song song Sprint 4 (**PO đề xuất – ORC đã chọn 17/10**) | P2 – Dời hết sang đầu R3 |
 |---|---|---|
 | Cách làm | Tuần 1 Sprint 4: UXD thiết kế + nội dung (hi-fi Sprint 4 H19–H24 đã giao). Tuần 2: một **luồng FE riêng** (FE-LP) dựng trang. Review/QA/QC rút gọn riêng. Lên mạng khi đủ cổng mục 8 | Làm cùng US-131 ở đầu R3, một lần ra website v1 + v2 |
 | Ưu | INV có website sớm, đúng lúc đang mua tên miền; trang tĩnh, không đụng code Desk, không BE, rủi ro kỹ thuật thấp | Sprint 4 dồn hết sức cho lỗi sai tiền (S4-01…S4-08, S4-25…S4-35) |
 | Nhược | Thêm tải review/QA/ORC trong Sprint 4; cần thêm một agent FE; vẫn phụ thuộc INV gửi ảnh/nội dung | INV chờ thêm khoảng một tháng [ước tính]; tên miền gốc bỏ trống |
 
-Rào chắn cho P1 (ORC chốt):
+Rào chắn cho P1 (ORC chốt 17/10; rào 3 áp cho việc sửa lỗi sai tiền BUG-R2-055…061):
 1. Không rút người của FE Desk, BE, MOB; FE-LP chỉ làm trong thư mục app công khai do ARC chọn.
 2. Landing **không tính vào cổng QC Sprint 4 / Round 2**; có cổng "LP-v1" riêng.
 3. Sprint 4 trễ việc sai tiền → ORC tạm dừng FE-LP, giữ phần UXD (tự rơi về P3: UXD xong ở Sprint 4, FE dựng ở tuần ổn định R2 hoặc đầu R3).
@@ -166,7 +168,7 @@ Gợi ý cho ORC: khách bấm "Zalo" trên landing thường sẽ "quan tâm" O
 ## 11. Việc tiếp theo
 | Ai | Việc | Khi |
 |---|---|---|
-| ORC | Chọn P1/P2; giao UXD (+ FE-LP nếu P1); xin INV quyền tải ảnh + e-brochure; trình ESC-020; ghi decision-log (mục 12) | 17–18/10 |
+| ORC | ~~Chọn P1/P2~~ (đã chọn P1, 17/10); giao UXD + FE-LP; ~~xin INV quyền tải ảnh + e-brochure~~ (đã nhận); trình ESC-020; ghi decision-log (mục 12) | 17–18/10 |
 | UXD | Sơ đồ trang, wireframe, hi-fi, nội dung nháp VI/EN, bảng khe ảnh | Tuần 1 Sprint 4 (P1) |
 | ARC | ADR app công khai (mục 6) | Trước khi FE-LP bắt đầu |
 | DOM | Trả lời câu nguồn `website`/`zalo_phone` | Trong Sprint 4 |
@@ -177,7 +179,7 @@ Gợi ý cho ORC: khách bấm "Zalo" trên landing thường sẽ "quan tâm" O
 | Loại | Nội dung |
 |---|---|
 | PO quyết (quyền ưu tiên backlog) | EP19 tách v1/v2; MoSCoW và round như backlog; v1 không có form, không dẫn sang OTA |
-| Đề xuất – cần ORC chốt | Landing v1 làm song song Sprint 4 (P1), không tính vào cổng QC R2, có cổng LP-v1 riêng |
+| ORC đã chốt 17/10 | Landing v1 làm song song Sprint 4 (P1), không tính vào cổng QC R2, có cổng LP-v1 riêng (đã ghi `decision-log.md`) |
 | `[GIẢ ĐỊNH – chờ INV xác nhận]` | AC EP19 theo L1-A, L2-A, L3-A, L4-A, L5-A (ESC-020) |
 | `[GIẢ ĐỊNH]` | Giữ nhận diện kem – gỗ sồi; logo chữ "OTTIMO" (ESC-012 L-A) tới khi có file gốc |
 | `[GIẢ ĐỊNH]` | Mục tiêu tốc độ: LCP ≤ 2,5 giây trên 4G (ngưỡng "tốt" của web.dev) |

@@ -979,7 +979,15 @@ Quy ước riêng cho EP19:
 
 #### US-152 – Song ngữ Việt – Anh – *Must, LP-v1*
 - AC1: Given khách chọn "English", Then mọi chữ (menu, nút, mô tả ảnh, chính sách, câu hỏi, tiêu đề trang) là tiếng Anh đã duyệt, không còn chuỗi tiếng Việt cố định; mỗi ngôn ngữ có địa chỉ riêng để gửi link và để công cụ tìm kiếm nhận ra.
-- AC2: Given trình duyệt dùng tiếng Anh và khách mở lần đầu, Then trang gợi ý chuyển sang EN; khách đã chọn tay thì giữ lựa chọn đó, không tự đổi.
+- AC2 *(sửa 17/10 – ARC viết theo ADR-014 mục 3, chờ PO xác nhận; thay bản cũ "trình duyệt tiếng Anh thì gợi ý EN")*:
+  - **Mặc định:** Given khách mở bất kỳ địa chỉ nào của trang, Then trang hiện đúng ngôn ngữ của địa chỉ đó. Tên miền gốc là bản tiếng Anh (Brand Guidelines: tiếng Anh dẫn dắt); bản Việt ở `/vi/`.
+  - **Không tự chuyển:** trang **không** tự chuyển sang ngôn ngữ khác theo cài đặt trình duyệt.
+  - **Gợi ý:** When ngôn ngữ của trình duyệt, hoặc ngôn ngữ khách đã chọn trước đó, khác ngôn ngữ trang và trang có bản ở ngôn ngữ đó, Then hiện một dải gợi ý nhỏ:
+    - viết bằng ngôn ngữ đó, dẫn tới cùng trang;
+    - đóng được;
+    - không che nút "Đặt phòng", không làm xô lệch bố cục.
+  - **Giữ lựa chọn:** khách đã chọn tay (bấm đổi ngôn ngữ, bấm gợi ý hoặc đóng gợi ý) thì giữ lựa chọn đó; trang không tự đổi.
+  - **Nút đổi ngôn ngữ:** luôn thấy ở đầu trang trên điện thoại và máy tính.
 - AC3: Given INV chọn ESC-020 L1-B, Then áp US-156 AC1 ngay ở v1; chọn L1-A thì v1 không hiện nút tiếng Nga.
 - AC4: Given chữ EN dài hơn bản VI, Then bố cục không vỡ ở màn 360px (chừa thêm 40% – content-guide mục 6).
 

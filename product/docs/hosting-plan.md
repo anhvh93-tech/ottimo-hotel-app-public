@@ -1,6 +1,6 @@
 # Phương án hosting – OTTIMO Desk (phác thảo Round 1)
 
-- Người viết: OPS | Round 1 – Đợt 3, sửa ở Bước 4 (thẻ ARC-OPS-09/10, SEC-OPS-03/10/12/13); cập nhật R2 – Sprint 3 (16/10/2026) | Trạng thái: **ESC-002 đã quyết (A – dữ liệu ở VN, gói H-B). Script dựng staging đã sẵn (`infra/server/`, diễn tập local đạt) – chờ INV báo IP VPS + tên miền (mục 10)**
+- Người viết: OPS | Round 1 – Đợt 3, sửa ở Bước 4 (thẻ ARC-OPS-09/10, SEC-OPS-03/10/12/13); cập nhật R2 – Sprint 3 (16/10/2026); **ARC sửa 17/10/2026 theo giao việc ORC** (ADR-014): tên miền gốc phục vụ landing từ chính VPS, DNS gốc + `www`, bảo vệ tài khoản tên miền (SEC ARC-10) – mục 1, 5, 5.1, 9, 10 | Trạng thái: **ESC-002 đã quyết (A – dữ liệu ở VN, gói H-B). Script dựng staging đã sẵn (`infra/server/`, diễn tập local đạt) – chờ INV báo IP VPS + tên miền (mục 10)**
 - Căn cứ: ADR-010 (ARC), ESC-002 phương án A (dữ liệu khách tại Việt Nam), `data-risk-assessment.md` T15/T16/T18 (SEC), decision-log 15/10 ([GIẢ ĐỊNH] hạ tầng ≤ 1 triệu đ/tháng)
 - Dùng cho: Round 2 dựng staging; Round 3 chuẩn bị production.
 
@@ -12,7 +12,7 @@
 - Hệ thống cần **1 máy chủ ảo (VPS) 2 nhân / 4 GB RAM** đặt **tại Việt Nam** cho bản chạy thật, cộng một chỗ cất bản sao lưu cũng tại Việt Nam.
 - Ước tính **khoảng 0,35 – 0,95 triệu đ/tháng** tùy phương án (phương án đề xuất ~0,43–0,54 triệu) → **nằm trong ngân sách ≤ 1 triệu đ/tháng**. Chưa gồm: phí channel manager (Beds24 ~0,9–2,3 tr – INT), SMS/Zalo ZNS, email vượt gói miễn phí.
 - Đội đề xuất **Phương án 2** (máy chính + máy phụ ở nhà cung cấp khác làm staging và nơi giữ bản sao lưu): an toàn hơn khi một nhà cung cấp gặp sự cố, vẫn rẻ.
-- Cần INV: (1) quyết ESC-002; (2) duyệt mức chi phí hosting (OPS đề xuất ESC mới – xem report OPS R1); (3) chọn tên miền – cần **1 tên miền chính + 3 tên miền con + tên miền gửi email** (mục 5), không phát sinh thêm tiền ngoài phí tên miền.
+- Cần INV: (1) quyết ESC-002; (2) duyệt mức chi phí hosting (OPS đề xuất ESC mới – xem report OPS R1); (3) chọn tên miền – cần **1 tên miền chính** (tên miền gốc + `www` = landing, ADR-014) **+ 3 tên miền con cho app + tên miền gửi email** (mục 5.1), không phát sinh thêm tiền ngoài phí tên miền. Tài khoản tên miền đứng tên công ty, bật 2 lớp, khóa chuyển nhượng (mục 10).
 - Bản sao lưu production **không bao giờ** được khôi phục vào staging; diễn tập khôi phục làm trong môi trường dùng một lần rồi xóa (mục 7.1).
 
 ## 2. Nhu cầu tài nguyên (từ ADR-010)
@@ -64,7 +64,7 @@ Nếu INV chọn ESC-002 B (Singapore) hoặc C (lai): kiến trúc giữ nguyê
 ```
 Internet ──443/80──► Caddy (TLS Let's Encrypt, web tĩnh, reverse proxy)
                       ├─► api:3000   (chỉ trong mạng Docker)
-                      └─► /srv/{admin-web,mobile,guest-web}
+                      └─► /srv/{admin-web,mobile,guest-web,landing-web}   (landing-web: tên miền gốc – ADR-014)
                      worker ─┐
                      api ────┴─► postgres:5432 (chỉ trong mạng Docker, không mở ra ngoài)
                      volume tệp mã hóa (ADR-013)
@@ -88,6 +88,9 @@ Internet ──443/80──► Caddy (TLS Let's Encrypt, web tĩnh, reverse prox
 | `desk.<tên-miền>` | admin-web (lễ tân, quản lý, chủ) | origin riêng, proxy `/v1` tới api |
 | `staff.<tên-miền>` | app nhân viên (PWA) | origin riêng |
 | `g.<tên-miền>` | web khách (link trong tin nhắn) | origin riêng; `Referrer-Policy: no-referrer`; log che `/g/*` |
+| `<tên-miền>` (tên miền gốc) | **landing** – website giới thiệu công khai (ADR-014) | origin riêng (site thứ 4 trên Caddy); tệp tĩnh. v1 **không** proxy `/v1/*`; từ L1 chỉ 5 đường dẫn `/v1/public/properties/{slug}/…` (SEC ARC-06). Production **không** gắn `X-Robots-Tag` |
+| `www.<tên-miền>` | chuyển hướng 301 → `https://<tên-miền>{đường dẫn}` | không có nội dung riêng; Caddy tự xin chứng chỉ |
+| `staging.<tên-miền>` | landing staging | `X-Robots-Tag: noindex` **và** basic auth hoặc danh sách IP (SEC ARC-10) |
 | `mail.<tên-miền>` hoặc tên miền gốc | gửi email giao dịch (OTP khách, xác nhận) | bản ghi SPF, DKIM, DMARC; nhà cung cấp email chọn cùng INT (ESC-010) – **bắt buộc từ R2** vì OTP khách dùng email |
 | `staging-*` (ví dụ `desk.staging.<tên-miền>`) | staging | tách hẳn khỏi production, có `X-Robots-Tag: noindex` |
 
@@ -174,10 +177,10 @@ Cập nhật R2 S3: dòng "Caddyfile production", "Dựng staging + deploy tự 
 |---|---|---|
 | Xin báo giá chính thức (có VAT, SLA, vị trí trung tâm dữ liệu, snapshot) từ ít nhất 2 nhà cung cấp VN | OPS | Đầu R2, trước khi thuê |
 | INV quyết ESC-002 + duyệt chi phí hosting (ESC mới do OPS đề xuất) | INV | Trước khi OPS dựng staging R2 |
-| Chọn và mua tên miền; tạo 3 tên miền con + bản ghi email (mục 5.1) | INV (OPS tư vấn) | Đầu R2, trước staging |
+| Chọn và mua tên miền (đứng tên công ty, bật 2 lớp, khóa chuyển nhượng – mục 10); tạo bản ghi tên miền gốc + `www` (landing), 3 tên miền con + `staging`, bản ghi email (mục 5.1, 10) | INV (OPS tư vấn) | Đầu R2, trước staging; gốc + `www` khi landing qua cổng LP-v1 |
 | Chọn nhà cung cấp email giao dịch + cấu hình DNS (SPF/DKIM/DMARC) | INT + OPS (INV duyệt nếu có phí – ESC-010) | Đầu R2, trước staging |
 | Khi đã có repo GitHub: branch protection `main` (CI xanh + 1 review), secret scanning push protection, GHCR private, `.github/CODEOWNERS` (SEC cho auth/payment/C3/infra/.github) | OPS | R2 (cần tên tài khoản GitHub thật của đội) |
-| Caddyfile production: CSP/HSTS/Referrer-Policy, 3 origin, che log `/g/*`, hạn chế `/health` công khai; `curl -I` kiểm header trong CI | OPS | R2 |
+| Caddyfile production: CSP/HSTS/Referrer-Policy, 3 origin app + origin landing ở tên miền gốc (ADR-014 mục 1.4), che log `/g/*`, hạn chế `/health` công khai; `curl -I` kiểm header trong CI | OPS | R2 |
 | Dựng staging + deploy tự động + quản lý bí mật + migration tự động | OPS | R2 |
 | Sao lưu tự động + diễn tập khôi phục + runbook + giám sát | OPS | R3 |
 
@@ -185,22 +188,63 @@ Cập nhật R2 S3: dòng "Caddyfile production", "Dựng staging + deploy tự 
 
 Thay `<tên-miền>` bằng tên miền INV chọn, `<IP-staging>` / `<IP-production>` bằng IP VPS (hãng gửi khi thuê). Dùng DNS của nhà đăng ký hoặc Cloudflare **chỉ DNS** (đám mây xám – ADR-010, SR-HDR-03). TTL 300 giây trong lúc dựng, sau ổn định để 3600.
 
-**10.1 Web (bắt buộc trước khi dựng staging)**
+**Từ 17/10/2026 (ADR-014): tên miền gốc là landing.**
+- Tên miền gốc **không còn để dành**. Nó phục vụ landing (website giới thiệu OTTIMO) từ **chính VPS production** chạy app: Caddy, site thứ 4, 0 đ thêm.
+- `www` chỉ chuyển hướng 301 về tên miền gốc.
+- App giữ nguyên ở `desk.`, `staff.`, `g.`.
 
-| Loại | Tên | Giá trị | Khi nào |
-|---|---|---|---|
-| A | `desk.staging` | `<IP-staging>` | R2 – staging |
-| A | `staff.staging` | `<IP-staging>` | R2 – staging |
-| A | `g.staging` | `<IP-staging>` | R2 – staging |
-| A | `desk` | `<IP-production>` | R3 – khi có production |
-| A | `staff` | `<IP-production>` | R3 |
-| A | `g` | `<IP-production>` | R3 |
-| CAA | `@` | `0 issue "letsencrypt.org"` | R2 (khuyến nghị: chỉ Let's Encrypt được cấp chứng chỉ cho tên miền) |
-| CAA | `@` | `0 iodef "mailto:<hộp thư nhóm>"` | R2 (tùy chọn) |
+**Trước khi thêm bản ghi – bảo vệ tài khoản tên miền** (SEC ARC-10; INV tự làm; 0 đ).
+Từ nay tên miền gốc là "gốc tin cậy" của OTTIMO: website, link `g.` gửi khách, nút trong tin Zalo, email. Ai chiếm được tài khoản tên miền có thể dựng trang giả có chứng chỉ hợp lệ và nhận link của khách.
 
-- **Không** tạo bản ghi AAAA (IPv6) ở R2: tường lửa và smoke chỉ kiểm IPv4.
-- **Không** dùng bản ghi `*` (wildcard). Không trỏ tên miền gốc `<tên-miền>` vào VPS này nếu đang dùng cho website giới thiệu.
-- Kiểm (OPS làm): `dig +short desk.staging.<tên-miền>` ra đúng IP; cổng 80 mở để Let's Encrypt cấp chứng chỉ ở lần deploy đầu.
+| # | Việc | Ghi chú |
+|---|---|---|
+| 1 | Tên miền và tài khoản nhà đăng ký/DNS **đứng tên công ty** (CTCP UTMG Living), không đứng tên cá nhân nhân viên | Email liên hệ/khôi phục của tài khoản là hộp thư **của công ty**, không phải hộp thư cá nhân. Nên dùng hộp thư không nằm trên chính tên miền này, để vẫn nhận thư khi tên miền gặp sự cố |
+| 2 | Bật **xác thực 2 lớp** cho tài khoản nhà đăng ký và tài khoản DNS (nếu DNS ở nơi khác, ví dụ Cloudflare) | Ưu tiên ứng dụng xác thực hơn SMS. Ít nhất 2 người của công ty giữ quyền quản trị |
+| 3 | Bật **khóa chuyển nhượng** (transfer lock / registrar lock) | Tên miền `.vn`: hỏi nhà đăng ký cách khóa tương đương [Chưa xác minh] |
+| 4 | Bật tự gia hạn và nhắc hạn | Tên miền hết hạn = landing, link khách `g.` và email cùng ngừng |
+| 5 | Không gửi mật khẩu hay mã 2 lớp cho đội | Đội chỉ cần IP, tên miền và ảnh chụp bảng bản ghi (mục 10.3) |
+
+**10.1 Web (bắt buộc trước khi dựng staging; tên miền gốc + `www` khi landing lên mạng)**
+
+| Loại | Tên | Giá trị | Dùng cho | Khi nào |
+|---|---|---|---|---|
+| A | `desk.staging` | `<IP-staging>` | Desk staging | R2 – staging |
+| A | `staff.staging` | `<IP-staging>` | App nhân viên staging | R2 – staging |
+| A | `g.staging` | `<IP-staging>` | Web khách staging | R2 – staging |
+| A | `staging` | `<IP-staging>` | Landing bản xem thử (`noindex` + basic auth/IP – SEC ARC-10) | Khi dựng landing (Sprint 4) |
+| A | `@` (tên miền gốc) | `<IP-production>` | **Landing** (ADR-014) | Khi landing qua cổng LP-v1 – xem ghi chú "Lên mạng sớm" |
+| CNAME | `www` | `<tên-miền>.` (có dấu chấm cuối nếu nhà đăng ký yêu cầu) | Chỉ để Caddy chuyển 301 `www` → tên miền gốc, giữ nguyên đường dẫn. Nhà đăng ký không cho CNAME thì dùng `A www <IP-production>` | Cùng lúc với `@` |
+| A | `desk` | `<IP-production>` | Desk | R3 – khi có production |
+| A | `staff` | `<IP-production>` | App nhân viên | R3 |
+| A | `g` | `<IP-production>` | Web khách | R3 |
+| CAA | `@` | `0 issue "letsencrypt.org"` | **Giữ** (SEC ARC-10): chỉ Let's Encrypt được cấp chứng chỉ. Bản ghi CAA ở gốc áp cho cả tên miền gốc, `www` và mọi tên miền con | R2 |
+| CAA | `@` | `0 iodef "mailto:<hộp thư nhóm>"` | Báo khi có yêu cầu cấp chứng chỉ trái phép | R2 (tùy chọn) |
+| TXT | `@` | `google-site-verification=<mã do Google cấp>` | Xác minh Google Search Console bằng DNS – không gắn script (ADR-014 mục 5) | Khi INV tạo Search Console |
+
+**Lên mạng sớm (trước khi có VPS production)** – ARC quyết kỹ thuật, ORC chốt lịch (ADR-014 mục 8):
+- R2 chỉ thuê **một** VPS (mục 4: máy chính sẽ thành production; khi chạy thật, staging chuyển sang máy phụ).
+- Nếu landing v1 qua cổng LP-v1 trước R3: được trỏ `@` và `www` vào VPS này, với điều kiện:
+  - origin landing chỉ phục vụ tệp tĩnh, trả 404 cho mọi `/v1/*` (v1 không gọi API, không nối tới api staging);
+  - dùng bản build production của landing (không `X-Robots-Tag`), header theo ADR-014 mục 1.4.
+- Khi VPS production có IP khác: đổi `@`, `www` cùng lượt với `desk`, `staff`, `g`.
+
+Ghi chú:
+- **Không** tạo bản ghi AAAA (IPv6) ở R2 – kể cả cho tên miền gốc và `www`: tường lửa và smoke chỉ kiểm IPv4.
+- **Không** dùng bản ghi `*` (wildcard).
+- Nếu tên miền gốc **đang chạy** một website khác:
+  - OPS lập bảng chuyển hướng 301 từ URL cũ sang trang landing tương ứng **trước** khi đổi bản ghi A;
+  - hạ TTL xuống 300 giây trước đó ít nhất 24 giờ [Chưa xác minh – INV chưa cho biết tên miền đang dùng gì].
+- Tên miền gốc có thể có nhiều bản ghi TXT cùng lúc (mã Google ở đây, SPF ở mục 10.2), nhưng chỉ được có **một** bản ghi SPF.
+- Kiểm (OPS làm):
+  - `dig +short <tên-miền>`, `dig +short www.<tên-miền>`, `dig +short staging.<tên-miền>`, `dig +short desk.staging.<tên-miền>` ra đúng IP;
+  - `dig CAA <tên-miền>` có bản ghi Let's Encrypt;
+  - cổng 80 mở để Let's Encrypt cấp chứng chỉ cho gốc + `www` ở lần deploy đầu;
+  - `curl -sI https://www.<tên-miền>/vi/` → `301` tới `https://<tên-miền>/vi/`;
+  - `curl -sI -H 'Accept-Language: vi' https://<tên-miền>/` → `200`, không chuyển hướng, không `Vary: Accept-Language` (ADR-014 mục 3).
+- **Trước khi bật HSTS `includeSubDomains` ở tên miền gốc** (SEC ARC-10 điểm 3):
+  - OPS liệt kê **mọi** tên miền con đang có bản ghi (kể cả do nhà cung cấp email tạo) và xác nhận đều chạy HTTPS;
+  - HSTS ở gốc áp cho mọi tên miền con, kể cả tên miền con tạo sau này;
+  - không bật `preload`.
 
 **10.2 Email giao dịch (SPF / DKIM / DMARC – SR-GST-07, ESC-010)**
 
@@ -212,5 +256,9 @@ R2: email đang ở chế độ Mock (chỉ ghi log), nên chưa cần bản ghi
 | Tên miền đã có email (Google Workspace, Zoho…) | Giữ bản ghi SPF/DKIM hiện có; chỉ thêm `TXT _dmarc "v=DMARC1; p=none; rua=mailto:<hộp thư nhóm>"` nếu chưa có – không thêm SPF thứ hai |
 | Khi chọn nhà cung cấp email giao dịch (Amazon SES – đề xuất INT) | Theo bảng khuôn ở mục 5.1 (3 CNAME DKIM do SES sinh, MX + SPF cho `mail.<tên-miền>`, DMARC `p=none` → `quarantine` sau 2–4 tuần) – thay cho dòng "chưa gửi email" ở trên |
 
-**10.3 Gửi lại cho đội:** IP VPS, tên miền đã chọn, ảnh chụp bảng bản ghi DNS (không cần tài khoản nhà đăng ký).
+**10.3 Gửi lại cho đội:**
+- IP VPS, tên miền đã chọn;
+- ảnh chụp bảng bản ghi DNS (không cần tài khoản nhà đăng ký);
+- xác nhận có/không cho 5 việc bảo vệ tài khoản tên miền ở đầu mục 10. Chỉ trả lời có/không, không gửi ảnh trang tài khoản hay thông tin đăng nhập;
+- tên miền gốc hiện có đang chạy website nào không.
 
