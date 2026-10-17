@@ -734,6 +734,30 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * "Giá trị đơn" (DOM 17/10, REFUND #3 – BR-309/BR-429 addendum): Σ of the live `room` + `extra_person`
+   * lines of the booking at the moment of the cancellation / no-show, after their FOC and special discounts
+   * (and after any move or night reduction already posted) – never the pricing snapshot, never services,
+   * never money the OTA collected for us (its system receipt is deducted). The cap of every cancellation /
+   * no-show fee (reservations B10 / B11).
+   */
+  async bookingValueVnd(tx: Tx, folioId: string, reservationId: string): Promise<number> {
+    const { rows } = await tx.query<{ lines: string | number; ota: string | number }>(
+      `SELECT
+         (SELECT COALESCE(SUM(l.amount_vnd), 0) FROM folio_line l
+            LEFT JOIN folio_line rel ON rel.id = l.related_line_id
+           WHERE l.folio_id = $1 AND l.line_state = 'posted'
+             AND ((l.category IN ('room', 'extra_person') AND l.reservation_id = $2)
+               OR (l.category IN ('foc', 'discount') AND rel.category IN ('room', 'extra_person')
+                   AND rel.reservation_id = $2))) AS lines,
+         (SELECT COALESCE(SUM(p.amount_vnd), 0) FROM payment p
+           WHERE p.folio_id = $1 AND p.reservation_id = $2 AND p.provider = 'ota_system'
+             AND p.status = 'succeeded' AND p.reversal_of_id IS NULL) AS ota`,
+      [folioId, reservationId],
+    );
+    return Math.max(0, Number(rows[0]?.lines ?? 0) - Number(rows[0]?.ota ?? 0));
+  }
+
+  /**
    * BR-433 "≤ giá 1 đêm" basis of a FOC/discount on a folio line (BUG-R2-046): the night rate of the night the
    * line belongs to – a room line: its own rate; late check-out: the last night; early check-in: the first
    * night; any other line: the night of its service date (else the latest night before it, else the first).

@@ -1132,6 +1132,125 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
       });
     });
 
+    it('fix round 5 (C): "OTA sửa đơn" after the desk took the same count as guest_direct → OTA count follows, the fee goes', async () => {
+      await at('2027-03-20T10:00:00+07:00');
+      const o = await ota('202', '2027-04-05', '2027-04-07', 1_400_000);
+      const direct3 = await patch(o.id, { adults: 3, partyChangeSource: 'guest_direct' });
+      expect(direct3.statusCode, direct3.body).toBe(200);
+      expect((await linesOf(o.folioId, 'extra_person')).map((l) => l.amount_vnd)).toEqual([
+        150_000, 150_000,
+      ]);
+      const modified = await patch(o.id, {
+        adults: 3,
+        partyChangeSource: 'ota_modification',
+        otaModificationRef: 'AGD-MOD-9090',
+      });
+      expect(modified.statusCode, modified.body).toBe(200);
+      expect(modified.json()).toMatchObject({ adults: 3, otaGuestCount: 3 });
+      expect(await linesOf(o.folioId, 'extra_person')).toEqual([]);
+      expect((await totals(o.folioId)).balanceDueVnd).toBe(0);
+      const hist = await q<{ old_value: string; new_value: string; reason: string }>(
+        `SELECT old_value, new_value, reason FROM reservation_change
+          WHERE reservation_id = $1 AND field = 'ota_guest_count'`,
+        [o.id],
+      );
+      expect(hist).toEqual([
+        { old_value: '2', new_value: '3', reason: 'ota_modification AGD-MOD-9090' },
+      ]);
+      // the same again is a no-op (nothing left to re-price)
+      const again = await patch(o.id, {
+        adults: 3,
+        partyChangeSource: 'ota_modification',
+        otaModificationRef: 'AGD-MOD-9090',
+      });
+      expect(again.statusCode, again.body).toBe(200);
+      expect(await linesOf(o.folioId, 'extra_person')).toEqual([]);
+    });
+
+    it('fix round 5 (B), BR-424 bổ sung 17/10: OTA 203 19–21 + child 21–23, B14 on 20 to 401 moves the whole stay; a room not free for the child nights is refused before saving', async () => {
+      await at('2027-04-19T15:00:00+07:00');
+      await ready('203');
+      const o = await ota('203', '2027-04-19', '2027-04-21', 1_800_000);
+      await checkIn(o);
+      await at('2027-04-20T09:00:00+07:00');
+      const ext = await act(o.id, 'extend', { nights: 2 });
+      expect(ext.statusCode, ext.body).toBe(200);
+      const childId = ext.json().childReservation.id as string;
+      const other = await ota('402', '2027-04-22', '2027-04-23', 1_000_000);
+      await at('2027-04-20T10:00:00+07:00');
+      const body = (room: string) => ({
+        newRoomId: ids.rooms[room],
+        effectiveDate: '2027-04-20',
+        cause: 'guest_request',
+        reason: 'Khách muốn căn rộng hơn',
+      });
+      // B14 runs on the primary booking (the child shares its room and folio)
+      expect((await act(childId, 'change-room', { ...body('401'), dryRun: true })).statusCode).toBe(
+        409,
+      );
+      // 402 is taken on 22 by another booking → refused before anything is saved, the night is listed
+      const busy = await act(o.id, 'change-room', { ...body('402'), dryRun: true });
+      expect(busy.statusCode, busy.body).toBe(409);
+      expect(busy.json().code).toBe('ROOM_UNAVAILABLE');
+      expect(busy.json().conflicts).toContainEqual(
+        expect.objectContaining({ reservationCode: other.code, nights: ['2027-04-22'] }),
+      );
+      await ready('401');
+      const dry = await act(o.id, 'change-room', { ...body('401'), dryRun: true });
+      expect(dry.statusCode, dry.body).toBe(200);
+      const preview = dry.json() as {
+        nights: Array<{ date: string; oldRateVnd: number; newRateVnd: number }>;
+        folioDeltaVnd: number;
+        roomChangeDifferenceVnd: number;
+      };
+      expect(preview.nights.map((n) => n.date)).toEqual(['2027-04-20', '2027-04-21', '2027-04-22']);
+      // child nights (direct) take the 401 calendar; the OTA night keeps its price + the difference
+      const childDelta = preview.nights
+        .slice(1)
+        .reduce((a, n) => a + n.newRateVnd - n.oldRateVnd, 0);
+      expect(childDelta).toBeGreaterThan(0);
+      expect(preview.roomChangeDifferenceVnd).toBeGreaterThan(0);
+      expect(preview.folioDeltaVnd).toBe(preview.roomChangeDifferenceVnd + childDelta);
+      const moved = await act(o.id, 'change-room', {
+        ...body('401'),
+        applyDifference: true,
+        expectedDeltaVnd: preview.folioDeltaVnd,
+      });
+      expect(moved.statusCode, moved.body).toBe(200);
+      const segs = await q<{ reservation_id: string; room_no: string; f: string; t: string }>(
+        `SELECT s.reservation_id, rm.room_no, s.from_date::text AS f, s.to_date::text AS t
+           FROM reservation_segment s JOIN room rm ON rm.id = s.room_id
+          WHERE s.active AND s.reservation_id IN ($1, $2) ORDER BY s.from_date`,
+        [o.id, childId],
+      );
+      expect(
+        segs.map((x) => [x.reservation_id === o.id ? 'parent' : 'child', x.room_no, x.f, x.t]),
+      ).toEqual([
+        ['parent', '203', '2027-04-19', '2027-04-20'],
+        ['parent', '401', '2027-04-20', '2027-04-21'],
+        ['child', '401', '2027-04-21', '2027-04-23'],
+      ]);
+      const occ = await q<{ room_no: string; r: string }>(
+        `SELECT rm.room_no, o.stay_range::text AS r FROM room_occupancy o JOIN room rm ON rm.id = o.room_id
+          WHERE o.active AND o.room_id IN ($1, $2) AND o.stay_range && daterange('2027-04-20', '2027-04-23')
+          ORDER BY lower(o.stay_range)`,
+        [ids.rooms['203'], ids.rooms['401']],
+      );
+      expect(occ.map((x) => x.room_no)).toEqual(['401', '401']);
+      expect(
+        (await linesOf(o.folioId, 'room_change_difference')).map((l) => [
+          l.service_date,
+          l.reservation_id,
+        ]),
+      ).toEqual([['2027-04-20', o.id]]);
+      const childRooms = await linesOf(o.folioId, 'room');
+      expect(
+        childRooms
+          .filter((l) => l.reservation_id === childId)
+          .map((l) => [l.service_date, l.amount_vnd]),
+      ).toEqual(preview.nights.slice(1).map((n) => [n.date, n.newRateVnd]));
+    });
+
     it('(5) oracles BR-110-14 / BR-110-15: Agoda 302, 3 → 4 adults before check-in by source', async () => {
       await at('2027-03-20T10:00:00+07:00');
       const kits = (id: string) =>

@@ -11,8 +11,10 @@ import net from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MULTIPART_SESSION_CHECK, createHttpAdapter } from '../src/http';
 import {
+  MAX_UPLOADS_IN_FLIGHT,
   MAX_UPLOADS_PER_IP,
   MAX_UPLOADS_PER_SESSION,
+  STAFF_RESERVED_SLOTS,
   uploadsInFlight,
 } from '../src/modules/files/public/upload-gate';
 
@@ -128,11 +130,18 @@ describe('upload slots on a real socket', () => {
     );
     // Session B on the same network gets through (third slot of this IP).
     expect(await request({ cookie: guestCookie('B') }).done).toBe('HTTP/1.1 200 OK');
-    // The network cap: with A's two slow ones a third concurrent slow one from this IP fills it…
+    // A third slow guest (session C, same network) → 3 in flight: the guest share is full (one slot stays
+    // for the desk) and this network is at its cap – a guest gets 503, a staff upload from the same network
+    // 429 (IP cap), while the desk elsewhere still gets the reserved slot.
     const third = request({ cookie: guestCookie('C'), length: 1000, sent: 10 });
     await sleep(CHECK_MS + 100);
     expect(uploadsInFlight()).toBe(MAX_UPLOADS_PER_IP);
-    expect(await request({ cookie: guestCookie('D') }).done).toBe('HTTP/1.1 429 Too Many Requests');
+    expect(await request({ cookie: guestCookie('D') }).done).toBe(
+      'HTTP/1.1 503 Service Unavailable',
+    );
+    expect(await request({ path: STAFF, cookie: staffCookie('s') }).done).toBe(
+      'HTTP/1.1 429 Too Many Requests',
+    );
     // Slow clients give up → every slot comes back.
     for (const r of [...slow, third]) r.socket.destroy();
     await sleep(200);
@@ -147,6 +156,136 @@ describe('upload slots on a real socket', () => {
       await request({ path: GUEST, cookie: staffCookie('s'), length: 1000, sent: 10 }).done,
     ).toBe('HTTP/1.1 401 Unauthorized');
     expect(await request({ path: STAFF, cookie: staffCookie('s') }).done).toBe('HTTP/1.1 200 OK');
+    expect(uploadsInFlight()).toBe(0);
+  });
+});
+
+/**
+ * s3-round4-verification: the client sends its WHOLE body, then closes the socket before the api answers
+ * (browser tab closed, Caddy timeout). `req.aborted` stays false → Fastify runs neither onRequestAbort nor
+ * onResponse; the slot must still come back (onSend + reply socket 'close'). Prod-like: behind a trusted
+ * proxy, the client IP from X-Forwarded-For; the handler takes 200 ms (guard + DB + sharp).
+ */
+describe('upload slots – client gone after its full body, behind a proxy', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let app: any;
+  let port = 0;
+  const HANDLER_MS = 200;
+
+  beforeAll(async () => {
+    app = createHttpAdapter({ trustProxy: ['127.0.0.1'], logLevel: 'silent' }).getInstance();
+    app[MULTIPART_SESSION_CHECK] = async (
+      headers: Record<string, string | undefined>,
+      kind: 'staff' | 'guest',
+    ) => {
+      await sleep(5);
+      const m = /ottimo_(g?sid)=([^;\s]+)/.exec(headers.cookie ?? '');
+      if (!m || (m[1] === 'gsid') !== (kind === 'guest')) return null;
+      return `${kind}:${m[2]}`;
+    };
+    app.post(GUEST, async () => {
+      await sleep(HANDLER_MS);
+      return { ok: true };
+    });
+    app.post('/v1/properties/:propertyId/attachments', async () => {
+      await sleep(HANDLER_MS);
+      return { ok: true };
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    port = app.server.address().port;
+  });
+  afterAll(async () => app?.close());
+
+  function send(opts: {
+    path?: string;
+    cookie: string;
+    ip: string;
+    body?: string;
+    length?: number | null;
+    chunked?: boolean;
+    abortAfterMs?: number;
+  }): { done: Promise<string>; socket: net.Socket } {
+    const body = opts.body ?? '0123456789';
+    const socket = net.connect(port, '127.0.0.1');
+    const done = new Promise<string>((resolve) => {
+      let buf = '';
+      socket.on('connect', () => {
+        const length =
+          opts.chunked || opts.length === null
+            ? ''
+            : `Content-Length: ${opts.length ?? body.length}\r\n`;
+        const chunked = opts.chunked ? 'Transfer-Encoding: chunked\r\n' : '';
+        const payload = opts.chunked ? `${body.length.toString(16)}\r\n${body}\r\n0\r\n\r\n` : body;
+        socket.write(
+          `POST ${opts.path ?? GUEST} HTTP/1.1\r\nHost: x\r\nX-Forwarded-For: ${opts.ip}\r\n` +
+            `Cookie: ${opts.cookie}\r\nContent-Type: multipart/form-data; boundary=xx\r\n${length}${chunked}` +
+            `Connection: close\r\n\r\n${payload}`,
+        );
+        if (opts.abortAfterMs !== undefined) {
+          setTimeout(() => {
+            socket.destroy();
+            resolve('aborted');
+          }, opts.abortAfterMs);
+        }
+      });
+      socket.on('data', (d) => {
+        buf += d.toString();
+      });
+      socket.on('close', () => resolve(buf.split('\r\n')[0] || 'closed'));
+      socket.on('error', () => resolve('error'));
+    });
+    return { done, socket };
+  }
+
+  const guestCookie = (s: string) => `__Host-ottimo_gsid=${s.padEnd(43, 'x')}`;
+  const staffCookie = (s: string) => `ottimo_sid=${s.padEnd(43, 'y')}`;
+
+  it('whole body sent, client gone before the reply (2 networks × 2 sessions) → every slot comes back', async () => {
+    for (const [sess, ip] of [
+      ['g1', '10.0.0.1'],
+      ['g1', '10.0.0.1'],
+      ['g2', '10.0.0.2'],
+      ['g2', '10.0.0.2'],
+    ] as const) {
+      expect(await send({ cookie: guestCookie(sess), ip, abortAfterMs: 60 }).done).toBe('aborted');
+    }
+    await sleep(HANDLER_MS + 200);
+    expect(uploadsInFlight()).toBe(0);
+    expect(await send({ cookie: guestCookie('g3'), ip: '10.0.0.3' }).done).toBe('HTTP/1.1 200 OK');
+    expect(await send({ path: STAFF, cookie: staffCookie('s1'), ip: '10.0.0.9' }).done).toBe(
+      'HTTP/1.1 200 OK',
+    );
+    expect(uploadsInFlight()).toBe(0);
+  });
+
+  it(`guests can never take the desk's reserved slot (${STAFF_RESERVED_SLOTS}): guest share full → 503, staff upload still 200`, async () => {
+    const guestShare = MAX_UPLOADS_IN_FLIGHT - STAFF_RESERVED_SLOTS;
+    // Slow guests (body never completed) from different sessions and networks fill the guest share.
+    const slow = Array.from({ length: guestShare }, (_, i) =>
+      send({ cookie: guestCookie(`slow${i}`), ip: `10.1.0.${i + 1}`, length: 1000 }),
+    );
+    for (let i = 0; i < 100 && uploadsInFlight() < guestShare; i++) await sleep(10);
+    expect(uploadsInFlight()).toBe(guestShare);
+    expect(await send({ cookie: guestCookie('late'), ip: '10.1.0.99' }).done).toBe(
+      'HTTP/1.1 503 Service Unavailable',
+    );
+    expect(await send({ path: STAFF, cookie: staffCookie('desk'), ip: '10.2.0.1' }).done).toBe(
+      'HTTP/1.1 200 OK',
+    );
+    for (const r of slow) r.socket.destroy();
+    await sleep(200);
+    expect(uploadsInFlight()).toBe(0);
+  });
+
+  it('no Content-Length (chunked or missing) → 422 before the body is read, no slot', async () => {
+    expect(await send({ cookie: guestCookie('c1'), ip: '10.3.0.1', chunked: true }).done).toBe(
+      'HTTP/1.1 422 Unprocessable Entity',
+    );
+    // No length at all = no body for HTTP/1.1: refused by Fastify before the parser (400 → 422 in the api's
+    // ProblemFilter) – never 2xx, never a slot.
+    expect(await send({ cookie: guestCookie('c2'), ip: '10.3.0.2', length: null }).done).toMatch(
+      /^HTTP\/1\.1 4(00|22) /,
+    );
     expect(uploadsInFlight()).toBe(0);
   });
 });

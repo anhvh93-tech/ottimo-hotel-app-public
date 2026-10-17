@@ -1565,6 +1565,17 @@ export function createStayMock(ctx: Ctx) {
         const { g, r } = x;
         if (r.status !== 'in_house')
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        // BE-A B14 (17/10): a child booking shares the room – call the primary booking.
+        if (r.parentReservationId)
+          return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        // The whole stay moves: the primary + its in-house child bookings (B9a / OTA extension).
+        const stay = [
+          r,
+          ...rsv().state.reservations.filter(
+            (o) => o.parentReservationId === r.id && o.status === 'in_house',
+          ),
+        ];
+        const stayEnd = stay.reduce((a, o) => (o.departureDate > a ? o.departureDate : a), '');
         const room = ctx.db().rooms.find((z) => z.id === body.newRoomId);
         if (!room || room.id === r.roomId)
           return validation([{ field: 'newRoomId', code: 'NOT_IN_LIST' }]);
@@ -1576,30 +1587,58 @@ export function createStayMock(ctx: Ctx) {
         const status = st.roomStatus[room.roomNo] ?? 'VC';
         if (status !== 'VI' && status !== 'VC')
           return problem(409, 'ROOM_NOT_READY', { roomNo: room.roomNo, roomStatus: status });
-        const clash = rsv().state.reservations.find(
-          (o) =>
-            o.id !== r.id &&
-            o.roomId === room.id &&
-            ['hold', 'confirmed', 'in_house'].includes(o.status) &&
-            o.arrivalDate < r.departureDate &&
-            from < o.departureDate,
-        );
-        if (clash)
+        // Free up to the EFFECTIVE departure (children included), else the clashing nights + a
+        // suggested free room; code/name of the other booking only for FD+ (always here).
+        const busy = (roomId: string) =>
+          rsv().state.reservations.filter(
+            (o) =>
+              !stay.includes(o) &&
+              o.roomId === roomId &&
+              ['hold', 'confirmed', 'in_house'].includes(o.status) &&
+              o.arrivalDate < stayEnd &&
+              from < o.departureDate,
+          );
+        const clashes = busy(room.id);
+        if (clashes.length) {
+          const nightsOf = (o: MockReservation) => {
+            const out: string[] = [];
+            for (let d = from; d < stayEnd; d = addDays(d, 1))
+              if (d >= o.arrivalDate && d < o.departureDate) out.push(d);
+            return out;
+          };
+          const free = ctx
+            .db()
+            .rooms.find(
+              (z) =>
+                z.id !== r.roomId &&
+                z.id !== room.id &&
+                (z.maxOccupancy ?? 99) >= occ &&
+                ['VI', 'VC'].includes(st.roomStatus[z.roomNo] ?? 'VC') &&
+                busy(z.id).length === 0,
+            );
           return problem(409, 'ROOM_UNAVAILABLE', {
-            conflicts: [
-              {
-                roomNo: room.roomNo,
-                nights: [clash.arrivalDate],
-                kind: 'reservation',
-                guestDisplayName: clash.guestName,
-              },
-            ],
-            suggestions: [],
+            roomNo: room.roomNo,
+            conflicts: clashes.map((c) => ({
+              roomNo: room.roomNo,
+              nights: nightsOf(c),
+              kind: c.status === 'hold' ? 'hold' : 'reservation',
+              reservationCode: c.code,
+              guestDisplayName: c.guestName,
+              stayFrom: c.arrivalDate,
+              stayTo: c.departureDate,
+            })),
+            suggestions: free
+              ? [{ roomId: free.id, roomNo: free.roomNo, roomGroupCode: undefined, upgrade: false }]
+              : [],
           });
+        }
         const keep = body.cause === 'property_fault';
         const newRate = room.currentListPrice?.nightlyListPriceVnd ?? 800_000;
-        const nights = (r.nightlyRates ?? [])
+        // `nights` = every night from today of the whole stay (primary + children).
+        const nights = stay
+          .flatMap((o) => o.nightlyRates ?? [])
           .filter((n) => n.date >= from)
+          .sort((a, b) => a.date.localeCompare(b.date))
           .map((n) => ({
             date: n.date,
             oldRateVnd: n.amountVnd,
@@ -1620,15 +1659,18 @@ export function createStayMock(ctx: Ctx) {
         const old = roomOf(r);
         if (old) st.roomStatus[old.roomNo] = body.oldRoomVacated === 'OD' ? 'OD' : 'VD';
         st.roomStatus[room.roomNo] = 'OC';
-        r.roomId = room.id;
-        r.segments = [
-          {
-            roomId: room.id,
-            roomNo: room.roomNo,
-            fromDate: r.arrivalDate,
-            toDate: r.departureDate,
-          },
-        ];
+        for (const o of stay) {
+          o.roomId = room.id;
+          o.segments = [
+            {
+              roomId: room.id,
+              roomNo: room.roomNo,
+              fromDate: o.arrivalDate,
+              toDate: o.departureDate,
+            },
+          ];
+          if (o !== r) bump(o);
+        }
         r.doorAccessHandedOverAt = null;
         if (delta)
           addLine(

@@ -2,10 +2,13 @@
  * Upload slots (ARC FB-R2-ARC-BE-S3-18, SEC FB-R2-SEC-BE-47; s3-blocker-verification + re-verification).
  * The slot is taken by the multipart body parser (src/http.ts `readMultipart`) BEFORE a single byte of the
  * body is read – after the route check and the real session check, and only while the client is still
- * connected – and given back when the response is sent, the client goes away or the body read fails. Caps:
- * - MAX_UPLOADS_IN_FLIGHT for the whole process → 503 + Retry-After (the body is never buffered);
+ * connected. It is given back (idempotently) when the body read fails, when the reply starts being sent
+ * (Fastify `onSend` – also when the client closed the socket after its whole body), when the response socket
+ * closes (`reply.raw` 'close'), and on onResponse / onRequestAbort (s3-round4-verification). Caps:
+ * - MAX_UPLOADS_IN_FLIGHT for the whole process → 503 + Retry-After (the body is never buffered), of which
+ *   STAFF_RESERVED_SLOTS only staff routes may use (guest uploads can never take the desk's last slot);
  * - MAX_UPLOADS_PER_SESSION and MAX_UPLOADS_PER_IP → 429 + Retry-After, so one slow session (or one network)
- *   can never hold every slot: staff and other guests keep at least one.
+ *   can never hold every slot.
  * At most MAX_UPLOADS_IN_FLIGHT × MULTIPART_BODY_LIMIT bytes of upload bodies live in memory. One api
  * replica on a small VPS (hosting plan): technical constants, not business parameters.
  */
@@ -14,6 +17,8 @@ import { problem } from '../../../shared/problem';
 export const MAX_UPLOADS_IN_FLIGHT = 4;
 export const MAX_UPLOADS_PER_SESSION = 2;
 export const MAX_UPLOADS_PER_IP = 3;
+/** Slots of MAX_UPLOADS_IN_FLIGHT kept for staff routes (desk registration documents, attachments). */
+export const STAFF_RESERVED_SLOTS = 1;
 
 let inFlight = 0;
 const perOwner = new Map<string, number>();
@@ -31,9 +36,11 @@ function bump(key: string, by: number): void {
  * idempotent release, or why it was refused.
  */
 export function tryAcquireUploadSlot(
-  owner: { session?: string | null; ip?: string | null } = {},
+  owner: { session?: string | null; ip?: string | null; kind?: 'staff' | 'guest' } = {},
 ): (() => void) | SlotRefusal {
-  if (inFlight >= MAX_UPLOADS_IN_FLIGHT) return 'full';
+  const cap =
+    owner.kind === 'guest' ? MAX_UPLOADS_IN_FLIGHT - STAFF_RESERVED_SLOTS : MAX_UPLOADS_IN_FLIGHT;
+  if (inFlight >= cap) return 'full';
   const s = owner.session ? `s:${owner.session}` : null;
   const i = owner.ip ? `i:${owner.ip}` : null;
   if (s && (perOwner.get(s) ?? 0) >= MAX_UPLOADS_PER_SESSION) return 'session';

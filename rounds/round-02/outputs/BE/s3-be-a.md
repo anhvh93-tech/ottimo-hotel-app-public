@@ -190,3 +190,15 @@ Test mới (`frontdesk-s3-fixes.test.ts`, khối "fix round 4"): OTA 01–03 + �
 **Kết quả lệnh** (DB mới `ottimo_test_bea_s3t3`): `prettier --check .` xanh; `eslint .` – 0 lỗi trong vùng BE (1 lỗi `no-unused-vars` ở tệp FE đang viết dở, chưa theo dõi: `apps/admin-web/src/__tests__/c3-exception.test.tsx:27`); `turbo run typecheck` 12/12; `turbo run build --force` 6/6; `turbo run test --force --continue` 11/12 – api **57 tệp / 2161 test xanh**, task đỏ duy nhất `@ottimo/tests` do QA đang sửa (`smoke-manifest.json` thiếu TC-L3-074); `drizzle-kit generate` "No schema changes" (BE-A không đổi schema); `gen-openapi-meta --check` up to date.
 
 **Cho QA**: có thể bỏ `pendingFix` của BR-110-14/15/16 và BR-428-06 (oracle chạy xanh ở BE); test E2E nào PATCH số khách đơn OTA trước nhận phòng phải gửi `partyChangeSource`.
+
+## 14. Đợt sửa 5 (17/10, `reviews/s3-round4-verification.md`, chưa commit)
+| Mục | Trạng thái | Cách sửa |
+|---|---|---|
+| (B) B14 bỏ lại đêm đơn con ở căn cũ | Fixed – bản đầy đủ | `changeRoom` chạy trên đơn gốc (đơn con → 409), lấy `effectiveStay`: mọi đoạn phòng/đêm từ đêm nay của đơn gốc và đơn con `in_house` chuyển sang căn mới trong cùng giao dịch; kiểm trống căn mới tới ngày đi hiệu lực, không trống → 409 `ROOM_UNAVAILABLE` (đêm vướng + gợi ý) ở cả `dryRun` và lệnh thật, chưa ghi gì. Giá theo kênh từng đơn (OTA: giữ giá + chênh lệch theo đêm; đơn con Trực tiếp: lịch giá căn mới; sự cố: giữ giá), phụ thu người theo đêm, `preview.nights` gồm cả đêm đơn con, `folioDeltaVnd` là tổng. Mỗi đơn được chuyển có lịch sử `room`, chuyển trạng thái B14, audit tiền riêng, folio đồng bộ lại |
+| (C) `ota_modification` sau `guest_direct` cùng số khách | Fixed | Trước nhận phòng: `bookedParty` ≠ số khách mới → luôn cập nhật số khách OTA + tính lại phụ thu (về 0), lịch sử `ota_guest_count` |
+
+Chưa làm (cần hợp đồng): lựa chọn "khách đồng ý – chỉ chuyển tới hết đơn gốc" (BR-424 bổ sung) – đề nghị ARC thêm trường `changeRoom` ở 0.3.7; tới lúc đó lễ tân chọn căn khác trống đủ.
+
+Test mới (`frontdesk-s3-fixes.test.ts`): OTA 203 19–21 + đơn con 21–23, B14 ngày 20 → B14 trên đơn con 409; sang 402 (đêm 22 có đơn khác) → 409 `ROOM_UNAVAILABLE` liệt kê đêm 22; sang 401 → xem trước 3 đêm (20 OTA + 21, 22 đơn con), đoạn phòng đơn gốc 203/401 và đơn con 401, chiếm chỗ chỉ còn ở 401, chênh lệch OTA chỉ đêm 20, dòng phòng đơn con theo giá mới; `guest_direct` 2→3 (150.000 × 2) rồi `ota_modification` 3 kèm mã → `otaGuestCount` 3, hết phụ thu, còn phải thu 0, lịch sử `ota_guest_count` 2→3; gửi lại → không đổi.
+
+**Kết quả lệnh** (DB `ottimo_test_bea_s3t3`): `prettier --check .` xanh; `eslint .` 0 lỗi; `turbo run typecheck --force` 12/12; `turbo run build --force` 6/6; `turbo run test --force --continue` **12/12** – api **57 tệp / 2169 test xanh**; `drizzle-kit generate` "No schema changes"; `gen-openapi-meta --check` up to date.

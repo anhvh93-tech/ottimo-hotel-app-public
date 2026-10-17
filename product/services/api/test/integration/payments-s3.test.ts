@@ -2740,5 +2740,97 @@ describe.skipIf(!HAS_DB)(
       expect(after.unhandledCreditVnd).toBe(after.creditVnd - asked);
       await atT0();
     });
+    it('Round 5 (REFUND #1): B11 no-show keeps min(deposit not asked back, booking value) – the open 500k refund stays payable', async () => {
+      await atT0();
+      const b = await booking({ deposit: null });
+      const [r] = await q(
+        `SELECT version, total_room_vnd, arrival_date::text AS arrival FROM reservation WHERE id = $1`,
+        [b.id],
+      );
+      const value = Number(r!.total_room_vnd);
+      const dep = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
+        {
+          payment: {
+            type: 'deposit',
+            method: 'cash',
+            amountVnd: value + 500_000,
+            note: 'Khách chuyển dư so với tiền phòng',
+          },
+        },
+        { 'if-match': `"${r!.version}"` },
+      );
+      expect(dep.json().status).toBe('confirmed');
+      const open = (
+        await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+          amountVnd: 500_000,
+          reason: 'Hoàn phần chuyển dư',
+        })
+      ).json();
+      const device = await t.deviceToken();
+      expect(
+        (
+          await new Client(fa, t.users.fd!.sessionToken, device).send(
+            'PUT',
+            `${P(t)}/approval-requests/${open.id}/refund-destination`,
+            { method: 'cash' },
+          )
+        ).statusCode,
+      ).toBe(200);
+      expect((await approveAs('mgr', open.id)).statusCode).toBe(200);
+      // 23:05 on the arrival day (BR-311: no-show only after 23:00).
+      fa.clock.set(new Date(`${String(r!.arrival)}T16:05:00.000Z`));
+      await refreshSessions(db, t, fa.clock.now());
+      const v = (await q('SELECT version FROM reservation WHERE id = $1', [b.id]))[0]!.version;
+      const ns = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${b.id}/actions/mark-no-show`,
+        { contactAttemptNote: 'Gọi 2 lần không nghe máy' },
+        { 'if-match': `"${v}"` },
+      );
+      expect(ns.statusCode, ns.body).toBe(200);
+      const fees = await q(
+        `SELECT amount_vnd FROM folio_line WHERE folio_id = $1 AND category = 'no_show_fee'`,
+        [b.folioId],
+      );
+      expect(fees.map((x) => Number(x.amount_vnd))).toEqual([value]);
+      expect((await folio(b)).totals).toMatchObject({ creditVnd: 500_000, unhandledCreditVnd: 0 });
+      // The open request (routed + approved before) is paid out (cash, signed receipt).
+      const paid = await c('fd2').send(
+        'POST',
+        `${P(t)}/approval-requests/${open.id}/actions/execute-cash-refund`,
+        {
+          amountVnd: 500_000,
+          paidAt: fa.clock.now().toISOString(),
+          attachmentId: await attach('fd2', 'refund_proof', b.id),
+        },
+      );
+      expect(paid.statusCode, paid.body).toBe(201);
+      expect((await folio(b)).totals).toMatchObject({ creditVnd: 0, balanceDueVnd: 0 });
+      await atT0();
+    });
+    it('Round 5 (REFUND #3, DOM 17/10): booking value = live room + extra-person lines after FOC – not the snapshot, not services', async () => {
+      await atT0();
+      const b = await booking();
+      const [r] = await q('SELECT total_room_vnd FROM reservation WHERE id = $1', [b.id]);
+      const value = () =>
+        db.withContext(t.ctx(), (tx) =>
+          fa.app.get(FolioService).bookingValueVnd(tx, b.folioId, b.id),
+        );
+      expect(await value()).toBe(Number(r!.total_room_vnd));
+      const night = ((await folio(b)).lines as Array<{ id: string; category: string }>).find(
+        (l) => l.category === 'room',
+      )!;
+      const foc = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/lines/${night.id}/foc`, {
+        kind: 'foc',
+        amountVnd: 100_000,
+        reasonCode: 'service_recovery',
+      });
+      expect(foc.statusCode, foc.body).toBe(201);
+      expect((await approveAs('mgr', foc.json().id)).statusCode).toBe(200);
+      await postMinibar(b, 70_000); // a service – never part of the booking value
+      expect(await value()).toBe(Number(r!.total_room_vnd) - 100_000);
+    });
   },
 );

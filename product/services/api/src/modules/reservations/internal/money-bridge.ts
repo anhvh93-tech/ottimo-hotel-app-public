@@ -56,6 +56,15 @@ export class MoneyBridge {
     return this.folios.openRefundVnd(tx, row.folio_id);
   }
 
+  /**
+   * "Giá trị đơn" (DOM 17/10, REFUND #3): live room + extra-person lines after FOC/discounts, minus what the
+   * OTA collected – the cap of a cancellation / no-show fee (BE-B FolioService.bookingValueVnd).
+   */
+  async bookingValue(tx: Tx, row: Pick<ReservationRow, 'folio_id' | 'id'>): Promise<number> {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return this.folios.bookingValueVnd(tx, row.folio_id, row.id);
+  }
+
   /** 0.3.6 `Reservation.balanceDueVnd` (BUG-R2-031): what the folio still owes. */
   async balanceDue(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');

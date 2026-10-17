@@ -639,4 +639,59 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     expect(out.statusCode, out.body).toBe(200);
     expect(await refunds()).toEqual([{ amount_vnd: 300_000 }]);
   });
+  it('Round 5 (A): no FOC on an OTA-kept fee of an OTA prepaid booking (it would eat the surcharge paid at the desk)', async () => {
+    await at('2026-12-26T15:00:00+07:00');
+    await vacant('202');
+    // Room 202: standard 2 (DS-E); OTA count 2 → a 3rd adult pays BR-110 at the desk.
+    const o = await otaOn('agoda', 'ota_prepaid', '202', '2026-12-26', '2026-12-29', 2_700_000);
+    expect((await act(o.id, 'check-in', { cardsIssued: 1, houseRulesSent: true })).statusCode).toBe(
+      200,
+    );
+    const add = (guestId: string, more: Record<string, unknown> = {}) =>
+      c.fd!.send('POST', url(`/reservations/${o.id}/party`), {
+        role: 'companion',
+        guestId,
+        effectiveFrom: '2026-12-26',
+        ...more,
+      });
+    expect((await add(companions[0]!)).statusCode).toBe(201);
+    let third = await add(companions[1]!, { applyExtraPersonSurcharge: true });
+    if (third.statusCode === 422) {
+      third = await add(companions[1]!, {
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 450_000,
+      });
+    }
+    expect(third.statusCode, third.body).toBe(201);
+    const surcharge = await liveOf(o, o.id, 'extra_person');
+    const paid = await c.fd!.send('POST', url(`/folios/${o.folioId}/payments`), {
+      type: 'charge',
+      method: 'cash',
+      amountVnd: surcharge,
+    });
+    expect(paid.statusCode, paid.body).toBe(201);
+    await at('2026-12-27T10:00:00+07:00');
+    const ed = await act(o.id, 'early-departure', {
+      newDepartureDate: '2026-12-28',
+      noticeGivenAt: '2026-12-27T10:00:00+07:00',
+      otaRetainedVnd: 450_000,
+    });
+    expect(ed.statusCode, ed.body).toBe(200);
+    const before = (await folio(o)).totals as { creditVnd: number; unhandledCreditVnd: number };
+    const fee = (
+      (await folio(o)).lines as Array<{ id: string; category: string; reversalOfId?: string }>
+    ).find((l) => l.category === 'early_departure_fee' && !l.reversalOfId)!;
+    const foc = await c.fd!.send('POST', url(`/folios/${o.folioId}/lines/${fee.id}/foc`), {
+      kind: 'foc',
+      amountVnd: 450_000,
+      reasonCode: 'service_recovery',
+    });
+    expect(foc.statusCode).toBe(422);
+    expect(foc.json().errors).toEqual([{ field: 'kind', code: 'FOC_NOT_ALLOWED_OTA_PREPAID' }]);
+    const after = (await folio(o)).totals as { creditVnd: number; unhandledCreditVnd: number };
+    expect(after).toMatchObject({
+      creditVnd: before.creditVnd,
+      unhandledCreditVnd: 0,
+    });
+  });
 });

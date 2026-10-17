@@ -12,12 +12,13 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
-import { addDays, dayMonth } from '../../app/reservations';
+import { addDays, dayMonth, suggestionsOf } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { useCatalog } from '../../app/catalog';
 import { channelName } from '../../app/reservations';
 import { useRules } from '../../app/rules';
+import { problemView } from '../../app/problem';
 import { LoadingBlock } from '../../components/states';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useResource } from '../../hooks/useResource';
@@ -353,13 +354,67 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
  * is a hard block (0.3.6 A-37). Price preview with `dryRun`; the door flag resets (hand over again).
  */
 export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
-  const { t, money, date } = useI18n();
+  // BE-A B14 (17/10): a child booking (B9a / OTA extension) shares the room – the change goes to the
+  // primary booking and moves the whole stay; the drawer stays on the child.
+  const { t, locale } = useI18n();
+  const propertyId = usePropertyId();
+  const parent = useResource(
+    async () =>
+      r.parentReservationId
+        ? (await api.getReservation({ propertyId, reservationId: r.parentReservationId })).data
+        : null,
+    [r.parentReservationId],
+  );
+  const primary = r.parentReservationId ? parent.state.data : r;
+  if (!primary)
+    return (
+      <Modal
+        open
+        title={t('stay.change_title', { room: roomOf(r), guest: guestOf(r) })}
+        onClose={onClose}
+        closeLabel={t('common.close')}
+      >
+        {parent.state.status === 'error' ? (
+          <Alert
+            tone="bad"
+            actions={
+              <Button size="sm" onClick={parent.reload}>
+                {t('common.retry')}
+              </Button>
+            }
+          >
+            {problemView(t, parent.state.error, locale).text}
+          </Alert>
+        ) : (
+          <LoadingBlock rows={2} />
+        )}
+      </Modal>
+    );
+  return (
+    <ChangeRoomForm
+      reservation={primary}
+      shown={r}
+      onClose={onClose}
+      onDone={(u) => onDone(r.parentReservationId ? undefined : u)}
+    />
+  );
+}
+
+function ChangeRoomForm({
+  reservation: r,
+  shown,
+  onClose,
+  onDone,
+}: StayDialogProps & { shown: Reservation }) {
+  const { t, money, vnd, date } = useI18n();
   const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
   const toast = useToast();
   const ids = useId();
   const R = { propertyId, reservationId: r.id };
   const today = todayLocal();
+  // The stay ends at the latest departure of the primary and the child the drawer shows.
+  const stayEnd = shown.departureDate > r.departureDate ? shown.departureDate : r.departureDate;
   const [cause, setCause] = useState<'property_fault' | 'guest_request'>('property_fault');
   const [reason, setReason] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -370,7 +425,7 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
       (
         await api.searchAvailability(
           { propertyId },
-          { arrival: today, departure: r.departureDate, reservationId: r.id },
+          { arrival: today, departure: stayEnd, reservationId: r.id },
         )
       ).data as AvailabilityResult,
     [r.id],
@@ -378,7 +433,10 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
   const options = (avail.state.data?.alternatives ?? []).filter(
     (x) => x.available && x.roomNo !== roomOf(r),
   );
-  const target = options.find((x) => x.roomId === roomId);
+  // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room.
+  const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomOf(r));
+  const target =
+    options.find((x) => x.roomId === roomId) ?? suggested.find((x) => x.roomId === roomId);
 
   useEffect(() => {
     if (!roomId) return;
@@ -468,7 +526,7 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
         {!avail.state.data ? <LoadingBlock rows={1} /> : null}
         {avail.state.data && options.length === 0 ? (
           <Alert tone="warn">
-            {t('room_change.no_rooms', { from: date(today), to: date(r.departureDate) })}
+            {t('room_change.no_rooms', { from: date(today), to: date(stayEnd) })}
           </Alert>
         ) : null}
         {options.map((x) => (
@@ -486,6 +544,32 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
         ))}
         <p className="li-s">{t('room_change.ready_only')}</p>
       </fieldset>
+      {preview?.nights.length ? (
+        // Every night that moves – the child bookings' nights included (BE-A B14).
+        <table className="table">
+          <caption className="sr-only">{t('booking.field.rate')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('bk.night')}</th>
+              <th scope="col" className="r">
+                {t('bk.rate')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {preview.nights.map((n) => (
+              <tr key={n.date}>
+                <td>{dayMonth(n.date)}</td>
+                <td className="r num">
+                  {n.oldRateVnd === n.newRateVnd
+                    ? vnd(n.newRateVnd)
+                    : `${vnd(n.oldRateVnd)} → ${vnd(n.newRateVnd)}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
       {preview ? (
         <p className="num">
           {cause === 'property_fault' || preview.folioDeltaVnd === 0
@@ -503,7 +587,18 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
           <li>{t('room_change.door_reminder', { room: target.roomNo })}</li>
         </ul>
       ) : null}
-      {act.view()}
+      {act.view(
+        undefined,
+        suggested.length ? (
+          <>
+            {suggested.map((x) => (
+              <Button key={x.roomId} size="sm" onClick={() => setRoomId(x.roomId)}>
+                {t('bk.use_room', { room: x.roomNo })}
+              </Button>
+            ))}
+          </>
+        ) : undefined,
+      )}
     </Modal>
   );
 }

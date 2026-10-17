@@ -1139,10 +1139,24 @@ export class ReservationsService {
       }
     }
     f.done();
+    // Fix round 5 (C): "OTA sửa đơn" recorded AFTER the desk already took the new count as `guest_direct` (same
+    // head count, OTA count still the old one) → the OTA count follows and the BR-110 fee is re-priced (else the
+    // guest pays twice – OTA and desk, BR-110 (i)).
+    const storedBooked = (row.pricing_snapshot as { bookedParty?: typeof next }).bookedParty;
+    const otaRebook =
+      otaBooking &&
+      beforeCheckin &&
+      !peopleChanged &&
+      partySource === 'ota_modification' &&
+      (!storedBooked ||
+        storedBooked.adults !== next.adults ||
+        storedBooked.children6to11 !== next.children6to11 ||
+        storedBooked.childrenUnder6 !== next.childrenUnder6);
+    const repriced = peopleChanged || otaRebook;
     const seg = await singleSegmentOrLast(tx, row.id);
     let capacityState: 'over' | 'ok' | null = null;
     let baseOccupancy: number | null = null;
-    if (peopleChanged && seg.room_id) {
+    if (repriced && seg.room_id) {
       // QC-S2-01: lock the room (reservation already locked – lock order kept) BEFORE reading max_occupancy,
       // so a concurrent updateRoom either waits for us (and sees the new head count) or we see its value.
       await this.occupancy.lockRooms(tx, [seg.room_id]);
@@ -1188,7 +1202,7 @@ export class ReservationsService {
     } else if (capacityState === 'ok') {
       await this.clearCapacityConflict(tx, row.id);
     }
-    if (peopleChanged && baseOccupancy !== null) {
+    if (repriced && baseOccupancy !== null) {
       if (row.status === 'in_house') {
         // DOM S3-13 / BE-16: an in-house change applies from tonight; the nights already stayed keep their fee.
         await this.peopleFromNight(tx, ctx, row, next, ctx.today, { write: true });
@@ -1236,6 +1250,18 @@ export class ReservationsService {
         await recordChange(tx, row.id, field, oldV, newV, ctx.now, note);
       }
     }
+    const nextOtaCount = next.adults + next.children6to11;
+    if (repriced && partySource === 'ota_modification' && otaGuestCount(row) !== nextOtaCount) {
+      await recordChange(
+        tx,
+        row.id,
+        'ota_guest_count',
+        otaGuestCount(row),
+        nextOtaCount,
+        ctx.now,
+        `ota_modification ${otaModificationRef ?? ''}`.trim(),
+      );
+    }
     await this.audit.record(tx, {
       category: 'data',
       action: 'reservation.updated',
@@ -1250,7 +1276,7 @@ export class ReservationsService {
       },
       after: {
         ...next,
-        ...(otaBooking && peopleChanged && partySource
+        ...(otaBooking && repriced && partySource
           ? {
               partyChangeSource: partySource,
               ...(otaModificationRef ? { otaModificationRef } : {}),
@@ -1260,7 +1286,7 @@ export class ReservationsService {
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
     const after = await loadReservation(tx, row.id, ctx.actor);
-    if (peopleChanged) {
+    if (repriced) {
       await this.syncKit(tx, ctx, after, seg.room_id, seg.base_occupancy);
       if (after.status !== 'hold') {
         await this.money.resynced(
@@ -2392,6 +2418,12 @@ export class ReservationsService {
       f.add('reasonCode', 'NOT_IN_LIST');
     if (otaPenalty !== undefined && row.channel_group !== 'ota')
       f.add('otaPenaltyVnd', 'OTA_PENALTY_OTA_ONLY');
+    // Re-verification 17/10 (Minor): a penalty above the value of the booking is a typing error.
+    if (otaPenalty !== undefined && row.channel_group === 'ota') {
+      const snap = row.pricing_snapshot as { extraPersonFeeVnd?: number };
+      const value = Number(row.total_room_vnd ?? 0) + Number(snap.extraPersonFeeVnd ?? 0);
+      if (otaPenalty > value) f.add('otaPenaltyVnd', 'VALUE_OUT_OF_RANGE');
+    }
     f.done();
 
     const quote = await this.cancellationQuote(tx, ctx, row, otaPenalty);
@@ -2541,7 +2573,7 @@ export class ReservationsService {
     }
     // Verification 17/10 (DOM BE-14, BE-B): what is already requested back (an open refund request) is never
     // requested a second time by the cancellation.
-    const open = depositPaid > 0 ? await this.money.openRefunds(tx, row) : 0;
+    const { open, base, bookingValue } = await this.retainableDeposit(tx, row, depositPaid);
     const requestable = (vnd: number) => Math.max(0, Math.min(vnd, depositPaid - open));
     if (row.status === 'hold' || depositPaid === 0) {
       return {
@@ -2561,11 +2593,8 @@ export class ReservationsService {
     const peakNoRefund =
       (snap.cancelPeakNoRefund ?? ctx.params.cancelPeakNoRefund) && !!snap.hasPeakNight;
     // Re-verification 17/10 (VER-BE-S3-01, BE-B): the fee is charged on the deposit still held that nobody has
-    // asked back yet, and never above the value of the booking – deposit paid above that value is excess,
-    // always refundable. Refundable = that base − the fee (so open requests + this one ≤ the excess left).
-    const base = Math.max(0, depositPaid - open);
-    const snapValue = row.pricing_snapshot as { extraPersonFeeVnd?: number };
-    const bookingValue = Number(row.total_room_vnd ?? 0) + Number(snapValue.extraPersonFeeVnd ?? 0);
+    // asked back yet (`base`), and never above the value of the booking – deposit paid above that value is
+    // excess, always refundable. Refundable = base − the fee (so open requests + this one ≤ the excess left).
     const r = directCancelRefund(
       Math.min(base, bookingValue),
       noticeDays(row.arrival_date, ctx.today),
@@ -2579,6 +2608,30 @@ export class ReservationsService {
       retainedVnd: r.cancelFeeVnd,
       policyRef: 'BR-309',
     };
+  }
+
+  /**
+   * The deposit OTTIMO may keep or charge a fee on – ONE rule for B10 (BR-309 fee) and B11 (BR-311 no-show)
+   * (re-verification 17/10, BE-B): `base` = deposit still held that no open refund request asks back;
+   * `cap` = min(base, booking value). Booking value (DOM 17/10, REFUND #3) = live room + extra-person lines
+   * after FOC/discounts, minus OTA-collected money (FolioService.bookingValueVnd) – never the snapshot.
+   */
+  private async retainableDeposit(
+    tx: Tx,
+    row: ReservationRow,
+    depositPaid?: number,
+  ): Promise<{
+    depositPaid: number;
+    open: number;
+    base: number;
+    bookingValue: number;
+    cap: number;
+  }> {
+    const paid = depositPaid ?? (await this.money.depositPaid(tx, row));
+    const open = paid > 0 ? await this.money.openRefunds(tx, row) : 0;
+    const base = Math.max(0, paid - open);
+    const bookingValue = await this.money.bookingValue(tx, row);
+    return { depositPaid: paid, open, base, bookingValue, cap: Math.min(base, bookingValue) };
   }
 
   // ─────────────────────────── B7 / B8 – move ───────────────────────────
@@ -3211,14 +3264,17 @@ export class ReservationsService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    const deposit = await this.money.depositPaid(tx, row);
-    if (deposit > 0) {
+    // BR-311 with the B10 rule (re-verification 17/10, BE-B): keep the deposit still held that no open refund
+    // request asks back, never above the booking value; OTA → reported on the channel (kept 0).
+    const retainable = await this.retainableDeposit(tx, row);
+    const kept = row.channel_group === 'ota' ? 0 : retainable.cap;
+    if (kept > 0) {
       await this.audit.recordMoney(tx, {
         action: 'reservation.no_show_deposit_retained',
         entityType: 'reservation',
         entityId: row.id,
         entityCode: row.code,
-        after: { retainedVnd: deposit },
+        after: { retainedVnd: kept, depositPaidVnd: retainable.depositPaid },
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
     }
@@ -3243,8 +3299,7 @@ export class ReservationsService {
       segs.map((s) => ({ roomId: s.room_id, from: s.from_date, to: s.to_date })),
       'reservation.no_show',
     );
-    // BR-311: a direct/agent no-show keeps the whole deposit (other revenue); OTA → reported on the channel.
-    const kept = row.channel_group === 'ota' ? 0 : deposit;
+    // BR-311: a direct/agent no-show keeps the retainable deposit (other revenue, `kept` above).
     await this.money.voided(
       tx,
       {

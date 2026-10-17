@@ -20,7 +20,7 @@ import {
   ApprovalService,
 } from '../../approvals/public/approval.service';
 import { StayNightAllocationService } from '../../reservations/public/stay-night-allocation';
-import { FolioService } from '../public/folio.service';
+import { FolioService, OTA_COVERED } from '../public/folio.service';
 
 export interface FocInput {
   kind: 'foc' | 'special_discount';
@@ -81,10 +81,13 @@ export class FolioFocService {
     if (input.kind === 'special_discount' && line.category !== 'room') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_IN_LIST' }] });
     }
-    // DOM 17/10 (BR-307/431, oracle BR-307-03; OpenAPI 0.3.6 bổ sung 4): no FOC / special discount on an OTA
-    // prepaid night – a room line of a booking with its system receipt `ota_collect`. Make good with a FOC on a
-    // desk charge, a free night or a real refund (BR-522). OTA paid at the property: like Direct.
-    if (line.category === 'room') {
+    // DOM 17/10 (BR-307/431, oracle BR-307-03; OpenAPI 0.3.6 bổ sung 4) + re-verification round 5: no FOC /
+    // special discount on anything the OTA collected for us – every OTA_COVERED line (night, OTA-kept fee:
+    // early departure / cancellation / no-show) of a booking with its system receipt `ota_collect`. The receipt
+    // is the gross of those lines, so a FOC there would eat into the money paid at the desk (extra-person fee).
+    // Make good with a FOC on a desk charge, a free night or a real refund (BR-522). OTA at the property: like
+    // Direct.
+    if (OTA_COVERED.has(line.category)) {
       const { rows: prepaid } = await tx.query(
         `SELECT 1 FROM folio_line l JOIN payment p
             ON p.folio_id = l.folio_id AND p.reservation_id = l.reservation_id
@@ -201,8 +204,9 @@ export class FolioFocService {
         amountVnd: line.amount_vnd,
       },
     });
-    // x-ota-prepaid-rule (re-verification 17/10): an approved FOC/discount on an OTA-covered line lowers what
-    // the OTA collected for us – the system receipt follows at once.
+    // x-ota-prepaid-rule safety net: the receipt is the GROSS of the OTA-covered lines (BR-307 v0.3.4) and no
+    // FOC is accepted on them for an OTA prepaid booking (requestFoc), so a decision normally leaves it as is;
+    // the resync only repairs a receipt that drifted.
     if (request.status === 'approved') {
       await this.folios.resyncOtaCollect(tx, line.folio_id, null, {
         userId: request.approver_id,

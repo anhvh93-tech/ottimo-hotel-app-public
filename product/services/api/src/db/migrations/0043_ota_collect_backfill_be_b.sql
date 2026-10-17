@@ -3,7 +3,8 @@
 -- no system receipt `ota_collect`, so its folio shows the whole OTA room money as due. One receipt per such
 -- booking = the OTA-covered lines of that booking on its folio (room, OTA-kept fees: cancellation, no-show,
 -- early departure – BR-307/310, never extra_person), exactly what FolioService.syncOtaCollect writes.
--- Data only (no schema change – head snapshot unchanged). Idempotent: bookings that already have a system
+-- Code `PT-OTA-<full booking id>` (unique – one system receipt per booking; a uuidv7 prefix is a timestamp and
+-- could repeat). Data only (no schema change – head snapshot unchanged). Idempotent: bookings that already have a system
 -- receipt (live or reversed) are left to the folio sync. Runs as ottimo_owner with RLS off (pattern 0016/0042).
 
 ALTER TABLE payment NO FORCE ROW LEVEL SECURITY;
@@ -21,7 +22,7 @@ ALTER TABLE reservation DISABLE ROW LEVEL SECURITY;
 INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
   reconciliation, amount_vnd, status, received_at, provider, note, created_at, updated_at)
 SELECT gen_random_uuid(), r.organization_id, r.property_id,
-       'PT-OTA-' || upper(substr(replace(r.id::text, '-', ''), 1, 12)),
+       'PT-OTA-' || upper(replace(r.id::text, '-', '')),
        r.folio_id, r.id, 'charge', 'ota_collect', 'not_required', c.total, 'succeeded', now(), 'ota_system',
        'ota_prepaid_backfill', now(), now()
   FROM reservation r

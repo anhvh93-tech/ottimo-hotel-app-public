@@ -147,7 +147,7 @@ function clientGone(req: MultipartRequest, payload: BodyStream): boolean {
  * reserved); an upload slot is free for the process, this session and this IP (else 503 / 429 + Retry-After –
  * the body is dropped). The body is then copied into one pre-allocated buffer; a stream that closes or
  * aborts before its end fails the read and gives the slot back at once. A successful read keeps the slot
- * until the response is sent or the client goes away (hooks in createHttpAdapter).
+ * until the reply is being sent (`onSend`) or the response socket closes (hooks in createHttpAdapter).
  */
 export function readMultipart(
   req: MultipartRequest,
@@ -197,7 +197,7 @@ export function readMultipart(
         typeof live === 'string'
           ? live
           : `${kind}:${createHash('sha256').update(cookie).digest('hex')}`;
-      const slot = tryAcquireUploadSlot({ session, ip: req.ip ?? null });
+      const slot = tryAcquireUploadSlot({ session, ip: req.ip ?? null, kind });
       if (typeof slot !== 'function') {
         done(uploadRefused(slot));
         return;
@@ -282,16 +282,32 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
   // the body is read; the body is kept in memory only (files/public/multipart.ts – no temp file in clear,
   // SR-FILE-04). Caddy caps the same routes (OPS).
   adapter.getInstance().addContentTypeParser('multipart/form-data', readMultipart);
-  // The upload slot taken by readMultipart is given back when the response is sent or the client goes away.
-  adapter.getInstance().addHook('onResponse', async (req: unknown) => releaseUploadSlot(req));
-  adapter.getInstance().addHook('onRequestAbort', async (req: unknown) => releaseUploadSlot(req));
-  adapter
-    .getInstance()
-    .addHook(
-      'onSend',
-      async (req: { id: string }, reply: { header(n: string, v: string): unknown }) => {
-        reply.header('x-request-id', req.id);
-      },
-    );
+  // The upload slot taken by readMultipart is given back as soon as the reply is being sent (`onSend` – runs
+  // even when the client already closed the socket after sending its WHOLE body: then `req.aborted` is false,
+  // so Fastify runs neither onRequestAbort nor onResponse – s3-round4-verification), and in any case when the
+  // response socket closes (`reply.raw` 'close' – final net), on onResponse / onRequestAbort, or when the body
+  // read fails (readMultipart). Release is idempotent.
+  const fastify = adapter.getInstance();
+  fastify.addHook(
+    'onRequest',
+    async (
+      req: { headers: Record<string, string | string[] | undefined> },
+      reply: { raw: { once(event: 'close', fn: () => void): unknown } },
+    ) => {
+      const type = req.headers['content-type'];
+      if (typeof type === 'string' && type.toLowerCase().startsWith('multipart/form-data')) {
+        reply.raw.once('close', () => releaseUploadSlot(req));
+      }
+    },
+  );
+  fastify.addHook('onResponse', async (req: unknown) => releaseUploadSlot(req));
+  fastify.addHook('onRequestAbort', async (req: unknown) => releaseUploadSlot(req));
+  fastify.addHook(
+    'onSend',
+    async (req: { id: string }, reply: { header(n: string, v: string): unknown }) => {
+      releaseUploadSlot(req);
+      reply.header('x-request-id', req.id);
+    },
+  );
   return adapter;
 }

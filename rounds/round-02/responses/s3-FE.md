@@ -12,10 +12,10 @@
 |---|---|
 | `prettier --check` (admin-web, ui, i18n, api-client) | xanh |
 | `eslint` (cùng phạm vi) | 0 lỗi (1 cảnh báo cũ ở `mockServiceWorker.js` sinh tự động) |
-| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **22 tệp / 163 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
+| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **23 tệp / 165 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
 | `turbo run typecheck build` (toàn repo) | 16/16 xanh |
 | axe-core 4.13 trong jsdom (tắt `color-contrast`, `region`), chạy tạm rồi xóa:<br>• Lần 1: H13; H16 bước 2 (thêm đêm) và bước 3; H14 bảng dữ liệu cổng; H17 nhật ký, Hoàn tiền, Cần duyệt; hộp Gia hạn.<br>• Lần 2 (sau đợt 2): H16 thêm đêm, không thêm được đêm, sau nửa đêm, bước 3, phiếu song ngữ; H17 nhật ký; hộp Gia hạn có "Giữ giá đơn"; H13 | **0 critical / 0 serious** |
-| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`; sau bổ sung 3 `fe-s3f`; sau đợt 5 `fe-s3g`; sau đợt 6 `fe-s3h`) |
+| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`; sau bổ sung 3 `fe-s3f`; sau đợt 5 `fe-s3g`; sau đợt 6 `fe-s3h`; sau đợt 7 `fe-s3i`) |
 
 Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồng hồ thật. Cả hai đã sửa:
 - `checkout.test`: cố định `Date` (chỉ `Date`, timer thật) cho mọi ca trả phòng.
@@ -175,4 +175,19 @@ Kết quả lệnh sau đợt 6:
 - 4 gói FE `typecheck test build` 9/9 xanh: admin-web 22 tệp / **163 test**.
 - axe rack (lưới + danh sách) và hộp link: 0 critical/serious.
 - `docker build` exit 0 (`ottimo-web:fe-s3h`).
+
+## Đợt 7 – B14 đổi phòng theo đơn chính (BE-A 17/10)
+| Việc | Trạng thái | Đã làm |
+|---|---|---|
+| Drawer đang mở đơn con | Done | Nút "Đổi phòng" hiện cho FD+ khi đơn con đang ở (kể cả khi `allowedActions` của đơn con không có `change_room`). Hộp đổi phòng đọc `parentReservationId`, tải đơn chính, rồi gọi `previewChangeRoom` / `changeRoom` trên đơn chính (đúng `version` của đơn chính). Lưu xong, drawer tải lại đơn con, không thay bằng đơn chính |
+| Danh sách đêm | Done | Bảng mọi đêm trong `preview.nights` (đêm của đơn con cũng có), cột `bk.night` / `bk.rate`: giá cũ → giá mới. Tìm căn trống tính tới ngày đi muộn nhất (đơn chính / đơn con đang xem) |
+| 409 `ROOM_UNAVAILABLE` | Done | Câu lỗi có căn và khoảng đêm trùng (kèm tên khách khi server gửi – chỉ FD+). Thêm nút `bk.use_room` cho từng căn server gợi ý; bấm là chọn căn đó và xem trước lại |
+| Mock | Done | Gọi trên đơn con → 409 `INVALID_TRANSITION` (như BE `assertPrimary`). Đổi cả kỳ ở (đơn chính + con đang ở); kiểm trống tới ngày đi hiệu lực; 409 kèm `conflicts[].nights`, mã đơn, tên khách và `suggestions[]` |
+| Test | Done | `change-room.test.tsx`: mở từ đơn con → gọi đơn chính, bảng đủ đêm (cả đêm đơn con), cả hai đơn sang căn mới; căn bận đêm cuối của đơn con → 409 + "Dùng căn 103" → xem trước lại |
+
+Kết quả lệnh sau đợt 7:
+- Prettier xanh, ESLint 0 lỗi.
+- 4 gói FE `typecheck test build` 9/9 xanh: admin-web 23 tệp / **165 test**.
+- axe hộp đổi phòng (lỗi 409 + gợi ý, bảng đêm): 0 critical/serious.
+- `docker build` exit 0 (`ottimo-web:fe-s3i`).
 

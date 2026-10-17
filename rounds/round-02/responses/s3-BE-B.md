@@ -143,3 +143,20 @@ Kết quả (DB `ottimo_test_beb` tạo lại):
 | DOM 17/10 (4) / BR-428-06 – B16 đơn OTA | Done (phần tối thiểu, BE-A hoàn thiện) | Ở `stay.service` B16 của BE-A: phụ thu người của đêm bỏ nay tính cả cho đơn OTA. Một yêu cầu hoàn duy nhất = min(phụ thu đã thu, `unhandledCreditVnd`); chưa thu thì chỉ đảo dòng. Đã báo BE-A, BE-A đang làm bản đầy đủ (đêm đơn con, `room_change_difference`, `extraPersonRefundVnd`/`extraPersonReversedVnd`). Test BR-428-06: Agoda 302, có người thứ 4, đã thu 600.000, rời giữa kỳ → đúng 1 yêu cầu 300.000, B18 không tạo thêm. |
 | FB-R2-VER-BE-S3-01 (Major, chưa đóng hết) – phí hủy B10 | Done | Cơ sở tính phí = cọc còn giữ − yêu cầu hoàn đang mở; phí không vượt **giá trị đơn** (tiền phòng + phụ thu người). Số được đề nghị hoàn = cơ sở − phí. Như vậy: yêu cầu đang mở + phí + phần hoàn khi hủy = cọc đã thu. Test cọc vượt (giá trị đơn + 500.000) kèm yêu cầu 500.000 đang mở:<br>• bậc 0 %: phí = giá trị đơn, không hoàn thêm;<br>• bậc 50 %: hủy thật → tổng yêu cầu = 500.000 + phần hoàn ≤ số dư thừa sau hủy (`creditVnd`). |
 | Minor – backfill `ota_collect` cho đơn tạo trước 0042 | Done | Migration `0043_ota_collect_backfill_be_b.sql` (chỉ dữ liệu, tắt RLS theo mẫu 0016). Mỗi đơn `ota_prepaid` chưa có khoản thu hệ thống được ghi một khoản = các dòng OTA_COVERED của đơn đó. Mã `PT-OTA-…`. Chạy lại không sao: đơn đã có khoản thu thì bỏ qua. Theo 4.2a: snapshot đầu `0054` không đổi (migration chỉ dữ liệu). Journal idx 31. |
+
+## 10. Sửa đợt 5 (`reviews/s3-round4-verification.md`) + định nghĩa "giá trị đơn" của DOM (REFUND #3, 17/10)
+
+| ID | Trạng thái mới | Phản hồi |
+|---|---|---|
+| OTA-MONEY (A) – FOC trên phí do OTA giữ | Done | Luật `FOC_NOT_ALLOWED_OTA_PREPAID` nay chặn **mọi dòng OTA_COVERED** (đêm, `early_departure_fee`/`ota_retained`, `cancellation_fee`, `no_show_fee`) của đơn có khoản thu `ota_system`. Đã sửa chú thích sai ở `onDecided`: khoản `ota_collect` tính trên số gộp, việc resync chỉ để sửa lệch. Test `ota-prepaid-flow` "Round 5 (A)": B16 đơn OTA có `otaRetainedVnd`, người thứ 3 đã trả phụ thu tại quầy → FOC trên dòng phí → 422; `creditVnd` không đổi, `unhandledCreditVnd` 0. |
+| REFUND #1 – B11 no-show giữ toàn bộ cọc | Done | Dùng chung một hàm `retainableDeposit` cho B10 và B11: giữ = min(cọc còn giữ − yêu cầu hoàn đang mở, giá trị đơn). Đơn OTA vẫn giữ 0. Nhật ký `reservation.no_show_deposit_retained` ghi số thực giữ. Test với dữ liệu như ca B10 (cọc = giá trị + 500k, yêu cầu 500k đang mở) → `no_show_fee` = giá trị đơn, `creditVnd` 500.000, yêu cầu 500k chi được (201) → folio về 0. |
+| REFUND #3 (DOM 17/10) – định nghĩa "giá trị đơn" | Done (áp vào hàm chung B10/B11) | `FolioService.bookingValueVnd` = Σ các dòng `room` + `extra_person` còn sống của đơn tại lúc hủy / no-show, đã trừ FOC và giảm giá đi kèm, rồi trừ tiền OTA đã thu. Không dùng snapshot, không tính dịch vụ. BE-A gọi qua `MoneyBridge.bookingValue`. Test: FOC 100k trên một đêm + minibar 70k → giá trị = tiền phòng − 100k. |
+| Minor – mã 0043 có thể trùng | Done | Mã = `PT-OTA-` + **toàn bộ** id đơn (32 ký tự hex), mỗi đơn chỉ một khoản thu hệ thống. |
+| Minor – `otaPenaltyVnd` không có trần | Done | `otaPenaltyVnd` > tiền OTA của đơn (`total_room_vnd` + phụ thu trong snapshot) → 422 `otaPenaltyVnd: VALUE_OUT_OF_RANGE`. Với đơn OTA, "giá trị đơn" theo định nghĩa DOM là 0 vì trừ tiền OTA thu, nên trần này dùng tiền đơn OTA. |
+| D / E / REFUND #2 | Sprint 4 | Theo ORC: tự động tạo yêu cầu hoàn khi đơn đã đóng còn tiền thừa; phụ thu B7/B7a; đảo dòng dịch vụ khi hủy. |
+
+Kết quả (DB `ottimo_test_beb` tạo lại):
+- api: 56/57 tệp, 2.162/2.167 ca. 5 ca đỏ đều ở `upload-gate-socket.test.ts` – test mới của BE-C đang làm dở; tệp này còn lỗi tsc `TrustProxy`.
+- build: xanh. drizzle: không có thay đổi.
+- format: còn 1 tệp chưa format, `frontdesk/internal/stay.service.ts` (BE-A đang sửa).
+- Mọi tệp BE-B: xanh.

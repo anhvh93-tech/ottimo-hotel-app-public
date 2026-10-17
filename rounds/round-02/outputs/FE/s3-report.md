@@ -176,3 +176,9 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm
 - Rack H08: thanh OOO không còn hiện khóa thô `status.block.ooo`. Có test chặn mọi khóa thô `status.*` trên rack.
 - Kết quả: admin-web 163/163 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3h`).
 
+### 9.9 Đợt 7 – B14 đổi phòng theo đơn chính
+- Mở từ đơn con: đổi phòng gọi đơn chính và chuyển cả kỳ ở.
+- Bảng hiện đủ các đêm, gồm cả đêm của đơn con.
+- 409 `ROOM_UNAVAILABLE` hiện đêm trùng và nút "Dùng căn {room}" cho căn server gợi ý.
+- Kết quả: admin-web 165/165 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3i`).
+

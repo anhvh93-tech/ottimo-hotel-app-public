@@ -250,7 +250,8 @@ export function ReservationDrawer({
           {t('drawer.action.undo_checkin')}
         </Button>
       ) : null}
-      {allowed.has('change_room') ? (
+      {allowed.has('change_room') || (fd && r.parentReservationId && r.status === 'in_house') ? (
+        // BE-A B14: on a child booking the change goes to the primary booking (whole stay).
         <Button onClick={() => setOpen('change_room')}>{t('drawer.action.change_room')}</Button>
       ) : null}
       {allowed.has('set_late_checkout') ? (
