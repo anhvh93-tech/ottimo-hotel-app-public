@@ -58,7 +58,7 @@ Mỗi kịch bản: làm các bước → so với **Mong đợi** → **khác t
 ### KB3 · CTV báo giá, giữ chỗ, lễ tân xác nhận cọc · 5 phút
 **Vai:** CTV → Lễ tân. **Mục tiêu:** CTV tự báo giá tại chỗ; tiền cọc phải qua lễ tân xác nhận.
 1. CTV: tab **Báo giá** → mở D6 (hoặc lập mới ở tab Căn trống, ngày từ mai trở đi) → đổi ngôn ngữ gửi khách VI/EN/RU → **Sao chép gửi Zalo** (chỉ sao chép, không gửi).
-2. **Khách đồng ý – Giữ chỗ** → 24 giờ → **Mở đơn** → **Báo đã chuyển cọc** (đính 1 ảnh).
+2. **Khách đồng ý – Giữ chỗ** → 24 giờ → **Mở đơn** → **Báo đã chuyển cọc** (nhập số tiền và ghi chú; ô đính ảnh biên nhận có ở Sprint 4).
 3. Lễ tân: sơ đồ phòng → giữ chỗ vừa tạo → **Xác nhận đã nhận cọc** (chuyển khoản).
 
 **Mong đợi:** CTV chỉ thấy hoa hồng của mình ("Bạn nhận …"), văn bản báo giá không có hoa hồng/SĐT nội bộ. Giữ chỗ có mã đơn và đồng hồ đếm ngược (CTV giữ tối đa 3 chỗ cùng lúc). Sau xác nhận: đơn "Đã xác nhận", khoản cọc mang cờ **"Chờ đối soát"**.

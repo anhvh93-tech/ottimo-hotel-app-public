@@ -2,7 +2,9 @@
 
 Nguồn: kiểm chứng đối kháng vòng 4–6 (`reviews/s3-round4-verification.md`, `s3-round5-verification.md`, `s3-round6-verification.md`), QA (`qa/bug-list.md`), decision-log 17/10. ORC lập ngày 17/10/2026, trước cổng QC Sprint 3.
 
-Không mục nào dưới đây làm sai tiền âm thầm trên đường dùng thường ngày. Mục nào có thể gặp khi demo được ghi thêm ở `demo-1-limits.md` mục C.
+Một số mục **có sai tiền** – phần lớn ở đường hiếm (chỉ qua API hoặc chuỗi thao tác hiếm), riêng **S4-07** (đổi/gán căn khác định mức trước ngày đến) và **S4-05** (đơn OTA đổi phòng nhiều lần) với tới được từ Desk. Theo quyết định ORC 17/10 (decision-log), các mục sai tiền **phải sửa xong trước cổng QC Sprint 4**; còn sót thì cổng cuối Round 2 KHÔNG ĐẠT. Mục nào INV có thể gặp khi demo được ghi ở `demo-1-limits.md` mục C.
+
+**Thứ tự tuần đầu Sprint 4 (QC ĐK-S3-4):** S4-28 → S4-07, S4-05 → S4-02 + S4-18 (sửa tổng quát cho mọi loại dòng) → S4-25 (chỉ phát hành sau S4-02/18 – S4-34).
 
 | # | Hạng mục | Mức | Vai | Quy tắc / nguồn | Ghi chú |
 |---|---|---|---|---|---|
@@ -29,4 +31,18 @@ Không mục nào dưới đây làm sai tiền âm thầm trên đường dùng
 | S4-21 | B7 khách xin đổi sang căn đắt hơn trước khi đến vẫn giữ giá từng đêm cũ (BR-429) – kẽ hở doanh thu (ví dụ 101 giá 667.000 → 401 giá 1.042.000). DOM đề xuất tính theo giá căn mới như B14 (BR-424) | Câu hỏi chính sách | PO + DOM → có thể ESC | DOM 17/10 (FOC-7) | Chính sách giá – gom vào tổng kết Round 2 nếu cần INV quyết |
 | S4-22 | B12 khôi phục đơn no-show làm mất FOC đã duyệt (+300k) – BR-434 chưa nói B12, BR-315(a) dùng lại đêm cũ giữ giá nên nhiều khả năng FOC phải quay lại | Major-defer | DOM → BE-B | s3-round8 mny-1 | Hiếm: FOC trước khi đến → no-show → khôi phục; DOM chốt trước khi sửa |
 | S4-23 | Note: lọc `service_date` null khỏi `focDateMap` (hoặc CHECK); hỏi DOM thứ tự áp giảm giá đặc biệt / FOC trên cùng dòng (chỉ lệch báo cáo) | Note | BE-B, DOM | s3-round8 code-2, code-5 | – |
-| S4-24 | QA: thêm spec api/E2E cho BR-434-02/03 qua endpoint move; sửa sinh số điện thoại ngẫu nhiên trùng ở TC-L3-013 (`support/s3.ts:901`); xem vì sao TC-L3-011 (`test.fail`) có retry ở run 38998735861 | QA | QA | s3-round8 breg-1, breg-3 | Không chặn cổng |
+| S4-24 | QA: thêm spec api/E2E cho BR-434-02/03 qua endpoint move; sửa sinh số điện thoại ngẫu nhiên trùng ở TC-L3-013 (`support/s3.ts:901`); xem vì sao TC-L3-011 (`test.fail`) có retry ở run 38998735861; **QC-S3-04**: TC-L3-011, TC-L3-032, TC-L3-074 gọi `test.fail` giữa ca nên lượt chạy lại che lỗi thật – sửa cả 3 (đánh dấu từ đầu ca hoặc tách bước) | QA | QA | s3-round8 breg-1, breg-3 | Không chặn cổng |
+| S4-25 | Desk xin FOC ngoài bước nhận phòng: phụ thu trả muộn (H15, H16 bước 2), dòng phát sinh, FD tự áp FOC minibar trong hạn mức ở bước 1 (API `requestFoc` có) | Must R2 – cần cho QC A1 | FE (+UXD) | PO s3-acceptance; US-007 AC1/AC6, US-036 | Chỉ phát hành cùng S4-02/S4-18 (S4-34) |
+| S4-26 | H16: "Ghi công nợ" (hạn + lý do) chỉ MGR/OWN (API có, TC-L4-055) | Must R2 | FE | US-038 AC3 | – |
+| S4-27 | Desk: điều chỉnh dòng folio (FD sửa số lượng; MGR/OWN bút toán sau `settled`) và "Đảo giao dịch thu" có lý do (API có) | Must R2 | FE | US-006 AC1, US-032 AC1, US-038 AC2, US-119 AC3 | Phụ thuộc S4-35 cho dòng giá đêm |
+| S4-28 | Vẽ mã VietQR cọc sau khi giữ chỗ (H12) và ở hộp Xác nhận cọc (H11) bằng `createVietQr` `purpose=deposit`; chưa kịp thì sửa chuỗi `sale.qr_after` (PO-S3-04) | Must R2 – cần cho QC A1 | FE | US-084 AC4, US-120 | Làm đầu tiên |
+| S4-29 | "Xem bill" cho đơn `checked_out` (bill đã chốt, số bill, song ngữ, in lại) | Must R2 | FE | US-020 AC2 | – |
+| S4-30 | Ô ảnh biên nhận khi CTV "Báo đã chuyển cọc" (`attachmentId`) – QC-S3-01 (hướng dẫn KB3 đã sửa) | Must R2 | FE | US-086 AC4 | – |
+| S4-31 | Thẻ "khách trả phòng hôm nay" trên màn Hôm nay (mốc BR-425, báo đỏ FD/MGR, "đã trả lời", xếp đầu khi có khách đến); kiểm việc dọn sinh từ lưu trú khi có `listHkTasks` | Must R2 | BE-A, FE, QA | US-028 AC4, US-029 AC4, US-030 AC2, US-031, US-038 AC1 | Cùng US-011 |
+| S4-32 | `guest.id_doc_last4` không được ghi → CRM không hiện 4 số cuối (PO-S3-07); gộp với S4-11 | Must R2 | BE-C, BE-B, SEC | US-048 AC3 | SEC chốt điều kiện ghi như `id_doc_hmac` (0.3.7) |
+| S4-33 | QA bổ sung ca: TC-L2-026, B14 `ROOM_NOT_READY`, TC-L2-060…062 E2E, TC-L2-056, TC-SEC-015, TC-RB-008/009, chạy lại H13 trước 06:00 | Không chặn cổng | QA | PO s3-acceptance | – |
+| S4-34 | QC-S3-03: làm S4-25 sẽ đưa lỗi FOC S4-02/S4-18 lên thao tác đổi giờ trả hằng ngày (`stay-support.ts:515-575`) – không mở thêm nút xin FOC trước khi S4-02/18 sửa cho mọi loại dòng (phòng, phụ thu người, trả muộn) | Major | BE-B, FE | qc/s3-qc-gate.md | – |
+| S4-35 | ARC-BE-S3-14 "Done (tạm)": `adjustFolioLine` trả 422 cho dòng `room`/`extra_person` khi đơn còn hold/confirmed/in_house – sửa hẳn cần `StayNightPricingPort.setNightRate` | Major | ARC → BE-A, BE-B | responses/s3-BE-B.md:36 | Gắn S4-27, US-006 AC1 |
+| S4-36 | ARC-BE-S3-30: đo p95 gia hạn 62 đêm; N+1 ở `listRegistrations` | Minor | BE-A, BE-C | reviews/s3-ARC.md | Cùng test hiệu năng cuối round |
+| S4-37 | Note gom từ các vòng kiểm chứng: trần `otaPenaltyVnd` cộng cả phụ thu người, chưa có test 422 và câu "giá trị đơn OTA = 0" trong s3-BE-B.md sai (vòng 5); thân gửi chậm giữ chỗ ~90 s, thiếu test 422 khi không có Content-Length (vòng 4); assert `payload === req.raw` (vòng 7 UP-3); TC-L2-057 trả 409 `CONCURRENT_UPDATE` ngay sau giữ chỗ (s3-retest:68 – BE-A xem khóa) | Note | BE-A, BE-B, BE-C | s3-round4/5/7, qa/s3-retest.md | – |
+| S4-38 | Phạm vi kiểm chứng đối kháng tiền trước cổng S4 (ĐK-S3-6), ngoài các mục trên: FOC khi OTA sửa đơn có đổi ngày; FOC phụ thu khi thêm/bớt người giữa kỳ (`effectiveFrom`); B12 khôi phục no-show sau ngày nghiệp vụ qua MGR khi có FOC; hai lỗi BE-A đã sửa ở c52d149 nhưng chưa ai kiểm lại (`syncChildrenParty` thu thừa 150k→300k; thêm người vào ngày chỉ còn đêm đơn con mất phụ thu) – BE-A ghi phản hồi vào responses/s3-BE-A.md | Rủi ro | ORC, BE-A, QA | s3-round8 gaps; s3-blocker-reverification:76-77 | – |
