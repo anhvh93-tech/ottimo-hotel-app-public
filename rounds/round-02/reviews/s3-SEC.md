@@ -10,6 +10,8 @@
 
 Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được sửa và SEC kiểm lại. 8 Major phải sửa hoặc có phản hồi trong round. Phần lõi (mã hóa phong bì, cổng C3, ĐK-1…6 phía API, tách nhiệm tiền) làm tốt. Hai lỗi chặn: (1) ảnh giấy tờ của khai báo không bao giờ `confirmed` bị giữ vô thời hạn; (2) ở HEAD chưa có cấu hình Caddy production, nên CSP, Referrer-Policy và che `/g/*` trong log (G4/G5) chưa tồn tại.
 
+**Cập nhật 17/10/2026 – SEC kiểm lại trên `6af7173`: GỠ CHẶN cổng QC Sprint 3** (có điều kiện). SEC-BE-32 Verified; SEC-OPS-03 Verified phần cấu hình + CI, chờ smoke staging; Major b (A-38) của SEC-BE-32 tái hiện được trên PostgreSQL thật → mở thẻ **FB-R2-SEC-BE-53** (Major). Chi tiết và điều kiện: mục 9.
+
 ---
 
 ## 1. Các dòng [CHẶN] của checklist
@@ -115,6 +117,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vì sao quan trọng: SR-RET-02 ghi rõ "chưa `confirmed` → tối đa 7 ngày sau trả phòng". Câu đồng ý cam kết với khách "nếu không đồng ý, chúng tôi không lưu ảnh". Giữ ảnh hộ chiếu/CCCD (C3) quá thời hạn là rủi ro pháp lý trực tiếp theo NĐ 13/2023, và vi phạm dòng C5 [CHẶN] ("J16 bắt ca sót").
 - Đề xuất sửa: (1) `onCheckedOut` luôn đặt `delete_after` cho mọi ảnh còn sống, bất kể trạng thái: người đồng ý → trả phòng + `id_image_retention_days_after_checkout`; còn lại → trả phòng + 7 ngày (tham số mới có biên ≤ 7, hoặc hằng số SR-RET-02). Khi khai báo `confirmed` sau đó, K7 xóa ngay như hiện tại. (2) J16 thêm nhánh: đơn đã `checked_out`/`cancelled`/`no_show` quá 7 ngày mà khai báo chưa `confirmed`/`void` → xóa ảnh (`delete_reason = 'unconfirmed'`) + mục "Cần chú ý" `registration_overdue` cho FD/MGR. (3) Test với `Clock` giả: trả phòng khi khai báo `sent` → ngày 8 ảnh mất, có `purge_journal`, có `c3_access_log purge`; hủy đơn khi `sent` → như trên; `legal_hold` → giữ.
 - Trạng thái: Open
+- **Verified 17/10/2026** (SEC, code `6af7173`, PostgreSQL thật): đề xuất (1)–(3) và Major a (đơn kẹt quá ngày đi) đạt. Major b (A-38 bỏ người) **không đạt** → tách sang FB-R2-SEC-BE-53. Xem mục 9.1.
 
 ### FB-R2-SEC-OPS-03
 - Mức độ: Blocker (chặn việc đưa guest-web/admin-web lên staging và gửi link cho khách; không chặn sửa mã)
@@ -123,6 +126,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vì sao quan trọng: Thiếu CSP thì một lỗi XSS ở guest-web (trang khách nhập ảnh giấy tờ) không có lớp chặn thứ hai. Thiếu che `/g/*` thì token link khách (tương đương mật khẩu, 256 bit) nằm trong log truy cập. Thiếu volume chung thì worker không xóa được tệp blob mà api đã ghi.
 - Đề xuất sửa: (1) Commit `Caddyfile.prod` + `docker-compose.prod.yml`; SEC review trước khi deploy staging. (2) Host guest dùng `worker-src 'none'` (guest-web không có service worker – ĐK-3) và `Referrer-Policy: no-referrer`; giữ `Cache-Control: no-store` cho `index.html` guest. (3) Volume `blobdata` gắn vào **cả** api và worker, **không** gắn vào `web`; `BLOBSTORE_LOCAL_PATH` tuyệt đối. (4) Smoke staging tự động: `curl -I` kiểm CSP/Referrer-Policy/HSTS cho 3 host; `GET /var/lib/ottimo/blobs/…` và `/blobs/x` → 404; mở `/g/<token giả>` rồi grep log Caddy không thấy token.
 - Trạng thái: Open
+- **Verified 17/10/2026 phần cấu hình + CI** (SEC, `6af7173`; ảnh web `ottimo-web:demo` dựng từ `adc0a47`): đề xuất (1)–(4) có trong HEAD, guard CI chạy được và xanh. **Chưa đóng**: chờ SEC smoke trên staging thật (ĐK-S3-8). Không còn chặn cổng QC Sprint 3 và việc deploy staging; vẫn chặn gửi link cho khách thật và nhập dữ liệu khách thật. Xem mục 9.2.
 
 ### FB-R2-SEC-BE-33
 - Mức độ: Major
@@ -367,3 +371,113 @@ Yêu cầu: ORC 17/10. Đã đọc `apps/admin-web/src/app/c3.ts:7-89` và `page
 2. **Xóa bù khi quay lại.** Khi trang không có focus, trình duyệt từ chối `clipboard.writeText` (lễ tân đang ở Zalo đúng lúc hết 60 giây), nên lần ghi đè rỗng sẽ thất bại im lặng. Hết hạn mà ghi không được thì giữ cờ "chờ xóa" và ghi đè ngay khi trang có lại focus/hiện lại (`focus` / `visibilitychange` → `visible`). Test: hết 60 giây khi tab ẩn → khi hiện lại thì `writeText('')` được gọi.
 3. Link và QR: QR vẽ bằng `QrCode` trong bundle (không dịch vụ ngoài – F2). Không ghi URL/token vào log, toast, lỗi, `console`, storage hay thanh địa chỉ. Đóng hộp thì ẩn ngay (đã có).
 4. UXD: câu cạnh nút Sao chép nhắc "gửi riêng cho khách (tin nhắn 1–1), không gửi vào nhóm"; nếu gửi nhầm thì dùng "Thu hồi link".
+
+---
+
+## 9. Kiểm lại trước cổng QC Sprint 3 – SEC-BE-32, SEC-OPS-03 (SEC, 17/10/2026)
+
+- Yêu cầu: ORC 17/10 (decision-log: dòng SEC "chưa cho qua cổng QC Sprint 3…" và dòng ORC "ngoại lệ cổng sprint"); ĐK-S3-5 của `qc/s3-qc-gate.md`.
+- Mã kiểm: `6af7173`. HEAD `adc0a47` chỉ thêm tài liệu: `git diff 6af7173 HEAD -- product` rỗng, `product/` không có thay đổi chưa commit. CI 38998735861 xanh.
+- Cách làm: đọc mã; chạy test trên **PostgreSQL thật**, DB riêng `ottimo_verify_sec_gate` (tạo mới theo `recreate-db.sh`, chạy đủ migration, app Nest thật qua Fastify inject, gọi endpoint thật `DELETE …/party/{memberId}`); chạy `infra/ci/check-caddy-prod.sh` trên ảnh `ottimo-web:demo` (dựng từ `adc0a47`). Test tái hiện của SEC nằm **ngoài repo** (scratchpad `gate/sec/a38.test.ts`, kết quả `report.json`). Dữ liệu giả.
+- Phạm vi lượt này: SEC-BE-32, SEC-OPS-03 và hai Major tách từ SEC-BE-32. **Chưa** kiểm lại 8 Major còn lại của mục 5 (BE-33…38, FE-06, MOB-01) – vẫn thuộc ĐK-S3-5 (hạn: trước lần deploy staging đầu tiên và trước cổng QC Sprint 4).
+
+### 9.1 FB-R2-SEC-BE-32 (Blocker) – Verified 17/10/2026
+
+| Điểm kiểm | Kết quả | Bằng chứng |
+|---|---|---|
+| (1) Trả phòng luôn hẹn xóa mọi ảnh còn sống, bất kể trạng thái khai báo | Đạt | `registration.service.ts` `onCheckedOut` → `scheduleAfterStay` (:1860–1874, :1136–1171): chưa `confirmed` → hết lưu trú + `id_image_unconfirmed_max_days` (≤ 7); đã `confirmed` → T02 cho người đồng ý, ngay cho người không đồng ý |
+| (2) J16 độc lập với hook | Đạt | `scheduleEndedStays` (:1036–1102) đọc trạng thái đơn qua stay view, không dựa `stay_ended_at`; savepoint mỗi khai báo, có con trỏ |
+| (3) Test `Clock` giả: 7 ngày −/+, `purge_journal`, `c3_access_log purge`, `legal_hold` giữ | Đạt | `registration-flow.test.ts` **22/22 xanh trên DB thật**, gồm các ca "SEC BE-32…", "SEC BE-32 reopened" ×2, "Re-verification Major a", "Fix round 4" (đơn OTA gia hạn), K12 |
+| Major a – đơn kẹt `confirmed`/`in_house` quá ngày đi, ảnh không bị xóa | **Đạt** | Ca repo (ảnh lễ tân nhập, `confirmed` + `in_house`, có mục "Cần chú ý" `registration_stay_not_closed`). SEC thêm biến thể **ảnh khách tải qua link** (đơn `confirmed` 15→16/10, không ai đóng): ngày đi + 6 ngày → 2/2 ảnh còn, chưa có hạn; + 7 ngày → 2/2 ảnh xóa, `delete_reason = unconfirmed`, DEK hủy, tệp mất |
+| Major b – A-38 bỏ người phải xóa ảnh khách tự tải | **Không đạt** | Tái hiện được, xem 9.3 → thẻ mới **FB-R2-SEC-BE-53** |
+
+Các Minor của SEC-BE-32 trong `s3-blocker-reverification.md` không chặn; SEC không kiểm lại từng mục ở lượt này.
+
+### 9.2 FB-R2-SEC-OPS-03 (Blocker) – Verified 17/10/2026 phần cấu hình + CI; chờ smoke staging
+
+- `infra/caddy/Caddyfile.prod` và `infra/docker-compose.prod.yml` đã commit (`229db99`). Nội dung đủ 4 điểm đề xuất:
+  - CSP cho 3 host, không có `unsafe-*`. Guest: `worker-src 'none'`, `Referrer-Policy: no-referrer`, `no-store`.
+  - Log truy cập và log lỗi bỏ query, che `/g/*` thành `/g/[redacted]`, xóa header request/response.
+  - `blobdata` chỉ gắn vào api + worker, không gắn vào `web`; `BLOBSTORE_LOCAL_PATH=/var/lib/ottimo/blobs` (tuyệt đối).
+  - Các đường `/var|/data|/blobs|…`, `.map`, dot-file → 404.
+- SEC tự chạy `check-caddy-prod.sh ottimo-web:demo`: **33/33 `ok`, 0 FAIL**. Các ca đã kiểm:
+  - header 3 host khớp đúng `expected-headers.sh`;
+  - probe 404 trên tệp thật, đối chứng 200;
+  - body khai 1,1 MB → 413;
+  - cổng 80 `/g/<token>` → 308;
+  - log có dòng `/g/[redacted]`; không dòng log nào chứa token, giá trị query hay giá trị header.
+- CI chạy cùng script mỗi PR (`.github/workflows/ci.yml:141` bản stub, `:246` ảnh thật).
+- Phần chưa kiểm được trên máy: HSTS với chứng chỉ thật, cookie `__Host-` và Origin theo tên miền thật, log Caddy trên VPS → SEC smoke trên staging (ĐK-S3-8). Thẻ đóng sau smoke này.
+- Hệ quả:
+  - không còn chặn cổng QC Sprint 3, không chặn deploy staging (`deploy.sh` có smoke riêng);
+  - **vẫn chặn** gửi link check-in cho khách thật và nhập giấy tờ của khách thật trên staging/production cho tới khi SEC smoke staging đạt.
+
+### 9.3 Tái hiện nghi vấn A-38 của critic trên PostgreSQL thật – lỗi THẬT
+
+Nghi vấn: `onPartyMemberRemoved` (`registration.service.ts:1921–1955`) hủy giấy tờ khách tải qua link theo điều kiện `!party_member_id && person_index > personsTotal` (:1931). guest-web chỉ đánh số ô "Khách {n}", không gắn tên (`DocumentsStep.tsx:246`, chuỗi `guest.oci.person_n`). Vì vậy **không có mối nối nào** giữa ô n và thành viên trong đoàn: điều kiện này luôn hủy ô cuối, bất kể ai bị bỏ.
+
+Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 1 ảnh hộ chiếu cho mỗi ô qua `guestUpload`, lễ tân bỏ người qua endpoint thật (HTTP 204), rồi `sweepAfterCommit`.
+
+| Ca | Thiết lập | Kết quả đo được |
+|---|---|---|
+| R1 – ca critic | `in_house`, 3 người lớn; thành viên A (thứ 1), B (thứ 2); khách tải Khách 1/2/3; **bỏ A (giữa)** | **Khách 3 bị hủy** (`removed_at`, DEK hủy, tệp mất). **Khách 2 giữ nguyên** (DEK sống, tệp còn). Đơn 3→2 người lớn nhưng `required_count` **vẫn 3**; `uploadedPeople = [1,2]` |
+| R2 – đối chứng | Như R1, **bỏ B (cuối)** | Giống hệt R1: Khách 3 bị hủy. Việc hủy không phụ thuộc người bị bỏ |
+| R3 – trước ngày đến | `confirmed`, 2 người lớn, 1 người đi cùng, khách tải Khách 1/2; bỏ người đi cùng | **Không hủy giấy tờ nào**: Khách 2 (của người đã bỏ) còn ảnh, DEK sống, `delete_after` NULL. Số người của đơn không đổi nên link báo đủ 2/2 bằng hộ chiếu của người đã bỏ. Đây là lúc link được dùng nhiều nhất |
+| R4 | `in_house`, khai 3 người lớn, chỉ ghi 1 người đi cùng; bỏ người đó | **Khách 3 bị hủy**: người thứ ba chưa được ghi tên, vẫn đang ở. Khách 2 giữ |
+| R5 – đối chứng | Như R1 nhưng giấy tờ Khách 2/3 đã gắn thành viên (lễ tân hoàn tất, cổng party gắn) | Đúng: Khách 2 hủy, Khách 3 giữ → lỗi chỉ ở giấy tờ khách tải **chưa gắn người** |
+| R6 – hạn giữ sau R1 | Như R1, đơn đi 17/10, không ai đóng | Ngày đi + 6 ngày: ảnh Khách 1/2 chưa có hạn. + 7 ngày: J16 xóa hết. Lưới C5 vẫn chặn được việc giữ vô hạn |
+
+Đánh giá:
+- **Quyền riêng tư**: ảnh và giấy tờ của người đã rời đoàn được giữ tới hết lưu trú + 7 ngày (khai báo chưa `confirmed`). Theo mã, nếu khai báo đã `confirmed` và người đó đồng ý thì giữ tới T02 sau trả phòng. Với đơn dài hạn, thời gian giữ có thể nhiều tháng. Như vậy trái A-38 và nguyên tắc "hết mục đích phải xóa" (NĐ 13/2023 – cần xác nhận pháp lý).
+- **Toàn vẹn**: hủy không hoàn tác giấy tờ của khách **còn ở** (R1, R4); khách phải gửi lại hoặc lễ tân nhập lại.
+- **Khai báo lưu trú**: R3 – link báo đủ người bằng giấy tờ của người không ở → có nguy cơ khai nhầm người.
+- **Không lộ dữ liệu**: không có truy cập trái quyền; dữ liệu vẫn mã hóa, chỉ xem qua cổng C3 có log.
+- Kèm theo: bỏ người đang ở không cập nhật `required_count` (`party.service.ts:515–634` không gọi `onPartyChanged` và không phát `stay_changed`), nên khai báo vẫn đòi số người cũ.
+
+### FB-R2-SEC-BE-53
+- Mức độ: Major (rủi ro SEC: Trung bình)
+- Vị trí: BE-C – `registration/internal/registration.service.ts:1921–1955` (`onPartyMemberRemoved`, điều kiện `person_index > persons` ở :1931); BE-A – `frontdesk/internal/party.service.ts:515–634` (`remove`: không cập nhật số người của khai báo); ARC – `removePartyMember` trong `openapi.yaml`
+- Vấn đề: Bỏ người khỏi đoàn hủy giấy tờ khách tải qua link **theo vị trí ô**, không theo người. Đo trên PostgreSQL thật (9.3):
+  - bỏ người giữa → hủy ảnh của người còn ở (R1, R4) và giữ ảnh của người đã bỏ;
+  - bỏ người trước ngày đến → không hủy gì (R3);
+  - `required_count` không giảm sau khi bỏ người đang ở.
+  
+  Thẻ này mở lại Major b tách từ SEC-BE-32. Phản hồi "Fixed" ở `responses/s3-BE-C.md` chỉ đúng với ca 2 người bỏ người cuối (`registration-flow.test.ts:1659`).
+- Vì sao quan trọng: A-38/T03 (dữ liệu C3 của người bị bỏ phải hủy ngay); giữ hộ chiếu/CCCD quá mục đích; xóa nhầm dữ liệu không khôi phục được; nguy cơ khai báo lưu trú sai người. Xếp Major, không Blocker: không lộ cho người không có quyền, hạn giữ có trần nhờ C5/J16, ảnh xóa nhầm chụp lại được, chưa có dữ liệu thật. Không phạm dòng [CHẶN] nào: C5 vẫn đạt.
+- Đề xuất sửa:
+  1. **BE-C**: bỏ nhánh `person_index > persons`. Không bao giờ hủy giấy tờ bằng cách đoán theo vị trí ô.
+  2. **ARC + BE-A**: `removePartyMember` nhận `guestUploadPersonIndex` (số nguyên ≥ 2, hoặc `null` = "người này không gửi ảnh qua link").
+     - Trường này bắt buộc khi đơn còn giấy tờ khách tải chưa gắn người (`party_member_id IS NULL`, `person_index ≥ 2`, chưa `removed_at`).
+     - Thiếu trường → 422 `REQUIRED`. `errors` chỉ kèm các số "Khách n" chưa gắn, không kèm ảnh hay tên.
+     - BE-C hủy **đúng** giấy tờ được chọn, trong cùng giao dịch: DEK, ảnh, trường, `removed_at`, `c3_access_log delete`, `purge_journal`.
+  3. **FE + UXD**: hộp xác nhận bỏ người hỏi "Ảnh giấy tờ khách đã gửi qua link nào là của <tên>?" với các nút Khách 2, Khách 3… và "Không có". Không chọn sẵn. Muốn xem ảnh để đối chiếu thì đi qua đường C3 hiện có: thiết bị được cấp, step-up, có log.
+  4. Sau khi hủy:
+     - dồn `person_index` của các giấy tờ chưa gắn phía sau xuống 1, để ô vẫn liền 1..n;
+     - gọi `onPartyChanged` với số người mới, để `required_count` và số ô trên link khớp đơn.
+  5. **Test** (PostgreSQL thật, endpoint thật):
+     - 3 người, bỏ người giữa, chọn Khách 2 → Khách 2 hủy; Khách 3 giữ và thành Khách 2; `required_count = 2`;
+     - đơn `confirmed`, bỏ người, chọn Khách 2 → hủy;
+     - có giấy tờ chưa gắn nhưng không gửi lựa chọn → 422, không hủy gì;
+     - chọn `null` → không hủy giấy tờ nào, audit có ghi;
+     - giấy tờ đã gắn người → hủy theo `party_member_id`, như R5;
+     - như R4 → người thứ ba không bị đụng tới.
+  
+  Phương án dự phòng nếu chưa đổi được API trong Sprint 4: khi bỏ người mà còn giấy tờ chưa gắn, không hủy giấy tờ nào ngay. Thay vào đó, đặt `delete_after = now + 24 giờ` cho các giấy tờ chưa gắn từ Khách 2 trở đi, kèm mục "Cần chú ý" cho FD. Lễ tân gắn giấy tờ của người còn ở vào thành viên (`updateDocument` + `partyMemberId`) để giữ lại. Cách này chấp nhận xóa ảnh chưa ai nhận, không bao giờ giữ ảnh vô chủ.
+- Hạn:
+  - trước cổng QC Sprint 4 (Major phải sửa trong round);
+  - **và** trước khi có dữ liệu khách thật (gửi link check-in cho khách thật, hoặc nhập giấy tờ thật trên staging/production), mốc nào đến trước thì áp mốc đó.
+  - **Không** cần sửa trước buổi INV bấm thử demo localhost (dữ liệu giả).
+- Trạng thái: Open
+
+### 9.4 Kết luận của SEC (quyền chặn – protocol mục 1)
+
+**Gỡ chặn cổng QC Sprint 3: CÓ.** Hai Blocker của SEC đã đạt ở phần sửa được bằng mã. Lỗi A-38 là Major, không phải Critical/Blocker, nên không thuộc diện chặn cổng. Điều kiện:
+
+| # | Điều kiện | Ai | Hạn |
+|---|---|---|---|
+| SEC-G1 | Sửa FB-R2-SEC-BE-53 theo đề xuất của thẻ, có test PostgreSQL thật; SEC kiểm lại | BE-C, BE-A, ARC (hợp đồng API), FE/UXD (hộp xác nhận) | Trước cổng QC Sprint 4 **và** trước dữ liệu khách thật (mốc nào trước) |
+| SEC-G2 | SEC smoke Caddy/HSTS/cookie/Origin/log trên staging thật rồi đóng SEC-OPS-03 | OPS deploy, SEC kiểm | Theo ĐK-S3-8. Trước link khách thật và dữ liệu thật |
+| SEC-G3 | SEC kiểm lại 8 Major còn lại (BE-33…38, FE-06, MOB-01) | SEC | ĐK-S3-5: trước deploy staging đầu tiên và trước cổng QC Sprint 4 |
+| SEC-G4 | Bản demo localhost: thêm vào giới hạn đã biết một câu "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: hệ thống có thể xóa nhầm ảnh của người còn ở – đang sửa ở Sprint 4" | ORC (`demo-1-limits.md` mục C) | Trước khi gửi demo cho INV |
+
+Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC. Câu hỏi pháp lý về thời hạn giữ vẫn nằm trong ESC-001.

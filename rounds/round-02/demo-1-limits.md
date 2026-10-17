@@ -1,6 +1,6 @@
 # Demo lần 1 – Điều đã biết chưa xong và giới hạn của bản demo
 
-> Người soạn: UXR · 17/10/2026 · v1.0 · Đọc 2 phút **trước** khi làm theo `demo-1-guide.md`. Những điều dưới đây **không cần ghi vào phiếu** – trừ khi anh/chị muốn đổi thứ tự ưu tiên.
+> Người soạn: UXR · 17/10/2026 · v1.1 (bổ sung sau khi UXR tự bấm đủ 10 kịch bản) · Đọc 2 phút **trước** khi làm theo `demo-1-guide.md`. Những điều dưới đây **không cần ghi vào phiếu** – trừ khi anh/chị muốn đổi thứ tự ưu tiên.
 
 ## A. Giới hạn của bản demo (cách dựng, không phải lỗi)
 | Giới hạn | Nghĩa là |
@@ -13,6 +13,8 @@
 | **Đăng nhập, duyệt bằng mật khẩu** | PIN duyệt và xác thực 2 bước có ở Round 3. Sai mật khẩu 5 lần → khóa 15 phút; đăng nhập quá nhiều lần liên tục → "thử quá nhiều lần", chờ 15 phút. |
 | **Tiếng Nga trên trang khách** | Có tiếng Nga, nhưng phần thông báo dữ liệu và câu đồng ý lưu ảnh đang hiện tiếng Anh tới khi người bản ngữ duyệt bản dịch (không dùng dịch máy cho câu pháp lý). Desk có tiếng Việt và tiếng Anh. |
 | **Tốc độ** | Chạy trên máy cá nhân, không đại diện cho máy chủ thật. |
+| **Dữ liệu dựng lùi ngày** | Các lượt ở "đã bắt đầu trước hôm nay" được dựng sẵn, nên màn **Giấy tờ & khai báo** có nhiều đơn mẫu "Thiếu người", "Đã quá hạn … giờ"; tab **Chờ đối soát** có sẵn 2 khoản mẫu; danh sách **Thiết bị được cấp** có vài máy của đội (qa-desk-01, qa-tablet-night). Đó là dữ liệu mẫu, không phải lỗi. |
+| **App nhân viên 8182** | Hiện chỉ là khung trống (app điện thoại cho buồng phòng, bảo trì có ở Sprint 4). Mọi vai đăng nhập ở Desk 8181. |
 
 ## B. Chưa làm – đừng tìm (đã có trong kế hoạch)
 | Phần | Khi nào |
@@ -34,10 +36,33 @@
 | Kết nối thật: OTA / channel manager, VNPay / MoMo, khóa cửa TTLock, MISA / hóa đơn điện tử, cổng khai báo lưu trú, Zalo / email | Round 3 trở đi – cần tài khoản của anh/chị (ESC-009, ESC-010) |
 
 ## C. Lỗi đội đã biết khi giao bản demo
-> ORC soạn 17/10 từ danh sách việc dời sang Sprint 4 (`s4-carryover.md`) và sổ lỗi QA; QC rà lại và sửa ở cổng Sprint 3 (17/10). Anh/chị gặp các lỗi này thì **không cần ghi lại**. "KB" là số kịch bản trong hướng dẫn.
+> ORC soạn 17/10 từ danh sách việc dời sang Sprint 4 (`s4-carryover.md`) và sổ lỗi QA; QC rà lại và sửa ở cổng Sprint 3 (17/10). UXR bổ sung 17/10 trưa sau khi tự bấm đủ 10 kịch bản trên bản demo (các dòng ghi **mới**; QA đang ghi vào sổ lỗi, ORC sẽ báo lại lịch sửa). Anh/chị gặp các lỗi này thì **không cần ghi lại**. "KB" là số kịch bản trong hướng dẫn.
+
+**Ba chỗ đang vướng (hướng dẫn đã ghi sẵn cách đi tiếp, nếu có):**
+
+| Gặp khi | Biểu hiện | Cách đi tiếp | Khi nào sửa |
+|---|---|---|---|
+| **mới** · KB4 – bước Giấy tờ, nút **Nhập tay** | Nhập đủ rồi bấm **Lưu giấy tờ** vẫn báo "Bắt buộc", không lưu được. Lễ tân không nhập được giấy tờ cho khách đến quầy | Gửi ảnh giấy tờ qua link check-in online của đơn (cửa sổ ẩn danh), rồi trên Desk bấm **Sửa** ở dòng giấy tờ để điền số và thông tin (KB4 bước 2) | Đang xếp lịch – ưu tiên cao |
+| **mới** · KB6 – **Gia hạn** hoặc **Thêm người** trên các đơn đang ở có sẵn (D4 và các đơn dựng lùi ngày) | Báo "Máy chủ đang gặp sự cố…". Nguyên nhân ở cách dựng bản demo: mỗi lần khởi động lại, bản demo không đọc lại được giấy tờ đã lưu trước đó. Cũng vì vậy **không tắt/bật lại Docker hay máy giữa buổi** – giấy tờ đã nhập trước lúc đó sẽ không mở lại được | Làm KB6 trên D1 (đơn anh/chị vừa nhận phòng ở KB4) | Đang xếp lịch (OPS) – trước buổi thử |
+| **mới** · KB8 – chi tiền hoàn (tiền mặt hay chuyển khoản) | Đính **ảnh chứng từ** thì báo "Còn {n} ô cần sửa" (ảnh không tải lên được); không đính thì app không cho ghi. Vì vậy **chưa ghi được khoản đã hoàn** – kể cả vai chủ đầu tư. Cùng lỗi: ảnh bằng chứng khi thêm phát sinh "hư hỏng, mất đồ" | Chưa có – xem đường đi và việc chặn quyền, dừng ở bước lưu | Đang xếp lịch – ưu tiên cao |
+
+**Lỗi khác:**
 
 | Gặp khi | Biểu hiện | Khi nào sửa |
 |---|---|---|
+| **mới** · KB1, KB3, KB8 – khung chi tiết đơn, phần Folio | Dòng **"Đã thu"** tính sai khi đơn đang giữ chỗ (D5 ghi "Đã thu −1.416.000", "Còn phải thu 0 đ" dù chưa cọc), khi có phụ thu/phát sinh, hoặc khi đơn đã hủy. Số đúng: xem màn Trả phòng, Phiếu thanh toán, Nhật ký tiền | Đang xếp lịch |
+| **mới** · KB8 – hộp **Hủy đơn** khi được hoàn 100 % cọc | Hộp ghi "Đơn chưa thu tiền nên không có phí hủy hay khoản hoàn" dù đơn đã cọc. App vẫn tạo đúng yêu cầu hoàn (xem Nhật ký tiền › Hoàn tiền) – chỉ là câu báo sai, lễ tân dễ báo nhầm cho khách | Đang xếp lịch |
+| **mới** · KB8 – Lễ tân trưởng mở **Hoàn tiền** | Không thấy khoản hoàn quản lý đã duyệt ("Không có khoản hoàn nào cần xử lý"), nên chưa chi hoàn tiền mặt được bằng vai này | Đang xếp lịch |
+| **mới** · KB8 – Quản lý tự chi khoản mình vừa duyệt | App chặn đúng, nhưng câu báo là "Máy chủ đang gặp sự cố…" thay vì nói rõ "người duyệt không được tự chi" | Đang xếp lịch |
+| **mới** · KB8 – nhập nơi nhận hoàn chuyển khoản | Ô **Ngân hàng nhận** chỉ nhận mã BIN 6 số của ngân hàng (ví dụ 970436), gõ tên ngân hàng sẽ bị xóa rồi báo "Bắt buộc"; chưa có danh sách chọn ngân hàng | Đang xếp lịch |
+| **mới** · KB6 – thêm người lớn vượt định mức khi khách đang ở | App báo "Giờ này có phụ thu – tick 'Tôi đã báo khách…' hoặc xin miễn" nhưng không có ô để tick và không nêu số tiền, nên chưa thêm được | Đang xếp lịch |
+| **mới** · KB2 – chọn căn đang khóa rồi bấm Tạo đơn | Bị chặn đúng, nhưng câu báo còn ký hiệu `{room}`, `{from}`, `{to}` thay cho số căn và ngày | Đang xếp lịch |
+| **mới** · KB2 – sau **Tạo nhanh khách** | Ô Khách đứng tên có thể vẫn hiện chữ đỏ "Bắt buộc" dù khách đã được chọn; bấm Tạo đơn vẫn được | Đang xếp lịch |
+| **mới** · KB2 – nút **Dùng căn …** khi đặt trùng | Bấm là tạo đơn ngay ở căn đó, giá tính lại theo căn mới; lễ tân chưa được xem lại giá trước khi tạo | Chờ UXD/PO xem lại |
+| **mới** · **Đơn đặt phòng** | Ô Tìm kiếm chỉ tìm theo mã đơn, mã OTA, mã khách (chưa theo tên); cột "Còn phải thu" đang trống | Đang xếp lịch |
+| **mới** · sau khi xác nhận cọc, đóng hộp link check-in… | Phím Esc không đóng khung chi tiết đơn – dùng nút X | Đang xếp lịch |
+| **mới** · KB3 – CTV gửi báo giá | Ngôn ngữ gửi khách mới có Tiếng Việt và English (chưa có tiếng Nga); lễ tân xác nhận cọc chưa thấy số tiền, ghi chú CTV đã báo | Chờ PO xác nhận phạm vi |
+| **mới** · KB7 – nút **Giặt ủi** ở bước Phụ phí | Hộp "Thêm phát sinh" mở ra chưa chọn sẵn khoản – chọn lại "Giặt ủi (theo kg)" | Đang xếp lịch |
 | KB3 – CTV bấm **Báo đã chuyển cọc** | Chưa có ô đính ảnh biên nhận: CTV chỉ báo số tiền. Bỏ qua phần "đính 1 ảnh" | Sprint 4 |
 | KB3 – vừa giữ chỗ xong | Màn ghi "Mã QR … tạo ngay sau khi giữ chỗ" nhưng chưa có mã QR cọc, chỉ có số tiền và nội dung chuyển khoản. Mã VietQR đã có ở bước thu tiền khi trả phòng (KB7) | Sprint 4 |
 | KB4 – nhận phòng sớm có phụ thu | Điều kiện "Đã thu đủ" chưa cộng phụ thu nhận sớm, nên app cho nhận phòng dù chưa thu khoản này. Khoản vẫn nằm trong phiếu thanh toán, và app đòi thu đủ lúc trả phòng | Sprint 4 |
@@ -49,5 +74,6 @@
 | Khách OTA đang ở đổi phòng từ lần thứ hai trở đi | Tiền chênh lệch có thể tính so với căn ngay trước, thay vì so với căn đặt ban đầu | Sprint 4 |
 | Khách OTA đã gia hạn thêm đêm rồi xin đổi phòng, căn mới không trống đủ cả thời gian | App chặn và gợi ý căn khác; chưa có lựa chọn "chỉ chuyển tới hết đơn gốc" | Sprint 4 |
 | Ảnh giấy tờ của khai báo chưa xác nhận tự xóa khi quá hạn | Màn khai báo chưa hiện dòng "Ảnh đã xóa lúc …". Ảnh vẫn đã bị xóa đúng hạn | Sprint 4 |
-| Mở Desk (8181) và app nhân viên (8182) cùng lúc trong một trình duyệt | Đăng nhập bên này làm bên kia đổi người hoặc bị đăng xuất. Chỉ có ở bản demo trên máy; vai thứ hai dùng cửa sổ ẩn danh | Hết khi có máy chủ chạy thử (mỗi app một tên miền) |
+| Mở Desk (8181) và app nhân viên (8182) cùng lúc trong một trình duyệt | Đăng nhập bên này làm bên kia đổi người hoặc bị đăng xuất. Chỉ có ở bản demo trên máy; vai thứ hai dùng cửa sổ ẩn danh. (Ở bản demo này 8182 còn là khung trống nên chưa gặp) | Hết khi có máy chủ chạy thử (mỗi app một tên miền) |
+| Bỏ một người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link check-in | Hệ thống có thể xóa nhầm ảnh của người **còn ở** và giữ ảnh của người đã bỏ (SEC-BE-53). Trong demo: chụp/gửi lại ảnh cho người còn ở | Sprint 4 – phải sửa trước khi dùng dữ liệu khách thật |
 | *(Không gặp trong demo)* Miễn phí (FOC) trên tiền phòng hoặc phụ thu người, rồi đổi ngày, đổi căn, đổi số người, khôi phục đơn "không đến"; hủy đơn đã có dịch vụ chưa làm | Đội đã biết vài trường hợp hiếm: mất phần miễn phí, báo lỗi không lưu, hoặc dòng dịch vụ không tự bỏ. Desk hiện chỉ xin miễn được phụ thu nhận sớm và chỉ thêm dịch vụ khi khách đang ở, nên bản demo không đi tới các trường hợp này | Sprint 4 – sửa xong trước khi mở thêm nút xin miễn phí |
