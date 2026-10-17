@@ -1,4 +1,4 @@
-# Việc chờ anh/chị (cập nhật chiều 17/10/2026)
+# Việc chờ anh/chị (cập nhật tối 17/10/2026)
 
 > **Cập nhật 17/10 sáng – INV đã trả lời:** (1) đang mua VPS + tên miền, sẽ báo; (2) ESC-018: ngày dd/mm/yyyy, quốc tịch mã 3 chữ cái in hoa; (3) ESC-016: chưa có HĐ hẹn dọn cố định, nhưng cần tùy chọn dọn cố định (US-056, R3); (4) Dependabot: giao ORC quyết theo khuyến nghị OPS. Còn chờ: thông tin VPS + tên miền.
 
@@ -12,16 +12,19 @@ OPS đã viết sẵn và diễn tập trọn bộ trên máy (deploy 18 giây, 
 
 Nếu chưa có staging: QC cuối Round 2 phần "chạy trên môi trường thật" sẽ KHÔNG ĐẠT.
 
-## 2. ESC-019 – Giá khi khách tự xin đổi sang căn khác trước ngày đến (mới 17/10, không gấp)
-Hiện app giữ giá đã đặt khi khách **chưa đến** mà xin đổi căn, nên đặt căn rẻ rồi xin lên căn đắt thì OTTIMO mất phần chênh (ví dụ 101 → 401: 375.000/đêm). Còn khi khách **đang ở** mà xin đổi phòng thì app đã tính giá căn mới.
-- **Đội đề xuất A:** tính theo giá căn mới, giống khi đang ở. Căn đắt hơn thì khách trả thêm, căn rẻ hơn thì khách được giảm.
-- B: giữ giá đã đặt (như hiện nay).
-- C: chỉ tăng, không giảm.
-Chưa quyết thì app giữ cách B, lễ tân báo quản lý trước khi đổi sang căn đắt hơn. Chi tiết: `02-escalations/ESC-019.md`. Hạn: cuối Round 2.
+## 2. Anh/chị hẹn gửi thứ Hai 19/10
+- VPS + tên miền (đang mua ở Mắt Bão). Tài khoản tên miền đứng tên công ty, bật xác thực 2 lớp, khóa chuyển nhượng.
+- Bảng ghép **tên phòng (The Pine … The Ember) ↔ số căn ↔ hạng phòng**. UXD đã ghép thư mục ảnh với hạng phòng, nhờ anh/chị xác nhận khi gửi bảng.
+- Logo SVG gốc.
+- Email chung (ví dụ booking@<tên miền>).
+- Tạo và xác thực Zalo OA bằng ĐKKD CTCP UTMG Living; thêm 2 nhân viên quản trị.
+- Quyền dùng ảnh; chỗ đậu xe, thang máy, thú cưng; link OTA + 3–5 đánh giá thật.
 
-## 3. Đã xong từ câu trả lời sáng 17/10
+## 3. Đã quyết trong ngày 17/10
 - ESC-018 (ngày dd/mm/yyyy, quốc tịch mã 3 chữ cái in hoa) đã áp vào app.
 - ESC-016: thêm tùy chọn lịch dọn cố định cho khách dài hạn ở Round 3 (US-056).
+- **ESC-019 = A:** khách tự xin đổi sang căn khác trước ngày đến thì tính giá căn mới. Làm ở Sprint 4.
+- **ESC-020 = A hết** (landing page) và **ESC-021 = A, K1 = A** (Zalo OA). Đã nhận ghim Google Maps.
 - Dependabot: đã gộp 4 bản nâng công cụ CI (CI vẫn xanh), đóng 5 đề nghị không phù hợp, hoãn bản nâng giao diện sang Round 3, chia nhóm cập nhật cho các lần sau.
 
 ## 4. Để anh/chị biết (không cần trả lời)
