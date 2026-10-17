@@ -274,11 +274,27 @@ const nowLocal = () =>
     });
   }
   const cur = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
-  const r = await http('POST', P(fd, `/reservations/${id}/actions/check-out`), {
-    s: fd,
-    ifMatch: cur.version,
-    body: { checkoutTime: nowLocal() },
-  });
+  const checkOut = (extra) =>
+    http('POST', P(fd, `/reservations/${id}/actions/check-out`), {
+      s: fd,
+      ifMatch: cur.version,
+      body: { checkoutTime: nowLocal(), ...extra },
+    });
+  let r = await checkOut({});
+  // After the grace time (BR-425) the desk must decide on the late check-out surcharge, like the UI does:
+  // apply it with the amount the server quotes (409 SURCHARGE_CHANGED carries it), then retry.
+  const lateDecision = (res) =>
+    res.status === 422 && (res.body?.errors ?? []).some((e) => e.field === 'applyLateSurcharge');
+  if (lateDecision(r)) {
+    const quote = await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: 0 });
+    const amount = quote.status === 409 ? quote.body?.surchargeVnd : undefined;
+    r =
+      amount === undefined
+        ? quote
+        : await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: amount });
+    if (amount !== undefined)
+      ok(`phụ thu trả muộn ${amount.toLocaleString('vi-VN')} đ (sau giờ ân hạn)`);
+  }
   if (r.status === 200) ok(`trả phòng ${cur.code}`);
   else bad(`trả phòng: HTTP ${r.status} ${short(r.body)}`);
 }
