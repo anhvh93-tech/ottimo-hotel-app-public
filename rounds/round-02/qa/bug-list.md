@@ -1489,3 +1489,8 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
 - **Sửa ca 18/10 ~05:35 (BE-B báo 17/20 trên stack riêng):** TC-L4-118, 119, 122 đỏ ở bước dựng dữ liệu – căn đích B14 còn `VD` do ca trước trả phòng (`cleanRooms()` chỉ chạy khi có E2E_COMPOSE_CONTROL) → 409 `ROOM_NOT_READY`. Sửa: chọn căn trong số căn không có khách (`listRoomStatuses`) và dọn căn đích bằng API buồng phòng (`status-transitions` start/finish cleaning) ngay trước B14. Chạy cả tệp hai lượt: không compose control (như stack BE-B) 20/20; có compose control (như CI, kèm `late-fee-qr`) 22/22. `OPEN` đã rỗng (BE-B xóa 135…138, 140).
 - **Bảng tổng sau cập nhật:** 143 lỗi; Open 32, Fixed 8, Deferred 1, Closed 102. P1 Open 2 (134, 143).
 
+
+### 11.14 CI 39067233815 trên `365486f` – TC-L4-004 đỏ (QA, 18/10 ~04:05)
+- **Gốc: ca kiểm, không phải lỗi mã.** TC-L4-004 nhận phòng và gia hạn **cùng ngày đến** (vday D 14:30). BE-C áp BR-807-01 (BUG-R2-142): khách đến hôm nay giữ `OC`, kể cả khi gia hạn B13 đúng ngày đến – mã làm đúng; kỳ vọng `OD` của ca có trước BR-807-01.
+- **Sửa ca:** sau gia hạn kỳ vọng `OC`; tua 07:30 hôm sau, chạy J8 → `OD` và đúng một việc `stayover_clean` của căn. `r1-main-flows.md` v0.3.31.
+- **Kiểm:** `ottimo-qa-s4` dựng lại api-dist11 từ HEAD `365486f` (04:01, có khóa); TC-L4-004 ×2 đạt. BUG-R2-142 giữ Fixed tới khi CI của commit gộp xanh.

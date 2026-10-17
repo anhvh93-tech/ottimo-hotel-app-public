@@ -509,7 +509,8 @@ test.describe(
         async ({ request }) => {
           // Tiền điều kiện: Đơn khách NN in_house, khai báo confirmed, buồng OC, có việc "Dọn trả phòng" ngày đi
           // Bước: Gia hạn 1 đêm
-          // Kỳ vọng: Ngày đi cập nhật; buồng → OD; việc "Dọn trả phòng" đổi thành "Dọn phòng khách đang ở"; 1
+          // Kỳ vọng: Ngày đi cập nhật; buồng giữ OC khi gia hạn đúng ngày đến, OD + "Dọn phòng khách đang ở" từ 07:00
+          //   hôm sau (BR-807-01); 1
           //   lệnh outbox; khai báo → needs_update; hạn thu tiền gia hạn = muộn nhất 14:00 ngày đầu phần gia hạn
           //   (BR-423)
           // Quy tắc: BR-802, BR-423, BR-604, BR-905
@@ -540,12 +541,34 @@ test.describe(
           note(
             'BR-423: hạn thu tiền gia hạn hiển thị phía giao diện (extend.pay_by) – không có trường API',
           );
-          // buồng → OD (SM-01 B13, BR-802 "gia hạn → OD"): trạng thái buồng lưu SM-03 (listRoomStatuses là Sprint 4
-          // → đọc DB của stack dùng một lần)
+          // Buồng sau gia hạn (SM-01 B13, BR-802 "gia hạn → OD"). BR-807-01 (DOM 18/10, BE-C – BUG-R2-142): khách ở
+          // tiếp = ngày đến < ngày nghiệp vụ < ngày đi. Ca gia hạn ĐÚNG NGÀY ĐẾN (vday: D 14:30, đến D) → buồng giữ OC,
+          // chưa có việc "Dọn phòng khách đang ở"; 07:00 hôm sau J8 mới chuyển OD và sinh việc. (CI 39067233815 trên
+          // `365486f`: kỳ vọng cũ OD – trước BR-807-01.) Trạng thái đọc DB của stack dùng một lần (SM-03).
           const st = storedRoomStatus(c, '203');
           if (st !== null) {
-            // BUG-R2-047 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
-            expect(st, 'buồng sau gia hạn').toBe('OD');
+            expect(st, 'gia hạn đúng ngày đến → giữ OC (BR-807-01)').toBe('OC');
+            await at(request, vnTime(addDays(D, 1), '07:30'));
+            await runJobIfAny(request, 'hk.daily');
+            expect(storedRoomStatus(c, '203'), '07:00 hôm sau J8 → OD (BR-802, BR-807-01)').toBe(
+              'OD',
+            );
+            const own = await fresh(request, 'qa.owner');
+            const tasks = await call<{ data: Array<Record<string, unknown>> }>(
+              request,
+              'GET',
+              p3(EP3.listHkTasks, own),
+              { session: own, query: { date: addDays(D, 1) } },
+            );
+            expect(tasks.status, JSON.stringify(tasks.body).slice(0, 200)).toBe(200);
+            expect
+              .soft(
+                tasks.body.data.filter(
+                  (t) => t.type === 'stayover_clean' && t.roomId === room(c, '203').id,
+                ),
+                'việc dọn ở lại của 203 ngày D+1',
+              )
+              .toHaveLength(1);
           }
         },
       );
