@@ -1,7 +1,8 @@
 /**
- * Nationality on the portal data (DOM S3-5 [GIẢ ĐỊNH – chờ INV, ESC-018], ARC FB-R2-ARC-BE-S3-20): we store
- * ISO 3166-1 alpha-3 (as in the MRZ, E06-05); the portal shows "Tên nước tiếng Việt (alpha-3)". The
- * Vietnamese name comes from CLDR (`Intl.DisplayNames('vi')`, Node full ICU), which needs alpha-2 – hence
+ * Nationality on the portal data (ARC FB-R2-ARC-BE-S3-20): we store ISO 3166-1 alpha-3 (as in the MRZ,
+ * E06-05) and the portal takes that bare code by default (INV, ESC-018). This table serves only the optional
+ * `portal_nationality_format = name_vi_alpha3` ("Tên nước tiếng Việt (alpha-3)"). The Vietnamese name comes
+ * from CLDR (`Intl.DisplayNames('vi')`, Node full ICU), which needs alpha-2 – hence
  * this alpha-3 → alpha-2 table (249 ISO entries + the MRZ codes GBD/GBN/GBO/GBP/GBS → GB, RKS/XKX → XK).
  * Data, not business rules: test/registration-rules.test.ts checks every entry has a Vietnamese name.
  */

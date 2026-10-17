@@ -551,7 +551,7 @@ Quy ước (đợt 3):
 
 #### US-046 – Khai báo bán tự động (K6–K8, BR-606)
 - AC1: Given đơn có ít nhất một người mang giấy tờ nước ngoài, When mở khai báo, Then tiêu đề "Khai báo tạm trú người nước ngoài"; đơn toàn công dân VN → "Thông báo lưu trú công dân Việt Nam".
-- AC2: Given bấm "Sao chép dữ liệu", Then bộ nhớ tạm có đủ trường bắt buộc của từng người theo BR-606, đúng thứ tự cổng yêu cầu; chức năng chỉ có trên máy quầy được cấp và có nút xóa bộ nhớ tạm (A73).
+- AC2: Given bấm "Sao chép dữ liệu", Then bộ nhớ tạm có đủ trường bắt buộc của từng người theo BR-606, đúng thứ tự cổng yêu cầu; chức năng chỉ có trên máy quầy được cấp và có nút xóa bộ nhớ tạm (A73). *(INV quyết ESC-018 17/10)* Ngày dạng **dd/mm/yyyy**, quốc tịch là **mã 3 chữ cái in hoa ISO alpha-3** (ví dụ KOR) – mặc định tham số `portal_date_format`/`portal_nationality_format` (OWN/MGR đổi được nếu cổng đổi).
 - AC3: Given dán mã hồ sơ và lưu, Then khai báo → `sent`; bấm "Cổng đã xác nhận" → `confirmed` và đơn rời danh sách cần xử lý; bấm "Cổng từ chối" kèm lý do → `scanned` để khai lại.
 
 #### US-047 – Mọi đơn có bản ghi khai báo (K1, BR-608)
@@ -610,9 +610,12 @@ Quy ước (đợt 3):
 - AC2: Given tick đủ và lưu, Then biên bản kiểm ghi người kiểm, thời điểm, căn (và ảnh nếu có).
 
 #### US-056 – Lịch dọn khách dài hạn (BR-807)
+> INV 17/10 (câu phụ ESC-016): hiện chưa HĐ nào hẹn dọn cố định, nhưng sản phẩm phải có tùy chọn lịch dọn cố định cho khách dài hạn → US-056 là story bao phủ (AC3); đơn nhập tay có tùy chọn này qua bước chuyển sang HĐ ở R3 (AC4). Vẫn Must R3.
 > **[Dời R3 – PO R2 Sprint 2]** cùng HĐ dài hạn (US-086 AC3). R2: đơn dài hạn nhập tay (US-017 AC5a) mặc định không có gói dọn (BR-204, DOM D-15) – dọn theo yêu cầu (BR-506) qua yêu cầu khách/việc tạo tay (`createHkTask`); nếu HĐ giấy có hẹn dọn cố định, lễ tân tạo việc tay theo tuần. AC giữ nguyên để làm ở R3.
 - AC1: Given HĐ có gói dọn "2 lần/tuần – thứ Hai, thứ Năm" với khung giờ theo BR-807, When đến thứ Hai, Then việc "Dọn phòng khách dài hạn" kèm khung giờ xuất hiện trong việc hôm nay và buồng `OC` → `OD` theo lịch gói (R8).
 - AC2: Given HĐ kết thúc hoặc khách đổi gói, Then các việc sau ngày đó không còn sinh theo gói cũ.
+- AC3 *(mới – INV trả lời câu phụ ESC-016 17/10)*: Given lập hoặc sửa HĐ dài hạn (US-081/US-086 AC3), Then có **tùy chọn lịch dọn cố định**: chọn gói dọn theo BR-204 kèm ngày trong tuần và khung giờ theo BR-807, hoặc "Không có gói dọn" (dọn lẻ theo BR-506); lịch đã chọn hiện trên HĐ, trong app khách (US-114) và sinh việc theo AC1.
+- AC4 *(mới – PO 17/10)*: Given đơn dài hạn nhập tay ở R2 (US-017 AC5a) được chuyển sang HĐ đầy đủ ở đầu R3 (giữ mã đơn), When chuyển, Then bước chuyển hỏi lịch dọn như AC3 (mặc định "Không có gói dọn" – BR-204); không làm tùy chọn lịch dọn riêng cho đơn nhập tay.
 
 #### US-057 – Báo sự cố từ điện thoại (W1, BR-809)
 - AC1: Given `housekeeping` chọn căn, mô tả "mất nước nóng", đính 1 ảnh, chọn mức, When gửi, Then tạo phiếu `new` nguồn "buồng phòng", mã do server cấp, `maintenance` thấy ngay; mức Cao → báo `maintenance`, `front_desk`, `manager` và vào "Cần chú ý" (BR-809).
@@ -900,3 +903,4 @@ Trạng thái 16/10/2026: **INV đã quyết cả 13 ESC** theo đề xuất c�
 | 16/10/2026 | 2 (Sprint 3 – khởi động) | Nghiệm thu PO Sprint 1 + 2 trên stack tạm (ĐK-S2-5, `outputs/PO/acceptance.md`): thêm trạng thái "Đang nghiệm thu", "Đạt (stack tạm)"; cột Trạng thái 30 story (10 Đạt stack tạm, 19 Đang nghiệm thu, US-022 Dời Sprint 3); dòng "> Nghiệm thu" ghi phần dời (US-019, 020, 022, 024, 085, 136 + 002–007, 016, 018, 021, 083, 086, 135, 139, 142) – mọi phần dời trong R2; áp ESC-015 A (ghi chú US-005), ESC-016 A (US-109 AC1), ESC-017 A (US-084 AC1, US-086 AC5, US-119 AC6). Must R2 vẫn 71 | PO |
 | 17/10/2026 | 2 (Sprint 3) | BUG-R2-034: nguồn "Cần chú ý" cho khai báo/thị thực (US-025 AC4, US-044 AC4, US-050 AC2, US-012 AC1/AC3) làm ở Sprint 3; khung hiển thị Tổng quan ở Sprint 4 – ghi chú dưới 4 story | PO |
 | 17/10/2026 | 2 (Sprint 3) | BUG-R2-033 (b): làm rõ US-043 AC3 (hồ sơ người đi cùng tạo từ giấy tờ, không cần SĐT/email, không tiếp thị; cảnh báo khi vượt số khách) và US-071 AC1 (phạm vi quy tắc liên hệ) – chờ SEC ký phần dữ liệu cá nhân | PO |
+| 17/10/2026 | 2 (Sprint 3) | INV trả lời câu phụ ESC-016: US-056 thêm AC3 (tùy chọn lịch dọn cố định khi lập/sửa HĐ) + AC4 (đơn nhập tay AC5a có tùy chọn qua bước chuyển sang HĐ ở R3, không làm riêng); INV quyết ESC-018: US-046 AC2 ghi định dạng ngày dd/mm/yyyy + quốc tịch ISO alpha-3 | PO |

@@ -481,9 +481,10 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       valueKey: 'reg.value.empty',
     });
     expect(fo.json().clipboardText).toContain('\tNữ\t');
-    // DOM S3-5 [GIẢ ĐỊNH – ESC-018]: dates dd/MM/yyyy, nationality "Vietnamese name (alpha-3)".
+    // DOM S3-5 / ESC-018 (INV): dates dd/MM/yyyy, nationality = the bare alpha-3 code.
     expect(fields.find((x) => x.label === 'reg.field.date_of_birth')?.value).toBe('12/04/1990');
-    expect(fields.find((x) => x.label === 'reg.field.nationality')?.value).toBe('Đức (DEU)');
+    expect(fields.find((x) => x.label === 'reg.field.nationality')?.value).toBe('DEU');
+    expect(fo.json().clipboardText).not.toContain('Đức');
     expect(fields.find((x) => x.label === 'reg.field.arrival_date')?.value).toBe('15/10/2026');
     expect(fo.json().clipboardText).not.toContain('1990-04-12');
     expect(fo.json().clipboardText).not.toMatch(/female|visa_exempt/);

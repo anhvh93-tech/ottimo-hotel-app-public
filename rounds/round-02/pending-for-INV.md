@@ -1,5 +1,7 @@
 # Việc chờ anh/chị (gom trong đêm 16–17/10/2026)
 
+> **Cập nhật 17/10 sáng – INV đã trả lời:** (1) đang mua VPS + tên miền, sẽ báo; (2) ESC-018: ngày dd/mm/yyyy, quốc tịch mã 3 chữ cái in hoa; (3) ESC-016: chưa có HĐ hẹn dọn cố định, nhưng cần tùy chọn dọn cố định (US-056, R3); (4) Dependabot: giao ORC quyết theo khuyến nghị OPS. Còn chờ: thông tin VPS + tên miền.
+
 Cập nhật bởi ORC. Không mục nào chặn việc code – đội đang chạy theo phương án đề xuất.
 
 ## 1. Gấp – Máy chủ chạy thử (staging)

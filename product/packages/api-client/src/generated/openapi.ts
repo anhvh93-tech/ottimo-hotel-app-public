@@ -6006,7 +6006,7 @@ export interface components {
         fields: {
           /** @description Khóa i18n (0.3.6 bổ sung review S3: thêm pattern) */
           label: string;
-          /** @description 0.3.6 bổ sung (review S3, ARC 17/10 – **một** cài đặt duy nhất ở server, INT `guest-registration/manual` không còn dựng trường riêng): ngày theo tham số `portal_date_format` (mặc định `dd/MM/yyyy`); quốc tịch theo `portal_nationality_format` (mặc định "Tên nước tiếng Việt (alpha-3)", ví dụ "Hàn Quốc (KOR)") – DOM S3-5 `[GIẢ ĐỊNH – chờ INV, ESC-018]`; "Ngày đến" = ngày lịch (giờ cơ sở) của giờ nhận phòng thực tế (BR-602, BR-417 (4)), chưa nhận phòng → ngày đến của đơn; khách NN ngày đi khai = min(ngày đi, hạn thị thực/tạm trú) (BR-605). */
+          /** @description 0.3.6 bổ sung (review S3, ARC 17/10 – **một** cài đặt duy nhất ở server, INT `guest-registration/manual` không còn dựng trường riêng): ngày dạng `dd/MM/yyyy` (ví dụ `20/10/2026`); quốc tịch = **mã ISO 3166-1 alpha-3 in hoa** (ví dụ `KOR`) – INV đã quyết ESC-018 (17/10/2026; tham số `portal_date_format`/`portal_nationality_format` mặc định đúng như vậy); "Ngày đến" = ngày lịch (giờ cơ sở) của giờ nhận phòng thực tế (BR-602, BR-417 (4)), chưa nhận phòng → ngày đến của đơn; khách NN ngày đi khai = min(ngày đi, hạn thị thực/tạm trú) (BR-605). */
           value: string;
           valueKey?: string;
         }[];

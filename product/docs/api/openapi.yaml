@@ -9744,8 +9744,8 @@ components:
                       x-rbac-field: D03
                       description: >
                         0.3.6 bổ sung (review S3, ARC 17/10 – **một** cài đặt duy nhất ở server, INT `guest-registration/manual` không còn dựng trường riêng):
-                        ngày theo tham số `portal_date_format` (mặc định `dd/MM/yyyy`); quốc tịch theo `portal_nationality_format` (mặc định "Tên nước tiếng Việt (alpha-3)",
-                        ví dụ "Hàn Quốc (KOR)") – DOM S3-5 `[GIẢ ĐỊNH – chờ INV, ESC-018]`; "Ngày đến" = ngày lịch (giờ cơ sở) của giờ nhận phòng thực tế (BR-602, BR-417 (4)),
+                        ngày dạng `dd/MM/yyyy` (ví dụ `20/10/2026`); quốc tịch = **mã ISO 3166-1 alpha-3 in hoa** (ví dụ `KOR`) – INV đã quyết ESC-018 (17/10/2026;
+                        tham số `portal_date_format`/`portal_nationality_format` mặc định đúng như vậy); "Ngày đến" = ngày lịch (giờ cơ sở) của giờ nhận phòng thực tế (BR-602, BR-417 (4)),
                         chưa nhận phòng → ngày đến của đơn; khách NN ngày đi khai = min(ngày đi, hạn thị thực/tạm trú) (BR-605).
                     valueKey: { type: string, pattern: '^reg\.value\.[a-z_.]+$' }
         clipboardText: { type: string, description: 'Văn bản sao chép đúng thứ tự cổng, giá trị tiếng Việt như `fields[].value` (mỗi người một dòng, các trường cách nhau bằng tab, trường rỗng để trống); client xóa clipboard sau khi dán (R-REG-07)', x-rbac-field: D03 }

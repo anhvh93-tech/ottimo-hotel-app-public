@@ -165,6 +165,9 @@ export class PaymentsService {
     folioId: string,
     raw: PaymentCreateInput,
   ): Promise<PaymentRowLite> {
+    // A33 own_deposit_only (US-119 AC4): a sale/CTV records deposits only – the scope answers 403 before any
+    // body rule (BUG-R2-005 role gate first; CI TC-L4-063).
+    if (!isDesk(actor.roles) && raw.type !== 'deposit') throw problem('FORBIDDEN_ACTION');
     if (raw.type === 'refund') {
       // A-33: a refund is only paid out through executeRefund / executeCashRefund.
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'type', code: 'NOT_IN_LIST' }] });

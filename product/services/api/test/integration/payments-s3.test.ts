@@ -2425,7 +2425,7 @@ describe.skipIf(!HAS_DB)(
         type: 'charge',
         method: 'card_pos',
         amountVnd: 100_000,
-        posAuthCode: '4111111111111111',
+        posAuthCode: '4111111111111111', // gitleaks:allow – public Visa test number
       });
       expect(card.statusCode).toBe(422);
       expect(card.json()).toMatchObject({
@@ -2564,6 +2564,14 @@ describe.skipIf(!HAS_DB)(
       // (7) money on a hold is its deposit: a `charge` or a QR "balance" is refused.
       const charge = await pay('fd', kept, { type: 'charge', method: 'cash', amountVnd: 50_000 });
       expect(charge.json().errors).toEqual([{ field: 'type', code: 'NOT_IN_LIST' }]);
+      // …but a sale is stopped by the scope first (A33 own_deposit_only → 403, role gate first – TC-L4-063).
+      const salCharge = await pay('sal', kept, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: 50_000,
+      });
+      expect(salCharge.statusCode, salCharge.body).toBe(403);
+      expect(salCharge.json().code).toBe('FORBIDDEN_ACTION');
       const qr = await c('fd').send('POST', `${P(t)}/folios/${kept.folioId}/vietqr`, {
         amountVnd: 50_000,
         purpose: 'balance',

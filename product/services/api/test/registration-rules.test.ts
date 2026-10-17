@@ -321,10 +321,12 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
     });
     expect(by['reg.field.departure_date']?.value).toBe('18/10/2026'); // BR-605, DOM S3-5 dd/MM/yyyy
     expect(by['reg.field.date_of_birth']?.value).toBe('12/04/1990');
-    expect(by['reg.field.nationality']?.value).toBe('Đức (DEU)');
+    // ESC-018 (INV): the portal takes the bare upper-case alpha-3 code, no country name.
+    expect(by['reg.field.nationality']).toEqual({ label: 'reg.field.nationality', value: 'DEU' });
     const clip = portalClipboard([{ fields: f }]);
     expect(clip.split('\t')).toHaveLength(15);
-    expect(clip).toContain('\tNữ\tĐức (DEU)\t');
+    expect(clip).toContain('\tNữ\tDEU\t');
+    expect(clip).not.toContain('Đức');
     expect(clip).not.toContain('Không có'); // the "empty" hint is for the screen, never pasted
   });
 
@@ -341,18 +343,19 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
     expect(f.find((x) => x.label === 'reg.field.departure_date')?.value).toBe('20/10/2026');
   });
 
-  it('DOM S3-5: formats are parameters – ISO date and bare alpha-3 when OWN/MGR choose them', () => {
+  it('DOM S3-5: formats are parameters – ISO date and "name (code)" when OWN/MGR choose them', () => {
     const f = portalFields('foreigner_temp_residence', person, {
       date: 'yyyy-MM-dd',
-      nationality: 'alpha3',
+      nationality: 'name_vi_alpha3',
     });
     const by = Object.fromEntries(f.map((x) => [x.label, x.value]));
     expect(by['reg.field.date_of_birth']).toBe('1990-04-12');
-    expect(by['reg.field.nationality']).toBe('DEU');
+    expect(by['reg.field.nationality']).toBe('Đức (DEU)');
     expect(by['reg.field.arrival_date']).toBe('2026-10-15');
     expect(formatPortalDate('2026-10-20', 'dd/MM/yyyy')).toBe('20/10/2026');
     expect(formatPortalDate(null, 'dd/MM/yyyy')).toBeNull();
-    expect(formatNationality('KOR', 'name_vi_alpha3')).toBe('Hàn Quốc (KOR)');
+    expect(formatNationality('KOR', 'name_vi_alpha3')).toBe('Hàn Quốc (KOR)'); // optional format
+    expect(formatNationality('kor', 'alpha3')).toBe('KOR');
     expect(formatNationality('ZZZ', 'name_vi_alpha3')).toBe('ZZZ'); // unknown code: never invent a name
   });
 

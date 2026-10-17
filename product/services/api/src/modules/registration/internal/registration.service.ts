@@ -1491,8 +1491,9 @@ export class RegistrationService {
       },
       { stepUp: true },
     );
-    // DOM S3-5 [GIẢ ĐỊNH – chờ INV, ESC-018]: formats are parameters; "Ngày đến" = calendar date (property
-    // time) of the ACTUAL check-in (BR-602, BR-417 (4), DOM BE-22), the booking's date before check-in.
+    // DOM S3-5 / ESC-018 (INV): formats are parameters – dd/MM/yyyy and the bare alpha-3 code by default;
+    // "Ngày đến" = calendar date (property time) of the ACTUAL check-in (BR-602, BR-417 (4), DOM BE-22), the
+    // booking's date before check-in.
     const c = await this.ctx(tx);
     const format: PortalFormat = {
       date: await this.params.get<PortalFormat['date']>(tx, 'portal_date_format', c.today),

@@ -13,6 +13,8 @@ id_ed25519*
 
 # Node / build
 node_modules/
+# local-only generated output (seed tokens, demo accounts)
+.out/
 build/
 # guest-web build-time helper is source, not output (BUG-R2-050)
 !product/apps/guest-web/build/

@@ -710,7 +710,8 @@ test.describe(
           // đủ trường bắt buộc BR-606 (thứ tự theo server – đúng thứ tự form cổng)
           expect(val('full_name')).toBe(String(data.fullNameOnDoc));
           expect(val('date_of_birth')).toBe(portalDate(String(data.dateOfBirth)));
-          expect(val('nationality')).toMatch(/\(DEU\)$/); // "Đức (DEU)" – portal_nationality_format
+          // ESC-018 (INV 17/10): cổng khai báo chỉ nhận mã alpha-3, không kèm tên nước
+          expect(val('nationality')).toMatch(/^DEU$/);
           expect(val('passport_number')).toBe(String(data.docNumber));
           expect(val('visa_number')).toBe('DV1234567');
           expect(val('visa_valid_until')).toBe(portalDate(String(data.visaValidUntil)));

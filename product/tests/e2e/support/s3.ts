@@ -589,7 +589,7 @@ export async function deskConsent(
 
 /**
  * PortalData.fields[].value of a date (OpenAPI 0.3.6 addendum, ARC 17/10): `portal_date_format`, default dd/MM/yyyy
- * (DOM S3-5 – assumption pending ESC-018). Nationality is "Vietnamese country name (alpha-3)".
+ * (DOM S3-5). Nationality is the alpha-3 code only, e.g. `DEU` (ESC-018, INV 17/10).
  */
 export function portalDate(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-');

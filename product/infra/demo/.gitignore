@@ -1,0 +1,4 @@
+# Demo outputs: accounts/passwords, guest link, device token (0600) – never commit
+.out/
+# Working copy of the git HEAD archive + generated demo.env (random DB passwords)
+.work/

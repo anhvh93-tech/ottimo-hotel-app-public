@@ -1,0 +1,32 @@
+# OTTIMO Desk – DEMO stack for the investor on this Mac (overlay on infra/docker-compose.yml of the git archive).
+# Started only by infra/demo/demo-up.sh / demo-reset.sh:
+#   docker compose -p ottimo-demo --env-file .work/demo.env \
+#     -f .work/src/product/infra/docker-compose.yml -f infra/demo/docker-compose.demo.yml …
+# Differences from the dev stack (ottimo-dev keeps running untouched):
+#   - own project name (ottimo-demo): own containers, network, volumes pgdata/blobdata
+#   - own images built by demo-up.sh from `git archive` (ottimo-api:demo, ottimo-web:demo; no `build:` here)
+#   - own ports: desk 8181, staff 8182, guest 8183, api 3100; PostgreSQL not published
+#   - APP_ENV=dev, CLOCK_MODE=system and INCLUDE_TEST_SUPPORT=0 come from .work/demo.env (the seeding phase alone
+#     runs ottimo-api:demo-seed with the fake clock to create stays that started in the past – demo-up.sh)
+services:
+  postgres:
+    ports: !reset []
+  db-roles: {}
+  migrate:
+    image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
+  api:
+    image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
+    build: !reset null
+    ports: !override
+      - '127.0.0.1:3100:3000'
+  worker:
+    image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}
+  web:
+    image: ottimo-web:demo
+    build: !reset null
+    ports: !override
+      - '127.0.0.1:8181:8081'
+      - '127.0.0.1:8182:8082'
+      - '127.0.0.1:8183:8083'
+  seed:
+    image: ${DEMO_API_IMAGE:?DEMO_API_IMAGE}

@@ -5,15 +5,15 @@
 
 ## 1. Tổng hợp
 
-| Mức | Số lỗi | Open | Fixed | Closed |
-|---|---|---|---|---|
-| P0 | 1 | 0 | 0 | 1 |
-| P1 | 11 | 6 | 1 | 4 |
-| P2 | 25 | 9 | 0 | 16 |
-| P3 | 15 | 3 | 0 | 12 |
-| **Tổng** | **52** | **18** | **1** | **33** |
+| Mức | Số lỗi | Open | Fixed | Deferred | Closed |
+|---|---|---|---|---|---|
+| P0 | 1 | 0 | 0 | 0 | 1 |
+| P1 | 12 | 0 | 1 | 0 | 11 |
+| P2 | 25 | 1 | 0 | 1 | 23 |
+| P3 | 15 | 0 | 0 | 0 | 15 |
+| **Tổng** | **53** | **1** | **1** | **1** | **50** |
 
-Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…052. Kiểm lại trên `229db99`: đóng **044 (P0)**, 039, 042; 030 đã commit (chờ CI E2E xanh – đang chặn bởi 050). Open: P1 = 031, 035, 037, 046, **050**, **052**; P2 = 033, 034, 036, 038, 041, 045, 047, 048, 051; P3 = 032, 040, 043. Đếm lại từng dòng bảng dưới.
+Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…053. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới.
 
 | ID | Mức | Tóm tắt | Vai sửa | Trạng thái |
 |---|---|---|---|---|
@@ -46,29 +46,30 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-027 | P2 | Văn bản báo giá tiếng Nga ra tiếng Anh: `QUOTE_COPY_MISSING.ru` thiếu 5 khóa (`sale.quote_text`, `sale.quote_text_extra_guest`, `occ.*_short`), `--check` chỉ cảnh báo (PO-S2-01, US-083 AC2) | UXD (5 chuỗi RU) + BE-B (sinh lại `quote-copy.ts`, `--check` báo lỗi) | **Closed** (S3 testing 17/10) – TC-L5-016 (ru) đạt (chữ Kirin, không lẫn câu mẫu EN); bỏ `test.fail`  |
 | BUG-R2-028 | P3 | Form Đặt phòng mới: tạo nhanh khách có SĐT xong, form vẫn đòi nhập lại "Số điện thoại / Zalo" (ô đỏ "Bắt buộc với kênh Trực tiếp") rồi PATCH lại hồ sơ khách | FE | **Closed** (S3 testing 17/10) – UI: tạo nhanh khách có SĐT → form không hỏi lại, không `PATCH guests/*`  |
 | BUG-R2-029 | P3 | Sơ đồ phòng luôn hiện "Dữ liệu lúc hh:mm. Đang kết nối lại…" vì `GET /v1/properties/{id}/events` (SSE) trả 404 trên build – lễ tân tưởng mất kết nối | FE (ẩn trạng thái khi endpoint chưa có) / BE-A (SSE – Sprint 4) | **Closed** (S3 testing 17/10) – UI: Sơ đồ phòng 5 giây không có "Đang kết nối lại…"  |
-| **BUG-R2-030** | **P1** | Stack compose (dev + CI E2E): `api`/`worker` không khởi động – `EACCES: mkdir '/app/.data/blobs'` → job CI `docker images build · E2E smoke` đỏ ở "Start compose stack" (run 38929255451) | OPS (+ BE-C) | **Fixed** – đã commit `229db99` (volume `blobdata`, `BLOBSTORE_LOCAL_PATH`, Dockerfile `node:node 0700`); QA kiểm trên ảnh `229db99`: stack `healthy`, E2E đủ. Closed khi job CI E2E xanh (CI 38940900970 dừng ở bước lint do BUG-R2-050) |
-| **BUG-R2-031** | **P1** | `Reservation` không trả các trường 0.3.6 (`registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd`) → H13 bước Giấy tờ/Kiểm tra treo "Đang tải…" | BE-A | Open |
-| BUG-R2-032 | P3 | H13 bước 3: nút sang bước 4 ghi "Nhận phòng căn {room}" (khóa `ci.submit` không tham số, sai nghĩa) | FE (+UXD khóa mới) | Open |
-| BUG-R2-033 | P2 | Nhập giấy tờ người 2 không `partyMemberId` → không khớp hồ sơ theo BR-951, không tạo người "Chưa rõ" (US-043 AC3) | BE-C + BE-A | Open |
-| BUG-R2-034 | P2 | "Cần chú ý" không có `registration_due`/`registration_overdue`/`visa_expiring` (US-025 AC4, US-044 AC4, US-050 AC2) | BE-C + BE-A | Open – **PO 17/10: thuộc Sprint 3** (nguồn API "Cần chú ý"; khung Tổng quan hiển thị ở Sprint 4), đóng trước cổng QC Sprint 3 |
-| **BUG-R2-035** | **P1** | Job J5 `registration.deadline` chưa đăng ký: không nhắc hạn khai báo, không thông báo tổng hợp 22:00/07:00 (BR-611, US-042 AC2) | BE-C (+ BE-A worker) | Open |
-| BUG-R2-036 | P2 | J16 chặn lượt 55 phút → ảnh người không đồng ý có thể còn quá hạn trên 24 giờ sau `confirmed` khi xóa ngay bị lỗi (BR-609-01) | BE-C | Open |
-| **BUG-R2-037** | **P1** | Gia hạn vượt hạn thị thực không bị chặn mềm (thiếu 422 `VISA_EXPIRES_BEFORE_DEPARTURE`, US-050 AC2) | BE-A | Open |
-| BUG-R2-038 | P2 | Điều kiện nhận phòng "Đã thu đủ" không cộng phụ thu nhận sớm / đêm B9a sắp ghi (EP03-05 1.3) | BE-A | Open |
+| **BUG-R2-030** | **P1** | Stack compose (dev + CI E2E): `api`/`worker` không khởi động – `EACCES: mkdir '/app/.data/blobs'` → job CI `docker images build · E2E smoke` đỏ ở "Start compose stack" (run 38929255451) | OPS (+ BE-C) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – CI 38980363276 (`c8b83f3`): bước "Start compose stack" xanh, api/worker healthy; job E2E còn đỏ vì BUG-R2-053 (nguyên nhân khác) |
+| **BUG-R2-031** | **P1** | `Reservation` không trả các trường 0.3.6 (`registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd`) → H13 bước Giấy tờ/Kiểm tra treo "Đang tải…" | BE-A | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-030 (E): bước Giấy tờ hiện 4 số cuối; TC-L3-001 (E): `houseRulesSentAt`, `cardsIssued` có giá trị |
+| BUG-R2-032 | P3 | H13 bước 3: nút sang bước 4 ghi "Nhận phòng căn {room}" (khóa `ci.submit` không tham số, sai nghĩa) | FE (+UXD khóa mới) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-001 (E): nút bước 3 "Tiếp tục: Giao mã & hoàn tất", không còn nhãn `{room}` |
+| BUG-R2-033 | P2 | Nhập giấy tờ người 2 không `partyMemberId` → không khớp hồ sơ theo BR-951, không tạo người "Chưa rõ" (US-043 AC3) | BE-C + BE-A | **Open** – (a) vẫn trượt (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới): cổng khớp `frontdesk/internal/document-party.port.ts:72–85` chỉ so `guest.id_doc_hmac` mà **không có chỗ nào ghi cột này** (`db/schema/guests.ts:49` – không có lệnh ghi) → không bao giờ khớp hồ sơ; (b) người "Chưa rõ" – ORC 17/10: dời Sprint 4 |
+| BUG-R2-034 | P2 | "Cần chú ý" không có `registration_due`/`registration_overdue`/`visa_expiring` (US-025 AC4, US-044 AC4, US-050 AC2) | BE-C + BE-A | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-004, TC-L3-037: "Cần chú ý" có mục khai báo/thị thực |
+| **BUG-R2-035** | **P1** | Job J5 `registration.deadline` chưa đăng ký: không nhắc hạn khai báo, không thông báo tổng hợp 22:00/07:00 (BR-611, US-042 AC2) | BE-C (+ BE-A worker) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-044, 046, 048: J5 `registration.deadline` chạy, quá hạn vào "Cần chú ý", thông báo tổng hợp FD + MGR |
+| BUG-R2-036 | P2 | J16 chặn lượt 55 phút → ảnh người không đồng ý có thể còn quá hạn trên 24 giờ sau `confirmed` khi xóa ngay bị lỗi (BR-609-01) | BE-C | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-039: J16 tại đúng hạn trên xóa ảnh (getDocumentImage → 404) |
+| **BUG-R2-037** | **P1** | Gia hạn vượt hạn thị thực không bị chặn mềm (thiếu 422 `VISA_EXPIRES_BEFORE_DEPARTURE`, US-050 AC2) | BE-A | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-054: gia hạn vượt hạn thị thực không lý do → 422 `VISA_EXPIRES_BEFORE_DEPARTURE` |
+| BUG-R2-038 | P2 | Điều kiện nhận phòng "Đã thu đủ" không cộng phụ thu nhận sớm / đêm B9a sắp ghi (EP03-05 1.3) | BE-A | **Deferred** – 0.3.7 (ARC/ORC 17/10: `checkIn.payment` + `CheckInPreview.amountDueAtCheckinVnd`; tới lúc đó B18 chặn `BALANCE_DUE`) – TC-L3-011 giữ `test.fail` |
 | **BUG-R2-039** | **P1** | Nhận sớm có phụ thu mà `applyEarlySurcharge=false` vẫn nhận phòng, phụ thu bỏ qua không cần duyệt (thiếu 422 `SURCHARGE_DECISION_REQUIRED`) | BE-A | **Closed** (17/10, ảnh `229db99`) – TC-L3-014: `applyEarlySurcharge=false` có phụ thu → 422 `SURCHARGE_DECISION_REQUIRED` |
-| BUG-R2-040 | P3 | Sơ đồ phòng `getRack.roomStatus` không đọc `room_status` (OC/VC thay vì OD/VD sau nhận/trả phòng) | BE-A | Open |
-| BUG-R2-041 | P2 | Hóa đơn công ty (`setInvoiceRequest`) không gắn vào hồ sơ khách (US-039 AC2, D16) | BE-B | Open |
+| BUG-R2-040 | P3 | Sơ đồ phòng `getRack.roomStatus` không đọc `room_status` (OC/VC thay vì OD/VD sau nhận/trả phòng) | BE-A | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – ca tự động mới trong TC-L3-002 (b): `getRack.roomStatus` = OD khớp `room_status` |
+| BUG-R2-041 | P2 | Hóa đơn công ty (`setInvoiceRequest`) không gắn vào hồ sơ khách (US-039 AC2, D16) | BE-B | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L4-059: tên công ty/MST gắn vào hồ sơ khách |
 | BUG-R2-042 | P2 | `qa.sal` ghi thu cọc giữ chỗ của mình → 422 `AMOUNT_TOO_HIGH` max 0 (US-119 AC4, A33 `own_deposit_only`) | BE-B (+ARC) | **Closed** (17/10, ảnh `229db99`) – TC-L4-063: `qa.sal` ghi cọc giữ chỗ của mình → 201, `reconciliation=pending` |
-| BUG-R2-043 | P3 | Số thẻ ở `posAuthCode` bị chặn nhưng mã lỗi `TOO_LONG` thay vì `CARD_NUMBER_DETECTED` (V-09) | BE-B | Open |
+| BUG-R2-043 | P3 | Số thẻ ở `posAuthCode` bị chặn nhưng mã lỗi `TOO_LONG` thay vì `CARD_NUMBER_DETECTED` (V-09) | BE-B | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L4-066: số thẻ ở `posAuthCode` → `CARD_NUMBER_DETECTED` |
 | **BUG-R2-044** | **P0** | Đơn OTA thu hộ (`ota_prepaid`): không có khoản "Đã thu qua OTA" → tiền phòng tính vào "Còn phải thu" (BR-307, US-119 AC2) – nguy cơ thu tiền khách 2 lần, trả phòng bị `BALANCE_DUE` | BE-B (+ cổng BE-A) | **Closed** (17/10, ảnh `229db99`) – TC-L4-061 (api), TC-L4-046, TC-L4-047 (clock): `paidViaOtaVnd` = tiền phòng, "Còn phải thu" chỉ còn khoản tại quầy; không cần ESC |
-| BUG-R2-045 | P2 | `getExtensionOptions.channelFeeSavingsVnd` chỉ tính phí kênh 1 đêm (BR-422-01: theo tổng tiền gia hạn) | BE-A (+ARC hợp đồng) | Open |
-| **BUG-R2-046** | **P1** | FOC trên dòng phát sinh (trả muộn, nhận sớm, minibar, dịch vụ) không có `limitBasisVnd` → quản lý không duyệt/tự áp được FOC trong hạn mức "≤ 1 đêm", mọi thứ dồn lên chủ đầu tư (BR-433) | BE-A (+ BE-B folio) | Open |
-| BUG-R2-047 | P2 | Gia hạn (B13) không chuyển buồng OC → OD (SM-01 B13, BR-802) | BE-A | Open |
-| BUG-R2-048 | P2 | `listC3AccessLog` bỏ qua tham số `from`/`to` của hợp đồng (server đọc `dateFrom`/`dateTo`) | BE-C | Open |
+| BUG-R2-045 | P2 | `getExtensionOptions.channelFeeSavingsVnd` chỉ tính phí kênh 1 đêm (BR-422-01: theo tổng tiền gia hạn) | BE-A (+ARC hợp đồng) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L4-003 theo 0.3.6 bổ sung 3: `repricing[].channelFeeSavingsVnd` theo số đêm |
+| **BUG-R2-046** | **P1** | FOC trên dòng phát sinh (trả muộn, nhận sớm, minibar, dịch vụ) không có `limitBasisVnd` → quản lý không duyệt/tự áp được FOC trong hạn mức "≤ 1 đêm", mọi thứ dồn lên chủ đầu tư (BR-433) | BE-A (+ BE-B folio) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-NT-029 (b), TC-NT-030 (b), TC-NT-036 (a), TC-L4-056: MGR duyệt/tự áp FOC phát sinh trong hạn mức 1 đêm |
+| BUG-R2-047 | P2 | Gia hạn (B13) không chuyển buồng OC → OD (SM-01 B13, BR-802) | BE-A | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L4-004: gia hạn chuyển buồng OC → OD |
+| BUG-R2-048 | P2 | `listC3AccessLog` bỏ qua tham số `from`/`to` của hợp đồng (server đọc `dateFrom`/`dateTo`) | BE-C | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – ca tự động mới trong TC-RB-022: `from`/`to` năm 2000 → 0 dòng, khoảng hôm nay → có dòng, sai định dạng → 422 |
 | BUG-R2-049 | P2 | Harness E2E Sprint 3 của QA: ngày nghiệp vụ lấy theo ngày lịch (đỏ 00:00–05:59), tham số tương lai 2028–2030 rò sang ngày ảo, thăm dò endpoint mang cookie phiên, ảnh mẫu PNG hỏng, kỳ vọng `balanceDueVnd` âm (trước 0.3.6), regex ngày hết hạn báo giá, cửa sổ dời ngày TC-L2-055 | QA | Closed (17/10) – 2 lượt chạy đủ trên stack mới: 0 trượt, 0 flaky |
-| **BUG-R2-050** | **P1** | `apps/guest-web/build/used-keys.ts` không có trong git (bị `.gitignore` gốc `build/` loại) mà `vite.config.ts`/`guard.test.ts` import → checkout sạch: `tsc` guest-web đỏ, ảnh `ottimo-web` không build được; CI 38940900970 (`229db99`) đỏ ở Lint, E2E/publish/deploy bị bỏ | FE (guest-web) + OPS (.gitignore) | Open |
-| BUG-R2-051 | P2 | Giới hạn SR-RL-09 (600 request/phút/người) ở `AuthGuard` dùng bộ đếm riêng: `/__test__/rate-limits/reset` không xóa được, không cấu hình được, cửa sổ theo MutableClock → sau khi tua đồng hồ về hiện tại `Retry-After` = 247.743.660 giây (≈ 7,8 năm), tài khoản bị khóa tới khi khởi động lại api; E2E dùng chung `qa.*` song song chạm 429 | BE-B (+ OPS) | Open |
-| **BUG-R2-052** | **P1** | Khách đến sau nửa đêm (00:00–05:59, ngày nghiệp vụ vẫn = ngày đến): `checkIn` coi là nhận sớm trước 06:00 → 422 `addPriorNight: REQUIRED` (preview cùng lúc báo phụ thu 0); H13 chỉ hiện "Bắt buộc", không nhận phòng được (US-025 AC6, BR-602-02) | BE-A (+ FE thông báo) | Open |
+| **BUG-R2-050** | **P1** | `apps/guest-web/build/used-keys.ts` không có trong git (bị `.gitignore` gốc `build/` loại) mà `vite.config.ts`/`guard.test.ts` import → checkout sạch: `tsc` guest-web đỏ, ảnh `ottimo-web` không build được; CI 38940900970 (`229db99`) đỏ ở Lint, E2E/publish/deploy bị bỏ | FE (guest-web) + OPS (.gitignore) | **Closed** (CI 38980363276, `c8b83f3`: job "format · lint · audit · test · build" xanh, ảnh web build được) |
+| BUG-R2-051 | P2 | Giới hạn SR-RL-09 (600 request/phút/người) ở `AuthGuard` dùng bộ đếm riêng: `/__test__/rate-limits/reset` không xóa được, không cấu hình được, cửa sổ theo MutableClock → sau khi tua đồng hồ về hiện tại `Retry-After` = 247.743.660 giây (≈ 7,8 năm), tài khoản bị khóa tới khi khởi động lại api; E2E dùng chung `qa.*` song song chạm 429 | BE-B (+ OPS) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – STAFF_REQUESTS_PER_MINUTE=60: 429 `Retry-After: 60`; `/__test__/rate-limits/reset` xóa được; đồng hồ đóng băng +20 phút rồi trả về → `Retry-After` vẫn 60 (không còn hàng năm); CI dùng 5000 (`make-ci-env.sh`) |
+| **BUG-R2-052** | **P1** | Khách đến sau nửa đêm (00:00–05:59, ngày nghiệp vụ vẫn = ngày đến): `checkIn` coi là nhận sớm trước 06:00 → 422 `addPriorNight: REQUIRED` (preview cùng lúc báo phụ thu 0); H13 chỉ hiện "Bắt buộc", không nhận phòng được (US-025 AC6, BR-602-02) | BE-A (+ FE thông báo) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-008 (a): 01:30 ngày D+1 → B9 thường, không phụ thu (BE); phần chữ báo lỗi của H13 lúc 00:00–05:59 chưa chạy được giao diện ban đêm ở lượt này |
+| **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Fixed** – OPS: `ci.yml` chạy seed `--user "$(id -u):$(id -g)"` + `test -r` (cây làm việc); QA: harness báo rõ + thiết bị quầy dự phòng (`support/device.ts`, đã vào `e3959ec`). Closed khi job CI E2E xanh |
 
 ## 2. Chi tiết
 
@@ -274,7 +275,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Mong đợi: chỉ báo "đang kết nối lại" khi luồng đã có rồi bị rớt; endpoint chưa có → im lặng (hoặc nhãn "Cập nhật mỗi 30 giây").
 
 ### BUG-R2-030 – Stack compose (dev + CI E2E): api và worker không khởi động – `EACCES: mkdir '/app/.data/blobs'`
-- Mức: **P1** (chặn toàn bộ job CI `docker images build · E2E smoke` và mọi stack dev dựng mới; không có E2E nào chạy được trên code Sprint 3) · Môi trường: ảnh `ottimo-api` build từ `8ca2a47`/`a297273`, `infra/docker-compose.yml` của HEAD · Vai sửa: OPS (compose + Dockerfile), BE-C (mặc định đường dẫn blob) · Trạng thái: **Fixed** – bản sửa của OPS đã vào commit `229db99` (17/10 00:35); QA kiểm lại trên ảnh build từ `229db99` (git archive): stack `healthy`, thư mục blob `drwx------ node node`, ghi/xóa ảnh giấy tờ (J16) được, E2E chạy đủ 2 lượt. Chuyển **Closed** khi job CI E2E xanh – CI 38940900970 trên `229db99` dừng ở bước Lint vì BUG-R2-050 nên job E2E chưa chạy
+- Mức: **P1** (chặn toàn bộ job CI `docker images build · E2E smoke` và mọi stack dev dựng mới; không có E2E nào chạy được trên code Sprint 3) · Môi trường: ảnh `ottimo-api` build từ `8ca2a47`/`a297273`, `infra/docker-compose.yml` của HEAD · Vai sửa: OPS (compose + Dockerfile), BE-C (mặc định đường dẫn blob) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước tái hiện: `docker compose --env-file .env -f infra/docker-compose.yml up --build --wait` trên HEAD `a297273`.
 - Thực tế: `api-1`, `worker-1` khởi động lại liên tục, log `Error: EACCES: permission denied, mkdir '/app/.data/blobs'` (10 dòng/30 giây), `dependency failed to start: container …-api-1 is unhealthy`. CI run 38929255451 (main, `a297273`): bước "Start compose stack" đỏ – E2E không chạy.
 - Gốc: `files/internal/blob-store.ts:117` mặc định `BLOBSTORE_LOCAL_PATH = ./.data/blobs` (tương đối `/app`, thuộc root trong ảnh, tiến trình chạy `USER node`); compose không đặt biến, không mount volume; worker (J16 xóa blob) cần cùng thư mục.
@@ -283,21 +284,21 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Ghi chú: trong lúc chờ, các stack QA dùng file override đặt `BLOBSTORE_LOCAL_PATH=/data/blobs` + bind mount chung cho api/worker.
 
 ### BUG-R2-031 – `Reservation` không trả các trường 0.3.6 (`registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd`) → H13 bước Giấy tờ/Kiểm tra treo "Đang tải…"
-- Mức: **P1** (màn Nhận phòng – luồng chính A1 – không hiện/nhập/kiểm được giấy tờ C3 ở bước 1–2; lễ tân phải sang H14 "Giấy tờ & khai báo" rồi quay lại; client không có cách đi từ đơn sang khai báo theo hợp đồng) · Môi trường: stack `ottimo-qa-s3` (`8ca2a47`, và `a297273` + infra), Chromium 1366×768, `qa.fd` trên máy được cấp · Vai sửa: BE-A (`reservations/internal/reservation-dto.ts`) · Trạng thái: **Open**
+- Mức: **P1** (màn Nhận phòng – luồng chính A1 – không hiện/nhập/kiểm được giấy tờ C3 ở bước 1–2; lễ tân phải sang H14 "Giấy tờ & khai báo" rồi quay lại; client không có cách đi từ đơn sang khai báo theo hợp đồng) · Môi trường: stack `ottimo-qa-s3` (`8ca2a47`, và `a297273` + infra), Chromium 1366×768, `qa.fd` trên máy được cấp · Vai sửa: BE-A (`reservations/internal/reservation-dto.ts`) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước tái hiện: (1) tạo đơn đến hôm nay, thu đủ, nhập giấy tờ người đứng tên (API); (2) `GET /v1/properties/{p}/reservations/{id}` (đơn `confirmed`), rồi `checkIn` và `GET` lại (đơn `in_house`); (3) mở `/reservations/{id}/check-in` trên admin-web.
 - Thực tế: (2) khóa trả về chỉ có `id, code, status, …, depositPaidVnd, noShowAvailableFrom, nightlyRates, totalRoomVnd, conflictState, capacityConflict, progress, (actualCheckinAt, doorAccessHandedOverAt), allowedActions, version` – **không** có `registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd` dù đã có giá trị trong DB (`house_rules_sent_at`, `cards_issued` ghi khi B9). (3) khung bên phải bước "Giấy tờ" và "Kiểm tra" là skeleton + `status "Đang tải…"` mãi (`CheckInPage.tsx:100` `if (!deviceTrusted || !r?.registrationId) return;`); điều kiện "Có giấy tờ người đứng tên" vẫn đổi đúng sau khi nhập ở H14.
 - Mong đợi: OpenAPI 0.3.6 `Reservation` (schema dòng ~8405–8415): `registrationId`, `registrationStatus`, `registrationDeadlineAt`, `houseRulesSentAt`, `cardsIssued`, `balanceDueVnd` có giá trị khi tồn tại; H13 bước 1 hiện giấy tờ (4 số cuối) và cho nhập.
 - Bằng chứng: `ui/stay.h13-h17.spec.ts` "TC-L3-030 (E)" (`test.fail`), phần cuối "TC-L3-001 (E)" (`houseRulesSentAt`/`cardsIssued` – `test.fail`); harness `support/s3.ts registrationOf()` phải tìm khai báo qua `listRegistrations` (lật trang).
 
 ### BUG-R2-032 – H13 bước 3 "Khai báo": nút sang bước 4 ghi "Nhận phòng căn {room}" (chưa thay tham số, sai nghĩa)
-- Mức: P3 (nhãn sai: nút chỉ chuyển sang bước "Giao mã & hoàn tất", không nhận phòng; hiện nguyên `{room}`) · Môi trường: như BUG-R2-031 · Vai sửa: FE · Trạng thái: **Open**
+- Mức: P3 (nhãn sai: nút chỉ chuyển sang bước "Giao mã & hoàn tất", không nhận phòng; hiện nguyên `{room}`) · Môi trường: như BUG-R2-031 · Vai sửa: FE · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: H13 → "Tiếp tục: Kiểm tra" → "Tiếp tục: Khai báo" → xem nút chính ở chân màn.
 - Thực tế: nút `Nhận phòng căn {room}`. Gốc: `CheckInPage.tsx:653` `nextKey = ['ci.go_verify','ci.go_register','ci.submit'][step]` rồi `t(nextKey!)` không truyền `{room}`.
 - Mong đợi: khóa riêng kiểu "Tiếp tục: Giao mã & hoàn tất" (UXD) – nút `ci.submit` chỉ ở bước 4.
 - Bằng chứng: `ui/stay.h13-h17.spec.ts` TC-L3-001 (E) annotation `observed` "nút bước 3".
 
 ### BUG-R2-033 – Nhập giấy tờ người thứ 2 không gắn người vào đơn theo BR-951 (không khớp hồ sơ, không tạo người "Chưa rõ")
-- Mức: P2 (sai AC US-043 AC3; danh sách người trong đơn/khai báo thiếu người; cách vòng: `addPartyMember` trước rồi gửi `partyMemberId`) · Môi trường: stack `ottimo-qa-s3a`, ảnh `8ca2a47` · Vai sửa: BE-C (registration) + BE-A (party) + BE-B (guests) · Trạng thái: **Open** – **PO quyết 17/10 ca (b): phương án A** (decision-log 17/10, US-043 AC3 làm rõ): không khớp hồ sơ → tạo hồ sơ khách **nguồn "từ giấy tờ"** không cần SĐT/email (bỏ `CONTACT_REQUIRED` chỉ cho đường này; form CRM/người đứng tên giữ nguyên), không đồng ý marketing, không vào danh sách tiếp thị, gắn vào đơn `role=companion`, quan hệ `unknown`; vượt số khách của đơn → vẫn gắn + cảnh báo (không tự ghi phụ thu). **Chờ SEC ký** phần dữ liệu cá nhân (tối thiểu trường, hạn lưu hồ sơ không liên hệ, cách lưu khóa số giấy tờ để khớp) trước khi merge
+- Mức: P2 (sai AC US-043 AC3; danh sách người trong đơn/khai báo thiếu người; cách vòng: `addPartyMember` trước rồi gửi `partyMemberId`) · Môi trường: stack `ottimo-qa-s3a`, ảnh `8ca2a47` · Vai sửa: BE-C (registration) + BE-A (party) + BE-B (guests) · Trạng thái: **Open** – (a) vẫn trượt trên `16941c6` (mục 5: `guest.id_doc_hmac` không được ghi ở đâu); (b) người "Chưa rõ" dời Sprint 4 (ORC 17/10)
 - Bước: `qa.fd`, đơn confirmed 2 người lớn (ngày xa); `addGuestDocument` người 2 (`isMain: false`, không `partyMemberId`): (a) số CCCD trùng giấy tờ của khách G ở lần ở trước; (b) số không trùng ai.
 - Thực tế: 201, giấy tờ không có `partyMemberId`; `listParty` không thêm người, không khớp G, không tạo người quan hệ "Chưa rõ".
 - Mong đợi: EP06 2.2 (`partyMemberId` bỏ trống → server khớp theo BR-951: số giấy tờ → SĐT → email → tên + ngày sinh; không khớp → người mới quan hệ `unknown`), US-043 AC3.
@@ -305,7 +306,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `api/checkin.s3.api.spec.ts` TC-L3-032 (`test.fail`).
 
 ### BUG-R2-034 – "Cần chú ý" không có mục khai báo / thị thực (`registration_due`, `registration_overdue`, `visa_expiring`)
-- Mức: P2 (sai AC US-025 AC4, US-044 AC4, US-050 AC2 – lễ tân không được nhắc hồ sơ sắp/quá hạn khai báo và thị thực sắp hết; nhãn hạn ở H14 vẫn đúng) · Vai sửa: BE-C (nguồn dữ liệu) + BE-A (`registerAttentionSource`) · Trạng thái: **Open** – **PO quyết 17/10: Sprint 3, không Deferred.** BE-C thêm 3 nguồn `registration_due`, `registration_overdue`, `visa_expiring` (tính khi đọc, dùng lại `deadlineLabel`/`isOverdue` và quy tắc BR-602/603/605) qua `registerAttentionSource` của BE-A; `visa_expiring` chỉ trả mã đơn + căn, không ngày hết hạn (US-012 AC3, SEC SR-RET-06). 3 ca TC-L3-004/037/054 giữ `test.fail` tới khi sửa. Phần hiển thị trên Tổng quan/khung "Cần chú ý" vẫn Sprint 4 (EP01) – decision-log 17/10
+- Mức: P2 (sai AC US-025 AC4, US-044 AC4, US-050 AC2 – lễ tân không được nhắc hồ sơ sắp/quá hạn khai báo và thị thực sắp hết; nhãn hạn ở H14 vẫn đúng) · Vai sửa: BE-C (nguồn dữ liệu) + BE-A (`registerAttentionSource`) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: ⏱ D 10:00 `qa.fd` nhận phòng đơn khách NN khai báo `review` → `GET /attention`; TC-L3-037: thị thực hết trước ngày đi.
 - Thực tế: 200 `data: []` (không có 3 loại trên; enum `AttentionItem.kind` đã có).
 - Mong đợi: EP06 mục 1 ("quá hạn → Cần chú ý", BR-907) và bảng 3.1.
@@ -313,14 +314,14 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `clock/checkin.s3.clock.spec.ts` TC-L3-004, TC-L3-037, TC-L3-054 (`test.fail`).
 
 ### BUG-R2-035 – Job J5 `registration.deadline` chưa đăng ký: không nhắc hạn, không thông báo tổng hợp 22:00/07:00 (BR-611)
-- Mức: **P1** (test-strategy mục 8: "job theo giờ không chạy (… không nhắc khai báo)" = P1; sai AC Must US-042 AC2; hồ sơ khai báo có thể trễ hạn pháp lý mà không ai được nhắc – QA chính nâng từ đề xuất P2; nhãn `deadlineLabel`/`isOverdue` tính lúc đọc vẫn đúng ở mọi mốc) · Vai sửa: BE-C (+ BE-A worker) · Trạng thái: **Open**
+- Mức: **P1** (test-strategy mục 8: "job theo giờ không chạy (… không nhắc khai báo)" = P1; sai AC Must US-042 AC2; hồ sơ khai báo có thể trễ hạn pháp lý mà không ai được nhắc – QA chính nâng từ đề xuất P2; nhãn `deadlineLabel`/`isOverdue` tính lúc đọc vẫn đúng ở mọi mốc) · Vai sửa: BE-C (+ BE-A worker) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: `POST /__test__/jobs/registration.deadline/run` → 404; log worker chỉ có `hold.expire`, `log.partitions`, `ooo.activate`, `payment.expire`, `retention.purge`.
 - Mong đợi: architecture 9.1 J5 `registration.deadline` ở R2; BR-611 (thông báo cho FD + MGR lúc 22:00 và 07:00, không gửi trùng – `job_run`).
 - Gốc: `worker.ts:20–38`, `registration/public/worker-jobs.ts` chỉ đăng ký J16.
 - Bằng chứng: TC-L3-044, TC-L3-046, TC-L3-048 (`test.fail`).
 
 ### BUG-R2-036 – J16 chặn lượt chạy 55 phút → ảnh của khách không đồng ý có thể còn quá hạn trên 24 giờ sau `confirmed` (khi lệnh xóa ngay bị lỗi)
-- Mức: **P2** (QA quyết – TC ghi "ảnh còn sau mốc = P0" nhưng chỉ xảy ra khi bước xóa ngay K6 đã lỗi, trễ tối đa ~55 phút; vẫn là vi phạm hạn trên SEC M3 / BR-609-01) · Vai sửa: BE-C · Trạng thái: **Open**
+- Mức: **P2** (QA quyết – TC ghi "ảnh còn sau mốc = P0" nhưng chỉ xảy ra khi bước xóa ngay K6 đã lỗi, trễ tối đa ~55 phút; vẫn là vi phạm hạn trên SEC M3 / BR-609-01) · Vai sửa: BE-C · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: khai báo confirmed D 15:20 (BR-609-01); giả lập "xóa ngay bị lỗi" (đổi `consent_record` → refused trên DB stack dùng một lần); ⏱ D+1 15:19 ▶ J16 → `done`, `t01Images: 0` (đúng); ⏱ D+1 15:20 ▶ J16 → `{"status":"done","stats":{"skipped":true}}`.
 - Thực tế: `getDocumentImage` vẫn 200 sau mốc confirmed + 24 giờ.
 - Mong đợi: BR-609-01 `purgeBackstopBy` = confirmed + 24 giờ; EP06 6.1 `id_image_purge_max_hours`.
@@ -328,14 +329,14 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: TC-L3-039 (`test.fail`).
 
 ### BUG-R2-037 – Gia hạn vượt hạn thị thực không bị chặn mềm (thiếu 422 `VISA_EXPIRES_BEFORE_DEPARTURE`)
-- Mức: **P1** (luồng chính – gia hạn – sai quy tắc nghiệp vụ, không trực tiếp sai tiền: khách NN có thể ở quá hạn thị thực mà lễ tân không bị chặn mềm/nhắc; rủi ro pháp lý cho cơ sở – QA chính nâng từ đề xuất P2) · Vai sửa: BE-A · Trạng thái: **Open**
+- Mức: **P1** (luồng chính – gia hạn – sai quy tắc nghiệp vụ, không trực tiếp sai tiền: khách NN có thể ở quá hạn thị thực mà lễ tân không bị chặn mềm/nhắc; rủi ro pháp lý cho cơ sở – QA chính nâng từ đề xuất P2) · Vai sửa: BE-A · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: ⏱ D 14:30 khách NN thị thực đến D+3, đơn D→D+2 đang ở, khai báo `scanned`; `extend {nights: 2, visaWarningAckReason}` → 200 (đúng); rồi `extend {nights: 1}` không lý do (ngày đi mới D+5 > hạn thị thực).
 - Thực tế: 200, gia hạn được ghi. Mong đợi: 422 `VISA_EXPIRES_BEFORE_DEPARTURE` (OpenAPI 0.3.6, mô tả `visaWarningAckReason`; EP03-05 E04-01).
 - Gốc: `stay.service.ts:244` đọc `visaWarningAckReason` nhưng không kiểm hạn thị thực; mã lỗi không có trong `src`.
 - Bằng chứng: TC-L3-054 (`test.fail`); phần ngày đi khai báo = hạn thị thực (BR-605-02) đạt.
 
 ### BUG-R2-038 – Điều kiện "Đã thu đủ" không cộng phụ thu nhận sớm / đêm B9a sắp ghi
-- Mức: P2 (sai EP03-05 1.3; nhận phòng xong còn nợ phụ thu, chỉ chặn khi trả phòng) · Vai sửa: BE-A · Trạng thái: **Open**
+- Mức: P2 (sai EP03-05 1.3; nhận phòng xong còn nợ phụ thu, chỉ chặn khi trả phòng) · Vai sửa: BE-A · Trạng thái: **Deferred** – 0.3.7 (`checkIn.payment`, `CheckInPreview.amountDueAtCheckinVnd` – OpenAPI 0.3.6 bổ sung 3); tới lúc đó B18 chặn `BALANCE_DUE` nên không mất tiền
 - Bước: ⏱ D 11:00, đơn Trực tiếp 700.000 đã thu đủ tiền phòng; `checkIn {checkinTime: '11:00', applyEarlySurcharge: true, expectedSurchargeVnd: 210000}` chưa thu 210.000.
 - Thực tế: 200 `in_house`, folio còn phải thu 210.000. Mong đợi: 409 `CHECKIN_CONDITIONS_NOT_MET`, `unmet: [balance_paid]`.
 - Gốc: `checkin.service.ts:178, 193–195` chỉ dùng số dư folio hiện tại.
@@ -349,12 +350,12 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: TC-L3-014 (`test.fail`).
 
 ### BUG-R2-040 – Sơ đồ phòng (`getRack.roomStatus`) không đọc trạng thái buồng đã lưu
-- Mức: P3 (rack hiện OC/VC trong khi buồng thực tế OD/VD sau nhận/trả phòng – lệch với H13 `previewCheckIn`; dọn buồng là Sprint 4) · Vai sửa: BE-A · Trạng thái: **Open**
+- Mức: P3 (rack hiện OC/VC trong khi buồng thực tế OD/VD sau nhận/trả phòng – lệch với H13 `previewCheckIn`; dọn buồng là Sprint 4) · Vai sửa: BE-A · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Gốc: `rack.service.ts:248` vẫn suy trạng thái theo dữ liệu hôm nay, không đọc bảng `room_status` (SM-03, Sprint 3).
 - Bằng chứng: quan sát của QA ở TC-L3-002/005 (đọc `room_status` qua DB stack dùng một lần) so với `getRack`.
 
 ### BUG-R2-041 – Hóa đơn công ty không gắn vào hồ sơ khách
-- Mức: P2 (sai AC US-039 AC2 – lần sau phải nhập lại; thông tin vẫn trên folio) · Môi trường: stack `ottimo-qa-s3b`, ảnh `8ca2a47` · Vai sửa: BE-B · Trạng thái: **Open**
+- Mức: P2 (sai AC US-039 AC2 – lần sau phải nhập lại; thông tin vẫn trên folio) · Môi trường: stack `ottimo-qa-s3b`, ảnh `8ca2a47` · Vai sửa: BE-B · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: `qa.fd` `PUT /folios/{id}/invoice-request` `{buyerType: company, companyName, taxCode: '0312345678', email}` → `GET /guests/{booker}`.
 - Thực tế: 200; `Folio.invoiceRequest` đủ, `Guest` không có `companyName`/`taxCode`. Mong đợi: EP03-05 5.4 "gắn folio + hồ sơ khách (D16)".
 - Gốc: `folio/internal/bill.service.ts:208–253` `setInvoice` chỉ ghi bảng `invoice_request`. Bằng chứng: `api/stay-checkout.s3.api.spec.ts` TC-L4-059 (`test.fail`).
@@ -366,7 +367,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Gốc: `payments/public/payment.service.ts:283–290` lấy trần = `balanceDueVnd` (folio giữ chỗ = 0), khác `payments.service.ts:665–674`. Bằng chứng: TC-L4-063 (`test.fail`); G2 → 404, khoản không phải cọc → 403, CTV → 403 đều đạt.
 
 ### BUG-R2-043 – Số thẻ ở mã chuẩn chi bị chặn nhưng sai mã lỗi
-- Mức: P3 (số thẻ không được lưu – R-PAY-01 đạt; chỉ thông báo sai) · Vai sửa: BE-B · Trạng thái: **Open**
+- Mức: P3 (số thẻ không được lưu – R-PAY-01 đạt; chỉ thông báo sai) · Vai sửa: BE-B · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: `recordPayment` `{method: card_pos, posAuthCode: '4111111111111111'}` → 422 `posAuthCode: TOO_LONG`. Mong đợi: `CARD_NUMBER_DETECTED` (EP03-05 2.2, V-09) để giao diện báo "không nhập số thẻ".
 - Gốc: `payments/internal/payments.controller.ts:48` zod `max(12)` chạy trước kiểm V-09. Bằng chứng: TC-L4-066 (`test.fail`).
 
@@ -377,24 +378,24 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Gốc: build không sinh khoản thu hệ thống `ota_collect`; `folio.service.ts:228` chỉ cộng "đã thu qua OTA" từ khoản đó. Bằng chứng: TC-L4-061 (api), TC-L4-046, TC-L4-047 (clock) – `test.fail`.
 
 ### BUG-R2-045 – "Tiết kiệm phí kênh" khi gia hạn đơn OTA chỉ tính 1 đêm
-- Mức: P2 (con số tiền hiển thị để lễ tân tư vấn khách sai; không ghi folio) · Vai sửa: BE-A (+ARC: hợp đồng 1 số, chưa nói theo số đêm) · Trạng thái: **Open**
+- Mức: P2 (con số tiền hiển thị để lễ tân tư vấn khách sai; không ghi folio) · Vai sửa: BE-A (+ARC: hợp đồng 1 số, chưa nói theo số đêm) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: đơn Airbnb căn 301 `in_house` → `GET /extension-options`. Thực tế: `channelFeeSavingsVnd` = 148.000 (15,5 % × 1 đêm), trong khi `repricing[]` 2 đêm = 1.916.000. Mong đợi: BR-422-01 (2 đêm 2.084.000 → 323.000; với 301 là 297.000).
 - Gốc: `frontdesk/internal/stay.service.ts:215`. Bằng chứng: TC-L4-003 (`test.fail`); đơn con kênh Trực tiếp 1.042.000, chung folio, đơn OTA gốc không đổi – đạt.
 
 ### BUG-R2-046 – Quản lý không duyệt/tự áp được FOC phụ thu trong hạn mức "≤ 1 đêm" (FOC dòng phát sinh thiếu `limitBasisVnd`)
-- Mức: **P1** (phân quyền sai ở hành động duyệt tiền + luồng chính "FOC có duyệt" của A1: mọi FOC phụ thu > 300.000 hoặc do quản lý gửi dồn lên chủ đầu tư; cách vòng: OWN duyệt) · Môi trường: `ottimo-qa-s3b`, `ottimo-qa-s3c` (`8ca2a47`) · Vai sửa: BE-A (approvals) + BE-B (folio) · Trạng thái: **Open** (gộp 2 phát hiện của QA phụ B và C)
+- Mức: **P1** (phân quyền sai ở hành động duyệt tiền + luồng chính "FOC có duyệt" của A1: mọi FOC phụ thu > 300.000 hoặc do quản lý gửi dồn lên chủ đầu tư; cách vòng: OWN duyệt) · Môi trường: `ottimo-qa-s3b`, `ottimo-qa-s3c` (`8ca2a47`) · Vai sửa: BE-A (approvals) + BE-B (folio) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: ngày ảo D, đơn Trực tiếp 700.000 thu đủ; nhận phòng 08:00 phụ thu 350.000; `setLateCheckout 17:00` 350.000. (1) `qa.fd` `requestFoc` 301.000 trên dòng `late_checkout` → 201 `requiredRole: owner`; `qa.fdl` duyệt → 403 `APPROVAL_LIMIT_EXCEEDED {approver: owner}`. (2) `qa.mgr` `requestFoc` 50.000/210.000 (có xác thực lại) → `pending`, `requiredRole: front_desk_lead`; `qa.mgr` tự duyệt → 403, yêu cầu `escalated` lên owner. (3) FOC 400.000 trên dòng `service_fee` 500.000 → `qa.mgr` duyệt → 403 `{approver: owner}`.
 - Mong đợi: BR-433 "Quản lý ≤ giá 1 đêm/lần" (`foc_limits.manager = one_night_rate`), oracle BR-433-02 `escalateTo: manager`; SM-10 A2(a) MGR/OWN tự áp trong hạn mức.
 - Gốc: `folio/internal/foc.service.ts:140` `limitBasisVnd: line.category === 'room' ? line.unit_price_vnd : null` → `approvals/internal/limits.ts:73, 78–79` coi như vượt → bỏ cấp manager; `frontdesk/internal/stay-support.ts:417–428` (FOC từ trả muộn/nhận sớm) không truyền basis. Hướng sửa: basis = giá đêm liên quan (đêm cuối – trả muộn; đêm đầu – nhận sớm; đêm của ngày dịch vụ – dòng khác).
 - Bằng chứng: `clock/approvals-foc.s3.clock.spec.ts` TC-NT-029 (b), TC-NT-030 (b), TC-NT-036 (a); `clock/stay-checkout.s3.clock.spec.ts` TC-L4-056 – `test.fail`.
 
 ### BUG-R2-047 – Gia hạn không chuyển buồng sang OD
-- Mức: P2 (trạng thái buồng sai → buồng phòng không biết dọn phòng khách đang ở; dọn buồng Sprint 4) · Vai sửa: BE-A · Trạng thái: **Open**
+- Mức: P2 (trạng thái buồng sai → buồng phòng không biết dọn phòng khách đang ở; dọn buồng Sprint 4) · Vai sửa: BE-A · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: đơn khách NN căn 203 `in_house` (OC) → `extendStay` 1 đêm → đọc `room_status` (psql, stack dùng một lần). Thực tế: vẫn OC. Mong đợi: SM-01 B13 "buồng → OD", BR-802.
 - Gốc: `frontdesk/internal/stay.service.ts` `extend()` không gọi `roomStatus.set` (chỉ B9/B14/B17/B18 có). Bằng chứng: TC-L4-004 (`test.fail`); ngày đi mới, khai báo `needs_update`, 1 lệnh outbox – đạt.
 
 ### BUG-R2-048 – Nhật ký truy cập C3 (`listC3AccessLog`) bỏ qua bộ lọc ngày `from`/`to` của hợp đồng
-- Mức: P2 (OWN/MGR rà truy cập giấy tờ theo ngày (S28) nhận toàn bộ nhật ký; dùng `dateFrom`/`dateTo` thì lọc được) · Vai sửa: BE-C (hoặc ARC nếu đổi hợp đồng) · Trạng thái: **Open**
+- Mức: P2 (OWN/MGR rà truy cập giấy tờ theo ngày (S28) nhận toàn bộ nhật ký; dùng `dateFrom`/`dateTo` thì lọc được) · Vai sửa: BE-C (hoặc ARC nếu đổi hợp đồng) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước: `qa.owner` `GET /v1/properties/{p}/c3-access-log?from=2000-01-01&to=2000-01-02&limit=5` → 200 với 5 dòng năm 2030; `?dateFrom=2000-01-01&dateTo=2000-01-02` → 0 dòng. Mong đợi: OpenAPI 0.3.6 tham số `from`/`to`.
 - Gốc: `registration/internal/registration.controller.ts:541–542`. Bằng chứng: QA phụ C gọi tay khi viết TC-RB-022 (chưa có ca tự động – thêm ở đợt sau).
 
@@ -403,7 +404,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Nội dung và cách sửa: (1) `stackToday()` trả ngày lịch – từ 00:00 tới 05:59 lệch ngày nghiệp vụ (BR-010) → TC-L2-014/053, TC-L5-005/023, H13 đỏ sau nửa đêm → tính theo mốc 06:00; (2) `platform.api.spec.ts` ghi tham số "tương lai" 2028–2030 rò sang ngày ảo của project clock (`checkin_time` 14:30 làm đỏ TC-L3-010) → dời sang 2090–2092; (3) `isAvailable` dùng chung cookie của ca → thăm dò "ẩn danh" mang phiên → 404 → bỏ qua sai (TC-L4-062) → context riêng; (4) ảnh mẫu PNG hỏng → 422 `FILE_TYPE`; (5) TC-L2-053 (b) còn kỳ vọng `balanceDueVnd` âm (0.3.5) → 0 + `creditVnd` 350.000 (0.3.6 A-34); (6) TC-L5-016 (en) so ngày hết hạn bằng regex lọt "20" của "2026" → so dd/mm/yyyy của (expiresAt − 1 ms); (7) TC-L2-055 chọn ngày dời ngẫu nhiên có lúc ngoài `reschedule_window_months` tính từ ngày đến cũ → chọn trong cửa sổ.
 
 ### BUG-R2-050 – Thiếu tệp `apps/guest-web/build/used-keys.ts` trong git → CI đỏ, ảnh `ottimo-web` không build được
-- Mức: **P1** (chặn toàn bộ CI: job "format · lint · audit · test · build" đỏ ở Lint, các job `docker images build · E2E smoke`, `publish images`, `deploy staging` bị bỏ; không build được ảnh web từ một checkout sạch – cùng loại BUG-R2-006) · Môi trường: CI run 38940900970 (main, `229db99`, 17/10 00:35); máy QA: `git archive HEAD product` → `docker build -f infra/docker/Dockerfile.web` · Vai sửa: FE (guest-web) + OPS (`.gitignore`) · Trạng thái: **Open**
+- Mức: **P1** (chặn toàn bộ CI: job "format · lint · audit · test · build" đỏ ở Lint, các job `docker images build · E2E smoke`, `publish images`, `deploy staging` bị bỏ; không build được ảnh web từ một checkout sạch – cùng loại BUG-R2-006) · Môi trường: CI run 38940900970 (main, `229db99`, 17/10 00:35); máy QA: `git archive HEAD product` → `docker build -f infra/docker/Dockerfile.web` · Vai sửa: FE (guest-web) + OPS (`.gitignore`) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước tái hiện: (1) checkout sạch `229db99` (hoặc `git archive HEAD product | tar -x`); (2) `pnpm --filter @ottimo/guest-web typecheck` hoặc `docker build -f infra/docker/Dockerfile.web .`.
 - Thực tế: CI: `src/__tests__/guard.test.ts(5,33): error TS2307: Cannot find module '../../build/used-keys'` và `vite.config.ts(7,44): error TS2307: Cannot find module './build/used-keys'`; docker: `vite.config.ts:7:43: ERROR: Could not resolve "./build/used-keys"` → `turbo run build` exit 1. Trên máy dev tệp có thật (`apps/guest-web/build/used-keys.ts`, 1.972 byte, 16/10 23:41) nhưng `git check-ignore -v` → `.gitignore:16:build/` nên không được commit.
 - Mong đợi: checkout sạch build/typecheck/test xanh; tệp nguồn của build nằm trong git.
@@ -411,7 +412,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `gh run view 38940900970 --log-failed`; log build ảnh của QA (`docker build` web exit 1). QA build tiếp bằng cách chép tệp từ cây làm việc vào nguồn build (ghi trong báo cáo S3 mục 2).
 
 ### BUG-R2-051 – SR-RL-09 (600 request/phút/người): bộ đếm riêng trong `AuthGuard` không xóa được, không cấu hình được, chạy theo MutableClock
-- Mức: P2 (người dùng thật không chạm 600/phút; nhưng (a) mọi stack có MutableClock – dev, CI, staging dùng tua giờ – sau khi tua đồng hồ về hiện tại thì người dùng đã chạm ngưỡng ở giờ ảo bị khóa toàn bộ API ≈ 7,8 năm, chỉ hết khi khởi động lại api; (b) E2E dùng chung tài khoản `qa.*` giữa các worker song song chạm 429 ở api/rbac/UI – có cách vòng: harness chờ `Retry-After`, chạy lại) · Môi trường: ảnh `229db99`, stack `ottimo-qa-s3` · Vai sửa: BE-B (guard chung; BE-A phần SSE) + OPS (CI) · Trạng thái: **Open**
+- Mức: P2 (người dùng thật không chạm 600/phút; nhưng (a) mọi stack có MutableClock – dev, CI, staging dùng tua giờ – sau khi tua đồng hồ về hiện tại thì người dùng đã chạm ngưỡng ở giờ ảo bị khóa toàn bộ API ≈ 7,8 năm, chỉ hết khi khởi động lại api; (b) E2E dùng chung tài khoản `qa.*` giữa các worker song song chạm 429 ở api/rbac/UI – có cách vòng: harness chờ `Retry-After`, chạy lại) · Môi trường: ảnh `229db99`, stack `ottimo-qa-s3` · Vai sửa: BE-B (guard chung; BE-A phần SSE) + OPS (CI) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước tái hiện: (1) chạy project `clock` (tua giờ ảo tới năm 2029+, `qa.fd`/`qa.owner` gọi > 600 lần trong một phút ảo); (2) `resetClock` (về giờ thật); (3) `GET /v1/me` bằng phiên `qa.fd`; (4) `POST /__test__/rate-limits/reset` rồi gọi lại.
 - Thực tế: (3) `429 RATE_LIMITED`, `Retry-After: 247743660` (cả `qa.owner`); (4) vẫn 429 – reset không chạm bộ đếm này. Chạy project `api` ngay sau `clock`: 61 ca đỏ vì 429. Trong lượt chạy như CI (song song api + rbac + desk-chromium): 15 lần harness phải chờ 42–56 giây, 2–4 ca UI flaky (trình duyệt `qa.fd` nhận "Bạn đã thử quá nhiều lần. Chờ 1 phút rồi thử lại.").
 - Mong đợi: SR-RL-09 vẫn đúng 600/phút/người, nhưng (a) cửa sổ tính theo giờ thật của tiến trình hoặc tự mở lại khi `now < bắt đầu cửa sổ` (đồng hồ lùi); (b) dùng chung `RATE_LIMITER` của module identity để `/__test__/rate-limits/reset` (chỉ có ở ảnh test) xóa được như mô tả của route ("in-memory windows … cleared for the whole process"); (c) tùy chọn `staffRequestsPerMinute` ("tests may raise it") nối được từ cấu hình test/dev.
@@ -419,12 +420,19 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Bằng chứng: `curl /v1/me` (phiên `qa.fd`) sau project clock → 429 `retry-after: 247743660`; log harness `[e2e] SR-RL-09 429 … → chờ N giây (BUG-R2-051)` trong báo cáo JSON. Cách vòng của QA: `support/api.ts call()` chờ `Retry-After` ≤ 65 giây (tối đa 2 lần) rồi gửi lại cùng request; thứ tự project giữ `clock` gần cuối.
 
 ### BUG-R2-052 – Khách đến sau nửa đêm của ngày đến bị coi là nhận sớm trước 06:00 → không nhận phòng được
-- Mức: **P1** (luồng chính nhận phòng A1 bị chặn cho khách đến khuya – xe/chuyến bay đêm tới Đà Lạt thường gặp – suốt 00:00–05:59; cách vòng khó đoán: gõ giờ nhận ≥ 14:00 trong ngày nghiệp vụ kèm ghi chú; thêm đêm trước (B9a) bị 409 nên không sai tiền) · Môi trường: ảnh `229db99`; clock (giờ ảo 01:30 ngày D+1) và giao diện H13 Chromium lúc 01:15 giờ thật 17/10 · Vai sửa: BE-A (+ FE: thông báo lỗi trường `addPriorNight`) · Trạng thái: **Open**
+- Mức: **P1** (luồng chính nhận phòng A1 bị chặn cho khách đến khuya – xe/chuyến bay đêm tới Đà Lạt thường gặp – suốt 00:00–05:59; cách vòng khó đoán: gõ giờ nhận ≥ 14:00 trong ngày nghiệp vụ kèm ghi chú; thêm đêm trước (B9a) bị 409 nên không sai tiền) · Môi trường: ảnh `229db99`; clock (giờ ảo 01:30 ngày D+1) và giao diện H13 Chromium lúc 01:15 giờ thật 17/10 · Vai sửa: BE-A (+ FE: thông báo lỗi trường `addPriorNight`) · Trạng thái: **Closed** (17/10 – QA kiểm lại trên cây làm việc = `16941c6`, mục 5)
 - Bước tái hiện: (1) đơn Trực tiếp đến D đã thu đủ, có giấy tờ; (2) đồng hồ 01:30 ngày D+1 (ngày nghiệp vụ vẫn D – BR-010); (3) `GET previewCheckIn` → `earlyCheckinSurcharge.amountVnd = 0`; (4) `POST checkIn {cardsIssued: 1, houseRulesSent: true}` (không gõ giờ – như H13 khi không bật "Khách nhận sớm").
 - Thực tế: (4) 422 `VALIDATION_FAILED` `errors: [{field: addPriorNight, code: REQUIRED}]`; H13 bước 4 hiện alert "Bắt buộc", không có hướng dẫn, không nhận phòng được (TC-L3-001 (E) chạy lúc 01:15). `a297273` nhận phòng được (TC-L3-008 đạt) – lỗi mới của bản sửa B9a.
 - Mong đợi: B9 thường, không phụ thu, `actualCheckinAt` = 01:30 D+1, hạn khai báo theo BR-602-02 / BR-603-04 (US-025 AC6; OpenAPI checkIn: B9a chỉ khi ngày nghiệp vụ = ngày đến − 1).
 - Gốc: `frontdesk/internal/checkin.service.ts:143–145` khi không gõ giờ dùng giờ server (01:30) → `earlyCheckinSurcharge` coi 01:30 là trước mốc 06:00 (`addsPreviousNight=true`) mà không xét ngày lịch đã sau ngày đến; dòng 386–387 đòi `addPriorNight`. Preview (dòng 145) dùng giờ chuẩn 14:00 nên báo 0 – hai đường lệch nhau.
 - Bằng chứng: `clock/checkin.s3.clock.spec.ts` TC-L3-008 (a) (`test.fail` ở cuối ca, phần (b) B9a vẫn kiểm); `ui/stay.h13-h17.spec.ts` TC-L3-001 (E) (`test.fail` khi giờ stack < 06:00).
+
+### BUG-R2-053 – CI E2E: token thiết bị của seed không đọc được trên runner → `403 DEVICE_NOT_TRUSTED` ở mọi ca C3
+- Mức: **P1** (cổng CI E2E đỏ: 28 ca trượt – c3-at-rest, checkin.s3 mục 4.2/4.3, stay-checkout.s3 TC-L4-051/062, UI H13/H14; tệ hơn là **103 ca bị bỏ qua im lặng**: 100 ca RBAC Sprint 3 cần thiết bị + TC-RB-001/002/022 – kết quả "xanh" giả nếu không có các ca đỏ kia; không ảnh hưởng sản phẩm) · Môi trường: CI run 38980363276 (main `c8b83f3`, GitHub-hosted ubuntu, runner uid 1001), job `docker images build · E2E smoke` · Vai sửa: OPS (`.github/workflows/ci.yml`) + QA (harness) · Trạng thái: **Fixed** (chờ commit + CI xanh)
+- Gốc (đã tái hiện): `services/api/src/db/seed/ds-e.ts:430–436` ghi `ds-e.map.json` với `{ mode: 0o600 }`; container `seed` chạy bằng user của ảnh `node` (uid 1000); `ci.yml:364–366` tạo `.out` 0777 rồi `docker compose … run --rm seed` → tệp thuộc uid 1000, mode 600; tiến trình Playwright chạy bằng `runner` (uid 1001) → `readFileSync` EACCES; `tests/e2e/support/s3.ts` (bản `c8b83f3`, `deviceToken()` dòng ~211–220) nuốt lỗi trong `catch {}` → `dev()` không gửi cookie `ottimo_did` → 403; `needDevice()`/runner RBAC (`rbac-sprint3.spec.ts:117`) coi là "môi trường" → skip. Không phải giả thuyết (a): SEC-BE-34 chỉ loại phiên `staff_pwa` và Origin ngoài danh sách admin – CI gửi `E2E_ORIGIN=http://localhost:8081` = `API_ADMIN_BASE_URL`, đăng nhập bằng Origin admin → phiên `admin`; stack QA cũng bật danh sách Origin (38081/38082/38083) và qua.
+- Tái hiện: (1) Docker volume Linux: ghi tệp bằng `node` uid 1000 với `mode 0o600` đúng như loader, đọc bằng uid 1001 theo đúng logic `deviceToken()` → `EACCES`, `deviceToken() = undefined`. (2) Stack dùng một lần `ottimo-qa-s3`, Origin bật như CI, `chmod 000` tệp map → chạy c3-at-rest, c3-access, checkin.s3.api, rbac-sprint3, ui/stay.h13-h17: **26 trượt `DEVICE_NOT_TRUSTED` + 100 ca RBAC + 3 ca TC-RB bỏ qua** – khớp log CI. (3) Cùng điều kiện sau khi sửa harness: **775 đạt, 0 trượt vì thiết bị**, RBAC S3 737/737 không bỏ qua; global-setup in cảnh báo rõ nguyên nhân.
+- Sửa: OPS (cây làm việc): `ci.yml` bước "Load QA seed DS-E" chạy `run --rm --user "$(id -u):$(id -g)" seed`, `.out` 0700, `test -r …/ds-e.map.json || exit 1`. QA (`e3959ec` + cây làm việc): `tests/e2e/support/device.ts` – đọc map và phân biệt ENOENT/EACCES; `global-setup.ts` kiểm token thiết bị, không đọc được thì đăng ký thiết bị quầy dự phòng qua `qa.owner` (trustCurrentDevice, xác thực lại – cùng đường của project clock) và in `CẢNH BÁO … BUG-R2-053`; trên CI cả hai cách đều hỏng → dừng ở global-setup với một thông báo thay vì ~30 ca đỏ + skip im lặng.
+- Kèm theo (cùng run): TC-L7-010 (E) flaky – lần click "Chụp" đầu chưa mở hộp chọn tệp trên runner chậm → harness thử lại 1 lần (`ui/guest-web.h18.spec.ts` `photo()`).
 
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 
@@ -453,3 +461,32 @@ Cách kiểm: stack dùng một lần `ottimo-qa-s3` (compose chuẩn + bản s�
 | BUG-R2-042 | ảnh `229db99`: TC-L4-063 (api) – `qa.sal` ghi cọc giữ chỗ của mình | 201, `reconciliation=pending`; G2 404, CTV 403 – đạt 2/2 lượt | **Closed** |
 | BUG-R2-044 | ảnh `229db99`: TC-L4-061 (api), TC-L4-046, TC-L4-047 (clock) – đơn `ota_prepaid` | `paidViaOtaVnd` = tiền phòng; "Còn phải thu" = 75.000 / 50.000 / 238.000 (chỉ khoản tại quầy) – đạt 2/2 lượt | **Closed** (P0 – không cần ESC) |
 | BUG-R2-031…038, 040, 041, 043, 045…048 | ảnh `229db99`: các ca `test.fail` tương ứng chạy lại 2 lượt; 032 (`CheckInPage.tsx:775/831`), 040 (`rack.service.ts:248`), 048 (`registration.controller.ts:574`) đọc lại code `229db99` | vẫn tái hiện (ca "expected fail" vẫn trượt đúng bước); 038 BE-A ghi hoãn (FB-R2-DOM-BE-30 (2) – chờ ARC 0.3.7) | Open |
+
+## 5. Kiểm lại lần 2 – vòng sửa 2 + 3 (QA, 17/10/2026 06:40–07:35)
+
+Cách kiểm: ảnh `ottimo-api`/`ottimo-web` build từ **cây làm việc lúc 06:48** (nội dung trùng commit `16941c6` – không tệp nguồn nào đổi sau đó), `--build-arg INCLUDE_TEST_SUPPORT=1`; stack dùng một lần dựng mới mỗi lượt, `STAFF_REQUESTS_PER_MINUTE=5000` như `make-ci-env.sh` mới, Origin bật như CI; bỏ `test.fail` theo danh sách ORC (giữ 038, 033 (b)). **2 lượt như CI: 1.770 đạt / 0 trượt / 82 bỏ qua / 2 trượt dự kiến / 0 flaky và 1.769 / 0 / 82 / 2 / 1 flaky** (TC-L5-050 – 409 `CONCURRENT_UPDATE` giữa ca song song, qua ở lần chạy lại). 45 lần quét axe, 0 vi phạm. 0 lần chờ 429.
+
+| ID | Ca kiểm lại | Kết quả | Trạng thái |
+|---|---|---|---|
+| BUG-R2-030 | CI 38980363276 bước "Start compose stack" + 4 lượt stack mới của QA | api/worker healthy, ghi/xóa blob được | **Closed** |
+| BUG-R2-031 | TC-L3-030 (E), TC-L3-001 (E) | bước Giấy tờ hiện 4 số cuối; `houseRulesSentAt`, `cardsIssued` có | **Closed** |
+| BUG-R2-032 | TC-L3-001 (E) | nút bước 3 = "Tiếp tục: Giao mã & hoàn tất", không còn `{room}` | **Closed** |
+| BUG-R2-033 | TC-L3-032 | (a) vẫn trượt: `docA.partyMemberId` rỗng – `document-party.port.ts:72–85` chỉ khớp theo `guest.id_doc_hmac`, cột này không được ghi ở đâu (grep toàn `services/api/src`: chỉ schema + 2 chỗ đọc) → cần ghi chỉ mục khi giấy tờ gắn với hồ sơ (người đứng tên / người có `guestId`) | **Open** (BE-C + BE-B); (b) Sprint 4 |
+| BUG-R2-034 | TC-L3-004, TC-L3-037 | có mục khai báo/thị thực trong "Cần chú ý" | **Closed** |
+| BUG-R2-035 | TC-L3-044, 046, 048 | J5 chạy; quá hạn + tổng hợp 22:00 cho FD/MGR | **Closed** |
+| BUG-R2-036 | TC-L3-039 | J16 tại đúng hạn trên xóa ảnh | **Closed** |
+| BUG-R2-037 | TC-L3-054 | 422 `VISA_EXPIRES_BEFORE_DEPARTURE` | **Closed** |
+| BUG-R2-038 | TC-L3-011 | vẫn trượt đúng dự kiến | **Deferred** (0.3.7) |
+| BUG-R2-040 | TC-L3-002 (b) (ca mới) | `getRack.roomStatus` = OD = `room_status` | **Closed** |
+| BUG-R2-041 | TC-L4-059 | MST/tên công ty trên hồ sơ khách | **Closed** |
+| BUG-R2-043 | TC-L4-066 | `CARD_NUMBER_DETECTED` | **Closed** |
+| BUG-R2-045 | TC-L4-003 (theo 0.3.6 bổ sung 3) | `repricing[2 đêm].channelFeeSavingsVnd` đúng BR-422-01; trường gốc = 1 đêm | **Closed** |
+| BUG-R2-046 | TC-NT-029 (b), TC-NT-030 (b), TC-NT-036 (a), TC-L4-056 | MGR duyệt/tự áp trong hạn mức 1 đêm | **Closed** |
+| BUG-R2-047 | TC-L4-004 | OC → OD khi gia hạn | **Closed** |
+| BUG-R2-048 | TC-RB-022 (phần mới) | `from`/`to` lọc đúng; sai định dạng 422 | **Closed** |
+| BUG-R2-050 | CI 38980363276 | lint/test/build xanh, ảnh web build được | **Closed** |
+| BUG-R2-051 | kịch bản riêng trên stack (`STAFF_REQUESTS_PER_MINUTE=60`) | 429 `Retry-After: 60`; reset xóa được; đóng băng +20 phút rồi trả đồng hồ → `Retry-After` 60 (trước: 247.743.660 giây) | **Closed** |
+| BUG-R2-052 | TC-L3-008 (a) | 01:30 D+1 → B9 thường, không phụ thu | **Closed** (giao diện ban đêm chưa chạy lại) |
+| BUG-R2-053 | tái hiện + harness dự phòng (mục 2) | xem chi tiết | **Fixed** – chờ commit `ci.yml` + CI E2E xanh |
+
+Ca đổi theo build mới (không phải lỗi): TC-L4-063 – SAL ghi `charge` trên **giữ chỗ** → 422 `type: NOT_IN_LIST` cho mọi vai (16941c6, ARC-S3-02: tiền nhận trên giữ chỗ là cọc); phần 403 `own_deposit_only` chỉ kiểm khi đơn đã `confirmed` (lượt này G1 vẫn `hold` sau cọc của SAL – chờ xác nhận cọc, ghi chú trên ca). TC-L3-001 (E) 06:00–13:59: H13 bật "Khách nhận sớm", giờ = bây giờ, tick "đã báo khách" (luồng thật).

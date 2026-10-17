@@ -78,7 +78,7 @@
 | US-043 | Nhập giấy tờ (K3–K5, BR-601, BR-606, BR-612) | AC1: TC-L3-030<br>AC2: TC-L3-031<br>AC3: TC-L3-032<br>AC4: TC-L3-033 | BR-601, BR-612, BR-951 | `addGuestDocument`, `getGuestDocumentSensitive`, `getRegistration`, `listC3AccessLog`, `listParty`, `updateGuestDocument` | L3 | 4.7 | – |
 | US-044 | Đối chiếu tự động (K5, BR-605; HR-07) | AC1: TC-L3-034<br>AC2: TC-L3-035<br>AC3: TC-L3-036<br>AC4: TC-L3-037 | BR-605, BR-613, BR-952 | `addGuestDocument`, `checkIn`, `completeRegistrationReview`, `getRegistration`, `listAttentionItems`, `recordDocumentCheck` | L3 | 4.5, 4.7 | ESC-001 |
 | US-045 | Ghi nhận đồng ý lưu ảnh giấy tờ (K5, BR-609) | AC1: TC-L3-038<br>AC2: TC-L3-039<br>AC3: TC-L3-040 | BR-609 | `completeRegistrationReview`, `getDocumentImage`, `getRegistration`, `recordGuestConsent`, `recordImageConsent`, `transitionRegistration` | L3 | 4.7, 4.11 | – |
-| US-046 | Khai báo bán tự động (K6–K8, BR-606) | AC1: TC-L3-041<br>AC2: TC-L3-042<br>AC3: TC-L3-043 | BR-606 | `getPortalData`, `getRegistration`, `listC3AccessLog`, `listRegistrations`, `transitionRegistration` | L3 | 4.7 | – |
+| US-046 | Khai báo bán tự động (K6–K8, BR-606) | AC1: TC-L3-041<br>AC2: TC-L3-042<br>AC3: TC-L3-043 | BR-606 | `getPortalData`, `getRegistration`, `listC3AccessLog`, `listRegistrations`, `transitionRegistration` | L3 | 4.7 | ESC-018 |
 | US-047 | Mọi đơn có bản ghi khai báo (K1, BR-608) | AC1: TC-L2-010, TC-L3-050<br>AC2: TC-L3-051<br>AC3: TC-L3-052 | BR-422, BR-608 | `confirmDeposit`, `createHoldFromQuote`, `createReservation`, `extendStay`, `getRegistration`, `getReservation`, `listRegistrations`, `updateReservation` | L3 | 4.5, 4.7 | – |
 | US-048 | Quyền xem ảnh giấy tờ (A71, D03–D06, BR-610) | AC1: TC-RB-006<br>AC2: TC-RB-002, TC-RB-007<br>AC3: TC-RB-008<br>AC4: TC-RB-009<br>bổ sung: TC-RB-020, TC-RB-022, TC-SEC-010, TC-SEC-012, TC-SEC-014 | BR-610 | `addGuestDocument`, `getDocumentImage`, `getDoorCredential`, `getGuest`, `getGuestDocumentSensitive`, `getMe`, `getPortalData`, `getRack`, `getRegistration`, `getReservation`, `listC3AccessLog`, `listRegistrations`, `listReservations`, `purgeRegistrationImages`, `setDoorCredential`, `streamEvents`, `trustCurrentDevice`, `updateGuestDocument` | L3 §3.1 (nút Xem giấy tờ) (QA) | 4.3, 4.4, 4.7 | – |
 | US-049 | Tự xóa ảnh giấy tờ (UC-29, BR-609, BR-610) | AC1: TC-L3-070<br>AC2: TC-L3-071<br>AC3: TC-L3-072 | BR-609, BR-610 | `getDocumentImage`, `purgeRegistrationImages`, `recordImageConsent`, `transitionRegistration` | L3 §3.1 (QA) | 4.7 | ESC-001 |
@@ -116,7 +116,7 @@
 | Story | AC → TC | Endpoint | Wireframe |
 |---|---|---|---|
 | US-041 | (chưa có AC) TC-L4-080, TC-L4-081 | **TRỐNG** (R3) | L4 |
-| US-056 | AC1: TC-L6-027<br>AC2: TC-L6-028 | `listHkTasks`, `listRoomStatuses` | L6 |
+| US-056 | AC1: TC-L6-027<br>AC2: TC-L6-028<br>AC3: **TRỐNG**<br>AC4: **TRỐNG** | `listHkTasks`, `listRoomStatuses` | L6 |
 | US-064 | (chưa có AC) TC-L6-050 | **TRỐNG** (R3) | **TRỐNG** |
 | US-081 | AC1: TC-L5-010, TC-L5-011<br>AC2: TC-L5-012<br>AC3: TC-L5-013<br>AC4: TC-L5-014 | `calculateQuote`, `saveQuote` | L5 |
 | US-111 | AC1: TC-L7-040<br>AC2: TC-L7-041 | `getFolio`, `getGuestFolio`, `issueGuestVerificationCode` | L7 |

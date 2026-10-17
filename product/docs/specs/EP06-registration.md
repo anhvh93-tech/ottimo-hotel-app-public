@@ -196,16 +196,16 @@ Lỗi: người không có hồ sơ/không phải người lớn → 422 `NOT_IN
 
 ### 5.1 Chuẩn bị dữ liệu – `getPortalData` (A73 = ✔ L Q)
 - Tiêu đề theo loại (AC1): có ít nhất một NN → `reg.type.foreigner`; toàn công dân VN → `reg.type.citizen`; `mixed` → hai khối lần lượt (`getPortalData?kind=`), mỗi khối một lần khai và một mã hồ sơ.
-- **Định dạng dữ liệu cổng** (BR-606 v0.3.4, DOM S3-5; OpenAPI 0.3.6 bổ sung – **một** cài đặt ở server; `[GIẢ ĐỊNH – chờ INV xác nhận, ESC-018]` vì đội chưa thấy biểu mẫu thật của cổng):
+- **Định dạng dữ liệu cổng** (BR-606 v0.3.4, DOM S3-5; OpenAPI 0.3.6 bổ sung – **một** cài đặt ở server; **INV đã quyết ESC-018 ngày 17/10/2026**: ngày `dd/mm/yyyy`, quốc tịch mã 3 chữ in hoa):
   | Trường | Giá trị sao chép (`fields[].value`, `clipboardText`) | Hiển thị cho lễ tân |
   |---|---|---|
   | Mọi ngày | Theo tham số `portal_date_format` (mặc định `dd/MM/yyyy`, ví dụ `20/10/2026`) | Như giá trị |
-  | Quốc tịch | Theo `portal_nationality_format` (mặc định "Tên nước tiếng Việt (alpha-3)", ví dụ "Hàn Quốc (KOR)"); dữ liệu lưu vẫn alpha-3 | Như giá trị |
+  | Quốc tịch | Mã ISO 3166-1 alpha-3 in hoa, ví dụ `KOR` (ESC-018; tham số `portal_nationality_format` mặc định `alpha3`); dữ liệu lưu vẫn alpha-3 | Như giá trị |
   | **Ngày đến** | Ngày lịch (giờ cơ sở) của **giờ nhận phòng thực tế** `actualCheckinAt` (BR-602, BR-417 (4)) – không phải ngày đến của đơn (B9a 04:40 ngày 20/10 → `20/10/2026`, dù đơn đã thêm đêm 19/10); chưa nhận phòng → ngày đến của đơn | Như giá trị |
   | Ngày đi (khách NN) | min(ngày đi, hạn thị thực/tạm trú) (BR-605) | Như giá trị |
   | Enum (giới tính, loại thị thực) | Chữ **tiếng Việt** dán lên cổng ("Nữ", "Miễn thị thực") bất kể ngôn ngữ giao diện | Theo `valueKey` (`reg.value.*`) dịch theo ngôn ngữ người dùng |
   | Trường rỗng | Chuỗi rỗng (vẫn giữ đúng thứ tự cổng) | `reg.value.empty`, **không** có nút sao chép |
-  Nhãn trường = khóa `reg.field.*` (`fields[].label`). Đổi định dạng = đổi tham số, không sửa code (khi INV gửi mẫu cổng – ESC-018).
+  Nhãn trường = khóa `reg.field.*` (`fields[].label`). Đổi định dạng = đổi tham số, không sửa code (nếu lễ tân gặp lỗi khi dùng thử cổng thật).
 - Các bước (`reg.step.copy` → `reg.step.open` → `reg.step.code`): danh sách trường từng người **đúng thứ tự cổng** (BR-606), mỗi trường nút `reg.copy_field` → `reg.copied`; nút "Sao chép tất cả" (`clipboardText`); nút mở `portalUrl` ở thẻ mới; nút **"Xóa bộ nhớ tạm"** **(mới)** (ghi chuỗi rỗng vào clipboard) và tự xóa sau 60 giây kể từ lần sao chép cuối `[GIẢ ĐỊNH BA – R-REG-07]`. Mỗi lần gọi `getPortalData` = một dòng log `portal_data view`; mỗi lần sao chép ghi `copy` (client gọi lại hoặc server ghi theo lần lấy – ARC chốt, E06-03).
 - Chỉ trên máy quầy/thiết bị được cấp (AC2); step-up như mục 0. Điều kiện: trạng thái `scanned` (hoặc `needs_update` khi cập nhật ngày đi). Khác → 409 `INVALID_TRANSITION`.
 - Không lưu mật khẩu cổng trong app (R-REG-06) – lễ tân tự đăng nhập cổng.

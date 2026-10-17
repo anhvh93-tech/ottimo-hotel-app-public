@@ -601,15 +601,19 @@ export type PortalDateFormat = 'dd/MM/yyyy' | 'yyyy-MM-dd';
 export type PortalNationalityFormat = 'name_vi_alpha3' | 'alpha3';
 
 export interface PortalFormat {
-  /** `portal_date_format` (DOM S3-5 default dd/MM/yyyy – [GIẢ ĐỊNH – chờ INV, ESC-018]). */
+  /** `portal_date_format` – default dd/MM/yyyy (INV, ESC-018). */
   date: PortalDateFormat;
-  /** `portal_nationality_format` (default "Tên nước tiếng Việt (alpha-3)"). */
+  /**
+   * `portal_nationality_format` – default `alpha3`: the bare upper-case ISO 3166-1 alpha-3 code (INV, ESC-018 –
+   * the portal takes the code only, e.g. KOR). `name_vi_alpha3` ("Hàn Quốc (KOR)") stays an option of the
+   * parameter should the portal form change.
+   */
   nationality: PortalNationalityFormat;
 }
 
 export const DEFAULT_PORTAL_FORMAT: PortalFormat = {
   date: 'dd/MM/yyyy',
-  nationality: 'name_vi_alpha3',
+  nationality: 'alpha3',
 };
 
 export function formatPortalDate(d: LocalDate | null, fmt: PortalDateFormat): string | null {
@@ -624,9 +628,10 @@ export function formatNationality(
   fmt: PortalNationalityFormat,
 ): string | null {
   if (!alpha3) return null;
-  if (fmt === 'alpha3') return alpha3;
-  const name = countryNameVi(alpha3);
-  return name ? `${name} (${alpha3})` : alpha3;
+  const code = alpha3.toUpperCase();
+  if (fmt === 'alpha3') return code;
+  const name = countryNameVi(code);
+  return name ? `${name} (${code})` : code;
 }
 
 export function portalFields(
