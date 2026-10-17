@@ -1,7 +1,7 @@
 // E2E clock – OpenAPI 0.3.6 bổ sung 4 (ARC s3-contract.md 7.8 (4), BR-428 v0.3.4): trả sớm (B16) đơn OTA đang ở có
 // phụ thu người theo đêm → `EarlyDepartureResult.extraPersonRefundVnd` (đã thu → hoàn 100 % phụ thu của đêm bỏ, trong
 // MỘT yêu cầu hoàn) / `extraPersonReversedVnd` (chưa thu → chỉ đảo dòng). Ngày ảo riêng (MutableClock).
-// Chờ BE vòng 4: build chưa có `Reservation.otaGuestCount` → skip "pending".
+// BE vòng 4 (c52d149) – QA kiểm 17/10: đạt.
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
@@ -58,9 +58,18 @@ async function addThirdAdult(
   today: string,
   nights: number,
 ): Promise<number> {
+  const path = p3(EP3.addPartyMember, fd, { reservationId: st.res.id });
+  // người thứ 2 (trong số khách OTA đã tính – người đứng tên là người thứ 1): không phụ thu
+  const g2 = await namedGuest(request, fd);
+  const second = await call<{ occupancyChange?: unknown }>(request, 'POST', path, {
+    session: fd,
+    idempotencyKey: true,
+    body: { role: 'companion', guestId: g2.id, relationship: 'friend', effectiveFrom: today },
+  });
+  expect(second.status, JSON.stringify(second.body)).toBe(201);
+  expect(second.body.occupancyChange ?? null).toBeNull();
   const g = await namedGuest(request, fd);
   const body = { role: 'companion', guestId: g.id, relationship: 'friend', effectiveFrom: today };
-  const path = p3(EP3.addPartyMember, fd, { reservationId: st.res.id });
   const dry = await call<{ occupancyChange?: { surchargeVnd?: number } }>(request, 'POST', path, {
     session: fd,
     body: { ...body, dryRun: true },
@@ -96,13 +105,11 @@ test.describe(
         nights: 3,
         kind: 'booking',
       });
-      const pending = !(
-        'otaGuestCount' in ((await getReservation(request, fd, a.res.id)).body as object)
-      );
-      test.skip(
-        pending,
-        'pending: OpenAPI 0.3.6 bổ sung 4 (Reservation.otaGuestCount, extraPersonRefundVnd) chưa có trên build – chờ BE vòng 4',
-      );
+      // bổ sung 4 phải có trên build (BE vòng 4, c52d149) – thiếu là hồi quy
+      expect(
+        'otaGuestCount' in ((await getReservation(request, fd, a.res.id)).body as object),
+        'Reservation.otaGuestCount (0.3.6 bổ sung 4)',
+      ).toBe(true);
       const b = await inHouse(request, c, fd, {
         room: room(c, '202'),
         arrival: D,
@@ -126,6 +133,8 @@ test.describe(
           {
             newDepartureDate: addDays(D, 2),
             noticeGivenAt: new Date(vnTime(addDays(D, 1), '10:00')).toISOString(),
+            // đơn OTA: số OTA giữ lại theo extranet (0.3.6 bổ sung 2 E04-06) – 0: OTA tự hoàn tiền phòng đêm bỏ
+            otaRetainedVnd: 0,
           },
         );
       const ra = await early(a);

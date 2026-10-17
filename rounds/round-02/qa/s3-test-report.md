@@ -5,7 +5,9 @@
 - Hợp đồng: OpenAPI **0.3.6-draft + bổ sung 1 và 2** (ARC 17/10), BR v0.3.4, oracle `product/tests/fixtures/br-examples.json`.
 - Danh sách lỗi: `rounds/round-02/qa/bug-list.md` (BUG-R2-030…052, mục 4 kiểm lại).
 
-## 0. Kết luận
+> **Cập nhật 17/10 08:12 – báo cáo này mô tả lượt trên `229db99`.** Sau vòng sửa 2–4, QA kiểm lại toàn bộ trên HEAD `9e9fd64`: 2 lượt như CI **1.773 đạt / 0 trượt / 82 bỏ qua / 3 trượt dự kiến**, 118 ca S3 = 105 đạt · 3 trượt dự kiến · 10 bỏ qua; lỗi mở còn **0 P0, 0 P1** (BUG-R2-053 Fixed chờ CI), 1 P2 (033 a), 1 P3 (054), 038 hoãn 0.3.7. Kết quả và đề xuất QC hiện hành: **`qa/s3-retest.md`**. Chẩn đoán CI 38980363276 (`403 DEVICE_NOT_TRUSTED`): BUG-R2-053 trong `qa/bug-list.md`.
+
+## 0. Kết luận (lượt `229db99`)
 
 | Hạng mục | Kết quả trên `229db99` |
 |---|---|

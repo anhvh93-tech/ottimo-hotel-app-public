@@ -26,4 +26,6 @@ regexes = [
   # Public Visa test card number used to prove card numbers are rejected in posAuthCode
   # (services/api/test/integration/payments-s3.test.ts, commit e3959ec); not a secret.
   '''4111111111111111''',
+  # 13-char fake POS auth code used to prove the TOO_LONG limit in the same test file.
+  '''ABCDEF1234567''',
 ]

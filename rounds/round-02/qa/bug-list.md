@@ -13,7 +13,7 @@
 | P3 | 16 | 1 | 0 | 0 | 15 |
 | **Tổng** | **54** | **2** | **1** | **1** | **50** |
 
-Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…054. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **054 Open** (P3 – mới, TC-L3-074), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới.
+Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…054. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **054 Open** (P3 – mới, TC-L3-074), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới. **Kiểm lại toàn bộ trên `9e9fd64` (vòng sửa 4, 08:05–08:10, mục 6): 2 lượt như CI 1.773 đạt / 0 trượt – trạng thái các lỗi không đổi.**
 
 | ID | Mức | Tóm tắt | Vai sửa | Trạng thái |
 |---|---|---|---|---|
@@ -69,7 +69,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-050** | **P1** | `apps/guest-web/build/used-keys.ts` không có trong git (bị `.gitignore` gốc `build/` loại) mà `vite.config.ts`/`guard.test.ts` import → checkout sạch: `tsc` guest-web đỏ, ảnh `ottimo-web` không build được; CI 38940900970 (`229db99`) đỏ ở Lint, E2E/publish/deploy bị bỏ | FE (guest-web) + OPS (.gitignore) | **Closed** (CI 38980363276, `c8b83f3`: job "format · lint · audit · test · build" xanh, ảnh web build được) |
 | BUG-R2-051 | P2 | Giới hạn SR-RL-09 (600 request/phút/người) ở `AuthGuard` dùng bộ đếm riêng: `/__test__/rate-limits/reset` không xóa được, không cấu hình được, cửa sổ theo MutableClock → sau khi tua đồng hồ về hiện tại `Retry-After` = 247.743.660 giây (≈ 7,8 năm), tài khoản bị khóa tới khi khởi động lại api; E2E dùng chung `qa.*` song song chạm 429 | BE-B (+ OPS) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – STAFF_REQUESTS_PER_MINUTE=60: 429 `Retry-After: 60`; `/__test__/rate-limits/reset` xóa được; đồng hồ đóng băng +20 phút rồi trả về → `Retry-After` vẫn 60 (không còn hàng năm); CI dùng 5000 (`make-ci-env.sh`) |
 | **BUG-R2-052** | **P1** | Khách đến sau nửa đêm (00:00–05:59, ngày nghiệp vụ vẫn = ngày đến): `checkIn` coi là nhận sớm trước 06:00 → 422 `addPriorNight: REQUIRED` (preview cùng lúc báo phụ thu 0); H13 chỉ hiện "Bắt buộc", không nhận phòng được (US-025 AC6, BR-602-02) | BE-A (+ FE thông báo) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-008 (a): 01:30 ngày D+1 → B9 thường, không phụ thu (BE); phần chữ báo lỗi của H13 lúc 00:00–05:59 chưa chạy được giao diện ban đêm ở lượt này |
-| **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Fixed** – OPS: `ci.yml` chạy seed `--user "$(id -u):$(id -g)"` + `test -r` (cây làm việc); QA: harness báo rõ + thiết bị quầy dự phòng (`support/device.ts`, đã vào `e3959ec`). Closed khi job CI E2E xanh |
+| **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Fixed** – `ci.yml` chạy seed `--user "$(id -u):$(id -g)"` + `test -r` (commit `c52d149`); harness: báo rõ + thiết bị quầy dự phòng (`support/device.ts`). Closed khi job CI E2E xanh (CI 38989147610 trên `9e9fd64` đang chạy lúc QA ghi) |
 | BUG-R2-054 | P3 | Xóa ảnh của khai báo chưa `confirmed` (SR-RET-02, lý do `unconfirmed`) không ghi `Registration.imagesPurgedAt`/`imagesPurgeReason` → H14 không hiện "Ảnh đã xóa lúc …" (ảnh vẫn bị xóa đúng hạn) | BE-C (+ ARC enum) | Open |
 
 ## 2. Chi tiết
@@ -499,3 +499,17 @@ Cách kiểm: ảnh `ottimo-api`/`ottimo-web` build từ **cây làm việc lúc
 | BUG-R2-053 | tái hiện + harness dự phòng (mục 2) | xem chi tiết | **Fixed** – chờ commit `ci.yml` + CI E2E xanh |
 
 Ca đổi theo build mới (không phải lỗi): TC-L4-063 – SAL ghi `charge` trên **giữ chỗ** → 422 `type: NOT_IN_LIST` cho mọi vai (16941c6, ARC-S3-02: tiền nhận trên giữ chỗ là cọc); phần 403 `own_deposit_only` chỉ kiểm khi đơn đã `confirmed` (lượt này G1 vẫn `hold` sau cọc của SAL – chờ xác nhận cọc, ghi chú trên ca). TC-L3-001 (E) 06:00–13:59: H13 bật "Khách nhận sớm", giờ = bây giờ, tick "đã báo khách" (luồng thật).
+
+## 6. Kiểm lại toàn bộ Sprint 3 trên HEAD `9e9fd64` (QA, 17/10/2026 08:00–08:10 – sau vòng sửa 4)
+
+Ảnh api/web build từ cây làm việc = `9e9fd64` (chỉ khác 2 tệp test QA chưa commit), stack dùng một lần dựng mới mỗi lượt, env như CI mới (`STAFF_REQUESTS_PER_MINUTE=5000`, Origin bật, seed DS-E). Chi tiết: `qa/s3-retest.md`. **2 lượt: 1.773 đạt · 0 trượt · 82 bỏ qua · 3 trượt dự kiến · 1 flaky** (TC-L2-057 – `confirm-deposit` ngay sau tạo giữ chỗ trả 409 `CONCURRENT_UPDATE`, qua ở lần chạy lại; ghi nhận, chưa đủ chứng cứ để ghi lỗi).
+
+| ID | Kết quả trên `9e9fd64` | Trạng thái |
+|---|---|---|
+| BUG-R2-030…032, 034–037, 039–052 | ca kiểm lại đều đạt 2/2 lượt (không hồi quy) | **Closed** (giữ) |
+| BUG-R2-033 | (a) TC-L3-032 vẫn trượt đúng bước (`guest.id_doc_hmac` không được ghi); (b) Sprint 4 | **Open** |
+| BUG-R2-038 | TC-L3-011 trượt đúng dự kiến | **Deferred** (0.3.7) |
+| BUG-R2-053 | `ci.yml` đã sửa (`c52d149`); stack QA đọc token seed bình thường; nhánh dự phòng của harness đã kiểm khi tệp map không đọc được | **Fixed** – chờ CI E2E xanh |
+| BUG-R2-054 | TC-L3-074 vẫn trượt đúng bước cuối (`imagesPurgedAt` vắng mặt); mọi bước xóa ảnh đúng hạn đạt | **Open** (P3) |
+
+Ca mới đạt ở lượt này: TC-L4-090, TC-L4-091, TC-L2-083 (api), TC-L4-092 (clock) – OpenAPI 0.3.6 bổ sung 4 (BE vòng 4); TC-L3-074 (SR-RET-02) trừ bước BUG-R2-054. Oracle bỏ `pendingFix` (BE đã xanh): BR-110-14/15/16, BR-307-02/03/04, BR-310-01/02, BR-428-06.

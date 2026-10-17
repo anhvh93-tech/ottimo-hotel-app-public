@@ -4,7 +4,7 @@
 //   TC-L4-091 không FOC trên dòng tiền phòng đơn OTA trả trước (422 FOC_NOT_ALLOWED_OTA_PREPAID);
 //   TC-L2-083 tiền phạt hủy OTA vào folio (`cancellation_fee` + `ota_collect` cho `ota_prepaid`; `otaPenaltyChannelFeeVnd`).
 // TC-L4-092 (B16 hoàn phụ thu người của đêm bỏ – `extraPersonRefundVnd`) ở clock/ota-rules.s3.clock.spec.ts.
-// Đơn ngày xa (project api, đồng hồ thật). Chờ BE vòng 4: build chưa có `Reservation.otaGuestCount` → skip "pending".
+// Đơn ngày xa (project api, đồng hồ thật). BE vòng 4 (c52d149) – QA kiểm 17/10: cả 3 ca đạt.
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
@@ -32,16 +32,15 @@ import { farBooking } from '../support/s3-stay.js';
 let today = '';
 test.afterEach(async ({ request }) => cleanupTracked(request));
 
-/** Bổ sung 4 có trên build chưa: `Reservation.otaGuestCount` (BE-A) – cả 4 luật cùng vào vòng sửa 4. */
-async function pendingAddendum4(
+/** Bổ sung 4 (BE vòng 4, c52d149): `Reservation.otaGuestCount` phải có – thiếu là hồi quy, không phải "pending". */
+async function needAddendum4(
   request: APIRequestContext,
   fd: StaffSession,
   otaId: string,
 ): Promise<void> {
   const r = await getReservation(request, fd, otaId);
-  test.skip(
-    !('otaGuestCount' in (r.body as object)),
-    'pending: OpenAPI 0.3.6 bổ sung 4 (Reservation.otaGuestCount, …) chưa có trên build – chờ BE vòng 4',
+  expect('otaGuestCount' in (r.body as object), 'Reservation.otaGuestCount (0.3.6 bổ sung 4)').toBe(
+    true,
   );
 }
 
@@ -67,7 +66,7 @@ test.describe(
         kind: 'booking',
         room: room(c, '302'),
       });
-      await pendingAddendum4(request, fd, a.id);
+      await needAddendum4(request, fd, a.id);
       let cur = await getReservation(request, fd, a.id);
       expect(cur.body.otaGuestCount, 'otaGuestCount lúc nhập đơn OTA').toBe(2);
       // (a) đổi số người không chọn nguồn → 422 REQUIRED partyChangeSource
@@ -133,7 +132,7 @@ test.describe(
       const c = await s2Context(request);
       const pre = await farBooking(request, c, fd, { nights: 2, today, kind: 'booking' });
       expect(pre.paymentModel).toBe('ota_prepaid');
-      await pendingAddendum4(request, fd, pre.id);
+      await needAddendum4(request, fd, pre.id);
       const f = await getFolio(request, fd, pre.folioId);
       const line = liveLines(f, 'room')[0]!;
       const paidViaOta = f.totals.paidViaOtaVnd;
@@ -165,7 +164,7 @@ test.describe(
       const c = await s2Context(request);
       const pre = await farBooking(request, c, fd, { nights: 2, today, kind: 'booking' });
       expect(pre.paymentModel).toBe('ota_prepaid');
-      await pendingAddendum4(request, fd, pre.id);
+      await needAddendum4(request, fd, pre.id);
       const penalty = 400000;
       // phí kênh mà không có tiền phạt → 422 NOT_ALLOWED
       const noPen = await action(request, fd, pre.id, 'cancel', {
