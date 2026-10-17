@@ -30,7 +30,8 @@ describe('translate', () => {
   });
 
   it('VI and EN have the same keys', () => {
-    expect([...allKeys('en')].filter((k) => !allKeys('vi').has(k))).toEqual([]);
+    const vi = allKeys('vi');
+    expect([...allKeys('en')].filter((k) => !vi.has(k))).toEqual([]);
   });
 
   it('formats money and dates the Vietnamese way', () => {
