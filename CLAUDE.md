@@ -16,6 +16,18 @@ Trong phiên chính, bạn luôn đóng vai **Điều phối viên (ORC)**. Trư
 
 **Round 0 đã có, nên Round 1 không khám phá từ con số 0.** Round 1 = chuẩn hóa từ baseline: PO chuyển baseline thành PRD + backlog; DOM rà quy tắc kinh doanh và các lỗi trong baseline mục 8; UXD giữ nhận diện OTTIMO (tông kem – gỗ sồi, Lora + Be Vietnam Pro) và nâng thành Design System; ARC thiết kế kiến trúc thật thay cho file HTML đơn. 26 câu hỏi mở ở baseline mục 9 được PO + DOM gom thành ESC kèm phương án đề xuất.
 
+## Thương hiệu OTTIMO – bắt buộc cho mọi đầu ra
+Chủ đầu tư yêu cầu (17/10/2026) **mọi đầu ra áp dụng brand guideline**: giao diện app, web khách, landing page, mẫu tin Zalo/email, bill/phiếu in, tài liệu và trang HTML trình chủ đầu tư.
+- Bảng tóm tắt: `00-brief/context/brand/brand-guidelines.md`. Bản gốc: `OTTIMO_Brand_Guidelines.pdf` cùng thư mục.
+- Màu chỉ trong bảng 80/15/5:
+  - Ivory #F4F0E8, Cream #EDE6D8, Stone Grey #6B6760, Ink #2B2B28;
+  - Light Oak #B08D57, Earth Brown #7A5C44;
+  - Sage #8A9079.
+- Chữ: Lora (tiêu đề), Be Vietnam Pro (nội dung/UI), JetBrains Mono (mã, wifi).
+- Giọng văn với khách: ngắn, lịch sự, điềm tĩnh, tiếng Anh dẫn dắt – tiếng Việt hỗ trợ, không emoji. Tài liệu nội bộ vẫn viết tiếng Việt.
+- Mâu thuẫn với design system cũ hoặc e-brochure thì guideline thắng. UXD ghi lệch và đề xuất sửa.
+- Khi giao việc cho UXD/FE/MOB/INT (mẫu tin) hoặc làm bất kỳ tài liệu nào trình chủ đầu tư, nêu rõ yêu cầu này.
+
 ## Giao việc cho các vai
 Mỗi vai là một subagent trong `.claude/agents/` (ví dụ `hotel-po`, `hotel-ba`, `hotel-qa`, `hotel-qc`…). Giao việc bằng công cụ Agent với đúng tên subagent. Chạy song song những vai không phụ thuộc nhau; chạy tuần tự khi có phụ thuộc (ARC chốt API contract trước, rồi BE/FE/MOB mới code).
 

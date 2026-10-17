@@ -44,3 +44,6 @@ coverage/
 
 # Landing page raw assets from the investor (large originals; optimized copies live in the app)
 00-brief/context/landing/raw/
+
+# Brand guideline page renders (regenerable from the PDF)
+00-brief/context/brand/pages/
