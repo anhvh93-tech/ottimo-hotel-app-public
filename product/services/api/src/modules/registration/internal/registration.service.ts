@@ -730,9 +730,9 @@ export class RegistrationService {
   }
 
   /**
-   * BUG-R2-083: an unclaimed document is linked to a person (desk) or uploaded again by the guest for its
-   * "Khách n" (the old images are already replaced) – its removal deadline goes. Its images lose the 24 h
-   * deadline and get back the one of the stay when the stay has ended (`scheduleAfterStay`, SEC BE-32).
+   * BUG-R2-083: the desk linked an unclaimed document to a person still in the party – its removal deadline
+   * goes. Its images lose the 24 h deadline and get back the one of the stay when the stay has ended
+   * (`scheduleAfterStay`, SEC BE-32).
    */
   private async claim(tx: Tx, reg: RegRow, doc: DocRow, requestId: string): Promise<void> {
     await tx.query('UPDATE guest_document SET fields_purge_after = NULL WHERE id = $1', [doc.id]);
@@ -745,6 +745,46 @@ export class RegistrationService {
     await this.audit.record(tx, {
       category: 'data',
       action: 'registration.document_claimed',
+      entityType: 'registration',
+      entityId: reg.id,
+      after: { unclaimedDocuments: 1 },
+      requestId,
+    });
+  }
+
+  /**
+   * BUG-R2-083: the guest sends "Khách n" again while its document waits for the desk (a person left the
+   * party). The waiting document is retired and the upload starts a NEW document for the slot:
+   * - its images go now (`replaced`); under `legal_hold` they stay but KEEP their removal deadline – J16 deletes
+   *   them once the hold is lifted (SEC-BE-55: never an unowned image without a deadline);
+   * - its fields/DEK are destroyed (none under `legal_hold`), `removed_at`, c3 log `delete`;
+   * - a P02b decision recorded for the old document does not follow the new person – the new document has no
+   *   consent until one is recorded (SEC-BE-56; desk consents are always per document, guest-web only for
+   *   Khách 1, which is never waiting).
+   */
+  private async retireUnclaimed(
+    tx: Tx,
+    reg: RegRow,
+    doc: DocRow,
+    requestId: string,
+    now: Date,
+  ): Promise<void> {
+    const old = (await imagesOf(tx, reg.id)).filter(
+      (i) => i.guest_document_id === doc.id && !i.deleted_at,
+    );
+    await this.purgeImages(tx, reg, old, 'replaced', { requestId });
+    if (!reg.legal_hold) await this.destroyDocumentFields(tx, doc, 'replaced', now);
+    await tx.query('UPDATE guest_document SET removed_at = $2 WHERE id = $1', [doc.id, now]);
+    await this.audit.recordC3Access(tx, {
+      subjectType: 'guest_document',
+      subjectId: doc.id,
+      action: 'delete',
+      reservationId: reg.reservation_id,
+      requestId,
+    });
+    await this.audit.record(tx, {
+      category: 'data',
+      action: 'registration.unclaimed_document_replaced',
       entityType: 'registration',
       entityId: reg.id,
       after: { unclaimedDocuments: 1 },
@@ -1449,6 +1489,14 @@ export class RegistrationService {
           throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_IN_LIST' }] });
         }
         kind = kind as (typeof kinds)[number];
+        // SEC-BE-54 (BR-601, as K5): never declare fewer people than the booking holds – a person's document
+        // may have stopped counting after K5 (party change, unclaimed guest-link document, J16 removal).
+        const counted = (await documentsOf(tx, reg.id)).filter(countsForDeclaration).length;
+        if (counted < reg.required_count) {
+          throw problem('REGISTRATION_INCOMPLETE', {
+            errors: [{ field: 'party_count', code: 'REGISTRATION_INCOMPLETE' }],
+          });
+        }
         await tx.query(
           `INSERT INTO registration_portal_submission (id, organization_id, property_id, registration_id, kind,
              reference, sent_at, sent_by)
@@ -2283,6 +2331,11 @@ export class RegistrationService {
       // The desk already entered this person: the online flow is closed for them.
       throw problem('ONLINE_CHECKIN_CLOSED');
     }
+    if (doc && isUnclaimed(doc)) {
+      // BUG-R2-083: "Khách n" sent again after a person left the party – a NEW document for the slot (below).
+      await this.retireUnclaimed(tx, reg, doc, requestId, now);
+      doc = null;
+    }
     if (doc) {
       const old = (await imagesOf(tx, reg.id)).filter(
         (i) => i.guest_document_id === doc?.id && !i.deleted_at,
@@ -2293,9 +2346,6 @@ export class RegistrationService {
         docType,
         now,
       ]);
-      // BUG-R2-083: the old (unclaimed) images are gone; what the guest sends now for "Khách n" after the
-      // removal is theirs – the slot counts again and the removal deadline goes.
-      if (isUnclaimed(doc)) await this.claim(tx, reg, doc, requestId);
     } else {
       const id = uuidv7();
       const dataKeyId = await this.crypto.createDataKey(tx, {
@@ -2376,13 +2426,15 @@ export class RegistrationService {
    * BR-605 / EP01 3.1 `visa_expiring`: bookings (in house or still to arrive) with a foreign document whose
    * visa ends BEFORE the departure (check `visa_valid_through_departure` = fail, manual result included)
    * and whose reminder date (`visa_alert_on`, J14) has come. Booking ids only – the caller shows code + room
-   * (SR-RET-06: no expiry date outside the document screen).
+   * (SR-RET-06: no expiry date outside the document screen). A document waiting for the desk after a party
+   * removal (BUG-R2-083) does not raise it – it may be the person who left (SEC-BE-58 (1)).
    */
   async visaExpiringReservations(tx: Tx): Promise<StayView[]> {
     const c = await this.ctx(tx);
     const { rows } = await tx.query<{ reservation_id: string }>(
       `SELECT DISTINCT x.reservation_id FROM guest_document d JOIN registration x ON x.id = d.registration_id
         WHERE d.is_foreigner AND d.removed_at IS NULL AND d.purged_at IS NULL AND x.status <> 'void'
+          AND NOT (d.party_member_id IS NULL AND d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
           AND d.visa_alert_on IS NOT NULL AND d.visa_alert_on <= $1::date
           AND d.check_results @> '[{"code":"visa_valid_through_departure","result":"fail"}]'::jsonb
         LIMIT $2`,

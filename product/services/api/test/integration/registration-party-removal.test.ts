@@ -197,6 +197,8 @@ describe.skipIf(!HAS_DB)('BUG-R2-083 – party removal and guest-link documents 
   }
 
   const person = (s: DocState[], n: number) => s.find((d) => d.personIndex === n)!;
+  /** The live document of "Khách n" (a slot sent again after a removal has a retired one too). */
+  const live = (s: DocState[], n: number) => s.find((d) => d.personIndex === n && !d.removed)!;
 
   /** Untouched: live, nothing destroyed, no deadline at all. */
   function expectUntouched(d: DocState): void {
@@ -420,20 +422,30 @@ describe.skipIf(!HAS_DB)('BUG-R2-083 – party removal and guest-link documents 
       requiredCount: 2,
       uploadedPeople: [1],
     });
-    const oldBlob = person(s, 2);
-    // The guest sends Khách 2 again (the person who really comes): the old image goes now ("replaced"), the
-    // new one is the guest's – it counts and has no removal deadline.
+    const waiting = person(s, 2);
+    // The guest sends Khách 2 again (the person who really comes): the waiting document is retired at once
+    // (image `replaced`, DEKs destroyed, file gone) and the upload starts a NEW document for the slot – it
+    // counts and has no removal deadline.
     await at(new Date(T0.getTime() + 2 * HOUR));
     await guestUploads(reservationId, [2], '99cc');
     await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
     const after = await docs(reservationId);
-    const k2 = person(after, 2);
-    expect(k2.id).toBe(oldBlob.id);
+    const retired = after.find((d) => d.id === waiting.id)!;
+    expect(retired).toMatchObject({
+      removed: true,
+      purged: true,
+      liveImages: 0,
+      imageDekDestroyed: true,
+      docDekDestroyed: true,
+      blobPresent: false,
+    });
+    expect(retired.deleteReasons).toEqual(['replaced']);
+    const k2 = live(after, 2);
+    expect(k2.id).not.toBe(waiting.id);
     expect(k2).toMatchObject({ liveImages: 1, deleteAfter: null, fieldsPurgeAfter: null });
-    expect(k2.deleteReasons).toEqual(['replaced']);
     expect(await regState(reservationId)).toMatchObject({ uploadedPeople: [1, 2] });
     await runJ16(new Date(DEADLINE.getTime() + 60_000));
-    expect(person(await docs(reservationId), 2)).toMatchObject({ removed: false, liveImages: 1 });
+    expect(live(await docs(reservationId), 2)).toMatchObject({ id: k2.id, liveImages: 1 });
   });
 
   it("R4 – 3 adults declared, ONE companion recorded: removing it does not destroy the unrecorded third person's upload", async () => {
@@ -601,5 +613,256 @@ describe.skipIf(!HAS_DB)('BUG-R2-083 – party removal and guest-link documents 
       fieldsPurgeAfter: null,
       deleteAfter: stayDeadline,
     });
+  });
+
+  /** Desk P02b decision for one document (values of Registration.consentNotice). */
+  async function deskConsent(reservationId: string, documentId: string) {
+    const s = await regState(reservationId);
+    const view = (
+      await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${s.registrationId}`)
+    ).json() as { consentNotice: { currentNoticeVersion: string; imageRetentionDays: number } };
+    return staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/registrations/${s.registrationId}/consents`,
+      {
+        json: {
+          partyMemberId: documentId,
+          purpose: 'P02B_ID_IMAGE_RETENTION',
+          decision: 'granted',
+          channel: 'desk',
+          noticeVersion: view.consentNotice.currentNoticeVersion,
+          retentionDays: view.consentNotice.imageRetentionDays,
+          locale: 'vi',
+        },
+      },
+    );
+  }
+
+  /** The desk enters a Vietnamese ID card for a guest-link document (optionally linked to a member). */
+  async function enterCccd(
+    reservationId: string,
+    documentId: string,
+    fullNameOnDoc: string,
+    docNumber: string,
+    partyMemberId?: string,
+  ) {
+    const s = await regState(reservationId);
+    return staff(
+      fa,
+      tok('fd'),
+      device,
+      'PATCH',
+      `${P(t)}/registrations/${s.registrationId}/documents/${documentId}`,
+      {
+        ifMatch: s.version,
+        json: {
+          docType: 'cccd',
+          fullNameOnDoc,
+          docNumber,
+          dateOfBirth: '1988-02-03',
+          ...(partyMemberId ? { partyMemberId } : {}),
+        },
+      },
+    );
+  }
+
+  async function action(reservationId: string, name: string, json: unknown) {
+    const s = await regState(reservationId);
+    return staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/registrations/${s.registrationId}/actions/${name}`,
+      { json, ifMatch: s.version },
+    );
+  }
+
+  it('SEC-BE-54 – a scanned declaration whose counted documents drop below the party (removal → waiting document) cannot be sent (409 REGISTRATION_INCOMPLETE) until the desk links it', async () => {
+    const { reservationId } = await seedStay(db, t, ids, {
+      adults: 3,
+      bookerName: 'Nguyễn Văn An',
+    });
+    const a = await addMember(reservationId, 'Trần Văn A');
+    const b = await addMember(reservationId, 'Lê Thị B');
+    await setStayStatus(db, t, reservationId, 'in_house', { actualCheckinAt: CHECKED_IN });
+    await guestUploads(reservationId, [1, 2, 3]);
+    const s0 = await docs(reservationId);
+    // The desk enters the three people – Khách 2 linked to A, Khách 3 NOT linked (as Desk does today).
+    for (const [n, name, num, member] of [
+      [1, 'Nguyễn Văn An', '079300000001', undefined],
+      [2, 'Trần Văn A', '079300000002', a],
+      [3, 'Lê Thị B', '079300000003', undefined],
+    ] as const) {
+      const r = await enterCccd(reservationId, person(s0, n).id, name, num, member);
+      expect(r.statusCode, r.body).toBe(200);
+      expect((await deskConsent(reservationId, person(s0, n).id)).statusCode).toBe(201);
+    }
+    // Every warning handled with a note (US-044 AC4) – whatever the checks of these fake documents say.
+    const reg = (
+      await staff(
+        fa,
+        tok('fd'),
+        device,
+        'GET',
+        `${P(t)}/registrations/${(await regState(reservationId)).registrationId}`,
+      )
+    ).json() as {
+      documents: Array<{ id: string; checks: Array<{ code: string; result: string }> }>;
+    };
+    const warningNotes = reg.documents.flatMap((d) =>
+      d.checks
+        .filter((x) => x.result === 'fail' || x.result === 'unverified')
+        .map((x) => ({
+          documentId: d.id,
+          checkCode: x.code,
+          note: 'Đã đối chiếu với khách tại quầy',
+          ...(x.result === 'unverified' ? { manualResult: 'pass' } : {}),
+        })),
+    );
+    const review = await action(reservationId, 'complete-review', { warningNotes });
+    expect(review.statusCode, review.body).toBe(200);
+    expect(review.json().status).toBe('scanned');
+    // A leaves: Khách 2 (A's) goes now, Khách 3 waits – 1 counted person for a party of 2.
+    expect((await removeMember(reservationId, a)).statusCode).toBe(204);
+    expect(await regState(reservationId)).toMatchObject({
+      status: 'scanned',
+      requiredCount: 2,
+      submittedCount: 1,
+    });
+    const sent = { portalReference: 'VN-0001', kind: 'vn_citizen_stay' };
+    const blocked = await action(reservationId, 'mark-sent', sent);
+    expect(blocked.statusCode, blocked.body).toBe(409);
+    expect(blocked.json()).toMatchObject({
+      code: 'REGISTRATION_INCOMPLETE',
+      errors: [{ field: 'party_count', code: 'REGISTRATION_INCOMPLETE' }],
+    });
+    expect((await regState(reservationId)).status).toBe('scanned');
+    // The desk links Khách 3 to B → 2 counted → declared.
+    const linked = await enterCccd(reservationId, person(s0, 3).id, 'Lê Thị B', '079300000003', b);
+    expect(linked.statusCode, linked.body).toBe(200);
+    const ok = await action(reservationId, 'mark-sent', sent);
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().status).toBe('sent');
+  });
+
+  it('SEC-BE-55 – legal hold: the guest sends a waiting Khách 2 again → a new document; the old image keeps its 24 h deadline and goes once the hold is lifted', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const c = await addMember(reservationId, 'Phạm Văn C');
+    await guestUploads(reservationId, [1, 2]);
+    const st = await regState(reservationId);
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE registration SET legal_hold = true WHERE id = $1', [st.registrationId]),
+    );
+    expect((await removeMember(reservationId, c)).statusCode).toBe(204);
+    const waiting = person(await docs(reservationId), 2);
+    expectPending(waiting);
+    await at(new Date(T0.getTime() + HOUR));
+    await guestUploads(reservationId, [2], '77ee');
+    await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
+    let s = await docs(reservationId);
+    // Held: the old image is not deleted, but it keeps the removal deadline (never an unowned image without one).
+    expect(s.find((d) => d.id === waiting.id)).toMatchObject({
+      removed: true,
+      liveImages: 1,
+      imageDekDestroyed: false,
+      blobPresent: true,
+      deleteAfter: DEADLINE.toISOString(),
+    });
+    const k2 = live(s, 2);
+    expect(k2.id).not.toBe(waiting.id);
+    expect(k2).toMatchObject({ liveImages: 1, deleteAfter: null, fieldsPurgeAfter: null });
+    expect((await regState(reservationId)).uploadedPeople).toEqual([1, 2]);
+    // Past the deadline, still held: nothing is deleted.
+    await runJ16(new Date(DEADLINE.getTime() + 60_000));
+    expect((await docs(reservationId)).find((d) => d.id === waiting.id)?.liveImages).toBe(1);
+    // Hold lifted → the old image goes at the next run; the new document stays.
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE registration SET legal_hold = false WHERE id = $1', [st.registrationId]),
+    );
+    await runJ16(new Date(DEADLINE.getTime() + 2 * 60_000));
+    s = await docs(reservationId);
+    expect(s.find((d) => d.id === waiting.id)).toMatchObject({
+      liveImages: 0,
+      imageDekDestroyed: true,
+      blobPresent: false,
+    });
+    expect(live(s, 2)).toMatchObject({ id: k2.id, liveImages: 1, blobPresent: true });
+  });
+
+  it('SEC-BE-56 – the P02b decision recorded for a waiting Khách 2 does not follow the person who sends it again', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const c = await addMember(reservationId, 'Phạm Văn C');
+    await guestUploads(reservationId, [1, 2]);
+    const waiting = person(await docs(reservationId), 2);
+    expect((await deskConsent(reservationId, waiting.id)).statusCode).toBe(201);
+    expect((await removeMember(reservationId, c)).statusCode).toBe(204);
+    await at(new Date(T0.getTime() + HOUR));
+    await guestUploads(reservationId, [2], '55dd');
+    const k2 = live(await docs(reservationId), 2);
+    const st = await regState(reservationId);
+    const view = (
+      await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${st.registrationId}`)
+    ).json() as { documents: Array<{ id: string; imageConsent: string }> };
+    expect(view.documents.find((d) => d.id === k2.id)?.imageConsent).toBe('not_recorded');
+    expect(view.documents.map((d) => d.id)).not.toContain(waiting.id);
+    // The consent record itself stays (append-only), still pointing at the retired document only.
+    const rows = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ guest_document_id: string | null }>(
+            'SELECT guest_document_id FROM consent_record WHERE registration_id = $1',
+            [st.registrationId],
+          )
+        ).rows,
+    );
+    expect(rows).toEqual([{ guest_document_id: waiting.id }]);
+  });
+
+  it('SEC-BE-58 (1) – a waiting document does not raise "visa_expiring"', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const c = await addMember(reservationId, 'Phạm Văn C');
+    await guestUploads(reservationId, [1, 2]);
+    const k2 = person(await docs(reservationId), 2);
+    const s = await regState(reservationId);
+    // The desk enters Khách 2 (not linked): a visa ending 16/10, before the 20/10 departure.
+    const entered = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'PATCH',
+      `${P(t)}/registrations/${s.registrationId}/documents/${k2.id}`,
+      {
+        ifMatch: s.version,
+        json: {
+          docType: 'passport',
+          fullNameOnDoc: 'MUELLER JONAS',
+          docNumber: 'C55X00V58',
+          gender: 'male',
+          dateOfBirth: '1991-05-06',
+          nationalityCode: 'DEU',
+          passportExpiryDate: '2031-01-01',
+          visaKind: 'visa',
+          visaNumber: 'V1234567',
+          visaValidUntil: '2026-10-16',
+          entryDate: '2026-10-10',
+        },
+      },
+    );
+    expect(entered.statusCode, entered.body).toBe(200);
+    const expiring = () =>
+      db.withContext(t.ctx(), async (tx) =>
+        (await fa.app.get(RegistrationService).visaExpiringReservations(tx)).map(
+          (x) => x.reservationId,
+        ),
+      );
+    expect(await expiring()).toContain(reservationId);
+    expect((await removeMember(reservationId, c)).statusCode).toBe(204);
+    expectPending({ ...person(await docs(reservationId), 2), purged: false });
+    expect(await expiring()).not.toContain(reservationId);
   });
 });
