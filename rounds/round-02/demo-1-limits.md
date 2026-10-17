@@ -29,4 +29,19 @@
 | Kết nối thật: OTA / channel manager, VNPay / MoMo, khóa cửa TTLock, MISA / hóa đơn điện tử, cổng khai báo lưu trú, Zalo / email | Round 3 trở đi – cần tài khoản của anh/chị (ESC-009, ESC-010) |
 
 ## C. Lỗi đội đã biết khi giao bản demo
-`[điền sau – ORC/QC: các lỗi còn mở sau cổng QC Sprint 3, viết bằng ngôn ngữ kinh doanh, mỗi lỗi 1 dòng: gặp ở kịch bản nào · biểu hiện · khi nào sửa]`. Anh/chị gặp các lỗi này thì không cần ghi lại.
+> ORC soạn 17/10 từ danh sách dời Sprint 4 (`s4-carryover.md`) và sổ lỗi QA; QC xác nhận ở cổng Sprint 3. Anh/chị gặp các lỗi này thì **không cần ghi lại**.
+
+| Gặp khi | Biểu hiện | Khi nào sửa |
+|---|---|---|
+| Hủy đơn hoặc báo khách không đến khi đơn còn tiền dư (sau phí) | App không tự tạo yêu cầu hoàn tiền – lễ tân phải tạo tay | Sprint 4 |
+| Hủy đơn đã ghi dịch vụ (giặt, minibar…) chưa thực hiện | Dòng dịch vụ không tự bỏ khỏi bill – lễ tân đảo tay | Sprint 4 |
+| Đổi/gán sang căn có định mức người khác (trước nhận phòng) | Phụ thu người không tự tính lại theo căn mới | Sprint 4 |
+| Đơn OTA đổi phòng nhiều lần khi đang ở | Chênh lệch tiền phòng có thể tính so với căn ngay trước thay vì căn gốc | Sprint 4 |
+| Đổi phòng cả lượt ở có đơn gia hạn mà căn mới không trống đủ đêm | App chặn và gợi ý căn khác; chưa có lựa chọn "chỉ chuyển tới hết đơn gốc" | Sprint 4 |
+| Đơn có CTV/sale chốt, đã duyệt miễn phí (FOC) lớn hơn giá đêm mới rồi đổi ngày/đổi phòng | Báo lỗi hệ thống, không lưu (không sai tiền) – làm lại sau khi bỏ FOC | Sprint 4 |
+| FOC đang chờ duyệt mà lễ tân dời ngày đơn | Sau khi duyệt, FOC không vào bill (khách trả đủ) – xin lại FOC trên đêm mới | Sprint 4 |
+| Nhận phòng sớm có phụ thu | Điều kiện "Đã thu đủ" lúc nhận phòng chưa cộng phụ thu nhận sớm – app cho nhận phòng dù chưa thu khoản này; khoản vẫn nằm trong bill và app đòi thu đủ lúc trả phòng | Sprint 4 (hợp đồng API 0.3.7) |
+| Nhập giấy tờ người đi cùng đã từng ở | Chưa tự khớp với hồ sơ khách cũ – tạo hồ sơ mới | Sprint 4 |
+| Ảnh giấy tờ của khai báo chưa xác nhận bị xóa đúng hạn | Màn khai báo không hiện dòng "Ảnh đã xóa lúc …" (ảnh vẫn đã xóa) | Sprint 4 |
+
+`[QC bổ sung nếu cổng Sprint 3 phát hiện thêm]`
