@@ -160,3 +160,15 @@ Kết quả (DB `ottimo_test_beb` tạo lại):
 - build: xanh. drizzle: không có thay đổi.
 - format: còn 1 tệp chưa format, `frontdesk/internal/stay.service.ts` (BE-A đang sửa).
 - Mọi tệp BE-B: xanh.
+
+## 11. Sửa đợt 6 – MONEY (`reviews/s3-round5-verification.md`) + DOM 17/10 (BR-431/BR-434: FOC theo dòng mới)
+
+| ID | Trạng thái mới | Phản hồi |
+|---|---|---|
+| MONEY (B) – FOC trên đêm đơn con bị trừ hai lần | Done | `liveLines` lấy cả các dòng FOC/giảm giá **liên kết qua `related_line_id`** với dòng của đơn, bất kể dòng FOC ghi trên đơn nào. Nhờ vậy phép so ở bước đồng bộ đêm và việc đảo kèm FOC đều đúng. Từ nay dòng FOC mới ghi `reservation_id` = đơn của dòng mà nó giảm. `bookingValueVnd` (theo dòng liên kết), `ota_collect` (số gộp) và cơ sở hoàn B16 (`stay_night` net) không phụ thuộc trường này. Test `foc-resync.test.ts` (B): FOC 200k trên đêm đơn con gia hạn → B14 sự cố đồng bộ lại cả đơn cha và con → tổng folio không đổi, chỉ còn 1 FOC −200k → B16 hoàn 50 % trên **giá net** (gộp − 200k) → đêm bỏ mang FOC đi theo. |
+| MONEY (A) – FOC đã duyệt mất sau khi đổi giá đêm + đồng bộ lại | Done | Đi đúng quy tắc DOM 17/10 (BR-431/434): FOC chuyển sang dòng mới = min(FOC đã duyệt, giá mới), ghi ngay `posted`, giữ nguyên `approval_request_id` (không duyệt lại), đặt lại discount của đêm (`addDiscount`), nhật ký `folio.foc_posted`.<br>• Dòng phòng mới ghi **giá gộp mới** = net của đêm + các khoản giảm của chính đêm đó vừa đảo.<br>• Giá mới cao hơn: FOC không tăng.<br>• Đêm bị bỏ mà không có đêm mới (B16, rút ngắn): FOC đi theo đêm đó.<br>• B8 dời sang ngày khác: FOC của các đêm bỏ chuyển sang các đêm mới theo thứ tự ngày, vẫn lấy min.<br>• Áp tương tự cho dòng `extra_person` (cùng ngày).<br>Test (A): FOC 300k → B8 dời ngày → FOC nằm ở đêm mới đầu tiên (đúng approval, discount 300k) → PATCH số khách → vẫn đúng 1 FOC 300k → giá trị đơn = tiền phòng − 300k → phí B10 bậc 0 % ≤ giá trị đơn.<br>Kiểm ngược: chạy 2 ca trên code HEAD cũ → cả hai đỏ. |
+| MONEY – duyệt FOC chạy song song với B10/B11 | Sprint 4 | Theo kết luận của bên kiểm. |
+
+Kết quả (DB `ottimo_test_beb` tạo lại):
+- toàn repo xanh: format:check, lint + typecheck, build, test (turbo 12/12; api 58 tệp / 2.173 ca).
+- `drizzle-kit generate`: không có thay đổi. Đợt này không thêm migration.

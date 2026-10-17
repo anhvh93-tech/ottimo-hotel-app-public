@@ -92,15 +92,21 @@ export type MultipartSessionCheck = (
 
 /** Request property holding the upload slot (released on response / abort / failed read). */
 const UPLOAD_SLOT = Symbol.for('ottimo.uploadSlot');
+/** Set once the body has been read and handed to the handler (s3-round5-verification). */
+const UPLOAD_HANDED = Symbol.for('ottimo.uploadHanded');
 
 function httpError(statusCode: number, message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
 }
 
-interface RawLike {
+interface Closable {
+  once?(event: 'close', fn: () => void): unknown;
+}
+
+interface RawLike extends Closable {
   destroyed?: boolean;
   aborted?: boolean;
-  socket?: { destroyed?: boolean } | null;
+  socket?: ({ destroyed?: boolean } & Closable) | null;
 }
 
 interface MultipartRequest {
@@ -146,8 +152,10 @@ function clientGone(req: MultipartRequest, payload: BodyStream): boolean {
  * the cap (else 413); that session is REAL (else 401); the client is still connected (else nothing is
  * reserved); an upload slot is free for the process, this session and this IP (else 503 / 429 + Retry-After –
  * the body is dropped). The body is then copied into one pre-allocated buffer; a stream that closes or
- * aborts before its end fails the read and gives the slot back at once. A successful read keeps the slot
- * until the reply is being sent (`onSend`) or the response socket closes (hooks in createHttpAdapter).
+ * aborts before its end fails the read and gives the slot back at once. A successful read hands the body to
+ * the handler and keeps the slot until the reply is being sent (`onSend`, which runs even when the client has
+ * gone – then also onResponse / onRequestAbort); a closed socket never frees it before that, because the
+ * handler still holds the body.
  */
 export function readMultipart(
   req: MultipartRequest,
@@ -202,9 +210,20 @@ export function readMultipart(
         done(uploadRefused(slot));
         return;
       }
-      (req as { [UPLOAD_SLOT]?: () => void })[UPLOAD_SLOT] = slot;
+      const holder = req as { [UPLOAD_SLOT]?: () => void; [UPLOAD_HANDED]?: boolean };
+      holder[UPLOAD_SLOT] = slot;
+      // Safety net WHILE the body is read: the client goes away → the slot comes back. Once the body has been
+      // handed to the handler, the handler holds it in memory until it replies, so only onSend / onResponse /
+      // onRequestAbort give the slot back – a closed socket must not free a slot whose 42 MB are still alive
+      // (s3-round5-verification: 16 handlers / 672 MB with uploadsInFlight() = 1).
+      const net = () => {
+        if (!holder[UPLOAD_HANDED]) releaseUploadSlot(req);
+      };
+      req.raw?.once?.('close', net);
+      req.raw?.socket?.once?.('close', net);
       readBody(payload, declared, (err, body) => {
         if (err) releaseUploadSlot(req);
+        else holder[UPLOAD_HANDED] = true;
         done(err, body);
       });
     },
@@ -282,24 +301,13 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
   // the body is read; the body is kept in memory only (files/public/multipart.ts – no temp file in clear,
   // SR-FILE-04). Caddy caps the same routes (OPS).
   adapter.getInstance().addContentTypeParser('multipart/form-data', readMultipart);
-  // The upload slot taken by readMultipart is given back as soon as the reply is being sent (`onSend` – runs
-  // even when the client already closed the socket after sending its WHOLE body: then `req.aborted` is false,
-  // so Fastify runs neither onRequestAbort nor onResponse – s3-round4-verification), and in any case when the
-  // response socket closes (`reply.raw` 'close' – final net), on onResponse / onRequestAbort, or when the body
-  // read fails (readMultipart). Release is idempotent.
+  // The upload slot taken by readMultipart is given back (idempotently) when the reply is being sent – `onSend`
+  // runs even when the client closed its socket after sending the WHOLE body (then `req.aborted` is false and
+  // Fastify runs neither onRequestAbort nor onResponse – s3-round4-verification) – and on onResponse /
+  // onRequestAbort. Before the body is handed to the handler, readMultipart itself gives it back when the
+  // body read fails or the client goes away; after that a closed socket does not (the handler still holds
+  // the body – s3-round5-verification).
   const fastify = adapter.getInstance();
-  fastify.addHook(
-    'onRequest',
-    async (
-      req: { headers: Record<string, string | string[] | undefined> },
-      reply: { raw: { once(event: 'close', fn: () => void): unknown } },
-    ) => {
-      const type = req.headers['content-type'];
-      if (typeof type === 'string' && type.toLowerCase().startsWith('multipart/form-data')) {
-        reply.raw.once('close', () => releaseUploadSlot(req));
-      }
-    },
-  );
   fastify.addHook('onResponse', async (req: unknown) => releaseUploadSlot(req));
   fastify.addHook('onRequestAbort', async (req: unknown) => releaseUploadSlot(req));
   fastify.addHook(

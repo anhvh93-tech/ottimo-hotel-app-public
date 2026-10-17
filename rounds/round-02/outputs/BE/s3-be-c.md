@@ -268,3 +268,9 @@ Chi tiết: `rounds/round-02/responses/s3-BE-C.md` mục "Vòng sửa 4".
 - `src/http.ts`: trả chỗ ở `onSend` + `reply.raw.once('close')` (gắn ở `onRequest` cho request multipart), giữ `onResponse`/`onRequestAbort`; `files/public/upload-gate.ts`: `STAFF_RESERVED_SLOTS = 1` (khách tối đa 3/4), chú thích đúng. `leak2.ts`/`leak3.ts` sạch.
 - Test `test/upload-gate-socket.test.ts` (8 ca, socket thật): thêm nhóm "sau proxy" – gửi đủ thân rồi hủy (2 IP × 2 phiên) → 0 chỗ, upload kế 200; khách không lấy được chỗ của quầy; chunked/không độ dài → từ chối, không chỗ.
 - Kết quả (DB mới, `turbo run test --force --continue`): **12/12 task xanh**, api 57 tệp / **2169** test, admin-web 163, guest-web 50; `pnpm lint` 0 lỗi (typecheck 12/12); `pnpm build` 6/6; `pnpm format:check` sạch; drizzle generate không tạo file.
+
+## 15. Vòng sửa 6 – chỗ upload giữ tới khi handler trả lời (17/10)
+- `src/http.ts`: cờ `UPLOAD_HANDED` khi thân đã giao cho handler; lưới 'close' gắn trong `readMultipart` (req + socket) chỉ trả chỗ trước khi giao; bỏ hook `onRequest`. `files/public/upload-gate.ts`: khóa IP tách staff/guest; chú thích đúng.
+- **`membound.ts` (r5) chạy lại**: 16 × 42 MB từ 1 phiên → đỉnh **2 handler / 84 MB** thân (trần 168 MB), RSS đỉnh 276 MB, xả xong 0 chỗ. `leak.ts`, `leak2.ts`, `leak3.ts` sạch.
+- `test/upload-gate-socket.test.ts` 10 ca: chỗ còn trong lúc handler chạy rồi về 0; 1 phiên gửi liên tiếp 8 thân → ≤ 2 handler; 10 phiên → ≤ 4; NAT chung staff/khách.
+- Kết quả (DB mới, `--continue`): api 2170/2171 – ca đỏ `platform.test.ts` (NOTIFY đồng hồ dùng chung, phụ thuộc thời gian khi chạy song song; chạy riêng 2 lần 16/16 xanh, không liên quan upload); admin-web 165, guest-web 50, các gói khác xanh. build 6/6; format sạch; drizzle không tạo file; typecheck sạch. `pnpm lint` đỏ 3 lỗi biến thừa ở `test/integration/foc-resync.test.ts` (BE-B đang viết).

@@ -110,6 +110,8 @@ interface LiveLine {
   service_date: string | null;
   stay_night_id: string | null;
   related_line_id: string | null;
+  approval_request_id?: string | null;
+  label_params?: Record<string, string | number> | null;
 }
 
 export interface FolioRow {
@@ -1225,10 +1227,18 @@ export class FolioService implements FolioStaySync {
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
     }
 
-    // Room nights: keep a live line whose gross (line − nothing) still equals the night, else reverse.
+    // Room nights: keep a live line whose gross (night net + its approved reductions) still equals the
+    // night, else reverse. Approved FOC/discounts FOLLOW the re-posted night (round 6 (A); DOM 17/10, BR-431/
+    // BR-434: min(approved, new rate), no re-approval, never more than approved): same night re-priced (B7/B8/
+    // B14/B16, people) → that night; B8 move to other dates → the new nights in date order; a night dropped
+    // without a new one (B16, shorter stay) → its FOC goes with it.
     const target = new Map(stay.nights.map((n) => [n.stayNightId, n]));
+    const roomLines = live.filter((x) => x.category === 'room' && x.stay_night_id);
+    const hadLine = new Set(roomLines.map((l) => l.stay_night_id as string));
     const kept = new Set<string>();
-    for (const l of live.filter((x) => x.category === 'room' && x.stay_night_id)) {
+    const sameNight = new Map<string, LiveLine[]>();
+    const droppedNights: Array<{ date: string; reductions: LiveLine[] }> = [];
+    for (const l of roomLines) {
       const night = target.get(l.stay_night_id as string);
       const reduced = this.reductionOf(l, live);
       if (
@@ -1239,18 +1249,43 @@ export class FolioService implements FolioStaySync {
         kept.add(night.stayNightId);
         continue;
       }
+      const reductions = this.reductionsOf(l, live);
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+      if (!reductions.length) continue;
+      if (night) {
+        sameNight.set(night.stayNightId, [
+          ...(sameNight.get(night.stayNightId) ?? []),
+          ...reductions,
+        ]);
+      } else {
+        droppedNights.push({ date: l.service_date ?? '', reductions });
+      }
     }
+    // B8: nights that never had a line (new dates) take the FOC of the dropped nights, in date order.
+    droppedNights.sort((a, b) => a.date.localeCompare(b.date));
+    const moved = new Map<string, LiveLine[]>();
+    stay.nights
+      .filter((n) => !hadLine.has(n.stayNightId))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((n, i) => {
+        const from = droppedNights[i];
+        if (from) moved.set(n.stayNightId, from.reductions);
+      });
     for (const n of stay.nights) {
       if (kept.has(n.stayNightId)) continue;
-      await this.insertLine(tx, {
+      // `roomRevenueVnd` was read with the night's own discount still on it (gross − discount); the reversal
+      // above took that discount back, so the gross of a re-priced night = net + its own reductions. A new
+      // night (moved FOC) has no discount yet: its net is its gross.
+      const own = sameNight.get(n.stayNightId) ?? [];
+      const gross = n.roomRevenueVnd + own.reduce((a, r) => a - r.amount_vnd, 0);
+      const lineId = await this.insertLine(tx, {
         folioId: folio.id,
         reservationId: stay.reservationId,
         category: 'room',
         description: n.extraNight ? 'extra_night' : 'room_night',
         quantity: 1,
-        unitPriceVnd: n.roomRevenueVnd,
-        amountVnd: n.roomRevenueVnd,
+        unitPriceVnd: gross,
+        amountVnd: gross,
         serviceDate: n.date,
         stayNightId: n.stayNightId,
         source: 'system',
@@ -1259,7 +1294,19 @@ export class FolioService implements FolioStaySync {
         chargeCode: n.extraNight ? 'extra_night' : null,
         labelParams: { date: n.date },
       });
-      result.roomVnd += n.roomRevenueVnd;
+      result.roomVnd += gross;
+      result.roomVnd += await this.carryReductions(tx, {
+        folioId: folio.id,
+        reservationId: stay.reservationId,
+        reservationCode: stay.reservationCode,
+        lineId,
+        lineAmountVnd: gross,
+        serviceDate: n.date,
+        stayNightId: n.stayNightId,
+        reductions: [...own, ...(moved.get(n.stayNightId) ?? [])],
+        who,
+        now,
+      });
     }
 
     // Extra-person fee (BR-110): one line per sold night at THAT night's fee (BE-A review fix, DOM S3-13 /
@@ -1274,6 +1321,7 @@ export class FolioService implements FolioStaySync {
       countOf.set(n.date, n.extraPersonCount ?? stay.extraGuestCount);
     }
     const keptDates = new Set<string>();
+    const carriedFees = new Map<string, LiveLine[]>();
     for (const l of live.filter((x) => x.category === 'extra_person')) {
       const d = l.service_date ?? '';
       if (wanted.get(d) === l.amount_vnd && !keptDates.has(d)) {
@@ -1281,10 +1329,14 @@ export class FolioService implements FolioStaySync {
         continue;
       }
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+      const reductions = this.reductionsOf(l, live);
+      if (wanted.has(d) && reductions.length) {
+        carriedFees.set(d, [...(carriedFees.get(d) ?? []), ...reductions]);
+      }
     }
     for (const [d, fee] of wanted) {
       if (keptDates.has(d)) continue;
-      await this.insertLine(tx, {
+      const feeLineId = await this.insertLine(tx, {
         folioId: folio.id,
         reservationId: stay.reservationId,
         category: 'extra_person',
@@ -1305,6 +1357,18 @@ export class FolioService implements FolioStaySync {
         },
       });
       result.extraPersonVnd += fee;
+      result.extraPersonVnd += await this.carryReductions(tx, {
+        folioId: folio.id,
+        reservationId: stay.reservationId,
+        reservationCode: stay.reservationCode,
+        lineId: feeLineId,
+        lineAmountVnd: fee,
+        serviceDate: d,
+        stayNightId: null,
+        reductions: carriedFees.get(d) ?? [],
+        who,
+        now,
+      });
     }
 
     result.commissionVnd = await this.syncCommission(tx, stay, today, now, who.requestId);
@@ -1340,19 +1404,105 @@ export class FolioService implements FolioStaySync {
     return result;
   }
 
-  /** Posted, non-reversal, not-yet-reversed lines of one booking on a folio. */
+  /**
+   * Posted, non-reversal, not-yet-reversed lines of one booking on a folio – with the FOC/discount lines that
+   * reduce them whatever booking those were written on (round 6 (B): a FOC on a child booking's night was
+   * written on the primary booking and missed here, so the night was reversed and re-posted net while the
+   * FOC stayed – reduced twice).
+   */
   private async liveLines(tx: Tx, folioId: string, reservationId: string): Promise<LiveLine[]> {
     const { rows } = await tx.query<LiveLine>(
       `SELECT l.id, l.category, l.revenue_group, l.description, l.quantity, l.unit_price_vnd, l.amount_vnd,
-              l.service_date::text AS service_date, l.stay_night_id, l.related_line_id
+              l.service_date::text AS service_date, l.stay_night_id, l.related_line_id, l.approval_request_id,
+              l.label_params
          FROM folio_line l
-        WHERE l.folio_id = $1 AND l.reservation_id = $2 AND l.line_state = 'posted'
+         LEFT JOIN folio_line rel ON rel.id = l.related_line_id
+        WHERE l.folio_id = $1 AND l.line_state = 'posted'
+          AND (l.reservation_id = $2
+               OR (l.category IN ('foc', 'discount') AND rel.reservation_id = $2))
           AND l.reversal_of_id IS NULL
           AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
         ORDER BY l.posted_at, l.id`,
       [folioId, reservationId],
     );
     return rows;
+  }
+
+  /** The posted FOC/discount lines that reduce `line`. */
+  private reductionsOf(line: LiveLine, live: readonly LiveLine[]): LiveLine[] {
+    return live.filter(
+      (r) => r.related_line_id === line.id && (r.category === 'foc' || r.category === 'discount'),
+    );
+  }
+
+  /**
+   * Round 6 (A): an approved FOC/discount of a line the sync replaced follows the new line – min(approved,
+   * what is left of the new line), posted at once with the same approval (no re-approval), the night's
+   * discount set again (room), money audit `folio.foc_posted`. Returns the net amount posted (≤ 0).
+   */
+  private async carryReductions(
+    tx: Tx,
+    c: {
+      folioId: string;
+      reservationId: string;
+      reservationCode: string;
+      lineId: string;
+      lineAmountVnd: number;
+      serviceDate: string;
+      stayNightId: string | null;
+      reductions: readonly LiveLine[];
+      who: { userId: string | null; requestId?: string };
+      now: Date;
+    },
+  ): Promise<number> {
+    let left = c.lineAmountVnd;
+    let posted = 0;
+    for (const r of c.reductions) {
+      const amount = Math.min(-r.amount_vnd, left);
+      if (amount <= 0) continue;
+      left -= amount;
+      const id = await this.insertLine(tx, {
+        folioId: c.folioId,
+        reservationId: c.reservationId,
+        category: r.category,
+        revenueGroup: r.revenue_group,
+        description: r.description,
+        quantity: 1,
+        unitPriceVnd: -amount,
+        amountVnd: -amount,
+        serviceDate: c.serviceDate,
+        stayNightId: null,
+        source: 'system',
+        postedBy: c.who.userId,
+        now: c.now,
+        relatedLineId: c.lineId,
+        labelParams: r.label_params ?? null,
+        reason: 'FOC follows the re-posted line (BR-412 precedent)',
+      });
+      if (r.approval_request_id) {
+        await tx.query('UPDATE folio_line SET approval_request_id = $2 WHERE id = $1', [
+          id,
+          r.approval_request_id,
+        ]);
+      }
+      if (c.stayNightId) await this.nights.addDiscount(tx, c.stayNightId, amount);
+      await this.audit.recordMoney(tx, {
+        action: 'folio.foc_posted',
+        entityType: 'folio_line',
+        entityId: id,
+        entityCode: c.reservationCode,
+        after: {
+          category: r.category,
+          amountVnd: -amount,
+          lineState: 'posted',
+          relatedCategory: c.stayNightId ? 'room' : 'extra_person',
+        },
+        reason: 'carried to the re-posted line',
+        ...(c.who.requestId ? { requestId: c.who.requestId } : {}),
+      });
+      posted -= amount;
+    }
+    return posted;
   }
 
   /** Σ of the posted FOC/discount lines that reduce `line` (positive VND). */

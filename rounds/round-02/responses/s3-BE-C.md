@@ -107,3 +107,10 @@ Xem `rounds/round-02/outputs/BE/s3-be-c.md` mục 9.
 | Giữ 1 chỗ cho route nhân viên (khuyến nghị) | – | Done | `STAFF_RESERVED_SLOTS = 1`: upload của khách dùng tối đa 3/4 chỗ → khách thứ 4 nhận 503, upload tại quầy vẫn 200. Test socket |
 | Thiếu `Content-Length` / thân chunked (khuyến nghị) | – | Done (test) | Chunked → 422 trước khi đọc thân, không chỗ; không có độ dài → bị từ chối trước parser (400 → 422 qua ProblemFilter). Test socket |
 | Chú thích `upload-gate.ts` | – | Fixed | Mô tả đúng các điểm trả chỗ (lỗi đọc thân, `onSend`, đóng socket phản hồi, onResponse/onRequestAbort) và chỗ giữ cho nhân viên |
+
+## Vòng sửa 6 – kiểm chứng đối kháng lần 4 (`reviews/s3-round5-verification.md`)
+
+| Thẻ | Mức | Trạng thái | Ghi chú |
+|---|---|---|---|
+| Hồi quy vòng 5: lưới `reply.raw` 'close' trả chỗ khi handler còn giữ thân 42 MB | Blocker | Fixed | (1) `readMultipart` đánh dấu `UPLOAD_HANDED` khi thân đã đọc xong và giao cho handler; từ đó **chỉ** `onSend`/`onResponse`/`onRequestAbort` trả chỗ – đóng socket không trả nữa. (2) Lưới 'close' gắn ngay trong `readMultipart` lúc lấy chỗ (`req.raw` + socket), chỉ có tác dụng TRƯỚC khi giao thân; bỏ hook `onRequest` + `startsWith` (đóng luôn Minor Content-Type 0xA0). (3) Test cũ sửa: sau khi client đóng, chỗ **còn** trong lúc handler chạy (`uploadsInFlight() = 1`), về 0 khi handler trả lời. (4) Test socket mới: 1 phiên gửi 8 thân đủ rồi đóng liên tiếp → số handler giữ thân ≤ `MAX_UPLOADS_PER_SESSION` (2); 10 phiên × 10 IP cùng lúc → ≤ `MAX_UPLOADS_IN_FLIGHT`. (5) Chú thích `upload-gate.ts`, `http.ts` sửa. **`membound.ts` chạy lại**: 16 upload 42 MB từ 1 phiên → đỉnh 2 handler giữ thân, **84 MB** (trần thiết kế 168 MB), RSS đỉnh 276 MB, xả xong `uploadsInFlight() = 0`. `leak.ts`, `leak2.ts`, `leak3.ts` vẫn sạch |
+| Nhân viên và khách chung NAT (Minor) | – | Fixed | Khóa trần IP tách theo loại phiên (`i:staff:<ip>` / `i:guest:<ip>`); test: 3 upload khách chậm từ 1 địa chỉ, quầy cùng địa chỉ vẫn 200 |

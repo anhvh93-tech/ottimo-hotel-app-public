@@ -33,6 +33,7 @@ export interface FocInput {
 interface LineRow {
   id: string;
   folio_id: string;
+  reservation_id: string | null;
   category: string;
   revenue_group: 'room' | 'other' | 'non_revenue';
   service_date: string | null;
@@ -118,7 +119,8 @@ export class FolioFocService {
     const now = this.clock.now();
     const focLineId = await this.folios.insertLine(tx, {
       folioId: folio.id,
-      reservationId: folio.primary_reservation_id,
+      // Round 6 (B): the FOC belongs to the booking of the line it reduces (a child booking's night too).
+      reservationId: line.reservation_id ?? folio.primary_reservation_id,
       category: input.kind === 'foc' ? 'foc' : 'discount',
       revenueGroup: line.revenue_group,
       description: input.kind === 'foc' ? 'foc' : 'special_discount',
@@ -217,7 +219,8 @@ export class FolioFocService {
 
   private async line(tx: Tx, id: string): Promise<LineRow | null> {
     const { rows } = await tx.query<LineRow>(
-      `SELECT l.id, l.folio_id, l.category, l.revenue_group, l.service_date::text AS service_date,
+      `SELECT l.id, l.folio_id, l.reservation_id, l.category, l.revenue_group,
+              l.service_date::text AS service_date,
               l.unit_price_vnd, l.amount_vnd, l.line_state, l.reversal_of_id, l.related_line_id, l.stay_night_id,
               EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id) AS reversed
          FROM folio_line l WHERE l.id = $1`,

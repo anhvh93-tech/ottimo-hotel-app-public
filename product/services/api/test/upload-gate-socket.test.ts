@@ -131,17 +131,15 @@ describe('upload slots on a real socket', () => {
     // Session B on the same network gets through (third slot of this IP).
     expect(await request({ cookie: guestCookie('B') }).done).toBe('HTTP/1.1 200 OK');
     // A third slow guest (session C, same network) → 3 in flight: the guest share is full (one slot stays
-    // for the desk) and this network is at its cap – a guest gets 503, a staff upload from the same network
-    // 429 (IP cap), while the desk elsewhere still gets the reserved slot.
+    // for the desk) and this network's GUEST cap too – another guest gets 503, while a staff upload from the
+    // very same address still goes through (separate staff IP cap + the reserved slot).
     const third = request({ cookie: guestCookie('C'), length: 1000, sent: 10 });
     await sleep(CHECK_MS + 100);
     expect(uploadsInFlight()).toBe(MAX_UPLOADS_PER_IP);
     expect(await request({ cookie: guestCookie('D') }).done).toBe(
       'HTTP/1.1 503 Service Unavailable',
     );
-    expect(await request({ path: STAFF, cookie: staffCookie('s') }).done).toBe(
-      'HTTP/1.1 429 Too Many Requests',
-    );
+    expect(await request({ path: STAFF, cookie: staffCookie('s') }).done).toBe('HTTP/1.1 200 OK');
     // Slow clients give up → every slot comes back.
     for (const r of [...slow, third]) r.socket.destroy();
     await sleep(200);
@@ -171,6 +169,9 @@ describe('upload slots – client gone after its full body, behind a proxy', () 
   let app: any;
   let port = 0;
   const HANDLER_MS = 200;
+  /** Guest handlers currently holding a request body (round-5 verification: bounded by the slots). */
+  let running = 0;
+  let peakRunning = 0;
 
   beforeAll(async () => {
     app = createHttpAdapter({ trustProxy: ['127.0.0.1'], logLevel: 'silent' }).getInstance();
@@ -184,8 +185,14 @@ describe('upload slots – client gone after its full body, behind a proxy', () 
       return `${kind}:${m[2]}`;
     };
     app.post(GUEST, async () => {
-      await sleep(HANDLER_MS);
-      return { ok: true };
+      running++;
+      peakRunning = Math.max(peakRunning, running);
+      try {
+        await sleep(HANDLER_MS);
+        return { ok: true };
+      } finally {
+        running--;
+      }
     });
     app.post('/v1/properties/:propertyId/attachments', async () => {
       await sleep(HANDLER_MS);
@@ -240,7 +247,7 @@ describe('upload slots – client gone after its full body, behind a proxy', () 
   const guestCookie = (s: string) => `__Host-ottimo_gsid=${s.padEnd(43, 'x')}`;
   const staffCookie = (s: string) => `ottimo_sid=${s.padEnd(43, 'y')}`;
 
-  it('whole body sent, client gone before the reply (2 networks × 2 sessions) → every slot comes back', async () => {
+  it('whole body sent, client gone before the reply (2 networks × 2 sessions): the slot stays while the handler runs, then comes back', async () => {
     for (const [sess, ip] of [
       ['g1', '10.0.0.1'],
       ['g1', '10.0.0.1'],
@@ -248,13 +255,58 @@ describe('upload slots – client gone after its full body, behind a proxy', () 
       ['g2', '10.0.0.2'],
     ] as const) {
       expect(await send({ cookie: guestCookie(sess), ip, abortAfterMs: 60 }).done).toBe('aborted');
+      // The handler still holds the body: its slot is NOT given back on the closed socket…
+      expect(uploadsInFlight()).toBe(1);
+      expect(running).toBe(1);
+      // … but as soon as it replies (onSend runs even with the client gone).
+      await sleep(HANDLER_MS + 100);
+      expect(running).toBe(0);
+      expect(uploadsInFlight()).toBe(0);
     }
-    await sleep(HANDLER_MS + 200);
-    expect(uploadsInFlight()).toBe(0);
     expect(await send({ cookie: guestCookie('g3'), ip: '10.0.0.3' }).done).toBe('HTTP/1.1 200 OK');
     expect(await send({ path: STAFF, cookie: staffCookie('s1'), ip: '10.0.0.9' }).done).toBe(
       'HTTP/1.1 200 OK',
     );
+    expect(uploadsInFlight()).toBe(0);
+  });
+
+  it('round-5 verification: full bodies sent then closed, one after another – handlers holding a body ≤ per-session cap; many sessions ≤ process cap', async () => {
+    // One session, one network, 8 sends in a row, each closed right after its whole body.
+    peakRunning = 0;
+    for (let i = 0; i < 8; i++) {
+      await send({ cookie: guestCookie('flood'), ip: '10.4.0.1', abortAfterMs: 15 }).done;
+    }
+    expect(peakRunning).toBeLessThanOrEqual(MAX_UPLOADS_PER_SESSION);
+    await sleep(HANDLER_MS + 200);
+    expect(uploadsInFlight()).toBe(0);
+    // Many sessions on many networks at once: never more handlers than slots.
+    peakRunning = 0;
+    await Promise.all(
+      Array.from(
+        { length: 10 },
+        (_, i) =>
+          send({ cookie: guestCookie(`many${i}`), ip: `10.5.0.${i + 1}`, abortAfterMs: 15 }).done,
+      ),
+    );
+    expect(peakRunning).toBeLessThanOrEqual(MAX_UPLOADS_IN_FLIGHT);
+    await sleep(HANDLER_MS + 200);
+    expect(running).toBe(0);
+    expect(uploadsInFlight()).toBe(0);
+  });
+
+  it('staff and guests behind the same NAT have separate IP caps', async () => {
+    // Three slow guest uploads from one address hold that address's GUEST cap…
+    const slow = Array.from({ length: MAX_UPLOADS_PER_IP }, (_, i) =>
+      send({ cookie: guestCookie(`nat${i}`), ip: '10.6.0.1', length: 1000 }),
+    );
+    for (let i = 0; i < 100 && uploadsInFlight() < MAX_UPLOADS_PER_IP; i++) await sleep(10);
+    expect(uploadsInFlight()).toBe(MAX_UPLOADS_PER_IP);
+    // … the desk on the same address still uploads (staff cap of that address untouched, reserved slot).
+    expect(await send({ path: STAFF, cookie: staffCookie('desk-nat'), ip: '10.6.0.1' }).done).toBe(
+      'HTTP/1.1 200 OK',
+    );
+    for (const r of slow) r.socket.destroy();
+    await sleep(200);
     expect(uploadsInFlight()).toBe(0);
   });
 
