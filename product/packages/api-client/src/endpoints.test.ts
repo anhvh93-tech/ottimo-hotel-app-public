@@ -168,4 +168,18 @@ describe('Sprint 3 endpoints (OpenAPI 0.3.6)', () => {
     expect(call(0)[0]).toMatch(/approval-requests\/a\/actions\/execute-cash-refund$/);
     expect(call(1)[0]).toMatch(/approval-requests\/a\/actions\/execute-refund$/);
   });
+
+  it('getDocumentImage asks for a Blob with a reason and `cache: no-store`; JSON reads keep the default (SEC B5)', async () => {
+    const { api, call } = setup();
+    await api.getDocumentImage({ propertyId: 'p', registrationId: 'g' }, 'd', 'i', 'registration');
+    await api.listAttentionItems({ propertyId: 'p' });
+    const [url, init] = call(0);
+    expect(url).toBe(
+      'http://x/v1/properties/p/registrations/g/documents/d/images/i?reason=registration',
+    );
+    expect(init.cache).toBe('no-store');
+    const [aurl, ainit] = call(1);
+    expect(aurl).toBe('http://x/v1/properties/p/attention');
+    expect(ainit.cache).toBeUndefined();
+  });
 });

@@ -16,7 +16,7 @@ export interface RequestOptions {
   local?: boolean;
   /** multipart/form-data body (uploads – the browser sets the boundary header). Wins over `body`. */
   form?: FormData;
-  /** Read the 2xx body as a Blob (images – never JSON-parsed, never cached by the client). */
+  /** Read the 2xx body as a Blob (images – never JSON-parsed, never cached: fetch `cache: 'no-store'`). */
   blob?: boolean;
 }
 
@@ -91,6 +91,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
           headers,
           credentials: 'same-origin',
           body: req.form ?? (req.body === undefined ? undefined : JSON.stringify(req.body)),
+          // C3 images (SR-C3-11): never kept in the browser's HTTP cache, whatever the response says.
+          ...(req.blob ? { cache: 'no-store' as const } : {}),
         });
       } catch {
         const err = networkError();

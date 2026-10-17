@@ -188,7 +188,8 @@ describe('GuestPicker (US-073, shared)', () => {
     const box = await screen.findByRole('combobox', { name: 'Khách đứng tên' });
     await user.type(box, 'do mai');
     const list = await screen.findByRole('listbox');
-    expect(within(list).getAllByRole('option')).toHaveLength(3);
+    // The options come with the search answer (the list says "loading" until then – CI 39010774166).
+    expect(await within(list).findAllByRole('option')).toHaveLength(3);
     expect(within(list).getByText('Tạo nhanh khách "do mai"')).toBeInTheDocument();
     await user.keyboard('{ArrowDown}{Enter}');
     expect(picked).toEqual(['Do Mai Anh']);

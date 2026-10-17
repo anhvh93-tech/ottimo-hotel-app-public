@@ -2548,6 +2548,42 @@ g("R2 Sprint 3 – vòng sửa 9: lỗi Desk UXR #5, #7, #8 (FE viết theo cont
     ("refund.self_execute_forbidden_transfer", "Bạn đã tạo, duyệt hoặc nhập tài khoản nhận cho khoản hoàn này nên không tự chi được. Nhờ quản lý khác hoặc chủ đầu tư ghi khoản chi này.", "You requested, approved or entered the account for this refund, so you can't also pay it out. Ask another manager or the owner to record this payout.", None, "403 SELF_REFUND_FORBIDDEN ở executeRefund (chuyển khoản). Tiền mặt: refund.self_execute_forbidden (chỉ người tạo bị chặn)"),
 ])
 
+g("R2 Sprint 3 – vòng sửa 9c: Desk gắn giấy tờ chờ (FB-R2-SEC-FE-07), xem ảnh giấy tờ, khai báo thiếu người (FE viết theo content guide – chờ UXD duyệt)", [
+    # FB-R2-SEC-FE-07 – giấy tờ khách gửi qua link chưa gắn người sau khi bỏ người khỏi đoàn (BUG-R2-083, BE-C 9b)
+    ("reg.link.pending_chip", "Chờ gắn người – tự xóa lúc {time}", "Not linked to a guest – deleted at {time}", None, "Thay chip guest.chip.doc_ok trên giấy tờ chờ gắn. {time} ← documents[].imagePurgeAt (ngày giờ)"),
+    ("reg.link.pending_chip_soon", "Chờ gắn người – sắp tự xóa", "Not linked to a guest – will be deleted soon", None, "Như trên khi không có imagePurgeAt (ảnh đã xóa, giấy tờ vẫn chờ)"),
+    ("reg.link.action", "Gắn người", "Link to guest", None, "Nút trên dòng giấy tờ chờ: step-up → hộp nhập tay có ô Người trong đoàn"),
+    ("reg.link.banner", "{n} giấy tờ khách gửi qua link chưa gắn người – tự xóa lúc {time}. Gắn vào người còn ở để giữ lại.", "{n} ID(s) sent via the link aren't linked to a guest – deleted at {time}. Link them to a guest who is staying to keep them.", None, "Dải cảnh báo đầu khối Giấy tờ (H13 bước Giấy tờ, H14). {time} = hạn sớm nhất"),
+    ("reg.link.banner_soon", "{n} giấy tờ khách gửi qua link chưa gắn người và sắp tự xóa. Gắn vào người còn ở để giữ lại.", "{n} ID(s) sent via the link aren't linked to a guest and will be deleted soon. Link them to a guest who is staying to keep them.", None, "Như trên khi không có hạn"),
+    ("reg.link.go", "Tới giấy tờ", "Go to the ID", None, "Nút của dải cảnh báo – cuộn và đặt tiêu điểm vào giấy tờ chờ đầu tiên"),
+    ("reg.link.member", "Người trong đoàn", "Guest in the party", None, "Ô chọn trong hộp sửa giấy tờ khách gửi qua link – partyMemberId (không chọn sẵn)"),
+    ("reg.link.member_placeholder", "Chọn người", "Choose a guest", None, "Lựa chọn trống đầu danh sách"),
+    ("reg.link.member_help", "Người có giấy tờ này. Giấy tờ đi theo người đó khi đoàn thay đổi.", "Whose ID this is. The ID follows that guest if the party changes.", None, "Giấy tờ khách gửi qua link chưa gắn, không chờ xóa – không bắt buộc"),
+    ("reg.link.member_help_pending", "Chọn người có giấy tờ này để giữ lại. Không gắn thì giấy tờ tự xóa lúc {time}.", "Choose whose ID this is to keep it. If it isn't linked, it's deleted at {time}.", None, "Giấy tờ chờ gắn – bắt buộc"),
+    ("reg.link.member_help_pending_soon", "Chọn người có giấy tờ này để giữ lại. Không gắn thì giấy tờ sắp tự xóa.", "Choose whose ID this is to keep it. If it isn't linked, it will be deleted soon."),
+    ("reg.link.has_doc", "{name} – đã có giấy tờ", "{name} – already has an ID", None, "Lựa chọn bị khóa: người đã gắn với giấy tờ khác (409 PARTY_DUPLICATE)"),
+    ("reg.link.no_member", "Trong đoàn chưa có ai để gắn giấy tờ này. Thêm người ở mục Người ở của đơn rồi gắn lại; không thì giấy tờ tự xóa lúc {time}.", "There's no one in the party to link this ID to. Add the guest under Guests staying on the booking, then link it; otherwise it's deleted at {time}.", None, "Mọi người còn ở đã có giấy tờ – không chặn nút Lưu"),
+    ("reg.link.no_member_soon", "Trong đoàn chưa có ai để gắn giấy tờ này. Thêm người ở mục Người ở của đơn rồi gắn lại; không thì giấy tờ sắp tự xóa.", "There's no one in the party to link this ID to. Add the guest under Guests staying on the booking, then link it; otherwise it will be deleted soon."),
+    ("reg.link.party_error", "Chưa tải được danh sách người trong đoàn.", "Couldn't load the guests in the party.", None, "listParty lỗi – kèm nút common.retry"),
+    ("reg.link.linked_toast", "Đã gắn giấy tờ vào {name}", "ID linked to {name}", None, "Toast sau khi gắn (updateGuestDocument + partyMemberId)"),
+    ("reg.link.no_fields", "Chưa nhập thông tin giấy tờ", "ID details not entered yet", None, "Tên dòng giấy tờ khách gửi qua link khi lễ tân chưa nhập trường"),
+    ("reg.link.dup_pending", "Số giấy tờ này có thể thuộc giấy tờ khách đã gửi qua link đang chờ gắn người. Mở giấy tờ đó, bấm Gắn người và chọn người – không cần nhập mới.", "This ID number may belong to an ID the guest sent via the link that is waiting to be linked. Open that ID, select Link to guest and choose the guest – no need to add it again.", None, "Nhập tay trùng số khi đơn có giấy tờ chờ gắn: 409 PARTY_DUPLICATE (0.3.7 sẽ có DOCUMENT_UNCLAIMED_EXISTS kèm id)"),
+    ("reg.link.open_pending", "Mở giấy tờ chờ gắn người", "Open the ID waiting to be linked", None, "Đóng hộp nhập tay, tới giấy tờ chờ"),
+    # Cần chú ý – data_quality / params.check = registration_party_docs_unlinked (BE-C attention-sources.ts) trên H14 danh sách
+    ("attn.dq_party_docs_unlinked", "{n} đơn có giấy tờ khách gửi qua link chưa gắn người – sớm nhất tự xóa lúc {time}", "{n} booking(s) have IDs sent via the link that aren't linked to a guest – the first is deleted at {time}", None, "AttentionItem kind=data_quality, params.check=registration_party_docs_unlinked, count>1; {time} ← dueAt"),
+    ("attn.dq_party_docs_unlinked_one", "Đơn {code} có giấy tờ khách gửi qua link chưa gắn người – tự xóa lúc {time}", "Booking {code} has IDs sent via the link that aren't linked to a guest – deleted at {time}", None, "count=1 (có refCode)"),
+    ("attn.dq_party_docs_unlinked_body", "Có người vừa rời đoàn. Mở đơn, gắn giấy tờ của người còn ở vào đúng người để giữ lại.", "Someone has left the party. Open the booking and link each staying guest's ID to that guest to keep it."),
+    ("reg.link.open_booking", "Mở đơn {code}", "Open booking {code}", None, "Nút trong dải Cần chú ý của H14 (tối đa 5 đơn, đọc Reservation.registrationId) – mở khai báo, tới giấy tờ chờ"),
+    ("reg.link.row_chip", "Giấy tờ chờ gắn người", "IDs waiting to be linked", None, "Chip trên dòng H14 của đơn có mục Cần chú ý"),
+    # P2 UXR (ảnh 020) – nút "Xem đủ số / ảnh" mở cả ảnh giấy tờ (getDocumentImage: step-up, reason, no-store, tự ẩn 60 giây)
+    ("ci.photo_alt", "Ảnh giấy tờ {n}/{total} – {name}", "ID photo {n} of {total} – {name}", None, "alt của ảnh giấy tờ; {name} = tên trên giấy tờ hoặc reg.link.no_fields"),
+    ("ci.photo_deleted", "Ảnh này đã bị xóa theo hạn lưu.", "This photo has been deleted (retention period ended).", None, "getDocumentImage 404 (E06-04)"),
+    ("ci.photo_error", "Chưa mở được ảnh giấy tờ. Bấm Xem đủ số / ảnh để thử lại.", "Couldn't open the ID photo. Select View full number / photo to try again.", None, "Lỗi khác khi tải ảnh – số đầy đủ vẫn hiện nếu đọc được"),
+    # SEC-BE-54 (BE-C e6d1a7d) – mark-sent 409 REGISTRATION_INCOMPLETE errors[party_count]
+    ("reg2.mark_sent_incomplete", "Còn thiếu giấy tờ của {n} người. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi.", "IDs are missing for {n} guest(s). Link the waiting IDs or add the missing ones before marking as sent.", None, "{n} = requiredCount − submittedCount; cũng hiện trước khi bấm khi số đã biết"),
+    ("reg2.mark_sent_incomplete_short", "Còn thiếu giấy tờ của người trong đoàn. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi.", "Some guests' IDs are missing. Link the waiting IDs or add the missing ones before marking as sent.", None, "Như trên khi chưa tính được {n}"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

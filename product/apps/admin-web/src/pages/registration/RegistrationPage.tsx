@@ -7,7 +7,7 @@ import {
 import { hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useLiveReload } from '../../app/live';
 import { C3_TTL_MS, useC3Clipboard, useC3Reveal } from '../../app/c3';
@@ -20,8 +20,11 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { StepUpDialog, useSubmit } from '../stay/common';
 import { DocsList, VerifyList, resultOf } from './DocsPanel';
+import { useUnlinkedAttention } from './partyDocs';
 
 type View = 'action_needed' | 'needs_update' | 'all';
+/** "Cần chú ý" of unlinked guest-link documents: buttons for the first few bookings (rows carry a chip too). */
+const MAX_OPEN_BUTTONS = 5;
 const OWN_MGR = ['owner', 'manager'];
 
 /** H14 Giấy tờ & khai báo (S09, C3 – the route itself is only reachable on a granted device). */
@@ -42,8 +45,34 @@ function RegistrationList() {
     async () => (await api.listRegistrations({ propertyId }, view)).data.data,
     [propertyId, view],
   );
-  useLiveReload(propertyId, reload);
+  // FB-R2-SEC-FE-07: "Cần chú ý" data_quality / registration_party_docs_unlinked – the "Hôm nay" page is
+  // still a frame, so the item is shown here, above the list it concerns.
+  const unlinked = useUnlinkedAttention(propertyId);
+  useLiveReload(propertyId, () => {
+    reload();
+    unlinked.reload();
+  });
   const rows: RegistrationSummary[] = state.data ?? [];
+  const item = unlinked.item;
+  const flaggedIds = new Set(item?.reservationIds ?? []);
+  const due = item?.dueAt ? dateTime(item.dueAt) : null;
+  // The bookings named by the item may not be in the page of the list on screen (first 100 by id): each one
+  // is read for its code and registration (`Reservation.registrationId`, 0.3.6) – a few at most.
+  const flaggedKey = [...flaggedIds].slice(0, MAX_OPEN_BUTTONS).join(',');
+  const targets = useResource(async () => {
+    const ids = flaggedKey ? flaggedKey.split(',') : [];
+    const found = await Promise.all(
+      ids.map((reservationId) =>
+        api.getReservation({ propertyId, reservationId }).then(
+          (x) => x.data,
+          () => null,
+        ),
+      ),
+    );
+    return found.flatMap((x) =>
+      x?.registrationId ? [{ code: x.code, registrationId: x.registrationId }] : [],
+    );
+  }, [propertyId, flaggedKey]);
 
   const deadline = (r: RegistrationSummary) => {
     if (r.deadlineLabel === 'at_checkin') return <span>{t('reg2.at_checkin')}</span>;
@@ -85,6 +114,38 @@ function RegistrationList() {
             ]}
           />
         </div>
+        {item ? (
+          <Alert
+            tone="warn"
+            title={
+              !due
+                ? t('attn.data_quality', { n: item.count ?? flaggedIds.size })
+                : item.count === 1 && item.refCode
+                  ? t('attn.dq_party_docs_unlinked_one', { code: item.refCode, time: due })
+                  : t('attn.dq_party_docs_unlinked', {
+                      n: item.count ?? flaggedIds.size,
+                      time: due,
+                    })
+            }
+            actions={
+              targets.state.data?.length ? (
+                <>
+                  {targets.state.data.map((x) => (
+                    <Button
+                      key={x.registrationId}
+                      size="sm"
+                      onClick={() => navigate(`/registration/${x.registrationId}?focus=pending`)}
+                    >
+                      {t('reg.link.open_booking', { code: x.code })}
+                    </Button>
+                  ))}
+                </>
+              ) : undefined
+            }
+          >
+            {t('attn.dq_party_docs_unlinked_body')}
+          </Alert>
+        ) : null}
         {state.status === 'error' && !state.data ? (
           <ErrorBlock
             titleKey="reg2.error_title"
@@ -130,10 +191,24 @@ function RegistrationList() {
                     <td className="num">
                       {r.submittedCount}/{r.requiredCount}
                     </td>
-                    <td>{t(`status.reg.${r.status}`)}</td>
+                    <td>
+                      {t(`status.reg.${r.status}`)}
+                      {flaggedIds.has(r.reservationId) ? (
+                        <div>
+                          <Chip tone="warn">{t('reg.link.row_chip')}</Chip>
+                        </div>
+                      ) : null}
+                    </td>
                     <td>{deadline(r)}</td>
                     <td>
-                      <Button size="sm" onClick={() => navigate(`/registration/${r.id}`)}>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          navigate(
+                            `/registration/${r.id}${flaggedIds.has(r.reservationId) ? '?focus=pending' : ''}`,
+                          )
+                        }
+                      >
                         {r.status === 'scanned'
                           ? t('reg2.declare')
                           : r.submittedCount
@@ -159,6 +234,8 @@ function RegistrationList() {
  */
 function RegistrationDetail({ registrationId }: { registrationId: string }) {
   const { t, locale, dateTime } = useI18n();
+  const [search] = useSearchParams();
+  const focusPending = search.get('focus') === 'pending';
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const { online } = useOnline();
@@ -210,6 +287,11 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
 
   const r = rsv.state.data;
   const foreign = reg.kind !== 'vn_citizen_stay';
+  // SEC-BE-54 (BE-C e6d1a7d): mark-sent → 409 REGISTRATION_INCOMPLETE errors[party_count] when fewer
+  // documents count than people – said before the click too when the numbers already show it.
+  const short = Math.max(0, reg.requiredCount - reg.submittedCount);
+  const incompleteText =
+    short > 0 ? t('reg2.mark_sent_incomplete', { n: short }) : t('reg2.mark_sent_incomplete_short');
   const handled = (d: Registration['documents'][number]) =>
     d.checks.filter((c) => c.handledNote).length;
 
@@ -287,6 +369,9 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
     const out = await flow.submit((idem) =>
       api.transitionRegistration(G, tr, body, reg.version, idem),
     );
+    // SEC-BE-54: fewer counted documents than people (a document waits to be linked, J16 removed one…) –
+    // read the registration again so the counts and the waiting documents are current.
+    if (!out && tr === 'mark-sent') reload();
     if (out) {
       set(out.data);
       setRejecting(false);
@@ -327,7 +412,14 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
 
         <section className="card stack">
           <h2 className="label-h">{t('reg2.block1')}</h2>
-          {r ? <DocsList registration={reg} reservation={r} onChange={set} /> : null}
+          {r ? (
+            <DocsList
+              registration={reg}
+              reservation={r}
+              onChange={set}
+              focusPending={focusPending}
+            />
+          ) : null}
           {r ? (
             <VerifyList registration={reg} departureDate={r.departureDate} onChange={set} />
           ) : null}
@@ -475,6 +567,9 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
           <h2 className="label-h">{t('reg2.block3')}</h2>
           {reg.status === 'scanned' ? (
             <>
+              {short > 0 && flow.code !== 'REGISTRATION_INCOMPLETE' ? (
+                <Alert tone="warn">{incompleteText}</Alert>
+              ) : null}
               <Field
                 label={t('reg.code_label')}
                 required
@@ -553,7 +648,11 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
           ) : (
             <p className="li-s">{t('reg2.after_sent')}</p>
           )}
-          {flow.view()}
+          {flow.code === 'REGISTRATION_INCOMPLETE' ? (
+            <Alert tone="bad">{incompleteText}</Alert>
+          ) : (
+            flow.view()
+          )}
         </section>
 
         <section className="card stack">

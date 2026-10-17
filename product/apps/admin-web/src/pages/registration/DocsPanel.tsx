@@ -5,6 +5,7 @@ import {
   type GuestDocumentInput,
   type GuestDocumentMasked,
   type GuestDocumentSensitive,
+  type Party,
   type Registration,
   type Reservation,
 } from '@ottimo/api-client';
@@ -12,11 +13,22 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, Field, Icon, Modal, Seg } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
-import { C3_TTL_MS, useC3Reveal } from '../../app/c3';
+import { C3_TTL_MS } from '../../app/c3';
 import { problemView } from '../../app/problem';
 import { useToast } from '../../app/toast';
+import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
 import { StepUpDialog, useSubmit, useUnsavedLabels } from '../stay/common';
+import { useC3DocReveal } from './docImages';
+import {
+  docRowId,
+  earliestPurge,
+  focusDocRow,
+  isGuestUploadUnlinked,
+  pendingDocs,
+  useFocusPendingOnce,
+  useUnlinkedAttention,
+} from './partyDocs';
 
 export const DOC_LABEL: Record<DocType, string> = {
   cccd: 'ci.doc.cccd',
@@ -34,20 +46,33 @@ type VisaKind = 'visa' | 'visa_exempt' | 'temp_residence_card';
 
 /**
  * H13 13.2 / H14 – documents per person (C3). After saving only the last 4 characters are shown; the
- * full number needs step-up and auto-hides after 60 s, when the tab is hidden, on leaving and on
- * sign-out (`useC3Reveal`, SEC FE-06). No download button; nothing is written to browser storage.
+ * full number and the photos need step-up and auto-hide after 60 s, when the tab is hidden, on leaving
+ * and on sign-out (`useC3DocReveal`, SEC FE-06 / B5). No download button; nothing is written to browser
+ * storage. FB-R2-SEC-FE-07: documents the guest sent through the link that wait to be linked to a person
+ * (a person left the party) carry "Chờ gắn người – tự xóa lúc …", a banner leads to them, and "Gắn người"
+ * opens the edit box with the "Người trong đoàn" choice.
  */
 export function DocsList({
   registration,
   reservation,
   onChange,
+  focusPending = false,
 }: {
   registration: Registration;
   reservation: Pick<Reservation, 'adults' | 'children6to11' | 'childrenUnder6' | 'booker'>;
   onChange: (r: Registration) => void;
+  /** Focus the first document waiting to be linked (H14 opened from "Cần chú ý"). */
+  focusPending?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, dateTime } = useI18n();
+  const propertyId = usePropertyId();
   const [adding, setAdding] = useState(false);
+  const attention = useUnlinkedAttention(propertyId, [registration.id, registration.version]);
+  const pending = pendingDocs(registration, attention.flagged(registration.reservationId));
+  const pendingIds = new Set(pending.map((d) => d.id));
+  const firstPending = pending[0];
+  const earliest = earliestPurge(pending);
+  useFocusPendingOnce(focusPending, firstPending);
   const required =
     registration.requiredCount ||
     reservation.adults + (reservation.children6to11 ?? 0) + (reservation.childrenUnder6 ?? 0);
@@ -55,13 +80,33 @@ export function DocsList({
   const missing = Math.max(0, required - docs.length);
   return (
     <div className="stack">
+      {firstPending ? (
+        <Alert
+          tone="warn"
+          actions={
+            <Button size="sm" onClick={() => focusDocRow(firstPending.id)}>
+              {t('reg.link.go')}
+            </Button>
+          }
+        >
+          {earliest
+            ? t('reg.link.banner', { n: pending.length, time: dateTime(earliest) })
+            : t('reg.link.banner_soon', { n: pending.length })}
+        </Alert>
+      ) : null}
       <p className="li-s" role="status">
         {t('checkin.docs.progress', { have: docs.length, need: required })}
       </p>
       {docs.length === 0 ? <p className="muted">{t('checkin.docs.empty')}</p> : null}
       <ul className="list-none">
         {docs.map((d) => (
-          <DocRow key={d.id} doc={d} registration={registration} onChange={onChange} />
+          <DocRow
+            key={d.id}
+            doc={d}
+            pending={pendingIds.has(d.id)}
+            registration={registration}
+            onChange={onChange}
+          />
         ))}
         {Array.from({ length: missing }, (_, i) => (
           <li key={`m${i}`} className="person">
@@ -87,6 +132,15 @@ export function DocsList({
           registration={registration}
           bookerName={reservation.booker?.displayName}
           first={docs.length === 0}
+          onOpenPending={
+            firstPending
+              ? () => {
+                  setAdding(false);
+                  // After the box has closed (it gives focus back to "Nhập tay" when it unmounts).
+                  setTimeout(() => focusDocRow(firstPending.id), 0);
+                }
+              : undefined
+          }
           onClose={() => setAdding(false)}
           onSaved={(r) => {
             setAdding(false);
@@ -100,62 +154,129 @@ export function DocsList({
 
 function DocRow({
   doc,
+  pending,
   registration,
   onChange,
 }: {
   doc: GuestDocumentMasked;
+  /** Waiting to be linked to a person (FB-R2-SEC-FE-07). */
+  pending: boolean;
   registration: Registration;
   onChange: (r: Registration) => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const reveal = useC3Reveal<GuestDocumentSensitive>();
-  const full = reveal.value;
+  const reveal = useC3DocReveal();
+  const shown = reveal.value;
+  const full = shown?.full ?? null;
   const [stepUp, setStepUp] = useState<'show' | 'edit' | null>(null);
   const [editing, setEditing] = useState<GuestDocumentSensitive | null>(null);
   const [error, setError] = useState<unknown>(null);
   const G = { propertyId, registrationId: registration.id };
+  const images = doc.imageIds ?? [];
+  const hasNumber = Boolean(doc.docNumberLast4);
 
   const load = async (then: 'show' | 'edit') => {
     setError(null);
     try {
-      const res = await api.getGuestDocumentSensitive(G, doc.id);
-      if (then === 'show') reveal.show(res.data);
-      else setEditing(res.data);
+      if (then === 'show')
+        await reveal.show(
+          hasNumber
+            ? async () => (await api.getGuestDocumentSensitive(G, doc.id, 'registration')).data
+            : null,
+          images,
+          async (imageId) => (await api.getDocumentImage(G, doc.id, imageId, 'registration')).data,
+          (e) =>
+            isApiError(e) && e.code === 'REAUTH_REQUIRED'
+              ? 'rethrow'
+              : isApiError(e) && e.status === 404
+                ? 'deleted'
+                : 'failed',
+        );
+      else setEditing((await api.getGuestDocumentSensitive(G, doc.id, 'registration')).data);
     } catch (e) {
       if (isApiError(e) && e.code === 'REAUTH_REQUIRED') setStepUp(then);
       else setError(e);
     }
   };
 
-  const label =
-    doc.docType === 'passport'
+  const label = !hasNumber
+    ? null
+    : doc.docType === 'passport'
       ? t('ci.passport_masked', { last4: doc.docNumberLast4 })
       : doc.docType === 'child_personal_id'
         ? t('ci.child_doc', { last4: doc.docNumberLast4 })
         : t('ci.doc_masked', { type: t(DOC_LABEL[doc.docType]), last4: doc.docNumberLast4 });
+  const name = doc.fullNameOnDoc || t('reg.link.no_fields');
+  const line = [
+    full?.docNumber ? null : label,
+    images.length ? t('ci.photo_count', { n: images.length }) : null,
+    doc.captureMethod === 'guest_upload' ? t('checkin.docs.from_app') : null,
+  ].filter((x): x is string => !!x);
   return (
-    <li className="person">
+    <li className="person" id={docRowId(doc.id)} tabIndex={-1}>
       <div className="grow">
         <b>
-          {doc.fullNameOnDoc}
+          {name}
           {doc.nationalityCode ? ` · ${doc.nationalityCode}` : ''}
           {doc.isMain ? ` · ${t('rsv.booker')}` : ''}
         </b>
         <div className="li-s">
-          {full ? <span className="mono">{full.docNumber}</span> : label}
-          {doc.imageIds?.length ? ` · ${t('ci.photo_count', { n: doc.imageIds.length })}` : ''}
-          {doc.captureMethod === 'guest_upload' ? ` · ${t('checkin.docs.from_app')}` : ''}
+          {full?.docNumber ? (
+            <>
+              <span className="mono">{full.docNumber}</span>
+              {line.length ? ' · ' : ''}
+            </>
+          ) : null}
+          {line.join(' · ')}
         </div>
-        {full ? (
+        {shown?.photos.length ? (
+          <div className="row wrap">
+            {shown.photos.map((p, i) =>
+              p.url !== null ? (
+                <img
+                  key={p.url}
+                  src={p.url}
+                  alt={t('ci.photo_alt', { n: i + 1, total: shown.photos.length, name })}
+                  draggable={false}
+                  style={{ maxWidth: '100%', maxHeight: 360, objectFit: 'contain' }}
+                />
+              ) : (
+                <p key={`x${i}`} className="li-s">
+                  {t(p.deleted ? 'ci.photo_deleted' : 'ci.photo_error')}
+                </p>
+              ),
+            )}
+          </div>
+        ) : null}
+        {shown ? (
           <div className="caption">{t('ci.full_autohide', { seconds: C3_TTL_MS / 1000 })}</div>
         ) : null}
         {error ? <Alert tone="bad">{problemView(t, error, locale).text}</Alert> : null}
       </div>
-      <Chip tone="ok">{t('guest.chip.doc_ok')}</Chip>
-      <Button size="sm" variant="ghost" onClick={() => (full ? reveal.hide() : void load('show'))}>
-        {full ? t('ci.view_hide') : t('ci.view_full')}
-      </Button>
+      {pending ? (
+        <Chip tone="warn">
+          {doc.imagePurgeAt
+            ? t('reg.link.pending_chip', { time: dateTime(doc.imagePurgeAt) })
+            : t('reg.link.pending_chip_soon')}
+        </Chip>
+      ) : (
+        <Chip tone="ok">{t('guest.chip.doc_ok')}</Chip>
+      )}
+      {pending ? (
+        <Button size="sm" variant="pri" onClick={() => void load('edit')}>
+          {t('reg.link.action')}
+        </Button>
+      ) : null}
+      {hasNumber || images.length ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => (shown ? reveal.hide() : void load('show'))}
+        >
+          {shown ? t('ci.view_hide') : t('ci.view_full')}
+        </Button>
+      ) : null}
       <Button size="sm" variant="ghost" onClick={() => void load('edit')}>
         {t('rooms.edit')}
       </Button>
@@ -174,6 +295,8 @@ function DocRow({
           registration={registration}
           first={false}
           initial={editing}
+          doc={doc}
+          pending={pending}
           onClose={() => setEditing(null)}
           onSaved={(r) => {
             setEditing(null);
@@ -185,17 +308,33 @@ function DocRow({
   );
 }
 
+type PartyMember = NonNullable<Party['members']>[number];
+const memberName = (m: PartyMember) => m.guest?.displayName ?? m.childDisplayName ?? '';
+
 /**
  * H13 "Nhập tay giấy tờ" (FE-S3-02): every field the portal forms need – gender; VN: address; passport:
  * issue date / place, entry type, visa number (not for visa-exempt), visa validity, entry date / port /
  * purpose and "Có dấu / chứng nhận nhập cảnh" (unticked = `noEntryRecord`, BR-613 c). Add = multipart
  * `addGuestDocument` (images in memory only); edit = `updateGuestDocument` with If-Match.
+ *
+ * FB-R2-SEC-FE-07: editing a document the guest sent through the link that no person owns yet asks
+ * "Người trong đoàn" (people still in the party, nothing pre-selected) and sends `partyMemberId` – required
+ * when the document waits to be linked (it is deleted at its deadline otherwise). OpenAPI 0.3.6 keeps
+ * `GuestDocumentInput` whole (docType, fullNameOnDoc, docNumber required): the fields come pre-filled from
+ * the step-up read, the desk confirms or types them in the same box.
+ * TODO(0.3.7, BE-C/ARC – S4): link with a PATCH carrying `partyMemberId` only (no C3 read, no retyping), and
+ * open the waiting document named by 409 `DOCUMENT_UNCLAIMED_EXISTS` (its id) when "Nhập tay" repeats its
+ * number – until then a repeated number answers 409 `PARTY_DUPLICATE` without an id and the box points to the
+ * waiting documents (`onOpenPending`).
  */
 export function ManualDocDialog({
   registration,
   bookerName,
   first,
   initial,
+  doc,
+  pending = false,
+  onOpenPending,
   onClose,
   onSaved,
 }: {
@@ -204,15 +343,39 @@ export function ManualDocDialog({
   first: boolean;
   /** Full values (after step-up) → edit mode. */
   initial?: GuestDocumentSensitive;
+  /** Edit mode: the masked row (capture method, linked person, deadline). */
+  doc?: GuestDocumentMasked;
+  /** The document waits to be linked to a person (FB-R2-SEC-FE-07). */
+  pending?: boolean;
+  /** Add mode: the booking has documents waiting to be linked – close and go to them. */
+  onOpenPending?: () => void;
   onClose: () => void;
   onSaved: (r: Registration) => void;
 }) {
-  const { t } = useI18n();
+  const { t, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const unsaved = useUnsavedLabels();
   const act = useSubmit();
   const ids = useId();
+  // ── "Người trong đoàn" (FB-R2-SEC-FE-07) ──
+  const linkable = !!initial && !!doc && isGuestUploadUnlinked(doc);
+  const party = useResource(
+    async () =>
+      linkable
+        ? (await api.listParty({ propertyId, reservationId: registration.reservationId })).data
+        : null,
+    [linkable, propertyId, registration.reservationId],
+  );
+  const members = party.state.data?.members ?? [];
+  const otherMain = registration.documents.some((d) => d.id !== doc?.id && d.isMain);
+  /** A person who already has another document cannot take this one (409 PARTY_DUPLICATE). */
+  const taken = (m: PartyMember) =>
+    registration.documents.some((d) => d.id !== doc?.id && d.partyMemberId === m.id) ||
+    (m.role === 'booker' && otherMain);
+  const free = members.filter((m) => !taken(m));
+  const [memberId, setMemberId] = useState('');
+  const deadline = doc?.imagePurgeAt ? dateTime(doc.imagePurgeAt) : null;
   const [docType, setDocType] = useState<DocType>(initial?.docType ?? 'cccd');
   const [form, setForm] = useState({
     docNumber: initial?.docNumber ?? '',
@@ -241,7 +404,9 @@ export function ManualDocDialog({
     setForm((f) => ({ ...f, [k]: e.target.value }));
   const passport = docType === 'passport';
   const dirty =
-    !initial && (Object.values(form).some(Boolean) || images.length > 0 || !!gender || !!visaKind);
+    (!initial &&
+      (Object.values(form).some(Boolean) || images.length > 0 || !!gender || !!visaKind)) ||
+    !!memberId;
   const opt = (v: string) => v.trim() || undefined;
 
   const [missing, setMissing] = useState<Record<string, string>>({});
@@ -250,9 +415,13 @@ export function ManualDocDialog({
     const req: Record<string, string> = {};
     if (!form.docNumber.trim()) req.docNumber = t('common.required');
     if (!form.fullNameOnDoc.trim()) req.fullNameOnDoc = t('common.required');
+    // Waiting to be linked → the person is required, unless nobody in the party can take it (said below).
+    if (linkable && pending && free.length > 0 && !memberId)
+      req.partyMemberId = t('common.required');
     setMissing(req);
     if (Object.keys(req).length) return;
     const data: GuestDocumentInput = {
+      ...(linkable && memberId ? { partyMemberId: memberId } : {}),
       docType,
       isMain: initial ? undefined : first,
       fullNameOnDoc: form.fullNameOnDoc.trim(),
@@ -281,8 +450,12 @@ export function ManualDocDialog({
     );
     if (out) {
       setImages([]);
-      toast(t('common.saved'));
+      const linked = members.find((m) => m.id === memberId);
+      toast(linked ? t('reg.link.linked_toast', { name: memberName(linked) }) : t('common.saved'));
       onSaved(out.data);
+    } else if (linkable) {
+      // The person may have left the party meanwhile (422 partyMemberId NOT_IN_LIST) – read it again.
+      party.reload();
     }
   };
 
@@ -327,7 +500,68 @@ export function ManualDocDialog({
         </>
       }
     >
-      {act.view()}
+      {!initial && act.code === 'PARTY_DUPLICATE' && onOpenPending ? (
+        <Alert
+          tone="warn"
+          actions={
+            <Button size="sm" onClick={onOpenPending}>
+              {t('reg.link.open_pending')}
+            </Button>
+          }
+        >
+          {t('reg.link.dup_pending')}
+        </Alert>
+      ) : (
+        act.view()
+      )}
+      {linkable ? (
+        party.state.status === 'error' && !party.state.data ? (
+          <Alert
+            tone="bad"
+            actions={
+              <Button size="sm" onClick={party.reload}>
+                {t('common.retry')}
+              </Button>
+            }
+          >
+            {t('reg.link.party_error')}
+          </Alert>
+        ) : (
+          <Field
+            label={t('reg.link.member')}
+            required={pending && free.length > 0}
+            error={f.partyMemberId}
+            help={
+              pending && party.state.data && free.length === 0
+                ? deadline
+                  ? t('reg.link.no_member', { time: deadline })
+                  : t('reg.link.no_member_soon')
+                : pending
+                  ? deadline
+                    ? t('reg.link.member_help_pending', { time: deadline })
+                    : t('reg.link.member_help_pending_soon')
+                  : t('reg.link.member_help')
+            }
+          >
+            {(p) => (
+              <select
+                {...p}
+                className="input"
+                value={memberId}
+                disabled={!party.state.data}
+                onChange={(e) => setMemberId(e.target.value)}
+              >
+                <option value="">{t('reg.link.member_placeholder')}</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id} disabled={taken(m)}>
+                    {taken(m) ? t('reg.link.has_doc', { name: memberName(m) }) : memberName(m)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )
+      ) : null}
       <Field label={t('checkin.docs.field.doc_type')}>
         {(p) => (
           <select

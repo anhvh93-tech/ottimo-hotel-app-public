@@ -36,42 +36,53 @@ export function GuestPicker({
   const id = useId();
   const [text, setText] = useState(initialText);
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<GuestSummary[]>([]);
-  const [failed, setFailed] = useState(false);
+  /** The answer of one search – `q` is the text it was for (results never outlive their text). */
+  const [found, setFound] = useState<{
+    q: string;
+    results: GuestSummary[];
+    failed: boolean;
+  } | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [creating, setCreating] = useState(false);
+  /** Name the quick-create form opens with (the text the option was offered for). */
+  const [creating, setCreating] = useState<string | null>(null);
   const q = useDebounced(text.trim(), 300);
 
   useEffect(() => {
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
+    if (q.length < 2) return;
     let stale = false;
     findGuests(propertyId, q, true).then(
       (r) => {
         if (stale) return;
-        setResults(r.slice(0, 5));
-        setFailed(false);
+        setFound({ q, results: r.slice(0, 5), failed: false });
         setActiveIdx(0);
       },
-      () => !stale && setFailed(true),
+      () => {
+        if (stale) return;
+        setFound({ q, results: [], failed: true });
+        setActiveIdx(0);
+      },
     );
     return () => {
       stale = true;
     };
   }, [q, propertyId]);
 
-  const options =
-    q.length >= 2
-      ? [...results.map((r) => ({ kind: 'guest' as const, r })), { kind: 'new' as const }]
-      : [];
-  const expanded = open && options.length > 0;
+  // CI 39010774166 (TC-L3-076): the options always belong to the text in the box. Until the search for it
+  // has answered (300 ms pause + request) the list only says "loading" and offers nothing to pick – it used
+  // to show "no match" + quick create, then slide the results in above: a click landing in that moment
+  // opened "Hồ sơ khách mới" instead of picking the guest (or picked a guest found for the previous text).
+  const term = text.trim();
+  const shown = term.length >= 2 && found?.q === term ? found : null;
+  const results = shown?.results ?? [];
+  const options = shown
+    ? [...results.map((r) => ({ kind: 'guest' as const, r })), { kind: 'new' as const }]
+    : [];
+  const expanded = open && term.length >= 2;
 
   const choose = (i: number) => {
     const o = options[i];
-    if (!o) return;
-    if (o.kind === 'new') setCreating(true);
+    if (!o || !shown) return;
+    if (o.kind === 'new') setCreating(shown.q);
     else {
       onSelect(o.r);
       setText(o.r.displayName);
@@ -83,7 +94,7 @@ export function GuestPicker({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setOpen(true);
-      setActiveIdx((i) => Math.min(i + 1, options.length - 1));
+      setActiveIdx((i) => Math.max(0, Math.min(i + 1, options.length - 1)));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIdx((i) => Math.max(i - 1, 0));
@@ -115,7 +126,7 @@ export function GuestPicker({
         aria-expanded={expanded}
         aria-controls={`${id}-list`}
         aria-autocomplete="list"
-        aria-activedescendant={expanded ? `${id}-o${activeIdx}` : undefined}
+        aria-activedescendant={expanded && options[activeIdx] ? `${id}-o${activeIdx}` : undefined}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={
@@ -132,14 +143,24 @@ export function GuestPicker({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {expanded ? (
-        <ul className="combo-list" id={`${id}-list`} role="listbox" aria-label={label}>
-          {failed ? (
+        <ul
+          className="combo-list"
+          id={`${id}-list`}
+          role="listbox"
+          aria-label={label}
+          aria-busy={shown ? undefined : true}
+        >
+          {!shown ? (
+            <li role="presentation" className="li-s" style={{ padding: 8 }}>
+              {t('common.loading')}
+            </li>
+          ) : shown.failed ? (
             <li role="presentation" className="li-s" style={{ padding: 8 }}>
               {t('common.error_generic_title')}
             </li>
           ) : results.length === 0 ? (
             <li role="presentation" className="li-s" style={{ padding: 8 }}>
-              {t('crm.empty_title', { q })}
+              {t('crm.empty_title', { q: shown.q })}
             </li>
           ) : null}
           {options.map((o, i) =>
@@ -180,7 +201,7 @@ export function GuestPicker({
                   onKeyDown={(e) => e.key === 'Enter' && choose(i)}
                 >
                   <Icon name="plus" />
-                  <span>{t('crm.quick_create', { q })}</span>
+                  <span>{t('crm.quick_create', { q: shown?.q ?? term })}</span>
                 </div>
               </li>
             ),
@@ -198,12 +219,12 @@ export function GuestPicker({
           <span>{error}</span>
         </div>
       ) : null}
-      {creating ? (
+      {creating !== null ? (
         <GuestFormDialog
-          prefillName={q}
-          onClose={() => setCreating(false)}
+          prefillName={creating}
+          onClose={() => setCreating(null)}
           onSaved={(g: Guest) => {
-            setCreating(false);
+            setCreating(null);
             // BUG-R2-028: carry the phone the guest was just created with, so the booking form does
             // not ask for it again (EP02 3.2) and does not PATCH the profile a second time.
             onSelect({
@@ -216,9 +237,9 @@ export function GuestPicker({
             setText(g.fullName);
             setOpen(false);
           }}
-          onOpenGuest={() => setCreating(false)}
+          onOpenGuest={() => setCreating(null)}
           onUseGuest={(s) => {
-            setCreating(false);
+            setCreating(null);
             onSelect(s);
             setText(s.displayName);
             setOpen(false);

@@ -134,6 +134,8 @@ export type RefundDestination = ResponseOf<'getRefundDestination'>;
 export type CashRefundBody = BodyOf<'executeCashRefund'>;
 export type TransferRefundBody = BodyOf<'executeRefund'>;
 export type AuditEvent = Schemas['AuditEvent'];
+/** "Cần chú ý" (BR-907) – `listAttentionItems`. */
+export type AttentionItem = Schemas['AttentionItem'];
 export type Registration = Schemas['Registration'];
 export type RegistrationSummary = Schemas['RegistrationSummary'];
 export type RegistrationStatus = Schemas['RegistrationStatus'];

@@ -976,9 +976,21 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const reduceAct = useSubmit({ bound: ['partyChangeSource', 'otaModificationRef'] });
   const ready = kind === 'child' ? name.trim().length >= 2 : !!companion;
   const inHouse = r.status === 'in_house';
+  // CI 39010774166 suspect (a): a person joins "from tonight" = the API's business day (`BookingRules.
+  // businessDate`, the same `ctx.today` the API checks `effectiveFrom` against), read when the dialog opens –
+  // never the device clock, which may be on another day (clock off, page left open past midnight, the virtual
+  // day of the desk-clock stack) and would get every preview refused (422 DATE_INVALID). If the rules cannot
+  // be read, the device day is the fallback: the API re-checks it and a refusal is said in the dialog.
+  const businessDay = useResource(
+    async () => (inHouse ? (await api.getBookingRules({ propertyId })).data.businessDate : null),
+    [propertyId, inHouse],
+  );
+  const day: string | undefined = !inHouse
+    ? undefined
+    : (businessDay.state.data ?? (businessDay.state.status === 'error' ? todayLocal() : undefined));
   const member = (decision: { apply: boolean; expected?: number }, dryRun = false) => {
     const common = {
-      effectiveFrom: inHouse ? todayLocal() : undefined,
+      effectiveFrom: day,
       applyExtraPersonSurcharge: decision.apply,
       expectedSurchargeVnd: decision.apply ? decision.expected : undefined,
       dryRun,
@@ -1002,8 +1014,8 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   // surcharge. The amount comes from the API (`dryRun` → occupancyChange) and the desk confirms it;
   // a surcharge is never skipped silently (the API answers 422 SURCHARGE_DECISION_REQUIRED).
   const sig =
-    inHouse && ready && (kind === 'companion' || /^\d{4}$/.test(year.trim()))
-      ? [kind, companion?.id ?? '', name.trim(), year.trim()].join('|')
+    inHouse && ready && day && (kind === 'companion' || /^\d{4}$/.test(year.trim()))
+      ? [day, kind, companion?.id ?? '', name.trim(), year.trim()].join('|')
       : '';
   const debouncedSig = useDebounced(sig, 300);
   const [previewTick, setPreviewTick] = useState(0);
@@ -1038,11 +1050,26 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   }, [debouncedSig, sig, previewTick, propertyId, r.id]);
   const current = preview && preview.sig === sig && preview.tick === previewTick ? preview : null;
   const previewError = current?.error;
+  // A day the API no longer accepts while the stay still has nights after it (the business day rolled over
+  // while the dialog was open) is a retry: "Thử lại" reads the business day again, then the amount again.
+  const dayRefused =
+    isApiError(previewError) &&
+    !!day &&
+    day < r.departureDate &&
+    previewError.fieldErrors.some((fe) => fe.field.replace(/^body\./, '') === 'effectiveFrom');
   const previewRetry =
     previewError !== undefined &&
-    (!isApiError(previewError) || previewError.isNetwork || previewError.status >= 500);
+    (!isApiError(previewError) ||
+      previewError.isNetwork ||
+      previewError.status >= 500 ||
+      dayRefused);
+  const retryPreview = () => {
+    if (dayRefused) businessDay.reload();
+    setPreviewTick((n) => n + 1);
+  };
   const surcharge = current && !previewError ? current.surchargeVnd : 0;
-  const waiting = !!sig && !current;
+  // In house, nothing is added before the business day is known (the button waits with the preview).
+  const waiting = (!!sig && !current) || (inHouse && ready && !day);
   // The tick belongs to one person and one amount – a new amount (or person) must be confirmed again.
   const [toldFor, setToldFor] = useState<string | null>(null);
   const told = surcharge > 0 && toldFor === `${sig}|${surcharge}`;
@@ -1092,6 +1119,11 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       } else if (failed.fieldErrors.some((fe) => fe.code === 'SURCHARGE_DECISION_REQUIRED')) {
         setSurchargeProblem({ key: 'party.surcharge_required', amount, sig });
         setPreviewTick((n) => n + 1);
+      } else if (
+        failed.fieldErrors.some((fe) => fe.field.replace(/^body\./, '') === 'effectiveFrom')
+      ) {
+        // The business day rolled over since the preview: read it again (→ a new preview and amount).
+        businessDay.reload();
       }
     }
   };
@@ -1228,13 +1260,13 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
                 </Field>
               ) : null}
             </div>
-            {sig ? (
+            {sig || waiting ? (
               <div aria-live="polite" className="stack">
                 {previewRetry ? (
                   <Alert
                     tone="warn"
                     actions={
-                      <Button size="sm" onClick={() => setPreviewTick((n) => n + 1)}>
+                      <Button size="sm" onClick={retryPreview}>
                         {t('common.retry')}
                       </Button>
                     }

@@ -191,3 +191,10 @@ Kết quả lệnh sau đợt 7:
 - axe hộp đổi phòng (lỗi 409 + gợi ý, bảng đêm): 0 critical/serious.
 - `docker build` exit 0 (`ottimo-web:fe-s3i`).
 
+
+## Vòng sửa 9c – FB-R2-SEC-FE-07 (SEC 17/10, `reviews/s3-SEC.md` mục 9.5) + việc ORC giao thêm
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R2-SEC-FE-07 | Fixed (bước 1–3) – chờ SEC kiểm lại, UXD duyệt chuỗi | (1) `ManualDocDialog` (`DocsPanel.tsx`): sửa giấy tờ khách gửi qua link chưa gắn người có ô **Người trong đoàn** (`listParty`, không chọn sẵn; người đã có giấy tờ khác bị khóa), gửi `partyMemberId`; bắt buộc khi giấy tờ đang chờ. OpenAPI 0.3.6 giữ nguyên (BE-C: PATCH chỉ `partyMemberId` + `DOCUMENT_UNCLAIMED_EXISTS` dời 0.3.7) → gửi đủ trường, trường điền sẵn sau step-up. "Nhập tay" trùng số khi có giấy tờ chờ (409 `PARTY_DUPLICATE`) → câu hướng dẫn + nút "Mở giấy tờ chờ gắn người". (2) Giấy tờ chờ: chip "Chờ gắn người – tự xóa lúc {giờ}" thay "Đã có", nút **Gắn người**, dải cảnh báo đầu khối Giấy tờ (H13 bước Giấy tờ + H14) có nút "Tới giấy tờ". (3) Mục "Cần chú ý" `registration_party_docs_unlinked` ở đầu H14 danh sách (nút "Mở đơn {mã}" → H14 của đơn, tiêu điểm vào giấy tờ chờ; chip trên dòng). Test: `s3-fe07.test.tsx` (12 ca), E2E-UI TC-L3-077 `e2e/ui-clock/party-docs.h14.spec.ts` (bỏ người → nhãn → gắn → J16 sau hạn: giấy tờ đã gắn còn, ảnh đọc được; giấy tờ không ai nhận bị xóa) – xanh trên stack dùng một lần dựng từ cây làm việc |
+| ORC – ảnh giấy tờ (UXR P2, ảnh 020) | Fixed | "Xem đủ số / ảnh" mở cả ảnh: `getDocumentImage?reason=registration` sau step-up, fetch `cache: 'no-store'` (api-client, mọi request ảnh), object URL chỉ trong bộ nhớ, thu hồi khi Ẩn / 60 giây / ẩn tab / rời màn / đăng xuất; lần đọc còn dở khi ẩn tab thì bỏ và thu hồi. 404 → "Ảnh này đã bị xóa theo hạn lưu." Test unit 4 ca + bước 3a của TC-L3-077 (ảnh `blob:` hiện thật dưới CSP, phản hồi `no-store`) |
+| ORC – mark-sent 409 `REGISTRATION_INCOMPLETE` (SEC-BE-54, BE-C `e6d1a7d`) | Fixed | H14 khối 3: câu "Còn thiếu giấy tờ của {n} người…" (n = `requiredCount − submittedCount`) hiện trước khi bấm khi số đã thấy thiếu, và thay câu chung khi server trả 409; đọc lại khai báo sau lỗi |

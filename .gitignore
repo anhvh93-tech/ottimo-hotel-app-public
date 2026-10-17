@@ -41,3 +41,6 @@ coverage/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Landing page raw assets from the investor (large originals; optimized copies live in the app)
+00-brief/context/landing/raw/

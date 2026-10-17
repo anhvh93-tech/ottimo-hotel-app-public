@@ -45,6 +45,7 @@ import type {
   RoomPatch,
   RoomUpdateResult,
   ApproveBody,
+  AttentionItem,
   ApprovalStatus,
   AttachmentPurpose,
   AttachmentResult,
@@ -750,6 +751,12 @@ export function createEndpoints(api: ApiClient) {
     /** Step-up for C3 reads (SR-C3-09): password re-entry, valid `c3_stepup_minutes`. */
     stepUp: (password: string) =>
       r<{ validUntil: string }>('POST', '/v1/me/step-up', { body: { password }, local: true }),
+
+    /** "Cần chú ý" (US-012, BR-907) – computed + stored items; FD+ (no finance/FOC items for FD). */
+    listAttentionItems: ({ propertyId }: P) =>
+      r<{ data: AttentionItem[] }>('GET', '/v1/properties/{propertyId}/attention', {
+        path: { propertyId },
+      }),
 
     // ---------- registration (EP06 – C3, trusted device only) ----------
     listRegistrations: ({ propertyId }: P, view: 'action_needed' | 'needs_update' | 'all') =>

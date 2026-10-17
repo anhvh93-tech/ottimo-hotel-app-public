@@ -154,6 +154,13 @@ interface MockDoc {
   imageIds: string[];
   imageConsent: 'not_recorded' | 'granted' | 'refused';
   captureMethod: string;
+  /** Guest-link slot "Khách n" (uploadGuestDocument.personIndex). */
+  personIndex?: number;
+  /**
+   * BUG-R2-083 (BE-C 9b): set when a person left the party while this guest-link document (n ≥ 2) was linked
+   * to nobody – deleted then unless the desk links it (`isUnclaimed`, `updateGuestDocument` + partyMemberId).
+   */
+  fieldsPurgeAfter?: string | null;
   checks: Array<{
     code: string;
     result: string;
@@ -914,6 +921,19 @@ export function createStayMock(ctx: Ctx) {
     return { tierPct: pct, surchargeVnd: round1000((base * pct) / 100), base };
   }
 
+  /** ARC-BE-S3-06: one live late charge per stay (checkout.service / stay.service `replaceLateCharge`). */
+  const liveLate = (r: MockReservation) =>
+    folioOf(r).lines.filter((l) => l.category === 'late_checkout' && l.lineState === 'posted');
+  function replaceLate(r: MockReservation, amountVnd: number, label: string, by: string) {
+    // the server posts a reversal pair; the mock hides the old line (same totals, same live amount)
+    for (const l of liveLate(r)) l.lineState = 'rejected';
+    if (amountVnd > 0) addLine(r, { category: 'late_checkout', amountVnd, description: label }, by);
+    else {
+      folioOf(r).version += 1;
+      syncReservation(r);
+    }
+  }
+
   function addLine(
     r: MockReservation,
     line: Partial<MockLine> & { category: string; amountVnd: number; description: string },
@@ -1009,6 +1029,27 @@ export function createStayMock(ctx: Ctx) {
     r.version += 1;
   };
 
+  /**
+   * BE-C `onPartyMemberRemoved` (9b, SEC-BE-53 fallback): documents linked to the removed person go now; every
+   * unlinked guest-link document from "Khách 2" on waits UNCLAIMED_HOURS for the desk (earlier deadline kept).
+   */
+  function onPartyMemberRemoved(r: MockReservation, memberId: string) {
+    const reg = r.registrationId ? st.registrations.get(r.registrationId) : undefined;
+    if (!reg) return;
+    const until = new Date(Date.now() + UNCLAIMED_HOURS * 3_600_000).toISOString();
+    reg.documents = reg.documents.filter((d) => d.partyMemberId !== memberId);
+    for (const d of reg.documents)
+      if (!d.partyMemberId && (d.personIndex ?? 0) >= 2)
+        d.fieldsPurgeAfter =
+          d.fieldsPurgeAfter && d.fieldsPurgeAfter < until ? d.fieldsPurgeAfter : until;
+    recomputeReg(r, reg);
+    reg.version += 1;
+  }
+  /** Same rule as BE `isUnclaimed` (registration.repo.ts): unlinked guest-link "Khách n ≥ 2" with a deadline. */
+  const isUnclaimed = (d: MockDoc) =>
+    !d.partyMemberId && (d.personIndex ?? 0) >= 2 && !!d.fieldsPurgeAfter;
+  const UNCLAIMED_HOURS = 24;
+
   function regView(reg: MockRegistration) {
     const r = rsv().state.reservations.find((x) => x.id === reg.reservationId)!;
     const deadlineAt = r.registrationDeadlineAt ?? undefined;
@@ -1022,7 +1063,8 @@ export function createStayMock(ctx: Ctx) {
       kind: isForeign(r) ? 'foreigner_temp_residence' : 'vn_citizen_stay',
       status: reg.status,
       requiredCount: r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0),
-      submittedCount: reg.documents.length,
+      // BUG-R2-083: an unclaimed document never counts (BE countsForDeclaration).
+      submittedCount: reg.documents.filter((d) => !isUnclaimed(d)).length,
       deadlineAt,
       deadlineLabel: ['sent', 'confirmed', 'updated', 'void'].includes(reg.status)
         ? 'done'
@@ -1052,6 +1094,8 @@ export function createStayMock(ctx: Ctx) {
         nationalityCode: d.nationalityCode,
         docNumberLast4: d.docNumber.slice(-4),
         imageIds: d.imageIds,
+        // BE: an unclaimed document's images go at its own deadline.
+        ...(isUnclaimed(d) && d.imageIds.length ? { imagePurgeAt: d.fieldsPurgeAfter } : {}),
         imageConsent: d.imageConsent,
         captureMethod: d.captureMethod,
         checks: d.checks,
@@ -1094,7 +1138,10 @@ export function createStayMock(ctx: Ctx) {
     }
     const required = r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0);
     if (d.isMain)
-      checks.push({ code: 'party_count', result: all.length >= required ? 'pass' : 'fail' });
+      checks.push({
+        code: 'party_count',
+        result: all.filter((z) => !isUnclaimed(z)).length >= required ? 'pass' : 'fail',
+      });
     return checks;
   }
   function recomputeReg(r: MockReservation, reg: MockRegistration) {
@@ -1116,13 +1163,10 @@ export function createStayMock(ctx: Ctx) {
       d.checks.some((c) => c.blocking && (c.manualResult ?? c.result) === 'fail'),
     );
     const required = r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0);
+    // BUG-R2-083: an unclaimed guest-link document does not count for "enough people".
+    const counted = reg.documents.filter((d) => !isUnclaimed(d)).length;
     if (['none', 'pre', 'partial', 'review'].includes(reg.status))
-      reg.status =
-        reg.documents.length === 0
-          ? 'none'
-          : reg.documents.length >= required
-            ? 'review'
-            : 'partial';
+      reg.status = counted === 0 ? 'none' : counted >= required ? 'review' : 'partial';
     r.registrationStatus = reg.status as MockReservation['registrationStatus'];
   }
   function needStepUp(g: { user: MockUser }) {
@@ -1543,16 +1587,12 @@ export function createStayMock(ctx: Ctx) {
         if (body.applySurcharge && Number(body.expectedSurchargeVnd) !== s.surchargeVnd)
           return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: s.surchargeVnd });
         r.agreedCheckoutTime = time;
-        if (body.applySurcharge && s.surchargeVnd > 0)
-          addLine(
-            r,
-            {
-              category: 'late_checkout',
-              amountVnd: s.surchargeVnd,
-              description: `late_checkout ${time} ${s.tierPct}%`,
-            },
-            g.user.displayName,
-          );
+        replaceLate(
+          r,
+          body.applySurcharge ? s.surchargeVnd : 0,
+          `late_checkout ${time} ${s.tierPct}%`,
+          g.user.displayName,
+        );
         bump(r);
         return rsv().remember(key, 200, { ...result, saved: true, reservation: resView(r, g) });
       },
@@ -1866,6 +1906,7 @@ export function createStayMock(ctx: Ctx) {
         r.id,
         members.filter((z) => z !== m),
       );
+      onPartyMemberRemoved(r, m.id);
       bump(r);
       return new HttpResponse(null, { status: 204 });
     }),
@@ -1966,26 +2007,26 @@ export function createStayMock(ctx: Ctx) {
       if (tt.balanceDueVnd > 0) blockers.push('balance_due');
       if (tt.unhandledCreditVnd > 0) blockers.push('credit_balance');
       const extraRate = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
-      const already = f.lines.find(
-        (l) => l.category === 'late_checkout' && l.lineState === 'posted',
-      );
+      // Like getCheckoutSummary: the surcharge AT THIS TIME (G-10) and, when a late charge is already on the
+      // folio (B15), the recalculation old → new (B18 reverses a lower amount, a higher one needs the decision).
+      const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
+      const newVnd = s.treatAsExtension ? 0 : s.surchargeVnd;
       return json({
         checkoutTime: time,
         standardCheckoutTime: '12:00',
         // E05-11: after the last BR-412 tier the check-out charges one more night (no late surcharge).
         lateCheckoutSurcharge: {
           tierPct: s.treatAsExtension ? 0 : s.tierPct,
-          amountVnd: already || s.treatAsExtension ? 0 : s.surchargeVnd,
+          amountVnd: newVnd,
         },
         extraNightRequired: s.treatAsExtension === true,
         extraNightDefaultRateVnd: s.treatAsExtension ? extraRate : undefined,
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
         postMidnightWindow: postMidnightWindow(r),
         unhandledCreditVnd: tt.unhandledCreditVnd,
-        lateSurchargeRecalc:
-          already && already.amountVnd !== s.surchargeVnd
-            ? { oldVnd: already.amountVnd, newVnd: s.surchargeVnd }
-            : undefined,
+        lateSurchargeRecalc: liveLate(r).length
+          ? { oldVnd: live, newVnd, newTierPct: s.treatAsExtension ? 0 : s.tierPct }
+          : undefined,
         lines: f.lines.filter((l) => l.lineState !== 'rejected'),
         totalVnd: tt.totalVnd,
         paidVnd: tt.paidVnd,
@@ -2019,11 +2060,16 @@ export function createStayMock(ctx: Ctx) {
         if (s.treatAsExtension && extraNight && arrivalSameDay(r))
           return problem(409, 'ROOM_UNAVAILABLE', { roomNo: roomOf(r)?.roomNo });
         if (!st.minibarChecks.has(r.id)) return problem(409, 'MINIBAR_NOT_CHECKED');
+        // checkout.service B18: the surcharge at the actual time vs the live late charge (B15).
+        const lateOld = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
+        const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
+        const lateRaise = lateNew > lateOld;
         if (
           body.applyLateSurcharge &&
-          Number(body.expectedSurchargeVnd ?? s.surchargeVnd) !== s.surchargeVnd
+          lateRaise &&
+          Number(body.expectedSurchargeVnd ?? lateNew) !== lateNew
         )
-          return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: s.surchargeVnd });
+          return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: lateNew });
         const tt0 = totals(r);
         if (tt0.pendingApprovals)
           return problem(409, 'PENDING_APPROVALS', { pendingApprovals: tt0.pendingApprovals });
@@ -2032,13 +2078,19 @@ export function createStayMock(ctx: Ctx) {
         const op = body.overpaymentHandling as Body | undefined;
         if (op?.mode === 'retain_with_guest_consent' && !has(g.roles, OWN_MGR))
           return problem(403, 'FORBIDDEN_ACTION');
-        if (!s.treatAsExtension && s.surchargeVnd > 0 && body.applyLateSurcharge !== true)
+        if (lateRaise && body.applyLateSurcharge !== true)
           return validation([{ field: 'applyLateSurcharge', code: 'SURCHARGE_DECISION_REQUIRED' }]);
         // One transaction (ARC 0.3.6 add. 2): extra night + surcharge + payment + B18, rolled back on failure.
         const f0 = folioOf(r);
-        const snap = { lines: f0.lines.length, version: f0.version, pays: st.payments.length };
+        const snap = {
+          lines: f0.lines.length,
+          states: f0.lines.map((l) => l.lineState),
+          version: f0.version,
+          pays: st.payments.length,
+        };
         const fail = (resp: Response) => {
           f0.lines.length = snap.lines;
+          f0.lines.forEach((l, i) => (l.lineState = snap.states[i]!));
           f0.version = snap.version;
           st.payments.length = snap.pays;
           syncReservation(r);
@@ -2056,16 +2108,8 @@ export function createStayMock(ctx: Ctx) {
             },
             g.user.displayName,
           );
-        if (body.applyLateSurcharge && s.surchargeVnd > 0 && !s.treatAsExtension)
-          addLine(
-            r,
-            {
-              category: 'late_checkout',
-              amountVnd: s.surchargeVnd,
-              description: `late_checkout ${time} ${s.tierPct}%`,
-            },
-            g.user.displayName,
-          );
+        if (lateNew < lateOld || (lateRaise && body.applyLateSurcharge))
+          replaceLate(r, lateNew, `late_checkout ${time} ${s.tierPct}%`, g.user.displayName);
         if (body.finalPayment) {
           const errs = paymentErrors(body.finalPayment as Body);
           if (errs.length)
@@ -2776,6 +2820,9 @@ export function createStayMock(ctx: Ctx) {
       if (data.isMain && reg.documents.some((d) => d.isMain))
         errors.push({ field: 'isMain', code: 'MAIN_GUEST_DUPLICATE' });
       if (errors.length) return validation(errors);
+      // BE addDocument: the same number twice in one registration (incl. a document waiting to be linked).
+      if (reg.documents.some((d) => d.docNumber && d.docNumber === no))
+        return problem(409, 'PARTY_DUPLICATE');
       const doc: MockDoc = {
         id: uid(93_000 + next()),
         docType: String(data.docType),
@@ -3036,6 +3083,54 @@ export function createStayMock(ctx: Ctx) {
         );
       },
     ),
+    // getDocumentImage (C3: trusted device, step-up, no-store) – a 3-byte JPEG stand-in.
+    http.get(
+      `${prop}/registrations/:registrationId/documents/:documentId/images/:imageId`,
+      ({ request, params }) => {
+        const x = c3(request, params);
+        if (isResponse(x)) return x;
+        if (needStepUp(x.g)) return problem(401, 'REAUTH_REQUIRED');
+        const d = x.reg.documents.find((z) => z.id === params.documentId);
+        if (!d || !d.imageIds.includes(String(params.imageId))) return problem(404, 'NOT_FOUND');
+        return new HttpResponse(new Uint8Array([0xff, 0xd8, 0xff]), {
+          headers: { 'content-type': 'image/jpeg', 'cache-control': 'no-store' },
+        });
+      },
+    ),
+    // listAttentionItems – only the registration item of BE-C 9b (data_quality /
+    // registration_party_docs_unlinked); the other sources come with H24 (Sprint 4).
+    http.get(`${prop}/attention`, ({ request }) => {
+      const g = guard(request, FD_PLUS);
+      if (isResponse(g)) return g;
+      const found = [...st.registrations.values()]
+        .filter((reg) => reg.status !== 'void' && reg.documents.some(isUnclaimed))
+        .map((reg) => ({
+          r: rsv().state.reservations.find((x) => x.id === reg.reservationId)!,
+          due: reg.documents
+            .filter(isUnclaimed)
+            .map((d) => d.fieldsPurgeAfter!)
+            .sort()[0]!,
+        }))
+        .sort((a, b) => (a.due < b.due ? -1 : 1));
+      const first = found[0];
+      if (!first) return json({ data: [] });
+      return json({
+        data: [
+          {
+            kind: 'data_quality',
+            source: 'computed',
+            severity: 'warning',
+            count: found.length,
+            reservationIds: found.map((f) => f.r.id),
+            roomNos: [...new Set(found.map((f) => f.r.segments?.[0]?.roomNo).filter(Boolean))],
+            dueAt: first.due,
+            ...(found.length === 1 ? { refCode: first.r.code } : {}),
+            link: '/registrations',
+            params: { check: 'registration_party_docs_unlinked' },
+          },
+        ],
+      });
+    }),
     // updateGuestDocument (If-Match = registration version) – same field rules as add.
     http.patch(
       `${prop}/registrations/:registrationId/documents/:documentId`,
@@ -3057,7 +3152,26 @@ export function createStayMock(ctx: Ctx) {
             : !/^[A-Z0-9-]{3,30}$/.test(no)
         )
           return validation([{ field: 'docNumber', code: 'DOC_NUMBER_INVALID' }]);
-        Object.assign(d, data, { docNumber: no, noEntryRecord: data.noEntryRecord === true });
+        if (reg.documents.some((z) => z !== d && z.docNumber === no))
+          return problem(409, 'PARTY_DUPLICATE');
+        // BUG-R2-083 (BE-C 9b): partyMemberId must be a person still in this booking's party, not taken by
+        // another document; linking an unclaimed document keeps it (its deadline goes).
+        const memberId = data.partyMemberId as string | undefined;
+        if (memberId !== undefined) {
+          if (!(st.party.get(r.id) ?? []).some((m) => m.id === memberId))
+            return validation([{ field: 'partyMemberId', code: 'NOT_IN_LIST' }]);
+          if (reg.documents.some((z) => z !== d && z.partyMemberId === memberId))
+            return problem(409, 'PARTY_DUPLICATE');
+        }
+        const claimed = isUnclaimed(d) && !!memberId;
+        // BE updateDocument keeps the capture method, the slot and the link when none is sent.
+        const keep = { captureMethod: d.captureMethod, personIndex: d.personIndex };
+        Object.assign(d, data, keep, {
+          docNumber: no,
+          noEntryRecord: data.noEntryRecord === true,
+          partyMemberId: memberId ?? d.partyMemberId,
+        });
+        if (claimed) d.fieldsPurgeAfter = null;
         recomputeReg(r, reg);
         reg.version += 1;
         return json(regView(reg));

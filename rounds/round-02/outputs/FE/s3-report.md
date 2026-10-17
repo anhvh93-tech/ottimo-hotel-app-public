@@ -182,3 +182,21 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm
 - 409 `ROOM_UNAVAILABLE` hiện đêm trùng và nút "Dùng căn {room}" cho căn server gợi ý.
 - Kết quả: admin-web 165/165 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3i`).
 
+
+### 9.10 Vòng sửa 9c – FB-R2-SEC-FE-07 (gắn giấy tờ chờ), ảnh giấy tờ, mark-sent thiếu người
+- **Gắn giấy tờ chờ** (BUG-R2-083, phương án dự phòng BE-C 9b): giấy tờ khách gửi qua link chưa gắn người của đơn có mục "Cần chú ý" `registration_party_docs_unlinked` mang chip "Chờ gắn người – tự xóa lúc {giờ}" (thay "Đã có") và nút **Gắn người**; dải cảnh báo đầu khối Giấy tờ (H13 + H14) dẫn tới giấy tờ; hộp sửa có ô **Người trong đoàn** (không chọn sẵn, bắt buộc khi đang chờ), gửi `updateGuestDocument` đủ trường + `partyMemberId` (OpenAPI 0.3.6 giữ nguyên – trường điền sẵn sau step-up).
+- **"Cần chú ý" trên H14 danh sách** (trang Hôm nay còn là khung): tiêu đề + nút "Mở đơn {mã}" (đọc `Reservation.registrationId`, tối đa 5 đơn) → H14 của đơn với tiêu điểm ở giấy tờ chờ; chip trên dòng của đơn.
+- **"Nhập tay" trùng số** với giấy tờ chờ (409 `PARTY_DUPLICATE`, chưa có id): câu hướng dẫn + nút "Mở giấy tờ chờ gắn người". TODO 0.3.7: PATCH chỉ `partyMemberId`, `DOCUMENT_UNCLAIMED_EXISTS` kèm id.
+- **Ảnh giấy tờ** (UXR P2 ảnh 020): "Xem đủ số / ảnh" mở cả ảnh (`getDocumentImage?reason=registration`, `cache: no-store`), object URL thu hồi khi Ẩn / 60 giây / ẩn tab / rời màn / đăng xuất; đọc dở bị hủy thì không hiện.
+- **Mark-sent** 409 `REGISTRATION_INCOMPLETE` (SEC-BE-54): câu "Còn thiếu giấy tờ của {n} người…" trước và sau khi bấm.
+- api-client: `listAttentionItems`, type `AttentionItem`; request ảnh (`blob`) gửi `cache: 'no-store'`.
+- Chuỗi: 29 chuỗi VI/EN – một nhóm mới cuối `gen_strings.py` ("vòng sửa 9c"), sinh lại bằng script; chờ UXD duyệt.
+- Kết quả: admin-web 27 tệp / 202 test, api-client 18, guest-web 50; ESLint 0 lỗi, Prettier xanh, `tsc` xanh; E2E-UI TC-L3-077 (desk-clock, có axe 3 màn) xanh 3/3 lần + desk-chromium H13/H14/ghi bước/axe 22/22 trên stack dùng một lần `ottimo-fe07` (ảnh dựng từ cây làm việc).
+
+### 9.11 Vòng sửa 9 (tiếp) – CI 39010774166 TC-L3-076 và KB7 (H16 sau giờ ân hạn)
+- **TC-L3-076 – nguyên nhân gốc (sản phẩm):** `GuestPicker` hiện "Chưa có khách nào khớp" + "Tạo nhanh khách \"…\"" trong lúc tìm kiếm chưa trả lời; Playwright bắt option đầu tiên khớp tên (chính là "Tạo nhanh"), kết quả về chen lên trên, cú bấm rơi vào "Tạo nhanh" → mở "Hồ sơ khách mới", không chọn khách → không dryRun → "Thêm vào đơn" khóa. Sửa: lựa chọn chỉ thuộc đúng chữ trong ô; khi đang tìm chỉ có dòng "Đang tải…". Test của QA (`stay-writes.h15.spec.ts`): neo `^` tên khách để không bao giờ khớp "Tạo nhanh".
+- **Thêm người khi đang ở:** `effectiveFrom` = `BookingRules.businessDate` (không theo đồng hồ máy); 422 về ngày → báo + Thử lại (đọc lại ngày nghiệp vụ).
+- **KB7:** giờ trả mặc định = giờ hiện tại; phụ thu trả muộn tick ở bước 2 rồi ghi vào folio (B15) trước bước Bill → bước 3 thu đủ; lỗi giờ/ghi chú đưa về bước 2 (focus ô ghi chú); đổi giờ xóa dòng đỏ cũ. Mock B15/B18/summary theo đúng luật máy chủ (một dòng phụ thu sống, cao hơn cần quyết định, thấp hơn tự đảo).
+- **Test:** `guest-picker-race.test.tsx` (5 ca), `checkout.test.tsx` thêm 3 ca KB7 (đỏ trên HEAD, xanh sau sửa), sửa ca TIME_NOTE / FE-S3-04 theo hành vi mới; E2E thêm ca KB7 trong `ui-clock/checkout.h16.spec.ts`.
+- **Kết quả:** admin-web 27 tệp / 202 test xanh; `pnpm lint` (ESLint + tsc toàn repo) và Prettier xanh; stack dùng một lần `ottimo-fe076` (make-ci-env.sh, cổng 43000/48081–48083): desk-chromium 42 qua / 2 bỏ theo thiết kế, desk-clock 5/5 (TC-L3-076 8/8 lần lặp, KB7 xanh – đỏ trên ảnh HEAD đúng triệu chứng "12:00"); A/B TC-L3-076: ảnh HEAD + tìm kiếm chậm 400 ms → đỏ đúng như CI, ảnh mới → xanh 3/3.
+- **Còn mở:** (1) giờ "hiện tại" là đồng hồ máy quầy – đề xuất ARC thêm `serverTime` vào `CheckoutSummary`; (2) đêm thêm (E05-11) vẫn chỉ ghi trong B18 nên thu trước B18 vượt số còn phải thu (`AMOUNT_EXCEEDS_BALANCE`/`REASON_REQUIRED` trên máy chủ thật) – cần `finalPayment` trong B18, đề xuất S4; (3) lễ tân (FD) gặp khách đến cùng ngày không còn căn thay: B15 trả 409 `LATE_CHECKOUT_CONFLICT`, cần quản lý – như trước; (4) UXD duyệt: bỏ dòng gợi ý "dùng Trả muộn ở drawer" khi đã có phụ thu, lý do khóa đặt cạnh nút Tiếp tục.

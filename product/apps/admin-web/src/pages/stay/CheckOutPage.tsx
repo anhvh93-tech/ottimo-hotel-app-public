@@ -12,7 +12,7 @@ import {
   Stepper,
   Switch,
 } from '@ottimo/ui';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
@@ -31,6 +31,8 @@ import { PaymentPanel } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 
 const OWN_MGR = ['owner', 'manager'];
+/** B18 field errors about the departure time – fixed on step 2, where the time and its note are (KB7). */
+const TIME_FIELDS = ['checkoutTime', 'checkoutAt', 'checkoutTimeNote'];
 const STEPS = ['checkout.step.minibar', 'checkout.step.extras', 'checkout.step.bill'];
 const EXTRAS: Array<{ key: string; preset: string }> = [
   { key: 'checkout.extras.laundry', preset: 'LAUNDRY_KG' },
@@ -92,6 +94,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const minibarAct = useSubmit();
   const invAct = useSubmit();
   const act = useSubmit();
+  const lateAct = useSubmit();
+  /** B18 answered TIME_NOTE_REQUIRED: the note field stays on step 2 (and takes the focus once). */
+  const [noteAsked, setNoteAsked] = useState(false);
+  const [focusNote, setFocusNote] = useState(false);
+  const noteRef = useRef<HTMLInputElement>(null);
+  /** The late surcharge was just written (B15): step 3 opens once the folio and booking are read again. */
+  const [toBill, setToBill] = useState(false);
 
   useEffect(() => {
     const items = std.state.data?.items;
@@ -107,16 +116,36 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
   }, [std.state.data]);
   useEffect(() => {
-    // E03-07: never a future time – before the agreed/standard time the default is "now"; in the
-    // post-midnight window (0.3.6 add. 2) the guest leaves now, early in the departure day.
-    if (s && !time) {
-      const now = timeHHmm(new Date());
-      const std = s.checkoutTime.slice(0, 5);
-      setTime(s.postMidnightWindow || (now >= '06:00' && now < std) ? now : std);
-    }
+    // E03-07: the guest leaves now – never a future time, never the standard time by default. KB7 (UXR 17/10):
+    // after 12:30 the default used to be 12:00 ("Trả đúng giờ – không phụ thu") and the late surcharge was
+    // lost. "Now" = the desk's clock (trusted device; on the desk-clock stack the browser runs on the stack's
+    // virtual clock) – the API has no clock field; B18 re-checks the time against its own clock (E03-07).
+    // Post-midnight window (0.3.6 add. 2): also now, early in the departure day.
+    if (s && !time) setTime(timeHHmm(new Date()));
     // first summary only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.checkoutTime]);
+  useEffect(() => {
+    // ready (or failed – step 3 then shows what it has and its own errors): never a button busy for ever
+    if (!toBill || sum.state.status === 'loading' || res.state.status === 'loading') return;
+    setToBill(false);
+    setStep(2);
+  }, [toBill, sum.state.status, res.state.status]);
+  // "Tiếp tục" pressed while the summary is still priced for another time (typed < 300 ms ago): the click is
+  // kept and carried out once the server amount for the typed time is on screen – never lost, never stale.
+  const priced = !time || (s?.checkoutTime ?? '').slice(0, 5) === time;
+  const [wantBill, setWantBill] = useState(false);
+  const goBillRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (!wantBill || !priced) return;
+    setWantBill(false);
+    goBillRef.current();
+  }, [wantBill, priced]);
+  useEffect(() => {
+    if (!focusNote || step !== 1) return;
+    noteRef.current?.focus();
+    setFocusNote(false);
+  }, [focusNote, step]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -167,10 +196,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     extraNightNeeded && !extraUnavailable
       ? amountOf(extraRate) || (s?.extraNightDefaultRateVnd ?? 0)
       : 0;
+  // KB7 (UXR 17/10, G-10): the late surcharge at the typed time (server) vs the one already on the folio
+  // (B15 earlier, or written on the way to step 3). A HIGHER amount needs the desk's decision (BR-414) and is
+  // written to the folio before the bill step, so the amount to collect includes it; a LOWER one (or none after
+  // the last tier – extra night) is reversed by B18 itself, in the guest's favour.
+  const lateNew = extraNightNeeded ? 0 : lateAmount;
+  const lateOld = s?.lateSurchargeRecalc?.oldVnd ?? 0;
+  const lateRaise = lateNew > lateOld;
+  const lateDelta = lateNew - lateOld;
   // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
   const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
-  const balance = Math.max(0, (s?.balanceDueVnd ?? 0) + extraNightVnd - credit0);
-  const credit = Math.max(0, credit0 - extraNightVnd - (s?.balanceDueVnd ?? 0));
+  const balance = Math.max(0, (s?.balanceDueVnd ?? 0) + extraNightVnd + lateDelta - credit0);
+  const credit = Math.max(0, credit0 - extraNightVnd - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
   const reload = () => {
     sum.reload();
@@ -223,22 +260,93 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     const body: CheckOutBody = {
       checkoutTime: time || s?.checkoutTime || rules.checkoutTime,
       checkoutTimeNote: timeNote.trim() || undefined,
-      applyLateSurcharge: lateAmount > 0 && lateTold,
-      expectedSurchargeVnd: lateAmount > 0 && lateTold ? lateAmount : undefined,
+      applyLateSurcharge: lateRaise && lateTold,
+      expectedSurchargeVnd: lateRaise && lateTold ? lateNew : undefined,
       // E05-11: after the last late tier the check-out itself adds one night at this rate.
       extraNight: extraNightNeeded ? { rateVnd: extraNightVnd } : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
     };
-    const out = await act.submit((idem) => api.checkOut(R, body, r.version, idem));
+    const caught: { error?: unknown } = {};
+    const out = await act.submit((idem) =>
+      api.checkOut(R, body, r.version, idem).catch((e: unknown) => {
+        caught.error = e;
+        throw e;
+      }),
+    );
     setConfirm(false);
     if (!out) {
       sum.reload();
-      if (isApiError(act.error) && act.error.code === 'VERSION_CONFLICT') res.reload();
+      const e = caught.error;
+      if (isApiError(e) && e.code === 'VERSION_CONFLICT') res.reload();
+      // KB7 (3): a time problem is fixed where the time and its note are – back to step 2, note focused.
+      if (
+        isApiError(e) &&
+        e.fieldErrors.some((fe) => TIME_FIELDS.includes(fe.field.replace(/^body\./, '')))
+      ) {
+        if (e.fieldErrors.some((fe) => fe.code === 'TIME_NOTE_REQUIRED')) {
+          setNoteAsked(true);
+          setFocusNote(true);
+        }
+        setStep(1);
+      }
       return;
     }
     toast(t('checkout.done'));
     setDone({ billNo: out.data.billNo });
     res.reload();
+  };
+
+  // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
+  // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
+  const lateWhy = lateRaise && !lateTold ? t('ci.told_guest') : null;
+  const goBill = async () => {
+    if (toBill || lateAct.busy) return;
+    if (!priced) {
+      setWantBill(true);
+      return;
+    }
+    if (lateWhy) return;
+    if (!lateRaise) {
+      setStep(2);
+      return;
+    }
+    const caught: { error?: unknown } = {};
+    const out = await lateAct.submit((idem) =>
+      api
+        .setLateCheckout(
+          R,
+          {
+            checkoutTime: time,
+            dryRun: false,
+            applySurcharge: true,
+            expectedSurchargeVnd: lateNew,
+          },
+          r.version,
+          idem,
+        )
+        .catch((e: unknown) => {
+          caught.error = e;
+          throw e;
+        }),
+    );
+    sum.reload();
+    res.reload();
+    if (!out) {
+      // A new amount must be confirmed again (the tick belongs to the amount the desk told the guest).
+      if (isApiError(caught.error) && caught.error.code === 'SURCHARGE_CHANGED') setLateTold(false);
+      return;
+    }
+    setToBill(true);
+  };
+  goBillRef.current = () => void goBill();
+  const changeTime = (v: string) => {
+    setTime(v);
+    setLateTold(false);
+    // KB7 (4): the red "earlier than the click" line was about the old time – a new time clears it (B18 checks
+    // again on "Hoàn tất").
+    act.reset();
+    lateAct.reset();
+    if (!timeNote.trim()) setNoteAsked(false);
   };
 
   const openBill = async () => {
@@ -446,15 +554,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               type="time"
               className="input"
               value={time}
-              onChange={(e) => {
-                setTime(e.target.value);
-                setLateTold(false);
-              }}
+              onChange={(e) => changeTime(e.target.value)}
             />
           )}
         </Field>
         {s?.postMidnightWindow ? <Alert tone="info">{t('checkout.post_midnight')}</Alert> : null}
-        {act.fields.checkoutTimeNote || timeNote ? (
+        {noteAsked || act.fields.checkoutTimeNote || timeNote ? (
           <Field
             label={t('checkout.time_note')}
             help={t('stay.time_note_help')}
@@ -464,10 +569,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             {(p) => (
               <input
                 {...p}
+                ref={noteRef}
                 className="input"
                 maxLength={300}
                 value={timeNote}
-                onChange={(e) => setTimeNote(e.target.value)}
+                onChange={(e) => {
+                  setTimeNote(e.target.value);
+                  if (act.fields.checkoutTimeNote) act.reset();
+                }}
               />
             )}
           </Field>
@@ -508,7 +617,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           ) : (
             <p>{t('checkout.late_none')}</p>
           )}
-          {s?.lateSurchargeRecalc ? (
+          {s?.lateSurchargeRecalc && lateOld !== lateNew ? (
             <Alert tone="info">
               {t('checkout.late_recalc', {
                 old: money(s.lateSurchargeRecalc.oldVnd ?? 0),
@@ -517,13 +626,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             </Alert>
           ) : null}
         </div>
-        {lateAmount > 0 ? (
-          // SURCHARGE_DECISION_REQUIRED (0.3.6): a surcharge > 0 needs the desk's decision – required.
+        {lateRaise ? (
+          // SURCHARGE_DECISION_REQUIRED (0.3.6): a higher surcharge needs the desk's decision – required.
           <Checkbox checked={lateTold} onChange={setLateTold}>
             {t('ci.told_guest')} *
           </Checkbox>
         ) : null}
-        {!r.agreedCheckoutTime ? <p className="li-s">{t('co.late_switch_hint')}</p> : null}
+        {lateAct.view()}
+        {/* The amount and its tick are on this step now (KB7) – the "use Trả muộn" hint only before any fee. */}
+        {!r.agreedCheckoutTime && lateNew === 0 ? (
+          <p className="li-s">{t('co.late_switch_hint')}</p>
+        ) : null}
         <h3 className="label-h">{t('co.extras_title')}</h3>
         <div className="row wrap">
           {EXTRAS.map((x) => (
@@ -668,7 +781,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
   const whyLocked = extraUnavailable
     ? t('checkout.extra_night_unavailable')
-    : lateAmount > 0 && !lateTold
+    : lateRaise && !lateTold
       ? t('ci.told_guest')
       : credit > 0 && overReason.trim().length < 3
         ? t('checkout.overpay.needs_reason')
@@ -727,9 +840,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 </Button>
               </>
             ) : step === 1 ? (
-              <Button variant="pri" onClick={() => setStep(2)}>
-                {t('co.go_bill')}
-              </Button>
+              <>
+                {/* FE-S3-04: say why the button is locked – the tick sits on this step (KB7). */}
+                {lateWhy ? (
+                  <span className="li-s" id={`${ids}-why1`}>
+                    {lateWhy}
+                  </span>
+                ) : null}
+                <Button
+                  variant="pri"
+                  aria-disabled={lateWhy ? true : undefined}
+                  aria-describedby={lateWhy ? `${ids}-why1` : undefined}
+                  busy={lateAct.busy || toBill || wantBill}
+                  busyLabel={lateAct.busy ? lateAct.busyLabel : undefined}
+                  onClick={() => void goBill()}
+                >
+                  {lateAct.label(t('co.go_bill'))}
+                </Button>
+              </>
             ) : (
               <>
                 {whyLocked ? (

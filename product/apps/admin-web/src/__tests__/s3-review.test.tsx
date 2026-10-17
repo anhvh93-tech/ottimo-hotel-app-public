@@ -323,7 +323,7 @@ describe('ARC 0.3.6 add. 2 – money log: closed action list, unknown → "Thao 
 describe("FE-S3-04 / S3-12 – check-out: a late surcharge needs the desk's decision", () => {
   afterEach(() => vi.useRealTimers());
 
-  it('"Hoàn tất" is locked and says why until "đã báo khách" is ticked', async () => {
+  it('"Tiếp tục" (step 2, where the tick is – KB7) is locked and says why until "đã báo khách" is ticked', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(`${todayLocal()}T14:05:00+07:00`));
     const r = res('Phạm Huy');
@@ -335,11 +335,12 @@ describe("FE-S3-04 / S3-12 – check-out: a late surcharge needs the desk's deci
     expect(
       await screen.findByRole('checkbox', { name: `${tv('ci.told_guest')} *` }),
     ).not.toBeChecked();
-    await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
-    const done = await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ });
-    expect(done).toHaveAttribute('aria-disabled', 'true');
-    expect(done).toHaveAccessibleDescription(tv('ci.told_guest'));
-    await user.click(screen.getByRole('button', { name: tv('common.back') }));
+    const go = screen.getByRole('button', { name: tv('co.go_bill') });
+    await user.click(go);
+    // Still on step 2: the button says why, the box to tick is right here.
+    expect(go).toHaveAttribute('aria-disabled', 'true');
+    expect(go).toHaveAccessibleDescription(tv('ci.told_guest'));
+    expect(screen.queryByRole('button', { name: /hoàn tất|Hoàn tất/ })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('checkbox', { name: `${tv('ci.told_guest')} *` }));
     await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
     expect(await screen.findByRole('button', { name: /hoàn tất|Hoàn tất/ })).not.toHaveAttribute(

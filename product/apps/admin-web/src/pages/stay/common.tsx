@@ -78,6 +78,12 @@ export function useSubmit(map?: SubmitFieldMap) {
       </Alert>
     ) : null);
 
+  /** Forget the last failure (its alert and field messages) – the input it was about has changed. */
+  const reset = () => {
+    setError(null);
+    setFields({});
+  };
+
   return {
     submit,
     busy: write.busy,
@@ -85,6 +91,7 @@ export function useSubmit(map?: SubmitFieldMap) {
     label: write.label,
     error,
     setError,
+    reset,
     fields,
     text,
     view,
