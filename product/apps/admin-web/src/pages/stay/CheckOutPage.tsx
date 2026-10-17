@@ -30,6 +30,17 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
 import { PaymentPanel } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
+import {
+  FOC_CATEGORIES,
+  FocRequestDialog,
+  FocStateChip,
+  SurchargeFocFields,
+  canAskFoc,
+  noSurchargeFoc,
+  surchargeFocBody,
+  surchargeFocMissing,
+  type SurchargeFoc,
+} from './foc';
 
 const OWN_MGR = ['owner', 'manager'];
 /** B18 field errors about the departure time – fixed on step 2, where the time and its note are (KB7). */
@@ -80,6 +91,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   );
   const [left, setLeft] = useState<Record<string, number>>({});
   const [lateTold, setLateTold] = useState(false);
+  // S4-25 (US-007 AC1): the late surcharge written on the way to the bill can carry a FOC request.
+  const [lateFoc, setLateFoc] = useState<SurchargeFoc>(noSurchargeFoc);
+  /** S4-25: FOC / special discount asked on a folio line from here (minibar, extras, a late fee on the folio). */
+  const [focLine, setFocLine] = useState<FolioLine | null>(null);
   const [timeNote, setTimeNote] = useState('');
   const [extraRate, setExtraRate] = useState('');
   const [extra, setExtra] = useState<string | null>(null);
@@ -310,7 +325,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
-  const lateWhy = lateRaise && !lateTold ? t('co.go_bill_needs_told') : null;
+  const lateWhy =
+    lateRaise && !lateTold
+      ? t('co.go_bill_needs_told')
+      : lateRaise
+        ? surchargeFocMissing(t, lateFoc)
+        : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
     if (!priced) {
@@ -332,6 +352,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             dryRun: false,
             applySurcharge: true,
             expectedSurchargeVnd: lateNew,
+            requestFocForSurcharge: surchargeFocBody(lateFoc, lateNew),
           },
           r.version,
           idem,
@@ -396,13 +417,22 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             {lines.map((l) => (
               <tr key={l.id} className={l.lineState === 'pending_approval' ? 'sub' : undefined}>
                 <td>
-                  {lineLabel(t, l)}
-                  {l.lineState === 'pending_approval' ? (
+                  {lineLabel(t, l)} <FocStateChip line={l} lines={lines} />
+                  {l.lineState === 'pending_approval' && !FOC_CATEGORIES.includes(l.category) ? (
                     <>
                       {' '}
                       <Chip tone="warn" icon="hourglass">
                         {t('approval.status.pending')}
                       </Chip>
+                    </>
+                  ) : null}
+                  {/* S4-25: ask a FOC / discount on a charge (minibar self-waiver BR-436 included). */}
+                  {!done && online && canAskFoc(lines, l) ? (
+                    <>
+                      {' '}
+                      <Button size="sm" variant="ghost" onClick={() => setFocLine(l)}>
+                        {t('foc.open_form')}
+                      </Button>
                     </>
                   ) : null}
                 </td>
@@ -440,6 +470,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       )}
     </section>
   );
+
+  const focPending = pendingFoc.map((l) => (
+    <Alert key={l.id} tone="warn">
+      {t('co.foc_pending', { amount: money(Math.abs(l.amountVnd)) })}{' '}
+      <Link to="/approvals">{t('co.see_approval')}</Link>
+    </Alert>
+  ));
 
   let body = null;
   if (done) {
@@ -640,9 +677,16 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         </div>
         {lateRaise ? (
           // SURCHARGE_DECISION_REQUIRED (0.3.6): a higher surcharge needs the desk's decision – required.
-          <Checkbox checked={lateTold} onChange={setLateTold}>
-            {t('ci.told_guest')} *
-          </Checkbox>
+          <>
+            <Checkbox checked={lateTold} onChange={setLateTold}>
+              {t('ci.told_guest')} *
+            </Checkbox>
+            <SurchargeFocFields
+              value={lateFoc}
+              onChange={setLateFoc}
+              error={lateAct.fields['requestFocForSurcharge.note']}
+            />
+          </>
         ) : null}
         {lateAct.view()}
         {/* The amount and its tick are on this step now (KB7) – the "use Trả muộn" hint only before any fee. */}
@@ -658,17 +702,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             </Button>
           ))}
         </div>
-        {pendingFoc.map((l) => (
-          <Alert key={l.id} tone="warn">
-            {t('co.foc_pending', { amount: money(Math.abs(l.amountVnd)) })}{' '}
-            <Link to="/approvals">{t('co.see_approval')}</Link>
-          </Alert>
-        ))}
+        {focPending}
       </section>
     );
   } else {
     body = (
       <div className="stack">
+        {/* S4-25 / BR-426: a FOC still waiting blocks "Hoàn tất" – said on the bill step too. */}
+        {focPending}
         <section className="card stack">
           <p className="kv-big num">
             {t('bill.total')}: {money(s?.totalVnd ?? 0)}
@@ -982,6 +1023,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           onDone={() => {
             setExtra(null);
             sum.reload();
+          }}
+        />
+      ) : null}
+      {focLine ? (
+        <FocRequestDialog
+          folioId={r.folioId}
+          line={focLine}
+          lines={lines}
+          onClose={() => setFocLine(null)}
+          onDone={() => {
+            setFocLine(null);
+            reload();
           }}
         />
       ) : null}

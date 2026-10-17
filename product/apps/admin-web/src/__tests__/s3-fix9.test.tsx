@@ -255,12 +255,13 @@ describe('UXR #7 – thêm người vượt định mức khi khách đang ở',
     ).toBeInTheDocument();
     expect(add).toBeDisabled();
     expect(within(dlg).getByText(tv('party.surcharge_needs_confirm'))).toBeInTheDocument();
-    expect(within(dlg).getByText(tv('party.surcharge_waiver_note'))).toBeInTheDocument();
     await user.click(
       within(dlg).getByRole('checkbox', {
         name: tv('party.surcharge_confirm', { amount: vnd('300.000') }),
       }),
     );
+    // S4-25 / BUG-R2-093: once the fee is confirmed the desk may also ask a waiver (off by default).
+    expect(within(dlg).getByRole('switch', { name: tv('ci.ask_foc') })).not.toBeChecked();
     expect(add).toBeEnabled();
     await user.click(add);
     await waitFor(() =>

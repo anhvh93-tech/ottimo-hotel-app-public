@@ -3091,6 +3091,21 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `ci.submit_pos_code` | Nhập mã chuẩn chi trên phiếu POS để nhận phòng. | Enter the approval code from the POS slip to check in. | ⟨chừa chỗ⟩ | Thẻ POS thiếu mã chuẩn chi |
 | `ci.room_approved` | {name} đã duyệt nhận phòng khi buồng chưa sẵn sàng. Thu tiền và nhận phòng như thường. | {name} approved check-in while the room isn't ready. Collect payment and check in as usual. | ⟨chừa chỗ⟩ | FE-S4-02: lễ tân mở lại H13 sau khi lễ tân trưởng duyệt yêu cầu 202 trong ngày – B9 gửi approvalRequestId + payment (OpenAPI 0.3.7 checkIn bổ sung 1 (a)). Chip ok ở điều kiện "Buồng sẵn sàng" |
 
+#### R2 Sprint 4 – FE-A S4-25: xin miễn phí ngoài bước nhận phòng (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `foc.max` | Tối đa {amount} – phần còn lại của dòng sau các khoản miễn/giảm đã có. | Up to {amount} – what is left on this line after existing waivers and discounts. | ⟨chừa chỗ⟩ | Gợi ý ô Số tiền miễn (S4-23 (6) – trần theo khóa) |
+| `foc.over_max` | Vượt số tối đa {amount} còn được xin trên dòng này. | More than the {amount} still available on this line. | ⟨chừa chỗ⟩ | Lỗi ô Số tiền miễn; cũng dùng khi server trả 422 kèm max |
+| `foc.needs_reason` | Chọn lý do miễn phí. | Choose a reason for the waiver. | ⟨chừa chỗ⟩ | Thiếu lý do (BR-432) – lỗi ở nhóm lý do / câu cạnh nút khóa |
+| `foc.state_applied` | Đã áp | Applied | ⟨chừa chỗ⟩ | Chip dòng FOC/giảm giá đang trừ (BR-434 applied) |
+| `foc.state_cancelled` | Không còn áp | No longer applied | ⟨chừa chỗ⟩ | Chip dòng FOC/giảm giá đã đảo (ngủ / hủy theo quy tắc BR-434) |
+| `foc.self_apply_short` | Minibar {amount} nằm trong mức tự miễn {limit}/lần của bạn. Nhập lại mật khẩu để áp ngay; nếu đã dùng hết hạn mức tháng, yêu cầu tự chuyển lễ tân trưởng duyệt. | Minibar {amount} is within your self-waiver limit of {limit} per item. Re-enter your password to apply it now; if this month's limit is used up, the request goes to a senior receptionist. | ⟨chừa chỗ⟩ | Thay foc.self_apply khi Desk không biết số đã dùng trong tháng (BR-436; server quyết) |
+| `foc.sent` | Đã gửi duyệt miễn {amount}. | Waiver of {amount} sent for approval. | ⟨chừa chỗ⟩ | Thông báo sau requestFoc / requestFocForSurcharge |
+| `foc.applied` | Đã áp miễn {amount}. | Waiver of {amount} applied. | ⟨chừa chỗ⟩ | Thông báo khi lễ tân tự áp FOC minibar trong hạn mức (BR-436) |
+| `party.foc_sent` | Đã gửi {n} đề nghị miễn phụ thu người – mỗi đêm một yêu cầu. | {n} extra-guest fee waiver requests sent – one per night. | ⟨chừa chỗ⟩ | BUG-R2-093: thêm người đang ở kèm xin FOC phụ thu người (requestFoc từng đêm) |
+| `party.foc_failed` | Đã thêm người và ghi phụ thu, nhưng còn {n} đêm chưa gửi được đề nghị miễn. Mở Folio để gửi lại. | The guest was added and the fee recorded, but the waiver request could not be sent for {n} of the nights. Open the folio to send it again. | ⟨chừa chỗ⟩ | BUG-R2-093: một số requestFoc từng đêm lỗi |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

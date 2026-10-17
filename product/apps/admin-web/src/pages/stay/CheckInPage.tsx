@@ -39,6 +39,7 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DocsList, VerifyList, reviewReady } from '../registration/DocsPanel';
 import { useSubmit } from './common';
+import { FOC_REASONS } from './foc';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import {
   CheckInPayment,
@@ -63,13 +64,6 @@ const STEPS = [
   'checkin.step.verify',
   'checkin.step.register',
   'checkin.step.handover',
-];
-const FOC_REASONS: Array<{ value: FocRequestInput['reasonCode']; key: string }> = [
-  { value: 'regular_vip', key: 'foc.r_regular' },
-  { value: 'room_ready_no_impact', key: 'foc.r_room_ready' },
-  { value: 'service_recovery', key: 'foc.r_recovery' },
-  { value: 'long_stay_guest', key: 'foc.r_long' },
-  { value: 'other', key: 'foc.r_other' },
 ];
 
 /**

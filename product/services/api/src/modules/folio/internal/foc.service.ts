@@ -102,16 +102,9 @@ export class FolioFocService {
         });
       }
     }
-    // S4-23 (6): what is applied now + what pending requests ask on this line (reversed FOC lines excluded –
-    // a recomputed FOC leaves its old line reversed on the same charge).
-    const { rows: used } = await tx.query<{ total: string | number }>(
-      `SELECT COALESCE(-SUM(f.amount_vnd), 0) AS total FROM folio_line f
-        WHERE f.related_line_id = $1 AND f.category IN ('foc', 'discount')
-          AND f.line_state IN ('posted', 'pending_approval') AND f.reversal_of_id IS NULL
-          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)`,
-      [line.id],
-    );
-    const remaining = line.amount_vnd - Number(used[0]?.total ?? 0);
+    // S4-23 (6): line − (what is applied now + what pending requests ask) on the key (FolioService – the same
+    // rule as the desk's requestFocForSurcharge, S4-25).
+    const remaining = await this.folios.reductionHeadroomVnd(tx, line.id);
     if (input.amountVnd > remaining) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],

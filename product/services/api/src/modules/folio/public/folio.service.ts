@@ -2595,6 +2595,26 @@ export class FolioService implements FolioStaySync {
     return request;
   }
 
+  /**
+   * S4-23 (6) / S4-25 (BR-434 v0.3.6): the most a NEW FOC / special-discount request may ask on a charge line =
+   * line − (what the reductions on it apply now + what the pending requests on it ask). Every reduction of a key
+   * sits on the CURRENT line of the key (syncReductions), so this is the key's headroom. The line must be live.
+   */
+  async reductionHeadroomVnd(tx: Tx, lineId: string): Promise<number> {
+    const { rows } = await tx.query<{ amount: string | number; used: string | number }>(
+      `SELECT l.amount_vnd AS amount,
+              COALESCE((SELECT -SUM(f.amount_vnd) FROM folio_line f
+                         WHERE f.related_line_id = l.id AND f.category IN ('foc', 'discount')
+                           AND f.line_state IN ('posted', 'pending_approval') AND f.reversal_of_id IS NULL
+                           AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)), 0) AS used
+         FROM folio_line l WHERE l.id = $1`,
+      [lineId],
+    );
+    const r = rows[0];
+    if (!r) return 0;
+    return Math.max(0, Number(r.amount) - Number(r.used));
+  }
+
   /** stay_night.discount_vnd of every live night = the FOC / discount applied on its room line now (DATA). */
   private async syncNightDiscounts(tx: Tx, folioId: string): Promise<void> {
     const { rows } = await tx.query<{ stay_night_id: string; reduced: string | number }>(

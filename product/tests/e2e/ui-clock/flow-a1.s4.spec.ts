@@ -10,24 +10,17 @@
 //   5. H16 (lễ tân, ngày đi 11:00): minibar 2 bia + 1 snack + 2 nước → bill → VietQR → đã nhận → hoàn tất →
 //      `checked_out`, folio `settled`, số bill F{yy}-nnnnnn, căn `VD` + việc "Dọn trả phòng".
 //   6. PWA (buồng phòng): Bắt đầu dọn → Dọn xong (`VC`); PWA (lễ tân trưởng): Kiểm phòng theo checklist → `VI`.
-// FOC trong chuỗi là FOC xin lúc nhận sớm, duyệt ở H17 (ORC 17/10): Desk chưa có nút xin FOC ở bước trả phòng –
-// S4-25, ca riêng TC-X-071 bên dưới (knownBug ở dòng đầu ca).
+// FOC trong chuỗi là FOC xin lúc nhận sớm, duyệt ở H17 (ORC 17/10). FOC ở bước trả phòng (S4-25): ca riêng
+// TC-X-071 bên dưới.
 // Tiền đọc từ br-examples.json: BR-107-01 / BR-305-01 (202, 7 đêm thứ Hai → 5.205.000, cọc 1.600.000, còn
 // 3.605.000), BR-411-01 (nhận 11:00 → 30 % giá đêm đầu), BR-402-01 (FOC chờ duyệt trên phụ thu không phải thu để
 // nhận phòng), BR-702-01 (minibar 100.000).
 // TC: product/tests/test-cases/r1-main-flows.md – TC-X-070 (A1), TC-X-071 (FOC ở trả phòng, S4-25).
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Browser,
-  type Locator,
-  type Page,
-} from '@playwright/test';
-import { call, propertyIdOf, session, stackToday } from '../support/api.js';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { propertyIdOf, session, stackToday } from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
-import { SEED_PASSWORD, SESSION_COOKIE, STAFF_URL, WEB_URL } from '../support/env.js';
-import { knownBug, precondition } from '../support/known-bugs.js';
+import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
+import { precondition } from '../support/known-bugs.js';
 import {
   addDays,
   cleanupTracked,
@@ -42,8 +35,6 @@ import {
 } from '../support/s2.js';
 import { approvalsOf, ensureReceivingAccount } from '../support/s3-stay.js';
 import {
-  EP3,
-  PNG_16X16,
   cleanRooms,
   fakeCccd,
   getFolio,
@@ -51,14 +42,14 @@ import {
   liveLines,
   namedGuest,
   needCleanRooms,
-  p3,
   preview,
   useVirtualDevice,
   virtualDay,
 } from '../support/s3.js';
 import { settle } from '../ui/axe.js';
-import { UI, signIn, t } from '../ui/helpers.js';
-import { dialogs, photo, recordWrites, trustedDesk, vnd, waitWrite } from '../ui/write-steps.js';
+import { desk, pwaCleanInspect } from '../ui/flows.js';
+import { UI, t } from '../ui/helpers.js';
+import { dialogs, recordWrites, vnd, waitWrite } from '../ui/write-steps.js';
 
 type Json = Record<string, unknown>;
 const num = (x: unknown) => x as number;
@@ -76,51 +67,6 @@ test.beforeAll(async ({ request }) => {
 });
 test.afterEach(async ({ request }) => cleanupTracked(request));
 test.afterAll(async ({ request }) => resetClock(request));
-
-/** Desk của một người: ngữ cảnh trình duyệt riêng, máy quầy được cấp, giờ trình duyệt = giờ ảo của stack. */
-async function desk(browser: Browser, user: string, iso: string): Promise<Page> {
-  const ctx = await browser.newContext({
-    viewport: { width: 1366, height: 768 },
-    locale: 'vi-VN',
-    timezoneId: 'Asia/Ho_Chi_Minh',
-  });
-  const page = await ctx.newPage();
-  await page.clock.setFixedTime(new Date(iso));
-  await trustedDesk(page);
-  await signIn(page, user);
-  return page;
-}
-
-/**
- * PWA nhân viên (apps/mobile) cỡ điện thoại. Giờ trình duyệt CHẠY từ giờ ảo (clock.install – hàng đợi PWA giữ mỗi
- * thao tác 10 giây để hoàn tác rồi mới gửi, `performedAt` phải gần giờ server: B-02).
- */
-async function staffApp(
-  browser: Browser,
-  request: APIRequestContext,
-  user: string,
-  iso: string,
-): Promise<Page> {
-  const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    isMobile: true,
-    hasTouch: true,
-    locale: 'vi-VN',
-    timezoneId: 'Asia/Ho_Chi_Minh',
-  });
-  const page = await ctx.newPage();
-  await page.clock.install({ time: new Date(iso) });
-  const s = await session(request, user);
-  await ctx.addCookies([
-    { name: SESSION_COOKIE, value: s.token, url: STAFF_URL, httpOnly: true, sameSite: 'Lax' },
-  ]);
-  return page;
-}
-
-/** Qua hết thời gian hoàn tác của hàng đợi PWA (UNDO_MS 10 giây) để lệnh được gửi. */
-async function pastUndo(page: Page): Promise<void> {
-  await page.clock.fastForward('00:12');
-}
 
 const row = (scope: Page | Locator, re: RegExp) => scope.getByRole('row', { name: re }).first();
 
@@ -414,83 +360,20 @@ test.describe(
       );
 
       // ── 6. PWA: buồng phòng dọn (VD → CL → VC), lễ tân trưởng kiểm checklist (VC → VI) ──
-      const statusOf = async () => {
-        const s = await session(request, 'qa.fd');
-        const r = await call<{ data: Array<{ roomId: string; status: string }> }>(
-          request,
-          'GET',
-          p3(EP3.listRoomStatuses, s),
-          { session: s },
-        );
-        return r.body.data.find((x) => x.roomId === r202.id)?.status;
-      };
-      await expect.poll(statusOf, { message: 'căn sau trả phòng' }).toBe('VD');
-      // giờ PWA = giờ server: `performedAt` phải trong [giờ server − 24 giờ, + 5 phút] và sau `since` (B-02)
-      await setClock(request, vnTime(departure, '11:30'));
-      const hk = await staffApp(browser, request, 'qa.hk', vnTime(departure, '11:30'));
-      const moves = recordWrites(hk, 'POST', /\/rooms\/[^/]+\/status-transitions$/);
-      await hk.goto(`${STAFF_URL}/#/tasks`);
-      // thẻ việc mang tên "Căn {số}, {tên}" (roomLabel); chữ trong thẻ dính liền số căn nên lọc theo tên thẻ
-      const task = hk
-        .getByRole('article', {
-          name: new RegExp(`^${esc(tf('hk.room_title', { room: r202.roomNo }))}(,|$)`),
-        })
-        .filter({ has: hk.getByRole('button', { name: t('hk.action.start_cleaning') }) })
-        .first();
-      await expect(task, 'việc "Dọn trả phòng" của căn có ngay sau trả phòng').toBeVisible({
-        timeout: 20_000,
-      });
-      await task.getByRole('button', { name: t('hk.action.start_cleaning') }).click();
-      await pastUndo(hk);
-      const start = await waitWrite(moves, 'transitionRoomStatus start_cleaning', 200);
-      expect(start.request).toMatchObject({ event: 'start_cleaning', expectedFrom: 'VD' });
-      await expect.poll(statusOf).toBe('CL');
-      const finish = hk.getByRole('button', { name: t('hk.action.finish_cleaning') });
-      if (!(await finish.isVisible().catch(() => false)))
-        await hk.goto(`${STAFF_URL}/#/room/${r202.id}`);
-      await finish.click();
-      await pastUndo(hk);
-      const fin = await waitWrite(moves, 'transitionRoomStatus finish_cleaning', 200, (s) =>
-        JSON.stringify(s.request).includes('finish_cleaning'),
-      );
-      expect(fin.request).toMatchObject({ event: 'finish_cleaning', expectedFrom: 'CL' });
-      await expect.poll(statusOf).toBe('VC');
-      await hk.context().close();
-
-      await setClock(request, vnTime(departure, '12:00'));
-      const fdl = await staffApp(browser, request, 'qa.fdl', vnTime(departure, '12:00'));
-      const insp = recordWrites(fdl, 'POST', /\/rooms\/[^/]+\/inspections$/);
-      await fdl.goto(`${STAFF_URL}/#/inspect/${r202.id}`);
-      const legend = fdl.getByRole('group', { name: t('hk.insp.legend') });
-      await expect(legend).toBeVisible({ timeout: 20_000 });
-      for (const box of await legend.getByRole('checkbox').all()) await box.check();
-      const pick = fdl.locator('input[type="file"]');
-      if ((await pick.count()) > 0)
-        await pick.first().setInputFiles(photo(PNG_16X16, 'kiem-phong.png'));
-      const pass = fdl.getByRole('button', { name: t('hk.insp.pass') });
-      await expect(pass).not.toHaveAttribute('aria-disabled', 'true', { timeout: 15_000 });
-      await pass.click();
-      await pastUndo(fdl);
-      const ins = await waitWrite(insp, 'recordInspection đạt', 201);
-      expect(
-        ((ins.request as Json).items as Array<{ passed: boolean }>).every((i) => i.passed),
-        'mọi mục checklist đạt',
-      ).toBe(true);
-      await expect.poll(statusOf, { message: 'căn sẵn sàng sau kiểm đạt' }).toBe('VI');
-      await fdl.context().close();
+      await pwaCleanInspect(browser, request, r202, departure);
       // propertyIdOf giữ cho câu hỏi "đơn của cơ sở nào" khi đọc log lỗi
       expect(propertyIdOf(fdB)).toBeTruthy();
     });
 
-    test('TC-X-071 (E) A1 phần S4-25 US-007/AC1: H16 bước 2 trả muộn 14:00 → "Mở form miễn phí" trên dòng phụ thu trả muộn → Gửi duyệt → requestFoc chờ duyệt, bill báo "đang chờ duyệt"', async ({
+    test('TC-X-071 (E) A1 phần S4-25 US-007/AC1, US-036: H16 bước 2 trả muộn 14:00 → tick "đã báo khách" + "Xin miễn phụ thu" (Khách quen) → phụ thu và yêu cầu FOC đi cùng lệnh ghi phụ thu (setLateCheckout.requestFocForSurcharge), bill báo "đang chờ duyệt"', async ({
       browser,
       request,
     }) => {
-      knownBug('S4-25');
       needClock('TC-X-071');
       test.slow();
-      // Desk chưa có nút xin FOC ngoài bước nhận phòng (S4-25 gộp sau khi QA đóng 056/059/061 – ORC 17/10).
-      // Ca đỏ đúng chỗ thiếu; phần dựng dữ liệu nằm trong precondition – hỏng ở đó thì ca phải đỏ thật.
+      // S4-25 (FE-A 17/10): như H13 13.4 và H15 15.3 – phụ thu trả muộn chưa có trên folio ở bước 2, nên đề nghị FOC
+      // đi CÙNG lệnh ghi phụ thu (B15 `requestFocForSurcharge`) khi bấm "Tiếp tục: Bill" – không phải requestFoc trên
+      // một dòng đã có (nút "Mở form miễn phí / giảm giá" dành cho dòng đã ghi: Folio, tóm tắt H16).
       const { st, departure } = await precondition(
         'khách đang ở 1 đêm, ngày đi 14:00 (sau giờ ân hạn – phụ thu trả muộn BR-412-01)',
         async () => {
@@ -510,23 +393,43 @@ test.describe(
         },
       );
       const fdPage = await desk(browser, 'qa.fd', vnTime(departure, '14:00'));
-      const focs = recordWrites(fdPage, 'POST', /\/folios\/[^/]+\/lines\/[^/]+\/foc$/);
+      const lates = recordWrites(fdPage, 'POST', /\/reservations\/[^/]+\/actions\/late-checkout$/);
       await fdPage.goto(`${WEB_URL}/reservations/${st.res.id}/check-out`);
       await fdPage.getByRole('button', { name: t('co.go_extras') }).click();
-      await fdPage.getByRole('checkbox', { name: new RegExp(esc(t('ci.told_guest'))) }).check();
-      // S4-25: form xin miễn phí ngay trên dòng phụ thu trả muộn (UXD: foc.open_form → foc.send)
-      await fdPage.getByRole('button', { name: t('foc.open_form') }).click({ timeout: 10_000 });
-      const form = dialogs(fdPage).filter({ hasText: t('foc.send') });
-      await form.getByRole('radio', { name: t('foc.r_regular') }).check();
-      await form.getByRole('button', { name: t('foc.send') }).click();
-      const sent = await waitWrite(focs, 'requestFoc phụ thu trả muộn', 201);
-      expect(sent.request).toMatchObject({ kind: 'foc', reasonCode: 'regular_vip' });
-      await fdPage.getByRole('button', { name: t('co.go_bill') }).click();
       await expect(
-        fdPage.getByText(new RegExp(esc(t('co.foc_pending').split('{')[0]!))),
+        fdPage.getByText(new RegExp(`^${esc(t('checkout.late_fee').split('{')[0]!)}`)),
+      ).toBeVisible({ timeout: 15_000 });
+      await fdPage.getByRole('checkbox', { name: new RegExp(esc(t('ci.told_guest'))) }).check();
+      // S4-25: "Xin miễn phụ thu (gửi duyệt)" + lý do, ngay dưới ô "đã báo khách" (mẫu H13 13.4)
+      await fdPage.getByRole('switch', { name: t('ci.ask_foc') }).click();
+      await fdPage.getByRole('radio', { name: t('foc.r_regular') }).check();
+      await fdPage.getByRole('button', { name: t('co.go_bill') }).click();
+      const sent = await waitWrite(
+        lates,
+        'setLateCheckout kèm requestFocForSurcharge',
+        200,
+        (s) => s.request?.dryRun === false,
+      );
+      const fee = Number(sent.request?.expectedSurchargeVnd);
+      expect(fee).toBeGreaterThan(0);
+      expect(sent.request).toMatchObject({
+        applySurcharge: true,
+        requestFocForSurcharge: { kind: 'foc', amountVnd: fee, reasonCode: 'regular_vip' },
+      });
+      // bước 3 (bill) báo khoản miễn đang chờ duyệt – chặn "Hoàn tất" tới khi có kết quả (BR-426)
+      await expect(
+        fdPage.getByText(new RegExp(esc(t('co.foc_pending').split('{')[0]!))).first(),
       ).toBeVisible({
         timeout: 10_000,
       });
+      const f = await getFolio(request, await session(request, 'qa.fd'), st.res.folioId!);
+      const late = liveLines(f, 'late_checkout');
+      expect(late.map((l) => l.amountVnd)).toEqual([fee]);
+      expect(
+        f.lines
+          .filter((l) => l.relatedLineId === late[0]!.id && l.category === 'foc')
+          .map((l) => [l.amountVnd, l.lineState]),
+      ).toEqual([[-fee, 'pending_approval']]);
       await fdPage.context().close();
     });
   },

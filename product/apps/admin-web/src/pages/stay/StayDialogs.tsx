@@ -1,6 +1,9 @@
 import {
   deriveIdempotencyKey,
   isApiError,
+  newIdempotencyKey,
+  type FocRequestInput,
+  type FolioLine,
   type AvailabilityResult,
   type GuestSummary,
   type ChangeRoomPreview,
@@ -29,6 +32,14 @@ import { GuestPicker } from '../../components/GuestPicker';
 import { FilePicker, MoneyField, amountOf, useSubmit, useUnsavedLabels } from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import { unclaimedSlots } from '../registration/partyDocs';
+import {
+  SurchargeFocFields,
+  focHeadroom,
+  noSurchargeFoc,
+  surchargeFocBody,
+  surchargeFocMissing,
+  type SurchargeFoc,
+} from './foc';
 
 export interface StayDialogProps {
   reservation: Reservation;
@@ -211,6 +222,8 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
   const q = useDebounced(time, 300);
   const [res, setRes] = useState<LateCheckoutResult | null>(null);
   const [told, setTold] = useState(false);
+  // S4-25 (US-007 AC1, H15 15.3): the surcharge can be written WITH a FOC request (`requestFocForSurcharge`).
+  const [foc, setFoc] = useState<SurchargeFoc>(noSurchargeFoc);
   const act = useSubmit();
   const lateIds = useId();
   const mgr = roles.some((x) => OWN_MGR.includes(x));
@@ -243,6 +256,7 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
           dryRun: false,
           applySurcharge: told && amount > 0,
           expectedSurchargeVnd: told && amount > 0 ? amount : undefined,
+          requestFocForSurcharge: told ? surchargeFocBody(foc, amount) : undefined,
           requestApproval: requestApproval || undefined,
         },
         r.version,
@@ -256,11 +270,17 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
       return;
     }
     toast(t('stay.toast.late_set', { time }));
+    if (told && surchargeFocBody(foc, amount)) toast(t('foc.sent', { amount: money(amount) }));
     onDone((out.data as LateCheckoutResult).reservation);
   };
 
   // After the last tier the alert above the button already says why (use Gia hạn).
-  const lateWhy = res && !res.treatAsExtension && amount > 0 && !told ? t('ci.told_guest') : null;
+  const lateWhy =
+    res && !res.treatAsExtension && amount > 0
+      ? !told
+        ? t('ci.told_guest')
+        : surchargeFocMissing(t, foc)
+      : null;
 
   return (
     <Modal
@@ -337,9 +357,16 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
         ) : null}
       </div>
       {amount > 0 && !res?.treatAsExtension ? (
-        <Checkbox checked={told} onChange={setTold}>
-          {t('ci.told_guest')}
-        </Checkbox>
+        <>
+          <Checkbox checked={told} onChange={setTold}>
+            {t('ci.told_guest')}
+          </Checkbox>
+          <SurchargeFocFields
+            value={foc}
+            onChange={setFoc}
+            error={act.fields['requestFocForSurcharge.note']}
+          />
+        </>
       ) : null}
       {res && !res.treatAsExtension ? (
         <p className="li-s">
@@ -1074,7 +1101,16 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   // The tick belongs to one person and one amount – a new amount (or person) must be confirmed again.
   const [toldFor, setToldFor] = useState<string | null>(null);
   const told = surcharge > 0 && toldFor === `${sig}|${surcharge}`;
-  const blockedReason = surcharge > 0 && !told ? t('party.surcharge_needs_confirm') : null;
+  // S4-25 / BUG-R2-093 (BR-414 second way, US-022 AC4): write the surcharge AND ask a FOC on it – one request
+  // per night (the extra-person FOC is keyed by night, BR-434); 0.3.7 has no `requestFocForSurcharge` here.
+  const [partyFoc, setPartyFoc] = useState<SurchargeFoc>(noSurchargeFoc);
+  const [focFailed, setFocFailed] = useState(0);
+  const blockedReason =
+    surcharge > 0 && !told
+      ? t('party.surcharge_needs_confirm')
+      : told
+        ? surchargeFocMissing(t, partyFoc)
+        : null;
   const helpId = `${ids}-sur`;
 
   // Shown for the person it was about only (picking someone else clears it).
@@ -1087,6 +1123,15 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const add = async () => {
     if (!ready || waiting || previewError !== undefined || blockedReason) return;
     setSurchargeProblem(null);
+    setFocFailed(0);
+    const askFoc = told && !!surchargeFocBody(partyFoc, surcharge);
+    // The nights' extra-person lines before the person is added: the FOC asks only this person's share.
+    const before = askFoc
+      ? await api.getFolio({ propertyId, folioId: r.folioId }).then(
+          (x) => x.data.lines,
+          () => null,
+        )
+      : null;
     const caught: { error?: unknown } = {};
     const out = await act.submit((idem) =>
       api
@@ -1107,6 +1152,18 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       setToldFor(null);
       toast(t('common.saved'));
       party.reload();
+      if (askFoc && day) {
+        const { sent, failed } = await askNightFoc(
+          propertyId,
+          r.folioId,
+          day,
+          before,
+          surchargeFocBody(partyFoc, surcharge)!,
+        );
+        if (sent) toast(t('party.foc_sent', { n: sent }));
+        setFocFailed(failed);
+      }
+      setPartyFoc(noSurchargeFoc());
       return;
     }
     // 422 SURCHARGE_DECISION_REQUIRED / 409 SURCHARGE_CHANGED: say it in this dialog's words (not the
@@ -1350,7 +1407,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
                     >
                       {t('party.surcharge_confirm', { amount: money(surcharge) })}
                     </Checkbox>
-                    <p className="li-s">{t('party.surcharge_waiver_note')}</p>
+                    {told ? <SurchargeFocFields value={partyFoc} onChange={setPartyFoc} /> : null}
                   </>
                 ) : (
                   <p className="li-s">{t('party.surcharge_zero')}</p>
@@ -1364,6 +1421,9 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
             ) : (
               act.view()
             )}
+            {focFailed ? (
+              <Alert tone="warn">{t('party.foc_failed', { n: focFailed })}</Alert>
+            ) : null}
             <Button
               busy={act.busy}
               disabled={!ready || waiting || previewError !== undefined || !!blockedReason}
@@ -1533,4 +1593,56 @@ export function RefundRequestDialog({
       {act.view()}
     </Modal>
   );
+}
+
+/**
+ * S4-25 / BUG-R2-093: after a person joins with the extra-person surcharge written, one FOC request per night
+ * from `from` – the amount = what this addition put on that night (line now − line before), at most what is
+ * left to ask on it (S4-23 (6)). Requests are sent one by one; the ones that fail are counted (folio: retry).
+ */
+export async function askNightFoc(
+  propertyId: string,
+  folioId: string,
+  from: string,
+  before: FolioLine[] | null,
+  foc: FocRequestInput,
+): Promise<{ sent: number; failed: number }> {
+  const nightLines = (lines: FolioLine[]) => {
+    const reversed = new Set(lines.map((l) => l.reversalOfId).filter(Boolean));
+    return lines.filter(
+      (l) =>
+        l.category === 'extra_person' &&
+        l.lineState === 'posted' &&
+        !l.reversalOfId &&
+        !reversed.has(l.id) &&
+        !!l.serviceDate &&
+        l.serviceDate >= from,
+    );
+  };
+  const old = new Map<string, number>();
+  for (const l of nightLines(before ?? [])) old.set(l.serviceDate!, l.amountVnd);
+  let lines: FolioLine[];
+  try {
+    lines = (await api.getFolio({ propertyId, folioId })).data.lines;
+  } catch {
+    return { sent: 0, failed: 1 };
+  }
+  let sent = 0;
+  let failed = 0;
+  for (const l of nightLines(lines)) {
+    const amountVnd = Math.min(l.amountVnd - (old.get(l.serviceDate!) ?? 0), focHeadroom(lines, l));
+    if (!(amountVnd > 0)) continue;
+    try {
+      await api.requestFoc(
+        { propertyId, folioId },
+        l.id,
+        { ...foc, amountVnd },
+        newIdempotencyKey(),
+      );
+      sent += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  return { sent, failed };
 }

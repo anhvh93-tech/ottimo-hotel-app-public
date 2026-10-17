@@ -246,3 +246,65 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
 - **Môi trường:** lúc ~21:58 container `web` lại bị tạo lại bằng `compose.web-fea.yml` (không có PWA, phục vụ "Skeleton – Round 1" ở 48082). QA đã tạo lại với `compose.web-qa.yml`.
 - **Chưa làm:** A4 (`flow-a4.s4`) và khung `ui/ops.s4`, `ui-clock/ops.s4` – bước tiếp theo.
 
+## 7. M1 đóng – để QC đọc ở cổng Sprint 4 (QA, 17/10/2026 ~22:45)
+
+### 7.1 Căn cứ
+- **CI 39042881071** trên commit **`6f8d429`**: 8/8 job chạy đều `success`, deploy/publish bỏ qua đúng thiết kế.
+- **E2E:** 1.858 đạt, 0 trượt, 70 bỏ qua có sẵn. TC-LP-010 là lỗi đã biết, nằm ở job landing.
+- `OPEN` của `known-bugs.ts` ở commit này chỉ còn `US-151/AC7`, nên mọi ca tiền dưới đây là ca "phải đạt", không ca nào mang `test.fail`.
+- QA đã đọc log job E2E và đếm theo tệp: `money-s4.api` 34/34, `money-s4.clock` 9/9, `stay-money.s4` 7/7, `checkin.s3.clock` 32/32, `checkin.s3.api` 19 đạt và 2 bỏ qua có sẵn (không thuộc M1), `desk-writes.s4` 6/6.
+- Quy tắc đóng (kế hoạch 3.3): đóng khi CI của commit gộp xanh. Chi tiết từng lỗi ở `bug-list.md` mục 11.7.
+
+### 7.2 Trạng thái M1 (sprint-4-plan mục 3, dòng M1)
+
+| Mục M1 | Lỗi | Ca E2E (đọc `br-examples.json`) | Trạng thái |
+|---|---|---|---|
+| S4-01 + S4-03 | BUG-R2-055 | TC-NT-051 | **Closed** |
+| S4-02 (kèm 4A→2A→4A) | BUG-R2-056 | TC-NT-047 phần S4-02, TC-NT-049 (2) | **Closed** |
+| S4-05 | BUG-R2-057 | TC-L4-097 | **Closed** |
+| S4-07 | BUG-R2-058 | TC-L2-084 (a)(b) | **Closed** |
+| S4-18 (audit `folio.foc_cancelled`, `monthlyApprovedBy`, trạng thái FOC) | BUG-R2-059, BUG-R2-104 | TC-NT-046, TC-NT-049 (4)(6), TC-NT-049 phần tập đóng `AuditEvent.action` | **Closed** |
+| S4-22 | BUG-R2-060 | TC-NT-049 (3) | **Closed** |
+| S4-34 | BUG-R2-061 | TC-NT-045 (a)(b), TC-NT-046 (a) | **Closed** |
+| S4-23 phần thứ tự | – | TC-NT-047, TC-NT-048 (BR-434-11/12) | Xanh |
+| S4-35 | – | TC-L2-099 (c) | Xanh |
+| S4-08 | – | TC-L2-102 (a)(b) | Xanh |
+| #6 `expectedVersion` | BUG-R2-106 | TC-NT-050, TC-NT-052 (E) | **Closed** (BUG-R2-106) |
+| S4-10 (BR-402-01) | BUG-R2-038 | TC-L3-011 (c), TC-L3-078, TC-L3-079 (a)(b), TC-L3-081, TC-L3-082 | **Closed** |
+| **S4-06** (đơn hủy/no-show còn tiền dư → tự tạo yêu cầu hoàn + "Cần chú ý" `closed_reservation_credit`; DOM-S4-14) | – | **TC-L2-104** (BR-309-10), **TC-L2-105** (a)(b)(c) BR-522-05 + (d) `superseded`, **TC-L2-106** (BR-311-03) – `api/refund-credit.s4.api.spec.ts`, `clock/refund-credit.s4.clock.spec.ts`; BE: `test/integration/close-stay-dom-s4.test.ts` | Xanh trên stack QA (api ~22:30, có S4-25) 3/3 lượt; vào CI ở commit sau |
+| **S4-13** (test đua duyệt FOC với B10/B11/resync) | – | Test đua của BE-B (vitest, PostgreSQL thật): `services/api/test/integration/foc-keys-s4.test.ts` – "S4-13: approve ‖ B7 re-price (5 rounds)…" (dòng 915) và "S4-13: approve ‖ B10 cancel and approve ‖ B11 no-show – never an approved FOC applied on a void booking" (dòng 951) | **Đạt** ở job `format · lint · audit · test · build` của CI 39042881071 (tệp 21/21). QC đọc kết quả này theo quyết định ORC; QA không viết E2E đua riêng |
+
+### 7.3 Những gì M1 còn thiếu so với định nghĩa xong
+- **Kiểm chứng đối kháng S4-38** (ORC + QA): chưa có `reviews/s4-money-verification.md`. Định nghĩa xong của M1 cần báo cáo này với 0 ca lệch tiền, trước hết D7.
+- **S4-06:** đã có ca API (ORC giao 17/10 ~22:20) – xem 7.5. **S4-13:** QC đọc test đua của BE-B trong CI (bảng 7.2).
+- Không còn lỗi P0/P1 nào mở trong `bug-list.md`.
+- **BUG-R2-107** (P3) đã sửa ở `21b175c`. CI 39044741574 xanh → **Closed** (~23:00).
+
+### 7.4 Luồng liền mạch (G4)
+- **A1** (TC-X-070): xanh 5/5 trên stack QA (mục 6.9) và **xanh trên CI 39044741574** (`21b175c`, có trong `WRITES`).
+- **A4** (TC-X-072): đã có, xanh trên stack QA – mục 7.6.
+
+### 7.5 S4-06 – ca API mới (QA, ~22:20–22:45)
+- **Môi trường:** api `ottimo-qa-s4` dựng lại lúc ~22:30 từ cây chung, có phần BE của S4-25 chưa commit. QA kiểm trước khi tạo lại: không có lượt Playwright nào khác đang chạy vào api 43000, container api đang là bản của QA (`api-dist6`). FE-A cần chạy TC-X-071 thì dùng luôn bản này (`api-dist7`) hoặc báo ORC trước khi tạo lại.
+- **Ca:**
+  - TC-L2-104: BR-309-10 – phí = 100 % × min(1.000.000, 700.000, 2.376.000) = 700.000, hoàn 300.000. Kết quả: một yêu cầu hoàn `pending` (quản lý duyệt) và "Cần chú ý" `closed_reservation_credit`.
+  - TC-L2-105 (a)(b)(c): BR-522-05 – bổ sung 350.000 / không tạo thêm / yêu cầu mở tự hủy khi dư 0. Kết quả: phí theo cọc yêu cầu; "Cần chú ý" chỉ khi còn dư.
+  - TC-L2-105 (d): DOM-S4-14 – yêu cầu mở 700.000 vượt dư 300.000 → tự hủy `superseded`, tạo lại 300.000. Số lấy từ BR-309-10; chưa có dòng oracle riêng, DOM có thể thêm BR-522-06.
+  - TC-L2-106: BR-311-03 – no-show giữ 500.000, hoàn 300.000. Project `clock`.
+- **Tiền điều kiện của TC-L2-105:** "yêu cầu hoàn mở trước khi hủy" **không dựng được qua API công khai**, vì `createRefundRequest` chỉ cho hoàn phần tiền thừa đã có (`unhandledCreditVnd`). Ca chèn một dòng `approval_request` bằng SQL, cùng cột như `ApprovalService.submit`. Chỉ chạy khi `E2E_COMPOSE_CONTROL=1` (CI có), không thì bỏ qua và ghi lý do.
+- **Kết quả:** `refund-credit.s4.api` 3/3 × 3 lượt (2 lượt 3 worker); `refund-credit.s4.clock` 1/1 × 3 lượt. Không lỗi mới.
+
+### 7.6 E2E liền mạch A4 – TC-X-072 (QA, ~22:35–22:50)
+- **Tệp:** `product/tests/e2e/ui-clock/flow-a4.s4.spec.ts`, project `desk-clock`, một ca một chuỗi. Mọi bước ghi bấm thật, không `test.fail`.
+  1. PWA `qa.mt` H21: báo sự cố + **Khóa căn** tới D+2 → `createWorkOrder` 201 kèm `block`; căn `OOO`; tồn phòng không bán.
+  2. Desk S11: dòng phiếu (mã WO) ở tab Phiếu sửa và tab Khóa phòng; H12 tìm căn trống **không** liệt kê căn.
+  3. PWA H22: Nhận việc → Sửa xong (ghi chú + ảnh sau sửa – bắt buộc với mức trung bình) → căn `VD` + việc "Dọn sau sửa chữa".
+  4. PWA `qa.hk` dọn (`VD` → `CL` → `VC`), PWA `qa.fdl` kiểm → `VI`.
+  5. H12 liệt kê lại căn; `createReservation` 201 trên căn đó.
+- Bước PWA dọn/kiểm chuyển thành hàm dùng chung `e2e/ui/flows.ts` (`desk`, `staffApp`, `pastUndo`, `roomStatusOf`, `pwaCleanInspect`); A1 dùng cùng hàm.
+- **Kết quả** (cả hai tệp `flow-a1` + `flow-a4`, `--retries=0`, chạy 14–15 giây):
+  - **4/6 lượt xanh hết** (1, 3, 4, 6). TC-X-071 nay cũng xanh: FE-A đã làm S4-25, `OPEN` đã rỗng.
+  - **2 lượt đỏ (2, 5) đều trùng lúc FE-A chạy `desk-clock` vào cùng api 43000** (`fea-s4/run-s425*.log` 22:39–22:40). Đồng hồ ảo dùng chung bị tua giữa ca, nên lỗi rơi vào chỗ ngẫu nhiên: thẻ việc PWA, `receivedAt DATE_INVALID`, căn chưa `OOO`. Đây không phải lỗi ca hay lỗi sản phẩm.
+  - Lượt 6 chạy sau khi kiểm không còn tiến trình nào khác: xanh 3/3.
+- **Đề nghị ORC:** trên `ottimo-qa-s4` chỉ chạy **một** lượt project `clock`/`desk-clock` tại một thời điểm. Ai chạy thì báo trước (hoặc dùng tệp khóa `scratchpad/qa-s4/clock.lock`). Đưa **TC-X-070, TC-X-072** vào `WRITES` (đều xanh ≥ 2 lượt sạch liên tiếp).
+

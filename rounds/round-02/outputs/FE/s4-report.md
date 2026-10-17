@@ -473,6 +473,59 @@ Chạy trên stack `ottimo-qa-s4`: api bản QA (cây làm việc + patch B-6). 
 
 ---
 
+## Phần FE-A – đợt 9: S4-25 phần Desk – xin miễn phí ngoài bước nhận phòng (CỔNG) (17/10/2026 tối)
+
+API dùng theo `outputs/BE/s4-be-b.md` mục 9 (bản vá BE-B ORC đã áp vào cây chung). Không đổi hợp đồng.
+
+### 1. Đã làm
+- `pages/stay/foc.tsx` (mới) dùng chung cho mọi chỗ xin miễn:
+  - `FOC_REASONS`: danh sách lý do (H13 nay cũng dùng).
+  - `focHeadroom`: số tối đa còn được xin trên một dòng, cùng cách tính với `reductionHeadroomVnd` của server (S4-23 (6)).
+  - `canAskFoc`: dòng nào được xin.
+  - `FocStateChip`: chip trạng thái dòng miễn theo BR-434 – chờ duyệt / đã áp / không còn áp.
+  - `SurchargeFocFields`: công tắc "Xin miễn phụ thu (gửi duyệt)" + lý do + ghi chú, theo mẫu H13 13.4.
+  - `FocRequestDialog`: hộp H17 17.1 – loại (giảm giá đặc biệt chỉ cho đêm phòng), số tiền mặc định bằng số tối đa và không cho vượt (lỗi ở ô, cả khi server trả `max`), lý do bắt buộc, ghi chú bắt buộc khi chọn "Khác", câu định tuyến người duyệt.
+  - Khối tự áp minibar (BR-436): lễ tân / lễ tân trưởng, dòng minibar, ≤ 100.000 → nhập mật khẩu → `authMethod`/`secret`. Server không cho tự áp thì yêu cầu đi luồng duyệt và Desk báo `foc.over_self_limit`.
+- **H15 Trả muộn** (`LateCheckoutDialog`): sau ô "đã báo khách" có thêm "Xin miễn phụ thu"; lệnh lưu kèm `requestFocForSurcharge`. Bật mà chưa có lý do thì nút Lưu khóa và nói vì sao.
+- **H16 bước 2**:
+  - Phụ thu trả muộn chưa có trên folio, nên "Xin miễn phụ thu" đi cùng lệnh ghi phụ thu lúc bấm "Tiếp tục: Bill" (`setLateCheckout.requestFocForSurcharge`).
+  - Bảng folio của màn trả phòng có nút "Mở form miễn phí / giảm giá" trên các dòng đã ghi: minibar vừa đếm, phát sinh, phụ thu đã ghi từ H15. Có chip trạng thái dòng miễn.
+  - Bước 3 (bill) cũng báo `co.foc_pending` (BR-426 chặn Hoàn tất).
+- **Folio & điều chỉnh** (`FolioDialog`): mỗi dòng phát sinh còn được xin có nút "Mở form miễn phí / giảm giá"; dòng miễn có chip trạng thái.
+- **Thêm người khi đang ở** (`PartyDialog`, BUG-R2-093):
+  - Sau ô "Ghi phụ thu … – tôi đã báo khách" có thêm "Xin miễn phụ thu".
+  - Thêm người xong, Desk gửi `requestFoc` cho **mỗi đêm**. Số xin = phần của người mới (dòng `extra_person` của đêm sau − trước), không vượt số tối đa.
+  - Thông báo số yêu cầu đã gửi; đêm nào gửi lỗi thì báo để gửi lại ở Folio.
+  - Bỏ câu `party.surcharge_waiver_note` (cũ: "Desk chưa có nút xin miễn").
+- Mock `stay.ts`:
+  - `requestFoc` kiểm số tối đa (422 `VALUE_OUT_OF_RANGE` + `max`), mật khẩu, tự áp minibar BR-436.
+  - `late-checkout` nhận `requestFocForSurcharge`.
+  - Kiểu `MockApproval` thêm `selfApplied`.
+
+### 2. Kiểm thử
+- admin-web vitest **318/318**:
+  - `s4-25-foc.test.tsx` (mới, 5 ca): H16 bước 2; H15 "Khác" + ghi chú; số tối đa / vượt / gửi trên dòng phát sinh; tự áp minibar sai rồi đúng mật khẩu; thêm người kèm FOC (2 đêm × 150.000).
+  - `s3-fix9` sửa theo nút mới.
+  - `tsc`, eslint, prettier xanh; i18n 19/19; `check_hifi` xanh.
+- E2E trên stack `ottimo-qa-s4` (api `api-dist7` có S4-25; admin-web build bằng `qa-s4/build-web.sh admin-web`), `desk-clock`, `--retries=0`, **mỗi ca 3 lượt đều đạt**:
+  - **TC-X-071** 3/3. Đã viết lại theo cách Desk làm, bỏ `knownBug('S4-25')`, xóa `S4-25` khỏi `OPEN`.
+  - **TC-L4-099** 3/3 (mới).
+  - **TC-L3-083** 3/3 (mới).
+  - **TC-NT-053** 3/3 (mới).
+  - Hai lượt đầu (22:38–22:41) chạy trùng lượt của QA nên có ca đỏ giả: 401 vì đồng hồ ảo chung bị tua. Lượt sạch 22:42:45–22:43:25 đạt 12/12. Đã ghi `qa-s4/clock-lock.txt`; `run-e2e.sh` của FE-A nay chờ hết tiến trình Playwright khác và tự ghi khóa.
+- `r1-main-flows.md` **v0.3.26**; `traceability.md` sinh lại (`--strict` exit 0).
+
+### 3. Quyết định / giả định
+- **TC-X-071 đổi bước** (QA viết trước khi có giao diện): ở H16 bước 2, phụ thu trả muộn chưa nằm trên folio. Vì vậy Desk không gọi `requestFoc` trên dòng, mà gửi đề nghị cùng lệnh ghi phụ thu (`setLateCheckout.requestFocForSurcharge`). Cách này theo đúng ORC giao, hi-fi H15 15.3 và mẫu H13. Nút "Mở form miễn phí" dùng cho dòng đã ghi. QA rà lại ca.
+- Desk không biết lễ tân đã dùng bao nhiêu hạn mức tự miễn trong tháng (hợp đồng không có số này). Desk chỉ gợi ý theo mức một lần (100.000, BR-436) bằng câu mới `foc.self_apply_short`; server quyết. Không áp được thì yêu cầu thành chờ duyệt và Desk báo `foc.over_self_limit`.
+- Thêm người kèm FOC: mỗi đêm một yêu cầu (BE-B, ORC: 0.3.7 không có `PartyMemberCreate.requestFocForSurcharge`).
+
+### 4. File (đợt 9)
+- Tạo: `apps/admin-web/src/pages/stay/foc.tsx`, `apps/admin-web/src/__tests__/s4-25-foc.test.tsx`, `tests/e2e/ui-clock/foc.s4.spec.ts`.
+- Sửa: `apps/admin-web/src/pages/stay/{StayDialogs,CheckOutPage,FolioDialog,CheckInPage}.tsx`, `apps/admin-web/src/mocks/stay.ts`, `apps/admin-web/src/__tests__/s3-fix9.test.tsx`, `tests/e2e/ui-clock/flow-a1.s4.spec.ts`, `tests/e2e/support/known-bugs.ts`, `tests/test-cases/r1-main-flows.md`, `docs/qa/traceability.md`, `design/tools/gen_strings.py` (+ `copy/strings-*.json`, `wireframes/assets/strings.js`, `tools/strings-tables.md`).
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

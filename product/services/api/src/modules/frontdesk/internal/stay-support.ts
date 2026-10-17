@@ -395,10 +395,13 @@ export class StaySupport {
     line: { id: string; amountVnd: number; category: string; serviceDate?: string | null },
     input: FocRequestInput,
   ): Promise<ApprovalRow> {
-    if (input.amountVnd <= 0 || input.amountVnd > line.amountVnd) {
+    // S4-25 (BE-B) – S4-23 (6), BR-434 v0.3.6: a FOC already approved / pending on the same key (late check-out is
+    // ONE key per stay) leaves less to ask: max = line − (applied + asked).
+    const max = await this.folios.reductionHeadroomVnd(tx, line.id);
+    if (input.amountVnd <= 0 || input.amountVnd > max) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'requestFocForSurcharge.amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
-        extras: { max: line.amountVnd },
+        extras: { max },
       });
     }
     const [focLineId] = await this.folios.postLines(

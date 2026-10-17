@@ -16,6 +16,7 @@ import { LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, useSubmit } from './common';
+import { FOC_CATEGORIES, FocRequestDialog, FocStateChip, canAskFoc } from './foc';
 
 const OWN_MGR = ['owner', 'manager'];
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -61,6 +62,7 @@ export function FolioDialog({
   const canAdjust = settled ? mgr : fd;
   const [adjusting, setAdjusting] = useState<FolioLine | null>(null);
   const [reversing, setReversing] = useState<Payment | null>(null);
+  const [asking, setAsking] = useState<FolioLine | null>(null);
 
   const live = (f?.lines ?? []).filter((l) => l.lineState !== 'rejected');
   const reversedLines = new Set(live.map((l) => l.reversalOfId).filter(Boolean));
@@ -131,7 +133,13 @@ export function FolioDialog({
                     <td>
                       {lineLabel(t, l)}
                       {l.quantity !== 1 ? ` · ${l.quantity} × ${money(l.unitPriceVnd)}` : ''}
-                      {l.reversalOfId ? (
+                      {FOC_CATEGORIES.includes(l.category) && !l.reversalOfId ? (
+                        // S4-25 / BR-434: a FOC / discount says whether it waits, applies or no longer does.
+                        <>
+                          {' '}
+                          <FocStateChip line={l} lines={f.lines} />
+                        </>
+                      ) : l.reversalOfId ? (
                         <>
                           {' '}
                           <Chip tone="neutral">{t('folio.reversal_chip')}</Chip>
@@ -156,6 +164,12 @@ export function FolioDialog({
                       {adjustable(l) ? (
                         <Button size="sm" variant="ghost" onClick={() => setAdjusting(l)}>
                           {t('folio.adjust')}
+                        </Button>
+                      ) : null}
+                      {/* S4-25 (US-007 AC1, AC6): FOC / special discount on a charge of an open folio. */}
+                      {!settled && fd && canAskFoc(f.lines, l) ? (
+                        <Button size="sm" variant="ghost" onClick={() => setAsking(l)}>
+                          {t('foc.open_form')}
                         </Button>
                       ) : null}
                     </td>
@@ -217,6 +231,18 @@ export function FolioDialog({
             done(next);
           }}
           onStale={() => folio.reload()}
+        />
+      ) : null}
+      {asking && f ? (
+        <FocRequestDialog
+          folioId={f.id}
+          line={asking}
+          lines={f.lines}
+          onClose={() => setAsking(null)}
+          onDone={() => {
+            setAsking(null);
+            done();
+          }}
         />
       ) : null}
       {reversing ? (

@@ -138,6 +138,8 @@ export interface MockApproval {
   refundedVnd?: number;
   /** 0.3.7 B-6: `ApprovalRequest.version` – bumped on every change the approver must see. */
   version?: number;
+  /** BR-436: FD/FDL waived a minibar line within their own limit (re-auth). */
+  selfApplied?: boolean;
 }
 interface MockDoc {
   id: string;
@@ -979,6 +981,107 @@ export function createStayMock(ctx: Ctx) {
   /** ARC-BE-S3-06: one live late charge per stay (checkout.service / stay.service `replaceLateCharge`). */
   const liveLate = (r: MockReservation) =>
     folioOf(r).lines.filter((l) => l.category === 'late_checkout' && l.lineState === 'posted');
+  /**
+   * `requestFoc` (and `requestFocForSurcharge` of B15): validation, S4-23 (6) headroom on the line (422 + max),
+   * BR-436 FD/FDL self-waiver of a minibar line after re-auth (≤ 100.000 a time, ≤ 500.000 a month) → applied
+   * at once; otherwise a pending request + a "chờ duyệt" FOC line.
+   */
+  function focRequest(
+    r: MockReservation,
+    line: MockLine,
+    body: Body,
+    g: { user: MockUser; roles: Role[] },
+    field = '',
+  ): MockApproval | Response {
+    const f = folioOf(r);
+    const errors: Array<{ field: string; code: string }> = [];
+    const amount = Number(body.amountVnd);
+    if (!(amount > 0)) errors.push({ field: `${field}amountVnd`, code: 'AMOUNT_NOT_POSITIVE' });
+    if (body.reasonCode === 'other' && String(body.note ?? '').trim().length < 3)
+      errors.push({ field: `${field}note`, code: 'REASON_REQUIRED' });
+    // 0.3.6 add. 4 (BR-307): no FOC / special discount on the room nights of an OTA-prepaid booking.
+    if (line.category === 'room' && r.paymentModel === 'ota_prepaid')
+      errors.push({ field: `${field}kind`, code: 'FOC_NOT_ALLOWED_OTA_PREPAID' });
+    if (errors.length) return validation(errors);
+    const reversed = new Set(f.lines.map((l) => l.reversalOfId).filter(Boolean));
+    const used = f.lines
+      .filter(
+        (l) =>
+          l.relatedLineId === line.id &&
+          ['foc', 'discount'].includes(l.category) &&
+          (l.lineState === 'posted' || l.lineState === 'pending_approval') &&
+          !l.reversalOfId &&
+          !reversed.has(l.id),
+      )
+      .reduce((a, l) => a + Math.abs(l.amountVnd), 0);
+    const max = Math.max(0, line.amountVnd - used);
+    if (amount > max)
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: `${field}amountVnd`, code: 'VALUE_OUT_OF_RANGE' }],
+        max,
+      });
+    let self = false;
+    if (body.authMethod !== undefined || body.secret !== undefined) {
+      if (body.secret !== MOCK_PASSWORD)
+        return problem(401, 'REAUTH_FAILED', {
+          errors: [{ field: 'secret', code: 'REAUTH_FAILED' }],
+        });
+      const fd = has(g.roles, ['front_desk', 'front_desk_lead']);
+      const month = nowIso().slice(0, 7);
+      const spent = st.approvals
+        .filter(
+          (a) =>
+            a.selfApplied &&
+            a.requestedByUserId === g.user.id &&
+            (a.decidedAt ?? '').slice(0, 7) === month,
+        )
+        .reduce((a, x) => a + x.amountVnd, 0);
+      self =
+        fd &&
+        String(body.kind ?? 'foc') === 'foc' &&
+        line.category === 'minibar' &&
+        amount <= 100_000 &&
+        spent + amount <= 500_000;
+    }
+    const a: MockApproval = {
+      id: uid(89_000 + next()),
+      type: String(body.kind ?? 'foc'),
+      status: self ? 'approved' : 'pending',
+      reservationCode: r.code,
+      folioId: f.id,
+      folioLineId: line.id,
+      amountVnd: amount,
+      reasonCode: String(body.reasonCode),
+      reasonNote: body.note as string | undefined,
+      requestedBy: g.user.displayName,
+      requestedByUserId: g.user.id,
+      requestedAt: nowIso(),
+      ...(self
+        ? {
+            selfApplied: true,
+            approverName: g.user.displayName,
+            approverUserId: g.user.id,
+            decidedAt: nowIso(),
+          }
+        : {}),
+    };
+    st.approvals.push(a);
+    addLine(
+      r,
+      {
+        category: String(body.kind ?? 'foc') === 'special_discount' ? 'discount' : 'foc',
+        amountVnd: -amount,
+        description: `foc ${line.id}`,
+        labelParams: { reason: String(body.reasonCode) },
+        lineState: self ? 'posted' : 'pending_approval',
+        relatedLineId: line.id,
+        approvalRequestId: a.id,
+      },
+      g.user.displayName,
+    );
+    return a;
+  }
+
   function replaceLate(r: MockReservation, amountVnd: number, label: string, by: string) {
     // the server posts a reversal pair; the mock hides the old line (same totals, same live amount)
     for (const l of liveLate(r)) l.lineState = 'rejected';
@@ -1748,6 +1851,9 @@ export function createStayMock(ctx: Ctx) {
         }
         if (body.applySurcharge && Number(body.expectedSurchargeVnd) !== s.surchargeVnd)
           return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: s.surchargeVnd });
+        const askFoc = body.requestFocForSurcharge as Body | undefined;
+        if (askFoc && !(body.applySurcharge && s.surchargeVnd > 0))
+          return validation([{ field: 'requestFocForSurcharge', code: 'NOT_ALLOWED' }]);
         r.agreedCheckoutTime = time;
         replaceLate(
           r,
@@ -1755,6 +1861,18 @@ export function createStayMock(ctx: Ctx) {
           `late_checkout ${time} ${s.tierPct}%`,
           g.user.displayName,
         );
+        // S4-25 (US-007 AC1): the surcharge and its FOC request in one call (B15 requestFocForSurcharge).
+        if (askFoc) {
+          const lateLine = liveLate(r)[0]!;
+          const foc = focRequest(
+            r,
+            lateLine,
+            { kind: 'foc', ...askFoc },
+            g,
+            'requestFocForSurcharge.',
+          );
+          if (foc instanceof Response) return foc;
+        }
         bump(r);
         return rsv().remember(key, 200, { ...result, saved: true, reservation: resView(r, g) });
       },
@@ -2532,46 +2650,8 @@ export function createStayMock(ctx: Ctx) {
       if (!f || !line) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
       const body = (await request.json()) as Body;
-      const errors: Array<{ field: string; code: string }> = [];
-      if (!(Number(body.amountVnd) > 0))
-        errors.push({ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' });
-      if (Number(body.amountVnd) > line.amountVnd)
-        errors.push({ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_LINE' });
-      if (body.reasonCode === 'other' && String(body.note ?? '').trim().length < 3)
-        errors.push({ field: 'note', code: 'REASON_REQUIRED' });
-      // 0.3.6 add. 4 (BR-307): no FOC / special discount on the room nights of an OTA-prepaid booking.
-      if (line.category === 'room' && r.paymentModel === 'ota_prepaid')
-        errors.push({ field: 'kind', code: 'FOC_NOT_ALLOWED_OTA_PREPAID' });
-      if (errors.length) return validation(errors);
-      const a: MockApproval = {
-        id: uid(89_000 + next()),
-        type: String(body.kind ?? 'foc'),
-        status: 'pending',
-        reservationCode: r.code,
-        folioId: f.id,
-        folioLineId: line.id,
-        amountVnd: Number(body.amountVnd),
-        reasonCode: String(body.reasonCode),
-        reasonNote: body.note as string | undefined,
-        requestedBy: g.user.displayName,
-        requestedByUserId: g.user.id,
-        requestedAt: nowIso(),
-      };
-      st.approvals.push(a);
-      addLine(
-        r,
-        {
-          category: 'foc',
-          amountVnd: -a.amountVnd,
-          description: `foc ${line.id}`,
-          labelParams: { reason: String(body.reasonCode) },
-          lineState: 'pending_approval',
-          relatedLineId: line.id,
-          approvalRequestId: a.id,
-        },
-        g.user.displayName,
-      );
-      return json(a, 201);
+      const out = focRequest(r, line, body, g);
+      return out instanceof Response ? out : json(approvalView(out), 201);
     }),
     http.post(`${prop}/folios/:folioId/payments`, async ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, 'sales_staff']);
