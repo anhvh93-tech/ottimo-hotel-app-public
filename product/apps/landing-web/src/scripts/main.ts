@@ -38,7 +38,33 @@ if (strip) {
   });
 }
 
-// Copy address (mock v1.1): status message in the page language, read from data attributes.
+// Phone action bar (concept 3.3, N2): hidden while the hero buttons, #book, #contact or the footer are on screen –
+// never two filled buttons at once, never over the keyboard in the form, never repeating Contact's Zalo button.
+const bar = document.getElementById('stickybar');
+if (bar) {
+  if ('IntersectionObserver' in window) {
+    const watched = [
+      document.getElementById('hero-actions'),
+      document.getElementById('book'),
+      document.getElementById('contact'),
+      document.querySelector('.site-f'),
+    ].filter((el): el is HTMLElement => el instanceof HTMLElement);
+    const onScreen = new Map<Element, boolean>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) onScreen.set(e.target, e.isIntersecting);
+        bar.dataset.hidden = String([...onScreen.values()].some(Boolean));
+      },
+      { threshold: 0 },
+    );
+    watched.forEach((el) => io.observe(el));
+  } else {
+    bar.dataset.hidden = 'false';
+    root.classList.add('no-io');
+  }
+}
+
+// Copy address: status message in the page language, read from data attributes.
 const copyBtn = document.getElementById('copy-addr');
 const copyStatus = document.getElementById('copy-status');
 copyBtn?.addEventListener('click', () => {

@@ -12,8 +12,8 @@ import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
 export const OPEN: Readonly<Record<string, string>> = {
-  'US-151/AC7':
-    'Landing mock v1.2 (FB-INV-002 ý 4): thanh cố định/đầu trang chỉ "Đặt phòng" + "Chat Zalo"; WhatsApp/Telegram/Viber trong "Kênh khác" thu gọn – FE-LP',
+  'S4-25':
+    'Desk xin FOC ngoài bước nhận phòng (H15, H16 bước 2 trả muộn, dòng phát sinh, tự áp FOC minibar – US-007 AC1/AC6) chưa có; gộp sau khi QA đóng 056/059/061 (ORC 17/10) – FE-A + BE-B',
 };
 
 function fixedByEnv(): Set<string> {

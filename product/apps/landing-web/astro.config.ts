@@ -3,8 +3,13 @@
 // pre-optimised from UXD – concept 8.3), no third-party resource (2.6).
 import sitemap from '@astrojs/sitemap';
 import { defineConfig, passthroughImageService } from 'astro/config';
+import { fileURLToPath } from 'node:url';
+import { BOOKING_FORM_RENDERED } from './src/lib/booking-request';
 import { DEFAULT_LANG, LANGS, SITE_URL, alternatesFor, langOfPath } from './src/lib/i18n';
 import securityHeaders from './src/lib/security-headers.json';
+
+// Review build of the booking form goes to its own folder (never deployed): `pnpm build:booking-preview`.
+const outDir = process.env.LANDING_OUT_DIR ?? 'dist';
 
 // Same headers as production (ADR-014 1.4) on `astro preview`; keys starting with "$" are notes, not headers.
 const previewHeaders = Object.fromEntries(
@@ -13,6 +18,7 @@ const previewHeaders = Object.fromEntries(
 
 export default defineConfig({
   site: SITE_URL,
+  outDir,
   output: 'static',
   trailingSlash: 'always',
   compressHTML: true,
@@ -36,6 +42,20 @@ export default defineConfig({
     headers: command === 'preview' ? previewHeaders : {},
   }),
   vite: {
+    resolve: {
+      // The booking form (and its script) only enters the module graph when it is rendered (review build or feature
+      // on) – otherwise Vite would still emit the unused form script into dist/_astro/.
+      alias: {
+        '@booking-form': fileURLToPath(
+          new URL(
+            BOOKING_FORM_RENDERED
+              ? './src/components/BookingForm.astro'
+              : './src/components/NoBookingForm.astro',
+            import.meta.url,
+          ),
+        ),
+      },
+    },
     build: {
       // No data: URIs for fonts/images and no inlined scripts – everything is a hashed file under /_astro/.
       assetsInlineLimit: 0,

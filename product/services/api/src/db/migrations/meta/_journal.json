@@ -274,6 +274,13 @@
       "when": 1792243500000,
       "tag": "0061_item_name_i18n",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792249758865,
+      "tag": "0062_registration_purge_unconfirmed",
+      "breakpoints": true
     }
   ]
 }

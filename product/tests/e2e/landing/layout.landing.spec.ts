@@ -1,4 +1,4 @@
-// LP-v1 – layout, a11y and SEC C-1 on 320/375/1280 px × EN/VI (concept 11.1, sprint-4-plan T11, US-153 AC4/AC6/AC8):
+// LP-v1 – layout, a11y and SEC C-1 on 320/375/768/1280 px × EN/VI (concept 12.1, sprint-4-plan T11, US-153 AC4/AC6/AC8):
 // no horizontal scroll (before and after scrolling through), exactly one H1, axe 0 violations (FAQ opened),
 // no duplicate id, no console/CSP error, 0 requests to another origin, every visible glyph drawn by the
 // self-hosted fonts (no fallback to Arial/Georgia).
@@ -179,7 +179,7 @@ test('TC-LP-004 LP-v1 links: only the allowed contact channels, Zalo and phone o
   }
 });
 
-// [content v1.1] "Copy address" and "Monthly stays" exist in mock v1.1; update with mock v1.2 (FB-INV-002).
+// Mock v1.2.1: "Copy address" in Location; a link to #faq-long opens the long-stay answer.
 test('TC-LP-005 LP-v1 keyboard: skip link reaches main; Copy address reports in the page language', async ({
   browser,
 }) => {
@@ -195,16 +195,15 @@ test('TC-LP-005 LP-v1 keyboard: skip link reaches main; Copy address reports in 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     '30/3 Triệu Việt Vương, Phường Xuân Hương, Đà Lạt, Lâm Đồng',
   );
-  // "Monthly stays" opens its FAQ answer
-  await page.goto('/#faq-monthly');
-  await expect(page.locator('#faq-monthly')).toHaveAttribute('open', '');
+  // A link to a FAQ entry opens it (e.g. /#faq-long – "How do long stays work?")
+  await page.goto('/#faq-long');
+  await expect(page.locator('#faq-long')).toHaveAttribute('open', '');
   await context.close();
 });
 
 // US-151 AC7 + US-146 AC2 (FB-INV-002 ý 4, mock v1.2): thanh nút cố định (điện thoại) và đầu trang (máy tính) chỉ có
 // "Đặt phòng" và "Chat Zalo", Zalo đứng đầu cả bản EN; WhatsApp · Telegram · Viber chỉ nằm trong "Kênh khác" thu gọn
-// (một lần bấm) ở phần Liên hệ. Bản dựng hiện tại là mock v1.1 (EN đặt WhatsApp đầu thanh cố định) → lỗi đã biết tới khi
-// FE-LP dựng v1.2.
+// (một lần bấm) ở phần Liên hệ. Đạt từ bản dựng v1.2.1 (FE-LP 17/10) – US-151/AC7 đã xóa khỏi OPEN.
 test('TC-LP-010 US-151/AC7 thanh cố định và đầu trang chỉ "Đặt phòng" + "Chat Zalo"; WhatsApp/Telegram/Viber chỉ trong "Kênh khác" thu gọn', async ({
   browser,
 }) => {

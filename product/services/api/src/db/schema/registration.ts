@@ -121,7 +121,8 @@ export const registration = pgTable(
     ),
     check(
       'registration_purge_reason_check',
-      sql`${t.imagesPurgeReason} IS NULL OR ${t.imagesPurgeReason} IN ('retention', 'no_consent', 'consent_withdrawn', 'guest_request', 'void')`,
+      // 0062 (0.3.7 bổ sung 3 #8): `unconfirmed` – SR-RET-02, a declaration never confirmed.
+      sql`${t.imagesPurgeReason} IS NULL OR ${t.imagesPurgeReason} IN ('retention', 'no_consent', 'consent_withdrawn', 'guest_request', 'void', 'unconfirmed')`,
     ),
     check('registration_counts_check', sql`${t.requiredCount} >= 0 AND ${t.submittedCount} >= 0`),
     index('registration_property_status_idx').on(t.propertyId, t.status, t.deadlineAt),

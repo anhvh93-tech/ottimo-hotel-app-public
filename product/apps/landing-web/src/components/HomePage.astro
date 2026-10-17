@@ -1,16 +1,15 @@
 ---
-// The one-page landing (mock v1.1 sections 1–9), rendered once per published language.
+// The one-page landing (concept v1.2.1, 8 sections): Hero → Why → Rooms → Amenities → Location → Book → FAQ →
+// Contact, rendered once per published language.
 import type { Copy } from '../content/types';
 import Base from '../layouts/Base.astro';
-import BookingRequestSlot from './BookingRequestSlot.astro';
-import About from './home/About.astro';
 import Amenities from './home/Amenities.astro';
+import Book from './home/Book.astro';
 import Contact from './home/Contact.astro';
 import Faq from './home/Faq.astro';
 import Hero from './home/Hero.astro';
 import Location from './home/Location.astro';
 import Rooms from './home/Rooms.astro';
-import Stay from './home/Stay.astro';
 import Why from './home/Why.astro';
 
 interface Props {
@@ -22,14 +21,11 @@ const { t } = Astro.props;
 
 <Base t={t} title={t.meta.title} description={t.meta.description}>
   <Hero t={t} />
-  <Stay t={t} />
-  <About t={t} />
-  <Rooms t={t} />
   <Why t={t} />
+  <Rooms t={t} />
   <Amenities t={t} />
   <Location t={t} />
+  <Book t={t} />
   <Faq t={t} />
-  <!-- Booking request form (FB-INV-002, ESC-020 L7) goes here once ARC/BE and UXD v1.2 deliver -->
-  <BookingRequestSlot />
   <Contact t={t} />
 </Base>

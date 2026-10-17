@@ -1,5 +1,5 @@
 ---
-// 5 · Why OTTIMO – the five points of the e-brochure.
+// 2 · Why OTTIMO (concept 2.2): the dual promise – a few nights / a month or longer, two equal cards.
 import type { Copy } from '../../content/types';
 import Picture from '../Picture.astro';
 
@@ -8,35 +8,40 @@ interface Props {
 }
 
 const { t } = Astro.props;
+const cards = [
+  ['p1-h', t.why.short],
+  ['p2-h', t.why.long],
+] as const;
+const SIZES = '(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)';
 ---
 
-<section class="sec alt" id="why" aria-labelledby="why-h">
-  <div class="wrap why">
-    <div>
+<section class="sec" id="why" aria-labelledby="why-h">
+  <div class="wrap">
+    <div class="head why-intro">
       <p class="label">{t.why.label}</p>
       <h2 class="h2" id="why-h">{t.why.title}</h2>
-      <p class="muted mb-28">{t.why.intro}</p>
-      <ol class="points">
-        {
-          t.why.points.map((p, i) => (
-            <li>
-              <span class="n" aria-hidden="true">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <h3 class="h3">{p.title}</h3>
-              <p>{p.text}</p>
-            </li>
-          ))
-        }
-      </ol>
+      <p class="muted">{t.why.intro}</p>
     </div>
-    <Picture
-      id="detail-laundry-desk"
-      lang={t.lang}
-      class="r45"
-      imgClass="op-x42"
-      sizesMobile="calc(100vw - 32px)"
-      sizes="(min-width: 1200px) 460px, (min-width: 1024px) 38vw, calc(100vw - 32px)"
-    />
+    <div class="promise">
+      {
+        cards.map(([id, c]) => (
+          <article aria-labelledby={id}>
+            <Picture
+              id={c.photo}
+              lang={t.lang}
+              alt={t.photoAlt[c.photo]}
+              class="r32"
+              sizesMobile="calc(100vw - 32px)"
+              sizes={SIZES}
+            />
+            <p class="label">{c.label}</p>
+            <h3 class="h3" id={id}>
+              {c.title}
+            </h3>
+            <p>{c.body}</p>
+          </article>
+        ))
+      }
+    </div>
   </div>
 </section>

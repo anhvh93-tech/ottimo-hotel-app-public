@@ -1,6 +1,6 @@
 ---
-// 7 · Lobby & location (US-148 AC2): full address (copyable), the INV's Google Maps pin as a plain link (no
-// embedded map – SEC C-1), drive times from the e-brochure written as "about" estimates.
+// 5 · Location (concept 3.1, 11; US-148 AC2): the only place with the address; the INV's Google Maps pin as a
+// plain link (no embedded map – SEC C-1); drive times from the e-brochure.
 import { addressLine, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import Picture from '../Picture.astro';
@@ -17,12 +17,11 @@ const { t } = Astro.props;
     <div>
       <p class="label">{t.location.label}</p>
       <h2 class="h2" id="loc-h">{t.location.title}</h2>
-      <p class="sub">{t.location.sub}</p>
-      <p class="muted">{t.location.body}</p>
+      <p class="muted">{t.location.intro}</p>
       <address><span id="addr-text">{addressLine}</span></address>
       <div class="actions">
         <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer" href={site.mapUrl}
-          >{t.location.maps}<span class="sr">{t.location.newTab}</span></a
+          >{t.location.maps}<span class="sr">{t.actions.newTab}</span></a
         >
         <button
           type="button"
@@ -35,11 +34,11 @@ const { t } = Astro.props;
       <p class="status" id="copy-status" role="status" aria-live="polite"></p>
       <table class="dist">
         <caption>{t.location.caption}</caption>
-        <thead>
+        <thead class="sr">
           <tr>
             <th scope="col">{t.location.head.place}</th>
-            <th scope="col" class="num">{t.location.head.distance}</th>
-            <th scope="col" class="num">{t.location.head.time}</th>
+            <th scope="col">{t.location.head.distance}</th>
+            <th scope="col">{t.location.head.time}</th>
           </tr>
         </thead>
         <tbody>
@@ -54,25 +53,14 @@ const { t } = Astro.props;
           }
         </tbody>
       </table>
-      <p class="small muted mt-12">{t.location.note}</p>
+      <p class="small muted">{t.location.note}</p>
     </div>
-    <div class="loc-media">
-      <Picture
-        id="aerial-hillside"
-        lang={t.lang}
-        class="r45"
-        imgClass="op-70"
-        sizesMobile="(min-width: 600px) 44vw, calc(100vw - 32px)"
-        sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 44vw, calc(100vw - 32px)"
-      />
-      <Picture
-        id="detail-balcony-sunset"
-        lang={t.lang}
-        class="r45"
-        imgClass="op-x62"
-        sizesMobile="(min-width: 600px) 52vw, calc(100vw - 32px)"
-        sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 52vw, calc(100vw - 32px)"
-      />
-    </div>
+    <Picture
+      id="aerial-hillside"
+      lang={t.lang}
+      alt={t.photoAlt['aerial-hillside']}
+      sizesMobile="calc(100vw - 32px)"
+      sizes="(min-width: 1200px) 480px, (min-width: 1024px) 40vw, calc(100vw - 48px)"
+    />
   </div>
 </section>

@@ -924,8 +924,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect(await fa.app.get<BlobStore>(BLOB_STORE).get(gone.blob_key)).toBeNull();
     // Legal hold: still there.
     expect((await imageState(held.documentId)).deleted_at).toBeNull();
-    // S4-12 / BUG-R2-054: the declaration shows when and why its images went (EP06 6.1) – SR-RET-02 reads as
-    // `retention`; the held one shows nothing.
+    // S4-12 / BUG-R2-054: the declaration shows when and why its images went (EP06 6.1) – SR-RET-02 →
+    // `unconfirmed` (0.3.7 bổ sung 3 #8, 0062); the held one shows nothing.
     fa.clock.set(T0); // staff sessions of this file live at T0
     for (const [r, at] of [
       [cancelled, '2026-10-22T09:01:00.000+07:00'],
@@ -934,7 +934,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       const reg = (
         await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${r.registrationId}`)
       ).json();
-      expect(reg).toMatchObject({ imagesPurgedAt: at, imagesPurgeReason: 'retention' });
+      expect(reg).toMatchObject({ imagesPurgedAt: at, imagesPurgeReason: 'unconfirmed' });
     }
     const heldReg = (
       await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${held.registrationId}`)

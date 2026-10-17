@@ -1,5 +1,7 @@
 ---
-// 8 · FAQ (US-150): native <details>, keyboard and touch ready. Includes the anti-impersonation answer (SEC DOM-06).
+// 7 · FAQ (concept 3.1: 4 questions; US-150): native <details>. The anti-impersonation answer (SEC UXD-06) names the
+// deposit account holder once site.json has it (ESC-008).
+import { site } from '../../content/site';
 import type { Copy } from '../../content/types';
 
 interface Props {
@@ -7,25 +9,30 @@ interface Props {
 }
 
 const { t } = Astro.props;
+const holder = site.paymentReceivingAccountHolder;
 ---
 
 <section class="sec" id="faq" aria-labelledby="faq-h">
   <div class="wrap">
-    <div class="head">
-      <p class="label">{t.faq.label}</p>
-      <h2 class="h2" id="faq-h">{t.faq.title}</h2>
-    </div>
-    <div class="faq">
-      {
-        t.faq.items.map((item) => (
-          <details id={item.id}>
-            <summary>{item.q}</summary>
-            <div class="ans">
-              <p>{item.a}</p>
-            </div>
-          </details>
-        ))
-      }
+    <div class="faq-grid rule-top">
+      <div class="head">
+        <p class="label">{t.faq.label}</p>
+        <h2 class="h2" id="faq-h">{t.faq.title}</h2>
+      </div>
+      <div class="faq">
+        {
+          t.faq.items.map((item) => (
+            <details id={item.id}>
+              <summary>{item.q}</summary>
+              <div class="ans">
+                {item.a.map((p, i) => (
+                  <p>{item.deposit && i === 0 ? `${p} ${t.faq.depositAccount(holder)}` : p}</p>
+                ))}
+              </div>
+            </details>
+          ))
+        }
+      </div>
     </div>
   </div>
 </section>

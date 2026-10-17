@@ -1,6 +1,6 @@
 # Kế hoạch kiểm thử Sprint 4 – Round 2
 
-- Tác giả: QA | Ngày: 17/10/2026 (D1) | Bước: Sản xuất / Kiểm thử song song | Phiên bản: 1.1 (17/10 tối: thêm 3.5, 5.3, 5.4, 12 – rà ca nháp FE-A, FE-LP, FE-B; TC-L3-077) · **1.2 (17/10 ~21:40)**: 5.4 đã làm – TC-L3-077 theo 0.3.7
+- Tác giả: QA | Ngày: 17/10/2026 (D1) | Bước: Sản xuất / Kiểm thử song song | Phiên bản: 1.1 (17/10 tối: thêm 3.5, 5.3, 5.4, 12 – rà ca nháp FE-A, FE-LP, FE-B; TC-L3-077) · **1.2 (17/10 ~21:40)**: 5.4 đã làm – TC-L3-077 theo 0.3.7 · **1.3 (17/10 ~22:30)**: 5.2 – A1 (TC-X-070) chạy được
 - Căn cứ:
   - `rounds/round-02/sprint-4-plan.md` (ĐÓNG BĂNG D1): mục 4.1 (mốc D3/D5/D7/D8), 10 (T1–T12), 11 (G1–G8), 12.3 (bước cắt QA-1…QA-3);
   - `product/docs/qa/test-strategy.md` (tầng test, mức lỗi P0–P3, dữ liệu DS-E);
@@ -184,7 +184,12 @@ Chưa có ca, sẽ viết khi BE giao (không cần đổi hợp đồng):
 | 5. Bill → VietQR → hoàn tất | H16 | Có (Sprint 3) |
 | 6. PWA dọn, kiểm → `VI` | H19, H20 | MOB, BE-C (module HK trước D4) |
 
-**Dự kiến:** bước 1–5 xanh ở D6, đủ chuỗi ở D7–D8. Chuỗi A4 đi H21 → H22 → form OOO Desk → `VD` → dọn → bán lại, phụ thuộc BE-C, MOB, FE-B, dự kiến D7–D8.
+**Dự kiến:** bước 1–5 xanh ở D6, đủ chuỗi ở D7–D8.
+
+**Đã làm (17/10 ~22:30): A1 chạy được, xanh 3/3 trên stack QA.**
+- Ca: TC-X-070, `e2e/ui-clock/flow-a1.s4.spec.ts`, project `desk-clock`. Chuỗi đủ 6 bước: H12 → H11 → H13 → H17 → H16 → PWA dọn, kiểm → `VI`.
+- FOC trong chuỗi: xin lúc nhận sớm, duyệt ở H17 (ORC 17/10). Phần "xin FOC ở bước trả phòng" tách thành ca **TC-X-071**, `knownBug('S4-25')` ở dòng đầu (đã thêm `S4-25` vào `OPEN`). Ca này đỏ đúng chỗ thiếu nút "Mở form miễn phí / giảm giá".
+- Đề nghị OPS/ORC đưa **TC-X-070** vào `WRITES`. TC-X-071 vào khi S4-25 gộp. Chuỗi A4 đi H21 → H22 → form OOO Desk → `VD` → dọn → bán lại, phụ thuộc BE-C, MOB, FE-B, dự kiến D7–D8.
 
 ### 5.3 Ca UI cho màn vận hành của FE-B (nối vào A4)
 

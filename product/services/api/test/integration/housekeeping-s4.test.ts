@@ -1224,6 +1224,80 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(blocked.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'OOO' });
   });
 
+  it('listAssignableStaff (0.3.7 bổ sung 3, US-062 AC2, A85): active HK / MT staff of the property – id + display name only, sorted; disabled, admin-locked or revoked people are left out (a temporary lock-out stays) and cannot be assigned; HK → 403; createHkTask on an OOO room → 409 ROOM_BLOCKED without conflicts', async () => {
+    const list = async (u: string, q: string) => call(u, 'GET', `/assignable-staff${q}`);
+    const missing = await list('fd', '');
+    expect(missing.statusCode).toBe(422);
+    expect(missing.json().errors).toEqual([{ field: 'department', code: 'REQUIRED' }]);
+    expect((await list('fd', '?department=front_desk')).json().errors).toEqual([
+      { field: 'department', code: 'NOT_IN_LIST' },
+    ]);
+    expect((await list('hk', '?department=housekeeping')).statusCode).toBe(403);
+    const hk = await list('fd', '?department=housekeeping');
+    expect(hk.statusCode, hk.body).toBe(200);
+    expect(hk.json()).toEqual({
+      data: [
+        { userId: uid('hk'), displayName: 'hk', department: 'housekeeping' },
+        { userId: uid('hk2'), displayName: 'hk2', department: 'housekeeping' },
+      ],
+    });
+    const mt = await list('mt', '?department=maintenance');
+    expect(mt.json().data).toEqual([
+      { userId: uid('mt'), displayName: 'mt', department: 'maintenance' },
+    ]);
+    const sql = (q: string, params: unknown[]) =>
+      db.withContext(t.ctx(), (tx) => tx.query(q, params));
+    const hkIds = async () =>
+      ((await list('fd', '?department=housekeeping')).json().data as Array<{ userId: string }>).map(
+        (x) => x.userId,
+      );
+    // disabled → out, and cannot be given a task (422 NOT_IN_LIST)
+    await sql(`UPDATE app_user SET status = 'disabled' WHERE id = $1`, [uid('hk2')]);
+    expect(await hkIds()).toEqual([uid('hk')]);
+    const assign = await call('fd', 'POST', '/hk-tasks', {
+      json: {
+        roomId: room('101'),
+        type: 'adhoc_clean',
+        dueDate: TODAY,
+        assignedUserId: uid('hk2'),
+      },
+    });
+    expect(assign.statusCode).toBe(422);
+    expect(assign.json().errors).toEqual([{ field: 'assignedUserId', code: 'NOT_IN_LIST' }]);
+    // locked by an administrator (no locked_until) → out; a temporary log-in lock-out → still listed
+    await sql(`UPDATE app_user SET status = 'locked', locked_until = NULL WHERE id = $1`, [
+      uid('hk2'),
+    ]);
+    expect(await hkIds()).toEqual([uid('hk')]);
+    await sql(`UPDATE app_user SET status = 'locked', locked_until = $2 WHERE id = $1`, [
+      uid('hk2'),
+      new Date(T0.getTime() + 15 * 60_000),
+    ]);
+    expect(await hkIds()).toEqual([uid('hk'), uid('hk2')]);
+    // role revoked at the property → out
+    await sql(
+      `UPDATE user_property_role SET revoked_at = $2 WHERE user_id = $1 AND role = 'maintenance'`,
+      [uid('mt'), T0],
+    );
+    expect((await list('fd', '?department=maintenance')).json().data).toEqual([]);
+    // createHkTask on a room OOO today → 409 ROOM_BLOCKED (no conflicts[] – bổ sung 3 #7)
+    await setStatus('102', 'OOO');
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `INSERT INTO room_block (id, organization_id, property_id, room_id, status, reason, start_date,
+           end_date_planned, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'active', 'Sửa ống nước', $5, $6, $7, $7)`,
+        [randomUUID(), t.organizationId, t.propertyIds[0], room('102'), TODAY, '2026-10-17', T0],
+      ),
+    );
+    const blocked = await call('fd', 'POST', '/hk-tasks', {
+      json: { roomId: room('102'), type: 'adhoc_clean', dueDate: TODAY },
+    });
+    expect(blocked.statusCode, blocked.body).toBe(409);
+    expect(blocked.json().code).toBe('ROOM_BLOCKED');
+    expect(blocked.json()).not.toHaveProperty('conflicts');
+  });
+
   it('EP14 port (BE-D): a guest request becomes a guest_request task (rank 3) or a work order (guest_app, medium); decline cancels the open task', async () => {
     const port = fa.app.get<GuestRequestWorkPort>(GUEST_REQUEST_WORK_PORT);
     const { reservationId } = await seedStay(db, t, ids, { roomNo: '203', status: 'in_house' });

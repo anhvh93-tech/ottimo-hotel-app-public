@@ -28,6 +28,16 @@ function secret(key: string): string | undefined {
 
 export const API_URL = process.env.E2E_API_URL ?? 'http://127.0.0.1:3000';
 export const WEB_URL = process.env.E2E_WEB_URL ?? 'http://127.0.0.1:8081';
+/**
+ * Staff PWA (apps/mobile – Caddy :8082, API_STAFF_BASE_URL). Default: WEB_URL with the port + 1 (CI 8081 → 8082,
+ * stack QA 48081 → 48082). Session cookies are per host, not per port: the harness session works on both.
+ */
+export const STAFF_URL =
+  process.env.E2E_STAFF_URL ??
+  WEB_URL.replace(
+    /:(\d+)(\/?)$/,
+    (_, port: string, slash: string) => `:${Number(port) + 1}${slash}`,
+  );
 /** Origin sent on write requests (SR-SES-04: CSRF token + valid Origin). Default = admin-web origin of .env APP_BASE_URL. */
 export const ORIGIN =
   process.env.E2E_ORIGIN ?? fromDotEnv('APP_BASE_URL') ?? 'http://localhost:8081';

@@ -20,6 +20,7 @@ import {
   pathFor,
 } from '../lib/i18n';
 import { homeJsonLd, jsonForScript } from '../lib/seo';
+import nojsCss from '../styles/nojs.css?url';
 import '../styles/landing.css';
 
 interface Props {
@@ -53,6 +54,7 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
     <meta name="theme-color" content={THEME_COLOR} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href={loraLatin400} as="font" type="font/woff2" crossorigin />
+    <noscript><link rel="stylesheet" href={nojsCss} /></noscript>
     {
       published && (
         <>
@@ -104,7 +106,7 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
       <slot />
     </main>
     <Footer t={t} home={home} />
-    <StickyBar t={t} />
+    <StickyBar t={t} home={home} />
     <LangSuggest lang={lang} slug={slug} />
     <script>
       import '../scripts/main';

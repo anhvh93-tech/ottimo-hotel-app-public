@@ -187,7 +187,37 @@
   - OPS: `product/.env.example` (chú thích).
 
 ### 7.4 Giả định mới
-- [GIẢ ĐỊNH BE-C – ARC] `imagesPurgeReason` của SR-RET-02 (khai báo không bao giờ `confirmed`) = `retention`.
+- ~~[GIẢ ĐỊNH BE-C – ARC] `imagesPurgeReason` của SR-RET-02 = `retention`~~ → ARC bổ sung 3 #8 đã thêm `unconfirmed` (mục 8).
 - [GIẢ ĐỊNH BE-C] Căn khách chuyển về: "chưa sạch" = VD/OD/CL; căn vẫn OOO thì không làm gì (J11 hủy việc dọn).
 - [GIẢ ĐỊNH BE-C] "Khai báo xong" của BR-601 v0.3.8 = registration `confirmed`/`updated`.
+
+## 8. Lượt 3 – ARC bổ sung 3 (HEAD 6f8d429)
+
+### 8.1 Đã làm
+| Việc | Cách làm | Test |
+|---|---|---|
+| **`listAssignableStaff`** (#11, US-062 AC2, A85) | `GET …/assignable-staff?department=housekeeping\|maintenance`. Trả `{ data: [{ userId, displayName, department }] }`, sắp theo tên, không phân trang, **không** SĐT/email/tên đăng nhập/vai khác. `department` vắng → 422 `REQUIRED`; sai → `NOT_IN_LIST`. Vai theo `x-roles` (FD+, MT; HK → 403). "Đang hoạt động" = tài khoản không `disabled` và không bị quản trị khóa (`locked` mà không có `locked_until`); khóa đăng nhập tạm thời vẫn tính; vai ở cơ sở chưa thu hồi. Hàm chung mới `identity/public/staff-directory.ts` (`activeStaffWithRole`, `isActiveStaff`) – **BE-B review**. Kiểm khi giao (`createHkTask.assignedUserId`, `createWorkOrder`/`updateWorkOrder` người được giao) nay dùng cùng luật này (trước chỉ kiểm vai) | `housekeeping-s4` (ca mới: lọc người, sắp xếp, loại người bị khóa/thu hồi, 422 khi giao người bị khóa); `rbac-sprint4-bec` +11 ca RB-0969…0979 |
+| **Migration 0062** (#8) | `0062_registration_purge_unconfirmed.sql`: mở rộng `registration_purge_reason_check` thêm `unconfirmed` (`document_image.delete_reason` đã có từ 0053). Sinh bằng drizzle-kit vào thư mục tạm (journal tới 0061 + `0061_snapshot.json`) rồi đổi tên. Journal: idx 39, `when` 1792249758865 > 0061. Có `0062_snapshot.json` (prettier). `drizzle-kit generate` ở thư mục thật báo "No schema changes". J16 nay ghi `imagesPurgeReason = unconfirmed` cho khai báo chưa bao giờ `confirmed` | `schema-parity`, `migrations-journal`, `registration-flow` (đổi kỳ vọng sang `unconfirmed`) |
+| **`createHkTask` 409 `ROOM_BLOCKED`** (#7) | Mã đã khớp hợp đồng: căn OOO hôm nay → 409 `ROOM_BLOCKED`, **không** có `conflicts[]`; người được giao không phải HK đang hoạt động → 422 `NOT_IN_LIST` | `housekeeping-s4` (ca mới) |
+
+### 8.2 Kết quả kiểm
+- Vitest api toàn bộ, cây chung (lúc chạy, thư mục `services/api` chỉ có thay đổi của BE-C), DB `ottimo_test_bec_s4` mới: **78/78 tệp, 2657/2657 đạt** (gồm `contract`, `schema-parity`, `architecture`, `migrations-journal`).
+- `tsc`, eslint, prettier các tệp đã sửa: sạch.
+
+### 8.3 Việc cho QA (ORC chuyển)
+- **TC-L3-074 (b)** (`tests/e2e/clock/checkin.s3.clock.spec.ts`, khoảng dòng 2283): cả hai khai báo (a) trả phòng và (b) hủy đều dừng ở `sent`, chưa bao giờ `confirmed`. Kỳ vọng `imagesPurgeReason` phải đổi từ `'retention'` sang **`'unconfirmed'`**. BE-C không sửa tệp này.
+
+### 8.4 Tệp lượt 3
+- Mới:
+  - `services/api/src/modules/identity/public/staff-directory.ts` (module identity – BE-B review);
+  - `services/api/src/db/migrations/0062_registration_purge_unconfirmed.sql`;
+  - `services/api/src/db/migrations/meta/0062_snapshot.json`.
+- Sửa:
+  - `services/api/src/db/migrations/meta/_journal.json`, `services/api/src/db/schema/registration.ts`;
+  - `services/api/src/modules/housekeeping/internal/{housekeeping.controller,housekeeping.service,work-orders.service}.ts`;
+  - `services/api/src/modules/registration/internal/registration.service.ts`;
+  - test `housekeeping-s4`, `rbac-sprint4-bec`, `registration-flow`.
+
+### 8.5 Giả định mới
+- [GIẢ ĐỊNH BE-C] "Nhân viên đang hoạt động" = không `disabled` và không bị quản trị khóa (theo luật `auth.service`). Khóa đăng nhập tạm thời (`locked_until` còn hạn) vẫn được giao việc.
 

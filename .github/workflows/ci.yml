@@ -129,9 +129,10 @@ jobs:
 
   landing-e2e:
     # LP-v1 gate (ADR-014 9, concept 11, sprint-4-plan T11/11.3): the static landing served with the production
-    # headers of ADR-014 1.4 (tests/e2e/landing/serve.mjs – real CSP), Chromium at 320/375/1280 px × EN/VI:
+    # headers of ADR-014 1.4 (tests/e2e/landing/serve.mjs – real CSP), Chromium at 320/375/768/1280 px × EN/VI:
     # axe 0 violations, no horizontal scroll, one H1, no console/CSP error, 0 requests to another origin, glyphs only
-    # from the self-hosted fonts, language rule (no redirect, suggestion strip, kept choice), byte budgets per DPR.
+    # from the self-hosted fonts, language rule (no redirect, suggestion strip, kept choice), byte budgets per DPR,
+    # v1.2.1 structure (8 sections, phone bar, Zalo first, other channels folded) and the booking form on the review build.
     # No API stack needed: independent of build-test and docker-build.
     name: landing LP-v1 · Playwright (axe, CSP, budgets)
     runs-on: ubuntu-24.04
@@ -155,8 +156,12 @@ jobs:
           cache-dependency-path: product/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build landing
-        run: pnpm --filter @ottimo/landing-web build
+      # dist/ = production build (booking form off); dist-booking-preview/ = review build with the form rendered
+      # (never deployed) for the form cases – concept 5, SEC UXD-08.
+      - name: Build landing (production + booking-form review build)
+        run: |
+          pnpm --filter @ottimo/landing-web build
+          pnpm --filter @ottimo/landing-web build:booking-preview
       - name: Playwright version
         id: pw
         run: echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
@@ -482,7 +487,7 @@ jobs:
           if not any((c.get('classname') or '').startswith('ui-clock/') for c in ui):
               sys.exit('::error::no ui-clock/ test case in junit report – desk-clock did not run')
           # QC-S3-09: cases that really click the write steps (fix round 9) must run, never silently skip.
-          WRITES = ('TC-L3-075', 'TC-L4-093', 'TC-L4-094', 'TC-L2-085', 'TC-L2-086', 'TC-L3-076', 'TC-L4-095', 'TC-L3-077', 'TC-L4-096')
+          WRITES = ('TC-L3-075', 'TC-L4-093', 'TC-L4-094', 'TC-L2-085', 'TC-L2-086', 'TC-L3-076', 'TC-L4-095', 'TC-L3-077', 'TC-L4-096', 'TC-X-070')
           ran = {w for w in WRITES for c in ui if w in (c.get('name') or '') and c.find('skipped') is None}
           if ran != set(WRITES):
               sys.exit('::error::UI write-step cases missing or skipped: ' + ', '.join(sorted(set(WRITES) - ran)))

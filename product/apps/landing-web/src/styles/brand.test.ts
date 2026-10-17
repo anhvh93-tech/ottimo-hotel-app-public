@@ -19,6 +19,7 @@ const walk = (dir: string): string[] =>
 // Hand-written style sources: landing.css + every component/layout/page (.astro may carry SVG attributes).
 const authored = [
   path.join(src, 'styles/landing.css'),
+  path.join(src, 'styles/nojs.css'),
   ...walk(path.join(src, 'components')),
   ...walk(path.join(src, 'layouts')),
   ...walk(path.join(src, 'pages')),

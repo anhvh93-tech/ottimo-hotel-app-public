@@ -1,8 +1,9 @@
 ---
-// 1 · Hero (US-146 AC1): facade at dusk (LCP), tagline as the only H1 (English on every page – brand), lead,
-// support line in the other language, two actions, four facts.
-import { site } from '../../content/site';
+// 1 · Hero (concept 3.1, US-146 AC1): facade at dusk (LCP), label, tagline as the only H1 (English on every page –
+// brand), positioning lead (DOM 1.1), Request to book (filled) + Chat on Zalo (outline) – concept 3.3 N2.
+import { links, site } from '../../content/site';
 import type { Copy } from '../../content/types';
+import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
 
 interface Props {
@@ -17,6 +18,7 @@ const { t } = Astro.props;
     <Picture
       id="hero-facade-dusk"
       lang={t.lang}
+      alt={t.photoAlt['hero-facade-dusk']}
       class="hero-media"
       sizesMobile="100vw"
       sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
@@ -26,14 +28,10 @@ const { t } = Astro.props;
       <p class="label">{t.hero.label}</p>
       <h1 id="hero-h" lang="en">{site.tagline}</h1>
       <p class="lead">{t.hero.lead}</p>
-      <p class="support" lang={t.hero.support.lang}>{t.hero.support.text}</p>
-      <div class="actions">
-        <a class="btn btn-primary" href="#contact">{t.hero.book}</a>
-        <a class="btn btn-ghost" href="#rooms">{t.hero.viewRooms}</a>
+      <div class="actions" id="hero-actions">
+        <a class="btn btn-primary" href="#book">{t.actions.requestToBook}</a>
+        <a class="btn btn-ghost" href={links.zalo}><Icon name="chat" />{t.actions.chatOnZalo}</a>
       </div>
-      <ul class="facts">
-        {t.hero.facts.map((f) => <li>{f}</li>)}
-      </ul>
     </div>
   </div>
 </section>

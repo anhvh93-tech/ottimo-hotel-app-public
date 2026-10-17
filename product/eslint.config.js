@@ -18,8 +18,9 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/.turbo/**',
-      // Astro generated types (apps/landing-web, astro sync/check/build – gitignored)
+      // Astro generated types + the booking-form review build (apps/landing-web – gitignored)
       '**/.astro/**',
+      'apps/landing-web/dist-booking-preview/**',
       'legacy/**',
       'design/**',
       'docs/**',

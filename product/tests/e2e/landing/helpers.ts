@@ -3,6 +3,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type { Page, TestInfo } from '@playwright/test';
 
 export const PAGES = { en: '/', vi: '/vi/' } as const;
+/** Booking-form review build (apps/landing-web/dist-booking-preview) served by the second web server. */
+export const FORM_URL = `http://127.0.0.1:${Number(process.env.LANDING_FORM_PORT ?? 5187)}`;
 export type Lang = keyof typeof PAGES;
 // 320 (dưới mốc 360 của US-153 AC6), 375, 768 (US-153 AC6), 1280
 export const WIDTHS = [320, 375, 768, 1280] as const;

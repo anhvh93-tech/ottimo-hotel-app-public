@@ -32,11 +32,6 @@ export function homeJsonLd(t: Copy, pageUrl: string): Record<string, unknown> {
         checkinTime: site.checkinTime,
         checkoutTime: site.checkoutTime,
         availableLanguage: [...LANGS],
-        amenityFeature: t.amenities.items.map((a) => ({
-          '@type': 'LocationFeatureSpecification',
-          name: a.title,
-          value: true,
-        })),
       },
       {
         '@type': 'WebSite',

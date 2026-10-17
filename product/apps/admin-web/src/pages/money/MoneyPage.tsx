@@ -10,6 +10,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
+import { listApprovals } from '../../app/approvals';
 import { todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { addDays } from '../../app/reservations';
@@ -487,6 +488,9 @@ function Reconcile() {
   );
 }
 
+/** Refunds still in play: waiting for a decision, or approved (to pay out, then shown as paid). */
+const REFUND_QUEUE = ['pending', 'escalated', 'approved'] as const;
+
 function Refunds() {
   const { t, vnd, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -495,9 +499,9 @@ function Refunds() {
   const mgr = roles.some((r) => OWN_MGR.includes(r));
   const { state, reload } = useResource(
     async () =>
-      (await api.listApprovalRequests({ propertyId })).data.data.filter(
-        (a) => a.type === 'refund' && !['cancelled', 'rejected'].includes(a.status),
-      ),
+      // BUG-R2-107: each status filtered on the server and read page by page (`nextCursor`) – a refund still
+      // to approve or to pay out never falls behind 100 newer requests of other types/statuses.
+      (await listApprovals(propertyId, REFUND_QUEUE)).filter((a) => a.type === 'refund'),
     [propertyId],
   );
   const [dest, setDest] = useState<ApprovalRequest | null>(null);

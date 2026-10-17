@@ -39,6 +39,7 @@ const OPS = [
   'getWorkOrder',
   'updateWorkOrder',
   'transitionWorkOrder',
+  'listAssignableStaff',
 ];
 
 const fixture = JSON.parse(

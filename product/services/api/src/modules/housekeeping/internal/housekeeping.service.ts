@@ -20,6 +20,7 @@ import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { ParameterService } from '../../platform/public/parameter.service';
+import { activeStaffWithRole, isActiveStaff } from '../../identity/public/staff-directory';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
@@ -42,6 +43,7 @@ import {
   HK,
   HK_CANCELLABLE,
   MANUAL_TASK_TYPES,
+  MT,
   type RoomAction,
   type RoomEvent,
   STATUS_LABEL,
@@ -691,6 +693,23 @@ export class HousekeepingService {
     };
   }
 
+  /**
+   * listAssignableStaff (0.3.7 bổ sung 3, US-062 AC2, US-054 – x-rbac A85; FD+ and MT by x-roles): active
+   * housekeeping or maintenance staff of the property – user id and display name only, sorted by name.
+   */
+  async listAssignableStaff(tx: Tx, department: string | undefined) {
+    if (department === undefined || department === '') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'department', code: 'REQUIRED' }] });
+    }
+    if (department !== HK && department !== MT) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'department', code: 'NOT_IN_LIST' }],
+      });
+    }
+    const staff = await activeStaffWithRole(tx, department);
+    return { data: staff.map((s) => ({ ...s, department })) };
+  }
+
   async listHkTasks(tx: Tx, c: HkCtx, q: { date?: string; status?: string }) {
     const errors: FieldError[] = [];
     if (q.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(q.date)) {
@@ -800,13 +819,9 @@ export class HousekeepingService {
     return this.taskDto(c, task, ranked?.rank ?? 7);
   }
 
-  private async hasRole(tx: Tx, userId: string, roles: readonly string[]): Promise<boolean> {
-    const { rows } = await tx.query(
-      `SELECT 1 FROM user_property_role WHERE user_id = $1 AND property_id = $2 AND revoked_at IS NULL
-          AND role = ANY($3::text[])`,
-      [userId, tx.ctx.propertyId, [...roles]],
-    );
-    return rows.length > 0;
+  /** Active staff of the property with one of `roles` (0.3.7 bổ sung 3: "đang hoạt động" – identity/public). */
+  private hasRole(tx: Tx, userId: string, roles: readonly string[]): Promise<boolean> {
+    return isActiveStaff(tx, userId, roles);
   }
 
   /** Inserts a task (stay-over / checkout / long stay are unique per room and day: the open one is reused). */

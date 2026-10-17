@@ -1,8 +1,12 @@
 ---
-// Sticky header (mock v1.1 section 0). The language switch is plain links to the same page in each published
-// language, always visible on phone and desktop (ADR-014 3.2 point 5); clicking one stores the choice.
+// Sticky header (concept 3.1 row 0). Language switch = plain links to the same page in each published language,
+// always visible (ADR-014 3.2 point 5); the full language name is in aria-label (starts with the visible "EN"/"VI",
+// WCAG 2.5.3) – not as hidden text, which would pull the Vietnamese 500 font file into the English page (~12 KB). From 768 px: text link "Chat on Zalo" + outline "Request to book" (N4) –
+// never a filled button, so it does not compete with the hero.
+import { links } from '../content/site';
 import type { Copy } from '../content/types';
 import { LANGS, LANG_NAME, pathFor } from '../lib/i18n';
+import Icon from './Icon.astro';
 import Monogram from './Monogram.astro';
 
 interface Props {
@@ -20,12 +24,13 @@ const desktopNav = [
   ['#faq', t.nav.faq],
 ] as const;
 const mobileNav = [
-  ['#rooms', t.nav.rooms],
   ['#why', t.nav.why],
+  ['#rooms', t.nav.rooms],
   ['#amenities', t.nav.amenities],
   ['#location', t.nav.location],
+  ['#book', t.actions.requestToBook],
   ['#faq', t.nav.faq],
-  ['#contact', t.nav.book],
+  ['#contact', t.nav.contact],
 ] as const;
 ---
 
@@ -49,20 +54,17 @@ const mobileNav = [
               lang={l}
               data-set-lang={l}
               aria-current={l === t.lang ? 'page' : undefined}
+              aria-label={`${l.toUpperCase()} – ${LANG_NAME[l]}`}
             >
               {l.toUpperCase()}
-              <span class="sr"> – {LANG_NAME[l]}</span>
             </a>
           ))
         }
       </div>
-      <a class="btn btn-primary btn-sm only-d" href={`${home}#contact`}>{t.nav.book}</a>
+      <a class="h-zalo" href={links.zalo}><Icon name="chat" />{t.actions.chatOnZalo}</a>
+      <a class="btn btn-ghost btn-sm only-d" href={`${home}#book`}>{t.actions.requestToBook}</a>
       <details class="menu">
-        <summary aria-label={t.nav.menu}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="1.5" fill="none"></path>
-          </svg>
-        </summary>
+        <summary aria-label={t.nav.menu}><Icon name="menu" /></summary>
         <nav class="menu-panel" aria-label={t.nav.mobileLabel}>
           {mobileNav.map(([hash, label]) => <a href={`${home}${hash}`}>{label}</a>)}
         </nav>

@@ -2280,8 +2280,9 @@ test.describe(
           for (const id of regs.regIds) {
             const reg = await regOf(request, fd, id);
             expect(reg.imagesPurgedAt, `imagesPurgedAt của ${id}`).toBeTruthy();
-            // J16 xóa theo hạn lưu (erd `document_image.delete_after` T01/T02) → lý do `retention` (OpenAPI enum 0.3.3)
-            expect(reg.imagesPurgeReason, `imagesPurgeReason của ${id}`).toBe('retention');
+            // J16 xóa ảnh của khai báo chưa bao giờ `confirmed` (SR-RET-02) → lý do `unconfirmed`
+            // (OpenAPI 0.3.7 bổ sung 3, migration 0062 – trước đây ghi tạm `retention`)
+            expect(reg.imagesPurgeReason, `imagesPurgeReason của ${id}`).toBe('unconfirmed');
           }
         },
       );

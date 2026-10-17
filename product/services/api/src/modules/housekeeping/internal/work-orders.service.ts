@@ -30,6 +30,7 @@ import { assertNoCardNumber, stripControlChars } from '../../../shared/validatio
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { AttachmentService } from '../../files/public/attachment.service';
+import { isActiveStaff } from '../../identity/public/staff-directory';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { RoomBlockPort } from '../../reservations/public/room-block.port';
@@ -528,13 +529,9 @@ export class WorkOrdersService {
     };
   }
 
-  private async hasRole(tx: Tx, userId: string, roles: readonly string[]): Promise<boolean> {
-    const { rows } = await tx.query(
-      `SELECT 1 FROM user_property_role WHERE user_id = $1 AND property_id = $2 AND revoked_at IS NULL
-          AND role = ANY($3::text[])`,
-      [userId, tx.ctx.propertyId, [...roles]],
-    );
-    return rows.length > 0;
+  /** Active staff of the property with one of `roles` (0.3.7 bổ sung 3: "đang hoạt động" – identity/public). */
+  private hasRole(tx: Tx, userId: string, roles: readonly string[]): Promise<boolean> {
+    return isActiveStaff(tx, userId, roles);
   }
 
   /** Inserts a work order (code, deadlines, history, notifications W1). */

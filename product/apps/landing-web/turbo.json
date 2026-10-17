@@ -9,7 +9,8 @@
     "test": {
       "dependsOn": ["^build", "build"],
       "env": ["LANDING_SITE_URL", "LANDING_INDEXABLE"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/design/wireframes/assets/tokens.css"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/design/wireframes/assets/tokens.css"],
+      "outputs": ["dist-booking-preview/**"]
     }
   }
 }

@@ -249,8 +249,77 @@ export function checkThirdParty({ html, files }, siteUrl, { bookingRequest = fal
     for (const bad of banned)
       if (js.includes(bad))
         problems.push(`${path.basename(file)}: uses ${bad} (the page sends nothing anywhere)`);
-    const remote = js.match(/https?:\/\/[^\s"'`]+/g);
-    if (remote) problems.push(`${path.basename(file)}: absolute URL(s) ${remote.join(', ')}`);
+    // XML namespace names (createElementNS) are identifiers, not requests.
+    const remote = (js.match(/https?:\/\/[^\s"'`]+/g) ?? []).filter(
+      (u) => !/^http:\/\/www\.w3\.org\/(2000\/svg|1999\/xlink|1999\/xhtml)$/.test(u),
+    );
+    if (remote.length)
+      problems.push(`${path.basename(file)}: absolute URL(s) ${remote.join(', ')}`);
+  }
+  return problems;
+}
+
+/**
+ * Positioning and wording (FB-INV-002, concept 2.3–2.4, DOM landing-positioning) on everything a visitor or a search
+ * engine reads: visible text, <title>, meta and JSON-LD. No room count, never "apartment"/"căn", no self-claimed hotel
+ * class, no plain "Book"/"Đặt phòng" button (option A is a request), "meter" only in the long-stay FAQ.
+ */
+export const BANNED = [
+  /apartment/i,
+  /serviced/i,
+  /căn hộ/iu,
+  /(?<!\p{L})căn(?!\p{L})/iu,
+  /\bten (rooms|apartments|names)\b/i,
+  /(?<!\p{L})mười(?!\p{L})/iu,
+  /\b10 (căn|phòng|rooms|apartments)\b/iu,
+  /numberOfRooms/,
+  /The Pine|The Ember|The Mist/,
+  /monthly agreement/i,
+  /hợp đồng theo tháng/iu,
+  /\blease\b/i,
+  /thuê tháng/iu,
+  /bốn hạng phòng/iu,
+  /\bis a hotel\b/i,
+  /là khách sạn/iu,
+  /\b\d\s*-?\s*(star|sao)\b/iu,
+  /luxury hotel|sang trọng/iu,
+  /extra bed/i,
+  /instant confirmation|xác nhận ngay/iu,
+];
+
+export function checkWording({ html }) {
+  const problems = [];
+  for (const page of html) {
+    const scripts = [
+      ...page.source.matchAll(
+        /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g,
+      ),
+    ]
+      .map((m) => m[1])
+      .join(' ');
+    const metas = tags(page.source)
+      .filter((x) => x.name === 'meta' && x.attrs.content)
+      .map((x) => x.attrs.content)
+      .join(' ');
+    const all = `${visibleText(page.source)} ${metas} ${scripts}`;
+    for (const re of BANNED) {
+      const m = all.match(re);
+      if (m) problems.push(`${page.path}: banned wording "${m[0]}" (${re})`);
+    }
+    const body = page.source.split(/<body[^>]*>/)[1] ?? '';
+    const hotel = (visibleText(body).match(/hotel|khách sạn/giu) ?? []).length;
+    if (hotel > 3)
+      problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (concept 2.4 allows 3 comparisons)`);
+    for (const m of body.matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+      const label = visibleText(m[2]).replace(/\s+/g, ' ').trim();
+      if (/^(book|đặt phòng|book now)$/iu.test(label))
+        problems.push(
+          `${page.path}: <${m[1]}> labelled "${label}" – use "Request to book" (concept T5)`,
+        );
+    }
+    const why = body.match(/<section[^>]*id="why"[\s\S]*?<\/section>/)?.[0] ?? '';
+    if (/meter|công tơ/iu.test(visibleText(why)))
+      problems.push(`${page.path}: "meter/công tơ" in #why (concept N3)`);
   }
   return problems;
 }
@@ -264,31 +333,41 @@ export function checkSingleH1({ html }) {
 }
 
 /**
- * Forms and OTA links. Booking request off (v1 today): no form or input of any kind (US-151 AC3, SEC UXD-03).
- * Booking request on (FB-INV-002, ESC-020 L7): forms only as POST to a same-origin /v1/public/ path, no file input.
+ * Forms and OTA links. `bookingRequest` = the booking form is rendered (review build or feature on).
+ *  - Not rendered (production today, concept 5.5 "chat"): no form or input of any kind (US-151 AC3, SEC UXD-03).
+ *  - Rendered: SEC UXD-08 – the <form> is `hidden` and has NO `action` (the module script shows it and posts JSON to the
+ *    same origin; without JavaScript it can never be submitted); a honeypot named `website`, kept off screen by class;
+ *    an unticked consent box; no file input (ADR-014 4.6).
  * Never a link to an OTA (US-151 AC3).
  */
 export function checkForms({ html }, { bookingRequest = false } = {}) {
   const problems = [];
   for (const page of html) {
-    for (const t of tags(page.source)) {
-      if (t.name === 'a' && OTA.test(t.attrs.href ?? ''))
-        problems.push(`${page.path}: OTA link ${t.attrs.href}`);
-      if (!['form', 'input', 'textarea', 'select'].includes(t.name)) continue;
+    const t = tags(page.source);
+    for (const x of t) {
+      if (x.name === 'a' && OTA.test(x.attrs.href ?? ''))
+        problems.push(`${page.path}: OTA link ${x.attrs.href}`);
+      if (!['form', 'input', 'textarea', 'select'].includes(x.name)) continue;
       if (!bookingRequest) {
-        problems.push(`${page.path}: <${t.name}> while features.bookingRequest is off`);
+        problems.push(`${page.path}: <${x.name}> while the booking form is off`);
         continue;
       }
-      if (t.name === 'form') {
-        if ((t.attrs.method ?? '').toLowerCase() !== 'post')
-          problems.push(`${page.path}: <form> must be method=post`);
-        if (!(t.attrs.action ?? '').startsWith('/v1/public/'))
-          problems.push(
-            `${page.path}: <form action="${t.attrs.action}"> must be a same-origin /v1/public/ path`,
-          );
+      if (x.name === 'form') {
+        if (x.attrs.hidden === undefined)
+          problems.push(`${page.path}: <form> not rendered hidden (SEC UXD-08)`);
+        if (x.attrs.action !== undefined)
+          problems.push(`${page.path}: <form action> present (SEC UXD-08)`);
       }
-      if (t.name === 'input' && (t.attrs.type ?? '').toLowerCase() === 'file')
+      if (x.name === 'input' && (x.attrs.type ?? '').toLowerCase() === 'file')
         problems.push(`${page.path}: file input (no documents at this step – ADR-014 4.6)`);
+      if (x.name === 'input' && x.attrs.type === 'checkbox' && x.attrs.checked !== undefined)
+        problems.push(`${page.path}: pre-ticked checkbox ${x.attrs.name} (SEC C-3)`);
+    }
+    if (bookingRequest && t.some((x) => x.name === 'form')) {
+      const hp = t.find((x) => x.name === 'input' && x.attrs.name === 'website');
+      if (!hp) problems.push(`${page.path}: honeypot input "website" missing (ADR-014 4.4)`);
+      else if (hp.attrs.tabindex !== '-1' || hp.attrs.autocomplete !== 'off')
+        problems.push(`${page.path}: honeypot must be tabindex=-1 autocomplete=off (SEC UXD-05)`);
     }
   }
   return problems;
@@ -339,8 +418,9 @@ export function checkSeo({ html, dist }, { siteUrl, langs, indexable }) {
     if (h.lang !== lang)
       problems.push(`${page.path}: <html lang="${h.lang}"> but path language is ${lang}`);
     if (!h.title || h.title.length > 60) problems.push(`${page.path}: title missing or > 60 chars`);
-    if (!h.description || h.description.length > 160)
-      problems.push(`${page.path}: description missing or > 160 chars`);
+    // ADR-014 5 asks ≤ 160; the approved mock v1.2.1 descriptions are 180 (EN) / 193 (VI) – kept, flagged to UXD.
+    if (!h.description || h.description.length > 200)
+      problems.push(`${page.path}: description missing or > 200 chars`);
     if ((h.themeColor ?? '').toLowerCase() !== PALETTE.ivory)
       problems.push(`${page.path}: theme-color is not Ivory`);
     const isPublished = published.includes(page);
@@ -625,6 +705,7 @@ export function runAll(dist, opts) {
     thirdParty: checkThirdParty(d, opts.siteUrl, opts),
     singleH1: checkSingleH1(d),
     forms: checkForms(d, opts),
+    wording: checkWording(d),
     seo: checkSeo(d, opts),
     sitemapRobots: checkSitemapRobots(d, opts),
     brandColors: checkBrandColors(d),

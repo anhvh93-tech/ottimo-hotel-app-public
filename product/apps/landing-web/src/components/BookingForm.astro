@@ -1,0 +1,308 @@
+---
+// Booking-request form (concept 5.2–5.4, mock v1.2.1) – rendered only in the review build or once the feature is on
+// (lib/booking-request.ts). SEC UXD-08: <form hidden> with no `action`; scripts/booking-form.ts removes `hidden`, so
+// without JavaScript the form never shows and can never be sent. Field names follow `WebsiteBookingRequestInput`
+// (OpenAPI 0.3.7 add-on 2): stayType, arrival, departure | months, adults, children (6–11), infants (< 6),
+// roomType, guestName, preferredChannel, phone | email, note, consent, website (honeypot).
+import { links, site } from '../content/site';
+import type { Copy } from '../content/types';
+import {
+  BOOKING_FORM_PREVIEW,
+  PRIVACY_NOTICE_VERSION,
+  PUBLIC_PROPERTY_SLUG,
+} from '../lib/booking-request';
+import { pathFor } from '../lib/i18n';
+import Icon from './Icon.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+const f = t.book.form;
+const b = site.booking;
+const privacyHref = `${pathFor(t.lang, 'privacy')}#${t.lang === 'vi' ? 'yeu-cau-dat-phong' : 'booking-requests'}`;
+const counts = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+---
+
+<noscript>
+  <p>{f.noJs}<a class="link-in" href={links.zalo}>{links.zalo.replace(/^https:\/\//, '')}</a></p>
+</noscript>
+<form
+  id="bk-form"
+  class="form"
+  method="post"
+  novalidate
+  aria-labelledby="bk-form-h"
+  hidden
+  data-transport={BOOKING_FORM_PREVIEW ? 'preview' : 'api'}
+  data-tz="Asia/Ho_Chi_Minh"
+  data-open={b.frontDeskOpen}
+  data-close={b.frontDeskClose}
+  data-promise-minutes={b.promiseMinutes}
+  data-next-morning={b.promiseNextMorningBy}
+  data-window-days={b.windowDays}
+  data-short-max={b.shortMaxNights}
+  data-hotline={site.phone.local}
+  data-hotline-tel={links.tel}
+  data-consent-version={PRIVACY_NOTICE_VERSION}
+  data-property={PUBLIC_PROPERTY_SLUG}
+>
+  <h3 class="h3 sr" id="bk-form-h">{f.title}</h3>
+  <div class="summary" id="bk-summary" tabindex="-1" hidden>
+    <h3 id="bk-summary-h"></h3>
+    <ul id="bk-summary-list"></ul>
+  </div>
+
+  <div class="form-sec">
+    <p class="f-title">{f.yourStay}</p>
+    <fieldset>
+      <legend class="f-label sr">{f.lengthOfStay}</legend>
+      <div class="seg">
+        <label
+          ><input type="radio" name="stayType" value="short" checked /><span class="opt-box">{f.byNight}</span
+          ></label
+        >
+        <label
+          ><input type="radio" name="stayType" value="long" /><span class="opt-box">{f.byMonth}</span></label
+        >
+      </div>
+    </fieldset>
+    <div class="row2 dates" data-stay="short">
+      <div class="field">
+        <label for="f-in">{f.checkIn}</label>
+        <input class="input" id="f-in" name="arrival" type="date" required aria-describedby="f-in-err" />
+        <p class="err" id="f-in-err"></p>
+      </div>
+      <div class="field">
+        <label for="f-out">{f.checkOut}</label>
+        <input
+          class="input"
+          id="f-out"
+          name="departure"
+          type="date"
+          required
+          aria-describedby="f-out-err f-nights"
+        />
+        <p class="err" id="f-out-err"></p>
+      </div>
+    </div>
+    <p class="hint" id="f-nights" data-stay="short" aria-live="polite"></p>
+    <div class="row2 dates" data-stay="long" hidden>
+      <div class="field">
+        <label for="f-arr">{f.arrival}</label>
+        <input
+          class="input"
+          id="f-arr"
+          name="arrival"
+          type="date"
+          required
+          disabled
+          aria-describedby="f-arr-err"
+        />
+        <p class="err" id="f-arr-err"></p>
+      </div>
+      <div class="field">
+        <label for="f-months">{f.lengthOfStay}</label>
+        <div class="sel">
+          <select class="input" id="f-months" name="months" disabled>
+            {f.months.map((m) => <option value={m.value} selected={m.value === '3'}>{m.label}</option>)}
+          </select>
+          <Icon name="chevron" />
+        </div>
+      </div>
+    </div>
+    <div class="row3">
+      <div class="field">
+        <label for="f-adults">{f.adults}</label>
+        <div class="sel">
+          <select class="input" id="f-adults" name="adults" aria-describedby="f-guests-err">
+            {counts(1, 6).map((n) => <option selected={n === 2}>{n}</option>)}
+          </select>
+          <Icon name="chevron" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-children">{f.ages6to11}</label>
+        <div class="sel">
+          <select class="input" id="f-children" name="children" aria-describedby="f-guests-err">
+            {counts(0, 3).map((n) => <option selected={n === 0}>{n}</option>)}
+          </select>
+          <Icon name="chevron" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-infants">{f.under6}</label>
+        <div class="sel">
+          <select class="input" id="f-infants" name="infants">
+            {counts(0, 3).map((n) => <option selected={n === 0}>{n}</option>)}
+          </select>
+          <Icon name="chevron" />
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-room">{f.roomType}</label>
+      <div class="sel">
+        <select class="input" id="f-room" name="roomType" aria-describedby="f-room-hint f-guests-err">
+          <option value="">{f.anyRoom}</option>
+          {
+            t.rooms.items.map((r) => (
+              <option value={r.slug} data-min={r.sleeps[0]} data-cap={r.sleeps[1]}>
+                {r.shortName}
+              </option>
+            ))
+          }
+        </select>
+        <Icon name="chevron" />
+      </div>
+      <p class="hint" id="f-room-hint"></p>
+      <p class="err" id="f-guests-err"></p>
+    </div>
+  </div>
+
+  <div class="form-sec">
+    <p class="f-title">{f.reachYou}</p>
+    <div class="field">
+      <label for="f-name">{f.yourName}</label>
+      <input
+        class="input"
+        id="f-name"
+        name="guestName"
+        type="text"
+        autocomplete="name"
+        maxlength="80"
+        required
+        aria-describedby="f-name-err"
+      />
+      <p class="err" id="f-name-err"></p>
+    </div>
+    <fieldset>
+      <legend class="f-label">{f.replyOn}</legend>
+      <div class="seg seg-4">
+        <label
+          ><input type="radio" name="preferredChannel" value="zalo" checked /><span class="opt-box">Zalo</span
+          ></label
+        >
+        <label
+          ><input type="radio" name="preferredChannel" value="whatsapp" /><span class="opt-box">WhatsApp</span
+          ></label
+        >
+        <label
+          ><input type="radio" name="preferredChannel" value="phone" /><span class="opt-box">{f.phoneCall}</span
+          ></label
+        >
+        <label
+          ><input type="radio" name="preferredChannel" value="email" /><span class="opt-box">Email</span></label
+        >
+      </div>
+    </fieldset>
+    <div class="field" id="fld-phone">
+      <label for="f-phone"
+        ><span class="c-lab" data-k="zalo">{f.number.zalo}</span><span class="c-lab" data-k="whatsapp" hidden
+          >{f.number.whatsapp}</span
+        ><span class="c-lab" data-k="phone" hidden>{f.number.phone}</span></label
+      >
+      <input
+        class="input"
+        id="f-phone"
+        name="phone"
+        type="tel"
+        inputmode="tel"
+        autocomplete="tel"
+        maxlength="20"
+        required
+        aria-describedby="f-phone-hint f-phone-err"
+      />
+      <p class="hint" id="f-phone-hint">{f.phoneHint}</p>
+      <p class="err" id="f-phone-err"></p>
+    </div>
+    <div class="field" id="fld-email" hidden>
+      <label for="f-email">Email</label>
+      <input
+        class="input"
+        id="f-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        maxlength="120"
+        disabled
+        aria-describedby="f-email-err"
+      />
+      <p class="err" id="f-email-err"></p>
+    </div>
+  </div>
+
+  <div class="form-sec">
+    <div class="field">
+      <label for="f-note">{f.note} <span class="opt">{f.optional}</span></label>
+      <textarea
+        class="input"
+        id="f-note"
+        name="note"
+        maxlength="500"
+        rows="2"
+        aria-describedby="f-note-hint f-note-count f-note-err"></textarea>
+      <div class="hint-row">
+        <p class="hint" id="f-note-hint">{f.noteHint}</p>
+        <p class="counter" id="f-note-count">0 / 500</p>
+      </div>
+      <p class="err" id="f-note-err"></p>
+    </div>
+    <div class="hp" aria-hidden="true">
+      <label for="f-website" lang="en">{f.honeypot}</label>
+      <input
+        id="f-website"
+        name="website"
+        type="text"
+        tabindex="-1"
+        autocomplete="off"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
+        data-form-type="other"
+      />
+    </div>
+    <div class="check">
+      <input
+        type="checkbox"
+        id="f-consent"
+        name="consent"
+        required
+        aria-describedby="f-consent-more f-consent-err"
+      />
+      <label for="f-consent">{f.consent}</label>
+    </div>
+    <div class="consent-note">
+      <p class="hint" id="f-consent-more">{f.consentMore}</p>
+      <a class="link" href={privacyHref}>{f.privacy}<Icon name="arrow" /></a>
+    </div>
+    <p class="err" id="f-consent-err"></p>
+  </div>
+
+  <div class="f-foot">
+    <p class="f-status" id="bk-status" role="alert"></p>
+    <button type="submit" class="btn btn-primary" id="bk-submit">{f.submit}</button>
+  </div>
+</form>
+
+<div class="done" id="bk-done" hidden>
+  <Icon name="done" class="ico" />
+  <h3 id="bk-done-h" tabindex="-1">{f.done.title}</h3>
+  <p id="bk-done-msg"></p>
+  <p>{f.done.requestNumber}: <span class="ref" id="bk-ref"></span></p>
+  <p id="bk-done-next"></p>
+  <p id="bk-done-when" class="muted"></p>
+  <p id="bk-done-fallback" class="muted"></p>
+  <p id="bk-done-tonight" hidden>
+    {f.done.tonight}<a class="link-in" href={links.tel}>{site.phone.local}</a>
+  </p>
+  <div class="actions">
+    <a class="btn btn-primary" id="bk-open-zalo" href={links.zalo}>{f.done.openZalo}</a>
+    <button type="button" class="btn btn-ghost" id="bk-again">{f.done.again}</button>
+  </div>
+</div>
+
+<script>
+  import '../scripts/booking-form';
+</script>

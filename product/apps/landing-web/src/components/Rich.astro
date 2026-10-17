@@ -1,0 +1,12 @@
+---
+// Renders a copy string with its [[…]] no-break runs (lib/rich.ts).
+import { segments } from '../lib/rich';
+
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+---
+
+{segments(text).map((s) => (s.nowrap ? <span class="nw">{s.text}</span> : s.text))}

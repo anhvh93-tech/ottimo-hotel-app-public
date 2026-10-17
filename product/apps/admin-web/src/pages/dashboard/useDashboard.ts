@@ -1,5 +1,6 @@
 import type {
   ApprovalRequest,
+  ApprovalStatus,
   ArrivalsDepartures,
   AttentionItem,
   GuestRequest,
@@ -7,6 +8,7 @@ import type {
 } from '@ottimo/api-client';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
+import { listApprovals } from '../../app/approvals';
 import { ALL_EVENTS, useLiveEvents } from '../../app/live';
 import { useResource, type ResourceState } from '../../hooks/useResource';
 
@@ -36,12 +38,24 @@ const TOUCHES: Record<string, Block[]> = {
 const ALL: Block[] = ['kpi', 'board', 'attention', 'approvals', 'requests'];
 /** Items with a deadline change with time even without an event (EP01 §4 `[GIẢ ĐỊNH BA]`). */
 export const ATTENTION_REFRESH_MS = 60_000;
+/**
+ * BUG-R2-107: H24 "Cần duyệt" is a summary – each status is filtered on the server and read page by page, at
+ * most this many pages (× 100 rows) per status; past that the count reads "n+" (`more`) and the whole queue
+ * is H17, which reads every page. 300 waiting requests at a 10-room property means something else is wrong.
+ */
+export const OVERVIEW_APPROVAL_PAGES = 3;
+
+/** H24 "Cần duyệt": the requests read (newest first) and whether a status had pages left past the cap. */
+export interface ApprovalSummary {
+  rows: ApprovalRequest[];
+  more: boolean;
+}
 
 export interface Dashboard {
   kpi: ResourceState<TonightKpi>;
   board?: ResourceState<ArrivalsDepartures>;
   attention: ResourceState<AttentionItem[]>;
-  approvals?: ResourceState<ApprovalRequest[]>;
+  approvals?: ResourceState<ApprovalSummary>;
   /** H03: the desk's guest request queue (US-110, S30). */
   requests?: ResourceState<GuestRequest[]>;
   reload: Record<Block, () => void>;
@@ -50,13 +64,14 @@ export interface Dashboard {
 }
 
 /**
- * Data of H03 Hôm nay (`board` = arrivals/departures + guest requests) and H24 Tổng quan (`approvals`): every
+ * Data of H03 Hôm nay (`board` = arrivals/departures + guest requests) and H24 Tổng quan (`approvals` = the
+ * statuses its role shows, filtered on the server – never one page of every status filtered here): every
  * block is read on its own, so one failing block never hides the others (H24 24.1 Problem.code). Live: SSE
  * events re-read only the blocks they touch, a burst within 1 s gives one read per block (EP01 §4).
  */
 export function useDashboard(
   propertyId: string,
-  blocks: { board?: boolean; approvals?: boolean },
+  blocks: { board?: boolean; approvals?: readonly ApprovalStatus[] },
 ): Dashboard {
   const kpi = useResource(async () => (await api.getTonightKpi({ propertyId })).data, [propertyId]);
   const board = useResource(
@@ -68,14 +83,19 @@ export function useDashboard(
     async () => (await api.listAttentionItems({ propertyId })).data.data,
     [propertyId],
   );
-  const approvals = useResource(
-    async () =>
-      // Every request the caller may see (server scope by role); the page picks what its role shows.
-      blocks.approvals
-        ? (await api.listApprovalRequests({ propertyId })).data.data
-        : (undefined as never),
-    [propertyId, blocks.approvals],
-  );
+  // The server scopes by role (x-scope); the page picks what its role shows among these statuses.
+  const statuses = blocks.approvals?.join(',') ?? '';
+  const approvals = useResource(async (): Promise<ApprovalSummary> => {
+    if (!statuses) return undefined as never;
+    let more = false;
+    const rows = await listApprovals(propertyId, statuses.split(',') as ApprovalStatus[], {
+      maxPages: OVERVIEW_APPROVAL_PAGES,
+      onCapped: () => {
+        more = true;
+      },
+    });
+    return { rows, more };
+  }, [propertyId, statuses]);
   const requests = useResource(
     async () =>
       blocks.board ? (await api.listGuestRequests({ propertyId })).data.data : (undefined as never),
@@ -92,7 +112,7 @@ export function useDashboard(
   reloadRef.current = reload;
   const enabled = (b: Block) =>
     (b !== 'board' && b !== 'requests' && b !== 'approvals') ||
-    (b === 'approvals' ? !!blocks.approvals : !!blocks.board);
+    (b === 'approvals' ? !!statuses : !!blocks.board);
 
   const { stale } = useLiveEvents(
     propertyId,
@@ -114,7 +134,7 @@ export function useDashboard(
     kpi: kpi.state,
     board: blocks.board ? board.state : undefined,
     attention: attention.state,
-    approvals: blocks.approvals ? approvals.state : undefined,
+    approvals: statuses ? approvals.state : undefined,
     requests: blocks.board ? requests.state : undefined,
     reload,
     stale,

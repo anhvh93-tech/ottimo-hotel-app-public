@@ -1,7 +1,8 @@
 /**
  * Housekeeping + maintenance endpoints (OpenAPI 0.3.7 nhóm H – BE-C R2 Sprint 4): listRoomStatuses,
  * transitionRoomStatus, getInspectionChecklist, recordInspection, listInspections, listHkTasks, createHkTask,
- * transitionHkTask, listWorkOrders, createWorkOrder, getWorkOrder, updateWorkOrder, transitionWorkOrder.
+ * transitionHkTask, listWorkOrders, createWorkOrder, getWorkOrder, updateWorkOrder, transitionWorkOrder,
+ * listAssignableStaff (bổ sung 3).
  * Roles come from the operation's x-roles (guard); row scope (HK T / own_or_room_today, MT read only) and
  * field masks are applied by the services. Writes go through UnitOfWork (Idempotency-Key, If-Match).
  */
@@ -135,6 +136,12 @@ export class HousekeepingController {
   }
 
   // ───────────── inspections (US-055) ─────────────
+
+  @Get('assignable-staff')
+  @Operation('listAssignableStaff')
+  listAssignableStaff(@Req() req: GuardedRequest, @Query('department') department?: string) {
+    return this.read(req, (tx) => this.hk.listAssignableStaff(tx, department));
+  }
 
   @Get('inspection-checklist')
   @Operation('getInspectionChecklist')

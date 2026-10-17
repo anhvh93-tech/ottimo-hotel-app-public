@@ -60,10 +60,11 @@ describe('dist checks catch violations', () => {
     expect(checks.checkForms(d)).toHaveLength(3); // booking request off: form + input + OTA link
   });
 
-  it('booking request on: only a same-origin POST to /v1/public/ is accepted', () => {
+  it('form rendered: hidden, no action, honeypot, unticked consent (SEC UXD-08); fetch only same origin', () => {
     const ok = site({
       'index.html': page(
-        '<h1>x</h1><form method="post" action="/v1/public/properties/ottimo/booking-inquiries"><input name="name"></form>',
+        '<h1>x</h1><form id="bk-form" method="post" hidden><input name="guestName"><input type="checkbox" name="consent">' +
+          '<input name="website" tabindex="-1" autocomplete="off"></form>',
       ),
       '_astro/f.js': 'fetch("/v1/public/properties/ottimo/form-token")',
     });
@@ -72,14 +73,33 @@ describe('dist checks catch violations', () => {
     expect(checks.checkThirdParty(ok, 'https://ottimo.vn')).toHaveLength(1); // fetch while off
     const bad = site({
       'index.html': page(
-        '<h1>x</h1><form method="get" action="https://forms.example.com/x"><input type="file" name="id"></form>',
+        '<h1>x</h1><form action="/v1/public/x" method="post"><input type="file" name="id">' +
+          '<input type="checkbox" name="consent" checked></form>',
       ),
       '_astro/f.js': 'fetch("https://api.example.com/x")',
     });
-    expect(checks.checkForms(bad, { bookingRequest: true })).toHaveLength(3);
+    const problems = checks.checkForms(bad, { bookingRequest: true }).join('\n');
+    expect(problems).toMatch(/not rendered hidden/);
+    expect(problems).toMatch(/action/);
+    expect(problems).toMatch(/file input/);
+    expect(problems).toMatch(/pre-ticked/);
+    expect(problems).toMatch(/honeypot/);
     expect(
       checks.checkThirdParty(bad, 'https://ottimo.vn', { bookingRequest: true }).join('\n'),
     ).toMatch(/api\.example\.com/);
+  });
+
+  it('wording: room count, "apartment", plain "Book" button, meter in #why', () => {
+    const d = site({
+      'index.html': page(
+        '<h1>x</h1><section id="why"><p>Utilities by meter</p></section><p>Ten apartments in Da Lat</p><a href="#book">Book</a>',
+      ),
+    });
+    const problems = checks.checkWording(d).join('\n');
+    expect(problems).toMatch(/apartment/);
+    expect(problems).toMatch(/ten \(rooms\|apartments\|names\)/);
+    expect(problems).toMatch(/labelled "Book"/);
+    expect(problems).toMatch(/#why/);
   });
 
   it('a terracotta accent, a named colour and rgb() in CSS', () => {

@@ -1,44 +1,22 @@
 ---
-// Contact bar fixed to the bottom on phones (< 768 px, mock v1.1). EN leads with WhatsApp, VI with Zalo
-// (ESC-020 L2-A); the first button is the filled one.
+// Phone action bar (< 768 px, concept 3.1/3.3 N2): same hierarchy as the hero – "Request to book" filled (3/5),
+// "Chat on Zalo" outline (2/5; "Zalo" + icon under 360 px). Rendered hidden; scripts/main.ts shows it only while the
+// hero buttons, #book, #contact and the footer are all off screen. No JavaScript: nojs.css shows it.
 import { links } from '../content/site';
 import type { Copy } from '../content/types';
+import Icon from './Icon.astro';
 
 interface Props {
   t: Copy;
+  home: string;
 }
 
-const { t } = Astro.props;
-const chat =
-  'M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H8z';
-const phone =
-  'M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16.5 16.5 0 0 1 4.5 5.5a2 2 0 0 1 2-2z';
-const items = [
-  { key: 'whatsapp', href: links.whatsapp(), label: 'WhatsApp', icon: chat },
-  { key: 'zalo', href: links.zalo, label: 'Zalo', icon: chat },
-  { key: 'call', href: links.tel, label: t.sticky.call, icon: phone },
-] as const;
-const ordered = [
-  ...items.filter((i) => i.key === t.sticky.first),
-  ...items.filter((i) => i.key !== t.sticky.first),
-];
+const { t, home } = Astro.props;
 ---
 
-<nav class="stickybar" aria-label={t.sticky.label}>
-  {
-    ordered.map((i, n) => (
-      <a class:list={['sb', { 'sb-primary': n === 0 }]} href={i.href}>
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d={i.icon}
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linejoin="round"
-          />
-        </svg>
-        {i.label}
-      </a>
-    ))
-  }
+<nav class="stickybar" id="stickybar" aria-label={t.sticky.label} data-hidden="true">
+  <a class="sb sb-book" href={`${home}#book`}>{t.actions.requestToBook}</a>
+  <a class="sb sb-zalo" href={links.zalo}
+    ><Icon name="chat" /><span><span class="sb-long">{t.actions.chatOnPrefix}</span>Zalo</span></a
+  >
 </nav>

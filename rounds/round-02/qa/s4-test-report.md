@@ -175,7 +175,7 @@ Kiểm ngoài ca: `prettier`, `eslint`, `tsc` của `product/tests` sạch.
 ### 6.5 TC-L3-074 (b) – BUG-R2-054
 - Ở HEAD `b6153b7`, `BUG-R2-054` còn trong `OPEN`. CI ghi "✘" xanh ở ca này nghĩa là hỏng đúng dự kiến; ca không nằm trong 2 ca đỏ.
 - Trên cây làm việc, BE-C đã bỏ `BUG-R2-054` (S4-12) và `BUG-R2-033` (S4-11) khỏi `OPEN`.
-- QA siết kỳ vọng: `imagesPurgeReason` phải = `retention` (J16 xóa theo hạn lưu – erd `document_image.delete_after`; enum OpenAPI 0.3.3), không chỉ "có giá trị".
+- QA siết kỳ vọng: `imagesPurgeReason` phải = `retention`, không chỉ "có giá trị". **Cập nhật ~22:15 (ORC): kỳ vọng đúng là `unconfirmed`** (ARC bổ sung 3, migration 0062 của BE-C). Trên api có 0062, TC-L3-074 + (b) đạt 2/2.
 - TC-L3-074 + (b): **3/3 đạt** (project `clock`, `--no-deps`).
 - Kèm theo, TC-L3-032 (a)(b) (BUG-R2-033): **2/2 đạt**. BE-C có sửa tiền điều kiện (a): ghi đồng ý P05_CRM cho người đứng tên lần trước. QA đã rà: đúng hợp đồng, vì khóa `id_doc_hmac` chỉ có khi đã đồng ý P05 (erd 0.3.7, SEC F03).
 - BUG-R2-054 và BUG-R2-033 **chưa đóng**. QA chỉ đóng khi CI của commit gộp bản sửa BE-C xanh.
@@ -226,4 +226,23 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
 
 - **Bước QA không làm:** đổi `requested_at` của các yêu cầu duyệt "tương lai" trong DB stack QA để chạy lại TC-NT-052. Lệnh sửa hàng loạt bị chặn quyền nên QA dừng ở đó, không tìm cách khác.
 - **A1/A4:** tạm dừng vì việc khẩn này. Đã có: web phục vụ PWA từ cây làm việc; khảo sát luồng (H12 → H11 → H13 → H17 → H16 → PWA H19/H20). Chưa viết ca.
+
+### 6.9 E2E liền mạch A1 – TC-X-070 (T4, G4, ĐK-S3-7) (~22:05–22:30)
+- **Tệp:** `product/tests/e2e/ui-clock/flow-a1.s4.spec.ts`, project `desk-clock`, một ca một chuỗi.
+- **Nguyên tắc:** mọi bước ghi bấm thật trên giao diện, không `test.fail` giữa chuỗi. Request trình duyệt gửi được ghi lại và phải đúng mã. Kết quả đọc lại bằng API.
+- **Chuỗi** (tiền từ oracle BR-107-01, BR-305-01, BR-411-01, BR-402-01, BR-702-01):
+  1. H12 `qa.sal`: tìm căn trống, báo giá 202 7 đêm, lưu báo giá (cọc 1.600.000), Tạo giữ chỗ. VietQR cọc 1.600.000, nội dung = mã đơn.
+  2. H11 `qa.fd`: Xác nhận cọc đúng giao dịch QR → `confirmed`.
+  3. Ngày đến 11:00, H13: nhập tay giấy tờ; nhận sớm + xin FOC phụ thu (≈ 30 % × 713.000); tiền mặt 3.605.000 trong cùng lệnh nhận phòng → `in_house`.
+  4. H17 `qa.mgr`: duyệt FOC → còn phải thu 0.
+  5. Ngày đi 11:00, H16: minibar 100.000 → VietQR → Đã nhận → Hoàn tất. Kết quả: `checked_out`, `settled`, số bill `F{yy}-nnnnnn`; đã thu 1.600.000 + 3.605.000 + 100.000; căn `VD`.
+  6. PWA (cổng 48082): `qa.hk` Bắt đầu dọn → Dọn xong (`VD` → `CL` → `VC`); `qa.fdl` Kiểm phòng, tick đủ checklist + ảnh → `VI`.
+- **Kết quả:** 3/3 lượt riêng xanh trên api ~21:42, thêm 2/2 trên api ~22:12 (có migration 0062), `--retries=0`, cả tệp chạy 20–24 giây. TC-X-071 (S4-25) đỏ đúng dự kiến, đúng chỗ thiếu nút.
+- **Ghi chú kỹ thuật:**
+  - PWA: giờ trình duyệt chạy từ đúng giờ server (`clock.install`), vì `performedAt` phải trong [server − 24 giờ, + 5 phút] và sau `since` (lượt đầu: 422 `PERFORMED_AT_OUT_OF_RANGE` khi lệch 30 phút).
+  - Hàng đợi PWA giữ 10 giây để hoàn tác: ca tua `fastForward` 12 giây.
+  - Sau mỗi lần tua đồng hồ server, ca lấy phiên mới.
+  - Harness: thêm `STAFF_URL` (`E2E_STAFF_URL`, mặc định cổng WEB_URL + 1).
+- **Môi trường:** lúc ~21:58 container `web` lại bị tạo lại bằng `compose.web-fea.yml` (không có PWA, phục vụ "Skeleton – Round 1" ở 48082). QA đã tạo lại với `compose.web-qa.yml`.
+- **Chưa làm:** A4 (`flow-a4.s4`) và khung `ui/ops.s4`, `ui-clock/ops.s4` – bước tiếp theo.
 

@@ -1,74 +1,70 @@
 ---
-// 9 · Book direct (US-151): chat apps, phone and the shared mailbox – links only, nothing loads until tapped
-// (ADR-014 2.6). No form, no OTA link (US-151 AC3). Card order follows the page language (ESC-020 L2-A).
-import { addressLine, links, site } from '../../content/site';
+// 8 · Contact (concept 6, FB-INV-002 point 4): Zalo is the one filled button; hotline, email and Facebook as text
+// links; WhatsApp · Telegram · Viber only behind "Other channels" (the one place). Links only – nothing loads until
+// tapped (ADR-014 2.6).
+import { links, site } from '../../content/site';
 import type { Copy } from '../../content/types';
+import Icon from '../Icon.astro';
 
 interface Props {
   t: Copy;
 }
 
 const { t } = Astro.props;
-const showMail = Boolean(site.contact.email);
-const cards = t.contact.order.filter((c) => c !== 'mail' || showMail);
 ---
 
 <section class="sec alt" id="contact" aria-labelledby="contact-h">
-  <div class="wrap">
+  <div class="wrap contact">
     <div class="head">
       <p class="label">{t.contact.label}</p>
       <h2 class="h2" id="contact-h">{t.contact.title}</h2>
       <p class="muted">{t.contact.intro}</p>
     </div>
-    <div class="channels">
-      {
-        cards.map((card) =>
-          card === 'intl' ? (
-            <div class="ch">
-              <p class="label">{t.contact.intl.label}</p>
-              <h3 class="h3">{t.contact.intl.title}</h3>
-              <p class="num">{site.phone.international}</p>
-              <p>{t.contact.intl.text}</p>
-              <div class="actions">
-                <a class="btn btn-primary btn-sm" href={links.whatsapp()}>
-                  WhatsApp
-                </a>
-                <a class="btn btn-ghost btn-sm" href={links.telegram}>
-                  Telegram
-                </a>
-                <a class="btn btn-ghost btn-sm" href={links.viber}>
-                  Viber
-                </a>
-              </div>
+    <div class="c-main">
+      <div class="actions">
+        <a class="btn btn-primary" href={links.zalo}><Icon name="chat" />{t.actions.chatOnZalo}</a>
+      </div>
+      <dl class="c-list">
+        <div>
+          <dt>Hotline</dt>
+          <dd><a href={links.tel}>{site.phone.local}</a></dd>
+        </div>
+        {
+          site.contact.email && (
+            <div>
+              <dt>Email</dt>
+              <dd>
+                <a href={links.mail(t.contact.mailSubject)}>{site.contact.email}</a>
+              </dd>
             </div>
-          ) : card === 'zalo' ? (
-            <div class="ch">
-              <p class="label">{t.contact.zalo.label}</p>
-              <h3 class="h3">{t.contact.zalo.title}</h3>
-              <p class="num">{site.phone.local}</p>
-              <p>{t.contact.zalo.text}</p>
-              <div class="actions">
-                <a class="btn btn-primary btn-sm" href={links.zalo}>
-                  {t.contact.zalo.chat}
+          )
+        }
+        {
+          site.facebookUrl && (
+            <div>
+              <dt>Facebook</dt>
+              <dd>
+                <a href={site.facebookUrl} target="_blank" rel="noopener noreferrer">
+                  {t.contact.facebookLink}
+                  <span class="sr">{t.actions.newTab}</span>
                 </a>
-                <a class="btn btn-ghost btn-sm" href={links.tel}>
-                  {t.contact.zalo.call}
-                </a>
-              </div>
+              </dd>
             </div>
-          ) : (
-            <div class="ch ch-mail">
-              <p class="label">{t.contact.mail.label}</p>
-              <h3 class="h3">{t.contact.mail.title}</h3>
-              <p class="num num-sm">
-                <a href={links.mail(t.contact.mail.subject)}>{site.contact.email}</a>
-              </p>
-              <p>{addressLine}</p>
-            </div>
-          ),
-        )
-      }
+          )
+        }
+      </dl>
+      <details class="more">
+        <summary>{t.contact.otherChannels}<Icon name="chevron" /></summary>
+        <div class="more-body">
+          <p>{t.contact.otherText} {site.phone.international}</p>
+          <div class="actions">
+            <a class="btn btn-ghost btn-sm" href={links.whatsapp()}>WhatsApp</a>
+            <a class="btn btn-ghost btn-sm" href={links.telegram}>Telegram</a>
+            <a class="btn btn-ghost btn-sm" href={links.viber}>Viber</a>
+          </div>
+        </div>
+      </details>
+      <p class="privacy">{t.contact.privacy}</p>
     </div>
-    <p class="privacy">{t.contact.privacy}</p>
   </div>
 </section>

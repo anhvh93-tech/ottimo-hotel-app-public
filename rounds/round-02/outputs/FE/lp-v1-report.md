@@ -1,8 +1,70 @@
 # FE-LP – Báo cáo dựng LP-v1 (landing, luồng riêng – cổng LP-v1)
 
 - Vai: FE (luồng FE-LP) | Round 2 – song song Sprint 4 | Ngày: 17/10/2026
-- Giao việc: ORC 17/10 – dựng LP-v1 theo ADR-014 + concept/mock v1.1; CI build + test; Playwright 320/375/1280 × EN/VI. Cập nhật giữa chừng (ORC, FB-INV-002): **giữ nguyên nội dung và các section** (UXD làm mock v1.2), làm tiếp phần hạ tầng, **chừa chỗ** cho form "Yêu cầu đặt phòng".
+- **Đợt 2 (mới nhất – mục 0):** ORC 17/10 – bước Sản xuất đợt 2: dựng lại nội dung + bố cục theo **concept/mock v1.2.1** (FB-INV-002); form "Request to book" theo mock nhưng cờ `features.bookingRequest` vẫn `false`; TC-LP-010 phải đạt; giữ mọi bộ kiểm. Cập nhật giữa chừng: ARC chốt hợp đồng 0.3.7 bổ sung 2 (`children`/`infants`, `stayType` + `months`, `promise`, `minDelaySeconds`, form trong `#book`).
+- Đợt 1 (mục 1–7, giữ làm lịch sử): dựng LP-v1 theo ADR-014 + mock v1.1, CI, Playwright.
 - Trạng thái: **build xanh, test xanh** trên máy FE. Chưa commit (theo rào chắn). Không đụng mã Desk/API/contract, không đụng demo stack.
+
+## 0. Đợt 2 – landing theo mock v1.2.1
+
+### 0.1 Đã làm
+- **Nội dung, bố cục (concept 3.1, 3.3, 6):** 8 mục Hero → Why ("Stay a night, or a season.", 2 thẻ ngang hàng) → Rooms (4 hạng, vuốt ngang trên điện thoại, lưới 2 × 2 từ 768 px, "Request this room") → Amenities (4 nhóm) → Location (địa chỉ – chỗ duy nhất, 6 điểm) → Book (`#book`) → FAQ (4 câu) → Contact. Định vị boutique stay, không nhắc số phòng, không "apartment/căn"; chữ EN dẫn dắt, VI hỗ trợ, đúng nguyên văn mock (cả alt ảnh). 9 ảnh của concept 10 (bỏ 9 ảnh không dùng khỏi app).
+- **Thứ bậc nút (N2):** hero = "Request to book" (đặc) + "Chat on Zalo" (viền); thanh đáy điện thoại cùng thứ tự, **ẩn** khi nút hero, `#book`, `#contact` hoặc chân trang trên màn hình (IntersectionObserver), không JS thì luôn hiện (stylesheet trong `<noscript>`, không CSS nội tuyến). Header từ 768 px: link chữ "Chat on Zalo" + nút viền "Request to book". Zalo là nút đặc chỉ ở Liên hệ. WhatsApp · Telegram · Viber chỉ trong "Other channels" thu gọn. Chân trang một dòng Zalo · Facebook · Email.
+- **Form "Request to book" (concept 5, SEC UXD-04…08), cờ vẫn tắt:**
+  - Production (`dist/`): `#book` hiện khối "Send your dates on Zalo" + nút Zalo (đặc) + nút Gọi – **không có form, không có mã form** trong bản dựng (alias `@booking-form` → `NoBookingForm.astro`).
+  - Giao diện form theo mock đã dựng (`BookingForm.astro`, `booking-form.ts`): theo đêm/theo tháng, 3 ô đếm người, hạng phòng + dòng gợi ý, sức chứa (không tính trẻ < 6), một cách liên hệ, ghi chú (đếm ký tự, chặn số thẻ), ô bẫy, ô đồng ý A.1 + A.2 + link Privacy, tóm tắt lỗi nhận focus, trang cảm ơn đọc `promise` (không `replyBy`), mã 4 + 4 bằng khoảng cách CSS. `<form hidden>` không `action`.
+  - **Tên khóa theo hợp đồng** (kiểu sinh từ OpenAPI, `packages/api-client/src/generated/openapi.ts`): `children` (6–11), `infants` (< 6), `stayType` + `departure` | `months` (`null` = "Not sure yet"), `phone` | `email` theo `preferredChannel`, `roomType`, `guestName`, `note`, `website`, `utm`, `refHost`, `landingPath`.
+  - Transport: `previewTransport` (không gửi) cho bản duyệt; `apiTransport` theo hợp đồng – token khi khách chạm form, chờ `minDelaySeconds` theo đồng hồ trình duyệt, POST JSON + `Idempotency-Key`, `FORM_TOKEN_INVALID` → token mới, chờ lại, gửi lại **một** lần; 503/429/404 → câu mời Zalo – có test, **chưa nối** (chờ endpoint BE-D, `PUBLIC_PROPERTY_SLUG`, `PRIVACY_NOTICE_VERSION`, trang `/privacy/`). Bật cờ khi chưa có transport → build dừng.
+  - Bản duyệt form: `pnpm build:booking-preview` → `dist-booking-preview/` (noindex, không deploy) để UXD/QA xem và cho Playwright; nút gửi kiểm lỗi rồi báo "Preview: this request was not sent".
+- **SEO/JSON-LD:** title/description theo mock; JSON-LD bỏ `amenityFeature`, giữ `sameAs` Facebook, không số phòng.
+- **Ngân sách byte:** chuyển tên đầy đủ của ngôn ngữ ở nút EN/VI sang `aria-label` (trước là chữ ẩn) → trang EN không tải tệp font tiếng Việt 500 (−12 KB lúc mở trang).
+
+### 0.2 Kết quả kiểm (đợt 2, máy FE)
+- `turbo run build test typecheck --filter=@ottimo/landing-web --filter=@ottimo/tests --force`: 5/5 xanh – Vitest **140/140** (nguồn + kiểm cả `dist/` và `dist-booking-preview/` + 7 ca "site hỏng" + logic/transport form), `astro check` 0 lỗi, `tsc` tests 0 lỗi.
+- ESLint, Prettier sạch trên phần landing; `pnpm audit --audit-level=high` exit 0.
+- Playwright `test:e2e:landing`: **37/37 xanh** (lần chạy cuối với `CI=1` 27 ca cũ + 10 ca mới):
+  - 320/375/768/1280 × EN/VI: axe 0 vi phạm (mở cả FAQ + "Other channels" + menu), không cuộn ngang, 1 H1, 0 lỗi console/CSP, 0 request ra ngoài; glyph chỉ Lora/Be Vietnam Pro; 404; link chỉ thuộc danh sách cho phép; quy tắc ngôn ngữ (6 ca).
+  - **TC-LP-010 (US-151/AC7) đạt** – đã xóa `US-151/AC7` khỏi `OPEN` trong `tests/e2e/support/known-bugs.ts` (giữ nguyên mục `S4-25` của luồng khác).
+  - Mới: 8 mục đúng thứ tự + `#book` là khối Zalo/Gọi + kênh khác thu gọn + Facebook 2 chỗ + địa chỉ 1 chỗ (EN, VI); header Zalo từ 768 px, không nút đặc ở header; thanh đáy ẩn ở hero/Book/Contact/chân trang, hiện ở Rooms/Location; không JS: thanh hiện, không form; form (bản duyệt): gửi trống → tóm tắt 5 lỗi nhận focus, axe 0 (375, 1280); sức chứa, theo tháng, email, chọn sẵn hạng; hợp lệ → **không gửi**, 0 POST; không JS → form ẩn, không `action`.
+  - Ngân sách (concept 12.2, KB = 1024, byte thân đã nén):
+
+| Trường hợp | Hero (trần) | Lúc mở (trần) | Cuộn hết (trần) |
+|---|---|---|---|
+| 375 EN DPR 1 | 16,2 (20) | 195,4 (250) | 227,3 (350) |
+| 375 EN DPR 2 | 48,2 (50) | 306,9 (320) | 413,0 (600) |
+| 375 EN DPR 3 | 48,2 (50) | 306,9 (400) | 413,0 (700) |
+| 375 VI DPR 2 | 48,2 (50) | 336,3 (390) | 442,3 (670) |
+| 375 VI DPR 3 | 48,2 (50) | 336,3 (470) | 442,3 (770) |
+| 1280 EN DPR 1 | 48,2 (50) | 295,0 (400) | 326,9 (600) |
+| 1280 EN DPR 2 | 115,8 (120) | 502,7 (700) | 608,7 (1.100) |
+
+- Dung lượng bản dựng: `dist/` 3,0 MB; HTML EN 7,5 KB gzip, VI 7,9 KB; CSS 6,0 KB gzip; JS 1,1 KB gzip (bản duyệt thêm script form 5,9 KB gzip).
+- Ảnh chụp từ bản dựng: `rounds/round-02/outputs/FE/lp-v1-shots/mobile-375-en-top.png`, `desktop-1280-en-top.png`.
+
+### 0.3 Lệch so với mock v1.2.1 (UXD/ARC xem)
+1. **Khối "form tắt"** thêm nút viền **"Call 08.4444.0909"** cạnh "Chat on Zalo" (mock chỉ có Zalo) – theo giao việc ORC "khối Zalo/gọi"; khách nước ngoài chưa có Zalo vẫn có lối ngay tại `#book`.
+2. **Meta description** giữ nguyên văn mock: EN 180, VI 193 ký tự – ADR-014 mục 5 đặt ≤ 160. Kiểm dist nới tạm lên 200; đề nghị UXD rút gọn.
+3. **Link "Privacy notice" ở chân trang** chưa hiện (cờ `features.privacyPage = false`) – trang `/privacy/` chưa có (SEC soạn, luật sư duyệt); hiện link sẽ ra 404. Trong form (chỉ bản duyệt) link vẫn có.
+4. **FAQ chống giả danh:** `{receivingAccountHolder}` chưa có tên (ESC-008) → câu thứ 3 dùng bản v1.1 "We never change bank details by message." / "OTTIMO không bao giờ đổi số tài khoản qua tin nhắn."; khi có tên trong `site.json` thì tự đổi sang câu SEC chốt.
+5. **Chữ FE tự thêm (UXD duyệt):** nhãn trợ năng VI ("Điều hướng chính", "Thao tác nhanh", "Liên kết OTTIMO"); câu `promise = call_now` ("Arriving tonight? Calling is fastest. We also reply within {n} minutes.") – hợp đồng có 3 kiểu, mock chỉ có 2; câu bản duyệt "Preview: this request was not sent…".
+6. Tiêu đề thư điền sẵn ở link email (US-151 AC1) – mock không có.
+7. Các số trên trang (07:00–22:00, 1 giờ, 09:00, 30%) vẫn viết trong chuỗi như mock; test so khớp với `site.json` `booking` (concept 13 muốn đọc tham số – khi có API tham số công khai thì thay).
+8. Ô bẫy thêm `data-bwignore`, `data-form-type="other"` (Bitwarden, Dashlane) ngoài `data-1p-ignore`, `data-lpignore` của mock (SEC UXD-05 "FE-LP tra đủ danh sách").
+9. Không tải JetBrains Mono: mã yêu cầu chỉ hiện sau khi gửi thành công – chưa xảy ra ở bản nào; thêm font khi nối transport.
+
+### 0.4 Tệp tạo/sửa (đợt 2)
+- `product/apps/landing-web/`: `src/content/{types,en,vi,site}.ts`, `site.json` (`booking`, `paymentReceivingAccountHolder`, `features.privacyPage`); `src/components/{Header,Footer,StickyBar,Picture,Icon,Rich,BookingForm,NoBookingForm,BookingRequestSlot,HomePage}.astro`, `src/components/home/{Hero,Why,Rooms,Amenities,Location,Book,Faq,Contact}.astro` (xóa `About`, `Stay`, `Arrow`); `src/layouts/Base.astro`; `src/lib/{booking-request,rich,seo}.ts`; `src/scripts/{main,booking-form,booking-logic,booking-transport,booking-strings}.ts`, `booking.test.ts`; `src/styles/landing.css` (port v1.2.1), `nojs.css`, `brand.test.ts`; `src/content/copy.test.ts`; `src/checks/{dist,dist-checks}.test.ts`; `scripts/{dist-checks,check-dist}.mjs`; `astro.config.ts` (alias, `outDir`), `tsconfig.json` (`paths`), `package.json` (`build:booking-preview`, `test`), `turbo.json`, `.gitignore`, `README.md`; `src/assets/photos/` còn 9 ảnh × 6 tệp.
+- `product/tests/e2e/landing/`: `sections.landing.spec.ts`, `form.landing.spec.ts` (mới); `playwright.config.ts` (2 server), `helpers.ts` (`FORM_URL`), `layout.landing.spec.ts` (TC-LP-005 `#faq-long`, ghi chú TC-LP-010), `lang.landing.spec.ts` (nút header viền).
+- `product/tests/e2e/support/known-bugs.ts`: xóa `US-151/AC7` khỏi `OPEN`.
+- `.github/workflows/ci.yml` (đọc lại trước khi sửa): job `landing-e2e` dựng thêm bản duyệt form.
+- `product/eslint.config.js`, `product/.prettierignore`: bỏ qua `apps/landing-web/dist-booking-preview`.
+- `rounds/round-02/outputs/FE/lp-v1-shots/` (2 ảnh), báo cáo này.
+
+### 0.5 Còn chờ
+- Nối transport khi BE-D xong endpoint (`getPublicFormToken`, `createWebsiteBookingRequest`) + `PUBLIC_PROPERTY_SLUG`, `PRIVACY_NOTICE_VERSION`, trang `/privacy/` (SEC) – rồi mới được bật cờ (US-155 AC4, ESC-001).
+- UXD: chuỗi `promise` 3 kiểu (ARC 13.5), description ≤ 160, duyệt các mục 0.3.
+- QA: gắn mã TC cho 10 ca mới (tiêu đề bắt đầu "LP-v1.2.1"); ca ô ngày theo ngôn ngữ máy (Android/iOS – concept 13).
+- OPS (như đợt 1): site Caddy, `/book/` → 301 `/#book`, `/404.html`, chép `dist` vào image, `LANDING_INDEXABLE`; job `landing-e2e` đã có trong CI.
 
 ## 1. Đã làm gì
 

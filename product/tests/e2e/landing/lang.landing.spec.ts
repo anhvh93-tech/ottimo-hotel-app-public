@@ -78,10 +78,10 @@ test('TC-LP-008 (b) English browser on /vi/: strip suggests English; choosing EN
   const strip = page.locator('[data-suggest="en"]');
   await expect(strip).toBeVisible();
   await expect(strip.locator('a')).toHaveAttribute('href', '/');
-  // Header "Book direct" stays clickable (strip is at the bottom)
+  // Header "Request to book" stays clickable (strip is at the bottom)
   const [s, book] = await Promise.all([
     strip.boundingBox(),
-    page.locator('.site-h .btn-primary').boundingBox(),
+    page.locator('.site-h a.only-d[href$="#book"]').boundingBox(),
   ]);
   expect(book!.y + book!.height).toBeLessThan(s!.y);
 

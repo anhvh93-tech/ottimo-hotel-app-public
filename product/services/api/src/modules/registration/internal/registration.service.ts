@@ -163,9 +163,9 @@ const POLICY_OF: Record<ImageDeleteReason, string> = {
 };
 /**
  * `Registration.imagesPurgeReason` of a purge (contract enum = DB CHECK `registration_purge_reason_check`).
- * S4-12 / BUG-R2-054: a declaration never confirmed (SR-RET-02 `unconfirmed`) loses its images at a deadline –
- * shown as `retention` (the keeping time ran out) [GIẢ ĐỊNH BE-C – ARC: the enum has no `unconfirmed`].
- * `replaced` / `party_removed` remove one person's document, not the declaration's images – no summary.
+ * S4-12 / BUG-R2-054: a declaration never confirmed loses its images at a deadline (SR-RET-02) → `unconfirmed`
+ * (OpenAPI 0.3.7 bổ sung 3 #8, migration 0062). `replaced` / `party_removed` remove one person's document, not
+ * the declaration's images – no summary.
  */
 const SUMMARY_OF: Partial<Record<ImageDeleteReason, string>> = {
   retention: 'retention',
@@ -173,7 +173,7 @@ const SUMMARY_OF: Partial<Record<ImageDeleteReason, string>> = {
   consent_withdrawn: 'consent_withdrawn',
   guest_request: 'guest_request',
   void: 'void',
-  unconfirmed: 'retention',
+  unconfirmed: 'unconfirmed',
 };
 
 const OPEN_STATUSES: readonly string[] = ['none', 'pre', 'partial', 'review'];

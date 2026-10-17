@@ -458,6 +458,21 @@ Chạy trên stack `ottimo-qa-s4`: api bản QA (cây làm việc + patch B-6). 
 
 ---
 
+## Phần FE-A – đợt 8: BUG-R2-107 – H17 đọc đủ hàng chờ duyệt (17/10/2026 tối)
+
+- `packages/api-client/src/endpoints.ts`: `listApprovalRequests(P, status?, cursor?)` – thêm `cursor` (hợp đồng 0.3.7, `page.nextCursor`).
+- `apps/admin-web/src/app/approvals.ts` (mới) – hàm `listApprovals(propertyId, statuses, { find?, maxPages? })`:
+  - Lọc `status` ở server, đọc hết các trang theo `nextCursor` (chặn an toàn 50 trang × 100).
+  - Gộp các trạng thái, bỏ trùng, xếp mới nhất trước.
+  - Có `find` thì dừng ở bản ghi khớp đầu tiên.
+- H17 (`ApprovalsPage.tsx`) đọc `pending` + `escalated` bằng hàm này, không còn "100 bản mới nhất mọi trạng thái rồi lọc ở máy". H13 (`CheckInPage.tsx`, tìm yêu cầu buồng chưa sẵn sàng đã duyệt) cũng dùng hàm này, tối đa 10 trang.
+- Mock `stay.ts`: danh sách yêu cầu duyệt trả theo trang (`limit`, `cursor`, `page.nextCursor`) như server.
+- Unit: 130 yêu cầu (10 đã duyệt + 120 chờ duyệt); yêu cầu cần thấy là bản chờ duyệt thứ 120. Kết quả: thẻ hiện ra, mọi lần gọi đều có `status`, có lần đọc trang 2 (`cursor=100`). admin-web 310/310, api-client 30/30, `tsc`/eslint xanh.
+- E2E trên stack `ottimo-qa-s4` (hơn 700 yêu cầu chờ duyệt): TC-NT-052 3/3 đạt, TC-L3-082 3/3 đạt. Bản build trước khi sửa tái hiện đúng lỗi QA báo (TC-NT-052 0/3).
+- Cùng kiểu lỗi, chưa sửa vì không thuộc vùng FE-A: `pages/money/MoneyPage.tsx:498` (hàng chờ hoàn) và `pages/dashboard/useDashboard.ts:75` (khối Cần duyệt) vẫn đọc 1 trang mọi trạng thái. Có thể dùng `listApprovals` của `app/approvals.ts`.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).
@@ -741,3 +756,25 @@ Sửa:
   - mã: `pages/reservations/ReservationDialogs.tsx` (chỉ `DepositNoticeDialog`), `pages/ops/{opsLabels.ts, GuestRequests.tsx}`, `app/attention.ts`, `pages/dashboard/parts.tsx`, `session/nav.ts`;
   - test: `__tests__/{nav, s4-feb-desk, s4-feb-dashboard}.test.tsx`;
   - tài liệu: `rounds/round-02/responses/s4-FE.md` (tệp mới), `01-decisions/decision-log.md`.
+
+---
+
+## Phần FE-B – đợt 6: BUG-R2-107 – hàng chờ hoàn tiền và khối "Cần duyệt" đọc đủ (17/10/2026 tối)
+
+Hai chỗ cùng kiểu lỗi FE-A đã nêu ở đợt 8 nay dùng `listApprovals` (`app/approvals.ts`): lọc `status` ở server, đọc theo `nextCursor`.
+
+- **Hàng chờ hoàn tiền** (`pages/money/MoneyPage.tsx`, `Refunds`):
+  - Đọc `pending`, `escalated`, `approved`, mỗi trạng thái đọc hết trang (chặn an toàn 50 trang của hàm chung), rồi chỉ giữ `type = refund`.
+  - Hiển thị không đổi: yêu cầu đã duyệt vẫn hiện, kể cả khi đã chi đủ.
+  - Lưu ý: API chưa lọc theo `type`, nên lượt đọc `approved` gồm cả FOC/giảm giá đã duyệt. Số lượt đọc tăng theo lịch sử, khoảng vài trang/năm ở 10 căn. Đề xuất ARC (R3): thêm `type=refund` hoặc bộ lọc "hoàn chưa chi xong" ở `listApprovalRequests`.
+- **Khối "Cần duyệt" H24 Tổng quan** (`pages/dashboard/useDashboard.ts`, `pages/OverviewPage.tsx`):
+  - `useDashboard(…, { approvals: <danh sách trạng thái> })`: OWN/MGR/FDL đọc `pending` + `escalated`. Biến thể FD (có trong mã, chưa bật ở R2) đọc cả 5 trạng thái, lọc yêu cầu của chính mình, giữ 5 bản mới nhất.
+  - **Giới hạn:** khối này là bản tóm tắt nên đọc tối đa `OVERVIEW_APPROVAL_PAGES = 3` trang (300 bản) mỗi trạng thái. Nếu còn trang sau, tiêu đề hiện "Cần duyệt (300+)". Hàng đầy đủ nằm ở H17 (đọc hết trang). 300 yêu cầu chờ ở 10 căn là dấu hiệu có sự cố khác.
+  - Hôm nay (H03) không đọc yêu cầu duyệt (chỉ đọc `/attention` của server), nên không phải sửa.
+- **Tệp dùng chung `app/approvals.ts` (FE-A):** thêm tùy chọn `onCapped(status)`, gọi khi `maxPages` dừng lúc còn trang. Thay đổi chỉ bổ sung, H17/H13 không đổi hành vi.
+- **Unit** `__tests__/s4-feb-approvals-paging.test.tsx`:
+  - Hoàn tiền: 150 FOC đã duyệt (mới hơn) + 1 yêu cầu hoàn chờ duyệt cũ hơn → thẻ hoàn 654.000 vẫn hiện. Mọi lần gọi có `status`, có lần đọc `approved` trang 2 (`cursor=100`).
+  - Tổng quan MGR: 10 đã duyệt + 120 chờ duyệt → "Cần duyệt (121)", hiện bản cũ nhất (777.000). Có lần đọc `cursor=100`.
+  - Tổng quan OWN: 320 chờ duyệt → "Cần duyệt (300+)", đúng 3 lượt đọc `pending`.
+- **Kiểm:** admin-web vitest **313/313**; `tsc` 0 lỗi; eslint và prettier xanh trên các tệp đã sửa.
+- **File:** `apps/admin-web/src/{app/approvals.ts, pages/money/MoneyPage.tsx, pages/dashboard/useDashboard.ts, pages/OverviewPage.tsx, __tests__/s4-feb-approvals-paging.test.tsx (mới)}`.

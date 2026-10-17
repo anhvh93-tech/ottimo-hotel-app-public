@@ -2,8 +2,9 @@
 node_modules
 dist
 .turbo
-# Astro generated types (apps/landing-web)
+# Astro generated types + booking-form review build (apps/landing-web)
 .astro
+apps/landing-web/dist-booking-preview
 coverage
 pnpm-lock.yaml
 # Owned by other roles, not formatted by CI in R1 (docs/design are Vietnamese prose & prototypes)

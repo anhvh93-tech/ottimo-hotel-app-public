@@ -52,7 +52,22 @@ export const siteSchema = z.object({
     // "Yêu cầu đặt phòng" form → Desk, source website (FB-INV-002 point 3, ESC-020 L7, US-155).
     // Off until the endpoint (ARC/BE) and US-155 AC4 (SEC C-2/C-3, ESC-001) are done – see lib/booking-request.ts.
     bookingRequest: z.boolean(),
+    // Footer "Privacy notice" link – on once SEC publishes /privacy/ and /vi/privacy/ (SEC C-3).
+    privacyPage: z.boolean(),
   }),
+  // What the page promises (BR-912 (4) public promise, BR-811 front desk hours, BR-112 window, BR-305 deposit).
+  // copy.test.ts checks that the EN/VI copy states exactly these numbers.
+  booking: z.object({
+    frontDeskOpen: time,
+    frontDeskClose: time,
+    promiseMinutes: z.number().int().positive(),
+    promiseNextMorningBy: time,
+    windowDays: z.number().int().positive(),
+    shortMaxNights: z.number().int().positive(),
+    depositPercent: z.number().int().min(0).max(100),
+  }),
+  // Name of the deposit account holder (ESC-008) for the anti-impersonation answer (SEC UXD-06); empty = not yet.
+  paymentReceivingAccountHolder: z.string(),
 });
 
 export type Site = z.infer<typeof siteSchema>;

@@ -1,3 +1,5 @@
 # Astro generated types and cache (astro sync / check / build)
 .astro/
 dist/
+# Review build of the booking form (never deployed)
+dist-booking-preview/

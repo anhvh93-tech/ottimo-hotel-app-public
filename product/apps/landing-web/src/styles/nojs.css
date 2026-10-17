@@ -1,0 +1,10 @@
+/* Loaded only inside <noscript> (layouts/Base.astro): without JavaScript the phone action bar never hides, so it is
+   shown from the start and the footer keeps room for it (concept 3.3). `html` prefix: this file comes before the main
+   stylesheet in <head>, so it needs the higher specificity. */
+html .stickybar[data-hidden='true'] {
+  transform: none;
+  visibility: visible;
+}
+html .site-f {
+  padding-bottom: calc(var(--s6) + var(--bar-h) + env(safe-area-inset-bottom));
+}

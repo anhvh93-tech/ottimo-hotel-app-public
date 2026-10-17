@@ -818,6 +818,52 @@ describe('#6 expectedVersion khi duyệt / từ chối hoàn tiền (0.3.7 B-6 �
       )
     ).closest('li')!;
 
+  it('BUG-R2-107: the queue is read whole – status filtered by the server, every page (120 pending after 10 decided)', async () => {
+    const kim = rsvOf('Kim Seo-yeon');
+    const at = (i: number) => new Date(Date.UTC(2026, 9, 1, 0, 0, 0) - i * 60_000).toISOString();
+    const req = (i: number, status: 'pending' | 'approved', amountVnd: number) => ({
+      id: `0192a1b0-0000-7000-8000-${String(300_000 + i).padStart(12, '0')}`,
+      type: 'foc',
+      status,
+      reservationCode: kim.code,
+      amountVnd,
+      reasonCode: 'regular_vip',
+      requestedBy: 'Hạnh',
+      requestedByUserId: 'someone-else',
+      requestedAt: at(i),
+    });
+    // Newest first: 10 decided requests, then 120 pending – the last (oldest) pending one is #130 overall,
+    // #120 among the pending ones (past the first page of 100).
+    for (let i = 0; i < 10; i++) mockControl.stay.approvals.push(req(i, 'approved', 10_000));
+    for (let i = 10; i < 129; i++) mockControl.stay.approvals.push(req(i, 'pending', 20_000));
+    mockControl.stay.approvals.push(req(129, 'pending', 777_000));
+    const urls: string[] = [];
+    const on = ({ request }: { request: Request }) => {
+      if (request.method === 'GET' && /\/approval-requests(\?|$)/.test(request.url))
+        urls.push(request.url);
+    };
+    server.events.on('request:start', on);
+    renderApp('/approvals', 'qa.mgr');
+    expect(
+      await screen.findByText(
+        (_, el) => el?.tagName === 'B' && !!el.textContent?.endsWith(' · 777.000'),
+        undefined,
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    server.events.removeListener('request:start', on);
+    const qs = urls.map((u) => new URL(u).searchParams);
+    // Filtered on the server (pending, escalated) – never "all statuses, filter here".
+    expect(qs.every((q) => ['pending', 'escalated'].includes(q.get('status') ?? ''))).toBe(true);
+    expect(qs.some((q) => q.get('status') === 'pending' && q.get('cursor') === '100')).toBe(true);
+    // Decided requests are not in the queue.
+    expect(
+      screen.queryAllByText(
+        (_, el) => el?.tagName === 'B' && !!el.textContent?.endsWith(' · 10.000'),
+      ),
+    ).toHaveLength(0);
+  });
+
   it('approve sends the version on screen; a payout changed meanwhile → 412, reload, decide again', async () => {
     const a = pendingRefund();
     const cap = captureDecisions();

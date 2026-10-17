@@ -12,7 +12,12 @@ const MAX_PAGES = 50;
 export async function listApprovals(
   propertyId: string,
   statuses: readonly ApprovalStatus[],
-  opts: { find?: (a: ApprovalRequest) => boolean; maxPages?: number } = {},
+  opts: {
+    find?: (a: ApprovalRequest) => boolean;
+    maxPages?: number;
+    /** Called when `maxPages` stopped the read of a status with pages left (a capped summary, H24). */
+    onCapped?: (status: ApprovalStatus) => void;
+  } = {},
 ): Promise<ApprovalRequest[]> {
   const seen = new Map<string, ApprovalRequest>();
   for (const status of statuses) {
@@ -26,6 +31,7 @@ export async function listApprovals(
       cursor = res.page?.nextCursor ?? undefined;
       if (!cursor) break;
     }
+    if (cursor) opts.onCapped?.(status);
   }
   if (opts.find) return [];
   // Newest first, as the server sorts each status.

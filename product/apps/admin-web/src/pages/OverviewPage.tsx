@@ -1,4 +1,4 @@
-import type { ApprovalRequest, Role } from '@ottimo/api-client';
+import type { ApprovalRequest, ApprovalStatus, Role } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon } from '@ottimo/ui';
 import { Link } from 'react-router-dom';
@@ -20,6 +20,16 @@ const STATUS_TONE = {
   rejected: 'bad',
   cancelled: 'neutral',
 } as const;
+
+/**
+ * Statuses read for "Cần duyệt", filtered on the server (BUG-R2-107). FD (variant ready, menu off in R2): the
+ * status of what they sent – every status, newest 5 kept.
+ */
+const APPROVAL_STATUSES: Record<Variant, readonly ApprovalStatus[]> = {
+  mgmt: ['pending', 'escalated'],
+  lead: ['pending', 'escalated'],
+  desk: ['pending', 'escalated', 'approved', 'rejected', 'cancelled'],
+};
 
 /** H24 24.2 – what the "Cần duyệt" block holds for each role. */
 export function overviewVariant(roles: Role[]): Variant {
@@ -44,7 +54,7 @@ export function OverviewPage() {
   const propertyId = usePropertyId();
   const { roles, me } = useSession();
   const variant = overviewVariant(roles);
-  const d = useDashboard(propertyId, { approvals: true });
+  const d = useDashboard(propertyId, { approvals: APPROVAL_STATUSES[variant] });
   const k = d.kpi.data;
   const all = d.approvals!;
   // Own request: `requestedById` (contract-ahead R3, used only when present), else the display name.
@@ -52,15 +62,15 @@ export function OverviewPage() {
     a.requestedById ? a.requestedById === me?.id : a.requestedBy === me?.displayName;
   const rows = all.data
     ? variant === 'desk'
-      ? all.data
+      ? all.data.rows
           .filter(own)
           .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
           .slice(0, 5)
-      : all.data.filter(
-          (a) => ['pending', 'escalated'].includes(a.status) && (variant === 'mgmt' || !own(a)),
-        )
+      : all.data.rows.filter((a) => variant === 'mgmt' || !own(a))
     : undefined;
   const approvals = { ...all, data: rows } as ResourceState<ApprovalRequest[]>;
+  // Past the read cap (OVERVIEW_APPROVAL_PAGES) the count says "n+" – the whole queue is H17.
+  const waiting = `${rows?.length ?? 0}${variant !== 'desk' && all.data?.more ? '+' : ''}`;
 
   return (
     <>
@@ -76,7 +86,7 @@ export function OverviewPage() {
               <h2 className="grp-h" id="ov-appr">
                 {variant === 'desk'
                   ? t('ov.my_requests_n', { n: rows?.length ?? 0 })
-                  : t('ov.approvals_n', { n: rows?.length ?? 0 })}
+                  : t('ov.approvals_n', { n: waiting })}
               </h2>
               <Approvals state={approvals} onRetry={d.reload.approvals} mine={variant === 'desk'} />
             </section>

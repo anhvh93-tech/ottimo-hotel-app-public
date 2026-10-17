@@ -1,5 +1,5 @@
 ---
-// <picture> exactly as mock v1.1 / concept 8.3: AVIF then WebP; phones (< 768 px) never get a file wider than
+// <picture> exactly as mock v1.2.1 / concept 10: AVIF then WebP; phones (< 768 px) never get a file wider than
 // 960 px whatever the DPR (budget concept 11.2); every <img> has width/height (no layout shift). Thumbnails only
 // offer 480/960. The hero is eager + fetchpriority=high and has matching <link rel=preload> in the layout.
 import { photo, srcset } from '../content/photos';
@@ -15,6 +15,8 @@ interface Props {
   eager?: boolean;
   class?: string;
   imgClass?: string;
+  /** Alt text of the page copy (falls back to the photo manifest). */
+  alt?: string;
 }
 
 const {
@@ -26,6 +28,7 @@ const {
   eager = false,
   class: figureClass,
   imgClass,
+  alt,
 } = Astro.props;
 const p = photo(id);
 const phoneWidths = p.widths.filter((w) => w <= 960);
@@ -63,7 +66,7 @@ const fallback = p.url(variant === 'cover' ? 960 : 480, 'webp');
       src={fallback}
       width={p.width}
       height={p.height}
-      alt={p.alt[lang]}
+      alt={alt ?? p.alt[lang]}
       class={imgClass}
       decoding="async"
       loading={eager ? undefined : 'lazy'}
