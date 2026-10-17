@@ -12,6 +12,8 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 
 **Cập nhật 17/10/2026 – SEC kiểm lại trên `6af7173`: GỠ CHẶN cổng QC Sprint 3** (có điều kiện). SEC-BE-32 Verified; SEC-OPS-03 Verified phần cấu hình + CI, chờ smoke staging; Major b (A-38) của SEC-BE-32 tái hiện được trên PostgreSQL thật → mở thẻ **FB-R2-SEC-BE-53** (Major). Chi tiết và điều kiện: mục 9.
 
+**Cập nhật 17/10/2026 (lần 2) – SEC kiểm lại vòng sửa 9b `ea29582` (FB-R2-SEC-BE-53 / BUG-R2-083):** phần BE (phương án dự phòng) **Verified**. SEC-G1 **chưa đạt** đầu–cuối: Desk chưa gắn được giấy tờ vào người, nên giấy tờ của người còn ở vẫn bị xóa sau 24 giờ → thẻ mới **FB-R2-SEC-FE-07** (Major), thêm BE-54…58 (Minor/Suggestion). SEC không chặn cổng Sprint 3. Chi tiết: mục 9.5.
+
 ---
 
 ## 1. Các dòng [CHẶN] của checklist
@@ -467,7 +469,10 @@ Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 
   - trước cổng QC Sprint 4 (Major phải sửa trong round);
   - **và** trước khi có dữ liệu khách thật (gửi link check-in cho khách thật, hoặc nhập giấy tờ thật trên staging/production), mốc nào đến trước thì áp mốc đó.
   - **Không** cần sửa trước buổi INV bấm thử demo localhost (dữ liệu giả).
-- Trạng thái: Open
+- **Kiểm lại 17/10 (`ea29582`, vòng 9b – phương án dự phòng):** phần BE **Verified 17/10 (ea29582)** – R1–R6 và Major a đo lại trên PostgreSQL thật, DB riêng mới `ottimo_verify_sec_9b`, kết quả đúng như BE-C mô tả (mục 9.5). **Còn thiếu** để đạt SEC-G1:
+  - FE + UXD: Desk gắn giấy tờ khách tải qua link vào người còn ở, hiện hạn chờ trên từng giấy tờ và mục "Cần chú ý" → **FB-R2-SEC-FE-07** (Major). Chưa có phần này thì người còn ở vẫn mất giấy tờ sau 24 giờ;
+  - phương án chính (đề xuất 2–5: `guestUploadPersonIndex` + hộp chọn ô + dồn số ô) – dời trước cổng QC Sprint 4 (S4-39).
+- Trạng thái: Open – BE dự phòng Verified 17/10 (`ea29582`); chờ FB-R2-SEC-FE-07 và phương án chính
 
 ### 9.4 Kết luận của SEC (quyền chặn – protocol mục 1)
 
@@ -475,9 +480,147 @@ Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 
 
 | # | Điều kiện | Ai | Hạn |
 |---|---|---|---|
-| SEC-G1 | Sửa FB-R2-SEC-BE-53 theo đề xuất của thẻ, có test PostgreSQL thật; SEC kiểm lại | BE-C, BE-A, ARC (hợp đồng API), FE/UXD (hộp xác nhận) | Trước cổng QC Sprint 4 **và** trước dữ liệu khách thật (mốc nào trước) |
+| SEC-G1 | Sửa FB-R2-SEC-BE-53 theo đề xuất của thẻ, có test PostgreSQL thật; SEC kiểm lại. **Cập nhật 17/10 (`ea29582`, mục 9.5):** phần BE dự phòng **Verified**. Còn lại: (a) **FB-R2-SEC-FE-07** + test E2E-UI bấm thật (bỏ người → gắn Khách n vào người còn ở trên Desk → J16 quá hạn → giấy tờ còn) – **trước dữ liệu khách thật** và để đóng BUG-R2-083; (b) phương án chính (`guestUploadPersonIndex`, hộp chọn ô, dồn số ô) – trước cổng QC Sprint 4 | BE-C, BE-A, ARC (hợp đồng API), FE/UXD (ô chọn người, hộp xác nhận) | (a) trước dữ liệu khách thật; (b) trước cổng QC Sprint 4 |
 | SEC-G2 | SEC smoke Caddy/HSTS/cookie/Origin/log trên staging thật rồi đóng SEC-OPS-03 | OPS deploy, SEC kiểm | Theo ĐK-S3-8. Trước link khách thật và dữ liệu thật |
 | SEC-G3 | SEC kiểm lại 8 Major còn lại (BE-33…38, FE-06, MOB-01) | SEC | ĐK-S3-5: trước deploy staging đầu tiên và trước cổng QC Sprint 4 |
-| SEC-G4 | Bản demo localhost: thêm vào giới hạn đã biết một câu "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: hệ thống có thể xóa nhầm ảnh của người còn ở – đang sửa ở Sprint 4" | ORC (`demo-1-limits.md` mục C) | Trước khi gửi demo cho INV |
+| SEC-G4 | Bản demo localhost: thêm vào giới hạn đã biết một câu "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: hệ thống có thể xóa nhầm ảnh của người còn ở – đang sửa ở Sprint 4". **Cập nhật 17/10 (mục 9.5), nếu demo dựng từ `ea29582` mà chưa có FE-07, dùng câu:** "Bỏ người khỏi đoàn khi khách đã gửi ảnh giấy tờ qua link: giấy tờ từ 'Khách 2' trở đi chờ 24 giờ rồi tự xóa. Desk chưa có chỗ gắn giấy tờ vào người, nên giấy tờ của người còn ở cũng bị xóa; lễ tân nhập lại nếu cần. Đang sửa." | ORC (`demo-1-limits.md` mục C) | Trước khi gửi demo cho INV |
 
 Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC. Câu hỏi pháp lý về thời hạn giữ vẫn nằm trong ESC-001.
+
+### 9.5 Kiểm lại vòng sửa 9b – `ea29582` (SEC, 17/10/2026)
+
+- Yêu cầu: ORC 17/10 (decision-log dòng QA/ORC "không cấp ngoại lệ cho P0 C3 – BE-C sửa ngay ở vòng 9b"); SEC-G1.
+- Mã kiểm: `ea29582` (chưa push). `product/services/api` không có thay đổi chưa commit. Chưa có CI cho commit này.
+- Cách làm:
+  - đọc `git show ea29582 -- product/services/api` và test mới `registration-party-removal.test.ts`;
+  - chạy trên **PostgreSQL thật**, DB riêng mới `ottimo_verify_sec_9b` (tạo theo `recreate-db.sh`, chạy đủ migration), app Nest thật qua Fastify inject, endpoint thật `DELETE …/party/{memberId}`, `PATCH/POST …/documents`, `POST …/consents`, `GET …/attention`;
+  - test repo `registration-party-removal.test.ts` + `registration-flow.test.ts`: **30/30 xanh** (8 + 22);
+  - repro SEC (ngoài repo, scratchpad `gate/sec-9b/a38-9b.test.ts`, kết quả `report.json`): cùng thiết lập R1–R6 và Major a của 9.3, thêm X1–X4 để kiểm các phát hiện của skeptic: **12/12 chạy xong**;
+  - đọc mã admin-web (`DocsPanel.tsx`, `TodayPage.tsx`) để kiểm phần nối FE.
+- Dữ liệu giả. Không tấn công hệ thống nào. Không chạm stack demo.
+
+**a) R1–R6 đo lại trên mã đã sửa**
+
+| Ca | Trước (9.3, `6af7173`) | Sau (`ea29582`) |
+|---|---|---|
+| R1 – bỏ A (giữa) | Khách 3 bị hủy ngay; Khách 2 giữ; `required_count` 3 | **Không hủy gì ngay** (0 log C3 `delete`). Khách 1 không đổi. Khách 2/3 chờ tới 16/10 09:00 (`fields_purge_after` và `delete_after`). `required_count` 3→2. Link chỉ tính Khách 1 (`uploadedPeople` [1]). "Cần chú ý" có đơn, `dueAt` 16/10 09:00. J16 hạn −1 phút: không xóa. Hạn +1 phút: xóa Khách 2/3 (`party_removed`, DEK hủy, tệp mất). Khách 1 còn |
+| R2 – bỏ B (cuối) | Giống R1 | Giống hệt R1 → không còn phụ thuộc vị trí |
+| R3 – `confirmed`, bỏ người đi cùng | Không hủy gì; link báo đủ 2/2 | Khách 2 chờ 24 giờ và **không tính đủ người** (`uploadedPeople` [1], cần 2). J16 quá hạn: xóa |
+| R4 – chỉ 1 người đi cùng có tên | Khách 3 (người chưa ghi tên, còn ở) bị hủy | Không hủy gì ngay; Khách 2/3 chờ; `required_count` 3→2 |
+| R5 – đã gắn người | Đúng | Vẫn đúng: Khách 2 (của A) hủy **ngay** (DEK giấy tờ + ảnh, tệp, trường; `purge_journal` 4 dòng `party_removed`). Khách 3 (của B) giữ. Không có mục "Cần chú ý" |
+| R6 – đi 17/10, không ai đóng | Ngày đi +7 mới xóa | +24 giờ: Khách 2/3 xóa. Ngày đi +6: Khách 1 còn. +7: Khách 1 xóa (`unconfirmed`) |
+| Major a (ảnh qua link) | Đạt | Vẫn đạt: ngày đi +6 còn 2/2, +7 xóa 2/2 (`unconfirmed`, DEK hủy, tệp mất) |
+
+**b) Khẳng định của BE-C – đúng ở phía BE**
+
+| Khẳng định | Kết quả | Bằng chứng |
+|---|---|---|
+| Giấy tờ đã gắn người bị bỏ thì hủy ngay | Đúng | R5 |
+| Giấy tờ chưa gắn từ Khách 2 chờ 24 giờ, không tính "đủ người", có mục `data_quality/registration_party_docs_unlinked` | Đúng | R1–R4, R6; X1 (`submitted` 2→0) |
+| Gắn vào người còn ở thì giữ; J16 xóa phần còn lại sau 24 giờ | Đúng | X1b: PATCH Khách 3 + `partyMemberId` = B → 200; J16 quá hạn: Khách 3 còn (đã gắn), Khách 2 xóa |
+| `partyMemberId` phải là người còn ở của đơn này, nếu không 422 `NOT_IN_LIST` | Đúng | X1b: người đã bỏ (A), người của đơn khác, id ngẫu nhiên → 422 `partyMemberId`/`NOT_IN_LIST` |
+| `required_count` theo đoàn | Đúng | R1, R2, R4 (3→2), R5 |
+
+Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm, mã đơn, số phòng (SEC J); audit chỉ ghi số `unclaimedDocuments`; xóa đi qua đúng đường C5 (DEK, tệp sau COMMIT, `purge_journal`, `c3_access_log`).
+
+**c) Kiểm lại phát hiện của skeptic**
+
+| # | Phát hiện (mức skeptic) | SEC | Bằng chứng | Mức SEC → thẻ |
+|---|---|---|---|---|
+| 1 | Phương án dự phòng chưa dùng được đầu–cuối: Desk không gắn được giấy tờ vào người, không thấy mục "Cần chú ý" (Major) | **Xác nhận** | X1: lễ tân nhập trường Khách 2/3 như admin-web làm (PATCH không có `partyMemberId`) → 200 ×2, không giấy tờ nào được gắn. Bỏ A → Khách 2/3 chờ, `submitted` 2→0, `partial`→`pre`. Nhập lại không gắn → 200 nhưng vẫn chờ. "Nhập tay" cùng số → 409 `PARTY_DUPLICATE`. J16 quá hạn → xóa cả 2, gồm giấy tờ của B **còn ở** (DEK giấy tờ hủy). Mã FE: `DocsPanel.tsx:255-279` dựng `GuestDocumentInput` không có `partyMemberId`; `:155` hiện chip "doc_ok" cho mọi giấy tờ, kể cả giấy tờ sắp bị xóa; `TodayPage.tsx:10-13` mới là khung; admin-web không dùng `imagePurgeAt`, không gọi `/attention` | **Major** (rủi ro Trung bình) → **FB-R2-SEC-FE-07**. Hồi quy đầu–cuối: bản cũ hủy 1 giấy tờ (Khách 3) ngay; bản mới qua Desk mất Khách 2 **và** 3 sau 24 giờ |
+| 2 | Khai báo `scanned` vẫn `scanned` khi giấy tờ thành "chờ nhận"; `mark-sent` vẫn cho qua (Minor) | **Xác nhận** (đọc mã; dùng số đo S5 của skeptic) | `rules.ts:492-499` `nextStatus` không rời `scanned`; `mark-sent` (`registration.service.ts:1432-1495`) không kiểm số người; `portalData` (`:1580`) lọc `countsForDeclaration` → người còn ở rơi khỏi dữ liệu cổng | **Minor** → FB-R2-SEC-BE-54. Một phần có từ trước 9b; 9b mở rộng |
+| 3 | `legal_hold` + khách gửi lại ô đang chờ: ảnh cũ mất hạn 24 giờ (Minor) | **Xác nhận** | X2: sau khi gửi lại có 2 ảnh sống (02:00Z, 03:00Z), `delete_after` NULL, `fields_purge_after` NULL. Gỡ hold + J16 quá hạn: 0 xóa, 2 ảnh còn. Nguyên nhân: `claim` chạy (`:2298`) dù `purgeImages` trả 0 vì hold (`:422`). Sau gỡ hold, ảnh cũ chỉ còn hạn theo lưu trú | **Minor** → FB-R2-SEC-BE-55 |
+| 4 | Đồng ý P02b cũ của ô áp sang ảnh mới khi khách gửi lại để nhận ô (Minor) | **Xác nhận** | X3: `POST consents` 201 (granted, 30 ngày). Bỏ C. Khách gửi lại Khách 2 → ảnh cũ `replaced`, ô được nhận. `consent_record` granted/30 vẫn áp: J16 bước 1 (`retention.service.ts:139-147`) và `latestConsent` đọc theo `guest_document_id` hoặc `person_index` | **Minor** → FB-R2-SEC-BE-56. Gốc có từ trước (đồng ý theo ô); 9b làm rõ hơn vì coi lần gửi lại là "người thật sự đến" |
+| 5 | Cảnh báo visa vẫn bật từ giấy tờ đang chờ (Note) | Xác nhận (đọc mã) | `visaExpiringReservations` (`:2381-2390`) không loại giấy tờ chờ. Chỉ trả mã đơn, tối đa 24 giờ | Suggestion → FB-R2-SEC-BE-58 |
+| 6 | Mục "Cần chú ý" vẫn hiện `dueAt` đã qua khi đơn `legal_hold` (Note) | **Xác nhận** | X4: hold, J16 quá hạn: `unclaimedDocuments` 0, giấy tờ còn; mục vẫn có `dueAt` 16/10 09:00. `unclaimedDocumentStays` (`:2122`) không lọc hold | Minor → FB-R2-SEC-BE-57 |
+| 7 | Bỏ người có giấy tờ đã gắn khi đơn `legal_hold`: trường + DEK bị hủy, ảnh giữ (Note, có từ trước) | **Xác nhận** | X4: `removed`, `purged`, DEK giấy tờ hủy, 1 ảnh sống, tệp còn. `removeDocument` gọi `destroyDocumentFields` (`:2069`) không kiểm hold | Minor (trái nguyên tắc "đang giữ pháp lý thì không hủy gì") → FB-R2-SEC-BE-57 |
+| 8 | Đã có giấy tờ gắn người bị bỏ mà vẫn đưa mọi giấy tờ chưa gắn vào chờ (Note) | Xác nhận (đọc mã) | `onPartyMemberRemoved` (`:1998-2009`) tính `unlinked` không phụ thuộc `own`. Đúng chữ phương án dự phòng | Suggestion → FB-R2-SEC-BE-58 |
+| 9 | Giấy tờ lễ tân tự nhập không gắn được người thì không bị đụng khi bỏ người (Note) | Xác nhận (đọc mã) | `addDocument` không đặt `person_index`; bộ lọc `unlinked` cần `person_index ≥ 2` | Đã có trong S4-39. Không thẻ mới |
+
+**d) Thẻ mới**
+
+### FB-R2-SEC-FE-07
+- Mức độ: Major (rủi ro SEC: Trung bình)
+- Vị trí: FE – `apps/admin-web/src/pages/registration/DocsPanel.tsx:255-279` (`ManualDocDialog`, sửa giấy tờ khách tải qua link), `:155` (chip "doc_ok"), `pages/TodayPage.tsx:10-13`; UXD – chuỗi `attn.dq_party_docs_unlinked`, nhãn "chờ gắn người"
+- Vấn đề: phương án dự phòng của SEC-BE-53 dựa vào việc lễ tân gắn giấy tờ của người còn ở vào thành viên trong 24 giờ. Desk không làm được việc này:
+  - sửa giấy tờ không gửi `partyMemberId`, nên `updateGuestDocument` không bao giờ gắn người (X1);
+  - Desk không hiện mục "Cần chú ý" `registration_party_docs_unlinked`, không hiện `imagePurgeAt`; giấy tờ sắp bị xóa vẫn mang chip "Giấy tờ OK";
+  - "Nhập tay" lại cùng số giấy tờ → 409 `PARTY_DUPLICATE`.
+  
+  Kết quả đo: đoàn 3 người, lễ tân đã nhập trường Khách 2/3, bỏ A → sau 24 giờ J16 xóa cả giấy tờ của B (còn ở).
+- Vì sao quan trọng: mất không hoàn tác dữ liệu C3 của khách còn ở (đúng lớp lỗi BUG-R2-083), chỉ lùi 24 giờ. Khai báo lưu trú mất người còn ở (`submitted` giảm, khai báo đã xác nhận chuyển `needs_update`).
+- Đề xuất sửa:
+  1. FE + UXD: khi sửa giấy tờ khách tải qua link (`captureMethod = guest_upload`, chưa gắn người), thêm ô chọn "Người trong đoàn" (danh sách người còn ở, không chọn sẵn) và gửi `partyMemberId`.
+  2. Giấy tờ có `imagePurgeAt` do bỏ người: thay chip "doc_ok" bằng nhãn cảnh báo "Chờ gắn người – tự xóa lúc {giờ}".
+  3. Đưa mục `data_quality/registration_party_docs_unlinked` lên Desk (trang Hôm nay hoặc khối Cần chú ý hiện có), bấm vào mở đơn.
+  4. BE-C (khuyến nghị): cho phép gắn bằng PATCH chỉ có `partyMemberId`, không bắt nhập lại toàn bộ trường. `addDocument` trùng số với giấy tờ đang chờ thì trả mã riêng (vd. `DOCUMENT_UNCLAIMED_EXISTS`, kèm id giấy tờ) để Desk mở đúng giấy tờ đó.
+  5. Test E2E-UI bấm thật: bỏ người → gắn Khách n vào người còn ở trên Desk → J16 quá hạn → giấy tờ còn, DEK sống.
+- Hạn: **trước dữ liệu khách thật** (SEC-G1 a) và để đóng BUG-R2-083.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-54
+- Mức độ: Minor
+- Vị trí: BE-C – `rules.ts:492-499` (`nextStatus`), `registration.service.ts:1432-1495` (`mark-sent`), `onPartyMemberRemoved`, `purgeUnclaimedDocuments`
+- Vấn đề: khai báo đã `scanned` không quay lại khi số giấy tờ được tính giảm (bỏ người, giấy tờ thành chờ, J16 xóa). `mark-sent` cho qua dù `submitted < required`; dữ liệu cổng thiếu người còn ở (skeptic S5).
+- Vì sao quan trọng: khai báo lưu trú thiếu người (cần DOM xác nhận mức nghiệp vụ).
+- Đề xuất sửa: khi số được tính giảm dưới `required` ở trạng thái `scanned` → về `partial` (sự kiện kiểu K13); hoặc `mark-sent` trả `REGISTRATION_INCOMPLETE` khi `submitted < required`. Test PostgreSQL.
+- Hạn: trước cổng QC Sprint 4.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-55
+- Mức độ: Minor
+- Vị trí: BE-C – `registration.service.ts:2290-2298` (`guestUpload` → `claim`), `claim` (`:737`)
+- Vấn đề: dưới `legal_hold`, khách gửi lại ô đang chờ: ảnh cũ không bị thay (đúng, đang giữ) nhưng ô vẫn được "nhận", `claim` đặt `delete_after = NULL` cho **mọi** ảnh sống, kể cả ảnh cũ (X2). Gỡ hold xong, ảnh cũ (có thể của người đã bỏ) không còn hạn 24 giờ.
+- Vì sao quan trọng: trái nguyên tắc dự phòng "không bao giờ giữ ảnh vô chủ".
+- Đề xuất sửa: chỉ `claim` khi mọi ảnh cũ đã thật sự bị xóa. Nếu không, `claim` chỉ bỏ hạn của ảnh mới; ảnh cũ giữ hạn chờ. Test PostgreSQL.
+- Hạn: trước cổng QC Sprint 4.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-56
+- Mức độ: Minor
+- Vị trí: BE-C – `claim` khi khách gửi lại; `latestConsent` (`registration.repo.ts`); J16 bước 1/2 (`retention.service.ts:139-170`)
+- Vấn đề: đồng ý P02b gắn theo giấy tờ hoặc theo số ô. Khi khách gửi lại ảnh để nhận ô đang chờ (có thể là người khác), đồng ý cũ vẫn áp cho ảnh mới (X3: granted, 30 ngày).
+- Vì sao quan trọng: ảnh của người chưa đồng ý có thể bị giữ tới T02 thay vì xóa ở T01 (P02b, NĐ 13/2023 – cần xác nhận pháp lý).
+- Đề xuất sửa: khi ô được nhận do khách gửi lại sau khi bỏ người, coi các đồng ý P02b trước đó của giấy tờ/ô là hết hiệu lực (lọc `recorded_at` trước lần tải mới, hoặc ghi một dòng `withdrawn` hệ thống). Người mới phải đồng ý lại. Test PostgreSQL.
+- Hạn: trước cổng QC Sprint 4.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-57
+- Mức độ: Minor
+- Vị trí: BE-C – `removeDocument` (`registration.service.ts:2056-2075`), `unclaimedDocumentStays` (`:2122`)
+- Vấn đề: `legal_hold` không nhất quán:
+  - bỏ người có giấy tờ đã gắn khi đơn đang giữ → trường và DEK giấy tờ bị hủy, `removed_at` đặt, ảnh còn (X4; có từ trước 9b);
+  - mục "Cần chú ý" vẫn hiện hạn đã qua cho đơn đang giữ, trong khi J16 bỏ qua (X4).
+- Vì sao quan trọng: `legal_hold` là cam kết không hủy gì; lễ tân hiểu nhầm hạn.
+- Đề xuất sửa: dưới hold, `onPartyMemberRemoved` không hủy trường/DEK, chỉ đặt hạn (giống J16), xử lý khi gỡ hold. Mục "Cần chú ý" lọc `NOT legal_hold` hoặc gắn cờ "đang giữ pháp lý".
+- Hạn: trước cổng QC Sprint 4.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-58
+- Mức độ: Suggestion
+- Vị trí: BE-C – `visaExpiringReservations` (`:2381-2390`); `onPartyMemberRemoved` (`:1998-2009`)
+- Vấn đề: (1) cảnh báo visa vẫn bật từ giấy tờ đang chờ (có thể của người đã rời đoàn), tối đa 24 giờ; (2) khi đã xác định được giấy tờ của người bị bỏ (đã gắn) mà số giấy tờ đó bằng số người bị bỏ, các giấy tờ chưa gắn khác vẫn bị đưa vào chờ.
+- Vì sao quan trọng: cảnh báo sai; tăng phạm vi phải gắn lại trong 24 giờ.
+- Đề xuất sửa: (1) thêm điều kiện loại giấy tờ chờ vào truy vấn visa; (2) cân nhắc cùng phương án chính (`guestUploadPersonIndex` sẽ thay cách đoán này).
+- Hạn: cùng S4-39.
+- Trạng thái: Open
+
+**e) Kết luận của SEC**
+
+1. **FB-R2-SEC-BE-53 – phần BE (phương án dự phòng): Verified 17/10 (`ea29582`).** Không còn hủy theo số ô. Không còn giữ hay tính đủ người bằng giấy tờ của người đã bỏ. `required_count` khớp đoàn. Đường xóa đi qua C5 đầy đủ.
+2. **SEC-G1: chưa đạt** (Not verified đầu–cuối). Thiếu FB-R2-SEC-FE-07: trên Desk thật, giấy tờ của người còn ở vẫn bị xóa sau 24 giờ.
+3. **BUG-R2-083 cho cổng Sprint 3:**
+   - lỗi P0 như QA ghi (hủy **ngay**, theo số ô, không đường giữ lại) đã hết ở BE;
+   - nhưng lớp lỗi "mất C3 của khách còn ở" **vẫn xảy ra đầu–cuối** qua Desk (sau 24 giờ, và nay gồm mọi giấy tờ chưa gắn từ Khách 2) → SEC **không** ghi Closed;
+   - mức của phần còn lại do QA quyết (test-strategy mục 8). SEC xếp Major, rủi ro Trung bình: dữ liệu giả, có 24 giờ, API đã có đường giữ lại, mục "Cần chú ý" có ở API;
+   - đề xuất cho ORC: làm FE-07 bước 1–3 ngay trong vòng sửa (một ô chọn, một nhãn, một mục danh sách; BE không phải đổi) rồi đóng BUG-R2-083. Nếu không chờ, ORC/QC ghi ngoại lệ rõ ràng và ORC dùng câu SEC-G4 mới cho bản demo.
+   - SEC **không chặn** cổng QC Sprint 3: không có lỗi Critical/Blocker bảo mật; không lộ dữ liệu cho người không có quyền.
+4. **Còn cho Sprint 4 (S4-39):**
+   - phương án chính: `removePartyMember.guestUploadPersonIndex` + hộp chọn ô trên Desk + dồn số ô (đề xuất 2–5 của thẻ BE-53);
+   - giấy tờ lễ tân tự nhập chưa gắn người khi bỏ người;
+   - giao diện "Cần chú ý" và nhãn hạn chờ (nếu FE-07 chưa làm ở vòng sửa);
+   - BE-54, BE-55, BE-56, BE-57, BE-58;
+   - phần ARC đã ghi ở S4-39 (erd 4.7 `fields_purge_after`, audit, `retention_run.policy_key = party_removed`, `RegistrationPartyPort`).
+5. **Chặn dữ liệu khách thật: vẫn giữ.** Cần đủ: SEC-G1 (a) – FE-07 có test E2E-UI và SEC kiểm lại; **và** SEC-G2 – smoke Caddy/HSTS/cookie/Origin/log trên staging thật (chưa làm). Phương án chính (SEC-G1 b) chỉ là điều kiện cổng QC Sprint 4, không còn là điều kiện dữ liệu thật nếu FE-07 đạt.
+
+Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC.

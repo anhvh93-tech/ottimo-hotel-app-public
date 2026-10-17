@@ -83,6 +83,16 @@ Thêm: 2 khách nữa đến hôm nay (203 Booking.com OTM-00009, 201 khách que
 | Bí mật | 0 mật khẩu/token/link/số tài khoản trong log script và log container; `.out/demo-accounts.md` 0600; `.out`, `~/.ottimo-demo` không vào git/docker build context (`.dockerignore` thêm `infra/demo/.out`, `.work`) |
 | `prettier --check infra/demo`, `eslint infra/demo`, shellcheck `infra/demo/*.sh` | sạch (CI `infra-scripts` thêm `infra/demo/*.sh`) |
 
+### 6b. Kiểm chứng lại sau vòng sửa 9 (17/10/2026 chiều, ORC ghi – ĐK-S3-1, ĐK-S3-10)
+
+| Kiểm | Kết quả |
+|---|---|
+| `demo-up.sh --smoke` từ commit **9a221ee** (vòng sửa 9: khóa mã hóa demo ổn định, lỗi ghi trên Desk) | exit 0, dòng XONG 13:42:48. **SMOKE ĐẠT**: thêm bước trả muộn sau giờ ân hạn (phụ thu 259.000 đ ghi vào bill) → VietQR 319.000 đ → xác nhận → trả phòng OTM-00002 |
+| Hai lần smoke đỏ trước đó (13:3x) | Không phải lỗi sản phẩm: smoke chưa xử lý quyết định phụ thu trả muộn sau 12:30 (afe34f1, 9a221ee sửa – ghi trả muộn B15 trước khi thu, như quy trình quầy) |
+| UXR đi lại KB1–KB4, KB6–KB8 bằng Chromium không đầu trên bản 9a221ee | Mọi KB đi được; KB7 sau 12:30 phải bấm **Trả muộn** trước (lỗi P1 màn Trả phòng – đang sửa, hướng dẫn v1.2 đã ghi) |
+| Khóa mã hóa (BUG-R2-065) | Khởi động lại api + worker vẫn mở lại được số và ảnh giấy tờ |
+| Làm mới cho chủ đầu tư | `demo-reset.sh` – dòng XONG **14:20:08**, giữ chỗ D5 hết hạn **19:19**; 8181/8182/8183 và /health trả 200 |
+
 ## 7. Việc khi QC Sprint 3 đạt
 
 `./product/infra/demo/demo-up.sh --smoke` ngay trước buổi demo (dựng từ HEAD mới, ~2–8 phút), gửi anh/chị câu "XONG" + nhắc mở tệp tài khoản. Nếu HEAD đổi thứ tự/quy tắc làm smoke đỏ, script dừng và in lỗi – OPS sửa `seed-demo.mjs` theo hợp đồng mới.
