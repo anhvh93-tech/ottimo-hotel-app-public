@@ -1,0 +1,990 @@
+{
+  "widths": [
+    480,
+    960,
+    1600
+  ],
+  "webp": {
+    "quality": 72,
+    "effort": 5
+  },
+  "avif": {
+    "quality": 50,
+    "effort": 4
+  },
+  "totalBytes": 4758128,
+  "photos": [
+    {
+      "id": "hero-facade-dusk",
+      "src": "mat-tien-sanh/04.1.png",
+      "use": "Hero (LCP)",
+      "type": "Exterior",
+      "brochure": "p33",
+      "alt": {
+        "en": "OTTIMO at dusk: a five-storey building with warm lights on every balcony",
+        "vi": "OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm"
+      },
+      "original": {
+        "width": 1792,
+        "height": 2432,
+        "bytes": 4729684
+      },
+      "files": [
+        {
+          "name": "hero-facade-dusk-480.webp",
+          "width": 480,
+          "height": 651,
+          "bytes": 23060
+        },
+        {
+          "name": "hero-facade-dusk-480.avif",
+          "width": 480,
+          "height": 651,
+          "bytes": 16566
+        },
+        {
+          "name": "hero-facade-dusk-960.webp",
+          "width": 960,
+          "height": 1303,
+          "bytes": 69514
+        },
+        {
+          "name": "hero-facade-dusk-960.avif",
+          "width": 960,
+          "height": 1303,
+          "bytes": 49321
+        },
+        {
+          "name": "hero-facade-dusk-1600.webp",
+          "width": 1600,
+          "height": 2171,
+          "bytes": 152486
+        },
+        {
+          "name": "hero-facade-dusk-1600.avif",
+          "width": 1600,
+          "height": 2171,
+          "bytes": 118605
+        }
+      ]
+    },
+    {
+      "id": "lobby",
+      "src": "mat-tien-sanh/01b.png",
+      "use": "About · Lobby",
+      "type": "Lobby",
+      "brochure": "p31",
+      "alt": {
+        "en": "Ground-floor lobby with an oak reception desk and a coffee counter",
+        "vi": "Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê"
+      },
+      "original": {
+        "width": 5704,
+        "height": 3803,
+        "bytes": 23150621
+      },
+      "files": [
+        {
+          "name": "lobby-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10214
+        },
+        {
+          "name": "lobby-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7517
+        },
+        {
+          "name": "lobby-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 35874
+        },
+        {
+          "name": "lobby-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 22854
+        },
+        {
+          "name": "lobby-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 93142
+        },
+        {
+          "name": "lobby-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 55176
+        }
+      ]
+    },
+    {
+      "id": "aerial-hillside",
+      "src": "mat-tien-sanh/05.2.png",
+      "use": "Location",
+      "type": "Exterior",
+      "brochure": "–",
+      "alt": {
+        "en": "Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind",
+        "vi": "OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi"
+      },
+      "original": {
+        "width": 4164,
+        "height": 6250,
+        "bytes": 36109180
+      },
+      "files": [
+        {
+          "name": "aerial-hillside-480.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 52656
+        },
+        {
+          "name": "aerial-hillside-480.avif",
+          "width": 480,
+          "height": 720,
+          "bytes": 32657
+        },
+        {
+          "name": "aerial-hillside-960.webp",
+          "width": 960,
+          "height": 1441,
+          "bytes": 171740
+        },
+        {
+          "name": "aerial-hillside-960.avif",
+          "width": 960,
+          "height": 1441,
+          "bytes": 108638
+        },
+        {
+          "name": "aerial-hillside-1600.webp",
+          "width": 1600,
+          "height": 2402,
+          "bytes": 383144
+        },
+        {
+          "name": "aerial-hillside-1600.avif",
+          "width": 1600,
+          "height": 2402,
+          "bytes": 245921
+        }
+      ]
+    },
+    {
+      "id": "city-living",
+      "src": "phong-3/03.png",
+      "use": "Room 01 cover",
+      "type": "Standard Studio · City View",
+      "brochure": "p8",
+      "alt": {
+        "en": "Cream-and-grey studio: sofa, TV wall and kitchen",
+        "vi": "Studio tông kem – xám: sofa, tường TV và bếp"
+      },
+      "original": {
+        "width": 5971,
+        "height": 3981,
+        "bytes": 27987790
+      },
+      "files": [
+        {
+          "name": "city-living-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10166
+        },
+        {
+          "name": "city-living-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7696
+        },
+        {
+          "name": "city-living-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 25446
+        },
+        {
+          "name": "city-living-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 19439
+        },
+        {
+          "name": "city-living-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 52432
+        },
+        {
+          "name": "city-living-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 39922
+        }
+      ]
+    },
+    {
+      "id": "city-bed",
+      "src": "phong-3/06.png",
+      "use": "Room 01",
+      "type": "Standard Studio · City View",
+      "brochure": "p10",
+      "alt": {
+        "en": "Double bed beside a curtained window",
+        "vi": "Giường đôi cạnh cửa sổ có rèm"
+      },
+      "original": {
+        "width": 5821,
+        "height": 3880,
+        "bytes": 20305085
+      },
+      "files": [
+        {
+          "name": "city-bed-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 6644
+        },
+        {
+          "name": "city-bed-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 5277
+        },
+        {
+          "name": "city-bed-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 17794
+        },
+        {
+          "name": "city-bed-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 13329
+        },
+        {
+          "name": "city-bed-1600.webp",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 37820
+        },
+        {
+          "name": "city-bed-1600.avif",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 27511
+        }
+      ]
+    },
+    {
+      "id": "city-view",
+      "src": "phong-3/08.png",
+      "use": "Room 01",
+      "type": "Standard Studio · City View",
+      "brochure": "p12",
+      "alt": {
+        "en": "Sofa by floor-to-ceiling windows looking over the city",
+        "vi": "Sofa cạnh cửa kính lớn nhìn ra thành phố"
+      },
+      "original": {
+        "width": 3761,
+        "height": 5645,
+        "bytes": 29424109
+      },
+      "files": [
+        {
+          "name": "city-view-480.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 20042
+        },
+        {
+          "name": "city-view-480.avif",
+          "width": 480,
+          "height": 720,
+          "bytes": 14324
+        },
+        {
+          "name": "city-view-960.webp",
+          "width": 960,
+          "height": 1441,
+          "bytes": 65116
+        },
+        {
+          "name": "city-view-960.avif",
+          "width": 960,
+          "height": 1441,
+          "bytes": 45216
+        },
+        {
+          "name": "city-view-1600.webp",
+          "width": 1600,
+          "height": 2401,
+          "bytes": 181464
+        },
+        {
+          "name": "city-view-1600.avif",
+          "width": 1600,
+          "height": 2401,
+          "bytes": 113900
+        }
+      ]
+    },
+    {
+      "id": "garden-oak",
+      "src": "phong-1/1.png",
+      "use": "Room 02 cover",
+      "type": "Standard Studio · Garden View (light oak)",
+      "brochure": "p14",
+      "alt": {
+        "en": "Light-oak studio with a bed, sofa and balcony door",
+        "vi": "Studio gỗ sáng với giường, sofa và cửa ra ban công"
+      },
+      "original": {
+        "width": 5978,
+        "height": 3979,
+        "bytes": 24374887
+      },
+      "files": [
+        {
+          "name": "garden-oak-480.webp",
+          "width": 480,
+          "height": 319,
+          "bytes": 8608
+        },
+        {
+          "name": "garden-oak-480.avif",
+          "width": 480,
+          "height": 319,
+          "bytes": 6514
+        },
+        {
+          "name": "garden-oak-960.webp",
+          "width": 960,
+          "height": 639,
+          "bytes": 24164
+        },
+        {
+          "name": "garden-oak-960.avif",
+          "width": 960,
+          "height": 639,
+          "bytes": 17920
+        },
+        {
+          "name": "garden-oak-1600.webp",
+          "width": 1600,
+          "height": 1065,
+          "bytes": 52448
+        },
+        {
+          "name": "garden-oak-1600.avif",
+          "width": 1600,
+          "height": 1065,
+          "bytes": 38104
+        }
+      ]
+    },
+    {
+      "id": "garden-navy",
+      "src": "phong-2/05.png",
+      "use": "Room 02",
+      "type": "Standard Studio · Garden View (navy)",
+      "brochure": "p19",
+      "alt": {
+        "en": "Navy studio: bed, sofa and a glass door to the balcony",
+        "vi": "Studio tông navy: giường, sofa và cửa kính ra ban công"
+      },
+      "original": {
+        "width": 5487,
+        "height": 3658,
+        "bytes": 24692735
+      },
+      "files": [
+        {
+          "name": "garden-navy-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9704
+        },
+        {
+          "name": "garden-navy-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7258
+        },
+        {
+          "name": "garden-navy-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 28054
+        },
+        {
+          "name": "garden-navy-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20435
+        },
+        {
+          "name": "garden-navy-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 63610
+        },
+        {
+          "name": "garden-navy-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 46287
+        }
+      ]
+    },
+    {
+      "id": "garden-balcony",
+      "src": "phong-1/7.png",
+      "use": "Room 02",
+      "type": "Standard Studio · Garden View",
+      "brochure": "p13",
+      "alt": {
+        "en": "Private balcony looking over green slopes at sunset",
+        "vi": "Ban công riêng nhìn ra triền cỏ xanh lúc hoàng hôn"
+      },
+      "original": {
+        "width": 5739,
+        "height": 3826,
+        "bytes": 30195908
+      },
+      "files": [
+        {
+          "name": "garden-balcony-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19488
+        },
+        {
+          "name": "garden-balcony-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 12371
+        },
+        {
+          "name": "garden-balcony-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 68798
+        },
+        {
+          "name": "garden-balcony-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 42384
+        },
+        {
+          "name": "garden-balcony-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 180202
+        },
+        {
+          "name": "garden-balcony-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 107804
+        }
+      ]
+    },
+    {
+      "id": "premium-kitchen",
+      "src": "phong-5/5.png",
+      "use": "Room 03 cover",
+      "type": "Premium · One Bedroom + 1",
+      "brochure": "p23",
+      "alt": {
+        "en": "Long navy kitchen opening onto the living room and balcony",
+        "vi": "Bếp navy dài mở ra phòng khách và ban công"
+      },
+      "original": {
+        "width": 5809,
+        "height": 3874,
+        "bytes": 23464298
+      },
+      "files": [
+        {
+          "name": "premium-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10332
+        },
+        {
+          "name": "premium-kitchen-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7407
+        },
+        {
+          "name": "premium-kitchen-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 27856
+        },
+        {
+          "name": "premium-kitchen-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20053
+        },
+        {
+          "name": "premium-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 62124
+        },
+        {
+          "name": "premium-kitchen-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 45148
+        }
+      ]
+    },
+    {
+      "id": "premium-bed",
+      "src": "phong-5/2.png",
+      "use": "Room 03",
+      "type": "Premium · One Bedroom + 1",
+      "brochure": "p21",
+      "alt": {
+        "en": "Separate bedroom with a double bed and a desk by the window",
+        "vi": "Phòng ngủ riêng với giường đôi và bàn cạnh cửa sổ"
+      },
+      "original": {
+        "width": 5830,
+        "height": 3891,
+        "bytes": 17897108
+      },
+      "files": [
+        {
+          "name": "premium-bed-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 5644
+        },
+        {
+          "name": "premium-bed-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 4814
+        },
+        {
+          "name": "premium-bed-960.webp",
+          "width": 960,
+          "height": 641,
+          "bytes": 14500
+        },
+        {
+          "name": "premium-bed-960.avif",
+          "width": 960,
+          "height": 641,
+          "bytes": 11581
+        },
+        {
+          "name": "premium-bed-1600.webp",
+          "width": 1600,
+          "height": 1068,
+          "bytes": 29964
+        },
+        {
+          "name": "premium-bed-1600.avif",
+          "width": 1600,
+          "height": 1068,
+          "bytes": 22603
+        }
+      ]
+    },
+    {
+      "id": "premium-living",
+      "src": "phong-5/4.png",
+      "use": "Room 03",
+      "type": "Premium · One Bedroom + 1",
+      "brochure": "p23",
+      "alt": {
+        "en": "Living room with a sofa beside the balcony",
+        "vi": "Phòng khách với sofa cạnh ban công"
+      },
+      "original": {
+        "width": 5718,
+        "height": 3827,
+        "bytes": 25327014
+      },
+      "files": [
+        {
+          "name": "premium-living-480.webp",
+          "width": 480,
+          "height": 321,
+          "bytes": 10320
+        },
+        {
+          "name": "premium-living-480.avif",
+          "width": 480,
+          "height": 321,
+          "bytes": 7340
+        },
+        {
+          "name": "premium-living-960.webp",
+          "width": 960,
+          "height": 643,
+          "bytes": 29590
+        },
+        {
+          "name": "premium-living-960.avif",
+          "width": 960,
+          "height": 643,
+          "bytes": 20988
+        },
+        {
+          "name": "premium-living-1600.webp",
+          "width": 1600,
+          "height": 1071,
+          "bytes": 69464
+        },
+        {
+          "name": "premium-living-1600.avif",
+          "width": 1600,
+          "height": 1071,
+          "bytes": 49376
+        }
+      ]
+    },
+    {
+      "id": "signature-dining",
+      "src": "phong-4/3.png",
+      "use": "Room 04 cover",
+      "type": "Signature · Two Bedrooms",
+      "brochure": "p25",
+      "alt": {
+        "en": "Open living, kitchen and dining space with a table for four",
+        "vi": "Không gian khách – bếp – bàn ăn bốn người"
+      },
+      "original": {
+        "width": 5628,
+        "height": 3756,
+        "bytes": 23306814
+      },
+      "files": [
+        {
+          "name": "signature-dining-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9906
+        },
+        {
+          "name": "signature-dining-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7443
+        },
+        {
+          "name": "signature-dining-960.webp",
+          "width": 960,
+          "height": 641,
+          "bytes": 26724
+        },
+        {
+          "name": "signature-dining-960.avif",
+          "width": 960,
+          "height": 641,
+          "bytes": 20472
+        },
+        {
+          "name": "signature-dining-1600.webp",
+          "width": 1600,
+          "height": 1068,
+          "bytes": 58974
+        },
+        {
+          "name": "signature-dining-1600.avif",
+          "width": 1600,
+          "height": 1068,
+          "bytes": 46292
+        }
+      ]
+    },
+    {
+      "id": "signature-bed",
+      "src": "phong-4/6.png",
+      "use": "Room 04",
+      "type": "Signature · Two Bedrooms",
+      "brochure": "p28",
+      "alt": {
+        "en": "One of two bedrooms, with a double bed on an oak platform",
+        "vi": "Một trong hai phòng ngủ, giường đôi trên bệ gỗ sồi"
+      },
+      "original": {
+        "width": 5793,
+        "height": 3870,
+        "bytes": 17991758
+      },
+      "files": [
+        {
+          "name": "signature-bed-480.webp",
+          "width": 480,
+          "height": 321,
+          "bytes": 5194
+        },
+        {
+          "name": "signature-bed-480.avif",
+          "width": 480,
+          "height": 321,
+          "bytes": 4496
+        },
+        {
+          "name": "signature-bed-960.webp",
+          "width": 960,
+          "height": 641,
+          "bytes": 13778
+        },
+        {
+          "name": "signature-bed-960.avif",
+          "width": 960,
+          "height": 641,
+          "bytes": 10943
+        },
+        {
+          "name": "signature-bed-1600.webp",
+          "width": 1600,
+          "height": 1069,
+          "bytes": 29442
+        },
+        {
+          "name": "signature-bed-1600.avif",
+          "width": 1600,
+          "height": 1069,
+          "bytes": 22548
+        }
+      ]
+    },
+    {
+      "id": "signature-bath",
+      "src": "phong-4/5.png",
+      "use": "Room 04",
+      "type": "Signature · Two Bedrooms",
+      "brochure": "p27",
+      "alt": {
+        "en": "Glass shower and green-tiled vanity",
+        "vi": "Phòng tắm kính, tường gạch xanh"
+      },
+      "original": {
+        "width": 5858,
+        "height": 3905,
+        "bytes": 29131061
+      },
+      "files": [
+        {
+          "name": "signature-bath-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 14354
+        },
+        {
+          "name": "signature-bath-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 9028
+        },
+        {
+          "name": "signature-bath-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 43318
+        },
+        {
+          "name": "signature-bath-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 27530
+        },
+        {
+          "name": "signature-bath-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 96634
+        },
+        {
+          "name": "signature-bath-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 62948
+        }
+      ]
+    },
+    {
+      "id": "detail-laundry-desk",
+      "src": "phong-2/02.png",
+      "use": "Why OTTIMO",
+      "type": "Standard Studio · Garden View (navy)",
+      "brochure": "p17",
+      "alt": {
+        "en": "In-room washer and dryer next to a wardrobe and a work desk",
+        "vi": "Máy giặt và máy sấy trong căn, cạnh tủ áo và bàn làm việc"
+      },
+      "original": {
+        "width": 5831,
+        "height": 3889,
+        "bytes": 25568185
+      },
+      "files": [
+        {
+          "name": "detail-laundry-desk-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10412
+        },
+        {
+          "name": "detail-laundry-desk-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7710
+        },
+        {
+          "name": "detail-laundry-desk-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 28736
+        },
+        {
+          "name": "detail-laundry-desk-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 21608
+        },
+        {
+          "name": "detail-laundry-desk-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 66544
+        },
+        {
+          "name": "detail-laundry-desk-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 49596
+        }
+      ]
+    },
+    {
+      "id": "detail-kitchen",
+      "src": "phong-1/3.png",
+      "use": "Amenities",
+      "type": "Standard Studio · Garden View (light oak)",
+      "brochure": "p15",
+      "alt": {
+        "en": "Oak kitchen with an induction hob, full-size fridge and washer-dryer",
+        "vi": "Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy"
+      },
+      "original": {
+        "width": 5706,
+        "height": 3804,
+        "bytes": 21556266
+      },
+      "files": [
+        {
+          "name": "detail-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 8926
+        },
+        {
+          "name": "detail-kitchen-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7193
+        },
+        {
+          "name": "detail-kitchen-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 24104
+        },
+        {
+          "name": "detail-kitchen-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 19391
+        },
+        {
+          "name": "detail-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 53040
+        },
+        {
+          "name": "detail-kitchen-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 42261
+        }
+      ]
+    },
+    {
+      "id": "detail-balcony-sunset",
+      "src": "phong-2/06.png",
+      "use": "Location quote",
+      "type": "Standard Studio · Garden View (navy)",
+      "brochure": "p30",
+      "alt": {
+        "en": "Balcony at sunset over the hills of Da Lat",
+        "vi": "Ban công lúc hoàng hôn nhìn ra đồi Đà Lạt"
+      },
+      "original": {
+        "width": 5804,
+        "height": 3857,
+        "bytes": 29957495
+      },
+      "files": [
+        {
+          "name": "detail-balcony-sunset-480.webp",
+          "width": 480,
+          "height": 319,
+          "bytes": 17606
+        },
+        {
+          "name": "detail-balcony-sunset-480.avif",
+          "width": 480,
+          "height": 319,
+          "bytes": 11222
+        },
+        {
+          "name": "detail-balcony-sunset-960.webp",
+          "width": 960,
+          "height": 638,
+          "bytes": 57268
+        },
+        {
+          "name": "detail-balcony-sunset-960.avif",
+          "width": 960,
+          "height": 638,
+          "bytes": 36896
+        },
+        {
+          "name": "detail-balcony-sunset-1600.webp",
+          "width": 1600,
+          "height": 1063,
+          "bytes": 138732
+        },
+        {
+          "name": "detail-balcony-sunset-1600.avif",
+          "width": 1600,
+          "height": 1063,
+          "bytes": 90979
+        }
+      ]
+    }
+  ]
+}

@@ -1,1119 +1,975 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en" data-notes="off">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>OTTIMO Boutique Stay Đà Lạt – Căn hộ ở ngắn ngày và theo tháng</title>
-<!-- Chỉ cho file mock: không cho máy tìm kiếm lập chỉ mục -->
+<title>OTTIMO Boutique Stay · Apartments in Da Lat</title>
+<meta name="description" content="Ten fully equipped apartments on a quiet hillside in Da Lat — for a few nights, a month, or longer. Book direct on WhatsApp, Zalo or by phone.">
 <meta name="robots" content="noindex, nofollow">
-<!-- Thẻ SEO / Open Graph dự kiến cho bản thật (concept mục 9) – {domain} chờ INV -->
-<meta name="description" content="10 căn hộ boutique ở phường Xuân Hương, Đà Lạt. Có bếp, góc làm việc, Wi-Fi ổn định. Ở vài đêm hay thuê theo tháng – hỏi phòng nhanh qua Zalo.">
-<link rel="canonical" href="https://{domain}/">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="OTTIMO Boutique Stay">
-<meta property="og:title" content="OTTIMO Boutique Stay – Ở chậm giữa Đà Lạt">
-<meta property="og:description" content="10 căn hộ boutique cho vài đêm hay vài tháng. Hỏi phòng qua Zalo.">
-<meta property="og:url" content="https://{domain}/">
-<meta property="og:image" content="https://{domain}/og/og-01.jpg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Mặt tiền OTTIMO Boutique Stay, Đà Lạt">
-<meta property="og:locale" content="vi_VN">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#F4F0E8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1B1A18" media="(prefers-color-scheme: dark)">
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"LodgingBusiness","name":"OTTIMO Boutique Stay","url":"https://{domain}/","address":{"@type":"PostalAddress","streetAddress":"{street}","addressLocality":"Đà Lạt","addressRegion":"Lâm Đồng","addressCountry":"VN"},"checkinTime":"14:00","checkoutTime":"12:00","numberOfRooms":10,"availableLanguage":["vi","en","ru"]}
-</script>
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F4F0E8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -6 108 52'%3E%3Crect x='-4' y='-6' width='108' height='52' fill='%23F4F0E8'/%3E%3Cpath d='M22 40.4 54.6 12.1 68.1 24.5 81.6 9.9 100 40.4M0 40.4h100' fill='none' stroke='%236B6760' stroke-width='4'/%3E%3Cpath d='M0 39.7 41.5 0 44.3 5.3 46.5 3.5 56 22 70.9 10.6 92.9 40.4' fill='none' stroke='%232B2B28' stroke-width='4.5'/%3E%3C/svg%3E">
+<!-- MOCK ONLY: Google Fonts. Production self-hosts the fonts (SEC C-1, FB-R2-SEC-UXD-01). -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Lora:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=JetBrains+Mono&family=Lora:ital,wght@0,400;1,400&display=swap">
+<!-- Hero preload: same media/srcset/sizes as the <picture> sources, so the image is fetched once.
+     Phones (< 768 px) stop at 960 w whatever the DPR (budget: concept.md 11.2). -->
+<link rel="preload" as="image" type="image/avif" fetchpriority="high" media="(max-width: 767px)"
+  imagesrcset="img/hero-facade-dusk-480.avif 480w, img/hero-facade-dusk-960.avif 960w"
+  imagesizes="100vw">
+<link rel="preload" as="image" type="image/avif" fetchpriority="high" media="(min-width: 768px)"
+  imagesrcset="img/hero-facade-dusk-480.avif 480w, img/hero-facade-dusk-960.avif 960w, img/hero-facade-dusk-1600.avif 1600w"
+  imagesizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw">
+<script>
+  // Apply the stored language before first paint (mock convenience; production uses /en/ and /vi/ URLs).
+  (function () {
+    var l = null;
+    try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem('ottimo-lp-lang'); } catch (e) {}
+    if (l === 'vi' || l === 'en') document.documentElement.lang = l;
+    try { if (localStorage.getItem('ottimo-lp-notes') === 'on') document.documentElement.dataset.notes = 'on'; } catch (e) {}
+  })();
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LodgingBusiness",
+  "name": "OTTIMO Boutique Stay",
+  "slogan": "A refined stay inspired by the calm spirit of Dalat.",
+  "address": {"@type": "PostalAddress", "streetAddress": "30/3 Triệu Việt Vương, Phường Xuân Hương", "addressLocality": "Đà Lạt", "addressRegion": "Lâm Đồng", "addressCountry": "VN"},
+  "telephone": "+84844440909",
+  "checkinTime": "14:00",
+  "checkoutTime": "12:00",
+  "numberOfRooms": 10,
+  "availableLanguage": ["en", "vi"]
+}
+</script>
 <style>
-/* ===== 1. Token – Design System OTTIMO v0.3.5 + token landing (concept mục 5.4) ===== */
+/* ===== OTTIMO landing – mock v1.1 (UXD, 17/10/2026). Tokens follow OTTIMO Brand Guidelines v1.0 ===== */
 :root{
-  --bg:#F4F0E8;--surface:#FBF9F4;--surface-2:#EEE8DC;--ink:#2B2B2B;--ink-inverse:#FBF9F4;
-  --muted:#635F58;--faint:#6A645B;--deco:#9A948A;--line:#E0D8CA;--line-strong:#857E71;
-  --oak:#B08D57;--oak-ink:#7A5C2E;--oak-soft:#F1E7D6;--focus:#7A5C2E;--focus-on-dark:#F4F0E8;
-  --ok:#356B49;--ok-bg:#E2EEE5;--warn:#8A5214;--warn-bg:#F5E8D3;--bad:#A8403C;--bad-bg:#F5DFDC;
-  --info:#3E5E78;--info-bg:#E0E8EF;--scrim:rgba(27,26,24,.48);
-  /* landing – đất nung */
-  --clay:#B85F3A;--clay-ink:#9C4A2B;--clay-soft:#F3E2D7;--clay-deep:#7E3B22;
-  /* dải "Ở dài hạn" */
-  --band:#2F2D2A;--band-t:#F4F0E8;--band-muted:#C8C0B2;--band-accent:#D9B987;--band-focus:#F4F0E8;
-  /* vai trò – đổi theo hướng A/B */
-  --accent-ink:var(--oak-ink);--cta-bg:var(--ink);--cta-t:var(--ink-inverse);--mark:var(--clay);
-  --serif:"Lora",Georgia,"Times New Roman",serif;
-  --sans:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;--r-pill:999px;
-  --shadow-sm:0 1px 2px rgba(43,43,43,.06),0 1px 3px rgba(43,43,43,.08);
-  --shadow-lg:0 12px 32px rgba(27,26,24,.18);
-  --ease:cubic-bezier(.2,0,0,1);
-  color-scheme:light;
+  /* Palette 80 / 15 / 5 – no other colours */
+  --ivory:#F4F0E8; --cream:#EDE6D8; --stone:#6B6760; --ink:#2B2B28;   /* neutrals ~80% */
+  --oak:#B08D57; --earth:#7A5C44;                                       /* warm woods ~15% */
+  --sage:#8A9079;                                                       /* botanical ≤5%, decorative only */
+  --white:#FFFFFF;
+  /* Roles */
+  --bg:var(--ivory); --bg-alt:var(--cream); --text:var(--ink); --text-2:var(--stone);
+  --label:var(--earth); --rule:var(--oak);
+  --btn:var(--earth); --btn-text:var(--white); --btn-hover:var(--ink);
+  /* Type */
+  --serif:"Lora", Georgia, "Times New Roman", serif;
+  --sans:"Be Vietnam Pro", Arial, Helvetica, sans-serif;
+  --mono:"JetBrains Mono", "Courier New", monospace;
+  --fs-h1:clamp(2.25rem, 1.6rem + 2.6vw, 3.75rem);
+  --fs-h2:clamp(1.75rem, 1.45rem + 1.3vw, 2.5rem);
+  --fs-h3:clamp(1.125rem, 1.05rem + .3vw, 1.25rem);
+  --fs-lead:clamp(1.125rem, 1.07rem + .25vw, 1.25rem);
+  --fs-body:1rem; --fs-small:.875rem; --fs-label:.8125rem;
+  /* Space & shape */
+  --gutter:16px; --section:64px; --r:4px;
+  --header-h:64px; --bar-h:0px;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#1B1A18;--surface:#24221F;--surface-2:#2D2A26;--ink:#EDE8DF;--ink-inverse:#1B1A18;
-    --muted:#A9A398;--faint:#A39D92;--deco:#7D776E;--line:#38342F;--line-strong:#857F75;
-    --oak:#C9A56E;--oak-ink:#D9B987;--oak-soft:#3A3226;--focus:#D9B987;--focus-on-dark:#1B1A18;
-    --ok:#7FBF95;--ok-bg:#22352A;--warn:#E0A866;--warn-bg:#3A2E1E;--bad:#E58A84;--bad-bg:#3D2422;
-    --info:#8DB0CC;--info-bg:#22303B;--scrim:rgba(0,0,0,.6);
-    --clay:#D98A62;--clay-ink:#E8A27F;--clay-soft:#3B2A22;--clay-deep:#3B2A22;
-    --band:#2D2A26;--band-t:#EDE8DF;--band-muted:#A9A398;--band-accent:#D9B987;--band-focus:#D9B987;
-    --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 12px 32px rgba(0,0,0,.5);
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#1B1A18;--surface:#24221F;--surface-2:#2D2A26;--ink:#EDE8DF;--ink-inverse:#1B1A18;
-  --muted:#A9A398;--faint:#A39D92;--deco:#7D776E;--line:#38342F;--line-strong:#857F75;
-  --oak:#C9A56E;--oak-ink:#D9B987;--oak-soft:#3A3226;--focus:#D9B987;--focus-on-dark:#1B1A18;
-  --ok:#7FBF95;--ok-bg:#22352A;--warn:#E0A866;--warn-bg:#3A2E1E;--bad:#E58A84;--bad-bg:#3D2422;
-  --info:#8DB0CC;--info-bg:#22303B;--scrim:rgba(0,0,0,.6);
-  --clay:#D98A62;--clay-ink:#E8A27F;--clay-soft:#3B2A22;--clay-deep:#3B2A22;
-  --band:#2D2A26;--band-t:#EDE8DF;--band-muted:#A9A398;--band-accent:#D9B987;--band-focus:#D9B987;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 12px 32px rgba(0,0,0,.5);
-  color-scheme:dark;
-}
-/* Biến thể B – đất nung dẫn dắt */
-:root[data-variant="b"]{
-  --accent-ink:var(--clay-ink);--cta-bg:#9C4A2B;--cta-t:#FBF9F4;
-  --band:#7E3B22;--band-t:#F4F0E8;--band-muted:#F1E7D6;--band-accent:#F3E2D7;--band-focus:#F4F0E8;
-}
-@media (prefers-color-scheme:dark){
-  :root[data-variant="b"]:not([data-theme="light"]){
-    --cta-bg:#E8A27F;--cta-t:#1B1A18;
-    --band:#3B2A22;--band-t:#EDE8DF;--band-muted:#A9A398;--band-accent:#E8A27F;--band-focus:#E8A27F;
-  }
-}
-:root[data-variant="b"][data-theme="dark"]{
-  --cta-bg:#E8A27F;--cta-t:#1B1A18;
-  --band:#3B2A22;--band-t:#EDE8DF;--band-muted:#A9A398;--band-accent:#E8A27F;--band-focus:#E8A27F;
-}
+@media (min-width:768px){:root{--gutter:24px;--section:80px}}
+@media (min-width:1024px){:root{--gutter:32px;--section:104px;--fs-body:1.0625rem}}
+@media (max-width:767px){:root{--bar-h:72px}}
 
-/* ===== 2. Nền ===== */
 *,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:88px;scroll-padding-bottom:96px}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:1rem;line-height:1.6}
-@media (min-width:1024px){body{font-size:1.0625rem}}
-img,svg{display:block;max-width:100%}
-h1,h2,h3{font-family:var(--serif);font-weight:600;margin:0;color:inherit;text-wrap:balance}
-p{margin:0}
-a{color:var(--accent-ink);text-underline-offset:3px}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-[hidden]{display:none !important}
-.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
-@media (min-width:768px){.wrap{padding:0 24px}}
-@media (min-width:1024px){.wrap{padding:0 32px}}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.skip{position:absolute;left:8px;top:-80px;z-index:100;background:var(--ink);color:var(--ink-inverse);padding:12px 16px;border-radius:var(--r-md);font-weight:600}
-.skip:focus{top:8px;outline-color:var(--focus-on-dark)}
-.icon{width:24px;height:24px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.num{font-variant-numeric:tabular-nums}
-.nowrap{white-space:nowrap}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:0s !important;animation-duration:0s !important}}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:calc(var(--header-h) + 16px);scroll-padding-bottom:calc(var(--bar-h) + 16px);background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:400 var(--fs-body)/1.5 var(--sans);padding-bottom:calc(var(--bar-h) + env(safe-area-inset-bottom));overflow-wrap:break-word}
+img{max-width:100%;display:block}
+a{color:inherit}
+p{margin:0 0 1em}
+h1,h2,h3{margin:0;font-weight:400}
+ul,ol{margin:0;padding:0;list-style:none}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}}
 
-/* ===== 3. Thanh công cụ mock (không thuộc landing) ===== */
-.mockbar{background:var(--surface-2);border-bottom:1px dashed var(--line-strong);font-size:.875rem}
-.mockbar summary{cursor:pointer;min-height:44px;padding:10px 0;font-weight:600}
-.mockbar summary span{font-weight:400;color:var(--muted)}
-.mockbar .caption a{display:inline-flex;align-items:center;min-height:44px}
-.mb-body{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:4px 0 10px}
-.mb-group{display:flex;align-items:center;gap:8px}
-.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-md);overflow:hidden;background:var(--surface)}
-.seg button{min-height:44px;min-width:44px;padding:0 12px;border:0;background:transparent;font:500 .875rem/1 var(--sans);color:var(--muted);cursor:pointer}
-.seg button+button{border-left:1px solid var(--line)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--ink-inverse);font-weight:600}
-.seg button:focus-visible{outline-offset:-4px}
+/* Language switch: both texts live in the page */
+html[lang="en"] .l-vi, html[lang="vi"] .l-en{display:none!important}
 
-/* ===== 4. Nút, chip ===== */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:var(--r-md);font:600 1rem/1.2 var(--sans);text-decoration:none;cursor:pointer;border:1px solid transparent;text-align:center;transition:background-color .15s var(--ease),box-shadow .15s var(--ease),border-color .15s var(--ease)}
-.btn.lg{min-height:48px;padding:0 22px}
-.btn .icon{width:20px;height:20px}
-.btn.primary{background:var(--cta-bg);color:var(--cta-t)}
-.btn.primary:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.08)}
-.btn.secondary{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
-.btn.secondary:hover{background:var(--surface-2)}
-.btn.inverse{background:var(--band-t);color:var(--band)}
-.btn.inverse:hover{box-shadow:inset 0 0 0 999px rgba(0,0,0,.06)}
-.btn.inverse-outline{background:transparent;color:var(--band-t);border-color:var(--band-t)}
-.icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:44px;min-height:44px;padding:0 10px;border-radius:var(--r-md);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:600 .9375rem/1 var(--sans);cursor:pointer}
-.tbd{justify-self:start;align-self:start;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px dashed var(--warn);border-radius:var(--r-pill);background:var(--warn-bg);color:var(--warn);font:600 .875rem/1.4 var(--sans);letter-spacing:0;text-transform:none;white-space:nowrap;vertical-align:middle}
-.mock-note{display:flex;gap:8px;align-items:flex-start;border:1px dashed var(--info);background:var(--info-bg);color:var(--ink);border-radius:var(--r-md);padding:10px 12px;font-size:.875rem;line-height:1.5}
-.mock-note b{color:var(--info);white-space:nowrap}
-:root[data-notes="off"] .mock-note,:root[data-notes="off"] .ph-meta,:root[data-notes="off"] .tbd{display:none !important}
+.wrap{max-width:1200px;margin-inline:auto;padding-inline:var(--gutter)}
+.sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;left:8px;top:-100px;z-index:100;background:var(--ink);color:var(--ivory);padding:12px 16px;border-radius:var(--r)}
+.skip:focus{top:8px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.on-dark :focus-visible{outline-color:var(--ivory)}
 
-/* ===== 5. Đầu trang ===== */
-.site-h{position:sticky;top:0;z-index:30;background:var(--bg);background:color-mix(in srgb,var(--bg) 94%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.h-row{display:flex;align-items:center;gap:12px;min-height:64px}
-.brand{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);line-height:1.15;margin-right:auto;padding:8px 0}
-.brand .wm{font-family:var(--serif);font-weight:600;letter-spacing:.3em;font-size:1.25rem}
-.brand small{font-family:var(--sans);font-weight:500;letter-spacing:.2em;font-size:.75rem;color:var(--muted);margin-top:2px}
-.nav{display:none}
-.nav ul{list-style:none;margin:0;padding:0}
-.nav a{display:flex;align-items:center;min-height:48px;padding:0 12px;color:var(--ink);text-decoration:none;font-weight:500;border-radius:var(--r-md)}
-.nav a:hover{background:var(--surface-2)}
-.nav.open{display:block;position:absolute;left:0;right:0;top:100%;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow-lg);padding:8px 16px 16px}
-.lang{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px 12px 0}
-.lang .lang-l{flex-basis:100%;color:var(--muted);font-size:.875rem}
-.lang a{min-width:44px;min-height:44px;padding:0 10px;justify-content:center;font-weight:600;font-size:.9375rem;color:var(--muted);white-space:nowrap}
-.lang a[aria-current="true"]{color:var(--ink);background:var(--surface-2)}
-.lang a[aria-disabled="true"] .soon{font-weight:400;font-size:.875rem;margin-left:4px}
-.h-cta{display:none;gap:8px}
+/* Type roles */
+.label{display:flex;align-items:center;gap:12px;margin:0 0 16px;font:500 var(--fs-label)/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+.label::before{content:"";flex:0 0 28px;height:1px;background:var(--rule)}
+.on-dark .label{color:var(--oak)}
+h1,.h1{font-family:var(--serif);font-size:var(--fs-h1);line-height:1.1;letter-spacing:.04em}
+.h2{font-family:var(--serif);font-size:var(--fs-h2);line-height:1.2;letter-spacing:.02em;margin-bottom:16px}
+.h3{font:600 var(--fs-h3)/1.3 var(--sans)}
+.lead{font-size:var(--fs-lead);line-height:1.5}
+.muted{color:var(--text-2)}
+.small{font-size:var(--fs-small)}
+.sec{padding-block:var(--section)}
+.alt{background:var(--bg-alt)}
+.dark{background:var(--ink);color:var(--ivory)}
+.dark .muted{color:var(--cream)}
+.head{max-width:720px;margin-bottom:40px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 22px;border:1px solid transparent;border-radius:var(--r);font:500 1rem/1.2 var(--sans);letter-spacing:.02em;text-decoration:none;cursor:pointer;transition:background-color .2s,color .2s,border-color .2s;-webkit-tap-highlight-color:transparent}
+.btn-primary{background:var(--btn);color:var(--btn-text)}
+.btn-primary:hover{background:var(--btn-hover)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--ink)}
+.btn-ghost:hover{background:var(--cream)}
+.alt .btn-ghost:hover{background:var(--ivory)}
+.on-dark .btn-ghost{color:var(--ivory);border-color:var(--ivory)}
+.on-dark .btn-ghost:hover{background:var(--ivory);color:var(--ink)}
+.btn-sm{min-height:44px;padding:10px 16px;font-size:.9375rem}
+.actions{display:flex;flex-wrap:wrap;gap:12px}
+.link{color:var(--earth);font-weight:500;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;display:inline-flex;align-items:center;min-height:44px}
+.link:hover{color:var(--ink)}
+.link .arr{width:1em;height:1em;flex:0 0 auto;margin-left:.4em;transition:transform .2s}
+.link:hover .arr{transform:translateX(2px)}
+
+/* Mock-only chrome */
+.mockbar{background:var(--cream);border-bottom:1px dashed var(--earth);font:400 .75rem/1.4 var(--mono);color:var(--ink)}
+.mockbar .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;min-height:36px;padding-block:4px}
+.mockbar button{font:inherit;color:var(--ink);background:var(--ivory);border:1px solid var(--ink);border-radius:2px;min-height:28px;padding:2px 8px;cursor:pointer}
+.note{display:none}
+@media (max-width:767px){.mb-long{display:none}}
+html[data-notes="on"] .note{display:inline-block}
+.pic .note{position:absolute;left:8px;top:8px;z-index:1;max-width:calc(100% - 16px)}
+.note{font:400 .6875rem/1.35 var(--mono);background:var(--ink);color:var(--ivory);padding:3px 6px;border-radius:2px}
+.pending{font:400 .75rem/1.35 var(--mono);color:var(--earth);border:1px dashed var(--earth);background:transparent;padding:1px 6px;border-radius:2px;vertical-align:middle}
+.dark .pending{color:var(--oak);border-color:var(--oak)}
+
+/* Header */
+.site-h{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--cream)}
+.h-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--header-h)}
+/* Logo minimums (guideline p12): wordmark >= 120 px, horizontal lockup >= 180 px, monogram >= 32 px.
+   26 px Lora OTTIMO = ~122 px; lockup 40 + 10 + 1 + 10 + 122 = ~183 px. */
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);min-height:44px;min-width:120px;flex:0 0 auto}
+.mono{width:40px;height:auto;flex:0 0 auto;overflow:visible}
+.mono .m-back{stroke:var(--stone)}
+.mono .m-front{stroke:var(--ink)}
+.brand-div{width:1px;align-self:stretch;margin-block:12px;background:var(--rule)}
+.wm{display:inline-grid;justify-items:center;line-height:1}
+.wm-name{font:400 1.625rem/1 var(--serif);letter-spacing:.12em;margin-right:-.12em}
+.wm-sub{font:500 .5625rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;margin-top:6px;color:var(--stone);margin-right:-.2em}
+/* Header below 375 px: wordmark only (lockup + EN/VI + menu do not fit). Footer always shows the lockup. */
+@media (max-width:374.98px){.site-h .brand .mono,.site-h .brand .brand-div{display:none}}
+.nav-d{display:none}
+.nav-d a,.menu-panel a{text-decoration:none;font-weight:500}
+.h-tools{display:flex;align-items:center;gap:8px}
+.lang{display:inline-flex;border:1px solid var(--ink);border-radius:var(--r);overflow:hidden}
+.lang button{font:500 .875rem/1 var(--sans);letter-spacing:.06em;min-width:44px;min-height:44px;padding:0 8px;background:transparent;color:var(--ink);border:0;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--ivory)}
+.only-d{display:none}
+.menu{position:static}
+.menu summary{list-style:none;display:grid;place-items:center;width:44px;height:44px;cursor:pointer;border-radius:var(--r)}
+.menu summary::-webkit-details-marker{display:none}
+.menu summary svg{width:22px;height:22px}
+.menu[open] summary{background:var(--cream)}
+.menu-panel{position:absolute;left:0;right:0;top:100%;background:var(--bg);border-bottom:1px solid var(--rule);padding:8px var(--gutter) 16px}
+.menu-panel a{display:flex;align-items:center;min-height:48px;border-bottom:1px solid var(--cream);font-size:1.0625rem}
+@media (min-width:768px){.only-d{display:inline-flex}}
 @media (min-width:1024px){
-  .menu-btn{display:none}
-  .nav{display:flex;align-items:center}
-  .nav ul{display:flex;gap:2px}
-  .lang{flex-wrap:nowrap;padding:0 0 0 8px;border-left:1px solid var(--line);margin-left:8px}
-  .lang .lang-l,.lang a[aria-disabled="true"] .soon{display:none}
-  .h-cta{display:flex}
+  .nav-d{display:flex;gap:28px}
+  .nav-d a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;font-size:.9375rem}
+  .nav-d a:hover{color:var(--earth)}
+  .menu{display:none}
 }
 
-/* ===== 6. Mục chung ===== */
-.sec{padding:64px 0}
-@media (min-width:1024px){.sec{padding:96px 0}}
-.sec-head{max-width:720px;margin-bottom:32px;display:grid;gap:12px}
-.sec-head.tight{margin-bottom:8px}
-.sec.pt-0{padding-top:0}
-.mb-16{margin-bottom:16px}
-.stack-10{display:grid;gap:10px}
-.eyebrow{display:flex;align-items:center;gap:10px;font:600 .875rem/1.4 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
-.eyebrow::before{content:"";width:28px;height:2px;border-radius:2px;background:var(--mark);flex:none}
-.h2{font-size:clamp(1.75rem,1.35rem + 1.6vw,2.5rem);line-height:1.2}
-.lead{font-size:clamp(1.125rem,1.06rem + .3vw,1.25rem);line-height:1.55;color:var(--muted)}
-.muted{color:var(--muted)}
-.caption{font-size:.875rem;color:var(--muted)}
+/* Pictures */
+.pic{position:relative;margin:0;background:var(--cream);border-radius:var(--r);overflow:hidden}
+.pic img{width:100%;height:100%;object-fit:cover}
+.r32 img{aspect-ratio:3/2}
+.r45 img{aspect-ratio:4/5}
+figcaption{font-size:var(--fs-small);color:var(--text-2);margin-top:10px}
+.dark figcaption{color:var(--cream)}
 
-/* ===== 7. Ô ảnh trung tính ===== */
-.ph{position:relative;display:flex;align-items:flex-end;overflow:hidden;background-color:var(--surface-2);background-image:repeating-linear-gradient(135deg,transparent 0 18px,var(--line) 18px 19px);border-radius:var(--r-lg)}
-.ph::after{content:"";position:absolute;inset:0;border:1px solid var(--line);border-radius:inherit;pointer-events:none}
-.ph .ph-ico{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;color:var(--deco);fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.ph-meta{position:relative;z-index:1;margin:10px;max-width:calc(100% - 20px);padding:6px 10px;background:var(--surface);color:var(--muted);border-radius:var(--r-md);font-size:.875rem;line-height:1.4;box-shadow:var(--shadow-sm)}
-.ph-meta b{font-family:var(--mono);font-size:.8125rem;color:var(--ink);margin-right:6px}
-.ph-meta i{font-style:normal;display:block;color:var(--muted)}
-
-/* ===== 8. Hero ===== */
-.hero{padding:16px 0 32px}
-.hero-grid{display:grid;gap:24px}
-.hero-media{position:relative}
-.ph-hero{aspect-ratio:4/3}
-.ph-hero2{display:none}
-.hero-copy{display:grid;gap:16px;align-content:center}
-.hero h1{font-size:clamp(2.25rem,1.55rem + 3vw,3.5rem);line-height:1.1;letter-spacing:-.01em}
-.hero h1 em{font-style:italic;font-weight:500;color:var(--accent-ink)}
-.cta-row{display:flex;flex-wrap:wrap;gap:12px}
-.cta-row .btn{flex:1 1 150px}
-.facts{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;font-size:.9375rem;color:var(--muted)}
-.facts li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.facts li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mark);flex:none}
+/* Hero */
+.hero{padding-bottom:var(--section)}
+.hero-grid{display:grid;gap:28px}
+.hero-media{margin-inline:calc(var(--gutter) * -1);border-radius:0}
+.hero-media img{aspect-ratio:4/5;max-height:56svh;object-position:50% 58%}
+.hero-text h1{margin:4px 0 20px}
+.hero-text .lead{max-width:34em;margin-bottom:12px}
+.support{font-size:var(--fs-small);color:var(--text-2);margin-bottom:28px}
+.facts{display:grid;grid-template-columns:repeat(2,auto);justify-content:start;gap:6px 24px;margin-top:28px;font-size:var(--fs-small);color:var(--text-2)} /* auto, not max-content: VI facts overflowed 3 px at 360–362 px */
+.facts li::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--sage);margin-right:8px;vertical-align:middle;position:relative;top:-1px}
+@media (max-width:359px){.facts{grid-template-columns:1fr}}
+@media (min-width:768px){.hero{padding-top:24px}.hero-media{margin-inline:0;border-radius:var(--r)}.hero-media img{aspect-ratio:3/2;max-height:none}}
 @media (min-width:1024px){
-  .hero{padding:48px 0 72px}
-  .hero-grid{grid-template-columns:1fr 1fr;gap:64px;align-items:center}
-  .hero-copy{order:-1;gap:20px}
-  .cta-row .btn{flex:0 0 auto}
-  .ph-hero{aspect-ratio:4/5;border-radius:var(--r-xl);align-items:flex-start}
-  .ph-hero2{display:flex;position:absolute;left:-48px;bottom:-32px;width:40%;aspect-ratio:1/1;border-radius:var(--r-xl);box-shadow:0 0 0 6px var(--bg)}
+  .hero{padding-top:40px}
+  .hero-grid{grid-template-columns:5fr 7fr;gap:56px;align-items:center}
+  .hero-text{order:-1}
+  .hero-media img{aspect-ratio:4/5;max-height:min(80svh,760px)}
 }
 
-/* ===== 9. Hỏi phòng trống ===== */
-.enq{padding:0 0 16px}
-.enq-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);padding:20px;display:grid;gap:20px}
-.enq-head{display:grid;gap:6px}
-.enq-head h2{font-size:1.375rem}
-.enq-head h2:focus{outline:none}
-.fgrid{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}
-.field{display:grid;gap:6px;align-content:start;min-width:0}
-.field.span2{grid-column:1/-1}
-.field label,.field .lbl{font-weight:500;font-size:.9375rem}
-.opt{font-weight:400;color:var(--muted)}
-.input{min-height:48px;width:100%;min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:400 1rem/1.3 var(--sans);appearance:none;-webkit-appearance:none}
-select.input{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:36px}
-.input[aria-invalid="true"]{border:2px solid var(--bad)}
-.err{display:flex;gap:6px;align-items:flex-start;color:var(--bad);font-size:.875rem}
-.err::before{content:"✕";font-weight:700}
-.help{color:var(--muted);font-size:.875rem}
-.stepper{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);min-height:48px}
-.stepper button{width:48px;min-height:46px;border:0;background:transparent;color:var(--ink);font:500 1.375rem/1 var(--sans);cursor:pointer;border-radius:var(--r-md)}
-.stepper button[aria-disabled="true"]{color:var(--muted);cursor:not-allowed}
-.stepper output{font-weight:600;min-width:2ch;text-align:center;font-variant-numeric:tabular-nums}
-.enq-foot{display:grid;gap:12px;margin-top:16px}
-.enq-sum{min-height:1.6em;font-weight:500}
-.enq-group{color:var(--info);font-size:.9375rem}
-@media (min-width:768px){.fgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.field.span2{grid-column:span 2}}
-@media (min-width:1024px){
-  .enq{margin-top:-8px}
-  .enq-card{grid-template-columns:240px 1fr;padding:28px;gap:32px}
-  .enq-foot{grid-template-columns:auto 1fr;align-items:center;gap:16px}
-}
+/* Stay types */
+.stay{display:grid;gap:16px}
+.stay-card{background:var(--bg-alt);border-radius:var(--r);padding:24px;display:flex;flex-direction:column}
+.stay-card .h3{margin-bottom:8px}
+.stay-card p{color:var(--text-2);margin-bottom:8px}
+.stay-card .link{margin-top:auto}
+@media (min-width:768px){.stay{grid-template-columns:1fr 1fr;gap:24px}.stay-card{padding:32px}}
 
-/* ===== 10. Điểm nổi bật ===== */
-.hl-grid{display:grid;gap:16px}
-@media (min-width:600px){.hl-grid{grid-template-columns:1fr 1fr}}
-@media (min-width:1024px){.hl-grid{grid-template-columns:repeat(4,1fr);gap:20px}}
-.hl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:grid;gap:10px;align-content:start}
-.hl .ico{width:48px;height:48px;border-radius:50%;background:var(--clay-soft);color:var(--clay-ink);display:grid;place-items:center}
-@media (max-width:599px){.hl{grid-template-columns:48px 1fr;column-gap:16px;padding:16px}.hl .ico{grid-row:1/span 3}.hl>:not(.ico){grid-column:2}}
-.hl h3{font-size:1.25rem}
-.hl p{color:var(--muted)}
+/* About */
+.about{display:grid;gap:32px}
+.quote{margin:32px 0 0;padding-top:24px;border-top:1px solid var(--rule);font:italic 400 clamp(1.25rem,1.15rem + .5vw,1.5rem)/1.4 var(--serif)}
+.quote p{margin:0}
+@media (min-width:1024px){.about{grid-template-columns:6fr 5fr;gap:64px;align-items:center}}
 
-/* ===== 11. Căn hộ ===== */
-.rooms{display:grid;gap:24px}
-@media (min-width:768px) and (max-width:1023px){.rooms{grid-template-columns:1fr 1fr}}
-@media (min-width:1024px){.rooms{grid-template-columns:repeat(3,1fr)}}
-.room{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;display:flex;flex-direction:column}
-.gal{position:relative}
-.gal-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
-.gal-track::-webkit-scrollbar{display:none}
-.gal-track .ph{flex:0 0 100%;scroll-snap-align:start;aspect-ratio:4/3;border-radius:0}
-.gal-track .ph::after{border:0}
-.gal-ctl{position:absolute;top:10px;right:10px;left:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
-.gal-ctl>*{pointer-events:auto}
-.gal-count{background:var(--surface);color:var(--ink);font-size:.875rem;font-weight:500;padding:4px 10px;border-radius:var(--r-pill);font-variant-numeric:tabular-nums;box-shadow:var(--shadow-sm)}
-.gal-btns{display:flex;gap:8px}
-.gal-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow-sm)}
-.gal-btn[aria-disabled="true"]{color:var(--muted);cursor:not-allowed}
-.room-b{padding:20px;display:flex;flex-direction:column;gap:12px;flex:1}
-.room-b h3{font-size:1.375rem}
-.room-units{color:var(--muted);font-size:.9375rem}
-.specs{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.specs li{display:flex;gap:10px;align-items:flex-start}
-.specs .icon{width:20px;height:20px;color:var(--accent-ink);margin-top:3px}
-.price{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:4px}
-.price .p-main{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
-.price strong{font-family:var(--serif);font-size:1.375rem;font-variant-numeric:tabular-nums}
-.price .p-unit,.price .p-note{color:var(--muted);font-size:.9375rem}
-.room-b .btn{width:100%}
+/* Rooms */
+.rooms{display:grid;gap:56px}
+.room-media{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px}
+.room-media .r-main{grid-column:1 / -1}
+.room-idx{font:500 var(--fs-label)/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--label);margin-bottom:8px}
+.room-idx b{font:400 1.0625rem/1 var(--serif);letter-spacing:.04em;margin-right:6px}
+.room h3{font-family:var(--serif);font-size:clamp(1.375rem,1.25rem + .5vw,1.625rem);line-height:1.25;letter-spacing:.02em}
+.room .alt-name{color:var(--text-2);font-size:var(--fs-small);margin:4px 0 16px}
+.specs{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:4px 28px;margin:0 0 16px;padding:12px 0;border-block:1px solid var(--rule)}
+.specs dt{font:500 .75rem/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--text-2)}
+.specs dd{margin:0;font-weight:500}
+.rate{font-size:var(--fs-small);color:var(--text-2)}
+@media (max-width:399px){.specs{grid-template-columns:1fr 1fr}.specs div:first-child{grid-column:1 / -1}}
+@media (min-width:768px){.rooms{grid-template-columns:1fr 1fr;gap:64px 32px}}
+@media (min-width:1200px){.rooms{gap:72px 48px}}
+.names{margin-top:64px;background:var(--bg-alt);border-radius:var(--r);padding:28px 24px}
+.names ul{display:flex;flex-wrap:wrap;gap:4px 0;font:italic 400 1.125rem/1.6 var(--serif)}
+.names li:not(:last-child)::after{content:"·";font-style:normal;margin:0 12px;color:var(--earth)} /* Earth on Cream 4.91:1 (Oak was 2.49) */
+@media (min-width:768px){.names{padding:36px 40px}}
 
-/* ===== 12. Dải "Ở dài hạn" ===== */
-.band{background:var(--band);color:var(--band-t)}
-.band .eyebrow{color:var(--band-accent)}
-.band .eyebrow::before{background:var(--band-accent)}
-.band .lead,.band .b-muted{color:var(--band-muted)}
-.band :focus-visible{outline-color:var(--band-focus)}
-.ls-grid{display:grid;gap:32px}
-@media (min-width:1024px){.ls-grid{grid-template-columns:7fr 5fr;gap:64px;align-items:center}}
-.ls-list{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:16px}
-.ls-list li{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
-.ls-list .icon{color:var(--band-accent);margin-top:2px}
-.ls-list strong{display:block;font-weight:600}
-.ls-list span{color:var(--band-muted)}
-.ls-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin:24px 0}
-.ls-price .tbd{align-self:center}
-.ls-price strong{font-family:var(--serif);font-size:1.75rem;font-variant-numeric:tabular-nums}
-.band .ph{background-color:color-mix(in srgb,var(--band-t) 8%,var(--band));background-image:repeating-linear-gradient(135deg,transparent 0 18px,color-mix(in srgb,var(--band-t) 16%,transparent) 18px 19px)}
-.band .ph::after{border-color:color-mix(in srgb,var(--band-t) 20%,transparent)}
-.band .ph .ph-ico{color:var(--band-muted)}
-.ph-long{aspect-ratio:4/5;border-radius:var(--r-xl)}
-@media (max-width:1023px){.ph-long{aspect-ratio:4/3}}
+/* Why */
+.why{display:grid;gap:40px}
+.points li{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;padding:20px 0;border-top:1px solid var(--rule)}
+.points li:last-child{border-bottom:1px solid var(--rule)}
+.points .n{font:400 1.25rem/1.3 var(--serif);color:var(--earth);grid-row:span 2}
+.points p{margin:0;color:var(--text-2)}
+@media (min-width:1024px){.why{grid-template-columns:7fr 5fr;gap:64px;align-items:start}.why .pic{position:sticky;top:calc(var(--header-h) + 32px)}}
 
-/* ===== 13. Không gian chung ===== */
-.mosaic{display:grid;gap:12px;grid-template-columns:1fr 1fr}
-.mosaic .ph{aspect-ratio:1/1}
-.mosaic .ph:first-child{grid-column:1/-1;aspect-ratio:3/2}
-@media (min-width:1024px){
-  .mosaic{grid-template-columns:2fr 1fr 1fr;grid-template-rows:repeat(2,240px);gap:16px}
-  .mosaic .ph,.mosaic .ph:first-child{aspect-ratio:auto}
-  .mosaic .ph:first-child{grid-column:1;grid-row:1/3}
-}
+/* Amenities */
+.amen{display:grid;gap:40px}
+.amen-grid{display:grid;gap:0 32px}
+.amen-grid li{padding:16px 0;border-top:1px solid var(--rule)}
+.amen-grid h3{font:600 1rem/1.35 var(--sans);margin-bottom:2px}
+.amen-grid p{margin:0;color:var(--text-2);font-size:.9375rem}
+.foot-note{margin-top:24px;font-size:var(--fs-small);color:var(--text-2)}
+@media (min-width:600px){.amen-grid{grid-template-columns:1fr 1fr}}
+@media (min-width:1024px){.amen{grid-template-columns:5fr 7fr;gap:64px;align-items:start}.amen .pic{position:sticky;top:calc(var(--header-h) + 32px)}}
 
-/* ===== 14. Đánh giá ===== */
-.rv-grid{display:grid;gap:16px}
-@media (min-width:768px){.rv-grid{grid-template-columns:repeat(3,1fr)}}
-.rv{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:grid;gap:12px;align-content:start}
-.rv .q{font-family:var(--serif);font-size:3.5rem;line-height:.8;height:28px;color:var(--mark)}
-.sk{height:12px;border-radius:6px;background:var(--surface-2)}
-.sk.w90{width:90%}.sk.w75{width:75%}.sk.w55{width:55%}
-.rv-src{font-size:.875rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.ota-links{margin-top:20px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center}
-.ota-links a{display:inline-flex;align-items:center;min-height:44px}
+/* Location */
+.loc{display:grid;gap:40px}
+.loc .sub{font:italic 400 var(--fs-lead)/1.4 var(--serif);color:var(--cream);margin:-4px 0 20px}
+address{font-style:normal;margin:24px 0 16px;font-size:1.0625rem}
+.status{min-height:1.5em;font-size:var(--fs-small);color:var(--cream);margin:8px 0 0}
+table.dist{width:100%;border-collapse:collapse;margin-top:32px;font-size:.9375rem}
+.dist caption{text-align:left;font:500 var(--fs-label)/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--oak);padding-bottom:8px}
+.dist th,.dist td{padding:10px 0;border-top:1px solid var(--stone);text-align:left;vertical-align:top}
+.dist thead th{font:500 .75rem/1.4 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--cream);border-top:0;padding-top:0}
+.dist tbody th{font-weight:400;padding-right:12px}
+.dist tbody th::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--sage);margin-right:10px;vertical-align:middle;position:relative;top:-1px}
+.dist td{white-space:nowrap;padding-left:12px;text-align:right;font-variant-numeric:tabular-nums}
+.dist .num{text-align:right;padding-left:12px}
+.loc-media{display:grid;gap:12px;grid-template-columns:1fr}
+@media (min-width:600px){.loc-media{grid-template-columns:4fr 5fr;align-items:end}}
+@media (min-width:1024px){.loc{grid-template-columns:6fr 6fr;gap:64px;align-items:start}.loc-media{grid-template-columns:1fr;gap:16px}.loc-media .pic:last-child img{aspect-ratio:3/2}}
 
-/* ===== 15. Vị trí ===== */
-.loc-grid{display:grid;gap:24px}
-@media (min-width:1024px){.loc-grid{grid-template-columns:7fr 5fr;gap:32px;align-items:start}}
-.ph-map{aspect-ratio:16/10;border-radius:var(--r-xl)}
-.addr{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:20px;display:grid;gap:16px}
-.addr h3{font-size:1.25rem}
-.addr address{font-style:normal}
-.dist{list-style:none;margin:0;padding:0}
-.dist li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-.dist li:last-child{border-bottom:0}
-.btn-row{display:flex;flex-wrap:wrap;gap:12px}
-.btn-row .btn{flex:1 1 160px}
-
-/* ===== 16. Hành trình Zalo OA ===== */
-.jr-grid{display:grid;gap:32px}
-@media (min-width:1024px){.jr-grid{grid-template-columns:7fr 5fr;gap:64px;align-items:start}}
-.steps{list-style:none;margin:0;padding:0;counter-reset:s}
-.steps li{display:grid;grid-template-columns:44px 1fr;gap:16px;padding-bottom:24px;position:relative}
-.steps li::before{counter-increment:s;content:counter(s);width:44px;height:44px;border-radius:50%;border:2px solid var(--clay);background:var(--surface);color:var(--clay-ink);display:grid;place-items:center;font:600 1.125rem/1 var(--serif)}
-.steps li:not(:last-child)::after{content:"";position:absolute;left:21px;top:50px;bottom:6px;width:2px;background:var(--line)}
-.steps h3{font-size:1.125rem;margin-bottom:4px}
-.steps p{color:var(--muted)}
-.steps .mock-note{margin-top:8px}
-.oa-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:24px;display:grid;gap:16px;justify-items:start}
-.oa-card h3{font-size:1.25rem}
-.ph-qr{width:168px;aspect-ratio:1/1}
-
-/* ===== 17. Hỏi đáp ===== */
-.faq{display:grid;gap:12px;max-width:840px}
-.faq details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
-.faq summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:56px;padding:12px 20px;font-weight:600;border-radius:var(--r-lg)}
+/* FAQ */
+.faq{max-width:820px}
+.faq details{border-top:1px solid var(--rule)}
+.faq details:last-child{border-bottom:1px solid var(--rule)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:56px;padding:12px 0;font:600 1.0625rem/1.4 var(--sans)}
 .faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"+";font:400 1.5rem/1 var(--sans);color:var(--accent-ink);flex:none}
-.faq details[open] summary::after{content:"−"}
-.faq .ans{padding:0 20px 18px;display:grid;gap:8px}
+.faq summary::after{content:"+";font:400 1.5rem/1 var(--serif);color:var(--earth);flex:0 0 auto}
+.faq details[open] summary::after{content:"–"}
+.faq .ans{padding:0 0 20px;color:var(--text-2);max-width:62ch}
+.faq .ans p:last-child{margin-bottom:0}
 
-/* ===== 18. Lời mời cuối, chân trang ===== */
-.cta-final{background:var(--clay-soft)}
-.cta-box{display:grid;gap:20px;justify-items:start;max-width:720px}
-@media (min-width:768px){.cta-box{justify-items:center;text-align:center;margin:0 auto}.cta-box .cta-row{justify-content:center}}
-.site-f{background:var(--surface-2);padding:48px 0 136px;font-size:.9375rem}
-@media (min-width:768px){.site-f{padding-bottom:48px}}
+/* Contact */
+.channels{display:grid;gap:16px}
+.ch{background:var(--bg);border-radius:var(--r);padding:24px;display:flex;flex-direction:column}
+.ch .h3{margin-bottom:4px}
+.ch .num{font:400 1.375rem/1.3 var(--serif);letter-spacing:.02em;margin:4px 0 16px;color:var(--ink)}
+.ch p{color:var(--text-2);font-size:.9375rem}
+.ch .actions{margin-top:auto;gap:8px}
+.ch .label{color:var(--label);font-size:var(--fs-label)}
+.ch .btn-sm{padding:10px 14px}
+.ch-zalo{order:2}.ch-intl{order:1}.ch-mail{order:3}
+html[lang="vi"] .ch-zalo{order:1} html[lang="vi"] .ch-intl{order:2}
+.privacy{margin-top:28px;font-size:var(--fs-small);color:var(--text-2)}
+@media (min-width:768px){.channels{grid-template-columns:repeat(2,1fr)}.ch-mail{grid-column:1 / -1}}
+@media (min-width:1024px){.channels{grid-template-columns:repeat(3,1fr)}.ch-mail{grid-column:auto}.ch{padding:32px}}
+
+/* Footer */
+.site-f{padding-block:56px 40px}
+.site-f .mono .m-front{stroke:var(--ivory)}
+.site-f .mono .m-back{stroke:var(--stone)}
 .f-grid{display:grid;gap:32px}
-@media (min-width:768px){.f-grid{grid-template-columns:1fr 1fr}}
-@media (min-width:1024px){.f-grid{grid-template-columns:1.4fr 1fr 1fr 1fr}}
-.site-f h2{font:600 .875rem/1.4 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.site-f ul{list-style:none;padding:0;margin:0;display:grid}
-.site-f li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:32px}
-.site-f a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line-strong);display:inline-flex;align-items:center;min-height:44px;min-width:44px}
-.site-f .brand{margin-bottom:12px;text-decoration:none;min-height:0}
-.legal{border-top:1px solid var(--line);margin-top:32px;padding-top:20px;color:var(--muted);font-size:.875rem;display:grid;gap:8px}
+.site-f .wm-sub{color:var(--cream)}
+.site-f .brand{color:var(--ivory)}
+.tagline{font:italic 400 1.125rem/1.5 var(--serif);margin:20px 0 0;color:var(--ivory)}
+.f-col h2{font:500 var(--fs-label)/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--oak);margin-bottom:10px}
+.f-col p,.f-col li{color:var(--cream);font-size:.9375rem;margin:0 0 6px}
+.f-col a{color:var(--ivory);display:inline-flex;align-items:center;min-height:44px}
+.f-col li{margin:0}
+.f-base{margin-top:40px;padding-top:20px;border-top:1px solid var(--stone);font-size:var(--fs-small);color:var(--cream);display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+@media (min-width:768px){.f-grid{grid-template-columns:1.4fr 1fr 1fr}}
 
-/* ===== 19. Thanh dính đáy (điện thoại) ===== */
-.stickybar{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(27,26,24,.1);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.stickybar .btn{padding:0 12px}
-@media (max-width:359px){.stickybar .icon{display:none}}
+/* Utilities (no inline styles – CSP style-src 'self' in production) */
+.stay-sec{padding-bottom:var(--section)}
+.mt-12{margin:12px 0 0}.mb-28{margin-bottom:28px}
+.pic img.op-62{object-position:50% 62%}.pic img.op-70{object-position:50% 70%}
+.pic img.op-x42{object-position:42% 50%}.pic img.op-x35{object-position:35% 50%}.pic img.op-x62{object-position:62% 50%}
+.ch .num-sm{font-size:1.125rem}
+
+/* Sticky contact bar – mobile only */
+.stickybar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:8px;padding:12px var(--gutter) calc(12px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--rule)}
+.sb{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:0 6px;border-radius:var(--r);border:1px solid var(--ink);color:var(--ink);background:transparent;text-decoration:none;font:500 .9375rem/1.1 var(--sans);white-space:nowrap}
+.sb svg{width:18px;height:18px;flex:0 0 auto}
+.sb-wa{order:1}.sb-zalo{order:2}.sb-call{order:3}
+html[lang="en"] .sb-wa, html[lang="vi"] .sb-zalo{background:var(--btn);border-color:var(--btn);color:var(--btn-text)}
+html[lang="vi"] .sb-zalo{order:1} html[lang="vi"] .sb-wa{order:2}
+@media (max-width:359px){.sb svg{display:none}}
 @media (min-width:768px){.stickybar{display:none}}
-
-/* ===== 20. Hộp thoại, toast ===== */
-dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:100%;max-width:100%;max-height:92vh;margin:auto auto 0;border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--shadow-lg)}
-dialog[open]{display:flex;flex-direction:column}
-@media (min-width:768px){dialog{max-width:540px;margin:auto;border-radius:var(--r-xl)}}
-dialog::backdrop{background:var(--scrim)}
-.dlg-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 20px 4px}
-.dlg-h h2{font-size:1.375rem;line-height:1.3}
-.dlg-h h2:focus{outline:none}
-.dlg-b{padding:8px 20px 20px;display:grid;gap:14px;overflow:auto}
-.dlg-b textarea{width:100%;min-height:176px;resize:vertical;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:400 1rem/1.5 var(--sans)}
-.dlg-actions{display:grid;gap:10px}
-.status{padding:10px 12px;border-radius:var(--r-md);font-size:.9375rem;display:flex;gap:8px;align-items:flex-start}
-.status.ok{background:var(--ok-bg);color:var(--ink)}
-.status.ok::before{content:"✓";color:var(--ok);font-weight:700}
-.status.warn{background:var(--warn-bg);color:var(--ink)}
-.status.warn::before{content:"!";color:var(--warn);font-weight:700}
-.chan{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.chan a{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 14px;border:1px solid var(--line-strong);border-radius:var(--r-md);text-decoration:none;color:var(--ink);background:var(--surface)}
-.chan a:hover{background:var(--surface-2)}
-.chan small{display:block;color:var(--muted);font-size:.875rem}
-.chan .icon{color:var(--accent-ink)}
-.zalo-row{display:grid;gap:16px;grid-template-columns:auto 1fr;align-items:center}
-.zalo-row .ph-qr{width:132px}
-.toast-region{position:fixed;left:16px;right:16px;bottom:88px;z-index:60;display:flex;justify-content:center;pointer-events:none}
-@media (min-width:768px){.toast-region{bottom:24px}}
-.toast{pointer-events:auto;display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--ink-inverse);padding:8px 8px 8px 16px;border-radius:var(--r-md);box-shadow:var(--shadow-lg);max-width:560px;font-size:1rem}
-.toast button{min-width:44px;min-height:44px;border:0;background:transparent;color:inherit;font:600 1rem/1 var(--sans);cursor:pointer;border-radius:var(--r-md)}
-.toast :focus-visible{outline-color:var(--focus-on-dark)}
 </style>
 </head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <symbol id="i-bed" viewBox="0 0 24 24"><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 15h18M3 18v2M21 18v2M7 9V6.5A1.5 1.5 0 0 1 8.5 5h7A1.5 1.5 0 0 1 17 6.5V9"/></symbol>
-  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20v-1.5A3.5 3.5 0 0 1 7 15h6a3.5 3.5 0 0 1 3.5 3.5V20M16 4.6a3.5 3.5 0 0 1 0 6.8M20.5 20v-1.5a3.5 3.5 0 0 0-2.5-3.35"/></symbol>
-  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 3 7.5 12 12l9-4.5L12 3zM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></symbol>
-  <symbol id="i-pot" viewBox="0 0 24 24"><path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-6zM2 10h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5"/></symbol>
-  <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M5 5.5h14a1 1 0 0 1 1 1V15H4V6.5a1 1 0 0 1 1-1zM2.5 18.5h19"/></symbol>
-  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 9a14.5 14.5 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r=".9"/></symbol>
-  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 21c-3.5 0-6-2.4-6-5.6 0-3.4 3-5.4 3.6-8.9C12.4 8.6 13 11 13 12.6c.9-.6 1.6-1.7 1.8-3 1.7 1.6 3.2 3.6 3.2 5.8 0 3.2-2.5 5.6-6 5.6z"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.4 2.4 4.6-5"/></symbol>
-  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
-  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9.5L6 20.5V17H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
-  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h3.5l1.6 4-2.2 1.4a11 11 0 0 0 6.7 6.7l1.4-2.2 4 1.6V19a1.5 1.5 0 0 1-1.6 1.5C10.6 20 4 13.4 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></symbol>
-  <symbol id="i-mail" viewBox="0 0 24 24"><path d="M4 5.5h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z"/><path d="m3.5 7 8.5 6 8.5-6"/></symbol>
-  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol>
-  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4zM9 4v13M15 6.5v13"/></symbol>
-  <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2M14 18h2M18 18h2v2h-2z"/></symbol>
-  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
-  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
-  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></symbol>
-  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
-  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
-  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
-  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20V3.5zM14 3.5V8h4M9.5 12h5M9.5 15.5h5"/></symbol>
-  <symbol id="i-broom" viewBox="0 0 24 24"><path d="M14 4 10 12M7.5 12h7l2 8.5h-11z"/></symbol>
-  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></symbol>
-</svg>
+<body id="top">
+<a class="skip" href="#main"><span class="l-en">Skip to content</span><span class="l-vi" lang="vi">Bỏ qua tới nội dung</span></a>
 
-<a class="skip" href="#main">Bỏ qua tới nội dung</a>
-
-<aside class="mockbar" aria-label="Công cụ xem mock – không thuộc trang thật">
-  <details class="wrap" id="mb-d">
-    <summary>Mock landing OTTIMO v0.1 <span>· công cụ xem – không phải trang thật</span></summary>
-    <div class="mb-body">
-    <p class="caption">UXD 17/10/2026 · <a href="../concept.md">concept.md</a></p>
-    <div class="mb-group"><span id="mb-v">Hướng</span>
-      <div class="seg" role="group" aria-labelledby="mb-v">
-        <button type="button" data-set="variant" data-val="a" aria-pressed="true">A · Kem – sồi</button>
-        <button type="button" data-set="variant" data-val="b" aria-pressed="false">B · Đất nung</button>
-      </div></div>
-    <div class="mb-group"><span id="mb-t">Giao diện</span>
-      <div class="seg" role="group" aria-labelledby="mb-t">
-        <button type="button" data-set="theme" data-val="auto" aria-pressed="true">Tự động</button>
-        <button type="button" data-set="theme" data-val="light" aria-pressed="false">Sáng</button>
-        <button type="button" data-set="theme" data-val="dark" aria-pressed="false">Tối</button>
-      </div></div>
-    <div class="mb-group"><span id="mb-n">Nhãn ô ảnh &amp; ghi chú</span>
-      <div class="seg" role="group" aria-labelledby="mb-n">
-        <button type="button" data-set="notes" data-val="on" aria-pressed="true">Hiện</button>
-        <button type="button" data-set="notes" data-val="off" aria-pressed="false">Ẩn</button>
-      </div></div>
-    </div>
-  </details>
-</aside>
+<!-- Mock-only bar – not part of the real page -->
+<div class="mockbar" role="note" aria-label="Mock information">
+  <div class="wrap">
+    <span>MOCK v1.1 · not production code<span class="mb-long"> · logo = placeholder until INV sends the SVG</span></span>
+    <button type="button" id="notes-toggle" aria-pressed="false">Notes: off</button>
+  </div>
+</div>
 
 <header class="site-h">
   <div class="wrap h-row">
-    <a class="brand" href="#top" aria-label="OTTIMO Boutique Stay – về đầu trang"><span class="wm" aria-hidden="true">OTTIMO</span><small aria-hidden="true">BOUTIQUE STAY</small></a>
-    <nav class="nav" id="nav" aria-label="Điều hướng chính">
-      <ul>
-        <li><a href="#can-ho">Căn hộ</a></li>
-        <li><a href="#o-dai-han">Ở dài hạn</a></li>
-        <li><a href="#vi-tri">Vị trí</a></li>
-        <li><a href="#hoi-dap">Hỏi đáp</a></li>
-      </ul>
-      <div class="lang" role="group" aria-label="Ngôn ngữ">
-        <span class="lang-l" aria-hidden="true">Ngôn ngữ</span>
-        <a href="#top" lang="vi" aria-current="true" title="Tiếng Việt">VI</a>
-        <a href="#top" lang="en" aria-disabled="true" data-mock="Bản tiếng Anh làm ở bước sau." title="English – coming soon">EN<span class="soon" lang="vi">(sắp có)</span></a>
-        <a href="#top" lang="ru" aria-disabled="true" data-mock="Bản tiếng Nga làm sau bản tiếng Anh." title="Русский – скоро">RU<span class="soon" lang="vi">(sắp có)</span></a>
-      </div>
+    <a class="brand" href="#top">
+      <svg class="mono" viewBox="0 -2 100 44" aria-hidden="true" focusable="false">
+        <path class="m-back" d="M22 40.4 54.6 12.1 68.1 24.5 81.6 9.9 100 40.4M0 40.4h100" fill="none" stroke-width="2.2" stroke-linejoin="miter"/>
+        <path class="m-front" d="M0 39.7 41.5 0 44.3 5.3 46.5 3.5 56 22 70.9 10.6 92.9 40.4" fill="none" stroke-width="2.6" stroke-linejoin="miter"/>
+      </svg>
+      <span class="brand-div" aria-hidden="true"></span>
+      <span class="wm"><span class="wm-name">OTTIMO</span> <span class="wm-sub">Boutique Stay</span></span>
+    </a>
+    <nav class="nav-d" aria-label="Main">
+      <a href="#rooms"><span class="l-en">Rooms</span><span class="l-vi" lang="vi">Hạng phòng</span></a>
+      <a href="#amenities"><span class="l-en">Amenities</span><span class="l-vi" lang="vi">Tiện nghi</span></a>
+      <a href="#location"><span class="l-en">Location</span><span class="l-vi" lang="vi">Vị trí</span></a>
+      <a href="#faq"><span class="l-en">FAQ</span><span class="l-vi" lang="vi">Hỏi đáp</span></a>
     </nav>
-    <div class="h-cta">
-      <a class="btn secondary" href="#cham-soc" data-chat><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat Zalo</a>
-      <a class="btn primary" href="#hoi-phong" data-book>Đặt phòng</a>
+    <div class="h-tools">
+      <div class="lang" role="group" aria-label="Language / Ngôn ngữ">
+        <button type="button" data-set-lang="en" lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-set-lang="vi" lang="vi" aria-pressed="false">VI</button>
+      </div>
+      <a class="btn btn-primary btn-sm only-d" href="#contact"><span class="l-en">Book direct</span><span class="l-vi" lang="vi">Đặt trực tiếp</span></a>
+      <details class="menu">
+        <summary aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></summary>
+        <nav class="menu-panel" aria-label="Main (mobile)">
+          <a href="#rooms"><span class="l-en">Rooms</span><span class="l-vi" lang="vi">Hạng phòng</span></a>
+          <a href="#why"><span class="l-en">Why OTTIMO</span><span class="l-vi" lang="vi">Vì sao OTTIMO</span></a>
+          <a href="#amenities"><span class="l-en">Amenities</span><span class="l-vi" lang="vi">Tiện nghi</span></a>
+          <a href="#location"><span class="l-en">Location</span><span class="l-vi" lang="vi">Vị trí</span></a>
+          <a href="#faq"><span class="l-en">FAQ</span><span class="l-vi" lang="vi">Hỏi đáp</span></a>
+          <a href="#contact"><span class="l-en">Book direct</span><span class="l-vi" lang="vi">Đặt trực tiếp</span></a>
+        </nav>
+      </details>
     </div>
-    <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="nav"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>Menu</button>
   </div>
 </header>
 
 <main id="main">
-  <!-- 1. Hero -->
-  <section class="hero" id="top" aria-labelledby="hero-h">
-    <div class="wrap hero-grid">
-      <div class="hero-media">
-        <div class="ph ph-hero" role="img" aria-label="Mặt tiền OTTIMO Boutique Stay lúc chiều, tường kem và cửa gỗ">
-          <svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg>
-          <span class="ph-meta" aria-hidden="true"><b>HERO-01</b>Mặt tiền chéo 3/4, nắng chiều – ảnh LCP<i>Drive: Mặt tiền + Sảnh · 4:3 điện thoại / 4:5 máy tính</i></span>
-        </div>
-        <div class="ph ph-hero2" role="img" aria-label="Góc sảnh với ghế gỗ sồi và đèn vàng ấm">
-          <svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg>
-          <span class="ph-meta" aria-hidden="true"><b>HERO-02</b>Chi tiết sảnh<i>Drive: Mặt tiền + Sảnh · 1:1</i></span>
-        </div>
-      </div>
-      <div class="hero-copy">
-        <p class="eyebrow">Đà Lạt · Phường Xuân Hương</p>
-        <h1 id="hero-h">Ở chậm giữa <em>Đà Lạt</em></h1>
-        <p class="lead">10 căn hộ boutique cho vài đêm thong thả hay vài tháng sống chậm. Có bếp, góc làm việc và Wi-Fi ổn định.</p>
-        <div class="cta-row">
-          <a class="btn primary lg" href="#hoi-phong" data-book>Đặt phòng</a>
-          <a class="btn secondary lg" href="#cham-soc" data-chat><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat Zalo</a>
-        </div>
-        <ul class="facts">
-          <li>Nhận phòng <span class="num">14:00</span></li>
-          <li>Trả phòng <span class="num">12:00</span></li>
-          <li>Thuê tháng từ <span class="num nowrap">8.000.000&nbsp;đ</span> <span class="tbd">chờ INV – Q3</span></li>
-        </ul>
-      </div>
-    </div>
-  </section>
 
-  <!-- 2. Hỏi phòng trống -->
-  <section class="enq" id="hoi-phong" aria-labelledby="enq-h">
-    <div class="wrap">
-      <div class="enq-card">
-        <div class="enq-head">
-          <h2 id="enq-h" tabindex="-1">Hỏi phòng trống</h2>
-          <p class="muted">Chọn ngày, OTTIMO báo phòng và giá qua Zalo.</p>
-          <p class="mock-note"><b>Mock L1</b><span>Gửi qua Zalo. Ở L2 (US-131) nút đổi thành "Xem phòng trống" và mở trang đặt có giá trực tiếp.</span></p>
+<!-- 1 · Hero -->
+<section class="hero" aria-labelledby="hero-h">
+  <div class="wrap hero-grid">
+    <figure class="pic hero-media">
+      <picture>
+        <source media="(max-width: 767px)" type="image/avif" srcset="img/hero-facade-dusk-480.avif 480w, img/hero-facade-dusk-960.avif 960w" sizes="100vw">
+        <source media="(max-width: 767px)" type="image/webp" srcset="img/hero-facade-dusk-480.webp 480w, img/hero-facade-dusk-960.webp 960w" sizes="100vw">
+        <source type="image/avif" srcset="img/hero-facade-dusk-480.avif 480w, img/hero-facade-dusk-960.avif 960w, img/hero-facade-dusk-1600.avif 1600w" sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw">
+        <source type="image/webp" srcset="img/hero-facade-dusk-480.webp 480w, img/hero-facade-dusk-960.webp 960w, img/hero-facade-dusk-1600.webp 1600w" sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw">
+        <img src="img/hero-facade-dusk-960.webp" width="1600" height="2171" fetchpriority="high" decoding="async"
+          alt="OTTIMO at dusk: a five-storey building with warm lights on every balcony"
+          data-alt-en="OTTIMO at dusk: a five-storey building with warm lights on every balcony"
+          data-alt-vi="OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm">
+      </picture>
+      <span class="note">hero-facade-dusk · mat-tien-sanh/04.1.png · LCP</span>
+    </figure>
+    <div class="hero-text">
+      <p class="label"><span class="l-en">Boutique stay · Da Lat</span><span class="l-vi" lang="vi">Boutique stay · Đà Lạt</span></p>
+      <h1 id="hero-h" lang="en">A refined stay inspired by the calm spirit of Dalat.</h1>
+      <p class="lead l-en">Ten fully equipped apartments on a quiet hillside — for a few nights, a month, or longer.</p>
+      <p class="lead l-vi" lang="vi">Mười căn hộ đầy đủ tiện nghi trên một triền đồi yên tĩnh — cho vài đêm, một tháng, hay lâu hơn.</p>
+      <p class="support l-en" lang="vi">Một căn hộ ở Đà Lạt — để ở lại một tháng, hay lâu hơn.</p>
+      <p class="support l-vi" lang="en">An apartment in Da Lat — to stay a month, or longer.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="#contact"><span class="l-en">Book direct</span><span class="l-vi" lang="vi">Đặt trực tiếp</span></a>
+        <a class="btn btn-ghost" href="#rooms"><span class="l-en">View the rooms</span><span class="l-vi" lang="vi">Xem hạng phòng</span></a>
+      </div>
+      <ul class="facts">
+        <li><span class="l-en">Check-in 14:00</span><span class="l-vi" lang="vi">Nhận phòng 14:00</span></li>
+        <li><span class="l-en">Check-out 12:00</span><span class="l-vi" lang="vi">Trả phòng 12:00</span></li>
+        <li><span class="l-en">1 Gbps fibre</span><span class="l-vi" lang="vi">Cáp quang 1 Gbps</span></li>
+        <li><span class="l-en">In-room washer-dryer</span><span class="l-vi" lang="vi">Máy giặt sấy trong căn</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · Two ways to stay (US-146) -->
+<section class="stay-sec" aria-label="Ways to stay">
+  <div class="wrap stay">
+    <div class="stay-card">
+      <h2 class="h3"><span class="l-en">A few nights</span><span class="l-vi" lang="vi">Vài đêm</span></h2>
+      <p class="l-en">Check in from 14:00 to a home already set up: a full kitchen, your own laundry, a private balcony.</p>
+      <p class="l-vi" lang="vi">Nhận phòng từ 14:00, căn hộ đã sẵn sàng: bếp đủ đồ, máy giặt sấy riêng, ban công riêng.</p>
+      <a class="link" href="#contact"><span class="l-en">Ask for our direct rate</span><span class="l-vi" lang="vi">Hỏi giá đặt trực tiếp</span><svg class="arr" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 8h10.5M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    </div>
+    <div class="stay-card">
+      <h2 class="h3"><span class="l-en">A month, or longer</span><span class="l-vi" lang="vi">Một tháng, hay lâu hơn</span></h2>
+      <p class="l-en">Made for long stays: monthly rates on request, utilities by meter, better rates the longer you stay. <span class="pending note">L3 · chờ INV</span></p>
+      <p class="l-vi" lang="vi">Dành cho ở dài ngày: giá tháng theo báo giá, điện nước theo công tơ, ở càng lâu giá càng tốt. <span class="pending note">L3 · chờ INV</span></p>
+      <a class="link" href="#faq-monthly"><span class="l-en">Monthly stays</span><span class="l-vi" lang="vi">Ở theo tháng</span><svg class="arr" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 8h10.5M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · About -->
+<section class="sec alt" id="about" aria-labelledby="about-h">
+  <div class="wrap about">
+    <figure class="pic r32">
+      <picture>
+        <source media="(max-width: 767px)" type="image/avif" srcset="img/lobby-480.avif 480w, img/lobby-960.avif 960w" sizes="calc(100vw - 32px)">
+        <source media="(max-width: 767px)" type="image/webp" srcset="img/lobby-480.webp 480w, img/lobby-960.webp 960w" sizes="calc(100vw - 32px)">
+        <source type="image/avif" srcset="img/lobby-480.avif 480w, img/lobby-960.avif 960w, img/lobby-1600.avif 1600w" sizes="(min-width: 1200px) 590px, (min-width: 1024px) 50vw, calc(100vw - 32px)">
+        <source type="image/webp" srcset="img/lobby-480.webp 480w, img/lobby-960.webp 960w, img/lobby-1600.webp 1600w" sizes="(min-width: 1200px) 590px, (min-width: 1024px) 50vw, calc(100vw - 32px)">
+        <img src="img/lobby-960.webp" width="1600" height="1067" loading="lazy" decoding="async"
+          alt="Ground-floor lobby with an oak reception desk and a coffee counter"
+          data-alt-en="Ground-floor lobby with an oak reception desk and a coffee counter"
+          data-alt-vi="Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê">
+      </picture>
+      <span class="note">lobby · mat-tien-sanh/01b.png</span>
+    </figure>
+    <div>
+      <p class="label"><span class="l-en">About OTTIMO</span><span class="l-vi" lang="vi">Về OTTIMO</span></p>
+      <h2 class="h2" id="about-h"><span class="l-en">Move in, not check in.</span><span class="l-vi" lang="vi">Dọn vào ở, không chỉ nhận phòng.</span></h2>
+      <p class="l-en">For a few weeks or a few months in Da Lat, you need a place that runs like your own home — not an extended hotel room. Each apartment has an induction kitchen, a full-size fridge, an in-room washer-dryer, a wide wardrobe, a work desk, 1 Gbps fibre and a smart lock, so you come and go freely.</p>
+      <p class="l-vi" lang="vi">Ở Đà Lạt vài tuần hay vài tháng, bạn cần một nơi vận hành như nhà mình, không phải một phòng khách sạn kéo dài. Căn nào cũng có bếp từ, tủ lạnh lớn, máy giặt sấy riêng, tủ áo rộng, bàn làm việc, cáp quang 1 Gbps và khóa điện tử để ra vào tự do.</p>
+      <p class="l-en muted">The ground-floor reception handles support. The rest, you simply live.</p>
+      <p class="l-vi muted" lang="vi">Lễ tân tầng trệt lo phần hỗ trợ. Phần còn lại, bạn cứ sống như ở nhà.</p>
+      <blockquote class="quote">
+        <p class="l-en">A hotel is for visiting. OTTIMO is for living.</p>
+        <p class="l-vi" lang="vi">Khách sạn là để ghé. OTTIMO là để ở.</p>
+      </blockquote>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · Rooms -->
+<section class="sec" id="rooms" aria-labelledby="rooms-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label"><span class="l-en">Room types</span><span class="l-vi" lang="vi">Hạng phòng</span></p>
+      <h2 class="h2" id="rooms-h"><span class="l-en">Four ways to stay longer in Da Lat</span><span class="l-vi" lang="vi">Bốn cách để ở lại Đà Lạt lâu hơn</span></h2>
+      <p class="muted l-en">Every apartment has a private balcony, a full kitchen and its own washer-dryer.</p>
+      <p class="muted l-vi" lang="vi">Căn nào cũng có ban công riêng, bếp đủ đồ và máy giặt sấy riêng.</p>
+    </div>
+
+    <div class="rooms">
+      <!-- 01 -->
+      <article class="room" aria-labelledby="r1-h">
+        <div class="room-media">
+          <figure class="pic r32 r-main">
+            <picture>
+              <source media="(max-width: 767px)" type="image/avif" srcset="img/city-living-480.avif 480w, img/city-living-960.avif 960w" sizes="calc(100vw - 32px)">
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/city-living-480.webp 480w, img/city-living-960.webp 960w" sizes="calc(100vw - 32px)">
+              <source type="image/avif" srcset="img/city-living-480.avif 480w, img/city-living-960.avif 960w, img/city-living-1600.avif 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <source type="image/webp" srcset="img/city-living-480.webp 480w, img/city-living-960.webp 960w, img/city-living-1600.webp 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <img src="img/city-living-960.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="Cream-and-grey studio: sofa, TV wall and kitchen" data-alt-en="Cream-and-grey studio: sofa, TV wall and kitchen" data-alt-vi="Studio tông kem – xám: sofa, tường TV và bếp">
+            </picture>
+            <span class="note">city-living · phong-3/03.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/city-bed-480.avif 480w, img/city-bed-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/city-bed-480.webp 480w, img/city-bed-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/city-bed-480.webp" width="1600" height="1066" loading="lazy" decoding="async" alt="Double bed beside a curtained window" data-alt-en="Double bed beside a curtained window" data-alt-vi="Giường đôi cạnh cửa sổ có rèm">
+            </picture>
+            <span class="note">city-bed · phong-3/06.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/city-view-480.avif 480w, img/city-view-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/city-view-480.webp 480w, img/city-view-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/city-view-480.webp" width="1600" height="2401" loading="lazy" decoding="async" class="op-62" alt="Sofa by floor-to-ceiling windows looking over the city" data-alt-en="Sofa by floor-to-ceiling windows looking over the city" data-alt-vi="Sofa cạnh cửa kính lớn nhìn ra thành phố">
+            </picture>
+            <span class="note">city-view · phong-3/08.png</span>
+          </figure>
         </div>
-        <form id="enq" novalidate>
-          <div class="fgrid">
-            <div class="field">
-              <label for="ci">Ngày nhận phòng</label>
-              <input class="input" type="date" id="ci" name="ci" required aria-describedby="ci-err">
-              <p class="err" id="ci-err" hidden></p>
-            </div>
-            <div class="field">
-              <label for="co">Ngày trả phòng</label>
-              <input class="input" type="date" id="co" name="co" required aria-describedby="co-err">
-              <p class="err" id="co-err" hidden></p>
-            </div>
-            <div class="field">
-              <span class="lbl" id="ad-l">Người lớn</span>
-              <div class="stepper" role="group" aria-labelledby="ad-l" data-min="1" data-max="10">
-                <button type="button" aria-label="Bớt 1 người lớn">−</button>
-                <output id="ad" aria-live="polite" aria-labelledby="ad-l">2</output>
-                <button type="button" aria-label="Thêm 1 người lớn">+</button>
-              </div>
-            </div>
-            <div class="field">
-              <span class="lbl" id="kid-l">Trẻ em dưới 12 tuổi</span>
-              <div class="stepper" role="group" aria-labelledby="kid-l" aria-describedby="kid-h" data-min="0" data-max="6">
-                <button type="button" aria-label="Bớt 1 trẻ em">−</button>
-                <output id="kid" aria-live="polite" aria-labelledby="kid-l">0</output>
-                <button type="button" aria-label="Thêm 1 trẻ em">+</button>
-              </div>
-              <p class="help" id="kid-h">Bé dưới 6 tuổi ở miễn phí.</p>
-            </div>
-            <div class="field span2">
-              <label for="rtype">Loại căn <span class="opt">(không bắt buộc)</span></label>
-              <select class="input" id="rtype" name="rtype">
-                <option value="">Chưa chọn – nhờ OTTIMO gợi ý</option>
-                <option>Studio</option>
-                <option>Căn 1 phòng ngủ</option>
-                <option>Căn 2 phòng ngủ</option>
-                <option>Thuê theo tháng</option>
-              </select>
-            </div>
-            <div class="field span2">
-              <p class="enq-sum num" id="enq-sum" aria-live="polite"></p>
-              <p class="enq-group" id="enq-group" hidden>Đoàn trên 5 người? Cứ gửi – OTTIMO sẽ gợi ý đặt nhiều căn.</p>
-            </div>
-          </div>
-          <div class="enq-foot">
-            <button class="btn primary lg" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Hỏi phòng qua Zalo</button>
-            <p class="caption">Trang này không lưu thông tin bạn nhập.</p>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
+        <p class="room-idx"><b>01</b><span class="l-en">City view</span><span class="l-vi" lang="vi">Hướng thành phố</span></p>
+        <h3 id="r1-h"><span class="l-en">Standard Studio · City View</span><span class="l-vi" lang="vi">Studio — Hướng thành phố</span></h3>
+        <p class="alt-name"><span class="l-en" lang="vi">Studio — Hướng thành phố</span><span class="l-vi" lang="en">Standard Studio · City View</span></p>
+        <dl class="specs">
+          <div><dt><span class="l-en">Sleeps</span><span class="l-vi" lang="vi">Sức chứa</span></dt><dd><span class="l-en">2 guests · 1 double bed</span><span class="l-vi" lang="vi">2 khách · 1 giường đôi</span></dd></div>
+          <div><dt><span class="l-en">Size</span><span class="l-vi" lang="vi">Diện tích</span></dt><dd>29 m²</dd></div>
+          <div><dt><span class="l-en">View</span><span class="l-vi" lang="vi">Hướng nhìn</span></dt><dd><span class="l-en">City</span><span class="l-vi" lang="vi">Thành phố</span></dd></div>
+        </dl>
+        <p class="l-en">A cream-and-grey studio: a kitchen for everyday cooking, the washer-dryer in its own niche, a wardrobe and a desk by the window over the city.</p>
+        <p class="l-vi" lang="vi">Studio tông kem – xám: bếp đủ nấu hằng ngày, máy giặt sấy trong hốc riêng, tủ áo và bàn làm việc cạnh cửa sổ nhìn ra thành phố.</p>
+        <p class="rate"><span class="l-en">Nightly and monthly rates on request.</span><span class="l-vi" lang="vi">Giá theo đêm và theo tháng: nhắn để nhận báo giá.</span> <span class="pending note">giá "từ" chờ L3 + bảng ghép</span></p>
+        <a class="btn btn-ghost btn-sm l-en" href="https://wa.me/84844440909?text=Hello%20OTTIMO%2C%20I%27d%20like%20to%20ask%20about%20the%20Standard%20Studio%20%C2%B7%20City%20View.">Ask about this room</a>
+        <a class="btn btn-ghost btn-sm l-vi" lang="vi" href="https://zalo.me/0844440909">Hỏi về hạng phòng này</a>
+      </article>
 
-  <!-- 3. Điểm nổi bật -->
-  <section class="sec" id="diem-noi-bat" aria-labelledby="hl-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Vì sao chọn OTTIMO</p>
-        <h2 class="h2" id="hl-h">Chậm lại, như ở nhà</h2>
-      </div>
-      <div class="hl-grid">
-        <article class="hl"><span class="ico" aria-hidden="true"><svg class="icon"><use href="#i-pot"/></svg></span><h3>Như ở nhà</h3><p>Bếp riêng, tủ lạnh, đồ dùng đủ cho ở lâu.</p><span class="tbd">chưa xác minh từng căn</span></article>
-        <article class="hl"><span class="ico" aria-hidden="true"><svg class="icon"><use href="#i-laptop"/></svg></span><h3>Làm việc thoải mái</h3><p>Bàn làm việc có đèn, ổ cắm, Wi-Fi từ 50&nbsp;Mbps.</p><span class="tbd">chưa xác minh tốc độ thật</span></article>
-        <article class="hl"><span class="ico" aria-hidden="true"><svg class="icon"><use href="#i-flame"/></svg></span><h3>Ấm giữa trời se lạnh</h3><p>Nước nóng ổn định, chăn dày, sưởi hoặc điều hòa.</p><span class="tbd">chưa xác minh từng căn</span></article>
-        <article class="hl"><span class="ico" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span><h3>Nhận phòng nhẹ nhàng</h3><p>Làm thủ tục online trước, đến nơi chỉ vài phút.</p></article>
-      </div>
-    </div>
-  </section>
+      <!-- 02 -->
+      <article class="room" aria-labelledby="r2-h">
+        <div class="room-media">
+          <figure class="pic r32 r-main">
+            <picture>
+              <source media="(max-width: 767px)" type="image/avif" srcset="img/garden-oak-480.avif 480w, img/garden-oak-960.avif 960w" sizes="calc(100vw - 32px)">
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/garden-oak-480.webp 480w, img/garden-oak-960.webp 960w" sizes="calc(100vw - 32px)">
+              <source type="image/avif" srcset="img/garden-oak-480.avif 480w, img/garden-oak-960.avif 960w, img/garden-oak-1600.avif 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <source type="image/webp" srcset="img/garden-oak-480.webp 480w, img/garden-oak-960.webp 960w, img/garden-oak-1600.webp 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <img src="img/garden-oak-960.webp" width="1600" height="1065" loading="lazy" decoding="async" alt="Light-oak studio with a bed, sofa and balcony door" data-alt-en="Light-oak studio with a bed, sofa and balcony door" data-alt-vi="Studio gỗ sáng với giường, sofa và cửa ra ban công">
+            </picture>
+            <span class="note">garden-oak · phong-1/1.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/garden-navy-480.avif 480w, img/garden-navy-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/garden-navy-480.webp 480w, img/garden-navy-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/garden-navy-480.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="Navy studio: bed, sofa and a glass door to the balcony" data-alt-en="Navy studio: bed, sofa and a glass door to the balcony" data-alt-vi="Studio tông navy: giường, sofa và cửa kính ra ban công">
+            </picture>
+            <span class="note">garden-navy · phong-2/05.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/garden-balcony-480.avif 480w, img/garden-balcony-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/garden-balcony-480.webp 480w, img/garden-balcony-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/garden-balcony-480.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="Private balcony looking over green slopes at sunset" data-alt-en="Private balcony looking over green slopes at sunset" data-alt-vi="Ban công riêng nhìn ra triền cỏ xanh lúc hoàng hôn">
+            </picture>
+            <span class="note">garden-balcony · phong-1/7.png</span>
+          </figure>
+        </div>
+        <p class="room-idx"><b>02</b><span class="l-en">Garden view</span><span class="l-vi" lang="vi">Hướng vườn</span></p>
+        <h3 id="r2-h"><span class="l-en">Standard Studio · Garden View</span><span class="l-vi" lang="vi">Studio — Hướng vườn</span></h3>
+        <p class="alt-name"><span class="l-en" lang="vi">Studio — Hướng vườn</span><span class="l-vi" lang="en">Standard Studio · Garden View</span></p>
+        <dl class="specs">
+          <div><dt><span class="l-en">Sleeps</span><span class="l-vi" lang="vi">Sức chứa</span></dt><dd><span class="l-en">2 guests · 1 double bed</span><span class="l-vi" lang="vi">2 khách · 1 giường đôi</span></dd></div>
+          <div><dt><span class="l-en">Size</span><span class="l-vi" lang="vi">Diện tích</span></dt><dd>28–34 m²</dd></div>
+          <div><dt><span class="l-en">View</span><span class="l-vi" lang="vi">Hướng nhìn</span></dt><dd><span class="l-en">Garden</span><span class="l-vi" lang="vi">Vườn</span></dd></div>
+        </dl>
+        <p class="l-en">The same green outlook in two moods: spacious light oak, the largest on the floor, or compact navy. Floor-to-ceiling glass opens onto a private balcony.</p>
+        <p class="l-vi" lang="vi">Cùng tầm nhìn xanh, hai phong cách: gỗ sáng rộng nhất tầng hoặc navy gọn gàng. Cửa kính lớn mở ra ban công riêng.</p>
+        <p class="rate"><span class="l-en">Nightly and monthly rates on request.</span><span class="l-vi" lang="vi">Giá theo đêm và theo tháng: nhắn để nhận báo giá.</span></p>
+        <a class="btn btn-ghost btn-sm l-en" href="https://wa.me/84844440909?text=Hello%20OTTIMO%2C%20I%27d%20like%20to%20ask%20about%20the%20Standard%20Studio%20%C2%B7%20Garden%20View.">Ask about this room</a>
+        <a class="btn btn-ghost btn-sm l-vi" lang="vi" href="https://zalo.me/0844440909">Hỏi về hạng phòng này</a>
+      </article>
 
-  <!-- 4. Căn hộ -->
-  <section class="sec pt-0" id="can-ho" aria-labelledby="room-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Căn hộ</p>
-        <h2 class="h2" id="room-h">Ba kiểu căn cho mỗi nhịp sống</h2>
-        <p class="lead">10 căn, mỗi căn một tên riêng. Chọn kiểu căn hợp với số người và thời gian bạn ở.</p>
-      </div>
-      <div class="rooms">
-        <!-- Studio -->
-        <article class="room" aria-labelledby="r1-h">
-          <div class="gal">
-            <div class="gal-track" tabindex="0" role="region" aria-label="Ảnh Studio – vuốt hoặc dùng phím mũi tên">
-              <div class="ph" role="img" aria-label="Studio The Sage: giường lớn cạnh cửa sổ"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-S-01</b>Toàn cảnh giường<i>Drive: Phòng ? – chờ INV ánh xạ</i></span></div>
-              <div class="ph" role="img" aria-label="Góc bếp nhỏ trong Studio"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-S-02</b>Góc bếp</span></div>
-              <div class="ph" role="img" aria-label="Bàn làm việc cạnh cửa sổ trong Studio"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-S-03</b>Bàn làm việc</span></div>
-              <div class="ph" role="img" aria-label="Phòng tắm Studio"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-S-04</b>Phòng tắm</span></div>
-            </div>
-            <div class="gal-ctl">
-              <span class="gal-count" aria-live="polite">Ảnh 1/4</span>
-              <span class="gal-btns">
-                <button class="gal-btn" type="button" aria-label="Ảnh trước"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg></button>
-                <button class="gal-btn" type="button" aria-label="Ảnh sau"><svg class="icon" aria-hidden="true"><use href="#i-right"/></svg></button>
-              </span>
-            </div>
-          </div>
-          <div class="room-b">
-            <h3 id="r1-h">Studio</h3>
-            <p class="room-units">6 căn · The Amber, The Fern, The Bloom, The Mist, The Valley, The Sage</p>
-            <ul class="specs">
-              <li><svg class="icon" aria-hidden="true"><use href="#i-bed"/></svg><span>1 giường lớn</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span>2 khách · tối đa 3 (người thứ 3 ngủ sofa lớn)</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span>Lầu 1–2</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-laptop"/></svg><span>Hợp cặp đôi, người làm việc từ xa</span></li>
-            </ul>
-            <div class="price">
-              <p class="p-main"><span class="p-unit">Thuê tháng từ</span> <strong>8.000.000&nbsp;đ</strong> <span class="tbd">chờ INV – Q3</span></p>
-              <p class="p-note">Giá theo ngày: hỏi để có giá trực tiếp.</p>
-            </div>
-            <a class="btn secondary" href="#hoi-phong" data-ask-room="Studio">Hỏi căn này</a>
-          </div>
-        </article>
-        <!-- 1 phòng ngủ -->
-        <article class="room" aria-labelledby="r2-h">
-          <div class="gal">
-            <div class="gal-track" tabindex="0" role="region" aria-label="Ảnh căn 1 phòng ngủ – vuốt hoặc dùng phím mũi tên">
-              <div class="ph" role="img" aria-label="Căn 1 phòng ngủ The Ivory: phòng khách với sofa lớn"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-1BR-01</b>Phòng khách + sofa<i>Drive: Phòng ? – chờ INV ánh xạ</i></span></div>
-              <div class="ph" role="img" aria-label="Phòng ngủ chính với giường lớn"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-1BR-02</b>Phòng ngủ chính</span></div>
-              <div class="ph" role="img" aria-label="Giường 1m4 cho người thứ ba"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-1BR-03</b>Giường 1m4</span></div>
-              <div class="ph" role="img" aria-label="Bếp trong căn 1 phòng ngủ"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-1BR-04</b>Bếp</span></div>
-            </div>
-            <div class="gal-ctl">
-              <span class="gal-count" aria-live="polite">Ảnh 1/4</span>
-              <span class="gal-btns">
-                <button class="gal-btn" type="button" aria-label="Ảnh trước"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg></button>
-                <button class="gal-btn" type="button" aria-label="Ảnh sau"><svg class="icon" aria-hidden="true"><use href="#i-right"/></svg></button>
-              </span>
-            </div>
-          </div>
-          <div class="room-b">
-            <h3 id="r2-h">Căn 1 phòng ngủ</h3>
-            <p class="room-units">2 căn · The Ivory, The Ember</p>
-            <ul class="specs">
-              <li><svg class="icon" aria-hidden="true"><use href="#i-bed"/></svg><span>1 giường lớn + 1 giường 1m4</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span>3 khách · tối đa 4</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span>Lầu 3–4 <span class="tbd">chưa xác minh</span></span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span>Hợp gia đình nhỏ, nhóm 3 bạn</span></li>
-            </ul>
-            <div class="price">
-              <p class="p-main"><span class="p-unit">Thuê tháng từ</span> <strong>11.000.000&nbsp;đ</strong> <span class="tbd">chờ INV – Q3</span></p>
-              <p class="p-note">Giá theo ngày: hỏi để có giá trực tiếp.</p>
-            </div>
-            <a class="btn secondary" href="#hoi-phong" data-ask-room="Căn 1 phòng ngủ">Hỏi căn này</a>
-          </div>
-        </article>
-        <!-- 2 phòng ngủ -->
-        <article class="room" aria-labelledby="r3-h">
-          <div class="gal">
-            <div class="gal-track" tabindex="0" role="region" aria-label="Ảnh căn 2 phòng ngủ – vuốt hoặc dùng phím mũi tên">
-              <div class="ph" role="img" aria-label="Căn 2 phòng ngủ The Pine: phòng khách sáng"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-2BR-01</b>Phòng khách<i>Drive: Phòng ? – chờ INV ánh xạ</i></span></div>
-              <div class="ph" role="img" aria-label="Phòng ngủ thứ nhất"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-2BR-02</b>Phòng ngủ 1</span></div>
-              <div class="ph" role="img" aria-label="Phòng ngủ thứ hai"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-2BR-03</b>Phòng ngủ 2</span></div>
-              <div class="ph" role="img" aria-label="Ban công căn 2 phòng ngủ"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>ROOM-2BR-04</b>Ban công</span></div>
-            </div>
-            <div class="gal-ctl">
-              <span class="gal-count" aria-live="polite">Ảnh 1/4</span>
-              <span class="gal-btns">
-                <button class="gal-btn" type="button" aria-label="Ảnh trước"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg></button>
-                <button class="gal-btn" type="button" aria-label="Ảnh sau"><svg class="icon" aria-hidden="true"><use href="#i-right"/></svg></button>
-              </span>
-            </div>
-          </div>
-          <div class="room-b">
-            <h3 id="r3-h">Căn 2 phòng ngủ</h3>
-            <p class="room-units">2 căn · The Velvet, The Pine</p>
-            <ul class="specs">
-              <li><svg class="icon" aria-hidden="true"><use href="#i-bed"/></svg><span>2 phòng ngủ riêng, 2 giường lớn</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span>4 khách · tối đa 5</span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span>Lầu 3–4 <span class="tbd">chưa xác minh</span></span></li>
-              <li><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span>Hợp gia đình có ông bà, hai cặp đôi</span></li>
-            </ul>
-            <div class="price">
-              <p class="p-main"><span class="p-unit">Thuê tháng từ</span> <strong>11.500.000&nbsp;đ</strong> <span class="tbd">chờ INV – Q3</span></p>
-              <p class="p-note">Giá theo ngày: hỏi để có giá trực tiếp.</p>
-            </div>
-            <a class="btn secondary" href="#hoi-phong" data-ask-room="Căn 2 phòng ngủ">Hỏi căn này</a>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
+      <!-- 03 -->
+      <article class="room" aria-labelledby="r3-h">
+        <div class="room-media">
+          <figure class="pic r32 r-main">
+            <picture>
+              <source media="(max-width: 767px)" type="image/avif" srcset="img/premium-kitchen-480.avif 480w, img/premium-kitchen-960.avif 960w" sizes="calc(100vw - 32px)">
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/premium-kitchen-480.webp 480w, img/premium-kitchen-960.webp 960w" sizes="calc(100vw - 32px)">
+              <source type="image/avif" srcset="img/premium-kitchen-480.avif 480w, img/premium-kitchen-960.avif 960w, img/premium-kitchen-1600.avif 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <source type="image/webp" srcset="img/premium-kitchen-480.webp 480w, img/premium-kitchen-960.webp 960w, img/premium-kitchen-1600.webp 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <img src="img/premium-kitchen-960.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="Long navy kitchen opening onto the living room and balcony" data-alt-en="Long navy kitchen opening onto the living room and balcony" data-alt-vi="Bếp navy dài mở ra phòng khách và ban công">
+            </picture>
+            <span class="note">premium-kitchen · phong-5/5.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/premium-bed-480.avif 480w, img/premium-bed-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/premium-bed-480.webp 480w, img/premium-bed-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/premium-bed-480.webp" width="1600" height="1068" loading="lazy" decoding="async" alt="Separate bedroom with a double bed and a desk by the window" data-alt-en="Separate bedroom with a double bed and a desk by the window" data-alt-vi="Phòng ngủ riêng với giường đôi và bàn cạnh cửa sổ">
+            </picture>
+            <span class="note">premium-bed · phong-5/2.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/premium-living-480.avif 480w, img/premium-living-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/premium-living-480.webp 480w, img/premium-living-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/premium-living-480.webp" width="1600" height="1071" loading="lazy" decoding="async" alt="Living room with a sofa beside the balcony" data-alt-en="Living room with a sofa beside the balcony" data-alt-vi="Phòng khách với sofa cạnh ban công">
+            </picture>
+            <span class="note">premium-living · phong-5/4.png</span>
+          </figure>
+        </div>
+        <p class="room-idx"><b>03</b><span class="l-en">Garden view</span><span class="l-vi" lang="vi">Hướng vườn</span></p>
+        <h3 id="r3-h"><span class="l-en">Premium · One Bedroom + 1</span><span class="l-vi" lang="vi">Premium — 1 phòng ngủ + 1</span></h3>
+        <p class="alt-name"><span class="l-en" lang="vi">Premium — 1 phòng ngủ + 1</span><span class="l-vi" lang="en">Premium · One Bedroom + 1</span></p>
+        <dl class="specs">
+          <div><dt><span class="l-en">Sleeps</span><span class="l-vi" lang="vi">Sức chứa</span></dt><dd><span class="l-en">3 guests · 1 double + 1 single</span><span class="l-vi" lang="vi">3 khách · 1 giường đôi + 1 đơn</span></dd></div>
+          <div><dt><span class="l-en">Size</span><span class="l-vi" lang="vi">Diện tích</span></dt><dd>37 m²</dd></div>
+          <div><dt><span class="l-en">View</span><span class="l-vi" lang="vi">Hướng nhìn</span></dt><dd><span class="l-en">Garden</span><span class="l-vi" lang="vi">Vườn</span></dd></div>
+        </dl>
+        <p class="l-en">A separate bedroom, a separate living room and an extra single bed — room for a visiting relative. A long navy kitchen, fully equipped for everyday meals.</p>
+        <p class="l-vi" lang="vi">Phòng ngủ riêng, phòng khách riêng và thêm một giường đơn — vẫn có chỗ đón người thân ghé thăm. Bếp navy dài, đủ dụng cụ cho bữa cơm hằng ngày.</p>
+        <p class="rate"><span class="l-en">Nightly and monthly rates on request.</span><span class="l-vi" lang="vi">Giá theo đêm và theo tháng: nhắn để nhận báo giá.</span></p>
+        <a class="btn btn-ghost btn-sm l-en" href="https://wa.me/84844440909?text=Hello%20OTTIMO%2C%20I%27d%20like%20to%20ask%20about%20the%20Premium%20One%20Bedroom%20%2B%201.">Ask about this room</a>
+        <a class="btn btn-ghost btn-sm l-vi" lang="vi" href="https://zalo.me/0844440909">Hỏi về hạng phòng này</a>
+      </article>
 
-  <!-- 5. Ở dài hạn -->
-  <section class="sec band" id="o-dai-han" aria-labelledby="ls-h">
-    <div class="wrap ls-grid">
+      <!-- 04 -->
+      <article class="room" aria-labelledby="r4-h">
+        <div class="room-media">
+          <figure class="pic r32 r-main">
+            <picture>
+              <source media="(max-width: 767px)" type="image/avif" srcset="img/signature-dining-480.avif 480w, img/signature-dining-960.avif 960w" sizes="calc(100vw - 32px)">
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/signature-dining-480.webp 480w, img/signature-dining-960.webp 960w" sizes="calc(100vw - 32px)">
+              <source type="image/avif" srcset="img/signature-dining-480.avif 480w, img/signature-dining-960.avif 960w, img/signature-dining-1600.avif 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <source type="image/webp" srcset="img/signature-dining-480.webp 480w, img/signature-dining-960.webp 960w, img/signature-dining-1600.webp 1600w" sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)">
+              <img src="img/signature-dining-960.webp" width="1600" height="1068" loading="lazy" decoding="async" alt="Open living, kitchen and dining space with a table for four" data-alt-en="Open living, kitchen and dining space with a table for four" data-alt-vi="Không gian khách – bếp – bàn ăn bốn người">
+            </picture>
+            <span class="note">signature-dining · phong-4/3.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/signature-bed-480.avif 480w, img/signature-bed-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/signature-bed-480.webp 480w, img/signature-bed-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/signature-bed-480.webp" width="1600" height="1069" loading="lazy" decoding="async" alt="One of two bedrooms, with a double bed on an oak platform" data-alt-en="One of two bedrooms, with a double bed on an oak platform" data-alt-vi="Một trong hai phòng ngủ, giường đôi trên bệ gỗ sồi">
+            </picture>
+            <span class="note">signature-bed · phong-4/6.png</span>
+          </figure>
+          <figure class="pic r32">
+            <picture>
+              <source type="image/avif" srcset="img/signature-bath-480.avif 480w, img/signature-bath-960.avif 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <source type="image/webp" srcset="img/signature-bath-480.webp 480w, img/signature-bath-960.webp 960w" sizes="(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)">
+              <img src="img/signature-bath-480.webp" width="1600" height="1067" loading="lazy" decoding="async" alt="Glass shower and green-tiled vanity" data-alt-en="Glass shower and green-tiled vanity" data-alt-vi="Phòng tắm kính, tường gạch xanh">
+            </picture>
+            <span class="note">signature-bath · phong-4/5.png</span>
+          </figure>
+        </div>
+        <p class="room-idx"><b>04</b><span class="l-en">Garden view</span><span class="l-vi" lang="vi">Hướng vườn</span></p>
+        <h3 id="r4-h"><span class="l-en">Signature · Two Bedrooms</span><span class="l-vi" lang="vi">Signature — 2 phòng ngủ</span></h3>
+        <p class="alt-name"><span class="l-en" lang="vi">Signature — 2 phòng ngủ</span><span class="l-vi" lang="en">Signature · Two Bedrooms</span></p>
+        <dl class="specs">
+          <div><dt><span class="l-en">Sleeps</span><span class="l-vi" lang="vi">Sức chứa</span></dt><dd><span class="l-en">4 guests · 2 double beds</span><span class="l-vi" lang="vi">4 khách · 2 giường đôi</span></dd></div>
+          <div><dt><span class="l-en">Size</span><span class="l-vi" lang="vi">Diện tích</span></dt><dd>47 m²</dd></div>
+          <div><dt><span class="l-en">View</span><span class="l-vi" lang="vi">Hướng nhìn</span></dt><dd><span class="l-en">Garden</span><span class="l-vi" lang="vi">Vườn</span></dd></div>
+        </dl>
+        <p class="l-en">Our largest apartment: two bedrooms, an open living–kitchen–dining space for four, a green-tiled glass bathroom and a sunset balcony.</p>
+        <p class="l-vi" lang="vi">Căn hộ lớn nhất: hai phòng ngủ, phòng khách – bếp – bàn ăn bốn người, phòng tắm kính gạch xanh và ban công hoàng hôn.</p>
+        <p class="rate"><span class="l-en">Nightly and monthly rates on request.</span><span class="l-vi" lang="vi">Giá theo đêm và theo tháng: nhắn để nhận báo giá.</span></p>
+        <a class="btn btn-ghost btn-sm l-en" href="https://wa.me/84844440909?text=Hello%20OTTIMO%2C%20I%27d%20like%20to%20ask%20about%20the%20Signature%20Two%20Bedrooms.">Ask about this room</a>
+        <a class="btn btn-ghost btn-sm l-vi" lang="vi" href="https://zalo.me/0844440909">Hỏi về hạng phòng này</a>
+      </article>
+    </div>
+
+    <div class="names">
+      <p class="label"><span class="l-en">Inspired by nature</span><span class="l-vi" lang="vi">Cảm hứng thiên nhiên</span></p>
+      <p class="l-en">Ten apartments, ten names — none of them numbers.</p>
+      <p class="l-vi" lang="vi">Mười căn hộ, mười cái tên — không đánh số.</p>
+      <ul lang="en">
+        <li>The Pine</li><li>The Mist</li><li>The Fern</li><li>The Bloom</li><li>The Valley</li><li>The Amber</li><li>The Sage</li><li>The Velvet</li><li>The Ivory</li><li>The Ember</li>
+      </ul>
+      <p class="small mt-12"><span class="pending note">bảng ghép tên – căn – hạng: chờ INV – không gán tên cho căn</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · Why OTTIMO -->
+<section class="sec alt" id="why" aria-labelledby="why-h">
+  <div class="wrap why">
+    <div>
+      <p class="label"><span class="l-en">Why OTTIMO</span><span class="l-vi" lang="vi">Vì sao OTTIMO</span></p>
+      <h2 class="h2" id="why-h"><span class="l-en">Runs like your own home, in every detail.</span><span class="l-vi" lang="vi">Vận hành như nhà mình, trong từng chi tiết.</span></h2>
+      <p class="muted l-en mb-28">A long stay is made of small things, repeated every day. We get each one right.</p>
+      <p class="muted l-vi mb-28" lang="vi">Ở dài ngày dễ chịu hay không nằm ở những việc nhỏ lặp lại mỗi ngày. Chúng tôi làm đúng từng việc một.</p>
+      <ol class="points">
+        <li><span class="n" aria-hidden="true">01</span><h3 class="h3"><span class="l-en">Consistent, every day</span><span class="l-vi" lang="vi">Ổn định mỗi ngày</span></h3><p><span class="l-en">Week four feels as complete as day one.</span><span class="l-vi" lang="vi">Tuần thứ tư vẫn trọn vẹn như ngày đầu.</span></p></li>
+        <li><span class="n" aria-hidden="true">02</span><h3 class="h3"><span class="l-en">Everything just works</span><span class="l-vi" lang="vi">Mọi thứ đều vận hành</span></h3><p><span class="l-en">Wi-Fi, hot water, power and air conditioning — maintained regularly, fixed quickly.</span><span class="l-vi" lang="vi">Wi-Fi, nước nóng, điện, điều hòa được bảo trì đều; hỏng là có người xử lý.</span></p></li>
+        <li><span class="n" aria-hidden="true">03</span><h3 class="h3"><span class="l-en">Your own laundry</span><span class="l-vi" lang="vi">Giặt sấy của riêng bạn</span></h3><p><span class="l-en">A washer-dryer in every apartment. No queues, no waiting.</span><span class="l-vi" lang="vi">Máy giặt sấy trong căn: không xếp hàng, không phải đợi.</span></p></li>
+        <li><span class="n" aria-hidden="true">04</span><h3 class="h3"><span class="l-en">Storage that fits a life</span><span class="l-vi" lang="vi">Chỗ cất cho cả một cuộc sống</span></h3><p><span class="l-en">A wide wardrobe, a 280-litre fridge, a fully equipped kitchen. Unpack and settle in.</span><span class="l-vi" lang="vi">Tủ áo rộng, tủ lạnh 280 lít, bếp đủ đồ. Dỡ vali là ở được ngay.</span></p></li>
+        <li><span class="n" aria-hidden="true">05</span><h3 class="h3"><span class="l-en">Support, not supervision</span><span class="l-vi" lang="vi">Hỗ trợ, không giám sát</span></h3><p><span class="l-en">Come and go with a smart lock. Reception is downstairs when you need it — and only then.</span><span class="l-vi" lang="vi">Khóa điện tử, ra vào tự do. Lễ tân tầng trệt có mặt khi bạn cần, và chỉ khi bạn cần.</span></p></li>
+      </ol>
+    </div>
+    <figure class="pic r45">
+      <picture>
+        <source media="(max-width: 767px)" type="image/avif" srcset="img/detail-laundry-desk-480.avif 480w, img/detail-laundry-desk-960.avif 960w" sizes="calc(100vw - 32px)">
+        <source media="(max-width: 767px)" type="image/webp" srcset="img/detail-laundry-desk-480.webp 480w, img/detail-laundry-desk-960.webp 960w" sizes="calc(100vw - 32px)">
+        <source type="image/avif" srcset="img/detail-laundry-desk-480.avif 480w, img/detail-laundry-desk-960.avif 960w, img/detail-laundry-desk-1600.avif 1600w" sizes="(min-width: 1200px) 460px, (min-width: 1024px) 38vw, calc(100vw - 32px)">
+        <source type="image/webp" srcset="img/detail-laundry-desk-480.webp 480w, img/detail-laundry-desk-960.webp 960w, img/detail-laundry-desk-1600.webp 1600w" sizes="(min-width: 1200px) 460px, (min-width: 1024px) 38vw, calc(100vw - 32px)">
+        <img src="img/detail-laundry-desk-960.webp" width="1600" height="1067" loading="lazy" decoding="async" class="op-x42" alt="In-room washer and dryer next to a wardrobe and a work desk" data-alt-en="In-room washer and dryer next to a wardrobe and a work desk" data-alt-vi="Máy giặt và máy sấy trong căn, cạnh tủ áo và bàn làm việc">
+      </picture>
+      <span class="note">detail-laundry-desk · phong-2/02.png</span>
+    </figure>
+  </div>
+</section>
+
+<!-- 6 · Amenities -->
+<section class="sec" id="amenities" aria-labelledby="amen-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label"><span class="l-en">Amenities</span><span class="l-vi" lang="vi">Tiện nghi</span></p>
+      <h2 class="h2" id="amen-h"><span class="l-en">Everything a home has — ready to move in.</span><span class="l-vi" lang="vi">Mỗi căn hộ là một ngôi nhà sẵn sàng để dọn vào.</span></h2>
+    </div>
+    <div class="amen">
+      <figure class="pic r45">
+        <picture>
+          <source media="(max-width: 767px)" type="image/avif" srcset="img/detail-kitchen-480.avif 480w, img/detail-kitchen-960.avif 960w" sizes="calc(100vw - 32px)">
+          <source media="(max-width: 767px)" type="image/webp" srcset="img/detail-kitchen-480.webp 480w, img/detail-kitchen-960.webp 960w" sizes="calc(100vw - 32px)">
+          <source type="image/avif" srcset="img/detail-kitchen-480.avif 480w, img/detail-kitchen-960.avif 960w, img/detail-kitchen-1600.avif 1600w" sizes="(min-width: 1200px) 420px, (min-width: 1024px) 36vw, calc(100vw - 32px)">
+          <source type="image/webp" srcset="img/detail-kitchen-480.webp 480w, img/detail-kitchen-960.webp 960w, img/detail-kitchen-1600.webp 1600w" sizes="(min-width: 1200px) 420px, (min-width: 1024px) 36vw, calc(100vw - 32px)">
+          <img src="img/detail-kitchen-960.webp" width="1600" height="1067" loading="lazy" decoding="async" class="op-x35" alt="Oak kitchen with an induction hob, full-size fridge and washer-dryer" data-alt-en="Oak kitchen with an induction hob, full-size fridge and washer-dryer" data-alt-vi="Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy">
+        </picture>
+        <span class="note">detail-kitchen · phong-1/3.png</span>
+      </figure>
       <div>
-        <div class="sec-head tight">
-          <p class="eyebrow">Ở dài hạn</p>
-          <h2 class="h2" id="ls-h">Sống ở Đà Lạt theo tháng</h2>
-          <p class="lead">Một căn hộ đủ tiện nghi, một hóa đơn dễ hiểu. Phù hợp người làm việc từ xa và gia đình ở lâu.</p>
-        </div>
-        <ul class="ls-list">
-          <li><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><p><strong>Giá tháng là tiền thuê căn</strong><span>Ở càng lâu càng được giảm – hỏi để nhận báo giá theo kỳ hạn.</span></p></li>
-          <li><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><p><strong>Điện, nước theo công tơ</strong><span><span class="num nowrap">3.500&nbsp;đ</span>/kWh, <span class="num nowrap">25.000&nbsp;đ</span>/m³. Chỉ số rõ ràng mỗi kỳ.</span></p></li>
-          <li><svg class="icon" aria-hidden="true"><use href="#i-broom"/></svg><p><strong>Dọn phòng khi bạn cần</strong><span><span class="num nowrap">100.000&nbsp;đ</span>/lần – thay ga gối, lau dọn, nhà tắm, bếp.</span></p></li>
-          <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><p><strong>OTTIMO khai báo tạm trú cho bạn</strong><span>Nhắc trước khi thị thực hết hạn.</span></p></li>
+        <ul class="amen-grid">
+          <li><h3><span class="l-en">Fast, stable Wi-Fi</span><span class="l-vi" lang="vi">Wi-Fi nhanh, ổn định</span></h3><p><span class="l-en">1 Gbps fibre, for video calls and large uploads</span><span class="l-vi" lang="vi">Cáp quang 1 Gbps, gọi video và tải tệp nặng không nghẽn</span></p></li>
+          <li><h3><span class="l-en">Work desk &amp; wardrobe</span><span class="l-vi" lang="vi">Bàn làm việc &amp; tủ áo</span></h3><p><span class="l-en">A desk by the window and a wide wardrobe</span><span class="l-vi" lang="vi">Bàn làm việc cạnh cửa sổ và tủ áo rộng</span></p></li>
+          <li><h3><span class="l-en">In-room washer &amp; dryer</span><span class="l-vi" lang="vi">Máy giặt &amp; máy sấy trong căn</span></h3><p><span class="l-en">Electrolux, 10 kg wash · 9 kg dry</span><span class="l-vi" lang="vi">Electrolux, giặt 10 kg · sấy 9 kg</span></p></li>
+          <li><h3><span class="l-en">Induction kitchen</span><span class="l-vi" lang="vi">Bếp từ</span></h3><p><span class="l-en">Hafele 4,400 W hob and hood, Nobilox sink</span><span class="l-vi" lang="vi">Bếp từ đôi và hút mùi Hafele 4.400 W, bồn rửa Nobilox</span></p></li>
+          <li><h3><span class="l-en">Full-size fridge</span><span class="l-vi" lang="vi">Tủ lạnh lớn</span></h3><p><span class="l-en">Samsung Inverter, 280 L</span><span class="l-vi" lang="vi">Samsung Inverter, 280 lít</span></p></li>
+          <li><h3><span class="l-en">Hotel-grade sleep</span><span class="l-vi" lang="vi">Giấc ngủ chuẩn khách sạn</span></h3><p><span class="l-en">Dunlopillo mattress and bedding</span><span class="l-vi" lang="vi">Nệm và chăn ga Dunlopillo</span></p></li>
+          <li><h3><span class="l-en">Hot rain shower</span><span class="l-vi" lang="vi">Sen tắm nước nóng</span></h3><p><span class="l-en">Ariston 30 L heater, INAX fittings</span><span class="l-vi" lang="vi">Bình nóng Ariston 30 lít, thiết bị INAX</span></p></li>
+          <li><h3><span class="l-en">Air conditioning</span><span class="l-vi" lang="vi">Điều hòa</span></h3><p><span class="l-en">LG ceiling units, never blowing straight at the bed</span><span class="l-vi" lang="vi">LG âm trần, không thổi thẳng vào giường</span></p></li>
+          <li><h3><span class="l-en">Smart lock</span><span class="l-vi" lang="vi">Khóa điện tử</span></h3><p><span class="l-en">Private, quiet, no waiting for reception</span><span class="l-vi" lang="vi">Riêng tư, yên tĩnh, không chờ lễ tân</span></p></li>
+          <li><h3><span class="l-en">Smart TV</span><span class="l-vi" lang="vi">Smart TV</span></h3><p><span class="l-en">Samsung QLED 4K, 55 inch</span><span class="l-vi" lang="vi">Samsung QLED 4K, 55 inch</span></p></li>
+          <li><h3><span class="l-en">Small comforts</span><span class="l-vi" lang="vi">Tiện nghi nhỏ</span></h3><p><span class="l-en">LG 30 L microwave, Electrolux kettle</span><span class="l-vi" lang="vi">Lò vi sóng LG 30 lít, ấm Electrolux</span></p></li>
+          <li><h3><span class="l-en">Balcony &amp; views</span><span class="l-vi" lang="vi">Ban công &amp; tầm nhìn</span></h3><p><span class="l-en">A private balcony over the city or the garden</span><span class="l-vi" lang="vi">Ban công riêng nhìn ra thành phố hoặc khu vườn</span></p></li>
         </ul>
-        <p class="ls-price"><span class="b-muted">Từ</span> <strong>8.000.000&nbsp;đ</strong> <span class="b-muted">/tháng</span> <span class="tbd">chờ INV – Q3</span></p>
-        <a class="btn inverse lg" href="#hoi-phong" data-quote><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Nhận báo giá thuê tháng</a>
-      </div>
-      <div class="ph ph-long" role="img" aria-label="Bàn làm việc gỗ cạnh cửa sổ trong căn hộ">
-        <svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg>
-        <span class="ph-meta" aria-hidden="true"><b>LONG-01</b>Góc làm việc, ánh sáng ngày<i>Drive: Phòng ? · 4:5</i></span>
+        <p class="foot-note l-en">Every appliance is the brand and model listed — the ones you will use during your stay.</p>
+        <p class="foot-note l-vi" lang="vi">Mọi thiết bị đúng hãng, đúng model đã nêu — chính là những gì bạn dùng trong kỳ lưu trú.</p>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 6. Không gian chung -->
-  <section class="sec" id="khong-gian" aria-labelledby="sp-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Không gian</p>
-        <h2 class="h2" id="sp-h">Không gian chung</h2>
-        <p class="lead">Gỗ sồi, tường kem, ánh đèn vàng. Một chỗ đi về yên tĩnh sau ngày dạo phố.</p>
+<!-- 7 · Lobby & location -->
+<section class="sec dark on-dark" id="location" aria-labelledby="loc-h">
+  <div class="wrap loc">
+    <div>
+      <p class="label"><span class="l-en">Lobby &amp; location</span><span class="l-vi" lang="vi">Sảnh &amp; vị trí</span></p>
+      <h2 class="h2" id="loc-h"><span class="l-en">Groceries, cafés, the office — all minutes away.</span><span class="l-vi" lang="vi">Đi chợ, đi cà phê, đi làm — mọi thứ trong vài phút.</span></h2>
+      <p class="sub"><span class="l-en">Home, in silence.</span><span class="l-vi" lang="vi">Về nhà trong yên tĩnh.</span></p>
+      <p class="l-en muted">OTTIMO sits on a quiet hillside, minutes from the centre. The ground-floor lobby has a reception and a coffee counter — for parcels, directions or a quick word.</p>
+      <p class="l-vi muted" lang="vi">OTTIMO nằm trên triền đồi yên tĩnh, cách trung tâm vài phút xe. Sảnh tầng trệt có lễ tân và quầy cà phê — nhận bưu phẩm, hỏi đường hay gửi một lời nhắn.</p>
+      <address>
+        <span id="addr-text">30/3 Triệu Việt Vương, Phường Xuân Hương, Đà Lạt, Lâm Đồng</span>
+      </address>
+      <div class="actions">
+        <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer" href="https://maps.app.goo.gl/oYos42G5YvUEcDCc6"><span class="l-en">Open in Google Maps</span><span class="l-vi" lang="vi">Mở Google Maps</span><span class="sr"><span class="l-en"> (opens in a new tab)</span><span class="l-vi" lang="vi"> (mở tab mới)</span></span></a>
+        <button type="button" class="btn btn-ghost" id="copy-addr"><span class="l-en">Copy address</span><span class="l-vi" lang="vi">Chép địa chỉ</span></button>
       </div>
-      <div class="mosaic">
-        <div class="ph" role="img" aria-label="Sảnh OTTIMO nhìn từ cửa vào"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>SPACE-01</b>Sảnh rộng<i>Drive: Mặt tiền + Sảnh</i></span></div>
-        <div class="ph" role="img" aria-label="Lối vào có bảng tên OTTIMO"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>SPACE-02</b>Lối vào</span></div>
-        <div class="ph" role="img" aria-label="Cầu thang gỗ lên các tầng"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>SPACE-03</b>Cầu thang</span></div>
-        <div class="ph" role="img" aria-label="Chi tiết gỗ sồi và đèn vàng"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>SPACE-04</b>Chi tiết vật liệu</span></div>
-        <div class="ph" role="img" aria-label="Mặt tiền OTTIMO buổi tối"><svg class="ph-ico" aria-hidden="true"><use href="#i-camera"/></svg><span class="ph-meta" aria-hidden="true"><b>SPACE-05</b>Mặt tiền buổi tối</span></div>
-      </div>
+      <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+      <table class="dist">
+        <caption><span class="l-en">Drive times from OTTIMO</span><span class="l-vi" lang="vi">Thời gian đi xe từ OTTIMO</span></caption>
+        <thead><tr><th scope="col"><span class="l-en">Place</span><span class="l-vi" lang="vi">Điểm đến</span></th><th scope="col" class="num"><span class="l-en">Distance</span><span class="l-vi" lang="vi">Khoảng cách</span></th><th scope="col" class="num"><span class="l-en">Time</span><span class="l-vi" lang="vi">Thời gian</span></th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><span class="l-en">Bao Dai Summer Palace</span><span class="l-vi" lang="vi">Dinh Bảo Đại III</span></th><td><span class="l-en">1.7 km</span><span class="l-vi" lang="vi">1,7 km</span></td><td><span class="l-en">4 min</span><span class="l-vi" lang="vi">4 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Da Lat Cathedral</span><span class="l-vi" lang="vi">Nhà thờ Con Gà</span></th><td><span class="l-en">2.5 km</span><span class="l-vi" lang="vi">2,5 km</span></td><td><span class="l-en">6 min</span><span class="l-vi" lang="vi">6 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Truc Lam Zen Monastery</span><span class="l-vi" lang="vi">Thiền viện Trúc Lâm</span></th><td><span class="l-en">3.3 km</span><span class="l-vi" lang="vi">3,3 km</span></td><td><span class="l-en">7 min</span><span class="l-vi" lang="vi">7 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Da Lat Market · Xuan Huong Lake</span><span class="l-vi" lang="vi">Chợ Đà Lạt · Hồ Xuân Hương</span></th><td><span class="l-en">3.3 km</span><span class="l-vi" lang="vi">3,3 km</span></td><td><span class="l-en">7 min</span><span class="l-vi" lang="vi">7 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Intercity bus station</span><span class="l-vi" lang="vi">Bến xe liên tỉnh</span></th><td><span class="l-en">3.7 km</span><span class="l-vi" lang="vi">3,7 km</span></td><td><span class="l-en">8 min</span><span class="l-vi" lang="vi">8 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Lam Vien Square</span><span class="l-vi" lang="vi">Quảng trường Lâm Viên</span></th><td><span class="l-en">3.8 km</span><span class="l-vi" lang="vi">3,8 km</span></td><td><span class="l-en">8 min</span><span class="l-vi" lang="vi">8 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Tuyen Lam Lake</span><span class="l-vi" lang="vi">Hồ Tuyền Lâm</span></th><td><span class="l-en">4.1 km</span><span class="l-vi" lang="vi">4,1 km</span></td><td><span class="l-en">9 min</span><span class="l-vi" lang="vi">9 phút</span></td></tr>
+          <tr><th scope="row"><span class="l-en">Lien Khuong Airport</span><span class="l-vi" lang="vi">Sân bay Liên Khương</span></th><td><span class="l-en">about 28 km</span><span class="l-vi" lang="vi">khoảng 28 km</span></td><td><span class="l-en">30 min</span><span class="l-vi" lang="vi">30 phút</span></td></tr>
+        </tbody>
+      </table>
+      <p class="small muted mt-12"><span class="l-en">Distances from Google Maps; drive times are estimates.</span><span class="l-vi" lang="vi">Khoảng cách theo Google Maps; thời gian đi ô tô là ước tính.</span></p>
     </div>
-  </section>
-
-  <!-- 7. Đánh giá -->
-  <section class="sec pt-0" id="danh-gia" aria-labelledby="rv-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Đánh giá</p>
-        <h2 class="h2" id="rv-h">Khách nói gì về OTTIMO</h2>
-      </div>
-      <p class="mock-note mb-16"><b>Mock</b><span>Chỉ trích nguyên văn đánh giá thật, ghi tên viết tắt, quốc gia, kênh, tháng/năm. Không bịa, không sửa ý. INV chọn 3–5 đánh giá.</span></p>
-      <div class="rv-grid">
-        <figure class="rv"><span class="q" aria-hidden="true">“</span><span class="sr-only">Chỗ cho trích dẫn đánh giá thật thứ nhất – chờ chọn.</span><div class="sk w90" aria-hidden="true"></div><div class="sk w75" aria-hidden="true"></div><div class="sk w55" aria-hidden="true"></div><figcaption class="rv-src">Tên viết tắt · Quốc gia · Kênh · Tháng/năm <span class="tbd">chờ INV</span></figcaption></figure>
-        <figure class="rv"><span class="q" aria-hidden="true">“</span><span class="sr-only">Chỗ cho trích dẫn đánh giá thật thứ hai – chờ chọn.</span><div class="sk w75" aria-hidden="true"></div><div class="sk w90" aria-hidden="true"></div><div class="sk w55" aria-hidden="true"></div><figcaption class="rv-src">Tên viết tắt · Quốc gia · Kênh · Tháng/năm <span class="tbd">chờ INV</span></figcaption></figure>
-        <figure class="rv"><span class="q" aria-hidden="true">“</span><span class="sr-only">Chỗ cho trích dẫn đánh giá thật thứ ba – chờ chọn.</span><div class="sk w90" aria-hidden="true"></div><div class="sk w55" aria-hidden="true"></div><div class="sk w75" aria-hidden="true"></div><figcaption class="rv-src">Tên viết tắt · Quốc gia · Kênh · Tháng/năm <span class="tbd">chờ INV</span></figcaption></figure>
-      </div>
-      <p class="ota-links"><span class="muted">Xem thêm trên</span> <a href="#danh-gia" data-mock="Bản thật: mở trang OTTIMO trên Booking.com (tab mới).">Booking.com</a> <a href="#danh-gia" data-mock="Bản thật: mở trang OTTIMO trên Airbnb (tab mới).">Airbnb</a> <a href="#danh-gia" data-mock="Bản thật: mở trang OTTIMO trên Agoda (tab mới).">Agoda</a> <span class="tbd">chờ INV – link</span></p>
+    <div class="loc-media">
+      <figure class="pic r45">
+        <picture>
+          <source media="(max-width: 767px)" type="image/avif" srcset="img/aerial-hillside-480.avif 480w, img/aerial-hillside-960.avif 960w" sizes="(min-width: 600px) 44vw, calc(100vw - 32px)">
+          <source media="(max-width: 767px)" type="image/webp" srcset="img/aerial-hillside-480.webp 480w, img/aerial-hillside-960.webp 960w" sizes="(min-width: 600px) 44vw, calc(100vw - 32px)">
+          <source type="image/avif" srcset="img/aerial-hillside-480.avif 480w, img/aerial-hillside-960.avif 960w, img/aerial-hillside-1600.avif 1600w" sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 44vw, calc(100vw - 32px)">
+          <source type="image/webp" srcset="img/aerial-hillside-480.webp 480w, img/aerial-hillside-960.webp 960w, img/aerial-hillside-1600.webp 1600w" sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 44vw, calc(100vw - 32px)">
+          <img src="img/aerial-hillside-960.webp" width="1600" height="2402" loading="lazy" decoding="async" class="op-70" alt="Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind" data-alt-en="Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind" data-alt-vi="OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi">
+        </picture>
+        <span class="note">aerial-hillside · mat-tien-sanh/05.2.png</span>
+      </figure>
+      <figure class="pic r45">
+        <picture>
+          <source media="(max-width: 767px)" type="image/avif" srcset="img/detail-balcony-sunset-480.avif 480w, img/detail-balcony-sunset-960.avif 960w" sizes="(min-width: 600px) 52vw, calc(100vw - 32px)">
+          <source media="(max-width: 767px)" type="image/webp" srcset="img/detail-balcony-sunset-480.webp 480w, img/detail-balcony-sunset-960.webp 960w" sizes="(min-width: 600px) 52vw, calc(100vw - 32px)">
+          <source type="image/avif" srcset="img/detail-balcony-sunset-480.avif 480w, img/detail-balcony-sunset-960.avif 960w, img/detail-balcony-sunset-1600.avif 1600w" sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 52vw, calc(100vw - 32px)">
+          <source type="image/webp" srcset="img/detail-balcony-sunset-480.webp 480w, img/detail-balcony-sunset-960.webp 960w, img/detail-balcony-sunset-1600.webp 1600w" sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 52vw, calc(100vw - 32px)">
+          <img src="img/detail-balcony-sunset-960.webp" width="1600" height="1063" loading="lazy" decoding="async" class="op-x62" alt="Balcony at sunset over the hills of Da Lat" data-alt-en="Balcony at sunset over the hills of Da Lat" data-alt-vi="Ban công lúc hoàng hôn nhìn ra đồi Đà Lạt">
+        </picture>
+        <span class="note">detail-balcony-sunset · phong-2/06.png</span>
+      </figure>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 8. Vị trí -->
-  <section class="sec pt-0" id="vi-tri" aria-labelledby="loc-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Vị trí</p>
-        <h2 class="h2" id="loc-h">Giữa phố, vẫn yên</h2>
-        <p class="lead">Đi bộ ra hồ, ra chợ; về tới căn hộ là yên tĩnh. <span class="tbd">chưa xác minh</span></p>
-      </div>
-      <div class="loc-grid">
-        <div class="ph ph-map" role="img" aria-label="Bản đồ: vị trí OTTIMO và các điểm gần">
-          <svg class="ph-ico" aria-hidden="true"><use href="#i-map"/></svg>
-          <span class="ph-meta" aria-hidden="true"><b>MAP-01</b>Bản đồ tĩnh UXD vẽ (SVG) – không nhúng iframe<i>Cần địa chỉ chính xác · 16:10</i></span>
-        </div>
-        <div class="addr">
-          <h3>OTTIMO Boutique Stay</h3>
-          <address id="addr-text">Số nhà, tên đường <span class="tbd">chờ INV</span><br>Phường Xuân Hương – Đà Lạt, Lâm Đồng</address>
-          <ul class="dist">
-            <li><span>Hồ Xuân Hương</span><span class="muted">… phút đi bộ <span class="tbd">chờ đo</span></span></li>
-            <li><span>Chợ Đà Lạt</span><span class="muted">… phút đi bộ <span class="tbd">chờ đo</span></span></li>
-            <li><span>Quảng trường Lâm Viên</span><span class="muted">… phút <span class="tbd">chờ đo</span></span></li>
-            <li><span>Sân bay Liên Khương</span><span class="muted">… phút lái xe <span class="tbd">chờ đo</span></span></li>
-            <li><span>Đậu xe</span><span class="muted"><span class="tbd">chờ INV</span></span></li>
-          </ul>
-          <div class="btn-row">
-            <a class="btn primary" href="#vi-tri" data-mock="Bản thật: mở Google Maps chỉ đường tới OTTIMO (tab mới)."><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>Mở Google Maps</a>
-            <button class="btn secondary" type="button" id="copy-addr"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>Chép địa chỉ</button>
-          </div>
-          <p class="caption">Cùng dữ liệu địa chỉ với trang lưu trú của khách (US-108).</p>
-        </div>
-      </div>
+<!-- 8 · FAQ -->
+<section class="sec" id="faq" aria-labelledby="faq-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label"><span class="l-en">FAQ</span><span class="l-vi" lang="vi">Hỏi đáp</span></p>
+      <h2 class="h2" id="faq-h"><span class="l-en">Good to know</span><span class="l-vi" lang="vi">Cần biết trước khi đến</span></h2>
     </div>
-  </section>
-
-  <!-- 9. Hành trình Zalo OA -->
-  <section class="sec pt-0" id="cham-soc" aria-labelledby="jr-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Đặt xong</p>
-        <h2 class="h2" id="jr-h">Đặt xong, OTTIMO lo phần còn lại</h2>
-        <p class="lead">Mọi tin quan trọng đến qua Zalo – bạn không cần cài thêm ứng dụng.</p>
-      </div>
-      <div class="jr-grid">
-        <ol class="steps">
-          <li><div><h3>Xác nhận đặt phòng</h3><p>Tin xác nhận gửi qua Zalo, hoặc email, WhatsApp nếu bạn không dùng Zalo.</p></div></li>
-          <li><div><h3>Làm thủ tục trước</h3><p>Gửi giấy tờ và giờ đến qua link riêng, khoảng 2 phút.</p></div></li>
-          <li><div><h3>Nhắc trước ngày đến</h3><p>Kèm vị trí, đường đi và chỗ đậu xe.</p><p class="mock-note"><b>Mock</b><span>Bước 1–3: R2 lễ tân gửi tay (câu chữ không hứa "tự động"). Nhắc ngày đến chưa có story – đề nghị PO thêm.</span></p></div></li>
-          <li><div><h3>Trong lúc ở</h3><p>Cần khăn, dọn phòng hay sửa gì, nhắn OTTIMO hoặc gửi trên trang lưu trú.</p></div></li>
-          <li><div><h3>Sau khi trả phòng</h3><p>Lời cảm ơn và ưu đãi cho lần sau.</p><p class="mock-note"><b>Mock</b><span>Ẩn bước này tới khi có US-116 (R3) và chính sách ưu đãi.</span></p></div></li>
-        </ol>
-        <aside class="oa-card" aria-labelledby="oa-h">
-          <h3 id="oa-h">Zalo OA của OTTIMO</h3>
-          <div class="ph ph-qr" role="img" aria-label="Mã QR Zalo OA OTTIMO"><svg class="ph-ico" aria-hidden="true"><use href="#i-qr"/></svg><span class="ph-meta" aria-hidden="true"><b>ZALO-QR</b>Xuất từ trang quản trị OA</span></div>
-          <p class="muted">Quét mã hoặc bấm nút để quan tâm OA. Hỏi phòng, nhận nhắc lịch và hỗ trợ trong lúc ở.</p>
-          <a class="btn primary lg" href="#cham-soc" data-chat><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Quan tâm Zalo OA</a>
-          <p class="caption">Khách nước ngoài: WhatsApp <span class="tbd">chờ INV – Q4</span></p>
-        </aside>
-      </div>
+    <div class="faq">
+      <details>
+        <summary><span class="l-en">When are check-in and check-out?</span><span class="l-vi" lang="vi">Giờ nhận và trả phòng?</span></summary>
+        <div class="ans"><p class="l-en">Check-in from 14:00, check-out by 12:00. Early arrival or late departure depends on availability — just ask.</p><p class="l-vi" lang="vi">Nhận phòng từ 14:00, trả phòng trước 12:00. Đến sớm hay về muộn tùy phòng trống — bạn cứ nhắn trước.</p></div>
+      </details>
+      <details id="faq-monthly">
+        <summary><span class="l-en">Can I stay for a month or longer?</span><span class="l-vi" lang="vi">Ở một tháng hoặc lâu hơn được không?</span></summary>
+        <div class="ans"><p class="l-en">Yes — OTTIMO is made for it. Monthly rates are quoted on request, with better rates for longer stays. Electricity and water are billed by meter. <span class="pending note">L3 · chờ INV</span></p><p class="l-vi" lang="vi">Được — OTTIMO làm ra cho việc đó. Giá tháng theo báo giá, ở càng lâu giá càng tốt. Điện nước tính theo công tơ. <span class="pending note">L3 · chờ INV</span></p></div>
+      </details>
+      <details>
+        <summary><span class="l-en">How do I book?</span><span class="l-vi" lang="vi">Đặt phòng thế nào?</span></summary>
+        <div class="ans"><p class="l-en">Message us on WhatsApp, Telegram, Viber or Zalo, or call. We reply with availability and our direct rate. This site does not take bookings or payments.</p><p class="l-vi" lang="vi">Nhắn OTTIMO qua Zalo, WhatsApp, Telegram, Viber hoặc gọi điện. OTTIMO báo phòng trống và giá đặt trực tiếp. Trang này không nhận đặt phòng hay thanh toán.</p></div>
+      </details>
+      <details>
+        <summary><span class="l-en">Is someone there if I need help?</span><span class="l-vi" lang="vi">Cần hỗ trợ thì gặp ai?</span></summary>
+        <div class="ans"><p class="l-en">The ground-floor reception handles support. Your smart lock lets you come and go freely, at any hour.</p><p class="l-vi" lang="vi">Lễ tân tầng trệt lo phần hỗ trợ. Khóa điện tử cho bạn ra vào tự do, bất kể giờ nào.</p></div>
+      </details>
+      <details>
+        <summary><span class="l-en">How do I know a message is really from OTTIMO?</span><span class="l-vi" lang="vi">Làm sao biết tin nhắn đúng là của OTTIMO?</span></summary>
+        <div class="ans"><p class="l-en">OTTIMO only messages you from the numbers on this page, our official Zalo account and your booking platform's inbox. We never ask for card numbers and never change bank details by message.</p><p class="l-vi" lang="vi">OTTIMO chỉ nhắn từ các số trên trang này, Zalo chính thức của OTTIMO và hộp thư của nền tảng bạn đặt phòng. OTTIMO không bao giờ hỏi số thẻ và không đổi số tài khoản qua tin nhắn.</p></div>
+      </details>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 10. Hỏi đáp -->
-  <section class="sec pt-0" id="hoi-dap" aria-labelledby="faq-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="eyebrow">Hỏi đáp</p>
-        <h2 class="h2" id="faq-h">Bạn có thể đang muốn hỏi</h2>
-      </div>
-      <div class="faq">
-        <details><summary>Giờ nhận và trả phòng?</summary><div class="ans"><p>Nhận phòng từ 14:00, trả phòng trước 12:00.</p></div></details>
-        <details><summary>Nhận phòng sớm, trả phòng muộn được không?</summary><div class="ans"><p>Được, tùy phòng trống. Có phụ thu theo giờ – báo trước để OTTIMO giữ phòng cho bạn.</p></div></details>
-        <details><summary>Đặt cọc thế nào?</summary><div class="ans"><p>Đặt trực tiếp: cọc 30% tiền phòng qua chuyển khoản VietQR. Phần còn lại thanh toán khi nhận phòng.</p></div></details>
-        <details><summary>Hủy phòng thế nào?</summary><div class="ans"><p>Xem <a href="#hoi-dap" data-mock="Trang Chính sách hủy – nội dung PO/DOM viết.">Chính sách hủy</a>. <span class="tbd">PO/DOM viết</span></p></div></details>
-        <details><summary>Trẻ em và thêm người tính sao?</summary><div class="ans"><p>Bé dưới 6 tuổi ở miễn phí. Mỗi căn nhận thêm tối đa 1 người, ngủ sofa lớn, có phụ thu và bộ đồ dùng thêm.</p></div></details>
-        <details><summary>Có được hút thuốc không?</summary><div class="ans"><p>Chỉ hút ở ban công. Hút trong phòng sẽ tính phí khử mùi theo nội quy.</p></div></details>
-        <details><summary>Thanh toán bằng gì?</summary><div class="ans"><p>Chuyển khoản VietQR hoặc tiền mặt (VND). Thẻ quốc tế: sắp có. OTTIMO không nhận tiền mã hóa.</p></div></details>
-        <details><summary>Cần giấy tờ gì khi nhận phòng?</summary><div class="ans"><p>Khách Việt Nam: CCCD. Khách nước ngoài: hộ chiếu và thị thực. OTTIMO dùng để khai báo lưu trú theo quy định. Bạn có thể gửi trước qua link làm thủ tục online.</p></div></details>
-        <details><summary>Tôi đến muộn sau 22:00 thì sao?</summary><div class="ans"><p>Làm thủ tục online trước khi đến. OTTIMO có người trực đêm tại chỗ.</p></div></details>
-        <details><summary>Có thang máy, chỗ đậu xe, nhận thú cưng không?</summary><div class="ans"><p><span class="tbd">chờ INV</span></p></div></details>
-      </div>
+<!-- 9 · Contact -->
+<section class="sec alt" id="contact" aria-labelledby="contact-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label"><span class="l-en">Book direct</span><span class="l-vi" lang="vi">Đặt trực tiếp</span></p>
+      <h2 class="h2" id="contact-h"><span class="l-en">Talk to us directly.</span><span class="l-vi" lang="vi">Nói chuyện trực tiếp với OTTIMO.</span></h2>
+      <p class="muted l-en">Message us for availability and our direct rate.</p>
+      <p class="muted l-vi" lang="vi">Nhắn OTTIMO để biết phòng trống và giá đặt trực tiếp.</p>
     </div>
-  </section>
-
-  <!-- 11. Lời mời cuối -->
-  <section class="sec cta-final" aria-labelledby="cta-h">
-    <div class="wrap">
-      <div class="cta-box">
-        <h2 class="h2" id="cta-h">Sẵn sàng cho vài ngày chậm lại?</h2>
-        <p class="lead">Hỏi phòng trống qua Zalo – OTTIMO trả lời trong giờ trực 07:00–22:00.</p>
-        <div class="cta-row">
-          <a class="btn primary lg" href="#hoi-phong" data-book>Đặt phòng</a>
-          <a class="btn secondary lg" href="#cham-soc" data-chat><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat Zalo</a>
+    <div class="channels">
+      <div class="ch ch-intl">
+        <p class="label"><span class="l-en">International guests</span><span class="l-vi" lang="vi">Khách quốc tế</span></p>
+        <h3 class="h3">WhatsApp · Telegram · Viber</h3>
+        <p class="num">+84 84 444 0909</p>
+        <p><span class="l-en">International guests, please contact us directly to book.</span><span class="l-vi" lang="vi">Khách nước ngoài vui lòng nhắn trực tiếp để đặt phòng.</span></p>
+        <div class="actions">
+          <a class="btn btn-primary btn-sm" href="https://wa.me/84844440909">WhatsApp</a>
+          <a class="btn btn-ghost btn-sm" href="https://t.me/+84844440909">Telegram</a>
+          <a class="btn btn-ghost btn-sm" href="viber://chat?number=%2B84844440909">Viber</a>
         </div>
       </div>
+      <div class="ch ch-zalo">
+        <p class="label"><span class="l-en">Zalo &amp; hotline</span><span class="l-vi" lang="vi">Zalo &amp; hotline</span></p>
+        <h3 class="h3"><span class="l-en">Chat or call</span><span class="l-vi" lang="vi">Nhắn hoặc gọi</span></h3>
+        <p class="num">08.4444.0909</p>
+        <p><span class="l-en">For guests in Viet Nam. Zalo opens our official account once verified.</span><span class="l-vi" lang="vi">Dành cho khách trong nước. Nút Zalo sẽ mở Zalo OA chính thức khi được xác thực.</span> <span class="pending note">ESC-021: tạm dùng Zalo số hotline</span></p>
+        <div class="actions">
+          <a class="btn btn-primary btn-sm" href="https://zalo.me/0844440909"><span class="l-en">Chat on Zalo</span><span class="l-vi" lang="vi">Chat Zalo</span></a>
+          <a class="btn btn-ghost btn-sm" href="tel:+84844440909"><span class="l-en">Call</span><span class="l-vi" lang="vi">Gọi</span></a>
+        </div>
+      </div>
+      <div class="ch ch-mail">
+        <p class="label"><span class="l-en">Email &amp; address</span><span class="l-vi" lang="vi">Email &amp; địa chỉ</span></p>
+        <h3 class="h3"><span class="l-en">Write to us</span><span class="l-vi" lang="vi">Viết cho OTTIMO</span></h3>
+        <p class="num num-sm">booking@&#8249;domain&#8250;</p>
+        <p>30/3 Triệu Việt Vương, Phường Xuân Hương, Đà Lạt, Lâm Đồng <span class="pending note">email chung chờ tên miền (L4)</span></p>
+      </div>
     </div>
-  </section>
+    <p class="privacy l-en">This site has no forms and no tracking cookies. Chat apps open only when you tap them.</p>
+    <p class="privacy l-vi" lang="vi">Trang này không có form và không dùng cookie theo dõi. Ứng dụng chat chỉ mở khi bạn bấm.</p>
+  </div>
+</section>
+
 </main>
 
-<footer class="site-f">
+<footer class="site-f dark on-dark">
   <div class="wrap">
     <div class="f-grid">
       <div>
-        <a class="brand" href="#top" aria-label="OTTIMO Boutique Stay – về đầu trang"><span class="wm" aria-hidden="true">OTTIMO</span><small aria-hidden="true">BOUTIQUE STAY</small></a>
-        <p class="muted">Ở chậm giữa Đà Lạt.</p>
-        <p>Số nhà, tên đường <span class="tbd">chờ INV</span><br>Phường Xuân Hương – Đà Lạt, Lâm Đồng</p>
+        <a class="brand" href="#top">
+          <svg class="mono" viewBox="0 -2 100 44" aria-hidden="true" focusable="false">
+            <path class="m-back" d="M22 40.4 54.6 12.1 68.1 24.5 81.6 9.9 100 40.4M0 40.4h100" fill="none" stroke-width="2.2"/>
+            <path class="m-front" d="M0 39.7 41.5 0 44.3 5.3 46.5 3.5 56 22 70.9 10.6 92.9 40.4" fill="none" stroke-width="2.6"/>
+          </svg>
+          <span class="brand-div" aria-hidden="true"></span>
+          <span class="wm"><span class="wm-name">OTTIMO</span> <span class="wm-sub">Boutique Stay</span></span>
+          <span class="sr"><span class="l-en"> – back to top</span><span class="l-vi" lang="vi"> – về đầu trang</span></span>
+        </a>
+        <p class="tagline" lang="en">A refined stay inspired by the calm spirit of Dalat.</p>
       </div>
-      <div>
-        <h2>Liên hệ</h2>
-        <ul>
-          <li>Hotline <span class="tbd">chờ INV</span></li>
-          <li>Zalo OA <span class="tbd">chờ INV</span></li>
-          <li>WhatsApp <span class="tbd">chờ INV – Q4</span></li>
-          <li>Email <span class="tbd">chờ INV</span></li>
-          <li>Lễ tân 07:00–22:00 · người trực đêm tại chỗ</li>
-        </ul>
+      <div class="f-col">
+        <h2><span class="l-en">Visit</span><span class="l-vi" lang="vi">Địa chỉ</span></h2>
+        <p>30/3 Triệu Việt Vương, Phường Xuân Hương, Đà Lạt, Lâm Đồng</p>
       </div>
-      <div>
-        <h2>Khám phá</h2>
+      <div class="f-col">
+        <h2><span class="l-en">Contact</span><span class="l-vi" lang="vi">Liên hệ</span></h2>
         <ul>
-          <li><a href="#can-ho">Căn hộ</a></li>
-          <li><a href="#o-dai-han">Ở dài hạn</a></li>
-          <li><a href="#vi-tri">Vị trí</a></li>
-          <li><a href="#hoi-dap">Hỏi đáp</a></li>
-        </ul>
-      </div>
-      <div>
-        <h2>Chính sách</h2>
-        <ul>
-          <li><a href="#top" data-mock="Trang Chính sách quyền riêng tư – SEC viết.">Quyền riêng tư</a></li>
-          <li><a href="#top" data-mock="Trang Chính sách hủy – PO/DOM viết.">Chính sách hủy</a></li>
-          <li><a href="#top" data-mock="Trang Nội quy – DOM viết.">Nội quy</a></li>
+          <li><span class="l-en">Hotline · Zalo</span><span class="l-vi" lang="vi">Hotline · Zalo</span>: <a href="tel:+84844440909">08.4444.0909</a></li>
+          <li>WhatsApp · Telegram · Viber: <a href="https://wa.me/84844440909">+84 84 444 0909</a></li>
+          <li>Email: booking@&#8249;domain&#8250;</li>
         </ul>
       </div>
     </div>
-    <div class="legal">
-      <p>Tên doanh nghiệp · Mã số thuế <span class="tbd">chờ INV – ESC-008</span></p>
-      <p>© 2026 OTTIMO Boutique Stay</p>
+    <div class="f-base">
+      <span>© 2026 OTTIMO Boutique Stay · <span class="l-en">Da Lat · Viet Nam</span><span class="l-vi" lang="vi">Đà Lạt · Việt Nam</span></span>
+      <span><span class="l-en">Privacy notice (coming soon)</span><span class="l-vi" lang="vi">Quyền riêng tư (sắp có)</span> <span class="pending note">tên công ty + MST chờ INV</span></span>
     </div>
   </div>
 </footer>
 
-<div class="stickybar" aria-label="Đặt phòng nhanh" role="region">
-  <a class="btn primary lg" href="#hoi-phong" data-book>Đặt phòng</a>
-  <a class="btn secondary lg" href="#cham-soc" data-chat><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat Zalo</a>
-</div>
-
-<!-- Hộp thoại: tin nhắn soạn sẵn -->
-<dialog id="dlg-enq" aria-labelledby="dlg-enq-h">
-  <div class="dlg-h">
-    <h2 id="dlg-enq-h" tabindex="-1">Gửi câu hỏi cho OTTIMO</h2>
-    <button class="icon-btn" type="button" data-close aria-label="Đóng"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-  </div>
-  <div class="dlg-b">
-    <label for="msg" class="muted">Tin nhắn soạn sẵn – bạn sửa được trước khi gửi.</label>
-    <textarea id="msg"></textarea>
-    <div class="status" id="msg-status" role="status" hidden></div>
-    <div class="dlg-actions">
-      <button class="btn primary lg" type="button" id="copy-open"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>Chép tin nhắn và mở Zalo</button>
-      <a class="btn secondary lg" href="#cham-soc" data-mock="Bản thật: mở WhatsApp với tin nhắn đã điền sẵn (wa.me/{số}?text=…).">Gửi qua WhatsApp</a>
-      <a class="btn secondary lg" href="#cham-soc" data-mock="Bản thật: gọi hotline OTTIMO (tel:)."><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg>Gọi lễ tân</a>
-    </div>
-    <p class="caption">OTTIMO trả lời trong giờ trực 07:00–22:00. Trang này không lưu thông tin bạn nhập.</p>
-    <p class="mock-note"><b>Mock</b><span>Liên kết Zalo không điền sẵn được nội dung (chưa xác minh) nên chép trước rồi mở Zalo OA.</span></p>
-  </div>
-</dialog>
-
-<!-- Hộp thoại: chọn kênh chat (máy tính; điện thoại bản thật mở thẳng Zalo) -->
-<dialog id="dlg-chat" aria-labelledby="dlg-chat-h">
-  <div class="dlg-h">
-    <h2 id="dlg-chat-h" tabindex="-1">Chat với OTTIMO</h2>
-    <button class="icon-btn" type="button" data-close aria-label="Đóng"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-  </div>
-  <div class="dlg-b">
-    <div class="zalo-row">
-      <div class="ph ph-qr" role="img" aria-label="Mã QR Zalo OA OTTIMO"><svg class="ph-ico" aria-hidden="true"><use href="#i-qr"/></svg><span class="ph-meta" aria-hidden="true"><b>ZALO-QR</b></span></div>
-      <div class="stack-10">
-        <p>Quét mã bằng Zalo trên điện thoại, hoặc mở Zalo trên máy tính.</p>
-        <a class="btn primary" href="#cham-soc" data-mock="Bản thật: mở Zalo OA (https://zalo.me/{oa_id} – chưa xác minh định dạng).">Mở Zalo OA</a>
-      </div>
-    </div>
-    <p class="muted">Không dùng Zalo?</p>
-    <ul class="chan">
-      <li><a href="#cham-soc" data-mock="Bản thật: mở WhatsApp (wa.me/{số})."><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg><span>WhatsApp<small>Cho khách nước ngoài · chờ INV – Q4</small></span></a></li>
-      <li><a href="#cham-soc" data-mock="Bản thật: mở ứng dụng email (mailto:)."><svg class="icon" aria-hidden="true"><use href="#i-mail"/></svg><span>Email<small>Trả lời trong giờ trực</small></span></a></li>
-      <li><a href="#cham-soc" data-mock="Bản thật: gọi hotline (tel:)."><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg><span>Gọi lễ tân<small>07:00–22:00 · ngoài giờ có người trực đêm</small></span></a></li>
-    </ul>
-    <p class="mock-note"><b>Mock</b><span>Điện thoại (bản thật): nút "Chat Zalo" mở thẳng Zalo OA, không qua hộp này. Trang EN/RU: nút "Chat with us" mở hộp này với WhatsApp đứng đầu.</span></p>
-  </div>
-</dialog>
-
-<div class="toast-region" role="status" aria-live="polite"><div class="toast" id="toast" hidden><span class="t-msg"></span><button type="button" aria-label="Đóng thông báo">✕</button></div></div>
+<nav class="stickybar" aria-label="Contact OTTIMO">
+  <a class="sb sb-wa" href="https://wa.me/84844440909"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>WhatsApp</a>
+  <a class="sb sb-zalo" href="https://zalo.me/0844440909"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>Zalo</a>
+  <a class="sb sb-call" href="tel:+84844440909"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16.5 16.5 0 0 1 4.5 5.5a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="l-en">Call</span><span class="l-vi" lang="vi">Gọi</span></a>
+</nav>
 
 <script>
-(function(){
-  var root=document.documentElement;
-  var reduce=function(){return window.matchMedia('(prefers-reduced-motion: reduce)').matches;};
-  var store={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+(function () {
+  var root = document.documentElement;
+  var META = {
+    en: { title: 'OTTIMO Boutique Stay · Apartments in Da Lat', desc: 'Ten fully equipped apartments on a quiet hillside in Da Lat — for a few nights, a month, or longer. Book direct on WhatsApp, Zalo or by phone.' },
+    vi: { title: 'OTTIMO Boutique Stay · Căn hộ ở Đà Lạt', desc: 'Mười căn hộ đầy đủ tiện nghi trên một triền đồi yên tĩnh ở Đà Lạt — cho vài đêm, một tháng, hay lâu hơn. Đặt trực tiếp qua Zalo, WhatsApp hoặc gọi điện.' }
+  };
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
-  /* Thanh công cụ mock: mở sẵn trên máy tính */
-  if(window.matchMedia('(min-width: 1024px)').matches)document.getElementById('mb-d').open=true;
-  function applySet(key,val){
-    if(key==='theme'&&val==='auto'){root.removeAttribute('data-theme');}
-    else if(key==='variant'&&val==='a'){root.removeAttribute('data-variant');}
-    else if(key==='notes'&&val==='on'){root.removeAttribute('data-notes');}
-    else{root.setAttribute('data-'+key,val);}
-    document.querySelectorAll('[data-set="'+key+'"]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.val===val));});
+  function setLang(l) {
+    root.lang = l;
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === l));
+    });
+    document.querySelectorAll('img[data-alt-' + l + ']').forEach(function (img) {
+      img.alt = img.getAttribute('data-alt-' + l);
+    });
+    document.title = META[l].title;
+    var d = document.querySelector('meta[name="description"]');
+    if (d) d.setAttribute('content', META[l].desc);
+    store('ottimo-lp-lang', l);
   }
-  document.querySelectorAll('[data-set]').forEach(function(btn){
-    btn.addEventListener('click',function(){applySet(btn.dataset.set,btn.dataset.val);store.set('ottimo-lp-'+btn.dataset.set,btn.dataset.val);});
+  document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.getAttribute('data-set-lang')); });
   });
-  ['variant','theme','notes'].forEach(function(k){var v=store.get('ottimo-lp-'+k);if(v&&document.querySelector('[data-set="'+k+'"][data-val="'+v+'"]'))applySet(k,v);});
+  setLang(root.lang === 'vi' ? 'vi' : 'en');
 
-  /* Toast (≥ 6 giây, dừng khi rê chuột/focus) */
-  var toastEl=document.getElementById('toast'),tTimer=null;
-  function hideToast(){toastEl.hidden=true;}
-  function armToast(){clearTimeout(tTimer);tTimer=setTimeout(hideToast,6000);}
-  function toast(msg){toastEl.querySelector('.t-msg').textContent=msg;toastEl.hidden=false;armToast();}
-  toastEl.addEventListener('mouseenter',function(){clearTimeout(tTimer);});
-  toastEl.addEventListener('mouseleave',armToast);
-  toastEl.addEventListener('focusin',function(){clearTimeout(tTimer);});
-  toastEl.addEventListener('focusout',armToast);
-  toastEl.querySelector('button').addEventListener('click',hideToast);
-
-  /* Liên kết giả lập trong mock */
-  document.addEventListener('click',function(e){
-    var a=e.target.closest('[data-mock]');
-    if(a){e.preventDefault();toast(a.dataset.mock);}
-  });
-
-  /* Menu điện thoại */
-  var menuBtn=document.getElementById('menu-btn'),nav=document.getElementById('nav');
-  function setMenu(open){menuBtn.setAttribute('aria-expanded',String(open));nav.classList.toggle('open',open);}
-  menuBtn.addEventListener('click',function(){setMenu(menuBtn.getAttribute('aria-expanded')!=='true');});
-  nav.addEventListener('click',function(e){var a=e.target.closest('a');if(a&&!a.hasAttribute('data-mock'))setMenu(false);});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&nav.classList.contains('open')){setMenu(false);menuBtn.focus();}});
-
-  /* Ô hỏi phòng */
-  var form=document.getElementById('enq'),ci=document.getElementById('ci'),co=document.getElementById('co'),rtype=document.getElementById('rtype');
-  var sum=document.getElementById('enq-sum'),grp=document.getElementById('enq-group');
-  var DAY=864e5,today=new Date();today.setHours(0,0,0,0);
-  function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function parse(v){if(!v)return null;var p=v.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]);}
-  function fmt(d){return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
-  ci.min=iso(today);co.min=iso(new Date(today.getTime()+DAY));
-  function count(id){return parseInt(document.getElementById(id).textContent,10)||0;}
-  function setErr(el,msg){var p=document.getElementById(el.id+'-err');p.textContent=msg;p.hidden=false;el.setAttribute('aria-invalid','true');}
-  function clearErr(el){var p=document.getElementById(el.id+'-err');p.hidden=true;p.textContent='';el.removeAttribute('aria-invalid');}
-  function update(){
-    var a=parse(ci.value),b=parse(co.value),n=(a&&b)?Math.round((b-a)/DAY):0;
-    sum.textContent=n>0?(n+' đêm · '+fmt(a)+' → '+fmt(b)):'';
-    grp.hidden=(count('ad')+count('kid'))<=5;
+  // Mock notes toggle (photo codes + pending-INV chips)
+  var nt = document.getElementById('notes-toggle');
+  function setNotes(on) {
+    root.dataset.notes = on ? 'on' : 'off';
+    nt.setAttribute('aria-pressed', String(on));
+    nt.textContent = 'Notes: ' + (on ? 'on' : 'off');
+    store('ottimo-lp-notes', on ? 'on' : 'off');
   }
-  ci.addEventListener('change',function(){
-    clearErr(ci);var a=parse(ci.value);
-    if(a){co.min=iso(new Date(a.getTime()+DAY));var b=parse(co.value);if(!b||b<=a){co.value=iso(new Date(a.getTime()+DAY));clearErr(co);}}
-    update();
-  });
-  co.addEventListener('change',function(){clearErr(co);update();});
-  document.querySelectorAll('.stepper').forEach(function(s){
-    var out=s.querySelector('output'),btns=s.querySelectorAll('button'),min=+s.dataset.min,max=+s.dataset.max;
-    function set(v){v=Math.max(min,Math.min(max,v));out.textContent=v;btns[0].setAttribute('aria-disabled',String(v<=min));btns[1].setAttribute('aria-disabled',String(v>=max));update();}
-    btns[0].addEventListener('click',function(){set(parseInt(out.textContent,10)-1);});
-    btns[1].addEventListener('click',function(){set(parseInt(out.textContent,10)+1);});
-    set(parseInt(out.textContent,10));
-  });
-  function compose(){
-    var a=parse(ci.value),b=parse(co.value),n=Math.round((b-a)/DAY),ad=count('ad'),kid=count('kid'),t=rtype.value,monthly=t==='Thuê theo tháng';
-    var lines=['Chào OTTIMO, mình muốn '+(monthly?'thuê theo tháng:':'hỏi phòng:')];
-    lines.push('– Nhận phòng: '+fmt(a)+' · Trả phòng: '+fmt(b)+' ('+n+' đêm)');
-    lines.push('– Khách: '+ad+' người lớn'+(kid?(', '+kid+' trẻ em (tuổi các bé: …)'):''));
-    if(t&&!monthly)lines.push('– Loại căn: '+t);
-    lines.push(monthly?'Nhờ OTTIMO gửi báo giá thuê tháng. Cảm ơn!':'Nhờ OTTIMO báo giúp phòng trống và giá. Cảm ơn!');
-    return lines.join('\n');
-  }
-  form.addEventListener('submit',function(e){
-    e.preventDefault();var ok=true,a=parse(ci.value),b=parse(co.value);
-    clearErr(ci);clearErr(co);
-    if(!a){setErr(ci,'Chọn ngày nhận phòng.');ok=false;}
-    else if(a<today){setErr(ci,'Ngày nhận phòng cần từ hôm nay trở đi.');ok=false;}
-    if(!b){setErr(co,'Chọn ngày trả phòng.');ok=false;}
-    else if(a&&b<=a){setErr(co,'Ngày trả phòng cần sau ngày nhận phòng. Ví dụ: nhận 20/10, trả 22/10.');ok=false;}
-    if(!ok){form.querySelector('[aria-invalid="true"]').focus();return;}
-    openDlg(dlgEnq,{title:rtype.value==='Thuê theo tháng'?'Nhận báo giá thuê tháng':'Hỏi phòng qua Zalo',text:compose()},e.submitter||form.querySelector('[type=submit]'));
+  nt.addEventListener('click', function () { setNotes(root.dataset.notes !== 'on'); });
+  setNotes(root.dataset.notes === 'on');
+
+  // Copy address
+  var copyBtn = document.getElementById('copy-addr');
+  var status = document.getElementById('copy-status');
+  copyBtn.addEventListener('click', function () {
+    var text = document.getElementById('addr-text').textContent.trim();
+    var ok = { en: 'Address copied.', vi: 'Đã chép địa chỉ.' };
+    var fail = { en: 'Could not copy automatically. Press and hold the address to copy it.', vi: 'Chưa chép tự động được. Chạm giữ vào địa chỉ để chép.' };
+    function say(m) { status.textContent = m[root.lang] || m.en; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { say(ok); }, function () { say(fail); });
+    } else { say(fail); }
   });
 
-  /* Hộp thoại */
-  var dlgEnq=document.getElementById('dlg-enq'),dlgChat=document.getElementById('dlg-chat'),msg=document.getElementById('msg'),st=document.getElementById('msg-status'),opener=null;
-  function openDlg(d,o,trigger){
-    opener=trigger||document.activeElement;
-    if(o&&o.title)d.querySelector('h2').textContent=o.title;
-    if(o&&typeof o.text==='string'){msg.value=o.text;st.hidden=true;}
-    if(typeof d.showModal==='function'){d.showModal();}else{d.setAttribute('open','');}
-    d.querySelector('h2').focus();
-  }
-  [dlgEnq,dlgChat].forEach(function(d){
-    d.addEventListener('close',function(){if(opener&&opener.focus)opener.focus();});
-    d.querySelectorAll('[data-close]').forEach(function(b){b.addEventListener('click',function(){d.close();});});
-    d.addEventListener('click',function(e){if(e.target===d)d.close();});
-  });
-  function status(kind,text){st.className='status '+kind;st.textContent=text;st.hidden=false;}
-  document.getElementById('copy-open').addEventListener('click',function(){
-    var done=function(){status('ok','Đã chép tin nhắn. Mở Zalo và dán vào ô chat.');toast('Bản thật: chép xong sẽ mở Zalo OA.');};
-    var fail=function(){msg.focus();msg.select();status('warn','Chưa chép tự động được. Chạm giữ vào tin nhắn rồi chọn Sao chép.');};
-    if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(msg.value).then(done,fail);}else{fail();}
-  });
-
-  /* Nút Đặt phòng / Chat Zalo / Hỏi căn này / Báo giá tháng */
-  function goEnquiry(){
-    var sec=document.getElementById('hoi-phong');
-    sec.scrollIntoView({behavior:reduce()?'auto':'smooth',block:'start'});
-    document.getElementById('enq-h').focus({preventScroll:true});
-  }
-  document.querySelectorAll('[data-book]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();setMenu(false);goEnquiry();});});
-  document.querySelectorAll('[data-chat]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();openDlg(dlgChat,null,a);});});
-  document.querySelectorAll('[data-ask-room]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();rtype.value=a.dataset.askRoom;goEnquiry();toast('Đã chọn loại căn: '+a.dataset.askRoom+'. Chọn ngày để hỏi phòng.');});});
-  document.querySelectorAll('[data-quote]').forEach(function(a){a.addEventListener('click',function(e){
-    e.preventDefault();
-    openDlg(dlgEnq,{title:'Nhận báo giá thuê tháng',text:'Chào OTTIMO, mình muốn thuê theo tháng:\n– Dự kiến vào ở từ: …\n– Thời gian: … tháng\n– Số người: …\n– Loại căn mong muốn: …\nNhờ OTTIMO gửi báo giá thuê tháng. Cảm ơn!'},a);
-  });});
-
-  /* Chép địa chỉ */
-  document.getElementById('copy-addr').addEventListener('click',function(){
-    var text='OTTIMO Boutique Stay, Phường Xuân Hương – Đà Lạt, Lâm Đồng';
-    if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(function(){toast('Đã chép địa chỉ.');},function(){toast('Chưa chép được. Hãy chọn địa chỉ rồi sao chép.');});}
-    else{toast('Chưa chép được. Hãy chọn địa chỉ rồi sao chép.');}
-  });
-
-  /* Dải ảnh căn: không tự chạy */
-  document.querySelectorAll('.gal').forEach(function(g){
-    var tr=g.querySelector('.gal-track'),n=tr.children.length,cnt=g.querySelector('.gal-count'),b=g.querySelectorAll('.gal-btn'),t=null;
-    function idx(){return Math.round(tr.scrollLeft/Math.max(1,tr.clientWidth));}
-    var cur=0;
-    function upd(i){cur=(typeof i==='number')?i:idx();cnt.textContent='Ảnh '+(cur+1)+'/'+n;b[0].setAttribute('aria-disabled',String(cur<=0));b[1].setAttribute('aria-disabled',String(cur>=n-1));}
-    function go(i){if(i<0||i>n-1)return;upd(i);tr.scrollTo({left:i*tr.clientWidth,behavior:reduce()?'auto':'smooth'});}
-    tr.addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(function(){upd();},150);},{passive:true});
-    b[0].addEventListener('click',function(){go(cur-1);});
-    b[1].addEventListener('click',function(){go(cur+1);});
-    upd(0);
+  // Mobile menu: close after choosing a section, or on Escape
+  var menu = document.querySelector('.menu');
+  menu.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { menu.open = false; }); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && menu.open) { menu.open = false; menu.querySelector('summary').focus(); }
   });
 })();
 </script>

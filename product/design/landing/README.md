@@ -1,27 +1,28 @@
 # Landing page OTTIMO – thiết kế (UXD)
 
-Trang giới thiệu OTTIMO trên tên miền gốc (ví dụ `ottimo.vn` – tên miền thật chờ INV). Khách tìm hiểu, hỏi phòng, chat Zalo. Các app vẫn ở `desk.`, `staff.`, `g.` (`hosting-plan.md` 5.1).
+Trang giới thiệu OTTIMO trên tên miền gốc (tên miền thật chờ INV). Khách xem hạng phòng, tiện nghi, vị trí rồi nhắn WhatsApp/Telegram/Viber/Zalo hoặc gọi. Các app vẫn ở `desk.`, `staff.`, `g.`. Mọi thứ theo **OTTIMO Brand Guidelines v1.0**.
 
 ## Trong thư mục
 | Tệp | Nội dung |
 |---|---|
-| `concept.md` | Mục tiêu, đối tượng, sơ đồ trang (12 mục), dàn ý chữ VI, hướng hình ảnh A + biến thể B, bảng ô ảnh, đường ống ảnh + mục tiêu LCP, a11y AA, SEO/Open Graph, đặc tả nút "Đặt phòng" và "Chat Zalo", điểm chạm Zalo OA, dự thảo ESC |
-| `mock/index.html` | Mock hi-fi một tệp, ưu tiên điện thoại, tiếng Việt. Mở thẳng bằng trình duyệt |
+| `concept.md` | Concept v1.1: màu 80/15/5 + bảng tương phản, thang chữ web, logo giữ chỗ, giọng văn, sơ đồ trang, 4 hạng phòng, ánh xạ ảnh ↔ hạng, vị trí, kênh liên hệ, kết quả kiểm, bàn giao FE, câu hỏi cho INV |
+| `mock/index.html` | Mock hi-fi một tệp, EN mặc định + nút VI, ảnh thật. Mở thẳng bằng trình duyệt |
+| `mock/img/` | 18 ảnh × 480/960/1600 px × WebP + AVIF (4,54 MB), `CREDITS.md` (nguồn từng ảnh), `manifest.json` |
+| `mock/shots/` | Ảnh chụp điện thoại 375 px (EN, VI), 320 px và máy tính 1280 px – 6 tệp, 1,35 MB |
+| `tools/optimize-images.mjs` | Script sharp: ảnh gốc PNG (ngoài git) → WebP/AVIF, xóa metadata, sinh CREDITS.md |
 
 ## Xem mock
-- Mở `mock/index.html` bằng trình duyệt (không cần máy chủ). Cần mạng để tải font Google; không có ảnh hay script bên ngoài.
-- Thanh "Mock landing" trên cùng (không thuộc trang thật):
-  - **Hướng**: A (kem – sồi, đề xuất) / B (đất nung dẫn dắt).
-  - **Giao diện**: Tự động / Sáng / Tối.
-  - **Nhãn ô ảnh & ghi chú**: hiện hoặc ẩn mã ô ảnh, chip "chờ INV" và ghi chú mock.
-- Bấm thử được: ô Hỏi phòng trống (kiểm ngày, soạn tin nhắn), hộp Chat, menu điện thoại, dải ảnh căn, hỏi đáp.
-- Ô ảnh trung tính có mã (HERO-01, ROOM-S-01…) – ảnh thật chưa tải từ Drive. Ánh xạ ô ↔ thư mục Drive: `concept.md` mục 6.
+- Mở `mock/index.html` (cần mạng cho Google Fonts – chỉ ở mock; bản thật tự host font).
+- Nút **EN / VI** trên header đổi ngôn ngữ. Thanh "MOCK" trên cùng có nút **Notes** để hiện mã ảnh và chỗ còn chờ INV.
+- Thu hẹp cửa sổ dưới 768 px để thấy thanh liên hệ dính đáy.
+
+## Chạy lại ảnh
+```
+node product/design/landing/tools/optimize-images.mjs            # WebP + AVIF
+node product/design/landing/tools/optimize-images.mjs --no-avif  # chỉ WebP
+```
+Cần ảnh gốc ở `00-brief/context/landing/raw/` (không có trong git).
 
 ## Trạng thái
-- v0.1 – 17/10/2026 – bản nháp chờ review (UXR, PO; khuyến nghị FE, DOM, SEC, DATA, OPS).
-- Đã kiểm bằng trình duyệt không giao diện (Chromium) ở 320 / 375 / 1280px, sáng/tối, A/B: không cuộn ngang, không trùng id, tham chiếu ARIA đúng, một H1, vùng chạm ≥ 44px (trừ link nằm trong câu).
-- Chờ INV: màu chủ đạo (Q1), ảnh và quyền dùng ảnh (Q2), công khai giá (Q3), kênh chat khách nước ngoài (Q4) – `concept.md` mục 15.
-
-## Bước sau
-- Ảnh tối ưu (AVIF/WebP/JPEG nhiều cỡ) vào thư mục ứng dụng ARC chốt (`product/apps/booking-web/` đề xuất). **Không** đưa ảnh gốc vào git.
-- FE dựng từ mock khi PO đưa story landing vào sprint; dùng token, không dùng màu tùy tiện.
+- v1.1 – 17/10/2026 – sửa theo kiểm độc lập brand + a11y (concept mục 13.2), chờ review (UXR, PO; khuyến nghị FE, DOM, SEC). Đã kiểm 320/375/1280 px × EN/VI: không cuộn ngang, một H1, tương phản AA mọi cặp (thấp nhất 4,53), axe-core 0 lỗi, 0 glyph font dự phòng, logo đạt cỡ tối thiểu; ngân sách dung lượng theo DPR ở concept mục 11.2.
+- Chờ INV: bảng ghép tên phòng ↔ căn ↔ hạng, logo SVG, email chung, quyền dùng ảnh, giá "từ" (`concept.md` mục 14).
