@@ -1,6 +1,13 @@
 # Hành trình nhắn tin với khách – OTTIMO Boutique Stay
 
 - Tác giả: DOM | Round 2 (giữa Sprint 3 và Sprint 4) | Ngày: 17/10/2026 | Phiên bản: **0.1 – bản nháp, chờ PO + BA review** (protocol mục 5: DOM → PO, BA)
+- **Cập nhật 17/10 (Sprint 4 khởi động):** BR-971…983 đã chuyển vào `product/docs/business-rules.md` v0.3.5, nhóm 12B, và đã gộp thẻ SEC DOM-01…06. Khi số liệu lệch nhau, **business-rules.md là nguồn chính**. Thay đổi chính so với mục 7–8 dưới đây:
+  - khung gửi tin theo lịch là **[08:00, 21:00)** (không phải [07:00, 21:00)), mọi mốc "dời sang 07:00" đọc là 08:00;
+  - mã cửa không gửi qua Zalo hay hội thoại OTA;
+  - có `contact_source`;
+  - mã đặt trực tiếp đi bằng tin riêng.
+  
+  INV đã quyết ESC-021 A + K1-A (dự thảo ESC ở mục 9 nay là ESC-021).
 - Lý do làm: tin nhắn của INV ngày 17/10/2026 – hỏi các bước gửi check-in online, nhắc ngày nhận phòng, gửi vị trí, kênh tương tác; INV muốn dùng **Zalo OA** để chăm sóc khách.
 - Đầu vào: `00-brief/investor-brief.md`; `04-investor-feedback/FB-INV-001.md`; `product/docs/PRD.md` (M13, M15, A6); `03-backlog/backlog.md` (EP18, US-034, 040, 077, 108, 116, 125, 126, 138, 141); `product/docs/integrations.md` (I7, I8, 3.1.3, 3.4, ESC-INT-B); `product/docs/hosting-plan.md` 5.1; `02-escalations/ESC-010.md`; `product/docs/business-rules.md` v0.3.4; `product/design/content-guide.md` mục 1, 7; `product/docs/security/security-requirements.md` (SR-GST, SR-LOCK, SR-MSG); `product/docs/security/data-risk-assessment.md` (P01–P11); `product/docs/erd.md` (`message_template`, `message_log`, `consent_record`).
 - Phạm vi: **lịch chạm khách** (touchpoint) từ lúc đặt đến sau trả phòng, cho khách ngắn ngày và dài hạn. Không viết câu chữ cuối (UXD viết theo content-guide). Không chọn nhà cung cấp, không thiết kế API (INT, ARC). **Không sửa `business-rules.md`** – BR mới để ở mục 7 dạng dự thảo.

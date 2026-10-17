@@ -54,6 +54,23 @@ export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export const APPROVER_ROLES = ['front_desk_lead', 'manager', 'owner'] as const;
 export type ApproverRole = (typeof APPROVER_ROLES)[number];
 
+/** 0055 (OpenAPI 0.3.7 D1): ApprovalRequest.focState / focCancelReason / autoCancelReason. */
+export const FOC_STATES = ['applied', 'dormant', 'suspended', 'cancelled'] as const;
+export type FocState = (typeof FOC_STATES)[number];
+export const FOC_CANCEL_REASONS = [
+  'night_removed',
+  'reservation_cancelled',
+  'settled_while_dormant',
+] as const;
+export type FocCancelReason = (typeof FOC_CANCEL_REASONS)[number];
+export const AUTO_CANCEL_REASONS = [
+  'line_removed',
+  'reservation_cancelled',
+  'reservation_no_show',
+  'superseded',
+] as const;
+export type AutoCancelReason = (typeof AUTO_CANCEL_REASONS)[number];
+
 export const approvalRequest = pgTable(
   'approval_request',
   {
@@ -91,6 +108,17 @@ export const approvalRequest = pgTable(
     refundDestinationSetAt: instant('refund_destination_set_at'),
     refundDestinationSetBy: uuid('refund_destination_set_by'),
     refundedVnd: bigint('refunded_vnd', { mode: 'number' }).notNull().default(0),
+    // 0055 (OpenAPI 0.3.7 D1, erd 4.6; BR-434 v0.3.5, BR-315 (g), BR-433): life of an APPROVED foc /
+    // special_discount – set iff (type IN foc/special_discount AND status = approved). The approval writes
+    // `applied` (the meaning of every approved FOC before 0.3.7); S4-02/S4-18/S4-22 move it. The monthly
+    // limit counts only `applied`/`dormant`.
+    focState: text('foc_state'),
+    // Set iff foc_state = cancelled (same transaction as audit folio.foc_cancelled).
+    focCancelReason: text('foc_cancel_reason'),
+    // S4-18: last re-write of the reduced line while the request is pending (ApprovalRequest.lineChangedNote).
+    lineChange: jsonb('line_change'),
+    // Why the server cancelled a pending request by itself (only on status = cancelled).
+    autoCancelReason: text('auto_cancel_reason'),
     ...auditColumns(),
   },
   (t) => [
@@ -173,6 +201,31 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_refund_destination_not_approver',
       sql`${t.type} <> 'refund' OR ${t.approverId} IS NULL OR ${t.refundDestinationSetBy} IS NULL OR ${t.approverId} <> ${t.refundDestinationSetBy} OR (${t.approverRoleSnapshot} = 'owner' AND COALESCE(${t.refundMethod}, 'cash') <> 'cash')`,
+    ),
+    // 0055 (OpenAPI 0.3.7 D1, erd 4.6): FOC state machine of an approved foc / special_discount.
+    check(
+      'approval_request_foc_state_check',
+      sql`${t.focState} IS NULL OR ${t.focState} IN ('applied', 'dormant', 'suspended', 'cancelled')`,
+    ),
+    check(
+      'approval_request_foc_state_scope_check',
+      sql`(${t.focState} IS NOT NULL) = (${t.type} IN ('foc', 'special_discount') AND ${t.status} = 'approved')`,
+    ),
+    check(
+      'approval_request_foc_cancel_reason_check',
+      sql`${t.focCancelReason} IS NULL OR ${t.focCancelReason} IN ('night_removed', 'reservation_cancelled', 'settled_while_dormant')`,
+    ),
+    check(
+      'approval_request_foc_cancelled_check',
+      sql`(${t.focCancelReason} IS NOT NULL) = (${t.focState} IS NOT DISTINCT FROM 'cancelled')`,
+    ),
+    check(
+      'approval_request_line_change_check',
+      sql`${t.lineChange} IS NULL OR jsonb_typeof(${t.lineChange}) = 'object'`,
+    ),
+    check(
+      'approval_request_auto_cancel_reason_check',
+      sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded') AND ${t.status} = 'cancelled')`,
     ),
     index('approval_request_queue_idx').on(t.propertyId, t.status, t.requestedAt.desc()),
     index('approval_request_requester_idx').on(t.propertyId, t.requestedBy, t.requestedAt.desc()),

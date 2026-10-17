@@ -432,7 +432,8 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 |---|---|---|---|
 | `room_group_id` | uuid FK | not null | |
 | `room_no` | text | UK (`property_id`, `room_no`) | `201` |
-| `name`, `floor`, `area_m2`, `bed_setup` | text/int | | Mô tả (C0) |
+| `name`, `floor`, `area_m2`, `bed_setup` | text/int | | Mô tả (C0). `name` = **tên phòng hiển thị** (BR-012, `room.<no>.name` – The Pine…): khách chỉ thấy tên, nhân viên thấy "số · tên" (**0.3.7 bổ sung D1**) |
+| `public_room_type` | text null | CHECK 1–60 ký tự | **0.3.7 bổ sung D1** (BR-012 (1), (4); S4-52) – hạng phòng công khai (4 hạng e-brochure, chữ EN); chữ khách thấy khi đơn chưa báo căn. Seed DS-E theo ánh xạ tạm BL 4.1 [GIẢ ĐỊNH – chờ bảng INV 19/10]. OpenAPI `Room.publicRoomType` |
 | `base_occupancy` | smallint | **not null**, CHECK 1–10 | **Định mức** – số người (người lớn + trẻ 6–11) đã gồm trong giá, **thuộc tính từng căn** (BR-110 v0.3.1: Studio 2; 301, 401: 4; 302, 402: 3); `room_group.base_occupancy` chỉ là mặc định khi tạo căn. Đơn chụp định mức vào `pricing_snapshot` (BR-006) – đổi định mức chỉ áp cho đơn mới. OpenAPI `Room.baseOccupancy` (0.3.1) |
 | `max_occupancy` | smallint | **not null**, CHECK `max_occupancy >= base_occupancy` | Sức chứa tối đa, thuộc tính từng căn. INV quyết **ESC-014**: = định mức hoặc định mức + 1 (một người ngủ sofa; Studio 3; 301, 401: 5; 302, 402: 4); trẻ dưới 6 tuổi **không** tính. Quy tắc "+1" kiểm ở tầng ứng dụng (`422` mã trường `MAX_OCCUPANCY_RANGE`), DB chỉ giữ `max ≥ base` để đổi chính sách không cần migration |
 | `bed_count` | smallint | | Số giường của căn (BR-110) |
@@ -550,12 +551,23 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `tags` | text[] | | C2 | VIP, khách quen… |
 | `service_notes` | text[] | từ danh mục | C2 | HK chỉ thấy mục này (rbac D12) |
 | `free_note` | text | lọc mẫu số thẻ (R-PAY-07) | C2 | |
-| `id_doc_last4` | text | | C2 | 4 số cuối giấy tờ gần nhất (BR-610) |
-| `id_doc_hmac` | text | | C3 | HMAC số giấy tờ – **chỉ khi có đồng ý P05** (SEC F03); dùng khớp khách quen |
+| `id_doc_last4` | text | | C2 | 4 số cuối giấy tờ gần nhất (BR-610). **0.3.7 (S4-32)**: chỉ ghi khi `crm_consent = 'granted'` – cùng điều kiện `id_doc_hmac` [GIẢ ĐỊNH ARC – SEC chốt ở S4-32]; rút P05 → NULL |
+| `id_doc_hmac` | text | CHECK `id_doc_hmac IS NULL OR id_doc_hmac ~ '^v1:[0-9a-f]{64}$'` | C3 | HMAC số giấy tờ – **chỉ khi có đồng ý P05** (SEC F03); dùng khớp khách quen. **0.3.7 (v1, SEC s3 7.3)**: `v1:` + `keyedHash('guest_doc', '<loại passport\|vn_id\|other>\|<quốc gia cấp alpha-3>\|<số chuẩn hóa>')` – HMAC-SHA256 khóa con HKDF-SHA256(`ID_HASH_KEY`, info `ottimo:guest_doc:v1`); `cccd`, `child_personal_id` → `vn_id`; số chuẩn hóa = in hoa, bỏ `[\s.\-/]` (BE-48). Khác miền với `guest_document.doc_number_hmac`. Không có P05: chỉ tính trong bộ nhớ để **so** với hồ sơ đã có P05, không ghi. Không ra API/audit/log/outbox |
+| `source` | text | not null default `'desk'`, CHECK ∈ `desk\|ota\|document\|guest_app\|import` | C1 | **0.3.7 (nháp A.2, SEC s3 7.4)**: nguồn tạo hồ sơ. `document` = hồ sơ tối thiểu từ giấy tờ khai báo (người đi cùng) – chỉ `code`, `full_name`/`name_search`, `nationality_code` + `is_foreigner`, `crm_consent='not_asked'`; không liên hệ/ngày sinh/giới tính/giấy tờ/tag/ghi chú khi chưa P05 (SEC 7.1). Tạo **chỉ** qua cổng `guests/public/document-profile.ts` (BE-B), không qua API. `guest_app`, `import` dành R3 |
+| `last_stay_checkout_at` | timestamptz null | | C1 | **0.3.7 (SEC 7.2)**: mốc hạn lưu hồ sơ `document` (T05). Lưu cột – module `guests` không đọc bảng `reservation`; BE-A ghi qua cổng `touchLastStay(tx, guestIds[], at)` trong giao dịch B18/B16 cho người đứng tên và người đi cùng có `guest_id` |
 | `crm_consent` | text | `not_asked\|granted\|refused` | | BR-955 (bản ghi chi tiết ở `consent_record`) |
 | `merged_into_id` | uuid null | | | BR-953 (R3) |
 | `anonymized_at` | timestamptz | | | T05/T06 |
 | `possible_duplicate_at` | timestamptz null | | C1 | **0.3.4 (Q7)** – đặt khi tạo/sửa phát hiện nghi trùng tên + ngày sinh (BR-952), cho **cả hai** hồ sơ; xóa khi gộp (R3). Nguồn của `GuestSummary.possibleDuplicate` – không tính similarity khi liệt kê |
+
+**Ràng buộc hồ sơ "từ giấy tờ" (0.3.7 – nháp ARC `openapi-0.3.7-draft.md` A.2, SEC s3 mục 7; migration BE-B theo quy tắc 4.2a)**:
+- CHECK 1 `guest_contact_source_check`: `source <> 'desk' OR phone_e164 IS NOT NULL OR email_norm IS NOT NULL OR anonymized_at IS NOT NULL OR merged_into_id IS NOT NULL`.
+- CHECK 2 `guest_id_doc_hmac_consent_check`: `id_doc_hmac IS NULL OR crm_consent = 'granted'` (SEC F03 ở tầng DB; rút P05 → cùng giao dịch đặt `id_doc_hmac = NULL`).
+- CHECK 3 (lưới cuối) `guest_document_minimal_check`: `source <> 'document' OR crm_consent = 'granted' OR (date_of_birth IS NULL AND gender IS NULL AND id_doc_last4 IS NULL AND id_doc_hmac IS NULL AND free_note IS NULL AND coalesce(cardinality(tags),0) = 0 AND coalesce(cardinality(service_notes),0) = 0)`.
+- Chỉ mục: `guest_id_doc_hmac_uk` UNIQUE (`organization_id`, `id_doc_hmac`) WHERE `id_doc_hmac IS NOT NULL AND merged_into_id IS NULL AND anonymized_at IS NULL`; `guest_document_profile_retention_idx` (`organization_id`, `last_stay_checkout_at`) WHERE `source = 'document' AND crm_consent <> 'granted' AND anonymized_at IS NULL`.
+- Migration: thêm `source` DEFAULT `'desk'` → backfill (mẫu 0016: `NO FORCE` + tắt RLS quanh lệnh) hồ sơ cũ không SĐT lẫn email → `'ota'` → kiểm đếm vi phạm = 0 → CHECK 1–3 `NOT VALID` rồi `VALIDATE CONSTRAINT` → khóa danh mục `document_profile_retention_months` (9.3, bảo mật – OpenAPI bật cùng PR).
+- Job **J25 `guest.document_profile_anonymize`** (BE-B, hằng ngày, theo lô, idempotent): hồ sơ `source='document'`, `crm_consent <> 'granted'`, `anonymized_at IS NULL`, `last_stay_checkout_at + document_profile_retention_months ≤ now` → `full_name`/`name_search` thành mã ẩn danh, giữ `code`, `nationality_code`, `is_foreigner`, đặt `anonymized_at`, `purge_journal` (`anonymize`, T05). Bắt buộc trước dữ liệu khách thật (cổng ESC-001).
+- `crypto`: `KeyedHashPurpose` thêm `'guest_doc'` (cạnh `'child_name'`).
 
 **`guest_code_alias`** (R3) – `old_code` PK, `guest_id` – mã cũ sau gộp vẫn tra được (US-023 AC2). **`guest_merge_log`** (R3) – `kept_guest_id`, `merged_guest_id`, `moved_refs jsonb`, `merged_by`, `merged_at`.
 
@@ -607,6 +619,7 @@ Chỉ mục: (`property_id`, `category`, `occurred_at desc`), (`entity_type`, `e
 | `has_contact_at_eligibility` | bool | Cờ có liên hệ dùng được tại thời điểm đơn đủ điều kiện gửi link (metrics S5 v0.2) – chỉ cờ | | metrics v0.2 |
 | `no_show_marked_at`, `no_show_marked_by` | | | | BR-311 |
 | `no_show_contact_note` | text null | **0.3.5** (migration 0013) – kết quả liên lạc ghi cùng lệnh B11 (`markNoShow.contactAttemptNote`, 3–500 ký tự); cũng ở `state_transition.note` | C2 | US-136 AC2 |
+| `room_disclosed_to_guest` | bool NOT NULL default true | **0.3.7 bổ sung D1** (BR-012 (4), BR-429) – khách đã được báo căn cụ thể. `false` khi đơn OTA tự gán theo nhóm (BR-316 (2)) hoặc đơn xung đột vừa gán (B7a); về `true` khi lễ tân bật (`updateReservation`), B7 `guest_request` sang căn khách chọn, B9 – một chiều (CHECK ở ứng dụng). `inventory_optimize` chỉ khi `false`. Migration: backfill `false` cho đơn OTA chưa nhận phòng gán tự động theo nhóm, còn lại `true` | | BR-012 |
 | `total_room_vnd` | bigint NOT NULL default 0 | **0.3.5** (migration 0013) – tiền phòng snapshot (sau lịch giá, giảm số đêm) – cơ sở cọc BR-305; CHECK ≥ 0 | C2 | BR-305 |
 | `reschedule_count` | smallint NOT NULL default 0 | **0.3.5** (migration 0013) – số lần dời ngày B8 (≤ `reschedule_max_times`) | | BR-309 |
 | `actual_checkin_at`, `actual_checkout_at` | timestamptz | | C2 | |
@@ -661,7 +674,7 @@ Quy tắc `active` (ADR-009 mục 3): `hold`, `confirmed`, `in_house` → true; 
 | `stay_date` | date | |
 | `night_state` | text | `hold` (không bán) · `sold` (confirmed/in_house/checked_out) · `void` (đã hủy/no-show/trả sớm – giữ để truy vết) |
 | `room_revenue_gross_vnd` | bigint | Giá đêm đã chốt **trước** giảm trừ (DATA FB-02) |
-| `calendar_rate_vnd` | bigint null | **0.3.5 (DOM D-8)** – giá lịch của đêm (BR-104, hoặc giá lễ tân sửa tay) **trước** bậc giảm số đêm BR-107/mã quay lại BR-111; `room_revenue_gross_vnd` = làm tròn(`calendar_rate_vnd` × (1 − % bậc theo tổng số đêm)). Đổi số đêm → tính lại mọi đêm còn hiệu lực từ cột này. Null với đêm phân bổ HĐ/OTA (giá OTA không có bậc giảm). API: `NightRate.calendarRateVnd` |
+| `calendar_rate_vnd` | bigint null | **0.3.5 (DOM D-8)** – giá lịch của đêm (BR-104, hoặc giá lễ tân sửa tay) **trước** bậc giảm số đêm BR-107/mã quay lại BR-111; **0.3.7 bổ sung D1 (S4-35, BR-429 (g))**: `adjustFolioLine` dòng `room` ghi cột này qua cổng `StayNightPricingPort.setNightRate` (BE-A) rồi tính lại dòng; `room_revenue_gross_vnd` = làm tròn(`calendar_rate_vnd` × (1 − % bậc theo tổng số đêm)). Đổi số đêm → tính lại mọi đêm còn hiệu lực từ cột này. Null với đêm phân bổ HĐ/OTA (giá OTA không có bậc giảm). API: `NightRate.calendarRateVnd` |
 | `discount_vnd` | bigint ≥ 0 | Giảm giá/FOC đã duyệt phân bổ vào đêm |
 | `room_revenue_vnd` | bigint | = gross − discount. Gồm VAT (DATA Q-08); dài hạn = phân bổ Q-10 |
 | `channel_fee_vnd`, `channel_fee_is_estimate` | bigint, bool | Phí OTA phân bổ theo tỷ lệ doanh thu đêm, dư dồn đêm cuối; Σ theo đơn = `channel_fee.amount_actual_vnd` nếu có, không thì `amount_estimated_vnd` (DATA FB-01, Q-12) |
@@ -738,6 +751,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 ### 4.6 `folio` – tiền (R2; hóa đơn điện tử R3)
 
 **`folio`** (SM-13). `primary_reservation_id` (UK, NOT NULL), `status` (`open|settled|closed`), `bill_no` (UK theo cơ sở, dạng **`F26-000123`** – BR-007 v0.2, cấp khi `settled`), `settled_at`, `settled_by`, `closed_at`, `post_checkout_window_until` (BR-427), `debt_due_date`, `debt_approved_by` (BR-525). Số dư **tính** từ dòng và giao dịch (view `v_folio_balance` `WITH (security_invoker = true)`), không lưu cột tổng để tránh lệch. `checkOut`, `recordPayment`, `addFolioLine` khóa `folio … FOR UPDATE` trước khi tính số dư.
+**0.3.7 bổ sung D1 (BR-012 (5))**: `folio.settled_room_names` jsonb null – bản chụp `{room_id: tên phòng}` các căn của folio, ghi trong **giao dịch chốt** `settled` (cùng `bill_no`); bill (`Bill.roomName`) và `labelParams.room/from/to` của folio đã chốt đọc từ đây, đổi tên căn sau đó không đổi bill. Căn chưa có tên → lưu số căn.
 **Khóa ngoại vòng** (BE-ARC-09): `reservation.folio_id` là FK `DEFERRABLE INITIALLY DEFERRED` (migration 0014, cùng `folio.primary_reservation_id`); ứng dụng sinh cả hai UUIDv7 rồi INSERT đơn và folio trong **một** giao dịch. **0.3.5**: cột còn **nullable** tạm thời (BE-A S2) – thêm NOT NULL bằng migration riêng khi mọi đường tạo đơn đã mở folio (theo dõi FB-R2-ARC-BE S2).
 **`deposit_notice`** (**0.3.5**, migration 0011 – A53, `createDepositNotice`): `reservation_id`, `amount_vnd` (> 0), `attachment_id`, `note`, `status` (`open|handled`), `handled_payment_id`, `created_by`. CTV/SAL báo "khách đã chuyển cọc"; B4 thành công → `handled`.
 **Bill gộp nhóm** (BR-325, SM-16): bảng `group_bill(id, reservation_group_id, bill_no, folio_ids uuid[], issued_at, issued_by)` – mỗi bill gộp một số `F`; folio từng đơn vẫn `settled` riêng (R3 nếu PO dời đơn nhóm).
@@ -758,6 +772,7 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 | `reversal_of_id` | | Bút toán đảo (sửa = đảo + dòng mới) |
 | `approval_request_id` | | |
 | `source` | | `manual\|system\|minibar_check\|extension\|checkin\|checkout\|guest_app` |
+| `label_params` | jsonb | Tham số `labelKey` (OpenAPI `FolioLine.labelParams`). **0.3.7 bổ sung D1 (BR-012 (5))**: `room`/`from`/`to` hiển thị là **tên phòng**; folio `open` điền lúc đọc theo căn của đêm (cột có thể lưu số căn); folio `settled`/`closed` điền theo `folio.settled_room_names` – dòng folio vẫn chỉ-thêm (GRANT UPDATE không đổi) |
 | `posted_at`, `posted_by` | | |
 
 **`payment`** – giao dịch thu/hoàn (SM-12, BR-521).
@@ -818,7 +833,11 @@ Chỉ mục: (`property_id`,`stay_date`) WHERE `night_state='sold'`; (`property_
 | `required_role` | Vai tối thiểu tính theo `foc_limits` tại thời điểm gửi |
 | `approver_id`, `approver_role_snapshot`, `approver_limit_snapshot jsonb`, `auth_method` (`pin\|password`) | BR-432/433; CHECK `approver_id <> requested_by` trừ khi `approver_role_snapshot IN ('owner','manager')` |
 | `decided_at`, `decision_note`, `escalated_at` | |
-Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các yêu cầu `approved` của người duyệt trong tháng (truy vấn, không cột cache).
+| `foc_state` | **0.3.7 bổ sung D1** (BR-434 v0.3.5, BR-315 (g)) – `applied\|dormant\|suspended\|cancelled`; CHECK: not null ⇔ `type IN ('foc','special_discount') AND status = 'approved'` |
+| `foc_cancel_reason` | **0.3.7 bổ sung D1** – `night_removed\|reservation_cancelled\|settled_while_dormant`; CHECK not null ⇔ `foc_state = 'cancelled'`; cùng giao dịch ghi audit `folio.foc_cancelled` |
+| `line_change` | **0.3.7 bổ sung D1** (S4-18) – jsonb null, lần ghi lại dòng gần nhất khi yêu cầu còn `pending` (`oldLineVnd`, `newLineVnd`, `fromServiceDate`, `toServiceDate`, `cause`, `changedAt`); OpenAPI `ApprovalRequest.lineChangedNote` |
+| `auto_cancel_reason` | **0.3.7 bổ sung D1** – `line_removed\|reservation_cancelled\|reservation_no_show\|superseded`; CHECK not null ⇒ `status = 'cancelled'` |
+Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các yêu cầu `approved` của người duyệt trong tháng **có `foc_state IN ('applied','dormant')`** (BR-433 v0.3.5 – chỉ FOC còn sống; 0.3.7 bổ sung D1) (truy vấn, không cột cache). Số đang áp (`effectiveAmountVnd`, báo cáo FOC) = dòng FOC sống, tính lúc đọc.
 
 **`minibar_check`** + **`minibar_check_line`** – kiểm minibar (BR-702/703, US-035): `reservation_id`, `room_id`, `mode` (`checkout|stayover`), `checked_by`, `checked_at`, `replaces_check_id` (**0.3.3** – bản `checkout` thứ hai thay bản trước: dòng folio của bản cũ được đảo bằng bút toán, UK một phần (`reservation_id`) `WHERE mode='checkout' AND replaced_by_check_id IS NULL` (cột `replaced_by_check_id` đặt khi bị thay)); dòng: `item_id`, `standard_qty`, `remaining_qty` (CHECK 0 ≤ remaining ≤ standard), `used_qty` (generated), `unit_price_vnd_snapshot` (null = miễn phí), `unit_cost_vnd_snapshot` (C2 – `item.avg_cost_vnd` nếu có, không thì `cost_price_vnd`; DATA FB-09), `amount_vnd`, `folio_line_id`.
 
@@ -845,6 +864,9 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 | Cột | Kiểu | C | Ghi chú |
 |---|---|---|---|
 | `registration_id`, `reservation_guest_id`, `guest_id` | uuid | | |
+| `party_member_id` | uuid null | | **0.3.7 ghi rõ** (cột đã có từ Sprint 3): người trong đoàn sở hữu giấy tờ (API `partyMemberId`). Từ 0.3.7 giấy tờ lễ tân nhập **luôn** có giá trị (khớp trong đơn hoặc tạo hồ sơ `source='document'`); NULL chỉ với giấy tờ khách gửi qua link chưa gắn |
+| `person_index` | smallint null | | Ô "Khách n" của giấy tờ khách gửi qua link (API `personIndex`); NULL với giấy tờ lễ tân nhập. **0.3.7 (S4-39)**: `removePartyMember` chọn ô → hủy giấy tờ đó, các ô chưa gắn phía sau **dồn số** xuống 1 trong cùng giao dịch |
+| `removed_at` | timestamptz null | | Giấy tờ bị thay (khách gửi lại ô) hoặc bị hủy khi bỏ người – không còn "được tính" (`countsForDeclaration`) |
 | `doc_type` | text | C2 | `cccd\|passport\|child_personal_id\|other` |
 | `is_main` | bool | | Người đứng tên |
 | `full_name_on_doc` | text | C2 | D01 (in hoa, so khớp tên – US-044) |
@@ -862,18 +884,20 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 | `visa_alert_on` | date | C2 | Ngày bắt đầu cảnh báo thị thực (= hạn − `visa_expiry_warning_days`) để job/"Cần chú ý" truy vấn không cần giải mã. **SEC chấp nhận có điều kiện (M9, SR-RET-06)**: đặt NULL khi đơn kết thúc (`checked_out/cancelled/no_show`); **không** có trong DTO, audit, SSE, outbox; mục "Cần chú ý" `visa_expiring` chỉ chứa mã đơn |
 | `capture_method` | text | | `qr_cccd\|mrz\|manual\|guest_upload` |
 | `data_key_id` | uuid FK | | DEK riêng |
-| `fields_purge_after` | timestamptz | | T03 |
+| `fields_purge_after` | timestamptz | | T03. **0.3.7 (S4-39)**: với giấy tờ khách gửi qua link chưa gắn người sau khi bỏ người (đường không có lựa chọn của lễ tân) còn là **hạn chờ gắn người** (+24 giờ) – API `GuestDocumentMasked.unclaimedUntil`; gắn người (`GuestDocumentLink`) → đặt lại theo T03; đơn `legal_hold` → không hủy, chỉ giữ hạn |
 | `purged_at` | timestamptz | | Sau T03: cột `_enc` = NULL, giữ `doc_type`, `last4`… theo T04 |
 
 **`document_image`** – ảnh giấy tờ (D06): `guest_document_id`, `registration_id`, `blob_key` (tên ngẫu nhiên, không chứa tên/số), `mime`, `size_bytes`, `ciphertext_sha256`, `data_key_id` (DEK riêng mỗi ảnh), `uploaded_via` (`desk|guest_app`), `uploaded_at`, `delete_after` (T01/T02), `deleted_at`, `delete_reason` (`retention|guest_request|no_consent`). Ảnh khách tải lên **không đọc lại được qua app khách** (rbac ghi chú 7).
 
 **`data_key`** (ADR-013): `wrapped_key` (C3), `kek_version`, `purpose` (`guest_document|document_image|door_credential|payee|child_data|mfa_secret|refund_account|push_keys|attachment` – `attachment` 0.3.6, SEC I2), `subject_id`, `created_at`, `expires_at`, `destroyed_at`. Hủy = `wrapped_key = NULL` + `destroyed_at` (crypto-shredding). Không ai đọc bảng này ngoài `CryptoService`. **Lưu ý (SR-KEY-09)**: hủy DEK làm dữ liệu không đọc được trong DB **ngay**; nhưng bản sao lưu cũ vẫn chứa `wrapped_key` bọc bởi KEK hiện hành → dữ liệu chỉ hết hẳn khi các bản backup đó hết hạn (≤ 35 ngày, T18).
 
-**`purge_journal`** (R2, SR-RET-03, SR-BAK-06) – nhật ký đã xóa để **áp lại sau khi khôi phục backup**: `id` bigint identity, `organization_id`, `property_id`, `subject_type`, `subject_id`, `policy_key` (T01…T18, `guest_request`, `consent_withdrawn`), `action` (`destroy_dek|delete_blob|null_columns|anonymize`), `purged_at`. **Chỉ ID + thời điểm**, không dữ liệu cá nhân. Append-only; sao lưu **riêng** mỗi ngày ra đích khác, giữ ≥ 36 ngày (dài hơn vòng đời backup chính 35 ngày). Runbook khôi phục (OPS): khôi phục DB → nạp `purge_journal` mới nhất → áp lại từng dòng → chạy J16 → mới mở hệ thống.
+**`purge_journal`** (R2, SR-RET-03, SR-BAK-06) – nhật ký đã xóa để **áp lại sau khi khôi phục backup**: `id` bigint identity, `organization_id`, `property_id`, `subject_type`, `subject_id`, `policy_key` (T01…T18, `guest_request`, `consent_withdrawn`, **`party_removed`** – 0.3.7, S4-39), `action` (`destroy_dek|delete_blob|null_columns|anonymize`), `purged_at`. **Chỉ ID + thời điểm**, không dữ liệu cá nhân. Append-only; sao lưu **riêng** mỗi ngày ra đích khác, giữ ≥ 36 ngày (dài hơn vòng đời backup chính 35 ngày). Runbook khôi phục (OPS): khôi phục DB → nạp `purge_journal` mới nhất → áp lại từng dòng → chạy J16 → mới mở hệ thống.
 
 **`legal_hold`** – `subject_type`, `subject_id`, `reason`, `set_by` (OWN/MGR), `set_at`, `released_at`. Job xóa bỏ qua bản ghi có hold đang hiệu lực.
 
-**`retention_run`** – báo cáo "đã xóa gì" (SEC mục 7): `run_at`, `policy_key` (T01…T18), `items_count`, `status`, `error` – **không** chứa dữ liệu đã xóa.
+**`retention_run`** – báo cáo "đã xóa gì" (SEC mục 7): `run_at`, `policy_key` (T01…T18, **`party_removed`** – 0.3.7), `items_count`, `status`, `error` – **không** chứa dữ liệu đã xóa.
+
+**Audit khai báo (0.3.7, S4-39)**: `registration.documents_unclaimed` (bỏ người khi còn giấy tờ chờ – chỉ số lượng), `registration.document_claimed` (gắn người – id giấy tờ, id người; không tên/số), `registration.unclaimed_choice` (`removePartyMember.guestUploadPersonIndex`, kể cả `none`). Đọc người trong đoàn đi qua `RegistrationPartyPort` (BE-A cung cấp) – module registration không đọc bảng `reservation_guest` trực tiếp.
 
 ### 4.8 `housekeeping` (R2)
 
@@ -892,13 +916,15 @@ Hạn mức tháng còn lại = `foc_limits.monthly` − Σ `amount_vnd` các y�
 | `assigned_user_id` | Phạm vi T của HK |
 | `source` | `system\|manual\|guest_app` (chip "App khách" – US-054 AC2) |
 | `guest_request_id`, `note`, `refill_items jsonb` | |
-| `started_at`, `done_at`, `done_by`, `cancel_reason` | |
+| `started_at`, `done_at`, `done_by`, `cancel_reason` | `cancel_reason` cũ – thay bằng hai cột dưới (0.3.7) |
+| `cancel_reason_code`, `cancel_note` | **0.3.7 (B-05)**: `guest_refused\|dnd\|other` (người) · `day_ended\|reservation_changed\|room_blocked` (hệ thống); `cancel_note` bắt buộc khi `other` (CHECK) |
+| `linen_change`, `carried_over` | **0.3.7 (B-04)**: bool – đêm thay ga (`linen_change_every_nights`, BR-807); việc chuyển từ hôm trước (J8 giữ lại, DOM D-12 c) |
 | `client_mutation_id`, `performed_at` | Hàng đợi offline (ADR-005) |
 UK một phần chống sinh trùng: (`room_id`,`type`,`due_date`) WHERE `status IN ('open','in_progress') AND type IN ('stayover_clean','long_stay_clean','checkout_clean')`.
 UK một phần bộ đồ dùng thêm (0.3.1): (`reservation_id`,`room_id`,`type`) WHERE `status IN ('open','in_progress') AND type LIKE 'extra_guest_kit_%'` – đổi số người thì **cập nhật `quantity`** của việc đang mở thay vì sinh việc mới.
 **Sinh/hủy/chuyển việc `extra_guest_kit_*` trong cùng giao dịch** với chuyển trạng thái đơn (B2, B4, B7, B7a, B12 sinh `prepare`; B5/B10/B11, giảm người, đổi căn trước khi chuẩn bị → `cancelled`; đã `done` mà đơn đổi → sinh `collect`; B14 đổi phòng đang ở → `transfer`), cùng giao dịch ghi outbox SSE `hk_task.changed` – không dùng job nền (tránh lệch khi rollback). Thu hồi khi trả phòng là **một dòng trong việc `checkout_clean`** (BR-812 (6)), không sinh việc `collect` riêng.
 
-**`inspection`** – kiểm phòng (BR-808, US-055): `room_id`, `inspected_by`, `inspected_at`, `checklist_version`, `items jsonb` (mã mục → đạt/không), `photo_attachment_ids uuid[]`, `result` (`pass|fail`), `self_inspection bool`.
+**`inspection`** – kiểm phòng (BR-808, US-055): `room_id`, `inspected_by`, `inspected_at`, `checklist_version`, `items jsonb` (mã mục → đạt/không), `photo_attachment_ids uuid[]`, `result` (`pass|fail`), `self_inspection bool`. **0.3.7 (B-07, E07-17)**: `items` gồm mục động (`extra_guest_kit`, `dynamic=true`) và `note`; `redo_task_id` (việc `adhoc_clean` sinh khi `fail`); `listInspections` đọc theo (`room_id`, `inspected_at` DESC). Cờ `inspectionFailed` của căn = lần kiểm gần nhất `fail` – tính khi đọc, không cột riêng. R5 (BR-805) chạy trong tick J11 và tính khi đọc `listRoomStatuses` (B-03).
 
 ### 4.9 `maintenance` (R2; bảo trì định kỳ, công tơ R3)
 
@@ -912,11 +938,16 @@ UK một phần bộ đồ dùng thêm (0.3.1): (`reservation_id`,`room_id`,`typ
 | `source` | `housekeeping\|front_desk\|maintenance\|guest_app\|system` |
 | `reported_by`, `assignee_user_id`, `accepted_at` | |
 | `ack_due_at`, `resolve_due_at` | Tính từ `wo_sla` khi tạo/mở lại |
-| `parts_note`, `result_note`, `photo_attachment_ids` | |
+| `parts_note`, `result_note`, `photo_attachment_ids` | `result_note` bắt buộc khi `done` (CHECK – 0.3.7, B-10) |
 | `done_at`, `cancel_reason`, `reopened_count` | |
+| `category` | **0.3.7 (B-09)**: `hot_water\|power\|leak\|door_lock\|wifi\|broken_item\|drain\|other` not null (gợi ý mức BR-809) |
+| `block_requested` | **0.3.7 (B-09)**: bool – HK đề nghị khóa; về `false` khi có khối liên kết hoặc FD+/MT bỏ |
+| `parts_expected_date` | **0.3.7 (B-10)**: date – bắt buộc khi `waiting_parts` mức TB/Thấp; dừng hạn BR-809 |
+| `remedy_suggested_at` | **0.3.7 (B-11)**: J11 đặt khi phiếu Cao của căn có khách quá hạn phương án (API `remedySuggested`) |
+Nhật ký phiếu (`WorkOrder.history[]`, B-11): dựng từ `state_transition` (SM-04) + `audit_event` (`work_order.*`: người xử lý, mức, đề nghị khóa, ngày vật tư, ghi chú) – **không** thêm bảng.
 | `guest_request_id` | |
 
-**`room_block`** (SM-02) – khối OOO: `room_id`, `status` (`planned|active|released|cancelled`), `reason` (not null), `start_date`, `end_date_planned`, `end_date_actual` – **nửa mở** `[start_date, end_date)`: `end_date_*` là **ngày mở bán lại** (decision-log DOM 15/10, QA #1); mặc định = ngày sửa xong + 1; UI hiện "khóa đến hết ngày X" = end − 1; CHECK `end_date_planned > start_date`; `work_order_id` (bắt buộc với khối từ sự cố), `affected_reservation_ack_by` (MGR+ xác nhận có phương án dời – O1), `released_at`, `released_by`, `release_reason`. Mỗi khối có đúng 1 dòng `room_occupancy kind='ooo'`.
+**`room_block`** (SM-02) – khối OOO: `room_id`, `status` (`planned|active|released|cancelled`), `reason` (not null), `start_date`, `end_date_planned`, `end_date_actual` – **nửa mở** `[start_date, end_date)`: `end_date_*` là **ngày mở bán lại** (decision-log DOM 15/10, QA #1); mặc định = ngày sửa xong + 1; UI hiện "khóa đến hết ngày X" = end − 1; CHECK `end_date_planned > start_date`; `work_order_id` (bắt buộc với khối từ sự cố), `affected_reservation_ack_by` (MGR+ xác nhận có phương án dời – O1), `released_at`, `released_by`, `release_reason`. **0.3.7 (B-10)**: `expected_done_date` date null – khi tạo bằng ngày dự kiến xong, server tính `end_date_planned = expected_done_date + ooo_reopen_buffer_days`. Mỗi khối có đúng 1 dòng `room_occupancy kind='ooo'`.
 
 **`maintenance_plan`** (R3, BR-810): `title`, `cycle_months`, `next_due_date`, `last_done_at`, `room_ids uuid[]`.
 
@@ -954,7 +985,7 @@ UK một phần bộ đồ dùng thêm (0.3.1): (`reservation_id`,`room_id`,`typ
 
 **`job_run`** (R2): `job_key`, `property_id`, `business_date`, `slot`, `run_at`, `status` (`done|skipped_catchup`), `stats jsonb`. UK (`job_key`,`property_id`,`business_date`,`slot`). INSERT ở **đầu** giao dịch của handler, cùng giao dịch với hiệu ứng nghiệp vụ và outbox (`ON CONFLICT DO NOTHING RETURNING id` – không ra dòng = slot đã chạy xong); lỗi → rollback cả `job_run` → pg-boss retry. Không có trạng thái `started` (mẫu đầy đủ: architecture 9.1).
 
-**`attention_event`** (R2, BE-ARC-06) – mục "Cần chú ý" dạng **sự kiện** (không suy ra được từ trạng thái): `kind` (`deposit_after_cancel|channel_sync_error|data_quality|overbooking|unassigned_with_free_room|security_alert`), `severity`, `ref_type`, `ref_id`, `ref_code`, `dedupe_key` (UK một phần WHERE `resolved_at IS NULL` – không sinh trùng), `details jsonb` (chỉ mã/ID, không C2/C3), `created_at`, `resolved_at`, `resolved_by`, `resolution_note`. Các mục còn lại (giữ chỗ sắp hết, khai báo đến hạn, thị thực, kỳ thu, OOO, phiếu Cao, no-show cần gọi) **tính lúc đọc** từ bảng nghiệp vụ – không lưu.
+**`attention_event`** (R2, BE-ARC-06) – mục "Cần chú ý" dạng **sự kiện** (không suy ra được từ trạng thái): `kind` (`deposit_after_cancel|channel_sync_error|data_quality|overbooking|unassigned_with_free_room|security_alert`; **0.3.7 bổ sung D1**: `ota_no_show_report` (US-136, `details.action` `report|revoke`), `closed_reservation_credit` (S4-06, tự đóng khi chi đủ/khách để lại)), `severity`, `ref_type`, `ref_id`, `ref_code`, `dedupe_key` (UK một phần WHERE `resolved_at IS NULL` – không sinh trùng), `details jsonb` (chỉ mã/ID, không C2/C3), `created_at`, `resolved_at`, `resolved_by`, `resolution_note`. Các mục còn lại (giữ chỗ sắp hết, khai báo đến hạn, thị thực, kỳ thu, OOO, phiếu Cao, no-show cần gọi) **tính lúc đọc** từ bảng nghiệp vụ – không lưu.
 
 **`dev_clock`** (chỉ dev/test/staging – ADR-008) – bảng 1 dòng `offset_ms bigint`, `frozen_at timestamptz null`, `updated_at`. `MutableClock` của api và worker đọc chung (cache 1 giây, `NOTIFY clock_changed`). Migration tạo bảng ở mọi môi trường nhưng production **dừng khởi động** nếu bảng có dòng hoặc `CLOCK_MODE ≠ system` (SR-SECR-05). Ngoại lệ RLS có ghi lý do (không dữ liệu khách).
 
@@ -1124,6 +1155,8 @@ Giá trị mặc định **không chép ở đây** – lấy đúng `business-r
 | `vacant_reinspect_days` | int | 805 | OWN, MGR | – |
 | `daily_clean_status_time`, `linen_change_every_nights` | time; int | 802, 807 | OWN, MGR | – |
 | `wo_sla` | {high:{ack_minutes, plan_hours}, medium:{hours}, low:{hours}} | 809 | OWN, MGR | `work_order.*_due_at` |
+| `wo_done_photo_required_severities` | Severity[] | 809 | OWN, MGR | – (0.3.7 ghi vào erd; BR v0.3.2, DOM D-15) |
+| `room_move_pricing` | json chính sách | 429, 424 | **OWN** | `stay_night` khi đổi căn (0.3.7 ghi vào erd; BR v0.3.5 – ESC-019 A) |
 | `guest_request_response_minutes`, `front_desk_hours` | int; {from,to} | 811 | OWN, MGR | `guest_request.ack_due_at` |
 | `channel_commission_pct.<channel>` | → bảng `channel_commission_rate` | 901 | **OWN** | `channel_fee` |
 | `short_stay_commission_pct` | {staff, agent} | 903 | **OWN** | `commission` |
@@ -1259,6 +1292,7 @@ mỗi lần sửa ghi `audit_event category='security'`. Danh sách máy đọc:
 | `guest_verify_code_channel_minutes` | Hạn mã gửi qua kênh (mặc định 15, tối đa 30) | SR-GST-13 | **OWN** · 5–30 (15) |
 | `trusted_device_days`, `trusted_device_mobile_days` | Hạn cấp thiết bị: máy quầy 180; di động của cơ sở ≤ 30 | SR-DEV-01, -08 | **OWN** · máy quầy 1–180 (180); di động 1–30 (30) |
 | `c3_stepup_minutes` | Cửa sổ trượt xác nhận lại trước thao tác C3 (15) | SR-C3-09 | **OWN** · 1–15 (15) |
+| `document_profile_retention_months` | Ẩn danh hồ sơ `source='document'` chưa P05 sau lần trả phòng cuối (J25, T05) – 0.3.7 | SEC s3 mục 7.2 `[GIẢ ĐỊNH SEC – chờ luật sư, ESC-001]` | **OWN** · 1–12 (12) – OpenAPI bật trong `x-security-parameters` cùng PR migration BE-B |
 | `session_policy` (json) | Thời gian phiên theo kênh `admin`/`staff_pwa`: `idleMinutes`, `maxHours`; `idleMinutes ≤ maxHours × 60`. Áp cho đăng nhập: giá trị **chặt nhất** trong các cơ sở người dùng có vai (0.3.4, FB-R2-SEC-BE-20) | SR-SES-03, SEC s1-decisions mục 1 | **OWN** · admin idle 5–30 (30), max 1–12 (12); PWA idle 60–4320 (4320), max 24–720 (720) |
 | `login_lockout` (json) | Khóa đăng nhập theo tài khoản: `maxFailures`, `lockMinutes`, `hardLockAfterLocks`, `lockWindowHours`; chỉ chặn đăng nhập mới, không hủy phiên đang sống. Áp: giá trị chặt nhất trong các cơ sở | SR-AUTH-04, SEC s1-decisions mục 1 | **OWN** · 3–5 (5); 15–60 phút (15); 2–3 (3); 24–72 giờ (24) |
 | `business_day_rollover` | Giờ đổi ngày nghiệp vụ (06:00) | BR-010 | OWN, MGR |
@@ -1429,6 +1463,8 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 17/10/2026 | 2 – Sprint 4 D1 (đóng băng) | **0.3.7 bổ sung D1** (critic s4-kickoff #7–#12 – `openapi-0.3.7.md` mục 10): 4.1 `room.public_room_type`, nghĩa `room.name` (BR-012); 4.5 `reservation.room_disclosed_to_guest`, S4-35 dùng `stay_night.calendar_rate_vnd` có sẵn cho giá đêm sửa tay (BR-429 (g) – không thêm cột); 4.6 `folio.settled_room_names` (chụp tên phòng khi `settled`; `folio_line` vẫn chỉ-thêm), `approval_request.foc_state`/`foc_cancel_reason`/`line_change`/`auto_cancel_reason`, hạn mức tháng chỉ FOC còn sống (BR-433 v0.3.5); `attention_event.kind` + `ota_no_show_report`, `closed_reservation_credit`. Cột mới cần migration của BE chủ module (BE-C room, BE-A reservation/stay_night, BE-B folio/approval) | ARC |
+| 17/10/2026 | 2 – Sprint 4 khởi động | **0.3.7** (khớp OpenAPI 0.3.7-draft – `rounds/round-02/outputs/ARC/openapi-0.3.7.md`): 4.4 `guest.source`, `last_stay_checkout_at`, `id_doc_hmac` v1 (`guest_doc`), điều kiện ghi `id_doc_last4`, CHECK 1–3, 2 chỉ mục, job J25 (nháp A.2, SEC s3 mục 7); 4.7 ghi rõ `party_member_id`, `person_index` (dồn số), `removed_at`, `fields_purge_after` = hạn chờ gắn người, `policy_key` `party_removed`, audit khai báo (S4-39); 4.8 `hk_task.cancel_reason_code/cancel_note/linen_change/carried_over`, `inspection.redo_task_id` (B-04, B-05, B-07); 4.9 `work_order.category/block_requested/parts_expected_date/remedy_suggested_at`, `room_block.expected_done_date` (B-09…B-11); 9.1 `wo_done_photo_required_severities`, `room_move_pricing`; 9.3 `document_profile_retention_months` | ARC |
 | 17/10/2026 | 2 – Sprint 3 (review) | Mục 16 điểm 2, 6: quy tắc snapshot đầu (`0052_snapshot.json`, tên theo tiền tố lớn nhất) + test `schema-parity` SQL ↔ `.ts`. Kiểm tĩnh: snapshot 0052 khớp SQL 0000–0052 (61 bảng; mọi CHECK 0030–0052 trùng thân); DEFERRABLE (`reservation_folio_fk`, `folio_primary_reservation_fk`, `minibar_check_replaced_by_fk`, `room_occupancy_no_overlap`) còn nguyên trong SQL | ARC |
 | 16/10/2026 | 2 – Sprint 2 (phản hồi) | **0.3.5 bổ sung** (DOM D-1/D-3/D-8, BUG-R2-017): `ota_base_rate` là một khóa json theo mã nhóm + biên 9.1a, `rounding.ota_rate`; `stay_night.calendar_rate_vnd`; `reservation.capacity_conflict_at/_ack_reason/_ack_by`; `overbooking_incident.source` thêm `no_show_restore` | ARC |
 | 16/10/2026 | 2 – Sprint 2 | **0.3.5** (khớp OpenAPI 0.3.5-draft – `rounds/round-02/outputs/ARC/s2-contract.md` A-08, A-16): một kênh `direct` (đóng E8); theo migration 0011–0014 đã chạy: `reservation.no_show_contact_note`, `total_room_vnd`, `reschedule_count`; `reservation.folio_id` nullable tạm; `folio_line.revenue_group` cột thường; `room_group.service_fee_monthly_vnd`; bảng `deposit_notice`; `quote.withdrawn_at`; `hk_task`, `room_block` tạo ở 0013 cùng nhóm bảng đơn | ARC |

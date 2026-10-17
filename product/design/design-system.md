@@ -1,12 +1,13 @@
-# Design System OTTIMO – v0.3.5
+# Design System OTTIMO – v0.4.1
 
-- Người viết: UXD | Round 1 – Bước 2 (Sản xuất), đợt 2; cập nhật Bước 4 (phản hồi review) | Ngày: 15–16/10/2026
-- Trạng thái: **Bản nháp chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). Đợt 4 đã chỉnh theo `rbac-matrix.md`, `state-machines.md` (BA), `erd.md`, `openapi.yaml` (ARC) và `security-requirements.md` (SEC) – xem mục 11.
-- Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css`. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại.
+- Người viết: UXD | v0.1–v0.3.5: Round 1 → Round 2 Sprint 3 (15–17/10/2026) | **v0.4: Round 2 – Sprint 4, bước Lập kế hoạch, S4-49 "áp brand guideline vào sản phẩm"** | **v0.4.1: Sprint 4 D1 – sửa phát hiện #18, #19 của critic kickoff** | Ngày: 17/10/2026
+- Trạng thái: **v0.4.1 chờ review** (bắt buộc: UXR, PO; khuyến nghị: FE, MOB, DOM). v0.4.1 chỉ đổi mục 2 (`--bar-cf` và `--oak` tối pha một tỷ lệ; kiểm nguồn tint tự động; `--info` chỉ cho thông báo, chip mới `ink`), C7, C20, 11.1.1, 11.6 (đợt B0b) – lý do ở mục 12. v0.4 khớp **OTTIMO Brand Guidelines v1.0** (INV 17/10/2026: mọi đầu ra áp dụng guideline; lệch với tài liệu cũ thì guideline thắng). Phần đổi: mục 1 (D1), 2 (màu), 3 (chữ), 5 (C1, C7, C33, C34) và mục 11 mới (giọng văn khách, tên phòng, logo, việc FE/MOB). Lịch sử: mục 12.
+- Căn cứ thương hiệu: `00-brief/context/brand/brand-guidelines.md` (tóm tắt), ảnh trang `00-brief/context/brand/pages/p18.jpg` (bảng màu), `p19.jpg` (tỷ lệ 80/15/5, cặp chữ–nền), `p21.jpg`–`p22.jpg` (chữ). Landing dùng cùng bảng màu và cách đo: `product/design/landing/concept.md` mục 2–3.
+- Token máy đọc: `product/design/tokens.json` (định dạng W3C Design Tokens). CSS sinh ra: `product/design/wireframes/assets/tokens.css` – `@ottimo/ui` import thẳng file này, nên **mọi app nhận màu v0.4 ở lần build kế tiếp, không phải sửa code**. Không sửa tay CSS/JSON – sửa nguồn trong `product/design/tools/gen_tokens.py` rồi chạy lại (in `fails: 0`).
 - Minh họa sống: `product/design/wireframes/index.html` (9 luồng, có công tắc sáng/tối, trạng thái tải/rỗng/lỗi/mất mạng, ngôn ngữ).
-- **Hi-fi R2**: `product/design/hifi/index.html` – 24 màn (H01–H12 Đợt 0, H13–H18 Sprint 3, H19–H24 Sprint 4), component thật trong `hifi/assets/hifi.css`, kiểm bằng `tools/check_hifi.py`.
+- **Hi-fi R2**: `product/design/hifi/index.html` – 24 màn (H01–H12 Đợt 0, H13–H18 Sprint 3, H19–H24 Sprint 4), component thật trong `hifi/assets/hifi.css`, kiểm bằng `tools/check_hifi.py`. Hi-fi dùng chung `tokens.css` nên đã mang màu v0.4; phần chữ/component v0.4 (mục 3, C1 `brand`) vào `hifi.css` ở đợt B2 (mục 11.6).
 - Nội dung chữ: `product/design/content-guide.md`, chuỗi `product/design/copy/strings-{vi,en,ru}.json`.
-- Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`.
+- Đầu vào: BL mục 6 (design system prototype), BL 8.3 (a11y), `research/heuristic-review-r0.md` (HR-01…HR-25), `research/personas.md`, PRD, `business-rules.md`, Brand Guidelines v1.0.
 
 ---
 
@@ -14,8 +15,8 @@
 
 | # | Nguyên tắc | Hệ quả thiết kế |
 |---|---|---|
-| D1 | **Giữ nhận diện OTTIMO, sửa cho đạt chuẩn** – kem giấy, chữ than, nhấn gỗ sồi, Lora + Be Vietnam Pro (BL 6.1) | Không đổi màu thương hiệu `--oak` #B08D57; chỉ thêm biến thể đậm `--oak-ink` cho chữ/focus và làm đậm các màu chữ không đạt AA |
-| D2 | **Hai giọng giao diện, một hệ thống** – nhân viên cần nhanh, dày thông tin; khách cần ấm, thoáng, ít bước | Cùng token; khác mật độ: *Desk* (máy tính quầy), *Touch* (điện thoại – lễ tân/sale/chủ đầu tư/khách), *HK* (buồng phòng – nút to, chữ to) |
+| D1 | **Theo OTTIMO Brand Guidelines v1.0, sửa cho đạt chuẩn** – nền Ivory/Cream, chữ Ink, nhấn gỗ (Light Oak, Earth Brown), Sage điểm xuyết; Lora + Be Vietnam Pro + JetBrains Mono (v0.4 – thay "giữ nhận diện prototype BL 6.1") | Chỉ dùng 7 màu của bảng 80/15/5 + trắng và tint/shade pha từ chúng (mục 2.0). Màu trạng thái là ngoại lệ chức năng có giới hạn (2.4). Chỗ guideline không đạt WCAG AA thì DS chọn cặp đạt và ghi lệch (2.5) – không tự đổi màu thương hiệu |
+| D2 | **Hai giọng giao diện, một hệ thống** – nhân viên cần nhanh, dày thông tin; khách cần ấm, thoáng, ít bước | Cùng token; khác mật độ: *Desk* (máy tính quầy), *Touch* (điện thoại – lễ tân/sale/chủ đầu tư/khách), *HK* (buồng phòng – nút to, chữ to). **Chữ khách nhìn thấy mang giọng thương hiệu** (tiếng Anh dẫn dắt, tiếng Việt hỗ trợ – 11.2); giao diện nhân viên tiếng Việt, chức năng |
 | D3 | **Đúng tiền, đúng luật trước** – không mặc định phát sinh phí, không báo "Đạt" giả, không xóa không hỏi | Mẫu bắt buộc: Phụ thu chủ động (mục 6.3), Kiểm tra 3 trạng thái (6.4), Xác nhận phá hủy (6.1) |
 | D4 | **Không chỉ bằng màu** | Mọi trạng thái = chữ + icon (+ hoa văn ở rack) – HR-11 |
 | D5 | **Không mất dữ liệu khi bị ngắt quãng** | Nháp tự lưu, hỏi trước khi bỏ thay đổi, thao tác offline xếp hàng (HR-05, US-058) |
@@ -23,129 +24,233 @@
 
 ## 2. Màu
 
+### 2.0 Bảng màu thương hiệu (Brand Guidelines v1.0 p18–p19)
+
+| Token CSS | Tên | HEX | Nhóm (tỷ lệ) |
+|---|---|---|---|
+| `--brand-ivory` | Ivory | `#F4F0E8` | Neutrals ~80% |
+| `--brand-cream` | Cream | `#EDE6D8` | Neutrals ~80% |
+| `--brand-stone` | Stone Grey | `#6B6760` | Neutrals ~80% |
+| `--brand-ink` | Ink | `#2B2B28` | Neutrals ~80% |
+| `--brand-oak` | Light Oak | `#B08D57` | Warm Woods ~15% |
+| `--brand-earth` | Earth Brown | `#7A5C44` | Warm Woods ~15% |
+| `--brand-sage` | Sage | `#8A9079` | Botanical ~5% |
+| `--brand-white` | White | `#FFFFFF` | Cặp chữ–nền guideline p19 |
+
+**Tỷ lệ 80 / 15 / 5 trong sản phẩm**
+- **Neutrals ~80%:** nền trang Ivory; thẻ Ivory pha trắng; Cream cho nền phụ, sidebar, header bảng, dải xen kẽ; chữ Ink; chữ phụ Stone Grey.
+- **Warm Woods ~15%:**
+  - Earth Brown: link, mục đang chọn, viền focus, nút thương hiệu.
+  - Light Oak: logo, nét kẻ nhấn, vạch trước nhãn.
+  - Tint của Light Oak: thanh "đã xác nhận" (Light Oak 80% + Ivory 20% – v0.4.1), cột hôm nay, nền mục đang chọn.
+- **Botanical ~5%:** Sage cho trang trí; Sage Deep (Sage pha Ink) cho thanh và chip "hợp đồng dài hạn".
+- **Ngoài bảng – chức năng:** ok / warn / bad / info và nền nhạt của chúng (mục 2.4). Từ v0.4.1 `info` chỉ dùng cho **thông báo** (alert, "Cần chú ý" mức info); trạng thái của đối tượng dùng Ink/Stone + icon (chip `ink` / `neutral`, mục 2.3).
+
+**Cách tạo màu phụ:** chỉ pha **một** màu của bảng với Ivory, White hoặc Ink (tint/shade), **cùng một tỷ lệ cho cả ba kênh R, G, B**. Không tạo sắc mới. Mỗi token ghi nguồn ở cột "Nguồn bảng màu" của bảng 2.1. Chế độ tối dùng cùng cách (Ink pha đen, tint Stone, tint Light Oak).
+- Màu pha mới viết bằng hàm `mix(màu 1, màu 2, tỷ lệ)` trong `gen_tokens.py`, không gõ mã HEX tay (v0.4.1: `--bar-cf`, `--oak` tối).
+- `gen_tokens.py` tự kiểm mọi token "pha / tint / shade" (danh sách `TINT`): tìm tỷ lệ gần nhất, đo khoảng cách tới màu pha đúng tỷ lệ đó. Lệch ≤ 4,5 (RGB 8-bit) là sai số làm tròn. Lệch hơn mà không nằm trong ngoại lệ 2.4 thì script báo `tint_fails` > 0. Bảng đầy đủ: cuối `tools/contrast.md`.
+
 ### 2.1 Bảng token (sáng + tối)
 
-Token đổi so với Round 0 được đánh dấu **(đổi)**. Màu nền, bề mặt, thương hiệu giữ nguyên để giữ cảm giác OTTIMO.
+Cột "v0.3" ghi giá trị trước S4-49. **(đổi)** = đổi ở v0.4; **(đổi v0.4.1)** = đổi ở v0.4.1 (critic kickoff #18/#19 – 11.1.1); **mới** = token mới ở v0.4; "giữ" = không đổi. Bảng màu `--brand-*` (2.0) không đổi theo chế độ.
 
-| Token | Sáng | Tối | Dùng cho | Round 0 (sáng / tối) |
-|---|---|---|---|---|
-| `--bg` | `#F4F0E8` | `#1B1A18` | Nền trang | #F4F0E8 / #1B1A18 |
-| `--surface` | `#FBF9F4` | `#24221F` | Thẻ, input, modal, drawer | #FBF9F4 / #24221F |
-| `--surface-2` | `#EEE8DC` | `#2D2A26` | Nền phụ, seg control, header bảng | #EEE8DC / #2D2A26 |
-| `--side` | `#ECE5D8` | `#201E1C` | Sidebar | #ECE5D8 / #201E1C |
-| `--ink` | `#2B2B2B` | `#EDE8DF` | Chữ chính; nền nút chính | #2B2B2B / #EDE8DF |
-| `--ink-inverse` | `#FBF9F4` | `#1B1A18` | Chữ trên nền --ink (nút chính) | mới |
-| `--muted` | `#635F58` | `#A9A398` | Chữ phụ (nhãn, mô tả) | #6B6760 / #A9A398 **(đổi)** |
-| `--faint` | `#6A645B` | `#A39D92` | Chữ phụ cấp 3 (chú thích, nhãn nhóm menu) – vẫn đạt 4,5:1 | #9A948A / #7D776E **(đổi)** |
-| `--deco` | `#9A948A` | `#7D776E` | CHỈ trang trí (icon không mang nghĩa, vạch kẻ chấm). CẤM dùng cho chữ | mới |
-| `--line` | `#E0D8CA` | `#38342F` | Đường kẻ phân cách (trang trí) | #E0D8CA / #38342F |
-| `--line-strong` | `#857E71` | `#857F75` | Viền ô nhập, checkbox, seg – thành phần UI cần ≥ 3:1 (R1 bước 4: #8C8578 → #857E71 để đạt 3:1 trên --side) | mới |
-| `--oak` | `#B08D57` | `#C9A56E` | Màu thương hiệu: logo, minh họa, thanh biểu đồ, viền nhấn. Không dùng cho chữ nhỏ trên nền sáng | #B08D57 / #C9A56E |
-| `--oak-ink` | `#7A5C2E` | `#D9B987` | Chữ/icon màu gỗ sồi, link, mục đang chọn | #86693B / #D9B987 **(đổi)** |
-| `--oak-soft` | `#F1E7D6` | `#3A3226` | Nền nhấn nhẹ, mục đang chọn, dòng bảng đang chọn | #F1E7D6 / #3A3226 |
-| `--focus` | `#7A5C2E` | `#D9B987` | Viền focus 2px + offset 2px | #B08D57 / #C9A56E **(đổi)** |
-| `--focus-on-dark` | `#F4F0E8` | `#1B1A18` | Viền focus trên vùng nền tối (đầu trang app khách --bar-in, toast --ink) – R1 bước 4 | mới |
-| `--ok` | `#356B49` | `#7FBF95` | Thành công / Đạt / Sẵn sàng | #3D7552 / #7FBF95 **(đổi)** |
-| `--ok-bg` | `#E2EEE5` | `#22352A` | Nền chip thành công | #E2EEE5 / #22352A |
-| `--warn` | `#8A5214` | `#E0A866` | Cảnh báo / Cần dọn / Sắp hết hạn | #9A5F1C / #E0A866 **(đổi)** |
-| `--warn-bg` | `#F5E8D3` | `#3A2E1E` | Nền chip cảnh báo | #F5E8D3 / #3A2E1E |
-| `--bad` | `#A8403C` | `#E58A84` | Lỗi / Không đạt / Khóa phòng / Quá hạn | #A8403C / #E58A84 |
-| `--bad-bg` | `#F5DFDC` | `#3D2422` | Nền chip lỗi | #F5DFDC / #3D2422 |
-| `--info` | `#3E5E78` | `#8DB0CC` | Thông tin / Có khách | #3E5E78 / #8DB0CC |
-| `--info-bg` | `#E0E8EF` | `#22303B` | Nền chip thông tin | #E0E8EF / #22303B |
-| `--bar-in` | `#2F2D2A` | `#E3DCCF` | Thanh rack: đang ở (in_house) | #2F2D2A / #E3DCCF |
-| `--bar-in-t` | `#F4F0E8` | `#1B1A18` | Chữ trên thanh đang ở | #F4F0E8 / #1B1A18 |
-| `--bar-cf` | `#C9A56E` | `#B8925A` | Thanh rack: đã xác nhận (confirmed) | #C9A56E / #B8925A |
-| `--bar-cf-t` | `#2B2B2B` | `#1B1A18` | Chữ trên thanh đã xác nhận | #2B2B2B / #1B1A18 |
-| `--bar-long` | `#5B7387` | `#7E98AD` | Thanh rack: hợp đồng dài hạn (đang ở/đã xác nhận) | #5B7387 / #7E98AD |
-| `--bar-long-t` | `#FFFFFF` | `#111111` | Chữ trên thanh dài hạn | #FFFFFF / #111111 |
-| `--scrim` | `rgba(27,26,24,.48)` | `rgba(0,0,0,.6)` | Nền mờ sau modal/drawer | mới |
+| Token | Sáng | Tối | Nguồn bảng màu | Dùng cho | v0.3 (sáng / tối) |
+|---|---|---|---|---|---|
+| `--bg` | `#F4F0E8` | `#1B1A18` | Ivory · tối: Ink pha đen | Nền trang | giữ |
+| `--surface` | `#FBF9F4` | `#24221F` | Ivory pha White 50% · tối: Ink pha đen | Thẻ, input, modal, drawer | giữ |
+| `--surface-2` | `#EDE6D8` | `#2B2B28` | Cream · tối: Ink | Nền phụ, seg control, header bảng, nút bị khóa | #EEE8DC / #2D2A26 **(đổi)** |
+| `--side` | `#EDE6D8` | `#201E1C` | Cream · tối: Ink pha đen | Sidebar | #ECE5D8 / #201E1C **(đổi)** |
+| `--cream` | `#EDE6D8` | `#2B2B28` | Cream · tối: Ink | Dải xen kẽ, thẻ nhấn nhẹ trên trang khách, nền phiếu/báo giá trên màn | **mới** |
+| `--ink` | `#2B2B28` | `#EDE6D8` | Ink · tối: Cream | Chữ chính; nền nút chính (Desk, HK) | #2B2B2B / #EDE8DF **(đổi)** |
+| `--ink-inverse` | `#F4F0E8` | `#1B1A18` | Ivory (guideline: Ivory trên Ink) | Chữ trên nền --ink (nút chính, toast) | #FBF9F4 / #1B1A18 **(đổi)** |
+| `--muted` | `#6B6760` | `#A9A398` | Stone Grey · tối: tint Stone | Chữ phụ (nhãn, mô tả, header bảng) | #635F58 / #A9A398 **(đổi)** |
+| `--faint` | `#6B6760` | `#A39D92` | Stone Grey · tối: tint Stone | Chữ phụ cấp 3 – từ v0.4 = Stone Grey như --muted (giữ tên để tương thích) | #6A645B / #A39D92 **(đổi)** |
+| `--deco` | `#9A948A` | `#7D776E` | tint Stone (~65% Stone + Ivory) · tối: ~88% Stone + Ivory | CHỈ trang trí (icon không mang nghĩa, vạch kẻ chấm). CẤM dùng cho chữ | giữ |
+| `--line` | `#E0D8CA` | `#38342F` | Cream 90% + Stone 10% · tối: ~84% Ink + Stone | Đường kẻ phân cách (trang trí) | giữ |
+| `--line-strong` | `#857E71` | `#857F75` | tint Stone (~84% Stone + Ivory; sáng nắn ấm – ngoại lệ 2.4) | Viền ô nhập, checkbox, seg – thành phần UI cần ≥ 3:1 | giữ |
+| `--oak` | `#B08D57` | `#BEA174` | Light Oak · tối: Light Oak 80% + Ivory 20% | Light Oak: logo, minh họa, nét kẻ nhấn, vạch trước nhãn. CẤM làm chữ trên nền sáng, CẤM làm nền cho chữ trắng | #B08D57 / #C9A56E **(đổi v0.4.1)** |
+| `--oak-ink` | `#7A5C44` | `#D9B987` | Earth Brown · tối: tint Light Oak nắn sắc – ngoại lệ 2.4 | Chữ/icon nhấn, link, mục đang chọn – từ v0.4 = Earth Brown (tên cũ giữ để tương thích) | #7A5C2E / #D9B987 **(đổi)** |
+| `--oak-soft` | `#F1E7D6` | `#3A3226` | Light Oak ~10% trên Ivory · tối: shade Light Oak – cả hai nắn sắc, ngoại lệ 2.4 | Nền nhấn nhẹ, mục đang chọn, dòng bảng đang chọn, cột hôm nay | giữ |
+| `--earth` | `#7A5C44` | `#7A5C44` | Earth Brown | Nền nút thương hiệu (CTA trang khách, landing) – không đổi theo chế độ | **mới** |
+| `--on-earth` | `#FFFFFF` | `#FFFFFF` | White (guideline: White trên Earth) | Chữ/icon trên nền --earth | **mới** |
+| `--sage` | `#8A9079` | `#8A9079` | Sage | CHỈ trang trí ≤ 5% (chấm, minh họa, hoa văn). CẤM chữ và icon mang nghĩa trên nền sáng | **mới** |
+| `--focus` | `#7A5C44` | `#D9B987` | Earth Brown · tối: tint Light Oak nắn sắc – ngoại lệ 2.4 | Viền focus 2px + offset 2px | #7A5C2E / #D9B987 **(đổi)** |
+| `--focus-on-dark` | `#F4F0E8` | `#1B1A18` | Ivory | Viền focus trên vùng nền tối (đầu trang app khách, toast --ink) | giữ |
+| `--ok` | `#356B49` | `#7FBF95` | Chức năng – ngoại lệ 2.4 | Thành công / Đạt / Sẵn sàng | giữ |
+| `--ok-bg` | `#E2EEE5` | `#22352A` | Chức năng – ngoại lệ 2.4 | Nền chip/alert thành công | giữ |
+| `--warn` | `#8A5214` | `#E0A866` | Chức năng – ngoại lệ 2.4 | Cảnh báo / Cần dọn / Sắp hết hạn | giữ |
+| `--warn-bg` | `#F5E8D3` | `#3A2E1E` | Chức năng – ngoại lệ 2.4 | Nền chip/alert cảnh báo | giữ |
+| `--bad` | `#A8403C` | `#E58A84` | Chức năng – ngoại lệ 2.4 | Lỗi / Không đạt / Khóa phòng / Quá hạn; nền nút nguy hiểm | giữ |
+| `--bad-bg` | `#F7E5E2` | `#3D2422` | Chức năng – ngoại lệ 2.4 | Nền chip/alert lỗi (v0.4 nhạt hơn để chữ Stone đạt AA) | #F5DFDC / #3D2422 **(đổi)** |
+| `--info` | `#3E5E78` | `#8DB0CC` | Chức năng – ngoại lệ 2.4 | CHỈ thông báo mức thông tin: alert/banner (C19), mục 'Cần chú ý' mức info (C20), khối ghi chú 6.14. KHÔNG cho trạng thái của đối tượng (chip, ô buồng, thanh, thẻ việc) – dùng chip `ink` (v0.4.1) | giữ màu · **đổi cách dùng v0.4.1** |
+| `--info-bg` | `#E0E8EF` | `#22303B` | Chức năng – ngoại lệ 2.4 | Nền alert/khối thông tin (C19, 6.14), nền icon mức info trong 'Cần chú ý'. Không làm nền chip (v0.4.1) | giữ màu · **đổi cách dùng v0.4.1** |
+| `--bar-in` | `#2B2B28` | `#E3DCCF` | Ink · tối: tint Cream | Thanh rack: đang ở (in_house) | #2F2D2A / #E3DCCF **(đổi)** |
+| `--bar-in-t` | `#F4F0E8` | `#1B1A18` | Ivory | Chữ trên thanh đang ở | giữ |
+| `--bar-cf` | `#BEA174` | `#BEA174` | Light Oak 80% + Ivory 20% – một tỷ lệ, cả hai chế độ | Thanh rack: đã xác nhận (confirmed) | #C9A56E / #B8925A **(đổi v0.4.1)** |
+| `--bar-cf-t` | `#2B2B28` | `#1B1A18` | Ink | Chữ trên thanh đã xác nhận | #2B2B2B / #1B1A18 **(đổi)** |
+| `--bar-long` | `#646859` | `#8A9079` | Sage Deep (Sage 60% + Ink 40%) · tối: Sage | Thanh rack + chip: hợp đồng dài hạn (thay xanh #5B7387 ngoài bảng) | #5B7387 / #7E98AD **(đổi)** |
+| `--bar-long-t` | `#F4F0E8` | `#1B1A18` | Ivory · tối: Ink pha đen | Chữ trên thanh dài hạn | #FFFFFF / #111111 **(đổi)** |
+| `--scrim` | `rgba(27,26,24,.48)` | `rgba(0,0,0,.6)` | Ink pha đen 48% | Nền mờ sau modal/drawer | giữ |
 
-Quy tắc dùng:
-- **Chữ** chỉ dùng: `--ink`, `--muted`, `--faint`, `--oak-ink`, `--ok`, `--warn`, `--bad`, `--info`, `--bar-*-t`, `--ink-inverse`. **Cấm** dùng `--deco`, `--line`, `--line-strong`, `--oak` cho chữ (trừ chữ ≥ 24px đậm trên nền tối).
-- `--faint` R0 (#9A948A) được đổi tên thành `--deco` và **chỉ dùng trang trí**; `--faint` mới đạt ≥ 4,5:1 trên mọi nền.
-- **Viền thành phần UI** cần nhận biết (ô nhập, checkbox, seg, nút phụ) dùng `--line-strong` (≥ 3:1). `--line` chỉ cho đường kẻ phân cách.
-- **Focus** luôn `--focus` 2px + offset 2px (không dùng `--oak` như R0: 2,72:1). Trên **vùng nền tối** (đầu trang app khách `--bar-in`, toast `--ink`) dùng `--focus-on-dark` (12,08:1 sáng / 12,76:1 tối) – lớp `.on-dark` (Bước 4, FB-R1-UXR-UXD-05). Bảng 2.2 đo cả viền focus trên mọi nền có điều khiển (side, surface-2, oak-soft, nền alert).
-- **Nút bị khóa** không dùng `opacity`: nền `--surface-2`, chữ `--muted` (5,20:1), viền đứt `--line-strong` – lý do ghi trên nút phải đọc được (Bước 4).
-- Nền chip `*-bg` chỉ đi với chữ cùng tông (`--ok` trên `--ok-bg`…).
+Quy tắc dùng (v0.4):
+- **Chữ chỉ dùng** các token:
+  - `--ink`, `--muted` (= Stone), `--faint` (= Stone);
+  - `--oak-ink` (= Earth Brown);
+  - `--ok`, `--warn`, `--bad`, `--info` (`--info` chỉ trong thông báo – v0.4.1, mục 2.3);
+  - `--bar-*-t`, `--ink-inverse`, `--on-earth`.
+- **Cấm** dùng `--oak`, `--sage`, `--deco`, `--line`, `--line-strong` cho chữ. Guideline p19: "tránh Sage/Oak làm chữ trên nền sáng" (Light Oak 2,72:1, Sage 2,91:1 trên Ivory).
+- **Không chữ trắng (hay Ivory) trên nền Light Oak.**
+  - Đo được 3,09:1 (trắng) và 2,72:1 (Ivory) – không đạt AA, dù guideline p19 ghi "White trên Oak/Earth – nút, nhãn".
+  - Nút và nhãn màu gỗ dùng **Earth Brown**: `--earth` + `--on-earth`, 6,10:1.
+  - Trên nền Oak chỉ đặt chữ Ink (4,59:1, sát ngưỡng): chữ ≥ 14px, đậm 600, chỉ cho nhãn ngắn.
+- **`--oak-ink` và `--focus` = Earth Brown #7A5C44** từ v0.4.
+  - v0.3 dùng #7A5C2E – một sắc gỗ ngoài bảng.
+  - Giữ tên `--oak-ink` để FE/MOB không phải sửa code. Tài liệu mới gọi là "Earth Brown (chữ nhấn)".
+- **`--muted` và `--faint` = Stone Grey #6B6760** trên mọi nền sáng đã đo; thấp nhất 4,53:1 trên Cream.
+  - Ba nền sát ngưỡng (4,5–4,6:1): Cream (`--surface-2`, `--side`, `--cream`), `--info-bg`, `--oak-soft`. Trên ba nền này **không dùng chữ Stone dưới 12px**.
+  - Muốn đặt Stone lên nền khác thì phải thêm cặp vào `gen_tokens.py` và đo trước.
+  - `--bad-bg` làm nhạt #F5DFDC → #F7E5E2 để Stone đạt trên nền lỗi (4,41 → 4,62:1). Chữ `--bad` trên nền này cũng tăng: 4,76 → 4,98:1.
+  - Không cần ngoại lệ nào cho Stone.
+- **Sidebar và nền phụ dùng Cream**: `--side` = `--surface-2` = #EDE6D8. Stone trên sidebar v0.3 (#ECE5D8) chỉ được 4,49:1 – không đạt.
+  - Mục menu hover/đang chọn vẫn dùng `--surface`, nên sidebar trùng màu nền phụ không làm mất trạng thái.
+  - Seg control đặt trên sidebar nhận biết nhờ viền `--line-strong` (3,24:1).
+- **`--cream` (mới):** dải xen kẽ và thẻ nhấn nhẹ trên trang khách, nền báo giá/phiếu trên màn.
+- **`--sage` (mới):** chỉ trang trí, ≤ 5% diện tích màn – chấm danh sách, hoa văn minh họa, nét nhấn mảnh. Không làm icon mang nghĩa.
+- **`--earth` / `--on-earth` (mới):** chỉ cho `.btn.brand` (C1) và nhãn thương hiệu.
+- **`--brand-*`:** màu bảng không đổi theo chế độ. Dùng cho logo, phiếu in (`.print-root` trong `hifi.css` đã chuyển sang `--brand-ink`/`--brand-stone`/`--brand-white`) và hình xuất file. Màn hình vẫn dùng token ngữ nghĩa.
+- **Giữ từ v0.3:**
+  - viền focus 2px + offset 2px;
+  - trên vùng tối dùng `--focus-on-dark`;
+  - nút bị khóa: nền Cream, chữ Stone, viền đứt `--line-strong`, không dùng `opacity`;
+  - nền chip `*-bg` chỉ đi với chữ cùng tông;
+  - viền thành phần UI dùng `--line-strong`.
 
 ### 2.2 Bảng kiểm tương phản (đo theo công thức WCAG 2.2, cả sáng và tối)
 
-Dùng mục 3–4 của `heuristic-review-r0.md` làm checklist. Mọi cặp chữ ≥ 4,5:1, thành phần UI ≥ 3:1. Kết quả: **0 cặp không đạt**.
+- Nguồn: bảng sinh bởi `gen_tokens.py`, lưu ở `tools/contrast.md`.
+- Yêu cầu: chữ ≥ 4,5:1, thành phần UI ≥ 3:1.
+- Kết quả v0.4.1: **0 cặp bắt buộc không đạt** (`fails: 0`) và **0 tint/shade lệch chưa khai** (`tint_fails: 0` – bảng kiểm nguồn ở cuối `tools/contrast.md`, ngoại lệ ở 2.4).
+- Cặp `forbidden`: guideline cho phép nhưng đo không đạt → DS cấm. Đó là chữ trắng/Ivory trên Light Oak.
+- Cặp `info-only`: chỉ ghi để biết, không bao giờ dùng làm chữ.
 
 | Cặp (chữ/UI trên nền) | Vị trí dùng | Yêu cầu | Sáng | Tối |
 |---|---|---|---|---|
-| `--ink` / `--bg` | Chữ chính trên nền trang | ≥ 4,5:1 | 12,46:1 ĐẠT | 14,25:1 ĐẠT |
-| `--ink` / `--surface` | Chữ chính trên thẻ | ≥ 4,5:1 | 13,46:1 ĐẠT | 13,00:1 ĐẠT |
-| `--ink-inverse` / `--ink` | Chữ nút chính | ≥ 4,5:1 | 13,46:1 ĐẠT | 14,25:1 ĐẠT |
-| `--muted` / `--bg` | Chữ phụ trên nền trang | ≥ 4,5:1 | 5,58:1 ĐẠT | 6,94:1 ĐẠT |
-| `--muted` / `--surface` | Chữ phụ trên thẻ | ≥ 4,5:1 | 6,03:1 ĐẠT | 6,33:1 ĐẠT |
-| `--muted` / `--surface-2` | Chữ phụ trên nền phụ / header bảng; chữ nút bị khóa (thay opacity .5); thanh 'Đã kín' | ≥ 4,5:1 | 5,20:1 ĐẠT | 5,70:1 ĐẠT |
-| `--muted` / `--side` | Menu chưa chọn trên sidebar | ≥ 4,5:1 | 5,07:1 ĐẠT | 6,63:1 ĐẠT |
-| `--muted` / `--oak-soft` | Chữ phụ trên dòng đang chọn | ≥ 4,5:1 | 5,18:1 ĐẠT | 5,04:1 ĐẠT |
-| `--faint` / `--bg` | Chú thích trên nền trang (R0: 2,65:1) | ≥ 4,5:1 | 5,15:1 ĐẠT | 6,46:1 ĐẠT |
-| `--faint` / `--surface` | Chú thích trên thẻ (R0: 2,86:1) | ≥ 4,5:1 | 5,56:1 ĐẠT | 5,89:1 ĐẠT |
-| `--faint` / `--side` | Nhãn nhóm menu | ≥ 4,5:1 | 4,67:1 ĐẠT | 6,17:1 ĐẠT |
-| `--oak-ink` / `--bg` | Link / chữ nhấn trên nền trang | ≥ 4,5:1 | 5,44:1 ĐẠT | 9,31:1 ĐẠT |
-| `--oak-ink` / `--surface` | Link / chữ nhấn trên thẻ | ≥ 4,5:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
-| `--oak-ink` / `--oak-soft` | Chữ trên nền nhấn (R0: 4,18:1) | ≥ 4,5:1 | 5,04:1 ĐẠT | 6,75:1 ĐẠT |
+| `--ink` / `--bg` | Chữ chính trên nền trang | ≥ 4,5:1 | 12,49:1 ĐẠT | 14,00:1 ĐẠT |
+| `--ink` / `--surface` | Chữ chính trên thẻ; chữ chip `ink` (v0.4.1: Có khách, đã quét/đã gửi trước, đã nhận/đang xử lý…) | ≥ 4,5:1 | 13,50:1 ĐẠT | 12,78:1 ĐẠT |
+| `--ink-inverse` / `--ink` | Chữ nút chính | ≥ 4,5:1 | 12,49:1 ĐẠT | 14,00:1 ĐẠT |
+| `--muted` / `--bg` | Chữ phụ trên nền trang | ≥ 4,5:1 | 4,95:1 ĐẠT | 6,94:1 ĐẠT |
+| `--muted` / `--surface` | Chữ phụ trên thẻ | ≥ 4,5:1 | 5,34:1 ĐẠT | 6,33:1 ĐẠT |
+| `--muted` / `--surface-2` | Chữ phụ trên Cream: header bảng, chữ nút bị khóa, thanh 'Đã kín' – sát ngưỡng, không dưới 12px | ≥ 4,5:1 | 4,53:1 ĐẠT | 5,67:1 ĐẠT |
+| `--muted` / `--side` | Menu chưa chọn trên sidebar (v0.3 với Stone: 4,49 – lý do sidebar chuyển sang Cream) | ≥ 4,5:1 | 4,53:1 ĐẠT | 6,63:1 ĐẠT |
+| `--muted` / `--oak-soft` | Chữ phụ trên dòng đang chọn | ≥ 4,5:1 | 4,59:1 ĐẠT | 5,04:1 ĐẠT |
+| `--faint` / `--bg` | Chú thích trên nền trang | ≥ 4,5:1 | 4,95:1 ĐẠT | 6,46:1 ĐẠT |
+| `--faint` / `--surface` | Chú thích trên thẻ | ≥ 4,5:1 | 5,34:1 ĐẠT | 5,89:1 ĐẠT |
+| `--faint` / `--side` | Nhãn nhóm menu | ≥ 4,5:1 | 4,53:1 ĐẠT | 6,17:1 ĐẠT |
+| `--oak-ink` / `--bg` | Link / chữ nhấn Earth Brown trên nền trang | ≥ 4,5:1 | 5,37:1 ĐẠT | 9,31:1 ĐẠT |
+| `--oak-ink` / `--surface` | Link / chữ nhấn trên thẻ | ≥ 4,5:1 | 5,80:1 ĐẠT | 8,49:1 ĐẠT |
+| `--oak-ink` / `--oak-soft` | Chữ trên nền nhấn | ≥ 4,5:1 | 4,98:1 ĐẠT | 6,75:1 ĐẠT |
 | `--ok` / `--ok-bg` | Chip thành công | ≥ 4,5:1 | 5,25:1 ĐẠT | 6,08:1 ĐẠT |
 | `--ok` / `--surface` | Chữ/icon thành công trên thẻ | ≥ 4,5:1 | 5,96:1 ĐẠT | 7,40:1 ĐẠT |
-| `--warn` / `--warn-bg` | Chip cảnh báo (R0: 4,31:1) | ≥ 4,5:1 | 5,27:1 ĐẠT | 6,27:1 ĐẠT |
+| `--warn` / `--warn-bg` | Chip cảnh báo | ≥ 4,5:1 | 5,27:1 ĐẠT | 6,27:1 ĐẠT |
 | `--warn` / `--surface` | Chữ cảnh báo trên thẻ | ≥ 4,5:1 | 6,05:1 ĐẠT | 7,53:1 ĐẠT |
-| `--bad` / `--bad-bg` | Chip lỗi | ≥ 4,5:1 | 4,76:1 ĐẠT | 5,63:1 ĐẠT |
+| `--bad` / `--bad-bg` | Chip lỗi | ≥ 4,5:1 | 4,98:1 ĐẠT | 5,63:1 ĐẠT |
 | `--bad` / `--surface` | Chữ lỗi dưới ô nhập | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,27:1 ĐẠT |
-| `--info` / `--info-bg` | Chip thông tin | ≥ 4,5:1 | 5,51:1 ĐẠT | 5,93:1 ĐẠT |
-| `--bar-in-t` / `--bar-in` | Chữ trên thanh đang ở | ≥ 4,5:1 | 12,08:1 ĐẠT | 12,76:1 ĐẠT |
-| `--bar-cf-t` / `--bar-cf` | Chữ trên thanh đã xác nhận | ≥ 4,5:1 | 6,13:1 ĐẠT | 6,04:1 ĐẠT |
-| `--bar-long-t` / `--bar-long` | Chữ trên thanh dài hạn | ≥ 4,5:1 | 4,94:1 ĐẠT | 6,28:1 ĐẠT |
-| `--focus` / `--bg` | Viền focus trên nền trang (R0: 2,72:1) | ≥ 3:1 | 5,44:1 ĐẠT | 9,31:1 ĐẠT |
-| `--focus` / `--surface` | Viền focus trên thẻ | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
-| `--line-strong` / `--surface` | Viền ô nhập trên thẻ | ≥ 3:1 | 3,82:1 ĐẠT | 4,00:1 ĐẠT |
+| `--info` / `--info-bg` | Alert / khối thông tin (C19, 6.14) – từ v0.4.1 không còn chip info | ≥ 4,5:1 | 5,51:1 ĐẠT | 5,93:1 ĐẠT |
+| `--bar-in-t` / `--bar-in` | Chữ trên thanh đang ở | ≥ 4,5:1 | 12,49:1 ĐẠT | 12,76:1 ĐẠT |
+| `--bar-cf-t` / `--bar-cf` | Chữ trên thanh đã xác nhận | ≥ 4,5:1 | 5,77:1 ĐẠT | 7,07:1 ĐẠT |
+| `--bar-long-t` / `--bar-long` | Chữ trên thanh / chip dài hạn (Sage Deep) | ≥ 4,5:1 | 5,04:1 ĐẠT | 5,26:1 ĐẠT |
+| `--focus` / `--bg` | Viền focus trên nền trang | ≥ 3:1 | 5,37:1 ĐẠT | 9,31:1 ĐẠT |
+| `--focus` / `--surface` | Viền focus trên thẻ | ≥ 3:1 | 5,80:1 ĐẠT | 8,49:1 ĐẠT |
+| `--line-strong` / `--surface` | Viền ô nhập trên thẻ; viền chip `ink` (v0.4.1) | ≥ 3:1 | 3,82:1 ĐẠT | 4,00:1 ĐẠT |
 | `--line-strong` / `--bg` | Viền ô nhập trên nền trang | ≥ 3:1 | 3,54:1 ĐẠT | 4,38:1 ĐẠT |
-| `--oak-ink` / `--surface-2` | Chữ nhấn trên nền phụ / seg đang chọn | ≥ 4,5:1 | 5,07:1 ĐẠT | 7,64:1 ĐẠT |
-| `--ink` / `--oak-soft` | Chữ chính trên dòng/mục đang chọn | ≥ 4,5:1 | 11,56:1 ĐẠT | 10,34:1 ĐẠT |
+| `--oak-ink` / `--surface-2` | Chữ nhấn trên Cream / seg đang chọn | ≥ 4,5:1 | 4,91:1 ĐẠT | 7,60:1 ĐẠT |
+| `--ink` / `--oak-soft` | Chữ chính trên dòng/mục đang chọn | ≥ 4,5:1 | 11,59:1 ĐẠT | 10,16:1 ĐẠT |
 | `--bad` / `--bg` | Chữ lỗi / quá hạn trên nền trang | ≥ 4,5:1 | 5,33:1 ĐẠT | 6,87:1 ĐẠT |
 | `--warn` / `--bg` | Chữ cảnh báo trên nền trang | ≥ 4,5:1 | 5,60:1 ĐẠT | 8,25:1 ĐẠT |
 | `--bad` / `--warn-bg` | Đếm ngược quá hạn trên nền cảnh báo | ≥ 4,5:1 | 5,01:1 ĐẠT | 5,22:1 ĐẠT |
-| `--focus-on-dark` / `--bar-in` | Viền focus ở đầu trang app khách (R1 đo thực tế 2,22:1 – FB-R1-UXR-UXD-05) | ≥ 3:1 | 12,08:1 ĐẠT | 12,76:1 ĐẠT |
-| `--focus-on-dark` / `--ink` | Viền focus trên toast / nền --ink | ≥ 3:1 | 12,46:1 ĐẠT | 14,25:1 ĐẠT |
-| `--focus` / `--side` | Viền focus trên sidebar | ≥ 3:1 | 4,93:1 ĐẠT | 8,89:1 ĐẠT |
-| `--focus` / `--surface-2` | Viền focus trên nền phụ / seg | ≥ 3:1 | 5,07:1 ĐẠT | 7,64:1 ĐẠT |
-| `--focus` / `--oak-soft` | Viền focus trên dòng đang chọn | ≥ 3:1 | 5,04:1 ĐẠT | 6,75:1 ĐẠT |
-| `--focus` / `--warn-bg` | Viền focus của nút trong alert cảnh báo | ≥ 3:1 | 5,11:1 ĐẠT | 7,07:1 ĐẠT |
-| `--focus` / `--bad-bg` | Viền focus của nút trong alert lỗi | ≥ 3:1 | 4,85:1 ĐẠT | 7,63:1 ĐẠT |
-| `--focus` / `--info-bg` | Viền focus của nút trong alert thông tin | ≥ 3:1 | 4,99:1 ĐẠT | 7,23:1 ĐẠT |
-| `--line-strong` / `--side` | Viền ô nhập/seg đặt trên sidebar (R1: 2,92:1 – FB-R1-UXR-UXD-13) | ≥ 3:1 | 3,21:1 ĐẠT | 4,19:1 ĐẠT |
-| `--line-strong` / `--surface-2` | Viền seg trên nền phụ | ≥ 3:1 | 3,30:1 ĐẠT | 3,60:1 ĐẠT |
-| `--oak-ink` / `--surface` | Cột biểu đồ công suất (thay --oak 2,94:1 – FB-R1-UXR-UXD-03) | ≥ 3:1 | 5,87:1 ĐẠT | 8,49:1 ĐẠT |
+| `--focus-on-dark` / `--bar-in` | Viền focus ở đầu trang app khách | ≥ 3:1 | 12,49:1 ĐẠT | 12,76:1 ĐẠT |
+| `--focus-on-dark` / `--ink` | Viền focus trên toast / nền --ink | ≥ 3:1 | 12,49:1 ĐẠT | 14,00:1 ĐẠT |
+| `--focus` / `--side` | Viền focus trên sidebar | ≥ 3:1 | 4,91:1 ĐẠT | 8,89:1 ĐẠT |
+| `--focus` / `--surface-2` | Viền focus trên nền phụ / seg | ≥ 3:1 | 4,91:1 ĐẠT | 7,60:1 ĐẠT |
+| `--focus` / `--oak-soft` | Viền focus trên dòng đang chọn | ≥ 3:1 | 4,98:1 ĐẠT | 6,75:1 ĐẠT |
+| `--focus` / `--warn-bg` | Viền focus của nút trong alert cảnh báo | ≥ 3:1 | 5,05:1 ĐẠT | 7,07:1 ĐẠT |
+| `--focus` / `--bad-bg` | Viền focus của nút trong alert lỗi | ≥ 3:1 | 5,01:1 ĐẠT | 7,63:1 ĐẠT |
+| `--focus` / `--info-bg` | Viền focus của nút trong alert thông tin | ≥ 3:1 | 4,93:1 ĐẠT | 7,23:1 ĐẠT |
+| `--line-strong` / `--side` | Viền ô nhập/seg đặt trên sidebar | ≥ 3:1 | 3,24:1 ĐẠT | 4,19:1 ĐẠT |
+| `--line-strong` / `--surface-2` | Viền seg trên nền phụ | ≥ 3:1 | 3,24:1 ĐẠT | 3,58:1 ĐẠT |
+| `--oak-ink` / `--surface` | Cột biểu đồ công suất (không dùng --oak: 2,94:1) | ≥ 3:1 | 5,80:1 ĐẠT | 8,49:1 ĐẠT |
 | `--ok` / `--bad` | Phân biệt Đạt vs Lỗi chỉ bằng màu – KHÔNG đủ, bắt buộc icon + chữ (HR-11) | không áp dụng | 1,03:1 | 1,18:1 |
-| `--ink-inverse` / `--bad` | Chữ nút "nguy hiểm", badge đếm | ≥ 4,5:1 | 5,76:1 ĐẠT | 6,87:1 ĐẠT |
-| `--ink` / `--warn-bg` | Chữ thân trong alert cảnh báo, thanh mất mạng (hi-fi R2) | ≥ 4,5:1 | 11,71:1 ĐẠT | 10,83:1 ĐẠT |
-| `--ink` / `--bad-bg` | Chữ thân trong alert lỗi, thanh 'Chưa gán căn' (hi-fi R2) | ≥ 4,5:1 | 11,11:1 ĐẠT | 11,68:1 ĐẠT |
-| `--ink` / `--info-bg` | Chữ thân trong alert thông tin, khối 'bộ đồ dùng thêm' (hi-fi R2) | ≥ 4,5:1 | 11,43:1 ĐẠT | 11,07:1 ĐẠT |
-| `--ink` / `--ok-bg` | Chữ thân trong alert thành công (hi-fi R2) | ≥ 4,5:1 | 11,86:1 ĐẠT | 10,68:1 ĐẠT |
-| `--ink` / `--surface-2` | Chữ chính trên nền phụ (ô chỉ đọc, thanh 'Đã kín') (hi-fi R2) | ≥ 4,5:1 | 11,60:1 ĐẠT | 11,70:1 ĐẠT |
-| `--ink` / `--side` | Chữ chính trên sidebar (hi-fi R2) | ≥ 4,5:1 | 11,30:1 ĐẠT | 13,62:1 ĐẠT |
-| `--info` / `--surface` | Chữ/icon thông tin trên thẻ, mã operationId (hi-fi R2) | ≥ 4,5:1 | 6,49:1 ĐẠT | 6,96:1 ĐẠT |
-| `--oak-ink` / `--side` | Icon/chữ mục đang chọn trên sidebar (hi-fi R2) | ≥ 4,5:1 | 4,93:1 ĐẠT | 8,89:1 ĐẠT |
-| `#2B2B2B` / `--oak` | Số chú thích tròn trong wireframe (chỉ tài liệu) | ≥ 4,5:1 | 4,58:1 ĐẠT | – |
+| `--ink` / `--warn-bg` | Chữ thân trong alert cảnh báo, thanh mất mạng | ≥ 4,5:1 | 11,74:1 ĐẠT | 10,64:1 ĐẠT |
+| `--ink` / `--bad-bg` | Chữ thân trong alert lỗi, thanh 'Chưa gán căn' | ≥ 4,5:1 | 11,67:1 ĐẠT | 11,47:1 ĐẠT |
+| `--ink` / `--info-bg` | Chữ thân trong alert thông tin | ≥ 4,5:1 | 11,47:1 ĐẠT | 10,88:1 ĐẠT |
+| `--ink` / `--ok-bg` | Chữ thân trong alert thành công | ≥ 4,5:1 | 11,90:1 ĐẠT | 10,50:1 ĐẠT |
+| `--ink` / `--surface-2` | Chữ chính trên Cream (ô chỉ đọc, thanh 'Đã kín') | ≥ 4,5:1 | 11,43:1 ĐẠT | 11,43:1 ĐẠT |
+| `--ink` / `--side` | Chữ chính trên sidebar | ≥ 4,5:1 | 11,43:1 ĐẠT | 13,38:1 ĐẠT |
+| `--ink-inverse` / `--bad` | Chữ nút nguy hiểm (Hủy đơn, Thu hồi), badge đếm | ≥ 4,5:1 | 5,33:1 ĐẠT | 6,87:1 ĐẠT |
+| `--info` / `--surface` | Icon mức info của mục 'Cần chú ý' (C20) trên thẻ; mã operationId (chỉ tài liệu hi-fi) | ≥ 4,5:1 | 6,49:1 ĐẠT | 6,96:1 ĐẠT |
+| `--oak-ink` / `--side` | Icon/chữ mục đang chọn trên sidebar | ≥ 4,5:1 | 4,91:1 ĐẠT | 8,89:1 ĐẠT |
+| `--ink` / `--cream` | Chữ chính trên Cream (dải/thẻ trang khách, phiếu trên màn) | ≥ 4,5:1 | 11,43:1 ĐẠT | 11,43:1 ĐẠT |
+| `--muted` / `--cream` | Chữ phụ Stone trên Cream – sát ngưỡng, không dùng dưới 12px | ≥ 4,5:1 | 4,53:1 ĐẠT | 5,67:1 ĐẠT |
+| `--oak-ink` / `--cream` | Link/nhãn Earth Brown trên Cream | ≥ 4,5:1 | 4,91:1 ĐẠT | 7,60:1 ĐẠT |
+| `--focus` / `--cream` | Viền focus trên Cream | ≥ 3:1 | 4,91:1 ĐẠT | 7,60:1 ĐẠT |
+| `--muted` / `--ok-bg` | Chữ phụ trong alert thành công | ≥ 4,5:1 | 4,71:1 ĐẠT | 5,20:1 ĐẠT |
+| `--muted` / `--warn-bg` | Chữ phụ trong alert cảnh báo | ≥ 4,5:1 | 4,65:1 ĐẠT | 5,27:1 ĐẠT |
+| `--muted` / `--bad-bg` | Chữ phụ trong alert lỗi (v0.3 bad-bg #F5DFDC + Stone: 4,41 – lý do làm nhạt bad-bg) | ≥ 4,5:1 | 4,62:1 ĐẠT | 5,69:1 ĐẠT |
+| `--muted` / `--info-bg` | Chữ phụ trong alert thông tin – sát ngưỡng | ≥ 4,5:1 | 4,54:1 ĐẠT | 5,39:1 ĐẠT |
+| `--on-earth` / `--earth` | Chữ nút thương hiệu: White trên Earth Brown | ≥ 4,5:1 | 6,10:1 ĐẠT | 6,10:1 ĐẠT |
+| `--brand-ivory` / `--brand-earth` | Chữ Ivory trên Earth Brown (nhãn, huy hiệu) | ≥ 4,5:1 | 5,37:1 ĐẠT | 5,37:1 ĐẠT |
+| `--brand-ink` / `--brand-oak` | Chữ Ink trên Light Oak (nhãn trên nền Oak) – sát ngưỡng | ≥ 4,5:1 | 4,59:1 ĐẠT | 4,59:1 ĐẠT |
+| `--brand-white` / `--brand-oak` | White trên Light Oak – guideline p19 cho phép, đo KHÔNG đạt → CẤM cho chữ < 24px (dùng Earth Brown) | cấm (≥ 4,5:1 không đạt) | 3,09:1 KHÔNG ĐẠT – cấm | 3,09:1 KHÔNG ĐẠT – cấm |
+| `--brand-ivory` / `--brand-oak` | Ivory trên Light Oak – như trên, CẤM | cấm (≥ 4,5:1 không đạt) | 2,72:1 KHÔNG ĐẠT – cấm | 2,72:1 KHÔNG ĐẠT – cấm |
+| `--brand-stone` / `--brand-white` | Chữ phụ trên giấy trắng (phiếu in A5) | ≥ 4,5:1 | 5,62:1 ĐẠT | 5,62:1 ĐẠT |
+| `--brand-ink` / `--brand-white` | Chữ chính trên giấy trắng (phiếu in A5) | ≥ 4,5:1 | 14,20:1 ĐẠT | 14,20:1 ĐẠT |
+| `--brand-ivory` / `--brand-ink` | Ivory trên Ink (nền tối, chân trang, dải tối) | ≥ 4,5:1 | 12,49:1 ĐẠT | 12,49:1 ĐẠT |
+| `--sage` / `--bg` | Sage trên Ivory – chỉ trang trí; guideline p19 'tránh Sage làm chữ trên nền sáng' | không áp dụng | 2,91:1 | 5,26:1 |
+| `--oak` / `--bg` | Light Oak trên Ivory – chỉ nét kẻ/logo; guideline p19 'tránh Oak làm chữ trên nền sáng' | không áp dụng | 2,72:1 | 7,07:1 |
+| `--bar-long` / `--bar-in` | Thanh dài hạn vs đang ở – khác độ sáng; vẫn bắt buộc tiền tố 'HĐ' + icon lịch tháng (D4) | không áp dụng | 2,48:1 | 2,43:1 |
+| `--bar-long` / `--bar-cf` | Thanh dài hạn vs đã xác nhận – chế độ tối gần độ sáng, phân biệt bằng sắc độ + 'HĐ' + icon (D4) | không áp dụng | 2,33:1 | 1,35:1 |
+| `--bar-cf` / `--bg` | Thanh đã xác nhận vs nền trang (v0.4: 2,03:1) – thanh luôn có chữ + icon ✓ (D4) | không áp dụng | 2,16:1 | 7,07:1 |
+| `--bar-cf` / `--surface` | Thanh đã xác nhận vs ô lưới rack (nền --surface) | không áp dụng | 2,34:1 | 6,45:1 |
+| `--bar-cf` / `--bar-in` | Thanh đã xác nhận vs đang ở – khác sắc (gỗ / Ink); icon ✓ vs giường (D4) | không áp dụng | 5,77:1 | 1,80:1 |
 
-Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → người mù màu đỏ–lục không phân biệt được (HR-11). Vì vậy **mọi** chỗ dùng hai màu này đều có icon khác nhau (✓ / ✕ / ?) và chữ.
+Ghi chú:
+- `--ok` và `--bad` chỉ khác nhau 1,03:1 về độ sáng, nên người mù màu đỏ–lục không phân biệt được (HR-11). Vì vậy **mọi** chỗ dùng hai màu này đều có icon khác nhau (✓ / ✕ / ?) và chữ.
+- Thanh dài hạn và thanh đã xác nhận ở chế độ tối gần cùng độ sáng (1,35:1; v0.4: 1,15:1). Hai thanh phân biệt bằng sắc độ (xanh rêu / vàng gỗ), tiền tố "HĐ" và icon lịch tháng (D4) – như v0.3.
+- `--bar-cf` v0.4.1 = Light Oak 80% + Ivory 20% = `#BEA174`, cùng giá trị ở hai chế độ (critic kickoff #18):
+  - chữ trên thanh: Ink 5,77:1 (sáng; v0.4: 6,15), `#1B1A18` 7,07:1 (tối; v0.4: 6,04);
+  - thanh so với nền trang 2,16:1 (v0.4: 2,03), so với ô lưới rack 2,34:1 – thanh tách nền rõ hơn một chút;
+  - chế độ tối, thanh đã xác nhận so với thanh đang ở (Cream nhạt) còn 1,80:1 (v0.4: 2,11). Hai thanh khác sắc (gỗ / kem trung tính) và khác icon (✓ / giường), nên vẫn đúng D4.
+- Số chú thích tròn trong wireframe (chữ Ink trên `--oak`, chỉ trong tài liệu): 4,59:1.
 
 ### 2.3 Màu trạng thái
+
+**Tông chip / ô trạng thái (C7) – v0.4.1.** Mỗi trạng thái chọn **một** tông dưới đây và **luôn kèm icon + chữ** (D4).
+
+| Tông | Nền / chữ / viền | Dùng cho | Không dùng cho |
+|---|---|---|---|
+| `ok` | `--ok-bg` / `--ok` | Thành công, Đạt, Sẵn sàng, Đã xong | – |
+| `warn` | `--warn-bg` / `--warn` | Cần hành động sớm, sắp hết hạn, chờ duyệt | – |
+| `bad` | `--bad-bg` / `--bad` | Lỗi, Không đạt, Khóa, Quá hạn | – |
+| `oak` | `--oak-soft` / `--oak-ink` | Bước trung gian trong quy trình riêng của OTTIMO: VC chờ kiểm, CL, đã gửi khai báo | – |
+| **`ink`** *(mới v0.4.1)* | `--surface` / `--ink` / viền 1px `--line-strong` (13,50:1; viền 3,82:1) | Trạng thái **đang diễn ra hoặc đã tiếp nhận, đúng tiến độ**: OC "Có khách", khai báo `scanned`/`pre`, yêu cầu khách `acknowledged`/`in_progress`, phiếu sửa "Đang sửa", hoa hồng `earned`, "Máy này", đơn `in_house` (chip) | Trạng thái cần hành động (dùng `warn`/`bad`) |
+| `neutral` | `--surface-2` / `--muted` (Stone) | Trạng thái **thụ động, mới tạo hoặc đã đóng**: chưa có, đã gửi, đã hủy, không tính, đã trả phòng | – |
+| `info` | `--info-bg` / `--info` | **Chỉ thông báo**: Alert/Banner C19, mục "Cần chú ý" mức `info` C20, khối ghi chú 6.14 (`.amenity`) | **Mọi trạng thái của đối tượng** (chip, ô buồng, thanh rack, thẻ việc) – critic kickoff #19: xanh lam nằm ngoài bảng màu, chỉ được giữ ở chỗ có chức năng báo tin (2.4) |
+
+- Phân biệt `ink` với `neutral` không chỉ bằng màu: `ink` có viền và chữ Ink đậm, `neutral` không viền, chữ Stone; hai nhóm còn khác icon.
+- `.chip.info` trong `hifi.css`/`wf.css` từ v0.4.1 là **bí danh** của `.chip.ink`. Code đang truyền `tone="info"` sẽ tự hiện Ink ở bản build kế tiếp mà không phải sửa. FE/MOB đổi sang `ink` theo đợt B0b (11.6); bí danh bị xóa ở v0.5.
+- Chú thích tài liệu trong wireframe/hi-fi (`.rbac-note`, `.role-tag`, `.note-rbac`, `.spec .op`) vẫn dùng `--info`. Đó là chú thích cho người đọc thiết kế, không lên sản phẩm.
 
 **Trạng thái đơn** (tên kỹ thuật theo BR-301 / decision-log – không đổi tên):
 
 | `status` | Nhãn VI | Nhãn EN | Thanh rack | Icon | Phân biệt không cần màu |
 |---|---|---|---|---|---|
 | `hold` | Giữ chỗ · chờ cọc | On hold · awaiting deposit | nền `--surface`, viền **đứt** 2px `--oak-ink` | đồng hồ cát | viền đứt + bộ đếm "còn 5 giờ 20 phút" |
-| `confirmed` | Đã xác nhận | Confirmed | `--bar-cf` | dấu ✓ | icon + nhãn trong drawer |
+| `confirmed` | Đã xác nhận | Confirmed | `--bar-cf` (Light Oak 80% + Ivory 20%) | dấu ✓ | icon + nhãn trong drawer |
 | `in_house` | Đang ở | In house | `--bar-in` (đậm) | giường | icon |
 | `checked_out` | Đã trả phòng | Checked out | `--surface-2`, chữ `--muted` | cửa ra | icon, nhạt |
 | `cancelled` | Đã hủy | Cancelled | **không hiện trên rack** | ✕ | chip gạch ngang trong danh sách/CRM |
 | `no_show` | Không đến | No-show | **không hiện trên rack** | người ✕ | chip `bad` |
-| (loại) dài hạn | Hợp đồng dài hạn | Long-term lease | `--bar-long` + tiền tố "HĐ" | lịch tháng | tiền tố chữ "HĐ" |
+| (loại) dài hạn | Hợp đồng dài hạn | Long-term lease | `--bar-long` (v0.4: Sage Deep, chữ Ivory) + tiền tố "HĐ" | lịch tháng | tiền tố chữ "HĐ" |
 | (khối) OOO | Khóa phòng | Out of order | sọc chéo 45° `--bad-bg`/`--surface`, viền `--bad` | ổ khóa | sọc + ổ khóa + lý do |
 | `confirmed` + `conflictState=open` | Chưa gán căn – xung đột OTA | Unassigned – OTA conflict | làn riêng trên lưới; thanh `--bad-bg`, viền **đứt** 2px `--bad` | cảnh báo | làn có tiêu đề chữ + "cần gán căn" |
 | (dạng xem sale/CTV) `unavailable` | Đã kín / Không bán | Taken / Not for sale | nền đặc `--surface-2`, viền đứt `--line-strong`, chữ `--ink` (Bước 4: bỏ sọc dưới chữ – 4,49:1) | – | chữ "Đã kín"; không tên khách |
@@ -158,36 +263,94 @@ Ghi chú: `--ok` vs `--bad` chỉ khác nhau 1,03:1 về độ sáng → ngườ
 | VI | ok | khiên ✓ |
 | VD | warn | chổi |
 | CL | oak | chổi (nền oak-soft) |
-| OC | info | người |
+| OC | **ink** (v0.4.1: chữ Ink, viền `--line-strong` – bỏ `info`) | người |
 | OD | warn | người + chổi |
 | OOO | bad | ổ khóa |
 
 **Kết quả kiểm tra** (HR-07): `pass` Đạt (ok, ✓, viền liền) · `fail` Không đạt (bad, ✕, viền liền 2px) · `unknown` Chưa kiểm được – cần kiểm tay (warn, ?, viền **đứt** 2px).
 
-**Khai báo lưu trú** (BR-607, SM-05): `none` neutral · `partial` warn · `review` warn · `scanned` info · `pre` info · `sent` oak · `confirmed` ok · `needs_update` warn · `updated` ok · `void` neutral gạch ngang.
+**Khai báo lưu trú** (BR-607, SM-05): `none` neutral (thẻ) · `partial` warn (người) · `review` warn (cảnh báo) · `scanned` **ink (quét)** · `pre` **ink (quả địa cầu)** · `sent` oak (gửi đi) · `confirmed` ok (khiên) · `needs_update` warn (lịch) · `updated` ok (✓) · `void` neutral gạch ngang (✕). Sắp/quá hạn khai báo hiện thêm chip warn "Khai báo quá hạn" – không đổi tông của trạng thái.
 
-**Yêu cầu khách** (SM-15): `new` neutral · `acknowledged` info · `in_progress` info · `done` ok · `declined` neutral. **Yêu cầu duyệt** (SM-10): `pending` warn · `approved` ok · `rejected` bad · `escalated` warn · `cancelled` neutral. **Hoa hồng** (SM-11): `projected` neutral · `earned` info · `payable` warn · `paid` ok · `void` neutral gạch ngang.
+**Yêu cầu khách** (SM-15): `new` neutral (tin nhắn) · `acknowledged` **ink (chuông)** · `in_progress` **ink (đồng hồ cát)** · `done` ok (✓) · `declined` neutral (✕). **Yêu cầu duyệt** (SM-10): `pending` warn · `approved` ok · `rejected` bad · `escalated` warn · `cancelled` neutral. **Hoa hồng** (SM-11): `projected` neutral (đồng hồ) · `earned` **ink (ngôi sao)** · `payable` warn (tiền) · `paid` ok (✓) · `void` neutral gạch ngang (✕).
+
+Tên icon theo bộ `@ottimo/ui` (`icons.ts`): id, users, alert, scan, globe, out, shield, calendar, check, x, chat, bell, hourglass, clock, star, cash. Máy đọc: `tokens.json` → `status.registration`, `status.guestRequest`, `status.commission`.
+
+### 2.4 Ngoại lệ chức năng – màu ngoài bảng thương hiệu (v0.4, cập nhật v0.4.1)
+
+| Nhóm | Token | Vì sao giữ | Giới hạn dùng |
+|---|---|---|---|
+| **Trạng thái** | `--ok`/`--ok-bg`, `--warn`/`--warn-bg`, `--bad`/`--bad-bg`, `--info`/`--info-bg` | Bảng thương hiệu không có màu báo thành công/cảnh báo/lỗi. Nhân viên cần nhận ra Đạt / Cảnh báo / Lỗi / Thông tin ngay, theo quy ước quen thuộc (xanh lá – nâu vàng – đỏ – xanh lam). Bốn màu đã ngả ấm, ít bão hòa, đậm ngang Ink/Earth Brown để không lấn bảng màu | Chỉ để nói **trạng thái**: chip, icon, viền và nền alert, chữ lỗi dưới ô nhập. Không trang trí, không tô mảng lớn (nền `*-bg` chỉ sau chip/alert). Luôn kèm icon + chữ (D4). Trang khách: chỉ ở alert và lỗi ô nhập. Landing: không dùng. **v0.4.1: `--info`/`--info-bg` hẹp hơn nữa – chỉ cho thông báo (C19 alert/banner, C20 mức `info`, khối ghi chú 6.14).** Trạng thái của đối tượng trước đây tông `info` (OC, `scanned`, `pre`, `acknowledged`, `in_progress`, `earned`…) chuyển sang chip `ink` (2.3), cùng lý do v0.4 đã bỏ xanh khỏi thanh "dài hạn" |
+| **Thanh "dài hạn"** | `--bar-long`, `--bar-long-t` | v0.3: xanh xám #5B7387, ngoài bảng → v0.4: **Sage Deep** #646859 (Sage pha Ink 40%), chữ Ivory 5,04:1. Chế độ tối: Sage #8A9079, chữ tối 5,26:1. **Đã về bảng màu – không còn là ngoại lệ về sắc** | Rack và chip "HĐ" có thể vượt 5% diện tích khi nhiều căn dài hạn. Chấp nhận vì rack là màn vận hành nội bộ |
+| **Chế độ tối** | mọi giá trị `dark` | Guideline không quy định nền tối. Bản tối là tint/shade của bảng, dành cho nhân viên làm ca đêm | **Trang khách (guest-web) và landing chỉ chế độ sáng** (11.5). Desk/PWA giữ theo hệ điều hành + công tắc |
+| **Tint/shade** | `--surface`, `--line`, `--line-strong`, `--deco`, `--oak-soft`, `--bar-cf`, `--oak` (tối) và các nền tối pha đen | Giao diện cần nhiều bậc nền/viền hơn 7 màu | Pha từ đúng một màu bảng, **một tỷ lệ cho cả ba kênh** (cột nguồn ở 2.1); không tạo sắc mới. `gen_tokens.py` kiểm từng token (`tint_fails: 0`). **v0.4.1:** `--bar-cf` (hai chế độ) và `--oak` tối sinh lại bằng `mix()` = Light Oak 80% + Ivory 20% `#BEA174`. Bản v0.4 `#C9A56E`/`#B8925A` pha R 37% / G 24% / B 16% – thực chất là một sắc vàng cam mới (critic kickoff #18) |
+| **Tint nắn sắc** *(v0.4.1 – ngoại lệ có kiểm)* | `--oak-ink`/`--focus` tối `#D9B987` (lệch 17,6); `--oak-soft` sáng `#F1E7D6` (5,2) và tối `#3A3226` (8,4); `--line-strong` sáng `#857E71` (6,4) | Đo bằng bảng kiểm nguồn trong `tools/contrast.md`. Giữ vì:<br>• `--oak-ink`/`--focus` tối: link, chữ nhấn và viền focus cần ánh gỗ đủ đậm để khác chữ Cream thường trên nền tối. Pha đúng tỷ lệ (Light Oak 60% + Ivory 40% = `#CBB591`) xám hơn, gần chữ thường.<br>• `--oak-soft`: pha đúng tỷ lệ (Ivory 90% + Light Oak 10% = `#EDE6DA`) gần như trùng Cream `#EDE6D8` của sidebar, header bảng, nút khóa → mất nền "đang chọn / hôm nay". Bản tối cũng vậy.<br>• `--line-strong` sáng: lệch ấm nhẹ, mắt không thấy; viền ô nhập đã đo ≥ 3:1 trên 9 nền từ v0.3 | Chỉ các token này, chỉ đúng giá trị này. Mỗi ngoại lệ có lý do trong `TINT_EXCEPTIONS` của `gen_tokens.py`. Token mới không được nắn sắc: lệch > 4,5 mà không khai ở đây thì script báo lỗi. Xét lại cả nhóm khi đo chế độ tối ở R3 |
+
+### 2.5 Chỗ guideline chưa đạt chuẩn tiếp cận – DS chọn gì và đề xuất guideline v1.1
+
+UXD ghi lệch theo yêu cầu INV ("lệch thì guideline thắng; UXD ghi lại chỗ lệch và đề xuất sửa"). Các đề xuất dưới đây trùng với `landing/concept.md` 2.3 và 3.1 và gom chung một lượt gửi người làm guideline.
+
+| Guideline nói | Đo / thực tế | DS v0.4 làm | Đề xuất guideline v1.1 |
+|---|---|---|---|
+| p19 "White trên Oak/Earth – nút, nhãn" | White/Oak 3,09:1 – không đạt AA cho chữ thường | Nút/nhãn màu gỗ = Earth Brown (6,10:1). Oak không làm nền chữ trắng | "White trên Earth Brown cho nút; Oak chỉ cho nét kẻ, chữ ≥ 24px, hoặc chữ Ink trên Oak" |
+| p22 H1 40–64pt, H2 26–32pt (thang in) | Màn quầy dày thông tin; điện thoại 360px | Thang chữ màn hình nhỏ hơn (3.1). Trang khách/landing dùng thang lớn hơn | Thêm "thang chữ màn hình" bên cạnh thang in |
+| p22 H3 Subhead = Be Vietnam Pro SemiBold | v0.3 dùng Lora 600 | v0.4 về Be Vietnam Pro 600 | – (DS sửa theo guideline) |
+| p22 tracking "+4 / +2 / +10" không ghi đơn vị | – | Hiểu là % cỡ chữ: 0,04em / 0,02em / 0,1em **[GIẢ ĐỊNH]** (như landing G-6) | Ghi rõ đơn vị |
+| p21 "Lora: tên phòng" so với bảng cấp chữ p22 | Hai trang không nói cùng một ý | Tên phòng cho khách dùng Lora. Trên Desk tên phòng là nhãn phụ nhỏ, dùng sans (11.3) | Ghi "Tên phòng: Lora 400–500, cỡ giữa H2 và H3; nhãn phụ trên màn vận hành dùng sans" |
+| Không nói tới màu trạng thái, chế độ tối | – | 2.4 | Thêm mục "màu chức năng" |
 
 ## 3. Chữ
 
-| Token | Font | Cỡ / dòng | Dùng cho |
-|---|---|---|---|
-| `display` | Lora 600 | 32 / 1,2 | Màn hoàn tất của khách, tiêu đề lớn app khách |
-| `h1` | Lora 600 | 24 / 1,25 | Tiêu đề màn hình (R0: 22) |
-| `h2` | Lora 600 | 19 / 1,3 | Tiêu đề thẻ, modal |
-| `h3-label` | Be Vietnam Pro 600, chữ hoa, giãn .1em | **12** / 1,4 | Nhãn nhóm (R0: 11px – tăng lên 12) |
-| `kpi` | Lora 600, tabular-nums | 26 / 1,15 | Số KPI, số căn, tổng bill |
-| `body-desk` | Be Vietnam Pro 400 | 14 / 1,5 | Thân chữ máy tính quầy |
-| `body-mobile` | Be Vietnam Pro 400 | **16** / 1,5 | Thân chữ mọi màn điện thoại (tránh iOS tự phóng ô nhập) |
-| `body-hk` | Be Vietnam Pro 500 | **17** / 1,45 | Giao diện buồng phòng/bảo trì |
-| `caption` | Be Vietnam Pro 400 | **12** / 1,45 | Chữ phụ nhỏ nhất trên máy tính |
+| Token | Font | Cỡ / dòng / giãn chữ | Dùng cho | Cấp guideline (p22) |
+|---|---|---|---|---|
+| `display` | Lora **500** | 32 / 1,2 / 0,02em | Màn hoàn tất của khách, tiêu đề lớn app khách | H1 Display (trang khách ≥ 768px tới 40px, giãn 0,04em) |
+| `h1` | Lora **500** | 24 / 1,25 / 0,02em | Tiêu đề màn hình | H2 Heading – thang màn hình |
+| `h2` | Lora **500** | 19 / 1,3 / 0,02em | Tiêu đề thẻ, modal | H2 Heading – thang màn hình |
+| `h3` *(v0.4)* | **Be Vietnam Pro 600** | 16 / 1,3 / 0 | Tiêu đề nhóm trong thẻ, mục con (v0.3: Lora 600 – lệch guideline) | H3 Subhead |
+| `h3-label` | Be Vietnam Pro 600, CHỮ HOA | 12 / 1,4 / 0,1em | Nhãn nhóm | Label |
+| `room-name` *(v0.4)* | Lora 500 | theo ngữ cảnh (trang khách 20) | Tên phòng cho khách – "The Pine" (11.3) | p21 "Lora: tên phòng" |
+| `kpi` | Lora 600, tabular-nums | 26 / 1,15 | Số KPI, số căn, tổng bill | – (số cần đậm) |
+| `body-desk` | Be Vietnam Pro 400 | 14 / 1,5 | Thân chữ máy tính quầy | Body |
+| `body-mobile` | Be Vietnam Pro 400 | 16 / 1,5 | Thân chữ mọi màn điện thoại (tránh iOS tự phóng ô nhập) | Body |
+| `body-hk` | Be Vietnam Pro 500 | 17 / 1,45 | Giao diện buồng phòng/bảo trì | Body |
+| `caption` | Be Vietnam Pro 400 | 12 / 1,45 | Chữ phụ nhỏ nhất trên máy tính | Body |
+| `mono` *(v0.4)* | **JetBrains Mono 400** | 13 / 1,4 (Desk); **16** (điện thoại, trang khách) | Mã đặt phòng (`OTM-0150`), số bill (`F26-000123`), Wi-Fi (tên mạng, mật khẩu), nội dung chuyển khoản VietQR, mã hồ sơ khai báo, mã phiếu sửa (`WO-00001`), ô mã OTP (C31), mã cấp cho khách (C32) | Mono |
 
 Quy tắc:
-- **Cỡ tối thiểu**: máy tính 12px (kể cả nhãn chú thích wireframe, `.api`, `.role-tag` – Bước 4 bỏ 11px); điện thoại 14px (chữ phụ, chip, nhãn thanh dưới, chữ toast 16px), 16px (thân, ô nhập); buồng phòng **16px cho mọi chữ** (thân 17px; nhãn ô nhập, chip, alert, thanh dưới 16px). Bỏ hết cỡ 9,5 / 10 / 10,5px của R0 (HR-10).
-- Đơn vị `rem` trong code, để phóng chữ của hệ điều hành/trình duyệt có tác dụng tới 200% không vỡ bố cục (WCAG 1.4.4).
-- Số tiền, giờ, số căn: `font-variant-numeric: tabular-nums`. Định dạng tiền theo `content-guide.md` mục 4.
-- **Tự host font** (SIL Open Font License 1.1 – miễn phí, không cần ESC): Lora (biến thiên 500–600 + italic 500), Be Vietnam Pro 400/500/600, định dạng woff2, `font-display: swap`, subset `latin`, `latin-ext`, `vietnamese`. Be Vietnam Pro **không có ký tự Cyrillic** → chuỗi tiếng Nga rơi về `system-ui` (Roboto/San Francisco/Segoe đều có Cyrillic); Lora có Cyrillic → tiêu đề RU vẫn dùng Lora. FE/MOB kiểm tra lại ở R3 (chữ Nga dài).
-- Mã đơn, mã hồ sơ khai báo, nội dung chuyển khoản: `mono`.
+- **Lora 500 cho tiêu đề** (v0.3: 600) **[GIẢ ĐỊNH]**.
+  - Guideline không ghi độ đậm; mẫu p21–p22 là Lora thường.
+  - 500 giữ nét thanh của thương hiệu mà vẫn rõ ở 19–24px trên màn. Lora 400 ở 19px trên nền Cream hơi mảnh.
+  - Lora 600 chỉ cho số: KPI, số căn, tổng tiền.
+  - `@fontsource/lora` 500/600 đã có sẵn trong `@ottimo/ui`.
+- **JetBrains Mono chỉ cho chuỗi mã**, không dùng cho câu.
+  - Font phân biệt rõ 0/O và 1/l/I – lý do guideline chọn cho Wi-Fi và mã đặt phòng.
+  - Tự host `@fontsource/jetbrains-mono` 400 + 500, ghim đúng phiên bản như hai font kia.
+  - Giấy phép SIL OFL 1.1, miễn phí – không cần ESC.
+  - Subset latin + latin-ext + vietnamese, `font-display: swap`.
+  - Mã dài trên điện thoại: giãn chữ 0,02em, không ngắt dòng giữa mã (`white-space: nowrap` + cuộn ngang trong ô nếu cần).
+- **Fallback theo guideline p22:** Georgia / Arial / Courier New – đã đưa vào `--serif`, `--sans`, `--mono`.
+  - Be Vietnam Pro không có Cyrillic, nên chuỗi RU rơi về Arial (có Cyrillic). Trên Android không có Arial thì dùng `system-ui`.
+  - Lora có Cyrillic, nên tiêu đề RU vẫn là Lora.
+- **Chữ hoa** chỉ cho Label (giãn 0,1em) và con dấu "ĐÃ THU ĐỦ / PAID IN FULL" (con dấu dạng Label). Không viết hoa cả câu để nhấn (guideline mục 2).
+- **Cỡ tối thiểu:**
+  - máy tính 12px;
+  - điện thoại 14px cho chữ phụ, chip, nhãn thanh dưới; 16px cho thân chữ, ô nhập, toast;
+  - buồng phòng 16px cho mọi chữ, thân 17px.
+- Đơn vị `rem` trong code, để phóng chữ tới 200% không vỡ bố cục (WCAG 1.4.4).
+- Số tiền, giờ, số căn dùng `font-variant-numeric: tabular-nums`. Định dạng tiền theo `content-guide.md` mục 4.
+- **Tự host mọi font** (SIL OFL 1.1, không CDN – CSP): Lora 500/600, Be Vietnam Pro 400/500/600, JetBrains Mono 400/500.
+
+### 3.1 Thang chữ màn hình so với guideline (ngoại lệ có chủ đích)
+
+Quy đổi: 1 pt = 1,333 px (định nghĩa CSS).
+
+| Cấp guideline | Guideline (in) | = px | Desk / PWA | Trang khách (điện thoại → ≥ 768px) | Lý do |
+|---|---|---|---|---|---|
+| H1 Display | 40–64 pt | 53–85 | `display` 32 | 32 → 40 | Màn 360px. Lời chào trên guest-web dài 25–35 ký tự |
+| H2 Heading | 26–32 pt | 35–43 | `h1` 24, `h2` 19 | 24 → 28 | Màn quầy có nhiều khối. Tiêu đề lớn đẩy dữ liệu xuống dưới nếp gấp |
+| H3 Subhead | 16–20 pt | 21–27 | `h3` 16 | 18 | Đứng ngay trên thân chữ 14–16px. 16–18px đậm 600 vẫn khác rõ thân chữ |
+| Body | 11–13 pt | 15–17 | 14 (Desk) / 16 / 17 (HK) | 16 | Trong khoảng; riêng Desk 14px cho mật độ |
+| Label | 9–11 pt | 12–15 | 12 | 13 | Trong khoảng |
+| Mono | 10–13 pt | 13–17 | 13 | 16 | Trong khoảng |
 
 ## 4. Khoảng cách, bo góc, kích thước, chuyển động
 
@@ -235,19 +398,19 @@ Quy tắc:
 | `<tr aria-selected>` để tô hàng đang sửa | `tr.is-editing` (FB-R2-UXD-FE-13) |
 | `[hidden]` bị `display` của lớp khác đè (vd `.rowlink`) | đã có `[hidden]{display:none !important}` toàn cục |
 
-## 5. Component (32)
+## 5. Component (34)
 
 Mỗi component có: mục đích · biến thể · trạng thái · quy tắc a11y. Minh họa trong wireframe (mã luồng trong ngoặc).
 
 | # | Component | Biến thể / trạng thái | Quy tắc chính |
 |---|---|---|---|
-| C1 | **Button** | `primary` (nền `--ink`), `secondary` (viền `--line-strong`), `ghost` (chữ `--oak-ink`), `danger` (nền `--bad`), `sm`; trạng thái hover, focus, đang xử lý ("Đang lưu…" + vô hiệu), disabled (`aria-disabled` + lý do gần nút) | Nhãn là **động từ + đối tượng** ("Hoàn tất trả phòng", không "OK"). Mỗi vùng tối đa 1 nút primary. Nút bị khóa phải có chữ giải thích vì sao (ví dụ "Dọn xong (còn 3 mục)") |
+| C1 | **Button** | `primary` (nền `--ink`, chữ `--ink-inverse` – Desk, HK, mọi màn nhân viên), **`brand`** *(v0.4)* (nền `--earth` Earth Brown, chữ `--on-earth` trắng 6,10:1 – nút chính trên trang khách, báo giá trên màn, landing), `secondary` (viền `--line-strong`), `ghost` (chữ `--oak-ink` = Earth Brown), `danger` (nền `--bad`), `sm`; trạng thái hover, focus, đang xử lý ("Đang lưu…" + vô hiệu), disabled (`aria-disabled` + lý do gần nút) | Nhãn là **động từ + đối tượng** ("Hoàn tất trả phòng", không "OK"). Mỗi vùng tối đa 1 nút primary hoặc brand. Nút bị khóa phải có chữ giải thích vì sao (ví dụ "Dọn xong (còn 3 mục)"). **Cấm nút nền Light Oak chữ trắng** (3,09:1 – mục 2.5) |
 | C2 | **IconButton** | 32 / 44 / 48px | Bắt buộc `aria-label`; tooltip hiện cả khi focus |
 | C3 | **Field (Input, Select, Textarea)** | mặc định, focus, lỗi (viền 2px `--bad` + dòng lỗi có icon ✕), chỉ đọc, đang kiểm (spinner nhỏ) | Nhãn luôn hiển thị phía trên (không dùng placeholder thay nhãn); `*` bắt buộc + chữ "Bắt buộc" cho trình đọc; lỗi gắn `aria-describedby`, `aria-invalid`; trợ giúp dưới ô; điện thoại cỡ 16px |
 | C4 | **Stepper +/−** | 44px (Touch), 56px (HK); có `data-max` | Thay ô số cho minibar, số thẻ, số khách (BL 8.3). `output aria-live="polite"` |
 | C5 | **Segmented control** | 2–5 lựa chọn | `aria-pressed`; dùng cho bộ lọc, kiểu xem, chọn phương thức |
 | C6 | **Checkbox / Radio / Switch** | Switch = `role="switch"` + `aria-checked` | Không tích sẵn cho đồng ý pháp lý (BR-609) |
-| C7 | **Chip trạng thái** | ok, warn, bad, info, oak, neutral, hold (viền đứt), strike | **Luôn có icon + chữ**; không dùng chip chỉ có chấm màu |
+| C7 | **Chip trạng thái** | ok, warn, bad, oak, **ink** (v0.4.1), neutral, hold (viền đứt), strike, long (Sage Deep – "HĐ", v0.4). `info` bỏ ở v0.4.1 – `.chip.info` là bí danh của `.chip.ink` tới v0.5 | **Luôn có icon + chữ**; không dùng chip chỉ có chấm màu. Chọn tông theo bảng đầu mục 2.3 (trạng thái đối tượng không dùng `info`). Không dùng `--sage` làm nền chip có chữ (Ink trên Sage 4,29:1 – không đạt) |
 | C8 | **Badge đếm** | số trên nền `--bad` | Kèm chữ ẩn "4 mục cần chú ý" |
 | C9 | **Card / KPI tile** | card, KPI (`kpi` + nhãn + diễn giải) | KPI luôn có nhãn đầy đủ và nguồn/công thức khi bấm |
 | C10 | **List row / Task item** | thường, `urgent` (viền trái 4px `--bad`), `soon` (`--warn`) | Toàn bộ dòng bấm được bằng một `button`/`a` thật (không bấm vào `tr`/`div` – BL 8.3) |
@@ -260,7 +423,7 @@ Mỗi component có: mục đích · biến thể · trạng thái · quy tắc 
 | C17 | **Stepper tiến trình (Steps)** | bước đã xong (✓), hiện tại, chưa tới | `aria-current="step"`; có "← Sửa lại" ở mọi bước |
 | C18 | **Toast** | xác nhận thường + nút Hoàn tác | Chỉ cho thông tin **không quan trọng**; `role="status"`; ≥ 6 giây, dừng khi rê/focus, có nút đóng. **Cấm** dùng toast cho nhắc pháp lý/tiền (HR-09) |
 | C19 | **Alert / Banner** | ok, warn, bad, info; banner mất mạng | Lỗi chặn: `role="alert"`; nhắc: `role="status"`. Câu theo mẫu content-guide mục 6 |
-| C20 | **Persistent task ("Cần chú ý")** | urgent, soon, normal | Ở lại tới khi xử lý xong; sinh từ quy tắc (BR-907); có nút hành động trực tiếp |
+| C20 | **Persistent task ("Cần chú ý")** | urgent, soon, info (mức `info` của mục cần chú ý – thông báo nên được dùng `--info`), normal | Ở lại tới khi xử lý xong; sinh từ quy tắc (BR-907); có nút hành động trực tiếp |
 | C21 | **Countdown** | bình thường, `warn` (< 2 giờ), `bad` (quá hạn → "Đã quá hạn 15 phút") | Hiện chữ, không chỉ màu; `aria-live` chỉ khi đổi mức, không đọc mỗi giây |
 | C22 | **CheckRow (kiểm tra 3 trạng thái)** | pass / fail / unknown (mục 6.4) | Không bao giờ hiện pass khi hệ thống chưa kiểm; unknown có nút "Tôi đã kiểm – Đạt/Không đạt" ghi tên người kiểm |
 | C23 | **Scan frame / Upload** | trống, đang đọc (skeleton), đọc lỗi, xong | Luôn có lựa chọn "Nhập tay"; ảnh không đọc được → giữ dữ liệu khác |
@@ -272,7 +435,9 @@ Mỗi component có: mục đích · biến thể · trạng thái · quy tắc 
 | C29 | **Empty / Loading (skeleton) / Error / Offline state** | mục 7 | – |
 | C30 | **Date range picker** | chọn khoảng, đêm đã kín gạch chéo + nhãn, ngày quá khứ khóa | Nhập được bằng bàn phím (ô ngày gõ tay `dd/mm/yyyy`) |
 | C31 | **Code input (OTP / TOTP / PIN / mã xác minh)** *(đợt 4)* | 6 ô số liền một trường; trạng thái sai (còn N lần), khóa, gửi lại có đếm ngược | `inputmode="numeric"`, `autocomplete="one-time-code"`; một `input` (không 6 ô rời) để trình đọc màn hình và dán mã dùng được; lỗi gắn `aria-describedby` |
-| C32 | **Code display (mã cấp cho khách)** *(đợt 4)* | mã lớn đơn cách + đếm ngược hiệu lực | Chỉ hiện trong modal, không ghi vào thông báo/toast; cảnh báo không gửi kèm link |
+| C32 | **Code display (mã cấp cho khách)** *(đợt 4)* | mã lớn JetBrains Mono (v0.4) + đếm ngược hiệu lực | Chỉ hiện trong modal, không ghi vào thông báo/toast; cảnh báo không gửi kèm link |
+| C33 | **Brand mark (logo)** *(v0.4)* | wordmark "OTTIMO" (Lora), lockup ngang, lockup dọc (biển hiệu), monogram núi; 4 phiên bản màu (trên Ivory, trắng, Ink, Oak) | Cỡ tối thiểu: wordmark 120px, lockup ngang 180px, monogram 32px (`size.logo.*`); vùng an toàn ≥ chiều cao chữ "x"; không kéo giãn/xoay/đổi màu/thay font. Tên truy cập đọc từ chữ, không `aria-label` lặp. Chỗ dùng: mục 11.4. Chờ SVG của INV |
+| C34 | **Room label (tên phòng)** *(v0.4)* | `guest` ("The Pine", Lora 500; hạng phòng khi đơn chưa báo căn), `staff` ("401 · The Pine": số Lora 600 + tên sans 12–13px `--muted`), `fallback` khi chưa có tên | Theo BR-012. Một helper `roomLabel()` dùng chung; `aria-label` "Căn 401, The Pine"; khách không thấy số căn (mục 11.3) |
 
 Icon: bộ line icon 24×24, nét 1,7, đầu tròn (giữ phong cách BL 6.5), vẽ lại trong `wireframes/assets/icons.js` (34 icon). Không mua bộ icon. Icon luôn đi kèm chữ, trừ IconButton có `aria-label`.
 
@@ -319,7 +484,7 @@ Bấm ô trống trên rack → Đặt phòng mới điền sẵn căn + ngày; 
 Trang chủ theo vai (bảng 9 mã vai ở `wireframes/01-login-role-nav.html` mục 1.2, khớp `rbac-matrix.md`). Không có bộ chọn "Xem với vai trò". **Nút = `allowedActions[]` của API** (theo trạng thái + vai; bảng `02-fo-rack-booking.html` mục 2.6); hành động `requiresApproval` vẽ thành "Gửi … duyệt". **Không vẽ nút cho hành động vai không có quyền** (ẩn, không hiện rồi báo lỗi); trường nhạy cảm ẩn hẳn – API không trả (`x-visible-to`), giao diện không để chỗ trống "••••". Dữ liệu C3 chỉ hiện trên thiết bị được cấp (`deviceTrusted`), không bao giờ trên PWA điện thoại (SR-DEV-03/04).
 
 ### 6.10 Đa ngôn ngữ (HR-01 – Blocker)
-App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không ghép câu bằng code; ngôn ngữ mặc định theo trình duyệt, đổi tay ở đầu trang, ghi nhớ theo đơn. Bố cục chịu được chuỗi dài hơn 40% (RU/DE): nút xuống dòng, không cắt chữ, không cố định chiều rộng theo chữ VI.
+App khách: VI + EN (R2), RU (R3) – mọi chuỗi từ file chuỗi, không ghép câu bằng code; ngôn ngữ mặc định theo trình duyệt (v0.4: trình duyệt không phải vi/ru → EN, "tiếng Anh dẫn dắt" – mục 11.2), đổi tay ở đầu trang, ghi nhớ theo đơn. Bố cục chịu được chuỗi dài hơn 40% (RU/DE): nút xuống dòng, không cắt chữ, không cố định chiều rộng theo chữ VI.
 
 ### 6.11 Đến muộn / tự nhận phòng (Bước 4 – FB-R1-UXR-UXD-01, PHÂN XỬ ORC 15/10)
 - Khách có giờ đến ≥ 22:00: trang lưu trú đưa thẻ "Đến muộn? Tự nhận phòng" lên đầu, khuyến khích làm thủ tục trước. Hoàn tất thủ tục (đã xác minh mức 2 trong luồng) → **mã cửa hiện ngay** + hướng dẫn mở khóa có ảnh.
@@ -412,7 +577,7 @@ Chuẩn mục tiêu: **WCAG 2.2 AA** (decision-log UXR 15/10/2026).
 | A7 | `<title>` trong `<body>`, thiếu `lang` | 2.4.2, 3.1.1, 3.1.2 | Mỗi màn có `<title>` "Tên màn – OTTIMO"; `<html lang>` theo ngôn ngữ đang dùng; đoạn khác ngôn ngữ (song ngữ bill) gắn `lang` riêng | mọi trang |
 | A8 | (bổ sung) Tương phản chữ `--faint` 2,65:1 (HR-10) | 1.4.3 | Mục 2.2: đo cả sáng/tối, 0 cặp không đạt | tokens |
 | A9 | (bổ sung) Chữ 9,5–10,5px (HR-10) | 1.4.4 | Mục 3: tối thiểu 12px máy tính, 14/16px điện thoại, 16px buồng phòng; dùng `rem` | – |
-| A10 | (bổ sung) Focus ring 2,72:1 | 2.4.7, 1.4.11 | `--focus` 5,44:1 trở lên, 2px + offset 2px; không bỏ outline | mọi trang |
+| A10 | (bổ sung) Focus ring 2,72:1 | 2.4.7, 1.4.11 | `--focus` (v0.4: Earth Brown) ≥ 4,91:1 trên mọi nền sáng (thấp nhất trên Cream), 2px + offset 2px; không bỏ outline | mọi trang |
 | A11 | (bổ sung) Toast 2,8 giây (HR-09) | 2.2.1, 4.1.3 | C18: ≥ 6 giây, dừng khi rê/focus, nút đóng; việc quan trọng → C20 | L6 |
 | A12 | (bổ sung) Chuyển động | 2.3.3 | Tôn trọng `prefers-reduced-motion` | tokens |
 | A13 | (bổ sung) Bỏ qua điều hướng | 2.4.1 | Link "Bỏ qua tới nội dung" đầu trang; landmark `nav`/`main` | mọi trang |
@@ -436,10 +601,222 @@ Kiểm tra trước khi nộp mỗi round (UXD + QA): bàn phím đi hết luồ
 - Nguồn sự thật: `tokens.json` → sinh `tokens.css` (và theme cho MOB). Component code (R2) đặt trong thư viện dùng chung FE/MOB; tên component theo mục 5.
 - Thay đổi token/component: UXD cập nhật file này + `tokens.json`, ghi lịch sử bên dưới, báo FE/MOB trong review.
 - Sinh lại và kiểm tương phản: `python3 product/design/tools/gen_tokens.py` (in số cặp không đạt; phải là 0) và `python3 product/design/tools/gen_strings.py` (sinh `copy/strings-*.json` + `wireframes/assets/strings.js`). Đề nghị OPS đưa bước kiểm tương phản vào CI ở R2.
+- v0.4: `gen_tokens.py` sinh thêm bảng màu `--brand-*`, cột "Nguồn bảng màu" và loại cặp `forbidden` (cặp guideline cho phép nhưng không đạt AA). Thêm token màu: thêm vào `COLORS` kèm nguồn bảng màu; thêm nền mới cho chữ Stone: thêm cặp vào `PAIRS` trước khi dùng.
 
-## 11. Lịch sử thay đổi
+## 11. Thương hiệu OTTIMO trong sản phẩm (v0.4 – S4-49)
+
+Phạm vi: Desk (admin-web), PWA buồng phòng/bảo trì, guest-web (`g.`), báo giá, mẫu tin nhắn, phiếu thanh toán, phiếu in. Landing đã theo guideline từ concept v1.1 (`landing/concept.md`), chỉ chờ logo và bảng tên phòng.
+
+### 11.1 Token đổi ở v0.4 – app thấy gì sau khi build lại
+
+| Token | v0.3 → v0.4 (sáng) | v0.3 → v0.4 (tối) | Thấy ở đâu | Mức thay đổi nhìn thấy |
+|---|---|---|---|---|
+| `--ink`, `--bar-cf-t` | #2B2B2B → **#2B2B28** (Ink) | #EDE8DF → #EDE6D8 (Cream) – chỉ `--ink` | Chữ chính, nút chính | Gần như không thấy |
+| `--ink-inverse` | #FBF9F4 → **#F4F0E8** (Ivory) | giữ | Chữ trên nút chính, toast | Gần như không thấy |
+| `--muted`, `--faint` | #635F58 / #6A645B → **#6B6760** (Stone) | giữ | Chữ phụ, header bảng, menu, chú thích | Nhạt hơn một chút (trên nền trang 5,58 → 4,95:1) |
+| `--oak-ink`, `--focus` | #7A5C2E → **#7A5C44** (Earth Brown) | giữ | Link, mục đang chọn, viền focus, cột biểu đồ, icon nhấn | Bớt vàng ô-liu, nâu ấm hơn |
+| `--surface-2`, `--side` | #EEE8DC / #ECE5D8 → **#EDE6D8** (Cream) | `--surface-2` #2D2A26 → #2B2B28 | Sidebar, header bảng, seg, nút bị khóa | Không thấy |
+| `--bad-bg` | #F5DFDC → **#F7E5E2** | giữ | Alert/chip lỗi, khối OOO, làn "Chưa gán căn" | Hồng nhạt hơn một chút |
+| `--bar-in` | #2F2D2A → **#2B2B28** (Ink) | giữ | Thanh "đang ở" | Không thấy |
+| `--bar-long`, `--bar-long-t` | #5B7387 / #FFFFFF → **#646859 / #F4F0E8** (Sage Deep / Ivory) | #7E98AD / #111111 → #8A9079 / #1B1A18 (Sage) | Thanh và chip "HĐ" dài hạn trên rack | **Thấy rõ**: xanh xám → xanh rêu |
+| *mới* | `--cream`, `--earth`, `--on-earth`, `--sage`, `--brand-ivory/cream/stone/ink/oak/earth/sage/white` | | Chưa có màn nào dùng – vào ở B2/B4 (11.6) | – |
+| `--sans` | thêm **Arial** ngay sau Be Vietnam Pro (guideline p22) | | Chỉ khi thiếu glyph (chuỗi RU) | RU: Arial thay `system-ui` |
+| `--mono` | `ui-monospace…` → **"JetBrains Mono", "Courier New", ui-monospace…** | | Mọi `.mono`, `.code-input`, `kbd`, `.masked` | **Cần B1 cùng bản build**: chưa tải JetBrains Mono thì mã hiện bằng Courier New |
+| `tokens.json` | typography: `h1`/`h2`/`display` Lora 500 + giãn 0,02em; thêm `h3`, `room-name`, `mono`; `size.logo.*`; `status.room.VC` tone `ok` → `oak` (khớp 2.3 – JSON v0.3 lệch tài liệu) | | Chỉ là đặc tả – `hifi.css` áp ở B2 | – |
+
+Đã kiểm: `gen_tokens.py` báo `fails: 0`. Unit test vẫn xanh với chuỗi + token mới: admin-web 202/202, guest-web 50/50, `@ottimo/ui` 10/10, `@ottimo/i18n` 4/4. Hi-fi H08 (rack sáng/tối), H16, H18 đã chụp lại bằng Chromium không giao diện: không vỡ bố cục. Demo đang chạy dùng ảnh build sẵn, không bị ảnh hưởng.
+
+#### 11.1.1 Đổi ở v0.4.1 (critic kickoff Sprint 4 #18, #19)
+
+| Token / lớp CSS | v0.4 → v0.4.1 (sáng) | v0.4 → v0.4.1 (tối) | Thấy ở đâu | Mức thay đổi nhìn thấy |
+|---|---|---|---|---|
+| `--bar-cf` | #C9A56E → **#BEA174** (Light Oak 80% + Ivory 20%) | #B8925A → **#BEA174** | Thanh "Đã xác nhận" trên rack, chú giải rack | Bớt cam, ngả gỗ sồi tự nhiên hơn; chữ Ink 6,15 → 5,77:1 (sáng), 6,04 → 7,07:1 (tối) |
+| `--oak` (chỉ tối) | giữ #B08D57 | #C9A56E → **#BEA174** | Logo, nét kẻ nhấn ở chế độ tối | Gần như không thấy |
+| `--info`, `--info-bg` | giữ màu | giữ màu | Chỉ còn alert/banner, "Cần chú ý" mức info, khối ghi chú 6.14 | – |
+| `.chip.ink` (mới) và `.chip.info` (bí danh) | chip `info` xanh lam → **Ink trên `--surface`, viền `--line-strong`** | như sáng | Mọi `Chip tone="info"` đang có trong admin-web: "Đang ở" (danh sách/drawer đơn), "Máy này", chip bộ đồ dùng thêm trên rack, chip "HĐ" ở drawer/hộp dài hạn (đúng ra là `long` – B0b) | **Thấy rõ**: chip xanh lam → chip viền kem, chữ Ink |
+| `.hk-card.kit` | viền trái `--info` → **`--line-strong`** | như sáng | Thẻ việc "chuẩn bị bộ đồ dùng thêm" (PWA – chưa có code) | Viền xanh → viền xám ấm |
+| `tokens.json` | `status.room.OC` tone `info` → `ink`; thêm `status.tone`, `status.registration`, `status.guestRequest`, `status.commission` | | Đặc tả máy đọc cho FE/MOB | – |
+
+Đã kiểm (17/10, v0.4.1): `gen_tokens.py` báo `fails: 0`, `tint_fails: 0`. Unit test xanh, không phải sửa test: admin-web 202/202, guest-web 50/50, `@ottimo/ui` 10/10. `check_hifi.py` xanh 24 màn. Đã chụp lại H08 rack và H23 bằng Chromium không giao diện: thanh đã xác nhận và chip `ink` hiển thị đúng, không vỡ bố cục. Không đụng demo đang chạy.
+
+### 11.2 Giọng văn chữ khách nhìn thấy – "tiếng Anh dẫn dắt, tiếng Việt hỗ trợ"
+
+Áp cho: guest-web (`g.`), báo giá gửi khách, mẫu tin nhắn (M13, sau này Zalo/ZNS), phiếu thanh toán, email. Giao diện nhân viên giữ tiếng Việt (content-guide mục 1).
+
+1. **Khoảnh khắc thương hiệu tiếng Anh ở mọi ngôn ngữ.** Gồm lời chào đầu trang, tagline, lời kết, tên thương hiệu và tên phòng.
+   - Ngay dưới là một dòng hỗ trợ nhỏ (Stone, gắn `lang`): trang VI/RU có dòng cùng ý bằng ngôn ngữ trang; trang EN có dòng tiếng Việt.
+   - Cách làm giống landing (`concept.md` mục 5).
+2. **Nội dung chức năng dùng một ngôn ngữ – ngôn ngữ khách chọn.** Gồm nút, ô nhập, hướng dẫn, văn bản pháp lý, lỗi.
+   - Không trộn hai ngôn ngữ trong một câu hay một ô (WCAG 3.1.2).
+   - Văn bản đồng ý phải đúng ngôn ngữ khách đọc (SEC R-CON-02, content-guide 6).
+3. **Ngôn ngữ mặc định khi chưa biết** **[GIẢ ĐỊNH – PO xác nhận]**:
+   - Thứ tự: phiên/hồ sơ khách → trình duyệt. Trình duyệt `vi*` → VI, `ru*` → RU, **còn lại → EN** (v0.3: còn lại → VI).
+   - Mẫu tin và báo giá: theo ngôn ngữ hồ sơ khách. Chưa có thì VI cho quốc tịch VNM hoặc số +84, EN cho mọi trường hợp khác.
+4. **Viết bản EN trước** khi soạn chữ khách mới, rồi chuyển ý sang VI (không dịch máy). RU nháp theo bản EN, cần người bản ngữ duyệt.
+5. **Giọng:** ngắn, lịch sự, điềm tĩnh, giữ khoảng cách vừa đủ.
+   - Không emoji, không "!", không viết hoa để nhấn.
+   - Không dùng "Quý khách", "Gia đình OTTIMO", "rất hân hạnh được phục vụ", "dạ thưa anh chị yêu quý".
+   - Xưng "bạn" (VI), "you" (EN), «Вы» (RU).
+   - Câu chuẩn: "Welcome to OTTIMO. We hope you enjoy your stay."
+6. **Tên thương hiệu và tagline:** viết "OTTIMO" (tên riêng, chữ hoa), tagline giữ nguyên văn "A refined stay inspired by the calm spirit of Dalat." Tên phòng theo 11.3.
+
+**Danh sách cần đổi**
+
+| # | Bề mặt | Hiện trạng | Đổi thành | Ai | Phụ thuộc |
+|---|---|---|---|---|---|
+| G1 | guest-web – ngôn ngữ mặc định | `browserLocale()`: trình duyệt không phải en/ru → VI | không phải vi/ru → **EN** | MOB | PO xác nhận mục 3 |
+| G2 | guest-web – đầu trang, lời chào | "Xin chào, Anna" (H18); nút chính nền Ink | H1 "Welcome to OTTIMO, Anna." ở mọi ngôn ngữ (gắn `lang="en"`) + dòng hỗ trợ (11.2.2); wordmark Lora; nút chính `.btn.brand` (Earth Brown, chữ trắng) | UXD (chuỗi `gw.welcome*`, hi-fi H18), MOB | B2 |
+| G3 | guest-web – tên phòng | "Căn: 103" (`roomNo`) | "Room: The Bloom" / "Phòng: The Bloom" (Lora) | ARC (`GuestStay.roomName` + hạng phòng công khai, OpenAPI 0.3.7), BE, MOB | Contract 0.3.7; ánh xạ tạm BL 4.1 |
+| G4 | guest-web – dấu "!" | `guest.oci.done_title` "Xong! Hẹn gặp bạn ngày {date}" / "All set! See you on {date}"; `guest.late.done_title` (R3) | "Thủ tục đã xong. Hẹn gặp bạn ngày {date}." / "You're all set. See you on {date}." | UXD (chuỗi v0.4.1) | – |
+| G5 | guest-web – Wi-Fi, mã đặt phòng | `.mono` 13px, font hệ thống | JetBrains Mono 16px; nút "Sao chép" giữ | MOB | B1 |
+| G6 | guest-web – chế độ màu | theo hệ điều hành (có thể tối) | **chỉ sáng**: `<html data-theme="light">`, `theme-color` #F4F0E8 (đã có) | MOB | – |
+| G7 | guest-web – favicon, icon màn hình chính | chưa có | monogram núi ≥ 32px | MOB | Logo SVG INV |
+| Q1 | Báo giá `sale.quote_text` | dòng đầu "OTTIMO Boutique Stay – Báo giá {code}"; "Căn {room} {room_name}" | dòng đầu tiếng Anh cố định "OTTIMO · Boutique Stay – Quote {code}"; thân theo ngôn ngữ khách; phòng = **tên phòng**, không số căn; dòng cuối là tagline | UXD (chuỗi), FE (truyền tên phòng) | PO duyệt 11.2.1 |
+| M1 | 8 mẫu tin `msg.*` (M13) | "Hi {name}", "Thank you!", "Xin lỗi vì bất tiện!", "căn/room {room}", "Bill" | Bản 11.2.1: "Hello {name},", bỏ "!", `{room}` = tên phòng, "Phiếu thanh toán" | UXD (chuỗi v0.4.1), FE (ngôn ngữ mặc định theo hồ sơ + truyền tên phòng) | PO duyệt 11.2.1 |
+| M2 | Mẫu tin tự động R3 (TP-00…15, ZNS) | DOM/INT đang soạn | Viết theo 11.2 ngay từ đầu; mẫu ZNS gửi Zalo duyệt phải là bản đã theo guideline | INT, DOM, UXD | US-161/162 (R3) |
+| B1 | Phiếu thanh toán cho khách (C24) | VI/EN; dòng "Tiền phòng căn {room}"; chưa có logo | Đầu phiếu: lockup ngang + "Guest folio · Phiếu thanh toán". Khách nước ngoài: song ngữ, **EN dòng trên, VI dòng dưới** (Stone). Khách VN: VI. Dòng tiền phòng "Tiền phòng – The Valley · 3 đêm" (BR-012); số bill JetBrains Mono | FE, UXD (biến thể `bill.line.*` theo tên phòng) | Logo SVG, `Room.name` |
+| B2 | Con dấu "PAID IN FULL / ĐÃ THU ĐỦ" | chữ hoa | giữ (dạng Label, giãn 0,1em) | – | – |
+| L1 | Landing | concept v1.1 đã theo guideline | giữ; thay logo + gán tên phòng khi INV gửi | UXD, FE (luồng landing) | INV 19/10 |
+
+#### 11.2.1 Bản đề xuất 8 mẫu tin (EN gốc – VI hỗ trợ) – chờ PO duyệt, UXD đưa vào `gen_strings.py` ở v0.4.1
+
+Quy ước: `{room}` = tên phòng ("The Pine") theo BR-012. Đơn chưa báo căn dùng hạng phòng ("Studio"). Khi chưa nhập tên dùng "room 401" / "phòng 401". Chữ mẫu không tự thêm "căn/room" trước `{room}`. Không mẫu nào chứa mã cửa (BR-978). Giờ 14:00/12:00 vẫn thay bằng tham số BR-401 như ghi chú mục 7 content-guide. RU viết lại theo bản EN ở v0.4.1 (nháp, cần người bản ngữ duyệt).
+
+| Key | English (gốc) | Tiếng Việt |
+|---|---|---|
+| `msg.booking_confirmed` | Hello {name}, your booking {code} at OTTIMO is confirmed: {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit received: {deposit}; {balance} is due at check-in. Cancellation: {cancel_policy_short}. Check in online for a quicker arrival: {link} | Chào {name}, OTTIMO xác nhận đặt phòng {code}: {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã nhận cọc {deposit}; còn {balance} thanh toán khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh hơn: {link} |
+| `msg.deposit_received` | Hello {name}, OTTIMO has received your deposit of {deposit} for booking {code} ({room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short} | Chào {name}, OTTIMO đã nhận cọc {deposit} cho đặt phòng {code} ({room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short} |
+| `msg.checkin_link` | Hello {name}, for a quicker arrival, please send your ID and arrival time here: {link} (about 2 minutes). | Chào {name}, để nhận phòng nhanh hơn, bạn vui lòng gửi giấy tờ và giờ đến tại: {link} (khoảng 2 phút). |
+| `msg.checkout_reminder` | Hello {name}, tomorrow, {date}, is your check-out day (by 12:00). If you would like to stay longer or check out later, reply here: {link} | Chào {name}, ngày mai {date} là ngày trả phòng (trước 12:00). Nếu bạn muốn ở thêm hoặc trả muộn, trả lời tại: {link} |
+| `msg.bill` | Thank you for staying at OTTIMO, {name}. Your guest folio {bill_no}: {amount}. Details: {link} | Cảm ơn {name} đã lưu trú tại OTTIMO. Phiếu thanh toán {bill_no}: {amount}. Chi tiết: {link} |
+| `msg.utility_bill` | Hello {name}, your utilities for {period}: electricity {kwh} kWh, water {m3} m³, total {amount}, due {due}. Meter photos and details: {link} | Chào {name}, tiền điện nước kỳ {period}: điện {kwh} kWh, nước {m3} m³, tổng {amount}, hạn thanh toán {due}. Ảnh công tơ và chi tiết: {link} |
+| `msg.house_rules_smoking` | Hello {name}, a gentle reminder: smoking is permitted on the balcony only. Smoking indoors incurs an odour-treatment fee under our house rules. Thank you. | Chào {name}, OTTIMO xin nhắc nhẹ: chỉ hút thuốc ở ban công. Hút thuốc trong phòng sẽ tính phí khử mùi theo nội quy. Cảm ơn bạn. |
+| `msg.hot_water_issue` | Hello {name}, thank you for letting us know about the hot water in {room}. Our technician will be with you by {time}. We apologise for the inconvenience. | Chào {name}, cảm ơn bạn đã báo về nước nóng ở {room}. Kỹ thuật sẽ đến trước {time}. OTTIMO xin lỗi vì sự bất tiện này. |
+
+Đổi so với bản hiện hành:
+- Bỏ "!" ở 2 mẫu.
+- "Hi" → "Hello".
+- Bỏ "căn/room" đứng trước `{room}`.
+- "Bill" → "Phiếu thanh toán" / "guest folio" (content-guide 3.1).
+- "hóa đơn điện nước" → "tiền điện nước": "hóa đơn" chỉ dùng cho hóa đơn GTGT.
+- Tham số giữ nguyên, nên FE không phải đổi code ngoài cách truyền `{room}`.
+
+#### 11.2.2 Chuỗi guest-web mới (đề xuất – vào v0.4.1 cùng G2–G4)
+
+| Key | EN | VI | Ghi chú |
+|---|---|---|---|
+| `gw.welcome_title` | Welcome to OTTIMO, {name}. | – (luôn hiện bản EN, `lang="en"`) | H1 trang lưu trú |
+| `gw.welcome_sub` | We hope you enjoy your stay. | Chúc bạn có một kỳ nghỉ an yên. | Dòng hỗ trợ dưới H1. Trang VI/RU hiện bản của ngôn ngữ trang. Trang EN hiện **bản VI** (tra từ điển VI, gắn `lang="vi"`) – tiếng Việt hỗ trợ. "An yên" là cảm xúc lõi trong guideline |
+| `gw.room_label` | Room | Phòng | Nhãn dòng tên phòng (thay `gw.room` "Căn") |
+| `gw.room_fallback` | room {no} | phòng {no} | Khi chưa có tên phòng |
+| `guest.oci.done_title` | You're all set. See you on {date}. | Thủ tục đã xong. Hẹn gặp bạn ngày {date}. | Sửa (bỏ "!") |
+
+### 11.3 Hiển thị tên phòng – khách thấy "The Pine", nhân viên thấy số căn + tên
+
+**Quy tắc nghiệp vụ:** **BR-012** của DOM (`business-rules.md` v0.3.5, 17/10). Mục này chỉ thêm cách trình bày.
+- Dữ liệu: `Room.name` (đã có trong OpenAPI, sửa ở H04 Danh mục căn). Hạng phòng công khai `room.<no>.public_room_type` là trường mới – ARC đưa vào contract 0.3.7.
+- Client không viết cứng tên. Tên đọc theo căn **lúc hiển thị**. Riêng phiếu thanh toán đã chốt và HĐ đã ký giữ tên lúc chốt/ký.
+- Ánh xạ tạm (BL 4.1, đang có trong seed DS-E) **[GIẢ ĐỊNH – chờ INV gửi bảng 19/10]**: 101 The Amber · 102 The Fern · 103 The Bloom · 201 The Mist · 202 The Valley · 203 The Sage · 301 The Velvet · 302 The Ivory · 401 The Pine · 402 The Ember.
+
+| Bề mặt | Người xem | Hiển thị | Ví dụ | Kiểu chữ |
+|---|---|---|---|---|
+| guest-web, báo giá, xác nhận, mẫu tin (M13), email, phiếu thanh toán, hóa đơn điện tử, landing, thẻ/biển trong căn | Khách | **Chỉ tên phòng**; cần mô tả thì kèm hạng phòng công khai. **Không in số căn** | The Pine · Studio | Lora 500 khi đứng riêng (`room-name`); trong câu theo chữ của câu |
+| Đơn bán theo nhóm **chưa báo căn** (OTA nhóm BR-316, còn tối ưu tồn BR-429) – trước nhận phòng | Khách | **Hạng phòng**, không tên phòng | Studio | – |
+| Tin Zalo/ZNS **tự động** (R3) | Khách | **Hạng phòng** (SEC INT-10, BR-978) | Studio | – |
+| Rack, danh sách đơn, drawer, nhận/trả phòng, Tổng quan, Cần chú ý, đóng ca, báo cáo, nhật ký | Nhân viên | **Số căn · tên**, sắp theo số căn | 401 · The Pine | Số căn Lora 600 tabular (`.roomno`); tên Be Vietnam Pro 500, 12–13px, `--muted` (`.rm-name` trên rack đã có) |
+| PWA buồng phòng/bảo trì (thẻ việc, phiếu sửa) | Nhân viên | Số căn to, tên ngay dưới | **401** / The Pine | Số `.hk-card .room`; tên 16px (tối thiểu HK) |
+| Ô chọn căn, tìm kiếm | Nhân viên | 401 · The Pine; gõ "pine", "The Pine" hoặc "401" đều ra (không phân biệt hoa thường, bỏ qua "The") | – | – |
+| Câu thông báo, toast, hộp xác nhận | Nhân viên | căn 401 · The Pine | "Hủy giữ chỗ căn 401 · The Pine?" | – |
+| Khai báo lưu trú | Pháp lý | **Số căn** (nơi ở thực tế) | 401 | – |
+| Hợp đồng dài hạn | Pháp lý | Cả hai | căn hộ 401 – The Pine | – |
+| `aria-label` | Trình đọc màn hình | "Căn 401, The Pine, …" | – | – |
+
+Quy tắc trình bày:
+- **Cách viết tên:**
+  - luôn có "The", viết hoa chữ đầu mỗi từ;
+  - không dịch, không viết tắt;
+  - không viết hoa toàn bộ, trừ biển hiệu theo lockup dọc.
+- **Câu VI cho khách:** "phòng The Pine" (không "căn"). **Câu EN:** "The Pine".
+- **Dòng tiền phòng trên phiếu thanh toán:** "Tiền phòng – The Valley · 3 đêm" / "Room – The Valley · 3 nights" (BR-012, không có số căn).
+- **Tên phòng khác tên hạng phòng.** Bốn hạng của e-brochure là hạng; landing hiện hạng.
+- **Tên phòng nhạy cảm như số căn** (BR-012 (4), BR-978): không đặt cùng mã cửa hay hướng dẫn vào căn trong một tin nhắn.
+  - Trang khách có token và phiếu thanh toán vẫn hiện tên phòng.
+  - Mã cửa chỉ hiện trong C32, không ghi kèm tên vào toast/tin.
+- **Đổi căn** (BR-424, BR-429): khách thấy tên phòng mới. Nhật ký nội bộ ghi số căn + tên cũ/mới.
+- **Chưa có tên** (OWN chưa nhập ở H04): khách thấy "phòng 401" / "room 401" – tạm, trái BR-012 (1), chỉ tới khi nhập xong. Nhân viên thấy "401" như hiện nay.
+- **Một helper dùng chung** cho FE/MOB: `roomLabel(room, audience: 'guest' | 'staff', locale, opts?)`, đặt trong `@ottimo/ui` hoặc `@ottimo/i18n`.
+  - Biến thể `guest` trả hạng phòng khi đơn chưa báo căn.
+  - Không để mỗi màn tự ghép.
+- **Chỉ đường tự nhận phòng** (`guest.late.how_1` "Đến cửa căn {room}", R3) **[GIẢ ĐỊNH – chờ INV xác nhận, như BR-012]**: biển cửa gắn tên phòng theo lockup dọc, nên khách không cần số căn.
+
+### 11.4 Logo trong sản phẩm (chờ tệp SVG của INV, hẹn 19/10)
+
+| Chỗ | Thành phần | Cỡ tối thiểu (guideline p13) | Hiện tại (tạm) |
+|---|---|---|---|
+| Desk – đầu sidebar | Wordmark "OTTIMO" + "BOUTIQUE STAY · DESK" | wordmark ≥ 120px | Chữ Lora giãn 0,3em (`.brand`) – giữ tới khi có SVG |
+| guest-web – đầu trang | Lockup ngang (≥ 375px), wordmark (< 375px) | lockup ≥ 180px, wordmark ≥ 120px | Chữ Lora "OTTIMO" |
+| Favicon, icon PWA/màn hình chính | Monogram núi | ≥ 32px | Chưa có |
+| Phiếu thanh toán in A5, email, chữ ký | Lockup ngang | ≥ 180px | Chưa có |
+| Landing | Lockup ngang + wordmark | như trên | Bản vẽ lại tạm (`concept.md` mục 4) |
+
+Quy tắc (guideline mục 4):
+- Vùng an toàn ≥ chiều cao chữ "x".
+- Chỉ 4 phiên bản màu: trên Ivory, trên trắng, trên Ink, trên Oak.
+- Không kéo giãn, không xoay, không đổi màu ngoài bảng, không thay font.
+- Chữ "OTTIMO" giữ chỗ (font Lora thật) được dùng tạm vì không thay font; không vẽ lại monogram trong app.
+- Khi có SVG: UXD xuất bộ `logo-wordmark.svg`, `logo-lockup-h.svg`, `logo-lockup-v.svg`, `logo-monogram.svg` (mỗi bộ 4 màu) + favicon 32/180/512 vào `product/design/brand/`.
+
+### 11.5 Chế độ sáng/tối theo bề mặt (quyết định UXD v0.4)
+- **guest-web và landing: chỉ chế độ sáng.**
+  - Thương hiệu dựa trên nền Ivory.
+  - Khách mở link một vài lần; không cần chế độ tối.
+  - Tránh trình duyệt tự đảo màu: `color-scheme: light` (tokens.css đã hỗ trợ `data-theme="light"`).
+- **Desk và PWA:** giữ chế độ tối theo hệ điều hành + công tắc, vì nhân viên làm ca đêm. Bản tối là ngoại lệ 2.4.
+
+### 11.6 Việc FE / MOB và thứ tự đề xuất
+
+Sprint 4 ưu tiên sửa lỗi sai tiền trước cổng QC (S4-28 → S4-07, S4-05 → S4-02 + S4-18 → S4-25). Việc thương hiệu không chen vào các mục đó. Việc xếp theo rủi ro từ thấp đến cao, mỗi đợt một PR riêng để kết quả QA không lẫn.
+
+| Đợt | Việc | Ai | Khi nào | Phụ thuộc | Kiểm |
+|---|---|---|---|---|---|
+| **B0** | Màu v0.4 vào app **không cần sửa code** – `@ottimo/ui` import `tokens.css`. Build lại admin-web, guest-web, PWA | FE, MOB | Bản build kế tiếp | – | QA chụp so sánh H08 rack (thanh dài hạn), H11, H16, H18; axe 0 critical/serious ở 7 luồng (C2) |
+| **B1** | (a) Thêm `@fontsource/jetbrains-mono` 400 + 500 vào `packages/ui/src/styles/index.css`, sau Be Vietnam Pro, ghim đúng phiên bản. (b) Áp `.mono` cho: mã đơn, số bill, nội dung chuyển khoản VietQR, mã hồ sơ khai báo, mã phiếu sửa; guest-web: Wi-Fi + mã đặt phòng 16px (G5). (c) KB7 – S4-48: dùng `co.go_bill_needs_told` (lý do khóa "Tiếp tục" bước 2 H16, thay `ci.told_guest`), `checkout.complete_needs_told` (whyLocked bước 3), `co.late_switch_hint_time` với `{time}` = giờ trả chuẩn từ `BookingRules` (thay `co.late_switch_hint` – viết cứng 12:00) | FE (a, b, c), MOB (G5) | **Cùng bản build với B0** (để mã không hiện Courier New) | – | Unit test theo khóa; xem ô mã OTP, VietQR, Wi-Fi ở 360px |
+| **B2** | UXD sửa `hifi.css` – nguồn chung, FE/MOB chỉ chạy lại test: `h1`/`h2` Lora 500 + giãn 0,02em; `h3` → Be Vietnam Pro 600; thêm `.btn.brand` (`--earth`/`--on-earth`, focus `--focus`); `.room-name`. Hi-fi H18 làm lại đầu trang khách (G2) | UXD → FE, MOB kiểm | Tuần 1 Sprint 4, sau khi B0/B1 vào | – | `check_hifi.py`; axe; ảnh trước/sau |
+| **B3** | Helper `roomLabel()` + "101 · The Pine" trên Desk (rack đã có `.rm-name`, danh sách đơn, drawer, tiêu đề nhận/trả phòng H13/H16, Cần chú ý, Tổng quan) và PWA (thẻ việc); ô chọn/tìm căn theo tên | FE (FE-B), MOB | **Ngay tuần 1** – dùng ánh xạ tạm BL 4.1 (seed DS-E đã có tên; sprint-4-plan S4-49 là CỔNG) | – (bảng INV 19/10 chỉ sửa cấu hình căn) | Unit test helper (có tên / chưa có tên); E2E không đổi (vẫn tìm theo số) |
+| **B4** | guest-web: G1 mặc định EN, G2 lời chào + `.btn.brand`, G3 tên phòng, G4 bỏ "!", G6 chỉ sáng, G7 favicon | MOB; ARC thêm `GuestStay.roomName` + hạng phòng công khai (0.3.7, BR-012), BE trả dữ liệu | Sau B2 + contract 0.3.7 | PO xác nhận G1; logo (G7) | Test i18n `browserLocale`; ảnh 360/768px VI/EN/RU |
+| **B5** | Chuỗi v0.4.1 (UXD) sau khi PO duyệt 11.2.1/11.2.2 → FE: mẫu tin M1 (ngôn ngữ mặc định theo hồ sơ, `{room}` = tên phòng), báo giá Q1, phiếu thanh toán B1 (song ngữ EN trên – VI dưới, tham số `{room}` của `bill.line.*` = tên phòng – FE tra từ danh mục căn) | UXD → FE | Tuần 2 Sprint 4 hoặc đầu R3 nếu Sprint 4 trễ việc sai tiền | B3; PO duyệt | Unit test mẫu tin theo khóa; in thử phiếu A5 |
+| **B6** | Logo SVG: favicon + icon PWA (monogram), đầu guest-web, sidebar Desk, phiếu in, landing | UXD xuất bộ SVG → FE, MOB | Khi INV gửi tệp (hẹn 19/10) | Logo SVG | Cỡ tối thiểu đo trên DOM (như landing 11.1) |
+| R3 | Mẫu tin tự động Zalo/ZNS (US-161/162) viết theo 11.2 ngay từ đầu | INT, DOM, UXD | Round 3 | ESC-021 A | – |
+
+Không đổi trong S4-49: màu trạng thái (2.4), bố cục, component khác ngoài C1 `brand`.
+
+**B0b – v0.4.1, chip `ink` thay `info` (critic kickoff #19).** Không chặn bản build nào: bí danh `.chip.info` đã cho kết quả đúng ngay ở bản build kế tiếp, cùng B0. Phần dưới là dọn mã, làm khi chạm file, trước v0.5 (lúc đó xóa bí danh). Không chen vào việc sai tiền.
+
+| Việc | Ai | Chỗ |
+|---|---|---|
+| Thêm `'ink'` vào kiểu `tone` của `Chip` trong `@ottimo/ui` (không có icon mặc định – bắt buộc truyền `icon`). Bỏ `'info'` khỏi kiểu của `Chip`; `Alert` giữ `info` | FE (FE-B) | `packages/ui/src/Feedback.tsx` |
+| `STATUS_TONE.in_house: 'info'` → `'ink'` + icon `bed` (khớp thanh `--bar-in`) | FE-B | `apps/admin-web/src/app/reservations.ts` |
+| Chip "HĐ"/`status.booking.long_term` đang `tone="info"` → lớp `long` (C7, Sage Deep) – lệch DS từ v0.4 | FE-B | `ReservationDrawer.tsx`, `booking/LongStayDialog.tsx` |
+| Chip bộ đồ dùng thêm (icon sofa) → `ink`; "Máy này" → `ink` + icon `monitor` | FE-B | `rack/RackPage.tsx`, `DevicesPage.tsx` |
+| Chip trạng thái khai báo ở trang chi tiết: đang `confirmed ? ok : warn` cho mọi trạng thái → theo bảng 2.3 (`tokens.json` `status.registration`; `scanned`/`pre` = `ink`, `sent` = `oak`) | FE-B | `registration/RegistrationPage.tsx` |
+| PWA buồng phòng/bảo trì và guest-web: ô/chip OC, yêu cầu khách `acknowledged`/`in_progress`, phiếu sửa "Đang sửa" dùng `ink` + icon theo 2.3 ngay từ đầu | MOB | PWA (H19–H22), guest-web (H23) |
+
+### 11.7 Giả định và việc chờ
+- **[GIẢ ĐỊNH]** Tracking "+4/+2/+10" của guideline = 0,04/0,02/0,1em (như landing G-6).
+- **[GIẢ ĐỊNH]** Tiêu đề Lora 500; guideline không ghi độ đậm.
+- **[GIẢ ĐỊNH – PO xác nhận]** guest-web mặc định EN khi trình duyệt không phải vi/ru (11.2 mục 3).
+- **[GIẢ ĐỊNH – chờ INV xác nhận]** (cùng BR-012 của DOM): ánh xạ tạm BL 4.1; biển cửa gắn tên phòng, khách không cần số căn (11.3).
+- Chờ INV (hẹn 19/10, đã có trong `pending-for-INV.md`):
+  - bảng tên phòng ↔ số căn: **không chặn** B3–B5, vì đội dùng ánh xạ tạm BL 4.1 rồi chỉ sửa cấu hình căn khi INV gửi; landing chờ bảng để gán tên theo hạng;
+  - logo SVG → B6, G7. Theo `sprint-4-plan.md`, logo là CỔNG nếu INV gửi trước D7, không thì NÊN-ÔĐ.
+- Không mở ESC mới: thương hiệu đã có, đây là phần INV đã hẹn gửi.
+- Đề xuất guideline v1.1 (2.5): gom một lượt với landing `concept.md` mục 14 để ORC trình INV ở tổng kết Round 2 – chỉ để biết, không chặn việc.
+
+## 12. Lịch sử thay đổi
 | Phiên bản | Ngày | Người | Nội dung |
 |---|---|---|---|
+| 0.4.1 | 17/10/2026 | UXD | **R2 Sprint 4 D1 – sửa phát hiện #18, #19 của critic kickoff (`rounds/round-02/reviews/s4-kickoff-critic.md`).** #18: `--bar-cf` v0.4 `#C9A56E`/`#B8925A` ghi "tint Light Oak" nhưng pha R 37% / G 24% / B 16% (sắc mới) → sinh lại bằng `mix()` = Light Oak 80% + Ivory 20% `#BEA174` cả hai chế độ (Ink 5,77:1; tối 7,07:1; thanh/nền 2,03 → 2,16:1); `--oak` tối dùng chung mã cũ nên đổi theo. `gen_tokens.py` thêm bảng kiểm nguồn tint/shade cho 26 token (`tint_fails: 0`); 4 token nắn sắc có lý do được ghi là ngoại lệ có kiểm ở 2.4 (`--oak-ink`/`--focus` tối, `--oak-soft`, `--line-strong` sáng); sửa nhãn nguồn của `--deco`, `--line`, `--line-strong` cho đúng số đo. #19: `--info` chỉ cho thông báo (C19, C20 mức info, 6.14); thêm tông chip **`ink`** (Ink trên `--surface`, viền `--line-strong`, icon bắt buộc) cho OC "Có khách", khai báo `scanned`/`pre`, yêu cầu khách `acknowledged`/`in_progress`, hoa hồng `earned`, phiếu sửa "Đang sửa"; bảng tông chip đầu 2.3; `tokens.json` thêm `status.tone`/`registration`/`guestRequest`/`commission`, OC → `ink`. `hifi.css`/`wf.css`: `.chip.ink`, `.chip.info` thành bí danh của `.chip.ink`, `.hk-card.kit` bỏ viền `--info`. Hi-fi/wireframe: 25 chip `info` đổi – 23 → `ink`, H14 `sent` → `oak`, H17 `escalated` → `warn` (theo 2.3); thêm 3 chip chỉnh theo 2.3: H14 `scanned` (warn) và `pre` (neutral) → `ink`, H23 `acknowledged` (neutral) → `ink`; chip trạng thái ở H07, H14, H22, H23 thêm icon. Việc dọn mã FE/MOB: đợt B0b (11.6) |
+| 0.4 | 17/10/2026 | UXD | **R2 Sprint 4 – S4-49: khớp OTTIMO Brand Guidelines v1.0.** Màu: bảng `--brand-*` (2.0); `--ink` #2B2B28; `--muted`/`--faint` = Stone Grey #6B6760; `--oak-ink`/`--focus` = Earth Brown #7A5C44; `--surface-2`/`--side` = Cream; `--bad-bg` #F7E5E2 (Stone đạt AA); `--bar-long` xanh xám #5B7387 → Sage Deep #646859; thêm `--cream`, `--sage`, `--earth`, `--on-earth`. 0 cặp bắt buộc không đạt; cấm chữ trắng/Ivory trên Light Oak. Ngoại lệ chức năng (2.4), lệch guideline + đề xuất v1.1 (2.5). Chữ: Lora 500 + giãn 0,02em cho tiêu đề, H3 về Be Vietnam Pro 600, JetBrains Mono cho mã/Wi-Fi, fallback Georgia/Arial/Courier New, thang màn hình 3.1. Component: C1 `brand`, C7 `long`, C33 logo, C34 tên phòng. Mục 11 mới: giọng văn khách (tiếng Anh dẫn dắt), 8 mẫu tin đề xuất, quy tắc tên phòng, logo, sáng/tối theo bề mặt, việc FE/MOB B0–B6. `hifi.css`: `.print-root` dùng `--brand-*` |
 | 0.3.5 | 17/10/2026 | UXD | R2 Sprint 3 – review chéo FE H13–H17 + MOB guest-web (`rounds/round-02/reviews/s3-UXD.md`): 6.16 thêm bố cục khối VietQR (mỗi thông tin một dòng, sao chép nội dung/số tiền riêng) và quy tắc in Phiếu thanh toán (`.print-root`, `hifi.css` mục 16 – chỉ in tờ phiếu, A5, nền trắng cả khi chế độ tối); 6.17 thêm quy tắc văn bản pháp lý EN trên trang RU và lý do nút khóa ở guest-web; 91 chuỗi mới + quy ước `{amount}` kèm đơn vị (content-guide 0.3.10). |
 | 0.3.4 | 17/10/2026 | UXD | R2 Sprint 3 – 6.17 bổ sung chọn loại giấy tờ / bổ sung tại quầy / thẻ "Đã làm thủ tục trước" (MOB S3); mẫu **6.21** tự thử lại theo `Retry-After` cho `CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` (ĐK-S2-3, QC-S2-02); 6.16 theo quyết định Sprint 2 (nội quy bắt buộc, "đã giao mã/thẻ" không bắt buộc + tick sau, số thẻ, vượt sức chứa chặn cứng, `SURCHARGE_CHANGED`); 6.19 áp ESC-016 A (phí dọn chỉ khi lần dọn đầy đủ thứ hai trong ngày / dọn lẻ dài hạn); rà H13–H18 theo OpenAPI 0.3.5 + BR v0.3.2; chuỗi mới (xem `rounds/round-02/outputs/UXD/s3-report.md`); 5 chuỗi RU báo giá (PO-S2-01). |
 | 0.3.3 | 16/10/2026 | UXD | R2 Sprint 2 – hi-fi Sprint 4 (H19–H24): mẫu 6.18 PWA buồng phòng/bảo trì (mật độ HK, hoàn tác 10 giây = gửi trễ, hàng đợi + "Cần xem lại", mức phiếu, ảnh bằng chứng), 6.19 yêu cầu khách có phí, 6.20 Tổng quan + SSE; mục 4.1 lớp tiện ích thay style nội tuyến (FB-R2-UXD-FE-15) + `[hidden]` toàn cục + `tr.is-editing` (FE-13); component `.hk-card`, `.filters`, `.qpill`, `.toast-dock`, `.photo-row`, `.tl`, `.req-grid/.req-tile/.req-card`, `.live`, `.kpis.two`; H04 thêm cột/ô **số giường** (`bedCount`) và **diện tích** (`areaM2`) theo OpenAPI 0.3.4 Q6; 303 chuỗi VI/EN mới (`hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`); sửa `hk.task.extra_kit_items` ("1 1 mền"). |

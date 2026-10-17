@@ -69,7 +69,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .frame{flex:0 1 1040px;min-width:0;width:100%;max-width:1040px}
 .frame-desk{background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg)}
 .frame-phone{flex:0 0 375px;width:375px;max-width:100%}
-.frame-phone .device{background:var(--bg);border:10px solid #2B2B2B;border-radius:36px;overflow:hidden;min-height:740px;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);position:relative}
+.frame-phone .device{background:var(--bg);border:10px solid #2B2B28;border-radius:36px;overflow:hidden;min-height:740px;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);position:relative}
 .variants{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:16px}
 .variant{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
 .variant>.label-h{display:block;margin-bottom:8px}
@@ -215,7 +215,10 @@ textarea.input{min-height:72px;resize:vertical}
 .chip.ok{background:var(--ok-bg);color:var(--ok)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)}
 .chip.bad{background:var(--bad-bg);color:var(--bad)}
-.chip.info{background:var(--info-bg);color:var(--info)}
+/* v0.4.1 (critic S4 #19): --info chỉ cho thông báo (.alert.info, .task.info, .amenity). Trạng thái đối tượng = .chip.ink
+   (Ink trên --surface, viền --line-strong, icon bắt buộc). .chip.info giữ làm BÍ DANH của .chip.ink để code đang
+   truyền tone="info" tự đúng ở bản build kế tiếp; FE/MOB đổi sang "ink" khi chạm file – xóa bí danh ở v0.5. */
+.chip.ink,.chip.info{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
 .chip.oak{background:var(--oak-soft);color:var(--oak-ink)}
 .chip.neutral{background:var(--surface-2);color:var(--muted)}
 .chip.hold{background:var(--surface);color:var(--ink);border:2px dashed var(--oak-ink)}
@@ -552,7 +555,7 @@ dialog.dlg .modal{max-width:none;max-height:calc(100vh - 48px);overflow:auto}
 .hk-card+.hk-card{margin-top:12px}
 .hk-card.urgent{border-left:6px solid var(--bad)}
 .hk-card.soon{border-left:6px solid var(--warn)}
-.hk-card.kit{border-left:6px solid var(--info)}
+.hk-card.kit{border-left:6px solid var(--line-strong)} /* v0.4.1: loại việc, không phải thông báo – bỏ --info; nghĩa nằm ở icon sofa + chữ */
 .hk-card.done{background:var(--surface-2)}
 .hk-card .hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .hk-card .room{font-family:var(--serif);font-weight:600;font-size:1.75rem;line-height:1;min-width:52px;font-variant-numeric:tabular-nums}
@@ -642,7 +645,7 @@ button.photo.add{border:2px dashed var(--line-strong);background:var(--surface);
   body:has(> .print-root) > :not(.print-root){display:none !important}
   body > .print-root{display:block}
   body:has(> .print-root){background:#fff}
-  /* token sáng cố định cho giấy (cùng giá trị token sáng của tokens.css) – không đổi theo chế độ tối */
-  .print-root{--surface:#FFFFFF;--ink:#2B2B2B;--muted:#635F58;--faint:#6A645B;--line:#E0D8CA;--line-strong:#857E71;--ok:#356B49;color-scheme:light;color:var(--ink);background:#fff}
+  /* token sáng cố định cho giấy (DS v0.4: màu bảng --brand-* của tokens.css, không đổi theo chế độ tối) */
+  .print-root{--surface:var(--brand-white);--ink:var(--brand-ink);--muted:var(--brand-stone);--faint:var(--brand-stone);--line:#E0D8CA;--line-strong:#857E71;--ok:#356B49;color-scheme:light;color:var(--ink);background:#fff}
   .print-root .bill-paper{border:0;box-shadow:none;max-width:none;padding:0}
 }

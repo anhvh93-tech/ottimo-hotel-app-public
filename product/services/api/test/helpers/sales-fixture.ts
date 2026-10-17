@@ -139,8 +139,9 @@ export async function seedGuest(
   const id = uuidv7();
   await db.withContext(t.ctx(), (tx) =>
     tx.query(
-      `INSERT INTO guest (id, organization_id, code, full_name, name_search, phone_e164, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      // 0055 (erd 4.4 CHECK 1): a profile without a contact is an OTA guest's (source 'ota').
+      `INSERT INTO guest (id, organization_id, code, full_name, name_search, phone_e164, created_by, created_at, updated_at, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CASE WHEN $6::text IS NULL THEN 'ota' ELSE 'desk' END)`,
       [
         id,
         t.organizationId,

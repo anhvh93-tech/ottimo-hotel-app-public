@@ -1380,7 +1380,7 @@ g("R2 hi-fi Sprint 3 – nhận/trả phòng, khai báo, lưu trú, duyệt, nh�
     ("co.invoice_r3", "Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất.", "E-invoices are issued from Round 3; R2 stores the details for accounting.", None, "16-check-out.html"),
     ("co.invoice_toggle", "Khách lấy hóa đơn công ty", "Guest needs a company invoice", None, "16-check-out.html"),
     ("co.item", "Món", "Item", None, "16-check-out.html"),
-    ("co.late_switch_hint", "Khách trả sau 12:00 mà chưa hẹn: dùng \"Trả muộn\" ở drawer đơn để tính và báo khách trước.", "Guest leaving after 12:00 without an agreed time: use \"Late check-out\" in the booking drawer to calculate and tell them first.", None, "16-check-out.html"),
+    ("co.late_switch_hint", "Khách trả sau 12:00 mà chưa hẹn: dùng \"Trả muộn\" ở drawer đơn để tính và báo khách trước.", "Guest leaving after 12:00 without an agreed time: use \"Late check-out\" in the booking drawer to calculate and tell them first.", None, "16-check-out.html. CŨ – giờ viết cứng; FE đổi sang co.late_switch_hint_time (S4-48) rồi UXD xóa key này"),
     ("co.line_late", "Phụ thu trả muộn ({time})", "Late check-out fee ({time})", None, "16-check-out.html"),
     ("co.minibar_not_checked", "Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất.", "Minibar not checked. Do step 1 before completing.", None, "16-check-out.html"),
     ("co.minibar_skip", "Bỏ qua bước này – sang Phụ phí.", "Skip this step – go to Charges.", None, "16-check-out.html"),
@@ -2529,26 +2529,26 @@ g("R2 Sprint 3 – đợt 5: Cần chú ý đơn chưa đóng (BE-C) + OpenAPI 0
     ("rsv.guest_link.revoked_toast", "Đã thu hồi link của đơn {code}.", "Link for booking {code} revoked."),
 ])
 
-g("R2 Sprint 3 – vòng sửa 9: lỗi Desk UXR #5, #7, #8 (FE viết theo content guide – chờ UXD duyệt)", [
+g("R2 Sprint 3 – vòng sửa 9: lỗi Desk UXR #5, #7, #8 (FE viết theo content guide; UXD duyệt 17/10 – S4-41)", [
     # UXR #5 – hộp Hủy đơn khi hoàn 100 % cọc (CancellationQuote.refundableVnd > 0, retainedVnd = 0)
     ("confirm.cancel_booking.body_full_refund", "Căn {room} mở bán lại {from} → {to} trên mọi kênh. Không giữ phí hủy; hoàn đủ {refund} cho khách – cần quản lý duyệt.", "Room {room} goes back on sale {from} → {to} on all channels. No cancellation fee; the full {refund} is refunded – needs manager approval.", None, "UXR #5: refundableVnd > 0, retainedVnd = 0. {refund} cùng cách ghi số với confirm.cancel_booking.body"),
     # UXR #7 – thêm người khi khách đang ở, vượt định mức (addPartyMember dryRun → occupancyChange.surchargeVnd; BR-110, DOM S3-12)
     ("party.surcharge_title", "Phụ thu người vượt định mức", "Extra-guest surcharge", None, "Tiêu đề khối trong hộp Người ở (chỉ đơn Đang ở)"),
     ("party.surcharge_loading", "Đang tính phụ thu…", "Working out the surcharge…", None, "addPartyMember dryRun đang chạy – nút Thêm vào đơn khóa"),
-    ("party.surcharge_line", "Thêm người này vượt định mức căn: phụ thu {amount} cho {nights} đêm còn lại, tính từ đêm nay (BR-110).", "Adding this person goes over the room's standard occupancy: a {amount} surcharge for the {nights} remaining night(s), from tonight (BR-110).", None, "{amount} ← occupancyChange.surchargeVnd (kèm đơn vị); {nights} ← occupancyChange.nights"),
+    ("party.surcharge_line", "Thêm người này vượt định mức căn: phụ thu {amount} cho {nights} đêm còn lại, tính từ đêm nay.", "Adding this person goes over the room's standard occupancy: a {amount} surcharge for the {nights} remaining night(s), from tonight.", None, "BR-110. {amount} ← occupancyChange.surchargeVnd (kèm đơn vị); {nights} ← occupancyChange.nights. UXD S4-41: bỏ mã BR khỏi câu (FB-R1-UXR-UXD-08)"),
     ("party.surcharge_zero", "Thêm người này không có phụ thu (vẫn trong định mức căn).", "No surcharge for this person (still within the room's standard occupancy).", None, "dryRun: không có occupancyChange hoặc surchargeVnd = 0"),
     ("party.surcharge_confirm", "Ghi phụ thu {amount} vào folio – tôi đã báo khách", "Add the {amount} surcharge to the folio – I've told the guest", None, "Ô tick bắt buộc → applyExtraPersonSurcharge = true + expectedSurchargeVnd. Không có \"bỏ qua\" (DOM S3-12)"),
-    ("party.surcharge_needs_confirm", "Tick ô phụ thu để thêm người này.", "Tick the surcharge box to add this person.", None, "Lý do nút Thêm vào đơn đang khóa"),
-    ("party.surcharge_waiver_note", "Khách xin miễn? Vẫn ghi phụ thu rồi báo quản lý – Desk chưa có nút xin miễn cho phụ thu người.", "Guest asking for a waiver? Add the surcharge anyway and tell a manager – the desk can't request a waiver for this surcharge yet.", None, "addPartyMember không có trường FOC; nút xin FOC trên Desk chờ S4-25 sau S4-02/S4-18 (QC ĐK-S3-6, S4-34)"),
+    ("party.surcharge_needs_confirm", "Tick ô phụ thu để bật nút Thêm vào đơn.", "Tick the surcharge box to enable Add to booking.", None, "Lý do nút Thêm vào đơn đang khóa (aria-describedby). UXD S4-41: cùng mẫu \"Tick … để bật nút …\" với ci.submit_needs_told"),
+    ("party.surcharge_waiver_note", "Khách xin miễn? Vẫn ghi phụ thu rồi báo quản lý – Desk chưa có nút xin miễn cho phụ thu người.", "Guest asking for a waiver? Add the surcharge anyway and tell a manager – the desk can't request a waiver for this surcharge yet.", None, "TẠM: xóa khi S4-25 mở xin miễn phụ thu người (BUG-R2-093). addPartyMember không có trường FOC; nút xin FOC trên Desk chờ S4-25 sau S4-02/S4-18 (QC ĐK-S3-6, S4-34)"),
     ("party.surcharge_required", "Thêm người này có phụ thu {amount}. Báo khách, tick ô phụ thu rồi bấm Thêm vào đơn.", "Adding this person carries a {amount} surcharge. Tell the guest, tick the surcharge box, then select Add to booking.", None, "422 applyExtraPersonSurcharge SURCHARGE_DECISION_REQUIRED (thay câu nhận sớm/trả muộn – UXR #7)"),
     ("party.surcharge_changed", "Phụ thu vừa đổi thành {amount}. Xem số mới, báo khách rồi tick lại.", "The surcharge has just changed to {amount}. Check the new amount, tell the guest, then tick again.", None, "409 SURCHARGE_CHANGED khi thêm người"),
-    ("party.surcharge_preview_failed", "Chưa tính được phụ thu nên chưa thêm được người này. Bấm Thử lại.", "Couldn't work out the surcharge, so this person can't be added yet. Tap Try again.", None, "dryRun lỗi mạng/5xx"),
+    ("party.surcharge_preview_failed", "Chưa tính được phụ thu nên chưa thêm được người này. Bấm Thử lại.", "Couldn't work out the surcharge, so this person can't be added yet. Select Try again.", None, "dryRun lỗi mạng/5xx. EN Desk dùng \"Select\" (không \"Tap\") – S4-41"),
     # UXR #8 – 403 SELF_REFUND_FORBIDDEN (executeRefund / executeCashRefund – rbac A47/A47a, PO 17/10 SEC-37)
     ("error.SELF_REFUND_FORBIDDEN", "Người đã tạo, duyệt hoặc nhập tài khoản nhận của khoản hoàn này không tự chi được. Nhờ một người khác có quyền chi hoàn.", "Whoever requested, approved or entered the account for this refund can't also pay it out. Ask another colleague who can pay refunds.", None, "403 – câu chung; màn chi hoàn dùng câu riêng theo cách hoàn"),
     ("refund.self_execute_forbidden_transfer", "Bạn đã tạo, duyệt hoặc nhập tài khoản nhận cho khoản hoàn này nên không tự chi được. Nhờ quản lý khác hoặc chủ đầu tư ghi khoản chi này.", "You requested, approved or entered the account for this refund, so you can't also pay it out. Ask another manager or the owner to record this payout.", None, "403 SELF_REFUND_FORBIDDEN ở executeRefund (chuyển khoản). Tiền mặt: refund.self_execute_forbidden (chỉ người tạo bị chặn)"),
 ])
 
-g("R2 Sprint 3 – vòng sửa 9c: Desk gắn giấy tờ chờ (FB-R2-SEC-FE-07), xem ảnh giấy tờ, khai báo thiếu người (FE viết theo content guide – chờ UXD duyệt)", [
+g("R2 Sprint 3 – vòng sửa 9c: Desk gắn giấy tờ chờ (FB-R2-SEC-FE-07), xem ảnh giấy tờ, khai báo thiếu người (FE viết theo content guide; UXD duyệt 17/10 – S4-48)", [
     # FB-R2-SEC-FE-07 – giấy tờ khách gửi qua link chưa gắn người sau khi bỏ người khỏi đoàn (BUG-R2-083, BE-C 9b)
     ("reg.link.pending_chip", "Chờ gắn người – tự xóa lúc {time}", "Not linked to a guest – deleted at {time}", None, "Thay chip guest.chip.doc_ok trên giấy tờ chờ gắn. {time} ← documents[].imagePurgeAt (ngày giờ)"),
     ("reg.link.pending_chip_soon", "Chờ gắn người – sắp tự xóa", "Not linked to a guest – will be deleted soon", None, "Như trên khi không có imagePurgeAt (ảnh đã xóa, giấy tờ vẫn chờ)"),
@@ -2582,6 +2582,12 @@ g("R2 Sprint 3 – vòng sửa 9c: Desk gắn giấy tờ chờ (FB-R2-SEC-FE-07
     # SEC-BE-54 (BE-C e6d1a7d) – mark-sent 409 REGISTRATION_INCOMPLETE errors[party_count]
     ("reg2.mark_sent_incomplete", "Còn thiếu giấy tờ của {n} người. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi.", "IDs are missing for {n} guest(s). Link the waiting IDs or add the missing ones before marking as sent.", None, "{n} = requiredCount − submittedCount; cũng hiện trước khi bấm khi số đã biết"),
     ("reg2.mark_sent_incomplete_short", "Còn thiếu giấy tờ của người trong đoàn. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi.", "Some guests' IDs are missing. Link the waiting IDs or add the missing ones before marking as sent.", None, "Như trên khi chưa tính được {n}"),
+])
+
+g("R2 Sprint 4 – UXD duyệt KB7 trả phòng sau giờ ân hạn (S4-48, FE vòng 9 tiếp)", [
+    ("co.go_bill_needs_told", "Tick \"Tôi đã báo khách khoản phụ thu này\" để bật nút Tiếp tục.", "Tick \"I've told the guest about this surcharge\" to enable Continue.", None, "H16 bước 2 (KB7): lý do nút \"Tiếp tục: Bill & thu tiền\" khóa, đặt cạnh nút + aria-describedby. Thay ci.told_guest (nhãn ô tick) đang dùng làm lý do"),
+    ("checkout.complete_needs_told", "Quay lại bước Phụ phí và tick \"Tôi đã báo khách khoản phụ thu này\" để bật nút Hoàn tất.", "Go back to Extras and tick \"I've told the guest about this surcharge\" to enable Complete.", None, "H16 bước 3: phụ thu trả muộn vừa tăng (tính lại) mà chưa tick – thay ci.told_guest trong whyLocked"),
+    ("co.late_switch_hint_time", "Khách muốn trả sau {time}? Dùng \"Trả muộn\" ở drawer đơn để tính và báo khách trước.", "Guest wants to leave after {time}? Use \"Late check-out\" in the booking drawer to work it out and tell them first.", None, "{time} ← BookingRules giờ trả phòng chuẩn (BR-401). Thay co.late_switch_hint (12:00 viết cứng). Chỉ hiện khi chưa có phụ thu trả muộn và chưa hẹn giờ (FE KB7 – UXD duyệt S4-48)"),
 ])
 
 TEMPLATES = [

@@ -634,8 +634,12 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
   it('BUG-R2-033: a document without partyMemberId is attached only on a document-number match (SEC s3 §7)', async () => {
     await at('2026-12-21T15:00:00+07:00');
     const b = await direct('102', '2026-12-21', '2026-12-23', 1_500_000);
-    const hmac = `test-${randomUUID()}`;
-    await q('UPDATE guest SET id_doc_hmac = $2 WHERE id = $1', [companions[0], hmac]);
+    // 0055 (erd 4.4, SEC F03): a stored blind index is v1-shaped and exists only with the P05 consent.
+    const hmac = `v1:${randomBytes(32).toString('hex')}`;
+    await q(`UPDATE guest SET id_doc_hmac = $2, crm_consent = 'granted' WHERE id = $1`, [
+      companions[0],
+      hmac,
+    ]);
     await q(`UPDATE guest SET date_of_birth = '1990-05-04' WHERE id = $1`, [companions[1]]);
     const port = fa.app.get(RegistrationPartyLink, { strict: false });
     const call = (docNumberHmac: string, fullNameOnDoc: string, dateOfBirth: string | null) =>

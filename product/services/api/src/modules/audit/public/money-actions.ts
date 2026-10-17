@@ -21,6 +21,11 @@ export const MONEY_AUDIT_ACTIONS = [
   'folio.foc_requested',
   'folio.foc_posted',
   'folio.foc_rejected',
+  // OpenAPI 0.3.7 bổ sung D1 (BR-433/434 v0.3.5, BR-315 (g) – S4-02/S4-18/S4-22): FOC lifecycle.
+  'folio.foc_cancelled',
+  'folio.foc_dormant',
+  'folio.foc_suspended',
+  'folio.foc_restored',
   'folio.damage_posted',
   'folio.damage_rejected',
   'refund.destination_set',

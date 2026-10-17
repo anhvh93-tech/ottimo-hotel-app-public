@@ -27,12 +27,17 @@ const files = readdirSync(DIR)
   .map((f) => f.slice(0, -4))
   .sort();
 
-/** File-name ranges (namespaces, not order): legacy 0000–0029, BE-A 0030–0039, BE-B 0040–0049, BE-C 0050–0059. */
+/**
+ * File-name ranges (namespaces, not order): legacy 0000–0029, BE-A 0030–0039, BE-B 0040–0049, BE-C 0050–0054.
+ * From 0055 (R2 Sprint 4, ORC decision 17/10 #4): ONE shared sequence – 0055 is the common migration of
+ * OpenAPI 0.3.7, every later number is handed out by ORC (no owner suffix).
+ */
 const ALLOWED: Array<[number, number]> = [
   [0, 29],
   [30, 39],
   [40, 49],
-  [50, 59],
+  [50, 54],
+  [55, 99],
 ];
 
 const prefixOf = (tag: string) => Number(tag.slice(0, 4));
@@ -62,7 +67,7 @@ describe('migrations journal (s3-contract 4.2)', () => {
       const n = prefixOf(e.tag);
       expect(
         ALLOWED.some(([lo, hi]) => n >= lo && n <= hi),
-        `${e.tag}: prefix outside 0000–0059 – ask ARC`,
+        `${e.tag}: prefix outside 0000–0099 – ask ARC`,
       ).toBe(true);
       expect(seen.has(n), `${e.tag}: duplicate prefix`).toBe(false);
       seen.add(n);
@@ -70,10 +75,11 @@ describe('migrations journal (s3-contract 4.2)', () => {
   });
 
   it('Sprint 3 files carry the owner suffix of their range', () => {
+    // 0055+ is the shared Sprint 4 sequence (numbers from ORC) – no owner suffix.
     const owner: Array<[number, number, string]> = [
       [30, 39, '_be_a'],
       [40, 49, '_be_b'],
-      [50, 59, '_be_c'],
+      [50, 54, '_be_c'],
     ];
     for (const e of journal.entries) {
       const n = prefixOf(e.tag);

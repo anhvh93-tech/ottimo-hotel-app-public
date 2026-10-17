@@ -135,7 +135,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .chip.ok{background:var(--ok-bg);color:var(--ok)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)}
 .chip.bad{background:var(--bad-bg);color:var(--bad)}
-.chip.info{background:var(--info-bg);color:var(--info)}
+/* v0.4.1: --info chỉ cho alert; .chip.info = bí danh của .chip.ink (Ink + viền --line-strong + icon) – xem design-system 2.3/2.4 */
+.chip.ink,.chip.info{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
 .chip.oak{background:var(--oak-soft);color:var(--oak-ink)}
 .chip.neutral{background:var(--surface-2);color:var(--muted)}
 .chip.hold{background:var(--surface);color:var(--ink);border:2px dashed var(--oak-ink)}

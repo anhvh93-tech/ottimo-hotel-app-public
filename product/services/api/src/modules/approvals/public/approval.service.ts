@@ -119,7 +119,19 @@ export interface ApprovalRow {
   refund_account_last4?: string | null;
   refund_destination_set_at?: Date | null;
   refunded_vnd?: number | string | null;
+  // 0055 (OpenAPI 0.3.7 D1): FOC life of an approved foc / special_discount (BE-B S4-02 moves it).
+  foc_state?: 'applied' | 'dormant' | 'suspended' | 'cancelled' | null;
+  foc_cancel_reason?: string | null;
+  line_change?: Record<string, unknown> | null;
+  auto_cancel_reason?: string | null;
 }
+
+/**
+ * 0055 (erd 4.6): `foc_state` is set iff the request is an approved foc / special_discount (DB CHECK
+ * approval_request_foc_state_scope_check). Approving writes `applied` – the meaning every approved FOC had
+ * before 0.3.7; dormant / suspended / cancelled are BE-B's FOC sync (S4-02, S4-18, S4-22).
+ */
+const FOC_STATE_ON_APPROVE = `CASE WHEN type IN ('foc', 'special_discount') THEN 'applied' END`;
 
 /** OpenAPI ApprovalRequest (the role serializer removes approverRemainingMonthlyVnd for other roles). */
 export interface ApprovalDto {
@@ -257,9 +269,10 @@ export class ApprovalService {
       `INSERT INTO approval_request (id, organization_id, property_id, type, status, target_type, target_id,
          target_code, folio_line_id, amount_vnd, limit_basis_vnd, reason_code, reason_note, requested_by,
          requested_at, required_role, approver_id, approver_role_snapshot, approver_limit_snapshot,
-         self_applied, decided_at, auth_method, created_at, created_by, updated_at)
+         self_applied, decided_at, auth_method, foc_state, created_at, created_by, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-         $21, $22, $15, $14, $15)
+         $21, $22, CASE WHEN $5::text = 'approved' AND $4::text IN ('foc', 'special_discount') THEN 'applied' END,
+         $15, $14, $15)
        RETURNING *`,
       [
         id,
@@ -461,7 +474,7 @@ export class ApprovalService {
     const { rows } = await tx.query<ApprovalRow>(
       `UPDATE approval_request SET status = 'approved', approver_id = $2, approver_role_snapshot = $3,
           approver_limit_snapshot = $4, auth_method = $5, decided_at = $6, decision_note = $7,
-          updated_at = $6, version = version + 1
+          foc_state = ${FOC_STATE_ON_APPROVE}, updated_at = $6, version = version + 1
         WHERE id = $1 RETURNING *`,
       [
         row.id,
@@ -558,7 +571,7 @@ export class ApprovalService {
     const { rows } = await tx.query<ApprovalRow>(
       `UPDATE approval_request SET status = 'pending', approver_id = NULL, approver_role_snapshot = NULL,
           approver_limit_snapshot = NULL, auth_method = NULL, decided_at = NULL, decision_note = NULL,
-          updated_at = $2, version = version + 1
+          foc_state = NULL, foc_cancel_reason = NULL, updated_at = $2, version = version + 1
         WHERE id = $1 RETURNING *`,
       [approvalId, now],
     );

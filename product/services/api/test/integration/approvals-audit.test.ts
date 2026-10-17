@@ -468,7 +468,8 @@ describe.skipIf(!HAS_DB)(
         await expect(
           db.withContext(t.ctx(), (tx) =>
             tx.query(
-              `UPDATE approval_request SET status = 'approved', approver_id = requested_by, approver_role_snapshot = 'front_desk_lead', decided_at = now() WHERE id = $1`,
+              // foc_state: a well-formed approved FOC (0055 scope CHECK) – only K6 may fail here.
+              `UPDATE approval_request SET status = 'approved', approver_id = requested_by, approver_role_snapshot = 'front_desk_lead', decided_at = now(), foc_state = 'applied' WHERE id = $1`,
               [own.id],
             ),
           ),

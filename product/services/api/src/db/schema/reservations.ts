@@ -152,6 +152,11 @@ export const reservation = pgTable(
     // B15 conflict sent for approval (late_checkout_conflict): applied as agreed_checkout_time when approved.
     lateCheckoutRequestedTime: time('late_checkout_requested_time'),
     partyVersion: integer('party_version').notNull().default(1),
+    // 0055 (OpenAPI 0.3.7 D1, BR-012 (4), BR-429): the guest was told the concrete room. `false` for an OTA
+    // booking auto-assigned within the group (BR-316 (2)) or a conflict booking just assigned (B7a); back to
+    // `true` (one way, checked in the application) when the desk ticks it, B7 guest_request, B9.
+    // `inventory_optimize` only while `false`. Default `true` = behaviour before 0.3.7.
+    roomDisclosedToGuest: boolean('room_disclosed_to_guest').notNull().default(true),
     ...auditColumns(),
   },
   (t) => [
@@ -358,6 +363,9 @@ export const roomBlock = pgTable(
     releasedAt: instant('released_at'),
     releasedBy: uuid('released_by'),
     releaseReason: text('release_reason'),
+    // 0055 (OpenAPI 0.3.7 B-10): expected repair-done date given at creation; the server derives
+    // end_date_planned = expected_done_date + ooo_reopen_buffer_days.
+    expectedDoneDate: date('expected_done_date', { mode: 'string' }),
     ...auditColumns(),
   },
   (t) => [
@@ -666,9 +674,18 @@ export const hkTask = pgTable(
     startedAt: instant('started_at'),
     doneAt: instant('done_at'),
     doneBy: uuid('done_by'),
+    // Free-text reason of 0.3.6 – superseded by cancel_reason_code + cancel_note (0.3.7), kept (expand only).
     cancelReason: text('cancel_reason'),
     clientMutationId: text('client_mutation_id'),
     performedAt: instant('performed_at'),
+    // 0055 (OpenAPI 0.3.7 B-05): why the task was cancelled – by staff (guest_refused, dnd, other) or by the
+    // system (day_ended, reservation_changed, room_blocked); a note is required with `other`.
+    cancelReasonCode: text('cancel_reason_code'),
+    cancelNote: text('cancel_note'),
+    // 0055 (OpenAPI 0.3.7 B-04): linen-change night (linen_change_every_nights, BR-807); task carried over
+    // from the previous day by J8 (DOM D-12 c).
+    linenChange: boolean('linen_change').notNull().default(false),
+    carriedOver: boolean('carried_over').notNull().default(false),
     ...auditColumns(),
   },
   (t) => [
@@ -693,6 +710,14 @@ export const hkTask = pgTable(
     check(
       'hk_task_kit_reservation_check',
       sql`${t.type} NOT LIKE 'extra_guest_kit_%' OR (${t.reservationId} IS NOT NULL AND ${t.source} = 'system')`,
+    ),
+    check(
+      'hk_task_cancel_reason_code_check',
+      sql`${t.cancelReasonCode} IS NULL OR ${t.cancelReasonCode} IN ('guest_refused', 'dnd', 'other', 'day_ended', 'reservation_changed', 'room_blocked')`,
+    ),
+    check(
+      'hk_task_cancel_note_check',
+      sql`${t.cancelReasonCode} IS DISTINCT FROM 'other' OR (${t.cancelNote} IS NOT NULL AND btrim(${t.cancelNote}) <> '')`,
     ),
     uniqueIndex('hk_task_clean_uk')
       .on(t.roomId, t.type, t.dueDate)

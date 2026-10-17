@@ -1,6 +1,6 @@
 # OpenAPI 0.3.7 – bản nháp (ARC, 17/10/2026) – áp đầu Sprint 4
 
-- Trạng thái: **NHÁP**. **Không** áp vào `product/docs/api/openapi.yaml` hay `erd.md` lúc này, vì BE đang sửa mã theo 0.3.6 (bổ sung 1–3). ARC áp toàn bộ ở bước khởi động Sprint 4, rồi sinh lại meta/api-client và chạy `--check`/`--strict`.
+- Trạng thái: **ĐÃ ÁP 17/10/2026 (khởi động Sprint 4)** vào `product/docs/api/openapi.yaml` (`0.3.7-draft`) và `erd.md` – xem `openapi-0.3.7.md` (nhóm D). Khác bản nháp: B-6 dùng `expectedVersion` trong thân thay `If-Match` (mục 5 của tệp đó); khóa `document_profile_retention_months` ghi chú trong `x-security-parameters`, bật cùng migration BE-B; B-13 (DATA) và B-14 (nội bộ BE-A) không thuộc hợp đồng. Bản dưới giữ làm lịch sử thiết kế.
 - Nguồn:
   - SEC `reviews/s3-SEC.md` mục 7 (BUG-R2-033 b – duyệt có điều kiện), PO 17/10 (BUG-R2-033 b chọn A).
   - `outputs/ARC/s3-contract.md` mục 7.5, 7.7 (danh sách 0.3.7 đã xác nhận).

@@ -1,7 +1,8 @@
-# Hướng dẫn nội dung chữ OTTIMO (Content guide) – v0.3
+# Hướng dẫn nội dung chữ OTTIMO (Content guide) – v0.4
 
 - Người viết: UXD (kiêm UX Writer) | Round 1 – Bước 2, đợt 2; cập nhật đợt 4 (khớp `rbac-matrix.md`, `state-machines.md`, `erd.md`, `openapi.yaml`) | Ngày: 15/10/2026
 - Trạng thái: bản nháp chờ review (UXR, PO; khuyến nghị DOM cho thuật ngữ nghiệp vụ).
+- **v0.4 (17/10/2026 – R2 Sprint 4, S4-49):** chữ khách nhìn thấy theo **OTTIMO Brand Guidelines v1.0** (tiếng Anh dẫn dắt, tiếng Việt hỗ trợ) – mục 1, 6, 7; quy tắc tên phòng – mục 2; mục 8 thêm 45 chuỗi đã duyệt (vòng sửa 9/9c – S4-41, S4-48; KB7). Danh sách việc đổi chữ khách và thứ tự cho FE/MOB: `design-system.md` mục 11.2, 11.6.
 - File chuỗi máy đọc: `product/design/copy/strings-vi.json`, `strings-en.json`, `strings-ru.json` (cùng key với bảng mục 8). Nguồn duy nhất: `product/design/tools/gen_strings.py` (sinh JSON + `wireframes/assets/strings.js`); sửa chuỗi ở đó rồi chạy lại.
 - Khắc phục: HR-01 (app khách chỉ tiếng Việt), HR-13 (thuật ngữ khó), HR-19 (đặt tên không thống nhất), HR-24 (lỗi không chỉ cách sửa), HR-25 (bill song ngữ).
 
@@ -11,7 +12,7 @@
 
 | | Nhân viên (Desk, HK) | Khách (app khách, tin nhắn, bill) |
 |---|---|---|
-| Tính cách | Đồng nghiệp chu đáo: ngắn, rõ, nói việc cần làm | Chủ nhà boutique: ấm, lịch sự, không khách sáo |
+| Tính cách | Đồng nghiệp chu đáo: ngắn, rõ, nói việc cần làm | **Giọng thương hiệu (v0.4):** ngắn gọn, lịch sự, tinh tế, điềm tĩnh, giữ khoảng cách vừa đủ; **tiếng Anh dẫn dắt, tiếng Việt hỗ trợ** (`design-system.md` 11.2) |
 | Xưng hô | Không xưng hô; câu mệnh lệnh nhẹ ("Chọn căn khác để lưu") | VI: "bạn" (khách trẻ/quốc tế), "anh/chị" chỉ trong tin nhắn cá nhân lễ tân tự sửa; EN: "you"; RU: «Вы» (trang trọng) |
 | Câu | ≤ 20 từ; động từ đầu câu; một ý một câu | ≤ 20 từ; nói lợi ích trước ("nhận phòng chỉ vài phút") |
 | Thuật ngữ | Desk dùng thuật ngữ ngành có nhãn (VC · Đã dọn, chờ kiểm); **HK dùng câu thường**, không mã | Không thuật ngữ nội bộ: không "FOC", "OOO", "folio" (trừ EN "folio" trên bill), "VC/VD" |
@@ -19,11 +20,22 @@
 
 Không dùng: "Lỗi hệ thống", "Thao tác không hợp lệ", "OK", "Có/Không" trên hộp xác nhận, dấu "!" trong thông báo lỗi, chữ in hoa toàn câu (trừ "ĐÃ THU ĐỦ" và tên trên giấy tờ).
 
+**Chữ khách nhìn thấy (Brand Guidelines v1.0 – v0.4):** guest-web, báo giá, mẫu tin, phiếu thanh toán, email/Zalo.
+- Câu chuẩn: "Welcome to OTTIMO. We hope you enjoy your stay."
+- Không emoji, không "!" (kể cả lời cảm ơn, lời xin lỗi), không viết hoa để nhấn.
+- Không "Quý khách", "Gia đình OTTIMO", "rất hân hạnh được phục vụ", "dạ thưa anh chị yêu quý".
+- Lời chào, tagline, tên phòng: tiếng Anh ở mọi ngôn ngữ, kèm một dòng hỗ trợ nhỏ.
+- Nội dung chức năng và văn bản pháp lý: một ngôn ngữ – ngôn ngữ khách chọn.
+- Viết bản EN trước, VI chuyển ý.
+- Tên thương hiệu "OTTIMO"; tagline nguyên văn "A refined stay inspired by the calm spirit of Dalat."
+
 ## 2. Chính tả và quy ước viết
 
 - **Dấu thanh kiểu mới, thống nhất**: hủy, khóa, hóa đơn, thủy, tùy, quý (không "huỷ", "khoá", "hoá"). Khớp decision-log và BR. (HR-19)
 - Viết hoa chữ đầu câu và tên riêng; nhãn nút/menu viết hoa chữ đầu ("Đặt phòng mới", không "Đặt Phòng Mới").
-- Số căn viết số: "căn 203"; tên căn giữ tiếng Anh ("The Sage").
+- Số căn viết số: "căn 203" – chỉ trên giao diện nhân viên.
+- Tên phòng (The Pine, The Mist, The Fern, The Bloom, The Valley, The Amber, The Sage, The Velvet, The Ivory, The Ember) giữ tiếng Anh, luôn có "The", không dịch, không viết tắt.
+- Theo **BR-012** (DOM): **khách chỉ thấy tên phòng** ("phòng The Pine" / "The Pine"); đơn chưa báo căn và tin Zalo tự động dùng **hạng phòng**. **Nhân viên thấy "401 · The Pine"**. Khai báo lưu trú ghi số căn. Chưa nhập tên thì dùng số. Chi tiết trình bày: `design-system.md` 11.3.
 - Trạng thái đơn: dùng **đúng nhãn ở mục 3.1**, khớp mã kỹ thuật `hold, confirmed, in_house, checked_out, cancelled, no_show` (BR-301). Không tạo trạng thái mới trong giao diện.
 - Con số nghiệp vụ (giá, %, giờ, phí) **không viết cứng trong chuỗi**: dùng biến `{amount}`, `{pct}`, `{time}` lấy từ tham số; chú thích nguồn bằng mã BR khi cần ("BR-411").
 - Ngắt dòng: không ngắt giữa số và đơn vị ("1.591.000 đ" dùng khoảng trắng không ngắt).
@@ -156,7 +168,7 @@ Luôn nêu số tiền + cơ sở + mã BR: "Phụ thu nhận sớm: 238.000 đ 
 - Key dạng `khu.vực.mục` (ví dụ `checkin.verify.passport`); không ghép câu từ nhiều mảnh; biến đặt tên rõ (`{room}`, `{guest}`).
 - Thiếu bản dịch → dùng EN (fallback), không hiện key. Wireframe tô viền cam chuỗi RU đang fallback.
 - Chừa chỗ chữ dài +40% (RU, DE); không đặt chữ trong ảnh.
-- Ngôn ngữ khách: mặc định theo trình duyệt → theo hồ sơ khách → VI; đổi tay ở đầu trang, ghi nhớ theo đơn.
+- Ngôn ngữ khách: phiên/hồ sơ khách → trình duyệt (`vi*` → VI, `ru*` → RU, **còn lại → EN** – v0.4 "tiếng Anh dẫn dắt", **[GIẢ ĐỊNH – PO xác nhận]**, áp khi MOB làm G1 ở `design-system.md` 11.6; v0.3: còn lại → VI); đổi tay ở đầu trang, ghi nhớ theo đơn.
 - **Chữ tự do của nhân viên gửi khách** (lý do từ chối yêu cầu, phản hồi): chọn từ danh sách lý do đã dịch (`guest.req.decline.*`); ghi chú tự do là tùy chọn, hiện dưới nhãn `guest.req.staff_note` "Ghi chú của lễ tân (tiếng Việt)" và bọc `lang="vi"` (Bước 4, FB-R1-UXR-UXD-06).
 - Màn chưa đủ RU: không trộn RU/EN mà không báo – hiện `guest.lang.ru_soon`; mọi chuỗi dự phòng gắn `lang` của ngôn ngữ thật.
 - **Văn bản pháp lý trên trang RU (quyết định UXD 17/10, chờ SEC đồng ký – review s3-UXD, FB-R2-UXD-MOB-S3-01):** 7 chuỗi `gw.notice_body`, `guest.oci.why`, `guest.oci.consent_q`, `guest.oci.consent`, `guest.oci.consent_no`, `guest.oci.consent_optional`, `guest.oci.withdraw_hint` hiện **bản EN đã duyệt** cho tới khi bản RU được người bản ngữ duyệt (không dùng bản nháp RU làm căn cứ đồng ý – 5.6). Điều kiện: (1) gom các chuỗi này trong một khối có `lang="en"`; (2) ngay trên khối hiện `gw.legal_en_notice` (RU) – **không** hiện banner `guest.lang.ru_soon` ở các màn đã đủ RU; (3) bằng chứng đồng ý ghi `locale=en`, `noticeVersion` không đổi; (4) bỏ khóa khỏi danh sách `RU_UNREVIEWED_LEGAL` (guest-web) ngay khi bản RU được duyệt và ghi decision-log.
@@ -179,9 +191,17 @@ Biến lấy từ đơn; giờ chuẩn 14:00/12:00 lấy từ tham số BR-401 (
 
 Biến `{deposit}`, `{balance}` lấy từ folio; `{cancel_policy_short}` lấy từ tham số `cancel_policy_direct` – **chờ ESC-006**, thiếu thì mẫu hiện ⟨…⟩ và cảnh báo (L10 10.2). Không bao giờ đưa mã cửa/mã xác minh vào mẫu.
 
+**v0.4 – giọng thương hiệu:** bản viết lại 8 mẫu ở `design-system.md` 11.2.1 – chờ PO duyệt, rồi UXD thay vào bảng này ở v0.4.1. Bản viết lại:
+- lấy EN làm gốc;
+- "Hello {name},";
+- bỏ "!";
+- `{room}` = tên phòng;
+- "Bill" → "Phiếu thanh toán".
+Mẫu hiện tại còn 2 câu có "!" (`msg.house_rules_smoking`, `msg.hot_water_issue`). Tham số giữ nguyên.
+
 ## 8. Bảng chuỗi VI / EN (luồng 1–10, hi-fi R2 + dùng chung, vai, mã lỗi API, bảo mật), cột RU chừa chỗ
 
-Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2330 chuỗi + 8 mẫu tin nhắn (R2 Sprint 3 đợt 5: 28 chuỗi – Cần chú ý `attn.dq_stay_not_closed*`, nguồn đổi số khách OTA `rsv.party_source.*`/`rsv.ota_mod_ref*`, `field.FOC_NOT_ALLOWED_OTA_PREPAID`, `field.NOT_ALLOWED`, phí kênh tiền phạt, link check-in online `rsv.guest_link.*`; R2 Sprint 3 đợt 3: `ci.go_handover`, `error.field_named`; R2 Sprint 3 – phản hồi & sửa: thêm 72 chuỗi – `field.TIME_*`, `field.SURCHARGE_DECISION_REQUIRED`, `error.REFUND_SOURCE_NOT_RECONCILED`, `checkout.extra_night_*`, `extend.keep_rate`, 28 `bill.line.*` (22 `FolioLine.labelKey` + 6 biến thể), `mlog.a_*` đủ tập đóng 49 action, `gw.oci_unavailable_*`; sửa `field.LATE_CHECKOUT_AFTER_LIMIT` theo BR-416 v0.3.4; R2 Sprint 3 – review FE/MOB s3-UXD: thêm 91 chuỗi nhóm "review FE H13–H17 + MOB guest-web" – lý do nút khóa, trạng thái rỗng, toast lưu trú, VietQR, Phiếu thanh toán, đối soát/hoàn tiền rỗng, tiêu đề/thân duyệt theo loại, `mlog.a_*` cho mọi action tiền của BE, `gw.legal_en_notice`…; sửa `ci.cond_balance`, `ci.effect_fee`, `co.change_due` (bỏ đơn vị cứng) và 4 chuỗi `mlog.a_*` có ví dụ viết cứng; R2 Sprint 3 đợt 3: thêm 32 chuỗi `reg.field.*`, `reg.value.*`, `checkin.docs.field.*` cho dữ liệu khai báo trên cổng; R2 Sprint 3 đợt 2: thêm 66 chuỗi FE/MOB – `refund.*`, `checkout.overpay.*`, `party.*`, `gw.doc*`, `gw.defer*`, `gw.oci_done_card_*`… và RU cho mọi chuỗi guest-web đang dùng; R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
+Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨chừa chỗ⟩" = chưa dịch, hiện EN (gắn `lang="en"`). Tổng 2375 chuỗi + 8 mẫu tin nhắn (v0.4 – R2 Sprint 4: UXD duyệt và dán 2 nhóm "vòng sửa 9" (13 chuỗi – S4-41: hộp Hủy đơn hoàn 100 % cọc, phụ thu khi thêm người đang ở, `SELF_REFUND_FORBIDDEN`) và "vòng sửa 9c" (29 chuỗi – S4-48: gắn giấy tờ chờ `reg.link.*`, Cần chú ý `attn.dq_party_docs_unlinked*`, ảnh giấy tờ `ci.photo_*`, `reg2.mark_sent_incomplete*`); sửa 4 chuỗi khi duyệt – `party.surcharge_line` bỏ mã BR-110 khỏi câu (FB-R1-UXR-UXD-08), `party.surcharge_needs_confirm` theo mẫu "Tick … để bật nút …", `party.surcharge_preview_failed` EN "Select" thay "Tap", `party.surcharge_waiver_note` đánh dấu tạm tới S4-25; thêm 3 chuỗi KB7 – `co.go_bill_needs_told`, `checkout.complete_needs_told`, `co.late_switch_hint_time` (thay `co.late_switch_hint` viết cứng 12:00); R2 Sprint 3 đợt 5: 28 chuỗi – Cần chú ý `attn.dq_stay_not_closed*`, nguồn đổi số khách OTA `rsv.party_source.*`/`rsv.ota_mod_ref*`, `field.FOC_NOT_ALLOWED_OTA_PREPAID`, `field.NOT_ALLOWED`, phí kênh tiền phạt, link check-in online `rsv.guest_link.*`; R2 Sprint 3 đợt 3: `ci.go_handover`, `error.field_named`; R2 Sprint 3 – phản hồi & sửa: thêm 72 chuỗi – `field.TIME_*`, `field.SURCHARGE_DECISION_REQUIRED`, `error.REFUND_SOURCE_NOT_RECONCILED`, `checkout.extra_night_*`, `extend.keep_rate`, 28 `bill.line.*` (22 `FolioLine.labelKey` + 6 biến thể), `mlog.a_*` đủ tập đóng 49 action, `gw.oci_unavailable_*`; sửa `field.LATE_CHECKOUT_AFTER_LIMIT` theo BR-416 v0.3.4; R2 Sprint 3 – review FE/MOB s3-UXD: thêm 91 chuỗi nhóm "review FE H13–H17 + MOB guest-web" – lý do nút khóa, trạng thái rỗng, toast lưu trú, VietQR, Phiếu thanh toán, đối soát/hoàn tiền rỗng, tiêu đề/thân duyệt theo loại, `mlog.a_*` cho mọi action tiền của BE, `gw.legal_en_notice`…; sửa `ci.cond_balance`, `ci.effect_fee`, `co.change_due` (bỏ đơn vị cứng) và 4 chuỗi `mlog.a_*` có ví dụ viết cứng; R2 Sprint 3 đợt 3: thêm 32 chuỗi `reg.field.*`, `reg.value.*`, `checkin.docs.field.*` cho dữ liệu khai báo trên cổng; R2 Sprint 3 đợt 2: thêm 66 chuỗi FE/MOB – `refund.*`, `checkout.overpay.*`, `party.*`, `gw.doc*`, `gw.defer*`, `gw.oci_done_card_*`… và RU cho mọi chuỗi guest-web đang dùng; R2 Sprint 3: thêm 79 chuỗi – `error.CONCURRENT_UPDATE`/`SERVICE_UNAVAILABLE` + `retry.*`, rà H13–H18 (`field.*` mã trường 0.3.3, `checkin.*`, `ci.*`, `pay.*`, `mlog.*`), ESC-016 A `gw.req.*`; RU cho 5 chuỗi báo giá (PO-S2-01); R2 Sprint 2 – hi-fi Sprint 4: thêm 303 chuỗi `hk.*`, `wo.*`, `gw.req.*`, `ov.*`, `attn.*`, `rooms.*`; review FE S2: thêm 50 chuỗi nhóm "R2 Sprint 2 – review FE"; phản hồi FE S2: thêm 22 chuỗi).
 
 #### Chung
 
@@ -1649,7 +1669,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.invoice_r3` | Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất. | E-invoices are issued from Round 3; R2 stores the details for accounting. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.invoice_toggle` | Khách lấy hóa đơn công ty | Guest needs a company invoice | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.item` | Món | Item | ⟨chừa chỗ⟩ | 16-check-out.html |
-| `co.late_switch_hint` | Khách trả sau 12:00 mà chưa hẹn: dùng "Trả muộn" ở drawer đơn để tính và báo khách trước. | Guest leaving after 12:00 without an agreed time: use "Late check-out" in the booking drawer to calculate and tell them first. | ⟨chừa chỗ⟩ | 16-check-out.html |
+| `co.late_switch_hint` | Khách trả sau 12:00 mà chưa hẹn: dùng "Trả muộn" ở drawer đơn để tính và báo khách trước. | Guest leaving after 12:00 without an agreed time: use "Late check-out" in the booking drawer to calculate and tell them first. | ⟨chừa chỗ⟩ | 16-check-out.html. CŨ – giờ viết cứng; FE đổi sang co.late_switch_hint_time (S4-48) rồi UXD xóa key này |
 | `co.line_late` | Phụ thu trả muộn ({time}) | Late check-out fee ({time}) | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.minibar_not_checked` | Chưa kiểm minibar. Làm bước 1 trước khi hoàn tất. | Minibar not checked. Do step 1 before completing. | ⟨chừa chỗ⟩ | 16-check-out.html |
 | `co.minibar_skip` | Bỏ qua bước này – sang Phụ phí. | Skip this step – go to Charges. | ⟨chừa chỗ⟩ | 16-check-out.html |
@@ -2815,6 +2835,66 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `rsv.guest_link.expires` | Hết hạn {time} | Expires {time} | ⟨chừa chỗ⟩ | {time} ← expiresAt (giờ cơ sở) |
 | `rsv.guest_link.revoked_toast` | Đã thu hồi link của đơn {code}. | Link for booking {code} revoked. | ⟨chừa chỗ⟩ |  |
 
+#### R2 Sprint 3 – vòng sửa 9: lỗi Desk UXR #5, #7, #8 (FE viết theo content guide; UXD duyệt 17/10 – S4-41)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `confirm.cancel_booking.body_full_refund` | Căn {room} mở bán lại {from} → {to} trên mọi kênh. Không giữ phí hủy; hoàn đủ {refund} cho khách – cần quản lý duyệt. | Room {room} goes back on sale {from} → {to} on all channels. No cancellation fee; the full {refund} is refunded – needs manager approval. | ⟨chừa chỗ⟩ | UXR #5: refundableVnd > 0, retainedVnd = 0. {refund} cùng cách ghi số với confirm.cancel_booking.body |
+| `party.surcharge_title` | Phụ thu người vượt định mức | Extra-guest surcharge | ⟨chừa chỗ⟩ | Tiêu đề khối trong hộp Người ở (chỉ đơn Đang ở) |
+| `party.surcharge_loading` | Đang tính phụ thu… | Working out the surcharge… | ⟨chừa chỗ⟩ | addPartyMember dryRun đang chạy – nút Thêm vào đơn khóa |
+| `party.surcharge_line` | Thêm người này vượt định mức căn: phụ thu {amount} cho {nights} đêm còn lại, tính từ đêm nay. | Adding this person goes over the room's standard occupancy: a {amount} surcharge for the {nights} remaining night(s), from tonight. | ⟨chừa chỗ⟩ | BR-110. {amount} ← occupancyChange.surchargeVnd (kèm đơn vị); {nights} ← occupancyChange.nights. UXD S4-41: bỏ mã BR khỏi câu (FB-R1-UXR-UXD-08) |
+| `party.surcharge_zero` | Thêm người này không có phụ thu (vẫn trong định mức căn). | No surcharge for this person (still within the room's standard occupancy). | ⟨chừa chỗ⟩ | dryRun: không có occupancyChange hoặc surchargeVnd = 0 |
+| `party.surcharge_confirm` | Ghi phụ thu {amount} vào folio – tôi đã báo khách | Add the {amount} surcharge to the folio – I've told the guest | ⟨chừa chỗ⟩ | Ô tick bắt buộc → applyExtraPersonSurcharge = true + expectedSurchargeVnd. Không có "bỏ qua" (DOM S3-12) |
+| `party.surcharge_needs_confirm` | Tick ô phụ thu để bật nút Thêm vào đơn. | Tick the surcharge box to enable Add to booking. | ⟨chừa chỗ⟩ | Lý do nút Thêm vào đơn đang khóa (aria-describedby). UXD S4-41: cùng mẫu "Tick … để bật nút …" với ci.submit_needs_told |
+| `party.surcharge_waiver_note` | Khách xin miễn? Vẫn ghi phụ thu rồi báo quản lý – Desk chưa có nút xin miễn cho phụ thu người. | Guest asking for a waiver? Add the surcharge anyway and tell a manager – the desk can't request a waiver for this surcharge yet. | ⟨chừa chỗ⟩ | TẠM: xóa khi S4-25 mở xin miễn phụ thu người (BUG-R2-093). addPartyMember không có trường FOC; nút xin FOC trên Desk chờ S4-25 sau S4-02/S4-18 (QC ĐK-S3-6, S4-34) |
+| `party.surcharge_required` | Thêm người này có phụ thu {amount}. Báo khách, tick ô phụ thu rồi bấm Thêm vào đơn. | Adding this person carries a {amount} surcharge. Tell the guest, tick the surcharge box, then select Add to booking. | ⟨chừa chỗ⟩ | 422 applyExtraPersonSurcharge SURCHARGE_DECISION_REQUIRED (thay câu nhận sớm/trả muộn – UXR #7) |
+| `party.surcharge_changed` | Phụ thu vừa đổi thành {amount}. Xem số mới, báo khách rồi tick lại. | The surcharge has just changed to {amount}. Check the new amount, tell the guest, then tick again. | ⟨chừa chỗ⟩ | 409 SURCHARGE_CHANGED khi thêm người |
+| `party.surcharge_preview_failed` | Chưa tính được phụ thu nên chưa thêm được người này. Bấm Thử lại. | Couldn't work out the surcharge, so this person can't be added yet. Select Try again. | ⟨chừa chỗ⟩ | dryRun lỗi mạng/5xx. EN Desk dùng "Select" (không "Tap") – S4-41 |
+| `error.SELF_REFUND_FORBIDDEN` | Người đã tạo, duyệt hoặc nhập tài khoản nhận của khoản hoàn này không tự chi được. Nhờ một người khác có quyền chi hoàn. | Whoever requested, approved or entered the account for this refund can't also pay it out. Ask another colleague who can pay refunds. | ⟨chừa chỗ⟩ | 403 – câu chung; màn chi hoàn dùng câu riêng theo cách hoàn |
+| `refund.self_execute_forbidden_transfer` | Bạn đã tạo, duyệt hoặc nhập tài khoản nhận cho khoản hoàn này nên không tự chi được. Nhờ quản lý khác hoặc chủ đầu tư ghi khoản chi này. | You requested, approved or entered the account for this refund, so you can't also pay it out. Ask another manager or the owner to record this payout. | ⟨chừa chỗ⟩ | 403 SELF_REFUND_FORBIDDEN ở executeRefund (chuyển khoản). Tiền mặt: refund.self_execute_forbidden (chỉ người tạo bị chặn) |
+
+#### R2 Sprint 3 – vòng sửa 9c: Desk gắn giấy tờ chờ (FB-R2-SEC-FE-07), xem ảnh giấy tờ, khai báo thiếu người (FE viết theo content guide; UXD duyệt 17/10 – S4-48)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `reg.link.pending_chip` | Chờ gắn người – tự xóa lúc {time} | Not linked to a guest – deleted at {time} | ⟨chừa chỗ⟩ | Thay chip guest.chip.doc_ok trên giấy tờ chờ gắn. {time} ← documents[].imagePurgeAt (ngày giờ) |
+| `reg.link.pending_chip_soon` | Chờ gắn người – sắp tự xóa | Not linked to a guest – will be deleted soon | ⟨chừa chỗ⟩ | Như trên khi không có imagePurgeAt (ảnh đã xóa, giấy tờ vẫn chờ) |
+| `reg.link.action` | Gắn người | Link to guest | ⟨chừa chỗ⟩ | Nút trên dòng giấy tờ chờ: step-up → hộp nhập tay có ô Người trong đoàn |
+| `reg.link.banner` | {n} giấy tờ khách gửi qua link chưa gắn người – tự xóa lúc {time}. Gắn vào người còn ở để giữ lại. | {n} ID(s) sent via the link aren't linked to a guest – deleted at {time}. Link them to a guest who is staying to keep them. | ⟨chừa chỗ⟩ | Dải cảnh báo đầu khối Giấy tờ (H13 bước Giấy tờ, H14). {time} = hạn sớm nhất |
+| `reg.link.banner_soon` | {n} giấy tờ khách gửi qua link chưa gắn người và sắp tự xóa. Gắn vào người còn ở để giữ lại. | {n} ID(s) sent via the link aren't linked to a guest and will be deleted soon. Link them to a guest who is staying to keep them. | ⟨chừa chỗ⟩ | Như trên khi không có hạn |
+| `reg.link.go` | Tới giấy tờ | Go to the ID | ⟨chừa chỗ⟩ | Nút của dải cảnh báo – cuộn và đặt tiêu điểm vào giấy tờ chờ đầu tiên |
+| `reg.link.member` | Người trong đoàn | Guest in the party | ⟨chừa chỗ⟩ | Ô chọn trong hộp sửa giấy tờ khách gửi qua link – partyMemberId (không chọn sẵn) |
+| `reg.link.member_placeholder` | Chọn người | Choose a guest | ⟨chừa chỗ⟩ | Lựa chọn trống đầu danh sách |
+| `reg.link.member_help` | Người có giấy tờ này. Giấy tờ đi theo người đó khi đoàn thay đổi. | Whose ID this is. The ID follows that guest if the party changes. | ⟨chừa chỗ⟩ | Giấy tờ khách gửi qua link chưa gắn, không chờ xóa – không bắt buộc |
+| `reg.link.member_help_pending` | Chọn người có giấy tờ này để giữ lại. Không gắn thì giấy tờ tự xóa lúc {time}. | Choose whose ID this is to keep it. If it isn't linked, it's deleted at {time}. | ⟨chừa chỗ⟩ | Giấy tờ chờ gắn – bắt buộc |
+| `reg.link.member_help_pending_soon` | Chọn người có giấy tờ này để giữ lại. Không gắn thì giấy tờ sắp tự xóa. | Choose whose ID this is to keep it. If it isn't linked, it will be deleted soon. | ⟨chừa chỗ⟩ |  |
+| `reg.link.has_doc` | {name} – đã có giấy tờ | {name} – already has an ID | ⟨chừa chỗ⟩ | Lựa chọn bị khóa: người đã gắn với giấy tờ khác (409 PARTY_DUPLICATE) |
+| `reg.link.no_member` | Trong đoàn chưa có ai để gắn giấy tờ này. Thêm người ở mục Người ở của đơn rồi gắn lại; không thì giấy tờ tự xóa lúc {time}. | There's no one in the party to link this ID to. Add the guest under Guests staying on the booking, then link it; otherwise it's deleted at {time}. | ⟨chừa chỗ⟩ | Mọi người còn ở đã có giấy tờ – không chặn nút Lưu |
+| `reg.link.no_member_soon` | Trong đoàn chưa có ai để gắn giấy tờ này. Thêm người ở mục Người ở của đơn rồi gắn lại; không thì giấy tờ sắp tự xóa. | There's no one in the party to link this ID to. Add the guest under Guests staying on the booking, then link it; otherwise it will be deleted soon. | ⟨chừa chỗ⟩ |  |
+| `reg.link.party_error` | Chưa tải được danh sách người trong đoàn. | Couldn't load the guests in the party. | ⟨chừa chỗ⟩ | listParty lỗi – kèm nút common.retry |
+| `reg.link.linked_toast` | Đã gắn giấy tờ vào {name} | ID linked to {name} | ⟨chừa chỗ⟩ | Toast sau khi gắn (updateGuestDocument + partyMemberId) |
+| `reg.link.no_fields` | Chưa nhập thông tin giấy tờ | ID details not entered yet | ⟨chừa chỗ⟩ | Tên dòng giấy tờ khách gửi qua link khi lễ tân chưa nhập trường |
+| `reg.link.dup_pending` | Số giấy tờ này có thể thuộc giấy tờ khách đã gửi qua link đang chờ gắn người. Mở giấy tờ đó, bấm Gắn người và chọn người – không cần nhập mới. | This ID number may belong to an ID the guest sent via the link that is waiting to be linked. Open that ID, select Link to guest and choose the guest – no need to add it again. | ⟨chừa chỗ⟩ | Nhập tay trùng số khi đơn có giấy tờ chờ gắn: 409 PARTY_DUPLICATE (0.3.7 sẽ có DOCUMENT_UNCLAIMED_EXISTS kèm id) |
+| `reg.link.open_pending` | Mở giấy tờ chờ gắn người | Open the ID waiting to be linked | ⟨chừa chỗ⟩ | Đóng hộp nhập tay, tới giấy tờ chờ |
+| `attn.dq_party_docs_unlinked` | {n} đơn có giấy tờ khách gửi qua link chưa gắn người – sớm nhất tự xóa lúc {time} | {n} booking(s) have IDs sent via the link that aren't linked to a guest – the first is deleted at {time} | ⟨chừa chỗ⟩ | AttentionItem kind=data_quality, params.check=registration_party_docs_unlinked, count>1; {time} ← dueAt |
+| `attn.dq_party_docs_unlinked_one` | Đơn {code} có giấy tờ khách gửi qua link chưa gắn người – tự xóa lúc {time} | Booking {code} has IDs sent via the link that aren't linked to a guest – deleted at {time} | ⟨chừa chỗ⟩ | count=1 (có refCode) |
+| `attn.dq_party_docs_unlinked_body` | Có người vừa rời đoàn. Mở đơn, gắn giấy tờ của người còn ở vào đúng người để giữ lại. | Someone has left the party. Open the booking and link each staying guest's ID to that guest to keep it. | ⟨chừa chỗ⟩ |  |
+| `reg.link.open_booking` | Mở đơn {code} | Open booking {code} | ⟨chừa chỗ⟩ | Nút trong dải Cần chú ý của H14 (tối đa 5 đơn, đọc Reservation.registrationId) – mở khai báo, tới giấy tờ chờ |
+| `reg.link.row_chip` | Giấy tờ chờ gắn người | IDs waiting to be linked | ⟨chừa chỗ⟩ | Chip trên dòng H14 của đơn có mục Cần chú ý |
+| `ci.photo_alt` | Ảnh giấy tờ {n}/{total} – {name} | ID photo {n} of {total} – {name} | ⟨chừa chỗ⟩ | alt của ảnh giấy tờ; {name} = tên trên giấy tờ hoặc reg.link.no_fields |
+| `ci.photo_deleted` | Ảnh này đã bị xóa theo hạn lưu. | This photo has been deleted (retention period ended). | ⟨chừa chỗ⟩ | getDocumentImage 404 (E06-04) |
+| `ci.photo_error` | Chưa mở được ảnh giấy tờ. Bấm Xem đủ số / ảnh để thử lại. | Couldn't open the ID photo. Select View full number / photo to try again. | ⟨chừa chỗ⟩ | Lỗi khác khi tải ảnh – số đầy đủ vẫn hiện nếu đọc được |
+| `reg2.mark_sent_incomplete` | Còn thiếu giấy tờ của {n} người. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi. | IDs are missing for {n} guest(s). Link the waiting IDs or add the missing ones before marking as sent. | ⟨chừa chỗ⟩ | {n} = requiredCount − submittedCount; cũng hiện trước khi bấm khi số đã biết |
+| `reg2.mark_sent_incomplete_short` | Còn thiếu giấy tờ của người trong đoàn. Gắn giấy tờ đang chờ hoặc nhập giấy tờ còn thiếu trước khi đánh dấu đã gửi. | Some guests' IDs are missing. Link the waiting IDs or add the missing ones before marking as sent. | ⟨chừa chỗ⟩ | Như trên khi chưa tính được {n} |
+
+#### R2 Sprint 4 – UXD duyệt KB7 trả phòng sau giờ ân hạn (S4-48, FE vòng 9 tiếp)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.go_bill_needs_told` | Tick "Tôi đã báo khách khoản phụ thu này" để bật nút Tiếp tục. | Tick "I've told the guest about this surcharge" to enable Continue. | ⟨chừa chỗ⟩ | H16 bước 2 (KB7): lý do nút "Tiếp tục: Bill & thu tiền" khóa, đặt cạnh nút + aria-describedby. Thay ci.told_guest (nhãn ô tick) đang dùng làm lý do |
+| `checkout.complete_needs_told` | Quay lại bước Phụ phí và tick "Tôi đã báo khách khoản phụ thu này" để bật nút Hoàn tất. | Go back to Extras and tick "I've told the guest about this surcharge" to enable Complete. | ⟨chừa chỗ⟩ | H16 bước 3: phụ thu trả muộn vừa tăng (tính lại) mà chưa tick – thay ci.told_guest trong whyLocked |
+| `co.late_switch_hint_time` | Khách muốn trả sau {time}? Dùng "Trả muộn" ở drawer đơn để tính và báo khách trước. | Guest wants to leave after {time}? Use "Late check-out" in the booking drawer to work it out and tell them first. | ⟨chừa chỗ⟩ | {time} ← BookingRules giờ trả phòng chuẩn (BR-401). Thay co.late_switch_hint (12:00 viết cứng). Chỉ hiện khi chưa có phụ thu trả muộn và chưa hẹn giờ (FE KB7 – UXD duyệt S4-48) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
@@ -2848,3 +2928,4 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | 0.3.12 | 17/10/2026 | UXD | R2 Sprint 3 đợt 3 (sửa lỗi QA, ORC giao): `ci.go_handover` (nút bước 3 → 4 H13 – BUG-R2-032), `error.field_named` = Mục "{label}": {message} cho lỗi ở trường không có ô trên màn (BUG-R2-052). |
 | 0.3.13 | 17/10/2026 | UXD | `reg2.consent_q` và `reg2.retention_value` bỏ "30 ngày" viết cứng → tham số `{days}` (← `Registration.consentNotice.imageRetentionDays`); H14 hi-fi thêm `data-i18n-args`. |
 | 0.3.14 | 17/10/2026 | UXD | R2 Sprint 3 đợt 5 (ORC): 27 chuỗi – Cần chú ý `data_quality`/`registration_stay_not_closed` (BE-C: đơn quá giờ trả phòng chưa đóng, ảnh giấy tờ sẽ tự xóa sau `{days}` ngày); OpenAPI 0.3.6 bổ sung 4: chọn nguồn đổi số khách đơn OTA (`guest_direct` / `ota_modification` + mã sửa đơn), `FOC_NOT_ALLOWED_OTA_PREPAID`, phí kênh trên tiền phạt hủy OTA; nút tạo / tạo lại / thu hồi link check-in online + cảnh báo "link chỉ hiện một lần" + nhắc SEC `rsv.guest_link.send_private` (gửi riêng 1–1, không gửi nhóm). |
+| 0.4 | 17/10/2026 | UXD | R2 Sprint 4 – S4-49 + S4-41 + S4-48. **Thương hiệu:** mục 1 giọng chữ khách theo Brand Guidelines v1.0 (tiếng Anh dẫn dắt, tiếng Việt hỗ trợ, không "!"/emoji, câu chuẩn); mục 2 tên phòng (khách thấy "The Pine", nhân viên "101 · The Pine"); mục 6 ngôn ngữ mặc định còn lại → EN [GIẢ ĐỊNH – PO xác nhận]; mục 7 trỏ bản viết lại 8 mẫu tin (design-system 11.2.1, chờ PO). **Duyệt chuỗi:** dán nhóm vòng sửa 9 (13) và 9c (29) vào mục 8 (2330 → 2372), sửa 4 chuỗi (`party.surcharge_line`, `party.surcharge_needs_confirm`, `party.surcharge_preview_failed` EN, ghi chú `party.surcharge_waiver_note`); KB7 (S4-48): duyệt ẩn gợi ý "Trả muộn ở drawer" khi đã có phụ thu (FE đã làm), lý do khóa đặt cạnh nút Tiếp tục + 3 chuỗi mới `co.go_bill_needs_told`, `checkout.complete_needs_told`, `co.late_switch_hint_time` (2375 chuỗi) |

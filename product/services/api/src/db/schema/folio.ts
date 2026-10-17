@@ -94,6 +94,10 @@ export const folio = pgTable(
     postCheckoutWindowUntil: instant('post_checkout_window_until'),
     debtDueDate: date('debt_due_date', { mode: 'string' }),
     debtApprovedBy: uuid('debt_approved_by'),
+    // 0055 (OpenAPI 0.3.7 D1, BR-012 (5)): `{room_id: room name}` of the folio's rooms, captured in the
+    // settling transaction (with bill_no); Bill.roomName and labelParams.room/from/to of a settled folio
+    // read it, so renaming a room later does not change the bill. folio_line stays append-only.
+    settledRoomNames: jsonb('settled_room_names'),
     ...auditColumns(),
   },
   (t) => [
@@ -107,6 +111,10 @@ export const folio = pgTable(
     }),
     check('folio_status_check', sql`${t.status} IN ('open', 'settled', 'closed')`),
     check('folio_bill_no_check', sql`${t.status} = 'open' OR ${t.billNo} IS NOT NULL`),
+    check(
+      'folio_settled_room_names_check',
+      sql`${t.settledRoomNames} IS NULL OR jsonb_typeof(${t.settledRoomNames}) = 'object'`,
+    ),
   ],
 );
 

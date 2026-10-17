@@ -63,7 +63,11 @@ export const room = pgTable(
     propertyId: uuid('property_id').notNull(),
     roomGroupId: uuid('room_group_id').notNull(),
     roomNo: text('room_no').notNull(),
+    // BR-012: the room's display name (The Pine…) – guests see only this, staff "401 · The Pine".
     name: text('name'),
+    // 0055 (OpenAPI 0.3.7 D1, BR-012 (1)/(4), S4-52): public room type (EN free text, e-brochure tier) shown
+    // to a guest whose booking has no disclosed room yet. NULL = not entered.
+    publicRoomType: text('public_room_type'),
     floor: integer('floor'),
     areaM2: integer('area_m2'),
     bedSetup: text('bed_setup'),
@@ -100,6 +104,10 @@ export const room = pgTable(
     ),
     check('room_room_no_check', sql`${t.roomNo} ~ '^[0-9A-Z]{1,6}$'`),
     check('room_public_slug_check', sql`length(${t.publicSlug}) >= 8`),
+    check(
+      'room_public_room_type_check',
+      sql`${t.publicRoomType} IS NULL OR char_length(${t.publicRoomType}) BETWEEN 1 AND 60`,
+    ),
     check(
       'room_active_range_check',
       sql`${t.activeTo} IS NULL OR ${t.activeTo} >= ${t.activeFrom}`,

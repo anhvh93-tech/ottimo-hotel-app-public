@@ -53,6 +53,13 @@ export const guest = pgTable(
     // erd 4.4 0.3.4 (ARC Q7): set when a create/edit found a BR-952 look-alike (on both profiles);
     // GuestSummary.possibleDuplicate reads it (no similarity per list row); cleared by merge (R3).
     possibleDuplicateAt: instant('possible_duplicate_at'),
+    // 0055 (erd 4.4 0.3.7, draft A.2, SEC s3 7.4): how the profile was created. `document` = minimal profile
+    // made from a declared ID document (companion) – created only through guests/public/document-profile.ts.
+    // `guest_app`, `import` are R3. Rows without phone and e-mail before 0.3.7 were backfilled to `ota`.
+    source: text('source').notNull().default('desk'),
+    // 0055 (erd 4.4, SEC 7.2): last check-out of a stay of this person – retention anchor of `document`
+    // profiles (T05, job J25); written by BE-A through touchLastStay() in B18/B16.
+    lastStayCheckoutAt: instant('last_stay_checkout_at'),
     ...auditColumns(),
   },
   (t) => [
@@ -87,5 +94,40 @@ export const guest = pgTable(
       'guest_phone_check',
       sql`${t.phoneE164} IS NULL OR ${t.phoneE164} ~ '^[1-9][0-9]{7,14}$'`,
     ),
+    // 0055 (erd 4.4 0.3.7) – profiles made from documents (SEC s3 mục 7, ARC draft A.2).
+    check(
+      'guest_source_check',
+      sql`${t.source} IN ('desk', 'ota', 'document', 'guest_app', 'import')`,
+    ),
+    // v1 blind index of the ID number (SEC s3 7.3): 'v1:' + 64 hex.
+    check(
+      'guest_id_doc_hmac_format_check',
+      sql`${t.idDocHmac} IS NULL OR ${t.idDocHmac} ~ '^v1:[0-9a-f]{64}$'`,
+    ),
+    // CHECK 1: a desk profile always has a contact (anonymised/merged profiles excepted).
+    check(
+      'guest_contact_source_check',
+      sql`${t.source} <> 'desk' OR ${t.phoneE164} IS NOT NULL OR ${t.emailNorm} IS NOT NULL OR ${t.anonymizedAt} IS NOT NULL OR ${t.mergedIntoId} IS NOT NULL`,
+    ),
+    // CHECK 2 (SEC F03 at DB level): the ID blind index exists only with the P05 consent.
+    check(
+      'guest_id_doc_hmac_consent_check',
+      sql`${t.idDocHmac} IS NULL OR ${t.crmConsent} = 'granted'`,
+    ),
+    // CHECK 3 (last safety net, SEC 7.1): a `document` profile without P05 holds no extra personal data.
+    check(
+      'guest_document_minimal_check',
+      sql`${t.source} <> 'document' OR ${t.crmConsent} = 'granted' OR (${t.dateOfBirth} IS NULL AND ${t.gender} IS NULL AND ${t.idDocLast4} IS NULL AND ${t.idDocHmac} IS NULL AND ${t.freeNote} IS NULL AND coalesce(cardinality(${t.tags}), 0) = 0 AND coalesce(cardinality(${t.serviceNotes}), 0) = 0)`,
+    ),
+    uniqueIndex('guest_id_doc_hmac_uk')
+      .on(t.organizationId, t.idDocHmac)
+      .where(
+        sql`${t.idDocHmac} IS NOT NULL AND ${t.mergedIntoId} IS NULL AND ${t.anonymizedAt} IS NULL`,
+      ),
+    index('guest_document_profile_retention_idx')
+      .on(t.organizationId, t.lastStayCheckoutAt)
+      .where(
+        sql`${t.source} = 'document' AND ${t.crmConsent} <> 'granted' AND ${t.anonymizedAt} IS NULL`,
+      ),
   ],
 );
