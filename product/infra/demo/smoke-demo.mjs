@@ -239,6 +239,26 @@ const nowLocal = () =>
 // 4. check-out with VietQR
 {
   const id = st.ids.departingToday;
+  // After the grace time (BR-425) the desk records the late check-out first (B15, H15) so the bill carries the
+  // surcharge before it is collected – otherwise check-out stops on BALANCE_DUE.
+  const before = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
+  const late = await http('POST', P(fd, `/reservations/${id}/actions/late-checkout`), {
+    s: fd,
+    ifMatch: before.version,
+    body: { checkoutTime: nowLocal(), dryRun: true },
+  });
+  const lateVnd =
+    late.status === 200 && !late.body?.treatAsExtension ? (late.body?.surchargeVnd ?? 0) : 0;
+  if (lateVnd > 0) {
+    const set = await http('POST', P(fd, `/reservations/${id}/actions/late-checkout`), {
+      s: fd,
+      ifMatch: before.version,
+      body: { checkoutTime: nowLocal(), applySurcharge: true, expectedSurchargeVnd: lateVnd },
+    });
+    if (set.status === 200)
+      ok(`trả muộn: phụ thu ${lateVnd.toLocaleString('vi-VN')} đ ghi vào bill`);
+    else bad(`trả muộn: HTTP ${set.status} ${short(set.body)}`);
+  }
   const res = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
   const folio = (await http('GET', P(fd, `/folios/${res.folioId}`), { s: fd })).body;
   const due = folio?.totals?.balanceDueVnd ?? 0;
