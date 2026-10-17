@@ -38,6 +38,18 @@ const SQL_ONLY_INDEXES: Record<string, string> = {
   room_occupancy_active_range_idx: 'GiST index on daterange – inventory lookups',
   room_occupancy_no_overlap: 'index behind the EXCLUDE constraint',
 };
+/**
+ * Indexes present in BOTH (same name – the name check below passes) whose SQL definition carries an option the
+ * snapshot cannot express (drizzle has no such option on an index). Name → option + reason; the option is checked
+ * in pg_indexes, and no other index may carry it.
+ */
+const SQL_ONLY_INDEX_OPTIONS: Record<string, { option: string; reason: string }> = {
+  minibar_check_live_checkout_key: {
+    option: 'NULLS NOT DISTINCT',
+    reason:
+      '0066 (ARC 16.15/16.16): one live count per (stay, room, period) – a fridge without a fill (fill_id NULL) too',
+  },
+};
 /** Cross-module FKs of 0014 (4.2a-2e: SQL only, each module's .ts stays independent of the others). */
 const CROSS_MODULE_FKS: Record<string, string> = {
   reservation_quote_fk: 'reservations → sales (quote)',
@@ -144,6 +156,30 @@ describe.skipIf(!HAS_DB)('schema parity – migrated SQL ↔ head drizzle snapsh
     expect(new Set(rows.map((r) => r.name))).toEqual(new Set(names));
     const inSnapshot = JSON.stringify(snap.tables);
     expect(names.filter((n) => inSnapshot.includes(`"${n}"`))).toEqual([]);
+  });
+
+  it('index options only in SQL are there (pg_indexes), on the listed indexes only; the snapshot keeps the index', async () => {
+    const options = [...new Set(Object.values(SQL_ONLY_INDEX_OPTIONS).map((o) => o.option))];
+    for (const option of options) {
+      const { rows } = await pg.query<{ name: string }>(
+        `SELECT i.indexname AS name FROM pg_indexes i
+          WHERE i.schemaname = 'public' AND strpos(i.indexdef, $1) > 0
+            AND NOT EXISTS (SELECT 1 FROM pg_constraint k JOIN pg_class c ON c.oid = k.conindid
+                             WHERE c.relname = i.indexname)
+          ORDER BY 1`,
+        [option],
+      );
+      expect(rows.map((r) => r.name)).toEqual(
+        Object.entries(SQL_ONLY_INDEX_OPTIONS)
+          .filter(([, o]) => o.option === option)
+          .map(([n]) => n)
+          .sort(),
+      );
+    }
+    const inSnapshot = Object.values(snap.tables).flatMap((t) =>
+      Object.values(t.indexes).map((x) => x.name),
+    );
+    for (const name of Object.keys(SQL_ONLY_INDEX_OPTIONS)) expect(inSnapshot).toContain(name);
   });
 
   it('DEFERRABLE constraints of the ERD are still deferrable in SQL', async () => {

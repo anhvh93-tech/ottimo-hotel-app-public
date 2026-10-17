@@ -1201,6 +1201,8 @@ export function createStayMock(ctx: Ctx) {
   const cabKey = (r: MockReservation, roomId: string) => `${r.id}:${roomId}`;
   const periodOf = (r: MockReservation, roomId: string) =>
     st.minibarPeriods.get(cabKey(r, roomId)) ?? 0;
+  /** `MinibarStandard.periodId`: `null` while the cabinet has had no refill (period 0). */
+  const periodIdOf = (period: number) => (period > 0 ? uid(95_000 + period) : null);
   /**
    * `CheckoutSummary.minibarUncheckedRooms`: earlier rooms, then the room assigned now, with no `checkout` count after
    * their last mark (refill or the stay entering the room again – BUG-R2-144; extension after the count – DOM (b)).
@@ -2437,6 +2439,7 @@ export function createStayMock(ctx: Ctx) {
       const fd = has(x.g.roles, FD_PLUS);
       return json({
         roomNo: cab.roomNo,
+        periodId: periodIdOf(cab.period),
         items: MINIBAR.map((m) => {
           const last = latest?.find((l) => l.itemId === m.itemId);
           const lastUsed = last ? m.standardQty - last.remainingQty : null;
@@ -2478,11 +2481,15 @@ export function createStayMock(ctx: Ctx) {
       const body = (await request.json()) as {
         mode: string;
         roomId?: string;
+        periodId?: string | null;
         lines: Array<{ itemId: string; remainingQty: number }>;
       };
       // R1: the room assigned now (absent) or an earlier room of this stay; any other room → NOT_IN_LIST.
       const cab = cabinetOf(r, body.roomId);
       if (!cab) return validation([{ field: 'roomId', code: 'NOT_IN_LIST' }]);
+      // ARC 16.16 (ab): counted on a period that has since changed (refill) → nothing written.
+      if (body.periodId !== undefined && body.periodId !== periodIdOf(cab.period))
+        return problem(409, 'MINIBAR_PERIOD_CHANGED');
       const errors: Array<{ field: string; code: string }> = [];
       if (MINIBAR.some((m) => !body.lines.some((l) => l.itemId === m.itemId)))
         errors.push({ field: 'lines', code: 'MINIBAR_ITEMS_INCOMPLETE' });

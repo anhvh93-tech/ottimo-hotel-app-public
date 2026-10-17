@@ -434,7 +434,7 @@ export class CheckoutService {
   private async children(tx: Tx, row: ReservationRow) {
     const { rows } = await tx.query<{ id: string; code: string; departure_date: string }>(
       `SELECT id, code, departure_date::text AS departure_date FROM reservation
-        WHERE parent_reservation_id = $1 AND status = 'in_house' ORDER BY departure_date FOR UPDATE`,
+        WHERE parent_reservation_id = $1 AND status = 'in_house' ORDER BY departure_date FOR NO KEY UPDATE`,
       [row.id],
     );
     return rows;

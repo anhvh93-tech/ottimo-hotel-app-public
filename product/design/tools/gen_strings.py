@@ -3090,6 +3090,11 @@ g("R2 Sprint 4 – FE-A: đếm lại tủ minibar (BUG-R2-144, BR-703-02), cả
     ("folio.void_minibar_foc", "Món này đang có miễn/giảm {amount}. Hủy hoặc giảm dòng thì phần miễn/giảm vượt số còn lại tạm ngưng, và bị hủy khi chốt folio nếu không ghi lại dòng hoặc đếm lại minibar với số mới.", "This item has a waiver of {amount}. Voiding or reducing the line pauses the part of the waiver above what is left; that part is cancelled at settlement unless the line is posted again or the minibar is recounted with a new number.", None, "N-1 (BR-702 v0.3.8, NÊN): sửa/hủy dòng minibar có FOC theo món (BR-434-15)"),
 ])
 
+g("R2 Sprint 4 – FE-A đợt 15: tủ minibar đổi kỳ trong lúc đếm (ARC 16.16 (ab), 409 MINIBAR_PERIOD_CHANGED) (chờ UXD duyệt)", [
+    ("co.minibar_period_changed_title", "Tủ vừa được bổ sung", "The minibar was just restocked", None, "H16 bước 1: 409 MINIBAR_PERIOD_CHANGED – không ghi gì, đã tải lại mốc tủ"),
+    ("co.minibar_period_changed_body", "Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ.", "The figures entered were for the previous stock and were not saved. Please count again.", None, "Giữ lễ tân ở bước đếm; số điền sẵn theo kỳ mới"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

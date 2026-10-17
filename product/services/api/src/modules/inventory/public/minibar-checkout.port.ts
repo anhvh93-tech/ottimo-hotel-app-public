@@ -13,7 +13,7 @@
  * Also MINIBAR_REFILL_DONE_PORT (housekeeping/public, ARC 16.16): a refill done while the stay is in that room
  * opens a `refill` period (onRefillDone).
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
@@ -28,6 +28,8 @@ import {
   catalogueFridge,
   fridgeItems,
   latestFill,
+  lockFridge,
+  lockStayFolio,
   primaryOf,
   registerFridge,
   stayIsInRoom,
@@ -40,6 +42,8 @@ const REFILL_RANK = 7;
 
 @Injectable()
 export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillDonePort {
+  private readonly log = new Logger(MinibarCheckoutPort.name);
+
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(ParameterService) private readonly params: ParameterService,
@@ -88,9 +92,30 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     reason: 'room_entered' | 'extended',
   ): Promise<void> {
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
+    // ARC 16.16 bổ sung: folio → fridge (B13 posts to the folio only after this port), then read under the lock.
+    await lockStayFolio(tx, primaryId);
+    await lockFridge(tx, primaryId, roomId);
     await this.openNextPeriod(tx, primaryId, roomId);
     // After the period is settled: a count made stale above is not live – it gets no task (its replacement will).
-    if (reason === 'extended') await this.createRefillTasks(tx, primaryId, roomId);
+    if (reason === 'extended') {
+      await this.createRefillTasks(tx, primaryId, roomId);
+      return;
+    }
+    // (y) room_entered: the stay left this room through B14 / the room return, whose onCheckedOut gave every live
+    // count with use its task – one without a task here breaks that invariant: logged (ids only), no task (ORC).
+    const { rows: orphans } = await tx.query<{ id: string }>(
+      `SELECT c.id FROM minibar_check c
+        WHERE c.reservation_id = $1 AND c.room_id = $2 AND c.mode = 'checkout'
+          AND c.replaced_by_check_id IS NULL AND c.refill_task_id IS NULL
+          AND EXISTS (SELECT 1 FROM minibar_check_line l WHERE l.check_id = c.id AND l.used_qty > 0)`,
+      [primaryId, roomId],
+    );
+    if (orphans.length > 0) {
+      this.log.warn(
+        `minibar room_entered: ${orphans.length} live count(s) with use and no refill task – reservation ` +
+          `${primaryId}, room ${roomId}, counts ${orphans.map((o) => o.id).join(',')}`,
+      );
+    }
   }
 
   private async openNextPeriod(tx: Tx, primaryId: string, roomId: string): Promise<void> {
@@ -180,6 +205,8 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
   ): Promise<void> {
     if (!task.reservationId || !task.refillItems || task.refillItems.length === 0) return;
     const primaryId = (await primaryOf(tx, task.reservationId)) ?? task.reservationId;
+    // ARC 16.16 bổ sung: HK task (locked by setTaskStatus) → fridge; the fill and the latest count are read after.
+    await lockFridge(tx, primaryId, task.roomId);
     const { tz, rollover } = await this.dayOf(tx, at.now);
     if (!(await stayIsInRoom(tx, primaryId, task.roomId, businessDate(at.now, tz, rollover))))
       return;
@@ -340,6 +367,9 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
 
   async onCheckedOut(tx: Tx, reservationId: string, roomId: string): Promise<string | null> {
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
+    // ARC 16.16 bổ sung: folio (held by B18 / B14 / record already) → fridge.
+    await lockStayFolio(tx, primaryId);
+    await lockFridge(tx, primaryId, roomId);
     // R1/R9: the fridge of the room left (B14) stays a fridge of the stay (count it later with `roomId`).
     await registerFridge(tx, {
       primaryId,

@@ -92,6 +92,8 @@ export function useSubmit(map?: SubmitFieldMap) {
     error,
     setError,
     reset,
+    /** The next submit is a new command – a new Idempotency-Key (see `useWrite.renewKey`). */
+    renewKey: write.renewKey,
     fields,
     text,
     view,

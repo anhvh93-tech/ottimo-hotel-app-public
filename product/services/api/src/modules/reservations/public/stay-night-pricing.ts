@@ -69,7 +69,7 @@ export class StayNightPricingPort {
       pricing_snapshot: Record<string, unknown>;
     }>(
       `SELECT r.id, r.code, r.status, c.channel_group, r.external_contract, r.stay_type, r.pricing_snapshot
-         FROM reservation r JOIN channel c ON c.id = r.channel_id WHERE r.id = $1 FOR UPDATE OF r`,
+         FROM reservation r JOIN channel c ON c.id = r.channel_id WHERE r.id = $1 FOR NO KEY UPDATE OF r`,
       [input.reservationId],
     );
     const row = res[0];

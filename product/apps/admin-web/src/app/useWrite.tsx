@@ -104,6 +104,14 @@ export function useWrite() {
     // `key` is a ref; `sleep` only touches refs/setters.
   }, []);
 
+  /**
+   * A new Idempotency-Key for the next call: the failure answered means the next send is a NEW command (other
+   * input), not a retry – e.g. 409 MINIBAR_PERIOD_CHANGED, the desk counts again (ARC 16.16 (ab)).
+   */
+  const renewKey = useCallback(() => {
+    key.current = newIdempotencyKey();
+  }, []);
+
   /** "Thử lại ngay" – skip the rest of the countdown. */
   const now = useCallback(() => wake.current?.(true), []);
   /** "Dừng thử lại" – stop; the form stays, the main button becomes "Thử lại". */
@@ -121,7 +129,7 @@ export function useWrite() {
 
   const notice: ReactNode = retry ? <RetryNotice retry={retry} onNow={now} onStop={stop} /> : null;
 
-  return { run, busy, busyLabel, label, retry, notice, now, stop };
+  return { run, busy, busyLabel, label, retry, notice, now, stop, renewKey };
 }
 
 /** Yellow in-place notice (role=status – read once, the per-second countdown lives on the button). */

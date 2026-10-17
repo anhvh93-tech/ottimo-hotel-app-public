@@ -1079,4 +1079,68 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
     expect(await counter('fd')).toBe(fd0);
     expect(await counter('mgr')).toBe(mgr0);
   });
+
+  it('ARC 16.16 bổ sung 2 (deadlock class): folio commands (addFolioLine, recordPayment) racing B13 and B18 never answer 500 – the booking is locked FOR NO KEY UPDATE, a deadlock left would be 409 CONCURRENT_UPDATE', async () => {
+    await at('2030-06-20T10:00:00+07:00');
+    const b = await direct('302', '2030-07-08', '2030-07-10', 600_000);
+    await stayIn(b, '302', '2030-07-08');
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      await at(`2030-07-09T1${i}:00:00+07:00`);
+      const version = (await get(b.id)).version;
+      const [ext, line, pay] = await Promise.all([
+        c.fd!.send(
+          'POST',
+          url(`/reservations/${b.id}/actions/extend`),
+          { nights: 1 },
+          {
+            'if-match': `"${version}"`,
+          },
+        ),
+        c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
+          category: 'fnb',
+          description: 'Bữa tối',
+          quantity: 1,
+          unitPriceVnd: 100_000,
+          serviceDate: '2030-07-09',
+        }),
+        c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+          type: 'charge',
+          method: 'cash',
+          amountVnd: 10_000,
+        }),
+      ]);
+      statuses.push(ext.statusCode, line.statusCode, pay.statusCode);
+      // Before the fix the booking lock (FOR UPDATE) deadlocked with the folio commands ~10 times in these 6
+      // rounds (40P01 → 409 CONCURRENT_UPDATE); now they simply wait for each other.
+      for (const r of [ext, line, pay]) expect([200, 201], r.body).toContain(r.statusCode);
+    }
+    // B18 at the (extended) departure racing a payment and a line.
+    const dep = (await get(b.id)).departureDate as string;
+    await at(`${dep}T10:00:00+07:00`);
+    const due = (await totals(b)).balanceDueVnd;
+    const [out, line, pay] = await Promise.all([
+      act(b.id, 'check-out', {
+        checkoutTime: '10:00',
+        ...(due > 0 ? { finalPayment: { type: 'charge', method: 'cash', amountVnd: due } } : {}),
+      }),
+      c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
+        category: 'fnb',
+        description: 'Nước',
+        quantity: 1,
+        unitPriceVnd: 20_000,
+        serviceDate: dep,
+      }),
+      c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: 20_000,
+      }),
+    ]);
+    for (const r of [out, line, pay]) {
+      expect(r.statusCode, r.body).not.toBe(500);
+      if (r.statusCode === 409) expect(r.json().code, r.body).not.toBe('CONCURRENT_UPDATE');
+    }
+    expect(statuses).not.toContain(500);
+  });
 });

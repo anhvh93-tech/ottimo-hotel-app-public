@@ -2276,7 +2276,7 @@ export class ReservationsService {
   ): Promise<{ oldVnd: number; newVnd: number; nights: number }> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM reservation WHERE parent_reservation_id = $1 AND status = 'in_house'
-        ORDER BY arrival_date, id${opts.write ? ' FOR UPDATE' : ''}`,
+        ORDER BY arrival_date, id${opts.write ? ' FOR NO KEY UPDATE' : ''}`,
       [parent.id],
     );
     const total = { oldVnd: 0, newVnd: 0, nights: 0 };
@@ -4326,7 +4326,7 @@ export class ReservationsService {
   }> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM reservation WHERE status = 'hold' AND hold_expires_at <= $1
-        ORDER BY hold_expires_at LIMIT ${HOLD_EXPIRY_BATCH} FOR UPDATE SKIP LOCKED`,
+        ORDER BY hold_expires_at LIMIT ${HOLD_EXPIRY_BATCH} FOR NO KEY UPDATE SKIP LOCKED`,
       [now],
     );
     const latest = await this.params.get<LocalTime>(tx, 'hold_latest_time_on_arrival', today);

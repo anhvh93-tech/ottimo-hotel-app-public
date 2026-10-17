@@ -2736,6 +2736,9 @@ export interface paths {
      *       mới chỉ thay lần đếm **cùng kỳ**; dòng kỳ trước **không** đảo. B18 "Trả phòng – tính thêm 1 đêm" không tính là gia hạn (đếm ở bước 1 của chính lần trả phòng).
      *       Việc bổ sung **không** bị hủy khi lượt ở tiếp; gia hạn B13 sau lần đếm có tính tiền chưa có việc → sinh việc ngay. HK xong việc bổ sung khi lượt **đang ở** căn đó → mở kỳ
      *       `refill` lúc xử lý (mốc = còn lại của lần đếm gần nhất + số nạp; giá = danh mục lúc đó). "Có tính tiền" = có món có giá với số đã dùng > 0 (theo số lượng – FOC 100 % vẫn tính).
+     *     - **Khóa theo tủ + kỳ đổi giữa lúc soạn và lúc ghi (ARC 16.16 (ab))**: mọi đường đổi tủ lấy khóa theo tủ; `periodId` gửi kèm khác kỳ hiện tại → 409 `MINIBAR_PERIOD_CHANGED`
+     *       (không ghi; tải lại và đếm lại). Không gửi `periodId` thì lần đếm áp vào kỳ hiện tại – các lỗi 422 (`MINIBAR_ITEMS_INCOMPLETE`, `NOT_IN_LIST`, `MINIBAR_QTY_OVER_STANDARD`) chỉ bắt được
+     *       khi danh sách món/mốc khác.
      *     **0.3.7 (B-02)**: lệnh HK từ hàng đợi offline có `performedAt` ngoài [giờ server − 24 giờ, + 5 phút] → 422 `PERFORMED_AT_OUT_OF_RANGE`. `MinibarCheck.checkedByName` (nháp B-8).
      */
     post: operations['recordMinibarCheck'];
@@ -6766,6 +6769,8 @@ export interface components {
       performedAt?: components['schemas']['Instant'];
       /** @description 0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136, BR-703): tủ được đếm – vắng = căn đang gán; căn cũ của **chính lượt này** (sau B14) được; căn khác → 422 `NOT_IN_LIST` */
       roomId?: components['schemas']['Uuid'];
+      /** @description 0.3.7 bổ sung 4 (ARC 16.16 (ab)): `MinibarStandard.periodId` client đã dùng để soạn lần đếm. Server so **sau khi khóa tủ**: khác kỳ hiện tại → 409 `MINIBAR_PERIOD_CHANGED`, không ghi. Vắng = không so (client cũ). Desk và PWA HK gửi luôn, kể cả lệnh từ hàng đợi offline */
+      periodId?: components['schemas']['Uuid'] | null;
     };
     MinibarCheck: {
       id: components['schemas']['Uuid'];
@@ -6791,6 +6796,8 @@ export interface components {
     /** @description 0.3.3, E05-04. 0.3.7 bổ sung 4: `standardQty` = mốc của tủ (lượt × căn) – mô hình minibar M-1 */
     MinibarStandard: {
       roomNo?: string;
+      /** @description 0.3.7 bổ sung 4 (ARC 16.16 (ab)): kỳ hiện tại của tủ (`minibar_fill.id` mở kỳ; `null` = tủ chưa có lần nạp) – client gửi lại trong `MinibarCheckInput.periodId` */
+      periodId?: components['schemas']['Uuid'] | null;
       items: {
         itemId: components['schemas']['Uuid'];
         itemName: string;
@@ -13901,6 +13908,7 @@ export interface operations {
           'application/json': components['schemas']['MinibarCheck'];
         };
       };
+      409: components['responses']['Conflict'];
       422: components['responses']['ValidationFailed'];
     };
   };

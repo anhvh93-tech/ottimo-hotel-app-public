@@ -193,6 +193,15 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-156** | **P1** | S4-38 lượt 4 – DOM (Gaps T19, T1/T2): sau OTTIMO đổi căn, giá min phải kẹp theo sàn–trần của **căn khách mua**, không kẹp lên sàn căn mới: 667.000 thay 740.000; MovePlanner và B13 cùng một số (oracle BR-417-13) | BE-A | Open |
 | **BUG-R2-157** | **P1** | S4-38 lượt 4 – DOM (Gaps F4/F5): khóa bậc hoàn khi dời ngày muộn phải áp cả lý do `other`; bất khả kháng dời rồi hủy → hoàn 0 (oracle BR-309-16) | BE-A | Open |
 
+### 1b. Mục chờ cấp số (nhãn tạm – ORC cấp số chính thức sau lượt kiểm lại tiền lần 5, số từ BUG-R2-158)
+
+Chưa tính vào bảng tổng ở trên cho tới khi có số.
+
+| Nhãn tạm | Mức | Mô tả | Ai sửa | Trạng thái |
+|---|---|---|---|---|
+| **ARC-16.16-ab** | **P1** | ARC tìm (`openapi-0.3.7.md` 16.16 bổ sung 2 (ab)): lần đếm minibar soạn trên kỳ cũ, danh sách món và mốc trùng kỳ mới, bị áp vào kỳ mới sau lần nạp → tính thừa 70.000 (ví dụ kỳ `carry` mốc bia 1, nạp lên 2, lễ tân đếm "còn 0" từ trước lúc nạp → tính 2 bia thay vì 1). Sửa: `MinibarStandard.periodId` + `MinibarCheckInput.periodId`, so sau khi khóa tủ → 409 `MINIBAR_PERIOD_CHANGED`, không ghi; Desk tải lại tủ, nhắc đếm lại, khóa idempotency mới | BE-B (4c, `s4-be-b.md` mục 16) + FE-A (đợt 15) | **Fixed** trên cây chung, chờ gộp #11. QA kiểm lại đạt 18/10 trên `ottimo-qa-s4` api-dist14: E2E Desk **TC-L4-132** (HK nạp trong lúc lễ tân ở bước 1 → 409, câu nhắc, folio không đổi → đếm lại 201 với `periodId` mới, khóa mới, +35.000) |
+| **ARC-16.16-deadlock** | P2 | Lệnh folio chạy song song với B7/B13/B14/B18 có thể treo rồi lỗi 40P01 (deadlock PostgreSQL) do khóa đơn `FOR UPDATE` chặn kiểm FK | BE-A (mục 16) + BE-B (`lockStay` → `FOR NO KEY UPDATE`) | **Fixed** trên cây chung, chờ gộp #11. QA: chạy lại bộ clock/desk-clock có B13/B18 trên api-dist14 (mục 11.17) |
+
 ## 2. Chi tiết
 
 ### BUG-R2-001 – BR v0.2 chưa đổi mặc định theo quyết định INV 16/10
@@ -1555,3 +1564,8 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
   - `OPEN` (`support/known-bugs.ts`) hiện có **BUG-R2-146** (BE-A – ca TC-L4-123; trên api-dist12 ca vẫn hỏng như mong đợi, bản sửa `password-reauth.ts` chưa có tác dụng) và **BUG-R2-144** (BE-B DOM R9 + BE-A B13 – ca TC-L4-127…130). Commit gộp bản sửa mã nào thì xóa đúng dòng đó, nếu không ca báo "expected to fail but passed".
   - Oracle còn `pendingFix`: BR-807-02 → BUG-R2-151 (BE-C + BE-A); BR-417-03, BR-602-05 → FB-R2-DOM-BE-22 (BE-C; thiếu ca đọc dòng – QA thêm ca clock hạn khai báo 23:00); BR-309-18 → `R3-OTTIMO-FAULT-CANCEL` (BE-A, R3 – không tính R2). BR-703-02 không gắn `pendingFix` cả dòng; ghi chú đánh dấu r9_16/16b/16c/18 chờ BUG-R2-144 (BE-B, BE-A).
 - **Đính chính 18/10 ~05:35 – TC-L4-123 / BUG-R2-146:** câu "bản sửa `password-reauth.ts` chưa có tác dụng" ở trên **sai**. api-dist12 có bản sửa (`verifyApprover` xét `locked_until`); chạy riêng TC-L4-123 đạt. Ca hỏng khi chạy cả tệp vì **ca kiểm**: bộ đếm SR-RL-02 của người gọi `qa.fd` đã có các lần sai của TC-L4-120 → lần thứ 5 trả 429 → harness tự gọi `/__test__/rate-limits/reset` và gửi lại; reset xóa cả `locked_until` của qa.* (`test-support.module.ts` ~255) → `qa.mgr` hết khóa giữa ca → 409 `BALANCE_DUE` ở lần không `finalPayment`. Sửa ca: xóa bộ đếm ở đầu ca và kiểm `qa.mgr` vẫn khóa trước lần gửi thứ ba. Cả tệp `late-fee-qr` 2 lượt đạt; đã bỏ BUG-R2-146 khỏi `OPEN` (bản sửa của BE-A có trên cây chung, gộp ở #10).
+
+### 11.17 Trước gộp #11 – chạy lại trên cây chung (QA, 18/10 ~05:40–05:50)
+- **Stack:** `ottimo-qa-s4` dựng lại từ cây chung `ce90d19` + chưa commit (BE-B 4b `lockFridge`, 4c `periodId`/409 `MINIBAR_PERIOD_CHANGED` + `lockStay FOR NO KEY UPDATE`; FE-A đợt 15; BE-A mục 16): api-dist14, admin-web build lại; có khóa.
+- **Kết quả:** clock (`minibar-matrix`, `late-fee-qr`, `stay-checkout.s3`, `approvals-foc.s3`, `money-s4`) **90 đạt, 0 hỏng, 2 bỏ qua có sẵn** (TC-L4-024, TC-L4-068); desk-clock (`minibar-recount` gồm ca mới **TC-L4-132**, `checkout.h16`, `flow-a1.s4`, `foc.s4`) **11/11**. Không thấy treo 40P01.
+- **Mục chờ cấp số:** ARC-16.16-ab (P1) và ARC-16.16-deadlock (P2) ghi ở mục 1b, trạng thái Fixed chờ gộp #11; ORC báo số chính thức sau lượt kiểm lại tiền lần 5.

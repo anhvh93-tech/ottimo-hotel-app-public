@@ -311,3 +311,71 @@ describe('N-1 (NÊN) – hủy dòng minibar đang có miễn/giảm', () => {
     await voidAndCheck(/Bia × 2/, true);
   });
 });
+
+describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINIBAR_PERIOD_CHANGED', () => {
+  it('tủ chưa nạp: gửi `periodId: null` của minibar-standard', async () => {
+    at('11:00');
+    const r = res('Phạm Huy');
+    const counts = capture('POST', /\/minibar-checks$/);
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) });
+    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(counts.sent.length).toBe(1));
+    counts.stop();
+    expect(counts.sent[0]).toHaveProperty('periodId', null);
+  });
+
+  it('tủ được bổ sung trong lúc đếm → 409: không ghi, tải lại minibar-standard, ở lại bước đếm với câu nhắc; đếm lại gửi kỳ mới', async () => {
+    at('11:00');
+    const r = res('Phạm Huy');
+    const key = `${r.id}:${r.segments![0]!.roomId}`;
+    let reads = 0;
+    const keys: Array<string | null> = [];
+    const onRead = ({ request }: { request: Request }) => {
+      const path = new URL(request.url).pathname;
+      if (request.method === 'GET' && /\/minibar-standard$/.test(path)) reads += 1;
+      if (request.method === 'POST' && /\/minibar-checks$/.test(path))
+        keys.push(request.headers.get('idempotency-key'));
+    };
+    server.events.on('request:start', onRead);
+    const counts = capture('POST', /\/minibar-checks$/);
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    const row = (
+      await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
+    ).closest('tr')!;
+    const used = () => within(row).getAllByRole('cell')[2]!.textContent;
+    await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
+    expect(used()).toBe('1');
+    // Housekeeping restocks the cabinet while the desk is counting.
+    mockControl.stay.minibarPeriods.set(key, 1);
+    const before = reads;
+    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    expect(await screen.findByText(tv('co.minibar_period_changed_title'))).toBeInTheDocument();
+    expect(screen.getByText(tv('co.minibar_period_changed_body'))).toBeInTheDocument();
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+    expect(counts.sent[0]).toHaveProperty('periodId', null);
+    // Nothing written, still on the count step; the figures restart from the new stock.
+    expect(mockControl.stay.minibarChecks.has(r.id)).toBe(false);
+    expect(cokeLines(r.folioId)).toHaveLength(0);
+    expect(screen.queryByLabelText(new RegExp(tv('checkout.departure_time')))).toBeNull();
+    await waitFor(() => expect(used()).toBe('0'));
+    const periodId = (
+      await api.getMinibarStandard({ propertyId: PROPERTY_ID, reservationId: r.id })
+    ).data.periodId;
+    expect(periodId).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(counts.sent.length).toBe(2));
+    counts.stop();
+    server.events.removeListener('request:start', onRead);
+    expect(counts.sent[1]).toHaveProperty('periodId', periodId);
+    // The count made again is a new command: a new Idempotency-Key, never the one of the 409.
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(
+      await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(tv('co.minibar_period_changed_title'))).toBeNull();
+  });
+});

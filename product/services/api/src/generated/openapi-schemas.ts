@@ -2130,6 +2130,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         },
         performedAt: { s: { k: 'ref', name: 'Instant' } },
         roomId: { s: { k: 'ref', name: 'Uuid' } },
+        periodId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
       },
       open: false,
     },
@@ -2178,6 +2179,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       k: 'object',
       props: {
         roomNo: { s: { k: 'scalar' } },
+        periodId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
         items: {
           s: {
             k: 'array',

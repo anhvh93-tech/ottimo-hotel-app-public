@@ -30,7 +30,16 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { MinibarCheckoutPort } from '../public/minibar-checkout.port';
-import { type FridgeItem, fridgeItems, primaryOf, registerFridge, stayRooms } from './fridge';
+import {
+  type FridgeItem,
+  fridgeItems,
+  isCurrentPeriod,
+  lockFridge,
+  lockStayBookingsShared,
+  primaryOf,
+  registerFridge,
+  stayRooms,
+} from './fridge';
 
 interface CheckRow {
   id: string;
@@ -257,6 +266,8 @@ export class MinibarService {
     const latest = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { live: true });
     return {
       ...(fr.roomNo ? { roomNo: fr.roomNo } : {}),
+      // ARC 16.16 bổ sung 2 (ab): sent back in MinibarCheckInput.periodId (null = no fill yet).
+      periodId: fillId,
       items: items.map((i) => {
         const h = hist.get(i.itemId);
         return {
@@ -281,35 +292,16 @@ export class MinibarService {
     };
   }
 
-  async record(
-    tx: Tx,
-    actor: { userId: string; roles: readonly string[]; requestId?: string },
-    reservationId: string,
+  /** 422 rules of a count against the items of the fridge's period (BR-702: 0 ≤ left ≤ mark, every item once). */
+  private assertCountLines(
     input: {
       mode: 'checkout' | 'stayover';
       lines: Array<{ itemId: string; remainingQty: number }>;
-      performedAt: Date | null;
-      roomId?: string;
     },
-  ): Promise<Record<string, unknown>> {
-    // DOM BE-29: a mid-stay count (US-033, R3) would charge the same missing items again at checkout – no refill
-    // task, no baseline after a refill (BR-702/703). Closed until US-033.
-    if (input.mode === 'stayover') {
-      throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
-    }
-    const { today, tz, now } = await this.businessToday(tx);
-    const s = await this.stay(tx, actor.roles, reservationId, input.mode, today, input.roomId);
-    if (!s.folioId || !s.roomId)
-      throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
-    const fr = await this.fridgeOf(tx, s, input.roomId, today);
-    // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.
-    await registerFridge(tx, {
-      primaryId: fr.primaryId,
-      roomId: fr.roomId,
-      now,
-      userId: actor.userId,
-    });
-    const { fill, items } = await fridgeItems(tx, fr.primaryId, fr.roomId);
+    items: readonly FridgeItem[],
+    at: Date,
+    now: Date,
+  ): void {
     const byId = new Map(items.map((i) => [i.itemId, i]));
     const errors: FieldError[] = [];
     const seen = new Set<string>();
@@ -329,17 +321,71 @@ export class MinibarService {
     if (input.mode === 'checkout' && items.some((i) => !seen.has(i.itemId))) {
       errors.push({ field: 'lines', code: 'MINIBAR_ITEMS_INCOMPLETE' });
     }
-    const at = input.performedAt ?? now;
     if (at.getTime() > now.getTime()) errors.push({ field: 'performedAt', code: 'DATE_INVALID' });
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
+  }
+
+  async record(
+    tx: Tx,
+    actor: { userId: string; roles: readonly string[]; requestId?: string },
+    reservationId: string,
+    input: {
+      mode: 'checkout' | 'stayover';
+      lines: Array<{ itemId: string; remainingQty: number }>;
+      performedAt: Date | null;
+      roomId?: string;
+      /** ARC 16.16 bổ sung 2 (ab): MinibarStandard.periodId the count was prepared on; absent = not compared. */
+      periodId?: string | null;
+    },
+  ): Promise<Record<string, unknown>> {
+    // DOM BE-29: a mid-stay count (US-033, R3) would charge the same missing items again at checkout – no refill
+    // task, no baseline after a refill (BR-702/703). Closed until US-033.
+    if (input.mode === 'stayover') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
+    }
+    const { today, tz, now } = await this.businessToday(tx);
+    const s = await this.stay(tx, actor.roles, reservationId, input.mode, today, input.roomId);
+    if (!s.folioId || !s.roomId)
+      throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
+    const fr = await this.fridgeOf(tx, s, input.roomId, today);
+    // ARC 16.16 bổ sung 2 (ab): a count prepared on another period than the fridge's now (a refill done, the stay
+    // went on) → 409, nothing written – the client reloads and counts again. Early here, final under the lock.
+    const assertPeriod = async () => {
+      if (input.periodId === undefined) return;
+      if (!(await isCurrentPeriod(tx, fr.primaryId, fr.roomId, input.periodId))) {
+        throw problem('MINIBAR_PERIOD_CHANGED');
+      }
+    };
+    await assertPeriod();
+    // Early 422 on what the fridge holds now (no lock yet – checked again below under the fridge lock).
+    const at = input.performedAt ?? now;
+    this.assertCountLines(input, (await fridgeItems(tx, fr.primaryId, fr.roomId)).items, at, now);
 
     // ARC-BE-S3-25: lock first, then check the state. The folio lock serialises with B18 (check-out locks
     // the folio before settling); the booking lock of lockForDeposit is not used – it applies the desk scope
-    // and HK counts minibars outside it.
+    // and HK counts minibars outside it. S4-13 order (reservation → folio): the bookings of the folio first, KEY
+    // SHARE (lockStayBookingsShared – ARC 16.16 bổ sung, 40P01 found by the race test with B13).
+    await lockStayBookingsShared(tx, s.folioId);
     await this.folios.lockForPosting(tx, s.folioId);
     const fresh = await this.port().stayInfo(tx, s.id);
     if (fresh?.status !== 'in_house')
       throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
+    // ARC 16.16 bổ sung: folio → fridge. The period (latest fill) and its latest count are read only under the
+    // fridge lock – a refill done (onRefillDone) or a stay going on (onStayContinued) committed meanwhile closed
+    // the period read above: the count is checked against the period in force, as if the two ran one after the
+    // other.
+    await lockFridge(tx, fr.primaryId, fr.roomId);
+    await assertPeriod();
+    // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.
+    await registerFridge(tx, {
+      primaryId: fr.primaryId,
+      roomId: fr.roomId,
+      now,
+      userId: actor.userId,
+    });
+    const { fill, items } = await fridgeItems(tx, fr.primaryId, fr.roomId);
+    this.assertCountLines(input, items, at, now);
+    const byId = new Map(items.map((i) => [i.itemId, i]));
 
     const id = uuidv7();
     const fillId = fill?.id ?? null;

@@ -491,3 +491,22 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
   - Sàn–trần trả cho Desk: chỉ gộp khoảng của hai căn khi quy tắc min áp dụng. Ca 101 → 401: 667.000 ghi được; đơn ở yên 401 giữ sàn 740.000.
   - Vitest api toàn bộ: **2758/2758**.
   - **BR-309 "OTTIMO hủy vì lỗi cơ sở thì hoàn đủ": CHƯA có đường.** Danh mục `CancelReasonCode` (hợp đồng + CHECK `reservation_cancel_reason_check`) không có mã hủy do OTTIMO, nên mọi lệnh hủy đều tính phí BR-309. Sửa cần: mã mới trong hợp đồng (ARC), migration nới CHECK, nhánh hoàn đủ trong `cancellationQuote`, Desk (FE-A) → đưa vào R3.
+
+## 16. Vòng sửa 4c – lớp deadlock folio ‖ B7/B13/B14/B18 (ARC `openapi-0.3.7.md` 16.16 bổ sung 2)
+- **Khóa đơn đổi sang `FOR NO KEY UPDATE`.** Các chỗ đã đổi:
+  - `loadReservation({ forUpdate })` – dùng cho B7/B8, B9/B9a, B13, B14, B16, B18, hủy, no-show, B12, `lockForDeposit`;
+  - đơn con khi trả phòng / B14;
+  - job hết hạn giữ chỗ (`SKIP LOCKED`);
+  - `setNightRate` (S4-35);
+  - `setEta`;
+  - `document-party.port`.
+
+  Không lệnh nào trong module BE-A đổi khóa chính hay khóa duy nhất của `reservation`. Vì vậy dòng folio hoặc phiếu thu mới (FK tới `reservation`, lấy `KEY SHARE`) không còn đụng khóa đơn. Các lệnh ghi đơn vẫn xếp hàng với nhau như trước.
+- **Mã lỗi khi deadlock:** 40P01 → 409 `CONCURRENT_UPDATE` (+ `Retry-After: 1`) đã có sẵn trong `ProblemFilter` (`concurrencyProblem`). Không cần mã mới.
+- **Ca đua** (`s438r4-money`, "deadlock class"): 6 lượt gia hạn B13 chạy song song `addFolioLine` + `recordPayment`, rồi B18 song song với một dòng và một khoản thu.
+  - Kết quả: mọi lệnh 2xx; không 500, không `CONCURRENT_UPDATE`.
+  - Trên bản sao, trả lại `FOR UPDATE` thì mỗi lượt chạy có 9–10 lần 40P01 và ca đỏ.
+- **Vitest api toàn bộ, DB mới:** **2772/2772**.
+  - Lượt chạy trước có 1 ca chập chờn `architecture.test` "dev_clock has a row", đã gặp ở mục 12.4; lượt chạy lại xanh.
+  - tsc, eslint, prettier sạch.
+- **Ngoài module BE-A, nhờ chủ xem:** các lệnh folio và thanh toán của BE-B (`folio.*`, `payments.*`) còn chỗ khóa `reservation ... FOR UPDATE` thì nên đổi theo cùng quy tắc. BE-A không sửa các tệp đó.

@@ -221,8 +221,10 @@ export const minibarCheck = pgTable(
     check('minibar_check_total_check', sql`${t.totalVnd} >= 0`),
     // 0065 (mô hình minibar M-1, ARC R1 – BUG-R2-136): one live `checkout` count per FRIDGE = (stay, room); a
     // mid-stay room change (B14) leaves two fridges, never one replacing the other. 0066 (BUG-R2-144): per
-    // PERIOD of the fridge – a count of a later period never replaces one of an earlier period. SQL only (ARC
-    // 16.15): NULLS NOT DISTINCT – drizzle has no such option on an index; schema-parity compares the name.
+    // PERIOD of the fridge – a count of a later period never replaces one of an earlier period.
+    // SQL ONLY (0066, ARC 16.15/16.16): the index is `NULLS NOT DISTINCT` – a fridge without a fill yet (fill_id
+    // NULL) still has one live count. Drizzle cannot express it on an index, so this definition and the snapshot
+    // show a plain unique index; schema-parity lists it in SQL_ONLY_INDEX_OPTIONS and checks pg_indexes.
     uniqueIndex('minibar_check_live_checkout_key')
       .on(t.reservationId, t.roomId, t.fillId)
       .where(sql`${t.mode} = 'checkout' AND ${t.replacedByCheckId} IS NULL`),

@@ -173,6 +173,7 @@ info:
     | ROOM_NOT_READY | 409 | `changeRoom` (B14): căn mới chưa ở trạng thái buồng `VI`/`VC` (BR-803, US-024 AC4) – kèm `roomStatus` (0.3.1) |
     | SURCHARGE_CHANGED | 409 | `checkIn`/`setLateCheckout`/`checkOut`: phụ thu server tính lại khác `expectedSurchargeVnd` client đã hiển thị (BR-414) – kèm `surchargeVnd` mới; client tải lại preview rồi hỏi lại lễ tân (0.3.3, E03-02) |
     | MINIBAR_NOT_CHECKED | 409 | `checkOut`: căn có món minibar tính tiền mà chưa có lần kiểm `mode=checkout` (US-035, blocker `minibar_not_checked`) (0.3.3, E05-04) |
+    | MINIBAR_PERIOD_CHANGED | 409 | `recordMinibarCheck`: `periodId` client gửi khác kỳ hiện tại của tủ (vừa có lần nạp hoặc lượt ở tiếp mở kỳ mới) – không ghi gì; client tải lại `getMinibarStandard` và **đếm lại tủ** (0.3.7 bổ sung 4, ARC 16.16 (ab)) |
     | SELF_RECONCILE_FORBIDDEN | 403 | `reconcilePayment`: người đối soát là người đã ghi/xác nhận giao dịch, và không phải OWN (rbac A46) (0.3.3, E05-03) |
     | CONSENT_CHANGE_NOT_ALLOWED | 409 | `recordImageConsent`: đổi `refused → granted` khi ảnh đã xóa (khai báo đã `confirmed` hoặc ảnh đã purge) (BR-609 c) (0.3.3, E06-02) |
     | SELF_REFUND_FORBIDDEN | 403 | `executeCashRefund`/`executeRefund`: người chi là người đã tạo yêu cầu hoàn (`requestedBy`) – không ngoại lệ (rbac A47a ghi chú 38) (0.3.6) |
@@ -380,7 +381,7 @@ info:
     `MinibarCheckInput.roomId`, `getMinibarStandard?roomId=`, `CheckoutSummary.minibarUncheckedRooms` (tùy chọn); BUG-R2-139 đêm thêm chỉ tính khi còn trống; BUG-R2-134 giá thỏa thuận sau B14.
     Khớp DOM chốt 18/10 (BR v0.3.8 bổ sung): mốc tủ = mức lúc nhận phòng (BR-702-02); số folio sửa có lý do thắng lần đếm cũ → `MinibarStandard.items[]` thêm `folioLineId`, `folioUsedQty`,
     `folioAmountVnd`, `lastCheckUsedQty`, `adjustedAfterLastCheck`; BR-416-06 → `CheckoutSummary.lateFeeAsNightVnd`, `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận tại quầy),
-    `createVietQr.lateFeeAsNight`, `lateFeeInsteadOfNight.requestFoc`, kỳ nạp minibar + quay lại tủ đã đếm (BUG-R2-144; `minibarUncheckedRooms[].reason`, `FolioLine.chargeCode`), HK đếm tủ căn cũ (BUG-R2-152), idempotency trước xác nhận lại (BUG-R2-150) (FocRequestInput, người xác nhận tự áp); SEC ARC-24: `checkOut` khai 401/403/429, `approveRequest`/`rejectRequest` khai 429; xác nhận QR vượt bắt buộc `note` (422 `REASON_REQUIRED`) + `Payment.qrPurpose`, `Payment.amountDueNowVnd`; `currentBookingRateVnd` sau OTTIMO đổi căn = min. `changeRoom.expectedDeltaVnd` đã gửi thì phải khớp kể cả chênh 0 (DOM MOVE-06, BR-424-07).
+    `createVietQr.lateFeeAsNight`, `lateFeeInsteadOfNight.requestFoc`, kỳ nạp minibar + quay lại tủ đã đếm (BUG-R2-144; `minibarUncheckedRooms[].reason`, `FolioLine.chargeCode`), HK đếm tủ căn cũ (BUG-R2-152), idempotency trước xác nhận lại (BUG-R2-150), `periodId` + 409 `MINIBAR_PERIOD_CHANGED` (FocRequestInput, người xác nhận tự áp); SEC ARC-24: `checkOut` khai 401/403/429, `approveRequest`/`rejectRequest` khai 429; xác nhận QR vượt bắt buộc `note` (422 `REASON_REQUIRED`) + `Payment.qrPurpose`, `Payment.amountDueNowVnd`; `currentBookingRateVnd` sau OTTIMO đổi căn = min. `changeRoom.expectedDeltaVnd` đã gửi thì phải khớp kể cả chênh 0 (DOM MOVE-06, BR-424-07).
 
     ## Thay đổi phiên bản 0.3.6-draft (R2 Sprint 3 – nhận/lưu trú/trả phòng, folio, thu tiền, giấy tờ, guest-web; chi tiết `rounds/round-02/outputs/ARC/s3-contract.md`)
     **Thêm operation**: `getAttachment` (B-01, SEC I1–I5), `setRefundDestination`, `getRefundDestination`, `executeRefund` (A-33, SEC F8, rbac A43/A47),
@@ -5530,6 +5531,9 @@ paths:
           mới chỉ thay lần đếm **cùng kỳ**; dòng kỳ trước **không** đảo. B18 "Trả phòng – tính thêm 1 đêm" không tính là gia hạn (đếm ở bước 1 của chính lần trả phòng).
           Việc bổ sung **không** bị hủy khi lượt ở tiếp; gia hạn B13 sau lần đếm có tính tiền chưa có việc → sinh việc ngay. HK xong việc bổ sung khi lượt **đang ở** căn đó → mở kỳ
           `refill` lúc xử lý (mốc = còn lại của lần đếm gần nhất + số nạp; giá = danh mục lúc đó). "Có tính tiền" = có món có giá với số đã dùng > 0 (theo số lượng – FOC 100 % vẫn tính).
+        - **Khóa theo tủ + kỳ đổi giữa lúc soạn và lúc ghi (ARC 16.16 (ab))**: mọi đường đổi tủ lấy khóa theo tủ; `periodId` gửi kèm khác kỳ hiện tại → 409 `MINIBAR_PERIOD_CHANGED`
+          (không ghi; tải lại và đếm lại). Không gửi `periodId` thì lần đếm áp vào kỳ hiện tại – các lỗi 422 (`MINIBAR_ITEMS_INCOMPLETE`, `NOT_IN_LIST`, `MINIBAR_QTY_OVER_STANDARD`) chỉ bắt được
+          khi danh sách món/mốc khác.
         **0.3.7 (B-02)**: lệnh HK từ hàng đợi offline có `performedAt` ngoài [giờ server − 24 giờ, + 5 phút] → 422 `PERFORMED_AT_OUT_OF_RANGE`. `MinibarCheck.checkedByName` (nháp B-8).
       x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping]
       x-scope: { housekeeping: today }
@@ -5549,6 +5553,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MinibarCheck' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
   /v1/properties/{propertyId}/reservations/{reservationId}/minibar-standard:
     parameters:
@@ -11192,6 +11197,9 @@ components:
         roomId:
           $ref: '#/components/schemas/Uuid'
           description: '0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136, BR-703): tủ được đếm – vắng = căn đang gán; căn cũ của **chính lượt này** (sau B14) được; căn khác → 422 `NOT_IN_LIST`'
+        periodId:
+          oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }]
+          description: '0.3.7 bổ sung 4 (ARC 16.16 (ab)): `MinibarStandard.periodId` client đã dùng để soạn lần đếm. Server so **sau khi khóa tủ**: khác kỳ hiện tại → 409 `MINIBAR_PERIOD_CHANGED`, không ghi. Vắng = không so (client cũ). Desk và PWA HK gửi luôn, kể cả lệnh từ hàng đợi offline'
     MinibarCheck:
       type: object
       required: [id, mode, lines]
@@ -11230,6 +11238,9 @@ components:
       description: '0.3.3, E05-04. 0.3.7 bổ sung 4: `standardQty` = mốc của tủ (lượt × căn) – mô hình minibar M-1'
       properties:
         roomNo: { type: string }
+        periodId:
+          oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }]
+          description: '0.3.7 bổ sung 4 (ARC 16.16 (ab)): kỳ hiện tại của tủ (`minibar_fill.id` mở kỳ; `null` = tủ chưa có lần nạp) – client gửi lại trong `MinibarCheckInput.periodId`'
         items:
           type: array
           items:

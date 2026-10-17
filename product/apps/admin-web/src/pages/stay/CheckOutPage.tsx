@@ -414,26 +414,43 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       return;
     }
     const counted = cabinet;
+    const caught: { error?: unknown } = {};
     const out = await minibarAct.submit((idem) =>
-      api.recordMinibarCheck(
-        R,
-        {
-          mode: 'checkout',
-          roomId: counted,
-          lines: items.map((i) => ({
-            itemId: i.itemId,
-            remainingQty: left[i.itemId] ?? i.standardQty,
-          })),
-        },
-        idem,
-      ),
+      api
+        .recordMinibarCheck(
+          R,
+          {
+            mode: 'checkout',
+            roomId: counted,
+            // ARC 16.16 (ab): the period this count was made in – a refill since then → 409, nothing written.
+            periodId: std.state.data?.periodId,
+            lines: items.map((i) => ({
+              itemId: i.itemId,
+              remainingQty: left[i.itemId] ?? i.standardQty,
+            })),
+          },
+          idem,
+        )
+        .catch((e: unknown) => {
+          caught.error = e;
+          throw e;
+        }),
     );
-    if (out) {
-      sum.reload();
-      const next = nextCabinet(counted);
-      if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
-      else setStep(1);
+    if (!out) {
+      // The cabinet was restocked while the desk was counting: read it again and stay on this step – the
+      // figures typed were for the old stock (never sent again on their own).
+      if (isApiError(caught.error) && caught.error.code === 'MINIBAR_PERIOD_CHANGED') {
+        // The count made again is a new command (other period, other figures) – never the old key.
+        minibarAct.renewKey();
+        std.reload();
+        sum.reload();
+      }
+      return;
     }
+    sum.reload();
+    const next = nextCabinet(counted);
+    if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
+    else setStep(1);
   };
 
   const saveInvoice = async () => {
@@ -729,7 +746,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     : t('co.minibar_cabinet_old', { room: c.roomNo ?? '' }),
               }))}
               value={cabinet ?? currentRoomId}
-              onChange={(v) => setCabinet(v === currentRoomId ? undefined : v)}
+              onChange={(v) => {
+                minibarAct.reset();
+                setCabinet(v === currentRoomId ? undefined : v);
+              }}
             />
           </div>
         ) : null}
@@ -837,7 +857,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {t('co.minibar_total')}: {vnd(minibarTotal)}
               </b>
             </p>
-            {minibarAct.view({ max: minibarMax })}
+            {minibarAct.code === 'MINIBAR_PERIOD_CHANGED' ? (
+              <Alert tone="warn" title={t('co.minibar_period_changed_title')}>
+                {t('co.minibar_period_changed_body')}
+              </Alert>
+            ) : (
+              minibarAct.view({ max: minibarMax })
+            )}
           </>
         )}
       </section>

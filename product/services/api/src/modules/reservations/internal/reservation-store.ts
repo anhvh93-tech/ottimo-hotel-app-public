@@ -125,7 +125,12 @@ export function isOwn(actor: Actor, row: Pick<ReservationRow, 'created_by' | 'cl
   return row.created_by === actor.userId || row.closer_user_id === actor.userId;
 }
 
-/** Load one booking (optionally FOR UPDATE). Out of scope / other property → 404 (never 403). */
+/**
+ * Load one booking (optionally locked). Out of scope / other property → 404 (never 403). The lock is FOR NO KEY
+ * UPDATE (ARC 16.16 bổ sung 2): no write here changes the booking's key, and a stronger lock would block the
+ * KEY SHARE that every folio line / payment row referencing the booking takes – a folio command that holds the
+ * folio first then deadlocked with B7/B13/B14/B18 (40P01).
+ */
 export async function loadReservation(
   tx: Tx,
   id: string,
@@ -137,7 +142,7 @@ export async function loadReservation(
     `SELECT ${RESERVATION_COLUMNS}
        FROM reservation r JOIN channel c ON c.id = r.channel_id
       WHERE r.id = $1 ${scope ? `AND ${scope}` : 'AND $2::uuid IS NOT NULL'}
-      ${opts.forUpdate ? 'FOR UPDATE OF r' : ''}`,
+      ${opts.forUpdate ? 'FOR NO KEY UPDATE OF r' : ''}`,
     [id, actor.userId],
   );
   const row = rows[0];

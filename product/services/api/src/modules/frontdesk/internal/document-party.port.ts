@@ -69,7 +69,7 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     }>(
       `SELECT id, code, status, booker_guest_id, adults, children_6_11, children_under_6,
               arrival_date::text AS arrival_date
-         FROM reservation WHERE id = $1 FOR UPDATE`,
+         FROM reservation WHERE id = $1 FOR NO KEY UPDATE`,
       [input.reservationId],
     );
     const row = res[0];

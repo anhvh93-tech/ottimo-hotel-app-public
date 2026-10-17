@@ -700,14 +700,16 @@ export class FolioService implements FolioStaySync {
    * S4-13 lock order for a FOC decision / request outside a booking use case: the bookings of the folio (id
    * order) → the folio – the order every booking change takes (reservation → room → folio). A decision that
    * moves a FOC writes stay_night (discount) of those bookings; locking the folio first deadlocked against a
-   * cancellation holding the nights (40P01 found by the S4-13 race test).
+   * cancellation holding the nights (40P01 found by the S4-13 race test). `FOR NO KEY UPDATE` (ARC 16.16 bổ sung 2,
+   * same rule as the booking use cases of BE-A): still serialises with them, never blocks an FK check (KEY SHARE)
+   * of a line / payment written by a transaction that holds the folio – the booking key never changes.
    */
   async lockStay(tx: Tx, folioId: string): Promise<FolioRow | null> {
     await tx.query(
       `SELECT r.id FROM reservation r
         WHERE r.folio_id = $1
            OR r.id IN (SELECT l.reservation_id FROM folio_line l WHERE l.folio_id = $1 AND l.reservation_id IS NOT NULL)
-        ORDER BY r.id FOR UPDATE OF r`,
+        ORDER BY r.id FOR NO KEY UPDATE OF r`,
       [folioId],
     );
     return this.lock(tx, folioId);

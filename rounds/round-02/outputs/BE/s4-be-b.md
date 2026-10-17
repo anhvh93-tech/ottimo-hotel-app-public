@@ -318,3 +318,48 @@ Tệp đợt này:
 **Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`, 0066 đã sửa): `@ottimo/api` **2.763/2.763 xanh, 87/87 tệp**; `minibar-m1.test.ts` 23/23; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm; `drizzle-kit generate` "No schema changes". Không commit, không chạy E2E (không đụng stack nào).
 
 **Chờ**: ARC xem (w)–(z). (t) và hai giả định R9 đã theo ghi chú DOM 18/10.
+
+## 15. Vòng sửa 4b – khóa chung theo tủ (ARC `openapi-0.3.7.md` 16.16 bổ sung), 18/10
+
+ARC đồng ý (w), (x), (y), (z). Phần sửa này vào gộp #11; cây chung trước khi sửa là `ce90d19`.
+
+| Việc | Cách cài | Kiểm chứng |
+|---|---|---|
+| **Khóa theo tủ** | `fridge.ts` `lockFridge(tx, đơn chính, căn)` = `pg_advisory_xact_lock(hashtextextended('minibar:' \|\| reservation_id \|\| ':' \|\| room_id, 0))`, gọi ở `record()`, `onRefillDone`, `onStayContinued`, `onCheckedOut`. Lần nạp và lần đếm gần nhất chỉ được đọc **sau** khi có khóa. `record()`: kiểm 422 sớm (không khóa) → khóa đơn → khóa folio → khóa tủ → `registerFridge` → đọc lại kỳ → **kiểm 422 lần nữa** trên kỳ đang hiệu lực → ghi | 4 ca đua mới trong `minibar-m1.test.ts` |
+| **Thứ tự khóa** | `record()`: các đơn của folio (`FOR KEY SHARE`, theo id) → folio → tủ. `onStayContinued`, `onCheckedOut`: folio (`lockStayFolio`; người gọi B13/B14/B18 đã giữ thì không phải chờ) → tủ. `onRefillDone`: việc HK (do `setTaskStatus` khóa) → tủ. Không đường nào khóa folio hoặc việc HK sau khi đã giữ tủ | Như trên; nhật ký Postgres không còn 40P01 |
+| **Hai chỗ khóa ARC chưa nêu** (test đua tìm ra, đều là 40P01) | (1) `lockFridge` lấy `FOR KEY SHARE` đơn chính và căn **trước** khóa tủ. Thiếu bước này thì: B13/B14/B18 giữ đơn và căn `FOR UPDATE` rồi chờ tủ; lần nạp đang giữ tủ thì chờ phép kiểm FK của `minibar_fill` lên chính đơn/căn đó. (2) `record()` lấy `FOR KEY SHARE` các đơn của folio **trước** folio (đúng thứ tự S4-13 đơn → folio). Thiếu bước này thì lần đếm giữ folio và chờ phép kiểm FK của dòng minibar lên đơn, còn B13 giữ đơn `FOR UPDATE` và chờ folio (`resyncStay`). Có từ trước khi có khóa tủ. `KEY SHARE` không chặn lệnh `UPDATE` thường hay phép kiểm FK khác, chỉ chặn `FOR UPDATE` | Lần đầu chạy ca "đếm lại ‖ B13" và ca "nạp ‖ đếm" ra 409 `CONCURRENT_UPDATE` (40P01). Sửa xong thì cả 4 ca xanh, chạy lặp 3 lần |
+| **Test đua** | Một kết nối riêng giữ khóa tủ. Từng bước được khởi chạy, và bước sau chỉ chạy khi bước trước đã chờ khóa đó (đọc `pg_locks`, `pg_blocking_pids`). Sau đó nhả khóa, các bước chạy đúng thứ tự đã đặt. Bước nào không chờ khóa tủ thì ca hỏng | (a) **nạp → đếm**: lần đếm soạn trên kỳ `carry` gặp kỳ `refill` → 422 `MINIBAR_ITEMS_INCOMPLETE`, như chạy tuần tự (không ghi vào kỳ đã đóng); mốc bia 2, snack 1; đếm lại → 100.000. (b) **đếm → nạp**: lần nạp đọc lần đếm vừa ghi → mốc bia 2, bỏ snack (không lấy "còn lại" cũ snack 1); B18 → 100.000, T2 (1 snack). (c) **đếm lại → B13**: kỳ `carry` mở từ lần đếm mới (bia 0), việc 2 bia; 70.000. (d) **nạp → B13**: không 40P01; mốc bia 2 bỏ snack; B13 sinh T2 (1 snack) cho lần đếm kỳ `carry`; 100.000. Đối chứng trên bản sao riêng (`lockFridge` tắt): cả 4 ca hỏng |
+| **0066 `NULLS NOT DISTINCT`** | Ghi chú cạnh chỉ mục trong `db/schema/inventory.ts`. `schema-parity.test.ts` thêm danh sách ngoại lệ có tên `SQL_ONLY_INDEX_OPTIONS` (`minibar_check_live_checkout_key` → `NULLS NOT DISTINCT`, kèm lý do) và một ca mới. Ca này đọc `pg_indexes`: chỉ mục trong danh sách có tùy chọn này, không chỉ mục nào khác có, snapshot vẫn giữ chỉ mục cùng tên | `schema-parity` xanh; ca (v) của `minibar-m1` cũng đọc `pg_get_indexdef` |
+| **(y) phòng thủ – tùy chọn** | `onStayContinued(room_entered)` gặp lần đếm sống có dùng món mà chưa gắn việc → chỉ ghi log `warn` (chỉ id đơn, căn, lần đếm), **không sinh việc** – theo ORC. ARC 16.16 bổ sung gợi ý "tạo việc + log"; ORC chọn chỉ log | Không có ca: theo bất biến DOM 4, đường này không xảy ra |
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`): `@ottimo/api` **2.768/2.768 xanh, 87/87 tệp**; `minibar-m1` 27/27, trong đó 4 ca đua chạy lặp 3 lần đều xanh; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm; `drizzle-kit generate` báo "No schema changes". Không commit.
+
+**Giả định mới**:
+- (aa) `FOR KEY SHARE` trên đơn/căn trước khóa tủ, và trên các đơn của folio trước folio trong `record()`. Đây là phần bổ sung vào thứ tự khóa của ARC; lý do ở bảng trên. ARC xem.
+- (ab) Lần đếm soạn trên kỳ cũ mà gặp kỳ mới (do lần nạp hoặc lượt ở tiếp vừa ghi) thì trả 422 như chạy tuần tự. Desk/PWA tải lại `minibar-standard` rồi đếm lại; không có mã lỗi riêng.
+- Chưa thêm dòng decision-log cho (aa), (ab) vì ORC giới hạn tệp được sửa ở vòng này. Nhờ ORC ghi.
+
+**Tệp vòng 4b**: `src/modules/inventory/internal/{fridge,minibar.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`, `src/db/schema/inventory.ts` (chú thích), `test/integration/minibar-m1.test.ts` (4 ca đua), `test/integration/schema-parity.test.ts`; tài liệu này.
+
+## 16. Vòng sửa 4c – `periodId` và 409 `MINIBAR_PERIOD_CHANGED` (ARC `openapi-0.3.7.md` 16.16 bổ sung 2 (ab)), 18/10
+
+ARC chốt: (aa) đúng; nhánh `room_entered` chỉ ghi log (giữ nguyên). (ab) phải sửa vì gây sai tiền. Lần đếm soạn trên kỳ cũ, nếu danh sách món giống kỳ mới, bị áp vào kỳ mới. Ví dụ: kỳ `carry` mốc bia 1, lần nạp đưa mốc lên 2, lễ tân đếm "còn 0" từ trước lúc nạp → tính 2 bia (70.000) thay vì 1.
+
+| Việc | Cách cài | Kiểm chứng (`minibar-m1.test.ts`) |
+|---|---|---|
+| `MinibarStandard.periodId` | `standard()` trả `periodId` = id lần nạp mở kỳ hiện tại; `null` = tủ chưa có lần nạp. Không có `x-visible-to`, nên HK cũng thấy | Ca BUG-R2-152: HK GET có `periodId` và gửi lại |
+| `MinibarCheckInput.periodId` (tùy chọn) | Controller nhận `uuid \| null`. `record()` so hai lần: một lần sớm, trước kiểm 422; lần quyết định **sau khi khóa tủ**, trước mọi lệnh ghi. Khác thì 409 `MINIBAR_PERIOD_CHANGED`, không ghi gì. `fridge.ts` `isCurrentPeriod`: `null` khớp khi tủ chưa có lần nạp, hoặc khi lần nạp duy nhất là `check_in` ghi sau đó cho cùng mức. `check_in` này do lần đếm đầu (`registerFridge`) hoặc copy-on-write tạo, theo R2. Có `refill`/`carry` thì không khớp | Soạn trên kỳ `carry` (bia 1) → HK xong T1 (bia 1 + 1 = 2, **cùng danh sách món**) → gửi kèm `periodId` cũ → **409**, folio và số lần đếm không đổi. Tải lại → `periodId` mới → **201**, 35.000 + 35.000 |
+| Vắng `periodId` | Không so, giữ cách cũ: 422 khi khác danh sách hoặc mốc. PWA HK cũ vẫn chạy | Ca `null`/vắng/lạ: `null` trên tủ chưa nạp → 201, đếm lại với `null` → 201; `periodId` lạ → 409, không ghi; vắng → 201 (100.000). Ca đua (a) của mục 15, không gửi `periodId`, vẫn 422 |
+| Đua có `periodId` | Phép so nằm sau `lockFridge` | Nạp → đếm: **409** (không phải 422). Đếm → nạp: 201, lần nạp lấy lần đếm làm gốc (bia 0 + 1) |
+| Idempotency (ORC) | 409 được ném ra, không trả kiểu `{ fail }`, nên `UnitOfWork` rút cả giao dịch, kể cả dòng `idempotency_key` `in_progress`. Không có bản ghi hoàn tất nào được lưu | Gửi cùng `Idempotency-Key`: lần đầu 409; lần hai, thân mới → **201**, không phải 422 `IDEMPOTENCY_KEY_REUSED`; lần ba, cùng thân → 201 `Idempotent-Replayed: true`, cùng id |
+| Rà khóa `reservation FOR UPDATE` (folio, payments, approvals, inventory) | Đổi **1 chỗ**: `FolioService.lockStay` từ `FOR UPDATE OF r` sang `FOR NO KEY UPDATE OF r`, theo quy tắc BE-A mục 16. Khóa chính của đơn không bao giờ đổi. Vẫn tuần tự hóa với các lệnh đơn, nhưng không chặn kiểm FK. Còn lại: `payments` khóa đơn qua `lockForDeposit` của BE-A (module reservations, không thuộc phạm vi rà). `approvals` và các khóa khác của `folio` khóa bảng khác (approval_request, commission, channel_fee, payment). `inventory` khóa đơn bằng `FOR KEY SHARE` (mục 15) | Toàn bộ API xanh, gồm các ca đua S4-13 |
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`, cây chung có cả phần đang làm của BE-A/FE-A): `@ottimo/api` **2.773/2.773 xanh, 87/87 tệp**; `minibar-m1` 31/31; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm. Không commit.
+
+**Giả định**: (ac) `periodId: null` vẫn khớp với lần nạp `check_in` duy nhất ghi sau lúc soạn, vì đó cùng mức tủ (R2). FE-A gửi `null` khi tủ chưa nạp, đúng với cách này.
+
+**Tệp vòng 4c**:
+- `src/modules/inventory/internal/{minibar.controller,minibar.service,fridge}.ts`
+- `src/modules/folio/public/folio.service.ts` (`lockStay`)
+- `test/integration/minibar-m1.test.ts` (4 ca mới + kiểm HK)
+- tài liệu này; `01-decisions/decision-log.md`

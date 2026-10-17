@@ -3168,6 +3168,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.minibar_recount_body` | Khách đã vào lại căn hoặc gia hạn sau lần đếm trước. Nhập số còn lại trong tủ bây giờ; phần đã tính lần trước không bị tính trùng. Số điền sẵn theo lần đếm trước. | The guest came back to this room or extended after the last count. Enter what is left in the minibar now; what was charged before is not charged twice. The figures start from the last count. | ⟨chừa chỗ⟩ | BR-703-02: kỳ nạp – không đảo/không giữ chồng dòng kỳ trước |
 | `folio.void_minibar_foc` | Món này đang có miễn/giảm {amount}. Hủy hoặc giảm dòng thì phần miễn/giảm vượt số còn lại tạm ngưng, và bị hủy khi chốt folio nếu không ghi lại dòng hoặc đếm lại minibar với số mới. | This item has a waiver of {amount}. Voiding or reducing the line pauses the part of the waiver above what is left; that part is cancelled at settlement unless the line is posted again or the minibar is recounted with a new number. | ⟨chừa chỗ⟩ | N-1 (BR-702 v0.3.8, NÊN): sửa/hủy dòng minibar có FOC theo món (BR-434-15) |
 
+#### R2 Sprint 4 – FE-A đợt 15: tủ minibar đổi kỳ trong lúc đếm (ARC 16.16 (ab), 409 MINIBAR_PERIOD_CHANGED) (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_period_changed_title` | Tủ vừa được bổ sung | The minibar was just restocked | ⟨chừa chỗ⟩ | H16 bước 1: 409 MINIBAR_PERIOD_CHANGED – không ghi gì, đã tải lại mốc tủ |
+| `co.minibar_period_changed_body` | Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ. | The figures entered were for the previous stock and were not saved. Please count again. | ⟨chừa chỗ⟩ | Giữ lễ tân ở bước đếm; số điền sẵn theo kỳ mới |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

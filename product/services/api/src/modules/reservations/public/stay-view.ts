@@ -172,7 +172,7 @@ export async function setEta(
     });
   }
   const { rows } = await tx.query<{ status: string; eta: string | null }>(
-    `SELECT status, to_char(eta_time, 'HH24:MI') AS eta FROM reservation WHERE id = $1 FOR UPDATE`,
+    `SELECT status, to_char(eta_time, 'HH24:MI') AS eta FROM reservation WHERE id = $1 FOR NO KEY UPDATE`,
     [reservationId],
   );
   const r = rows[0];

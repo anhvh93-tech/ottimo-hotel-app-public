@@ -652,6 +652,20 @@ ARC đồng ý hai đề nghị ở đợt 14 (`openapi-0.3.7.md` 16.14, api-cli
 
 ---
 
+## Phần FE-A – đợt 15: khóa kỳ khi đếm minibar – `periodId`, 409 `MINIBAR_PERIOD_CHANGED` (ARC 16.16 (ab)) (18/10/2026, vòng sửa 4c, trước cổng QC S4)
+
+Lý do (ARC): lần đếm soạn trên kỳ cũ có thể bị áp vào kỳ mới sau lần nạp → tính thừa (ví dụ 70.000). Server khóa tủ rồi so `periodId`.
+
+- **H16 bước 1** (`CheckOutPage.tsx`) – nơi duy nhất ở admin-web ghi lần đếm minibar:
+  - Gửi `MinibarCheckInput.periodId` = `MinibarStandard.periodId` của tủ đang đếm (cả `null` khi tủ chưa có lần nạp; máy chủ cũ không có trường → không gửi).
+  - 409 `MINIBAR_PERIOD_CHANGED`: không ghi gì; Desk tải lại `minibar-standard` (và bản tóm tắt), giữ lễ tân ở bước đếm, số điền sẵn theo kỳ mới, hiện cảnh báo "Tủ vừa được bổ sung" + "Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ." thay cho thông báo lỗi chung. Không tự gửi lại. Đổi tủ thì xóa cảnh báo.
+- **Mock** (`mocks/stay.ts`): `periodId` theo kỳ của tủ (`null` ở kỳ 0); `periodId` gửi kèm khác kỳ hiện tại → 409, không ghi.
+- **Chuỗi**: `co.minibar_period_changed_title`, `co.minibar_period_changed_body` – nhóm "FE-A đợt 15" trong `gen_strings.py`, **chờ UXD duyệt**.
+- Kiểm thử: `s4-144-fea.test.tsx` thêm 2 ca – gửi `periodId: null` khi tủ chưa nạp; HK bổ sung trong lúc đếm → 409 → không ghi, có đọc lại `minibar-standard`, ở lại bước 1 với câu nhắc, số về tủ đủ, đếm lại gửi `periodId` của kỳ mới rồi sang bước 2. admin-web **344/344**, `tsc`, eslint, prettier xanh. E2E chờ BE-B.
+- Idempotency-Key (ORC 18/10): sau 409 `MINIBAR_PERIOD_CHANGED`, lần đếm lại là lệnh mới nên Desk **sinh khóa mới** (`useWrite.renewKey`, qua `useSubmit.renewKey` – thêm hàm, không đổi hành vi cũ); ca test 409 kiểm hai lần gửi có hai khóa khác nhau (đã thử bỏ dòng sinh khóa → ca đỏ). BE-B đồng thời bảo đảm không lưu khóa khi trả 409.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

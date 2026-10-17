@@ -5,7 +5,14 @@
 // Project desk-clock (MutableClock, tuần tự). Máy chủ: M-1 kỳ nạp (BE-B, migration 0066) + cổng `onStayContinued` ở
 // B13 (BE-A). TC (r1-main-flows.md): TC-L4-125, TC-L4-126.
 import { expect, test } from '@playwright/test';
-import { needSeedPassword, sessionOrSkip, stackToday, versionTag, call } from '../support/api.js';
+import {
+  call,
+  needSeedPassword,
+  propertyIdOf,
+  sessionOrSkip,
+  stackToday,
+  versionTag,
+} from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
 import { precondition } from '../support/known-bugs.js';
@@ -192,6 +199,124 @@ test.describe(
         await page.context().close();
       }
       expect((await getFolio(request, fd, st.res.folioId!)).version, 'không lưu gì').toBe(v0);
+    });
+
+    test('TC-L4-132 (E) ARC 16.16 (ab) – `periodId`: lễ tân mở H16 bước 1 (kỳ `carry` sau B13), HK xong việc nạp tủ của lượt đang ở → lễ tân gửi lần đếm soạn trên kỳ cũ → 409 MINIBAR_PERIOD_CHANGED, Desk ở lại bước 1 với câu nhắc đếm lại, folio không đổi → đếm lại theo kỳ mới (dùng 1 bia) → 201 với `periodId` mới và Idempotency-Key mới, folio thêm đúng 35.000', async ({
+      browser,
+      request,
+    }) => {
+      needClock('TC-L4-132');
+      const { D, st, taskId } = await precondition(
+        'khách ở 1 đêm, ngày đi đếm 2 bia, gia hạn B13 → việc bổ sung T1 mở (DOM R9)',
+        async () => {
+          const D = virtualDay(realToday, 3);
+          await useVirtualDevice(request, await setClock(request, vnTime(D, '14:00')));
+          cleanRooms();
+          const c = await s2Context(request);
+          const fd0 = await sessionOrSkip(request, 'qa.fd');
+          const st = await inHouse(request, c, fd0, {
+            room: room(c, '202'),
+            alternatives: c.rooms,
+            arrival: D,
+            nights: 1,
+          });
+          await useVirtualDevice(request, await setClock(request, vnTime(addDays(D, 1), '09:00')));
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          expect((await minibarCheck(request, fd, st.res.id, { bia: 2 })).status).toBe(201);
+          const cur = await getReservation(request, fd, st.res.id);
+          const ext = await call<ProblemFields>(
+            request,
+            'POST',
+            p3(EP3.extendStay, fd, { reservationId: st.res.id }),
+            {
+              session: fd,
+              idempotencyKey: true,
+              ifMatch: versionTag(cur.body.version),
+              body: { nights: 1 },
+            },
+          );
+          expect(ext.status, `B13: ${JSON.stringify(ext.body).slice(0, 200)}`).toBe(200);
+          const hk = await sessionOrSkip(request, 'qa.hk');
+          const tasks = await call<{ data: Array<Record<string, unknown>> }>(
+            request,
+            'GET',
+            p3(EP3.listHkTasks, hk),
+            { session: hk, query: { date: addDays(D, 1) } },
+          );
+          const t1 = tasks.body.data.find(
+            (x) => x.type === 'minibar_refill' && x.reservationId === st.res.id,
+          );
+          expect(t1, 'B13 sinh việc bổ sung T1 (DOM R9)').toBeTruthy();
+          return { D, st, taskId: String(t1!.id) };
+        },
+      );
+      const day = addDays(D, 2);
+      await useVirtualDevice(request, await setClock(request, vnTime(day, '09:00')));
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const before = liveLines(await getFolio(request, fd, st.res.folioId!), 'minibar').map(
+        (l) => l.id,
+      );
+      const page = await desk(browser, 'qa.fd', vnTime(day, '09:00'));
+      const keys: string[] = [];
+      page.on('request', (r) => {
+        if (r.method() === 'POST' && /\/minibar-checks$/.test(new URL(r.url()).pathname))
+          keys.push(r.headers()['idempotency-key'] ?? '');
+      });
+      try {
+        const checks = recordWrites(page, 'POST', /\/reservations\/[^/]+\/minibar-checks$/);
+        await openCheckOut(page, st.res.id);
+        const mb = page.getByRole('table', { name: t('checkout.step.minibar') });
+        await expect(mb).toBeVisible({ timeout: 15_000 });
+        // HK xong việc nạp T1 trong lúc lễ tân đang ở bước 1 (lượt đang ở căn → kỳ `refill`)
+        const hk = await sessionOrSkip(request, 'qa.hk');
+        for (const [action, at] of [
+          ['start', '09:00'],
+          ['complete', '09:01'],
+        ] as const) {
+          const r = await call<ProblemFields>(
+            request,
+            'POST',
+            `/v1/properties/${propertyIdOf(hk)}/hk-tasks/${taskId}/actions/${action}`,
+            { session: hk, idempotencyKey: true, body: { performedAt: vnTime(day, at) } },
+          );
+          expect(r.status, `HK ${action}: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+        }
+        await page.getByRole('button', { name: t('co.go_extras') }).click();
+        const first = await waitWrite(checks, 'recordMinibarCheck soạn trên kỳ cũ', 409);
+        expect(first.body, '409 MINIBAR_PERIOD_CHANGED').toContain('MINIBAR_PERIOD_CHANGED');
+        await expect(
+          page.getByText(t('co.minibar_period_changed_title')).first(),
+          'câu nhắc đếm lại',
+        ).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText(t('checkout.departure_time'))).toHaveCount(0);
+        expect(
+          liveLines(await getFolio(request, fd, st.res.folioId!), 'minibar').map((l) => l.id),
+          '409: folio không đổi',
+        ).toEqual(before);
+        // đếm lại theo kỳ mới: khách uống 1 bia sau lúc nạp
+        await mb
+          .getByRole('row', { name: /Bia/ })
+          .first()
+          .getByRole('button', { name: t('rooms.dec') })
+          .click();
+        await page.getByRole('button', { name: t('co.go_extras') }).click();
+        const second = await waitWrite(checks, 'recordMinibarCheck đếm lại', 201);
+        expect(second.request?.periodId, 'periodId của kỳ mới').toBeTruthy();
+        expect(second.request?.periodId, 'periodId khác lần trước').not.toBe(
+          first.request?.periodId,
+        );
+        expect(new Set(keys).size, 'Idempotency-Key mới cho lần đếm lại').toBe(keys.length);
+        await expect(page.getByText(t('checkout.departure_time')).first()).toBeVisible({
+          timeout: 10_000,
+        });
+      } finally {
+        await page.context().close();
+      }
+      const after = liveLines(await getFolio(request, fd, st.res.folioId!), 'minibar');
+      expect(after.map((l) => l.amountVnd).sort(), 'giữ 70.000 + thêm đúng 35.000').toEqual([
+        BIA.salePriceVnd,
+        2 * BIA.salePriceVnd,
+      ]);
     });
   },
 );
