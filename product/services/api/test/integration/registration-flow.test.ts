@@ -1656,7 +1656,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect(imgs[0]).toMatchObject({ delete_after: null, deleted_at: null });
   });
 
-  it('Re-verification Major b (A-38): removing a person through the real endpoint destroys what the guest uploaded for the person beyond the head count', async () => {
+  it('Re-verification Major b (A-38) → BUG-R2-083: removing a person never destroys an unlinked guest upload by position – it waits 24 h for the desk, then J16 removes it', async () => {
     const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
     const memberId = await db.withContext(t.ctx(), async (tx) => {
       const guestId = await seedGuestRow(db, t, { name: 'Trịnh Thị Oanh' });
@@ -1714,30 +1714,64 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     );
     expect(removed.statusCode, removed.body).toBe(204);
     await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
-    const after = await db.withContext(
+    const state = () =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{
+              person_index: number;
+              removed: boolean;
+              deleted: boolean;
+              destroyed: boolean;
+              delete_after: Date | null;
+            }>(
+              `SELECT d.person_index, d.removed_at IS NOT NULL AS removed, i.deleted_at IS NOT NULL AS deleted,
+                    k.destroyed_at IS NOT NULL AS destroyed, i.delete_after
+               FROM guest_document d JOIN document_image i ON i.guest_document_id = d.id
+               JOIN data_key k ON k.id = i.data_key_id
+              WHERE d.registration_id = $1 ORDER BY d.person_index`,
+              [registrationId],
+            )
+          ).rows,
+      );
+    // BUG-R2-083 (SEC-BE-53 fallback): "Khách 2" is linked to nobody – it may not be the removed person's.
+    const deadline = new Date(T0.getTime() + 24 * 3_600_000);
+    expect(await state()).toEqual([
+      { person_index: 1, removed: false, deleted: false, destroyed: false, delete_after: null },
+      { person_index: 2, removed: false, deleted: false, destroyed: false, delete_after: deadline },
+    ]);
+    const store = fa.app.get<BlobStore>(BLOB_STORE);
+    expect(await store.get(before[1]!.blob_key)).not.toBeNull();
+    // The head count of the declaration follows the booking (the in-house person left: 2 → 1).
+    const reg = await db.withContext(
       t.ctx(),
       async (tx) =>
         (
-          await tx.query<{
-            person_index: number;
-            removed: boolean;
-            deleted: boolean;
-            destroyed: boolean;
-          }>(
-            `SELECT d.person_index, d.removed_at IS NOT NULL AS removed, i.deleted_at IS NOT NULL AS deleted,
-                  k.destroyed_at IS NOT NULL AS destroyed
-             FROM guest_document d JOIN document_image i ON i.guest_document_id = d.id
-             JOIN data_key k ON k.id = i.data_key_id
-            WHERE d.registration_id = $1 ORDER BY d.person_index`,
+          await tx.query<{ required_count: number }>(
+            'SELECT required_count FROM registration WHERE id = $1',
             [registrationId],
           )
-        ).rows,
+        ).rows[0]!.required_count,
     );
-    expect(after).toEqual([
+    expect(reg).toBe(1);
+    // Nobody linked it within 24 h → J16 removes it like a removed person's document.
+    fa.clock.set(new Date(deadline.getTime() + 60_000));
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RetentionService).run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+    );
+    await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
+    expect(
+      (await state()).map((r) => ({
+        person_index: r.person_index,
+        removed: r.removed,
+        deleted: r.deleted,
+        destroyed: r.destroyed,
+      })),
+    ).toEqual([
       { person_index: 1, removed: false, deleted: false, destroyed: false },
       { person_index: 2, removed: true, deleted: true, destroyed: true },
     ]);
-    const store = fa.app.get<BlobStore>(BLOB_STORE);
     expect(await store.get(before[1]!.blob_key)).toBeNull();
     expect(await store.get(before[0]!.blob_key)).not.toBeNull();
   });

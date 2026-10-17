@@ -54,6 +54,12 @@ export interface DocRow {
   check_results: StoredCheck[];
   capture_method: string;
   data_key_id: string;
+  /**
+   * T03 deadline of the document. BUG-R2-083 (SEC-BE-53 fallback): set on a guest-link document nobody is
+   * linked to (`person_index` ≥ 2) when a person leaves the party – J16 removes it then unless the desk links
+   * it to a person still in the party first (see `isUnclaimed`).
+   */
+  fields_purge_after: Date | null;
   purged_at: Date | null;
   removed_at: Date | null;
   enc: Record<EncColumn, Buffer | null>;
@@ -111,7 +117,7 @@ export const REG_COLUMNS = `id, reservation_id, status, kind, required_count, su
 
 const DOC_COLUMNS = `id, registration_id, reservation_id, party_member_id, person_index, doc_type, is_main,
   is_foreigner, is_minor_data, full_name_on_doc, nationality_code, gender, doc_number_last4, doc_number_hmac,
-  check_results, capture_method, data_key_id, purged_at, removed_at, ${ENC_LIST.map(([, c]) => c).join(', ')}`;
+  check_results, capture_method, data_key_id, fields_purge_after, purged_at, removed_at, ${ENC_LIST.map(([, c]) => c).join(', ')}`;
 
 type RawDoc = Omit<DocRow, 'enc'> & Record<EncColumn, Buffer | null>;
 
@@ -209,9 +215,49 @@ export function latestConsent(
   return last;
 }
 
+/**
+ * BUG-R2-083 (SEC-BE-53 fallback): a guest-link document ("Khách n", n ≥ 2) not linked to any party member,
+ * left after a person was removed from the party – nobody knows whose it is. It does not count for "enough
+ * people" (guest-web, BR-601), is not declared, and J16 removes it at `fields_purge_after` unless the desk
+ * links it to a person still in the party (`updateGuestDocument` + `partyMemberId`).
+ */
+export function isUnclaimed(
+  d: Pick<DocRow, 'party_member_id' | 'person_index' | 'fields_purge_after' | 'removed_at'>,
+): boolean {
+  return (
+    d.party_member_id === null &&
+    d.person_index !== null &&
+    d.person_index >= 2 &&
+    d.fields_purge_after !== null &&
+    d.removed_at === null
+  );
+}
+
 /** A document whose fields the desk entered (counts for BR-601). */
 export function isComplete(d: DocRow): boolean {
   return d.enc.doc_number_enc !== null && !!d.full_name_on_doc && d.purged_at === null;
+}
+
+/** A complete document that counts for BR-601 and the declaration (an unclaimed one does not). */
+export function countsForDeclaration(d: DocRow): boolean {
+  return isComplete(d) && !isUnclaimed(d);
+}
+
+/**
+ * `partyMemberId` sent by the desk must be a person STILL in this booking's party (the FK 0053 only checks
+ * that the row exists in the property): linking a document to a removed person – or to another booking's –
+ * would keep it past A-38 (BUG-R2-083). Read-only check of the FK target.
+ */
+export async function isLiveMemberOf(
+  tx: Tx,
+  reservationId: string,
+  memberId: string,
+): Promise<boolean> {
+  const { rows } = await tx.query<{ ok: boolean }>(
+    `SELECT true AS ok FROM reservation_guest WHERE id = $1 AND reservation_id = $2 AND removed_at IS NULL`,
+    [memberId, reservationId],
+  );
+  return rows.length > 0;
 }
 
 export function aadOf(docId: string, column: EncColumn) {

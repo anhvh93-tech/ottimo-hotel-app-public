@@ -10,6 +10,9 @@
  *   expiry date is read on the document screen with its C3 log).
  * - `data_quality` / `registration_stay_not_closed` (warning): a booking still hold/confirmed/in house after its
  *   planned departure that holds document images – J16 deletes them id_image_unconfirmed_max_days later.
+ * - `data_quality` / `registration_party_docs_unlinked` (warning, BUG-R2-083): a person left the party while
+ *   guest-link documents ("Khách 2"…) were linked to nobody – link the ones of people still staying
+ *   (document → person), otherwise J16 removes them at `dueAt` (24 h after the removal).
  * Codes, counts, booking ids and room numbers only (SEC J / B-21).
  */
 import type {
@@ -17,7 +20,7 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
-import type { RegistrationService } from './registration.service';
+import { type RegistrationService, UNCLAIMED_DOCUMENTS_CHECK } from './registration.service';
 import type { StayView } from './stay-reader';
 
 const DAY_MS = 86_400_000;
@@ -119,5 +122,26 @@ export function registrationAttentionSources(regs: RegistrationService): Attenti
     ];
   };
 
-  return [declarations, visa, notClosed];
+  // BUG-R2-083 (SEC-BE-53 fallback): unclaimed guest-link documents waiting for the desk.
+  const unclaimed: AttentionSource = async (tx, ctx) => {
+    const found = await regs.unclaimedDocumentStays(tx);
+    if (found.length === 0) return [];
+    const first = found[0];
+    return [
+      {
+        kind: 'data_quality' as const,
+        source: 'computed' as const,
+        severity: 'warning' as const,
+        count: found.length,
+        reservationIds: found.map((f) => f.stay.reservationId),
+        roomNos: roomsOf(found.map((f) => f.stay)),
+        ...(first ? { dueAt: ctx.iso(first.dueAt) } : {}),
+        ...(found.length === 1 && first ? { refCode: first.stay.code } : {}),
+        link: '/registrations',
+        params: { check: UNCLAIMED_DOCUMENTS_CHECK },
+      },
+    ];
+  };
+
+  return [declarations, visa, notClosed, unclaimed];
 }

@@ -29,6 +29,7 @@ import {
   type RegRow,
   REG_COLUMNS,
   consentsOf,
+  countsForDeclaration,
   decryptFields,
   documentById,
   documentsOf,
@@ -36,6 +37,8 @@ import {
   encryptFields,
   imagesOf,
   isComplete,
+  isLiveMemberOf,
+  isUnclaimed,
   latestConsent,
   lockRegistration,
   lockRegistrationOfReservation,
@@ -95,6 +98,16 @@ async function partyMember<T>(write: Promise<T>): Promise<T> {
 
 /** SR-FILE-02: images per person (technical constant). */
 export const MAX_IMAGES_PER_PERSON = 4;
+
+/**
+ * BUG-R2-083 / FB-R2-SEC-BE-53 (SEC fallback, until removePartyMember says whose upload it was): hours an
+ * unlinked guest-link document is kept after a person left the party, for the desk to link it to a person
+ * still there. Technical constant set by SEC (not a business parameter).
+ */
+export const UNCLAIMED_DOCUMENT_HOURS = 24;
+
+/** "Cần chú ý" `data_quality` check of the unclaimed guest-link documents (attention-sources.ts). */
+export const UNCLAIMED_DOCUMENTS_CHECK = 'registration_party_docs_unlinked';
 
 export type ImageDeleteReason =
   | 'retention'
@@ -242,7 +255,8 @@ export class RegistrationService {
     const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const docs = await documentsOf(tx, reg.id);
-    const complete = docs.filter(isComplete);
+    // BUG-R2-083: an unclaimed guest-link document (person left the party, nobody linked it) never counts.
+    const complete = docs.filter(countsForDeclaration);
     const submitted = complete.length;
     const longStay = stay.stayType === 'long';
     const warnDays = await this.params
@@ -472,6 +486,7 @@ export class RegistrationService {
     const docs = await documentsOf(tx, reg.id);
     const hmac = this.crypto.blindIndex(input.docNumber);
     if (docs.some((d) => d.doc_number_hmac === hmac)) throw problem('PARTY_DUPLICATE');
+    await this.assertLiveMember(tx, reg.reservation_id, input.partyMemberId);
     if (input.partyMemberId && docs.some((d) => d.party_member_id === input.partyMemberId)) {
       throw problem('PARTY_DUPLICATE');
     }
@@ -646,6 +661,7 @@ export class RegistrationService {
     if (docs.some((d) => d.id !== doc.id && d.doc_number_hmac === hmac)) {
       throw problem('PARTY_DUPLICATE');
     }
+    await this.assertLiveMember(tx, reg.reservation_id, input.partyMemberId);
     if (
       input.partyMemberId &&
       docs.some((d) => d.id !== doc.id && d.party_member_id === input.partyMemberId)
@@ -692,10 +708,48 @@ export class RegistrationService {
       reservationId: reg.reservation_id,
       requestId: actor.requestId,
     });
+    // BUG-R2-083: the desk linked an unclaimed guest-link document to a person still in the party → it is
+    // kept (the 24 h deadline goes; the images get back the deadline of the stay, if it has ended).
+    if (isUnclaimed(doc) && input.partyMemberId) await this.claim(tx, reg, doc, actor.requestId);
     reg = await this.refresh(tx, reg, { requestId: actor.requestId });
     reg = await this.requireUpdate(tx, reg, 'document_changed');
     await this.publish(tx, reg.id);
     return reg;
+  }
+
+  /** 422 `partyMemberId` NOT_IN_LIST unless it is a person still in this booking's party (BUG-R2-083). */
+  private async assertLiveMember(
+    tx: Tx,
+    reservationId: string,
+    memberId: string | null | undefined,
+  ): Promise<void> {
+    if (!memberId || (await isLiveMemberOf(tx, reservationId, memberId))) return;
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
+    });
+  }
+
+  /**
+   * BUG-R2-083: an unclaimed document is linked to a person (desk) or uploaded again by the guest for its
+   * "Khách n" (the old images are already replaced) – its removal deadline goes. Its images lose the 24 h
+   * deadline and get back the one of the stay when the stay has ended (`scheduleAfterStay`, SEC BE-32).
+   */
+  private async claim(tx: Tx, reg: RegRow, doc: DocRow, requestId: string): Promise<void> {
+    await tx.query('UPDATE guest_document SET fields_purge_after = NULL WHERE id = $1', [doc.id]);
+    await tx.query(
+      `UPDATE document_image SET delete_after = NULL WHERE guest_document_id = $1 AND deleted_at IS NULL`,
+      [doc.id],
+    );
+    const fresh = (await readRegistration(tx, reg.id)) ?? reg;
+    if (fresh.stay_ended_at) await this.scheduleAfterStay(tx, fresh, fresh.stay_ended_at);
+    await this.audit.record(tx, {
+      category: 'data',
+      action: 'registration.document_claimed',
+      entityType: 'registration',
+      entityId: reg.id,
+      after: { unclaimedDocuments: 1 },
+      requestId,
+    });
   }
 
   // ───────────────────────── C3 reads (B3) ─────────────────────────
@@ -1316,7 +1370,7 @@ export class RegistrationService {
     }
     if (errors.length) throw problem('VALIDATION_FAILED', { errors });
     // Every fail/unverified item handled (note; manual result for unverified) – US-044 AC4.
-    for (const doc of docs.filter(isComplete)) {
+    for (const doc of docs.filter(countsForDeclaration)) {
       for (const x of doc.check_results) {
         if (x.result !== 'fail' && x.result !== 'unverified') continue;
         if (!x.note || (x.result === 'unverified' && !x.manualResult)) {
@@ -1335,7 +1389,7 @@ export class RegistrationService {
     }
     const consents = await consentsOf(tx, reg.id);
     const images = await imagesOf(tx, reg.id);
-    for (const doc of docs) {
+    for (const doc of docs.filter((d) => !isUnclaimed(d))) {
       const hasImages = images.some((i) => i.guest_document_id === doc.id);
       if (hasImages && !doc.is_minor_data && !latestConsent(consents, doc)) {
         missing.push({ field: `documents[${doc.id}].imageConsent`, code: 'REQUIRED' });
@@ -1542,7 +1596,7 @@ export class RegistrationService {
     const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     if (!stay) throw problem('NOT_FOUND');
     const docs = (await documentsOf(tx, reg.id)).filter(
-      (d) => isComplete(d) && d.is_foreigner === (kind === 'foreigner_temp_residence'),
+      (d) => countsForDeclaration(d) && d.is_foreigner === (kind === 'foreigner_temp_residence'),
     );
     if (docs.length === 0) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_IN_LIST' }] });
@@ -1760,14 +1814,24 @@ export class RegistrationService {
     );
     const o = await onlineCheckinSummary(tx, reg.reservation_id);
     const liveImages = images.filter((i) => !i.deleted_at);
+    // BUG-R2-083: an unclaimed document goes at its own deadline, whatever its images say (K7/K12 may move
+    // the image deadlines; J16 removes the document at `fields_purge_after`).
+    const unclaimedAt = new Map(
+      docs.filter(isUnclaimed).map((d) => [d.id, d.fields_purge_after as Date] as const),
+    );
+    const deadlineOf = (i: ImageRow): Date | null => {
+      const doc = unclaimedAt.get(i.guest_document_id) ?? null;
+      if (!i.delete_after) return doc;
+      return doc && doc < i.delete_after ? doc : i.delete_after;
+    };
     const scheduled = liveImages
-      .map((i) => i.delete_after)
+      .map(deadlineOf)
       .filter((d): d is Date => !!d)
       .sort((a, b) => a.getTime() - b.getTime())[0];
     const documents = docs.map((d) => {
       const own = liveImages.filter((i) => i.guest_document_id === d.id);
       const purgeAt = own
-        .map((i) => i.delete_after)
+        .map(deadlineOf)
         .filter((x): x is Date => !!x)
         .sort((a, b) => a.getTime() - b.getTime())[0];
       const consent = d.is_minor_data ? null : latestConsent(consents, d);
@@ -1820,7 +1884,9 @@ export class RegistrationService {
             ...(o.etaTime ? { etaTime: o.etaTime } : {}),
             lateArrival: o.lateArrival,
             ...(o.arrivalNote ? { arrivalNote: o.arrivalNote } : {}),
-            uploadedCount: docs.filter((d) => d.capture_method === 'guest_upload').length,
+            uploadedCount: docs.filter(
+              (d) => d.capture_method === 'guest_upload' && !isUnclaimed(d),
+            ).length,
             requiredCount: reg.required_count,
             deferredPeople: o.deferredPeople,
           }
@@ -1910,48 +1976,169 @@ export class RegistrationService {
     await this.publish(tx, reg.id);
   }
 
-  /** A-38: the removed person's C3 is destroyed now (DEK of the document and of each image). */
   /**
-   * A-38: the documents of a person removed from the party are destroyed at once (DEK + images + fields).
-   * Re-verification Major b: documents the guest uploaded through the link carry a person NUMBER, not a
-   * party member – when the removal lowers the head count, the guest-web persons beyond it (person_index >
-   * persons of the booking, not linked to anyone) are destroyed too: the link never asks for more people
-   * than the booking holds.
+   * A-38 / T03 when a person leaves the party (BE-A `removePartyMember`, same transaction):
+   * - documents LINKED to the removed person (`party_member_id`) are destroyed now: DEK of the document and of
+   *   each image, files after COMMIT, fields NULL, `purge_journal`, c3 log `delete` (`removeDocument`);
+   * - BUG-R2-083 / FB-R2-SEC-BE-53 (SEC fallback until the request says whose upload it was): documents the
+   *   guest uploaded through the link carry a person NUMBER ("Khách n"), not a person – which one belonged to
+   *   the removed person cannot be known. None is destroyed now (never by position: that destroyed a guest
+   *   still staying). Every UNLINKED one from "Khách 2" on gets `fields_purge_after` (+ its images
+   *   `delete_after`) = now + UNCLAIMED_DOCUMENT_HOURS: it stops counting for "enough people", the desk sees
+   *   "Cần chú ý" `data_quality` / `registration_party_docs_unlinked`, linking it to a person still in the party
+   *   (`updateGuestDocument` + `partyMemberId`) keeps it, otherwise J16 removes it at the deadline
+   *   (`purgeUnclaimedDocuments`, same path as here). An earlier deadline is never extended;
+   * - `required_count` follows the booking's head count (US-047 AC2 – the removal may have lowered it).
    */
   async onPartyMemberRemoved(tx: Tx, reservationId: string, memberId: string): Promise<void> {
     let reg = await lockRegistrationOfReservation(tx, reservationId);
     if (!reg) return;
-    const persons =
-      (await readStay(tx, reservationId, SYSTEM_ACTOR))?.personsTotal ?? reg.required_count;
-    const docs = (await documentsOf(tx, reg.id)).filter(
-      (d) =>
-        !d.removed_at &&
-        (d.party_member_id === memberId ||
-          d.id === memberId ||
-          (!d.party_member_id && d.person_index !== null && d.person_index > persons)),
-    );
-    if (docs.length === 0) return;
-    const images = await imagesOf(tx, reg.id);
     const now = this.clock.now();
-    for (const d of docs) {
-      await this.purgeImages(
-        tx,
-        reg,
-        images.filter((i) => i.guest_document_id === d.id),
-        'party_removed',
+    const docs = await documentsOf(tx, reg.id);
+    const own = docs.filter((d) => d.party_member_id === memberId || d.id === memberId);
+    if (own.length > 0) {
+      const images = await imagesOf(tx, reg.id);
+      for (const d of own) await this.removeDocument(tx, reg, d, images, now);
+    }
+    const unlinked = docs.filter(
+      (d) =>
+        !own.includes(d) &&
+        d.party_member_id === null &&
+        d.person_index !== null &&
+        d.person_index >= 2,
+    );
+    if (unlinked.length > 0) {
+      const until = new Date(now.getTime() + UNCLAIMED_DOCUMENT_HOURS * 3_600_000);
+      const ids = unlinked.map((d) => d.id);
+      await tx.query(
+        `UPDATE guest_document SET fields_purge_after = LEAST(COALESCE(fields_purge_after, $2), $2),
+                updated_at = $3
+          WHERE id = ANY($1::uuid[])`,
+        [ids, until, now],
       );
-      await this.destroyDocumentFields(tx, d, 'party_removed', now);
-      await tx.query('UPDATE guest_document SET removed_at = $2 WHERE id = $1', [d.id, now]);
-      await this.audit.recordC3Access(tx, {
-        subjectType: 'guest_document',
-        subjectId: d.id,
-        action: 'delete',
-        reservationId,
+      await tx.query(
+        `UPDATE document_image SET delete_after = LEAST(COALESCE(delete_after, $2), $2)
+          WHERE guest_document_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+        [ids, until],
+      );
+      await this.audit.record(tx, {
+        category: 'data',
+        action: 'registration.documents_unclaimed',
+        entityType: 'registration',
+        entityId: reg.id,
+        after: { unclaimedDocuments: unlinked.length },
       });
     }
-    reg = await this.refresh(tx, reg);
-    reg = await this.requireUpdate(tx, reg, 'party_removed');
+    const persons = (await readStay(tx, reservationId, SYSTEM_ACTOR))?.personsTotal;
+    const counted = persons !== undefined && persons !== reg.required_count;
+    if (own.length === 0 && unlinked.length === 0 && !counted) return;
+    if (counted) {
+      await tx.query('UPDATE registration SET required_count = $2 WHERE id = $1', [
+        reg.id,
+        persons,
+      ]);
+    }
+    const grew = persons !== undefined && persons > reg.required_count;
+    reg = await this.refresh(tx, { ...reg, required_count: persons ?? reg.required_count });
+    // K9: a declared person's data went (or may go) – the portal declaration must be updated.
+    if (own.length > 0 || unlinked.some(isComplete)) {
+      reg = await this.requireUpdate(tx, reg, 'party_removed');
+    } else if (grew) {
+      reg = await this.requireUpdate(tx, reg, 'party_added');
+    }
     await this.publish(tx, reg.id);
+  }
+
+  /**
+   * Destroys one document of the registration (A-38/T03): its images (DEK + file after COMMIT, reason
+   * `party_removed`), its fields (DEK, NULL, `purge_journal`), `removed_at`, c3 log `delete`.
+   */
+  private async removeDocument(
+    tx: Tx,
+    reg: Pick<RegRow, 'id' | 'reservation_id'>,
+    d: DocRow,
+    images: readonly ImageRow[],
+    now: Date,
+  ): Promise<void> {
+    await this.purgeImages(
+      tx,
+      reg,
+      images.filter((i) => i.guest_document_id === d.id),
+      'party_removed',
+    );
+    await this.destroyDocumentFields(tx, d, 'party_removed', now);
+    await tx.query('UPDATE guest_document SET removed_at = $2 WHERE id = $1', [d.id, now]);
+    await this.audit.recordC3Access(tx, {
+      subjectType: 'guest_document',
+      subjectId: d.id,
+      action: 'delete',
+      reservationId: reg.reservation_id,
+    });
+  }
+
+  /**
+   * J16 (every tick) – BUG-R2-083: unclaimed guest-link documents whose deadline has come are removed exactly
+   * like a removed person's (`removeDocument`). Registrations under `legal_hold` are left alone. One SAVEPOINT
+   * per registration (a poison row is reported, the rest go on). Returns the number of documents removed.
+   */
+  async purgeUnclaimedDocuments(
+    tx: Tx,
+    opts: { max?: number } = {},
+  ): Promise<{ removed: number; errors: string[] }> {
+    const now = this.clock.now();
+    const out = { removed: 0, errors: [] as string[] };
+    const { rows } = await tx.query<{ registration_id: string }>(
+      `SELECT DISTINCT d.registration_id FROM guest_document d JOIN registration x ON x.id = d.registration_id
+        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND d.person_index >= 2
+          AND d.fields_purge_after IS NOT NULL AND d.fields_purge_after <= $1 AND NOT x.legal_hold
+        ORDER BY d.registration_id LIMIT $2`,
+      [now, opts.max ?? 200],
+    );
+    for (const r of rows) {
+      const err = await inSavepoint(tx, async () => {
+        let reg = await lockRegistration(tx, r.registration_id);
+        if (!reg || reg.legal_hold) return;
+        const due = (await documentsOf(tx, reg.id)).filter(
+          (d) => isUnclaimed(d) && (d.fields_purge_after as Date) <= now,
+        );
+        if (due.length === 0) return;
+        const images = await imagesOf(tx, reg.id);
+        for (const d of due) await this.removeDocument(tx, reg, d, images, now);
+        out.removed += due.length;
+        if (reg.status === 'void') return;
+        reg = await this.refresh(tx, reg);
+        if (due.some(isComplete)) reg = await this.requireUpdate(tx, reg, 'party_removed');
+        await this.publish(tx, reg.id);
+      });
+      if (err) out.errors.push(`registration ${r.registration_id}: ${err.name}`);
+    }
+    return out;
+  }
+
+  /**
+   * "Cần chú ý" `data_quality` / `registration_party_docs_unlinked` (BUG-R2-083): bookings holding unclaimed
+   * guest-link documents, with the earliest removal deadline – booking ids only (SEC J).
+   */
+  async unclaimedDocumentStays(tx: Tx): Promise<Array<{ stay: StayView; dueAt: Date }>> {
+    const { rows } = await tx.query<{ reservation_id: string; due: Date }>(
+      `SELECT x.reservation_id, min(d.fields_purge_after) AS due
+         FROM guest_document d JOIN registration x ON x.id = d.registration_id
+        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND d.person_index >= 2
+          AND d.fields_purge_after IS NOT NULL AND x.status <> 'void'
+        GROUP BY x.reservation_id ORDER BY min(d.fields_purge_after) LIMIT $1`,
+      [OPEN_CAP],
+    );
+    const stays = await readStays(
+      tx,
+      rows.map((r) => r.reservation_id),
+      SYSTEM_ACTOR,
+    );
+    const out: Array<{ stay: StayView; dueAt: Date }> = [];
+    for (const r of rows) {
+      const stay = stays.get(r.reservation_id);
+      if (stay) out.push({ stay, dueAt: r.due });
+    }
+    return out;
   }
 
   async destroyDocumentFields(tx: Tx, d: DocRow, policyKey: string, now: Date): Promise<void> {
@@ -2031,7 +2218,7 @@ export class RegistrationService {
     const regId = rows[0]?.id;
     if (!regId) return null;
     let earliest: string | null = null;
-    for (const doc of (await documentsOf(tx, regId)).filter(isComplete)) {
+    for (const doc of (await documentsOf(tx, regId)).filter(countsForDeclaration)) {
       if (!doc.is_foreigner) continue;
       const f = await decryptFields(tx, this.crypto, doc);
       if (f.visaValidUntil && (earliest === null || f.visaValidUntil < earliest)) {
@@ -2053,7 +2240,7 @@ export class RegistrationService {
       };
     }
     const docs = await documentsOf(tx, reg.id);
-    const complete = docs.filter(isComplete);
+    const complete = docs.filter(countsForDeclaration);
     const has = (code: CheckCode, pred: (r: StoredCheck) => boolean) =>
       complete.some((d) => d.check_results.some((x) => x.code === code && pred(x)));
     return {
@@ -2106,6 +2293,9 @@ export class RegistrationService {
         docType,
         now,
       ]);
+      // BUG-R2-083: the old (unclaimed) images are gone; what the guest sends now for "Khách n" after the
+      // removal is theirs – the slot counts again and the removal deadline goes.
+      if (isUnclaimed(doc)) await this.claim(tx, reg, doc, requestId);
     } else {
       const id = uuidv7();
       const dataKeyId = await this.crypto.createDataKey(tx, {
@@ -2148,10 +2338,6 @@ export class RegistrationService {
     return reg;
   }
 
-  /**
-   * Read-only progress of the online check-in for guest-portal (ARC FB-S3-15 (f)): no write, no record
-   * creation. `uploadedPeople` = person numbers with at least one LIVE image (ARC FB-S3-27 (5)).
-   */
   /**
    * Declarations not yet sent to the portal (status < `sent`) of active stays, with the deadline in force
    * NOW (computed from the actual arrival and today's parameters – US-042 AC3; null before check-in).
@@ -2212,6 +2398,12 @@ export class RegistrationService {
       .sort((a, b) => (a.code < b.code ? -1 : 1));
   }
 
+  /**
+   * Read-only progress of the online check-in for guest-portal (ARC FB-S3-15 (f)): no write, no record
+   * creation. `uploadedPeople` = person numbers with at least one LIVE image (ARC FB-S3-27 (5)), except an
+   * unclaimed "Khách n" left after a person was removed from the party (BUG-R2-083 – it may be the removed
+   * person's: it never makes the link report "enough people").
+   */
   async guestProgress(
     tx: Tx,
     reservationId: string,
@@ -2237,6 +2429,7 @@ export class RegistrationService {
       `SELECT DISTINCT d.person_index FROM guest_document d
         WHERE d.registration_id = $1 AND d.removed_at IS NULL AND d.person_index IS NOT NULL
           AND EXISTS (SELECT 1 FROM document_image i WHERE i.guest_document_id = d.id AND i.deleted_at IS NULL)
+          AND NOT (d.party_member_id IS NULL AND d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
         ORDER BY d.person_index`,
       [reg.id],
     );

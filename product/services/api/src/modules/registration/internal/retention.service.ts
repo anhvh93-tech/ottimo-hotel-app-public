@@ -1,12 +1,16 @@
 /**
  * J16 `retention.purge` – safety net of the immediate deletions (SEC C5, C6; SR-RET-02/03; EP06 6.1;
- * DOM G-17). Tick job (every minute per property). Steps 0, 1, 2 and 4 run on EVERY tick, so an image is
+ * DOM G-17). Tick job (every minute per property). Steps 0, 0b, 1, 2 and 4 run on EVERY tick, so an image is
  * never kept more than a minute past its legal ceiling (BR-609-01 `purgeBackstopBy` = confirmed + 24 h –
  * BUG-R2-036); steps 1a, 3 and 5 and the `J16` heartbeat row run HOURLY (throttled by the last
  * retention_run of policy `J16`):
  *
  * 0. K1 backfill: bookings without a registration get their `none` record (moved out of the GET –
  *    ARC FB-S3-27 (6));
+ * 0b. BUG-R2-083 (SEC-BE-53 fallback): unlinked guest-link documents left after a person was removed from the
+ *    party whose 24 h deadline (`guest_document.fields_purge_after`) has come and that the desk did not link to
+ *    a person still in the party → removed like the removed person's (DEK + files + fields + `purge_journal`,
+ *    reason `party_removed`) – BEFORE step 1, which would only delete their images;
  * 1. T02 / SR-RET-02 images whose `delete_after` is due: consenting people of a declared registration →
  *    `retention`; a declaration never confirmed → `unconfirmed` (end of stay + id_image_unconfirmed_max_days,
  *    SEC FB-R2-SEC-BE-32) + a "Cần chú ý" item `registration_overdue` for FD/MGR;
@@ -46,6 +50,8 @@ export interface RetentionStats {
   /** true when the hourly part (attachments, technical rows, heartbeat) did not run on this tick. */
   skipped?: boolean;
   backfilled: number;
+  /** BUG-R2-083: unclaimed guest-link documents removed at their deadline (step 0b). */
+  unclaimedDocuments: number;
   /** Registrations whose ended stay got its image deadlines from J16 (hook missed / older data). */
   scheduled: number;
   t02Images: number;
@@ -78,6 +84,7 @@ export class RetentionService {
     const now = this.clock.now();
     const stats: RetentionStats = {
       backfilled: 0,
+      unclaimedDocuments: 0,
       scheduled: 0,
       t02Images: 0,
       unconfirmedImages: 0,
@@ -95,6 +102,13 @@ export class RetentionService {
       stats.backfilled = await this.regs.backfill(tx);
     });
     if (err0) errors.push(`backfill: ${err0.name}`);
+    // 0b. Every tick, before step 1: unclaimed guest-link documents past their deadline (BUG-R2-083).
+    const err0b = await inSavepoint(tx, async () => {
+      const r = await this.regs.purgeUnclaimedDocuments(tx);
+      stats.unclaimedDocuments = r.removed;
+      errors.push(...r.errors);
+    });
+    if (err0b) errors.push(`unclaimed documents: ${err0b.name}`);
     let hourly = true;
     if (!opts.force) {
       const { rows } = await tx.query<{ last: Date | null }>(
@@ -253,6 +267,7 @@ export class RetentionService {
       ['T02', stats.t02Images],
       ['SR-RET-02', stats.unconfirmedImages],
       ['T01', stats.t01Images],
+      ['party_removed', stats.unclaimedDocuments],
       ['SEC-I5', stats.attachments],
     ] as const) {
       if (n > 0) await this.journal(tx, now, policy, n, 'done', null);
@@ -265,7 +280,12 @@ export class RetentionService {
     stats: RetentionStats,
     errors: readonly string[],
   ): Promise<void> {
-    const total = stats.t02Images + stats.unconfirmedImages + stats.t01Images + stats.attachments;
+    const total =
+      stats.t02Images +
+      stats.unconfirmedImages +
+      stats.t01Images +
+      stats.unclaimedDocuments +
+      stats.attachments;
     await this.journal(
       tx,
       now,
