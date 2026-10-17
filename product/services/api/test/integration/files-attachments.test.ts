@@ -17,7 +17,11 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 import { AttachmentService } from '../../src/modules/files/public/attachment.service';
 import { EncryptedBlobService } from '../../src/modules/files/public/encrypted-blob.service';
-import { MAX_UPLOADS_IN_FLIGHT, uploadsInFlight } from '../../src/modules/files/public/upload-gate';
+import {
+  MAX_UPLOADS_IN_FLIGHT,
+  MAX_UPLOADS_PER_SESSION,
+  uploadsInFlight,
+} from '../../src/modules/files/public/upload-gate';
 import {
   ATTACHMENT_USAGE,
   type AttachmentUsage,
@@ -25,7 +29,7 @@ import {
 import { sha256Hex } from '../../src/shared/http/auth.guard';
 import { requestHash } from '../../src/shared/http/unit-of-work';
 import { ProblemError } from '../../src/shared/problem';
-import { type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
+import { type FeatureApp, P, cookieValue, startFeatureApp } from '../helpers/feature-app';
 import { multipart, sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
 import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
 import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
@@ -358,7 +362,11 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
       const r = await fa.app.inject({
         method: 'POST',
         url,
-        headers: { 'content-type': 'multipart/form-data; boundary=xyz', cookie },
+        headers: {
+          'content-type': 'multipart/form-data; boundary=xyz',
+          'content-length': String(1024 * 1024),
+          cookie,
+        },
         payload: stream,
       });
       expect(r.statusCode).toBe(401);
@@ -368,45 +376,84 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
     expect(uploadsInFlight()).toBe(0);
   });
 
-  it('s3-blocker-verification: the upload slot is taken BEFORE the body – 5th concurrent upload → 503 at once', async () => {
+  it('s3-blocker-(re)verification: slots taken BEFORE the body – per session (429), per process (503); guest cookie never on a staff route', async () => {
     const body = multipart([
       { name: 'purpose', value: 'refund_proof' },
       { name: 'file', value: await sampleJpeg(), filename: 'r.jpg', contentType: 'image/jpeg' },
     ]);
     const half = Math.floor(body.body.length / 2);
-    const upload = (payload: PassThrough | Buffer) =>
+    const upload = (user: string, ip: string, payload: PassThrough | Buffer) =>
       fa.app.inject({
         method: 'POST',
         url: `${P(t)}/attachments`,
+        remoteAddress: ip,
         headers: {
           'content-type': body.contentType,
-          cookie: `ottimo_sid=${tok('fd')}`,
-          'x-csrf-token': fa.sessions.csrfToken(sha256Hex(tok('fd'))),
+          'content-length': String(body.body.length),
+          cookie: `ottimo_sid=${tok(user)}`,
+          'x-csrf-token': fa.sessions.csrfToken(sha256Hex(tok(user))),
           'idempotency-key': randomUUID(),
         },
         payload,
       });
-    // Four slow clients: half of their body sent, the rest held back.
-    const streams = Array.from({ length: MAX_UPLOADS_IN_FLIGHT }, () => {
+    const slow = (user: string, ip: string) => {
       const st = new PassThrough();
       st.write(body.body.subarray(0, half));
-      return st;
-    });
-    const pending = streams.map((st) => upload(st));
-    for (let i = 0; i < 200 && uploadsInFlight() < MAX_UPLOADS_IN_FLIGHT; i++) {
-      await new Promise((r) => setTimeout(r, 10));
-    }
-    expect(uploadsInFlight()).toBe(MAX_UPLOADS_IN_FLIGHT);
-    const fifth = await upload(body.body);
+      return { st, res: upload(user, ip, st) };
+    };
+    const waitFor = async (n: number) => {
+      for (let i = 0; i < 200 && uploadsInFlight() < n; i++) {
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      expect(uploadsInFlight()).toBe(n);
+    };
+    // One session holds at most MAX_UPLOADS_PER_SESSION slots: its third concurrent upload → 429.
+    const held = [slow('fd', '10.0.0.1'), slow('fd', '10.0.0.1')];
+    await waitFor(MAX_UPLOADS_PER_SESSION);
+    const third = await upload('fd', '10.0.0.1', body.body);
+    expect(third.statusCode).toBe(429);
+    expect(third.headers['retry-after']).toBe('5');
+    // Other sessions fill the process: the next upload anywhere → 503 at once, body unread.
+    held.push(slow('fd2', '10.0.0.2'), slow('mgr', '10.0.0.3'));
+    await waitFor(MAX_UPLOADS_IN_FLIGHT);
+    const fifth = await upload('own', '10.0.0.4', body.body);
     expect(fifth.statusCode).toBe(503);
     expect(fifth.json()).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
     expect(fifth.headers['retry-after']).toBe('5');
     // The slow ones finish normally and give their slots back.
-    for (const st of streams) st.end(body.body.subarray(half));
-    const done = await Promise.all(pending);
+    for (const h of held) h.st.end(body.body.subarray(half));
+    const done = await Promise.all(held.map((h) => h.res));
     expect(done.map((r) => r.statusCode)).toEqual([201, 201, 201, 201]);
     expect(uploadsInFlight()).toBe(0);
-    expect((await upload(body.body)).statusCode).toBe(201);
+    expect((await upload('fd', '10.0.0.1', body.body)).statusCode).toBe(201);
+    // A REAL guest session on a staff upload route → 401 before the body (route-bound session check).
+    const { reservationId } = await seedStay(db, t, ids);
+    const link = await staff(
+      fa,
+      tok('fd'),
+      null,
+      'POST',
+      `${P(t)}/reservations/${reservationId}/guest-link`,
+    );
+    const token = new URL(link.json().url).pathname.slice(3);
+    const opened = await fa.app.inject({
+      method: 'POST',
+      url: '/v1/guest/sessions',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ token }),
+    });
+    const gsid = cookieValue(opened, 'ottimo_gsid') as string;
+    const asGuest = await fa.app.inject({
+      method: 'POST',
+      url: `${P(t)}/attachments`,
+      headers: {
+        'content-type': body.contentType,
+        'content-length': String(body.body.length),
+        cookie: `ottimo_gsid=${gsid}`,
+      },
+      payload: body.body,
+    });
+    expect(asGuest.statusCode).toBe(401);
     expect(uploadsInFlight()).toBe(0);
   });
 

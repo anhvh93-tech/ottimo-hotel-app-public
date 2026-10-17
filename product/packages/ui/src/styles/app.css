@@ -187,3 +187,8 @@ body {
   gap: 6px;
   margin-top: 6px;
 }
+
+/* Long one-off values (guest link URL) wrap anywhere instead of widening the dialog. */
+.break-all {
+  overflow-wrap: anywhere;
+}

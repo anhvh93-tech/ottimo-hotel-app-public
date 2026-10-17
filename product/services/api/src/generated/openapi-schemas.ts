@@ -875,6 +875,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
         },
+        otaGuestCount: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
+        },
         requestedRoomGroupId: {
           s: { k: 'ref', name: 'Uuid' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
@@ -940,6 +944,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         adults: { s: { k: 'scalar' } },
         children6to11: { s: { k: 'scalar' } },
         childrenUnder6: { s: { k: 'scalar' } },
+        partyChangeSource: { s: { k: 'scalar' } },
+        otaModificationRef: { s: { k: 'scalar' } },
         doorAccessHandedOver: { s: { k: 'scalar' } },
         etaTime: { s: { k: 'ref', name: 'LocalTime' } },
         closerUserId: { s: { k: 'ref', name: 'Uuid' } },
@@ -1109,6 +1115,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         reservation: { s: { k: 'ref', name: 'Reservation' } },
         earlyDepartureFeeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         refundVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraPersonRefundVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraPersonReversedVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         refundRequestId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
       },
       open: false,
@@ -3279,6 +3287,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
               open: false,
             },
             v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+          },
+          otaGuestCount: {
+            s: { k: 'scalar' },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
           },
           requestedRoomGroupId: {
             s: { k: 'ref', name: 'Uuid' },

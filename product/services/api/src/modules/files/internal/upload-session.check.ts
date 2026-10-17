@@ -2,8 +2,9 @@
  * Real-session check of the multipart upload routes BEFORE the body is read (s3-blocker-verification – new
  * vector of ARC FB-R2-ARC-BE-S3-03/18, SEC FB-R2-SEC-BE-47): a well-formed but fake cookie must not make the
  * api buffer up to 42 MB. Installed on the Fastify instance (src/http.ts MULTIPART_SESSION_CHECK) at module
- * init. Accepts a live staff session (auth_resolve_session: not revoked, not expired, not idle, account not
- * disabled) or a live guest session (guest_resolve_session: session and link not revoked/expired) – the same
+ * init. Accepts, for the kind of session the route takes, a live staff session (auth_resolve_session: not
+ * revoked, not expired, not idle, account not disabled) or a live guest session (guest_resolve_session:
+ * session and link not revoked/expired) – the same
  * SECURITY DEFINER lookups as the AuthGuard / guest resolver, which still run in full afterwards (roles,
  * device, CSRF, Origin, level). One indexed lookup per upload request; nothing is logged.
  */
@@ -30,59 +31,66 @@ export class UploadSessionCheck implements OnModuleInit {
   onModuleInit(): void {
     const instance = this.host?.httpAdapter?.getInstance?.() as
       { [MULTIPART_SESSION_CHECK]?: MultipartSessionCheck } | undefined;
-    if (instance) instance[MULTIPART_SESSION_CHECK] = (headers) => this.isLive(headers);
+    if (instance)
+      instance[MULTIPART_SESSION_CHECK] = (headers, kind) => this.liveSession(headers, kind);
   }
 
-  async isLive(headers: Headers): Promise<boolean> {
+  /**
+   * Key of the live session of the kind the route accepts (`staff:<id>` / `guest:<id>` – per-session slot
+   * cap), or null. A guest cookie never passes on a staff route and vice versa (s3-blocker-reverification).
+   */
+  async liveSession(headers: Headers, kind: 'staff' | 'guest'): Promise<string | null> {
     const raw = headers.cookie;
     const cookie = Array.isArray(raw) ? raw.join('; ') : raw;
     const prefix = this.options.cookieSecurePrefix;
-    const staff = readCookie(cookie, cookieNames(prefix).session);
-    const guest = readCookie(cookie, guestCookieName(prefix));
+    const staff = kind === 'staff' ? readCookie(cookie, cookieNames(prefix).session) : null;
+    const guest = kind === 'guest' ? readCookie(cookie, guestCookieName(prefix)) : null;
     const now = this.clock.now().getTime();
     if (staff && staff.length >= 32 && staff.length <= 128) {
       const ok = await this.db.entry(async (tx) => {
         const { rows } = await tx.query<{
+          session_id: string;
           revoked_at: Date | null;
           expires_at: Date;
           idle_expires_at: Date | null;
           user_status: string | null;
         }>(
-          'SELECT revoked_at, expires_at, idle_expires_at, user_status FROM auth_resolve_session($1)',
+          'SELECT session_id, revoked_at, expires_at, idle_expires_at, user_status FROM auth_resolve_session($1)',
           [sha256Hex(staff)],
         );
         const s = rows[0];
-        return (
-          !!s &&
+        return !!s &&
           !s.revoked_at &&
           s.expires_at.getTime() > now &&
           (!s.idle_expires_at || s.idle_expires_at.getTime() > now) &&
           s.user_status !== 'disabled'
-        );
+          ? `staff:${s.session_id}`
+          : null;
       });
-      if (ok) return true;
+      if (ok) return ok;
     }
     if (guest && guest.length >= 32 && guest.length <= 128) {
       return this.db.entry(async (tx) => {
         const { rows } = await tx.query<{
+          session_id: string;
           revoked_at: Date | null;
           expires_at: Date;
           token_revoked_at: Date | null;
           token_expires_at: Date;
         }>(
-          'SELECT revoked_at, expires_at, token_revoked_at, token_expires_at FROM guest_resolve_session($1)',
+          'SELECT session_id, revoked_at, expires_at, token_revoked_at, token_expires_at FROM guest_resolve_session($1)',
           [sha256Hex(guest)],
         );
         const s = rows[0];
-        return (
-          !!s &&
+        return !!s &&
           !s.revoked_at &&
           !s.token_revoked_at &&
           s.expires_at.getTime() > now &&
           s.token_expires_at.getTime() > now
-        );
+          ? `guest:${s.session_id}`
+          : null;
       });
     }
-    return false;
+    return null;
   }
 }

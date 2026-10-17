@@ -272,15 +272,17 @@ describe.skipIf(!HAS_DB)('reservations – Sprint 2 response & fix (BE-A)', () =
       .find((x: { roomNo: string }) => x.roomNo === '202')
       .bars.find((b: { reservationId: string }) => b.reservationId === r.id);
     expect(bar).toMatchObject({ capacityConflict: true, reservationCode: r.code });
-    // Fewer guests after calling the guest → flag cleared, check-in possible today.
+    // Fewer guests after calling the guest → flag cleared, check-in possible today. 0.3.6 bổ sung 4: the
+    // source of an OTA head-count change is required; the guest told OTTIMO → the OTA count stays 4.
     const fixed = await c.fd!.send(
       'PATCH',
       url(`/reservations/${r.id}`),
-      { adults: 3 },
+      { adults: 3, partyChangeSource: 'guest_direct' },
       { 'if-match': `"${r.version}"` },
     );
     expect(fixed.statusCode, fixed.body).toBe(200);
     expect(fixed.json().capacityConflict).toBe(false);
+    expect(fixed.json().otaGuestCount).toBe(4);
     expect(fixed.json().allowedActions.map((a: { event: string }) => a.event)).toContain(
       'check_in',
     );

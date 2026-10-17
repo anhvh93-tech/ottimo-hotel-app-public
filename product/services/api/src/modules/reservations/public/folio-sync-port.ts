@@ -27,6 +27,11 @@ export interface VoidStayInput {
   /** Deposit kept by OTTIMO (BR-309 cancellation fee / BR-311 no-show); 0 = nothing. */
   retainedVnd: number;
   retainedKind: 'cancellation_fee' | 'no_show_fee' | null;
+  /**
+   * 0.3.6 bổ sung 4 (BR-310/901): the OTA's actual channel fee on the cancellation penalty
+   * (`cancelReservation.otaPenaltyChannelFeeVnd`); absent → the channel rate snapshot × base.
+   */
+  channelFeeActualVnd?: number;
   /** BR-308 reason code / `no_show` / `overbooking_relocated`. */
   reason: string;
   requestId?: string;

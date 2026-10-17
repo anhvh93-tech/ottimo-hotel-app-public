@@ -289,3 +289,23 @@ Mọi thay đổi là **thêm**, trừ 5 thay đổi hành vi có chủ đích �
 | prettier | xanh |
 
 > **17/10 – nháp 0.3.7**: toàn bộ danh sách trên cộng hồ sơ khách "từ giấy tờ" (BUG-R2-033 b, SEC s3 mục 7) được gộp vào `outputs/ARC/openapi-0.3.7-draft.md`. Bản nháp này chưa áp vào openapi/erd; ARC áp ở bước khởi động Sprint 4.
+
+### 7.8 Bổ sung 4 (17/10 – 4 luật OTA của DOM, BR-110/307/310/428/431 v0.3.4)
+| Luật DOM | Hợp đồng (0.3.6 bổ sung 4) | Mã lỗi | Ai |
+|---|---|---|---|
+| (1) Đổi số người đơn OTA **trước nhận phòng** phải chọn nguồn | `ReservationPatch.partyChangeSource` = `ota_modification` \| `guest_direct`, **bắt buộc** khi đổi `adults` / `children6to11` / `childrenUnder6` của đơn kênh `ota` ở `hold` / `confirmed`. FE chọn sẵn `guest_direct`. `ota_modification` kèm `otaModificationRef` (mã sửa đơn trên extranet, 3–64 ký tự) → cập nhật `otaGuestCount`, không phụ thu. `guest_direct` → giữ `otaGuestCount`, phụ thu người vượt max(định mức căn, `otaGuestCount`), thu tại quầy. Thêm `Reservation.otaGuestCount` (FD+, SAL). Khi `in_house` vẫn đi qua party (`effectiveFrom`) và luôn tính như `guest_direct` | 422 `REQUIRED` (`partyChangeSource` hoặc `otaModificationRef`); 422 `NOT_ALLOWED` (đơn không phải OTA) | **BE-A** (`updateReservation`, DTO, lịch sử + audit), **BE-B** (phụ thu người không thuộc `OTA_COVERED`), **FE** (hộp chọn nguồn ở sửa số khách) |
+| (2) Không FOC / giảm giá đặc biệt trên đêm OTA trả trước | `requestFoc` trên dòng `room` của đơn `ota_prepaid` → chặn. "Đã thu qua OTA" = tổng dòng phòng OTA **trước** FOC, đồng bộ cùng giao dịch mỗi lần ghi / sửa / đảo. Đơn `ota_pay_at_property`: FOC như Trực tiếp | 422 `FOC_NOT_ALLOWED_OTA_PREPAID` (`field` = `kind`) | **BE-B**, **FE** (ẩn nút FOC trên dòng đó) |
+| (3) Tiền phạt hủy OTA vào folio | `cancelReservation.otaPenaltyVnd` → dòng `cancellation_fee` (doanh thu khác). `ota_prepaid`: kèm `ota_collect` bằng đúng tiền phạt. Trả tại chỗ: còn phải thu, không chặn hủy. Thêm `otaPenaltyChannelFeeVnd` (tùy chọn; không gửi → tỷ lệ BR-901) | 422 `NOT_ALLOWED` (`otaPenaltyChannelFeeVnd` mà không có `otaPenaltyVnd`) | **BE-A** (cancel), **BE-B** (folio, `ota_collect`, phí kênh), **FE** (ô phí kênh tùy chọn) |
+| (4) B16 đơn OTA: hoàn phụ thu người của đêm bỏ | `EarlyDepartureResult.extraPersonRefundVnd` (đã thu → hoàn 100 %, nằm trong **một** yêu cầu hoàn duy nhất) và `extraPersonReversedVnd` (chưa thu → chỉ đảo dòng) | – | **BE-A** |
+
+**Kiểm tra sau bổ sung 4** (meta, api-client đã sinh lại):
+
+| Kiểm tra | Kết quả |
+|---|---|
+| spec validator | OK |
+| `gen-openapi-meta --check`, api-client `--check` | up to date |
+| `gen_rbac_cases --check` | 189 op, mismatch [] |
+| `gen_traceability --strict` | exit 0 |
+| `contract.test` | 5/5 |
+| `tsc` api-client / admin-web / guest-web / api | 0 lỗi (một lần chạy api đỏ thoáng qua do BE đang sửa tệp; chạy lại xanh) |
+| prettier | xanh |

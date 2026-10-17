@@ -353,3 +353,17 @@ Ngày sinh **không** chép sang hồ sơ: chép ra là đưa C3 (D03) ra khỏi
 | **ARC** | ERD: `guest.source`, `guest.last_stay_checkout_at` (hoặc tính từ đơn), 2 CHECK ở trên, định nghĩa `id_doc_hmac` = `keyedHash('guest_doc', …)` v1; thêm `'guest_doc'` vào kiểu `keyedHash`; OpenAPI: `Guest.source` (FD+), không có trường giấy tờ nào trên `Guest`; tham số `document_profile_retention_months` |
 
 Không có thẻ Blocker/Major mới: đây là điều kiện để merge sửa BUG-R2-033. SEC kiểm ở bước kiểm lại Sprint 3 (CHECK DB, test hồ sơ tối thiểu, test "tên + ngày sinh không tự gắn").
+
+---
+
+## 8. Ngoại lệ FE-06 cho link check-in online (SEC, 17/10/2026)
+
+Yêu cầu: ORC 17/10. Đã đọc `apps/admin-web/src/app/c3.ts:7-89` và `pages/reservations/GuestLinkPanel.tsx:11-140` (cây làm việc, chưa commit).
+
+**Kết luận: DUYỆT CÓ ĐIỀU KIỆN.** Link khách là token mức 1 (thấy mã đơn, tên gọi, số căn, Wi-Fi; chỉ **gửi** được ảnh giấy tờ, không đọc lại). Nó không phải dữ liệu C3, có thể thu hồi, và cấp lại sẽ hủy link cũ. Lễ tân cần chuyển sang Zalo để dán, nên chấp nhận không xóa clipboard và không ẩn link khi đổi tab. Các giới hạn còn lại vẫn giữ: clipboard 60 giây, xóa khi rời màn/đóng drawer, thu hồi, đăng xuất; link hiện tối đa 5 phút, chỉ nằm trong bộ nhớ của màn.
+
+Điều kiện (FE):
+1. `onTabHidden: false` **chỉ** được dùng ở `GuestLinkPanel` (cả `useC3Reveal` lẫn `useC3Clipboard`). Thêm test quét `src`: ngoài tệp này mà có `onTabHidden: false` thì đỏ. Muốn dùng ở chỗ khác phải qua SEC. Không bao giờ dùng cho số giấy tờ, dữ liệu cổng, tài khoản hoàn.
+2. **Xóa bù khi quay lại.** Khi trang không có focus, trình duyệt từ chối `clipboard.writeText` (lễ tân đang ở Zalo đúng lúc hết 60 giây), nên lần ghi đè rỗng sẽ thất bại im lặng. Hết hạn mà ghi không được thì giữ cờ "chờ xóa" và ghi đè ngay khi trang có lại focus/hiện lại (`focus` / `visibilitychange` → `visible`). Test: hết 60 giây khi tab ẩn → khi hiện lại thì `writeText('')` được gọi.
+3. Link và QR: QR vẽ bằng `QrCode` trong bundle (không dịch vụ ngoài – F2). Không ghi URL/token vào log, toast, lỗi, `console`, storage hay thanh địa chỉ. Đóng hộp thì ẩn ngay (đã có).
+4. UXD: câu cạnh nút Sao chép nhắc "gửi riêng cho khách (tin nhắn 1–1), không gửi vào nhóm"; nếu gửi nhầm thì dùng "Thu hồi link".

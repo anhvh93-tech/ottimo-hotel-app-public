@@ -40,6 +40,20 @@ export function extraGuestCount(
   return Math.max(0, row.adults + row.children_6_11 - baseOccupancy);
 }
 
+/**
+ * 0.3.6 bổ sung 4 (DOM 17/10, BR-110/BR-307): counted persons (adults + children 6–11) the OTA priced – the party
+ * stored when the OTA booking was entered (`pricing_snapshot.bookedParty`), changed only by
+ * `partyChangeSource = ota_modification`. Legacy bookings without it: the booking's counts. null = not OTA.
+ */
+export function otaGuestCount(
+  row: Pick<ReservationRow, 'channel_group' | 'adults' | 'children_6_11' | 'pricing_snapshot'>,
+): number | null {
+  if (row.channel_group !== 'ota') return null;
+  const b = (row.pricing_snapshot as { bookedParty?: { adults: number; children6to11: number } })
+    ?.bookedParty;
+  return b ? b.adults + b.children6to11 : row.adults + row.children_6_11;
+}
+
 export interface DtoInput {
   row: ReservationRow;
   segments: SegmentRow[];
@@ -122,6 +136,7 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
         }
       : {}),
     extraGuestCount: extraGuestCount(row, current?.base_occupancy ?? null),
+    otaGuestCount: otaGuestCount(row),
     ...(row.eta_time ? { etaTime: row.eta_time } : {}),
     ...(row.agreed_checkout_time ? { agreedCheckoutTime: row.agreed_checkout_time } : {}),
     // 0.3.6 bổ sung (ARC review S3 C): MGR+ accepted a short deposit (FD+ only – x-visible-to).

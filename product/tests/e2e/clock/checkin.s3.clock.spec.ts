@@ -21,6 +21,7 @@ import {
 import { expectNear, needClock, resetClock, runJob, runJobIfAny } from '../support/clock.js';
 import {
   EP,
+  action,
   addDays,
   cleanupTracked,
   getReservation,
@@ -2091,6 +2092,131 @@ test.describe(
               ),
             ),
           ).toBeGreaterThanOrEqual(2);
+        },
+      );
+
+      test(
+        'TC-L3-074 US-049/AC1 [A · Cao (S)]',
+        { annotation: [story('US-049/AC1'), eps('getDocumentImage, checkOut, cancelReservation')] },
+        async ({ request }) => {
+          // SR-RET-02 / EP06 6.1 (SEC FB-R2-SEC-BE-32): khai báo KHÔNG BAO GIỜ tới `confirmed` (dừng ở `sent`) →
+          // ảnh giữ tối đa `id_image_unconfirmed_max_days` (7) kể từ lúc kết thúc lưu trú – trả phòng (a) hoặc hủy
+          // đơn (b: hủy khi đã `sent` thì không `void`, ảnh vẫn nhận hạn). Ngày 6 còn, 7 ngày + 1 phút ▶ J16 → mất.
+          const { D, c } = await begin(
+            request,
+            'TC-L3-074',
+            [EP3.getDocumentImage, EP3.checkOut, EP.cancelReservation],
+            '14:30',
+            12,
+          );
+          const keepDays = 7; // id_image_unconfirmed_max_days – mặc định catalogue 0053 (SR-RET-02), DS-E không đổi
+          let fd = await fdOf(request);
+          const sentWithImage = async (st: Stay) => {
+            const r = await addDocument(request, fd, st.regId, vnDoc(st.guestName), 1);
+            expect(r.status, JSON.stringify(r.body)).toBe(201);
+            return r;
+          };
+          const toSent = async (regId: string) => {
+            await toScanned(request, fd, regId, 'granted');
+            const sent = await transitionReg(request, fd, regId, 'mark-sent', {
+              portalReference: `E2E-${Date.now().toString(36).toUpperCase()}`,
+            });
+            expect(sent.status, `mark-sent: ${JSON.stringify(sent.body).slice(0, 300)}`).toBe(200);
+            expect(sent.body.status).toBe('sent');
+          };
+          // (a) đơn 1 đêm nhận phòng D, khai báo `sent`, trả phòng D+1 10:30
+          const a = await makeStay(request, c, fd, {
+            room: room(c, '203'),
+            arrival: D,
+            adults: 1,
+            doc: false,
+          });
+          const ra = await sentWithImage(a);
+          const ci = await checkIn(request, fd, a.res.id);
+          expect(ci.status, JSON.stringify(ci.body)).toBe(200);
+          await toSent(a.regId);
+          // (b) đơn đến D+2 (chưa tới), khai báo trước `sent`, hủy lúc D 15:00
+          const b = await makeStay(request, c, fd, {
+            room: room(c, '202'),
+            arrival: addDays(D, 2),
+            adults: 1,
+            doc: false,
+          });
+          const rb = await sentWithImage(b);
+          await toSent(b.regId);
+          const cancelAt = vnTime(D, '15:00');
+          await at(request, cancelAt);
+          fd = await fdOf(request);
+          const cancel = await action(request, fd, b.res.id, 'cancel', {
+            reasonCode: 'other',
+            note: 'E2E: khach huy sau khi da khai bao',
+          });
+          expect(cancel.status, JSON.stringify(cancel.body).slice(0, 300)).toBe(200);
+          const regB = await regOf(request, fd, b.regId);
+          expect(regB.status, 'hủy khi đã sent → không void').toBe('sent');
+          const outAt = vnTime(addDays(D, 1), '10:30');
+          await at(request, outAt);
+          fd = await fdOf(request);
+          expect((await checkOutStay(request, fd, a.res.id, '10:30')).status).toBe(200);
+          const regA = await regOf(request, fd, a.regId);
+          expect(regA.status).toBe('sent');
+          const until = (iso: string) =>
+            new Date(Date.parse(iso) + keepDays * 86_400_000).toISOString();
+          expectNear(String(regA.imagesPurgeScheduledAt), until(outAt), 'hạn xóa (a)', 60_000);
+          expectNear(String(regB.imagesPurgeScheduledAt), until(cancelAt), 'hạn xóa (b)', 60_000);
+          const imgOf = async (st: Stay, doc: ReturnType<typeof mainDoc>) => {
+            fd = await fdOf(request);
+            await stepUp(request, fd);
+            return (await getImage(request, fd, st.regId, doc.id, doc.imageIds![0]!, 'recheck'))
+              .status;
+          };
+          const docA = mainDoc(ra.body);
+          const docB = mainDoc(rb.body);
+          // ⏱ ngày thứ 6 (mốc + 6 ngày, 10:31) ▶ J16 → còn cả hai
+          await at(request, new Date(Date.parse(outAt) + 6 * 86_400_000 + 60_000).toISOString());
+          await runJob(request, J16);
+          expect(await imgOf(a, docA), '(a) ngày 6 còn ảnh').toBe(200);
+          expect(await imgOf(b, docB), '(b) ngày 6 còn ảnh').toBe(200);
+          // ⏱ hủy + 7 ngày + 1 phút ▶ J16 → (b) mất, (a) còn (hạn 10:30)
+          await at(request, new Date(Date.parse(until(cancelAt)) + 60_000).toISOString());
+          await runJob(request, J16);
+          expect([404, 410], '(b) hủy + 7 ngày + 1 phút').toContain(await imgOf(b, docB));
+          expect(await imgOf(a, docA), '(a) chưa tới hạn').toBe(200);
+          // ⏱ trả phòng + 7 ngày + 1 phút ▶ J16 → (a) mất
+          await at(request, new Date(Date.parse(until(outAt)) + 60_000).toISOString());
+          await runJob(request, J16);
+          expect([404, 410], '(a) trả phòng + 7 ngày + 1 phút').toContain(await imgOf(a, docA));
+          // dữ liệu khai báo dạng chữ còn; khai báo hiện đã xóa ảnh (imagesPurgedAt + lý do theo hợp đồng)
+          fd = await fdOf(request);
+          const summary: string[] = [];
+          for (const x of [a, b]) {
+            const reg = await regOf(request, fd, x.regId);
+            expect(mainDoc(reg).imageIds ?? []).toHaveLength(0);
+            expect(mainDoc(reg).docNumberLast4).toHaveLength(4);
+            const log = (await c3Log(request, x.res.id)).filter((e) => e.action === 'purge');
+            expect(log.length, JSON.stringify(log)).toBeGreaterThanOrEqual(1);
+            expect(log[0]).toMatchObject({ actorType: 'system', subjectType: 'document_image' });
+            summary.push(
+              `${x.res.code}: ${String(reg.imagesPurgedAt)} / ${String(reg.imagesPurgeReason)}`,
+            );
+          }
+          // SEC BE-32: khai báo chưa từng confirmed mà ảnh đã hết hạn → "Cần chú ý" registration_overdue cho FD/MGR
+          const items = await attention(request, fd);
+          for (const x of [a, b]) {
+            // mục sự kiện (source=event) mang mã đơn ở refCode (không có reservationIds)
+            const ev = items.filter(
+              (i) =>
+                i.kind === 'registration_overdue' &&
+                (i as { refCode?: string }).refCode === x.res.code,
+            );
+            expect(ev.length, `Cần chú ý registration_overdue của ${x.res.code}`).toBe(1);
+          }
+          // EP06 6.1: mỗi lần xóa cập nhật Registration.imagesPurgedAt (+ lý do) để H14 hiện "Ảnh đã xóa lúc …"
+          test.fail(
+            summary.some((x) => x.includes('undefined')),
+            'BUG-R2-054: xóa ảnh khai báo chưa confirmed (SR-RET-02, lý do `unconfirmed`) không ghi Registration.imagesPurgedAt/imagesPurgeReason (SUMMARY_REASONS thiếu `unconfirmed`; enum hợp đồng cũng thiếu)',
+          );
+          expect(summary.join('; ')).not.toContain('undefined');
         },
       );
     });

@@ -124,15 +124,19 @@ export class ReservationStayPort {
     return this.reservations.setNightFees(tx, reservationId, fees, now);
   }
 
-  /** In-house children of the stay follow the people of the primary booking (fee per night from `fromDate`). */
+  /**
+   * In-house children of the stay follow the people of the primary booking (fee per night from `fromDate`).
+   * `write: false` = preview only: Σ old/new BR-110 fee of the children's nights from `fromDate`.
+   */
   syncChildrenParty(
     tx: Tx,
     ctx: BookingContext,
     parent: ReservationRow,
     party: { adults: number; children6to11: number; childrenUnder6: number },
     fromDate: string,
-  ): Promise<void> {
-    return this.reservations.syncChildrenParty(tx, ctx, parent, party, fromDate);
+    opts: { write: boolean } = { write: true },
+  ): Promise<{ oldVnd: number; newVnd: number; nights: number }> {
+    return this.reservations.syncChildrenParty(tx, ctx, parent, party, fromDate, opts);
   }
 
   peopleFromNight(

@@ -1605,6 +1605,91 @@
       "note": "Code HEAD (BE-A giả định 11): năm đến − năm sinh = 6 → 100.000/đêm"
     },
     {
+      "id": "BR-110-14",
+      "br": "BR-110",
+      "case": "Agoda 302, 3 người lớn, 2 đêm; trước ngày đến khách nhắn Zalo OTTIMO thêm 1 người → nguồn 'khách báo trực tiếp': giữ số khách OTA 3, phụ thu tại quầy (v0.3.4 bổ sung)",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "params": {
+        "room.302.base_occupancy": 3,
+        "room.302.max_occupancy": 4,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 100000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "302",
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "otaGuestCountBefore": 3,
+        "adultsBefore": 3,
+        "adultsAfter": 4,
+        "nights": 2,
+        "partyChangeSource": "guest_direct"
+      },
+      "expected": {
+        "otaGuestCount": 3,
+        "extraPersonFeeVnd": 300000,
+        "collectedAt": "front_desk",
+        "extraGuestKits": 1
+      }
+    },
+    {
+      "id": "BR-110-15",
+      "br": "BR-110",
+      "case": "Như BR-110-14 nhưng Agoda gửi thông báo sửa đơn thành 4 khách → nguồn 'OTA sửa đơn': số khách OTA = 4, không phụ thu (v0.3.4 bổ sung)",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "params": {
+        "room.302.base_occupancy": 3,
+        "room.302.max_occupancy": 4,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 100000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "302",
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "otaGuestCountBefore": 3,
+        "adultsBefore": 3,
+        "adultsAfter": 4,
+        "nights": 2,
+        "partyChangeSource": "ota_modification",
+        "otaModificationEvidence": "ảnh thông báo sửa đơn Agoda"
+      },
+      "expected": {
+        "otaGuestCount": 4,
+        "extraPersonFeeVnd": 0,
+        "extraGuestKits": 1
+      }
+    },
+    {
+      "id": "BR-110-16",
+      "br": "BR-110",
+      "case": "Đổi số người đơn OTA không chọn nguồn / không có bằng chứng sửa đơn trên kênh → coi là 'khách báo trực tiếp' (v0.3.4 bổ sung)",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "INV-014", "NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "partyChangeSource": null,
+        "otaModificationEvidence": null
+      },
+      "expected": {
+        "effectiveSource": "guest_direct",
+        "sourceRequiredInUi": true
+      },
+      "qaAssumption": "API có thể bắt buộc trường nguồn (ARC chọn); nếu bắt buộc thì thiếu nguồn → 422 REQUIRED, kết quả nghiệp vụ như trên"
+    },
+    {
       "id": "BR-111-01",
       "br": "BR-111",
       "case": "7 đêm được −10% và có mã OTTIMO-BACK5 → không cộng thêm 5%",
@@ -2521,6 +2606,60 @@
       "note": "Code HEAD: không có khoản ota_collect → còn phải thu 1.870.000, B18 BALANCE_DUE"
     },
     {
+      "id": "BR-307-03",
+      "br": "BR-307",
+      "case": "Agoda trả trước 302, 2 đêm 1.800.000, mất nước nóng: FOC đêm phòng → chặn; FOC minibar 70.000 → còn phải thu 0, 'Đã thu qua OTA' vẫn 1.800.000 (v0.3.4 bổ sung)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "otaRoomAmountVnd": 1800000,
+        "minibarVnd": 70000,
+        "focRequests": [
+          {
+            "line": "room",
+            "amountVnd": 900000
+          },
+          {
+            "line": "minibar",
+            "amountVnd": 70000
+          }
+        ]
+      },
+      "expected": {
+        "focResults": ["rejected", "approved"],
+        "paidViaOtaVnd": 1800000,
+        "balanceDueVnd": 0
+      }
+    },
+    {
+      "id": "BR-307-04",
+      "br": "BR-307",
+      "case": "Quản lý sửa giá một đêm OTA trả trước sau khi trả phòng (900.000 → 850.000 theo extranet) → 'Đã thu qua OTA' đồng bộ cùng giao dịch, folio vẫn còn phải thu 0 (v0.3.4 bổ sung)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "otaRoomAmountVndBefore": 1800000,
+        "adjustNight": {
+          "fromVnd": 900000,
+          "toVnd": 850000
+        },
+        "folioState": "settled"
+      },
+      "expected": {
+        "paidViaOtaVnd": 1750000,
+        "balanceDueVnd": 0,
+        "sameTransaction": true
+      }
+    },
+    {
       "id": "BR-308-01",
       "br": "BR-308",
       "case": "Khách bấm hủy trên web đặt phòng",
@@ -2805,6 +2944,58 @@
         "cancelFeeVnd": 700000
       },
       "qaAssumption": "Giờ báo 10:00 do DOM chọn; peakNight = true vì đêm 16/4/2027 nằm trong special_dates sau khi seed thêm dòng ESC-015"
+    },
+    {
+      "id": "BR-310-01",
+      "br": "BR-310",
+      "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "params": {
+        "channel_commission_pct.booking": 15
+      },
+      "calc": null,
+      "input": {
+        "channel": "booking",
+        "paymentModel": "ota_prepaid",
+        "otaPenaltyVnd": 900000,
+        "actualChannelFeeKnown": false
+      },
+      "expected": {
+        "cancellationFeeLineVnd": 900000,
+        "revenueGroup": "other",
+        "paidViaOtaVnd": 900000,
+        "balanceDueVnd": 0,
+        "channelFeeVnd": 135000,
+        "soldNights": 0,
+        "commissionVnd": 0
+      }
+    },
+    {
+      "id": "BR-310-02",
+      "br": "BR-310",
+      "case": "Đơn OTA trả tại chỗ hủy có tiền phạt 900.000 → còn phải thu 900.000; tiền phạt 0 → không ghi dòng (v0.3.4 bổ sung)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "calc": null,
+      "input": {
+        "cases": [
+          {
+            "paymentModel": "ota_pay_at_property",
+            "otaPenaltyVnd": 900000
+          },
+          {
+            "paymentModel": "ota_prepaid",
+            "otaPenaltyVnd": 0
+          }
+        ]
+      },
+      "expected": {
+        "balanceDueVnd": [900000, 0],
+        "cancellationFeeLineCount": [1, 0]
+      }
     },
     {
       "id": "BR-311-01",
@@ -4476,6 +4667,30 @@
         "retierStayedNights": false
       },
       "note": "Khớp code HEAD (B16 dùng giá đêm sau bậc, làm tròn phần hoàn nửa lên)"
+    },
+    {
+      "id": "BR-428-06",
+      "br": "BR-428",
+      "case": "Agoda 302, 4 đêm 20–24/10, 4 người lớn (số khách OTA 3), đã thu phụ thu 600.000 tại quầy; rời 22/10 → B16 tạo một yêu cầu hoàn 300.000, B18 không tạo thêm (v0.3.4 bổ sung)",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "FB-R2-DOM-BE-13 (lượt kiểm 2)",
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-24",
+        "newDepartureDate": "2026-10-22",
+        "extraPersonPerNightVnd": 150000,
+        "extraPersonCollectedVnd": 600000
+      },
+      "expected": {
+        "refundRequestAtEarlyDepartureVnd": 300000,
+        "refundRequestsTotal": 1,
+        "refundRequestAtCheckout": 0,
+        "otaRoomMoneyInRefundFlow": false
+      }
     },
     {
       "id": "BR-429-01",

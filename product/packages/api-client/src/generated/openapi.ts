@@ -2040,6 +2040,9 @@ export interface paths {
      * Gửi FOC / giảm giá đặc biệt cho một dòng (A35) – tạo yêu cầu duyệt; dòng FOC âm ở trạng thái chờ duyệt (US-007 AC1)
      * @description Người gửi **không** chọn người duyệt (BR-432). MGR/OWN gửi → tự áp (A2). FD với FOC minibar trong hạn mức vai FD → tự áp
      *     (chờ DOM trả lời SQ-3; tham số `foc_limits`).
+     *     **0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-307 v0.3.4)**: không FOC / giảm giá đặc biệt trên dòng `room` của đơn `paymentModel = ota_prepaid` → 422 `FOC_NOT_ALLOWED_OTA_PREPAID`
+     *     (`field` = `kind`). Bù sự cố cho khách OTA trả trước bằng FOC trên khoản phát sinh, đêm bù, hoặc hoàn tiền thật (`createRefundRequest`, BR-522).
+     *     Đơn `ota_pay_at_property`: FOC như kênh Trực tiếp. "Đã thu qua OTA" (`ota_collect`) = tổng dòng tiền phòng OTA **trước** FOC, đồng bộ cùng giao dịch mỗi lần ghi/sửa/đảo dòng.
      */
     post: operations['requestFoc'];
     delete?: never;
@@ -4889,6 +4892,11 @@ export interface components {
         reason: string;
       } | null;
       /**
+       * @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-110/BR-307): số khách tính (người lớn + trẻ 6–11) OTA đã tính giá – lấy lúc nhập đơn OTA, chỉ đổi qua `partyChangeSource = ota_modification`.
+       *     Người vượt max(định mức căn, `otaGuestCount`) mới bị phụ thu (thu tại quầy, không thuộc "Đã thu qua OTA"). `null` với đơn kênh khác.
+       */
+      otaGuestCount?: number | null;
+      /**
        * @description Đơn `conflictState=open` (chưa gán căn): nhóm căn đơn yêu cầu = nhóm của `overbooking_incident.requested_room_id` (căn kênh OTA ánh xạ, hoặc căn cũ khi khôi phục
        *     no-show – D-3 b). Null khi đơn đã gán căn. Gán căn cùng nhóm → `overbookingResolution=reassigned_same_group`, nhóm cao hơn → `upgraded` (FDL+). 0.3.5 (A-25)
        */
@@ -4984,6 +4992,17 @@ export interface components {
       adults?: number;
       children6to11?: number;
       childrenUnder6?: number;
+      /**
+       * @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-110/BR-307 v0.3.4): **bắt buộc** khi đổi `adults`/`children6to11`/`childrenUnder6` của đơn kênh `ota` trước nhận phòng (`hold`/`confirmed`);
+       *     thiếu → 422 `REQUIRED` (`field` = `partyChangeSource`). Client chọn sẵn `guest_direct` (mặc định khi không có bằng chứng).
+       *     `ota_modification` = OTA đã sửa đơn (bắt buộc `otaModificationRef`) → cập nhật `otaGuestCount`, **không** phụ thu người.
+       *     `guest_direct` = khách báo trực tiếp với OTTIMO → giữ `otaGuestCount`, phụ thu người vượt max(định mức căn, `otaGuestCount`) theo BR-110, thu tại quầy.
+       *     Đơn kênh khác gửi → 422 `NOT_ALLOWED`. Khi đang ở (`in_house`) đổi người đi qua `addPartyMember`/`removePartyMember` (`effectiveFrom`) – luôn như `guest_direct`.
+       * @enum {string}
+       */
+      partyChangeSource?: 'ota_modification' | 'guest_direct';
+      /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC): mã sửa đơn / mã xác nhận mới trên extranet (bằng chứng) – bắt buộc khi `partyChangeSource = ota_modification` (thiếu → 422 `REQUIRED`); lưu vào lịch sử đơn + audit */
+      otaModificationRef?: string;
       /**
        * @description 0.3.6 (B-28, US-025 AC7): tick bổ sung "Đã giao mã cửa/thẻ" từ chi tiết đơn. Chỉ nhận `true`; FD+; đơn `in_house`; đặt **một lần**
        *     (đã có → `409 INVALID_TRANSITION` + `currentState`). Ghi `door_access_handed_over_at/_by` + audit `state`. Không lưu, không hiện mã cửa.
@@ -5138,6 +5157,10 @@ export interface components {
       earlyDepartureFeeVnd: components['schemas']['MoneyVnd'];
       /** @description Số của yêu cầu hoàn vừa tạo (0 khi không có) */
       refundVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-428 v0.3.4): phụ thu người **đã thu** của các đêm bỏ – hoàn 100 %, nằm trong **một** yêu cầu hoàn duy nhất (`refundRequestId`); với đơn OTA đây là phần duy nhất OTTIMO hoàn (tiền phòng OTA do OTA hoàn) */
+      extraPersonRefundVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC): phụ thu người **chưa thu** của các đêm bỏ – chỉ đảo dòng (không sinh hoàn) */
+      extraPersonReversedVnd?: components['schemas']['MoneyVnd'];
       /** @description Yêu cầu `refund` vừa tạo (null khi không có số dư thừa chưa xử lý) */
       refundRequestId?: components['schemas']['Uuid'] | null;
     };
@@ -8566,8 +8589,13 @@ export interface operations {
           /**
            * @description Chỉ đơn kênh `ota`: tiền phạt hủy theo extranet của kênh (BR-310) – app **không tự tính**, lễ tân nhập; ≥ 0 (`AMOUNT_INVALID`).
            *     Đơn kênh khác gửi → `422` mã trường `OTA_PENALTY_OTA_ONLY`. Ghi vào folio/`CancellationQuote.otaPenaltyVnd`. 0.3.1
+           *     **0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-310 v0.3.4)**: tiền phạt = **doanh thu khác**, dòng folio `cancellation_fee` (`labelKey` `bill.line.cancellation_fee`).
+           *     `ota_prepaid` → kèm giao dịch hệ thống `ota_collect` bằng đúng tiền phạt (đã thu qua OTA, còn phải thu 0);
+           *     `ota_pay_at_property` → còn phải thu tại cơ sở (không chặn hủy). Phí kênh trên tiền phạt theo `otaPenaltyChannelFeeVnd` hoặc tỷ lệ BR-901.
            */
           otaPenaltyVnd?: components['schemas']['MoneyVnd'];
+          /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC): phí kênh OTA thực tế trên tiền phạt (theo sao kê/extranet); không gửi → server tính theo tỷ lệ hoa hồng kênh (BR-901). Chỉ khi có `otaPenaltyVnd`, khác → 422 `NOT_ALLOWED` */
+          otaPenaltyChannelFeeVnd?: components['schemas']['MoneyVnd'];
           /** @default false */
           dryRun?: boolean;
         };

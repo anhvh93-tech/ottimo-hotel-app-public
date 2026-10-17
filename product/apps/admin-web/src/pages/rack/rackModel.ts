@@ -1,3 +1,4 @@
+import { hasKey } from '@ottimo/i18n';
 import type { Rack, RackBar } from '@ottimo/api-client';
 import { addDays, nightsBetween } from '../../app/reservations';
 
@@ -62,3 +63,17 @@ export const rangeDays = (rack: Pick<Rack, 'from' | 'days'>) =>
 
 export const slotAt = (slots: Slot[], col: number) =>
   slots.find((s) => col >= s.col && col < s.col + s.span);
+
+/**
+ * OPS demo 17/10: the API's `RackBar.label` is an i18n key (`status.block.ooo`, rack.service LABEL),
+ * the mock's is the block reason (free text). Key → its UXD text ("Khóa phòng"); free text →
+ * `rack.note.ooo` ("Khóa · {reason}"). Never a raw `status.*` key on the rack.
+ */
+export function oooText(
+  t: (key: string, args?: Record<string, string | number>) => string,
+  label: string | undefined,
+): string {
+  if (!label) return t('status.block.ooo');
+  if (hasKey(label)) return t(label);
+  return t('rack.note.ooo', { reason: label });
+}

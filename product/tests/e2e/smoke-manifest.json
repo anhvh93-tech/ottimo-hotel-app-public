@@ -1,6 +1,6 @@
 {
   "$comment": "Bộ smoke (S) – chạy mọi PR (test-strategy mục 6, plan R2 W8). Nguồn: tests/test-cases/r1-main-flows.md cột ƯT có '(S)'. validate-fixtures.mjs kiểm manifest khớp test case. Khi tính năng có trên build: viết spec thật, đổi status → implemented, ghi spec.",
-  "updated": "2026-10-17",
+  "updated": "2026-10-17 (QA S3 kiểm thử lần 2: TC-L3-074)",
   "cases": [
     {
       "tc": "TC-X-050",
@@ -284,6 +284,18 @@
       "spec": "clock/checkin.s3.clock.spec.ts",
       "project": "clock",
       "note": "J16 retention.purge theo id_image_retention_days_after_checkout (EP06 6.1 – mốc = giờ trả + 30 ngày, chờ DOM chốt cách đếm)"
+    },
+    {
+      "tc": "TC-L3-074",
+      "story": "US-049/AC1",
+      "layers": "A",
+      "priority": "Cao (S)",
+      "status": "implemented",
+      "title": "Khai báo dừng ở `sent` (chưa confirmed): trả phòng / hủy + id_image_unconfirmed_max_days (7) → ngày 6 còn ảnh, hạn + 1 phút mất ảnh",
+      "endpoints": "getDocumentImage, cancelReservation, checkOut, getRegistration, listAttentionItems",
+      "spec": "clock/checkin.s3.clock.spec.ts",
+      "project": "clock",
+      "note": "SR-RET-02 (J16); bước cuối imagesPurgedAt/imagesPurgeReason: test.fail BUG-R2-054"
     },
     {
       "tc": "TC-L4-050",

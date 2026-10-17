@@ -18,6 +18,9 @@
 **/*.kdbx
 **/*.dump
 **/*.sql.gz
+# Investor demo working files: source copy, generated demo.env (passwords), accounts/guest link (infra/demo)
+infra/demo/.work
+infra/demo/.out
 # Not needed to build images. docs/ stays out: R2 commits the types generated from
 # docs/api/openapi.yaml into packages/contracts/src/generated (FB-R1-ARC-OPS-06).
 # tests/ is kept in the context because tests/e2e becomes a workspace package (lockfile importer).

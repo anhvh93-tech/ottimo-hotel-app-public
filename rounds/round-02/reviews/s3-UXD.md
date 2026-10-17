@@ -390,3 +390,18 @@ Mã ngoài bảng (không nên xảy ra vì tập đóng) → `mlog.a_other` + m
 - `reg2.consent_q` = "Khách có đồng ý lưu ảnh giấy tờ {days} ngày sau trả phòng không?" / "Does the guest agree to OTTIMO keeping ID photos for {days} days after check-out?" – `{days}` ← `Registration.consentNotice.imageRetentionDays` (bỏ số 30 viết cứng). FE truyền `{ days }`; chưa truyền thì câu hiện `{days}` trần.
 - Hi-fi H14 thêm `data-i18n-args` (ví dụ 30). `gen_strings.py` 2302 chuỗi, `check_hifi.py` 25/25 ✓; content-guide 0.3.13.
 - `reg2.retention_value` = "Tự xóa {days} ngày sau trả phòng ({date})" / "Auto-deleted {days} days after check-out ({date})" – đổi cùng đợt theo ORC (FE chuyển cả hai khóa trong cùng lượt); hi-fi H14 thêm `days` vào `data-i18n-args`.
+
+## H. Đợt 5 – Cần chú ý "đơn chưa đóng" (BE-C) + OpenAPI 0.3.6 bổ sung 4 (17/10, ORC giao)
+27 chuỗi mới (VI/EN). `gen_strings.py` 2329 chuỗi + 8 mẫu, 0 khóa trùng, tham số 0 lệch; `check_hifi.py` 25/25 ✓; test i18n 4/4, admin-web 155/155, guest-web 50/50 xanh; content-guide 0.3.14. Chỉ sửa `product/design/**` và file này, không commit.
+
+| Nhóm | Khóa | Dùng khi / tham số |
+|---|---|---|
+| Cần chú ý – `data_quality`, `params.check = registration_stay_not_closed` | `attn.dq_stay_not_closed` {n}, `attn.dq_stay_not_closed_one` {code} | Tiêu đề: `count > 1` → {n}; `count = 1` (có `refCode`) → {code}. Mục khác của `data_quality` giữ `attn.data_quality` |
+| | `attn.dq_stay_not_closed_body` {days}, `attn.dq_stay_not_closed_body_short` | Thân: {days} ← tham số `id_image_unconfirmed_max_days`; không đọc được tham số → `_short`. Mục là nút mở đơn (DS 6.20) để lễ tân trả phòng / đánh dấu không đến |
+| Bổ sung 4 (1) – nguồn đổi số khách đơn OTA trước nhận phòng | `rsv.party_source.legend`, `rsv.party_source.guest_direct` (chọn sẵn), `rsv.party_source.guest_direct_help` {channel}, `rsv.party_source.ota_modification` {channel}, `rsv.party_source.ota_modification_help`, `rsv.ota_mod_ref`, `rsv.ota_mod_ref_help`, `rsv.ota_guest_count` {n} | Hai lựa chọn là radio trong `fieldset` (legend nhìn thấy); ô mã sửa đơn chỉ hiện khi chọn `ota_modification`; `REQUIRED` → `common.required` tại ô; `rsv.ota_guest_count` hiện cạnh số khách khi đơn có `otaGuestCount` |
+| | `field.NOT_ALLOWED` | Mã trường chung `NOT_ALLOWED` (trước đây rơi về `field_error.generic`) |
+| Bổ sung 4 (2) – không FOC trên đêm OTA trả trước | `field.FOC_NOT_ALLOWED_OTA_PREPAID`, `folio.foc_ota_prepaid_note` | Lỗi 422 `field = kind`; nút FOC trên dòng phòng `ota_prepaid` ẩn, thay bằng câu ghi chú nhỏ |
+| Bổ sung 4 (3) – phí kênh trên tiền phạt hủy OTA | `cancel.ota_penalty_channel_fee`, `cancel.ota_penalty_channel_fee_help` | Ô tùy chọn dưới `cancel.ota_penalty`; chỉ bật khi có tiền phạt |
+| Link check-in online (`issueGuestLink` / `revokeGuestLink`) | `rsv.guest_link.create`, `rsv.guest_link.reissue`, `rsv.guest_link.revoke`, `rsv.guest_link.title` {code}, `rsv.guest_link.once_warning`, `rsv.guest_link.send_note`, `rsv.guest_link.send_private` (SEC – "gửi riêng 1–1, không gửi nhóm", đặt cạnh nút Sao chép), `rsv.guest_link.copy`, `rsv.guest_link.copied`, `rsv.guest_link.expires` {time}, `rsv.guest_link.revoked_toast` {code} | Hộp hiện link: tiêu đề + `once_warning` (Alert warn, đặt **trên** link) + link chữ đơn cách + nút Sao chép (`copied` qua `aria-live`) + hạn + `send_note`. Tạo lại / thu hồi dùng hộp xác nhận có sẵn `gw.link_reissue_title`, `gw.link_revoke_title` {code} (DS 6.1) |
+
+Giả định: lựa chọn `guest_direct` chọn sẵn theo ARC 7.8; câu trợ giúp nêu đủ hậu quả tiền của từng lựa chọn nên không cần hộp xác nhận riêng. Không có ESC mới.

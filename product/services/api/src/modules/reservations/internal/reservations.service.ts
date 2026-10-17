@@ -51,7 +51,7 @@ import { FDL_PLUS, FD_PLUS, MGR_PLUS, allowedActions, hasAny } from './allowed-a
 import { type BookingContext, bookingContext } from './booking-context';
 import { syncExtraGuestKit } from './extra-guest-kit';
 import { Fields, isUuid } from './inputs';
-import { type BookerRow, toReservationDto } from './reservation-dto';
+import { type BookerRow, otaGuestCount, toReservationDto } from './reservation-dto';
 import {
   type Actor,
   type ReservationRow,
@@ -547,6 +547,8 @@ export class ReservationsService {
     const folioId = uuidv7(); // reservation.folio_id ↔ folio.primary_reservation_id, both DEFERRED
     const snapshot = priced
       ? PricingService.snapshot(p, priced, {
+          // Fix round 4 (5), DOM 17/10: the party the OTA priced (OTA guest count – BR-110/BR-307).
+          ...(group === 'ota' ? { bookedParty: party } : {}),
           ...(rateOverrideReason ? { rateOverrideReason } : {}),
           ...(otaChannelFeeVnd !== undefined ? { otaChannelFeeVnd } : {}),
           ...(otaRoomAmountVnd !== undefined ? { otaRoomAmountVnd } : {}),
@@ -1043,6 +1045,19 @@ export class ReservationsService {
     const closerUserId = f.uuid('closerUserId', false);
     const internalNote = f.text('internalNote', 1000);
     const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
+    // 0.3.6 bổ sung 4 (DOM 17/10, BR-110/BR-307): who changed the head count of an OTA booking before check-in.
+    const partySource = f.enumOf(
+      'partyChangeSource',
+      ['ota_modification', 'guest_direct'] as const,
+      false,
+    );
+    const rawRef = body.otaModificationRef;
+    let otaModificationRef: string | undefined;
+    if (rawRef !== undefined && rawRef !== null) {
+      const ref = typeof rawRef === 'string' ? rawRef.trim() : '';
+      if (!/^[A-Za-z0-9\-/._]{3,64}$/.test(ref)) f.add('otaModificationRef', 'VALIDATION_FAILED');
+      else otaModificationRef = ref;
+    }
     // B-28 (US-025 AC7): "door code / card handed over" tick added later – only `true`, once, in house.
     const doorHandedOver = body.doorAccessHandedOver;
     if (doorHandedOver !== undefined && doorHandedOver !== true) {
@@ -1086,17 +1101,45 @@ export class ReservationsService {
     ) {
       throw problem('FORBIDDEN_ACTION', { detail: 'closer change after confirmation needs MGR+' });
     }
-    f.done();
     const next = {
       adults: adults ?? row.adults,
       children6to11: children611 ?? row.children_6_11,
       childrenUnder6: childrenUnder6 ?? row.children_under_6,
     };
-    const seg = await singleSegmentOrLast(tx, row.id);
     const peopleChanged =
       next.adults !== row.adults ||
       next.children6to11 !== row.children_6_11 ||
       next.childrenUnder6 !== row.children_under_6;
+    // 0.3.6 bổ sung 4 (s3-contract 7.8 (1), BR-110-14…16): an OTA booking's head count changed before check-in
+    // needs its source – `ota_modification` (+ extranet ref) moves the OTA guest count, `guest_direct` keeps it
+    // and the people above max(standard, OTA count) pay BR-110 at the desk. In house: the party flow, always
+    // `guest_direct`. Other channels: not allowed.
+    const otaBooking = row.channel_group === 'ota';
+    const beforeCheckin = row.status === 'hold' || row.status === 'confirmed';
+    if (!otaBooking) {
+      if (partySource !== undefined) f.add('partyChangeSource', 'NOT_ALLOWED');
+      if (otaModificationRef !== undefined) f.add('otaModificationRef', 'NOT_ALLOWED');
+    } else {
+      if (
+        peopleChanged &&
+        beforeCheckin &&
+        partySource === undefined &&
+        !f.has('partyChangeSource')
+      ) {
+        f.add('partyChangeSource', 'REQUIRED');
+      }
+      if (partySource === 'ota_modification' && !beforeCheckin) {
+        f.add('partyChangeSource', 'NOT_ALLOWED');
+      }
+      if (partySource === 'ota_modification' && otaModificationRef === undefined) {
+        if (!f.has('otaModificationRef')) f.add('otaModificationRef', 'REQUIRED');
+      }
+      if (partySource !== 'ota_modification' && otaModificationRef !== undefined) {
+        f.add('otaModificationRef', 'NOT_ALLOWED');
+      }
+    }
+    f.done();
+    const seg = await singleSegmentOrLast(tx, row.id);
     let capacityState: 'over' | 'ok' | null = null;
     let baseOccupancy: number | null = null;
     if (peopleChanged && seg.room_id) {
@@ -1150,7 +1193,18 @@ export class ReservationsService {
         // DOM S3-13 / BE-16: an in-house change applies from tonight; the nights already stayed keep their fee.
         await this.peopleFromNight(tx, ctx, row, next, ctx.today, { write: true });
       } else {
-        await this.repriceExtraPersons(tx, row, next, baseOccupancy);
+        // OTA (DOM 17/10): `ota_modification` → the OTA guest count follows; `guest_direct` → kept (a legacy
+        // booking without a stored count keeps the one it had before this change).
+        const booked = otaBooking
+          ? partySource === 'ota_modification'
+            ? next
+            : ((row.pricing_snapshot as { bookedParty?: typeof next }).bookedParty ?? {
+                adults: row.adults,
+                children6to11: row.children_6_11,
+                childrenUnder6: row.children_under_6,
+              })
+          : null;
+        await this.repriceExtraPersons(tx, ctx, row, next, baseOccupancy, booked);
       }
     }
     if (closerUserId && closerUserId !== row.closer_user_id) {
@@ -1172,7 +1226,15 @@ export class ReservationsService {
       ['eta_time', row.eta_time, etaTime ?? row.eta_time],
       ['closer_user_id', row.closer_user_id, closerUserId ?? row.closer_user_id],
     ] as const) {
-      if (oldV !== newV) await recordChange(tx, row.id, field, oldV, newV, ctx.now);
+      if (oldV !== newV) {
+        const note =
+          otaBooking && peopleChanged && field !== 'eta_time' && field !== 'closer_user_id'
+            ? partySource === 'ota_modification'
+              ? `ota_modification ${otaModificationRef ?? ''}`.trim()
+              : (partySource ?? null)
+            : null;
+        await recordChange(tx, row.id, field, oldV, newV, ctx.now, note);
+      }
     }
     await this.audit.record(tx, {
       category: 'data',
@@ -1184,8 +1246,17 @@ export class ReservationsService {
         adults: row.adults,
         children6to11: row.children_6_11,
         childrenUnder6: row.children_under_6,
+        ...(otaBooking ? { otaGuestCount: otaGuestCount(row) } : {}),
       },
-      after: next,
+      after: {
+        ...next,
+        ...(otaBooking && peopleChanged && partySource
+          ? {
+              partyChangeSource: partySource,
+              ...(otaModificationRef ? { otaModificationRef } : {}),
+            }
+          : {}),
+      },
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
     const after = await loadReservation(tx, row.id, ctx.actor);
@@ -1244,12 +1315,19 @@ export class ReservationsService {
     );
   }
 
-  /** BR-110: extra-person fee of the snapshot follows the new head count (direct/agent only). */
+  /**
+   * BR-110 before check-in: extra-person fee of the snapshot follows the new head count – direct/agent: above
+   * the standard occupancy; OTA (fix round 4 (5), DOM 17/10): above max(standard, OTA guest count of `booked`),
+   * stored with the nights as their own fee + count (collected at the desk, never in "Đã thu qua OTA").
+   * `extraCount` stays the people above the standard (BR-812 kits).
+   */
   private async repriceExtraPersons(
     tx: Tx,
+    ctx: BookingContext,
     row: ReservationRow,
     party: { adults: number; children6to11: number; childrenUnder6: number },
     baseOccupancy: number,
+    booked: { adults: number; children6to11: number; childrenUnder6: number } | null,
   ): Promise<void> {
     const snap = row.pricing_snapshot as {
       extraAdultFeeVnd?: number;
@@ -1257,11 +1335,17 @@ export class ReservationsService {
       nights?: unknown[];
     };
     const charged = row.channel_group === 'direct' || row.channel_group === 'agent';
-    const x = extraPersons(party, baseOccupancy, {
+    const rates = {
       adultVnd: snap.extraAdultFeeVnd ?? 0,
       child611Vnd: snap.child611FeeVnd ?? 0,
-    });
-    const perNight = charged ? x.perNightVnd : 0;
+    };
+    const x = extraPersons(party, baseOccupancy, rates);
+    const otaCount = booked ? booked.adults + booked.children6to11 : 0;
+    const ota =
+      row.channel_group === 'ota' && booked
+        ? extraPersons(party, Math.max(baseOccupancy, otaCount), rates)
+        : null;
+    const perNight = charged ? x.perNightVnd : (ota?.perNightVnd ?? 0);
     const nights = nightsOf(row.arrival_date, row.departure_date);
     await tx.query(
       `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
@@ -1271,9 +1355,20 @@ export class ReservationsService {
           extraCount: x.extraCount,
           extraPersonFeePerNightVnd: perNight,
           extraPersonFeeVnd: perNight * nights,
+          ...(booked ? { bookedParty: booked } : {}),
         }),
       ],
     );
+    if (ota) {
+      // Each night of its room (a booking may already carry own fees) – the bill prints the people charged.
+      const bases = await this.nightBases(tx, row.id);
+      const fees = (await this.nightFees(tx, row)).map((n) => {
+        const base = bases.get(n.date) ?? baseOccupancy;
+        const e = extraPersons(party, Math.max(base, otaCount), rates);
+        return { date: n.date, feeVnd: e.perNightVnd, count: e.extraCount };
+      });
+      await this.setNightFees(tx, row.id, fees, ctx.now);
+    }
   }
 
   // ─────────────────────────── helpers ───────────────────────────
@@ -1807,9 +1902,9 @@ export class ReservationsService {
 
   /**
    * BR-110 fee AND count of one night for `party` in a room of `baseOccupancy`: the people above the base,
-   * adults first so the extra persons are charged at the lower band. Direct/agent: that fee. OTA: only what
-   * exceeds the people the OTA booking was sold for (`bookedParty`, BR-110 "vượt số khách trên đơn OTA").
-   * Internal: 0.
+   * adults first so the extra persons are charged at the lower band. Direct/agent: that fee. OTA (DOM 17/10,
+   * BR-110 v0.3.4): only the people above max(standard occupancy, OTA guest count – `bookedParty`), at the
+   * lower band of everyone present (collected at the desk). Internal: 0.
    */
   nightExtra(
     ctx: BookingContext,
@@ -1818,21 +1913,13 @@ export class ReservationsService {
     baseOccupancy: number,
   ): { feeVnd: number; count: number } {
     const rates = this.feeRates(ctx, row);
-    const x = extraPersons(party, baseOccupancy, rates);
     if (row.channel_group === 'direct' || row.channel_group === 'agent') {
+      const x = extraPersons(party, baseOccupancy, rates);
       return { feeVnd: x.perNightVnd, count: x.extraCount };
     }
     if (row.channel_group !== 'ota') return { feeVnd: 0, count: 0 };
-    const booked = (row.pricing_snapshot as { bookedParty?: typeof party }).bookedParty ?? {
-      adults: row.adults,
-      children6to11: row.children_6_11,
-      childrenUnder6: row.children_under_6,
-    };
-    const b = extraPersons(booked, baseOccupancy, rates);
-    return {
-      feeVnd: Math.max(0, x.perNightVnd - b.perNightVnd),
-      count: Math.max(0, x.extraCount - b.extraCount),
-    };
+    const x = extraPersons(party, Math.max(baseOccupancy, otaGuestCount(row) ?? 0), rates);
+    return { feeVnd: x.perNightVnd, count: x.extraCount };
   }
 
   nightFee(
@@ -1971,6 +2058,8 @@ export class ReservationsService {
    * extension, E05-11 extra night – same room, same folio) follow the people of the primary booking: same head
    * count, BR-110 fee per night from `fromDate`, folio re-synced. Without this an OTA stay extended first and
    * joined by a person afterwards lost the fee of the child's nights.
+   * Fix round 4 (3): `write: false` only returns Σ old/new fee of the children's nights from `fromDate` – the
+   * preview and `expectedSurchargeVnd` of adding a person include them (one decision for the whole stay).
    */
   async syncChildrenParty(
     tx: Tx,
@@ -1978,12 +2067,14 @@ export class ReservationsService {
     parent: ReservationRow,
     party: { adults: number; children6to11: number; childrenUnder6: number },
     fromDate: LocalDate,
-  ): Promise<void> {
+    opts: { write: boolean } = { write: true },
+  ): Promise<{ oldVnd: number; newVnd: number; nights: number }> {
     const { rows } = await tx.query<{ id: string }>(
       `SELECT id FROM reservation WHERE parent_reservation_id = $1 AND status = 'in_house'
-        ORDER BY arrival_date, id FOR UPDATE`,
+        ORDER BY arrival_date, id${opts.write ? ' FOR UPDATE' : ''}`,
       [parent.id],
     );
+    const total = { oldVnd: 0, newVnd: 0, nights: 0 };
     for (const { id } of rows) {
       const child = await loadReservation(tx, id, SYSTEM_ACTOR);
       if (
@@ -1993,7 +2084,11 @@ export class ReservationsService {
       ) {
         continue;
       }
-      await this.peopleFromNight(tx, ctx, child, party, fromDate, { write: true });
+      const p = await this.peopleFromNight(tx, ctx, child, party, fromDate, opts);
+      total.oldVnd += p.oldVnd;
+      total.newVnd += p.newVnd;
+      total.nights += p.nights;
+      if (!opts.write) continue;
       await tx.query(
         `UPDATE reservation SET adults = $2, children_6_11 = $3, children_under_6 = $4, updated_at = $5,
                 version = version + 1
@@ -2023,6 +2118,7 @@ export class ReservationsService {
         );
       }
     }
+    return total;
   }
 
   /** New nights (B13, B9a) of a booking whose nights carry their own fee get the current party's fee. */
@@ -2276,6 +2372,11 @@ export class ReservationsService {
       required: reasonCode === 'other',
     });
     const otaPenalty = f.money('otaPenaltyVnd', { required: false, positive: false });
+    // 0.3.6 bổ sung 4 (BR-310/901, BE-B): the OTA's actual fee on the penalty – only with a penalty.
+    const otaPenaltyFee = f.money('otaPenaltyChannelFeeVnd', { required: false, positive: false });
+    if (otaPenaltyFee !== undefined && otaPenalty === undefined) {
+      f.add('otaPenaltyChannelFeeVnd', 'NOT_ALLOWED');
+    }
     if (reasonCode && !USER_CANCEL_REASONS.includes(reasonCode)) f.add('reasonCode', 'NOT_IN_LIST');
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: !dryRun });
@@ -2400,6 +2501,7 @@ export class ReservationsService {
         voidedStayNightIds: voidedIds,
         retainedVnd: retained,
         retainedKind: retained > 0 ? 'cancellation_fee' : null,
+        ...(otaPenaltyFee !== undefined ? { channelFeeActualVnd: otaPenaltyFee } : {}),
         reason: reasonCode as string,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       },
@@ -2426,10 +2528,13 @@ export class ReservationsService {
   ): Promise<Record<string, unknown>> {
     const depositPaid = await this.money.depositPaid(tx, row);
     if (row.channel_group === 'ota') {
+      // DOM 17/10 (BR-310, oracles BR-310-01/02): the penalty the OTA keeps for OTTIMO is other revenue on the
+      // folio (`cancellation_fee`); prepaid → "Đã thu qua OTA" of the same amount (folio sync), pay-at-property
+      // → due at the desk. 0 / absent → no line.
       return {
         depositPaidVnd: depositPaid,
         refundableVnd: 0,
-        retainedVnd: 0,
+        retainedVnd: otaPenalty ?? 0,
         ...(otaPenalty !== undefined ? { otaPenaltyVnd: otaPenalty } : {}),
         policyRef: 'BR-310',
       };
@@ -2455,8 +2560,14 @@ export class ReservationsService {
     const tiers = snap.cancelPolicy ?? ctx.params.cancelPolicy;
     const peakNoRefund =
       (snap.cancelPeakNoRefund ?? ctx.params.cancelPeakNoRefund) && !!snap.hasPeakNight;
+    // Re-verification 17/10 (VER-BE-S3-01, BE-B): the fee is charged on the deposit still held that nobody has
+    // asked back yet, and never above the value of the booking – deposit paid above that value is excess,
+    // always refundable. Refundable = that base − the fee (so open requests + this one ≤ the excess left).
+    const base = Math.max(0, depositPaid - open);
+    const snapValue = row.pricing_snapshot as { extraPersonFeeVnd?: number };
+    const bookingValue = Number(row.total_room_vnd ?? 0) + Number(snapValue.extraPersonFeeVnd ?? 0);
     const r = directCancelRefund(
-      depositPaid,
+      Math.min(base, bookingValue),
       noticeDays(row.arrival_date, ctx.today),
       tiers,
       peakNoRefund,
@@ -2464,7 +2575,7 @@ export class ReservationsService {
     );
     return {
       depositPaidVnd: depositPaid,
-      refundableVnd: requestable(r.refundVnd),
+      refundableVnd: base - r.cancelFeeVnd,
       retainedVnd: r.cancelFeeVnd,
       policyRef: 'BR-309',
     };

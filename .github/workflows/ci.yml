@@ -133,7 +133,7 @@ jobs:
           shellcheck --version | head -2
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
-            product/infra/caddy/*.sh
+            product/infra/caddy/*.sh product/infra/demo/*.sh
       # Independent of build-test (blocker verification 17/10: a red lint must not skip these guards).
       - name: Compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening)
         run: bash product/infra/ci/check-compose.sh

@@ -271,6 +271,9 @@ export class FrontdeskController {
           reservation: await this.s.stay.dtoOf(tx, ctx, r.row),
           earlyDepartureFeeVnd: r.earlyDepartureFeeVnd,
           refundVnd: r.refundVnd,
+          // 0.3.6 bổ sung 4 (DOM 17/10 (4)): the collected / only-reversed BR-110 fee of the dropped nights.
+          extraPersonRefundVnd: r.extraPersonRefundVnd,
+          extraPersonReversedVnd: r.extraPersonReversedVnd,
           refundRequestId: r.refundRequestId,
         },
       };

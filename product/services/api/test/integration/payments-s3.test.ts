@@ -2656,5 +2656,89 @@ describe.skipIf(!HAS_DB)(
       expect(Number(asked[0]!.total)).toBeLessThanOrEqual(Math.max(before.depositPaidVnd, 500_000));
       expect(Number(asked[0]!.total)).toBe(500_000 + after.refundableVnd);
     });
+    it('Re-verification 17/10 (VER-BE-S3-01): cancellation fee on the deposit nobody asked back, never above the booking value – 0 % and 50 % tiers with an excess deposit and an open refund', async () => {
+      const excessBooking = async () => {
+        await atT0();
+        const b = await booking({ deposit: null });
+        const [r] = await q(
+          `SELECT version, total_room_vnd, arrival_date::text AS arrival,
+                  (pricing_snapshot->>'hasPeakNight')::boolean AS peak
+             FROM reservation WHERE id = $1`,
+          [b.id],
+        );
+        const value = Number(r!.total_room_vnd);
+        const dep = await c('fd').send(
+          'POST',
+          `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
+          {
+            payment: {
+              type: 'deposit',
+              method: 'cash',
+              amountVnd: value + 500_000,
+              note: 'Khách chuyển dư so với tiền phòng',
+            },
+          },
+          { 'if-match': `"${r!.version}"` },
+        );
+        expect(dep.statusCode, dep.body).toBe(200);
+        expect(dep.json().status).toBe('confirmed');
+        const open = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+          amountVnd: 500_000,
+          reason: 'Hoàn phần chuyển dư',
+        });
+        expect(open.statusCode, open.body).toBe(201);
+        return { b, value, deposit: value + 500_000, arrival: String(r!.arrival), peak: !!r!.peak };
+      };
+      const quoteAt = async (b: Booking, day: string) => {
+        fa.clock.set(new Date(`${day}T03:00:00.000Z`));
+        await refreshSessions(db, t, fa.clock.now());
+        const res = await c('fd').send('POST', `${P(t)}/reservations/${b.id}/actions/cancel`, {
+          reasonCode: 'found_other',
+          dryRun: true,
+        });
+        expect(res.statusCode, res.body).toBe(200);
+        return res.json().cancellation as {
+          depositPaidVnd: number;
+          refundableVnd: number;
+          retainedVnd: number;
+        };
+      };
+
+      // 0 % tier (the day before arrival): the fee is the booking value, never the excess deposit.
+      const z = await excessBooking();
+      const q0 = await quoteAt(z.b, addDays(z.arrival, -1));
+      expect(q0.retainedVnd).toBe(z.value);
+      expect(q0.refundableVnd).toBe(0);
+      expect(500_000 + q0.refundableVnd + q0.retainedVnd).toBe(z.deposit);
+
+      // 50 % tier (5 days before): fee on the booking value only; open + new requests = the excess left.
+      const h = await excessBooking();
+      const q5 = await quoteAt(h.b, addDays(h.arrival, -5));
+      expect(q5.retainedVnd).toBeLessThanOrEqual(h.value);
+      if (!h.peak) expect(q5.retainedVnd).toBeLessThan(h.value);
+      expect(500_000 + q5.refundableVnd + q5.retainedVnd).toBe(h.deposit);
+      const v = (await q('SELECT version FROM reservation WHERE id = $1', [h.b.id]))[0]!.version;
+      const done = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${h.b.id}/actions/cancel`,
+        { reasonCode: 'found_other' },
+        { 'if-match': `"${v}"` },
+      );
+      expect(done.statusCode, done.body).toBe(200);
+      const asked = Number(
+        (
+          await q(
+            `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0)::bigint AS total FROM approval_request
+              WHERE type = 'refund' AND target_id = $1 AND status IN ('pending', 'escalated', 'approved')`,
+            [h.b.id],
+          )
+        )[0]!.total,
+      );
+      const after = (await folio(h.b)).totals as { creditVnd: number; unhandledCreditVnd: number };
+      expect(asked).toBe(500_000 + q5.refundableVnd);
+      expect(asked).toBeLessThanOrEqual(after.creditVnd); // never more requested than the excess left
+      expect(after.unhandledCreditVnd).toBe(after.creditVnd - asked);
+      await atT0();
+    });
   },
 );

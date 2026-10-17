@@ -42,6 +42,16 @@ export interface StayViewRow {
    */
   actualArrivalDate: LocalDate | null;
   actualCheckoutAt: Date | null;
+  /** Re-verification 17/10 (J16, BE-C): when the stay ended without a check-out – null otherwise. */
+  cancelledAt: Date | null;
+  noShowMarkedAt: Date | null;
+  /**
+   * The departure as the guest lives it (FB-R2-ARC-BE-S3-05, B16 "effective departure"): the latest departure of
+   * the booking and its open children (B9a prior night, OTA extension B13 – confirmed or in house). Equal to
+   * `departureDate` without children. Added for J16 (BE-C, fix round 4): a parent still in house through a
+   * child is not a stay "never closed".
+   */
+  effectiveDepartureDate: LocalDate;
   parentReservationId: string | null;
 }
 
@@ -60,7 +70,10 @@ interface Row {
   actual_checkin_at: Date | null;
   actual_arrival_date: string | null;
   actual_checkout_at: Date | null;
+  cancelled_at: Date | null;
+  no_show_marked_at: Date | null;
   parent_reservation_id: string | null;
+  effective_departure_date: string;
 }
 
 const SELECT = `
@@ -69,7 +82,10 @@ const SELECT = `
          (r.adults + r.children_6_11 + r.children_under_6)::int AS persons,
          g.full_name, g.preferred_locale, rm.room_no, to_char(r.eta_time, 'HH24:MI') AS eta_time,
          r.actual_checkin_at, (r.actual_checkin_at AT TIME ZONE p.timezone)::date::text AS actual_arrival_date,
-         r.actual_checkout_at, r.parent_reservation_id
+         r.actual_checkout_at, r.cancelled_at, r.no_show_marked_at, r.parent_reservation_id,
+         GREATEST(r.departure_date, (SELECT max(c.departure_date) FROM reservation c
+                                      WHERE c.parent_reservation_id = r.id
+                                        AND c.status IN ('confirmed', 'in_house')))::text AS effective_departure_date
     FROM reservation r
     JOIN property p ON p.id = r.property_id
     JOIN guest g ON g.id = r.booker_guest_id
@@ -94,6 +110,9 @@ function toView(r: Row): StayViewRow {
     actualCheckinAt: r.actual_checkin_at,
     actualArrivalDate: r.actual_arrival_date,
     actualCheckoutAt: r.actual_checkout_at,
+    cancelledAt: r.cancelled_at,
+    noShowMarkedAt: r.no_show_marked_at,
+    effectiveDepartureDate: r.effective_departure_date,
     parentReservationId: r.parent_reservation_id,
   };
 }

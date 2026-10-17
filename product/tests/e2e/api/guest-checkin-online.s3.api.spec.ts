@@ -235,15 +235,12 @@ test.describe(
           });
           expectLevel1(st.body, 'getGuestStay');
           expectLevel1(g.body, 'openGuestSession');
-          // link sai dạng / không tồn tại → 401 GUEST_LINK_INVALID (không lộ đơn nào)
-          expectProblem(
-            await call(request, 'POST', EP3.openGuestSession[1], {
-              body: { token: `${token.slice(0, -4)}AAAA` },
-              headers: { origin: GUEST_ORIGIN },
-            }),
-            401,
-            'GUEST_LINK_INVALID',
-          );
+          // link sai dạng / không tồn tại → 401 GUEST_LINK_INVALID (không lộ đơn nào). openGuest(): 429 do chính bộ
+          // test (giới hạn mở phiên khách theo IP, mọi ca chạy từ 1 IP) → reset + thử lại 1 lần (flaky 17/10)
+          const bad = await openGuest(request, `${token.slice(0, -4)}AAAA`);
+          expect(bad.status, JSON.stringify(bad.body)).toBe(401);
+          expect((bad.body as { code?: string }).code).toBe('GUEST_LINK_INVALID');
+          expect(bad.cookie, 'không cấp cookie phiên khách').toBe('');
         },
       );
 

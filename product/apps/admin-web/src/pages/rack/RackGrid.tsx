@@ -3,7 +3,15 @@ import { useI18n } from '@ottimo/i18n';
 import { Chip, Icon, type IconName } from '@ottimo/ui';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { channelName, dayMonth, remaining } from '../../app/reservations';
-import { layoutRow, packLanes, rangeDays, slotAt, type RackBarX, type Slot } from './rackModel';
+import {
+  layoutRow,
+  oooText,
+  packLanes,
+  rangeDays,
+  slotAt,
+  type RackBarX,
+  type Slot,
+} from './rackModel';
 
 const KIND_ICON: Partial<Record<RackBarX['kind'], IconName>> = {
   in_house: 'bed',
@@ -206,9 +214,7 @@ export function RackGrid(props: RackGridProps) {
     const parts = [
       row.room ? `${t('booking.field.room')} ${row.room.roomNo}` : t('rack.legend_unassigned'),
       bar.guestDisplayName,
-      bar.kind === 'ooo'
-        ? t('rack.note.ooo', { reason: bar.label ?? '' })
-        : t(KIND_STATUS[bar.kind]),
+      bar.kind === 'ooo' ? oooText(t, bar.label) : t(KIND_STATUS[bar.kind]),
       bar.kind === 'unavailable' ? undefined : range,
       bar.channelCode ? channelName(channels, bar.channelCode) : undefined,
       bar.reservationCode,
@@ -248,7 +254,7 @@ export function RackGrid(props: RackGridProps) {
     else if (bar.kind === 'unavailable' && bar.reservationId) note = t('rack.yours');
     const name =
       bar.kind === 'ooo'
-        ? t('rack.note.ooo', { reason: bar.label ?? '' })
+        ? oooText(t, bar.label)
         : bar.kind === 'unavailable'
           ? t('fo.rack.sold_out')
           : [bar.kind === 'long_stay' ? t('rack.long_prefix') : null, bar.guestDisplayName]

@@ -112,17 +112,29 @@ export class RetentionService {
     //     more than id_image_unconfirmed_max_days ago is then due at once and deleted below in this run.
     if (hourly) {
       const err = await inSavepoint(tx, async () => {
-        stats.scheduled = await this.regs.scheduleEndedStays(tx);
+        const r = await this.regs.scheduleEndedStays(tx);
+        stats.scheduled = r.scheduled;
+        errors.push(...r.errors);
       });
       if (err) errors.push(`schedule ended stays: ${err.name}`);
     }
 
     // 1. Scheduled deletions that are due (T02 retention / SR-RET-02 unconfirmed).
+    // Reason of a declared registration (re-verification minor): the person's latest P02b decision – granted
+    // (adult, not removed) → T02 `retention`, anything else → T01 `no_consent`; never declared → `unconfirmed`.
     const due = await tx.query<DueImage>(
       `SELECT ${IMAGE_COLUMNS},
-              CASE WHEN x.status IN ('confirmed', 'needs_update', 'updated') THEN 'retention'
-                   ELSE 'unconfirmed' END AS reason
+              CASE WHEN x.status NOT IN ('confirmed', 'needs_update', 'updated') THEN 'unconfirmed'
+                   WHEN NOT d.is_minor_data AND d.removed_at IS NULL AND COALESCE((
+                     SELECT c.decision FROM consent_record c
+                      WHERE c.registration_id = x.id AND c.purpose = 'P02B_ID_IMAGE_RETENTION'
+                        AND (c.guest_document_id = d.id
+                             OR (c.guest_document_id IS NULL AND c.person_index = d.person_index))
+                      ORDER BY c.recorded_at DESC, c.id DESC LIMIT 1), 'refused') = 'granted'
+                     THEN 'retention'
+                   ELSE 'no_consent' END AS reason
          FROM document_image i JOIN registration x ON x.id = i.registration_id
+         JOIN guest_document d ON d.id = i.guest_document_id
         WHERE i.deleted_at IS NULL AND i.delete_after <= $1 AND NOT x.legal_hold
         ORDER BY i.id LIMIT 500 FOR UPDATE OF i SKIP LOCKED`,
       [now],

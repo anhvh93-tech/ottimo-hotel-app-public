@@ -351,14 +351,34 @@ export async function callMultipart<T = unknown>(
     headers['idempotency-key'] = o.idempotencyKey === true ? uuid() : o.idempotencyKey;
   }
   if (o.ifMatch !== undefined) headers['if-match'] = o.ifMatch;
-  const res = await ctx.fetch(`${o.base ?? API_URL}${path}`, {
-    method,
-    headers,
-    multipart: form,
-    failOnStatusCode: false,
-    maxRedirects: 0,
-  });
-  const text = await res.text();
+  const send = () =>
+    ctx.fetch(`${o.base ?? API_URL}${path}`, {
+      method,
+      headers,
+      multipart: form,
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    });
+  let res = await send();
+  let text = await res.text();
+  // Cổng tải lên (16941c6, SEC upload gate): số lượt tải đồng thời mỗi phiên/IP có trần → 429 RATE_LIMITED
+  // (503 khi cả tiến trình đầy) "too many uploads in progress…" + Retry-After 5. Các worker dùng chung phiên
+  // qa.fd và một IP → chờ Retry-After rồi gửi lại (tối đa 3 lần; request bị từ chối trước khi đọc thân).
+  for (
+    let i = 0;
+    i < 3 && [429, 503].includes(res.status()) && /too many uploads in progress/.test(text);
+    i++
+  ) {
+    const wait = Math.min(Number(res.headers()['retry-after'] ?? 5) || 5, 10);
+    try {
+      test.info().setTimeout(test.info().timeout + (wait + 5) * 1000);
+    } catch {
+      /* outside a test */
+    }
+    await new Promise((ok) => setTimeout(ok, wait * 1000));
+    res = await send();
+    text = await res.text();
+  }
   let body: unknown = text;
   try {
     body = text ? JSON.parse(text) : undefined;

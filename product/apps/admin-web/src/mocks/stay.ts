@@ -400,6 +400,8 @@ export function createStayMock(ctx: Ctx) {
     const now = new Date().toISOString();
     const fdUser = uid(4);
     for (const r of reservations) {
+      // 0.3.6 add. 4: guests the OTA priced (adults + children 6–11), null for other channels.
+      r.otaGuestCount = r.paymentModel !== 'direct' ? r.adults + (r.children6to11 ?? 0) : null;
       // Hi-fi H16 example: Phạm Huy (201, Agoda "trả tại chỗ", 3 × 820.000).
       if (r.guestName === 'Phạm Huy') {
         r.paymentModel = 'ota_pay_at_property';
@@ -681,6 +683,8 @@ export function createStayMock(ctx: Ctx) {
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
+      /** A22a guest links: issued/revoked times per reservation (the token itself is never kept). */
+      guestLinks: new Map<string, { issuedAt: string; revokedAt?: string; count: number }>(),
       /** 0.3.6 add. 3: property parameters behind `Registration.consentNotice` (null = not set up). */
       consentNotice: { currentNoticeVersion: 'privacy-2026-10-v1', imageRetentionDays: 30 } as {
         currentNoticeVersion: string;
@@ -1259,6 +1263,33 @@ export function createStayMock(ctx: Ctx) {
         return rsv().remember(key, 200, resView(r, g));
       },
     ),
+    // A22a: online check-in link – a new token each time (old links stop), returned once.
+    http.post(`${prop}/reservations/:reservationId/guest-link`, ({ request, params }) => {
+      const x = withRes(request, params, FD_PLUS);
+      if (isResponse(x)) return x;
+      const { r } = x;
+      const { key, replay } = rsv().idem(request, `guest-link:${r.id}`);
+      if (replay) return replay;
+      if (!['hold', 'confirmed', 'in_house'].includes(r.status))
+        return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+      const token = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(24)), (b) =>
+        b.toString(36).padStart(2, '0'),
+      ).join('');
+      const prev = st.guestLinks.get(r.id);
+      st.guestLinks.set(r.id, { issuedAt: nowIso(), count: (prev?.count ?? 0) + 1 });
+      return rsv().remember(key, 201, {
+        url: `https://guest.ottimo.local/g/${token}`,
+        expiresAt: `${addDays(r.departureDate, 1)}T12:00:00+07:00`,
+      });
+    }),
+    http.delete(`${prop}/reservations/:reservationId/guest-link`, ({ request, params }) => {
+      const x = withRes(request, params, FD_PLUS);
+      if (isResponse(x)) return x;
+      const { r } = x;
+      const cur = st.guestLinks.get(r.id);
+      if (cur) cur.revokedAt = nowIso();
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.post(
       `${prop}/reservations/:reservationId/actions/undo-check-in`,
       async ({ request, params }) => {
@@ -1286,6 +1317,26 @@ export function createStayMock(ctx: Ctx) {
       if (isResponse(x)) return x;
       const { g, r } = x;
       const body = (await request.json()) as Body;
+      // 0.3.6 add. 4 (DOM OTA rule, BR-110/307): guest count of an OTA booking before check-in needs
+      // its source; `ota_modification` (+ extranet ref) moves `otaGuestCount`, `guest_direct` keeps it
+      // and charges the people above max(room standard, otaGuestCount) at the desk.
+      const isOta = r.paymentModel !== 'direct';
+      const countKeys = ['adults', 'children6to11', 'childrenUnder6'] as const;
+      const countChanged = countKeys.some(
+        (k) => typeof body[k] === 'number' && body[k] !== (r[k] ?? 0),
+      );
+      if (body.partyChangeSource !== undefined && !isOta)
+        return validation([{ field: 'partyChangeSource', code: 'NOT_ALLOWED' }]);
+      const preArrival = ['hold', 'confirmed'].includes(r.status);
+      if (isOta && preArrival && countChanged) {
+        if (!['ota_modification', 'guest_direct'].includes(String(body.partyChangeSource ?? '')))
+          return validation([{ field: 'partyChangeSource', code: 'REQUIRED' }]);
+        if (
+          body.partyChangeSource === 'ota_modification' &&
+          !/^[A-Za-z0-9\-/._]{3,64}$/.test(String(body.otaModificationRef ?? ''))
+        )
+          return validation([{ field: 'otaModificationRef', code: 'REQUIRED' }]);
+      }
       if (body.doorAccessHandedOver === true) {
         if (r.status !== 'in_house')
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
@@ -1293,9 +1344,33 @@ export function createStayMock(ctx: Ctx) {
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
         r.doorAccessHandedOverAt = nowIso();
       }
-      for (const k of ['adults', 'children6to11', 'childrenUnder6'] as const)
-        if (typeof body[k] === 'number') r[k] = body[k] as number;
+      for (const k of countKeys) if (typeof body[k] === 'number') r[k] = body[k] as number;
       if (typeof body.etaTime === 'string') r.etaTime = body.etaTime;
+      if (isOta && preArrival && countChanged) {
+        if (body.partyChangeSource === 'ota_modification')
+          r.otaGuestCount = r.adults + (r.children6to11 ?? 0);
+        // Re-post the extra-person nights (desk-collected, not covered by the OTA).
+        const f = folioOf(r);
+        f.lines = f.lines.filter((l) => l.category !== 'extra_person');
+        const base = Math.max(roomOf(r)?.baseOccupancy ?? 2, r.otaGuestCount ?? 0);
+        const extra = Math.max(0, r.adults + (r.children6to11 ?? 0) - base);
+        const extraAdults = Math.min(extra, Math.max(0, r.adults - base));
+        const perNight = extraAdults * 150_000 + (extra - extraAdults) * 100_000;
+        if (perNight > 0)
+          for (let d = r.arrivalDate; d < r.departureDate; d = addDays(d, 1))
+            addLine(
+              r,
+              {
+                category: 'extra_person',
+                amountVnd: perNight,
+                description: `extra_person x${extra}`,
+                serviceDate: d,
+                postedAt: nowIso(),
+              },
+              g.user.displayName,
+            );
+        syncReservation(r);
+      }
       const room = roomOf(r);
       if (room) {
         const occ = r.adults + (r.children6to11 ?? 0);
@@ -2022,6 +2097,9 @@ export function createStayMock(ctx: Ctx) {
         errors.push({ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_LINE' });
       if (body.reasonCode === 'other' && String(body.note ?? '').trim().length < 3)
         errors.push({ field: 'note', code: 'REASON_REQUIRED' });
+      // 0.3.6 add. 4 (BR-307): no FOC / special discount on the room nights of an OTA-prepaid booking.
+      if (line.category === 'room' && r.paymentModel === 'ota_prepaid')
+        errors.push({ field: 'kind', code: 'FOC_NOT_ALLOWED_OTA_PREPAID' });
       if (errors.length) return validation(errors);
       const a: MockApproval = {
         id: uid(89_000 + next()),

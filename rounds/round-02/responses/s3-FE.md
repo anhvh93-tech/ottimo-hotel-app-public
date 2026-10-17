@@ -12,10 +12,10 @@
 |---|---|
 | `prettier --check` (admin-web, ui, i18n, api-client) | xanh |
 | `eslint` (cùng phạm vi) | 0 lỗi (1 cảnh báo cũ ở `mockServiceWorker.js` sinh tự động) |
-| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **19 tệp / 153 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
+| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **22 tệp / 163 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
 | `turbo run typecheck build` (toàn repo) | 16/16 xanh |
 | axe-core 4.13 trong jsdom (tắt `color-contrast`, `region`), chạy tạm rồi xóa:<br>• Lần 1: H13; H16 bước 2 (thêm đêm) và bước 3; H14 bảng dữ liệu cổng; H17 nhật ký, Hoàn tiền, Cần duyệt; hộp Gia hạn.<br>• Lần 2 (sau đợt 2): H16 thêm đêm, không thêm được đêm, sau nửa đêm, bước 3, phiếu song ngữ; H17 nhật ký; hộp Gia hạn có "Giữ giá đơn"; H13 | **0 critical / 0 serious** |
-| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`; sau bổ sung 3 `fe-s3f`) |
+| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`; sau bổ sung 3 `fe-s3f`; sau đợt 5 `fe-s3g`; sau đợt 6 `fe-s3h`) |
 
 Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồng hồ thật. Cả hai đã sửa:
 - `checkout.test`: cố định `Date` (chỉ `Date`, timer thật) cho mọi ca trả phòng.
@@ -139,4 +139,40 @@ Kết quả lệnh sau đợt 4:
 - admin-web `typecheck test build` xanh, **153/153** test (sau khi đổi sang `reg2.consent_q`).
 - axe H14 (có / không có `consentNotice`) và hộp Gia hạn đơn OTA: 0 critical/serious.
 - `docker build` exit 0 (`ottimo-web:fe-s3f`).
+
+## Đợt 5 – OpenAPI 0.3.6 bổ sung 4 (`s3-contract.md` 7.8) + link check-in online (17/10)
+Đã đợi ARC xong bổ sung 4 (api-client do ARC sinh lại) rồi mới làm. Chuỗi theo UXD `reviews/s3-UXD.md` mục H; không còn khóa tạm.
+
+| Việc | Trạng thái | Đã làm |
+|---|---|---|
+| (1) `partyChangeSource` khi đổi số khách đơn OTA trước nhận phòng | Done | `pages/stay/PartySource.tsx` dùng chung:<br>• `fieldset` có legend `rsv.party_source.legend`; hai radio `guest_direct` (chọn sẵn) / `ota_modification` {channel}; câu trợ giúp theo lựa chọn; `rsv.ota_guest_count` {n}.<br>• Ô `rsv.ota_mod_ref` (+ help) chỉ khi chọn `ota_modification`; lỗi `REQUIRED` hiện tại ô.<br>Chỉ hiện khi đơn có `otaGuestCount` và đang `hold`/`confirmed`. Áp ở H13 "Sửa số khách" và ở bước giảm số khách khi bỏ người trong hộp Người đi cùng. Drawer hiện `rsv.ota_guest_count` cạnh số khách.<br>Phụ thu người hiện **theo đúng dòng folio server ghi**: H13, điều kiện "Đã thu đủ", liệt kê các dòng `extra_person` bằng nhãn bill + số tiền; FE không tự tính.<br>Mock: thiếu nguồn → `REQUIRED`; OTA sửa đơn thiếu mã → `REQUIRED` (`otaModificationRef`); đơn không phải OTA → `NOT_ALLOWED`. `ota_modification` cập nhật `otaGuestCount`, không phụ thu; `guest_direct` ghi phụ thu người vượt max(định mức, `otaGuestCount`) từng đêm.<br>Test `ota-rules`: chọn sẵn, phụ thu theo dòng server; OTA sửa đơn cần mã rồi cập nhật số OTA |
+| (2) Không FOC trên đêm OTA trả trước | Done (phần áp dụng được) | Mã `field.FOC_NOT_ALLOWED_OTA_PREPAID` tra tự động. Mock `requestFoc` chặn dòng `room` của đơn `ota_prepaid`.<br>Hiện FE **không có nút FOC trên từng dòng folio**: FOC tại quầy chỉ có ở H13 cho phụ thu nhận sớm, không phải dòng phòng. Vì vậy chưa dùng `folio.foc_ota_prepaid_note`; khi làm FOC theo dòng (R3), dòng phòng `ota_prepaid` sẽ thay nút bằng câu này |
+| (3) `otaPenaltyChannelFeeVnd` | Done | Hộp hủy đơn OTA: ô tùy chọn `cancel.ota_penalty_channel_fee` (+ help) chỉ hiện khi đã nhập tiền phạt; gửi kèm `otaPenaltyVnd`. Mock: có phí mà không có tiền phạt → `NOT_ALLOWED`. Test gửi đúng hai trường |
+| (4) `EarlyDepartureResult.extraPerson*` | Chưa áp dụng | FE chưa làm màn trả sớm B16 (đã ghi từ đợt 1) |
+| Link check-in online (A22a) | Done | `GuestLinkPanel` trong drawer (H11/H15), FD+, đơn `hold`/`confirmed`, có mạng:<br>• `rsv.guest_link.create` tạo link ngay. Link hiện **một lần**: `once_warning` (Alert, trên link), link chữ đơn cách, nút `rsv.guest_link.copy`, `copied` qua `aria-live`, `expires`, `send_note`, mã QR vẽ tại chỗ.<br>• Sau khi đã tạo trong phiên: `rsv.guest_link.reissue` hỏi `gw.link_reissue_title` trước.<br>• `rsv.guest_link.revoke` hỏi `gw.link_revoke_title` → toast `revoked_toast`.<br>SEC:<br>• Token chỉ ở bộ nhớ component (không storage, không URL), ẩn khi đóng hộp, sau 5 phút, khi rời drawer, khi đăng xuất.<br>• Link đã chép bị ghi đè `''` sau 60 giây, khi rời màn, khi đăng xuất, khi thu hồi.<br>• **Không** xóa khi tab bị ẩn, vì lễ tân phải chuyển sang Zalo để dán (thêm tùy chọn `onTabHidden: false` vào `useC3Reveal` / `useC3Clipboard`; mặc định giữ như SEC FE-06).<br>api-client thêm `issueGuestLink` / `revokeGuestLink` (`GuestLinkIssued`). Mock: token ngẫu nhiên mỗi lần, không lưu token.<br>Test `guest-link`: tạo → link một lần + chép + QR + không có trong storage/URL → đóng là mất → tạo lại có hỏi → thu hồi xóa clipboard; đơn đang ở không có nút |
+
+Chuỗi UXD mục H chưa dùng: `attn.dq_stay_not_closed*` (màn Cần chú ý – ORC chưa giao cho FE đợt này), `folio.foc_ota_prepaid_note` (xem (2)), `field.NOT_ALLOWED` (tra tự động khi server trả).
+
+Kết quả lệnh sau đợt 5:
+- Prettier xanh, ESLint 0 lỗi.
+- 4 gói FE `typecheck test build` 9/9 xanh: admin-web 21 tệp / **158 test**; bundle chính 436 KB.
+- axe 0 critical/serious: drawer + hộp link, H13 sửa số khách có chọn nguồn + dòng phụ thu, hộp hủy OTA có phí kênh.
+- `docker build` exit 0 (`ottimo-web:fe-s3g`).
+
+## Đợt 6 – điều kiện SEC §8 cho link check-in online + lỗi thanh OOO trên rack (17/10)
+| Việc | Trạng thái | Đã làm |
+|---|---|---|
+| SEC §8 (1) – ngoại lệ chỉ ở `GuestLinkPanel` | Done | Test `c3-exception` quét `src`: ngoài `pages/reservations/GuestLinkPanel.tsx` mà có `onTabHidden: false` thì đỏ. Chú thích `c3.ts` ghi rõ đây là ngoại lệ SEC, không dùng cho C3 |
+| SEC §8 (2) – xóa bù khi quay lại | Done | `useC3Clipboard`: lần ghi đè rỗng khi trang đang ẩn / mất focus được giữ cờ "chờ xóa", ghi lại ngay khi trang hiện lại (`visibilitychange`) hoặc có focus (`focus`). Cũng áp cho "Xóa bộ nhớ tạm". Test: hết hạn khi tab ẩn (trình duyệt từ chối ghi) → hiện lại thì `writeText('')` được gọi; tương tự với sự kiện focus |
+| SEC §8 (3) – token không lọt ra ngoài | Done | Token chỉ ở bộ nhớ màn; toast chỉ có mã đơn; QR vẽ bằng `QrCode` trong bundle. Test `guest-link` kiểm: không có trong storage, URL, `console.*`, chữ trên màn sau khi đóng |
+| SEC §8 (4) – câu nhắc gửi riêng | Done | `rsv.guest_link.send_private` đặt ngay dưới nút Sao chép |
+| Rack H08: thanh OOO hiện "Khóa · status.b…" | Fixed | API trả `RackBar.label` = khóa `status.block.ooo` (rack.service `LABEL`), FE lại đưa nó vào `{reason}` của `rack.note.ooo`. Nay `oooText()` (`rackModel.ts`): nhãn là khóa có trong chuỗi UXD → hiện chữ của khóa ("Khóa phòng"); chữ tự do (mock cũ / server cũ) → "Khóa · {reason}". Áp cho lưới, chế độ Danh sách và aria-label.<br>Mock đổi theo API (label là khóa).<br>Test: lưới và Danh sách không có khóa thô `status.*` / `rack.*` / `fo.*` trong chữ, aria-label, title; `oooText` cho cả hai kiểu nhãn |
+
+Ghi cho ARC/UXD (không chặn): hi-fi H08 có lý do khóa trên thanh ("Khóa · hỏng bình nóng lạnh"), nhưng `RackBar` không có lý do (chỉ `roomBlockId`), nên nay thanh hiện "Khóa phòng". Muốn hiện lý do, ARC cần thêm trường lý do khóa vào `RackBar` (FE đã sẵn nhánh `rack.note.ooo`).
+
+Kết quả lệnh sau đợt 6:
+- Prettier xanh, ESLint 0 lỗi.
+- 4 gói FE `typecheck test build` 9/9 xanh: admin-web 22 tệp / **163 test**.
+- axe rack (lưới + danh sách) và hộp link: 0 critical/serious.
+- `docker build` exit 0 (`ottimo-web:fe-s3h`).
 

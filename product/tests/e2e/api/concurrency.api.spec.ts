@@ -96,7 +96,10 @@ async function race(
     reservationBody(c, { room: rm, arrival, departure, guestId }),
   );
   const calls = Array.from({ length: n }, (_, i) =>
-    createReservation(ctx, sessions[i % sessions.length]!, body, true, { autoDeposit: false }),
+    createReservation(ctx, sessions[i % sessions.length]!, body, true, {
+      autoDeposit: false,
+      concurrentRetry: false,
+    }),
   );
   const rs = await Promise.all(calls);
   const o = tally(rs);
@@ -229,7 +232,10 @@ test.describe(
         reservationBody(c, { room: rm, ...w, guestId: fdGuest }),
       );
       const [res, hold, block] = await Promise.all([
-        createReservation(request, fd, resBody, true, { autoDeposit: false }),
+        createReservation(request, fd, resBody, true, {
+          autoDeposit: false,
+          concurrentRetry: false,
+        }),
         call<Reservation & ProblemFields>(
           request,
           'POST',

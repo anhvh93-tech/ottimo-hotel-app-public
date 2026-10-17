@@ -161,3 +161,18 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm
 - Mock theo bổ sung 3.
 - Kết quả: admin-web 153/153 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3f`).
 
+### 9.7 Đợt 5 – bổ sung 4 + link check-in online
+- `partyChangeSource` (H13 sửa số khách, bỏ người khi đơn chưa nhận phòng); phụ thu người hiện theo dòng folio server ghi.
+- Phí kênh trên tiền phạt hủy OTA (tùy chọn). FOC đêm OTA trả trước: mã lỗi có câu; FE chưa có nút FOC theo dòng nên không cần ẩn.
+- Link check-in online trong drawer (tạo / tạo lại / thu hồi; hiện một lần; không lưu token; xóa clipboard sau 60 giây).
+- Kết quả: admin-web 158/158 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3g`).
+
+### 9.8 Đợt 6 – điều kiện SEC §8 + thanh OOO trên rack
+- Link check-in online:
+  - Ngoại lệ clipboard chỉ ở `GuestLinkPanel`; có test quét `src`.
+  - Lần xóa clipboard bị trình duyệt từ chối (đang ở Zalo) được ghi bù khi trang hiện lại / có focus.
+  - Token không vào log, toast, storage, URL.
+  - Thêm câu nhắc `rsv.guest_link.send_private`.
+- Rack H08: thanh OOO không còn hiện khóa thô `status.block.ooo`. Có test chặn mọi khóa thô `status.*` trên rack.
+- Kết quả: admin-web 163/163 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3h`).
+

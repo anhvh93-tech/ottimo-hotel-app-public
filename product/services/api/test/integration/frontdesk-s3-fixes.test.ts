@@ -12,9 +12,13 @@
  * - E04-06 / DOM-23: B16 OTA retained amount, back-dated notice evidence, EarlyDepartureResult.
  * - ARC-05: OTA stay extended by a child booking checks out on the child's departure (checkoutAt).
  * - ARC-09: the SSE listener reconnects after its connection is killed. SEC-39: idempotency keys expire.
+ * - Fix round 4 (re-verification 17/10): B16 drops child-booking nights (effective departure), per-night B14 OTA
+ *   difference reversed by B16, add-person preview/charge includes child nights, OTA guest count (0.3.6 bổ sung 4).
  * Fake clock and FAKE data only.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database, Tx } from '../../src/db/database';
@@ -82,6 +86,21 @@ class DocsOk implements FrontdeskRegistrationPort {
 
 const ROLES = { own: ['owner'], mgr: ['manager'], fd: ['front_desk'], sal: ['sales_staff'] };
 
+const ORACLES = JSON.parse(
+  readFileSync(join(__dirname, '../../../../tests/fixtures/br-examples.json'), 'utf8'),
+) as {
+  examples: Array<{
+    id: string;
+    input: Record<string, unknown>;
+    expected: Record<string, unknown>;
+  }>;
+};
+const oracle = (id: string) => {
+  const o = ORACLES.examples.find((x) => x.id === id);
+  if (!o) throw new Error(`oracle ${id} missing`);
+  return o;
+};
+
 type Booking = { id: string; code: string; version: number; folioId: string };
 
 describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
@@ -106,7 +125,7 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
           t.propertyIds[0],
           sha256Hex(token),
           new Date('2026-10-01T00:00:00Z'),
-          new Date('2027-01-31T00:00:00Z'),
+          new Date('2027-06-30T00:00:00Z'),
         ],
       ),
     );
@@ -736,11 +755,27 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
       expect(
         (await addPerson(o.id, { role: 'companion', guestId: companions[0] })).statusCode,
       ).toBe(201);
-      const third = await addPerson(o.id, {
+      // Fix round 4 (3): the confirmed amount covers the child booking's night too (150.000 × 2).
+      const dry = await addPerson(o.id, {
+        role: 'companion',
+        guestId: companions[1],
+        dryRun: true,
+      });
+      expect(dry.statusCode, dry.body).toBe(200);
+      expect(dry.json().occupancyChange).toMatchObject({ surchargeVnd: 300_000, nights: 2 });
+      const stale = await addPerson(o.id, {
         role: 'companion',
         guestId: companions[1],
         applyExtraPersonSurcharge: true,
         expectedSurchargeVnd: 150_000,
+      });
+      expect(stale.statusCode).toBe(409);
+      expect(stale.json()).toMatchObject({ code: 'SURCHARGE_CHANGED', surchargeVnd: 300_000 });
+      const third = await addPerson(o.id, {
+        role: 'companion',
+        guestId: companions[1],
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 300_000,
       });
       expect(third.statusCode, third.body).toBe(201);
       const lines = await extraLines(o.folioId);
@@ -786,6 +821,360 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
       expect((await extraLines(b.folioId)).map((l) => [l.service_date, l.amount_vnd])).toEqual([
         ['2027-01-05', 150_000],
       ]);
+    });
+  });
+
+  describe('fix round 4 (re-verification 17/10): child-booking nights, per-night OTA difference, OTA guest count', () => {
+    const ready = (room: string) =>
+      q(
+        `INSERT INTO room_status (room_id, organization_id, property_id, status, since) VALUES ($1, $2, $3, 'VC', $4)
+         ON CONFLICT (room_id) DO UPDATE SET status = 'VC'`,
+        [ids.rooms[room], t.organizationId, t.propertyIds[0], new Date('2027-03-01T00:00:00Z')],
+      );
+    const addPerson = (id: string, body: Record<string, unknown>) =>
+      c.fd!.send('POST', url(`/reservations/${id}/party`), body);
+    const linesOf = (folioId: string, category: string) =>
+      q<{ service_date: string; amount_vnd: number; reservation_id: string }>(
+        `SELECT l.service_date::text AS service_date, l.amount_vnd, l.reservation_id FROM folio_line l
+          WHERE l.folio_id = $1 AND l.category = $2 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
+          ORDER BY l.service_date, l.posted_at`,
+        [folioId, category],
+      );
+    const totals = async (folioId: string) =>
+      (await c.fd!.get(url(`/folios/${folioId}`))).json().totals as {
+        balanceDueVnd: number;
+        paidViaOtaVnd?: number;
+      };
+    const pay = async (folioId: string, amountVnd: number) => {
+      const r = await c.fd!.send('POST', url(`/folios/${folioId}/payments`), {
+        type: 'charge',
+        method: 'cash',
+        amountVnd,
+      });
+      expect([200, 201], r.body).toContain(r.statusCode);
+    };
+    const refunds = (id: string) =>
+      q<{ amount_vnd: number }>(
+        `SELECT amount_vnd FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY created_at`,
+        [id],
+      );
+    const nightNet = async (id: string, date: string) =>
+      (
+        await q<{ net: number }>(
+          `SELECT room_revenue_vnd AS net FROM stay_night WHERE reservation_id = $1 AND stay_date = $2
+              AND night_state <> 'void'`,
+          [id, date],
+        )
+      )[0]?.net as number;
+    const half = (v: number) => Math.round(v / 2 / 1000) * 1000;
+    const patch = async (id: string, body: Record<string, unknown>) =>
+      c.fd!.send('PATCH', url(`/reservations/${id}`), body, {
+        'if-match': `"${await version(id)}"`,
+      });
+
+    it('(1)(3)(4) OTA 01–03 + child 03–05: a person joins on 03 (child nights only); the guest leaves on 04 – B16 on the primary drops the child night (one refund), B18 on 04', async () => {
+      await at('2027-03-01T15:00:00+07:00');
+      await ready('202');
+      const o = await ota('202', '2027-03-01', '2027-03-03', 1_800_000);
+      await checkIn(o);
+      await at('2027-03-02T09:00:00+07:00');
+      const ext = await act(o.id, 'extend', { nights: 2 });
+      expect(ext.statusCode, ext.body).toBe(200);
+      const childId = ext.json().childReservation.id as string;
+      await at('2027-03-03T10:00:00+07:00');
+      // (4) today only has child-booking nights: the person joins the stay through the primary booking.
+      expect(
+        (
+          await addPerson(o.id, {
+            role: 'companion',
+            guestId: companions[0],
+            effectiveFrom: '2027-03-03',
+          })
+        ).statusCode,
+      ).toBe(201);
+      const third = {
+        role: 'companion',
+        guestId: companions[1],
+        effectiveFrom: '2027-03-03',
+      };
+      const dry = await addPerson(o.id, { ...third, dryRun: true });
+      expect(dry.statusCode, dry.body).toBe(200);
+      expect(dry.json().occupancyChange).toMatchObject({ surchargeVnd: 300_000, nights: 2 });
+      const added = await addPerson(o.id, {
+        ...third,
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 300_000,
+      });
+      expect(added.statusCode, added.body).toBe(201);
+      expect(
+        (await linesOf(o.folioId, 'extra_person')).map((l) => [
+          l.service_date,
+          l.amount_vnd,
+          l.reservation_id,
+        ]),
+      ).toEqual([
+        ['2027-03-03', 150_000, childId],
+        ['2027-03-04', 150_000, childId],
+      ]);
+      await pay(o.folioId, (await totals(o.folioId)).balanceDueVnd);
+      // (1) B16 runs on the primary booking only; the effective departure (05) bounds the new date.
+      const onChild = await act(childId, 'early-departure', {
+        newDepartureDate: '2027-03-04',
+        noticeGivenAt: '2027-03-03T10:00:00+07:00',
+      });
+      expect(onChild.statusCode).toBe(409);
+      const tooLate = await act(o.id, 'early-departure', {
+        newDepartureDate: '2027-03-05',
+        noticeGivenAt: '2027-03-03T10:00:00+07:00',
+      });
+      expect(tooLate.json().errors).toContainEqual({
+        field: 'newDepartureDate',
+        code: 'DATE_INVALID',
+      });
+      const net = await nightNet(childId, '2027-03-04');
+      const ed = await act(o.id, 'early-departure', {
+        newDepartureDate: '2027-03-04',
+        noticeGivenAt: '2027-03-03T10:00:00+07:00',
+      });
+      expect(ed.statusCode, ed.body).toBe(200);
+      // child night 04 (direct, notice 1 day): 50 % refunded + the collected BR-110 fee of that night 100 %.
+      expect(ed.json()).toMatchObject({
+        reservation: { departureDate: '2027-03-03' },
+        earlyDepartureFeeVnd: net - half(net),
+        refundVnd: half(net) + 150_000,
+        extraPersonRefundVnd: 150_000,
+        extraPersonReversedVnd: 0,
+      });
+      const [child] = await q<{ departure_date: string; status: string }>(
+        'SELECT departure_date::text AS departure_date, status FROM reservation WHERE id = $1',
+        [childId],
+      );
+      expect(child).toEqual({ departure_date: '2027-03-04', status: 'in_house' });
+      expect((await linesOf(o.folioId, 'extra_person')).map((l) => l.service_date)).toEqual([
+        '2027-03-03',
+      ]);
+      expect(await refunds(o.id)).toEqual([{ amount_vnd: half(net) + 150_000 }]);
+      await at('2027-03-04T11:00:00+07:00');
+      const out = await act(o.id, 'check-out', { checkoutTime: '11:00' });
+      expect(out.statusCode, out.body).toBe(200);
+      const st = await q<{ status: string }>(
+        'SELECT status FROM reservation WHERE id = $1 OR parent_reservation_id = $1 ORDER BY created_at',
+        [o.id],
+      );
+      expect(st.map((x) => x.status)).toEqual(['checked_out', 'checked_out']);
+      expect(await refunds(o.id)).toHaveLength(1);
+    });
+
+    it('(1) the guest leaves on the OTA departure: the child booking none of whose nights is stayed is cancelled, its room is released', async () => {
+      await at('2027-03-08T15:00:00+07:00');
+      await ready('203');
+      const o = await ota('203', '2027-03-08', '2027-03-10', 1_800_000);
+      await checkIn(o);
+      await at('2027-03-09T09:00:00+07:00');
+      const ext = await act(o.id, 'extend', { nights: 1 });
+      expect(ext.statusCode, ext.body).toBe(200);
+      const childId = ext.json().childReservation.id as string;
+      const net = await nightNet(childId, '2027-03-10');
+      await at('2027-03-09T10:00:00+07:00');
+      // no OTA night is dropped → nothing for the OTA to keep (otaRetainedVnd optional)
+      const ed = await act(o.id, 'early-departure', {
+        newDepartureDate: '2027-03-10',
+        noticeGivenAt: '2027-03-09T10:00:00+07:00',
+      });
+      expect(ed.statusCode, ed.body).toBe(200);
+      expect(ed.json()).toMatchObject({
+        reservation: { departureDate: '2027-03-10' },
+        earlyDepartureFeeVnd: net - half(net),
+        refundVnd: 0,
+        refundRequestId: null,
+      });
+      const [child] = await q<{ status: string; cancel_reason_code: string }>(
+        'SELECT status, cancel_reason_code FROM reservation WHERE id = $1',
+        [childId],
+      );
+      expect(child).toEqual({ status: 'cancelled', cancel_reason_code: 'date_change' });
+      const busy = await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM room_occupancy WHERE room_id = $1 AND active
+            AND stay_range && daterange('2027-03-10', '2027-03-11')`,
+        [ids.rooms['203']],
+      );
+      expect(busy[0]?.n).toBe(0);
+      expect((await linesOf(o.folioId, 'room')).map((l) => l.service_date)).toEqual([
+        '2027-03-08',
+        '2027-03-09',
+      ]);
+      await at('2027-03-10T11:00:00+07:00');
+      const s = (await c.fd!.get(url(`/reservations/${o.id}/checkout-summary`))).json();
+      const out = await act(o.id, 'check-out', {
+        checkoutTime: '11:00',
+        ...(s.balanceDueVnd > 0
+          ? { finalPayment: { type: 'charge', method: 'cash', amountVnd: s.balanceDueVnd } }
+          : {}),
+      });
+      expect(out.statusCode, out.body).toBe(200);
+    });
+
+    it('(2) B14 on an OTA booking writes the difference per night; B16 reverses the dropped night’s share (refunded when collected)', async () => {
+      await at('2027-03-15T15:00:00+07:00');
+      await ready('201');
+      const o = await ota('201', '2027-03-15', '2027-03-18', 2_400_000);
+      await checkIn(o);
+      await at('2027-03-16T10:00:00+07:00');
+      await ready('203');
+      const body = {
+        newRoomId: ids.rooms['203'],
+        effectiveDate: '2027-03-16',
+        cause: 'guest_request',
+        reason: 'Khách muốn căn có ban công',
+      };
+      const dry = await act(o.id, 'change-room', { ...body, dryRun: true });
+      expect(dry.statusCode, dry.body).toBe(200);
+      const delta = dry.json().roomChangeDifferenceVnd as number;
+      expect(delta).toBeGreaterThan(0);
+      const moved = await act(o.id, 'change-room', {
+        ...body,
+        applyDifference: true,
+        expectedDeltaVnd: dry.json().folioDeltaVnd,
+      });
+      expect(moved.statusCode, moved.body).toBe(200);
+      const diffs = await linesOf(o.folioId, 'room_change_difference');
+      expect(diffs.map((l) => l.service_date)).toEqual(['2027-03-16', '2027-03-17']);
+      expect(diffs.reduce((a, l) => a + l.amount_vnd, 0)).toBe(delta);
+      await pay(o.folioId, (await totals(o.folioId)).balanceDueVnd);
+      const ed = await act(o.id, 'early-departure', {
+        newDepartureDate: '2027-03-17',
+        noticeGivenAt: '2027-03-16T10:00:00+07:00',
+        otaRetainedVnd: 0,
+      });
+      expect(ed.statusCode, ed.body).toBe(200);
+      const dropped = diffs[1]!.amount_vnd;
+      expect(ed.json()).toMatchObject({
+        earlyDepartureFeeVnd: 0,
+        refundVnd: dropped,
+        extraPersonRefundVnd: 0,
+      });
+      expect(
+        (await linesOf(o.folioId, 'room_change_difference')).map((l) => [
+          l.service_date,
+          l.amount_vnd,
+        ]),
+      ).toEqual([['2027-03-16', diffs[0]!.amount_vnd]]);
+      expect(await refunds(o.id)).toEqual([{ amount_vnd: dropped }]);
+    });
+
+    it('(5) OTA guest count (0.3.6 bổ sung 4): Agoda 201, 2 → 3 people before check-in – guest_direct keeps the OTA count, 150.000/night at the desk; ota_modification moves it', async () => {
+      await at('2027-03-20T10:00:00+07:00');
+      const o = await ota('201', '2027-04-01', '2027-04-03', 1_400_000);
+      expect((await c.fd!.get(url(`/reservations/${o.id}`))).json().otaGuestCount).toBe(2);
+      const noSource = await patch(o.id, { adults: 3 });
+      expect(noSource.statusCode).toBe(422);
+      expect(noSource.json().errors).toContainEqual({
+        field: 'partyChangeSource',
+        code: 'REQUIRED',
+      });
+      const noRef = await patch(o.id, { adults: 3, partyChangeSource: 'ota_modification' });
+      expect(noRef.json().errors).toContainEqual({
+        field: 'otaModificationRef',
+        code: 'REQUIRED',
+      });
+      const direct3 = await patch(o.id, { adults: 3, partyChangeSource: 'guest_direct' });
+      expect(direct3.statusCode, direct3.body).toBe(200);
+      expect(direct3.json()).toMatchObject({ adults: 3, otaGuestCount: 2 });
+      expect(
+        (await linesOf(o.folioId, 'extra_person')).map((l) => [l.service_date, l.amount_vnd]),
+      ).toEqual([
+        ['2027-04-01', 150_000],
+        ['2027-04-02', 150_000],
+      ]);
+      // never in "Đã thu qua OTA": the OTA receipt still equals the room money, 300.000 due at the desk
+      expect(await totals(o.folioId)).toMatchObject({
+        balanceDueVnd: 300_000,
+        paidViaOtaVnd: 1_400_000,
+      });
+      await pay(o.folioId, 300_000);
+      await at('2027-04-01T15:00:00+07:00');
+      await ready('201');
+      await checkIn(o);
+      expect((await linesOf(o.folioId, 'extra_person')).map((l) => l.amount_vnd)).toEqual([
+        150_000, 150_000,
+      ]);
+      // in house: people change through the party (always guest_direct)
+      const inHouse = await patch(o.id, {
+        partyChangeSource: 'ota_modification',
+        otaModificationRef: 'AGD-123456',
+      });
+      expect(inHouse.json().errors).toContainEqual({
+        field: 'partyChangeSource',
+        code: 'NOT_ALLOWED',
+      });
+
+      await at('2027-03-20T10:00:00+07:00');
+      const m = await ota('202', '2027-04-01', '2027-04-03', 1_400_000);
+      const modified = await patch(m.id, {
+        adults: 3,
+        partyChangeSource: 'ota_modification',
+        otaModificationRef: 'AGD-MOD-7788',
+      });
+      expect(modified.statusCode, modified.body).toBe(200);
+      expect(modified.json()).toMatchObject({ adults: 3, otaGuestCount: 3 });
+      expect(await linesOf(m.folioId, 'extra_person')).toEqual([]);
+      const hist = await q<{ reason: string | null }>(
+        `SELECT reason FROM reservation_change WHERE reservation_id = $1 AND field = 'adults'`,
+        [m.id],
+      );
+      expect(hist.map((h) => h.reason)).toEqual(['ota_modification AGD-MOD-7788']);
+      const d = await direct('203', '2027-04-01', '2027-04-03', 1_584_000);
+      const notOta = await patch(d.id, { adults: 3, partyChangeSource: 'guest_direct' });
+      expect(notOta.json().errors).toContainEqual({
+        field: 'partyChangeSource',
+        code: 'NOT_ALLOWED',
+      });
+    });
+
+    it('(5) oracles BR-110-14 / BR-110-15: Agoda 302, 3 → 4 adults before check-in by source', async () => {
+      await at('2027-03-20T10:00:00+07:00');
+      const kits = (id: string) =>
+        q<{ quantity: number }>(
+          `SELECT quantity FROM hk_task WHERE reservation_id = $1 AND type = 'extra_guest_kit_prepare'
+              AND status <> 'cancelled'`,
+          [id],
+        );
+      for (const [id, from, to] of [
+        ['BR-110-14', '2027-04-10', '2027-04-12'],
+        ['BR-110-15', '2027-04-12', '2027-04-14'],
+      ] as const) {
+        const o = oracle(id);
+        const b = await create({
+          roomId: ids.rooms[String(o.input.roomNo)],
+          channelId: ids.channels.agoda,
+          adults: Number(o.input.adultsBefore),
+          bookerGuestId: guest,
+          paymentModel: String(o.input.paymentModel),
+          otaRef: `AG${randomUUID().slice(0, 8)}`,
+          otaRoomAmountVnd: 2_400_000,
+          arrivalDate: from,
+          departureDate: to,
+        });
+        const res = await patch(b.id, {
+          adults: Number(o.input.adultsAfter),
+          partyChangeSource: o.input.partyChangeSource,
+          ...(o.input.partyChangeSource === 'ota_modification'
+            ? { otaModificationRef: 'AGD-MOD-302' }
+            : {}),
+        });
+        expect(res.statusCode, `${id} ${res.body}`).toBe(200);
+        expect(res.json().otaGuestCount, id).toBe(o.expected.otaGuestCount);
+        const fee = (await linesOf(b.folioId, 'extra_person')).reduce(
+          (a, l) => a + l.amount_vnd,
+          0,
+        );
+        expect(fee, id).toBe(o.expected.extraPersonFeeVnd);
+        expect(
+          (await kits(b.id)).reduce((a, k) => a + k.quantity, 0),
+          id,
+        ).toBe(o.expected.extraGuestKits);
+      }
     });
   });
 

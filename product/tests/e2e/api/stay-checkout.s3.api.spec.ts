@@ -762,7 +762,7 @@ test.describe(
           };
           const g1Folio = await folio(g1.hold.id);
           const g2Folio = await folio(g2.hold.id);
-          const deposit = g1.hold.depositRequiredVnd ?? 500000; // đủ cọc → đơn confirmed (BR-305, BR-527)
+          const deposit = Math.min(500000, g1.hold.depositRequiredVnd ?? 500000);
           // G2 của người khác → 404 (phạm vi M, không lộ tồn tại)
           expectProblem(
             await recordPayment(request, sal, g2Folio, {
@@ -772,17 +772,37 @@ test.describe(
             }),
             404,
           );
-          // khoản không phải cọc trên GIỮ CHỖ → 422 type NOT_IN_LIST cho mọi vai (16941c6, ARC-S3-02: tiền nhận trên
-          // giữ chỗ là cọc – một `charge` không tính cho B4/J1); phần 403 own_deposit_only kiểm sau khi đơn confirmed
+          // khoản không phải cọc → 403 (A33 own_deposit_only – cổng phạm vi trả lời trước mọi quy tắc thân request,
+          // 5304fc8); lễ tân ghi `charge` trên GIỮ CHỖ → 422 type NOT_IN_LIST (ARC-S3-02: tiền nhận trên giữ chỗ là cọc)
           expectProblem(
             await recordPayment(request, sal, g1Folio, {
               type: 'charge',
               method: 'cash',
               amountVnd: 100000,
             }),
-            422,
-            'VALIDATION_FAILED',
+            403,
+            'FORBIDDEN_ACTION',
           );
+          // SAL ghi `refund` (kể cả trên đơn người khác) → 403 – cổng phạm vi trước kiểm thân/phạm vi đơn (5304fc8)
+          for (const folioId of [g1Folio, g2Folio]) {
+            expectProblem(
+              await recordPayment(request, sal, folioId, {
+                type: 'refund',
+                method: 'cash',
+                amountVnd: 100000,
+              }),
+              403,
+              'FORBIDDEN_ACTION',
+            );
+          }
+          const fdDesk = await sessionOrSkip(request, 'qa.fd');
+          const deskCharge = await recordPayment(request, fdDesk, g1Folio, {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: 100000,
+          });
+          expectProblem(deskCharge, 422, 'VALIDATION_FAILED');
+          expect(JSON.stringify(deskCharge.body)).toContain('NOT_IN_LIST');
           // CTV không ghi thu được → 403 (A33)
           expectProblem(
             await recordPayment(request, ctv, g1Folio, {
@@ -802,25 +822,6 @@ test.describe(
           // BUG-R2-042 đã sửa ở 229db99 – QA kiểm lại 17/10, đóng; bỏ test.fail có điều kiện để hồi quy báo đỏ
           expect(okDep.status, JSON.stringify(okDep.body)).toBe(201);
           expect(okDep.body.reconciliation).toBe('pending');
-          // đơn đã đủ cọc → confirmed: SAL ghi khoản không phải cọc → 403 (A33/A47 own_deposit_only)
-          const fd = await sessionOrSkip(request, 'qa.fd');
-          const g1Now = await getReservation(request, fd, g1.hold.id);
-          if (g1Now.body.status === 'confirmed') {
-            expectProblem(
-              await recordPayment(request, sal, g1Folio, {
-                type: 'charge',
-                method: 'cash',
-                amountVnd: 100000,
-              }),
-              403,
-              'FORBIDDEN_ACTION',
-            );
-          } else {
-            test.info().annotations.push({
-              type: 'note',
-              description: `G1 còn ${g1Now.body.status} sau cọc ${deposit} – phần 403 own_deposit_only chưa kiểm ở lượt này`,
-            });
-          }
         },
       );
       test(

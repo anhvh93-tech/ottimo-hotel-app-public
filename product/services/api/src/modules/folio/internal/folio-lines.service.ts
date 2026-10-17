@@ -486,6 +486,8 @@ export class FolioLinesService {
         reason,
         postCheckout: folio.status === 'settled',
       });
+      // x-ota-prepaid-rule (re-verification 17/10): the replacement of an OTA-covered line moves the receipt.
+      await this.folios.resyncOtaCollect(tx, folio.id, line.reservation_id, actorInfo);
       await this.audit.recordMoney(tx, {
         action: 'folio_line.adjusted',
         entityType: 'folio_line',

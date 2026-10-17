@@ -21,6 +21,7 @@ import { useNow } from '../../hooks/useNow';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { GuestLinkPanel } from './GuestLinkPanel';
 import {
   AssignRoomDialog,
   CancelDialog,
@@ -409,6 +410,10 @@ export function ReservationDrawer({
               })}
               {r.children6to11 ? ` · ${r.children6to11} ${t('occ.children_short')}` : ''}
               {r.childrenUnder6 ? ` · ${r.childrenUnder6} ${t('occ.under6_short')}` : ''}
+              {/* 0.3.6 add. 4: guests the OTA priced – people above it pay at the desk. */}
+              {r.otaGuestCount ? (
+                <div className="li-s">{t('rsv.ota_guest_count', { n: r.otaGuestCount })}</div>
+              ) : null}
             </dd>
             <dt>{t('booking.field.channel')}</dt>
             <dd>
@@ -417,6 +422,10 @@ export function ReservationDrawer({
             </dd>
           </dl>
 
+          {/* A22a: online check-in link before arrival (FD+). */}
+          {fd && online && (r.status === 'hold' || r.status === 'confirmed') ? (
+            <GuestLinkPanel reservation={r} />
+          ) : null}
           {r.status === 'in_house' && fd ? (
             <dl className="dl mt-12">
               <dt>{t('stay.checkout_time')}</dt>

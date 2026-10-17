@@ -27,6 +27,7 @@ import { dayMonth } from '../../app/reservations';
 import { useRules } from '../../app/rules';
 import { timeHHmm } from '../../app/dates';
 import { useToast } from '../../app/toast';
+import { lineLabel } from '../../app/folio';
 import { Page, Topbar } from '../../components/AppShell';
 import { DeviceBlocked, ErrorBlock, LoadingBlock } from '../../components/states';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
@@ -36,6 +37,7 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DocsList, VerifyList, reviewReady } from '../registration/DocsPanel';
 import { useSubmit } from './common';
+import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import { PaymentPanel } from './PaymentPanel';
 
 const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
@@ -183,6 +185,9 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const conds = p?.conditions ?? [];
   const cond = (code: CheckInCondition['code']) => conds.find((c) => c.code === code);
   const balance = folio.state.data?.totals.balanceDueVnd ?? r.balanceDueVnd ?? 0;
+  const extraLines = (folio.state.data?.lines ?? []).filter(
+    (l) => l.category === 'extra_person' && l.lineState === 'posted',
+  );
   const sur = p?.earlyCheckinSurcharge;
   const amount = sur?.amountVnd ?? 0;
   const priorNight = !!sur?.addsPreviousNight;
@@ -416,6 +421,17 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                         </Field>
                       </>
                     )
+                  ) : null}
+                  {c.code === 'balance_paid' && extraLines.length ? (
+                    // 0.3.6 add. 4: extra-guest fee as the server posted it (collected at the desk,
+                    // not covered by the OTA) – the folio lines with their bill labels.
+                    <ul className="list-plain li-s">
+                      {extraLines.map((l) => (
+                        <li key={l.id}>
+                          {lineLabel(t, l)} · {money(l.amountVnd)}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                   {!c.met && c.code === 'balance_paid' ? (
                     <Button size="sm" onClick={() => setStep(3)}>
@@ -930,15 +946,22 @@ function FixGuestsDialog({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const act = useSubmit();
+  const act = useSubmit({ bound: ['partyChangeSource', 'otaModificationRef'] });
   const [occ, setOcc] = useState<Occupancy>({
     adults: r.adults,
     children6to11: r.children6to11 ?? 0,
     childrenUnder6: r.childrenUnder6 ?? 0,
   });
+  // 0.3.6 add. 4: an OTA booking before check-in says where the change comes from.
+  const askSource = needsPartySource(r);
+  const source = usePartySource();
   const save = async () => {
     const out = await act.submit(() =>
-      api.updateReservation({ propertyId, reservationId: r.id }, occ, r.version),
+      api.updateReservation(
+        { propertyId, reservationId: r.id },
+        askSource ? { ...occ, ...source.body() } : occ,
+        r.version,
+      ),
     );
     if (out) onSaved();
   };
@@ -965,6 +988,7 @@ function FixGuestsDialog({
     >
       {act.view()}
       <OccupancyField value={occ} onChange={setOcc} enforceMax={false} />
+      {askSource ? <PartySourceField reservation={r} state={source} fields={act.fields} /> : null}
     </Modal>
   );
 }

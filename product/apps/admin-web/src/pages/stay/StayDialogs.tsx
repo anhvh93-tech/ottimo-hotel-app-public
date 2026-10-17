@@ -24,6 +24,7 @@ import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { GuestPicker } from '../../components/GuestPicker';
 import { FilePicker, MoneyField, amountOf, useSubmit, useUnsavedLabels } from './common';
+import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 
 export interface StayDialogProps {
   reservation: Reservation;
@@ -875,6 +876,7 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const [removing, setRemoving] = useState<string | null>(null);
   const act = useSubmit();
   const del = useSubmit();
+  const reduceAct = useSubmit({ bound: ['partyChangeSource', 'otaModificationRef'] });
   const ready = kind === 'child' ? name.trim().length >= 2 : !!companion;
   const add = async () => {
     if (!ready) return;
@@ -925,16 +927,22 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
       if (fresh && fresh.adults > 1) setReduce({ n: fresh.adults - 1, version: fresh.version });
     }
   };
+  // 0.3.6 add. 4: an OTA booking before check-in says where the change comes from.
+  const askSource = needsPartySource(r);
+  const source = usePartySource();
   const reduceCount = async () => {
     if (!reduce) return;
-    const out = await del.submit(() =>
-      api.updateReservation(R, { adults: reduce.n }, reduce.version),
+    const out = await reduceAct.submit(() =>
+      api.updateReservation(
+        R,
+        askSource ? { adults: reduce.n, ...source.body() } : { adults: reduce.n },
+        reduce.version,
+      ),
     );
+    if (!out) return;
     setReduce(null);
-    if (out) {
-      toast(t('common.saved'));
-      party.reload();
-    }
+    toast(t('common.saved'));
+    party.reload();
   };
   const nameOf = (id: string | null) => {
     const m = p?.members?.find((x) => x.id === id);
@@ -1059,10 +1067,16 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
           body={t('party.reduce_count_body')}
           keepLabel={t('confirm.keep')}
           confirmLabel={t('party.reduce_submit', { n: reduce.n })}
-          busy={del.busy}
+          busy={reduceAct.busy}
+          busyLabel={reduceAct.busyLabel}
           onKeep={() => setReduce(null)}
           onConfirm={() => void reduceCount()}
-        />
+        >
+          {askSource ? (
+            <PartySourceField reservation={r} state={source} fields={reduceAct.fields} />
+          ) : null}
+          {reduceAct.view()}
+        </ConfirmDialog>
       ) : null}
     </Modal>
   );

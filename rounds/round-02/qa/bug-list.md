@@ -10,10 +10,10 @@
 | P0 | 1 | 0 | 0 | 0 | 1 |
 | P1 | 12 | 0 | 1 | 0 | 11 |
 | P2 | 25 | 1 | 0 | 1 | 23 |
-| P3 | 15 | 0 | 0 | 0 | 15 |
-| **Tổng** | **53** | **1** | **1** | **1** | **50** |
+| P3 | 16 | 1 | 0 | 0 | 15 |
+| **Tổng** | **54** | **2** | **1** | **1** | **50** |
 
-Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…053. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới.
+Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-030…054. Kiểm lại lần 2 trên cây làm việc = `16941c6` (vòng sửa 2 + 3, 2 lượt CI-like, stack mới): đóng 030, 031, 032, 034–037, 040, 041, 043, 045–048, 050–052 (trước đó 039, 042, 044 trên `229db99`). Còn: **033 (a) Open** (P2 – `guest.id_doc_hmac` không được ghi), **054 Open** (P3 – mới, TC-L3-074), **038 Deferred** (0.3.7), **053 Fixed** (P1 – chờ commit `ci.yml` + CI E2E xanh). Đếm lại từng dòng bảng dưới.
 
 | ID | Mức | Tóm tắt | Vai sửa | Trạng thái |
 |---|---|---|---|---|
@@ -70,6 +70,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-051 | P2 | Giới hạn SR-RL-09 (600 request/phút/người) ở `AuthGuard` dùng bộ đếm riêng: `/__test__/rate-limits/reset` không xóa được, không cấu hình được, cửa sổ theo MutableClock → sau khi tua đồng hồ về hiện tại `Retry-After` = 247.743.660 giây (≈ 7,8 năm), tài khoản bị khóa tới khi khởi động lại api; E2E dùng chung `qa.*` song song chạm 429 | BE-B (+ OPS) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – STAFF_REQUESTS_PER_MINUTE=60: 429 `Retry-After: 60`; `/__test__/rate-limits/reset` xóa được; đồng hồ đóng băng +20 phút rồi trả về → `Retry-After` vẫn 60 (không còn hàng năm); CI dùng 5000 (`make-ci-env.sh`) |
 | **BUG-R2-052** | **P1** | Khách đến sau nửa đêm (00:00–05:59, ngày nghiệp vụ vẫn = ngày đến): `checkIn` coi là nhận sớm trước 06:00 → 422 `addPriorNight: REQUIRED` (preview cùng lúc báo phụ thu 0); H13 chỉ hiện "Bắt buộc", không nhận phòng được (US-025 AC6, BR-602-02) | BE-A (+ FE thông báo) | **Closed** (17/10, cây làm việc = `16941c6`, 2 lượt CI-like trên stack mới) – TC-L3-008 (a): 01:30 ngày D+1 → B9 thường, không phụ thu (BE); phần chữ báo lỗi của H13 lúc 00:00–05:59 chưa chạy được giao diện ban đêm ở lượt này |
 | **BUG-R2-053** | **P1** | CI E2E (run 38980363276, `c8b83f3`): 28 ca đỏ `403 DEVICE_NOT_TRUSTED` + 103 ca C3/RBAC bị bỏ qua im lặng – seed chạy bằng uid `node` 1000 ghi `tests/fixtures/seed/.out/ds-e.map.json` mode 0600, runner (uid 1001) không đọc được → harness không có token thiết bị | OPS (ci.yml) + QA (harness) | **Fixed** – OPS: `ci.yml` chạy seed `--user "$(id -u):$(id -g)"` + `test -r` (cây làm việc); QA: harness báo rõ + thiết bị quầy dự phòng (`support/device.ts`, đã vào `e3959ec`). Closed khi job CI E2E xanh |
+| BUG-R2-054 | P3 | Xóa ảnh của khai báo chưa `confirmed` (SR-RET-02, lý do `unconfirmed`) không ghi `Registration.imagesPurgedAt`/`imagesPurgeReason` → H14 không hiện "Ảnh đã xóa lúc …" (ảnh vẫn bị xóa đúng hạn) | BE-C (+ ARC enum) | Open |
 
 ## 2. Chi tiết
 
@@ -433,6 +434,14 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 - Tái hiện: (1) Docker volume Linux: ghi tệp bằng `node` uid 1000 với `mode 0o600` đúng như loader, đọc bằng uid 1001 theo đúng logic `deviceToken()` → `EACCES`, `deviceToken() = undefined`. (2) Stack dùng một lần `ottimo-qa-s3`, Origin bật như CI, `chmod 000` tệp map → chạy c3-at-rest, c3-access, checkin.s3.api, rbac-sprint3, ui/stay.h13-h17: **26 trượt `DEVICE_NOT_TRUSTED` + 100 ca RBAC + 3 ca TC-RB bỏ qua** – khớp log CI. (3) Cùng điều kiện sau khi sửa harness: **775 đạt, 0 trượt vì thiết bị**, RBAC S3 737/737 không bỏ qua; global-setup in cảnh báo rõ nguyên nhân.
 - Sửa: OPS (cây làm việc): `ci.yml` bước "Load QA seed DS-E" chạy `run --rm --user "$(id -u):$(id -g)" seed`, `.out` 0700, `test -r …/ds-e.map.json || exit 1`. QA (`e3959ec` + cây làm việc): `tests/e2e/support/device.ts` – đọc map và phân biệt ENOENT/EACCES; `global-setup.ts` kiểm token thiết bị, không đọc được thì đăng ký thiết bị quầy dự phòng qua `qa.owner` (trustCurrentDevice, xác thực lại – cùng đường của project clock) và in `CẢNH BÁO … BUG-R2-053`; trên CI cả hai cách đều hỏng → dừng ở global-setup với một thông báo thay vì ~30 ca đỏ + skip im lặng.
 - Kèm theo (cùng run): TC-L7-010 (E) flaky – lần click "Chụp" đầu chưa mở hộp chọn tệp trên runner chậm → harness thử lại 1 lần (`ui/guest-web.h18.spec.ts` `photo()`).
+
+### BUG-R2-054 – Xóa ảnh khai báo chưa `confirmed` (SR-RET-02) không cập nhật `imagesPurgedAt`/`imagesPurgeReason`
+- Mức: P3 (ảnh vẫn bị xóa đúng hạn, nhật ký C3 `purge` và "Cần chú ý" `registration_overdue` có; chỉ thiếu thông tin hiển thị – H14/khai báo không nói ảnh đã xóa lúc nào, vì sao; EP06 6.1 "mỗi lần xóa … `imagesPurgedAt` cập nhật") · Môi trường: stack `ottimo-qa-s3`, api `5304fc8` (cây làm việc 17/10 07:40) · Vai sửa: BE-C (+ ARC thêm giá trị enum) · Trạng thái: **Open**
+- Bước: TC-L3-074 – (a) khai báo `sent` (chưa `confirmed`), trả phòng D+1 10:30; (b) khai báo `sent`, hủy đơn D 15:00; ⏱ mốc + 7 ngày + 1 phút ▶ J16 → `GET registrations/{id}`.
+- Thực tế: ảnh đã xóa (`getDocumentImage` 404, `imageIds` rỗng, `c3_access_log` purge system), nhưng `imagesPurgedAt`, `imagesPurgeReason` vắng mặt.
+- Mong đợi: `imagesPurgedAt` = thời điểm xóa, `imagesPurgeReason` có giá trị (hợp đồng chưa có giá trị cho trường hợp này: enum `[retention, no_consent, consent_withdrawn, guest_request, void]` – ARC chọn thêm `unconfirmed` hoặc ánh xạ).
+- Gốc: `registration/internal/registration.service.ts:118–124` `SUMMARY_REASONS` không có `unconfirmed` → dòng 435–439 không ghi `images_purged_at`; OpenAPI `Registration.imagesPurgeReason` (≈ dòng 9584) thiếu giá trị.
+- Bằng chứng: `clock/checkin.s3.clock.spec.ts` TC-L3-074 (`test.fail` ở bước cuối; các bước còn ảnh ngày 6 / mất ảnh ở hạn + 1 phút / hủy khi `sent` không `void` đều đạt).
 
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 

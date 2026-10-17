@@ -266,25 +266,20 @@ export interface MoneyPosition {
 }
 
 /**
- * Σ of the posted OTA-covered lines of the bookings the OTA collected for (+ their FOC/discount lines, through
- * `related_line_id`). Reversal rows carry the category and the related line, so the sum is net.
+ * Σ of the posted OTA-covered lines of the bookings the OTA collected for – BEFORE any FOC/discount (DOM 17/10,
+ * BR-307: "Đã thu qua OTA" = the OTA room lines; no FOC on an OTA prepaid night). Reversal rows carry the
+ * category, so the sum is net of reversals.
  */
 export function otaCoveredOf(
   lines: ReadonlyArray<TotalsLine>,
   otaReservations: ReadonlySet<string>,
 ): number {
   if (otaReservations.size === 0) return 0;
-  const covered = new Set<string>();
   let sum = 0;
   for (const l of lines) {
     if (l.line_state !== 'posted' || !l.category || !OTA_COVERED.has(l.category)) continue;
     if (!l.reservation_id || !otaReservations.has(l.reservation_id)) continue;
     sum += l.amount_vnd;
-    if (l.id) covered.add(l.id);
-  }
-  for (const l of lines) {
-    if (l.line_state !== 'posted' || (l.category !== 'foc' && l.category !== 'discount')) continue;
-    if (l.related_line_id && covered.has(l.related_line_id)) sum += l.amount_vnd;
   }
   return Math.max(0, sum);
 }
@@ -667,6 +662,13 @@ export class FolioService implements FolioStaySync {
       now,
       reason,
     );
+    // x-ota-prepaid-rule: the OTA receipt follows a reversed OTA-covered line (or its FOC/discount).
+    await this.resyncOtaCollect(
+      tx,
+      folioId,
+      line.reservation_id ?? folio.primary_reservation_id,
+      actor,
+    );
     const { rows: rev } = await tx.query<{ id: string }>(
       'SELECT id FROM folio_line WHERE reversal_of_id = $1',
       [lineId],
@@ -983,6 +985,7 @@ export class FolioService implements FolioStaySync {
       });
       feeVnd = retained;
     }
+    await this.channelFeeAfterVoid(tx, input, feeVnd, now);
     if (reversedVnd !== 0 || feeVnd > 0) {
       await this.audit.recordMoney(tx, {
         action: 'folio.stay_reversed',
@@ -1001,12 +1004,94 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * BR-310 / BR-901 (DOM 17/10, oracle BR-310-01): after a void the OTA channel fee is due on what remains sold
+   * plus the OTA cancellation penalty – the reported fee when there is one, else the rate snapshot × base. The
+   * penalty is no sold night: nothing is allocated to the voided nights and it earns no commission.
+   */
+  private async channelFeeAfterVoid(
+    tx: Tx,
+    input: VoidStayInput,
+    feeVnd: number,
+    now: Date,
+  ): Promise<void> {
+    const { rows } = await tx.query<{
+      id: string;
+      base_amount_vnd: number;
+      rate_pct_snapshot: string;
+      amount_estimated_vnd: number;
+      amount_actual_vnd: number | null;
+    }>(
+      `SELECT id, base_amount_vnd, rate_pct_snapshot, amount_estimated_vnd, amount_actual_vnd
+         FROM channel_fee WHERE reservation_id = $1 FOR UPDATE`,
+      [input.reservationId],
+    );
+    const old = rows[0];
+    if (!old) return;
+    const { rows: sold } = await tx.query<{ total: string | number }>(
+      `SELECT COALESCE(SUM(l.amount_vnd), 0) AS total FROM folio_line l
+        WHERE l.folio_id = $1 AND l.reservation_id = $2 AND l.category = 'room' AND l.line_state = 'posted'`,
+      [input.folioId, input.reservationId],
+    );
+    const base = Math.max(0, Number(sold[0]?.total ?? 0)) + feeVnd;
+    const estimated = applyPct(base, Number(old.rate_pct_snapshot), 1);
+    // A reported fee on the penalty wins (BR-901 "số thực tế"); otherwise the earlier actual no longer fits
+    // the new base → back to the estimate.
+    const actual = input.channelFeeActualVnd ?? null;
+    if (
+      old.base_amount_vnd === base &&
+      old.amount_estimated_vnd === estimated &&
+      old.amount_actual_vnd === actual
+    ) {
+      return;
+    }
+    await tx.query(
+      `UPDATE channel_fee SET base_amount_vnd = $2, amount_estimated_vnd = $3, amount_actual_vnd = $4,
+          source = $5, updated_at = $6, version = version + 1
+        WHERE id = $1`,
+      [old.id, base, estimated, actual, actual === null ? 'estimate' : 'manual_reconcile', now],
+    );
+    await this.audit.recordMoney(tx, {
+      action: 'channel_fee.updated',
+      entityType: 'channel_fee',
+      entityId: input.reservationId,
+      entityCode: input.reservationCode,
+      before: { baseVnd: old.base_amount_vnd, amountEstimatedVnd: old.amount_estimated_vnd },
+      after: {
+        baseVnd: base,
+        amountEstimatedVnd: estimated,
+        amountActualVnd: actual,
+        source: actual === null ? 'estimate' : 'manual_reconcile',
+      },
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+  }
+
+  /**
+   * x-ota-prepaid-rule kept after a MANUAL change of the folio (re-verification 17/10, DOM BE-13): line
+   * adjustment / reversal (open or settled folio), FOC/discount decision, and B18 as a safety net before the
+   * balance check. Acts only when the booking already has its system receipt (paymentModel unknown here).
+   */
+  async resyncOtaCollect(
+    tx: Tx,
+    folioId: string,
+    reservationId: string | null,
+    actor: FolioActor,
+  ): Promise<void> {
+    const rid = reservationId ?? (await this.get(tx, folioId))?.primary_reservation_id;
+    if (!rid) return;
+    await this.syncOtaCollect(tx, folioId, rid, null, actor);
+  }
+
+  /**
    * DOM BE-13 / BR-307: an `ota_prepaid` booking has ONE live system receipt `ota_collect` (provider
    * `ota_system`, reconciliation `not_required` until the OTA payout reconciliation of R3) equal to the
-   * OTA-covered charges of the booking: nights and the fees the OTA keeps (cancellation, no-show, early
-   * departure), net of their approved FOC/discounts – never the extra-person fee (collected at the desk). Re-run after every change of those lines: a
-   * different amount → the old receipt is reversed (BR-008) and a new one written. `paymentModel` null =
-   * unknown here (fee posting, void): acts only when the folio already has a system receipt.
+   * OTA-covered charges of the booking: nights and the fees the OTA keeps (cancellation – BR-310, no-show,
+   * early departure), before any FOC/discount (none allowed on an OTA prepaid night – DOM 17/10) and never the
+   * extra-person fee (collected at the desk).
+   * Called by: the night sync (syncStay, voidStay), postLines of an OTA-covered category, reverseLine,
+   * adjustFolioLine, the FOC/discount decision and B18 (resyncOtaCollect). A different amount → the old
+   * receipt is reversed (BR-008) and a new one written. `paymentModel` null = unknown here: acts only when
+   * the booking already has a system receipt.
    * Lines of child bookings (B9a / OTA extension, direct channel) are paid at the desk – not covered.
    */
   async syncOtaCollect(
@@ -1036,9 +1121,7 @@ export class FolioService implements FolioStaySync {
             WHERE l.folio_id = $1 AND l.reservation_id = $2 AND l.line_state = 'posted'
               AND l.reversal_of_id IS NULL
               AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id))
-         SELECT COALESCE(SUM(c.amount_vnd), 0) + COALESCE((
-                  SELECT SUM(d.amount_vnd) FROM live d JOIN live c2 ON c2.id = d.related_line_id
-                   WHERE d.category IN ('foc', 'discount') AND c2.category = ANY($3::text[])), 0) AS total
+         SELECT COALESCE(SUM(c.amount_vnd), 0) AS total
            FROM live c WHERE c.category = ANY($3::text[])`,
         [folioId, reservationId, [...OTA_COVERED]],
       );

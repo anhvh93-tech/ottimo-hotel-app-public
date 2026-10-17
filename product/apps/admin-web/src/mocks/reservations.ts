@@ -782,7 +782,8 @@ export function createReservationMock(ctx: Ctx) {
                       from: b.from,
                       to: b.to,
                       roomBlockId: b.id,
-                      label: b.reason,
+                      // Same as the API (rack.service LABEL): an i18n key, not the block reason.
+                      label: 'status.block.ooo',
                     },
               ),
           ],
@@ -1143,6 +1144,7 @@ export function createReservationMock(ctx: Ctx) {
         note?: string;
         dryRun?: boolean;
         otaPenaltyVnd?: number;
+        otaPenaltyChannelFeeVnd?: number;
       };
       const g = body.dryRun ? pre : guard(request, [...FD_PLUS, ...SALES], { ifMatch: r.version });
       if (isResponse(g)) return g;
@@ -1161,6 +1163,9 @@ export function createReservationMock(ctx: Ctx) {
       const isOta = channelById(r.channelId)?.channelGroup === 'ota';
       if (body.otaPenaltyVnd !== undefined && !isOta)
         return validation([{ field: 'otaPenaltyVnd', code: 'OTA_PENALTY_OTA_ONLY' }]);
+      // 0.3.6 add. 4: the channel fee only goes with a penalty.
+      if (body.otaPenaltyChannelFeeVnd !== undefined && body.otaPenaltyVnd === undefined)
+        return validation([{ field: 'otaPenaltyChannelFeeVnd', code: 'NOT_ALLOWED' }]);
       if (body.reasonCode === 'ota_cancelled' && !isOta)
         return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
       // BR-309 (mock): ≥ 5 days before arrival → 50 % back; otherwise the deposit is kept.

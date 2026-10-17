@@ -379,9 +379,9 @@ export async function createReservation(
   s: StaffSession,
   body: Record<string, unknown>,
   idempotencyKey: boolean | string = true,
-  opts: { autoDeposit?: boolean } = {},
+  opts: { autoDeposit?: boolean; concurrentRetry?: boolean } = {},
 ): Promise<ApiResult<Reservation & ProblemFields>> {
-  const send = (b: Record<string, unknown>, key: boolean | string) =>
+  const once = (b: Record<string, unknown>, key: boolean | string) =>
     call<Reservation & ProblemFields>(
       ctx,
       'POST',
@@ -392,6 +392,26 @@ export async function createReservation(
         body: b,
       },
     );
+  // 409 CONCURRENT_UPDATE + Retry-After = "lưu đồng thời, thử lại" (EP02 3.4, BUG-R2-026: client tự gửi lại).
+  // Các ca song song của bộ test tranh cùng khóa (số chứng từ, tồn phòng) → gửi lại tối đa 2 lần với khóa
+  // Idempotency mới (khóa tự sinh). Ca đo đua đồng thời (concurrency.api.spec) tắt bằng concurrentRetry:false.
+  const send = async (b: Record<string, unknown>, key: boolean | string) => {
+    let r = await once(b, key);
+    for (
+      let i = 0;
+      i < 2 &&
+      key === true &&
+      opts.concurrentRetry !== false &&
+      r.status === 409 &&
+      r.body?.code === 'CONCURRENT_UPDATE';
+      i++
+    ) {
+      const wait = Math.min(Number(r.headers['retry-after'] ?? 1) || 1, 5);
+      await new Promise((ok) => setTimeout(ok, wait * 1000));
+      r = await once(b, key);
+    }
+    return r;
+  };
   const r = await send(body, idempotencyKey);
   const required = (r.body as { depositRequiredVnd?: number } | undefined)?.depositRequiredVnd;
   if (

@@ -190,3 +190,27 @@ Kết quả lệnh (DB `ottimo_test_beb` tạo lại):
   - ca mới `BUG-R2-036` của `registration-flow` – chạy riêng thì xanh, chạy cả bộ thì 401 do thứ tự đồng hồ.
 - format:check: 4 tệp chưa format, đều của BE-C (`registration/*`) và BE-A (`frontdesk.test.ts`).
 - Mọi tệp BE-B: xanh.
+
+## 12. Sửa đợt 4 + luật OTA của DOM 17/10 (OpenAPI 0.3.6 bổ sung 4)
+
+Chi tiết từng thẻ: `responses/s3-BE-B.md` mục 9.
+
+Thay đổi chính:
+- `FolioService.resyncOtaCollect`, được gọi ở `reverseLine`, `adjustFolioLine`, khi duyệt FOC và ở B18.
+- "Đã thu qua OTA" tính trước FOC.
+- 422 `FOC_NOT_ALLOWED_OTA_PREPAID`.
+- Tiền phạt hủy OTA ghi lên folio, phí kênh tính trên tiền phạt (`otaPenaltyChannelFeeVnd`).
+- B16 OTA hoàn phụ thu người.
+- Phí hủy B10 tính trên cọc chưa có ai yêu cầu hoàn, không vượt giá trị đơn.
+- Migration `0043_ota_collect_backfill_be_b.sql` (chỉ dữ liệu, journal idx 31).
+
+Test:
+- `ota-prepaid-flow.test.ts`: 7 ca, gồm các oracle BR-307-03/04, BR-310-01/02, BR-428-06.
+- `payments-s3`: ca B10 cọc vượt, bậc 0 % và 50 %.
+
+Kết quả (DB `ottimo_test_beb` tạo lại, migrate 32/32):
+- api: 57 tệp / 2.155 ca xanh. Các gói còn lại (trừ `@ottimo/tests`): xanh. build: xanh. drizzle: không có thay đổi.
+- Còn đỏ, đều ngoài vùng BE-B:
+  - `@ottimo/tests`: `smoke-manifest` thiếu TC-L3-074 (QA);
+  - lint: `infra/demo/seed-demo.mjs` (`GUEST` không dùng);
+  - format: `infra/demo/*.mjs`. Đây là tệp demo chưa track của ORC/OPS.

@@ -224,7 +224,6 @@ describe('money position – review S3 (DOM BE-13/14, ARC 13, E15-05)', () => {
         ln('n2', 'room', 900_000),
         ln('n2r', 'room', -900_000, { reversal_of_id: 'n2' }),
         ln('mb', 'minibar', 70_000),
-        ln('foc', 'foc', -100_000, { related_line_id: 'n1' }),
       ],
       [
         {
@@ -236,7 +235,8 @@ describe('money position – review S3 (DOM BE-13/14, ARC 13, E15-05)', () => {
         },
       ],
     );
-    expect(m).toMatchObject({ otaCoveredVnd: 800_000, otaExcessVnd: 1_000_000 });
+    // DOM 17/10 (BR-307): covered = the OTA room lines before any FOC (none allowed on an OTA prepaid night).
+    expect(m).toMatchObject({ otaCoveredVnd: 900_000, otaExcessVnd: 900_000 });
     expect(m).toMatchObject({ balanceDueVnd: 70_000, creditVnd: 0 });
   });
   it('payable credit: pending transfers count for nothing, a short cash handover for what arrived', () => {

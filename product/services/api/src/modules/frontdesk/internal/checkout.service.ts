@@ -402,6 +402,12 @@ export class CheckoutService {
     if (minibar.required && !minibar.checked) throw problem('MINIBAR_NOT_CHECKED');
     const pending = await this.pendingApprovals(tx, all);
     if (pending > 0) throw problem('PENDING_APPROVALS', { extras: { pendingApprovals: pending } });
+    // x-ota-prepaid-rule safety net (BE-B, re-verification 17/10): the OTA receipt matches the OTA-covered
+    // lines before the balance decides B18.
+    await this.s.folios.resyncOtaCollect(tx, folioId, row.id, {
+      userId: ctx.actor.userId,
+      reservationCode: row.code,
+    });
     const balance = await this.s.folios.balance(tx, folioId);
     if (balance.balanceDueVnd > 0 && !debt) {
       throw problem('BALANCE_DUE', { extras: { balanceDueVnd: balance.balanceDueVnd } });

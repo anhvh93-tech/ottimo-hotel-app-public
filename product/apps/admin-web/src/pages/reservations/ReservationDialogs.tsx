@@ -172,6 +172,8 @@ export function CancelDialog(
   const [reason, setReason] = useState<CancelReasonCode | ''>('');
   const [note, setNote] = useState('');
   const [penalty, setPenalty] = useState('');
+  // 0.3.6 add. 4 (BR-310/901): the real channel fee on the penalty, optional (else the commission rate).
+  const [penaltyFee, setPenaltyFee] = useState('');
   const [quote, setQuote] = useState<CancellationQuote | null>(null);
   const [quoteError, setQuoteError] = useState<unknown>(null);
   const [previewTick, setPreviewTick] = useState(0);
@@ -214,10 +216,22 @@ export function CancelDialog(
     ota && penalty.trim() && penaltyVnd === null
       ? t('field_error.amount_not_positive')
       : act.fields.otaPenaltyVnd;
+  const penaltyFeeVnd = penaltyVnd && penaltyFee.trim() ? parseVnd(penaltyFee) : undefined;
+  const penaltyFeeError =
+    penaltyFee.trim() && penaltyFeeVnd === null
+      ? t('field_error.amount_not_positive')
+      : act.fields.otaPenaltyChannelFeeVnd;
 
   const confirm = async () => {
     setTouched(true);
-    if (!quote || !reason || (reason === 'other' && note.trim().length < 3) || penaltyError) return;
+    if (
+      !quote ||
+      !reason ||
+      (reason === 'other' && note.trim().length < 3) ||
+      penaltyError ||
+      penaltyFeeError
+    )
+      return;
     const out = await act.run((version, idem) =>
       api.cancelReservation(
         { propertyId, reservationId: r.id },
@@ -225,6 +239,7 @@ export function CancelDialog(
           reasonCode: reason,
           note: note.trim() || undefined,
           otaPenaltyVnd: penaltyVnd ?? undefined,
+          otaPenaltyChannelFeeVnd: penaltyVnd ? (penaltyFeeVnd ?? undefined) : undefined,
         },
         version,
         idem,
@@ -344,6 +359,26 @@ export function CancelDialog(
                 inputMode="numeric"
                 value={penalty}
                 onChange={(e) => setPenalty(e.target.value)}
+              />
+              <span className="affix">{t('common.vnd_unit')}</span>
+            </div>
+          )}
+        </Field>
+      ) : null}
+      {ota && penaltyVnd ? (
+        <Field
+          label={t('cancel.ota_penalty_channel_fee')}
+          help={t('cancel.ota_penalty_channel_fee_help')}
+          error={penaltyFeeError}
+        >
+          {(p) => (
+            <div className="input-affix">
+              <input
+                {...p}
+                className="input num"
+                inputMode="numeric"
+                value={penaltyFee}
+                onChange={(e) => setPenaltyFee(e.target.value)}
               />
               <span className="affix">{t('common.vnd_unit')}</span>
             </div>

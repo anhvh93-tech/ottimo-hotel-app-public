@@ -8,6 +8,8 @@
  *   `id_image_unconfirmed_max_days` – after that J16 removes the images and opens its own event item).
  * - `visa_expiring` (warning): one item per booking, reservation code + room ONLY (SR-RET-06, PO 16/10 – the
  *   expiry date is read on the document screen with its C3 log).
+ * - `data_quality` / `registration_stay_not_closed` (warning): a booking still hold/confirmed/in house after its
+ *   planned departure that holds document images – J16 deletes them id_image_unconfirmed_max_days later.
  * Codes, counts, booking ids and room numbers only (SEC J / B-21).
  */
 import type {
@@ -99,5 +101,23 @@ export function registrationAttentionSources(regs: RegistrationService): Attenti
     }));
   };
 
-  return [declarations, visa];
+  // Re-verification Major a: a booking never closed after its departure that still holds document images.
+  const notClosed: AttentionSource = async (tx) => {
+    const stays = await regs.staysNotClosed(tx);
+    if (stays.length === 0) return [];
+    return [
+      {
+        kind: 'data_quality' as const,
+        source: 'computed' as const,
+        severity: 'warning' as const,
+        count: stays.length,
+        reservationIds: stays.map((st) => st.reservationId),
+        roomNos: roomsOf(stays),
+        ...(stays.length === 1 && stays[0] ? { refCode: stays[0].code } : {}),
+        params: { check: 'registration_stay_not_closed' },
+      },
+    ];
+  };
+
+  return [declarations, visa, notClosed];
 }

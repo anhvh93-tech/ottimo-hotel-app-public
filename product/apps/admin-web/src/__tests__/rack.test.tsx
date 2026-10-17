@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
-import { layoutRow, packLanes } from '../pages/rack/rackModel';
+import { translate } from '@ottimo/i18n';
+import { layoutRow, oooText, packLanes } from '../pages/rack/rackModel';
 import { renderApp, tv } from '../test/render';
 
 const grid = () => screen.findByRole('grid', { name: /Sơ đồ phòng/ });
@@ -51,7 +52,8 @@ describe('H08 Sơ đồ phòng (US-016, US-019, US-139, US-017 AC5a)', () => {
     expect(cellNamed(/Emma Laurent, Hợp đồng dài hạn.*Nhập tay/)).toBeTruthy();
     expect(cellNamed(/Gia đình anh Hưng.*Vượt định mức 1/)).toBeTruthy();
     expect(cellNamed(/Lê Minh, Giữ chỗ · chờ cọc.*còn \d+ giờ/)).toBeTruthy();
-    expect(cellNamed(/Khóa · hỏng bình nóng lạnh/)).toBeTruthy();
+    // The API's OOO label is the key `status.block.ooo` (no block reason on RackBar) → its text.
+    expect(cellNamed(new RegExp(tv('status.block.ooo')))).toBeTruthy();
     // Today column marked by the business date from the API (not computed by the client).
     expect(within(g).getByRole('columnheader', { name: /Hôm nay/ })).toBeInTheDocument();
     // US-139 AC1: red alert above the rack.
@@ -161,5 +163,34 @@ describe('H08 Sơ đồ phòng (US-016, US-019, US-139, US-017 AC5a)', () => {
     expect(screen.getByRole('button', { name: 'Đặt phòng mới' })).toBeDisabled();
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     fireEvent(window, new Event('online'));
+  });
+});
+
+describe('OPS demo 17/10 – the rack never shows a raw i18n key', () => {
+  const rawKey = /\b(?:status|rack|fo)\.[a-z_]+(?:\.[a-z_]+)*\b/;
+  const textAndLabels = () =>
+    [
+      document.body.textContent ?? '',
+      ...Array.from(document.querySelectorAll('[aria-label],[title]')).map(
+        (e) => `${e.getAttribute('aria-label') ?? ''} ${e.getAttribute('title') ?? ''}`,
+      ),
+    ].join(' ');
+
+  it('grid and list: the OOO bar (label = `status.block.ooo` from the API) reads "Khóa phòng"', async () => {
+    const { user } = renderApp('/rack', 'qa.fd');
+    await grid();
+    expect(textAndLabels()).not.toMatch(rawKey);
+    expect(cellNamed(new RegExp(tv('status.block.ooo')))).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Danh sách' }));
+    expect(textAndLabels()).not.toMatch(rawKey);
+  });
+
+  it('a free-text label (older servers / mock reasons) keeps "Khóa · {reason}"', () => {
+    const t = (k: string, a?: Record<string, string | number>) => translate('vi', k, a);
+    expect(oooText(t, 'status.block.ooo')).toBe(t('status.block.ooo'));
+    expect(oooText(t, undefined)).toBe(t('status.block.ooo'));
+    expect(oooText(t, 'hỏng bình nóng lạnh')).toBe(
+      t('rack.note.ooo', { reason: 'hỏng bình nóng lạnh' }),
+    );
   });
 });

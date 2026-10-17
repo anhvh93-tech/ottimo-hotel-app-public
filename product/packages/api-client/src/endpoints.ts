@@ -68,6 +68,7 @@ import type {
   DocumentCheckCode,
   ExtendStayBody,
   ExtendStayResult,
+  GuestLinkIssued,
   ExtensionOptions,
   FocRequestInput,
   Folio,
@@ -451,6 +452,14 @@ export function createEndpoints(api: ApiClient) {
         ifMatch: version,
         idempotencyKey: idem,
       }),
+    /** A22a: new guest link (old ones stop working) – the token is returned once, never stored. */
+    issueGuestLink: ({ propertyId, reservationId }: R, idem: string) =>
+      r<GuestLinkIssued>('POST', `${RES}/guest-link`, {
+        path: { propertyId, reservationId },
+        idempotencyKey: idem,
+      }),
+    revokeGuestLink: ({ propertyId, reservationId }: R) =>
+      r<void>('DELETE', `${RES}/guest-link`, { path: { propertyId, reservationId } }),
     undoCheckIn: (
       { propertyId, reservationId }: R,
       reason: string,

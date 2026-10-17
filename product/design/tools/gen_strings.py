@@ -2493,6 +2493,42 @@ g("R2 Sprint 3 – đợt 3: sửa lỗi QA (BUG-R2-032, BUG-R2-052 – response
     ("error.field_named", "Mục \"{label}\": {message}", "\"{label}\": {message}", None, "Lỗi ở trường không có ô trên màn (vd addPriorNight, cardsIssued, houseRulesSent): {label} = nhãn nút/ô tích tương ứng, {message} = câu field.* / common.required. Mã có câu riêng đủ nghĩa thì không ghép – BUG-R2-052"),
 ])
 
+g("R2 Sprint 3 – đợt 5: Cần chú ý đơn chưa đóng (BE-C) + OpenAPI 0.3.6 bổ sung 4 (luật OTA, link check-in online)", [
+    # Cần chú ý – data_quality / params.check = registration_stay_not_closed (BE-C attention-sources.ts)
+    ("attn.dq_stay_not_closed", "{n} đơn đã qua giờ trả phòng nhưng chưa trả phòng hoặc đánh dấu không đến", "{n} booking(s) past check-out time but not checked out or marked no-show", None, "AttentionItem kind=data_quality, params.check=registration_stay_not_closed, count>1"),
+    ("attn.dq_stay_not_closed_one", "Đơn {code} đã qua giờ trả phòng nhưng chưa trả phòng hoặc đánh dấu không đến", "Booking {code} is past check-out time but not checked out or marked no-show", None, "count=1 (có refCode)"),
+    ("attn.dq_stay_not_closed_body", "Ảnh giấy tờ của khách sẽ tự xóa {days} ngày sau ngày đi dự kiến. Trả phòng hoặc đánh dấu không đến trước khi ảnh bị xóa.", "The guests' ID photos will be deleted automatically {days} days after the planned departure. Check out or mark no-show before then.", None, "{days} ← tham số id_image_unconfirmed_max_days; không đọc được → _body_short"),
+    ("attn.dq_stay_not_closed_body_short", "Ảnh giấy tờ của khách sẽ tự xóa nếu đơn tiếp tục chưa đóng. Trả phòng hoặc đánh dấu không đến ngay.", "The guests' ID photos will be deleted automatically if the booking stays open. Check out or mark no-show now."),
+    # Bổ sung 4 (1) – nguồn đổi số khách đơn OTA trước nhận phòng (ReservationPatch.partyChangeSource)
+    ("rsv.party_source.legend", "Thay đổi số khách này đến từ đâu?", "Where does this guest-count change come from?", None, "Bắt buộc khi đổi số khách đơn kênh OTA ở hold/confirmed; FE chọn sẵn guest_direct (ARC 7.8)"),
+    ("rsv.party_source.guest_direct", "Khách báo trực tiếp với OTTIMO", "The guest told OTTIMO directly", None, "guest_direct"),
+    ("rsv.party_source.guest_direct_help", "Giữ số khách đã đặt qua {channel}; người vượt phần đó (và vượt định mức căn) phụ thu, thu tại quầy.", "Keeps the guest count booked via {channel}; guests above that (and above the room's standard occupancy) are charged at the desk.", None, "Phụ thu người vượt max(định mức, otaGuestCount)"),
+    ("rsv.party_source.ota_modification", "Khách đã sửa đơn trên {channel}", "The guest modified the booking on {channel}", None, "ota_modification – bắt buộc otaModificationRef"),
+    ("rsv.party_source.ota_modification_help", "Cập nhật số khách theo kênh; không phụ thu tại quầy vì kênh đã tính.", "Updates the guest count to match the channel; no desk surcharge because the channel has charged for it."),
+    ("rsv.ota_mod_ref", "Mã sửa đơn trên extranet", "Extranet modification reference", None, "otaModificationRef 3–64 ký tự"),
+    ("rsv.ota_mod_ref_help", "Chép đúng mã sửa đơn trên extranet của kênh (3–64 ký tự).", "Copy the modification reference exactly as shown on the channel's extranet (3–64 characters)."),
+    ("rsv.ota_guest_count", "Số khách đã tính qua kênh: {n}", "Guests paid through the channel: {n}", None, "Reservation.otaGuestCount (FD+, SAL)"),
+    ("field.NOT_ALLOWED", "Không áp dụng được cho đơn này.", "This doesn't apply to this booking.", None, "422 mã trường NOT_ALLOWED (vd partyChangeSource ở đơn không phải OTA, otaPenaltyChannelFeeVnd thiếu otaPenaltyVnd)"),
+    # Bổ sung 4 (2) – không FOC trên đêm OTA trả trước
+    ("field.FOC_NOT_ALLOWED_OTA_PREPAID", "Đêm này khách đã trả qua OTA nên không miễn/giảm tại quầy được. Muốn bù cho khách: miễn khoản phát sinh khác hoặc báo quản lý.", "This night was prepaid through the OTA, so it can't be waived or discounted at the desk. To make it up to the guest, waive another charge or ask a manager.", None, "422 field=kind (requestFoc trên dòng room đơn ota_prepaid)"),
+    ("folio.foc_ota_prepaid_note", "Đã thu qua OTA – không miễn/giảm dòng này.", "Prepaid via OTA – this line can't be waived or discounted.", None, "Thay nút FOC đã ẩn trên dòng phòng ota_prepaid"),
+    # Bổ sung 4 (3) – phí kênh trên tiền phạt hủy OTA
+    ("cancel.ota_penalty_channel_fee", "Phí kênh trên tiền phạt (tùy chọn)", "Channel fee on the penalty (optional)", None, "cancelReservation.otaPenaltyChannelFeeVnd"),
+    ("cancel.ota_penalty_channel_fee_help", "Bỏ trống: tính theo tỷ lệ hoa hồng của kênh. Chỉ nhập khi có tiền phạt.", "Leave empty to use the channel's commission rate. Only fill in when there's a penalty."),
+    # Link check-in online cho khách (issueGuestLink / revokeGuestLink – US-106, SR-GST-04)
+    ("rsv.guest_link.create", "Tạo link check-in online", "Create online check-in link", None, "issueGuestLink (FD+)"),
+    ("rsv.guest_link.reissue", "Tạo link mới", "Create a new link", None, "Đơn đã có link: xác nhận bằng gw.link_reissue_title"),
+    ("rsv.guest_link.revoke", "Thu hồi link", "Revoke link", None, "revokeGuestLink – xác nhận bằng gw.link_revoke_title"),
+    ("rsv.guest_link.title", "Link check-in online · đơn {code}", "Online check-in link · booking {code}"),
+    ("rsv.guest_link.once_warning", "Link chỉ hiện một lần. Sao chép và gửi khách ngay – đóng hộp này là không xem lại được; cần thì tạo link mới (link cũ ngừng hoạt động).", "This link is shown only once. Copy it and send it to the guest now – once you close this box you can't see it again; if needed, create a new link (the old one stops working).", None, "Cảnh báo bắt buộc trong hộp hiện link (token chỉ trả một lần – D25)"),
+    ("rsv.guest_link.send_note", "Gửi link trong tin nhắn riêng với khách của đơn này; không kèm mã cửa hay số căn.", "Send the link in a private message to this booking's guest; don't include the door code or room number."),
+    ("rsv.guest_link.send_private", "Gửi riêng 1–1 cho khách của đơn này, không gửi vào nhóm chat.", "Send it one-to-one to this booking's guest – never to a group chat.", None, "SEC: nhắc trên khung link check-in online, đặt cạnh nút Sao chép"),
+    ("rsv.guest_link.copy", "Sao chép link", "Copy link"),
+    ("rsv.guest_link.copied", "Đã sao chép link", "Link copied", None, "aria-live"),
+    ("rsv.guest_link.expires", "Hết hạn {time}", "Expires {time}", None, "{time} ← expiresAt (giờ cơ sở)"),
+    ("rsv.guest_link.revoked_toast", "Đã thu hồi link của đơn {code}.", "Link for booking {code} revoked."),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

@@ -81,6 +81,23 @@ export class FolioFocService {
     if (input.kind === 'special_discount' && line.category !== 'room') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_IN_LIST' }] });
     }
+    // DOM 17/10 (BR-307/431, oracle BR-307-03; OpenAPI 0.3.6 bổ sung 4): no FOC / special discount on an OTA
+    // prepaid night – a room line of a booking with its system receipt `ota_collect`. Make good with a FOC on a
+    // desk charge, a free night or a real refund (BR-522). OTA paid at the property: like Direct.
+    if (line.category === 'room') {
+      const { rows: prepaid } = await tx.query(
+        `SELECT 1 FROM folio_line l JOIN payment p
+            ON p.folio_id = l.folio_id AND p.reservation_id = l.reservation_id
+         WHERE l.id = $1 AND p.provider = 'ota_system' AND p.status = 'succeeded' AND p.reversal_of_id IS NULL
+         LIMIT 1`,
+        [line.id],
+      );
+      if (prepaid.length > 0) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'kind', code: 'FOC_NOT_ALLOWED_OTA_PREPAID' }],
+        });
+      }
+    }
     const { rows: used } = await tx.query<{ total: string | number }>(
       `SELECT COALESCE(-SUM(amount_vnd), 0) AS total FROM folio_line
         WHERE related_line_id = $1 AND category IN ('foc', 'discount')
@@ -184,6 +201,14 @@ export class FolioFocService {
         amountVnd: line.amount_vnd,
       },
     });
+    // x-ota-prepaid-rule (re-verification 17/10): an approved FOC/discount on an OTA-covered line lowers what
+    // the OTA collected for us – the system receipt follows at once.
+    if (request.status === 'approved') {
+      await this.folios.resyncOtaCollect(tx, line.folio_id, null, {
+        userId: request.approver_id,
+        ...(request.target_code ? { reservationCode: request.target_code } : {}),
+      });
+    }
   }
 
   private async line(tx: Tx, id: string): Promise<LineRow | null> {

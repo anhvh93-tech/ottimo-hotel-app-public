@@ -29,6 +29,11 @@ export interface StayView {
   roomNo: string | null;
   actualCheckinAt: Date | null;
   actualCheckoutAt: Date | null;
+  /** When the booking was cancelled / marked no-show (J16 end-of-stay mark – BE-C, re-verification 17/10). */
+  cancelledAt: Date | null;
+  noShowMarkedAt: Date | null;
+  /** Latest departure of the booking and its open children (B9a, OTA extension) – see StayViewRow. */
+  effectiveDepartureDate: LocalDate;
   parentReservationId: string | null;
 }
 
@@ -61,6 +66,9 @@ function toView(r: StayViewRow): StayView {
     roomNo: r.roomNo,
     actualCheckinAt: r.actualCheckinAt,
     actualCheckoutAt: r.actualCheckoutAt,
+    cancelledAt: r.cancelledAt,
+    noShowMarkedAt: r.noShowMarkedAt,
+    effectiveDepartureDate: r.effectiveDepartureDate,
     parentReservationId: r.parentReservationId,
   };
 }

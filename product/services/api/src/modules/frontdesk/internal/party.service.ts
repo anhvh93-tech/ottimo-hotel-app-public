@@ -25,6 +25,7 @@ import {
   FD_PLUS,
   Fields,
   type ReservationRow,
+  activeSegments,
   hasAny,
   loadReservation,
   recordChange,
@@ -153,6 +154,17 @@ export class PartyService {
     return this.dto(tx, ctx, row);
   }
 
+  /** Segment of the stay (primary + in-house children) holding the night `date`. */
+  private async segmentOfStay(tx: Tx, ids: readonly string[], date: LocalDate) {
+    for (const id of ids) {
+      const hit = (await activeSegments(tx, id)).find(
+        (s) => s.from_date <= date && s.to_date > date,
+      );
+      if (hit) return hit;
+    }
+    return this.s.segmentOn(tx, ids[0] as string, date);
+  }
+
   /** BR-110 band at the arrival date (age by calendar year – birth date is not collected, BR-612). */
   private async bandOf(
     tx: Tx,
@@ -205,15 +217,20 @@ export class PartyService {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: !dryRun });
     if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.s.stay.invalid(row);
     const inHouse = row.status === 'in_house';
+    // Fix round 4 (4): the stay's nights = this booking + its in-house children (OTA extension, ARC-05) – a
+    // person may join on a day that only has child-booking nights (the party lives on the primary booking).
+    let stayIds: string[] = [row.id];
     if (inHouse) {
       if (!effectiveFrom) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'effectiveFrom', code: 'REQUIRED' }],
         });
       }
+      const eff = await this.s.effectiveStay(tx, ctx, row);
+      stayIds = eff.ids;
       // Blocker verification ARC-S3-01: from tonight at the latest – a person announced for a later night is
       // added on that day (a future date would charge nights the guest may never stay).
-      if (effectiveFrom !== ctx.today || effectiveFrom >= row.departure_date) {
+      if (effectiveFrom !== ctx.today || effectiveFrom >= eff.departureDate) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'effectiveFrom', code: 'DATE_INVALID' }],
         });
@@ -270,7 +287,7 @@ export class PartyService {
           detail: 'update the guest counts of the booking first (updateReservation)',
         });
       }
-      const seg = await this.s.segmentOn(tx, row.id, effectiveFrom as LocalDate);
+      const seg = await this.segmentOfStay(tx, stayIds, effectiveFrom as LocalDate);
       const rm = seg.room_id ? await this.s.stay.room(tx, seg.room_id) : null;
       if (!rm) throw problem('RESERVATION_UNASSIGNED');
       roomId = rm.id;
@@ -302,8 +319,20 @@ export class PartyService {
       const p = await this.s.stay.peopleFromNight(tx, ctx, row, party, effectiveFrom as LocalDate, {
         write: false,
       });
-      nights = p.nights;
-      surcharge = Math.max(0, p.newVnd - p.oldVnd);
+      // Fix round 4 (3): the in-house children's nights are charged by the same decision (syncChildrenParty
+      // below) – the preview and `expectedSurchargeVnd` include them.
+      const c = await this.s.stay.syncChildrenParty(
+        tx,
+        ctx,
+        row,
+        party,
+        effectiveFrom as LocalDate,
+        {
+          write: false,
+        },
+      );
+      nights = p.nights + c.nights;
+      surcharge = Math.max(0, p.newVnd - p.oldVnd + c.newVnd - c.oldVnd);
       occupancyChange = {
         adults: next.adult,
         children6to11: next.child_6_11,

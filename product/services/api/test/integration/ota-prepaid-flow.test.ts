@@ -24,8 +24,16 @@ import type {
   CheckinDocumentStatus,
   FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import { FolioService } from '../../src/modules/folio/public/folio.service';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
-import { Client, type FeatureApp, P, setPassword, startFeatureApp } from '../helpers/feature-app';
+import {
+  Client,
+  type FeatureApp,
+  P,
+  TEST_PASSWORD,
+  setPassword,
+  startFeatureApp,
+} from '../helpers/feature-app';
 import {
   type BookingIds,
   seedBooking,
@@ -338,5 +346,297 @@ describe.skipIf(!HAS_DB)('OTA prepaid stay end to end (DOM BE-13, BE-14 d)', () 
     const out = await act(b.id, 'check-out', { checkoutTime: '11:00' });
     expect(out.statusCode, out.body).toBe(200);
     expect(await refunds()).toHaveLength(1);
+  });
+  it('Re-verification 17/10: B16 on an OTA booking, MGR edits the OTA-kept fee, FD voids it – the OTA receipt follows every edit; B18 200', async () => {
+    await at('2026-11-24T15:00:00+07:00');
+    await vacant('402');
+    const o = await ota('402', '2026-11-24', '2026-11-27', 2_700_000);
+    const ci = await act(o.id, 'check-in', { cardsIssued: 1, houseRulesSent: true });
+    expect(ci.statusCode, ci.body).toBe(200);
+    await at('2026-11-25T10:00:00+07:00');
+    const ed = await act(o.id, 'early-departure', {
+      newDepartureDate: '2026-11-26',
+      noticeGivenAt: '2026-11-25T10:00:00+07:00',
+      otaRetainedVnd: 450_000,
+    });
+    expect(ed.statusCode, ed.body).toBe(200);
+    const nights = await liveOf(o, o.id, 'room');
+    const collected = async () => (await otaCollect(o)).reduce((a, p) => a + p.amount_vnd, 0);
+    expect(await collected()).toBe(nights + 450_000);
+    const feeLine = async () =>
+      (
+        (await folio(o)).lines as Array<{
+          id: string;
+          category: string;
+          lineState: string;
+          reversalOfId?: string;
+          amountVnd: number;
+        }>
+      ).filter(
+        (l) => l.category === 'early_departure_fee' && l.lineState === 'posted' && !l.reversalOfId,
+      );
+    const live = async () => {
+      const all = await feeLine();
+      const reversed = new Set(
+        ((await folio(o)).lines as Array<{ reversalOfId?: string }>)
+          .map((l) => l.reversalOfId)
+          .filter(Boolean),
+      );
+      return all.filter((l) => !reversed.has(l.id));
+    };
+    // MGR corrects the fee the OTA keeps (extranet showed 600.000).
+    const [fee] = await live();
+    const f1 = await folio(o);
+    const mgrEdit = await c.mgr!.send(
+      'POST',
+      url(`/folios/${o.folioId}/lines/${fee!.id}/adjustments`),
+      { newUnitPriceVnd: 600_000, reason: 'Extranet Agoda ghi 600.000' },
+      { 'if-match': `"${f1.version}"` },
+    );
+    expect(mgrEdit.statusCode, mgrEdit.body).toBe(201);
+    expect(await collected()).toBe(nights + 600_000);
+    expect((await folio(o)).totals).toMatchObject({ balanceDueVnd: 0, otaExcessVnd: 0 });
+    // FD voids the fee line: the receipt drops with it, the bill prints the right "Đã thu qua Agoda".
+    const [fee2] = await live();
+    const f2 = await folio(o);
+    const fdVoid = await c.fd!.send(
+      'POST',
+      url(`/folios/${o.folioId}/lines/${fee2!.id}/adjustments`),
+      { voidLine: true, reason: 'OTA không giữ phí' },
+      { 'if-match': `"${f2.version}"` },
+    );
+    expect(fdVoid.statusCode, fdVoid.body).toBe(201);
+    expect(await collected()).toBe(nights);
+    const bill = (await c.fd!.get(url(`/folios/${o.folioId}/bill`))).json();
+    expect(bill.otaPrepaidVnd).toBe(nights);
+    expect(bill.balanceDueVnd).toBe(0);
+    await at('2026-11-26T11:00:00+07:00');
+    const out = await act(o.id, 'check-out', { checkoutTime: '11:00' });
+    expect(out.statusCode, out.body).toBe(200);
+  });
+  // ───────────── DOM 17/10 (BR-307/310/428 v0.3.4 bổ sung) ─────────────
+
+  const otaOn = (
+    channel: 'agoda' | 'booking',
+    model: 'ota_prepaid' | 'ota_pay_at_property',
+    room: string,
+    from: string,
+    to: string,
+    amount: number,
+    adults = 2,
+  ) =>
+    create({
+      roomId: ids.rooms[room],
+      channelId: ids.channels[channel],
+      adults,
+      bookerGuestId: guest,
+      paymentModel: model,
+      otaRef: `OT${randomUUID().slice(0, 8)}`,
+      otaRoomAmountVnd: amount,
+      arrivalDate: from,
+      departureDate: to,
+    });
+  const approve = (who: string, id: string) =>
+    c[who]!.send('POST', url(`/approval-requests/${id}/actions/approve`), {
+      authMethod: 'password',
+      secret: TEST_PASSWORD,
+    });
+
+  it('BR-307-03 / BR-307-04: no FOC on an OTA prepaid night (FOC on minibar is fine, "Đã thu qua" stays the nights); MGR edits a night after check-out → receipt follows, balance 0', async () => {
+    await at('2026-12-01T15:00:00+07:00');
+    await vacant('103');
+    const o = await ota('103', '2026-12-01', '2026-12-03', 1_800_000);
+    expect((await act(o.id, 'check-in', { cardsIssued: 1, houseRulesSent: true })).statusCode).toBe(
+      200,
+    );
+    const [mb] = await db.withContext(
+      { ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' },
+      (tx) =>
+        fa.app.get(FolioService).postLines(
+          tx,
+          o.folioId,
+          [
+            {
+              reservationId: o.id,
+              category: 'minibar',
+              description: 'Bia',
+              quantity: 2,
+              unitPriceVnd: 35_000,
+              amountVnd: 70_000,
+              serviceDate: '2026-12-01',
+              source: 'minibar_check',
+            },
+          ],
+          { userId: t.users.fd!.id, reservationCode: o.code },
+        ),
+    );
+    const lines = (await folio(o)).lines as Array<{
+      id: string;
+      category: string;
+      amountVnd: number;
+    }>;
+    const night = lines.find((l) => l.category === 'room')!;
+    const foc = (lineId: string, amountVnd: number) =>
+      c.fd!.send('POST', url(`/folios/${o.folioId}/lines/${lineId}/foc`), {
+        kind: 'foc',
+        amountVnd,
+        reasonCode: 'service_recovery',
+      });
+    const onNight = await foc(night.id, 900_000);
+    expect(onNight.statusCode).toBe(422);
+    expect(onNight.json().errors).toEqual([{ field: 'kind', code: 'FOC_NOT_ALLOWED_OTA_PREPAID' }]);
+    const onMinibar = await foc(mb as string, 70_000);
+    expect(onMinibar.statusCode, onMinibar.body).toBe(201);
+    expect((await approve('mgr', onMinibar.json().id)).statusCode).toBe(200);
+    expect((await folio(o)).totals).toMatchObject({ paidViaOtaVnd: 1_800_000, balanceDueVnd: 0 });
+    await at('2026-12-03T11:00:00+07:00');
+    expect((await act(o.id, 'check-out', { checkoutTime: '11:00' })).statusCode).toBe(200);
+    // BR-307-04: settled folio, MGR follows the extranet (900.000 → 850.000) – same transaction.
+    const f = await folio(o);
+    const adj = await c.mgr!.send(
+      'POST',
+      url(`/folios/${o.folioId}/lines/${night.id}/adjustments`),
+      { newUnitPriceVnd: night.amountVnd - 50_000, reason: 'Extranet Agoda ghi 850.000' },
+      { 'if-match': `"${f.version}"` },
+    );
+    expect(adj.statusCode, adj.body).toBe(201);
+    expect((await folio(o)).totals).toMatchObject({
+      paidViaOtaVnd: 1_800_000 - 50_000,
+      balanceDueVnd: 0,
+      creditVnd: 0,
+    });
+  });
+
+  it('BR-310-01 / BR-310-02: OTA cancellation penalty is other revenue – prepaid also "Đã thu qua OTA" (balance 0, channel fee on the penalty, no sold night); pay at property → due; penalty 0 → no line', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const cancel = async (b: Booking, penalty: number) =>
+      act(b.id, 'cancel', { reasonCode: 'ota_cancelled', otaPenaltyVnd: penalty });
+    const fees = (b: Booking) =>
+      q<{ amount_vnd: number; revenue_group: string }>(
+        `SELECT amount_vnd, revenue_group FROM folio_line WHERE folio_id = $1 AND category = 'cancellation_fee'`,
+        [b.folioId],
+      );
+    const pre = await otaOn('booking', 'ota_prepaid', '102', '2026-12-10', '2026-12-12', 1_800_000);
+    const out = await cancel(pre, 900_000);
+    expect(out.statusCode, out.body).toBe(200);
+    expect(await fees(pre)).toEqual([{ amount_vnd: 900_000, revenue_group: 'other' }]);
+    expect((await folio(pre)).totals).toMatchObject({ paidViaOtaVnd: 900_000, balanceDueVnd: 0 });
+    const [rate] = await q<{ pct: string }>(
+      `SELECT rate_pct_snapshot::text AS pct, base_amount_vnd, amount_estimated_vnd FROM channel_fee
+        WHERE reservation_id = $1`,
+      [pre.id],
+    );
+    const fee = await q<{ base_amount_vnd: number; amount_estimated_vnd: number }>(
+      'SELECT base_amount_vnd, amount_estimated_vnd FROM channel_fee WHERE reservation_id = $1',
+      [pre.id],
+    );
+    expect(fee[0]).toMatchObject({
+      base_amount_vnd: 900_000,
+      amount_estimated_vnd: Math.round((900_000 * Number(rate!.pct)) / 100),
+    });
+    expect(
+      await q(`SELECT 1 FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold'`, [
+        pre.id,
+      ]),
+    ).toHaveLength(0);
+    expect(
+      await q(`SELECT 1 FROM commission WHERE reservation_id = $1 AND status <> 'void'`, [pre.id]),
+    ).toHaveLength(0);
+    // Pay at the property: the penalty is due at the desk.
+    const pap = await otaOn(
+      'booking',
+      'ota_pay_at_property',
+      '103',
+      '2026-12-10',
+      '2026-12-12',
+      1_800_000,
+    );
+    expect((await cancel(pap, 900_000)).statusCode).toBe(200);
+    expect((await folio(pap)).totals).toMatchObject({ paidViaOtaVnd: 0, balanceDueVnd: 900_000 });
+    // The actual OTA fee on the penalty wins over the rate (otaPenaltyChannelFeeVnd, 0.3.6 bổ sung 4).
+    const rep = await otaOn('booking', 'ota_prepaid', '202', '2026-12-10', '2026-12-12', 1_800_000);
+    const noPenalty = await act(rep.id, 'cancel', {
+      reasonCode: 'ota_cancelled',
+      otaPenaltyChannelFeeVnd: 120_000,
+    });
+    expect(noPenalty.json().errors).toContainEqual({
+      field: 'otaPenaltyChannelFeeVnd',
+      code: 'NOT_ALLOWED',
+    });
+    const withFee = await act(rep.id, 'cancel', {
+      reasonCode: 'ota_cancelled',
+      otaPenaltyVnd: 900_000,
+      otaPenaltyChannelFeeVnd: 120_000,
+    });
+    expect(withFee.statusCode, withFee.body).toBe(200);
+    expect(
+      (
+        await q<{ amount_actual_vnd: number; base_amount_vnd: number }>(
+          'SELECT amount_actual_vnd, base_amount_vnd FROM channel_fee WHERE reservation_id = $1',
+          [rep.id],
+        )
+      )[0],
+    ).toEqual({ amount_actual_vnd: 120_000, base_amount_vnd: 900_000 });
+    // Prepaid, penalty 0: no line, nothing collected, nothing due.
+    const zero = await otaOn(
+      'booking',
+      'ota_prepaid',
+      '201',
+      '2026-12-10',
+      '2026-12-12',
+      1_800_000,
+    );
+    expect((await cancel(zero, 0)).statusCode).toBe(200);
+    expect(await fees(zero)).toEqual([]);
+    expect((await folio(zero)).totals).toMatchObject({ paidViaOtaVnd: 0, balanceDueVnd: 0 });
+  });
+
+  it('BR-428-06: B16 on an OTA booking – the extra-person fee collected for the dropped nights is the ONE refund request; B18 adds none', async () => {
+    await at('2026-12-20T15:00:00+07:00');
+    await vacant('302');
+    // Room 302: standard 3 (DS-E); OTA count 3 → the 4th adult pays BR-110 at the desk.
+    const o = await otaOn('agoda', 'ota_prepaid', '302', '2026-12-20', '2026-12-24', 3_600_000, 3);
+    expect((await act(o.id, 'check-in', { cardsIssued: 1, houseRulesSent: true })).statusCode).toBe(
+      200,
+    );
+    const add = (guestId: string, more: Record<string, unknown> = {}) =>
+      c.fd!.send('POST', url(`/reservations/${o.id}/party`), {
+        role: 'companion',
+        guestId,
+        effectiveFrom: '2026-12-20',
+        ...more,
+      });
+    expect((await add(companions[0]!)).statusCode).toBe(201);
+    const extraCompanion = await seedGuestRow(db, t, { name: 'Lê Bạn Ba' });
+    expect((await add(companions[1]!)).statusCode).toBe(201);
+    const fourth = await add(extraCompanion, {
+      applyExtraPersonSurcharge: true,
+      expectedSurchargeVnd: 600_000,
+    });
+    expect(fourth.statusCode, fourth.body).toBe(201);
+    expect(await liveOf(o, o.id, 'extra_person')).toBe(600_000);
+    const paid = await c.fd!.send('POST', url(`/folios/${o.folioId}/payments`), {
+      type: 'charge',
+      method: 'cash',
+      amountVnd: 600_000,
+    });
+    expect(paid.statusCode, paid.body).toBe(201);
+    await at('2026-12-22T10:00:00+07:00');
+    const ed = await act(o.id, 'early-departure', {
+      newDepartureDate: '2026-12-22',
+      noticeGivenAt: '2026-12-22T10:00:00+07:00',
+      otaRetainedVnd: 0,
+    });
+    expect(ed.statusCode, ed.body).toBe(200);
+    const refunds = () =>
+      q<{ amount_vnd: number }>(
+        `SELECT amount_vnd FROM approval_request WHERE type = 'refund' AND target_id = $1`,
+        [o.id],
+      );
+    expect(await refunds()).toEqual([{ amount_vnd: 300_000 }]);
+    await at('2026-12-22T11:00:00+07:00');
+    const out = await act(o.id, 'check-out', { checkoutTime: '11:00' });
+    expect(out.statusCode, out.body).toBe(200);
+    expect(await refunds()).toEqual([{ amount_vnd: 300_000 }]);
   });
 });

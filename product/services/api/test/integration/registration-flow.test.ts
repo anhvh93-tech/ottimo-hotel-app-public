@@ -13,6 +13,8 @@ import { RegistrationPortService } from '../../src/modules/registration/public/r
 import { JobRegistry } from '../../src/jobs/job-runner';
 import { RegistrationService } from '../../src/modules/registration/internal/registration.service';
 import { RetentionService } from '../../src/modules/registration/internal/retention.service';
+import { EncryptedBlobService } from '../../src/modules/files/public/encrypted-blob.service';
+import { normalizeImage } from '../../src/modules/files/public/image-pipeline';
 import { RegistrationPartyLink } from '../../src/modules/registration/public/party-port';
 import { serializeResponse } from '../../src/shared/serialization/serializer';
 import {
@@ -931,7 +933,11 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
         )
       ).rows.map((r) => r.ref_id),
     );
-    expect(attention).toEqual([out.registrationId, cancelled.registrationId].sort());
+    // (Other stays of this file never closed are swept by the same runs – only these two are asserted.)
+    expect(attention).toEqual(
+      expect.arrayContaining([out.registrationId, cancelled.registrationId]),
+    );
+    expect(attention).not.toContain(held.registrationId);
     fa.clock.set(T0);
   });
 
@@ -1395,8 +1401,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
         retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
       );
     };
-    // Day 6 after the stays ended: J16 gives every image its deadline (end + 7 days) – nothing deleted yet.
-    const first = await run('2026-10-26T05:00:00.000Z');
+    // Day 1 after the stays ended: J16 gives every image its deadline – nothing deleted yet.
+    const first = await run('2026-10-21T05:00:00.000Z');
     expect(first.scheduled).toBeGreaterThanOrEqual(5);
     for (const c of all) {
       const imgs = await imagesOfRegistration(c.registrationId);
@@ -1407,7 +1413,15 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       expect(imgs[0]?.delete_after).not.toBeNull();
       expect(await stayEndedAt(c.registrationId)).not.toBeNull();
     }
-    // Checked out 20/10 11:00 → due 27/10 11:00; cancelled / no-show → planned departure 20/10 12:00 → 27/10 12:00.
+    // Cancelled at T0 (15/10 09:00, `cancelledAt` – the real cancellation time, re-verification) → gone at
+    // 22/10 09:00 like the hook would have done; the others are still there.
+    expect(
+      (await imagesOfRegistration(partial.registrationId))[0]?.delete_after?.toISOString(),
+    ).toBe(new Date(T0.getTime() + 7 * 86_400_000).toISOString());
+    await run('2026-10-22T02:01:00.000Z');
+    expect((await imagesOfRegistration(partial.registrationId))[0]?.deleted_at).not.toBeNull();
+    expect((await imagesOfRegistration(review.registrationId))[0]?.deleted_at).toBeNull();
+    // Checked out 20/10 11:00 → due 27/10 11:00; no-show without a mark time → planned departure 20/10 12:00.
     await run('2026-10-27T05:01:00.000Z');
     for (const c of all) {
       const imgs = await imagesOfRegistration(c.registrationId);
@@ -1493,5 +1507,238 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     const after = await imagesOfRegistration(r.registrationId);
     expect(after.filter((i) => !i.deleted_at)).toHaveLength(1);
     expect(after.filter((i) => !i.deleted_at && !i.delete_after)).toHaveLength(0);
+    // Re-verification: a person without consent is deleted as `no_consent` (T01), not `retention` (T02).
+    expect(after.filter((i) => i.deleted_at).map((i) => i.delete_reason)).toEqual(['no_consent']);
+  });
+
+  it('Re-verification Major a: a booking never closed after its departure – "Cần chú ý", then J16 deletes the images 7 days after the planned departure', async () => {
+    const stuck: Array<{ reservationId: string; registrationId: string }> = [];
+    for (const [status, docNumber] of [
+      ['confirmed', '079400000001'],
+      ['in_house', '079400000002'],
+    ] as const) {
+      const { reservationId } = await seedStay(db, t, ids, {
+        adults: 1,
+        arrival: '2026-10-15',
+        departure: '2026-10-16',
+      });
+      const reg = await registrationOf(reservationId);
+      expect((await addDoc(reg.id, { ...an, docNumber }, 1)).statusCode).toBe(201);
+      if (status === 'in_house') {
+        await setStayStatus(db, t, reservationId, 'in_house', {
+          actualCheckinAt: new Date('2026-10-15T08:00:00.000Z'),
+        });
+      }
+      stuck.push({ reservationId, registrationId: reg.id });
+    }
+    // 16/10 13:00 local – past the 12:00 departure: the desk is told (data_quality / registration_stay_not_closed).
+    fa.clock.set(new Date('2026-10-16T06:00:00.000Z'));
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(`UPDATE user_session SET idle_expires_at = $1, expires_at = $1`, [
+        new Date(fa.clock.now().getTime() + 3_600_000),
+      ]),
+    );
+    const items = (await staff(fa, tok('fd'), device, 'GET', `${P(t)}/attention`)).json()
+      .data as Array<{ kind: string; params?: { check?: string }; reservationIds?: string[] }>;
+    const dq = items.find(
+      (i) => i.kind === 'data_quality' && i.params?.check === 'registration_stay_not_closed',
+    );
+    for (const sItem of stuck) expect(dq?.reservationIds).toContain(sItem.reservationId);
+    const retention = fa.app.get(RetentionService);
+    const run = (iso: string) => {
+      fa.clock.set(new Date(iso));
+      return db.withContext(t.ctx(), (tx) =>
+        retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+      );
+    };
+    // Departure + 6 days: still no deadline (the desk may still close the stay).
+    await run('2026-10-22T05:01:00.000Z');
+    for (const sItem of stuck) {
+      expect((await imagesOfRegistration(sItem.registrationId))[0]?.delete_after).toBeNull();
+    }
+    // Departure + 7 days: treated as ended at the planned departure → deleted in the same run.
+    await run('2026-10-23T05:01:00.000Z');
+    for (const sItem of stuck) {
+      const img = (await imagesOfRegistration(sItem.registrationId))[0];
+      expect(img).toMatchObject({ delete_reason: 'unconfirmed' });
+      expect(img?.deleted_at).not.toBeNull();
+    }
+  });
+
+  it('Fix round 4: an OTA parent 01–03 extended by a child 03–20 is still in house – images NOT deleted on day 10; deleted 7 days after the effective departure', async () => {
+    const parent = await seedStay(db, t, ids, {
+      adults: 1,
+      arrival: '2026-11-01',
+      departure: '2026-11-03',
+    });
+    const reg = await registrationOf(parent.reservationId);
+    expect((await addDoc(reg.id, { ...an, docNumber: '079400000009' }, 1)).statusCode).toBe(201);
+    await setStayStatus(db, t, parent.reservationId, 'in_house', {
+      actualCheckinAt: new Date('2026-11-01T08:00:00.000Z'),
+    });
+    // The extension (B13, BR-422): a child booking 03–20 in the same stay, in house.
+    const child = await seedStay(db, t, ids, {
+      adults: 1,
+      arrival: '2026-11-03',
+      departure: '2026-11-20',
+      status: 'in_house',
+    });
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE reservation SET parent_reservation_id = $2 WHERE id = $1', [
+        child.reservationId,
+        parent.reservationId,
+      ]),
+    );
+    const retention = fa.app.get(RetentionService);
+    const run = (iso: string) => {
+      fa.clock.set(new Date(iso));
+      return db.withContext(t.ctx(), (tx) =>
+        retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+      );
+    };
+    // BR-605 is checked against the stay as lived: with the child, the departure is 20/11, so a visa valid
+    // until 10/11 fails "visa valid through departure" (the parent alone ends 03/11).
+    const visa = await addDoc(
+      reg.id,
+      {
+        ...emma,
+        docNumber: 'C88X00V02',
+        visaKind: 'visa',
+        visaNumber: 'V7654321',
+        visaValidUntil: '2026-11-10',
+        entryDate: '2026-10-10',
+      },
+      1,
+    );
+    expect(visa.statusCode, visa.body).toBe(201);
+    const visaDoc = (
+      visa.json().documents as Array<{
+        docNumberLast4: string;
+        checks: Array<{ code: string; result: string }>;
+      }>
+    ).find((d) => d.docNumberLast4 === '0V02');
+    expect(visaDoc?.checks.find((c) => c.code === 'visa_valid_through_departure')?.result).toBe(
+      'fail',
+    );
+    // Day 10 (parent's own departure + 7 days has passed): still in house through the child → nothing.
+    await run('2026-11-10T06:00:00.000Z');
+    for (const img of await imagesOfRegistration(reg.id)) {
+      expect(img).toMatchObject({ delete_after: null, deleted_at: null });
+    }
+    const notClosed = await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationService).staysNotClosed(tx),
+    );
+    expect(notClosed.map((x) => x.reservationId)).not.toContain(parent.reservationId);
+    // Never closed after the EFFECTIVE departure (20/11 12:00) + 7 days → deleted.
+    await run('2026-11-27T05:01:00.000Z');
+    const gone = await imagesOfRegistration(reg.id);
+    expect(gone).toHaveLength(2);
+    for (const img of gone) {
+      expect(img).toMatchObject({ delete_reason: 'unconfirmed' });
+      expect(img.deleted_at).not.toBeNull();
+    }
+  });
+
+  it('Re-verification minor (K12): restoring a no-show withdraws the end-of-stay mark and the image deadlines', async () => {
+    const r = await sentRegistration('Châu Văn Nam', '079400000003');
+    await setStayStatus(db, t, r.reservationId, 'no_show');
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationPortService).onReservationVoided(tx, r.reservationId),
+    );
+    expect(await stayEndedAt(r.registrationId)).not.toBeNull();
+    expect((await imagesOfRegistration(r.registrationId))[0]?.delete_after).not.toBeNull();
+    await setStayStatus(db, t, r.reservationId, 'confirmed');
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RegistrationService).onReservationRestored(tx, r.reservationId),
+    );
+    expect(await stayEndedAt(r.registrationId)).toBeNull();
+    const imgs = await imagesOfRegistration(r.registrationId);
+    expect(imgs[0]).toMatchObject({ delete_after: null, deleted_at: null });
+  });
+
+  it('Re-verification Major b (A-38): removing a person through the real endpoint destroys what the guest uploaded for the person beyond the head count', async () => {
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const memberId = await db.withContext(t.ctx(), async (tx) => {
+      const guestId = await seedGuestRow(db, t, { name: 'Trịnh Thị Oanh' });
+      const id = randomUUID();
+      await tx.query(
+        `INSERT INTO reservation_guest (id, organization_id, property_id, reservation_id, guest_id, role,
+           relationship, price_age_band, created_at)
+         VALUES ($1, $2, $3, $4, $5, 'companion', 'friend', 'adult', $6)`,
+        [id, t.organizationId, t.propertyIds[0], reservationId, guestId, T0],
+      );
+      return id;
+    });
+    await setStayStatus(db, t, reservationId, 'in_house', {
+      actualCheckinAt: new Date('2026-10-15T01:30:00.000Z'),
+    });
+    // The guest uploaded documents for "person 1" and "person 2" through the link.
+    const image = await normalizeImage(await sampleJpeg('#336699'), 'image');
+    const regs = fa.app.get(RegistrationService);
+    for (const person of [1, 2]) {
+      await db.withContext(t.ctx(), (tx) =>
+        regs.guestUpload(tx, reservationId, person, 'passport', [image], randomUUID()),
+      );
+    }
+    const registrationId = (await registrationOf(reservationId)).id;
+    const before = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ person_index: number; data_key_id: string; blob_key: string }>(
+            `SELECT d.person_index, i.data_key_id, i.blob_key FROM guest_document d
+               JOIN document_image i ON i.guest_document_id = d.id WHERE d.registration_id = $1
+              ORDER BY d.person_index`,
+            [registrationId],
+          )
+        ).rows,
+    );
+    expect(before.map((b) => b.person_index)).toEqual([1, 2]);
+    const partyVersion = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ party_version: number }>(
+            'SELECT party_version FROM reservation WHERE id = $1',
+            [reservationId],
+          )
+        ).rows[0]!.party_version,
+    );
+    const removed = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'DELETE',
+      `${P(t)}/reservations/${reservationId}/party/${memberId}`,
+      { ifMatch: partyVersion },
+    );
+    expect(removed.statusCode, removed.body).toBe(204);
+    await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
+    const after = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{
+            person_index: number;
+            removed: boolean;
+            deleted: boolean;
+            destroyed: boolean;
+          }>(
+            `SELECT d.person_index, d.removed_at IS NOT NULL AS removed, i.deleted_at IS NOT NULL AS deleted,
+                  k.destroyed_at IS NOT NULL AS destroyed
+             FROM guest_document d JOIN document_image i ON i.guest_document_id = d.id
+             JOIN data_key k ON k.id = i.data_key_id
+            WHERE d.registration_id = $1 ORDER BY d.person_index`,
+            [registrationId],
+          )
+        ).rows,
+    );
+    expect(after).toEqual([
+      { person_index: 1, removed: false, deleted: false, destroyed: false },
+      { person_index: 2, removed: true, deleted: true, destroyed: true },
+    ]);
+    const store = fa.app.get<BlobStore>(BLOB_STORE);
+    expect(await store.get(before[1]!.blob_key)).toBeNull();
+    expect(await store.get(before[0]!.blob_key)).not.toBeNull();
   });
 });

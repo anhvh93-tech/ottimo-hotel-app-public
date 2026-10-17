@@ -94,6 +94,7 @@ export type CheckInBody = BodyOf<'checkIn'>;
 export type ExtensionOptions = Schemas['ExtensionOptions'];
 export type ExtendStayBody = BodyOf<'extendStay'>;
 export type ExtendStayResult = ResponseOf<'extendStay'>;
+export type GuestLinkIssued = ResponseOf<'issueGuestLink'>;
 export type LateCheckoutBody = BodyOf<'setLateCheckout'>;
 export type LateCheckoutResult = Schemas['LateCheckoutResult'];
 export type ChangeRoomBody = BodyOf<'changeRoom'>;

@@ -17,7 +17,7 @@ import { BookingDialog, type BookingPrefill } from '../booking/BookingDialog';
 import { LongStayDialog, type LongStayPrefill } from '../booking/LongStayDialog';
 import { ReservationDrawer } from '../reservations/ReservationDrawer';
 import { RackGrid } from './RackGrid';
-import type { RackBarX } from './rackModel';
+import { oooText, type RackBarX } from './rackModel';
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 const DAYS = 14;
@@ -408,7 +408,7 @@ function RackTable({
       .sort((a, b) => a.from.localeCompare(b.from));
   const label = (b: RackBarX) =>
     b.kind === 'ooo'
-      ? t('rack.note.ooo', { reason: b.label ?? '' })
+      ? oooText(t, b.label)
       : [
           b.guestDisplayName,
           b.kind === 'long_stay'
