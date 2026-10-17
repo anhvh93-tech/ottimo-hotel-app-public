@@ -24,7 +24,7 @@ describe('FE-06 exception (s3-SEC §8)', () => {
   const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
   beforeEach(() => {
     Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: (_: string) => Promise.resolve() },
+      value: { writeText: () => Promise.resolve() },
       configurable: true,
     });
   });
