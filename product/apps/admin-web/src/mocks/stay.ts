@@ -778,6 +778,18 @@ export function createStayMock(ctx: Ctx) {
    * 0.3.7 `CheckInPreview.amountDueAtCheckinVnd` (BUG-R2-038, BR-402 v0.3.6): balance now + early
    * surcharge / B9a night that check-in will post (the mock has no pending FOC on extras before B9).
    */
+  /** The night before arrival is held by another live booking of the same room (BR-906, BUG-R2-127). */
+  function priorTaken(r: MockReservation) {
+    const night = addDays(r.arrivalDate, -1);
+    return rsv().state.reservations.some(
+      (o) =>
+        o.id !== r.id &&
+        o.roomId === r.roomId &&
+        ['hold', 'confirmed', 'in_house'].includes(o.status) &&
+        o.arrivalDate <= night &&
+        o.departureDate > night,
+    );
+  }
   function dueAtCheckin(r: MockReservation, time: string, priorNight = false) {
     const sur = earlySurcharge(r, time);
     const posted = sur.addsPreviousNight && !priorNight ? 0 : sur.amountVnd;
@@ -1430,13 +1442,16 @@ export function createStayMock(ctx: Ctx) {
         earlyCheckinSurcharge: earlySurcharge(r, time),
         // 0.3.7 (BUG-R2-038): what B9 needs collected at this check-in time.
         balanceDueVnd: totals(r).balanceDueVnd,
+        // BUG-R2-127: the B9a night is due only when the night before is free in this room.
         amountDueAtCheckinVnd:
-          r.paymentModel === 'ota_prepaid' ? 0 : dueAtCheckin(r, time, time < '06:00'),
+          r.paymentModel === 'ota_prepaid'
+            ? 0
+            : dueAtCheckin(r, time, time < '06:00' && !priorTaken(r)),
         priorNight:
           time < '06:00'
             ? {
                 date: addDays(r.arrivalDate, -1),
-                available: true,
+                available: !priorTaken(r),
                 defaultRateVnd: earlySurcharge(r, time).amountVnd,
               }
             : undefined,
@@ -1460,6 +1475,9 @@ export function createStayMock(ctx: Ctx) {
         const body = (await request.json()) as Body;
         const lead = has(g.roles, LEAD_PLUS);
         if (body.documentBlockOverride && !lead) return problem(403, 'FORBIDDEN_ACTION');
+        // BUG-R2-127 (BE-A): no B9a night when the night before is taken in this room.
+        if (body.addPriorNight && priorTaken(r))
+          return validation([{ field: 'addPriorNight', code: 'NOT_ALLOWED' }]);
         // 0.3.7 (BUG-R2-038, BR-402 v0.3.6): `balance_paid` is judged AFTER the early surcharge / B9a
         // night and `payment` – minus the FOC asked on the surcharge; short → 409, nothing written.
         const pay = body.payment as Body | undefined;

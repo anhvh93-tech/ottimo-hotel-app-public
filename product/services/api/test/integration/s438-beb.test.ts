@@ -396,6 +396,174 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect((await request(foc)).foc_state).toBe('dormant');
   });
 
+  // ───────────── BUG-R2-129 / BUG-R2-130 (s4-money-reverification, vòng 2) ─────────────
+
+  const selfFoc = async (b: Booking, lineId: string, amountVnd: number) => {
+    const r = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines/${lineId}/foc`), {
+      kind: 'foc',
+      amountVnd,
+      reasonCode: 'regular_vip',
+      authMethod: 'password',
+      secret: TEST_PASSWORD,
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json().status).toBe('approved'); // BR-436
+    return r.json().id as string;
+  };
+  const beer = async (b: Booking) => (await liveBy(b, 'minibar'))[0]!;
+  /** FDL's remaining monthly FOC limit (BR-433) as the queue shows it. */
+  const remainingOf = async (who: string) =>
+    (await c[who]!.get(url('/approval-requests?limit=1'))).json().data[0]
+      ?.approverRemainingMonthlyVnd as number | undefined;
+
+  it('BUG-R2-129 / BR-434-15: 202, FOC 35.000 on the beers – 2 → 0 → 2 comes back by itself (folio 827.000, net 35.000); 2 → 0 → 1 net 0; the approver limit counted once', async () => {
+    const o = oracle('BR-434-15');
+    const run = async (key: 'a' | 'b', from: string, to: string) => {
+      const [first, ...rest] = o.input.sequences[key] as number[];
+      await at(`${from}T15:00:00+07:00`);
+      await vacant(o.input.roomNo);
+      const b = await direct(o.input.roomNo, from, to);
+      expect((await liveBy(b, 'room')).reduce((x, l) => x + l.amountVnd, 0)).toBe(
+        o.input.roomTotalVnd,
+      );
+      await checkIn(b);
+      await at(`${to}T09:00:00+07:00`);
+      await minibarCheck(b, { bia: first! });
+      const foc = await focOn(b, (await beer(b)).id, o.input.approvedFocVnd, 'fdl');
+      const limit = await remainingOf('fdl');
+      for (const [i, n] of rest.entries()) {
+        await minibarCheck(b, { bia: n });
+        expect((await request(foc)).foc_state).toBe(
+          i < rest.length - 1 && n === 0 ? 'dormant' : 'applied',
+        );
+      }
+      const ex = o.expected[key];
+      expect(await netOf(b, 'minibar')).toBe(ex.minibarNetVnd);
+      const live = await liveLines(b);
+      const minibarIds = new Set(live.filter((l) => l.category === 'minibar').map((l) => l.id));
+      expect(
+        live
+          .filter((l) => l.category === 'foc' && minibarIds.has(l.relatedLineId ?? ''))
+          .reduce((x, l) => x - l.amountVnd, 0),
+      ).toBe(ex.focAppliedVnd);
+      if (ex.folioTotalVnd) expect((await totals(b)).totalVnd).toBe(ex.folioTotalVnd);
+      // BR-433: restoring never asks the limit again
+      if (o.expected.approverLimitCountedOnce) expect(await remainingOf('fdl')).toBe(limit);
+    };
+    await run('a', '2028-03-08', '2028-03-09');
+    await run('b', '2028-03-29', '2028-03-30');
+  });
+
+  it('BUG-R2-129 (b): the desk voids the beer line (adjustments) then the recount posts 2 beers → FOC 35.000 back; 2 → 0 → 1 → net 0', async () => {
+    await at('2028-03-15T15:00:00+07:00');
+    await vacant('203');
+    const b = await direct('203', '2028-03-15', '2028-03-16');
+    await checkIn(b);
+    await at('2028-03-16T09:00:00+07:00');
+    await minibarCheck(b, { bia: 2 });
+    const foc = await selfFoc(b, (await beer(b)).id, 35_000);
+    const f = await c.fd!.get(url(`/folios/${b.folioId}`));
+    const v = await c.fd!.send(
+      'POST',
+      url(`/folios/${b.folioId}/lines/${(await beer(b)).id}/adjustments`),
+      { voidLine: true, reason: 'Ghi nhầm dòng bia' },
+      { 'if-match': f.headers.etag as string },
+    );
+    expect(v.statusCode, v.body).toBe(201);
+    expect((await request(foc)).foc_state).toBe('dormant');
+    await minibarCheck(b, { bia: 2 });
+    expect((await request(foc)).foc_state).toBe('applied');
+    expect(await netOf(b, 'minibar')).toBe(35_000);
+    await minibarCheck(b, {});
+    await minibarCheck(b, { bia: 1 });
+    expect((await request(foc)).foc_state).toBe('applied');
+    expect(await netOf(b, 'minibar')).toBe(0);
+  });
+
+  it('BUG-R2-129 (c): 101, FDL-approved FOC 35.000, beers 2 → 1 → 2 → 0 → 1 – total 667.000, due 0; the BR-433 limit is used once', async () => {
+    await at('2028-03-22T15:00:00+07:00');
+    await vacant('101');
+    const b = await direct('101', '2028-03-22', '2028-03-23');
+    await checkIn(b);
+    await at('2028-03-23T09:00:00+07:00');
+    await minibarCheck(b, { bia: 2 });
+    const foc = await focOn(b, (await beer(b)).id, 35_000, 'fdl');
+    const limit = await remainingOf('fdl');
+    for (const n of [1, 2, 0, 1]) await minibarCheck(b, { bia: n });
+    expect((await request(foc)).foc_state).toBe('applied');
+    expect(await totals(b)).toMatchObject({ totalVnd: 667_000, balanceDueVnd: 0 });
+    expect(await remainingOf('fdl')).toBe(limit);
+  });
+
+  it('BUG-R2-130 (a): 402, 2 beers (70.000) counted, beer taken off the list → recount keeps 70.000 (row carried); +1 snack = 100.000; B18 bills it', async () => {
+    await at('2026-12-01T15:00:00+07:00');
+    await vacant('402');
+    const b = await direct('402', '2026-12-01', '2026-12-02');
+    await checkIn(b);
+    await at('2026-12-02T09:00:00+07:00');
+    await minibarCheck(b, { bia: 2 });
+    const room = (await liveBy(b, 'room')).reduce((a, l) => a + l.amountVnd, 0);
+    await q('UPDATE item SET is_active = false WHERE id = $1', [items.bia]);
+    try {
+      const count = async (snack: number) => {
+        const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+          mode: 'checkout',
+          lines: DS_E.minibarItems
+            .filter((m) => m.code !== 'bia')
+            .map((m) => ({
+              itemId: items[m.code],
+              remainingQty: m.standardQtyPerRoom - (m.code === 'snack' ? snack : 0),
+            })),
+        });
+        expect(r.statusCode, r.body).toBe(201);
+        return r.json();
+      };
+      const first = await count(0);
+      expect(await netOf(b, 'minibar')).toBe(70_000);
+      expect(
+        (first.lines as Array<{ itemId: string; amountVnd: number }>).find(
+          (l) => l.itemId === items.bia,
+        )?.amountVnd,
+      ).toBe(70_000);
+      await count(1);
+      expect(await netOf(b, 'minibar')).toBe(100_000);
+      await at('2026-12-02T11:00:00+07:00');
+      const s = await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=11:00`));
+      expect(s.statusCode, s.body).toBe(200);
+      expect(s.json().amountDueAtCheckoutVnd).toBe(100_000);
+      const out = await act(b.id, 'check-out', {
+        checkoutTime: '11:00',
+        finalPayment: { type: 'charge', method: 'cash', amountVnd: 100_000 },
+      });
+      expect(out.statusCode, out.body).toBe(200);
+      expect((await totals(b)).totalVnd).toBe(room + 100_000);
+    } finally {
+      await q('UPDATE item SET is_active = true WHERE id = $1', [items.bia]);
+    }
+  });
+
+  it('BUG-R2-130 (b): coca counted (25.000), then its standard quantity set to 0 → recount keeps 25.000', async () => {
+    await at('2026-12-08T15:00:00+07:00');
+    await vacant('401');
+    const b = await direct('401', '2026-12-08', '2026-12-09');
+    await checkIn(b);
+    await at('2026-12-09T09:00:00+07:00');
+    await minibarCheck(b, { coca: 1 });
+    await q('UPDATE item SET minibar_standard_qty = 0 WHERE id = $1', [items.coca]);
+    try {
+      const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+        mode: 'checkout',
+        lines: DS_E.minibarItems
+          .filter((m) => m.code !== 'coca')
+          .map((m) => ({ itemId: items[m.code], remainingQty: m.standardQtyPerRoom })),
+      });
+      expect(r.statusCode, r.body).toBe(201);
+      expect(await netOf(b, 'minibar')).toBe(25_000);
+    } finally {
+      await q('UPDATE item SET minibar_standard_qty = 2 WHERE id = $1', [items.coca]);
+    }
+  });
+
   // ───────────── S438-FOC-03 (BR-434-14) / FOC-04: difference = key per night ─────────────
 
   it('FOC-03 / BR-434-14: FOC on the 1st night difference – no-show → suspended, B12 → applied 250.000, due back to 250.000', async () => {

@@ -348,3 +348,57 @@ Bối cảnh: theo DOM, giá gõ là giá lịch, bậc BR-107 áp lên trên. V
   - B18 19:00 gợi ý đêm thêm 700.000 (BR-416-02).
 - **Vitest api toàn bộ**: 2689/2689.
 - **E2E TC-L3-013 chưa chạy được** trên stack riêng của BE-A (API ts-node :3311): ca bị bỏ qua vì cần `E2E_COMPOSE_CONTROL=1` để làm sạch buồng, mà stack này không chạy bằng compose. Không dùng stack QA/demo. Nhờ QA chạy lại TC-L3-013 bằng `clock-run.sh` sau khi build lại stack QA từ cây chung.
+
+## 13. Phản hồi & sửa vòng 2 sau lượt kiểm lại S4-38 (commit 2f77889; `reviews/s4-money-reverification.md`; DOM bổ sung 18/10)
+
+### 13.1 Kết quả theo mã (test `test/integration/s438r2-money.test.ts`, 14 ca, PostgreSQL thật, số của báo cáo)
+| Mã | Sửa | Kiểm chứng |
+|---|---|---|
+| **BUG-R2-125** (P1, hồi quy) | `ReservationsService.addedNightFee(tx, ctx, row, side, roomBase)`: phụ thu người của đêm thêm lấy định mức của đêm liền kề (đêm đầu cho B9a, đêm cuối cho B18) từ `nightBases` = max(`protectedBaseOf`, định mức căn) – cùng nguồn với lệnh ghi. Dùng ở `priorNightDelta` (xem trước, trần QR `check_in`, kiểm `payment`), `extraNightDelta` (summary, trần QR `check_out`, kiểm `finalPayment`), nhánh OTA/HĐ ngoài (đơn con Trực tiếp), `feesForNewNights` và `createChildStay` | 302 (3 NL) B7 sự cố → 202, B9a 792.000: xem trước = trần QR = B9a = **2.026.000**, tổng 2.626.000, phụ thu 0. Swap 402 ↔ 101, B9a 667.000: **2.067.000**. B14 sự cố 402 → 203, B18 19:00: **792.000** = trần QR = B18. B14 302 → 201: QR `check_out` **708.000** rồi B18 → thừa 0. Đối chứng 202 đặt thẳng 3 NL: **2.226.000** (phụ thu 450.000) |
+| **BUG-R2-126** (P1, hồi quy) + R2PAY-04 | Mọi đơn ghi `pricing_snapshot.bookingRateSource` (`manual_agreed` hoặc `calendar`): B2, hold từ báo giá, đơn con B9a/B18, dài hạn nhập tay. Migration **0064** (dữ liệu; snapshot head sinh như các lần trước) bù cờ cho đơn cũ theo lúc đặt: có audit `reservation.priced` với `after.rateSource = 'manual'` → `manual_agreed`, còn lại `calendar`. Bỏ nhánh dự phòng `flag === undefined` trong `agreedRate`. Đêm S4-35/B9a/B13/B18 không đổi cờ | 203 sửa 650.000 → B9a **792.000**. 201 sửa 600.000 → B13 **708.000**, tổng **1.308.000** (gợi ý = ghi). 101 hai đêm sửa 600.000 → B18 **667.000** = summary = ghi. Sửa tăng 900.000: 203 thứ Sáu **911.000**, 202 thứ Tư **792.000**. Đơn cũ (xóa cờ, chạy lại câu UPDATE của 0064): thỏa thuận 302 → `manual_agreed`, B9a/B13/B18 **800.000**, tổng **4.000.000**; đơn lịch → `calendar` |
+| **BUG-R2-127** (P1) | `evaluate()` chỉ cộng `priorDeltaVnd` khi `priorNight.available`. `amountDueForQr` từ chối `addPriorNight`/`priorNightRateVnd` (422 `VALIDATION_FAILED`, `NOT_ALLOWED`) khi không có đêm trước trống | 103 đêm trước có khách: **1.000.000**; QR có `addPriorNight` → 422 `NOT_ALLOWED`; trần QR không cờ 1.000.000. 302: QR **1.234.000** rồi B9 14:00 → tổng 1.834.000, còn 0, thừa 0. Đối chứng 203 trống: **1.876.000** = trần = B9a, tổng 2.376.000 |
+| **BUG-R2-128 / BR-309-13** (P1) | `setNightRate` (S4-35) tính lại `deposit_required_vnd` bằng `requiredDepositAfterChange` (cùng quy tắc B7/B8), `guestRequest = false`, cả `hold`. Ngoại lệ "< 7 ngày giữ mức cũ" chỉ cho `guest_request` (B7/B8 `other`, `force_majeure`, sự cố, OTTIMO cũng không giữ) | 201 2 × 540.000 sửa khi còn 2 ngày: cọc yêu cầu **300.000**, phí **300.000**, hoàn **200.000**; có B7 sự cố xen vào: cùng số; no-show: giữ **300.000**, yêu cầu hoàn 200.000. 2 × 900.000: 500.000 / 0. 2 × 1.000.000, cọc 700.000: 600.000 / 100.000. Hold: **600.000 → 300.000** |
+| **BR-309-14** (S438R2-CANCEL-02) | Mức giữ do khách rút ngắn muộn lưu ở `pricing_snapshot.depositHeldVnd`. Mọi lần B7/B8/S4-35 sau: cọc yêu cầu = max(mức giữ, 30 % tiền phòng hiện hành). `requiredDepositAfterChange` trả `{ requiredVnd, heldVnd }` | 203: 7 → 2 đêm (còn 5 ngày) → 3 đêm (3 ngày) → OTTIMO đổi sang 202: cọc yêu cầu 1.600.000 cả 3 bước; hủy còn 2 ngày: phí **1.600.000**, hoàn 0 |
+| **BUG-R2-131** (P2) | `incidentalNet`: dòng đảo lấy loại của dòng nó đảo, FOC/giảm giá lấy loại của dòng theo `related_line_id`, đệ quy (dòng đảo của FOC trên chênh lệch đổi căn là tiền phòng) | Agoda 203 → 401, FOC 250.000, no-show + B12 → nhận phòng đòi **250.000**; → 402: **208.000**; 203 → 302 (FOC 125.000) → 401: **375.000**. Không trả → 409; trả đúng số → 200, folio 0/0. Đề nghị đóng BUG-R2-111 |
+| **BUG-R2-132** (P2) | `currentBookingRate` = `agreedRate(tx, row, 'last')` | 101 sau B9a thứ Bảy 767.000 → **null**, đêm 23/5 667.000, tổng **2.768.000**. 202 có đêm S4-35 → null, thứ Năm 792.000. 103 có đêm B13 gõ 700.000 → null, thứ Năm 750.000. Đơn thỏa thuận giữ giá (700.000 ở `s438-money`, 800.000 ở ca 0064) |
+| **BR-424-07** (MOVE-06, P3) | `changeRoom` so `expectedDeltaVnd` đã gửi kể cả khi chênh 0 → 409 `SURCHARGE_CHANGED`, không ghi | 202 → 203 sự cố, gửi 119.000 → 409, version và căn không đổi; gửi 0 → 200 |
+
+- **Thử đột biến** trên bản sao: 7 đột biến, mỗi cái bỏ một sửa. Mỗi đột biến làm đỏ đúng ca của mã đó: 127 (1 ca), 125 (3), 126 + 132 (2), 128 (3), 131 (1), BR-424-07 (1), BR-309-14 (1).
+- Bỏ `pendingFix` của **BR-309-13, BR-309-14, BR-424-07** (xóa đúng 1 dòng mỗi id).
+- Dọn: bỏ biến `party` không dùng ở `priorNightDelta`/`extraNightDelta` (eslint).
+- BUG-R2-123 và BUG-R2-133 để tuần Ổn định, theo ORC.
+
+### 13.2 Chạy lại test tái hiện `r2*` ở bản sao (`scratchpad/bea-s4/mirror`, DB mới)
+100 ca: 82 xanh, 18 đỏ. Cả 18 ca đều là test ghi hành vi cũ, hoặc trái hướng sửa ORC/DOM đã chốt. Không ca nào là lỗi mã:
+- **7 ca khẳng định cờ `bookingRateSource` vắng hoặc null**: `w-r2regr-0-0` SETUP, `w-r2regr-0-1` setup, `w-r2pay-0-1` W-D2, `w-r2pay-2-0` K1/K2/K4, `w-r2pay-2-1` K1. Nay mọi đơn có cờ `calendar` (BUG-R2-126). Trong các ca này, mọi kỳ vọng về tiền đều xanh; chỉ dòng kiểm cờ đỏ.
+- **7 ca đơn cũ**: `w-r2pay-3-0` L1/L3/L4/L5, `w-r2pay-3-1` L1/L2/C1. Test xóa cờ lúc chạy (sau khi migration đã chạy) để giả đơn cũ. Khi đã bỏ nhánh dự phòng, đơn không cờ được coi là đơn lịch. Đơn cũ thật được 0064 bù cờ. Ca 0064 trong `s438r2-money` (xóa cờ rồi chạy lại câu UPDATE) ra đúng số báo cáo: 800.000, tổng 4.000.000.
+- **2 ca E1b** (`w-r2pay-1-0`, `w-r2pay-1-1`): test tạo QR `check_in` với `addPriorNight: true` khi đêm trước có khách. Nay QR đó bị từ chối 422 (BUG-R2-127), nên không có tiền, và B9 14:00 → 409 `balance_paid`. Ca tương ứng trong `s438r2-money` (QR không cờ 1.234.000 → B9 → 0/0) xanh.
+- **2 ca "theo chữ BR-309-11"** (`w-r2cancel-1-0` W1x, `w-r2cancel-1-1` C1): DOM đã sửa chữ thành BR-309-14 (giữ 2.100.000).
+- Ghi chú: `w-r2cancel-0-0` và `-1-0` ghi log vào đường cố định. Phải tạo trước thư mục `scratchpad/bea-s4/w-r2cancel-*`, nếu không sẽ ENOENT.
+
+Người kiểm lại cần đổi kỳ vọng của 18 ca này.
+
+### 13.3 Kết quả lệnh (18/10 ~01:45)
+| Lệnh | Kết quả |
+|---|---|
+| vitest api toàn bộ, cây chung, DB mới `ottimo_test_bea_r2full2` | **2708/2708** (gồm `s438r2-money.test.ts` 14 ca) |
+| Lần chạy trước, DB mới `ottimo_test_bea_r2full` | 2707/2708. Ca đỏ: `registration-flow.test.ts` BUG-R2-036 purge (`t01Images ≥ 1`; tick dùng chung giữa các tệp chạy song song). Chạy riêng tệp: 22/22; chạy lại toàn bộ: xanh. Không thuộc module BE-A |
+| tsc; eslint `src` + `test`; prettier `src` + `test` | sạch (đã chạy prettier cho `0064_snapshot.json`) |
+| Migration 0064 | áp được trên DB mới (cả bộ test migrate từ đầu); `schema-parity`, `migrations-journal` xanh |
+
+### 13.4 Việc cho vai khác
+- **ARC** – sửa mô tả hợp đồng:
+  - `CheckInPreview.amountDueAtCheckinVnd`: chỉ cộng đêm B9a khi `priorNight.available`;
+  - `createVietQr purpose=check_in`: `addPriorNight` khi đêm trước không trống → 422 `NOT_ALLOWED`;
+  - `ExtensionOptions.currentBookingRateVnd`: null = đơn không có giá thỏa thuận lúc đặt; có giá thỏa thuận → giá lịch của đêm gõ cuối;
+  - `changeRoom.expectedDeltaVnd`: so cả khi chênh 0;
+  - `Reservation.depositRequiredVnd`: đổi theo S4-35.
+- **FE-A**: `CheckInPage.tsx` đọc `priorNight.available`, không gửi `addPriorNight` khi false (server nay trả 422).
+- **QA / người kiểm lại**: đổi kỳ vọng 18 ca ở 13.2; cập nhật bug-list (125, 126, 127, 128, 131, 132 đã sửa; đóng BUG-R2-111).
+- **OPS**: 0064 là migration dữ liệu. Sau khi deploy, kiểm `SELECT count(*) FROM reservation WHERE NOT (pricing_snapshot ? 'bookingRateSource')` = 0.
+
+### 13.5 Giả định (ghi decision-log, nhãn [GIẢ ĐỊNH BE-A])
+- (r2-1) Cờ của đơn cũ suy từ audit `reservation.priced` lúc tạo (`rateSource = 'manual'`), có từ Sprint 2. Đơn tạo thẳng bằng SQL (không có audit) → `calendar`.
+- (r2-2) Mức giữ BR-309-14 lưu ở `pricing_snapshot.depositHeldVnd`, không thêm cột. Mức giữ chỉ sinh khi `guest_request` làm giảm lúc còn < 7 ngày. Các thay đổi sau không xóa mức giữ. Nếu INV chọn ESC-023 B/C thì bỏ phần sinh mức giữ.
+- (r2-3) Đơn `hold` chưa có dòng folio. Vì vậy S4-35 trên hold chỉ đi qua cổng `StayNightPricingPort.setNightRate` (ca test gọi thẳng cổng). Desk hiện chưa có đường sửa giá hold qua folio.
+- (r2-4) `setNightRate` không tính lại cọc cho đơn OTA, nội bộ, HĐ ngoài và dài hạn (các đơn này không có cọc 30 % theo BR-305), giống B7/B8.

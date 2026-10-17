@@ -161,7 +161,8 @@ export class CheckinService {
         detail: 'check-in QR on the arrival business day (or the B9a window)',
       });
     }
-    if (!e.priorNight || !q.addPriorNight) {
+    if (!e.priorNight || !e.priorNight.available || !q.addPriorNight) {
+      // BUG-R2-127: no B9a night to sell (none, or the room is taken that night) → the option is refused.
       if (q.addPriorNight || q.priorNightRateVnd !== undefined) {
         throw problem('VALIDATION_FAILED', {
           errors: [
@@ -285,8 +286,9 @@ export class CheckinService {
     // S4-38 (S438-PAY-01/-02, REGR-01; BR-417-04…06): the B9a night counts as B9a WRITES it – the stay re-tiered
     // (BR-107 on the typed calendar price), the BR-110 fee of the added night – and the amount is clamped at 0 only
     // once everything is in (a credit on the folio absorbs a typed rate above the default).
+    // BUG-R2-127 (BR-417 (1)/(5)): a night before that is not free cannot be sold – nothing to collect for it.
     const priorDeltaVnd =
-      priorNight && room
+      priorNight && priorNight.available && room
         ? await this.priorNightDelta(
             tx,
             ctx,
@@ -370,16 +372,11 @@ export class CheckinService {
     rateVnd: number,
     otaPrepaid: boolean,
   ): Promise<number> {
-    const party = {
-      adults: row.adults,
-      children6to11: row.children_6_11,
-      childrenUnder6: row.children_under_6,
-    };
+    // BUG-R2-125: the fee of the added night from the SAME base the write uses (protected base, BR-429 (b2)).
     if (row.channel_group === 'ota' || row.external_contract) {
-      const asDirect = { ...row, channel_group: 'direct' as const };
       const fee = otaPrepaid
         ? 0
-        : this.s.stay.nightExtra(ctx, asDirect, party, room.base_occupancy).feeVnd;
+        : await this.s.stay.addedNightFee(tx, ctx, row, 'first', room.base_occupancy);
       return rateVnd + fee;
     }
     const kept = await this.s.stay.pricedNights(tx, row);
@@ -389,10 +386,7 @@ export class CheckinService {
     const before = kept.reduce((a, n) => a + n.amountVnd, 0);
     const after = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
     const fees = await this.s.stay.nightFees(tx, row);
-    const snap = row.pricing_snapshot as { extraPersonFeePerNightVnd?: number };
-    const fee = fees.some((n) => n.own)
-      ? this.s.stay.nightExtra(ctx, row, party, room.base_occupancy).feeVnd
-      : (snap.extraPersonFeePerNightVnd ?? 0);
+    const fee = await this.s.stay.addedNightFee(tx, ctx, row, 'first', room.base_occupancy);
     // Approved FOC / discounts follow the re-tiered nights (BR-434 – BE-B's allocation), as at B18 (S438-FOC-02).
     let focDelta = 0;
     if (row.folio_id) {
@@ -433,15 +427,17 @@ export class CheckinService {
   private async incidentalNet(tx: Tx, folioId: string): Promise<number> {
     const lines = (await this.s.folios.lines(tx, folioId)).filter((l) => l.line_state === 'posted');
     const byId = new Map(lines.map((l) => [l.id, l]));
-    const categoryOf = (l: (typeof lines)[number]): string => {
-      const target = l.reversal_of_id ?? l.related_line_id;
-      const t = target ? byId.get(target) : undefined;
-      return t && (l.reversal_of_id || l.category === 'foc' || l.category === 'discount')
-        ? categoryOfOriginal(t)
-        : l.category;
+    // BUG-R2-131: a reversal takes the category of what it reverses, a FOC / discount the category of the line
+    // it reduces – recursively (the reversal of a FOC on a room-change difference is room money).
+    const categoryOf = (l: (typeof lines)[number], depth = 0): string => {
+      if (depth > 8) return l.category;
+      const target = l.reversal_of_id
+        ? byId.get(l.reversal_of_id)
+        : (l.category === 'foc' || l.category === 'discount') && l.related_line_id
+          ? byId.get(l.related_line_id)
+          : undefined;
+      return target ? categoryOf(target, depth + 1) : l.category;
     };
-    const categoryOfOriginal = (l: (typeof lines)[number]): string =>
-      l.reversal_of_id ? (byId.get(l.reversal_of_id)?.category ?? l.category) : l.category;
     return Math.max(
       0,
       lines.reduce((a, l) => (ROOM_MONEY.has(categoryOf(l)) ? a : a + l.amount_vnd), 0),

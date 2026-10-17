@@ -5552,7 +5552,8 @@ export interface components {
       /**
        * @description **0.3.7 bổ sung 4 (S4-38, BR-309-11 v0.3.8 – ghi rõ, không thêm trường)**: một giá trị lưu (`reservation.deposit_required_vnd`), **hai nghĩa theo trạng thái**:
        *     (1) đơn `hold` – **cọc phải thu để xác nhận** (BR-305: % cọc × tiền phòng, làm tròn) – Desk hiện "còn thiếu cọc" = `depositRequiredVnd − depositPaidVnd` và đòi khách;
-       *     (2) từ `confirmed` trở đi – **cơ sở phí hủy/no-show** (BR-309, BR-311): tính lại sau mỗi B7/B8 = % cọc × tiền phòng **hiện hành** (giảm khi còn < 7 ngày và khách tự xin → giữ mức
+       *     (2) từ `confirmed` trở đi – **cơ sở phí hủy/no-show** (BR-309, BR-311): tính lại **mỗi khi tiền phòng đổi** – B7/B8 và sửa giá đêm S4-35 (BUG-R2-128, BE-A) – = % cọc × tiền phòng
+       *     **hiện hành** (giảm khi còn < 7 ngày và khách tự xin → giữ mức
        *     cũ); phí giữ = min(cọc đã thu, giá trị này, giá trị đơn). Desk **không** đòi cọc bổ sung khi giá trị này > `depositPaidVnd` ở đơn đã xác nhận (BR-429: không đòi cọc thêm khi đổi
        *     căn/ngày) – không hiện "còn thiếu cọc". Số dùng cho phí hủy hiện ở `CancellationQuote` (`retainedVnd`).
        */
@@ -5918,7 +5919,9 @@ export interface components {
        *     lệnh B9: bậc giảm BR-107 tính lại trên **tổng số đêm gồm đêm B9a** (áp mọi đêm), giá mặc định của đêm B9a theo lịch **của chính đêm đó**, phụ thu người vượt định mức của đêm B9a
        *     (BR-110), FOC chờ duyệt như trên, rồi trừ tiền thừa (`creditVnd`) và kẹp 0 **một lần** ở cuối. Giá đêm B9a lễ tân **gõ khác mặc định**: client **không** tự cộng chênh – số đúng
        *     là trần `createVietQr purpose=check_in` gửi kèm `priorNightRateVnd` (cùng hàm, tính lại cả bậc và tiền thừa) và trần `checkIn.payment` (vượt → 422 `AMOUNT_EXCEEDS_BALANCE`, `max`).
-       *     Bằng 0 → không tạo QR (BR-417-06).
+       *     Bằng 0 → không tạo QR (BR-417-06). **BUG-R2-127 (bổ sung 4)**: tiền đêm B9a **chỉ** cộng khi `priorNight.available = true`; đêm trước không trống (có khách/OOO) → số này không
+       *     gồm đêm B9a, Desk không mời B9a (đọc `priorNight.available`); `createVietQr purpose=check_in` gửi `addPriorNight` khi đó → 422 `NOT_ALLOWED` (`field` = `addPriorNight`); B9 gửi
+       *     `addPriorNight` → 409 `ROOM_UNAVAILABLE` + `suggestions[]` như cũ.
        */
       amountDueAtCheckinVnd?: components['schemas']['MoneyVnd'];
     };
@@ -5949,8 +5952,11 @@ export interface components {
       /** @description Phí kênh tiết kiệm cho **1 đêm** gia hạn (đơn OTA). 0.3.6 bổ sung 3 (QA S3, ARC 17/10): giữ để tương thích – client dùng `repricing[].channelFeeSavingsVnd` theo số đêm khách chọn (BUG-R2-045) */
       channelFeeSavingsVnd?: components['schemas']['MoneyVnd'];
       /**
-       * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá **ròng** một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
+       * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
        *     client hiện nút "Giữ giá đơn" điền giá này vào `nightlyRates` (vẫn kiểm sàn–trần BR-105; ngày đặc biệt luôn giá ngày đó). `null` = đơn theo lịch giá.
+       *     **0.3.7 bổ sung 4 (BUG-R2-132 – sửa chữ "giá ròng")**: là **giá thỏa thuận của đêm = giá lịch** (trước bậc BR-107/BR-111 – cùng nghĩa giá gõ tay BR-107 v0.3.8), không phải giá sau bậc.
+       *     Có giá trị **chỉ** với đơn giá thỏa thuận, xác định bằng **cờ nguồn giá của đơn** (BE-A ghi cho mọi đơn – migration `0064`, bù cờ cho đơn cũ theo các đêm lúc đặt); **`null`** với đơn
+       *     theo lịch giá, **kể cả** khi đơn có đêm sửa giá tay S4-35, đêm B9a/B13/B18 gõ tay – các thao tác đó không đổi nguồn giá của đơn.
        */
       currentBookingRateVnd?: components['schemas']['MoneyVnd'] | null;
       /**
@@ -10915,6 +10921,7 @@ export interface operations {
            * @default false
            */
           applyDifference?: boolean;
+          /** @description = `ChangeRoomPreview.folioDeltaVnd` client đã hiện (có thể âm). **0.3.7 bổ sung 4 (DOM MOVE-06, BR-424-07 – như DOM-S4-19 cho B7)**: đã gửi thì **luôn** phải khớp số tính lúc ghi, kể cả khi chênh = 0 – lệch → 409 `SURCHARGE_CHANGED` (kèm số mới), không lưu gì */
           expectedDeltaVnd?: components['schemas']['MoneyVnd'];
           /**
            * @description 0.3.7 (S4-09; DOM 17/10 BR-424 bổ sung – lượt có đơn con gia hạn). `whole_stay` (như 0.3.6): mọi đêm từ `effectiveDate` của đơn gốc **và** đơn con `in_house` sang căn mới;
@@ -13533,7 +13540,7 @@ export interface operations {
           purpose?: 'deposit' | 'balance' | 'check_in' | 'check_out' | 'billing_period';
           /** @description 0.3.7 – chỉ `purpose=check_in` (như `previewCheckIn.checkinTime`); purpose khác → 422 `NOT_ALLOWED` */
           checkinTime?: components['schemas']['LocalTime'];
-          /** @description 0.3.7 – chỉ `purpose=check_in` */
+          /** @description 0.3.7 – chỉ `purpose=check_in`. **0.3.7 bổ sung 4 (BUG-R2-127)**: đêm trước không trống (`CheckInPreview.priorNight.available = false`) → 422 `NOT_ALLOWED` (`field` = `addPriorNight`) */
           addPriorNight?: boolean;
           /** @description 0.3.7 – chỉ `purpose=check_in` khi `addPriorNight`. **0.3.7 bổ sung 3 (BE-B (f))**: gửi mà không kèm `addPriorNight = true` → 422 `NOT_ALLOWED` (`field` = `priorNightRateVnd`) */
           priorNightRateVnd?: components['schemas']['MoneyVnd'];

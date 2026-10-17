@@ -563,6 +563,17 @@ API dùng theo `outputs/BE/s4-be-b.md` mục 9 (bản vá BE-B ORC đã áp vào
 
 ---
 
+## Phần FE-A – đợt 11: BUG-R2-127 (P1) – đêm trước ngày đến đã có khách (18/10/2026)
+
+- `CheckInPage.tsx` đọc `CheckInPreview.priorNight.available`. Khi `false`:
+  - Không coi là B9a: không có ô "đã báo khách", không gửi `addPriorNight`/`priorNightRateVnd`, QR `check_in` không kèm đêm đó.
+  - Số cần thu = số dư hiện tại, không cộng đêm trước.
+  - Thay câu B9a bằng câu báo `checkin.prior_night_taken` (chuỗi mới, chờ UXD duyệt). Nút Nhận phòng khóa, gắn câu đó, vì trước mốc đổi ngày máy chủ không cho nhận phòng nếu thiếu B9a (BR-417).
+- Mock: `priorNight.available` tính theo đơn khác giữ căn đêm trước; preview không cộng đêm đó; B9 kèm `addPriorNight` khi đêm đã có khách → 422 `NOT_ALLOWED` (như BE-A).
+- Unit: 1 ca mới trong `s4-38-fea.test.tsx`; admin-web **324/324**; `tsc`, eslint xanh. Không có ca E2E UI nào chạm B9a, nên không chạy E2E.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

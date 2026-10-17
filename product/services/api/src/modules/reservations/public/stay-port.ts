@@ -118,6 +118,17 @@ export class ReservationStayPort {
     return this.reservations.nightExtra(ctx, row, party, baseOccupancy);
   }
 
+  /** S4-38 (BUG-R2-125): the fee of a night added before/after the stay, as the write gives it. */
+  addedNightFee(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    side: 'first' | 'last',
+    roomBase: number,
+  ): Promise<number> {
+    return this.reservations.addedNightFee(tx, ctx, row, side, roomBase);
+  }
+
   nightFees(tx: Tx, row: ReservationRow) {
     return this.reservations.nightFees(tx, row);
   }

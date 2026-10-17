@@ -2758,6 +2758,7 @@
   "checkout.extra_night_rate_help_tier": "Giá lịch của đêm, trước giảm dài ngày. Mặc định giá Trực tiếp đêm nay; sửa được trong sàn – trần. Số cần thu do máy chủ tính, đã gồm giảm nếu có.",
   "checkout.due_computing": "Đang tính số cần thu theo giá đêm thêm…",
   "checkout.typed_due_failed": "Chưa tính được số cần thu theo giá này – số bên dưới theo giá mặc định; máy chủ tính lại khi hoàn tất.",
+  "checkin.prior_night_taken": "Đêm {date} căn này đã có khách nên không thêm được đêm trước. Trước 06:00 chưa nhận phòng được – nhận từ 06:00, hoặc đổi sang căn còn trống.",
   "drawer.deposit_fee_base": "Cơ sở phí hủy (cọc theo tiền phòng hiện tại)",
   "msg.booking_confirmed": "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
   "msg.deposit_received": "Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}",

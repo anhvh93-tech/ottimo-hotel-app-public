@@ -225,7 +225,10 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   );
   const sur = p?.earlyCheckinSurcharge;
   const amount = sur?.amountVnd ?? 0;
-  const priorNight = !!sur?.addsPreviousNight;
+  // BUG-R2-127 (P1): B9a only when the night before is free (`priorNight.available`, BR-906). Taken → no prior
+  // night is offered, sent or collected; before the day rollover the guest cannot be checked in (BR-417).
+  const priorTaken = !!sur?.addsPreviousNight && p?.priorNight?.available === false;
+  const priorNight = !!sur?.addsPreviousNight && !priorTaken;
   const roomCond = cond('room_ready');
   const docCond = cond('document_check_block');
   const ooo = roomCond && !roomCond.met && roomCond.detail === 'OOO';
@@ -241,14 +244,17 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     registration?.kind === 'foreigner_temp_residence' || registration?.kind === 'mixed';
   const deadline = p?.registrationDeadlinePreview;
 
-  const needTold = early && amount > 0;
+  const needTold = early && amount > 0 && !priorTaken;
   // S4-10 (BUG-R2-038, BR-402 v0.3.6): what B9 needs collected = balance + the charge / B9a night it is
   // about to post (server `amountDueAtCheckinVnd`) − a FOC asked on that charge (not collected now).
   const focAsked = needTold && toldGuest && askFoc && focReason && !priorNight ? amount : 0;
   const balanceNow = p?.balanceDueVnd ?? balance;
   // ARC 0.3.7 bổ sung 4: the server's figure in full (B9a step, person fee, credit, clamped once) – no
   // client addition; only the FOC asked in THIS call (not known to the preview) is taken off (BR-402).
-  const due = Math.max(0, (p?.amountDueAtCheckinVnd ?? balanceNow) - focAsked);
+  const due = Math.max(
+    0,
+    (priorTaken ? balanceNow : (p?.amountDueAtCheckinVnd ?? balanceNow)) - focAsked,
+  );
   // B9 carries the payment (cash/transfer/POS) for the amount the desk really took (FE-S4-01).
   const payCheck = inlinePayment(pay, due);
   const payInline = !requestOnly && due > 0 && payCheck.ok;
@@ -277,21 +283,31 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     return true;
   });
   const canSubmit =
-    online && houseRules && (!needTold || toldGuest) && blocking.length === 0 && !waitingLead;
+    online &&
+    houseRules &&
+    !priorTaken &&
+    (!needTold || toldGuest) &&
+    blocking.length === 0 &&
+    !waitingLead;
   // FE-S3-04: the first missing thing, said next to the locked button (aria-describedby).
-  const whyLocked = !houseRules
-    ? t('ci.submit_needs_rules')
-    : needTold && !toldGuest
-      ? t('ci.submit_needs_told')
-      : blocking.length === 1 && blocking[0]!.code === 'balance_paid'
-        ? payCheck.ok
-          ? t('ci.submit_needs_pay', { amount: money(due) })
-          : payBlockText(payCheck.block)
-        : blocking.length
-          ? t('ci.submit_needs_conditions', { n: blocking.length })
-          : waitingLead
-            ? t('ci.waiting_lead')
-            : null;
+  const priorTakenText = t('checkin.prior_night_taken', {
+    date: p?.priorNight?.date ? p.priorNight.date.split('-').reverse().slice(0, 2).join('/') : '',
+  });
+  const whyLocked = priorTaken
+    ? priorTakenText
+    : !houseRules
+      ? t('ci.submit_needs_rules')
+      : needTold && !toldGuest
+        ? t('ci.submit_needs_told')
+        : blocking.length === 1 && blocking[0]!.code === 'balance_paid'
+          ? payCheck.ok
+            ? t('ci.submit_needs_pay', { amount: money(due) })
+            : payBlockText(payCheck.block)
+          : blocking.length
+            ? t('ci.submit_needs_conditions', { n: blocking.length })
+            : waitingLead
+              ? t('ci.waiting_lead')
+              : null;
   const payLine = payInline
     ? t('ci.effect_pay', {
         amount: money(payCheck.ok ? payCheck.amountVnd : due),
@@ -745,7 +761,9 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                 </Field>
               ) : null}
               <div aria-live="polite">
-                {!time ? null : priorNight ? (
+                {!time ? null : priorTaken ? (
+                  <Alert tone="bad">{priorTakenText}</Alert>
+                ) : priorNight ? (
                   <Alert tone="info">
                     {t('checkin.prior_night', {
                       date: p?.priorNight?.date
@@ -763,7 +781,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                   <p>{t('sur.early_zero', { std: stdIn })}</p>
                 )}
               </div>
-              {amount > 0 ? (
+              {amount > 0 && !priorTaken ? (
                 <>
                   <Checkbox checked={toldGuest} onChange={setToldGuest}>
                     {t('ci.told_guest')}

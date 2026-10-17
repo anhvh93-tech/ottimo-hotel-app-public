@@ -351,3 +351,34 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
   - viết test đọc các dòng oracle chưa có test (ít nhất BR-315-03…05, BR-429-01/02/13).
 - **Luật mới BR v0.3.8** (giá gõ tay = giá lịch, bậc 7 đêm áp mọi đêm, cọc yêu cầu và cờ cao điểm tính lại sau B7/B8, FOC trên `room_change_difference` tạm dừng khi no-show): QA chờ CI `72fa486`. Ca E2E nào ghi số theo luật cũ sẽ sửa theo oracle mới (danh sách ca có thể ảnh hưởng đã báo ORC).
 
+#### 7.8.1 Lượt kiểm lại S4-38 trên `2f77889` – **cổng QC Sprint 4 lùi sang tuần Ổn định** (18/10)
+- **Căn cứ:** báo cáo `rounds/round-02/reviews/s4-money-reverification.md` (critic chấm `2f77889`); CI **39052448947** xanh trên `2f77889` (E2E 1.875 đạt).
+- **Mã cũ:**
+  - **Closed:** 095, 108, 109, 110, 112…122, 124.
+  - **Fixed:** 111 – phần `incidentalNet` tách thành BUG-R2-131; đóng khi QC đồng ý tách hoặc khi 131 đóng.
+  - **Open:** 123 (tuần Ổn định).
+- **Mã mới:**
+  - **BUG-R2-125…130 (P1, Open)** – 125 và 126 là **hồi quy do chính vòng sửa**;
+  - BUG-R2-131, 132 (P2, Open);
+  - BUG-R2-133 (P3, tuần Ổn định).
+  - Chi tiết, người sửa và số đúng ở `bug-list.md` mục 11.10.
+- **Kết luận critic với `2f77889`:**
+  - **G1 không đạt** – còn 7 phát hiện sai tiền (6 mã 125…130), trong đó 125 và 127 là "xem trước ≠ lệnh ghi" ở B9a/B18;
+  - **G7 không đạt** – 6 mã P1 Open.
+- **Quyết định:** áp quy tắc lùi cổng (sprint-4-plan mục 11.2; decision-log 18/10): **cổng QC Sprint 4 lùi sang tuần Ổn định**, không cấp ngoại lệ tiền.
+- **Điều kiện vào cổng** (critic, mục "Khuyến nghị cổng QC Sprint 4"):
+  1. Đóng BUG-R2-125…130, mỗi mã có test oracle với số ở bảng "Major-fix-now theo gốc".
+  2. Sửa cùng vòng BUG-R2-131 (rồi đóng 111) và BUG-R2-132. BUG-R2-123 và 133 sang tuần Ổn định, kèm kế hoạch. Với 133: OPS/QA xác nhận DB dùng thử không có đơn origin NULL từ trước 0059, hoặc đã sửa các đơn đó.
+  3. DOM chốt (không chặn BE sửa 125–130): (a) BR-434 không có ngoại lệ (m); (b) BR-309-11 "tiền phòng hiện hành" gồm giá sửa S4-35 + ngoại lệ < 7 ngày; (c) chữ BR-309-11 cho chuỗi rút muộn rồi kéo dài (cùng ESC-023); (d) R2FOC-03; (e) MOVE-06.
+  4. ARC sửa mô tả `CheckInPreview.amountDueAtCheckinVnd` và `ExtensionOptions.currentBookingRateVnd`; FE-A sửa `CheckInPage.tsx` đọc `priorNight.available`.
+  5. Lượt kiểm lại trên commit sửa: chạy **toàn bộ** `test/s438/r2*/` và `w-r2*/`; 0 ca đỏ ngoài Note; xem trước = trần QR = lệnh ghi ở B9a và B18, kể cả đơn có định mức bảo vệ; critic chấm lại một lượt ngắn. FOC-01 qua Desk H16 thật **chưa chạy**.
+  6. ORC ghi decision-log: S4-37 `otaPenaltyVnd` "không sai tiền"; S4-47 chỉ kết luận sau khi đóng BUG-R2-125.
+  7. **QA:**
+     - gỡ `pendingFix` cho 14 dòng (11 dòng khớp oracle trên `2f77889`: BR-110-10/11/12, BR-416-03, BR-522-02, BR-412-12/13/14, BR-424-02/03, BR-428-04; 3 dòng đang xanh: BR-416-02, BR-527-06, BR-903-04);
+     - cập nhật bug-list (124 đã sửa, tách 131) – **đã làm** (mục 11.10).
+  8. G5: api và E2E xanh trên đúng commit chấm; thêm ca cho gap chạm tiền còn thiếu: hoa hồng S4-03 sau B8, khi hủy, khi no-show; đua nhận phòng ‖ duyệt FOC; đua xác nhận QR ‖ B9. Không kịp thì ORC ghi rõ việc dời sang tuần Ổn định.
+- **Việc QA trong tuần Ổn định:**
+  - gỡ `pendingFix` (điều kiện 7);
+  - ca E2E cho FOC-01 qua H16 (S4-25) và các gap ở điều kiện 8;
+  - chạy lại E2E trên commit sửa 125…132 và kiểm các ca E2E có số theo luật BR v0.3.8.
+

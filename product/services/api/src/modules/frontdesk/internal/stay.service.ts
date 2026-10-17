@@ -220,10 +220,9 @@ export class StayService {
    * stay applies on it; returning the discounted price made B13 discount it twice). null = calendar prices.
    */
   private async currentBookingRate(tx: Tx, row: ReservationRow): Promise<number | null> {
-    if (row.channel_group === 'ota' || row.external_contract) return null;
-    const typed = (await this.s.stay.pricedNights(tx, row)).filter((n) => n.manual);
-    const last = typed[typed.length - 1];
-    return last ? last.calendarVnd : null;
+    // BUG-R2-132: only an AGREED booking (priced by hand at booking) has a "booking price" – the same rule as the
+    // suggested rates (BUG-R2-126); a calendar booking with typed nights later (S4-35, B13) → null.
+    return this.s.agreedRate(tx, row, 'last');
   }
 
   async extend(
@@ -897,6 +896,12 @@ export class StayService {
           extras: { surchargeVnd: delta, folioDeltaVnd: delta },
         });
       }
+    } else if (expectedDelta !== undefined && expectedDelta !== null && expectedDelta !== delta) {
+      // BR-424-07 (MOVE-06, BR-429 (d2) on B14): an amount the caller sent must match even at 0 – the guest
+      // heard that number (409, nothing saved).
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: delta, folioDeltaVnd: delta },
+      });
     }
     await this.s.stay.assertCapacityStable(tx, [newRoom]);
     const released: Array<{ roomId: string | null; from: LocalDate; to: LocalDate }> = [];

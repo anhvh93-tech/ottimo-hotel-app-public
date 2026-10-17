@@ -2758,6 +2758,7 @@
   "checkout.extra_night_rate_help_tier": "The night's calendar rate, before any long-stay discount. Defaults to tonight's Direct rate; can be changed within the floor–ceiling. The amount due comes from the server and includes the discount if any.",
   "checkout.due_computing": "Working out the amount due at this night rate…",
   "checkout.typed_due_failed": "Couldn't work out the amount due at this rate – the figure below uses the default rate; the server works it out again when you complete.",
+  "checkin.prior_night_taken": "The night of {date} is already booked in this room, so no extra night before can be added. Check-in isn't possible before 06:00 – check in from 06:00, or move to a free room.",
   "drawer.deposit_fee_base": "Cancellation fee base (deposit on the current room total)",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",

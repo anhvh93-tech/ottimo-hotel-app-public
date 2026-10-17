@@ -196,3 +196,68 @@ describe('S4-35 sửa giá đêm ở Folio – ô giá là giá lịch của đ�
     ).toBeInTheDocument();
   });
 });
+
+describe('BUG-R2-127 – đêm trước ngày đến đã có khách: không thêm đêm B9a, không thu đêm đó', () => {
+  it('05:00, đêm trước của căn 302 đã có đơn → báo, không có ô báo khách, số cần thu = số dư, nút Nhận phòng khóa, không gửi addPriorNight', async () => {
+    at('05:00');
+    const r = res('Gia đình anh Hưng');
+    const reg = mockControl.stay.registrations.get(r.registrationId!)!;
+    reg.documents.push({
+      id: 'doc-127',
+      docType: 'cccd',
+      isMain: true,
+      fullNameOnDoc: 'Gia đình anh Hưng',
+      nationalityCode: 'VNM',
+      docNumber: '079123456789',
+      dateOfBirth: '1985-04-02',
+      gender: 'male',
+      imageIds: [],
+      imageConsent: 'refused',
+      captureMethod: 'manual',
+      checks: [],
+    });
+    // Another stay holds room 302 the night before arrival.
+    mockControl.rsv.reservations.push({
+      ...r,
+      id: 'prev-302',
+      code: 'OTM-0999',
+      guestName: 'Khách đêm trước',
+      status: 'in_house',
+      arrivalDate: addDays(r.arrivalDate, -2),
+      departureDate: r.arrivalDate,
+      folioId: 'folio-prev-302',
+      registrationId: undefined,
+    } as typeof r);
+    const checkins = capture('POST', /\/actions\/check-in$/);
+    const qrs = capture('POST', /\/vietqr$/);
+    const { user } = renderApp(`/reservations/${r.id}/check-in`, 'qa.fd');
+    await screen.findByRole('heading', { name: /Nhận phòng/ });
+    await user.click(await screen.findByRole('button', { name: tv('ci.go_verify') }));
+    await user.click(await screen.findByRole('button', { name: tv('ci.go_register') }));
+    await user.click(await screen.findByRole('button', { name: tv('reg.later') }));
+    await user.click(screen.getByRole('switch', { name: tv('ci.early_toggle') }));
+    fireEvent.change(screen.getByLabelText(new RegExp(`^${tv('checkin.time')}`)), {
+      target: { value: '05:00' },
+    });
+    const date = addDays(r.arrivalDate, -1).split('-').reverse().slice(0, 2).join('/');
+    const taken = tv('checkin.prior_night_taken', { date });
+    expect((await screen.findAllByText(taken)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('checkbox', { name: tv('ci.told_guest') })).not.toBeInTheDocument();
+    // Due = what the folio owes now (no night of the day before).
+    const dueRow = screen.getByText(tv('ci.due_title')).closest('tr')!;
+    expect(within(dueRow).getByText(money(r.balanceDueVnd!))).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: /Đã gửi\/giao nội quy/ }));
+    const submit = screen.getByRole('button', { name: tv('ci.submit', { room: '302' }) });
+    expect(submit).toHaveAttribute('aria-disabled', 'true');
+    expect(submit).toHaveAccessibleDescription(taken);
+    await user.click(submit);
+    // A QR asked here is for the balance only, without the B9a night.
+    await user.click(screen.getByRole('button', { name: /^Tạo VietQR/ }));
+    await waitFor(() => expect(qrs.sent.length).toBe(1));
+    checkins.stop();
+    qrs.stop();
+    expect(checkins.sent).toHaveLength(0);
+    expect(qrs.sent[0]).toMatchObject({ purpose: 'check_in', amountVnd: r.balanceDueVnd });
+    expect(qrs.sent[0]).not.toHaveProperty('addPriorNight', true);
+  });
+});

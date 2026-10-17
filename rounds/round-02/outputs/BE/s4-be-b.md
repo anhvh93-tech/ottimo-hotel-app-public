@@ -167,7 +167,7 @@ Tệp đợt 3:
 - (j) [GIẢ ĐỊNH BE-B – ARC] Tự hủy yêu cầu hoàn ở B12 dùng `autoCancelReason = superseded`, vì enum chưa có "khôi phục no-show".
 - (k) `postLines` tự đồng bộ FOC. Bên gọi tự đồng bộ thì vẫn đúng: thao tác không đổi kết quả nếu chạy lại.
 - (l) Đếm lại minibar khi số không đổi giữ dòng cũ, kể cả khi lễ tân đã sửa giá dòng đó. Đổi số thì ghi lại theo giá danh mục như trước.
-- (m) Một món đếm về 0 rồi đếm lại > 0 ghi dòng mới, không nối chuỗi, nên FOC cũ vẫn ngủ. Trường hợp hiếm; chốt folio thì hủy theo quy tắc.
+- ~~(m)~~ **Đã gỡ 18/10** – trái BR-434 v0.3.8 (DOM bổ sung 18/10, oracle BR-434-15): đếm lại > 0 thì FOC tự khôi phục. Xem mục 12 (BUG-R2-129).
 
 Tệp đợt này:
 - Tạo: `product/services/api/test/integration/s438-beb.test.ts` (6 ca).
@@ -181,3 +181,16 @@ Tệp đợt này:
 - `schema/approvals.ts` cập nhật CHECK. Kiểu `AutoCancelReason` thêm `no_show_restored`. `FolioService.reopenStayCredit` (B12) nay ghi `no_show_restored` thay cho `superseded`, nên giả định (j) đã được ARC chốt.
 - Test: ca CANCEL-03 trong `s438-beb.test.ts` kiểm DB lẫn API (`autoCancelReason = no_show_restored`), thêm một ca CHECK từ chối lý do này trên yêu cầu chưa hủy. `schema-parity`, `migrations-journal` xanh. Toàn bộ API **2.687/2.687, 82/82 tệp** (DB mới); tsc, eslint, prettier xanh.
 - Tệp: tạo `src/db/migrations/0063_no_show_restored.sql`, `src/db/migrations/meta/0063_snapshot.json`; sửa `src/db/migrations/meta/_journal.json`, `src/db/schema/approvals.ts`, `src/modules/approvals/public/approval.service.ts`, `src/modules/folio/public/folio.service.ts`, `test/integration/s438-beb.test.ts`.
+
+## 12. Phản hồi & sửa vòng 2 (sau `s4-money-reverification.md`, 18/10)
+
+| Mã | Trạng thái | Cách sửa | Kiểm chứng |
+|---|---|---|---|
+| **BUG-R2-129** (P1, R2FOC-02) | Xong | **Cách chọn: nối chuỗi**, không đổi khóa. `minibar.service.ts` `record()` tìm **dòng cuối của chuỗi từng món** trong lượt ở, qua mọi lần đếm và mọi lần lễ tân chỉnh, dù dòng đó còn sống hay đã đảo (đếm 0, void bằng adjustments). Dòng sống, cùng số → giữ nguyên. Dòng sống, khác số → đảo rồi ghi dòng mới nối vào. Dòng đã đảo, đếm lại > 0 → ghi dòng mới với `related_line_id` = dòng cuối đó. Khóa FOC kiểu "dòng" vốn đi theo chuỗi thay thế (`LineIndex.keyLine`), nên FOC tự khôi phục = min(số đã duyệt, dòng mới). Không duyệt lại, không trừ hạn mức BR-433 lần hai. Chốt folio khi món vẫn không có dòng → hủy `settled_while_dormant` như cũ. **Lý do chọn nối chuỗi (đề nghị ARC xác nhận)**: không đổi hợp đồng, không cần migration (dòng folio không mang mã món); cùng cơ chế với `adjustFolioLine` mà QA đã kiểm (ca contrast); hiệu quả tương đương khóa lượt × minibar × món vì mỗi chuỗi chỉ thuộc một món của một lượt | Oracle **BR-434-15** (bỏ `pendingFix`): 202, 2 → 0 → 2: FOC 35.000, ròng 35.000, folio **827.000**; 2 → 0 → 1: ròng 0; hạn mức FDL không đổi khi khôi phục. Thêm: void dòng rồi đếm 2 → FOC 35.000; 101, 2 → 1 → 2 → 0 → 1 → tổng 667.000, còn thu 0. Skeptic `w-r2foc-1-0` A, B, C và `w-r2foc-1-1` K0–K4: đạt |
+| **BUG-R2-130** (P1, R2REGR-03) | Xong (không cần BE-D sửa) | Món đã đếm nhưng nay rời danh mục chuẩn (`is_active = false` hoặc `minibar_standard_qty = 0`) **giữ dòng** khách đã dùng, và dòng đếm của món đó được **chép sang** lần đếm mới (số lượng, giá chụp, `folio_line_id`). Trước đây vòng `gone` đảo dòng. Lần đếm vẫn phải đủ món của danh mục chuẩn **hiện hành** | 402: bia 2 (70.000), tắt bia, đếm lại → giữ 70.000, dòng bia có trong lần đếm mới; thêm 1 snack → 100.000; B18: cần thu 100.000, tổng = tiền phòng + 100.000. Coca đặt định mức 0 → giữ 25.000. Skeptic `r2regr/minibar-gone` M1: đạt |
+
+Ghi chú test skeptic (chạy trên bản sao `wt4`):
+- `w-r2foc-1-0` D ("lễ tân tự áp FOC lần hai sau 2 → 0 → 2") nay ra 750.000 / còn thu 0, khác số 785.000 / 35.000 của test. Lý do: FOC đầu đã tự khôi phục, FOC thứ hai là một khoản mới trên cùng món, còn chỗ vì min(70.000 − 35.000). Kỳ vọng của ca này dựa trên hành vi cũ (FOC đầu ngủ), không phải hồi quy. QA cần đổi kỳ vọng.
+- `r2foc-attack` M8/M8b đỏ: thuộc R2FOC-03, đã được xếp Note (DOM/UXD/FE-A), không phải việc BE-B.
+
+Kiểm chứng (18/10, DB mới `ottimo_test_beb_s4r`): toàn bộ `@ottimo/api` **2.694/2.694 xanh, 82/82 tệp**; tsc 0 lỗi; eslint và prettier xanh trên tệp chạm; `validate-fixtures` 0 lỗi. Tệp: sửa `src/modules/inventory/internal/minibar.service.ts`, `test/integration/s438-beb.test.ts` (thêm 5 ca: oracle BR-434-15, void rồi đếm lại, chuỗi 2 → 1 → 2 → 0 → 1, món rời danh mục, món định mức 0), `product/tests/fixtures/br-examples.json` (bỏ `pendingFix` BR-434-15), `01-decisions/decision-log.md` (gỡ (m), thêm 1 dòng).

@@ -152,6 +152,30 @@ export function discountedNight(
   return applyNightDiscount([calendarVnd], effectiveDiscountPct(losPct, ret), unit)[0] as number;
 }
 
+/**
+ * BR-305 / BR-309 v0.3.8 (S4-38 – BUG-R2-119, BUG-R2-128; BR-309-11/-13/-14): the required deposit – the base of a
+ * cancellation / no-show fee, and what a hold still has to collect – after ANY change of the room money (B7/B8,
+ * S4-35 night price, OTTIMO move): 30 % of the current room money (BR-305 rounding), never below the level a late
+ * guest-requested reduction kept (`heldVnd`: < 7 days to the arrival, only `guest_request` – staff / OTTIMO /
+ * `other` / `force_majeure` changes do not keep a level, but never drop one already kept).
+ */
+export function requiredDepositAfterChange(a: {
+  oldRequiredVnd: number;
+  heldVnd: number;
+  totalRoomVnd: number;
+  depositPct: number;
+  depositUnit: number;
+  guestRequest: boolean;
+  lateNotice: boolean;
+}): { requiredVnd: number; heldVnd: number } {
+  const next = shortDeposit(a.totalRoomVnd, a.depositPct, a.depositUnit);
+  const held =
+    next < a.oldRequiredVnd && a.guestRequest && a.lateNotice
+      ? Math.max(a.heldVnd, a.oldRequiredVnd)
+      : a.heldVnd;
+  return { requiredVnd: Math.max(held, next), heldVnd: held };
+}
+
 /** BR-105: floor/ceiling of a base price (rate_floor_pct / rate_ceiling_pct), rounded to `unit`. */
 export function rateBounds(
   baseVnd: number,

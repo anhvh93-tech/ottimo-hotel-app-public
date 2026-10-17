@@ -20,7 +20,7 @@ import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { PropertyContextService } from '../../platform/public/property-context';
-import { discountedNight, rateBounds, returnGuestOf } from './pricing';
+import { discountedNight, rateBounds, requiredDepositAfterChange, returnGuestOf } from './pricing';
 import { PricingService } from './pricing.service';
 
 export interface SetNightRateInput {
@@ -65,9 +65,10 @@ export class StayNightPricingPort {
       status: string;
       channel_group: string;
       external_contract: boolean;
+      stay_type: string;
       pricing_snapshot: Record<string, unknown>;
     }>(
-      `SELECT r.id, r.code, r.status, c.channel_group, r.external_contract, r.pricing_snapshot
+      `SELECT r.id, r.code, r.status, c.channel_group, r.external_contract, r.stay_type, r.pricing_snapshot
          FROM reservation r JOIN channel c ON c.id = r.channel_id WHERE r.id = $1 FOR UPDATE OF r`,
       [input.reservationId],
     );
@@ -190,6 +191,29 @@ export class StayNightPricingPort {
         WHERE id = $1`,
       [row.id, JSON.stringify({ nights: nightsSnap })],
     );
+    // BUG-R2-128 (BR-309-13/-14): the required deposit follows the room money after a staff price change too –
+    // a hold collects the new amount, a confirmed booking's fee base moves; never below a level a late guest
+    // reduction kept (no "< 7 days" exception for a staff change).
+    if (tiered && row.stay_type === 'short') {
+      const { rows: tot } = await tx.query<{ total: string; required: string }>(
+        'SELECT total_room_vnd::text AS total, deposit_required_vnd::text AS required FROM reservation WHERE id = $1',
+        [row.id],
+      );
+      const dep = snap as { depositPct?: number; depositUnit?: number; depositHeldVnd?: number };
+      const r = requiredDepositAfterChange({
+        oldRequiredVnd: Number(tot[0]?.required ?? 0),
+        heldVnd: dep.depositHeldVnd ?? 0,
+        totalRoomVnd: Number(tot[0]?.total ?? 0),
+        depositPct: dep.depositPct ?? p.depositPct,
+        depositUnit: dep.depositUnit ?? p.depositUnit,
+        guestRequest: false,
+        lateNotice: false,
+      });
+      await tx.query('UPDATE reservation SET deposit_required_vnd = $2 WHERE id = $1', [
+        row.id,
+        r.requiredVnd,
+      ]);
+    }
     await this.bump(tx, row.id, now);
     await this.audit.recordMoney(tx, {
       action: 'reservation.repriced',

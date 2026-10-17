@@ -825,14 +825,9 @@ export class CheckoutService {
     d: Departure,
     rateVnd: number,
   ): Promise<number> {
-    const party = {
-      adults: row.adults,
-      children6to11: row.children_6_11,
-      childrenUnder6: row.children_under_6,
-    };
-    const asDirect = { ...row, channel_group: 'direct' as const };
+    // BUG-R2-125: the fee of the added night from the SAME base the write uses (protected base, BR-429 (b2)).
     if (row.channel_group === 'ota' || row.external_contract) {
-      return rateVnd + this.s.stay.nightExtra(ctx, asDirect, party, d.rm.base_occupancy).feeVnd;
+      return rateVnd + (await this.s.stay.addedNightFee(tx, ctx, row, 'last', d.rm.base_occupancy));
     }
     const kept = await this.s.stay.pricedNights(tx, row);
     const x = d.extraNight as ExtraNight;
@@ -842,10 +837,7 @@ export class CheckoutService {
     const before = kept.reduce((a, n) => a + n.amountVnd, 0);
     const after = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
     const fees = await this.s.stay.nightFees(tx, row);
-    const snap = row.pricing_snapshot as { extraPersonFeePerNightVnd?: number };
-    const fee = fees.some((n) => n.own)
-      ? this.s.stay.nightExtra(ctx, row, party, d.rm.base_occupancy).feeVnd
-      : (snap.extraPersonFeePerNightVnd ?? 0);
+    const fee = await this.s.stay.addedNightFee(tx, ctx, row, 'last', d.rm.base_occupancy);
     // S4-38 (S438-FOC-02, BR-416-05): the approved FOC / discounts follow the re-tiered nights (min(approved, new
     // line) – BR-434) – BE-B's allocation on the nights as B18 writes them, so the due shown = what B18 leaves.
     let focDelta = 0;

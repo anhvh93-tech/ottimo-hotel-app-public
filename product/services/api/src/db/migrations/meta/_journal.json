@@ -288,6 +288,13 @@
       "when": 1792254720821,
       "tag": "0063_no_show_restored",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792254780821,
+      "tag": "0064_booking_rate_source",
+      "breakpoints": true
     }
   ]
 }

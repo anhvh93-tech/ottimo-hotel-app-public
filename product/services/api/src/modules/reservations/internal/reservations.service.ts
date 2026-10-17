@@ -40,7 +40,7 @@ import {
   nightDates,
   nightsOf,
   noticeDays,
-  shortDeposit,
+  requiredDepositAfterChange,
 } from '../public/pricing';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
@@ -635,7 +635,12 @@ export class ReservationsService {
           ...(otaChannelFeeVnd !== undefined ? { otaChannelFeeVnd } : {}),
           ...(otaRoomAmountVnd !== undefined ? { otaRoomAmountVnd } : {}),
         })
-      : { asOf: p.asOf, manualLongStay: true, cancelPolicy: p.cancelPolicy };
+      : {
+          asOf: p.asOf,
+          manualLongStay: true,
+          cancelPolicy: p.cancelPolicy,
+          bookingRateSource: 'calendar',
+        };
     await tx.query(
       `INSERT INTO reservation (id, organization_id, property_id, code, status, stay_type, channel_id, payment_model,
          ota_ref, ota_booked_at, direct_source, booker_guest_id, closer_user_id, arrival_date, departure_date,
@@ -1923,8 +1928,14 @@ export class ReservationsService {
     const code = await this.docNumbers.allocate(tx, 'reservation');
     const id = uuidv7();
     const total = input.nights.reduce((a, n) => a + n.amountVnd, 0);
-    // The child is a DIRECT booking: BR-110 extra persons are charged on its nights (room of the child).
+    // The child is a DIRECT booking: BR-110 extra persons are charged on its nights (room of the child) – at
+    // least at the base the parent's adjacent night is protected at (BR-429 (b2), S4-38 BUG-R2-125).
     const rm = await this.room(tx, input.roomId);
+    const parentBase = await this.adjacentBase(
+      tx,
+      parent.id,
+      input.to <= parent.arrival_date ? 'first' : 'last',
+    );
     const rates = {
       adultVnd: ctx.params.extraAdultFeeVnd,
       child611Vnd: ctx.params.child611FeeVnd,
@@ -1935,7 +1946,7 @@ export class ReservationsService {
         children6to11: parent.children_6_11,
         childrenUnder6: parent.children_under_6,
       },
-      rm?.base_occupancy ?? 0,
+      Math.max(rm?.base_occupancy ?? 0, parentBase ?? 0),
       rates,
     );
     const snapshot = {
@@ -1943,6 +1954,7 @@ export class ReservationsService {
       nightRateUnit: ctx.params.nightRateUnit,
       parentReservationCode: parent.code,
       childOf: input.transition,
+      bookingRateSource: 'calendar',
       extraAdultFeeVnd: rates.adultVnd,
       child611FeeVnd: rates.child611Vnd,
       extraPersonFeePerNightVnd: rm ? extra.perNightVnd : 0,
@@ -2320,17 +2332,75 @@ export class ReservationsService {
       children6to11: row.children_6_11,
       childrenUnder6: row.children_under_6,
     };
+    // S4-38 (BUG-R2-125, BR-429 (b2) "đêm thêm của đơn lấy định mức bảo vệ của đơn"): an added night takes the
+    // base of the booking night next to it (B9a: the first, B13/B18: the last) – the one its preview uses.
+    const added = new Set(dates);
+    const kept = [...bases.keys()].filter((d) => !added.has(d)).sort();
+    const adjacent = (d: LocalDate) =>
+      kept.length === 0
+        ? undefined
+        : bases.get(
+            d < (kept[0] as string) ? (kept[0] as string) : (kept[kept.length - 1] as string),
+          );
     await this.setNightFees(
       tx,
       row.id,
       dates.flatMap((d) => {
-        const base = bases.get(d);
+        const base = adjacent(d) ?? bases.get(d);
         if (base === undefined) return [];
         const x = this.nightExtra(ctx, row, party, base);
         return [{ date: d, feeVnd: x.feeVnd, count: x.count }];
       }),
       ctx.now,
     );
+  }
+
+  /**
+   * S4-38 (BUG-R2-125): the BR-110 fee of a night added before (`first` – B9a) or after (`last` – B13/B18) the
+   * stay, exactly as the write gives it (feesForNewNights / the booking-level fee) – for the previews and the
+   * QR caps. A direct child night of an OTA / manual long stay: the child's own fee at max(room base, the
+   * booking's adjacent base) – createChildStay.
+   */
+  async addedNightFee(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    side: 'first' | 'last',
+    roomBase: number,
+  ): Promise<number> {
+    const party = {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    const adjacent = await this.adjacentBase(tx, row.id, side);
+    if (row.channel_group === 'ota' || row.external_contract) {
+      const asDirect = { ...row, channel_group: 'direct' as const };
+      return this.nightExtra(ctx, asDirect, party, Math.max(roomBase, adjacent ?? roomBase)).feeVnd;
+    }
+    const fees = await this.nightFees(tx, row);
+    if (!fees.some((f) => f.own)) {
+      return (
+        (row.pricing_snapshot as { extraPersonFeePerNightVnd?: number })
+          .extraPersonFeePerNightVnd ?? 0
+      );
+    }
+    return this.nightExtra(ctx, row, party, adjacent ?? roomBase).feeVnd;
+  }
+
+  /** BR-110 base of the booking's first / last live night (nightBases – stored protection, room history). */
+  private async adjacentBase(
+    tx: Tx,
+    reservationId: string,
+    side: 'first' | 'last',
+  ): Promise<number | null> {
+    const bases = await this.nightBases(tx, reservationId);
+    const dates = (await liveNightRows(tx, reservationId))
+      .map((n) => n.date)
+      .filter((d) => bases.has(d))
+      .sort();
+    const d = side === 'first' ? dates[0] : dates[dates.length - 1];
+    return d ? (bases.get(d) ?? null) : null;
   }
 
   // ───────────── BR-107 re-tiering of an in-house stay (B13, B9a – D-8; ARC B-3 d: night prices only here) ─────────────
@@ -2808,19 +2878,28 @@ export class ReservationsService {
     row: ReservationRow,
     totalRoomVnd: number,
     reasonCode: string,
-  ): number {
+  ): { requiredVnd: number; heldVnd: number } {
     const old = Number(row.deposit_required_vnd ?? 0);
-    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return old;
-    if (row.external_contract || row.stay_type !== 'short') return old;
-    const snap = row.pricing_snapshot as { depositPct?: number; depositUnit?: number };
-    const next = shortDeposit(
+    const snap = row.pricing_snapshot as {
+      depositPct?: number;
+      depositUnit?: number;
+      depositHeldVnd?: number;
+    };
+    const held = snap.depositHeldVnd ?? 0;
+    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') {
+      return { requiredVnd: old, heldVnd: held };
+    }
+    if (row.external_contract || row.stay_type !== 'short')
+      return { requiredVnd: old, heldVnd: held };
+    return requiredDepositAfterChange({
+      oldRequiredVnd: old,
+      heldVnd: held,
       totalRoomVnd,
-      snap.depositPct ?? ctx.params.depositPct,
-      snap.depositUnit ?? ctx.params.depositUnit,
-    );
-    const late = noticeDays(row.arrival_date, ctx.today) < 7;
-    if (next < old && reasonCode === 'guest_request' && late) return old;
-    return next;
+      depositPct: snap.depositPct ?? ctx.params.depositPct,
+      depositUnit: snap.depositUnit ?? ctx.params.depositUnit,
+      guestRequest: reasonCode === 'guest_request',
+      lateNotice: noticeDays(row.arrival_date, ctx.today) < 7,
+    });
   }
 
   /**
@@ -3213,6 +3292,8 @@ export class ReservationsService {
     await tx.query(
       `UPDATE reservation SET arrival_date = $2, departure_date = $3, total_room_vnd = $4,
               deposit_required_vnd = $9,
+              pricing_snapshot = CASE WHEN $10::bigint > 0
+                THEN pricing_snapshot || jsonb_build_object('depositHeldVnd', $10::bigint) ELSE pricing_snapshot END,
               reschedule_count = reschedule_count + $5, conflict_state = CASE WHEN conflict_state = 'open' THEN 'resolved' ELSE conflict_state END,
               room_disclosed_to_guest = room_disclosed_to_guest OR $7,
               origin_room_id = COALESCE(origin_room_id, $8::uuid),
@@ -3227,7 +3308,8 @@ export class ReservationsService {
         ctx.now,
         disclose,
         plan.originRoomId,
-        required,
+        required.requiredVnd,
+        required.heldVnd,
       ],
     );
     if (row.conflict_state === 'open')

@@ -195,15 +195,12 @@ export class StaySupport {
   async agreedRate(tx: Tx, row: ReservationRow, pick: 'first' | 'last'): Promise<number | null> {
     if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
     if (row.external_contract || row.stay_type !== 'short') return null;
-    const nights = await this.stay.pricedNights(tx, row);
-    const typed = nights.filter((n) => n.manual);
-    // Booked at a typed price (`bookingRateSource`; before the flag: every night typed). A calendar booking with
-    // ONE night re-priced later (S4-35) is not an agreed booking (BR-107-05).
+    // BUG-R2-126: only a booking PRICED BY HAND AT BOOKING is an agreed one (`bookingRateSource`, written for every
+    // booking; 0064 back-filled the older ones from their creation) – nights typed later (S4-35, B9a, B13, B18)
+    // never make a calendar booking agreed.
     const flag = (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource;
-    const agreed =
-      flag === 'manual_agreed' ||
-      (flag === undefined && typed.length > 0 && typed.length === nights.length);
-    if (!agreed) return null;
+    if (flag !== 'manual_agreed') return null;
+    const typed = (await this.stay.pricedNights(tx, row)).filter((n) => n.manual);
     const n = pick === 'first' ? typed[0] : typed[typed.length - 1];
     return n ? n.calendarVnd : null;
   }

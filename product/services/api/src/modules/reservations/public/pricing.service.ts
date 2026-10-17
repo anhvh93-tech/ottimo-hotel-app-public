@@ -431,7 +431,9 @@ export class PricingService {
       cancelPolicy: p.cancelPolicy,
       cancelPeakNoRefund: p.cancelPeakNoRefund,
       hasPeakNight: r.hasPeakNight,
-      ...(r.agreedRate ? { bookingRateSource: 'manual_agreed' } : {}),
+      // BUG-R2-126: EVERY booking carries where its price came from at booking – later typed nights (S4-35,
+      // B9a, B13, B18) never change it.
+      bookingRateSource: r.agreedRate ? 'manual_agreed' : 'calendar',
       nights: r.nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,

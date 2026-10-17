@@ -599,3 +599,12 @@ Phần chính 0.3.7 vẫn đóng băng: mô tả + thêm có đánh dấu. Khôn
 
 Quyết định ARC: (a) `depositRequiredVnd` giữ một trường, hai nghĩa theo trạng thái (mô tả); (b) đổi chéo căn cần xác nhận "đã báo khách" như B7/B8 – contract-ahead tới tuần Ổn định/R3, xem trước bằng GET riêng (không `dryRun`); (c) `no_show_restored` thay `superseded` cho đúng nghĩa (thêm giá trị, đổi CHECK khi tiện).
 
+**Bổ sung 4 – thêm sau lượt kiểm lại S4-38** (`reviews/s4-money-reverification.md`, chỉ mô tả):
+| Lỗi | Hợp đồng | Ai cài |
+|---|---|---|
+| BUG-R2-127 | `amountDueAtCheckinVnd` chỉ gồm đêm B9a khi `priorNight.available = true`; `createVietQr purpose=check_in` gửi `addPriorNight` khi đêm trước không trống → 422 `NOT_ALLOWED`; B9 vẫn 409 `ROOM_UNAVAILABLE` | BE-A (`evaluate`, `amountDueForQr`); FE-A đọc `priorNight.available` |
+| BUG-R2-132 | `ExtensionOptions.currentBookingRateVnd` = giá thỏa thuận của đêm (giá lịch, trước bậc – bỏ chữ "giá ròng"); chỉ có với đơn giá thỏa thuận theo **cờ nguồn giá** (migration `0064`, bù cờ đơn cũ); `null` với đơn lịch giá kể cả có đêm S4-35/B9a/B13/B18 gõ tay | BE-A (cùng BUG-R2-126) |
+| BUG-R2-128 (kèm) | `depositRequiredVnd` tính lại mỗi khi tiền phòng đổi, gồm sửa giá S4-35 | BE-A |
+| BUG-R2-129 | **Chỉ ghi nhận**: BE-B chọn cách nối chuỗi minibar để FOC tự khôi phục (`relatedLineId` hay khóa lượt × minibar × món); ARC xác nhận khi ORC chuyển. Yêu cầu của ARC khi xác nhận: không trừ đôi hạn mức BR-433, đúng "bất kể lịch sử thao tác" (S4-23 (4)) | BE-B → ARC |
+| DOM MOVE-06 (BR-424-07) | `changeRoom.expectedDeltaVnd` đã gửi thì luôn phải khớp số tính lúc ghi, kể cả chênh 0 – lệch → 409 `SURCHARGE_CHANGED`, không lưu (như DOM-S4-19 cho B7) | BE-A |
+| BUG-R2-129 – **ARC xác nhận** (18/10) | Cách BE-B nối chuỗi (`minibar.service.ts` `record()`: dòng cuối của chuỗi `related_line_id` theo từng món, gieo từ các lần đếm `checkout` của lượt ở, đi qua cả dòng đã đảo/đếm 0/void và dòng thay của `adjustFolioLine`; đếm lại > 0 nối `related_line_id` vào dòng cuối) tương đương khóa lượt × minibar × món (BR-434-15): FOC tự khôi phục = min(số đã duyệt, dòng mới), không duyệt lại, không trừ hạn mức BR-433 lần hai; không đổi hợp đồng, không migration. Điều kiện giữ: chuỗi chỉ gieo từ lần đếm `checkout` (dòng tiêu thụ `stayover` là khoản riêng, không nối); test hồi quy giữ các ca đếm 0 → đếm lại, void → đếm lại, sửa dòng → đếm lại, món rời danh mục (BUG-R2-130) | BE-B (đã sửa) |

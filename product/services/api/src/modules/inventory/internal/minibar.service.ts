@@ -197,39 +197,84 @@ export class MinibarService {
 
     const id = uuidv7();
     let replaces: string | null = null;
-    // S438-FOC-01 / BUG-R2-095 (S4-50): the live minibar line of each item counted before (the live end of its
-    // adjustFolioLine chain – ARC-BE-S3-32). A recount keeps it when the count did not change, else reverses it
-    // and posts the new count as its REPLACEMENT (related_line_id = the old line) so an approved FOC follows:
-    // min(approved, new line) – BR-434; only a line gone to 0 leaves its FOC dormant.
-    const previous = new Map<string, { id: string; quantity: number }>();
+    // S438-FOC-01 / BUG-R2-095 (S4-50) / BUG-R2-129: the LAST minibar line of each item of this stay – the end
+    // of the item's chain across every count and desk adjustment (adjustFolioLine posts a replacement with
+    // related_line_id = the old line, ARC-BE-S3-32), live or not (counted 0, voided by the desk). A recount keeps
+    // a live line whose count did not change; otherwise it reverses it and posts the new count as the NEXT link
+    // of that chain (related_line_id = the end, even a reversed one), so an approved FOC follows the item:
+    // min(approved, new line) and comes back by itself when the item is used again (BR-434 v0.3.8 "tự khôi
+    // phục khi dòng có lại", S4-23 (4) – whatever the history). Only an item at 0 leaves its FOC dormant.
+    const previous = new Map<string, { id: string; quantity: number; live: boolean }>();
+    /** BUG-R2-130: the previous count's row of each item (copied when the item left the standard list). */
+    const carried = new Map<
+      string,
+      {
+        standard: number;
+        remaining: number;
+        price: number | null;
+        cost: number | null;
+        amount: number;
+        folioLineId: string | null;
+      }
+    >();
     if (input.mode === 'checkout') {
       const { rows: old } = await tx.query<{ id: string }>(
         `SELECT id FROM minibar_check WHERE reservation_id = $1 AND mode = 'checkout'
             AND replaced_by_check_id IS NULL FOR UPDATE`,
         [s.id],
       );
+      const { rows: ends } = await tx.query<{
+        item_id: string;
+        folio_line_id: string;
+        quantity: string;
+        live: boolean;
+      }>(
+        `WITH RECURSIVE chain AS (
+           SELECT l.item_id, f.id FROM minibar_check_line l
+             JOIN minibar_check k ON k.id = l.check_id
+             JOIN folio_line f ON f.id = l.folio_line_id
+            WHERE k.reservation_id = $1 AND k.mode = 'checkout' AND l.folio_line_id IS NOT NULL
+           UNION
+           SELECT c.item_id, n.id FROM folio_line n JOIN chain c ON n.related_line_id = c.id
+            WHERE n.category = 'minibar' AND n.reversal_of_id IS NULL)
+         SELECT DISTINCT ON (c.item_id) c.item_id, c.id AS folio_line_id, f.quantity::text AS quantity,
+                (f.line_state = 'posted'
+                 AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)) AS live
+           FROM chain c JOIN folio_line f ON f.id = c.id
+          WHERE f.line_state = 'posted'
+          ORDER BY c.item_id, f.posted_at DESC, f.id DESC`,
+        [s.id],
+      );
+      for (const l of ends) {
+        previous.set(l.item_id, {
+          id: l.folio_line_id,
+          quantity: Number(l.quantity),
+          live: l.live,
+        });
+      }
       if (old[0]) {
         replaces = old[0].id;
-        const { rows: oldLines } = await tx.query<{
+        const { rows: rowsBefore } = await tx.query<{
           item_id: string;
-          folio_line_id: string;
-          quantity: string;
+          standard_qty: number;
+          remaining_qty: number;
+          unit_price_vnd_snapshot: number | null;
+          unit_cost_vnd_snapshot: number | null;
+          amount_vnd: number;
         }>(
-          `WITH RECURSIVE chain AS (
-             SELECT l.item_id, f.id FROM minibar_check_line l JOIN folio_line f ON f.id = l.folio_line_id
-              WHERE l.check_id = $1 AND l.folio_line_id IS NOT NULL
-             UNION
-             SELECT c.item_id, n.id FROM folio_line n JOIN chain c ON n.related_line_id = c.id
-              WHERE n.category = 'minibar' AND n.reversal_of_id IS NULL)
-           SELECT c.item_id, c.id AS folio_line_id, f.quantity::text AS quantity
-             FROM chain c JOIN folio_line f ON f.id = c.id
-            WHERE f.line_state = 'posted'
-              AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)
-            ORDER BY f.posted_at, f.id`,
+          `SELECT item_id, standard_qty, remaining_qty, unit_price_vnd_snapshot, unit_cost_vnd_snapshot, amount_vnd
+             FROM minibar_check_line WHERE check_id = $1`,
           [replaces],
         );
-        for (const l of oldLines) {
-          previous.set(l.item_id, { id: l.folio_line_id, quantity: Number(l.quantity) });
+        for (const r of rowsBefore) {
+          carried.set(r.item_id, {
+            standard: r.standard_qty,
+            remaining: r.remaining_qty,
+            price: r.unit_price_vnd_snapshot === null ? null : Number(r.unit_price_vnd_snapshot),
+            cost: r.unit_cost_vnd_snapshot === null ? null : Number(r.unit_cost_vnd_snapshot),
+            amount: Number(r.amount_vnd),
+            folioLineId: null,
+          });
         }
         await tx.query('UPDATE minibar_check SET replaced_by_check_id = $2 WHERE id = $1', [
           replaces,
@@ -261,12 +306,13 @@ export class MinibarService {
       const amount = price ? used * price : 0;
       const before = previous.get(item.id) ?? null;
       previous.delete(item.id);
+      carried.delete(item.id);
       let folioLineId: string | null = null;
-      if (before && price && used > 0 && before.quantity === used) {
+      if (before?.live && price && used > 0 && before.quantity === used) {
         // BUG-R2-095: same count → the line (and any desk adjustment, any FOC on it) stays as it is.
         folioLineId = before.id;
       } else {
-        if (before) {
+        if (before?.live) {
           await this.folios.reverseLine(tx, before.id, 'minibar_recount', folioActor, {
             skipReductionSync: true,
           });
@@ -307,12 +353,20 @@ export class MinibarService {
         folioLineId,
       });
     }
-    // Items of the previous count missing now (not possible for a complete checkout count) are undone too.
-    for (const gone of previous.values()) {
-      await this.folios.reverseLine(tx, gone.id, 'minibar_recount', folioActor, {
-        skipReductionSync: true,
+    // BUG-R2-130 (BR-702, US-066 AC2): an item counted before but no longer on the standard list (deactivated,
+    // standard quantity 0 – the catalogue changed, not the guest) keeps what the guest used: its live line stays
+    // and its row is carried into this count (the count is complete for the CURRENT standard list only).
+    for (const [itemId, row] of carried) {
+      const end = previous.get(itemId);
+      const keep = end?.live ? end.id : null;
+      total += keep ? row.amount : 0;
+      lineRows.push({
+        itemId,
+        ...row,
+        amount: keep ? row.amount : 0,
+        folioLineId: keep,
       });
-      rewritten = true;
+      previous.delete(itemId);
     }
     // A line gone to 0 (no replacement): its FOC goes dormant now (BR-434), not at some later sync.
     if (rewritten) {

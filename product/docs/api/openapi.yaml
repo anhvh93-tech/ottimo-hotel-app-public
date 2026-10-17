@@ -374,7 +374,8 @@ info:
     "client cộng chênh"; `Reservation.depositRequiredVnd` hai nghĩa theo trạng thái (cọc để xác nhận khi `hold`; cơ sở phí hủy BR-309-11 sau đó – Desk không đòi bổ sung);
     `swapRoom.applyDifference`/`expectedDeltaVnd`/`otherExpectedDeltaVnd` + operation `previewSwapRoom` (**contract-ahead, `x-round: R3`** – xếp tuần Ổn định/R3);
     `ApprovalRequest.autoCancelReason` thêm `no_show_restored`; `promise.kind = call_now` dùng `web_request_public_promise_call_now_minutes` (60 – BR-912 v0.3.8); `BookingRules`: giá gõ tay là
-    giá lịch, bậc BR-107 áp lên (thay ARC-BE-S3-24.3).
+    giá lịch, bậc BR-107 áp lên (thay ARC-BE-S3-24.3). Lượt kiểm lại S4-38: B9a chỉ tính khi `priorNight.available` (BUG-R2-127); `currentBookingRateVnd` = giá thỏa thuận (giá lịch),
+    `null` với đơn lịch giá kể cả có đêm gõ tay (BUG-R2-132); cọc yêu cầu tính lại cả khi sửa giá S4-35 (BUG-R2-128). `changeRoom.expectedDeltaVnd` đã gửi thì phải khớp kể cả chênh 0 (DOM MOVE-06, BR-424-07).
 
     ## Thay đổi phiên bản 0.3.6-draft (R2 Sprint 3 – nhận/lưu trú/trả phòng, folio, thu tiền, giấy tờ, guest-web; chi tiết `rounds/round-02/outputs/ARC/s3-contract.md`)
     **Thêm operation**: `getAttachment` (B-01, SEC I1–I5), `setRefundDestination`, `getRefundDestination`, `executeRefund` (A-33, SEC F8, rbac A43/A47),
@@ -2923,7 +2924,7 @@ paths:
                   type: boolean
                   default: false
                   description: 'Xác nhận ghi chênh lệch đúng `preview.folioDeltaVnd` (BR-414); bắt buộc `true` khi chênh ≠ 0, kèm `expectedDeltaVnd` (lệch → 409 `SURCHARGE_CHANGED`) – 0.3.6'
-                expectedDeltaVnd: { $ref: '#/components/schemas/MoneyVnd' }
+                expectedDeltaVnd: { $ref: '#/components/schemas/MoneyVnd', description: '= `ChangeRoomPreview.folioDeltaVnd` client đã hiện (có thể âm). **0.3.7 bổ sung 4 (DOM MOVE-06, BR-424-07 – như DOM-S4-19 cho B7)**: đã gửi thì **luôn** phải khớp số tính lúc ghi, kể cả khi chênh = 0 – lệch → 409 `SURCHARGE_CHANGED` (kèm số mới), không lưu gì' }
                 stayScope:
                   type: string
                   enum: [whole_stay, until_parent_departure]
@@ -5289,7 +5290,7 @@ paths:
                     `CheckoutSummary.amountDueAtCheckoutVnd` theo `checkoutAt`/`extraNightRateVnd` gửi kèm (S4-47). Trong trần không cần `overBalanceReason`; sai trạng thái/ngày → 409
                     `INVALID_TRANSITION`; SAL/CTV → 403. Không ghi dòng nào – phụ thu/đêm thêm vẫn chỉ ghi ở B9/B18.
                 checkinTime: { $ref: '#/components/schemas/LocalTime', description: '0.3.7 – chỉ `purpose=check_in` (như `previewCheckIn.checkinTime`); purpose khác → 422 `NOT_ALLOWED`' }
-                addPriorNight: { type: boolean, description: '0.3.7 – chỉ `purpose=check_in`' }
+                addPriorNight: { type: boolean, description: '0.3.7 – chỉ `purpose=check_in`. **0.3.7 bổ sung 4 (BUG-R2-127)**: đêm trước không trống (`CheckInPreview.priorNight.available = false`) → 422 `NOT_ALLOWED` (`field` = `addPriorNight`)' }
                 priorNightRateVnd: { $ref: '#/components/schemas/MoneyVnd', description: '0.3.7 – chỉ `purpose=check_in` khi `addPriorNight`. **0.3.7 bổ sung 3 (BE-B (f))**: gửi mà không kèm `addPriorNight = true` → 422 `NOT_ALLOWED` (`field` = `priorNightRateVnd`)' }
                 checkoutAt: { $ref: '#/components/schemas/Instant', description: '0.3.7 – chỉ `purpose=check_out` (như `getCheckoutSummary.checkoutAt`; vắng = giờ server)' }
                 extraNightRateVnd: { $ref: '#/components/schemas/MoneyVnd', description: '0.3.7 – chỉ `purpose=check_out` khi cần đêm thêm (vắng = `extraNightDefaultRateVnd`)' }
@@ -9846,7 +9847,8 @@ components:
           description: |
             **0.3.7 bổ sung 4 (S4-38, BR-309-11 v0.3.8 – ghi rõ, không thêm trường)**: một giá trị lưu (`reservation.deposit_required_vnd`), **hai nghĩa theo trạng thái**:
             (1) đơn `hold` – **cọc phải thu để xác nhận** (BR-305: % cọc × tiền phòng, làm tròn) – Desk hiện "còn thiếu cọc" = `depositRequiredVnd − depositPaidVnd` và đòi khách;
-            (2) từ `confirmed` trở đi – **cơ sở phí hủy/no-show** (BR-309, BR-311): tính lại sau mỗi B7/B8 = % cọc × tiền phòng **hiện hành** (giảm khi còn < 7 ngày và khách tự xin → giữ mức
+            (2) từ `confirmed` trở đi – **cơ sở phí hủy/no-show** (BR-309, BR-311): tính lại **mỗi khi tiền phòng đổi** – B7/B8 và sửa giá đêm S4-35 (BUG-R2-128, BE-A) – = % cọc × tiền phòng
+            **hiện hành** (giảm khi còn < 7 ngày và khách tự xin → giữ mức
             cũ); phí giữ = min(cọc đã thu, giá trị này, giá trị đơn). Desk **không** đòi cọc bổ sung khi giá trị này > `depositPaidVnd` ở đơn đã xác nhận (BR-429: không đòi cọc thêm khi đổi
             căn/ngày) – không hiện "còn thiếu cọc". Số dùng cho phí hủy hiện ở `CancellationQuote` (`retainedVnd`).
           x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]
@@ -10246,7 +10248,9 @@ components:
             lệnh B9: bậc giảm BR-107 tính lại trên **tổng số đêm gồm đêm B9a** (áp mọi đêm), giá mặc định của đêm B9a theo lịch **của chính đêm đó**, phụ thu người vượt định mức của đêm B9a
             (BR-110), FOC chờ duyệt như trên, rồi trừ tiền thừa (`creditVnd`) và kẹp 0 **một lần** ở cuối. Giá đêm B9a lễ tân **gõ khác mặc định**: client **không** tự cộng chênh – số đúng
             là trần `createVietQr purpose=check_in` gửi kèm `priorNightRateVnd` (cùng hàm, tính lại cả bậc và tiền thừa) và trần `checkIn.payment` (vượt → 422 `AMOUNT_EXCEEDS_BALANCE`, `max`).
-            Bằng 0 → không tạo QR (BR-417-06).
+            Bằng 0 → không tạo QR (BR-417-06). **BUG-R2-127 (bổ sung 4)**: tiền đêm B9a **chỉ** cộng khi `priorNight.available = true`; đêm trước không trống (có khách/OOO) → số này không
+            gồm đêm B9a, Desk không mời B9a (đọc `priorNight.available`); `createVietQr purpose=check_in` gửi `addPriorNight` khi đó → 422 `NOT_ALLOWED` (`field` = `addPriorNight`); B9 gửi
+            `addPriorNight` → 409 `ROOM_UNAVAILABLE` + `suggestions[]` như cũ.
     FocRequestInput:
       type: object
       required: [kind, amountVnd, reasonCode]
@@ -10274,8 +10278,11 @@ components:
         currentBookingRateVnd:
           oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }]
           description: |
-            0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá **ròng** một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
+            0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
             client hiện nút "Giữ giá đơn" điền giá này vào `nightlyRates` (vẫn kiểm sàn–trần BR-105; ngày đặc biệt luôn giá ngày đó). `null` = đơn theo lịch giá.
+            **0.3.7 bổ sung 4 (BUG-R2-132 – sửa chữ "giá ròng")**: là **giá thỏa thuận của đêm = giá lịch** (trước bậc BR-107/BR-111 – cùng nghĩa giá gõ tay BR-107 v0.3.8), không phải giá sau bậc.
+            Có giá trị **chỉ** với đơn giá thỏa thuận, xác định bằng **cờ nguồn giá của đơn** (BE-A ghi cho mọi đơn – migration `0064`, bù cờ cho đơn cũ theo các đêm lúc đặt); **`null`** với đơn
+            theo lịch giá, **kể cả** khi đơn có đêm sửa giá tay S4-35, đêm B9a/B13/B18 gõ tay – các thao tác đó không đổi nguồn giá của đơn.
         repricing:
           type: array
           description: |
