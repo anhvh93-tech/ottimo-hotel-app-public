@@ -25,7 +25,7 @@ export interface FridgeItem {
 
 export interface FridgeFill {
   id: string;
-  source: 'check_in' | 'refill' | 'backfill';
+  source: 'check_in' | 'refill' | 'backfill' | 'carry';
   filledAt: Date;
 }
 
@@ -95,7 +95,7 @@ export async function registerFridge(
   });
 }
 
-async function writeFill(
+export async function writeFill(
   tx: Tx,
   f: {
     primaryId: string;
@@ -104,14 +104,26 @@ async function writeFill(
     now: Date;
     userId: string | null;
     items: readonly FridgeItem[];
+    /** check_in (R2), refill (period opened by a done refill – R9), carry (period without refill – R1 (3)). */
+    source?: 'check_in' | 'refill' | 'carry';
   },
-): Promise<void> {
+): Promise<string> {
   const id = uuidv7();
   await tx.query(
     `INSERT INTO minibar_fill (id, organization_id, property_id, reservation_id, room_id, source, filled_at,
        created_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, 'check_in', $6, $7, $8)`,
-    [id, tx.ctx.organizationId, tx.ctx.propertyId, f.primaryId, f.roomId, f.at, f.userId, f.now],
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      id,
+      tx.ctx.organizationId,
+      tx.ctx.propertyId,
+      f.primaryId,
+      f.roomId,
+      f.source ?? 'check_in',
+      f.at,
+      f.userId,
+      f.now,
+    ],
   );
   for (const it of f.items) {
     await tx.query(
@@ -130,6 +142,7 @@ async function writeFill(
       ],
     );
   }
+  return id;
 }
 
 export async function latestFill(
@@ -137,13 +150,40 @@ export async function latestFill(
   primaryId: string,
   roomId: string,
 ): Promise<FridgeFill | null> {
+  // ARC 16.16: the periods follow the order they were WRITTEN (created_at = when processed); `filled_at` is when
+  // the fridge was filled (a refill done offline, R9 (s)) and may be earlier than the fill before it.
   const { rows } = await tx.query<{ id: string; source: FridgeFill['source']; filled_at: Date }>(
     `SELECT id, source, filled_at FROM minibar_fill WHERE reservation_id = $1 AND room_id = $2
-      ORDER BY filled_at DESC, id DESC LIMIT 1`,
+      ORDER BY created_at DESC, id DESC LIMIT 1`,
     [primaryId, roomId],
   );
   const r = rows[0];
   return r ? { id: r.id, source: r.source, filledAt: r.filled_at } : null;
+}
+
+/**
+ * BR-703-02 note 2 (ARC 16.16): the stay of `primaryId` is in house (its primary booking `in_house`) and is in
+ * `roomId` now – the room of the latest active segment up to `today` of one of its bookings in house.
+ */
+export async function stayIsInRoom(
+  tx: Tx,
+  primaryId: string,
+  roomId: string,
+  today: LocalDate,
+): Promise<boolean> {
+  const { rows } = await tx.query<{ found: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM reservation p
+         JOIN folio f ON f.primary_reservation_id = p.id
+         JOIN reservation r ON r.folio_id = f.id AND r.status = 'in_house'
+         CROSS JOIN LATERAL (
+           SELECT s.room_id FROM reservation_segment s
+            WHERE s.reservation_id = r.id AND s.active AND s.room_id IS NOT NULL AND s.from_date <= $3
+            ORDER BY s.from_date DESC LIMIT 1) cur
+        WHERE p.id = $1 AND p.status = 'in_house' AND cur.room_id = $2) AS found`,
+    [primaryId, roomId, today],
+  );
+  return !!rows[0]?.found;
 }
 
 /** The catalogue's standard fridge now (active minibar items with a standard quantity). */

@@ -25,6 +25,7 @@ import type { ParameterService } from '../../platform/public/parameter.service';
 import { type RoomReturn, roomReturnsOn } from '../../reservations/public/room-return';
 import { linenChangeDue } from '../internal/rules';
 import { RoomStatusService } from './room-status.service';
+import { STAY_ARRIVAL_SQL } from './stay-arrival';
 
 export const HK_DAILY_JOB_KEY = 'hk.daily';
 export const WO_SLA_JOB_KEY = 'work_order.sla';
@@ -109,15 +110,15 @@ export async function runHkDaily(
     nights: number;
   }>(
     `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id,
-            ($1::date - COALESCE(p.arrival_date, r.arrival_date)) AS nights
+            ($1::date - ${STAY_ARRIVAL_SQL}) AS nights
        FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-       LEFT JOIN reservation p ON p.id = r.parent_reservation_id
       WHERE s.active AND r.status = 'in_house' AND r.stay_type = 'short'
         AND s.from_date <= $1::date AND s.to_date > $1::date
         -- BR-807-01 (DOM, v0.3.8): a stay-over guest is "arrival < business date < departure" – a guest arriving
         -- today keeps OC and gets no stay-over clean, even when J8 runs late (catch-up after the check-in).
-        -- The arrival of the stay: an extension child counts its parent's.
-        AND COALESCE(p.arrival_date, r.arrival_date) < $1::date
+        -- The arrival of the stay (stay-arrival.ts): an extension child counts its parent's, an OTA booking its
+        -- B9a night before (BUG-R2-151).
+        AND ${STAY_ARRIVAL_SQL} < $1::date
       ORDER BY s.room_id, s.from_date DESC`,
     [today],
   );

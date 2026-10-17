@@ -101,7 +101,7 @@ export class StayService {
     // BR-421 / BR-417-07 (BUG-R2-134): default of each added night – one rule with B9a/B18 (`addedNightRate`).
     const nc = row.external_contract
       ? null
-      : await this.s.addedNightContext(tx, row, 'last', rm.id);
+      : await this.s.addedNightContext(tx, ctx, row, 'last', rm.id);
     let keepRate: number | null = null;
     const nights: Array<Record<string, unknown>> = [];
     const defaults: NightPrice[] = [];
@@ -414,6 +414,8 @@ export class StayService {
       ...this.s.req(ctx),
     });
     await outboxAvailability(tx, [{ roomId: o.rm.id, from, to }], 'reservation.extended');
+    // ARC 16.13 (BUG-R2-144): B13 – the stay goes on in its room (B18's "one more night" is not an extension).
+    await this.s.ports.minibar.onStayContinued?.(tx, row.id, o.rm.id, 'extended');
     // BUG-R2-047 (SM-01 B13, SM-03, BR-802): the stay goes on – the occupied-clean room needs a stay-over clean.
     if ((await this.s.roomStatus.of(tx, o.rm.id, ctx.today)) === 'OC') {
       await this.s.roomStatus.set(tx, o.rm.id, 'OD', {
@@ -1060,6 +1062,8 @@ export class StayService {
     // already taken there for this stay gets its refill task now (same port as B18 and the room return). Never
     // blocks the move (assumption (k)); a count taken after the move gets its task from the inventory module.
     await this.s.ports.minibar.onCheckedOut(tx, row.id, oldRoom.id);
+    // ARC 16.13 (BUG-R2-144): the stay goes on in the new room (a return to a room counted before included).
+    await this.s.ports.minibar.onStayContinued?.(tx, row.id, newRoom.id, 'room_entered');
     await this.transferKits(tx, ctx, row, oldRoom, newRoom, oldExtra, newExtra);
     await this.s.ports.registration.onRoomChanged(tx, row.id, newRoom.room_no);
     await outboxAvailability(
@@ -1128,6 +1132,8 @@ export class StayService {
     // BR-424-05 `minibarCheckNewRoom`: the moved room is left like a check-out – a checkout count already taken
     // for the primary booking gets its refill task (same port as B18; no count yet → HK counts at the clean).
     await this.s.ports.minibar.onCheckedOut(tx, parent.id, moved.id);
+    // ARC 16.13 (BUG-R2-144): S4-09 – back in the room of the primary booking.
+    await this.s.ports.minibar.onStayContinued?.(tx, parent.id, back.id, 'room_entered');
     await tx.query(
       `UPDATE reservation SET door_access_handed_over_at = NULL, door_access_handed_over_by = NULL WHERE id = $1`,
       [child.id],

@@ -26,6 +26,7 @@ import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   addDays,
   cleanupTracked,
+  getReservation,
   room,
   s2Context,
   vnTime,
@@ -892,6 +893,7 @@ test.describe(
       to: Room,
       day: string,
       cause: 'property_fault' | 'guest_request',
+      extra: Json = {},
     ): Promise<void> {
       await makeReady(request, k.fd, to, day, '10:00');
       const base = {
@@ -899,6 +901,7 @@ test.describe(
         effectiveDate: day,
         cause,
         reason: cause === 'guest_request' ? 'Khach xin doi phong' : 'Binh nong lanh hong',
+        ...extra,
       };
       const pv = await stayAction<Json & ProblemFields>(
         request,
@@ -1157,6 +1160,406 @@ test.describe(
       await counted(request, k.fd, sb.res.id, {}, {}, '(b) đếm tủ mới');
       await settle(request, k, sa, '09:00', 2 * price('bia') + price('coca'));
       await settle(request, k, sb, '09:00', price('snack'));
+    });
+
+    test('TC-L4-124 (A) BUG-R2-144 / BR-703-02 `s409Agoda`: đơn Agoda có đơn con gia hạn; khách xin đổi tạm (B14 `until_parent_departure`) → tủ căn gốc đếm 2 bia → HK xong việc bổ sung → ghi khách về căn gốc (`roomReturnRecorded`) mở kỳ mới → B18 đòi đếm lại tủ căn gốc; kỳ sau 1 bia → minibar 105.000, dòng 70.000 giữ; xem trước B18 = lệnh ghi', async ({
+      request,
+    }) => {
+      needClock('TC-L4-124');
+      const { D, st, child, origin, temp } = await precondition(
+        'Agoda 2 đêm căn gốc + 1 đêm con (B13), đang ở',
+        async () => {
+          const D = virtualDay(realToday, 4);
+          await startDay(request, D, '14:00');
+          const k0 = await people(request);
+          const vacant = await vacantRooms(request, k0);
+          const origin = vacant.find((r) => r.roomNo === '202') ?? vacant[0]!;
+          const temp = vacant.find(
+            (r) => r.id !== origin.id && r.roomGroupId !== origin.roomGroupId,
+          )!;
+          expect(temp, 'cần một căn trống khác nhóm cho đổi tạm').toBeTruthy();
+          const st = await inHouse(request, k0.c, k0.fd, {
+            room: origin,
+            arrival: D,
+            nights: 2,
+            kind: 'agoda',
+          });
+          const cur = await getReservation(request, k0.fd, st.res.id);
+          const ext = await call<{ childReservation?: { id: string } } & ProblemFields>(
+            request,
+            'POST',
+            p3(EP3.extendStay, k0.fd, { reservationId: st.res.id }),
+            {
+              session: k0.fd,
+              idempotencyKey: true,
+              ifMatch: versionTag(cur.body.version),
+              body: { nights: 1 },
+            },
+          );
+          expect(ext.status, `extendStay: ${JSON.stringify(ext.body).slice(0, 300)}`).toBe(200);
+          const child = ext.body.childReservation?.id;
+          expect(child, 'đơn con B13 (BR-422)').toBeTruthy();
+          return { D, st, child: child!, origin, temp };
+        },
+      );
+      // D+1: khách xin đổi tạm tới hết đơn gốc (S4-09) → tủ căn gốc đếm như trả phòng, HK bổ sung xong
+      const d1 = addDays(D, 1);
+      let k = await moveTo(request, d1, '10:00');
+      await b14(request, k, st, temp, d1, 'guest_request', { stayScope: 'until_parent_departure' });
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { bia: 2 },
+        { roomId: origin.id },
+        'kỳ 1: đếm tủ căn gốc',
+      );
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      const tasks = await call<{ data: Json[] }>(request, 'GET', p3(EP3.listHkTasks, hk), {
+        session: hk,
+        query: { date: d1 },
+      });
+      expect(tasks.status).toBe(200);
+      const refill = tasks.body.data.find(
+        (t) =>
+          t.type === 'minibar_refill' && t.roomId === origin.id && t.reservationId === st.res.id,
+      );
+      expect(refill, 'việc bổ sung tủ căn gốc').toBeTruthy();
+      for (const [action, at] of [
+        ['start', '10:01'],
+        ['complete', '10:02'],
+      ] as const) {
+        const r = await call<Json & ProblemFields>(
+          request,
+          'POST',
+          `/v1/properties/${propertyIdOf(hk)}/hk-tasks/${String(refill!.id)}/actions/${action}`,
+          { session: hk, idempotencyKey: true, body: { performedAt: vnTime(d1, at) } },
+        );
+        expect(r.status, `HK ${action}: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+      }
+      // D+2: khách về căn gốc (đêm đầu của đơn con) – lễ tân ghi nhận → kỳ nạp mới ở căn gốc
+      const d2 = addDays(D, 2);
+      k = await moveTo(request, d2, '10:00');
+      // căn gốc đang `OC` (đêm của đơn con vẫn gán căn gốc) – không cần dọn trước khi ghi khách về
+      const ch = await getReservation(request, k.fd, child);
+      const back = await call<Json & ProblemFields>(
+        request,
+        'PATCH',
+        `/v1/properties/${propertyIdOf(k.fd)}/reservations/${child}`,
+        { session: k.fd, ifMatch: versionTag(ch.body.version), body: { roomReturnRecorded: true } },
+      );
+      expect(back.status, `roomReturnRecorded: ${JSON.stringify(back.body).slice(0, 300)}`).toBe(
+        200,
+      );
+      const s0 = await checkoutSummary(request, k.fd, st.res.id);
+      expect
+        .soft(
+          JSON.stringify((s0.body as unknown as Json).minibarUncheckedRooms ?? []),
+          'kỳ mới ở căn gốc → B18 đòi đếm lại',
+        )
+        .toContain(origin.id);
+      await counted(request, k.fd, st.res.id, {}, { roomId: temp.id }, 'tủ căn ở tạm (không dùng)');
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { bia: 1 },
+        { roomId: origin.id },
+        'kỳ 2: đếm tủ căn gốc',
+      );
+      const f = await getFolio(request, k.fd, st.res.folioId!);
+      expect
+        .soft(
+          itemLines(f, 'bia')
+            .map((l) => l.amountVnd)
+            .sort(),
+          'dòng kỳ 1 giữ + dòng kỳ 2',
+        )
+        .toEqual([price('bia'), 2 * price('bia')]);
+      expect.soft(minibarGross(f), 'minibar 105.000 (BR-703-02 s409Agoda)').toBe(3 * price('bia'));
+      const s1 = await checkoutSummary(request, k.fd, st.res.id);
+      expect
+        .soft(
+          JSON.stringify((s1.body as unknown as Json).minibarUncheckedRooms ?? []),
+          'đã đếm đủ mọi tủ',
+        )
+        .toBe('[]');
+      // ngày đi của đơn con: B18 thu đúng số xem trước
+      k = await moveTo(request, addDays(D, 3), '09:00');
+      const sum3 = await checkoutSummary(request, k.fd, st.res.id, { checkoutTime: '09:00' });
+      const due = Number(
+        (sum3.body as unknown as Json).amountDueAtCheckoutVnd ?? sum3.body.balanceDueVnd,
+      );
+      await settle(request, k, st, '09:00', due);
+    });
+
+    // ───────────── DOM R9 18/10 (BR-703-02 r9_*): việc bổ sung không hủy khi lượt ở tiếp, kỳ `carry` / `refill` ─────────────
+
+    async function hkTask(
+      request: APIRequestContext,
+      hk: StaffSession,
+      id: string,
+      dates: string[],
+    ) {
+      for (const date of dates) {
+        const r = await call<{ data: Json[] }>(request, 'GET', p3(EP3.listHkTasks, hk), {
+          session: hk,
+          query: { date },
+        });
+        if (r.status !== 200) continue; // ngày đã qua → 422; việc mở vẫn hiện ở hôm nay
+        const hit = r.body.data.find((t) => t.id === id);
+        if (hit) return hit;
+      }
+      return undefined;
+    }
+    async function refillTasksOf(
+      request: APIRequestContext,
+      hk: StaffSession,
+      date: string,
+      roomId: string,
+      reservationId: string,
+    ): Promise<Json[]> {
+      const r = await call<{ data: Json[] }>(request, 'GET', p3(EP3.listHkTasks, hk), {
+        session: hk,
+        query: { date },
+      });
+      if (r.status !== 200) return [];
+      return r.body.data.filter(
+        (t) =>
+          t.type === 'minibar_refill' && t.roomId === roomId && t.reservationId === reservationId,
+      );
+    }
+    async function hkDone(
+      request: APIRequestContext,
+      hk: StaffSession,
+      id: string,
+      day: string,
+      hhmm: string,
+    ) {
+      const [h, m] = hhmm.split(':').map(Number) as [number, number];
+      for (const [action, add] of [
+        ['start', 0],
+        ['complete', 1],
+      ] as const) {
+        const at = `${String(h).padStart(2, '0')}:${String(m + add).padStart(2, '0')}`;
+        const r = await call<Json & ProblemFields>(
+          request,
+          'POST',
+          `/v1/properties/${propertyIdOf(hk)}/hk-tasks/${id}/actions/${action}`,
+          { session: hk, idempotencyKey: true, body: { performedAt: vnTime(day, at) } },
+        );
+        expect(r.status, `HK ${action} ${id}: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+      }
+    }
+    /**
+     * Ví dụ của DOM: 202 (bia 35.000 định mức 2, snack 30.000 định mức 1), ở 3 đêm. D+1 B14 sự cố sang căn cùng nhóm,
+     * đếm tủ căn gốc dùng 2 bia (70.000) → việc T1 "2 bia"; D+2 đếm tủ căn tạm (không dùng), B14 về căn gốc khi T1 chưa
+     * xong → kỳ `carry` (mốc bia 0, snack 1), T1 giữ mở.
+     */
+    async function r9Base(request: APIRequestContext, withFoc = false) {
+      return precondition('ví dụ DOM R9: đi rồi về căn gốc khi T1 chưa xong', async () => {
+        const D = virtualDay(realToday, 4);
+        await startDay(request, D, '14:00');
+        const k0 = await people(request);
+        const [origin, other] = sameGroupPairs(await vacantRooms(request, k0), 1)[0]!;
+        const st = await inHouse(request, k0.c, k0.fd, { room: origin, arrival: D, nights: 3 });
+        const d1 = addDays(D, 1);
+        let k = await moveTo(request, d1, '10:00');
+        await b14(request, k, st, other, d1, 'property_fault');
+        await counted(
+          request,
+          k.fd,
+          st.res.id,
+          { bia: 2 },
+          { roomId: origin.id },
+          'đếm tủ căn gốc',
+        );
+        const focId = withFoc ? await foc(request, k, st, 'bia', 2 * price('bia')) : null;
+        const hk = await sessionOrSkip(request, 'qa.hk');
+        const t1 = (await refillTasksOf(request, hk, d1, origin.id, st.res.id))[0];
+        expect(t1, 'việc T1 bổ sung 2 bia').toBeTruthy();
+        const d2 = addDays(D, 2);
+        k = await moveTo(request, d2, '10:00');
+        await counted(request, k.fd, st.res.id, {}, { roomId: other.id }, 'đếm tủ căn tạm');
+        await b14(request, k, st, origin, d2, 'property_fault');
+        return { D, d1, d2, d3: addDays(D, 3), k, st, origin, t1Id: String(t1!.id), focId };
+      });
+    }
+
+    test('TC-L4-127 (A) BR-703-02 r9_16 (DOM R9 sửa): về căn gốc khi việc bổ sung T1 chưa xong → T1 GIỮ MỞ (không hủy); khách ăn 1 snack → B18 đếm: dòng mới 30.000, minibar 100.000; sau B18 có T1 (2 bia) + T2 (1 snack)', async ({
+      request,
+    }) => {
+      knownBug('BUG-R2-144');
+      needClock('TC-L4-127');
+      const { d2, d3, st, origin, t1Id } = await r9Base(request);
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      expect
+        .soft((await hkTask(request, hk, t1Id, [d2]))?.status, 'T1 giữ mở sau khi vào lại')
+        .toBe('open');
+      const k = await moveTo(request, d3, '09:00');
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { snack: 1 },
+        { roomId: origin.id, mocs: { snack: 1 } },
+      );
+      const f = await getFolio(request, k.fd, st.res.folioId!);
+      expect.soft(minibarGross(f), 'minibar 100.000').toBe(2 * price('bia') + price('snack'));
+      await settle(request, k, st, '09:00', 2 * price('bia') + price('snack'));
+      const hk2 = await sessionOrSkip(request, 'qa.hk');
+      const open = [...(await refillTasksOf(request, hk2, d3, origin.id, st.res.id))].filter(
+        (t) => t.status === 'open',
+      );
+      expect.soft(new Set(open.map((t) => t.id)).size, 'T1 + T2 mở sau B18').toBe(2);
+    });
+
+    test('TC-L4-128 (A) BR-703-02 r9_16b: HK xong T1 khi khách đã vào lại → kỳ `refill`, mốc = số theo hệ thống + số nạp (bia 0 + 2, snack 1 + 0); B18 đếm còn bia 1, snack 0 → dòng 35.000 + 30.000, minibar 135.000, dòng 70.000 giữ', async ({
+      request,
+    }) => {
+      knownBug('BUG-R2-144');
+      needClock('TC-L4-128');
+      const { d2, d3, st, origin, t1Id } = await r9Base(request);
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      await hkDone(request, hk, t1Id, d2, '10:01');
+      const k = await moveTo(request, d3, '09:00');
+      const t = await std(request, k.fd, st.res.id, origin.id);
+      const moc = (code: string) =>
+        t.body.items.find((i) => i.itemId === idByCode.get(code))?.standardQty;
+      expect.soft(moc('bia'), 'mốc bia 0 + 2').toBe(2);
+      expect.soft(moc('snack'), 'mốc snack 1 + 0').toBe(1);
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { bia: 1, snack: 1 },
+        { roomId: origin.id, mocs: { bia: 2, snack: 1 } },
+      );
+      const f = await getFolio(request, k.fd, st.res.folioId!);
+      expect
+        .soft(
+          itemLines(f, 'bia')
+            .map((l) => l.amountVnd)
+            .sort(),
+          'bia 70.000 giữ + 35.000',
+        )
+        .toEqual([price('bia'), 2 * price('bia')]);
+      expect.soft(minibarGross(f), 'minibar 135.000').toBe(3 * price('bia') + price('snack'));
+      await settle(request, k, st, '09:00', 3 * price('bia') + price('snack'));
+    });
+
+    test('TC-L4-129 (A) BR-703-02 r9_16c (chống tính trùng): ngày đi 09:00 HK đếm snack còn 0 (30.000, kỳ `carry`); 09:05 HK xong T1 → mốc bia 2, snack bỏ khỏi lần nạp; 11:00 B18 đếm lại bia 2/2 → không dòng mới, minibar 100.000 (không 130.000)', async ({
+      request,
+    }) => {
+      knownBug('BUG-R2-144');
+      needClock('TC-L4-129');
+      const { d3, st, origin, t1Id } = await r9Base(request);
+      let k = await moveTo(request, d3, '09:00');
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      await counted(
+        request,
+        hk,
+        st.res.id,
+        { snack: 1 },
+        { roomId: origin.id, mocs: { snack: 1 } },
+        'HK đếm 09:00',
+      );
+      await hkDone(request, hk, t1Id, d3, '09:01');
+      k = await moveTo(request, d3, '11:00');
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { bia: 0 },
+        { roomId: origin.id, mocs: { bia: 2 } },
+        'B18 đếm lại 11:00',
+      );
+      const f = await getFolio(request, k.fd, st.res.folioId!);
+      expect.soft(minibarGross(f), 'minibar 100.000').toBe(2 * price('bia') + price('snack'));
+      await settle(request, k, st, '11:00', 2 * price('bia') + price('snack'));
+    });
+
+    test('TC-L4-130 (A) BR-703-02 r9_18: B13 gia hạn sau lần đếm dùng 2 bia → sinh việc T1 (2 bia) ngay; (a) HK chưa nạp → B18 đếm bia 0, snack 1 → 70.000; (b) HK đã nạp → mốc bia 2 → đếm bia 2, snack 1 → vẫn 70.000', async ({
+      request,
+    }) => {
+      knownBug('BUG-R2-144');
+      needClock('TC-L4-130');
+      const { D, sa, sb } = await precondition('hai khách ở 1 đêm', async () => {
+        const D = virtualDay(realToday, 3);
+        await startDay(request, D, '14:00');
+        const k0 = await people(request);
+        const [ra, rb] = (await vacantRooms(request, k0)).slice(0, 2) as [Room, Room];
+        const sa = await inHouse(request, k0.c, k0.fd, { room: ra, arrival: D, nights: 1 });
+        const sb = await inHouse(request, k0.c, k0.fd, { room: rb, arrival: D, nights: 1 });
+        return { D, sa, sb };
+      });
+      const d1 = addDays(D, 1);
+      let k = await moveTo(request, d1, '09:00');
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      for (const st of [sa, sb]) {
+        await counted(request, k.fd, st.res.id, { bia: 2 }, {}, 'đếm ngày đi');
+        const cur = await getReservation(request, k.fd, st.res.id);
+        const ext = await call<ProblemFields>(
+          request,
+          'POST',
+          p3(EP3.extendStay, k.fd, { reservationId: st.res.id }),
+          {
+            session: k.fd,
+            idempotencyKey: true,
+            ifMatch: versionTag(cur.body.version),
+            body: { nights: 1 },
+          },
+        );
+        expect(ext.status, `B13: ${JSON.stringify(ext.body).slice(0, 200)}`).toBe(200);
+        const tasks = await refillTasksOf(request, hk, d1, st.room.id, st.res.id);
+        expect.soft(tasks.length, 'B13 sinh việc bổ sung T1 ngay').toBe(1);
+        expect
+          .soft(JSON.stringify(tasks[0]?.refillItems ?? []), 'T1 = 2 bia')
+          .toContain(idByCode.get('bia')!);
+      }
+      const tb = (await refillTasksOf(request, hk, d1, sb.room.id, sb.res.id))[0];
+      if (tb) await hkDone(request, hk, String(tb.id), d1, '09:01');
+      k = await moveTo(request, addDays(D, 2), '09:00');
+      await counted(
+        request,
+        k.fd,
+        sa.res.id,
+        {},
+        {},
+        '(a) HK chưa nạp – kỳ carry, bia mốc 0 không còn trong tủ',
+      );
+      await counted(request, k.fd, sb.res.id, {}, { mocs: { bia: 2 } }, '(b) HK đã nạp');
+      for (const st of [sa, sb]) {
+        const f = await getFolio(request, k.fd, st.res.folioId!);
+        expect.soft(minibarGross(f), `${st.room.roomNo}: minibar 70.000`).toBe(2 * price('bia'));
+      }
+      const dueOf = async (st: Stay) => {
+        const s0 = await checkoutSummary(request, k.fd, st.res.id, { checkoutTime: '09:00' });
+        return Number((s0.body as unknown as Json).amountDueAtCheckoutVnd ?? s0.body.balanceDueVnd);
+      };
+      await settle(request, k, sa, '09:00', await dueOf(sa));
+      await settle(request, k, sb, '09:00', await dueOf(sb));
+    });
+
+    test('TC-L4-131 (A) BR-703-02 r9_t: bia 2 FOC 100 % (ròng 0) vẫn là lần đếm "có tính tiền" (xét số lượng) → về căn gốc mở kỳ `carry` (mốc bia 0); khách không dùng thêm → B18 không dòng mới: minibar 70.000, FOC 70.000, ròng 0', async ({
+      request,
+    }) => {
+      needClock('TC-L4-131');
+      const { d3, st, origin, focId } = await r9Base(request, true);
+      const k = await moveTo(request, d3, '09:00');
+      const t = await std(request, k.fd, st.res.id, origin.id);
+      expect
+        .soft(
+          t.body.items.find((i) => i.itemId === idByCode.get('bia'))?.standardQty ?? 0,
+          'kỳ carry: mốc bia 0 (món mốc 0 không còn trong tủ)',
+        )
+        .toBe(0);
+      await counted(request, k.fd, st.res.id, {}, { roomId: origin.id });
+      const f = await getFolio(request, k.fd, st.res.folioId!);
+      expect.soft(minibarGross(f), 'minibar 70.000').toBe(2 * price('bia'));
+      expect.soft(reductions(f), 'FOC 70.000').toBe(2 * price('bia'));
+      expect.soft((await approvalById(request, k.owner, focId!)).focState).toBe('applied');
+      await settle(request, k, st, '09:00', 0);
     });
   },
 );

@@ -3,7 +3,16 @@
  * from the price snapshot, commission + channel fee allocation on stay_night (erd 8), FOC/discount lines tied
  * to approvals (SM-10 hooks, BR-434), getFolio. Global: reservations (BE-A) and payments call FolioService.
  */
-import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Logger,
+  Module,
+  type OnApplicationBootstrap,
+  type OnModuleInit,
+} from '@nestjs/common';
+import { CLOCK, type Clock } from '../../clock';
+import { DATABASE, Database } from '../../db/database';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
@@ -14,6 +23,7 @@ import { BillService } from './internal/bill.service';
 import { FolioFocService } from './internal/foc.service';
 import { FolioLinesService } from './internal/folio-lines.service';
 import { FolioService } from './public/folio.service';
+import { resyncMinibarFocOnce } from './public/minibar-foc-resync';
 
 // Audit allowlists (SR-AUD-03) for money events written by this module (category money).
 defineAuditEntity('folio', [
@@ -88,14 +98,51 @@ defineAuditEntity('commission', [
   ],
   exports: [FolioService, FOLIO_STAY_SYNC],
 })
-export class FolioModule implements OnModuleInit {
+export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
+  private readonly logger = new Logger('FolioModule');
+
   constructor(
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioFocService) private readonly foc: FolioFocService,
     @Inject(FolioLinesService) private readonly lineService: FolioLinesService,
     @Inject(FolioService) private readonly folios: FolioService,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
+    @Inject(DATABASE) private readonly db: Database,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
+
+  /**
+   * BUG-R2-147 (lối ra (a)): the one-time FOC re-sync of the open folios after 0065, once per property (job_run
+   * flag), at start-up – never in tests (they call resyncMinibarFocOnce themselves) and never blocking the start.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    if (process.env.NODE_ENV === 'test' && process.env.RUN_DATA_FIXES !== '1') return;
+    try {
+      const props = await this.db.entry(async (tx) => {
+        const { rows } = await tx.query<{ property_id: string; organization_id: string }>(
+          'SELECT property_id, organization_id FROM worker_list_properties()',
+        );
+        return rows;
+      });
+      for (const p of props) {
+        const n = await this.db.withContext(
+          {
+            organizationId: p.organization_id,
+            propertyId: p.property_id,
+            userId: null,
+            actorType: 'system',
+          },
+          (tx) => resyncMinibarFocOnce(tx, this.folios, this.clock.now()),
+        );
+        if (n !== null)
+          this.logger.log(`data_fix.minibar_foc_0065 property=${p.property_id} folios=${n}`);
+      }
+    } catch (err) {
+      this.logger.error(
+        `data_fix.minibar_foc_0065 failed: ${err instanceof Error ? err.name : 'error'}`,
+      );
+    }
+  }
 
   onModuleInit(): void {
     for (const type of ['foc', 'special_discount'] as const) {

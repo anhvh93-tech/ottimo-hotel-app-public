@@ -10,6 +10,7 @@ import { ItemsController } from './internal/items.controller';
 import { ItemsService } from './internal/items.service';
 import { MinibarController } from './internal/minibar.controller';
 import { FD_MINIBAR_PORT } from '../frontdesk/public/ports';
+import { MINIBAR_REFILL_DONE_PORT } from '../housekeeping/public/minibar-refill-done.port';
 import { MinibarService } from './internal/minibar.service';
 import { MinibarCheckoutPort } from './public/minibar-checkout.port';
 
@@ -27,7 +28,9 @@ defineAuditEntity('item', [
   'costChanged',
 ]);
 
-// Global: binds BE-A's FD_MINIBAR_PORT (B18 blocker `minibar_not_checked` + refill task – ARC 4.3).
+// Global: binds BE-A's FD_MINIBAR_PORT (B18 blocker `minibar_not_checked` + refill task – ARC 4.3) and BE-C's
+// MINIBAR_REFILL_DONE_PORT (ARC 16.16 – housekeeping takes it @Optional; MinibarCheckoutPort depends on no
+// housekeeping provider, so no cycle).
 @Global()
 @Module({
   controllers: [MinibarController, ItemsController],
@@ -36,7 +39,8 @@ defineAuditEntity('item', [
     ItemsService,
     MinibarCheckoutPort,
     { provide: FD_MINIBAR_PORT, useExisting: MinibarCheckoutPort },
+    { provide: MINIBAR_REFILL_DONE_PORT, useExisting: MinibarCheckoutPort },
   ],
-  exports: [FD_MINIBAR_PORT],
+  exports: [FD_MINIBAR_PORT, MINIBAR_REFILL_DONE_PORT],
 })
 export class InventoryModule {}

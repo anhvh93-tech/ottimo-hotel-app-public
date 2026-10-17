@@ -405,3 +405,11 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
 - Test: `e2e/clock/minibar-matrix.s4.clock.spec.ts` (TC-L4-101…119) và `e2e/clock/late-fee-qr.s4.clock.spec.ts` (TC-L4-120, 121), gắn `knownBug` theo mã. Đặt ở project `clock`, không ở `e2e/api/` (cần đồng hồ ảo và sửa danh mục dùng chung).
 - Trên `ottimo-qa-s4` (api `42fb458`): 21/21 đúng kỳ vọng (3 đối chứng đạt, 18 `knownBug` hỏng đúng lỗi). Chi tiết: `bug-list.md` mục 11.13. TC-L4-071 sửa theo R5, chạy lại đạt.
 - **Cập nhật ~05:20:** stack QA dựng lại api-dist10 từ cây chung (M-1/0065 của BE-B, 139 của BE-A) → 22/22 đạt (thêm TC-L4-122 – việc `minibar_refill` tủ căn cũ). BUG-R2-135…139 → Fixed (QA kiểm đạt); 140 còn phần Desk. Commit gộp phải xóa mã đã sửa khỏi `OPEN`.
+
+### 7.12 Kiểm lại lần 4 S4-38 – việc của QA (18/10 ~05:10)
+- Đóng 134…139, 141, 142, 143 (CI 39069264514 xanh trên `2efec17`); 140 chờ kiểm phần Desk. Cấp BUG-R2-144…154 (critic) và 155…157 (DOM). Tiêu đề 129 sửa theo N-1.
+- Oracle 144, 145 (BR-703-02, BR-417-11); ca SEC `login-locked` TC-L4-123 (`knownBug('BUG-R2-146')`) hỏng đúng lỗi trên `365486f`.
+- 209 ca cũ: 178 `superseded`, 31 giữ (133, Note) – `scratchpad/qa-s4/s438-superseded.json`. `pendingFix`: gỡ BR-522-03/04, giữ BR-417-03, BR-602-05. Chi tiết: `bug-list.md` 11.15.
+
+### 7.13 Vòng sửa 4 – Kiểm thử minibar kỳ nạp và Desk (QA, 18/10 ~05:20)
+- S4-09 Agoda quay về (TC-L4-124), Desk 144 (TC-L4-125) và N-1 (TC-L4-126), DOM R9 r9_t (TC-L4-131): đạt trên cây chung. DOM R9 r9_16/16b/16c/18 (TC-L4-127…130): `knownBug('BUG-R2-144')` – chờ BE-B/BE-A làm theo R9. Chi tiết: `bug-list.md` 11.16; bảng ca `s4-minibar-matrix.md` mục 9.

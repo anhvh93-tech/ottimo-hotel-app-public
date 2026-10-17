@@ -1098,17 +1098,23 @@ export class FolioService implements FolioStaySync {
     const { rows } = await tx.query<{
       category: string;
       unit_price_vnd: number;
+      amount_vnd: number;
       service_date: string | null;
       folio_id: string;
       reservation_id: string | null;
+      charge_code: string | null;
     }>(
-      `SELECT category, unit_price_vnd, service_date::text AS service_date, folio_id, reservation_id
+      `SELECT category, unit_price_vnd, amount_vnd, service_date::text AS service_date, folio_id, reservation_id,
+              charge_code
          FROM folio_line WHERE id = $1`,
       [lineId],
     );
     const line = rows[0];
     if (!line) return null;
     if (line.category === 'room') return line.unit_price_vnd;
+    // BUG-R2-148 (BR-416-06, DOM 18/10): the late fee charged as one night IS the night of the departure day – its
+    // BR-433 basis is the charge itself (a MGR may waive it in full even above the last night stayed).
+    if (line.charge_code === 'late_fee_as_night') return line.amount_vnd;
     const { rows: nights } = await tx.query<{ unit_price_vnd: number; service_date: string }>(
       `SELECT l.unit_price_vnd, l.service_date::text AS service_date FROM folio_line l
         WHERE l.folio_id = $1 AND l.category = 'room' AND l.line_state = 'posted'

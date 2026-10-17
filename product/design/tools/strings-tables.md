@@ -3160,6 +3160,14 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `dep.qr_over_reason` | Lý do thu vượt | Reason for the extra amount | ⟨chừa chỗ⟩ | H11 DepositDialog: confirmPaymentReceived.note – bắt buộc (≥ 3 ký tự) khi QR cọc > Payment.amountDueNowVnd hoặc 422 REASON_REQUIRED (max); lỗi dùng field_error.reason_required |
 
+#### R2 Sprint 4 – FE-A: đếm lại tủ minibar (BUG-R2-144, BR-703-02), cảnh báo hủy dòng minibar có miễn/giảm (N-1) (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_recount_title` | Tủ căn {room} cần đếm lại | Room {room} minibar needs a new count | ⟨chừa chỗ⟩ | H16 bước 1: tủ có trong minibarUncheckedRooms dù đã có lần đếm/dòng tính trước đó – khách vào lại căn hoặc gia hạn sau lần đếm |
+| `co.minibar_recount_body` | Khách đã vào lại căn hoặc gia hạn sau lần đếm trước. Nhập số còn lại trong tủ bây giờ; phần đã tính lần trước không bị tính trùng. Số điền sẵn theo lần đếm trước. | The guest came back to this room or extended after the last count. Enter what is left in the minibar now; what was charged before is not charged twice. The figures start from the last count. | ⟨chừa chỗ⟩ | BR-703-02: kỳ nạp – không đảo/không giữ chồng dòng kỳ trước |
+| `folio.void_minibar_foc` | Món này đang có miễn/giảm {amount}. Hủy hoặc giảm dòng thì phần miễn/giảm vượt số còn lại tạm ngưng, và bị hủy khi chốt folio nếu không ghi lại dòng hoặc đếm lại minibar với số mới. | This item has a waiver of {amount}. Voiding or reducing the line pauses the part of the waiver above what is left; that part is cancelled at settlement unless the line is posted again or the minibar is recounted with a new number. | ⟨chừa chỗ⟩ | N-1 (BR-702 v0.3.8, NÊN): sửa/hủy dòng minibar có FOC theo món (BR-434-15) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

@@ -119,5 +119,23 @@ export interface FrontdeskMinibarPort {
   uncheckedRooms?(
     tx: Tx,
     reservationId: string,
-  ): Promise<Array<{ roomId: string; roomNo: string }>>;
+  ): Promise<
+    Array<{
+      roomId: string;
+      roomNo: string;
+      /** ARC 16.14 (BE-B): `CheckoutSummary.minibarUncheckedRooms[].reason`. */
+      reason?: 'never_counted' | 'stay_continued' | 'new_fill';
+    }>
+  >;
+  /**
+   * 0.3.7 bổ sung 4 (ARC 16.13, BUG-R2-144): the stay goes on in `roomId` – `room_entered` at B14 (the new room,
+   * a return to the old one included) and S4-09 `roomReturnRecorded`; `extended` at B13 (not B18's "one more
+   * night"). Inventory opens a new fill period for a fridge already counted. Optional while BE-B wires it.
+   */
+  onStayContinued?(
+    tx: Tx,
+    reservationId: string,
+    roomId: string,
+    reason: 'room_entered' | 'extended',
+  ): Promise<void>;
 }

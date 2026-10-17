@@ -1450,6 +1450,66 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(await stayovers('203', next)).toBe(1);
   });
 
+  it('BUG-R2-151: an OTA booking checked in before 06:00 (B9a – child booking for the night before) is a stay-over on its own arrival day – J8 07:00 gives OD + 1 stay-over clean, B13 the same day too (like a direct booking)', async () => {
+    const deps = {
+      params: fa.app.get(ParameterService),
+      events: fa.app.get(EventsService),
+      rooms: fa.app.get(RoomStatusService),
+    };
+    /** OTA booking arriving today + its B9a child (night before), both lived. */
+    const b9a = async (roomNo: string, childStatus: 'in_house' | 'checked_out') => {
+      const main = await seedStay(db, t, ids, {
+        roomNo,
+        status: 'in_house',
+        arrival: TODAY,
+        departure: '2026-10-17',
+      });
+      const child = await seedStay(db, t, ids, {
+        roomNo,
+        status: childStatus,
+        arrival: '2026-10-14',
+        departure: TODAY,
+      });
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query('UPDATE reservation SET parent_reservation_id = $2 WHERE id = $1', [
+          child.reservationId,
+          main.reservationId,
+        ]),
+      );
+      await setStatus(roomNo, 'OC');
+      return main.reservationId;
+    };
+    const stayovers = async (roomNo: string) =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ reservation_id: string; linen_change: boolean }>(
+              `SELECT reservation_id, linen_change FROM hk_task WHERE room_id = $1 AND type = 'stayover_clean'
+                AND due_date = $2::date`,
+              [room(roomNo), TODAY],
+            )
+          ).rows,
+      );
+    const main302 = await b9a('302', 'in_house');
+    const run = await db.withContext(
+      t.ctx(),
+      (tx) => runHkDaily(tx, deps, new Date(T0.getTime() - 2 * 3_600_000), TODAY), // 07:00
+    );
+    expect(run.markedDirty).toBeGreaterThanOrEqual(1);
+    expect((await entry('fd', '302')).status).toBe('OD');
+    expect(await stayovers('302')).toEqual([{ reservation_id: main302, linen_change: false }]); // 1 night slept
+    // B13 the same day on another B9a stay (child already checked out): OC → OD + 1 stay-over clean.
+    await b9a('301', 'checked_out');
+    const before = await db.withContext(
+      { ...t.ctx(), userId: uid('fd'), actorType: 'user' },
+      (tx) => deps.rooms.set(tx, room('301'), 'OD', { today: TODAY, now: T0, event: 'B13' }),
+    );
+    expect(before).toBe('OC');
+    expect((await entry('fd', '301')).status).toBe('OD');
+    expect(await stayovers('301')).toHaveLength(1);
+  });
+
   it('EP14 port (BE-D): a guest request becomes a guest_request task (rank 3) or a work order (guest_app, medium); decline cancels the open task', async () => {
     const port = fa.app.get<GuestRequestWorkPort>(GUEST_REQUEST_WORK_PORT);
     const { reservationId } = await seedStay(db, t, ids, { roomNo: '203', status: 'in_house' });

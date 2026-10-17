@@ -622,6 +622,36 @@ Căn cứ: `rounds/round-02/outputs/ARC/openapi-0.3.7.md` mục 16 (DOM chốt 1
 
 ---
 
+## Phần FE-A – đợt 14: BUG-R2-144 phần Desk (DOM (b), BR-703-02) + N-1 (18/10/2026)
+
+Căn cứ: ARC 16.13 (kỳ nạp, quay lại tủ đã đếm), BR-702/703 v0.3.8 bổ sung 18/10, `reviews/s4-money-recheck4.md` (R4MINI-01, Note N-1). Phía server BE-B làm sau khi ARC viết xong câu chữ kỳ nạp – Desk chạy trên mock.
+
+- **H16 bước 1 – tủ cần đếm lại** (`CheckOutPage.tsx`):
+  - Tủ có trong `minibarUncheckedRooms` mà `latestCheck = null` và vẫn có lần đếm/dòng tính của kỳ (`lastCheckUsedQty`/`folioLineId`) → cảnh báo "Tủ căn {room} cần đếm lại" (khách vào lại căn hoặc gia hạn sau lần đếm).
+  - Số điền sẵn: số folio đã sửa (DOM (e)) → lần đếm sau mốc → **lần đếm trước của kỳ** (`standardQty − lastCheckUsedQty`) → tủ đủ. Trước đây khi `latestCheck = null` Desk điền "tủ đủ" = "không dùng gì", bấm tiếp là đảo khoản đã tính.
+  - Kỳ mới (đã bổ sung): tủ đủ, đếm ghi dòng riêng; dòng kỳ trước giữ nguyên (máy chủ quyết, Desk không cộng).
+  - Sửa lỗi đua: hiệu ứng tự chọn tủ căn cũ chạy khi bản tóm tắt về trước đơn → gửi nhầm `roomId` của căn đang ở. Nay chờ có đơn.
+- **N-1 (NÊN)** (`FolioDialog.tsx`, hộp Điều chỉnh): dòng minibar có miễn/giảm (FOC theo món – cùng `labelParams.item`, vì `FolioLine` không có mã món), tick "Hủy dòng" hoặc giảm dưới số miễn/giảm → cảnh báo `folio.void_minibar_foc`.
+- **Mock** (`mocks/stay.ts`): kỳ nạp theo tủ (`minibarPeriods`, `MockLine.minibarPeriod`), đánh dấu đếm lại (`minibarRecount`); B13 sau khi đã đếm → đếm lại (DOM (b)); B14 rời căn → tủ căn cũ, về lại căn đã đếm → kỳ mới (mock coi việc bổ sung đã xong); `latestCheck` chỉ khi có lần đếm sau mốc; giữ/đảo dòng chỉ trong kỳ.
+- **Chuỗi**: 3 khóa mới (`co.minibar_recount_title`, `co.minibar_recount_body`, `folio.void_minibar_foc`) – nhóm FE-A mới trong `gen_strings.py`, **chờ UXD duyệt**.
+- Kiểm thử: `s4-144-fea.test.tsx` (mới, 3 ca: gia hạn sau khi đếm → báo đếm lại, điền theo lần đếm trước, giữ dòng; B14 201 → 203 → 201 → kỳ mới, dòng 50.000 giữ + dòng 25.000; N-1 cảnh báo khi tick/bỏ tick). admin-web **340/340**, `tsc`, eslint, prettier xanh. E2E chờ BE-B.
+- Giả định / còn mở:
+  - Kỳ mới sau bổ sung: hợp đồng không có tín hiệu "đếm lại" (mọi trường của kỳ đều rỗng) nên Desk không hiện cảnh báo "cần đếm lại" ở ca này, chỉ cho đếm như lần đầu. Nếu cần câu cảnh báo cho cả ca này: đề nghị ARC thêm `minibarUncheckedRooms[].recount` (tùy chọn).
+  - N-1 so món theo tên trên bill (`labelParams.item`); nên có `FolioLine.chargeCode` trong hợp đồng.
+
+---
+
+## Phần FE-A – đợt 14 (bổ sung): ARC 16.14 – `minibarUncheckedRooms[].reason`, `FolioLine.chargeCode` (18/10/2026, vòng sửa 4)
+
+ARC đồng ý hai đề nghị ở đợt 14 (`openapi-0.3.7.md` 16.14, api-client đã sinh lại); BE-B đang điền phía server.
+
+- **H16 bước 1** (`CheckOutPage.tsx`): câu "Tủ căn {room} cần đếm lại" theo `reason` của tủ đang đếm – `stay_continued`, `new_fill` và mọi giá trị lạ → hiện; `never_counted` → không (đếm lần đầu như cũ). Máy chủ chưa có `reason` → giữ cách đoán của đợt 14. Nay hiện được cả ca kỳ mới sau bổ sung (trước đây không có tín hiệu).
+- **N-1** (`FolioDialog.tsx`): so món theo `FolioLine.chargeCode` (dòng sửa giữ mã), bỏ so theo tên trên bill; dòng không mã chỉ xét FOC gắn thẳng vào dòng.
+- **Mock** (`mocks/stay.ts`): `reason` theo thứ tự `stay_continued` > `new_fill` > `never_counted` (gia hạn sau khi đếm, về lại căn đã đếm → `stay_continued`; tập `minibarNewFill` cho ca R3 bổ sung giữa kỳ); dòng folio mock đã có `chargeCode`.
+- Kiểm thử: `s4-144-fea.test.tsx` 5 ca (thêm: `new_fill` hiện câu và điền tủ đủ, `never_counted` không hiện; hai món trùng tên "Bia" khác mã – chỉ dòng cùng mã với dòng có FOC mới cảnh báo; các ca cũ kiểm thêm `reason`). admin-web **342/342**, `tsc`, eslint, prettier xanh. Không thêm chuỗi. E2E chờ BE-B.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

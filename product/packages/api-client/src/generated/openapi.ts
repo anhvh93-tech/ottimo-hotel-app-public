@@ -1470,6 +1470,11 @@ export interface paths {
      *       giờ trả = giờ rời thật; rồi B18. Audit `money` `reservation.late_fee_instead_of_night` (người làm, người xác nhận, lý do, số tiền).
      *     - **0.3.7 bổ sung 4 (SEC ARC-24)**: 401 `REAUTH_FAILED` (xác nhận `lateFeeInsteadOfNight` sai) / `UNAUTHENTICATED`; 403 `APPROVAL_LIMIT_EXCEEDED` (`requestFoc` vượt hạn mức người
      *       xác nhận) / `FORBIDDEN_ACTION` (`debt` của FD/FDL); 429 `RATE_LIMITED` (bộ đếm xác nhận lại đang khóa).
+     *     - **0.3.7 bổ sung 4 (BUG-R2-150, ARC + SEC)** – thứ tự trên đường `lateFeeInsteadOfNight`: **bước 0** tra `Idempotency-Key` đã hoàn tất (cùng người gọi, method, path; băm body
+     *       **không** gồm `secret` – `SECRET_BODY_FIELDS`) **trước** mọi kiểm nghiệp vụ và `verifyApprover`: khớp → 200 đã lưu + `Idempotent-Replayed: true`, không kiểm mật khẩu, không đếm,
+     *       không thông báo; băm lệch → 422 `IDEMPOTENCY_KEY_REUSED`; đang chạy → 409 như mọi lệnh. Rồi BE-64: khuôn body → kiểm nghiệp vụ chỉ đọc → người xác nhận → `uow.run`.
+     *       Rủi ro đã ghi (SEC): gửi lại cùng khóa với mật khẩu **sai** nhận 200 đã lưu mà không ghi gì – chấp nhận vì không có tác dụng mới, khóa gắn người gọi, phản hồi lưu không
+     *       phụ thuộc mật khẩu nên không thành kênh dò.
      */
     post: operations['checkOut'];
     delete?: never;
@@ -2711,17 +2716,26 @@ export interface paths {
      *     chỉ ghi tiêu hao. **Kiểm lại lần hai** (`mode=checkout`, cùng đơn, folio còn `open`): bản mới **thay** bản cũ – server đảo (bút toán `reversalOfId`) các dòng
      *     minibar của bản cũ và ghi dòng mới trong cùng giao dịch (BR-008); `MinibarCheck.replacesCheckId` trỏ bản cũ. ~~FOC minibar đã áp trên dòng cũ phải gửi lại.~~
      *     **0.3.7 bổ sung 4 – mô hình minibar M-1 (ARC 18/10, `openapi-0.3.7.md` mục 16; BUG-R2-135…138, 140; BR-434-15, BR-702/703)**:
-     *     - **Tủ của lượt** = (lượt ở – folio của đơn chính, căn): lần đếm `checkout` **thay** bản cũ **cùng lượt và cùng căn** (không thay bản của căn khác – B14 giữa lượt có hai tủ). `roomId`
-     *       (tùy chọn) chọn tủ: vắng = căn đang gán; được đếm tủ căn cũ của **chính lượt này** sau B14 (căn khác → 422 `NOT_IN_LIST`).
+     *     - **Tủ của lượt** = (lượt ở – folio của đơn chính, căn); mỗi tủ có một hoặc nhiều **kỳ** (mở ở lần nạp, hoặc – chưa nạp – ở lần đếm có tính tiền khi lượt ở tiếp; xem
+     *       "Kỳ nạp" dưới – BUG-R2-144, BR-703-02, ARC 16.2). Lần đếm `checkout` **thay** bản cũ **cùng lượt, cùng căn, cùng kỳ** (không thay bản của căn khác, không thay bản của kỳ trước). `roomId` (tùy chọn) chọn tủ:
+     *       vắng = căn đang gán; được đếm tủ căn cũ của **chính lượt này** sau B14 (căn khác → 422 `NOT_IN_LIST`); **HK** đếm được tủ căn cũ trong ngày B14 (phạm vi `today`:
+     *       căn rời trong ngày nghiệp vụ hoặc HK có việc dọn/bổ sung căn đó hôm nay – BUG-R2-152).
      *     - **Mốc** (BR-702-02, DOM 18/10) của món trong tủ = mức của tủ sau **lần nạp gần nhất** trong lượt – lần đầu là **mức lúc nhận phòng** (lúc vào căn, với tủ căn mới sau B14);
      *       danh mục tủ, định mức và giá bán đổi giữa lượt chỉ áp từ lần nạp sau (R3 bổ sung giữa kỳ). `remainingQty` > mốc → `MINIBAR_QTY_OVER_STANDARD`; đã dùng = mốc − còn lại.
      *       Món của tủ = món có trong lần nạp (kể cả món đã rời danh mục/đổi miễn phí sau đó); món thêm vào danh mục sau lần nạp chưa có trong tủ → `NOT_IN_LIST`.
-     *     - **Giữ dòng** (DOM (e)): đã dùng bằng **lần đếm trước** của món trong tủ (xác nhận lại) **hoặc** bằng số trên **dòng folio sống** của món (lễ tân đã sửa có lý do) → **giữ** dòng folio sống
+     *     - **Giữ dòng** (DOM (e)), **trong kỳ hiện tại**: đã dùng bằng **lần đếm trước cùng kỳ** của món (xác nhận lại) **hoặc** bằng số trên **dòng folio sống của kỳ** (lễ tân sửa có lý do) → **giữ** dòng folio sống
      *       (kể cả dòng thay của `adjustFolioLine`; đã void thì giữ không dòng), FOC và nhãn – bất kể giá/định mức/danh mục hiện hành; lần đếm mới **chép** giá, số tiền và `folio_line_id` theo dòng
-     *       folio sống. Khác cả hai = **lần đếm thật mới** → đảo dòng sống, ghi dòng mới = đã dùng × giá bán của lần nạp. Lần đếm đầu sau một lần nạp (R3) luôn là lần đếm mới.
+     *       folio sống. Khác cả hai = **lần đếm thật mới** → đảo dòng sống **của kỳ**, ghi dòng mới = đã dùng × giá bán của lần nạp. Lần đếm đầu của **kỳ mới** ghi dòng riêng – **không** đảo,
+     *       **không** giữ dòng của kỳ trước (dòng kỳ trước vẫn sống).
      *     - **FOC minibar** khóa **lượt × minibar × món** (qua mọi tủ của lượt): "giá trị dòng" = Σ dòng sống của món trong lượt; mọi yêu cầu trên mọi dòng của món gom vào một khóa,
      *       áp theo thứ tự S4-23 – tổng FOC ≤ giá trị; về 0 → ngủ, có lại → tự khôi phục, không duyệt lại, không trừ hạn mức BR-433 hai lần.
      *     - **Tủ căn cũ sau B14** (BR-703-01): đếm như trả phòng (`roomId` = căn cũ) → sinh việc bổ sung minibar cho căn cũ; B14 không bị chặn. B18 xét mọi tủ (`CheckoutSummary.minibarUncheckedRooms`).
+     *     - **Kỳ nạp – BR-703-02 (DOM 18/10, BUG-R2-144)**: lượt **ở tiếp** một tủ đã đếm – vào lại căn (B14 về căn cũ, S4-09 ghi nhận quay về) hoặc **gia hạn B13 sau lần đếm
+     *       trả phòng** – thì tủ tính là **chưa đếm**, B18 đòi đếm lại. Nếu lần đếm gần nhất có tính tiền thì mở **kỳ mới**: việc `minibar_refill` của căn đã xong sau lần đếm đó → kỳ
+     *       bắt đầu ở lần nạp (mốc, giá = danh mục lúc xong việc); chưa nạp → kỳ bắt đầu ở lần đếm có tính tiền gần nhất, **mốc = số còn lại lúc đó** (giá giữ của kỳ trước). Lần đếm
+     *       mới chỉ thay lần đếm **cùng kỳ**; dòng kỳ trước **không** đảo. B18 "Trả phòng – tính thêm 1 đêm" không tính là gia hạn (đếm ở bước 1 của chính lần trả phòng).
+     *       Việc bổ sung **không** bị hủy khi lượt ở tiếp; gia hạn B13 sau lần đếm có tính tiền chưa có việc → sinh việc ngay. HK xong việc bổ sung khi lượt **đang ở** căn đó → mở kỳ
+     *       `refill` lúc xử lý (mốc = còn lại của lần đếm gần nhất + số nạp; giá = danh mục lúc đó). "Có tính tiền" = có món có giá với số đã dùng > 0 (theo số lượng – FOC 100 % vẫn tính).
      *     **0.3.7 (B-02)**: lệnh HK từ hàng đợi offline có `performedAt` ngoài [giờ server − 24 giờ, + 5 phút] → 422 `PERFORMED_AT_OUT_OF_RANGE`. `MinibarCheck.checkedByName` (nháp B-8).
      */
     post: operations['recordMinibarCheck'];
@@ -6093,10 +6107,17 @@ export interface components {
       lateFeeAsNightVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả). **0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06)**: `false` → không bao giờ cộng đêm thêm; đường trả phòng là `lateFeeInsteadOfNight` (`lateFeeAsNightVnd`), hoặc dời khách đến sang căn khác rồi tóm tắt lại */
       extraNightAvailable?: boolean;
-      /** @description 0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136): các tủ của lượt (mọi căn lượt đã ở, gồm căn cũ trước B14) có món tính tiền mà chưa có lần đếm `checkout` – blocker `minibar_not_checked` xét **mọi** tủ trong danh sách. Vắng/rỗng = đã đủ */
+      /** @description 0.3.7 bổ sung 4 (mô hình minibar M-1, BUG-R2-136, BUG-R2-144): các tủ của lượt (mọi căn lượt đã ở, gồm căn cũ trước B14) có món tính tiền mà **chưa có lần đếm `checkout` sau mốc gần nhất** (mở kỳ, lượt vào lại căn, gia hạn B13 – BR-703-02) – gồm tủ khách quay lại hoặc gia hạn sau khi đã đếm; blocker `minibar_not_checked` xét **mọi** tủ trong danh sách. Vắng/rỗng = đã đủ */
       minibarUncheckedRooms?: {
         roomId: components['schemas']['Uuid'];
         roomNo?: string;
+        /**
+         * @description 0.3.7 bổ sung 4 (FE-A, BUG-R2-144, BR-703-02 – ARC 16.14): `never_counted` = tủ chưa có lần đếm nào trong lượt; `stay_continued` = đã đếm nhưng lượt ở tiếp sau lần đếm
+         *     (vào lại căn, gia hạn B13 – kể cả khi kỳ mới mở bằng `refill`/`carry`); `new_fill` = kỳ mới sau một lần nạp `refill` mà không có sự kiện ở tiếp (R3 bổ sung giữa kỳ).
+         *     Hai mã sau Desk hiện "cần đếm lại". Thứ tự ưu tiên: `stay_continued` > `new_fill` > `never_counted`. Giá trị lạ → coi như cần đếm lại
+         * @enum {string}
+         */
+        reason?: 'never_counted' | 'stay_continued' | 'new_fill';
       }[];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): đang trong cửa sổ sau nửa đêm (ngày nghiệp vụ = ngày đi − 1, ngày lịch = ngày đi) – B18 hợp lệ, phụ thu 0 */
       postMidnightWindow?: boolean;
@@ -6503,6 +6524,12 @@ export interface components {
       approvalRequestId?: components['schemas']['Uuid'];
       postedAt: components['schemas']['Instant'];
       postedBy?: string;
+      /**
+       * @description 0.3.7 bổ sung 4 (FE-A cảnh báo N-1, ARC 16.14): `folio_line.charge_code` – mã khoản trong charge-catalog; dòng `minibar` = **mã món** (`item.code`, bất biến – khóa FOC
+       *     `item:minibar:<code>`); mã hệ thống như `late_fee_as_night`, `overpayment_retained`; `null` = dòng không có mã. Dòng thay của `adjustFolioLine` giữ mã. Client so món theo trường
+       *     này, không theo tên trên bill
+       */
+      chargeCode?: string | null;
     };
     FolioLineCreate: {
       /** @description Mã trong charge-catalog (giá mặc định từ tham số) */
@@ -6781,7 +6808,7 @@ export interface components {
         /** @description 0.3.7 bổ sung 4 (DOM (e)): dòng folio của món bị sửa/void có lý do sau lần đếm trước → Desk cảnh báo, mặc định giữ folio */
         adjustedAfterLastCheck?: boolean;
       }[];
-      /** @description Lần kiểm `checkout` gần nhất trong ngày nghiệp vụ (HK hoặc FD) để điền sẵn */
+      /** @description Lần kiểm `checkout` gần nhất trong ngày nghiệp vụ (HK hoặc FD) để điền sẵn. **0.3.7 bổ sung 4 (BUG-R2-144)**: = lần đếm sống của tủ **sau mốc gần nhất** (mở kỳ, lượt vào lại căn, gia hạn B13 – BR-703-02), nhất quán với `minibarUncheckedRooms` – `null` = tủ cần đếm (lại); không lọc theo ngày */
       latestCheck?: components['schemas']['MinibarCheck'] | null;
     };
     ApprovalRequest: {

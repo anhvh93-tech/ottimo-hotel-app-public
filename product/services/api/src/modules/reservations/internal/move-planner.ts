@@ -36,6 +36,7 @@ import {
   effectiveDiscountPct,
   losDiscountPct,
   nightDates,
+  rateBounds,
   returnGuestOf,
 } from '../public/pricing';
 import { PricingService } from '../public/pricing.service';
@@ -243,6 +244,33 @@ export class MovePlanner {
     return calendarRate(base, date, group, p.calendar, p.nightRateUnit).rateVnd;
   }
 
+  /** BR-105 floor–ceiling of a room on a date (the desk's bounds – StaySupport.directRate, PricingService). */
+  private async bounds(
+    tx: Tx,
+    ctx: BookingContext,
+    cache: Map<string, Array<{ effectiveFrom: LocalDate; nightlyVnd: number }>>,
+    roomId: string,
+    date: LocalDate,
+  ): Promise<{ floorVnd: number; ceilingVnd: number }> {
+    const p = ctx.params;
+    const { rows } = await tx.query<{ code: string }>(
+      'SELECT rg.code FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id WHERE rm.id = $1',
+      [roomId],
+    );
+    const groupBase = rows[0] ? p.otaBaseRates[rows[0].code] : undefined;
+    if (groupBase !== undefined) {
+      return rateBounds(groupBase, p.rateFloorPct, p.rateCeilingPct, p.otaRateUnit);
+    }
+    let list = cache.get(roomId);
+    if (!list) {
+      list = await this.deps.roomListPrices(tx, roomId);
+      cache.set(roomId, list);
+    }
+    const base =
+      PricingService.listPriceOn({ roomId, baseOccupancy: 0, listPrices: list }, date) ?? 0;
+    return rateBounds(base, p.rateFloorPct, p.rateCeilingPct, p.nightRateUnit);
+  }
+
   /** Σ current direct calendar of a room over dates – `other` to a pricier room needs FDL+ (BR-429 (b)). */
   async directTotal(
     tx: Tx,
@@ -410,7 +438,11 @@ export class MovePlanner {
                 ? null
                 : (boughtBefore ?? (input.cause === 'ottimo' && roomChanged ? oldRoom : null));
             if (bought && bought !== target) {
-              fresh = Math.min(fresh, await this.calendar(tx, ctx, cache, bought, date, group));
+              // BR-417-13 (DOM 18/10, T19): the bought room's calendar (inside its own BR-105 bounds) – never lifted
+              // to the floor of the room OTTIMO chose; the same rule as B13/B18 (StaySupport.addedNightRate).
+              const b = await this.bounds(tx, ctx, cache, bought, date);
+              const boughtCal = await this.calendar(tx, ctx, cache, bought, date, group);
+              fresh = Math.min(fresh, Math.min(b.ceilingVnd, Math.max(b.floorVnd, boughtCal)));
             }
           }
           if (repriceToNewRoom && n && oldRoom) {

@@ -1306,7 +1306,11 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
             k: 'array',
             items: {
               k: 'object',
-              props: { roomId: { s: { k: 'ref', name: 'Uuid' } }, roomNo: { s: { k: 'scalar' } } },
+              props: {
+                roomId: { s: { k: 'ref', name: 'Uuid' } },
+                roomNo: { s: { k: 'scalar' } },
+                reason: { s: { k: 'scalar' } },
+              },
               open: false,
             },
           },
@@ -1810,6 +1814,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         approvalRequestId: { s: { k: 'ref', name: 'Uuid' } },
         postedAt: { s: { k: 'ref', name: 'Instant' } },
         postedBy: { s: { k: 'scalar' } },
+        chargeCode: {
+          s: { k: 'scalar' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
       },
       open: false,
     },

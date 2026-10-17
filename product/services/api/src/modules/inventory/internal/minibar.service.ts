@@ -30,7 +30,7 @@ import {
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
 import { MinibarCheckoutPort } from '../public/minibar-checkout.port';
-import { type FridgeItem, fridgeItems, primaryOf, stayRooms } from './fridge';
+import { type FridgeItem, fridgeItems, primaryOf, registerFridge, stayRooms } from './fridge';
 
 interface CheckRow {
   id: string;
@@ -40,6 +40,7 @@ interface CheckRow {
   total_vnd: number;
   refill_task_id: string | null;
   replaces_check_id: string | null;
+  replaced_by_check_id?: string | null;
 }
 
 interface StayInfo {
@@ -96,6 +97,7 @@ export class MinibarService {
     reservationId: string,
     mode: 'checkout' | 'stayover' | null,
     today: LocalDate,
+    roomId?: string,
   ): Promise<StayInfo> {
     // reservations port stayInfo (BE-A, ARC 4.3): booking facts without personal data, RLS only – the
     // operation scope (HK "today") is applied here.
@@ -112,11 +114,30 @@ export class MinibarService {
     };
     const desk = roles.some((r) => DESK.includes(r));
     if (!desk) {
+      // BUG-R2-152 (R4MINI-02): the fridge of a room the stay has left (B14) is counted like a check-out – by
+      // housekeeping too, on a day it has a task in that room (the B14 `checkout_clean`), not only on the
+      // departure day of the booking.
+      const oldFridgeToday =
+        mode === 'checkout' &&
+        !!roomId &&
+        roomId !== info.roomId &&
+        (await this.taskInRoomToday(tx, roomId, today));
       const inScope =
-        info.status === 'in_house' && (mode !== 'checkout' || info.departureDate === today);
+        info.status === 'in_house' &&
+        (mode !== 'checkout' || info.departureDate === today || oldFridgeToday);
       if (!inScope) throw problem('NOT_FOUND');
     }
     return info;
+  }
+
+  /** A housekeeping task in the room due today (not cancelled) – HK's "today" scope for a left fridge. */
+  private async taskInRoomToday(tx: Tx, roomId: string, today: LocalDate): Promise<boolean> {
+    const { rows } = await tx.query<{ found: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM hk_task WHERE room_id = $1 AND due_date = $2 AND status <> 'cancelled')
+         AS found`,
+      [roomId, today],
+    );
+    return !!rows[0]?.found;
   }
 
   /**
@@ -142,19 +163,26 @@ export class MinibarService {
     return { primaryId, roomId: room.roomId, roomNo: room.roomNo };
   }
 
-  /** The live `checkout` count of a fridge (R1). */
-  private async liveCount(
+  /**
+   * Kỳ nạp (ARC R1, BUG-R2-144): counts of the fridge's CURRENT period (`fill_id` = its latest fill). `live` = the
+   * live one (not replaced) – "counted" for B18 / latestCheck; otherwise the latest one, live or not (a count made
+   * stale when the stay went on in the fridge after a count without money) – the history of R6.
+   */
+  private async periodCount(
     tx: Tx,
     primaryId: string,
     roomId: string,
-    opts: { lock?: boolean; businessDate?: LocalDate } = {},
+    fillId: string | null,
+    opts: { live?: boolean; lock?: boolean } = {},
   ): Promise<CheckRow | null> {
     const { rows } = await tx.query<CheckRow>(
-      `SELECT id, mode, checked_at, created_at, total_vnd, refill_task_id, replaces_check_id FROM minibar_check
-        WHERE reservation_id = $1 AND room_id = $2 AND mode = 'checkout' AND replaced_by_check_id IS NULL
-          AND ($3::date IS NULL OR business_date = $3)
-        ORDER BY checked_at DESC LIMIT 1${opts.lock ? ' FOR UPDATE' : ''}`,
-      [primaryId, roomId, opts.businessDate ?? null],
+      `SELECT id, mode, checked_at, created_at, total_vnd, refill_task_id, replaces_check_id,
+              replaced_by_check_id FROM minibar_check
+        WHERE reservation_id = $1 AND room_id = $2 AND mode = 'checkout'
+          AND fill_id IS NOT DISTINCT FROM $3::uuid
+          ${opts.live ? 'AND replaced_by_check_id IS NULL' : ''}
+        ORDER BY created_at DESC, id DESC LIMIT 1${opts.lock ? ' FOR UPDATE' : ''}`,
+      [primaryId, roomId, fillId],
     );
     return rows[0] ?? null;
   }
@@ -177,18 +205,17 @@ export class MinibarService {
     return null;
   }
 
-  /** R6 / DOM (e): per item, the previous count of the fridge and the live folio line it wrote. */
+  /**
+   * R6 / DOM (e): per item, the previous count of the fridge IN THE CURRENT PERIOD and the live folio line it
+   * wrote (R7: the first count of a new period has no history – the lines of earlier periods stay as they are).
+   */
   private async history(
     tx: Tx,
     folioId: string,
     prev: CheckRow | null,
-    fill: { source: string; filledAt: Date } | null,
   ): Promise<Map<string, ItemHistory>> {
     const out = new Map<string, ItemHistory>();
     if (!prev) return out;
-    // R7: the first count after a mid-stay refill (R3) is a new count – the previous one is of another period.
-    const samePeriod =
-      !fill || fill.source !== 'refill' || prev.created_at.getTime() >= fill.filledAt.getTime();
     const { rows } = await tx.query<{
       item_id: string;
       used_qty: number;
@@ -199,7 +226,7 @@ export class MinibarService {
     const lines = await this.folios.lines(tx, folioId);
     for (const r of rows) {
       out.set(r.item_id, {
-        lastCheckUsedQty: samePeriod ? Number(r.used_qty) : null,
+        lastCheckUsedQty: Number(r.used_qty),
         countedLineId: r.folio_line_id,
         live: r.folio_line_id ? this.liveEnd(lines, r.folio_line_id) : null,
       });
@@ -221,19 +248,13 @@ export class MinibarService {
     const fr = await this.fridgeOf(tx, s, roomId, today);
     const { fill, items } = await fridgeItems(tx, fr.primaryId, fr.roomId);
     const desk = roles.some((r) => DESK.includes(r));
-    const prev = await this.liveCount(tx, fr.primaryId, fr.roomId);
+    const fillId = fill?.id ?? null;
+    const prev = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId);
     const hist =
-      desk && s.folioId
-        ? await this.history(tx, s.folioId, prev, fill)
-        : new Map<string, ItemHistory>();
-    // Pre-fill (US-035 AC1): the count of the business day for the room the guest is in; for a room the stay
-    // has left (B14) its live count whatever the day (R10 – what H16 step 1 shows for that fridge).
-    const latest = await this.liveCount(
-      tx,
-      fr.primaryId,
-      fr.roomId,
-      fr.roomId === s.roomId ? { businessDate: today } : {},
-    );
+      desk && s.folioId ? await this.history(tx, s.folioId, prev) : new Map<string, ItemHistory>();
+    // ARC R9: latestCheck = the live count after the latest mark of the fridge (its current period; a count
+    // made stale when the stay went on is no longer "counted") – null = to count again; never filtered by day.
+    const latest = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { live: true });
     return {
       ...(fr.roomNo ? { roomNo: fr.roomNo } : {}),
       items: items.map((i) => {
@@ -277,10 +298,17 @@ export class MinibarService {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
     }
     const { today, tz, now } = await this.businessToday(tx);
-    const s = await this.stay(tx, actor.roles, reservationId, input.mode, today);
+    const s = await this.stay(tx, actor.roles, reservationId, input.mode, today, input.roomId);
     if (!s.folioId || !s.roomId)
       throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
     const fr = await this.fridgeOf(tx, s, input.roomId, today);
+    // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.
+    await registerFridge(tx, {
+      primaryId: fr.primaryId,
+      roomId: fr.roomId,
+      now,
+      userId: actor.userId,
+    });
     const { fill, items } = await fridgeItems(tx, fr.primaryId, fr.roomId);
     const byId = new Map(items.map((i) => [i.itemId, i]));
     const errors: FieldError[] = [];
@@ -314,8 +342,11 @@ export class MinibarService {
       throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
 
     const id = uuidv7();
-    const prev = await this.liveCount(tx, fr.primaryId, fr.roomId, { lock: true });
-    const hist = await this.history(tx, s.folioId, prev, fill);
+    const fillId = fill?.id ?? null;
+    // R1: this count replaces the latest count of the SAME period only (live, or made stale when the stay went
+    // on); counts of earlier periods – and their folio lines – stay as they are (R7, BR-703-02).
+    const prev = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { lock: true });
+    const hist = await this.history(tx, s.folioId, prev);
     if (prev) {
       await tx.query('UPDATE minibar_check SET replaced_by_check_id = $2 WHERE id = $1', [
         prev.id,
@@ -414,8 +445,8 @@ export class MinibarService {
     const total = lineRows.reduce((a, r) => a + r.amount, 0);
     await tx.query(
       `INSERT INTO minibar_check (id, organization_id, property_id, reservation_id, room_id, mode, business_date,
-         checked_by, checked_at, replaces_check_id, total_vnd, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         checked_by, checked_at, replaces_check_id, total_vnd, created_at, fill_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         id,
         tx.ctx.organizationId,
@@ -429,6 +460,7 @@ export class MinibarService {
         prev?.id ?? null,
         total,
         now,
+        fillId,
       ],
     );
     for (const r of lineRows) {

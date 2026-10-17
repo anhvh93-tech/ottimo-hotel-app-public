@@ -127,6 +127,8 @@ export class PasswordReauth {
       status: string;
       must_change_password: boolean;
       mfa_enabled: boolean;
+      /** Login lock (SR-RL-01) – a locked account never confirms (BUG-R2-146). */
+      locked_until: Date | null;
       approval_pin_failed_count: number;
       approval_pin_locked_until: Date | null;
       roles: string[];
@@ -142,7 +144,7 @@ export class PasswordReauth {
       // Both counters move together: lock the rows in id order.
       const { rows } = await tx.query<Row>(
         `SELECT u.id, u.username, u.password_hash, u.status, u.must_change_password, u.mfa_enabled,
-                u.approval_pin_failed_count, u.approval_pin_locked_until,
+                u.locked_until, u.approval_pin_failed_count, u.approval_pin_locked_until,
                 COALESCE((SELECT array_agg(r.role) FROM user_property_role r
                            WHERE r.user_id = u.id AND r.property_id = $2 AND r.revoked_at IS NULL), '{}') AS roles
            FROM app_user u WHERE u.id = ANY($1::uuid[]) ORDER BY u.id FOR UPDATE OF u`,
@@ -156,9 +158,12 @@ export class PasswordReauth {
         u.approval_pin_locked_until && u.approval_pin_locked_until > now
           ? Math.ceil((u.approval_pin_locked_until.getTime() - now.getTime()) / 1000)
           : 0;
+      // BUG-R2-146 (SEC BE-59): an account locked at login (`locked_until` in the future) is NOT eligible – the
+      // dummy hash is checked, never its real password, and the answer is the same 401.
       const eligible =
         !!approver &&
         approver.status === 'active' &&
+        (approver.locked_until === null || approver.locked_until <= now) &&
         !approver.must_change_password &&
         !approver.mfa_enabled &&
         approver.roles.some((r) => opts.roles.includes(r));

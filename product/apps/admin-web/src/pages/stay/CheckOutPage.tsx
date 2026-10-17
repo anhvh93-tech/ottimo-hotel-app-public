@@ -153,7 +153,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           // count – sending `standard − folioUsed` keeps that line (R6); another number = a new count.
           i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
             ? Math.max(0, i.standardQty - i.folioUsedQty)
-            : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ?? i.standardQty),
+            : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ??
+              // BUG-R2-144 / BR-703-02: counted earlier in this refill period but due again (the stay came back
+              // to the room, or was extended) – start from that count, never from a full cabinet (which would
+              // read as "nothing used" and reverse what was charged).
+              (typeof i.lastCheckUsedQty === 'number'
+                ? Math.max(0, i.standardQty - i.lastCheckUsedQty)
+                : i.standardQty)),
         ]),
       ),
     );
@@ -202,7 +208,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
   useEffect(() => {
+    // Only once the reservation is here – before that every cabinet would look like an earlier room.
     const here = r?.segments?.[0]?.roomId;
+    if (!here) return;
     const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== here);
     if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
     // first summary / reservation only
@@ -686,6 +694,23 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     );
   } else if (step === 0) {
     const adjusted = (std.state.data?.items ?? []).filter((i) => i.adjustedAfterLastCheck);
+    // BUG-R2-144 / ARC 16.14: the cabinet being counted is due again (`stay_continued` – back in the room or
+    // extended after the count; `new_fill` – a new refill period); any other value but `never_counted` too.
+    const countingRoomId = cabinet ?? currentRoomId;
+    const countingRoomNo =
+      toCount.find((c) => c.roomId === countingRoomId)?.roomNo ??
+      cabinets.find((c) => c.roomId === countingRoomId)?.roomNo ??
+      room;
+    const due = toCount.find((c) => c.roomId === countingRoomId);
+    const recount = !due
+      ? false
+      : due.reason !== undefined
+        ? due.reason !== 'never_counted'
+        : // a server before 16.14 (no `reason`): a count or a charged line of this period, yet still to count
+          !std.state.data?.latestCheck &&
+          (std.state.data?.items ?? []).some(
+            (i) => typeof i.lastCheckUsedQty === 'number' || !!i.folioLineId,
+          );
     body = (
       <section className="card stack">
         {cabinets.length > 1 ? (
@@ -707,6 +732,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               onChange={(v) => setCabinet(v === currentRoomId ? undefined : v)}
             />
           </div>
+        ) : null}
+        {recount ? (
+          // BUG-R2-144 (BR-703-02): a cabinet counted before is due again – a new count of this period.
+          <Alert tone="warn" title={t('co.minibar_recount_title', { room: countingRoomNo })}>
+            {t('co.minibar_recount_body')}
+          </Alert>
         ) : null}
         {adjusted.length ? (
           <Alert tone="warn" title={t('co.minibar_folio_adjusted')}>

@@ -183,7 +183,7 @@ export class CheckoutService {
       const r = await this.s.addedNightRate(
         tx,
         ctx,
-        await this.s.addedNightContext(tx, row, 'last', rm.id),
+        await this.s.addedNightContext(tx, ctx, row, 'last', rm.id),
         dep,
       );
       extraNight = {
@@ -355,29 +355,46 @@ export class CheckoutService {
     id: string,
     body: Record<string, unknown>,
   ): Promise<void> {
-    const v = body.lateFeeInsteadOfNight as Record<string, unknown>;
+    // BUG-R2-149 (SEC BE-64): every check B18 makes before writing, in B18's order and with B18's answers – the
+    // body (422), the state and the day (409), the night that cannot be sold (422) and the amount shown (409).
+    const f = new Fields(body);
+    const checkoutTime = f.time('checkoutTime');
+    if (body.checkoutTime === undefined || body.checkoutTime === null) {
+      f.add('checkoutTime', 'REQUIRED');
+    }
+    let checkoutAt: Date | undefined;
+    if (body.checkoutAt !== undefined && body.checkoutAt !== null) {
+      if (typeof body.checkoutAt !== 'string' || Number.isNaN(Date.parse(body.checkoutAt))) {
+        f.add('checkoutAt', 'DATE_INVALID');
+      } else {
+        checkoutAt = new Date(body.checkoutAt);
+      }
+    }
+    const extraNightRate = this.extraNightInput(f, body);
+    const lateFee = this.lateFeeInput(f, body);
+    f.done();
     const row = await loadReservation(tx, id, ctx.actor);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
-    const time =
-      typeof body.checkoutTime === 'string' && /^\d{2}:\d{2}$/.test(body.checkoutTime)
-        ? (body.checkoutTime as LocalTime)
-        : undefined;
-    const at =
-      typeof body.checkoutAt === 'string' && !Number.isNaN(Date.parse(body.checkoutAt))
-        ? new Date(body.checkoutAt)
-        : undefined;
-    if (!time && !at) return;
-    const d = await this.departure(tx, ctx, row, time, at);
-    if (!d.extraNight || d.extraNight.available) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' }],
+    if (!row.folio_id) throw problem('NOT_FOUND');
+    const d = await this.departure(tx, ctx, row, checkoutTime, checkoutAt);
+    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
+    if (d.stay.departureDate !== ctx.today && !nowWindow) {
+      throw problem('INVALID_TRANSITION', {
+        extras: { currentState: row.status },
+        detail: 'check-out on the departure business day (early departure first – B16)',
       });
     }
-    const fee = lateChargeOf(d);
-    if (typeof v.amountVnd === 'number' && v.amountVnd !== fee) {
-      throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: fee, tierPct: 100 } });
+    const unsellable = !!d.extraNight && !d.extraNight.available;
+    if (unsellable && lateFee && lateFee.amountVnd !== lateChargeOf(d)) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: lateChargeOf(d), tierPct: 100 },
+      });
     }
+    const g = new Fields({});
+    if (!unsellable) g.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
+    if (extraNightRate) g.add('extraNight', 'NOT_ALLOWED');
+    g.done();
   }
 
   /**
@@ -389,11 +406,20 @@ export class CheckoutService {
     tx: Tx,
     row: ReservationRow,
     d: Departure,
-  ): Promise<Array<{ roomId: string; roomNo: string }>> {
+  ): Promise<
+    Array<{
+      roomId: string;
+      roomNo: string;
+      reason?: 'never_counted' | 'stay_continued' | 'new_fill';
+    }>
+  > {
     const port = this.s.ports.minibar;
+    // ARC 16.14: `reason` comes from the inventory port as it is (never_counted / stay_continued / new_fill).
     if (port.uncheckedRooms) return port.uncheckedRooms(tx, row.id);
     const st = await port.checkoutStatus(tx, row.id, d.rm.id);
-    return st.required && !st.checked ? [{ roomId: d.rm.id, roomNo: d.rm.room_no }] : [];
+    return st.required && !st.checked
+      ? [{ roomId: d.rm.id, roomNo: d.rm.room_no, reason: 'never_counted' }]
+      : [];
   }
 
   private primaryFor(row: ReservationRow): void {
@@ -652,7 +678,9 @@ export class CheckoutService {
           folioId,
           { id: lateLineId, amountVnd: surcharge, category: 'late_checkout' },
           lateFee.requestFoc,
-          { field: 'lateFeeInsteadOfNight.requestFoc' },
+          // BUG-R2-153 (BR-416-07): decided by the APPROVER (their identity, role, limit, `auth_method = password`),
+          // never self-applied by the caller – also when a manager confirms their own B18.
+          { field: 'lateFeeInsteadOfNight.requestFoc', noSelfApply: true },
         );
         if (asked.status !== 'approved') {
           const decision = await this.s.approvals.approve(
@@ -682,10 +710,11 @@ export class CheckoutService {
           checkoutTime: d.time,
           date: d.stay.departureDate,
           confirmedBy: approver.userId,
-          confirmedByUsername: approver.username,
           // SEC BE-62: who did it is the audit actor; how it was confirmed.
           channel: approver.self ? 'self' : 'desk',
           authMethod: 'password',
+          // BUG-R2-154 (SEC BE-62): the role the approver confirmed with.
+          approverRole: approver.roles.includes('owner') ? 'owner' : 'manager',
           ...(lateFee.requestFoc ? { focVnd: lateFee.requestFoc.amountVnd } : {}),
         },
         reason: lateFee.reason,

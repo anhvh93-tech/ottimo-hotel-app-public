@@ -17,6 +17,7 @@ import type { LocalDate } from '../../../shared/time';
 import { EventsService } from '../../events/public/events.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { linenChangeDue } from '../internal/rules';
+import { STAY_ARRIVAL_SQL } from './stay-arrival';
 
 export type { RoomStatusCode };
 
@@ -125,12 +126,11 @@ export class RoomStatusService {
     return before;
   }
 
-  /** The in-house stay of the room arrived on `today` (an extension child counts its parent's arrival). */
+  /** The in-house stay of the room arrived on `today` (first arrival of the stay – stay-arrival.ts). */
   private async arrivedToday(tx: Tx, roomId: string, today: LocalDate): Promise<boolean> {
     const { rows } = await tx.query<{ arrival: string }>(
-      `SELECT COALESCE(p.arrival_date, r.arrival_date)::text AS arrival
+      `SELECT (${STAY_ARRIVAL_SQL})::text AS arrival
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-         LEFT JOIN reservation p ON p.id = r.parent_reservation_id
         WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
           AND s.to_date > $2::date
         ORDER BY s.from_date DESC LIMIT 1`,
@@ -150,9 +150,8 @@ export class RoomStatusService {
     input: { today: LocalDate; now: Date },
   ): Promise<void> {
     const { rows: stay } = await tx.query<{ reservation_id: string; nights: number }>(
-      `SELECT s.reservation_id, ($2::date - COALESCE(p.arrival_date, r.arrival_date)) AS nights
+      `SELECT s.reservation_id, ($2::date - ${STAY_ARRIVAL_SQL}) AS nights
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-         LEFT JOIN reservation p ON p.id = r.parent_reservation_id
         WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
           AND s.to_date > $2::date
         ORDER BY s.from_date DESC LIMIT 1`,

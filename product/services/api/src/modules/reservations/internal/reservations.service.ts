@@ -2882,9 +2882,9 @@ export class ReservationsService {
    * The desk never asks the guest for a top-up (BR-429 (e)) – only the fee base moves. OTA/internal: unchanged.
    */
   /**
-   * BR-309 (iv) v0.3.8 bổ sung 18/10 (S438R3-GAP-Q1): refund % cap after a guest-requested date move of a paid
-   * direct/agent short stay made with < 7 days to the OLD arrival = min(cap so far, the tier % at the move) – null
-   * when the move does not lock anything.
+   * BR-309 (iv) v0.3.8 bổ sung 18/10 (S438R3-GAP-Q1, BR-309-15/-16): refund % cap after a date move of a paid
+   * direct/agent short stay – `guest_request` or `other` with < 7 days to the OLD arrival: min(cap so far, the
+   * tier % at the move); `force_majeure` (any notice): 0 – null when the move does not lock anything.
    */
   private refundPctCapAfter(
     ctx: BookingContext,
@@ -2895,15 +2895,18 @@ export class ReservationsService {
   ): number | null {
     if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
     if (row.external_contract || row.stay_type !== 'short' || row.status === 'hold') return null;
-    if (depositPaidVnd <= 0 || reasonCode !== 'guest_request' || newArrival === row.arrival_date) {
-      return null;
-    }
-    const notice = noticeDays(row.arrival_date, ctx.today);
-    if (notice >= 7) return null;
+    if (depositPaidVnd <= 0 || newArrival === row.arrival_date) return null;
     const snap = row.pricing_snapshot as {
       cancelPolicy?: Array<{ minDays: number; refundPct: number }>;
       refundPctCap?: number;
     };
+    // BR-309-16 (DOM 18/10, F4/F5): a date move for force majeure is free but never refundable in cash – a later
+    // cancellation refunds nothing.
+    if (reasonCode === 'force_majeure') return 0;
+    // r3-3 corrected: `other` locks the tier like `guest_request` (no way around it through the reason).
+    if (reasonCode !== 'guest_request' && reasonCode !== 'other') return null;
+    const notice = noticeDays(row.arrival_date, ctx.today);
+    if (notice >= 7) return null;
     const tiers = [...(snap.cancelPolicy ?? ctx.params.cancelPolicy)].sort(
       (a, b) => b.minDays - a.minDays,
     );

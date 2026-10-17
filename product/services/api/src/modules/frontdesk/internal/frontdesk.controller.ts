@@ -142,14 +142,20 @@ export class FrontdeskController {
         roles: ['owner', 'manager'],
         requestId: req.id,
         // SEC BE-62: a user locked by this confirmation is told (`security_alert`).
+        // BUG-R2-154 (SEC 18/10 mục 10, BE-62): a lock is told to the locked user(s), the caller and every owner
+        // of the property.
         onLocked: async (tx, userIds) => {
-          for (const userId of userIds) {
-            await this.s.events.notify(
-              tx,
-              { kind: 'security_alert', userIds: [userId], refType: 'user', refId: userId },
-              this.clock.now(),
-            );
-          }
+          await this.s.events.notify(
+            tx,
+            {
+              kind: 'security_alert',
+              userIds: [...new Set([...userIds, p.userId])],
+              roles: ['owner'],
+              refType: 'user',
+              refId: userIds[0] as string,
+            },
+            this.clock.now(),
+          );
         },
       },
     );
@@ -426,6 +432,17 @@ export class FrontdeskController {
   ) {
     const id = pathId(reservationId);
     const body = asBody(raw);
+    // BUG-R2-150 (ARC 16.13 step 0): a completed Idempotency-Key answers before any check or password.
+    if (body.lateFeeInsteadOfNight !== undefined && body.lateFeeInsteadOfNight !== null) {
+      const replay = await this.uow.completedReplay<{ reservation?: { version?: number } }>(req);
+      if (replay) {
+        const stored = applyResult(reply, replay);
+        if (typeof stored?.reservation?.version === 'number') {
+          setETag(reply, stored.reservation.version);
+        }
+        return stored;
+      }
+    }
     const approver = await this.lateFeeApprover(req, id, body);
     const result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);

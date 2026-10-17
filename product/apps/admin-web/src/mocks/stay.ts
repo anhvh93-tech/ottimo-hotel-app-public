@@ -81,7 +81,10 @@ export interface MockLine {
   postedBy?: string;
   /** Minibar M-1 (0.3.7 add. 4): the cabinet (room) a minibar line was counted in; absent = the room assigned now. */
   cabinetRoomId?: string;
+  /** Minibar M-1 (BUG-R2-144): the refill period of that cabinet the line was counted in (absent = 0). */
+  minibarPeriod?: number;
 }
+type MinibarCount = Array<{ itemId: string; remainingQty: number }>;
 /** 0.3.7 add. 4 (DOM (f)): what `createVietQr` was for, kept to price "still due" when the desk confirms it. */
 export interface MockQrContext {
   checkinTime?: string;
@@ -730,6 +733,18 @@ export function createStayMock(ctx: Ctx) {
           lines?: Array<{ itemId: string; remainingQty: number }>;
         }>
       >(),
+      /**
+       * BUG-R2-144 (BR-703-02): `${reservationId}:${roomId}` of a counted cabinet that must be counted again in
+       * the same refill period (extension after the count – DOM (b); back in the room before the refill was done).
+       */
+      minibarRecount: new Set<string>(),
+      /** BUG-R2-144: current refill period per `${reservationId}:${roomId}` (a refill starts a new one; absent = 0). */
+      minibarPeriods: new Map<string, number>(),
+      /**
+       * ARC 16.14 `new_fill` (R3 refill mid-stay, no stay event): cabinets whose new period is still to count. Tests
+       * open one by bumping `minibarPeriods`, clearing the count and adding the key here.
+       */
+      minibarNewFill: new Set<string>(),
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
@@ -1183,21 +1198,62 @@ export function createStayMock(ctx: Ctx) {
     roomId: r.segments?.[0]?.roomId ?? r.roomId ?? '',
     roomNo: r.segments?.[0]?.roomNo ?? roomOf(r)?.roomNo ?? '',
   });
-  /** `CheckoutSummary.minibarUncheckedRooms`: earlier rooms not counted yet, then the room assigned now. */
+  const cabKey = (r: MockReservation, roomId: string) => `${r.id}:${roomId}`;
+  const periodOf = (r: MockReservation, roomId: string) =>
+    st.minibarPeriods.get(cabKey(r, roomId)) ?? 0;
+  /**
+   * `CheckoutSummary.minibarUncheckedRooms`: earlier rooms, then the room assigned now, with no `checkout` count after
+   * their last mark (refill or the stay entering the room again – BUG-R2-144; extension after the count – DOM (b)).
+   */
   function uncheckedCabinets(r: MockReservation) {
+    // ARC 16.14 `reason`: stay_continued > new_fill > never_counted.
+    const reason = (roomId: string) =>
+      st.minibarRecount.has(cabKey(r, roomId))
+        ? 'stay_continued'
+        : st.minibarNewFill.has(cabKey(r, roomId))
+          ? 'new_fill'
+          : periodOf(r, roomId) > 0
+            ? 'stay_continued'
+            : 'never_counted';
     const out = (st.minibarOldRooms.get(r.id) ?? [])
-      .filter((c) => !c.lines)
-      .map((c) => ({ roomId: c.roomId, roomNo: c.roomNo }));
-    if (!st.minibarChecks.has(r.id)) out.push(currentCabinet(r));
+      .filter((c) => !c.lines || st.minibarRecount.has(cabKey(r, c.roomId)))
+      .map((c) => ({ roomId: c.roomId, roomNo: c.roomNo, reason: reason(c.roomId) }));
+    const here = currentCabinet(r);
+    if (!st.minibarChecks.has(r.id) || st.minibarRecount.has(cabKey(r, here.roomId)))
+      out.push({ ...here, reason: reason(here.roomId) });
     return out;
   }
   /** R1: the cabinet a `roomId` names – the room assigned now (absent / same) or an earlier room of the stay. */
   function cabinetOf(r: MockReservation, roomId?: string) {
     const here = currentCabinet(r);
+    const at = (c: { roomId: string; roomNo: string; lines?: MinibarCount }, current: boolean) => ({
+      ...c,
+      current,
+      period: periodOf(r, c.roomId),
+      // Counted since the last mark → `latestCheck`; otherwise the last count of the period only informs.
+      counted: !!c.lines && !st.minibarRecount.has(cabKey(r, c.roomId)),
+    });
     if (!roomId || roomId === here.roomId)
-      return { ...here, current: true, lines: st.minibarChecks.get(r.id) };
+      return at({ ...here, lines: st.minibarChecks.get(r.id) }, true);
     const old = (st.minibarOldRooms.get(r.id) ?? []).find((c) => c.roomId === roomId);
-    return old ? { ...old, current: false } : undefined;
+    return old ? at(old, false) : undefined;
+  }
+  /**
+   * BUG-R2-144: the stay enters a room again (B14 back to an earlier room). Counted before and refilled since
+   * (mock: the refill task is taken as done) → a new refill period, nothing counted in it yet.
+   */
+  function enterCabinet(r: MockReservation, roomId: string, roomNo: string) {
+    const olds = st.minibarOldRooms.get(r.id) ?? [];
+    const back = olds.find((c) => c.roomId === roomId);
+    if (back)
+      st.minibarOldRooms.set(
+        r.id,
+        olds.filter((c) => c !== back),
+      );
+    st.minibarChecks.delete(r.id);
+    st.minibarRecount.delete(cabKey(r, roomId));
+    if (back?.lines) st.minibarPeriods.set(cabKey(r, roomId), periodOf(r, roomId) + 1);
+    return { roomId, roomNo };
   }
   /** R6: the live minibar line of an item in a cabinet (`chargeCode` = item), and whether it was ever charged. */
   function minibarLive(r: MockReservation, cabinetRoomId: string, itemId: string) {
@@ -1209,7 +1265,9 @@ export function createStayMock(ctx: Ctx) {
         l.category === 'minibar' &&
         l.chargeCode === itemId &&
         !l.reversalOfId &&
-        (l.cabinetRoomId ?? here) === cabinetRoomId,
+        (l.cabinetRoomId ?? here) === cabinetRoomId &&
+        // R1/R6/R7 (BUG-R2-144): keep / reverse only within the current refill period.
+        (l.minibarPeriod ?? 0) === periodOf(r, cabinetRoomId),
     );
     const live = all.find((l) => l.lineState === 'posted' && !reversed.has(l.id));
     return { live, ever: all.length > 0 };
@@ -1931,6 +1989,8 @@ export function createStayMock(ctx: Ctx) {
       r.departureDate = addDays(r.departureDate, body.nights);
       r.nights = (r.nights ?? 0) + body.nights;
       if (r.segments?.[0]) r.segments[0].toDate = r.departureDate;
+      // BUG-R2-144 / DOM (b): a cabinet counted for the old departure is counted again before B18.
+      if (st.minibarChecks.has(r.id)) st.minibarRecount.add(cabKey(r, currentCabinet(r).roomId));
       bump(r);
       return rsv().remember(key, 200, { reservation: resView(r, g) });
     }),
@@ -2120,6 +2180,13 @@ export function createStayMock(ctx: Ctx) {
         const old = roomOf(r);
         if (old) st.roomStatus[old.roomNo] = body.oldRoomVacated === 'OD' ? 'OD' : 'VD';
         st.roomStatus[room.roomNo] = 'OC';
+        // Minibar M-1 (BR-703-01, BUG-R2-144): the room left becomes an earlier cabinet of the stay (counted as at
+        // check-out); entering a room again starts a new refill period there when it was counted before.
+        const left = currentCabinet(r);
+        const kept = (st.minibarOldRooms.get(r.id) ?? []).filter((c) => c.roomId !== left.roomId);
+        kept.push({ ...left, lines: st.minibarChecks.get(r.id) });
+        st.minibarOldRooms.set(r.id, kept);
+        enterCabinet(r, room.id, room.roomNo);
         for (const o of stay) {
           o.roomId = room.id;
           o.segments = [
@@ -2389,17 +2456,19 @@ export function createStayMock(ctx: Ctx) {
               : {}),
           };
         }),
-        latestCheck: latest
-          ? {
-              id: uid(90_001),
-              mode: 'checkout',
-              lines: latest.map((l) => ({
-                ...l,
-                standardQty: MINIBAR.find((m) => m.itemId === l.itemId)!.standardQty,
-                usedQty: MINIBAR.find((m) => m.itemId === l.itemId)!.standardQty - l.remainingQty,
-              })),
-            }
-          : null,
+        // BUG-R2-144: `latestCheck` only for a count after the cabinet's last mark (same rule as B18).
+        latestCheck:
+          cab.counted && latest
+            ? {
+                id: uid(90_001),
+                mode: 'checkout',
+                lines: latest.map((l) => ({
+                  ...l,
+                  standardQty: MINIBAR.find((m) => m.itemId === l.itemId)!.standardQty,
+                  usedQty: MINIBAR.find((m) => m.itemId === l.itemId)!.standardQty - l.remainingQty,
+                })),
+              }
+            : null,
       });
     }),
     http.post(`${prop}/reservations/:reservationId/minibar-checks`, async ({ request, params }) => {
@@ -2472,6 +2541,7 @@ export function createStayMock(ctx: Ctx) {
               labelParams: { item: std.itemName },
               chargeCode: l.itemId,
               cabinetRoomId: cab.roomId,
+              minibarPeriod: cab.period,
             },
             g.user.displayName,
           );
@@ -2485,6 +2555,8 @@ export function createStayMock(ctx: Ctx) {
           amountVnd: amount,
         };
       });
+      st.minibarRecount.delete(cabKey(r, cab.roomId));
+      st.minibarNewFill.delete(cabKey(r, cab.roomId));
       if (cab.current) st.minibarChecks.set(r.id, body.lines);
       else {
         const old = (st.minibarOldRooms.get(r.id) ?? []).find((c) => c.roomId === cab.roomId);

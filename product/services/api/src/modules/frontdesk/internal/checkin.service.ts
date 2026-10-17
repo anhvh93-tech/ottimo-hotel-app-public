@@ -291,7 +291,7 @@ export class CheckinService {
       const r = await this.s.addedNightRate(
         tx,
         ctx,
-        await this.s.addedNightContext(tx, row, 'first', room.id),
+        await this.s.addedNightContext(tx, ctx, row, 'first', room.id),
         date,
       );
       const direct = { rateVnd: r.calendarVnd, floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd };

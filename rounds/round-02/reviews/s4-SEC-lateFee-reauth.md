@@ -8,6 +8,8 @@
 
 **Tổng: 0 Blocker · 6 Major · 4 Minor (10 thẻ; thêm 1 gợi ý nằm trong BE-61)**
 
+**Cập nhật 18/10 (vòng sửa 4):** BE-59 … BE-64 **Verified**, điều kiện server của D5 đã đủ (mục 11). Còn mở: ARC-25 (Major, chuyển sang US-164 R3 + ESC-024), ARC-24, ARC-26, FE-08 (Minor).
+
 ## 1. Kết luận: ĐỒNG Ý CÓ ĐIỀU KIỆN
 
 D5 dùng được cho R2. Ba lý do. Số tiền do server tính và khóa lại (`amountVnd` lệch → 409). Lý do ARC đưa ra để bỏ luồng duyệt bất đồng bộ là đúng: luồng đó làm đơn kẹt ở `in_house`. Mặt bằng sẵn có cũng tốt: `secret` không vào băm idempotency ở mọi độ sâu, body không bao giờ vào log, và đã có một bộ đếm SR-RL-02 lưu ở DB.
@@ -68,7 +70,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   6. Không mở cửa sổ step-up C3, không ghi gì vào phiên của người gọi hay người xác nhận.
   7. OWN/MGR tự xác nhận (không có tên, hoặc tên = chính mình) thì dùng `PasswordReauth.verify` như cũ, `field` = `lateFeeInsteadOfNight.secret`.
   - Test: tên không có / FD / MGR cơ sở khác / MGR `disabled` / MGR bị khóa đăng nhập / MGR `must_change_password` / sai mật khẩu → cùng thân 401. Mật khẩu **đúng** của một tài khoản FD cũng → 401. MGR đúng → 200 và audit có `approverUserId`.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10** (mục 11) – đủ 401 đồng nhất cho mọi trạng thái, gồm khóa đăng nhập (BUG-R2-146)
 
 ### FB-R2-SEC-BE-60
 - Mức độ: Major
@@ -80,7 +82,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   - Đúng thì chỉ xóa bộ đếm của người xác nhận. Bộ đếm của người gọi tự hết hạn: lỗi của người gọi không được xóa bằng mật khẩu của người khác.
   - Audit `security` khi sai: người làm = người gọi; `entityId` = người xác nhận (nếu tìm được), không thì = người gọi; `after` = `{authMethod, approverMatched: bool, failedCount, lockedUntil}`. **Không** ghi chuỗi tên gõ vào khi không khớp (người dùng hay gõ nhầm mật khẩu vào ô tên).
   - Test: một FD thử 5 tên không tồn tại → lần 6 bị 429. Một FD thử sai 5 lần trên MGR A → cả FD lẫn A bị khóa. FD thứ hai thử A → 429.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10** (mục 11)
 
 ### FB-R2-SEC-BE-61
 - Mức độ: Major
@@ -91,7 +93,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   - Che không phụ thuộc độ sâu, ví dụ thêm `formatters.log: (o) => withoutSecrets(o)` (dùng lại danh sách `SECRET_BODY_FIELDS`), giữ `REDACT_PATHS` cho header. Hoặc thêm đường tường minh `*.lateFeeInsteadOfNight.secret`, `*.*.lateFeeInsteadOfNight.secret`, `*.reauth.secret` kèm test chặn quên.
   - Test bằng `logStream`: log một đối tượng có `secret` ở tầng 2 và tầng 3 → dòng log không chứa chuỗi gốc. Gọi `checkOut` đường `lateFeeInsteadOfNight` (401 rồi 200) → chuỗi mật khẩu thử **không** có trong log, `audit_event`, `idempotency_key` (băm + phản hồi lưu) và thân Problem.
   - (Suggestion) Thêm `approverUsername` vào `SECRET_BODY_FIELDS`, để mật khẩu gõ nhầm vào ô tên không bị băm không muối trong `idempotency_key`.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10** (mục 11) – `formatters.log` + `withoutSecrets`
 
 ### FB-R2-SEC-BE-62
 - Mức độ: Major
@@ -103,7 +105,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   - Dòng `approval_request` của `requestFoc`: người quyết = người xác nhận, vai lúc quyết của người xác nhận, `auth_method`, snapshot có `confirmedOnSessionOf: <người gọi>`.
   - Khi người xác nhận ≠ người gọi: gửi `EventsService.notify` tới **chính người xác nhận** (dùng loại có sẵn `account_security_change`, `refType=reservation`, `refCode` = mã đơn, không có số tiền hay dữ liệu khách), để họ biết mỗi lần tài khoản được dùng tại quầy. Khi người xác nhận bị khóa do thử sai: `security_alert` tới người đó và OWN.
   - Test: 200 → 1 audit `money` đủ trường + 1 thông báo cho người xác nhận. Tự xác nhận → không có thông báo.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10** (mục 11, BUG-R2-153/154)
 
 ### FB-R2-SEC-BE-63
 - Mức độ: Major
@@ -115,20 +117,21 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   - **Fail-closed**: người xác nhận có `mfa_enabled = true` mà server chưa kiểm được yếu tố thứ hai → xử lý như "không đủ điều kiện" (401 giống hệt, vẫn chạy argon2 giả).
   - `requestFoc.authMethod/secret` → 422 `NOT_ALLOWED` như hợp đồng.
   - Test: 3 trường hợp trên.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10** (mục 11)
 
 ### FB-R2-SEC-BE-64
-- Mức độ: Minor
+- Mức độ: ~~Minor~~ **Major** (nâng 18/10 sau kiểm lại lần 4: BUG-R2-149 tái hiện được – FD dò được mật khẩu MGR trên mọi đơn `in_house` và khóa được MGR 15 phút bất cứ lúc nào)
 - Vị trí: BE-A – thứ tự kiểm trong `checkOut` đường `lateFeeInsteadOfNight`
 - Vấn đề: Nếu kiểm mật khẩu trước khi kiểm điều kiện nghiệp vụ, FD thử được mật khẩu quản lý trên **bất kỳ** đơn đang ở nào, vào bất kỳ lúc nào.
 - Vì sao quan trọng: Kiểm điều kiện nghiệp vụ trước thì nơi dò mật khẩu chỉ còn mở trong ca thật: đêm ngày đi đã bán và khách rời sau mốc cuối, chuyện hiếm gặp.
-- Đề xuất sửa: kiểm theo thứ tự sau.
-  1. Kiểm khuôn body.
-  2. Bước chỉ đọc: đơn `in_house`, `extraNightRequired && !extraNightAvailable`, giờ trả qua mốc cuối, `amountVnd` = `lateFeeAsNightVnd`, khuôn `requestFoc`. Sai thì 422/409 **trước** khi kiểm mật khẩu và không đếm.
+- Đề xuất sửa: kiểm theo thứ tự sau (bước 0 thêm 18/10 – BUG-R2-150, xem mục 9).
+  0. **Tra Idempotency-Key đã hoàn tất** (chỉ đọc, không kiểm mật khẩu, không đếm) – mục 9.
+  1. Kiểm khuôn body: `checkoutTime` bắt buộc và đúng khuôn, `checkoutAt`, `amountVnd`, `reason`, `requestFoc` (gồm `kind`, cấm `authMethod`/`secret`).
+  2. Bước chỉ đọc: đơn `in_house`, đúng ngày đi hoặc trong cửa sổ sau nửa đêm, `extraNightRequired && !extraNightAvailable`, giờ trả qua mốc cuối, `amountVnd` = `lateFeeAsNightVnd`. Sai thì 422/409 **trước** khi kiểm mật khẩu và không đếm. Không có đường tắt kiểu "thiếu giờ thì bỏ qua bước này".
   3. Kiểm người xác nhận (BE-59/60).
-  4. `uow.run` kiểm lại toàn bộ rồi ghi.
-  - Test: gửi `lateFeeInsteadOfNight` trên đơn còn bán được đêm, kèm mật khẩu sai → 422 `NOT_ALLOWED`, bộ đếm không tăng.
-- Trạng thái: Open
+  4. `uow.run` nhận key, kiểm lại toàn bộ rồi ghi.
+  - Test: gửi `lateFeeInsteadOfNight` trên đơn còn bán được đêm, kèm mật khẩu sai → 422 `NOT_ALLOWED`, bộ đếm không tăng. Thêm các biến thể của BUG-R2-149 (thiếu `checkoutTime`, `checkoutAt` hỏng, thiếu `amountVnd`, `requestFoc` sai khuôn, chưa tới ngày đi): mật khẩu sai và mật khẩu đúng phải trả **cùng** mã lỗi, bộ đếm 0/0.
+- Trạng thái: **Verified 18/10** (mục 11, BUG-R2-149/150)
 
 ### FB-R2-SEC-ARC-24
 - Mức độ: Minor
@@ -185,7 +188,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
 3. **BE-61**: che `secret` ở mọi độ sâu trong log (`formatters.log` + `withoutSecrets` hoặc đường tường minh). Test: mật khẩu thử không có trong log, audit, `idempotency_key`, Problem.
 4. **BE-62**: audit `money` đủ người gọi, người xác nhận, kênh, `authMethod`. Dòng duyệt FOC ghi người duyệt = người xác nhận. Thông báo `account_security_change` cho người xác nhận khi khác người gọi. Khi bị khóa → `security_alert`.
 5. **BE-63**: `pin` ở R2 → 422 `NOT_IN_LIST`. Người xác nhận có `mfa_enabled` → 401 giống nhau (fail-closed).
-6. **BE-64** (nên): kiểm điều kiện nghiệp vụ chỉ đọc trước, rồi mới kiểm mật khẩu.
+6. **BE-64** (Major từ 18/10): bước 0 tra Idempotency-Key đã hoàn tất (mục 9), rồi khuôn body và điều kiện nghiệp vụ chỉ đọc, sau cùng mới kiểm mật khẩu.
 
 ## 6. Ngoại lệ SR-AUTH-09 – SEC ghi nhận (đã làm 18/10, bước Phản hồi & sửa)
 
@@ -213,3 +216,127 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
 - Số tiền do server tính và khóa bằng `amountVnd` (lệch → 409). Người xác nhận không bị lừa ký một con số khác với số server ghi.
 - Lý do bỏ luồng duyệt bất đồng bộ (đơn kẹt `in_house`) có căn cứ. `requestFoc` lồng cấm gửi `authMethod/secret` thứ hai, nên chỉ có một mật khẩu cho một lần xác nhận.
 - FE xóa mật khẩu quản lý sau **mọi** lần gọi, kể cả khi lỗi (`CheckOutPage.tsx:430-432`), và đọc lỗi đúng `field` của hợp đồng.
+
+## 9. Chốt thứ tự idempotency – BUG-R2-150 (SEC, 18/10, sau kiểm lại lần 4)
+
+**Quyết định: CHẤP NHẬN** "gửi lại key đã hoàn tất thì trả phản hồi đã lưu, không kiểm mật khẩu". Đây là **bước 0** của thứ tự BE-64, chạy **trước** khuôn body, trước bước chỉ đọc và trước `verifyApprover`.
+
+**SEC xác nhận chốt của ARC** (`openapi-0.3.7.md`, mục idempotency, 18/10): bước 0 và rủi ro ARC chấp nhận trùng khớp với quyết định này. SEC thêm một điểm ARC chưa ghi: key đang `in_progress` → 409 `IDEMPOTENCY_IN_PROGRESS` **ngay ở bước 0**, không kiểm mật khẩu, không đếm (điều kiện 2 bên dưới).
+
+Vì sao chấp nhận:
+- Key gắn với từng người gọi (`idempotency_key.principal_id` = người gọi, `unit-of-work.ts` `claimKey`). Gửi lại chỉ trả cho **chính người đó** đúng phản hồi họ đã nhận.
+- Gửi lại không ghi gì, không cấp quyền gì mới.
+- Phản hồi không phụ thuộc vào `secret`, nên không thành nơi dò mật khẩu.
+- Không đếm, nên không thành đường khóa quản lý.
+- Cùng chính sách sẵn có của `UnitOfWork`: gửi lại thì không kiểm lại If-Match và vai.
+- Phương án ngược lại (kiểm mật khẩu cả khi gửi lại) làm hỏng gửi lại sau mất mạng, vì FE đã xóa mật khẩu sau mỗi lần gọi. Phương án đó cũng mở thêm một đường để thử và đếm.
+
+Điều kiện cài (BE-A):
+1. **Bước 0 chỉ đọc**. Dùng **cùng** hàm `requestHash` (bỏ `secret` qua `withoutSecrets`), cùng phạm vi (người gọi + tổ chức), cùng method + path như `claimKey`. Không có hàm băm thứ hai. Nên tách phần tra của `claimKey` thành một hàm dùng chung, ví dụ `peekCompleted`.
+2. Kết quả của bước 0:
+   - `completed` + băm khớp → trả phản hồi đã lưu, header `Idempotent-Replayed: true`. Phản hồi lỗi đã lưu thì trả lại đúng lỗi đó (`replayFailure`).
+   - Băm lệch → 422 `IDEMPOTENCY_KEY_REUSED`.
+   - `in_progress` → 409 `IDEMPOTENCY_IN_PROGRESS`.
+   - Ở cả ba trường hợp: không kiểm mật khẩu, không đếm, không audit, không gửi thông báo.
+   - Không có dòng nào → đi tiếp bước 1–4. `uow.run` vẫn nhận key như cũ (xử lý tranh chấp giữ nguyên).
+3. Không bao giờ lưu `secret` hay chuỗi tên gõ vào trong `response_body` hoặc `request_hash`. Hiện đạt: phản hồi chỉ gồm `reservation` + `billNo`.
+4. Test:
+   - (a) B18 `lateFeeInsteadOfNight` → 200. Gửi lại cùng key, cùng body, **mật khẩu sai** → 200 replay + header; bộ đếm 0/0; không thêm audit/thông báo; folio không đổi.
+   - (b) Cùng key, đổi `amountVnd` hoặc `reason` → 422 `IDEMPOTENCY_KEY_REUSED`, bộ đếm 0/0.
+   - (c) FD khác dùng cùng key → không phải replay. Đơn đã `checked_out` nên bị 409 ở bước chỉ đọc, trước khi kiểm mật khẩu; bộ đếm 0/0.
+   - (d) B18 thường (không có `lateFeeInsteadOfNight`) gửi lại vẫn như cũ.
+5. (Suggestion) Áp cùng bước 0 cho các lệnh xác nhận lại khác (`approveRequest`, `rejectRequest`, `requestFoc` tự áp, `setParameter` có `reauth`) khi có dịp, để gửi lại sau thành công không bị 401.
+
+Hai điểm kiểm lại lần 4 mà BE-A đang sửa cùng tệp, SEC chốt luôn:
+- **BUG-R2-153**: người duyệt FOC của `requestFoc` **luôn là người xác nhận**: `approver_id`, vai lúc duyệt = vai của người xác nhận, `auth_method = password`. Áp cả khi OWN/MGR tự xác nhận, không để `null`. Hạn mức BR-433 và `foc_count_per_approver` tính cho người xác nhận.
+- **BUG-R2-154**: **bỏ** `confirmedByUsername` khỏi audit money. Giữ `approverUserId` + **thêm** `approverRole`. Lý do: danh sách cho phép tối thiểu (SR-AUD-03); id thì bền, còn tên đăng nhập có thể đổi; và tránh nhầm với quy tắc "không ghi chuỗi tên gõ vào". Tên hiển thị lấy lúc đọc audit. `security_alert` khi bị khóa gửi cho người xác nhận, người gọi **và mọi OWN của cơ sở**.
+
+## 10. Kiểm lại BE-59 (2) – BUG-R2-146 (SEC, 18/10, cây chung chưa commit)
+
+**Kết quả: BE-59 (2) – ĐẠT (Verified) cho tài khoản bị khóa đăng nhập.** Thẻ BE-59 còn mở vì thiếu một phần test (xem cuối mục).
+
+Đối tượng kiểm: HEAD `2efec17` + phần sửa chưa commit của BE-A trên cây chung, gồm `identity/public/password-reauth.ts` (` M`) và `test/integration/s438r4-money.test.ts` (`??`).
+
+Đọc mã `verifyApprover`:
+- Người xác nhận được tìm dưới RLS của người gọi: `username` (citext, so như lúc đăng nhập) + `organization_id`. Vai lấy theo `user_property_role` của **cơ sở người gọi**, `revoked_at IS NULL`. Không dùng `auth_find_user`.
+- Điều kiện hợp lệ:
+  - `status = 'active'`, nên khóa cứng / `disabled` / `locked` cũ bị loại;
+  - **`locked_until` NULL hoặc ≤ now** (BUG-R2-146);
+  - không `must_change_password`;
+  - không `mfa_enabled` (fail-closed, BE-63);
+  - có vai OWN/MGR.
+- Không hợp lệ thì gọi `verifyPassword(null, …)`, tức băm giả, **không bao giờ** kiểm mật khẩu thật.
+- argon2 chạy đúng 1 lần mỗi request, và chỉ có **một** chỗ ném 401, nên thân lỗi giống nhau theo cấu trúc mã.
+- Khóa SR-RL-02: kiểm **trước** argon2. Khóa của người xác nhận chỉ xét khi người đó hợp lệ, nên tài khoản đang khóa đăng nhập trả 401, không phải 429.
+- Đếm: người gọi luôn +1; người xác nhận +1 chỉ khi hợp lệ. Cập nhật nguyên tử, khóa dòng `FOR UPDATE` theo thứ tự id.
+- Audit `security` không có chuỗi tên gõ vào.
+
+Chạy test: SEC chạy trên **DB riêng mới tạo** `ottimo_test_sec_r4late` (postgres dev, migrate từ đầu qua globalSetup), Node 22.23.3. `vitest run s438r4-money.test.ts s438r3-money.test.ts -t "BUG-R2-146|BUG-R2-139|masked"` → **3 passed** (14 skipped do lọc):
+- BUG-R2-146: `mTemp` (`locked_until` 2031) với mật khẩu **đúng** + FOC → 401 `REAUTH_FAILED` ở `lateFeeInsteadOfNight.secret`. Thân **giống hệt** ca tên không có (bỏ `requestId`). Không có `finalPayment` cũng 401. Đơn giữ `in_house`; không `approval_request`, không audit money. Bộ đếm FD +3, `mTemp` 0. Đối chứng `mgr` → 200, FOC −396.000, folio 1.980.000, 0/0.
+- BUG-R2-139 (BR-416-06): mật khẩu sai / tên không có / tài khoản FD (mật khẩu đúng của FD) → cùng 401; bộ đếm `{fd: 3, mgr: 1}`; mật khẩu thử không có trong audit, `idempotency_key`, Problem; 200 → `{fd: 3, mgr: 0}`, 1 thông báo `account_security_change`, audit `channel = desk`, FOC `approver_id` = mgr.
+- `masked`: `lateFeeInsteadOfNight.secret` và `reauth.secret` được che trong log.
+
+Bộ 401 đồng nhất trong repo đã có 5 trường hợp: mật khẩu sai, tên không có, FD, khóa đăng nhập, (đối chứng hợp lệ).
+
+**Còn thiếu so với test BE-59** (BE-A thêm vào cùng bảng; SEC kiểm khi ORC báo 149/150/153/154 xong). Các ca dưới đây đều phải trả 401 với thân giống hệt ca "tên không có", và bộ đếm của tài khoản đó không đổi:
+- `disabled`;
+- khóa cứng (`status = 'locked'`, `locked_until` NULL);
+- `must_change_password`;
+- `mfa_enabled`;
+- MGR của **cơ sở khác** cùng tổ chức;
+- MGR có vai đã **thu hồi**.
+
+Theo mã, các ca này đi cùng nhánh với ca khóa đăng nhập. Vì vậy SEC chỉ coi đây là thiếu test, không phải lỗi.
+
+DB thử `ottimo_test_sec_r4late` để lại trên postgres dev. OPS/ORC dọn cùng các DB `ottimo_test_*` khác khi tiện.
+
+## 11. Kiểm lại vòng sửa 4 – BUG-R2-146/149/150/153/154 (SEC, 18/10, cây chung chưa commit)
+
+**Kết quả: ĐẠT. Sáu thẻ server BE-59 … BE-64 đều Verified, đóng BE-59.** Phía server đã đủ điều kiện SEC cho D5 / SR-AUTH-11. Còn mở, không chặn: ARC-24, ARC-26, FE-08 (Minor, trước GL) và ARC-25 (đã có US-164 R3 + ESC-024).
+
+Đối tượng kiểm: HEAD `2efec17` + phần BE-A chưa commit (`outputs/BE/s4-be-a.md` mục 15).
+
+### 11.1 Test SEC tự chạy
+
+DB riêng mới tạo `ottimo_test_sec_r4fix`, migrate từ đầu qua globalSetup, Node 22.23.3. Lệnh: `vitest run test/integration/s438r4-money.test.ts test/integration/s438r3-money.test.ts test/redact.test.ts` → **3 tệp, 32/32 xanh**. DB cũ `ottimo_test_sec_r4late` đã xóa.
+
+### 11.2 Theo thẻ
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| **BE-59** | Verified – đóng | `verifyApprover` (`password-reauth.ts`) hợp lệ chỉ khi `active`, `locked_until` NULL hoặc ≤ now, không `must_change_password`, không `mfa_enabled`, có vai OWN/MGR chưa thu hồi ở cơ sở của người gọi. Không hợp lệ thì dùng băm giả. Test `s438r4` "6 more states": `disabled`, khóa cứng, `must_change_password`, `mfa_enabled`, MGR cơ sở khác, vai đã thu hồi, cùng ca khóa đăng nhập (BUG-R2-146), đều dùng **mật khẩu đúng**. Tất cả → 401 với thân **giống hệt** ca "tên không có" (bỏ `requestId`), bộ đếm của các tài khoản đó vẫn 0. Tài khoản FD với mật khẩu đúng của FD → 401 (`s438r3`) |
+| BE-60 | Verified | Người gọi luôn +1; người xác nhận +1 chỉ khi hợp lệ (`s438r3` `{fd:3, mgr:1}` → đúng thì `{fd:3, mgr:0}`). Ca 154: FD4 sai 5 lần với MGR2 → cả hai bị khóa → lần sau 429 |
+| BE-61 | Verified | `http.ts` `formatters.log: withoutSecrets`, che ở mọi độ sâu. Test "SEC BE-61": `body.lateFeeInsteadOfNight.secret` và `reauth.secret` không có trong log, câu lỗi vẫn giữ. Mật khẩu thử không có trong `audit_event` / `idempotency_key` / Problem (`s438r3`) |
+| **BE-62** | Verified | Audit `money` có: `confirmedBy` (id), `approverRole`, `channel` (`desk`/`self`), `authMethod`, `focVnd`, lý do; **không** có tên đăng nhập (ca 153: `{role: owner, name: null}`). Danh sách cho phép ở `reservations.module.ts` có `approverRole`. FOC (BUG-R2-153, `noSelfApply`): người duyệt = người xác nhận, kể cả MGR tự xác nhận (`approver_id` = OWN, vai `owner`, `password`; ca 148 = MGR, `password`). `requester_id` = người gọi, kết hợp `channel` trong audit là đủ để truy, không cần trường snapshot riêng. Thông báo `account_security_change` cho người xác nhận khi khác người gọi (1 lần, gửi lại không thêm). `security_alert` khi bị khóa gửi người bị khóa, người gọi **và mọi OWN** (ca 154: MGR2, FD4, OWN, OWN2) |
+| BE-63 | Verified | `pin` → 422 `NOT_IN_LIST` (`s438r3`); `mfa_enabled` → 401 giống hệt (ca 6 trạng thái) |
+| **BE-64** | Verified | `frontdesk.controller.ts` `checkOut` đi theo thứ tự (1)–(4) bên dưới. `lateFeePrecheck` không còn đường tắt "thiếu giờ". Ca 149: thiếu `checkoutTime` với mật khẩu sai và đúng → cùng 422; thiếu `amountVnd` 422; `special_discount` 422; `requestFoc.secret` 422; trước ngày đi 409; bộ đếm FD/MGR không đổi |
+
+Thứ tự BE-64 trong `checkOut`:
+1. `completedReplay` (bước 0).
+2. Khuôn `authMethod` / `secret` / `approverUsername`.
+3. `lateFeePrecheck` trong `read()`: khuôn body (`checkoutTime` bắt buộc, `checkoutAt`, `extraNight`, `lateFeeInsteadOfNight` gồm `requestFoc`), `in_house`, ngày đi hoặc cửa sổ sau nửa đêm (409), `SURCHARGE_CHANGED`, `NOT_ALLOWED`. `read()` từ chối vai bị guard loại, nên không có mật khẩu nào bị thử cho vai không được phép.
+4. `verifyApprover`, rồi `uow.run`.
+
+### 11.3 Bước 0 (BUG-R2-150) – 3 điều kiện và 4 ca test
+
+| Điều kiện / ca | Kết quả |
+|---|---|
+| ĐK 1: cùng `requestHash`, cùng phạm vi với `claimKey` | Đạt. `UnitOfWork.completedReplay` gọi `requestHash(req.method, pathOf(req.url), req.body ?? null)` y như `run`. `SELECT … WHERE principal_type='user' AND principal_id = <người gọi> AND key = $2` giống hệt `claimKey`, giao dịch chỉ đọc riêng, dưới RLS của người gọi |
+| ĐK 2: `in_progress` → 409 ngay, không kiểm mật khẩu, không đếm | Đạt theo mã (ném `IDEMPOTENCY_IN_PROGRESS` trước `lateFeeApprover`). Chưa có test (cần dựng dòng `in_progress`) → gợi ý |
+| ĐK 3: không lưu `secret` / tên gõ vào | Đạt. Băm bỏ `secret`; phản hồi lưu chỉ gồm `reservation`, `billNo`, `createdTaskIds`; test `s438r3` không thấy mật khẩu thử trong `idempotency_key` |
+| Ca (a) gửi lại, mật khẩu sai → 200 replay, 0 đếm, 0 audit | Đạt (ca 150: `idempotent-replayed: true`, bộ đếm và số audit không đổi, folio 2.376.000) |
+| Ca (b) đổi `amountVnd` → 422 | Đạt (`IDEMPOTENCY_KEY_REUSED`) |
+| Ca (c) FD khác dùng cùng key → 409 ở bước chỉ đọc, không đếm | Đạt (409, bộ đếm FD4 = 0) |
+| Ca (d) B18 thường gửi lại không đổi | Đạt (200 replay) |
+
+**`completedReplay` không lộ phản hồi đã lưu cho người gọi khác:** tra theo `principal_id` = người gọi, cùng khóa chính với `claimKey`. Ca (c) chứng minh FD4 không nhận bản lưu của FD. Đặt `auth.enforced = true` trước khi trả bản lưu là đúng cách `run` vẫn làm khi gửi lại.
+
+### 11.4 Gợi ý (không chặn)
+
+- Ca (c) nên khẳng định cả `code = INVALID_TRANSITION`, không chỉ mã 409.
+- Thêm ca ĐK 2: chèn dòng `idempotency_key` `in_progress` → 409, bộ đếm 0/0.
+- Thêm ca: gửi `lateFeeInsteadOfNight` trên đêm còn bán được với mật khẩu sai → 422 `NOT_ALLOWED`, 0/0. Mã đã đúng, chỉ thiếu test.
+- Nếu sau này dùng lại `completedReplay` cho operation có `dryRun`: bỏ qua bước 0 khi `dryRun`, như `run`.
+- `password-reauth.ts` (tệp của SEC) giờ có `verifyApprover`. Mọi chỗ mới gọi hàm này phải qua SEC review (SR-AUTH-11).
+
+DB `ottimo_test_sec_r4fix` còn để lại để kiểm lại nếu cần; dọn cùng các DB `ottimo_test_*` khác.

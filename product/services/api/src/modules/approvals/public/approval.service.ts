@@ -86,6 +86,11 @@ export interface SubmitInput {
   lineCategory?: string;
   /** The caller has re-authenticated the requester (required for the FD/FDL self-application, AC6). */
   requesterReauthenticated?: boolean;
+  /**
+   * BR-416-07 (BUG-R2-153): never self-applied by the requester – another person decides it in the same
+   * transaction (the approver who confirmed at the desk, `approve`).
+   */
+  noSelfApply?: boolean;
   requestId?: string;
 }
 
@@ -340,8 +345,11 @@ export class ApprovalService {
 
     // A2 – self-application within the requester's own limit (rbac 5.2 point 2). Serialised per user with
     // approve() (same advisory lock) so concurrent self-applications cannot both use the remainder.
-    if (this.maySelfApply(actor, input)) await this.lockLimit(tx, actor.userId);
-    const self = await this.selfApplication(tx, actor, input, { focLimits, basis, tz, now, today });
+    if (!input.noSelfApply && this.maySelfApply(actor, input))
+      await this.lockLimit(tx, actor.userId);
+    const self = input.noSelfApply
+      ? null
+      : await this.selfApplication(tx, actor, input, { focLimits, basis, tz, now, today });
 
     const id = uuidv7();
     const { rows } = await tx.query<ApprovalRow>(

@@ -250,3 +250,71 @@ Tệp đợt này:
   - `product/tests/fixtures/br-examples.json` (bỏ 5 `pendingFix`).
 
 ARC 18/10 đồng ý (n), (p), (q); (o) có điều kiện: B14 phải ghi nhận tủ căn cũ trong mọi trường hợp. Mã đã đáp ứng: `onCheckedOut` (B14 gọi) luôn chụp lần nạp cho tủ chưa có, kể cả tủ chưa đếm và danh mục chưa đổi (`registerFridge`); chỉ bỏ qua khi danh mục trống, khi đó không có món tính tiền nên không có gì để chặn. Thêm ca `minibar-m1.test.ts`: B14 đêm đầu (segment bị ghi đè sang 203), tủ 202 chưa đếm → `minibarUncheckedRooms` = [202], B18 409; đếm tủ 202 (`roomId`) → B18 200, thu 35.000, có việc bổ sung tủ 202. Toàn bộ API **2.732/2.732, 85/85 tệp**; tsc, eslint, prettier xanh.
+
+## 14. Phản hồi & sửa vòng 4 (`reviews/s4-money-recheck4.md`; ARC 16.2 R1/R6/R7/R9, 16.13, ca 12–19), 18/10
+
+| Mã | Cách sửa | Kiểm chứng |
+|---|---|---|
+| **BUG-R2-147** (P2, lối ra (a)) | `folio/public/minibar-foc-resync.ts` `resyncMinibarFocOnce`: chạy `syncReductions` cho mọi folio `open` có yêu cầu FOC/giảm giá trên dòng minibar, **một lần mỗi cơ sở**. Cờ "đã chạy" là một dòng `job_run` (`data_fix.minibar_foc_0065`, slot cố định), ghi cùng giao dịch: lỗi thì rút cả hai, lần khởi động sau chạy lại. Chạy ở `FolioModule.onApplicationBootstrap` (API và worker); không chạy trong test trừ khi `RUN_DATA_FIXES=1`; không bao giờ chặn khởi động | Ca mô phỏng dữ liệu trước 0065 (102): hai FOC sống trên một bia đã về 1 lon → folio **715.000**; chạy bước → **750.000**, A `applied`, B `dormant`, ròng 0; chạy lần hai → `null`; B18 thu 0 |
+| **BUG-R2-152** (P2) | `minibar.service.ts` `stay()`: HK được ghi lần đếm `checkout` của **tủ căn cũ** (`roomId` khác căn đang gán) khi có việc buồng phòng chưa hủy ở căn đó, hạn hôm nay (việc `checkout_clean` mà B14 tạo). Tủ căn đang ở vẫn theo phạm vi cũ (ngày đi) | 302 → 401 lúc 10:00; 11:00 HK đếm 302 dùng 2 → **201**, dòng 70.000, phản hồi không có tiền, 1 việc `minibar_refill` số lượng 2; HK đếm tủ đang ở (không phải ngày đi) → 404 |
+| **BUG-R2-148** (phần BE-B) | `nightRateBasis`: dòng `charge_code = 'late_fee_as_night'` lấy chính số tiền dòng làm cơ sở hạn mức BR-433 | 911.000 → basis 911.000; MGR xin FOC 911.000 → 201 `approved`. Oracle BR-416-07 **giữ `pendingFix`**: phần BE-A (B18 `lateFeeInsteadOfNight`, BUG-R2-153 người duyệt = người xác nhận) chưa xong |
+| **BUG-R2-144** (P1) – kỳ nạp | **Migration 0066** `0066_minibar_period.sql`:<br>- `minibar_check.fill_id` (FK `minibar_fill`); bù cho lần đếm cũ = lần nạp hiệu lực lúc đếm;<br>- UK lần đếm sống theo (`reservation_id`, `room_id`, `fill_id`);<br>- `minibar_fill.source` thêm `carry`; `minibar_fill_line.qty ≥ 0`;<br>- snapshot qua thư mục tạm, journal idx 43.<br>**Mã**:<br>- lần đếm thuộc kỳ hiện tại (lần nạp gần nhất). Tủ chưa có lần nạp được ghi nhận (`check_in`) trước lần đếm;<br>- lần đếm chỉ thay lần đếm cùng kỳ. Lần trước có thể còn sống hoặc đã bị đánh dấu cũ;<br>- giữ dòng (R6) và đảo dòng (R7) chỉ trong kỳ. Lần đếm đầu của kỳ mới ghi dòng riêng; dòng kỳ trước giữ nguyên, vẫn tính vào khóa FOC.<br>**Ở tiếp tủ** – `FrontdeskMinibarPort.onStayContinued(tx, đơn, căn, 'room_entered' \| 'extended')` (BE-A đã gọi ở B14, S4-09, B13):<br>- lần đếm gần nhất của kỳ **có tính tiền** + việc `minibar_refill` của căn **xong sau** lần đếm → lần nạp `refill` (danh mục hiện hành) → kỳ mới;<br>- có tính tiền, chưa xong việc → lần nạp `carry` (mốc = còn lại, giá của kỳ), hủy việc bổ sung còn mở. Phần hủy để trong một hàm riêng `cancelOpenRefills` (ORC dặn để DOM dễ đổi). Enum HK không có `superseded`, nên dùng `reservation_changed` + ghi chú `superseded: …`;<br>- lần đếm **không tính tiền** → không mở kỳ, lần đếm bị đánh dấu cũ (`replaced_by_check_id = id`): B18 đòi đếm lại, lần sau thay lần đó.<br>**"Đã đếm"** (`checkoutStatus` → `minibarUncheckedRooms`/B18) = có lần đếm sống trong kỳ hiện tại; `latestCheck` cũng vậy, null = cần đếm lại, không lọc ngày. Xong việc bổ sung khi lượt đã rời căn không tự mở kỳ | Ca 12 / oracle **BR-703-02** b3 (bỏ `pendingFix`): 202 → 203 → về 202 sau khi bổ sung; B18 409 `minibar_not_checked` (202) tới khi đếm; dòng mới 35.000, dòng 70.000 giữ; minibar **105.000**, tổng **2.481.000**; đếm lại cùng kỳ thay lần trước (ca 17). Ca 13/14: **130.000** / **140.000**. Ca 16 (`carry`): việc bổ sung bị hủy, bia không còn trong tủ, `latestCheck` null, 1 snack → **100.000**. Ca 18/19 (B13 sau lần đếm): 70.000 / 35.000 thay lần đếm 0 |
+
+**Kiểm chứng** (18/10, DB mới):
+- `@ottimo/api` **2.751/2.753 xanh** (86 tệp). Hai ca đỏ là của BE-A, về gợi ý giá đêm: `s438r2-money` BUG-R2-125 và `s438r3-money` BUG-R2-134 controls. BE-A đang sửa BUG-R2-145 trên cây chung; không liên quan minibar.
+- `minibar-m1.test.ts` 17/17.
+- tsc 0 lỗi; eslint và prettier xanh trên tệp chạm.
+- `drizzle-kit generate` báo "No schema changes"; `schema-parity` xanh.
+- Ma trận QA `minibar-matrix.s4.clock.spec.ts` trên stack riêng `ottimo-beb-s4`: **20/20 đạt** (cả TC-L4-118/119/122). Stack đã gỡ. `OPEN` còn BUG-R2-146 của BE-A.
+
+**Giả định / chờ:**
+- (s) Lần nạp `refill` lấy danh mục lúc lượt vào lại căn (≈ lúc xong việc), vì chưa có móc lúc HK xong việc.
+- (t) Lần đếm "có tính tiền" = có dòng với số tiền > 0.
+- (u) Hủy việc bổ sung dùng `cancel_reason_code = reservation_changed` + ghi chú, vì enum HK chưa có `superseded`.
+- (v) Lần đếm không tính tiền bị đánh dấu cũ bằng `replaced_by_check_id = id`.
+- DOM đang xem hai giả định R9 (hủy việc bổ sung; không mở kỳ khi lượt đã rời căn); ORC báo nếu đổi.
+- Oracle BR-703-02 ca `s409Agoda`: chưa có ca tích hợp riêng. Đường `room_entered` giống ca 12; ma trận QA chưa có ca S4-09.
+
+Tệp đợt này:
+- Tạo:
+  - `src/db/migrations/0066_minibar_period.sql`, `src/db/migrations/meta/0066_snapshot.json`
+  - `src/modules/folio/public/minibar-foc-resync.ts`
+- Sửa:
+  - `src/db/migrations/meta/_journal.json`, `src/db/schema/inventory.ts`
+  - `src/modules/inventory/internal/{fridge,minibar.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`
+  - `src/modules/folio/folio.module.ts`, `src/modules/folio/public/folio.service.ts` (`nightRateBasis`)
+  - `test/integration/minibar-m1.test.ts` (thêm 7 ca)
+  - `product/tests/fixtures/br-examples.json` (bỏ `pendingFix` BR-703-02)
+
+### 14 (bổ sung). ARC 16.14–16.16 + DOM ghi chú 18/10 BR-703-02 (R9 sửa), 18/10
+
+| Việc | Cách cài | Kiểm chứng (`minibar-m1.test.ts`, oracle BR-703-02) |
+|---|---|---|
+| **16.14 `uncheckedRooms.reason`** | Cổng trả `never_counted \| stay_continued \| new_fill`. R2: tủ đã có lần đếm `checkout` trong lượt mà nay chưa đếm → `stay_continued` (kể cả kỳ mở bằng `refill`); chưa đếm lần nào → `never_counted`; `new_fill` để R3. BE-A chép sang `CheckoutSummary` – kiểu trả về trong `frontdesk/public/ports.ts` (tệp BE-A) thêm `reason?` | Ca 12 (kỳ `refill`), ca 16b và ca 16.14 (B13) → `stay_continued`; ca ARC (o) (tủ 202 chưa đếm) → `never_counted` |
+| **16.14 `FolioLine.chargeCode`** | `folioLineDto` thêm `chargeCode` từ cột `charge_code` có sẵn; `x-visible-to` FD trở lên do serializer lọc | Dòng minibar mang `bia`/`coca`; dòng thay của `adjustFolioLine` (60.000) giữ `bia`; dòng phòng không có trường |
+| **(s)** | Nhánh "việc xong trước khi lượt vào lại": `filled_at` = `hk_task.done_at`; mốc, giá vẫn lấy danh mục lúc vào lại (tạm tới R3) | Ca 12 (giữ số 105.000 / 2.481.000) |
+| **(u)** | Không còn dùng: DOM bỏ hủy việc bổ sung, đã xóa `cancelOpenRefills` | Ca 16: T1 vẫn `open` |
+| **(v)** | Tự trỏ chỉ đặt trong `onStayContinued` cho lần đếm sống của kỳ hiện tại; không truy vấn nào đi theo `replaced_by_check_id` | Ca mới: đếm 0 → B13 → 1 bản tự trỏ → HK xong T1 khi khách ở căn → 0 → B18 → lượt đã trả phòng **không còn** bản tự trỏ |
+| **Chỉ mục** | `minibar_check_live_checkout_key` thêm `NULLS NOT DISTINCT`, sửa thẳng trong 0066 (chưa commit). Drizzle không biểu diễn được tùy chọn này trên chỉ mục nên snapshot giữ nguyên; `drizzle-kit generate` báo "No schema changes"; `schema-parity` so tên | Ca (v) đọc `pg_get_indexdef` có `NULLS NOT DISTINCT` |
+| **DOM 1 – không hủy việc** | Bỏ `cancelOpenRefills`; kỳ `carry` giữ nguyên | Ca 16 / r9_16: T1 mở, 1 snack → **100.000**; sau B18 có T1 (2 bia) + T2 (1 snack) |
+| **DOM 5 – (t)** | "Có tính tiền" = có món có giá bán **trong kỳ** (giá ở dòng lần nạp của kỳ) với `used_qty > 0`; không theo `amount_vnd` | Ca 20 / r9_t: FOC 70.000 đã duyệt, về 202 → kỳ `carry` (mốc bia 0); B18 không dòng mới; 70.000 − 70.000 = **0** |
+| **DOM 1/4 – B13 sinh việc** | `onStayContinued(extended)`: sau khi xử lý kỳ, mọi lần đếm sống có dùng món chưa gắn việc của tủ được sinh việc như B18 | Ca 18 / r9_18 (a): sau B13 có T1 (2 bia); B18 **70.000**, vẫn 1 việc |
+| **DOM 2 – cổng 16.16** | Tệp mới `housekeeping/public/minibar-refill-done.port.ts` (token `MINIBAR_REFILL_DONE_PORT`). `HousekeepingService` (tệp BE-C) tiêm `@Optional()`, gọi trong `setTaskStatus` cùng giao dịch khi việc `minibar_refill` → `done` (theo mẫu `onLinkedWorkDone`). `refill_items` `[{itemId, quantity}]` đổi sang `{itemId, qty}`. Inventory cài trong `MinibarCheckoutPort.onRefillDone` và cung cấp token (module `@Global`; cổng không phụ thuộc provider nào của housekeeping nên không có vòng DI). Điều kiện: đơn chính `in_house` và căn hiện tại của lượt (segment hiệu lực mới nhất tới ngày nghiệp vụ của một đơn `in_house` trong lượt) = căn của việc; việc không có đơn hoặc không có món → không làm gì. Mốc = còn lại của lần đếm gần nhất trong kỳ (kể cả bản tự trỏ; kỳ chưa đếm → mốc kỳ, gồm số 0 của `carry`) + `refill_items`; bỏ món mốc 0; giá, giá vốn = danh mục lúc xử lý, món đã tắt giữ giá kỳ. `filled_at` = `performedAt`, `created_at` = `now` | Ca 16b / r9_16b: mốc bia 2, snack 1, `filled_at` = giờ HK làm → B18 **135.000**. Ca 16c / r9_16c: mốc bia 2, bỏ snack → B18 bia 2/2 không dòng mới, **100.000** (không 130.000); T2 (1 snack) từ lần đếm 09:00. Ca 18 (b): mốc bia 2, snack 1 → **70.000**, chỉ T1 |
+| **DOM 3** | Xong việc khi lượt đã rời căn → không làm gì (giữ nguyên) | Ca 12, 13/14 (HK xong khi khách ở căn khác) giữ số |
+| **DOM 4 – bất biến** | `onCheckedOut` sinh việc cho **mọi** lần đếm sống có dùng món chưa gắn việc của tủ, cũ trước mới sau (`createRefillTasks`, dùng chung với B13). Trả về id việc tạo sau cùng (chữ ký cổng BE-A giữ `string \| null`) | Ca 16c: B18 sinh T2 từ lần đếm kỳ `carry` |
+
+**Giả định mới** (đã ghi decision-log):
+- (w) Lần nạp ở cổng 16.16 đóng kỳ đang có bản tự trỏ → bỏ tự trỏ (`replaced_by_check_id = NULL`): lần đếm đó là lần đếm cuối của kỳ đã đóng và là mốc của lần nạp. Nếu không bỏ, lượt trả phòng vẫn còn bản tự trỏ (trái điều kiện ARC (v)). Nếu lần đếm đó có dùng món miễn phí thì B18 sinh việc cho nó, đúng bất biến DOM 4.
+- (x) Thứ tự kỳ của tủ theo `minibar_fill.created_at` (lúc xử lý – ARC 16.16 "`now` … thứ tự kỳ"), không theo `filled_at`. Lý do: `filled_at` = `performedAt`/`done_at` có thể sớm hơn lần nạp trước (hàng đợi offline, (s)). `latestFill` đổi `ORDER BY created_at DESC, id DESC`.
+- (y) Sinh việc ngay chỉ cho lý do `extended` (đúng chữ ARC/DOM). Với `room_entered`, lần đếm của căn cũ đã có việc từ B14 (`onCheckedOut`) hoặc từ lần đếm tủ căn cũ.
+- (z) Món trong `refill_items` không có trong kỳ và không còn trong danh mục: lấy giá của hàng hóa hiện tại. Trường hợp này không xảy ra trong luồng hiện có.
+- Không khóa folio trong `onRefillDone`, vì vai HK không có quyền `UPDATE` folio nên không dùng được `FOR UPDATE`. Chỉ khóa lần đếm gần nhất của kỳ. Rủi ro đua với một lần đếm cùng lúc là thấp ở quy mô 10 căn.
+
+**Tệp đợt bổ sung:**
+- Tạo: `src/modules/housekeeping/public/minibar-refill-done.port.ts`
+- Sửa – BE-B: `src/modules/inventory/{inventory.module.ts, public/minibar-checkout.port.ts, internal/fridge.ts}`, `src/modules/folio/public/folio-view.ts`, `src/db/migrations/0066_minibar_period.sql`, `src/db/schema/inventory.ts` (chú thích), `test/integration/minibar-m1.test.ts` (sửa ca 16, 18; thêm 16b, 16c, 18 (b), 20, (v), 16.14)
+- Sửa – module khác (ghi rõ): `src/modules/housekeeping/internal/housekeeping.service.ts` (BE-C: tiêm cổng, gọi trong `setTaskStatus`, hàm `refillItemsOf`); `src/modules/frontdesk/public/ports.ts` (BE-A: kiểu `reason?`)
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`, 0066 đã sửa): `@ottimo/api` **2.763/2.763 xanh, 87/87 tệp**; `minibar-m1.test.ts` 23/23; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm; `drizzle-kit generate` "No schema changes". Không commit, không chạy E2E (không đụng stack nào).
+
+**Chờ**: ARC xem (w)–(z). (t) và hai giả định R9 đã theo ghi chú DOM 18/10.

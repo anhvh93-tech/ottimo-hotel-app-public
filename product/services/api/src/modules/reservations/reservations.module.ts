@@ -60,9 +60,9 @@ defineAuditEntity('reservation', [
   'checkoutTime',
   'date',
   'confirmedBy',
-  'confirmedByUsername',
   'channel',
   'authMethod',
+  'approverRole',
   'focVnd',
 ]);
 defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);

@@ -17,6 +17,8 @@ import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
+import { FolioService } from '../../src/modules/folio/public/folio.service';
+import { resyncMinibarFocOnce } from '../../src/modules/folio/public/minibar-foc-resync';
 import {
   NoGuestAccessPort,
   UnwiredChildDataPort,
@@ -73,7 +75,13 @@ class DocsOk implements FrontdeskRegistrationPort {
   }
 }
 
-const ROLES = { own: ['owner'], mgr: ['manager'], fdl: ['front_desk_lead'], fd: ['front_desk'] };
+const ROLES = {
+  own: ['owner'],
+  mgr: ['manager'],
+  fdl: ['front_desk_lead'],
+  fd: ['front_desk'],
+  hk: ['housekeeping'],
+};
 
 interface Oracle {
   id: string;
@@ -570,6 +578,10 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(
       (before.minibarUncheckedRooms as Array<{ roomId: string }> | undefined)?.map((r) => r.roomId),
     ).toEqual([ids.rooms['202']]);
+    // ARC 16.14: never counted in the stay → never_counted
+    expect((before.minibarUncheckedRooms as Array<{ reason?: string }>)[0]?.reason).toBe(
+      'never_counted',
+    );
     expect(before.blockers).toContain('minibar_not_checked');
     await at('2028-11-01T11:00:00+07:00');
     const blocked = await act(b.id, 'check-out', { checkoutTime: '11:00' });
@@ -744,6 +756,537 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       code: 'NOT_IN_LIST',
     });
     await editItem('banh', { isActive: false });
+  });
+
+  // ───────────── vòng sửa 4: BUG-R2-147, BUG-R2-152, BUG-R2-148 (phần BE-B) ─────────────
+
+  it('BUG-R2-147: an open folio left by pre-0065 data with two FOC applied on one item (715.000) – the one-time re-sync gives 750.000 (A applied, B dormant, net 0), once per property', async () => {
+    const { b, roomTotal } = await inHouse('102', '2028-12-25', '2028-12-26');
+    await at('2028-12-26T09:00:00+07:00');
+    await count(b, { bia: 1 });
+    const A = await selfFoc(b, (await beer(b)).id, 35_000);
+    await count(b, { bia: 2 });
+    const B = await selfFoc(b, (await beer(b)).id, 35_000);
+    expect(await mb(b)).toEqual({ gross: 70_000, foc: -70_000, net: 0 });
+    // Pre-0065 state (BUG-R2-135 data): the beer re-counted to 1 can without a FOC sync – the 70.000 line
+    // reversed, a 35.000 line posted, both FOC lines still live.
+    const folios = fa.app.get(FolioService);
+    await db.withContext(t.ctx(), async (tx) => {
+      const old = (await folios.lines(tx, b.folioId)).find(
+        (l) => l.category === 'minibar' && l.amount_vnd === 70_000,
+      )!;
+      await tx.query(
+        `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category, revenue_group,
+           description, quantity, unit_price_vnd, amount_vnd, service_date, line_state, related_line_id,
+           reversal_of_id, source, posted_at, created_at, charge_code)
+         SELECT $2, organization_id, property_id, folio_id, reservation_id, category, revenue_group, description,
+                quantity, -unit_price_vnd, -amount_vnd, service_date, 'posted', related_line_id, id, 'system', $3, $3,
+                charge_code
+           FROM folio_line WHERE id = $1`,
+        [old.id, uuidv7(), new Date('2028-12-26T02:10:00Z')],
+      );
+      await folios.insertLine(tx, {
+        folioId: b.folioId,
+        reservationId: b.id,
+        category: 'minibar',
+        description: 'Bia Larue lon',
+        quantity: 1,
+        unitPriceVnd: 35_000,
+        amountVnd: 35_000,
+        serviceDate: '2028-12-26',
+        stayNightId: null,
+        source: 'minibar_check',
+        postedBy: null,
+        now: new Date('2028-12-26T02:10:00Z'),
+        chargeCode: 'bia',
+        relatedLineId: old.id,
+      });
+    });
+    // both FOC lines (−70.000) still live while the beer is 35.000: the folio is 35.000 short
+    expect((await totals(b)).totalVnd).toBe(roomTotal - 35_000);
+    const first = await db.withContext(t.ctx(), (tx) =>
+      resyncMinibarFocOnce(tx, folios, new Date('2028-12-26T02:15:00Z')),
+    );
+    expect(first).toBeGreaterThanOrEqual(1);
+    expect([(await state(A)).foc_state, (await state(B)).foc_state]).toEqual([
+      'applied',
+      'dormant',
+    ]);
+    expect(await mb(b)).toEqual({ gross: 35_000, foc: -35_000, net: 0 });
+    expect((await totals(b)).totalVnd).toBe(roomTotal);
+    // the flag: a second run does nothing
+    const again = await db.withContext(t.ctx(), (tx) =>
+      resyncMinibarFocOnce(tx, folios, new Date('2028-12-26T02:16:00Z')),
+    );
+    expect(again).toBeNull();
+    await at('2028-12-26T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+    expect(co.due).toBe(0);
+  });
+
+  it('BUG-R2-152: B14 302 → 401 at 10:00; housekeeping counts the 302 fridge (roomId) at 11:00 – 201, 70.000 posted (no money shown to HK), one minibar_refill of 2', async () => {
+    const { b } = await inHouse('302', '2029-03-26', '2029-03-29');
+    await at('2029-03-27T10:00:00+07:00');
+    await vacant('401');
+    const body = {
+      newRoomId: ids.rooms['401'],
+      effectiveDate: '2029-03-27',
+      cause: 'property_fault',
+      reason: 'Hỏng điều hòa',
+    };
+    const dry = await act(b.id, 'change-room', { ...body, dryRun: true });
+    expect(dry.statusCode, dry.body).toBe(200);
+    const mv = await act(b.id, 'change-room', {
+      ...body,
+      expectedDeltaVnd: dry.json().folioDeltaVnd,
+    });
+    expect(mv.statusCode, mv.body).toBe(200);
+    await at('2029-03-27T11:00:00+07:00');
+    const std = await c.hk!.get(
+      url(`/reservations/${b.id}/minibar-standard?roomId=${ids.rooms['302']}`),
+    );
+    expect(std.statusCode, std.body).toBe(200);
+    const items = std.json().items as Array<{ itemId: string; standardQty: number }>;
+    const r = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      roomId: ids.rooms['302'],
+      lines: items.map((i) => ({
+        itemId: i.itemId,
+        remainingQty: i.standardQty - (codeOf[i.itemId] === 'bia' ? 2 : 0),
+      })),
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json()).not.toHaveProperty('totalVnd');
+    expect((await mb(b)).gross).toBe(70_000);
+    const tasks = await q<{ quantity: number }>(
+      `SELECT quantity FROM hk_task WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'`,
+      [b.id, ids.rooms['302']],
+    );
+    expect(tasks.map((x) => Number(x.quantity))).toEqual([2]);
+    // not the departure day, no task in the room the guest is in: the current fridge stays out of HK's scope
+    const own = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      lines: [],
+    });
+    expect(own.statusCode).toBe(404);
+  });
+
+  it('BUG-R2-148 (BE-B part): BR-433 basis of a `late_fee_as_night` line = the charge – MGR waives 911.000 in full (approved, not above the limit)', async () => {
+    const { b } = await inHouse('203', '2030-09-18', '2030-09-20');
+    const folios = fa.app.get(FolioService);
+    const lineId = await db.withContext(t.ctx(), (tx) =>
+      folios.insertLine(tx, {
+        folioId: b.folioId,
+        reservationId: b.id,
+        category: 'late_checkout',
+        description: 'late_fee_as_night',
+        quantity: 1,
+        unitPriceVnd: 911_000,
+        amountVnd: 911_000,
+        serviceDate: '2030-09-20',
+        stayNightId: null,
+        source: 'checkout',
+        postedBy: null,
+        now: new Date('2030-09-18T09:00:00Z'),
+        chargeCode: 'late_fee_as_night',
+      }),
+    );
+    expect(await db.withContext(t.ctx(), (tx) => folios.nightRateBasis(tx, lineId))).toBe(911_000);
+    const r = await c.mgr!.send('POST', url(`/folios/${b.folioId}/lines/${lineId}/foc`), {
+      kind: 'foc',
+      amountVnd: 911_000,
+      reasonCode: 'service_recovery',
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json().status).toBe('approved');
+  });
+
+  // ───────────── BUG-R2-144: periods of a fridge (ARC R1/R7/R9, DOM BR-703-02, cases 12–19) ─────────────
+
+  const b14 = async (b: Booking, to: string, day: string) => {
+    await vacant(to);
+    const body = {
+      newRoomId: ids.rooms[to],
+      effectiveDate: day,
+      cause: 'property_fault',
+      reason: 'Hỏng điều hòa',
+    };
+    const dry = await act(b.id, 'change-room', { ...body, dryRun: true });
+    expect(dry.statusCode, dry.body).toBe(200);
+    const mv = await act(b.id, 'change-room', {
+      ...body,
+      expectedDeltaVnd: dry.json().folioDeltaVnd,
+    });
+    expect(mv.statusCode, mv.body).toBe(200);
+  };
+  /** HK finishes the refill task(s) of a room (the done time = the fake clock). */
+  const refillDone = async (b: Booking, room: string, iso: string) =>
+    q(
+      `UPDATE hk_task SET status = 'done', done_at = $3 WHERE reservation_id = $1 AND room_id = $2
+         AND type = 'minibar_refill' AND status IN ('open', 'in_progress')`,
+      [b.id, ids.rooms[room], new Date(iso)],
+    );
+  const blockers = async (b: Booking) =>
+    (await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=11:00`))).json() as {
+      blockers?: string[];
+      minibarUncheckedRooms?: Array<{ roomId: string; reason?: string }>;
+    };
+
+  it('case 12 / BR-703-02 (b3): 202 → 203 → back to 202 after the refill – a new period: 1 beer → a separate 35.000, the 70.000 kept; B18 blocked until counted; total 2.481.000', async () => {
+    const o = oracle('BR-703-02');
+    const cse = (
+      o.input.cases as Array<{ key: string; stay: [string, string]; roomTotalVnd: number }>
+    ).find((x) => x.key === 'b3')!;
+    const ex = o.expected.b3;
+    const { b } = await inHouse('202', cse.stay[0], cse.stay[1]);
+    expect((await totals(b)).totalVnd).toBe(cse.roomTotalVnd);
+    await at('2029-03-20T10:00:00+07:00');
+    await b14(b, '203', '2029-03-20');
+    await count(b, { bia: 2 }, ids.rooms['202']);
+    const tasks = await q<{ n: number }>(
+      `SELECT count(*)::int AS n FROM hk_task WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'`,
+      [b.id, ids.rooms['202']],
+    );
+    expect(tasks[0]!.n).toBe(ex.refillTaskAfterFirstCount);
+    await refillDone(b, '202', '2029-03-20T14:00:00+07:00');
+    await at('2029-03-21T10:00:00+07:00');
+    await count(b, {}); // 203, nothing used
+    await b14(b, '202', '2029-03-21');
+    await at('2029-03-22T09:00:00+07:00');
+    const before = await blockers(b);
+    expect(before.blockers ?? []).toContain(ex.b18BeforeRecountBlocker);
+    expect((before.minibarUncheckedRooms ?? []).map((r) => r.roomId)).toEqual([ids.rooms['202']]);
+    // ARC 16.14: counted before, the stay went on in it (period opened by `refill`) → stay_continued
+    expect((before.minibarUncheckedRooms ?? [])[0]).toMatchObject({ reason: 'stay_continued' });
+    await at('2029-03-22T11:00:00+07:00');
+    const blocked = await act(b.id, 'check-out', { checkoutTime: '11:00' });
+    expect(blocked.statusCode).toBe(ex.b18BeforeRecountHttp);
+    await count(b, { bia: 1 });
+    const lines = (await liveLines(b))
+      .filter((l) => l.category === 'minibar')
+      .map((l) => l.amountVnd);
+    expect(lines.sort()).toEqual([35_000, ex.firstPeriodLineKept].sort());
+    expect((await mb(b)).gross).toBe(ex.minibarVnd);
+    expect((await totals(b)).totalVnd).toBe(ex.folioTotalVnd);
+    // control (case 17): a re-count of the same fridge in the same period replaces the count of that period
+    await count(b, { bia: 1 });
+    expect((await mb(b)).gross).toBe(ex.minibarVnd);
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+  });
+
+  it('cases 13/14 / BR-703-02: second period after a refill – bia 2 + coca 1 then bia 1 → 130.000; bia 2 then bia 2 → 140.000 (no keep across periods)', async () => {
+    const o = oracle('BR-703-02');
+    const run = async (key: string, from: string, to: string, mid: string) => {
+      const cse = (
+        o.input.cases as Array<{
+          key: string;
+          roomNo: string;
+          firstPeriod: Record<string, number>;
+          secondPeriod: Record<string, number>;
+        }>
+      ).find((x) => x.key === key)!;
+      const { b } = await inHouse(cse.roomNo, from, to);
+      await at(`${mid}T10:00:00+07:00`);
+      await b14(b, '302', mid);
+      await count(b, cse.firstPeriod, ids.rooms[cse.roomNo]);
+      await refillDone(b, cse.roomNo, `${mid}T14:00:00+07:00`);
+      await at(`${mid}T16:00:00+07:00`);
+      await count(b, {}); // 302, nothing used
+      await b14(b, cse.roomNo, mid);
+      await at(`${to}T09:00:00+07:00`);
+      await count(b, cse.secondPeriod);
+      expect((await mb(b)).gross, key).toBe(o.expected[key].minibarVnd);
+      await at(`${to}T11:00:00+07:00`);
+      const co = await checkout(b, '11:00');
+      expect(co.status, co.body).toBe(200);
+    };
+    await run('twoItems', '2029-04-02', '2029-04-04', '2029-04-03');
+    await run('samePeriodUse', '2029-04-09', '2029-04-11', '2029-04-10');
+  });
+
+  /** Refill tasks of a fridge, oldest first: status + items by code. */
+  const refills = async (b: Booking, room: string) =>
+    (
+      await q<{
+        id: string;
+        status: string;
+        refill_items: Array<{ itemId: string; quantity: number }> | null;
+      }>(
+        `SELECT id, status, refill_items FROM hk_task
+          WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill' ORDER BY created_at, id`,
+        [b.id, ids.rooms[room]],
+      )
+    ).map((t) => ({
+      id: t.id,
+      status: t.status,
+      items: Object.fromEntries((t.refill_items ?? []).map((i) => [codeOf[i.itemId], i.quantity])),
+    }));
+  /** HK completes a task through the API (setTaskStatus → MINIBAR_REFILL_DONE_PORT, ARC 16.16). */
+  const hkComplete = async (taskId: string, iso: string) => {
+    await at(iso);
+    const r = await c.hk!.send('POST', url(`/hk-tasks/${taskId}/actions/complete`), {
+      performedAt: new Date(iso).toISOString(),
+    });
+    expect(r.statusCode, r.body).toBe(200);
+  };
+  /** The latest fill (period) of a fridge: source, filled_at and its marks by code. */
+  const lastFill = async (b: Booking, room: string) => {
+    const [f] = await q<{ id: string; source: string; filled_at: Date }>(
+      `SELECT id, source, filled_at FROM minibar_fill WHERE reservation_id = $1 AND room_id = $2
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [b.id, ids.rooms[room]],
+    );
+    const lines = await q<{ item_id: string; qty: number }>(
+      'SELECT item_id, qty FROM minibar_fill_line WHERE fill_id = $1',
+      [f!.id],
+    );
+    return {
+      source: f!.source,
+      filledAt: f!.filled_at,
+      marks: Object.fromEntries(lines.map((l) => [codeOf[l.item_id], Number(l.qty)])),
+    };
+  };
+  const minibarAmounts = async (b: Booking) =>
+    (await liveLines(b))
+      .filter((l) => l.category === 'minibar')
+      .map((l) => l.amountVnd)
+      .sort((x, y) => x - y);
+  /** r9 base (DOM 18/10): 202, stay of 3 days; day 2 10:00 B14 → 203, 202 counted 2 beers (T1), back to 202. */
+  const r9Base = async (from: string, mid: string, to: string) => {
+    const { b } = await inHouse('202', from, to);
+    await at(`${mid}T10:00:00+07:00`);
+    await b14(b, '203', mid);
+    await count(b, { bia: 2 }, ids.rooms['202']);
+    await at(`${mid}T12:00:00+07:00`);
+    await count(b, {}); // 203
+    await b14(b, '202', mid);
+    return b;
+  };
+
+  it('case 16 / r9_16 (DOM 18/10): back to 202 before the refill is done – `carry` period (beer mark 0), T1 KEPT open; 1 snack → 30.000 more, the 70.000 kept (100.000); after B18 T1 (2 bia) + T2 (1 snack)', async () => {
+    const ex = oracle('BR-703-02').expected.r9_16;
+    const b = await r9Base('2029-04-16', '2029-04-17', '2029-04-18');
+    const t1 = await refills(b, '202');
+    expect(t1.map((t) => t.status)).toEqual(['open']);
+    expect(ex.refillTaskT1StillOpen).toBe(true);
+    expect((await lastFill(b, '202')).source).toBe('carry');
+    const std = await standard(b);
+    expect(std.items.some((i) => i.itemId === items.bia)).toBe(false); // nothing left of the beer
+    expect(std.latestCheck).toBeNull();
+    await at('2029-04-18T09:00:00+07:00');
+    await count(b, { snack: 1 });
+    expect(await minibarAmounts(b)).toEqual([ex.newLineVnd, 70_000]);
+    expect((await mb(b)).gross).toBe(ex.minibarVnd);
+    await at('2029-04-18T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+    expect(await refills(b, '202')).toEqual([
+      { id: t1[0]!.id, status: 'open', items: { bia: 2 } },
+      { id: expect.any(String), status: 'open', items: { snack: 1 } },
+    ]);
+    expect(ex.refillTasksAfterB18).toHaveLength(2);
+  });
+
+  it('case 16b / r9_16b: HK finishes T1 while the guest is back in 202 – a `refill` period, mark bia 0 + 2, snack 1 + 0 (1 snack eaten before, not counted yet); B18 bia 1, snack 0 → 35.000 + 30.000, 135.000', async () => {
+    const ex = oracle('BR-703-02').expected.r9_16b;
+    const b = await r9Base('2029-08-06', '2029-08-07', '2029-08-08');
+    const [t1] = await refills(b, '202');
+    await hkComplete(t1!.id, '2029-08-07T15:00:00+07:00');
+    const f = await lastFill(b, '202');
+    expect(f.source).toBe('refill');
+    expect(f.filledAt.toISOString()).toBe(new Date('2029-08-07T15:00:00+07:00').toISOString());
+    expect(f.marks).toMatchObject(ex.periodRefillMoc);
+    // the stay went on in a counted fridge → stay_continued (ARC 16.14 – priority over new_fill)
+    expect((await blockers(b)).minibarUncheckedRooms).toEqual([
+      expect.objectContaining({ roomId: ids.rooms['202'], reason: 'stay_continued' }),
+    ]);
+    await at('2029-08-08T09:00:00+07:00');
+    await count(b, { bia: 1, snack: 1 });
+    expect(await minibarAmounts(b)).toEqual(
+      [...ex.newLinesVnd, ex.firstPeriodLineKept].sort((x: number, y: number) => x - y),
+    );
+    expect((await mb(b)).gross).toBe(ex.minibarVnd);
+    await at('2029-08-08T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+  });
+
+  it('case 16c / r9_16c (no double charge): 09:00 count in the `carry` period snack 0 → 30.000; 09:05 HK finishes T1 → mark bia 2, snack dropped; 11:00 B18 bia 2/2 → no new line; 100.000 (not 130.000); T2 (1 snack) from the 09:00 count', async () => {
+    const ex = oracle('BR-703-02').expected.r9_16c;
+    const b = await r9Base('2029-08-13', '2029-08-14', '2029-08-15');
+    const [t1] = await refills(b, '202');
+    await at('2029-08-15T09:00:00+07:00');
+    await count(b, { snack: 1 });
+    expect(await minibarAmounts(b)).toEqual([ex.carryLineVnd, 70_000]);
+    await hkComplete(t1!.id, '2029-08-15T09:05:00+07:00');
+    const f = await lastFill(b, '202');
+    expect(f.source).toBe('refill');
+    expect(f.marks).toMatchObject(ex.refillMoc);
+    expect(f.marks).not.toHaveProperty('snack');
+    await at('2029-08-15T11:00:00+07:00');
+    await count(b, {});
+    expect((await minibarAmounts(b)).length).toBe(2); // newLineAtB18 = false
+    expect(ex.newLineAtB18).toBe(false);
+    expect((await mb(b)).gross).toBe(ex.minibarVnd);
+    expect((await mb(b)).gross).not.toBe(ex.wrongMinibarVnd);
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+    expect(await refills(b, '202')).toEqual([
+      { id: t1!.id, status: 'done', items: { bia: 2 } },
+      { id: expect.any(String), status: 'open', items: { snack: 1 } },
+    ]);
+  });
+
+  it('cases 18/19: B13 after the count – charged count → recount needed, nothing more used → 70.000; count of nothing → recount, 1 beer → 35.000 (replaces it)', async () => {
+    // 18 (r9_18 (a)): the count had no refill task yet → B13 raises T1 at once (DOM note 1); HK not done
+    const ex18 = oracle('BR-703-02').expected.r9_18;
+    const { b } = await inHouse('301', '2029-05-07', '2029-05-08');
+    await at('2029-05-08T09:00:00+07:00');
+    await count(b, { bia: 2 });
+    expect(await refills(b, '301')).toEqual([]);
+    const ext = await act(b.id, 'extend', { nights: 1 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    expect(await refills(b, '301')).toEqual([
+      { id: expect.any(String), status: 'open', items: { bia: 2 } },
+    ]);
+    expect(ex18.refillTaskCreatedOnB13).toContain('2 bia');
+    expect((await blockers(b)).blockers ?? []).toContain('minibar_not_checked');
+    await at('2029-05-09T09:00:00+07:00');
+    await count(b, {});
+    expect((await mb(b)).gross).toBe(ex18.minibarVnd.notRefilled);
+    await at('2029-05-09T11:00:00+07:00');
+    expect((await checkout(b, '11:00')).status).toBe(200);
+    expect((await refills(b, '301')).length).toBe(1); // the B18 count used nothing – no second task
+    // 19
+    const s2 = await inHouse('302', '2029-05-14', '2029-05-15');
+    await at('2029-05-15T09:00:00+07:00');
+    await count(s2.b, {});
+    const ext2 = await act(s2.b.id, 'extend', { nights: 1 });
+    expect(ext2.statusCode, ext2.body).toBe(200);
+    expect((await blockers(s2.b)).blockers ?? []).toContain('minibar_not_checked');
+    await at('2029-05-16T09:00:00+07:00');
+    await count(s2.b, { bia: 1 });
+    expect((await mb(s2.b)).gross).toBe(35_000);
+    const live = await q<{ n: number }>(
+      `SELECT count(*)::int AS n FROM minibar_check WHERE reservation_id = $1 AND replaced_by_check_id IS NULL`,
+      [s2.b.id],
+    );
+    expect(live[0]!.n).toBe(1);
+  });
+
+  it('case 18 (b) / r9_18: B13 after the count → T1 (2 bia); HK finishes it while the guest is in 301 → mark bia 0 + 2, snack 1; B18 counts bia 2, snack 1 → still 70.000, one task', async () => {
+    const ex = oracle('BR-703-02').expected.r9_18;
+    const { b } = await inHouse('301', '2029-08-20', '2029-08-21');
+    await at('2029-08-21T09:00:00+07:00');
+    await count(b, { bia: 2 });
+    const ext = await act(b.id, 'extend', { nights: 1 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    const [t1] = await refills(b, '301');
+    await hkComplete(t1!.id, '2029-08-21T10:00:00+07:00');
+    expect((await lastFill(b, '301')).marks).toMatchObject({ bia: 2, snack: 1 });
+    await at('2029-08-22T09:00:00+07:00');
+    await count(b, {});
+    expect((await mb(b)).gross).toBe(ex.minibarVnd.refilled);
+    await at('2029-08-22T11:00:00+07:00');
+    expect((await checkout(b, '11:00')).status).toBe(200);
+    expect(await refills(b, '301')).toEqual([{ id: t1!.id, status: 'done', items: { bia: 2 } }]);
+  });
+
+  it('case 20 / r9_t (DOM (t)): 2 beers counted, FOC 70.000 approved (net 0) – still a charged count by quantity: back in 202 → `carry` (mark bia 0); nothing more used → no new line; 70.000 − 70.000 = 0', async () => {
+    const ex = oracle('BR-703-02').expected.r9_t;
+    const { b } = await inHouse('202', '2029-08-27', '2029-08-29');
+    await at('2029-08-28T10:00:00+07:00');
+    await b14(b, '203', '2029-08-28');
+    await count(b, { bia: 2 }, ids.rooms['202']);
+    await approvedFoc(b, (await beer(b)).id, ex.focVnd);
+    expect((await mb(b)).net).toBe(0);
+    await at('2029-08-28T12:00:00+07:00');
+    await count(b, {}); // 203
+    await b14(b, '202', '2029-08-28');
+    const f = await lastFill(b, '202');
+    expect(f.source === 'carry').toBe(ex.carryPeriodOpened);
+    expect(f.marks.bia).toBe(0);
+    await at('2029-08-29T09:00:00+07:00');
+    await count(b, {});
+    expect((await minibarAmounts(b)).length).toBe(1); // newLineAtB18 = false
+    expect(await mb(b)).toEqual({
+      gross: ex.minibarVnd,
+      foc: -ex.focVnd,
+      net: ex.minibarNetVnd,
+    });
+    await at('2029-08-29T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+  });
+
+  it('ARC 16.15 (v): a count of nothing made stale by B13 (self-reference) – closed by the refill done in house (made live again), B18 counts the new period: a checked-out stay keeps no self-reference; the live-count index is NULLS NOT DISTINCT', async () => {
+    const selfRefs = async (b: Booking) =>
+      (
+        await q<{ n: number }>(
+          `SELECT count(*)::int AS n FROM minibar_check WHERE reservation_id = $1 AND replaced_by_check_id = id`,
+          [b.id],
+        )
+      )[0]!.n;
+    const { b } = await inHouse('302', '2029-09-03', '2029-09-04');
+    await at('2029-09-04T09:00:00+07:00');
+    await count(b, { bia: 2 });
+    expect((await act(b.id, 'extend', { nights: 1 })).statusCode).toBe(200); // T1 + carry
+    await at('2029-09-05T09:00:00+07:00');
+    await count(b, {}); // nothing used in the carry period
+    expect((await act(b.id, 'extend', { nights: 1 })).statusCode).toBe(200);
+    expect(await selfRefs(b)).toBe(1);
+    const [t1] = await refills(b, '302');
+    await hkComplete(t1!.id, '2029-09-05T10:00:00+07:00');
+    expect(await selfRefs(b)).toBe(0);
+    expect((await lastFill(b, '302')).marks).toMatchObject({ bia: 2, snack: 1 });
+    expect((await blockers(b)).blockers ?? []).toContain('minibar_not_checked');
+    await at('2029-09-06T09:00:00+07:00');
+    await count(b, {});
+    expect((await mb(b)).gross).toBe(70_000);
+    await at('2029-09-06T11:00:00+07:00');
+    expect((await checkout(b, '11:00')).status).toBe(200);
+    expect(await selfRefs(b)).toBe(0);
+    expect((await refills(b, '302')).map((t) => t.items)).toEqual([{ bia: 2 }]);
+    const [idx] = await q<{ def: string }>(
+      `SELECT pg_get_indexdef(i.indexrelid) AS def FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+        WHERE c.relname = 'minibar_check_live_checkout_key'`,
+    );
+    expect(idx!.def).toContain('NULLS NOT DISTINCT');
+  });
+
+  it('ARC 16.14: FolioLine.chargeCode – a minibar line carries the item code, the adjustFolioLine replacement keeps it; B13 after a count → minibarUncheckedRooms reason stay_continued', async () => {
+    const { b } = await inHouse('401', '2029-06-04', '2029-06-05');
+    await at('2029-06-05T09:00:00+07:00');
+    await count(b, { bia: 2, coca: 1 });
+    const codes = async () =>
+      ((await folio(b)).lines as Array<Line & { chargeCode?: string; amountVnd: number }>)
+        .filter((l) => l.category === 'minibar' && !l.reversalOfId)
+        .map((l) => [l.amountVnd, l.chargeCode]);
+    expect((await codes()).sort()).toEqual([
+      [25_000, 'coca'],
+      [70_000, 'bia'],
+    ]);
+    await adjust(b, (await liveLines(b)).find((l) => l.amountVnd === 70_000)!.id, {
+      newUnitPriceVnd: 30_000,
+    });
+    const live = ((await folio(b)).lines as Array<Line & { chargeCode?: string }>).filter(
+      (l) => l.category === 'minibar' && l.amountVnd === 60_000,
+    );
+    expect(live.map((l) => l.chargeCode)).toEqual(['bia']);
+    // a room line has no code: the field is absent
+    expect(
+      ((await folio(b)).lines as Array<Line & { chargeCode?: string }>).find(
+        (l) => l.category === 'room',
+      ),
+    ).not.toHaveProperty('chargeCode');
+    const ext = await act(b.id, 'extend', { nights: 1 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    const s = await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=11:00`));
+    expect(s.json().minibarUncheckedRooms).toEqual([
+      expect.objectContaining({ roomId: ids.rooms['401'], reason: 'stay_continued' }),
+    ]);
   });
 
   // ───────────── DOM (f): QR purpose kept, confirmation above what is due ─────────────

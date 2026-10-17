@@ -284,3 +284,19 @@
   - `tests/fixtures/br-examples.json` (QA review).
 - **BE-A cần biết:** nhánh OD của B13 (BUG-R2-047) nay không đổi trạng thái khi khách đến hôm nay.
 
+## 11. BUG-R2-151 (P2) – J8/B13 với đơn OTA nhận phòng sớm B9a
+- **Gốc:** bản sửa BR-807-01 lấy ngày đến của lượt = `COALESCE(ngày đến đơn cha, ngày đến đơn)`. Đơn OTA nhận phòng trước 06:00 có đơn con B9a cho đêm trước; đơn con trỏ **về** đơn chính, nên đơn chính bị coi là "đến hôm nay" → mất một ngày dọn ở lại.
+- **Sửa:** hàm SQL dùng chung `housekeeping/public/stay-arrival.ts` (`STAY_ARRIVAL_SQL`). Ngày đến của lượt = LEAST(ngày đến đơn, ngày đến đơn cha, MIN ngày đến các đơn con `in_house`/`checked_out` cùng đơn gốc). Dùng cho:
+  - J8: điều kiện khách ở tiếp và cột `nights` (luật thay ga);
+  - `RoomStatusService.arrivedToday`;
+  - `stayContinues`.
+- **Test:** `housekeeping-s4`, ca BUG-R2-151:
+  - đơn OTA đến hôm nay + đơn con B9a đêm trước → J8 07:00: `OD` + 1 `stayover_clean` (thay ga = không, mới ngủ 1 đêm);
+  - B13 cùng ngày (đơn con đã trả): `OD` + 1 việc.
+  - Ca BR-807-01 (đến hôm nay, không B9a → giữ `OC`) vẫn xanh. DOM sẽ thêm dòng oracle B9a.
+- Vitest api toàn bộ, DB mới: **86/86 tệp, 2734/2734**. `tsc`, eslint, prettier: sạch.
+- Tệp:
+  - `services/api/src/modules/housekeeping/public/stay-arrival.ts` (mới);
+  - `services/api/src/modules/housekeeping/public/{worker-jobs,room-status.service}.ts`;
+  - `services/api/test/integration/housekeeping-s4.test.ts`.
+

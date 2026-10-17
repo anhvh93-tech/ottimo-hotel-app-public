@@ -9,6 +9,7 @@ import {
   call,
   needSeedPassword,
   propertyIdOf,
+  resetRateLimits,
   sessionOrSkip,
   stackToday,
   type StaffSession,
@@ -19,6 +20,7 @@ import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   addDays,
   cleanupTracked,
+  getReservation,
   oracle,
   room,
   s2Context,
@@ -33,6 +35,7 @@ import {
   inHouse,
   liveLines,
   makeStay,
+  stackSql,
   p3,
   useVirtualDevice,
   virtualDay,
@@ -261,6 +264,102 @@ test.describe(
       const f1 = await getFolio(request, k.fd, st.res.folioId!);
       expect.soft(f1.totals.balanceDueVnd).toBe(0);
       expect.soft(f1.totals.creditVnd, 'phần vượt vào tiền thừa (BR-522)').toBe(35000);
+    });
+
+    test('TC-L4-123 (A) SEC SR-AUTH-11 (2)(3), BE-59 (2) – BUG-R2-146: quản lý đang bị KHÓA ĐĂNG NHẬP (`locked_until` tương lai, `active`) làm người xác nhận BR-416-06 với mật khẩu ĐÚNG → 401 REAUTH_FAILED giống hệt tài khoản không có (kể cả không gửi finalPayment), đơn vẫn đang ở, không ghi gì', async ({
+      request,
+    }) => {
+      knownBug('BUG-R2-146');
+      needClock('TC-L4-123');
+      test.skip(
+        process.env.E2E_COMPOSE_CONTROL !== '1',
+        'TC-L4-123: cần E2E_COMPOSE_CONTROL=1 để đặt `locked_until` cho tài khoản quản lý thử',
+      );
+      const { D, st } = await precondition(
+        'khách ở 1 đêm (đã thu đủ), khách khác đặt cùng căn đêm ngày đi; 19:00 ngày đi, đã đếm minibar',
+        async () => {
+          const D = virtualDay(realToday, 3);
+          await useVirtualDevice(request, await setClock(request, vnTime(D, '14:00')));
+          cleanRooms();
+          await ensureReceivingAccount(request, D);
+          const k = await people(request);
+          const st = await inHouse(request, k.c, k.fd, {
+            room: room(k.c, '203'),
+            alternatives: k.c.rooms,
+            arrival: D,
+            nights: 1,
+          });
+          await makeStay(request, k.c, k.fd, { room: st.room, arrival: addDays(D, 1), nights: 1 });
+          return { D, st };
+        },
+      );
+      const k = await moveTo(request, addDays(D, 1), '19:00');
+      expect((await minibarCheck(request, k.fd, st.res.id)).status).toBe(201);
+      const s = await checkoutSummary(request, k.fd, st.res.id, { checkoutTime: '19:00' });
+      const fee = Number((s.body as unknown as Json).lateFeeAsNightVnd);
+      expect(fee, 'lateFeeAsNightVnd').toBeGreaterThan(0);
+      const body = (approverUsername: string, withPayment: boolean) => ({
+        checkoutTime: '19:00',
+        lateFeeInsteadOfNight: {
+          amountVnd: fee,
+          reason: 'Khach roi 19:00, can co khach den toi nay',
+          approverUsername,
+          authMethod: 'password',
+          secret: SEED_PASSWORD ?? '',
+        },
+        ...(withPayment
+          ? { finalPayment: { type: 'charge', method: 'cash', amountVnd: fee } }
+          : {}),
+      });
+      const shape = (b: unknown): Json => {
+        const rest: Json = { ...((b ?? {}) as Json) };
+        delete rest.requestId;
+        return rest;
+      };
+      // Bộ đếm SR-RL-02 của người gọi (qa.fd) đã có các lần sai của TC-L4-120: tới lần thứ 5 máy chủ trả 429, harness
+      // tự gọi /__test__/rate-limits/reset rồi gửi lại – mà reset XÓA cả `locked_until` của qa.* → quản lý hết khóa giữa
+      // ca (409 BALANCE_DUE ở lần không finalPayment, chẩn đoán 18/10). Xóa bộ đếm trước khi khóa để ca tự đủ.
+      await resetRateLimits(request, 'TC-L4-123 – bộ đếm xác nhận lại từ ca trước');
+      // đối chứng: tài khoản không có → 401 đồng nhất (không đụng bộ đếm của quản lý)
+      const nobody = await checkOut(request, k.fd, st.res.id, body('qa.khong-ton-tai', true));
+      expect(nobody.status, JSON.stringify(nobody.body).slice(0, 200)).toBe(401);
+      stackSql(
+        "UPDATE app_user SET locked_until = '2099-01-01T00:00:00Z' WHERE username = 'qa.mgr';",
+      );
+      try {
+        const locked = await checkOut(request, k.fd, st.res.id, body('qa.mgr', true));
+        expect
+          .soft(
+            locked.status,
+            `quản lý khóa đăng nhập, mật khẩu đúng – ${JSON.stringify(locked.body).slice(0, 240)}`,
+          )
+          .toBe(401);
+        expect
+          .soft(shape(locked.body), 'thân giống hệt tài khoản không có')
+          .toEqual(shape(nobody.body));
+        expect(
+          stackSql(
+            "SELECT locked_until IS NOT NULL AND locked_until > now() FROM app_user WHERE username = 'qa.mgr';",
+          ).trim(),
+          'qa.mgr vẫn đang khóa đăng nhập',
+        ).toBe('t');
+        const noPay = await checkOut(request, k.fd, st.res.id, body('qa.mgr', false));
+        expect
+          .soft(
+            noPay.status,
+            `không gửi finalPayment: vẫn 401 (không 409 BALANCE_DUE) – ${JSON.stringify(noPay.body).slice(0, 240)}`,
+          )
+          .toBe(401);
+        const r = await getReservation(request, k.fd, st.res.id);
+        expect.soft(r.body.status, 'đơn vẫn đang ở').toBe('in_house');
+        const f = await getFolio(request, k.fd, st.res.folioId!);
+        expect.soft(liveLines(f, 'late_checkout'), 'không ghi phụ thu').toHaveLength(0);
+      } finally {
+        stackSql("UPDATE app_user SET locked_until = NULL WHERE username = 'qa.mgr';");
+      }
+      // đối chứng: quản lý đủ điều kiện → 200 (trả phòng xong, không để đơn kẹt)
+      const ok = await checkOut(request, k.fd, st.res.id, body('qa.mgr', true));
+      expect(ok.status, JSON.stringify(ok.body).slice(0, 300)).toBe(200);
     });
   },
 );

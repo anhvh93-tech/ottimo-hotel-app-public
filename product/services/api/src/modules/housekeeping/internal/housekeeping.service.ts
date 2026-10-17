@@ -27,6 +27,10 @@ import {
   GUEST_REQUEST_STATUS_PORT,
   type GuestRequestStatusPort,
 } from '../public/guest-request-work.port';
+import {
+  MINIBAR_REFILL_DONE_PORT,
+  type MinibarRefillDonePort,
+} from '../public/minibar-refill-done.port';
 import { RoomStatusService } from '../public/room-status.service';
 import {
   type ChecklistItemDef,
@@ -152,6 +156,9 @@ export class HousekeepingService {
     @Optional()
     @Inject(GUEST_REQUEST_STATUS_PORT)
     private readonly guestRequests?: GuestRequestStatusPort,
+    @Optional()
+    @Inject(MINIBAR_REFILL_DONE_PORT)
+    private readonly minibarRefills?: MinibarRefillDonePort,
   ) {}
 
   async ctx(tx: Tx, actor: HkActor): Promise<HkCtx> {
@@ -934,6 +941,20 @@ export class HousekeepingService {
         await this.guestRequests.onLinkedWorkDone(tx, t.guest_request_id, c.now);
       else await this.guestRequests.onLinkedWorkCancelled(tx, t.guest_request_id, c.now);
     }
+    // ARC 16.16 (BR-703-02 note 2): a refill done while the stay is in that room opens a new minibar period
+    // (BE-B's port, written by BE-B on ORC's request; no-op until it is bound).
+    if (to === 'done' && t.type === 'minibar_refill' && this.minibarRefills) {
+      await this.minibarRefills.onRefillDone(
+        tx,
+        {
+          id: t.id,
+          reservationId: t.reservation_id,
+          roomId: t.room_id,
+          refillItems: refillItemsOf(t.refill_items),
+        },
+        { now: c.now, performedAt },
+      );
+    }
   }
 
   async transitionHkTask(
@@ -1322,3 +1343,16 @@ export class HousekeepingService {
 }
 
 export type { RoomAction };
+
+/** `hk_task.refill_items` (written by inventory: `[{ itemId, quantity }]`) → the port's shape; null when absent. */
+function refillItemsOf(raw: unknown): Array<{ itemId: string; qty: number }> | null {
+  if (!Array.isArray(raw)) return null;
+  const out: Array<{ itemId: string; qty: number }> = [];
+  for (const r of raw as Array<Record<string, unknown>>) {
+    const qty = Number(r?.quantity ?? r?.qty);
+    if (typeof r?.itemId === 'string' && Number.isInteger(qty) && qty > 0) {
+      out.push({ itemId: r.itemId, qty });
+    }
+  }
+  return out;
+}

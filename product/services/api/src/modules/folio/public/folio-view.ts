@@ -42,6 +42,9 @@ export function folioLineDto(
     approvalRequestId: l.approval_request_id,
     postedAt: iso(l.posted_at, tz),
     postedBy: l.posted_by_name ?? (l.posted_by ? undefined : 'system'),
+    // 0.3.7 bổ sung 4 (ARC 16.14, FD+ – x-visible-to): minibar = item code (kept by adjustFolioLine), system codes
+    // (`late_fee_as_night`…); absent = no code.
+    chargeCode: l.charge_code,
   });
 }
 

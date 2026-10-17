@@ -302,6 +302,32 @@ function AdjustLineDialog({
   const changed = voidLine || (p !== null && p !== basePrice) || (!night && q !== l.quantity);
   const reasonError =
     touched && reason.trim().length < 3 ? t('field_error.reason_required') : act.fields.reason;
+  // N-1 (BR-702 v0.3.8, NÊN): a minibar waiver is keyed on the item (BR-434-15) – voiding or cutting the line below
+  // it puts the waiver to sleep, and it is cancelled at settlement unless the line comes back.
+  const reversedIds = new Set(f.lines.map((x) => x.reversalOfId).filter(Boolean));
+  // ARC 16.14: the item is `FolioLine.chargeCode` (item code, kept by an adjusted line) – never the bill name.
+  const sameItem = (id?: string) => {
+    const target = f.lines.find((y) => y.id === id);
+    return (
+      !!target &&
+      (target.id === l.id ||
+        (target.category === 'minibar' && !!l.chargeCode && target.chargeCode === l.chargeCode))
+    );
+  };
+  const focOnItem =
+    l.category === 'minibar'
+      ? f.lines
+          .filter(
+            (x) =>
+              FOC_CATEGORIES.includes(x.category) &&
+              x.lineState !== 'rejected' &&
+              !x.reversalOfId &&
+              !reversedIds.has(x.id) &&
+              sameItem(x.relatedLineId),
+          )
+          .reduce((a, x) => a + Math.abs(x.amountVnd), 0)
+      : 0;
+  const focAtRisk = changed && focOnItem > 0 && newAmount < focOnItem;
 
   const save = async () => {
     setTouched(true);
@@ -418,6 +444,9 @@ function AdjustLineDialog({
           />
         )}
       </Field>
+      {focAtRisk ? (
+        <Alert tone="warn">{t('folio.void_minibar_foc', { amount: money(focOnItem) })}</Alert>
+      ) : null}
       {changed ? (
         <p className="li-s" role="status">
           {stepped

@@ -104,3 +104,20 @@ Bản `42fb458` (chưa sửa) cho số khác – ví dụ A1: coca 60.000, sữa
 - Chạy trên `ottimo-qa-s4` (api `42fb458`, chưa có M-1): 21/21 đúng kỳ vọng – TC-L4-101, 114, 115 đạt; 16 ca `knownBug` hỏng đúng chỗ của lỗi (xem `rounds/round-02/qa/bug-list.md` mục 11.13); danh mục trả về đúng sau mỗi ca.
 - Món thêm của TC-L4-112 (`mx_e2e_new`) ở lại danh mục, **đã tắt** sau mỗi lượt (mã món không xóa được).
 - Ca đã đổi theo M-1: **TC-L4-071** (US-066 AC2) – lượt nhận phòng sau khi đổi giá mới dùng giá mới; lượt đang ở từ trước giữ giá cũ tới lần nạp sau (R5).
+
+## 9. Kỳ nạp – tủ quay lại trong lượt (BUG-R2-144; ARC 16.13; DOM R9 18/10 – `business-rules.md` ghi chú dưới bảng mục 9)
+
+Quy tắc (DOM R9, thay giả định ARC "hủy việc bổ sung"): lượt ở tiếp tủ đã đếm có tính tiền mà việc `minibar_refill` chưa xong → kỳ `carry` (mốc = còn lại; món mốc 0 không còn trong tủ), **việc giữ mở**; gia hạn B13 sau lần đếm có tính tiền → **sinh việc ngay**; HK xong việc khi lượt đang ở căn → kỳ `refill`, mốc = số theo hệ thống + số nạp; xong việc trước khi lượt vào lại → kỳ `refill` theo danh mục lúc vào lại (nhánh ARC giữ). "Có tính tiền" xét theo số lượng món có giá (FOC 100 % vẫn tính).
+
+| TC | Ô (oracle BR-703-02) | Diễn biến | Đúng | `knownBug` |
+|---|---|---|---|---|
+| TC-L4-124 | `s409Agoda` | Agoda + đơn con B13; B14 `until_parent_departure`; tủ căn gốc 2 bia; HK xong việc; ghi khách về (`roomReturnRecorded`); kỳ sau 1 bia | 105.000 (70.000 giữ + 35.000); B18 đòi đếm lại căn gốc | – (đạt trên cây chung) |
+| TC-L4-127 | `r9_16` | Về căn gốc khi T1 chưa xong; khách ăn 1 snack | T1 giữ mở; 100.000; sau B18 T1 + T2 | 144 |
+| TC-L4-128 | `r9_16b` | HK xong T1 khi khách đã vào lại; dùng 1 bia + 1 snack | mốc bia 2, snack 1; 135.000 | 144 |
+| TC-L4-129 | `r9_16c` | 09:00 HK đếm snack 0; 09:01 xong T1; 11:00 B18 đếm bia 2/2 | 100.000 (không 130.000) | 144 |
+| TC-L4-130 | `r9_18` | B13 sau lần đếm 2 bia; (a) chưa nạp, (b) đã nạp | B13 sinh T1 ngay; 70.000 cả hai | 144 |
+| TC-L4-131 | `r9_t` | FOC 100 % rồi về căn gốc | kỳ `carry` mốc bia 0; 70.000, FOC 70.000, ròng 0 | – (đạt) |
+| TC-L4-125 (E, Desk) | `r9_18` (phần Desk) | Đếm 2 bia, B13, mở H16 ngày đi mới | "Tủ căn 202 cần đếm lại"; lưu bước 1 không đảo 70.000 | – (đạt) |
+| TC-L4-126 (E, Desk) | Note N-1 | Folio → Điều chỉnh dòng bia có FOC → tick "Bỏ cả dòng" | cảnh báo `folio.void_minibar_foc`; bỏ tick ẩn; không lưu | – (đạt) |
+
+Chạy 18/10 ~05:15 trên `ottimo-qa-s4` dựng lại từ cây chung (api-dist12: 0066 BE-B, BE-A đang sửa; admin-web FE-A đợt 14): 124, 131, 125, 126 đạt; 127…130 hỏng đúng phần DOM R9 chưa cài (T1 bị hủy → HK 404; B13 chưa sinh việc). Đã sửa ca: giờ `performedAt` của HK phải ≤ giờ máy chủ + 5 phút; `listHkTasks` ngày đã qua trả 422; món mốc 0 ở kỳ `carry` không gửi trong lần đếm (`NOT_IN_LIST`).

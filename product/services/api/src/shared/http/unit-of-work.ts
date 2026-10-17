@@ -208,6 +208,55 @@ export class UnitOfWork {
     });
   }
 
+  /**
+   * BUG-R2-150 (ARC 16.13, SEC BE-64 step 0): the stored response of a COMPLETED Idempotency-Key of this user
+   * (same method, path and secret-free hash), read before a handler checks anything of its own – a password
+   * confirmation is then neither tried nor counted. Same key with another request → 422 IDEMPOTENCY_KEY_REUSED;
+   * still in progress → 409 IDEMPOTENCY_IN_PROGRESS. null = no key yet (the normal `run` claims it). Same hash
+   * (`requestHash`) and lookup as `claimKey`; read only, its own short transaction.
+   */
+  async completedReplay<T>(req: GuardedRequest): Promise<UnitOfWorkResult<T> | null> {
+    const auth = req.ottimoAuth;
+    const principal = auth?.principal;
+    if (!auth || !principal || !auth.operation.idempotencyKey) return null;
+    // Same rule as runInner: a dry run never uses (nor answers from) the Idempotency-Key.
+    const body = req.body as { dryRun?: unknown } | undefined;
+    const dryRun =
+      auth.operation.dryRun === true && !!body && typeof body === 'object' && body.dryRun === true;
+    if (dryRun) return null;
+    const key = headerValue(req, 'idempotency-key');
+    if (!key) return null;
+    const method = req.method.toUpperCase();
+    const path = pathOf(req.url);
+    const hash = requestHash(req.method, path, req.body ?? null);
+    const row = await this.db.withContext(
+      tenantOf(principal),
+      async (tx) =>
+        (
+          await tx.query<KeyRow>(
+            `SELECT method, path, request_hash, state, response_status, response_body FROM idempotency_key
+              WHERE principal_type = 'user' AND principal_id = $1 AND key = $2`,
+            [principal.userId, key],
+          )
+        ).rows[0],
+      { readOnly: true },
+    );
+    if (!row) return null;
+    // Same order and answers as claimKey: another request on the key → REUSED; still running → IN_PROGRESS
+    // (SEC 18/10 mục 9: answered here, before any password is tried or counted).
+    if (row.method !== method || row.path !== path || row.request_hash !== hash) {
+      throw problem('IDEMPOTENCY_KEY_REUSED');
+    }
+    if (row.state !== 'completed' || row.response_status === null) {
+      throw problem('IDEMPOTENCY_IN_PROGRESS');
+    }
+    auth.enforced = true;
+    const stored: UseCaseResult<unknown> = { status: row.response_status, body: row.response_body };
+    const failure = replayFailure(stored);
+    if (failure) throw failure;
+    return { ...(stored as UseCaseResult<T>), replayed: true };
+  }
+
   /** Returns the stored response when the key was already completed, otherwise claims the key. */
   private async claimKey(
     tx: Tx,

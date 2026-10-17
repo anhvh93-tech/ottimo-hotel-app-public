@@ -450,3 +450,44 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
 - (r3-3) Khóa bậc hoàn (BR-309 (iv)) chỉ khi ngày đến đổi do `guest_request`, gồm cả "dời thay hoàn"; tính % theo bậc thường (đêm cao điểm đã có cờ riêng).
 - (r3-4) `requestFoc` của BR-416-06 chỉ nhận `kind = foc` (giảm giá đặc biệt chỉ cho dòng phòng – quy tắc folio); người gọi là OWN/MGR thì yêu cầu tự duyệt khi gửi.
 - (r3-5) Người xác nhận không đủ điều kiện (không vai, khóa, MFA, đổi mật khẩu bắt buộc) không bị tăng bộ đếm; chỉ người gọi bị tăng.
+
+## 15. Vòng sửa 4 sau kiểm lại lần 4 (commit 365486f; `reviews/s4-money-recheck4.md`; DOM 18/10; ARC 16.13; SEC mục 9–10)
+
+### 15.1 Kết quả theo mã (test `test/integration/s438r4-money.test.ts`, 13 ca, PostgreSQL thật)
+| Mã | Sửa | Kiểm chứng |
+|---|---|---|
+| **BUG-R2-146** (P1, bảo mật) | `verifyApprover`: SELECT thêm `u.locked_until`; điều kiện hợp lệ thêm (`locked_until` NULL hoặc ≤ now) bên cạnh `active`, không `must_change_password`, không `mfa_enabled`, có vai OWN/MGR chưa thu hồi ở đúng cơ sở. Không hợp lệ → băm giả, không kiểm mật khẩu thật | `mTemp` khóa đăng nhập tới 2031, mật khẩu đúng: 401 giống hệt "tên không có", có/không `finalPayment`; đơn `in_house`, không `approval_request`, không audit money; người gọi +3, `mTemp` 0. Thêm 6 trạng thái SEC yêu cầu (`disabled`, khóa cứng, `must_change_password`, `mfa_enabled`, MGR cơ sở khác, vai đã thu hồi): cùng 401, bộ đếm của họ 0. Đối chứng `mgr`: 200, FOC 396.000, folio **1.980.000**, 0/0 |
+| **BUG-R2-145 / BR-417-11** (P1) | `boughtRoomOf` trả căn khách mua **chỉ khi** có lần đổi căn do OTTIMO (lý do ≠ `guest_request`, đổi căn thật) **sau** lần khách xin cuối; không có thì null (không áp min). Áp chung B9a/B13/B18/`lateFeeAsNightVnd`/`currentBookingRateVnd` và MovePlanner | Agoda 202 + 2 đêm con, khách xin sang 101 tới ngày đi OTA rồi về 202: thứ Sáu **911.000** (không phải 767.000), `currentBookingRateVnd` null, B18 = trần QR = ghi, tổng **4.095.000**; sang 302 (đắt hơn): 911.000; đối chứng sự cố cùng đường: 911.000; 202 bán từ thứ Sáu: `lateFeeAsNightVnd` = trần QR = dòng ghi = **911.000** |
+| **BUG-R2-149** (SEC BE-64 – Major) | Trước `verifyApprover`: `lateFeePrecheck` chạy đủ các bước của B18 trong giao dịch chỉ đọc – khuôn body (`checkoutTime` bắt buộc/đúng khuôn, `checkoutAt`, `lateFeeInsteadOfNight` gồm `amountVnd`, `reason`, `requestFoc.kind/authMethod/secret`, `extraNight`), trạng thái, ngày đi/cửa sổ sau nửa đêm (409), `SURCHARGE_CHANGED`, `NOT_ALLOWED`. Bỏ `if (!time && !at) return` | Giữa kỳ 10:00 không `checkoutTime`: mật khẩu sai và đúng cùng 422 `checkoutTime REQUIRED`; thiếu `amountVnd` 422; `special_discount` 422 `NOT_IN_LIST`; `requestFoc.secret` 422 `NOT_ALLOWED`; 19:00 trước ngày đi 409; bộ đếm FD/MGR không đổi |
+| **BUG-R2-150** (SEC mục 9) | Bước 0: `UnitOfWork.completedReplay` – cùng `requestHash` và cùng phạm vi tra cứu với `claimKey` (chỉ đọc, trước mọi kiểm và trước mật khẩu): hoàn tất → 200 đã lưu + `Idempotent-Replayed`; băm lệch → 422 `IDEMPOTENCY_KEY_REUSED`; đang chạy → 409 `IDEMPOTENCY_IN_PROGRESS`. Thứ tự: key → khuôn body → kiểm nghiệp vụ chỉ đọc → `verifyApprover` → `uow.run` | 203 16–18/04/2030, B18 + tiền mặt 792.000 → 200; gửi lại (kể cả mật khẩu sai) → 200 replay, không đếm, không thêm audit; đổi `amountVnd` → 422; FD khác dùng cùng key → 409 ở bước chỉ đọc (đơn đã trả), không đếm; folio **2.376.000** 0/0, 1 thông báo; B18 thường gửi lại → replay không đổi |
+| **BUG-R2-153 / BR-416-07** (P3) | `SubmitInput.noSelfApply` (approvals – module BE-A): yêu cầu FOC của đường này không bao giờ tự áp bởi người gọi; `approve` bằng người xác nhận (danh tính, vai, hạn mức, `auth_method = password`, snapshot) – kể cả MGR tự xác nhận | MGR gọi, OWN xác nhận, FOC 200.000, tiền mặt 592.000 → 200; `approver_id` = OWN, vai `owner`, `password`, 0/0 |
+| **BUG-R2-148 / BR-416-07** (P2) | BE-B đã sửa `nightRateBasis` (dòng `late_fee_as_night` → chính khoản); đường `requestFoc` dùng đúng cơ sở đó | MGR tự xác nhận, miễn 100 %: thứ Sáu **911.000** → 200, còn 0; Giỗ Tổ **1.030.000** → 200 |
+| **BUG-R2-154** (SEC mục 10) | Audit money bỏ `confirmedByUsername`, thêm `approverRole`; `security_alert` gửi người bị khóa, người gọi và mọi OWN của cơ sở | FD4 sai 5 lần với tên MGR2 → cả hai khóa; MGR2, FD4, OWN, OWN2 đều nhận; lần sau 429. Audit ca 153: `approverRole` owner, không có tên |
+| **BUG-R2-155 / BR-417-12** (T15) | Tìm giá thỏa thuận ở đêm kề: bỏ qua đêm ngày đặc biệt | Thỏa thuận 202 650.000, B13 sang Giỗ Tổ, B18 thứ Bảy: **650.000** (không 911.000) = trần QR = ghi |
+| **BUG-R2-156 / BR-417-13** (T19, T1/T2) | Sau OTTIMO đổi căn: giá khách mua giữ trong sàn–trần **căn khách mua**, rồi lấy min với lịch căn hiện tại; không kẹp lên sàn căn mới. Sàn–trần trả về cho Desk bao cả hai căn (mặc định luôn hợp lệ). MovePlanner cùng quy tắc | Đơn lịch 101 → 401 (sự cố): B13 **667.000** (không 740.000); B7 tính thử dời thêm đêm: 3 × 667.000 |
+| **BUG-R2-157 / BR-309-16** (F4/F5, sửa r3-3) | Khóa bậc hoàn cả với lý do `other`; dời vì `force_majeure` → trần hoàn 0 | Cọc 500.000, dời còn 5 ngày rồi hủy: `other` → hoàn **250.000**, phí 250.000; bất khả kháng → hoàn **0**, phí 500.000 |
+| **BUG-R2-144 (phần BE-A, ARC 16.13)** | Cổng `FrontdeskMinibarPort.onStayContinued?(tx, reservationId, roomId, reason: 'room_entered' \| 'extended')` (tùy chọn, BE-B cài): gọi ở B14 (căn mới, `room_entered`), S4-09 `roomReturnRecorded` (`room_entered`), B13 (`extended`); B18 "tính thêm 1 đêm" không gọi | Qua vitest toàn bộ (cổng chưa cài thì bỏ qua) |
+
+- **Thử đột biến** (bản sao, 7 đột biến): bỏ điều kiện "OTTIMO sau lần khách xin" → đỏ 3 ca 145; bỏ `lateFeePrecheck` → đỏ 149; bỏ bước 0 → đỏ 150; bỏ `noSelfApply` → đỏ 153 và 148; bỏ bỏ-qua-đêm-đặc-biệt → đỏ T15; kẹp theo sàn căn hiện tại → đỏ T19; bỏ trần 0 cho bất khả kháng → đỏ F4F5. Bỏ điều kiện `locked_until` → đỏ ca 146.
+- Bỏ `pendingFix`: **BR-417-11, BR-417-12, BR-417-13, BR-309-16, BR-416-07**.
+- ARC 16.14: `CheckoutSummary.minibarUncheckedRooms[].reason` chép nguyên từ cổng `uncheckedRooms` của BE-B (cổng chưa có thì `never_counted` cho căn hiện tại). Ca spy: B14 → `room_entered` (203), B13 → `extended`; tóm tắt trả `[{202, stay_continued}]`, blocker `minibar_not_checked`, B18 409.
+- Vitest api toàn bộ, DB mới `ottimo_test_bea_r4full2` (cây có 0066 và cổng `onStayContinued` của BE-B): **2755/2755**; hai ca BE-B thấy đỏ lúc 145 đang sửa dở (`s438r2` BUG-R2-125, `s438r3` BUG-R2-134 controls) nay xanh (r2 + r3 + r4: 41/41). tsc, eslint (src + test) sạch; prettier tệp BE-A sạch; `gen-openapi-meta --check`, `validate-fixtures` OK.
+
+### 15.2 Tệp ngoài module BE-A
+- `shared/http/unit-of-work.ts` (ARC): `completedReplay` (bước 0, cùng `requestHash`/phạm vi với `claimKey`).
+- `identity/public/password-reauth.ts` (SEC): `locked_until`.
+- `frontdesk/public/ports.ts` (của BE-A): `onStayContinued?` – BE-B cài phía inventory.
+
+### 15.3 Giả định (ghi decision-log)
+- (r4-1) BR-417-13 với lần OTTIMO dời **xuống** căn rẻ hơn: giá = min(giá mua trong sàn–trần căn mua, lịch căn hiện tại) – **không** nâng lên sàn căn mua (min vẫn là min). Ví dụ 302 thỏa thuận 1.000.000 → 101 sự cố: 667.000.
+- (r4-2) Đổi căn "thật" để tính lần OTTIMO sau lần khách xin: căn mới khác căn cũ trong `reservation_change`; dòng về làn chưa gán (căn null) cũng tính.
+- (r4-3) Dời vì bất khả kháng khóa trần hoàn 0 bất kể số ngày báo trước (BR-309 "không hoàn tiền mặt").
+- **Bổ sung sau ARC/SEC/DOM (18/10):**
+  - `completedReplay` bỏ qua bước 0 khi `dryRun` (như `runInner`); có unit test ở `test/be-a-s4-units.test.ts`.
+  - Thêm ca theo SEC 11.4:
+    - key đang chạy → 409 `IDEMPOTENCY_IN_PROGRESS`, bộ đếm 0/0;
+    - FD khác dùng cùng key → `INVALID_TRANSITION`;
+    - đêm còn bán được + mật khẩu sai → 422 `NOT_ALLOWED`, bộ đếm 0/0.
+  - Sàn–trần trả cho Desk: chỉ gộp khoảng của hai căn khi quy tắc min áp dụng. Ca 101 → 401: 667.000 ghi được; đơn ở yên 401 giữ sàn 740.000.
+  - Vitest api toàn bộ: **2758/2758**.
+  - **BR-309 "OTTIMO hủy vì lỗi cơ sở thì hoàn đủ": CHƯA có đường.** Danh mục `CancelReasonCode` (hợp đồng + CHECK `reservation_cancel_reason_check`) không có mã hủy do OTTIMO, nên mọi lệnh hủy đều tính phí BR-309. Sửa cần: mã mới trong hợp đồng (ARC), migration nới CHECK, nhánh hoàn đủ trong `cancellationQuote`, Desk (FE-A) → đưa vào R3.

@@ -6,7 +6,7 @@
     "version": "0.3.8",
     "date": "2026-10-17"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9)",
   "updated": "2026-10-18",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -3486,6 +3486,80 @@
       "note": "Mức giữ (ii) và khóa bậc (iv) chỉ áp cho đơn đã có cọc; đơn hold tính lại bình thường (v) · QA cấp BUG-R2-143 (18/10, ORC chốt; P1, BE-A) thay S438R3-GAP-Q1"
     },
     {
+      "id": "BR-309-16",
+      "br": "BR-309",
+      "case": "(v0.3.8, F4/F5) Khóa bậc hoàn cả với lý do other; dời vì bất khả kháng rồi hủy thì không hoàn",
+      "origin": "example",
+      "labels": ["INV-006"],
+      "calc": null,
+      "input": {
+        "depositPaidVnd": 500000,
+        "depositRequiredVnd": 500000,
+        "moveNoticeDays": 5,
+        "cases": [
+          {
+            "key": "other",
+            "reasonCode": "other"
+          },
+          {
+            "key": "fm",
+            "reasonCode": "force_majeure"
+          }
+        ]
+      },
+      "expected": {
+        "refundVnd": {
+          "other": 250000,
+          "fm": 0
+        },
+        "feeVnd": {
+          "other": 250000,
+          "fm": 500000
+        }
+      }
+    },
+    {
+      "id": "BR-309-17",
+      "br": "BR-309",
+      "case": "(v0.3.8, r4-3) Dời ngày vì bất khả kháng còn ≥ 7 ngày: trần hoàn 0 bất kể số ngày báo trước – hủy sau đó hoàn 0, phí = cọc; quản lý được miễn có lý do (BR-433)",
+      "origin": "example",
+      "labels": ["INV-006"],
+      "calc": null,
+      "input": {
+        "channel": "direct",
+        "depositPaidVnd": 500000,
+        "movedForReason": "force_majeure",
+        "noticeDaysAtMove": 7,
+        "cancelledAfterMove": true
+      },
+      "expected": {
+        "refundVnd": 0,
+        "feeVnd": 500000,
+        "managerWaiverAllowed": true
+      },
+      "note": "Cùng BR-309-16 (F4/F5). DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
+    },
+    {
+      "id": "BR-309-18",
+      "br": "BR-309",
+      "case": "(v0.3.8, r4-3) OTTIMO hủy đơn vì lỗi của cơ sở → hoàn đủ cọc, không phí",
+      "origin": "example",
+      "labels": ["INV-006"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "channel": "direct",
+        "depositPaidVnd": 500000,
+        "cancelledBy": "OTTIMO",
+        "cause": "property_fault"
+      },
+      "expected": {
+        "refundVnd": 500000,
+        "feeVnd": 0
+      },
+      "note": "R3 – OTTIMO-fault cancel: BE-A xác nhận 18/10 chưa có đường (cần mã lý do mới, migration nới CHECK, nhánh hoàn đủ trong `cancellationQuote`, màn Desk) – dời R3. Trong R2 quản lý miễn qua đường duyệt BR-433. Không tính là lỗi mở của R2. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
+    },
+    {
       "id": "BR-310-01",
       "br": "BR-310",
       "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
@@ -5192,6 +5266,44 @@
       "note": "Không có đường này thì xem trước/QR không được cộng đêm không bán được (critic: 0/0)"
     },
     {
+      "id": "BR-416-07",
+      "br": "BR-416",
+      "case": "(v0.3.8, kiểm lại lần 4) Hạn mức miễn phụ thu thay đêm = chính khoản; người duyệt FOC = người xác nhận",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "stay": ["2030-09-18", "2030-09-20"],
+        "lateFeeAsNightVnd": 911000,
+        "cases": [
+          {
+            "key": "mgrWaivesAll",
+            "caller": "manager",
+            "confirmer": "manager",
+            "focVnd": 911000
+          },
+          {
+            "key": "ownConfirms",
+            "caller": "manager",
+            "confirmer": "owner",
+            "focVnd": 200000
+          }
+        ]
+      },
+      "expected": {
+        "mgrWaivesAll": {
+          "httpStatus": 200,
+          "dueVnd": 0
+        },
+        "ownConfirms": {
+          "approverRole": "owner",
+          "authMethod": "password"
+        }
+      },
+      "note": "Kèm BUG-R2-153 (người duyệt = người xác nhận)"
+    },
+    {
       "id": "BR-417-01",
       "br": "BR-417",
       "case": "Agoda căn 302 đến 20/10, khách tới 04:40 ngày 20/10, đêm 19/10 trống",
@@ -5257,7 +5369,7 @@
         "registrationArrivalDate": "2026-10-20",
         "registrationDeadline": "2026-10-20T23:00:00+07:00"
       },
-      "note": "Code HEAD: hạn đúng; dữ liệu cổng ghi ngày đến 2026-10-19"
+      "note": "Code HEAD: hạn đúng; dữ liệu cổng ghi ngày đến 2026-10-19 · QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ"
     },
     {
       "id": "BR-417-04",
@@ -5489,6 +5601,186 @@
         "previewEqualsWrite": true
       },
       "note": "Ví dụ DOM 18/10 (ORC): Agoda tự gán 203, OTTIMO dời sang 401 vì sự cố, khách gia hạn đêm thứ Tư → min(792.000, 1.042.000) = 792.000. Khách tự xin sang 401 → lịch 401 (1.042.000)"
+    },
+    {
+      "id": "BR-417-11",
+      "br": "BR-417",
+      "case": "(v0.3.8, lượt 4 – BUG-R2-145) S4-09: khách OTA xin đổi tạm sang căn khác (`guest_request`, `until_parent_departure`) rồi về căn cũ – \"căn khách mua\" lại là căn cũ: đêm thêm B13/B18 và phụ thu thay đêm BR-416-06 theo lịch căn cũ, không lấy min với căn đã ở tạm",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "adults": 2,
+        "roomNo": "202",
+        "stay": ["2028-07-03", "2028-07-05"],
+        "otaTotalVnd": 1600000,
+        "b13ChildNights": {
+          "202": [792000, 792000]
+        },
+        "tempMove": {
+          "on": "2028-07-04",
+          "toRoomNo": "101",
+          "reasonCode": "guest_request",
+          "mode": "until_parent_departure",
+          "deltaVnd": 0
+        },
+        "returnRecordedOn": "2028-07-05",
+        "addedNight": "2028-07-07",
+        "addedNightWeekday": "Fri",
+        "calendarVnd": {
+          "202": 911000,
+          "101": 767000
+        }
+      },
+      "expected": {
+        "suggestedAddedNightVnd": 911000,
+        "currentBookingRateIsNull": true,
+        "b18SuggestEqualsQrCapEqualsWriteVnd": 911000,
+        "totalVnd": 4095000,
+        "wrongVnd": {
+          "suggested": 767000,
+          "total": 3951000
+        },
+        "variants": {
+          "tempTo302Pricier": {
+            "suggestedAddedNightVnd": 911000,
+            "currentBookingRateIsNull": true
+          },
+          "room202SoldFromFriday": {
+            "lateFeeAsNightVnd": 911000,
+            "qrCapVnd": 911000,
+            "writeVnd": 911000
+          }
+        },
+        "controls": {
+          "propertyFaultSamePath": 911000,
+          "noMove": 911000
+        }
+      },
+      "note": "DOM (a) lượt 4 đang chốt câu \"căn khách mua\" cho S4-09 `guest_request` rồi về căn cũ (BR-417, ARC 16.6 (a)); min chỉ áp khi có lần OTTIMO đổi căn SAU lần khách xin cuối (BR-417-10). Hồi quy vòng sửa 3 (42fb458 cho 911.000). Nguồn số: critic `reviews/s4-money-recheck4.md` (bảng Major-fix-now) – test người kiểm ở `scratchpad/s438/wt/product/services/api/test/s438/r4*/`, `y-r4*/`."
+    },
+    {
+      "id": "BR-417-12",
+      "br": "BR-417",
+      "case": "(v0.3.8, T15) Giá thỏa thuận bỏ qua đêm ngày đặc biệt khi tìm đêm kề",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "agreedNightVnd": 650000,
+        "extendedSpecialNightSource": "calendar",
+        "thenB18NightIsSpecial": false
+      },
+      "expected": {
+        "b18SuggestedVnd": 650000,
+        "wrongVnd": 911000
+      }
+    },
+    {
+      "id": "BR-417-13",
+      "br": "BR-417",
+      "case": "(v0.3.8, T19, T1/T2) Sau OTTIMO đổi căn, giá min kẹp theo sàn–trần của căn khách mua, không kẹp lên sàn căn mới",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "boughtRoomNo": "101",
+        "boughtCalendarVnd": 667000,
+        "currentRoomNo": "401",
+        "currentCalendarVnd": 1042000,
+        "currentFloorVnd": 740000,
+        "reasonCode": "property_fault"
+      },
+      "expected": {
+        "addedNightVnd": 667000,
+        "wrongClampedVnd": 740000,
+        "sameInMovePlannerAndB13": true
+      }
+    },
+    {
+      "id": "BR-417-14",
+      "br": "BR-417",
+      "case": "(v0.3.8, r4-1) Sau OTTIMO đổi căn: kẹp giá khách mua trong sàn–trần căn khách mua rồi mới lấy min với lịch căn hiện tại – không kẹp lên sàn căn nào; đối chứng ở yên 401 thì kẹp sàn 401",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "agreedRateVnd": 1000000,
+        "boughtRoomNo": "302",
+        "cases": [
+          {
+            "key": "downTo101",
+            "path": ["302", "101"],
+            "by": "OTTIMO"
+          },
+          {
+            "key": "then401",
+            "path": ["302", "101", "401"],
+            "by": "OTTIMO"
+          },
+          {
+            "key": "stay401",
+            "path": ["401"],
+            "by": null,
+            "note": "đặt thẳng 401 giá thấp hơn sàn"
+          }
+        ]
+      },
+      "expected": {
+        "addedNightVnd": {
+          "downTo101": 667000,
+          "then401": 667000,
+          "stay401": 740000
+        },
+        "wrongVnd": {
+          "downTo101": 740000,
+          "then401": 740000
+        },
+        "deskRangeSpansBothRooms": true
+      },
+      "note": "BE-A đã có test cho 101 → 401 (667.000) và ở yên 401 (sàn 740.000) – không gắn pendingFix. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
+    },
+    {
+      "id": "BR-417-15",
+      "br": "BR-417",
+      "case": "(v0.3.8, r4-2) Ghi lại đơn ở CÙNG căn (sửa ngày hoặc sửa giá) không tính là đổi căn: căn khách mua giữ nguyên, không áp min; đổi căn chỉ khi căn mới khác căn cũ (về làn chưa gán cũng tính)",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "302",
+        "cases": [
+          {
+            "key": "sameRoomDateChange",
+            "op": "B7 dời ngày giữ căn 302"
+          },
+          {
+            "key": "sameRoomPriceEdit",
+            "op": "S4-35 sửa giá đêm ở 302"
+          },
+          {
+            "key": "toUnassignedLane",
+            "op": "về làn chưa gán"
+          }
+        ]
+      },
+      "expected": {
+        "countsAsRoomChange": {
+          "sameRoomDateChange": false,
+          "sameRoomPriceEdit": false,
+          "toUnassignedLane": true
+        },
+        "boughtRoomNo": {
+          "sameRoomDateChange": "302",
+          "sameRoomPriceEdit": "302"
+        },
+        "minApplied": {
+          "sameRoomDateChange": false,
+          "sameRoomPriceEdit": false
+        }
+      },
+      "note": "Đi cùng BR-417-14 (r4-1). DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
     },
     {
       "id": "BR-421-01",
@@ -7817,7 +8109,6 @@
       "case": "Khách đưa ảnh chuyển khoản 3.000.000 cho bill 2.000.000, xin hoàn 1.000.000 tiền mặt → yêu cầu tạo được, chi bị chặn tới khi quản lý đối soát thấy tiền (v0.3.4)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-14",
       "calc": null,
       "input": {
         "billTotalVnd": 2000000,
@@ -7850,7 +8141,8 @@
         "creditVnd": 1000000,
         "refundRequestAllowed": true,
         "attemptResults": ["rejected_receipt_not_reconciled", "paid"]
-      }
+      },
+      "note": "QA 18/10 (recheck4 điều kiện 8): bỏ pendingFix (FB-R2-DOM-BE-14) – hành vi đã phủ bởi `approvals-refund-payout.test.ts` (chi bị chặn tới khi phiếu thu đối soát – `RECEIPT_NOT_RECONCILED`) và thẻ FB-R2-DOM-BE-14 Done (BE-A, BE-B S3); api 2.732/2.732 xanh trên `365486f`"
     },
     {
       "id": "BR-522-04",
@@ -7858,7 +8150,6 @@
       "case": "Hoàn chuyển khoản 1.200.000 (trả thừa khi trả phòng, lễ tân ca sáng tạo yêu cầu): người duyệt, người đặt nơi nhận và người chi phải khác nhau; riêng OWN được vừa duyệt vừa chi; quản lý không tự duyệt rồi tự chi (v0.3.4, PO 17/10 – SEC-37)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-SEC-BE-37",
       "calc": null,
       "input": {
         "refundVnd": 1200000,
@@ -7895,7 +8186,7 @@
         ],
         "ownerSelfAuditLabel": "OWN tự duyệt và chi"
       },
-      "note": "Mỗi bước vẫn xác thực lại + If-Match; hoàn tiền mặt (BR-522 (a), BR-522-01) không đổi. BE-B đang nới SELF_REFUND_FORBIDDEN/SELF_APPROVAL_FORBIDDEN + CHECK DB cho OWN"
+      "note": "Mỗi bước vẫn xác thực lại + If-Match; hoàn tiền mặt (BR-522 (a), BR-522-01) không đổi. BE-B đang nới SELF_REFUND_FORBIDDEN/SELF_APPROVAL_FORBIDDEN + CHECK DB cho OWN · QA 18/10 (recheck4 điều kiện 8): bỏ pendingFix (FB-R2-SEC-BE-37) – hành vi đã phủ bởi `payments-s3.test.ts` \"SEC-BE-37 (F8)\" (người đặt nơi nhận không duyệt/không chi, người duyệt không chi, `SELF_APPROVAL_FORBIDDEN`; OWN ngoại lệ) và thẻ FB-R2-SEC-BE-37 Done; api 2.732/2.732 xanh trên `365486f`"
     },
     {
       "id": "BR-522-05",
@@ -8294,7 +8585,8 @@
       "expected": {
         "deadline": "2026-10-21T23:00:00+07:00",
         "registrationArrivalDate": "2026-10-21"
-      }
+      },
+      "note": "QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ"
     },
     {
       "id": "BR-603-01",
@@ -8734,6 +9026,149 @@
       }
     },
     {
+      "id": "BR-703-02",
+      "br": "BR-703",
+      "case": "(v0.3.8, lượt 4 – BUG-R2-144) Tủ quay lại trong lượt sau khi đã đếm và bổ sung (B14 về căn cũ, S4-09 quay về): lần đếm sau lần nạp `refill` là kỳ mới – ghi dòng riêng, không đảo/giữ dòng kỳ trước; B18 chặn tới khi đếm tủ đó ở kỳ mới",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "beerUnitVnd": 35000,
+        "cases": [
+          {
+            "key": "b3",
+            "stay": ["2029-03-19", "2029-03-22"],
+            "roomTotalVnd": 2376000,
+            "steps": "20/03 B14 sự cố 202 → 203; đếm 202 dùng 2 bia; HK xong việc bổ sung (lần nạp refill); 21/03 đếm 203 dùng 0, B14 về 202; khách dùng 1 bia; 22/03 B18"
+          },
+          {
+            "key": "twoItems",
+            "roomNo": "301",
+            "firstPeriod": {
+              "bia": 2,
+              "coca": 1
+            },
+            "secondPeriod": {
+              "bia": 1
+            }
+          },
+          {
+            "key": "samePeriodUse",
+            "roomNo": "301",
+            "firstPeriod": {
+              "bia": 2
+            },
+            "secondPeriod": {
+              "bia": 2
+            }
+          },
+          {
+            "key": "s409Agoda",
+            "roomNo": "203",
+            "channel": "agoda",
+            "steps": "đơn con S4-09 `until_parent_departure`, quay về 203",
+            "firstPeriod": {
+              "bia": 2
+            },
+            "secondPeriod": {
+              "bia": 1
+            }
+          },
+          {
+            "key": "r9_16",
+            "steps": "T1 giữ mở; HK chưa nạp tới B18; khách ăn 1 snack → B18 đếm"
+          },
+          {
+            "key": "r9_16b",
+            "steps": "HK xong T1 khi khách đã vào lại; khách ăn 1 snack trước lúc nạp, uống 1 bia sau → B18 đếm còn bia 1, snack 0"
+          },
+          {
+            "key": "r9_16c",
+            "steps": "22/03 09:00 HK đếm 202 (đi hôm nay): snack còn 0; 09:05 HK xong T1; 11:00 B18 đếm lại bia 2/2"
+          },
+          {
+            "key": "r9_18",
+            "steps": "B13 gia hạn sau lần đếm dùng 2 bia (chưa gắn việc) → sinh T1; (a) HK chưa nạp → B18 đếm bia 0, snack 1; (b) HK đã nạp → đếm bia 2, snack 1"
+          },
+          {
+            "key": "r9_t",
+            "steps": "đếm dùng 2 bia 70.000, FOC 70.000 đã duyệt; B14 về 202 → kỳ carry (mốc bia 0); khách không dùng thêm → B18 đếm"
+          }
+        ],
+        "r9Base": {
+          "roomNo": "202",
+          "beerUnitVnd": 35000,
+          "snackUnitVnd": 30000,
+          "standard": {
+            "bia": 2,
+            "snack": 1
+          },
+          "firstCount": "20/03 đếm 202 dùng 2 bia (70.000) → việc T1 \"2 bia\"",
+          "returnBeforeT1Done": "21/03 B14 về 202 khi T1 chưa xong"
+        }
+      },
+      "expected": {
+        "b3": {
+          "refillTaskAfterFirstCount": 1,
+          "b18BeforeRecountHttp": 409,
+          "b18BeforeRecountBlocker": "minibar_not_checked",
+          "minibarVnd": 105000,
+          "firstPeriodLineKept": 70000,
+          "folioTotalVnd": 2481000
+        },
+        "twoItems": {
+          "minibarVnd": 130000
+        },
+        "samePeriodUse": {
+          "minibarVnd": 140000
+        },
+        "s409Agoda": {
+          "minibarVnd": 105000
+        },
+        "control": "đếm lại cùng tủ TRONG cùng kỳ vẫn thay lần trước (R1/R7), giữ dòng theo R6",
+        "r9_16": {
+          "minibarVnd": 100000,
+          "newLineVnd": 30000,
+          "refillTaskT1StillOpen": true,
+          "refillTasksAfterB18": ["T1: 2 bia", "T2: 1 snack"]
+        },
+        "r9_16b": {
+          "minibarVnd": 135000,
+          "newLinesVnd": [35000, 30000],
+          "firstPeriodLineKept": 70000,
+          "periodRefillMoc": {
+            "bia": 2,
+            "snack": 1
+          }
+        },
+        "r9_16c": {
+          "minibarVnd": 100000,
+          "wrongMinibarVnd": 130000,
+          "carryLineVnd": 30000,
+          "refillMoc": {
+            "bia": 2
+          },
+          "newLineAtB18": false,
+          "refillTaskT2From0900Count": "1 snack"
+        },
+        "r9_18": {
+          "refillTaskCreatedOnB13": "T1: 2 bia",
+          "minibarVnd": {
+            "notRefilled": 70000,
+            "refilled": 70000
+          }
+        },
+        "r9_t": {
+          "minibarVnd": 70000,
+          "focVnd": 70000,
+          "minibarNetVnd": 0,
+          "carryPeriodOpened": true,
+          "newLineAtB18": false
+        }
+      },
+      "note": "DOM chốt R9 18/10 (`business-rules.md` ghi chú dưới bảng mục 9): không hủy việc bổ sung khi lượt ở tiếp (kỳ `carry`, việc giữ mở); xong việc khi lượt đang ở căn → kỳ `refill`, mốc = số theo hệ thống + số nạp; B13 sau lần đếm có tính tiền sinh việc ngay; (t) \"có tính tiền\" xét theo số lượng đã dùng của món có giá, không theo tiền sau FOC. Ca b3, twoItems, samePeriodUse, s409Agoda: critic `reviews/s4-money-recheck4.md`; ca r9_*: ví dụ của DOM (202, bia 35.000 định mức 2, snack 30.000 định mức 1). Sửa 18/10: ca 16 (BE-B 14 – hủy việc, 100.000) nay giữ việc T1 mở, vẫn 100.000. CHỜ SỬA (không gắn `pendingFix` cả dòng vì test BE-B đọc ca b3 đã đạt): r9_16, r9_16b, r9_16c, r9_18 – BUG-R2-144 phần DOM R9 (BE-B; BE-A sinh việc ở B13); E2E TC-L4-127…130 `knownBug('BUG-R2-144')`. r9_t đạt (TC-L4-131)."
+    },
+    {
       "id": "BR-705-01",
       "br": "BR-705",
       "case": "Tồn 10 lon bia giá 12.000, nhập 24 lon giá 13.000",
@@ -8906,6 +9341,28 @@
         }
       },
       "note": "Khách ở tiếp = ngày đến < ngày nghiệp vụ < ngày đi. QA cấp BUG-R2-142 (18/10); BE-C đã sửa ở cây làm việc và bỏ pendingFix (test `housekeeping-s4` đọc dòng này)"
+    },
+    {
+      "id": "BR-807-02",
+      "br": "BR-807",
+      "case": "(v0.3.8, kiểm lại lần 4) Ngày đến của lượt gồm đêm B9a (đơn con OTA): lịch dọn sáng hôm đó coi là khách ở tiếp",
+      "origin": "example",
+      "labels": ["INV-008", "NGÀNH"],
+      "pendingFix": "BUG-R2-151",
+      "calc": null,
+      "input": {
+        "channel": "agoda",
+        "roomNo": "302",
+        "stay": ["2028-08-14", "2028-08-16"],
+        "b9aAt": "2028-08-14T04:30:00+07:00",
+        "childNight": "2028-08-13",
+        "j8RunAt": "2028-08-14T07:00:00+07:00"
+      },
+      "expected": {
+        "roomStatus": "OD",
+        "stayoverTasks": 1,
+        "linenNightsIncludeB9a": true
+      }
     },
     {
       "id": "BR-809-01",
