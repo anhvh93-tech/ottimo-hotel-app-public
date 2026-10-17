@@ -132,7 +132,7 @@ Thành phần không phải chữ: viền nút phụ Ink trên Ivory 12,49; vòn
 | Tiện nghi giấc ngủ | "Five-star sleep · chuẩn 5 sao"; "Chuẩn thiết bị resort 5 sao" | "Hotel-grade sleep · Dunlopillo" | Tránh lời quảng cáo hạng sao chưa có căn cứ; guideline "không luxury dát vàng" [Chờ INV duyệt ở L5] |
 | Studio City View | "for one long-stay guest" | bỏ cụm này | Hạng phòng ghi 2 khách – tránh mâu thuẫn |
 | Câu mở trang | "A hotel is for visiting. Ottimo is for living." | Giữ, đặt làm trích dẫn ở About | Câu đắt nhất của brochure |
-| Email | email cá nhân in ở trang cuối | `booking@‹domain›` | Không đăng dữ liệu cá nhân; chờ hộp thư chung trên tên miền (ESC-020 #3) |
+| Email | email cá nhân in ở trang cuối | `booking@ottimo.vn` (INV xác nhận 17/10) | Không đăng dữ liệu cá nhân; chờ hộp thư chung trên tên miền (ESC-020 #3) |
 
 - Câu chống giả danh (SEC/DOM-06) ở Hỏi đáp: "OTTIMO only messages you from the numbers on this page, our official Zalo account and your booking platform's inbox. We never ask for card numbers and never change bank details by message."
 - Không hứa "ưu đãi cho lần sau" (SEC UXD-03). Không có câu "không lưu thông tin bạn nhập" vì trang không có ô nhập; thay bằng "This site has no forms and no tracking cookies."
@@ -236,7 +236,7 @@ Lọc theo SEC (FB-R2-SEC-UXD-02): không người; không cận khóa cửa/bà
 | Viber | +84 84 444 0909 | `viber://chat?number=%2B84844440909` | Máy không cài Viber sẽ không mở [Chưa xác minh] |
 | Zalo | 08.4444.0909 (hotline) | `https://zalo.me/0844440909` | Tạm Zalo số hotline cơ sở; đổi sang link OA khi xác thực (ESC-021) – chỉ sửa cấu hình |
 | Gọi | 08.4444.0909 | `tel:+84844440909` | |
-| Email | `booking@‹domain›` | chưa có link | Chờ tên miền + hộp thư chung (ESC-020 #3) |
+| Email | `booking@ottimo.vn` (INV xác nhận 17/10) | chưa có link | Chờ tên miền + hộp thư chung (ESC-020 #3) |
 
 - Thứ tự theo ngôn ngữ (ESC-020 L2-A): bản EN đưa WhatsApp/Telegram/Viber lên trước và tô nút WhatsApp; bản VI đưa Zalo lên trước và tô nút Zalo – áp cho thanh đáy và thẻ liên hệ.
 - Thanh dính đáy (< 768 px): 3 nút cao 48 px, nút đầu Earth Brown; trang chừa `padding-bottom` để không che chân trang; `scroll-padding` để header/thanh đáy không che phần tử đang focus.
@@ -315,7 +315,7 @@ Cách đo: Chromium, xóa bộ nhớ đệm, cộng `encodedDataLength` của CD
 | `<style>`, `<script>` nội tuyến | Tệp CSS/JS có mã băm, CSP `style-src 'self'` (SEC C-1, UXD-01). Mock đã bỏ hết thuộc tính `style=""` để FE chép dễ |
 | Chuyển ngôn ngữ bằng nút + `localStorage` | Hai URL `/` và `/en/` (hoặc `/vi/`) có `hreflang`; vào lần đầu theo ngôn ngữ trình duyệt (L1-A). Nút EN/VI là link |
 | Thanh "MOCK" + nút Notes + chip ghi chú | Bỏ |
-| Email `booking@‹domain›` | Email chung thật hoặc ẩn dòng email |
+| Email `booking@ottimo.vn` (INV xác nhận 17/10) | Email chung thật hoặc ẩn dòng email |
 | Monogram vẽ tay | SVG gốc của INV |
 | Không có OG/JSON-LD đầy đủ | OG 1200×630 + JSON-LD `LodgingBusiness` (mock đã có khung JSON-LD) |
 | `<picture>` có cặp `<source media="(max-width: 767px)">` 480/960 + 2 preload hero theo `media` | Giữ nguyên cấu trúc (trần 960 px trên điện thoại, mục 8.3); giữ ngân sách mục 11.2 |
@@ -376,3 +376,5 @@ Cách đo: Chromium, xóa bộ nhớ đệm, cộng `encodedDataLength` của CD
 | 0.1 | 17/10/2026 | Bản đầu: tiếng Việt trước, hướng A "kem – sồi, chạm đất nung" + biến thể B, ô ảnh trống, ô Hỏi phòng trống |
 | 1.0 | 17/10/2026 | Theo Brand Guidelines v1.0: bỏ terracotta và biến thể B; tiếng Anh dẫn dắt; 4 hạng phòng và nội dung e-brochure; 18 ảnh thật (WebP/AVIF); logo giữ chỗ; thanh liên hệ đáy; kiểm Playwright 320/375/1280 |
 | 1.1 | 17/10/2026 | Sửa theo kiểm độc lập brand + a11y (mục 13.2): logo đạt cỡ tối thiểu, trần ảnh 960 px trên điện thoại + ngân sách DPR, dấu "·" Earth, bảng điều chỉnh cỡ chữ web, bỏ ký tự ngoài font, số thập phân VI; thêm sửa axe link logo và tràn 3 px VI 360 px; ảnh chụp mới (thêm 320 px) |
+
+> **Cập nhật 17/10 tối (ORC):** INV xác nhận email chung `booking@ottimo.vn` và **bảng ghép thư mục ảnh → hạng phòng là chính xác** (Phòng 1, 2 → Studio Garden View; Phòng 3 → Studio City View; Phòng 4 → Signature; Phòng 5 → Premium; Mặt tiền + Sảnh). Tên miền giả định `ottimo.vn` [GIẢ ĐỊNH – INV đang mua ở Mắt Bão].

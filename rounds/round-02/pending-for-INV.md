@@ -14,9 +14,8 @@ Nếu chưa có staging: QC cuối Round 2 phần "chạy trên môi trường t
 
 ## 2. Anh/chị hẹn gửi thứ Hai 19/10
 - VPS + tên miền (đang mua ở Mắt Bão). Tài khoản tên miền đứng tên công ty, bật xác thực 2 lớp, khóa chuyển nhượng.
-- Bảng ghép **tên phòng (The Pine … The Ember) ↔ số căn ↔ hạng phòng**. UXD đã ghép thư mục ảnh với hạng phòng, nhờ anh/chị xác nhận khi gửi bảng.
+- Bảng ghép **tên phòng (The Pine … The Ember) ↔ số căn ↔ hạng phòng**. (Ghép thư mục ảnh ↔ hạng phòng: anh/chị đã xác nhận đúng.)
 - Logo SVG gốc.
-- Email chung (ví dụ booking@<tên miền>).
 - Tạo và xác thực Zalo OA bằng ĐKKD CTCP UTMG Living; thêm 2 nhân viên quản trị.
 - Quyền dùng ảnh; chỗ đậu xe, thang máy, thú cưng; link OTA + 3–5 đánh giá thật.
 
@@ -24,6 +23,7 @@ Nếu chưa có staging: QC cuối Round 2 phần "chạy trên môi trường t
 - ESC-018 (ngày dd/mm/yyyy, quốc tịch mã 3 chữ cái in hoa) đã áp vào app.
 - ESC-016: thêm tùy chọn lịch dọn cố định cho khách dài hạn ở Round 3 (US-056).
 - **ESC-019 = A:** khách tự xin đổi sang căn khác trước ngày đến thì tính giá căn mới. Làm ở Sprint 4.
+- Email chung: **booking@ottimo.vn**. Ghép ảnh ↔ hạng phòng: đúng.
 - **ESC-020 = A hết** (landing page) và **ESC-021 = A, K1 = A** (Zalo OA). Đã nhận ghim Google Maps.
 - Dependabot: đã gộp 4 bản nâng công cụ CI (CI vẫn xanh), đóng 5 đề nghị không phù hợp, hoãn bản nâng giao diện sang Round 3, chia nhóm cập nhật cho các lần sau.
 
