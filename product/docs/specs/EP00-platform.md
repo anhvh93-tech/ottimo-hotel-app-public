@@ -340,7 +340,7 @@ FD+ ✔ toàn cơ sở; SAL/CTV chỉ khách/lead **của mình** (M – `create
 | Trường | Nhãn | Kiểu | BB | Kiểm tra | Lỗi |
 |---|---|---|---|---|---|
 | `fullName` | Họ tên | text | B | V-01 (1–120); lưu nguyên dạng nhập (có dấu); server sinh `name_search` (bỏ dấu, in hoa – BR-951) | `REQUIRED`, `NAME_INVALID`, `TOO_LONG` |
-| `phone` | SĐT | text | **ĐK**: phải có `phone` **hoặc** `email` (AC1) | V-02; trùng hồ sơ khác sau chuẩn hóa → chặn (BR-951, US-072 AC1) | `CONTACT_REQUIRED` → `field_error.contact_required` **(mới)** "Cần ít nhất SĐT hoặc email."; 409 `DUPLICATE_GUEST` |
+| `phone` | SĐT | text | **ĐK**: phải có `phone` **hoặc** `email` (AC1) – **ngoại lệ duy nhất**: hồ sơ `source = document` do **server** tạo từ giấy tờ người đi cùng (EP06 2.2a; BUG-R2-033 b) được thiếu cả hai; quy tắc này chỉ áp cho form CRM (`createGuest`/`updateGuest`) và người đứng tên | V-02; trùng hồ sơ khác sau chuẩn hóa → chặn (BR-951, US-072 AC1) | `CONTACT_REQUIRED` → `field_error.contact_required` **(mới)** "Cần ít nhất SĐT hoặc email."; 409 `DUPLICATE_GUEST` |
 | `email` | Email | text | ĐK (như trên) | V-03; trùng → chặn | như trên |
 | `messagingHandles` | Zalo / WhatsApp / KakaoTalk | object `{zalo, whatsapp, kakaotalk}` | K | Mỗi giá trị 1–64 ký tự; Zalo/WhatsApp là SĐT thì kiểm V-02; **không** dùng làm khóa trùng ở R2 | `PHONE_INVALID` |
 | `dateOfBirth` | Ngày sinh | date | K | V-06 | `DOB_FUTURE`, `DOB_MINOR` |
@@ -356,7 +356,17 @@ FD+ ✔ toàn cơ sở; SAL/CTV chỉ khách/lead **của mình** (M – `create
 | — | **Không có ô số giấy tờ** | – | – | Số giấy tờ chỉ vào từ bước giấy tờ (US-071 AC3, BL 3.16) | – |
 | — | Nhóm hộ (người hay đi cùng) | – | – | **Không làm ở R2** (CRM nâng cao R3); tiền tố đề nghị `HH-` (mục 13) | – |
 
-`updateGuest` cần `If-Match`; sửa SĐT/email sang giá trị đã thuộc hồ sơ khác → 409 `DUPLICATE_GUEST`. Mã `KH-` không đổi (US-023 AC2).
+`updateGuest` cần `If-Match`; sửa SĐT/email sang giá trị đã thuộc hồ sơ khác → 409 `DUPLICATE_GUEST`.
+
+**Hồ sơ nguồn "từ giấy tờ"** (`Guest.source = document`, chỉ FD+ thấy – SEC 17/10 mục 7; EP06 2.2a; **cài đặt Sprint 4**):
+| Thao tác | Quy tắc |
+|---|---|
+| Tạo | **Chỉ** server tạo khi nhập giấy tờ người đi cùng không khớp ai – **không** tạo được qua form này (không có lựa chọn "nguồn" trên form) |
+| `updateGuest` khi **chưa** có liên hệ và **chưa** đồng ý P05 | Được sửa `fullName` (sửa lỗi gõ theo giấy tờ), `nationalityCode`, `preferredLocale`. Gửi `tags`, `freeNote`, `serviceNotes`, `dateOfBirth`, `gender`, `companyName`, `taxCode` → 422 `NOT_ALLOWED` → **(mới)** `field_error.document_profile_minimal` "Hồ sơ từ giấy tờ chỉ lưu tên và quốc tịch. Thêm SĐT/email hoặc hỏi khách đồng ý ghi nhớ trước." Không áp `CONTACT_REQUIRED` |
+| Thêm `phone`/`email` | Được (FD+), kiểm V-02/V-03 + chặn trùng 11.3 như thường; sau khi lưu, hồ sơ chịu **đủ** quy tắc CRM (T05/T06, có thể thêm tag/ghi chú) – chip "Từ giấy tờ" mất |
+| Trở thành người đứng tên đơn mới | Phải có SĐT (kênh `direct`/`agent` – `PHONE_REQUIRED`) → thêm liên hệ như trên trước |
+| Đồng ý P05 | Qua luồng EP06 4.1 (không qua form này); sau khi đồng ý: được thêm `tags`/`serviceNotes`/`freeNote` |
+| Tìm kiếm / tra cứu | FD+ thấy (chip `crm.source_document`); **SAL/CTV không bao giờ thấy** trong `searchGuests`, bộ chọn khách, `lookupGuestByContact`, danh sách/xuất tiếp thị (rbac D10, ghi chú 40) | Mã `KH-` không đổi (US-023 AC2).
 
 ### 11.3 Chặn trùng (US-072)
 | Tình huống | Kiểm ở | Kết quả | Chuỗi |
@@ -418,3 +428,4 @@ Giới hạn tra: SAL/CTV 30 lần/giờ/người (SR-RL-07) → 429 `RATE_LIMIT
 | 16/10/2026 | 2 (Đợt 0) | Bản đầu: đặc tả mức trường EP00 (US-001…007, 135, 142), platform, CRM US-071…073; áp ESC-014 (sức chứa = định mức + 1) cho danh mục căn; đề nghị ARC/UXD/DOM mục 13 | BA |
 | 16/10/2026 | 2 (Sprint 2) | V-02: BA xác nhận câu ARC thêm (API trả SĐT E.164 có `+`, DB lưu không `+`), ghi rõ áp cho mọi trường SĐT đầy đủ trong phản hồi (hiện chỉ `Guest.phone` – ARC B-26 từ chối `pattern` cho `User.phone` vì `User` không trả SĐT; BA đồng ý), trường che giữ dạng che; bỏ nhãn chờ xác nhận | BA |
 | 16/10/2026 | 2 (Sprint 2 – PO quyết) | Mục 2: R2 ẩn nút "Thêm người dùng" (US-008 Must R3) | BA |
+| 17/10/2026 | 2 (Sprint 3 – theo SEC 17/10) | 11.2: ngoại lệ liên hệ chỉ cho hồ sơ `source = document` (server tạo từ giấy tờ người đi cùng – BUG-R2-033 b); bảng quy tắc sửa/thêm liên hệ/P05/tìm kiếm cho hồ sơ loại này (cài đặt Sprint 4) | BA |

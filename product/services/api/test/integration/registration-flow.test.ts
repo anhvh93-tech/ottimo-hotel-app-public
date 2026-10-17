@@ -1301,4 +1301,196 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
       spy.mockRestore();
     }
   });
+
+  async function imagesOfRegistration(registrationId: string) {
+    return db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{
+            delete_after: Date | null;
+            deleted_at: Date | null;
+            delete_reason: string | null;
+          }>(
+            `SELECT delete_after, deleted_at, delete_reason FROM document_image
+              WHERE registration_id = $1 ORDER BY id`,
+            [registrationId],
+          )
+        ).rows,
+    );
+  }
+
+  async function stayEndedAt(registrationId: string): Promise<Date | null> {
+    return db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ stay_ended_at: Date | null }>(
+            'SELECT stay_ended_at FROM registration WHERE id = $1',
+            [registrationId],
+          )
+        ).rows[0]!.stay_ended_at,
+    );
+  }
+
+  async function reservationVersion(reservationId: string): Promise<number> {
+    return db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ version: number }>('SELECT version FROM reservation WHERE id = $1', [
+            reservationId,
+          ])
+        ).rows[0]!.version,
+    );
+  }
+
+  it('SEC BE-32 reopened: J16 reads the BOOKING state – no hook ran, stay_ended_at NULL; pre/partial/review/scanned/sent; checkout, cancel, no-show', async () => {
+    // Five declarations in every status before `confirmed`, one image each; the bookings then end WITHOUT
+    // any hook (as for data before 0053, or a hook that failed).
+    const open = async (status: string, adults: number, docNumber: string) => {
+      const { reservationId } = await seedStay(db, t, ids, { adults });
+      const reg = await registrationOf(reservationId);
+      expect((await addDoc(reg.id, { ...an, docNumber }, 1)).statusCode).toBe(201);
+      return { reservationId, registrationId: reg.id, status };
+    };
+    const pre = await open('pre', 1, '079300000001');
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(`UPDATE registration SET status = 'pre' WHERE id = $1`, [pre.registrationId]),
+    );
+    const partial = await open('partial', 2, '079300000002');
+    const review = await open('review', 1, '079300000003');
+    const sc = await scannedRegistration('Vũ Thị Kim', '079300000004');
+    const scanned = { ...sc, status: 'scanned' };
+    const se = await sentRegistration('Đinh Văn Long', '079300000005');
+    const sent = { ...se, status: 'sent' };
+    const checkout = new Date('2026-10-20T04:00:00.000Z');
+    await setStayStatus(db, t, pre.reservationId, 'checked_out', { actualCheckoutAt: checkout });
+    await setStayStatus(db, t, partial.reservationId, 'cancelled');
+    await setStayStatus(db, t, review.reservationId, 'checked_out', { actualCheckoutAt: checkout });
+    await setStayStatus(db, t, scanned.reservationId, 'checked_out', {
+      actualCheckoutAt: checkout,
+    });
+    await setStayStatus(db, t, sent.reservationId, 'no_show');
+    const all = [pre, partial, review, scanned, sent];
+    for (const c of all) {
+      const statusNow = await db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ status: string }>('SELECT status FROM registration WHERE id = $1', [
+              c.registrationId,
+            ])
+          ).rows[0]!.status,
+      );
+      expect({ case: c.status, statusNow }).toEqual({ case: c.status, statusNow: c.status });
+      expect(await stayEndedAt(c.registrationId)).toBeNull();
+      expect((await imagesOfRegistration(c.registrationId))[0]?.delete_after).toBeNull();
+    }
+    const retention = fa.app.get(RetentionService);
+    const run = async (iso: string) => {
+      fa.clock.set(new Date(iso));
+      return db.withContext(t.ctx(), (tx) =>
+        retention.run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+      );
+    };
+    // Day 6 after the stays ended: J16 gives every image its deadline (end + 7 days) – nothing deleted yet.
+    const first = await run('2026-10-26T05:00:00.000Z');
+    expect(first.scheduled).toBeGreaterThanOrEqual(5);
+    for (const c of all) {
+      const imgs = await imagesOfRegistration(c.registrationId);
+      expect({ case: c.status, deleted: imgs[0]?.deleted_at }).toEqual({
+        case: c.status,
+        deleted: null,
+      });
+      expect(imgs[0]?.delete_after).not.toBeNull();
+      expect(await stayEndedAt(c.registrationId)).not.toBeNull();
+    }
+    // Checked out 20/10 11:00 → due 27/10 11:00; cancelled / no-show → planned departure 20/10 12:00 → 27/10 12:00.
+    await run('2026-10-27T05:01:00.000Z');
+    for (const c of all) {
+      const imgs = await imagesOfRegistration(c.registrationId);
+      expect({
+        case: c.status,
+        reason: imgs[0]?.delete_reason,
+        gone: !!imgs[0]?.deleted_at,
+      }).toEqual({
+        case: c.status,
+        reason: 'unconfirmed',
+        gone: true,
+      });
+    }
+  });
+
+  it('SEC BE-32 reopened: real cancel endpoint → deadline; real checkout endpoint → T02; an image added after checkout (needs_update) still gets deleted', async () => {
+    // Cancel through POST …/actions/cancel (reservations → hook `transitioned` → onReservationVoided).
+    const cancelled = await sentRegistration('Phan Văn Minh', '079300000011');
+    const cancel = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/reservations/${cancelled.reservationId}/actions/cancel`,
+      {
+        json: { reasonCode: 'guest_changed_mind' },
+        ifMatch: await reservationVersion(cancelled.reservationId),
+      },
+    );
+    expect(cancel.statusCode, JSON.stringify(cancel.json())).toBe(200);
+    expect(
+      (await imagesOfRegistration(cancelled.registrationId))[0]?.delete_after?.toISOString(),
+    ).toBe(new Date(T0.getTime() + 7 * 86_400_000).toISOString());
+    expect(await stayEndedAt(cancelled.registrationId)).not.toBeNull();
+
+    // Check-out through POST …/actions/check-out (frontdesk B18 → FD_REGISTRATION_PORT.onCheckedOut).
+    const r = await scannedRegistration('Lâm Thị Ngọc', '079300000012', {
+      arrival: '2026-10-14',
+      departure: '2026-10-15',
+    });
+    expect(
+      (await r.act('mark-sent', { portalReference: 'VN-3012', kind: 'vn_citizen_stay' })).json()
+        .status,
+    ).toBe('sent');
+    expect((await r.act('mark-confirmed', {})).json().status).toBe('confirmed');
+    await setStayStatus(db, t, r.reservationId, 'in_house', {
+      actualCheckinAt: new Date('2026-10-14T08:00:00.000Z'),
+    });
+    const out = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'POST',
+      `${P(t)}/reservations/${r.reservationId}/actions/check-out`,
+      { json: { checkoutTime: '09:00' }, ifMatch: await reservationVersion(r.reservationId) },
+    );
+    expect(out.statusCode, JSON.stringify(out.json())).toBe(200);
+    const kept = await imagesOfRegistration(r.registrationId);
+    // Consenting guest: T02 = checkout + 30 days (BR-610), set by the real checkout.
+    expect(kept[0]?.deleted_at).toBeNull();
+    expect(kept[0]?.delete_after).not.toBeNull();
+    expect(kept[0]!.delete_after!.getTime() - T0.getTime()).toBe(30 * 86_400_000);
+
+    // After the stay the desk adds a second person's document: K9 → needs_update, the new image has NO deadline…
+    const late = await addDoc(
+      r.registrationId,
+      {
+        ...an,
+        fullNameOnDoc: 'Lâm Văn Phúc',
+        docNumber: '079300000013',
+        dateOfBirth: '1990-03-03',
+      },
+      1,
+    );
+    expect(late.statusCode).toBe(201);
+    expect(late.json().status).toBe('needs_update');
+    const before = await imagesOfRegistration(r.registrationId);
+    expect(before.filter((i) => !i.deleted_at && !i.delete_after)).toHaveLength(1);
+    // … until the next hourly J16: no consent → it goes at once (end of stay passed); the consenting one stays.
+    await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(RetentionService).run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
+    );
+    const after = await imagesOfRegistration(r.registrationId);
+    expect(after.filter((i) => !i.deleted_at)).toHaveLength(1);
+    expect(after.filter((i) => !i.deleted_at && !i.delete_after)).toHaveLength(0);
+  });
 });

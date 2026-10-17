@@ -211,7 +211,9 @@ export class PartyService {
           errors: [{ field: 'effectiveFrom', code: 'REQUIRED' }],
         });
       }
-      if (effectiveFrom < ctx.today || effectiveFrom >= row.departure_date) {
+      // Blocker verification ARC-S3-01: from tonight at the latest – a person announced for a later night is
+      // added on that day (a future date would charge nights the guest may never stay).
+      if (effectiveFrom !== ctx.today || effectiveFrom >= row.departure_date) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'effectiveFrom', code: 'DATE_INVALID' }],
         });
@@ -432,6 +434,14 @@ export class PartyService {
         });
         occupancyChange.surchargeApplied = surcharge > 0;
       }
+      // Blocker verification ARC-S3-01: the in-house children (B9a / OTA extension) follow the people.
+      await this.s.stay.syncChildrenParty(
+        tx,
+        ctx,
+        row,
+        { adults: next.adult, children6to11: next.child_6_11, childrenUnder6: next.child_under_6 },
+        effectiveFrom as LocalDate,
+      );
       if (extraDelta > 0 && roomId) {
         const task = await this.s.createTask(tx, ctx, {
           roomId,
@@ -566,6 +576,20 @@ export class PartyService {
         userId: ctx.actor.userId,
         ...this.s.req(ctx),
       });
+    }
+    if (leaves) {
+      const fresh = await loadReservation(tx, row.id, ctx.actor);
+      await this.s.stay.syncChildrenParty(
+        tx,
+        ctx,
+        fresh,
+        {
+          adults: fresh.adults,
+          children6to11: fresh.children_6_11,
+          childrenUnder6: fresh.children_under_6,
+        },
+        ctx.today,
+      );
     }
     await this.audit.record(tx, {
       category: 'state',

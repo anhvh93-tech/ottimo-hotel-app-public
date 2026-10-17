@@ -171,6 +171,11 @@ export class PaymentsService {
     }
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
+    // Verification 17/10 (ARC-S3-02 follow-up): money received on a hold is its deposit – a `charge` there
+    // would not count for B4/J1 (the hold would expire although paid).
+    if (r.status === 'hold' && raw.type !== 'deposit') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'type', code: 'NOT_IN_LIST' }] });
+    }
     // BUG-R2-051 / SEC F1: a hold owes its missing deposit (BR-305) – same cap as createVietQr; otherwise the
     // folio balance (a hold has no lines yet, so the balance would be 0).
     const holdCap =
@@ -687,6 +692,10 @@ export class PaymentsService {
     if (!target) throw problem('NOT_FOUND');
     if (!desk && target.createdBy !== actor.userId && target.closerUserId !== actor.userId) {
       throw problem('NOT_FOUND');
+    }
+    // A QR on a hold collects its deposit (a `charge` would not count for B4/J1 – verification 17/10).
+    if (target.status === 'hold' && input.purpose !== null && input.purpose !== 'deposit') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }] });
     }
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');

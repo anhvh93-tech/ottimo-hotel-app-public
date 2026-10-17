@@ -311,10 +311,7 @@ test.describe(
             { session: fd },
           );
           expect(g.status, JSON.stringify(g.body)).toBe(200);
-          test.fail(
-            g.body.companyName === undefined,
-            'BUG-R2-041: setInvoiceRequest không gắn tên công ty/MST vào hồ sơ khách (Guest.companyName/taxCode) – US-039 AC2, spec EP03-05 5.4 "gắn folio + hồ sơ khách (D16)"',
-          );
+          // BUG-R2-041 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(g.body.companyName).toBe(inv.companyName);
           expect(g.body.taxCode).toBe(inv.taxCode);
         },
@@ -927,10 +924,7 @@ test.describe(
           });
           expect(inAuth.status, JSON.stringify(inAuth.body)).toBe(422);
           expect(JSON.stringify(inAuth.body)).not.toContain('4111111111111111');
-          test.fail(
-            !fieldCodes(inAuth.body).includes('posAuthCode:CARD_NUMBER_DETECTED'),
-            'BUG-R2-043: số thẻ ở posAuthCode bị chặn nhưng mã lỗi không phải CARD_NUMBER_DETECTED (spec EP03-05 2.2 V-09) – giao diện không hiện đúng thông báo "không nhập số thẻ"',
-          );
+          // BUG-R2-043 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(fieldCodes(inAuth.body)).toContain('posAuthCode:CARD_NUMBER_DETECTED');
         },
       );

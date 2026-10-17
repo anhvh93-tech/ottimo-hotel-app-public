@@ -7,7 +7,8 @@
 # a fresh random value for this run only: nothing is stored as a repo secret and nothing is reused between runs.
 # On GitHub Actions each value is masked (::add-mask::) before anything else can print it, and
 # QA_SEED_PASSWORD / TEST_SUPPORT_TOKEN are exported to $GITHUB_ENV for the seed loader and the E2E steps
-# that drive /__test__/* (X-Test-Token).
+# that drive /__test__/* (X-Test-Token). STAFF_REQUESTS_PER_MINUTE is raised to 5000 (CI_STAFF_RPM) for the shared
+# qa.* accounts of parallel E2E workers.
 # Exit 0 = written, 2 = usage / missing input, 1 = a placeholder survived (template changed).
 set -Eeuo pipefail
 
@@ -17,6 +18,10 @@ if [ -z "$src" ] || [ -z "$out" ]; then echo "usage: $0 <.env.example> <out .env
 [ -f "$src" ] || { echo "missing template: $src" >&2; exit 2; }
 
 rand() { openssl rand -hex 24; }
+# SR-RL-09 limit for the throw-away E2E stack: parallel Playwright workers share the qa.* accounts, so 600/min/user
+# (production value) turns into 429s (BUG-R2-051). dev/test only – the api refuses > 600 in staging/production.
+CI_STAFF_RPM="${CI_STAFF_RPM:-5000}"
+[[ "$CI_STAFF_RPM" =~ ^[0-9]+$ ]] || { echo "CI_STAFF_RPM must be a number" >&2; exit 2; }
 mask() { if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$1"; fi; }
 
 admin_pw=$(rand) && mask "$admin_pw"
@@ -32,7 +37,10 @@ sed -e "s/change_me_admin_dev_only/${admin_pw}/g" \
     -e "s/change_me_app_dev_only/${app_pw}/g" \
     -e "s/change_me_test_support_token_dev_only/${test_token}/g" \
     -e "s/^QA_SEED_PASSWORD=.*/QA_SEED_PASSWORD=${seed_pw}/" \
+    -e "s/^STAFF_REQUESTS_PER_MINUTE=.*/STAFF_REQUESTS_PER_MINUTE=${CI_STAFF_RPM}/" \
     "$src" > "$out"
+# Template without the key (older .env.example): add it, the compose stack reads it either way.
+grep -q '^STAFF_REQUESTS_PER_MINUTE=' "$out" || echo "STAFF_REQUESTS_PER_MINUTE=${CI_STAFF_RPM}" >> "$out"
 
 # Fail loudly if the template gained a placeholder this script does not know about.
 if grep -nE 'change_me_' "$out" | sed -E 's/=.*/=<redacted>/' >&2; then
@@ -46,4 +54,4 @@ if [ -n "${GITHUB_ENV:-}" ]; then
   echo "QA_SEED_PASSWORD=${seed_pw}" >> "$GITHUB_ENV"
   echo "TEST_SUPPORT_TOKEN=${test_token}" >> "$GITHUB_ENV"
 fi
-echo "OK: wrote $out (5 random values, masked on CI)"
+echo "OK: wrote $out (5 random values, masked on CI; STAFF_REQUESTS_PER_MINUTE=${CI_STAFF_RPM})"

@@ -116,6 +116,8 @@ export interface ConfirmedStay {
     date: LocalDate;
     roomRevenueVnd: number;
     extraPersonVnd: number;
+    /** 0032 (blocker verification ARC-S3-01): extra persons of THAT night – the bill label "{n} người". */
+    extraPersonCount?: number;
     /**
      * E05-11 (OpenAPI 0.3.6 bổ sung 2): night added at check-out after the BR-412 limit – printed as
      * `bill.line.extra_night` (charge_code `extra_night` on its room line). Optional (BE-A sets it).

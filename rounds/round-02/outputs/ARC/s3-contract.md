@@ -287,3 +287,5 @@ Mọi thay đổi là **thêm**, trừ 5 thay đổi hành vi có chủ đích �
 | `contract.test` | 5/5 |
 | `tsc` api-client / admin-web / guest-web / **api** | 0 lỗi (lỗi `registration.service.ts` của BE-C đã hết) |
 | prettier | xanh |
+
+> **17/10 – nháp 0.3.7**: toàn bộ danh sách trên cộng hồ sơ khách "từ giấy tờ" (BUG-R2-033 b, SEC s3 mục 7) được gộp vào `outputs/ARC/openapi-0.3.7-draft.md`. Bản nháp này chưa áp vào openapi/erd; ARC áp ở bước khởi động Sprint 4.

@@ -103,43 +103,63 @@ case ",$cfg," in *,statement_timeout=15s,*) ;; *) fail "ottimo_app statement_tim
 sleep 5
 [ -n "$(dc ps --status running --quiet worker)" ] || fail "worker is not running"
 
-# Caddy, from this host (the Docker gateway is a private address, so /health is allowed). PUBLIC_HTTPS_PORT,
+# SEC C2: the blob volume is mounted in api + worker and NOT in web (checked on the running containers).
+# shellcheck disable=SC2016
+mounts_of() { docker inspect --format '{{range .Mounts}}{{.Type}}:{{.Name}}:{{.Destination}} {{end}}' "$(dc ps -q "$1")"; }
+for s in api worker; do
+  mounts_of "$s" | grep -q 'volume:[^ ]*blobdata:/var/lib/ottimo/blobs' || fail "$s has no blobdata volume at /var/lib/ottimo/blobs"
+done
+if mounts_of web | grep -q 'blobdata'; then fail "web (Caddy) mounts the blob volume (SEC C2)"; fi
+
+# Caddy, from this host (the Docker gateway is a private address, so /health is allowed). PUBLIC_HTTP(S)_PORT,
 # SMOKE_ADDR and SMOKE_INSECURE=1 exist for a local rehearsal (Caddy's internal CA); on the VPS the real
-# certificate is checked against 127.0.0.1.
+# certificate is checked against 127.0.0.1. Headers are compared EXACTLY with infra/caddy/expected-headers.sh.
+# shellcheck source=../../caddy/expected-headers.sh
+. "$here/../../caddy/expected-headers.sh"
 port=$(envval PUBLIC_HTTPS_PORT); port="${port:-443}"
+http_port=$(envval PUBLIC_HTTP_PORT); http_port="${http_port:-80}"
 addr="${SMOKE_ADDR:-127.0.0.1}"
-curl_opts=(--silent --show-error --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors)
+# Marker values sent in headers/query that must never appear in a Caddy log line (SR-LOG-01…03).
+m_cookie="ckMARK$(openssl rand -hex 8)"; m_csrf="csMARK$(openssl rand -hex 8)"; m_ref="rfMARK$(openssl rand -hex 8)"
+m_query="qMARK$(openssl rand -hex 8)"; fake_token="smoke$(openssl rand -hex 19)"
+curl_opts=(--silent --show-error --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors
+  -H "Cookie: __Host-ottimo_sid=$m_cookie" -H "X-CSRF-Token: $m_csrf" -H "Referer: https://smoke.invalid/$m_ref")
 [ "${SMOKE_INSECURE:-0}" = "1" ] && curl_opts+=(--insecure)
-check_site() { # host  expected Referrer-Policy
-  local host="$1" referrer="$2" headers code
+since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+check_site() { # host  desk|staff|guest
+  local host="$1" site="$2" headers code problems
   headers=$(curl "${curl_opts[@]}" --resolve "$host:$port:$addr" -o /dev/null -D - "https://$host:$port/") \
     || fail "https://$host/ unreachable"
-  code=$(printf '%s' "$headers" | head -n 1 | awk '{print $2}')
+  code=$(tr -d '\r' <<<"$headers" | head -n 1 | awk '{print $2}')
   [ "$code" = "200" ] || fail "https://$host/ answered $code"
-  printf '%s' "$headers" | grep -qi "^content-security-policy: default-src 'self'" || fail "$host: CSP header missing"
-  printf '%s' "$headers" | grep -qi "^strict-transport-security: max-age=31536000" || fail "$host: HSTS missing"
-  printf '%s' "$headers" | grep -qi "^referrer-policy: $referrer" || fail "$host: Referrer-Policy is not $referrer"
+  problems=$(ottimo_check_security_headers "$headers" "$site")
+  [ -z "$problems" ] || fail "$host security headers: $(tr '\n' ';' <<<"$problems")"
   code=$(curl "${curl_opts[@]}" --resolve "$host:$port:$addr" -o /dev/null -w '%{http_code}' "https://$host:$port/health")
   [ "$code" = "200" ] || fail "$host/health through Caddy answered $code"
-  # SEC C2 / FB-R2-SEC-OPS-03 (4): the blob volume is not served – such paths are a 404, never a file.
-  for probe in /var/lib/ottimo/blobs/00/0000 /blobs/x /.env; do
+  # SEC C2 / FB-R2-SEC-OPS-03 (4): blob-volume-looking paths, dot-files and source maps are 404 (the same rules
+  # are proven against REAL files on every PR – infra/ci/check-caddy-prod.sh).
+  for probe in /var/lib/ottimo/blobs/00/0000 /blobs/x /.env /assets/index.js.map; do
     code=$(curl "${curl_opts[@]}" --resolve "$host:$port:$addr" -o /dev/null -w '%{http_code}' "https://$host:$port$probe")
     [ "$code" = "404" ] || fail "$host: probe $probe answered $code (expected 404)"
   done
 }
-check_site "$(envval DESK_HOST)" same-origin
-check_site "$(envval STAFF_HOST)" same-origin
-check_site "$(envval GUEST_HOST)" no-referrer
+check_site "$(envval DESK_HOST)" desk
+check_site "$(envval STAFF_HOST)" staff
+check_site "$(envval GUEST_HOST)" guest
 
-# FB-R2-SEC-OPS-03 (4) / SR-LOG-03: open a fake guest link, then the Caddy log must show /g/[redacted], never the token.
+# FB-R2-SEC-OPS-03 (4) / SR-LOG-03: open a fake guest link over HTTPS and over port 80 (redirect server); the Caddy
+# logs must show /g/[redacted] and contain neither the token, the query value nor any header marker.
 guest_host=$(envval GUEST_HOST)
-fake_token="smoke$(openssl rand -hex 19)"
-since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-curl "${curl_opts[@]}" --resolve "$guest_host:$port:$addr" -o /dev/null "https://$guest_host:$port/g/$fake_token?x=$fake_token" \
+curl "${curl_opts[@]}" --resolve "$guest_host:$port:$addr" -o /dev/null "https://$guest_host:$port/g/$fake_token?x=$m_query" \
   || fail "guest link page unreachable"
+code=$(curl --silent --max-time 20 --resolve "$guest_host:$http_port:$addr" -H "Cookie: __Host-ottimo_gsid=$m_cookie" \
+  -o /dev/null -w '%{http_code}' "http://$guest_host:$http_port/g/$fake_token?x=$m_query")
+[ "$code" = "308" ] || fail "port $http_port /g/<token> answered $code (expected 308 → https)"
 sleep 2
 web_log=$(dc logs --no-color --since "$since" web 2>&1)
-if grep -qF "$fake_token" <<<"$web_log"; then fail "Caddy log contains a /g/ token (SR-LOG-03)"; fi
+for v in "$fake_token" "$m_query" "$m_cookie" "$m_csrf" "$m_ref"; do
+  if grep -qF "$v" <<<"$web_log"; then fail "Caddy log contains a token/query/header value (SR-LOG-01…03)"; fi
+done
 grep -qF '/g/[redacted]' <<<"$web_log" || fail "Caddy access log has no masked /g/ entry (logging off?)"
 
 # ---- 5. record ----

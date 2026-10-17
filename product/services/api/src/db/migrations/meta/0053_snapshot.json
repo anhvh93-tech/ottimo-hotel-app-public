@@ -8198,6 +8198,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "extra_person_count": {
+          "name": "extra_person_count",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sold_at": {
           "name": "sold_at",
           "type": "timestamp with time zone",
@@ -8384,6 +8390,10 @@
         "stay_night_extra_person_fee_check": {
           "name": "stay_night_extra_person_fee_check",
           "value": "\"stay_night\".\"extra_person_fee_vnd\" IS NULL OR \"stay_night\".\"extra_person_fee_vnd\" >= 0"
+        },
+        "stay_night_extra_person_count_check": {
+          "name": "stay_night_extra_person_count_check",
+          "value": "\"stay_night\".\"extra_person_count\" IS NULL OR \"stay_night\".\"extra_person_count\" >= 0"
         },
         "stay_night_money_check": {
           "name": "stay_night_money_check",

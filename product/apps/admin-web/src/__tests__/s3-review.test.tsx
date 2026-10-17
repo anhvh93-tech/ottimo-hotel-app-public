@@ -483,3 +483,131 @@ describe('BUG-R2-052 (FE) – a 422 on a field without an input is named, not a 
     ).toContain(t('field.SURCHARGE_DECISION_REQUIRED'));
   });
 });
+
+describe('0.3.6 add. 3 – H14 consent from Registration.consentNotice; OTA saving per nights', () => {
+  const setupReg = () => {
+    const r = res('Gia đình anh Hưng');
+    const reg = mockControl.stay.registrations.get(r.registrationId!)!;
+    reg.status = 'review';
+    reg.documents.push({
+      id: 'doc-consent-1',
+      docType: 'cccd',
+      isMain: true,
+      fullNameOnDoc: 'Nguyễn Văn Hưng',
+      nationalityCode: 'VNM',
+      docNumber: '079123456789',
+      imageIds: ['img-1'],
+      imageConsent: 'not_recorded',
+      captureMethod: 'scan',
+      checks: [],
+    });
+    return reg;
+  };
+
+  it('days from the server in the question; the answer sends back the same notice + days', async () => {
+    mockControl.stay.consentNotice = {
+      currentNoticeVersion: 'privacy-2026-11-v2',
+      imageRetentionDays: 45,
+    };
+    const reg = setupReg();
+    const sent: Array<Record<string, unknown>> = [];
+    server.use(
+      http.post('*/v1/properties/:p/registrations/:id/consents', async ({ request }) => {
+        sent.push((await request.clone().json()) as Record<string, unknown>);
+        return undefined;
+      }),
+    );
+    const { user } = renderApp(`/registration/${reg.id}`, 'qa.fd');
+    const group = await screen.findByRole('group', {
+      name: tv('reg2.consent_q', { days: 45 }),
+    });
+    await user.click(within(group).getByRole('radio', { name: tv('checkin.consent.yes') }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({
+      purpose: 'P02B_ID_IMAGE_RETENTION',
+      decision: 'granted',
+      noticeVersion: 'privacy-2026-11-v2',
+      retentionDays: 45,
+    });
+  });
+
+  it('{days} is always filled from consentNotice – question and "tự xóa" line, never a raw {days}', async () => {
+    mockControl.stay.consentNotice = {
+      currentNoticeVersion: 'privacy-2026-11-v2',
+      imageRetentionDays: 45,
+    };
+    const reg = setupReg();
+    reg.documents[reg.documents.length - 1]!.imageConsent = 'granted';
+    renderApp(`/registration/${reg.id}`, 'qa.fd');
+    expect(
+      await screen.findByRole('group', { name: tv('reg2.consent_q', { days: 45 }) }),
+    ).toBeInTheDocument();
+    // The retention line uses the same days (UXD moves `reg2.retention_value` to {days}).
+    const until = translate('vi', 'reg2.retention_value', {
+      days: 45,
+      date: '',
+    }).split('(')[0]!;
+    expect(
+      await screen.findByText(new RegExp(`^${until.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\{days\}/);
+    expect(document.body.textContent).not.toMatch(/\{[a-z_]+\}/);
+  });
+
+  it('no consentNotice → no consent question (fail closed)', async () => {
+    mockControl.stay.consentNotice = null;
+    const reg = setupReg();
+    renderApp(`/registration/${reg.id}`, 'qa.fd');
+    expect(await screen.findByText('Nguyễn Văn Hưng')).toBeInTheDocument();
+    expect(await screen.findByText(tv('reg2.consent_not_recorded'))).toBeInTheDocument();
+    expect(
+      screen.queryByRole('radio', { name: tv('checkin.consent.yes') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('OTA extension: "tiết kiệm phí kênh" follows the nights chosen (repricing[].channelFeeSavingsVnd)', async () => {
+    const r = res('Phạm Huy');
+    server.use(
+      http.get('*/v1/properties/:p/reservations/:r/extension-options', () =>
+        HttpResponse.json({
+          maxNights: 2,
+          createsChildReservation: true,
+          channelFeeSavingsVnd: 109_740,
+          currentBookingRateVnd: null,
+          nights: [
+            { date: addDays(r.departureDate, 0), available: true, defaultRateVnd: 708_000 },
+            { date: addDays(r.departureDate, 1), available: true, defaultRateVnd: 708_000 },
+          ],
+          repricing: [
+            {
+              nights: 1,
+              repricedTotalVnd: 708_000,
+              deltaVnd: 708_000,
+              losDiscountPct: 0,
+              channelFeeSavingsVnd: 109_740,
+            },
+            {
+              nights: 2,
+              repricedTotalVnd: 1_416_000,
+              deltaVnd: 1_416_000,
+              losDiscountPct: 0,
+              channelFeeSavingsVnd: 219_480,
+            },
+          ],
+        }),
+      ),
+    );
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const drawer = await screen.findByRole('dialog', { name: 'Phạm Huy' });
+    await user.click(within(drawer).getByRole('button', { name: tv('drawer.action.extend') }));
+    const dlg = await screen.findByRole('dialog', { name: /Gia hạn/ });
+    const saving = (amount: string) =>
+      within(dlg).getByText(
+        (_, el) =>
+          el?.tagName === 'P' && !!el.textContent?.includes(tv('common.currency_vnd', { amount })),
+      );
+    expect(await waitFor(() => saving('109.740'))).toBeInTheDocument();
+    await user.click((await within(dlg).findAllByRole('checkbox'))[1]!);
+    expect(saving('219.480')).toBeInTheDocument();
+  });
+});

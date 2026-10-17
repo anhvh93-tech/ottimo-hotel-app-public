@@ -12,6 +12,7 @@ import {
   expectProblem,
   isAvailable,
   needSeedPassword,
+  propertyIdOf,
   requireEndpoints,
   sessionOrSkip,
   stackToday,
@@ -268,6 +269,18 @@ test.describe(
           expect(b.body.status).toBe('in_house');
           SPRINT4('trạng thái buồng SM-03 (room_status)');
           expect(roomStatusOf(room(c, '203').id)).toBe('OD');
+          // BUG-R2-040 (kiểm lại vòng sửa 2): Sơ đồ phòng đọc trạng thái buồng đã lưu – OD, không suy ra OC
+          const rack = await call<{ rooms: Array<{ roomNo: string; roomStatus: string }> }>(
+            request,
+            'GET',
+            `/v1/properties/${propertyIdOf(fd)}/rack`,
+            { session: fd, query: { from: D, days: 1 } },
+          );
+          expect(rack.status, JSON.stringify(rack.body).slice(0, 300)).toBe(200);
+          expect(
+            rack.body.rooms.find((x) => x.roomNo === '203')?.roomStatus,
+            'getRack.roomStatus',
+          ).toBe('OD');
           const h = await historyOf(request, fd, st.res.id);
           const ev = h.find((x) => x.action === 'reservation.checked_in');
           expect(ev, JSON.stringify(h).slice(0, 500)).toMatchObject({
@@ -384,10 +397,7 @@ test.describe(
           expectNear(row?.deadlineAt, due, 'danh sách cần khai báo');
           // đơn vào "Cần chú ý" mục khai báo
           const items = await attention(request, fd);
-          test.fail(
-            true,
-            'BUG-R2-034: "Cần chú ý" không có mục khai báo (registration_due/registration_overdue/visa_expiring)',
-          );
+          // BUG-R2-034 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(
             regAttentionOf(items, st.res.id).length,
             `listAttentionItems: ${JSON.stringify(items.map((x) => x.kind))}`,
@@ -671,10 +681,7 @@ test.describe(
           expect(await regRow(request, fd, String(child!.id))).toBeUndefined();
           expect(await regRow(request, fd, ota.res.id)).toBeTruthy();
           // (a) khách đến sau nửa đêm của ngày đến (ngày nghiệp vụ vẫn = ngày đến): B9 thường, không phụ thu
-          test.fail(
-            !!lateArrival,
-            'BUG-R2-052: nhận phòng lúc 01:30 ngày D+1 (ngày nghiệp vụ = ngày đến D) bị tính như nhận sớm trước 06:00 → 422 addPriorNight REQUIRED (preview cùng lúc báo phụ thu 0)',
-          );
+          // BUG-R2-052 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(lateArrival, 'US-025 AC6 / BR-602-02').toBe('');
         },
       );
@@ -1241,10 +1248,7 @@ test.describe(
           ).toBe(portalDate(visa));
           // đơn vào "Cần chú ý"
           const items = await attention(request, fd);
-          test.fail(
-            true,
-            'BUG-R2-034: "Cần chú ý" không có mục khai báo/thị thực (registration_due/registration_overdue/visa_expiring)',
-          );
+          // BUG-R2-034 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(
             regAttentionOf(items, st.res.id).length,
             `listAttentionItems: ${JSON.stringify(items.map((x) => x.kind))}`,
@@ -1360,10 +1364,7 @@ test.describe(
           fd = await fdOf(request);
           await stepUp(request, fd);
           const late = await getImage(request, fd, b.st.regId, b.doc.id, bImg, 'recheck');
-          test.fail(
-            j2.stats?.skipped === true,
-            'BUG-R2-036: J16 chặn 55 phút (chạy hằng giờ) – lượt tại hạn trên bị bỏ qua, ảnh người không đồng ý còn quá 24 giờ sau confirmed (BR-609-01 purgeBackstopBy)',
-          );
+          // BUG-R2-036 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(late.status, 'sau hạn trên ảnh còn = lỗi (BR-609)').toBe(404);
         },
       );
@@ -1410,10 +1411,7 @@ test.describe(
           expect((await regRow(request, fd, vn.res.id, 'action_needed'))?.isOverdue).toBe(false);
           // ▶ J5 (nhắc/quá hạn → "Cần chú ý")
           const j5 = await runJobIfAny(request, J5);
-          test.fail(
-            j5 === null,
-            `BUG-R2-035: job J5 ${J5} chưa đăng ký trên build (architecture 9.1, R2) – không có nhắc hạn/quá hạn khai báo`,
-          );
+          // BUG-R2-035 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(j5, `J5 ${J5}`).not.toBeNull();
           const items = await attention(request, fd);
           expect(regAttentionOf(items, fo.res.id).map((x) => x.kind)).toContain(
@@ -1512,10 +1510,7 @@ test.describe(
           });
           // ▶ J5
           const j5 = await runJobIfAny(request, J5);
-          test.fail(
-            j5 === null,
-            `BUG-R2-035: job J5 ${J5} chưa đăng ký trên build – không có nhắc/quá hạn khai báo`,
-          );
+          // BUG-R2-035 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(j5, `J5 ${J5}`).not.toBeNull();
           const items = await attention(request, fd);
           expect(regAttentionOf(items, st.res.id).map((x) => x.kind)).toContain(
@@ -1583,10 +1578,7 @@ test.describe(
           // ⏱ 21:59 ▶ J5 – chưa tới mốc tổng hợp (registration_digest_times 22:00, 07:00)
           await at(request, vnTime(D, '21:59'));
           const j = await runJobIfAny(request, J5);
-          test.fail(
-            j === null,
-            `BUG-R2-035: job J5 ${J5} chưa đăng ký – không có thông báo tổng hợp hồ sơ chưa khai (BR-611) cho FD + MGR`,
-          );
+          // BUG-R2-035 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(j, `J5 ${J5}`).not.toBeNull();
           const unread = async (u: string) => {
             const s = await sessionOrSkip(request, u);
@@ -1860,10 +1852,7 @@ test.describe(
           expect(remindDays).toBeGreaterThan(0);
           // gia hạn thêm mà không nhập lý do → chặn mềm 422 VISA_EXPIRES_BEFORE_DEPARTURE (OpenAPI E04-01)
           const e2 = await stayAction(request, fd, st.res.id, 'extend', { nights: 1 });
-          test.fail(
-            true,
-            'BUG-R2-037: extendStay không chặn mềm khi ngày đi mới vượt hạn thị thực (thiếu 422 VISA_EXPIRES_BEFORE_DEPARTURE); kèm BUG-R2-034 (không có nhắc visa_expiring trong "Cần chú ý")',
-          );
+          // BUG-R2-037 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(e2.status, JSON.stringify(e2.body).slice(0, 300)).toBe(422);
           expect(JSON.stringify(e2.body)).toContain('VISA_EXPIRES_BEFORE_DEPARTURE');
           const items = await attention(request, fd);

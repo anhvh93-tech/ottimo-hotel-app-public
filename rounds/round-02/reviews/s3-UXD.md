@@ -385,3 +385,8 @@ Mã ngoài bảng (không nên xảy ra vì tập đóng) → `mlog.a_other` + m
 | `error.field_named` | Mục "{label}": {message} | "{label}": {message} | Lỗi ở trường không có ô trên màn (BUG-R2-052), ví dụ: Mục "Đã gửi/giao nội quy (VI/EN) cho khách": Bắt buộc. `{label}` = nhãn nút/ô tích tương ứng (không dùng tên trường kỹ thuật); `{message}` = câu `field.*` / `common.required`. Mã có câu riêng đủ nghĩa thì giữ nguyên, không ghép |
 
 `gen_strings.py` 2302 chuỗi + 8 mẫu, 0 khóa trùng, tham số 0 lệch; `check_hifi.py` 25/25 ✓; content-guide 0.3.12 (mục 8 sinh lại). Chỉ sửa `product/design/**` và file này, không commit.
+
+## G. Đợt 4 – `reg2.consent_q` theo tham số (17/10, ORC giao)
+- `reg2.consent_q` = "Khách có đồng ý lưu ảnh giấy tờ {days} ngày sau trả phòng không?" / "Does the guest agree to OTTIMO keeping ID photos for {days} days after check-out?" – `{days}` ← `Registration.consentNotice.imageRetentionDays` (bỏ số 30 viết cứng). FE truyền `{ days }`; chưa truyền thì câu hiện `{days}` trần.
+- Hi-fi H14 thêm `data-i18n-args` (ví dụ 30). `gen_strings.py` 2302 chuỗi, `check_hifi.py` 25/25 ✓; content-guide 0.3.13.
+- `reg2.retention_value` = "Tự xóa {days} ngày sau trả phòng ({date})" / "Auto-deleted {days} days after check-out ({date})" – đổi cùng đợt theo ORC (FE chuyển cả hai khóa trong cùng lượt); hi-fi H14 thêm `days` vào `data-i18n-args`.

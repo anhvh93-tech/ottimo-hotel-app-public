@@ -144,8 +144,15 @@ export class RefundsService {
     folioId: string,
     input: { amountVnd: number; reason: unknown },
     reservationCode: string | null,
+    bookingStatus: string | null = null,
   ): Promise<RefundRow> {
     const reason = requireReason('reason', input.reason);
+    // Verification 17/10 (ARC-S3-02 follow-up): a hold has no charges – its money goes back through the
+    // cancellation (B5, BR-308) or confirms the booking (B4); a manual refund request would leave the hold
+    // counted as paid.
+    if (bookingStatus === 'hold') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'hold' } });
+    }
     if (!Number.isSafeInteger(input.amountVnd) || input.amountVnd <= 0) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }],

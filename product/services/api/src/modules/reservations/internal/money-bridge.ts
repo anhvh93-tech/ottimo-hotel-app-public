@@ -46,6 +46,16 @@ export class MoneyBridge {
     return this.folios.depositPaid(tx, row.folio_id);
   }
 
+  /**
+   * Refund requests still open on the folio (pending / escalated / approved not fully paid – BE-B
+   * FolioService.openRefundVnd): a cancellation (B10/B5) never requests again what is already requested
+   * (verification 17/10, DOM BE-14).
+   */
+  async openRefunds(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return this.folios.openRefundVnd(tx, row.folio_id);
+  }
+
   /** 0.3.6 `Reservation.balanceDueVnd` (BUG-R2-031): what the folio still owes. */
   async balanceDue(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');

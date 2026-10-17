@@ -12,10 +12,7 @@ import { readCookie } from '../../../shared/http/cookies';
 import type { GuestPrincipal, GuestSessionResolver } from '../../../shared/http/guest-session';
 import type { OperationMeta } from '../../../shared/openapi-types';
 import { problem } from '../../../shared/problem';
-
-export function guestCookieName(securePrefix: boolean): string {
-  return `${securePrefix ? '__Host-' : ''}ottimo_gsid`;
-}
+import { guestCookieName } from '../public/session-cookie';
 
 interface Row {
   session_id: string;

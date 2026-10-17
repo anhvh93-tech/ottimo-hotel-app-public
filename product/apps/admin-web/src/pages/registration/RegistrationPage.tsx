@@ -347,7 +347,7 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
               ) : d.imageIds?.length && notice ? (
                 <fieldset className="fieldset-plain">
                   <legend className="li-s">
-                    {t('checkin.consent.label', { days: notice.imageRetentionDays })}
+                    {t('reg2.consent_q', { days: notice.imageRetentionDays })}
                   </legend>
                   <label className="check">
                     <input
@@ -565,8 +565,12 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                     time: dateTime(reg.imagesPurgedAt),
                     reason: reg.imagesPurgeReason ?? '',
                   })
-                : reg.imageRetentionUntil
-                  ? t('reg2.retention_value', { date: dateTime(reg.imageRetentionUntil) })
+                : reg.imageRetentionUntil && notice
+                  ? // `{days}` from the server too (UXD 17/10) – no notice → "pending", never a bare {days}.
+                    t('reg2.retention_value', {
+                      days: notice.imageRetentionDays,
+                      date: dateTime(reg.imageRetentionUntil),
+                    })
                   : t('reg2.retention_pending')}
             </dd>
             <dt>{t('reg2.retention_refused')}</dt>

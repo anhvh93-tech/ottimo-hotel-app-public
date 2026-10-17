@@ -10,7 +10,7 @@ import { type Tx, pgCode } from '../../../db/database';
 import type { StaffPrincipal } from '../../../shared/http/auth.guard';
 import { assertVersion } from '../../../shared/http/precondition';
 import { type FieldError, problem } from '../../../shared/problem';
-import { type LocalDate, businessDate, localDate, toZonedIso } from '../../../shared/time';
+import { type LocalDate, atLocal, businessDate, localDate, toZonedIso } from '../../../shared/time';
 import { containsCardNumber } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
@@ -1014,6 +1014,56 @@ export class RegistrationService {
    * people → T02 (above); anyone else → now (J16 T01). Not declared: everybody → end +
    * `id_image_unconfirmed_max_days` (≤ 7); a later K7 re-schedules consenting people to T02.
    */
+  /**
+   * J16 safety net INDEPENDENT of the hooks (SEC FB-R2-SEC-BE-32 reopened, s3-blocker-verification): every
+   * live image without a deadline (`delete_after` NULL) of a registration whose BOOKING has ended –
+   * read from the booking state through BE-A's stay view, never from a column only the hook writes – gets
+   * its deadline exactly as the checkout/cancel hook would have given it (`scheduleAfterStay`). Covers a
+   * hook that failed or never ran, data written before 0053 (`stay_ended_at` NULL) and an image added
+   * after the stay (K9 `needs_update`). End of the stay: the actual checkout; a cancelled / no-show booking
+   * → the planned departure if already past, else now (the cancellation time is not in the stay view – the
+   * earlier of the two is never later than the truth). Registrations under `legal_hold` are left alone.
+   * Returns the number of registrations scheduled.
+   */
+  async scheduleEndedStays(tx: Tx, limit = 200): Promise<number> {
+    const { rows } = await tx.query<{ id: string; reservation_id: string }>(
+      `SELECT x.id, x.reservation_id FROM registration x
+        WHERE x.status <> 'void' AND NOT x.legal_hold
+          AND EXISTS (SELECT 1 FROM document_image i
+                       WHERE i.registration_id = x.id AND i.deleted_at IS NULL AND i.delete_after IS NULL)
+        ORDER BY x.id LIMIT $1`,
+      [limit],
+    );
+    if (rows.length === 0) return 0;
+    const c = await this.ctx(tx);
+    const checkout = await this.params
+      .get<string>(tx, 'checkout_time', c.today)
+      .catch(() => '12:00');
+    const stays = await readStays(
+      tx,
+      rows.map((r) => r.reservation_id),
+      SYSTEM_ACTOR,
+    );
+    let n = 0;
+    for (const r of rows) {
+      const stay = stays.get(r.reservation_id);
+      if (!stay) continue;
+      let ended: Date | null = null;
+      if (stay.status === 'checked_out') {
+        ended = stay.actualCheckoutAt ?? c.now;
+      } else if (stay.status === 'cancelled' || stay.status === 'no_show') {
+        const planned = atLocal(stay.departureDate, checkout, c.tz);
+        ended = planned.getTime() < c.now.getTime() ? planned : c.now;
+      }
+      if (!ended) continue; // the stay is still running: no deadline yet (BR-610)
+      const reg = await lockRegistration(tx, r.id);
+      if (!reg || reg.status === 'void' || reg.legal_hold) continue;
+      await this.scheduleAfterStay(tx, reg, reg.stay_ended_at ?? ended);
+      n++;
+    }
+    return n;
+  }
+
   private async scheduleAfterStay(tx: Tx, reg: RegRow, endedAt: Date): Promise<void> {
     await tx.query(
       'UPDATE registration SET stay_ended_at = COALESCE(stay_ended_at, $2) WHERE id = $1',

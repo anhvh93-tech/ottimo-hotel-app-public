@@ -34,7 +34,6 @@ import { type FieldError, problem } from '../../../shared/problem';
 import { C3AccessGate, noStore } from '../../crypto/public/c3-access-gate';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { EncryptedBlobService } from '../../files/public/encrypted-blob.service';
-import { withUploadGate } from '../../files/public/upload-gate';
 import {
   type NormalizedImage,
   fileRejected,
@@ -211,7 +210,8 @@ export class RegistrationController {
       dataDigest: this.crypto.keyedHash('idempotency', canonicalJson(data)),
       images: files.map((f) => createHash('sha256').update(f).digest('hex')),
     };
-    const result = await withUploadGate(async () => {
+    // This request already holds an upload slot: taken in readMultipart before its body was read (http.ts).
+    const result = await (async () => {
       const images: NormalizedImage[] = [];
       for (const f of files) images.push(await normalizeImage(f, 'image'));
       return this.uow.run(
@@ -222,7 +222,7 @@ export class RegistrationController {
         },
         { storeBody: false },
       );
-    });
+    })();
     return applyResult(reply, result);
   }
 

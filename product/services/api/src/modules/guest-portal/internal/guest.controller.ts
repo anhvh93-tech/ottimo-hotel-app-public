@@ -21,7 +21,6 @@ import {
   normalizeImage,
 } from '../../files/public/image-pipeline';
 import { fileParts, parseMultipart, textPart } from '../../files/public/multipart';
-import { withUploadGate } from '../../files/public/upload-gate';
 import { RATE_LIMITER, RateLimiter } from '../../identity/public/rate-limiter';
 import { GuestPortalService } from './guest-portal.service';
 import { GuestSessionResolverService } from './guest-session.resolver';
@@ -220,7 +219,8 @@ export class GuestController {
       docType,
       images: files.map((f) => createHash('sha256').update(f).digest('hex')),
     };
-    const result = await withUploadGate(async () => {
+    // This request already holds an upload slot: taken in readMultipart before its body was read (http.ts).
+    const result = await (async () => {
       // Re-encoded in memory before the transaction (SEC C1): HEIC/PDF/HTML → 422 FILE_REJECTED.
       const images: NormalizedImage[] = [];
       for (const f of files) images.push(await normalizeImage(f, 'image'));
@@ -234,7 +234,7 @@ export class GuestController {
           req.id,
         ),
       }));
-    });
+    })();
     // A replaced image of the same person: its file is deleted only now, after COMMIT (ARC FB-S3-17).
     await this.blobs.sweepAfterCommit(guestContext(g));
     return applyResult(reply, result);

@@ -472,6 +472,8 @@ export const stayNight = pgTable(
     serviceFeeAllocVnd: bigint('service_fee_alloc_vnd', { mode: 'number' }).notNull().default(0),
     // 0031 (FB-R2-ARC-BE-S3-01, DOM S3-13): NULL = booking-level fee of the snapshot; value = this night's fee.
     extraPersonFeeVnd: bigint('extra_person_fee_vnd', { mode: 'number' }),
+    // 0032: extra persons of that night (bill label "{n} người"); NULL = the snapshot's booking-level count.
+    extraPersonCount: smallint('extra_person_count'),
     soldAt: instant('sold_at'),
     voidedAt: instant('voided_at'),
     voidReason: text('void_reason'),
@@ -510,6 +512,10 @@ export const stayNight = pgTable(
     check(
       'stay_night_extra_person_fee_check',
       sql`${t.extraPersonFeeVnd} IS NULL OR ${t.extraPersonFeeVnd} >= 0`,
+    ),
+    check(
+      'stay_night_extra_person_count_check',
+      sql`${t.extraPersonCount} IS NULL OR ${t.extraPersonCount} >= 0`,
     ),
     check(
       'stay_night_money_check',

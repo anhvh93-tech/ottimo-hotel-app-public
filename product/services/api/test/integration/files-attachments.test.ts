@@ -13,9 +13,11 @@ import {
   type BlobStore,
   LocalBlobStore,
 } from '../../src/modules/files/internal/blob-store';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { PassThrough } from 'node:stream';
 import { AttachmentService } from '../../src/modules/files/public/attachment.service';
 import { EncryptedBlobService } from '../../src/modules/files/public/encrypted-blob.service';
+import { MAX_UPLOADS_IN_FLIGHT, uploadsInFlight } from '../../src/modules/files/public/upload-gate';
 import {
   ATTACHMENT_USAGE,
   type AttachmentUsage,
@@ -342,6 +344,70 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
       expect(r.statusCode).toBe(422);
       expect(r.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
     }
+  });
+
+  it('s3-blocker-verification: a well-formed FAKE session cookie → 401 before the body is read (staff and guest)', async () => {
+    const fake = randomBytes(32).toString('base64url');
+    for (const [url, cookie] of [
+      [`${P(t)}/attachments`, `ottimo_sid=${fake}`],
+      ['/v1/guest/online-checkin/documents', `ottimo_gsid=${fake}`],
+    ] as const) {
+      // A body that never ends: if the server waited for it, this request would hang.
+      const stream = new PassThrough();
+      stream.write(Buffer.alloc(64 * 1024, 1));
+      const r = await fa.app.inject({
+        method: 'POST',
+        url,
+        headers: { 'content-type': 'multipart/form-data; boundary=xyz', cookie },
+        payload: stream,
+      });
+      expect(r.statusCode).toBe(401);
+      expect(r.json()).toMatchObject({ code: 'UNAUTHENTICATED' });
+      stream.destroy();
+    }
+    expect(uploadsInFlight()).toBe(0);
+  });
+
+  it('s3-blocker-verification: the upload slot is taken BEFORE the body – 5th concurrent upload → 503 at once', async () => {
+    const body = multipart([
+      { name: 'purpose', value: 'refund_proof' },
+      { name: 'file', value: await sampleJpeg(), filename: 'r.jpg', contentType: 'image/jpeg' },
+    ]);
+    const half = Math.floor(body.body.length / 2);
+    const upload = (payload: PassThrough | Buffer) =>
+      fa.app.inject({
+        method: 'POST',
+        url: `${P(t)}/attachments`,
+        headers: {
+          'content-type': body.contentType,
+          cookie: `ottimo_sid=${tok('fd')}`,
+          'x-csrf-token': fa.sessions.csrfToken(sha256Hex(tok('fd'))),
+          'idempotency-key': randomUUID(),
+        },
+        payload,
+      });
+    // Four slow clients: half of their body sent, the rest held back.
+    const streams = Array.from({ length: MAX_UPLOADS_IN_FLIGHT }, () => {
+      const st = new PassThrough();
+      st.write(body.body.subarray(0, half));
+      return st;
+    });
+    const pending = streams.map((st) => upload(st));
+    for (let i = 0; i < 200 && uploadsInFlight() < MAX_UPLOADS_IN_FLIGHT; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(uploadsInFlight()).toBe(MAX_UPLOADS_IN_FLIGHT);
+    const fifth = await upload(body.body);
+    expect(fifth.statusCode).toBe(503);
+    expect(fifth.json()).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(fifth.headers['retry-after']).toBe('5');
+    // The slow ones finish normally and give their slots back.
+    for (const st of streams) st.end(body.body.subarray(half));
+    const done = await Promise.all(pending);
+    expect(done.map((r) => r.statusCode)).toEqual([201, 201, 201, 201]);
+    expect(uploadsInFlight()).toBe(0);
+    expect((await upload(body.body)).statusCode).toBe(201);
+    expect(uploadsInFlight()).toBe(0);
   });
 
   it('ARC S3-03: a binary body is never hashed for idempotency', () => {

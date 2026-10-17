@@ -161,7 +161,7 @@ export class DepositsService {
     } else {
       const { rows } = await tx.query<{ received_at: Date | null }>(
         `SELECT received_at FROM payment WHERE id = $1 AND folio_id = $2 AND type = 'deposit'
-            AND status = 'succeeded'`,
+            AND status = 'succeeded' AND reversal_of_id IS NULL`,
         [input.existingPaymentId, folio.id],
       );
       if (!rows[0]) {

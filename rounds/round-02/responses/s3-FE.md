@@ -12,10 +12,10 @@
 |---|---|
 | `prettier --check` (admin-web, ui, i18n, api-client) | xanh |
 | `eslint` (cùng phạm vi) | 0 lỗi (1 cảnh báo cũ ở `mockServiceWorker.js` sinh tự động) |
-| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **19 tệp / 149 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
+| `turbo run typecheck test build` (4 gói FE) | **9/9 xanh**: admin-web **19 tệp / 153 test**, api-client 14, ui 10, i18n 4. Bundle chính 433 KB (gzip 133 KB), không có cảnh báo > 500 KB |
 | `turbo run typecheck build` (toàn repo) | 16/16 xanh |
 | axe-core 4.13 trong jsdom (tắt `color-contrast`, `region`), chạy tạm rồi xóa:<br>• Lần 1: H13; H16 bước 2 (thêm đêm) và bước 3; H14 bảng dữ liệu cổng; H17 nhật ký, Hoàn tiền, Cần duyệt; hộp Gia hạn.<br>• Lần 2 (sau đợt 2): H16 thêm đêm, không thêm được đêm, sau nửa đêm, bước 3, phiếu song ngữ; H17 nhật ký; hộp Gia hạn có "Giữ giá đơn"; H13 | **0 critical / 0 serious** |
-| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`) |
+| `docker build -f infra/docker/Dockerfile.web .` | **exit 0** (`ottimo-web:fe-s3c`; sau đợt 2 `fe-s3d`; sau đợt 3 `fe-s3e`; sau bổ sung 3 `fe-s3f`) |
 
 Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồng hồ thật. Cả hai đã sửa:
 - `checkout.test`: cố định `Date` (chỉ `Date`, timer thật) cho mọi ca trả phòng.
@@ -39,7 +39,7 @@ Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồn
 | S3-12 | Done | Đủ 8 trạng thái theo bảng:<br>• H13 mất mạng còn nợ → giữ "Còn phải thu" + `rsv.need_online`; chip "đủ" chỉ khi `balance === 0`.<br>• `checkin.verify.empty` + nút về bước 1; điều kiện lỗi có `common.retry`.<br>• Rỗng: `recon.empty_*`, `refund.empty_*`, `room_change.no_rooms`.<br>• H14: `reg2.deadline_pending`, `reg2.retention_pending` |
 | S3-13 | Done | Cảnh báo dùng `checkin.warn.<code>`; mã lạ bỏ qua. Lỗi xem đủ số → `problemView(...).text`. `REFUND_EXCEEDS_APPROVED` {max} định dạng theo locale + đơn vị |
 | S3-14 | Done | Thay đủ 15 dòng trong bảng:<br>• `steps_label`, `room_change.price_*`, `party.kind.adult`, `party.child_birth_year`, `party.reduce_*`; tên trẻ em qua `childDisplayName`.<br>• `stay.charge_choose`, các toast `stay.toast.*`, `recon.cash_received_toast`, `refund.method_label`.<br>• `common.duration_hm/m`, `ci.view_hide`.<br>• Ẩn "Đã thu −0"; "Buồng phòng đã kiểm" chỉ ghi tên khi có `checkedByName`; `{max}` minibar = `standardQty` của món lỗi.<br>Nút đề nghị hoàn dùng `refund.request_overpayment` {amount} (bỏ "Gửi duyệt") |
-| S3-15 | Done (2 chỗ chờ ARC) | Giờ nhận/trả chuẩn lấy từ `useRules()` (BookingRules/tham số, rơi về BR khi không đọc được) ở H13, Trả muộn, Xác nhận giờ trả, Drawer, H16. Có căn thay thế → `late.arrival_warning_alt`. Quá hạn đối soát → `reconcileOverdue`/`pendingDays` của server.<br>**Còn viết cứng:**<br>• Mốc 18:00 (`rules.lateLimitTime`) – BookingRules chưa có mốc cuối trả muộn.<br>• `NOTICE_VERSION` + `RETENTION_DAYS=30` ở H14 – Desk chưa có nguồn `currentNoticeVersion`/`imageRetentionDays` (0.3.6 bổ sung 2 chỉ thêm vào `OnlineCheckin` của app khách) |
+| S3-15 | Done (1 chỗ chờ ARC) | Giờ nhận/trả chuẩn lấy từ `useRules()` (BookingRules/tham số, rơi về BR khi không đọc được) ở H13, Trả muộn, Xác nhận giờ trả, Drawer, H16. Có căn thay thế → `late.arrival_warning_alt`. Quá hạn đối soát → `reconcileOverdue`/`pendingDays` của server.<br>**Còn viết cứng:** mốc 18:00 (`rules.lateLimitTime`) – BookingRules chưa có mốc cuối trả muộn (0.3.7).<br>Phiên bản thông báo / số ngày lưu ảnh H14 nay lấy từ `Registration.consentNotice` (bổ sung 3 – xem đợt 4) |
 | S3-16 | Done | `money(v)` trong `@ottimo/i18n` (`common.currency_vnd`) cho mọi `{amount}` trong câu; ô số trong bảng giữ `vnd()`. Test cập nhật số có đơn vị |
 | S3-17 | Done | `Chip` có icon mặc định theo tone (ok ✓ / warn ! / bad ✕ / info i), nhận `icon`/`className`. Điều kiện `.conds li.met/.unmet` có icon. `CheckRow` → `li.chk3 ok\|fail\|unknown`. Chờ đối soát → `.chip.recon` + đồng hồ cát. Danh sách thẻ → `.list-none` |
 | S3-18 | Done | Bước tiến trình "xong" khi đạt thật: Giấy tờ khi có giấy tờ người đứng tên, Kiểm tra khi `reviewReady`. `document_check_block` đạt mà chưa có giấy tờ → chip trung tính `ci.cond_doc_check_pending` |
@@ -79,7 +79,7 @@ Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồn
 | `currentBookingRateVnd` (nút "Giữ giá đơn") | Done | Hộp Gia hạn: `currentBookingRateVnd ≠ null` → nút bật/tắt `extend.keep_rate` {amount} (`aria-pressed`) + `extend.keep_rate_help`. Bật → các đêm hiện giá đơn, gửi `nightlyRates` = giá đơn cho từng đêm chọn, nút "Gia hạn" hiện tổng giá đơn × số đêm (không dùng `repricing` vì server tính trên lịch giá). Mock trả giá đêm cuối của đơn Trực tiếp; OTA → null. Test: gửi đúng `nightlyRates` |
 | `changeRoom` `DATE_INVALID` | Done | Như trên |
 | Nhật ký tiền tập đóng | Done | Xem UXD S3-09 |
-| 7.1-4 `ConsentInput.retentionDays` (P02b) | Done | H14 gửi `retentionDays: 30`. Mock: thiếu → `REQUIRED`, khác 30 → `NOT_IN_LIST`. Số 30 còn viết cứng (xem S3-15) |
+| 7.1-4 `ConsentInput.retentionDays` (P02b) | Done | H14 gửi `retentionDays` = `consentNotice.imageRetentionDays` (bổ sung 3). Mock: thiếu → `REQUIRED`, khác tham số → `NOT_IN_LIST` |
 | 7.1-5 `AMOUNT_EXCEEDS_BALANCE` | Done | Mock `recordPayment` dùng mã này; FE hiện `field.AMOUNT_EXCEEDS_BALANCE` |
 
 ## Việc cần vai khác
@@ -87,7 +87,6 @@ Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồn
 - **ARC (0.3.7)**:
   - `ApprovalRequest.requestedById` (S3-11 ý 4).
   - Mốc cuối trả muộn trong `BookingRules` (S3-15).
-  - Nguồn `currentNoticeVersion`/`imageRetentionDays` cho Desk H14 (S3-15, 7.1-4).
   - `MinibarCheck.checkedByName` (S3-14).
   - Lọc `listReservations` theo căn (S3-21 – FE đang dùng `q`).
   - `getBill?locale=vi_en` nay chỉ còn cần cho tham số chữ tự do.
@@ -96,7 +95,7 @@ Test chạy lúc 00:0x (qua nửa đêm) nên lộ hai test phụ thuộc đồn
 ## Giả định (FE tự quyết)
 1. Đêm thêm khi trả phòng: số còn phải thu/thừa trên màn = tóm tắt server + giá đêm thêm (server cộng trong giao dịch B18). Thu trước ở bước 3 là thu đủ cả đêm này.
 2. Ô ghi chú giờ chỉ hiện khi server báo `TIME_NOTE_REQUIRED` hoặc người dùng đã gõ. FE không tự so giờ để tránh lệch đồng hồ máy quầy.
-3. `RETENTION_DAYS = 30` và `NOTICE_VERSION` ở H14 giữ hằng tới khi ARC có nguồn cho Desk.
+3. (Đã bỏ ở đợt 4) H14 dùng `Registration.consentNotice`; thiếu trường thì không hỏi đồng ý.
 4. "Giữ giá đơn": nút "Gia hạn" hiện giá đơn × số đêm. Server áp lại bậc BR-107 và giá ngày đặc biệt khi lưu, nên số cuối có thể khác. `repricing` của server tính trên lịch giá nên không dùng khi bật nút.
 5. Bill VI–EN: dòng có `labelKey` dịch EN ở client; tham số chữ tự do (tên món, ghi chú F&B) giữ nguyên.
 6. `approval.approved` không có `after.type` → `mlog.a_approval_approved` (không thêm nhãn loại).
@@ -126,4 +125,18 @@ Kết quả lệnh sau đợt 3:
 - 4 gói FE `typecheck test build` 9/9 xanh: admin-web 19 tệp / **149 test**.
 - axe H13 bước 3 + bước 4: 0 critical/serious.
 - `docker build` exit 0 (`ottimo-web:fe-s3e`). Lần build đầu lỗi vì OrbStack dừng giữa chừng; đã khởi động lại OrbStack (`orb start`) rồi build lại.
+
+## Đợt 4 – OpenAPI 0.3.6 bổ sung 3 (`s3-contract.md` mục 7.7, 17/10)
+| Việc | Trạng thái | Đã làm |
+|---|---|---|
+| H14 `Registration.consentNotice` | Done | Bỏ hằng `NOTICE_VERSION` / `RETENTION_DAYS = 30`. Câu hỏi đồng ý dùng `reg2.consent_q` {days} = `imageRetentionDays` (UXD đổi khóa 17/10); dòng "Tự xóa…" `reg2.retention_value` cũng nhận `{days}` (thiếu `consentNotice` → `reg2.retention_pending`, không bao giờ hiện `{days}` trần); khi ghi đồng ý gửi lại đúng `noticeVersion` + `retentionDays` server đưa.<br>Thiếu `consentNotice` → không hiện câu hỏi và nút chọn, chỉ hiện `reg2.consent_not_recorded` (fail closed như MOB).<br>Mock: `consentNotice` lấy từ tham số cơ sở (để `null` được khi test); `retentionDays` khác tham số → `NOT_IN_LIST`.<br>Test: số ngày từ server có trong câu hỏi và trong body gửi đi; thiếu `consentNotice` → không có câu hỏi |
+| BUG-R2-045 – `repricing[].channelFeeSavingsVnd` | Done | Câu `extend.ota_child` dùng số tiết kiệm của số đêm đang chọn; trường ở gốc chỉ dùng khi server cũ chưa có `repricing`.<br>Mock: đơn OTA có `repricing` (`losDiscountPct` 0, tiết kiệm = Σ giá × 15,5 %).<br>Test: 1 đêm 109.740 → 2 đêm 219.480 |
+
+UXD đã đổi `reg2.consent_q` sang `{days}` và đang đổi `reg2.retention_value`. FE đã truyền `{ days }` cho cả hai; test kiểm không còn `{days}` trần trên màn. Mock trả `imageRetentionUntil` khi có người đồng ý.
+
+Kết quả lệnh sau đợt 4:
+- Prettier xanh, ESLint 0 lỗi.
+- admin-web `typecheck test build` xanh, **153/153** test (sau khi đổi sang `reg2.consent_q`).
+- axe H14 (có / không có `consentNotice`) và hộp Gia hạn đơn OTA: 0 critical/serious.
+- `docker build` exit 0 (`ottimo-web:fe-s3f`).
 

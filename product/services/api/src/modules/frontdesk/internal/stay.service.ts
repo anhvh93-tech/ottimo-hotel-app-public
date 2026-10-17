@@ -789,14 +789,21 @@ export class StayService {
       children6to11: row.children_6_11,
       childrenUnder6: row.children_under_6,
     };
-    const current = new Map((await this.s.stay.nightFees(tx, row)).map((f) => [f.date, f.feeVnd]));
-    const feeChanges: Array<{ date: LocalDate; feeVnd: number }> = [];
+    const current = new Map((await this.s.stay.nightFees(tx, row)).map((f) => [f.date, f]));
+    const feeChanges: Array<{ date: LocalDate; feeVnd: number; count: number }> = [];
     let extraDelta = 0;
     for (const n of nightsOut) {
-      const before = current.get(n.date) ?? 0;
-      const inNew = this.s.stay.nightFee(ctx, row, party, newRoom.base_occupancy);
-      const fee = cause === 'property_fault' ? Math.min(before, inNew) : inNew;
-      feeChanges.push({ date: n.date, feeVnd: fee });
+      const was = current.get(n.date);
+      const before = was?.feeVnd ?? 0;
+      const inNew = this.s.stay.nightExtra(ctx, row, party, newRoom.base_occupancy);
+      // property_fault: min(old room, new room) – the count printed follows the fee kept.
+      const keepOld = cause === 'property_fault' && before <= inNew.feeVnd;
+      const fee = keepOld ? before : inNew.feeVnd;
+      feeChanges.push({
+        date: n.date,
+        feeVnd: fee,
+        count: keepOld ? (was?.count ?? 0) : inNew.count,
+      });
       extraDelta += fee - before;
     }
     const delta = (ota ? otaDifference : roomDelta) + extraDelta;

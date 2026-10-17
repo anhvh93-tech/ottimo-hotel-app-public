@@ -87,7 +87,7 @@ export interface ApiResult<T = unknown> {
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** Harness waits caused by SR-RL-09 in this worker (reported by the S3 test report, BUG-R2-051). */
-export const rateLimitWaits = { count: 0, seconds: 0 };
+export const rateLimitWaits = { count: 0, seconds: 0, resets: 0 };
 
 export function uuid(): string {
   return randomUUID();
@@ -142,18 +142,29 @@ export async function call<T = unknown>(
     });
   let res = await send();
   let text = await res.text();
-  // SR-RL-09 (600 requests/min per staff user, Sprint 3): every parallel worker of the suite shares the seed
-  // users qa.*, so the harness itself can exceed the window. The guard's counter is not cleared by
-  // /__test__/rate-limits/reset (BUG-R2-051) → wait Retry-After (≤ 65 s, test timeout extended) and resend
-  // the SAME request (the guard refuses before any handler/idempotency record – safe for writes). Under a
-  // frozen MutableClock the window never ends: after 2 waits the 429 is returned to the case.
+  // SR-RL-09 (600 requests/min per staff user – STAFF_REQUESTS_PER_MINUTE): every worker of the suite shares the
+  // seed users qa.*, so the harness itself can exceed the window. Since the fix of BUG-R2-051 the guard's window
+  // runs on the monotonic process clock and /__test__/rate-limits/reset clears it → reset once and resend the
+  // SAME request (the guard refuses before any handler/idempotency record – safe for writes). No test support
+  // (or an older build): wait Retry-After (≤ 65 s, test timeout extended), at most twice.
+  let resetTried = false;
   for (
     let attempt = 0;
-    res.status() === 429 && o.session && !o.noRateLimitWait && attempt < 2;
+    res.status() === 429 && o.session && !o.noRateLimitWait && attempt < 3;
     attempt++
   ) {
+    if (!/"RATE_LIMITED"/.test(text)) break;
+    if (!resetTried && !resetting) {
+      resetTried = true;
+      if (await resetRateLimits(ctx, `SR-RL-09 429 ${m} ${path.split('?')[0]}`)) {
+        rateLimitWaits.resets++;
+        res = await send();
+        text = await res.text();
+        continue;
+      }
+    }
     const wait = Number(res.headers()['retry-after'] ?? NaN);
-    if (!/"RATE_LIMITED"/.test(text) || !(wait > 0 && wait <= 65)) break;
+    if (!(wait > 0 && wait <= 65)) break;
     rateLimitWaits.count++;
     rateLimitWaits.seconds += wait;
     console.log(`[e2e] SR-RL-09 429 ${m} ${path.split('?')[0]} → chờ ${wait} giây (BUG-R2-051)`);
@@ -407,6 +418,8 @@ export async function session(ctx: APIRequestContext, username: string): Promise
 export const RESET_PREFIXES = ['qa.owner', 'qa.mgr', 'qa.fd', 'qa.hk', 'qa.mt', 'qa.sal', 'qa.ctv'];
 
 let resetUnavailable = false;
+/** true while resetRateLimits runs – its own owner session/getMe must not trigger another reset. */
+let resetting = false;
 
 /** An owner session for /__test__ calls: cache first, then login on the api, then through Caddy (other IP). */
 async function ownerForTestSupport(ctx: APIRequestContext): Promise<StaffSession | null> {
@@ -434,29 +447,37 @@ export async function resetRateLimits(
   why: string,
   prefixes: string[] = RESET_PREFIXES,
 ): Promise<boolean> {
-  if (!TEST_TOKEN || resetUnavailable) return false;
-  const owner = await ownerForTestSupport(ctx);
-  if (!owner) {
-    console.log(`[e2e] reset giới hạn (${why}): không có phiên qa.owner – bỏ qua`);
-    return false;
-  }
-  for (const usernamePrefix of prefixes) {
-    const r = await call<{ users?: number }>(ctx, 'POST', '/__test__/rate-limits/reset', {
-      session: owner,
-      headers: { 'x-test-token': TEST_TOKEN },
-      body: { usernamePrefix },
-    });
-    if (r.status === 404) {
-      resetUnavailable = true; // build without TestSupportModule / older build without this route
-      console.log(`[e2e] reset giới hạn (${why}): /__test__/rate-limits/reset chưa có trên build`);
+  resetting = true;
+  try {
+    if (!TEST_TOKEN || resetUnavailable) return false;
+    const owner = await ownerForTestSupport(ctx);
+    if (!owner) {
+      console.log(`[e2e] reset giới hạn (${why}): không có phiên qa.owner – bỏ qua`);
       return false;
     }
-    if (r.status !== 200) {
-      console.log(`[e2e] reset giới hạn (${why}) ${usernamePrefix}: HTTP ${r.status}`);
-      return false;
+    for (const usernamePrefix of prefixes) {
+      const r = await call<{ users?: number }>(ctx, 'POST', '/__test__/rate-limits/reset', {
+        noRateLimitWait: true,
+        session: owner,
+        headers: { 'x-test-token': TEST_TOKEN },
+        body: { usernamePrefix },
+      });
+      if (r.status === 404) {
+        resetUnavailable = true; // build without TestSupportModule / older build without this route
+        console.log(
+          `[e2e] reset giới hạn (${why}): /__test__/rate-limits/reset chưa có trên build`,
+        );
+        return false;
+      }
+      if (r.status !== 200) {
+        console.log(`[e2e] reset giới hạn (${why}) ${usernamePrefix}: HTTP ${r.status}`);
+        return false;
+      }
     }
+    return true;
+  } finally {
+    resetting = false;
   }
-  return true;
 }
 
 /** Like session(), but turns an IP login rate-limit (SR-RL-01, 20/IP/15 min) into a skip, not a red. */

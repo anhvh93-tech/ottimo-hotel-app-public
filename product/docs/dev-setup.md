@@ -137,7 +137,7 @@ curl -i http://localhost:8081/health      # qua Caddy
 docker compose --env-file .env -f infra/docker-compose.yml ps
 ```
 
-E2E smoke (Playwright, `tests/e2e`) trên stack đang chạy: `pnpm test:e2e`. TC-X-050c (dừng/bật postgres) chỉ chạy khi `E2E_COMPOSE_CONTROL=1` – đừng bật trên DB dev dùng chung. Chạy thử như CI mà không đụng stack dev: `COMPOSE_PROJECT_NAME=ottimo-ci POSTGRES_HOST_PORT=55432` (stack dev phải tắt api/web vì trùng cổng 3000/8081), `.env` sinh bằng `bash infra/ci/make-ci-env.sh .env.example .env` trong một bản sao thư mục `product/`.
+E2E smoke (Playwright, `tests/e2e`) trên stack đang chạy: `pnpm test:e2e`. Nhiều worker Playwright dùng chung tài khoản `qa.*` nên có thể chạm giới hạn SR-RL-09 (600 request/phút/người → 429): đặt `STAFF_REQUESTS_PER_MINUTE=5000` trong `product/.env` rồi `pnpm dev` lại (compose chuyển biến này cho api/worker; trống = 600; chỉ dev/test được nâng). CI tự đặt 5000 (`infra/ci/make-ci-env.sh`) và chạy seed bằng uid của runner để E2E đọc được `ds-e.map.json` (0600). TC-X-050c (dừng/bật postgres) chỉ chạy khi `E2E_COMPOSE_CONTROL=1` – đừng bật trên DB dev dùng chung. Chạy thử như CI mà không đụng stack dev: `COMPOSE_PROJECT_NAME=ottimo-ci POSTGRES_HOST_PORT=55432` (stack dev phải tắt api/web vì trùng cổng 3000/8081), `.env` sinh bằng `bash infra/ci/make-ci-env.sh .env.example .env` trong một bản sao thư mục `product/`.
 
 Nạp dữ liệu QA DS-E (dữ liệu giả, `tests/fixtures/seed/ds-e.json`) vào DB dev **một lần** sau khi migrate (DB đã nạp rồi thì loader báo `DS-E is already loaded` và không đổi gì):
 
@@ -226,7 +226,9 @@ product/
 ├── infra/postgres/init/02-roles.sh       # vai ottimo_owner (NOLOGIN) / ottimo_migrator / ottimo_app / ottimo_readonly
 ├── infra/ci/check-no-test-surface.sh     # CI: chặn /__test__ trong openapi.yaml và bundle api production
 ├── infra/ci/make-ci-env.sh               # CI: .env dùng một lần (mật khẩu, TEST_SUPPORT_TOKEN, QA_SEED_PASSWORD ngẫu nhiên)
-├── infra/ci/check-caddy-prod.sh          # CI: Caddyfile.prod – header, probe 404, 413, log không có token /g/
+├── infra/ci/check-caddy-prod.sh          # CI: Caddyfile.prod – header so KHỚP TUYỆT ĐỐI với infra/caddy/expected-headers.sh,
+│                                         #     probe vào tệp thật (map, tệp ẩn, đường blob) → 404, 413, log không có token/header
+├── infra/ci/check-compose.sh             # CI: compose dev + prod – blobdata chỉ ở api/worker, web không có blob/bí mật, prod cứng hóa
 └── tests/e2e | load | fixtures           # R2–R3
 ```
 

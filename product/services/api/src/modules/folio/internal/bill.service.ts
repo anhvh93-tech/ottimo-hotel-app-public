@@ -132,9 +132,10 @@ export class BillService {
     }
     const foreign = !!booker?.nationalityCode && booker.nationalityCode !== 'VN';
     const locale = foreign || (preferred !== null && preferred !== 'vi') ? 'vi_en' : 'vi';
-    if (paymentModel === 'ota_prepaid') {
-      // G-13 + DOM BE-13: what the OTA collected (nights, extra-person fee, fees it keeps) is not printed;
-      // the bill totals only what is settled at the desk.
+    // G-13 + DOM BE-13: what the OTA collected (the room charge it billed, fees it keeps) is not printed and
+    // the bill totals only what is settled at the desk – but only when the system receipt `ota_collect` really
+    // exists (verification 17/10): no receipt → nothing hidden, no "Đã thu qua OTA" from the lines.
+    if (paymentModel === 'ota_prepaid' && m.paidOtaVnd > 0) {
       const covered = new Set(
         printable
           .filter(
@@ -145,9 +146,8 @@ export class BillService {
       const ota = printable.filter(
         (l) => covered.has(l.id) || (!!l.related_line_id && covered.has(l.related_line_id)),
       );
-      const otaNet = ota.reduce((a, l) => a + l.amount_vnd, 0);
       printable = printable.filter((l) => !ota.includes(l));
-      otaPrepaidVnd = m.paidOtaVnd > 0 ? m.paidOtaVnd : otaNet;
+      otaPrepaidVnd = m.paidOtaVnd;
       const channel = String(view.channelCode ?? 'OTA');
       otaPrepaidNote =
         locale === 'vi_en'

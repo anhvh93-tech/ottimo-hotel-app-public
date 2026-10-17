@@ -20,7 +20,6 @@ import {
 } from '../public/attachment.service';
 import { fileRejected, normalizeImage } from '../public/image-pipeline';
 import { fileParts, parseMultipart, textPart } from '../public/multipart';
-import { withUploadGate } from '../public/upload-gate';
 
 interface Reply {
   status(code: number): unknown;
@@ -86,7 +85,8 @@ export class AttachmentsController {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'file', code: 'REQUIRED' }] });
     }
     if (files.length > 1) throw fileRejected('file', 'TOO_MANY_FILES');
-    const result = await withUploadGate(async () => {
+    // This request already holds an upload slot: taken in readMultipart before its body was read (http.ts).
+    const result = await (async () => {
       const image = await normalizeImage(files[0] as Buffer, 'file');
       // Idempotency hash over the logical request (never the multipart bytes as JSON).
       req.body = {
@@ -105,7 +105,7 @@ export class AttachmentsController {
           image,
         ),
       }));
-    });
+    })();
     return applyResult(reply, result);
   }
 

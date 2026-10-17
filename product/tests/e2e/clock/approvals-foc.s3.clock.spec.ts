@@ -1055,10 +1055,7 @@ test.describe(
         expect(['pending', 'escalated']).toContain(
           (await rowOf(request, owner, rb.body.id))?.status,
         );
-        test.fail(
-          true,
-          'BUG-R2-046 (định tuyến): FOC trên dòng phát sinh không có limit_basis_vnd → hạn mức quản lý "1 đêm" không xác định, FOC 301.000 định tuyến lên chủ đầu tư thay vì quản lý (BR-433-02)',
-        );
+        // BUG-R2-046 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
         expect(oracle('BR-433-02').expected.escalateTo).toBe('manager');
         expect(rb.body.requiredRole, 'định tuyến 301.000 (BR-433-02)').toBe('manager');
         expect(ab.body.approver).toBe('manager');
@@ -1123,10 +1120,7 @@ test.describe(
         // (b) qa.mgr tự gửi FOC 50.000 (≤ giá 1 đêm – BR-433) → tự áp (approved ngay) hoặc tự duyệt được
         const rb = await requestFoc(request, mgr, fs.folioId, late.id, { amountVnd: 50_000 });
         expect(rb.status, JSON.stringify(rb.body)).toBe(201);
-        test.fail(
-          true,
-          'BUG-R2-046 (quản lý): FOC trên dòng phát sinh không có limit_basis_vnd → hạn mức quản lý "1 đêm" không xác định – yêu cầu của qa.mgr không tự áp (pending), tự duyệt → 403 APPROVAL_LIMIT_EXCEEDED và leo lên chủ đầu tư',
-        );
+        // BUG-R2-046 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
         let final: Approval & ProblemFields = rb.body;
         if (rb.body.status === 'pending') {
           const ab = await approveFoc(request, mgr, rb.body.id);
@@ -1590,10 +1584,7 @@ test.describe(
           password: true,
         });
         expect(a.status, JSON.stringify(a.body)).toBe(201);
-        test.fail(
-          true,
-          'BUG-R2-046 (quản lý): FOC trên dòng phát sinh không có limit_basis_vnd → hạn mức quản lý "1 đêm" không xác định – qa.mgr áp FOC trả muộn 210.000 không được tự áp (pending)',
-        );
+        // BUG-R2-046 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
         expect(a.body).toMatchObject({
           status: 'approved',
           selfApplied: true,

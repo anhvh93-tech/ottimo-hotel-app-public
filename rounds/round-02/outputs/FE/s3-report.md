@@ -155,3 +155,9 @@ Phản hồi từng thẻ: `rounds/round-02/responses/s3-FE.md`. Phạm vi gồm
 - **BUG-R2-052**: lỗi 422 ở trường không có ô trên màn không còn chỉ hiện "Bắt buộc". H13 dùng `error.field_named` {label}{message}; trường có ô hiện câu tại ô và Alert `error.VALIDATION_FAILED` {n}. Phần nguyên nhân thuộc BE-A.
 - Kết quả: admin-web 149/149 xanh, axe H13 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3e`).
 
+### 9.6 Đợt 4 – OpenAPI 0.3.6 bổ sung 3
+- H14 đọc `Registration.consentNotice`: câu hỏi `reg2.consent_q` và dòng `reg2.retention_value` nhận `{days}` từ server; gửi lại đúng phiên bản thông báo + số ngày. Thiếu trường → không hỏi đồng ý (fail closed). Đã bỏ hai hằng viết cứng.
+- Gia hạn đơn OTA: số tiết kiệm phí kênh theo số đêm chọn (`repricing[].channelFeeSavingsVnd`, BUG-R2-045).
+- Mock theo bổ sung 3.
+- Kết quả: admin-web 153/153 test, axe 0 critical/serious, `docker build` exit 0 (`ottimo-web:fe-s3f`).
+

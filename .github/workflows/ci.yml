@@ -132,7 +132,13 @@ jobs:
         run: |
           shellcheck --version | head -2
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
-            product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh
+            product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
+            product/infra/caddy/*.sh
+      # Independent of build-test (blocker verification 17/10: a red lint must not skip these guards).
+      - name: Compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening)
+        run: bash product/infra/ci/check-compose.sh
+      - name: Caddyfile.prod rules on the stock caddy image (exact headers, real-file probes, 413, log masking)
+        run: bash product/infra/ci/check-caddy-prod.sh --stub
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
@@ -234,11 +240,9 @@ jobs:
       # with the server template, and the production Caddyfile – run from the image just built, *.localhost names,
       # internal CA, no Internet – serves CSP/HSTS/Referrer-Policy, 404 on blob/dot-file probes, 413 over 1 MB and
       # masks /g/<token> in its log (infra/ci/check-caddy-prod.sh).
-      - name: Production compose config + Caddyfile.prod (headers, probes, body limit, log masking)
+      - name: Production compose rules + Caddyfile.prod on the built web image (hardened like production)
         run: |
-          IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-config-check \
-            --env-file product/infra/server/env.example -f product/infra/docker-compose.prod.yml \
-            --profile deploy --profile seed config --quiet
+          bash product/infra/ci/check-compose.sh
           bash product/infra/ci/check-caddy-prod.sh ottimo-web:ci
       - name: Smoke test GET /health against PostgreSQL (app role, same init scripts as dev)
         env:
@@ -358,12 +362,15 @@ jobs:
       # the harness used to retry until SR-RL-01 answered 429 (run 38887585274). QA, round-02 s1-report mục 8.
       - name: Load QA seed DS-E (one-shot, profile seed)
         working-directory: product
-        # The seed container runs as `node` (uid 1000) and writes device tokens to the bind-mounted
-        # tests/fixtures/seed/.out; the runner checkout belongs to another uid, so pre-create it writable.
+        # The loader writes the trusted-device tokens to the bind-mounted tests/fixtures/seed/.out/ds-e.map.json with
+        # mode 0600. Run it as the RUNNER's uid (not the image's `node`, uid 1000 ≠ runner 1001): otherwise the file
+        # belongs to 1000 and the E2E process cannot read it → no device cookie → DEVICE_NOT_TRUSTED on every C3 case
+        # (TC-L3-060..062, SEC-C3 – blocker verification 17/10). The directory stays writable for that uid only.
         run: |
           mkdir -p tests/fixtures/seed/.out
-          chmod 0777 tests/fixtures/seed/.out
-          docker compose --env-file .env -f infra/docker-compose.yml run --rm seed
+          chmod 0700 tests/fixtures/seed/.out
+          docker compose --env-file .env -f infra/docker-compose.yml run --rm --user "$(id -u):$(id -g)" seed
+          test -r tests/fixtures/seed/.out/ds-e.map.json || { echo "::error::seed device map not readable by the runner"; ls -ln tests/fixtures/seed/.out; exit 1; }
       # E2E_COMPOSE_CONTROL=1: TC-X-050c may stop/start postgres – this stack is disposable.
       # E2E_UI=1 (QC Sprint 2 ĐK-S2-4, QA s3-kickoff): project desk-chromium drives admin-web in Chromium against the
       # real api – UI smoke (login/menus, rack, booking, two desks saving at once) + axe H01–H12 (0 critical/serious).

@@ -251,9 +251,12 @@ test.describe(
           expect(a.status, JSON.stringify(a.body)).toBe(201);
           const docA = a.body.documents.find((d) => !d.isMain);
           expect(docA).toBeTruthy();
+          // (a) vòng sửa 2 có cổng khớp theo số giấy tờ (frontdesk/internal/document-party.port.ts) nhưng chỉ so với
+          // guest.id_doc_hmac – không chỗ nào ghi cột này (giấy tờ người đứng tên lần trước không gắn chỉ mục vào
+          // hồ sơ) → không bao giờ khớp. QA kiểm lại 17/10 trên cây làm việc sau e3959ec: vẫn trượt.
           test.fail(
             true,
-            'BUG-R2-033: addGuestDocument không gắn người vào đơn theo BR-951 (partyMemberId trống → không khớp hồ sơ, không tạo người "Chưa rõ")',
+            'BUG-R2-033 (a): khớp hồ sơ theo số giấy tờ không xảy ra – guest.id_doc_hmac không được ghi ở đâu (chỉ đọc ở document-party.port.ts:79/85)',
           );
           expect(docA!.partyMemberId, 'giấy tờ được gắn với một người trong đơn').toBeTruthy();
           const after = await partyOf(request, fd, st.res.id);
@@ -261,7 +264,11 @@ test.describe(
           expect(memberA?.guest?.id, 'khớp hồ sơ có sẵn theo số giấy tờ (BR-951)').toBe(
             prevBooker?.id,
           );
-          // (b) không khớp ai → người mới quan hệ "Chưa rõ"
+          // (b) không khớp ai → người mới quan hệ "Chưa rõ" – còn chờ ARC/PO (ORC 17/10): giữ test.fail cho phần này
+          test.fail(
+            true,
+            'BUG-R2-033 (b): không khớp ai → chưa tạo người quan hệ "Chưa rõ" (BR-951) – chờ ARC/PO chốt',
+          );
           const b = await addDocument(
             request,
             fd,

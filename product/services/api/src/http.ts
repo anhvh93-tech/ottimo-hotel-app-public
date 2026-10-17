@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { TrustProxy } from './config';
+import { tryAcquireUploadSlot, uploadGateFull } from './modules/files/public/upload-gate';
 import { SECRET_BODY_FIELDS } from './shared/secret-fields';
 
 const SENSITIVE_KEYS = [
@@ -69,6 +70,18 @@ export const MULTIPART_ROUTES: ReadonlySet<string> = new Set([
 
 const SESSION_COOKIE = /(?:^|;\s*)(?:__Host-)?ottimo_(?:sid|gsid)=[^;\s]{32,}/;
 
+/**
+ * Real-session check for the multipart routes, installed on the Fastify instance by the files module
+ * (UploadSessionCheck – it needs the database). Called BEFORE the body is read; absent = fail closed.
+ */
+export const MULTIPART_SESSION_CHECK = Symbol.for('ottimo.multipartSessionCheck');
+export type MultipartSessionCheck = (
+  headers: Record<string, string | string[] | undefined>,
+) => Promise<boolean>;
+
+/** Request property holding the upload slot (released on response / abort). */
+const UPLOAD_SLOT = Symbol.for('ottimo.uploadSlot');
+
 function httpError(statusCode: number, message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
 }
@@ -77,6 +90,7 @@ interface MultipartRequest {
   method: string;
   headers: Record<string, string | string[] | undefined>;
   routeOptions?: { url?: string };
+  server?: unknown;
 }
 
 interface BodyStream {
@@ -84,8 +98,25 @@ interface BodyStream {
   on(event: 'end', fn: () => void): unknown;
   on(event: 'error', fn: (err: Error) => void): unknown;
   resume(): unknown;
+  destroy?(): unknown;
 }
 
+/** Releases the upload slot of a request, if it holds one (idempotent). */
+export function releaseUploadSlot(req: unknown): void {
+  const holder = req as { [UPLOAD_SLOT]?: () => void };
+  holder[UPLOAD_SLOT]?.();
+  delete holder[UPLOAD_SLOT];
+}
+
+/**
+ * multipart/form-data body parser (ARC FB-R2-ARC-BE-S3-03/18, SEC FB-R2-SEC-BE-47, s3-blocker-verification).
+ * Nothing of the body is read until, in this order: the route is one of the 3 upload routes (else 415 →
+ * 422); a session cookie of the right shape is present (else 401); that session is REAL (staff or guest,
+ * not revoked, not expired – else 401); a declared Content-Length is within the cap (else 413); an upload
+ * slot is free (else 503 + Retry-After – the body is dropped). Then the body is read from the stream into
+ * ONE buffer (pre-allocated from Content-Length; chunked bodies are joined once), capped at
+ * MULTIPART_BODY_LIMIT (413). The slot stays taken until the response is sent (hooks below).
+ */
 export function readMultipart(
   req: MultipartRequest,
   payload: BodyStream,
@@ -100,6 +131,51 @@ export function readMultipart(
     done(httpError(401, 'session required'));
     return;
   }
+  const lengthHeader = req.headers['content-length'];
+  const declared = Number(Array.isArray(lengthHeader) ? lengthHeader[0] : lengthHeader);
+  if (Number.isFinite(declared) && declared > MULTIPART_BODY_LIMIT) {
+    done(httpError(413, 'body too large'));
+    return;
+  }
+  const check = (req.server as { [MULTIPART_SESSION_CHECK]?: MultipartSessionCheck } | undefined)?.[
+    MULTIPART_SESSION_CHECK
+  ];
+  if (!check) {
+    done(httpError(401, 'session check unavailable'));
+    return;
+  }
+  check(req.headers).then(
+    (ok) => {
+      if (!ok) {
+        done(httpError(401, 'session required'));
+        return;
+      }
+      const release = tryAcquireUploadSlot();
+      if (!release) {
+        done(uploadGateFull());
+        return;
+      }
+      (req as { [UPLOAD_SLOT]?: () => void })[UPLOAD_SLOT] = release;
+      readBody(
+        payload,
+        Number.isFinite(declared) && declared > 0 ? declared : null,
+        (err, body) => {
+          if (err) releaseUploadSlot(req);
+          done(err, body);
+        },
+      );
+    },
+    (err: unknown) => done(err instanceof Error ? err : new Error('session check failed')),
+  );
+}
+
+function readBody(
+  payload: BodyStream,
+  declared: number | null,
+  done: (err: Error | null, body?: Buffer) => void,
+): void {
+  // One copy: into a buffer of the declared size; chunked bodies keep their chunks and are joined once.
+  const fixed = declared !== null ? Buffer.allocUnsafe(declared) : null;
   const chunks: Buffer[] = [];
   let size = 0;
   let settled = false;
@@ -110,16 +186,20 @@ export function readMultipart(
   };
   payload.on('data', (chunk: Buffer) => {
     if (settled) return;
-    size += chunk.length;
-    if (size > MULTIPART_BODY_LIMIT) {
+    if (size + chunk.length > (fixed ? fixed.length : MULTIPART_BODY_LIMIT)) {
       chunks.length = 0;
       finish(httpError(413, 'body too large'));
       payload.resume(); // drain without keeping anything
       return;
     }
-    chunks.push(chunk);
+    if (fixed) chunk.copy(fixed, size);
+    else chunks.push(chunk);
+    size += chunk.length;
   });
-  payload.on('end', () => finish(null, Buffer.concat(chunks, size)));
+  payload.on('end', () => {
+    if (fixed) finish(null, size === fixed.length ? fixed : fixed.subarray(0, size));
+    else finish(null, chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, size));
+  });
   payload.on('error', (err) => finish(err));
 }
 
@@ -148,12 +228,13 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
       },
     },
   });
-  // multipart/form-data (ARC FB-R2-ARC-BE-S3-03/18, SEC FB-R2-SEC-BE-47): accepted ONLY on the three upload
-  // routes; anywhere else the body is refused before it is read (Fastify maps it to 415 → problem+json).
-  // A request without any session cookie (staff or guest) is refused before the body is read too. The body
-  // is read from the stream with its own cap (4 × 10 MB images + JSON) and kept in memory only
-  // (files/public/multipart.ts – no temp file in clear, SR-FILE-04). Caddy caps the same routes (OPS).
+  // multipart/form-data: see readMultipart – route, real session, size and upload slot are checked before
+  // the body is read; the body is kept in memory only (files/public/multipart.ts – no temp file in clear,
+  // SR-FILE-04). Caddy caps the same routes (OPS).
   adapter.getInstance().addContentTypeParser('multipart/form-data', readMultipart);
+  // The upload slot taken by readMultipart is given back when the response is sent or the client goes away.
+  adapter.getInstance().addHook('onResponse', async (req: unknown) => releaseUploadSlot(req));
+  adapter.getInstance().addHook('onRequestAbort', async (req: unknown) => releaseUploadSlot(req));
   adapter
     .getInstance()
     .addHook(

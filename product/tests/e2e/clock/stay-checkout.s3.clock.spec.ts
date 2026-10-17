@@ -486,11 +486,16 @@ test.describe(
           note(
             '(b) "đổi tỷ lệ cấu hình → thông báo đổi theo": chưa kiểm (đổi hoa hồng kênh là cấu hình dùng chung toàn cơ sở)',
           );
-          test.fail(
-            ob.body.channelFeeSavingsVnd === pctOf(ob.body.nights[0]!.defaultRateVnd!, pct),
-            'BUG-R2-045: getExtensionOptions.channelFeeSavingsVnd = phí kênh của 1 đêm đầu, không theo số đêm gia hạn (BR-422-01: 2 đêm 2.084.000 → tiết kiệm 323.000)',
+          // OpenAPI 0.3.6 bổ sung 3 (ARC 17/10, BUG-R2-045): số theo số đêm khách chọn nằm ở
+          // repricing[].channelFeeSavingsVnd; trường gốc giữ nghĩa "1 đêm" để tương thích
+          const two2 = two as { channelFeeSavingsVnd?: number };
+          // BUG-R2-045 đã sửa (BE-A, 0.3.6 bổ sung 3) – QA kiểm lại 17/10, bỏ test.fail
+          expect(two2.channelFeeSavingsVnd, 'repricing[2 đêm].channelFeeSavingsVnd').toBe(
+            expectedSaving,
           );
-          expect(ob.body.channelFeeSavingsVnd).toBe(expectedSaving);
+          expect(ob.body.channelFeeSavingsVnd, 'trường gốc = 1 đêm (tương thích)').toBe(
+            pctOf(ob.body.nights[0]!.defaultRateVnd!, pct),
+          );
         },
       );
       test(
@@ -539,10 +544,7 @@ test.describe(
           // → đọc DB của stack dùng một lần)
           const st = storedRoomStatus(c, '203');
           if (st !== null) {
-            test.fail(
-              st === 'OC',
-              'BUG-R2-047: gia hạn (B13) không chuyển buồng OC → OD (SM-01 B13, BR-802 "gia hạn → OD") – room_status vẫn OC',
-            );
+            // BUG-R2-047 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
             expect(st, 'buồng sau gia hạn').toBe('OD');
           }
         },
@@ -2457,10 +2459,7 @@ test.describe(
           expect(fdl + 100000).toBeLessThanOrEqual(night);
           const mgr = await fresh(request, 'qa.mgr');
           const dec = await approve(request, mgr, foc.body.id);
-          test.fail(
-            dec.status === 403 && dec.body.code === 'APPROVAL_LIMIT_EXCEEDED',
-            'BUG-R2-046: MGR không duyệt được FOC trong hạn mức một đêm (foc_limits manager one_night_rate) khi dòng không phải tiền phòng – limitBasisVnd = null → 403 APPROVAL_LIMIT_EXCEEDED, phải lên OWN (BR-433)',
-          );
+          // BUG-R2-046 đã sửa ở vòng sửa 2 (cây làm việc sau e3959ec) – QA bỏ test.fail 17/10, kiểm lại trên stack mới
           expect(dec.status, JSON.stringify(dec.body)).toBe(200);
           expect((await checkoutSummary(request, fd, a.res.id)).body.blockers ?? []).not.toContain(
             'pending_approvals',

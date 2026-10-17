@@ -1031,6 +1031,12 @@ export function createStayMock(ctx: Ctx) {
       portalReference: reg.portalReference,
       blocksDoorCode: reg.blocksDoorCode,
       ...(st.consentNotice ? { consentNotice: st.consentNotice } : {}),
+      // BR-610: images kept `imageRetentionDays` after check-out when someone agreed.
+      ...(st.consentNotice && reg.documents.some((d) => d.imageConsent === 'granted')
+        ? {
+            imageRetentionUntil: `${addDays(r.departureDate, st.consentNotice.imageRetentionDays)}T12:00:00+07:00`,
+          }
+        : {}),
       documents: reg.documents.map((d) => ({
         id: d.id,
         partyMemberId: d.partyMemberId,

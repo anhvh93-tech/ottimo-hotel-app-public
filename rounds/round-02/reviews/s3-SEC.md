@@ -316,3 +316,40 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - **Mã hóa phong bì của BE-C** đúng sách: AAD gắn bản ghi + phiên bản KEK lúc niêm phong, DEK bọc có AAD riêng, hủy DEK không đảo ngược được, test ranh giới `crypto-boundary.test.ts` chặn module khác đụng `data_key`/KEK. Quyết định HKDF tách miền gọn và không cần thêm bí mật.
 - **Cổng C3 dùng chung** (`C3AccessGate`): thứ tự kiểm, ghi log trước dữ liệu, 503 khi không ghi được log, SR-RL-06 đếm trong DB, `no-store` – BE-B dùng lại cho tài khoản hoàn thay vì tự làm.
 - **ĐK-1…6 phía API và guest-web làm chặt**: không đăng ký 5 route mức 2, token 256 bit chỉ lưu băm và không vào bảng idempotency, client lọc trắng khóa mức 1, không lưu gì trên máy khách, MSW không thể lọt vào bản production. **Tách nhiệm tiền bằng CHECK DB** (đối soát, tiền mặt nộp quầy, hoàn tiền, FK cặp người tạo) – lớp phòng thủ thứ hai mà ít đội làm.
+
+---
+
+## 7. Ký phần dữ liệu cá nhân – BUG-R2-033 (b): hồ sơ khách "từ giấy tờ" (SEC, 17/10/2026)
+
+Yêu cầu: ORC 17/10 theo quyết định PO 17/10 (decision-log: BUG-R2-033 (b) chọn A – có điều kiện SEC ký). Căn cứ: `security/data-risk-assessment.md` P05 (CRM cần đồng ý), **F03** ("không dùng số giấy tờ làm khóa CRM; nếu nhận diện khách quen bằng giấy tờ thì chỉ băm có khóa **và chỉ khi khách đồng ý P05**"), T03, T05; erd `guest.id_doc_hmac` ("chỉ khi có đồng ý P05"); BR-951, BR-952, BR-955 (người đi cùng tự đồng ý). Đã đọc mã đang làm `frontdesk/internal/document-party.port.ts`, `registration/public/party-port.ts`, `registration/internal/rules.ts:95-97`.
+
+**Kết luận: DUYỆT CÓ ĐIỀU KIỆN.** Được tạo hồ sơ "từ giấy tờ" để gắn người đi cùng vào đơn (mục đích P01 thực hiện lưu trú + P02 khai báo). Hồ sơ này **không phải hồ sơ CRM**. Số giấy tờ **không** thành khóa định danh lâu dài của hồ sơ khi chính người đó chưa đồng ý P05. Đây là điểm SEC sửa so với câu "khóa định danh = số giấy tờ" trong quyết định PO, để giữ F03.
+
+### 7.1 Trường tối thiểu (điểm 1)
+| Được lưu trên `guest` nguồn `document` | Không được lưu (vẫn chỉ nằm trong `guest_document` mã hóa, theo T03) |
+|---|---|
+| `code`; `full_name` (tên trên giấy tờ) + `name_search`; `nationality_code` (đổi alpha-3 → alpha-2) + `is_foreigner`; `source = 'document'` (mới); `crm_consent = 'not_asked'`; `created_by`/`created_at`; `last_stay_checkout_at` (mốc hạn lưu – có thể tính từ đơn) | Ngày sinh, giới tính, số giấy tờ, 4 số cuối (`id_doc_last4`), HMAC số giấy tờ (khi chưa có P05), địa chỉ, thị thực, ảnh; SĐT/email (không có); `tags`, `free_note`, `service_notes`, phân khúc (đều là mục đích P05) |
+
+Ngày sinh **không** chép sang hồ sơ: chép ra là đưa C3 (D03) ra khỏi kho mã hóa và kéo dài quá T03. Hệ quả cố ý: hồ sơ "từ giấy tờ" không khớp được theo tên + ngày sinh ở lần ở sau.
+
+### 7.2 Hạn lưu hồ sơ không có liên hệ (điểm 2)
+- Áp **T05**: **ẩn danh hóa 12 tháng sau lần trả phòng cuối** (`full_name`, `name_search` → NULL/mã; giữ `code`, `nationality_code` cho thống kê; đặt `anonymized_at`). Gắn với T03 (dữ liệu khai báo cũng hết 12 tháng sau trả phòng). Tham số `document_profile_retention_months` (mặc định 12, biên 1–12, chỉ OWN sửa, audit `config`).
+- Hồ sơ ra khỏi chế độ này chỉ khi: chính người đó đồng ý P05 tại quầy (`consent_record` `subject_type = guest`, R-CON-04, BR-955 – không dùng đồng ý của người đặt) → áp T06; hoặc hồ sơ được thêm liên hệ/thành người đứng tên → áp quy tắc CRM như hồ sơ thường (T05/T06).
+- Có cần lưu ngắn hơn hay dài hơn là câu hỏi pháp lý: **đã thêm câu phụ vào ESC-001** (không ESC mới). Trong lúc chờ: 12 tháng, `[GIẢ ĐỊNH SEC – chờ luật sư]`. Job ẩn danh bắt buộc có **trước khi đưa dữ liệu khách thật vào** (cổng ESC-001), không bắt buộc để merge Sprint 3.
+
+### 7.3 Khóa số giấy tờ để khớp sau khi ảnh/giấy tờ bị xóa (điểm 3)
+- BR-609 chỉ xóa **ảnh**; trường giấy tờ (gồm `guest_document.doc_number_hmac`) sống tới T03. Việc khớp **trong cùng đơn/khai báo** dùng `doc_number_hmac` như hiện tại (chống nhập trùng), không phụ thuộc ảnh.
+- Khớp **qua các lần ở** (nhận ra người quay lại) chỉ được dùng khóa trên hồ sơ `guest.id_doc_hmac`, và cột này **chỉ được ghi khi người đó đã đồng ý P05** (F03, erd). Khi có P05, khóa sống độc lập với ảnh (BR-609) và với trường khai báo (T03), không bao giờ có bản rõ. Khóa bị xóa khi rút P05 hoặc hết T06.
+- Cách tính khóa hồ sơ (mới, khác chỉ mục trong khai báo): `keyedHash('guest_doc', "<loại: passport|vn_id|other>|<quốc gia cấp alpha-3>|<số chuẩn hóa>")` = HMAC-SHA256 với khóa con HKDF(`ID_HASH_KEY`, info `ottimo:guest_doc:v1`) – cùng cơ chế đã duyệt cho `child_name`. Lý do: (a) đưa loại + quốc gia vào khóa để hộ chiếu trùng số của hai nước không bị gắn nhầm người; (b) tách miền với `doc_number_hmac` của khai báo, nên bảng khai báo lộ ra không nối thẳng được sang CRM; (c) có `v1` để xoay sau này. Chuẩn hóa số: in hoa, bỏ `[\s.\-/]` (cùng sửa BE-48 – `normalizeDocNumber` hiện chỉ bỏ khoảng trắng). Giá trị là C3 (SR-KEY-07), không trả API, không vào audit/log/outbox.
+- Không có P05: HMAC tính trong bộ nhớ lúc `addGuestDocument` chỉ để **so** với hồ sơ đã có P05 (người đó chính là khách đã đồng ý), rồi bỏ. Không ghi lên hồ sơ "từ giấy tờ".
+
+### 7.4 Điều kiện theo vai
+| Vai | Điều kiện |
+|---|---|
+| **BE-B** (guests) | Cột `source` (`desk\|ota\|document\|…`) + CHECK: `source = 'document'` được thiếu SĐT/email; CHECK `id_doc_hmac IS NULL OR crm_consent = 'granted'` (F03 ở tầng DB) – kèm việc xóa `id_doc_hmac` khi rút P05. Hàm tạo hồ sơ "từ giấy tờ" là cổng public riêng (không qua form CRM), chỉ nhận đúng trường ở 7.1. API từ chối `tags`/`free_note`/`service_notes` cho hồ sơ `document` chưa có P05. Loại khỏi danh sách/xuất tiếp thị, khỏi `searchGuests`/`lookupGuestByContact` của SAL/CTV (rbac D10). Job ẩn danh T05 (7.2) trước khi có dữ liệu thật. Audit `guest.created` ghi `source` + mã đơn, không tên/giấy tờ |
+| **BE-C** (registration) | Tính khóa 7.3 trong bộ nhớ, chuyển cho cổng party; **không** truyền ngày sinh để lưu (chỉ để so trong đơn). Sửa chuẩn hóa số giấy tờ (BE-48). Khi T03 xóa trường khai báo, xóa luôn `doc_number_hmac`. Test: hồ sơ "từ giấy tờ" không có ngày sinh/số/4 số cuối/HMAC; xóa ảnh theo BR-609 rồi nhập lại cùng số trong cùng đơn → 409 `PARTY_DUPLICATE` như cũ |
+| **BE-A** (party, `document-party.port.ts`) | Bước 2 (khớp hồ sơ ngoài đơn): **chỉ** tự gắn khi khớp `id_doc_hmac` (tức hồ sơ có P05). Khớp **tên + ngày sinh** với hồ sơ ngoài đơn **không** được tự gắn (BR-952 coi là "nghi trùng"; gắn nhầm người làm lộ lịch sử/ghi chú của khách khác cho đơn này) → trả null + cờ "có thể là khách quen" để lễ tân xác nhận. Không khớp → tạo hồ sơ 7.1 qua cổng BE-B, gắn `role = companion`, quan hệ `unknown`; vượt số khách thì vẫn gắn + cảnh báo (theo PO). Trẻ em: không hồ sơ |
+| **BA** | EP06 2.2 + EP00 (bảng `phone`/`email`): ngoại lệ liên hệ chỉ cho `source = document`; ghi 7.1–7.3; rbac D10/D01: SAL/CTV không thấy hồ sơ `document`, HK chỉ tên + căn trong ngày; luồng tại quầy "hỏi người đi cùng đồng ý P05" (tùy chọn, hai nút ngang hàng, không chọn sẵn) – đồng ý thì mới ghi khóa giấy tờ lên hồ sơ |
+| **ARC** | ERD: `guest.source`, `guest.last_stay_checkout_at` (hoặc tính từ đơn), 2 CHECK ở trên, định nghĩa `id_doc_hmac` = `keyedHash('guest_doc', …)` v1; thêm `'guest_doc'` vào kiểu `keyedHash`; OpenAPI: `Guest.source` (FD+), không có trường giấy tờ nào trên `Guest`; tham số `document_profile_retention_months` |
+
+Không có thẻ Blocker/Major mới: đây là điều kiện để merge sửa BUG-R2-033. SEC kiểm ở bước kiểm lại Sprint 3 (CHECK DB, test hồ sơ tối thiểu, test "tên + ngày sinh không tự gắn").

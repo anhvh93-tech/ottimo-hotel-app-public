@@ -1600,7 +1600,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `reg2.consent_from_app` | Đã chọn qua app lúc {time}: {choice} | Chosen via app at {time}: {choice} | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `reg2.consent_granted_app` | Đồng ý lưu ảnh · qua app | Agreed to keep photos · via app | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.consent_not_recorded` | Chưa ghi quyết định | No decision recorded | ⟨chừa chỗ⟩ | 14-registration.html |
-| `reg2.consent_q` | Khách có đồng ý lưu ảnh giấy tờ 30 ngày sau trả phòng không? | Does the guest agree to OTTIMO keeping ID photos for 30 days after check-out? | ⟨chừa chỗ⟩ | 14-registration.html |
+| `reg2.consent_q` | Khách có đồng ý lưu ảnh giấy tờ {days} ngày sau trả phòng không? | Does the guest agree to OTTIMO keeping ID photos for {days} days after check-out? | ⟨chừa chỗ⟩ | 14-registration.html; {days} ← Registration.consentNotice.imageRetentionDays (17/10 – bỏ số 30 viết cứng) |
 | `reg2.copy_help` | Dữ liệu chỉ hiện sau khi xác nhận lại mật khẩu, mỗi lần mở được ghi nhật ký. Bấm "Sao chép" từng ô theo thứ tự rồi dán vào cổng. | Data appears only after re-entering your password, and every view is logged. Tap "Copy" for each field in order and paste into the portal. | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.deadline_at` | {time} ({rule}) | {time} ({rule}) | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.declare` | Khai báo | Register | ⟨chừa chỗ⟩ | 14-registration.html |
@@ -1627,7 +1627,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `reg2.retention` | Ảnh giấy tờ | ID photos | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.retention_refused` | Người không đồng ý | Guests who declined | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.retention_refused_value` | Xóa ngay khi cổng xác nhận | Deleted as soon as the portal confirms | ⟨chừa chỗ⟩ | 14-registration.html |
-| `reg2.retention_value` | Tự xóa 30 ngày sau trả phòng ({date}) | Auto-deleted 30 days after check-out ({date}) | ⟨chừa chỗ⟩ | 14-registration.html |
+| `reg2.retention_value` | Tự xóa {days} ngày sau trả phòng ({date}) | Auto-deleted {days} days after check-out ({date}) | ⟨chừa chỗ⟩ | 14-registration.html; {days} ← Registration.consentNotice.imageRetentionDays (17/10 – bỏ số 30 viết cứng) |
 | `reg2.review_done` | Đối chiếu xong | Checks complete | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.sent_note` | Mã hồ sơ {code} · gửi lúc {time}. Ảnh của người không đồng ý sẽ tự xóa khi cổng xác nhận. | Portal reference {code} · sent at {time}. Photos of guests who declined are deleted automatically when the portal confirms. | ⟨chừa chỗ⟩ | 14-registration.html |
 | `reg2.show_data` | Hiện dữ liệu khai báo | Show registration data | ⟨chừa chỗ⟩ | 14-registration.html |

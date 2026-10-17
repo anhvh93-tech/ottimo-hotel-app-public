@@ -91,3 +91,36 @@ Chi tiết áp cho FB-R2-DOM-BA-02:
 - **`rbac-matrix.json` 0.2.4:** ghi chú A47 (vai không đổi nên ca rbac không đổi).
 - **`specs/EP03-05-stay.md`:** 2.6.2 (người duyệt) và 2.6.3 (người chi) thêm quy tắc trên, lỗi 403 `SELF_APPROVAL_FORBIDDEN` cho MGR, cách làm khi OWN vắng.
 - **Kiểm tra:** `gen_rbac_cases --check` OK (189 operation, mismatch []); `gen_traceability --strict` exit 0 (AC 251/251, rbac lệch 0).
+
+## 7. Bổ sung – hồ sơ khách "từ giấy tờ" (BUG-R2-033 b; PO 17/10 chọn A; SEC duyệt có điều kiện – `reviews/s3-SEC.md` mục 7) – đặc tả ngay, cài đặt Sprint 4
+
+### `specs/EP06-registration.md`
+- **2.2:** `partyMemberId` để trống → server tìm người theo thứ tự khớp ở mục 2.2a.
+- **2.2a (mới) – thứ tự khớp:**
+  1. Trong cùng đơn: khớp `doc_number_hmac` → 409 `PARTY_DUPLICATE`.
+  2. Ngoài đơn: **chỉ tự gắn** khi khớp `id_doc_hmac` – tức hồ sơ mà chính người đó đã đồng ý P05.
+  3. Khớp **tên + ngày sinh**: **chỉ gợi ý** "có thể là khách quen", lễ tân xác nhận bằng hai nút ngang hàng.
+  4. Không khớp ai: tạo hồ sơ `source = document` với trường tối thiểu (tên trên giấy tờ, quốc tịch; **không** ngày sinh, số/khóa giấy tờ, liên hệ, tag/ghi chú).
+- **2.2a – khác:** vượt số khách thì vẫn gắn và cảnh báo; hạn lưu T05 (12 tháng, tham số); hiển thị theo vai.
+- **4.1 (mới) – hỏi người đi cùng đồng ý P05:**
+  - Tùy chọn, không bắt buộc để nhận phòng.
+  - Hai nút "Đồng ý" / "Không đồng ý" **ngang hàng**, **không chọn sẵn**; mặc định "Chưa hỏi".
+  - Chính người đi cùng quyết, người đặt phòng không quyết thay.
+  - Đồng ý → ghi khóa giấy tờ lên hồ sơ, chuyển hạn lưu T06. Từ chối hoặc rút lại → không có khóa / xóa khóa.
+- Đề nghị ARC: E06-12 (ghi đồng ý P05 tại quầy), E06-13 (`possibleReturningGuest`, `PartyMember.profileSource`, cùng các mục ARC trong SEC 7.4).
+
+### `specs/EP00-platform.md` 11.2
+- Ngoại lệ "không cần SĐT/email" **chỉ** cho hồ sơ `source = document` do server tạo.
+- Bảng quy tắc cho hồ sơ loại này:
+  - Chỉ sửa được tên, quốc tịch, ngôn ngữ; trường P05 → 422 `NOT_ALLOWED`.
+  - Thêm SĐT/email → thành hồ sơ CRM thường.
+  - Muốn làm người đứng tên đơn mới → phải có SĐT trước.
+  - SAL/CTV không thấy hồ sơ loại này.
+
+### `rbac-matrix.md`
+- D10 + ghi chú 40: SAL/CTV không thấy hồ sơ "từ giấy tờ" ở mọi danh sách, tìm kiếm, tra cứu, xuất dữ liệu.
+- `rbac-matrix.json` không đổi: bản máy đọc chỉ chứa hành động; việc lọc theo vai do ARC làm ở 0.3.7.
+
+### Kiểm tra
+- `gen_rbac_cases --check`: OK (189 operation, mismatch []).
+- `gen_traceability --strict`: exit 0 (AC 251/251, rbac/fields lệch 0).

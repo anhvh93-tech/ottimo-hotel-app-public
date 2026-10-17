@@ -111,10 +111,10 @@ test.describe(
       await page.getByRole('button', { name: t('ci.go_register') }).click();
       await expect(page.getByText(/hạn/).first()).toBeVisible();
       await scan(page, info, 'H13-step3-register');
-      // nút sang bước 4 ở bước 3 dùng nhầm khóa ci.submit không tham số → hiện "{room}" (BUG-R2-032, P3)
-      const toStep4 = page.getByRole('button', { name: /^Nhận phòng căn/ }).last();
-      const label = (await toStep4.textContent()) ?? '';
-      info.annotations.push({ type: 'observed', description: `nút bước 3: "${label.trim()}"` });
+      // bước 3 → 4: "Tiếp tục: Giao mã & hoàn tất" – không còn nhãn "Nhận phòng căn {room}" (BUG-R2-032)
+      await expect(page.getByRole('button', { name: /\{room\}/ })).toHaveCount(0);
+      const toStep4 = page.getByRole('button', { name: t('ci.go_handover') });
+      await expect(toStep4).toBeVisible();
       await toStep4.click();
       // bước 4: nội quy bắt buộc; "đã giao mã/thẻ" không bắt buộc; không có ô mã cửa (R2 – US-128 dời R3)
       const rules = page.getByRole('checkbox', {
@@ -128,17 +128,32 @@ test.describe(
       await expect(submit).toHaveAttribute('aria-disabled', 'true');
       await scan(page, info, 'H13-step4-handover');
       await rules.check();
+      // 06:00–13:59 giờ stack = nhận sớm: phải quyết định phụ thu (DOM S3-12, BUG-R2-039) – bật "Khách nhận sớm",
+      // giờ nhận = bây giờ, tick "Tôi đã báo khách khoản phụ thu này" (luồng thật của lễ tân). 00:00–05:59 và
+      // từ 14:00: nhận phòng thường, không phụ thu (00:00–05:59 là BUG-R2-052 – đã sửa ở vòng sửa 2).
+      const now = await serverLocalTime(request);
+      if (now >= '06:00' && now < '14:00') {
+        await page.getByRole('switch', { name: t('ci.early_toggle') }).click();
+        await page.getByLabel(t('checkin.time')).fill(now);
+        const told = page.getByRole('checkbox', { name: t('ci.told_guest') });
+        if (
+          await told.waitFor({ timeout: 10_000 }).then(
+            () => true,
+            () => false,
+          )
+        )
+          await told.check();
+        info.annotations.push({
+          type: 'note',
+          description: `nhận sớm ${now} – lễ tân xác nhận phụ thu`,
+        });
+      }
       await submit.click();
       const dialog = page.getByRole('alertdialog');
       await expect(dialog).toBeVisible();
       await scan(page, info, 'H13-confirm-dialog');
       await dialog.getByRole('button', { name: tf('ci.submit', { room: st.room.roomNo }) }).click();
-      // Chạy từ 00:00 tới trước mốc đổi ngày (06:00): ngày nghiệp vụ vẫn = ngày đến, nhận phòng phải là B9 thường
-      // (US-025 AC6). Build 229db99 đòi addPriorNight → alert "Bắt buộc" (BUG-R2-052, tái hiện qua giao diện 01:15).
-      test.fail(
-        (await serverLocalTime(request)) < '06:00',
-        'BUG-R2-052: sau nửa đêm (ngày nghiệp vụ = ngày đến) H13 báo "Bắt buộc" (addPriorNight REQUIRED) – không nhận phòng được',
-      );
+      // 00:00–05:59 (ngày nghiệp vụ vẫn = ngày đến): B9 thường (US-025 AC6) – BUG-R2-052 đã sửa, bỏ test.fail
       await expect(
         page.getByText(new RegExp(`Đã nhận phòng căn ${st.room.roomNo}`)).first(),
       ).toBeVisible({
@@ -151,16 +166,12 @@ test.describe(
       await go(page, `/reservations/${st.res.id}`);
       await expect(page.getByText(st.res.code).first()).toBeVisible({ timeout: 10_000 });
       await scan(page, info, 'H15-in-house-drawer');
-      // OpenAPI 0.3.6 Reservation: houseRulesSentAt / cardsIssued sau nhận phòng – build chưa trả (BUG-R2-031)
-      test.fail(
-        true,
-        'BUG-R2-031: Reservation thiếu houseRulesSentAt/cardsIssued/registrationId (0.3.6)',
-      );
+      // OpenAPI 0.3.6 Reservation: houseRulesSentAt / cardsIssued sau nhận phòng (BUG-R2-031 đã sửa)
       expect(after.body.houseRulesSentAt, 'houseRulesSentAt').toBeTruthy();
       expect(after.body.cardsIssued, 'cardsIssued').toBe(1);
     });
 
-    test('TC-L3-030 (E) H13 bước Giấy tờ hiện giấy tờ đã nhập của đơn (BUG-R2-031)', async ({
+    test('TC-L3-030 (E) H13 bước Giấy tờ hiện giấy tờ đã nhập của đơn (kiểm lại BUG-R2-031)', async ({
       page,
       request,
     }) => {
@@ -174,12 +185,7 @@ test.describe(
       const fd = await session(request, 'qa.fd');
       const reg = await getRegistration(request, fd, st.regId);
       const last4 = reg.body.documents.find((d) => d.isMain)?.docNumberLast4 ?? '????';
-      // BUG-R2-031: GET reservation không trả `registrationId` (OpenAPI 0.3.6) → CheckInPage không gọi
-      // getRegistration, khung giấy tờ bước 1–2 "Đang tải…" mãi; lễ tân phải sang H14 để nhập/kiểm giấy tờ
-      test.fail(
-        true,
-        'BUG-R2-031: Reservation thiếu registrationId → H13 bước Giấy tờ/Kiểm tra treo "Đang tải…"',
-      );
+      // BUG-R2-031 (đã sửa): GET reservation trả `registrationId` → bước Giấy tờ hiện giấy tờ của đơn (4 số cuối)
       await expect(page.getByRole('main').getByText(new RegExp(last4)).first()).toBeVisible({
         timeout: 10_000,
       });

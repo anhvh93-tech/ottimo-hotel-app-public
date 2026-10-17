@@ -114,3 +114,21 @@
 5. Giới hạn 600 request/phút đặt trong guard, đếm theo user và theo từng process (như `RateLimiter` của Sprint 1–2).
 6. Mỗi lần đồng bộ đêm ghi **một** dòng nhật ký tiền: `folio.line_posted` khi có ghi dòng mới, `folio.line_reversed` khi chỉ có đảo.
 7. PO 17/10: OWN được miễn cả "người chi ≠ người tạo" với hoàn chuyển khoản (mục (2) của quyết định gồm cả người tạo). "Người duyệt ≠ người tạo" (SEC F8) không nằm trong (1)(2) nên vẫn áp cho OWN. "Xác thực lại ở mỗi bước": bước chi dùng cửa sổ step-up sẵn có (`/v1/me/step-up`) cho tới khi hợp đồng 0.3.7 có `If-Match` + re-auth trong body.
+
+## 8. Kiểm chéo đối kháng Blocker 17/10 (`reviews/s3-blocker-verification.md`, checkpoint `e3959ec`)
+
+| ID | Trạng thái mới | Phản hồi |
+|---|---|---|
+| FB-R2-DOM-BE-13 (mở lại, Blocker) | Done | (1) `syncOtaCollect` chỉ xét khoản `ota_collect` **của chính đơn** (lọc thêm `reservation_id`). Đơn con kênh Trực tiếp (B13, B9a, E05-11) cùng folio không còn đảo khoản của đơn cha.<br>(2) Theo DOM 17/10: bỏ `extra_person` khỏi `OTA_COVERED`. "Đã thu qua OTA" chỉ gồm tiền phòng OTA đã thu và các phí OTA giữ; phụ thu người vượt max(chuẩn căn, số khách OTA) thu tại quầy.<br>(3) Bill không còn lấy `otaNet` làm số dự phòng: không có khoản `ota_collect` thì không ẩn dòng nào và không in "Đã thu qua OTA".<br>(4) Test đầu-cuối mới `ota-prepaid-flow.test.ts`, đi từ POST /reservations kênh Agoda:<br>• B13 gia hạn → B18 chỉ thu đêm của đơn con; bill in "Đã thu qua Agoda 1.800.000".<br>• B9a đêm trước → thêm người thứ 3 (phòng chuẩn 2) → phụ thu thu tại quầy, khoản OTA giữ nguyên → B18 kèm E05-11 → số dư 0, đủ dòng `extra_night`.<br>Đã thử đổi lại truy vấn cũ: 2 ca này đỏ. |
+| DOM 17/10 (b) – phụ thu người của đơn OTA | Đã đối chiếu (code BE-A) | `nightFee` của BE-A tính phụ thu = phí(số người thực tế) − phí(số khách OTA), sau khi trừ chuẩn căn. Kết quả đúng quy tắc max(chuẩn căn, số khách OTA): phòng 302 (chuẩn 3) thêm người thứ 3 → 0; phòng 201 (chuẩn 2) → 150.000/đêm. Bộ đồ dùng BR-812 (oracle BR-812-07) là phần BE-A. |
+| FB-R2-VER-BE-S3-01 (Major mới) – B10 tạo yêu cầu hoàn trùng | Done | `cancellationQuote`: số được đề nghị hoàn = min(chính sách BR-308/309, cọc còn giữ − yêu cầu hoàn đang mở). Thêm `MoneyBridge.openRefunds` gọi `FolioService.openRefundVnd`. Đây là tệp của BE-A, đã nhắn BE-A. Test: có yêu cầu 500.000 đang mở → bản tính thử khi hủy giảm đúng 500.000, tổng các yêu cầu = 500.000 + phần hoàn khi hủy. |
+| FB-R2-VER-BE-S3-02 (Major mới) – cọc tính cả tiền đã hoàn; hoàn khi đơn còn giữ chỗ | Done | `depositPaid` = min(tổng cọc, tiền của khách còn giữ = cọc + thu tại quầy − đã hoàn). Không tính dòng đảo, không tính `ota_collect`. Không cho tạo yêu cầu hoàn tay khi đơn đang `hold` → 409 `INVALID_TRANSITION` (`currentState: hold`); tiền của đơn giữ chỗ được trả qua B5 hoặc dùng để xác nhận đơn qua B4. |
+| FB-R2-VER-BE-S3-03 (Major mới) – đơn giữ chỗ có khoản thu ghi nhầm loại `charge` | Done | Đơn `hold` chỉ nhận khoản `deposit`: `recordPayment` loại khác → 422 `type: NOT_IN_LIST`; `createVietQr` với `purpose` khác `deposit` → 422 `purpose: NOT_IN_LIST`. Nhờ đó J1 và B4 đếm đúng tiền đã nhận. |
+| FB-R2-VER-BE-S3-04 (Major mới) – thiếu test | Done | B16 → B18 qua endpoint thật → đúng 1 yêu cầu hoàn, tóm tắt trả phòng không còn `credit_balance` (`ota-prepaid-flow.test.ts`). J1 với cọc đã đảo → đơn bị hủy; đơn đã đảo rồi ghi lại 50.000 → vẫn giữ (`payments-s3` "Verification 17/10"). |
+| FB-R2-VER-BE-S3-05 (Minor) – `confirmDeposit` nhận id của dòng đảo | Done | `existingPaymentId` phải là khoản thu không phải dòng đảo (`reversal_of_id IS NULL`); dòng đảo → 422 `existingPaymentId: NOT_IN_LIST`. Có test. |
+| Đơn OTA trả trước tạo trước 0042 (Minor) | Deferred | Chưa có dữ liệu thật. Lần đồng bộ đêm kế tiếp sẽ tự ghi khoản `ota_collect` cho đơn đó. Nếu cần backfill trước khi staging nhận dữ liệu thì làm migration trong dải 0043–0049. |
+
+Kết quả (DB `ottimo_test_beb` tạo lại):
+- format:check, lint + typecheck (12/12), build (6/6): xanh.
+- test toàn repo xanh: turbo 12/12; api 56 tệp / 2.142 ca.
+- `drizzle-kit generate`: không có thay đổi. Đợt này không thêm migration.

@@ -113,6 +113,7 @@ export class RefundsController {
         folioId,
         { amountVnd: input.amountVnd, reason: input.reason },
         own?.code ?? null,
+        own?.status ?? null,
       );
       return { status: 201, body: await this.refunds.dto(tx, row) };
     });

@@ -6,13 +6,16 @@
  * front desk) → null: the document simply stays without a person (staff link it with `partyMemberId`).
  *
  * Called in the `addGuestDocument` transaction when the desk enters a document of a person OTHER than the
- * main guest without `partyMemberId`. The provider:
- * 1. returns the party member of this booking the document belongs to: an existing member, or a member it
- *    adds for the guest profile matched by BR-951 (document number blind index → name + date of birth;
- *    phone/e-mail are not on a document), or a new member with relationship `unknown`;
- * 2. never creates a CRM profile for a person under `minor_data_age_threshold` (`isMinor`, rbac 9);
- * 3. keeps the clear date of birth in memory only (C3 – never stored outside the document, never logged);
- * 4. returns null when it cannot decide (two candidates) – no guess.
+ * main guest without `partyMemberId`. The provider (SEC s3 §7 condition, ORC 17/10 – automatic link on the
+ * document number ONLY):
+ * 1. a member of this booking whose guest profile carries the same document blind index
+ *    (`guest.id_doc_hmac` = `docNumberHmac`) → that member;
+ * 2. else a guest profile with that blind index → added as companion, relationship `unknown`, only into a
+ *    free declared place of the booking (a person beyond the declared count is the desk's addPartyMember);
+ * 3. anything else – a name + date-of-birth match, "the one member without a document", two candidates,
+ *    the booker – → null: the document stays unlinked (a desk suggestion is Sprint 4);
+ * 4. never creates a CRM profile here (none for a person under `minor_data_age_threshold` – rbac 9), and keeps
+ *    the clear date of birth in memory only (C3 – never stored outside the document, never logged).
  * The returned id must be a member of `reservationId` (FK guest_document → reservation_guest, 0053).
  */
 import { Injectable } from '@nestjs/common';

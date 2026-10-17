@@ -1,18 +1,21 @@
 /**
  * J16 `retention.purge` – safety net of the immediate deletions (SEC C5, C6; SR-RET-02/03; EP06 6.1;
- * DOM G-17). Tick job (every minute per property). Steps 0–2 and 4 run on EVERY tick, so an image is never
- * kept more than a minute past its legal ceiling (BR-609-01 `purgeBackstopBy` = confirmed + 24 h –
- * BUG-R2-036); steps 3 and 5 (attachments, technical rows) and the `J16` heartbeat row run HOURLY
- * (throttled by the last retention_run of policy `J16`):
+ * DOM G-17). Tick job (every minute per property). Steps 0, 1, 2 and 4 run on EVERY tick, so an image is
+ * never kept more than a minute past its legal ceiling (BR-609-01 `purgeBackstopBy` = confirmed + 24 h –
+ * BUG-R2-036); steps 1a, 3 and 5 and the `J16` heartbeat row run HOURLY (throttled by the last
+ * retention_run of policy `J16`):
  *
  * 0. K1 backfill: bookings without a registration get their `none` record (moved out of the GET –
  *    ARC FB-S3-27 (6));
  * 1. T02 / SR-RET-02 images whose `delete_after` is due: consenting people of a declared registration →
  *    `retention`; a declaration never confirmed → `unconfirmed` (end of stay + id_image_unconfirmed_max_days,
  *    SEC FB-R2-SEC-BE-32) + a "Cần chú ý" item `registration_overdue` for FD/MGR;
+ * 1a. (hourly) live images WITHOUT a deadline of a booking that has ended – checked out / cancelled / no-show,
+ *    read from the booking state itself (BE-A's stay view), NOT from `stay_ended_at` that only the hook
+ *    writes – get the deadline the hook would have given them (SEC FB-R2-SEC-BE-32 reopened: hook failed,
+ *    data before 0053, image added after checkout / `needs_update`);
  * 2. T01  images of people who did not consent / minors / void registrations still alive
- *    `id_image_purge_max_hours` after `confirmed`/`void`; registrations whose stay ended more than
- *    id_image_unconfirmed_max_days ago without `confirmed` (no `delete_after` – older data);
+ *    `id_image_purge_max_hours` after `confirmed`/`void`;
  * 3. SEC I5 / SEC BE-38 operational attachments past their retention or never bound to a record;
  * 4. files whose DEK was destroyed in a committed transaction (`blob_pending_delete`, ARC FB-S3-17);
  * 5. technical rows: expired guest sessions; idempotency keys older than `idempotency_ttl_hours`
@@ -43,6 +46,8 @@ export interface RetentionStats {
   /** true when the hourly part (attachments, technical rows, heartbeat) did not run on this tick. */
   skipped?: boolean;
   backfilled: number;
+  /** Registrations whose ended stay got its image deadlines from J16 (hook missed / older data). */
+  scheduled: number;
   t02Images: number;
   unconfirmedImages: number;
   t01Images: number;
@@ -73,6 +78,7 @@ export class RetentionService {
     const now = this.clock.now();
     const stats: RetentionStats = {
       backfilled: 0,
+      scheduled: 0,
       t02Images: 0,
       unconfirmedImages: 0,
       t01Images: 0,
@@ -99,11 +105,17 @@ export class RetentionService {
     }
     const today = localDate(now, timezone);
     const maxHours = await this.params.get<number>(tx, 'id_image_purge_max_hours', today);
-    const unconfirmedDays = await this.params.get<number>(
-      tx,
-      'id_image_unconfirmed_max_days',
-      today,
-    );
+
+    // 1a. Hourly, BEFORE the due step: images still without a deadline whose booking has ended (booking state
+    //     read through BE-A's stay view – independent of the checkout/cancel hooks and of `stay_ended_at`)
+    //     get the deadline the hook would have written (SEC FB-R2-SEC-BE-32 reopened). A stay that ended
+    //     more than id_image_unconfirmed_max_days ago is then due at once and deleted below in this run.
+    if (hourly) {
+      const err = await inSavepoint(tx, async () => {
+        stats.scheduled = await this.regs.scheduleEndedStays(tx);
+      });
+      if (err) errors.push(`schedule ended stays: ${err.name}`);
+    }
 
     // 1. Scheduled deletions that are due (T02 retention / SR-RET-02 unconfirmed).
     const due = await tx.query<DueImage>(
@@ -115,17 +127,7 @@ export class RetentionService {
         ORDER BY i.id LIMIT 500 FOR UPDATE OF i SKIP LOCKED`,
       [now],
     );
-    // 2a. Stay ended long ago, never confirmed, no deadline written (data from before 0053).
-    const stale = await tx.query<DueImage>(
-      `SELECT ${IMAGE_COLUMNS}, 'unconfirmed' AS reason
-         FROM document_image i JOIN registration x ON x.id = i.registration_id
-        WHERE i.deleted_at IS NULL AND i.delete_after IS NULL AND NOT x.legal_hold
-          AND x.status NOT IN ('confirmed', 'needs_update', 'updated', 'void')
-          AND x.stay_ended_at IS NOT NULL AND x.stay_ended_at + make_interval(days => $2) <= $1
-        ORDER BY i.id LIMIT 500 FOR UPDATE OF i SKIP LOCKED`,
-      [now, unconfirmedDays],
-    );
-    // 2b. T01: non-consenting people / minors / void, past confirmed_at|voided_at + max hours.
+    // 2. T01: non-consenting people / minors / void, past confirmed_at|voided_at + max hours.
     const cutoff = new Date(now.getTime() - maxHours * 3_600_000);
     const late = await tx.query<DueImage>(
       `SELECT ${IMAGE_COLUMNS}, CASE WHEN x.status = 'void' THEN 'void' ELSE 'no_consent' END AS reason
@@ -146,7 +148,7 @@ export class RetentionService {
     );
     const seen = new Set<string>();
     const unconfirmedRegs = new Map<string, string>();
-    for (const img of [...due.rows, ...stale.rows, ...late.rows]) {
+    for (const img of [...due.rows, ...late.rows]) {
       if (seen.has(img.id)) continue;
       seen.add(img.id);
       const reason = img.reason as ImageDeleteReason;

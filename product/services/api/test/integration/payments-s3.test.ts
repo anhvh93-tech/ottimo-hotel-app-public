@@ -15,6 +15,8 @@ import type { Database, Tx } from '../../src/db/database';
 import { AttachmentService } from '../../src/modules/files/public/attachment.service';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
 import { MinibarCheckoutPort } from '../../src/modules/inventory/public/minibar-checkout.port';
+import { JobRunner } from '../../src/jobs/job-runner';
+import { HOLD_EXPIRY_JOB_KEY } from '../../src/jobs/reservation-jobs';
 import { FolioService } from '../../src/modules/folio/public/folio.service';
 import { PaymentService } from '../../src/modules/payments/public/payment.service';
 import { ReservationsService } from '../../src/modules/reservations/internal/reservations.service';
@@ -1415,6 +1417,11 @@ describe.skipIf(!HAS_DB)(
       const [g] = await q(`SELECT booker_guest_id FROM reservation WHERE id = $1`, [b.id]);
       await q(`UPDATE guest SET nationality_code = 'RU' WHERE id = $1`, [g!.booker_guest_id]);
       await q(`UPDATE reservation SET payment_model = 'ota_prepaid' WHERE id = $1`, [b.id]);
+      // Verification 17/10: without the system receipt nothing is hidden and no "Đã thu qua OTA" is printed.
+      const raw = (await c('fd').get(`${P(t)}/folios/${b.folioId}/bill`)).json();
+      expect(raw.otaPrepaidNote ?? null).toBeNull();
+      expect(raw.lines.some((l: { category: string }) => l.category === 'room')).toBe(true);
+      await resync(b); // the night sync writes the `ota_collect` receipt (x-ota-prepaid-rule)
       const bill = (await c('fd').get(`${P(t)}/folios/${b.folioId}/bill`)).json();
       expect(bill.paymentModel).toBe('ota_prepaid');
       expect(bill.lines.filter((l: { category: string }) => l.category === 'room')).toHaveLength(0);
@@ -1424,6 +1431,7 @@ describe.skipIf(!HAS_DB)(
       expect(bill.usdReference.rate).toBe(26_200); // DS-E fx_usd_vnd (BR-004-01 rate)
       expect(bill.usdReference.totalUsd).toBe(Math.round((bill.totalVnd / 26_200) * 10) / 10);
       await q(`UPDATE reservation SET payment_model = 'direct' WHERE id = $1`, [b.id]);
+      await resync(b);
     });
 
     it('setInvoiceRequest (US-039): company fields checked (V-04), stored on the folio, MISA status not_requested', async () => {
@@ -2520,6 +2528,125 @@ describe.skipIf(!HAS_DB)(
       expect(r2.statusCode, r2.body).toBe(201);
       expect(await basisOf(r2.json().id)).toBe(last.unitPriceVnd);
       expect(r2.json().requiredRole).toBe(last.unitPriceVnd >= 301_000 ? 'manager' : 'owner');
+    });
+    // ───────────── Blocker verification 17/10 (new Majors on deposits / refunds of holds) ─────────────
+
+    it('Verification 17/10: J1 cancels a hold whose deposit was reversed, keeps one re-paid; a hold takes deposits only; no manual refund on a hold; confirmDeposit refuses a reversal id', async () => {
+      await atT0();
+      const depositOf = async (b: Booking, amountVnd: number) => {
+        const v = (await q('SELECT version FROM reservation WHERE id = $1', [b.id]))[0]!.version;
+        const r = await c('fd').send(
+          'POST',
+          `${P(t)}/reservations/${b.id}/actions/confirm-deposit`,
+          { payment: { type: 'deposit', method: 'cash', amountVnd } },
+          { 'if-match': `"${v}"` },
+        );
+        expect(r.statusCode, r.body).toBe(200);
+        expect(r.json().status).toBe('hold');
+        return (
+          await q(`SELECT id FROM payment WHERE folio_id = $1 ORDER BY created_at DESC LIMIT 1`, [
+            b.folioId,
+          ])
+        )[0]!.id as string;
+      };
+      const reverse = async (id: string) =>
+        expect(
+          (
+            await c('mgr').send('POST', `${P(t)}/payments/${id}/actions/reverse`, {
+              reason: 'Ghi nhầm khoản cọc',
+            })
+          ).statusCode,
+        ).toBe(200);
+      const gone = await booking({ deposit: null });
+      await reverse(await depositOf(gone, 100_000));
+      const kept = await booking({ deposit: null });
+      await reverse(await depositOf(kept, 100_000));
+      // (7) money on a hold is its deposit: a `charge` or a QR "balance" is refused.
+      const charge = await pay('fd', kept, { type: 'charge', method: 'cash', amountVnd: 50_000 });
+      expect(charge.json().errors).toEqual([{ field: 'type', code: 'NOT_IN_LIST' }]);
+      const qr = await c('fd').send('POST', `${P(t)}/folios/${kept.folioId}/vietqr`, {
+        amountVnd: 50_000,
+        purpose: 'balance',
+      });
+      expect(qr.json().errors).toEqual([{ field: 'purpose', code: 'NOT_IN_LIST' }]);
+      const again = await pay('fd', kept, { type: 'deposit', method: 'cash', amountVnd: 50_000 });
+      expect(again.statusCode, again.body).toBe(201);
+      // (6) no manual refund request on a hold (its money goes back through B5 / confirms it through B4).
+      const refund = await c('fd').send('POST', `${P(t)}/folios/${kept.folioId}/refund-requests`, {
+        amountVnd: 50_000,
+        reason: 'Khách xin lại cọc',
+      });
+      expect(refund.statusCode, refund.body).toBe(409);
+      expect(refund.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'hold' });
+      // (9) the reversal row of a deposit is never an `existingPaymentId`.
+      const [rev] = await q(
+        `SELECT id FROM payment WHERE folio_id = $1 AND reversal_of_id IS NOT NULL`,
+        [gone.folioId],
+      );
+      const v = (await q('SELECT version FROM reservation WHERE id = $1', [gone.id]))[0]!.version;
+      const byReversal = await c('fd').send(
+        'POST',
+        `${P(t)}/reservations/${gone.id}/actions/confirm-deposit`,
+        { existingPaymentId: rev!.id },
+        { 'if-match': `"${v}"` },
+      );
+      expect(byReversal.json().errors).toEqual([
+        { field: 'existingPaymentId', code: 'NOT_IN_LIST' },
+      ]);
+      // (8) J1 at the deadline: the hold with no money left is cancelled, the re-paid one is kept.
+      const [h] = await q('SELECT hold_expires_at FROM reservation WHERE id = $1', [gone.id]);
+      fa.clock.set(new Date((h!.hold_expires_at as Date).getTime() + 60_000));
+      await refreshSessions(db, t, fa.clock.now());
+      await fa.app.get(JobRunner).runOnce(HOLD_EXPIRY_JOB_KEY, {
+        propertyId: t.propertyIds[0]!,
+        organizationId: t.organizationId,
+        timezone: 'Asia/Ho_Chi_Minh',
+      });
+      const st = async (b: Booking) =>
+        (await q('SELECT status FROM reservation WHERE id = $1', [b.id]))[0]!.status;
+      expect(await st(gone)).toBe('cancelled');
+      expect(await st(kept)).toBe('hold');
+      await atT0();
+    });
+
+    it('Verification 17/10 (DOM BE-14): a cancellation (B10) never requests again what an open refund request already asks back', async () => {
+      await atT0();
+      const b = await booking();
+      const due = (await folio(b)).totals.balanceDueVnd as number;
+      expect(
+        (
+          await pay('fd', b, {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: due + 500_000,
+            note: 'Khách trả dư',
+          })
+        ).statusCode,
+      ).toBe(201);
+      const cancel = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+        c('fd').send('POST', `${P(t)}/reservations/${b.id}/actions/cancel`, body, headers);
+      const before = (await cancel({ reasonCode: 'found_other', dryRun: true })).json()
+        .cancellation as { depositPaidVnd: number; refundableVnd: number };
+      const open = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/refund-requests`, {
+        amountVnd: 500_000,
+        reason: 'Hoàn tiền khách trả dư',
+      });
+      expect(open.statusCode, open.body).toBe(201);
+      const after = (await cancel({ reasonCode: 'found_other', dryRun: true })).json()
+        .cancellation as { depositPaidVnd: number; refundableVnd: number };
+      expect(after.refundableVnd).toBe(
+        Math.max(0, Math.min(before.refundableVnd, before.depositPaidVnd - 500_000)),
+      );
+      const v = (await q('SELECT version FROM reservation WHERE id = $1', [b.id]))[0]!.version;
+      const done = await cancel({ reasonCode: 'found_other' }, { 'if-match': `"${v}"` });
+      expect(done.statusCode, done.body).toBe(200);
+      const asked = await q(
+        `SELECT COALESCE(SUM(amount_vnd), 0)::bigint AS total FROM approval_request
+          WHERE type = 'refund' AND target_id = $1 AND status IN ('pending', 'escalated', 'approved')`,
+        [b.id],
+      );
+      expect(Number(asked[0]!.total)).toBeLessThanOrEqual(Math.max(before.depositPaidVnd, 500_000));
+      expect(Number(asked[0]!.total)).toBe(500_000 + after.refundableVnd);
     });
   },
 );

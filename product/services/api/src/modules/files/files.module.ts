@@ -10,6 +10,7 @@ import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ATTACHMENT_USAGE } from '../payments/public/attachment-usage';
 import { AttachmentsController } from './internal/attachments.controller';
 import { BLOB_STORE, type BlobStore, blobStoreFromEnv } from './internal/blob-store';
+import { UploadSessionCheck } from './internal/upload-session.check';
 import { AttachmentService } from './public/attachment.service';
 import { EncryptedBlobService } from './public/encrypted-blob.service';
 
@@ -34,6 +35,8 @@ export class FilesModule {
         EncryptedBlobService,
         AttachmentService,
         { provide: ATTACHMENT_USAGE, useExisting: AttachmentService },
+        // Real session of a multipart upload checked before its body is read (src/http.ts readMultipart).
+        UploadSessionCheck,
       ],
       exports: [EncryptedBlobService, AttachmentService, ATTACHMENT_USAGE, BLOB_STORE],
     };

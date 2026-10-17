@@ -24,12 +24,13 @@ import { publishSse } from '../../src/modules/events/public/events.service';
 import {
   NoGuestAccessPort,
   NoMinibarPort,
-  UnwiredChildDataPort,
 } from '../../src/modules/frontdesk/internal/default-ports';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
-import type {
-  CheckinDocumentStatus,
-  FrontdeskRegistrationPort,
+import {
+  FD_CHILD_DATA_PORT,
+  type CheckinDocumentStatus,
+  type FrontdeskChildDataPort,
+  type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
 import { RegistrationPartyLink } from '../../src/modules/registration/public/party-port';
 import { ReservationsService } from '../../src/modules/reservations/internal/reservations.service';
@@ -121,16 +122,12 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
     companions.push(await seedGuestRow(db, t, { name: 'Đỗ Bạn Hai' }));
     fa = await startFeatureApp(db, {
       override: (b) =>
-        b
-          .overrideProvider(FrontdeskPorts)
-          .useValue(
-            new FrontdeskPorts(
-              docs,
-              new NoGuestAccessPort(),
-              new UnwiredChildDataPort(),
-              new NoMinibarPort(),
-            ),
-          ),
+        b.overrideProvider(FrontdeskPorts).useFactory({
+          // The real child-data cipher (CryptoService – FK child_data_key_id → data_key).
+          factory: (child: FrontdeskChildDataPort) =>
+            new FrontdeskPorts(docs, new NoGuestAccessPort(), child, new NoMinibarPort()),
+          inject: [FD_CHILD_DATA_PORT],
+        }),
     });
     for (const u of Object.keys(ROLES)) c[u] = Client.of(fa, t, u);
     c.fd!.deviceToken = await longDevice();
@@ -615,31 +612,181 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
     expect(await rackStatus()).toBe('OD');
   });
 
-  it('BUG-R2-033: a document without partyMemberId finds its person (BR-951) – profile match, else the one undocumented member', async () => {
+  it('BUG-R2-033: a document without partyMemberId is attached only on a document-number match (SEC s3 §7)', async () => {
     await at('2026-12-21T15:00:00+07:00');
-    const b = await direct('102', '2026-12-21', '2026-12-22', 750_000);
+    const b = await direct('102', '2026-12-21', '2026-12-23', 1_500_000);
     const hmac = `test-${randomUUID()}`;
     await q('UPDATE guest SET id_doc_hmac = $2 WHERE id = $1', [companions[0], hmac]);
+    await q(`UPDATE guest SET date_of_birth = '1990-05-04' WHERE id = $1`, [companions[1]]);
     const port = fa.app.get(RegistrationPartyLink, { strict: false });
-    const call = (docNumberHmac: string) =>
+    const call = (docNumberHmac: string, fullNameOnDoc: string, dateOfBirth: string | null) =>
       db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
         port.memberForDocument(tx, {
           reservationId: b.id,
           docNumberHmac,
-          fullNameOnDoc: 'Do Ban Mot',
-          dateOfBirth: null,
+          fullNameOnDoc,
+          dateOfBirth,
           nationalityCode: 'VNM',
           isMinor: false,
           actor: { userId: t.users.fd!.id, requestId: randomUUID() },
         }),
       );
-    const first = await call(hmac);
+    const presentCount = async () =>
+      (await c.fd!.get(url(`/reservations/${b.id}/party`))).json().presentCount as number;
+    // name + date of birth of a known profile, another document number → NOT attached (only a suggestion)
+    expect(await call(`other-${randomUUID()}`, 'Đỗ Bạn Hai', '1990-05-04')).toBeNull();
+    expect(await presentCount()).toBe(1);
+    // document number of a known profile → attached (companion, relationship unknown)
+    const first = await call(hmac, 'Do Ban Mot', null);
     expect(first).toEqual(expect.any(String));
-    const party = (await c.fd!.get(url(`/reservations/${b.id}/party`))).json();
-    expect(party.presentCount).toBe(2);
-    expect(await call(hmac)).toBe(first); // same person → same member, no second row
-    // no profile matches → the one member still without a document
-    expect(await call(`other-${randomUUID()}`)).toBe(first);
+    expect(await presentCount()).toBe(2);
+    expect(await call(hmac, 'Do Ban Mot', null)).toBe(first); // same person → same member, no second row
+    // nothing matches → null (the desk links the document)
+    expect(await call(`other-${randomUUID()}`, 'Người Lạ', null)).toBeNull();
+  });
+
+  describe('blocker verification ARC-S3-01 (17/10): extra-person fee per night in every stay change', () => {
+    /** The room was left dirty/occupied by an earlier stay of this file (room status is not per date). */
+    const ready = (room: string) =>
+      q(
+        `INSERT INTO room_status (room_id, organization_id, property_id, status, since) VALUES ($1, $2, $3, 'VC', $4)
+         ON CONFLICT (room_id) DO UPDATE SET status = 'VC'`,
+        [ids.rooms[room], t.organizationId, t.propertyIds[0], new Date('2027-01-04T00:00:00Z')],
+      );
+    const addPerson = (id: string, body: Record<string, unknown>) =>
+      c.fd!.send('POST', url(`/reservations/${id}/party`), {
+        effectiveFrom: '2027-01-05',
+        ...body,
+      });
+    const extraLines = (folioId: string) =>
+      q<{ service_date: string; amount_vnd: number; description: string; reservation_id: string }>(
+        `SELECT l.service_date::text AS service_date, l.amount_vnd, l.description, l.reservation_id
+           FROM folio_line l
+          WHERE l.folio_id = $1 AND l.category = 'extra_person' AND l.line_state = 'posted'
+            AND l.reversal_of_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)
+          ORDER BY l.service_date`,
+        [folioId],
+      );
+
+    it('a child 6–11 with a fee, then an extension: the bill counts 1 person each night, the new night is charged; B14 to a bigger room drops the fee of the moved nights only', async () => {
+      await at('2027-01-04T15:00:00+07:00');
+      const b = await direct('203', '2027-01-04', '2027-01-07', 2_376_000);
+      await ready('203');
+      await checkIn(b);
+      await at('2027-01-05T10:00:00+07:00');
+      // (3) a person announced for tomorrow is added tomorrow – never charged in advance
+      const future = await addPerson(b.id, {
+        role: 'child',
+        childName: 'Bé Na',
+        childBirthYear: 2018,
+        effectiveFrom: '2027-01-06',
+      });
+      expect(future.statusCode).toBe(422);
+      expect(future.json().errors).toContainEqual({ field: 'effectiveFrom', code: 'DATE_INVALID' });
+      const kid = await addPerson(b.id, {
+        role: 'child',
+        childName: 'Bé Na',
+        childBirthYear: 2018,
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 200_000,
+      });
+      expect(kid.statusCode, kid.body).toBe(201);
+      await at('2027-01-06T10:00:00+07:00');
+      const ext = await act(b.id, 'extend', { nights: 1 });
+      expect(ext.statusCode, ext.body).toBe(200);
+      expect(
+        (await extraLines(b.folioId)).map((l) => [l.service_date, l.amount_vnd, l.description]),
+      ).toEqual([
+        ['2027-01-05', 100_000, 'extra_guest x1'],
+        ['2027-01-06', 100_000, 'extra_guest x1'],
+        ['2027-01-07', 100_000, 'extra_guest x1'],
+      ]);
+      // B14 guest_request to 301 (base 4): the moved nights carry no fee; 05/01 keeps its fee.
+      await q(`UPDATE room_status SET status = 'VC' WHERE room_id = $1`, [ids.rooms['301']]);
+      const body = {
+        newRoomId: ids.rooms['301'],
+        effectiveDate: '2027-01-06',
+        cause: 'guest_request',
+        reason: 'Khách muốn căn rộng hơn',
+      };
+      const dry = await act(b.id, 'change-room', { ...body, dryRun: true });
+      expect(dry.statusCode, dry.body).toBe(200);
+      const moved = await act(b.id, 'change-room', {
+        ...body,
+        applyDifference: true,
+        expectedDeltaVnd: dry.json().folioDeltaVnd,
+      });
+      expect(moved.statusCode, moved.body).toBe(200);
+      expect((await extraLines(b.folioId)).map((l) => [l.service_date, l.amount_vnd])).toEqual([
+        ['2027-01-05', 100_000],
+      ]);
+    });
+
+    it('an OTA stay extended first (child booking), then a 3rd adult: the child night is charged too', async () => {
+      await at('2027-01-04T15:00:00+07:00');
+      const o = await ota('202', '2027-01-04', '2027-01-06', 1_800_000);
+      await ready('202');
+      await checkIn(o);
+      await at('2027-01-05T09:00:00+07:00');
+      const ext = await act(o.id, 'extend', { nights: 1 });
+      expect(ext.statusCode, ext.body).toBe(200);
+      const childId = ext.json().childReservation.id as string;
+      await at('2027-01-05T10:00:00+07:00');
+      expect(
+        (await addPerson(o.id, { role: 'companion', guestId: companions[0] })).statusCode,
+      ).toBe(201);
+      const third = await addPerson(o.id, {
+        role: 'companion',
+        guestId: companions[1],
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 150_000,
+      });
+      expect(third.statusCode, third.body).toBe(201);
+      const lines = await extraLines(o.folioId);
+      expect(lines.map((l) => [l.service_date, l.amount_vnd, l.reservation_id])).toEqual([
+        ['2027-01-05', 150_000, o.id],
+        ['2027-01-06', 150_000, childId],
+      ]);
+      const [child] = await q<{ adults: number }>('SELECT adults FROM reservation WHERE id = $1', [
+        childId,
+      ]);
+      expect(child?.adults).toBe(3);
+    });
+
+    it('B16 after a person added mid-stay: the dropped nights’ fee is refunded in full with the BR-428 part', async () => {
+      await at('2027-01-04T15:00:00+07:00');
+      const b = await direct('201', '2027-01-04', '2027-01-08', 2_832_000);
+      await ready('201');
+      await checkIn(b);
+      await at('2027-01-05T10:00:00+07:00');
+      expect(
+        (await addPerson(b.id, { role: 'companion', guestId: companions[0] })).statusCode,
+      ).toBe(201);
+      const third = await addPerson(b.id, {
+        role: 'companion',
+        guestId: companions[1],
+        applyExtraPersonSurcharge: true,
+        expectedSurchargeVnd: 450_000,
+      });
+      expect(third.statusCode, third.body).toBe(201);
+      const pay = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: 450_000,
+      });
+      expect([200, 201], pay.body).toContain(pay.statusCode);
+      const res = await act(b.id, 'early-departure', {
+        newDepartureDate: '2027-01-06',
+        noticeGivenAt: '2027-01-05T10:00:00+07:00',
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      // dropped 06 + 07: 1.416.000 net → 50 % = 708.000 kept, 708.000 + extra persons 300.000 refunded
+      expect(res.json()).toMatchObject({ earlyDepartureFeeVnd: 708_000, refundVnd: 1_008_000 });
+      expect((await extraLines(b.folioId)).map((l) => [l.service_date, l.amount_vnd])).toEqual([
+        ['2027-01-05', 150_000],
+      ]);
+    });
   });
 
   it('ARC-09: the SSE listener reconnects after its connection is killed – the next event still arrives', async () => {

@@ -3,22 +3,23 @@
  * did not choose `partyMemberId`. Implements BE-C's consumer port REGISTRATION_PARTY_PORT
  * (registration/public/party-port.ts), bound by FrontdeskModule; called in the addGuestDocument transaction.
  *
- * Order (identity first – BR-951 key order on a document: document number, then name + date of birth):
- * 1. a member of the booking whose profile matches (`guest.id_doc_hmac`, else normalised name + date of birth);
- * 2. a guest profile that matches the same way → added to the party as companion, relationship `unknown`,
+ * SEC s3 section 7 (condition, 17/10): a document is attached AUTOMATICALLY only on a document-number match
+ * (blind index `guest.id_doc_hmac` = the document's `doc_number_hmac`). A name + date of birth match is only
+ * a suggestion for the desk to confirm (Sprint 4 – "hồ sơ từ giấy tờ"), never an automatic link here.
+ * 1. a member of the booking whose guest profile has this document number → that member;
+ * 2. a guest profile with this document number → added to the party as companion, relationship `unknown`,
  *    ONLY while the booking still has a free declared place in that age band (a person beyond the declared
  *    count changes occupancy and BR-110 fees – that stays the desk's `addPartyMember` with its decision);
- * 3. otherwise the ONE member that has no document yet;
- * 4. anything ambiguous (two candidates) or nothing → null: the document stays unlinked, the desk links it.
+ * 3. anything else (no number match, two candidates, the booker) → null: the document stays unlinked and the
+ *    desk links it with `partyMemberId`.
  * No CRM profile is ever created here (a profile needs a contact – guests module V-02; and never for a minor).
- * The clear date of birth is used for the comparison only (C3 – not stored, not logged, not audited).
+ * The clear date of birth is used only for the age band of an added member (C3 – not stored, not logged).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { AuditService } from '../../audit/public/audit.service';
-import { nameSearchKey } from '../../guests/public/normalize';
 import { ParameterService } from '../../platform/public/parameter.service';
 import type {
   DocumentPersonInput,
@@ -32,9 +33,6 @@ interface MemberRow {
   guest_id: string | null;
   price_age_band: Band;
   id_doc_hmac: string | null;
-  name_search: string | null;
-  date_of_birth: string | null;
-  has_document: boolean;
 }
 
 /** Full years between a date of birth and a day (both YYYY-MM-DD). */
@@ -71,65 +69,29 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     const row = res[0];
     if (!row || !['hold', 'confirmed', 'in_house'].includes(row.status)) return null;
     const { rows: members } = await tx.query<MemberRow>(
-      `SELECT m.id, m.guest_id, m.price_age_band, g.id_doc_hmac, g.name_search,
-              g.date_of_birth::text AS date_of_birth,
-              EXISTS (SELECT 1 FROM guest_document d
-                       WHERE d.party_member_id = m.id AND d.purged_at IS NULL) AS has_document
+      `SELECT m.id, m.guest_id, m.price_age_band, g.id_doc_hmac
          FROM reservation_guest m LEFT JOIN guest g ON g.id = m.guest_id
         WHERE m.reservation_id = $1 AND m.removed_at IS NULL
         ORDER BY m.created_at, m.id`,
       [row.id],
     );
-    const nameKey = nameSearchKey(input.fullNameOnDoc);
-    const sameByName = (n: string | null, dob: string | null) =>
-      !!input.dateOfBirth && n === nameKey && dob === input.dateOfBirth;
-
-    // 1. a member whose profile is this person
+    // 1. a member whose profile carries this document number
     const byDoc = members.filter((m) => m.id_doc_hmac === input.docNumberHmac);
     if (byDoc.length === 1) return (byDoc[0] as MemberRow).id;
     if (byDoc.length > 1) return null;
-    const byName = members.filter((m) => sameByName(m.name_search, m.date_of_birth));
-    if (byName.length === 1) return (byName[0] as MemberRow).id;
-    if (byName.length > 1) return null;
 
-    // 2. a guest profile that is this person
-    const profile = await this.profile(tx, input, nameKey);
-    if (profile === 'ambiguous') return null;
-    if (profile) {
-      if (profile === row.booker_guest_id) return null; // the booker has no party row (B-1 #1)
-      const already = members.find((m) => m.guest_id === profile);
-      if (already) return already.id;
-      return this.addFromProfile(tx, input, row, members, profile);
-    }
-
-    // 3. the one member still without a document
-    const undocumented = members.filter((m) => !m.has_document);
-    return undocumented.length === 1 ? (undocumented[0] as MemberRow).id : null;
-  }
-
-  /** Profile matched by document blind index, else by normalised name + date of birth; null = none. */
-  private async profile(
-    tx: Tx,
-    input: DocumentPersonInput,
-    nameKey: string,
-  ): Promise<string | 'ambiguous' | null> {
-    const pick = (ids: Array<{ id: string }>) =>
-      ids.length === 1 ? (ids[0] as { id: string }).id : ids.length > 1 ? 'ambiguous' : null;
-    const { rows: byDoc } = await tx.query<{ id: string }>(
+    // 2. a guest profile with this document number
+    const { rows: profiles } = await tx.query<{ id: string }>(
       `SELECT id FROM guest WHERE id_doc_hmac = $1 AND merged_into_id IS NULL AND anonymized_at IS NULL
         LIMIT 2`,
       [input.docNumberHmac],
     );
-    const doc = pick(byDoc);
-    if (doc) return doc;
-    if (!input.dateOfBirth) return null;
-    const { rows: byName } = await tx.query<{ id: string }>(
-      `SELECT id FROM guest WHERE name_search = $1 AND date_of_birth = $2::date
-          AND merged_into_id IS NULL AND anonymized_at IS NULL
-        LIMIT 2`,
-      [nameKey, input.dateOfBirth],
-    );
-    return pick(byName);
+    if (profiles.length !== 1) return null;
+    const profile = (profiles[0] as { id: string }).id;
+    if (profile === row.booker_guest_id) return null; // the booker has no party row (B-1 #1)
+    const already = members.find((m) => m.guest_id === profile);
+    if (already) return already.id;
+    return this.addFromProfile(tx, input, row, members, profile);
   }
 
   /** Companion `unknown` for a matched profile – only into a free declared place of its age band. */

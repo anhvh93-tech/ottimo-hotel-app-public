@@ -39,10 +39,13 @@ import { allocate } from './allocate';
 
 export type RevenueGroup = 'room' | 'other' | 'non_revenue';
 
-/** Charges an `ota_prepaid` booking has paid to the OTA (BR-307, DOM BE-13, DOM S3-2 OTA fees). */
+/**
+ * Charges an `ota_prepaid` booking has paid to the OTA (BR-307 "Đã thu qua OTA" = the room charge the OTA
+ * billed, DOM S3-2 OTA-kept fees). NOT `extra_person` (DOM 17/10, BR-110): people above max(standard
+ * occupancy, OTA guest count) pay their surcharge at the desk – it stays due on the folio.
+ */
 export const OTA_COVERED: ReadonlySet<string> = new Set([
   'room',
-  'extra_person',
   'cancellation_fee',
   'no_show_fee',
   'early_departure_fee',
@@ -507,17 +510,30 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
-   * Σ succeeded deposit receipts of a folio (B4 sufficiency, BR-305, BR-309 base, J1). Reversal rows are
+   * Deposit still held on a folio (B4 sufficiency, BR-305, BR-309 base, J1): Σ succeeded deposit receipts,
+   * capped by the own money still held (deposits + desk charges − refunds paid out). Reversal rows are
    * bookkeeping (their original is `reversed`) – never counted, so a reversed deposit gives 0, not −X
-   * (ARC-BE-S3-02, SEC-BE-36). Same rule as moneyPosition().depositHeldVnd.
+   * (ARC-BE-S3-02, SEC-BE-36); a deposit paid back to the guest no longer confirms a hold nor keeps it
+   * (verification 17/10). OTA collections are not deposits.
    */
   async depositPaid(tx: Tx, folioId: string): Promise<number> {
-    const { rows } = await tx.query<{ total: string | number }>(
-      `SELECT COALESCE(SUM(amount_vnd), 0) AS total FROM payment
-        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded' AND reversal_of_id IS NULL`,
+    const { rows } = await tx.query<{
+      dep: string | number;
+      own: string | number;
+      back: string | number;
+    }>(
+      `SELECT COALESCE(SUM(amount_vnd) FILTER (WHERE type = 'deposit'), 0) AS dep,
+              COALESCE(SUM(amount_vnd) FILTER (WHERE type IN ('deposit', 'charge') AND method <> 'ota_collect'), 0)
+                AS own,
+              COALESCE(-SUM(amount_vnd) FILTER (WHERE type = 'refund'), 0) AS back
+         FROM payment
+        WHERE folio_id = $1 AND status = 'succeeded' AND reversal_of_id IS NULL`,
       [folioId],
     );
-    return Number(rows[0]?.total ?? 0);
+    const r = rows[0];
+    const dep = Number(r?.dep ?? 0);
+    const held = Math.max(0, Number(r?.own ?? 0) - Number(r?.back ?? 0));
+    return Math.min(dep, held);
   }
 
   // ───────────── FolioPort (ARC s3-contract 4.3 – BE-A checkout/stay, BE-B endpoints) ─────────────
@@ -987,8 +1003,8 @@ export class FolioService implements FolioStaySync {
   /**
    * DOM BE-13 / BR-307: an `ota_prepaid` booking has ONE live system receipt `ota_collect` (provider
    * `ota_system`, reconciliation `not_required` until the OTA payout reconciliation of R3) equal to the
-   * OTA-covered charges of the booking: nights, extra-person fee, fees the OTA keeps (cancellation, no-show,
-   * early departure), net of their approved FOC/discounts. Re-run after every change of those lines: a
+   * OTA-covered charges of the booking: nights and the fees the OTA keeps (cancellation, no-show, early
+   * departure), net of their approved FOC/discounts – never the extra-person fee (collected at the desk). Re-run after every change of those lines: a
    * different amount → the old receipt is reversed (BR-008) and a new one written. `paymentModel` null =
    * unknown here (fee posting, void): acts only when the folio already has a system receipt.
    * Lines of child bookings (B9a / OTA extension, direct channel) are paid at the desk – not covered.
@@ -1000,11 +1016,14 @@ export class FolioService implements FolioStaySync {
     paymentModel: string | null,
     actor: FolioActor,
   ): Promise<void> {
+    // DOM BE-13 (verification 17/10): only THIS booking's system receipt – a direct child booking (B9a, B13,
+    // E05-11) on the same folio never touches the OTA receipt of its parent.
     const { rows: live } = await tx.query<{ id: string; amount_vnd: number; code: string }>(
       `SELECT id, amount_vnd, code FROM payment
-        WHERE folio_id = $1 AND provider = 'ota_system' AND status = 'succeeded' AND reversal_of_id IS NULL
+        WHERE folio_id = $1 AND reservation_id = $2 AND provider = 'ota_system' AND status = 'succeeded'
+          AND reversal_of_id IS NULL
         FOR UPDATE`,
-      [folioId],
+      [folioId, reservationId],
     );
     if (live.length === 0 && paymentModel !== 'ota_prepaid') return;
     // Known non-prepaid model with a system receipt (model changed) → target 0: the receipt is reversed.
@@ -1140,9 +1159,12 @@ export class FolioService implements FolioStaySync {
     // FB-R2-ARC-BE-S3-01 – `ConfirmedStay.nights[].extraPersonVnd`; mid-stay changes apply from `effectiveFrom`).
     live = await this.liveLines(tx, folio.id, stay.reservationId);
     const wanted = new Map<string, number>();
+    // Blocker verification ARC-S3-01 (BE-A, 17/10): the label counts the extra persons of THAT night.
+    const countOf = new Map<string, number>();
     for (const n of stay.nights) {
       const fee = n.extraPersonVnd ?? stay.extraPersonPerNightVnd;
       if (fee > 0) wanted.set(n.date, fee);
+      countOf.set(n.date, n.extraPersonCount ?? stay.extraGuestCount);
     }
     const keptDates = new Set<string>();
     for (const l of live.filter((x) => x.category === 'extra_person')) {
@@ -1159,7 +1181,7 @@ export class FolioService implements FolioStaySync {
         folioId: folio.id,
         reservationId: stay.reservationId,
         category: 'extra_person',
-        description: `extra_guest x${stay.extraGuestCount}`,
+        description: `extra_guest x${countOf.get(d) ?? stay.extraGuestCount}`,
         quantity: 1,
         unitPriceVnd: fee,
         amountVnd: fee,
@@ -1170,7 +1192,9 @@ export class FolioService implements FolioStaySync {
         now,
         labelParams: {
           date: d,
-          ...(stay.extraGuestCount > 0 ? { count: stay.extraGuestCount } : {}),
+          ...((countOf.get(d) ?? stay.extraGuestCount) > 0
+            ? { count: countOf.get(d) ?? stay.extraGuestCount }
+            : {}),
         },
       });
       result.extraPersonVnd += fee;

@@ -102,6 +102,15 @@ export class ReservationStayPort {
     return this.reservations.nightFee(ctx, row, party, baseOccupancy);
   }
 
+  nightExtra(
+    ctx: BookingContext,
+    row: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    baseOccupancy: number,
+  ): { feeVnd: number; count: number } {
+    return this.reservations.nightExtra(ctx, row, party, baseOccupancy);
+  }
+
   nightFees(tx: Tx, row: ReservationRow) {
     return this.reservations.nightFees(tx, row);
   }
@@ -109,10 +118,21 @@ export class ReservationStayPort {
   setNightFees(
     tx: Tx,
     reservationId: string,
-    fees: ReadonlyArray<{ date: string; feeVnd: number }>,
+    fees: ReadonlyArray<{ date: string; feeVnd: number; count?: number }>,
     now: Date,
   ): Promise<void> {
     return this.reservations.setNightFees(tx, reservationId, fees, now);
+  }
+
+  /** In-house children of the stay follow the people of the primary booking (fee per night from `fromDate`). */
+  syncChildrenParty(
+    tx: Tx,
+    ctx: BookingContext,
+    parent: ReservationRow,
+    party: { adults: number; children6to11: number; childrenUnder6: number },
+    fromDate: string,
+  ): Promise<void> {
+    return this.reservations.syncChildrenParty(tx, ctx, parent, party, fromDate);
   }
 
   peopleFromNight(

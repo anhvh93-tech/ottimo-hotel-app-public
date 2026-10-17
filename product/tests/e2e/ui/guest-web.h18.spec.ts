@@ -5,7 +5,7 @@
 // ĐK-3 (SEC): sau luồng không có ảnh/khóa nào trong localStorage/sessionStorage; token không còn trên thanh địa chỉ.
 // Project desk-chromium (testMatch ui/); mỗi ca tự tạo browser context di động.
 import { readFileSync } from 'node:fs';
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type FileChooser, type Page } from '@playwright/test';
 import { session, stackToday } from '../support/api.js';
 import { GUEST_ORIGIN, SEED_PASSWORD } from '../support/env.js';
 import { bookFree, cleanupTracked, getReservation, room, s2Context } from '../support/s2.js';
@@ -63,8 +63,16 @@ async function photo(page: Page, personIdx: number, docTypeLabel: string, takeLa
   await person.getByRole('button', { name: docTypeLabel }).click();
   const take = page.getByRole('button', { name: takeLabel }).nth(personIdx - 1);
   await expect(take).toBeEnabled();
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), take.click()]);
-  await chooser.setFiles({
+  // CI (1 worker, máy chậm) có lần click đầu chưa mở hộp chọn tệp (flaky ở CI 38980363276) → thử lại 1 lần
+  let chooser: FileChooser | undefined;
+  for (let i = 0; i < 2 && !chooser; i++) {
+    [chooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10_000 }).catch(() => undefined),
+      take.click(),
+    ]);
+  }
+  expect(chooser, 'hộp chọn tệp/camera mở').toBeTruthy();
+  await chooser!.setFiles({
     name: `giay-to-${personIdx}.png`,
     mimeType: 'image/png',
     buffer: PNG_16X16,

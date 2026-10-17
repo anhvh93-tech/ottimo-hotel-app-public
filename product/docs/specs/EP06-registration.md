@@ -67,7 +67,7 @@ Ký hiệu cột BB theo loại: **C** = `cccd` · **P** = `passport` · **T** =
 
 | Trường | Nhãn (`checkin.docs.field.*`) | Kiểu | BB | Kiểm tra (chuẩn hóa trước, kiểm sau) | Lỗi |
 |---|---|---|---|---|---|
-| `partyMemberId` | Người trong đơn | uuid | K | Chọn người đã có trong đơn; bỏ trống → server khớp theo khóa định danh (BR-951: số giấy tờ → SĐT → email) rồi theo tên + ngày sinh; không khớp → tạo người mới quan hệ "Chưa rõ" (US-043 AC3). Người dưới ngưỡng dữ liệu → **không** tạo hồ sơ CRM (rbac mục 9) | `NOT_IN_LIST` |
+| `partyMemberId` | Người trong đơn | uuid | K | Chọn người đã có trong đơn; bỏ trống → server tự tìm người theo **thứ tự khớp ở mục 2.2a** (BUG-R2-033 b – SEC 17/10). Người dưới ngưỡng dữ liệu → **không** tạo hồ sơ (rbac mục 9) | `NOT_IN_LIST`; 409 `PARTY_DUPLICATE` |
 | `docType` | `doc_type` | enum `cccd` · `passport` · `child_personal_id` · `other` | B | V-11. Người có tuổi < `minor_data_age_threshold` mà chưa có giấy tờ riêng → gợi ý `child_personal_id` (US-043 AC2) | `NOT_IN_LIST` |
 | `isMain` | Người đứng tên | bool | K | Đúng **một** giấy tờ `isMain = true` mỗi đơn; mặc định `true` cho giấy tờ đầu tiên khớp người đứng tên đơn | `MAIN_GUEST_DUPLICATE` **(đề nghị ARC E06-05)** |
 | `fullNameOnDoc` | `full_name` (như trên giấy tờ) | text | B | V-01; lưu nguyên dạng nhập (có dấu); so khớp theo mục 3 | `REQUIRED`; `NAME_INVALID` |
@@ -87,6 +87,27 @@ Ký hiệu cột BB theo loại: **C** = `cccd` · **P** = `passport` · **T** =
 | `address` | Địa chỉ thường trú | text (C3) | K | Chỉ hiện ô khi biểu mẫu cổng yêu cầu (R-REG-04) ≤ 300 | – |
 | `captureMethod` | – | enum | B (server đặt) | `manual` ở R2 (`qr_cccd`, `mrz` – US-051 R3); giấy tờ từ app khách = `guest_upload` | – |
 | `image` (multipart) | `checkin.docs.scan` | tệp | B (C, P – người lớn); K (T, O) | JPEG/PNG/WebP theo magic bytes; ≤ 10 MB, ≤ 40 MP; ≤ 4 ảnh/người (SR-FILE-01/02); HEIC/PDF → từ chối kèm hướng dẫn chụp lại; client chuẩn hóa qua canvas trước khi gửi, server vẫn mã hóa lại và bỏ EXIF/GPS (SR-FILE-03) | 422 `FILE_REJECTED` → `error.FILE_REJECTED` (**UXD bỏ** nhắc HEIC/PDF – R-4 Đợt 0); 413 `PAYLOAD_TOO_LARGE` |
+
+### 2.2a Gắn giấy tờ vào người – hồ sơ khách "từ giấy tờ" (BUG-R2-033 b; PO 17/10 chọn A; SEC duyệt có điều kiện – `reviews/s3-SEC.md` mục 7) – **cài đặt Sprint 4**
+Khi lễ tân nhập giấy tờ mà **không** chọn `partyMemberId`, server tìm người theo thứ tự (dừng ở bước đầu tiên khớp):
+
+| Bước | Khớp bằng | Hành vi | Ghi chú |
+|---|---|---|---|
+| 1 | **Trong cùng đơn/khai báo**: `guest_document.doc_number_hmac` (số giấy tờ chuẩn hóa: in hoa, bỏ `[\s.\-/]` – BE-48) | Đã có giấy tờ cùng số → 409 `PARTY_DUPLICATE` (không nhập trùng). Không phụ thuộc ảnh (ảnh có thể đã xóa theo BR-609) | Khóa sống tới T03 |
+| 2 | **Hồ sơ ngoài đơn có đồng ý P05**: `guest.id_doc_hmac` = `keyedHash('guest_doc', "<loại>\|<quốc gia cấp alpha-3>\|<số chuẩn hóa>")` (khóa riêng, khác `doc_number_hmac`) | **Tự gắn** hồ sơ đó vào đơn (`role = companion`, quan hệ `unknown`) | Chỉ hồ sơ mà **chính người đó** đã đồng ý P05 mới có khóa này (F03). Không có P05: HMAC tính trong bộ nhớ chỉ để so, rồi bỏ |
+| 3 | **Tên + ngày sinh** trùng hồ sơ ngoài đơn (BR-952 – "nghi trùng") | **Không** tự gắn. Phản hồi kèm gợi ý **(đề nghị ARC E06-13)** `possibleReturningGuest {guestCode, displayName}` → giao diện hiện **(mới)** `checkin.docs.maybe_returning` "Có thể là khách quen {name} ({code}). Dùng hồ sơ này?" với hai nút ngang hàng "Dùng hồ sơ {code}" / "Tạo người mới" – lễ tân xác nhận bằng mắt (gắn nhầm người làm lộ lịch sử/ghi chú của khách khác cho đơn này) | Ngày sinh chỉ dùng để **so trong lúc nhập**, không chép sang hồ sơ |
+| 4 | Không khớp | Server tạo hồ sơ khách **nguồn "từ giấy tờ"** (`source = document`) với **trường tối thiểu** dưới đây, gắn vào đơn `role = companion`, quan hệ `unknown`. Làm số người vượt số khách của đơn → **vẫn gắn**, cảnh báo **(mới)** `checkin.docs.over_party` "Đơn có {n} khách, giấy tờ đã nhập cho {m} người – sửa số khách hoặc thêm người (có ngày áp dụng)" và hướng sang EP03-05 4.7 (phụ thu **không** tự ghi) | Trẻ dưới ngưỡng dữ liệu: **không** tạo hồ sơ (như cũ) |
+
+**Trường tối thiểu của hồ sơ "từ giấy tờ"** (SEC 7.1 – hồ sơ này **không phải hồ sơ CRM**, chỉ phục vụ P01 lưu trú + P02 khai báo):
+| Được lưu trên hồ sơ (`guest`, `source = document`) | **Không** lưu trên hồ sơ (chỉ nằm trong `guest_document` mã hóa, theo T03) |
+|---|---|
+| Mã `KH-`; họ tên **như trên giấy tờ** + `name_search`; quốc tịch (alpha-3 → alpha-2) + cờ người nước ngoài; `source = document`; `crmConsent = not_asked`; người tạo, lúc tạo; mốc lần trả phòng cuối | Ngày sinh, giới tính, số giấy tờ, 4 số cuối, khóa băm số giấy tờ (khi chưa có P05), địa chỉ, thị thực, ảnh; SĐT/email (không có); `tags`, `freeNote`, `serviceNotes`, phân khúc (đều là mục đích P05) |
+
+Hệ quả có chủ đích: lần ở sau, hồ sơ "từ giấy tờ" **không** tự khớp theo tên + ngày sinh (bước 3 chỉ gợi ý với hồ sơ thường có ngày sinh); muốn được nhận ra tự động → người đó đồng ý P05 (mục 4.1).
+
+**Hạn lưu** (SEC 7.2, T05): ẩn danh hồ sơ "từ giấy tờ" sau `document_profile_retention_months` (mặc định 12, biên 1–12, chỉ OWN sửa) kể từ lần trả phòng cuối – tên → mã, giữ `code` và quốc tịch cho thống kê. Ra khỏi chế độ này chỉ khi: chính người đó đồng ý P05 (→ T06), hoặc hồ sơ được thêm SĐT/email / trở thành người đứng tên (→ quy tắc CRM thường, EP00 11.2). `[GIẢ ĐỊNH SEC – chờ luật sư, câu phụ trong ESC-001]`. Job ẩn danh phải có **trước khi** đưa dữ liệu khách thật vào.
+
+**Hiển thị**: FD+ thấy chip **(mới)** `crm.source_document` "Từ giấy tờ – chưa đồng ý ghi nhớ" trên hồ sơ và trong danh sách người đi cùng; SAL/CTV **không** thấy hồ sơ loại này ở bất kỳ danh sách/tìm kiếm/tra cứu nào (rbac D10, ghi chú 40); HK chỉ tên gọi + căn trong ngày (D01 T). Hồ sơ "từ giấy tờ" không vào danh sách/xuất tiếp thị.
 
 Ảnh được nhận **trước** khi ghi đồng ý lưu ảnh (dùng để khai báo – nghĩa vụ luật P02); đồng ý chỉ quyết định giữ ảnh tới hạn BR-610 hay xóa khi khai báo xong (BR-609, R-REG-05). Đọc ảnh lỗi (mờ, lóa) → `checkin.docs.read_failed`.
 
@@ -152,6 +173,22 @@ Mục kiểm thị thực/nhập cảnh/hộ chiếu chỉ áp cho **NN** (mục
 - Chọn **Không** vẫn khai báo bình thường (AC1, R-REG-05); ảnh xóa ngay khi khai báo `confirmed` (AC2 – mục 6).
 - Khách đã chọn qua check-in online (AC3): Desk hiện "Đã chọn qua app lúc {time}: Có/Không" **(mới)**; không hỏi lại (trừ khi khách muốn đổi).
 - **Đổi quyết định / rút đồng ý tại quầy (SEC P-R2-4 ĐK-5)**: Desk được ghi `refused` cho người đã `granted` (ghi bản ghi mới, giữ lịch sử – R-CON-02). Hệ quả theo BR-609 (c): khai báo chưa `confirmed` → ảnh xóa khi `confirmed`; đã `confirmed` → **xóa ngay** (J16). Đổi `refused → granted`: chỉ khi khai báo chưa `confirmed` (ảnh còn) – sau đó → 409 `CONSENT_CHANGE_NOT_ALLOWED` **(đề nghị ARC E06-02)** → chuỗi **(mới)** "Ảnh đã xóa theo lựa chọn trước đó, không bật lại được." Hợp đồng hiện chưa mô tả ghi đè → ARC ghi rõ ở `recordImageConsent` (E06-02).
+
+### 4.1 Hỏi người đi cùng đồng ý **P05 – ghi nhớ để lần sau nhận ra** (tùy chọn; SEC 17/10 mục 7.3–7.4, BR-955, R-CON-04) – **cài đặt Sprint 4**
+Áp cho người đi cùng là **người lớn** có hồ sơ `source = document` (mục 2.2a), tại quầy, trên thiết bị được cấp, sau khi đã nhập giấy tờ.
+
+| Bước | Hành vi |
+|---|---|
+| Hiện câu hỏi | Dưới khối người đó, câu **(mới)** `checkin.crm_consent.q` "Anh/chị {name} có muốn OTTIMO ghi nhớ để lần sau nhận ra khi đến ở không? (Không ảnh hưởng việc nhận phòng.)" + liên kết văn bản thông báo P05 theo ngôn ngữ đã đọc cho khách. **Tùy chọn** – không bắt buộc để nhận phòng/khai báo |
+| Hai nút | **"Đồng ý"** / **"Không đồng ý"** – **ngang hàng** (cùng kích thước, cùng màu, không nút nào nổi bật), **không chọn sẵn**; trạng thái ban đầu "Chưa hỏi" (`not_asked`). Có thể đóng mà không chọn → giữ `not_asked` (R-CON-01) |
+| Ai quyết | **Chính người đi cùng**; người đặt phòng **không** quyết thay (R-CON-04, BR-955). Lễ tân chỉ bấm theo câu trả lời của người đó |
+| Gửi | Đề nghị ARC **E06-12**: `recordImageConsent` (hoặc operation riêng) nhận `purpose = P05_CRM` cho `partyMemberId` có hồ sơ; trường như mục 4 (`decision`, `noticeVersion`, `locale`, `channel = desk\|paper`) – **không** có `retentionDays` (P05 theo T06) |
+| Đồng ý | `crmConsent = granted`; server tính và ghi `guest.id_doc_hmac` = `keyedHash('guest_doc', …)` từ giấy tờ trong đơn (giải mã ở server, không trả API); hồ sơ chuyển hạn lưu T06; từ nay lễ tân được thêm `tags`/`serviceNotes`/`freeNote` (EP00 11.2) |
+| Không đồng ý | `crmConsent = refused`; **không** ghi khóa giấy tờ; hồ sơ giữ hạn T05 (mục 2.2a); không hỏi lại ở lần ở này |
+| Rút đồng ý sau đó | Qua lễ tân (S31 – OWN/MGR) hoặc app khách mức 2 (R3): `crmConsent = refused`, **xóa** `id_doc_hmac` cùng giao dịch; hồ sơ quay về T05 tính từ lần trả phòng cuối |
+| Người dưới ngưỡng dữ liệu | Không hỏi (không có hồ sơ) |
+
+Lỗi: người không có hồ sơ/không phải người lớn → 422 `NOT_IN_LIST`; thiết bị chưa cấp → 403 `DEVICE_NOT_TRUSTED`; `noticeVersion` lệch → 422 `NOT_IN_LIST`.
 
 ---
 
@@ -282,6 +319,8 @@ Mặc định theo ngôn ngữ hồ sơ khách, không có thì theo trình duy�
 | E06-05 | ARC | Mã trường mới: `DOC_NUMBER_INVALID`, `MAIN_GUEST_DUPLICATE`, `ENTRY_DATE_FUTURE`, `CHECK_NOTE_REQUIRED`, `PORTAL_REFERENCE_REQUIRED`; `nationalityCode` thu về đúng 3 ký tự (alpha-3) thay `{2,3}` |
 | E06-06 | ARC + **SEC (ĐK-2: thêm trường phải qua SEC)** | `OnlineCheckin.currentStep` thêm `notice` + `noticeVersion` đã đọc; `updateOnlineCheckin` thêm `arrivalNote` (≤ 300, V-09) và `lateArrival: bool`; `completeOnlineCheckin` cho phép người còn thiếu ảnh ở trạng thái "bổ sung tại quầy" (`deferredPeople[]`); mã `ONLINE_CHECKIN_CLOSED` (409); `Registration.onlineCheckin { completedAt, etaTime, uploadedCount }` cho Desk |
 | E06-07 | ARC | `uploadGuestDocument` lặp lại cho cùng `personIndex` = thay thế bản trước (ghi rõ trong mô tả); mã trường `FILE_TYPE`, `FILE_TOO_LARGE`, `TOO_MANY_FILES` trong `errors[]` của `FILE_REJECTED` để guest-web hiện đúng câu |
+| E06-12 | ARC | Ghi đồng ý **P05_CRM** tại quầy cho người đi cùng có hồ sơ (mục 4.1): `recordImageConsent` nhận `purpose = P05_CRM` (đổi tên/tách operation tùy ARC); đồng ý → server ghi `guest.id_doc_hmac` (`keyedHash('guest_doc', …)` v1), rút → xóa khóa; `Guest.crmConsent` cập nhật |
+| E06-13 | ARC | `addGuestDocument` phản hồi `possibleReturningGuest {guestCode, displayName}` khi chỉ khớp tên + ngày sinh (bước 3 – không tự gắn); `PartyMember.profileSource` (`document`/`crm`) cho FD+; tạo hồ sơ `source = document` qua cổng public BE-B (không qua form CRM). Cùng các mục ARC trong SEC 7.4 (`Guest.source`, 2 CHECK DB, tham số `document_profile_retention_months`) |
 | E06-08 | DOM | **Đã trả lời** (s2-DOM G-5: đồng ý cả ba + tên một từ → `unverified`; áp 3.1, Sprint 3). Nội dung cũ: Quy tắc so tên "tập con, không xét thứ tự" (3.1); người dưới ngưỡng dữ liệu không hỏi đồng ý, ảnh xóa khi khai xong (mục 0); "đổi giấy tờ" sau `confirmed` → `needs_update` (2.3) |
 | E06-09 | SEC | Xác nhận: (a) guest-web chỉ hỏi đồng ý cho Khách 1, người đi cùng trả lời tại quầy (8.3 – R-CON-04); (b) dòng `guest.oci.withdraw_hint` (ĐK-5); (c) danh sách chuỗi cấm dùng ở R2 (8.1 ĐK-6); (d) tự ẩn số đầy đủ sau 60 giây, tự xóa clipboard sau 60 giây |
 | E06-10 | UXD | Chuỗi **(mới)** trong tài liệu (VI/EN); bản R2 của `guest.oci.done_body`; nhãn 3 kết quả kiểm (Đạt / Không đạt / Chưa kiểm được) – hiện có `mark_pass`/`mark_fail` nhưng chưa có nhãn kết quả hệ thống; bỏ nhắc HEIC/PDF ở `error.FILE_REJECTED` |
@@ -293,3 +332,4 @@ Mặc định theo ngôn ngữ hồ sơ khách, không có thì theo trình duy�
 | 16/10/2026 | 2 (Sprint 1) | Bản đầu: đặc tả mức trường EP06 (US-042…050), dùng thiết bị được cấp (US-142), check-in online mức 1 trên guest-web (US-106, 107, 112 phần check-in) theo SEC P-R2-4 ĐK-1…6; xác nhận phần BA của ĐK-5 (ghi đè `granted → refused` tại quầy); BR-613 ở R2 = chặn nhận phòng | BA |
 | 16/10/2026 | 2 (Sprint 3 khởi động) | DOM G-5 (so tên: một từ → `unverified`), G-17 (trả sớm = trả phòng khi tính hạn xóa ảnh; người bị bỏ khỏi đơn), G-18 (ngày đi khách VN – câu hỏi luật sư ESC-001); E06-08 đã trả lời | BA |
 | 17/10/2026 | 2 (Sprint 3 – Phản hồi & sửa) | v0.3: BR v0.3.4 + DOM s3 (S3-5 định dạng cổng – giả định ESC-018, "Ngày đến" = ngày nhận phòng thực tế; S3-7 tuổi từ năm sinh; S3-8 `mixed` bị từ chối khai lại mọi khối) và ARC 0.3.6 bổ sung (`currentNoticeVersion`, `imageRetentionDays`, `ConsentInput.retentionDays` cho Desk và app khách, fail closed) | BA |
+| 17/10/2026 | 2 (Sprint 3 – theo SEC 17/10) | 2.2 `partyMemberId` + **2.2a** hồ sơ khách "từ giấy tờ" (BUG-R2-033 b): thứ tự khớp (trong đơn bằng `doc_number_hmac`; ngoài đơn **chỉ tự gắn khi khớp `id_doc_hmac` của hồ sơ có P05**; tên + ngày sinh **chỉ gợi ý**), trường tối thiểu, hạn lưu T05, hiển thị theo vai; **4.1** luồng hỏi người đi cùng đồng ý P05 (tùy chọn, hai nút ngang hàng, không chọn sẵn); đề nghị E06-12, E06-13. Cài đặt Sprint 4 | BA |

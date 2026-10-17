@@ -556,6 +556,31 @@ test.describe(
         expect(
           afterImg.filter((e) => e.subjectType === 'document_image' && e.action === 'view'),
         ).toHaveLength(1);
+        // BUG-R2-048 (kiểm lại vòng sửa 2): bộ lọc ngày theo hợp đồng `from`/`to` (OpenAPI DateFrom/DateTo).
+        // Khoảng ngày cũ (2000) → 0 dòng; khoảng chứa ngày ghi → có các dòng vừa tạo.
+        const logPath = p3(EP3.listC3AccessLog, owner);
+        const old = await call<{ data: C3LogEntry[] }>(request, 'GET', logPath, {
+          session: owner,
+          query: { from: '2000-01-01', to: '2000-01-02', limit: 100 },
+        });
+        expect(old.status, JSON.stringify(old.body).slice(0, 300)).toBe(200);
+        expect(old.body.data, 'from/to năm 2000 → không có dòng').toHaveLength(0);
+        const day = await stackToday(request, '00:00'); // ngày lịch hôm nay (giờ cơ sở)
+        const shift = (n: number) =>
+          new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+        const win = await call<{ data: C3LogEntry[] }>(request, 'GET', logPath, {
+          session: owner,
+          query: { from: shift(-1), to: shift(1), reservationId: f.res.id, limit: 100 },
+        });
+        expect(win.status).toBe(200);
+        expect(win.body.data.length, 'from/to = hôm nay → có dòng của ca').toBeGreaterThanOrEqual(
+          2,
+        );
+        const bad = await call(request, 'GET', logPath, {
+          session: owner,
+          query: { from: '17/10/2026' },
+        });
+        expect(bad.status, 'from sai định dạng → 422').toBe(422);
         test.info().annotations.push({
           type: 'note',
           description:

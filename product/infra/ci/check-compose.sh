@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# CI guard on the RESOLVED compose files (docker compose config --format json), dev and staging/production
+# (FB-R2-SEC-OPS-03, blocker verification 17/10: "blobdata not in web" had no automated check). Fails when:
+#   - the blob volume (`blobdata`) is mounted in any service other than api and worker, or is missing there,
+#     or BLOBSTORE_LOCAL_PATH of api/worker is not the absolute path where it is mounted (SEC C2, SR-FILE-04)
+#   - web (Caddy) gets any volume other than its Caddyfile (+ certificate volumes in prod), or any secret
+#   - prod: a service other than web publishes a port; web publishes anything but 80/443; postgres is not only on
+#     the internal `db` network; a container is not read_only / cap_drop ALL / no-new-privileges; api/worker get a
+#     secret as a plain variable instead of *_FILE; a retired PAYMENT_VIETQR_* account variable is passed
+#   check-compose.sh                (from anywhere; uses product/.env.example and infra/server/env.example)
+# Exit 0 = ok, 1 = a rule is broken, 2 = usage / tooling.
+set -Eeuo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+product=$(cd "$here/../.." && pwd)
+DEV_FILE="${DEV_COMPOSE:-$product/infra/docker-compose.yml}"
+PROD_FILE="${PROD_COMPOSE:-$product/infra/docker-compose.prod.yml}"
+command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 2; }
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/compose-check.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+docker compose -p ottimo-compose-check --env-file "$product/.env.example" -f "$DEV_FILE" \
+  --profile seed config --format json > "$tmp/dev.json"
+IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-compose-check \
+  --env-file "$product/infra/server/env.example" -f "$PROD_FILE" \
+  --profile deploy --profile seed config --format json > "$tmp/prod.json"
+
+python3 - "$tmp/dev.json" "$tmp/prod.json" <<'PY'
+import json, sys
+
+fails = []
+def bad(msg): fails.append(msg)
+
+BLOB = 'blobdata'
+BLOB_USERS = {'api', 'worker'}
+PLAIN_SECRETS = {'DATABASE_URL', 'MIGRATION_DATABASE_URL', 'SESSION_SECRET', 'DATA_KEK_CURRENT', 'ID_HASH_KEY',
+                 'LOG_IP_HMAC_KEY', 'GUEST_CODE_SIGNING_KEY', 'QA_SEED_PASSWORD', 'POSTGRES_PASSWORD',
+                 'OTTIMO_APP_DB_PASSWORD', 'OTTIMO_MIGRATOR_DB_PASSWORD'}
+RETIRED = {'PAYMENT_VIETQR_BANK_BIN', 'PAYMENT_VIETQR_ACCOUNT_NO', 'PAYMENT_VIETQR_ACCOUNT_NAME'}
+
+def check_blob(label, cfg):
+    services = cfg['services']
+    for name, svc in services.items():
+        vols = svc.get('volumes') or []
+        blob = [v for v in vols if v.get('type') == 'volume' and v.get('source') == BLOB]
+        if name in BLOB_USERS:
+            if len(blob) != 1:
+                bad(f'{label}: {name} must mount {BLOB} exactly once (found {len(blob)})')
+                continue
+            target = blob[0]['target']
+            env = svc.get('environment') or {}
+            if env.get('BLOBSTORE_LOCAL_PATH') != target or not target.startswith('/'):
+                bad(f'{label}: {name} BLOBSTORE_LOCAL_PATH={env.get("BLOBSTORE_LOCAL_PATH")!r} != mount {target!r}')
+            if blob[0].get('read_only'):
+                bad(f'{label}: {name} needs {BLOB} writable')
+        elif blob:
+            bad(f'{label}: {name} mounts {BLOB} – only api and worker may (SEC C2)')
+    web = services.get('web')
+    if not web:
+        bad(f'{label}: no web service'); return
+    for v in web.get('volumes') or []:
+        if v.get('type') == 'bind':
+            if v.get('target') != '/etc/caddy/Caddyfile' or not v.get('read_only'):
+                bad(f'{label}: web bind mount {v.get("source")} → {v.get("target")} (only the Caddyfile, read-only)')
+        elif v.get('type') == 'volume':
+            if label == 'dev' or v.get('source') not in ('caddydata', 'caddyconfig'):
+                bad(f'{label}: web mounts volume {v.get("source")} (only caddydata/caddyconfig in prod)')
+        else:
+            bad(f'{label}: web mount type {v.get("type")}')
+    if web.get('secrets'):
+        bad(f'{label}: web gets secrets {[s.get("source") for s in web["secrets"]]}')
+
+dev = json.load(open(sys.argv[1]))
+prod = json.load(open(sys.argv[2]))
+check_blob('dev', dev)
+check_blob('prod', prod)
+
+# ---- prod only ----
+nets = prod.get('networks', {})
+if not (nets.get('db') or {}).get('internal'):
+    bad('prod: network db must be internal')
+for name, svc in prod['services'].items():
+    ports = svc.get('ports') or []
+    if name == 'web':
+        targets = sorted(int(p['target']) for p in ports)
+        if targets != [80, 443]:
+            bad(f'prod: web publishes {targets} (only 80, 443)')
+    elif ports:
+        bad(f'prod: {name} publishes ports {ports}')
+    if not svc.get('read_only'):
+        bad(f'prod: {name} is not read_only')
+    if 'ALL' not in (svc.get('cap_drop') or []):
+        bad(f'prod: {name} does not drop ALL capabilities')
+    if 'no-new-privileges:true' not in (svc.get('security_opt') or []):
+        bad(f'prod: {name} lacks no-new-privileges')
+    env = svc.get('environment') or {}
+    plain = sorted(k for k in env if k in PLAIN_SECRETS)
+    if plain:
+        bad(f'prod: {name} gets secrets as plain variables {plain} (use *_FILE + secrets)')
+    retired = sorted(k for k in env if k in RETIRED)
+    if retired:
+        bad(f'prod: {name} passes retired variables {retired} (SEC-INT-06)')
+pg = prod['services'].get('postgres', {})
+if sorted((pg.get('networks') or {}).keys()) != ['db']:
+    bad(f'prod: postgres networks {sorted((pg.get("networks") or {}).keys())} (only db)')
+extra_caps = set(pg.get('cap_add') or []) - {'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'SETGID', 'SETUID'}
+if extra_caps:
+    bad(f'prod: postgres cap_add {sorted(extra_caps)}')
+
+if fails:
+    for f in fails:
+        print('FAIL ' + f)
+    print(f'::error::compose rules: {len(fails)} problem(s)')
+    sys.exit(1)
+print('OK: compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening, no plain secrets)')
+PY
