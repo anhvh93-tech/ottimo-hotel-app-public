@@ -318,5 +318,113 @@ test.describe(
         2 * BIA.salePriceVnd,
       ]);
     });
+
+    test('TC-L4-133 (E) BUG-R2-140 phần Desk: đếm 2 bia lúc giá 35.000 → OWN đổi giá bia 40.000 → mở H16: bước 1 hiện số theo folio (35.000/lon, 70.000), không theo giá mới; lưu bước 1 cùng số → `latestCheck` = folio = 70.000', async ({
+      browser,
+      request,
+    }) => {
+      needClock('TC-L4-133');
+      const { D, st } = await precondition(
+        'khách ở 1 đêm, ngày đi đếm 2 bia (70.000)',
+        async () => {
+          const D = virtualDay(realToday, 2);
+          await useVirtualDevice(request, await setClock(request, vnTime(D, '14:00')));
+          cleanRooms();
+          const c = await s2Context(request);
+          const fd0 = await sessionOrSkip(request, 'qa.fd');
+          const st = await inHouse(request, c, fd0, {
+            room: room(c, '203'),
+            alternatives: c.rooms,
+            arrival: D,
+            nights: 1,
+          });
+          await useVirtualDevice(request, await setClock(request, vnTime(addDays(D, 1), '09:00')));
+          const fd = await sessionOrSkip(request, 'qa.fd');
+          expect((await minibarCheck(request, fd, st.res.id, { bia: 2 })).status).toBe(201);
+          return { D, st };
+        },
+      );
+      const day = addDays(D, 1);
+      const owner = await sessionOrSkip(request, 'qa.owner');
+      const items = await call<{ data: Array<Record<string, unknown>> }>(
+        request,
+        'GET',
+        p3(EP3.listItems, owner),
+        {
+          session: owner,
+        },
+      );
+      const bia = items.body.data.find((x) => x.code === 'bia')!;
+      const patch = async (salePriceVnd: number) => {
+        const cur = (
+          await call<{ data: Array<Record<string, unknown>> }>(
+            request,
+            'GET',
+            p3(EP3.listItems, owner),
+            {
+              session: owner,
+            },
+          )
+        ).body.data.find((x) => x.code === 'bia')!;
+        const r = await call(
+          request,
+          'PATCH',
+          p3(EP3.updateItem, owner, { itemId: String(cur.id) }),
+          {
+            session: owner,
+            idempotencyKey: true,
+            ifMatch: versionTag(Number(cur.version)),
+            body: {
+              code: 'bia',
+              name: (cur.nameI18n as Record<string, string> | undefined) ?? {
+                vi: String(cur.name),
+              },
+              unit: cur.unit,
+              ...(cur.costPriceVnd !== undefined ? { costPriceVnd: cur.costPriceVnd } : {}),
+              salePriceVnd,
+              minibarStandardQty: cur.minibarStandardQty,
+              ...(cur.minStockQty !== undefined ? { minStockQty: cur.minStockQty } : {}),
+              isActive: cur.isActive ?? true,
+            },
+          },
+        );
+        expect(
+          r.status,
+          `updateItem bia ${salePriceVnd}: ${JSON.stringify(r.body).slice(0, 200)}`,
+        ).toBe(200);
+      };
+      await patch(BIA.salePriceVnd + 5000);
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const page = await desk(browser, 'qa.fd', vnTime(day, '09:00'));
+      try {
+        const checks = recordWrites(page, 'POST', /\/reservations\/[^/]+\/minibar-checks$/);
+        await openCheckOut(page, st.res.id);
+        const mb = page.getByRole('table', { name: t('checkout.step.minibar') });
+        await expect(mb).toBeVisible({ timeout: 15_000 });
+        const row = mb.getByRole('row', { name: /Bia/ }).first();
+        const rowText = (await row.innerText()).replace(/\s+/g, ' ');
+        expect(rowText, 'giá trên bước 1 = giá lúc nạp/folio 35.000').toContain('35.000');
+        expect(rowText, 'không hiện giá mới 40.000').not.toContain('40.000');
+        await expect(page.getByText(/70\.000/).first(), 'tiền bia theo folio 70.000').toBeVisible();
+        await expect(page.getByText(/80\.000/)).toHaveCount(0);
+        await page.getByRole('button', { name: t('co.go_extras') }).click();
+        await waitWrite(checks, 'recordMinibarCheck cùng số', 201);
+      } finally {
+        await page.context().close();
+        await patch(Number(bia.salePriceVnd));
+      }
+      const f = await getFolio(request, fd, st.res.folioId!);
+      expect(
+        liveLines(f, 'minibar').map((l) => l.amountVnd),
+        'folio 70.000',
+      ).toEqual([2 * BIA.salePriceVnd]);
+      const std = await call<{ latestCheck?: { totalVnd?: number } }>(
+        request,
+        'GET',
+        p3(EP3.getMinibarStandard, fd, { reservationId: st.res.id }),
+        { session: fd },
+      );
+      expect(std.body.latestCheck?.totalVnd, 'latestCheck = folio').toBe(2 * BIA.salePriceVnd);
+    });
   },
 );

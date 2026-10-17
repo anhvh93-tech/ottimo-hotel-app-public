@@ -5730,16 +5730,15 @@
       "expected": {
         "addedNightVnd": {
           "downTo101": 667000,
-          "then401": 667000,
+          "then401": 1000000,
           "stay401": 740000
         },
         "wrongVnd": {
-          "downTo101": 740000,
-          "then401": 740000
+          "downTo101": 740000
         },
         "deskRangeSpansBothRooms": true
       },
-      "note": "BE-A đã có test cho 101 → 401 (667.000) và ở yên 401 (sàn 740.000) – không gắn pendingFix. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
+      "note": "BE-A đã có test cho 101 → 401 (667.000) và ở yên 401 (sàn 740.000) – không gắn pendingFix. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3). · Sửa 18/10 (recheck5 R5RATE-04 – không phải lỗi): 302 → 101 → 401, đêm thêm ở 401 = 1.000.000 (giá khách mua trong sàn–trần 302 là 1.000.000, min với lịch 401 1.042.000), không phải 667.000."
     },
     {
       "id": "BR-417-15",
@@ -9166,7 +9165,7 @@
           "newLineAtB18": false
         }
       },
-      "note": "DOM chốt R9 18/10 (`business-rules.md` ghi chú dưới bảng mục 9): không hủy việc bổ sung khi lượt ở tiếp (kỳ `carry`, việc giữ mở); xong việc khi lượt đang ở căn → kỳ `refill`, mốc = số theo hệ thống + số nạp; B13 sau lần đếm có tính tiền sinh việc ngay; (t) \"có tính tiền\" xét theo số lượng đã dùng của món có giá, không theo tiền sau FOC. Ca b3, twoItems, samePeriodUse, s409Agoda: critic `reviews/s4-money-recheck4.md`; ca r9_*: ví dụ của DOM (202, bia 35.000 định mức 2, snack 30.000 định mức 1). Sửa 18/10: ca 16 (BE-B 14 – hủy việc, 100.000) nay giữ việc T1 mở, vẫn 100.000. CHỜ SỬA (không gắn `pendingFix` cả dòng vì test BE-B đọc ca b3 đã đạt): r9_16, r9_16b, r9_16c, r9_18 – BUG-R2-144 phần DOM R9 (BE-B; BE-A sinh việc ở B13); E2E TC-L4-127…130 `knownBug('BUG-R2-144')`. r9_t đạt (TC-L4-131)."
+      "note": "DOM chốt R9 18/10 (`business-rules.md` ghi chú dưới bảng mục 9): không hủy việc bổ sung khi lượt ở tiếp (kỳ `carry`, việc giữ mở); xong việc khi lượt đang ở căn → kỳ `refill`, mốc = số theo hệ thống + số nạp; B13 sau lần đếm có tính tiền sinh việc ngay; (t) \"có tính tiền\" xét theo số lượng đã dùng của món có giá, không theo tiền sau FOC. Ca b3, twoItems, samePeriodUse, s409Agoda: critic `reviews/s4-money-recheck4.md`; ca r9_*: ví dụ của DOM (202, bia 35.000 định mức 2, snack 30.000 định mức 1). Sửa 18/10: ca 16 (BE-B 14 – hủy việc, 100.000) nay giữ việc T1 mở, vẫn 100.000. Mọi ca đạt: BE-B cài DOM R9 (gộp #10/#11) – E2E TC-L4-127…131 đạt không `knownBug` (18/10), `minibar-m1` 23/23 (recheck5)."
     },
     {
       "id": "BR-705-01",
@@ -9348,7 +9347,6 @@
       "case": "(v0.3.8, kiểm lại lần 4) Ngày đến của lượt gồm đêm B9a (đơn con OTA): lịch dọn sáng hôm đó coi là khách ở tiếp",
       "origin": "example",
       "labels": ["INV-008", "NGÀNH"],
-      "pendingFix": "BUG-R2-151",
       "calc": null,
       "input": {
         "channel": "agoda",
@@ -9362,7 +9360,8 @@
         "roomStatus": "OD",
         "stayoverTasks": 1,
         "linenNightsIncludeB9a": true
-      }
+      },
+      "note": "QA 18/10: bỏ pendingFix (BUG-R2-151 đã sửa – recheck5: O1 Agoda B9a → J8 07:00 OD + 1 việc)."
     },
     {
       "id": "BR-809-01",

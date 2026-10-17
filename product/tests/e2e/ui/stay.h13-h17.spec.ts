@@ -143,6 +143,18 @@ test.describe(
           )
         )
           await told.check();
+        // S4-10 / BR-402 v0.3.6 (TC-L3-079): phụ thu nhận sớm phải THU TRONG B9 – nút "Nhận phòng căn …" khóa với lý do
+        // "Thu … ở mục Thu tiền trước khi nhận phòng" tới khi chọn cách thu. Nhánh này chỉ chạy khi CI rơi vào 06:00–13:59
+        // giờ stack (CI gộp #11 `f04052d` 06:18 đỏ; gộp #10 05:2x đi nhánh thường) – thu tiền mặt đúng số "Cần thu".
+        const dueRow = page.getByRole('row', { name: new RegExp(t('ci.due_title')) });
+        if (await dueRow.isVisible().catch(() => false)) {
+          const due = Number(
+            ((await dueRow.innerText()).match(/([\d.]+)\s*đ/)?.[1] ?? '0').replace(/\./g, ''),
+          );
+          expect(due, 'số cần thu để nhận phòng').toBeGreaterThan(0);
+          await page.getByRole('button', { name: t('pay.cash'), exact: true }).click();
+          await page.getByLabel(t('co.cash_received')).fill(String(due));
+        }
         info.annotations.push({
           type: 'note',
           description: `nhận sớm ${now} – lễ tân xác nhận phụ thu`,
