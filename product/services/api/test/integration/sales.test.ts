@@ -459,7 +459,8 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
         amountVnd: number;
         calendarRateVnd: number;
       }>;
-      expect(rates.map(({ date, amountVnd }) => ({ date, amountVnd }))).toEqual(q.nightlyRates);
+      // S4-38 (FE-A H09): the quote's nights carry their calendar price too – the hold keeps exactly them.
+      expect(rates).toEqual(q.nightlyRates);
       expect(rates.map((n) => n.calendarRateVnd)).toEqual(rates.map((n) => n.amountVnd));
       expect(r).not.toHaveProperty('commission');
       const after = (await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${q.id}`)).json();

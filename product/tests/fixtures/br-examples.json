@@ -4199,7 +4199,7 @@
     {
       "id": "BR-411-07",
       "br": "BR-411",
-      "case": "Giá đơn 700.000, nhận 05:30 → không phụ thu, thêm đêm hôm trước (BR-417)",
+      "case": "Đơn Trực tiếp giá thỏa thuận 700.000/đêm (nhập tay lúc đặt), nhận 05:30 → không phụ thu, thêm đêm hôm trước (BR-417) gợi ý 700.000",
       "origin": "example",
       "labels": ["INV-007"],
       "params": {
@@ -4221,13 +4221,15 @@
         "firstNightRateVnd": 700000,
         "checkinTime": "05:30",
         "channel": "direct",
-        "previousNightVacant": true
+        "previousNightVacant": true,
+        "bookingRateSource": "manual_agreed"
       },
       "expected": {
         "surchargeVnd": 0,
         "extraNight": true,
         "extraNightRateVnd": 700000
-      }
+      },
+      "note": "v0.3.8 (CI 72fa486, S438-DOM-01): 700.000 đúng vì đơn có giá thỏa thuận → gợi ý giá nhập tay của đêm đầu (BR-417 (2), BR-421 v0.3.4). Đơn theo lịch giá thì gợi ý lịch giá Trực tiếp của chính đêm trước (ví dụ BR-417-04: thứ Bảy 767.000). TC-L3-013 tạo đơn bằng nightlyRates 700.000 nên giữ kỳ vọng 700.000 – BE-A sửa nhánh giá thỏa thuận"
     },
     {
       "id": "BR-412-01",
@@ -4923,7 +4925,8 @@
         "departureDate": "2026-10-23",
         "nightRateVnd": 700000,
         "leftAt": "2026-10-23T19:00:00+07:00",
-        "sameDayArrival": false
+        "sameDayArrival": false,
+        "bookingRateSource": "manual_agreed"
       },
       "expected": {
         "addedNight": "2026-10-23",
@@ -4933,7 +4936,7 @@
         "roomStatusAfter": "VD",
         "waitsForBusinessDayChange": false
       },
-      "note": "Code HEAD: phải gia hạn trước, rồi B18 bị chặn tới 06:00 ngày 24/10"
+      "note": "Code HEAD: phải gia hạn trước, rồi B18 bị chặn tới 06:00 ngày 24/10 | v0.3.8: 700.000 là giá thỏa thuận của đơn (đêm 23/10/2026 là thứ Sáu – đơn theo lịch giá thì lấy lịch thứ Sáu của căn, BR-416 v0.3.8)"
     },
     {
       "id": "BR-416-03",
@@ -5166,7 +5169,8 @@
       },
       "expected": {
         "extensionVnd": 1400000
-      }
+      },
+      "note": "v0.3.8: 700.000 là giá thỏa thuận của đơn (gợi ý giá nhập tay); đơn theo lịch giá thì mỗi đêm thêm theo lịch giá Trực tiếp của chính đêm đó (BR-421 v0.3.4)"
     },
     {
       "id": "BR-421-02",

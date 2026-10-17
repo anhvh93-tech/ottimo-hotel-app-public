@@ -134,7 +134,10 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
       ) : (
         <>
           <fieldset className="fieldset-plain">
-            <legend className="label-h">{t('extend.nights')}</legend>
+            {/* DOM S4-38: the night prices are calendar prices; the BR-107 step is in the server total below. */}
+            <legend className="label-h">
+              {t('extend.nights')} · {t('rate.pre_tier_short')}
+            </legend>
             {o.nights.map((x, i) => (
               <label key={x.date} className="check">
                 <input

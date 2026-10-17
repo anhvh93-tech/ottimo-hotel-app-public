@@ -69,7 +69,8 @@ export interface QuoteCalculation {
   extraPersonFeeVnd: number;
   extraGuestCount: number;
   nights: number;
-  nightlyRates: Array<{ date: LocalDate; amountVnd: number }>;
+  /** `calendarRateVnd` (NightRate, read only): the calendar price BEFORE the BR-107 / BR-111 % (S4-38, FE-A H09). */
+  nightlyRates: Array<{ date: LocalDate; amountVnd: number; calendarRateVnd: number }>;
   losDiscountPct: number;
   totalVnd: number;
   depositVnd: number;
@@ -396,7 +397,13 @@ export class QuotePricingService {
       extraPersonFeeVnd: extraPersonVnd,
       extraGuestCount: extra.extraCount,
       nights,
-      nightlyRates: dates.map((d, i) => ({ date: d, amountVnd: rates[i] as number })),
+      // BR-107 v0.3.8 (S4-38): a price typed at the desk is a calendar price – the client needs the calendar of
+      // each night to offer it (never the discounted amount, else the tier would apply twice).
+      nightlyRates: dates.map((d, i) => ({
+        date: d,
+        amountVnd: rates[i] as number,
+        calendarRateVnd: calendar[i] as number,
+      })),
       losDiscountPct: appliedPct,
       totalVnd,
       depositVnd,

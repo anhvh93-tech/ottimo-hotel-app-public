@@ -1307,6 +1307,31 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       },
       open: false,
     },
+    SwapRoomPreview: {
+      k: 'object',
+      props: {
+        reservations: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                reservationId: { s: { k: 'ref', name: 'Uuid' } },
+                reservationCode: { s: { k: 'scalar' } },
+                fromRoomId: { s: { k: 'ref', name: 'Uuid' } },
+                toRoomId: { s: { k: 'ref', name: 'Uuid' } },
+                folioDeltaVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                extraPersonDeltaVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                roomChangeDifferenceDeltaVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                requiresInformedGuest: { s: { k: 'scalar' } },
+              },
+              open: false,
+            },
+          },
+        },
+      },
+      open: false,
+    },
     ChangeRoomPreview: {
       k: 'object',
       props: {
@@ -3940,6 +3965,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         open: false,
       },
     },
+    previewSwapRoom: { '200': { k: 'ref', name: 'SwapRoomPreview' } },
     listCheckoutReminders: {
       '200': {
         k: 'object',

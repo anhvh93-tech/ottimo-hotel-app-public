@@ -150,9 +150,12 @@ export class CheckoutService {
     let extraNight: ExtraNight | null = null;
     if (quote.r.treatAsExtension) {
       const direct = await this.s.directRate(tx, ctx, rm.id, dep);
+      // BR-416 v0.3.8 (BR-416-02): the booking's agreed (typed) price, else the direct calendar of that night; a
+      // special date always its own calendar.
+      const agreed = direct.special ? null : await this.s.agreedRate(tx, row, 'last');
       extraNight = {
         date: dep,
-        defaultRateVnd: direct.rateVnd,
+        defaultRateVnd: agreed ?? direct.rateVnd,
         calendarVnd: direct.rateVnd,
         floorVnd: direct.floorVnd,
         ceilingVnd: direct.ceilingVnd,

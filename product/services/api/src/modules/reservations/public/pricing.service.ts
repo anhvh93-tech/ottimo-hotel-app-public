@@ -105,6 +105,11 @@ export interface PriceResult {
   hasPeakNight: boolean;
   /** Nights whose explicit price is outside the BR-105 bounds. */
   outOfRange: LocalDate[];
+  /**
+   * BR-417 (2) v0.3.8: the desk typed the nights of a direct/agent booking – an AGREED price (snapshot
+   * `bookingRateSource = manual_agreed`): added nights (B9a, B13, B18) suggest it instead of the calendar.
+   */
+  agreedRate?: boolean;
 }
 
 @Injectable()
@@ -401,6 +406,9 @@ export class PricingService {
       depositRequiredVnd,
       hasPeakNight: peak,
       outOfRange,
+      ...(explicit && explicit.length > 0 && (group === 'direct' || group === 'agent')
+        ? { agreedRate: true }
+        : {}),
     };
   }
 
@@ -423,6 +431,7 @@ export class PricingService {
       cancelPolicy: p.cancelPolicy,
       cancelPeakNoRefund: p.cancelPeakNoRefund,
       hasPeakNight: r.hasPeakNight,
+      ...(r.agreedRate ? { bookingRateSource: 'manual_agreed' } : {}),
       nights: r.nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,

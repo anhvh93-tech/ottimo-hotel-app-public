@@ -2636,7 +2636,8 @@ export class FolioService implements FolioStaySync {
   /**
    * S438-CANCEL-03 (BR-522 v0.3.8, BR-315 (f)) – B12: the no-show is undone and its folio synced again (nights,
    * fee reversed). The refund requests the close left are reconciled with the overpayment NOW by the same
-   * refundPlan: above it → the pending ones auto-cancelled (`superseded`, requester told) and, only if some
+   * refundPlan: above it → the pending ones auto-cancelled (`no_show_restored` – 0.3.7 bổ sung 4, migration
+   * 0063; requester told) and, only if some
    * overpayment is still left, one request of that amount again; "Cần chú ý" closed_reservation_credit is
    * resolved – the booking is no longer closed.
    */
@@ -2657,7 +2658,7 @@ export class FolioService implements FolioStaySync {
       const approvals = this.requireApprovals();
       const plan = refundPlan(b.rawCreditVnd, open);
       for (const id of plan.cancelIds) {
-        await approvals.autoCancel(tx, id, 'superseded', input.requestId);
+        await approvals.autoCancel(tx, id, 'no_show_restored', input.requestId);
       }
       if (plan.createVnd > 0) {
         await approvals.submit(tx, input.actor, {

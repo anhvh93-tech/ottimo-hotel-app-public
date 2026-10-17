@@ -25,6 +25,7 @@ import {
   type FrontdeskChildDataPort,
   type FrontdeskRegistrationPort,
 } from '../../src/modules/frontdesk/public/ports';
+import { roomChangeHistory } from '../../src/modules/reservations/internal/room-history';
 import { sha256Hex } from '../../src/shared/http/auth.guard';
 import {
   Client,
@@ -337,6 +338,32 @@ describe.skipIf(!HAS_DB)('S4-38 money fixes (BE-A)', () => {
     );
     expect(r.statusCode, r.body).toBe(200);
     expect(await origin(o.id)).toBe('203');
+    // BUG-R2-124: the room history holds room NUMBERS (the B12 row used to write the room id).
+    const changes = await q<{ old_value: string; new_value: string }>(
+      `SELECT old_value, new_value FROM reservation_change WHERE reservation_id = $1 AND field = 'room'`,
+      [o.id],
+    );
+    expect(changes).toEqual([{ old_value: '203', new_value: '101' }]);
+    // A row written the old way (room id) still resolves in the history read (S438-REGR-02/-03 fallback) – a
+    // synthetic row; the origin stays the first room (203).
+    await q(
+      `INSERT INTO reservation_change (id, organization_id, property_id, reservation_id, changed_at, field,
+         old_value, new_value, reason)
+       VALUES ($1, $2, $3, $4, $5, 'room', '101', $6, 'no_show_restore')`,
+      [
+        uuidv7(),
+        t.organizationId,
+        t.propertyIds[0],
+        o.id,
+        new Date('2028-01-18T16:45:00Z'),
+        ids.rooms['302'],
+      ],
+    );
+    const history = await db.withContext(t.ctx(), (tx) => roomChangeHistory(tx, o.id));
+    expect(history.map((h) => [h.oldRoomId, h.newRoomId])).toEqual([
+      [ids.rooms['203'], ids.rooms['101']],
+      [ids.rooms['101'], ids.rooms['302']],
+    ]);
     await at('2028-01-18T23:50:00+07:00');
     const mv = await moveShown(o.id, {
       roomId: ids.rooms['401'] as string,
@@ -841,5 +868,98 @@ describe.skipIf(!HAS_DB)('S4-38 money fixes (BE-A)', () => {
     const list = (await c.mgr!.get(url('/approval-requests?status=approved&limit=100'))).json();
     const req = (list.data as Array<{ id: string }>).find((x) => x.id === f.json().id);
     expect(req).toMatchObject({ focState: 'applied', effectiveAmountVnd: 208_000 });
+  });
+
+  // ───────────────────────────── FE-A H09 / E04-07 – the "booking price" offered back is a calendar price ─────────────────────────────
+
+  it('S4-38 (FE-A): calculateQuote returns the calendar of each night; B13 "Giữ giá đơn" on a typed 7-night stay offers 700.000 (calendar) – the 8th night is discounted once: 630.000, total 5.040.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const qc = await c.fd!.send('POST', url('/quotes/calculate'), {
+      type: 'short',
+      roomId: ids.rooms['202'],
+      arrivalDate: '2026-11-09',
+      nights: 7,
+      adults: 2,
+      channelId: ids.channels.direct,
+    });
+    expect(qc.statusCode, qc.body).toBe(200);
+    expect(qc.json().nightlyRates).toEqual([
+      ...['09', '10', '11', '12'].map((d) => ({
+        date: `2026-11-${d}`,
+        amountVnd: 713_000,
+        calendarRateVnd: 792_000,
+      })),
+      ...['13', '14'].map((d) => ({
+        date: `2026-11-${d}`,
+        amountVnd: 820_000,
+        calendarRateVnd: 911_000,
+      })),
+      { date: '2026-11-15', amountVnd: 713_000, calendarRateVnd: 792_000 },
+    ]);
+    // A 7-night stay at an agreed 700.000 a night (typed = calendar price, −10 % → 630.000).
+    const dates = ['14', '15', '16', '17', '18', '19', '20'].map((d) => `2026-12-${d}`);
+    const b = await direct('202', '2026-12-14', '2026-12-21', 1_400_000, {
+      nightlyRates: dates.map((date) => ({ date, amountVnd: 700_000 })),
+    });
+    const booked = await get(b.id);
+    expect(booked.totalRoomVnd).toBe(4_410_000);
+    expect(booked.nightlyRates[0]).toMatchObject({ amountVnd: 630_000, calendarRateVnd: 700_000 });
+    await stayIn(b, '202', '2026-12-14');
+    await at('2026-12-16T10:00:00+07:00');
+    const opts = (await c.fd!.get(url(`/reservations/${b.id}/extension-options`))).json();
+    expect(opts.currentBookingRateVnd).toBe(700_000);
+    const ext = await act(b.id, 'extend', {
+      nights: 1,
+      nightlyRates: [{ date: '2026-12-21', amountVnd: opts.currentBookingRateVnd }],
+    });
+    expect(ext.statusCode, ext.body).toBe(200);
+    const after = await get(b.id);
+    expect(after.nightlyRates.find((n: { date: string }) => n.date === '2026-12-21')).toMatchObject(
+      {
+        amountVnd: 630_000,
+        calendarRateVnd: 700_000,
+      },
+    );
+    expect(after.totalRoomVnd).toBe(5_040_000);
+  });
+
+  it('BR-411-07 / BR-421-01 / BR-416-02 (CI 72fa486): a booking at an agreed 700.000 (typed) suggests 700.000 for the B9a night, the B13 nights and the B18 extra night', async () => {
+    const o411 = oracle('BR-411-07');
+    const o421 = oracle('BR-421-01');
+    const o416 = oracle('BR-416-02');
+    const agreed = o411.input.firstNightRateVnd as number;
+    const typed = (from: string, n: number) =>
+      Array.from({ length: n }, (_, i) => {
+        const d = new Date(`${from}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + i);
+        return { date: d.toISOString().slice(0, 10), amountVnd: agreed };
+      });
+    // B9a at 05:30: no early surcharge, the night before at the agreed price (not 201's calendar 708.000).
+    await at('2026-10-20T10:00:00+07:00');
+    const a = await direct('201', '2026-11-03', '2026-11-05', 500_000, {
+      nightlyRates: typed('2026-11-03', 2),
+    });
+    await at('2026-11-03T05:30:00+07:00');
+    await ready('201');
+    const pv = await checkInPreview(a);
+    expect(pv.earlyCheckinSurcharge.amountVnd).toBe(o411.expected.surchargeVnd);
+    expect(pv.priorNight).toMatchObject({ defaultRateVnd: o411.expected.extraNightRateVnd });
+    // B13 and B18 on another agreed booking, in house.
+    const b = await direct('201', '2026-11-17', '2026-11-19', 500_000, {
+      nightlyRates: typed('2026-11-17', 2),
+    });
+    await stayIn(b, '201', '2026-11-17');
+    await at('2026-11-18T10:00:00+07:00');
+    const opts = (await c.fd!.get(url(`/reservations/${b.id}/extension-options`))).json();
+    expect(opts.nights[0].defaultRateVnd).toBe(o421.input.nightRateVnd);
+    expect(
+      opts.repricing.find((r: { nights: number }) => r.nights === o421.input.extraNights)?.deltaVnd,
+    ).toBe(o421.expected.extensionVnd);
+    await at('2026-11-19T19:00:00+07:00');
+    const sm = (
+      await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=19:00`))
+    ).json();
+    expect(sm.extraNightRequired).toBe(true);
+    expect(sm.extraNightDefaultRateVnd).toBe(o416.expected.addedNightVnd);
   });
 });

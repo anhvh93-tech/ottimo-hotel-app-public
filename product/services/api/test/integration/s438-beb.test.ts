@@ -471,7 +471,7 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
 
   // ───────────── S438-CANCEL-03 / CANCEL-04 ─────────────
 
-  it('CANCEL-03: no-show keeps 500.000, refund 300.000 + attention; FD restores (B12) → request auto-cancelled (superseded, requester told), attention resolved, due = total − paid', async () => {
+  it('CANCEL-03: no-show keeps 500.000, refund 300.000 + attention; FD restores (B12) → request auto-cancelled (no_show_restored – migration 0063, requester told), attention resolved, due = total − paid', async () => {
     await at('2026-10-20T10:00:00+07:00');
     const b = await direct('201', '2026-11-20', '2026-11-22', 800_000);
     const total = (await get(b.id)).totalRoomVnd as number;
@@ -497,8 +497,36 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect(rs.statusCode, rs.body).toBe(200);
     const after = await refunds();
     expect(after.map((r) => [r.status, r.auto_cancel_reason])).toEqual([
-      ['cancelled', 'superseded'],
+      ['cancelled', 'no_show_restored'],
     ]);
+    const listed = await c.own!.get(url('/approval-requests?limit=100&status=cancelled'));
+    expect(listed.statusCode, listed.body).toBe(200);
+    expect(
+      (listed.json().data as Array<{ id: string; autoCancelReason?: string }>).find(
+        (a) => a.id === before[0]!.id,
+      )?.autoCancelReason,
+    ).toBe('no_show_restored');
+    // 0063 CHECK: the reason only on a cancelled request
+    const pending = await direct('203', '2026-12-01', '2026-12-02', 300_000);
+    const req = await db.withContext(t.ctx(), (tx) =>
+      fa.app.get(ApprovalService).submit(
+        tx,
+        { userId: t.users.fd!.id, roles: ['front_desk'] },
+        {
+          type: 'refund',
+          amountVnd: 10_000,
+          reasonCode: 'overpayment',
+          targetType: 'reservation',
+          targetId: pending.id,
+          targetCode: pending.code,
+        },
+      ),
+    );
+    await expect(
+      q(`UPDATE approval_request SET auto_cancel_reason = 'no_show_restored' WHERE id = $1`, [
+        req.id,
+      ]),
+    ).rejects.toThrow(/approval_request_auto_cancel_reason_check/);
     expect((await attention()).every((a) => a.resolved_at !== null)).toBe(true);
     expect((await totals(b)).balanceDueVnd).toBe(total - 800_000);
     const told = await q<{ user_id: string }>(

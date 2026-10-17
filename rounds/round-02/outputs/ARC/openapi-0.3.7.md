@@ -535,7 +535,7 @@ Chạy song song với các luồng BE đang sửa mã: mỗi khối sửa yaml 
 ### 13.6 Giả định
 - [GIẢ ĐỊNH ARC] Bulkhead 4 request và `statement_timeout` 2 s đủ cho 10 căn (SEC đề xuất) – đo lại ở test tải nhẹ trên bản thử (C-11).
 - [GIẢ ĐỊNH ARC] `stayType = long` + `months` → `departure = arrival + months` tháng lịch cho báo giá; DOM chỉnh nếu muốn tính khác.
-- [GIẢ ĐỊNH ARC – SEC xác nhận] `call_now` dùng `web_request_same_day_after_hours_minutes` làm `promise.minutes`.
+- ~~[GIẢ ĐỊNH ARC] `call_now` dùng `web_request_same_day_after_hours_minutes` (30)~~ → **DOM BR-912 v0.3.8**: khóa riêng `web_request_public_promise_call_now_minutes` = 60 (mục 15).
 
 ---
 
@@ -566,3 +566,36 @@ Phần chính 0.3.7 vẫn đóng băng: chỉ sửa mô tả, khai mã server đ
 | 19 | DOM-S4-19 | `moveReservation.expectedDeltaVnd`: đã gửi thì luôn phải khớp, kể cả khi không bắt buộc tick – lệch → 409 `SURCHARGE_CHANGED` | **BE-A đang làm**; FE-A luôn gửi số đang hiện |
 
 Giả định: [GIẢ ĐỊNH ARC] `listAssignableStaff` là operation đọc nhỏ cần cho AC Must Sprint 4 (US-062 AC2) – thêm trong bổ sung 3 thay vì dời R3; ORC có thể gắn `x-round: R3` nếu không xếp kịp (không đổi hình dạng).
+
+---
+
+## 15. Bổ sung 4 – sau kiểm chứng tiền S4-38 (ARC, 17/10 – Phản hồi & sửa; commit `72fa486`)
+
+Phần chính 0.3.7 vẫn đóng băng: mô tả + thêm có đánh dấu. Không đổi `required`, guard, `x-roles` của operation cũ.
+
+| # | Nguồn | Hợp đồng | Ai cài / dùng |
+|---|---|---|---|
+| 1 | S4-38, BR-417-04…06 (BR-416-04/05) | `CheckInPreview.amountDueAtCheckinVnd` – bỏ câu "client cộng chênh": server tính **đủ** bằng một hàm cho xem trước, trần QR `check_in`, lệnh B9 (bậc BR-107 trên tổng đêm gồm B9a, giá mặc định đêm B9a theo lịch của chính đêm đó, phụ thu người đêm B9a, FOC chờ duyệt, trừ tiền thừa rồi kẹp 0 một lần). Giá B9a gõ khác mặc định: số đúng = trần QR `check_in` kèm `priorNightRateVnd` / `max` của 422. `CheckoutSummary.amountDueAtCheckoutVnd` sửa tương tự cho đêm thêm | Mô tả – **BE-A đã làm** (72fa486). **FE-A**: bỏ phép cộng chênh ở H13/H16; khi lễ tân gõ giá, lấy số từ QR hoặc từ `max` của 422 |
+| 2 | S4-38, BR-309-11 | `Reservation.depositRequiredVnd` – **không thêm trường**, ghi rõ hai nghĩa theo trạng thái: `hold` = cọc phải thu để xác nhận (Desk đòi, "còn thiếu cọc"); từ `confirmed` = cơ sở phí hủy/no-show, tính lại sau B7/B8 theo tiền phòng hiện hành; Desk **không** đòi bổ sung ở đơn đã xác nhận. Lý do chọn mô tả: server đã lưu một cột và dùng đúng hai nghĩa này (`requiredDepositAfter`, `retainableDeposit`); thêm trường thứ hai chỉ để hiển thị sẽ cần migration giữa sprint | Mô tả – BE-A đã làm. **FE-A**: chỉ hiện/đòi "còn thiếu cọc" khi `status = hold` (kiểm lại H11/H12/drawer) |
+| 3 | S4-38, BE-A giả định (s) | `swapRoom`: tiền theo quy tắc OTTIMO đổi căn; **contract-ahead, `x-round: R3`** (xếp tuần Ổn định hoặc R3): operation `previewSwapRoom` (GET, cùng hàm) + `SwapRoomPreview` + thân `applyDifference`, `expectedDeltaVnd`, `otherExpectedDeltaVnd` (server hiện bỏ qua). Không thêm `dryRun` vào thân (giữ quyết định 5 (1)). Tới lúc cài: server ghi chênh lệch như hiện nay, audit `money` | **Cần thêm: có** (khớp DOM-S4-06). BE-A khi ORC xếp; FE-A hộp đổi chéo; BA thêm `operationIds` cho A15 (không bắt buộc – `x-rbac` đã có); QA không viết ca tới khi bỏ `x-round` |
+| 4 | S4-38, BE-B giả định (j) | `ApprovalRequest.autoCancelReason` thêm **`no_show_restored`** (B12 tự hủy yêu cầu hoàn sinh do no-show) | **BE-B**: mở rộng CHECK `approval_request.auto_cancel_reason` (migration số ORC cấp) rồi ghi giá trị mới; tới đó giữ `superseded`. UXD câu `approval.auto_cancel.no_show_restored`; client lạ → câu chung |
+| 5 | DOM BR-912 v0.3.8 | `promise.kind = call_now` → `minutes` = `web_request_public_promise_call_now_minutes` (**60**), tách khỏi hạn nội bộ `web_request_same_day_after_hours_minutes` (30). Ghi chú `x-security-parameters` + erd 9.3 có khóa mới | **BE-D** khi cài US-155 (thêm dòng catalogue); FE-LP đọc `promise.minutes` |
+| 6 | S4-38, BR-107 v0.3.8 | `BookingRules` mô tả: giá gõ tay là **giá lịch**, bậc BR-107 (và BR-111) áp lên, áp lại khi số đêm đổi – thay ARC-BE-S3-24.3 | Mô tả – BE-A đã làm (S438-MOVE-05); FE hiện giá sau bậc |
+
+**Kiểm tra (17/10, sau bổ sung 4)**:
+
+| Kiểm | Kết quả |
+|---|---|
+| spec-validator | OK / OK |
+| Redocly | 0 lỗi, 4 cảnh báo cũ |
+| `check-no-test-surface` | OK |
+| `gen-openapi-meta --check` | Up to date (meta +1 operation `previewSwapRoom`) |
+| api-client | Sinh lại, lần 2 up to date; vitest 30/30; tsc 0 |
+| `gen_rbac_cases --check` | OK – 198 operation, 2.178 ca, R3 341 (+11 `previewSwapRoom`), mismatch [] |
+| `gen_traceability --strict` | exit 0, x-rbac-field 169, 0 thiếu, 0 mã lạ |
+| vitest api `contract`/`serializer`/`module-boundaries`/`crypto-boundary` | 30/30 |
+| tsc api, admin-web, mobile, guest-web | 0 lỗi |
+| prettier | Xanh |
+
+Quyết định ARC: (a) `depositRequiredVnd` giữ một trường, hai nghĩa theo trạng thái (mô tả); (b) đổi chéo căn cần xác nhận "đã báo khách" như B7/B8 – contract-ahead tới tuần Ổn định/R3, xem trước bằng GET riêng (không `dryRun`); (c) `no_show_restored` thay `superseded` cho đúng nghĩa (thêm giá trị, đổi CHECK khi tiện).
+

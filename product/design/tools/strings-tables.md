@@ -3106,6 +3106,24 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `party.foc_sent` | Đã gửi duyệt miễn phụ thu người – mỗi đêm một yêu cầu, tổng {n}. | Extra-guest fee waiver sent for approval – one request per night, {n} in total. | ⟨chừa chỗ⟩ | BUG-R2-093: thêm người đang ở kèm xin FOC phụ thu người (requestFoc từng đêm) |
 | `party.foc_failed` | Đã thêm người và ghi phụ thu, nhưng {n} đêm chưa gửi được yêu cầu miễn. Mở folio để gửi lại. | The guest was added and the fee recorded, but the waiver request could not be sent for {n} of the nights. Open the folio to send it again. | ⟨chừa chỗ⟩ | BUG-R2-093: một số requestFoc từng đêm lỗi |
 
+#### R2 Sprint 4 – FE-A: giá lịch trước giảm dài ngày, số cần thu của máy chủ (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rate.pre_tier` | Giá lịch/đêm (trước giảm dài ngày) | Calendar rate/night (before long-stay discount) | ⟨chừa chỗ⟩ | Tiêu đề cột/ô giá đêm lễ tân gõ – H09 đặt phòng (BR-107 v0.3.8: giảm áp trên giá này) |
+| `rate.pre_tier_short` | giá lịch, trước giảm dài ngày | calendar rate, before long-stay discount | ⟨chừa chỗ⟩ | Đuôi nhãn: đêm thêm B18, danh sách đêm gia hạn B13, tổng giá lịch khi đã sửa giá |
+| `rate.after_tier` | Sau giảm {pct}%: {amount} | After {pct}% off: {amount} | ⟨chừa chỗ⟩ | Giá đêm sau bậc BR-107 do máy chủ tính (calculateQuote) – cạnh ô giá chưa sửa |
+| `rate.tier_note` | Lượt ở {n} đêm được giảm {pct}% theo số đêm (BR-107) trên giá lịch từng đêm – tiền phòng bên dưới đã giảm. | A {n}-night stay gets {pct}% off by length of stay (BR-107) on each night's calendar rate – the room total below is after the discount. | ⟨chừa chỗ⟩ | H09: giá chưa sửa – tổng của máy chủ |
+| `rate.tier_on_save` | Bạn đã sửa giá: lượt ở {n} đêm vẫn được giảm {pct}% (BR-107) trên giá bạn nhập – máy chủ tính khi lưu. Tiền phòng bên dưới là tổng giá lịch. | You changed a rate: the {n}-night stay still gets {pct}% off (BR-107) on the rates you typed – worked out when you save. The room total below is the calendar total. | ⟨chừa chỗ⟩ | H09: đã sửa giá – không tự tính ở máy quầy |
+| `rate.tier_locked` | Lượt ở {n} đêm được giảm {pct}% nhưng máy chủ chưa gửi giá lịch từng đêm – tạm chưa sửa giá ở đây để không giảm hai lần. | This {n}-night stay gets {pct}% off, but the server hasn't sent each night's calendar rate – rates can't be changed here for now, so the discount isn't applied twice. | ⟨chừa chỗ⟩ | H09: máy chủ cũ thiếu calendarRateVnd – ô giá chỉ đọc (DOM S4-38) |
+| `rate.prior_night_tier` | Đây là giá lịch, trước giảm dài ngày; số cần thu ở mục Thu tiền do máy chủ tính, đã gồm giảm nếu có. | This is the calendar rate, before any long-stay discount; the amount due under Payment comes from the server and includes the discount if any. | ⟨chừa chỗ⟩ | H13 đêm B9a (BR-417-04…06) |
+| `rate.night_now` | Đêm này hiện tính {amount} sau giảm theo số đêm (giá lịch {calendar}). | This night is now {amount} after the length-of-stay discount (calendar rate {calendar}). | ⟨chừa chỗ⟩ | S4-35 sửa giá đêm ở Folio – gợi ý ô giá |
+| `rate.adjust_night_effect` | Ghi bút toán đảo {old} và dòng mới theo giá lịch {new} – giảm theo số đêm áp lại khi lưu. Dòng cũ vẫn còn trong nhật ký (BR-008). | Posts a reversal of {old} and a new line at the calendar rate {new} – the length-of-stay discount is applied again on save. The old line stays in the log (BR-008). | ⟨chừa chỗ⟩ | S4-35: đêm có bậc giảm – không tự tính số sau giảm |
+| `checkout.extra_night_rate_help_tier` | Giá lịch của đêm, trước giảm dài ngày. Mặc định giá Trực tiếp đêm nay; sửa được trong sàn – trần. Số cần thu do máy chủ tính, đã gồm giảm nếu có. | The night's calendar rate, before any long-stay discount. Defaults to tonight's Direct rate; can be changed within the floor–ceiling. The amount due comes from the server and includes the discount if any. | ⟨chừa chỗ⟩ | H16 bước 2 đêm thêm (BR-416-04/05) – thay checkout.extra_night_rate_help |
+| `checkout.due_computing` | Đang tính số cần thu theo giá đêm thêm… | Working out the amount due at this night rate… | ⟨chừa chỗ⟩ | H16: đang hỏi máy chủ số cần thu theo giá gõ (ARC 0.3.7 bổ sung 4) |
+| `checkout.typed_due_failed` | Chưa tính được số cần thu theo giá này – số bên dưới theo giá mặc định; máy chủ tính lại khi hoàn tất. | Couldn't work out the amount due at this rate – the figure below uses the default rate; the server works it out again when you complete. | ⟨chừa chỗ⟩ | H16: không đọc được trần của máy chủ |
+| `drawer.deposit_fee_base` | Cơ sở phí hủy (cọc theo tiền phòng hiện tại) | Cancellation fee base (deposit on the current room total) | ⟨chừa chỗ⟩ | Drawer, đơn từ confirmed: depositRequiredVnd là cơ sở phí hủy, không đòi cọc thêm (ARC 0.3.7 bổ sung 4 #2, BR-309-11) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

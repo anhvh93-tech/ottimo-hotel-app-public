@@ -787,6 +787,18 @@ export const OPENAPI_META: OpenApiMeta = {
       public: false,
       c3Log: false,
     },
+    previewSwapRoom: {
+      method: 'GET',
+      path: '/v1/properties/{propertyId}/reservations/{reservationId}/swap-preview',
+      roles: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+      rbac: ['A15'],
+      idempotencyKey: false,
+      ifMatch: false,
+      trustedDevice: false,
+      stepUp: false,
+      public: false,
+      c3Log: false,
+    },
     listCheckoutReminders: {
       method: 'GET',
       path: '/v1/properties/{propertyId}/reservations/{reservationId}/checkout-confirmations',

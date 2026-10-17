@@ -248,7 +248,10 @@ export class CheckinService {
       const direct = await this.s.directRate(tx, ctx, room.id, date);
       // S438-DOM-01 (BR-417 (2), BR-421 v0.3.4): the default of the B9a night is the direct calendar of THAT night
       // (a Saturday is a Saturday), never the first night of the booking; a long stay keeps its nightly basis.
-      const own = row.stay_type === 'long' ? early.baseNightVnd : direct.rateVnd;
+      // CI 72fa486 / BR-411-07: a booking with an agreed (typed) price suggests that price (its first typed night,
+      // before the tier) – except on a special date (BR-421).
+      const agreed = direct.special ? null : await this.s.agreedRate(tx, row, 'first');
+      const own = row.stay_type === 'long' ? early.baseNightVnd : (agreed ?? direct.rateVnd);
       priorNight = {
         date,
         available:

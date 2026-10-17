@@ -471,6 +471,18 @@ export function createReservationMock(ctx: Ctx) {
     });
     return { rates, losPct };
   }
+  /**
+   * BR-107 v0.3.8 (DOM S4-38, BE-A): rates typed by the desk are CALENDAR rates – the length-of-stay step of the
+   * whole stay applies on them (Direct / agent; OTA and internal keep what was typed).
+   */
+  function stepTyped(typed: Array<{ date: string; amountVnd: number }>, group: string) {
+    const pct = ['direct', 'agent'].includes(group) && typed.length >= 7 ? 10 : 0;
+    return typed.map((n) => ({
+      date: n.date,
+      amountVnd: Math.round((n.amountVnd * (100 - pct)) / 100 / 1000) * 1000,
+      calendarRateVnd: n.amountVnd,
+    }));
+  }
   function extraFee(room: Room | undefined, adults: number, c611: number, nights: number) {
     const base = room?.baseOccupancy ?? 2;
     const extra = Math.max(0, adults + c611 - base);
@@ -888,7 +900,7 @@ export function createReservationMock(ctx: Ctx) {
     const nights = nightsBetween(body.arrivalDate, body.departureDate);
     const rates =
       body.nightlyRates && body.nightlyRates.length
-        ? body.nightlyRates
+        ? stepTyped(body.nightlyRates, ch.channelGroup)
         : price(body.roomId, body.arrivalDate, Math.min(nights, 31)).rates;
     const total = body.manualLongStay ? 0 : rates.reduce((s, x) => s + x.amountVnd, 0);
     const fee =
@@ -1243,7 +1255,7 @@ export function createReservationMock(ctx: Ctx) {
       if (ch && ['direct', 'agent'].includes(ch.channelGroup) && !body.manualLongStay) {
         const roomTotal = (
           body.nightlyRates?.length
-            ? body.nightlyRates
+            ? stepTyped(body.nightlyRates, ch.channelGroup)
             : price(r?.id, body.arrivalDate, nights).rates
         ).reduce((s, x) => s + x.amountVnd, 0);
         const need = deposit(roomTotal);

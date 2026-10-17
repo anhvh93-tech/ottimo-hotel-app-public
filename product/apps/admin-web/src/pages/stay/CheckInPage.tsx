@@ -246,10 +246,9 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   // about to post (server `amountDueAtCheckinVnd`) − a FOC asked on that charge (not collected now).
   const focAsked = needTold && toldGuest && askFoc && focReason && !priorNight ? amount : 0;
   const balanceNow = p?.balanceDueVnd ?? balance;
-  const due = Math.max(
-    0,
-    (p?.amountDueAtCheckinVnd ?? balanceNow + (needTold ? amount : 0)) - focAsked,
-  );
+  // ARC 0.3.7 bổ sung 4: the server's figure in full (B9a step, person fee, credit, clamped once) – no
+  // client addition; only the FOC asked in THIS call (not known to the preview) is taken off (BR-402).
+  const due = Math.max(0, (p?.amountDueAtCheckinVnd ?? balanceNow) - focAsked);
   // B9 carries the payment (cash/transfer/POS) for the amount the desk really took (FE-S4-01).
   const payCheck = inlinePayment(pay, due);
   const payInline = !requestOnly && due > 0 && payCheck.ok;
@@ -753,7 +752,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                         ? p.priorNight.date.split('-').reverse().slice(0, 2).join('/')
                         : '',
                       amount: money(amount),
-                    })}
+                    })}{' '}
+                    {t('rate.prior_night_tier')}
                   </Alert>
                 ) : amount > 0 ? (
                   <p>

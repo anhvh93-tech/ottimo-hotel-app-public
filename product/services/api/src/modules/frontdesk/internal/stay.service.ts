@@ -87,10 +87,18 @@ export class StayService {
    * uplift, BR-104) – for OTA bookings that is "giá kênh Trực tiếp hiện hành"; the desk may type another price
    * within the BR-105 bounds. Direct/agent nights are then re-tiered (BR-107, D-8).
    */
-  private async defaultNight(tx: Tx, ctx: BookingContext, roomId: string, date: LocalDate) {
+  private async defaultNight(
+    tx: Tx,
+    ctx: BookingContext,
+    roomId: string,
+    date: LocalDate,
+    agreedVnd: number | null = null,
+  ) {
     const direct = await this.s.directRate(tx, ctx, roomId, date);
     return {
-      calendarVnd: direct.rateVnd,
+      // BR-421 v0.3.8: the booking's agreed (typed) price, else the direct calendar of the night; a special date
+      // always its own calendar.
+      calendarVnd: direct.special || agreedVnd === null ? direct.rateVnd : agreedVnd,
       floorVnd: direct.floorVnd,
       ceilingVnd: direct.ceilingVnd,
     };
@@ -112,6 +120,7 @@ export class StayService {
       ? LONG_SCAN_NIGHTS
       : await this.s.param<number>(tx, ctx, 'extension_max_nights');
     const kept = await this.s.stay.pricedNights(tx, row);
+    const agreed = await this.s.agreedRate(tx, row, 'last');
     const nights: Array<Record<string, unknown>> = [];
     const defaults: NightPrice[] = [];
     let maxNights = 0;
@@ -125,7 +134,7 @@ export class StayService {
         nights.push({ date, available });
         continue;
       }
-      const d = await this.defaultNight(tx, ctx, rm.id, date);
+      const d = await this.defaultNight(tx, ctx, rm.id, date, agreed);
       defaults.push({ date, calendarVnd: d.calendarVnd, amountVnd: d.calendarVnd, manual: false });
       nights.push({
         date,
@@ -205,14 +214,16 @@ export class StayService {
    * E04-07 (DOM S3-6, FB-R2-DOM-BE-31): net price of the latest night whose price was agreed (typed / quoted –
    * `manual` in the snapshot) so the desk can offer "keep the booking's price"; null = calendar-priced.
    */
+  /**
+   * E04-07 "Giữ giá đơn": the agreed price of the booking's latest typed night, as the CALENDAR price the desk
+   * types back into `nightlyRates` (BR-107 v0.3.8, S4-38 – a typed price is a calendar price and the tier of the
+   * stay applies on it; returning the discounted price made B13 discount it twice). null = calendar prices.
+   */
   private async currentBookingRate(tx: Tx, row: ReservationRow): Promise<number | null> {
     if (row.channel_group === 'ota' || row.external_contract) return null;
-    const manual = new Set(
-      (await this.s.stay.pricedNights(tx, row)).filter((n) => n.manual).map((n) => n.date),
-    );
-    const nights = (await liveNightRows(tx, row.id)).filter((n) => manual.has(n.date));
-    const last = nights[nights.length - 1];
-    return last ? Math.max(0, last.grossVnd - last.discountVnd) : null;
+    const typed = (await this.s.stay.pricedNights(tx, row)).filter((n) => n.manual);
+    const last = typed[typed.length - 1];
+    return last ? last.calendarVnd : null;
   }
 
   async extend(

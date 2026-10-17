@@ -132,7 +132,12 @@ export interface ApprovalRow {
 export type FocState = 'applied' | 'dormant' | 'suspended' | 'cancelled';
 export type FocCancelReason = 'night_removed' | 'reservation_cancelled' | 'settled_while_dormant';
 export type AutoCancelReason =
-  'line_removed' | 'reservation_cancelled' | 'reservation_no_show' | 'superseded';
+  | 'line_removed'
+  | 'reservation_cancelled'
+  | 'reservation_no_show'
+  | 'superseded'
+  // 0.3.7 bổ sung 4 (migration 0063): B12 cancels the refund request the no-show created (S438-CANCEL-03).
+  | 'no_show_restored';
 
 /** OpenAPI ApprovalRequest.lineChangedNote (BR-434 v0.3.5, S4-18). */
 export interface LineChange {

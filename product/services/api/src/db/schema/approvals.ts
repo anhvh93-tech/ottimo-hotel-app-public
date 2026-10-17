@@ -229,7 +229,8 @@ export const approvalRequest = pgTable(
     ),
     check(
       'approval_request_auto_cancel_reason_check',
-      sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded') AND ${t.status} = 'cancelled')`,
+      // 0063 (0.3.7 bổ sung 4, S438-CANCEL-03): + no_show_restored – B12 auto-cancels the refund of the no-show.
+      sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded', 'no_show_restored') AND ${t.status} = 'cancelled')`,
     ),
     // 0060 (BE-B S4-02): the key date exists only on foc / special_discount requests.
     check(

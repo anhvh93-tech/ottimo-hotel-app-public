@@ -148,9 +148,13 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
     ).toBeInTheDocument();
     expect(screen.queryByText(tv('checkout.late_none'))).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
-    // The summary already shows the night (`bill.line.extra_night`).
+    // The summary already shows the night (`bill.line.extra_night`) – its calendar price (DOM S4-38).
     expect(
-      await screen.findByText(new RegExp(`^${tv('bill.line.extra_night', { date: '.*' })}$`)),
+      await screen.findByText(
+        new RegExp(
+          `^${tv('bill.line.extra_night', { date: '.*' })} · ${tv('rate.pre_tier_short')}$`,
+        ),
+      ),
     ).toBeInTheDocument();
     // Balance now includes the extra night – pay it in cash, then complete.
     await user.click(await screen.findByRole('button', { name: tv('pay.cash') }));

@@ -104,7 +104,7 @@ const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).
  * `suggestions[]`; an OTA booking into a full room can be saved "chưa gán căn" (US-139).
  */
 export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props) {
-  const { t, vnd, locale } = useI18n();
+  const { t, vnd, money, locale } = useI18n();
   const propertyId = usePropertyId();
   const { roles, me } = useSession();
   const DRAFT_KEY = draftKey(me?.id);
@@ -280,8 +280,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setCalcError(null);
           setForm((f) => ({
             ...f,
+            // BR-107 v0.3.8 (DOM S4-38): the desk types the CALENDAR rate (before the length-of-stay step) –
+            // the server applies the step on what it gets, so a stepped figure here would be stepped twice.
             rates: Object.fromEntries(
-              (r.data.nightlyRates ?? []).map((n) => [n.date, vnd(n.amountVnd)]),
+              (r.data.nightlyRates ?? []).map((n) => [
+                n.date,
+                vnd(n.calendarRateVnd ?? n.amountVnd),
+              ]),
             ),
             depositAmount: f.depositAmount || (r.data.depositVnd ? vnd(r.data.depositVnd) : ''),
           }));
@@ -330,14 +335,24 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   }, [availInput, propertyId, today]);
 
   const rateList = dates.map((d) => ({ date: d, raw: form.rates[d] ?? '' }));
-  const roomTotal = rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0);
+  const calendarOf = (date: string) => {
+    const n = calc?.nightlyRates?.find((x) => x.date === date);
+    return n ? (n.calendarRateVnd ?? n.amountVnd) : undefined;
+  };
   // 0.3.5 A-14: the server splits room total / extra-person fee – no subtraction on the client.
   const extraFee = calc?.extraPersonFeeVnd ?? 0;
-  const ratesTouched =
-    !!calc &&
-    rateList.some(
-      (r) => parseVnd(r.raw) !== calc.nightlyRates?.find((n) => n.date === r.date)?.amountVnd,
-    );
+  const ratesTouched = !!calc && rateList.some((r) => parseVnd(r.raw) !== calendarOf(r.date));
+  // BR-107 step of this stay (server). Untouched rates → the server's stepped total; typed rates → the step
+  // is applied by the server on save (no client arithmetic) – the sum shown is then the calendar sum.
+  const losPct = calc?.losDiscountPct ?? 0;
+  // A server without the calendar rate per night would leave stepped figures in the inputs (stepped twice on
+  // save) – the rates stay read-only then (DOM S4-38).
+  const ratesLocked =
+    losPct > 0 && (calc?.nightlyRates ?? []).some((n) => n.calendarRateVnd === undefined);
+  const roomTotal =
+    calc && !ratesTouched
+      ? (calc.roomTotalVnd ?? rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0))
+      : rateList.reduce((s, r) => s + (parseVnd(r.raw) ?? 0), 0);
 
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
@@ -1076,7 +1091,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <thead>
                   <tr>
                     <th>{t('bk.night')}</th>
-                    <th className="r">{t('bk.rate')}</th>
+                    <th className="r">{t('rate.pre_tier')}</th>
                     <th>{t('bk.rate_source')}</th>
                   </tr>
                 </thead>
@@ -1090,8 +1105,9 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                           <input
                             className="cell-input"
                             inputMode="numeric"
-                            aria-label={`${t('bk.rate')} ${dayMonth(r.date)}`}
+                            aria-label={`${t('rate.pre_tier')} ${dayMonth(r.date)}`}
                             aria-invalid={err ? true : undefined}
+                            readOnly={ratesLocked || undefined}
                             value={r.raw}
                             onChange={(e) =>
                               set({ rates: { ...form.rates, [r.date]: e.target.value } })
@@ -1102,16 +1118,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                         <td className="li-s">
                           {calc ? t(weekend(r.date) ? 'bk.src_weekend' : 'bk.src_list') : '–'}
                           {(() => {
-                            // 0.3.5 A-22: read-only calendar price before the BR-107 step.
-                            const cal = calc?.nightlyRates?.find(
-                              (n) => n.date === r.date,
-                            )?.calendarRateVnd;
-                            const now = parseVnd(r.raw);
-                            return cal && now !== null && cal !== now ? (
-                              <>
-                                {' '}
-                                <s>{vnd(cal)}</s>
-                              </>
+                            // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
+                            const n = calc?.nightlyRates?.find((x) => x.date === r.date);
+                            return losPct > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
+                              <div>
+                                {t('rate.after_tier', { pct: losPct, amount: money(n.amountVnd) })}
+                              </div>
                             ) : null;
                           })()}
                         </td>
@@ -1121,6 +1133,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tbody>
               </table>
             </div>
+            {losPct > 0 ? (
+              <span className="help">
+                {ratesLocked
+                  ? t('rate.tier_locked', { n: nights, pct: losPct })
+                  : ratesTouched
+                    ? t('rate.tier_on_save', { n: nights, pct: losPct })
+                    : t('rate.tier_note', { n: nights, pct: losPct })}
+              </span>
+            ) : null}
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
             {calcError ? (
               <span className="help">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</span>
@@ -1166,7 +1187,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             <table className="sum" aria-label={t('booking.summary.total')}>
               <tbody>
                 <tr>
-                  <td>{t('booking.field.nights', { n: nights })}</td>
+                  <td>
+                    {t('booking.field.nights', { n: nights })}
+                    {losPct > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
+                  </td>
                   <td className="r">{vnd(roomTotal)}</td>
                 </tr>
                 <tr className="sub">

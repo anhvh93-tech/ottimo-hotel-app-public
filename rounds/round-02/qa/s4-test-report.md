@@ -275,7 +275,7 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
 | **S4-13** (test đua duyệt FOC với B10/B11/resync) | – | Test đua của BE-B (vitest, PostgreSQL thật): `services/api/test/integration/foc-keys-s4.test.ts` – "S4-13: approve ‖ B7 re-price (5 rounds)…" (dòng 915) và "S4-13: approve ‖ B10 cancel and approve ‖ B11 no-show – never an approved FOC applied on a void booking" (dòng 951) | **Đạt** ở job `format · lint · audit · test · build` của CI 39042881071 (tệp 21/21). QC đọc kết quả này theo quyết định ORC; QA không viết E2E đua riêng |
 
 ### 7.3 Những gì M1 còn thiếu so với định nghĩa xong
-- **Kiểm chứng đối kháng S4-38** (ORC + QA): chưa có `reviews/s4-money-verification.md`. Định nghĩa xong của M1 cần báo cáo này với 0 ca lệch tiền, trước hết D7.
+- **Kiểm chứng đối kháng S4-38:** báo cáo đã có (`reviews/s4-money-verification.md`, chấm `08dabd3`) – xem **7.8**. Định nghĩa xong của M1 cần 0 ca lệch tiền trên commit sửa: **chưa đạt** cho tới lượt kiểm lại S4-38.
 - **S4-06:** đã có ca API (ORC giao 17/10 ~22:20) – xem 7.5. **S4-13:** QC đọc test đua của BE-B trong CI (bảng 7.2).
 - Không còn lỗi P0/P1 nào mở trong `bug-list.md`.
 - **BUG-R2-107** (P3) đã sửa ở `21b175c`. CI 39044741574 xanh → **Closed** (~23:00).
@@ -323,4 +323,31 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
   - Thêm dòng TC vào `r1-main-flows.md` (mục 10b, v0.3.28).
   - Chạy lại trên bản dựng `landing-web` 22:59: **10/10 đạt**.
   - `--strict-track LP-v1`: AC Must có TC tăng từ 17/53 lên 23/53. Cổng riêng LP-v1 vẫn chưa đủ, không thuộc `--strict` của CI.
+
+### 7.8 S4-38 – kiểm chứng đối kháng tiền: kết quả và trạng thái lỗi (để QC đọc ở cổng)
+- **Báo cáo:** `rounds/round-02/reviews/s4-money-verification.md` (critic), bản thô `reviews/s4-38-findings-raw.md`.
+  - Chấm commit **`08dabd3`**; 5 hướng kiểm (`foc`, `move`, `cancel`, `pay`, `regr`); mỗi phát hiện 2 người tái hiện độc lập trên PostgreSQL thật.
+  - Kết luận của critic với `08dabd3`: **G1 không đạt** (còn ca lệch tiền), **G7 không đạt** (còn P1 mở).
+- **QA cấp số** (ORC chốt), chi tiết ở `bug-list.md` mục BUG-R2-109…124:
+
+| Nhóm | Mã | Trạng thái |
+|---|---|---|
+| Major P1 – sai tiền / đơn kẹt / xem trước ≠ ghi | BUG-R2-109…119 (FOC-01, FOC-03, FOC-04, MOVE-01…05, REGR-02/03, PAY-01/03/04, REGR-01, S438-DOM-01, CANCEL-01/02) | **Fixed** ở `72fa486` (BE-A mục 12, BE-B mục 11) |
+| Minor P2 | BUG-R2-120 (FOC-02), BUG-R2-121 (CANCEL-03) | **Fixed** ở `72fa486` |
+| Minor P3 | BUG-R2-122 (CANCEL-04) | **Fixed** ở `72fa486` |
+| Minor P3 | BUG-R2-123 (`move-preview` thiếu `overbookingResolution`) | **Open** – tuần Ổn định |
+| Minor P3 | BUG-R2-124 (`restoreNoShow` ghi UUID phòng vào lịch sử) | **Open** – BE-A đang sửa |
+| Kèm theo | BUG-R2-095 (P3, cùng gốc FOC-01) | **Fixed** ở `72fa486` (BE-B) |
+
+- **Điều kiện đóng** (critic, mục "Khuyến nghị cổng QC Sprint 4"): CI của commit sửa xanh **và** lượt kiểm lại S4-38 trên commit đó đạt:
+  - 0 ca lệch tiền;
+  - xem trước = lệnh ghi ở B7, B14, B9a, B18;
+  - chạy lại test `test/s438/v-*` và 5 harness sau khi đổi kỳ vọng sang số BR;
+  - FOC-01 kiểm qua đường S4-25 trên Desk (H16 bước 1).
+  - **Chưa ai chấm `72fa486`.**
+- **Phía QA cần làm cho G1** (theo khuyến nghị critic, điểm 4 và 6):
+  - ca E2E cho các gap chạm tiền: hoa hồng sau B8 (S4-03), luồng làn chưa gán sau B12, sửa giá đêm gia hạn/B9a, đua nhận phòng ‖ duyệt FOC, xác nhận QR ‖ B9, FE `CheckOutPage.tsx` dùng `amountDueAtCheckoutVnd`;
+  - gỡ `pendingFix` cũ của 10 dòng oracle;
+  - viết test đọc các dòng oracle chưa có test (ít nhất BR-315-03…05, BR-429-01/02/13).
+- **Luật mới BR v0.3.8** (giá gõ tay = giá lịch, bậc 7 đêm áp mọi đêm, cọc yêu cầu và cờ cao điểm tính lại sau B7/B8, FOC trên `room_change_difference` tạm dừng khi no-show): QA chờ CI `72fa486`. Ca E2E nào ghi số theo luật cũ sẽ sửa theo oracle mới (danh sách ca có thể ảnh hưởng đã báo ORC).
 

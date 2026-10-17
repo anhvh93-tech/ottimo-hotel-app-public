@@ -32,3 +32,12 @@ Nếu chưa có staging: QC cuối Round 2 phần "chạy trên môi trường t
 - Hoàn tiền **chuyển khoản**: người duyệt, người nhập tài khoản nhận và người chi phải là 3 người khác nhau – **riêng anh/chị (chủ đầu tư) được vừa duyệt vừa chi** (PO quyết 17/10). Quản lý không được tự duyệt rồi tự chi. Khi anh/chị vắng: anh/chị duyệt từ xa trên điện thoại, quản lý chi tại máy quầy. Nếu anh/chị muốn cho quản lý một mình duyệt + chi khi anh/chị vắng thì báo đội (đây là nới kiểm soát, chỉ anh/chị quyết được).
 - Đã thêm 2 câu hỏi vào danh sách gửi luật sư (ESC-001): ảnh biên nhận chuyển khoản có phải lưu 10 năm không; văn bản đồng ý tiếng Anh có đủ cho khách nói tiếng Nga không.
 - Thư viện xử lý ảnh `sharp` đã nâng lên 0.35.5 vì bản cũ có lỗ hổng mức cao.
+
+## 5. Cập nhật khuya 17/10
+- **Đã quyết:** rút dữ liệu về phân tích = **A** – Desk xuất CSV/Excel theo kỳ (đơn, đêm, doanh thu, folio, kênh, nguồn khách), che dữ liệu khách, chỉ chủ đầu tư, có nhật ký; làm ở Round 3.
+- **Chờ anh/chị duyệt cùng landing v1.2.1:** 4 câu nội dung (`outputs/PO/landing-inv-questions.md`) + Premium có giường 1m4 không; ESC-022 tên mạng Wi-Fi (gửi tên mạng hiện tại, không gửi mật khẩu).
+- **Cần cho landing lên mạng (form tắt):** tên miền + VPS; logo SVG; tên công ty + MST cho chân trang; tên chủ tài khoản nhận cọc; đậu xe, thang máy, thú cưng, gửi hành lý, đưa đón sân bay; quyền dùng ảnh; bảng tên phòng ↔ số căn ↔ hạng.
+- **Zalo OA mức 1 (0 đ):** tạo OA, xác thực bằng ĐKKD CTCP UTMG Living (người đại diện bấm xác nhận trong 48 giờ), thêm 2 quản trị viên, gửi đội link OA.
+- **Zalo tự gửi tin (Round 3):** tạo tài khoản ZBS + nạp tiền, gửi duyệt 8 mẫu tin đội soạn (dự trù 2 tuần), đầu R3 mua gói Tăng trưởng 2,5 tr/năm và tạo Zalo App (`product/docs/integrations/zalo-oa.md` mục 6).
+- **Form đặt phòng bật thật:** chờ luật sư trả lời ESC-001 LZ-2, LZ-8 (Luật TMĐT 2025 + NĐ 248/2026).
+- **Chính sách cần anh/chị quyết sau (DOM nêu):** khách rút ngắn đơn khi còn dưới 7 ngày mà vẫn đến ở hiện không chịu phí cho các đêm bỏ – có thu phí phần này không? Đội sẽ soạn ESC kèm phương án.

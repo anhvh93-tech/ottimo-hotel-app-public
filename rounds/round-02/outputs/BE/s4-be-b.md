@@ -174,3 +174,10 @@ Tệp đợt này:
 - Sửa – BE-B: `src/modules/folio/public/reductions.ts`, `src/modules/folio/public/folio.service.ts`, `src/modules/folio/internal/foc.service.ts`, `src/modules/inventory/internal/minibar.service.ts`, `src/modules/approvals/public/approval.service.ts` (thêm `manual_adjust` vào `LineChange.cause`, đã có trong hợp đồng).
 - Sửa – **module khác (ghi rõ)**: `src/modules/reservations/internal/money-bridge.ts` (`reopenStayCredit`, kiểu trả về `closeStayCredit`), `src/modules/reservations/internal/reservations.service.ts` (B12 gọi `reopenStayCredit`; `cancel` dùng `created`).
 - Sửa – fixture: `product/tests/fixtures/br-examples.json` (bỏ `pendingFix` BR-434-14).
+
+### 11.1 Migration 0063 – `autoCancelReason = no_show_restored` (0.3.7 bổ sung 4, `openapi-0.3.7.md` mục 15, erd 4.6)
+
+- `0063_no_show_restored.sql` mở rộng CHECK `approval_request_auto_cancel_reason_check` thêm `no_show_restored`, vẫn chỉ hợp lệ khi `status = 'cancelled'`. Bản nháp sinh bằng drizzle-kit trong thư mục tạm (journal tới 0062 + `0062_snapshot.json`), rồi đổi tên thành `0063_snapshot.json` (đã chạy prettier; `prevId` = id của 0062). Journal: idx 40, `when` 1792254720821 > 0062. `drizzle-kit generate` ở thư mục thật báo "No schema changes".
+- `schema/approvals.ts` cập nhật CHECK. Kiểu `AutoCancelReason` thêm `no_show_restored`. `FolioService.reopenStayCredit` (B12) nay ghi `no_show_restored` thay cho `superseded`, nên giả định (j) đã được ARC chốt.
+- Test: ca CANCEL-03 trong `s438-beb.test.ts` kiểm DB lẫn API (`autoCancelReason = no_show_restored`), thêm một ca CHECK từ chối lý do này trên yêu cầu chưa hủy. `schema-parity`, `migrations-journal` xanh. Toàn bộ API **2.687/2.687, 82/82 tệp** (DB mới); tsc, eslint, prettier xanh.
+- Tệp: tạo `src/db/migrations/0063_no_show_restored.sql`, `src/db/migrations/meta/0063_snapshot.json`; sửa `src/db/migrations/meta/_journal.json`, `src/db/schema/approvals.ts`, `src/modules/approvals/public/approval.service.ts`, `src/modules/folio/public/folio.service.ts`, `test/integration/s438-beb.test.ts`.

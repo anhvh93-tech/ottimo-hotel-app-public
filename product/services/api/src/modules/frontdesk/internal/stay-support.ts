@@ -185,6 +185,29 @@ export class StaySupport {
   }
 
   /** Direct-channel calendar rate of `roomId` on `date` (BR-104) with its BR-105 bounds. */
+  /**
+   * BR-417 (2) / BR-421 / BR-416 v0.3.8 (CI 72fa486, oracle BR-411-07, BR-416-02, BR-421-01): a direct/agent
+   * booking with an AGREED price (nights typed at the desk – snapshot source `manual`) suggests that price for an
+   * added night (B9a: its first typed night, B13/B18: its last) – the typed CALENDAR price, before the tier; a
+   * special date always takes its own calendar (caller). null = a calendar-priced booking (S438-DOM-01: the
+   * direct calendar of the added night itself).
+   */
+  async agreedRate(tx: Tx, row: ReservationRow, pick: 'first' | 'last'): Promise<number | null> {
+    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
+    if (row.external_contract || row.stay_type !== 'short') return null;
+    const nights = await this.stay.pricedNights(tx, row);
+    const typed = nights.filter((n) => n.manual);
+    // Booked at a typed price (`bookingRateSource`; before the flag: every night typed). A calendar booking with
+    // ONE night re-priced later (S4-35) is not an agreed booking (BR-107-05).
+    const flag = (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource;
+    const agreed =
+      flag === 'manual_agreed' ||
+      (flag === undefined && typed.length > 0 && typed.length === nights.length);
+    if (!agreed) return null;
+    const n = pick === 'first' ? typed[0] : typed[typed.length - 1];
+    return n ? n.calendarVnd : null;
+  }
+
   async directRate(
     tx: Tx,
     ctx: BookingContext,

@@ -46,7 +46,12 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
       pick: /Trần Minh Khoa/,
     });
     // AC3/AC7: nightly prices from calculateQuote, deposit 30 % (BR-305) prefilled.
-    expect(await within(dlg).findAllByLabelText(/^Giá \d\d\/\d\d/)).not.toHaveLength(0);
+    // DOM S4-38: the nightly inputs are calendar rates (before the BR-107 step).
+    expect(
+      await within(dlg).findAllByLabelText(
+        new RegExp(`^${tv('rate.pre_tier').replace(/[()]/g, '\\$&')} \\d\\d/\\d\\d`),
+      ),
+    ).not.toHaveLength(0);
     await waitFor(() => expect(within(dlg).getByText('Tổng tiền đơn')).toBeInTheDocument());
     expect(within(dlg).getByLabelText(/Số tiền đã nhận/)).not.toHaveValue('');
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));

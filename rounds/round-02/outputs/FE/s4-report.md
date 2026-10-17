@@ -526,6 +526,43 @@ API dùng theo `outputs/BE/s4-be-b.md` mục 9 (bản vá BE-B ORC đã áp vào
 
 ---
 
+## Phần FE-A – đợt 10: DOM S4-38 (BR-107 v0.3.8) + ARC 0.3.7 bổ sung 4 – giá lịch, số cần thu của máy chủ, cọc (17/10/2026 khuya)
+
+### Đã làm
+- **H09 đặt phòng**:
+  - Ô giá từng đêm là **giá lịch, trước giảm dài ngày** (`rate.pre_tier`), điền sẵn `calendarRateVnd`.
+  - Đêm chưa sửa: hiện cạnh ô "Sau giảm 10%: …" và tổng tiền phòng, đều lấy từ `calculateQuote`.
+  - Đêm đã sửa: không tự tính, chỉ ghi "giảm áp khi lưu" (`rate.tier_on_save`). Lệnh tạo đơn gửi giá lịch cho mọi đêm.
+  - Máy chủ không gửi `calendarRateVnd` mà lượt ở có bậc giảm thì ô giá **chỉ đọc** (`rate.tier_locked`), để không giảm hai lần.
+- **S4-35 sửa giá đêm (Folio)**: ô giá điền giá lịch của đêm (`Reservation.nightlyRates[].calendarRateVnd`). Gợi ý "Đêm này hiện tính … sau giảm (giá lịch …)". Câu kết quả không tự tính số sau giảm.
+- **B13 gia hạn**: nhãn danh sách đêm ghi "giá lịch, trước giảm dài ngày". Tổng sau giảm vẫn là `repricing` của máy chủ.
+- **H13 / B9a**:
+  - Câu đêm B9a nói rõ đây là giá lịch.
+  - Bỏ phần cộng ở client khi thiếu `amountDueAtCheckinVnd`.
+  - Chỉ còn trừ FOC đang xin trong chính lệnh B9 (preview không biết khoản này – BR-402).
+- **H16**:
+  - Số còn phải thu = `amountDueAtCheckoutVnd`, bỏ phép tự cộng phụ thu/đêm thêm/tiền thừa.
+  - Lễ tân gõ giá đêm thêm khác mặc định: Desk hỏi máy chủ bằng QR `check_out` kèm `extraNightRateVnd` với số rất lớn → 422 `AMOUNT_EXCEEDS_BALANCE` `max` (không ghi gì), theo ARC bổ sung 4 #1.
+  - Đang tính thì nút "Tiếp tục: Bill" khóa, có câu báo. Không đọc được thì báo, và B18 tính lại khi hoàn tất.
+  - Ô giá đêm thêm ghi rõ là giá lịch; dòng đêm thêm trong bảng có đuôi "giá lịch".
+- **Cọc (ARC #2)**: drawer chỉ ghi "Cọc cần thu" khi đơn `hold`; từ `confirmed` ghi "Cơ sở phí hủy (cọc theo tiền phòng hiện tại)". Hộp cọc, QR cọc vốn chỉ dùng cho đơn giữ chỗ.
+- Mock: tạo đơn áp bậc lên giá gõ; `checkout-summary` có `amountDueAtCheckoutVnd`; QR `check_out` có trần theo giờ và giá đêm thêm.
+- 13 chuỗi mới, nhóm "FE-A: giá lịch…" trong `gen_strings.py`, chờ UXD duyệt.
+
+### Kiểm thử
+- admin-web vitest **323/323**: `s4-38-fea.test.tsx` mới 5 ca; `booking`, `checkout` sửa nhãn. `tsc`, eslint, prettier xanh; i18n 19/19; `check_hifi` xanh.
+- E2E trên `ottimo-qa-s4` qua `qa-s4/clock-run.sh` (admin-web build bằng `build-web.sh`), mỗi ca 3 lượt:
+  - `desk-clock` TC-L4-053/040, TC-L4-096, TC-X-070, TC-X-071: **12/12**.
+  - `desk-chromium` TC-L2-021 (tạo đơn trên Desk): **6/6**.
+  - Không thêm ca mới: chưa có ca E2E nào gõ giá đêm ≥ 7 đêm hay giá đêm thêm khác mặc định.
+
+### Cần vai khác (báo ORC)
+1. **BE-A**: `calculateQuote` chưa trả `nightlyRates[].calendarRateVnd` (trường đã có trong hợp đồng), vì `quote-pricing.ts` chỉ trả số sau bậc. Chưa có trường này thì trên máy chủ thật, đơn ≥ 7 đêm ở H09 bị khóa sửa giá (cố ý, để không giảm hai lần).
+2. **BE-A**: `ExtensionOptions.currentBookingRateVnd` đang là giá **ròng** (gross − giảm). "Giữ giá đơn" gửi số này làm giá gõ, và theo BR-107 v0.3.8 máy chủ áp bậc lần nữa → giảm hai lần khi tổng ≥ 7 đêm. Theo DOM, "giữ giá sửa tay = giữ giá lịch", nên nên trả giá lịch.
+3. **ARC**: chưa có xem trước của máy chủ cho giá gõ ở H09, B13, S4-35. Desk ghi tỷ lệ giảm và "áp khi lưu", không tự tính số sau bậc. Nếu cần số chính xác ngay khi gõ, cần một xem trước có `nightlyRates`.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

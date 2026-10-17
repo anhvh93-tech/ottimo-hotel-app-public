@@ -225,6 +225,11 @@ export function FolioDialog({
         <AdjustLineDialog
           folio={f}
           line={adjusting}
+          calendarRateVnd={
+            adjusting.category === 'room'
+              ? r.nightlyRates?.find((n) => n.date === adjusting.serviceDate)?.calendarRateVnd
+              : undefined
+          }
           onClose={() => setAdjusting(null)}
           onDone={(next) => {
             setAdjusting(null);
@@ -263,12 +268,15 @@ export function FolioDialog({
 function AdjustLineDialog({
   folio: f,
   line: l,
+  calendarRateVnd,
   onClose,
   onDone,
   onStale,
 }: {
   folio: Folio;
   line: FolioLine;
+  /** DOM S4-38 (BR-107 v0.3.8): the night's calendar price (before the length-of-stay step) – what is typed. */
+  calendarRateVnd?: number;
   onClose: () => void;
   onDone: (next: Folio) => void;
   onStale: () => void;
@@ -279,7 +287,10 @@ function AdjustLineDialog({
   const act = useSubmit({ bound: ['newQuantity', 'newUnitPriceVnd', 'reason'] });
   const night = NIGHT.includes(l.category);
   const [qty, setQty] = useState(String(l.quantity));
-  const [price, setPrice] = useState(vnd(l.unitPriceVnd));
+  // A room night is priced on its calendar rate; the server applies the BR-107 step on it again.
+  const basePrice = night && calendarRateVnd !== undefined ? calendarRateVnd : l.unitPriceVnd;
+  const stepped = night && calendarRateVnd !== undefined && calendarRateVnd !== l.amountVnd;
+  const [price, setPrice] = useState(vnd(basePrice));
   const [voidLine, setVoidLine] = useState(false);
   const [reason, setReason] = useState('');
   const [touched, setTouched] = useState(false);
@@ -288,7 +299,7 @@ function AdjustLineDialog({
   const qtyOk = night || voidLine || (Number.isFinite(q) && q >= 0);
   const priceOk = voidLine || (p !== null && p >= 0);
   const newAmount = voidLine ? 0 : Math.round(((night ? 1 : q) * (p ?? 0)) / 1000) * 1000;
-  const changed = voidLine || (p !== null && p !== l.unitPriceVnd) || (!night && q !== l.quantity);
+  const changed = voidLine || (p !== null && p !== basePrice) || (!night && q !== l.quantity);
   const reasonError =
     touched && reason.trim().length < 3 ? t('field_error.reason_required') : act.fields.reason;
 
@@ -378,7 +389,15 @@ function AdjustLineDialog({
       ) : null}
       <MoneyField
         label={night ? t('folio.adjust_night_price') : t('folio.adjust_price')}
-        help={night ? t('folio.adjust_night_help') : undefined}
+        help={
+          night
+            ? `${t('folio.adjust_night_help')}${
+                stepped
+                  ? ` ${t('rate.night_now', { amount: money(l.amountVnd), calendar: money(basePrice) })}`
+                  : ''
+              }`
+            : undefined
+        }
         value={price}
         onChange={setPrice}
         error={!priceOk ? t('field_error.amount_not_positive') : act.fields.newUnitPriceVnd}
@@ -401,7 +420,9 @@ function AdjustLineDialog({
       </Field>
       {changed ? (
         <p className="li-s" role="status">
-          {t('folio.adjust_effect', { old: money(l.amountVnd), new: money(newAmount) })}
+          {stepped
+            ? t('rate.adjust_night_effect', { old: money(l.amountVnd), new: money(newAmount) })
+            : t('folio.adjust_effect', { old: money(l.amountVnd), new: money(newAmount) })}
         </p>
       ) : null}
     </Modal>

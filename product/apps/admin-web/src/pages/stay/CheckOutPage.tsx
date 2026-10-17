@@ -1,4 +1,10 @@
-import { isApiError, type Bill, type CheckOutBody, type FolioLine } from '@ottimo/api-client';
+import {
+  isApiError,
+  newIdempotencyKey,
+  type Bill,
+  type CheckOutBody,
+  type FolioLine,
+} from '@ottimo/api-client';
 import { isLocaleLoaded, loadLocale, translate, useI18n, type Args } from '@ottimo/i18n';
 import {
   Alert,
@@ -46,6 +52,8 @@ const OWN_MGR = ['owner', 'manager'];
 /** B18 field errors about the departure time – fixed on step 2, where the time and its note are (KB7). */
 const TIME_FIELDS = ['checkoutTime', 'checkoutAt', 'checkoutTimeNote'];
 const STEPS = ['checkout.step.minibar', 'checkout.step.extras', 'checkout.step.bill'];
+/** Above any stay's due: the check-out VietQR answers 422 with its cap (`max`) and writes nothing. */
+const DUE_PROBE_VND = 10_000_000_000;
 const EXTRAS: Array<{ key: string; preset: string }> = [
   { key: 'checkout.extras.laundry', preset: 'LAUNDRY_KG' },
   { key: 'checkout.extras.food', preset: 'FNB' },
@@ -167,6 +175,55 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     setFocusNote(false);
   }, [focusNote, step]);
 
+  // ARC 0.3.7 bổ sung 4 (S4-38, BR-416-04/05): at a typed extra-night rate the amount due is the server's too –
+  // the cap of a check-out VietQR at that rate (422 AMOUNT_EXCEEDS_BALANCE `max`; nothing is written), never
+  // "default due + (typed − default)" on the client (the extra night takes the BR-107 step and FOC that follow).
+  const typedRate =
+    s?.extraNightRequired && s.extraNightAvailable !== false ? amountOf(extraRate) : 0;
+  const rateTyped = typedRate > 0 && typedRate !== (s?.extraNightDefaultRateVnd ?? 0);
+  const typedKey = rateTyped && r ? `${time}|${typedRate}` : '';
+  const debTypedKey = useDebounced(typedKey, 300);
+  const [typedDue, setTypedDue] = useState<{ key: string; due?: number; failed?: boolean } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!debTypedKey || debTypedKey !== typedKey || !r) return;
+    let stale = false;
+    const [hhmm, rate] = debTypedKey.split('|') as [string, string];
+    api
+      .createVietQr(
+        { propertyId, folioId: r.folioId },
+        {
+          amountVnd: DUE_PROBE_VND,
+          purpose: 'check_out',
+          checkoutAt: /^\d{2}:\d{2}$/.test(hhmm)
+            ? `${r.departureDate}T${hhmm}:00+07:00`
+            : undefined,
+          extraNightRateVnd: Number(rate),
+        },
+        newIdempotencyKey(),
+      )
+      .then(
+        () => !stale && setTypedDue({ key: debTypedKey, failed: true }),
+        (e: unknown) => {
+          if (stale) return;
+          const max =
+            isApiError(e) && e.fieldErrors.some((f) => f.code === 'AMOUNT_EXCEEDS_BALANCE')
+              ? Number(e.problem.max)
+              : NaN;
+          setTypedDue(
+            Number.isFinite(max)
+              ? { key: debTypedKey, due: max }
+              : { key: debTypedKey, failed: true },
+          );
+        },
+      );
+    return () => {
+      stale = true;
+    };
+    // `s` – a payment recorded or a line written changes what is due at that rate.
+  }, [debTypedKey, typedKey, r, propertyId, s]);
+
   if (!r && res.state.status === 'error')
     return (
       <>
@@ -226,8 +283,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lateDelta = lateNew - lateOld;
   // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
   const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
-  const balance = Math.max(0, (s?.balanceDueVnd ?? 0) + extraNightVnd + lateDelta - credit0);
-  const credit = Math.max(0, credit0 - extraNightVnd - lateDelta - (s?.balanceDueVnd ?? 0));
+  // S4-47 / ARC 0.3.7 bổ sung 4: what B18 leaves due at this time is the SERVER's figure (late charge
+  // re-priced, extra night stepped, FOC that follows, credit, clamped once) – never summed here.
+  const typedDueNow = rateTyped && typedDue?.key === typedKey ? typedDue : null;
+  const dueComputing = rateTyped && !typedDueNow;
+  const balance =
+    (rateTyped ? typedDueNow?.due : undefined) ??
+    s?.amountDueAtCheckoutVnd ??
+    s?.balanceDueVnd ??
+    0;
+  const credit =
+    balance > 0 ? 0 : Math.max(0, credit0 - extraNightVnd - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
   const today = todayLocal(property?.timezone);
   const debtActive = mgr && debtOn && balance > 0;
@@ -325,8 +391,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
-  const lateWhy =
-    lateRaise && !lateTold
+  const lateWhy = dueComputing
+    ? t('checkout.due_computing')
+    : lateRaise && !lateTold
       ? t('co.go_bill_needs_told')
       : lateRaise
         ? surchargeFocMissing(t, lateFoc)
@@ -449,6 +516,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     labelKey: 'bill.line.extra_night',
                     labelParams: { date: r.departureDate },
                   } as unknown as FolioLine)}
+                  {/* DOM S4-38: the calendar price; the step BR-107 is in the amount due below. */}
+                  {` · ${t('rate.pre_tier_short')}`}
                 </td>
                 <td className="r num">{vnd(extraNightVnd)}</td>
               </tr>
@@ -644,12 +713,21 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               </Alert>
               <MoneyField
                 label={t('checkout.extra_night_rate_label')}
-                help={t('checkout.extra_night_rate_help')}
+                help={t('checkout.extra_night_rate_help_tier')}
                 required
                 value={extraRate || vnd(s?.extraNightDefaultRateVnd ?? 0)}
                 onChange={setExtraRate}
                 error={act.fields['extraNight.rateVnd'] ?? act.fields.extraNight}
               />
+              {dueComputing ? (
+                <p className="li-s" role="status">
+                  {t('checkout.due_computing')}
+                </p>
+              ) : typedDueNow?.failed ? (
+                <p className="li-s" role="status">
+                  {t('checkout.typed_due_failed')}
+                </p>
+              ) : null}
             </div>
           )
         ) : null}

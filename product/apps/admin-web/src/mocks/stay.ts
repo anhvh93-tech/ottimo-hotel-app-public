@@ -1082,6 +1082,22 @@ export function createStayMock(ctx: Ctx) {
     return a;
   }
 
+  /**
+   * `CheckoutSummary.amountDueAtCheckoutVnd` (S4-47, ARC 0.3.7 bổ sung 4): what B18 leaves due at `time` – the
+   * late charge re-priced, or after the last tier one more night at `rate` (default: list price) with the BR-107
+   * step of the longer stay (mock: 10 % from 7 nights), credit taken off, clamped once.
+   */
+  function dueAtCheckout(r: MockReservation, time: string, rate?: number) {
+    const s = lateSurcharge(r, time);
+    const tt = totals(r);
+    const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
+    const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
+    const calendar = rate ?? roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+    const pct = (r.nights ?? 0) + 1 >= 7 ? 10 : 0;
+    const night = s.treatAsExtension ? Math.round((calendar * (100 - pct)) / 100 / 1000) * 1000 : 0;
+    return Math.max(0, tt.balanceDueVnd - tt.creditVnd + (lateNew - live) + night);
+  }
+
   function replaceLate(r: MockReservation, amountVnd: number, label: string, by: string) {
     // the server posts a reversal pair; the mock hides the old line (same totals, same live amount)
     for (const l of liveLate(r)) l.lineState = 'rejected';
@@ -2341,6 +2357,7 @@ export function createStayMock(ctx: Ctx) {
         paidVnd: tt.paidVnd,
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
+        amountDueAtCheckoutVnd: dueAtCheckout(r, time),
         pendingApprovals: tt.pendingApprovals,
         blockers,
       });
@@ -2691,7 +2708,15 @@ export function createStayMock(ctx: Ctx) {
         ? Math.max(0, (r.depositRequiredVnd ?? 0) - r.depositPaidVnd)
         : body.purpose === 'check_in'
           ? dueAtCheckin(r, String(body.checkinTime ?? '14:00'), !!body.addPriorNight)
-          : totals(r).balanceDueVnd;
+          : body.purpose === 'check_out'
+            ? dueAtCheckout(
+                r,
+                typeof body.checkoutAt === 'string'
+                  ? String(body.checkoutAt).slice(11, 16)
+                  : (r.agreedCheckoutTime ?? '12:00'),
+                body.extraNightRateVnd !== undefined ? Number(body.extraNightRateVnd) : undefined,
+              )
+            : totals(r).balanceDueVnd;
       if (amount > cap && !body.overBalanceReason)
         return problem(422, 'VALIDATION_FAILED', {
           errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],

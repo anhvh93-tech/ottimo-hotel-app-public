@@ -545,8 +545,14 @@ export function ReservationDrawer({
                     <td className="r">{vnd(r.totalRoomVnd)}</td>
                   </tr>
                   {r.depositRequiredVnd !== undefined ? (
+                    // ARC 0.3.7 bổ sung 4 #2 (BR-309-11): a deposit is asked only on a hold; from `confirmed`
+                    // on the same figure is the base of the cancellation fee – never a new deposit to collect.
                     <tr className="sub">
-                      <td>{t('booking.summary.deposit')}</td>
+                      <td>
+                        {r.status === 'hold'
+                          ? t('booking.summary.deposit')
+                          : t('drawer.deposit_fee_base')}
+                      </td>
                       <td className="r">{vnd(r.depositRequiredVnd)}</td>
                     </tr>
                   ) : null}

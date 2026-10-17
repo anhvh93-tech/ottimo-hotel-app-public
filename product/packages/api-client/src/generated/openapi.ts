@@ -1319,8 +1319,37 @@ export interface paths {
      * @description Đơn A (đường dẫn) và đơn B (`otherReservationId`) đổi căn cho nhau trên khoảng giao nhau. Server khóa 2 dòng `room` theo
      *     `room_id` tăng dần, dùng `SET CONSTRAINTS room_occupancy_no_overlap DEFERRED` rồi cập nhật 2 segment; lỗi lúc COMMIT → `409 ROOM_UNAVAILABLE`.
      *     Mỗi đơn là B7 (chưa nhận phòng) hoặc B14 (đang ở) theo trạng thái; cần `If-Match` của **cả hai** đơn.
+     *     **0.3.7 bổ sung 4 (S4-38, BE-A giả định (s))**: tiền mỗi đơn đổi theo quy tắc **OTTIMO đổi căn** (BR-429: giữ giá phòng; phụ thu người = min(đang ghi, theo định mức bảo vệ) – DOM-S4-02;
+     *     chênh lệch OTA so với căn gốc). Hiện server ghi chênh lệch mà **chưa** đòi xác nhận "đã báo khách". Để khớp DOM-S4-06 (mọi thay đổi tiền phải được báo khách), hợp đồng thêm sẵn
+     *     **contract-ahead – cài ở tuần Ổn định/R3** (server hiện bỏ qua): `previewSwapRoom` (GET – số tiền từng đơn, cùng hàm với lệnh ghi) + `applyDifference`, `expectedDeltaVnd`,
+     *     `otherExpectedDeltaVnd` – khi cài: đơn nào có `folioDeltaVnd` ≠ 0 thì bắt buộc tick + số đã hiện (lệch → 409 `SURCHARGE_CHANGED`). Không thêm `dryRun` vào thân (giữ nguyên tắc
+     *     meta không mở đường bỏ `Idempotency-Key`/`If-Match` trước khi BE cài – quyết định ARC 0.3.7 mục 5 (1)).
      */
     post: operations['swapRoom'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/reservations/{reservationId}/swap-preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * [Contract-ahead – tuần Ổn định/R3] Xem trước tiền khi đổi chéo căn 2 đơn (swapRoom) – cùng hàm tính với lệnh ghi
+     * @description **0.3.7 bổ sung 4 (S4-38, BE-A giả định (s), DOM-S4-06)** – contract-ahead, `x-round: R3` (ORC có thể kéo vào tuần Ổn định). Chỉ đọc, không khóa, không `Idempotency-Key`/`If-Match`.
+     *     Trả số tiền từng đơn nếu đổi chéo lúc này theo quy tắc OTTIMO đổi căn – **cùng hàm** với `swapRoom` (như `previewMoveReservation`/`moveReservation`). Lỗi giống `swapRoom` (409 căn bận…).
+     */
+    get: operations['previewSwapRoom'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -5408,7 +5437,12 @@ export interface components {
        */
       kind: 'agent' | 'staff';
     };
-    /** @description Ánh xạ khóa tham số (BR mục 13) – 0.3.5 (A-07) */
+    /**
+     * @description Ánh xạ khóa tham số (BR mục 13) – 0.3.5 (A-07).
+     *     **0.3.7 bổ sung 4 (S4-38, BR-107 v0.3.8 – thay quyết định ARC-BE-S3-24.3 "giá sửa tay không bao giờ tính lại bậc")**: giá đêm lễ tân **gõ tay** (tạo đơn, sửa giá S4-35, đêm B9a,
+     *     đêm thêm, đổi căn/ngày) là **giá lịch** của đêm (`NightRate.calendarRateVnd`); bậc giảm theo số đêm BR-107 (và mã khách quay lại BR-111) áp **lên** giá đó – giá ghi = giá gõ × (1 − bậc),
+     *     làm tròn BR-005 – và được áp lại khi tổng số đêm đổi. Form hiện giá sau bậc; không coi giá gõ là giá cuối.
+     */
     BookingRules: {
       businessDate: components['schemas']['LocalDate'];
       /** @description `hold_hours_options` (BR-302) */
@@ -5515,6 +5549,13 @@ export interface components {
         expiresAt?: components['schemas']['Instant'];
         extendedCount?: number;
       };
+      /**
+       * @description **0.3.7 bổ sung 4 (S4-38, BR-309-11 v0.3.8 – ghi rõ, không thêm trường)**: một giá trị lưu (`reservation.deposit_required_vnd`), **hai nghĩa theo trạng thái**:
+       *     (1) đơn `hold` – **cọc phải thu để xác nhận** (BR-305: % cọc × tiền phòng, làm tròn) – Desk hiện "còn thiếu cọc" = `depositRequiredVnd − depositPaidVnd` và đòi khách;
+       *     (2) từ `confirmed` trở đi – **cơ sở phí hủy/no-show** (BR-309, BR-311): tính lại sau mỗi B7/B8 = % cọc × tiền phòng **hiện hành** (giảm khi còn < 7 ngày và khách tự xin → giữ mức
+       *     cũ); phí giữ = min(cọc đã thu, giá trị này, giá trị đơn). Desk **không** đòi cọc bổ sung khi giá trị này > `depositPaidVnd` ở đơn đã xác nhận (BR-429: không đòi cọc thêm khi đổi
+       *     căn/ngày) – không hiện "còn thiếu cọc". Số dùng cho phí hủy hiện ở `CancellationQuote` (`retainedVnd`).
+       */
       depositRequiredVnd?: components['schemas']['MoneyVnd'];
       nightlyRates?: components['schemas']['NightRate'][];
       totalRoomVnd?: components['schemas']['MoneyVnd'];
@@ -5561,7 +5602,7 @@ export interface components {
        *     `null` với trạng thái/ngày khác. `allowedActions` chỉ có `mark_no_show` khi giờ server ≥ mốc này – client **không** tự so giờ máy với tham số. 0.3.5 (A-04)
        */
       noShowAvailableFrom?: string | null;
-      /** @description Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13) */
+      /** @description Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13). **0.3.7 bổ sung 4**: "còn thiếu" chỉ có nghĩa khi đơn `hold` (xem `depositRequiredVnd`) */
       depositPaidVnd?: components['schemas']['MoneyVnd'];
       /**
        * @description **0.3.7 bổ sung 1 (FE-B s4 mục 5 – BUG-R2-081, US-086 AC4)**: các báo "khách đã chuyển cọc" của đơn (`createDepositNotice`, A53), mới nhất trước. Tối đa **một** bản `open`
@@ -5872,8 +5913,12 @@ export interface components {
        * @description 0.3.7 (BUG-R2-038, s3-contract 7.7): số phải thu để đạt `balance_paid` nếu nhận phòng theo `checkinTime` đang xem = `balanceDueVnd` + phụ thu nhận sớm sẽ ghi
        *     (`earlyCheckinSurcharge.amountVnd`) + tiền đêm B9a (`priorNight.defaultRateVnd` khi `addsPreviousNight`) − Σ min(số xin, dòng) của FOC **chờ duyệt trên khoản phát sinh**
        *     (BR-402 v0.3.6 – không trừ FOC/giảm giá chờ duyệt trên tiền phòng). Đơn `ota_prepaid`: chỉ khoản tại quầy. Client hiện ở bước thu
-       *     tiền H13 và điền sẵn `checkIn.payment.amountVnd`; lễ tân sửa giá đêm B9a → client cộng chênh (`priorNightRateVnd − priorNight.defaultRateVnd`). Là trần của `checkIn.payment`
-       *     và `createVietQr purpose=check_in`.
+       *     tiền H13 và điền sẵn `checkIn.payment.amountVnd`. Là trần của `checkIn.payment` và `createVietQr purpose=check_in`.
+       *     **0.3.7 bổ sung 4 (S4-38, BR-417-04…06 – thay câu "lễ tân sửa giá đêm B9a → client cộng chênh")**: server tính **đủ** bằng cùng một hàm cho xem trước, trần QR `check_in` và
+       *     lệnh B9: bậc giảm BR-107 tính lại trên **tổng số đêm gồm đêm B9a** (áp mọi đêm), giá mặc định của đêm B9a theo lịch **của chính đêm đó**, phụ thu người vượt định mức của đêm B9a
+       *     (BR-110), FOC chờ duyệt như trên, rồi trừ tiền thừa (`creditVnd`) và kẹp 0 **một lần** ở cuối. Giá đêm B9a lễ tân **gõ khác mặc định**: client **không** tự cộng chênh – số đúng
+       *     là trần `createVietQr purpose=check_in` gửi kèm `priorNightRateVnd` (cùng hàm, tính lại cả bậc và tiền thừa) và trần `checkIn.payment` (vượt → 422 `AMOUNT_EXCEEDS_BALANCE`, `max`).
+       *     Bằng 0 → không tạo QR (BR-417-06).
        */
       amountDueAtCheckinVnd?: components['schemas']['MoneyVnd'];
     };
@@ -6008,10 +6053,26 @@ export interface components {
       serverTime?: components['schemas']['Instant'];
       /**
        * @description 0.3.7 (S4-47): số cần thu nếu hoàn tất B18 ngay với giờ trả đang xem = còn phải thu sau phụ thu trả muộn tính lại (`lateSurchargeRecalc`) và – khi `extraNightRequired` –
-       *     đêm thêm theo `extraNightDefaultRateVnd` (dòng `late_checkout` sống bị đảo). Lễ tân đổi giá đêm thêm → client cộng chênh. Là trần của `checkOut.finalPayment` và
-       *     `createVietQr purpose=check_out`. Không âm (dư → `creditVnd`).
+       *     đêm thêm theo `extraNightDefaultRateVnd` (dòng `late_checkout` sống bị đảo). Là trần của `checkOut.finalPayment` và `createVietQr purpose=check_out`. Không âm (dư → `creditVnd`).
+       *     **0.3.7 bổ sung 4 (S4-38, BR-416-04/05)**: một hàm tính cho bản tóm tắt, trần QR `check_out` và lệnh B18 – lễ tân gõ giá đêm thêm khác mặc định: client **không** tự cộng chênh,
+       *     số đúng là trần QR `check_out` gửi kèm `extraNightRateVnd` hoặc `max` của 422 `AMOUNT_EXCEEDS_BALANCE` ở `finalPayment`.
        */
       amountDueAtCheckoutVnd?: components['schemas']['MoneyVnd'];
+    };
+    /** @description **Contract-ahead (0.3.7 bổ sung 4 – tuần Ổn định/R3)** – `previewSwapRoom`: tiền từng đơn khi đổi chéo căn theo quy tắc OTTIMO đổi căn (BR-429) */
+    SwapRoomPreview: {
+      reservations: {
+        reservationId: components['schemas']['Uuid'];
+        reservationCode?: string;
+        fromRoomId: components['schemas']['Uuid'];
+        toRoomId: components['schemas']['Uuid'];
+        /** @description Tổng thay đổi folio của đơn (có thể âm): phụ thu người (min theo DOM-S4-02) + chênh lệch OTA; tiền phòng giữ giá */
+        folioDeltaVnd: components['schemas']['MoneyVnd'];
+        extraPersonDeltaVnd?: components['schemas']['MoneyVnd'];
+        roomChangeDifferenceDeltaVnd?: components['schemas']['MoneyVnd'];
+        /** @description `folioDeltaVnd` ≠ 0 → lệnh ghi sẽ cần `applyDifference` + số dự kiến */
+        requiresInformedGuest?: boolean;
+      }[];
     };
     /**
      * @description 0.3.6 (BA E04-05): giá các đêm từ `effectiveDate`. `property_fault` → giữ giá cũ (nâng hạng miễn phí); `guest_request` → giá căn mới theo lịch giá kênh hiện hành
@@ -6720,11 +6781,17 @@ export interface components {
       } | null;
       /**
        * @description 0.3.7 bổ sung D1 (BR-434, BR-315 (g)): có khi `status = cancelled` do **hệ thống** (không phải `rejected`) – không còn dòng tương ứng · đơn hủy · đơn no-show · bị yêu cầu mới thay.
+       *     **0.3.7 bổ sung 4 (S4-38, BE-B giả định (j))**: thêm `no_show_restored` – B12 khôi phục no-show tự hủy yêu cầu hoàn đã sinh do no-show (S438-CANCEL-03); trước đây ghi `superseded`
+       *     (sai nghĩa – không có yêu cầu mới thay). BE-B dùng giá trị mới khi mở rộng CHECK `approval_request.auto_cancel_reason` (migration số ORC cấp); tới đó vẫn `superseded`. Client gặp giá trị lạ → câu chung.
        *     Không tính hạn mức; báo người gửi và người đã nhận `approval_requested` (`StaffNotification.kind = approval_cancelled`)
        * @enum {string}
        */
       autoCancelReason?:
-        'line_removed' | 'reservation_cancelled' | 'reservation_no_show' | 'superseded';
+        | 'line_removed'
+        | 'reservation_cancelled'
+        | 'reservation_no_show'
+        | 'superseded'
+        | 'no_show_restored';
       reasonCode: string;
       reasonNote?: string;
       requestedBy: string;
@@ -7883,7 +7950,8 @@ export interface components {
       /**
        * @description Câu hứa công khai trên trang cảm ơn (BR-912 (3), (4) v0.3.8 – chữ đọc theo tham số, không viết cứng): `within_minutes` – gửi trong giờ trực `front_desk_hours` → "trả lời trong
        *     {minutes} phút" (`web_request_public_promise_minutes`, 60); `next_morning` – gửi ngoài giờ → "trả lời trước {giờ của `by`} sáng {ngày}" (`web_request_public_promise_next_morning_by`,
-       *     09:00); `call_now` – ngày đến = ngày nghiệp vụ hiện tại và gửi ngoài giờ → trang hiện số gọi ngay, `minutes` = `web_request_same_day_after_hours_minutes` (30). Trang thêm lối thoát
+       *     09:00); `call_now` – ngày đến = ngày nghiệp vụ hiện tại và gửi ngoài giờ → trang hiện số gọi ngay, `minutes` = `web_request_public_promise_call_now_minutes` (**60** – BR-912 v0.3.8;
+       *     0.3.7 bổ sung 4 sửa, không dùng hạn nội bộ `web_request_same_day_after_hours_minutes` 30). Trang thêm lối thoát
        *     "Nếu tới {by} OTTIMO chưa liên hệ, vui lòng gọi … hoặc nhắn Zalo kèm mã này" (SEC UXD-05).
        */
       promise: {
@@ -10966,6 +11034,15 @@ export interface operations {
           otherVersion: number;
           effectiveDate?: components['schemas']['LocalDate'];
           reason: string;
+          /**
+           * @description **Contract-ahead (0.3.7 bổ sung 4 – tuần Ổn định/R3)**: "Đã báo khách số tiền mới" cho đơn có chênh ≠ 0 (DOM-S4-06). Server hiện bỏ qua
+           * @default false
+           */
+          applyDifference?: boolean;
+          /** @description **Contract-ahead**: = `SwapRoomPreview.reservations[đơn A].folioDeltaVnd` client đã hiện (có thể âm) */
+          expectedDeltaVnd?: components['schemas']['MoneyVnd'];
+          /** @description **Contract-ahead**: như trên cho đơn B */
+          otherExpectedDeltaVnd?: components['schemas']['MoneyVnd'];
         };
       };
     };
@@ -10983,6 +11060,37 @@ export interface operations {
       };
       409: components['responses']['RoomUnavailable'];
       412: components['responses']['VersionConflict'];
+    };
+  };
+  previewSwapRoom: {
+    parameters: {
+      query: {
+        otherReservationId: components['schemas']['Uuid'];
+        effectiveDate?: components['schemas']['LocalDate'];
+      };
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SwapRoomPreview'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['RoomUnavailable'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   listCheckoutReminders: {

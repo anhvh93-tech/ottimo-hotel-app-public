@@ -317,3 +317,34 @@ Kiểm: `move-pricing.test.ts` 28/28; vitest api toàn bộ trên DB mới `otti
 | vitest api toàn bộ, cây chung, DB mới `ottimo_test_bea_s438k` | **2687/2687** (gồm `s438-money.test.ts` 16 ca) |
 | tsc, eslint, prettier (reservations, frontdesk, test mới, `br-examples.json`) | sạch |
 | `validate-fixtures` | OK – 0 lỗi |
+
+### 12.4 Sửa thêm (FE-A H09/E04-07, BUG-R2-124)
+Bối cảnh: theo DOM, giá gõ là giá lịch, bậc BR-107 áp lên trên. Vì vậy mọi số máy chủ đưa cho Desk để gõ lại phải là giá lịch.
+- **`calculateQuote`** nay trả `nightlyRates[].calendarRateVnd` (giá lịch trước bậc). Đơn tạo từ báo giá giữ đúng các đêm đó. `sales.test.ts` BR-302-01 cập nhật theo.
+- **`ExtensionOptions.currentBookingRateVnd`** (lỗi tiền) trước trả giá đã giảm của đêm gõ tay cuối, nên "Giữ giá đơn" ở B13 bị giảm hai lần. Nay trả **giá lịch** của đêm đó.
+  - Ca test: đơn 202, 7 đêm gõ 700.000 (ghi 630.000). Gợi ý 700.000. Gia hạn đêm 8 với số gợi ý → 630.000, tổng 5.040.000 (giảm đúng một lần).
+- **Rà các trường khác Desk có thể gửi lại làm giá gõ** – đều đã là giá lịch:
+  - `ExtensionOptions.nights[].defaultRateVnd`;
+  - `CheckInPreview.priorNight.defaultRateVnd`;
+  - `CheckoutSummary.extraNightDefaultRateVnd`;
+  - `MovePreview.nights[].suggestedRateVnd`;
+  - `Reservation.nightlyRates[].calendarRateVnd`.
+- **Chỉ để hiển thị**, không được gửi lại làm giá gõ (FE-A lưu ý): `MovePreview.oldRateVnd`/`newRateVnd` và `nightlyRates[].amountVnd`.
+- **Cần ARC sửa mô tả hợp đồng**: `currentBookingRateVnd` đang ghi "giá ròng", nay là giá lịch.
+- **BUG-R2-124**: B12 sang căn khác ghi `reservation_change` bằng số căn (đã sửa trong đợt S4-38). `room-history.ts` đọc được cả dòng cũ ghi id phòng (so `room_no` hoặc `id::text`). Ca test: lịch sử B12 = `203 → 101`; một dòng giả ghi id phòng vẫn đọc ra đúng căn.
+- **Kiểm**: vitest api toàn bộ, DB mới `ottimo_test_bea_s438o`: **2688/2688**. tsc, eslint, prettier sạch.
+  - Lần chạy trước có 1 ca chập chờn `architecture.test.ts` "dev_clock has a row" – không do BE-A (skeptic REGR đã ghi nhận). Lần sau không lặp lại.
+
+### 12.5 Giá gợi ý của đơn có giá thỏa thuận (CI `72fa486` TC-L3-013; DOM: BR-411-07 = 700.000 đúng)
+- **Đơn có giá thỏa thuận** là đơn Trực tiếp/CTV ngắn ngày đặt bằng `nightlyRates` gõ tay. `PricingService` nay ghi `pricing_snapshot.bookingRateSource = 'manual_agreed'`. Với đơn tạo trước khi có cờ: coi là thỏa thuận khi mọi đêm đều gõ tay. Đơn theo lịch giá chỉ có MỘT đêm sửa sau (S4-35) **không** tính là thỏa thuận (giữ BR-107-05).
+- **`StaySupport.agreedRate`** trả giá lịch đã gõ (trước bậc):
+  - B9a lấy đêm gõ tay đầu tiên;
+  - B13 và B18 lấy đêm gõ tay cuối;
+  - ngày đặc biệt luôn lấy lịch của ngày đó.
+  Áp cho `CheckInPreview.priorNight.defaultRateVnd`, `ExtensionOptions.nights[].defaultRateVnd` (+ mặc định của `extend` khi không gõ giá), `CheckoutSummary.extraNightDefaultRateVnd`. Đơn theo lịch giá giữ S438-DOM-01: lịch Trực tiếp của chính đêm đó (BR-417-04, thứ Bảy 767.000).
+- **Kiểm vitest**: đơn 201 gõ 700.000:
+  - 05:30 → phụ thu 0, gợi ý đêm B9a 700.000 (BR-411-07);
+  - gia hạn gợi ý 700.000, 2 đêm = 1.400.000 (BR-421-01);
+  - B18 19:00 gợi ý đêm thêm 700.000 (BR-416-02).
+- **Vitest api toàn bộ**: 2689/2689.
+- **E2E TC-L3-013 chưa chạy được** trên stack riêng của BE-A (API ts-node :3311): ca bị bỏ qua vì cần `E2E_COMPOSE_CONTROL=1` để làm sạch buồng, mà stack này không chạy bằng compose. Không dùng stack QA/demo. Nhờ QA chạy lại TC-L3-013 bằng `clock-run.sh` sau khi build lại stack QA từ cây chung.
