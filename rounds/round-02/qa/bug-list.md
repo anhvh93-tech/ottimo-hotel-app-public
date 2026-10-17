@@ -10,8 +10,8 @@
 | P0 | 10 | 6 | 0 | 0 | 4 |
 | P1 | 21 | 2 | 1 | 0 | 18 |
 | P2 | 39 | 12 | 0 | 2 | 25 |
-| P3 | 36 | 20 | 1 | 0 | 15 |
-| **Tổng** | **106** | **40** | **2** | **2** | **62** |
+| P3 | 37 | 21 | 1 | 0 | 15 |
+| **Tổng** | **107** | **41** | **2** | **2** | **62** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -141,6 +141,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-104** | **P2** | Giảm giá đặc biệt (`requestFoc kind=special_discount`) luôn định tuyến tới **quản lý** (`limits.ts:36` `minRoleFor` chỉ cho `foc` mức lễ tân trưởng) → lễ tân trưởng không duyệt được khoản ≤ 300.000 trong hạn mức (BR-431 "cùng cơ chế duyệt", BR-433, rbac A36 ²⁵; oracle BR-433-03, BR-434-11) | BE-B | Open – Sprint 4 (cùng S4-18/S4-23); ca: TC-NT-049 (4) phần hạn mức (`e2e/clock/money-s4.clock.spec.ts`) |
 | **BUG-R2-105** | **P1** | CI 39028814256 (`cc218b2`) đỏ ở TC-L7-010 (guest-web H18), 121 ca phụ thuộc không chạy: hàm `photo()` của ca chọn nút "Chụp" theo vị trí (`.nth(n-1)`) và không chờ tải ảnh người 1 xong – khi người 1 xong, ô đó chỉ còn "Gửi lại" nên `.nth(1)` không còn (race, đã chập chờn ở CI 38980363276). **Không** do API/migration `0055`/hợp đồng 0.3.7 | QA (test) | **Fixed** (cây làm việc 17/10 – `guest-web.h18.spec.ts` chọn nút theo `aria-describedby` của người, chờ tải xong; QA rà, chạy 3/3 qua bước chụp trên stack QA) – Closed khi CI xanh trên commit có bản sửa |
 | BUG-R2-106 | P3 | H17 Cần duyệt (FE-A, cây làm việc 17/10): sau 412 `VERSION_CONFLICT` bấm "Tải lại" rồi mở lại hộp duyệt hoàn, **đôi khi** Desk vẫn gửi `expectedVersion` cũ → 412 lần hai (1/4–1/2 lượt TC-NT-052 (E)) | FE-A | Open – cùng PR B-6 (#6); TC-NT-052 (E) chờ sửa mới vào `WRITES` |
+| BUG-R2-107 | P3 | H17 Cần duyệt (FE-A, cây làm việc 17/10): Desk chỉ đọc 100 yêu cầu duyệt **mới nhất, mọi trạng thái** (`limit: 100`, không lọc `status`, không đọc trang sau) rồi lọc `pending`/`escalated` ở máy → yêu cầu chờ duyệt nằm sau 100 yêu cầu mới hơn **không hiện**, không duyệt được trên Desk | FE-A | Open |
 
 ## 2. Chi tiết
 
@@ -836,6 +837,16 @@ Ghi chú: (1) Ảnh nằm trong scratchpad của phiên (không đưa vào git v
 - Mong đợi: sau "Tải lại", hộp duyệt mở lại luôn dùng `ApprovalRequest.version` mới nhất.
 - Bằng chứng: `scratchpad/qa-s4/run-ui-7.json`, `run-ui-8.json`, `results-ui8/*/error-context.md`.
 
+### BUG-R2-107 – H17 Cần duyệt chỉ đọc 100 yêu cầu mới nhất mọi trạng thái, yêu cầu chờ duyệt cũ hơn bị ẩn
+- Mức: **P3**. Không sai tiền. Tiền không đi sai, nhưng một yêu cầu hoàn/FOC chờ duyệt có thể biến khỏi H17 và nằm kẹt (không có cách duyệt khác trên Desk). Hiếm ở 10 căn: phải có hơn 100 yêu cầu mới hơn trong lúc yêu cầu đó còn chờ. Nâng P2 nếu vận hành thật có nhiều yêu cầu/tháng hoặc có yêu cầu `escalated` chờ lâu.
+- Môi trường: stack QA `ottimo-qa-s4`, api + admin-web build từ cây làm việc 17/10 ~21:42, Chromium 1366×768. Stack có 979 yêu cầu duyệt (709 chờ duyệt, 154 có `requested_at` ở ngày ảo tương lai do ca đồng hồ).
+- Vai sửa: FE-A. Trạng thái: **Open**.
+- Bước: TC-NT-052 (E) – `qa.fd` tạo yêu cầu hoàn 200.000 (OTM-00901), `qa.mgr` mở H17 `/approvals`.
+- Thực tế: danh sách hiện 70 thẻ chờ duyệt, **không có** OTM-00901 (quá 15 giây). `ApprovalsPage.tsx:43` gọi `listApprovalRequests({ propertyId })` không truyền `status`; `packages/api-client/src/endpoints.ts:757-761` gửi `limit: 100`, bỏ `page.nextCursor`; server xếp `requested_at DESC` (`approval.service.ts:956`). Yêu cầu mới nằm sau 154 yêu cầu "tương lai" nên rơi khỏi 100 dòng đầu.
+- Mong đợi: H17 đọc **đủ** hàng chờ: lọc `status` ở server (`pending`, `escalated`) và đọc tiếp theo `nextCursor` (hoặc thêm bộ lọc "hàng chờ" ở API), không lọc ở máy trên một trang.
+- Ảnh hưởng tới E2E: trên CI (stack dùng một lần) `desk-chromium` chạy **trước** project `clock`, nên lúc TC-NT-052 chạy chưa có yêu cầu "tương lai" – thẻ mới đứng đầu, ca không vướng. Trên stack QA dùng lâu, TC-NT-052 đỏ vì lỗi này (không phải vì #6).
+- Bằng chứng: `scratchpad/qa-s4/run-dw1.txt`, `results-dw1/*/error-context.md` (ảnh chụp cây truy cập: 70 thẻ, không có OTM-00901).
+
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 
 Cách kiểm: đọc `product/docs/business-rules.md` **v0.3.1** (cột ví dụ + mục 13), cập nhật oracle/seed theo `rounds/round-02/outputs/DOM/w1-oracle-review.md`, chạy `node product/tests/tools/validate-fixtures.mjs` → **0 lỗi** (226 dòng oracle, 157 dòng tự tính lại). Chuyển **Fixed**; chuyển **Closed** khi test unit của BE (sprint 1) đọc oracle mới và xanh – tầng code chưa có nên chưa kiểm được ở tầng A.
@@ -1187,4 +1198,16 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
 - **BUG-R2-054 (S4-12), BUG-R2-033 (S4-11):** BE-C đã bỏ khỏi `OPEN` trên cây làm việc. TC-L3-074 (b) đạt 3/3, kỳ vọng siết thành `imagesPurgeReason` = `retention`. TC-L3-032 (a)(b) đạt 2/2; tiền điều kiện (a) do BE-C thêm (đồng ý P05_CRM) đúng erd 0.3.7 / SEC F03. Cả hai **chưa đóng**: chờ CI commit gộp.
 - **Ngoài phạm vi, báo ORC:** TC-L3-082 (FE-A) đỏ cả 2 lượt ở CI `b6153b7` (`locator.fill` quá 90 s). FE-A đang sửa tệp này trên cây làm việc. QA không ghi lỗi sản phẩm khi chưa chạy lại.
 - **409 `DUPLICATE_GUEST` khi dựng dữ liệu (TC-L2-103, FE-A) – lỗi harness, không ghi lỗi sản phẩm.** Bộ sinh SĐT giả có ít số quá (`0939` + 6 số), trùng hồ sơ cũ theo BR-951. Đã sửa bằng `fakeMobile()` (không trùng theo đồng hồ + worker) và `createFakeGuest()` (thử lại khi trùng `phone`) ở `support/api.ts`. Chi tiết: `s4-test-report.md` 6.7.
+
+### 11.6 Gộp lần 2 (DOM-S4 + S4-10) – E2E đỏ do ca kiểm (QA, 17/10 ~21:40–21:55)
+- Môi trường: api `ottimo-qa-s4` biên dịch lại từ cây chung ~21:42 (`api-dist5`: S4-10 của BE-B, DOM-S4-06/19 của BE-A). Web phục vụ admin-web, guest-web và PWA build từ cây làm việc.
+- **(ii) 422 `applyDifference REQUIRED`** (7 ca `money-s4.api`): đúng quy tắc mới BR-429 (d1) v0.3.8. Ca kiểm chưa theo, **không phải lỗi sản phẩm**.
+  - Helper mới `moveAcked()` (`support/s4-money.ts`) làm như Desk: xem trước, rồi gửi `applyDifference: true` + `expectedDeltaVnd` = số xem trước (khi chênh ≠ 0, hoặc khách tự xin đổi căn).
+  - Áp cho mọi lệnh B7/B8 phải 200 ở `money-s4.api`, `money-s4.clock`, `s3-kickoff.api` (TC-L2-055) và `s2-fix.api`. TC-L2-055 lần 2 kiểm thêm: bị chặn vì quy tắc 1 lần, không vì thiếu tick.
+  - TC-L2-092 (c) sửa theo DOM-S4-19: `expectedDeltaVnd` sai → 409 `SURCHARGE_CHANGED`; không tick, chênh 0 → 200.
+  - Ca kiểm chính 422/409 của tick vẫn gọi `move()` thô.
+- **(i) `stay-money.s4` cả tệp**: ca trước để khách `in_house` không trả phòng → căn còn `OC`, B9 không qua `room_ready`.
+  - Helper `readyRooms()` (`support/s3.ts`, đọc `listRoomStatuses`): ca nhận phòng chọn căn sạch (ưu tiên 201 của ví dụ, căn sạch khác làm `alternatives`). Tiền không đổi vì giá đêm ghi rõ.
+  - TC-L3-080 (`stay3`): số đêm theo `minStayFor` (BR-113), cùng loại lỗi với TC-L3-077.
+- **BUG mới:** BUG-R2-107 (P3, FE-A) – H17 chỉ đọc 100 yêu cầu mới nhất. Trên stack QA, lỗi này làm TC-NT-052 đỏ; trên CI không vướng (lý do ở mục BUG-R2-107).
 

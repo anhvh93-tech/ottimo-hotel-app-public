@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
 import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
+import { listApprovals } from '../../app/approvals';
 import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
 import { timeHHmm } from '../../app/dates';
@@ -38,11 +39,9 @@ export function ApprovalsPage() {
   const { t, vnd, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { online, since } = useOnline();
+  // BUG-R2-107: the whole queue – `status` filtered by the server, every page (not the newest 100 of all).
   const { state, reload } = useResource(
-    async () =>
-      (await api.listApprovalRequests({ propertyId })).data.data.filter((a) =>
-        ['pending', 'escalated'].includes(a.status),
-      ),
+    () => listApprovals(propertyId, ['pending', 'escalated']),
     [propertyId],
   );
   useLiveReload(propertyId, reload);

@@ -459,7 +459,7 @@ Trả lời từng thẻ ở `rounds/round-02/responses/ARC-responses.md` (mục
 - **Nguồn**: `reviews/landing-booking-SEC.md` (5 Major, 8 Minor, 3 Suggestion; điều kiện C-1…C-3, C-11…C-13); `business-rules.md` v0.3.8 + dòng DOM trong decision-log (DOM-S4-18, EP19 Q-W01…W10); `specs/EP19-website-requests.md` mục 12 (BA Q-W01…W15); UXD `design/landing/concept.md` v1.2 (khóa `infants`, `months = null`); PO landing-scope 0.10 (link fanpage `#book`, Q-W09). **INV đã chọn A** (17/10) – đã bỏ nhãn "chờ INV" ở mục 12, ADR-014.
 - **Phạm vi**: chỉ khối bổ sung 2 (mọi operation vẫn `x-round: R3`, chưa có mã server) – sửa được theo ORC. Thêm 1 operation (`lookupWebsiteBookingRequests`), 1 mã lỗi (`PUBLIC_FORM_NOT_READY`), 2 mã trường (`CONTACT_MISMATCH`, `POW_INVALID`), 3 `StaffNotification.kind`. Không đổi operation nào ngoài khối, trừ mô tả `createHoldFromQuote`, `ReservationCreate.websiteBookingRequestId`, `setParameter`.
 
-### 13.1 Kiểm tra (17/10, sau mọi phần sửa A + B; chạy lại sau khi thêm `unconfirmed`)
+### 13.1 Kiểm tra (17/10 – chạy lại lần cuối sau mọi phần sửa A, B, C, gồm BE-B đợt 3 (f)–(i), DOM-S4-19, `unconfirmed`)
 
 | Kiểm tra | Kết quả |
 |---|---|
@@ -559,5 +559,10 @@ Phần chính 0.3.7 vẫn đóng băng: chỉ sửa mô tả, khai mã server đ
 | 12 | Queue – tên món | `Item.nameI18n` (khớp `0061`), mô tả `Item.name` (VI → EN → RU), `ItemInput.name` độ dài | **BE-D** trả `nameI18n` trong `itemDto` (1 dòng); FE-B/MOB hiện theo ngôn ngữ |
 | 13 | Queue – MOB locale | **Đã xong**: bổ sung 1 (`localeChosenByGuest`, `Accept-Language`) – BE-D cài `pickGuestLocale` (P-S4-10), api-client có `RequestOptions.acceptLanguage`, guest-web đọc cờ, PWA truyền theo nút | – |
 | 14 | BA E19-02 | `AllowedAction` trỏ `state-machines.md` **mục 19** | **BE-A** sửa chú thích `reservations/internal/allowed-actions.ts` (1 dòng – ARC không sửa mã) |
+| 15 | BE-B (f), S4-10 | `createVietQr`: `priorNightRateVnd` không kèm `addPriorNight = true` → 422 `NOT_ALLOWED`; `check_in`/`check_out` chỉ FD+, trạng thái sai → 409 `INVALID_TRANSITION`, ngoài cửa sổ → 409; không ghi dòng folio. Đã kiểm: `purpose` có `check_in`, `check_out` từ 0.3.7 | Mô tả – BE-B đã làm |
+| 16 | BE-B (g), DOM-S4-15 | `focCancelReason`: **không thêm giá trị** – `settled_while_dormant` = folio chốt khi FOC chưa áp (`dormant` **hoặc** `suspended`); `reservation_cancelled` cho FOC trên dịch vụ giữ khi hủy. Lý do: báo cáo không cần phân biệt, tránh đổi CHECK DB giữa sprint | Mô tả – khớp mã BE-B |
+| 17 | BE-B (h), DOM-S4-12/15 | `CancellationQuote.serviceLines[].performed`: hủy "<", no-show "≤" ngày nghiệp vụ; `amountVnd` của dòng giữ = số khách chịu (FOC không còn áp) | Mô tả – BE-B đã làm; FE-A hộp hủy/no-show đọc đúng nghĩa |
+| 18 | BE-B (i), DOM-S4-13 | `restoreNoShow`: B11 đảo `room_change_difference` của đêm bị bỏ (lý do đảo riêng); B12 nhận ra theo lý do đảo và ghi lại cho đêm khôi phục; FOC `suspended` trên dịch vụ giữ → `applied` | Mô tả – BE-B đã làm |
+| 19 | DOM-S4-19 | `moveReservation.expectedDeltaVnd`: đã gửi thì luôn phải khớp, kể cả khi không bắt buộc tick – lệch → 409 `SURCHARGE_CHANGED` | **BE-A đang làm**; FE-A luôn gửi số đang hiện |
 
 Giả định: [GIẢ ĐỊNH ARC] `listAssignableStaff` là operation đọc nhỏ cần cho AC Must Sprint 4 (US-062 AC2) – thêm trong bổ sung 3 thay vì dời R3; ORC có thể gắn `x-round: R3` nếu không xếp kịp (không đổi hình dạng).

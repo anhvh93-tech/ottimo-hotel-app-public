@@ -1016,7 +1016,7 @@ export interface paths {
      *     mọi B7/B8 có `folioDeltaVnd` ≠ 0 (**mọi** `reasonCode` – đổi ngày, thêm/bớt đêm, phụ thu người, chênh lệch OTA…) **bắt buộc** `applyDifference = true` + `expectedDeltaVnd`, như B14
      *     (`changeRoom.applyDifference`); khách tự xin đổi căn (`guest_request` có đổi căn) bắt buộc **kể cả** `folioDeltaVnd = 0`, **trừ** đơn hợp đồng giấy (`externalContract = true` –
      *     BR-429 (h)). Thiếu → 422 `REQUIRED` (`field` = `applyDifference`); lệch → 409 `SURCHARGE_CHANGED`. Câu "Lý do do OTTIMO: không đổi giá, `applyDifference` bỏ qua" chỉ còn đúng khi
-     *     `folioDeltaVnd = 0`.
+     *     `folioDeltaVnd = 0`. **DOM-S4-19 (BE-A đang làm)**: `expectedDeltaVnd` có trong thân thì luôn được so – lệch → 409 `SURCHARGE_CHANGED`, kể cả khi không bắt buộc.
      */
     post: operations['moveReservation'];
     delete?: never;
@@ -1080,6 +1080,8 @@ export interface paths {
      *     **0.3.7 bổ sung D1**: (1) S4-22 (BR-315 (g)): FOC tạm dừng của **chính các đêm khôi phục** quay lại = min(số đã duyệt, giá đêm) (`focState = applied`, audit `folio.foc_restored`),
      *     không duyệt lại, tính lại hạn mức tháng của lúc duyệt; (2) US-136 AC4: thông báo `no_show_restored` cho OWN + MGR (trừ người khôi phục); (3) US-136 AC5: đơn OTA mà mục
      *     `ota_no_show_report` (`report`) **đã đóng** → sinh mục `action = revoke` ("Báo kênh hủy no-show"); mục `report` còn mở → server đóng luôn (chưa báo thì không cần hủy).
+     *     **0.3.7 bổ sung 3 (BE-B (i), DOM-S4-13, BR-429-17)**: B11 đảo cả dòng `room_change_difference` của các đêm bị bỏ (lý do đảo riêng "đêm hủy cùng đơn – BR-429 (c)"); B12 nhận ra các
+     *     dòng đảo đó theo lý do đảo và **ghi lại** dòng chênh lệch cho các đêm được khôi phục (đi theo đêm cả hai chiều); FOC `suspended` trên dịch vụ giữ quay lại `applied` (BR-434-13).
      */
     post: operations['restoreNoShow'];
     delete?: never;
@@ -5796,9 +5798,9 @@ export interface components {
           [key: string]: string | number;
         };
         serviceDate?: components['schemas']['LocalDate'];
-        /** @description Giá trị ròng của dòng (sau FOC/giảm giá đã duyệt đi kèm) */
+        /** @description Giá trị ròng của dòng (sau FOC/giảm giá đã duyệt đi kèm). **0.3.7 bổ sung 3 (BE-B (h), DOM-S4-15)**: dòng **giữ** (`retained = true`) = số khách chịu sau khi đóng đơn – FOC trên dòng giữ không còn áp (hủy → `cancelled`; no-show → `suspended`) */
         amountVnd: components['schemas']['MoneyVnd'];
-        /** @description Server tính: ngày dịch vụ < ngày nghiệp vụ lúc hủy (BR-010) hoặc dòng đã đánh dấu đã dùng; `false` = chưa thực hiện */
+        /** @description Server tính (gợi ý): **hủy** – ngày dịch vụ < ngày nghiệp vụ lúc hủy (BR-010); **no-show** – ngày dịch vụ ≤ ngày nghiệp vụ (0.3.7 bổ sung 3, DOM-S4-12, BR-309-09); hoặc dòng đã đánh dấu đã dùng; `false` = chưa thực hiện */
         performed: boolean;
         /** @description Theo `retainLines` của request (cả `dryRun`): `true` = giữ, không đảo */
         retained: boolean;
@@ -6682,7 +6684,7 @@ export interface components {
        */
       focState?: 'applied' | 'dormant' | 'suspended' | 'cancelled';
       /**
-       * @description 0.3.7 bổ sung D1: chỉ khi `focState = cancelled` – đêm bỏ không có đêm thay (BR-434 (3)) · đơn `cancelled` · folio chốt khi FOC còn ngủ ("không áp")
+       * @description 0.3.7 bổ sung D1: chỉ khi `focState = cancelled` – đêm bỏ không có đêm thay (BR-434 (3)) · đơn `cancelled` · folio chốt khi FOC còn ngủ ("không áp"). **0.3.7 bổ sung 3 (BE-B (g), DOM-S4-15 – không thêm giá trị)**: `settled_while_dormant` = folio chốt khi FOC **chưa áp** – còn `dormant` **hoặc** `suspended` (no-show, dịch vụ giữ); `reservation_cancelled` cũng dùng cho FOC trên dòng dịch vụ giữ khi hủy đơn (BR-434-13)
        * @enum {string}
        */
       focCancelReason?: 'night_removed' | 'reservation_cancelled' | 'settled_while_dormant';
@@ -10358,7 +10360,7 @@ export interface operations {
            * @default false
            */
           applyDifference?: boolean;
-          /** @description 0.3.7 – = `MovePreview.folioDeltaVnd` client đã hiển thị (có thể âm); lệch → 409 `SURCHARGE_CHANGED`. Bắt buộc cùng điều kiện với `applyDifference` (0.3.7 bổ sung 3, DOM-S4-06) */
+          /** @description 0.3.7 – = `MovePreview.folioDeltaVnd` client đã hiển thị (có thể âm); lệch → 409 `SURCHARGE_CHANGED`. Bắt buộc cùng điều kiện với `applyDifference` (0.3.7 bổ sung 3, DOM-S4-06). **DOM-S4-19 (BE-A đang làm)**: đã gửi thì **luôn** phải khớp, kể cả khi không bắt buộc tick – lệch → 409 `SURCHARGE_CHANGED` */
           expectedDeltaVnd?: components['schemas']['MoneyVnd'];
         };
       };
@@ -13413,6 +13415,8 @@ export interface operations {
           amountVnd: components['schemas']['MoneyVnd'];
           /**
            * @description 0.3.7: `check_in` – QR ở bước thu của nhận phòng (đơn `confirmed`, ngày nghiệp vụ = ngày đến hoặc cửa sổ B9a; FD+): trần = `CheckInPreview.amountDueAtCheckinVnd` tính theo
+           *     **0.3.7 bổ sung 3 (BE-B (f), S4-10 – khai đúng cách server đã cài)**: `check_in`/`check_out` chỉ FD+ (SAL → 403); đơn sai trạng thái → 409 `INVALID_TRANSITION` (kiểm trước khi
+           *     khóa folio), ngoài ngày nghiệp vụ/cửa sổ → 409 (`availableFrom`); trường ngữ cảnh không khớp `purpose` → 422 `NOT_ALLOWED`; không ghi dòng folio nào, giao dịch `charge`.
            *     `checkinTime`/`addPriorNight`/`priorNightRateVnd` gửi kèm (BUG-R2-038). `check_out` – QR ở bước 3 trả phòng (đơn `in_house`, cửa sổ B18; FD+): trần =
            *     `CheckoutSummary.amountDueAtCheckoutVnd` theo `checkoutAt`/`extraNightRateVnd` gửi kèm (S4-47). Trong trần không cần `overBalanceReason`; sai trạng thái/ngày → 409
            *     `INVALID_TRANSITION`; SAL/CTV → 403. Không ghi dòng nào – phụ thu/đêm thêm vẫn chỉ ghi ở B9/B18.
@@ -13423,7 +13427,7 @@ export interface operations {
           checkinTime?: components['schemas']['LocalTime'];
           /** @description 0.3.7 – chỉ `purpose=check_in` */
           addPriorNight?: boolean;
-          /** @description 0.3.7 – chỉ `purpose=check_in` khi `addPriorNight` */
+          /** @description 0.3.7 – chỉ `purpose=check_in` khi `addPriorNight`. **0.3.7 bổ sung 3 (BE-B (f))**: gửi mà không kèm `addPriorNight = true` → 422 `NOT_ALLOWED` (`field` = `priorNightRateVnd`) */
           priorNightRateVnd?: components['schemas']['MoneyVnd'];
           /** @description 0.3.7 – chỉ `purpose=check_out` (như `getCheckoutSummary.checkoutAt`; vắng = giờ server) */
           checkoutAt?: components['schemas']['Instant'];

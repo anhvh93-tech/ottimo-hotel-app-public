@@ -215,6 +215,41 @@ export async function move(
 }
 
 /**
+ * B7/B8 the way the Desk sends it since BR-429 (d1) v0.3.8 (DOM-S4-06): preview first, then write with
+ * `applyDifference: true` + `expectedDeltaVnd` = `MovePreview.folioDeltaVnd` when the preview shows a difference
+ * (or the guest asks for another room – required even at 0); a difference of 0 for an OTTIMO cause is written
+ * without the tick (DOM-S4-19: a sent `expectedDeltaVnd` is always compared). No assertion: the caller checks the
+ * write. A preview that does not answer 200 falls back to the plain write, so the caller sees the real error.
+ * Cases that check the 422/409 of the tick itself call `move()`.
+ */
+export async function moveAcked(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  reservationId: string,
+  body: MoveInput,
+  opts: { idempotencyKey?: string; version?: number } = {},
+): Promise<ApiResult<Reservation & ProblemFields>> {
+  const query = Object.fromEntries(
+    Object.entries(body).filter(
+      ([k]) => !['note', 'applyDifference', 'expectedDeltaVnd'].includes(k),
+    ),
+  ) as Omit<MoveInput, 'applyDifference' | 'expectedDeltaVnd' | 'note'>;
+  const p = await previewMove(ctx, s, reservationId, query);
+  if (p.status !== 200 || typeof p.body.folioDeltaVnd !== 'number')
+    return move(ctx, s, reservationId, body, opts);
+  const delta = p.body.folioDeltaVnd;
+  const guestRoomChange = body.reasonCode === 'guest_request' && body.roomId !== undefined;
+  const ack = delta !== 0 || guestRoomChange;
+  return move(
+    ctx,
+    s,
+    reservationId,
+    { ...body, ...(ack ? { applyDifference: true, expectedDeltaVnd: delta } : {}) },
+    opts,
+  );
+}
+
+/**
  * Guest-request move the way the Desk does it (BR-429 (d)): preview → "Đã báo khách" → write with
  * expectedDeltaVnd = preview.folioDeltaVnd. Asserts the preview answered 200 and the write did NOT come back
  * 409 SURCHARGE_CHANGED (critic #10: xem trước = lệnh ghi).

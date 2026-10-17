@@ -39,6 +39,7 @@ import {
   type ProblemFields,
   type Reservation,
 } from '../support/s2.js';
+import { moveAcked } from '../support/s4-money.js';
 
 const R = '/v1/properties/{propertyId}';
 type Ep = [string, string, string];
@@ -294,7 +295,8 @@ test.describe(
       expectProblem(await action(request, fd, res.id, 'move', body), 403);
       // (2) MGR lần 1
       const before = await getReservation(request, mgr, res.id);
-      const m1 = await action(request, mgr, res.id, 'move', body);
+      // BR-429 (d1) v0.3.8 (DOM-S4-06): dời ngày có chênh → xem trước, tick + số chênh (như Desk)
+      const m1 = await moveAcked(request, mgr, res.id, body);
       expect(m1.status, JSON.stringify(m1.body)).toBe(200);
       const after = await getReservation(request, mgr, res.id);
       expect(after.body.status).toBe('confirmed');
@@ -306,12 +308,14 @@ test.describe(
         minOffset: fromOrig + 65,
         maxOffset: fromOrig + 85,
       });
-      const m2 = await action(request, mgr, res.id, 'move', {
+      const m2 = await moveAcked(request, mgr, res.id, {
         ...body,
         arrivalDate: again.arrival,
         departureDate: again.departure,
       });
       expect([409, 422], statusOf(m2)).toContain(m2.status);
+      // bị chặn vì quy tắc 1 lần (BR-309), không phải vì thiếu tick "Đã báo khách"
+      expect(JSON.stringify(m2.body)).not.toContain('applyDifference');
     });
 
     test('TC-L5-016 (en) văn bản báo giá tiếng Anh: không lẫn tiếng Việt, có ngày hết hiệu lực', async ({

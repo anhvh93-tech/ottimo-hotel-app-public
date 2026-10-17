@@ -208,3 +208,22 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
 
 **(3) A1/A4 liền mạch (kế hoạch 5.3) – mới khảo sát, chưa viết ca.** Xem kết quả trả về cho ORC.
 
+### 6.8 Trước gộp lần 2 (DOM-S4 + S4-10) – sửa ca kiểm (~21:40–21:55)
+- **Môi trường:** api `ottimo-qa-s4` biên dịch lại từ cây chung lúc ~21:42 (`api-dist5`). QA làm chủ container `web` (ORC): admin-web, guest-web và PWA `apps/mobile` build từ cây làm việc, cập nhật bằng `scratchpad/qa-s4/build-web.sh` (rsync, giữ thư mục của bind mount). PWA ở cổng 48082.
+- **Ngày ảo QA:** tệp ngày ảo đã chạy tới 2033-08 (ca đồng hồ dùng dải dài), lấn vào dải FE-A để lại. QA chuyển điểm bắt đầu sang **2034-01-12**, sau dải của FE-A (FE-A dừng ở 2034-01-08), để không đụng đơn còn sót.
+- **Sửa (ii) – 422 `applyDifference REQUIRED`:** helper `moveAcked()`. Chi tiết ở `bug-list.md` 11.6.
+- **Sửa (i) – `stay-money.s4` cả tệp:** helper `readyRooms()`, cùng `minStayFor` cho `stay3`.
+- **Kết quả** (`--retries=0`):
+
+| Bộ | Kết quả |
+|---|---|
+| `money-s4.api` + `s3-kickoff.api` + `booking-conflicts.api` + `s2-fix.api` + `checkin.s3.api` (4 worker) | 78 đạt, 2 bỏ qua (có sẵn) |
+| RBAC `moveReservation`, `previewMoveReservation` | 11/11 |
+| `checkin.s3.clock` + `money-s4.clock` | 41/41 |
+| `stay-money.s4` cả tệp, có `E2E_COMPOSE_CONTROL` | 7/7 |
+| `stay-money.s4` cả tệp, **không** `E2E_COMPOSE_CONTROL` (như stack của BE-B: buồng không được dọn bằng SQL) | 6 đạt, 1 bỏ qua (TC-L3-082 cần SQL) |
+| `desk-writes.s4` | 5/6 – TC-NT-052 đỏ vì **BUG-R2-107**, chỉ ở stack QA (lý do ở bug-list) |
+
+- **Bước QA không làm:** đổi `requested_at` của các yêu cầu duyệt "tương lai" trong DB stack QA để chạy lại TC-NT-052. Lệnh sửa hàng loạt bị chặn quyền nên QA dừng ở đó, không tìm cách khác.
+- **A1/A4:** tạm dừng vì việc khẩn này. Đã có: web phục vụ PWA từ cây làm việc; khảo sát luồng (H12 → H11 → H13 → H17 → H16 → PWA H19/H20). Chưa viết ca.
+

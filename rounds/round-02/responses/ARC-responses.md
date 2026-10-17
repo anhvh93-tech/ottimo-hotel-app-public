@@ -49,3 +49,34 @@
 | FB-R2-SEC-ARC-10 | Done (17/10 tối) | `hosting-plan.md` mục 10 + ADR-014 1.4/8: bảo vệ tài khoản tên miền (việc INV ở ESC-020 L4), CAA, kiểm tên miền con trước HSTS, staging chặn bằng basic auth/IP |
 | FB-R2-SEC-ARC-11 | Done | Đã có từ 17/10 tối: kiểm CI `dist` + đếm request (ADR-014 2.6). Thêm 17/10 khuya: điều kiện thứ 5, câu cho thông báo quyền riêng tư, `localStorage` sáng/tối là tùy chọn giao diện (ADR-014 6.3) |
 | FB-R2-SEC-ARC-12 | Done | SAL chỉ thấy yêu cầu `new` chưa giao + yêu cầu giao cho mình (`x-scope: { sales_staff: unassigned_or_own }` ở list/get/transition; ngoài phạm vi → 404); FD+ thấy hết; CTV không có quyền. Ca lớp 2 SR-AZ-09 lấy từ `rbac-cases` khi bỏ `x-round` |
+
+---
+
+## Landing – "Yêu cầu đặt phòng" – thẻ SEC (`reviews/landing-booking-SEC.md`) – trả lời 17/10/2026 (bước Phản hồi & sửa; OpenAPI 0.3.7 bổ sung 2, chi tiết `outputs/ARC/openapi-0.3.7.md` mục 13)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R2-SEC-ARC-13 (Major, C-11) | Done (hợp đồng) | `createWebsiteBookingRequest` bước 0 trong RAM trước DB (30/giờ/IP, tính cả 4xx, IPv6 /64), bulkhead 4 request → 503 `SERVICE_UNAVAILABLE`, `statement_timeout` 2 s, cache `public_resolve_property` 60 s; thiếu `Origin`/`Origin: null` → 403; non-JSON → 422, > 8 KB → 413; form token `Sec-Fetch-Site` ≠ `same-origin` → 403; 40/ngày/dải IPv6 /48 (không gộp IPv4 /24); bỏ qua cookie, không ghi `user_id`. Phụ lục B.1 vào DoD của BE-D (mục 13.5). Ghi ở `info.description`, mô tả operation, ADR-014 4.4 |
+| FB-R2-SEC-ARC-14 (Major) | Done | Một cách liên hệ theo `preferredChannel` (`phone` **hoặc** `email`; thiếu `REQUIRED`, thừa `NOT_ALLOWED`), `contact_hmac` của đúng liên hệ; `children` (6–11) + `infants` (< 6), bỏ `childrenAges` / `children_ages`. ADR-014 4.5, 4.6; erd 4.14 |
+| FB-R2-SEC-ARC-15 (Minor, C-11) | Done | Idempotency ở mọi nhánh 202 (cùng `refCode`, cùng header); `aliasRefCodes` (≤ 5) + `listWebsiteBookingRequests?refCode=` tìm cả mã phụ |
+| FB-R2-SEC-ARC-16 (Major, C-3 d) | Done (hợp đồng) | Hành động `erase` (WR8, OWN/MGR/FDL; `verificationMethod` `same_contact` + `verifiedContact` so HMAC → `CONTACT_MISMATCH`, hoặc `called_back`): xóa C2 + `contact_hmac` + `ip_hmac` ngay, `purge_journal` `dsr_erase`, audit `security`, không `reopen`, `converted` → 409. Operation mới `lookupWebsiteBookingRequests` (POST, liên hệ trong thân, chỉ trả mã/trạng thái, 20/giờ/người). BA thêm WR8 + mã rbac; SEC thêm SR-DSR-04 |
+| FB-R2-SEC-ARC-17 (Minor, C-3 e) | Done | `public_booking_requests_enabled` → tham số bảo mật (ghi chú `x-security-parameters`, bật cùng PR US-155); bật cần `privacy_notice_version` mỗi ngôn ngữ + khóa ký → 422 `PUBLIC_FORM_NOT_READY` (`missing[]`); thông báo `public_booking_toggled` OWN + MGR; một công tắc lúc chạy (cờ build chỉ chọn A/B) |
+| FB-R2-SEC-ARC-18 (Major, B) | Done (hợp đồng) | `getPublicOffers` trả `offerToken` (HMAC `keyedHash('public_offer')`, hạn 24 giờ); `PublicOfferSnapshot.offerToken` bắt buộc; lưu snapshot chỉ khi chữ ký đúng, khác → `offer_unverified`. DOM sửa BR-916 (2); ORC thêm nhược điểm "lộ lấp đầy" vào ESC-020 L7-B |
+| FB-R2-SEC-ARC-19 (Minor, C-12 a) | Done một phần | Điểm 2, 3, 5: SAL không có C2 ở yêu cầu chưa giao; `createHoldFromQuote` chỉ chuyển khi FD+ hoặc người được giao (khác → `website_request_linked_hold`); FD+ thấy bộ lọc spam để mở lại. Điểm 1 (D30) **chờ BA** thêm dòng D30 + BE thêm vào `RBAC_FIELD_DENY` – ARC đổi tag trong cùng PR (đổi trước làm đỏ `--strict` và `serializer.test.ts`). Điểm 4 (mã hành động) – BA |
+| FB-R2-SEC-ARC-20 (Minor) | Done | Tên khóa catalogue của hợp đồng = BR v0.3.8 (DOM đã đổi theo); `public_booking_request_spam_pow_threshold_per_week` thành tham số bảo mật (5–50, 10); hạn trả lời: 15 phút nội bộ (`replyBy`) + câu hứa công khai `promise` 60 phút / 09:00 (DOM-S4-18) |
+| FB-R2-SEC-ARC-21 (Major, C-12 b, c) | Done (hợp đồng) | Chuẩn hóa NFC, bỏ Cc + ký tự hướng ở `guestName`/`note`/`transition.note`; số thẻ/số giấy tờ cho `guestName`; quy tắc hiển thị Desk (chữ thường, không tự tạo link, `tel:`/`wa.me` từ E.164, không deep link Zalo/Telegram/Viber, "Sao chép SĐT" + nhắc tài khoản OTTIMO); log Postgres không tham số (việc OPS qua ORC); test snapshot thông báo/SSE/outbox/audit vào DoD BE-D |
+| FB-R2-SEC-ARC-22 (Suggestion) | Done | Không Turnstile (ADR-014 4.4 tầng 3); tầng 2 PoW tự host contract-ahead: `PublicFormToken.powChallenge`, `WebsiteBookingRequestInput.pow`, tham số bảo mật `public_booking_request_pow_enabled`, mã trường `POW_INVALID`; 3 điều kiện bật như thẻ; không trừ lùi bộ đếm khi đánh dấu spam |
+| FB-R2-SEC-ARC-23 (Minor, C-11) | Done | `PublicFormToken.minDelaySeconds` (3); trang chờ theo đồng hồ trình duyệt rồi gửi lại một lần |
+| FB-R2-SEC-UXD-07 (phần ARC) | Done | Server chuẩn hóa `refCode` khi tìm (bỏ `-`/khoảng trắng, chữ hoa, Crockford); tên khóa là của hợp đồng (FE-LP dùng zod sinh từ `WebsiteBookingRequestInput`); một link "Book now" – PO chốt `#book` trên trang chủ, ARC ghi vào hợp đồng + ADR-014 4.2 |
+| FB-R2-SEC-UXD-08 (điểm 4) | Done | ADR-014 4.2: `rel="noopener noreferrer"` cho link fanpage |
+
+**Đề nghị khác gửi ARC (BA, DOM, PO, UXD) – cùng lượt**
+
+| Nguồn | Trạng thái | Ghi chú |
+|---|---|---|
+| BA EP19 Q-W01…W11, Q-W12 | Done | Theo DOM v0.3.8 + đề xuất BA (bảng `openapi-0.3.7.md` 13.3): 7 mã + `stale` (+ `erased_on_request`), WR6 ở giữ chỗ/đơn, nguồn phụ null (gồm tên miền OTTIMO), `replyBy` 15 + `promise`, `manualLongStay` + `websiteBookingRequestId`, stale 30, không lệnh sửa, `arrivesToday` + `website_request_overdue`, `possible_duplicate` (NÊN); Q-W11 không có ở LP-v1; nhãn "chờ INV" đã gỡ |
+| BA E19-02 | Done (phần hợp đồng) | `AllowedAction` → `state-machines.md` mục 19; chú thích `allowed-actions.ts` là mã của BE-A (1 dòng) – giao BE-A |
+| BA E02-09 | Done | Mô tả `childName`/`childBirthYear` (bắt buộc khi `role = child`, `companion` → `NOT_ALLOWED`) |
+| DOM-S4-06, DOM-S4-18, DOM-S4-19 | Done | `moveReservation` mô tả; EP19 như trên; `expectedDeltaVnd` đã gửi thì phải khớp |
+| UXD v1.2 (`infants`, `months = null`) | Done | `stayType` + `months` (`null` = "Not sure yet"), `infants` |
+| PO landing-scope 0.10 | Done | Form trong mục `#book` của trang chủ; `/book/` → 301 `/#book` |

@@ -21,6 +21,7 @@ import {
   addDays,
   cleanupTracked,
   getReservation,
+  minStayFor,
   oracle,
   room,
   s2Context,
@@ -45,6 +46,7 @@ import {
   liveLines,
   makeStay,
   namedGuest,
+  readyRooms,
   needCleanRooms,
   openGuest,
   p3,
@@ -106,8 +108,17 @@ test.describe(
       const c = await s2Context(request);
       const fd = await session(request, 'qa.fd');
       const rates = Object.values(ex.input.nightRatesVnd as Record<string, number>);
+      // Căn 201 của ví dụ nếu còn sạch, không thì căn sạch khác: tiền không phụ thuộc căn (giá đêm ghi rõ 700.000).
+      // Ca trước để khách in_house không trả phòng → căn đó còn OC, B9 không qua `room_ready` (BE-B 17/10).
+      const prefer = room(c, String(ex.input.roomNo));
+      const ready = await readyRooms(request, fd, [
+        prefer,
+        ...c.rooms.filter((r) => r.id !== prefer.id),
+      ]);
+      expect(ready.length, 'có căn sạch (VC/VI) cho nhận phòng').toBeGreaterThan(0);
       const st = await makeStay(request, c, fd, {
-        room: room(c, String(ex.input.roomNo)),
+        room: ready[0]!,
+        alternatives: ready,
         arrival: D,
         nights: rates.length,
         pay: 'deposit',
@@ -588,11 +599,13 @@ test.describe(
       const big: Room[] = c.rooms.filter((r) => (r.baseOccupancy ?? 0) >= 3);
       const rooms = big.length ? big : c.rooms.filter((r) => (r.maxOccupancy ?? 0) >= 3);
       expect(rooms.length, 'DS-E có căn cho 3 người lớn').toBeGreaterThan(0);
+      // số đêm theo ở tối thiểu của ngày đến (BR-113: đến thứ Sáu/thứ Bảy → 2 đêm – như TC-L3-077, CI b6153b7)
+      const arrival = addDays(D, 2);
       const st = await makeStay(request, c, fd, {
         room: rooms[0]!,
         alternatives: rooms,
-        arrival: addDays(D, 2),
-        nights: 1,
+        arrival,
+        nights: minStayFor(arrival),
         adults: 3,
         doc: false,
       });

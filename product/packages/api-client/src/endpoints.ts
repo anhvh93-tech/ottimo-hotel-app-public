@@ -754,10 +754,11 @@ export function createEndpoints(api: ApiClient) {
     },
 
     // ---------- approvals, refunds (SM-10, rbac A43/A47/A47a) ----------
-    listApprovalRequests: ({ propertyId }: P, status?: ApprovalStatus) =>
+    /** One page (newest first); the next page with `page.nextCursor` (BUG-R2-107). */
+    listApprovalRequests: ({ propertyId }: P, status?: ApprovalStatus, cursor?: string) =>
       r<Paged<ApprovalRequest>>('GET', '/v1/properties/{propertyId}/approval-requests', {
         path: { propertyId },
-        query: { status, limit: 100 },
+        query: { status, cursor, limit: 100 },
       }),
     approveRequest: ({ propertyId, approvalId }: A, body: ApproveBody, idem: string) =>
       r<ApprovalRequest>('POST', `${APR}/actions/approve`, {

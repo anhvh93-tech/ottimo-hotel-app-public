@@ -45,6 +45,7 @@ import {
   type ProblemFields,
   type Reservation,
 } from '../support/s2.js';
+import { moveAcked } from '../support/s4-money.js';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -244,7 +245,8 @@ test.describe(
       expect(r.body.totalRoomVnd).toBe(o5.expected.roomTotalVnd);
 
       const move = async (nights: number) => {
-        const m = await action(request, fd, r.body.id, 'move', {
+        // BR-429 (d1) v0.3.8 (DOM-S4-06): thêm/bớt đêm có chênh → xem trước, tick + số chênh (như Desk)
+        const m = await moveAcked(request, fd, r.body.id, {
           departureDate: addDays(arrival, nights),
           reasonCode: 'guest_request',
         });

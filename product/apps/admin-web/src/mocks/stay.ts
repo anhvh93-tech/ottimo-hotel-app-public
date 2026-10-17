@@ -2886,18 +2886,23 @@ export function createStayMock(ctx: Ctx) {
     http.get(`${prop}/approval-requests`, ({ request }) => {
       const g = guard(request, 'any');
       if (isResponse(g)) return g;
-      const status = new URL(request.url).searchParams.get('status');
+      const q = new URL(request.url).searchParams;
+      const status = q.get('status');
       const lead = has(g.roles, LEAD_PLUS);
-      const data = st.approvals
+      const all = st.approvals
         .filter((a) => !status || a.status === status)
         .filter(
           (a) =>
             lead ||
             a.requestedByUserId === g.user.id ||
             (a.type === 'refund' && has(g.roles, FD_PLUS)),
-        )
-        .map(approvalView);
-      return json({ data, page: { hasMore: false } });
+        );
+      // PageInfo like the server (BUG-R2-107): `limit` rows from the opaque `cursor`, then `nextCursor`.
+      const limit = Math.min(Math.max(Number(q.get('limit') ?? 50) || 50, 1), 100);
+      const from = Number(q.get('cursor') ?? 0) || 0;
+      const data = all.slice(from, from + limit).map(approvalView);
+      const next = from + limit < all.length ? String(from + limit) : null;
+      return json({ data, page: { limit, nextCursor: next } });
     }),
     http.post(
       `${prop}/approval-requests/:approvalId/actions/approve`,

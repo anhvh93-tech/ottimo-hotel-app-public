@@ -46,6 +46,7 @@ import {
   lineOn,
   linesOn,
   moneyEventsOf,
+  moveAcked,
   nightNet,
   reductionOn,
   reductionsOf,
@@ -439,7 +440,8 @@ test.describe(
       expect(await remainingMonthly(request, k.fdl)).toBe(
         num(ex.expected.remainingAfterApprovalVnd),
       );
-      const r = await action(request, k.fd, res.id, 'move', {
+      // BR-429 (d1) v0.3.8 (DOM-S4-06): dời ngày có chênh → xem trước, tick "Đã báo khách" + số chênh như Desk
+      const r = await moveAcked(request, k.fd, res.id, {
         arrivalDate: map(String(to.arrivalDate)),
         departureDate: map(String(to.departureDate)),
         reasonCode: 'guest_request',

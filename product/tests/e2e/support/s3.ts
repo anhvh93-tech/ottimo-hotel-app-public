@@ -1284,6 +1284,30 @@ export function cleanRooms(): boolean {
   return true;
 }
 
+/**
+ * The rooms of `rooms` (order kept) that a check-in right now would find ready: VC/VI in listRoomStatuses (stored or
+ * derived status). A stay an earlier case checked in and never checked out keeps its room OC – BE-B 17/10:
+ * stay-money.s4 TC-L3-079 (b) and TC-L3-081 failed at "Nhận phòng" on room 201 left in_house by TC-L3-079 (a).
+ * Cases that check in pick a ready room instead of a fixed room number (and pass the rest as `alternatives`).
+ */
+export async function readyRooms(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  rooms: readonly Room[],
+): Promise<Room[]> {
+  const r = await call<{ data: Array<{ roomId: string; status: string }> }>(
+    ctx,
+    'GET',
+    p3(EP3.listRoomStatuses, s),
+    { session: s },
+  );
+  expect(r.status, `listRoomStatuses: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+  const ok = new Set(
+    r.body.data.filter((x) => x.status === 'VC' || x.status === 'VI').map((x) => x.roomId),
+  );
+  return rooms.filter((x) => ok.has(x.id));
+}
+
 export function needCleanRooms(tc: string): void {
   test.skip(
     !COMPOSE_CONTROL,

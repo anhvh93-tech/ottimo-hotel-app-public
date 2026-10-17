@@ -55,6 +55,7 @@ import {
   moneyActionSet,
   moneyEventsOf,
   move,
+  moveAcked,
   myNotifications,
   nightNet,
   previewMove,
@@ -138,7 +139,10 @@ test.describe(
         return { ...k, b, to };
       });
       const before = roomTotal(await folioOf(request, fdl, b));
-      const r = await move(request, fdl, b.id, { roomId: to.id, reasonCode: String(sc.cause) });
+      const r = await moveAcked(request, fdl, b.id, {
+        roomId: to.id,
+        reasonCode: String(sc.cause),
+      });
       expect(r.status, `moveReservation upgrade: ${JSON.stringify(r.body)}`).toBe(200);
       expect(roomIdOf(r.body)).toBe(to.id);
       const f = await folioOf(request, fdl, b);
@@ -169,7 +173,7 @@ test.describe(
       expect(totalOf(f0, 'extra_person')).toBe(
         (ex.expected.extraPersonTotalBeforeVnd as number[])[2],
       );
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         roomId: to.id,
         reasonCode: String(sc.cause),
       });
@@ -459,7 +463,7 @@ test.describe(
       const ids0 = liveLines(f0, 'room')
         .map((l) => l.id)
         .sort();
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         roomId: to.id,
         reasonCode: String(ex.input.cause),
       });
@@ -475,7 +479,7 @@ test.describe(
       ).toEqual(ids0);
     });
 
-    test('TC-L2-092 (a)(c) BR-429-06 xem trước lý do do OTTIMO: keep_booked_rate, chênh 0; applyDifference bị bỏ qua (S4-21)', async ({
+    test('TC-L2-092 (a)(c) BR-429-06 xem trước lý do do OTTIMO: keep_booked_rate, chênh 0 – lưu không cần tick; expectedDeltaVnd gửi sai → 409 SURCHARGE_CHANGED (S4-21, DOM-S4-19)', async ({
       request,
     }) => {
       knownBug('S4-21');
@@ -504,15 +508,20 @@ test.describe(
         expect(n.oldRateVnd).toBe(booked[n.date]);
         expect(n.newRateVnd).toBe(booked[n.date]);
       }
-      const w = await move(request, k.fd, b.id, {
+      // (c) DOM-S4-19 (OpenAPI moveReservation 0.3.8): `expectedDeltaVnd` đã gửi thì LUÔN được so, kể cả khi không
+      // bắt buộc tick – số lệch (1.125.000 của khách tự xin) → 409 SURCHARGE_CHANGED, đơn giữ căn cũ
+      const stale = await move(request, k.fd, b.id, {
         roomId: to.id,
         reasonCode: 'property_fault',
         applyDifference: true,
         expectedDeltaVnd: 1125000,
       });
-      expect(w.status, `property_fault + applyDifference (bỏ qua): ${JSON.stringify(w.body)}`).toBe(
-        200,
-      );
+      expect(stale.status, `expectedDeltaVnd lệch: ${JSON.stringify(stale.body)}`).toBe(409);
+      expect(stale.body.code).toBe('SURCHARGE_CHANGED');
+      expect(roomIdOf((await getReservation(request, k.fd, b.id)).body)).not.toBe(to.id);
+      // chênh 0, lý do do OTTIMO: không tick vẫn lưu được ("applyDifference bỏ qua" chỉ còn đúng khi chênh 0)
+      const w = await move(request, k.fd, b.id, { roomId: to.id, reasonCode: 'property_fault' });
+      expect(w.status, `property_fault chênh 0, không tick: ${JSON.stringify(w.body)}`).toBe(200);
       expect(roomTotal(await folioOf(request, k.fd, b))).toBe(num(ex.expected.newRoomTotalVnd));
     });
 
@@ -540,7 +549,7 @@ test.describe(
       });
       expect(noNote.status, JSON.stringify(noNote.body)).toBe(422);
       expect(JSON.stringify(noNote.body)).toContain('REASON_REQUIRED');
-      const cheaper = await move(request, k.fd, b.id, {
+      const cheaper = await moveAcked(request, k.fd, b.id, {
         roomId: room(k.c, '101').id,
         reasonCode: 'other',
         note: 'Khach doi y, OTTIMO sap lai can',
@@ -576,7 +585,7 @@ test.describe(
       });
       expect(w.status, JSON.stringify(w.body)).toBe(403);
       expect(w.body.code).toBe('FORBIDDEN_ACTION');
-      const ok = await move(request, k.fdl, b.id, {
+      const ok = await moveAcked(request, k.fdl, b.id, {
         roomId: to.id,
         reasonCode: 'other',
         note: 'Khach muon can rong hon',
@@ -729,7 +738,10 @@ test.describe(
         nights: rates.length,
         rate: rates[0],
       });
-      const r = await move(request, k.fd, b.id, { roomId: to.id, reasonCode: String(o.cause) });
+      const r = await moveAcked(request, k.fd, b.id, {
+        roomId: to.id,
+        reasonCode: String(o.cause),
+      });
       expect(r.status, JSON.stringify(r.body)).toBe(200);
       expect(roomTotal(await folioOf(request, k.fd, b))).toBe(num(o.newRoomTotalVnd));
     });
@@ -865,7 +877,10 @@ test.describe(
         amountVnd: num(ex.input.focApprovedVnd),
       });
       const ids0 = (await folioOf(request, k.fd, b)).lines.map((l) => l.id).sort();
-      const r = await move(request, k.fd, b.id, { roomId: to.id, reasonCode: 'property_fault' });
+      const r = await moveAcked(request, k.fd, b.id, {
+        roomId: to.id,
+        reasonCode: 'property_fault',
+      });
       expect(r.status, JSON.stringify(r.body)).toBe(200);
       const f = await folioOf(request, k.fd, b);
       expect(reductionOn(f, 'room', night, 'foc')).toBe(num(ex.expected.b7OttimoCauseFocVnd));
@@ -911,7 +926,10 @@ test.describe(
       );
       const steps = [addDays(b.arrivalDate, 7), addDays(b.arrivalDate, 6)];
       for (const [i, departureDate] of steps.entries()) {
-        const r = await move(request, k.fd, b.id, { departureDate, reasonCode: 'guest_request' });
+        const r = await moveAcked(request, k.fd, b.id, {
+          departureDate,
+          reasonCode: 'guest_request',
+        });
         expect(r.status, `đổi ngày đi ${departureDate}: ${JSON.stringify(r.body)}`).toBe(200);
         const f = await folioOf(request, k.fd, b);
         expect(lineOn(f, 'room', night).amountVnd, `giá đêm bước ${i + 1}`).toBe(rates[i + 1]);
@@ -952,7 +970,7 @@ test.describe(
           return { k, b, night };
         },
       );
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         departureDate: addDays(b.arrivalDate, 7),
         reasonCode: 'guest_request',
       });
@@ -1066,7 +1084,7 @@ test.describe(
           return { k, b, night, reqId: q.body.id, map };
         },
       );
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         departureDate: map((ex.input.to as Json).departureDate as string),
         reasonCode: 'guest_request',
       });
@@ -1172,7 +1190,7 @@ test.describe(
           return { k, b, reqId: q.body.id, map };
         },
       );
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         arrivalDate: map((ex.input.to as Json).arrivalDate as string),
         departureDate: map((ex.input.to as Json).departureDate as string),
         reasonCode: 'guest_request',
@@ -1237,7 +1255,7 @@ test.describe(
           return { k, b, approvalId: a.id, map };
         },
       );
-      const r = await move(request, k.fd, b.id, {
+      const r = await moveAcked(request, k.fd, b.id, {
         arrivalDate: map((ex.input.to as Json).arrivalDate as string),
         departureDate: map((ex.input.to as Json).departureDate as string),
         reasonCode: 'guest_request',
@@ -1558,7 +1576,10 @@ test.describe(
         amountVnd: 100000,
       });
       expect(pay.status, JSON.stringify(pay.body)).toBe(201);
-      const r = await move(request, k.fd, b.id, { roomId: to.id, reasonCode: 'property_fault' });
+      const r = await moveAcked(request, k.fd, b.id, {
+        roomId: to.id,
+        reasonCode: 'property_fault',
+      });
       expect(r.status, JSON.stringify(r.body)).toBe(200);
       const mine = await moneyEventsOf(request, k.mgr, b.code, { from: k.today });
       const actions = mine.map((e) => e.action);

@@ -23,6 +23,7 @@ import {
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
+import { listApprovals } from '../../app/approvals';
 import { useCatalog } from '../../app/catalog';
 import { dayMonth } from '../../app/reservations';
 import { useRules } from '../../app/rules';
@@ -115,13 +116,17 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     async () =>
       lead || !r
         ? null
-        : ((await api.listApprovalRequests({ propertyId }, 'approved')).data.data.find(
-            (a) =>
-              a.type === 'checkin_room_not_ready' &&
-              a.reservationCode === r.code &&
-              !!a.decidedAt &&
-              todayLocal(undefined, new Date(a.decidedAt)) === todayLocal(),
-          ) ?? null),
+        : ((
+            await listApprovals(propertyId, ['approved'], {
+              // BUG-R2-107: page through (own requests only for FD); stop at the first match.
+              maxPages: 10,
+              find: (a) =>
+                a.type === 'checkin_room_not_ready' &&
+                a.reservationCode === r.code &&
+                !!a.decidedAt &&
+                todayLocal(undefined, new Date(a.decidedAt)) === todayLocal(),
+            })
+          )[0] ?? null),
     [propertyId, lead, r?.code],
   );
   const approved = roomApproval.state.data ?? null;
