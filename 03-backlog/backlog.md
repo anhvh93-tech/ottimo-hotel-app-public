@@ -1,12 +1,14 @@
 # Product Backlog – OTTIMO Desk
 
-- Chủ sở hữu: PO | Cập nhật: **17/10/2026 – Round 2 nghiệm thu PO Sprint 3 (CI + stack tạm, trước cổng QC)**; trước đó **16/10/2026 – Round 2 khởi động Sprint 3: nghiệm thu PO Sprint 1 + 2 (stack tạm) + áp ESC-015…017**; trước đó 16/10/2026 – Round 2 tuần 1 (W12): áp phạm vi R-C (INV quyết ESC-012 16/10) và kết quả 13 ESC; trước đó 15/10/2026 – Round 1, **bước 4** (sửa theo review BA, DOM, QA; trước đó: bước 2 đợt 3 – hoàn thiện AC theo BR/UC/SM/RBAC)
+- Chủ sở hữu: PO | Cập nhật: **17/10/2026 (tối) – gộp landing + Zalo OA: EP16 thêm US-161…US-163, chỉnh US-034/040/116/126/138 theo ESC-021, EP19 áp điều kiện SEC, Brand Guidelines v1.0, e-brochure (4 hạng phòng) và ESC-020 L6**; trước đó **17/10/2026 (chiều) – thêm EP19 Landing page ottimo.vn (FB-INV-001, ESC-020)**; trước đó **17/10/2026 – Round 2 nghiệm thu PO Sprint 3 (CI + stack tạm, trước cổng QC)**; trước đó **16/10/2026 – Round 2 khởi động Sprint 3: nghiệm thu PO Sprint 1 + 2 (stack tạm) + áp ESC-015…017**; trước đó 16/10/2026 – Round 2 tuần 1 (W12): áp phạm vi R-C (INV quyết ESC-012 16/10) và kết quả 13 ESC; trước đó 15/10/2026 – Round 1, **bước 4** (sửa theo review BA, DOM, QA; trước đó: bước 2 đợt 3 – hoàn thiện AC theo BR/UC/SM/RBAC)
 - Nguồn: `product/docs/PRD.md` (phân hệ M0–M15), `product/docs/round-0-baseline.md` (**BL**), `00-brief/investor-brief.md` (**Brief**), `business-rules.md` (**BR-xxx** – nguồn sự thật cho mọi con số), `use-cases.md` (**UC-xx**), `state-machines.md` (**SM-xx**, mã chuyển), `rbac-matrix.md` (mã vai, hành động **A-xx**, trường **Dxx**), `research/heuristic-review-r0.md` (**HR-xx**), `02-escalations/` (**ESC-xxx**).
 - Trạng thái chung: đã qua review bắt buộc BA, DOM (bước 3) và sửa ở bước 4 – xem `rounds/round-01/responses/PO-responses.md`. Bước 4: thêm 6 story (US-140…US-145), US-139 nâng Must R2, US-124 nâng Must R3; tổng **145 story, 77 Must R2**. Đợt 3: mọi con số quy tắc trong tiêu chí nghiệm thu (AC) đã thay bằng **mã BR-xxx**; tên trạng thái theo `state-machines.md`; vai theo mã vai của `rbac-matrix.md`; thêm 7 story (US-133…US-139), nâng US-024 lên Must R2. Chính sách chưa chốt ghi "chờ ESC-xxx".
 - **Round 2 tuần 1 (16/10/2026):** INV đã quyết cả 13 ESC theo đề xuất của đội. Áp **R-C**: 5 story dời đầu R3 (US-081, US-111, US-125, US-128, US-141 – Round = R3, trạng thái "Dời"), 4 story làm một phần ở R2 (US-012 trừ AC2, US-086 trừ AC3, US-108 trừ phần mã cửa của AC2, US-119 trừ AC5); thêm **US-017 AC5a tạm** (đơn dài hạn nhập tay). Còn **72 Must R2**, **24 Must R3**. Chỗ ghi "chờ ESC-xxx" nay ghi "INV quyết ESC-xxx 16/10"; nhãn `[GIẢ ĐỊNH – chờ INV xác nhận]` chỉ giữ cho thông tin INV còn phải gửi: sức chứa từng căn (ESC-004), loại hình kinh doanh (ESC-008), tài khoản ngân hàng + tên miền (ESC-010), thông tin khóa (ESC-011).
 - **Round 2 Sprint 2 – Phản hồi & sửa (16/10/2026, PO):** **US-056 dời đầu R3** (cùng HĐ dài hạn – đơn dài hạn nhập tay AC5a mặc định không có gói dọn, BR-204/DOM D-15) → **71 Must R2**; **US-008 Should R3 → Must R3** (chỉ phần "Thêm người dùng" – R2 đã có khóa/mở, đặt lại mật khẩu ở S26 theo US-002) → Must R3 = 26; sửa **US-012 AC3** theo SEC SR-RET-06, thêm **US-012 AC8** (cảnh báo BR-435 cho OWN ở R2, tính khi đọc), **US-017 AC9** (người chốt bắt buộc với kênh CTV và nguồn `sales_staff`), **US-025 AC7** (ô "Đã giao mã cửa/thẻ" không bắt buộc). Chi tiết: `rounds/round-02/responses/s2-PO.md`.
 - **Round 2 – nghiệm thu Sprint 1 + 2 (16/10/2026, PO – ĐK-S2-5 của QC):** nghiệm thu **trên stack tạm (CI compose, run 38911271416), chờ staging** – `rounds/round-02/outputs/PO/acceptance.md`. 30 story: **10 Đạt (stack tạm)** (US-001, 017, 023, 071, 072, 073, 080, 082, 084, 087), **19 Đang nghiệm thu**, **1 chưa làm** (US-022 → Sprint 3). Phần dời đều trong R2 (Sprint 3/4), ghi ở đầu AC từng story (dòng "> Nghiệm thu S2"). Trả lại US-083 AC2 phần tiếng Nga (PO-S2-01). Áp INV quyết 16/10: **ESC-015 A** (ghi chú US-005), **ESC-016 A** (US-109 AC1), **ESC-017 A** (US-084 AC1, US-086 AC5, US-119 AC6) – bổ sung vào AC có sẵn, không thêm số AC.
 - **Round 2 – nghiệm thu Sprint 3 (17/10/2026, PO – trước cổng QC Sprint 3):** trên **CI 38998735861 (code `6af7173`) + stack tạm, chờ staging** – `rounds/round-02/outputs/PO/s3-acceptance.md`. 27 story Sprint 3: **17 Đạt (stack tạm)** (US-022, 026, 027, 035, 036, 037, 039, 042, 044, 045, 046, 047, 049, 050, 106, 107, 120), **10 Đang nghiệm thu** (US-025, 028, 029, 030, 031, 032, 038, 043, 048, 119 – phần dời đều Sprint 4), 0 trả lại. Chấm lại phần S1/S2 dời sang S3: lên Đạt US-002, 004, 005, 018, 021, 083, 142; **US-084 hạ về Đang nghiệm thu** (mã VietQR cọc chưa có trên Desk). Phần dời ghi ở dòng "> Nghiệm thu S3" của từng story: mã S4-xx theo `rounds/round-02/s4-carryover.md`; S4-25*…S4-33* là PO đề nghị ORC thêm. **US-066** xếp Sprint 4. Không phần Must R2 nào dời R3. **ESC-019** (giá khi khách xin đổi căn trước ngày đến – S4-21) chờ INV.
+- **Round 2 – EP19 Landing page (17/10/2026, PO – FB-INV-001; INV quyết làm landing 17/10):** thêm **EP19** gồm 15 story **US-146…US-160**. **v1** (9 story: 7 Must, 2 Should) – trang giới thiệu công khai ở tên miền gốc, nút "Đặt phòng" mở chat Zalo OA/gọi/email, không form, không thu dữ liệu cá nhân; PO đề xuất làm **song song Sprint 4** bằng UXD + một luồng FE riêng, **không tính vào cổng QC Round 2**, có cổng QA/QC rút gọn riêng trước khi lên mạng (ORC chốt). **v2** (6 story, R3/R4+) nối vào EP18: hộp yêu cầu đặt phòng trong Desk (US-155) → US-131 (phòng trống + giá thật) → US-132. Câu phụ chờ INV ở **ESC-020** (L1–L5); AC viết theo phương án đội đề xuất, đổi theo lựa chọn của INV. Tổng **160 story**; Must R2 không đổi – **71** (ô tổng bảng epic trước đây ghi nhầm 72, đã sửa). Phạm vi chi tiết: `rounds/round-02/outputs/PO/landing-scope.md`.
+- **Round 2 – Zalo OA chăm sóc khách (17/10/2026 tối, PO – tin nhắn INV 17/10; ESC-021 chờ INV):** thêm 3 story EP16: **US-161** lịch nhắn tin + "Tin cần gửi hôm nay" (Must R3 – chạy được khi chưa có tài khoản Zalo), **US-162** mời/nhắc check-in online + nhắc trước ngày đến kèm vị trí (Must R3 – lấp khoảng trống INV hỏi), **US-163** hộp thư Zalo OA trong Desk (Could R4+). US-126 giữ **Should R3** (phụ thuộc Zalo duyệt mẫu và tài khoản của INV), xếp Sprint 1 (bản giả lập) → Sprint 2 (nối thật) nếu INV chọn ESC-021 A. US-034 đi qua US-161 từ Sprint 1, tự gửi khi US-126 bật. US-116 tách: cảm ơn + mời đánh giá (Sprint 2–3) và mã đặt trực tiếp (chỉ người đã đồng ý US-077, theo ESC-021 K1). EP19 áp điều kiện SEC (C-1, DOM-05, DOM-06, UXD-02, C-2/C-3 cho US-155), **Brand Guidelines v1.0** (INV 17/10 – màu/chữ/giọng văn, không terracotta, phòng mang tên, không đánh số với khách), e-brochure 2026 (4 hạng phòng) và ESC-020 L6 (ảnh). Tổng **163 story**; Must R2 giữ **71**; Must R3 **26 → 28**.
 
 ## 1. Quy ước
 
@@ -41,10 +43,11 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | EP13 | Báo cáo | M10 | 7 | 0 |
 | EP14 | App khách | M11 | 15 | 6 |
 | EP15 | Thanh toán & hóa đơn điện tử, đóng ca, vận hành dự phòng | M12 | 7 | 2 |
-| EP16 | Giao tiếp với khách (mẫu tin đa ngôn ngữ) | M13 | 3 | 0 |
+| EP16 | Giao tiếp với khách (mẫu tin đa ngôn ngữ, lịch nhắn tin, Zalo OA) | M13 | 6 | 0 |
 | EP17 | Khóa cửa & thẻ phòng | M14 | 3 | 0 |
 | EP18 | Đặt phòng trực tiếp trên web | M15 | 2 | 0 |
-| | **Tổng** | | **145** | **72** |
+| EP19 | Landing page ottimo.vn (website giới thiệu công khai; v1 trước, v2 nối EP18) | M15 (mở rộng – PRD cập nhật sau khi INV trả lời ESC-020) | 15 | 0 (v1 làm song song, không thuộc cổng QC R2) |
+| | **Tổng** | | **163** | **71** |
 
 ## 3. User story
 
@@ -104,7 +107,7 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | US-031 | Là **lễ tân** (`front_desk`), tôi muốn thẻ "Khách trả phòng hôm nay chưa trả" đổi trạng thái theo giờ thật (chờ trả lời → cần gọi → quá giờ), để biết lúc nào phải gọi khách | Must | R2 | BL 3.3b, BL 5.9 | Đang nghiệm thu |
 | US-032 | Là **lễ tân** (`front_desk`), tôi muốn thêm dòng phát sinh vào folio (giặt ủi, đồ ăn, hư hỏng, phí phạt như khử mùi thuốc lá, làm lại thẻ phòng) từ danh mục có giá mặc định, để bill cuối không thiếu khoản nào | Must | R2 | BL 3.7, Brief 5 (phí phạt thực tế) | Đang nghiệm thu |
 | US-033 | Là **buồng phòng / lễ tân** (`housekeeping`, `front_desk`), tôi muốn kiểm minibar giữa kỳ cho khách đang ở và ghi tiền vào folio ngay, để không dồn hết vào lúc trả phòng | Should | R2 | BL 3.13 | Mới |
-| US-034 | Là **lễ tân** (`front_desk`), tôi muốn hệ thống tự gửi nhắc trả phòng cho khách theo các mốc giờ (tối hôm trước, sáng ngày trả) và nhận lựa chọn của khách (trả đúng giờ / ở thêm / trả muộn), để giảm cuộc gọi | Should | R3 | BL 5.9, BL 7 | Mới |
+| US-034 | Là **lễ tân** (`front_desk`), tôi muốn hệ thống tự gửi nhắc trả phòng cho khách theo các mốc giờ (tối hôm trước, sáng ngày trả) và nhận lựa chọn của khách (trả đúng giờ / ở thêm / trả muộn), để giảm cuộc gọi | Should | R3 (Sprint 1 qua danh sách gửi tay US-161; tự gửi khi US-126 bật – ESC-021) | BL 5.9, BL 7; DOM TP-07 (BR-425); kênh theo US-161 AC3 | Mới |
 | US-137 | Là **lễ tân** (`front_desk`), tôi muốn ghi khách trả phòng sớm hơn ngày đi (mở bán lại các đêm còn lại, tính phần hoàn theo chính sách, cập nhật khai báo khách nước ngoài), để tồn phòng và tiền đúng | Should | R2 | BR-428, BR-604; SM-01 B16; ESC-006 | Mới |
 
 ### EP05 – Trả phòng & bill
@@ -115,7 +118,7 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | US-037 | Là **lễ tân** (`front_desk`), tôi muốn bước 3 xem bill đúng công thức (tiền phòng từng đêm, phát sinh, minibar, phụ thu, dòng FOC âm, trừ đã cọc, còn phải thu), song ngữ Việt – Anh và quy đổi USD tham khảo cho khách nước ngoài, để khách hiểu và trả tiền ngay | Must | R2 | BL 3.8, BL 5.20 | Đạt (stack tạm) |
 | US-038 | Là **lễ tân** (`front_desk`), tôi muốn bấm "hoàn tất" để đơn chuyển "đã trả", buồng chuyển "cần dọn", tự tạo việc dọn và bổ sung minibar, bill bị khóa không sửa được (chỉ điều chỉnh có ghi vết), để không còn việc làm tay sau khi khách đi | Must | R2 | BL 3.7, BL 5.15 | Đang nghiệm thu |
 | US-039 | Là **lễ tân** (`front_desk`), tôi muốn ghi thông tin xuất hóa đơn GTGT cho công ty (tên, MST, email) ngay trong bước trả phòng, để phát hành hóa đơn đúng | Must | R2 | BL 3.7, BL 5.16 (MST), BL 5.20 | Đạt (stack tạm) |
-| US-040 | Là **lễ tân** (`front_desk`), tôi muốn in bill, xuất PDF và gửi bill qua email/Zalo, để khách có chứng từ ngay | Should | R3 | BL 3.8, BL 7 | Mới |
+| US-040 | Là **lễ tân** (`front_desk`), tôi muốn in bill, xuất PDF và gửi bill qua email/Zalo, để khách có chứng từ ngay | Should | R3 | BL 3.8, BL 7; gửi Zalo qua US-126 (ESC-021); **bill đơn OTA không in mã đặt trực tiếp** (DOM BR-981 dự thảo, ESC-021 K1) | Mới |
 | US-041 | Là **lễ tân** (`front_desk`), tôi muốn trả phòng cho khách dài hạn với tiền thuê/điện nước kỳ cuối và khấu trừ hoặc hoàn ký quỹ theo chính sách, để kết thúc hợp đồng đúng tiền | Must | R3 | BL 8.2 #6, BL 9 #9; UC-20 | Mới |
 
 ### EP06 – Giấy tờ, khai báo lưu trú & quyền dữ liệu của khách
@@ -232,11 +235,11 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | US-113 | Là **khách trả phòng hôm nay** (`guest`), tôi muốn tự chọn trả đúng giờ, ở thêm (nếu còn phòng) hoặc trả muộn có phí hiển thị trước, để không phải gọi lễ tân | Should | R3 | BL 3.21, BL 5.9 | Mới |
 | US-114 | Là **khách dài hạn** (`guest`), tôi muốn xem hợp đồng, lịch dọn, kỳ thanh toán tới và hóa đơn điện nước hằng tháng, để chủ động thanh toán | Must | R3 | BL 3.21, BL 5.10 | Mới |
 | US-115 | Là **khách nói tiếng Nga** (`guest`), tôi muốn dùng trang của mình bằng tiếng Nga, để thoải mái hơn | Must | R3 | Brief 5, decision-log P4 | Mới |
-| US-116 | Là **chủ đầu tư** (`owner`), tôi muốn app tự hỏi thăm khách theo mốc cấu hình (BL 5.18), gửi lời cảm ơn + mã giảm đặt trực tiếp khi trả phòng và mời đánh giá trên kênh khách đã đặt theo mốc cấu hình, để tăng điểm đánh giá và khách quay lại | Should | R3 | BL 5.18 | Mới |
+| US-116 | Là **chủ đầu tư** (`owner`), tôi muốn app tự hỏi thăm khách theo mốc cấu hình (BL 5.18), gửi lời cảm ơn + mã giảm đặt trực tiếp khi trả phòng và mời đánh giá trên kênh khách đã đặt theo mốc cấu hình, để tăng điểm đánh giá và khách quay lại | Should | R3 (Sprint 2–3, sau US-161/US-126; tách 2 phần – xem ghi chú mục 4 EP16) | BL 5.18; DOM TP-05/06/08/09/10; SEC INT-11, DOM-05 (mã giảm là tin marketing, cần đồng ý US-077); ESC-021 K1 | Mới |
 | US-117 | Là **khách** (`guest`), tôi muốn xem gợi ý Đà Lạt (điểm tham quan, quán cà phê) và nhờ OTTIMO đặt xe/tour, để có trải nghiệm tốt | Could | R3 | BL 3.21 | Mới |
 | US-118 | Là **lễ tân** (`front_desk`), tôi muốn ghi nhận đồ khách để quên và thông báo cho khách, để xử lý chuyên nghiệp | Could | R3 | Brief 5 (sự cố thường gặp); BR-513 | Mới |
 | US-141 | Là **khách** (`guest`), tôi muốn xác minh nhẹ bằng mã một lần gửi tới email của đơn (hoặc mã do lễ tân cấp) trước khi xem mã cửa, hóa đơn, giấy tờ trên app khách, để người cầm được link của tôi không xem được thông tin riêng | Must | R3 (dời đầu R3 – INV quyết ESC-012 16/10 – R-C) | Mới; decision-log SEC (app khách mức 2), PHÂN XỬ ORC (khách không có email); SEC SR-GST-07…11; ADR-006 | Dời |
-| US-138 | Là **khách trả phòng sớm buổi sáng** (`guest`), tôi muốn tự bấm "Trả phòng" trên app khi đã thanh toán đủ và nhận bill qua email/Zalo, để không phải chờ quầy mở | Should | R3 | BR-427; UC-19; SM-01 B18 | Mới |
+| US-138 | Là **khách trả phòng sớm buổi sáng** (`guest`), tôi muốn tự bấm "Trả phòng" trên app khi đã thanh toán đủ và nhận bill qua email/Zalo, để không phải chờ quầy mở | Should | R3 | BR-427; UC-19; SM-01 B18; bill qua Zalo dùng US-126 (ESC-021) | Mới |
 
 ### EP15 – Thanh toán & hóa đơn điện tử
 | ID | User story | MoSCoW | Round | Nguồn | Trạng thái |
@@ -253,7 +256,10 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 | ID | User story | MoSCoW | Round | Nguồn | Trạng thái |
 |---|---|---|---|---|---|
 | US-125 | Là **lễ tân / sale** (`front_desk`, `sales_staff`), tôi muốn chọn mẫu tin nhắn theo tình huống (xác nhận đặt, link check-in, nhắc trả phòng, nội quy, xin lỗi sự cố nước nóng…) bằng Việt/Anh/Nga có sẵn dữ liệu đơn và sao chép được, để nhắn nhóm chat nhanh, đúng ngôn ngữ | Must | R3 (dời đầu R3 – INV quyết ESC-012 16/10 – R-C) | Brief 5, decision-log P4 | Dời |
-| US-126 | Là **lễ tân** (`front_desk`), tôi muốn tin nhắn quan trọng (xác nhận, link check-in, nhắc trả phòng, bill) tự gửi qua Zalo OA/ZNS hoặc email, để không phải gửi tay | Should | R3 | BL 7, BL 9 #19 | Mới |
+| US-126 | Là **lễ tân** (`front_desk`), tôi muốn tin nhắn quan trọng (xác nhận, link check-in, nhắc trước ngày đến, nhắc trả phòng, bill) tự gửi qua Zalo OA/ZNS hoặc email, để không phải gửi tay | Should | R3 (Sprint 1 bản giả lập → Sprint 2 nối Zalo thật nếu INV chọn ESC-021 A; email độc lập với Zalo) | BL 7, BL 9 #19; tin nhắn INV 17/10; ESC-021 (mở lại phần Zalo của ESC-010); `integrations/zalo-oa.md`; SEC C-4…C-9 | Mới |
+| US-161 | Là **lễ tân** (`front_desk`), tôi muốn Desk tự lập lịch tin cần gửi cho từng đơn (xác nhận, mời/nhắc check-in online, nhắc trước ngày đến, nhắc trả phòng, cảm ơn, nhắc kỳ thu dài hạn) và mỗi sáng hiện danh sách "Tin cần gửi hôm nay" soạn sẵn đúng ngôn ngữ để tôi bấm sao chép, để không quên nhắn khách kể cả khi chưa có Zalo OA | Must | R3 (Sprint 1) | Tin nhắn INV 17/10; DOM `guest-messaging-journey.md` TP-00…TP-15, BR-971…983 (dự thảo); US-125 (mẫu tin); SEC DOM-04, INT-09 | Mới |
+| US-162 | Là **khách** (`guest`), tôi muốn nhận lời mời làm check-in online, lời nhắc nếu chưa làm, và tin nhắc trước ngày đến có giờ nhận phòng, địa chỉ, nút chỉ đường, chỗ đỗ xe, để đến nơi nhanh mà không phải hỏi | Must | R3 (Sprint 1 nội dung + gửi tay qua US-161; tự gửi khi US-126 bật) | Tin nhắn INV 17/10 ("remind ngày nhận phòng, gửi vị trí"); DOM TP-02, TP-03; US-107, US-108 (cùng nguồn địa chỉ với US-148) | Mới |
+| US-163 | Là **lễ tân** (`front_desk`), tôi muốn đọc và trả lời tin Zalo OA của khách ngay trong Desk, gắn với đơn của khách, để không phải mở OA Manager riêng | Could | R4+ (sau ~1 tháng chat OA – ESC-021) | `integrations/zalo-oa.md` 4.9 giai đoạn 2; SEC INT-07 (webhook có chữ ký), INT-12 | Mới |
 | US-127 | Là **chủ đầu tư** (`owner`), tôi muốn sửa nội dung các mẫu tin, để phù hợp giọng văn OTTIMO | Should | R3 | Mới; rbac A106 (`owner`, `manager`) | Mới |
 
 ### EP17 – Khóa cửa & thẻ phòng
@@ -266,8 +272,29 @@ Thứ tự ưu tiên trong R2 nếu thiếu thời gian (PRD D6): EP00 → EP02/
 ### EP18 – Đặt phòng trực tiếp trên web
 | ID | User story | MoSCoW | Round | Nguồn | Trạng thái |
 |---|---|---|---|---|---|
-| US-131 | Là **khách** (`guest`), tôi muốn xem phòng trống và giá trực tiếp trên website OTTIMO rồi gửi yêu cầu giữ chỗ, để đặt mà không qua OTA | Should | R3 | BL 3.19 (kênh Website), BL 5.11 (giảm phí kênh) | Mới |
-| US-132 | Là **khách** (`guest`), tôi muốn đặt và thanh toán ngay trên website mà không cần chờ xác nhận, để chốt nhanh | Could | R4+ | Mới; phụ thuộc BR-305, ESC-006 (chính sách hủy), ESC-010 (cổng thanh toán) | Mới |
+| US-131 | Là **khách** (`guest`), tôi muốn xem phòng trống và giá trực tiếp trên website OTTIMO rồi gửi yêu cầu giữ chỗ, để đặt mà không qua OTA | Should | R3 | BL 3.19 (kênh Website), BL 5.11 (giảm phí kênh); **FB-INV-001 (17/10):** chạy trên landing EP19 – là bản v2 của nút "Đặt phòng" (US-151), dùng chung hộp yêu cầu US-155 | Mới |
+| US-132 | Là **khách** (`guest`), tôi muốn đặt và thanh toán ngay trên website mà không cần chờ xác nhận, để chốt nhanh | Could | R4+ | Mới; phụ thuộc BR-305, ESC-006 (chính sách hủy), ESC-010 (cổng thanh toán); **FB-INV-001:** đích cuối của nút "Đặt phòng" trên landing EP19 | Mới |
+
+### EP19 – Landing page ottimo.vn (website giới thiệu công khai)
+Nguồn chung: **FB-INV-001** (INV 17/10/2026 – "landing page kiểu ottimo.vn để khách tham khảo, tìm hiểu thông tin và đặt phòng"; quyết làm 17/10), câu phụ **ESC-020**. Phạm vi, khe ảnh, ước lượng: `rounds/round-02/outputs/PO/landing-scope.md`. Round **"R2 – LP-v1"** = đề xuất làm song song Sprint 4 bằng UXD + một luồng FE riêng, không tính vào cổng QC R2; nếu ORC xếp sang R3 thì đổi thành R3 (đầu round). Trang ở **tên miền gốc** (`hosting-plan.md` 5.1); app giữ desk./staff./g.
+
+| ID | User story | MoSCoW | Round | Nguồn | Trạng thái |
+|---|---|---|---|---|---|
+| US-146 | Là **khách tiềm năng**, tôi muốn mở ottimo.vn và thấy ngay OTTIMO là gì (ảnh mặt tiền/sảnh, câu giới thiệu, ở đâu, ngắn ngày hay thuê tháng) cùng nút "Đặt phòng" luôn trong tầm tay, để quyết định có tìm hiểu tiếp không | Must | R2 – LP-v1 | FB-INV-001; Brief 1, 2 | Mới |
+| US-147 | Là **khách tiềm năng**, tôi muốn xem 10 căn theo 4 hạng phòng của e-brochure (ánh xạ 3 nhóm giá Lầu 1–2, Căn N, Căn N+) với ảnh, sức chứa, tiện nghi chính và giá theo ESC-020 L3, để chọn loại căn hợp với mình | Must | R2 – LP-v1 | FB-INV-001; Brief 1; BL 4.1; BR-101, BR-110, BR-201, BR-203 | Mới |
+| US-148 | Là **khách tiềm năng**, tôi muốn xem tiện nghi chung và vị trí (địa chỉ, bản đồ, khoảng cách tới các điểm chính, nút chỉ đường), để biết đi lại có tiện không | Must | R2 – LP-v1 | FB-INV-001; BL 3.21 (chỉ đường); US-108 AC1 (cùng nguồn địa chỉ) | Mới |
+| US-149 | Là **khách tiềm năng**, tôi muốn đọc tóm tắt chính sách (giờ nhận/trả, cọc, hủy, nội quy và phí phạt, thuê tháng gồm những gì), để không bất ngờ khi đặt | Must | R2 – LP-v1 | FB-INV-001; BR-401, BR-305, BR-309, BR-511, BR-201…BR-205, BR-501; ESC-004…006 | Mới |
+| US-150 | Là **khách tiềm năng**, tôi muốn xem câu hỏi thường gặp (đi từ sân bay, giữ hành lý, giặt ủi, thú cưng, hóa đơn, khai báo lưu trú, Wi-Fi/làm việc từ xa…), để tự có câu trả lời mà không phải nhắn | Should | R2 – LP-v1 | FB-INV-001; Brief 5 (câu hỏi thường gặp) | Mới |
+| US-151 | Là **khách tiềm năng**, tôi muốn bấm "Đặt phòng" hoặc "Liên hệ" để mở chat Zalo OA, WhatsApp, gọi điện hoặc gửi email cho OTTIMO (v1 – ESC-020 L2-A), để hỏi phòng và đặt trực tiếp không qua OTA | Must | R2 – LP-v1 | FB-INV-001; PRD G3 (kênh trực tiếp ≥ 35%); BR-112 (`directSource`); ESC-010; v2 → US-155, US-131, US-132 | Mới |
+| US-152 | Là **khách nước ngoài**, tôi muốn đọc trang bằng tiếng Anh (VI/EN ở v1; RU theo ESC-020 L1), để hiểu mọi nội dung | Must | R2 – LP-v1 | FB-INV-001; DoD (VI + EN); PRD N1; content-guide mục 6 | Mới |
+| US-153 | Là **chủ đầu tư** (`owner`), tôi muốn trang mang đúng nhận diện OTTIMO (kem – gỗ sồi, Lora + Be Vietnam Pro), mở nhanh trên điện thoại 4G, đọc được với người dùng bàn phím/trình đọc màn hình và không bao giờ vỡ khung khi thiếu ảnh, để khách có ấn tượng boutique ngay lần đầu | Must | R2 – LP-v1 | FB-INV-001; design-system D1; PRD N3, N9 | Mới |
+| US-154 | Là **chủ đầu tư** (`owner`), tôi muốn trang tìm thấy được trên Google và hiện ảnh + tiêu đề đẹp khi gửi link qua Zalo/Facebook, để khách tự tìm đến kênh trực tiếp | Should | R2 – LP-v1 | FB-INV-001; PRD G3 | Mới |
+| US-155 | Là **sale / lễ tân** (`sales_staff`, `front_desk`), tôi muốn nhận yêu cầu đặt phòng gửi từ website (ngày, nhóm căn, số khách, cách liên hệ, ngôn ngữ) vào một hàng chờ trong Desk và chuyển thành báo giá/giữ chỗ, để trả lời nhanh và không sót khách | Should | R3 (v2 – trước hoặc cùng US-131) | FB-INV-001; ESC-020 L2-B; US-080, US-084; BR-112 (`website`) | Mới |
+| US-156 | Là **khách nói tiếng Nga**, tôi muốn đọc landing bằng tiếng Nga đã được người bản ngữ duyệt, để yên tâm đặt thuê dài hạn | Should | R3 (v2; lên v1 nếu INV chọn ESC-020 L1-B) | FB-INV-001; Brief 1, 5; US-115; content-guide mục 6 | Mới |
+| US-157 | Là **khách thuê tháng / làm việc từ xa**, tôi muốn có trang riêng "Thuê tháng" với ước tính tiền thuê theo kỳ hạn và gửi yêu cầu báo giá dài hạn, để so sánh nhanh trước khi liên hệ | Could | R3 (v2) | FB-INV-001; PRD G2 (4–6 căn dài hạn); BR-201…BR-205; US-081 | Mới |
+| US-158 | Là **chủ đầu tư** (`owner`), tôi muốn biết bao nhiêu lượt bấm "Đặt phòng"/liên hệ và bao nhiêu đơn trực tiếp đến từ website, để đo hiệu quả của trang so với mục tiêu G3 | Should | R3 (v2) | FB-INV-001; PRD G3; BR-112; `metrics-definitions.md` (DATA) | Mới |
+| US-159 | Là **chủ đầu tư** (`owner`), tôi muốn tự sửa một số nội dung (giá "từ", ảnh, câu hỏi thường gặp, thông báo ngắn) mà không cần đội làm, để trang luôn đúng | Could | R4+ | FB-INV-001 | Mới |
+| US-160 | Là **khách tiềm năng**, tôi muốn xem đánh giá của khách đã ở và gợi ý Đà Lạt (dùng chung nội dung tab Đà Lạt của app khách), để tin chọn OTTIMO | Could | R4+ | FB-INV-001; BL 3.21 (tab Đà Lạt); US-116, US-117 | Mới |
 
 ### Won't (ngoài phạm vi MVP – chi tiết PRD 5.3)
 POS nhà hàng; kế toán tổng hợp/lương; ca làm việc & chấm công; ký số hợp đồng; kết nối trực tiếp từng OTA; iCal; định giá tự động; hạng thành viên; đa tiền tệ thanh toán; app cài từ store cho khách; tiếng Hàn/Trung.
@@ -813,6 +840,37 @@ Quy ước (đợt 3):
 - AC2: Given đổi ngôn ngữ sang Anh/Việt, Then nội dung đổi tương ứng, dữ liệu đơn giữ nguyên.
 - AC3: Given mẫu có chèn mã cửa, Then chỉ FD+ dùng được mẫu đó (D22); mẫu không bao giờ chèn số giấy tờ (rbac mục 8.3).
 
+#### US-161 – Lịch nhắn tin + "Tin cần gửi hôm nay" – *mới 17/10, Must R3 (Sprint 1)*
+> Nguồn: tin nhắn INV 17/10; DOM `rounds/round-02/outputs/DOM/guest-messaging-journey.md` (TP-00…TP-15, tham số mục 8 – BR-971…983 còn dự thảo, DOM đưa vào `business-rules.md` trước khi BE làm); SEC `landing-zalo-SEC.md`. Chạy được ở mọi phương án ESC-021 (kể cả C – gửi tay). Phụ thuộc US-125 (mẫu tin).
+- AC1: Given đơn `confirmed` (ngắn ngày hoặc dài hạn), Then Desk lập lịch tin theo mốc mặc định của DOM (tham số `guest_msg.*`, `oci.*`, `pre_arrival.offset`…; `owner` chỉnh được); đơn đổi ngày/căn/hủy → lịch tính lại, tin cũ hủy; tin quá hạn gửi thì bỏ, không gửi muộn, và tạo việc cho lễ tân (BR-980 dự thảo).
+- AC2: Given đầu ngày nghiệp vụ, When FD+ mở "Tin cần gửi hôm nay", Then thấy tin đến hạn theo giờ, soạn sẵn đúng ngôn ngữ của đơn (mẫu US-125), dữ liệu lấy từ đơn và tham số BR (không gõ tay giờ, giá); "Sao chép" ghi `message_log` = `copied` (không ghi nội dung, link); "Bỏ qua" bắt buộc lý do.
+- AC3: Given liên hệ của khách, Then gợi ý kênh theo thứ tự: chat Zalo OA (khách đã nhắn OA) → Zalo theo SĐT khách **tự đưa** cho OTTIMO → hộp thư OTA (đơn OTA) → email → gọi điện. SĐT/email nhận từ OTA chỉ dùng cho hộp thư OTA và gọi điện vận hành (SEC DOM-02, lưu nguồn liên hệ `ota` | `guest_provided`). Đơn Airbnb: tin không có link, không mã giảm (DOM mục 5).
+- AC4: Given khách đã làm việc mà tin nhắc tới (đã check-in online, đã chọn giờ trả), Then tin nhắc đó tự bỏ. Mỗi đơn không quá `guest_msg.max_proactive_per_day` tin chủ động/ngày; tin chủ động chỉ trong `guest_msg.send_window`, ngoài khung thì dời sang đầu khung kế tiếp nếu chưa quá hạn.
+- AC5: Given tin có link trang khách, Then link dùng **token thông báo** (mức 1, hạn ≤ 7 ngày, tối đa 1 token thông báo còn hiệu lực/đơn, không thu hồi link lễ tân đã gửi – SEC INT-09, C-6); `collaborator` thấy việc nhưng không chép được tin có link (SR-MSG-03); tin không bao giờ chứa mã cửa, số giấy tờ (SEC C-7, C-10).
+- AC6: Given US-126 đã bật cho một kênh, Then cùng lịch đó tự gửi qua kênh ấy; gửi lỗi hoặc khách không có kênh tự động → tin quay về danh sách gửi tay; lịch không đổi.
+
+#### US-162 – Mời/nhắc check-in online và nhắc trước ngày đến kèm vị trí – *mới 17/10, Must R3*
+> Lấp khoảng trống INV hỏi 17/10 ("gửi check-in online, remind ngày nhận phòng, gửi vị trí"): US-034 chỉ nhắc **trả phòng**. Đi qua lịch US-161; tự gửi khi US-126 bật.
+- AC1: Given đơn trực tiếp vừa `confirmed`, Then tin xác nhận kèm lời mời check-in online (link trang khách, US-107). Given đơn OTA, Then lời mời gửi theo `oci.invite_offset` (mặc định D-4 10:00) trong hộp thư OTA, ghi rõ đây là khai báo lưu trú theo luật Việt Nam, khác check-in của OTA.
+- AC2: Given khách chưa check-in online và còn ≥ `oci.min_lead_days_for_nudge` ngày tới ngày đến, Then nhắc **một** lần theo `oci.nudge_offset` (mặc định D-2 10:00); khách đã làm thì không nhắc.
+- AC3: Given D-1 theo `pre_arrival.offset` (mặc định 10:00), Then tin nhắc có: ngày và giờ nhận phòng chuẩn (BR-401), địa chỉ dạng chữ, nút "Xem chỉ đường" mở trang khách (US-108 – cùng nguồn địa chỉ với landing US-148), chỗ đỗ xe (`property.parking_info`), cách liên hệ khi đến khuya; **không** có mã cửa, số căn, Wi-Fi.
+- AC4: Given đơn đặt sát ngày (đặt trong ngày đến, hoặc D-1 sau mốc nhắc), Then gộp xác nhận + mời check-in + nhắc đến thành **một** tin (BR-975 dự thảo).
+- AC5: Given ngôn ngữ của đơn VI/EN (RU khi có US-115), Then tin đúng ngôn ngữ; bản gửi qua Zalo dùng câu chữ mẫu đã được Zalo duyệt (US-126). Dữ liệu thử: căn 202, đặt 15/10, đến 23/10 → lịch khớp ví dụ DOM mục 4.
+
+#### US-126 – Tự gửi qua Zalo OA/ZNS hoặc email – *Should R3; AC mới 17/10 theo ESC-021 và SEC*
+> Giữ **Should**: phụ thuộc tài khoản của INV và Zalo duyệt mẫu; khi chưa có, US-161 vẫn chạy gửi tay. Xếp Sprint 1 (bản giả lập) → Sprint 2 (nối thật) nếu INV chọn ESC-021 A; chọn C thì chỉ bật email.
+- AC1: Given `owner` bấm "Kết nối Zalo OA" trên thiết bị được cấp (xác nhận lại mật khẩu), Then chỉ nhận đúng OA của OTTIMO; OA khác → từ chối, không lưu khóa, ghi nhật ký bảo mật; khóa kết nối lưu mã hóa (SEC C-5).
+- AC2: Given tin đến hạn từ US-161 và khách có kênh tự động, Then gửi trong khung giờ tham số (tin mẫu Zalo mặc định [08:00, 21:00)), mỗi tin tối đa một lần (không tự gửi lại khi hết thời gian chờ sau lúc đã gửi); ghi trạng thái gửi và chi phí ước; lỗi → về danh sách gửi tay.
+- AC3: Given khách chặn tin OA/ZNS hoặc nhắn từ chối, Then kênh Zalo của khách tắt ngay; tin vận hành chuyển kênh khác; tin ưu đãi dừng (SEC C-8).
+- AC4: Given một mẫu tin, Then chỉ dùng biến trong danh sách cho phép **theo mẫu và theo kênh**; render có mã cửa, số giấy tờ, ngày sinh, mã xác minh, số căn trước ngày đến → không gửi (`422`) (SEC C-7); nhật ký gửi không chứa SĐT, nội dung, token (SEC C-9); webhook Zalo kiểm chữ ký trên thân thô (SEC C-4).
+- AC5: Given chưa có tài khoản Zalo hoặc chưa đạt SEC C-4…C-9, Then kênh Zalo chạy giả lập; email vẫn gửi được; không gửi tin tự động tới khách thật trước SEC-G1, SEC-G2 và máy chủ thật.
+
+#### Ghi chú lịch các story Zalo khác (theo ESC-021 – đội đề xuất A; AC đầy đủ viết đầu R3)
+- **US-034** (nhắc trả phòng): Sprint 1 R3 qua danh sách US-161 (TP-07: R-1 20:00; R 09:00 chỉ khi khách chưa chọn – BR-425); nút "Chọn giờ trả phòng" mở trang khách; tự gửi khi US-126 bật. 11:00 chưa trả lời → lễ tân gọi, không gửi thêm tin.
+- **US-116** tách hai phần: (a) cảm ơn + bill sau trả phòng, mời đánh giá R+1 cho **mọi** khách (không lọc khách hài lòng; hoãn khi còn khiếu nại mở) – Sprint 2–3; (b) mã đặt trực tiếp là **tin marketing riêng**, chỉ gửi người đã đồng ý (US-077), không gửi khách OTA nếu INV chọn ESC-021 K1-A, không gắn ưu đãi với việc để lại đánh giá (SEC INT-11, DOM-05).
+- **US-040, US-138:** bill qua Zalo dùng mẫu "xác nhận thanh toán" của US-126; bill đơn OTA không in mã đặt trực tiếp.
+- **US-163** (hộp thư Zalo trong Desk): R4+, sau khoảng 1 tháng chat OA; điều kiện SEC C-4 (webhook) và INT-12.
+
 ### EP17 – Khóa cửa & thẻ phòng
 
 #### US-128 – Mã cửa trong đơn (BR-403, A21, D22)
@@ -871,6 +929,100 @@ Quy ước (đợt 3):
 - **US-145 (Should R3)** – vận hành dự phòng (UC-33): AC viết đầu R3 theo BR-961…964. Lý do Should R3: cần lõi R2 trước; khi chưa có, quầy vẫn dùng sổ giấy theo mẫu (BR-962). Phải xong trước khi đưa dữ liệu thật vào vận hành.
 - **Quyết định xếp round theo đề nghị BA (UC-31…33):** đơn nhóm US-140 giữ **Must R3** (R2 đã vượt ước lượng – ESC-012; R2 dùng đơn rời + ghi chú nhóm). Đóng ca: phần **cờ "chờ đối soát"** cho chuyển khoản ghi tay là **Must R2** (US-119 AC6 – dữ liệu tiền phải đúng từ ngày đầu); màn đóng ca đầy đủ US-124 **Must R3** vì R2 chưa vận hành tiền thật (chưa có dữ liệu khách thật trước khi có RC). Mất mạng/mất điện US-145 **Should R3**.
 
+### EP19 – Landing page ottimo.vn (FB-INV-001, ESC-020) – *mới 17/10/2026*
+Quy ước riêng cho EP19:
+- "Khách tiềm năng" = người xem trang công khai, **không** có tài khoản, không phải vai `guest` (link của đơn). Trang v1 không gọi API của Desk.
+- AC viết theo phương án đội đề xuất ở **ESC-020** (L1-A … L6-A). INV chọn khác → PO sửa AC liên quan trong ngày.
+- **Brand Guidelines v1.0** (INV 17/10, `00-brief/context/brand/brand-guidelines.md`) áp cho mọi chữ, màu, ảnh của landing; lệch với design system cũ hoặc e-brochure thì guideline thắng (landing không dùng terracotta). Nguồn chữ gốc: e-brochure 2026 (`00-brief/context/landing/ebrochure-text.md`).
+- Điều kiện SEC (`rounds/round-02/reviews/landing-zalo-SEC.md`): **C-1** (không tải tài nguyên bên thứ ba khi mở trang, không script/style nội tuyến) là điều kiện cổng LP-v1; **C-2, C-3** là điều kiện bật form US-155.
+- Con số quy tắc vẫn ghi bằng mã BR (giá trị tham số hiện hành lúc dựng trang). Mọi chữ hiển thị là bản INV đã duyệt (L5); không đăng thông tin chưa được INV xác nhận.
+- Khe ảnh, khung giữ chỗ, cổng lên mạng: `rounds/round-02/outputs/PO/landing-scope.md` mục 5 và 8.
+
+#### US-146 – Trang giới thiệu – *Must, LP-v1*
+- AC1: Given khách mở tên miền gốc trên điện thoại (màn ≥ 360px) hoặc máy tính, Then màn đầu có: ảnh khe `hero`, tên "OTTIMO Boutique Stay", câu giới thiệu đã duyệt, "Đà Lạt" + khu vực, hai lối "Ở ngắn ngày" / "Thuê tháng" dẫn tới phần căn tương ứng, và nút "Đặt phòng".
+- AC2: Given khách cuộn tới bất kỳ phần nào, Then nút "Đặt phòng" vẫn trong tầm nhìn (trên điện thoại là thanh cố định) và không che nội dung hay nút khác.
+- AC3: Given các phần Căn · Tiện nghi · Vị trí · Chính sách · Câu hỏi · Liên hệ, Then menu dẫn tới đúng phần; trên điện thoại menu gọn trong một nút; mỗi phần có địa chỉ neo riêng để gửi link thẳng.
+- AC4: Given chưa có nội dung INV duyệt (ESC-020 L5) hoặc chưa có thông tin liên hệ (L2), Then trang **không** được đưa lên tên miền công khai; chỉ có bản xem thử gắn `noindex`.
+
+#### US-147 – 10 căn theo nhóm – *Must, LP-v1*
+- AC1: Given danh mục căn hiện hành (US-004; BL 4.1), Then trang hiện **4 hạng phòng** theo e-brochure 2026 (Studio hướng thành phố, Studio hướng vườn, Premium 1 phòng ngủ + 1, Signature 2 phòng ngủ) với sức chứa và diện tích theo brochure, ánh xạ tới 3 nhóm giá trong Desk (Lầu 1–2, Căn N, Căn N+) theo bảng ghép INV gửi (ESC-020 mục "Còn thiếu" 4); khách thấy **tên phòng** (The Pine … The Ember), không thấy số căn (Brand Guidelines mục 3). Mỗi hạng có ảnh đại diện, mô tả ngắn, số người theo định mức và tối đa (BR-110), tiện nghi chính theo thông tin INV gửi (ESC-020 L5 mục 3), danh sách căn trong nhóm (tên căn chỉ hiện nếu INV đồng ý – L5 mục 4).
+- AC2: Given khách bấm ảnh của một nhóm, Then mở thư viện ảnh của nhóm; xem tiếp bằng vuốt hoặc phím mũi tên; đóng bằng nút hoặc Esc; mỗi ảnh có mô tả thay thế VI/EN.
+- AC3 *(theo ESC-020 L3-A)*: Given một nhóm căn, Then hiện "Thuê tháng từ {giá}" = giá tháng niêm yết thấp nhất của nhóm (BR-101), ngay dưới có ghi chú: giảm theo kỳ hạn (BR-201), chưa gồm phí dịch vụ (BR-204) và điện nước theo công tơ (BR-501), khách nước ngoài +10% (BR-109). Ngắn ngày hiện "Giá tốt nhất khi đặt trực tiếp" + nút "Nhận báo giá" (mở US-151); **không** hiện số giá đêm. Dữ liệu thử: Lầu 1–2 "từ 8.000.000 đ/tháng" (căn 101).
+- AC4: Given giá tháng niêm yết trong Desk khác số đang hiện trên trang, Then bản phát hành kế tiếp không được ra với số cũ: số "từ" lấy từ một nguồn duy nhất (danh mục căn) lúc dựng trang, có bước so khớp trong checklist phát hành; trang ghi "Giá cập nhật {ngày}".
+- AC5: Given ảnh của nhóm chưa có (chưa tải từ Drive hoặc chưa biết thư mục "Phòng n" thuộc nhóm nào), Then hiện khung giữ chỗ đúng tỉ lệ, nhãn "Ảnh đang cập nhật"; **không** dùng ảnh mẫu (stock) hay ảnh không phải của OTTIMO.
+
+#### US-148 – Tiện nghi và vị trí – *Must, LP-v1*
+- AC1: Given phần Tiện nghi, Then chỉ liệt kê tiện nghi chung INV đã xác nhận, mỗi mục có chữ + biểu tượng (không chỉ biểu tượng – PRD N9); tiện nghi chưa xác nhận không hiện.
+- AC2: Given phần Vị trí, Then có địa chỉ đầy đủ (sao chép được), bản đồ, nút "Chỉ đường" mở ứng dụng bản đồ tới đúng ghim INV gửi, và các khoảng cách tham khảo INV đã duyệt (ví dụ sân bay Liên Khương, chợ đêm) ghi kèm "khoảng".
+- AC3: Given địa chỉ và ghim bản đồ, Then dùng **cùng một nguồn** với trang thông tin lưu trú của app khách (US-108 AC1): sửa một nơi thì cả hai đúng (ARC chọn cách).
+- AC4 *(riêng tư)*: Given khách chưa bấm vào bản đồ, Then trang chưa tải nội dung của bên thứ ba có thể theo dõi khách (bản đồ nhúng, script mạng xã hội, widget chat); bấm "Xem bản đồ" mới tải hoặc mở ứng dụng bản đồ. SEC xác nhận danh sách bên thứ ba được phép.
+
+#### US-149 – Tóm tắt chính sách – *Must, LP-v1*
+- AC1: Given phần Chính sách, Then có: giờ nhận/trả chuẩn (BR-401) và việc nhận sớm/trả muộn có phụ thu (BR-411, BR-412); cọc đặt trực tiếp (BR-305); hủy và hoàn cọc, gồm ngày cao điểm (BR-309, BR-104); nội quy chính và phí phạt (BR-511); thuê tháng gồm những gì (BR-203, BR-204, BR-206, BR-501); cần giấy tờ tùy thân để khai báo lưu trú theo luật.
+- AC2: Given con số trong chính sách (giờ, %, phí), Then đúng giá trị tham số hiện hành của BR lúc dựng trang; chữ pháp lý bản EN là bản đã duyệt (content-guide 5.6), không dịch máy.
+- AC3: Given khách đặt qua OTA, Then trang ghi rõ: điều kiện hủy và thanh toán của đơn OTA theo OTA đã đặt (BR-307), chính sách trên trang chỉ áp cho đặt trực tiếp.
+- AC4: Given một chính sách đang chờ INV quyết (ví dụ ESC-019), Then trang không nêu điểm đó; chính sách đổi thì cập nhật ở bản phát hành kế tiếp.
+- AC5 *(Should trong story Must – không chặn cổng LP-v1; bắt buộc trước US-155 – SEC mục 6)*: Given chân trang, Then có link tới trang quyền riêng tư ngắn VI/EN: trang không dùng cookie theo dõi, chỉ đếm tổng số lượt theo ngày; nhật ký máy chủ giữ theo hạn SEC; link sang Zalo/WhatsApp/bản đồ theo chính sách của họ; cách liên hệ OTTIMO.
+
+#### US-150 – Câu hỏi thường gặp – *Should, LP-v1*
+- AC1: Given phần Câu hỏi thường gặp, Then có các câu INV đã duyệt (gợi ý: đi từ sân bay, đến khuya và check-in online, gửi hành lý, giặt ủi, hóa đơn VAT, thú cưng, chỗ để xe, Wi-Fi và làm việc từ xa, thuê tháng); mỗi câu mở/đóng được bằng chuột, chạm và bàn phím.
+- AC2: Given câu trả lời có con số quy tắc, Then theo US-149 AC2; câu INV chưa trả lời (ví dụ thú cưng) thì không đăng.
+- AC3 *(SEC DOM-06)*: Given mục Hỏi đáp, Then có câu chống giả danh đã duyệt: OTTIMO chỉ nhắn từ Zalo OA đã xác thực và hộp thư OTA; không bao giờ đổi số tài khoản nhận tiền qua tin nhắn, không hỏi số thẻ.
+
+#### US-151 – Liên hệ và nút "Đặt phòng" (v1) – *Must, LP-v1*
+- AC1 *(theo ESC-020 L2-A)*: Given khách bấm "Đặt phòng" hoặc "Nhận báo giá", Then hiện lựa chọn kênh: **Zalo** (mở chat Zalo OA của OTTIMO – trên điện thoại mở ứng dụng Zalo nếu có), **WhatsApp · Telegram · Viber** (số quốc tế của cơ sở in trong e-brochure – ESC-020 L2-A), **Gọi điện** (mở trình gọi với số công khai), **Email** (mở thư mới tới địa chỉ công khai, tiêu đề điền sẵn "Đặt phòng – OTTIMO"). Bản VI xếp Zalo trước; bản EN xếp WhatsApp/Telegram trước. Ô "Hỏi phòng trống" (nếu UXD giữ) chỉ soạn sẵn tin trên máy khách, không gửi dữ liệu về OTTIMO, không gửi ngày/số khách vào bộ đếm (SEC UXD-03).
+- AC2: Given OTTIMO chưa có Zalo OA đã xác thực (ESC-020 L2), Then nút Zalo dùng Zalo của số điện thoại **cơ sở** (không dùng Zalo cá nhân của nhân viên – SEC INT-13); đổi sang OA chỉ bằng thay cấu hình nội dung, không sửa giao diện.
+- AC3: Given bản v1, Then trang **không** có form, không lưu dữ liệu cá nhân của khách và không có link dẫn sang trang OTA.
+- AC4: Given sale/lễ tân tạo đơn trực tiếp cho khách đến từ website, Then chọn được nguồn đúng theo BR-112 để đo G3 khi chưa có US-158 (DOM làm rõ: khách xem website rồi nhắn Zalo tính `website` hay `zalo_phone` – câu hỏi nội bộ ở landing-scope mục 9).
+- AC5 *(v2)*: Given US-155/US-131 đã phát hành, Then nút "Đặt phòng" dẫn tới form/phòng trống thật; Zalo, gọi, email vẫn ở phần Liên hệ.
+- AC6 *(SEC DOM-05)*: Given trang ở v1 hoặc v2, Then **không** có ô đăng ký nhận ưu đãi/bản tin; thay bằng nút "Quan tâm Zalo OA" (khách tự bấm trên Zalo của mình). Mục "Đặt xong, OTTIMO lo phần còn lại" chỉ hứa ưu đãi lần sau "nếu bạn muốn nhận" (SEC UXD-03).
+
+#### US-152 – Song ngữ Việt – Anh – *Must, LP-v1*
+- AC1: Given khách chọn "English", Then mọi chữ (menu, nút, mô tả ảnh, chính sách, câu hỏi, tiêu đề trang) là tiếng Anh đã duyệt, không còn chuỗi tiếng Việt cố định; mỗi ngôn ngữ có địa chỉ riêng để gửi link và để công cụ tìm kiếm nhận ra.
+- AC2: Given trình duyệt dùng tiếng Anh và khách mở lần đầu, Then trang gợi ý chuyển sang EN; khách đã chọn tay thì giữ lựa chọn đó, không tự đổi.
+- AC3: Given INV chọn ESC-020 L1-B, Then áp US-156 AC1 ngay ở v1; chọn L1-A thì v1 không hiện nút tiếng Nga.
+- AC4: Given chữ EN dài hơn bản VI, Then bố cục không vỡ ở màn 360px (chừa thêm 40% – content-guide mục 6).
+
+#### US-153 – Nhận diện, ảnh, tốc độ, truy cập – *Must, LP-v1*
+- AC1: Given trang, Then dùng màu và chữ theo **Brand Guidelines v1.0** (bảng màu 80/15/5 Ivory/Cream/Stone Grey/Ink · Light Oak/Earth Brown · Sage; **không** terracotta; Lora + Be Vietnam Pro + JetBrains Mono tự host) qua token Design System (UXD cập nhật DS v0.4); mọi cặp chữ/nền đạt mức tương phản như design-system mục 2.2; UXD ký duyệt bản dựng.
+- AC2: Given điện thoại tầm trung trên mạng 4G, Then phần nội dung lớn nhất của màn đầu hiện trong **≤ 2,5 giây** ở 75% lượt tải (ngưỡng "tốt" của LCP – https://web.dev/articles/lcp) `[GIẢ ĐỊNH – mục tiêu của PO, QA chọn công cụ đo]`; ảnh ngoài màn đầu chỉ tải khi gần tới vùng nhìn.
+- AC3: Given ảnh gốc từ Drive (PNG 4–60 MB/ảnh), Then trang chỉ dùng bản đã tối ưu, nhiều cỡ theo màn hình; ảnh gốc không vào git (`00-brief/context/landing/README.md`).
+- AC4: Given người dùng chỉ dùng bàn phím hoặc trình đọc màn hình, Then đi qua được mọi menu, nút, thư viện ảnh theo thứ tự hợp lý, có viền focus theo DS, ảnh có mô tả thay thế, không thông tin nào chỉ thể hiện bằng màu (PRD N9); kiểm tự động không còn lỗi mức nghiêm trọng.
+- AC5: Given một khe ảnh thiếu hoặc tải lỗi, Then hiện khung giữ chỗ đúng tỉ lệ; bố cục không vỡ, không hiện biểu tượng ảnh hỏng.
+- AC6: Given chiều rộng 360px, 768px và ≥ 1280px, Then trang hiển thị đúng, không cuộn ngang.
+- AC7 *(SEC UXD-02)*: Given ảnh và e-brochure đưa lên trang, Then không có ảnh cận khóa cửa/bàn phím mã, không thấy số căn cùng cửa sổ nhìn ra phố, không thấy màn hình, giấy tờ, mật khẩu Wi-Fi; ảnh có người đã có đồng ý (ESC-020 L7); PDF đã xóa thông tin ẩn; mã QR Zalo và ảnh bản đồ tự lưu trên máy chủ OTTIMO, bản đồ có ghi công theo giấy phép.
+- AC8 *(SEC C-1 – điều kiện cổng LP-v1)*: Given bản dựng production, When mở bất kỳ trang nào, Then **0** yêu cầu tới tên miền ngoài (font tự host, không bản đồ nhúng, không pixel, không widget chat); không có script/style nội tuyến (trừ JSON-LD); header bảo mật theo ADR-014 mục 1.4 qua kiểm tự động không lỗi; Zalo/WhatsApp/bản đồ chỉ là link khách bấm mới mở.
+
+#### US-154 – Tìm kiếm và xem trước khi chia sẻ link – *Should, LP-v1*
+- AC1: Given mỗi ngôn ngữ, Then có tiêu đề và mô tả trang riêng đã duyệt và ảnh chia sẻ (khe `og-share`); dán link vào Zalo/Facebook thì hiện đúng ảnh, tiêu đề, mô tả của ngôn ngữ đó (giao thức Open Graph – https://ogp.me).
+- AC2: Given công cụ tìm kiếm, Then trang có sơ đồ trang, khai báo các bản ngôn ngữ và dữ liệu có cấu trúc kiểu cơ sở lưu trú (https://schema.org/LodgingBusiness: tên, địa chỉ, điện thoại, ảnh) khớp thông tin đang hiện; bản xem thử/staging gắn `noindex` (hosting-plan 5.1).
+- AC3: Given OTTIMO có hồ sơ trên Google Maps, Then tên – địa chỉ – điện thoại trên trang trùng hồ sơ đó (tạo/sửa hồ sơ Google do INV làm).
+
+#### US-155 – Hộp yêu cầu đặt phòng từ website (v2) – *Should, R3*
+- AC1: Given khách điền form trên website (ngày đến/đi, nhóm căn, số người lớn/trẻ em, tên, cách liên hệ Zalo/SĐT/email, ngôn ngữ, ghi chú) sau khi đọc thông báo xử lý dữ liệu, Then yêu cầu vào hàng chờ "Yêu cầu từ website" trong Desk của `sales_staff` và FD+, có thông báo mới; khách thấy trang cảm ơn kèm thời gian phản hồi dự kiến (tham số).
+- AC2: Given một yêu cầu, When sale bấm "Báo giá" hoặc "Giữ chỗ", Then mở US-080/US-084 điền sẵn dữ liệu; đơn tạo ra có kênh `direct`, nguồn `website` (BR-112); hồ sơ khách qua chống trùng BR-951.
+- AC3: Given gửi tự động hoặc lặp nhiều lần, Then bị chặn theo quy định chống spam của SEC; yêu cầu không thành đơn tự xóa theo hạn SEC đặt.
+- AC4: Given Desk chưa chạy production hoặc chưa qua ESC-001 và kiểm tra SEC cho dữ liệu khách thật (SEC-G1, SEC-G2), Then form không được bật trên trang công khai. Ngoài ra phải đạt SEC **C-2** (hạn xóa cho mọi trạng thái của yêu cầu, kể cả `new`/`in_progress`, và trần tuổi tuyệt đối) và **C-3** (thông báo xử lý dữ liệu có phiên bản đã đăng; ô đồng ý không tích sẵn, chỉ một mục đích "để OTTIMO liên hệ trả lời yêu cầu này"; bộ đếm giới hạn nằm trong DB).
+- AC5 *(SEC ARC-02, ARC-04, ARC-08, DOM-05)*: Given đã chạm trần yêu cầu trong ngày, Then trang báo "đang bận – vui lòng nhắn Zalo hoặc gọi", **không** báo gửi thành công rồi bỏ yêu cầu; phản hồi không cho biết SĐT/email đã từng gửi hay đã có hồ sơ; lời nhắn có số giấy tờ/số thẻ bị từ chối kèm nhắc "không cần gửi giấy tờ ở bước này"; form **không** có ô nhận ưu đãi.
+
+#### US-156 – Tiếng Nga (v2) – *Should, R3*
+- AC1: Given khách chọn "Русский", Then mọi chữ là tiếng Nga đã được người bản ngữ duyệt; chuỗi pháp lý chưa có bản RU duyệt thì hiện bản EN đã duyệt kèm thông báo (content-guide mục 6); chữ Cyrillic hiện đúng font (design-system mục 3).
+
+#### US-157 – Trang thuê tháng (v2) – *Could, R3*
+- AC1: Given khách chọn nhóm căn, kỳ hạn (BR-201) và quốc tịch VN/NN, Then trang hiện ước tính tiền thuê/tháng (BR-203), phí dịch vụ (BR-204), ký quỹ (BR-206), điện nước ước tính (BR-205), ghi rõ "ước tính – báo giá chính thức do sale gửi"; kết quả khớp công cụ báo giá dài hạn US-081 với cùng đầu vào. Dữ liệu thử: căn 301, khách NN, 1 năm → khớp ví dụ BR-203.
+- AC2: Given khách bấm "Gửi yêu cầu báo giá", Then yêu cầu vào hàng chờ US-155 kèm kỳ hạn đã chọn.
+
+#### US-158 – Đo hiệu quả website (v2) – *Should, R3*
+- AC1: Given khách bấm "Đặt phòng", Zalo, gọi hoặc email, Then hệ thống đếm lượt theo kênh và ngôn ngữ, **không** dùng cookie quảng cáo, không lưu dữ liệu cá nhân (SEC duyệt cách đo).
+- AC2: Given báo cáo kênh (US-100), Then có số đơn trực tiếp nguồn `website` và doanh thu phòng của chúng theo tháng; DATA định nghĩa chỉ số trong `metrics-definitions.md`.
+
+#### US-159 – Chủ đầu tư tự sửa nội dung – *Could, R4+*
+- AC1: Given `owner` hoặc `manager` sửa giá "từ", ảnh, câu hỏi thường gặp hoặc thông báo ngắn trong Desk, Then trang công khai cập nhật sau khi bấm "Phát hành"; mọi lần sửa có nhật ký; phần thiếu bản EN thì không phát hành phần đó.
+
+#### US-160 – Đánh giá khách và gợi ý Đà Lạt – *Could, R4+*
+- AC1: Given đánh giá được `owner` chọn đăng (khách đồng ý, hoặc trích nguồn công khai có link), Then trang hiện kèm nguồn; không sửa nội dung đánh giá, không đăng đánh giá không có nguồn.
+- AC2: Given nội dung tab Đà Lạt của app khách (US-117), Then landing dùng chung một nguồn nội dung.
+
 ---
 
 ## 5. Truy vết bổ sung (đợt 3)
@@ -926,10 +1078,12 @@ Trạng thái 16/10/2026: **INV đã quyết cả 13 ESC** theo đề xuất c�
 | ESC-007 (phụ thu, FOC) | US-007 (AC6 tự áp), US-026, US-027, US-029, US-036 |
 | ESC-008 (điện nước, VAT) | US-032, US-039, US-064, US-065, US-122 (INV quyết 16/10 phương án A; loại hình kinh doanh – doanh nghiệp hay hộ kinh doanh `[GIẢ ĐỊNH – chờ INV xác nhận]` – INV gửi, ảnh hưởng loại hóa đơn ở US-039/US-122) |
 | ESC-009 (channel manager) | US-094–US-099, US-139 |
-| ESC-010 (tài khoản) | US-042 (ca tối), US-120, US-121, US-122, US-126, US-141 (kênh gửi mã), US-142 (thiết bị ca tối) |
+| ESC-010 (tài khoản) | US-042 (ca tối), US-120, US-121, US-122, US-126, US-141 (kênh gửi mã), US-142 (thiết bị ca tối) – **phần Zalo mở lại ở ESC-021** |
 | ESC-011 (khóa cửa) | US-128, US-130 |
 | ESC-012 (phạm vi, mục tiêu) | Toàn bộ ranh giới Round; US-131, US-132; câu phụ phạm vi R2 – **INV chọn R-C**: dời US-081, 111, 125, 128, 141; một phần US-012, 086, 108, 119; thêm US-017 AC5a |
 | ESC-013 (môi trường chạy thử) | Không đổi AC; ảnh hưởng CI/khung R2 |
+| ESC-020 (landing page – câu phụ L1–L6, chờ INV) | EP19: L1 → US-152, US-156; L2 → US-151, US-155; L3 → US-147 AC3; L4 → mọi story v1 (ngày lên mạng); L5 → US-146 AC4, US-147, US-148, US-149, US-150; L6 (ảnh) → US-147 AC5, US-153 AC3/AC7. Màu/chữ: INV quyết bằng Brand Guidelines 17/10 → US-153 AC1. Gián tiếp: US-131, US-132 (đích nút "Đặt phòng" ở v2) |
+| ESC-021 (Zalo OA chăm sóc khách – chờ INV) | A/B/C → US-126 (thời điểm nối thật), US-163; mọi phương án → US-161, US-162 (gửi tay khi chưa có Zalo); K1 → US-116 phần (b), US-040; gián tiếp US-034, US-138, US-151 (nút Zalo OA trên landing) |
 
 ## 6. Ghi chú cho các vai
 - **DOM:** AC không còn chép con số quy tắc; "khớp ví dụ BR-xxx" phụ thuộc cột ví dụ của BR – nếu DOM sửa ví dụ, báo PO/QA. PO đồng ý đề xuất rbac ghi chú 34 (CTV không thấy "OTTIMO còn lại").
@@ -951,3 +1105,5 @@ Trạng thái 16/10/2026: **INV đã quyết cả 13 ESC** theo đề xuất c�
 | 17/10/2026 | 2 (Sprint 3) | BUG-R2-034: nguồn "Cần chú ý" cho khai báo/thị thực (US-025 AC4, US-044 AC4, US-050 AC2, US-012 AC1/AC3) làm ở Sprint 3; khung hiển thị Tổng quan ở Sprint 4 – ghi chú dưới 4 story | PO |
 | 17/10/2026 | 2 (Sprint 3) | BUG-R2-033 (b): làm rõ US-043 AC3 (hồ sơ người đi cùng tạo từ giấy tờ, không cần SĐT/email, không tiếp thị; cảnh báo khi vượt số khách) và US-071 AC1 (phạm vi quy tắc liên hệ) – chờ SEC ký phần dữ liệu cá nhân | PO |
 | 17/10/2026 | 2 (Sprint 3) | INV trả lời câu phụ ESC-016: US-056 thêm AC3 (tùy chọn lịch dọn cố định khi lập/sửa HĐ) + AC4 (đơn nhập tay AC5a có tùy chọn qua bước chuyển sang HĐ ở R3, không làm riêng); INV quyết ESC-018: US-046 AC2 ghi định dạng ngày dd/mm/yyyy + quốc tịch ISO alpha-3 | PO |
+| 17/10/2026 | 2 (sau Sprint 3) | FB-INV-001 + INV quyết làm landing page 17/10: thêm **EP19** (US-146…US-160, 15 story: v1 – 7 Must + 2 Should, round "R2 – LP-v1" đề xuất song song Sprint 4; v2 – US-155…158 R3, US-159/160 R4+) kèm AC; nối US-131/US-132 (EP18) làm đích nút "Đặt phòng" ở v2; mở **ESC-020** (câu phụ L1–L5); bảng epic: tổng 160 story, sửa ô Must R2 72 → **71** (khớp các dòng epic). Không đổi story Must R2 nào | PO |
+| 17/10/2026 | 2 (sau Sprint 3 – gộp landing + Zalo OA) | Tin nhắn INV 17/10 + ESC-021 (INT) + review SEC `landing-zalo-SEC.md` + hành trình DOM: thêm **US-161** (lịch nhắn tin + "Tin cần gửi hôm nay", Must R3 Sprint 1), **US-162** (mời/nhắc check-in online + nhắc trước ngày đến kèm vị trí, Must R3), **US-163** (hộp thư Zalo trong Desk, Could R4+); US-126 giữ Should R3 + AC1–AC5 (SEC C-4…C-9); ghi chú lịch US-034, US-116 (tách cảm ơn/đánh giá và mã giảm), US-040, US-138; EP19: US-147 AC1 (tên nhóm công khai), US-149 AC5 (trang quyền riêng tư), US-150 AC3 (chống giả danh), US-151 AC1/AC2 (WhatsApp, Zalo số cơ sở) + AC6 (không ô nhận ưu đãi), US-153 AC7 (lọc ảnh) + AC8 (SEC C-1), US-155 AC4 (C-2, C-3) + AC5; US-147 AC1 theo 4 hạng phòng của e-brochure và tên phòng của Brand Guidelines v1.0; bảng ESC thêm ESC-021, ESC-020 L6 (ảnh). Tổng **163 story**, Must R2 **71**, Must R3 **28** | PO |
