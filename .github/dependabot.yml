@@ -1,5 +1,7 @@
 # OPS choice for dependency updates (ADR-012: Dependabot or Renovate) – Dependabot, free and built-in.
 # github-actions and docker updates also refresh the SHA / digest pins (FB-R1-SEC-OPS-04/07).
+# Groups/ignores per rounds/round-02/outputs/OPS/s2-dependabot.md: framework families move together,
+# runtime majors (Node, PostgreSQL, @types/node) only via an ADR.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,7 +9,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '@types/node' # follows the Node runtime (.nvmrc 22)
+        update-types: ['version-update:semver-major']
     groups:
+      nestjs:
+        patterns: ['@nestjs/*']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      vite:
+        patterns: ['vite', '@vitejs/*', 'vitest', '@vitest/*']
       minor-and-patch:
         update-types: [minor, patch]
   - package-ecosystem: github-actions
@@ -18,7 +29,13 @@ updates:
     directory: /product/infra/docker
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: node # even-numbered LTS only, upgraded via ADR
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker-compose
     directory: /product/infra
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: postgres # major upgrade = data migration, via ADR
+        update-types: ['version-update:semver-major']
