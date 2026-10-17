@@ -1,11 +1,14 @@
 /**
  * Round 6 (MONEY, s3-round5-verification) – an approved FOC through the night sync, on the real PostgreSQL and
  * the real endpoints (DOM 17/10, BR-431/BR-434: "FOC đi theo dòng mới = min(FOC đã duyệt, giá mới)", no
- * re-approval, never more; a dropped night takes its FOC with it; B8 to other dates → the new nights in order):
- * - (A) FOC 300k → B8 move to other dates → the FOC is on the first new night; PATCH people → still 300k once;
- *   booking value = rooms − 300k; the B10 fee never exceeds it.
+ * re-approval, never more). Where the FOC goes when the nights change is decided by DATE (DOM 17/10, S4-14,
+ * rounds 7/8): a kept date keeps its FOC; dropped[i] → added[i] (ascending, nights without FOC counted);
+ * a dropped date without a counterpart takes its FOC with it; room and extra-person FOC alike.
+ * - (A) FOC on night 3 → B8 to other dates (k → k) → PATCH people → overlapping move (FOC stays on its date) →
+ *   B10 fee ≤ booking value → B16.
  * - (B) FOC 200k on a night of an extension child booking → B14 property fault (resyncs parent + child) → folio
  *   total unchanged → B16 → the refund basis is the net night.
+ * - Round 8: c2, c4, d4, i, g (s3-round7-verification) and BR-434-02/03 + g2 (br-examples, DOM S4-14).
  * Fake clock and FAKE data only.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -190,7 +193,7 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
   const value = (b: Booking, rid = b.id) =>
     db.withContext(t.ctx(), (tx) => fa.app.get(FolioService).bookingValueVnd(tx, b.folioId, rid));
 
-  it('(A) FOC on night 3 → B8 to other dates → new night 3 (k → k, min) → PATCH people → overlapping move → B10 fee ≤ value → B16 drops night 3 with its FOC', async () => {
+  it('(A) FOC on night 3 → B8 to other dates → new night 3 (k → k, min) → PATCH people → overlapping move keeps the FOC on its date → B10 fee ≤ value → B16 drops a night without FOC', async () => {
     await at('2026-10-20T10:00:00+07:00');
     await vacant('101');
     const b = await create({
@@ -254,21 +257,24 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     );
     expect(patch.statusCode, patch.body).toBe(200);
     await expectFocOnNight(3);
-    // Overlapping move (17–20 → 18–21): k → k as well – night 3 is now 20/12.
+    // Overlapping move (17–20 → 18–21, DOM S4-14): 19/12 is still in the stay, so it keeps its FOC (now night 2);
+    // the dropped 17/12 (no FOC) maps to the added 20/12 – nothing to carry. The 19/12 line is not re-posted.
+    const before19 = (await rooms()).find((l) => l.serviceDate === '2026-12-19')!;
     const mv2 = await act(b.id, 'move', {
       arrivalDate: '2026-12-18',
       departureDate: '2026-12-21',
       reasonCode: 'guest_request',
     });
     expect(mv2.statusCode, mv2.body).toBe(200);
-    const r2 = await expectFocOnNight(3);
-    expect(r2[2]!.serviceDate).toBe('2026-12-20');
+    const r2 = await expectFocOnNight(2);
+    expect(r2.map((l) => l.serviceDate)).toEqual(['2026-12-18', '2026-12-19', '2026-12-20']);
+    expect(r2[1]!.id).toBe(before19.id);
     // B10 on the eve (0 % tier): the fee never exceeds the booking value.
     await at('2026-12-17T10:00:00+07:00');
     const quote = (await act(b.id, 'cancel', { reasonCode: 'found_other', dryRun: true })).json()
       .cancellation as { retainedVnd: number };
     expect(quote.retainedVnd).toBeLessThanOrEqual(await value(b));
-    // Check in, pay, then B16 dropping night 3: its FOC goes with it, nothing moves to another night.
+    // Check in, pay, then B16 dropping night 3 (20/12, no FOC): the FOC stays on 19/12, nothing moves.
     await at('2026-12-18T15:00:00+07:00');
     const due = (await folio(b)).totals.balanceDueVnd as number;
     if (due > 0) {
@@ -289,11 +295,9 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     });
     expect(ed.statusCode, ed.body).toBe(200);
     expect((await rooms()).map((l) => l.serviceDate)).toEqual(['2026-12-18', '2026-12-19']);
-    expect(await focs()).toEqual([]);
-    // BR-428 base = the dropped night NET of its FOC.
-    expect(ed.json().refundVnd).toBe(
-      applyPct(r2[2]!.amountVnd - Math.min(300_000, r2[2]!.amountVnd), 50, 1000),
-    );
+    await expectFocOnNight(2);
+    // BR-428 base = the dropped night, which carries no FOC.
+    expect(ed.json().refundVnd).toBe(applyPct(r2[2]!.amountVnd, 50, 1000));
   });
 
   it('(B) FOC 200k on an extension child night → B14 property fault keeps the folio total → B16 refund on the net night', async () => {
@@ -359,5 +363,219 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     // DOM 17/10: a dropped night takes its FOC with it (no FOC moved anywhere else).
     expect(await childLive('foc')).toEqual([]);
     expect(await childLive('room')).toEqual([]);
+  });
+  // ───────────── Round 8 (s3-round7-verification; DOM 17/10 S4-14): FOC by date when the nights change ─────────────
+
+  const direct = async (room: string, from: string, to: string, adults = 2) => {
+    const body = (amountVnd: number) => ({
+      roomId: ids.rooms[room],
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      adults,
+      bookerGuestId: guest,
+      paymentModel: 'direct',
+      arrivalDate: from,
+      departureDate: to,
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd },
+    });
+    let res = await c.fd!.send('POST', url('/reservations'), body(100_000));
+    if (res.statusCode === 422 && res.json().code === 'DEPOSIT_INSUFFICIENT') {
+      res = await c.fd!.send('POST', url('/reservations'), body(res.json().depositRequiredVnd));
+    }
+    expect(res.statusCode, res.body).toBe(201);
+    return res.json() as Booking;
+  };
+  /** Live lines of a category as [date, amount], by date. */
+  const liveBy = async (b: Booking, category: string) =>
+    (await liveLines(b))
+      .filter((l) => l.category === category)
+      .sort((x, y) => String(x.serviceDate).localeCompare(String(y.serviceDate)));
+  /** Live reductions as [date of the reduced line, category of the reduced line, amount]. */
+  const reductions = async (b: Booking) => {
+    const all = (await folio(b)).lines as Line[];
+    const byId = new Map(all.map((l) => [l.id, l]));
+    return (await liveLines(b))
+      .filter((l) => l.category === 'foc' || l.category === 'discount')
+      .map((r) => {
+        const rel = byId.get(r.relatedLineId ?? '');
+        return [rel?.serviceDate, rel?.category, -r.amountVnd] as const;
+      })
+      .sort((x, y) => `${x[0]}${x[1]}`.localeCompare(`${y[0]}${y[1]}`));
+  };
+  const moveTo = async (b: Booking, body: Record<string, unknown>) => {
+    const r = await act(b.id, 'move', { reasonCode: 'guest_request', ...body });
+    expect(r.statusCode, r.body).toBe(200);
+  };
+  const totalOf = async (b: Booking) => (await folio(b)).totals.totalVnd as number;
+
+  it("(c2) B7 shorter at the front 16–20/11 → 18–20/11: the kept night keeps its 500k FOC, the dropped night's 100k FOC is cancelled – 916.000", async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('201', '2026-11-16', '2026-11-20');
+    const r0 = await liveBy(b, 'room');
+    await requestFoc(b, r0[2]!.id, 500_000); // 18/11
+    await requestFoc(b, r0[0]!.id, 100_000); // 16/11 (dropped)
+    await moveTo(b, { arrivalDate: '2026-11-18', departureDate: '2026-11-20' });
+    expect((await liveBy(b, 'room')).map((l) => [l.serviceDate, l.amountVnd])).toEqual([
+      ['2026-11-18', 708_000],
+      ['2026-11-19', 708_000],
+    ]);
+    expect(await reductions(b)).toEqual([['2026-11-18', 'room', 500_000]]);
+    expect(await totalOf(b)).toBe(916_000);
+    expect(await value(b)).toBe(916_000);
+  });
+
+  it('(c4) B7 arrival one day later 07–10/12 → 08–10/12: the FOC of the dropped night goes with it – 1.500.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('103', '2026-12-07', '2026-12-10');
+    const r0 = await liveBy(b, 'room');
+    await requestFoc(b, r0[0]!.id, 750_000);
+    await moveTo(b, { arrivalDate: '2026-12-08', departureDate: '2026-12-10' });
+    expect(await reductions(b)).toEqual([]);
+    expect(await totalOf(b)).toBe(1_500_000);
+    expect(await value(b)).toBe(1_500_000);
+  });
+
+  it('(d4) B7 two nights added at the front 26–29/11 → 24–29/11: the Saturday keeps its 863k FOC – 3.113.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('102', '2026-11-26', '2026-11-29');
+    const r0 = await liveBy(b, 'room');
+    expect(r0.map((l) => l.amountVnd)).toEqual([750_000, 863_000, 863_000]);
+    const ap = await requestFoc(b, r0[2]!.id, 863_000); // Sat 28/11
+    await moveTo(b, { arrivalDate: '2026-11-24', departureDate: '2026-11-29' });
+    expect(await reductions(b)).toEqual([['2026-11-28', 'room', 863_000]]);
+    expect(await totalOf(b)).toBe(3_113_000);
+    const [link] = await q<{ approval_request_id: string }>(
+      `SELECT l.approval_request_id FROM folio_line l WHERE l.folio_id = $1 AND l.category = 'foc'
+          AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+      [b.folioId],
+    );
+    expect(link!.approval_request_id).toBe(ap);
+  });
+
+  it('(i) B7 room change on the same dates: 0 lines re-posted; a pending FOC approved afterwards is posted', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('101', '2026-11-23', '2026-11-27');
+    const r0 = await liveBy(b, 'room');
+    await requestFoc(b, r0[2]!.id, 400_000);
+    const pending = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines/${r0[0]!.id}/foc`), {
+      kind: 'foc',
+      amountVnd: 100_000,
+      reasonCode: 'service_recovery',
+    });
+    expect(pending.statusCode, pending.body).toBe(201);
+    const count = async () =>
+      Number(
+        (
+          await q<{ n: string }>('SELECT count(*)::text AS n FROM folio_line WHERE folio_id = $1', [
+            b.folioId,
+          ])
+        )[0]!.n,
+      );
+    const before = await count();
+    await moveTo(b, { roomId: ids.rooms['203'] });
+    expect(await count()).toBe(before);
+    expect((await approve('mgr', pending.json().id)).statusCode).toBe(200);
+    const [pl] = await q<{ line_state: string }>(
+      `SELECT line_state FROM folio_line WHERE approval_request_id = $1`,
+      [pending.json().id],
+    );
+    expect(pl!.line_state).toBe('posted');
+    expect(await totalOf(b)).toBe(4 * 667_000 - 400_000 - 100_000);
+  });
+
+  it('(g) move with no date in common 02–06/11 → 16–20/11: the room FOC AND the extra-person FOC of night 3 follow to new night 3 – 3.818.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('302', '2026-11-02', '2026-11-06', 4); // standard 3 → 1 extra adult
+    const rooms0 = await liveBy(b, 'room');
+    const extra0 = await liveBy(b, 'extra_person');
+    expect(extra0.map((l) => l.amountVnd)).toEqual([150_000, 150_000, 150_000, 150_000]);
+    await requestFoc(b, rooms0[2]!.id, 300_000);
+    await requestFoc(b, extra0[2]!.id, 150_000);
+    await moveTo(b, { arrivalDate: '2026-11-16', departureDate: '2026-11-20' });
+    expect(await reductions(b)).toEqual([
+      ['2026-11-18', 'extra_person', 150_000],
+      ['2026-11-18', 'room', 300_000],
+    ]);
+    expect(await totalOf(b)).toBe(3_818_000);
+  });
+
+  it('(BR-434-02) B7 overlapping shift 17–20/12 → 18–21/12, FOC 911k on Sat 19/12: the kept date keeps it (no slide to Sun 20/12) – 1.703.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('202', '2026-12-17', '2026-12-20');
+    const r0 = await liveBy(b, 'room');
+    expect(r0.map((l) => l.amountVnd)).toEqual([792_000, 911_000, 911_000]);
+    const ap = await requestFoc(b, r0[2]!.id, 911_000); // Sat 19/12
+    const foc0 = (await liveLines(b)).find((l) => l.category === 'foc')!;
+    await moveTo(b, { arrivalDate: '2026-12-18', departureDate: '2026-12-21' });
+    const r1 = await liveBy(b, 'room');
+    expect(r1.map((l) => [l.serviceDate, l.amountVnd])).toEqual([
+      ['2026-12-18', 911_000],
+      ['2026-12-19', 911_000],
+      ['2026-12-20', 792_000],
+    ]);
+    // Kept dates with an unchanged price: neither the 19/12 line nor its FOC is re-posted.
+    expect(r1[0]!.id).toBe(r0[1]!.id);
+    expect(r1[1]!.id).toBe(r0[2]!.id);
+    expect((await liveLines(b)).find((l) => l.category === 'foc')!.id).toBe(foc0.id);
+    expect(await reductions(b)).toEqual([['2026-12-19', 'room', 911_000]]);
+    const [link] = await q<{ approval_request_id: string }>(
+      'SELECT approval_request_id FROM folio_line WHERE id = $1',
+      [foc0.id],
+    );
+    expect(link!.approval_request_id).toBe(ap);
+    expect(await totalOf(b)).toBe(1_703_000);
+    expect(await value(b)).toBe(1_703_000);
+  });
+
+  it('(BR-434-03) B7 shift + one more night 17–20/12 → 18–22/12, FOC 792k on Thu 17/12 (dropped) → the first added date 20/12 – 2.614.000', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('203', '2026-12-17', '2026-12-20'); // 203 = same list price as 202 (792.000)
+    const r0 = await liveBy(b, 'room');
+    expect(r0.map((l) => l.amountVnd)).toEqual([792_000, 911_000, 911_000]);
+    const ap = await requestFoc(b, r0[0]!.id, 792_000); // Thu 17/12
+    await moveTo(b, { arrivalDate: '2026-12-18', departureDate: '2026-12-22' });
+    expect((await liveBy(b, 'room')).map((l) => [l.serviceDate, l.amountVnd])).toEqual([
+      ['2026-12-18', 911_000],
+      ['2026-12-19', 911_000],
+      ['2026-12-20', 792_000],
+      ['2026-12-21', 792_000],
+    ]);
+    expect(await reductions(b)).toEqual([['2026-12-20', 'room', 792_000]]);
+    const [moved] = await q<{ approval_request_id: string; discount_vnd: string }>(
+      `SELECT l.approval_request_id, n.discount_vnd::text
+         FROM folio_line l JOIN stay_night n ON n.reservation_id = l.reservation_id AND n.stay_date = '2026-12-20'
+          AND n.night_state <> 'void'
+        WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+      [b.folioId],
+    );
+    expect(moved).toEqual({ approval_request_id: ap, discount_vnd: '792000' });
+    expect(await totalOf(b)).toBe(2_614_000);
+    expect(await value(b)).toBe(2_614_000);
+  });
+
+  it('(g2) overlapping shift 07–10/12 → 08–11/12: the room FOC AND the extra-person FOC of the kept 09/12 stay on 09/12', async () => {
+    await at('2026-10-20T10:00:00+07:00');
+    const b = await direct('302', '2026-12-07', '2026-12-10', 4); // standard 3 → 1 extra adult
+    const rooms0 = await liveBy(b, 'room');
+    const extra0 = await liveBy(b, 'extra_person');
+    expect(extra0.map((l) => l.amountVnd)).toEqual([150_000, 150_000, 150_000]);
+    await requestFoc(b, rooms0[2]!.id, 300_000); // 09/12 = night 3
+    await requestFoc(b, extra0[2]!.id, 150_000);
+    await moveTo(b, { arrivalDate: '2026-12-08', departureDate: '2026-12-11' });
+    expect(await reductions(b)).toEqual([
+      ['2026-12-09', 'extra_person', 150_000],
+      ['2026-12-09', 'room', 300_000],
+    ]);
+    const rooms1 = await liveBy(b, 'room');
+    const extra1 = await liveBy(b, 'extra_person');
+    expect(rooms1.map((l) => l.serviceDate)).toEqual(['2026-12-08', '2026-12-09', '2026-12-10']);
+    expect(extra1.map((l) => l.serviceDate)).toEqual(['2026-12-08', '2026-12-09', '2026-12-10']);
+    // The kept 09/12 lines are untouched (same price).
+    expect(rooms1[1]!.id).toBe(rooms0[2]!.id);
+    expect(extra1[1]!.id).toBe(extra0[2]!.id);
+    const sum = (ls: Line[]) => ls.reduce((a, l) => a + l.amountVnd, 0);
+    expect(await totalOf(b)).toBe(sum(rooms1) + sum(extra1) - 450_000);
   });
 });

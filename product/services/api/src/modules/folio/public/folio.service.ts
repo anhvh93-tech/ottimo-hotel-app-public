@@ -287,6 +287,33 @@ export function otaCoveredOf(
 }
 
 /**
+ * BR-434 when the set of nights changes (DOM 17/10, S4-14 – by DATE, whatever the flow: B7, B8, B16, extension;
+ * room FOC and extra-person FOC alike): where the FOC of an old night goes.
+ * - a date in both ranges keeps its own FOC (→ itself);
+ * - dropped = old dates not in the new range, added = new dates not in the old range, both ascending, nights
+ *   WITHOUT FOC counted too: dropped[i] → added[i];
+ * - a dropped date without a counterpart is not in the map (its FOC is cancelled).
+ * A move with no date in common is therefore night k → night k; a room change on the same dates maps every
+ * date to itself.
+ */
+export function focDateMap(
+  oldDates: readonly string[],
+  newDates: readonly string[],
+): Map<string, string> {
+  const before = new Set(oldDates);
+  const after = new Set(newDates);
+  const map = new Map<string, string>();
+  for (const d of before) if (after.has(d)) map.set(d, d);
+  const dropped = [...before].filter((d) => !after.has(d)).sort();
+  const added = [...after].filter((d) => !before.has(d)).sort();
+  dropped.forEach((d, i) => {
+    const to = added[i];
+    if (to !== undefined) map.set(d, to);
+  });
+  return map;
+}
+
+/**
  * Σ of the posted lines and succeeded receipts (erd 4.6: balances are computed, never stored). A reversed
  * receipt (`reversed`) and its reversal row (`reversal_of_id`) are bookkeeping only – neither counts (G-12).
  * Refunds are their own negative rows: they reduce the credit, not the receipts (A-34). `ota_collect` pays only
@@ -1228,45 +1255,46 @@ export class FolioService implements FolioStaySync {
     }
 
     // Room nights. Approved FOC/discounts FOLLOW the re-posted nights (DOM 17/10, BR-431/BR-434: min(approved,
-    // new rate), no re-approval, never more than approved; decision-log 17/10 night index rule):
-    // - a move of the stay (B7/B8 – `focFollowsNightIndex`): night k of the old stay → night k of the new stay,
-    //   by date, nights without FOC counted too (round 7: overlapping moves follow k → k as well) – every old
-    //   night line is re-posted;
-    // - any other sync (B13/B14/B16/B9a/people): a night keeps its own FOC when re-priced; a dropped night
-    //   takes its FOC with it.
+    // new rate), no re-approval, never more than approved), by DATE for every sync (S4-14, `focDateMap`): a kept
+    // date keeps its FOC (its line untouched when the price is unchanged), dropped[i] → added[i], a dropped date
+    // without a counterpart takes its FOC with it.
     const target = new Map(stay.nights.map((n) => [n.stayNightId, n]));
     const roomLines = live
       .filter((x) => x.category === 'room' && x.stay_night_id)
       .sort((x, y) => (x.service_date ?? '').localeCompare(y.service_date ?? ''));
-    const byIndex = stay.focFollowsNightIndex === true;
+    const newNights = [...stay.nights].sort((x, y) => x.date.localeCompare(y.date));
+    const goesTo = focDateMap(
+      roomLines.map((l) => l.service_date ?? ''),
+      newNights.map((n) => n.date),
+    );
     const kept = new Set<string>();
+    // Reductions of the SAME stay night (its discount is still in `roomRevenueVnd`, see below).
     const ownReductions = new Map<string, LiveLine[]>();
-    const byRank: LiveLine[][] = [];
+    // Reductions to carry, by the date of the new line they go to.
+    const carried = new Map<string, LiveLine[]>();
     for (const l of roomLines) {
       const night = target.get(l.stay_night_id as string);
-      if (!byIndex) {
-        const reduced = this.reductionOf(l, live);
-        if (
-          night &&
-          !kept.has(night.stayNightId) &&
-          l.amount_vnd === night.roomRevenueVnd + reduced
-        ) {
-          kept.add(night.stayNightId);
-          continue;
-        }
+      if (
+        night &&
+        !kept.has(night.stayNightId) &&
+        l.amount_vnd === night.roomRevenueVnd + this.reductionOf(l, live)
+      ) {
+        kept.add(night.stayNightId);
+        continue;
       }
       const reductions = this.reductionsOf(l, live);
-      byRank.push(reductions);
       result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
-      if (night && reductions.length) {
+      if (!reductions.length) continue;
+      if (night) {
         ownReductions.set(night.stayNightId, [
           ...(ownReductions.get(night.stayNightId) ?? []),
           ...reductions,
         ]);
       }
+      const to = goesTo.get(l.service_date ?? '');
+      if (to !== undefined) carried.set(to, [...(carried.get(to) ?? []), ...reductions]);
     }
-    const newNights = [...stay.nights].sort((x, y) => x.date.localeCompare(y.date));
-    for (const [rank, n] of newNights.entries()) {
+    for (const n of newNights) {
       if (kept.has(n.stayNightId)) continue;
       // `roomRevenueVnd` was read with the night's OWN discount still on it (gross − discount); the reversal
       // above took that discount back, so the gross = net + that night's own reductions (0 for a new night).
@@ -1297,7 +1325,7 @@ export class FolioService implements FolioStaySync {
         lineAmountVnd: gross,
         serviceDate: n.date,
         stayNightId: n.stayNightId,
-        reductions: byIndex ? (byRank[rank] ?? []) : own,
+        reductions: carried.get(n.date) ?? [],
         who,
         now,
       });
@@ -1314,6 +1342,8 @@ export class FolioService implements FolioStaySync {
       if (fee > 0) wanted.set(n.date, fee);
       countOf.set(n.date, n.extraPersonCount ?? stay.extraGuestCount);
     }
+    // FOC/discounts on the fee follow the same date map as the nights (BR-434 S4-14: "FOC phụ thu người cùng
+    // cách"): a kept date keeps its FOC, dropped[i] → added[i], no counterpart → cancelled.
     const keptDates = new Set<string>();
     const carriedFees = new Map<string, LiveLine[]>();
     for (const l of live.filter((x) => x.category === 'extra_person')) {
@@ -1322,10 +1352,11 @@ export class FolioService implements FolioStaySync {
         keptDates.add(d);
         continue;
       }
-      result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
       const reductions = this.reductionsOf(l, live);
-      if (wanted.has(d) && reductions.length) {
-        carriedFees.set(d, [...(carriedFees.get(d) ?? []), ...reductions]);
+      result.reversedVnd += await this.reverseWithReductions(tx, l, live, by, now);
+      const to = goesTo.get(d);
+      if (reductions.length && to !== undefined) {
+        carriedFees.set(to, [...(carriedFees.get(to) ?? []), ...reductions]);
       }
     }
     for (const [d, fee] of wanted) {

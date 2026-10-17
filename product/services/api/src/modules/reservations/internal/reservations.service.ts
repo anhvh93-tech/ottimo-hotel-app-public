@@ -2859,10 +2859,11 @@ export class ReservationsService {
       ],
       postpone ? 'reservation.postponed' : 'reservation.moved',
     );
-    // BR-434 (BE-B round 7): a moved stay carries its FOC night k → night k.
+    // BR-434 (DOM 17/10, S4-14): where an approved FOC goes is decided by the folio sync from the DATES (old
+    // live night lines vs the new nights) – the same rule for every flow, nothing to pass from here.
     await this.money.resynced(
       tx,
-      { ...(await this.confirmedStay(tx, after)), focFollowsNightIndex: true },
+      await this.confirmedStay(tx, after),
       ctx.actor.userId,
       ctx.requestId,
     );

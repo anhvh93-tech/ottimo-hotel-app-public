@@ -4819,6 +4819,150 @@
       }
     },
     {
+      "id": "BR-434-02",
+      "br": "BR-434",
+      "case": "(v0.3.4, S4-14) Dời chồng ngày giữ số đêm: căn 202 17–20/12 → 18–21/12, FOC 911.000 trên T7 19/12 – đêm còn trong đơn giữ FOC của nó, không trượt sang CN 20/12",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "flow": "B7",
+        "roomNo": "202",
+        "channel": "direct",
+        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
+        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-21" },
+        "nightRatesVnd": {
+          "2026-12-17": 792000,
+          "2026-12-18": 911000,
+          "2026-12-19": 911000,
+          "2026-12-20": 792000
+        },
+        "focApprovedByDateVnd": { "2026-12-19": 911000 }
+      },
+      "expected": {
+        "keptDates": ["2026-12-18", "2026-12-19"],
+        "droppedDates": ["2026-12-17"],
+        "addedDates": ["2026-12-20"],
+        "focByDateVnd": { "2026-12-19": 911000 },
+        "roomPayableVnd": 1703000,
+        "wrongWholeStayKtoKVnd": 1822000
+      }
+    },
+    {
+      "id": "BR-434-03",
+      "br": "BR-434",
+      "case": "(v0.3.4, S4-14) Dời và thêm đêm: căn 202 17–20/12 → 18–22/12, FOC 792.000 trên T5 17/12 (đêm bỏ) → sang 20/12 (đêm thêm đầu tiên); khách mua thêm đêm không mất FOC",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "flow": "B7",
+        "roomNo": "202",
+        "channel": "direct",
+        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
+        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-22" },
+        "nightRatesVnd": {
+          "2026-12-17": 792000,
+          "2026-12-18": 911000,
+          "2026-12-19": 911000,
+          "2026-12-20": 792000,
+          "2026-12-21": 792000
+        },
+        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+      },
+      "expected": {
+        "keptDates": ["2026-12-18", "2026-12-19"],
+        "droppedDates": ["2026-12-17"],
+        "addedDates": ["2026-12-20", "2026-12-21"],
+        "focByDateVnd": { "2026-12-20": 792000 },
+        "roomPayableVnd": 2614000,
+        "wrongPerDateCancelVnd": 3406000
+      }
+    },
+    {
+      "id": "BR-434-04",
+      "br": "BR-434",
+      "case": "(v0.3.4, S4-14) Khách đến muộn 1 ngày: căn 202 17–20/12 → 18–20/12, FOC 792.000 trên 17/12 – đêm bỏ không có đêm thêm thay → FOC hủy",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "flow": "B7",
+        "roomNo": "202",
+        "channel": "direct",
+        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
+        "to": { "arrivalDate": "2026-12-18", "departureDate": "2026-12-20" },
+        "nightRatesVnd": {
+          "2026-12-17": 792000,
+          "2026-12-18": 911000,
+          "2026-12-19": 911000
+        },
+        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+      },
+      "expected": {
+        "keptDates": ["2026-12-18", "2026-12-19"],
+        "droppedDates": ["2026-12-17"],
+        "addedDates": [],
+        "focByDateVnd": {},
+        "focCancelledVnd": 792000,
+        "roomPayableVnd": 1822000
+      }
+    },
+    {
+      "id": "BR-434-05",
+      "br": "BR-434",
+      "case": "(v0.3.4, S4-14) Dời hẳn sang ngày không trùng, ít đêm hơn: căn 202 17–20/12 → 10–12/12, FOC 792.000 trên đêm 1 (17/12) → đêm 1 mới (10/12); đêm thứ 3 không có đêm tương ứng",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "flow": "B8",
+        "roomNo": "202",
+        "channel": "direct",
+        "from": { "arrivalDate": "2026-12-17", "departureDate": "2026-12-20" },
+        "to": { "arrivalDate": "2026-12-10", "departureDate": "2026-12-12" },
+        "nightRatesVnd": {
+          "2026-12-10": 792000,
+          "2026-12-11": 911000,
+          "2026-12-17": 792000,
+          "2026-12-18": 911000,
+          "2026-12-19": 911000
+        },
+        "focApprovedByDateVnd": { "2026-12-17": 792000 }
+      },
+      "expected": {
+        "keptDates": [],
+        "droppedDates": ["2026-12-17", "2026-12-18", "2026-12-19"],
+        "addedDates": ["2026-12-10", "2026-12-11"],
+        "focByDateVnd": { "2026-12-10": 792000 },
+        "roomPayableVnd": 911000
+      }
+    },
+    {
+      "id": "BR-434-06",
+      "br": "BR-434",
+      "case": "(v0.3.4, FOC-7) B14 khách yêu cầu đổi phòng khi đang ở: đêm 202 giá 792.000 FOC 100% bù sự cố, đổi sang 302 (917.000) → FOC 792.000, khách trả 125.000. B7 đổi căn trước nhận phòng giữ giá đêm (BR-429) → FOC giữ, không dòng nào đổi",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "flow": "B14",
+        "cause": "guest_request",
+        "oldRoomNo": "202",
+        "newRoomNo": "302",
+        "oldNightRateVnd": 792000,
+        "newNightRateVnd": 917000,
+        "focApprovedVnd": 792000
+      },
+      "expected": {
+        "focVnd": 792000,
+        "roomPayableVnd": 125000,
+        "b7SameDatesFocVnd": 792000,
+        "b7SameDatesRoomPayableVnd": 0,
+        "b7SameDatesLinesReposted": 0
+      }
+    },
+    {
       "id": "BR-435-01",
       "br": "BR-435",
       "case": "Doanh thu phòng 186,4 tr → ngưỡng FOC 5,59 tr",

@@ -183,3 +183,24 @@ Kết quả (DB `ottimo_test_beb` tạo lại):
 Kết quả (DB `ottimo_test_beb` tạo lại):
 - toàn repo xanh: format:check, lint + typecheck, build, test (turbo 12/12; api 58 tệp / 2.173 ca).
 - `drizzle-kit generate`: không có thay đổi.
+
+## 13. Sửa đợt 8 (`reviews/s3-round7-verification.md`) – FOC theo NGÀY khi tập đêm đổi (BR-434, DOM 17/10 S4-14)
+
+Bản đầu của đợt này làm theo diễn giải [GIẢ ĐỊNH] của ORC: `wholeStayMove`, tức dời k→k khi không trùng ngày hoặc giữ số đêm. DOM đã chốt lại BR-434 (decision-log 17/10, br-examples BR-434-02…06), nên bản cuối làm theo DOM và bỏ hẳn cờ.
+
+| ID | Trạng thái mới | Phản hồi |
+|---|---|---|
+| MONEY – `move()` bật k→k cho mọi lần dời (c2, c4, d4, i/E3) và dời chồng ngày (BR-434-02) | Done | **Bỏ** `ConfirmedStay.focFollowsNightIndex`, `wholeStayMove` và `byRank`. Nay `move()` (tệp của BE-A) chỉ gọi `money.resynced(...)`, không truyền gì thêm.<br>Bước đồng bộ folio tự suy quy tắc **theo ngày** cho mọi luồng (B7, B8, B16, gia hạn, đổi số khách), dựa trên ngày của các dòng đêm còn sống so với các đêm mới. Hàm thuần `focDateMap` (folio.service.ts):<br>• **Ngày còn giữ**: giữ FOC của nó, = min(F, giá mới). Giá không đổi thì dòng đêm và dòng FOC không bị đụng tới.<br>• **Ngày bỏ** (tăng dần, tính cả đêm không có FOC) → **ngày thêm** (tăng dần): đêm bỏ thứ i → đêm thêm thứ i, lấy min.<br>• Đêm bỏ không có đêm thêm tương ứng: FOC hủy theo.<br>• Dời hẳn sang ngày không trùng thì tự thành k→k. Đổi căn cùng ngày, cùng giá: không đảo dòng nào. |
+| E4 / ca g – FOC phụ thu người | Done | Dòng `extra_person` dùng **cùng** bảng ngày với dòng đêm. Ngày còn giữ: giữ FOC. Ngày bỏ thứ i → dòng phụ thu của ngày thêm thứ i, = min(F, phụ thu mới). Không có ngày tương ứng thì FOC hủy. |
+| Test (DB thật, `foc-resync.test.ts`, 10 ca) | Done | • (A) sửa: dời chồng 17–20 → 18–21/12, FOC trên 19/12 **ở lại 19/12**. Dòng 19/12 không bị ghi lại, giữ approval và discount của đêm. B16 bỏ 20/12 (đêm không có FOC) → FOC vẫn ở 19/12; tiền hoàn tính trên nguyên giá đêm 20/12.<br>• Mới – BR-434-02: căn 202, 17–20/12 → 18–21/12, FOC 911k trên thứ Bảy 19/12 → ở lại; 2 dòng đêm và dòng FOC giữ nguyên id; tổng **1.703.000**.<br>• Mới – BR-434-03: căn 203 (cùng giá niêm yết 792k với 202), 17–20/12 → 18–22/12, FOC 792k trên 17/12 → sang 20/12; discount 20/12 = 792.000, giữ approval; tổng **2.614.000**.<br>• Mới – g2: căn 302, 4 người lớn, 07–10/12 → 08–11/12; FOC phòng 300k và FOC phụ thu 150k trên 09/12 đều ở lại 09/12; dòng 09/12 không bị ghi lại.<br>• Giữ nguyên, vẫn xanh, tổng không đổi: c2 916.000, c4 1.500.000, d4 3.113.000, i (0 dòng bị đảo, FOC chờ duyệt → `posted`), g 3.818.000, (B).<br>Unit (`be-b-s3-units`): `focDateMap` chạy theo dữ liệu mẫu BR-434-02…05 (ngày giữ, ngày bỏ, ngày thêm, FOC theo ngày, số khách trả), thêm ca đổi căn cùng ngày và ca gia hạn. |
+| Chạy lại tệp tái hiện của bên kiểm | Done | Mỗi tệp chạy trên một DB sạch riêng.<br>• `r7/foc/foc-move-r7.test.ts`: 18/21 xanh.<br>&nbsp;&nbsp;– **(b)** đỏ do **kỳ vọng đổi theo DOM**: bên kiểm chờ k→k (FOC sang CN 20/12 750k, tổng 1.726.000). Thực tế FOC ở lại thứ Bảy 19/12 863k, tổng **1.613.000**, đúng mẫu BR-434-02. Cần sửa kỳ vọng của ca này.<br>&nbsp;&nbsp;– **(b-back)** nay **xanh** (đợt trước đỏ vì S4-02): FOC không rời 19/12 nên không còn min theo giá hiện tại.<br>&nbsp;&nbsp;– **(g2)** chỉ để tham khảo: bên kiểm chờ k→k (26/11), thực tế cả FOC phòng lẫn FOC phụ thu ở lại ngày giữ 25/11. Đúng quy tắc DOM.<br>&nbsp;&nbsp;– (j) A5 và (m) S4-02: không đổi, vẫn thuộc Sprint 4.<br>• `r7/k2k-audit/k2k.test.ts`: 6/6 xanh, số không đổi so với bản đầu: E1 1.334.000; E1b 911.000; E2 2.926.000; E2b 2.495.000; E3 0 dòng bị đảo, FOC chờ duyệt → `posted`, tổng 2.276.000; E4 1 dòng FOC phụ thu còn sống. |
+| S4-02, giá trị đơn tính hoa hồng sau khi dời, A5, pipelining upload | Sprint 4 | Theo ORC: ngoài phạm vi đợt này. |
+
+Ghi chú cho BE-A: `move()` lại đổi trong đợt này. Không còn cờ nào truyền sang folio: khối trước `this.money.resynced(...)` nay chỉ gọi `confirmedStay(...)`. Trường `focFollowsNightIndex` đã bị xóa khỏi `ConfirmedStay`.
+
+Kết quả (DB `ottimo_test_beb` tạo lại):
+- toàn repo xanh: format:check, lint + typecheck, build, test (turbo 12/12; api 58 tệp / 2.187 ca).
+- `drizzle-kit generate`: không có thay đổi. Không thêm migration.
+- Lỗi chập chờn đã biết: ca "runs a job now…" ở `http-foundation.test.ts` đỏ 1 lần trong bản đầu, chạy lại thì xanh.
+  - Nguyên nhân khả dĩ: `dev_clock` là một dòng dùng chung cho mọi tiến trình. Các tệp `approvals-audit`, `architecture`, `platform` đổi đồng hồ song song, nên slot của job có thể đổi giữa hai lần gọi.
+  - Lỗi có từ trước, không do đợt này gây ra. Đề xuất Sprint 4: khóa đồng hồ trong ca đó hoặc truyền `slot` cố định.

@@ -11,6 +11,7 @@ import { billLines } from '../src/modules/folio/internal/bill.service';
 import {
   type FolioLineRow,
   computeTotals,
+  focDateMap,
   moneyPosition,
   refundedOf,
 } from '../src/modules/folio/public/folio.service';
@@ -29,6 +30,7 @@ import {
 } from '../src/modules/platform/public/receiving-account';
 import { ProblemError } from '../src/shared/problem';
 import { withoutSecrets } from '../src/shared/secret-fields';
+import { addDays } from '../src/shared/time';
 
 const BR = JSON.parse(
   readFileSync(join(__dirname, '../../../tests/fixtures/br-examples.json'), 'utf8'),
@@ -407,6 +409,60 @@ describe('bill lines (G-12, BR-434)', () => {
       .filter((x) => x.id === 'late' || x.id === 'foc')
       .reduce((a, x) => a + x.amount_vnd, 0);
     expect(net).toBe((o.expected as { netVnd: number }).netVnd);
+  });
+});
+
+describe('FOC when the nights change – by date (BR-434, DOM 17/10 S4-14)', () => {
+  type Range = { arrivalDate: string; departureDate: string };
+  const datesOf = (r: Range) => {
+    const out: string[] = [];
+    for (let d = r.arrivalDate; d < r.departureDate; d = addDays(d, 1)) out.push(d);
+    return out;
+  };
+  for (const id of ['BR-434-02', 'BR-434-03', 'BR-434-04', 'BR-434-05']) {
+    it(`${id} – kept dates keep their FOC, dropped[i] → added[i], no counterpart → cancelled`, () => {
+      const o = oracle(id);
+      const input = o.input as {
+        from: Range;
+        to: Range;
+        nightRatesVnd: Record<string, number>;
+        focApprovedByDateVnd: Record<string, number>;
+      };
+      const expected = o.expected as {
+        keptDates: string[];
+        droppedDates: string[];
+        addedDates: string[];
+        focByDateVnd: Record<string, number>;
+        roomPayableVnd: number;
+      };
+      const before = datesOf(input.from);
+      const after = datesOf(input.to);
+      const map = focDateMap(before, after);
+      expect(before.filter((d) => map.get(d) === d)).toEqual(expected.keptDates);
+      expect(before.filter((d) => !after.includes(d))).toEqual(expected.droppedDates);
+      expect(after.filter((d) => !before.includes(d))).toEqual(expected.addedDates);
+      const focByDate: Record<string, number> = {};
+      for (const [d, foc] of Object.entries(input.focApprovedByDateVnd)) {
+        const to = map.get(d);
+        if (to !== undefined) focByDate[to] = Math.min(foc, input.nightRatesVnd[to] as number);
+      }
+      expect(focByDate).toEqual(expected.focByDateVnd);
+      const rooms = after.reduce((a, d) => a + (input.nightRatesVnd[d] as number), 0);
+      const focs = Object.values(focByDate).reduce((a, v) => a + v, 0);
+      expect(rooms - focs).toBe(expected.roomPayableVnd);
+    });
+  }
+
+  it('same dates (room change) map every date to itself; a stay made longer adds nothing to carry', () => {
+    const d = ['2026-11-23', '2026-11-24'];
+    expect([...focDateMap(d, d)]).toEqual([
+      ['2026-11-23', '2026-11-23'],
+      ['2026-11-24', '2026-11-24'],
+    ]);
+    expect([...focDateMap(d, [...d, '2026-11-25'])]).toEqual([
+      ['2026-11-23', '2026-11-23'],
+      ['2026-11-24', '2026-11-24'],
+    ]);
   });
 });
 
