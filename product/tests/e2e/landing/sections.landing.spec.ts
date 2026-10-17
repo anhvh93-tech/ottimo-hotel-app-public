@@ -1,13 +1,13 @@
 // LP-v1 – page structure of mock v1.2.1 (concept 3.1, 3.3, 5.5, 6; FB-INV-002 points 1, 3, 4). Production build:
 // the booking form is off, so "Request to book" leads to the Zalo/call block.
-// Test ids: QA to assign (TC-LP-0xx) – titles start with "LP-v1.2.1".
+// Test ids (QA 17/10): TC-LP-011 sections, TC-LP-012 header, TC-LP-013 phone bar, TC-LP-014 no JS.
 import { expect, test } from '@playwright/test';
 import { PAGES, type Lang } from './helpers.js';
 
 const SECTIONS = ['why', 'rooms', 'amenities', 'location', 'book', 'faq', 'contact'];
 
 for (const lang of Object.keys(PAGES) as Lang[]) {
-  test(`LP-v1.2.1 ${lang.toUpperCase()}: 8 sections in order, #book is the Zalo/call block, other channels folded`, async ({
+  test(`TC-LP-011 LP-v1.2.1 ${lang.toUpperCase()}: 8 sections in order, #book is the Zalo/call block, other channels folded`, async ({
     page,
   }) => {
     await page.goto(PAGES[lang]);
@@ -39,7 +39,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
   });
 }
 
-test('LP-v1.2.1 header from 768 px: "Chat on Zalo" link + outline "Request to book"; not on phones', async ({
+test('TC-LP-012 LP-v1.2.1 header from 768 px: "Chat on Zalo" link + outline "Request to book"; not on phones', async ({
   browser,
 }) => {
   for (const [width, visible] of [
@@ -61,7 +61,7 @@ test('LP-v1.2.1 header from 768 px: "Chat on Zalo" link + outline "Request to bo
   }
 });
 
-test('LP-v1.2.1 phone bar: hidden over the hero, #book, #contact and the footer; shown in between (concept 3.3)', async ({
+test('TC-LP-013 LP-v1.2.1 phone bar: hidden over the hero, #book, #contact and the footer; shown in between (concept 3.3)', async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -90,7 +90,7 @@ test('LP-v1.2.1 phone bar: hidden over the hero, #book, #contact and the footer;
   await context.close();
 });
 
-test('LP-v1.2.1 without JavaScript: the phone bar shows, no form, every action is a real link', async ({
+test('TC-LP-014 LP-v1.2.1 without JavaScript: the phone bar shows, no form, every action is a real link', async ({
   browser,
 }) => {
   const context = await browser.newContext({

@@ -253,12 +253,26 @@ export class WorkOrdersService {
         !!w.remedy_suggested_at && OPEN.includes(w.status) && has(c.actor.roles, FD_PLUS),
       ...(opts.history ? { history: await this.history(tx, c, w.id) } : {}),
       allowedActions: woAllowedActions(
-        { status: w.status, createdBy: w.created_by },
+        {
+          status: w.status,
+          createdBy: w.created_by,
+          ...(w.status === 'done' ? { reopenable: await this.reopenable(tx, c, w) } : {}),
+        },
         c.actor.roles,
         c.actor.userId,
       ),
       version: w.version,
     };
+  }
+
+  /** DOM D-12 g: a done work order reopens during the stay of the guest in that room, or ≤ 7 days after `done`. */
+  private async reopenable(
+    tx: Tx,
+    c: HkCtx,
+    w: Pick<WorkOrderRow, 'done_at' | 'room_id'>,
+  ): Promise<boolean> {
+    if (w.done_at && c.now.getTime() - w.done_at.getTime() <= 7 * 86_400_000) return true;
+    return (await this.occupancy(tx, w.room_id, c.today)) !== 'none';
   }
 
   async get(tx: Tx, c: HkCtx, id: string) {
@@ -845,12 +859,8 @@ export class WorkOrdersService {
     assertNoCardNumber('note', note);
     assertNoCardNumber('resultNote', resultNote);
     assertNoCardNumber('cancelReason', cancelReason);
-    if (action === 'reopen') {
-      // DOM D-12 g: during the stay of the guest in that room, or ≤ 7 days after `done` when the room is empty.
-      const inStay = (await this.occupancy(tx, w.room_id, c.today)) !== 'none';
-      const recent = !!w.done_at && c.now.getTime() - w.done_at.getTime() <= 7 * 86_400_000;
-      if (!inStay && !recent)
-        throw problem('INVALID_TRANSITION', { extras: { currentState: w.status } });
+    if (action === 'reopen' && !(await this.reopenable(tx, c, w))) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: w.status } });
     }
     for (const [i, photo] of donePhotos.entries()) {
       await this.attachments.assertUsable(tx, c.actor, photo, 'work_order', {

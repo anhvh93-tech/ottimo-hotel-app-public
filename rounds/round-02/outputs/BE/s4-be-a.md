@@ -280,3 +280,40 @@ Giả định mới (decision-log, chờ DOM): (n) no-show cùng cơ sở mới;
 
 E2E `money-s4.api.spec.ts` TC-L2-092 (a) không gửi `expectedDeltaVnd` (helper `move` thường) nên không bị ảnh hưởng; Desk chỉ gửi số khi phải tick (FE-A).
 Kiểm: `move-pricing.test.ts` 28/28; vitest api toàn bộ trên DB mới `ottimo_test_bea_s4v` **2645/2645, 78/78 tệp**; tsc, eslint, prettier, `validate-fixtures` sạch.
+
+## 12. Phản hồi & sửa sau kiểm chứng đối kháng S4-38 (commit 08dabd3; DOM BR v0.3.8 bổ sung S4-38)
+
+### 12.1 Kết quả theo mục (test `test/integration/s438-money.test.ts`, 16 ca, PostgreSQL thật)
+| Mục | Sửa | Kiểm chứng |
+|---|---|---|
+| **MOVE-01** | `swapRoom` (K12) lập kế hoạch bằng MovePlanner với lý do OTTIMO cho từng đơn (khóa đơn → căn → folio); ghi đêm bằng `writePlannedNights` (phụ thu min, định mức bảo vệ theo đêm); resync folio | 202 (3 NL, 300.000) ↔ 302: A còn 0; B giữ định mức 3, sửa 3 → 2 → 3 người vẫn 0 |
+| **MOVE-02, MOVE-03, REGR-02** | swap, B12 sang căn khác và B12 vào làn chưa gán ghi `origin_room_id = COALESCE(…, căn cũ)`. B12 ghi `reservation_change` bằng số căn (trước ghi id), làn chưa gán ghi thêm dòng `room` cũ → null. Dòng cũ trước 0059 có `origin_room_id` NULL: lấy căn gốc từ lịch sử `reservation_change` (`internal/room-history.ts`) | Agoda 203 swap với 101 rồi khách xin 401 → 500.000; no-show → khôi phục vào 101 → khách xin 401 → 500.000; dòng cũ (xóa cột) → 500.000 |
+| **MOVE-04** | `OccupancyService.claim` dùng lại dòng occupancy của segment (đã nhả) thay vì INSERT thứ hai – hết 500 23505 | no-show, 203 bán lại, khôi phục vào làn chưa gán → B7a gán 201 → 200, occupancy 201 active |
+| **REGR-03** | B12 sang căn khác đi qua kế hoạch OTTIMO, ghi định mức bảo vệ. Planner luôn ghi rõ `extra_person_base` trên đêm đổi căn, nên NULL chỉ còn nghĩa "chưa đổi căn từ sau 0059". Đêm NULL (dòng cũ, đêm thêm B13/B9a/B18) lấy định mức bảo vệ từ lịch sử đổi căn do OTTIMO sau lần khách xin cuối (`protectedBaseOf`, dùng trong planner và `nightBases`) | 302 (3 NL) no-show → khôi phục vào 202 → 3 → 2 → 3 người: 0; dòng cũ 402 → 203 (xóa cột): 0 |
+| **MOVE-05, PAY-03** (BR-107-05/-06) | Giá lễ tân nhập là **giá lịch**: bậc BR-107 áp trên đó ở lúc đặt (`PricingService` – giá nhập 7 đêm có −10 %; kiểm BR-105 trên giá nhập), B7 (`move-planner` tính lại cả đêm nhập tay), `retierStay` (B13/B9a/B18 – bỏ ngoại lệ ARC-BE-S3-24.3), S4-35. Cờ `manual` giữ lại cho BR-429 (g) | s1 4.320.000 (đêm nhập 540.000); s2 3.987.000 (700.000); (a) 4.898.000; (b) 5.122.000 (630.000) |
+| **CANCEL-01** (BR-309-11) | Lệnh B7/B8 tính lại `deposit_required_vnd` = 30 % tiền phòng mới (BR-305, làm tròn theo snapshot). Khách xin giảm khi còn < 7 ngày tới ngày đến thì giữ mức cũ. Không đổi `depositShortfall`, Desk không đòi cọc thêm | x6 1.600.000/0; x6b 500.000/hoàn 1.100.000; x6bLate giữ 1.600.000 → phí 1.584.000/hoàn 16.000 |
+| **CANCEL-02** (BR-309-12) | `cancellationQuote` xét đêm cao điểm trên đêm hiện có. `writePlannedNights` ghi `hasPeakNight` = có đêm cao điểm bây giờ, hoặc trước đã có và đơn đã cọc | x1 dời vào Giỗ Tổ → phí 500.000, hoàn 0; x1b dời ra → phí 500.000, hoàn 100.000 |
+| **PAY-01, PAY-02, REGR-01, S438-DOM-01** (BR-417-04…06) | `evaluate()` tính đêm B9a đúng như `addPriorNight` ghi (`priorNightDelta`): Trực tiếp = bậc tính lại trên giá gõ (giá lịch) + phụ thu người của đêm thêm + FOC đi theo; OTA/HĐ ngoài = đêm con + phụ thu (trừ đơn OTA trả trước, phụ thu là khoản phát sinh). Cộng đủ rồi mới kẹp 0. QR với giá gõ tính lại cả số, không "kẹp rồi dời". Giá mặc định đêm B9a = lịch Trực tiếp của chính đêm đó (dài hạn giữ giá cơ sở) | 101 thứ Bảy 767.000, phải thu 3.180.000 = trần QR = B9a; gõ 667.000 → 3.090.000; 102 (3 NL) 2.200.000; folio thừa 1.584.000 + gõ 1.000.000 → trần 0 (QR 422 `max` 0), sau B9 thừa 584.000 |
+| **PAY-04** (BR-416-04) | Đêm B18 "tính thêm 1 đêm" và đêm B9a: giá nhập là giá lịch, bậc như B13 | Cùng đêm thứ Bảy: B13 777.000 = B18 777.000, tổng 4.929.000 |
+| **FOC-02** (BR-416-05) | `extraNightDelta` (và `priorNightDelta`) trừ phần FOC đổi theo, qua `FolioService.previewStayReductions` của BE-B | `amountDueAtCheckoutVnd` 370.000 = B18 cần, tổng 5.670.000, chốt 0/0 |
+| **FOC-04 (phần BE-A)** | `repostDifferences`: đảo với `skipReductionSync`, ghi mới bằng `postLines(…, { cause: 'room_change' })` (tự đồng bộ). Không có dòng mới thì gọi `syncReductions` một lần. Planner truyền `differenceVnd` theo đêm và `{ differences: true }` vào `previewStayReductions` (khóa đêm của BE-B), nên `folioDeltaVnd` gồm FOC trên chênh lệch | Agoda 203 → 401, FOC 250.000 trên chênh lệch 20/12, → 402: xem trước −42.000 = lệnh ghi, tổng 1.808.000, FOC `applied` 208.000 |
+
+- Bỏ `pendingFix` của **BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04, BR-417-05, BR-417-06**. Cách bỏ: xóa đúng 1 dòng trong văn bản, các dòng khác giữ nguyên.
+- BR-434-14 (FOC-03) là phần của BE-B.
+- **Chưa làm MOVE-06**: B14 so `expectedDeltaVnd` khi chênh 0. ORC chưa giao, DOM chưa chốt phạm vi.
+
+### 12.2 Đối chiếu với test tái hiện của skeptic
+Đã chép 16 thư mục `test/s438/v-*` vào một cây sao riêng (`scratchpad/bea-s4/mirror`), không chép vào cây chung, rồi chạy trên mã đã sửa: 49/64 ca xanh. 15 ca đỏ còn lại đều do test ghi số **trước** khi DOM chốt, hoặc do cách viết test, không phải lỗi mã:
+- v-cancel-0-0 V1–V5 ghi lại hành vi cũ "cọc đóng băng" (nay đúng là đã đổi);
+- X1b đòi hoàn 600.000 theo chữ BR, nhưng DOM chốt không hoàn;
+- v-foc-1-0 dùng số 470.000 / 6.670.000 của trước khi sửa PAY-04 (DOM: 370.000);
+- v-pay-1-0 A/C nhận phòng hai lần: lần đầu với số xem trước nay đã thành công;
+- v-pay-3-0 N1-Y2 coi 777.000 là giá cuối, nhưng DOM chốt giá nhập là giá lịch;
+- N2b có biểu thức `expect` đảo ngược ('preview-paid' so với 200).
+
+### 12.3 Kết quả lệnh (17/10 ~23:25)
+| Lệnh | Kết quả |
+|---|---|
+| vitest api toàn bộ, cây chung, DB mới `ottimo_test_bea_s438k` | **2687/2687** (gồm `s438-money.test.ts` 16 ca) |
+| tsc, eslint, prettier (reservations, frontdesk, test mới, `br-examples.json`) | sạch |
+| `validate-fixtures` | OK – 0 lỗi |

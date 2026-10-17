@@ -246,21 +246,43 @@ export function woTarget(from: WorkOrderStatus, action: WoAction): WorkOrderStat
   return FROM[action].includes(from) ? TO[action] : null;
 }
 
-/** `allowedActions` of a work order for the caller (EP07 6.1): HK none; MT cancels only its own `new`. */
+/** state-machines.md mục 19 – machine event code of each SM-04 action (OpenAPI `AllowedAction.event`). */
+export const WO_EVENT: Record<WoAction, string> = {
+  accept: 'accept_work_order',
+  'wait-parts': 'wait_parts',
+  resume: 'resume_work_order',
+  complete: 'complete_work_order',
+  cancel: 'cancel_work_order',
+  reopen: 'reopen_work_order',
+};
+
+/** OpenAPI `AllowedAction` (event, transition, action path segment). */
+export interface WoAllowedAction {
+  event: string;
+  transition: string;
+  action: WoAction;
+}
+
+/**
+ * `allowedActions` of a work order for the caller (EP07 6.1, SM-04, rbac A85) as OpenAPI `AllowedAction[]`
+ * (BUG-R2-108: plain strings were dropped by the response serializer): HK none; MT all but `reopen`, and
+ * `cancel` only its own `new`; FD+ everything the state allows – `reopen` only while it is still possible
+ * (`reopenable`: the room's guest is still in house, or ≤ 7 days after `done` – DOM D-12 g).
+ */
 export function woAllowedActions(
-  wo: { status: WorkOrderStatus; createdBy: string | null },
+  wo: { status: WorkOrderStatus; createdBy: string | null; reopenable?: boolean },
   roles: readonly string[],
   userId: string,
-): WoAction[] {
+): WoAllowedAction[] {
   const desk = has(roles, FD_PLUS);
   const mt = roles.includes(MT);
   if (!desk && !mt) return [];
   return WO_ACTIONS.filter((a) => {
     if (!FROM[a].includes(wo.status)) return false;
-    if (a === 'reopen') return desk;
+    if (a === 'reopen') return desk && wo.reopenable !== false;
     if (a === 'cancel' && !desk) return wo.status === 'new' && wo.createdBy === userId;
     return true;
-  });
+  }).map((a) => ({ event: WO_EVENT[a], transition: WO_CODE[a], action: a }));
 }
 
 /** SR-PWA-05 / OpenAPI B-02: device time accepted in [now − 24 h, now + 5 min]. */

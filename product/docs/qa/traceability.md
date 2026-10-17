@@ -18,9 +18,9 @@
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
-| Tổng số TC | **469** (Cao 311 · TB 152 · Thấp 6) · **Smoke (S)** 43 |
-| TC theo nhóm | L2 87 · L3 59 · L4 64 · L5 48 · L6 37 · L7 27 · L8 13 · LP 10 · NT 53 · RB 27 · SEC 25 · X 19 |
-| TC theo tầng (một TC có thể nhiều tầng) | U 44 · A 404 · E 175 · P 5 · M 7 |
+| Tổng số TC | **477** (Cao 315 · TB 156 · Thấp 6) · **Smoke (S)** 43 |
+| TC theo nhóm | L2 87 · L3 59 · L4 64 · L5 48 · L6 37 · L7 27 · L8 13 · LP 18 · NT 53 · RB 27 · SEC 25 · X 19 |
+| TC theo tầng (một TC có thể nhiều tầng) | U 44 · A 404 · E 186 · P 5 · M 7 |
 | TC cho story ngoài Must R2 (ca chính) | US-041 (2), US-056 (2), US-064 (1), US-081 (5), US-111 (2), US-125 (5), US-128 (5), US-137 (2), US-141 (5) |
 | `operationId` dùng trong TC nhưng không có trong OpenAPI | 0 |
 | Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | 0 · 0 |
@@ -32,7 +32,7 @@
 | Story Must R2 **không có bảng ERD** (US nêu trong erd.md mục 4, hoặc tag OpenAPI → mục ERD) | 0  |
 | Story Must R2 đủ 4 chiều TC + endpoint + wireframe + ERD (QC C1) | **71/71** |
 | BR trong danh mục / BR không được story hay TC nào tham chiếu | 173 / 0 |
-| Luồng riêng **LP-v1** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ) · AC Must có ≥ 1 TC | 8 Must + 2 khác · **17/53** – mục 9 |
+| Luồng riêng **LP-v1** (cổng riêng, **không** tính vào các chỉ số Must R2 ở trên và không làm `--strict` đỏ) · AC Must có ≥ 1 TC | 8 Must + 2 khác · **23/53** – mục 9 |
 
 **Không còn AC nào của story Must R2 thiếu test case.**
 
@@ -188,6 +188,14 @@
 - TC-LP-008 (US-152/AC2)
 - TC-LP-009 (US-153/AC2, US-153/AC3)
 - TC-LP-010 (US-151/AC7, US-146/AC2)
+- TC-LP-011 (US-146/AC3, US-151/AC1, US-151/AC5, US-151/AC7, US-151/AC8, US-147/AC6)
+- TC-LP-012 (US-151/AC7, US-146/AC2)
+- TC-LP-013 (US-146/AC2, US-151/AC7)
+- TC-LP-014 (US-151/AC3, US-146/AC2)
+- TC-LP-015 (US-155/AC1, US-153/AC4)
+- TC-LP-016 (US-155/AC1)
+- TC-LP-017 (US-155/AC3, US-155/AC4)
+- TC-LP-018 (US-155/AC4, US-151/AC3)
 
 ### 5.4 Story Must R2 chưa có wireframe
 - Không có.
@@ -377,19 +385,19 @@ Quy ước (QA, ĐK-S3-13 – cổng QC Sprint 3 bản 3): story có cột Round
 
 ### 9.1 Luồng LP-v1
 
-Story Must: 8 · story khác: 2 · AC Must có ≥ 1 TC: **17/53** · chưa bắt buộc (`--strict-track` tắt)
+Story Must: 8 · story khác: 2 · AC Must có ≥ 1 TC: **23/53** · chưa bắt buộc (`--strict-track` tắt)
 
 | Story | Mức | Cột Round | Tên (backlog mục 4) | AC → TC |
 |---|---|---|---|---|
-| US-146 | Must | R2 – LP-v1 | Trang giới thiệu – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: TC-LP-010<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: **TRỐNG** |
-| US-147 | Must | R2 – LP-v1 | Hạng phòng (không nêu số phòng) – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG** |
+| US-146 | Must | R2 – LP-v1 | Trang giới thiệu – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: TC-LP-010, TC-LP-012, TC-LP-013, TC-LP-014<br>AC3: TC-LP-011<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: **TRỐNG** |
+| US-147 | Must | R2 – LP-v1 | Hạng phòng (không nêu số phòng) – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: TC-LP-011 |
 | US-148 | Must | R2 – LP-v1 | Tiện nghi và vị trí – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: TC-LP-005<br>AC3: **TRỐNG**<br>AC4: TC-LP-004 |
 | US-149 | Must | R2 – LP-v1 | Tóm tắt chính sách – *Must, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG** |
 | US-150 | Should | R2 – LP-v1 | Câu hỏi thường gặp – *Should, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG** |
-| US-151 | Must | R2 – LP-v1 | Liên hệ: Zalo OA trước, kênh khác, Facebook; nút "Đặt phòng" – *Must, LP-v1* | AC1: TC-LP-004<br>AC2: **TRỐNG**<br>AC3: TC-LP-004<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: TC-LP-010<br>AC8: TC-LP-004 |
+| US-151 | Must | R2 – LP-v1 | Liên hệ: Zalo OA trước, kênh khác, Facebook; nút "Đặt phòng" – *Must, LP-v1* | AC1: TC-LP-004, TC-LP-011<br>AC2: **TRỐNG**<br>AC3: TC-LP-004, TC-LP-014, TC-LP-018<br>AC4: **TRỐNG**<br>AC5: TC-LP-011<br>AC6: **TRỐNG**<br>AC7: TC-LP-010, TC-LP-011, TC-LP-012, TC-LP-013<br>AC8: TC-LP-004, TC-LP-011 |
 | US-152 | Must | R2 – LP-v1 | Song ngữ Việt – Anh – *Must, LP-v1* | AC1: TC-LP-003, TC-LP-007<br>AC2: TC-LP-006, TC-LP-008<br>AC3: TC-LP-007<br>AC4: TC-LP-001 |
-| US-153 | Must | R2 – LP-v1 | Nhận diện, ảnh, tốc độ, truy cập – *Must, LP-v1* | AC1: TC-LP-002<br>AC2: TC-LP-009<br>AC3: TC-LP-009<br>AC4: TC-LP-003, TC-LP-005<br>AC5: **TRỐNG**<br>AC6: TC-LP-001<br>AC7: **TRỐNG**<br>AC8: TC-LP-001 |
+| US-153 | Must | R2 – LP-v1 | Nhận diện, ảnh, tốc độ, truy cập – *Must, LP-v1* | AC1: TC-LP-002<br>AC2: TC-LP-009<br>AC3: TC-LP-009<br>AC4: TC-LP-003, TC-LP-005, TC-LP-015<br>AC5: **TRỐNG**<br>AC6: TC-LP-001<br>AC7: **TRỐNG**<br>AC8: TC-LP-001 |
 | US-154 | Should | R2 – LP-v1 | Tìm kiếm và xem trước khi chia sẻ link – *Should, LP-v1* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG** |
-| US-155 | Must | R2 – LP-v1 | Yêu cầu đặt phòng từ website vào Desk – *Must, LP-v1 – FB-INV-002 ý 3, trước đây Should R3* | AC1: **TRỐNG**<br>AC2: **TRỐNG**<br>AC3: **TRỐNG**<br>AC4: **TRỐNG**<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: **TRỐNG**<br>AC8: **TRỐNG**<br>AC9: **TRỐNG**<br>AC10: **TRỐNG**<br>AC11: **TRỐNG** |
+| US-155 | Must | R2 – LP-v1 | Yêu cầu đặt phòng từ website vào Desk – *Must, LP-v1 – FB-INV-002 ý 3, trước đây Should R3* | AC1: TC-LP-015, TC-LP-016<br>AC2: **TRỐNG**<br>AC3: TC-LP-017<br>AC4: TC-LP-017, TC-LP-018<br>AC5: **TRỐNG**<br>AC6: **TRỐNG**<br>AC7: **TRỐNG**<br>AC8: **TRỐNG**<br>AC9: **TRỐNG**<br>AC10: **TRỐNG**<br>AC11: **TRỐNG** |
 
-AC Must của luồng chưa có TC: US-146/AC1, US-146/AC3, US-146/AC4, US-146/AC5, US-146/AC6, US-146/AC7, US-147/AC1, US-147/AC2, US-147/AC3, US-147/AC4, US-147/AC5, US-147/AC6, US-148/AC1, US-148/AC3, US-149/AC1, US-149/AC2, US-149/AC3, US-149/AC4, US-149/AC5, US-151/AC2, US-151/AC4, US-151/AC5, US-151/AC6, US-153/AC5, US-153/AC7, US-155/AC1, US-155/AC2, US-155/AC3, US-155/AC4, US-155/AC5, US-155/AC6, US-155/AC7, US-155/AC8, US-155/AC9, US-155/AC10, US-155/AC11
+AC Must của luồng chưa có TC: US-146/AC1, US-146/AC4, US-146/AC5, US-146/AC6, US-146/AC7, US-147/AC1, US-147/AC2, US-147/AC3, US-147/AC4, US-147/AC5, US-148/AC1, US-148/AC3, US-149/AC1, US-149/AC2, US-149/AC3, US-149/AC4, US-149/AC5, US-151/AC2, US-151/AC4, US-151/AC6, US-153/AC5, US-153/AC7, US-155/AC2, US-155/AC5, US-155/AC6, US-155/AC7, US-155/AC8, US-155/AC9, US-155/AC10, US-155/AC11

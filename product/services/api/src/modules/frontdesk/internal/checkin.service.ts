@@ -181,8 +181,9 @@ export class CheckinService {
         extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
       });
     }
-    // evaluate() counts the B9a night at its default rate – swap in the rate the desk will post.
-    return Math.max(0, e.amountDueAtCheckinVnd - e.priorNight.defaultRateVnd + rate);
+    if (rate === e.priorNight.defaultRateVnd) return e.amountDueAtCheckinVnd;
+    // S438-REGR-01: the whole amount again at the typed rate – clamped at 0 once, never "clamped then shifted".
+    return (await this.evaluate(tx, ctx, row, q.checkinTime, 'write', rate)).amountDueAtCheckinVnd;
   }
 
   private async evaluate(
@@ -191,6 +192,7 @@ export class CheckinService {
     row: ReservationRow,
     requestedTime: LocalTime | undefined,
     mode: 'preview' | 'write',
+    priorRateVnd?: number,
   ): Promise<Evaluation> {
     const seg = await this.s.segmentOn(tx, row.id, row.arrival_date);
     const room = seg.room_id ? await this.s.stay.room(tx, seg.room_id) : null;
@@ -244,12 +246,9 @@ export class CheckinService {
     if (room && early.addsPreviousNight) {
       const date = addDays(row.arrival_date, -1);
       const direct = await this.s.directRate(tx, ctx, room.id, date);
-      const own =
-        row.stay_type === 'long'
-          ? early.baseNightVnd
-          : row.channel_group === 'ota' || direct.special
-            ? direct.rateVnd
-            : early.baseNightVnd;
+      // S438-DOM-01 (BR-417 (2), BR-421 v0.3.4): the default of the B9a night is the direct calendar of THAT night
+      // (a Saturday is a Saturday), never the first night of the booking; a long stay keeps its nightly basis.
+      const own = row.stay_type === 'long' ? early.baseNightVnd : direct.rateVnd;
       priorNight = {
         date,
         available:
@@ -280,9 +279,22 @@ export class CheckinService {
         ? await this.incidentalNet(tx, row.folio_id)
         : 0
       : pendingIncidentalFocVnd;
-    const toPost =
-      (otaPrepaid ? 0 : Math.max(0, early.amountVnd)) +
-      (priorNight ? priorNight.defaultRateVnd : 0);
+    // S4-38 (S438-PAY-01/-02, REGR-01; BR-417-04…06): the B9a night counts as B9a WRITES it – the stay re-tiered
+    // (BR-107 on the typed calendar price), the BR-110 fee of the added night – and the amount is clamped at 0 only
+    // once everything is in (a credit on the folio absorbs a typed rate above the default).
+    const priorDeltaVnd =
+      priorNight && room
+        ? await this.priorNightDelta(
+            tx,
+            ctx,
+            row,
+            room,
+            priorNight.date,
+            priorRateVnd ?? priorNight.defaultRateVnd,
+            otaPrepaid,
+          )
+        : 0;
+    const toPost = (otaPrepaid ? 0 : Math.max(0, early.amountVnd)) + priorDeltaVnd;
     const amountDueAtCheckinVnd = Math.max(0, balanceDueVnd - creditVnd + toPost - notYetDue);
     const balancePaid = amountDueAtCheckinVnd === 0;
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
@@ -338,6 +350,59 @@ export class CheckinService {
       pendingIncidentalFocVnd,
       amountDueAtCheckinVnd,
     };
+  }
+
+  /**
+   * What the B9a night adds to the folio, computed like `addPriorNight` writes it (S4-38): OTA / manual long stay
+   * → a direct child night at `rateVnd` (+ its BR-110 fee unless OTA-prepaid, where the fee is incidental, due at
+   * check-out); direct/agent → the stay re-tiered with the night typed at `rateVnd` as its calendar price (BR-107)
+   * plus the fee of the added night (the party's per-night fee) – the same function as B18's extra night.
+   */
+  private async priorNightDelta(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    room: { base_occupancy: number },
+    date: LocalDate,
+    rateVnd: number,
+    otaPrepaid: boolean,
+  ): Promise<number> {
+    const party = {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    if (row.channel_group === 'ota' || row.external_contract) {
+      const asDirect = { ...row, channel_group: 'direct' as const };
+      const fee = otaPrepaid
+        ? 0
+        : this.s.stay.nightExtra(ctx, asDirect, party, room.base_occupancy).feeVnd;
+      return rateVnd + fee;
+    }
+    const kept = await this.s.stay.pricedNights(tx, row);
+    const r = this.s.stay.retierStay(ctx, row, kept, [
+      { date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
+    ]);
+    const before = kept.reduce((a, n) => a + n.amountVnd, 0);
+    const after = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
+    const fees = await this.s.stay.nightFees(tx, row);
+    const snap = row.pricing_snapshot as { extraPersonFeePerNightVnd?: number };
+    const fee = fees.some((n) => n.own)
+      ? this.s.stay.nightExtra(ctx, row, party, room.base_occupancy).feeVnd
+      : (snap.extraPersonFeePerNightVnd ?? 0);
+    // Approved FOC / discounts follow the re-tiered nights (BR-434 – BE-B's allocation), as at B18 (S438-FOC-02).
+    let focDelta = 0;
+    if (row.folio_id) {
+      const feeOf = new Map(fees.map((n) => [n.date, n.feeVnd]));
+      const nights = [...r.kept, ...r.added].map((n) => ({
+        date: n.date,
+        roomVnd: n.amountVnd,
+        extraPersonVnd: feeOf.get(n.date) ?? fee,
+      }));
+      const foc = await this.s.folios.previewStayReductions(tx, row.folio_id, row.id, nights);
+      focDelta = foc.newAppliedVnd - foc.oldAppliedVnd;
+    }
+    return after - before + fee - focDelta;
   }
 
   /**
@@ -836,7 +901,8 @@ export class CheckinService {
     ]);
     const kept = await this.s.stay.pricedNights(tx, row);
     const r = this.s.stay.retierStay(ctx, row, kept, [
-      { date, calendarVnd: prior.calendarVnd, amountVnd: rateVnd, manual: true },
+      // BR-107 v0.3.8 (S4-38): the typed rate is the night's calendar price – the tier of the stay applies on it.
+      { date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
     ]);
     await this.s.stay.writeRepricedNights(tx, ctx, row, {
       segmentId: seg.id,

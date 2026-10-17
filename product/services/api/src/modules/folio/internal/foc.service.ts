@@ -21,6 +21,7 @@ import {
   ApprovalService,
 } from '../../approvals/public/approval.service';
 import { FolioService, OTA_COVERED } from '../public/folio.service';
+import { keyKindOf } from '../public/reductions';
 
 export interface FocInput {
   kind: 'foc' | 'special_discount';
@@ -167,8 +168,9 @@ export class FolioFocService {
       focLineId,
       row.id,
     ]);
-    // 0060: the key of a room / extra-person FOC is its date (BR-434 S4-02 – moves with the nights).
-    if ((line.category === 'room' || line.category === 'extra_person') && line.service_date) {
+    // 0060: the key of a room / extra-person / room-change-difference FOC is its date (BR-434 S4-02 – moves with
+    // the nights; S438-FOC-03/04).
+    if (keyKindOf(line.category) === 'night' && line.service_date) {
       await this.approvals.setFocKeyDate(tx, row.id, line.service_date);
     }
     return row;

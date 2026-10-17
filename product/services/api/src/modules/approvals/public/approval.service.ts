@@ -149,7 +149,8 @@ export interface LineChange {
     | 'early_departure'
     | 'los_reprice'
     | 'party_change'
-    | 'checkout_time_change';
+    | 'checkout_time_change'
+    | 'manual_adjust';
   /** ISO instant. */
   changedAt: string;
 }

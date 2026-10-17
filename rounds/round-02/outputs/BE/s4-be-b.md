@@ -148,3 +148,29 @@ Tệp đợt 3:
 - Sửa – module BE-B: `src/modules/payments/internal/payments.controller.ts`, `src/modules/payments/internal/payments.service.ts`, `src/modules/folio/public/folio.service.ts`.
 - Sửa – **module khác (ghi rõ)**: `src/modules/reservations/internal/reservations.service.ts` (`retainLinesOf` – V-09, tệp BE-A).
 - Sửa – test/fixture: `test/integration/foc-keys-s4.test.ts` (ca V-09), `test/be-b-s4-units.test.ts` (unit `refundPlan`), `product/tests/fixtures/br-examples.json` (bỏ 4 `pendingFix`), `product/tests/e2e/support/known-bugs.ts` (xóa `S4-10`), `01-decisions/decision-log.md`.
+
+## 11. Phản hồi & sửa sau S4-38 (ORC giao 17/10 ~22:50–23:20)
+
+| Mục | Trạng thái | Cách sửa | Kiểm chứng |
+|---|---|---|---|
+| **S438-FOC-01** (P1) + **BUG-R2-095** (S4-50) | Xong | `inventory/internal/minibar.service.ts` `record()`: đếm lại **cùng số** của một món → giữ nguyên dòng (và FOC, và số lễ tân đã sửa), không đảo, không ghi lại. Đổi số → đảo dòng cũ (`skipReductionSync`) và ghi dòng mới **làm bản thay** (`related_line_id` = dòng cũ), FOC theo chuỗi thay thế = min(số đã duyệt, dòng mới). Món về 0 → đảo, FOC ngủ ngay (đồng bộ một lần cuối, `cause = manual_adjust`). Gốc chung "nghi vấn A7": `FolioService.postLines` nay tự `syncReductions` sau khi ghi dòng tính tiền `posted` trên folio `open`, có `opts.cause` | Ca mới: cùng số → không có bút toán đảo mới, FOC `applied`, B18 cần thu 35.000, sau B18 FOC vẫn `applied`, minibar ròng 35.000. FOC 70.000 / đếm lại 1 lon → bản thay 35.000, FOC 35.000, khách trả 0. Đếm lại 0 → `dormant`. Test skeptic A7-minibar-1/2 + contrast: đạt |
+| **S438-FOC-03** (P1, BR-434-14) | Xong | `reductions.ts`: `room_change_difference` thuộc `DATED_KEY_CATEGORIES` (khóa theo đêm như phụ thu người, FOC tìm dòng theo ngày). No-show → `suspended` (pha `before` của `voidReductionKeys`), B12 ghi lại chênh lệch (`repostVoidedDifferences`) rồi `syncReductions` đưa FOC về `applied`. `foc.service.ts` ghi ngày khóa cho mọi khóa theo đêm. `defaultCause(room_change_difference) = room_change` | Oracle BR-434-14: `suspended` → B12 `applied` 250.000, còn thu 250.000 (không phải 500.000). Đã bỏ `pendingFix`. Test skeptic "BR-315 (g) difference": đạt |
+| **S438-FOC-04** (P1) – phần khóa/allocate của BE-B | Xong; **đã gửi ORC tên hàm cho BE-A** | Lệnh ghi: FOC đi theo đêm, kèm `postLines` tự đồng bộ, nên lần đổi căn thứ hai cho FOC = min(250.000, 208.000) ngay cả khi BE-A chưa sửa. Xem trước: `FolioService.previewStayReductions(tx, folioId, reservationId, nights[{date, roomVnd, extraPersonVnd, differenceVnd?}], { differences?: boolean })`. Khi `differences = true`, `oldAppliedVnd`/`newAppliedVnd` gồm FOC trên chênh lệch. `NightReductionPreview` có thêm `differenceFocVnd`/`differencePendingVnd`; không truyền thì kết quả như cũ. **BE-A còn làm**: truyền chênh lệch mới vào move-planner để `folioDeltaVnd` đúng, và trong `repostDifferences` đảo với `skipReductionSync` để không qua trạng thái ngủ | Ca mới: xem trước old 250.000 → new 208.000; ghi FOC `applied`, chênh lệch ròng 208.000, còn thu 208.000. Test skeptic A7-difference: đạt |
+| **S438-CANCEL-03** (P2) | Xong | `FolioService.reopenStayCredit` (gọi ở B12 qua `money-bridge.reopenStayCredit`): yêu cầu hoàn đang mở vượt dư thừa hiện tại → các yêu cầu chờ duyệt tự hủy (`superseded`, báo người tạo); còn dư thừa thì tạo lại đúng số (`overpayment`). Mục "Cần chú ý" `closed_reservation_credit` đóng | Ca X3: yêu cầu 300.000 → `cancelled`/`superseded`, có thông báo; mục chú ý đã đóng; còn thu = tổng − 800.000. Test skeptic X3, Y11: đạt |
+| **S438-CANCEL-04** (P2/P3) | Xong | `closeStayCredit` trả thêm `created`. `cancel()` ghi `refundRequestVnd` = số của yêu cầu do **lần hủy này** tạo, khớp `refundPlan` của bản xem thử. `refundApprovalRequestId` vẫn trỏ yêu cầu đang mở | Ca X2 / BR-522-05 (b): xem thử = lưu = 0, id = yêu cầu mở. Test skeptic X2, Y6: đạt |
+
+**Kiểm chứng** (17/10 ~23:20, DB mới `ottimo_test_beb_s4r`): toàn bộ `@ottimo/api` **2.671/2.671 xanh, 81/81 tệp**; tsc 0 lỗi; eslint + prettier xanh trên tệp chạm; `validate-fixtures` 0 lỗi. Test tái hiện của skeptic chạy trên **bản sao** cây chung (`scratchpad/beb-s4/wt4`, không chép vào cây chung):
+- `foc-attack.test.ts`: 29 đạt. Đỏ duy nhất là **B18-extra-night (S438-FOC-02, `checkout.service extraNightDelta`)**, phần BE-A.
+- `cancel/`: 22 đạt. 7 đỏ thuộc CANCEL-01/02/05 và Z4 (cơ sở phí theo cọc yêu cầu tính lại, đêm cao điểm, trần phí kênh OTA), phần BE-A.
+
+**Giả định** (đã ghi decision-log):
+- (j) [GIẢ ĐỊNH BE-B – ARC] Tự hủy yêu cầu hoàn ở B12 dùng `autoCancelReason = superseded`, vì enum chưa có "khôi phục no-show".
+- (k) `postLines` tự đồng bộ FOC. Bên gọi tự đồng bộ thì vẫn đúng: thao tác không đổi kết quả nếu chạy lại.
+- (l) Đếm lại minibar khi số không đổi giữ dòng cũ, kể cả khi lễ tân đã sửa giá dòng đó. Đổi số thì ghi lại theo giá danh mục như trước.
+- (m) Một món đếm về 0 rồi đếm lại > 0 ghi dòng mới, không nối chuỗi, nên FOC cũ vẫn ngủ. Trường hợp hiếm; chốt folio thì hủy theo quy tắc.
+
+Tệp đợt này:
+- Tạo: `product/services/api/test/integration/s438-beb.test.ts` (6 ca).
+- Sửa – BE-B: `src/modules/folio/public/reductions.ts`, `src/modules/folio/public/folio.service.ts`, `src/modules/folio/internal/foc.service.ts`, `src/modules/inventory/internal/minibar.service.ts`, `src/modules/approvals/public/approval.service.ts` (thêm `manual_adjust` vào `LineChange.cause`, đã có trong hợp đồng).
+- Sửa – **module khác (ghi rõ)**: `src/modules/reservations/internal/money-bridge.ts` (`reopenStayCredit`, kiểu trả về `closeStayCredit`), `src/modules/reservations/internal/reservations.service.ts` (B12 gọi `reopenStayCredit`; `cancel` dùng `created`).
+- Sửa – fixture: `product/tests/fixtures/br-examples.json` (bỏ `pendingFix` BR-434-14).

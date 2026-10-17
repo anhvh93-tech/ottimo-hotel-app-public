@@ -149,7 +149,7 @@ export class MoneyBridge {
     actor: { userId: string; roles: readonly string[] },
     requestId?: string,
     reasonNote?: string | null,
-  ): Promise<{ id: string; amountVnd: number } | null> {
+  ): Promise<{ id: string; amountVnd: number; created: boolean } | null> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
     return this.folios.closeStayCredit(tx, {
       folioId: row.folio_id,
@@ -157,6 +157,23 @@ export class MoneyBridge {
       reservationCode: row.code,
       reasonCode,
       ...(reasonNote ? { reasonNote } : {}),
+      actor,
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+
+  /** S438-CANCEL-03 (BE-B): B12 – refund requests of the no-show reconciled, closed_reservation_credit resolved. */
+  async reopenStayCredit(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'code' | 'folio_id'>,
+    actor: { userId: string; roles: readonly string[] },
+    requestId?: string,
+  ): Promise<void> {
+    if (!row.folio_id) return;
+    await this.folios.reopenStayCredit(tx, {
+      folioId: row.folio_id,
+      reservationId: row.id,
+      reservationCode: row.code,
       actor,
       ...(requestId ? { requestId } : {}),
     });
@@ -179,19 +196,28 @@ export class MoneyBridge {
   async previewReductions(
     tx: Tx,
     row: Pick<ReservationRow, 'id' | 'folio_id'>,
-    nights: ReadonlyArray<{ date: string; roomVnd: number; extraPersonVnd: number }>,
+    nights: ReadonlyArray<{
+      date: string;
+      roomVnd: number;
+      extraPersonVnd: number;
+      /** S438-FOC-04: the OTA room-change difference of the night after the change. */
+      differenceVnd?: number;
+    }>,
   ): Promise<{
     byDate: Map<string, { focVnd: number; pendingVnd: number }>;
     oldAppliedVnd: number;
     newAppliedVnd: number;
   }> {
     if (!row.folio_id) return { byDate: new Map(), oldAppliedVnd: 0, newAppliedVnd: 0 };
-    const r = await this.folios.previewStayReductions(tx, row.folio_id, row.id, nights);
+    // S438-FOC-04: the FOC on the differences counts before AND after (BE-B `differences`).
+    const r = await this.folios.previewStayReductions(tx, row.folio_id, row.id, nights, {
+      differences: true,
+    });
     const byDate = new Map<string, { focVnd: number; pendingVnd: number }>();
     for (const [d, v] of r.byDate) {
       byDate.set(d, {
-        focVnd: v.roomFocVnd + v.extraFocVnd,
-        pendingVnd: v.roomPendingVnd + v.extraPendingVnd,
+        focVnd: v.roomFocVnd + v.extraFocVnd + v.differenceFocVnd,
+        pendingVnd: v.roomPendingVnd + v.extraPendingVnd + v.differencePendingVnd,
       });
     }
     return { byDate, oldAppliedVnd: r.oldAppliedVnd, newAppliedVnd: r.newAppliedVnd };
@@ -234,15 +260,28 @@ export class MoneyBridge {
       reservationCode: row.code,
       ...(who.requestId ? { requestId: who.requestId } : {}),
     };
+    // S4-38 (S438-FOC-04, BE-B night keys for `room_change_difference` – BR-434-14): reverse WITHOUT a sync, post
+    // the new lines (postLines syncs the FOC keys of the folio) – a FOC on a difference moves straight to the new
+    // line of its night, never through "dormant". Nothing new → one sync for the reversals.
     for (const id of reverse) {
       await this.folios.reverseLine(
         tx,
         id,
         'room_change re-priced against the origin room (BR-424)',
         actor,
+        { skipReductionSync: true },
       );
     }
-    if (post.length === 0) return;
+    if (post.length === 0) {
+      if (reverse.length > 0) {
+        await this.folios.syncReductions(tx, row.folio_id, {
+          userId: who.userId,
+          ...(who.requestId ? { requestId: who.requestId } : {}),
+          cause: 'room_change',
+        });
+      }
+      return;
+    }
     await this.folios.postLines(
       tx,
       row.folio_id,
@@ -261,6 +300,7 @@ export class MoneyBridge {
         labelParams: { from: d.from, to: d.to },
       })),
       actor,
+      { cause: 'room_change' },
     );
   }
 }

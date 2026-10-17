@@ -51,7 +51,7 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       withinMinutes: (m, open, close) =>
         `We reply within ${m % 60 === 0 ? (m === 60 ? '1 hour' : `${m / 60} hours`) : `${m} minutes`} (${open}–${close}, Da Lat time).`,
       nextMorning: (by, open) => `Our reception opens at ${open}. We will reply before ${by}.`,
-      callNow: (m) => `Arriving tonight? Calling is fastest. We also reply within ${m} minutes.`,
+      callNow: (m) => `As you arrive tonight, we will contact you within ${m} minutes.`,
     },
     fallback: [
       'If you have not heard from us by ',
@@ -103,7 +103,7 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
         `OTTIMO trả lời trong ${m % 60 === 0 ? `${m / 60} giờ` : `${m} phút`} (${open}–${close}, giờ Đà Lạt).`,
       nextMorning: (by, open) =>
         `Lễ tân làm việc lại từ ${open}. OTTIMO sẽ trả lời bạn trước ${by}.`,
-      callNow: (m) => `Đến trong tối nay? Gọi ngay cho nhanh. OTTIMO cũng trả lời trong ${m} phút.`,
+      callNow: (m) => `Bạn đến trong tối nay, OTTIMO sẽ liên hệ bạn trong ${m} phút.`,
     },
     fallback: ['Nếu đến ', ' OTTIMO chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
     nights: (n) => `${n} đêm`,

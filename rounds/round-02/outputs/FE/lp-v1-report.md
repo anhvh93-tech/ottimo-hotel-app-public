@@ -66,6 +66,12 @@
 - QA: gắn mã TC cho 10 ca mới (tiêu đề bắt đầu "LP-v1.2.1"); ca ô ngày theo ngôn ngữ máy (Android/iOS – concept 13).
 - OPS (như đợt 1): site Caddy, `/book/` → 301 `/#book`, `/404.html`, chép `dist` vào image, `LANDING_INDEXABLE`; job `landing-e2e` đã có trong CI.
 
+### 0.6 Sửa theo UXD (`reviews/s4-UXD-strings-2.md`) và DOM – 17/10
+- FB-R2-UXD-FE-S4-20: trần meta description về **160** ở `copy.test.ts` và `dist-checks.mjs` (chữ UXD mới: EN 159, VI 159) – đạt.
+- FB-R2-UXD-FE-S4-21: JetBrains Mono tự host (`@fontsource/jetbrains-mono` 5.2.8, latin 400, woff2) trong `src/styles/mono.css` (sinh bằng `sync:fonts`), chỉ `BookingForm.astro` import → bản production (cờ tắt) không có tệp font này; bản duyệt có 1 tệp, chỉ tải khi mã yêu cầu hiện. Test: mono.css không cũ, chỉ form import, dist production không có `jetbrains-mono`, kiểm font cho phép Mono khi form được vẽ.
+- DOM: câu hứa `call_now` = 60 phút (`web_request_public_promise_call_now_minutes`, BR-912 v0.3.8) → `site.json` `booking.promiseCallNowMinutes = 60`, form đọc `{minutes}` từ `promise` của server, thiếu thì dùng 60.
+- Kiểm lại: turbo build/test/typecheck 5/5 (Vitest 142/142, `astro check` 0 lỗi), ESLint/Prettier sạch, audit exit 0, Playwright `CI=1` 37/37 (ngân sách byte không đổi).
+
 ## 1. Đã làm gì
 
 ### 1.1 App `product/apps/landing-web` (workspace `@ottimo/landing-web`)

@@ -13,6 +13,8 @@ import {
 } from '../lib/booking-request';
 import { pathFor } from '../lib/i18n';
 import Icon from './Icon.astro';
+// JetBrains Mono only travels with the form: the request number of the thank-you state (UXD FE-S4-21).
+import '../styles/mono.css';
 
 interface Props {
   t: Copy;
@@ -40,6 +42,7 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   data-open={b.frontDeskOpen}
   data-close={b.frontDeskClose}
   data-promise-minutes={b.promiseMinutes}
+  data-call-now-minutes={b.promiseCallNowMinutes}
   data-next-morning={b.promiseNextMorningBy}
   data-window-days={b.windowDays}
   data-short-max={b.shortMaxNights}

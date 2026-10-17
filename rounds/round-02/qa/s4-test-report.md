@@ -308,3 +308,19 @@ CI `b6153b7` có **2** ca đỏ, không phải 1. Ca thứ hai là **TC-L3-082**
   - Lượt 6 chạy sau khi kiểm không còn tiến trình nào khác: xanh 3/3.
 - **Đề nghị ORC:** trên `ottimo-qa-s4` chỉ chạy **một** lượt project `clock`/`desk-clock` tại một thời điểm. Ai chạy thì báo trước (hoặc dùng tệp khóa `scratchpad/qa-s4/clock.lock`). Đưa **TC-X-070, TC-X-072** vào `WRITES` (đều xanh ≥ 2 lượt sạch liên tiếp).
 
+### 7.7 Ca UI màn vận hành (FE-B) và mã TC landing LP-v1.2.1 (QA, ~22:45–23:15)
+- **`e2e/ui-clock/ops.s4.spec.ts`** (desk-clock, chạy theo khóa `qa-s4/clock-lock.txt`):
+  - TC-L6-043 (E) + TC-L6-040 (E): S11 phiếu thiếu mô tả không lưu; phiếu + Khóa căn → toast "khóa đêm …, mở bán lại từ …", căn `OOO`. **Đạt**.
+  - TC-L6-042 (E): căn có khách → "Căn đang có khách – chưa khóa được" → "Tạo phiếu không khóa". **Đạt**.
+  - TC-L6-022 (E) + TC-L6-033 (E): S10 việc tay, "Làm xong" → bộ đếm; hủy "Khác" phải ghi chú. **Đạt**.
+  - TC-L6-045 (E): Desk Nhận việc → Sửa xong. **BUG-R2-108 mới (P1, BE-C)**: `WorkOrder.allowedActions` luôn rỗng nên Desk không có nút chuyển trạng thái phiếu. `knownBug` ở đầu ca, hỏng đúng bước.
+- **`e2e/ui/ops.s4.spec.ts`** (desk-chromium): S13 `/settings/minibar` – lễ tân và lễ tân trưởng chỉ đọc (không cột giá vốn, không nút Thêm/Sửa); quản lý thấy giá vốn và mở được hộp sửa (không lưu, vì giá minibar là dữ liệu chung của oracle). 3/3 **Đạt**.
+- **Chưa viết** (bước tiếp theo, kế hoạch 5.3): H03 hàng yêu cầu khách (US-110); khóa có kế hoạch – Đổi ngày mở bán, Hủy khóa, Mở khóa sớm (US-019); đổi giá minibar (TC-L4-071 (E), cần project `serial`).
+- **Landing LP-v1.2.1:**
+  - QA gắn mã **TC-LP-011…018** cho 8 định nghĩa ca của FE-LP (10 lượt chạy):
+    - `sections.landing.spec.ts`: TC-LP-011 (EN/VI), TC-LP-012, TC-LP-013, TC-LP-014;
+    - `form.landing.spec.ts`: TC-LP-015 (375/1280 px), TC-LP-016, TC-LP-017, TC-LP-018.
+  - Thêm dòng TC vào `r1-main-flows.md` (mục 10b, v0.3.28).
+  - Chạy lại trên bản dựng `landing-web` 22:59: **10/10 đạt**.
+  - `--strict-track LP-v1`: AC Must có TC tăng từ 17/53 lên 23/53. Cổng riêng LP-v1 vẫn chưa đủ, không thuộc `--strict` của CI.
+

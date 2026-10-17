@@ -1298,6 +1298,91 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(blocked.json()).not.toHaveProperty('conflicts');
   });
 
+  it('BUG-R2-108: WorkOrder.allowedActions are AllowedAction objects per role and SM-04 state (FD+/MT; HK none; MT cancels only its own new; reopen ≤ 7 days after done)', async () => {
+    const created = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('201'),
+        title: 'Thay vòi sen',
+        description: 'Vòi sen rò nước',
+        category: 'other',
+        severity: 'low', // no photo evidence needed to complete (wo_done_photo_required_severities)
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const id = created.json().id as string;
+    const acts = async (u: string) =>
+      ((await call(u, 'GET', `/work-orders/${id}`)).json().allowedActions as Array<{
+        event: string;
+        transition: string;
+        action: string;
+      }>) ?? [];
+    expect(created.json().allowedActions).toEqual([
+      { event: 'accept_work_order', transition: 'W2', action: 'accept' },
+      { event: 'cancel_work_order', transition: 'W5', action: 'cancel' },
+    ]);
+    for (const u of ['own', 'mgr', 'fdl', 'fd']) {
+      expect(
+        (await acts(u)).map((a) => a.action),
+        u,
+      ).toEqual(['accept', 'cancel']);
+    }
+    expect((await acts('mt')).map((a) => a.action)).toEqual(['accept']); // not its own work order
+    const list = (await call('fd', 'GET', '/work-orders')).json().data as Array<{
+      id: string;
+      allowedActions: Array<{ action: string }>;
+    }>;
+    expect(list.find((w) => w.id === id)?.allowedActions.map((a) => a.action)).toEqual([
+      'accept',
+      'cancel',
+    ]);
+    // MT's own report: it may cancel it while `new`; the HK reporter sees none.
+    const mine = await call('mt', 'POST', '/work-orders', {
+      json: { roomId: room('202'), title: 'Đèn hỏng', description: 'Đèn trần', category: 'other' },
+    });
+    expect(mine.json().allowedActions.map((a: { action: string }) => a.action)).toEqual([
+      'accept',
+      'cancel',
+    ]);
+    const hkWo = await call('hk', 'POST', '/work-orders', {
+      json: {
+        roomId: room('203'),
+        title: 'Rèm rách',
+        description: 'Rèm cửa sổ',
+        category: 'other',
+      },
+    });
+    expect(hkWo.statusCode, hkWo.body).toBe(201);
+    expect(hkWo.json().allowedActions).toEqual([]);
+    // accept → in_progress → complete → done: reopen for FD+ only, gone after 7 days in an empty room.
+    let v = created.json().version as number;
+    const act = async (u: string, action: string, body: Record<string, unknown> = {}) => {
+      const r = await call(u, 'POST', `/work-orders/${id}/actions/${action}`, {
+        json: body,
+        ifMatch: v,
+      });
+      if (r.statusCode === 200) v = r.json().version;
+      return r;
+    };
+    expect((await act('mt', 'accept')).statusCode).toBe(200);
+    expect((await acts('fd')).map((a) => a.action)).toEqual(['wait-parts', 'complete']);
+    expect((await acts('mt')).map((a) => a.action)).toEqual(['wait-parts', 'complete']);
+    const done = await act('mt', 'complete', { resultNote: 'Đã thay vòi' });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(await acts('fd')).toEqual([
+      { event: 'reopen_work_order', transition: 'W6', action: 'reopen' },
+    ]);
+    expect(await acts('mt')).toEqual([]);
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE work_order SET done_at = $2 WHERE id = $1', [
+        id,
+        new Date(T0.getTime() - 8 * 86_400_000),
+      ]),
+    );
+    expect(await acts('fd')).toEqual([]);
+    const late = await act('fd', 'reopen', { note: 'Lại rò nước' });
+    expect(late.statusCode).toBe(409);
+  });
+
   it('EP14 port (BE-D): a guest request becomes a guest_request task (rank 3) or a work order (guest_app, medium); decline cancels the open task', async () => {
     const port = fa.app.get<GuestRequestWorkPort>(GUEST_REQUEST_WORK_PORT);
     const { reservationId } = await seedStay(db, t, ids, { roomNo: '203', status: 'in_house' });

@@ -19,8 +19,16 @@
 
 export type FocKeyKind = 'night' | 'stay' | 'line';
 
-/** Categories whose key is (stay × category × service date). */
-export const DATED_KEY_CATEGORIES: ReadonlySet<string> = new Set(['room', 'extra_person']);
+/**
+ * Categories whose key is (stay × category × service date). S438-FOC-03/04 (BR-434-14, v0.3.8): the OTA
+ * room-change difference follows its night like the extra-person fee – its FOC finds the re-posted line of the
+ * date (B7 again, B12), is suspended by a no-show and comes back at B12.
+ */
+export const DATED_KEY_CATEGORIES: ReadonlySet<string> = new Set([
+  'room',
+  'extra_person',
+  'room_change_difference',
+]);
 /** Categories with ONE key per stay (BR-412: early check-in, late check-out). */
 export const STAY_KEY_CATEGORIES: ReadonlySet<string> = new Set(['early_checkin', 'late_checkout']);
 
@@ -157,11 +165,14 @@ export const keyOf = (r: Pick<ReductionRequest, 'category' | 'serviceDate' | 'or
 export function previewNightReductions(input: {
   requests: readonly ReductionRequest[];
   oldDates: readonly string[];
-  nights: ReadonlyArray<{ date: string; roomVnd: number; extraPersonVnd: number }>;
-}): Map<
-  string,
-  { roomFocVnd: number; roomPendingVnd: number; extraFocVnd: number; extraPendingVnd: number }
-> {
+  nights: ReadonlyArray<{
+    date: string;
+    roomVnd: number;
+    extraPersonVnd: number;
+    /** S438-FOC-04: the OTA room-change difference of the night after the change (absent = 0). */
+    differenceVnd?: number;
+  }>;
+}): Map<string, NightReductionPreview> {
   const goesTo = focDateMap(
     input.oldDates,
     input.nights.map((n) => n.date),
@@ -178,22 +189,42 @@ export function previewNightReductions(input: {
     (r.status === 'approved' ? slot.approved : slot.pending).push(r);
     byKey.set(k, slot);
   }
-  const out = new Map<
-    string,
-    { roomFocVnd: number; roomPendingVnd: number; extraFocVnd: number; extraPendingVnd: number }
-  >();
+  const out = new Map<string, NightReductionPreview>();
   const sum = (m: Map<string, number>) => [...m.values()].reduce((a, v) => a + v, 0);
+  const none = { approved: [], pending: [] };
   for (const n of input.nights) {
-    const room = byKey.get(`room:${n.date}`) ?? { approved: [], pending: [] };
-    const extra = byKey.get(`extra_person:${n.date}`) ?? { approved: [], pending: [] };
-    const ra = allocateKey(n.roomVnd, room.approved, room.pending);
-    const ea = allocateKey(n.extraPersonVnd, extra.approved, extra.pending);
+    const ra = allocateKey(n.roomVnd, ...claims(byKey.get(`room:${n.date}`) ?? none));
+    const ea = allocateKey(
+      n.extraPersonVnd,
+      ...claims(byKey.get(`extra_person:${n.date}`) ?? none),
+    );
+    const da = allocateKey(
+      n.differenceVnd ?? 0,
+      ...claims(byKey.get(`room_change_difference:${n.date}`) ?? none),
+    );
     out.set(n.date, {
       roomFocVnd: ra.appliedTotalVnd,
       roomPendingVnd: sum(ra.willApply),
       extraFocVnd: ea.appliedTotalVnd,
       extraPendingVnd: sum(ea.willApply),
+      differenceFocVnd: da.appliedTotalVnd,
+      differencePendingVnd: sum(da.willApply),
     });
   }
   return out;
+}
+
+function claims(slot: { approved: KeyClaim[]; pending: KeyClaim[] }): [KeyClaim[], KeyClaim[]] {
+  return [slot.approved, slot.pending];
+}
+
+/** What the reductions of one night will be after a change (MovePreview.nights[] – BE-A M2). */
+export interface NightReductionPreview {
+  roomFocVnd: number;
+  roomPendingVnd: number;
+  extraFocVnd: number;
+  extraPendingVnd: number;
+  /** S438-FOC-04: FOC / discount applied on the room-change difference of the night (0 without one). */
+  differenceFocVnd: number;
+  differencePendingVnd: number;
 }

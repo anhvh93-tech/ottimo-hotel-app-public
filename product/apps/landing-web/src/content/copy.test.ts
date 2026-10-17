@@ -38,13 +38,10 @@ describe('page copy EN + VI', () => {
         expect(v.trim(), p).not.toBe('');
   });
 
-  it.each([en, vi])(
-    '$lang: title ≤ 60; description ≤ 200 (ADR-014 5 asks 160 – UXD to shorten)',
-    (c) => {
-      expect(c.meta.title.length).toBeLessThanOrEqual(60);
-      expect(c.meta.description.length).toBeLessThanOrEqual(200);
-    },
-  );
+  it.each([en, vi])('$lang: title ≤ 60; description ≤ 160 (ADR-014 5)', (c) => {
+    expect(c.meta.title.length).toBeLessThanOrEqual(60);
+    expect(c.meta.description.length).toBeLessThanOrEqual(160);
+  });
 
   it.each([en, vi])(
     '$lang: no emoji, no exclamation mark, no arrow or ≈ (brand voice, font subsets)',
@@ -133,7 +130,7 @@ describe('numbers stated on the page = site.json booking parameters (concept 13)
       expect(s.when.withinMinutes(60, '07:00', '22:00')).toMatch(/1 (hour|giờ)/);
       expect(s.when.withinMinutes(45, '07:00', '22:00')).toContain('45');
       expect(s.when.nextMorning('09:00', '07:00')).toContain('09:00');
-      expect(s.when.callNow(30)).toContain('30');
+      expect(s.when.callNow(60)).toContain('60');
     }
   });
 });

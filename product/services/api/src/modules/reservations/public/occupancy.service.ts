@@ -94,6 +94,25 @@ export class OccupancyService {
     },
     view: ConflictView & { persons: number },
   ): Promise<string> {
+    // S438-MOVE-04: a segment keeps ONE occupancy row (`room_occupancy_segment_uk`). A released row (no-show
+    // restored into the unassigned lane, BR-315 (g)(b)) is reactivated on the new room, never inserted twice.
+    if (input.segmentId) {
+      const { rows } = await tx.query<{ id: string }>(
+        'SELECT id FROM room_occupancy WHERE reservation_segment_id = $1',
+        [input.segmentId],
+      );
+      const existing = rows[0];
+      if (existing) {
+        await this.update(
+          tx,
+          { segmentId: input.segmentId },
+          { roomId: input.roomId, from: input.from, to: input.to, active: true, kind: input.kind },
+          input.now,
+          { ...view, excludeSegmentIds: [input.segmentId] },
+        );
+        return existing.id;
+      }
+    }
     const id = uuidv7();
     await this.guarded(
       tx,

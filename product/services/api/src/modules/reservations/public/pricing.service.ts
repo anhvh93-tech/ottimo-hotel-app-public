@@ -279,6 +279,25 @@ export class PricingService {
           ...(b ?? {}),
         };
       });
+      // BR-107 v0.3.8 (S4-38, DOM – replaces ARC-BE-S3-24.3): a typed direct/agent price is the CALENDAR price of
+      // the night; the tier of the number of nights applies on it like on any calendar night.
+      if (group === 'direct' || group === 'agent') {
+        losPct = losDiscountPct(dates.length, p.losTiers);
+        if (losPct > 0) {
+          nights = nights.map((n) =>
+            n.source === 'manual'
+              ? {
+                  ...n,
+                  amountVnd: applyNightDiscount(
+                    [n.amountVnd],
+                    losPct,
+                    p.nightRateUnit,
+                  )[0] as number,
+                }
+              : n,
+          );
+        }
+      }
       if (
         input.otaRoomAmountVnd !== undefined &&
         nights.reduce((s, n) => s + n.amountVnd, 0) !== input.otaRoomAmountVnd
@@ -355,7 +374,8 @@ export class PricingService {
           n.source === 'manual' &&
           n.floorVnd !== undefined &&
           n.ceilingVnd !== undefined &&
-          (n.amountVnd < n.floorVnd || n.amountVnd > n.ceilingVnd),
+          ((n.calendarVnd ?? n.amountVnd) < n.floorVnd ||
+            (n.calendarVnd ?? n.amountVnd) > n.ceilingVnd),
       )
       .map((n) => n.date);
 

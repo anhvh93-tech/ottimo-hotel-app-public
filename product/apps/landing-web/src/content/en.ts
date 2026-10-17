@@ -9,7 +9,7 @@ export const en: Copy = {
   meta: {
     title: 'OTTIMO Boutique Stay · Da Lat',
     description:
-      'A boutique stay in Da Lat: the care of a small hotel, in rooms with a kitchen, a washer-dryer and a desk. Stay a night, or a season. Send a booking request or chat with us on Zalo.',
+      'A boutique stay in Da Lat: the care of a small hotel, with a kitchen, a washer-dryer and a desk in every room. Stay a night, or a season. Chat with us on Zalo.',
     ogImageAlt: 'OTTIMO at dusk, with warm lights on every balcony',
   },
   skip: 'Skip to content',
@@ -289,8 +289,8 @@ export const en: Copy = {
   sticky: { label: 'Quick actions' },
   notFound: {
     title: 'Page not found · OTTIMO Boutique Stay',
-    heading: 'This page is not here.',
-    body: 'The link may be old or mistyped. Everything about OTTIMO is on the home page.',
+    heading: 'We could not find this page.',
+    body: 'The link may be out of date or mistyped. You will find everything about OTTIMO on the home page.',
     back: 'Back to the home page',
   },
 };

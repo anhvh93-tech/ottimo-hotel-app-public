@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { PALETTE, namedColors } from '../../scripts/dist-checks.mjs';
-import { render as renderFonts } from '../../scripts/sync-fonts.mjs';
+import { render as renderFonts, renderMono } from '../../scripts/sync-fonts.mjs';
 import { extractBrand, render as renderTokens } from '../../scripts/sync-tokens.mjs';
 import { THEME_COLOR } from '../lib/i18n';
 
@@ -89,8 +89,18 @@ describe('brand palette (Brand Guidelines v1.0)', () => {
 });
 
 describe('fonts (SEC C-1, concept 3)', () => {
-  it('fonts.css is the up-to-date generated subset list (pnpm sync:fonts)', async () => {
+  it('fonts.css and mono.css are the up-to-date generated subset lists (pnpm sync:fonts)', async () => {
     expect(read('styles/fonts.css')).toBe(await renderFonts());
+    expect(read('styles/mono.css')).toBe(await renderMono());
+  });
+
+  it('JetBrains Mono: latin 400 woff2 only, imported by the booking form alone', () => {
+    const urls = [...read('styles/mono.css').matchAll(/url\('([^']+)'\)/g)].map((m) => m[1]);
+    expect(urls).toEqual([
+      '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2',
+    ]);
+    const importers = authored.filter((f) => /mono\.css/.test(readFileSync(f, 'utf8')));
+    expect(importers.map((f) => path.basename(f))).toEqual(['BookingForm.astro']);
   });
 
   it('only Lora and Be Vietnam Pro, latin/latin-ext/vietnamese, woff2, from @fontsource (no CDN)', () => {

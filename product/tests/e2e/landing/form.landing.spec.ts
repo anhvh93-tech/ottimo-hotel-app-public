@@ -1,6 +1,6 @@
 // LP-v1 – booking-request form (concept 5.2–5.4, US-155, SEC UXD-04…08) on the REVIEW build (dist-booking-preview,
 // never deployed): the feature flag stays off in production, and the review build never sends anything.
-// Test ids: QA to assign (TC-LP-0xx) – titles start with "LP-v1.2.1 form".
+// Test ids (QA 17/10): TC-LP-015 empty submit, TC-LP-016 fields, TC-LP-017 not sent + honeypot, TC-LP-018 no JS.
 import { expect, test, type Page } from '@playwright/test';
 import { FORM_URL, axeViolations, watchErrors, watchForeignRequests } from './helpers.js';
 
@@ -12,7 +12,7 @@ async function openForm(page: Page, path = '/') {
 }
 
 for (const width of [375, 1280]) {
-  test(`LP-v1.2.1 form ${width}px EN: empty submit → summary of 5 errors (focused), axe 0, nothing sent`, async ({
+  test(`TC-LP-015 LP-v1.2.1 form ${width}px EN: empty submit → summary of 5 errors (focused), axe 0, nothing sent`, async ({
     browser,
   }, info) => {
     const context = await browser.newContext({ viewport: { width, height: 900 }, locale: 'en-US' });
@@ -37,7 +37,7 @@ for (const width of [375, 1280]) {
   });
 }
 
-test('LP-v1.2.1 form: capacity (under-6s not counted), by the month, email channel, room preselect', async ({
+test('TC-LP-016 LP-v1.2.1 form: capacity (under-6s not counted), by the month, email channel, room preselect', async ({
   page,
 }) => {
   await openForm(page);
@@ -66,7 +66,7 @@ test('LP-v1.2.1 form: capacity (under-6s not counted), by the month, email chann
   await expect(page.locator('#f-phone')).toBeDisabled();
 });
 
-test('LP-v1.2.1 form VI: a valid request is NOT sent in the review build; honeypot off screen; consent unticked', async ({
+test('TC-LP-017 LP-v1.2.1 form VI: a valid request is NOT sent in the review build; honeypot off screen; consent unticked', async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -98,7 +98,7 @@ test('LP-v1.2.1 form VI: a valid request is NOT sent in the review build; honeyp
   await context.close();
 });
 
-test('LP-v1.2.1 form without JavaScript: the form stays hidden and has no action (SEC UXD-08)', async ({
+test('TC-LP-018 LP-v1.2.1 form without JavaScript: the form stays hidden and has no action (SEC UXD-08)', async ({
   browser,
 }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });

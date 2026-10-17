@@ -61,6 +61,8 @@ export const siteSchema = z.object({
     frontDeskOpen: time,
     frontDeskClose: time,
     promiseMinutes: z.number().int().positive(),
+    // web_request_public_promise_call_now_minutes (DOM, BR-912 v0.3.8): arriving today, sent outside desk hours
+    promiseCallNowMinutes: z.number().int().positive(),
     promiseNextMorningBy: time,
     windowDays: z.number().int().positive(),
     shortMaxNights: z.number().int().positive(),

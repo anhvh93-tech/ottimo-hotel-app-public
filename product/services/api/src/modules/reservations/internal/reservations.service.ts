@@ -34,17 +34,20 @@ import {
   holdDeadline,
   holdExtension,
   isOrphanGap,
+  isSpecialDate,
   lastBookableArrival,
   minStayNights,
   nightDates,
   nightsOf,
   noticeDays,
+  shortDeposit,
 } from '../public/pricing';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
+import { protectedBaseOf, roomChangeHistory } from './room-history';
 import { FDL_PLUS, FD_PLUS, MGR_PLUS, allowedActions, hasAny } from './allowed-actions';
 import { type BookingContext, bookingContext } from './booking-context';
 import { syncExtraGuestKit } from './extra-guest-kit';
@@ -2156,9 +2159,12 @@ export class ReservationsService {
    */
   async nightBases(tx: Tx, reservationId: string): Promise<Map<LocalDate, number>> {
     const out = new Map<LocalDate, number>();
+    // S438-REGR-03: nights without a stored base keep what the booking's OTTIMO moves protected (room history).
+    const histBase = protectedBaseOf(await roomChangeHistory(tx, reservationId));
     for (const s of await activeSegments(tx, reservationId)) {
       if (s.base_occupancy === null) continue;
-      for (const d of nightDates(s.from_date, s.to_date)) out.set(d, s.base_occupancy);
+      const base = histBase !== null ? Math.max(histBase, s.base_occupancy) : s.base_occupancy;
+      for (const d of nightDates(s.from_date, s.to_date)) out.set(d, base);
     }
     const { rows } = await tx.query<{ date: string; base: number }>(
       `SELECT stay_date::text AS date, extra_person_base AS base FROM stay_night
@@ -2361,10 +2367,10 @@ export class ReservationsService {
     const unit =
       (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ??
       ctx.params.nightRateUnit;
+    // BR-107 v0.3.8 (S4-38, S438-PAY-03/-04 – replaces ARC-BE-S3-24.3 "never re-tiered"): a typed price (booking,
+    // S4-35, B13, B9a, B18) is the CALENDAR price of the night – every night takes the tier of the final stay.
     const apply = (n: StayNightPrice): StayNightPrice =>
-      n.manual || !tiered
-        ? { ...n }
-        : { ...n, amountVnd: discountedNight(n.calendarVnd, tier, ret, unit) };
+      !tiered ? { ...n } : { ...n, amountVnd: discountedNight(n.calendarVnd, tier, ret, unit) };
     return { pct, kept: kept.map(apply), added: added.map(apply) };
   }
 
@@ -2708,7 +2714,9 @@ export class ReservationsService {
       note ?? null,
     );
     const refundApprovalRequestId = refund?.id;
-    quote.refundRequestVnd = refund && refund.id ? refund.amountVnd : 0;
+    // S438-CANCEL-04 (M2 dry run = write): the amount of the request THIS cancellation created (refundPlan) – a
+    // request already open that covers the excess is linked (refundApprovalRequestId) but not counted again.
+    quote.refundRequestVnd = refund?.created ? refund.amountVnd : 0;
     // SM-09: a cancelled hold sends its lead back to `quoted` (B5).
     if (row.status === 'hold') await this.leads.onHoldEnded(tx, row.quote_id);
     await this.hooks.emit(
@@ -2760,8 +2768,15 @@ export class ReservationsService {
       feeUnit?: number;
     };
     const tiers = snap.cancelPolicy ?? ctx.params.cancelPolicy;
+    // BR-309 v0.3.8 (S438-CANCEL-02): a special night among the nights the booking has now, or kept from a move
+    // (`hasPeakNight` – see writePlannedNights).
+    const livePeak = this.hasPeakNight(
+      ctx,
+      (await liveNightRows(tx, row.id)).map((n) => n.date),
+    );
     const peakNoRefund =
-      (snap.cancelPeakNoRefund ?? ctx.params.cancelPeakNoRefund) && !!snap.hasPeakNight;
+      (snap.cancelPeakNoRefund ?? ctx.params.cancelPeakNoRefund) &&
+      (livePeak || !!snap.hasPeakNight);
     const r = directCancelRefund(
       cap,
       noticeDays(row.arrival_date, ctx.today),
@@ -2775,6 +2790,37 @@ export class ReservationsService {
       retainedVnd: r.cancelFeeVnd,
       policyRef: 'BR-309',
     };
+  }
+
+  /**
+   * BR-305 / BR-309 v0.3.8 (S4-38, S438-CANCEL-01): the required deposit – the base of a cancellation / no-show
+   * fee – follows the CURRENT room money after B7/B8 (30 % rounded, BR-305). A guest-requested change that lowers
+   * it with less than 7 days to the arrival keeps the former one (no "move then cancel" to get the deposit back).
+   * The desk never asks the guest for a top-up (BR-429 (e)) – only the fee base moves. OTA/internal: unchanged.
+   */
+  /** BR-104 special dates (`special_dates`) among the nights – the BR-309 "ngày cao điểm" test. */
+  private hasPeakNight(ctx: BookingContext, dates: readonly LocalDate[]): boolean {
+    return dates.some((d) => isSpecialDate(d, ctx.params.calendar.specialDates));
+  }
+
+  private requiredDepositAfter(
+    ctx: BookingContext,
+    row: ReservationRow,
+    totalRoomVnd: number,
+    reasonCode: string,
+  ): number {
+    const old = Number(row.deposit_required_vnd ?? 0);
+    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return old;
+    if (row.external_contract || row.stay_type !== 'short') return old;
+    const snap = row.pricing_snapshot as { depositPct?: number; depositUnit?: number };
+    const next = shortDeposit(
+      totalRoomVnd,
+      snap.depositPct ?? ctx.params.depositPct,
+      snap.depositUnit ?? ctx.params.depositUnit,
+    );
+    const late = noticeDays(row.arrival_date, ctx.today) < 7;
+    if (next < old && reasonCode === 'guest_request' && late) return old;
+    return next;
   }
 
   /**
@@ -3163,14 +3209,26 @@ export class ReservationsService {
     }
     const postpone = m.mode === 'postpone_instead_of_cancel';
     const disclose = reasonCode === 'guest_request' && pm.roomChanges;
+    const required = this.requiredDepositAfter(ctx, row, totalRoom, reasonCode);
     await tx.query(
       `UPDATE reservation SET arrival_date = $2, departure_date = $3, total_room_vnd = $4,
+              deposit_required_vnd = $9,
               reschedule_count = reschedule_count + $5, conflict_state = CASE WHEN conflict_state = 'open' THEN 'resolved' ELSE conflict_state END,
               room_disclosed_to_guest = room_disclosed_to_guest OR $7,
               origin_room_id = COALESCE(origin_room_id, $8::uuid),
               updated_at = $6, version = version + 1
         WHERE id = $1`,
-      [row.id, from, to, totalRoom, postpone ? 1 : 0, ctx.now, disclose, plan.originRoomId],
+      [
+        row.id,
+        from,
+        to,
+        totalRoom,
+        postpone ? 1 : 0,
+        ctx.now,
+        disclose,
+        plan.originRoomId,
+        required,
+      ],
     );
     if (row.conflict_state === 'open')
       await this.resolveIncident(tx, ctx, row.id, m.resolution as string);
@@ -3280,6 +3338,44 @@ export class ReservationsService {
    * kept nights get their room, gross (discount kept), calendar and BR-110 fee/count/base; new nights are sold
    * at the planned price; the snapshot remembers the BR-107 % and which prices were typed.
    */
+  /**
+   * S4-38 (S438-MOVE-01/-02/-03, REGR-02/-03): K12 swap and B12 restore into another room are OTTIMO room moves
+   * (BR-429 (b), (b1), (b2); BR-424 v0.3.8) – the SAME plan as B7 with an OTTIMO cause: prices kept, BR-110 fee =
+   * min(fee recorded, fee at the protected base), the base stored per night, the origin room kept. Plan BEFORE the
+   * nights change room (the planner reads the old room of each night); the caller re-syncs the folio after.
+   */
+  private async planOttimoRoomChange(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    target: RoomInfo,
+  ): Promise<BookingMovePlan> {
+    return this.planner.planBooking(tx, ctx, {
+      row,
+      flow: 'B7',
+      cause: 'ottimo',
+      fromDate: row.arrival_date,
+      arrival: row.arrival_date,
+      departure: row.departure_date,
+      newRoom: target,
+    });
+  }
+
+  private async writeOttimoRoomChange(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    plan: BookingMovePlan,
+    segmentId: string,
+    oldRoomId: string | null,
+  ): Promise<void> {
+    await this.writePlannedNights(tx, ctx, row, plan, segmentId);
+    await tx.query(
+      `UPDATE reservation SET origin_room_id = COALESCE(origin_room_id, $2::uuid, $3::uuid) WHERE id = $1`,
+      [row.id, plan.originRoomId, oldRoomId],
+    );
+  }
+
   private async writePlannedNights(
     tx: Tx,
     ctx: BookingContext,
@@ -3336,6 +3432,15 @@ export class ReservationsService {
     }
     if (row.external_contract) return;
     const live = await liveNightRows(tx, row.id);
+    // BR-309 v0.3.8 (S4-38, S438-CANCEL-02): "đêm cao điểm" follows the nights the booking has NOW; a paid booking
+    // that had one keeps the no-refund rule after moving out of it (no "move then cancel").
+    const oldPeak = !!(row.pricing_snapshot as { hasPeakNight?: boolean }).hasPeakNight;
+    const nowPeak = this.hasPeakNight(
+      ctx,
+      live.map((n) => n.date),
+    );
+    const hasPeakNight =
+      nowPeak || (oldPeak && row.folio_id !== null && (await this.money.depositPaid(tx, row)) > 0);
     const prior = new Map(
       (
         (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
@@ -3356,6 +3461,7 @@ export class ReservationsService {
         row.id,
         JSON.stringify({
           losDiscountPct: plan.losPct,
+          hasPeakNight,
           nights: live.map((n) => ({
             date: n.date,
             amountVnd: n.grossVnd,
@@ -3687,6 +3793,13 @@ export class ReservationsService {
     this.assertCapacity(roomA, { adults: b.adults, children6to11: b.children_6_11 });
     await this.occupancy.lockRooms(tx, [roomA.id, roomB.id]);
     await this.assertCapacityStable(tx, [roomA, roomB]);
+    // Lock order: reservations (id order) → rooms → folios; the plans are read under these locks.
+    await this.money.lockFolio(tx, first);
+    await this.money.lockFolio(tx, second);
+    const plans = new Map<string, BookingMovePlan>([
+      [a.id, await this.planOttimoRoomChange(tx, ctx, a, roomB)],
+      [b.id, await this.planOttimoRoomChange(tx, ctx, b, roomA)],
+    ]);
     // K12: both rows move inside one deferred check (ADR-009 update R1 step 4, BE-ARC-08).
     await this.occupancy.guarded(
       tx,
@@ -3721,9 +3834,14 @@ export class ReservationsService {
           WHERE id = $1`,
         [seg.id, target.id, reason, ctx.now],
       );
-      await tx.query(
-        `UPDATE stay_night SET room_id = $2, updated_at = $3 WHERE reservation_id = $1 AND night_state <> 'void'`,
-        [r.id, target.id, ctx.now],
+      // BR-429 (b2) / BR-424 (S4-38): nights re-roomed with their fee/base by the OTTIMO plan, origin kept.
+      await this.writeOttimoRoomChange(
+        tx,
+        ctx,
+        r,
+        plans.get(r.id) as BookingMovePlan,
+        seg.id,
+        old.id,
       );
       await tx.query(
         `UPDATE reservation SET updated_at = $2, version = version + 1 WHERE id = $1`,
@@ -3743,6 +3861,12 @@ export class ReservationsService {
       });
       const after = await loadReservation(tx, r.id, ctx.actor);
       await this.syncKit(tx, ctx, after, target.id, target.base_occupancy);
+      await this.money.resynced(
+        tx,
+        await this.confirmedStay(tx, after),
+        ctx.actor.userId,
+        ctx.requestId,
+      );
       await this.hooks.emit(tx, this.event('stay_changed', after, 'confirmed', 'B7', target.id));
       out.push(after);
     }
@@ -3943,14 +4067,28 @@ export class ReservationsService {
             WHERE id = $1`,
           [seg.id, roomId, ctx.now],
         );
-        await recordChange(tx, row.id, 'room', seg.room_no, roomId, ctx.now, 'no_show_restore');
+        await recordChange(
+          tx,
+          row.id,
+          'room',
+          seg.room_no,
+          checkedRoom?.room_no ?? roomId,
+          ctx.now,
+          'no_show_restore',
+        );
       }
     } else if (unassigned) {
       await tx.query(
         'UPDATE reservation_segment SET room_id = NULL, updated_at = $2 WHERE id = $1',
         [seg.id, ctx.now],
       );
-      await tx.query(`UPDATE reservation SET conflict_state = 'open' WHERE id = $1`, [row.id]);
+      // S438-MOVE-03 / REGR-02 (BR-424 v0.3.8): the room it leaves stays the origin of a later OTA difference.
+      await tx.query(
+        `UPDATE reservation SET conflict_state = 'open', origin_room_id = COALESCE(origin_room_id, $2::uuid)
+          WHERE id = $1`,
+        [row.id, seg.room_id],
+      );
+      await recordChange(tx, row.id, 'room', seg.room_no, null, ctx.now, 'no_show_restore');
       await this.openIncident(
         tx,
         ctx,
@@ -3967,13 +4105,20 @@ export class ReservationsService {
       throw this.invalid(row);
     }
     // Nights sold again with their snapshot prices (BR-315 (3) "không đổi giá"): the voided rows are revived
-    // (same stay_night ids, so the folio does not post the same night twice).
+    // (same stay_night ids, so the folio does not post the same night twice). Into another room: revived in
+    // the room they had, then moved by the OTTIMO plan (S4-38: BR-110 fee min + protected base, origin room).
+    const moving = !!roomId && roomId !== seg.room_id && !!seg.room_id && !!checkedRoom;
     await tx.query(
       `UPDATE stay_night SET night_state = 'sold', voided_at = NULL, void_reason = NULL, prev_state = NULL,
               room_id = $3, updated_at = $2
         WHERE reservation_id = $1 AND night_state = 'void' AND void_reason = 'no_show'`,
-      [row.id, ctx.now, roomId],
+      [row.id, ctx.now, moving ? seg.room_id : roomId],
     );
+    if (moving) {
+      await this.money.lockFolio(tx, row);
+      const plan = await this.planOttimoRoomChange(tx, ctx, row, checkedRoom as RoomInfo);
+      await this.writeOttimoRoomChange(tx, ctx, row, plan, seg.id, seg.room_id);
+    }
     await tx.query(
       `UPDATE reservation SET status = 'confirmed', status_before_cancel = NULL, no_show_marked_at = NULL,
               no_show_marked_by = NULL, updated_at = $2, version = version + 1 WHERE id = $1`,
@@ -4006,6 +4151,9 @@ export class ReservationsService {
       ctx.actor.userId,
       ctx.requestId,
     );
+    // S438-CANCEL-03 (BE-B, BR-522 v0.3.8): the refund request the no-show created and "Cần chú ý"
+    // closed_reservation_credit follow the money of the restored stay.
+    await this.money.reopenStayCredit(tx, after, ctx.actor, ctx.requestId);
     await this.hooks.emit(tx, this.event('transitioned', after, 'no_show', 'B12', roomId));
     return { row: after };
   }

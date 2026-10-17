@@ -40,6 +40,7 @@ import {
 } from '../public/pricing';
 import { PricingService } from '../public/pricing.service';
 import type { BookingContext } from './booking-context';
+import { firstRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
 import type { ReservationRow } from './reservation-store';
 
 /** Who made the room move (BR-429 (a)/(b)): only `guest_request` is the guest's. */
@@ -169,7 +170,12 @@ export interface PlannerDeps {
   reductions(
     tx: Tx,
     row: Pick<ReservationRow, 'id' | 'folio_id'>,
-    nights: ReadonlyArray<{ date: LocalDate; roomVnd: number; extraPersonVnd: number }>,
+    nights: ReadonlyArray<{
+      date: LocalDate;
+      roomVnd: number;
+      extraPersonVnd: number;
+      differenceVnd?: number;
+    }>,
   ): Promise<{
     byDate: Map<LocalDate, { focVnd: number; pendingVnd: number }>;
     oldAppliedVnd: number;
@@ -257,6 +263,9 @@ export class MovePlanner {
     input: Pick<PlanInput, 'requested' | 'newRoom'>,
   ): Promise<{ id: string | null; storeOnMove: string | null }> {
     if (row.origin_room_id) return { id: row.origin_room_id, storeOnMove: null };
+    // S438-REGR-02: moved before 0059 (or by a path that did not store it) – the room history knows the first room.
+    const historic = firstRoomOf(await roomChangeHistory(tx, row.id));
+    if (historic) return { id: historic, storeOnMove: historic };
     const { rows } = await tx.query<{ room_id: string | null }>(
       `SELECT room_id FROM reservation_segment WHERE reservation_id = $1 AND active
         ORDER BY from_date LIMIT 1`,
@@ -326,7 +335,14 @@ export class MovePlanner {
       (tiered ? effectiveDiscountPct(losDiscountPct(live.length, ctx.params.losTiers), ret) : 0);
     const retier = tiered && losPct !== currentPct;
     const price = (calendarVnd: number) => discountedNight(calendarVnd, tierPct, ret, unit);
-    const curEff = (n: NightRow): number | null => n.fee_base ?? n.room_base;
+    // S438-REGR-03: a night without a stored base (before 0059, or added later by B13/B9a/B18) keeps the base the
+    // booking's OTTIMO moves protected (room history), never less than its room's.
+    const histBase = live.some((n) => n.fee_base === null)
+      ? protectedBaseOf(await roomChangeHistory(tx, row.id))
+      : null;
+    const curEff = (n: NightRow): number | null =>
+      n.fee_base ??
+      (histBase !== null && n.room_base !== null ? Math.max(histBase, n.room_base) : n.room_base);
     const keptRows = live.filter((n) => finalDates.includes(n.date));
     const keptEff = keptRows.map(curEff).filter((x): x is number => x !== null);
     // Base of an added night / of a night without a room: what the booking had (B7 – one room), else the room
@@ -397,7 +413,9 @@ export class MovePlanner {
           calendarVnd = fresh;
           manual = false;
           newGross = price(fresh);
-        } else if (retier && !manual && n) {
+        } else if (retier && n) {
+          // BR-107 v0.3.8 (S4-38, S438-MOVE-05): a typed price is the night's calendar price – the new tier applies
+          // on it too (the typed calendar is kept, `manual` stays for BR-429 (g)).
           calendarVnd = n.calendar ?? n.gross;
           newGross = price(calendarVnd);
         }
@@ -436,7 +454,8 @@ export class MovePlanner {
             feeVnd = x.feeVnd;
             feeCount = x.count;
           }
-          feeBase = roomBase !== null && eff !== roomBase ? eff : null;
+          // Stored explicitly on every re-based night (S4-38): NULL now only means "never moved since 0059".
+          feeBase = eff;
         }
       }
 
@@ -490,6 +509,12 @@ export class MovePlanner {
     // FOC / special discounts that follow the re-priced lines – BE-B's allocation on EVERY night of the booking
     // after the move (the nights before the move night keep their values), BR-434 min(approved, new line).
     const planned = new Map(nights.map((x) => [x.date, x]));
+    // S438-FOC-04: the difference of each night after the move (planned, else the live lines of the night).
+    const diffNow = new Map<string, number>();
+    for (const l of diffLines) {
+      if (l.serviceDate)
+        diffNow.set(l.serviceDate, (diffNow.get(l.serviceDate) ?? 0) + l.amountVnd);
+    }
     const after = finalDates.map((date) => {
       const p = planned.get(date);
       const n = byDate.get(date);
@@ -497,6 +522,7 @@ export class MovePlanner {
         date,
         roomVnd: p ? p.newGrossVnd : (n?.gross ?? 0),
         extraPersonVnd: p ? p.feeVnd : n && shortStay ? ownFee(n) : 0,
+        differenceVnd: p ? p.diffVnd : (diffNow.get(date) ?? 0),
       };
     });
     const foc = await this.deps.reductions(tx, row, after);

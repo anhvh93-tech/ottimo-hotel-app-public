@@ -741,7 +741,8 @@ export class CheckoutService {
       ]);
       const kept = await this.s.stay.pricedNights(tx, row);
       const r = this.s.stay.retierStay(ctx, row, kept, [
-        { date: x.date, calendarVnd: x.calendarVnd, amountVnd: rateVnd, manual: true },
+        // BR-107 v0.3.8 (S4-38, BR-416-04): the typed rate is the night's calendar price – tiered like B13.
+        { date: x.date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
       ]);
       await this.s.stay.writeRepricedNights(tx, ctx, row, {
         segmentId: seg.id,
@@ -833,7 +834,7 @@ export class CheckoutService {
     const kept = await this.s.stay.pricedNights(tx, row);
     const x = d.extraNight as ExtraNight;
     const r = this.s.stay.retierStay(ctx, row, kept, [
-      { date: x.date, calendarVnd: x.calendarVnd, amountVnd: rateVnd, manual: true },
+      { date: x.date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
     ]);
     const before = kept.reduce((a, n) => a + n.amountVnd, 0);
     const after = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
@@ -842,7 +843,20 @@ export class CheckoutService {
     const fee = fees.some((n) => n.own)
       ? this.s.stay.nightExtra(ctx, row, party, d.rm.base_occupancy).feeVnd
       : (snap.extraPersonFeePerNightVnd ?? 0);
-    return after - before + fee;
+    // S4-38 (S438-FOC-02, BR-416-05): the approved FOC / discounts follow the re-tiered nights (min(approved, new
+    // line) – BR-434) – BE-B's allocation on the nights as B18 writes them, so the due shown = what B18 leaves.
+    let focDelta = 0;
+    if (row.folio_id) {
+      const feeOf = new Map(fees.map((n) => [n.date, n.feeVnd]));
+      const nights = [...r.kept, ...r.added].map((n) => ({
+        date: n.date,
+        roomVnd: n.amountVnd,
+        extraPersonVnd: feeOf.get(n.date) ?? fee,
+      }));
+      const foc = await this.s.folios.previewStayReductions(tx, row.folio_id, row.id, nights);
+      focDelta = foc.newAppliedVnd - foc.oldAppliedVnd;
+    }
+    return after - before + fee - focDelta;
   }
 
   /** `extraNight {rateVnd}` (E05-11). */

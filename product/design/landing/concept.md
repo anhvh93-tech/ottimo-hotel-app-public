@@ -60,6 +60,11 @@
 | (4) Link fanpage về `#book` (PO chốt) | Link "Book now" = trang chủ + `#book`; form nằm trong trang chủ như mock | 5.7 |
 | (5) Câu hứa "trong 1 giờ (07:00–22:00); ngoài giờ trước 09:00" | Bước 2 mục Book, khối "form tắt" và trang cảm ơn dùng đúng cấu trúc này | 5.1, 5.4 |
 
+### 0.4 Duyệt bản dựng FE-LP đợt 2 (17/10 – `rounds/round-02/reviews/s4-UXD-strings-2.md`)
+- 9 điểm lệch ở `outputs/FE/lp-v1-report.md` 0.3: chấp nhận 8, sửa 1 (meta description). Khối "form tắt" có thêm nút viền "Call 08.4444.0909" cạnh "Chat on Zalo" (đặc) – chấp nhận, ghi vào 5.5.
+- Meta description ≤ 160 ký tự (ADR-014 mục 5) – mock và `landing-web` cùng chữ: EN "A boutique stay in Da Lat: the care of a small hotel, with a kitchen, a washer-dryer and a desk in every room. Stay a night, or a season. Chat with us on Zalo." (159); VI "Boutique stay ở Đà Lạt: sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng. Ở một đêm, hay cả một mùa. Nhắn qua Zalo." (159).
+- Câu `promise.kind = call_now` và trang 404: mục 5.4 và 13.
+
 ## 1. Mục tiêu và phạm vi
 
 | Mục tiêu | Cách trang đáp ứng |
@@ -250,11 +255,12 @@ Tên khóa theo `WebsiteBookingRequestInput` (hợp đồng 0.3.7 bổ sung 2) �
   - **Không dùng `replyBy`** của phản hồi 202: đó là hạn nội bộ `web_request_response_minutes` = **15** phút (BR-912 v0.3.8), trang không hiện. Lệch chữ so với đề xuất của SEC (`{replyBy}`) – cùng ý, khác nguồn giờ; SEC xác nhận.
   - ARC chọn một trong hai: thêm trường hứa công khai vào 202, hoặc FE-LP tự tính từ hai tham số công khai (BR-912 ghi cả hai cách).
 - Ngày đến là hôm nay → thêm "Arriving tonight? Calling is fastest: 08.4444.0909".
+- **`promise.kind = call_now`** (hợp đồng 0.3.7 bổ sung 2: ngày đến là hôm nay, gửi ngoài giờ trực; `minutes` = `web_request_same_day_after_hours_minutes`, 30): dòng câu hứa là "As you arrive tonight, we will contact you within {minutes} minutes." / "Bạn đến trong tối nay, OTTIMO sẽ liên hệ bạn trong {minutes} phút." – không nhắc lại "Calling is fastest" vì dòng "Arriving tonight?…" + số gọi đã hiện cùng lúc. **30 phút trở thành lời hứa công khai** (trước là mục tiêu nội bộ BR-912 (3)) – DOM xác nhận, INV duyệt cùng L5.
 - Nút viền "Send another request" (xóa form, quay lại ô ngày).
 - Không tự gửi email/Zalo xác nhận tới liên hệ khách nhập (ADR-014 4.3). Đổi ngôn ngữ sau khi gửi: trang cảm ơn đổi theo.
 
 ### 5.5 Công tắc form và trường hợp không có JavaScript
-- `booking.mode` (`site.json`): **`chat`** – trước khi đủ điều kiện bật form trên production (luật sư LZ-8/LZ-2, Desk chạy thật, SEC C-1…C-3, C-11…C-13): thẻ form thay bằng khối "Send your dates on Zalo"; mọi nút "Request to book" vẫn trỏ `#book`. **`request`** – phương án A (mock mặc định). **`live`** – phương án B (5.6). Mock có nút "Form: on/off".
+- `booking.mode` (`site.json`): **`chat`** – trước khi đủ điều kiện bật form trên production (luật sư LZ-8/LZ-2, Desk chạy thật, SEC C-1…C-3, C-11…C-13): thẻ form thay bằng khối "Send your dates on Zalo" + nút đặc "Chat on Zalo" + nút viền "Call 08.4444.0909" (FE-LP thêm, UXD duyệt 17/10 – khách chưa có Zalo vẫn có lối ngay tại `#book`); mọi nút "Request to book" vẫn trỏ `#book`. **`request`** – phương án A (mock mặc định). **`live`** – phương án B (5.6). Mock có nút "Form: on/off".
 - **SEC UXD-08:** thẻ `<form>` render với `hidden`, không có `action`; module script bỏ `hidden`. Không JavaScript → form không hiện, không bao giờ gửi được; hiện câu "The request form needs JavaScript…" + link Zalo.
 
 ### 5.6 Chuyển sang phương án B (phòng trống + giá thật – US-131) – chỉ thay một ô
@@ -397,6 +403,7 @@ Dinh Bảo Đại III 1,7 km · 4 phút; Nhà thờ Con Gà 2,5 km · 6 phút; C
 | Chuỗi EN/VI nằm cạnh nhau, `option` đổi chữ bằng `data-en/data-vi`; link đổi theo `data-href-vi` | File chuỗi theo `locale`; mỗi URL một ngôn ngữ |
 | Thanh đáy ẩn bằng IntersectionObserver (hero, Book, Contact, footer) | Giữ; không JS thì luôn hiện + đệm chân trang |
 | Thanh MOCK, Notes, chip ghi chú, khối payload, `.mock-toast` | Bỏ |
+| Trang 404 (mock không có) | EN "We could not find this page." / "The link may be out of date or mistyped. You will find everything about OTTIMO on the home page." / "Back to the home page"; VI "Không tìm thấy trang này." / "Đường dẫn có thể đã cũ hoặc bị gõ nhầm. Mọi thông tin về OTTIMO có ở trang chủ." / "Về trang chủ" (UXD duyệt 17/10) |
 - Mọi nút là `<a href>` thật trừ Copy address, nút gửi, nút chọn của form. Link trong câu dùng `.link-in` (không ép cao 44 px). Không thêm màu ngoài token mục 7.
 
 ## 14. Đã xử lý

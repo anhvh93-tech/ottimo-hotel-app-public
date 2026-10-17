@@ -56,7 +56,7 @@ describe.each(builds)('$name', ({ name, form }) => {
     expect(checks.checkBrandColors(d)).toEqual([]);
   });
   it('stays within the byte budgets (concept 12.2, ADR-014 7.7 and 9)', () => {
-    expect(checks.checkBudgets(d)).toEqual([]);
+    expect(checks.checkBudgets(d, opts)).toEqual([]);
   });
   it('gives every photo width/height/alt, lazy except the hero, ≤ 960 w on phones', () => {
     expect(checks.checkImages(d)).toEqual([]);
@@ -65,7 +65,13 @@ describe.each(builds)('$name', ({ name, form }) => {
     expect(checks.checkGlyphCoverage(d)).toEqual([]);
   });
   if (!form)
-    it('ships no booking-form code at all while the form is off', () => {
-      expect(d.files.filter((f) => /BookingForm/.test(f))).toEqual([]);
+    it('ships no booking-form code and no JetBrains Mono while the form is off', () => {
+      expect(d.files.filter((f) => /BookingForm|jetbrains-mono/.test(f))).toEqual([]);
+    });
+  else
+    it('ships JetBrains Mono latin 400 for the request number (UXD FE-S4-21)', () => {
+      expect(
+        d.files.filter((f) => /jetbrains-mono-latin-400-normal\.[\w-]+\.woff2$/.test(f)),
+      ).toHaveLength(1);
     });
 });

@@ -221,3 +221,51 @@
 ### 8.5 Giả định mới
 - [GIẢ ĐỊNH BE-C] "Nhân viên đang hoạt động" = không `disabled` và không bị quản trị khóa (theo luật `auth.service`). Khóa đăng nhập tạm thời (`locked_until` còn hạn) vẫn được giao việc.
 
+## 9. Kiểm thử → sửa: BUG-R2-108 (P1) – `WorkOrder.allowedActions` luôn rỗng
+
+### 9.1 Gốc lỗi và cách sửa
+- **Gốc (đã xác nhận):**
+  - `woAllowedActions` trả mảng chuỗi (`'accept'`…), còn hợp đồng là `AllowedAction[]`;
+  - bộ định dạng phản hồi (`serializeResponse`, theo `generated/openapi-schemas.ts`) bỏ phần tử sai kiểu, nên mọi vai nhận `[]`;
+  - test serializer mới chứng minh điều này: mảng chuỗi ra `[]`, mảng object giữ nguyên.
+- **Sửa** (`housekeeping/internal/rules.ts`, `work-orders.service.ts`): trả `{ event, transition, action }`:
+  - `event` lấy từ state-machines.md mục 19: `accept_work_order`, `wait_parts`, `resume_work_order`, `complete_work_order`, `cancel_work_order`, `reopen_work_order`;
+  - `transition` là W2…W6 của SM-04;
+  - `action` là đoạn đường dẫn (`accept`, `wait-parts`, `resume`, `complete`, `cancel`, `reopen`).
+- **Theo vai (A85):**
+  - HK: không có hành động;
+  - MT: không `reopen`; `cancel` chỉ với phiếu mình tạo còn `new`;
+  - FD+: mọi hành động trạng thái cho phép. `reopen` chỉ hiện khi còn mở lại được (khách còn ở căn đó, hoặc ≤ 7 ngày sau khi xong – DOM D-12 g). Bước chuyển dùng chung hàm kiểm `reopenable`.
+- `HkTask` không có `allowedActions` trong hợp đồng; `RoomStatusEntry.allowedEvents` là enum chuỗi đúng hợp đồng → không đổi.
+
+### 9.2 Test
+- Unit mới `test/be-c-s4-units.test.ts`:
+  - đủ trạng thái × vai;
+  - serializer `getWorkOrder` giữ object, bỏ chuỗi.
+- Tích hợp `housekeeping-s4`, ca BUG-R2-108:
+  - OWN/MGR/FDL/FD với phiếu `new` → `accept`, `cancel`; MT → `accept`; MT với phiếu của mình → `accept`, `cancel`; HK người báo → `[]`;
+  - `in_progress` → `wait-parts`, `complete`;
+  - `done` → FD có `reopen`, MT không;
+  - sau 8 ngày, căn trống → `[]`, gọi `reopen` → 409.
+- E2E trên `ottimo-qa-s4` qua `qa-s4/clock-run.sh`:
+  - TC-L6-045 (E) **đạt** → đã xóa `BUG-R2-108` khỏi `OPEN` (`known-bugs.ts` về `{}` như HEAD);
+  - cả tệp `e2e/ui-clock/ops.s4.spec.ts`: 4/4 đạt.
+- Vitest api toàn bộ:
+  - cây cô lập (HEAD 2442d26 + BE-C), DB mới: **80/80 tệp, 2665/2665 đạt**;
+  - cây chung, DB mới: **2665/2665 đạt**.
+- eslint, prettier các tệp BE-C: sạch. `tsc` ở cây chung có 1 lỗi ở `reservations/internal/reservations.service.ts:2802` (`shortDeposit` – BE-A đang sửa dở, không phải BE-C). `tsc` cây cô lập: sạch.
+
+### 9.3 Báo QA (qua ORC) – stack `ottimo-qa-s4` đã dựng lại api
+- 23:09, api + worker của `ottimo-qa-s4` chạy dist mới `scratchpad/bec-s4/api-dist-108` (HEAD 2442d26 + bản sửa BUG-R2-108; override `scratchpad/bec-s4/compose.api-bec108.yml`) **thay cho `api-dist7`**.
+- Đã ghi dòng thông báo vào `qa-s4/clock-lock.txt` trước khi dựng.
+- `migrate` chạy cùng dist này, nên áp 0062 nếu DB QA chưa có (chỉ mở rộng CHECK).
+- QA muốn quay lại: chạy `up -d api worker` với `compose.api-wt7.yml` như trước.
+
+### 9.4 Tệp
+- Sửa:
+  - `services/api/src/modules/housekeeping/internal/rules.ts`;
+  - `services/api/src/modules/housekeeping/internal/work-orders.service.ts`;
+  - `services/api/test/integration/housekeeping-s4.test.ts`;
+  - `tests/e2e/support/known-bugs.ts` (xóa BUG-R2-108 – QA review).
+- Mới: `services/api/test/be-c-s4-units.test.ts`.
+

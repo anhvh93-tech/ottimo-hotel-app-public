@@ -418,9 +418,8 @@ export function checkSeo({ html, dist }, { siteUrl, langs, indexable }) {
     if (h.lang !== lang)
       problems.push(`${page.path}: <html lang="${h.lang}"> but path language is ${lang}`);
     if (!h.title || h.title.length > 60) problems.push(`${page.path}: title missing or > 60 chars`);
-    // ADR-014 5 asks ≤ 160; the approved mock v1.2.1 descriptions are 180 (EN) / 193 (VI) – kept, flagged to UXD.
-    if (!h.description || h.description.length > 200)
-      problems.push(`${page.path}: description missing or > 200 chars`);
+    if (!h.description || h.description.length > 160)
+      problems.push(`${page.path}: description missing or > 160 chars`);
     if ((h.themeColor ?? '').toLowerCase() !== PALETTE.ivory)
       problems.push(`${page.path}: theme-color is not Ivory`);
     const isPublished = published.includes(page);
@@ -586,7 +585,7 @@ export function namedColors(css) {
 }
 
 /** Byte budgets (ADR-014 7.7, 9; concept 11.2 hero per DPR). */
-export function checkBudgets({ dist, files, html }) {
+export function checkBudgets({ dist, files, html }, { bookingRequest: bookingForm = false } = {}) {
   const problems = [];
   const size = (f) => statSync(f).size;
   const gz = (f) => gzipSync(readFileSync(f)).length;
@@ -609,9 +608,12 @@ export function checkBudgets({ dist, files, html }) {
   for (const f of files.filter((f) => /\.(woff2?|ttf|otf)$/.test(f))) {
     const name = path.basename(f);
     if (!name.endsWith('.woff2')) problems.push(`${name}: only woff2 is shipped`);
-    if (!/^(lora|be-vietnam-pro)-(latin|latin-ext|vietnamese)-\d{3}-(normal|italic)\./.test(name))
+    const allowed =
+      /^(lora|be-vietnam-pro)-(latin|latin-ext|vietnamese)-\d{3}-(normal|italic)\./.test(name) ||
+      (bookingForm && /^jetbrains-mono-latin-400-normal\./.test(name));
+    if (!allowed)
       problems.push(
-        `${name}: font family/subset outside Lora + Be Vietnam Pro, latin/latin-ext/vietnamese`,
+        `${name}: font outside Lora + Be Vietnam Pro (latin/latin-ext/vietnamese) or, with the form, JetBrains Mono latin 400`,
       );
     if (size(f) > BUDGET.fontFile) problems.push(`${name} ${size(f)} B > ${BUDGET.fontFile}`);
   }
@@ -709,7 +711,7 @@ export function runAll(dist, opts) {
     seo: checkSeo(d, opts),
     sitemapRobots: checkSitemapRobots(d, opts),
     brandColors: checkBrandColors(d),
-    budgets: checkBudgets(d),
+    budgets: checkBudgets(d, opts),
     images: checkImages(d),
     glyphs: checkGlyphCoverage(d),
   };

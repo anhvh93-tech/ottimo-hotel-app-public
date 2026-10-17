@@ -52,6 +52,7 @@ import {
   keyKindOf,
   keyOf,
   previewNightReductions,
+  type NightReductionPreview,
 } from './reductions';
 import { type OpenRefund, refundPlan } from './refund-plan';
 
@@ -527,6 +528,7 @@ export function commissionPctFor(table: unknown, payee: PayeeType): number | nul
 function defaultCause(category: string): LineChangeCause {
   if (category === 'late_checkout' || category === 'early_checkin') return 'checkout_time_change';
   if (category === 'extra_person') return 'party_change';
+  if (category === 'room_change_difference') return 'room_change';
   return 'move';
 }
 
@@ -786,7 +788,11 @@ export class FolioService implements FolioStaySync {
     folioId: string,
     lines: readonly FolioLineInput[],
     actor: FolioActor,
-    opts: { allowPostCheckout?: boolean } = {},
+    opts: {
+      allowPostCheckout?: boolean;
+      /** lineChangedNote.cause of the pending FOC that follow the posted lines (default by category). */
+      cause?: LineChangeCause;
+    } = {},
   ): Promise<string[]> {
     const folio = await this.lockForPosting(tx, folioId, opts);
     const now = this.clock.now();
@@ -831,6 +837,24 @@ export class FolioService implements FolioStaySync {
         },
         ...(l.reason ? { reason: l.reason } : {}),
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    // S438-FOC-01/04 (BR-434, nghi vấn A7): a charge posted on a key that carries an approved FOC (a re-posted
+    // room-change difference of the date, a minibar line replacing a recount, a late charge…) – the FOC follows
+    // at once (min(approved, line)); idempotent, nothing to do on a folio without reductions.
+    if (
+      folio.status === 'open' &&
+      lines.some(
+        (l) =>
+          (l.lineState ?? 'posted') === 'posted' &&
+          l.category !== 'foc' &&
+          l.category !== 'discount',
+      )
+    ) {
+      await this.syncReductions(tx, folio.id, {
+        userId: actor.userId,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        ...(opts.cause ? { cause: opts.cause } : {}),
       });
     }
     // An OTA-covered charge (B16 early-departure fee kept by the OTA…) moves the OTA prepaid receipt.
@@ -2343,19 +2367,29 @@ export class FolioService implements FolioStaySync {
     tx: Tx,
     folioId: string,
     reservationId: string,
-    nights: ReadonlyArray<{ date: string; roomVnd: number; extraPersonVnd: number }>,
+    nights: ReadonlyArray<{
+      date: string;
+      roomVnd: number;
+      extraPersonVnd: number;
+      /** S438-FOC-04: the OTA room-change difference of the night after the change (with `differences`). */
+      differenceVnd?: number;
+    }>,
+    opts: {
+      /**
+       * S438-FOC-04 (BE-A move planner): `nights[].differenceVnd` are the room-change differences after the
+       * change – the FOC on the difference keys (one per date) is then counted before AND after. Without it the
+       * difference keys stay out of both totals (callers that do not re-price the differences).
+       */
+      differences?: boolean;
+    } = {},
   ): Promise<{
-    byDate: Map<
-      string,
-      { roomFocVnd: number; roomPendingVnd: number; extraFocVnd: number; extraPendingVnd: number }
-    >;
+    byDate: Map<string, NightReductionPreview>;
     oldAppliedVnd: number;
     newAppliedVnd: number;
   }> {
     const live = await this.liveLines(tx, folioId, reservationId);
-    const nightLines = new Set(
-      live.filter((l) => l.category === 'room' || l.category === 'extra_person').map((l) => l.id),
-    );
+    const keyed = opts.differences ? NIGHT_FOLLOWERS : new Set<string>(['room', 'extra_person']);
+    const nightLines = new Set(live.filter((l) => keyed.has(l.category)).map((l) => l.id));
     const oldAppliedVnd = live
       .filter(
         (l) =>
@@ -2369,10 +2403,12 @@ export class FolioService implements FolioStaySync {
       oldDates: live
         .filter((l) => l.category === 'room' && l.stay_night_id && l.service_date)
         .map((l) => l.service_date as string),
-      nights,
+      nights: opts.differences ? nights : nights.map((n) => ({ ...n, differenceVnd: 0 })),
     });
     let newAppliedVnd = 0;
-    for (const v of byDate.values()) newAppliedVnd += v.roomFocVnd + v.extraFocVnd;
+    for (const v of byDate.values()) {
+      newAppliedVnd += v.roomFocVnd + v.extraFocVnd + (opts.differences ? v.differenceFocVnd : 0);
+    }
     return { byDate, oldAppliedVnd, newAppliedVnd };
   }
 
@@ -2540,7 +2576,7 @@ export class FolioService implements FolioStaySync {
       actor: { userId: string; roles: readonly string[] };
       requestId?: string;
     },
-  ): Promise<{ id: string; amountVnd: number } | null> {
+  ): Promise<{ id: string; amountVnd: number; created: boolean } | null> {
     const b = await this.balance(tx, input.folioId);
     const approvals = this.requireApprovals();
     // DOM-S4-14 (BR-522 v0.3.8): open requests above the overpayment → the pending ones are cancelled (requester
@@ -2558,7 +2594,7 @@ export class FolioService implements FolioStaySync {
     for (const id of plan.cancelIds) {
       await approvals.autoCancel(tx, id, cancelReason, input.requestId);
     }
-    let request: { id: string; amountVnd: number } | null = null;
+    let request: { id: string; amountVnd: number; created: boolean } | null = null;
     if (plan.createVnd > 0) {
       const row = await approvals.submit(tx, input.actor, {
         type: 'refund',
@@ -2570,7 +2606,7 @@ export class FolioService implements FolioStaySync {
         targetCode: input.reservationCode,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
-      request = { id: row.id, amountVnd: Number(row.amount_vnd) };
+      request = { id: row.id, amountVnd: Number(row.amount_vnd), created: true };
     } else if (b.rawCreditVnd > 0) {
       const { rows } = await tx.query<{ id: string; amount_vnd: number }>(
         `SELECT id, amount_vnd FROM approval_request
@@ -2579,7 +2615,9 @@ export class FolioService implements FolioStaySync {
           ORDER BY requested_at DESC LIMIT 1`,
         [input.reservationId],
       );
-      if (rows[0]) request = { id: rows[0].id, amountVnd: Number(rows[0].amount_vnd) };
+      if (rows[0]) {
+        request = { id: rows[0].id, amountVnd: Number(rows[0].amount_vnd), created: false };
+      }
     }
     if (b.rawCreditVnd > 0 && this.events) {
       await this.events.openAttention(tx, {
@@ -2593,6 +2631,54 @@ export class FolioService implements FolioStaySync {
       });
     }
     return request;
+  }
+
+  /**
+   * S438-CANCEL-03 (BR-522 v0.3.8, BR-315 (f)) – B12: the no-show is undone and its folio synced again (nights,
+   * fee reversed). The refund requests the close left are reconciled with the overpayment NOW by the same
+   * refundPlan: above it → the pending ones auto-cancelled (`superseded`, requester told) and, only if some
+   * overpayment is still left, one request of that amount again; "Cần chú ý" closed_reservation_credit is
+   * resolved – the booking is no longer closed.
+   */
+  async reopenStayCredit(
+    tx: Tx,
+    input: {
+      folioId: string;
+      reservationId: string;
+      reservationCode: string;
+      actor: { userId: string; roles: readonly string[] };
+      requestId?: string;
+    },
+  ): Promise<void> {
+    const b = await this.balance(tx, input.folioId);
+    const open = await this.openRefunds(tx, input.folioId, { lock: true });
+    const total = open.reduce((a, r) => a + r.remainingVnd, 0);
+    if (total > Math.max(0, b.rawCreditVnd)) {
+      const approvals = this.requireApprovals();
+      const plan = refundPlan(b.rawCreditVnd, open);
+      for (const id of plan.cancelIds) {
+        await approvals.autoCancel(tx, id, 'superseded', input.requestId);
+      }
+      if (plan.createVnd > 0) {
+        await approvals.submit(tx, input.actor, {
+          type: 'refund',
+          amountVnd: plan.createVnd,
+          reasonCode: 'overpayment',
+          targetType: 'reservation',
+          targetId: input.reservationId,
+          targetCode: input.reservationCode,
+          ...(input.requestId ? { requestId: input.requestId } : {}),
+        });
+      }
+    }
+    if (this.events) {
+      await this.events.resolveAttention(
+        tx,
+        `closed_reservation_credit:${input.reservationId}`,
+        this.clock.now(),
+        'no-show restored (B12)',
+      );
+    }
   }
 
   /**

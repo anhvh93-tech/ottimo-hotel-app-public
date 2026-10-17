@@ -126,7 +126,13 @@ describe('helpers', () => {
 });
 
 describe('thank-you promise (202 `promise`, BR-912 (4)) – never replyBy', () => {
-  const hours = { tz: 'Asia/Ho_Chi_Minh', open: '07:00', close: '22:00' };
+  const hours = {
+    tz: 'Asia/Ho_Chi_Minh',
+    open: '07:00',
+    close: '22:00',
+    withinMinutes: 60,
+    callNowMinutes: 60, // web_request_public_promise_call_now_minutes (DOM, BR-912 v0.3.8)
+  };
   it('within_minutes', () => {
     const p = promiseText(
       { kind: 'within_minutes', minutes: 60, by: '2026-10-17T08:15:00Z' },
@@ -152,11 +158,16 @@ describe('thank-you promise (202 `promise`, BR-912 (4)) – never replyBy', () =
       callNow: false,
     });
     const c = promiseText(
-      { kind: 'call_now', minutes: 30, by: '2026-10-17T16:30:00Z' },
+      { kind: 'call_now', minutes: 60, by: '2026-10-17T16:30:00Z' },
       BOOKING_STRINGS.en.when,
       hours,
     );
     expect(c.callNow).toBe(true);
+    // minutes missing in the response → the page parameter (60)
+    expect(
+      promiseText({ kind: 'call_now', by: '2026-10-17T16:30:00Z' }, BOOKING_STRINGS.en.when, hours)
+        .when,
+    ).toContain('60');
     expect(c.by).toBe('23:30');
   });
 });

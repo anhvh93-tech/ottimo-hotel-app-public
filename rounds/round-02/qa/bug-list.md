@@ -1,6 +1,6 @@
 # Danh sách lỗi – Round 2
 
-- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 17/10/2026 ~19:40 – **Sprint 4 D1** (ca E2E tự động cho BUG-R2-055…061 + quy tắc mới, `test.fail` ở đầu ca qua `support/known-bugs.ts`; thêm **BUG-R2-104** (P2) và **BUG-R2-105** (P1, CI 39028814256); BUG-R2-064 **Fixed** – mục 11, `qa/s4-test-report.md`) – trước đó: 17/10/2026 ~16:20 – **cổng QC Sprint 3 bản 3: ĐK-S3-12, ĐK-S3-3 bản 3, ĐK-S3-13** (đóng BUG-R2-083 phần P0, tách phần còn lại thành **BUG-R2-085** (P1, S4-39); ghi 18 điểm UXR mới thành BUG-R2-086…103; sửa bộ sinh truy vết cho luồng riêng "R2 – LP-v1" – mục 10) – trước đó: 17/10 15:40 – **chấm lại cổng QC Sprint 3 sau vòng sửa 9, 9b, 9c** (HEAD `fe4b166`, CI 39015560449 xanh; đóng 065…073, 074 Deferred, thêm và đóng BUG-R2-084 (KB7), gán TC-L4-096; 083 chờ SEC – mục 9, `qa/s3-retest-2.md`) – trước đó: 17/10 chiều – **vòng sửa 9 Sprint 3** (ghi lỗi UXR #1–#11 và FB-R2-SEC-BE-53 thành BUG-R2-065…083; 7 ca E2E-UI bấm thật bước ghi – QC-S3-09, mục 8) – trước đó: **cổng QC Sprint 3** (ĐK-S3-3 mở rộng theo ORC: lỗi tiền đã biết của `s4-carryover.md`, PO-S3-04/07, QC-S3-04, đóng BUG-R2-053, điều tra TC-L3-011 – mục 7) – trước đó: **Sprint 3 bước Kiểm thử** (E2E S3 trên stack dùng một lần `ottimo-qa-s3`; lượt chính trên ảnh build từ **HEAD `229db99`** (commit Phản hồi & sửa) – trước đó `a297273` + `product/infra`; báo cáo `qa/s3-test-report.md`) – trước đó: khởi động Sprint 3 (ĐK-S2-1) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8 · **17/10 ~21:45 – bước Kiểm thử (mục 11.5)**: TC-L3-077 sửa theo 0.3.7 (CI `b6153b7`), không lỗi mới; BUG-R2-054/033 đạt trên cây làm việc, chờ CI gộp · **17/10 ~22:45 – M1 đóng (mục 11.7)**: CI 39042881071 xanh trên `6f8d429` → **Closed** 14 lỗi: 033, 038, 054, 055–061, 085, 104, 105, 106; 107 **Fixed** (`21b175c`, chờ CI 39044741574) · **~23:00**: BUG-R2-107 **Closed** (CI 39044741574 xanh trên `21b175c`)
+- Tác giả: QA | Mở: 16/10/2026 (tuần 1, Đợt 0) | Cập nhật: 17/10/2026 ~19:40 – **Sprint 4 D1** (ca E2E tự động cho BUG-R2-055…061 + quy tắc mới, `test.fail` ở đầu ca qua `support/known-bugs.ts`; thêm **BUG-R2-104** (P2) và **BUG-R2-105** (P1, CI 39028814256); BUG-R2-064 **Fixed** – mục 11, `qa/s4-test-report.md`) – trước đó: 17/10/2026 ~16:20 – **cổng QC Sprint 3 bản 3: ĐK-S3-12, ĐK-S3-3 bản 3, ĐK-S3-13** (đóng BUG-R2-083 phần P0, tách phần còn lại thành **BUG-R2-085** (P1, S4-39); ghi 18 điểm UXR mới thành BUG-R2-086…103; sửa bộ sinh truy vết cho luồng riêng "R2 – LP-v1" – mục 10) – trước đó: 17/10 15:40 – **chấm lại cổng QC Sprint 3 sau vòng sửa 9, 9b, 9c** (HEAD `fe4b166`, CI 39015560449 xanh; đóng 065…073, 074 Deferred, thêm và đóng BUG-R2-084 (KB7), gán TC-L4-096; 083 chờ SEC – mục 9, `qa/s3-retest-2.md`) – trước đó: 17/10 chiều – **vòng sửa 9 Sprint 3** (ghi lỗi UXR #1–#11 và FB-R2-SEC-BE-53 thành BUG-R2-065…083; 7 ca E2E-UI bấm thật bước ghi – QC-S3-09, mục 8) – trước đó: **cổng QC Sprint 3** (ĐK-S3-3 mở rộng theo ORC: lỗi tiền đã biết của `s4-carryover.md`, PO-S3-04/07, QC-S3-04, đóng BUG-R2-053, điều tra TC-L3-011 – mục 7) – trước đó: **Sprint 3 bước Kiểm thử** (E2E S3 trên stack dùng một lần `ottimo-qa-s3`; lượt chính trên ảnh build từ **HEAD `229db99`** (commit Phản hồi & sửa) – trước đó `a297273` + `product/infra`; báo cáo `qa/s3-test-report.md`) – trước đó: khởi động Sprint 3 (ĐK-S2-1) | Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8 · **17/10 ~21:45 – bước Kiểm thử (mục 11.5)**: TC-L3-077 sửa theo 0.3.7 (CI `b6153b7`), không lỗi mới; BUG-R2-054/033 đạt trên cây làm việc, chờ CI gộp · **17/10 ~22:45 – M1 đóng (mục 11.7)**: CI 39042881071 xanh trên `6f8d429` → **Closed** 14 lỗi: 033, 038, 054, 055–061, 085, 104, 105, 106; 107 **Fixed** (`21b175c`, chờ CI 39044741574) · **~23:00**: BUG-R2-107 **Closed** (CI 39044741574 xanh trên `21b175c`) · **~23:05 – thêm BUG-R2-108 (P1, BE-C)**: Desk S11 không có nút chuyển trạng thái phiếu sửa (mục 11.8)
 - Lỗi tồn từ R1: `rounds/round-01/qa/bug-list.md` (không chép lại)
 
 ## 1. Tổng hợp
@@ -8,10 +8,10 @@
 | Mức | Số lỗi | Open | Fixed | Deferred | Closed |
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
-| P1 | 21 | 0 | 0 | 0 | 21 |
+| P1 | 22 | 1 | 0 | 0 | 21 |
 | P2 | 39 | 10 | 0 | 1 | 28 |
 | P3 | 37 | 18 | 1 | 0 | 18 |
-| **Tổng** | **107** | **28** | **1** | **1** | **77** |
+| **Tổng** | **108** | **29** | **1** | **1** | **77** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -142,6 +142,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-105** | **P1** | CI 39028814256 (`cc218b2`) đỏ ở TC-L7-010 (guest-web H18), 121 ca phụ thuộc không chạy: hàm `photo()` của ca chọn nút "Chụp" theo vị trí (`.nth(n-1)`) và không chờ tải ảnh người 1 xong – khi người 1 xong, ô đó chỉ còn "Gửi lại" nên `.nth(1)` không còn (race, đã chập chờn ở CI 38980363276). **Không** do API/migration `0055`/hợp đồng 0.3.7 | QA (test) | **Closed** – –; CI 39042881071 xanh trên `6f8d429` (17/10): TC-L7-010, `ui/guest-web.h18.spec.ts` 4/4 đạt (mục 11.7) |
 | BUG-R2-106 | P3 | H17 Cần duyệt (FE-A, cây làm việc 17/10): sau 412 `VERSION_CONFLICT` bấm "Tải lại" rồi mở lại hộp duyệt hoàn, **đôi khi** Desk vẫn gửi `expectedVersion` cũ → 412 lần hai (1/4–1/2 lượt TC-NT-052 (E)) | FE-A | **Closed** – #6 / B-6; CI 39042881071 xanh trên `6f8d429` (17/10): TC-NT-052 (E) đạt (mục 11.7) |
 | BUG-R2-107 | P3 | H17 Cần duyệt (FE-A, cây làm việc 17/10): Desk chỉ đọc 100 yêu cầu duyệt **mới nhất, mọi trạng thái** (`limit: 100`, không lọc `status`, không đọc trang sau) rồi lọc `pending`/`escalated` ở máy → yêu cầu chờ duyệt nằm sau 100 yêu cầu mới hơn **không hiện**, không duyệt được trên Desk | FE-A | **Closed** – `21b175c` (đọc hàng chờ theo `status` + `nextCursor`); CI 39044741574 xanh trên `21b175c` (17/10): TC-NT-052 (E) đạt, E2E 1.860 đạt (mục 11.7) |
+| **BUG-R2-108** | **P1** | Desk S11 /maintenance: ngăn chi tiết phiếu sửa **không có nút nào** (Nhận việc, Chờ vật tư, Sửa xong, Hủy, Mở lại) cho mọi vai. API trả `WorkOrder.allowedActions` = `[]` (server dựng mảng chuỗi `'accept'`… thay vì `AllowedAction {event, transition, action}` của hợp đồng; QA suy ra phần tử sai kiểu bị bỏ khi định dạng phản hồi). Lễ tân/quản lý không đóng, hủy, mở lại được phiếu trên Desk; "Mở lại" chỉ có trên Desk (FD+) nên **không có cách vòng** | BE-C | Open |
 
 ## 2. Chi tiết
 
@@ -848,6 +849,30 @@ Ghi chú: (1) Ảnh nằm trong scratchpad của phiên (không đưa vào git v
 - Ảnh hưởng tới E2E: trên CI (stack dùng một lần) `desk-chromium` chạy **trước** project `clock`, nên lúc TC-NT-052 chạy chưa có yêu cầu "tương lai" – thẻ mới đứng đầu, ca không vướng. Trên stack QA dùng lâu, TC-NT-052 đỏ vì lỗi này (không phải vì #6).
 - Bằng chứng: `scratchpad/qa-s4/run-dw1.txt`, `results-dw1/*/error-context.md` (ảnh chụp cây truy cập: 70 thẻ, không có OTM-00901).
 
+
+### BUG-R2-108 – Desk S11: phiếu sửa không có nút chuyển trạng thái (`WorkOrder.allowedActions` luôn rỗng)
+- Mức: **P1**. Không sai tiền, không lộ dữ liệu. Chức năng chính của S11 (US-062) hỏng trên Desk:
+  - lễ tân/quản lý không Nhận việc, không Sửa xong, không Hủy, không Chờ vật tư được;
+  - "Mở lại" (≤ 7 ngày sau khi xong – DOM D-12 g) chỉ có trên Desk FD+, nên **không có cách vòng**;
+  - Hủy phiếu do lễ tân tạo cũng không có cách vòng (bảo trì chỉ hủy được phiếu mình tạo còn `new`);
+  - chỉ còn đường PWA H22 của bảo trì: PWA tự suy hành động khi server không gửi (`WorkOrderPage.tsx:25-28`), nên chuỗi A4 vẫn chạy.
+- Môi trường: stack QA `ottimo-qa-s4`, api biên dịch từ cây chung 17/10 ~22:30 (`api-dist7`), admin-web build từ cây làm việc ~22:08. Chromium 1366×768.
+- Vai sửa: **BE-C** (bộ dựng `WorkOrder`). FE-B không phải sửa (Desk đọc đúng `a.action` theo hợp đồng). Trạng thái: **Open**.
+- Bước (TC-L6-045 (E)):
+  1. `qa.mt` tạo phiếu + khối khóa (API) – hoặc lễ tân tạo trên S11.
+  2. `qa.fd` mở `/maintenance` → bấm mã phiếu.
+- Thực tế:
+  - ngăn chi tiết chỉ có thông tin và nhóm "Mức độ", không có nút hành động;
+  - `GET /work-orders/{id}` của `qa.fd` → `status: new`, `allowedActions: []`;
+  - `GET /work-orders` của `qa.fd`, `qa.fdl`, `qa.mgr`, `qa.mt` → mọi phiếu (`new`, `in_progress`) đều `allowedActions: []` (`scratchpad/qa-s4/probe-wo.mjs`).
+- Gốc (QA đọc mã):
+  - `work-orders.service.ts:255` gán `allowedActions: woAllowedActions(...)`;
+  - `rules.ts:250-264` trả **mảng chuỗi** (`'accept'`, `'complete'`…);
+  - OpenAPI `WorkOrder.allowedActions` là `AllowedAction[]` (`{event, transition, action}` – mục `AllowedAction`). Phản hồi nhận được là `[]`; QA **suy ra** lớp định dạng phản hồi theo `generated/openapi-schemas.ts` đã bỏ các phần tử sai kiểu – BE-C xác nhận khi sửa;
+  - Desk `WorkOrderDrawer.tsx:108` đọc `a.action` → không có nút.
+- Mong đợi: theo hợp đồng, `allowedActions` gồm đúng các `AllowedAction` hợp lệ theo SM-04 và vai (A85: OWN/MGR/FDL/FD/MT). Ví dụ phiếu `new` của FD: `accept` (W2), `cancel` (W5).
+- Bằng chứng: `e2e/ui-clock/ops.s4.spec.ts` TC-L6-045 (E) (`knownBug('BUG-R2-108')` ở đầu ca, hỏng đúng bước tìm nút "Nhận việc"); `scratchpad/qa-s4/results-ops-6/*/error-context.md`; annotation `evidence` của lượt 5.
+
 ## 3. Kiểm lại bản sửa (QA, 16/10/2026 – Đợt 0)
 
 Cách kiểm: đọc `product/docs/business-rules.md` **v0.3.1** (cột ví dụ + mục 13), cập nhật oracle/seed theo `rounds/round-02/outputs/DOM/w1-oracle-review.md`, chạy `node product/tests/tools/validate-fixtures.mjs` → **0 lỗi** (226 dòng oracle, 157 dòng tự tính lại). Chuyển **Fixed**; chuyển **Closed** khi test unit của BE (sprint 1) đọc oracle mới và xanh – tầng code chưa có nên chưa kiểm được ở tầng A.
@@ -1253,4 +1278,12 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
 - **Còn mở, liên quan Sprint 4:**
   - BUG-R2-093 (P2, S4-25 – cùng ca TC-X-071 `knownBug('S4-25')`);
   - các lỗi P2/P3 khác giữ nguyên trạng thái ở bảng mục 1.
+
+### 11.8 Ca UI màn vận hành của FE-B (QA, 17/10 ~22:45–23:05)
+- `e2e/ui-clock/ops.s4.spec.ts` (desk-clock, chạy theo khóa đồng hồ `qa-s4/clock-lock.txt`):
+  - TC-L6-043 (E) + TC-L6-040 (E): S11 thiếu mô tả không lưu; phiếu + Khóa căn → toast, căn `OOO`. **Đạt**.
+  - TC-L6-042 (E): căn có khách → "Căn đang có khách – chưa khóa được" → "Tạo phiếu không khóa" (phiếu không có khối). **Đạt**.
+  - TC-L6-022 (E) + TC-L6-033 (E): S10 tạo việc tay, "Làm xong" → bộ đếm; hủy lý do "Khác" phải ghi chú. **Đạt**.
+  - TC-L6-045 (E): Desk Nhận việc → Sửa xong → hộp hậu quả. **Lỗi mới BUG-R2-108** (P1, BE-C), `knownBug` ở đầu ca.
+- **Ghi chú môi trường:** Desk gửi `performedAt` theo giờ máy. Ca để giờ trình duyệt bằng giờ server; lệch quá 5 phút thì server trả 422 `PERFORMED_AT_OUT_OF_RANGE` (đúng B-02, không phải lỗi).
 

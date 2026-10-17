@@ -33,6 +33,7 @@
     "frontDeskOpen": "07:00",
     "frontDeskClose": "22:00",
     "promiseMinutes": 60,
+    "promiseCallNowMinutes": 60,
     "promiseNextMorningBy": "09:00",
     "windowDays": 365,
     "shortMaxNights": 27,

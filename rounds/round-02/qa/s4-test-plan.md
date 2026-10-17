@@ -216,7 +216,7 @@ FE-B đợt 2 đã có màn trên MSW theo 0.3.7, unit test xanh. API của BE-C
 
 Ca chuỗi A4 viết khi đủ: PWA H21/H22 (MOB), API phiếu sửa + khối OOO + `room_status` (BE-C). Trước đó từng màn có ca riêng ở bảng trên. Dự kiến D7–D8.
 
-**Đã làm (17/10 ~22:50):** A4 = **TC-X-072** (`e2e/ui-clock/flow-a4.s4.spec.ts`), xanh trên stack QA (report 7.6). Chưa làm: khung `ui/ops.s4.spec.ts`, `ui-clock/ops.s4.spec.ts` (các ca từng màn của bảng trên).
+**Đã làm (17/10 ~22:50):** A4 = **TC-X-072** (`e2e/ui-clock/flow-a4.s4.spec.ts`), xanh trên stack QA (report 7.6). **Đã làm (~23:10):** `ui-clock/ops.s4.spec.ts` (S11 tạo phiếu + khóa, 409 căn có khách, S10 việc tay/làm xong/hủy; S11 Desk Sửa xong = `knownBug('BUG-R2-108')`), `ui/ops.s4.spec.ts` (S13 quyền xem/sửa minibar). Còn: H03 (US-110), khóa có kế hoạch (US-019), đổi giá minibar (project `serial`).
 
 ### 5.4 Ca phải sửa cùng lúc BE-C gộp S4-39
 - **TC-L3-077** (`ui-clock/party-docs.h14.spec.ts`, đang trong `WRITES`) kiểm "Gắn người" kiểu 0.3.6 và bỏ người không gửi số ô.

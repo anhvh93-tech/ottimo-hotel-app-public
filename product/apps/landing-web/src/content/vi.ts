@@ -7,7 +7,7 @@ export const vi: Copy = {
   meta: {
     title: 'OTTIMO Boutique Stay · Đà Lạt',
     description:
-      'Boutique stay ở Đà Lạt: sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng. Ở một đêm, hay cả một mùa. Gửi yêu cầu đặt phòng hoặc nhắn OTTIMO qua Zalo.',
+      'Boutique stay ở Đà Lạt: sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng. Ở một đêm, hay cả một mùa. Nhắn qua Zalo.',
     ogImageAlt: 'OTTIMO lúc chạng vạng, ban công sáng đèn ấm',
   },
   skip: 'Bỏ qua tới nội dung',
@@ -281,8 +281,8 @@ export const vi: Copy = {
   sticky: { label: 'Thao tác nhanh' },
   notFound: {
     title: 'Không tìm thấy trang · OTTIMO Boutique Stay',
-    heading: 'Không có trang này.',
-    body: 'Đường dẫn có thể đã cũ hoặc gõ nhầm. Mọi thông tin về OTTIMO có ở trang chủ.',
+    heading: 'Không tìm thấy trang này.',
+    body: 'Đường dẫn có thể đã cũ hoặc bị gõ nhầm. Mọi thông tin về OTTIMO có ở trang chủ.',
     back: 'Về trang chủ',
   },
 };

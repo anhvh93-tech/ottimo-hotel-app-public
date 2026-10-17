@@ -165,7 +165,8 @@ export interface PromiseText {
   callNow: boolean;
 }
 
-/** Thank-you sentences from the 202 `promise` (BR-912 (4)). */
+/** Thank-you sentences from the 202 `promise` (BR-912 (4) v0.3.8). `minutes` comes from the server; the page
+ *  parameters (site.json `booking`) are only the fallback when the field is missing. */
 export function promiseText(
   p: BookingPromise,
   strings: {
@@ -173,14 +174,15 @@ export function promiseText(
     nextMorning: (by: string, open: string) => string;
     callNow: (m: number) => string;
   },
-  hours: { tz: string; open: string; close: string },
+  cfg: { tz: string; open: string; close: string; withinMinutes: number; callNowMinutes: number },
 ): PromiseText {
-  const by = hhmm(p.by, hours.tz);
+  const by = hhmm(p.by, cfg.tz);
   if (p.kind === 'next_morning')
-    return { when: strings.nextMorning(by, hours.open), by, callNow: false };
-  if (p.kind === 'call_now') return { when: strings.callNow(p.minutes ?? 30), by, callNow: true };
+    return { when: strings.nextMorning(by, cfg.open), by, callNow: false };
+  if (p.kind === 'call_now')
+    return { when: strings.callNow(p.minutes ?? cfg.callNowMinutes), by, callNow: true };
   return {
-    when: strings.withinMinutes(p.minutes ?? 60, hours.open, hours.close),
+    when: strings.withinMinutes(p.minutes ?? cfg.withinMinutes, cfg.open, cfg.close),
     by,
     callNow: false,
   };

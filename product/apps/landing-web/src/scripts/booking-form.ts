@@ -28,7 +28,13 @@ function init(form: HTMLFormElement) {
   const S = BOOKING_STRINGS[lang];
   const cfg = form.dataset;
   const tz = cfg.tz ?? 'Asia/Ho_Chi_Minh';
-  const hours = { tz, open: cfg.open ?? '07:00', close: cfg.close ?? '22:00' };
+  const hours = {
+    tz,
+    open: cfg.open ?? '07:00',
+    close: cfg.close ?? '22:00',
+    withinMinutes: Number(cfg.promiseMinutes ?? 60),
+    callNowMinutes: Number(cfg.callNowMinutes ?? 60),
+  };
   const shortMax = Number(cfg.shortMax ?? 27);
   const TODAY = todayIn(tz, new Date());
   const MAX = addDays(TODAY, Number(cfg.windowDays ?? 365));

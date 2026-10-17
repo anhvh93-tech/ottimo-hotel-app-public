@@ -8,9 +8,10 @@
 // Chuỗi liền mạch A4 ở `flow-a4.s4.spec.ts`. TC: r1-main-flows.md – TC-L6-040/043/045 (E), TC-L6-042 (E),
 // TC-L6-022/033 (E).
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { call, session, stackToday, type StaffSession } from '../support/api.js';
+import { call, propertyIdOf, session, stackToday, type StaffSession } from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   addDays,
   cleanupTracked,
@@ -78,7 +79,7 @@ test.describe(
     test.skip(!UI, 'Chạy với E2E_UI=1');
     test.skip(!SEED_PASSWORD, 'Thiếu QA_SEED_PASSWORD');
 
-    test('TC-L6-043 (E) + TC-L6-040 (E) + TC-L6-045 (E) US-061/AC1, AC4; US-062/AC1; US-135 S11: thiếu mô tả không lưu; tạo phiếu + Khóa căn → toast khóa/mở bán; Nhận việc → Sửa xong → hộp hậu quả (focus nút an toàn) → căn VD + "Dọn sau sửa chữa", khối kết thúc', async ({
+    test('TC-L6-043 (E) + TC-L6-040 (E) US-061/AC1, AC4 S11: thiếu mô tả không lưu; tạo phiếu + Khóa căn → phiếu có khối, toast "khóa đêm …, mở bán lại từ …", căn OOO', async ({
       browser,
       request,
     }) => {
@@ -87,9 +88,9 @@ test.describe(
       needCleanRooms('TC-L6-040 (E)');
       const { D, room } = await dayWithFreeRoom(request, 5, '09:00');
       const reopenPlanned = addDays(D, 2);
-      const page = await desk(browser, 'qa.fd', vnTime(D, '09:05'));
+      // giờ Desk = giờ server: lệnh ghi mang `performedAt` (B-02, ±5 phút)
+      const page = await desk(browser, 'qa.fd', vnTime(D, '09:00'));
       const creates = recordWrites(page, 'POST', /\/work-orders$/);
-      const acts = recordWrites(page, 'POST', /\/work-orders\/[^/]+\/actions\/[a-z-]+$/);
       await page.goto(`${WEB_URL}/maintenance`);
       await page.getByRole('button', { name: t('wo.new_title'), exact: true }).click();
       const dlg = page.getByRole('dialog', { name: t('wo.new_title') });
@@ -106,7 +107,7 @@ test.describe(
         'thiếu mô tả: không có phiếu nào được tạo',
       ).toHaveLength(0);
       await dlg.getByLabel(t('hk.wo.desc')).fill('Voi sen phong tam ro nuoc lien tuc');
-      await dlg.getByRole('checkbox', { name: t('hk.lock_request') }).check();
+      await dlg.getByRole('switch', { name: t('hk.lock_request') }).click();
       await dlg.getByLabel(t('wo.block_done_planned')).fill(reopenPlanned);
       const reason = dlg.getByLabel(t('wo.block_reason'));
       if (!(await reason.inputValue())) await reason.fill('Sua voi sen');
@@ -124,11 +125,61 @@ test.describe(
       await expect(page.getByText(tf('wo.created', { code: wo.code })).first()).toBeVisible();
       await expect.poll(() => roomStatusOf(request, room.id)).toBe('OOO');
 
-      // (TC-L6-045) Nhận việc → Sửa xong → hộp hậu quả → xác nhận
+      await page.context().close();
+    });
+
+    test('TC-L6-045 (E) US-062/AC1; US-135 S11 Desk: Nhận việc → Sửa xong (ghi + ảnh) → hộp hậu quả (focus nút an toàn) → căn VD + "Dọn sau sửa chữa", khối kết thúc (BUG-R2-108)', async ({
+      browser,
+      request,
+    }) => {
+      knownBug('BUG-R2-108');
+      test.slow();
+      needClock('TC-L6-045 (E)');
+      needCleanRooms('TC-L6-045 (E)');
+      const { D, room, wo } = await precondition(
+        'phiếu sửa mức Thấp + khối khóa D → D+2 trên một căn sạch (API, qa.mt)',
+        async () => {
+          const x = await dayWithFreeRoom(request, 5, '09:00');
+          const mt = await session(request, 'qa.mt');
+          const r = await call<{ id: string; code: string }>(
+            request,
+            'POST',
+            `/v1/properties/${propertyIdOf(mt)}/work-orders`,
+            {
+              session: mt,
+              idempotencyKey: true,
+              body: {
+                roomId: x.room.id,
+                title: 'Voi sen ro nuoc',
+                description: 'Voi sen phong tam ro nuoc lien tuc',
+                category: 'broken_item',
+                severity: 'low',
+                blockRequested: false,
+                block: {
+                  startDate: x.D,
+                  expectedDoneDate: addDays(x.D, 2),
+                  reason: 'Sua voi sen',
+                },
+              },
+            },
+          );
+          expect(r.status, `createWorkOrder: ${JSON.stringify(r.body)}`).toBe(201);
+          return { ...x, wo: r.body };
+        },
+      );
+      // giờ Desk = giờ server (B-02)
+      const page = await desk(browser, 'qa.fd', vnTime(D, '09:00'));
+      const acts = recordWrites(page, 'POST', /\/work-orders\/[^/]+\/actions\/[a-z-]+$/);
+      await page.goto(`${WEB_URL}/maintenance`);
+      const drawer = page.getByRole('dialog').filter({
+        has: page.getByRole('heading', { name: new RegExp(`^${wo.code}`) }),
+      });
       await page.getByRole('button', { name: wo.code, exact: true }).click();
-      await page.getByRole('button', { name: t('wo.action.start'), exact: true }).click();
+      const start = drawer.getByRole('button', { name: t('wo.action.start'), exact: true });
+      await expect(start).toBeVisible({ timeout: 10_000 });
+      await start.click();
       await waitWrite(acts, 'transitionWorkOrder accept', 200, (s) => s.path.endsWith('/accept'));
-      await page.getByRole('button', { name: t('wo.action.done'), exact: true }).click();
+      await drawer.getByRole('button', { name: t('wo.action.done'), exact: true }).click();
       const done = page.getByRole('dialog', { name: tf('wo.done_title', { code: wo.code }) });
       await done.getByLabel(t('wo.result')).fill('Da thay bo voi sen moi');
       const file = done.locator('input[type="file"]');
@@ -147,7 +198,9 @@ test.describe(
         s.path.endsWith('/complete'),
       );
       expect((comp.request as Json).resultNote).toBeTruthy();
-      await expect(page.getByText(tf('wo.reopened', { room: room.roomNo })).first()).toBeVisible({
+      await expect(
+        page.getByText(new RegExp(`${t('wo.reopened').split('{')[0]!}${room.roomNo}\\b`)).first(),
+      ).toBeVisible({
         timeout: 10_000,
       });
       await page.context().close();
@@ -178,7 +231,7 @@ test.describe(
         nights: 2,
       });
       const occupied = st.room;
-      const page = await desk(browser, 'qa.fd', vnTime(D, '14:10'));
+      const page = await desk(browser, 'qa.fd', vnTime(D, '14:00'));
       const creates = recordWrites(page, 'POST', /\/work-orders$/);
       await page.goto(`${WEB_URL}/maintenance`);
       await page.getByRole('button', { name: t('wo.new_title'), exact: true }).click();
@@ -187,7 +240,7 @@ test.describe(
       await dlg.getByLabel(t('wo.title_label')).fill('Dieu hoa keu to');
       await dlg.getByLabel(t('hk.wo.desc')).fill('Dieu hoa keu to ban dem, khach phan anh');
       await dlg.getByLabel(t('hk.wo.what')).selectOption('broken_item');
-      await dlg.getByRole('checkbox', { name: t('hk.lock_request') }).check();
+      await dlg.getByRole('switch', { name: t('hk.lock_request') }).click();
       await dlg.getByLabel(t('wo.block_done_planned')).fill(addDays(D, 1));
       const reason = dlg.getByLabel(t('wo.block_reason'));
       if (!(await reason.inputValue())) await reason.fill('Sua dieu hoa');
@@ -224,7 +277,8 @@ test.describe(
       needClock('TC-L6-022 (E)');
       needCleanRooms('TC-L6-022 (E)');
       const { D, room } = await dayWithFreeRoom(request, 3, '09:00');
-      const page = await desk(browser, 'qa.fd', vnTime(D, '09:10'));
+      // giờ Desk = giờ server: "Làm xong" gửi `performedAt` (B-02, ±5 phút)
+      const page = await desk(browser, 'qa.fd', vnTime(D, '09:00'));
       const writes = recordWrites(page, 'POST', /\/hk-tasks(\/[^/]+\/actions\/[a-z-]+)?$/);
       await page.goto(`${WEB_URL}/housekeeping`);
       const counter = page.getByText(/^\d+\/\d+ xong$/).first();
@@ -270,9 +324,19 @@ test.describe(
       const cancelW = await waitWrite(writes, 'transitionHkTask cancel', 200, (s) =>
         s.path.includes(t2.id),
       );
-      expect(cancelW.request).toMatchObject({ reasonCode: 'other' });
+      expect(cancelW.request).toMatchObject({
+        cancelReasonCode: 'other',
+        cancelNote: 'Khach doi y, khong can don them',
+      });
+      // toast "Đã hủy việc – căn {số · tên}." (roomLabel)
       await expect(
-        page.getByText(tf('hk.desk.cancelled_toast', { room: room.roomNo })).first(),
+        page
+          .getByText(
+            new RegExp(
+              `^${tf('hk.desk.cancelled_toast', { room: room.roomNo }).replace(/\.$/, '')}\\b`,
+            ),
+          )
+          .first(),
       ).toBeVisible();
       await page.context().close();
     });
