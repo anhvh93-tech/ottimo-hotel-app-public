@@ -1,16 +1,18 @@
 /**
- * Events endpoints (OpenAPI tag events / notifications / attention):
- * - streamEvents        GET  /v1/properties/{propertyId}/events   SSE `{id}` hints (any staff of the property)
- * - listMyNotifications GET  /v1/me/notifications                 own inbox of the active property
- * - listAttentionItems  GET  /v1/properties/{propertyId}/attention "Cần chú ý" (FD+, S02)
+ * Events endpoints (OpenAPI tag events / notifications / attention / dashboard):
+ * - streamEvents          GET  /v1/properties/{propertyId}/events   SSE `{id}` hints – audience by role (0.3.7)
+ * - listMyNotifications   GET  /v1/me/notifications                 own inbox of the active property
+ * - listAttentionItems    GET  /v1/properties/{propertyId}/attention "Cần chú ý" (FD+, S02) – filtered by role
+ * - resolveAttentionEvent POST …/attention-events/{eventId}/actions/resolve (FD+, Idempotency-Key) – BE-D S4
  * Reads run in a read-only transaction with the tenant context (RLS); the inbox is filtered by user in SQL.
  */
-import { Controller, Get, Inject, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type Tx } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { decodeCursor, page, parseLimit } from '../../../shared/http/pagination';
+import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
 import { toZonedIso } from '../../../shared/time';
 import { AttentionService } from './attention.service';
@@ -31,6 +33,8 @@ interface RawReply {
     destroyed?: boolean;
   };
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function principal(req: GuardedRequest) {
   const p = req.ottimoAuth?.principal;
@@ -56,6 +60,7 @@ export class EventsController {
     @Inject(SseHub) private readonly hub: SseHub,
     @Inject(AttentionService) private readonly attention: AttentionService,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(UnitOfWork) private readonly uow: UnitOfWork,
   ) {}
 
   private read<T>(req: GuardedRequest, fn: (tx: Tx) => Promise<T>): Promise<T> {
@@ -225,7 +230,33 @@ export class EventsController {
   @Get('properties/:propertyId/attention')
   @Operation('listAttentionItems')
   listAttention(@Req() req: GuardedRequest) {
-    return this.read(req, async (tx) => ({ data: await this.attention.list(tx) }));
+    const p = principal(req);
+    return this.read(req, async (tx) => ({ data: await this.attention.list(tx, p.roles) }));
+  }
+
+  @Post('properties/:propertyId/attention-events/:eventId/actions/resolve')
+  @Operation('resolveAttentionEvent')
+  async resolveAttention(
+    @Req() req: GuardedRequest,
+    @Res({ passthrough: true })
+    reply: { status(code: number): unknown; header(n: string, v: string): unknown },
+    @Param('eventId') eventId: string,
+    @Body() raw: unknown,
+  ): Promise<void> {
+    const p = principal(req);
+    if (!UUID.test(eventId)) throw problem('NOT_FOUND');
+    const body = raw && typeof raw === 'object' ? (raw as { note?: unknown }) : {};
+    const result = await this.uow.run<null>(req, async (tx) => {
+      await this.attention.resolve(tx, {
+        eventId,
+        roles: p.roles,
+        userId: p.userId,
+        note: body.note,
+        now: this.clock.now(),
+      });
+      return { status: 204, body: null };
+    });
+    applyResult(reply, result);
   }
 
   private async timezone(tx: Tx): Promise<string> {

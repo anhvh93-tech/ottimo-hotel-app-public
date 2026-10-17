@@ -23,7 +23,8 @@ import { containsCardNumber } from '../../../shared/validation';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { fileRejected, type NormalizedImage } from '../../files/public/image-pipeline';
-import { ParameterService } from '../../platform/public/parameter.service';
+import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
+import { guestRoomView } from '../../reservations/public/guest-room-view';
 import { setEta } from '../../reservations/public/stay-view';
 import {
   RegistrationService,
@@ -31,6 +32,7 @@ import {
   type StayView,
   readStay,
 } from '../../registration/public/registration.service';
+import { pickGuestLocale } from './guest-locale';
 
 /** SR-RL-05 (technical security constants). */
 export const GUEST_WRITES_PER_DAY = 20;
@@ -194,13 +196,26 @@ export class GuestPortalService {
       throw problem('GUEST_LINK_INVALID');
     }
     const c = await this.tz(tx);
-    const locale = pickLocale(stay.preferredLocale, acceptLanguage);
+    // P-S4-10 (0.3.7 bổ sung 1 – BE-D): the guest's earlier choice for this booking (re-opened or re-issued
+    // link, revoked sessions included) → booker profile → Accept-Language; the choice carries to the new session.
+    const { rows: chosen } = await tx.query<{ locale: string; locale_chosen_at: Date }>(
+      `SELECT locale, locale_chosen_at FROM guest_session
+        WHERE reservation_id = $1 AND locale_chosen_at IS NOT NULL
+        ORDER BY locale_chosen_at DESC LIMIT 1`,
+      [token.reservationId],
+    );
+    const picked = pickGuestLocale({
+      chosenByGuest: chosen[0]?.locale ?? null,
+      bookerPreferred: stay.preferredLocale,
+      acceptLanguage,
+    });
+    const locale = picked.locale;
     const sid = randomBytes(32).toString('base64url');
     const id = uuidv7();
     await tx.query(
       `INSERT INTO guest_session (id, organization_id, property_id, sid_hash, token_id, reservation_id, level,
-         locale, created_at, last_active_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $8, $9)`,
+         locale, locale_chosen_at, created_at, last_active_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $9, $10)`,
       [
         id,
         tx.ctx.organizationId,
@@ -209,6 +224,7 @@ export class GuestPortalService {
         token.id,
         token.reservationId,
         locale,
+        picked.chosenByGuest ? (chosen[0]?.locale_chosen_at ?? null) : null,
         c.now,
         token.expiresAt,
       ],
@@ -230,17 +246,32 @@ export class GuestPortalService {
         stayEnded: stay.status === 'checked_out',
         verification: { emailOtpAvailable: false, locked: false },
         // SEC BE-51 (6): after checkout the page only says thank you – no name, no room.
+        // 0.3.7 D1 (BR-012 – BE-D S4): the guest never sees the room NUMBER (`roomNo` deprecated, not sent).
         ...(stay.status === 'checked_out'
           ? {}
-          : { guestFirstName: stay.bookerFirstName, roomNo: stay.roomNo }),
+          : { guestFirstName: stay.bookerFirstName, ...(await this.guestRoom(tx, stay)) }),
         locale,
+        localeChosenByGuest: picked.chosenByGuest,
         expiresAt: toZonedIso(token.expiresAt, c.tz),
         level2ExpiresAt: null,
       },
     };
   }
 
-  private async activeStay(tx: Tx, g: GuestPrincipal): Promise<StayView> {
+  /**
+   * BR-012 (1), (4) – 0.3.7 D1 (BE-D Sprint 4): `roomName` only once the guest was told the concrete room,
+   * `publicRoomType` whenever a room is assigned; never the room number.
+   */
+  private async guestRoom(
+    tx: Tx,
+    stay: StayView,
+  ): Promise<{ roomName: string | null; publicRoomType: string | null }> {
+    const v = await guestRoomView(tx, stay.reservationId);
+    return { roomName: v?.guestRoomName ?? null, publicRoomType: v?.publicRoomType ?? null };
+  }
+
+  /** Booking of the session, still open (guest requests reuse it – BE-D Sprint 4). */
+  async activeStay(tx: Tx, g: GuestPrincipal): Promise<StayView> {
     const stay = await readStay(tx, g.reservationId, SYSTEM_ACTOR);
     if (!stay || stay.status === 'cancelled' || stay.status === 'no_show') {
       throw problem('GUEST_LINK_INVALID');
@@ -269,12 +300,17 @@ export class GuestPortalService {
     const checkoutTime = await this.params.get<string>(tx, 'checkout_time', c.today);
     const rules = p?.house_rules_i18n ?? null;
     const houseRules = rules ? (rules[g.locale] ?? rules.vi) : undefined;
-    const map = safeMapUrl(p?.map_url ?? null);
+    // S4-51 / P-S4-7 (BE-D): the map pin OWN keeps in Tham số (`property_map_url`) is the one source; the
+    // property column stays a fallback. Hosts re-checked on every read (SEC E14-08).
+    const map = safeMapUrl((await this.mapPin(tx, c.today)) ?? p?.map_url ?? null);
+    // US-108 AC2 / EP14 2.2: Wi-Fi from the arrival BUSINESS date (BR-010) or once in house.
+    const businessToday = await this.businessToday(tx);
     return {
       reservationCode: stay.code,
       status: stay.status,
       stayType: stay.stayType,
-      roomNo: stay.roomNo,
+      // 0.3.7 D1 (BR-012): `roomNo` deprecated – never sent to the guest.
+      ...(await this.guestRoom(tx, stay)),
       arrivalDate: stay.arrivalDate,
       departureDate: stay.departureDate,
       checkinTime,
@@ -286,21 +322,36 @@ export class GuestPortalService {
         ...(p?.phone_public ? { phone: p.phone_public } : {}),
       },
       ...(typeof houseRules === 'string' ? { houseRules } : {}),
-      // US-108 AC2: Wi-Fi only from the arrival date. Never guestFullName / doorCode at level 1 (ĐK-2).
-      wifi: c.today >= stay.arrivalDate ? wifiOf(p?.wifi_info_i18n ?? null, g.locale) : null,
+      // Never guestFullName / doorCode at level 1 (ĐK-2).
+      wifi:
+        stay.status === 'in_house' || businessToday >= stay.arrivalDate
+          ? wifiOf(p?.wifi_info_i18n ?? null, g.locale)
+          : null,
       onlineCheckinAvailable: await this.available(tx, stay),
     };
+  }
+
+  /** `property_map_url` in force today, null when neither the property nor the catalogue has one. */
+  private async mapPin(tx: Tx, today: LocalDate): Promise<string | null> {
+    try {
+      const v = await this.params.get<unknown>(tx, 'property_map_url', today);
+      return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
+    } catch (err) {
+      if (err instanceof ParameterMissingError) return null;
+      throw err;
+    }
   }
 
   async setLocale(tx: Tx, g: GuestPrincipal, locale: string): Promise<void> {
     if (!(LOCALES as readonly string[]).includes(locale)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'locale', code: 'NOT_IN_LIST' }] });
     }
-    await tx.query('UPDATE guest_session SET locale = $2, last_active_at = $3 WHERE id = $1', [
-      g.sessionId,
-      locale,
-      this.clock.now(),
-    ]);
+    // 0.3.7 bổ sung 1 (P-S4-10): also marks "chosen by the guest" – the next session of this booking keeps it.
+    // The guest profile (`guest.preferred_locale`) is NOT touched.
+    await tx.query(
+      `UPDATE guest_session SET locale = $2, locale_chosen_at = $3, last_active_at = $3 WHERE id = $1`,
+      [g.sessionId, locale, this.clock.now()],
+    );
   }
 
   // ───────────────────────── Guest: online check-in ─────────────────────────
@@ -755,13 +806,6 @@ function stripControl(text: string): string {
     out += ch;
   }
   return out;
-}
-
-function pickLocale(preferred: string | null, acceptLanguage: string | undefined): Locale {
-  if (preferred === 'vi' || preferred === 'en') return preferred;
-  // US-112 / EP06 8.5: browser en* → EN, otherwise VI (RU is R3 – shows EN).
-  const first = (acceptLanguage ?? '').split(',')[0]?.trim().toLowerCase() ?? '';
-  return first.startsWith('en') || first.startsWith('ru') ? 'en' : 'vi';
 }
 
 function wifiOf(

@@ -171,3 +171,63 @@ body {
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* ---- R2 Sprint 4 – brand (DS 11.2/11.3, S4-49) + H23 ---- */
+/* G5: booking code, Wi-Fi name/password in JetBrains Mono 16 px (self-hosted via @ottimo/ui – B1). */
+.gw-code {
+  font-family: var(--mono);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* G2: the greeting is a brand moment (Lora, English everywhere); the support line is Stone, small. */
+.guest-app .gw-hello {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.gw-support {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+/* G3: room name for guests (DS 3 `room-name`: Lora 500, 20 px on the guest page). */
+.gw-room-name {
+  display: block;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+.d-block {
+  display: block;
+}
+.gw-req-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gw-req-list > li + li {
+  margin-top: 10px;
+}
+.gw-flow-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.guest-app .wiz-foot.gw-foot {
+  /* In the flow, not pinned: the tab bar stays pinned at the bottom of the request page. */
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  background: var(--bg);
+}
+.gw-foot .gw-why {
+  grid-column: 1 / -1;
+}
+.req-tile[aria-disabled='true'] {
+  cursor: not-allowed;
+  color: var(--muted);
+}

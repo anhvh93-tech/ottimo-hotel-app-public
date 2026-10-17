@@ -14,6 +14,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   unique,
@@ -36,6 +37,8 @@ export const item = pgTable(
     code: text('code').notNull(),
     kind: text('kind').notNull().default('minibar'),
     name: text('name').notNull(),
+    /** 0061 (BE-D, US-066): names per language {vi, en, ru} as typed (ItemInput.name); `name` = vi. */
+    nameI18n: jsonb('name_i18n').$type<Record<string, string>>(),
     unit: text('unit').notNull(),
     /** C2 – owner/manager only (rbac M3). */
     costPriceVnd: bigint('cost_price_vnd', { mode: 'number' }),
@@ -60,6 +63,10 @@ export const item = pgTable(
       sql`(${t.costPriceVnd} IS NULL OR ${t.costPriceVnd} >= 0) AND (${t.salePriceVnd} IS NULL OR ${t.salePriceVnd} >= 0)`,
     ),
     check('item_qty_check', sql`${t.minibarStandardQty} >= 0 AND ${t.minStockQty} >= 0`),
+    check(
+      'item_name_i18n_check',
+      sql`${t.nameI18n} IS NULL OR jsonb_typeof(${t.nameI18n}) = 'object'`,
+    ),
   ],
 );
 

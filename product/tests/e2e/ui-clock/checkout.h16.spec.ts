@@ -211,7 +211,8 @@ test.describe(
       // chưa tick: "Tiếp tục" khóa và nói lý do ngay cạnh (FE-S3-04), chưa ghi gì vào folio
       const go = page.getByRole('button', { name: t('co.go_bill') });
       await expect(go).toHaveAttribute('aria-disabled', 'true');
-      await expect(go).toHaveAccessibleDescription(t('ci.told_guest'));
+      // S4-48 / BUG-R2-088 (FE-B): lý do khóa nói phải tick ô (không lặp nhãn ô)
+      await expect(go).toHaveAccessibleDescription(t('co.go_bill_needs_told'));
       expect(liveLines(await getFolio(request, fd, st.res.folioId!), 'late_checkout')).toHaveLength(
         0,
       );

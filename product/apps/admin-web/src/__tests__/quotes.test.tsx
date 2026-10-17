@@ -58,9 +58,20 @@ describe('H12 Báo giá & giữ chỗ (US-080, 082–087)', () => {
     expect(await within(hold).findByText(/Đã giữ căn 203 – đơn OTM-0\d+/)).toBeInTheDocument();
     const created = mockControl.rsv.reservations.at(-1)!;
     expect(created.status).toBe('hold');
+    // S4-28 (US-084 AC4): the deposit VietQR is drawn right after the hold – BR-305 deposit, content = code.
+    const ref = created.code.replace('-', '');
     expect(
-      within(hold).getByText(`Nội dung chuyển khoản: ${created.code.replace('-', '')}`),
+      await within(hold).findByRole('img', { name: new RegExp(`nội dung ${ref}$`) }),
     ).toBeInTheDocument();
+    const qr = mockControl.stay.payments.filter(
+      (p) => p.folioId === created.folioId && p.method === 'vietqr',
+    );
+    expect(qr).toHaveLength(1);
+    expect(qr[0]).toMatchObject({
+      type: 'deposit',
+      status: 'pending',
+      amountVnd: created.depositRequiredVnd,
+    });
     // Own projected commission on the booking (US-087 AC2).
     await user.click(within(hold).getByRole('button', { name: 'Mở đơn' }));
     const d = await screen.findByRole('dialog', { name: 'Hoàng Gia Bảo' });

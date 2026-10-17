@@ -79,6 +79,30 @@ export interface MockReservation extends Reservation {
   roomId: string | null;
   depositPaidVnd: number;
   holdCreatedAt?: string;
+  /** BR-424 "căn gốc" of an OTA booking (first room assigned) – S4-05/S4-21 room change difference. */
+  originalRoomId?: string;
+  /** Mock-only: `room_change_difference` currently on the folio (OTA guest request). */
+  roomChangeDifferenceVnd?: number;
+}
+/** One service line of a folio as `CancellationQuote.serviceLines` shows it (0.3.7 D1, S4-08). */
+export interface MockServiceLine {
+  lineId: string;
+  category: string;
+  labelKey?: string;
+  labelParams?: Record<string, string | number>;
+  serviceDate?: string;
+  amountVnd: number;
+  performed: boolean;
+}
+/**
+ * The folio side the EP02 handlers need (the Sprint 3 mock owns folios/payments and plugs itself in –
+ * no import cycle): S4-08 service lines on cancel / no-show, S4-28 deposit paid through a VietQR.
+ */
+export interface MockFolioPort {
+  serviceLines: (r: MockReservation) => MockServiceLine[];
+  reverseServiceLines: (r: MockReservation, keep: string[], by: string) => void;
+  /** `confirmDeposit.existingPaymentId`: a succeeded deposit payment of this booking's folio. */
+  depositPayment: (r: MockReservation, paymentId: string) => boolean;
 }
 interface MockBlock {
   id: string;
@@ -269,7 +293,16 @@ function makeState(rooms: Room[], channels: Channel[]) {
     blocks,
     quotes: [] as MockQuote[],
     commissions: [] as MockCommission[],
-    notices: [] as Array<{ reservationId: string; amountVnd: number }>,
+    notices: [] as Array<{
+      id: string;
+      reservationId: string;
+      amountVnd: number;
+      note?: string;
+      attachmentId?: string;
+      createdAt: string;
+      updatedAt: string;
+      createdByName: string;
+    }>,
     idempotency: new Map<string, { status: number; body: unknown }>(),
     nextRes: 170,
     nextQuote: 49,
@@ -317,6 +350,7 @@ const publicQuote = (q: MockQuote): Quote => ({
 export function createReservationMock(ctx: Ctx) {
   const { guard, problem } = ctx;
   let state = makeState(ctx.db().rooms, seedChannels());
+  let folioPort: MockFolioPort | null = null;
   const ensureGuests = () => {
     const guests = ctx.db().guests;
     for (const g of extraGuests()) if (!guests.some((x) => x.id === g.id)) guests.push(g);
@@ -512,6 +546,168 @@ export function createReservationMock(ctx: Ctx) {
     return out;
   }
 
+  // ---------- S4-08: service lines kept on cancel / no-show (BR-309; 0.3.7 D1) ----------
+  function retainCheck(
+    r: MockReservation,
+    retain: Array<{ lineId: string; reason?: string }> | undefined,
+  ) {
+    const all = folioPort?.serviceLines(r) ?? [];
+    const keep = retain ?? [];
+    const bad = keep.findIndex((k) => !all.some((l) => l.lineId === k.lineId));
+    if (bad >= 0) return validation([{ field: `retainLines[${bad}].lineId`, code: 'NOT_IN_LIST' }]);
+    const noReason = keep.findIndex((k) => (k.reason ?? '').trim().length < 3);
+    if (noReason >= 0)
+      return validation([{ field: `retainLines[${noReason}].reason`, code: 'REASON_REQUIRED' }]);
+    const keepIds = keep.map((k) => k.lineId);
+    const lines = all.map((l) => {
+      const k = keep.find((x) => x.lineId === l.lineId);
+      return { ...l, retained: !!k, ...(k ? { retainReason: k.reason } : {}) };
+    });
+    return {
+      lines,
+      keepIds,
+      reversedVnd: lines.filter((l) => !l.retained).reduce((a, l) => a + l.amountVnd, 0),
+      retainedVnd: lines.filter((l) => l.retained).reduce((a, l) => a + l.amountVnd, 0),
+    };
+  }
+
+  // ---------- S4-21: one calc for previewMoveReservation and moveReservation (ESC-019 A, BR-429) ----------
+  interface MoveInput {
+    roomId?: string;
+    arrivalDate?: string;
+    departureDate?: string;
+    reasonCode?: string;
+    mode?: string;
+  }
+  function movePlan(r: MockReservation, body: MoveInput, roles: Role[]) {
+    if (body.mode === 'postpone_instead_of_cancel' && !has(roles, OWN_MGR))
+      return problem(403, 'FORBIDDEN_ACTION');
+    if (!body.reasonCode) return validation([{ field: 'reasonCode', code: 'REQUIRED' }]);
+    if (!MOVE_REASONS.includes(body.reasonCode as (typeof MOVE_REASONS)[number]))
+      return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+    if (body.reasonCode === 'overbooking' && r.conflictState !== 'open' && !r.capacityConflict)
+      return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+    if (body.reasonCode === 'upgrade' && !has(roles, LEAD_PLUS))
+      return problem(403, 'FORBIDDEN_ACTION');
+    if (body.reasonCode === 'force_majeure' && body.mode !== 'postpone_instead_of_cancel')
+      return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+    // 0.3.7 D1 (BR-012 (4)): sorting rooms is only allowed while the guest was not told the room.
+    if (body.reasonCode === 'inventory_optimize' && r.roomDisclosedToGuest)
+      return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
+    const isOta = channelById(r.channelId)?.channelGroup === 'ota';
+    const from = body.arrivalDate ?? r.arrivalDate;
+    const to = body.departureDate ?? r.departureDate;
+    if (isOta && (from !== r.arrivalDate || to !== r.departureDate))
+      return validation([{ field: 'arrivalDate', code: 'OTA_DATES_LOCKED' }]);
+    if (from < today()) return validation([{ field: 'arrivalDate', code: 'DATE_IN_PAST' }]);
+    if (to <= from) return validation([{ field: 'departureDate', code: 'DATE_ORDER' }]);
+    const target = roomById(body.roomId ?? r.roomId)!;
+    const over = (target.maxOccupancy ?? 9) < r.adults + (r.children6to11 ?? 0);
+    if (over && !isOta)
+      return problem(422, 'CAPACITY_EXCEEDED', { roomNo: target.roomNo, max: target.maxOccupancy });
+    if (target.isSellable === false)
+      return problem(409, 'ROOM_NOT_SELLABLE', { roomNo: target.roomNo });
+    const c = clash(target.id, from, to, r.id);
+    if (c.block) return blockedProblem(target.id, c.block);
+    if (c.conflicts.length)
+      return unavailable(roles, c.conflicts, suggestions(target.id, from, to, r.adults));
+
+    const roomMoved = target.id !== r.roomId;
+    const nights = nightsBetween(from, to);
+    const old = new Map((r.nightlyRates ?? []).map((n) => [n.date, n.amountVnd]));
+    const priced = price(target.id, from, nights);
+    const guest = body.reasonCode === 'guest_request';
+    const basis: 'new_room_rate' | 'keep_booked_rate' | 'external_contract' = r.externalContract
+      ? 'external_contract'
+      : guest && roomMoved
+        ? 'new_room_rate'
+        : 'keep_booked_rate';
+    const origin = r.originalRoomId ?? r.roomId ?? target.id;
+    const originRates = isOta ? price(origin, from, nights).rates : [];
+    const nightRows = priced.rates.map((pr, i) => {
+      const was = old.get(pr.date);
+      const kept = was ?? pr.amountVnd; // nights added by a date change use today's rate
+      const newRate = basis === 'new_room_rate' && !isOta ? pr.amountVnd : kept;
+      const diff =
+        isOta && basis === 'new_room_rate'
+          ? Math.max(0, pr.calendarRateVnd - originRates[i]!.calendarRateVnd)
+          : undefined;
+      return {
+        date: pr.date,
+        oldRateVnd: was ?? null,
+        newRateVnd: newRate,
+        ...(diff !== undefined ? { roomChangeDifferenceVnd: diff } : {}),
+      };
+    });
+    const removedNights = [...old.keys()].filter((d) => d < from || d >= to);
+    const roomTotalOld = [...old.values()].reduce((a, x) => a + x, 0);
+    const roomTotalNew = nightRows.reduce((a, x) => a + x.newRateVnd, 0);
+    // Other (not a guest request) into a dearer room: FDL+ only, like an upgrade (BR-429 (b)).
+    if (
+      body.reasonCode === 'other' &&
+      roomMoved &&
+      !has(roles, LEAD_PLUS) &&
+      priced.rates.reduce((a, x) => a + x.amountVnd, 0) >
+        price(r.roomId ?? target.id, from, nights).rates.reduce((a, x) => a + x.amountVnd, 0)
+    )
+      return problem(403, 'FORBIDDEN_ACTION');
+    const perNight = (room: Room | undefined) =>
+      isOta ? 0 : extraFee(room, r.adults, r.children6to11 ?? 0, 1).fee;
+    const oldNightFee = perNight(roomById(r.roomId));
+    const extraOld = oldNightFee * old.size;
+    const extraNew =
+      (guest && roomMoved ? perNight(target) : Math.min(oldNightFee, perNight(target))) * nights;
+    const otaDiff = nightRows.reduce((a, x) => a + (x.roomChangeDifferenceVnd ?? 0), 0);
+    const delta =
+      basis === 'external_contract'
+        ? 0
+        : roomTotalNew -
+          roomTotalOld +
+          (extraNew - extraOld) +
+          (isOta && basis === 'new_room_rate' ? otaDiff - (r.roomChangeDifferenceVnd ?? 0) : 0);
+    const preview = {
+      pricingBasis: basis,
+      roomId: target.id,
+      roomNo: target.roomNo,
+      roomName: target.name ?? null,
+      arrivalDate: from,
+      departureDate: to,
+      nights: nightRows,
+      ...(removedNights.length ? { removedNights } : {}),
+      roomTotalOldVnd: roomTotalOld,
+      roomTotalNewVnd: basis === 'external_contract' ? roomTotalOld : roomTotalNew,
+      extraPersonOldVnd: extraOld,
+      extraPersonNewVnd: extraNew,
+      ...(isOta && basis === 'new_room_rate' ? { roomChangeDifferenceVnd: otaDiff } : {}),
+      folioDeltaVnd: delta,
+      losDiscountPct: priced.losPct,
+      depositPaidVnd: r.depositPaidVnd,
+      balanceDueAfterVnd: Math.max(0, (r.balanceDueVnd ?? 0) + delta),
+      warnings: over ? [{ code: 'CAPACITY_EXCEEDED_WARNING', field: 'roomId' }] : [],
+    };
+    const apply = () => {
+      if (roomMoved && !r.originalRoomId && r.roomId) r.originalRoomId = r.roomId;
+      r.roomId = target.id;
+      r.arrivalDate = from;
+      r.departureDate = to;
+      r.nights = nights;
+      r.segments = [{ roomId: target.id, roomNo: target.roomNo, fromDate: from, toDate: to }];
+      r.extraGuestCount = Math.max(
+        0,
+        r.adults + (r.children6to11 ?? 0) - (target.baseOccupancy ?? 2),
+      );
+      r.capacityConflict = over ? true : undefined;
+      if (basis !== 'external_contract') {
+        r.nightlyRates = nightRows.map((n) => ({ date: n.date, amountVnd: n.newRateVnd }));
+        r.totalRoomVnd = roomTotalNew;
+        if (isOta && basis === 'new_room_rate') r.roomChangeDifferenceVnd = otaDiff;
+        r.balanceDueVnd = Math.max(0, (r.balanceDueVnd ?? 0) + delta);
+      }
+      if (guest && roomMoved) r.roomDisclosedToGuest = true;
+    };
+    return { preview, apply, needTold: guest && roomMoved, over };
+  }
+
   // ---------- views ----------
   function actionsFor(r: MockReservation, user: MockUser, roles: Role[]) {
     const fd = has(roles, FD_PLUS);
@@ -596,6 +792,21 @@ export function createReservationMock(ctx: Ctx) {
         ? groupCode(r.requestedRoomGroupId)
         : undefined,
     };
+    // 0.3.7 add. 1 (BUG-R2-081): deposit notices – newest first; `open` while the booking is on hold
+    // (B4 → `handled`); `note` (D12c) and `createdByName` (D27) only for FD+.
+    const notices = state.notices.filter((n) => n.reservationId === r.id);
+    if (notices.length)
+      out.depositNotices = [...notices]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map((n) => ({
+          id: n.id,
+          amountVnd: n.amountVnd,
+          attachmentId: n.attachmentId ?? null,
+          createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
+          status: r.status === 'hold' ? 'open' : 'handled',
+          ...(has(roles, FD_PLUS) ? { note: n.note ?? null, createdByName: n.createdByName } : {}),
+        }));
     if (roles.includes('collaborator') && !has(roles, FD_PLUS)) {
       delete out.nightlyRates;
       delete out.balanceDueVnd;
@@ -1095,8 +1306,28 @@ export function createReservationMock(ctx: Ctx) {
         if (bad) return bad;
         const body = (await request.json()) as {
           payment?: { amountVnd: number; method: string; posAuthCode?: string };
+          existingPaymentId?: string;
           recordOnly?: boolean;
         };
+        if (!body.payment === !body.existingPaymentId)
+          return validation([{ field: 'payment', code: 'REQUIRED' }]);
+        if (body.existingPaymentId) {
+          // S4-28: the deposit VietQR already confirmed received – nothing new is written here.
+          if (!folioPort?.depositPayment(r, body.existingPaymentId))
+            return validation([{ field: 'existingPaymentId', code: 'NOT_IN_LIST' }]);
+          const need = r.depositRequiredVnd ?? 0;
+          if (r.depositPaidVnd < need)
+            return problem(422, 'DEPOSIT_INSUFFICIENT', {
+              depositRequiredVnd: need,
+              depositPaidVnd: r.depositPaidVnd,
+              shortfallVnd: need - r.depositPaidVnd,
+            });
+          r.balanceDueVnd = (r.totalRoomVnd ?? 0) - r.depositPaidVnd;
+          r.status = 'confirmed';
+          delete r.hold;
+          r.version += 1;
+          return remember(key, 200, view(r, g.user, g.roles));
+        }
         const amount = body.payment?.amountVnd ?? 0;
         if (!(amount > 0))
           return validation([{ field: 'payment.amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
@@ -1126,10 +1357,37 @@ export function createReservationMock(ctx: Ctx) {
         if (isResponse(g)) return g;
         const r = find(params, g);
         if (!r) return problem(404, 'NOT_FOUND');
-        const body = (await request.json()) as { amountVnd: number };
+        const body = (await request.json()) as {
+          amountVnd: number;
+          note?: string;
+          attachmentId?: string;
+        };
         if (!(body.amountVnd > 0))
           return validation([{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
-        state.notices.push({ reservationId: r.id, amountVnd: body.amountVnd });
+        // 0.3.7 add. 1: only a booking on hold; at most one open notice – reporting again updates it.
+        if (r.status !== 'hold')
+          return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        // S4-30: receipt photo (`uploadAttachment purpose=deposit_receipt`) – kept with the notice.
+        const now = new Date().toISOString();
+        const open = state.notices.find((n) => n.reservationId === r.id);
+        if (open)
+          Object.assign(open, {
+            amountVnd: body.amountVnd,
+            note: body.note,
+            attachmentId: body.attachmentId ?? open.attachmentId,
+            updatedAt: now,
+          });
+        else
+          state.notices.push({
+            id: uid(9600 + state.notices.length + 1),
+            reservationId: r.id,
+            amountVnd: body.amountVnd,
+            note: body.note,
+            attachmentId: body.attachmentId,
+            createdAt: now,
+            updatedAt: now,
+            createdByName: g.user.displayName,
+          });
         return new HttpResponse(null, { status: 202 });
       },
     ),
@@ -1145,6 +1403,7 @@ export function createReservationMock(ctx: Ctx) {
         dryRun?: boolean;
         otaPenaltyVnd?: number;
         otaPenaltyChannelFeeVnd?: number;
+        retainLines?: Array<{ lineId: string; reason?: string }>;
       };
       const g = body.dryRun ? pre : guard(request, [...FD_PLUS, ...SALES], { ifMatch: r.version });
       if (isResponse(g)) return g;
@@ -1173,16 +1432,23 @@ export function createReservationMock(ctx: Ctx) {
       const daysBefore = nightsBetween(today(), r.arrivalDate);
       const share = daysBefore >= 7 ? 1 : daysBefore >= 3 ? 0.5 : 0;
       const refundable = r.status === 'hold' ? 0 : Math.round(r.depositPaidVnd * share);
+      // 0.3.7 D1 (S4-08): service lines are reversed unless kept – same answer for dry run and write.
+      const svc = retainCheck(r, body.retainLines);
+      if (svc instanceof Response) return svc;
       const cancellation = {
         depositPaidVnd: r.depositPaidVnd,
         refundableVnd: refundable,
         retainedVnd: r.depositPaidVnd - refundable,
         policyRef: 'BR-309',
         otaPenaltyVnd: body.otaPenaltyVnd,
+        serviceLines: svc.lines,
+        serviceReversedVnd: svc.reversedVnd,
+        serviceRetainedVnd: svc.retainedVnd,
       };
       if (body.dryRun) return json({ reservation: view(r, g.user, g.roles), cancellation });
       const { key, replay } = idem(request, `cancel:${r.id}`);
       if (replay) return replay;
+      folioPort?.reverseServiceLines(r, svc.keepIds, g.user.displayName);
       r.status = 'cancelled';
       r.cancellation = {
         cancelledAt: new Date().toISOString(),
@@ -1191,6 +1457,28 @@ export function createReservationMock(ctx: Ctx) {
       };
       r.version += 1;
       return remember(key, 200, { reservation: view(r, g.user, g.roles), cancellation });
+    }),
+
+    http.get(`${prop}/reservations/:reservationId/move-preview`, ({ request, params }) => {
+      const g = guard(request, FD_PLUS);
+      if (isResponse(g)) return g;
+      const r = find(params, g);
+      if (!r) return problem(404, 'NOT_FOUND');
+      const bad = invalid(r, ['confirmed']);
+      if (bad) return bad;
+      const q = new URL(request.url).searchParams;
+      const plan = movePlan(
+        r,
+        {
+          roomId: q.get('roomId') ?? undefined,
+          arrivalDate: q.get('arrivalDate') ?? undefined,
+          departureDate: q.get('departureDate') ?? undefined,
+          reasonCode: q.get('reasonCode') ?? undefined,
+          mode: q.get('mode') ?? undefined,
+        },
+        g.roles,
+      );
+      return plan instanceof Response ? plan : json(plan.preview);
     }),
 
     http.post(`${prop}/reservations/:reservationId/actions/move`, async ({ request, params }) => {
@@ -1204,74 +1492,32 @@ export function createReservationMock(ctx: Ctx) {
       if (replay) return replay;
       const bad = invalid(r, ['confirmed']);
       if (bad) return bad;
-      const body = (await request.json()) as {
-        roomId?: string;
-        arrivalDate?: string;
-        departureDate?: string;
-        reasonCode?: string;
+      const body = (await request.json()) as MoveInput & {
         note?: string;
-        mode?: string;
         capacityWarningAckReason?: string;
+        applyDifference?: boolean;
+        expectedDeltaVnd?: number;
       };
-      if (body.mode === 'postpone_instead_of_cancel' && !has(g.roles, OWN_MGR))
-        return problem(403, 'FORBIDDEN_ACTION');
-      // DOM D-5 reason list (B7/B8) – `upgrade` FDL+, `force_majeure` only when postponing (MGR+).
       if (
         body.reasonCode &&
-        !MOVE_REASONS.includes(body.reasonCode as (typeof MOVE_REASONS)[number])
-      )
-        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
-      if (body.reasonCode === 'overbooking' && r.conflictState !== 'open' && !r.capacityConflict)
-        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
-      if (body.reasonCode === 'upgrade' && !has(g.roles, LEAD_PLUS))
-        return problem(403, 'FORBIDDEN_ACTION');
-      if (body.reasonCode === 'force_majeure' && body.mode !== 'postpone_instead_of_cancel')
-        return validation([{ field: 'reasonCode', code: 'NOT_IN_LIST' }]);
-      if (!body.reasonCode) return validation([{ field: 'reasonCode', code: 'REQUIRED' }]);
-      if (
         ['other', 'force_majeure'].includes(body.reasonCode) &&
         (body.note ?? '').trim().length < 3
       )
         return validation([{ field: 'note', code: 'REASON_REQUIRED' }]);
-      const isOta = channelById(r.channelId)?.channelGroup === 'ota';
-      const datesChanged =
-        (body.arrivalDate && body.arrivalDate !== r.arrivalDate) ||
-        (body.departureDate && body.departureDate !== r.departureDate);
-      if (isOta && datesChanged)
-        return validation([{ field: 'arrivalDate', code: 'OTA_DATES_LOCKED' }]);
-      const from = body.arrivalDate ?? r.arrivalDate;
-      const to = body.departureDate ?? r.departureDate;
-      if (from < today()) return validation([{ field: 'arrivalDate', code: 'DATE_IN_PAST' }]);
-      if (to <= from) return validation([{ field: 'departureDate', code: 'DATE_ORDER' }]);
-      const target = roomById(body.roomId ?? r.roomId)!;
-      const over = (target.maxOccupancy ?? 9) < r.adults + (r.children6to11 ?? 0);
-      if (over && !isOta)
-        return problem(422, 'CAPACITY_EXCEEDED', {
-          roomNo: target.roomNo,
-          max: target.maxOccupancy,
-        });
-      if (over && !(body.capacityWarningAckReason ?? '').trim())
+      const plan = movePlan(r, body, g.roles);
+      if (plan instanceof Response) return plan;
+      if (plan.over && !(body.capacityWarningAckReason ?? '').trim())
         return problem(422, 'VALIDATION_FAILED', {
-          roomNo: target.roomNo,
-          max: target.maxOccupancy,
+          roomNo: plan.preview.roomNo,
+          max: roomById(plan.preview.roomId)?.maxOccupancy,
           errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
         });
-      if (target.isSellable === false)
-        return problem(409, 'ROOM_NOT_SELLABLE', { roomNo: target.roomNo });
-      const c = clash(target.id, from, to, r.id);
-      if (c.block) return blockedProblem(target.id, c.block);
-      if (c.conflicts.length)
-        return unavailable(g.roles, c.conflicts, suggestions(target.id, from, to, r.adults));
-      r.roomId = target.id;
-      r.arrivalDate = from;
-      r.departureDate = to;
-      r.nights = nightsBetween(from, to);
-      r.segments = [{ roomId: target.id, roomNo: target.roomNo, fromDate: from, toDate: to }];
-      r.extraGuestCount = Math.max(
-        0,
-        r.adults + (r.children6to11 ?? 0) - (target.baseOccupancy ?? 2),
-      );
-      r.capacityConflict = over ? true : undefined;
+      // ESC-019 A / BR-414: the guest asked for another room → told the new amount, the exact figure.
+      if (plan.needTold && (body.applyDifference !== true || body.expectedDeltaVnd === undefined))
+        return validation([{ field: 'applyDifference', code: 'REQUIRED' }]);
+      if (plan.needTold && body.expectedDeltaVnd !== plan.preview.folioDeltaVnd)
+        return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: plan.preview.folioDeltaVnd });
+      plan.apply();
       r.version += 1;
       return remember(key, 200, view(r, g.user, g.roles));
     }),
@@ -1325,9 +1571,14 @@ export function createReservationMock(ctx: Ctx) {
         const r = find(params, pre);
         if (!r) return problem(404, 'NOT_FOUND');
         // 0.3.5 A-04 order: body → If-Match → state + server time.
-        const body = (await request.json()) as { contactAttemptNote?: string };
+        const body = (await request.json()) as {
+          contactAttemptNote?: string;
+          retainLines?: Array<{ lineId: string; reason?: string }>;
+        };
         if ((body.contactAttemptNote ?? '').trim().length < 3)
           return validation([{ field: 'contactAttemptNote', code: 'REASON_REQUIRED' }]);
+        const svc = retainCheck(r, body.retainLines);
+        if (svc instanceof Response) return svc;
         const g = guard(request, FD_PLUS, { ifMatch: r.version });
         if (isResponse(g)) return g;
         const { key, replay } = idem(request, `noshow:${r.id}`);
@@ -1340,6 +1591,7 @@ export function createReservationMock(ctx: Ctx) {
             currentState: r.status,
             availableFrom: from ?? undefined,
           });
+        folioPort?.reverseServiceLines(r, svc.keepIds, g.user.displayName);
         r.status = 'no_show';
         r.version += 1;
         return remember(key, 200, view(r, g.user, g.roles));
@@ -1468,16 +1720,19 @@ export function createReservationMock(ctx: Ctx) {
       const q = state.quotes.find((x) => x.id === params.quoteId);
       if (!q || (!has(g.roles, FD_PLUS) && q.createdBy !== g.user.id))
         return problem(404, 'NOT_FOUND');
-      const locale = new URL(request.url).searchParams.get('locale') === 'en' ? 'en' : 'vi';
+      const asked = new URL(request.url).searchParams.get('locale');
+      const locale = asked === 'en' || asked === 'ru' ? asked : 'vi';
       const r = roomById(q.roomId);
       const d = (s: string) => s.split('-').reverse().join('/');
       const to = addDays(q.arrivalDate!, q.nights ?? 1);
       const money = (n: number) => n.toLocaleString(locale === 'en' ? 'en-US' : 'vi-VN');
       // US-083 AC2: no commission, no "OTTIMO còn lại", no phone/email in the guest text.
       const text =
-        locale === 'en'
-          ? `OTTIMO Boutique Stay – Quote ${q.code}\nRoom ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} nights), ${q.input.adults} adults.\nRoom total: ${money(q.totalVnd ?? 0)} VND.\nDeposit to hold the room: ${money(q.depositVnd ?? 0)} VND. The rest is paid at check-in.\nThis quote is valid until ${d(q.expiresAt.slice(0, 10))}.`
-          : `OTTIMO Boutique Stay – Báo giá ${q.code}\nCăn ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} đêm), ${q.input.adults} người lớn.\nTiền phòng: ${money(q.totalVnd ?? 0)} đ.\nCọc giữ phòng: ${money(q.depositVnd ?? 0)} đ. Phần còn lại thanh toán khi nhận phòng.\nBáo giá có hiệu lực đến 23:59 ${d(q.expiresAt.slice(0, 10))}.`;
+        locale === 'ru'
+          ? `OTTIMO Boutique Stay – Предложение ${q.code}\nАпартаменты ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (ночей: ${q.nights}), взрослых: ${q.input.adults}.\nСтоимость проживания: ${money(q.totalVnd ?? 0)} VND.\nПредоплата для брони: ${money(q.depositVnd ?? 0)} VND. Остаток оплачивается при заселении.\nПредложение действительно до ${d(q.expiresAt.slice(0, 10))}.`
+          : locale === 'en'
+            ? `OTTIMO Boutique Stay – Quote ${q.code}\nRoom ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} nights), ${q.input.adults} adults.\nRoom total: ${money(q.totalVnd ?? 0)} VND.\nDeposit to hold the room: ${money(q.depositVnd ?? 0)} VND. The rest is paid at check-in.\nThis quote is valid until ${d(q.expiresAt.slice(0, 10))}.`
+            : `OTTIMO Boutique Stay – Báo giá ${q.code}\nCăn ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} đêm), ${q.input.adults} người lớn.\nTiền phòng: ${money(q.totalVnd ?? 0)} đ.\nCọc giữ phòng: ${money(q.depositVnd ?? 0)} đ. Phần còn lại thanh toán khi nhận phòng.\nBáo giá có hiệu lực đến 23:59 ${d(q.expiresAt.slice(0, 10))}.`;
       return json({ locale, text });
     }),
     http.post(`${prop}/quotes/:quoteId/actions/create-hold`, async ({ request, params }) => {
@@ -1642,6 +1897,10 @@ export function createReservationMock(ctx: Ctx) {
     },
     get state() {
       return state;
+    },
+    /** The Sprint 3 mock plugs its folio side in (S4-08 service lines, S4-28 deposit QR). */
+    setFolioPort(p: MockFolioPort) {
+      folioPort = p;
     },
     /** Sprint 3 mock (stay.ts) reuses the same reservation view, scope and idempotency rules. */
     view,

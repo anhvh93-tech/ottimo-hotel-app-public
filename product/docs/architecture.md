@@ -144,6 +144,8 @@ flowchart LR
 
 Quy tắc module: module khác chỉ gọi qua `modules/<x>/public` (service + DTO); thư mục `internal` bị lint chặn import chéo.
 
+**Bảng thuộc module nào – mô hình đọc `reporting` (0.3.7 bổ sung 1, ARC 17/10, decision-log)**: nguyên tắc đã dùng từ Sprint 3 (`guests` không đọc `reservation` – cổng `touchLastStay`; `registration` đọc người qua `RegistrationPartyPort`; `reservations` đọc khai báo qua `ReservationHooks.provideRegistrationSummary`): bảng có **một** module chủ; module khác **ghi** (INSERT/UPDATE/DELETE, khóa `FOR UPDATE`) chỉ qua `public`/cổng của module chủ, đọc giá trị nghiệp vụ qua cổng. Ngoại lệ có điều kiện: `reporting` là **mô hình đọc** (CQRS nhẹ – KPI/"Cần chú ý" cần gộp nhiều bảng trong một truy vấn để giữ p95 < 300 ms) được `SELECT` trực tiếp danh sách bảng khai ở đầu module (`reservation`, `reservation_segment`, `stay_night`, `room`, `room_block`, `checkout_confirmation`, `channel`, `guest` – chỉ tên người đứng tên và `tags` để lọc, `folio_line`/`approval_request` – chỉ tổng FOC K-18 theo `metrics-definitions.md`), với điều kiện: (1) chỉ đọc, trong giao dịch chỉ đọc của người gọi (RLS); (2) **không** ghi bảng của module khác – ghi `attention_event` qua `EventsService`, `job_run` theo mẫu 9.1; (3) giá trị **từng đơn** có chủ (còn phải thu, trạng thái khai báo, hành động hợp lệ) lấy qua cổng của module chủ hoặc có test đối chiếu (parity) bắt buộc trong CI; (4) số liệu khớp định nghĩa DATA (K-01…K-03, K-18, S1c) có ca test oracle; (5) thêm bảng vào danh sách = ARC review; test kiến trúc kiểm (1)–(2) và danh sách bảng. Xem lại ở R3 (US-014 doanh thu, đa cơ sở): nếu danh sách > 12 bảng hoặc cần dữ liệu nhiều cơ sở → chuyển sang view `v_reporting_*` do module chủ sở hữu.
+
 ### 5.2 `worker`
 Cùng image với `api`, entrypoint khác (`node dist/worker.js`). Chạy: job theo lịch (mục 9), dispatcher outbox, xử lý inbox, đối soát kênh hằng đêm, xóa dữ liệu theo hạn, tạo việc buồng phòng định kỳ.
 
@@ -294,6 +296,7 @@ Lễ tân mất mạng tại quầy (tình huống S7): admin-web giữ rack đ�
 
 ## 12. Cập nhật thời gian thực
 SSE `GET /v1/properties/{id}/events` phát sự kiện nhẹ (0.3.5: `reservation.changed`, `room.status_changed`, `attention.changed`, `hk_task.changed`, `work_order.changed`, `guest_request.changed`, `notification.created` – chỉ tới người nhận) chỉ chứa ID + loại; client gọi lại API để lấy dữ liệu theo quyền của mình (không đẩy dữ liệu nhạy cảm qua kênh sự kiện). Mất kết nối → TanStack Query refetch khi online/focus + poll 30 giây.
+**Người nhận theo vai (OpenAPI 0.3.7 + bổ sung 1)**: mỗi sự kiện mang tập vai/người nhận = mức sàn theo loại (`SSE_ROLE_FLOOR`: FD+ mọi loại trừ `payment.changed` = MGR+ và người ghi; HK `room.status_changed`, `hk_task.changed`; MT `room.status_changed`, `work_order.changed`; `guest_request.changed` + bộ phận được định tuyến; `reservation.changed` + người tạo/người chốt đơn; `notification.created` chỉ người nhận) ∪ vai/người module phát truyền thêm – chỉ cộng, không thu hẹp; thiếu người nhận → chỉ FD+ (đóng an toàn). SAL/CTV chỉ nhận `reservation.changed` đơn của mình và thông báo của mình.
 
 ### 12.1 "Cần chú ý" và thông báo nhân viên (BE-ARC-06)
 | Loại | Lưu ở | Cách sinh | Đóng |
@@ -460,3 +463,4 @@ Sản phẩm Pha B: `product/docs/erd.md` (bảng, khóa, constraint, RLS, cột
 | 16/10/2026 | 2 – Sprint 3 khởi động | 5.1 thêm module `crypto`, `files`; SSE (mục 12) thêm `registration.changed`, `payment.changed` (OpenAPI 0.3.6); chia vùng code 3 BE + quy tắc `_journal.json` ở `rounds/round-02/outputs/ARC/s3-contract.md` mục 4 | ARC |
 | 16/10/2026 | 2 – Sprint 2 (phản hồi) | 9.1: chốt khóa job `hold.expire` (J1, tick 1 phút – bỏ job hẹn giờ) và `ooo.activate` (J9, theo ngày nghiệp vụ 06:00 BR-010, không 00:01); J1 xử lý giữ chỗ có cọc thiếu theo DOM D-9; mục 12 danh mục SSE 0.3.5 | ARC |
 | 16/10/2026 | 2 – Tuần 1 | Theo BE W10 (G1–G3): 9.1 J12, J13 dời **R3** theo R-C; J2 đổi từ job hẹn giờ sang **tick theo Clock** (ADR-008 điểm 4); mục 13 tên biến đúng như mã/OPS: `TRUST_PROXY` (IP/CIDR, không số bước), `DATA_KEK_CURRENT`(`_FILE`), `ID_HASH_KEY`(`_FILE`) | ARC |
+| 17/10/2026 | 2 – Sprint 4 (giữa sprint) | 5.1: quy tắc bảng thuộc một module + mô hình đọc `reporting` chấp nhận kèm điều kiện (review BE-D, OpenAPI 0.3.7 bổ sung 1); mục 12: người nhận SSE theo vai (gồm SAL/CTV, "chỉ cộng thêm") | ARC |

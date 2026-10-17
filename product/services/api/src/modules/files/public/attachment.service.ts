@@ -73,14 +73,17 @@ const READ_OWN_ROLES: Record<AttachmentPurpose, readonly string[]> = {
 };
 
 /**
- * Purposes whose owning flow exists in R2 (money rows of BE-B, penalty evidence of the checkout). Work
- * orders, inspections and meter readings land in Sprint 4/R3: until their record exists an upload could
- * never be bound, so it is refused (SEC FB-R2-SEC-BE-38 option 2) – 422 NOT_IN_LIST.
+ * Purposes whose owning flow exists (money rows of BE-B, penalty evidence of the checkout; Sprint 4: work
+ * orders and inspections of the housekeeping module bind their photos). Meter readings land in R3: until
+ * their record exists an upload could never be bound, so it is refused (SEC FB-R2-SEC-BE-38 option 2) – 422
+ * NOT_IN_LIST. An upload never bound is removed by J16 (step 3).
  */
 export const PURPOSES_ACCEPTED_NOW: readonly AttachmentPurpose[] = [
   'deposit_receipt',
   'penalty_evidence',
   'refund_proof',
+  'work_order',
+  'inspection',
 ];
 
 /** SEC I7 – technical limit (counts every purpose). */

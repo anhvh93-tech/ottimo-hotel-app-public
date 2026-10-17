@@ -11,6 +11,8 @@
  *    party whose 24 h deadline (`guest_document.fields_purge_after`) has come and that the desk did not link to
  *    a person still in the party → removed like the removed person's (DEK + files + fields + `purge_journal`,
  *    reason `party_removed`) – BEFORE step 1, which would only delete their images;
+ * 0c. SEC-BE-57: documents retired while their registration was under `legal_hold` (fields, DEKs, images kept)
+ *    are destroyed the same way once the hold is lifted and their deadline has come;
  * 1. T02 / SR-RET-02 images whose `delete_after` is due: consenting people of a declared registration →
  *    `retention`; a declaration never confirmed → `unconfirmed` (end of stay + id_image_unconfirmed_max_days,
  *    SEC FB-R2-SEC-BE-32) + a "Cần chú ý" item `registration_overdue` for FD/MGR;
@@ -109,6 +111,14 @@ export class RetentionService {
       errors.push(...r.errors);
     });
     if (err0b) errors.push(`unclaimed documents: ${err0b.name}`);
+    // 0c. Every tick: documents retired under a legal hold that has since been lifted (SEC-BE-57) – counted
+    //     with 0b under policy `party_removed`.
+    const err0c = await inSavepoint(tx, async () => {
+      const r = await this.regs.purgeRetiredDocuments(tx);
+      stats.unclaimedDocuments += r.removed;
+      errors.push(...r.errors);
+    });
+    if (err0c) errors.push(`retired documents: ${err0c.name}`);
     let hourly = true;
     if (!opts.force) {
       const { rows } = await tx.query<{ last: Date | null }>(

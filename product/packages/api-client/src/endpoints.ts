@@ -17,6 +17,9 @@ import type {
   CreateHoldBody,
   DepositNoticeBody,
   Locale,
+  MarkNoShowBody,
+  MovePreview,
+  MovePreviewQuery,
   MoveReservationBody,
   Quote,
   QuoteCalculation,
@@ -46,6 +49,28 @@ import type {
   RoomUpdateResult,
   ApproveBody,
   AttentionItem,
+  ArrivalsDepartures,
+  CreateHkTaskBody,
+  GuestRequest,
+  GuestRequestStatus,
+  HkTask,
+  HkTaskStatus,
+  HkTaskSummary,
+  Item,
+  ItemInput,
+  RoomBlock,
+  RoomBlockCreate,
+  RoomStatusEntry,
+  TransitionGuestRequestBody,
+  TransitionHkTaskBody,
+  TransitionWorkOrderBody,
+  UpdateWorkOrderBody,
+  WorkOrder,
+  WorkOrderAction,
+  WorkOrderCreate,
+  WorkOrderStatus,
+  ResolveAttentionBody,
+  TonightKpi,
   ApprovalStatus,
   AttachmentPurpose,
   AttachmentResult,
@@ -75,6 +100,7 @@ import type {
   Folio,
   FolioLineCreate,
   GuestDocumentInput,
+  GuestDocumentLink,
   GuestDocumentSensitive,
   InvoiceRequest,
   LateCheckoutBody,
@@ -351,15 +377,28 @@ export function createEndpoints(api: ApiClient) {
         ifMatch: version,
         idempotencyKey,
       }),
+    /**
+     * 0.3.7 (ESC-019 A, S4-21): money of a B7/B8 change before saving – read only (no Idempotency-Key,
+     * no If-Match). `moveReservation.expectedDeltaVnd` = `folioDeltaVnd` shown to the guest.
+     */
+    previewMoveReservation: ({ propertyId, reservationId }: R, query: MovePreviewQuery) =>
+      r<MovePreview>('GET', `${RES}/move-preview`, {
+        path: { propertyId, reservationId },
+        query: { ...query },
+        local: true,
+      }),
+    /** 0.3.7 D1 (S4-08): `retainLines` = service lines the desk keeps (others are reversed). */
     markNoShow: (
       { propertyId, reservationId }: R,
-      contactAttemptNote: string,
+      body: MarkNoShowBody | string,
       version: number,
       idempotencyKey: string,
     ) =>
       r<Reservation>('POST', `${RES}/actions/mark-no-show`, {
         path: { propertyId, reservationId },
-        body: { contactAttemptNote } satisfies BodyOf<'markNoShow'>,
+        body: (typeof body === 'string'
+          ? { contactAttemptNote: body }
+          : body) satisfies BodyOf<'markNoShow'>,
         ifMatch: version,
         idempotencyKey,
       }),
@@ -561,14 +600,21 @@ export function createEndpoints(api: ApiClient) {
         idempotencyKey: body.dryRun ? undefined : idem,
         local: body.dryRun,
       }),
+    /**
+     * 0.3.7 (S4-39): `guestUploadPersonIndex` = the "Khách n" slot (n ≥ 2) of the ID the guest sent
+     * through the link that belongs to the person removed, or `none` – required when that person has no
+     * linked ID and unlinked slots exist (422 REQUIRED + `personIndexes[]`). Only a slot number.
+     */
     removePartyMember: (
       { propertyId, reservationId }: R,
       memberId: string,
       version: number,
       idem: string,
+      guestUploadPersonIndex?: number | 'none',
     ) =>
       r<void>('DELETE', `${RES}/party/{memberId}`, {
         path: { propertyId, reservationId, memberId },
+        query: { guestUploadPersonIndex },
         ifMatch: version,
         idempotencyKey: idem,
       }),
@@ -592,6 +638,24 @@ export function createEndpoints(api: ApiClient) {
       r<Folio>('POST', `${FOL}/lines`, {
         path: { propertyId, folioId },
         body,
+        idempotencyKey: idem,
+      }),
+    /**
+     * S4-27 (US-006 AC1, US-032 AC1, US-038 AC2; BR-008): adjust a line = reversal + new line, reason
+     * required, If-Match = `Folio.version`. Settled folio → MGR/OWN only (A32). Night lines (`room`,
+     * `extra_person`) take `newUnitPriceVnd` only (S4-35).
+     */
+    adjustFolioLine: (
+      { propertyId, folioId }: F,
+      lineId: string,
+      body: BodyOf<'adjustFolioLine'>,
+      version: number,
+      idem: string,
+    ) =>
+      r<Folio>('POST', `${FOL}/lines/{lineId}/adjustments`, {
+        path: { propertyId, folioId, lineId },
+        body,
+        ifMatch: version,
         idempotencyKey: idem,
       }),
     requestFoc: ({ propertyId, folioId }: F, lineId: string, body: FocRequestInput, idem: string) =>
@@ -757,6 +821,189 @@ export function createEndpoints(api: ApiClient) {
       r<{ data: AttentionItem[] }>('GET', '/v1/properties/{propertyId}/attention', {
         path: { propertyId },
       }),
+    // ---------- dashboard (EP01 – Sprint 4 FE-B, OpenAPI 0.3.7) ----------
+    /** US-010: tonight's KPIs for the business date (BR-010); OWN/MGR/FDL/FD – no money fields. */
+    getTonightKpi: ({ propertyId }: P) =>
+      r<TonightKpi>('GET', '/v1/properties/{propertyId}/dashboard/tonight', {
+        path: { propertyId },
+      }),
+    /** US-011/US-031: arrivals, departures, holds arriving today; `date` absent = business date. */
+    getArrivalsDepartures: ({ propertyId }: P, date?: string) =>
+      r<ArrivalsDepartures>('GET', '/v1/properties/{propertyId}/arrivals-departures', {
+        path: { propertyId },
+        query: { date },
+      }),
+    /** Close an `event` item of "Cần chú ý" (US-012, US-136 AC2 "Đã báo kênh") – no If-Match. */
+    resolveAttentionEvent: (
+      { propertyId, eventId }: P & { eventId: string },
+      body: ResolveAttentionBody,
+      idempotencyKey: string,
+    ) =>
+      r<void>('POST', '/v1/properties/{propertyId}/attention-events/{eventId}/actions/resolve', {
+        path: { propertyId, eventId },
+        body,
+        idempotencyKey,
+      }),
+
+    // ---------- housekeeping, maintenance, guest requests, minibar (Sprint 4 FE-B – 0.3.7) ----------
+    /** S10 (US-052): the 10 rooms with status + allowed events (FD+ full, HK masked). */
+    listRoomStatuses: (
+      { propertyId }: P,
+      filter?: 'all' | 'needs_cleaning' | 'occupied' | 'ready',
+    ) =>
+      r<{ data: RoomStatusEntry[]; asOf: string }>(
+        'GET',
+        '/v1/properties/{propertyId}/room-statuses',
+        {
+          path: { propertyId },
+          query: { filter },
+        },
+      ),
+    /** US-054: today's tasks sorted by BR-807 rank + `summary {done, total}`. */
+    listHkTasks: ({ propertyId }: P, query: { date?: string; status?: HkTaskStatus } = {}) =>
+      r<{ data: HkTask[]; summary: HkTaskSummary }>('GET', '/v1/properties/{propertyId}/hk-tasks', {
+        path: { propertyId },
+        query: { ...query },
+      }),
+    createHkTask: ({ propertyId }: P, body: CreateHkTaskBody, idem: string) =>
+      r<HkTask>('POST', '/v1/properties/{propertyId}/hk-tasks', {
+        path: { propertyId },
+        body,
+        idempotencyKey: idem,
+      }),
+    transitionHkTask: (
+      { propertyId, taskId }: P & { taskId: string },
+      action: 'start' | 'complete' | 'cancel',
+      body: TransitionHkTaskBody,
+      idem: string,
+    ) =>
+      r<HkTask>('POST', '/v1/properties/{propertyId}/hk-tasks/{taskId}/actions/{action}', {
+        path: { propertyId, taskId, action },
+        body,
+        idempotencyKey: idem,
+      }),
+    listWorkOrders: ({ propertyId }: P, status?: WorkOrderStatus) =>
+      r<Paged<WorkOrder>>('GET', '/v1/properties/{propertyId}/work-orders', {
+        path: { propertyId },
+        query: { status, limit: 100 },
+      }),
+    /** W1 (+ O1 with `block`): 409 ROOM_OCCUPIED / ROOM_UNAVAILABLE / ROOM_BLOCKED carry `conflicts[]`. */
+    createWorkOrder: ({ propertyId }: P, body: WorkOrderCreate, idem: string) =>
+      r<WorkOrder>('POST', '/v1/properties/{propertyId}/work-orders', {
+        path: { propertyId },
+        body,
+        idempotencyKey: idem,
+      }),
+    getWorkOrder: ({ propertyId, workOrderId }: P & { workOrderId: string }) =>
+      r<WorkOrder>('GET', '/v1/properties/{propertyId}/work-orders/{workOrderId}', {
+        path: { propertyId, workOrderId },
+      }),
+    updateWorkOrder: (
+      { propertyId, workOrderId }: P & { workOrderId: string },
+      body: UpdateWorkOrderBody,
+      version: number,
+    ) =>
+      r<WorkOrder>('PATCH', '/v1/properties/{propertyId}/work-orders/{workOrderId}', {
+        path: { propertyId, workOrderId },
+        body,
+        ifMatch: version,
+      }),
+    /** SM-04 W2–W6 (online only): If-Match + Idempotency-Key. */
+    transitionWorkOrder: (
+      { propertyId, workOrderId }: P & { workOrderId: string },
+      action: WorkOrderAction,
+      body: TransitionWorkOrderBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<WorkOrder>(
+        'POST',
+        '/v1/properties/{propertyId}/work-orders/{workOrderId}/actions/{action}',
+        { path: { propertyId, workOrderId, action }, body, ifMatch: version, idempotencyKey: idem },
+      ),
+    listRoomBlocks: ({ propertyId }: P, query: { from?: string; to?: string } = {}) =>
+      r<{ data: RoomBlock[] }>('GET', '/v1/properties/{propertyId}/room-blocks', {
+        path: { propertyId },
+        query: { ...query },
+      }),
+    /** O1 planned block (US-019) – also "khóa theo đề nghị" with `workOrderId`. */
+    createRoomBlock: ({ propertyId }: P, body: RoomBlockCreate, idem: string) =>
+      r<RoomBlock>('POST', '/v1/properties/{propertyId}/room-blocks', {
+        path: { propertyId },
+        body,
+        idempotencyKey: idem,
+      }),
+    /** O3 – extend / shorten (half-open: `endDatePlanned` = first sellable day). */
+    updateRoomBlock: (
+      { propertyId, roomBlockId }: P & { roomBlockId: string },
+      endDatePlanned: string,
+      version: number,
+    ) =>
+      r<RoomBlock>('PATCH', '/v1/properties/{propertyId}/room-blocks/{roomBlockId}', {
+        path: { propertyId, roomBlockId },
+        body: { endDatePlanned } satisfies BodyOf<'updateRoomBlock'>,
+        ifMatch: version,
+      }),
+    /** O4 release (no work order → MGR+), O5 cancel. */
+    transitionRoomBlock: (
+      { propertyId, roomBlockId }: P & { roomBlockId: string },
+      action: 'release' | 'cancel',
+      reason: string,
+      idem: string,
+    ) =>
+      r<RoomBlock>(
+        'POST',
+        '/v1/properties/{propertyId}/room-blocks/{roomBlockId}/actions/{action}',
+        {
+          path: { propertyId, roomBlockId, action },
+          body: { reason } satisfies BodyOf<'transitionRoomBlock'>,
+          idempotencyKey: idem,
+        },
+      ),
+    /** S30 (US-110): routed requests – the desk sees every department. */
+    listGuestRequests: ({ propertyId }: P, status?: GuestRequestStatus) =>
+      r<{ data: GuestRequest[] }>('GET', '/v1/properties/{propertyId}/guest-requests', {
+        path: { propertyId },
+        query: { status },
+      }),
+    transitionGuestRequest: (
+      { propertyId, requestId }: P & { requestId: string },
+      action: 'acknowledge' | 'complete' | 'decline',
+      body: TransitionGuestRequestBody,
+      idem: string,
+    ) =>
+      r<GuestRequest>(
+        'POST',
+        '/v1/properties/{propertyId}/guest-requests/{requestId}/actions/{action}',
+        { path: { propertyId, requestId, action }, body, idempotencyKey: idem },
+      ),
+    /** B-01 – a non-ID photo (receipt, work order…) as a Blob; the caller makes an object URL and revokes it. */
+    getAttachment: ({ propertyId, attachmentId }: P & { attachmentId: string }) =>
+      r<Blob>('GET', '/v1/properties/{propertyId}/attachments/{attachmentId}', {
+        path: { propertyId, attachmentId },
+        blob: true,
+        local: true,
+      }),
+    /** S13 (US-066): minibar catalogue – `costPriceVnd` only OWN/MGR (US-003 AC2). */
+    listItems: ({ propertyId }: P) =>
+      r<{ data: Item[] }>('GET', '/v1/properties/{propertyId}/items', { path: { propertyId } }),
+    createItem: ({ propertyId }: P, body: ItemInput, idem: string) =>
+      r<Item>('POST', '/v1/properties/{propertyId}/items', {
+        path: { propertyId },
+        body,
+        idempotencyKey: idem,
+      }),
+    /** New sale price applies to the next minibar checks; posted folio lines keep theirs (BR-006). */
+    updateItem: (
+      { propertyId, itemId }: P & { itemId: string },
+      body: ItemInput,
+      version: number,
+    ) =>
+      r<Item>('PATCH', '/v1/properties/{propertyId}/items/{itemId}', {
+        path: { propertyId, itemId },
+        body,
+        ifMatch: version,
+      }),
 
     // ---------- registration (EP06 – C3, trusted device only) ----------
     listRegistrations: ({ propertyId }: P, view: 'action_needed' | 'needs_update' | 'all') =>
@@ -786,7 +1033,8 @@ export function createEndpoints(api: ApiClient) {
     updateGuestDocument: (
       { propertyId, registrationId }: G,
       documentId: string,
-      body: GuestDocumentInput,
+      /** Full fields, or 0.3.7 `GuestDocumentLink` = only `partyMemberId` (no C3 read / resend – S4-39). */
+      body: GuestDocumentInput | GuestDocumentLink,
       version: number,
     ) =>
       r<Registration>('PATCH', `${REG}/documents/{documentId}`, {

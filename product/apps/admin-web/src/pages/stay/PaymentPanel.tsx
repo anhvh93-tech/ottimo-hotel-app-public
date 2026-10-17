@@ -1,9 +1,10 @@
 import type { Payment, PaymentMethod, Reservation, VietQrResult } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, QrCode, Seg } from '@ottimo/ui';
+import { Button, Chip, Field, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useToast } from '../../app/toast';
+import { VietQrCard } from '../../components/VietQrCard';
 import { usePropertyId } from '../../session/SessionProvider';
 import { MoneyField, amountOf, useSubmit } from './common';
 
@@ -135,50 +136,8 @@ export function PaymentPanel({
       {method === 'vietqr' ? (
         qr ? (
           <div className="card">
-            {/* FE-S3-07 / DS 6.16: one block per fact; copy buttons copy exactly one value. */}
-            <div className="row wrap">
-              <QrCode
-                value={qr.qrPayload}
-                label={t('pay.qr_label', {
-                  amount: money(qr.payment.amountVnd),
-                  ref: qr.transferContent,
-                })}
-                size={184}
-              />
-              <div className="stack grow">
-                <div className="price-big num">{money(qr.payment.amountVnd)}</div>
-                <div>
-                  <span className="mono">{t('pay.qr_note', { ref: qr.transferContent })}</span>{' '}
-                  <Button
-                    size="sm"
-                    icon="copy"
-                    onClick={() => void navigator.clipboard?.writeText(qr.transferContent)}
-                  >
-                    {t('pay.copy_ref')}
-                  </Button>
-                </div>
-                {qr.receivingAccountMasked ? (
-                  <div className="li-s mono">
-                    {t('pay.qr_account', { account: qr.receivingAccountMasked })}
-                  </div>
-                ) : null}
-                <div>
-                  <Button
-                    size="sm"
-                    icon="copy"
-                    onClick={() =>
-                      void navigator.clipboard?.writeText(String(qr.payment.amountVnd))
-                    }
-                  >
-                    {t('pay.copy_amount')}
-                  </Button>
-                </div>
-                {qr.receivingAccountRecentlyChanged ? (
-                  // SEC F3: the receiving account changed in the last 24 h – double-check with the guest.
-                  <Alert tone="warn">{t('pay.receiving_account_changed')}</Alert>
-                ) : null}
-              </div>
-            </div>
+            {/* FE-S3-07 / DS 6.16 + DS 11.6 B1: shared card – one block per fact, codes in mono. */}
+            <VietQrCard qr={qr} />
             <p className="li-s" role="status">
               {t('pay.qr_waiting')}
             </p>

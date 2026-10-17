@@ -8,6 +8,7 @@ import { ApprovalsModule } from './approvals/approvals.module';
 import { AuditModule } from './audit/audit.module';
 import { FolioModule } from './folio/folio.module';
 import { GuestsModule } from './guests/guests.module';
+import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { IdentityModule } from './identity/identity.module';
 import { InventoryModule } from './inventory/inventory.module';
 import type { IdentityOptions } from './identity/public/identity-options';
@@ -21,6 +22,7 @@ import { CryptoModule } from './crypto/crypto.module';
 import { FilesModule } from './files/files.module';
 import { GuestPortalModule } from './guest-portal/guest-portal.module';
 import { RegistrationModule } from './registration/registration.module';
+import { ReportingModule } from './reporting/reporting.module';
 
 export function featureModules(
   identity: IdentityOptions,
@@ -50,6 +52,10 @@ export function featureModules(
     FilesModule.register({ env: runtimeEnv }),
     RegistrationModule.register({ env: runtimeEnv }),
     GuestPortalModule.register({ env: runtimeEnv }),
+    // Sprint 4 (BE-C): housekeeping + maintenance (room statuses, tasks, inspections, work orders, J8/J11).
+    HousekeepingModule,
+    // Sprint 4 (BE-D): reporting – Tổng quan / Hôm nay reads, "Cần chú ý" sources, B11/B12 notices, J2.
+    ReportingModule,
   ];
 }
 

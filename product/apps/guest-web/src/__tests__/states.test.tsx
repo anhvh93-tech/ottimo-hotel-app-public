@@ -24,10 +24,11 @@ describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
     expect(await screen.findByRole('heading', { name: 'Liên kết đã hết hạn' })).toBeInTheDocument();
   });
 
-  it('reload with a live session cookie still opens the stay (no name: booking code heading)', async () => {
+  it('reload with a live session cookie still opens the stay (no name: plain greeting)', async () => {
     mockControl.openSession();
     openLink('/');
-    expect(await screen.findByRole('heading', { name: 'OTM-0150' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Welcome to OTTIMO.' })).toBeInTheDocument();
+    expect(screen.getByText('OTM-0150')).toBeInTheDocument();
   });
 
   it('checked-out stay → thank-you page without any bill wording (ĐK-6)', async () => {
@@ -46,23 +47,28 @@ describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
 
   it('in-house: Wi-Fi shown with copy button, still no door code', async () => {
     openLink(`/g/${MOCK_TOKENS.inHouse}`);
-    expect(await screen.findByText('OTTIMO-103')).toBeInTheDocument();
+    // G5: Wi-Fi name and password in JetBrains Mono 16 px
+    expect(await screen.findByText('OTTIMO-Guest')).toHaveClass('gw-code');
+    expect(screen.getByText('mock-wifi-pass')).toHaveClass('gw-code');
     expect(screen.getByRole('button', { name: 'Sao chép mật khẩu' })).toBeInTheDocument();
   });
 
   it('level-2 keys leaked by the server are dropped before rendering (ĐK-2)', async () => {
     mockControl.reset({ leakLevel2: true });
     openLink();
-    await screen.findByRole('heading', { name: 'Xin chào, Anna' });
+    await screen.findByRole('heading', { name: 'Welcome to OTTIMO, Anna.' });
     expect(document.body.textContent).not.toContain('582913');
     expect(document.body.textContent).not.toContain('Anna Martin');
   });
 
   it('switching language calls setGuestLocale and re-renders (EN, RU with EN fallback)', async () => {
     const { user } = openLink();
-    await screen.findByRole('heading', { name: 'Xin chào, Anna' });
+    await screen.findByRole('heading', { name: 'Welcome to OTTIMO, Anna.' });
     await user.selectOptions(screen.getByRole('combobox', { name: 'Ngôn ngữ' }), 'en');
-    expect(await screen.findByRole('heading', { name: 'Hello, Anna' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'My stay' })).toBeInTheDocument();
+    // Brand greeting unchanged; on the English page the support line is the Vietnamese one (DS 11.2).
+    expect(screen.getByRole('heading', { name: 'Welcome to OTTIMO, Anna.' })).toBeInTheDocument();
+    expect(screen.getByText('Chúc bạn có một kỳ nghỉ an yên.')).toHaveAttribute('lang', 'vi');
     await waitFor(() => expect(mockControl.state.locale).toBe('en'));
     expect(document.documentElement.lang).toBe('en');
     await user.click(screen.getByRole('button', { name: 'Info' }));
@@ -80,7 +86,8 @@ describe('guest-web page states (EP06 8.4, EP14 2.3, H18 18.5)', () => {
     openLink();
     const link = await screen.findByRole('link', { name: 'Chỉ đường' });
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(link.getAttribute('href')).toMatch(/^https:\/\/maps\.google\.com\//);
+    // P-S4-7: the Google Maps pin INV sent 17/10, one source for every guest surface
+    expect(link.getAttribute('href')).toBe('https://maps.app.goo.gl/oYos42G5YvUEcDCc6');
   });
 
   it('429 and checked-out pages keep a way to a real person (UXD S3-07, DS 6.11)', () => {

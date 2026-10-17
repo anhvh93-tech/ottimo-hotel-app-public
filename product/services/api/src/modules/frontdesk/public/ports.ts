@@ -32,6 +32,9 @@ export interface CheckinDocumentStatus {
   passportExpiresDuringStay: boolean;
 }
 
+/** `removePartyMember?guestUploadPersonIndex=` (0.3.7, S4-39): a guest-link slot ≥ 2, or `none`. */
+export type GuestUploadChoice = number | 'none';
+
 export interface FrontdeskRegistrationPort {
   checkinDocumentStatus(tx: Tx, reservationId: string): Promise<CheckinDocumentStatus>;
   /** BR-602/603 deadline if the guest checked in at `at` (preview) – null when not computable. */
@@ -46,8 +49,18 @@ export interface FrontdeskRegistrationPort {
   onRoomChanged(tx: Tx, reservationId: string, newRoomNo: string): Promise<void>;
   /** US-022: a person added/removed – `needs_update` when already sent (K9). */
   onPartyChanged(tx: Tx, reservationId: string): Promise<void>;
-  /** A-38: documents/images of the removed person are destroyed in the same transaction (C3). */
-  onPartyMemberRemoved(tx: Tx, reservationId: string, memberId: string): Promise<void>;
+  /**
+   * A-38: documents/images of the removed person are destroyed in the same transaction (C3).
+   * 0.3.7 (S4-39, SEC-BE-53 main approach): `guestUpload` = the desk's answer to "which guest-link slot
+   * ("Khách n", n ≥ 2) was this person's" – a slot number, or `none`; `undefined` = not sent. The port
+   * answers 422 `REQUIRED` (+ `personIndexes[]`) when it is needed and missing; the whole removal rolls back.
+   */
+  onPartyMemberRemoved(
+    tx: Tx,
+    reservationId: string,
+    memberId: string,
+    guestUpload?: GuestUploadChoice,
+  ): Promise<void>;
   /** B18 / B16: image retention counts from actualCheckoutAt (G-17). */
   onCheckedOut(tx: Tx, reservationId: string, actualCheckoutAt: Date): Promise<void>;
   /** B10 / B11 / relocation: registration voided (K11). */

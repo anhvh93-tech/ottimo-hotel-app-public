@@ -185,6 +185,17 @@ export function readMultipart(
     done(httpError(413, 'body too large'));
     return;
   }
+  // S4-17: one upload body per connection at a time – a pipelined upload is refused before it is read (Node
+  // discards its bytes once the refusal is out) and never takes a slot.
+  if (pipelinedBehindAnother(req.raw)) {
+    done(
+      problem('RATE_LIMITED', {
+        detail: 'pipelined upload',
+        headers: { 'Retry-After': '5' },
+      }),
+    );
+    return;
+  }
   const check = (req.server as { [MULTIPART_SESSION_CHECK]?: MultipartSessionCheck } | undefined)?.[
     MULTIPART_SESSION_CHECK
   ];
@@ -235,17 +246,26 @@ export function readMultipart(
   );
 }
 
+/**
+ * Late stream errors after a settled read (S4-17 / s3-round7 UP-2): module level, so it closes over NOTHING of
+ * the read. The read's own `onError` shares its closure context with `finish` and the body buffer – left on
+ * the request stream it kept up to 42 MB alive for as long as the request object lived (queued pipelined
+ * responses keep it).
+ */
+function ignoreLateStreamError(): void {}
+
 function readBody(
   payload: BodyStream,
   declared: number,
   done: (err: Error | null, body?: Buffer) => void,
 ): void {
-  // One copy: straight into a buffer of the declared size (Content-Length is required above).
-  const body = Buffer.allocUnsafe(declared);
+  // One copy: straight into a buffer of the declared size (Content-Length is required above). `let` so the
+  // read drops its own reference once settled – the handler is then the only holder.
+  let body: Buffer | null = Buffer.allocUnsafe(declared);
   let size = 0;
   let settled = false;
   const onData = (chunk: Buffer) => {
-    if (settled) return;
+    if (settled || !body) return;
     if (size + chunk.length > declared) {
       finish(httpError(413, 'body larger than its Content-Length'));
       payload.resume(); // drain without keeping anything
@@ -255,7 +275,7 @@ function readBody(
     size += chunk.length;
   };
   const onEnd = () => {
-    if (size !== declared) finish(httpError(400, 'body shorter than its Content-Length'));
+    if (size !== declared || !body) finish(httpError(400, 'body shorter than its Content-Length'));
     else finish(null, body);
   };
   const onClose = () => {
@@ -265,11 +285,15 @@ function readBody(
   const finish = (err: Error | null, out?: Buffer) => {
     if (settled) return;
     settled = true;
-    // Nothing of this read stays referenced from the stream (its buffer belongs to the handler now).
+    body = null;
+    // Nothing of this read stays referenced from the stream (its buffer belongs to the handler now). A late
+    // stream error must still never be unhandled: the closure-free module-level listener takes it.
     payload.removeListener?.('data', onData);
     payload.removeListener?.('end', onEnd);
     payload.removeListener?.('aborted', gone);
     payload.removeListener?.('close', onClose);
+    payload.removeListener?.('error', onError);
+    payload.on('error', ignoreLateStreamError);
     done(err, out);
   };
   const gone = () => finish(httpError(400, 'client went away'));
@@ -282,8 +306,20 @@ function readBody(
   // A stream that closes or aborts before 'end' never ends: fail now and give the slot back.
   payload.on('aborted', gone);
   payload.on('close', onClose);
-  // Kept after the read: a late stream error must never be unhandled (it only reaches a settled finish).
   payload.on('error', onError);
+}
+
+/**
+ * S4-17 / s3-round7 UP-1: an upload PIPELINED behind an unanswered request on the same connection (HTTP/1.1
+ * pipelining – browsers and Caddy never do it; only a client talking to the api port directly). Node queues
+ * the reply of such a request until the earlier ones are out, so its request object – and what hangs off it –
+ * outlives the upload slot (released when the handler replies): enough pipelined bodies held ~1 GB past the
+ * 4 × 42 MB cap. The current reply of the socket (`_httpMessage`) belongs to another request → pipelined.
+ */
+function pipelinedBehindAnother(raw: RawLike | undefined): boolean {
+  const current = (raw?.socket as { _httpMessage?: { req?: unknown } | null } | null | undefined)
+    ?._httpMessage;
+  return !!current && current.req !== undefined && current.req !== raw;
 }
 
 export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {

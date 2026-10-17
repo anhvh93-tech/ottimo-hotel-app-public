@@ -94,7 +94,20 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     expect(alert).toBeInTheDocument();
     const use = within(dlg).getByRole('button', { name: /^Dùng căn 201/ });
     expect(within(dlg).getByLabelText(/^Căn/)).toHaveDisplayValue(/^101 /);
+    const before = mockControl.rsv.reservations.length;
     await user.click(use);
+    // BUG-R2-076 (P-S4-2): the suggested room is priced first – nothing created until confirmed.
+    const check = (await within(dlg).findByText(tv('bk.use_room_check', { room: '201' }))).closest(
+      '.alert',
+    ) as HTMLElement;
+    expect(within(dlg).getByLabelText(/^Căn/)).toHaveDisplayValue(/^201 /);
+    const confirm = within(check).getByRole('button', {
+      name: tv('bk.use_room_confirm', { room: '201' }),
+    });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(within(check).getByText(tv('bk.total'))).toBeInTheDocument();
+    expect(mockControl.rsv.reservations).toHaveLength(before);
+    await user.click(confirm);
     expect(await screen.findByText(/^Đã tạo đơn OTM-0\d+$/)).toBeInTheDocument();
     expect(mockControl.rsv.reservations.at(-1)!.segments![0]!.roomNo).toBe('201');
   });

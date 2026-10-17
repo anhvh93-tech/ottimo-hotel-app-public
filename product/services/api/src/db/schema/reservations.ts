@@ -157,6 +157,10 @@ export const reservation = pgTable(
     // `true` (one way, checked in the application) when the desk ticks it, B7 guest_request, B9.
     // `inventory_optimize` only while `false`. Default `true` = behaviour before 0.3.7.
     roomDisclosedToGuest: boolean('room_disclosed_to_guest').notNull().default(true),
+    // 0059 (BR-424 v0.3.5, BR-429 (c) – S4-05): "căn gốc" of the OTA difference, set once on the first room move
+    // (the room before it; a conflict booking: its assigned room, or the requested room when upgraded). NULL =
+    // never moved – the first room of the booking is its origin.
+    originRoomId: uuid('origin_room_id'),
     ...auditColumns(),
   },
   (t) => [
@@ -272,6 +276,11 @@ export const reservation = pgTable(
       name: 'reservation_capacity_ack_by_fk',
       columns: [t.organizationId, t.capacityAckBy],
       foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'reservation_origin_room_fk',
+      columns: [t.propertyId, t.originRoomId],
+      foreignColumns: [room.propertyId, room.id],
     }),
     index('reservation_parent_idx')
       .on(t.propertyId, t.parentReservationId)
@@ -482,6 +491,9 @@ export const stayNight = pgTable(
     extraPersonFeeVnd: bigint('extra_person_fee_vnd', { mode: 'number' }),
     // 0032: extra persons of that night (bill label "{n} người"); NULL = the snapshot's booking-level count.
     extraPersonCount: smallint('extra_person_count'),
+    // 0059 (BR-429 v0.3.4 – S4-07): standard occupancy pricing the BR-110 fee when it is not the room's (an
+    // OTTIMO move keeps the fee at max(old base, new base) = min(old fee, new fee)); NULL = the room's base.
+    extraPersonBase: smallint('extra_person_base'),
     soldAt: instant('sold_at'),
     voidedAt: instant('voided_at'),
     voidReason: text('void_reason'),
@@ -524,6 +536,10 @@ export const stayNight = pgTable(
     check(
       'stay_night_extra_person_count_check',
       sql`${t.extraPersonCount} IS NULL OR ${t.extraPersonCount} >= 0`,
+    ),
+    check(
+      'stay_night_extra_person_base_check',
+      sql`${t.extraPersonBase} IS NULL OR ${t.extraPersonBase} >= 0`,
     ),
     check(
       'stay_night_money_check',

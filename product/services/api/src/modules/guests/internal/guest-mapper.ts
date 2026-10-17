@@ -34,6 +34,8 @@ export interface GuestRow {
   free_note: string | null;
   id_doc_last4: string | null;
   crm_consent: string;
+  /** 0.3.7 (A.2): desk | ota | document | guest_app | import – FD+ only (x-visible-to). */
+  source: string;
   created_by: string | null;
   /** erd 4.4 0.3.4 (Q7): BR-952 look-alike found at create/update. */
   possible_duplicate_at?: Date | null;
@@ -65,8 +67,10 @@ export function guestDto(row: GuestRow, warnings?: GuestWarning[]): Record<strin
     tags: row.tags,
     serviceNotes: row.service_notes,
     freeNote: row.free_note,
-    idDocLast4: row.id_doc_last4,
+    // S4-32 [GIẢ ĐỊNH ARC – SEC chốt]: the last 4 of the document only with P05 (same rule as id_doc_hmac).
+    idDocLast4: row.crm_consent === 'granted' ? row.id_doc_last4 : null,
     crmConsent: row.crm_consent,
+    source: row.source,
     warnings: warnings ?? null,
     version: row.version,
   });
@@ -80,6 +84,7 @@ export function summaryDto(row: GuestRow): Record<string, unknown> {
     nationalityCode: row.nationality_code,
     phoneMasked: row.phone_e164 ? maskPhone(row.phone_e164) : null,
     tags: row.tags && row.tags.length ? row.tags : null,
+    source: row.source,
     // 0.3.4 Q7: stored flag, FD+ only (x-visible-to – the serializer removes it for other roles).
     possibleDuplicate: !!row.possible_duplicate_at,
   });

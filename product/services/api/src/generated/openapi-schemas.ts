@@ -793,6 +793,9 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         channelId: { s: { k: 'ref', name: 'Uuid' } },
         channelCode: { s: { k: 'scalar' } },
         directSource: { s: { k: 'scalar' } },
+        directSubSource: {
+          s: { k: 'union', of: [{ k: 'ref', name: 'DirectSubSource' }, { k: 'scalar' }] },
+        },
         paymentModel: { s: { k: 'scalar' } },
         otaRef: {
           s: { k: 'scalar' },
@@ -926,6 +929,34 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           s: { k: 'ref', name: 'MoneyVnd' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
         },
+        depositNotices: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                id: { s: { k: 'ref', name: 'Uuid' } },
+                amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                note: {
+                  s: { k: 'scalar' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                  f: 'D12c',
+                },
+                attachmentId: { s: { k: 'scalar' } },
+                createdAt: { s: { k: 'ref', name: 'Instant' } },
+                updatedAt: { s: { k: 'ref', name: 'Instant' } },
+                createdByName: {
+                  s: { k: 'scalar' },
+                  v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                  f: 'D27',
+                },
+                status: { s: { k: 'scalar' } },
+              },
+              open: false,
+            },
+          },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
+        },
         depositShortfall: {
           s: {
             k: 'object',
@@ -984,6 +1015,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         minStayOverrideReason: { s: { k: 'scalar' }, f: 'D12c' },
         capacityWarningAckReason: { s: { k: 'scalar' }, f: 'D12c' },
         directSource: { s: { k: 'scalar' } },
+        websiteBookingRequestId: { s: { k: 'ref', name: 'Uuid' } },
         otaRoomAmountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         otaChannelFeeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         otaBookedAt: { s: { k: 'ref', name: 'Instant' } },
@@ -1654,6 +1686,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         createdAt: { s: { k: 'ref', name: 'Instant' } },
         expiresAt: { s: { k: 'ref', name: 'Instant' } },
         convertedReservationId: { s: { k: 'ref', name: 'Uuid' } },
+        websiteBookingRequestId: { s: { k: 'ref', name: 'Uuid' } },
         version: { s: { k: 'scalar' } },
       },
       open: false,
@@ -1959,6 +1992,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         folioId: { s: { k: 'ref', name: 'Uuid' } },
         billNo: { s: { k: 'scalar' } },
+        settledAt: { s: { k: 'scalar' } },
         locale: { s: { k: 'scalar' } },
         property: {
           s: {
@@ -2952,6 +2986,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         roomName: { s: { k: 'scalar' } },
         publicRoomType: { s: { k: 'scalar' } },
         locale: { s: { k: 'ref', name: 'Locale' } },
+        localeChosenByGuest: { s: { k: 'scalar' } },
         expiresAt: { s: { k: 'ref', name: 'Instant' } },
         level2ExpiresAt: { s: { k: 'ref', name: 'Instant' } },
       },
@@ -3158,6 +3193,205 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
         },
         version: { s: { k: 'scalar' } },
+      },
+      open: false,
+    },
+    PublicFormToken: {
+      k: 'object',
+      props: {
+        token: { s: { k: 'scalar' } },
+        notBefore: { s: { k: 'ref', name: 'Instant' } },
+        expiresAt: { s: { k: 'ref', name: 'Instant' } },
+      },
+      open: false,
+    },
+    WebsiteUtm: {
+      k: 'object',
+      props: {
+        source: { s: { k: 'scalar' } },
+        medium: { s: { k: 'scalar' } },
+        campaign: { s: { k: 'scalar' } },
+      },
+      open: false,
+    },
+    DirectSubSource: { k: 'scalar' },
+    WebsiteBookingRequestInput: {
+      k: 'object',
+      props: {
+        formToken: { s: { k: 'scalar' }, w: true },
+        website: { s: { k: 'scalar' }, w: true },
+        arrival: { s: { k: 'ref', name: 'LocalDate' } },
+        departure: { s: { k: 'ref', name: 'LocalDate' } },
+        adults: { s: { k: 'scalar' } },
+        children: { s: { k: 'scalar' } },
+        childrenAges: { s: { k: 'array', items: { k: 'scalar' } } },
+        roomType: { s: { k: 'scalar' } },
+        guestName: { s: { k: 'scalar' }, f: 'D28', w: true },
+        phone: { s: { k: 'scalar' }, f: 'D28', w: true },
+        email: { s: { k: 'scalar' }, f: 'D28', w: true },
+        preferredChannel: { s: { k: 'scalar' } },
+        note: { s: { k: 'scalar' }, f: 'D28', w: true },
+        locale: { s: { k: 'ref', name: 'Locale' } },
+        consent: { s: { k: 'scalar' } },
+        consentVersion: { s: { k: 'scalar' } },
+        utm: { s: { k: 'ref', name: 'WebsiteUtm' } },
+        refHost: { s: { k: 'scalar' } },
+        landingPath: { s: { k: 'scalar' } },
+        offerSnapshot: { s: { k: 'ref', name: 'PublicOfferSnapshot' } },
+      },
+      open: false,
+    },
+    WebsiteBookingRequestAccepted: {
+      k: 'object',
+      props: { refCode: { s: { k: 'scalar' } }, replyBy: { s: { k: 'ref', name: 'Instant' } } },
+      open: false,
+    },
+    WebsiteBookingRequestStatus: { k: 'scalar' },
+    WebsiteBookingRequestDeclineReason: { k: 'scalar' },
+    WebsiteBookingRequestTransition: {
+      k: 'object',
+      props: {
+        reasonCode: { s: { k: 'ref', name: 'WebsiteBookingRequestDeclineReason' } },
+        note: { s: { k: 'scalar' }, f: 'D28' },
+      },
+      open: false,
+    },
+    WebsiteBookingRequest: {
+      k: 'object',
+      props: {
+        id: { s: { k: 'ref', name: 'Uuid' } },
+        refCode: { s: { k: 'scalar' } },
+        status: { s: { k: 'ref', name: 'WebsiteBookingRequestStatus' } },
+        arrival: { s: { k: 'ref', name: 'LocalDate' } },
+        departure: { s: { k: 'ref', name: 'LocalDate' } },
+        nights: { s: { k: 'scalar' } },
+        stayKind: { s: { k: 'scalar' } },
+        adults: { s: { k: 'scalar' } },
+        children: { s: { k: 'scalar' } },
+        childrenAges: { s: { k: 'array', items: { k: 'scalar' } } },
+        roomType: { s: { k: 'scalar' } },
+        roomTypeLabel: { s: { k: 'scalar' } },
+        guestName: { s: { k: 'scalar' }, f: 'D28' },
+        phone: { s: { k: 'scalar' }, f: 'D28' },
+        email: { s: { k: 'scalar' }, f: 'D28' },
+        preferredChannel: { s: { k: 'scalar' } },
+        note: { s: { k: 'scalar' }, f: 'D28' },
+        locale: { s: { k: 'ref', name: 'Locale' } },
+        subSource: {
+          s: { k: 'union', of: [{ k: 'ref', name: 'DirectSubSource' }, { k: 'scalar' }] },
+        },
+        utmSource: { s: { k: 'scalar' } },
+        utmMedium: { s: { k: 'scalar' } },
+        utmCampaign: { s: { k: 'scalar' } },
+        refHost: { s: { k: 'scalar' } },
+        landingPath: { s: { k: 'scalar' } },
+        suspiciousFlags: { s: { k: 'array', items: { k: 'scalar' } } },
+        duplicateCount: { s: { k: 'scalar' } },
+        replyBy: { s: { k: 'ref', name: 'Instant' } },
+        isReplyOverdue: { s: { k: 'scalar' } },
+        assignedUserId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
+        assignedUserName: { s: { k: 'scalar' } },
+        claimedAt: { s: { k: 'union', of: [{ k: 'ref', name: 'Instant' }, { k: 'scalar' }] } },
+        declineReasonCode: {
+          s: {
+            k: 'union',
+            of: [{ k: 'ref', name: 'WebsiteBookingRequestDeclineReason' }, { k: 'scalar' }],
+          },
+        },
+        declineNote: { s: { k: 'scalar' }, f: 'D28' },
+        quoteId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
+        reservationId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
+        reservationCode: { s: { k: 'scalar' } },
+        convertedAt: { s: { k: 'union', of: [{ k: 'ref', name: 'Instant' }, { k: 'scalar' }] } },
+        offerSnapshot: {
+          s: { k: 'union', of: [{ k: 'ref', name: 'PublicOfferSnapshot' }, { k: 'scalar' }] },
+        },
+        createdAt: { s: { k: 'ref', name: 'Instant' } },
+        updatedAt: { s: { k: 'ref', name: 'Instant' } },
+        piiPurgedAt: { s: { k: 'union', of: [{ k: 'ref', name: 'Instant' }, { k: 'scalar' }] } },
+        version: { s: { k: 'scalar' } },
+        allowedActions: { s: { k: 'array', items: { k: 'ref', name: 'AllowedAction' } } },
+      },
+      open: false,
+    },
+    PublicOfferSnapshot: {
+      k: 'object',
+      props: {
+        roomType: { s: { k: 'scalar' } },
+        totalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        computedAt: { s: { k: 'ref', name: 'Instant' } },
+        priceVersion: { s: { k: 'scalar' } },
+      },
+      open: false,
+    },
+    PublicAvailability: {
+      k: 'object',
+      props: {
+        from: { s: { k: 'ref', name: 'LocalDate' } },
+        to: { s: { k: 'ref', name: 'LocalDate' } },
+        currency: { s: { k: 'scalar' } },
+        roomTypes: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                roomType: { s: { k: 'scalar' } },
+                nights: {
+                  s: {
+                    k: 'array',
+                    items: {
+                      k: 'object',
+                      props: {
+                        date: { s: { k: 'ref', name: 'LocalDate' } },
+                        available: { s: { k: 'scalar' } },
+                        nightlyRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                      },
+                      open: false,
+                    },
+                  },
+                },
+              },
+              open: false,
+            },
+          },
+        },
+      },
+      open: false,
+    },
+    PublicOffers: {
+      k: 'object',
+      props: {
+        arrival: { s: { k: 'ref', name: 'LocalDate' } },
+        departure: { s: { k: 'ref', name: 'LocalDate' } },
+        nights: { s: { k: 'scalar' } },
+        priceVersion: { s: { k: 'scalar' } },
+        offers: {
+          s: {
+            k: 'array',
+            items: {
+              k: 'object',
+              props: {
+                roomType: { s: { k: 'scalar' } },
+                available: { s: { k: 'scalar' } },
+                totalVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                nightlyAvgVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                extraGuestFeeVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                losDiscountPct: { s: { k: 'ref', name: 'Percent' } },
+                depositPct: { s: { k: 'ref', name: 'Percent' } },
+                cancellationPolicyKey: { s: { k: 'scalar' } },
+              },
+              open: false,
+            },
+          },
+        },
+        longStayHint: {
+          s: {
+            k: 'object',
+            props: { fromMonthlyVnd: { s: { k: 'ref', name: 'MoneyVnd' } } },
+            open: false,
+          },
+        },
       },
       open: false,
     },
@@ -3413,6 +3647,9 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           channelId: { s: { k: 'ref', name: 'Uuid' } },
           channelCode: { s: { k: 'scalar' } },
           directSource: { s: { k: 'scalar' } },
+          directSubSource: {
+            s: { k: 'union', of: [{ k: 'ref', name: 'DirectSubSource' }, { k: 'scalar' }] },
+          },
           paymentModel: { s: { k: 'scalar' } },
           otaRef: {
             s: { k: 'scalar' },
@@ -3557,6 +3794,34 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
           depositPaidVnd: {
             s: { k: 'ref', name: 'MoneyVnd' },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
+          },
+          depositNotices: {
+            s: {
+              k: 'array',
+              items: {
+                k: 'object',
+                props: {
+                  id: { s: { k: 'ref', name: 'Uuid' } },
+                  amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+                  note: {
+                    s: { k: 'scalar' },
+                    v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                    f: 'D12c',
+                  },
+                  attachmentId: { s: { k: 'scalar' } },
+                  createdAt: { s: { k: 'ref', name: 'Instant' } },
+                  updatedAt: { s: { k: 'ref', name: 'Instant' } },
+                  createdByName: {
+                    s: { k: 'scalar' },
+                    v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+                    f: 'D27',
+                  },
+                  status: { s: { k: 'scalar' } },
+                },
+                open: false,
+              },
+            },
             v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff', 'collaborator'],
           },
           depositShortfall: {
@@ -4182,5 +4447,21 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         open: false,
       },
     },
+    getPublicFormToken: { '200': { k: 'ref', name: 'PublicFormToken' } },
+    createWebsiteBookingRequest: { '202': { k: 'ref', name: 'WebsiteBookingRequestAccepted' } },
+    getPublicAvailability: { '200': { k: 'ref', name: 'PublicAvailability' } },
+    getPublicOffers: { '200': { k: 'ref', name: 'PublicOffers' } },
+    listWebsiteBookingRequests: {
+      '200': {
+        k: 'object',
+        props: {
+          data: { s: { k: 'array', items: { k: 'ref', name: 'WebsiteBookingRequest' } } },
+          page: { s: { k: 'ref', name: 'PageInfo' } },
+        },
+        open: false,
+      },
+    },
+    getWebsiteBookingRequest: { '200': { k: 'ref', name: 'WebsiteBookingRequest' } },
+    transitionWebsiteBookingRequest: { '200': { k: 'ref', name: 'WebsiteBookingRequest' } },
   },
 };

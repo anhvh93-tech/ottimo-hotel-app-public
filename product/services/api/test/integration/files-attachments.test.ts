@@ -135,17 +135,14 @@ describe.skipIf(!HAS_DB)('attachments (B-01, SEC I1–I7)', () => {
     expect((await get('fd2')).statusCode).toBe(404);
     expect((await get('mgr')).statusCode).toBe(200);
     expect((await upload('hk', 'refund_proof')).statusCode).toBe(403);
-    // SEC BE-38 (2): Sprint 4 purposes (no module binds them yet) are refused until it exists.
-    for (const [u, purpose] of [
-      ['mt', 'meter'],
-      ['mt', 'work_order'],
-      ['hk', 'inspection'],
-    ] as const) {
-      expect((await upload(u, purpose)).json()).toMatchObject({
-        code: 'VALIDATION_FAILED',
-        errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }],
-      });
-    }
+    // SEC BE-38 (2): a purpose no module binds yet (meter readings – R3) is refused until it exists; work
+    // orders and inspections bind their photos since Sprint 4 (housekeeping module).
+    expect((await upload('mt', 'meter')).json()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'purpose', code: 'NOT_IN_LIST' }],
+    });
+    expect((await upload('mt', 'work_order')).statusCode).toBe(201);
+    expect((await upload('hk', 'inspection')).statusCode).toBe(201);
   });
 
   it('C1/C2: a .jpg containing HTML → 422; stored blob is ciphertext, file 0600 in a 0700 directory', async () => {

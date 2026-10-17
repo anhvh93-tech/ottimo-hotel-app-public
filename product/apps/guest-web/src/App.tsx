@@ -23,7 +23,9 @@ export function App({ link }: { link: LinkRead }) {
   const [boot, setBoot] = useState<Boot>(
     link.kind === 'malformed' ? { kind: 'terminal', which: 'link_invalid' } : { kind: 'loading' },
   );
+  // Before a session exists (loading, expired link): browser language, P-S4-10.
   const [locale, setLocale] = useState<GuestLocale>(() => browserLocale());
+  const [localeChosen, setLocaleChosen] = useState(false);
   const phoneRef = useRef<string | undefined>(undefined);
 
   const fail = useCallback((e: unknown) => {
@@ -47,9 +49,11 @@ export function App({ link }: { link: LinkRead }) {
     try {
       let session: GuestSession | undefined;
       if (token.current) {
-        session = await guestApi.openSession(token.current);
+        session = await guestApi.openSession(token.current, browserLocale());
         token.current = undefined; // exchanged – the cookie carries the session from now on
+        // The server's choice is used as is (0.3.7 bổ sung 1 #12) – the client never overrides it.
         if (isGuestLocale(session.locale)) setLocale(session.locale);
+        setLocaleChosen(session.localeChosenByGuest === true);
       }
       const stay = await guestApi.getStay();
       phoneRef.current = stay.property.phone;
@@ -101,7 +105,11 @@ export function App({ link }: { link: LinkRead }) {
         <GuestShell
           session={boot.session}
           stay={boot.stay}
-          onLocale={setLocale}
+          onLocale={(l) => {
+            setLocale(l);
+            setLocaleChosen(true);
+          }}
+          localeChosen={localeChosen}
           onFatal={fail}
           onReloadStay={reloadStay}
         />

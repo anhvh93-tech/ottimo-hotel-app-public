@@ -16,3 +16,7 @@ export * from './crypto';
 export * from './files';
 export * from './registration';
 export * from './guest-portal';
+// Sprint 4 (BE-D): guest requests (erd 4.11, migration 0058).
+export * from './guest-requests';
+// Sprint 4 (BE-C): housekeeping + maintenance (work_order, inspection, inspection_checklist).
+export * from './housekeeping';

@@ -1,9 +1,13 @@
 {
   "name": "OTTIMO Staff",
   "short_name": "OTTIMO Staff",
+  "description": "OTTIMO – housekeeping and maintenance",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "lang": "vi",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff"
+  "background_color": "#F4F0E8",
+  "theme_color": "#F4F0E8"
 }

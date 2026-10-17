@@ -10,7 +10,6 @@ import { LoginPage } from '../pages/LoginPage';
 import { ParamsPage } from '../pages/ParamsPage';
 import { RoomsPage } from '../pages/RoomsPage';
 import { SelectPropertyPage } from '../pages/SelectPropertyPage';
-import { TodayPage } from '../pages/TodayPage';
 import { UsersPage } from '../pages/UsersPage';
 import { NAV, canOpen, homePath, type NavItem } from '../session/nav';
 import { useSession } from '../session/SessionProvider';
@@ -35,6 +34,23 @@ const ApprovalsPage = lazy(() =>
 );
 const MoneyPage = lazy(() =>
   import('../pages/money/MoneyPage').then((m) => ({ default: m.MoneyPage })),
+);
+// Sprint 4 (FE-B): H03 Hôm nay (desk home – KPI, arrivals/departures, attention, guest requests) loads with
+// its route so the first bundle stays < 500 KB.
+const TodayPage = lazy(() => import('../pages/TodayPage').then((m) => ({ default: m.TodayPage })));
+// Sprint 4 (FE-B): H24 Tổng quan – owner / manager home.
+const OverviewPage = lazy(() =>
+  import('../pages/OverviewPage').then((m) => ({ default: m.OverviewPage })),
+);
+// Sprint 4 (FE-B): S10 buồng phòng, S11 bảo trì + khóa phòng, S13 danh mục minibar.
+const HousekeepingPage = lazy(() =>
+  import('../pages/ops/HousekeepingPage').then((m) => ({ default: m.HousekeepingPage })),
+);
+const MaintenancePage = lazy(() =>
+  import('../pages/ops/MaintenancePage').then((m) => ({ default: m.MaintenancePage })),
+);
+const MinibarPage = lazy(() =>
+  import('../pages/MinibarPage').then((m) => ({ default: m.MinibarPage })),
 );
 
 function Splash() {
@@ -94,6 +110,10 @@ function Screen({ item, children }: { item: NavItem; children: ReactNode }) {
 
 const PAGES: Record<string, () => ReactNode> = {
   today: () => <TodayPage />,
+  overview: () => <OverviewPage />,
+  housekeeping: () => <HousekeepingPage />,
+  maintenance: () => <MaintenancePage />,
+  minibar: () => <MinibarPage />,
   guests: () => <GuestsPage />,
   rooms: () => <RoomsPage />,
   params: () => <ParamsPage />,

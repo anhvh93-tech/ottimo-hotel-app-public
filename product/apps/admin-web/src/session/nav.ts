@@ -26,7 +26,6 @@ export interface NavItem {
   ready?: boolean;
 }
 
-const MGMT: Role[] = ['owner', 'manager'];
 const DESK: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 
 export const NAV: NavItem[] = [
@@ -37,7 +36,10 @@ export const NAV: NavItem[] = [
     label: 'nav.overview',
     screen: 'S02',
     section: 'top',
-    roles: MGMT,
+    // H02 2.2 holds in R2 (UXD s4-UXD D): FDL/FD use Hôm nay. The H24 24.2 reduced variants are built in
+    // OverviewPage (`overviewVariant`) and switch on by adding the desk roles here if PO keeps 24.2 (R3).
+    roles: ['owner', 'manager'],
+    ready: true,
   },
   {
     id: 'approvals',
@@ -102,6 +104,7 @@ export const NAV: NavItem[] = [
     label: 'nav.housekeeping',
     screen: 'S10',
     section: 'ops',
+    ready: true,
   },
   {
     id: 'maintenance',
@@ -111,6 +114,7 @@ export const NAV: NavItem[] = [
     labelOwn: 'nav.work_orders',
     screen: 'S11',
     section: 'ops',
+    ready: true,
   },
   {
     id: 'guests',
@@ -139,6 +143,17 @@ export const NAV: NavItem[] = [
     screen: 'S27',
     section: 'admin',
     roles: DESK,
+    ready: true,
+  },
+  {
+    // Sprint 4 (US-066): minibar catalogue – OWN/MGR edit, FD/FDL/HK read (A91, US-003 AC2).
+    id: 'minibar',
+    path: '/settings/minibar',
+    icon: 'tag',
+    label: 'nav.minibar',
+    screen: 'S13',
+    section: 'admin',
+    roles: [...DESK, 'housekeeping'],
     ready: true,
   },
   {

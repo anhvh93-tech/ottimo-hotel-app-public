@@ -109,10 +109,21 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
       url(`/approval-requests/${approvalId}/refund-destination`),
       body,
     );
-  const approve = (who: string, approvalId: string) =>
+  /** 0.3.7 B-6: the version the approver sees (required for a refund decision). */
+  const ver = async (id: string) => ({
+    expectedVersion: Number(
+      (
+        await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ version: number }>('SELECT version FROM approval_request WHERE id = $1', [id]),
+        )
+      ).rows[0]!.version,
+    ),
+  });
+  const approve = async (who: string, approvalId: string) =>
     c[who]!.send('POST', url(`/approval-requests/${approvalId}/actions/approve`), {
       authMethod: 'password',
       secret: TEST_PASSWORD,
+      ...(await ver(approvalId)),
     });
   const listed = async (who: string, query = ''): Promise<ListedApproval[]> => {
     const res = await c[who]!.get(url(`/approval-requests${query}`));
@@ -254,5 +265,93 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
       amountVnd: -DEPOSIT,
     });
     expect(await sees('fdl', approvalId)).toBeUndefined();
+  });
+
+  it('S4-06 (BR-522 v0.3.4): the cancellation opens "Cần chú ý" closed_reservation_credit (no params, once) – it closes itself when the refund is paid out in full', async () => {
+    const { reservationId, approvalId } = await cancelledWithRefund('2026-12-14', '2026-12-21');
+    const items = () =>
+      db.withContext(
+        t.ctx(),
+        async (tx) =>
+          (
+            await tx.query<{ details: Record<string, unknown>; resolved_at: Date | null }>(
+              `SELECT details, resolved_at FROM attention_event
+              WHERE kind = 'closed_reservation_credit' AND ref_id = $1`,
+              [reservationId],
+            )
+          ).rows,
+      );
+    expect(await items()).toEqual([{ details: {}, resolved_at: null }]);
+    expect((await destination('fd', approvalId, { method: 'cash' })).statusCode).toBe(200);
+    expect((await approve('mgr', approvalId)).statusCode).toBe(200);
+    const part = await payOut('fdl', 'execute-cash-refund', approvalId, reservationId, 600_000);
+    expect(part.statusCode, part.body).toBe(201);
+    expect((await items())[0]!.resolved_at).toBeNull(); // money still owed back
+    const rest = await payOut(
+      'fdl',
+      'execute-cash-refund',
+      approvalId,
+      reservationId,
+      DEPOSIT - 600_000,
+    );
+    expect(rest.statusCode, rest.body).toBe(201);
+    const after = await items();
+    expect(after).toHaveLength(1);
+    expect(after[0]!.resolved_at).not.toBeNull();
+  });
+
+  it('S4-42: an approved refund still to be paid in cash (or without a destination yet) is announced to the desk (FD/FDL) too – a transfer only to its requester', async () => {
+    const recipients = (approvalId: string) =>
+      db.withContext(t.ctx(), async (tx) =>
+        (
+          await tx.query<{ user_id: string }>(
+            `SELECT user_id FROM staff_notification WHERE kind = 'refund_ready' AND ref_id = $1 ORDER BY user_id`,
+            [approvalId],
+          )
+        ).rows.map((r) => r.user_id),
+      );
+    const cash = await cancelledWithRefund('2026-11-16', '2026-11-23');
+    expect((await approve('mgr', cash.approvalId)).statusCode).toBe(200);
+    expect(await recipients(cash.approvalId)).toEqual(
+      [t.users.fd!.id, t.users.fd2!.id, t.users.fdl!.id].sort(),
+    );
+    const transfer = await cancelledWithRefund('2026-11-23', '2026-11-30');
+    const dest = await destination('fd', transfer.approvalId, {
+      method: 'bank_transfer',
+      bankBin: '970436',
+      accountNo: '0071000123457',
+      accountHolder: 'KHACH HOAN TIEN',
+    });
+    expect(dest.statusCode, dest.body).toBe(200);
+    expect((await approve('mgr', transfer.approvalId)).statusCode).toBe(200);
+    expect(await recipients(transfer.approvalId)).toEqual([t.users.fd!.id]);
+  });
+  it('0.3.7 B-6: a refund is decided on the version the approver saw – missing expectedVersion 422 REQUIRED, stale (destination changed) 412 VERSION_CONFLICT and nothing written, current → 200; reject alike', async () => {
+    const { approvalId } = await cancelledWithRefund('2027-01-11', '2027-01-18');
+    const decide = (verb: 'approve' | 'reject', extra: Record<string, unknown>) =>
+      c.mgr!.send('POST', url(`/approval-requests/${approvalId}/actions/${verb}`), {
+        authMethod: 'password',
+        secret: TEST_PASSWORD,
+        ...(verb === 'reject' ? { reason: 'Khách đổi ý' } : {}),
+        ...extra,
+      });
+    const seen = (await ver(approvalId)).expectedVersion;
+    const missing = await decide('approve', {});
+    expect(missing.statusCode).toBe(422);
+    expect(missing.json().errors).toEqual([{ field: 'expectedVersion', code: 'REQUIRED' }]);
+    expect((await decide('approve', { expectedVersion: 'x' })).statusCode).toBe(422);
+    expect((await destination('fd', approvalId, { method: 'cash' })).statusCode).toBe(200);
+    const stale = await decide('approve', { expectedVersion: seen });
+    expect(stale.statusCode).toBe(412);
+    expect(stale.json()).toMatchObject({ code: 'VERSION_CONFLICT' });
+    expect((await sees('mgr', approvalId))!.status).toBe('pending');
+    const listedVersion = ((await sees('mgr', approvalId)) as unknown as { version: number })
+      .version;
+    expect(listedVersion).toBe((await ver(approvalId)).expectedVersion);
+    expect((await decide('reject', {})).statusCode).toBe(422);
+    expect((await decide('reject', { expectedVersion: seen })).statusCode).toBe(412);
+    const ok = await decide('reject', { expectedVersion: listedVersion });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().status).toBe('rejected');
   });
 });

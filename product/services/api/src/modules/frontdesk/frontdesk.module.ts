@@ -122,6 +122,8 @@ export class FrontdeskModule implements OnModuleInit {
     }
     // BUG-R2-033: registration asks the party which member a document belongs to (BE-C link, BR-951).
     this.partyLink?.provide(this.documentParty);
+    // 0.3.7 D1 (S4-09): `updateReservation.roomReturnRecorded` – room statuses / cleaning / door access live here.
+    this.hooks.provideRoomReturn((tx, input) => this.stays.recordRoomReturn(tx, input));
     // ARC-BE-S3-15 g: reservations shows the party size without reading reservation_guest itself.
     this.hooks.providePartyCount(async (tx, reservationId) => {
       const { rows } = await tx.query<{ n: number }>(

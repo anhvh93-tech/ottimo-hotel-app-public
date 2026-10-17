@@ -9,6 +9,7 @@ import type { Tx } from '../../../db/database';
 import type { ReservationStatus } from '../../../db/schema';
 import type { BookingContext } from '../internal/booking-context';
 import type { Actor, ReservationRow } from '../internal/reservation-store';
+import type { BookingMovePlan, PlanInput } from '../internal/move-planner';
 import {
   type RoomInfo,
   ReservationsService,
@@ -41,6 +42,12 @@ export { Fields, asBody, isLocalDate, isUuid, pathId } from '../internal/inputs'
 export { FDL_PLUS, FD_PLUS, MGR_PLUS, hasAny } from '../internal/allowed-actions';
 export { syncExtraGuestKit } from '../internal/extra-guest-kit';
 export type { RoomInfo, StayNightPrice } from '../internal/reservations.service';
+export {
+  type BookingMovePlan,
+  type PlanInput,
+  type PlanNight,
+  moveCauseOf,
+} from '../internal/move-planner';
 export { SYSTEM_ACTOR } from '../internal/reservations.service';
 
 @Injectable()
@@ -180,6 +187,43 @@ export class ReservationStayPort {
     input: Parameters<ReservationsService['writeRepricedNights']>[3],
   ): Promise<number> {
     return this.reservations.writeRepricedNights(tx, ctx, row, input);
+  }
+
+  // ── ONE calculation of a room move (OpenAPI 0.3.7 D1, ARC 10.4 – S4-04/05/07): B14 dryRun and write ──
+
+  /** The money plan of one booking of the stay (nights from `fromDate` into `newRoom`). */
+  planMove(tx: Tx, ctx: BookingContext, input: PlanInput): Promise<BookingMovePlan> {
+    return this.reservations.planner.planBooking(tx, ctx, input);
+  }
+
+  /** Lock the folio after the rooms (lock order reservation → rooms → folio) before planning the write. */
+  lockFolio(tx: Tx, row: ReservationRow): Promise<void> {
+    return this.reservations.lockFolio(tx, row);
+  }
+
+  /**
+   * Writes the planned nights of one booking (B14): room, segment, gross (discount kept), calendar and the
+   * BR-110 fee/count/base of each moved night; `total_room_vnd` and the origin room (first move) follow.
+   */
+  writeMovedNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    plan: BookingMovePlan,
+    segmentOf: ReadonlyMap<string, string>,
+  ): Promise<void> {
+    return this.reservations.writeMovedNights(tx, ctx, row, plan, segmentOf);
+  }
+
+  /** S4-05: reverse the OTA differences from the move night and post the plan's (one line per night). */
+  repostDifferences(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    plan: BookingMovePlan,
+    labels: { from: string; to: string },
+  ): Promise<void> {
+    return this.reservations.repostPlannedDifferences(tx, ctx, row, plan, labels);
   }
 
   /** Same-transaction hooks (registration, commissions…) of an SM-01 transition or a stay change. */

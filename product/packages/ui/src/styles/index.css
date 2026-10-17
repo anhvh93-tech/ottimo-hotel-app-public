@@ -13,4 +13,9 @@
 @import '@fontsource/be-vietnam-pro/400.css';
 @import '@fontsource/be-vietnam-pro/500.css';
 @import '@fontsource/be-vietnam-pro/600.css';
+/* DS v0.4.1 §11.6 B1 (S4-49): JetBrains Mono 400/500 for `--mono` (`.mono`, `.code-input`, `kbd`,
+   `.masked`) – booking codes, bill numbers, VietQR transfer content, registration/work-order codes,
+   Wi-Fi. Same build as the v0.4 tokens (B0), otherwise `--mono` falls back to Courier New. */
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
 @import './app.css';

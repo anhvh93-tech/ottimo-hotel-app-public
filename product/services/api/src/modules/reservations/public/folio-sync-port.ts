@@ -35,6 +35,12 @@ export interface VoidStayInput {
   /** BR-308 reason code / `no_show` / `overbooking_relocated`. */
   reason: string;
   requestId?: string;
+  /**
+   * 0.3.7 D1 S4-08 (BR-309 v0.3.4, BE-B): cancellation / no-show reverse the booking's service lines (with their
+   * FOC) except `retainLines` (validated by FolioService.closeStayPreview). Absent = no service reversal
+   * (relocation, holds).
+   */
+  services?: { retainLines: ReadonlyArray<{ lineId: string; reason: string }> };
 }
 
 export interface FolioStaySync {

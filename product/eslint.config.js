@@ -18,6 +18,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/.turbo/**',
+      // Astro generated types (apps/landing-web, astro sync/check/build – gitignored)
+      '**/.astro/**',
       'legacy/**',
       'design/**',
       'docs/**',

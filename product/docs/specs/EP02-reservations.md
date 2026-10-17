@@ -1,9 +1,9 @@
 # Đặc tả mức trường – EP02 Room rack & đặt phòng + EP11 Sale (phần R2) + US-139
 
-- Tác giả: BA | Round 2 – Đợt 0 (đi trước Sprint 2 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
-- Phạm vi: EP02 – US-016, 017 (gồm **AC5a tạm R2**), 018, 019, 020, 021, 022, 023, 024, 136; EP11 phần R2 – US-080, 082, 083, 084, 085, 086 (trừ AC3), 087; EP12 – US-139. Ngoài phạm vi: US-081, US-086 AC3 (dài hạn – R3 theo R-C), đơn nhóm US-140 (R3).
-- Nguồn và quy ước: như `specs/EP00-platform.md` mục 0 (bảng trường, V-01…V-11, hiển thị lỗi, lỗi chung, hộp xác nhận mục 9). Tài liệu này chỉ ghi phần riêng.
-- Quyết định INV áp dụng: ESC-004 (giá, định mức, phụ thu người), ESC-006 (giữ chỗ, cọc, hủy, no-show), **ESC-014** (sức chứa tối đa = định mức + 1 ngủ sofa; người vượt định mức được cấp bộ đồ dùng thêm – BR-812), ESC-012 R-C (AC5a).
+- Tác giả: BA | Round 2 – Đợt 0 (đi trước Sprint 2 một sprint) | Ngày: 16/10/2026 | Phiên bản: **0.2** (17/10, Sprint 4: mục **9.3** xem trước giá đổi căn/đổi ngày theo ESC-019 A – `previewMoveReservation`, ô "Đã báo khách", nhóm lý do "khách xin / OTTIMO đổi"; mục 8 năm sinh trẻ em bắt buộc – S4-45). Bản 0.1 (16/10)
+- Phạm vi: EP02 – US-016, 017 (gồm **AC5a tạm R2**), 018, 019, 020, 021, 022, 023, 024 (gồm **AC5–AC7** – ESC-019 A), 136; EP11 phần R2 – US-080, 082, 083, 084, 085, 086 (trừ AC3), 087; EP12 – US-139. Ngoài phạm vi: US-081, US-086 AC3 (dài hạn – R3 theo R-C), đơn nhóm US-140 (R3). Yêu cầu đặt phòng từ website (US-155): `specs/EP19-website-requests.md`.
+- Nguồn và quy ước: như `specs/EP00-platform.md` mục 0 (bảng trường, V-01…V-11, hiển thị lỗi, lỗi chung, hộp xác nhận mục 9). Tài liệu này chỉ ghi phần riêng. Bản 0.2 đọc thêm: `business-rules.md` **v0.3.6** (BR-429 (a)–(h), BR-434, BR-111), OpenAPI **0.3.7** (`previewMoveReservation`, `moveReservation`, `MovePreview`, `MoveReasonCode`; `rounds/round-02/outputs/ARC/openapi-0.3.7.md` S-7, 10.4), chuỗi `move.*` đã duyệt (`rounds/round-02/reviews/s4-UXD.md` mục E).
+- Quyết định INV áp dụng: ESC-004 (giá, định mức, phụ thu người), ESC-006 (giữ chỗ, cọc, hủy, no-show), **ESC-014** (sức chứa tối đa = định mức + 1 ngủ sofa; người vượt định mức được cấp bộ đồ dùng thêm – BR-812), ESC-012 R-C (AC5a), **ESC-019 A** (17/10 – khách tự xin đổi sang căn khác trước ngày đến thì tính giá căn mới; OTTIMO đổi thì giữ giá).
 
 ---
 
@@ -262,8 +262,10 @@ FD+ mọi đơn; SAL: giữ chỗ của mình + đơn **trực tiếp** của m�
 | `role` | Loại | enum `companion` (người lớn có hồ sơ) / `child` (trẻ em) | B | V-11 | – |
 | `guestId` | Người đi cùng | uuid | ĐK (`companion`) | Chọn bằng bộ chọn khách; tuổi ≥ `minor_data_age_threshold` (BR-612); không trùng người đã có trong đơn (gồm người đứng tên) | 409 `PARTY_DUPLICATE` **(đề nghị ARC đặt mã)** → `field_error.party_duplicate` **(mới)** "Người này đã có trong đơn." (AC3) |
 | `relationship` | Quan hệ | enum `spouse`, `partner`, `family`, `friend`, `colleague`, `unknown` | K (mặc định `unknown`) | V-11; SAL/CTV không thấy (D10) | – |
-| `childName` | Họ tên trẻ | text (C3, chỉ ghi) | ĐK (`child`) | V-01 | `REQUIRED` |
-| `childBirthYear` | Năm sinh | int (C3, chỉ ghi) | ĐK (`child`) | 2000 ≤ năm ≤ năm hiện tại | `VALUE_OUT_OF_RANGE` |
+| `childName` | Họ tên trẻ | text (C3, chỉ ghi) | ĐK – **B** khi `role = child`; gửi kèm `role = companion` → 422 `NOT_ALLOWED` | V-01, 1–100 ký tự | `REQUIRED`; `NOT_ALLOWED` |
+| `childBirthYear` | Năm sinh | int 4 chữ số (C3, chỉ ghi – không bao giờ trả lại, chỉ trả `priceAgeBand`/`isMinorData`) | ĐK – **B** khi `role = child` (S4-45, khớp server `party.service.ts`); gửi kèm `role = companion` → 422 `NOT_ALLOWED` (`field` = `childName`) | Số nguyên, 2000 ≤ năm ≤ **năm của ngày nghiệp vụ hiện tại** (BR-010); ô trống/không phải số → coi như thiếu | Thiếu → 422 `REQUIRED` → **(mới)** `party.child_birth_year_required` "Nhập năm sinh của trẻ để tính đúng phụ thu và sức chứa."; ngoài khoảng → `VALUE_OUT_OF_RANGE` → `field_error.value_out_of_range` |
+
+**S4-45 – năm sinh trẻ em là bắt buộc (BA chốt 17/10, khớp server):** server đã bắt buộc từ Sprint 3 (`f.int('childBirthYear', { required: true, min: 2000, max: năm hiện tại })`) và đặc tả 0.1 đã ghi "ĐK (`child`)" = bắt buộc khi là trẻ em; Desk hiện ô **không** có dấu bắt buộc (hiện "không bắt buộc") → lễ tân để trống, server trả `REQUIRED`, hộp bị chặn mà không rõ vì sao. Lý do giữ bắt buộc: chỉ có năm sinh mới tính được (1) bậc tuổi phụ thu BR-110 (tuổi = năm đến − năm sinh − 1, tuổi nhỏ nhất có thể – DOM S3-7, EP03-05 4.7), (2) sức chứa (trẻ dưới `child_free_under_age` không tính – ESC-014), (3) ngưỡng dữ liệu trẻ em BR-612 (`isMinorData`), (4) khai báo lưu trú người dưới ngưỡng (EP06 mục 0). Desk: ô "Năm sinh" có dấu **bắt buộc**, bàn phím số, tối đa 4 ký tự; nút "Thêm" khóa kèm lý do cạnh nút khi ô trống (mẫu "… để bật nút" của UXD); câu trợ giúp `rsv.child_note` giữ ("chỉ cần năm sinh – không tạo hồ sơ khách"). Không đổi hợp đồng: `PartyMemberCreate.childBirthYear` không nằm trong `required` vì chỉ bắt buộc theo `role` – đề nghị ARC ghi câu "bắt buộc khi `role = child`" vào mô tả trường (E02-09). Trẻ có năm sinh cho tuổi ≥ `adult_from_age` vẫn nhận được với `role = child` nhưng tính như người lớn (`priceAgeBand = adult`) – Desk hiện bậc tuổi server trả, không tự tính.
 
 - Người dưới ngưỡng bảo vệ dữ liệu (`isMinorData`): **không** tạo hồ sơ CRM, không lưu liên hệ, không hỏi đồng ý marketing (AC2, rbac mục 9). Bậc tuổi phụ thu (`priceAgeBand`) tính riêng theo BR-110 tại ngày đến.
 - Thêm người làm `occCount` vượt số khách đã khai → hỏi "Cập nhật số khách của đơn lên {n}?" → gọi `updateReservation` (mục 5.4: sức chứa, phụ thu, bộ đồ dùng thêm). Vượt sức chứa → chặn `CAPACITY_EXCEEDED`.
@@ -280,11 +282,15 @@ FD+ mọi đơn; SAL: giữ chỗ của mình + đơn **trực tiếp** của m�
 |---|---|---|---|---|
 | `roomId` | uuid | ĐK (ít nhất một trong căn/ngày thay đổi) | Trống khoảng mới, không OOO, bán được, đủ sức chứa; **không** đòi căn đang sạch (AC4) | 409 `ROOM_UNAVAILABLE`, `ROOM_BLOCKED`, `ROOM_NOT_SELLABLE`; 422 `CAPACITY_EXCEEDED` |
 | `arrivalDate`, `departureDate` | date | ĐK | V-05, BR-112; đơn OTA **không** đổi ngày (chỉ đổi căn nội bộ). Khách OTA muốn đổi ngày ở R2 (DOM D-5): hủy đơn với lý do `ota_cancelled` (tiền phạt 0) rồi tạo đơn mới cùng mã OTA, ghi chú "OTA sửa đơn"; từ R3 channel manager tự xử lý | `OTA_DATES_LOCKED` → "Đơn OTA chỉ đổi ngày theo kênh." |
-| `reasonCode` | `MoveReasonCode` (OpenAPI 0.3.5, A-19), 7 lý do (DOM D-5): `guest_request` – khách yêu cầu (cũng dùng khi dời ngày thay vì hủy, B8 thường) · `property_fault` – căn hỏng/sự cố, gắn OOO · `overbooking` – xử lý trùng/xung đột, **chỉ hiện** khi đơn `conflictState = open` hoặc `capacityConflict = true` (BR-312) · `upgrade` – nâng hạng chủ động, **chỉ FDL+** (BR-316 (3)) · `inventory_optimize` – sắp căn để tránh đêm lẻ, khách không bị ảnh hưởng, chỉ khi chưa báo số căn cho khách · `force_majeure` – **chỉ** `mode = postpone_instead_of_cancel` (B8), dời ngày miễn phí do bất khả kháng (BR-309), **MGR+**, bắt buộc ghi chú bằng chứng · `other` | B | V-11. Sai vai hoặc sai chế độ (`upgrade` do FD gửi; `force_majeure` do người dưới MGR gửi hoặc dùng ngoài B8) → 403; `overbooking` cho đơn không có cờ xung đột → 422 `NOT_IN_LIST`. Đổi căn đơn OTA sang căn vẫn nhỏ hơn số khách → cảnh báo `CAPACITY_EXCEEDED_WARNING`, gửi lại với `capacityWarningAckReason` | `REQUIRED`; `NOT_IN_LIST`; 403 `FORBIDDEN_ACTION` |
-| `note` | text | ĐK (`other`, `force_majeure`) | V-08 (≥ 3 ký tự) | `REASON_REQUIRED` |
-| `overbookingResolution` | enum | ĐK (`conflictState=open`) | – | `REQUIRED` |
+| `reasonCode` | `MoveReasonCode` (OpenAPI 0.3.5, A-19), 7 lý do (DOM D-5): `guest_request` – khách yêu cầu (cũng dùng khi dời ngày thay vì hủy, B8 thường) · `property_fault` – căn hỏng/sự cố, gắn OOO · `overbooking` – xử lý trùng/xung đột, **chỉ hiện** khi đơn `conflictState = open` hoặc `capacityConflict = true` (BR-312) · `upgrade` – nâng hạng chủ động, **chỉ FDL+** (BR-316 (3)) · `inventory_optimize` – sắp căn để tránh đêm lẻ, khách không bị ảnh hưởng, chỉ khi chưa báo số căn cho khách (**0.3.7**: chỉ hiện khi `Reservation.roomDisclosedToGuest = false`) · `force_majeure` – **chỉ** `mode = postpone_instead_of_cancel` (B8), dời ngày miễn phí do bất khả kháng (BR-309), **MGR+**, bắt buộc ghi chú bằng chứng · `other`. **0.3.7 (ESC-019 A)**: mã lý do quyết **giá** – xếp theo 3 nhóm "khách xin / OTTIMO đổi / khác" (mục 9.3.2) | B | V-11. Sai vai hoặc sai chế độ (`upgrade` do FD gửi; `force_majeure` do người dưới MGR gửi) → 403; `force_majeure` ngoài B8 → 422 `NOT_IN_LIST`; `overbooking` cho đơn không có cờ xung đột → 422 `NOT_IN_LIST`; **0.3.7**: `inventory_optimize` khi `roomDisclosedToGuest = true` → 422 `NOT_IN_LIST`; `other` sang căn có giá Trực tiếp hiện hành cao hơn do FD gửi → 403 `FORBIDDEN_ACTION` (BR-429 (b)). Đổi căn đơn OTA sang căn vẫn nhỏ hơn số khách → cảnh báo `CAPACITY_EXCEEDED_WARNING`, gửi lại với `capacityWarningAckReason` | `REQUIRED`; `NOT_IN_LIST`; 403 `FORBIDDEN_ACTION` |
+| `note` | text | ĐK (`other`, `force_majeure`) | V-08 (≥ 3 ký tự); lệnh xem trước (9.3) không đòi | `REASON_REQUIRED` |
+| `overbookingResolution` | enum `reassigned_same_group` / `upgraded` | ĐK (`conflictState=open`) | Sang nhóm căn khác = `upgraded`, chỉ FDL+ (BR-312 (4)) | `REQUIRED`; 403 |
+| `applyDifference` **(0.3.7)** | bool – ô "Đã báo khách số tiền mới" (`move.told_guest`) | ĐK – **B** = `true` khi lý do `guest_request` **và** có đổi căn **và** đơn không phải dài hạn nhập tay (`externalContract = false`) – đúng điều kiện server kiểm (kể cả đơn OTA và khi OWN đặt `room_move_pricing.guestRequest = keep_booked_rate`) | Mục 9.3.4 | 422 `REQUIRED` (`field` = `applyDifference`, kèm `folioDeltaVnd`) |
+| `expectedDeltaVnd` **(0.3.7)** | số nguyên VND, có thể âm hoặc 0 | ĐK – **B** cùng điều kiện với `applyDifference`; với `guest_request` chỉ đổi ngày: K, nhưng Desk **luôn gửi** số đã hiện (server so nếu có) | = `MovePreview.folioDeltaVnd` của bản tính thử khớp đúng đầu vào đang gửi | 422 `REQUIRED` (`field` = `expectedDeltaVnd`); 422 `AMOUNT_INVALID`; lệch → 409 `SURCHARGE_CHANGED` (`surchargeVnd` = `folioDeltaVnd` mới) – mục 9.3.5 |
+| `capacityWarningAckReason`, `visaWarningAckReason` | text 3–500 | ĐK (khi bản tính thử có cảnh báo tương ứng – 9.3.3) | V-08, V-09 | 422 cảnh báo `CAPACITY_EXCEEDED_WARNING` / `VISA_EXPIRES_BEFORE_DEPARTURE` |
+| `mode` | enum `change` (mặc định, B7) / `postpone_instead_of_cancel` (B8 – mục 7.3) | K | B8 chỉ MGR+ | 403 |
 
-Kết quả (AC1): server kiểm trùng; đêm không đổi giữ **giá lịch** đã chốt (BR-006, BR-106); đêm mới lấy giá lịch hiện hành của kênh. Khi số đêm thay đổi, bậc giảm BR-107 tính lại theo **tổng số đêm cuối cùng** và áp lại cho **mọi đêm còn hiệu lực** trên giá lịch của từng đêm (chỉ kênh `direct`/`agent`; không áp OTA/Nội bộ). Ví dụ căn 202: 5 → 7 đêm = **5.205.000** (BR-107); 7 → 5 đêm = **4.079.000**. Cọc đã thu giữ nguyên, không đòi cọc bổ sung (DOM D-8). Folio đồng bộ trong cùng giao dịch: đảo dòng của đêm bỏ, ghi dòng đêm mới, phụ thu người theo số người mới (FB-R2-DOM-BE-02); đồng bộ kênh; việc bộ đồ dùng thêm chuyển sang căn mới / tính lại theo định mức căn mới (BR-812 (4)).
+Kết quả (AC1 – **trước ESC-019**; từ 0.3.7 áp cho lý do do OTTIMO, `other` và mọi trường hợp chỉ đổi ngày giữ căn; khách tự xin đổi **căn** → mục 9.3): server kiểm trùng; đêm không đổi giữ **giá lịch** đã chốt (BR-006, BR-106); đêm mới lấy giá lịch hiện hành của kênh. Khi số đêm thay đổi, bậc giảm BR-107 tính lại theo **tổng số đêm cuối cùng** và áp lại cho **mọi đêm còn hiệu lực** trên giá lịch của từng đêm (chỉ kênh `direct`/`agent`; không áp OTA/Nội bộ). Ví dụ căn 202: 5 → 7 đêm = **5.205.000** (BR-107); 7 → 5 đêm = **4.079.000**. Cọc đã thu giữ nguyên, không đòi cọc bổ sung (DOM D-8). Folio đồng bộ trong cùng giao dịch: đảo dòng của đêm bỏ, ghi dòng đêm mới, phụ thu người theo số người mới (FB-R2-DOM-BE-02); đồng bộ kênh; việc bộ đồ dùng thêm chuyển sang căn mới / tính lại theo định mức căn mới (BR-812 (4)).
 
 ### 9.2 Khách đang ở – `changeRoom` (B14)
 | Trường | Kiểu | BB | Kiểm tra | Lỗi |
@@ -295,6 +301,93 @@ Kết quả (AC1): server kiểm trùng; đêm không đổi giữ **giá lịch
 | `reason` | text | B | V-08 | `REASON_REQUIRED` |
 
 Kết quả (AC3): căn cũ → `VD`/`OD` + việc dọn; mã cửa cũ "đã hủy", yêu cầu nhập mã mới (BR-403); khai báo không làm lại (BR-424); bộ đồ dùng thêm: việc "chuyển bộ sang căn mới" (BR-812 (4)).
+
+### 9.3 Xem trước tiền khi đổi căn / đổi ngày đơn chưa nhận phòng – `previewMoveReservation` (B7, B8 – ESC-019 A, BR-429 (a)–(h), US-024 AC5–AC7) – *mới 0.2, Sprint 4 S4-21 + S4-04*
+
+#### 9.3.1 Mục đích, quyền, khi nào gọi
+- **Mục đích**: lễ tân thấy **trước khi lưu** số tiền mới của đơn sau khi đổi căn/đổi ngày, báo khách, rồi lưu **đúng số đó** (BR-429 (d), BR-414). Xem trước và lệnh ghi `moveReservation` chạy **cùng một hàm tính** (ARC `openapi-0.3.7.md` 10.4): cùng đầu vào, dữ liệu không đổi giữa hai lần gọi → số lưu = số xem trước từng đồng, không bao giờ 409 `SURCHARGE_CHANGED`.
+- **Quyền**: FD+ (rbac A07, A08 – `x-rbac: [A07, A08]`). SAL, CTV, HK, MT → 403. B8 (`mode = postpone_instead_of_cancel`) chỉ MGR+ (mục 7.3).
+- **Không ghi gì**: giao dịch chỉ đọc, không `Idempotency-Key`, không `If-Match`, không khóa đơn; gọi lại bao nhiêu lần cũng được.
+- **Áp cho**: đơn `hold`, `confirmed` (B7, B8). Đơn `in_house` đổi phòng dùng `changeRoom` + `dryRun` (mục 9.2, B14 – cùng hàm tính theo ARC 10.4, S4-04).
+- **Khi nào Desk gọi**: hộp "Đổi căn / đổi ngày" (`move.title`) có đủ đầu vào – đã chọn lý do **và** ít nhất căn hoặc ngày khác hiện tại. Mỗi lần đổi căn, ngày, lý do hoặc chế độ → gọi lại (đợi người dùng ngừng nhập ngày khoảng 300 ms `[GIẢ ĐỊNH BA – chi tiết cài đặt FE]`). Trong lúc chờ bản mới: giữ bản cũ làm mờ + "Đang tính thử…" (`move.preview_loading`), nút Lưu khóa (UXD FE-S4-08).
+
+#### 9.3.2 Ba nhóm lý do – "khách xin đổi" hay "OTTIMO đổi" (BR-429 (a), (b); `MoveReasonCode` 0.3.7)
+Ô "Lý do đổi" (`move.reason`) chia **3 nhóm có tiêu đề**, lễ tân nhìn là biết lý do quyết giá thế nào:
+
+| Nhóm (chuỗi tiêu đề) | Mã | Giá khi **đổi căn** (`pricingBasis`) | Chỉ đổi ngày, giữ căn | Ai chọn được / khi nào hiện |
+|---|---|---|---|---|
+| **Khách xin đổi** – `move.group_guest` "Khách xin đổi – tính giá căn mới" | `guest_request` (`move.reason.guest_request`) | `new_room_rate`: **mọi đêm** của đơn sau khi đổi lấy lịch giá hiện hành của căn mới (BR-104, giá Trực tiếp/CTV), áp lại BR-107 **hoặc** BR-111 (mức có lợi hơn cho khách, không cộng dồn); **hai chiều** (đắt hơn trả thêm, rẻ hơn được giảm); đổi về lại căn cũ cũng lấy giá hiện hành. Phụ thu người theo định mức căn mới (BR-429). Đơn OTA → mục 9.3.3 dòng `roomChangeDifferenceVnd` | `keep_booked_rate`: đêm giữ giữ giá đã chốt, đêm thêm giá hiện hành, BR-107 tính lại theo tổng đêm (AC1) | FD+; luôn hiện |
+| **OTTIMO đổi** – `move.group_ottimo` "OTTIMO đổi – giữ giá đã đặt" | `property_fault`, `overbooking`, `upgrade`, `inventory_optimize`, `force_majeure` | `keep_booked_rate`: **giữ nguyên mọi dòng** (giá từng đêm BR-106, dòng chênh lệch OTA đã ghi); phụ thu người mỗi đêm = min(cũ, theo căn mới) – khách không bao giờ trả thêm vì OTTIMO đổi | Như cột bên | `property_fault` FD+; `overbooking` chỉ khi đơn `conflictState = open` hoặc `capacityConflict = true`; `upgrade` chỉ FDL+ (ẩn với FD); `inventory_optimize` chỉ khi `roomDisclosedToGuest = false`; `force_majeure` chỉ B8, MGR+ |
+| **Khác** – `move.group_other` "Khác – giữ giá đã đặt" | `other` | Như OTTIMO đổi (giữ giá). Sang căn có giá Trực tiếp hiện hành cao hơn → chỉ FDL+ (FD nhận 403 ngay ở bước xem trước → hiện lỗi `error.FORBIDDEN_ACTION` tại ô lý do) | Như cột bên | FD+; `note` bắt buộc khi lưu |
+
+- **Khách xin mà OTTIMO muốn tặng phần chênh**: vẫn chọn `guest_request`, lưu với số mới, rồi gửi **giảm giá đặc biệt có duyệt** cho phần chênh (`requestFoc kind = special_discount`, BR-431…433, vào báo cáo FOC). Không dùng `upgrade` để né giá (US-024 AC5). Desk hiện câu gợi ý dưới nhóm "Khách xin đổi" **(đề nghị UXD – E02-11)**.
+- **Đơn dài hạn nhập tay** (`Reservation.externalContract = true`, US-017 AC5a): mọi nhóm → `pricingBasis = external_contract`, chênh 0, câu `move.basis.external_contract` (BR-429 (h)); mã lý do, kiểm trùng, khối OOO vẫn áp.
+- **Tham số `room_move_pricing.guestRequest`** (OWN, mặc định `new_room_rate` theo ESC-019 A): OWN đặt `keep_booked_rate` thì `guest_request` đổi căn cũng giữ giá – ô "Đã báo khách" **vẫn** bắt buộc (server kiểm theo lý do, không theo `pricingBasis`).
+
+#### 9.3.3 Đầu vào và phản hồi
+**Tham số (query, `GET …/reservations/{id}/move-preview`)**: `roomId` (vắng = giữ căn), `arrivalDate`, `departureDate` (vắng = giữ), `mode` (`change` mặc định / `postpone_instead_of_cancel`), `reasonCode` (**B**). Không gửi `note`, `overbookingResolution`, lý do cảnh báo – chỉ lệnh lưu cần.
+
+**Lỗi** (cùng kiểm tra với `moveReservation`, trừ `note`): 409 `ROOM_UNAVAILABLE` / `ROOM_BLOCKED` kèm `suggestions[]` (hiện danh sách căn gợi ý), 409 `ROOM_NOT_SELLABLE`; 422 `CAPACITY_EXCEEDED`, `MIN_STAY_NOT_MET`, `OTA_DATES_LOCKED`, `NOT_IN_LIST` (lý do không hợp lệ cho đơn – mục 9.1), `DATE_ORDER`, `DATE_IN_PAST`; 403 `FORBIDDEN_ACTION` (`upgrade` do FD, `other` sang căn đắt hơn do FD, B8 do người dưới MGR); 404. Mất mạng/5xx → `move.preview_failed` + nút Thử lại; nút Lưu khóa (`move.save_needs_preview`). Lỗi loại **cảnh báo cần lý do** không trả 422 ở đây mà nằm trong `warnings[]`.
+
+**Phản hồi `MovePreview` → hiển thị** (mọi số lấy từ server, Desk không tự tính; thứ tự và bố cục do UXD – `s4-UXD.md` FE-S4-03…08):
+
+| Trường | Hiển thị | Chuỗi |
+|---|---|---|
+| `pricingBasis` | Câu cơ sở giá ở đầu hộp. Đơn kênh `ota` + `guest_request` đổi căn → câu OTA | `move.basis.new_room_rate` / `keep_booked_rate` / `external_contract`; `move.basis.ota` |
+| `roomNo`, `roomName` | Căn mới dạng nội bộ "401 · The Pine"; lễ tân báo khách **bằng tên phòng** (BR-012) | – |
+| `warnings[]` có `MANUAL_RATE_REPRICED` | Cảnh báo đặt **trước** bảng số (đêm đang giá sửa tay/thỏa thuận nay tính theo giá căn mới – BR-429 (g)); kèm `nights[].suggestedRateVnd` dạng "Gợi ý {amount}" (NÊN – chỉ gợi ý, không áp; muốn giữ ưu đãi thì sửa giá đêm sau khi lưu bằng `adjustFolioLine`, S4-35) | `move.warn.MANUAL_RATE_REPRICED`, `move.suggested` |
+| `nights[]` (`date`, `oldRateVnd`, `newRateVnd`) | Bảng theo đêm: ngày có thứ ("T5 12/11"), giá cũ, giá mới (số trần, cột có "(đ)"). `oldRateVnd = null` → nhãn "Đêm thêm". > 7 đêm: bảng theo đêm gói lại, bảng tổng luôn hiện (UXD FE-S4-06) | `move.col_night`, `move.col_old`, `move.col_new`, `move.night_added`, `move.nights_toggle` |
+| `nights[].roomChangeDifferenceVnd` | Đơn OTA: dòng phụ dưới giá mới của đêm | `move.night_ota_diff` |
+| `removedNights[]` | "Bỏ {n} đêm: {dates}" (FOC của đêm bỏ theo BR-434 (2)/(3)) | `move.removed_nights` |
+| `roomTotalOldVnd` → `roomTotalNewVnd` | Dòng tiền phòng | `move.room_total` |
+| `extraPersonOldVnd` → `extraPersonNewVnd` | Chỉ hiện khi một trong hai > 0 | `move.extra_person` |
+| `roomChangeDifferenceVnd` | Chỉ đơn OTA: tổng chênh lệch đổi căn thu tại quầy | `move.ota_difference` |
+| Σ `nights[].focVnd` | FOC/giảm giá đặc biệt **đã duyệt** đi theo = min(số đã duyệt, giá mới) (BR-434) – hiện số âm khi > 0 | `move.foc_follow` |
+| `losDiscountPct` / `returningGuestDiscountPct` | Chỉ một trong hai > 0 (không cộng dồn) | `move.discount_los` / `move.discount_returning` |
+| `folioDeltaVnd` | Dòng tổng **có dấu**: > 0 "Khách trả thêm +…", < 0 "Khách được giảm −…", = 0 "Không đổi tiền" | `move.delta_up` / `move.delta_down` / `move.delta_zero` |
+| Σ `nights[].pendingFocVnd` | Ngay dưới dòng chênh: FOC **chờ duyệt** – nếu được duyệt sẽ trừ thêm, **không** nằm trong `folioDeltaVnd` | `move.pending_foc` |
+| `depositPaidVnd` | Cọc đã thu – giữ nguyên, không thu thêm cọc (BR-429 (e)) | `move.deposit_paid` |
+| `balanceDueAfterVnd` | Còn phải thu khi nhận phòng (BR-305); 0 khi dư – phần thừa theo BR-522 | `move.balance_after` |
+| `warnings[]` có `CAPACITY_EXCEEDED_WARNING` / `VISA_EXPIRES_BEFORE_DEPARTURE` | Hiện ô lý do tương ứng (`capacityWarningAckReason` / `visaWarningAckReason`, 3–500 ký tự); nút Lưu khóa tới khi nhập | `booking.capacity_warning`; chuỗi cảnh báo thị thực hiện có |
+
+#### 9.3.4 Ô "Đã báo khách số tiền mới" và nút Lưu
+| Quy tắc | Chi tiết |
+|---|---|
+| Khi nào có ô | `reasonCode = guest_request` **và** có đổi căn **và** `externalContract = false` (gồm đơn OTA). Lý do khác, chỉ đổi ngày, đơn dài hạn nhập tay → không có ô (vẫn hiện bản tính thử, chênh 0 với nhóm OTTIMO/Khác) |
+| Mặc định | Không tick. **Tự bỏ tick** mỗi khi bản tính thử đổi (đổi đầu vào, tính lại sau 409) – số khách đã nghe phải là số đang hiện |
+| Ý nghĩa ở Sprint 4 | Lễ tân xác nhận **đã báo khách** số tiền mới bằng bất kỳ cách nào (tại quầy, gọi điện, chat Zalo OA, hội thoại OTA) và khách đồng ý. Khách không có mặt → lễ tân tự nhắn tin "đơn đã đổi" kèm số mới theo kênh BR-972 và quy tắc nhắn tay đầu nhóm 12B (BR-429 (d) v0.3.6); tin TP-15 tự động từ R3. Khách không đồng ý → đóng hộp, không lưu |
+| Nút "Lưu thay đổi" khóa khi (lý do đặt cạnh nút + `aria-describedby`) | (1) chưa có bản tính thử khớp đúng đầu vào đang chọn → `move.save_needs_preview`; (2) có ô "Đã báo khách" mà chưa tick → `move.save_needs_told`; (3) thiếu `note` với `other`/`force_majeure`; (4) có cảnh báo cần lý do mà chưa nhập; (5) đơn xung đột chưa chọn `overbookingResolution` |
+| Thân lệnh lưu `moveReservation` | Đúng `roomId`, `arrivalDate`, `departureDate`, `mode`, `reasonCode` của bản tính thử đang hiện + `applyDifference = true` (khi có ô) + `expectedDeltaVnd = folioDeltaVnd` (Desk **luôn gửi** khi có bản tính thử – với lý do OTTIMO/Khác server bỏ qua; với `guest_request` chỉ đổi ngày server vẫn so) + `note`, lý do cảnh báo, `overbookingResolution` khi cần; header `If-Match` (phiên bản đơn) và `Idempotency-Key` (giữ nguyên khi gửi lại sau lỗi mạng) |
+
+#### 9.3.5 Lỗi khi lưu
+| Lỗi | Nguyên nhân | Desk làm |
+|---|---|---|
+| 409 `SURCHARGE_CHANGED` (`surchargeVnd` = `folioDeltaVnd` mới) | Giá/đơn vừa đổi giữa lúc xem trước và lúc lưu (người khác sửa giá lịch, duyệt FOC, đổi số khách) | Không lưu; bỏ tick; gọi lại `previewMoveReservation`; hiện `move.delta_changed` "Số tiền vừa đổi thành {amount}…"; lễ tân báo lại khách, tick lại rồi lưu |
+| 412 `VERSION_CONFLICT` / 428 | Đơn vừa được người khác sửa / thiếu `If-Match` | Tải lại đơn, tính thử lại; giữ lựa chọn của lễ tân |
+| 409 `ROOM_UNAVAILABLE` / `ROOM_BLOCKED` | Căn vừa bị đặt/khóa | Hiện `suggestions[]`, bỏ tick |
+| 422 `REQUIRED` (`applyDifference` / `expectedDeltaVnd`), `AMOUNT_INVALID` | Desk gửi thiếu – lỗi lập trình | Hiện lỗi chung; QA bắt bằng ca test |
+| 403 `FORBIDDEN_ACTION` | Vai không đủ cho lý do đã chọn | Hiện lỗi tại ô lý do |
+
+#### 9.3.6 Kết quả sau khi lưu (một giao dịch – BR-429 (d)–(f), ARC S-7)
+- Dòng `room`/`extra_person` **đảo rồi ghi lại** theo số của hàm tính (BR-008); đơn OTA ghi/đảo `room_change_difference` (đổi nhiều lần không cộng dồn); FOC đã duyệt đi theo = min(số đã duyệt, giá mới); FOC chờ duyệt đi theo dòng mới, khi duyệt áp min(số xin, giá mới) (BR-434); hoa hồng theo tiền phòng mới (BR-903). Lý do OTTIMO/Khác: không dòng tiền nào ghi lại.
+- Cọc không đổi; còn phải thu = `balanceDueAfterVnd`; tổng mới thấp hơn số đã thu → phần thừa theo BR-522.
+- `guest_request` sang căn khác → `Reservation.roomDisclosedToGuest = true` (từ đó không dùng `inventory_optimize` cho đơn này).
+- Nhật ký tiền `reservation.room_change_repriced` (giá trị cũ/mới, mã lý do, người làm – BR-008); lịch sử đơn (`getReservationHistory`) có dòng B7/B8 kèm lý do; SSE `reservation.changed`; lệnh đồng bộ kênh; việc bộ đồ dùng thêm theo căn mới (BR-812 (4)).
+
+#### 9.3.7 Ví dụ kiểm (oracle `product/tests/fixtures/br-examples.json`)
+| Ca | Đầu vào | `pricingBasis` | Số xem trước = số lưu | Ô "Đã báo khách" |
+|---|---|---|---|---|
+| BR-429-03 | Trực tiếp 101 → 401, `guest_request`, 10–13/11, 3 × 667.000 | `new_room_rate` | 2.001.000 → **3.126.000**, chênh **+1.125.000**, cọc 600.000, còn thu **2.526.000** | Có, bắt buộc |
+| BR-429-04 | 401 → 101, `guest_request`, cùng ngày | `new_room_rate` | 3.126.000 → **2.001.000**, chênh **−1.125.000**, cọc 900.000, còn thu **1.101.000** | Có |
+| BR-429-05 | 7 đêm 202 → 302, 9–16/11 (5.205.000), `guest_request` | `new_room_rate`, `losDiscountPct` 10 | **6.025.000**, chênh **+820.000** | Có |
+| BR-429-06 | 202 → 401, `property_fault`, 3 × 792.000 | `keep_booked_rate` | Giữ **2.376.000**, chênh **0**, không dòng nào ghi lại | Không |
+| BR-429-07 | Agoda tự gán 203, 2 đêm 10–12/11, khách nhắn OTTIMO xin 401 → rồi 302 → rồi 101 (`guest_request`) | `new_room_rate` (giá OTA giữ) | `roomChangeDifferenceVnd` **500.000** (chênh +500.000) → **250.000** (đảo 500.000, ghi 250.000; chênh −250.000) → **0** (chênh −250.000) | Có |
+| BR-429-09 | 101 giá thỏa thuận 600.000/đêm → 401, `guest_request` | `new_room_rate` + cảnh báo `MANUAL_RATE_REPRICED`, gợi ý **937.000**/đêm | 1.800.000 → **3.126.000**, chênh **+1.326.000**, cọc 500.000, còn thu **2.626.000** | Có |
+| BR-429-10 | Dài hạn nhập tay 202 → 302, `guest_request` | `external_contract` | Chênh **0**, câu "giá theo HĐ giấy" | Không |
+| BR-434-06 | Đêm 202 giá 792.000 có FOC 792.000 đã duyệt, `guest_request` → 302 (917.000) | `new_room_rate` | FOC đi theo **792.000**, khách trả **125.000** (chênh **+125.000**) | Có |
+| BR-434-09 | 203, 23–26/11 kéo tới 30/11 (7 đêm, −10%), FOC 300.000 **chờ duyệt** đêm 24/11 | `keep_booked_rate` (chỉ đổi ngày) | Đêm thường **713.000**, thứ Sáu/thứ Bảy **820.000** = 5.205.000; `pendingFocVnd` 24/11 = **300.000** (không trừ vào chênh); duyệt sau → tổng **4.905.000** | Không |
+
+Ca BR-429-03, BR-434-06, BR-434-09 bắt buộc chạy **xem trước rồi lưu**, không 409 (ARC 10.4; sprint-4-plan M2).
 
 ---
 
@@ -445,9 +538,10 @@ Kết quả: rack hiện thanh "Khóa phòng" (AC2); tạo đơn/giữ chỗ/bá
 | US-019 AC1–AC2 | 1.2, 3.4, 12 |
 | US-020 AC1–AC4 | 5 |
 | US-021 AC1–AC6 | 7 |
-| US-022 AC1–AC4 | 8, 5.4 |
+| US-022 AC1–AC4 | 8 (năm sinh trẻ em bắt buộc – S4-45), 5.4 |
 | US-023 AC1–AC2 | EP00 8.2; 3.4 |
-| US-024 AC1–AC4 | 9 |
+| US-024 AC1–AC4 | 9.1, 9.2 |
+| US-024 AC5–AC7 (ESC-019 A, S4-21) | 9.1 (`applyDifference`, `expectedDeltaVnd`), **9.3** (xem trước, 3 nhóm lý do, ô "Đã báo khách", ví dụ BR-429-03…10, BR-434-06/09) |
 | US-136 AC1–AC5 | 11 |
 | US-139 AC1–AC3 | 1.3, 6 |
 | US-080 AC1–AC5 | 10.1 |
@@ -471,9 +565,13 @@ Kết quả: rack hiện thanh "Khóa phòng" (AC2); tạo đơn/giữ chỗ/bá
 | E02-06 | ARC + PO + DOM | Q-01 (mục 4): đơn dài hạn nhập tay cho khách **đang ở** (`alreadyInHouse`) |
 | E02-07 | DOM | **Đã trả lời** (s2-DOM D-1, D-5, D-7) – đã áp vào mục 0, 3.2, 9.1 (Sprint 2, bước phản hồi) |
 | E02-08 | UXD | Chuỗi **(mới)** ở tài liệu này; nhãn lý do `ota_cancelled`; nhãn "Nâng hạng – cần lễ tân trưởng xác nhận"; dòng "Có {n} người ngủ sofa – buồng phòng chuẩn bị bộ đồ dùng thêm" trên form đặt phòng và chi tiết đơn |
+| E02-09 | ARC | (S4-45) `PartyMemberCreate.childBirthYear`, `childName`: ghi vào mô tả "bắt buộc khi `role = child`; gửi kèm `role = companion` → 422 `NOT_ALLOWED`" và khoảng 2000…năm của ngày nghiệp vụ – chỉ đổi mô tả, không đổi `required`, không gãy client |
+| E02-10 | DOM | (9.3.4) Đổi **ngày** theo lý do `guest_request` (giữ căn) làm tiền đổi (BR-107 tính lại, đêm thêm giá hiện hành) – có bắt buộc tick "Đã báo khách số tiền mới" như BR-414 không? Hiện server chỉ đòi khi **đổi căn** (BR-429 (d)); Desk vẫn hiện bản tính thử và gửi `expectedDeltaVnd`. Nếu DOM chọn bắt buộc → ARC đổi điều kiện `applyDifference`, BE-A sửa một dòng, FE-A bật ô cho trường hợp này |
+| E02-11 | UXD | (9.3.2) Câu gợi ý dưới nhóm "Khách xin đổi": "Muốn tặng phần chênh cho khách? Lưu với lý do Khách yêu cầu, rồi gửi giảm giá đặc biệt để duyệt." (khóa đề nghị `move.gift_hint`); (8) `party.child_birth_year_required` |
 
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Đợt 0) | Bản đầu: đặc tả mức trường EP02, EP11 phần R2, US-139, US-017 AC5a; áp ESC-014 (sức chứa = định mức + 1, trẻ < 6 không tính) và BR-812 (việc bộ đồ dùng thêm tự sinh); Q-01 đơn dài hạn đang ở | BA |
 | 16/10/2026 | 2 (Sprint 2 – PO quyết) | Mục 3.2 `closerUserId` bắt buộc theo US-017 AC9; đồng bộ tên OpenAPI 0.3.5: `MoveReasonCode`, `CAPACITY_EXCEEDED_WARNING` + `capacityWarningAckReason`, `Reservation.capacityConflict`, `restoreNoShow` `roomId`/`allowUnassigned` | BA |
+| 17/10/2026 | 2 (Sprint 4 – S4-21, S4-04, S4-45) | v0.2: **mục 9.3 mới** – xem trước tiền khi đổi căn/đổi ngày đơn chưa nhận phòng theo ESC-019 A (BR-429 (a)–(h) v0.3.6; OpenAPI 0.3.7 `previewMoveReservation`, `MovePreview`; xem trước = lệnh ghi một hàm tính – ARC 10.4): 3 nhóm lý do "Khách xin đổi / OTTIMO đổi / Khác" (`move.group_*`), bảng trường phản hồi → chuỗi `move.*` đã duyệt, ô "Đã báo khách số tiền mới" (điều kiện đúng như server: `guest_request` + đổi căn + không phải dài hạn nhập tay), nút Lưu và lý do khóa, xử lý 409 `SURCHARGE_CHANGED`, kết quả sau lưu, bảng ví dụ BR-429-03…10, BR-434-06, BR-434-09; mục 9.1 thêm `applyDifference`, `expectedDeltaVnd`, `mode`, lý do cảnh báo, ràng buộc 0.3.7 (`inventory_optimize` khi đã báo căn, `other` sang căn đắt hơn); **mục 8 (S4-45)**: `childBirthYear` bắt buộc khi `role = child` (khớp server), giới hạn năm theo ngày nghiệp vụ, lỗi `REQUIRED`/`VALUE_OUT_OF_RANGE`/`NOT_ALLOWED`, Desk đánh dấu bắt buộc; mục 14 thêm E02-09…E02-11 | BA |

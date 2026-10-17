@@ -631,41 +631,71 @@ describe.skipIf(!HAS_DB)('front desk – Sprint 3 review fixes (BE-A)', () => {
     expect(await rackStatus()).toBe('OD');
   });
 
-  it('BUG-R2-033: a document without partyMemberId is attached only on a document-number match (SEC s3 §7)', async () => {
+  it('BUG-R2-033 / 0.3.7 nhóm D A (S4-11, BE-C): a document without partyMemberId – document key of a P05 profile → that profile joins; nothing matched → a profile "from the document"; a name + birth date match outside the booking is only flagged', async () => {
     await at('2026-12-21T15:00:00+07:00');
     const b = await direct('102', '2026-12-21', '2026-12-23', 1_500_000);
-    // 0055 (erd 4.4, SEC F03): a stored blind index is v1-shaped and exists only with the P05 consent.
-    const hmac = `v1:${randomBytes(32).toString('hex')}`;
+    // 0055 (erd 4.4, SEC F03): a stored document key is v1-shaped and exists only with the P05 consent.
+    const key = `v1:${randomBytes(32).toString('hex')}`;
     await q(`UPDATE guest SET id_doc_hmac = $2, crm_consent = 'granted' WHERE id = $1`, [
       companions[0],
-      hmac,
+      key,
     ]);
-    await q(`UPDATE guest SET date_of_birth = '1990-05-04' WHERE id = $1`, [companions[1]]);
+    // seedGuestRow keeps the diacritics in name_search – the stored key of the guests module has none (BR-952).
+    await q(
+      `UPDATE guest SET date_of_birth = '1990-05-04', name_search = 'DO BAN HAI' WHERE id = $1`,
+      [companions[1]],
+    );
     const port = fa.app.get(RegistrationPartyLink, { strict: false });
-    const call = (docNumberHmac: string, fullNameOnDoc: string, dateOfBirth: string | null) =>
+    const call = (
+      guestDocKey: string,
+      fullNameOnDoc: string,
+      dateOfBirth: string | null,
+      isMinor = false,
+    ) =>
       db.withContext({ ...t.ctx(), userId: t.users.fd!.id, actorType: 'user' }, (tx) =>
         port.memberForDocument(tx, {
           reservationId: b.id,
-          docNumberHmac,
+          guestDocKey,
           fullNameOnDoc,
           dateOfBirth,
           nationalityCode: 'VNM',
-          isMinor: false,
+          nationalityAlpha2: 'VN',
+          isForeigner: false,
+          isMinor,
           actor: { userId: t.users.fd!.id, requestId: randomUUID() },
         }),
       );
     const presentCount = async () =>
       (await c.fd!.get(url(`/reservations/${b.id}/party`))).json().presentCount as number;
-    // name + date of birth of a known profile, another document number → NOT attached (only a suggestion)
-    expect(await call(`other-${randomUUID()}`, 'Đỗ Bạn Hai', '1990-05-04')).toBeNull();
-    expect(await presentCount()).toBe(1);
-    // document number of a known profile → attached (companion, relationship unknown)
-    const first = await call(hmac, 'Do Ban Mot', null);
-    expect(first).toEqual(expect.any(String));
+    const other = () => `v1:${randomBytes(32).toString('hex')}`;
+    // name + date of birth of a known profile OUTSIDE the booking, another document → NOT that profile: a new
+    // profile from the document joins, flagged "có thể là khách quen" (BR-952 – the desk confirms).
+    const flagged = await call(other(), 'Đỗ Bạn Hai', '1990-05-04');
+    expect(flagged).toMatchObject({
+      via: 'new_profile',
+      possibleReturningGuest: true,
+      overCount: false,
+    });
+    expect(flagged!.guestId).not.toBe(companions[1]);
     expect(await presentCount()).toBe(2);
-    expect(await call(hmac, 'Do Ban Mot', null)).toBe(first); // same person → same member, no second row
-    // nothing matches → null (the desk links the document)
-    expect(await call(`other-${randomUUID()}`, 'Người Lạ', null)).toBeNull();
+    const created = (
+      await q<{ source: string; crm_consent: string; date_of_birth: string | null }>(
+        'SELECT source, crm_consent, date_of_birth::text AS date_of_birth FROM guest WHERE id = $1',
+        [flagged!.guestId],
+      )
+    )[0];
+    expect(created).toEqual({ source: 'document', crm_consent: 'not_asked', date_of_birth: null });
+    // document key of a P05 profile → that profile joins (companion `unknown`); again → the same member.
+    const first = await call(key, 'Do Ban Mot', null);
+    expect(first).toMatchObject({ via: 'profile_key', guestId: companions[0], overCount: true });
+    expect(await presentCount()).toBe(3);
+    expect(await call(key, 'Do Ban Mot', null)).toMatchObject({
+      memberId: first!.memberId,
+      via: 'member_key',
+    });
+    // a minor matched by nothing gets no profile (rbac 9) → null.
+    expect(await call(other(), 'Bé Lạ', '2019-01-01', true)).toBeNull();
+    expect(await presentCount()).toBe(3);
   });
 
   describe('blocker verification ARC-S3-01 (17/10): extra-person fee per night in every stay change', () => {

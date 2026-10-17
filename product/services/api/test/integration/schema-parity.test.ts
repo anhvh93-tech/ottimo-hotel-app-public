@@ -48,6 +48,10 @@ const CROSS_MODULE_FKS: Record<string, string> = {
   channel_fee_reservation_fk: 'folio → reservations',
   commission_reservation_fk: 'sales → reservations',
   deposit_notice_reservation_fk: 'payments → reservations',
+  room_block_work_order_fk: 'reservations (room_block) → maintenance (work_order), 0056',
+  hk_task_guest_request_fk: 'reservations (hk_task) → guest-portal (guest_request), 0057',
+  work_order_guest_request_fk: 'maintenance (work_order) → guest-portal (guest_request), 0057',
+  guest_request_work_order_fk: 'guest-portal (guest_request) → maintenance (work_order), 0057',
 };
 /** Monthly partitions of the logs (BE-ARC-18) are created by log_ensure_month_partition(). */
 const PARTITION = /_(y\d{4}m\d{2}|default)$/;

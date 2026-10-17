@@ -56,14 +56,26 @@ export function translateGuest(locale: GuestLocale, key: string, args?: Args): s
   return interpolate(text, args);
 }
 
-/** Browser language when the session gives none: `en*` → EN, `ru*` → RU, else VI (EP06 8.5). */
+/**
+ * Browser language when the session gives none (P-S4-10, DS 11.2 mục 3 – "tiếng Anh dẫn dắt"):
+ * `vi*` → VI, `ru*` → RU, anything else → EN. A language the guest chose (`setGuestLocale`) comes back in
+ * the session and wins over this.
+ */
 export function browserLocale(
   languages: readonly string[] = globalThis.navigator?.languages ?? [],
 ): GuestLocale {
   const first = (languages[0] ?? '').toLowerCase();
-  if (first.startsWith('en')) return 'en';
+  if (first.startsWith('vi')) return 'vi';
   if (first.startsWith('ru')) return 'ru';
-  return 'vi';
+  return 'en';
+}
+
+/**
+ * Brand moments (greeting, tagline, room name) are English in every language; the support line under
+ * them is in the page language – or in Vietnamese on the English page (DS 11.2 mục 1, 11.2.2).
+ */
+export function supportLocale(locale: GuestLocale): GuestLocale {
+  return locale === 'en' ? 'vi' : locale;
 }
 
 export function isGuestLocale(v: unknown): v is GuestLocale {
@@ -93,10 +105,30 @@ export function nightsBetween(from: string, to: string): number {
   return Math.max(0, Math.round((b - a) / 86_400_000));
 }
 
+/** Integer VND in a sentence with its unit (`common.currency_vnd`): 100.000 đ · 100,000 VND (content-guide 4). */
+export function money(locale: GuestLocale, amount: number): string {
+  const n = new Intl.NumberFormat(BCP47[locale], { maximumFractionDigits: 0 }).format(amount);
+  return translateGuest(locale, 'common.currency_vnd', { amount: n });
+}
+
+/** ISO instant → "20:10" in the property time zone (BR-001), whatever the guest's phone says. */
+export function clockTime(value: string | undefined | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
 export interface GuestI18n {
   locale: GuestLocale;
   t: (key: string, args?: Args) => string;
   shortDate: (value: string | undefined | null) => string;
+  money: (amount: number) => string;
 }
 
 const Ctx = createContext<GuestI18n | null>(null);
@@ -120,6 +152,7 @@ export function GuestI18nProvider({
       locale,
       t: (key, args) => translateGuest(locale, key, args),
       shortDate: (v) => shortDate(locale, v),
+      money: (amount) => money(locale, amount),
     }),
     [locale],
   );

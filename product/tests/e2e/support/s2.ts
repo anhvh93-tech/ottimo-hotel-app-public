@@ -466,7 +466,13 @@ export async function getReservation(
   );
 }
 
-/** POST …/reservations/{id}/actions/{action} with If-Match = current version (+ Idempotency-Key). */
+/**
+ * POST …/reservations/{id}/actions/{action} with If-Match = current version (+ Idempotency-Key).
+ * 409 `CONCURRENT_UPDATE` (+ Retry-After) = "lưu đồng thời, thử lại" (EP02 3.4, BUG-R2-026): the room/folio row lock
+ * hit `lock_timeout` while a parallel case held it (fail-fast by design – SEC-BE-23; S4-37 / TC-L2-057, BE-A 17/10:
+ * not a business defect). The harness resends at most twice with a FRESH Idempotency-Key, like the Desk does. A case
+ * that passes its own key (idempotency is its subject) gets the 409 as is.
+ */
 export async function action<T = Reservation & ProblemFields>(
   ctx: APIRequestContext,
   s: StaffSession,
@@ -480,17 +486,35 @@ export async function action<T = Reservation & ProblemFields>(
     const cur = await getReservation(ctx, s, id);
     version = cur.body?.version ?? 0;
   }
-  return call<T>(
-    ctx,
-    'POST',
-    `/v1/properties/${propertyIdOf(s)}/reservations/${id}/actions/${act}`,
-    {
+  const send = () =>
+    call<T>(ctx, 'POST', `/v1/properties/${propertyIdOf(s)}/reservations/${id}/actions/${act}`, {
       session: s,
       idempotencyKey: opts.idempotencyKey ?? true,
-      ifMatch: versionTag(version),
+      ifMatch: versionTag(version!),
       body,
-    },
-  );
+    });
+  let r = await send();
+  for (
+    let i = 0;
+    i < 2 &&
+    typeof opts.idempotencyKey !== 'string' &&
+    r.status === 409 &&
+    (r.body as ProblemFields | undefined)?.code === 'CONCURRENT_UPDATE';
+    i++
+  ) {
+    const wait = Math.min(Number(r.headers['retry-after'] ?? 1) || 1, 5);
+    try {
+      test.info().annotations.push({
+        type: 'harness',
+        description: `${act}: 409 CONCURRENT_UPDATE (khóa dòng do ca song song) → gửi lại sau ${wait} giây`,
+      });
+    } catch {
+      /* outside a test */
+    }
+    await new Promise((ok) => setTimeout(ok, wait * 1000));
+    r = await send();
+  }
+  return r;
 }
 
 export function statusOf(r: ApiResult): string {

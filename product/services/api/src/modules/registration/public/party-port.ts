@@ -1,22 +1,21 @@
 /**
  * Consumer port of the registration module towards the party of a booking (BUG-R2-033, US-043 AC3, EP06 2.2,
- * BR-951) – implemented by BE-A (frontdesk `DocumentPartyPort`), handed to `RegistrationPartyLink.provide()`
- * in FrontdeskModule.onModuleInit (same pattern as ReservationHooks.provideRegistrationSummary – no provider
- * cycle registration ↔ frontdesk, no ModuleRef – ARC-BE-S3-16). Not provided (worker, apps without the
- * front desk) → null: the document simply stays without a person (staff link it with `partyMemberId`).
+ * BR-951) – implemented by the front desk (`DocumentPartyPort`, written by BE-C for 0.3.7 nhóm D mục A, BE-A
+ * reviews), handed to `RegistrationPartyLink.provide()` in FrontdeskModule.onModuleInit (no provider cycle
+ * registration ↔ frontdesk, no ModuleRef – ARC-BE-S3-16). Not provided (worker, apps without the front desk)
+ * → null: the document stays without a person.
  *
  * Called in the `addGuestDocument` transaction when the desk enters a document of a person OTHER than the
- * main guest without `partyMemberId`. The provider (SEC s3 §7 condition, ORC 17/10 – automatic link on the
- * document number ONLY):
- * 1. a member of this booking whose guest profile carries the same document blind index
- *    (`guest.id_doc_hmac` = `docNumberHmac`) → that member;
- * 2. else a guest profile with that blind index → added as companion, relationship `unknown`, only into a
- *    free declared place of the booking (a person beyond the declared count is the desk's addPartyMember);
- * 3. anything else – a name + date-of-birth match, "the one member without a document", two candidates,
- *    the booker – → null: the document stays unlinked (a desk suggestion is Sprint 4);
- * 4. never creates a CRM profile here (none for a person under `minor_data_age_threshold` – rbac 9), and keeps
- *    the clear date of birth in memory only (C3 – never stored outside the document, never logged).
- * The returned id must be a member of `reservationId` (FK guest_document → reservation_guest, 0053).
+ * main guest without `partyMemberId` (OpenAPI 0.3.7 addGuestDocument, SEC s3 §7):
+ * 1. a member of this booking whose profile carries the document key (`guest.id_doc_hmac` = `guestDocKey`, P05
+ *    profiles only) or the same normalised name + date of birth → that member;
+ * 2. else a profile OUTSIDE the booking with that document key (P05) → added as companion `unknown`;
+ * 3. else (adult) a minimal profile "from the document" (`source = document`, name + nationality only) is
+ *    created through guests/public/document-profile and added as companion `unknown` – also beyond the
+ *    declared head count (`overCount` – the desk is warned, BR-110 fees are the desk's decision);
+ * 4. a minor never gets a profile (rbac 9) → null when nothing matched.
+ * A name + date of birth match OUTSIDE the booking is never linked: `possibleReturningGuest` (BR-952).
+ * The clear date of birth is used in memory only (C3 – never stored outside the document, never logged).
  */
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
@@ -24,20 +23,33 @@ import type { LocalDate } from '../../../shared/time';
 
 export interface DocumentPersonInput {
   reservationId: string;
-  /** CryptoService.blindIndex of the normalised document number – the same key as `guest.id_doc_hmac`. */
-  docNumberHmac: string;
+  /** erd 4.4 v1 document key: `v1:` + keyedHash('guest_doc', guestDocKeyInput(...)) – never stored without P05. */
+  guestDocKey: string;
   /** Name as printed on the document (normalise with guests/public/normalize for BR-951). */
   fullNameOnDoc: string;
   /** Clear date of birth of the document (C3 – matching only). */
   dateOfBirth: LocalDate | null;
-  /** ISO 3166-1 alpha-3. */
+  /** ISO 3166-1 alpha-3 of the document; `nationalityAlpha2` for a new profile (guest.nationality_code). */
   nationalityCode: string;
+  nationalityAlpha2: string | null;
+  isForeigner: boolean;
   isMinor: boolean;
   actor: { userId: string; requestId: string };
 }
 
+export interface DocumentPersonMatch {
+  memberId: string;
+  guestId: string | null;
+  /** How the person was found (audit only). */
+  via: 'member_key' | 'member_name_dob' | 'profile_key' | 'new_profile';
+  /** The person was added beyond the declared head count. */
+  overCount: boolean;
+  /** Name + date of birth match a profile outside the booking (BR-952 – the desk confirms). */
+  possibleReturningGuest: boolean;
+}
+
 export interface RegistrationPartyPort {
-  memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<string | null>;
+  memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<DocumentPersonMatch | null>;
 }
 
 /** Holder of BE-A's implementation (global export of RegistrationModule). */
@@ -50,7 +62,7 @@ export class RegistrationPartyLink {
     this.impl = impl;
   }
 
-  memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<string | null> {
+  memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<DocumentPersonMatch | null> {
     return this.impl ? this.impl.memberForDocument(tx, input) : Promise.resolve(null);
   }
 }

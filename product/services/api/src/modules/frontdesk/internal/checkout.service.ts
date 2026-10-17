@@ -27,6 +27,7 @@ import {
 } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
+import { roomNamesOf, snapshotSettledRoomNames } from '../../folio/public/room-names';
 import type { FolioLineRow } from '../../folio/public/folio.service';
 import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
 import {
@@ -213,11 +214,30 @@ export class CheckoutService {
     if (balance.balanceDueVnd > 0) blockers.push('balance_due');
     if (balance.unhandledCreditVnd > 0) blockers.push('credit_balance');
     const tz = ctx.tz;
+    // BR-012 (0.3.7 D1): `room` / `from` / `to` label params are room names.
+    const roomName = await roomNamesOf(tx, row.folio_id);
+    // 0.3.7 (S4-47): what B18 would leave due if completed now at this time – the late charge re-computed
+    // (its approved FOC follows: min(Σ approved, new charge) – BR-434) and the extra night after the last tier.
+    const focNow = old.focVnd;
+    const focAfter = Math.min(await this.approvedOn(tx, row.folio_id, 'late_checkout'), newVnd);
+    const extra = d.extraNight
+      ? await this.extraNightDelta(tx, ctx, row, d, d.extraNight.defaultRateVnd)
+      : 0;
+    const amountDueAtCheckoutVnd = Math.max(
+      0,
+      balance.balanceDueVnd -
+        balance.rawCreditVnd +
+        (newVnd - focAfter) -
+        (old.grossVnd - focNow) +
+        extra,
+    );
     return {
+      serverTime: ctx.iso(ctx.now),
+      amountDueAtCheckoutVnd,
       checkoutTime: d.time,
       standardCheckoutTime: d.quote.standard,
       lateCheckoutSurcharge: { tierPct: d.extraNight ? 0 : late.tierPct, amountVnd: newVnd },
-      lines: lines.map((l: FolioLineRow) => folioLineDto(l, tz)),
+      lines: lines.map((l: FolioLineRow) => folioLineDto(l, tz, { roomName })),
       totalVnd: balance.totalVnd,
       paidVnd: balance.paidVnd,
       balanceDueVnd: balance.balanceDueVnd,
@@ -368,8 +388,16 @@ export class CheckoutService {
       });
     }
 
-    // ── final payment in the same transaction (spec 5.4) ──
+    // ── final payment in the same transaction (spec 5.4) – 0.3.7 (S4-47): capped at what the folio owes AFTER
+    // the extra night / re-computed late charge (= CheckoutSummary.amountDueAtCheckoutVnd) ──
     if (finalPayment) {
+      const owed = (await this.s.folios.balance(tx, folioId)).balanceDueVnd;
+      if (Number.isSafeInteger(finalPayment.amountVnd) && finalPayment.amountVnd > owed) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'finalPayment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          extras: { max: owed },
+        });
+      }
       await this.payments.recordInTx(
         tx,
         { userId: ctx.actor.userId, roles: ctx.actor.roles, ...this.s.req(ctx) },
@@ -504,6 +532,8 @@ export class CheckoutService {
       reservationCode: row.code,
       ...this.s.req(ctx),
     });
+    // BR-012 (5), 0.3.7 D1: the bill keeps the room names it had when settled (folio.settled_room_names).
+    await snapshotSettledRoomNames(tx, folioId);
     // SM-11 / DOM S3-3 (FB-R2-DOM-BE-15): checked out + folio owes nothing → commissions may be earned now.
     await this.s.folios.tryEarnCommissions(
       tx,
@@ -672,6 +702,58 @@ export class CheckoutService {
       'reservation.extra_night_on_checkout',
     );
     await this.s.ports.registration.onDepartureChanged(tx, row.id, to);
+  }
+
+  /** Σ approved (alive) FOC / discounts on a stay key of the folio (early check-in / late check-out – BR-412). */
+  private async approvedOn(
+    tx: Tx,
+    folioId: string,
+    category: 'late_checkout' | 'early_checkin',
+  ): Promise<number> {
+    return (await this.s.folios.reductionRequests(tx, folioId, { lock: false }))
+      .filter(
+        (r) =>
+          r.category === category &&
+          r.status === 'approved' &&
+          (r.focState === 'applied' || r.focState === 'dormant'),
+      )
+      .reduce((a, r) => a + r.amountVnd, 0);
+  }
+
+  /**
+   * S4-47: change of the folio if B18 adds the night of the departure day at `rateVnd` (E05-11), read-only –
+   * the same arithmetic as `addExtraNight`: a direct/agent stay is re-tiered (BR-107, D-8) with the typed night
+   * and the BR-110 fee of that night; an OTA / manual long stay gets a direct child night (price + direct fee).
+   */
+  private async extraNightDelta(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    d: Departure,
+    rateVnd: number,
+  ): Promise<number> {
+    const party = {
+      adults: row.adults,
+      children6to11: row.children_6_11,
+      childrenUnder6: row.children_under_6,
+    };
+    const asDirect = { ...row, channel_group: 'direct' as const };
+    if (row.channel_group === 'ota' || row.external_contract) {
+      return rateVnd + this.s.stay.nightExtra(ctx, asDirect, party, d.rm.base_occupancy).feeVnd;
+    }
+    const kept = await this.s.stay.pricedNights(tx, row);
+    const x = d.extraNight as ExtraNight;
+    const r = this.s.stay.retierStay(ctx, row, kept, [
+      { date: x.date, calendarVnd: x.calendarVnd, amountVnd: rateVnd, manual: true },
+    ]);
+    const before = kept.reduce((a, n) => a + n.amountVnd, 0);
+    const after = [...r.kept, ...r.added].reduce((a, n) => a + n.amountVnd, 0);
+    const fees = await this.s.stay.nightFees(tx, row);
+    const snap = row.pricing_snapshot as { extraPersonFeePerNightVnd?: number };
+    const fee = fees.some((n) => n.own)
+      ? this.s.stay.nightExtra(ctx, row, party, d.rm.base_occupancy).feeVnd
+      : (snap.extraPersonFeePerNightVnd ?? 0);
+    return after - before + fee;
   }
 
   /** `extraNight {rateVnd}` (E05-11). */

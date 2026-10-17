@@ -13,6 +13,7 @@ import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
+import { monoArgs } from '../../app/mono';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { addDays, dayMonth, rsvErrorText } from '../../app/reservations';
 import { useRules } from '../../app/rules';
@@ -22,6 +23,7 @@ import { OccupancyField, type Occupancy } from '../../components/OccupancyField'
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { DepositQr } from '../reservations/DepositQr';
 
 export interface QuotePrefill {
   roomId?: string;
@@ -76,7 +78,8 @@ export function QuoteDialog({
   const [error, setError] = useState<unknown>(null);
   const [guestError, setGuestError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
-  const [lang, setLang] = useState<'vi' | 'en'>('vi');
+  // BUG-R2-080 (US-083 AC2, P-S4-3): the guest text in Vietnamese, English or Russian (API has all three).
+  const [lang, setLang] = useState<'vi' | 'en' | 'ru'>('vi');
   const [text, setText] = useState('');
   const [holdHours, setHoldHours] = useState(rules.holdHoursDefault);
   const [held, setHeld] = useState<Reservation | null>(null);
@@ -633,6 +636,7 @@ export function QuoteDialog({
               options={[
                 { value: 'vi', label: <span lang="vi">Tiếng Việt</span> },
                 { value: 'en', label: <span lang="en">English</span> },
+                { value: 'ru', label: <span lang="ru">Русский</span> },
               ]}
             />
           </div>
@@ -647,16 +651,29 @@ export function QuoteDialog({
 
       {step === 'hold' && saved ? (
         held ? (
-          <Alert
-            tone="ok"
-            title={t('sale.hold_created', { room: room?.roomNo ?? '', code: held.code })}
-          >
-            {t('sale.hold_next', { hours: rules.holdWarnHours })}
-            <div className="price-big mt-8">
-              {vnd(held.depositRequiredVnd ?? saved.depositVnd ?? 0)} {t('common.vnd_unit')}
+          <>
+            <Alert
+              tone="ok"
+              title={t('sale.hold_created', { room: room?.roomNo ?? '', code: held.code })}
+            >
+              {t(ctv ? 'sale.hold_next_ctv' : 'sale.hold_next', { hours: rules.holdWarnHours })}
+            </Alert>
+            {/* S4-28 (US-084 AC4): deposit BR-305 + VietQR whose transfer content is the booking code. */}
+            <div className="card p-12 stack">
+              <div className="li-s">{t('sale.deposit_due_short')}</div>
+              <div className="price-big">
+                {vnd(held.depositRequiredVnd ?? saved.depositVnd ?? 0)} {t('common.vnd_unit')}
+              </div>
+              <div className="li-s">
+                {monoArgs(t, 'pay.qr_note', { ref: held.code.replace(/-/g, '') }, ['ref'])}
+              </div>
+              {ctv ? (
+                <p className="li-s">{t('sale.qr_after_ctv')}</p>
+              ) : (
+                <DepositQr reservation={held} auto />
+              )}
             </div>
-            <div className="li-s">{t('pay.qr_note', { ref: held.code.replace(/-/g, '') })}</div>
-          </Alert>
+          </>
         ) : (
           <>
             {arrivesToday ? (
@@ -681,7 +698,7 @@ export function QuoteDialog({
               <div className="price-big">
                 {vnd(saved.depositVnd ?? 0)} {t('common.vnd_unit')}
               </div>
-              <div className="li-s">{t('sale.qr_after')}</div>
+              <div className="li-s">{t(ctv ? 'sale.qr_after_ctv' : 'sale.qr_after')}</div>
             </div>
           </>
         )

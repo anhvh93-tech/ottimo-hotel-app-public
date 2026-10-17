@@ -43,16 +43,27 @@ export function useUnlinkedAttention(propertyId: string, deps: unknown[] = []) {
   return { item: data ?? null, flagged, reload: res.reload };
 }
 
+/** 0.3.7 (S4-48): the server says when a document waits (`unclaimedUntil`, null = not waiting). */
+const saysUnclaimed = (reg: Pick<Registration, 'documents'>) =>
+  reg.documents.some((d) => d.unclaimedUntil !== undefined);
+
+/** The deadline of a waiting document: `unclaimedUntil` (0.3.7), else the image deadline (0.3.6). */
+export const deadlineOf = (d: GuestDocumentMasked): string | undefined =>
+  d.unclaimedUntil ?? d.imagePurgeAt ?? undefined;
+
 /**
- * Documents waiting to be linked. With the attention item: every unlinked guest-link document of a flagged
- * booking (its images may already be gone). Without it (could not be read): only the ones carrying a deadline
- * – a document of a stay that ended also has one, so the label may show there too (warning when unsure).
+ * Documents waiting to be linked. 0.3.7: exactly those with `unclaimedUntil` (S4-48 – no guessing).
+ * Older server – with the attention item: every unlinked guest-link document of a flagged booking (its
+ * images may already be gone); without it (could not be read): only the ones carrying a deadline – a
+ * document of a stay that ended also has one, so the label may show there too (warning when unsure).
  * Still loading → none (no flash of warnings).
  */
 export function pendingDocs(
   reg: Pick<Registration, 'documents'>,
   flagged: boolean | null | undefined,
 ): GuestDocumentMasked[] {
+  if (saysUnclaimed(reg))
+    return reg.documents.filter((d) => isGuestUploadUnlinked(d) && !!d.unclaimedUntil);
   if (!flagged && flagged !== null) return [];
   return reg.documents.filter(
     (d) => isGuestUploadUnlinked(d) && (flagged === true || Boolean(d.imagePurgeAt)),
@@ -62,9 +73,21 @@ export function pendingDocs(
 /** Earliest deadline among the documents (ISO), or undefined. */
 export function earliestPurge(docs: readonly GuestDocumentMasked[]): string | undefined {
   return docs
-    .map((d) => d.imagePurgeAt)
+    .map(deadlineOf)
     .filter((x): x is string => !!x)
     .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+}
+
+/**
+ * 0.3.7 (S4-39, SEC-BE-53 main option): the "Khách n" slots (n ≥ 2) of IDs the guest sent through the
+ * link that nobody owns yet – when a person without a linked ID leaves, the desk says which slot was
+ * theirs (`removePartyMember.guestUploadPersonIndex`) or "none".
+ */
+export function unclaimedSlots(reg: Pick<Registration, 'documents'>): number[] {
+  return reg.documents
+    .filter((d) => isGuestUploadUnlinked(d) && (d.personIndex ?? 0) >= 2)
+    .map((d) => d.personIndex!)
+    .sort((a, b) => a - b);
 }
 
 /** DOM id of a document row – the banner and the "Cần chú ý" link focus it. */

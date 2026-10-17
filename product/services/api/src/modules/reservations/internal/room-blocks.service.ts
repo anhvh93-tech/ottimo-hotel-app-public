@@ -9,12 +9,13 @@
  * O2 planned → active by the daily job (jobs/room-block-activation) when start_date ≤ today.
  * O3 change the reopen date (If-Match). O4 release (without a work order: MGR+), O5 cancel a planned block.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
-import type { LocalDate } from '../../../shared/time';
+import { type LocalDate, addDays } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
+import { ParameterService } from '../../platform/public/parameter.service';
 import { OccupancyService } from '../public/occupancy.service';
 import { FD_PLUS, MGR_PLUS, hasAny } from './allowed-actions';
 import type { BookingContext } from './booking-context';
@@ -31,12 +32,14 @@ export interface RoomBlockRow {
   end_date_actual: LocalDate | null;
   reason: string;
   work_order_id: string | null;
+  /** 0.3.7 (B-10): the block was made from an expected end-of-repair date (BR-804). */
+  expected_done_date: LocalDate | null;
   version: number;
 }
 
 const COLUMNS = `b.id, b.room_id, rm.room_no, b.status, b.start_date::text AS start_date,
   b.end_date_planned::text AS end_date_planned, b.end_date_actual::text AS end_date_actual, b.reason,
-  b.work_order_id, b.version`;
+  b.work_order_id, b.expected_done_date::text AS expected_done_date, b.version`;
 
 export function toRoomBlockDto(b: RoomBlockRow): Record<string, unknown> {
   return {
@@ -49,6 +52,7 @@ export function toRoomBlockDto(b: RoomBlockRow): Record<string, unknown> {
     endDateActual: b.end_date_actual,
     reason: b.reason,
     ...(b.work_order_id ? { workOrderId: b.work_order_id } : {}),
+    ...(b.expected_done_date ? { expectedDoneDate: b.expected_done_date } : {}),
     version: b.version,
   };
 }
@@ -58,6 +62,7 @@ export class RoomBlocksService {
   constructor(
     @Inject(OccupancyService) private readonly occupancy: OccupancyService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Optional() @Inject(ParameterService) private readonly params?: ParameterService,
   ) {}
 
   async list(tx: Tx, q: { from?: string | undefined; to?: string | undefined }) {
@@ -75,6 +80,11 @@ export class RoomBlocksService {
     return rows.map(toRoomBlockDto);
   }
 
+  /** One block (0.3.7: read by the maintenance module through RoomBlockPort). */
+  get(tx: Tx, id: string): Promise<RoomBlockRow> {
+    return this.load(tx, id);
+  }
+
   private async load(tx: Tx, id: string, forUpdate = false): Promise<RoomBlockRow> {
     const { rows } = await tx.query<RoomBlockRow>(
       `SELECT ${COLUMNS} FROM room_block b JOIN room rm ON rm.id = b.room_id WHERE b.id = $1
@@ -86,17 +96,36 @@ export class RoomBlocksService {
     return row;
   }
 
-  async create(tx: Tx, ctx: BookingContext, body: Record<string, unknown>): Promise<RoomBlockRow> {
+  async create(
+    tx: Tx,
+    ctx: BookingContext,
+    body: Record<string, unknown>,
+    opts: { reopenBufferDays?: number } = {},
+  ): Promise<RoomBlockRow> {
     const f = new Fields(body);
     const roomId = f.uuid('roomId', true);
     const start = f.date('startDate', true);
-    const end = f.date('endDatePlanned', true);
+    // 0.3.7 (B-10, BE-C): exactly one of endDatePlanned | expectedDoneDate; from the expected end of the
+    // repair the server adds ooo_reopen_buffer_days (BR-804 – FD/MT cannot read the parameter table).
+    const both = f.present('endDatePlanned') && f.present('expectedDoneDate');
+    if (both) f.add('expectedDoneDate', 'NOT_ALLOWED');
+    const expectedDone = both ? undefined : f.date('expectedDoneDate', false);
+    let end = both || f.present('expectedDoneDate') ? undefined : f.date('endDatePlanned', true);
     const reason = f.text('reason', 500, { required: true, min: 3 });
     const workOrderId = f.uuid('workOrderId', false);
     f.bool('affectedReservationsAcknowledged');
     f.done();
     if ((start as string) < ctx.today) f.add('startDate', 'DATE_IN_PAST');
-    if ((end as string) <= (start as string)) f.add('endDatePlanned', 'DATE_ORDER');
+    if (expectedDone) {
+      if (expectedDone < (start as string)) f.add('expectedDoneDate', 'DATE_ORDER');
+      const buffer =
+        opts.reopenBufferDays ??
+        (this.params
+          ? await this.params.get<number>(tx, 'ooo_reopen_buffer_days', ctx.today)
+          : undefined);
+      if (buffer === undefined) throw new Error('ooo_reopen_buffer_days unavailable');
+      end = addDays(expectedDone, buffer);
+    } else if ((end as string) <= (start as string)) f.add('endDatePlanned', 'DATE_ORDER');
     const room = await tx.query<{ id: string }>('SELECT id FROM room WHERE id = $1', [roomId]);
     if (!room.rows[0]) f.add('roomId', 'NOT_IN_LIST');
     f.done();
@@ -110,8 +139,8 @@ export class RoomBlocksService {
     const status = from <= ctx.today ? 'active' : 'planned';
     await tx.query(
       `INSERT INTO room_block (id, organization_id, property_id, room_id, status, reason, start_date, end_date_planned,
-         work_order_id, affected_reservation_ack_by, created_at, created_by, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $11)`,
+         work_order_id, affected_reservation_ack_by, created_at, created_by, updated_at, expected_done_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $11, $13)`,
       [
         id,
         tx.ctx.organizationId,
@@ -127,6 +156,7 @@ export class RoomBlocksService {
           : null,
         ctx.now,
         ctx.actor.userId,
+        expectedDone ?? null,
       ],
     );
     await this.occupancy.claim(
@@ -220,6 +250,7 @@ export class RoomBlocksService {
     id: string,
     action: string,
     body: Record<string, unknown>,
+    opts: { viaWorkOrder?: boolean } = {},
   ): Promise<RoomBlockRow> {
     if (action !== 'release' && action !== 'cancel') throw problem('NOT_FOUND');
     const f = new Fields(body);
@@ -249,8 +280,10 @@ export class RoomBlocksService {
     } else {
       if (b.status !== 'active')
         throw problem('INVALID_TRANSITION', { extras: { currentState: b.status } });
-      // O4 without a finished work order (work orders arrive in Sprint 4): MGR+ only, reason required.
-      if (!hasAny(ctx.actor.roles, MGR_PLUS)) throw problem('FORBIDDEN_ACTION');
+      // O4 without a finished work order: MGR+ only (A87), reason required. With its work order done / cancelled
+      // (maintenance module, BE-C – US-062 AC1) the role that closed the work order releases it.
+      if (!opts.viaWorkOrder && !hasAny(ctx.actor.roles, MGR_PLUS))
+        throw problem('FORBIDDEN_ACTION');
       const endActual = ctx.today > b.start_date ? ctx.today : b.start_date;
       if (endActual > b.start_date) {
         await this.occupancy.update(

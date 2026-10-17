@@ -392,7 +392,7 @@ export class StaySupport {
     ctx: BookingContext,
     row: ReservationRow,
     folioId: string,
-    line: { id: string; amountVnd: number; category: string },
+    line: { id: string; amountVnd: number; category: string; serviceDate?: string | null },
     input: FocRequestInput,
   ): Promise<ApprovalRow> {
     if (input.amountVnd <= 0 || input.amountVnd > line.amountVnd) {
@@ -420,7 +420,7 @@ export class StaySupport {
       ],
       { userId: ctx.actor.userId, reservationCode: row.code, ...this.req(ctx) },
     );
-    return this.approvals.submit(tx, ctx.actor, {
+    const request = await this.approvals.submit(tx, ctx.actor, {
       type: 'foc',
       amountVnd: input.amountVnd,
       reasonCode: input.reasonCode,
@@ -434,6 +434,16 @@ export class StaySupport {
       limitBasisVnd: await this.folios.nightRateBasis(tx, line.id),
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });
+    // Same links as the folio's requestFoc (BE-B): the pending line carries its request (Folio DTO
+    // `approvalRequestId`, S4-18 sync), and a dated key (room / extra person) its date (0060, BR-434 S4-02).
+    await tx.query('UPDATE folio_line SET approval_request_id = $2 WHERE id = $1', [
+      focLineId,
+      request.id,
+    ]);
+    if ((line.category === 'room' || line.category === 'extra_person') && line.serviceDate) {
+      await this.approvals.setFocKeyDate(tx, request.id, line.serviceDate);
+    }
+    return request;
   }
 
   /**
@@ -508,9 +518,11 @@ export class StaySupport {
 
   /**
    * One live late-checkout charge per stay (FB-R2-ARC-BE-S3-06, DOM G-10 / S3-11): reverses the live lines
-   * (their FOC goes with them – BR-008), posts the new amount (if > 0) and carries an APPROVED FOC over as
-   * min(FOC approved, new amount) – same decision, never more than approved, no second approval.
-   * Returns the new line id (null when the new amount is 0) and the FOC carried.
+   * (their FOC goes with them – BR-008) and posts the new amount (if > 0). The FOC follows through the folio's
+   * FOC key sync (BE-B S4-34, BR-412 v0.3.5 / BR-434): late check-out is ONE key per stay – min(**approved**
+   * amount, new charge), 0 → dormant, back > 0 → restored (no second approval); a PENDING request follows the
+   * new line and applies min(asked, charge at approval). Returns the new line id (null when the new amount is
+   * 0) and the FOC applied on it.
    */
   async replaceLateCharge(
     tx: Tx,
@@ -533,8 +545,19 @@ export class StaySupport {
       ...this.req(ctx),
     };
     const old = await this.liveSurchargeLines(tx, input.folioId, input.ids, 'late_checkout');
-    for (const l of old.lines) await this.folios.reverseLine(tx, l.id, input.reason, actor);
-    if (input.amountVnd <= 0) return { lineId: null, carriedFocVnd: 0 };
+    for (const l of old.lines) {
+      await this.folios.reverseLine(tx, l.id, input.reason, actor, { skipReductionSync: true });
+    }
+    const sync = () =>
+      this.folios.syncReductions(tx, input.folioId, {
+        userId: ctx.actor.userId,
+        cause: 'checkout_time_change',
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    if (input.amountVnd <= 0) {
+      await sync();
+      return { lineId: null, carriedFocVnd: 0 };
+    }
     const [lineId] = await this.folios.postLines(
       tx,
       input.folioId,
@@ -553,30 +576,9 @@ export class StaySupport {
       ],
       actor,
     );
-    const carried = Math.min(old.focVnd, input.amountVnd);
-    if (carried > 0 && lineId) {
-      await this.folios.postLines(
-        tx,
-        input.folioId,
-        [
-          {
-            reservationId: input.booking.id,
-            category: 'foc',
-            revenueGroup: 'other',
-            description: 'foc carried over (G-10, DOM S3-11)',
-            quantity: 1,
-            unitPriceVnd: -carried,
-            amountVnd: -carried,
-            serviceDate: input.serviceDate,
-            source: input.source,
-            relatedLineId: lineId,
-            ...(old.focReason ? { labelParams: { reason: old.focReason } } : {}),
-          },
-        ],
-        actor,
-      );
-    }
-    return { lineId: lineId ?? null, carriedFocVnd: carried };
+    await sync();
+    const now = await this.liveSurchargeLines(tx, input.folioId, input.ids, 'late_checkout');
+    return { lineId: lineId ?? null, carriedFocVnd: now.focVnd };
   }
 
   /**

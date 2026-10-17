@@ -16,7 +16,7 @@ import { Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common
 import { Client, type ClientConfig } from 'pg';
 import { DATABASE, Database } from '../../../db/database';
 import { problem } from '../../../shared/problem';
-import { SSE_CHANNEL, SSE_EVENT_TYPES, type SseWireEvent } from '../public/events.service';
+import { FD_PLUS, SSE_CHANNEL, SSE_EVENT_TYPES, type SseWireEvent } from '../public/events.service';
 
 export interface SseSubscriber {
   propertyId: string;
@@ -36,15 +36,19 @@ const RECONNECT_MAX_MS = 30_000;
 export const RECONNECT_MAX_FAILURES = 5;
 const BACKPRESSURE_MAX_REFUSALS = 20;
 
-/** Audience rule shared with tests: no audience = every staff member of the property. */
+/**
+ * Audience rule shared with tests (0.3.7 "người nhận theo vai"): same property AND (listed user OR a listed
+ * role). publishSse always sets the roles (SSE_ROLE_FLOOR); a payload without any audience is treated as FD+
+ * only – fail closed, never "every staff member" (HK/MT/SAL/CTV must not get hints they cannot read).
+ */
 export function matches(
   ev: SseWireEvent,
   sub: Pick<SseSubscriber, 'propertyId' | 'userId' | 'roles'>,
 ): boolean {
   if (ev.p !== sub.propertyId) return false;
-  if (!ev.r && !ev.u) return true;
   if (ev.u?.includes(sub.userId)) return true;
-  return !!ev.r && sub.roles.some((r) => ev.r?.includes(r));
+  const roles: readonly string[] = ev.r ?? (ev.u ? [] : FD_PLUS);
+  return sub.roles.some((r) => roles.includes(r));
 }
 
 export function parseWire(payload: string | undefined): SseWireEvent | null {

@@ -57,7 +57,9 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
     expect(await navigator.clipboard.readText()).toBe(content);
     expect(qr.tagName.toLowerCase()).toBe('svg');
     expect(qr.querySelector('path')?.getAttribute('d')).toMatch(/^M4 4h1v1h-1z/);
-    expect(screen.getByText(tv('pay.qr_note', { ref: content }))).toBeInTheDocument();
+    // DS 11.6 B1: the sentence stays in the UI font, only the transfer content is mono (VietQrCard).
+    const ref = screen.getByText(content, { selector: '.mono' });
+    expect(ref.parentElement?.textContent).toBe(tv('pay.qr_note', { ref: content }));
     // No third-party QR image anywhere (SEC F2).
     expect(document.querySelector('img[src*="vietqr"]')).toBeNull();
 
@@ -82,7 +84,11 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
 
     expect((await screen.findAllByText(tv('checkout.done'))).length).toBeGreaterThan(0);
     expect(res('Phạm Huy').status).toBe('checked_out');
-    expect(screen.getByText(/^Phiếu F26-\d{6}/)).toBeInTheDocument();
+    // S4-49 B1: the folio number is set in JetBrains Mono (`.mono`) inside the sentence.
+    const doneLine = screen.getByText(
+      (_, el) => el?.tagName === 'P' && /^Phiếu F26-\d{6}/.test(el.textContent ?? ''),
+    );
+    expect(within(doneLine).getByText(/^F26-\d{6}$/)).toHaveClass('mono');
   });
 
   it('blocked by the server: minibar not checked / VietQR not configured are explained in place', async () => {
@@ -289,11 +295,14 @@ describe('KB7 – trả phòng sau giờ ân hạn, vào thẳng H16', () => {
     const amount = await lateShown(30);
     expect(screen.queryByText(tv('checkout.late_none'))).not.toBeInTheDocument();
     // The "use Trả muộn in the drawer" hint is gone: amount and tick are right here.
-    expect(screen.queryByText(tv('co.late_switch_hint'))).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(tv('co.late_switch_hint_time', { time: '12:00' })),
+    ).not.toBeInTheDocument();
     // Not ticked → "Tiếp tục" says why and stays (no bill step, nothing written).
     const go = screen.getByRole('button', { name: tv('co.go_bill') });
     await user.click(go);
-    expect(go).toHaveAccessibleDescription(tv('ci.told_guest'));
+    // S4-48 / BUG-R2-088: the reason says to tick the box (not the box's own label again).
+    expect(go).toHaveAccessibleDescription(tv('co.go_bill_needs_told'));
     expect(liveLate(r.folioId)).toEqual([]);
     await user.click(screen.getByRole('checkbox', { name: `${tv('ci.told_guest')} *` }));
     await user.click(go);

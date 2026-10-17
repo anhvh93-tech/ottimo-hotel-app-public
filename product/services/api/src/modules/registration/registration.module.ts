@@ -37,11 +37,13 @@ import { retentionJob } from './public/worker-jobs';
 
 // Audit allowlists (SR-AUD-03): state facts only – never a document field, name or note text.
 // BUG-R2-083: `unclaimedDocuments` = how many unlinked guest-link documents a party removal / claim touched.
+// S4-39: `guestUploadPersonIndex` = the desk's slot answer of removePartyMember (a number 2…20 or `none`).
 defineAuditEntity('registration', [
   'checkCode',
   'manualResult',
   'imagesPurgeReason',
   'unclaimedDocuments',
+  'guestUploadPersonIndex',
 ]);
 defineAuditEntity('consent_record', ['purpose', 'decision', 'channel']);
 

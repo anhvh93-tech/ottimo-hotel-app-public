@@ -1,0 +1,108 @@
+---
+// 4 · Room types (US-147): the 4 room types of the e-brochure. Room names (The Pine … The Ember) are shown as a
+// set, never tied to a unit or type until INV sends the mapping (BR-012, P-S4-8: no temporary mapping on the
+// landing). Prices: "on request" until L3 numbers + mapping arrive (concept 7).
+import { links } from '../../content/site';
+import type { Copy } from '../../content/types';
+import Picture from '../Picture.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+const NAMES = [
+  'The Pine',
+  'The Mist',
+  'The Fern',
+  'The Bloom',
+  'The Valley',
+  'The Amber',
+  'The Sage',
+  'The Velvet',
+  'The Ivory',
+  'The Ember',
+];
+const THUMB_SIZES =
+  '(min-width: 1200px) 268px, (min-width: 768px) calc(25vw - 24px), calc(50vw - 20px)';
+// Object position per thumbnail (mock v1.1): keep the subject in frame when the 2:3 photo is cut to 3:2.
+const THUMB_POSITION: Record<string, string> = { 'city-view': 'op-62' };
+const askHref = (name: string) =>
+  t.rooms.askChannel === 'whatsapp' ? links.whatsapp(t.rooms.askMessage(name)) : links.zalo;
+---
+
+<section class="sec" id="rooms" aria-labelledby="rooms-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label">{t.rooms.label}</p>
+      <h2 class="h2" id="rooms-h">{t.rooms.title}</h2>
+      <p class="muted">{t.rooms.intro}</p>
+    </div>
+
+    <div class="rooms">
+      {
+        t.rooms.items.map((room, i) => (
+          <article class="room" aria-labelledby={`r${i + 1}-h`}>
+            <div class="room-media">
+              <Picture
+                id={room.photos[0]}
+                lang={t.lang}
+                class="r32 r-main"
+                sizesMobile="calc(100vw - 32px)"
+                sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)"
+              />
+              <Picture
+                id={room.photos[1]}
+                lang={t.lang}
+                variant="thumb"
+                class="r32"
+                imgClass={THUMB_POSITION[room.photos[1]]}
+                sizes={THUMB_SIZES}
+              />
+              <Picture
+                id={room.photos[2]}
+                lang={t.lang}
+                variant="thumb"
+                class="r32"
+                imgClass={THUMB_POSITION[room.photos[2]]}
+                sizes={THUMB_SIZES}
+              />
+            </div>
+            <p class="room-idx"><b>{room.index}</b>{room.view}</p>
+            <h3 id={`r${i + 1}-h`}>{room.name}</h3>
+            <p class="alt-name">
+              <span lang={room.altName.lang}>{room.altName.text}</span>
+            </p>
+            <dl class="specs">
+              <div>
+                <dt>{t.rooms.specs.sleeps}</dt>
+                <dd>{room.sleeps}</dd>
+              </div>
+              <div>
+                <dt>{t.rooms.specs.size}</dt>
+                <dd>{room.size}</dd>
+              </div>
+              <div>
+                <dt>{t.rooms.specs.view}</dt>
+                <dd>{room.viewValue}</dd>
+              </div>
+            </dl>
+            <p>{room.description}</p>
+            <p class="rate">{t.rooms.rate}</p>
+            <a class="btn btn-ghost btn-sm" href={askHref(room.askName)}>
+              {t.rooms.ask}
+            </a>
+          </article>
+        ))
+      }
+    </div>
+
+    <div class="names">
+      <p class="label">{t.rooms.names.label}</p>
+      <p>{t.rooms.names.text}</p>
+      <ul lang="en">
+        {NAMES.map((n) => <li>{n}</li>)}
+      </ul>
+    </div>
+  </div>
+</section>

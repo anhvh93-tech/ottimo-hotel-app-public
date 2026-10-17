@@ -9,6 +9,7 @@ import type { Tx } from '../../../db/database';
 import type {
   CheckinDocumentStatus,
   FrontdeskRegistrationPort,
+  GuestUploadChoice,
 } from '../../frontdesk/public/ports';
 import { RegistrationService } from '../internal/registration.service';
 
@@ -44,8 +45,13 @@ export class RegistrationPortService implements FrontdeskRegistrationPort {
     return this.regs.onPartyChanged(tx, reservationId);
   }
 
-  onPartyMemberRemoved(tx: Tx, reservationId: string, memberId: string): Promise<void> {
-    return this.regs.onPartyMemberRemoved(tx, reservationId, memberId);
+  onPartyMemberRemoved(
+    tx: Tx,
+    reservationId: string,
+    memberId: string,
+    guestUpload?: GuestUploadChoice,
+  ): Promise<void> {
+    return this.regs.onPartyMemberRemoved(tx, reservationId, memberId, guestUpload);
   }
 
   /** B18 and B16 (early departure = checkout for retention, DOM G-17). */

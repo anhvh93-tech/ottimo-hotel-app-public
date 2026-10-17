@@ -453,7 +453,7 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
     expect(link!.approval_request_id).toBe(ap);
   });
 
-  it('(i) B7 room change on the same dates: 0 lines re-posted; a pending FOC approved afterwards is posted', async () => {
+  it('(i) B7 room change by OTTIMO on the same dates: 0 lines re-posted; a pending FOC approved afterwards is posted', async () => {
     await at('2026-10-20T10:00:00+07:00');
     const b = await direct('101', '2026-11-23', '2026-11-27');
     const r0 = await liveBy(b, 'room');
@@ -473,7 +473,8 @@ describe.skipIf(!HAS_DB)('FOC through the night sync (round 6 MONEY A/B)', () =>
         )[0]!.n,
       );
     const before = await count();
-    await moveTo(b, { roomId: ids.rooms['203'] });
+    // BR-429 (b) / BR-434-06 (0.3.7, ESC-019 A): an OTTIMO move keeps the prices – a guest request re-prices.
+    await moveTo(b, { roomId: ids.rooms['203'], reasonCode: 'property_fault' });
     expect(await count()).toBe(before);
     expect((await approve('mgr', pending.json().id)).statusCode).toBe(200);
     const [pl] = await q<{ line_state: string }>(

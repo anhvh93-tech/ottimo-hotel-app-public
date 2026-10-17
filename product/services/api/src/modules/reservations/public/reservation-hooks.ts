@@ -47,11 +47,40 @@ export type RegistrationSummaryReader = (
   reservationId: string,
 ) => Promise<{ id: string; status: string; deadlineAt: Date | null } | null>;
 
+/**
+ * 0.3.7 bổ sung 1 (ARC 11.3 (2), BUG-R2-081): the booking's "khách đã chuyển cọc" notices, newest first – the
+ * payments module owns `deposit_notice` and provides the reader (reservations never reads that table).
+ */
+export interface DepositNoticeView {
+  id: string;
+  amountVnd: number;
+  note: string | null;
+  attachmentId: string | null;
+  /** Instants already formatted by the owner (`+07:00`, toZonedIso). */
+  createdAt: string;
+  updatedAt: string;
+  createdByName?: string;
+  status: 'open' | 'handled';
+}
+export type DepositNoticeReader = (tx: Tx, reservationId: string) => Promise<DepositNoticeView[]>;
+
+/**
+ * 0.3.7 D1 (S4-09, BR-424 v0.3.6): `updateReservation.roomReturnRecorded` – "khách đã chuyển về căn cũ" on the
+ * return day of a `changeRoom stayScope = until_parent_departure`. The room statuses, cleaning and door access
+ * belong to the front desk module, which provides the handler (it validates and throws the 409 itself).
+ */
+export type RoomReturnHandler = (
+  tx: Tx,
+  input: { reservationId: string; userId: string; roles: readonly string[]; requestId?: string },
+) => Promise<void>;
+
 @Injectable()
 export class ReservationHooks {
   private readonly hooks = new Map<ReservationEventKind, ReservationHook[]>();
   private partyCounter: PartyCounter | null = null;
   private registrationReader: RegistrationSummaryReader | null = null;
+  private depositNoticeReader: DepositNoticeReader | null = null;
+  private roomReturnHandler: RoomReturnHandler | null = null;
 
   on(kind: ReservationEventKind, hook: ReservationHook): void {
     this.hooks.set(kind, [...(this.hooks.get(kind) ?? []), hook]);
@@ -84,6 +113,28 @@ export class ReservationHooks {
     return this.registrationReader
       ? this.registrationReader(tx, reservationId)
       : Promise.resolve(null);
+  }
+
+  /** 0.3.7 bổ sung 1: provided by the payments module (BE-B) – `Reservation.depositNotices` of getReservation. */
+  provideDepositNotices(reader: DepositNoticeReader): void {
+    this.depositNoticeReader = reader;
+  }
+
+  depositNotices(tx: Tx, reservationId: string): Promise<DepositNoticeView[]> {
+    return this.depositNoticeReader
+      ? this.depositNoticeReader(tx, reservationId)
+      : Promise.resolve([]);
+  }
+
+  /** 0.3.7 D1 (S4-09): provided by the front desk module. */
+  provideRoomReturn(handler: RoomReturnHandler): void {
+    this.roomReturnHandler = handler;
+  }
+
+  async roomReturn(tx: Tx, input: Parameters<RoomReturnHandler>[1]): Promise<void> {
+    if (!this.roomReturnHandler)
+      throw new Error('room return handler not wired (frontdesk module)');
+    await this.roomReturnHandler(tx, input);
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {

@@ -31,3 +31,21 @@
 | BUG-R2-017 (phần ARC) | Done | Tham số `ota_base_rate` (một khóa json theo mã nhóm) + biên + `rounding.ota_rate` trong erd 9.1/9.1a; OpenAPI không đổi. BE-A thêm vào catalogue bằng migration mới; QA seed. `s2-contract.md` mục 8.1 |
 | BUG-R2-018 (phần ARC) | Done | Sàn–trần BR-105 tính theo `ota_base_rate[nhóm]`, làm tròn 10.000, mọi kênh – `s2-contract.md` mục 8.1 |
 | BUG-R2-021 (phần ARC) | Done | architecture 9.1 chốt `hold.expire`, `ooo.activate`; J9 theo ngày nghiệp vụ 06:00 (BR-010) |
+
+---
+
+## Landing + Zalo OA – thẻ SEC (`reviews/landing-zalo-SEC.md`, mục 2) – trả lời 17/10/2026 khuya (OpenAPI 0.3.7 bổ sung 2, ADR-014 mục 4 viết lại)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R2-SEC-ARC-02 | Done | Trần cơ sở → `503 SITE_BUSY` + `Retry-After`, không lưu, không giả thành công; một thông báo `website_request_cap_reached` cho OWN/ngày; tham số bảo mật `public_booking_request_daily_cap` 100 (biên 50–500) – ghi chú trong `x-security-parameters`, bật cùng PR US-155. Ô bẫy vẫn 202 giống hệt. `createWebsiteBookingRequest` bước 10; ADR-014 4.4 điểm 5 |
+| FB-R2-SEC-ARC-03 | Done | Hạn lưu cho mọi trạng thái + trần tuyệt đối (stale 30 · 7–60; declined 90 · 30–90; spam 7 · 1–7; max_age 180 · 90–180; ip_hmac 30 · 7–30); job đọc theo ngày tạo + hoạt động cuối; `reopen` không vượt `max_age`; `purge_journal`; ca `Clock` giả như thẻ. erd 4.14, 9.2, 12; ADR-014 4.6. Mã T19 là giả định – SEC đặt khi cập nhật DRA |
+| FB-R2-SEC-ARC-04 | Done | Vượt giới hạn liên hệ → 202 giống hệt, không bản ghi mới, `duplicateCount` + cờ `repeat_contact`; IPv6 đếm theo /64; endpoint không đọc `guest`/`lead`/`reservation`/`room_occupancy` trước khi trả lời, mọi kết quả cùng hình dạng, không trả lại dữ liệu nhập; `refCode` không phải yếu tố xác minh, không có endpoint tra theo mã. ADR-014 4.3, 4.4 |
+| FB-R2-SEC-ARC-05 | Done (phần kỹ thuật) | Ô đồng ý không tích sẵn, một mục đích, không ô ưu đãi; `consentVersion` phải là bản đã đăng (`privacy_notice_version` – băm văn bản, ngày đăng); bộ đếm trong DB `rate_limit_counter` từ ngày bật; căn cứ đổi sang "Luật 91/2025 + NĐ 356/2025" [Chưa xác minh – luật sư]. Văn bản thông báo: SEC soạn, luật sư duyệt (ESC-001) |
+| FB-R2-SEC-ARC-06 | Done | Origin khai theo operation `x-allowed-origins: [landing]`; operation nhân viên/khách không bao giờ nhận origin landing; endpoint công khai bỏ qua cookie; Caddy origin landing chỉ proxy các đường dẫn đã bật (ADR-014 1.4); `public_resolve_property` theo mẫu SECURITY DEFINER (erd 4.14). Generator meta + guard: BE-D trong PR US-155; test "Origin landing gọi thao tác ghi của nhân viên/khách → 403" vào DoD |
+| FB-R2-SEC-ARC-07 | Done | HMAC SĐT dùng khóa dẫn xuất `keyedHash('web_request_contact')`; `PUBLIC_FORM_SIGNING_KEY_FILE` ≥ 32 byte, kiểm khi khởi động khi bật form; sổ bí mật (OPS, xoay 12 tháng) – SEC thêm vào SR-SECR-04/05 |
+| FB-R2-SEC-ARC-08 | Done | `note` có số CCCD/hộ chiếu/MRZ → 422 mã trường `ID_NUMBER_DETECTED`, không lưu (bộ nhận diện SR-LOG-04); trang ghi "Không ghi số thẻ, số giấy tờ hay thông tin sức khỏe" |
+| FB-R2-SEC-ARC-09 | Deferred | `recordSiteEvent`/`web_metric_daily` chưa vào hợp đồng; làm cùng US-158 (R3) và áp đủ 3 điểm của thẻ lúc đó (đường dẫn trong danh sách đã phát hành, giới hạn giá trị mới, gom trong RAM ghi mỗi phút) |
+| FB-R2-SEC-ARC-10 | Done (17/10 tối) | `hosting-plan.md` mục 10 + ADR-014 1.4/8: bảo vệ tài khoản tên miền (việc INV ở ESC-020 L4), CAA, kiểm tên miền con trước HSTS, staging chặn bằng basic auth/IP |
+| FB-R2-SEC-ARC-11 | Done | Đã có từ 17/10 tối: kiểm CI `dist` + đếm request (ADR-014 2.6). Thêm 17/10 khuya: điều kiện thứ 5, câu cho thông báo quyền riêng tư, `localStorage` sáng/tối là tùy chọn giao diện (ADR-014 6.3) |
+| FB-R2-SEC-ARC-12 | Done | SAL chỉ thấy yêu cầu `new` chưa giao + yêu cầu giao cho mình (`x-scope: { sales_staff: unassigned_or_own }` ở list/get/transition; ngoài phạm vi → 404); FD+ thấy hết; CTV không có quyền. Ca lớp 2 SR-AZ-09 lấy từ `rbac-cases` khi bỏ `x-round` |

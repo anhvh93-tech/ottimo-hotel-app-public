@@ -513,6 +513,10 @@ export interface paths {
      *     Khóa không bảo mật có khoảng giá trị (erd 9) cũng trả `PARAM_OUT_OF_RANGE` khi vượt khoảng.
      *     Mỗi lần sửa tham số bảo mật ghi `audit_event category='security'` (giá trị trước/sau, lý do, người sửa); các khóa khác ghi `category='config'`.
      *     Kiểm tra thực hiện trên server theo khóa trong đường dẫn – client không quyết định khóa nào là "bảo mật".
+     *     **0.3.7 bổ sung 1 (BE-D s4 2.5 #6, S4-51 / P-S4-7)**: khóa `property_map_url` (chuỗi URL, **chỉ OWN** – MGR → 403; không phải tham số bảo mật, audit `config`) là **nguồn duy nhất**
+     *     của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
+     *     user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –
+     *     khác → 422 `VALIDATION_FAILED`, `errors[{field: value, code: NOT_IN_LIST}]`. Cột `property.map_url` chỉ còn là dự phòng khi khóa vắng (bỏ ở R3).
      */
     put: operations['setParameter'];
     post?: never;
@@ -550,7 +554,20 @@ export interface paths {
       };
       cookie?: never;
     };
-    /** Khách đến / khách đi / giữ chỗ chưa cọc hôm nay (US-011, US-031; BR-404, BR-425) */
+    /**
+     * Khách đến / khách đi / giữ chỗ chưa cọc hôm nay (US-011, US-031; BR-404, BR-425)
+     * @description **0.3.7 bổ sung 1 (BE-D s4 2.5 #4 – ghi rõ cách server đã cài)**: mỗi dòng là **đơn chính** của một lượt ở – đơn con (B9a đêm trước, gia hạn OTA B13 – BR-422)
+     *     không thành dòng riêng; `id`/`code` và `allowedActions` là của đơn chính (B9/B18 gọi trên đơn chính). `cancelled`/`no_show` không bao giờ có mặt (US-011 AC1).
+     *     - **Khách đến**: ngày đến = `date`, `confirmed` (chưa nhận) hoặc `in_house` (đã nhận). Sắp: chưa nhận trước → chưa gán căn trước → giờ đến dự kiến (vắng = `checkin_time`)
+     *       trên trục ngày nghiệp vụ → mã đơn.
+     *     - **Khách đi**: `in_house`/`checked_out` có **ngày đi hiệu lực** = `date` – ngày đi muộn nhất của đơn chính và các đơn con còn hiệu lực (lượt có đơn con gia hạn rời
+     *       vào ngày đi của đơn con). Trên dòng: `departureDate` = **ngày đi hiệu lực** (không phải ngày đi của riêng đơn chính), `nights` = từ ngày đến tới ngày đi hiệu lực,
+     *       `roomNo` = căn của đêm cuối. Sắp: chưa trả trước → căn có khách đến hôm nay (`hasArrivalSameRoomToday`) lên đầu (US-031 AC2) → `overdue` > `call_needed` >
+     *       `reminded_waiting` > `replied`.
+     *     - **Giữ chỗ chưa cọc**: `hold`, ngày đến = `date`, theo hạn giữ chỗ; không có nút.
+     *     - `date` khác ngày nghiệp vụ: chỉ xem (`allowedActions` rỗng – EP01 2.4). Số đếm của `getTonightKpi` (`arrivals`, `arrivalsCheckedIn`, `departures`,
+     *       `departuresCheckedOut`) đọc từ **cùng bộ đọc** → "{đã nhận}/{tổng}" luôn khớp danh sách. `balanceDueVnd` = cùng số `getFolio`; `registrationStatus` = cùng nguồn `getReservation`.
+     */
     get: operations['getArrivalsDepartures'];
     put?: never;
     post?: never;
@@ -571,7 +588,7 @@ export interface paths {
     };
     /**
      * "Cần chú ý" sinh từ quy tắc BR-907 (US-012). FD không nhận mục tài chính/FOC.
-     * @description Hai nguồn (erd mục 4.14): mục **tính lúc đọc** từ trạng thái nghiệp vụ (`source=computed`: giữ chỗ sắp hết, khai báo đến hạn,
+     * @description Hai nguồn (erd mục 4.12 `attention_event` – trước ghi nhầm 4.14): mục **tính lúc đọc** từ trạng thái nghiệp vụ (`source=computed`: giữ chỗ sắp hết, khai báo đến hạn,
      *     thị thực, kỳ thu, OOO, phiếu Cao, cần gọi no-show) và mục **sự kiện đã lưu** (`source=event`, bảng `attention_event`:
      *     `deposit_after_cancel`, `channel_sync_error`, `data_quality`, `overbooking`, `unassigned_with_free_room`; 0.3.7 bổ sung D1: `ota_no_show_report`, `closed_reservation_credit`). Mục sự kiện có `eventId`
      *     và được đóng bằng `resolveAttentionEvent`. Mục `visa_expiring` chỉ chứa mã đơn (không ngày hạn – SR-RET-06).
@@ -579,6 +596,15 @@ export interface paths {
      *     `registration_party_docs_unlinked` (giấy tờ khách gửi qua link chờ gắn người sau khi bỏ người – `dueAt` = hạn tự xóa; UXD `attn.dq_party_docs_unlinked`); mã lạ → câu chung.
      *     `ooo_ending_work_open`: từ 12:00 ngày cuối còn khóa (`endDatePlanned − 1`) khi phiếu liên kết chưa `done` (DOM D-12 h), `refCode` = mã WO, cho FD + MT (nút "Kéo dài khóa").
      *     Danh sách theo vai như cũ (FD không nhận mục tiền/FOC – AC6); HK/MT không gọi operation này (thông báo + SSE riêng).
+     *     **0.3.7 bổ sung 1 (BE-D s4 2.5 – ghi rõ cách server đã cài)**:
+     *     - **Lọc theo vai ở server** (US-012 AC6, US-003 AC4, rbac S02 ghi chú 1 – client không lọc thêm): chỉ **OWN** – `foc_threshold`, `security_alert`, `data_quality` của kiểm DATA
+     *       (`params.check` không bắt đầu bằng `registration_`); **MGR+** – `reconcile_overdue`; **FD+** (OWN/MGR/FDL/FD) – mọi loại còn lại, gồm `data_quality` kiểm khai báo
+     *       (`registration_*` – lễ tân xử lý, S4-39) và `closed_reservation_credit`.
+     *     - **Thứ tự**: `critical` → `warning` → `info`, rồi `dueAt` tăng dần (mục không có `dueAt` xếp sau), rồi `kind`, `refCode`.
+     *     - Mục `source = event`: `count` = 1, `dueAt` = **lúc sinh mục** (không phải hạn), `reservationIds` = đơn liên quan, có `eventId`. Nút "Đã xử lý" chỉ cho mục `event`
+     *       **và** `kind` không thuộc nhóm hệ thống tự đóng (`overbooking`, `unassigned_with_free_room`, `closed_reservation_credit` – xem `resolveAttentionEvent`); mục `computed`
+     *       tự hết khi trạng thái nghiệp vụ hết.
+     *     - Khóa `params` của từng `kind`: xem `AttentionItem.params`.
      */
     get: operations['listAttentionItems'];
     put?: never;
@@ -601,7 +627,15 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Đóng một mục "Cần chú ý" dạng sự kiện (có ghi chú xử lý) */
+    /**
+     * Đóng một mục "Cần chú ý" dạng sự kiện (có ghi chú xử lý)
+     * @description **0.3.7 bổ sung 1 (BE-D s4 2.5 #1 – khai mã server đã cài, EP01 3.2)**: đóng mục `source = event` còn mở mà người gọi **thấy được** (lọc vai như `listAttentionItems`).
+     *     Thứ tự kiểm: mục không tồn tại / đã đóng / vai không thấy → 404 `NOT_FOUND` (không lộ sự tồn tại) → `kind` do **hệ thống tự đóng** (`overbooking`, `unassigned_with_free_room`
+     *     – đóng khi gán/hủy đơn; `closed_reservation_credit` – đóng khi chi hoàn đủ hoặc khách để lại tiền, S4-06) → 409 `INVALID_TRANSITION` (`currentState = open`) → `note`.
+     *     `note`: mục `critical` (ví dụ `channel_sync_error`, `security_alert`) **bắt buộc** 3–500 ký tự (thiếu/ngắn → 422 `VALIDATION_FAILED`, `errors[{field: note, code: REASON_REQUIRED}]`);
+     *     mục khác không bắt buộc; dài quá 500 → `TOO_LONG`; chứa chuỗi giống số thẻ → 422 `CARD_NUMBER_DETECTED` (V-09). Ghi người, lúc, ghi chú vào mục; phát SSE `attention.changed`
+     *     (FD+). `ota_no_show_report`: đóng = lễ tân đã làm trên extranet (US-136 AC2/AC5).
+     */
     post: operations['resolveAttentionEvent'];
     delete?: never;
     options?: never;
@@ -861,7 +895,13 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** CTV/SAL báo "khách đã chuyển cọc" kèm ảnh biên nhận để FD/SAL xác nhận (A53) */
+    /**
+     * CTV/SAL báo "khách đã chuyển cọc" kèm ảnh biên nhận để FD/SAL xác nhận (A53)
+     * @description **0.3.7 bổ sung 1 (FE-B s4 mục 5, BUG-R2-081 – ghi rõ cách server đã cài)**: chỉ đơn `hold` (khác → 409 `INVALID_TRANSITION`). Mỗi đơn có **tối đa một** báo `open`
+     *     (SEC-BE-28 (3)): báo lại khi còn bản `open` → **cập nhật** bản đó (`amountVnd`, `note`, `attachmentId` nếu gửi), không tạo bản mới; FD/FDL và sale của đơn được
+     *     nhắc lại sau một khoảng chống dồn. `attachmentId` phải là ảnh `uploadAttachment purpose=deposit_receipt` của chính đơn này (sai → 422 `VALIDATION_FAILED`, `errors[{field: attachmentId, code: NOT_IN_LIST}]`).
+     *     B4 thành công (`confirmDeposit`) → báo chuyển `handled`. Đọc lại: `Reservation.depositNotices[]` (`getReservation`) – ảnh xem bằng `getAttachment`.
+     */
     post: operations['createDepositNotice'];
     delete?: never;
     options?: never;
@@ -1106,6 +1146,11 @@ export interface paths {
      *       Bị từ chối → còn phải thu, B18 chặn `BALANCE_DUE`; yêu cầu chưa quyết chặn trả phòng (BR-426). Oracle BR-402-01.
      *       Chưa đạt → 409 `CHECKIN_CONDITIONS_NOT_MET` (`unmet: [balance_paid]`), **không ghi gì** (kể cả khoản thu). Trần `payment.amountVnd` = còn phải thu sau các dòng trên
      *       (= `CheckInPreview.amountDueAtCheckinVnd` tính lại lúc ghi) → 422 `AMOUNT_EXCEEDS_BALANCE` (`field` = `payment.amountVnd`, `max`). Đơn `ota_prepaid`: `balance_paid` đạt như cũ.
+     *     - **0.3.7 bổ sung 1 (FE-A s4 mục 4 – ARC chốt)**: nhánh **202** (FD gửi `roomNotReadyOverride` không kèm yêu cầu đã duyệt) **không nhận phòng và không ghi gì** ngoài
+     *       `ApprovalRequest` `checkin_room_not_ready` – không phụ thu/đêm B9a, không FOC, không khoản thu, không lưu thẻ/nội quy. Vì vậy **không được gửi `payment`** ở nhánh này
+     *       → 422 `VALIDATION_FAILED` mã trường `NOT_ALLOWED` (`field` = `payment`) – không ghi gì, khóa idempotency không bị tiêu; không có "bỏ qua im lặng" (tiền đã cầm mà không
+     *       vào folio). Thu tiền khi đó: (a) FDL+ duyệt → FD gọi lại B9 kèm `roomNotReadyOverride.approvalRequestId` **và** `payment` (nhánh 200, trần như trên); hoặc (b) thu trước
+     *       bằng `createVietQr purpose=check_in` + `confirmPaymentReceived` (folio tạm có `creditVnd`). Desk thu tiền mặt/chuyển khoản tay/POS ở lần gọi (a) – cùng giao dịch với B9 như S-1.
      */
     post: operations['checkIn'];
     delete?: never;
@@ -1932,6 +1977,9 @@ export interface paths {
      * Tạo giữ chỗ từ báo giá (B1 + Q2) – khóa căn, hạn giữ theo BR-302, lead → holding (US-084)
      * @description Báo giá hết hiệu lực → `409 QUOTE_EXPIRED` (US-083 AC3). Ngày đến = hôm nay → `422 HOLD_NOT_ALLOWED_TODAY` (BR-302).
      *     Khách chưa có SĐT → `422 PHONE_REQUIRED` (US-084 AC2). Trả số tiền cần thu (cọc ngắn ngày hoặc ký quỹ + kỳ đầu dài hạn – AC3).
+     *     **0.3.7 bổ sung 2 (US-155 AC2 – contract-ahead, cài cùng US-155)**: báo giá có `websiteBookingRequestId` → đơn giữ chỗ `directSource = website`, `directSubSource` = nguồn phụ
+     *     của yêu cầu; yêu cầu `new`/`in_progress` → `converted` (WR6, `reservationId`) và **xóa trường C2** của yêu cầu trong cùng giao dịch (qua `WebsiteRequestPort`); yêu cầu đã ở
+     *     trạng thái khác → vẫn tạo giữ chỗ với nguồn `website`, không đổi yêu cầu. SSE `website_request.changed`.
      */
     post: operations['createHoldFromQuote'];
     delete?: never;
@@ -3275,6 +3323,8 @@ export interface paths {
      * @description **0.3.7 (B-07, B-23)**: có `roomId` → thêm **mục động** của căn (`dynamic = true`): `extra_guest_kit` "Bộ đồ dùng thêm đủ × {n}" khi căn có việc `extra_guest_kit_prepare`/`_transfer`
      *     của đơn sắp nhận/đang ở (BR-812 (5)); `version` trả về đã tính mục động (đổi → `recordInspection` 409 `CHECKLIST_OUTDATED`). `label` theo `Accept-Language` (vi/en/ru, thiếu → vi),
      *     không có `labelEn`. `photoRequired` = true ở mục "Ảnh phòng" **chỉ khi** người gọi sẽ tự kiểm (HK, BR-802; DOM D-12 e).
+     *     **0.3.7 bổ sung 1 (MOB s4 mục 4)**: PWA gửi `Accept-Language` = ngôn ngữ **đang chọn trong app** (nút VI/EN – `@ottimo/api-client` `RequestOptions.acceptLanguage`),
+     *     không để trình duyệt tự gửi; server đọc thẻ đầu tiên (`en*` → en, `ru*` → ru, khác/vắng → vi). Cùng quy tắc cho `listInspections`, `recordInspection`.
      */
     get: operations['getInspectionChecklist'];
     put?: never;
@@ -3784,6 +3834,8 @@ export interface paths {
      * Đổi token trong link `/g/{token}` lấy cookie phiên khách mức 1 (US-106 AC1, AC2)
      * @description Tra token bằng hàm `guest_resolve_token(token_hash)` SECURITY DEFINER (erd mục 2.4) vì `/v1/guest/*` chưa có ngữ cảnh RLS;
      *     sau đó đặt ngữ cảnh cơ sở của đơn. Mở phiên mới **không** reset bộ đếm xác minh sai (đếm theo token – SR-GST-08).
+     *     **0.3.7 bổ sung 1 (MOB s4 mục 4, P-S4-10)**: ngôn ngữ phiên chọn theo thứ tự ở `GuestSession.locale` (khách đã chọn → hồ sơ → `Accept-Language`: `vi*` → vi, `ru*` → ru,
+     *     còn lại/vắng → **en**); trả `localeChosenByGuest`.
      */
     post: operations['openGuestSession'];
     delete?: never;
@@ -3892,7 +3944,11 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** Chuyển ngôn ngữ trang khách (US-112) */
+    /**
+     * Chuyển ngôn ngữ trang khách (US-112)
+     * @description Đổi `locale` của phiên hiện tại. **0.3.7 bổ sung 1 (MOB s4 mục 4, P-S4-10)**: đồng thời ghi **khách đã tự chọn** (`guest_session.locale_chosen_at`) – lần mở link sau
+     *     (phiên mới của cùng đơn) giữ ngôn ngữ này thay vì `Accept-Language`, và `GuestSession.localeChosenByGuest = true`. Không đổi hồ sơ khách (`preferredLocale`).
+     */
     put: operations['setGuestLocale'];
     post?: never;
     delete?: never;
@@ -4118,6 +4174,217 @@ export interface paths {
      *     Giới hạn 5 lần/giờ/IP và 3 lần/ngày/đơn.
      */
     post: operations['resendGuestLinkFromUnit'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/form-token': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Mã form có chữ ký, dùng một lần – trang lấy khi khách bắt đầu điền "Yêu cầu đặt phòng" (ADR-014 4.4 tầng 1)
+     * @description **0.3.7 bổ sung 2 – hợp đồng phương án A (US-155), cài theo lịch ORC.** Không đọc/ghi bảng nghiệp vụ.
+     *     `token` = `v1.` + base64url(`issuedAt` | `nonce` 128 bit CSPRNG | HMAC-SHA256(`PUBLIC_FORM_SIGNING_KEY_FILE`, `propertyId | issuedAt | nonce`)).
+     *     Dùng được trong `[notBefore, expiresAt)` = [lúc cấp + 3 giây, lúc cấp + 2 giờ] và **một lần** ở `createWebsiteBookingRequest` (nonce ghi `public_form_nonce` khi dùng).
+     *     Cơ sở không có / không `active` / `public_booking_requests_enabled = false` → 404 cùng hình dạng (trang hiện nút Zalo thay form).
+     *     Không cookie, không đọc phiên. GET không kiểm `Origin` (trình duyệt không gửi với GET cùng origin) – token chỉ dùng được ở POST có Origin landing.
+     */
+    get: operations['getPublicFormToken'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/booking-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Khách gửi "Yêu cầu đặt phòng" từ website (nút "Book now" của fanpage trỏ về đây) → hàng chờ Desk, nguồn `website` – không giữ chỗ, không thanh toán
+     * @description **0.3.7 bổ sung 2 – phương án A (FB-INV-002 ý 3; INV chưa xác nhận A/B), cài theo lịch ORC.** Tạo **một** bản ghi `website_booking_request` (`new`).
+     *     **Không** tạo giữ chỗ, đơn, lead hay hồ sơ khách; **không** đọc `guest`, `lead`, `reservation`, `room_occupancy` trước khi trả lời → không lộ khách đã có hồ sơ hay đã gửi,
+     *     không lộ phòng trống (v1 không trả phòng trống – phương án B: `getPublicAvailability`, `getPublicOffers`, contract-ahead). Thời gian phản hồi không phụ thuộc dữ liệu đã có.
+     *     **Thứ tự kiểm** (đóng an toàn, ADR-014 4.4):
+     *     1. `Origin` = `LANDING_BASE_URL` (`x-allowed-origins: [landing]`; origin app khác → 403 `FORBIDDEN_ACTION`); chỉ `application/json`; body ≤ 8 KB (Caddy chặn 16 KB). Bỏ qua mọi cookie.
+     *     2. `Idempotency-Key` (bắt buộc – thiếu → 428; khóa của principal `public_site` + `propertyId`): đã hoàn tất cùng body → trả lại 202 cũ (`Idempotent-Replayed: true`) **trước**
+     *        khi kiểm form token, nên mạng chập chờn gửi lại không tạo bản thứ hai; cùng khóa khác body → 422 `IDEMPOTENCY_KEY_REUSED`.
+     *     3. Cơ sở không có / không `active` / `public_booking_requests_enabled = false` → 404.
+     *     4. Schema (`additionalProperties: false`) → 422 `VALIDATION_FAILED`.
+     *     5. Ô bẫy `website` có giá trị → **202 giống hệt** (mã tham chiếu ngẫu nhiên, không lưu); tăng bộ đếm `spam_honeypot`.
+     *     6. Form token sai chữ ký / khác cơ sở / trước `notBefore` / quá `expiresAt` / đã dùng → 422 `FORM_TOKEN_INVALID`; trang lấy mã mới và gửi lại **một** lần (khóa idempotency mới).
+     *     7. Giới hạn theo IP: 5/giờ, 20/ngày (IPv6 theo /64; IP lấy từ `X-Forwarded-For` của Caddy theo `TRUST_PROXY`, chỉ giữ HMAC) → 429 `RATE_LIMITED` + `Retry-After`.
+     *     8. Nghiệp vụ → 422 `VALIDATION_FAILED` (`errors[]` chỉ có `field` + `code`, **không** lặp lại giá trị đã nhập): ngày (`DATE_IN_PAST`, `DATE_ORDER`, `OUTSIDE_BOOKING_WINDOW` –
+     *        BR-112), `childrenAges` (`VALUE_OUT_OF_RANGE`), SĐT (`PHONE_INVALID`, `PHONE_COUNTRY_CODE_REQUIRED` – V-02), email (`EMAIL_INVALID`; `preferredChannel = email` mà thiếu →
+     *        `REQUIRED`), `note` có chuỗi giống số thẻ (`CARD_NUMBER_DETECTED`, SR-PAY-09) hoặc số giấy tờ (`ID_NUMBER_DETECTED`, SR-LOG-04 – SEC ARC-08) – **không lưu gì**,
+     *        đồng ý (`CONSENT_REQUIRED`, `NOTICE_VERSION_INVALID`).
+     *     9. Giới hạn theo liên hệ: 3/ngày/SĐT (khóa = HMAC `web_request_contact` của SĐT E.164 – SEC ARC-07) → vượt: **202 giống hệt**, không tạo bản ghi mới; yêu cầu mới nhất của
+     *        liên hệ đó tăng `duplicateCount` và có cờ `repeat_contact` (SEC ARC-04 – không cho dò SĐT đã gửi).
+     *     10. Trần cơ sở `public_booking_request_daily_cap` yêu cầu/ngày (giờ cơ sở) → 503 `SITE_BUSY` + `Retry-After`, không lưu, **không** giả thành công (SEC ARC-02);
+     *         OWN nhận **một** thông báo `website_request_cap_reached` mỗi ngày.
+     *     11. Một giao dịch: INSERT `website_booking_request` (`refCode` ngẫu nhiên, `replyBy`, `subSource` suy từ `utm`/`refHost` – `DirectSubSource`, cờ `suspiciousFlags`) +
+     *         `state_transition` + bộ đếm giới hạn + outbox thông báo `website_request_new` (FDL, FD, SAL – không tên/SĐT) + SSE `website_request.changed`.
+     *     **Không** gửi email/Zalo/SMS tự động tới liên hệ khách nhập (chưa xác minh – ADR-014 4.3); nhân viên liên hệ qua kênh khách chọn. Log chỉ method/route/mã/thời gian.
+     *     **Bật trên trang công khai** chỉ khi đạt SEC C-2, C-3, SEC-G1/G2 và trả lời ESC-001 (LZ-2, LZ-8) – US-155 AC4; trước đó trang hiện nút Zalo.
+     */
+    post: operations['createWebsiteBookingRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/availability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    /**
+     * [Phương án B – contract-ahead, KHÔNG cài] Lịch còn/hết phòng theo hạng phòng công khai + giá đêm trực tiếp (US-131)
+     * @description **0.3.7 bổ sung 2 – contract-ahead phương án B** (FB-INV-002 ý 3 B; ADR-014 4.7). Chỉ cài khi INV chọn B; trước đó route không đăng ký (404). Ghi sẵn để form A
+     *     chuyển sang B không đổi `createWebsiteBookingRequest` (chỉ thêm `offerSnapshot`).
+     *     Hạng phòng = slug của `Room.publicRoomType` (không bảng `public_listing` riêng). Chỉ `available` true/false – **không** số căn, `roomId`, số phòng còn lại, lý do bận,
+     *     hoa hồng, giá OTA. Cửa sổ ≤ 62 đêm, trong `booking_window_days` (BR-112). Cache RAM 60 giây, xóa khi NOTIFY `occupancy.changed`/`rates.changed`;
+     *     `Cache-Control: public, max-age=30, stale-while-revalidate=30` + `ETag`. Hiện giá chỉ khi `public_show_prices = true` (chính sách giá công khai – PO/INV, ESC-020 L3).
+     */
+    get: operations['getPublicAvailability'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/offers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    /**
+     * [Phương án B – contract-ahead, KHÔNG cài] Giá trực tiếp cho ngày/số khách theo hạng phòng (US-131) – không giữ chỗ
+     * @description **0.3.7 bổ sung 2 – contract-ahead phương án B** (ADR-014 4.7). Cùng bộ tính `calculateQuote` (kênh `direct`, nguồn `website`): giá niêm yết, lịch giá, giảm theo số đêm,
+     *     làm tròn, phụ thu người; giá hạng = giá thấp nhất trong các căn còn trống của hạng. Chỉ ngắn ngày (1–27 đêm); từ 28 đêm (BR-108) trả `longStayHint` và mời gửi yêu cầu.
+     *     Giá chỉ để tham khảo – form gửi kèm `offerSnapshot`, Desk so với giá tính lại. Không lộ dữ liệu nội bộ (như `getPublicAvailability`).
+     */
+    get: operations['getPublicOffers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/website-booking-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Hàng chờ "Yêu cầu từ website" của Desk (US-155 AC1) – FD+ và sale
+     * @description **0.3.7 bổ sung 2 – phương án A (US-155)**. Mặc định `status = new,in_progress`; sắp: `new` trước (theo `replyBy` tăng dần), rồi `updatedAt` giảm dần.
+     *     **Phạm vi** (SEC ARC-12, SR-AZ-02 – lọc trong truy vấn): OWN/MGR/FDL/FD thấy mọi yêu cầu của cơ sở; **SAL** thấy yêu cầu `new` **chưa giao** (để nhận) và yêu cầu **giao cho mình**
+     *     (mọi trạng thái); ngoài phạm vi → không có trong danh sách / 404 ở `getWebsiteBookingRequest`. CTV, HK, MT không có quyền (403).
+     *     Trường C2 (`guestName`, `phone`, `email`, `note`, `declineNote`) vắng khi đã xóa theo hạn (`piiPurgedAt` có giá trị) hoặc sau khi chuyển thành đơn.
+     *     Tìm theo `refCode` (khách đọc mã khi nhắn Zalo). **Không** tìm theo SĐT/tên qua URL (C2 không vào query – quy ước chung); tra khách bằng `lookupGuestByContact`.
+     */
+    get: operations['listWebsiteBookingRequests'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/website-booking-requests/{requestId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        requestId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Chi tiết một yêu cầu từ website – điền sẵn hộp báo giá/giữ chỗ/tạo đơn (US-155 AC2)
+     * @description **0.3.7 bổ sung 2**. Trả `ETag: "<version>"` cho `transitionWebsiteBookingRequest`. Phạm vi như `listWebsiteBookingRequests` (ngoài phạm vi → 404).
+     *     Desk dùng dữ liệu này để mở `GuestPicker` (tìm/tạo hồ sơ khách qua chống trùng BR-951 – `lookupGuestByContact`, `createGuest`), rồi `calculateQuote`/`saveQuote` hoặc
+     *     `createReservation` kèm `websiteBookingRequestId` (xem "Chuyển thành giữ chỗ/đơn" ở `WebsiteBookingRequest`).
+     */
+    get: operations['getWebsiteBookingRequest'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/website-booking-requests/{requestId}/actions/{action}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        requestId: components['schemas']['Uuid'];
+        action: 'claim' | 'release' | 'decline' | 'mark-spam' | 'reopen';
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Nhận xử lý / trả lại hàng chờ / từ chối (lý do) / đánh dấu spam / mở lại (máy trạng thái đề xuất SM-18 – BA đặt mã chính thức)
+     * @description **0.3.7 bổ sung 2 – phương án A (US-155)**. Chuyển (mã đề xuất WR1–WR7, BA chốt ở `state-machines.md`):
+     *     | `action` | Chuyển | Ai (ngoài phạm vi → 404; vai không có → 403) | Ghi chú |
+     *     |---|---|---|---|
+     *     | `claim` | WR1 `new → in_progress` | FD+; SAL (yêu cầu chưa giao) | Giao cho người gọi (`assignedUserId`) |
+     *     | `release` | WR2 `in_progress → new` | Người được giao; OWN/MGR/FDL với yêu cầu của người khác | Bỏ giao |
+     *     | `decline` | WR3 `new, in_progress → declined` | FD+; SAL (giao cho mình) | `reasonCode` bắt buộc (`REQUIRED`); `other` → `note` bắt buộc (`REASON_REQUIRED`) |
+     *     | `mark-spam` | WR4 `new, in_progress → spam` | FD+; SAL (giao cho mình) | Số spam lọt/tuần là điều kiện bật tầng 2 chống spam (ADR-014 4.4) |
+     *     | `reopen` | WR5 `declined, spam → in_progress` | FD+; SAL (yêu cầu mình đã từ chối) | Chỉ khi trường C2 chưa xóa (`piiPurgedAt` rỗng); không vượt `retention.web_request_max_age_days`; giao cho người gọi |
+     *     | (hệ thống) | WR6 `new, in_progress → converted` | `createHoldFromQuote` / `createReservation` có liên kết | Xem `WebsiteBookingRequest` mục "Chuyển thành giữ chỗ/đơn" |
+     *     | (hệ thống) | WR7 `new, in_progress → declined` (`stale`) | job `web_request.stale` | Không hoạt động quá `retention.web_request_stale_days` (SEC ARC-03) |
+     *     Sai trạng thái → 409 `INVALID_TRANSITION` (`currentState`). Mỗi chuyển ghi `state_transition` + `audit_event category='state'` (không ghi C2), phát SSE `website_request.changed`.
+     *     `reasonCode = stale` chỉ hệ thống dùng (client gửi → `NOT_IN_LIST`). `note` lọc số thẻ/giấy tờ (V-09, `CARD_NUMBER_DETECTED`/`ID_NUMBER_DETECTED`).
+     */
+    post: operations['transitionWebsiteBookingRequest'];
     delete?: never;
     options?: never;
     head?: never;
@@ -4791,10 +5058,11 @@ export interface components {
       arrivals?: number;
       /** @description 0.3.7 (B-19, BA E01-02): trong `arrivals`, số đã nhận phòng – hiện "{đã nhận}/{tổng}" */
       arrivalsCheckedIn?: number;
-      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ) */
+      /** @description Đơn có ngày đi = ngày nghiệp vụ, `in_house` hoặc `checked_out` hôm nay (BR-404) (0.3.7 ghi rõ). 0.3.7 bổ sung 1: đơn chính theo **ngày đi hiệu lực** của lượt ở (đơn con gia hạn → ngày đi của đơn con) – cùng bộ đọc với `getArrivalsDepartures.departures` */
       departures?: number;
       /** @description 0.3.7 (B-19): trong `departures`, số đã trả phòng */
       departuresCheckedOut?: number;
+      /** @description 0.3.7 bổ sung 1: số **lượt ở** (đơn chính `in_house`) – đơn con B9a/B13 không đếm riêng */
       inHouse?: number;
       /** @description K-03 = đêm sold đã gán căn ÷ đêm khả dụng thuần; luôn ≤ 100%; null khi mẫu số = 0 (hiển thị "–", Q-15) */
       occupancyPct: number | null;
@@ -4808,10 +5076,16 @@ export interface components {
     };
     ArrivalsDepartures: {
       date: components['schemas']['LocalDate'];
+      /** @description 0.3.7 bổ sung 1: đơn chính có ngày đến = `date` (`confirmed` chưa nhận, `in_house` đã nhận) – đơn con B9a/B13 không thành dòng riêng */
       arrivals: (components['schemas']['ReservationSummary'] & {
         /** @description 0.3.7 (B-20, BA E01-03): chỉ `check_in` (B9) khi người gọi làm được lúc này, kèm `requiresTrustedDevice`; rỗng = chỉ mở đơn */
         allowedActions?: components['schemas']['AllowedAction'][];
       })[];
+      /**
+       * @description 0.3.7 bổ sung 1 (BE-D s4 2.5 #4): đơn chính `in_house`/`checked_out` của lượt ở có **ngày đi hiệu lực** = `date`. Trên mỗi dòng `departureDate` = **ngày đi hiệu lực**
+       *     (ngày đi muộn nhất của đơn chính và các đơn con gia hạn còn hiệu lực – không phải ngày đi riêng của đơn chính), `nights` = từ `arrivalDate` tới ngày đi hiệu lực,
+       *     `roomNo` = căn của đêm cuối; `id`/`code` = đơn chính (B18 gọi trên đơn chính).
+       */
       departures: (components['schemas']['ReservationSummary'] & {
         reminderState?: components['schemas']['DepartureReminderState'];
         hasArrivalSameRoomToday?: boolean;
@@ -4827,7 +5101,12 @@ export interface components {
     DepartureReminderState:
       'reminded_waiting' | 'replied' | 'call_needed' | 'overdue' | 'checked_out';
     AttentionItem: {
-      /** @enum {string} */
+      /**
+       * @description 0.3.7 bổ sung 2 (US-155): `website_request_new` – nguồn `computed`, FD+ (OWN/MGR/FDL/FD); `count` = số yêu cầu website `new` chưa ai nhận; mức `warning` khi yêu cầu `new`
+       *     cũ nhất đã quá `replyBy`, còn lại `info`; `dueAt` = `replyBy` sớm nhất; `params` chỉ `count`; `refCode` = mã yêu cầu khi `count` = 1; `link` = `/website-requests?status=new`;
+       *     không tên/SĐT. Hết khi không còn yêu cầu `new`. SAL nhận thông báo `website_request_new` thay cho mục này.
+       * @enum {string}
+       */
       kind:
         | 'vip_arrival'
         | 'room_ooo'
@@ -4856,7 +5135,8 @@ export interface components {
         | 'ooo_ending_work_open'
         | 'guest_request_overdue'
         | 'ota_no_show_report'
-        | 'closed_reservation_credit';
+        | 'closed_reservation_credit'
+        | 'website_request_new';
       /**
        * @description computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)
        * @enum {string}
@@ -4881,6 +5161,22 @@ export interface components {
        *     sinh khi `restoreNoShow` đơn OTA đã báo), `channel` (mã kênh); `refCode` = mã đơn; nguồn `event`, mức `warning`, OWN/MGR/FDL/FD; lễ tân đóng bằng `resolveAttentionEvent` sau khi
        *     làm trên extranet (ghi người, lúc). `closed_reservation_credit` (S4-06, BR-522 – "tiền dư đơn đã đóng") → không tham số; `refCode` = mã đơn, **không** số tiền; nguồn `event`,
        *     mức `warning`, OWN/MGR/FDL/FD (như `deposit_after_cancel`); **tự đóng** khi yêu cầu hoàn chi đủ hoặc khách đồng ý để lại (`overpayment_retained`) – không đóng tay.
+       *     **0.3.7 bổ sung 1 (BE-D s4 2.5 #2 – bảng khóa cho phép đúng như server đã cài, `ATTENTION_PARAM_KEYS`)**:
+       *     | `kind` | Khóa `params` | Người thấy |
+       *     |---|---|---|
+       *     | `foc_threshold` (BR-435, US-012 AC8; `computed`, `warning`) | `check` = `foc_pct_of_room_revenue` → `pct` (FOC lũy kế tháng ÷ doanh thu phòng lũy kế × 100, 1 chữ số thập phân; **vắng** khi doanh thu phòng = 0 – hiện "–"), `threshold` (= `foc_alert_pct_of_room_revenue`); `check` = `foc_count_per_approver` → `count` (số FOC đã duyệt trong kỳ của **một** người duyệt, gồm tự áp BR-436), `max` (= `foc_alert_count_per_approver`) – mỗi người vượt ngưỡng một dòng, **không** nêu tên: `link` = `/approvals?type=foc&month=YYYY-MM&approverId=<id>`. Kỳ = ngày 1 tháng nghiệp vụ → hôm nay | chỉ OWN |
+       *     | `reconcile_overdue` | `count`, `oldestDays` | MGR+ |
+       *     | `no_show_call`, `no_show_mark` | `count`, `time` (`HH:mm` – `no_show_call_time` / `no_show_mark_time`) | FD+ |
+       *     | `registration_due` | `count`, `deadline` (hạn sớm nhất – thời điểm ISO hoặc `HH:mm`) | FD+ |
+       *     | `capacity_conflict`, `overbooking`, `unassigned_with_free_room`, `hold_expiring`, `room_ooo`, `extra_guest_kit_overdue`, `registration_overdue`, `guest_request_overdue` | `count` | FD+ |
+       *     | `data_quality` | `check` | FD+ khi `check` bắt đầu `registration_`; còn lại (kiểm DATA) chỉ OWN |
+       *     | `deposit_after_cancel`, `security_alert` | `code` (mã chứng từ dạng `OTM-00171`) | FD+ (`deposit_after_cancel`) / chỉ OWN (`security_alert`) |
+       *     | `ota_no_show_report` | `action` (`report`\|`revoke`), `channel` (mã kênh) | FD+ |
+       *     | `ooo_ending_work_open` | `roomNo`, `endDate` (`YYYY-MM-DD`) | FD+ |
+       *     | `vip_arrival` (một dòng mỗi đơn, `info`; `refCode` = mã đơn, `roomNos`, `dueAt` = giờ đến dự kiến hoặc `checkin_time`), `closed_reservation_credit`, `visa_expiring` và mọi `kind` khác | không có `params` | FD+ |
+       *     Định dạng giá trị (SEC-BE-52): đếm là số nguyên ≥ 0; `pct`/`threshold` số 0–1000; `check`/`channel` mã `snake_case` ≤ 40 ký tự; `roomNo` 1–10 ký tự chữ-số. `room_ooo`
+       *     chỉ có `count` + `roomNos` (không `endDate`, không `dueAt`). `kind` chưa có nguồn ở R2 (`rent_due_soon`, `lease_expiring`, `meter_not_read`, `channel_sync_error`,
+       *     `work_order_high_open`, `work_order_overdue`, `room_status_mismatch`): khóa `params` mới phải vào hợp đồng (ARC) **trước** khi thêm vào danh sách khóa cho phép.
        */
       params?: {
         [key: string]: string | number;
@@ -5067,6 +5363,8 @@ export interface components {
        * @enum {string|null}
        */
       directSource?: 'website' | 'zalo_phone' | 'walk_in' | 'returning' | 'sales_staff' | null;
+      /** @description 0.3.7 bổ sung 2 (FB-INV-002 ý 3, US-158): nguồn phụ khi `directSource = website` – chỉ đơn chuyển từ yêu cầu website ("website · facebook"); server ghi, không nhập tay; null với nguồn khác */
+      readonly directSubSource?: components['schemas']['DirectSubSource'] | null;
       /** @enum {string} */
       paymentModel?: 'direct' | 'ota_prepaid' | 'ota_pay_at_property';
       otaRef?: string;
@@ -5166,6 +5464,37 @@ export interface components {
       /** @description Tổng cọc `succeeded` của đơn (BR-305) – còn thiếu = `depositRequiredVnd − depositPaidVnd` khi > 0. 0.3.5 (A-13) */
       depositPaidVnd?: components['schemas']['MoneyVnd'];
       /**
+       * @description **0.3.7 bổ sung 1 (FE-B s4 mục 5 – BUG-R2-081, US-086 AC4)**: các báo "khách đã chuyển cọc" của đơn (`createDepositNotice`, A53), mới nhất trước. Tối đa **một** bản `open`
+       *     (báo lại khi còn `open` = cập nhật bản đó – SEC-BE-28 (3)); bản `handled` (B4 đã xác nhận) giữ lại để đối chiếu. Desk hiện bản `open` trong hộp "Xác nhận cọc" (H11):
+       *     số tiền, giờ báo, ghi chú, ảnh. **Người thấy**: FD+; SAL/CTV chỉ với đơn của mình (phạm vi `own` của `getReservation`) và **không** nhận `note` (D12c) và
+       *     `createdByName` (D27) – rbac mục 6. Server trả ở `getReservation`; phản hồi khác dùng schema `Reservation` (sau hành động) có thể vắng trường này – client đọc lại bằng
+       *     `getReservation`. Vắng hoặc rỗng = chưa có báo. Ảnh xem bằng `getAttachment` (`deposit_receipt` – FD+ và người tải). `amountVnd` là số **người báo khai**, chưa phải
+       *     tiền đã nhận (đã nhận = `depositPaidVnd`, sau B4).
+       */
+      depositNotices?: {
+        id: components['schemas']['Uuid'];
+        /** @description Số tiền người báo khai (lần báo gần nhất) – chưa đối chiếu sao kê */
+        amountVnd: components['schemas']['MoneyVnd'];
+        /** @description Ghi chú của người báo (V-09 khi ghi) */
+        note?: string | null;
+        /**
+         * Format: uuid
+         * @description Ảnh biên nhận (`uploadAttachment purpose=deposit_receipt`); `null` = báo không kèm ảnh
+         */
+        attachmentId?: string | null;
+        /** @description Lúc báo lần đầu */
+        createdAt: components['schemas']['Instant'];
+        /** @description Lúc báo/cập nhật gần nhất (= `createdAt` khi chưa báo lại) – Desk hiện giờ này cạnh số tiền */
+        updatedAt?: components['schemas']['Instant'];
+        /** @description Tên hiển thị người báo (CTV/sale) */
+        createdByName?: string;
+        /**
+         * @description `open` = chờ FD/SAL xác nhận cọc (B4); `handled` = B4 đã xác nhận (erd `deposit_notice.status`)
+         * @enum {string}
+         */
+        status: 'open' | 'handled';
+      }[];
+      /**
        * @description MGR+ đã chấp nhận xác nhận đơn với cọc thiếu (`confirmDeposit.acceptShortfallReason`, B-29 / DOM BE-11) – đọc từ cột `reservation.deposit_shortfall_*` (0040).
        *     `null` khi chưa từng chấp nhận. Màn nhận phòng hiện câu `ci.shortfall_accepted`. 0.3.6 bổ sung (review S3, đề nghị FE s3 mục 5 c)
        */
@@ -5254,6 +5583,12 @@ export interface components {
        * @enum {string}
        */
       directSource?: 'website' | 'zalo_phone' | 'walk_in' | 'returning' | 'sales_staff';
+      /**
+       * @description 0.3.7 bổ sung 2 (US-155 AC2 – contract-ahead, cài cùng US-155): FD+ tạo đơn đảm bảo (B2) cho yêu cầu từ website khi khách đã chốt và cọc. Kênh phải là `direct`;
+       *     `directSource` vắng hoặc `website` (khác → 422 `NOT_ALLOWED`, `field` = `directSource`); yêu cầu `new`/`in_progress` trong phạm vi (khác → 404 / 409 `INVALID_TRANSITION`).
+       *     Cùng giao dịch: `directSource = website`, `directSubSource` của yêu cầu, yêu cầu → `converted` + xóa C2. Trong `rooms[]` của đơn nhóm (R3) → 422 `NOT_ALLOWED`.
+       */
+      websiteBookingRequestId?: components['schemas']['Uuid'];
       otaRoomAmountVnd?: components['schemas']['MoneyVnd'];
       otaChannelFeeVnd?: components['schemas']['MoneyVnd'];
       /** @description Lúc khách đặt trên OTA (lead time đúng cho đơn OTA – DATA FB-05); R2 nhập tay, R3 lấy từ channel manager */
@@ -5865,6 +6200,8 @@ export interface components {
       createdAt?: components['schemas']['Instant'];
       expiresAt: components['schemas']['Instant'];
       convertedReservationId?: components['schemas']['Uuid'];
+      /** @description 0.3.7 bổ sung 2 – yêu cầu từ website mà báo giá trả lời (US-155) */
+      websiteBookingRequestId?: components['schemas']['Uuid'];
       version: number;
     };
     Lead: {
@@ -6086,6 +6423,12 @@ export interface components {
     Bill: {
       folioId: components['schemas']['Uuid'];
       billNo?: string | null;
+      /**
+       * Format: date-time
+       * @description **0.3.7 bổ sung 1 (FE-B s4 mục 5 – S4-29, US-020 AC2)**: thời điểm chốt folio (`folio.settled_at`, SM-13 – cùng lúc cấp `billNo`), ISO có offset `+07:00`.
+       *     `null` khi folio còn `open` (bản xem trước). Bản in ghi "Lập lúc {settledAt}" – in lại phiếu cũ giữ đúng giờ chốt, không dùng giờ máy lúc in.
+       */
+      settledAt?: string | null;
       /** @enum {string} */
       locale: 'vi' | 'vi_en';
       property?: {
@@ -6939,7 +7282,8 @@ export interface components {
     GuestRequest: {
       id: components['schemas']['Uuid'];
       reservationId: components['schemas']['Uuid'];
-      roomNo: string;
+      /** @description 0.3.7 bổ sung 1 (BE-D s4 2.5 #6): số căn của yêu cầu – căn chụp lúc khách gửi (`guest_request.room_id`), lúc gửi chưa có căn thì căn hiện tại của đơn; **`null`** khi đơn vẫn chưa có căn (đơn OTA xung đột chưa gán) – không dùng chuỗi rỗng. Màn nhân viên hiện "Chưa gán căn" */
+      roomNo: string | null;
       /** @description 0.3.7 bổ sung D1 (BR-012 (2)): tên phòng – màn nhân viên hiện "{roomNo} · {roomName}"; HK/MT không gọi `listRooms` nên lấy ở đây. `null` = căn chưa có tên (hiện số căn) */
       roomName?: string | null;
       type: components['schemas']['GuestRequestType'];
@@ -7020,7 +7364,15 @@ export interface components {
       roomName?: string | null;
       /** @description 0.3.7 bổ sung D1 (BR-012): như `GuestStay.publicRoomType` */
       publicRoomType?: string | null;
+      /**
+       * @description Ngôn ngữ của phiên – guest-web dùng đúng giá trị này (không tự đổi theo trình duyệt khi đã có phiên). **0.3.7 bổ sung 1 (MOB s4 mục 4, P-S4-10)** – server chọn lúc
+       *     `openGuestSession` theo thứ tự: (1) **khách đã tự chọn** cho đơn này (`setGuestLocale` ở một phiên trước của cùng đơn, mới nhất thắng) → giữ, `localeChosenByGuest = true`;
+       *     (2) `preferredLocale` của hồ sơ người đứng tên (`vi`/`en`/`ru`) nếu có; (3) `Accept-Language` của trình duyệt, thẻ ngôn ngữ đầu tiên: `vi*` → `vi`, `ru*` → `ru`,
+       *     khác hoặc vắng → **`en`** (mặc định EN – P-S4-10). `setGuestLocale` đổi ngôn ngữ phiên và đánh dấu đã tự chọn.
+       */
       locale: components['schemas']['Locale'];
+      /** @description 0.3.7 bổ sung 1 (MOB s4 mục 4): `true` khi `locale` là lựa chọn của khách (`setGuestLocale`), `false`/vắng khi server tự chọn theo hồ sơ hoặc `Accept-Language` – guest-web chỉ dùng để hiện trạng thái nút ngôn ngữ, không tự đổi `locale` */
+      localeChosenByGuest?: boolean;
       expiresAt: components['schemas']['Instant'];
       level2ExpiresAt?: components['schemas']['Instant'];
     };
@@ -7057,6 +7409,8 @@ export interface components {
          * Format: uri
          * @description 0.3.6 (SEC E14-08): chỉ `https`, host khớp **chính xác** một trong `maps.google.com`, `www.google.com` (path bắt đầu `/maps`), `maps.app.goo.gl`,
          *     `maps.apple.com`, `www.openstreetmap.org`; kiểm khi OWN lưu (422 `NOT_IN_LIST`). guest-web mở với `rel="noopener noreferrer"`.
+         *     0.3.7 bổ sung 1 (S4-51): giá trị = tham số `property_map_url` đang hiệu lực (xem `setParameter`; vắng thì cột `property.map_url`); host kiểm lại **mỗi lần đọc** –
+         *     không hợp lệ → trường vắng (không trả link lạ).
          */
         mapUrl?: string;
         phone?: string;
@@ -7172,6 +7526,9 @@ export interface components {
        *     **0.3.7 bổ sung D1**: `approval_cancelled` (BR-434, BR-315 (g) – S4-18/S4-22: yêu cầu FOC/giảm giá **tự hủy** vì không còn dòng, đơn hủy hoặc no-show; gửi người gửi + mọi người đã
        *     nhận `approval_requested` của yêu cầu đó; refType `approval_request`, refCode = mã đơn); `no_show_marked` (US-136 AC2/AC4, BR-311 – OWN + MGR; refType `reservation`);
        *     `no_show_restored` (BR-315, US-136 AC4 – OWN + MGR, trừ người khôi phục; refType `reservation`).
+       *     **0.3.7 bổ sung 2 (US-155)**: `website_request_new` (FDL, FD, SAL đang hoạt động của cơ sở – "Yêu cầu đặt phòng mới {refCode}: {arrival} · {nights} đêm · {guests} khách";
+       *     refType `website_booking_request`, refCode = mã yêu cầu; **không** tên/SĐT/lời nhắn); `website_request_cap_reached` (OWN, tối đa một lần/ngày – đã chạm trần
+       *     `public_booking_request_daily_cap`, SEC ARC-02; refType `property`).
        * @enum {string}
        */
       kind:
@@ -7201,7 +7558,9 @@ export interface components {
         | 'hk_task_cancelled'
         | 'approval_cancelled'
         | 'no_show_marked'
-        | 'no_show_restored';
+        | 'no_show_restored'
+        | 'website_request_new'
+        | 'website_request_cap_reached';
       /** @enum {string} */
       refType?:
         | 'reservation'
@@ -7212,7 +7571,8 @@ export interface components {
         | 'user'
         | 'payment'
         | 'property'
-        | 'hk_task';
+        | 'hk_task'
+        | 'website_booking_request';
       refId?: components['schemas']['Uuid'];
       /** @description Mã hiển thị (OTM-00171, WO-00034, số căn) – không C2/C3 */
       refCode?: string;
@@ -7251,6 +7611,250 @@ export interface components {
         paidAt?: components['schemas']['Instant'];
       }[];
       version?: number;
+    };
+    /** @description 0.3.7 bổ sung 2 – mã form có chữ ký dùng một lần (ADR-014 4.4). Trang giữ trong bộ nhớ, không lưu trình duyệt */
+    PublicFormToken: {
+      token: string;
+      notBefore: components['schemas']['Instant'];
+      expiresAt: components['schemas']['Instant'];
+    };
+    /**
+     * @description 0.3.7 bổ sung 2. Trang đọc `utm_source`/`utm_medium`/`utm_campaign` của **chính URL trang đặt phòng** (link nội bộ của landing giữ nguyên query UTM – không cookie,
+     *     không localStorage); đổi chữ thường, ký tự ngoài `[a-z0-9._-]` → `-`, cắt 64 ký tự, rỗng thì bỏ. Nút "Book now" của fanpage:
+     *     `https://<tên-miền>/book/?utm_source=facebook&utm_medium=page_button&utm_campaign=book_now` (bản Việt `/vi/book/…`).
+     */
+    WebsiteUtm: {
+      source?: string;
+      medium?: string;
+      campaign?: string;
+    };
+    /**
+     * @description 0.3.7 bổ sung 2 (FB-INV-002 ý 3 – "website · facebook"). **Nguồn phụ** của yêu cầu/đơn `directSource = website`; server suy ra lúc nhận yêu cầu, không ai nhập tay:
+     *     (1) `utm.medium = qr` → `qr`; (2) `utm.source` ∈ {`facebook`, `fb`, `m.facebook.com`, `l.facebook.com`} → `facebook`; {`instagram`, `ig`} → `instagram`; {`google`} → `google`;
+     *     {`zalo`} → `zalo`; giá trị khác → `other`; (3) không có `utm.source`: `refHost` là facebook.com / fb.com / fb.me / messenger.com (kể cả tên miền con) → `facebook`;
+     *     instagram.com → `instagram`; google.<đuôi> → `google`; zalo.me / zalo.vn → `zalo`; khác → `other`; (4) không có cả hai → null (gõ địa chỉ, dấu trang).
+     *     Bảng ánh xạ là hằng số của module `public-site`; thêm giá trị = đổi hợp đồng (chỉ thêm, DATA báo cáo theo kênh – US-158).
+     * @enum {string}
+     */
+    DirectSubSource: 'facebook' | 'instagram' | 'google' | 'zalo' | 'qr' | 'other';
+    /**
+     * @description 0.3.7 bổ sung 2 – thân `createWebsiteBookingRequest` (phương án A). Chỉ hỏi đủ để trả lời yêu cầu (tối thiểu hóa – ADR-014 4.6): **không** hỏi quốc tịch, giấy tờ,
+     *     ngày sinh, địa chỉ, số thẻ. Trang kiểm trước bằng cùng schema zod (`packages/contracts`) nên lỗi 422 hiếm. Ô đồng ý **không** tích sẵn, một mục đích ("để OTTIMO liên hệ
+     *     trả lời yêu cầu này") – **không** có ô nhận ưu đãi (SEC DOM-05, US-151 AC6).
+     */
+    WebsiteBookingRequestInput: {
+      /** @description Từ `getPublicFormToken` */
+      formToken: string;
+      /** @description Ô bẫy (honeypot) – ẩn bằng class CSS (không `style=`), `tabindex="-1"`, `autocomplete="off"`, `aria-hidden="true"`; người thật để trống. Có giá trị → 202 giống hệt, không lưu */
+      website?: string;
+      /** @description ≥ hôm nay (giờ cơ sở – ADR-008), ≤ hôm nay + `booking_window_days` (BR-112) */
+      arrival: components['schemas']['LocalDate'];
+      /**
+       * @description > `arrival`; tối đa 366 đêm. Một ô ngày cho cả hai nhóm khách (boutique stay – không tách "căn hộ dịch vụ"): từ 28 đêm (BR-108) server ghi `stayKind = long`, sale báo giá
+       *     dài hạn (`calculateQuote` `type = long`); không báo lỗi.
+       */
+      departure: components['schemas']['LocalDate'];
+      adults: number;
+      /** @default 0 */
+      children: number;
+      /** @description Tùy chọn – có thì đúng `children` phần tử (khác → `VALUE_OUT_OF_RANGE`); giúp báo giá theo nhóm tuổi BR-110 (6–11, dưới 6) */
+      childrenAges?: number[];
+      /**
+       * @description Hạng phòng khách thích = slug của `Room.publicRoomType` (chữ thường, bỏ dấu, ký tự khác chữ-số → `-`, ví dụ "Standard Studio · Garden View" → `standard-studio-garden-view`).
+       *     Vắng = "Chưa chọn – tư vấn giúp". Slug không khớp hạng nào đang bán → **vẫn nhận**, cờ `room_type_unmatched` (trang cũ không làm hỏng yêu cầu). Landing không hiện số phòng
+       *     hay số căn của hạng (FB-INV-002 ý 1); server không trả gì về hạng.
+       */
+      roomType?: string;
+      /** @description Tên gọi (V-01 – bỏ ký tự điều khiển) */
+      guestName: string;
+      /** @description SĐT dùng Zalo/gọi – **bắt buộc** (Zalo OA là kênh chính – FB-INV-002 ý 4). Dạng người dùng gõ (V-02): số Việt Nam `0…` hoặc `+84…`; số nước ngoài phải có `+mã nước`. Server chuẩn hóa E.164 */
+      phone: string;
+      /**
+       * Format: email
+       * @description Tùy chọn (V-03); bắt buộc khi `preferredChannel = email`
+       */
+      email?: string;
+      /**
+       * @description Kênh khách muốn được trả lời. Trang xếp `zalo` đầu và chọn sẵn; WhatsApp/Telegram/Viber nằm trong "Kênh khác" (FB-INV-002 ý 4)
+       * @default zalo
+       * @enum {string}
+       */
+      preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
+      /** @description Lời nhắn. Trang ghi dưới ô: "Không ghi số thẻ, số giấy tờ hay thông tin sức khỏe" (SR-INP-05). Số thẻ → `CARD_NUMBER_DETECTED`; số giấy tờ → `ID_NUMBER_DETECTED` – không lưu */
+      note?: string;
+      locale: components['schemas']['Locale'];
+      /**
+       * @description Ô đồng ý đã tích (không tích sẵn) – khác `true` → mã trường `CONSENT_REQUIRED` (SEC C-3)
+       * @constant
+       */
+      consent: true;
+      /** @description Phiên bản thông báo xử lý dữ liệu trang đã hiện (`privacy_notice_version` đã đăng của `locale`; bản trước còn nhận 7 ngày sau khi có bản mới) – sai → `NOTICE_VERSION_INVALID` */
+      consentVersion: string;
+      utm?: components['schemas']['WebsiteUtm'];
+      /** @description Chỉ **tên miền** của `document.referrer` khi khác origin landing (không đường dẫn, không query) – dùng suy `DirectSubSource` khi không có UTM */
+      refHost?: string;
+      /** @description Đường dẫn trang gửi form (không query), ví dụ `/book/`, `/vi/book/`, `/rooms/signature/` */
+      landingPath?: string;
+      /** @description **Contract-ahead phương án B** – server phương án A bỏ qua (không lưu) */
+      offerSnapshot?: components['schemas']['PublicOfferSnapshot'];
+    };
+    /** @description 0.3.7 bổ sung 2 – phản hồi 202 duy nhất (cả khi bị ô bẫy hay giới hạn liên hệ chặn im lặng). Không có dữ liệu khách nhập */
+    WebsiteBookingRequestAccepted: {
+      /**
+       * @description Mã tham chiếu ngẫu nhiên (Crockford base32, 40 bit CSPRNG, không tăng dần; UK theo cơ sở). Trang hiện "Mã yêu cầu" + nút "Nhắn Zalo" soạn sẵn mã này. Chỉ để tra cứu nội bộ –
+       *     **không** phải yếu tố xác minh, không có endpoint công khai tra theo mã (SEC ARC-04).
+       */
+      refCode: string;
+      /** @description Hạn trả lời dự kiến: trong `front_desk_hours` (BR-811) = lúc nhận + `web_request_response_minutes`; ngoài giờ = giờ mở trực kế tiếp + `web_request_response_minutes` */
+      replyBy: components['schemas']['Instant'];
+    };
+    /**
+     * @description 0.3.7 bổ sung 2 – SM-18 đề xuất (BA đặt mã chính thức)
+     * @enum {string}
+     */
+    WebsiteBookingRequestStatus: 'new' | 'in_progress' | 'converted' | 'declined' | 'spam';
+    /**
+     * @description 0.3.7 bổ sung 2 – lý do từ chối (DATA đếm nhu cầu mất, ví dụ `no_availability`). `stale` chỉ hệ thống đặt (WR7). Nhãn VI/EN do UXD (`webreq.decline.*`)
+     * @enum {string}
+     */
+    WebsiteBookingRequestDeclineReason:
+      | 'no_availability'
+      | 'price_not_accepted'
+      | 'guest_unreachable'
+      | 'guest_not_proceeding'
+      | 'duplicate'
+      | 'policy_mismatch'
+      | 'stale'
+      | 'other';
+    /** @description 0.3.7 bổ sung 2 – thân `transitionWebsiteBookingRequest`; chỉ `decline` cần `reasonCode`, hành động khác bỏ trống */
+    WebsiteBookingRequestTransition: {
+      reasonCode?: components['schemas']['WebsiteBookingRequestDeclineReason'];
+      /** @description Bắt buộc khi `reasonCode = other` (`REASON_REQUIRED`); V-09 */
+      note?: string;
+    };
+    /**
+     * @description 0.3.7 bổ sung 2 – bản nhìn của nhân viên (US-155). Trường C2 vắng khi `piiPurgedAt` có giá trị.
+     *     **Chuyển thành giữ chỗ/đơn** (US-155 AC2 – WR6; không có operation "convert" riêng, đi qua luồng có sẵn để giữ mọi ràng buộc chống trùng ADR-009, giá BR, chống trùng hồ sơ BR-951):
+     *     (a) Desk mở `GuestPicker` điền sẵn tên/SĐT/email → chọn hoặc tạo hồ sơ khách; (b) **giữ chỗ**: `saveQuote` kèm `websiteBookingRequestId` → `createHoldFromQuote`;
+     *     (c) **đơn đảm bảo** (FD+, khách đã chốt và đã cọc): `createReservation` kèm `websiteBookingRequestId`. Đơn tạo ra có kênh `direct`, `directSource = website`,
+     *     `directSubSource` = `subSource` của yêu cầu; yêu cầu → `converted` (`reservationId`) và **xóa trường C2** trong cùng giao dịch (dữ liệu đã ở hồ sơ khách).
+     */
+    WebsiteBookingRequest: {
+      id: components['schemas']['Uuid'];
+      refCode: string;
+      status: components['schemas']['WebsiteBookingRequestStatus'];
+      arrival: components['schemas']['LocalDate'];
+      departure: components['schemas']['LocalDate'];
+      nights: number;
+      /**
+       * @description `long` khi ≥ 28 đêm (BR-108) – báo giá dài hạn
+       * @enum {string}
+       */
+      stayKind: 'short' | 'long';
+      adults: number;
+      children: number;
+      childrenAges?: number[];
+      /** @description Slug khách chọn; null = chưa chọn */
+      roomType?: string | null;
+      /** @description `Room.publicRoomType` hiện hành khớp slug; null = chưa chọn hoặc không khớp (cờ `room_type_unmatched`) */
+      roomTypeLabel?: string | null;
+      guestName?: string;
+      /** @description E.164 có dấu `+` – Desk có nút mở Zalo/gọi */
+      phone?: string;
+      email?: string;
+      /** @enum {string} */
+      preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
+      note?: string;
+      locale: components['schemas']['Locale'];
+      /** @description Nguồn phụ suy từ UTM/refHost – đơn chuyển từ yêu cầu mang `directSubSource` này */
+      subSource?: components['schemas']['DirectSubSource'] | null;
+      utmSource?: string | null;
+      utmMedium?: string | null;
+      utmCampaign?: string | null;
+      refHost?: string | null;
+      landingPath?: string | null;
+      /** @description Cờ để nhân viên lọc, không chặn: lời nhắn có URL; chữ ngoài bảng chữ của 3 ngôn ngữ; ngày đến xa (> 180 ngày); liên hệ gửi lặp; hạng phòng không khớp */
+      suspiciousFlags?: (
+        | 'contains_url'
+        | 'unexpected_script'
+        | 'far_future'
+        | 'repeat_contact'
+        | 'room_type_unmatched'
+      )[];
+      /** @description Số lần cùng SĐT gửi thêm trong ngày bị giới hạn chặn (không tạo bản mới) */
+      duplicateCount?: number;
+      replyBy: components['schemas']['Instant'];
+      /** @description `new` đã quá `replyBy` – Desk tô cảnh báo; cùng điều kiện mục "Cần chú ý" `website_request_new` mức `warning` */
+      isReplyOverdue?: boolean;
+      assignedUserId?: components['schemas']['Uuid'] | null;
+      /** @description Tên hiển thị người đang xử lý */
+      assignedUserName?: string | null;
+      claimedAt?: components['schemas']['Instant'] | null;
+      declineReasonCode?: components['schemas']['WebsiteBookingRequestDeclineReason'] | null;
+      declineNote?: string;
+      /** @description Báo giá gần nhất gắn yêu cầu (`saveQuote.websiteBookingRequestId`) */
+      quoteId?: components['schemas']['Uuid'] | null;
+      /** @description Đơn tạo ra khi `converted` */
+      reservationId?: components['schemas']['Uuid'] | null;
+      /** @example OTM-00212 */
+      reservationCode?: string | null;
+      convertedAt?: components['schemas']['Instant'] | null;
+      /** @description Contract-ahead phương án B – luôn null ở A */
+      offerSnapshot?: components['schemas']['PublicOfferSnapshot'] | null;
+      createdAt: components['schemas']['Instant'];
+      updatedAt: components['schemas']['Instant'];
+      /** @description Lúc xóa trường C2 (chuyển thành đơn, hoặc job hạn lưu – erd 4.14) */
+      piiPurgedAt?: components['schemas']['Instant'] | null;
+      version: number;
+      /** @description Theo trạng thái và vai/phạm vi người gọi (claim, release, decline, mark-spam, reopen) */
+      allowedActions: components['schemas']['AllowedAction'][];
+    };
+    /** @description **Contract-ahead phương án B** (0.3.7 bổ sung 2): giá trang đã hiện lúc gửi (từ `getPublicOffers`) – Desk hiện "Giá trên web lúc gửi" cạnh giá tính lại; lệch thì sale quyết */
+    PublicOfferSnapshot: {
+      roomType?: string;
+      totalVnd?: components['schemas']['MoneyVnd'];
+      computedAt?: components['schemas']['Instant'];
+      priceVersion?: string;
+    };
+    /** @description **Contract-ahead phương án B** (0.3.7 bổ sung 2) – `getPublicAvailability` */
+    PublicAvailability: {
+      from: components['schemas']['LocalDate'];
+      to: components['schemas']['LocalDate'];
+      /** @enum {string} */
+      currency?: 'VND';
+      roomTypes: {
+        /** @description Slug của `Room.publicRoomType` */
+        roomType: string;
+        nights: {
+          date: components['schemas']['LocalDate'];
+          /** @description Chỉ còn/hết – không số căn còn lại */
+          available: boolean;
+          /** @description Chỉ khi còn phòng và `public_show_prices = true` */
+          nightlyRateVnd?: components['schemas']['MoneyVnd'];
+        }[];
+      }[];
+    };
+    /** @description **Contract-ahead phương án B** (0.3.7 bổ sung 2) – `getPublicOffers` */
+    PublicOffers: {
+      arrival: components['schemas']['LocalDate'];
+      departure: components['schemas']['LocalDate'];
+      nights: number;
+      priceVersion?: string;
+      offers: {
+        roomType: string;
+        available: boolean;
+        totalVnd?: components['schemas']['MoneyVnd'];
+        nightlyAvgVnd?: components['schemas']['MoneyVnd'];
+        extraGuestFeeVnd?: components['schemas']['MoneyVnd'];
+        losDiscountPct?: components['schemas']['Percent'];
+        /** @description BR-305 */
+        depositPct?: components['schemas']['Percent'];
+        cancellationPolicyKey?: string;
+      }[];
+      /** @description Có khi ≥ 28 đêm (BR-108) – mời gửi yêu cầu, sale báo giá dài hạn */
+      longStayHint?: {
+        fromMonthlyVnd?: components['schemas']['MoneyVnd'];
+      };
     };
   };
   responses: {
@@ -8773,6 +9377,7 @@ export interface operations {
     requestBody?: {
       content: {
         'application/json': {
+          /** @description Ghi chú xử lý (V-08/V-09) – bắt buộc ≥ 3 ký tự với mục `critical` (0.3.7 bổ sung 1). Không ghi tên/SĐT/giấy tờ của khách */
           note?: string;
         };
       };
@@ -8785,7 +9390,51 @@ export interface operations {
         };
         content?: never;
       };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      /** @description INVALID_TRANSITION – mục do hệ thống tự đóng (`overbooking`, `unassigned_with_free_room`, `closed_reservation_credit`); IDEMPOTENCY_IN_PROGRESS (0.3.7 bổ sung 1) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "type": "/problems/invalid-transition",
+           *       "title": "Mục này tự đóng khi việc được xử lý",
+           *       "status": 409,
+           *       "code": "INVALID_TRANSITION",
+           *       "currentState": "open"
+           *     }
+           */
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description VALIDATION_FAILED (`note` thiếu với mục `critical` – mã trường `REASON_REQUIRED`; `TOO_LONG`) / CARD_NUMBER_DETECTED (V-09) / IDEMPOTENCY_KEY_REUSED (0.3.7 bổ sung 1) */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "type": "/problems/validation-failed",
+           *       "title": "Dữ liệu chưa hợp lệ",
+           *       "status": 422,
+           *       "code": "VALIDATION_FAILED",
+           *       "errors": [
+           *         {
+           *           "field": "note",
+           *           "code": "REASON_REQUIRED"
+           *         }
+           *       ]
+           *     }
+           */
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      428: components['responses']['PreconditionRequired'];
     };
   };
   streamEvents: {
@@ -8805,6 +9454,22 @@ export interface operations {
        *     0.3.6 (A-35): `registration.changed` (thêm/sửa giấy tờ, check-in online xong, K-chuyển trạng thái, xóa ảnh – chỉ phát tới FD+),
        *     `payment.changed` (ghi/xác nhận/đối soát/đảo/hoàn – MGR+ và người ghi). Folio đổi → `reservation.changed`.
        *     Bỏ `task.assigned`, `request.created` của 0.2 (chưa client/BE nào dùng) – thay bằng `hk_task.changed`, `guest_request.changed`.
+       *     **Người nhận theo vai (0.3.7; 0.3.7 bổ sung 1 – BE-D s4 2.5 #3, đúng như server đã cài)** – mức sàn theo loại:
+       *     | Loại | Người nhận |
+       *     |---|---|
+       *     | `reservation.changed` | FD+ **và** người tạo/người chốt của đơn (SAL/CTV chỉ nhận đơn của mình) |
+       *     | `room.status_changed` | FD+, HK, MT |
+       *     | `attention.changed` | FD+ |
+       *     | `hk_task.changed` | FD+, HK |
+       *     | `work_order.changed` | FD+, MT |
+       *     | `guest_request.changed` | FD+ và bộ phận yêu cầu được định tuyến tới (HK hoặc MT) |
+       *     | `registration.changed` | FD+ |
+       *     | `payment.changed` | MGR+ và người ghi khoản đó (A-35) |
+       *     | `notification.created` | chỉ người nhận thông báo (mọi vai, gồm SAL/CTV) |
+       *     Vai/người module phát truyền thêm **chỉ cộng vào** mức sàn, không thu hẹp; sự kiện không xác định được người nhận chỉ tới FD+ (đóng an toàn).
+       *     SAL/CTV vì vậy chỉ nhận `reservation.changed` của đơn mình và `notification.created` của mình (SAL thêm `payment.changed` của khoản mình ghi). Client không lọc thêm.
+       *     **0.3.7 bổ sung 2 (US-155)**: loại mới `website_request.changed` (id = `requestId`) – mức sàn FD+; SAL **thêm** loại này cho yêu cầu trong phạm vi `unassigned_or_own`
+       *     (`new` chưa giao hoặc giao cho mình). Phát khi tạo yêu cầu, mỗi chuyển WR1–WR7 và khi xóa C2.
        */
       200: {
         headers: {
@@ -9257,6 +9922,9 @@ export interface operations {
       };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   cancelReservation: {
@@ -9686,7 +10354,7 @@ export interface operations {
     };
     responses: {
       200: components['responses']['ReservationOk'];
-      /** @description FD gửi `roomNotReadyOverride` không kèm yêu cầu đã duyệt → đã tạo yêu cầu duyệt `checkin_room_not_ready` (A12 = D); đơn chưa nhận phòng */
+      /** @description FD gửi `roomNotReadyOverride` không kèm yêu cầu đã duyệt → đã tạo yêu cầu duyệt `checkin_room_not_ready` (A12 = D); đơn chưa nhận phòng, không ghi khoản thu/phụ thu nào (gửi `payment` ở nhánh này → 422 `NOT_ALLOWED` – 0.3.7 bổ sung 1) */
       202: {
         headers: {
           [name: string]: unknown;
@@ -11323,6 +11991,13 @@ export interface operations {
         'application/json': components['schemas']['QuoteInput'] & {
           guestId: components['schemas']['Uuid'];
           leadId?: components['schemas']['Uuid'];
+          /**
+           * @description 0.3.7 bổ sung 2 (US-155 AC2 – contract-ahead, cài cùng US-155): báo giá cho một yêu cầu từ website. Yêu cầu phải trong phạm vi người gọi
+           *     (SAL: chưa giao hoặc giao cho mình; CTV không thấy) – khác → 404; trạng thái `new` (server tự nhận WR1 cho người gọi) hoặc `in_progress`;
+           *     `declined`/`spam`/`converted` → 409 `INVALID_TRANSITION`; kênh báo giá phải thuộc nhóm `direct` → khác: 422 `NOT_ALLOWED` (`field` = `websiteBookingRequestId`).
+           *     Cùng giao dịch: `quote.website_booking_request_id`, `website_booking_request.quote_id` (báo giá gần nhất) qua cổng `WebsiteRequestPort` của module `public-site`.
+           */
+          websiteBookingRequestId?: components['schemas']['Uuid'];
         };
       };
     };
@@ -13792,6 +14467,7 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        'Accept-Language'?: components['parameters']['AcceptLanguage'];
       };
       path: {
         propertyId: components['parameters']['PropertyId'];
@@ -14981,7 +15657,10 @@ export interface operations {
   openGuestSession: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description 0.3.7 bổ sung 1: header trình duyệt gửi sẵn (ví dụ `en-US,en;q=0.9`) – chỉ dùng khi khách chưa tự chọn và hồ sơ không có ngôn ngữ; server đọc thẻ đầu tiên */
+        'Accept-Language'?: string;
+      };
       path?: never;
       cookie?: never;
     };
@@ -15588,6 +16267,282 @@ export interface operations {
         content?: never;
       };
       429: components['responses']['RateLimited'];
+    };
+  };
+  getPublicFormToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "token": "v1.MTczMDUxNjQwMC5h…",
+           *       "notBefore": "2026-11-02T10:00:03+07:00",
+           *       "expiresAt": "2026-11-02T12:00:00+07:00"
+           *     }
+           */
+          'application/json': components['schemas']['PublicFormToken'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  createWebsiteBookingRequest: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WebsiteBookingRequestInput'];
+      };
+    };
+    responses: {
+      /**
+       * @description Đã nhận (cũng là phản hồi **giống hệt** cho ô bẫy và cho liên hệ vượt 3/ngày – không cho biết yêu cầu có được lưu hay không). Chỉ có `refCode` và `replyBy` –
+       *     không trả lại dữ liệu khách nhập. `Cache-Control: no-store`.
+       */
+      202: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "refCode": "W7K3QX9P",
+           *       "replyBy": "2026-11-02T10:45:00+07:00"
+           *     }
+           */
+          'application/json': components['schemas']['WebsiteBookingRequestAccepted'];
+        };
+      };
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      /** @description VALIDATION_FAILED (mã trường ở mô tả operation) / FORM_TOKEN_INVALID / IDEMPOTENCY_KEY_REUSED – `errors[]` không có giá trị đã nhập */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      428: components['responses']['PreconditionRequired'];
+      429: components['responses']['RateLimited'];
+      /** @description SITE_BUSY – chạm trần yêu cầu trong ngày của cơ sở; không lưu. Trang mời nhắn Zalo hoặc gọi (US-155 AC5). Cũng có thể là SERVICE_UNAVAILABLE (quy ước chung) */
+      503: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "type": "/problems/site-busy",
+           *       "title": "Hệ thống đang bận",
+           *       "status": 503,
+           *       "code": "SITE_BUSY"
+           *     }
+           */
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getPublicAvailability: {
+    parameters: {
+      query: {
+        from: components['schemas']['LocalDate'];
+        /** @description ≤ from + 62 đêm; ≤ hôm nay + booking_window_days (BR-112) */
+        to: components['schemas']['LocalDate'];
+      };
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicAvailability'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  getPublicOffers: {
+    parameters: {
+      query: {
+        arrival: components['schemas']['LocalDate'];
+        departure: components['schemas']['LocalDate'];
+        adults: number;
+        children?: number;
+        roomType?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK – cùng header cache như `getPublicAvailability` */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicOffers'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  listWebsiteBookingRequests: {
+    parameters: {
+      query?: {
+        status?: components['schemas']['WebsiteBookingRequestStatus'][];
+        /** @description Mã tham chiếu 8 ký tự (không phân biệt hoa/thường, khớp đúng) */
+        refCode?: string;
+        /** @description Con trỏ mờ từ `page.nextCursor` */
+        cursor?: components['parameters']['Cursor'];
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK (danh sách rỗng = "Chưa có yêu cầu mới") */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['WebsiteBookingRequest'][];
+            page: components['schemas']['PageInfo'];
+          };
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  getWebsiteBookingRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        requestId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WebsiteBookingRequest'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  transitionWebsiteBookingRequest: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        requestId: components['schemas']['Uuid'];
+        action: 'claim' | 'release' | 'decline' | 'mark-spam' | 'reopen';
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['WebsiteBookingRequestTransition'];
+      };
+    };
+    responses: {
+      /** @description OK – yêu cầu sau khi chuyển */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WebsiteBookingRequest'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      428: components['responses']['PreconditionRequired'];
     };
   };
   webhookGet: {

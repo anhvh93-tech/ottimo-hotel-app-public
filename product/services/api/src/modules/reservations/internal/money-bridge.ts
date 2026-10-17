@@ -123,7 +123,144 @@ export class MoneyBridge {
     await this.sync.voidStay(tx, { ...input, folioId: input.folioId }, { userId });
   }
 
+  /**
+   * S4-08 + S4-06 (BE-B): services reversed / kept and the refund request a cancellation / no-show creates – the
+   * SAME calculation for the dry run and the write (FolioService.closeStayPreview); validates `retainLines`.
+   */
+  async closeStayPreview(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'folio_id'>,
+    input: {
+      retainLines: ReadonlyArray<{ lineId: string; reason: string }>;
+      feeVnd: number;
+      feeCategory: 'cancellation_fee' | 'no_show_fee';
+      today: string;
+    },
+  ) {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return this.folios.closeStayPreview(tx, row.folio_id, row.id, input);
+  }
+
+  /** S4-06 (BE-B, BR-522): ONE refund request for the overpayment left + "Cần chú ý" closed_reservation_credit. */
+  async closeStayCredit(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'code' | 'folio_id'>,
+    reasonCode: string,
+    actor: { userId: string; roles: readonly string[] },
+    requestId?: string,
+    reasonNote?: string | null,
+  ): Promise<{ id: string; amountVnd: number } | null> {
+    if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
+    return this.folios.closeStayCredit(tx, {
+      folioId: row.folio_id,
+      reservationId: row.id,
+      reservationCode: row.code,
+      reasonCode,
+      ...(reasonNote ? { reasonNote } : {}),
+      actor,
+      ...(requestId ? { requestId } : {}),
+    });
+  }
+
   async resynced(tx: Tx, stay: ConfirmedStay, userId: string | null, requestId?: string) {
     await this.sync.resyncStay(tx, stay, { userId, ...(requestId ? { requestId } : {}) });
+  }
+
+  /** Lock order reservation → rooms → folio (the move plan is computed under this lock – ARC 10.4). */
+  async lockFolio(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<void> {
+    if (row.folio_id) await this.folios.lock(tx, row.folio_id);
+  }
+
+  /**
+   * S4-04 / S4-21 (M2): the FOC / special discounts the booking's nights WILL carry after a move – BE-B's
+   * allocation (FolioService.previewStayReductions, the SAME function as the folio sync: BR-434 date map,
+   * min(approved, new line), S4-23 order). `nights` = every live night of the booking after the move.
+   */
+  async previewReductions(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'folio_id'>,
+    nights: ReadonlyArray<{ date: string; roomVnd: number; extraPersonVnd: number }>,
+  ): Promise<{
+    byDate: Map<string, { focVnd: number; pendingVnd: number }>;
+    oldAppliedVnd: number;
+    newAppliedVnd: number;
+  }> {
+    if (!row.folio_id) return { byDate: new Map(), oldAppliedVnd: 0, newAppliedVnd: 0 };
+    const r = await this.folios.previewStayReductions(tx, row.folio_id, row.id, nights);
+    const byDate = new Map<string, { focVnd: number; pendingVnd: number }>();
+    for (const [d, v] of r.byDate) {
+      byDate.set(d, {
+        focVnd: v.roomFocVnd + v.extraFocVnd,
+        pendingVnd: v.roomPendingVnd + v.extraPendingVnd,
+      });
+    }
+    return { byDate, oldAppliedVnd: r.oldAppliedVnd, newAppliedVnd: r.newAppliedVnd };
+  }
+
+  /** Live `room_change_difference` lines of one booking (BR-424 / BR-429 (c) – S4-05, read only). */
+  async differenceLines(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'folio_id'>,
+  ): Promise<Array<{ id: string; serviceDate: string | null; amountVnd: number }>> {
+    if (!row.folio_id) return [];
+    const lines = await this.folios.lines(tx, row.folio_id);
+    const reversed = new Set(lines.flatMap((l) => (l.reversal_of_id ? [l.reversal_of_id] : [])));
+    return lines
+      .filter(
+        (l) =>
+          l.category === 'room_change_difference' &&
+          l.reservation_id === row.id &&
+          l.line_state === 'posted' &&
+          !l.reversal_of_id &&
+          !reversed.has(l.id),
+      )
+      .map((l) => ({ id: l.id, serviceDate: l.service_date, amountVnd: l.amount_vnd }));
+  }
+
+  /**
+   * S4-05 (BR-424 v0.3.5): a guest-requested move reverses the OTA differences from the first moved night and
+   * posts the new ones (one line per night, room revenue BR-904) – never cumulative.
+   */
+  async repostDifferences(
+    tx: Tx,
+    row: Pick<ReservationRow, 'id' | 'code' | 'folio_id'>,
+    reverse: readonly string[],
+    post: ReadonlyArray<{ date: string; amountVnd: number; from: string; to: string }>,
+    who: { userId: string; requestId?: string | undefined },
+  ): Promise<void> {
+    if (!row.folio_id) return;
+    const actor = {
+      userId: who.userId,
+      reservationCode: row.code,
+      ...(who.requestId ? { requestId: who.requestId } : {}),
+    };
+    for (const id of reverse) {
+      await this.folios.reverseLine(
+        tx,
+        id,
+        'room_change re-priced against the origin room (BR-424)',
+        actor,
+      );
+    }
+    if (post.length === 0) return;
+    await this.folios.postLines(
+      tx,
+      row.folio_id,
+      post.map((d) => ({
+        reservationId: row.id,
+        category: 'room_change_difference' as const,
+        // DOM S3-15: room revenue (BR-904), not "other".
+        revenueGroup: 'room' as const,
+        chargeCode: 'room_change_difference',
+        description: `room_change ${d.from}->${d.to}`,
+        quantity: 1,
+        unitPriceVnd: d.amountVnd,
+        amountVnd: d.amountVnd,
+        serviceDate: d.date,
+        source: 'manual' as const,
+        labelParams: { from: d.from, to: d.to },
+      })),
+      actor,
+    );
   }
 }

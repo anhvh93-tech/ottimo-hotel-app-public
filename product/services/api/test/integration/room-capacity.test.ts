@@ -267,7 +267,8 @@ describe.skipIf(!HAS_DB)('room capacity vs bookings (ĐK-S2-2, US-004 / BR-110)'
     const mv = await c.fd!.send(
       'POST',
       url(`/reservations/${r.id}/actions/move`),
-      { roomId: ids.rooms['202'], reasonCode: 'guest_request' },
+      // OTTIMO's move (a guest request needs the told-the-guest amount since 0.3.7 – ESC-019 A).
+      { roomId: ids.rooms['202'], reasonCode: 'property_fault' },
       { 'if-match': `"${v}"` },
     );
     expect(mv.statusCode, mv.body).toBe(200);

@@ -557,7 +557,7 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
     expect(again.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'cancelled' });
   });
 
-  it('US-024 B7/B8: move room + dates keeps kept-night prices; OTA dates locked; postpone is MGR+', async () => {
+  it('US-024 B7/B8: an OTTIMO move (room + dates) keeps kept-night prices; OTA dates locked; postpone is MGR+', async () => {
     const r = (
       await create(
         direct({
@@ -569,10 +569,12 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
       )
     ).json();
     const before = r.nightlyRates;
+    // BR-429 (b) v0.3.5: a move OTTIMO makes keeps the booked prices (a guest request re-prices – ESC-019 A,
+    // move-pricing tests).
     const res = await action(r.id, 'move', r.version, {
       roomId: ids.rooms['101'],
       departureDate: '2027-01-14',
-      reasonCode: 'guest_request',
+      reasonCode: 'property_fault',
     });
     expect(res.statusCode, res.body).toBe(200);
     const m = res.json();

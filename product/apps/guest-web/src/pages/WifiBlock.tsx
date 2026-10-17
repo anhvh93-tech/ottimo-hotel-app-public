@@ -25,10 +25,12 @@ export function WifiBlock({ stay }: { stay: GuestStay }) {
         <dt>{t('guest.wifi')}</dt>
         {wifi ? (
           <dd>
-            <span className="li-s">{t('gw.wifi_name')}:</span> {wifi.ssid}
+            {/* G5 (DS 11.2): network name and password in JetBrains Mono 16 px – 0/O and 1/l/I stay apart. */}
+            <span className="li-s">{t('gw.wifi_name')}:</span>{' '}
+            <span className="gw-code">{wifi.ssid}</span>
             <br />
             <span className="li-s">{t('gw.wifi_pass')}:</span>{' '}
-            <span className="mono">{wifi.password}</span>
+            <span className="gw-code">{wifi.password}</span>
           </dd>
         ) : (
           <dd>{t('gw.wifi_later', { date: shortDate(stay.arrivalDate) })}</dd>

@@ -3,10 +3,10 @@
 // audit (money), registration (EP06 – C3 on trusted devices only). BE-A/B/C build the real API in
 // parallel; this file follows the spec order of checks so the UI can be built and tested now.
 // Dev/test only – never bundled (main.tsx imports mocks dynamically).
-import type { Role, Room } from '@ottimo/api-client';
+import type { AttentionItem, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
-import type { MockReservation } from './reservations';
+import type { MockFolioPort, MockReservation, MockServiceLine } from './reservations';
 import { MOCK_PASSWORD, type MockUser } from './seed';
 
 type Guard = { user: MockUser; roles: Role[] } | Response;
@@ -26,6 +26,7 @@ interface RsvApi {
     scope: string,
   ) => { key: string | null; replay: Response | null };
   remember: (key: string | null, status: number, body: unknown) => Response;
+  setFolioPort: (p: MockFolioPort) => void;
 }
 interface Ctx {
   guard: (
@@ -71,6 +72,8 @@ export interface MockLine {
   /** Catalogue / system charge code (`extra_night`, `overpayment_retained`, `key_card_fee`…). */
   chargeCode?: string;
   relatedLineId?: string;
+  /** Reversal line (0.3.7 S4-08: service lines reversed on cancel / no-show). */
+  reversalOfId?: string;
   approvalRequestId?: string;
   postedAt: string;
   postedBy?: string;
@@ -86,6 +89,8 @@ export interface MockPayment {
   status: 'pending' | 'succeeded' | 'reversed' | 'expired';
   reconciliation: 'not_required' | 'pending' | 'reconciled' | 'disputed';
   receivedAt?: string;
+  /** VietQR `pending`: business-day rollover after creation (0.3.3). */
+  expiresAt?: string;
   recordedBy?: string;
   recordedByUserId?: string;
   recordedByRole?: Role;
@@ -100,6 +105,8 @@ interface MockFolio {
   reservationId: string;
   status: 'open' | 'settled';
   billNo: string | null;
+  /** 0.3.7 add. 1 (`Bill.settledAt`) – set with the folio number at B18. */
+  settledAt?: string;
   lines: MockLine[];
   invoiceRequest?: Body;
   version: number;
@@ -129,6 +136,8 @@ export interface MockApproval {
     setByUserId?: string;
   };
   refundedVnd?: number;
+  /** 0.3.7 B-6: `ApprovalRequest.version` – bumped on every change the approver must see. */
+  version?: number;
 }
 interface MockDoc {
   id: string;
@@ -275,7 +284,8 @@ export function labelFor(
   }
 }
 
-const MINIBAR = [
+/** Minibar catalogue – shared with mocks/ops.ts (US-066 edits it; check-out reads the current price). */
+export const MINIBAR = [
   {
     itemId: uid(7001),
     itemName: 'Coca-Cola 330 ml',
@@ -726,7 +736,52 @@ export function createStayMock(ctx: Ctx) {
     });
 
   function folioOf(r: MockReservation) {
-    return st.folios.get(r.folioId)!;
+    // Bookings created after the seed (holds from a quote, new bookings) get their folio on first use.
+    let f = st.folios.get(r.folioId);
+    if (!f) {
+      f = {
+        id: r.folioId,
+        reservationId: r.id,
+        status: 'open',
+        billNo: null,
+        lines: (r.nightlyRates ?? []).map((nr) => ({
+          id: uid(80_500 + next()),
+          category: 'room',
+          description: 'room_night',
+          ...labelFor(
+            { category: 'room', description: 'room_night', serviceDate: nr.date },
+            r.segments?.[0]?.roomNo,
+          ),
+          serviceDate: nr.date,
+          quantity: 1,
+          unitPriceVnd: nr.amountVnd,
+          amountVnd: nr.amountVnd,
+          lineState: 'posted' as const,
+          postedAt: nowIso(),
+        })),
+        version: 1,
+      };
+      st.folios.set(r.folioId, f);
+    }
+    return f;
+  }
+  /** The booking a folio belongs to (its primary), within the caller's scope. */
+  function byFolio(folioId: string, g: { user: MockUser; roles: Role[] }) {
+    const id =
+      st.folios.get(folioId)?.reservationId ??
+      rsv().state.reservations.find((x) => x.folioId === folioId)?.id;
+    return id ? rsv().find({ reservationId: id }, g) : null;
+  }
+  /**
+   * 0.3.7 `CheckInPreview.amountDueAtCheckinVnd` (BUG-R2-038, BR-402 v0.3.6): balance now + early
+   * surcharge / B9a night that check-in will post (the mock has no pending FOC on extras before B9).
+   */
+  function dueAtCheckin(r: MockReservation, time: string, priorNight = false) {
+    const sur = earlySurcharge(r, time);
+    const posted = sur.addsPreviousNight && !priorNight ? 0 : sur.amountVnd;
+    const tt = totals(r);
+    // A VietQR confirmed before B9 leaves a temporary credit that the posted charge then uses up.
+    return Math.max(0, tt.balanceDueVnd - tt.creditVnd + posted);
   }
   function totals(r: MockReservation) {
     const f = folioOf(r);
@@ -1029,26 +1084,11 @@ export function createStayMock(ctx: Ctx) {
     r.version += 1;
   };
 
-  /**
-   * BE-C `onPartyMemberRemoved` (9b, SEC-BE-53 fallback): documents linked to the removed person go now; every
-   * unlinked guest-link document from "Khách 2" on waits UNCLAIMED_HOURS for the desk (earlier deadline kept).
-   */
-  function onPartyMemberRemoved(r: MockReservation, memberId: string) {
-    const reg = r.registrationId ? st.registrations.get(r.registrationId) : undefined;
-    if (!reg) return;
-    const until = new Date(Date.now() + UNCLAIMED_HOURS * 3_600_000).toISOString();
-    reg.documents = reg.documents.filter((d) => d.partyMemberId !== memberId);
-    for (const d of reg.documents)
-      if (!d.partyMemberId && (d.personIndex ?? 0) >= 2)
-        d.fieldsPurgeAfter =
-          d.fieldsPurgeAfter && d.fieldsPurgeAfter < until ? d.fieldsPurgeAfter : until;
-    recomputeReg(r, reg);
-    reg.version += 1;
-  }
+  // 0.3.6 fallback (24 h wait for every unlinked slot when a person leaves) is gone from `removePartyMember`
+  // in 0.3.7 (S4-39): the desk names the slot. It stays server-side only for reductions without a choice.
   /** Same rule as BE `isUnclaimed` (registration.repo.ts): unlinked guest-link "Khách n ≥ 2" with a deadline. */
   const isUnclaimed = (d: MockDoc) =>
     !d.partyMemberId && (d.personIndex ?? 0) >= 2 && !!d.fieldsPurgeAfter;
-  const UNCLAIMED_HOURS = 24;
 
   function regView(reg: MockRegistration) {
     const r = rsv().state.reservations.find((x) => x.id === reg.reservationId)!;
@@ -1098,6 +1138,9 @@ export function createStayMock(ctx: Ctx) {
         ...(isUnclaimed(d) && d.imageIds.length ? { imagePurgeAt: d.fieldsPurgeAfter } : {}),
         imageConsent: d.imageConsent,
         captureMethod: d.captureMethod,
+        // 0.3.7 (S4-48): the slot "Khách n" and the deadline of a document waiting to be linked.
+        ...(d.personIndex ? { personIndex: d.personIndex } : {}),
+        unclaimedUntil: isUnclaimed(d) ? d.fieldsPurgeAfter : null,
         checks: d.checks,
       })),
       allowedActions: [],
@@ -1186,6 +1229,68 @@ export function createStayMock(ctx: Ctx) {
     return { g, reg, r };
   }
 
+  // ---------- S4-08 / S4-28: folio side of cancel, no-show and deposit confirmation ----------
+  const SERVICE = [
+    'early_checkin',
+    'late_checkout',
+    'minibar',
+    'fnb',
+    'laundry',
+    'cleaning',
+    'service_fee',
+    'utilities',
+  ];
+  function liveServiceLines(r: MockReservation) {
+    const lines = folioOf(r).lines.filter((l) => l.lineState === 'posted');
+    const reversed = new Set(lines.map((l) => l.reversalOfId).filter(Boolean));
+    return lines.filter(
+      (l) => SERVICE.includes(l.category) && !l.reversalOfId && !reversed.has(l.id),
+    );
+  }
+  rsv().setFolioPort({
+    serviceLines: (r) =>
+      liveServiceLines(r).map((l): MockServiceLine => ({
+        lineId: l.id,
+        category: l.category,
+        labelKey: l.labelKey,
+        labelParams: l.labelParams,
+        serviceDate: l.serviceDate,
+        // net of the approved FOC / discount that goes with the line
+        amountVnd:
+          l.amountVnd +
+          folioOf(r)
+            .lines.filter((x) => x.relatedLineId === l.id && x.lineState === 'posted')
+            .reduce((a, x) => a + x.amountVnd, 0),
+        performed: !!l.serviceDate && l.serviceDate < today(),
+      })),
+    reverseServiceLines: (r, keep, by) => {
+      for (const l of liveServiceLines(r)) {
+        if (keep.includes(l.id)) continue;
+        addLine(
+          r,
+          {
+            category: l.category,
+            amountVnd: -l.amountVnd,
+            description: `reversal ${l.id}`,
+            labelKey: l.labelKey,
+            labelParams: l.labelParams,
+            serviceDate: l.serviceDate,
+            reversalOfId: l.id,
+          },
+          by,
+        );
+      }
+    },
+    depositPayment: (r, id) =>
+      st.payments.some(
+        (p) =>
+          p.id === id &&
+          p.folioId === r.folioId &&
+          p.type === 'deposit' &&
+          p.status === 'succeeded',
+      ),
+  });
+
   const handlers = [
     // ---------- check-in (S06, B9 / B17) ----------
     http.get(`${prop}/reservations/:reservationId/check-in-preview`, ({ request, params }) => {
@@ -1204,6 +1309,10 @@ export function createStayMock(ctx: Ctx) {
         conditions: conditions(r),
         warnings,
         earlyCheckinSurcharge: earlySurcharge(r, time),
+        // 0.3.7 (BUG-R2-038): what B9 needs collected at this check-in time.
+        balanceDueVnd: totals(r).balanceDueVnd,
+        amountDueAtCheckinVnd:
+          r.paymentModel === 'ota_prepaid' ? 0 : dueAtCheckin(r, time, time < '06:00'),
         priorNight:
           time < '06:00'
             ? {
@@ -1232,7 +1341,53 @@ export function createStayMock(ctx: Ctx) {
         const body = (await request.json()) as Body;
         const lead = has(g.roles, LEAD_PLUS);
         if (body.documentBlockOverride && !lead) return problem(403, 'FORBIDDEN_ACTION');
+        // 0.3.7 (BUG-R2-038, BR-402 v0.3.6): `balance_paid` is judged AFTER the early surcharge / B9a
+        // night and `payment` – minus the FOC asked on the surcharge; short → 409, nothing written.
+        const pay = body.payment as Body | undefined;
+        // 0.3.7 bổ sung 1 (ARC): FD asking the lead (room not ready, no approved request) → 202 that writes
+        // nothing but the ApprovalRequest; money is collected at the B9 call after approval.
+        const asksLead =
+          !!body.roomNotReadyOverride &&
+          !lead &&
+          !(body.roomNotReadyOverride as Body).approvalRequestId &&
+          !!conditions(r).find((c) => c.code === 'room_ready' && !c.met && c.detail !== 'OOO');
+        if (asksLead && pay) return validation([{ field: 'payment', code: 'NOT_ALLOWED' }]);
+        // 0.3.7 bổ sung 1 (a): FD calls B9 again with the lead's approval of TODAY for this booking.
+        const approvalId = (body.roomNotReadyOverride as Body | undefined)?.approvalRequestId;
+        if (approvalId !== undefined && !lead) {
+          const a = st.approvals.find((x) => x.id === approvalId);
+          if (
+            !a ||
+            a.type !== 'checkin_room_not_ready' ||
+            a.reservationCode !== r.code ||
+            a.status !== 'approved' ||
+            !a.decidedAt ||
+            a.decidedAt.slice(0, 10) !== nowIso().slice(0, 10)
+          )
+            return validation([
+              { field: 'roomNotReadyOverride.approvalRequestId', code: 'NOT_IN_LIST' },
+            ]);
+        }
+        if (pay && pay.type !== 'charge')
+          return validation([{ field: 'payment.type', code: 'NOT_IN_LIST' }]);
+        const payErrs = pay
+          ? paymentErrors(pay).map((e) => ({ ...e, field: `payment.${e.field}` }))
+          : [];
+        if (payErrs.length) return validation(payErrs);
+        const inTime = String(body.checkinTime ?? '14:00');
+        const posting = body.applyEarlySurcharge ? earlySurcharge(r, inTime).amountVnd : 0;
+        const focAsked = body.requestFocForSurcharge ? posting : 0;
+        const ttNow = totals(r);
+        const dueNow = Math.max(0, ttNow.balanceDueVnd - ttNow.creditVnd + posting - focAsked);
+        const paid = pay ? Number(pay.amountVnd) : 0;
+        if (pay && paid > dueNow && String(pay.note ?? '').trim().length < 3)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+            max: dueNow,
+          });
         const unmet = conditions(r).filter((c) => {
+          if (c.code === 'balance_paid')
+            return !asksLead && r.paymentModel !== 'ota_prepaid' && dueNow - paid > 0;
           if (c.met) return false;
           if (c.code === 'room_ready' && body.roomNotReadyOverride && c.detail !== 'OOO')
             return false;
@@ -1242,7 +1397,7 @@ export function createStayMock(ctx: Ctx) {
         if (unmet.length)
           return problem(409, 'CHECKIN_CONDITIONS_NOT_MET', {
             unmet: unmet.map((c) => c.code),
-            balanceDueVnd: totals(r).balanceDueVnd,
+            balanceDueVnd: dueNow - paid,
           });
         const errors: Array<{ field: string; code: string }> = [];
         const cards = Number(body.cardsIssued);
@@ -1251,7 +1406,7 @@ export function createStayMock(ctx: Ctx) {
         if (body.houseRulesSent !== true)
           errors.push({ field: 'houseRulesSent', code: 'REQUIRED' });
         const ro = body.roomNotReadyOverride as Body | undefined;
-        if (ro && String(ro.reason ?? '').trim().length < 3)
+        if (ro && !(ro.approvalRequestId && !lead) && String(ro.reason ?? '').trim().length < 3)
           errors.push({ field: 'roomNotReadyOverride.reason', code: 'REASON_REQUIRED' });
         if (errors.length) return validation(errors);
         const timeErr = timeCheck(
@@ -1269,7 +1424,12 @@ export function createStayMock(ctx: Ctx) {
           ]);
         if (body.applyEarlySurcharge && Number(body.expectedSurchargeVnd) !== sur.amountVnd)
           return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: sur.amountVnd });
-        if (ro && !lead && conditions(r).find((c) => c.code === 'room_ready' && !c.met)) {
+        if (
+          ro &&
+          !lead &&
+          !ro.approvalRequestId &&
+          conditions(r).find((c) => c.code === 'room_ready' && !c.met)
+        ) {
           const a: MockApproval = {
             id: uid(89_000 + next()),
             type: 'checkin_room_not_ready',
@@ -1305,6 +1465,8 @@ export function createStayMock(ctx: Ctx) {
             },
             g.user.displayName,
           );
+        // 0.3.7: the payment taken at check-in is written in the same transaction (after the lines).
+        if (pay) recordPay(r, { ...pay, type: 'charge' }, g);
         bump(r);
         return rsv().remember(key, 200, resView(r, g));
       },
@@ -1902,11 +2064,40 @@ export function createStayMock(ctx: Ctx) {
       if (!m) return problem(404, 'NOT_FOUND');
       if (m.role === 'booker')
         return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+      // 0.3.7 (S4-39, SEC-BE-53 main option): the desk says which "Khách n" slot was this person's.
+      const reg = r.registrationId ? st.registrations.get(r.registrationId) : undefined;
+      const linked = !!reg?.documents.some((d) => d.partyMemberId === m.id);
+      const slots = (reg?.documents ?? [])
+        .filter((d) => d.captureMethod === 'guest_upload' && !d.partyMemberId && !d.isMain)
+        .filter((d) => (d.personIndex ?? 0) >= 2);
+      const raw = new URL(request.url).searchParams.get('guestUploadPersonIndex');
+      if (raw === null && !linked && slots.length)
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'guestUploadPersonIndex', code: 'REQUIRED' }],
+          personIndexes: slots.map((d) => d.personIndex).sort(),
+        });
+      const slot = raw === null || raw === 'none' ? null : Number(raw);
+      if (slot !== null && (linked || !slots.length))
+        return validation([{ field: 'guestUploadPersonIndex', code: 'NOT_ALLOWED' }]);
+      if (slot !== null && !slots.some((d) => d.personIndex === slot))
+        return validation([{ field: 'guestUploadPersonIndex', code: 'NOT_IN_LIST' }]);
       st.party.set(
         r.id,
         members.filter((z) => z !== m),
       );
-      onPartyMemberRemoved(r, m.id);
+      if (reg) {
+        // Linked documents go; the chosen slot goes; later unlinked slots move up; no 24 h wait.
+        reg.documents = reg.documents.filter(
+          (d) =>
+            d.partyMemberId !== m.id &&
+            !(slot !== null && slots.includes(d) && d.personIndex === slot),
+        );
+        if (slot !== null)
+          for (const d of slots)
+            if (d.personIndex! > slot && reg.documents.includes(d)) d.personIndex! -= 1;
+        recomputeReg(r, reg);
+        reg.version += 1;
+      }
       bump(r);
       return new HttpResponse(null, { status: 204 });
     }),
@@ -2075,6 +2266,15 @@ export function createStayMock(ctx: Ctx) {
           return problem(409, 'PENDING_APPROVALS', { pendingApprovals: tt0.pendingApprovals });
         const debt = body.debt as Body | undefined;
         if (debt && !has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+        // S4-26 (FE-B): debt {dueDate, reason ≥ 3} – required fields of the contract (BR-525).
+        if (debt) {
+          const errs: Array<{ field: string; code: string }> = [];
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(debt.dueDate ?? '')))
+            errs.push({ field: 'debt.dueDate', code: 'REQUIRED' });
+          if (String(debt.reason ?? '').trim().length < 3)
+            errs.push({ field: 'debt.reason', code: 'REASON_REQUIRED' });
+          if (errs.length) return validation(errs);
+        }
         const op = body.overpaymentHandling as Body | undefined;
         if (op?.mode === 'retain_with_guest_consent' && !has(g.roles, OWN_MGR))
           return problem(403, 'FORBIDDEN_ACTION');
@@ -2159,10 +2359,16 @@ export function createStayMock(ctx: Ctx) {
           audit(g, 'reservation.extra_night_on_checkout', r.code, {
             amountVnd: Number(extraNight.rateVnd),
           });
+        if (debt && tt.balanceDueVnd > 0)
+          audit(g, 'reservation.debt_on_checkout', r.code, {
+            amountVnd: tt.balanceDueVnd,
+            dueDate: String(debt.dueDate),
+          });
         r.status = 'checked_out';
         r.actualCheckoutAt = nowIso();
         const f = folioOf(r);
         f.status = 'settled';
+        f.settledAt = nowIso();
         f.billNo = `F26-000${100 + next()}`;
         const room = roomOf(r);
         if (room) st.roomStatus[room.roomNo] = 'VD';
@@ -2179,9 +2385,8 @@ export function createStayMock(ctx: Ctx) {
     http.get(`${prop}/folios/:folioId`, ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, ...SALES]);
       if (isResponse(g)) return g;
-      const f = st.folios.get(String(params.folioId));
-      const r = f && rsv().find({ reservationId: f.reservationId }, g);
-      if (!f || !r) return problem(404, 'NOT_FOUND');
+      const r = byFolio(String(params.folioId), g);
+      if (!r) return problem(404, 'NOT_FOUND');
       return json(folioView(r, g.roles));
     }),
     http.get(`${prop}/charge-catalog`, ({ request }) => {
@@ -2243,6 +2448,81 @@ export function createStayMock(ctx: Ctx) {
         category: item?.category,
       });
       return json(folioView(r, g.roles), 201);
+    }),
+    // S4-27 (US-006 AC1, US-038 AC2; BR-008): adjustment = reversal + new line, reason required,
+    // If-Match = Folio.version; settled → MGR/OWN only (A32); night lines take a price only (S4-35).
+    http.post(`${prop}/folios/:folioId/lines/:lineId/adjustments`, async ({ request, params }) => {
+      const pre = guard(request, FD_PLUS);
+      if (isResponse(pre)) return pre;
+      const r = byFolio(String(params.folioId), pre);
+      if (!r) return problem(404, 'NOT_FOUND');
+      const f = folioOf(r);
+      const g = guard(request, FD_PLUS, { ifMatch: f.version });
+      if (isResponse(g)) return g;
+      if (f.status === 'settled' && !has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+      const { key, replay } = rsv().idem(request, `adjust:${params.lineId}`);
+      if (replay) return replay;
+      const body = (await request.json()) as Body;
+      if (String(body.reason ?? '').trim().length < 3)
+        return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+      const live = f.lines.filter((l) => l.lineState === 'posted');
+      const l = live.find((x) => x.id === params.lineId);
+      if (!l || l.reversalOfId || live.some((x) => x.reversalOfId === l.id))
+        return problem(409, 'INVALID_TRANSITION', { currentState: 'reversed' });
+      const night = ['room', 'extra_person'].includes(l.category);
+      if (night && (body.newQuantity !== undefined || body.voidLine === true))
+        return validation([
+          { field: body.voidLine ? 'voidLine' : 'newQuantity', code: 'NOT_ALLOWED' },
+        ]);
+      const qty = body.newQuantity !== undefined ? Number(body.newQuantity) : l.quantity;
+      const unit =
+        body.newUnitPriceVnd !== undefined ? Number(body.newUnitPriceVnd) : l.unitPriceVnd;
+      if (night && l.category === 'room') {
+        const list = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+        if (unit < list * 0.5 || unit > list * 2)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'newUnitPriceVnd', code: 'RATE_OUT_OF_RANGE' }],
+            min: Math.round(list * 0.5),
+            max: list * 2,
+          });
+      }
+      addLine(
+        r,
+        {
+          category: l.category,
+          amountVnd: -l.amountVnd,
+          quantity: l.quantity,
+          unitPriceVnd: -l.unitPriceVnd,
+          description: `reversal ${l.id}`,
+          labelKey: l.labelKey,
+          labelParams: l.labelParams,
+          serviceDate: l.serviceDate,
+          reversalOfId: l.id,
+        },
+        g.user.displayName,
+      );
+      if (body.voidLine !== true)
+        addLine(
+          r,
+          {
+            category: l.category,
+            quantity: qty,
+            unitPriceVnd: unit,
+            amountVnd: round1000(unit * qty),
+            description: l.description,
+            labelKey: l.labelKey,
+            labelParams: l.labelParams,
+            serviceDate: l.serviceDate,
+            chargeCode: l.chargeCode,
+          },
+          g.user.displayName,
+        );
+      audit(g, 'folio_line.adjusted', r.code, {
+        before: l.amountVnd,
+        amountVnd: body.voidLine === true ? 0 : round1000(unit * qty),
+        reason: String(body.reason),
+      });
+      return rsv().remember(key, 201, folioView(r, g.roles));
     }),
     http.post(`${prop}/folios/:folioId/lines/:lineId/foc`, async ({ request, params }) => {
       const g = guard(request, FD_PLUS);
@@ -2313,15 +2593,34 @@ export function createStayMock(ctx: Ctx) {
     http.post(`${prop}/folios/:folioId/vietqr`, async ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, 'sales_staff']);
       if (isResponse(g)) return g;
-      const f = st.folios.get(String(params.folioId));
-      const r = f && rsv().find({ reservationId: f.reservationId }, g);
-      if (!f || !r) return problem(404, 'NOT_FOUND');
+      const r = byFolio(String(params.folioId), g);
+      if (!r) return problem(404, 'NOT_FOUND');
+      const f = folioOf(r);
+      const { key, replay } = rsv().idem(request, `vietqr:${f.id}`);
+      if (replay) return replay;
       if (st.paymentNotConfigured) return problem(409, 'PAYMENT_NOT_CONFIGURED');
       const body = (await request.json()) as Body;
       const amount = Number(body.amountVnd);
       if (!(amount > 0)) return validation([{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
-      if (amount > totals(r).balanceDueVnd && !body.overBalanceReason && body.purpose !== 'deposit')
-        return validation([{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }]);
+      // SEC F1: a hold owes its missing deposit (BR-305) and only takes `purpose=deposit`;
+      // 0.3.7 `check_in` is capped by `amountDueAtCheckinVnd` at the time the desk is looking at.
+      const hold = r.status === 'hold';
+      if (hold && body.purpose && body.purpose !== 'deposit')
+        return validation([{ field: 'purpose', code: 'NOT_IN_LIST' }]);
+      const cap = hold
+        ? Math.max(0, (r.depositRequiredVnd ?? 0) - r.depositPaidVnd)
+        : body.purpose === 'check_in'
+          ? dueAtCheckin(r, String(body.checkinTime ?? '14:00'), !!body.addPriorNight)
+          : totals(r).balanceDueVnd;
+      if (amount > cap && !body.overBalanceReason)
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          max: cap,
+        });
+      // One pending QR per folio: the older one expires now.
+      for (const old of st.payments)
+        if (old.folioId === f.id && old.method === 'vietqr' && old.status === 'pending')
+          old.status = 'expired';
       const content =
         f.status === 'settled' && f.billNo ? f.billNo.replace('-', '') : r.code.replace('-', '');
       // EMVCo-like payload (mock): the real one is built by BE-B with CRC16 (INT F2).
@@ -2333,27 +2632,25 @@ export function createStayMock(ctx: Ctx) {
         code: `PT-0${st.seq}`,
         folioId: f.id,
         reservationCode: r.code,
-        type: body.purpose === 'deposit' ? 'deposit' : 'charge',
+        type: hold || body.purpose === 'deposit' ? 'deposit' : 'charge',
         method: 'vietqr',
         amountVnd: amount,
         status: 'pending',
         reconciliation: 'pending',
+        expiresAt: `${addDays(today(), 1)}T06:00:00+07:00`,
         recordedBy: g.user.displayName,
         recordedByUserId: g.user.id,
         recordedByRole: g.roles[0],
         version: 1,
       };
       st.payments.push(p);
-      return json(
-        {
-          payment: p,
-          qrPayload,
-          transferContent: content,
-          receivingAccountMasked: '9704••••7777',
-          receivingAccountRecentlyChanged: false,
-        },
-        201,
-      );
+      return rsv().remember(key, 201, {
+        payment: p,
+        qrPayload,
+        transferContent: content,
+        receivingAccountMasked: '9704••••7777',
+        receivingAccountRecentlyChanged: false,
+      });
     }),
     http.post(
       `${prop}/payments/:paymentId/actions/confirm-received`,
@@ -2370,6 +2667,8 @@ export function createStayMock(ctx: Ctx) {
         p.note = (body.note as string | undefined) ?? p.note;
         p.version += 1;
         const r = rsv().state.reservations.find((x) => x.folioId === p.folioId)!;
+        // A deposit QR counts towards the hold's deposit (B4 then confirms with `existingPaymentId`).
+        if (p.type === 'deposit') r.depositPaidVnd += p.amountVnd;
         syncReservation(r);
         bump(r);
         audit(g, 'payment.confirmed_received', r.code, {
@@ -2457,9 +2756,13 @@ export function createStayMock(ctx: Ctx) {
       if (isResponse(g)) return g;
       const p = st.payments.find((x) => x.id === params.paymentId);
       if (!p) return problem(404, 'NOT_FOUND');
-      if (p.status === 'reversed')
+      const body = (await request.json().catch(() => ({}))) as Body;
+      if (String(body.reason ?? '').trim().length < 3)
+        return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+      if (p.status !== 'succeeded')
         return problem(409, 'INVALID_TRANSITION', { currentState: p.status });
       p.status = 'reversed';
+      p.version += 1;
       const r = rsv().state.reservations.find((x) => x.folioId === p.folioId)!;
       syncReservation(r);
       return json(p);
@@ -2522,6 +2825,9 @@ export function createStayMock(ctx: Ctx) {
       return json({
         folioId: f.id,
         billNo: f.billNo,
+        // 0.3.7 add. 1: the time the folio was settled (seeded checked-out stays: their departure morning).
+        settledAt:
+          f.status === 'settled' ? (f.settledAt ?? `${r.departureDate}T11:00:00+07:00`) : null,
         locale: foreign ? 'vi_en' : 'vi',
         property: {
           name: 'OTTIMO Boutique Stay – Đà Lạt',
@@ -2601,6 +2907,8 @@ export function createStayMock(ctx: Ctx) {
         const a = st.approvals.find((x) => x.id === params.approvalId);
         if (!a) return problem(404, 'NOT_FOUND');
         const body = (await request.json()) as Body;
+        const missing = versionCheck(a, body, 'missing');
+        if (missing) return missing;
         if (body.secret !== MOCK_PASSWORD)
           return problem(401, 'REAUTH_FAILED', {
             errors: [{ field: 'secret', code: 'REAUTH_FAILED' }],
@@ -2613,6 +2921,9 @@ export function createStayMock(ctx: Ctx) {
             approverName: a.approverName,
             decidedAt: a.decidedAt,
           });
+        const stale = versionCheck(a, body, 'stale');
+        if (stale) return stale;
+        a.version = (a.version ?? 1) + 1;
         a.status = 'approved';
         a.approverName = g.user.displayName;
         a.approverUserId = g.user.id;
@@ -2639,8 +2950,13 @@ export function createStayMock(ctx: Ctx) {
           });
         if (String(body.reason ?? '').trim().length < 3)
           return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+        const missing = versionCheck(a, body, 'missing');
+        if (missing) return missing;
         if (!['pending', 'escalated'].includes(a.status))
           return problem(409, 'INVALID_TRANSITION', { currentState: a.status });
+        const stale = versionCheck(a, body, 'stale');
+        if (stale) return stale;
+        a.version = (a.version ?? 1) + 1;
         a.status = 'rejected';
         a.approverName = g.user.displayName;
         a.decidedAt = nowIso();
@@ -2686,6 +3002,7 @@ export function createStayMock(ctx: Ctx) {
         };
         // SEC F8: a destination changed after approval goes back to approval.
         if (a.status === 'approved') a.status = 'pending';
+        a.version = (a.version ?? 1) + 1;
         return json(approvalView(a));
       },
     ),
@@ -2820,9 +3137,15 @@ export function createStayMock(ctx: Ctx) {
       if (data.isMain && reg.documents.some((d) => d.isMain))
         errors.push({ field: 'isMain', code: 'MAIN_GUEST_DUPLICATE' });
       if (errors.length) return validation(errors);
-      // BE addDocument: the same number twice in one registration (incl. a document waiting to be linked).
-      if (reg.documents.some((d) => d.docNumber && d.docNumber === no))
-        return problem(409, 'PARTY_DUPLICATE');
+      // BE addDocument: the same number twice in one registration. 0.3.7 (S4-39): the twin is a document
+      // waiting to be linked → DOCUMENT_UNCLAIMED_EXISTS with its id + slot (the desk links it, no new one).
+      const twin = reg.documents.find((d) => d.docNumber && d.docNumber === no);
+      if (twin && isUnclaimed(twin))
+        return problem(409, 'DOCUMENT_UNCLAIMED_EXISTS', {
+          documentId: twin.id,
+          personIndex: twin.personIndex,
+        });
+      if (twin) return problem(409, 'PARTY_DUPLICATE');
       const doc: MockDoc = {
         id: uid(93_000 + next()),
         docType: String(data.docType),
@@ -3098,38 +3421,12 @@ export function createStayMock(ctx: Ctx) {
       },
     ),
     // listAttentionItems – only the registration item of BE-C 9b (data_quality /
-    // registration_party_docs_unlinked); the other sources come with H24 (Sprint 4).
+    // registration_party_docs_unlinked). Sprint 4: the full list is served by mocks/dashboard.ts (FE-B), which
+    // adds this item through `registrationAttention()` – this handler is kept for the S3 screens' own tests.
     http.get(`${prop}/attention`, ({ request }) => {
       const g = guard(request, FD_PLUS);
       if (isResponse(g)) return g;
-      const found = [...st.registrations.values()]
-        .filter((reg) => reg.status !== 'void' && reg.documents.some(isUnclaimed))
-        .map((reg) => ({
-          r: rsv().state.reservations.find((x) => x.id === reg.reservationId)!,
-          due: reg.documents
-            .filter(isUnclaimed)
-            .map((d) => d.fieldsPurgeAfter!)
-            .sort()[0]!,
-        }))
-        .sort((a, b) => (a.due < b.due ? -1 : 1));
-      const first = found[0];
-      if (!first) return json({ data: [] });
-      return json({
-        data: [
-          {
-            kind: 'data_quality',
-            source: 'computed',
-            severity: 'warning',
-            count: found.length,
-            reservationIds: found.map((f) => f.r.id),
-            roomNos: [...new Set(found.map((f) => f.r.segments?.[0]?.roomNo).filter(Boolean))],
-            dueAt: first.due,
-            ...(found.length === 1 ? { refCode: first.r.code } : {}),
-            link: '/registrations',
-            params: { check: 'registration_party_docs_unlinked' },
-          },
-        ],
-      });
+      return json({ data: registrationAttention() });
     }),
     // updateGuestDocument (If-Match = registration version) – same field rules as add.
     http.patch(
@@ -3143,6 +3440,21 @@ export function createStayMock(ctx: Ctx) {
         const d = reg.documents.find((z) => z.id === params.documentId);
         if (!d) return problem(404, 'NOT_FOUND');
         const data = (await request.json()) as Body;
+        // 0.3.7 `GuestDocumentLink` (S4-39): only `partyMemberId` – link, no C3 field touched.
+        if (Object.keys(data).length === 1 && typeof data.partyMemberId === 'string') {
+          const id = data.partyMemberId;
+          if (!(st.party.get(r.id) ?? []).some((m) => m.id === id))
+            return validation([{ field: 'partyMemberId', code: 'NOT_IN_LIST' }]);
+          if (reg.documents.some((z) => z !== d && z.partyMemberId === id))
+            return problem(409, 'PARTY_DUPLICATE');
+          if (d.partyMemberId && d.partyMemberId !== id)
+            return problem(409, 'INVALID_TRANSITION', { currentState: 'linked' });
+          d.partyMemberId = id;
+          d.fieldsPurgeAfter = null;
+          recomputeReg(r, reg);
+          reg.version += 1;
+          return json(regView(reg));
+        }
         const no = String(data.docNumber ?? d.docNumber)
           .replace(/\s/g, '')
           .toUpperCase();
@@ -3179,8 +3491,22 @@ export function createStayMock(ctx: Ctx) {
     ),
   ];
 
+  /**
+   * 0.3.7 B-6 (#6): `expectedVersion` on approve/reject – required for `refund` (422 REQUIRED), compared
+   * when sent (412 VERSION_CONFLICT + currentVersion). Not an If-Match header (FOC flow unchanged).
+   */
+  function versionCheck(a: MockApproval, body: Body, step: 'missing' | 'stale') {
+    const sent = body.expectedVersion;
+    if (step === 'missing')
+      return a.type === 'refund' && (sent === undefined || sent === null)
+        ? validation([{ field: 'expectedVersion', code: 'REQUIRED' }])
+        : null;
+    return sent !== undefined && sent !== null && Number(sent) !== (a.version ?? 1)
+      ? problem(412, 'VERSION_CONFLICT', { currentVersion: a.version ?? 1 })
+      : null;
+  }
   function approvalView(a: MockApproval) {
-    const out: Record<string, unknown> = { ...a };
+    const out: Record<string, unknown> = { ...a, version: a.version ?? 1 };
     delete out.requestedByUserId;
     delete out.folioId;
     if (a.refundDestination) {
@@ -3278,8 +3604,41 @@ export function createStayMock(ctx: Ctx) {
     return rsv().remember(key, 201, p);
   }
 
+  /** "Cần chú ý" item of guest-link documents waiting for a person (S4-39) – also fed to mocks/dashboard.ts. */
+  function registrationAttention(): AttentionItem[] {
+    const found = [...st.registrations.values()]
+      .filter((reg) => reg.status !== 'void' && reg.documents.some(isUnclaimed))
+      .map((reg) => ({
+        r: rsv().state.reservations.find((x) => x.id === reg.reservationId)!,
+        due: reg.documents
+          .filter(isUnclaimed)
+          .map((d) => d.fieldsPurgeAfter!)
+          .sort()[0]!,
+      }))
+      .sort((a, b) => (a.due < b.due ? -1 : 1));
+    const first = found[0];
+    if (!first) return [];
+    return [
+      {
+        kind: 'data_quality',
+        source: 'computed',
+        severity: 'warning',
+        count: found.length,
+        reservationIds: found.map((f) => f.r.id),
+        roomNos: [
+          ...new Set(found.map((f) => f.r.segments?.[0]?.roomNo).filter((x): x is string => !!x)),
+        ],
+        dueAt: first.due,
+        ...(found.length === 1 ? { refCode: first.r.code } : {}),
+        link: '/registrations',
+        params: { check: 'registration_party_docs_unlinked' },
+      },
+    ];
+  }
+
   return {
     handlers,
+    registrationAttention,
     reset() {
       st = makeState();
     },

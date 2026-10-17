@@ -19,6 +19,7 @@ import {
   versionTag,
 } from '../support/api.js';
 import { expectNear, needClock, resetClock, runJob, runJobIfAny } from '../support/clock.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   EP,
   action,
@@ -130,6 +131,9 @@ async function begin(
 }
 
 const fdOf = (request: APIRequestContext) => sessionOrSkip(request, 'qa.fd');
+
+/** TC-L3-074 → TC-L3-074 (b): khai báo đã bị J16 xóa ảnh (project clock: 1 worker, chạy theo thứ tự trong file). */
+let purgedRegs: { regIds: string[]; summary: string[] } | null = null;
 
 /** Giờ của một Instant theo giờ VN (HH:MM). */
 const hhmm = (iso: string | undefined) =>
@@ -820,23 +824,66 @@ test.describe(
           const lines = liveLines(await getFolio(request, fd, folio), 'early_checkin');
           expect(lines).toHaveLength(1);
           expect(lines[0]!.amountVnd).toBe(amount);
-          // EP03-05 1.3: balance_paid tính cả phụ thu nhận sớm sắp ghi – chưa thu thì chưa nhận phòng
-          const st2 = await makeStay(request, c, fd, {
-            room: room(c, '202'),
-            arrival: D,
-            ...at700(D),
-          });
-          const r2 = await checkIn(request, fd, st2.res.id, {
-            checkinTime: time,
-            applyEarlySurcharge: true,
-            expectedSurchargeVnd: amount,
-          });
-          test.fail(
-            true,
-            'BUG-R2-038: điều kiện balance_paid không cộng phụ thu nhận sớm/đêm B9a sắp ghi (EP03-05 1.3) – nhận phòng xong còn nợ phụ thu',
+          // phần BUG-R2-038 (balance_paid gồm phụ thu) tách thành ca riêng bên dưới – test.fail ở đầu ca (BUG-R2-064)
+        },
+      );
+
+      test(
+        'TC-L3-011 (c) US-025/AC3 balance_paid gồm phụ thu nhận sớm sắp ghi: chưa thu → 409, thu trong B9 bằng checkIn.payment → nhận phòng (BUG-R2-038, S4-10) [A · Cao]',
+        { annotation: [story('US-025/AC3'), eps('previewCheckIn, checkIn')] },
+        async ({ request }) => {
+          // BUG-R2-064: lỗi đã biết đánh dấu ở DÒNG ĐẦU ca; dựng dữ liệu trong precondition (hỏng → đỏ, không bị che)
+          knownBug('BUG-R2-038');
+          const o = oracle('BR-411-01');
+          const time = String(o.input.checkinTime);
+          const amount = oracleNum('BR-411-01', 'surchargeVnd');
+          const { fd, st2 } = await precondition(
+            'đơn 202 đến hôm nay, giá 700.000, đã trả đủ tiền phòng',
+            async () => {
+              const { D, c } = await begin(
+                request,
+                'TC-L3-011',
+                [EP3.previewCheckIn, EP3.checkIn],
+                time,
+              );
+              const fd = await fdOf(request);
+              const st2 = await makeStay(request, c, fd, {
+                room: room(c, '202'),
+                arrival: D,
+                ...at700(D),
+              });
+              return { fd, st2 };
+            },
+          );
+          // EP03-05 1.3 / BR-402 v0.3.6: balance_paid xét SAU dòng phụ thu nhận sớm – chưa thu thì chưa nhận phòng
+          const pv = await preview(request, fd, st2.res.id, time);
+          expect(
+            pv.body.amountDueAtCheckinVnd,
+            'CheckInPreview.amountDueAtCheckinVnd = phụ thu sắp ghi',
+          ).toBe(amount);
+          const folio = String(st2.res.folioId);
+          const n0 = (await getFolio(request, fd, folio)).lines.length;
+          const r2 = await checkIn(
+            request,
+            fd,
+            st2.res.id,
+            { checkinTime: time, applyEarlySurcharge: true, expectedSurchargeVnd: amount },
+            { autoPay: false },
           );
           expectProblem(r2, 409, 'CHECKIN_CONDITIONS_NOT_MET');
           expect(unmetOf(r2)).toEqual(['balance_paid']);
+          expect((await getFolio(request, fd, folio)).lines.length, 'không ghi gì').toBe(n0);
+          // 0.3.7: thu ngay trong B9 (checkIn.payment) → ghi phụ thu, ghi khoản thu, rồi mới xét balance_paid
+          const ok = await checkIn(request, fd, st2.res.id, {
+            checkinTime: time,
+            applyEarlySurcharge: true,
+            expectedSurchargeVnd: amount,
+            payment: { type: 'charge', method: 'cash', amountVnd: amount },
+          });
+          expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+          const f = await getFolio(request, fd, folio);
+          expect(liveLines(f, 'early_checkin').map((l) => l.amountVnd)).toEqual([amount]);
+          expect(f.totals.balanceDueVnd).toBe(0);
         },
       );
 
@@ -2211,12 +2258,30 @@ test.describe(
             );
             expect(ev.length, `Cần chú ý registration_overdue của ${x.res.code}`).toBe(1);
           }
-          // EP06 6.1: mỗi lần xóa cập nhật Registration.imagesPurgedAt (+ lý do) để H14 hiện "Ảnh đã xóa lúc …"
-          test.fail(
-            summary.some((x) => x.includes('undefined')),
-            'BUG-R2-054: xóa ảnh khai báo chưa confirmed (SR-RET-02, lý do `unconfirmed`) không ghi Registration.imagesPurgedAt/imagesPurgeReason (SUMMARY_REASONS thiếu `unconfirmed`; enum hợp đồng cũng thiếu)',
+          // BUG-R2-064 (S4-24): phần BUG-R2-054 (imagesPurgedAt/imagesPurgeReason) tách thành ca kế tiếp, test.fail ở đầu ca
+          purgedRegs = { regIds: [a.regId, b.regId], summary };
+        },
+      );
+
+      test(
+        'TC-L3-074 (b) US-049/AC1 khai báo chưa confirmed đã xóa ảnh có Registration.imagesPurgedAt + imagesPurgeReason (EP06 6.1, BUG-R2-054) [A · TB]',
+        { annotation: [story('US-049/AC1'), eps('getRegistration')] },
+        async ({ request }) => {
+          knownBug('BUG-R2-054');
+          // dữ liệu do TC-L3-074 dựng (cùng file, project clock 1 worker, chạy ngay trước) – thiếu là đỏ, không bị che
+          const regs = await precondition(
+            'khai báo (a)(b) của TC-L3-074 đã bị J16 xóa ảnh',
+            async () => {
+              expect(purgedRegs, 'TC-L3-074 phải chạy xong trước ca này').toBeTruthy();
+              return purgedRegs!;
+            },
           );
-          expect(summary.join('; ')).not.toContain('undefined');
+          const fd = await fdOf(request);
+          for (const id of regs.regIds) {
+            const reg = await regOf(request, fd, id);
+            expect(reg.imagesPurgedAt, `imagesPurgedAt của ${id}`).toBeTruthy();
+            expect(reg.imagesPurgeReason, `imagesPurgeReason của ${id}`).toBeTruthy();
+          }
         },
       );
     });

@@ -1,0 +1,54 @@
+---
+// Footer (mock v1.1 section 10): lockup on Ink, tagline, address, contacts.
+import { addressLine, links, site } from '../content/site';
+import type { Copy } from '../content/types';
+import Monogram from './Monogram.astro';
+
+interface Props {
+  t: Copy;
+  home: string;
+}
+
+const { t, home } = Astro.props;
+const year = 2026;
+---
+
+<footer class="site-f dark on-dark">
+  <div class="wrap">
+    <div class="f-grid">
+      <div>
+        <a class="brand" href={`${home}#top`}>
+          <Monogram />
+          <span class="brand-div" aria-hidden="true"></span>
+          <span class="wm"><span class="wm-name">OTTIMO</span> <span class="wm-sub">Boutique Stay</span></span>
+          <span class="sr">{t.footer.backToTop}</span>
+        </a>
+        <p class="tagline" lang="en">{site.tagline}</p>
+      </div>
+      <div class="f-col">
+        <h2>{t.footer.visit}</h2>
+        <p>{addressLine}</p>
+      </div>
+      <div class="f-col">
+        <h2>{t.footer.contact}</h2>
+        <ul>
+          <li>{t.footer.hotline}: <a href={links.tel}>{site.phone.local}</a></li>
+          <li>
+            WhatsApp · Telegram · Viber: <a href={links.whatsapp()}>{site.phone.international}</a>
+          </li>
+          {
+            site.contact.email && (
+              <li>
+                Email: <a href={links.mail(t.contact.mail.subject)}>{site.contact.email}</a>
+              </li>
+            )
+          }
+        </ul>
+      </div>
+    </div>
+    <div class="f-base">
+      <span>© {year} {site.name} · {t.footer.place}</span>
+      <span>{t.footer.privacy}</span>
+    </div>
+  </div>
+</footer>

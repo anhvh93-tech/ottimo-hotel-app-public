@@ -122,12 +122,19 @@ export class RefundsService {
       return;
     }
     if (row.status !== 'approved') return;
+    // S4-42 (BR-522 (a)): a cash refund is paid by ANOTHER desk member than its requester (SELF_REFUND_FORBIDDEN)
+    // → the front desk (FD/FDL) hears it too while the destination is cash or not chosen yet. [GIẢ ĐỊNH BE-B]
+    // R2 has no shift table yet: every active FD/FDL of the property stands for "trong ca". Transfers stay with
+    // the requester (paid by MGR/OWN only).
+    const method = (row as RefundRow).refund_method;
+    const desk = !method || method === 'cash';
     await notifyStaff(
       tx,
       this.events,
       {
         kind: 'refund_ready',
         userIds: [row.requested_by],
+        ...(desk ? { roles: ['front_desk', 'front_desk_lead'] } : {}),
         refType: 'approval_request',
         refId: row.id,
         ...(row.target_code ? { refCode: row.target_code } : {}),
@@ -623,6 +630,25 @@ export class RefundsService {
       ...(note ? { reason: note } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    // S4-06 (BR-522 v0.3.4): the "Cần chú ý – tiền dư đơn đã đóng" item of a cancelled / no-show booking closes
+    // itself once nothing is left to pay back on its folio (BE-D 2.2: system-resolved only).
+    if (this.events) {
+      const { rows: st } = await tx.query<{ status: string }>(
+        'SELECT status FROM reservation WHERE id = $1',
+        [target],
+      );
+      if (st[0] && (st[0].status === 'cancelled' || st[0].status === 'no_show')) {
+        const left = await this.folios.balance(tx, folio.id);
+        if (left.rawCreditVnd <= 0) {
+          await this.events.resolveAttention(
+            tx,
+            `closed_reservation_credit:${target}`,
+            now,
+            'refund paid out (BR-522)',
+          );
+        }
+      }
+    }
     await publishEvent(tx, this.events, 'payment.changed', id, {
       roles: MANAGER_ROLES,
       userIds: [actor.userId],

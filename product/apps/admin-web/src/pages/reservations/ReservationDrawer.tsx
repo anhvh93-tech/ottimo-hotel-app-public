@@ -1,4 +1,4 @@
-import type { Commission, Folio, Reservation, ReservationStatus } from '@ottimo/api-client';
+import type { Bill, Commission, Folio, Reservation, ReservationStatus } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
@@ -15,6 +15,7 @@ import {
   rsvErrorText,
 } from '../../app/reservations';
 import { lineLabel } from '../../app/folio';
+import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
 import { useNow } from '../../hooks/useNow';
@@ -43,6 +44,8 @@ import {
   RefundRequestDialog,
   UndoCheckInDialog,
 } from '../stay/StayDialogs';
+import { BillDialog } from '../stay/CheckOutPage';
+import { FolioDialog } from '../stay/FolioDialog';
 
 type Open =
   | 'cancel'
@@ -63,6 +66,8 @@ type Open =
   | 'undo'
   | 'party'
   | 'refund'
+  | 'folio'
+  | 'bill'
   | null;
 
 const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -91,6 +96,10 @@ export function ReservationDrawer({
   const now = useNow(30_000);
   const [open, setOpen] = useState<Open>(null);
   const drawerId = useId();
+  // S4-29 (US-020 AC2): the settled folio of a checked-out booking – read again on every open.
+  const [bill, setBill] = useState<Bill | null>(null);
+  const [billError, setBillError] = useState<unknown>(null);
+  const [billBusy, setBillBusy] = useState(false);
   const fd = roles.some((r) => FD_PLUS.includes(r));
   const sales = !fd && roles.some((r) => r === 'sales_staff' || r === 'collaborator');
   const ctv = !fd && roles.includes('collaborator');
@@ -150,6 +159,19 @@ export function ReservationDrawer({
     setOpen(null);
     if (updated) mutate(() => updated);
     else void reloadNow();
+  };
+
+  const openBill = async (folioIdToShow: string) => {
+    setBillBusy(true);
+    setBillError(null);
+    try {
+      setBill((await api.getBill({ propertyId, folioId: folioIdToShow })).data);
+      setOpen('bill');
+    } catch (e) {
+      setBillError(e);
+    } finally {
+      setBillBusy(false);
+    }
   };
 
   const allowed = new Map((r?.allowedActions ?? []).map((a) => [a.event, a]));
@@ -265,6 +287,12 @@ export function ReservationDrawer({
       {allowed.has('extend_stay') ? (
         <Button onClick={() => setOpen('extend_stay')}>{t('drawer.action.extend')}</Button>
       ) : null}
+      {fd && r.status === 'checked_out' && r.folioId ? (
+        // S4-29 (US-020 AC2): the settled folio – number, VI / VI–EN, print again. Read-only (GET).
+        <Button icon="printer" busy={billBusy} onClick={() => void openBill(r.folioId!)}>
+          {t('co.preview_bill')}
+        </Button>
+      ) : null}
       {allowed.has('check_out') ? (
         <Button variant="pri" onClick={() => navigate(`/reservations/${r.id}/check-out`)}>
           {t('drawer.action.check_out')}
@@ -295,7 +323,14 @@ export function ReservationDrawer({
       open
       variant="drawer"
       title={r?.booker?.displayName ?? r?.code ?? t('common.loading')}
-      meta={r ? [r.code, chName].filter(Boolean).join(' · ') : undefined}
+      meta={
+        r ? (
+          <>
+            <Code>{r.code}</Code>
+            {chName ? ` · ${chName}` : ''}
+          </>
+        ) : undefined
+      }
       closeLabel={t('common.close')}
       onClose={onClose}
       footer={footer}
@@ -372,6 +407,7 @@ export function ReservationDrawer({
               {t('rsv.transition_changed', { status: t(STATUS_KEY[changed]) })}
             </Alert>
           ) : null}
+          {billError ? <Alert tone="bad">{rsvErrorText(t, billError)}</Alert> : null}
           {r.noShowAvailableFrom && !allowed.has('mark_no_show') ? (
             <p className="caption mb-8" id={`${drawerId}-noshow`}>
               {t('noshow.locked', { time: timeHHmm(new Date(r.noShowAvailableFrom)) })}
@@ -582,6 +618,12 @@ export function ReservationDrawer({
               ) : null}
             </>
           ) : null}
+          {fd && online && r.folioId && r.status !== 'hold' ? (
+            // S4-27: every line and payment, with "Điều chỉnh" / "Đảo giao dịch" (BR-008).
+            <Button size="sm" variant="ghost" onClick={() => setOpen('folio')}>
+              {t('folio.open')}
+            </Button>
+          ) : null}
 
           {r.partyMissingCount || (fd && ['confirmed', 'in_house'].includes(r.status)) ? (
             <>
@@ -650,6 +692,13 @@ export function ReservationDrawer({
       {r && open === 'undo' ? (
         <UndoCheckInDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
       ) : null}
+      {r && open === 'folio' ? (
+        <FolioDialog
+          reservation={r}
+          onClose={() => setOpen(null)}
+          onChanged={() => void reloadNow()}
+        />
+      ) : null}
       {r && open === 'party' ? (
         <PartyDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
       ) : null}
@@ -659,6 +708,16 @@ export function ReservationDrawer({
           creditVnd={folio.totals.creditVnd ?? 0}
           onClose={() => setOpen(null)}
           onDone={done}
+        />
+      ) : null}
+      {r && open === 'bill' && bill ? (
+        <BillDialog
+          bill={bill}
+          channel={chName}
+          onClose={() => {
+            setOpen(null);
+            setBill(null);
+          }}
         />
       ) : null}
       {base && open === 'notice' ? (

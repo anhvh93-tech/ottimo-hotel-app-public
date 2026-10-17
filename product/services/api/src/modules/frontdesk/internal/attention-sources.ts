@@ -13,6 +13,7 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
+import { businessMinutes } from '../public/stay-rules';
 
 /** Technical cap of the ids/room numbers listed in one item (the UI shows a summary). */
 const LIST_CAP = 100;
@@ -57,30 +58,41 @@ async function overbooking(tx: Tx): Promise<AttentionItem[]> {
   ];
 }
 
+/**
+ * US-136 AC1 / BR-311 (J6, J7 – computed, BE-D Sprint 4): confirmed primary bookings arriving on the business
+ * date and not in yet, from the call time on. A booking whose guest gave an ETA still ahead ("đã báo đến trễ –
+ * giữ phòng cả đêm") is left out until that ETA has passed – both for the call line and the mark line; times
+ * compared on the business-day axis (an ETA of 00:30 is after 23:00). Never marks anything itself.
+ */
 async function noShows(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
   const call = await ctx.param<LocalTime>('no_show_call_time');
   const mark = await ctx.param<LocalTime>('no_show_mark_time');
+  const rollover = (await ctx.param<LocalTime>('business_day_rollover')) ?? '06:00';
   if (!call || !mark) return [];
   const callAt = atLocal(ctx.today, call, ctx.tz);
   if (ctx.now.getTime() < callAt.getTime()) return [];
   const markAt = atLocal(ctx.today, mark, ctx.tz);
-  const { rows } = await tx.query<{ id: string; total: number }>(
-    `SELECT id, count(*) OVER ()::int AS total FROM reservation
+  const nowMinutes = businessMinutes(ctx.iso(ctx.now).slice(11, 16), rollover);
+  const { rows } = await tx.query<{ id: string; eta_time: string | null }>(
+    `SELECT id, to_char(eta_time, 'HH24:MI') AS eta_time FROM reservation
       WHERE status = 'confirmed' AND arrival_date = $1 AND parent_reservation_id IS NULL
-      ORDER BY id LIMIT $2`,
-    [ctx.today, LIST_CAP],
+      ORDER BY id`,
+    [ctx.today],
   );
-  if (rows.length === 0) return [];
+  const due = rows.filter(
+    (r) => r.eta_time === null || businessMinutes(r.eta_time, rollover) <= nowMinutes,
+  );
+  if (due.length === 0) return [];
   const marking = ctx.now.getTime() >= markAt.getTime();
   return [
     {
       kind: marking ? 'no_show_mark' : 'no_show_call',
       source: 'computed',
       severity: marking ? 'critical' : 'warning',
-      count: rows[0]?.total ?? rows.length,
+      count: due.length,
       dueAt: ctx.iso(markAt),
-      reservationIds: rows.map((r) => r.id),
-      params: { count: rows[0]?.total ?? rows.length, time: marking ? mark : call },
+      reservationIds: due.slice(0, LIST_CAP).map((r) => r.id),
+      params: { count: due.length, time: marking ? mark : call },
     },
   ];
 }

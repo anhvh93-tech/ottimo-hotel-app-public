@@ -26,6 +26,15 @@ const STR = (lang: 'vi' | 'en') =>
 const VI = STR('vi');
 const EN = STR('en');
 const stem = (s: string) => s.split('{')[0]!.trim();
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Lời chào H18 (MOB S4-49, DS 11.2): khoảnh khắc thương hiệu – luôn tiếng Anh ở mọi ngôn ngữ (`lang="en"`):
+ * `gw.welcome_title` "Welcome to OTTIMO, {name}." hoặc `gw.welcome_title_plain` khi phiên không có tên khách.
+ * Thay `guest.hello` (VI "Xin chào, …") của Sprint 3.
+ */
+const WELCOME = new RegExp(
+  `^(${esc(stem(EN['gw.welcome_title']!))}|${esc(stem(EN['gw.welcome_title_plain'] ?? EN['gw.welcome_title']!))})`,
+);
 
 async function guestPage(browser: Browser, locale: string): Promise<Page> {
   const ctx = await browser.newContext({
@@ -57,11 +66,18 @@ async function bookingWithLink(
   return { fd, res, link };
 }
 
-/** "Chụp" opens the camera/file chooser – the test hands it a real image file. */
+/**
+ * "Chụp" opens the camera/file chooser – the test hands it a real image file.
+ * The button is picked by the guest it belongs to (aria-describedby `gw-p{n}-name`), never by position:
+ * once guest n-1's upload answers, that slot shows only "Đã gửi" + "Gửi lại" and `.nth(n-1)` no longer
+ * exists – the old index only worked while guest n-1 was still uploading (race, CI 39028814256).
+ */
 async function photo(page: Page, personIdx: number, docTypeLabel: string, takeLabel: string) {
   const person = page.getByRole('group', { name: new RegExp(`${personIdx}.*`) }).first();
   await person.getByRole('button', { name: docTypeLabel }).click();
-  const take = page.getByRole('button', { name: takeLabel }).nth(personIdx - 1);
+  const take = page
+    .getByRole('button', { name: takeLabel })
+    .and(page.locator(`[aria-describedby~="gw-p${personIdx}-name"]`));
   await expect(take).toBeEnabled();
   // CI (1 worker, máy chậm) có lần click đầu chưa mở hộp chọn tệp (flaky ở CI 38980363276) → thử lại 1 lần
   let chooser: FileChooser | undefined;
@@ -77,6 +93,8 @@ async function photo(page: Page, personIdx: number, docTypeLabel: string, takeLa
     mimeType: 'image/png',
     buffer: PNG_16X16,
   });
+  // Wait for this guest's upload to answer (slot → "Đã gửi"), so the next step starts from a settled screen.
+  await expect(take).toHaveCount(0, { timeout: 15_000 });
 }
 
 test.describe(
@@ -97,9 +115,7 @@ test.describe(
       const page = await guestPage(browser, 'vi-VN');
       await page.goto(link.url);
       // 18.1: vào thẳng trang của đơn, token không còn trên thanh địa chỉ (ĐK-4)
-      await expect(
-        page.getByRole('heading', { name: new RegExp(stem(VI['guest.hello']!)) }),
-      ).toBeVisible({
+      await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
         timeout: 15_000,
       });
       expect(page.url()).not.toContain(link.token);
@@ -209,9 +225,7 @@ test.describe(
       const { link } = await bookingWithLink(request, '401', { nationalityCode: 'DE' });
       const page = await guestPage(browser, 'en-US');
       await page.goto(link.url);
-      await expect(
-        page.getByRole('heading', { name: new RegExp(stem(EN['guest.hello']!)) }),
-      ).toBeVisible({
+      await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
         timeout: 15_000,
       });
       await scan(page, info, 'H18-1-stay-en');

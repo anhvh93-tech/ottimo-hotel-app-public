@@ -70,12 +70,22 @@ export function ownScopeUser(c: Caller): string | null {
 const GUEST_COLUMNS = `g.id, g.code, g.full_name, g.name_search, g.phone_e164, g.email_norm, g.messaging_handles,
   g.date_of_birth::text AS date_of_birth, g.gender, g.nationality_code, g.is_foreigner, g.preferred_locale,
   g.preferred_contact, g.company_name, g.tax_code, g.tags, g.service_notes, g.free_note, g.id_doc_last4,
-  g.crm_consent, g.created_by, g.possible_duplicate_at, g.version`;
+  g.crm_consent, g.source, g.created_by, g.possible_duplicate_at, g.version`;
 
 /** BR-952 name similarity threshold for the trigram `%` operator (uses guest_name_search_trgm_idx). */
 const NAME_SIMILARITY = '0.3';
 
 const LIVE = 'g.merged_into_id IS NULL AND g.anonymized_at IS NULL';
+/** 0.3.7 (A.6, SEC s3 7.4, rbac D10 ⁴⁰): SAL/CTV never see a `document` profile without P05. */
+const NOT_DOCUMENT_ONLY = "NOT (g.source = 'document' AND g.crm_consent <> 'granted')";
+/** 0.3.7 (A.5, SEC s3 7.1): fields a `document` profile without P05 may not get (422 NOT_ALLOWED). */
+const DOCUMENT_LOCKED: ReadonlyArray<[keyof GuestInput, string]> = [
+  ['tags', 'tags'],
+  ['freeNote', 'freeNote'],
+  ['serviceNotes', 'serviceNotes'],
+  ['dateOfBirth', 'dateOfBirth'],
+  ['gender', 'gender'],
+];
 
 interface Prepared {
   full_name: string;
@@ -123,6 +133,7 @@ export class GuestsService {
     base: Prepared | null,
     caller: Caller,
     today: LocalDate,
+    opts: { documentProfile?: boolean } = {},
   ): Promise<Prepared> {
     const errors: FieldError[] = [];
     const out: Prepared = base
@@ -170,7 +181,9 @@ export class GuestsService {
         else errors.push({ field: 'email', code: 'EMAIL_INVALID' });
       }
     }
+    // 0.3.7 (A.5): a profile from a document may stay without contact (it was never a CRM profile).
     if (
+      !opts.documentProfile &&
       !out.phone_e164 &&
       !out.email_norm &&
       !errors.some((e) => e.field === 'phone' || e.field === 'email')
@@ -281,7 +294,7 @@ export class GuestsService {
     const scope = ownScopeUser(caller);
     const { rows } = await tx.query<GuestRow>(
       `SELECT ${GUEST_COLUMNS} FROM guest g
-        WHERE g.id = $1 AND ${LIVE} AND ($2::uuid IS NULL OR g.created_by = $2)
+        WHERE g.id = $1 AND ${LIVE} AND ($2::uuid IS NULL OR (g.created_by = $2 AND ${NOT_DOCUMENT_ONLY}))
         ${lock ? 'FOR UPDATE' : ''}`,
       [guestId, scope],
     );
@@ -439,7 +452,16 @@ export class GuestsService {
       service_notes: row.service_notes,
       free_note: row.free_note,
     };
-    const p = await this.prepare(tx, input, base, caller, pc.today);
+    const documentOnly = row.source === 'document' && row.crm_consent !== 'granted';
+    if (documentOnly) {
+      const locked = DOCUMENT_LOCKED.filter(
+        ([k]) => input[k] !== undefined && input[k] !== null,
+      ).map(([, field]) => ({ field, code: 'NOT_ALLOWED' }));
+      if (locked.length > 0) throw problem('VALIDATION_FAILED', { errors: locked });
+    }
+    const p = await this.prepare(tx, input, base, caller, pc.today, {
+      documentProfile: row.source === 'document',
+    });
     this.probeLimit(caller, input);
     await this.assertNoDuplicate(tx, caller, p, guestId);
     await this.write(tx, caller, 'update', guestId, p);
@@ -543,7 +565,7 @@ export class GuestsService {
       const limit = Math.min(query.limit, 5);
       const { rows } = await tx.query<GuestRow>(
         `SELECT ${GUEST_COLUMNS} FROM guest g
-          WHERE ${LIVE} AND ($1::uuid IS NULL OR g.created_by = $1)
+          WHERE ${LIVE} AND ($1::uuid IS NULL OR (g.created_by = $1 AND ${NOT_DOCUMENT_ONLY}))
             AND ($2::text IS NULL OR g.name_search LIKE $2 OR g.code = $3)
           ORDER BY (g.code = $3) DESC NULLS LAST, (g.name_search LIKE $4) DESC NULLS LAST, g.updated_at DESC
           LIMIT $5`,
@@ -556,7 +578,7 @@ export class GuestsService {
     }
     const { rows } = await tx.query<GuestRow>(
       `SELECT ${GUEST_COLUMNS} FROM guest g
-        WHERE ${LIVE} AND ($1::uuid IS NULL OR g.created_by = $1)
+        WHERE ${LIVE} AND ($1::uuid IS NULL OR (g.created_by = $1 AND ${NOT_DOCUMENT_ONLY}))
           AND ($2::text IS NULL OR g.name_search LIKE $2 OR g.code = $3)
           AND ($4::uuid IS NULL OR g.id < $4)
         ORDER BY g.id DESC LIMIT $5`,

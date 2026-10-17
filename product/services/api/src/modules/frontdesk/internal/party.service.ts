@@ -30,6 +30,7 @@ import {
   loadReservation,
   recordChange,
 } from '../../reservations/public/stay-port';
+import type { GuestUploadChoice } from '../public/ports';
 import { StaySupport, TASK_RANK } from './stay-support';
 
 type Band = 'adult' | 'child_6_11' | 'child_under_6';
@@ -518,6 +519,7 @@ export class PartyService {
     id: string,
     memberId: string,
     expectedVersion: number,
+    guestUpload?: GuestUploadChoice,
   ): Promise<void> {
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     if (row.party_version !== expectedVersion) {
@@ -593,7 +595,9 @@ export class PartyService {
     );
     // A-38 / T03: C3 of the removed person destroyed in the same transaction (DEK + documents).
     if (m.child_data_key_id) await this.s.ports.childData.destroy(tx, m.child_data_key_id);
-    await this.s.ports.registration.onPartyMemberRemoved(tx, row.id, m.id);
+    // S4-39: the desk's answer "which guest-link slot was this person's" goes with the removal (422 REQUIRED
+    // from the registration port when it is needed and missing – the whole removal rolls back).
+    await this.s.ports.registration.onPartyMemberRemoved(tx, row.id, m.id, guestUpload);
     await tx.query(
       `UPDATE reservation SET party_version = party_version + 1, updated_at = $2, version = version + 1
         WHERE id = $1`,

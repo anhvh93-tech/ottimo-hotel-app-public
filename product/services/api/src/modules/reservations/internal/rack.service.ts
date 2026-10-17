@@ -14,6 +14,7 @@ import { RESERVATION_STATUSES, type ReservationStatus } from '../../../db/schema
 import { decodeCursor, page } from '../../../shared/http/pagination';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, addDays } from '../../../shared/time';
+import { nameSearchKey } from '../../guests/public/normalize';
 import { OccupancyService, parseRange } from '../public/occupancy.service';
 import { isOrphanGap } from '../public/pricing';
 import type { AvailabilityAnswer } from '../public/sales-port';
@@ -25,6 +26,7 @@ import {
   isOwnScoped,
   ownScopeSql,
 } from './reservation-store';
+import { MoneyBridge } from './money-bridge';
 import { toSummaryDto } from './reservation-dto';
 
 const MAX_RACK_DAYS = 31;
@@ -110,7 +112,10 @@ export function mergeRanges(ranges: Array<{ from: LocalDate; to: LocalDate }>) {
 
 @Injectable()
 export class RackService {
-  constructor(@Inject(OccupancyService) private readonly occupancy: OccupancyService) {}
+  constructor(
+    @Inject(OccupancyService) private readonly occupancy: OccupancyService,
+    @Inject(MoneyBridge) private readonly money: MoneyBridge,
+  ) {}
 
   async rack(
     tx: Tx,
@@ -428,8 +433,26 @@ export class RackService {
     if (q.q) {
       if (q.q.length > 40)
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'q', code: 'TOO_LONG' }] });
-      const like = ph(`%${q.q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`);
-      where.push(`(r.code ILIKE ${like} OR r.ota_ref ILIKE ${like} OR g.code ILIKE ${like})`);
+      const like = ph(`%${escapeLike(q.q)}%`);
+      const any = [`r.code ILIKE ${like}`, `r.ota_ref ILIKE ${like}`, `g.code ILIKE ${like}`];
+      // 0.3.7 S4-44: the booker's name – from 2 characters, accents/case ignored, partial ("ha" → "Nguyễn Thu
+      // Hà"); same key as guests (BR-951 `nameSearchKey`, trigram index on `guest.name_search`). Booker only.
+      const key = nameSearchKey(q.q);
+      if (key.length >= 2) any.push(`g.name_search LIKE ${ph(`%${escapeLike(key)}%`)}`);
+      // 0.3.7 D1 (BR-012 (2)): a room number (exact) or a room name (partial from 3 characters, "The" prefix,
+      // accents and case ignored) → bookings with a segment on that room (in the stay window when given).
+      const rooms = await this.roomsMatching(tx, q.q);
+      if (rooms.length > 0) {
+        const window = [
+          q.stayFrom ? `AND s.to_date > ${ph(q.stayFrom)}::date` : '',
+          q.stayTo ? `AND s.from_date <= ${ph(q.stayTo)}::date` : '',
+        ].join(' ');
+        any.push(
+          `EXISTS (SELECT 1 FROM reservation_segment s WHERE s.reservation_id = r.id AND s.active
+                     AND s.room_id = ANY(${ph(rooms)}::uuid[]) ${window})`,
+        );
+      }
+      where.push(`(${any.join(' OR ')})`);
     }
     const c = decodeCursor(q.cursor, 2);
     if (c)
@@ -450,7 +473,44 @@ export class RackService {
       params,
     );
     const paged = page(rows, q.limit, (r) => [r.arrival_date, r.id]);
-    return { data: paged.data.map((r) => toSummaryDto(r, ctx.iso)), page: paged.page };
+    // BUG-R2-078: "Còn phải thu" of each row – the same number as `getReservation.balanceDueVnd` (one folio
+    // balance per folio; FD+ only – x-visible-to, not computed for SAL/CTV).
+    const due = new Map<string, number>();
+    if (!isOwnScoped(ctx.actor)) {
+      for (const r of paged.data) {
+        if (r.folio_id && !due.has(r.folio_id)) {
+          due.set(r.folio_id, await this.money.balanceDue(tx, r));
+        }
+      }
+    }
+    return {
+      data: paged.data.map((r) => {
+        const dto = toSummaryDto(r, ctx.iso);
+        const balance = r.folio_id ? due.get(r.folio_id) : undefined;
+        return balance !== undefined ? { ...dto, balanceDueVnd: balance } : dto;
+      }),
+      page: paged.page,
+    };
+  }
+
+  /**
+   * Rooms a `listReservations.q` names (0.3.7 D1, BR-012 (2)): the room number exactly ("401") or the room name
+   * without its "The" prefix, accents and case ignored, partial from 3 characters ("pine" → The Pine).
+   */
+  private async roomsMatching(tx: Tx, raw: string): Promise<string[]> {
+    const text = raw.trim();
+    if (!text) return [];
+    const { rows } = await tx.query<{ id: string; room_no: string; name: string | null }>(
+      'SELECT id, room_no, name FROM room ORDER BY room_no',
+    );
+    const wanted = roomNameKey(text);
+    return rows
+      .filter(
+        (r) =>
+          r.room_no === text ||
+          (wanted.length >= 3 && r.name !== null && roomNameKey(r.name).includes(wanted)),
+      )
+      .map((r) => r.id);
   }
 
   /** getReservationHistory: audit events of the booking + status/field history, newest first. */
@@ -564,4 +624,13 @@ export class RackService {
     items.sort((a, b) => b.at.getTime() - a.at.getTime());
     return items.map((i) => i.dto);
   }
+}
+
+function escapeLike(v: string): string {
+  return v.replace(/[%_\\]/g, (m) => `\\${m}`);
+}
+
+/** BR-012 (2) room-name search key: accents/case ignored (as a guest name), leading "The " dropped. */
+function roomNameKey(v: string): string {
+  return nameSearchKey(v).replace(/^THE\s+/, '');
 }

@@ -20,6 +20,7 @@ import {
 } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
+import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
 import {
   type BookingContext,
   FDL_PLUS,
@@ -79,7 +80,17 @@ interface Evaluation {
   conditions: Condition[];
   warnings: Array<{ code: string }>;
   registrationDeadlinePreview: Date | null;
+  /** Folio now: what is still due (contract balanceDueVnd) and the money paid above it (VietQR before B9). */
+  balanceDueVnd: number;
+  creditVnd: number;
+  /** BR-402 v0.3.6: Σ "khi duyệt sẽ áp" of the pending FOC on incidental charges already on the folio. */
+  pendingIncidentalFocVnd: number;
+  /** 0.3.7: due to reach balance_paid if checked in at `checkinTime` (surcharge + B9a night included). */
+  amountDueAtCheckinVnd: number;
 }
+
+/** Room money (BR-402 (2) "tiền phòng" – always collected in full, pending discounts included). */
+const ROOM_MONEY: ReadonlySet<string> = new Set(['room', 'room_change_difference']);
 
 const FDL_UP = ['front_desk_lead', 'manager', 'owner'];
 
@@ -88,6 +99,7 @@ export class CheckinService {
   constructor(
     @Inject(StaySupport) private readonly s: StaySupport,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(PaymentService) private readonly payments: PaymentService,
   ) {}
 
   // ───────────────────────── preview ─────────────────────────
@@ -118,6 +130,9 @@ export class CheckinService {
       ...(e.registrationDeadlinePreview
         ? { registrationDeadlinePreview: ctx.iso(e.registrationDeadlinePreview) }
         : {}),
+      // 0.3.7 (BUG-R2-038, BR-402 v0.3.6): due now, and due to reach balance_paid at this time.
+      balanceDueVnd: e.balanceDueVnd,
+      amountDueAtCheckinVnd: e.amountDueAtCheckinVnd,
     };
   }
 
@@ -198,12 +213,21 @@ export class CheckinService {
       };
     }
 
-    // FB-R2-DOM-BE-30 (2) deferred: counting the surcharge about to be posted would block every early
-    // check-in – recordPayment is capped at the balance due (AMOUNT_EXCEEDS_BALANCE), so it cannot be paid
-    // beforehand and checkIn has no payment field (asked of ARC for 0.3.7). It is due on the folio at once
-    // and BR-426 (BALANCE_DUE at B18) collects it.
+    // 0.3.7 (BUG-R2-038, BR-402 v0.3.6 – M4): "đã thu đủ" is judged AFTER the early surcharge / B9a night and
+    // the payment of the check-in (`checkIn.payment`); the pending FOC asked on incidental charges is not due to
+    // check in (min(asked, line) – BE-B's allocation); the room money (B9a night included) always is.
     const balance = row.folio_id ? await this.s.folios.balance(tx, row.folio_id) : null;
-    const balancePaid = row.payment_model === 'ota_prepaid' || (balance?.balanceDueVnd ?? 0) === 0;
+    const balanceDueVnd = balance?.balanceDueVnd ?? 0;
+    const creditVnd = balance?.rawCreditVnd ?? 0;
+    const pendingIncidentalFocVnd = row.folio_id
+      ? await this.pendingIncidentalFoc(tx, row.folio_id)
+      : 0;
+    const toPost = Math.max(0, early.amountVnd) + (priorNight ? priorNight.defaultRateVnd : 0);
+    const amountDueAtCheckinVnd = Math.max(
+      0,
+      balanceDueVnd - creditVnd + toPost - pendingIncidentalFocVnd,
+    );
+    const balancePaid = row.payment_model === 'ota_prepaid' || amountDueAtCheckinVnd === 0;
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
@@ -217,7 +241,11 @@ export class CheckinService {
         ...(roomReady ? {} : { detail: roomStatus }),
         ...(!roomReady && roomStatus !== 'OOO' ? { overridableBy: FDL_UP } : {}),
       },
-      { code: 'balance_paid', met: balancePaid },
+      {
+        code: 'balance_paid',
+        met: balancePaid,
+        ...(balancePaid ? {} : { detail: String(amountDueAtCheckinVnd) }),
+      },
       { code: 'main_guest_document', met: docs.mainGuestDocument },
       {
         code: 'document_check_block',
@@ -248,7 +276,28 @@ export class CheckinService {
         row.id,
         ctx.now,
       ),
+      balanceDueVnd,
+      creditVnd,
+      pendingIncidentalFocVnd,
+      amountDueAtCheckinVnd,
     };
+  }
+
+  /**
+   * BR-402 v0.3.6: the pending FOC / discount requests on INCIDENTAL charges of the folio (early check-in,
+   * extra person, minibar… – not room money), each counted at what it WOULD apply now (min(asked, line − the
+   * approved ones before it): FolioService.focViews – BE-B's S4-23 allocation, never computed here).
+   */
+  private async pendingIncidentalFoc(tx: Tx, folioId: string): Promise<number> {
+    const pending = (await this.s.folios.reductionRequests(tx, folioId, { lock: false })).filter(
+      (r) => (r.status === 'pending' || r.status === 'escalated') && !ROOM_MONEY.has(r.category),
+    );
+    if (pending.length === 0) return 0;
+    const views = await this.s.folios.focViews(
+      tx,
+      pending.map((r) => ({ id: r.id, folio_line_id: r.folioLineId })),
+    );
+    return pending.reduce((a, r) => a + (views.get(r.id)?.effectiveAmountVnd ?? 0), 0);
   }
 
   /** US-027 / BR-413: no in-house or departed booking leaving this room on the arrival day. */
@@ -301,6 +350,9 @@ export class CheckinService {
     const docOverrideReason =
       docOverride && typeof docOverride.reason === 'string' ? docOverride.reason.trim() : null;
     const foc = this.focInput(f, body, 'requestFocForSurcharge');
+    // 0.3.7 (BUG-R2-038): the payment taken at the desk in the same transaction (`type = charge` only).
+    const payment = this.paymentInput(f, body);
+    if (payment && payment.type !== 'charge') f.add('payment.type', 'NOT_IN_LIST');
 
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.s.stay.assertVersion(row, expectedVersion);
@@ -332,7 +384,10 @@ export class CheckinService {
     const unmet: ConditionCode[] = [];
     let roomOverrideBy: 'lead' | 'approval' | null = null;
     let requestRoomApproval = false;
+    // BR-402 (2) v0.3.6 (0.3.7 order): `balance_paid` is judged AFTER SURCHARGE_CHANGED, the lines this request
+    // posts and its payment – on the real folio, below (never on a projection here).
     for (const c of e.conditions) {
+      if (c.code === 'balance_paid') continue;
       if (c.met) continue;
       if (c.code === 'document_check_block' && docOverrideReason) {
         if (!fdlPlus)
@@ -365,6 +420,8 @@ export class CheckinService {
     if (unmet.length > 0) {
       throw problem('CHECKIN_CONDITIONS_NOT_MET', { extras: { unmet } });
     }
+    // 0.3.7 bổ sung 1 (ARC 11.3 (1)): the 202 branch does not check in – no money taken there (never ignored).
+    if (requestRoomApproval && payment) f.add('payment', 'NOT_ALLOWED');
 
     // ── surcharge shown ≠ surcharge now (409, before the field checks – ARC-BE-S3-24.1) ──
     const surcharge = e.early.amountVnd;
@@ -453,6 +510,73 @@ export class CheckinService {
     if (addPriorNight && e.priorNight && priorRate !== undefined) {
       arrival = await this.addPriorNight(tx, ctx, row, room, e.priorNight, priorRate);
     }
+    // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
+    if (applyEarly && surcharge > 0 && row.folio_id) {
+      const [lineId] = await this.s.folios.postLines(
+        tx,
+        row.folio_id,
+        [
+          {
+            reservationId: row.id,
+            category: 'early_checkin',
+            description: `early_checkin ${e.checkinTime} ${e.early.tierPct}%`,
+            quantity: 1,
+            unitPriceVnd: surcharge,
+            amountVnd: surcharge,
+            serviceDate: row.arrival_date,
+            source: 'checkin',
+            labelParams: { time: e.checkinTime, pct: e.early.tierPct },
+          },
+        ],
+        { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
+      );
+      if (foc && lineId) {
+        await this.s.requestFoc(
+          tx,
+          ctx,
+          row,
+          row.folio_id,
+          { id: lineId, amountVnd: surcharge, category: 'early_checkin' },
+          foc,
+        );
+      }
+    }
+
+    // 0.3.7 (BUG-R2-038 – M4): the payment of the check-in, capped at what the folio owes after the lines above
+    // (the guest may also pay what is asked as FOC – BR-402 v0.3.6, BR-522 when it is approved).
+    if (payment && row.folio_id) {
+      const owed = (await this.s.folios.balance(tx, row.folio_id)).balanceDueVnd;
+      if (payment.amountVnd > owed) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          extras: { max: owed },
+        });
+      }
+      await this.payments.recordInTx(
+        tx,
+        { userId: ctx.actor.userId, roles: ctx.actor.roles, ...this.s.req(ctx) },
+        row.folio_id,
+        payment,
+        {
+          reservationId: row.id,
+          reservationCode: row.code,
+          channelGroup: row.channel_group,
+          fieldPrefix: 'payment.',
+        },
+      );
+    }
+    // BR-402 (2) on the real folio (after the surcharge / B9a night and the payment): not met → 409 and the
+    // whole transaction (lines, payment) is rolled back – nothing is written.
+    if (row.payment_model !== 'ota_prepaid' && row.folio_id) {
+      const b = await this.s.folios.balance(tx, row.folio_id);
+      const due =
+        b.balanceDueVnd - b.rawCreditVnd - (await this.pendingIncidentalFoc(tx, row.folio_id));
+      if (due > 0) {
+        throw problem('CHECKIN_CONDITIONS_NOT_MET', {
+          extras: { unmet: ['balance_paid'], balanceDueVnd: due },
+        });
+      }
+    }
     const transition = addPriorNight ? 'B9a' : 'B9';
     await tx.query(
       `UPDATE reservation SET status = 'in_house', actual_checkin_at = $2::timestamptz, cards_issued = $3,
@@ -461,7 +585,8 @@ export class CheckinService {
               door_access_handed_over_by = CASE WHEN $5::boolean THEN $4::uuid ELSE NULL END,
               checkin_document_override_reason = $6, checkin_document_override_by = $7,
               checkin_room_override_reason = $8, checkin_room_override_by = $9,
-              checkin_room_status_before = $10, updated_at = $2::timestamptz, version = version + 1
+              checkin_room_status_before = $10, room_disclosed_to_guest = true,
+              updated_at = $2::timestamptz, version = version + 1
         WHERE id = $1`,
       [
         row.id,
@@ -541,38 +666,6 @@ export class CheckinService {
         rank: 1,
         note: 'checkin_room_not_ready',
       });
-    }
-
-    // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
-    if (applyEarly && surcharge > 0 && row.folio_id) {
-      const [lineId] = await this.s.folios.postLines(
-        tx,
-        row.folio_id,
-        [
-          {
-            reservationId: row.id,
-            category: 'early_checkin',
-            description: `early_checkin ${e.checkinTime} ${e.early.tierPct}%`,
-            quantity: 1,
-            unitPriceVnd: surcharge,
-            amountVnd: surcharge,
-            serviceDate: row.arrival_date,
-            source: 'checkin',
-            labelParams: { time: e.checkinTime, pct: e.early.tierPct },
-          },
-        ],
-        { userId: ctx.actor.userId, reservationCode: row.code, ...this.s.req(ctx) },
-      );
-      if (foc && lineId) {
-        await this.s.requestFoc(
-          tx,
-          ctx,
-          row,
-          row.folio_id,
-          { id: lineId, amountVnd: surcharge, category: 'early_checkin' },
-          foc,
-        );
-      }
     }
 
     // DOM S3-10: a "check in on an unready room" request still open lost its purpose.
@@ -837,5 +930,26 @@ export class CheckinService {
     for (const e of sub.errors) f.add(`${field}.${e.field}`, e.code);
     if (amount === undefined || !reasonCode) return null;
     return { amountVnd: amount, reasonCode, note: note ?? null };
+  }
+
+  /** `checkIn.payment` (PaymentCreate) – same shape as `checkOut.finalPayment`, errors prefixed `payment.`. */
+  private paymentInput(f: Fields, body: Record<string, unknown>): PaymentCreateInput | null {
+    const v = body.payment;
+    if (v === undefined || v === null) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) {
+      f.add('payment', 'VALIDATION_FAILED');
+      return null;
+    }
+    const p = v as Record<string, unknown>;
+    const str = (k: string) => (typeof p[k] === 'string' ? (p[k] as string) : null);
+    return {
+      type: str('type') ?? '',
+      method: str('method') ?? '',
+      amountVnd: typeof p.amountVnd === 'number' ? p.amountVnd : Number.NaN,
+      receivedAt: str('receivedAt'),
+      posAuthCode: str('posAuthCode'),
+      note: str('note'),
+      attachmentId: str('attachmentId'),
+    };
   }
 }

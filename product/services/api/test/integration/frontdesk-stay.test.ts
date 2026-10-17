@@ -222,12 +222,23 @@ describe.skipIf(!HAS_DB)(
         field: 'expectedSurchargeVnd',
         code: 'REQUIRED',
       });
+      // 0.3.7 (BR-402 v0.3.6): the B9a night is room money – due to check in (409, nothing written).
+      const unpaid = await act(b.id, 'check-in', b.version, {
+        cardsIssued: 1,
+        houseRulesSent: true,
+        addPriorNight: true,
+        priorNightRateVnd: 708_000,
+        expectedSurchargeVnd: 708_000,
+      });
+      expect(unpaid.statusCode).toBe(409);
+      expect(unpaid.json().unmet).toEqual(['balance_paid']);
       const res = await act(b.id, 'check-in', b.version, {
         cardsIssued: 1,
         houseRulesSent: true,
         addPriorNight: true,
         priorNightRateVnd: 708_000,
         expectedSurchargeVnd: 708_000,
+        payment: { type: 'charge', method: 'cash', amountVnd: 708_000 },
       });
       expect(res.statusCode, res.body).toBe(200);
       // ARC-BE-S3-24.3: the typed night is kept as a manual price (never re-tiered later).

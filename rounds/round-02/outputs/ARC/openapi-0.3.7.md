@@ -1,6 +1,7 @@
 # OpenAPI 0.3.7 – khởi động Sprint 4 (ARC, 17/10/2026)
 
 - **Trạng thái**: đã áp vào `product/docs/api/openapi.yaml` (`info.version: 0.3.7-draft`, mục "Thay đổi phiên bản 0.3.7-draft"). **Bổ sung D1 – đóng băng (17/10 tối)**: áp các điểm hợp đồng của critic `reviews/s4-kickoff-critic.md` #7–#12 và câu trả lời DOM (BR-402, BR-424, BR-429 (g)/(h), BR-434 S4-23 v0.3.6) – **mục 10**; mục 4 phân loại nhóm D; mục 7 viết lại theo bảng phân việc ORC 17/10. Tệp này là `s4-contract.md` ghi ở sprint-4-plan mục 8.3. **Đóng băng phần CỔNG từ cuối D1** – đổi sau đó qua ARC, báo trong ngày. **Sửa chữ đóng băng D1 (ORC 17/10 (1), critic kiểm lại)**: B-4 `updateOnlineCheckin.deferredPeople` → contract-ahead R3 (mục 4, 7; mô tả trường trong spec); ghi chú A.3 "PR migration BE-B" → PR mục A của BE-C (mục 4, 5.3; spec); mô tả `expectedVersion`/`ApprovalRequest.version` bỏ chữ "nháp", ghi CỔNG. Không đổi trường, operation, `x-*` nào. Đã sinh lại `openapi-meta.ts`, `openapi-schemas.ts`, api-client, `rbac-cases.json/.csv`. Đã cập nhật `erd.md` (mục 4.4, 4.7, 4.8, 4.9, 9.1, 9.3, 15), `architecture.md` (J8, J11) và ADR-005 (gửi trễ 10 giây). **Chưa commit** – ORC commit.
+- **Bổ sung 1 (17/10 tối, giữa Sprint 4 – mục 11)**: theo đề nghị các luồng BE-D (`outputs/BE/s4-be-d.md` 2.5), FE-A và FE-B (`outputs/FE/s4-report.md`). Chỉ thêm trường / khai mã / mô tả – hợp đồng đóng băng D1 không gãy; `info.version` giữ `0.3.7-draft`. Có review module `reporting` của BE-D (mục 11.4). **Chưa commit** – ORC commit.
 - **Không đổi**: đường dẫn cũ, tên trường cũ. Thêm 3 operation (`previewMoveReservation`, `listInspections`, `getGuestSession`) – 192 operation. Bổ sung D1 không thêm operation; `getGuestSession` gắn `x-round: R3` (contract-ahead).
 - **Nguồn**: `rounds/round-02/s4-carryover.md` (S4-09, 10, 21, 32, 39, 40, 44, 47, 48), `qa/bug-list.md` (BUG-R2-038, 085), `reviews/s3-SEC.md` (mục 4 b, 7, 9.3–9.6), `outputs/ARC/s3-contract.md` (7.5, 7.7, B-33), `outputs/ARC/s2-contract.md` (nhóm B), `outputs/ARC/openapi-0.3.7-draft.md`, BA `specs/EP07-08…`, `EP01…`, `EP14…`, BR-429 v0.3.5 (DOM 17/10), backlog US-024 AC5–AC7 (PO 17/10), ESC-019/020/021 (INV 17/10), decision-log 17/10.
 - **Nhãn**: [ARC] = quyết định kỹ thuật của ARC; [GIẢ ĐỊNH …] = chờ vai ghi trong ngoặc xác nhận, đội vẫn làm theo.
@@ -247,3 +248,206 @@ Thay bản trước (BE-A ôm nhóm H + EP01 – critic #1). Nhóm H → **BE-C*
 - **S4-43 (NÊN, BE-B)**: x-scope `listApprovalRequests` đổi tên `own_or_refund_queue` / `within_limit_or_own_or_refund_queue` = cũ + khoản hoàn `pending`/`approved` chưa có nơi nhận của mọi đơn; `setRefundDestination` ghi rõ FD/FDL nhập cho yêu cầu người khác tạo, tách nhiệm không đổi. `rbac-cases` đã sinh lại.
 - **S4-06 (CỔNG, BE-B)**: kind `closed_reservation_credit` (nguồn `event`, không số tiền, tự đóng khi chi đủ/khách để lại; OWN/MGR/FDL/FD như `deposit_after_cancel`) – không dùng `deposit_after_cancel` (khác nghĩa: tiền về sau khi giữ chỗ tự hủy).
 - **S4-35 (CỔNG, BE-A + BE-B)** – ghi chú ARC còn thiếu (plan 8.2 #6): bỏ 422 tạm; `adjustFolioLine` dòng `room` nhận **giá đêm trước bậc giảm**, BE-B gọi `StayNightPricingPort.setNightRate` (BE-A) trong cùng giao dịch, khóa đơn → folio, cổng ghi `stay_night.calendar_rate_vnd` (cột có sẵn – BR-429 (g): giá sửa tay là giá lịch của đêm, bậc BR-107 áp trên đó) rồi tính lại dòng; dòng `extra_person` nhận phụ thu đêm; `newQuantity`/`voidLine` dòng đêm → 422; ngoài sàn–trần BR-105 → 422 `RATE_OUT_OF_RANGE`; đồng bộ sau giữ giá sửa tay, trừ khách tự xin đổi căn (BR-429 (a), (g)).
+
+---
+
+## 11. Bổ sung 1 – giữa Sprint 4 (ARC, 17/10 tối)
+
+- **Nguồn**: `outputs/BE/s4-be-d.md` mục 2.5 (#1–#7), `outputs/FE/s4-report.md` (FE-A mục 4 giả định `checkIn` 202; FE-B mục 5 – BUG-R2-081, `Bill.settledAt`), yêu cầu thêm của ORC (BE-D 2.5 #6: erd 4.11 theo `0058`, erd 9 `property_map_url`, `GuestRequest.roomNo` cho phép `null`; MOB `outputs/MOB/s4-report.md` mục 4 điểm 2–3: ngôn ngữ phiên khách theo P-S4-10, `Accept-Language` theo nút ngôn ngữ của PWA).
+- **Nguyên tắc**: hợp đồng đã đóng băng D1 → chỉ **thêm trường tùy chọn, khai mã server đã trả, viết mô tả**. Không đổi đường dẫn, operation, `x-roles`/`x-scope`/`x-rbac`, header (`Idempotency-Key`/`If-Match`), `dryRun` → `openapi-meta.ts` và `rbac-cases` **không đổi**. `info.version` giữ `0.3.7-draft`. Hai chỗ có ảnh hưởng tới bên gọi ghi ở 11.2 (#7, #10).
+
+### 11.1 Kiểm tra đã chạy (17/10 ~20:15, trên tệp thật, chạy lại sau mọi phần thêm của ORC – gồm phần ngôn ngữ của MOB)
+
+**Lưu ý chạy song song**: trong lúc làm, `openapi.yaml` có thêm **0.3.7 bổ sung 2** (7 operation `website-booking-requests`/`public-site` – US-155, `x-round: R3`) của một phiên ARC khác. Mã sinh lần cuối (meta, api-client, `rbac-cases`) đã gồm cả bổ sung 2 vì `--check` so với spec hiện tại; số operation/ca dưới đây là của spec gộp. Phần riêng của bổ sung 1 không đổi meta và `rbac-cases`.
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `openapi-spec-validator` 0.7.2 (`openapi.yaml`, `openapi.test.yaml`) | OK / OK |
+| Redocly CLI 1.34.21 `lint` | Hợp lệ, 0 lỗi, **4 cảnh báo – đúng 4 cảnh báo có từ trước** (server `example.invalid`, 3 operation không có 4xx); 0 cảnh báo mới |
+| `check-no-test-surface.sh spec` | OK |
+| `gen-openapi-meta.mjs` → `--check` | Sinh lại: phần bổ sung 1 không đổi `openapi-meta.ts` (đổi của meta là từ bổ sung 2); `openapi-schemas.ts` thêm `Reservation.depositNotices` (2 chỗ), `Bill.settledAt`, `GuestSession.localeChosenByGuest`. `--check` up to date |
+| api-client `gen.mjs` (chạy 2 lần) | Sinh lại (bổ sung 1 chỉ thêm: `depositNotices?`, `settledAt?`, `localeChosenByGuest?`, header `Accept-Language` của `openGuestSession`/`recordInspection`, mã lỗi khai thêm của `resolveAttentionEvent`/`createDepositNotice`, `GuestRequest.roomNo: string \| null`, JSDoc); lần 2 up to date; vitest 28/28; `tsc` 0 lỗi |
+| `gen_rbac_cases.py` → `--check` | Phần bổ sung 1: không đổi ca nào. Sinh lại trên spec gộp: 195 operation, 2.145 ca, R3 319, bỏ qua 12, rbac mismatch [] (thay đổi do bổ sung 2); `--check` OK |
+| `gen_traceability.py --strict` (ra tệp tạm như CI) | **exit 0**; RBAC: 0 operation lệch, 0 thuộc tính lệch, 0 mã lạ; x-rbac-field 166 gắn, 0 thiếu (bổ sung 1 góp 3: `resolveAttentionEvent.note` D12c, `depositNotices[].note` D12c, `depositNotices[].createdByName` D27; phần còn lại từ bổ sung 2) |
+| vitest `services/api` `contract` + `serializer` + `module-boundaries` | 26/26 |
+| prettier (`openapi.yaml`, `openapi.ts`, `openapi-meta.ts`, `openapi-schemas.ts`) | xanh |
+| `tsc --noEmit` mobile, guest-web | 0 lỗi |
+| `tsc --noEmit` admin-web | Lần chạy cuối: 1 lỗi **không do hợp đồng** – `src/__tests__/s4-money.test.tsx:392` (FE-A, tùy chọn `exact` của `getByRole`). Lần chạy giữa chừng từng có 1 lỗi do #10 (`roomNo` nullable) ở tệp FE-B đang làm (`src/mocks/ops.ts` – gom `roomNos`), nay không còn; FE-B vẫn cần xử lý `roomNo = null` ở màn (11.5) |
+
+Không chạy test tích hợp cần PostgreSQL (không đụng stack demo; bổ sung 1 không đổi guard).
+
+### 11.2 Thay đổi trong `openapi.yaml`
+
+| # | Đề nghị | Hợp đồng sau bổ sung 1 | Loại |
+|---|---|---|---|
+| 1 | BE-D #1 | `resolveAttentionEvent`: mô tả thứ tự kiểm + khai `401`, `403`, `409` (`INVALID_TRANSITION`, `currentState = open` – `overbooking`, `unassigned_with_free_room`, `closed_reservation_credit`), `422` (`VALIDATION_FAILED` mã trường `REASON_REQUIRED`/`TOO_LONG`; `CARD_NUMBER_DETECTED`), `428`; `note` có mô tả + `x-rbac-field: D12c`, ví dụ | Khai mã đã cài |
+| 2 | BE-D #2 | `AttentionItem.params`: bảng khóa cho phép **từng `kind`** đúng `ATTENTION_PARAM_KEYS` (gồm `foc_threshold`: `check` = `foc_pct_of_room_revenue` → `pct` (vắng khi doanh thu phòng = 0), `threshold`; `check` = `foc_count_per_approver` → `count`, `max`; người duyệt chỉ qua `link` `approverId`), định dạng SEC-BE-52, người thấy từng loại; `listAttentionItems`: lọc vai ở server, thứ tự, `dueAt` của mục `event` = lúc sinh mục, khi nào có nút "Đã xử lý" | Mô tả |
+| 3 | BE-D #3 | `streamEvents` + `info.description`: bảng người nhận theo loại; **SAL/CTV** chỉ `reservation.changed` đơn của mình (người tạo/người chốt) + `notification.created` của mình (SAL thêm `payment.changed` khoản mình ghi); "vai người phát chỉ cộng thêm"; thiếu người nhận → FD+ | Mô tả |
+| 4 | BE-D #4 | `getArrivalsDepartures` có `description` (đơn chính, cách chọn và sắp từng danh sách); `ArrivalsDepartures.departures`: `departureDate` = **ngày đi hiệu lực**, `nights` tới ngày đi hiệu lực, `roomNo` = căn đêm cuối; `TonightKpi.departures`/`inHouse` ghi cùng nghĩa | Mô tả |
+| 5 | FE-B (BUG-R2-081) | **Thêm** `Reservation.depositNotices[]` `{id, amountVnd, note, attachmentId, createdAt, updatedAt, createdByName, status}` – chi tiết 11.3 (2) | Thêm trường (tùy chọn) |
+| 6 | FE-B (S4-29) | **Thêm** `Bill.settledAt` (`folio.settled_at`; `null` khi folio `open`) | Thêm trường (tùy chọn) |
+| 7 | FE-A (giả định) | `checkIn`: nhánh 202 không nhận phòng, **không ghi gì** ngoài `ApprovalRequest`; gửi `payment` ở nhánh này → 422 `VALIDATION_FAILED` mã trường `NOT_ALLOWED` (`field` = `payment`); mô tả 202 + dòng `NOT_ALLOWED` ở bảng mã trường | Làm rõ – **server phải đổi** (hiện bỏ qua im lặng) |
+| 8 | (ARC, đi kèm #5) | `createDepositNotice`: mô tả (chỉ đơn `hold`, tối đa một bản `open`, báo lại = cập nhật, B4 → `handled`, đọc lại ở `depositNotices`) + khai `404`/`409`/`422` server đã trả | Khai mã đã cài |
+| 9 | BE-D #6 / ORC (b) | `setParameter`: khóa `property_map_url` (chỉ OWN, không phải tham số bảo mật, nguồn duy nhất của `GuestStay.property.mapUrl`, host SEC E14-08 → 422 mã trường `NOT_IN_LIST`, cột `property.map_url` chỉ dự phòng); `GuestStay.property.mapUrl`: lấy từ khóa này, kiểm host mỗi lần đọc | Mô tả |
+| 10 | BE-D #6 / ORC (c) | `GuestRequest.roomNo`: `type: [string, 'null']` (vẫn `required`) – `null` khi đơn chưa có căn, **không** dùng `''` | Nới kiểu phản hồi – **bên đọc xử lý `null`** |
+| 12 | ORC (MOB mục 4 điểm 2) | `GuestSession.locale` có mô tả thứ tự chọn: **khách đã chọn** (phiên trước của cùng đơn) → `preferredLocale` hồ sơ → `Accept-Language` thẻ đầu (`vi*` → vi, `ru*` → ru, còn lại/vắng → **en** – P-S4-10); **thêm** `GuestSession.localeChosenByGuest` (tùy chọn, vắng = `false`); `openGuestSession` khai header `Accept-Language` (chuỗi tự do của trình duyệt, không enum); `setGuestLocale` ghi "khách đã chọn" | Thêm trường + **đổi hành vi server** (mặc định `vi` → `en`, `ru` → `ru`) theo PO P-S4-10 |
+| 13 | ORC (MOB mục 4 điểm 3) | `getInspectionChecklist`: PWA gửi `Accept-Language` theo nút ngôn ngữ của app; cùng quy tắc cho `listInspections`, `recordInspection` (khai thêm header `AcceptLanguage` ở `recordInspection` – server đã đọc) | Mô tả + khai header đã dùng |
+| 11 | BE-D #7 | `createGuestRequest` 429 đã khai từ 0.3.6; `unavailableReason = outside_service_hours`/`not_offered` chưa dùng ở R2 – giữ nguyên hợp đồng, client hiện câu chung nếu gặp | Không đổi |
+
+ERD (`erd.md`): 4.6 `deposit_notice` (đọc lại qua cổng); 4.11 `guest_request` – bảng cột/CHECK/chỉ mục/GRANT đúng migration `0058` (ORC (a)); 9.3 khóa `property_map_url` (ORC (b)); 4.1 `property.map_url` thành dự phòng; lịch sử. `architecture.md`: 5.1 quy tắc bảng thuộc module + mô hình đọc `reporting` (11.4); mục 12 người nhận SSE; lịch sử.
+
+### 11.3 Quyết định kỹ thuật của ARC (ghi decision-log)
+
+1. **`checkIn` nhánh 202 không thu tiền** (trả lời giả định FE-A – **xác nhận**). 202 nghĩa là chưa nhận phòng: B9 chưa chạy nên không có phụ thu/đêm B9a để tính trần, chưa xét `balance_paid`; ghi khoản thu khi đó tạo tiền "treo" trên đơn chưa nhận phòng, yêu cầu duyệt bị từ chối thì phải hoàn. Server **không được bỏ qua im lặng** (tiền lễ tân đã cầm mà không vào folio – sai tiền): `payment` ở nhánh 202 → 422 `NOT_ALLOWED`, không ghi gì, khóa idempotency không bị tiêu. Thu tiền: (a) sau khi FDL+ duyệt, FD gọi lại B9 kèm `roomNotReadyOverride.approvalRequestId` **và** `payment` (nhánh 200, trần `amountDueAtCheckinVnd`); hoặc (b) thu trước bằng `createVietQr purpose=check_in` + `confirmPaymentReceived`. FE-A đang làm đúng (không gửi `payment` ở nhánh 202).
+2. **`Reservation.depositNotices[]`** – mới nhất trước; tối đa một bản `open` (SEC-BE-28 (3)), bản `handled` giữ để đối chiếu. **Thêm `updatedAt`** ngoài danh sách FE-B đề nghị: báo lại là cập nhật tại chỗ (số tiền mới) – Desk phải hiện giờ của lần báo gần nhất, không phải `createdAt`. Người thấy: mảng `x-visible-to` FD+ + SAL + CTV (SAL/CTV chỉ tới được đơn của mình qua `x-scope own` của `getReservation`); trong phần tử, `note` gắn **D12c** và `createdByName` gắn **D27**, `x-visible-to` FD+ → serializer tự bỏ với SAL/CTV (rbac mục 6: D12c, D27 = K với SAL/CTV). `amountVnd`, `attachmentId`, `status`, giờ **không** gắn D14 vì đây là số người báo khai (dữ liệu "cọc" của đơn – CTV "M (tổng tiền phòng, cọc)" ở bảng dữ liệu kinh doanh mục 6), không phải "kết quả thanh toán" (gắn D14 sẽ làm serializer bỏ với CTV). Server **bắt buộc** trả ở `getReservation`; phản hồi hành động dùng schema `Reservation` được vắng. Cách cài: bảng `deposit_notice` thuộc `payments` → dùng mẫu cổng `ReservationHooks.provideDepositNotices(reader)` như `provideRegistrationSummary` – `reservations` không đọc bảng này, `payments` không bị import vòng.
+3. **`Bill.settledAt`** = `folio.settled_at` (cột có sẵn, cấp cùng `billNo`), không thêm cột. Cài cùng chỗ `Bill.roomName` (ORC D1 (3) đã chuyển phần bill BR-012 cho BE-A) để không hai luồng sửa cùng hàm dựng bill.
+4. **Khóa `params` của "Cần chú ý" – hợp đồng đi trước code**: bảng ở `AttentionItem.params` là danh sách đóng; nguồn mới (BE-C: `work_order_*`, `room_status_mismatch`; J18 `channel_sync_error`) cần khóa mới thì gửi ARC ghi hợp đồng **trước** khi thêm vào `ATTENTION_PARAM_KEYS`.
+5. **`GuestRequest.roomNo` = `null`** khi đơn chưa có căn (theo ORC) – `''` là giá trị giả, dễ lọt vào `roomNos`/nhãn. Vẫn `required` (luôn có khóa). Đây là nới kiểu phản hồi trong hợp đồng đóng băng: chấp nhận vì operation mới cài ở Sprint 4 (chưa có client đã phát hành), bên đọc duy nhất là Desk/PWA đang làm (11.5).
+6. **`property_map_url`** là nguồn duy nhất của ghim bản đồ (khóa tham số có ngày hiệu lực, OWN sửa, audit `config`, không phải tham số bảo mật – host đã chặn bằng danh sách cho phép ở cả lúc ghi và lúc đọc); cột `property.map_url` chỉ dự phòng khi khóa vắng, bỏ ở R3 (expand → contract).
+7. **Review module `reporting` – CHẤP NHẬN KÈM ĐIỀU KIỆN** (11.4).
+8. **Ngôn ngữ phiên khách (P-S4-10) do server quyết, client không tự ghi đè**: lý do MOB nêu – `GuestSession.locale` luôn có giá trị nên client không thể áp "mặc định EN" sau khi có phiên. Server chọn một lần lúc mở phiên theo thứ tự: khách đã chọn (lưu `guest_session.locale_chosen_at`, áp cho phiên mới của **cùng đơn** – mở lại link, link cấp lại) → hồ sơ người đứng tên → `Accept-Language` (thẻ đầu: `vi*` → vi, `ru*` → ru, còn lại/vắng → en). Lựa chọn của khách **không** ghi vào hồ sơ khách (`guest.preferred_locale` – dữ liệu lễ tân quản lý, module `guests`). `localeChosenByGuest` chỉ để hiển thị trạng thái. Giữ `required: [locale]` – không đổi hợp đồng cũ.
+9. **`Accept-Language` của nhân viên = ngôn ngữ app, không phải trình duyệt**: PWA truyền rõ qua `RequestOptions.acceptLanguage` của `@ottimo/api-client`; operation không có nhãn theo ngôn ngữ bỏ qua header.
+
+### 11.4 Review mô hình đọc `reporting` (BE-D #5)
+
+**Đã xem**: `src/modules/reporting/**` (bảng đọc: `reservation`, `reservation_segment`, `stay_night`, `room`, `room_block`, `checkout_confirmation`, `channel`, `guest`; `attention-sources.ts` thêm `folio_line`, `approval_request`; `no-show-notices.ts` đọc **và ghi** `attention_event`; `hold-reminder-job.ts` ghi `job_run`).
+
+**Kết luận: chấp nhận đọc thẳng (không bắt chuyển hết sang cổng)**, vì: KPI và danh sách "Hôm nay" cần gộp nhiều bảng trong **một** truy vấn để giữ p95 < 300 ms (đi qua cổng từng module = N+1); `reporting` theo architecture 5.1 là phân hệ "tính từ dữ liệu" (M1); BE-D đã đưa giá trị từng đơn có chủ (còn phải thu, trạng thái khai báo) qua cổng (`FolioService.balance`, `ReservationHooks.registrationSummary`) và chạy trong giao dịch chỉ đọc có RLS. **Điều kiện** (BE-D, trước khi gộp M1 – CỔNG):
+
+| # | Điều kiện | Hiện trạng |
+|---|---|---|
+| C1 | Chỉ `SELECT` bảng của module khác, trong giao dịch chỉ đọc của người gọi (RLS) | Đạt (trừ C2) |
+| C2 | **Không ghi bảng của module khác**: `no-show-notices.ts` đang `SELECT … FOR UPDATE` + `UPDATE attention_event` thẳng → chuyển sang `EventsService` (`events/public`, BE-D cũng là người sửa module events): thêm hàm đọc lịch sử mục theo (`kind`, `refType`, `refId`) có khóa dòng và `resolveAttentionById(tx, id, now, note)` (đóng bởi hệ thống, `resolved_by` NULL, phát `attention.changed`) | **Chưa đạt – phải sửa** |
+| C3 | Giá trị từng đơn có chủ lấy qua cổng; chỗ còn chép logic (`stay-actions.ts` ↔ `reservations/internal/allowed-actions.ts`) **bắt buộc** giữ test đối chiếu (parity) trong CI. R3: `reservations/public` xuất hàm `allowedActions` để bỏ bản chép | Đạt có điều kiện |
+| C4 | Số khớp định nghĩa DATA (K-01…K-03, S1c, K-18 cho `foc_threshold`) – có ca oracle (6/9 = 66,7 %, FOC đảo ròng = 0) | Đạt (test BE-D); DATA đối chiếu A7 |
+| C5 | Danh sách bảng được đọc khai ở đầu `reporting.module.ts`; thêm bảng = ARC review. `guest` chỉ đọc tên người đứng tên (D01 – đã có trong `ReservationSummary`) và `tags` để lọc VIP (không trả ra) | Thiếu khai báo – bổ sung |
+| C6 | Test kiến trúc (thêm vào `module-boundaries.test.ts`): mã trong `modules/reporting` không có `INSERT`/`UPDATE`/`DELETE`/`FOR UPDATE` trừ `job_run` (mẫu job 9.1); chỉ đọc bảng trong danh sách C5 | Chưa có – thêm |
+
+Xem lại ở R3 (US-014 doanh thu tháng/ADR/RevPAR, đa cơ sở): danh sách > 12 bảng hoặc cần dữ liệu nhiều cơ sở → module chủ cung cấp view `v_reporting_*`. Ghi vào `architecture.md` 5.1.
+
+### 11.5 Ai cài gì
+
+| # | Thay đổi | BE (cài) | FE / MOB (dùng) | Kiểm / review |
+|---|---|---|---|---|
+| 1–4 | `resolveAttentionEvent`, `params`, SSE, ngày đi hiệu lực | **BE-D** – đã cài, không phải sửa; giữ `ATTENTION_PARAM_KEYS` khớp bảng hợp đồng (11.3 (4)) | **FE-B** – đúng như đang làm (`app/attention.ts`, `useLiveEvents`, H03). Sửa giả định FE-B: `room_ooo` **không** có `params.endDate` / `params.roomNo` / `dueAt` – chỉ `count` + `roomNos` → câu không ngày. `foc_threshold` 2 câu theo `params.check` (chờ UXD). MOB: không lọc SSE theo vai | QA: ca 409 cho 3 loại tự đóng, 422 mục critical thiếu `note`, V-09; SEC: G2 SSE (BE-D đã nhờ) |
+| 5 | `Reservation.depositNotices[]` | **BE-B** (chủ `deposit_notice`, module `payments`): bộ đọc theo đơn (mới nhất trước, `createdByName` = tên hiển thị `created_by`, `updatedAt`), đăng ký `ReservationHooks.provideDepositNotices`. **BE-A** (module `reservations`): thêm slot `provideDepositNotices`/`depositNotices(tx, id)` vào `ReservationHooks` (vài dòng như `registrationSummary`) và gọi trong `getReservation`. Serializer tự lọc `note`/`createdByName` | **FE-B**: H11 "Xác nhận cọc" hiện bản `open` (số, `updatedAt`, ghi chú, ảnh qua `getAttachment`) → đóng BUG-R2-081; MSW `mocks/reservations.ts` trả trường mới. `DepositDialog` nằm trong `ReservationDialogs.tsx` – **tệp chung với FE-A** (S4-28): báo FE-A trước khi sửa. MOB (PWA sale/CTV): không bắt buộc | QA: ca trường – FD thấy `note`/`createdByName`; SAL/CTV (đơn mình) thấy số/giờ/trạng thái, **không** thấy `note`/`createdByName`; SAL/CTV đơn người khác → 404 |
+| 6 | `Bill.settledAt` | **BE-A** cùng chỗ `Bill.roomName` (D1 (3)); BE-B review module folio. NÊN – nếu BE-A kín việc, ORC giao BE-B | **FE-B**: `BillDialog` in "Lập lúc {settledAt}", `null` (folio `open`) mới dùng giờ hiện tại | QA: in lại phiếu đã chốt hôm trước – giờ không đổi |
+| 7 | `checkIn` 202 + `payment` → 422 | **BE-A** (`frontdesk/internal/checkin.service.ts`): ở nhánh `requestRoomApproval`, `payment` có mặt → `f.add('payment', 'NOT_ALLOWED')` **trước** `f.done()`; hiện đang trả 202 và bỏ qua `payment` im lặng. Ca test: FD + phòng chưa sạch + `payment` → 422, folio/payment không đổi, không có `ApprovalRequest`. CỔNG cùng M4 | **FE-A**: giữ nguyên (không gửi `payment` ở nhánh 202) – giả định FE-A được xác nhận | QA: ca trên vào bộ TC-L3 (H13) |
+| 8 | `createDepositNotice` mô tả + mã | **BE-B** – đã cài | **FE-B** – hiện 409 (đơn không còn giữ chỗ) / 422 ảnh không hợp lệ ở hộp "Báo đã chuyển cọc" | – |
+| 9 | `property_map_url` | **BE-D** – đã cài (`0058`, `parameter-rules.ts`, `guest-portal`) | FE-B: màn Tham số (H04/OWN) nhập khóa này khi làm – 422 mã trường `NOT_IN_LIST` hiện ở ô; MOB guest-web: không đổi (đọc `mapUrl`) | SEC: E14-08 cả lúc ghi và lúc đọc |
+| 10 | `GuestRequest.roomNo` nullable | **BE-D** (`guest-portal/internal/guest-requests.service.ts` ~dòng 471): trả `null` thay `''` | **FE-B**: `mocks/ops.ts` (~1197) bỏ `null` khi gom `roomNos` (đang làm admin-web `tsc` đỏ 1 lỗi); `pages/ops/GuestRequests.tsx` hiện "Chưa gán căn" khi `roomNo = null` (UXD cấp chuỗi). **MOB** (PWA HK/MT nếu hiện yêu cầu khách): xử lý `null` – `tsc` mobile hiện xanh | QA: yêu cầu của đơn OTA xung đột chưa gán căn → `roomNo: null` |
+| 12 | Ngôn ngữ phiên khách (P-S4-10) + `localeChosenByGuest` | **BE-D** (`guest-portal`): `pickLocale` theo thứ tự 11.3 (8) – hiện mã map `ru` → en và trình duyệt lạ → **vi**, phải đổi; nhận `preferredLocale = ru`; cột `guest_session.locale_chosen_at` (vào `0058` nếu chưa gộp, khác thì xin số ORC); `setGuestLocale` ghi cột; `openGuestSession` (và `getGuestSession` khi cài R3) trả `localeChosenByGuest`. Ca test: `fr-FR` → en, `ru-RU` → ru, `vi-VN` → vi, vắng → en, đã chọn rồi mở lại link → giữ + cờ `true` | **MOB** (guest-web): dùng nguyên `locale` của phiên, nút ngôn ngữ gọi `setGuestLocale` và hiện trạng thái theo cờ; trước khi có phiên (link hết hạn, đang tải) giữ mặc định theo trình duyệt P-S4-10 như đang làm; mock trả `locale` theo quy tắc + cờ (hiện trả `vi`) | QA: ca 4 giá trị `Accept-Language` + mở lại link sau khi chọn |
+| 13 | `Accept-Language` theo nút ngôn ngữ PWA | – (server đã đọc header ở `getInspectionChecklist`, `listInspections`, `recordInspection`) | **FE** (chủ `@ottimo/api-client` – ORC chỉ định một luồng; `packages/api-client/src/endpoints.ts` là tệp chung FE-A/FE-B, đọc lại trước khi sửa): thêm `acceptLanguage?: 'vi' \| 'en' \| 'ru'` vào `RequestOptions` → đặt header `Accept-Language`, có test. **MOB** (PWA): truyền `acceptLanguage` theo nút VI/EN khi gọi 3 operation trên | QA: đổi nút EN → nhãn checklist tiếng Anh dù trình duyệt tiếng Việt |
+| 11.4 | Điều kiện `reporting` C2, C5, C6 | **BE-D** – CỔNG trước gộp M1; báo ARC review lại. **BE-A** review `frontdesk/internal/attention-sources.ts` (BE-D đã nhờ) | – | ARC review lại |
+
+### 11.6 Giả định
+- [GIẢ ĐỊNH ARC – BA xác nhận] SAL/CTV xem báo chuyển cọc của **đơn mình** (số tiền khai, giờ, ảnh id, trạng thái) – thuộc dòng "folio của đơn – cọc (M)" của bảng dữ liệu kinh doanh rbac mục 6, không phải D14; `note` (D12c) và tên người báo (D27) chỉ FD+. BA ghi một dòng/ghi chú vào rbac-matrix mục 6 nếu đồng ý; khác ý thì chỉ đổi `x-visible-to` trong phần tử (không gãy client).
+- [GIẢ ĐỊNH ARC] `depositNotices` trả mọi bản của đơn (thường ≤ 2–3); nếu cần giới hạn, server trả 20 bản mới nhất.
+- [GIẢ ĐỊNH BE-D – giữ] Mặc định `property_map_url` = ghim INV 17/10 (một cơ sở ở R2); OWN đổi ở Tham số.
+- [GIẢ ĐỊNH ARC – PO xác nhận nếu khác] Hồ sơ người đứng tên có `preferredLocale` thì ưu tiên hơn `Accept-Language` (lễ tân biết khách hơn trình duyệt); `ru` theo P-S4-10 → `ru` (khóa RU còn thiếu, guest-web dùng EN cho khóa đó).
+
+---
+
+## 12. Bổ sung 2 – "Yêu cầu đặt phòng" từ website, phương án A (ARC, 17/10 khuya – FB-INV-002 ý 3, 4; US-155; luồng landing)
+
+- **Nguồn**: `04-investor-feedback/FB-INV-002.md` (ý 3: đặt phòng trực tiếp từ website, nút trên fanpage trỏ về, đổ vào Desk với nguồn website; ý 4: Zalo OA là kênh chính, fanpage Facebook chỉ là link); `02-escalations/ESC-020.md`; `rounds/round-02/outputs/PO/landing-scope.md`; `rounds/round-02/reviews/landing-zalo-SEC.md` (C-2, C-3, ARC-02…12, DOM-05, SR-RL mục 7); backlog EP19 (US-151, US-155, US-158), EP18 (US-131); BR-108, BR-110, BR-112, BR-811, BR-951; ADR-014 (bản 17/10 tối).
+- **Phương án**: hợp đồng chốt cho **A** – "Yêu cầu đặt phòng" không thanh toán; nhân viên xác nhận qua Zalo, giữ chỗ, gửi QR cọc. INV **chưa** xác nhận A/B (câu hỏi ở FB-INV-002 – ORC trình). **B** (phòng trống + giá thật) chỉ là **contract-ahead**, không cài; đổi A → B không đổi operation của A.
+- **Đã áp**:
+  - `openapi.yaml`: đoạn "0.3.7 bổ sung 2" trong mục thay đổi phiên bản; quy ước "Origin landing" trong `info.description`; khối path "public-site + hàng chờ…" đặt trước khối webhooks; khối schema ở cuối tệp; vài dòng thêm ở `saveQuote`, `createHoldFromQuote`, `ReservationCreate`, `Reservation`, `Quote`, `AttentionItem`, `StaffNotification`, `streamEvents`, `setParameter` (ghi chú tham số bảo mật), bảng mã lỗi.
+  - `erd.md`: mục **4.14 mới** + dòng ở 4.5, 5 (SM-18), 9.2, 9.3, 12, 15.
+  - ADR-014: **mục 4 viết lại**; sửa tóm tắt (dòng 4, 10), 1.4 (đường dẫn proxy), 2.6, 6.1, Hệ quả, 10.
+  - Đã sinh lại `openapi-meta.ts`, `openapi-schemas.ts`, api-client `openapi.ts`, `rbac-cases.json/.csv`.
+  - **Chưa commit** – ORC commit.
+- **Chạy song song với bổ sung 1** (mục 11): hai khối tách riêng, không sửa dòng của nhau. Sửa vào mô tả chung chỉ bằng dòng thêm có nhãn "0.3.7 bổ sung 2" (cuối mô tả `streamEvents`, khóa `description` riêng của `AttentionItem.kind`). Một sửa nhỏ ngoài khối: mô tả `listAttentionItems` trỏ "erd mục 4.14" (sai từ trước) → "erd mục 4.12 `attention_event`", vì 4.14 nay là `public-site`.
+- **Không đổi**: đường dẫn, operation, trường, `x-roles`/`x-scope` đã có. Mọi trường thêm vào operation cũ là **tùy chọn**, server bỏ qua tới khi cài. Không đổi guard `ifMatch`/`dryRun`/`securityParameters` của operation nào.
+
+### 12.1 Kiểm tra đã chạy (17/10 khuya, trên tệp thật, sau khi gộp với bổ sung 1)
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `openapi-spec-validator` 0.7.2 | OK |
+| Redocly CLI 1.34.21 `lint` | Hợp lệ, 0 lỗi; 4 cảnh báo – đúng 4 cảnh báo có từ trước, 0 cảnh báo mới |
+| `check-no-test-surface.sh spec` | OK |
+| `gen-openapi-meta.mjs` → `--check` | Đã sinh lại; up to date. Meta thêm 7 operation (4 `public: true`), 2 mã lỗi (`FORM_TOKEN_INVALID` 422, `SITE_BUSY` 503); `securityParameters` **không đổi** |
+| api-client `gen.mjs` (chạy 2 lần) | Sinh lại; lần 2 "up to date" |
+| `gen_rbac_cases.py` → `--check` | OK. 195 operation có ca (+3 operation nhân viên), 2.145 ca, R3 319 (+33), bỏ qua 12 (+4 operation công khai), rbac mismatch [] |
+| `gen_traceability.py --strict` (ghi ra tệp tạm như CI) | exit 0. RBAC: 0 operation lệch, 0 thuộc tính lệch, 0 mã lạ. `x-rbac-field` 166 gắn (bổ sung 2 góp 10, đều D28), 0 thiếu |
+| vitest `services/api` (`contract`, `serializer`, `module-boundaries`, `problem-concurrency`) | 29/29; lần chạy cuối 32/32 (vai khác thêm ca song song) |
+| vitest `packages/api-client` | 28/28; lần chạy cuối 30/30 |
+| `tsc --noEmit` api-client, api, admin-web, guest-web, mobile | 0 lỗi ở lần chạy sau khi sinh mã. Lần chạy cuối: api có 4 lỗi **không do hợp đồng** – `guest-portal/internal/guest-requests.service.ts` thiếu `./guest-request-lifecycle` (việc BE-D đang làm dở); các gói khác 0 lỗi |
+| prettier (`openapi.yaml`, `openapi.ts`, `openapi-meta.ts`, `openapi-schemas.ts`) | Xanh |
+
+Không chạy test tích hợp cần PostgreSQL (không đụng stack demo; chưa có mã server cho các operation này).
+
+### 12.2 Hợp đồng phương án A (chốt – cài theo lịch ORC)
+
+| Operation | Ai gọi | Tóm tắt |
+|---|---|---|
+| `getPublicFormToken` – `GET /v1/public/properties/{propertySlug}/form-token` | Công khai, `x-allowed-origins: [landing]` | Mã form có chữ ký HMAC, dùng một lần trong [3 giây, 2 giờ]; 404 khi cơ sở chưa bật form; 30/giờ/IP |
+| `createWebsiteBookingRequest` – `POST …/booking-requests` | Công khai | Ngày đến/đi, người lớn/trẻ em (+ tuổi), hạng phòng (slug `publicRoomType`), tên, **SĐT (Zalo) bắt buộc**, email tùy chọn, kênh ưa thích (mặc định `zalo`), lời nhắn, đồng ý + phiên bản thông báo, UTM, `refHost`, ngôn ngữ, ô bẫy, form token, `Idempotency-Key`. Trả **202** `{refCode, replyBy}` – không dữ liệu khách. 403 Origin / 404 chưa bật / 422 / 428 / 429 theo IP / 503 `SITE_BUSY` theo trần cơ sở; quá 3 lần/ngày/SĐT → 202 giống hệt, không lưu. Không đọc phòng trống, hồ sơ khách, đơn |
+| `listWebsiteBookingRequests` | OWN, MGR, FDL, FD; SAL `unassigned_or_own` | Hàng chờ; lọc `status`, tìm `refCode` (không tìm SĐT/tên qua URL) |
+| `getWebsiteBookingRequest` | Như trên | Chi tiết + `ETag` |
+| `transitionWebsiteBookingRequest` – `…/actions/{claim\|release\|decline\|mark-spam\|reopen}` | Như trên | WR1–WR5; `If-Match`, `Idempotency-Key`; `decline` cần `reasonCode` |
+| `saveQuote.websiteBookingRequestId` → `createHoldFromQuote` | Theo quyền có sẵn (CTV không thấy yêu cầu) | Giữ chỗ; WR6 trong cùng giao dịch |
+| `ReservationCreate.websiteBookingRequestId` → `createReservation` | FD+ | Đơn đảm bảo khi khách đã chốt và cọc; WR6 |
+| `Reservation.directSubSource` (chỉ đọc), `Quote.websiteBookingRequestId` | – | Định danh "website · facebook" |
+| `AttentionItem.kind` `website_request_new` (FD+); `StaffNotification.kind` `website_request_new` (FDL, FD, SAL), `website_request_cap_reached` (OWN); SSE `website_request.changed` | – | Không tên/SĐT/lời nhắn trong thông báo |
+
+### 12.3 Contract-ahead phương án B – **không cài**
+`getPublicAvailability`, `getPublicOffers` (`x-round: R3`, mô tả ghi "KHÔNG cài"); `WebsiteBookingRequestInput.offerSnapshot` + `PublicOfferSnapshot` (server A bỏ qua); `WebsiteBookingRequest.offerSnapshot` (luôn null); cột `website_booking_request.offer_snapshot` (luôn NULL). Đơn vị công bố = slug `room.public_room_type` – bỏ bảng `public_listing` của phác thảo ADR. Chỉ còn/hết phòng, không số phòng còn lại (khớp FB-INV-002 ý 1). Hiện giá đêm là đổi chính sách ESC-020 L3 → INV quyết lại khi chọn B.
+
+### 12.4 Quyết định kỹ thuật của ARC (đề xuất dòng decision-log – ORC ghi khi commit)
+1. **Đổi tên** `booking_inquiry` (phác thảo ADR) → `website_booking_request` / `createWebsiteBookingRequest` (chữ INV dùng, nguồn `website`).
+2. **Không có operation "convert" riêng**: chuyển thành giữ chỗ/đơn đi qua `saveQuote` → `createHoldFromQuote` hoặc `createReservation` kèm `websiteBookingRequestId`; WR6 + xóa C2 trong cùng giao dịch qua cổng `WebsiteRequestPort` của module `public-site`. Lý do: chỉ một đường qua ràng buộc chống trùng căn – đêm, giá, hạn giữ chỗ, hạn mức giữ chỗ.
+3. **Bỏ bước lead bắt buộc** của phác thảo (sale vẫn tạo lead nếu muốn theo dõi kanban) – bớt một bước trả lời cho 10 căn.
+4. **Nguồn phụ `directSubSource`** (enum đóng `facebook|instagram|google|zalo|qr|other`, null): server suy từ UTM rồi tên miền giới thiệu; không nhập tay. Đây là cách "định danh khách đến từ website · facebook" (FB-INV-002 ý 3).
+5. **Origin theo operation** – `x-allowed-origins: [landing]`; sai → `403 FORBIDDEN_ACTION` (mã guard có sẵn, bỏ `ORIGIN_NOT_ALLOWED`); không CORS (cùng origin qua proxy). Meta chưa sinh khóa này – BE-D sửa generator + guard trong PR US-155 (generator là của BE; ARC review).
+6. **`Idempotency-Key` bắt buộc** cho POST công khai, principal `public_site` + `propertyId`; phản hồi cũ trả **trước** khi kiểm form token.
+7. **Giới hạn**: IP → 429; SĐT → 202 giống hệt (không dò được SĐT đã gửi); trần cơ sở → 503 `SITE_BUSY` (không giả thành công); đếm trong DB `rate_limit_counter` (SEC ARC-02, 04, 05).
+8. **SĐT bắt buộc, email tùy chọn, `preferredChannel` mặc định `zalo`** – Zalo OA là kênh chính (FB-INV-002 ý 4).
+9. **Một ô ngày cho mọi khách** (bỏ `stayType`/`months`): từ 28 đêm server ghi `stayKind = long` (BR-108). Khớp định vị boutique stay – không tách form "căn hộ dịch vụ" (FB-INV-002 ý 2).
+10. **Hạng phòng = slug của `Room.publicRoomType`**; slug không khớp → vẫn nhận + cờ `room_type_unmatched` (trang cũ không làm hỏng yêu cầu).
+11. **C2 không vào URL**: hàng chờ chỉ tìm theo `refCode`; tra khách bằng `lookupGuestByContact`.
+12. **Tham số bảo mật** (`public_booking_request_daily_cap`, `retention.web_request_*`) ghi chú trong `x-security-parameters`, bật cùng PR US-155 – cùng lý do mục A.3 (test kiến trúc catalogue ↔ OpenAPI).
+13. **`x-round: R3`** cho mọi operation mới tới khi ORC xếp lịch US-155. Nếu ORC kéo vào luồng LP: ARC bỏ `x-round` của 5 operation A (`getPublicFormToken`, `createWebsiteBookingRequest`, `list/get/transitionWebsiteBookingRequest`) và sinh lại `rbac-cases` – không đổi hình dạng.
+14. **`recordSiteEvent`** (bộ đếm US-158) chưa vào hợp đồng – làm cùng US-158 (áp SEC ARC-09 lúc đó).
+
+### 12.5 Bảng việc cài (cài theo lịch ORC; bật trên mạng chỉ sau SEC C-2, C-3, SEC-G1/G2 và trả lời ESC-001 LZ-2, LZ-8)
+
+| Vai | Việc | Phụ thuộc | Xong khi | Ước (ngày-người, [ước tính ARC]) |
+|---|---|---|---|---|
+| **BE-D** – endpoint công khai | (1) Migration theo erd 4.14: `website_booking_request`, `privacy_notice_version`, `public_form_nonce`, `rate_limit_counter`, hàm `public_resolve_property` (mẫu erd 2.4), `reservation.direct_sub_source`, `quote.website_booking_request_id`, `idempotency_key.principal_type` + `public_site`, kind/ref_type `staff_notification`; dòng catalogue `public_booking_requests_enabled`, `web_request_response_minutes` và 6 khóa bảo mật (ARC bật `x-security-parameters` **cùng PR**). (2) Generator meta sinh `allowedOrigins` từ `x-allowed-origins` + kiểu `OpenApiMeta`; guard: operation có `allowedOrigins: [landing]` chỉ nhận `LANDING_BASE_URL` (bắt buộc https ở staging/production khi bật form); operation nhân viên/khách không bao giờ nhận origin landing. (3) Đơn vị giao dịch công khai: idempotency principal `public_site`, replay trước form token, bỏ qua cookie. (4) `getPublicFormToken`: ký/kiểm HMAC, khóa `PUBLIC_FORM_SIGNING_KEY_FILE` ≥ 32 byte, kiểm khi khởi động (SR-SECR-05). (5) `createWebsiteBookingRequest` đúng 11 bước thứ tự trong mô tả operation: bộ đếm DB, HMAC IP (/64) và SĐT (khóa dẫn xuất `web_request_contact`), bộ nhận diện số thẻ/số giấy tờ, cờ nghi ngờ, bảng suy `DirectSubSource`, `replyBy` theo `front_desk_hours`, outbox thông báo, SSE, 202 giống hệt / 429 / 503 | Hợp đồng này; OPS biến môi trường | Ca bắt buộc: Origin sai → 403; ô bẫy → 202 không lưu; token quá nhanh/dùng lại → 422; gửi lại cùng khóa → cùng `refCode`, 1 bản ghi; SĐT lần 4/ngày → 202 không bản ghi mới, `duplicateCount` + 1; yêu cầu thứ 101/ngày → 503, 1 cảnh báo OWN; SĐT đã có hồ sơ và SĐT mới → phản hồi giống hệt; log không chứa body | 2–2,5 |
+| **BE-D** – hàng chờ + chuyển đổi | (6) `list/get/transitionWebsiteBookingRequest` (phạm vi SAL `unassigned_or_own` trong truy vấn, `allowedActions`, ETag/If-Match, `state_transition` + audit `state` không C2). (7) Cổng `WebsiteRequestPort` (`attachQuote`, `markConverted`) gọi từ `saveQuote`, `createHoldFromQuote`, `createReservation` – **BE-A review** module quotes/reservations; ghi `direct_source = website`, `direct_sub_source`, WR6, xóa C2 cùng giao dịch. (8) "Cần chú ý" `website_request_new` (tính lúc đọc); thông báo `website_request_new`, `website_request_cap_reached`. (9) Job `web_request.stale`, `web_request.purge`, dọn nonce/bộ đếm; `purge_journal` | BA SM-18 + mã rbac; (7) cần BE-A rảnh review | Ca rbac theo `rbac-cases` (sau khi bỏ `x-round`); SAL không thấy yêu cầu người khác (404); giữ chỗ từ báo giá có liên kết → đơn `website` + nguồn phụ, yêu cầu `converted`, C2 rỗng; test `Clock` giả SEC ARC-03 (31 ngày → `stale`; ngày 121 → C2 rỗng; `reopen` ngày 179 → vẫn xóa ngày 180) | 1,5–2 |
+| **FE-LP** – form trên landing | (1) Trang `/book/` + `/vi/book/`. Cờ build `PUBLIC_BOOKING_FORM`: tắt → trang hiện nút Zalo + "Kênh khác", không tải script form; bật → form. (2) Trường theo `WebsiteBookingRequestInput`: Zalo chọn sẵn và đứng đầu, WhatsApp/Telegram/Viber/gọi/email trong "Kênh khác"; ô đồng ý không tích sẵn + link `/privacy/` đúng phiên bản; ô bẫy ẩn bằng class; **không** hiện số phòng/số căn; không ô nhận ưu đãi. (3) Script module ngoài (CSP `'self'`, không inline): lấy form token khi khách chạm ô đầu tiên; kiểm bằng schema zod chung; `Idempotency-Key` UUID mỗi lần gửi, giữ khi gửi lại; UTM lấy từ URL + giữ UTM trên link nội bộ (không cookie/localStorage); `refHost` từ `document.referrer` (chỉ tên miền, khi khác origin); `landingPath`. (4) Xử lý phản hồi: 202 → trang cảm ơn có mã yêu cầu, `replyBy` theo giờ cơ sở, nút "Nhắn Zalo" soạn sẵn mã + "Kênh khác"; `FORM_TOKEN_INVALID` → lấy mã mới, gửi lại một lần; 422 trường → lỗi tại ô; 429/503/404/mất mạng → khối "Nhắn Zalo / Gọi" (dữ liệu khách không gửi đi đâu khác). (5) Link fanpage Facebook ở chân trang + Liên hệ (thẻ `<a>`, không SDK) | Hợp đồng (dựng trước bằng mock từ spec); UXD chữ + bố cục v1.2; SEC duyệt văn bản thông báo | Playwright: 0 request ra tên miền ngoài, không cookie, không `localStorage` mới; axe không lỗi nghiêm trọng; gửi được ở 360 px EN/VI; link "Book now" có UTM → yêu cầu có `subSource = facebook`; tắt cờ → `/book/` không 404 | 2–3 |
+| **FE-B** – hàng chờ Desk | (1) Mục menu "Yêu cầu từ website" (FD+, SAL) + số đếm `new`; trang `/website-requests`. (2) Danh sách: mã, ngày, số đêm, số khách, hạng, kênh ưa thích, nguồn ("Website · Facebook"), hạn trả lời (tô quá hạn), cờ nghi ngờ, người xử lý; lọc trạng thái, tìm mã. (3) Ngăn chi tiết: C2 + nút sao chép SĐT, mở Zalo/WhatsApp/gọi; nút theo `allowedActions` (Nhận xử lý, Trả lại, Từ chối + hộp lý do, Spam, Mở lại), ETag/If-Match, xử lý 409/412. (4) "Báo giá": `GuestPicker` điền sẵn (`lookupGuestByContact`/`createGuest` – BR-951) → `QuoteDialog` điền sẵn ngày, người, nhóm tuổi, hạng → `saveQuote` + `websiteBookingRequestId` → `createHoldFromQuote`; "Tạo đơn" (FD+) → `BookingDialog` + `websiteBookingRequestId`. (5) SSE `website_request.changed`; chuông hiện 2 loại thông báo mới; "Cần chú ý" `website_request_new`. (6) Đơn hiện "Website · {nguồn phụ}" ở danh sách/ngăn đơn | BE-D (6)–(8); UXD chuỗi `webreq.*` | Ca: SAL thấy đúng phạm vi; nhận → giữ chỗ → đơn mang nguồn website/facebook, yêu cầu biến khỏi hàng chờ; từ chối thiếu lý do bị chặn ở client; mã lạ của `kind` → câu chung | 2–3 |
+| UXD | Bố cục form + trang cảm ơn trong mock v1.2 (theo FB-INV-002 ý 1, 2, 4, 5); chuỗi VI/EN: form, lỗi từng mã, thông báo, lý do từ chối, hàng chờ | – | – | – |
+| BA | SM-18 (WR1–WR7) vào `state-machines.md`; màn + hành động `rbac-matrix.md` (FD+, SAL `unassigned_or_own`, không CTV); use case "Xử lý yêu cầu từ website" | – | Trước BE-D (6) | – |
+| SEC | Review hợp đồng (C-2, C-3, ARC-02…12); SR-RL-10/11 vào `security-requirements.md`; mã T19 vào DRA; văn bản thông báo xử lý dữ liệu có phiên bản; sổ bí mật `PUBLIC_FORM_SIGNING_KEY` | – | Trước khi bật form | – |
+| DOM | Chốt `web_request_response_minutes` (đề xuất 30) và danh sách lý do từ chối; xác nhận BR-112 ghi thêm nguồn phụ | – | Trước BE-D (5) | – |
+| OPS | `LANDING_BASE_URL`, `PUBLIC_FORM_SIGNING_KEY_FILE` (`.env.example`, sổ bí mật); Caddy origin landing proxy đúng 2 đường dẫn (B thêm 2) | – | Trước khi bật form | – |
+| QA | Ca theo 12.5 + `rbac-cases` (khi bỏ `x-round`); không viết ca cho phần contract-ahead B | – | – | – |
+| INV (qua ORC) | Trả lời A/B (FB-INV-002); đặt nút "Book now" của fanpage trỏ `https://<tên-miền>/book/?utm_source=facebook&utm_medium=page_button&utm_campaign=book_now` khi form bật | – | – | – |
+
+Thứ tự: BE-D (1)–(5) → FE-LP ghép thật (FE-LP dựng trước bằng mock theo spec); BE-D (6)–(8) → FE-B. Tổng phần cài A ≈ 7,5–10,5 ngày-người [ước tính ARC] – cao hơn ước 5,5–8 của PO vì thêm `Idempotency-Key`, nguồn phụ và job hạn lưu theo SEC ARC-03.
+
+### 12.6 Đổi hành vi – bên gọi phải sửa cùng lúc
+Không có. Mọi thay đổi ở operation cũ là trường **tùy chọn** (`saveQuote.websiteBookingRequestId`, `ReservationCreate.websiteBookingRequestId`) hoặc trường **đọc thêm** (`Reservation.directSubSource`, `Quote.websiteBookingRequestId`). `AttentionItem.kind` và `StaffNotification.kind` có giá trị mới – client đã hiện câu chung cho mã lạ.
+
+### 12.7 Thẻ SEC `landing-zalo-SEC.md` gửi ARC
+Trả lời từng thẻ ở `rounds/round-02/responses/ARC-responses.md` (mục "Landing + Zalo OA – thẻ SEC"). Đã áp: ARC-02, 03, 04, 05, 06, 07, 08, 12. Đã áp từ trước (17/10 tối): ARC-10, 11. Dời: ARC-09 (cùng US-158).
+
+### 12.8 Giả định
+- [GIẢ ĐỊNH – chờ INV] Phương án A (FB-INV-002). INV chọn B → cài thêm 12.3, không đổi A. INV chọn C → ADR riêng.
+- [GIẢ ĐỊNH – DOM] `web_request_response_minutes` = 30; lý do từ chối như `WebsiteBookingRequestDeclineReason`.
+- [GIẢ ĐỊNH – SEC] Mã hạn lưu T19; mặc định trong biên ARC-03; bộ nhận diện số giấy tờ dùng lại SR-LOG-04. Pháp lý (Luật 91/2025, NĐ 356/2025, thông báo Bộ Công Thương) chờ luật sư – ESC-001.
+- [GIẢ ĐỊNH ARC] Slug hạng = `publicRoomType` bỏ dấu, chữ thường, ký tự khác chữ-số → `-`. Landing dùng cùng slug, kiểm trong checklist phát hành (như giá "từ" – US-147 AC4).
+- [GIẢ ĐỊNH ARC] SĐT bắt buộc (Zalo là kênh chính). Khách không muốn để SĐT thì nhắn qua "Kênh khác".
+- [GIẢ ĐỊNH ARC – UXD/PO xác nhận] Zalo đứng đầu ở **cả** bản EN và VI (FB-INV-002 ý 4 thay thứ tự cũ "bản EN xếp WhatsApp trước" của ESC-020 L2-A); US-151 AC1 cần PO sửa.
+- [GIẢ ĐỊNH ARC] Một replica api (như SEC đã ghi) – form token, cache B trong RAM đúng; bộ đếm giới hạn của form nằm trong DB.
+
+### 12.9 Còn mở / chưa làm
+- `architecture.md`: thêm module `public-site`, 2 job, origin thứ tư – ARC làm khi ORC xếp lịch cài (không ảnh hưởng hợp đồng).
+- BA (SM-18, mã rbac), SEC (SR-RL-10/11, T19, văn bản thông báo), UXD (chuỗi), DOM (số phút, lý do) – xem 12.5.
+- `x-security-parameters` 6 khóa mới – ARC bật cùng PR BE-D (1).
+- `recordSiteEvent` / `web_metric_daily` – cùng US-158.
+- Không có ESC mới từ ARC: phương án không tốn thêm tiền, không đưa dữ liệu ra nước ngoài. Câu A/B đã nằm trong FB-INV-002 (ORC trình); pháp lý nằm trong ESC-001 (LZ-2, LZ-8).

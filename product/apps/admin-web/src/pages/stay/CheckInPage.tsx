@@ -3,6 +3,7 @@ import {
   type CheckInBody,
   type CheckInCondition,
   type FocRequestInput,
+  type PaymentMethod,
   type Registration,
   type Reservation,
 } from '@ottimo/api-client';
@@ -25,7 +26,7 @@ import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { dayMonth } from '../../app/reservations';
 import { useRules } from '../../app/rules';
-import { timeHHmm } from '../../app/dates';
+import { timeHHmm, todayLocal } from '../../app/dates';
 import { useToast } from '../../app/toast';
 import { lineLabel } from '../../app/folio';
 import { Page, Topbar } from '../../components/AppShell';
@@ -38,7 +39,14 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DocsList, VerifyList, reviewReady } from '../registration/DocsPanel';
 import { useSubmit } from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
-import { PaymentPanel } from './PaymentPanel';
+import {
+  CheckInPayment,
+  emptyInlinePay,
+  inlinePayment,
+  type InlinePay,
+  type InlinePayBlock,
+} from './CheckInPayment';
+import { Code } from '../../app/mono';
 
 const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
 const COND_LABEL: Record<CheckInCondition['code'], string> = {
@@ -101,6 +109,26 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     async () => (r ? (await api.getFolio({ propertyId, folioId: r.folioId })).data : null),
     [propertyId, r?.folioId],
   );
+  // FE-S4-02 (OpenAPI 0.3.7 checkIn bổ sung 1 (a)): the lead approved this desk's request today → B9 again
+  // with its id and the payment (the desk checks in – no second request, money taken then).
+  const roomApproval = useResource(
+    async () =>
+      lead || !r
+        ? null
+        : ((await api.listApprovalRequests({ propertyId }, 'approved')).data.data.find(
+            (a) =>
+              a.type === 'checkin_room_not_ready' &&
+              a.reservationCode === r.code &&
+              !!a.decidedAt &&
+              todayLocal(undefined, new Date(a.decidedAt)) === todayLocal(),
+          ) ?? null),
+    [propertyId, lead, r?.code],
+  );
+  const approved = roomApproval.state.data ?? null;
+  const reloadApproval = () => {
+    roomApproval.reload();
+    preview.reload();
+  };
   const [registration, setRegistration] = useState<Registration | null>(null);
   useEffect(() => {
     if (!deviceTrusted || !r?.registrationId) return;
@@ -127,7 +155,12 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const [confirm, setConfirm] = useState(false);
   const [fixGuests, setFixGuests] = useState(false);
   const [waitingLead, setWaitingLead] = useState(false);
+  useEffect(() => {
+    if (approved) setWaitingLead(false);
+  }, [approved]);
   const [verifyTried, setVerifyTried] = useState(false);
+  /** S4-10: cash / transfer / POS collected together with B9 (`checkIn.payment`). */
+  const [pay, setPay] = useState<InlinePay>(emptyInlinePay);
   // BUG-R2-052: fields with an input show their message there; the others are named in the alert.
   const act = useSubmit({
     bound: [
@@ -135,6 +168,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       'checkinTimeNote',
       'roomNotReadyOverride.reason',
       'documentBlockOverride.reason',
+      'payment.posAuthCode',
+      'payment.note',
     ],
     labels: {
       addPriorNight: t('checkin.prior_night_submit'),
@@ -146,6 +181,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       expectedSurchargeVnd: t('ci.told_guest'),
       documentBlockOverride: t('ci.doc_blocked_title'),
       roomNotReadyOverride: t('checkin.cond.room_ready'),
+      payment: t('ci.due_title'),
     },
   });
 
@@ -196,21 +232,52 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const ooo = roomCond && !roomCond.met && roomCond.detail === 'OOO';
   const stdIn = p?.standardCheckinTime?.slice(0, 5) ?? rules.checkinTime;
   // FE-S3-05: FD + room not ready + reason → the button sends a request (202), it does not check in.
-  const requestOnly = !lead && !!roomCond && !roomCond.met && !ooo && roomReason.trim().length >= 3;
+  const requestOnly =
+    !lead && !approved && !!roomCond && !roomCond.met && !ooo && roomReason.trim().length >= 3;
+  /** FD, room still not ready, the lead approved the request today (FE-S4-02). */
+  const roomApproved = !lead && !!approved && !!roomCond && !roomCond.met && !ooo;
   const docsMain = !!registration?.documents.some((d) => d.isMain);
   const statusText = p?.roomStatus ? t(`status.room.${p.roomStatus}`) : '';
   const foreign =
     registration?.kind === 'foreigner_temp_residence' || registration?.kind === 'mixed';
   const deadline = p?.registrationDeadlinePreview;
 
+  const needTold = early && amount > 0;
+  // S4-10 (BUG-R2-038, BR-402 v0.3.6): what B9 needs collected = balance + the charge / B9a night it is
+  // about to post (server `amountDueAtCheckinVnd`) − a FOC asked on that charge (not collected now).
+  const focAsked = needTold && toldGuest && askFoc && focReason && !priorNight ? amount : 0;
+  const balanceNow = p?.balanceDueVnd ?? balance;
+  const due = Math.max(
+    0,
+    (p?.amountDueAtCheckinVnd ?? balanceNow + (needTold ? amount : 0)) - focAsked,
+  );
+  // B9 carries the payment (cash/transfer/POS) for the amount the desk really took (FE-S4-01).
+  const payCheck = inlinePayment(pay, due);
+  const payInline = !requestOnly && due > 0 && payCheck.ok;
+  // FE-S4-02 (ARC 0.3.7): a request to the lead (202) records no money – the balance is collected at the
+  // B9 call after approval, so it does not block sending the request.
+  const balanceCovered = due === 0 || payInline || requestOnly;
+  const payBlockText = (b: InlinePayBlock): string =>
+    b.kind === 'cash_short'
+      ? t('ci.submit_cash_short', { amount: money(b.shortVnd) })
+      : b.kind === 'short'
+        ? t('ci.submit_pay_short', { amount: money(b.shortVnd) })
+        : b.kind === 'over'
+          ? t('ci.submit_pay_over', { amount: money(b.dueVnd) })
+          : b.kind === 'amount_needed'
+            ? t('ci.submit_pay_amount_needed')
+            : b.kind === 'pos_code'
+              ? t('ci.submit_pos_code')
+              : t('ci.submit_needs_pay', { amount: money(due) });
   // Unmet conditions that block the button (a reason typed for the room / document exception counts).
   const blocking = conds.filter((c) => {
+    if (c.code === 'balance_paid') return !c.met && !balanceCovered;
     if (c.met) return false;
-    if (c.code === 'room_ready' && !ooo && roomReason.trim().length >= 3) return false;
+    if (c.code === 'room_ready' && !ooo && (roomApproved || roomReason.trim().length >= 3))
+      return false;
     if (c.code === 'document_check_block' && lead && docReason.trim().length >= 3) return false;
     return true;
   });
-  const needTold = early && amount > 0;
   const canSubmit =
     online && houseRules && (!needTold || toldGuest) && blocking.length === 0 && !waitingLead;
   // FE-S3-04: the first missing thing, said next to the locked button (aria-describedby).
@@ -218,11 +285,27 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     ? t('ci.submit_needs_rules')
     : needTold && !toldGuest
       ? t('ci.submit_needs_told')
-      : blocking.length
-        ? t('ci.submit_needs_conditions', { n: blocking.length })
-        : waitingLead
-          ? t('ci.waiting_lead')
-          : null;
+      : blocking.length === 1 && blocking[0]!.code === 'balance_paid'
+        ? payCheck.ok
+          ? t('ci.submit_needs_pay', { amount: money(due) })
+          : payBlockText(payCheck.block)
+        : blocking.length
+          ? t('ci.submit_needs_conditions', { n: blocking.length })
+          : waitingLead
+            ? t('ci.waiting_lead')
+            : null;
+  const payLine = payInline
+    ? t('ci.effect_pay', {
+        amount: money(payCheck.ok ? payCheck.amountVnd : due),
+        method: t(
+          pay.method === 'cash'
+            ? 'pay.cash'
+            : pay.method === 'bank_transfer'
+              ? 'pay.bank_transfer'
+              : 'pay.card',
+        ),
+      })
+    : null;
 
   const submit = async () => {
     const body: CheckInBody = {
@@ -240,8 +323,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               note: focNote.trim() || undefined,
             }
           : undefined,
-      roomNotReadyOverride:
-        roomCond && !roomCond.met && roomReason.trim() ? { reason: roomReason.trim() } : undefined,
+      roomNotReadyOverride: roomApproved
+        ? { reason: approved?.reasonNote || undefined, approvalRequestId: approved!.id }
+        : roomCond && !roomCond.met && roomReason.trim()
+          ? { reason: roomReason.trim() }
+          : undefined,
       documentBlockOverride:
         docCond && !docCond.met && lead && docReason.trim()
           ? { reason: docReason.trim() }
@@ -251,6 +337,16 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       doorAccessHandedOver: door,
       addPriorNight: priorNight || undefined,
       priorNightRateVnd: priorNight ? amount : undefined,
+      payment:
+        payInline && payCheck.ok
+          ? {
+              type: 'charge',
+              method: pay.method as PaymentMethod,
+              amountVnd: payCheck.amountVnd,
+              note: pay.method === 'bank_transfer' ? pay.note.trim() || undefined : undefined,
+              posAuthCode: pay.method === 'card_pos' ? pay.pos.trim() : undefined,
+            }
+          : undefined,
     };
     let failed: unknown = null;
     const out = await act.submit((idem) =>
@@ -298,7 +394,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       case 'room_ready':
         return t('ci.cond_room', { room, status: statusText });
       case 'balance_paid':
-        return c.met ? null : t('ci.cond_balance', { amount: money(balance) });
+        return c.met ? null : t('ci.cond_balance', { amount: money(due) });
       case 'main_guest_document':
         return c.met ? null : t('ci.cond_doc');
       case 'capacity_within_max':
@@ -397,6 +493,10 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                   {!c.met && c.code === 'room_ready' ? (
                     ooo ? (
                       <div className="li-s">{t('ci.ooo_never')}</div>
+                    ) : roomApproved ? (
+                      <Chip tone="ok" icon="check">
+                        {t('ci.room_approved', { name: approved?.approverName ?? '' })}
+                      </Chip>
                     ) : (
                       <>
                         <div className="li-s">
@@ -713,28 +813,39 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           <h2 className="label-h" id={`${ids}-pay`}>
             {t('ci.pay_title')}
           </h2>
-          <p className="kv-big num">
-            {t('drawer.folio.balance')}: {money(balance)}
-          </p>
-          {balance > 0 ? (
-            online ? (
-              <PaymentPanel
-                reservation={r}
-                balanceVnd={balance}
-                onPaid={() => {
-                  folio.reload();
-                  preview.reload();
-                  res.reload();
-                }}
-              />
-            ) : (
-              // FE-S3-12: offline never shows "Đã thanh toán đủ" while money is still owed.
-              <p className="li-s">{t('rsv.need_online')}</p>
-            )
+          {online ? (
+            <CheckInPayment
+              reservation={r}
+              due={due}
+              breakdown={{
+                balanceVnd: balanceNow,
+                earlyVnd: needTold && !priorNight ? amount : 0,
+                priorNightVnd: needTold && priorNight ? amount : 0,
+                focAskedVnd: focAsked,
+              }}
+              qrInput={{
+                checkinTime: early && time ? time : undefined,
+                addPriorNight: priorNight || undefined,
+                priorNightRateVnd: priorNight ? amount : undefined,
+              }}
+              pay={pay}
+              onPay={setPay}
+              requestOnly={requestOnly}
+              fields={act.fields}
+              onPaid={() => {
+                folio.reload();
+                preview.reload();
+                res.reload();
+              }}
+            />
+          ) : due > 0 ? (
+            // FE-S3-12: offline never shows "Đã thanh toán đủ" while money is still owed.
+            <p className="li-s">{t('rsv.need_online')}</p>
           ) : (
-            <Chip tone="ok">{t('drawer.folio.settled')}</Chip>
+            <Chip tone="ok" icon="check">
+              {t('drawer.folio.settled')}
+            </Chip>
           )}
-          <p className="li-s">{t('ci.recon_ok')}</p>
         </section>
 
         <section className="card stack" aria-labelledby={`${ids}-door`}>
@@ -797,6 +908,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
             {needTold && toldGuest ? (
               <li>{t('ci.effect_fee', { amount: money(amount) })}</li>
             ) : null}
+            {payLine ? <li>{payLine}</li> : null}
           </ul>
         </section>
       </div>
@@ -816,7 +928,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
 
   return (
     <>
-      <Topbar title={t('checkin.title', { room, guest })} sub={r.code} />
+      <Topbar title={t('checkin.title', { room, guest })} sub={<Code>{r.code}</Code>} />
       <Page>
         {!online ? (
           <Alert tone="warn" icon="offline">
@@ -829,7 +941,16 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           <div className="stack">
             {body}
             {waitingLead ? (
-              <Alert tone="info" icon="hourglass">
+              <Alert
+                tone="info"
+                icon="hourglass"
+                actions={
+                  // FE-S4-02: once the lead approved, the desk checks in (and collects) from here.
+                  <Button size="sm" onClick={reloadApproval}>
+                    {t('common.reload')}
+                  </Button>
+                }
+              >
                 {t('ci.waiting_lead')}
               </Alert>
             ) : null}
@@ -917,6 +1038,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           {needTold && toldGuest && !requestOnly ? (
             <p className="li-s">{t('ci.effect_fee', { amount: money(amount) })}</p>
           ) : null}
+          {payLine ? <p className="li-s">{payLine}</p> : null}
           {act.view()}
         </ConfirmDialog>
       ) : null}

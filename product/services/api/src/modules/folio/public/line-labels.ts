@@ -9,6 +9,10 @@
  * Dates are ISO local dates (`YYYY-MM-DD`), times `HH:mm`, percentages integers – the client formats them.
  *
  * Keys and params (closed per key):
+ * BR-012 (0.3.7 D1, S4-52 – BE-A): `room` / `from` / `to` are ROOM NAMES (The Pine…) in every response – the lines
+ * keep room numbers, the name is read when shown (`roomName`, current room table; a settled folio uses the names
+ * frozen at settlement – `folio.settled_room_names`, room-names.ts); a room without a name shows its number.
+ *
  *   bill.line.room_night {date, room?} · bill.line.extra_night {date, room?} (E05-11, room line with charge_code
  *   `extra_night`) · bill.line.extra_person {date, count?} · bill.line.early_checkin {time, pct}
  *   bill.line.late_checkout {time, pct} · bill.line.early_departure_fee {pct?, nights?, noticeDays?}
@@ -37,6 +41,8 @@ export interface LabelSource {
 export interface LabelContext {
   /** Room number of the stay on a business date (segment covering it), null when unknown. */
   roomOn?: (date: string | null) => string | null;
+  /** BR-012: display name of a room number (null = no name → the number is shown). */
+  roomName?: (roomNo: string) => string | null;
   /** Approval reason code of a FOC/discount line. */
   reasonOf?: (line: LabelSource) => string | null;
   /** Name of a damage catalogue item (`damage.<code>`). */
@@ -68,7 +74,23 @@ function timePct(description: string): { time?: string; pct?: number } {
   return m ? { time: m[1] as string, pct: Number(m[2]) } : {};
 }
 
+/** BR-012: `room` / `from` / `to` params as room names. */
+function named(out: LineLabel, ctx: LabelContext): LineLabel {
+  const p = out.labelParams;
+  if (!p || !ctx.roomName) return out;
+  const next: LabelParams = { ...p };
+  for (const k of ['room', 'from', 'to'] as const) {
+    const v = p[k];
+    if (typeof v === 'string' && v !== '') next[k] = ctx.roomName(v) ?? v;
+  }
+  return { labelKey: out.labelKey, labelParams: next };
+}
+
 export function lineLabel(l: LabelSource, ctx: LabelContext = {}): LineLabel {
+  return named(rawLabel(l, ctx), ctx);
+}
+
+function rawLabel(l: LabelSource, ctx: LabelContext): LineLabel {
   const given = l.label_params ?? {};
   const d = l.description ?? '';
   switch (l.category) {

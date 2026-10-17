@@ -202,6 +202,11 @@ export const guestDocument = pgTable(
     purgedAt: instant('purged_at'),
     /** Person removed from the booking (EP02 8, A-38): C3 destroyed in the same transaction. */
     removedAt: instant('removed_at'),
+    /**
+     * 0.3.7 nhóm D A.6 (0057): name + date of birth on the document match a guest profile OUTSIDE the booking –
+     * never linked automatically, the desk confirms (BR-952). Computed when the document is entered.
+     */
+    possibleReturningGuest: boolean('possible_returning_guest').notNull().default(false),
     createdAt: instant('created_at').notNull(),
     createdBy: uuid('created_by'),
     updatedAt: instant('updated_at').notNull(),

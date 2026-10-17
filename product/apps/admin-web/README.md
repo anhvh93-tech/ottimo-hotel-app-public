@@ -30,6 +30,17 @@ Console trình duyệt: `__ottimoMock.reset()`.
   phát sinh, xác nhận giờ trả, giao mã/thẻ, hoàn tác, người đi cùng, đề nghị hoàn), `PaymentPanel` (VietQR vẽ tại chỗ bằng
   `@ottimo/ui` `QrCode` – SEC F2, tiền mặt, chuyển khoản, POS); `pages/registration` H14 (C3, thiết bị được cấp);
   `pages/approvals` H17 17.2; `pages/money` H17 17.3 + đối soát/tiền mặt nộp quầy (A46/A46a) + chi hoàn (A47/A47a)
+- Sprint 4 (FE-B – vận hành, thương hiệu): H03 `pages/TodayPage.tsx` + H24 `pages/OverviewPage.tsx` (khối đọc độc lập,
+  `pages/dashboard/useDashboard.ts` – SSE theo loại sự kiện `app/live.ts` `useLiveEvents`, "Cần chú ý" mỗi 60 s;
+  câu cho mọi `AttentionItem.kind` ở `app/attention.ts`; đóng mục `event` bằng `resolveAttentionEvent`); mock EP01 ở
+  `mocks/dashboard.ts` (KPI/khách đến-đi/"Cần chú ý" TÍNH từ mock đơn – tới khi BE-D giao API). Nhãn căn nhân viên
+  "401 · The Pine" (`app/rooms.ts` → `roomLabel()` của `@ottimo/i18n`, BR-012); mã đơn/số phiếu/mã hồ sơ JetBrains Mono
+  (`app/mono.tsx` `monoArgs`/`Code`, font tự host trong `@ottimo/ui`). H16 "Ghi công nợ" (MGR/OWN, S4-26), drawer
+  "Xem Phiếu thanh toán" cho đơn đã trả (S4-29), ảnh biên nhận khi CTV báo chuyển cọc (S4-30)
+- Sprint 4 đợt 2 (FE-B): `pages/ops` – S10 `HousekeepingPage` (việc hôm nay + bộ đếm, 10 căn), S11 `MaintenancePage`
+  (phiếu sửa + `WorkOrderDrawer` theo `allowedActions`, `WorkOrderForms` tạo phiếu/khóa phòng có xử lý 409, tab Khóa phòng),
+  `GuestRequests` (hàng yêu cầu khách trên H03), nhãn dùng chung `opsLabels.ts`; S13 `pages/MinibarPage.tsx`. Mock ở
+  `mocks/ops.ts` (dùng chung khối OOO của mock EP02 và danh mục minibar của mock stay)
 - Lưu đồng thời / hệ thống bận (DS 6.21): `app/useWrite.tsx` – `409 CONCURRENT_UPDATE` / `503 SERVICE_UNAVAILABLE` giữ form,
   tự gửi lại cùng `Idempotency-Key` + `If-Match` theo `Retry-After`; GET 503 tự tải lại 1 lần (`hooks/useResource.ts`)
 - `src/components` – khung app, menu người dùng, trạng thái chung, `GuestPicker` (bộ chọn khách dùng chung)

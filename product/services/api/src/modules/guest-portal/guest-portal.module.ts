@@ -5,6 +5,10 @@
  * - FD_GUEST_ACCESS_PORT (BE-A) → GuestAccessPort (B-13): the front desk module calls it in the SAME
  *   transaction when a booking becomes cancelled / no_show (one place only – ORC 16/10, BE-A hook).
  * GUEST_BASE_URL (guest-web origin) builds the link `https://<guest-web>/g/<token>`.
+ * BE-D Sprint 4 (EP14 US-109/US-110): guest requests – guest + staff controllers, GuestRequestsService (J10
+ * `guest_request.sla`, "Cần chú ý" `guest_request_overdue`), GuestRequestStatusPort exported under BE-C's
+ * GUEST_REQUEST_STATUS_PORT; GUEST_REQUEST_WORK_PORT is bound by BE-C (optional – UnwiredGuestRequestWorkPort
+ * until then).
  */
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { defineAuditEntity } from '../audit/public/audit-fields';
@@ -16,6 +20,14 @@ import { GuestPortalService } from './internal/guest-portal.service';
 import { GuestSessionResolverService } from './internal/guest-session.resolver';
 import { GuestUnitOfWork } from './internal/guest-unit-of-work';
 import { GuestAccessPort } from './public/guest-access.port';
+import {
+  GuestRequestsGuestController,
+  GuestRequestsStaffController,
+} from './internal/guest-requests.controller';
+import { GuestRequestLifecycle } from './internal/guest-request-lifecycle';
+import { GuestRequestsService } from './internal/guest-requests.service';
+import { GUEST_REQUEST_STATUS_PORT } from './public/guest-request-ports';
+import { GuestRequestStatusPort } from './public/guest-request-status.port';
 
 defineAuditEntity('guest_access_token', []);
 defineAuditEntity('online_checkin', ['hasNote', 'fields']);
@@ -32,7 +44,12 @@ export class GuestPortalModule {
     const base = (env.GUEST_BASE_URL ?? '').trim() || 'http://localhost:8083';
     return {
       module: GuestPortalModule,
-      controllers: [GuestController, GuestLinksController],
+      controllers: [
+        GuestController,
+        GuestLinksController,
+        GuestRequestsGuestController,
+        GuestRequestsStaffController,
+      ],
       providers: [
         { provide: GUEST_BASE_URL, useValue: new URL(base).origin },
         GuestPortalService,
@@ -41,8 +58,18 @@ export class GuestPortalModule {
         { provide: GUEST_SESSION_RESOLVER, useExisting: GuestSessionResolverService },
         GuestAccessPort,
         { provide: FD_GUEST_ACCESS_PORT, useExisting: GuestAccessPort },
+        GuestRequestLifecycle,
+        GuestRequestsService,
+        GuestRequestStatusPort,
+        { provide: GUEST_REQUEST_STATUS_PORT, useExisting: GuestRequestStatusPort },
       ],
-      exports: [GUEST_SESSION_RESOLVER, FD_GUEST_ACCESS_PORT, GuestAccessPort],
+      exports: [
+        GUEST_SESSION_RESOLVER,
+        FD_GUEST_ACCESS_PORT,
+        GuestAccessPort,
+        GuestRequestStatusPort,
+        GUEST_REQUEST_STATUS_PORT,
+      ],
     };
   }
 }

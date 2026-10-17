@@ -1,0 +1,3 @@
+# Astro generated types and cache (astro sync / check / build)
+.astro/
+dist/

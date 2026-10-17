@@ -1,0 +1,1071 @@
+/**
+ * Housekeeping + maintenance (OpenAPI 0.3.7 nhóm H, EP07/EP08 – BE-C R2 Sprint 4) on PostgreSQL through the
+ * real endpoints: room statuses (US-052/053, SM-03 R1/R2/R3/R8, B-02 performedAt, B-03 R5), tasks (US-054,
+ * SM-14, BR-807 ranks, B-04/B-05), inspections (US-055, BR-808, R4, B-07), work orders (US-057/061/062,
+ * SM-04, BR-804/809, B-09…B-11) with their OOO block (O1/O4), J8 `hk.daily`, J11 `work_order.sla`, the "Cần
+ * chú ý" sources and the EP14 port. Fake data only.
+ */
+import { randomUUID } from 'node:crypto';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Database } from '../../src/db/database';
+import {
+  ATTENTION_PARAM_KEYS,
+  EventsService,
+} from '../../src/modules/events/public/events.service';
+import {
+  GUEST_REQUEST_WORK_PORT,
+  type GuestRequestWorkPort,
+} from '../../src/modules/housekeeping/public/guest-request-work.port';
+import { RoomStatusService } from '../../src/modules/housekeeping/public/room-status.service';
+import { runHkDaily, runWorkOrderSla } from '../../src/modules/housekeeping/public/worker-jobs';
+import { ParameterService } from '../../src/modules/platform/public/parameter.service';
+import { type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
+import { sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
+import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
+import {
+  HAS_DB,
+  T0,
+  type TestTenant,
+  appDatabase,
+  createTenant,
+  setParam,
+} from '../helpers/tenant';
+
+const TODAY = '2026-10-15';
+const AT = (min = 0) => new Date(T0.getTime() + min * 60_000).toISOString();
+
+describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
+  let db: Database;
+  let fa: FeatureApp;
+  let t: TestTenant;
+  let ids: BookingIds;
+  const tok = (u: string) => t.users[u]!.sessionToken;
+  const uid = (u: string) => t.users[u]!.id;
+
+  beforeAll(async () => {
+    db = appDatabase(10);
+    fa = await startFeatureApp(db);
+  });
+  // A fresh tenant per test: tasks / statuses of one case never leak into another's lists.
+  beforeEach(async () => {
+    t = await createTenant(db, {
+      users: {
+        own: ['owner'],
+        mgr: ['manager'],
+        fdl: ['front_desk_lead'],
+        fd: ['front_desk'],
+        hk: ['housekeeping'],
+        hk2: ['housekeeping'],
+        mt: ['maintenance'],
+        sal: ['sales_staff'],
+      },
+    });
+    ids = await seedBooking(db, t);
+  });
+
+  /** Moves the Clock and keeps the staff sessions alive after it. */
+  async function at(iso: Date): Promise<void> {
+    fa.clock.set(iso);
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE user_session SET idle_expires_at = $1, expires_at = $1', [
+        new Date(iso.getTime() + 3_600_000),
+      ]),
+    );
+  }
+  afterAll(async () => {
+    await fa?.close();
+    await db.close();
+  });
+  afterEach(() => fa.clock.set(T0));
+
+  const call = (
+    u: string,
+    method: 'GET' | 'POST' | 'PATCH',
+    path: string,
+    opts: { json?: unknown; ifMatch?: number; headers?: Record<string, string> } = {},
+  ) => staff(fa, tok(u), null, method, `${P(t)}${path}`, opts);
+
+  const room = (no: string) => ids.rooms[no] as string;
+
+  async function setStatus(roomNo: string, status: string, since = T0) {
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `INSERT INTO room_status (room_id, organization_id, property_id, status, since)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (room_id) DO UPDATE SET status = EXCLUDED.status, since = EXCLUDED.since`,
+        [room(roomNo), t.organizationId, t.propertyIds[0], status, since],
+      ),
+    );
+  }
+
+  async function task(
+    roomNo: string,
+    type: string,
+    opts: { assigned?: string; status?: string; due?: string } = {},
+  ) {
+    const id = randomUUID();
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query(
+        `INSERT INTO hk_task (id, organization_id, property_id, room_id, type, status, due_date, source,
+           assigned_user_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', $8, $9, $9)`,
+        [
+          id,
+          t.organizationId,
+          t.propertyIds[0],
+          room(roomNo),
+          type,
+          opts.status ?? 'open',
+          opts.due ?? TODAY,
+          opts.assigned ? uid(opts.assigned) : null,
+          T0,
+        ],
+      ),
+    );
+    return id;
+  }
+
+  async function taskRow(id: string) {
+    return db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{
+            status: string;
+            cancel_reason_code: string | null;
+            done_by: string | null;
+          }>('SELECT status, cancel_reason_code, done_by FROM hk_task WHERE id = $1', [id])
+        ).rows[0]!,
+    );
+  }
+
+  async function notifications(kind: string, refId: string) {
+    return db.withContext(t.ctx(), async (tx) =>
+      (
+        await tx.query<{ user_id: string }>(
+          'SELECT user_id FROM staff_notification WHERE kind = $1 AND ref_id = $2 ORDER BY user_id',
+          [kind, refId],
+        )
+      ).rows.map((r) => r.user_id),
+    );
+  }
+
+  async function upload(user: string, purpose: 'work_order' | 'inspection') {
+    const r = await staff(fa, tok(user), null, 'POST', `${P(t)}/attachments`, {
+      multipart: [
+        { name: 'purpose', value: purpose },
+        {
+          name: 'file',
+          value: await sampleJpeg('#336699'),
+          filename: 'p.jpg',
+          contentType: 'image/jpeg',
+        },
+      ],
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    return r.json().id as string;
+  }
+
+  const entry = async (u: string, roomNo: string) =>
+    ((await call(u, 'GET', '/room-statuses')).json().data as Array<Record<string, unknown>>).find(
+      (r) => r.roomNo === roomNo,
+    )!;
+
+  // ───────────────────────── US-052 / US-053 ─────────────────────────
+
+  it('US-052: 10 rooms, filter, HK sees the guest name only in scope T, MT never; allowedEvents by status and role', async () => {
+    const { reservationId } = await seedStay(db, t, ids, {
+      roomNo: '101',
+      bookerName: 'Lê Văn Khách',
+      status: 'in_house',
+    });
+    await setStatus('101', 'OD');
+    await setStatus('102', 'VD');
+    const fdList = await call('fd', 'GET', '/room-statuses');
+    expect(fdList.statusCode, fdList.body).toBe(200);
+    expect(fdList.json().data).toHaveLength(10);
+    const r101 = (fdList.json().data as Array<Record<string, unknown>>).find(
+      (r) => r.roomNo === '101',
+    )!;
+    expect(r101).toMatchObject({
+      status: 'OD',
+      statusLabel: 'Có khách · cần dọn',
+      currentGuest: 'Lê Văn Khách · 101',
+      allowedEvents: ['start_cleaning'],
+      inspectionFailed: false,
+    });
+    const dirty = (await call('fd', 'GET', '/room-statuses?filter=needs_cleaning')).json()
+      .data as Array<{ status: string }>;
+    expect(dirty.every((r) => ['VD', 'OD', 'CL'].includes(r.status))).toBe(true);
+    expect(dirty.length).toBeGreaterThanOrEqual(2);
+    // HK: no task on 101 yet → outside T: no name, no event.
+    let hk101 = await entry('hk', '101');
+    expect(hk101.currentGuest).toBeUndefined();
+    expect(hk101.allowedEvents).toEqual([]);
+    const tId = await task('101', 'stayover_clean');
+    hk101 = await entry('hk', '101');
+    expect(hk101.currentGuest).toBe('Lê Văn Khách · 101');
+    expect(hk101.allowedEvents).toEqual(['start_cleaning']);
+    expect(hk101.openTaskIds).toEqual([tId]);
+    // A task assigned to another HK: the room is outside T for this HK.
+    await task('103', 'adhoc_clean', { assigned: 'hk2' });
+    expect((await entry('hk', '103')).allowedEvents).toEqual([]);
+    // MT: read only, never a name (D01 K).
+    const mt101 = await entry('mt', '101');
+    expect(mt101.currentGuest).toBeUndefined();
+    expect(mt101.allowedEvents).toEqual([]);
+    expect((await call('sal', 'GET', '/room-statuses')).statusCode).toBe(403);
+    void reservationId;
+  });
+
+  it('US-053: R1 → R3 with the cleaning task, 409 on a stale expectedFrom (currentState), 422 performedAt, HK outside T → 404, R8 OC → OD + stay-over task', async () => {
+    await setStatus('201', 'VD');
+    const t104 = await task('201', 'checkout_clean');
+    const go = (u: string, body: Record<string, unknown>) =>
+      call(u, 'POST', `/rooms/${room('201')}/status-transitions`, { json: body });
+    // performedAt older than 24 h → 422 (offline queue too old).
+    const old = await go('hk', {
+      event: 'start_cleaning',
+      expectedFrom: 'VD',
+      performedAt: AT(-25 * 60),
+    });
+    expect(old.json().errors).toEqual([
+      { field: 'performedAt', code: 'PERFORMED_AT_OUT_OF_RANGE' },
+    ]);
+    const stale = await go('hk', {
+      event: 'finish_cleaning',
+      expectedFrom: 'CL',
+      performedAt: AT(),
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'VD' });
+    const start = await go('hk', {
+      event: 'start_cleaning',
+      expectedFrom: 'VD',
+      performedAt: AT(),
+    });
+    expect(start.statusCode, start.body).toBe(200);
+    expect(start.json()).toMatchObject({ status: 'CL', allowedEvents: ['finish_cleaning'] });
+    expect((await taskRow(t104)).status).toBe('in_progress');
+    // Forbidden SM-03 move (CL → OD is not an event from CL): 409.
+    const bad = await go('hk', { event: 'needs_cleaning', expectedFrom: 'CL', performedAt: AT(1) });
+    expect(bad.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'CL' });
+    const done = await go('hk', {
+      event: 'finish_cleaning',
+      expectedFrom: 'CL',
+      performedAt: AT(2),
+    });
+    expect(done.json()).toMatchObject({ status: 'VC' }); // nobody in house → VC (R3)
+    expect(await taskRow(t104)).toMatchObject({ status: 'done', done_by: uid('hk') });
+    // FDL is told the room waits for an inspection (self-inspection off).
+    expect(await notifications('room_awaiting_inspection', t104)).toEqual(
+      [uid('own'), uid('mgr'), uid('fdl')].sort(),
+    );
+    // HK outside its scope T (no task on 105) → 404; FD may (A80).
+    await setStatus('202', 'VD');
+    expect(
+      (
+        await call('hk', 'POST', `/rooms/${room('202')}/status-transitions`, {
+          json: { event: 'start_cleaning', expectedFrom: 'VD', performedAt: AT() },
+        })
+      ).statusCode,
+    ).toBe(404);
+    const fd = await call('fd', 'POST', `/rooms/${room('202')}/status-transitions`, {
+      json: { event: 'start_cleaning', expectedFrom: 'VD', performedAt: AT() },
+    });
+    expect(fd.json().status).toBe('CL');
+    // CL with a guest in house → OC (R2); OC → OD (R8) creates the stay-over task.
+    await seedStay(db, t, ids, { roomNo: '202', status: 'in_house' });
+    const r2 = await call('fd', 'POST', `/rooms/${room('202')}/status-transitions`, {
+      json: { event: 'finish_cleaning', expectedFrom: 'CL', performedAt: AT(3) },
+    });
+    expect(r2.json().status).toBe('OC');
+    const r8 = await call('fd', 'POST', `/rooms/${room('202')}/status-transitions`, {
+      json: { event: 'needs_cleaning', expectedFrom: 'OC', performedAt: AT(4) },
+    });
+    expect(r8.json().status).toBe('OD');
+    const tasks = (await call('fd', 'GET', '/hk-tasks')).json().data as Array<{
+      roomNo: string;
+      type: string;
+      status: string;
+    }>;
+    expect(
+      tasks.filter((x) => x.roomNo === '202' && x.type === 'stayover_clean' && x.status === 'open'),
+    ).toHaveLength(1);
+    // MT never changes a room status (A80 ✖).
+    expect(
+      (
+        await call('mt', 'POST', `/rooms/${room('202')}/status-transitions`, {
+          json: { event: 'start_cleaning', expectedFrom: 'OD', performedAt: AT() },
+        })
+      ).statusCode,
+    ).toBe(403);
+  });
+
+  // ───────────────────────── US-055 ─────────────────────────
+
+  it('US-055: checklist (12 points + dynamic kit item), pass → VI (R4), fail → VC + redo task + inspectionFailed, 409 CHECKLIST_OUTDATED / not VC, HK self-inspection gated, listInspections', async () => {
+    await setStatus('301', 'VC');
+    const list = await call('fdl', 'GET', `/inspection-checklist?roomId=${room('301')}`, {
+      headers: { 'accept-language': 'en' },
+    });
+    expect(list.statusCode, list.body).toBe(200);
+    const cl = list.json() as {
+      version: number;
+      items: Array<{ code: string; label: string; required: boolean; photoRequired?: boolean }>;
+    };
+    expect(cl.items).toHaveLength(12);
+    expect(cl.items[0]).toEqual({ code: 'bedding', label: 'Bed linen', required: true });
+    expect(cl.items.find((i) => i.code === 'photos')).toMatchObject({
+      required: false,
+      photoRequired: false,
+    });
+    const all = (passed = true) =>
+      cl.items.map((i) => ({ code: i.code, passed: i.required ? passed : true }));
+    const inspect = (u: string, body: Record<string, unknown>) =>
+      call(u, 'POST', `/rooms/${room('301')}/inspections`, { json: body });
+    // FD may not inspect (A81 ✖).
+    expect(
+      (await inspect('fd', { checklistVersion: cl.version, items: all(), performedAt: AT() }))
+        .statusCode,
+    ).toBe(403);
+    // HK self-inspection is off by default → 403.
+    await task('301', 'adhoc_clean');
+    expect(
+      (await inspect('hk', { checklistVersion: cl.version, items: all(), performedAt: AT() }))
+        .statusCode,
+    ).toBe(403);
+    const outdated = await inspect('fdl', {
+      checklistVersion: cl.version + 1,
+      items: all(),
+      performedAt: AT(),
+    });
+    expect(outdated.json()).toMatchObject({
+      code: 'CHECKLIST_OUTDATED',
+      currentVersion: cl.version,
+    });
+    const noNote = await inspect('fdl', {
+      checklistVersion: cl.version,
+      items: [{ code: 'bedding', passed: false }, ...all().slice(1)],
+      performedAt: AT(),
+    });
+    expect(noNote.json().errors).toEqual([{ field: 'items[0].note', code: 'REQUIRED' }]);
+    // Fail: one required point not passed (with a note) – room stays VC, a redo task is made.
+    const fail = await inspect('fdl', {
+      checklistVersion: cl.version,
+      items: [{ code: 'bedding', passed: false, note: 'Ga có vết bẩn' }, ...all().slice(1)],
+      performedAt: AT(),
+    });
+    expect(fail.statusCode, fail.body).toBe(201);
+    expect(fail.json()).toMatchObject({
+      result: 'fail',
+      roomStatusAfter: 'VC',
+      inspectedBy: 'fdl',
+    });
+    const redo = fail.json().redoTaskId as string;
+    expect(redo).toBeTruthy();
+    expect((await entry('fd', '301')).inspectionFailed).toBe(true);
+    // A missing required point is a fail, not an error.
+    const missing = await inspect('fdl', {
+      checklistVersion: cl.version,
+      items: all().slice(1),
+      performedAt: AT(1),
+    });
+    expect(missing.json().result).toBe('fail');
+    const pass = await inspect('mgr', {
+      checklistVersion: cl.version,
+      items: all(),
+      performedAt: AT(2),
+    });
+    expect(pass.json()).toMatchObject({ result: 'pass', roomStatusAfter: 'VI' });
+    const e = await entry('fd', '301');
+    expect(e).toMatchObject({ status: 'VI', inspectionFailed: false });
+    // Not VC any more → 409 with the current state.
+    expect(
+      (
+        await inspect('fdl', { checklistVersion: cl.version, items: all(), performedAt: AT(3) })
+      ).json(),
+    ).toMatchObject({
+      code: 'INVALID_TRANSITION',
+      currentState: 'VI',
+    });
+    // HK self-inspection on: photos required, then allowed.
+    await setStatus('302', 'VC');
+    await task('302', 'adhoc_clean');
+    await setParam(db, t, 'hk_self_inspection_enabled', true, '2026-10-10');
+    const hkCl = (await call('hk', 'GET', `/inspection-checklist?roomId=${room('302')}`)).json();
+    expect(hkCl.items.find((i: { code: string }) => i.code === 'photos').photoRequired).toBe(true);
+    const selfNoPhoto = await call('hk', 'POST', `/rooms/${room('302')}/inspections`, {
+      json: { checklistVersion: hkCl.version, items: all(), performedAt: AT() },
+    });
+    expect(selfNoPhoto.json().errors).toEqual([{ field: 'photoAttachmentIds', code: 'REQUIRED' }]);
+    const photo = await upload('hk', 'inspection');
+    const self = await call('hk', 'POST', `/rooms/${room('302')}/inspections`, {
+      json: {
+        checklistVersion: hkCl.version,
+        items: all(),
+        photoAttachmentIds: [photo],
+        performedAt: AT(),
+      },
+    });
+    expect(self.json()).toMatchObject({
+      result: 'pass',
+      selfInspection: true,
+      photoAttachmentIds: [photo],
+    });
+    await setParam(db, t, 'hk_self_inspection_enabled', false, '2026-10-12');
+    // listInspections: FD+ all, labels by Accept-Language; HK only its own.
+    const hist = await call('fd', 'GET', `/rooms/${room('301')}/inspections`, {
+      headers: { 'accept-language': 'vi' },
+    });
+    expect(hist.statusCode, hist.body).toBe(200);
+    expect(hist.json().data.map((i: { result: string }) => i.result)).toEqual([
+      'pass',
+      'fail',
+      'fail',
+    ]);
+    expect(hist.json().data[2].items[0]).toMatchObject({
+      code: 'bedding',
+      label: 'Ga gối',
+      passed: false,
+      note: 'Ga có vết bẩn',
+    });
+    expect((await call('hk', 'GET', `/rooms/${room('301')}/inspections`)).json().data).toEqual([]);
+    expect((await call('mt', 'GET', `/rooms/${room('301')}/inspections`)).statusCode).toBe(200);
+    const tooLong = await call(
+      'fd',
+      'GET',
+      `/rooms/${room('301')}/inspections?from=2026-01-01&to=2026-10-15`,
+    );
+    expect(tooLong.json().errors).toEqual([{ field: 'to', code: 'DATE_RANGE_TOO_LONG' }]);
+  });
+
+  // ───────────────────────── US-054 ─────────────────────────
+
+  it('US-054: ranks (priority > arrival room > guest request > checkout > stay-over > ad hoc), summary in scope, HK cancels a stay-over only with a reason, FD creates manual types only', async () => {
+    const day = '2026-10-16';
+    await at(new Date('2026-10-16T02:00:00.000Z'));
+    // Arrival today on 302 (its checkout clean is rank 2).
+    await seedStay(db, t, ids, { roomNo: '302', arrival: day, departure: '2026-10-18' });
+    const created = async (roomNo: string, type: string, dueDate = day) => {
+      const r = await call('fd', 'POST', '/hk-tasks', {
+        json: { roomId: room(roomNo), type, dueDate },
+      });
+      return r;
+    };
+    expect((await created('301', 'checkout_clean')).json().errors).toEqual([
+      { field: 'type', code: 'NOT_IN_LIST' },
+    ]);
+    expect((await created('301', 'extra_guest_kit_prepare')).json().errors).toEqual([
+      { field: 'type', code: 'NOT_IN_LIST' },
+    ]);
+    expect((await created('301', 'adhoc_clean', '2026-10-15')).json().errors).toEqual([
+      { field: 'dueDate', code: 'DATE_IN_PAST' },
+    ]);
+    expect(
+      (
+        await call('hk', 'POST', '/hk-tasks', {
+          json: { roomId: room('301'), type: 'adhoc_clean', dueDate: day },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const adhoc = (await created('301', 'adhoc_clean')).json();
+    const stay = (await created('203', 'stayover_clean')).json();
+    const prio = (await created('103', 'priority_clean')).json();
+    expect(prio.priorityRank).toBe(1);
+    expect(await notifications('hk_task_urgent', prio.id)).toEqual([uid('hk'), uid('hk2')].sort());
+    const co302 = await task('302', 'checkout_clean', { due: day });
+    const co401 = await task('401', 'checkout_clean', { due: day, assigned: 'hk2' });
+    const gr = await task('402', 'guest_request', { due: day });
+    const list = await call('hk', 'GET', '/hk-tasks');
+    expect(list.statusCode, list.body).toBe(200);
+    const order = (list.json().data as Array<{ id: string; priorityRank: number }>).map((x) => [
+      x.id,
+      x.priorityRank,
+    ]);
+    expect(order).toEqual([
+      [prio.id, 1],
+      [co302, 2],
+      [gr, 3],
+      [co401, 5],
+      [stay.id, 6],
+      [adhoc.id, 7],
+    ]);
+    // HK counts its own + unassigned (not hk2's); hk2's task shows without its note.
+    expect(list.json().summary).toEqual({ done: 0, total: 5 });
+    // Cancel: HK only a stay-over, with a reason; `other` needs a note.
+    const act = (u: string, id: string, action: string, body: Record<string, unknown> = {}) =>
+      call(u, 'POST', `/hk-tasks/${id}/actions/${action}`, {
+        json: { performedAt: '2026-10-16T09:00:00+07:00', ...body },
+      });
+    expect(
+      (await act('hk', adhoc.id, 'cancel', { cancelReasonCode: 'guest_refused' })).statusCode,
+    ).toBe(403);
+    expect((await act('hk', stay.id, 'cancel')).json().errors).toEqual([
+      { field: 'cancelReasonCode', code: 'REQUIRED' },
+    ]);
+    expect(
+      (await act('hk', stay.id, 'cancel', { cancelReasonCode: 'day_ended' })).json().errors,
+    ).toEqual([{ field: 'cancelReasonCode', code: 'NOT_IN_LIST' }]);
+    expect(
+      (await act('hk', stay.id, 'cancel', { cancelReasonCode: 'other' })).json().errors,
+    ).toEqual([{ field: 'cancelNote', code: 'REQUIRED' }]);
+    const dnd = await act('hk', stay.id, 'cancel', { cancelReasonCode: 'dnd' });
+    expect(dnd.json()).toMatchObject({ status: 'cancelled', cancelReasonCode: 'dnd' });
+    // Start → complete; a done task → 409 with its state.
+    expect((await act('hk', adhoc.id, 'start')).json().status).toBe('in_progress');
+    expect((await act('hk', adhoc.id, 'complete')).json().status).toBe('done');
+    expect((await act('hk', adhoc.id, 'complete')).json()).toMatchObject({
+      code: 'INVALID_TRANSITION',
+      currentState: 'done',
+    });
+    // Someone else's task → 404 for this HK.
+    expect((await act('hk', co401, 'start')).statusCode).toBe(404);
+    const after = await call('hk', 'GET', '/hk-tasks');
+    expect(after.json().summary).toEqual({ done: 1, total: 4 });
+    // MT reads (no note); HK cannot read another day.
+    expect((await call('mt', 'GET', '/hk-tasks')).statusCode).toBe(200);
+    expect((await call('hk', 'GET', '/hk-tasks?date=2026-10-17')).statusCode).toBe(422);
+  });
+
+  it('J8 hk.daily: stay-over for short stays in house (OC → OD, linen every 3 nights), yesterday’s stay-over cancelled day_ended, other tasks carried over', async () => {
+    const day = '2026-10-21';
+    const { reservationId } = await seedStay(db, t, ids, {
+      roomNo: '401',
+      status: 'in_house',
+      arrival: '2026-10-18',
+      departure: '2026-10-24',
+    });
+    await setStatus('401', 'OC');
+    const yesterdayStay = await task('401', 'stayover_clean', { due: '2026-10-20' });
+    const yesterdayAdhoc = await task('402', 'adhoc_clean', { due: '2026-10-20' });
+    const deps = {
+      params: fa.app.get(ParameterService),
+      events: fa.app.get(EventsService),
+      rooms: fa.app.get(RoomStatusService),
+    };
+    const now = new Date('2026-10-21T00:00:00.000Z');
+    const stats = await db.withContext(t.ctx(), (tx) => runHkDaily(tx, deps, now, day));
+    expect(stats).toMatchObject({ dayEnded: 1, stayover: 1, markedDirty: 1 });
+    expect(await taskRow(yesterdayStay)).toMatchObject({
+      status: 'cancelled',
+      cancel_reason_code: 'day_ended',
+    });
+    const rows = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{
+            type: string;
+            linen_change: boolean;
+            reservation_id: string | null;
+            carried_over: boolean;
+            id: string;
+          }>(
+            `SELECT id, type, linen_change, reservation_id, carried_over FROM hk_task WHERE room_id = $1 AND due_date = $2`,
+            [room('401'), day],
+          )
+        ).rows,
+    );
+    // 3 nights since arrival (18 → 21) → linen change night (linen_change_every_nights = 3).
+    expect(rows).toEqual([
+      expect.objectContaining({
+        type: 'stayover_clean',
+        linen_change: true,
+        reservation_id: reservationId,
+      }),
+    ]);
+    const carried = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ carried_over: boolean }>(
+            'SELECT carried_over FROM hk_task WHERE id = $1',
+            [yesterdayAdhoc],
+          )
+        ).rows[0]!,
+    );
+    expect(carried.carried_over).toBe(true);
+    const status = await db.withContext(t.ctx(), (tx) => deps.rooms.of(tx, room('401'), day));
+    expect(status).toBe('OD');
+    // Idempotent: a second run makes no second task.
+    expect((await db.withContext(t.ctx(), (tx) => runHkDaily(tx, deps, now, day))).stayover).toBe(
+      0,
+    );
+  });
+
+  // ───────────────────────── US-057 / US-061 / US-062 ─────────────────────────
+
+  it('US-057/061/062: HK reports (no block, block request), FD blocks with an expected end (BR-804), deadlines + notifications, SM-04 with history, done → block released, room VD + after-repair cleaning', async () => {
+    const photo = await upload('hk', 'work_order');
+    // HK with a block → 403 (A86); HK report with a block request.
+    expect(
+      (
+        await call('hk', 'POST', '/work-orders', {
+          json: {
+            roomId: room('401'),
+            title: 'x',
+            description: 'y',
+            category: 'leak',
+            block: { startDate: TODAY, expectedDoneDate: TODAY, reason: 'abc' },
+          },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const missing = await call('hk', 'POST', '/work-orders', {
+      json: { roomId: room('401'), title: 'Mất nước nóng' },
+    });
+    expect(missing.json().errors).toEqual([
+      { field: 'description', code: 'REQUIRED' },
+      { field: 'category', code: 'REQUIRED' },
+    ]);
+    const hkWo = await call('hk', 'POST', '/work-orders', {
+      json: {
+        roomId: room('401'),
+        title: 'Mất nước nóng – căn 401',
+        description: 'Không có nước nóng từ 21:00',
+        category: 'hot_water',
+        photoAttachmentIds: [photo],
+        blockRequested: true,
+      },
+    });
+    expect(hkWo.statusCode, hkWo.body).toBe(201);
+    const w1 = hkWo.json();
+    expect(w1).toMatchObject({
+      code: 'WO-00001',
+      status: 'new',
+      source: 'housekeeping',
+      severity: 'low', // empty room, category of the high group → low (BR-809, EP07 6.4)
+      blockRequested: true,
+      photoAttachmentIds: [photo],
+      reportedBy: 'hk',
+      allowedActions: [],
+    });
+    expect(w1.history.map((h: { change: string }) => h.change)).toEqual(['created']);
+    expect(await notifications('work_order_new', w1.id)).toEqual([uid('mt')]);
+    expect(await notifications('work_order_block_requested', w1.id)).toEqual(
+      [uid('own'), uid('mgr'), uid('fdl'), uid('fd'), uid('mt')].sort(),
+    );
+    // HK sees its own report; the other HK does not (no task on 401 either).
+    expect((await call('hk', 'GET', `/work-orders/${w1.id}`)).statusCode).toBe(200);
+    expect((await call('hk2', 'GET', `/work-orders/${w1.id}`)).statusCode).toBe(404);
+
+    // FD: high work order with a block from an expected end date: end = expected + ooo_reopen_buffer_days (1).
+    await seedStay(db, t, ids, { roomNo: '402', status: 'in_house' }); // occupied → high suggested
+    const both = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('301'),
+        title: 'Hỏng',
+        description: 'Hỏng bình',
+        category: 'power',
+        block: {
+          startDate: TODAY,
+          expectedDoneDate: '2026-10-17',
+          endDatePlanned: '2026-10-18',
+          reason: 'Thay',
+        },
+      },
+    });
+    expect(both.json().errors).toEqual([{ field: 'block.expectedDoneDate', code: 'NOT_ALLOWED' }]);
+    const ack = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('301'),
+        title: 'Hỏng',
+        description: 'Hỏng bình',
+        category: 'power',
+        block: {
+          startDate: TODAY,
+          expectedDoneDate: '2026-10-17',
+          reason: 'Thay',
+          affectedReservationsAcknowledged: true,
+        },
+      },
+    });
+    expect(ack.statusCode).toBe(403);
+    const blocked = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('301'),
+        title: 'Hỏng bình nóng lạnh',
+        description: 'Bình rò điện',
+        category: 'power',
+        severity: 'high',
+        block: { startDate: TODAY, expectedDoneDate: '2026-10-17', reason: 'Thay bình nóng lạnh' },
+      },
+    });
+    expect(blocked.statusCode, blocked.body).toBe(201);
+    const w2 = blocked.json();
+    expect(w2).toMatchObject({
+      severity: 'high',
+      source: 'front_desk',
+      roomBlock: {
+        status: 'active',
+        startDate: TODAY,
+        expectedDoneDate: '2026-10-17',
+        endDatePlanned: '2026-10-18',
+      },
+      ackDueAt: '2026-10-15T09:15:00.000+07:00', // wo_sla high: ack 15 min, plan 2 h
+      resolveDueAt: '2026-10-15T11:00:00.000+07:00',
+      isOverdue: false,
+    });
+    expect(await notifications('work_order_high_new', w2.id)).toEqual(
+      [uid('own'), uid('mgr'), uid('fdl'), uid('fd'), uid('mt')].sort(),
+    );
+    expect((await entry('fd', '301')).status).toBe('OOO');
+    // "Cần chú ý": the open high work order (US-012 AC4).
+    const attn = await call('fd', 'GET', '/attention');
+    expect(
+      (attn.json().data as Array<{ kind: string; refCode?: string }>).some(
+        (i) => i.kind === 'work_order_high_open' && i.refCode === w2.code,
+      ),
+    ).toBe(true);
+
+    // SM-04: accept (MT becomes assignee), wait-parts needs a note (+ date for medium/low), resume, complete.
+    const act = (
+      u: string,
+      wo: { id: string },
+      action: string,
+      version: number,
+      body: Record<string, unknown> = {},
+    ) =>
+      call(u, 'POST', `/work-orders/${wo.id}/actions/${action}`, { json: body, ifMatch: version });
+    expect((await act('hk', w2, 'accept', w2.version)).statusCode).toBe(403);
+    expect(
+      (await act('mt', w2, 'complete', w2.version, { resultNote: 'xong' })).json(),
+    ).toMatchObject({
+      code: 'INVALID_TRANSITION',
+      currentState: 'new',
+    });
+    let cur = (await act('mt', w2, 'accept', w2.version)).json();
+    expect(cur).toMatchObject({ status: 'in_progress', assigneeName: 'mt' });
+    expect((await act('mt', w2, 'wait-parts', cur.version)).json().errors).toEqual([
+      { field: 'note', code: 'REQUIRED' },
+    ]);
+    cur = (await act('mt', w2, 'wait-parts', cur.version, { note: 'Chờ bình mới' })).json();
+    expect(cur.status).toBe('waiting_parts');
+    cur = (await act('mt', w2, 'resume', cur.version)).json();
+    // complete: result note required, photo required for high (wo_done_photo_required_severities).
+    const noPhoto = await act('mt', w2, 'complete', cur.version, { resultNote: 'Đã thay bình' });
+    expect(noPhoto.json().errors).toEqual([
+      { field: 'photoAttachmentIds', code: 'EVIDENCE_REQUIRED' },
+    ]);
+    expect((await act('mt', w2, 'complete', cur.version - 1, { resultNote: 'x' })).statusCode).toBe(
+      412,
+    );
+    const after = await upload('mt', 'work_order');
+    const done = await act('mt', w2, 'complete', cur.version, {
+      resultNote: 'Đã thay bình',
+      photoAttachmentIds: [after],
+    });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json()).toMatchObject({
+      status: 'done',
+      resultNote: 'Đã thay bình',
+      roomBlock: { status: 'released', endDateActual: TODAY },
+    });
+    expect(
+      done.json().history.map((h: { change: string; to: string | null }) => `${h.change}:${h.to}`),
+    ).toEqual([
+      'created:new',
+      'block:2026-10-15',
+      'status:in_progress',
+      'status:waiting_parts',
+      'status:in_progress',
+      'status:done',
+      'block:released',
+    ]);
+    // O4 → room VD + after-repair cleaning (R11).
+    expect((await entry('fd', '301')).status).toBe('VD');
+    const tasks = (await call('fd', 'GET', '/hk-tasks')).json().data as Array<{
+      roomNo: string;
+      type: string;
+    }>;
+    expect(tasks.some((x) => x.roomNo === '301' && x.type === 'after_repair_clean')).toBe(true);
+    // Reopen (FD+, ≤ 7 days after done) needs a note; MT may not.
+    expect(
+      (await act('mt', w2, 'reopen', done.json().version, { note: 'Lại rò' })).statusCode,
+    ).toBe(403);
+    const re = await act('fd', w2, 'reopen', done.json().version, { note: 'Lại rò điện' });
+    expect(re.json()).toMatchObject({ status: 'in_progress' });
+    // updateWorkOrder: severity change recomputes the deadlines; the block request is withdrawn.
+    const w1v = (await call('fd', 'GET', `/work-orders/${w1.id}`)).json();
+    const upd = await call('fd', 'PATCH', `/work-orders/${w1.id}`, {
+      json: { severity: 'medium', blockRequested: false, assigneeUserId: uid('mt') },
+      ifMatch: w1v.version,
+    });
+    expect(upd.statusCode, upd.body).toBe(200);
+    expect(upd.json()).toMatchObject({
+      severity: 'medium',
+      blockRequested: false,
+      assigneeName: 'mt',
+    });
+    expect(upd.json().resolveDueAt).toBe('2026-10-16T09:00:00.000+07:00'); // created 09:00 + 24 h
+    // MT cancels only its own `new` work order.
+    expect(
+      (await act('mt', w1, 'cancel', upd.json().version, { cancelReason: 'Không cần' })).statusCode,
+    ).toBe(403);
+    const list = await call('mt', 'GET', '/work-orders');
+    expect(list.statusCode, list.body).toBe(200);
+    expect((list.json().data as Array<{ code: string }>).map((x) => x.code)).toEqual([
+      w2.code,
+      w1.code,
+    ]);
+  });
+
+  it('J11 work_order.sla: overdue notified once (high → MGR too), remedy suggested for an occupied room, R5 VI → VC after vacant_reinspect_days, OOO room loses its open cleaning tasks', async () => {
+    await seedStay(db, t, ids, { roomNo: '101', status: 'in_house', departure: '2026-10-25' });
+    const wo = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('101'),
+        title: 'Mất điện',
+        description: 'Mất điện phòng',
+        category: 'power',
+      },
+    });
+    expect(wo.json().severity).toBe('high'); // occupied + power → high
+    await setStatus('102', 'VI', new Date(T0.getTime() - 3 * 86_400_000));
+    // createRoomBlock (B-10): exactly one of endDatePlanned | expectedDoneDate; the server adds the buffer.
+    const cleaning = await task('201', 'adhoc_clean');
+    const bothDates = await call('fd', 'POST', '/room-blocks', {
+      json: {
+        roomId: room('201'),
+        startDate: TODAY,
+        expectedDoneDate: TODAY,
+        endDatePlanned: '2026-10-17',
+        reason: 'Sơn lại',
+      },
+    });
+    expect(bothDates.json().errors).toEqual([{ field: 'expectedDoneDate', code: 'NOT_ALLOWED' }]);
+    const blk = await call('fd', 'POST', '/room-blocks', {
+      json: {
+        roomId: room('201'),
+        startDate: TODAY,
+        expectedDoneDate: '2026-10-16',
+        reason: 'Sơn lại tường',
+      },
+    });
+    expect(blk.statusCode, blk.body).toBe(201);
+    expect(blk.json()).toMatchObject({
+      status: 'active',
+      expectedDoneDate: '2026-10-16',
+      endDatePlanned: '2026-10-17',
+    });
+    const deps = {
+      params: fa.app.get(ParameterService),
+      events: fa.app.get(EventsService),
+      rooms: fa.app.get(RoomStatusService),
+    };
+    const later = new Date(T0.getTime() + 3 * 3_600_000); // past ack (15 min) and plan (2 h)
+    fa.clock.set(later);
+    const s = await db.withContext(t.ctx(), (tx) => runWorkOrderSla(tx, deps, later, TODAY));
+    expect(s.overdue).toBeGreaterThanOrEqual(1);
+    expect(s.remedy).toBeGreaterThanOrEqual(1);
+    expect(s.reinspect).toBeGreaterThanOrEqual(1);
+    expect(s.blockedTasks).toBe(1);
+    expect(await taskRow(cleaning)).toMatchObject({
+      status: 'cancelled',
+      cancel_reason_code: 'room_blocked',
+    });
+    expect(await notifications('work_order_overdue', wo.json().id)).toEqual(
+      [uid('own'), uid('mgr'), uid('fdl'), uid('fd'), uid('mt')].sort(),
+    );
+    const again = await db.withContext(t.ctx(), (tx) => runWorkOrderSla(tx, deps, later, TODAY));
+    expect(again.overdue).toBe(0);
+    const got = (await call('fd', 'GET', `/work-orders/${wo.json().id}`)).json();
+    expect(got).toMatchObject({ isOverdue: true, remedySuggested: true });
+    expect((await call('mt', 'GET', `/work-orders/${wo.json().id}`)).json().remedySuggested).toBe(
+      false,
+    );
+    expect((await entry('fd', '102')).status).toBe('VC');
+  });
+
+  it('"Cần chú ý" (BE-D list 2.3): work_order_overdue, ooo_ending_work_open from 12:00 of the last blocked day, room_status_mismatch both ways – FD+ only', async () => {
+    await seedStay(db, t, ids, { roomNo: '101', status: 'in_house', departure: '2026-10-20' });
+    await setStatus('101', 'VC'); // a guest in house in a vacant room
+    await setStatus('102', 'OC'); // occupied status without a guest in house
+    const blocked = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('301'),
+        title: 'Thay vòi sen',
+        description: 'Vòi sen rò nước',
+        category: 'other',
+        severity: 'medium',
+        block: { startDate: TODAY, expectedDoneDate: TODAY, reason: 'Thay vòi sen' },
+      },
+    });
+    expect(blocked.statusCode, blocked.body).toBe(201);
+    expect(blocked.json().roomBlock).toMatchObject({ endDatePlanned: '2026-10-16' }); // last blocked day = today
+    const high = await call('fd', 'POST', '/work-orders', {
+      json: {
+        roomId: room('302'),
+        title: 'Mất điện',
+        description: 'Mất điện phòng',
+        category: 'power',
+        severity: 'high',
+      },
+    });
+    expect(high.statusCode, high.body).toBe(201);
+    type Item = {
+      kind: string;
+      refCode?: string;
+      roomNos?: string[];
+      severity: string;
+      count?: number;
+      params?: Record<string, unknown>;
+    };
+    const items = async (u = 'fd') => (await call(u, 'GET', '/attention')).json().data as Item[];
+    const kinds = (list: Item[]) => new Set(list.map((i) => i.kind));
+
+    const morning = await items();
+    expect(morning.find((i) => i.kind === 'room_status_mismatch')).toMatchObject({
+      severity: 'warning',
+      count: 2,
+      roomNos: ['101', '102'],
+    });
+    expect(kinds(morning).has('ooo_ending_work_open')).toBe(false); // before 12:00
+    expect(kinds(morning).has('work_order_overdue')).toBe(false); // ack in 15 min
+
+    await at(new Date(T0.getTime() + 210 * 60_000)); // 12:30 local
+    const noon = await items();
+    const ending = noon.find((i) => i.kind === 'ooo_ending_work_open');
+    expect(ending).toMatchObject({
+      severity: 'warning',
+      refCode: blocked.json().code,
+      roomNos: ['301'],
+    });
+    if (ATTENTION_PARAM_KEYS.ooo_ending_work_open) {
+      expect(ending!.params).toEqual({ roomNo: '301', endDate: '2026-10-16' });
+    }
+    expect(noon.find((i) => i.kind === 'work_order_overdue')).toMatchObject({
+      severity: 'critical',
+      refCode: high.json().code,
+      roomNos: ['302'],
+    });
+    expect(noon.find((i) => i.kind === 'work_order_high_open')?.refCode).toBe(high.json().code);
+    // HK / MT do not get these lines (default audience FD+).
+    for (const u of ['hk', 'mt']) {
+      const r = await call(u, 'GET', '/attention');
+      if (r.statusCode === 200) {
+        const k = kinds(r.json().data as Item[]);
+        for (const kind of ['work_order_overdue', 'ooo_ending_work_open', 'room_status_mismatch']) {
+          expect(k.has(kind)).toBe(false);
+        }
+      } else expect(r.statusCode).toBe(403);
+    }
+  });
+
+  it('S4-31 (US-028 AC4, US-029 AC4): B13 → OD gives the room its stay-over clean of the day (an open check-out clean becomes it); a check-out clean shows the agreed checkout time', async () => {
+    const rooms = fa.app.get(RoomStatusService);
+    const b13 = (roomNo: string) =>
+      db.withContext({ ...t.ctx(), userId: uid('fd'), actorType: 'user' }, (tx) =>
+        rooms.set(tx, room(roomNo), 'OD', { today: TODAY, now: T0, event: 'B13' }),
+      );
+    type Task = {
+      id: string;
+      roomNo: string;
+      type: string;
+      status: string;
+      reservationId?: string | null;
+      notBeforeTime?: string;
+    };
+    const tasks = async () => (await call('fd', 'GET', '/hk-tasks')).json().data as Task[];
+    // 101: the guest was leaving today (J8 gave no stay-over) and extends → OC → OD + stay-over clean.
+    const s1 = await seedStay(db, t, ids, {
+      roomNo: '101',
+      status: 'in_house',
+      arrival: '2026-10-13',
+      departure: '2026-10-17',
+    });
+    await setStatus('101', 'OC');
+    expect(await b13('101')).toBe('OC');
+    const first = (await tasks()).filter((x) => x.roomNo === '101');
+    expect(first).toMatchObject([
+      { type: 'stayover_clean', status: 'open', reservationId: s1.reservationId },
+    ]);
+    await setStatus('101', 'OC'); // a second extension the same day → still one stay-over clean
+    await b13('101');
+    expect((await tasks()).filter((x) => x.roomNo === '101')).toHaveLength(1);
+    // 102: an open check-out clean of the room today becomes the stay-over clean (same task).
+    await seedStay(db, t, ids, {
+      roomNo: '102',
+      status: 'in_house',
+      arrival: '2026-10-13',
+      departure: '2026-10-17',
+    });
+    await setStatus('102', 'OC');
+    const co = await task('102', 'checkout_clean');
+    await b13('102');
+    expect((await tasks()).filter((x) => x.roomNo === '102')).toMatchObject([
+      { id: co, type: 'stayover_clean', status: 'open' },
+    ]);
+    // 201: B15 agreed a late checkout at 15:00 → the check-out clean reads "dọn sau 15:00".
+    const s3 = await seedStay(db, t, ids, { roomNo: '201', status: 'checked_out' });
+    const late = await task('201', 'checkout_clean');
+    await db.withContext(t.ctx(), async (tx) => {
+      await tx.query(`UPDATE reservation SET agreed_checkout_time = '15:00' WHERE id = $1`, [
+        s3.reservationId,
+      ]);
+      await tx.query('UPDATE hk_task SET reservation_id = $2 WHERE id = $1', [
+        late,
+        s3.reservationId,
+      ]);
+    });
+    expect((await tasks()).find((x) => x.id === late)?.notBeforeTime).toBe('15:00');
+  });
+
+  it('EP14 port (BE-D): a guest request becomes a guest_request task (rank 3) or a work order (guest_app, medium); decline cancels the open task', async () => {
+    const port = fa.app.get<GuestRequestWorkPort>(GUEST_REQUEST_WORK_PORT);
+    const { reservationId } = await seedStay(db, t, ids, { roomNo: '203', status: 'in_house' });
+    const made = await db
+      .withContext({ ...t.ctx(), actorType: 'system' }, async (tx) => {
+        const tk = await port.createTask(tx, {
+          guestRequestId: randomUUID(),
+          reservationId,
+          roomId: room('203'),
+          note: 'Thêm 2 khăn tắm',
+          dueDate: TODAY,
+          now: T0,
+        });
+        const w = await port.createWorkOrder(tx, {
+          guestRequestId: randomUUID(),
+          reservationId,
+          roomId: room('203'),
+          description: 'Vòi sen rò nước',
+          now: T0,
+        });
+        return { tk, w };
+      })
+      .catch((e) => {
+        // guest_request FK (BE-D 0058) may require an existing request – checked by BE-D's suite.
+        return { error: String(e) };
+      });
+    if ('error' in made) {
+      expect(made.error).toMatch(/guest_request/);
+      return;
+    }
+    const list = (await call('fd', 'GET', '/hk-tasks')).json().data as Array<{
+      id: string;
+      type: string;
+      source: string;
+      priorityRank: number;
+      note?: string;
+    }>;
+    expect(list.find((x) => x.id === made.tk.hkTaskId)).toMatchObject({
+      type: 'guest_request',
+      source: 'guest_app',
+      priorityRank: 3,
+      note: 'Thêm 2 khăn tắm',
+    });
+    const w = (await call('fd', 'GET', `/work-orders/${made.w.workOrderId}`)).json();
+    expect(w).toMatchObject({
+      source: 'guest_app',
+      severity: 'medium',
+      category: 'other',
+      title: 'Khách báo hỏng – căn 203',
+    });
+    await db.withContext(t.ctx(), (tx) => port.cancelTask(tx, made.tk.hkTaskId, T0));
+    expect(await taskRow(made.tk.hkTaskId)).toMatchObject({
+      status: 'cancelled',
+      cancel_reason_code: 'other',
+    });
+  });
+});

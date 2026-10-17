@@ -68,6 +68,8 @@ export const guestSession = pgTable(
     reservationId: uuid('reservation_id').notNull(),
     level: smallint('level').notNull().default(1),
     locale: text('locale').notNull(),
+    // 0.3.7 bổ sung 1 (P-S4-10 – BE-D, migration 0058): the guest picked the language (setGuestLocale).
+    localeChosenAt: instant('locale_chosen_at'),
     createdAt: instant('created_at').notNull(),
     lastActiveAt: instant('last_active_at').notNull(),
     expiresAt: instant('expires_at').notNull(),
@@ -90,6 +92,9 @@ export const guestSession = pgTable(
     index('guest_session_reservation_idx')
       .on(t.reservationId)
       .where(sql`${t.revokedAt} IS NULL`),
+    index('guest_session_locale_chosen_idx')
+      .on(t.reservationId, t.localeChosenAt.desc())
+      .where(sql`${t.localeChosenAt} IS NOT NULL`),
   ],
 );
 

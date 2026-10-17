@@ -1,7 +1,7 @@
 import { isApiError, type ApprovalRequest } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
 import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
@@ -48,6 +48,12 @@ export function ApprovalsPage() {
   useLiveReload(propertyId, reload);
   const [deciding, setDeciding] = useState<{ a: ApprovalRequest; approve: boolean } | null>(null);
   const rows = state.data ?? [];
+  // BUG-R2-106: after "Tải lại" (412) the old cards stay on screen while the queue is read again – a
+  // decision opened from one of them would carry the OLD version. Deciding waits for the new read.
+  const [rereading, setRereading] = useState(false);
+  useEffect(() => {
+    if (rereading && state.status !== 'loading') setRereading(false);
+  }, [rereading, state.status]);
 
   return (
     <>
@@ -96,12 +102,15 @@ export function ApprovalsPage() {
                     ) : null}
                   </div>
                   <Chip tone={STATUS_TONE[a.status]}>{t(`approval.status.${a.status}`)}</Chip>
-                  <Button disabled={!online} onClick={() => setDeciding({ a, approve: false })}>
+                  <Button
+                    disabled={!online || rereading}
+                    onClick={() => setDeciding({ a, approve: false })}
+                  >
                     {t('approval.reject')}
                   </Button>
                   <Button
                     variant="pri"
-                    disabled={!online}
+                    disabled={!online || rereading}
                     onClick={() => setDeciding({ a, approve: true })}
                   >
                     {t('approval.approve')}
@@ -121,6 +130,11 @@ export function ApprovalsPage() {
             setDeciding(null);
             reload();
           }}
+          onReload={() => {
+            setDeciding(null);
+            setRereading(true);
+            reload();
+          }}
         />
       ) : null}
     </>
@@ -132,11 +146,14 @@ function DecideDialog({
   approve,
   onClose,
   onDone,
+  onReload,
 }: {
   request: ApprovalRequest;
   approve: boolean;
   onClose: () => void;
   onDone: () => void;
+  /** 412: the request changed since the list was read – close and read it again. */
+  onReload: () => void;
 }) {
   const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -146,15 +163,22 @@ function DecideDialog({
   const [note, setNote] = useState('');
   const act = useSubmit();
   const A = { propertyId, approvalId: a.id };
+  // 0.3.7 B-6 (#6): a refund is decided on the version the approver is looking at – an amount or a
+  // payout changed after opening → 412, never approved blind. Other types keep their flow (optional).
+  const expectedVersion = a.type === 'refund' ? a.version : undefined;
   const submit = async () => {
     const out = await act.submit((idem) =>
       approve
         ? api.approveRequest(
             A,
-            { authMethod: 'password', secret, note: note.trim() || undefined },
+            { authMethod: 'password', secret, note: note.trim() || undefined, expectedVersion },
             idem,
           )
-        : api.rejectRequest(A, { authMethod: 'password', secret, reason: note.trim() }, idem),
+        : api.rejectRequest(
+            A,
+            { authMethod: 'password', secret, reason: note.trim(), expectedVersion },
+            idem,
+          ),
     );
     setSecret('');
     if (out) {
@@ -247,6 +271,18 @@ function DecideDialog({
       </Field>
       {already ? (
         <Alert tone="warn">{already}</Alert>
+      ) : act.code === 'VERSION_CONFLICT' ? (
+        <Alert
+          tone="warn"
+          role="alert"
+          actions={
+            <Button size="sm" onClick={onReload}>
+              {t('common.reload')}
+            </Button>
+          }
+        >
+          {t('approval.changed_since_open')}
+        </Alert>
       ) : act.code === 'REAUTH_FAILED' ? null : (
         act.view()
       )}

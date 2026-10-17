@@ -1,0 +1,42 @@
+---
+// 5 · Why OTTIMO – the five points of the e-brochure.
+import type { Copy } from '../../content/types';
+import Picture from '../Picture.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<section class="sec alt" id="why" aria-labelledby="why-h">
+  <div class="wrap why">
+    <div>
+      <p class="label">{t.why.label}</p>
+      <h2 class="h2" id="why-h">{t.why.title}</h2>
+      <p class="muted mb-28">{t.why.intro}</p>
+      <ol class="points">
+        {
+          t.why.points.map((p, i) => (
+            <li>
+              <span class="n" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <h3 class="h3">{p.title}</h3>
+              <p>{p.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+    <Picture
+      id="detail-laundry-desk"
+      lang={t.lang}
+      class="r45"
+      imgClass="op-x42"
+      sizesMobile="calc(100vw - 32px)"
+      sizes="(min-width: 1200px) 460px, (min-width: 1024px) 38vw, calc(100vw - 32px)"
+    />
+  </div>
+</section>

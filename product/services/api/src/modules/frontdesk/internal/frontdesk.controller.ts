@@ -26,6 +26,7 @@ import { problem } from '../../../shared/problem';
 import { isDryRun } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import { nightsOf } from '../../reservations/public/pricing';
+import type { GuestUploadChoice } from '../public/ports';
 import {
   type BookingContext,
   type ReservationRow,
@@ -49,6 +50,19 @@ function principal(req: GuardedRequest) {
   const p = req.ottimoAuth?.principal;
   if (!p?.propertyId) throw problem('UNAUTHENTICATED');
   return p;
+}
+
+/** `guestUploadPersonIndex` (0.3.7, S4-39): integer 2…20 or `none`; absent/empty = not sent. */
+function queryGuestUpload(v: string | undefined): GuestUploadChoice | undefined {
+  if (v === undefined || v === '') return undefined;
+  if (v === 'none') return 'none';
+  if (/^\d{1,2}$/.test(v)) {
+    const n = Number(v);
+    if (n >= 2 && n <= 20) return n;
+  }
+  throw problem('VALIDATION_FAILED', {
+    errors: [{ field: 'guestUploadPersonIndex', code: 'NOT_IN_LIST' }],
+  });
 }
 
 function queryTime(field: string, v: string | undefined): string | undefined {
@@ -403,12 +417,14 @@ export class FrontdeskController {
     @Res({ passthrough: true }) reply: Reply,
     @Param('reservationId') reservationId: string,
     @Param('memberId') memberId: string,
+    @Query('guestUploadPersonIndex') guestUploadPersonIndex?: string,
   ) {
     const id = pathId(reservationId);
     const member = pathId(memberId);
+    const guestUpload = queryGuestUpload(guestUploadPersonIndex);
     const result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
-      await this.party.remove(tx, ctx, id, member, expectedVersion(req));
+      await this.party.remove(tx, ctx, id, member, expectedVersion(req), guestUpload);
       return { status: 204, body: null };
     });
     applyResult(reply, result);

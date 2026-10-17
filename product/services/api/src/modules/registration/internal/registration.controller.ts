@@ -63,6 +63,23 @@ interface Reply {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `updateGuestDocument` body `GuestDocumentLink` (0.3.7): exactly one key, `partyMemberId` → its value (422
+ * `NOT_IN_LIST` when not a UUID); any other body → null (validated as `GuestDocumentInput`).
+ */
+function linkOnly(body: unknown): string | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const keys = Object.keys(body);
+  if (keys.length !== 1 || keys[0] !== 'partyMemberId') return null;
+  const v = (body as { partyMemberId: unknown }).partyMemberId;
+  if (typeof v !== 'string' || !UUID.test(v)) {
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'partyMemberId', code: v === null ? 'REQUIRED' : 'NOT_IN_LIST' }],
+    });
+  }
+  return v.toLowerCase();
+}
 const REASONS: readonly ReasonCode[] = [
   'registration',
   'recheck',
@@ -240,6 +257,13 @@ export class RegistrationController {
     const actor = actorOf(req);
     const version = expectedVersion(req);
     return this.db.withContext(tenantOf(actor.principal), async (tx) => {
+      // 0.3.7 (S4-39): `GuestDocumentLink` – a body with ONLY `partyMemberId` links the document to a person
+      // without reading or re-sending any C3 field (SEC 9.6 e (2)).
+      const link = linkOnly(body);
+      if (link !== null) {
+        const reg = await this.regs.linkDocument(tx, actor, rid, did, version, link);
+        return this.respond(reply, tx, reg);
+      }
       const parsed = validateDocumentInput(body, await this.today(tx));
       if (!parsed.value) throw problem('VALIDATION_FAILED', { errors: parsed.errors });
       const reg = await this.regs.updateDocument(tx, actor, rid, did, version, parsed.value);
@@ -337,8 +361,10 @@ export class RegistrationController {
     const actor = actorOf(req);
     const b = obj(body);
     const errors: FieldError[] = [];
+    // 0.3.7 nhóm D A (BR-955): P05_CRM – the person's own CRM consent at the desk (no image days involved).
+    const crm = b.purpose === 'P05_CRM';
     if (b.purpose === undefined) errors.push({ field: 'purpose', code: 'REQUIRED' });
-    else if (b.purpose !== 'P02B_ID_IMAGE_RETENTION') {
+    else if (b.purpose !== 'P02B_ID_IMAGE_RETENTION' && !crm) {
       errors.push({ field: 'purpose', code: 'NOT_IN_LIST' });
     }
     if (b.decision !== 'granted' && b.decision !== 'refused') {
@@ -354,10 +380,11 @@ export class RegistrationController {
       });
     }
     if (
-      typeof b.retentionDays !== 'number' ||
-      !Number.isInteger(b.retentionDays) ||
-      b.retentionDays < 1 ||
-      b.retentionDays > 365
+      !crm &&
+      (typeof b.retentionDays !== 'number' ||
+        !Number.isInteger(b.retentionDays) ||
+        b.retentionDays < 1 ||
+        b.retentionDays > 365)
     ) {
       errors.push({
         field: 'retentionDays',
@@ -395,6 +422,26 @@ export class RegistrationController {
           throw problem('VALIDATION_FAILED', {
             errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
           });
+        }
+        if (crm) {
+          if (doc.is_minor_data) {
+            throw problem('VALIDATION_FAILED', {
+              errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
+            });
+          }
+          const out = await this.regs.recordCrmConsent(
+            tx,
+            { userId: actor.principal.userId, requestId: req.id },
+            reg,
+            doc,
+            {
+              decision: b.decision as 'granted' | 'refused',
+              noticeVersion: b.noticeVersion as string,
+              locale: b.locale as string,
+              channel: b.channel as 'desk' | 'paper',
+            },
+          );
+          return { status: 201, body: await this.respond(reply, tx, out) };
         }
         const { rows: img } = await tx.query(
           'SELECT 1 FROM document_image WHERE guest_document_id = $1 LIMIT 1',

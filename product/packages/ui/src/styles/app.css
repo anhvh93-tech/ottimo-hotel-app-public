@@ -192,3 +192,20 @@ body {
 .break-all {
   overflow-wrap: anywhere;
 }
+
+/* FE-A money boxes (UXD review s4): an older result kept on screen while the new one loads (FE-S4-08),
+   service lines as [tick + label] [chip] [amount] (FE-S4-16). */
+.stale {
+  opacity: 0.5;
+}
+.svc-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(96px, auto);
+  gap: 8px;
+  align-items: start;
+}
+.svc-line .amt {
+  text-align: right;
+  white-space: nowrap;
+  padding-top: 4px;
+}

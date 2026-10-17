@@ -114,11 +114,76 @@ jobs:
           pnpm exec turbo run build --filter=@ottimo/api^...
           pnpm db:migrate
 
+      # Landing LP-v1 (ADR-014 9, sprint-4-plan 11.3): its own named step so a red landing is visible at a glance.
+      # Astro static build, then Vitest on the source (brand palette, copy EN/VI, language rule) and on dist/
+      # (no inline script/style, nothing from another origin, one H1 per page, hreflang + x-default, sitemap/robots,
+      # palette-only colours, byte budgets of concept 11.2). The workspace-wide Test/Build below reuse the turbo cache.
+      - name: Landing LP-v1 (build + source/dist checks)
+        run: pnpm exec turbo run build test --filter=@ottimo/landing-web
+
       - name: Test (Vitest, real PostgreSQL as ottimo_app)
         run: pnpm test
 
       - name: Build
         run: pnpm build
+
+  landing-e2e:
+    # LP-v1 gate (ADR-014 9, concept 11, sprint-4-plan T11/11.3): the static landing served with the production
+    # headers of ADR-014 1.4 (tests/e2e/landing/serve.mjs – real CSP), Chromium at 320/375/1280 px × EN/VI:
+    # axe 0 violations, no horizontal scroll, one H1, no console/CSP error, 0 requests to another origin, glyphs only
+    # from the self-hosted fonts, language rule (no redirect, suggestion strip, kept choice), byte budgets per DPR.
+    # No API stack needed: independent of build-test and docker-build.
+    name: landing LP-v1 · Playwright (axe, CSP, budgets)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: product
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: product/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: product/.nvmrc
+          cache: pnpm
+          cache-dependency-path: product/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build landing
+        run: pnpm --filter @ottimo/landing-web build
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
+      - name: Install Playwright Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @ottimo/tests exec playwright install --with-deps chromium
+      - name: Install Playwright OS dependencies (browser cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @ottimo/tests exec playwright install-deps chromium
+      - name: Landing E2E (pnpm test:e2e:landing)
+        run: pnpm --filter @ottimo/tests test:e2e:landing
+      - name: Upload landing Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: landing-playwright-report
+          path: |
+            product/tests/e2e/playwright-report/landing
+            product/tests/e2e/test-results/landing
+          retention-days: 7
+          if-no-files-found: ignore
 
   infra-scripts:
     # Server scripts run as root/deploy user on the VPS (infra/server): a quoting bug there is an outage.

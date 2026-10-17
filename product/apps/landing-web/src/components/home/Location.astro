@@ -1,0 +1,78 @@
+---
+// 7 · Lobby & location (US-148 AC2): full address (copyable), the INV's Google Maps pin as a plain link (no
+// embedded map – SEC C-1), drive times from the e-brochure written as "about" estimates.
+import { addressLine, site } from '../../content/site';
+import type { Copy } from '../../content/types';
+import Picture from '../Picture.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<section class="sec dark on-dark" id="location" aria-labelledby="loc-h">
+  <div class="wrap loc">
+    <div>
+      <p class="label">{t.location.label}</p>
+      <h2 class="h2" id="loc-h">{t.location.title}</h2>
+      <p class="sub">{t.location.sub}</p>
+      <p class="muted">{t.location.body}</p>
+      <address><span id="addr-text">{addressLine}</span></address>
+      <div class="actions">
+        <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer" href={site.mapUrl}
+          >{t.location.maps}<span class="sr">{t.location.newTab}</span></a
+        >
+        <button
+          type="button"
+          class="btn btn-ghost"
+          id="copy-addr"
+          data-copied={t.location.copied}
+          data-failed={t.location.copyFailed}>{t.location.copy}</button
+        >
+      </div>
+      <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+      <table class="dist">
+        <caption>{t.location.caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t.location.head.place}</th>
+            <th scope="col" class="num">{t.location.head.distance}</th>
+            <th scope="col" class="num">{t.location.head.time}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            t.location.rows.map((r) => (
+              <tr>
+                <th scope="row">{r.place}</th>
+                <td>{r.distance}</td>
+                <td>{r.time}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+      <p class="small muted mt-12">{t.location.note}</p>
+    </div>
+    <div class="loc-media">
+      <Picture
+        id="aerial-hillside"
+        lang={t.lang}
+        class="r45"
+        imgClass="op-70"
+        sizesMobile="(min-width: 600px) 44vw, calc(100vw - 32px)"
+        sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 44vw, calc(100vw - 32px)"
+      />
+      <Picture
+        id="detail-balcony-sunset"
+        lang={t.lang}
+        class="r45"
+        imgClass="op-x62"
+        sizesMobile="(min-width: 600px) 52vw, calc(100vw - 32px)"
+        sizes="(min-width: 1200px) 536px, (min-width: 1024px) 45vw, (min-width: 600px) 52vw, calc(100vw - 32px)"
+      />
+    </div>
+  </div>
+</section>

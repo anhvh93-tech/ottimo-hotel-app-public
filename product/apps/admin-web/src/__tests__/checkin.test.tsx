@@ -56,15 +56,19 @@ describe('H13 Nhận phòng (US-025, US-043, US-119; B9)', () => {
     expect(submit).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText(tv('ci.submit_needs_rules'))).toBeInTheDocument();
 
-    // Collect the balance in cash (US-119) – "chờ đối soát" does not apply to cash.
+    // S4-10 (BUG-R2-038): the amount due at check-in is collected WITH B9 (`checkIn.payment`) –
+    // cash (US-119, no "chờ đối soát"); nothing is written before the check-in itself.
+    const due = res('Gia đình anh Hưng').balanceDueVnd!;
+    const cashOf = () =>
+      mockControl.stay.payments.filter(
+        (p) => p.folioId === res('Gia đình anh Hưng').folioId && p.method === 'cash',
+      );
+    expect(screen.getByText(tv('ci.due_title'))).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
-    await user.click(screen.getByRole('button', { name: /^Ghi nhận đã thu/ }));
-    await waitFor(() => expect(within(payCond).getByText(tv('ci.met'))).toBeInTheDocument());
-    const cash = mockControl.stay.payments.filter(
-      (p) => p.folioId === res('Gia đình anh Hưng').folioId && p.method === 'cash',
-    );
-    expect(cash).toHaveLength(1);
-    expect(cash[0]!.reconciliation).toBe('not_required');
+    expect(screen.getByText(/được ghi cùng lúc với nhận phòng/)).toBeInTheDocument();
+    expect(cashOf()).toHaveLength(0);
+    // FE-S4-01: the cash really handed over is typed (here: exactly the amount due).
+    await user.type(screen.getByLabelText(new RegExp(`^${tv('co.cash_received')}`)), String(due));
 
     await user.click(screen.getByRole('checkbox', { name: /Đã gửi\/giao nội quy/ }));
     expect(submit).not.toHaveAttribute('aria-disabled');
@@ -72,7 +76,10 @@ describe('H13 Nhận phòng (US-025, US-043, US-119; B9)', () => {
     const box = await screen.findByRole('alertdialog', {
       name: tv('ci.confirm_title', { room: '302', guest: 'Gia đình anh Hưng' }),
     });
+    expect(within(box).getByText(/^Ghi khoản thu .* – Tiền mặt$/)).toBeInTheDocument();
     await user.click(within(box).getByRole('button', { name: tv('ci.submit', { room: '302' }) }));
+    await waitFor(() => expect(cashOf()).toHaveLength(1));
+    expect(cashOf()[0]).toMatchObject({ amountVnd: due, reconciliation: 'not_required' });
 
     // Done → back to the booking drawer, status "Đang ở".
     const drawer = await screen.findByRole('dialog', { name: 'Gia đình anh Hưng' });

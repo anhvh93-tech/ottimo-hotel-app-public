@@ -112,3 +112,44 @@ describe('api client', () => {
     expect(err.isNetwork).toBe(true);
   });
 });
+
+describe('Accept-Language = the app language (ARC 0.3.7 11.3 (9) – PWA checklist labels)', () => {
+  function setup() {
+    const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+    const api = createApiClient({
+      baseUrl: 'http://x',
+      getCsrfToken: () => 'tok',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const headers = (i: number) =>
+      (fetchImpl.mock.calls[i] as unknown as [string, RequestInit])[1].headers as Record<
+        string,
+        string
+      >;
+    return { api, headers };
+  }
+
+  it('sends Accept-Language when given (GET and writes), for vi, en and ru', async () => {
+    const { api, headers } = setup();
+    await api.request('GET', '/v1/properties/{p}/rooms/{r}/inspection-checklist', {
+      path: { p: 'p', r: 'r' },
+      acceptLanguage: 'en',
+    });
+    await api.request('POST', '/v1/properties/{p}/rooms/{r}/inspections', {
+      path: { p: 'p', r: 'r' },
+      body: {},
+      idempotencyKey: 'k',
+      acceptLanguage: 'ru',
+    });
+    await api.request('GET', '/v1/x', { acceptLanguage: 'vi' });
+    expect(headers(0)['Accept-Language']).toBe('en');
+    expect(headers(1)).toMatchObject({ 'Accept-Language': 'ru', 'Idempotency-Key': 'k' });
+    expect(headers(2)['Accept-Language']).toBe('vi');
+  });
+
+  it('no option → no header (the browser default is not overridden)', async () => {
+    const { api, headers } = setup();
+    await api.request('GET', '/v1/x');
+    expect(headers(0)).not.toHaveProperty('Accept-Language');
+  });
+});

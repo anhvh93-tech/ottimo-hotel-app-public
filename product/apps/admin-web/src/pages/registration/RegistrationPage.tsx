@@ -21,6 +21,7 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { StepUpDialog, useSubmit } from '../stay/common';
 import { DocsList, VerifyList, resultOf } from './DocsPanel';
 import { useUnlinkedAttention } from './partyDocs';
+import { monoArgs } from '../../app/mono';
 
 type View = 'action_needed' | 'needs_update' | 'all';
 /** "Cần chú ý" of unlinked guest-link documents: buttons for the first few bookings (rows carry a chip too). */
@@ -599,10 +600,13 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
           ) : reg.status === 'sent' ? (
             <>
               <p>
-                {t('reg2.sent_note', {
-                  code: reg.portalReference ?? '',
-                  time: dateTime(reg.sentAt),
-                })}
+                {/* S4-49 B1: the registration (portal) code in JetBrains Mono. */}
+                {monoArgs(
+                  t,
+                  'reg2.sent_note',
+                  { code: reg.portalReference ?? '', time: dateTime(reg.sentAt) },
+                  ['code'],
+                )}
               </p>
               <div className="row wrap">
                 <Button

@@ -1,6 +1,6 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: **0.2.5** (17/10, R2 Sprint 4: S23 hàng chờ hoàn tiền FD/FDL – S4-40, S4-43, ghi chú 41; **S35 + A64–A68** yêu cầu đặt phòng từ website – US-155, ghi chú 42–43; báo chuyển cọc `depositNotices` – ghi chú 44; mục 8 quy tắc 11 người nhận SSE theo vai; mục 5.1 giảm giá đặc biệt theo A36 sau BUG-R2-104). Bản 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
 - Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
@@ -73,7 +73,7 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S20 | Báo cáo kênh (doanh thu, phí kênh, thực thu) (M10) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S21 | Lãi lỗ P&L + nhập chi phí (M10) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S22 | Báo cáo FOC (M10) | ✔ | ✔ | M R ¹⁴ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
-| S23 | Hộp duyệt (yêu cầu chờ duyệt SM-10) | ✔ | ✔ | ✔ ¹⁵ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | ✖ |
+| S23 | Hộp duyệt (yêu cầu chờ duyệt SM-10) | ✔ | ✔ | ✔ ¹⁵ ⁴¹ | M ¹⁶ ⁴¹ | M ¹⁶ | M ¹⁶ | M ¹⁶ | M ¹⁶ | ✖ |
 | S24 | Tham số quy tắc (bảng BR mục 13) (M0) | ✔ | ✔ ¹⁷ | R | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S25 | Danh mục căn, nhóm căn, giá niêm yết (M0) | ✔ | ✔ | R ²⁵ᵃ | R ²⁵ᵃ | ✖ ²⁵ᵃ | ✖ ²⁵ᵃ | R ²⁵ᵃ | R ²⁵ᵃ | ✖ |
 | S26 | Người dùng & vai, thiết bị được cấp, phiên đăng nhập, 2FA (M0) | ✔ | ◐ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ |
@@ -85,6 +85,7 @@ Mức phân loại dữ liệu theo SEC mục 3: **C0** công khai · **C1** n�
 | S32 | Ca làm việc & đóng ca (P11, SM-17) | ✔ | ✔ | ✔ | M | ✖ | ✖ | ✖ | ✖ | ✖ |
 | S33 | Đối soát chuyển khoản (P11, SM-12) | ✔ | ✔ | M R ³³ᵃ | M R ³³ᵃ | ✖ | ✖ | M R ³³ᵃ | ✖ | ✖ |
 | S34 | Danh sách dự phòng mất mạng (P12) – bản in/bản đọc offline | ✔ | ✔ | ✔ Q | ✔ Q | ✖ | ✖ | ✖ | ✖ | ✖ |
+| S35 | Yêu cầu đặt phòng từ website – hàng chờ "Yêu cầu từ website" (M15, US-155; `specs/EP19-website-requests.md`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | ✖ |
 
 Ghi chú:
 1. FD thấy KPI đêm nay và "Cần chú ý" vận hành; **không** thấy dòng tài chính (doanh thu tháng, ADR, RevPAR, cảnh báo FOC BR-435). Cảnh báo FOC chỉ đến OWN.
@@ -108,6 +109,9 @@ Ghi chú:
 38. **A46a, A47a – tách theo phương thức tiền** (PO 16/10, decision-log; Q-S3-1, ARC B-30/B-31): tiền mặt tại quầy là việc lễ tân thấy tận tay nên FD+ làm được – A46a xác nhận tiền mặt SAL/CTV nộp quầy, A47a chi hoàn tiền mặt đã duyệt; cả hai **cấm tự làm với khoản của chính mình** (người ghi / người tạo yêu cầu – server kiểm, 403 `SELF_RECONCILE_FORBIDDEN` / `SELF_APPROVAL_FORBIDDEN` hoặc mã ARC đặt). Chuyển khoản/VietQR (đối soát sao kê A46, chi chuyển khoản A47 – cần D15 C3) **giữ MGR+**. Operation: xem `outputs/ARC/s3-contract.md` mục "BA – ánh xạ A46a/A47a".
 39. **Tách nhiệm hoàn chuyển khoản – "trừ OWN"** (PO 17/10, SEC-37; cùng mẫu A46 "trừ OWN"): với mọi vai, người duyệt ≠ người đặt/đổi nơi nhận và người chi (A47) ≠ người tạo yêu cầu ≠ người duyệt ≠ người đặt nơi nhận. **OWN** được miễn trong cùng một khoản: vừa duyệt vừa chi (kể cả khi OWN đặt nơi nhận), mỗi bước vẫn xác nhận lại + `If-Match`, nhật ký ghi rõ "OWN tự duyệt và chi". **MGR** không bao giờ vừa duyệt vừa chi cùng một khoản (→ 403 `SELF_APPROVAL_FORBIDDEN`). Hoàn tiền mặt (A47a) không đổi (người chi ≠ người tạo yêu cầu).
 40. **Hồ sơ khách nguồn "từ giấy tờ"** (`Guest.source = document`; BUG-R2-033 b, PO 17/10 A, SEC duyệt có điều kiện 17/10 – `reviews/s3-SEC.md` mục 7): hồ sơ tối thiểu do server tạo khi nhập giấy tờ người đi cùng không khớp ai (tên trên giấy tờ, quốc tịch; **không** ngày sinh, số/khóa giấy tờ, liên hệ, tag/ghi chú). FD+ thấy (chip "Từ giấy tờ"); **SAL/CTV không thấy** hồ sơ loại này ở `searchGuests`, bộ chọn khách, `lookupGuestByContact`, danh sách/xuất tiếp thị – kể cả khi đơn là của mình (chỉ thấy số người như D10); HK: tên gọi + căn trong ngày (D01 T); MT ✖. Khóa giấy tờ trên hồ sơ (`id_doc_hmac`) chỉ khi chính người đó đồng ý P05 (EP06 4.1). Hết điều kiện khi hồ sơ có SĐT/email hoặc đồng ý P05 → áp quyền như hồ sơ thường (D01, D02).
+41. **S23 – hàng chờ hoàn tiền của FD/FDL** (S4-40 vòng 9 A47a, S4-43 PO P-S4-6; OpenAPI 0.3.7 + bổ sung D1 – `listApprovalRequests` x-scope `front_desk: own_or_refund_queue`, `front_desk_lead: within_limit_or_own_or_refund_queue`): ngoài phạm vi cũ (FD: yêu cầu mình gửi – ghi chú 16; FDL: yêu cầu trong hạn mức FDL + của mình – ghi chú 15), FD/FDL thấy thêm **hai hàng chờ tiền của mọi đơn trong cơ sở**, ai tạo/duyệt cũng vậy: (a) **hàng chờ chi** – yêu cầu `refund` `approved` chưa chi đủ (`refundedVnd < amountVnd`): nơi nhận tiền mặt → FD/FDL chi tại quầy (A47a, `executeCashRefund`, người chi ≠ người tạo yêu cầu); nơi nhận chuyển khoản/phương thức gốc → **chỉ xem**, số tài khoản **dạng che** (D15), chỉ OWN/MGR chi (A47); chi đủ → rời hàng chờ; (b) **hàng chờ nhập nơi nhận** – yêu cầu `refund` `pending` hoặc `approved` **chưa có nơi nhận** (`refundDestination` vắng), kể cả khoản do MGR tạo khi hủy đơn → FD/FDL nhập nơi nhận (A43, `setRefundDestination`; thiết bị được cấp vì C3). Yêu cầu `refund` `pending` của người khác **đã có** nơi nhận **không** vào (OWN/MGR quyết). FD/FDL **không** duyệt/từ chối hoàn (A36 không áp cho hoàn – duyệt hoàn theo vai MGR/OWN, ARC 17/10). Tách nhiệm không đổi: người duyệt ≠ người đặt/đổi nơi nhận chuyển khoản ≠ người chi, trừ OWN (ghi chú 39, BR-522, SEC-37); đổi nơi nhận khi đã `approved` → yêu cầu về `pending`, duyệt lại (F8). Server đã có (a) từ 17/10 (BE-A); (b) do BE-B cài (NÊN – P-S4-6, thứ tự cắt bước 5): tới khi cài, phạm vi chỉ gồm (a) và khoản hoàn do MGR tạo vẫn do MGR nhập nơi nhận. HK/MT/SAL/CTV giữ `own`.
+42. **S35 – yêu cầu đặt phòng từ website** (US-155, OpenAPI 0.3.7 bổ sung 2 – `listWebsiteBookingRequests`, `getWebsiteBookingRequest`, `transitionWebsiteBookingRequest`, `x-scope: { sales_staff: unassigned_or_own }`; SEC ARC-12): OWN/MGR/FDL/FD thấy mọi yêu cầu của cơ sở; **SAL** chỉ thấy yêu cầu `new` **chưa giao** (để nhận) và yêu cầu **giao cho mình** (mọi trạng thái) – ngoài phạm vi → không có trong danh sách / 404; **CTV, HK, MT ✖** (403; không menu). Trường C2 của yêu cầu (tên, SĐT, email, lời nhắn, ghi chú từ chối) là **D28** (mục 6) – vắng khi đã xóa theo hạn hoặc sau khi chuyển thành đơn. Tìm chỉ theo mã yêu cầu (`refCode`), **không** theo SĐT/tên qua URL. Chuyển thành báo giá/giữ chỗ/đơn đi qua quyền có sẵn: báo giá A50 (`saveQuote.websiteBookingRequestId` – SAL được, server tự nhận WR1 nếu yêu cầu còn `new`), giữ chỗ từ báo giá A02 (`createHoldFromQuote`), đơn đảm bảo A01 (`createReservation.websiteBookingRequestId` – chỉ FD+). Thông báo `website_request_new` tới FDL, FD, SAL; `website_request_cap_reached` tới OWN; "Cần chú ý" `website_request_new` cho FD+ (SAL không). Không chứa tên/SĐT/lời nhắn trong thông báo và SSE.
+43. **A66 – trả lại hàng chờ** (WR2): người đang được giao (FD, SAL – yêu cầu của mình) **và** OWN/MGR/FDL với yêu cầu của người khác (điều phối khi người nhận vắng ca); FD **không** trả lại yêu cầu người khác đang giữ → 403.
 20a. **Round 2: chỉ OWN** xem danh sách, cấp, thu hồi thiết bị được cấp (A110 – `listTrustedDevices`, `trustCurrentDevice`, `revokeTrustedDevice`); MGR ✖ – khớp OpenAPI, wireframe L1 và ARC-responses bước 4 ("thiết bị giữ owner"), chặt hơn SR-DEV-01 nên vẫn đạt yêu cầu SEC. Ở S26, MGR chỉ quản lý mật khẩu/PIN/2FA/phiên **của mình** (A112); không gán vai, không đặt lại 2FA người khác. Ủy quyền cho MGR khi OWN bật (tùy chọn của SR-DEV-01) **chưa làm**; khi PO đưa vào round sau, BA thêm lại MGR ◐ kèm tham số bật ủy quyền và báo ARC thêm `manager` vào `x-roles` (BUG-R1-006).
 25a. S25 theo vai (khớp `listRooms`, `listRoomGroups`; BUG-R1-005): OWN/MGR xem đầy đủ + sửa (A101/A103). FDL/FD/SAL/CTV chỉ **xem dạng tra cứu** (`x-scope: catalog_only`): số căn, tầng, nhóm căn, tên, sức chứa (`baseOccupancy`, `maxOccupancy` – cần để xếp khách và báo giá, BR-601) và giá niêm yết hiện hành; không thấy lịch sử giá. **HK/MT ✖: không dùng `listRooms`/`listRoomGroups`.** Số căn, tầng, nhóm căn mà HK/MT cần lấy từ **danh sách việc buồng phòng** (S10 – `listHkTasks`, `listRoomStatuses`), phiếu sửa (S11 – `listWorkOrders`) và rack dạng trạng thái (S03, ghi chú 2). Với HK/MT, `maxOccupancy`, `baseOccupancy` và mọi giá là **K** (không trả về); ARC gắn `x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff, collaborator]` cho `Room.maxOccupancy`, `RoomGroup.maxOccupancy`, `RoomGroup.baseOccupancy` nếu các schema này còn xuất hiện trong response dành cho HK/MT.
 17. MGR sửa tham số vận hành; **không** sửa hạn mức FOC (`foc_limits`), tỷ lệ hoa hồng, phí kênh – chỉ OWN (mục 5.3).
@@ -163,13 +167,13 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A37 | Kiểm minibar (nhập số còn lại) | ✔ | ✔ | ✔ | ✔ | ✔ ²⁶ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A38 | Xuất hóa đơn GTGT (thông tin công ty) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | Đ ²⁷ | ✔ (MISA R3) | – |
 | A39 | Tạo VietQR / link thanh toán | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M | ✖ | Đ (R3) | ✔ | – |
-| A43 | Gửi yêu cầu hoàn tiền (cọc, ký quỹ, trả sớm) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Duyệt MGR+ (BR-522) |
+| A43 | Gửi yêu cầu hoàn tiền (cọc, ký quỹ, trả sớm) và **nhập/đổi nơi nhận hoàn** (`setRefundDestination`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Duyệt MGR+ (BR-522). Nơi nhận chuyển khoản = C3 (D15, thiết bị được cấp). **S4-43 (0.3.7 D1)**: FD/FDL nhập nơi nhận cho cả yêu cầu hoàn **người khác tạo** (ví dụ MGR hủy đơn) qua hàng chờ S23 ⁴¹; người đặt nơi nhận chuyển khoản ≠ người duyệt ≠ người chi, trừ OWN ³⁹ |
 | A44 | Xem tổng thu trong ngày theo cách thanh toán | ✔ | ✔ | ✔ | M ²⁸ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A45 | Mở / đóng ca của mình, nhập tiền mặt đếm thực tế (SM-17) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Chênh lệch → lý do, báo MGR |
 | A46 | Đối soát chuyển khoản với sao kê (`reconciled`/`disputed`) | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✔ (bank feed R3) | Không đối soát giao dịch do chính mình ghi, trừ OWN |
 | A46a | Xác nhận **đã nhận tiền mặt** sale/CTV nộp quầy (giao dịch `cash` do SAL/CTV ghi, chờ đối soát – BR-527) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ³⁸ **Không** xác nhận khoản do chính mình ghi; chuyển khoản/VietQR vẫn là A46 (MGR+). PO 16/10 (ESC-017 A) |
 | A47 | Thực hiện chuyển khoản hoàn và ghi giao dịch hoàn | ✔ L | ✔ L ³⁹ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | Chỉ trên yêu cầu hoàn `approved`; xem D15 đầy đủ; người chi ≠ người tạo yêu cầu ≠ người duyệt ≠ người đặt/đổi nơi nhận, **trừ OWN** (OWN được vừa duyệt vừa chi cùng một khoản, kể cả khi tự đặt nơi nhận; mỗi bước vẫn xác nhận lại mật khẩu + `If-Match`; nhật ký ghi "OWN tự duyệt và chi"); **MGR không bao giờ vừa duyệt vừa chi** cùng một khoản – PO 17/10 (SEC-37) |
-| A47a | Chi hoàn **tiền mặt tại quầy** theo yêu cầu hoàn đã duyệt và ghi giao dịch hoàn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ³⁸ Chỉ yêu cầu `refund` `approved`, nơi nhận `cash`; ≤ số đã duyệt còn lại; **không** chi khoản hoàn do chính mình tạo yêu cầu; không cần D15/thiết bị được cấp. Chuyển khoản vẫn là A47 (MGR+). PO 16/10 (Q-S3-1) |
+| A47a | Chi hoàn **tiền mặt tại quầy** theo yêu cầu hoàn đã duyệt và ghi giao dịch hoàn | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | ³⁸ Chỉ yêu cầu `refund` `approved`, nơi nhận `cash`; ≤ số đã duyệt còn lại; **không** chi khoản hoàn do chính mình tạo yêu cầu; không cần D15/thiết bị được cấp. Chuyển khoản vẫn là A47 (MGR+). PO 16/10 (Q-S3-1). Khoản cần chi hiện ở hàng chờ S23 của FD/FDL ⁴¹ (S4-40) |
 
 ### 4.3 Sale, hợp đồng, hoa hồng
 | # | Hành động | OWN | MGR | FDL | FD | HK | MT | SAL | CTV | Duyệt / ghi chú |
@@ -187,6 +191,11 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 | A60 | Xem hoa hồng | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | M | M | US-087, US-089 |
 | A61 | Đánh dấu đã chi hoa hồng | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | – |
 | A62 | Xuất PDF hợp đồng (R3) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ²⁹ | ✖ | – |
+| A64 | Xem hàng chờ + chi tiết **yêu cầu đặt phòng từ website** (S35; `listWebsiteBookingRequests`, `getWebsiteBookingRequest`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | SAL: `new` chưa giao + giao cho mình (`unassigned_or_own`); C2 = D28 |
+| A65 | Nhận xử lý yêu cầu website (WR1 `claim`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | SAL chỉ yêu cầu `new` chưa giao; người nhận đầu tiên thắng (`If-Match`) |
+| A66 | Trả lại hàng chờ (WR2 `release`) | ✔ | ✔ | ✔ | ◐ ⁴³ | ✖ | ✖ | M ⁴³ | ✖ | Người đang giữ; OWN/MGR/FDL với yêu cầu của người khác |
+| A67 | Từ chối yêu cầu website kèm mã lý do (WR3 `decline`) / đánh dấu spam (WR4 `mark-spam`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | SAL: yêu cầu giao cho mình; lý do `other` → ghi chú bắt buộc; không gửi gì cho khách (nhân viên tự nhắn – EP19 mục 6) |
+| A68 | Mở lại yêu cầu website đã từ chối/spam (WR5 `reopen`) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M ⁴² | ✖ | Chỉ khi trường C2 chưa xóa và chưa quá hạn tuổi tối đa; giao cho người mở; SAL: yêu cầu mình đã từ chối |
 
 ### 4.4 Giấy tờ & khai báo
 | # | Hành động | OWN | MGR | FDL | FD | Khác | Ghi chú |
@@ -268,8 +277,8 @@ Ghi chú hành động:
 | Loại yêu cầu (SM-10) | Người gửi | Người duyệt | Căn cứ |
 |---|---|---|---|
 | FOC phát sinh (phụ thu, minibar, dọn lẻ, phạt, bồi thường, đêm bù sự cố) | FD, FDL | FDL / MGR / OWN theo hạn mức; FOC minibar trong hạn mức lần + tháng của vai FD: **tự áp** (ghi chú 24) | BR-431–433, BR-704 |
-| Giảm giá đặc biệt tiền phòng | FD, FDL, SAL | MGR / OWN theo hạn mức | BR-431 |
-| Hoàn tiền (cọc, ký quỹ, trả sớm, hủy) | FD+ (nhập, thấy số TK dạng che) | MGR, OWN – người duyệt cũng là người thực hiện chuyển (A47); đổi số TK sau khi duyệt → duyệt lại | BR-522 |
+| Giảm giá đặc biệt tiền phòng (`requestFoc kind = special_discount`) | FD, FDL (A35 – SAL không gửi trực tiếp: A35 SAL ✖, `requestFoc` không có `sales_staff`; sale báo lễ tân) | **FDL / MGR / OWN theo hạn mức** lần + tháng của vai (BR-433) – **cùng cơ chế duyệt với FOC** (BR-431, A36 ²⁵); vượt hạn mức → chuyển cấp trên; không duyệt khoản của chính mình (BR-432). *Sửa 17/10 sau BUG-R2-104: server trước đây luôn chuyển giảm giá đặc biệt lên MGR; nay `minRoleFor('special_discount')` = FDL như FOC* | BR-431, BR-432, BR-433 |
+| Hoàn tiền (cọc, ký quỹ, trả sớm, hủy) | FD+ (nhập yêu cầu và nơi nhận, thấy số TK dạng che; FD/FDL nhập nơi nhận cả cho khoản người khác tạo – S4-43 ⁴¹) | MGR, OWN theo **vai** (mọi số tiền, không qua `foc_limits`); người chi chuyển khoản (A47) ≠ người duyệt ≠ người đặt nơi nhận, **trừ OWN** (ghi chú 39 – sửa câu cũ "người duyệt cũng là người thực hiện chuyển"); tiền mặt FD+ chi (A47a), người chi ≠ người tạo; đổi số TK sau khi duyệt → duyệt lại | BR-522 |
 | Sửa tay con số trên HĐ | FD+, SAL | MGR, OWN | BR-006 |
 | Nhận phòng khi buồng chưa sẵn sàng | FD | FDL, MGR, OWN | BR-402 |
 | Trả muộn khi có khách đến cùng ngày | FD+ | MGR, OWN | BR-416 |
@@ -329,7 +338,7 @@ Cột khách tách theo mức (FB-R1-ARC-BA-02, SEC-BA-02; SR-GST-06/07/11): **G
 | D25 | Token link app khách | C3 | **Một lần khi cấp** (để sao chép/gửi – A22a), không xem lại; xem lại = cấp lại (thu hồi link cũ) | như OWN/MGR | K | K | K (không gửi, không cấp – A22) | K (kể cả khi render mẫu tin) | – | – | – |
 | D26 | CTV/Sale: số tài khoản, CCCD/MST | C3 | Đầy L | K | K | K | Của mình | Của mình | – | – | – |
 | D27 | Tài khoản nhân viên, nhật ký thao tác | C2 | Đầy | Nhật ký của mình; **tên hiển thị người chốt** (CTV/sale) khi tạo đơn ở S05 ³⁷ | K | K | K | K | – | – | – |
-| D28 | Lead (tên, liên hệ, nhu cầu) | C2 | Đầy | Đầy | K | K | M | M | – | – | – |
+| D28 | Lead (tên, liên hệ, nhu cầu); **yêu cầu đặt phòng từ website** (tên, SĐT, email, lời nhắn, ghi chú từ chối – US-155) ⁴² | C2 | Đầy | Đầy | K | K | M ⁴² | M (lead); K (yêu cầu website) ⁴² | – | – | – |
 | D29 | Cảnh báo / danh sách đen về khách (`Guest.warnings`, có thể kèm mã khách khác) | C2 | Đầy | Đầy | K | K | K | K | K | K (xem qua S31) | K |
 | – | Tài khoản nhận tiền của cơ sở (VietQR, thông tin chuyển khoản) | C1 – toàn vẹn quan trọng | Đầy; **sửa chỉ OWN** (A108) | Đầy (để hiện QR) | K | K | Đầy (QR của đơn M) | K | K | Đ (trên QR/bill) | Đ |
 
@@ -349,8 +358,11 @@ Câu hỏi "lưu ý sức khỏe có cần đồng ý riêng không" (D12b) đ�
 | **Hoa hồng** – của người khác, tổng hoa hồng | C2 | Đầy | K | K | K | K | **K** | **K** | K |
 | Phần "OTTIMO còn lại" trên báo giá | C2 | Đầy | Đầy | Đầy | K | K | Đầy (báo giá M) | K ³⁴ | K |
 | Báo cáo FOC | C2 | Đầy | M | K | K | K | K | K | K |
+| **Báo khách đã chuyển cọc** (`Reservation.depositNotices[]`: số tiền người báo khai, giờ báo/cập nhật, ảnh biên nhận, trạng thái `open`/`handled`) ⁴⁴ | C2 | Đầy | Đầy | Đầy | K | K | M ⁴⁴ (không `note`, không `createdByName`) | M ⁴⁴ (không `note`, không `createdByName`) | K |
 
 34. CTV thấy "Sale nhận" (hoa hồng của mình) trên báo giá, không thấy "OTTIMO còn lại" (biên lợi nhuận) – BA đề xuất, chờ PO/DOM.
+
+44. **`depositNotices` – BA xác nhận giả định ARC (OpenAPI 0.3.7 bổ sung 1, mục 11.6)**: báo chuyển cọc là **dữ liệu "cọc" của đơn** (dòng "Giá bán phòng, folio của đơn" – CTV "M (tổng tiền phòng, cọc)"), **không** phải D14 "kết quả thanh toán": `amountVnd` là số người báo **khai**, chưa đối chiếu; tiền đã nhận là `depositPaidVnd` sau B4. SAL/CTV thấy báo của **đơn mình** (phạm vi `own` của `getReservation`; đơn người khác → 404): số khai, giờ, `attachmentId`, trạng thái – đủ để biết báo đã được lễ tân xác nhận chưa (A53 là việc của chính họ). **Không** thấy `note` (D12c – K với SAL/CTV) và `createdByName` (D27 – K với SAL/CTV): serializer bỏ theo `x-visible-to` trong phần tử. Mở ảnh biên nhận (`getAttachment purpose=deposit_receipt`) chỉ FD+ và **chính người tải** khi đơn còn trong phạm vi – SAL/CTV khác cùng đơn thấy `attachmentId` nhưng mở ảnh → 404 (ảnh chuyển khoản có thể chứa tên người chuyển – D14). HK/MT/GST: K. Không đổi hợp đồng.
 
 ## 7. Giải quyết mâu thuẫn BL mục 2 và BL 8.2 #27
 
@@ -376,6 +388,22 @@ Câu hỏi "lưu ý sức khỏe có cần đồng ý riêng không" (D12b) đ�
 8. **Mỗi người một tài khoản** (SEC-BA-09): cấm dùng chung tài khoản trên máy quầy; đổi ca phải đăng xuất hoặc dùng "Đổi người nhanh" (A117); phiên admin-web tự khóa sau 30 phút không hoạt động, tối đa 12 giờ; PWA 72 giờ không hoạt động, tối đa 30 ngày (decision-log SEC). Ca làm việc (SM-17) gắn đúng người đăng nhập.
 9. **Mẫu tin nhắn** (SEC-BA-08): mỗi loại mẫu có danh sách biến cho phép cố định trong code; biến C3 duy nhất là mã cửa, chỉ trong mẫu "mã cửa", chỉ hệ thống gửi vào ngày đến; không có biến cho số giấy tờ; URL trong mẫu chỉ thuộc tên miền OTTIMO; sửa mẫu ghi audit nội dung trước/sau. Biến "link app khách" chỉ render cho FD+ (A22a); SAL/CTV render mẫu không có link.
 10. **Thu hồi phiên**: khóa tài khoản, đổi vai, đặt lại mật khẩu, thu hồi thiết bị → mọi phiên liên quan hết hiệu lực ngay (SR-SES-06).
+11. **Sự kiện thời gian thực (SSE `streamEvents`) theo vai** – BA xác nhận bảng của OpenAPI 0.3.7 bổ sung 1 + bổ sung 2 và `architecture.md` mục 12 (đúng như server BE-D đã cài). Sự kiện chỉ chứa loại + ID; người nhận gọi lại API và **API lọc theo quyền** – bảng này chỉ giới hạn ai **biết có thay đổi**. Mức sàn theo loại; module phát chỉ được **cộng thêm** người nhận, không thu hẹp; không xác định được người nhận → chỉ FD+ (đóng an toàn); client không lọc thêm.
+
+    | Loại sự kiện | OWN | MGR | FDL | FD | HK | MT | SAL | CTV |
+    |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+    | `reservation.changed` (gồm folio đổi) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M (đơn mình tạo/chốt) | M (đơn mình tạo/chốt) |
+    | `room.status_changed` | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ |
+    | `attention.changed` | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ |
+    | `hk_task.changed` | ✔ | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ |
+    | `work_order.changed` | ✔ | ✔ | ✔ | ✔ | ✖ | ✔ | ✖ | ✖ |
+    | `guest_request.changed` | ✔ | ✔ | ✔ | ✔ | ✔ khi định tuyến HK | ✔ khi định tuyến MT | ✖ | ✖ |
+    | `registration.changed` | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | ✖ |
+    | `payment.changed` | ✔ | ✔ | M (khoản mình ghi) | M (khoản mình ghi) | ✖ | ✖ | M (khoản mình ghi) | ✖ |
+    | `website_request.changed` (bổ sung 2 – US-155) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | M (`new` chưa giao + giao cho mình) | ✖ |
+    | `notification.created` | chỉ người nhận thông báo (mọi vai) | | | | | | | |
+
+    So với ma trận màn hình: HK/MT không nhận `reservation.changed`/`attention.changed` dù xem rack dạng trạng thái (S03 ghi chú 2) – PWA gọi lại bằng `room.status_changed`/`hk_task.changed`/`work_order.changed`; SAL/CTV xem rack trống/hết (S03 ghi chú 3) nhưng không nhận sự kiện của đơn người khác – rack của họ làm mới khi mở màn/focus (poll 30 giây khi mất SSE như mọi màn). Thêm loại sự kiện mới = ARC ghi người nhận vào hợp đồng **trước**, BA cập nhật bảng này.
 
 ## 9. Ngưỡng "trẻ em" – mâu thuẫn cần thống nhất
 | Nguồn | Ngưỡng | Dùng để |
@@ -399,6 +427,10 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | US-048 | 4.4, 6 (D03–D06) |
 | US-080 | 6 (phần "OTTIMO còn lại", hoa hồng) |
 | US-087, US-089 | 3 (S14–S17), 4.3, 6 |
+| US-007, US-123 (S4-40, S4-43) | 3 (S23, ghi chú 41), 4.2 (A43, A47a), 5.1 |
+| US-086 AC4 (`depositNotices`, BUG-R2-081) | 6 (dữ liệu kinh doanh, ghi chú 44) |
+| US-155 | 3 (S35, ghi chú 42), 4.3 (A64–A68, ghi chú 43), 6 (D28), 8 quy tắc 11 |
+| US-012, SSE (Sprint 4) | 8 quy tắc 11 |
 
 ## 11. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
@@ -412,3 +444,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | 16/10/2026 | 2 (Sprint 3) | Thêm **A46a** (FD+ xác nhận tiền mặt SAL/CTV nộp quầy) và **A47a** (FD+ chi hoàn tiền mặt đã duyệt), ghi chú 38, mục 5.3 – theo PO 16/10; A46, A47 giữ MGR+. `rbac-matrix.json` 0.2.3 | BA |
 | 17/10/2026 | 2 (Sprint 3) | A47, D15 thêm "người chi ≠ người duyệt ≠ người đặt nơi nhận, **trừ OWN**" (ghi chú 39; mục 5.3 bỏ "MGR tự duyệt hoàn trong hạn mức BR-433" – duyệt hoàn theo vai) – PO 17/10, SEC-37. `rbac-matrix.json` 0.2.4 | BA |
 | 17/10/2026 | 2 (Sprint 3) | D10 + ghi chú 40: SAL/CTV không thấy hồ sơ khách nguồn "từ giấy tờ" (SEC 17/10, BUG-R2-033 b). Không đổi `rbac-matrix.json` (bản máy đọc chỉ có hành động; phạm vi do serializer/x-scope ARC 0.3.7) | BA |
+| 17/10/2026 | 2 (Sprint 4) | v0.2.5: **S23 + ghi chú 41** – hàng chờ hoàn tiền của FD/FDL theo x-scope 0.3.7 `own_or_refund_queue` / `within_limit_or_own_or_refund_queue` (S4-40: hàng chờ chi; S4-43: khoản chưa có nơi nhận, kể cả MGR tạo); A43 gồm nhập nơi nhận cho khoản người khác tạo; A47a trỏ hàng chờ. **S35 + A64–A68 + ghi chú 42–43** – yêu cầu đặt phòng từ website (US-155, 0.3.7 bổ sung 2: FD+ mọi yêu cầu, SAL `unassigned_or_own`, CTV/HK/MT ✖); D28 gồm trường C2 của yêu cầu website. **Ghi chú 44** – xác nhận giả định ARC 11.6: SAL/CTV thấy `depositNotices` của đơn mình trừ `note` (D12c) và `createdByName` (D27). **Mục 8 quy tắc 11** – người nhận SSE theo vai. **Mục 5.1** – giảm giá đặc biệt duyệt FDL/MGR/OWN theo hạn mức như FOC (A36, sau BUG-R2-104 – BE-B `s4-be-b.md` mục 6 (3)), người gửi FD/FDL (bỏ SAL – khớp A35); dòng hoàn tiền sửa theo ghi chú 39. `rbac-matrix.json` 0.2.5 | BA |

@@ -383,6 +383,85 @@ describe.skipIf(!HAS_DB)('guest-portal – link, session level 1, online check-i
     expect(JSON.stringify(audit)).not.toContain('night bus');
   });
 
+  it('H18 two guests (TC-L7-010, CI 39028814256): CCCD then passport, one after another and overlapping – each slot answers on its own', async () => {
+    // What guest-web needs after guest 1's upload: requiredPeople still 2, uploadedPeople [1] (slot 1 → "Đã
+    // gửi", slot 2 still open). Guest 2 then uploads while guest 1 may still be in flight: both are serialised
+    // by the registration lock and both succeed (no 409/500), on a schema with 0055's guest CHECKs.
+    const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
+    const sid = await session(reservationId);
+    expect(
+      oci(
+        await guest(fa, sid, 'PUT', '/v1/guest/online-checkin', {
+          json: { noticeVersion: NOTICE },
+        }),
+      ),
+    ).toMatchObject({ currentStep: 'documents', requiredPeople: 2, uploadedPeople: [] });
+    const upload = async (personIndex: number, docType: 'cccd' | 'passport', color: string) =>
+      guest(fa, sid, 'POST', '/v1/guest/online-checkin/documents', {
+        multipart: [
+          { name: 'personIndex', value: String(personIndex) },
+          { name: 'docType', value: docType },
+          {
+            name: 'image',
+            value: await sampleJpeg(color),
+            filename: `p${personIndex}.jpg`,
+            contentType: 'image/jpeg',
+          },
+        ],
+      });
+    const one = await upload(1, 'cccd', '#102030');
+    expect(one.statusCode, one.body).toBe(201);
+    expect(oci(one)).toMatchObject({ requiredPeople: 2, uploadedPeople: [1] });
+    expect(oci(await guest(fa, sid, 'GET', '/v1/guest/online-checkin'))).toMatchObject({
+      currentStep: 'documents',
+      requiredPeople: 2,
+      uploadedPeople: [1],
+    });
+    const two = await upload(2, 'passport', '#203040');
+    expect(two.statusCode, two.body).toBe(201);
+    expect(oci(two)).toMatchObject({ requiredPeople: 2, uploadedPeople: [1, 2] });
+
+    // Overlapping sends (guest-web keeps guest n uploading while guest n+1 picks a photo): both 201.
+    const other = await seedStay(db, t, ids, { adults: 2 });
+    const sid2 = await session(other.reservationId);
+    await guest(fa, sid2, 'PUT', '/v1/guest/online-checkin', { json: { noticeVersion: NOTICE } });
+    const send = async (personIndex: number, docType: 'cccd' | 'passport') =>
+      guest(fa, sid2, 'POST', '/v1/guest/online-checkin/documents', {
+        multipart: [
+          { name: 'personIndex', value: String(personIndex) },
+          { name: 'docType', value: docType },
+          {
+            name: 'image',
+            value: await sampleJpeg(`#3${personIndex}5060`),
+            filename: `q${personIndex}.jpg`,
+            contentType: 'image/jpeg',
+          },
+        ],
+      });
+    const both = await Promise.all([send(1, 'cccd'), send(2, 'passport')]);
+    expect(both.map((r) => r.statusCode)).toEqual([201, 201]);
+    expect(oci(await guest(fa, sid2, 'GET', '/v1/guest/online-checkin'))).toMatchObject({
+      requiredPeople: 2,
+      uploadedPeople: [1, 2],
+    });
+    // One live document per slot, person_index 1 and 2, nothing unclaimed.
+    const docs = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ person_index: number; doc_type: string }>(
+            `SELECT person_index, doc_type FROM guest_document
+              WHERE reservation_id = $1 AND removed_at IS NULL ORDER BY person_index`,
+            [other.reservationId],
+          )
+        ).rows,
+    );
+    expect(docs).toEqual([
+      { person_index: 1, doc_type: 'cccd' },
+      { person_index: 2, doc_type: 'passport' },
+    ]);
+  });
+
   it('SR-RL-05: more than 20 writes a day → 429; the desk closes the flow → 409 ONLINE_CHECKIN_CLOSED', async () => {
     const { reservationId } = await seedStay(db, t, ids, { adults: 1 });
     const sid = await session(reservationId);

@@ -105,3 +105,63 @@ describe('money audit actions (closed set – OpenAPI AuditEvent.action)', () =>
     expect(unknown).toEqual([]);
   });
 });
+
+/**
+ * ARC openapi-0.3.7.md 11.4 – the reporting read model (BE-D): C6 it writes nothing of another module (only
+ * its J2 job slot), C5 it reads only the tables it declares. SQL keywords are upper case in this code base, so
+ * `FROM`/`JOIN` are matched case-sensitively (JS `from '…'` never matches); CTE names are not tables.
+ */
+describe('reporting read model (ARC 11.4 C5/C6)', () => {
+  const REPORTING = join(MODULES, 'reporting');
+  const codeOf = (f: string) =>
+    readFileSync(f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+  const declared = (name: string): string[] => {
+    const src = readFileSync(join(REPORTING, 'reporting.module.ts'), 'utf8');
+    const m = new RegExp(`export const ${name} = \\[([^\\]]*)\\]`).exec(src);
+    return [...(m?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((x) => x[1] as string);
+  };
+  const READS = declared('REPORTING_READ_TABLES');
+  const WRITES = declared('REPORTING_WRITE_TABLES');
+
+  it('declares its tables (C5)', () => {
+    expect(READS.length).toBeGreaterThan(0);
+    expect(WRITES).toEqual(['job_run']);
+  });
+
+  it('never writes or locks rows of other modules – only its job slot (C2, C6)', () => {
+    const bad: string[] = [];
+    for (const f of files(REPORTING)) {
+      const code = codeOf(f);
+      for (const m of code.matchAll(/\bINSERT\s+INTO\s+([a-z_][a-z0-9_]*)/g)) {
+        if (!WRITES.includes(m[1] as string)) bad.push(`${rel(f)}: INSERT ${m[1]}`);
+      }
+      for (const m of code.matchAll(/\bUPDATE\s+([a-z_][a-z0-9_]*)\s+SET\b/g)) {
+        bad.push(`${rel(f)}: UPDATE ${m[1]}`);
+      }
+      for (const m of code.matchAll(/\bDELETE\s+FROM\s+([a-z_][a-z0-9_]*)/g)) {
+        bad.push(`${rel(f)}: DELETE ${m[1]}`);
+      }
+      if (/\bFOR\s+(UPDATE|SHARE|NO KEY UPDATE|KEY SHARE)\b/.test(code))
+        bad.push(`${rel(f)}: row lock`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('reads only the declared tables (C5)', () => {
+    const undeclared: string[] = [];
+    for (const f of files(REPORTING)) {
+      const code = codeOf(f);
+      const ctes = new Set(
+        [...code.matchAll(/(?:WITH|,)\s*([a-z_][a-z0-9_]*)\s+AS\s*\(/g)].map((m) => m[1] as string),
+      );
+      for (const m of code.matchAll(/\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)/g)) {
+        const t = m[1] as string;
+        if (ctes.has(t) || READS.includes(t) || WRITES.includes(t)) continue;
+        undeclared.push(`${rel(f)}: ${t}`);
+      }
+    }
+    expect(undeclared).toEqual([]);
+  });
+});

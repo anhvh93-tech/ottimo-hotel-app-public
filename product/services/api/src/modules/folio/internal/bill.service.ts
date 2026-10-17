@@ -31,6 +31,7 @@ import {
   moneyPosition,
 } from '../public/folio.service';
 import { type LabelContext, roomResolver } from '../public/line-labels';
+import { roomNamesOf } from '../public/room-names';
 import { setInvoiceCompany } from '../../guests/public/guest-contact';
 import { normalizeTaxCode } from '../../guests/public/normalize';
 import { AuditService } from '../../audit/public/audit.service';
@@ -166,10 +167,20 @@ export class BillService {
         Array<{ roomNo?: string; fromDate?: string; toDate?: string }> | undefined) ?? [];
     const totalVnd =
       paymentModel === 'ota_prepaid' ? printable.reduce((a, l) => a + l.amount_vnd, 0) : m.totalVnd;
+    // BR-012 (0.3.7 D1): room names on the bill – frozen at settlement (folio.settled_room_names).
+    const roomName = await roomNamesOf(tx, folio.id);
+    // 0.3.7 bổ sung 1 (ARC 11.3 (3)): when the bill was settled (null while the folio is open).
+    const { rows: st } = await tx.query<{ settled_at: Date | null }>(
+      'SELECT settled_at FROM folio WHERE id = $1',
+      [folio.id],
+    );
+    const settledAt = st[0]?.settled_at ? toZonedIso(st[0].settled_at, tz) : null;
     const labels = {
       roomOn: roomResolver(segments),
+      roomName,
       catalogName: await this.catalogNames(tx, today),
     };
+    const lastRoomNo = segments[segments.length - 1]?.roomNo;
     const { rows: prop } = await tx.query<{ name: string; address: string | null }>(
       'SELECT name, address FROM property WHERE id = $1',
       [tx.ctx.propertyId],
@@ -197,15 +208,15 @@ export class BillService {
     return {
       folioId: folio.id,
       billNo: folio.bill_no,
+      settledAt,
       locale,
       property: {
         name: prop[0]?.name ?? '',
         ...(prop[0]?.address ? { address: prop[0].address } : {}),
       },
       ...(booker?.displayName ? { guestDisplayName: booker.displayName } : {}),
-      ...(segments.length && segments[segments.length - 1]?.roomNo
-        ? { roomNo: segments[segments.length - 1]?.roomNo }
-        : {}),
+      // BR-012: guests read the room NAME; `roomNo` is deprecated (0.3.7 D1 – kept for old clients, not printed).
+      ...(lastRoomNo ? { roomNo: lastRoomNo, roomName: roomName(lastRoomNo) ?? lastRoomNo } : {}),
       arrivalDate: view.arrivalDate,
       departureDate: view.departureDate,
       lines: printable.map((l) => folioLineDto(l, tz, labels)),
@@ -242,6 +253,7 @@ export class BillService {
     }
     return {
       roomOn: roomResolver(segments),
+      roomName: await roomNamesOf(tx, folio.id),
       catalogName: await this.catalogNames(tx, localDate(this.clock.now(), tz)),
     };
   }

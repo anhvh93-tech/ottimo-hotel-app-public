@@ -11,7 +11,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, Field, Icon, Modal, Seg } from '@ottimo/ui';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { C3_TTL_MS } from '../../app/c3';
 import { problemView } from '../../app/problem';
@@ -21,6 +21,7 @@ import { usePropertyId } from '../../session/SessionProvider';
 import { StepUpDialog, useSubmit, useUnsavedLabels } from '../stay/common';
 import { useC3DocReveal } from './docImages';
 import {
+  deadlineOf,
   docRowId,
   earliestPurge,
   focusDocRow,
@@ -67,6 +68,8 @@ export function DocsList({
   const { t, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const [adding, setAdding] = useState(false);
+  /** S4-39: the document whose "Gắn người" box is open (also opened by 409 DOCUMENT_UNCLAIMED_EXISTS). */
+  const [linking, setLinking] = useState<string | null>(null);
   const attention = useUnlinkedAttention(propertyId, [registration.id, registration.version]);
   const pending = pendingDocs(registration, attention.flagged(registration.reservationId));
   const pendingIds = new Set(pending.map((d) => d.id));
@@ -106,6 +109,8 @@ export function DocsList({
             pending={pendingIds.has(d.id)}
             registration={registration}
             onChange={onChange}
+            linking={linking === d.id}
+            onLink={(open) => setLinking(open ? d.id : null)}
           />
         ))}
         {Array.from({ length: missing }, (_, i) => (
@@ -141,6 +146,14 @@ export function DocsList({
                 }
               : undefined
           }
+          onOpenDocument={(documentId) => {
+            // 0.3.7 409 DOCUMENT_UNCLAIMED_EXISTS names the waiting document: open exactly that one.
+            setAdding(false);
+            setTimeout(() => {
+              focusDocRow(documentId);
+              setLinking(documentId);
+            }, 0);
+          }}
           onClose={() => setAdding(false)}
           onSaved={(r) => {
             setAdding(false);
@@ -157,12 +170,17 @@ function DocRow({
   pending,
   registration,
   onChange,
+  linking,
+  onLink,
 }: {
   doc: GuestDocumentMasked;
   /** Waiting to be linked to a person (FB-R2-SEC-FE-07). */
   pending: boolean;
   registration: Registration;
   onChange: (r: Registration) => void;
+  /** The "Gắn người" box of this document is open. */
+  linking: boolean;
+  onLink: (open: boolean) => void;
 }) {
   const { t, locale, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -208,7 +226,12 @@ function DocRow({
         ? t('ci.child_doc', { last4: doc.docNumberLast4 })
         : t('ci.doc_masked', { type: t(DOC_LABEL[doc.docType]), last4: doc.docNumberLast4 });
   const name = doc.fullNameOnDoc || t('reg.link.no_fields');
+  const deadline = deadlineOf(doc);
   const line = [
+    // S4-39: the "Khách n" slot the guest used – the same number the party-removal box asks about.
+    doc.captureMethod === 'guest_upload' && doc.personIndex
+      ? t('guest.oci.person_n', { n: doc.personIndex })
+      : null,
     full?.docNumber ? null : label,
     images.length ? t('ci.photo_count', { n: images.length }) : null,
     doc.captureMethod === 'guest_upload' ? t('checkin.docs.from_app') : null,
@@ -256,15 +279,17 @@ function DocRow({
       </div>
       {pending ? (
         <Chip tone="warn">
-          {doc.imagePurgeAt
-            ? t('reg.link.pending_chip', { time: dateTime(doc.imagePurgeAt) })
+          {deadline
+            ? t('reg.link.pending_chip', { time: dateTime(deadline) })
             : t('reg.link.pending_chip_soon')}
         </Chip>
       ) : (
         <Chip tone="ok">{t('guest.chip.doc_ok')}</Chip>
       )}
-      {pending ? (
-        <Button size="sm" variant="pri" onClick={() => void load('edit')}>
+      {isGuestUploadUnlinked(doc) ? (
+        // S4-39: link with `GuestDocumentLink` – no C3 read, nothing to type again. Also for an ID the guest
+        // sent that waits for nobody (0.3.7: the other slots keep no deadline after a removal).
+        <Button size="sm" variant={pending ? 'pri' : 'ghost'} onClick={() => onLink(true)}>
           {t('reg.link.action')}
         </Button>
       ) : null}
@@ -290,6 +315,18 @@ function DocRow({
           }}
         />
       ) : null}
+      {linking ? (
+        <LinkDocDialog
+          registration={registration}
+          doc={doc}
+          pending={pending}
+          onClose={() => onLink(false)}
+          onSaved={(r) => {
+            onLink(false);
+            onChange(r);
+          }}
+        />
+      ) : null}
       {editing ? (
         <ManualDocDialog
           registration={registration}
@@ -311,6 +348,185 @@ function DocRow({
 type PartyMember = NonNullable<Party['members']>[number];
 const memberName = (m: PartyMember) => m.guest?.displayName ?? m.childDisplayName ?? '';
 
+/** Every field the manual-entry box has an input for (BUG-R2-091 – the head counts them). */
+const DOC_FIELDS = [
+  'docType',
+  'docNumber',
+  'fullNameOnDoc',
+  'dateOfBirth',
+  'gender',
+  'nationalityCode',
+  'address',
+  'passportIssueDate',
+  'issuingPlace',
+  'passportExpiryDate',
+  'visaKind',
+  'visaNumber',
+  'visaValidUntil',
+  'entryDate',
+  'entryPort',
+  'entryPurpose',
+  'noEntryRecord',
+  'partyMemberId',
+];
+
+/**
+ * S4-39 (0.3.7 `GuestDocumentLink`; SEC FE-07 step 4, SEC 9.6 e (2)): "Gắn người" for a document the guest
+ * sent through the link that nobody owns – choose a person still in the party (nothing pre-selected; people
+ * who already have a document are locked) and send ONLY `partyMemberId`: no step-up read of the C3 fields,
+ * nothing typed again. 409 PARTY_DUPLICATE / 422 NOT_IN_LIST → the party is read again.
+ */
+function LinkDocDialog({
+  registration,
+  doc,
+  pending,
+  onClose,
+  onSaved,
+}: {
+  registration: Registration;
+  doc: GuestDocumentMasked;
+  pending: boolean;
+  onClose: () => void;
+  onSaved: (r: Registration) => void;
+}) {
+  const { t, dateTime } = useI18n();
+  const propertyId = usePropertyId();
+  const toast = useToast();
+  const act = useSubmit({ bound: ['partyMemberId'] });
+  const [stepUp, setStepUp] = useState(false);
+  const party = useResource(
+    async () =>
+      (await api.listParty({ propertyId, reservationId: registration.reservationId })).data,
+    [propertyId, registration.reservationId],
+  );
+  const members = party.state.data?.members ?? [];
+  const otherMain = registration.documents.some((d) => d.id !== doc.id && d.isMain);
+  const taken = (m: PartyMember) =>
+    registration.documents.some((d) => d.id !== doc.id && d.partyMemberId === m.id) ||
+    (m.role === 'booker' && otherMain);
+  const free = members.filter((m) => !taken(m));
+  const [memberId, setMemberId] = useState('');
+  const [touched, setTouched] = useState(false);
+  const due = deadlineOf(doc);
+  const deadline = due ? dateTime(due) : null;
+  const slot =
+    doc.personIndex && doc.captureMethod === 'guest_upload'
+      ? t('guest.oci.person_n', { n: doc.personIndex })
+      : null;
+
+  const save = async () => {
+    setTouched(true);
+    if (!memberId) return;
+    const out = await act.submit(() =>
+      api.updateGuestDocument(
+        { propertyId, registrationId: registration.id },
+        doc.id,
+        { partyMemberId: memberId },
+        registration.version,
+      ),
+    );
+    if (out) {
+      const linked = members.find((m) => m.id === memberId);
+      toast(t('reg.link.linked_toast', { name: linked ? memberName(linked) : '' }));
+      onSaved(out.data);
+      return;
+    }
+    if (act.code === 'REAUTH_REQUIRED') setStepUp(true);
+  };
+  // Someone took the person or the person left the party meanwhile → read the party again.
+  const code = act.code;
+  const reloadParty = party.reload;
+  useEffect(() => {
+    if (code === 'PARTY_DUPLICATE' || code === 'VALIDATION_FAILED') reloadParty();
+  }, [act.error, code, reloadParty]);
+
+  return (
+    <Modal
+      open
+      size="sm"
+      title={t('reg.link.action')}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+      dirty={!!memberId}
+      footer={
+        <>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button
+            variant="pri"
+            busy={act.busy}
+            busyLabel={act.busyLabel}
+            disabled={!party.state.data || free.length === 0}
+            onClick={() => void save()}
+          >
+            {act.label(t('reg.link.action'))}
+          </Button>
+        </>
+      }
+    >
+      <p>
+        <b>{[slot, doc.fullNameOnDoc || t('reg.link.no_fields')].filter(Boolean).join(' · ')}</b>
+      </p>
+      <p className="li-s">{t('reg.link.dialog_help')}</p>
+      {code === 'REAUTH_REQUIRED' ? null : act.view()}
+      {party.state.status === 'error' && !party.state.data ? (
+        <Alert
+          tone="bad"
+          actions={
+            <Button size="sm" onClick={party.reload}>
+              {t('common.retry')}
+            </Button>
+          }
+        >
+          {t('reg.link.party_error')}
+        </Alert>
+      ) : (
+        <Field
+          label={t('reg.link.member')}
+          required={free.length > 0}
+          error={touched && !memberId ? t('common.required') : act.fields.partyMemberId}
+          help={
+            party.state.data && free.length === 0
+              ? deadline
+                ? t('reg.link.no_member', { time: deadline })
+                : t('reg.link.no_member_soon')
+              : pending
+                ? deadline
+                  ? t('reg.link.member_help_pending', { time: deadline })
+                  : t('reg.link.member_help_pending_soon')
+                : t('reg.link.member_help')
+          }
+        >
+          {(p) => (
+            <select
+              {...p}
+              className="input"
+              value={memberId}
+              disabled={!party.state.data}
+              onChange={(e) => setMemberId(e.target.value)}
+            >
+              <option value="">{t('reg.link.member_placeholder')}</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id} disabled={taken(m)}>
+                  {taken(m) ? t('reg.link.has_doc', { name: memberName(m) }) : memberName(m)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
+      {stepUp ? (
+        <StepUpDialog
+          onClose={() => setStepUp(false)}
+          onDone={() => {
+            setStepUp(false);
+            void save();
+          }}
+        />
+      ) : null}
+    </Modal>
+  );
+}
+
 /**
  * H13 "Nhập tay giấy tờ" (FE-S3-02): every field the portal forms need – gender; VN: address; passport:
  * issue date / place, entry type, visa number (not for visa-exempt), visa validity, entry date / port /
@@ -322,10 +538,10 @@ const memberName = (m: PartyMember) => m.guest?.displayName ?? m.childDisplayNam
  * when the document waits to be linked (it is deleted at its deadline otherwise). OpenAPI 0.3.6 keeps
  * `GuestDocumentInput` whole (docType, fullNameOnDoc, docNumber required): the fields come pre-filled from
  * the step-up read, the desk confirms or types them in the same box.
- * TODO(0.3.7, BE-C/ARC – S4): link with a PATCH carrying `partyMemberId` only (no C3 read, no retyping), and
- * open the waiting document named by 409 `DOCUMENT_UNCLAIMED_EXISTS` (its id) when "Nhập tay" repeats its
- * number – until then a repeated number answers 409 `PARTY_DUPLICATE` without an id and the box points to the
- * waiting documents (`onOpenPending`).
+ * 0.3.7 (S4-39): "Gắn người" no longer comes here – `LinkDocDialog` sends `GuestDocumentLink` only. "Nhập tay"
+ * repeating the number of a waiting document → 409 `DOCUMENT_UNCLAIMED_EXISTS` with its id → the box offers to
+ * open exactly that document (`onOpenDocument`); an older server answers 409 `PARTY_DUPLICATE` without an id
+ * and the box points to the waiting documents (`onOpenPending`).
  */
 export function ManualDocDialog({
   registration,
@@ -335,6 +551,7 @@ export function ManualDocDialog({
   doc,
   pending = false,
   onOpenPending,
+  onOpenDocument,
   onClose,
   onSaved,
 }: {
@@ -349,6 +566,8 @@ export function ManualDocDialog({
   pending?: boolean;
   /** Add mode: the booking has documents waiting to be linked – close and go to them. */
   onOpenPending?: () => void;
+  /** Add mode, 0.3.7: 409 `DOCUMENT_UNCLAIMED_EXISTS` named the waiting document – close and open it. */
+  onOpenDocument?: (documentId: string) => void;
   onClose: () => void;
   onSaved: (r: Registration) => void;
 }) {
@@ -356,7 +575,8 @@ export function ManualDocDialog({
   const propertyId = usePropertyId();
   const toast = useToast();
   const unsaved = useUnsavedLabels();
-  const act = useSubmit();
+  // BUG-R2-091: fields with an input → the head says "Còn {n} ô cần sửa", the message sits at the field.
+  const act = useSubmit({ bound: DOC_FIELDS });
   const ids = useId();
   // ── "Người trong đoàn" (FB-R2-SEC-FE-07) ──
   const linkable = !!initial && !!doc && isGuestUploadUnlinked(doc);
@@ -375,7 +595,7 @@ export function ManualDocDialog({
     (m.role === 'booker' && otherMain);
   const free = members.filter((m) => !taken(m));
   const [memberId, setMemberId] = useState('');
-  const deadline = doc?.imagePurgeAt ? dateTime(doc.imagePurgeAt) : null;
+  const deadline = doc && deadlineOf(doc) ? dateTime(deadlineOf(doc)!) : null;
   const [docType, setDocType] = useState<DocType>(initial?.docType ?? 'cccd');
   const [form, setForm] = useState({
     docNumber: initial?.docNumber ?? '',
@@ -460,6 +680,19 @@ export function ManualDocDialog({
   };
 
   const f: Record<string, string | undefined> = { ...missing, ...act.fields };
+  const unclaimedProblem = isApiError(act.error)
+    ? (act.error.problem as { documentId?: unknown; personIndex?: unknown })
+    : undefined;
+  const unclaimed =
+    typeof unclaimedProblem?.documentId === 'string'
+      ? {
+          documentId: unclaimedProblem.documentId,
+          personIndex:
+            typeof unclaimedProblem.personIndex === 'number'
+              ? unclaimedProblem.personIndex
+              : undefined,
+        }
+      : null;
   const text = (
     k: keyof typeof form,
     label: string,
@@ -500,7 +733,20 @@ export function ManualDocDialog({
         </>
       }
     >
-      {!initial && act.code === 'PARTY_DUPLICATE' && onOpenPending ? (
+      {!initial && act.code === 'DOCUMENT_UNCLAIMED_EXISTS' && unclaimed && onOpenDocument ? (
+        <Alert
+          tone="warn"
+          actions={
+            <Button size="sm" onClick={() => onOpenDocument(unclaimed.documentId)}>
+              {t('reg.link.open_pending')}
+            </Button>
+          }
+        >
+          {unclaimed.personIndex
+            ? t('reg.link.dup_unclaimed', { n: unclaimed.personIndex })
+            : t('reg.link.dup_pending')}
+        </Alert>
+      ) : !initial && act.code === 'PARTY_DUPLICATE' && onOpenPending ? (
         <Alert
           tone="warn"
           actions={

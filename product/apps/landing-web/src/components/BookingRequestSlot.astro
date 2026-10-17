@@ -1,0 +1,12 @@
+---
+// Placeholder for the booking-request form (FB-INV-002 point 3, ESC-020 L7 = A) – renders nothing today.
+// Rules and dependencies: src/lib/booking-request.ts. Enabling the flag before the form exists fails the build.
+import { BOOKING_REQUEST_ENABLED } from '../lib/booking-request';
+
+if (BOOKING_REQUEST_ENABLED) {
+  throw new Error(
+    'site.json features.bookingRequest is on but the booking-request form is not built yet ' +
+      '(endpoint: ARC/BE, design: UXD mock v1.2) – see src/lib/booking-request.ts',
+  );
+}
+---

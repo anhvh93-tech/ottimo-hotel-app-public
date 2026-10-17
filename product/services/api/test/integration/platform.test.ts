@@ -12,6 +12,7 @@ import { AuditService } from '../../src/modules/audit/public/audit.service';
 import { DocNumberService } from '../../src/modules/platform/public/doc-number.service';
 import { ParameterService } from '../../src/modules/platform/public/parameter.service';
 import { ProblemError } from '../../src/shared/problem';
+import { withDevClockLock } from '../helpers/dev-clock-lock';
 import {
   HAS_DB,
   T0,
@@ -192,29 +193,34 @@ describe.skipIf(!HAS_DB)('MutableClock over dev_clock – shared by api and work
     db = appDatabase(3);
   });
   afterAll(async () => {
-    await new PgClockStore(db.pool, process.env.DATABASE_URL as string).save(null);
+    await withDevClockLock(() =>
+      new PgClockStore(db.pool, process.env.DATABASE_URL as string).save(null),
+    );
     await db.close();
   });
 
+  // S4-20: dev_clock is shared with http-foundation.test.ts (other vitest worker) – serialized by the lock.
   it('a change in one process reaches the other through NOTIFY clock_changed', async () => {
     const url = process.env.DATABASE_URL as string;
     const api = new MutableClock(new PgClockStore(db.pool, url), undefined, 60_000);
     const worker = new MutableClock(new PgClockStore(db.pool, url), undefined, 60_000);
-    await api.start();
-    await worker.start();
-    try {
-      await api.set(new Date('2026-10-15T15:59:00.000Z'));
-      await api.freeze();
-      await expect
-        .poll(() => worker.now().toISOString(), { timeout: 5_000 })
-        .toBe(api.now().toISOString());
-      expect(worker.mode()).toBe('frozen');
-      await api.reset();
-      await expect.poll(() => worker.mode(), { timeout: 5_000 }).toBe('system');
-    } finally {
-      await api.stop();
-      await worker.stop();
-    }
+    await withDevClockLock(async () => {
+      await api.start();
+      await worker.start();
+      try {
+        await api.set(new Date('2026-10-15T15:59:00.000Z'));
+        await api.freeze();
+        await expect
+          .poll(() => worker.now().toISOString(), { timeout: 5_000 })
+          .toBe(api.now().toISOString());
+        expect(worker.mode()).toBe('frozen');
+        await api.reset();
+        await expect.poll(() => worker.mode(), { timeout: 5_000 }).toBe('system');
+      } finally {
+        await api.stop();
+        await worker.stop();
+      }
+    });
   });
 });
 

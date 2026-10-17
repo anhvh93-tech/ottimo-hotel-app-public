@@ -1,0 +1,15 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"],
+      "env": ["LANDING_SITE_URL", "LANDING_INDEXABLE"]
+    },
+    "test": {
+      "dependsOn": ["^build", "build"],
+      "env": ["LANDING_SITE_URL", "LANDING_INDEXABLE"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/design/wireframes/assets/tokens.css"]
+    }
+  }
+}

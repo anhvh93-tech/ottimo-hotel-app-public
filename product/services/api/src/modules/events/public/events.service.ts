@@ -38,11 +38,28 @@ export const SSE_EVENT_TYPES = [
 ] as const;
 export type SseEventType = (typeof SSE_EVENT_TYPES)[number];
 
-const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'] as const;
-const MGR_PLUS = ['owner', 'manager'] as const;
+export const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'] as const;
+export const MGR_PLUS = ['owner', 'manager'] as const;
+const OWNER_ONLY = ['owner'] as const;
+const HK = 'housekeeping';
+const MT = 'maintenance';
 
-/** Default audience per type (OpenAPI A-35): registration → FD+, payment → MGR+ (+ the recorder). */
-const DEFAULT_ROLES: Partial<Record<SseEventType, readonly string[]>> = {
+/**
+ * Audience floor per type – OpenAPI 0.3.7 "người nhận theo vai" (BE-D Sprint 4): FD+ every type (except
+ * `payment.changed`: MGR+ and the recorder – A-35); HK `room.status_changed`, `hk_task.changed`; MT
+ * `room.status_changed`, `work_order.changed`; `guest_request.changed` FD+ and the department the request is
+ * routed to (the publisher adds `housekeeping`/`maintenance`); `notification.created` the recipient only.
+ * SAL/CTV only receive `reservation.changed` of their own bookings (creator/closer) and their notifications.
+ * A publisher's `audience.roles` is ADDED to the floor (never narrows it); `userIds` are added too.
+ */
+export const SSE_ROLE_FLOOR: Readonly<Record<SseEventType, readonly string[]>> = {
+  'reservation.changed': FD_PLUS,
+  'room.status_changed': [...FD_PLUS, HK, MT],
+  'attention.changed': FD_PLUS,
+  'hk_task.changed': [...FD_PLUS, HK],
+  'work_order.changed': [...FD_PLUS, MT],
+  'guest_request.changed': FD_PLUS,
+  'notification.created': [],
   'registration.changed': FD_PLUS,
   'payment.changed': MGR_PLUS,
 };
@@ -93,11 +110,18 @@ export type AttentionKind =
   | 'room_status_mismatch'
   | 'reconcile_overdue'
   | 'ooo_ending_work_open'
-  | 'guest_request_overdue';
+  | 'guest_request_overdue'
+  // 0.3.7 bổ sung D1: US-136 AC2/AC5 (event, `params.action` report|revoke) and S4-06 (event, BE-B).
+  | 'ota_no_show_report'
+  | 'closed_reservation_credit';
 
 /**
  * B-21 / SEC J: the ONLY `params` keys an item of a kind may carry (counts, codes, room numbers, dates –
  * never names, phones, notes or guest money details). A kind missing here carries no params.
+ * 0.3.7 (BE-D): `ota_no_show_report` → `action`, `channel`; `ooo_ending_work_open` → `roomNo`, `endDate`
+ * (contract); `foc_threshold` (BR-435, OWN only) → `check` (`foc_pct_of_room_revenue` |
+ * `foc_count_per_approver`), `pct`, `threshold`, `count`, `max` – the approver is never named in params (the
+ * item's `link` filters the approvals list); keys reported to ARC for the contract text.
  */
 export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string[]>> = {
   reconcile_overdue: ['count', 'oldestDays'],
@@ -114,8 +138,55 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
   data_quality: ['check'],
   unassigned_with_free_room: ['count'],
   security_alert: ['code'],
-  foc_threshold: ['pct'],
+  foc_threshold: ['check', 'pct', 'threshold', 'count', 'max'],
+  ota_no_show_report: ['action', 'channel'],
+  ooo_ending_work_open: ['roomNo', 'endDate'],
+  guest_request_overdue: ['count'],
 };
+
+/**
+ * Who sees an item of `listAttentionItems` (EP01 3.1; rbac S02 note 1; US-012 AC6, US-003 AC4) – filtered on the
+ * server, never in the client:
+ * - OWN only: `foc_threshold` (BR-435), `security_alert`, `data_quality` of the DATA checks (J17 R-04/R-05/R-06a);
+ * - MGR+: `reconcile_overdue` (money – FDL/FD ✖);
+ * - FD+: everything else, including `data_quality` whose `check` is a registration check
+ *   (`registration_stay_not_closed`, `registration_party_docs_unlinked` – the desk links/closes them, S4-39)
+ *   and `closed_reservation_credit` (S4-06 – OWN/MGR/FDL/FD like `deposit_after_cancel`).
+ */
+export function attentionAudience(item: Pick<AttentionItem, 'kind' | 'params'>): readonly string[] {
+  switch (item.kind) {
+    case 'foc_threshold':
+    case 'security_alert':
+      return OWNER_ONLY;
+    case 'reconcile_overdue':
+      return MGR_PLUS;
+    case 'data_quality': {
+      const check = item.params?.check;
+      return typeof check === 'string' && check.startsWith('registration_') ? FD_PLUS : OWNER_ONLY;
+    }
+    default:
+      return FD_PLUS;
+  }
+}
+
+export function attentionVisibleTo(
+  item: Pick<AttentionItem, 'kind' | 'params'>,
+  roles: readonly string[],
+): boolean {
+  const audience = attentionAudience(item);
+  return roles.some((r) => audience.includes(r));
+}
+
+/**
+ * Event items that are closed by the system only (EP01 3.2; 0.3.7): `overbooking` and
+ * `unassigned_with_free_room` close when the booking is assigned/cancelled, `closed_reservation_credit` when the
+ * refund is paid out or the guest leaves the money (BE-B, S4-06). `resolveAttentionEvent` refuses them.
+ */
+export const ATTENTION_SYSTEM_CLOSED: readonly AttentionKind[] = [
+  'overbooking',
+  'unassigned_with_free_room',
+  'closed_reservation_credit',
+];
 
 const PARAM_MAX_STRING = 40;
 
@@ -135,6 +206,13 @@ const PARAM_FORMATS: Record<string, (v: unknown) => boolean> = {
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?([+-]\d{2}:\d{2}|Z)$/.test(v)),
   code: (v) => typeof v === 'string' && /^[A-Z]{1,5}\d{0,2}-[A-Z0-9-]{1,30}$/.test(v),
   check: (v) => typeof v === 'string' && /^[a-z][a-z0-9_.]{0,39}$/.test(v),
+  // 0.3.7 (BE-D): closed enums / codes only – a name never fits.
+  action: (v) => v === 'report' || v === 'revoke',
+  channel: (v) => typeof v === 'string' && /^[a-z][a-z0-9_]{0,39}$/.test(v),
+  roomNo: (v) => typeof v === 'string' && /^[A-Za-z0-9-]{1,10}$/.test(v),
+  endDate: (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v),
+  threshold: (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000,
+  max: isCount,
 };
 
 /** Throws on a key outside the allowlist of the kind or a value not in the key's format. */
@@ -160,7 +238,8 @@ export function assertAttentionParams(
 /**
  * Light SSE event, delivered after COMMIT (pg_notify is transactional) – the ONE implementation behind
  * EventsService.publish, usable where no container exists (worker jobs, stay-view – ARC-BE-S3-23.5).
- * `reservation.changed` without an audience goes to FD+ and the booking's creator / closer (SEC-BE-40).
+ * Every event carries its audience (0.3.7 – SSE_ROLE_FLOOR ∪ the publisher's roles/users); no event goes to
+ * "everyone". `reservation.changed` without users goes to FD+ and the booking's creator / closer (SEC-BE-40).
  */
 export async function publishSse(
   tx: Tx,
@@ -174,23 +253,25 @@ export async function publishSse(
   if (!UUID.test(id)) throw new Error('SSE event id must be a uuid (no data in the payload)');
   const propertyId = tx.ctx.propertyId;
   if (!propertyId) throw new Error('SSE publish needs a property context');
-  let roles = audience?.roles ?? DEFAULT_ROLES[type];
-  let userIds = audience?.userIds;
-  if (!audience && type === 'reservation.changed') {
+  const roles = [...new Set([...SSE_ROLE_FLOOR[type], ...(audience?.roles ?? [])])];
+  let userIds = audience?.userIds ? [...new Set(audience.userIds)] : undefined;
+  if (!audience?.userIds && type === 'reservation.changed') {
     const { rows } = await tx.query<{ created_by: string | null; closer_user_id: string | null }>(
       'SELECT created_by, closer_user_id FROM reservation WHERE id = $1',
       [id],
     );
-    roles = FD_PLUS;
     const r = rows[0];
     userIds = [...new Set([r?.created_by, r?.closer_user_id].filter((u): u is string => !!u))];
+  }
+  if (roles.length === 0 && !userIds?.length) {
+    throw new Error(`SSE ${type} has no recipient (explicit users required)`);
   }
   const wire: SseWireEvent = {
     p: propertyId,
     t: type,
     id,
-    ...(roles ? { r: [...roles] } : {}),
-    ...(userIds ? { u: [...userIds] } : {}),
+    r: roles,
+    ...(userIds?.length ? { u: userIds } : {}),
   };
   await tx.query('SELECT pg_notify($1, $2)', [SSE_CHANNEL, JSON.stringify(wire)]);
 }
@@ -229,6 +310,15 @@ export interface NotifyInput {
   refType: NotificationRefType;
   refId: string;
   refCode?: string | null;
+}
+
+export interface AttentionHistoryRow {
+  id: string;
+  params: Record<string, string | number>;
+  createdAt: Date;
+  resolvedAt: Date | null;
+  /** null on a resolved row = closed by the system. */
+  resolvedBy: string | null;
 }
 
 export interface OpenAttentionInput {
@@ -375,6 +465,51 @@ export class EventsService {
       await this.publish(tx, 'attention.changed', row.id, { roles: FD_PLUS });
     }
     return r.rows.length;
+  }
+
+  /**
+   * History of the event items of one subject (ARC 11.4 C2 – owners never touch `attention_event` themselves):
+   * newest first, rows LOCKED (`FOR UPDATE`) so a decision taken on the history cannot race another one in the
+   * caller's transaction. `resolvedBy` null on a resolved row = closed by the system.
+   */
+  async attentionHistory(
+    tx: Tx,
+    subject: { kind: AttentionKind; refType: string; refId: string },
+  ): Promise<AttentionHistoryRow[]> {
+    const { rows } = await tx.query<{
+      id: string;
+      details: Record<string, string | number> | null;
+      created_at: Date;
+      resolved_at: Date | null;
+      resolved_by: string | null;
+    }>(
+      `SELECT id, details, created_at, resolved_at, resolved_by FROM attention_event
+        WHERE kind = $1 AND ref_type = $2 AND ref_id = $3
+        ORDER BY created_at DESC, id DESC FOR UPDATE`,
+      [subject.kind, subject.refType, subject.refId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      params: r.details ?? {},
+      createdAt: r.created_at,
+      resolvedAt: r.resolved_at,
+      resolvedBy: r.resolved_by,
+    }));
+  }
+
+  /**
+   * Close one event item BY THE SYSTEM (`resolved_by` NULL – the person who triggered the business action did not
+   * handle the item), with a technical note; no-op when already closed. Publishes `attention.changed`.
+   */
+  async resolveAttentionById(tx: Tx, id: string, now: Date, note: string): Promise<boolean> {
+    const r = await tx.query<{ id: string }>(
+      `UPDATE attention_event SET resolved_at = $2, resolved_by = NULL, resolution_note = $3
+        WHERE id = $1 AND resolved_at IS NULL RETURNING id`,
+      [id, now, note],
+    );
+    if (r.rows.length === 0) return false;
+    await this.publish(tx, 'attention.changed', id, { roles: FD_PLUS });
+    return true;
   }
 
   /** Computed "Cần chú ý" items of a module (registered once at module init). */

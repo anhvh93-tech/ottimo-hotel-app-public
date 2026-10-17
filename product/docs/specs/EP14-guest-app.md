@@ -1,6 +1,6 @@
 # Đặc tả mức trường – EP14 App khách mức 1 (guest-web, phần R2)
 
-- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: 0.1
+- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: **0.2** (17/10, Sprint 4: mục 3.3, 4.3, 4.4 theo OpenAPI 0.3.7 – mã lý do từ chối `declinedReasonCode` 5 mã + `replyNote`, câu trả lời tự động `guest.req.auto_reply` mới). Bản 0.1 (16/10)
 - Phạm vi (Must R2 theo R-C): US-106 (mở trang bằng link/QR), US-108 **trừ phần mã cửa của AC2** (P-R2-5), US-109 (gửi yêu cầu), US-110 (định tuyến + xử lý phía nhân viên), US-112 (tiếng Anh). Check-in online (US-107) và cấp/thu hồi link ở Desk đã đặc tả ở `specs/EP06-registration.md` mục 8 – tài liệu này không lặp lại.
 - **Dời R3 theo R-C** (không làm, không hiện chuỗi): US-111 folio/bill, US-128 + phần mã cửa của US-108 AC2, US-141 xác minh mức 2 (OTP/mã lễ tân), US-113 tự gia hạn/trả muộn, US-114 dài hạn xem HĐ, US-115 tiếng Nga, US-116 đánh giá.
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0. Thứ tự ưu tiên khi lệch: `business-rules.md` **v0.3.1** → backlog (AC) → **điều kiện SEC ĐK-1…ĐK-6** (`rounds/round-02/outputs/SEC/w1-review.md` mục 4, `s1-decisions.md`) → `state-machines.md` SM-15 → `rbac-matrix.md` (S30, D23, cột GST1) → `api/openapi.yaml` **0.3.4-draft** → `design/copy/strings-*.json`. Không chép con số nghiệp vụ.
@@ -110,7 +110,9 @@ Kết quả (AC1): thẻ yêu cầu `guest.req.sent` + nhãn `guest.req.status.n
 | `note` | Nội dung khách đã gửi (văn bản thuần) |
 | `status`, `statusLabel` | 5 nhãn SM-15 theo ngôn ngữ: `guest.req.status.new/acknowledged/in_progress/done/declined` = Đã gửi · Đã nhận · Đang xử lý · Hoàn thành · Không thực hiện được |
 | `autoReply` | Dòng trả lời tự động ngoài giờ |
-| `declinedReason` | Khi `declined` (AC2): lý do theo ngôn ngữ khách – hợp đồng hiện là chuỗi tự do → đề nghị mã lý do **E14-03** để hiện đúng VI/EN (`guest.req.decline.*`) |
+| `declinedReasonCode` **(0.3.6 B-15 / 0.3.7 – thay `declinedReason` tự do)** | Khi `declined` (AC2): nhãn lý do theo ngôn ngữ phiên khách – `guest.req.decline.<mã>` (bảng mục 4.4); mã lạ → `guest.req.decline.other` |
+| `replyNote` | Lời nhắn của nhân viên (văn bản thuần, mức 1 – ai có link cũng đọc được): hiện dưới nhãn trạng thái khi `done` hoặc `declined`; bắt buộc có khi lý do `other` |
+| `feeVnd` | Phí khách đã đồng ý (snapshot) – "Phí {amount}" khi > 0 |
 | `createdAt`, `updatedAt` | "Gửi lúc {time}" · "Cập nhật {time}" |
 
 Sắp mới nhất trước; rỗng → `guest.req.empty`. Cập nhật trạng thái: guest-web **không** có SSE (SSE chỉ cho nhân viên) → gọi lại `listMyRequests` khi mở tab Yêu cầu, khi trang được focus, và mỗi 30 giây khi tab đang mở và còn yêu cầu chưa kết thúc (`new`/`acknowledged`/`in_progress`) `[GIẢ ĐỊNH BA]`.
@@ -140,7 +142,11 @@ Lọc `status` (mặc định chưa kết thúc: `new`, `acknowledged`, `in_prog
 
 ### 4.3 Hạn trả lời và trả lời tự động (BR-811; AC2)
 - Trong giờ trực [`front_desk_hours.from`, `front_desk_hours.to`) (gồm mốc đầu, không gồm mốc cuối – BR-811): `ackDueAt` = lúc gửi + `guest_request_response_minutes`. Ví dụ BR-811: gửi 21:59 → hạn 22:09 (hạn được phép rơi ra ngoài giờ trực).
-- Ngoài giờ trực: server **ngay lúc tạo** ghi `autoRepliedAt` và `autoReply` theo ngôn ngữ khách **(mới)** `guest.req.auto_reply` "Chúng tôi đã nhận yêu cầu lúc {time}. Lễ tân sẽ xử lý từ {open_time}. Việc gấp, gọi {phone}." `ackDueAt` = mốc mở giờ trực kế tiếp + `guest_request_response_minutes` (ví dụ gửi 22:00 → hạn 07:10 hôm sau) (DOM D-13 c). **Ngoại lệ `report_issue`**: ngoài giờ vẫn thông báo **ngay** cho người trực đêm/FDL (`work_order_new`/`work_order_high_new` – mất nước nóng, mất điện, khóa cửa không chờ sáng); câu trả lời tự động **luôn** có số điện thoại trực (`{phone}`).
+- Ngoài giờ trực: server **ngay lúc tạo** ghi `autoRepliedAt`; mỗi lần khách đọc (`listMyRequests`) server dựng `autoReply` theo **ngôn ngữ phiên khách** từ chuỗi **`guest.req.auto_reply`** (UXD duyệt 17/10, bản 0.3.7 – thay câu nháp 0.1 và khóa cũ `gw.req.auto_reply` đã đánh dấu "CŨ"):
+  - VI: "OTTIMO đã nhận yêu cầu của bạn lúc {time}. Lễ tân sẽ xử lý từ {open_time}. Nếu cần gấp, bạn vui lòng gọi {phone}." · EN: "We received your request at {time}. Our front desk will take care of it from {open_time}. If it is urgent, please call {phone}." · RU: bản nháp UXD (khóa RU còn thiếu thì dùng EN – P-S4-10).
+  - Tham số (đúng như `guest-requests.service.ts`): `{time}` = giờ `autoRepliedAt` theo giờ cơ sở, dạng `HH:mm`; `{open_time}` = `front_desk_hours.from` (BR-811); `{phone}` = `property.phone_public` (hotline công khai). **Cơ sở chưa có số công khai** → server bỏ nguyên câu chứa `{phone}` (câu trả lời còn hai câu đầu) – đề nghị OWN nhập hotline ở Tham số trước khi chạy thật (E14-10).
+  - Chuỗi do server dựng từ bản chuỗi đã sinh (`scripts/gen-guest-request-copy.mjs` → `guest-request-copy.ts`); đổi chữ ở `gen_strings.py` thì BE-D chạy lại script (`--check` trong CI) – guest-web **không** tự dựng câu.
+  - `ackDueAt` = mốc mở giờ trực kế tiếp + `guest_request_response_minutes` (ví dụ gửi 22:00 → hạn 07:10 hôm sau) (DOM D-13 c). **Ngoại lệ `report_issue`**: ngoài giờ vẫn thông báo **ngay** cho người trực đêm/FDL (`work_order_new`/`work_order_high_new` – mất nước nóng, mất điện, khóa cửa không chờ sáng); câu trả lời tự động **luôn** có số điện thoại trực (`{phone}`).
 - J10 (mỗi phút): yêu cầu còn `new` quá `ackDueAt` → `isAckOverdue = true`, thông báo `guest_request_overdue` tới bộ phận định tuyến **và** FD (AC2 "front_desk nhận nhắc"); vào "Cần chú ý" của FD+ (`EP01-dashboard.md` mục 3 – đề nghị kind E14-05).
 
 ### 4.4 Chuyển trạng thái – `transitionGuestRequest` (SM-15) và liên kết việc/phiếu
@@ -149,10 +155,24 @@ Lọc `status` (mặc định chưa kết thúc: `new`, `acknowledged`, `in_prog
 | "Đã nhận" (`today.req_ack`) | `acknowledge` | `new` → `acknowledged` | Bộ phận định tuyến (HK/MT theo loại) hoặc FD+ | – | "Đã nhận"; dừng đo hạn BR-811 (`acknowledgedAt`) |
 | (tự động) | – | `new`/`acknowledged` → `in_progress` | SYS | – | "Đang xử lý" khi việc HK liên kết `in_progress` hoặc phiếu liên kết `in_progress` (W2). Bắt đầu việc/nhận phiếu khi yêu cầu còn `new` → SYS ghi luôn `acknowledgedAt` (coi như đã nhận) `[GIẢ ĐỊNH BA]` |
 | (tự động) | – | → `done` | SYS | – | "Hoàn thành" khi việc HK liên kết `done` hoặc phiếu liên kết `done` (W4) – AC2 |
-| "Xong" (yêu cầu lễ tân) | `complete` | `acknowledged`/`in_progress` → `done` | FD+ | `replyNote` **(đề nghị E14-03, cần SEC – ĐK-2)** K, ≤ 300, V-09 – câu trả lời hiện cho khách | "Hoàn thành" (+ câu trả lời) |
-| "Không thực hiện được" | `decline` | `new`/`acknowledged` → `declined` | FD+ (HK/MT không từ chối – báo lễ tân) | `declinedReasonCode` **(E14-03)** B: `fully_booked` / `out_of_hours` / `not_offered` / `other` (`guest.req.decline.*`); `declinedNote` B khi `other` (3–300, V-09) | "Không thực hiện được" + lý do theo ngôn ngữ khách (AC2). Việc HK liên kết còn `open` → `cancelled` (lý do `other`, ghi chú "Yêu cầu khách bị từ chối"); phiếu liên kết **không** tự hủy (sự cố vẫn cần sửa) |
+| "Xong" (yêu cầu lễ tân) | `complete` | `acknowledged`/`in_progress` → `done` | FD+ (HK/MT chỉ khi yêu cầu không có việc/phiếu liên kết) | `replyNote` K (SEC đã duyệt ĐK-2 16/10), ≤ 300 – câu trả lời hiện cho khách; kiểm như dòng dưới | "Hoàn thành" (+ câu trả lời) |
+| "Không thực hiện được" | `decline` | `new`/`acknowledged` → `declined` | FD+ (HK/MT không từ chối – báo lễ tân; gọi → 403) | `declinedReasonCode` **B** – enum **0.3.7** (bảng dưới); `replyNote` **B** khi `other`, K với mã khác | "Không thực hiện được" + nhãn lý do theo ngôn ngữ khách (AC2) + `replyNote` nếu có. Việc HK liên kết còn `open` → `cancelled` (lý do `other`, ghi chú "Yêu cầu khách bị từ chối"); phiếu liên kết **không** tự hủy (sự cố vẫn cần sửa) |
 
 Lỗi: chuyển không hợp lệ → 409 `INVALID_TRANSITION`; HK/MT thao tác yêu cầu không định tuyến tới mình → 404 `NOT_FOUND`; HK/MT gọi `decline` → 403 `FORBIDDEN_ACTION`.
+
+**Mã lý do từ chối (`declinedReasonCode`, OpenAPI 0.3.7 – thay danh sách nháp 0.1)** – khách thấy nhãn theo ngôn ngữ phiên (chuỗi UXD duyệt 17/10):
+
+| Mã | Khi nào lễ tân dùng | Khách thấy (VI · EN) | Chuỗi |
+|---|---|---|---|
+| `not_available_now` | Dịch vụ có nhưng hiện không làm được (hết xe, hết đồ, đang bảo trì thiết bị) | "Hiện chưa thực hiện được" · "Not available right now" | `guest.req.decline.not_available_now` |
+| `outside_service_hours` | Yêu cầu rơi ngoài giờ phục vụ của dịch vụ đó | "Ngoài giờ phục vụ" · "Outside service hours" | `guest.req.decline.outside_service_hours` |
+| `needs_front_desk` | Cần lễ tân xử lý trực tiếp (gọi lại, cần thông tin thêm, việc liên quan tiền/giấy tờ) | "Lễ tân sẽ liên hệ bạn để xử lý trực tiếp" · "The front desk will contact you about this" | `guest.req.decline.needs_front_desk` |
+| `duplicate` | Trùng một yêu cầu khách đã gửi (vẫn đang xử lý bản kia) | "Trùng với một yêu cầu bạn đã gửi" · "Same as a request you've already sent" | `guest.req.decline.duplicate` |
+| `other` | Lý do khác – **bắt buộc** `replyNote` giải thích cho khách | "Lý do khác – xem lời nhắn của lễ tân" · "Other reason – see the front desk's message" | `guest.req.decline.other` |
+
+- Khóa nháp 0.1 **bỏ** (UXD đánh dấu "CŨ"): `guest.req.decline.fully_booked`, `guest.req.decline.out_of_hours`, `gw.req.decline.*`; mã `not_offered` **không** còn là lý do từ chối – chỉ là `unavailableReason` của `listGuestRequestOptions` (nút loại đó ẩn/khóa, khách không gửi được).
+- `replyNote` (server – `guest-requests.service.ts`): văn bản thuần, cắt khoảng trắng; `other` mà rỗng → 422 `REQUIRED`; > 300 ký tự → `TOO_LONG`; giống số thẻ (Luhn) → `CARD_NUMBER_DETECTED`; chuỗi ≥ 6 chữ số liền nhau (sau khi bỏ dấu cách/chấm/gạch) trừ hotline công khai của cơ sở → `SENSITIVE_DATA_DETECTED` (chặn mã cửa, số giấy tờ, SĐT khách – SEC B-15). Desk nhắc dưới ô: "Không ghi mã cửa, số giấy tờ, số điện thoại". Thiếu/sai mã → `declinedReasonCode` `REQUIRED` / `NOT_IN_LIST`.
+- Không vào thông báo đẩy/outbox; xóa theo T13 cùng `guest_request.note`.
 
 Việc liên kết bị **hủy** (ví dụ khách từ chối dọn) → yêu cầu **không** tự đổi; FD thấy chip **(mới)** `req.linked_cancelled` "Việc liên quan đã hủy – trả lời khách" và phải `complete` hoặc `decline`.
 
@@ -204,9 +224,13 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | E14-07 | DOM | **Đã trả lời** (s2-DOM D-13; áp 16/10 Sprint 2; (b) còn chờ INV). Nội dung cũ: Xác nhận: (a) 3 loại yêu cầu lễ tân dùng được trước ngày đến (3.1); (b) phí dọn thêm cho khách ngắn ngày (3.2); (c) hạn trả lời yêu cầu gửi ngoài giờ trực (4.3); (d) phí dọn lẻ ghi folio tự động khi việc xong (4.4) |
 | E14-08 | SEC | Danh sách tên miền bản đồ cho `mapUrl` (2.1); xác nhận guest-web không cache `listMyRequests` (0, ĐK-3) |
 | E14-09 | QA | Test ĐK-2 cho `GuestStay` và `GuestRequestForGuest` (danh sách khóa được phép); ca giờ trực 06:59/07:00/21:59/22:00 (BR-811); link đơn A không đọc đơn B; sau B18 gửi yêu cầu → 403; QR trang căn không lộ đơn (cùng phản hồi 202 cho mã đúng/sai) |
+| E14-03 | – | **Đã áp** (0.3.6 B-15, 0.3.7): enum `not_available_now`, `outside_service_hours`, `needs_front_desk`, `duplicate`, `other` + `replyNote` (SEC duyệt ĐK-2 16/10) – mục 4.4 |
+| E14-10 | PO/OWN (qua ORC) | Nhập `property.phone_public` (hotline công khai) trước khi chạy thật – thiếu thì câu trả lời tự động mất câu "gọi {phone}" và `replyNote` không ghi được hotline (4.3); UXD cân nhắc biến thể có câu thay thế ("nhắn Zalo OTTIMO") nếu OWN không muốn công khai số |
+| E14-11 | QA | Ca 4.4: từ chối `other` không `replyNote` → 422; `replyNote` có 6 chữ số liền (không phải hotline) → `SENSITIVE_DATA_DETECTED`; có hotline → nhận; khách VI/EN thấy đúng nhãn 5 mã; ca 4.3 cơ sở không có `phone_public` → câu trả lời 2 câu |
 
 ## 9. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: guest-web mức 1 R2 – mở trang (link/QR), thông tin lưu trú (Wi-Fi theo khung, không mã cửa), yêu cầu khách + định tuyến + xử lý phía nhân viên, tiếng Anh; áp ĐK-1…6; đề nghị E14-01…09 | BA |
 | 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp DOM D-13 (3 loại trước ngày đến; phí dọn thêm ngắn ngày – chờ INV; `report_issue` ngoài giờ báo ngay; phí ghi folio tự động), D-15 (loại có phí); ARC B-14, B-16 (`listGuestRequestOptions`, `feeAccepted`) – FB-R2-DOM-BA-01 | BA |
+| 17/10/2026 | 2 (Sprint 4 – theo UXD `s4-UXD.md` mục E "Ghi chú cho BA" và OpenAPI 0.3.7) | v0.2: **4.4** mã lý do từ chối theo enum 0.3.7 (`not_available_now`, `outside_service_hours`, `needs_front_desk`, `duplicate`, `other`) kèm câu khách thấy VI/EN, `replyNote` bắt buộc khi `other` và quy tắc kiểm server (`SENSITIVE_DATA_DETECTED`…), bỏ khóa nháp `fully_booked`/`out_of_hours`/`not_offered`; **4.3** câu trả lời tự động lấy theo `guest.req.auto_reply` mới (tham số `{time}`, `{open_time}`, `{phone}`; thiếu hotline → bỏ câu gọi); **3.3** `declinedReasonCode`, `replyNote`, `feeVnd` thay `declinedReason`. (UXD gọi "EP14 3.4 bảng hành động" – bảng hành động thực tế ở mục 4.4.) E14-03 đã áp; thêm E14-10, E14-11 | BA |

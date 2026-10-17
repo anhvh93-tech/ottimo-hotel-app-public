@@ -422,3 +422,92 @@ describe('upload slots – keep-alive socket keeps nothing of a finished upload'
     sock.destroy();
   });
 });
+
+/**
+ * S4-17 (s3-round7 UP-1, UP-2): uploads PIPELINED on one connection straight to the api (no Caddy). Node queues
+ * the replies of pipelined requests behind the first one, so their request objects – and whatever hangs off
+ * them – outlive the upload slot. Before the fix enough pipelined bodies were held to pass the 4 × 42 MB cap
+ * (~1 GB). Now an upload behind an unanswered request on the same connection is refused before its body is
+ * read (429, no slot), and a settled read keeps nothing of its buffer on the request stream.
+ */
+describe('upload slots – pipelined uploads on one connection (S4-17)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let app: any;
+  let port = 0;
+  const refs: WeakRef<Buffer>[] = [];
+  let handled = 0;
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc') as () => void;
+
+  beforeAll(async () => {
+    app = createHttpAdapter({ trustProxy: ['127.0.0.1'], logLevel: 'silent' }).getInstance();
+    app[MULTIPART_SESSION_CHECK] = async (headers: Record<string, string | undefined>) => {
+      const m = /ottimo_gsid=([^;\s]+)/.exec(headers.cookie ?? '');
+      return m ? `guest:${m[1]}` : null;
+    };
+    // A slow handler: the replies of the requests pipelined behind it stay queued meanwhile.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    app.post(GUEST, async (req: any) => {
+      handled++;
+      refs.push(new WeakRef(req.body as Buffer));
+      await sleep(300);
+      return { ok: true };
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    port = app.server.address().port;
+  });
+  afterAll(async () => app?.close());
+
+  it('6 uploads pipelined in one write: the first is handled; the one behind it gets 429 without being read or taking a slot and the connection closes (the rest is never read); afterwards no body is alive', async () => {
+    const size = 1024 * 1024;
+    const body = Buffer.alloc(size, 0x7a);
+    const head =
+      `POST ${GUEST} HTTP/1.1\r\nHost: x\r\nX-Forwarded-For: 203.0.113.10\r\n` +
+      `Cookie: __Host-ottimo_gsid=${'pipelined'.padEnd(43, 'p')}\r\n` +
+      `Content-Type: multipart/form-data; boundary=xx\r\nContent-Length: ${size}\r\n` +
+      `Connection: keep-alive\r\n\r\n`;
+    /** Writes `n` uploads at once on a new connection; resolves with every status line once it closes. */
+    const pipeline = async (n: number, closeAfter?: number): Promise<string[]> => {
+      const sock = net.connect(port, '127.0.0.1');
+      await new Promise<void>((r) => sock.once('connect', () => r()));
+      const statuses: string[] = [];
+      let buf = Buffer.alloc(0);
+      const closed = new Promise<string[]>((resolve) => {
+        sock.on('close', () => resolve(statuses));
+        sock.on('error', () => undefined); // EPIPE: the server closed while bytes were still going out
+        sock.on('data', (d: Buffer) => {
+          buf = Buffer.concat([buf, d]);
+          for (;;) {
+            const text = buf.toString('latin1');
+            const end = text.indexOf('\r\n\r\n');
+            if (end < 0) return;
+            const len = Number(/content-length:\s*(\d+)/i.exec(text.slice(0, end))?.[1] ?? 0);
+            if (buf.length < end + 4 + len) return;
+            statuses.push(text.split('\r\n')[0] ?? '');
+            buf = buf.subarray(end + 4 + len);
+            if (closeAfter !== undefined && statuses.length >= closeAfter) sock.destroy();
+          }
+        });
+      });
+      const parts: Buffer[] = [];
+      for (let i = 0; i < n; i++) parts.push(Buffer.from(head, 'latin1'), body);
+      sock.write(Buffer.concat(parts));
+      return closed;
+    };
+    expect(await pipeline(6)).toEqual(['HTTP/1.1 200 OK', 'HTTP/1.1 429 Too Many Requests']);
+    expect(handled).toBe(1);
+    expect(uploadsInFlight()).toBe(0);
+    // Not pipelined (one request per connection, keep-alive kept by the client): handled as usual.
+    expect(await pipeline(1, 1)).toEqual(['HTTP/1.1 200 OK']);
+    expect(handled).toBe(2);
+    await sleep(50);
+    gc();
+    await sleep(50);
+    gc();
+    expect({
+      handled: refs.length,
+      alive: refs.filter((r) => r.deref() !== undefined).length,
+    }).toEqual({ handled: 2, alive: 0 });
+    expect(uploadsInFlight()).toBe(0);
+  });
+});

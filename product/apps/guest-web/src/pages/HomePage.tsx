@@ -1,41 +1,58 @@
+import { roomLabel } from '@ottimo/i18n';
 import { Icon } from '@ottimo/ui';
 import type { GuestSession, GuestStay, OnlineCheckin } from '../app/api';
-import { nightsBetween, useT } from '../app/i18n';
+import { nightsBetween, supportLocale, translateGuest, useT } from '../app/i18n';
 import { safeMapUrl, telHref } from '../app/link';
 import { WifiBlock } from './WifiBlock';
 
 /** H18 18.1 – "Lưu trú" (level 1). Only GuestSession/GuestStay level-1 keys are read (SEC ĐK-2). */
 export function HomePage({
+  localeChosen,
   session,
   stay,
   checkin,
   onCheckin,
   onInfo,
 }: {
+  localeChosen: boolean;
   session?: GuestSession;
   stay: GuestStay;
   checkin?: OnlineCheckin;
   onCheckin: () => void;
   onInfo: () => void;
 }) {
-  const { t, shortDate } = useT();
+  const { t, shortDate, locale } = useT();
   const name = session?.guestFirstName;
   const nights = nightsBetween(stay.arrivalDate, stay.departureDate);
   const tel = telHref(stay.property.phone);
   const map = safeMapUrl(stay.property.mapUrl);
-  const roomNo = stay.roomNo ?? session?.roomNo ?? null;
+  // BR-012 (1): the shared helper of @ottimo/i18n (FE-B) – guest side = room NAME only, never the number;
+  // a booking not yet told its room comes with `roomName: null` → public room type (DS 11.3).
+  const roomName = stay.roomName ?? session?.roomName ?? null;
+  const roomType = stay.publicRoomType ?? session?.publicRoomType ?? null;
+  const roomText = roomLabel({ name: roomName, publicRoomType: roomType }, 'guest');
   const isDone = Boolean(checkin?.completedAt) || checkin?.currentStep === 'done';
   const uploadedN = checkin?.uploadedPeople?.length ?? 0;
   const deferredN = checkin?.deferredPeople?.length ?? 0;
+  const support = supportLocale(locale);
 
   return (
     <div className="m-body gw-stack">
       <div>
-        <h2 className="gw-hello" tabIndex={-1} data-autofocus>
-          {name ? t('guest.hello', { name }) : stay.reservationCode}
+        {/* DS 11.2: the greeting is a brand moment – English in every language, support line below. */}
+        <h2 className="gw-hello" lang="en" tabIndex={-1} data-autofocus>
+          {name
+            ? translateGuest('en', 'gw.welcome_title', { name })
+            : translateGuest('en', 'gw.welcome_title_plain')}
         </h2>
+        <p className="gw-support" lang={support}>
+          {translateGuest(support, 'gw.welcome_sub')}
+        </p>
+        {/* 0.3.7 bổ sung 1 #12: say once that the language came from the browser/profile and can be changed. */}
+        {!localeChosen ? <p className="li-s m-0 mt-4">{t('gw.lang_auto')}</p> : null}
         <p className="li-s">
-          {name ? `${stay.reservationCode} · ` : ''}
+          <span className="gw-code">{stay.reservationCode}</span>
+          {' · '}
           {t('guest.stay.dates', {
             from: shortDate(stay.arrivalDate),
             to: shortDate(stay.departureDate),
@@ -46,10 +63,20 @@ export function HomePage({
 
       <div className="card">
         <dl className="dl">
-          {roomNo ? (
+          {roomText ? (
             <>
-              <dt>{t('gw.room')}</dt>
-              <dd>{roomNo}</dd>
+              <dt>{t('gw.room_label')}</dt>
+              <dd>
+                <span className="gw-room-name" lang="en">
+                  {roomText}
+                </span>
+                {/* "The Pine · Studio": the public room type under the name when both are known. */}
+                {roomName && roomType ? (
+                  <span className="li-s d-block" lang="en">
+                    {roomType}
+                  </span>
+                ) : null}
+              </dd>
             </>
           ) : null}
           <dt>{t('gw.checkin')}</dt>

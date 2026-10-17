@@ -1,0 +1,73 @@
+---
+// <picture> exactly as mock v1.1 / concept 8.3: AVIF then WebP; phones (< 768 px) never get a file wider than
+// 960 px whatever the DPR (budget concept 11.2); every <img> has width/height (no layout shift). Thumbnails only
+// offer 480/960. The hero is eager + fetchpriority=high and has matching <link rel=preload> in the layout.
+import { photo, srcset } from '../content/photos';
+import type { Lang } from '../lib/i18n';
+
+interface Props {
+  id: string;
+  lang: Lang;
+  /** cover = 480/960 on phones, up to 1600 elsewhere; thumb = 480/960 only. */
+  variant?: 'cover' | 'thumb';
+  sizes: string;
+  sizesMobile?: string;
+  eager?: boolean;
+  class?: string;
+  imgClass?: string;
+}
+
+const {
+  id,
+  lang,
+  variant = 'cover',
+  sizes,
+  sizesMobile,
+  eager = false,
+  class: figureClass,
+  imgClass,
+} = Astro.props;
+const p = photo(id);
+const phoneWidths = p.widths.filter((w) => w <= 960);
+const fallback = p.url(variant === 'cover' ? 960 : 480, 'webp');
+---
+
+<figure class:list={['pic', figureClass]}>
+  <picture>
+    {
+      variant === 'cover' ? (
+        <>
+          <source
+            media="(max-width: 767px)"
+            type="image/avif"
+            srcset={srcset(p, 'avif', phoneWidths)}
+            sizes={sizesMobile ?? sizes}
+          />
+          <source
+            media="(max-width: 767px)"
+            type="image/webp"
+            srcset={srcset(p, 'webp', phoneWidths)}
+            sizes={sizesMobile ?? sizes}
+          />
+          <source type="image/avif" srcset={srcset(p, 'avif', p.widths)} sizes={sizes} />
+          <source type="image/webp" srcset={srcset(p, 'webp', p.widths)} sizes={sizes} />
+        </>
+      ) : (
+        <>
+          <source type="image/avif" srcset={srcset(p, 'avif', phoneWidths)} sizes={sizes} />
+          <source type="image/webp" srcset={srcset(p, 'webp', phoneWidths)} sizes={sizes} />
+        </>
+      )
+    }
+    <img
+      src={fallback}
+      width={p.width}
+      height={p.height}
+      alt={p.alt[lang]}
+      class={imgClass}
+      decoding="async"
+      loading={eager ? undefined : 'lazy'}
+      fetchpriority={eager ? 'high' : undefined}
+    />
+  </picture>
+</figure>

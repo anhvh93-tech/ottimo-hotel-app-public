@@ -214,7 +214,11 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
     const p = res.json();
     expect(p.standardCheckinTime).toBe('14:00');
     expect(p.roomStatus).toBe('VC');
-    expect(p.conditions.every((x: { met: boolean }) => x.met)).toBe(true);
+    // 0.3.7 (BUG-R2-038, BR-402 v0.3.6): the surcharge about to be posted is due to check in at 11:00.
+    expect(
+      p.conditions.filter((x: { met: boolean }) => !x.met).map((x: { code: string }) => x.code),
+    ).toEqual(['balance_paid']);
+    expect(p).toMatchObject({ balanceDueVnd: 0, amountDueAtCheckinVnd: 212_000 });
     expect(p.earlyCheckinSurcharge).toMatchObject({
       tierPct: 30,
       baseNightVnd: 708_000,
@@ -224,7 +228,12 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
     expect(p.registrationDeadlinePreview).toBeDefined();
     // Default time = standard time (BR-414), never "now".
     const def = (await c.fd!.get(url(`/reservations/${main.id}/check-in-preview`))).json();
-    expect(def).toMatchObject({ checkinTime: '14:00', earlyCheckinSurcharge: { amountVnd: 0 } });
+    expect(def).toMatchObject({
+      checkinTime: '14:00',
+      earlyCheckinSurcharge: { amountVnd: 0 },
+      amountDueAtCheckinVnd: 0,
+    });
+    expect(def.conditions.every((x: { met: boolean }) => x.met)).toBe(true);
   });
 
   it('checkIn guards: trusted device (D1), If-Match, conditions 409, 422 fields, SURCHARGE_CHANGED', async () => {
@@ -311,16 +320,44 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
   });
 
   it('B9: in_house, early_checkin line, room OC, B9 history, no door code anywhere (SEC D2)', async () => {
+    const early = {
+      checkinTime: '11:00',
+      applyEarlySurcharge: true,
+      expectedSurchargeVnd: 212_000,
+      cardsIssued: 2,
+    };
+    // 0.3.7 (BUG-R2-038 – TC-L3-011): the surcharge is due to check in; not paid → 409, NOTHING written.
+    const before = (await lines(main.folioId)).length;
+    const unpaid = await act(main.id, 'check-in', main.version, checkInBody(early));
+    expect(unpaid.statusCode).toBe(409);
+    expect(unpaid.json()).toMatchObject({
+      code: 'CHECKIN_CONDITIONS_NOT_MET',
+      unmet: ['balance_paid'],
+    });
+    expect((await lines(main.folioId)).length).toBe(before);
+    const tooMuch = await act(
+      main.id,
+      'check-in',
+      main.version,
+      checkInBody({ ...early, payment: { type: 'charge', method: 'cash', amountVnd: 300_000 } }),
+    );
+    expect(tooMuch.statusCode).toBe(422);
+    expect(tooMuch.json()).toMatchObject({
+      errors: [{ field: 'payment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+      max: 212_000,
+    });
+    const deposit = await act(
+      main.id,
+      'check-in',
+      main.version,
+      checkInBody({ ...early, payment: { type: 'deposit', method: 'cash', amountVnd: 212_000 } }),
+    );
+    expect(deposit.json().errors).toContainEqual({ field: 'payment.type', code: 'NOT_IN_LIST' });
     const res = await act(
       main.id,
       'check-in',
       main.version,
-      checkInBody({
-        checkinTime: '11:00',
-        applyEarlySurcharge: true,
-        expectedSurchargeVnd: 212_000,
-        cardsIssued: 2,
-      }),
+      checkInBody({ ...early, payment: { type: 'charge', method: 'cash', amountVnd: 212_000 } }),
     );
     expect(res.statusCode, res.body).toBe(200);
     const r = res.json();
@@ -730,14 +767,17 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       [b.id],
     );
     const listed = (await c.mgr!.get(url('/approval-requests?status=pending'))).json();
-    expect(listed.data.find((a: { id: string }) => a.id === req!.id)).toMatchObject({
+    const row = listed.data.find((a: { id: string }) => a.id === req!.id);
+    expect(row).toMatchObject({
       type: 'refund',
       requiredRole: 'manager',
       refundedVnd: 0,
     });
+    // 0.3.7 B-6: a refund is approved on the version the approver saw.
     const ap = await c.mgr!.send('POST', url(`/approval-requests/${req!.id}/actions/approve`), {
       authMethod: 'password',
       secret: TEST_PASSWORD,
+      expectedVersion: row.version,
     });
     expect(ap.statusCode, ap.body).toBe(200);
     expect(ap.json()).toMatchObject({ status: 'approved', approverRole: 'manager' });
@@ -846,12 +886,17 @@ describe.skipIf(!HAS_DB)('front desk – EP03-05 + US-022 (BE-A Sprint 3)', () =
       initialPayment: { type: 'deposit', method: 'bank_transfer', amountVnd: 400_000 },
     });
     await at('2026-10-19T16:00:00+07:00');
-    const a = await c.fd!.get(url('/attention'));
+    // BE-D Sprint 4 (EP01 3.1, US-012 AC6): reconcile_overdue is a money item – MGR+ only, never FD/FDL.
+    const a = await c.mgr!.get(url('/attention'));
     expect(a.statusCode, a.body).toBe(200);
     const kinds = a.json().data.map((x: { kind: string }) => x.kind);
     expect(kinds).toContain('reconcile_overdue');
     const rec = a.json().data.find((x: { kind: string }) => x.kind === 'reconcile_overdue');
     expect(Object.keys(rec.params).sort()).toEqual(['count', 'oldestDays']);
+    const fdKinds = (await c.fd!.get(url('/attention')))
+      .json()
+      .data.map((x: { kind: string }) => x.kind);
+    expect(fdKinds).not.toContain('reconcile_overdue');
     expect((await c.hk!.get(url('/attention'))).statusCode).toBe(403);
 
     // SSE over a real socket: connect, cause a committed change, read the event.

@@ -1,7 +1,7 @@
 {
- "version": "0.2.4",
+ "version": "0.2.5",
  "source": "product/docs/rbac-matrix.md (nguồn sự thật)",
- "generated": "2026-10-16",
+ "generated": "2026-10-17",
  "author": "BA",
  "roles": [
   "owner",
@@ -703,7 +703,7 @@
   },
   {
    "id": "A43",
-   "name_vi": "Gửi yêu cầu hoàn tiền",
+   "name_vi": "Gửi yêu cầu hoàn tiền + nhập/đổi nơi nhận hoàn",
    "event": "request_refund",
    "roles": {
     "owner": "allow",
@@ -713,7 +713,10 @@
    },
    "trusted_device_required": false,
    "c3_access_log": false,
-   "operationIds": []
+   "operationIds": [
+    "setRefundDestination"
+   ],
+   "note": "S4-43 (0.3.7 D1): FD/FDL nhập nơi nhận cho cả yêu cầu hoàn người khác tạo qua hàng chờ S23 (rbac ghi chú 41); nơi nhận chuyển khoản C3 – thiết bị được cấp; người đặt nơi nhận chuyển khoản ≠ người duyệt ≠ người chi, trừ OWN"
   },
   {
    "id": "A44",
@@ -801,7 +804,7 @@
    "operationIds": [
     "executeCashRefund"
    ],
-   "note": "PO 16/10 (Q-S3-1): yêu cầu refund approved, nơi nhận cash, ≤ số duyệt còn lại; người chi ≠ người tạo yêu cầu."
+   "note": "PO 16/10 (Q-S3-1): yêu cầu refund approved, nơi nhận cash, ≤ số duyệt còn lại; người chi ≠ người tạo yêu cầu. Hàng chờ chi hiện ở S23 của FD/FDL (S4-40, x-scope own_or_refund_queue / within_limit_or_own_or_refund_queue – rbac ghi chú 41)."
   },
   {
    "id": "A50",
@@ -862,7 +865,8 @@
    "operationIds": [
     "listApprovalRequests",
     "cancelRequest"
-   ]
+   ],
+   "note": "S23 (0.3.7 + D1): front_desk x-scope own_or_refund_queue, front_desk_lead within_limit_or_own_or_refund_queue = phạm vi cũ + hàng chờ chi hoàn (refund approved chưa chi đủ – S4-40) + yêu cầu refund pending/approved chưa có nơi nhận (S4-43); HK/MT/SAL/CTV own (rbac ghi chú 41)"
   },
   {
    "id": "A52",
@@ -1021,6 +1025,97 @@
    "operationIds": [
     "reconcileChannelFee"
    ]
+  },
+  {
+   "id": "A64",
+   "name_vi": "Xem hàng chờ + chi tiết yêu cầu đặt phòng từ website (S35)",
+   "event": "list_website_requests",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "listWebsiteBookingRequests",
+    "getWebsiteBookingRequest"
+   ],
+   "note": "US-155, OpenAPI 0.3.7 bổ sung 2 (x-round R3 tới khi ORC xếp lịch): SAL x-scope unassigned_or_own (new chưa giao + giao cho mình); CTV/HK/MT 403; C2 = D28 (rbac ghi chú 42)"
+  },
+  {
+   "id": "A65",
+   "name_vi": "Nhận xử lý yêu cầu website (WR1 claim)",
+   "event": "claim_website_request",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionWebsiteBookingRequest"
+   ],
+   "note": "SAL chỉ yêu cầu new chưa giao; If-Match + Idempotency-Key"
+  },
+  {
+   "id": "A66",
+   "name_vi": "Trả lại hàng chờ yêu cầu website (WR2 release)",
+   "event": "release_website_request",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "conditional",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionWebsiteBookingRequest"
+   ],
+   "note": "Người đang giữ (FD/SAL – yêu cầu của mình); OWN/MGR/FDL với yêu cầu của người khác (rbac ghi chú 43)"
+  },
+  {
+   "id": "A67",
+   "name_vi": "Từ chối yêu cầu website kèm mã lý do (WR3 decline) / đánh dấu spam (WR4 mark-spam)",
+   "event": "decline_website_request",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionWebsiteBookingRequest"
+   ],
+   "note": "SAL: yêu cầu giao cho mình; reasonCode bắt buộc với decline, other → note bắt buộc; spam dùng event mark_website_request_spam (state-machines SM-18)"
+  },
+  {
+   "id": "A68",
+   "name_vi": "Mở lại yêu cầu website đã từ chối/spam (WR5 reopen)",
+   "event": "reopen_website_request",
+   "roles": {
+    "owner": "allow",
+    "manager": "allow",
+    "front_desk_lead": "allow",
+    "front_desk": "allow",
+    "sales_staff": "own"
+   },
+   "trusted_device_required": false,
+   "c3_access_log": false,
+   "operationIds": [
+    "transitionWebsiteBookingRequest"
+   ],
+   "note": "Chỉ khi C2 chưa xóa (piiPurgedAt rỗng) và chưa quá retention.web_request_max_age_days; SAL: yêu cầu mình đã từ chối"
   },
   {
    "id": "A62",
@@ -1844,6 +1939,8 @@
   "operations_without_action_mapping_note": "Endpoint đọc theo màn hình – quyền theo rbac-matrix.md mục 3 (màn hình) và mục 6 (trường); chưa gán mã hành động A-xx"
  },
  "screen_scope_notes": {
-  "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005)"
+  "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005)",
+  "S23": "listApprovalRequests (0.3.7 + D1): front_desk own_or_refund_queue, front_desk_lead within_limit_or_own_or_refund_queue = phạm vi cũ + hàng chờ chi hoàn (S4-40) + yêu cầu refund chưa có nơi nhận (S4-43); chuyển khoản dạng che (D15), chỉ OWN/MGR chi (A47); FD/FDL chi tiền mặt (A47a) – rbac ghi chú 41",
+  "S35": "Yêu cầu đặt phòng từ website (US-155): owner, manager, front_desk_lead, front_desk mọi yêu cầu; sales_staff unassigned_or_own; collaborator, housekeeping, maintenance 403 – rbac ghi chú 42"
  }
 }

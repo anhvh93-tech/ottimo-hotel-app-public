@@ -1,28 +1,29 @@
 /**
- * BUG-R2-033 (US-043 AC3, EP06 2.2, BR-951): the person a document of a NON-main guest belongs to, when the desk
- * did not choose `partyMemberId`. Implements BE-C's consumer port REGISTRATION_PARTY_PORT
- * (registration/public/party-port.ts), bound by FrontdeskModule; called in the addGuestDocument transaction.
- *
- * SEC s3 section 7 (condition, 17/10): a document is attached AUTOMATICALLY only on a document-number match
- * (blind index `guest.id_doc_hmac` = the document's `doc_number_hmac`). A name + date of birth match is only
- * a suggestion for the desk to confirm (Sprint 4 – "hồ sơ từ giấy tờ"), never an automatic link here.
- * 1. a member of the booking whose guest profile has this document number → that member;
- * 2. a guest profile with this document number → added to the party as companion, relationship `unknown`,
- *    ONLY while the booking still has a free declared place in that age band (a person beyond the declared
- *    count changes occupancy and BR-110 fees – that stays the desk's `addPartyMember` with its decision);
- * 3. anything else (no number match, two candidates, the booker) → null: the document stays unlinked and the
- *    desk links it with `partyMemberId`.
- * No CRM profile is ever created here (a profile needs a contact – guests module V-02; and never for a minor).
- * The clear date of birth is used only for the age band of an added member (C3 – not stored, not logged).
+ * BUG-R2-033 / OpenAPI 0.3.7 nhóm D mục A (S4-11 – BE-C, BE-A reviews; US-043 AC3, EP06 2.2, BR-951, SEC s3
+ * mục 7): the person a document of a NON-main guest belongs to, when the desk did not choose `partyMemberId`.
+ * Implements the registration consumer port (registration/public/party-port.ts), bound by FrontdeskModule;
+ * called in the addGuestDocument transaction. Order:
+ * 1. a member of the booking whose profile carries the document key (`guest.id_doc_hmac`, P05 profiles only) or
+ *    the same normalised name + date of birth → that member;
+ * 2. a profile OUTSIDE the booking with that document key (P05) → added as companion `unknown`;
+ * 3. an adult matched by nothing → a minimal profile "from the document" (guests/public/document-profile:
+ *    `source = document`, name as printed + nationality) added as companion `unknown`;
+ * steps 2–3 add the person even beyond the declared head count (`overCount` – the desk is warned; occupancy and
+ * BR-110 fees stay the desk's decision through updateReservation / addPartyMember). A minor never gets a
+ * profile (rbac 9) → null. A name + date of birth match OUTSIDE the booking is never linked automatically –
+ * `possibleReturningGuest` (BR-952). The clear date of birth is used only in memory (C3 – not stored, not logged).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { AuditService } from '../../audit/public/audit.service';
+import { DocumentProfileService } from '../../guests/public/document-profile.service';
+import { nameSearchKey } from '../../guests/public/normalize';
 import { ParameterService } from '../../platform/public/parameter.service';
 import type {
   DocumentPersonInput,
+  DocumentPersonMatch,
   RegistrationPartyPort,
 } from '../../registration/public/party-port';
 
@@ -33,6 +34,8 @@ interface MemberRow {
   guest_id: string | null;
   price_age_band: Band;
   id_doc_hmac: string | null;
+  name_search: string | null;
+  date_of_birth: string | null;
 }
 
 /** Full years between a date of birth and a day (both YYYY-MM-DD). */
@@ -48,9 +51,10 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ParameterService) private readonly params: ParameterService,
+    @Inject(DocumentProfileService) private readonly profiles: DocumentProfileService,
   ) {}
 
-  async memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<string | null> {
+  async memberForDocument(tx: Tx, input: DocumentPersonInput): Promise<DocumentPersonMatch | null> {
     const { rows: res } = await tx.query<{
       id: string;
       code: string;
@@ -69,39 +73,68 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     const row = res[0];
     if (!row || !['hold', 'confirmed', 'in_house'].includes(row.status)) return null;
     const { rows: members } = await tx.query<MemberRow>(
-      `SELECT m.id, m.guest_id, m.price_age_band, g.id_doc_hmac
+      `SELECT m.id, m.guest_id, m.price_age_band, g.id_doc_hmac, g.name_search,
+              g.date_of_birth::text AS date_of_birth
          FROM reservation_guest m LEFT JOIN guest g ON g.id = m.guest_id
         WHERE m.reservation_id = $1 AND m.removed_at IS NULL
         ORDER BY m.created_at, m.id`,
       [row.id],
     );
-    // 1. a member whose profile carries this document number
-    const byDoc = members.filter((m) => m.id_doc_hmac === input.docNumberHmac);
-    if (byDoc.length === 1) return (byDoc[0] as MemberRow).id;
-    if (byDoc.length > 1) return null;
-
-    // 2. a guest profile with this document number
-    const { rows: profiles } = await tx.query<{ id: string }>(
-      `SELECT id FROM guest WHERE id_doc_hmac = $1 AND merged_into_id IS NULL AND anonymized_at IS NULL
-        LIMIT 2`,
-      [input.docNumberHmac],
+    const inBooking = [
+      ...(row.booker_guest_id ? [row.booker_guest_id] : []),
+      ...members.map((m) => m.guest_id).filter((g): g is string => !!g),
+    ];
+    const lookAlike = async (exclude: readonly string[]) =>
+      (await this.profiles.lookAlikes(tx, input.fullNameOnDoc, input.dateOfBirth, exclude)).length >
+      0;
+    const found = (m: MemberRow, via: DocumentPersonMatch['via']): Promise<DocumentPersonMatch> =>
+      lookAlike(inBooking).then((possibleReturningGuest) => ({
+        memberId: m.id,
+        guestId: m.guest_id,
+        via,
+        overCount: false,
+        possibleReturningGuest,
+      }));
+    // 1. a member of the booking – document key (P05 profiles) first, then name + date of birth.
+    const byKey = members.filter(
+      (m) => m.id_doc_hmac !== null && m.id_doc_hmac === input.guestDocKey,
     );
-    if (profiles.length !== 1) return null;
-    const profile = (profiles[0] as { id: string }).id;
-    if (profile === row.booker_guest_id) return null; // the booker has no party row (B-1 #1)
-    const already = members.find((m) => m.guest_id === profile);
-    if (already) return already.id;
-    return this.addFromProfile(tx, input, row, members, profile);
+    if (byKey.length === 1) return found(byKey[0] as MemberRow, 'member_key');
+    const name = nameSearchKey(input.fullNameOnDoc);
+    const byName = input.dateOfBirth
+      ? members.filter((m) => m.name_search === name && m.date_of_birth === input.dateOfBirth)
+      : [];
+    if (byKey.length === 0 && byName.length === 1)
+      return found(byName[0] as MemberRow, 'member_name_dob');
+    if (byKey.length > 1 || byName.length > 1) return null; // ambiguous: the desk picks
+    // 2. a P05 profile outside the booking with this document key.
+    const profiles = await this.profiles.profilesByDocKey(tx, input.guestDocKey);
+    if (profiles.length === 1 && profiles[0] !== row.booker_guest_id) {
+      const profile = profiles[0] as string;
+      const already = members.find((m) => m.guest_id === profile);
+      if (already) return found(already, 'member_key');
+      return this.addCompanion(tx, input, row, members, profile, 'profile_key', inBooking);
+    }
+    // 3. nothing matched: a minimal profile from the document (adults only – rbac 9).
+    if (input.isMinor) return null;
+    const created = await this.profiles.createDocumentProfile(tx, {
+      fullNameOnDoc: input.fullNameOnDoc,
+      nationalityAlpha2: input.nationalityAlpha2,
+      isForeigner: input.isForeigner,
+      createdBy: input.actor.userId,
+      now: this.clock.now(),
+      requestId: input.actor.requestId,
+    });
+    return this.addCompanion(tx, input, row, members, created.id, 'new_profile', inBooking);
   }
 
-  /** Companion `unknown` for a matched profile – only into a free declared place of its age band. */
-  private async addFromProfile(
+  /** Companion `unknown` for the profile – also beyond the declared head count (`overCount`). */
+  private async addCompanion(
     tx: Tx,
     input: DocumentPersonInput,
     row: {
       id: string;
       code: string;
-      status: string;
       adults: number;
       children_6_11: number;
       children_under_6: number;
@@ -109,7 +142,9 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     },
     members: readonly MemberRow[],
     guestId: string,
-  ): Promise<string | null> {
+    via: DocumentPersonMatch['via'],
+    inBooking: readonly string[],
+  ): Promise<DocumentPersonMatch> {
     let band: Band = 'adult';
     if (input.dateOfBirth) {
       const age = ageOn(input.dateOfBirth, row.arrival_date);
@@ -124,7 +159,7 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     };
     const present: Record<Band, number> = { adult: 1, child_6_11: 0, child_under_6: 0 };
     for (const m of members) present[m.price_age_band] += 1;
-    if (present[band] >= declared[band]) return null; // beyond the declared people: addPartyMember
+    const overCount = present[band] >= declared[band];
     const memberId = uuidv7();
     const at = this.clock.now();
     await tx.query(
@@ -155,9 +190,19 @@ export class DocumentPartyPort implements RegistrationPartyPort {
       entityId: row.id,
       entityCode: row.code,
       after: { partyRole: 'companion', priceAgeBand: band },
-      reason: 'document (BR-951 match)',
+      reason:
+        via === 'new_profile'
+          ? `document (no match – profile from document${overCount ? ', over the declared count' : ''})`
+          : `document (BR-951 key match${overCount ? ', over the declared count' : ''})`,
       ...(input.actor.requestId ? { requestId: input.actor.requestId } : {}),
     });
-    return memberId;
+    const possibleReturningGuest =
+      (
+        await this.profiles.lookAlikes(tx, input.fullNameOnDoc, input.dateOfBirth, [
+          ...inBooking,
+          guestId,
+        ])
+      ).length > 0;
+    return { memberId, guestId, via, overCount, possibleReturningGuest };
   }
 }

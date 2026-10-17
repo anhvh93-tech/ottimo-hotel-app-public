@@ -1,0 +1,43 @@
+---
+// 6 · Amenities (US-148 AC1): brand and model as given in the e-brochure.
+import type { Copy } from '../../content/types';
+import Picture from '../Picture.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<section class="sec" id="amenities" aria-labelledby="amen-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label">{t.amenities.label}</p>
+      <h2 class="h2" id="amen-h">{t.amenities.title}</h2>
+    </div>
+    <div class="amen">
+      <Picture
+        id="detail-kitchen"
+        lang={t.lang}
+        class="r45"
+        imgClass="op-x35"
+        sizesMobile="calc(100vw - 32px)"
+        sizes="(min-width: 1200px) 420px, (min-width: 1024px) 36vw, calc(100vw - 32px)"
+      />
+      <div>
+        <ul class="amen-grid">
+          {
+            t.amenities.items.map((a) => (
+              <li>
+                <h3>{a.title}</h3>
+                <p>{a.text}</p>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="foot-note">{t.amenities.note}</p>
+      </div>
+    </div>
+  </div>
+</section>

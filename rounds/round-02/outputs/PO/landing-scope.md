@@ -1,8 +1,9 @@
 # Phạm vi Landing page ottimo.vn (EP19) – PO
 
-- Người viết: PO | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày: 17/10/2026 | Trạng thái: **ORC đã xếp lịch P1 (17/10) – chờ INV trả lời ESC-020 (L1–L6)**
+- Người viết: PO | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày: 17/10/2026 (cập nhật Sprint 4 – FB-INV-002) | Trạng thái: **ORC đã xếp lịch P1 (17/10); INV quyết ESC-020 L1–L6 = A hết; FB-INV-002 (17/10) thêm đặt phòng trên website → US-155 vào LP-v1, mức đặt phòng chờ INV (ESC-020 L7) – xem mục 0**
 - Đầu vào: `04-investor-feedback/FB-INV-001.md`; tin nhắn INV 17/10 (landing + Zalo OA); `00-brief/investor-brief.md`; `product/docs/PRD.md` (M13, M15, A6); `03-backlog/backlog.md` (EP18, US-034/040/108/116/126/138); `product/docs/integrations.md` (I7, NotificationAdapter); `product/docs/hosting-plan.md` 5.1; `02-escalations/ESC-010.md`; `product/design/design-system.md`, `content-guide.md`; `00-brief/context/landing/README.md`; `rounds/round-02/plan.md` mục 4; `rounds/round-02/s4-carryover.md`.
 - Đầu ra: backlog **EP19** (US-146…US-160, có AC) · `02-escalations/ESC-020.md` · dòng ESC-020 trong `escalations-index.md` · file này.
+- Đầu vào thêm ở lần cập nhật Sprint 4: `04-investor-feedback/FB-INV-002.md`; `rounds/round-02/sprint-4-plan.md` (mục 4.2, 9.1, 11.3, 12); `product/docs/adr/ADR-014-landing-site.md` (4.3–4.6); `rounds/round-02/reviews/landing-zalo-SEC.md` (C-2, C-3, ARC-02…ARC-12, SR-RL-11); `product/docs/business-rules.md` BR-112, BR-811; `02-escalations/ESC-001.md` (LZ-2, LZ-8).
 
 > **Cập nhật 17/10 tối (PO gộp UXD, ARC, INT, DOM, SEC) – thay các điểm cũ bên dưới khi lệch:**
 > - **Brand Guidelines v1.0** (INV 17/10) thắng design system cũ và e-brochure: landing **không dùng terracotta**; giọng văn tiếng Anh dẫn dắt; khách thấy tên phòng (The Pine … The Ember), không số căn. RL6 và giả định nhận diện ở mục 5, 12 hết hiệu lực.
@@ -12,6 +13,113 @@
 > - **Zalo OA (mục 9):** trình ở **ESC-021**; khoảng trống "nhắc trước ngày đến" đã thành **US-162** (Must R3), danh sách gửi tay **US-161** (Must R3).
 > - **Lịch (mục 7.2) – ORC đã chọn P1 (17/10, `decision-log.md` dòng ORC "ORC chọn lịch landing P1"):** chạy song song Sprint 4 – tuần 1 UXD làm lại concept/mock theo Brand Guidelines + 45 ảnh thật + nội dung e-brochure; tuần 2 một luồng FE riêng dựng v1. Cổng riêng **LP-v1**, không tính vào cổng QC Round 2. ORC được tạm dừng luồng FE landing nếu Sprint 4 trễ việc sửa lỗi sai tiền (BUG-R2-055…061). Lên mạng khi có tên miền + VPS, bảng ghép phòng và INV duyệt nội dung.
 > - **Pháp lý:** câu banner đồng ý (LZ-1), form yêu cầu đặt phòng v2 (LZ-2) và thông báo website TMĐT với Bộ Công Thương (LZ-8) đã vào ESC-001. Trang quyền riêng tư cho v1: SEC trả lời "nên có", không chặn LP-v1 (`reviews/landing-zalo-SEC.md` mục 6). Form v2 (US-155) chưa bật khi chưa có trả lời LZ-2, LZ-8.
+
+---
+
+## 0. Cập nhật 17/10 (Sprint 4) theo góp ý INV trên bản mẫu v1.1 – `04-investor-feedback/FB-INV-002.md`
+> Mục 0 **thắng** các mục bên dưới khi lệch. Backlog EP19 và ESC-020 (câu L7, mục "Góp ý 17/10 đội tự làm") đã cập nhật cùng lúc.
+
+### 0.1 Thay đổi phạm vi
+| Ý INV | Thay đổi | Story / AC | Vai |
+|---|---|---|---|
+| 1. Không nhắc số phòng | Bỏ mọi số lượng phòng (chữ, tiêu đề tìm kiếm, ảnh chia sẻ link, dữ liệu có cấu trúc, e-brochure đăng kèm); không liệt kê đủ bộ tên phòng trong một khối; không hiện số phòng còn trống | US-147 AC6, US-146 AC1 | UXD (v1.2), FE-LP, QA quét chuỗi |
+| 2. Boutique stay, không "căn hộ dịch vụ"; hai nhóm khách đều hài lòng | Định vị boutique stay + danh sách chuỗi cấm; trang bị kiểu căn hộ viết thành điểm cộng cho khách ngắn ngày; lối "Ở dài ngày" viết riêng cho khách dài ngày; UXR kiểm 5 giây | US-146 AC5, AC6; US-147 AC3 (chữ) | UXD viết, DOM soát, UXR kiểm, INV duyệt (L5) |
+| 3. Đặt phòng trực tiếp: fanpage → website → Desk, nguồn website | **US-155 Should R3 → Must "R2 – LP-v1"**, AC theo **ESC-020 L7-A**; mức A/B/C chờ INV (L7) | US-155 AC1–AC11; US-151 AC3, AC5; US-149 AC5 | ARC, BA, DOM, SEC, BE-D, FE-LP, FE-B, UXD, QA |
+| 4. Zalo OA là kênh chính; kênh khác để chỗ phụ; link Facebook | Thanh cố định chỉ "Đặt phòng" + "Chat Zalo"; WhatsApp/Telegram/Viber trong "Kênh khác"; Zalo đứng đầu cả bản EN; link fanpage, không plugin | US-146 AC2; US-151 AC1, AC7, AC8; US-153 AC8 | UXD, FE-LP |
+| 5. Bố cục rối, chưa mượt | Bản mẫu v1.2: ít phần hơn, một mạch đọc, nhiều khoảng trắng; INV duyệt bố cục **trước** khi FE-LP dựng | US-146 AC7 | UXD, UXR, PO |
+
+- Phạm vi luồng LP-v1 nay: **10 story – 8 Must, 2 Should** (9 story cũ + US-155). Tổng backlog vẫn 163, Must R2 vẫn 71.
+- Vẫn **không** có ở LP-v1: phòng trống, giá theo ngày (US-131 – L7-B); thanh toán online (US-132 – L7-C); widget chat, pixel, plugin Facebook; link sang OTA; ô nhận ưu đãi; tiếng Nga.
+- Gợi ý thứ tự nội dung cho v1.2 (PO gợi ý theo hành trình khách; UXD quyết bố cục): Màn đầu (boutique stay, "Đặt phòng") → Vì sao OTTIMO (dịch vụ kiểu khách sạn + không gian như ở nhà) → Hạng phòng → Ở dài ngày → Tiện nghi và vị trí → Chính sách + câu hỏi (gộp một phần) → Liên hệ (Zalo, kênh khác, Facebook) → chân trang.
+
+### 0.2 Đặt phòng trên website theo L7-A `[GIẢ ĐỊNH – chờ INV xác nhận ý 3]`
+- Luồng: nút "Đặt ngay" trên fanpage (link gắn nhãn `facebook`) hoặc nút "Đặt phòng" trên web → form → hàng chờ "Yêu cầu từ website" trong Desk ("Website · Facebook") → sale/lễ tân nhận → nhắn Zalo → báo giá (US-080) → giữ chỗ (US-084) → cọc QR → đơn `direct`, nguồn `website` (BR-112).
+- Không: phòng trống, giá, tự giữ phòng, thanh toán online, tự gửi tin tới liên hệ khách nhập.
+- Đường lên: L7-B = US-155 AC9 + US-131 (R3); L7-C = US-132 (R4+). Cùng hàng chờ Desk, cùng nguồn.
+- Công tắc cấu hình: form **tắt trên mạng** tới khi đủ điều kiện ở 0.4; khi tắt, "Đặt phòng" mở chat Zalo như trước.
+- Cách hiểu "đặt phòng trên fanpage" `[GIẢ ĐỊNH – chờ INV xác nhận ý 3]`: nút của fanpage trỏ về form website; **không** dùng tính năng đặt lịch của Facebook (dữ liệu nằm ở Meta, không về Desk, trái ESC-002).
+
+### 0.3 Ước lượng (ngày-người, ước tính của PO – các vai xác nhận khi nhận việc)
+**US-155 (đặt phòng trên website):**
+
+| Vai | Việc | Ngày-người |
+|---|---|--:|
+| ARC | Thêm operation công khai + Desk (hàng chờ, chuyển đơn) vào `openapi.yaml` theo kiểu bổ sung; bảng vào `erd.md`; sửa ADR-014 (nấc L1 vào LP-v1; trả lời thẻ SEC ARC-02…ARC-12); sửa ghi chú landing trong `openapi-0.3.7.md` | 0,75–1 |
+| BA | Máy trạng thái của yêu cầu website; màn + hành động trong `rbac-matrix` (**cùng commit** với ARC, nếu không `--strict` đỏ ở kiểm RBAC); đặc tả trường | 0,5 |
+| DOM | Mặc định tham số (ngưỡng "Cần chú ý", thời gian hứa phản hồi, hạn tự đóng trong biên SEC); soát chữ định vị | 0,25–0,5 |
+| SEC | Khung thông báo xử lý dữ liệu VI/EN (luật sư duyệt – ESC-001); review PR; kiểm C-2, C-3, ARC-02…ARC-12 | 1–1,5 |
+| **BE-D** | Bảng + migration; endpoint công khai (mã form, gửi yêu cầu, kiểm đầu vào, ô bẫy, giới hạn trong DB, trần cơ sở trả "bận"); job hạn xóa (C-2); endpoint Desk (danh sách theo phạm vi vai, nhận/đóng/spam/mở lại, chuyển thành lead/báo giá); thông báo + SSE + "Cần chú ý"; test (hợp đồng, RLS, đồng hồ giả, phản hồi giống hệt cho liên hệ cũ/mới) | 3,25–4 |
+| **FE-LP** | Form VI/EN trong landing (đang gửi, bận, lỗi, thành công; giữ dữ liệu; bàn phím), trang cảm ơn, công tắc bật/tắt, phần form trong trang quyền riêng tư, nhãn nguồn lấy từ link | 1,5–2 |
+| **FE-B** | Hàng chờ "Yêu cầu từ website" trong Desk: danh sách + chi tiết, nhận/đóng/spam/mở lại, "Chuyển thành báo giá" mở hộp báo giá điền sẵn, huy hiệu + "Cần chú ý" + SSE | 1,5–2 |
+| UXD | Màn form, trang cảm ơn, hàng chờ Desk; chữ VI/EN | 1–1,5 |
+| QA | TC cho 11 AC của US-155 (viết sớm, gắn `[BLOCKED …]` khi chưa có mã); chạy: E2E website → Desk → báo giá, chống spam, không dò liên hệ, hạn xóa bằng đồng hồ giả, phân quyền, trạng thái lỗi | 1,75–2,25 |
+| PO + QC | Nghiệm thu AC, chấm mốc "form" của cổng LP-v1 | 0,5 |
+| **Tổng US-155** | | **≈ 12–16** (phần dựng BE-D + FE-LP + FE-B ≈ 6,25–8) |
+
+Cao hơn mức cũ ở mục 7.1 (5,5–8) vì nay gồm điều kiện SEC đặt ngày 17/10 (chống spam theo tầng, hạn xóa mọi trạng thái, thông báo có phiên bản, bộ đếm trong DB, không dò liên hệ) và màn hàng chờ trong Desk.
+
+**Làm lại nội dung, bố cục theo ý 1, 2, 4, 5 (ngoài US-155):** UXD v1.2 1,5–2,5 · DOM soát chữ 0,25 · UXR kiểm 5 giây 0,5 · QA quét chuỗi cấm 0,25 → **≈ 2,5–3,5**. FE-LP không tốn thêm nếu dựng **sau** khi INV duyệt v1.2 (US-146 AC7); nếu đã dựng theo v1.1 thì phần làm lại ≈ 1–2 [ước tính của PO].
+
+### 0.4 Phụ thuộc và điều kiện bật form trên mạng (US-155 AC4)
+- **Pháp lý (ESC-001):**
+  - **LZ-8** – website có chức năng đặt phòng có phải thông báo với Bộ Công Thương không. Form **chỉ bật trên production** khi luật sư xác nhận không phải thông báo, hoặc OTTIMO đã thông báo. Trang có thể cần hiện tên doanh nghiệp, mã số thuế ở chân trang (đang chừa chỗ, chờ ESC-008) [Chưa xác minh – luật sư].
+  - **LZ-2** – yêu cầu đặt phòng có cần ô đồng ý riêng không. Tới khi có trả lời: giữ ô đồng ý không tích sẵn (SEC ARC-05).
+  - ESC-001 đang ghi form là "v2, Round 3" → ORC/SEC sửa câu cho luật sư thành "form ở luồng LP-v1" và xếp hỏi sớm.
+- **Bảo mật:** SEC-G1 (a) + SEC-G2 (Desk chạy thật, được nhận dữ liệu khách thật); **C-2**, **C-3** (điều kiện chặn); các thẻ Major ARC-02, ARC-05 và Minor ARC-04, ARC-06…ARC-12 đóng trước khi bật.
+- **Hạ tầng:** VPS + tên miền (INV hẹn 19/10); bản thử có chặn truy cập (SEC ARC-10), không chỉ `noindex`.
+- **Hợp đồng API:** operation mới thêm **sau** đóng băng D1 → ARC thêm dạng bổ sung (không sửa operation có sẵn), báo BE/FE/QA trong ngày; không tính là lệch hợp đồng ở cổng QC Sprint 4 (luồng riêng).
+- **INV:** chọn L7; xác nhận cách hiểu "fanpage"; khi form bật, tự đặt nút "Đặt ngay" trên fanpage trỏ tới link đội gửi.
+
+### 0.5 Ảnh hưởng năng lực Sprint 4 (so với `sprint-4-plan.md` mục 12.1) – việc sửa lỗi tiền luôn đi trước
+| Luồng | Hiện tại (plan 12.1) | Thêm | Cách xếp (PO đề xuất, ORC chốt) |
+|---|---|---|---|
+| **BE-D** | ≈ 7,25 / 10 (gồm làm quen mã) → dư ≈ 2,75; là **luồng nhận việc** khi trễ mốc (4.2) | 3,25–4 | Chỉ bắt đầu **sau mốc D5** nếu không phải nhận việc chuyển. Trong Sprint 4 làm phần nhận yêu cầu (bảng, endpoint công khai, chống spam, hạn xóa ≈ 2–2,5). Phần Desk (≈ 1,25–1,5) sang **tuần Ổn định**. Trễ D3/D5 mà BE-D nhận việc chuyển → toàn bộ phần BE của US-155 sang tuần Ổn định |
+| **FE-B** | ≈ 9,0 sau khi cắt Should (≈ 11 nếu làm cả Should) – đã sát | 1,5–2 | Chỉ làm **sau mọi việc CỔNG** của FE-B → thực tế ở **tuần Ổn định**; dựng trên MSW theo hợp đồng nếu BE-D chưa xong |
+| **FE-LP** | v1 4–6 (tuần 2) | 1,5–2 | Làm sau phần trang; dựng bố cục mới chỉ sau khi INV duyệt v1.2. Vượt tuần 2 → tuần Ổn định |
+| UXD | ≈ 9,5 (landing ≈ 3,0 ở mức NÊN) | v1.2 1,5–2,5 + form/hàng chờ 1–1,5 | Vượt ≈ 2–3,5: landing chỉ làm sau việc CỔNG của UXD; **v1.2 trước** (để INV duyệt bố cục), màn form/hàng chờ sau; phần dư sang tuần Ổn định |
+| QA | ≈ 9,75 sau các bước cắt QA | 1,75–2,25 | Viết TC sớm (≈ 0,5, gắn `[BLOCKED …]`) để giữ truy vết; chạy ở tuần Ổn định cùng T11 LP-v1 |
+| ARC · SEC · BA · DOM | đủ | 0,75–1 · 1–1,5 · 0,5 · 0,25–0,5 | Trong Sprint 4, sau việc CỔNG của từng vai |
+
+- **Kết luận:** US-155 **không** vừa Sprint 4 nếu giữ nguyên việc tiền. PO đề xuất: mã + kiểm thử trên bản thử xong ở **tuần Ổn định R2**; bật trên mạng khi đủ 0.4 (dự kiến **đầu Round 3**, vì cần Desk chạy thật và trả lời của luật sư). Trang giới thiệu (mốc "trang") lên mạng theo lịch cũ, chỉ lùi theo thời gian INV duyệt v1.2.
+- **Không** lấy giờ của BE-A, BE-B, BE-C, FE-A; không làm chậm mốc D3, D5, D7, D8.
+- **Thứ tự cắt** (đề nghị ORC thêm vào `sprint-4-plan.md` 12.3): US-155 và phần làm lại v1.2 đứng ở **bước 4** cùng FE-LP – trễ mốc D3/D5/D7 thì dừng cả US-155 (BE-D, FE-B, FE-LP, chạy TC), BE-D quay về nhận việc chuyển (4.2).
+
+### 0.6 Cổng LP-v1 – hai mốc (thay mục 8 khi lệch)
+- **Mốc "trang"** (đưa trang giới thiệu lên mạng): đủ 7 điều kiện ở mục 8 + AC mới US-146 AC5–AC7, US-147 AC6, US-151 AC7–AC8; form **tắt** trên mạng; `gen_traceability.py --strict --strict-track LP-v1` exit 0 – nghĩa là mọi AC Must của luồng, **gồm US-155**, đã có TC (TC của US-155 được gắn `[BLOCKED …]` khi chưa có mã).
+- **Mốc "form"** (bật form trên mạng): US-155 AC1–AC11 đạt trên bản thử (QA, không lỗi P0/P1); review bắt buộc ARC + SEC cho phần BE, UXD + QA cho phần FE; SEC xác nhận C-2, C-3 và SEC-G1/G2; luật sư trả lời LZ-8, LZ-2; trang quyền riêng tư có phần form; INV đã chọn L7 (hoặc đồng ý chạy theo A); QC chấm mốc form ĐẠT hoặc ĐẠT CÓ ĐIỀU KIỆN. Sau khi bật, INV đặt nút "Đặt ngay" trên fanpage.
+
+### 0.7 Rủi ro mới
+| # | Rủi ro | Ảnh hưởng | Giảm thiểu |
+|---|---|---|---|
+| RL10 | Zalo đứng đầu cả bản EN, khách nước ngoài chưa có Zalo | Mất khách nước ngoài | Lối phụ ngay dưới nút Zalo: "Gửi yêu cầu đặt phòng" (khi form bật) hoặc "Kênh khác" (US-151 AC7); đo theo kênh ở US-158 |
+| RL11 | Form làm xong nhưng chưa bật được vì pháp lý (LZ-8) và Desk chưa chạy thật | INV thấy "làm rồi mà chưa dùng được" | Nói rõ trong ESC-020 L7; INV xem form trên bản thử; bật bằng công tắc, không chờ dựng lại |
+| RL12 | US-155 kéo sức của Sprint 4 | Trễ việc tiền, lùi cổng D8 | BE-D chỉ sau D5, FE-B sau CỔNG, bước cắt 4 (0.5) |
+| RL13 | Người lạ gửi yêu cầu bằng SĐT người khác, spam | Rác trong Desk, làm phiền người khác | Không tự gửi tin, không tự gộp hồ sơ, giới hạn + trần "bận" (SEC ARC-02, ARC-04; US-155 AC2, AC3, AC5) |
+| RL14 | Thêm operation sau đóng băng mà thiếu hành động trong `rbac-matrix` | `--strict` đỏ, chặn CI | ARC + BA cùng commit; chạy `--strict` trước commit |
+| RL15 | Chữ vẫn bị hiểu là căn hộ dịch vụ (có bếp, ở theo tháng) | Lệch định vị INV muốn | Chuỗi cấm + kiểm 5 giây (US-146 AC5, AC6); DOM soát; INV duyệt (L5) |
+
+### 0.8 Quyết định PO và giả định (ORC ghi decision-log khi commit)
+| Loại | Nội dung |
+|---|---|
+| PO quyết (quyền ưu tiên backlog) | US-155 Should R3 → **Must "R2 – LP-v1"**; cổng LP-v1 hai mốc ("trang" / "form"); US-155 ở bước cắt 4 cùng FE-LP; BE-D làm US-155 chỉ sau D5; FE-B sau việc CỔNG; mục tiêu mã xong ở tuần Ổn định, bật trên mạng khi đủ 0.4 |
+| `[GIẢ ĐỊNH – chờ INV xác nhận ý 3]` | Mức L7-A: yêu cầu đặt phòng, không phòng trống/giá, không thanh toán online (US-155 AC7, AC9) |
+| `[GIẢ ĐỊNH – chờ INV xác nhận ý 3]` | "Đặt phòng trên fanpage" = nút "Đặt ngay" của fanpage trỏ về form website; không dùng tính năng đặt lịch của Facebook |
+| `[GIẢ ĐỊNH]` | Thời gian hứa phản hồi mặc định "trong 1 giờ, 7:00–22:00; ngoài giờ trước 8:00 sáng hôm sau" (US-155 AC7) – DOM chốt tham số |
+| `[GIẢ ĐỊNH]` | Danh sách chuỗi cấm (US-146 AC5), ngưỡng kiểm 5 giây ≥ 4/5 (US-146 AC6), "không nhắc số phòng" gồm cả đếm gián tiếp (US-147 AC6) – INV xác nhận khi duyệt nội dung (L5) |
+| `[GIẢ ĐỊNH]` | "Website · Facebook" là nhãn phụ trên yêu cầu; nguồn đơn vẫn `website`, BR-112 không thêm nguồn – DOM xác nhận |
+
+### 0.9 Việc tiếp theo
+| Ai | Việc | Khi |
+|---|---|---|
+| ORC | Trình ESC-020 L7 cho INV; cập nhật `sprint-4-plan.md` (1.4 bỏ dòng "US-155 – R3"; 9.1; 11.3 hai mốc; 12.1; 12.3 bước 4); ghi decision-log (0.8); giao việc theo 0.3 | 17–18/10 |
+| ARC | Operation US-155 vào `openapi.yaml` (bổ sung sau đóng băng), `erd.md`; sửa ADR-014 (L1 vào LP-v1, trả lời thẻ SEC); sửa ghi chú landing trong `openapi-0.3.7.md` | Sprint 4, sau việc CỔNG |
+| BA | Máy trạng thái yêu cầu website, `rbac-matrix` – cùng commit với ARC | Cùng ARC |
+| SEC | Khung thông báo xử lý dữ liệu VI/EN; đề nghị ORC sửa LZ-2, LZ-8 trong ESC-001 thành "form ở luồng LP-v1" | Sprint 4 |
+| DOM | Tham số mặc định (0.8); soát chữ định vị; xác nhận nhãn "Website · Facebook" với BR-112 | Sprint 4 |
+| UXD | Bản mẫu v1.2 (ý 1, 2, 4, 5) → PO + UXR review → INV duyệt bố cục; rồi màn form, cảm ơn, hàng chờ Desk | Sau việc CỔNG của UXD |
+| UXR | Kiểm 5 giây (US-146 AC6) trên v1.2 | Trước khi INV duyệt nội dung |
+| QA | TC luồng LP-v1 gồm US-155 (gắn `[BLOCKED …]`) trước mốc "trang"; chạy TC US-155 ở tuần Ổn định | Theo 0.5 |
+| PO | Review v1.2; sửa AC khi INV trả lời L7; cập nhật PRD M15 (landing + đặt phòng trên website) | Khi có trả lời |
 
 ---
 
@@ -25,36 +133,37 @@
 ## 2. Mục tiêu sản phẩm của landing
 | Mục tiêu | Liên hệ PRD | Landing đóng góp |
 |---|---|---|
-| Kéo khách về kênh trực tiếp | G3: trực tiếp ≥ 35% doanh thu phòng (hiện ~28%) | Nút "Đặt phòng" dẫn về Zalo/điện thoại/email của OTTIMO, không dẫn sang OTA |
-| Lấp 4–6 căn dài hạn | G2 | Phần "Thuê tháng" có giá "từ" (L3-A); v2 có trang thuê tháng (US-157) |
+| Kéo khách về kênh trực tiếp | G3: trực tiếp ≥ 35% doanh thu phòng (hiện ~28%) | Nút "Đặt phòng" dẫn về Zalo/điện thoại/email của OTTIMO, rồi form vào Desk (US-155, nguồn `website`, nhãn "Website · Facebook" khi đi từ fanpage); không dẫn sang OTA |
+| Lấp 4–6 căn dài hạn | G2 | Phần "Ở dài ngày" (17/10: thay chữ "Thuê tháng" – FB-INV-002 ý 2) có giá "từ … /tháng" (L3-A); form yêu cầu đặt phòng nhận cả yêu cầu dài ngày (US-155); v2 có trang dài ngày (US-157) |
 | Công suất ≥ 80% | G1 | Kênh tìm kiếm + chia sẻ link (US-154) |
 | Ấn tượng boutique | Nguyên tắc 5 (giữ nhận diện) | Design System OTTIMO, ảnh thật |
 
 Đo ở v1: lễ tân/sale ghi nguồn đơn trực tiếp theo BR-112 (US-151 AC4). Đo tự động ở v2 (US-158).
 
 ## 3. Phạm vi v1 – lên mạng ngay khi có tên miền + máy chủ
-**Trong v1** (9 story – 7 Must, 2 Should):
+**Trong v1** (9 story – 7 Must, 2 Should; **từ 17/10: 10 story – 8 Must, 2 Should, thêm US-155 – mục 0**):
 
 | Story | Phần trang | MoSCoW |
 |---|---|---|
-| US-146 | Màn đầu: ảnh, câu giới thiệu, hai lối "Ở ngắn ngày" / "Thuê tháng", menu, nút "Đặt phòng" luôn hiện | Must |
-| US-147 | 10 căn theo 3 nhóm (Lầu 1–2 · Căn N · Căn N+): ảnh, sức chứa (BR-110), tiện nghi, giá theo L3 | Must |
+| US-146 | Màn đầu: ảnh, câu giới thiệu định vị **boutique stay**, hai lối "Ở ngắn ngày" / "Ở dài ngày", menu, nút "Đặt phòng" luôn hiện; bố cục v1.2 INV duyệt trước khi dựng (FB-INV-002 ý 2, 5) | Must |
+| US-147 | Hạng phòng (4 hạng e-brochure ↔ 3 nhóm giá Lầu 1–2 · Căn N · Căn N+): ảnh, sức chứa (BR-110), tiện nghi, giá theo L3; **không nêu số phòng** (FB-INV-002 ý 1) | Must |
 | US-148 | Tiện nghi chung; vị trí: địa chỉ, bản đồ, chỉ đường, khoảng cách (cùng nguồn với US-108) | Must |
 | US-149 | Tóm tắt chính sách: giờ nhận/trả, cọc, hủy, nội quy + phí phạt, thuê tháng gồm gì (theo BR) | Must |
 | US-150 | Câu hỏi thường gặp | Should |
-| US-151 | Liên hệ + "Đặt phòng": chat Zalo OA, gọi, email (L2-A) | Must |
+| US-151 | Liên hệ: **Zalo OA trước** (mọi ngôn ngữ), "Kênh khác" (WhatsApp/Telegram/Viber), gọi, email, **fanpage Facebook** (FB-INV-002 ý 4) | Must |
 | US-152 | Việt + Anh (RU theo L1) | Must |
 | US-153 | Nhận diện OTTIMO, ảnh tối ưu, tốc độ, truy cập, khung giữ chỗ | Must |
 | US-154 | Tìm kiếm Google + xem trước khi gửi link Zalo/Facebook | Should |
+| US-155 *(từ 17/10)* | Yêu cầu đặt phòng từ website (và nút "Đặt ngay" trên fanpage) → hàng chờ trong Desk, nguồn `website`; theo ESC-020 L7-A `[GIẢ ĐỊNH – chờ INV xác nhận ý 3]`; form bật trên mạng khi đủ mục 0.4 | Must |
 
-**Không có trong v1:** form và mọi việc thu dữ liệu cá nhân; số giá đêm; phòng trống, giá theo ngày, thanh toán; tiếng Nga (nếu L1-A); widget chat nhúng, cookie quảng cáo, pixel mạng xã hội; link sang OTA; blog; đánh giá khách.
+**Không có trong v1:** ~~form và mọi việc thu dữ liệu cá nhân~~ (*từ 17/10: có form US-155, chỉ bật trên mạng khi đủ mục 0.4*); số giá đêm; phòng trống, giá theo ngày, thanh toán; tiếng Nga (nếu L1-A); widget chat nhúng, cookie quảng cáo, pixel mạng xã hội; link sang OTA; blog; đánh giá khách.
 
-Vì sao v1 không có form: máy chạy thử R2 chỉ chứa dữ liệu giả, chưa được nhận dữ liệu khách thật (ESC-001, SEC-G1). Form gửi qua dịch vụ ngoài thì dữ liệu khách nằm ở bên thứ ba (trái tinh thần ESC-002). Zalo/gọi/email đủ để nhận khách và không cần app chạy thật.
+*(Lý do dưới đây là của bản 17/10 chiều; INV đã yêu cầu đặt phòng trên website – FB-INV-002 ý 3. Các lo ngại vẫn đúng và nay thành điều kiện bật form – mục 0.4.)* Vì sao v1 không có form: máy chạy thử R2 chỉ chứa dữ liệu giả, chưa được nhận dữ liệu khách thật (ESC-001, SEC-G1). Form gửi qua dịch vụ ngoài thì dữ liệu khách nằm ở bên thứ ba (trái tinh thần ESC-002). Zalo/gọi/email đủ để nhận khách và không cần app chạy thật.
 
 ## 4. Phạm vi v2 – Round 3, nối EP18
 | Story | Nội dung | MoSCoW · Round |
 |---|---|---|
-| US-155 | Form yêu cầu đặt phòng → hàng chờ "Yêu cầu từ website" trong Desk → báo giá/giữ chỗ (US-080/084), nguồn `website` | Should · R3 (trước hoặc cùng US-131) |
+| ~~US-155~~ | ~~Form yêu cầu đặt phòng → hàng chờ trong Desk~~ – **chuyển lên LP-v1 (Must) ngày 17/10 theo FB-INV-002, xem mục 0** | ~~Should · R3~~ |
 | US-131 *(EP18, có sẵn)* | Phòng trống + giá thật từ Desk, gửi yêu cầu giữ chỗ – thành đích của nút "Đặt phòng" | Should · R3 |
 | US-156 | Tiếng Nga có người bản ngữ duyệt (lên v1 nếu L1-B) | Should · R3 |
 | US-157 | Trang "Thuê tháng" + ước tính theo kỳ hạn (khớp US-081) | Could · R3 |
@@ -63,7 +172,7 @@ Vì sao v1 không có form: máy chạy thử R2 chỉ chứa dữ liệu giả,
 | US-159 | Chủ đầu tư tự sửa giá "từ", ảnh, câu hỏi | Could · R4+ |
 | US-160 | Đánh giá khách + gợi ý Đà Lạt (chung nguồn US-117) | Could · R4+ |
 
-Lộ trình nút "Đặt phòng": v1 Zalo/gọi/email → v2a form vào Desk (US-155) → v2b phòng trống + giá thật (US-131) → R4+ đặt và trả tiền ngay (US-132).
+Lộ trình nút "Đặt phòng" *(sửa 17/10)*: LP-v1 Zalo/gọi/email, rồi form vào Desk (US-155 – ESC-020 L7-A) khi đủ mục 0.4 → R3 phòng trống + giá thật (US-131 – L7-B) → R4+ đặt và trả tiền ngay (US-132 – L7-C).
 
 ## 5. Sơ đồ trang và khe ảnh
 **Thứ tự phần (một trang dài, mỗi phần có neo):** Màn đầu → Giới thiệu ngắn (ngắn ngày / thuê tháng) → Căn theo nhóm → Tiện nghi → Vị trí → Chính sách → Câu hỏi → Liên hệ → Chân trang (địa chỉ, liên hệ, ngôn ngữ, e-brochure nếu INV cho đăng). Bản EN cùng cấu trúc.
@@ -115,7 +224,7 @@ Nhận diện: giữ Design System OTTIMO (kem – gỗ sồi, Lora + Be Vietnam
 | QC | Cổng rút gọn "LP-v1" | 0,25–0,5 |
 | **Tổng v1** | | **≈ 11–16 ngày-người · ≈ 2 tuần lịch** (chưa tính thời gian chờ INV gửi ảnh, nội dung) |
 
-**v2 (R3, không gồm US-131 – US-131 đã có trong kế hoạch R3):** US-155 ≈ 5,5–8 (BE 2–3, FE 2–3, SEC 0,5–1, QA 1); US-156 ≈ 1–1,5 + người bản ngữ duyệt; US-157 ≈ 2–3; US-158 ≈ 1,25–1,75 → **≈ 10–14 ngày-người**.
+**v2 (R3, không gồm US-131 – US-131 đã có trong kế hoạch R3):** ~~US-155 ≈ 5,5–8 (BE 2–3, FE 2–3, SEC 0,5–1, QA 1)~~ – *US-155 nay ở LP-v1, ước lượng mới ≈ 12–16 ở mục 0.3*; US-156 ≈ 1–1,5 + người bản ngữ duyệt; US-157 ≈ 2–3; US-158 ≈ 1,25–1,75 → **≈ 10–14 ngày-người**.
 
 ### 7.2 Phương án xếp lịch
 | | P1 – Song song Sprint 4 (**PO đề xuất – ORC đã chọn 17/10**) | P2 – Dời hết sang đầu R3 |
@@ -131,6 +240,7 @@ Rào chắn cho P1 (ORC chốt 17/10; rào 3 áp cho việc sửa lỗi sai ti�
 4. Không đổi contract API, không thêm BE cho v1.
 
 ## 8. Cổng lên mạng v1 (Definition of Done rút gọn)
+*(Từ 17/10 cổng LP-v1 có hai mốc "trang" và "form" – mục 0.6. Bảy điều kiện dưới đây là điều kiện của mốc "trang".)*
 1. Tên miền + nơi chạy + TLS + header bảo mật xong (OPS); bản xem thử gắn `noindex`.
 2. INV đã duyệt nội dung VI/EN (L5) và gửi thông tin liên hệ (L2).
 3. Có ảnh thật cho `hero` và 3 ảnh đại diện nhóm căn; thư viện được thiếu ảnh.
@@ -180,7 +290,7 @@ Gợi ý cho ORC: khách bấm "Zalo" trên landing thường sẽ "quan tâm" O
 |---|---|
 | PO quyết (quyền ưu tiên backlog) | EP19 tách v1/v2; MoSCoW và round như backlog; v1 không có form, không dẫn sang OTA |
 | ORC đã chốt 17/10 | Landing v1 làm song song Sprint 4 (P1), không tính vào cổng QC R2, có cổng LP-v1 riêng (đã ghi `decision-log.md`) |
-| `[GIẢ ĐỊNH – chờ INV xác nhận]` | AC EP19 theo L1-A, L2-A, L3-A, L4-A, L5-A (ESC-020) |
+| `[GIẢ ĐỊNH – chờ INV xác nhận]` | AC EP19 theo L1-A, L2-A, L3-A, L4-A, L5-A (ESC-020) – *INV đã quyết A hết 17/10; L2 đổi theo FB-INV-002; giả định mới ở mục 0.8* |
 | `[GIẢ ĐỊNH]` | Giữ nhận diện kem – gỗ sồi; logo chữ "OTTIMO" (ESC-012 L-A) tới khi có file gốc |
 | `[GIẢ ĐỊNH]` | Mục tiêu tốc độ: LCP ≤ 2,5 giây trên 4G (ngưỡng "tốt" của web.dev) |
 | `[GIẢ ĐỊNH]` | 5 thư mục "Phòng 1…5" là 5 kiểu phòng đại diện, chưa biết ứng với nhóm nào – chờ INV (L5 mục 2) |

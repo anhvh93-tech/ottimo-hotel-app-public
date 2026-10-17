@@ -35,7 +35,13 @@ export function Alert({ tone, icon, title, children, actions, role, id }: AlertP
 }
 
 export interface ChipProps {
-  tone?: Tone | 'oak' | 'neutral';
+  /**
+   * DS v0.4.1 §2.3: `ink` = object state (OC "Có khách", in house, registration `scanned`/`pre`, request
+   * `acknowledged`/`in_progress`…) – Ink on `--surface`, no default icon: always pass `icon`. `long` = long
+   * stay (C7, Sage Deep). `info` is kept only as the CSS alias of `ink` for chips not migrated yet (B0b,
+   * removed at v0.5) – `info` colours are for alerts.
+   */
+  tone?: Tone | 'ink' | 'long' | 'oak' | 'neutral';
   /** DS C7 "icon + chữ": ok/warn/bad/info get a default icon; `null` = no icon on purpose. */
   icon?: IconName | null;
   /** Extra DS variant class, e.g. `recon` ("chờ đối soát": dashed border + hourglass). */

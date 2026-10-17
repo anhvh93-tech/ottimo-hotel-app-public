@@ -13,12 +13,14 @@ import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
+import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { DepositsController } from './internal/deposits.controller';
 import { DepositsService } from './internal/deposits.service';
 import { PaymentsController } from './internal/payments.controller';
 import { PaymentsService } from './internal/payments.service';
 import { RefundsController } from './internal/refunds.controller';
 import { RefundsService } from './internal/refunds.service';
+import { type DepositNoticesReader, readDepositNotices } from './public/deposit-notices';
 import { PaymentService } from './public/payment.service';
 import { reconcileOverdueSource } from './public/reconcile-attention';
 
@@ -51,11 +53,18 @@ export class PaymentsModule implements OnModuleInit {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(RefundsService) private readonly refunds: RefundsService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
+    @Optional() @Inject(ReservationHooks) private readonly hooks?: ReservationHooks,
   ) {}
 
   onModuleInit(): void {
     this.approvals.onDecided('refund', (tx, row) => this.refunds.onDecided(tx, row));
     // FB-R2-ARC-BE-S3-15 b: "Cần chú ý" reconcile_overdue is computed by this module.
     this.events?.registerAttentionSource(reconcileOverdueSource);
+    // 0.3.7 bổ sung 1 (ARC 11.3 (2)): Reservation.depositNotices[] – reservations reads this module's table through
+    // the port BE-A adds to ReservationHooks (provideDepositNotices, like provideRegistrationSummary).
+    const port = this.hooks as
+      | (ReservationHooks & { provideDepositNotices?: (reader: DepositNoticesReader) => void })
+      | undefined;
+    port?.provideDepositNotices?.(readDepositNotices);
   }
 }

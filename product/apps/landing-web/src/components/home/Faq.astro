@@ -1,0 +1,31 @@
+---
+// 8 · FAQ (US-150): native <details>, keyboard and touch ready. Includes the anti-impersonation answer (SEC DOM-06).
+import type { Copy } from '../../content/types';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<section class="sec" id="faq" aria-labelledby="faq-h">
+  <div class="wrap">
+    <div class="head">
+      <p class="label">{t.faq.label}</p>
+      <h2 class="h2" id="faq-h">{t.faq.title}</h2>
+    </div>
+    <div class="faq">
+      {
+        t.faq.items.map((item) => (
+          <details id={item.id}>
+            <summary>{item.q}</summary>
+            <div class="ans">
+              <p>{item.a}</p>
+            </div>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>

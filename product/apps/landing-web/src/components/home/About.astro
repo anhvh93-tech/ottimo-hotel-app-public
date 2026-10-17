@@ -1,0 +1,32 @@
+---
+// 3 · About.
+import type { Copy } from '../../content/types';
+import Picture from '../Picture.astro';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<section class="sec alt" id="about" aria-labelledby="about-h">
+  <div class="wrap about">
+    <Picture
+      id="lobby"
+      lang={t.lang}
+      class="r32"
+      sizesMobile="calc(100vw - 32px)"
+      sizes="(min-width: 1200px) 590px, (min-width: 1024px) 50vw, calc(100vw - 32px)"
+    />
+    <div>
+      <p class="label">{t.about.label}</p>
+      <h2 class="h2" id="about-h">{t.about.title}</h2>
+      <p>{t.about.body}</p>
+      <p class="muted">{t.about.aside}</p>
+      <blockquote class="quote">
+        <p>{t.about.quote}</p>
+      </blockquote>
+    </div>
+  </div>
+</section>

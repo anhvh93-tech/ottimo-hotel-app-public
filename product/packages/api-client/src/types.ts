@@ -82,6 +82,15 @@ export type ConfirmDepositBody = BodyOf<'confirmDeposit'>;
 export type CancelReservationBody = BodyOf<'cancelReservation'>;
 export type CancelReservationResult = ResponseOf<'cancelReservation'>;
 export type MoveReservationBody = BodyOf<'moveReservation'>;
+/** 0.3.7 (ESC-019 A, S4-21): `previewMoveReservation` query + answer (same calc as the write). */
+export type MovePreviewQuery = NonNullable<
+  operations['previewMoveReservation']['parameters']['query']
+>;
+export type MovePreview = Schemas['MovePreview'];
+/** 0.3.7 D1 (S4-08): no-show with the service lines the desk keeps. */
+export type MarkNoShowBody = BodyOf<'markNoShow'>;
+/** 0.3.7 D1 (S4-08): one kept service line (`cancelReservation` / `markNoShow`). */
+export type RetainLine = NonNullable<MarkNoShowBody['retainLines']>[number];
 export type AssignRoomBody = BodyOf<'assignRoom'>;
 export type DepositNoticeBody = BodyOf<'createDepositNotice'>;
 export type SaveQuoteBody = BodyOf<'saveQuote'>;
@@ -136,11 +145,21 @@ export type TransferRefundBody = BodyOf<'executeRefund'>;
 export type AuditEvent = Schemas['AuditEvent'];
 /** "Cần chú ý" (BR-907) – `listAttentionItems`. */
 export type AttentionItem = Schemas['AttentionItem'];
+/** Sprint 4 FE-B (EP01, 0.3.7): H03 Hôm nay / H24 Tổng quan. */
+export type AttentionKind = AttentionItem['kind'];
+export type TonightKpi = Schemas['TonightKpi'];
+export type ArrivalsDepartures = Schemas['ArrivalsDepartures'];
+export type ArrivalItem = ArrivalsDepartures['arrivals'][number];
+export type DepartureItem = ArrivalsDepartures['departures'][number];
+export type DepartureReminderState = Schemas['DepartureReminderState'];
+export type ResolveAttentionBody = BodyOf<'resolveAttentionEvent'>;
 export type Registration = Schemas['Registration'];
 export type RegistrationSummary = Schemas['RegistrationSummary'];
 export type RegistrationStatus = Schemas['RegistrationStatus'];
 export type GuestDocumentMasked = Schemas['GuestDocumentMasked'];
 export type GuestDocumentInput = Schemas['GuestDocumentInput'];
+/** 0.3.7 (S4-39): `updateGuestDocument` body that only links the document to a party member. */
+export type GuestDocumentLink = Schemas['GuestDocumentLink'];
 export type GuestDocumentSensitive = Schemas['GuestDocumentSensitive'];
 export type DocumentCheckCode = Schemas['DocumentCheckCode'];
 export type DocumentCheckResult = Schemas['DocumentCheckResult'];
@@ -150,7 +169,35 @@ export type CompleteReviewBody = BodyOf<'completeRegistrationReview'>;
 export type DocumentCheckBody = BodyOf<'recordDocumentCheck'>;
 export type PortalData = Schemas['PortalData'];
 export type RegistrationTransitionBody = BodyOf<'transitionRegistration'>;
-export type AttachmentPurpose = 'penalty_evidence' | 'deposit_receipt' | 'refund_proof';
+export type AttachmentPurpose =
+  'penalty_evidence' | 'deposit_receipt' | 'refund_proof' | 'work_order' | 'inspection';
 export type AttachmentResult = ResponseOf<'uploadAttachment'>;
 /** `updateRoom` 200 = Room + `warnings[]` (0.3.6 A-39). */
 export type RoomUpdateResult = ResponseOf<'updateRoom'>;
+
+// ---------- Sprint 4 FE-B (EP07/EP08/EP14/EP09 – Desk, OpenAPI 0.3.7) ----------
+export type RoomStatusEntry = Schemas['RoomStatusEntry'];
+export type RoomStatusCode = Schemas['RoomStatusCode'];
+export type HkTask = Schemas['HkTask'];
+export type HkTaskType = Schemas['HkTaskType'];
+export type HkTaskStatus = Schemas['HkTaskStatus'];
+export type HkTaskSummary = ResponseOf<'listHkTasks'>['summary'];
+export type CreateHkTaskBody = BodyOf<'createHkTask'>;
+export type TransitionHkTaskBody = BodyOf<'transitionHkTask'>;
+export type WorkOrder = Schemas['WorkOrder'];
+export type WorkOrderCreate = Schemas['WorkOrderCreate'];
+export type WorkOrderStatus = Schemas['WorkOrderStatus'];
+export type WorkOrderCategory = Schemas['WorkOrderCategory'];
+export type Severity = Schemas['Severity'];
+export type UpdateWorkOrderBody = BodyOf<'updateWorkOrder'>;
+export type TransitionWorkOrderBody = NonNullable<BodyOf<'transitionWorkOrder'>>;
+export type WorkOrderAction = 'accept' | 'wait-parts' | 'resume' | 'complete' | 'cancel' | 'reopen';
+export type RoomBlock = Schemas['RoomBlock'];
+export type RoomBlockCreate = Schemas['RoomBlockCreate'];
+export type RoomBlockStatus = Schemas['RoomBlockStatus'];
+export type GuestRequest = Schemas['GuestRequest'];
+export type GuestRequestStatus = Schemas['GuestRequestStatus'];
+export type GuestRequestType = Schemas['GuestRequestType'];
+export type TransitionGuestRequestBody = NonNullable<BodyOf<'transitionGuestRequest'>>;
+export type Item = Schemas['Item'];
+export type ItemInput = Schemas['ItemInput'];

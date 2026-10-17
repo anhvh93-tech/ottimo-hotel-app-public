@@ -66,6 +66,22 @@ function reauthInput(b: Record<string, unknown>): string {
   return secret;
 }
 
+/**
+ * 0.3.7 B-6 (BE-B + FE-A, one PR): `expectedVersion` = ApprovalRequest.version the approver is looking at –
+ * integer ≥ 0 when given (else 422 VALIDATION_FAILED); REQUIRED for a `refund` (checked by the service under
+ * the row lock: missing → 422 REQUIRED, different → 412 VERSION_CONFLICT).
+ */
+function expectedVersionOf(b: Record<string, unknown>): number | undefined {
+  const v = b.expectedVersion;
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0) {
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'expectedVersion', code: 'VALIDATION_FAILED' }],
+    });
+  }
+  return v;
+}
+
 @Controller('v1/properties/:propertyId/approval-requests')
 export class ApprovalsController {
   constructor(
@@ -114,8 +130,17 @@ export class ApprovalsController {
         const paged = page(rows, n, (r) => [r.requested_at.toISOString(), r.id]);
         // One time zone read for the page (no per-row query – FB-R2-ARC-BE-06).
         const { tz } = await this.approvals.context(tx);
+        // 0.3.7 D1: effectiveAmountVnd / current FOC line – one folio computation per folio of the page.
+        const views = await this.approvals.focViews(tx, paged.data);
         const data = paged.data.map((r) =>
-          toApprovalDto(r, tz, r.requester_name, r.approver_name, remainingMonthlyVnd),
+          toApprovalDto(
+            r,
+            tz,
+            r.requester_name,
+            r.approver_name,
+            remainingMonthlyVnd,
+            views.get(r.id),
+          ),
         );
         return { data, page: paged.page };
       },
@@ -134,6 +159,7 @@ export class ApprovalsController {
     const id = approvalIdOf(approvalId);
     const b = body(raw);
     const note = optionalText('note', b.note, 300);
+    const expectedVersion = expectedVersionOf(b);
     const actor = actorOf(req);
     const method = await this.reauthenticate(req, reauthInput(b));
     const result = await this.uow.run(req, async (tx) => {
@@ -141,6 +167,7 @@ export class ApprovalsController {
         authMethod: method,
         note,
         requestId: req.id,
+        ...(expectedVersion !== undefined ? { expectedVersion } : {}),
       });
       if ('escalatedTo' in out) {
         // A4 committed (status escalated, pushed to the next level) – then 403 to this approver.
@@ -165,6 +192,7 @@ export class ApprovalsController {
     const b = body(raw);
     // V-08 (3–500) + V-09 before asking for the password.
     const reason = requireReason('reason', b.reason, { min: 3, max: 500 });
+    const expectedVersion = expectedVersionOf(b);
     const actor = actorOf(req);
     const method = await this.reauthenticate(req, reauthInput(b));
     const result = await this.uow.run(req, async (tx) => {
@@ -172,6 +200,7 @@ export class ApprovalsController {
         authMethod: method,
         reason,
         requestId: req.id,
+        ...(expectedVersion !== undefined ? { expectedVersion } : {}),
       });
       return { status: 200, body: await this.approvals.toDto(tx, row) };
     });

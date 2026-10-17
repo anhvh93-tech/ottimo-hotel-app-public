@@ -124,7 +124,49 @@ export interface ApprovalRow {
   foc_cancel_reason?: string | null;
   line_change?: Record<string, unknown> | null;
   auto_cancel_reason?: string | null;
+  // 0060 (BE-B S4-02): current service date of the FOC key (room / extra-person line).
+  foc_service_date?: string | null;
 }
+
+/** 0.3.7 D1 FOC states (erd 4.6) – what the folio sync writes through setFocState(). */
+export type FocState = 'applied' | 'dormant' | 'suspended' | 'cancelled';
+export type FocCancelReason = 'night_removed' | 'reservation_cancelled' | 'settled_while_dormant';
+export type AutoCancelReason =
+  'line_removed' | 'reservation_cancelled' | 'reservation_no_show' | 'superseded';
+
+/** OpenAPI ApprovalRequest.lineChangedNote (BR-434 v0.3.5, S4-18). */
+export interface LineChange {
+  oldLineVnd: number;
+  newLineVnd: number;
+  fromServiceDate?: string;
+  toServiceDate?: string;
+  cause:
+    | 'move'
+    | 'postpone'
+    | 'prior_night'
+    | 'extend'
+    | 'room_change'
+    | 'early_departure'
+    | 'los_reprice'
+    | 'party_change'
+    | 'checkout_time_change';
+  /** ISO instant. */
+  changedAt: string;
+}
+
+/**
+ * What the folio module computes for a foc / special_discount request when it is shown (OpenAPI 0.3.7 D1):
+ * `effectiveAmountVnd` (pending: "khi duyệt sẽ áp X"; approved: applied now; settled folio: really applied) and
+ * the CURRENT FOC line of the request (it follows the re-posted line – ApprovalRequest.folioLineId).
+ */
+export interface FocView {
+  effectiveAmountVnd: number;
+  folioLineId: string | null;
+}
+export type FocViewProvider = (
+  tx: Tx,
+  rows: readonly ApprovalRow[],
+) => Promise<ReadonlyMap<string, FocView>>;
 
 /**
  * 0055 (erd 4.6): `foc_state` is set iff the request is an approved foc / special_discount (DB CHECK
@@ -161,9 +203,19 @@ export interface ApprovalDto {
     setAt?: string;
   };
   refundedVnd?: number;
+  // 0.3.7 D1 (BR-434 v0.3.5, BR-433, BR-315 (g); S4-02/S4-18/S4-22) – foc / special_discount only.
+  effectiveAmountVnd?: number;
+  focState?: FocState;
+  focCancelReason?: FocCancelReason;
+  lineChangedNote?: LineChange | null;
+  autoCancelReason?: AutoCancelReason;
+  /** 0.3.7 B-6: optimistic version (refund approve/reject send it back as expectedVersion). */
+  version?: number;
 }
 
 export type DecidedHook = (tx: Tx, request: ApprovalRow) => Promise<void>;
+/** Runs BEFORE the request row is locked by a decision (S4-13 lock order folio → approval_request). */
+export type PreLockHook = (tx: Tx, approvalId: string) => Promise<void>;
 
 const MONEY_CATEGORY = (type: ApprovalType) => (MONEY_TYPES.has(type) ? 'money' : 'state');
 
@@ -191,6 +243,8 @@ export interface ApprovalContext {
 @Injectable()
 export class ApprovalService {
   private readonly hooks = new Map<ApprovalType, DecidedHook[]>();
+  private readonly preLocks: PreLockHook[] = [];
+  private focView: FocViewProvider | null = null;
   /** Per-transaction memo: time zone/today and foc_limits are read once per request (FB-R2-ARC-BE-06). */
   private readonly perTx = new WeakMap<
     Tx,
@@ -208,6 +262,25 @@ export class ApprovalService {
   /** Register a same-transaction hook for decisions of a request type (folio FOC line, refunds…). */
   onDecided(type: ApprovalType, hook: DecidedHook): void {
     this.hooks.set(type, [...(this.hooks.get(type) ?? []), hook]);
+  }
+
+  /**
+   * S4-13 (BE-B): a hook that locks what the decision will change BEFORE the request row is locked – the folio
+   * module locks the folio of a foc / special_discount request, so a decision and a night re-sync (reservation
+   * → folio → approval_request) always take the locks in the same order and the later one reads the result of
+   * the earlier one (BR-434 "thao tác xong sau đọc lại trạng thái của thao tác xong trước").
+   */
+  onBeforeDecide(hook: PreLockHook): void {
+    this.preLocks.push(hook);
+  }
+
+  /** OpenAPI 0.3.7 D1: the folio module provides effectiveAmountVnd / the current FOC line (FocView). */
+  provideFocView(provider: FocViewProvider): void {
+    this.focView = provider;
+  }
+
+  private async preLock(tx: Tx, approvalId: string): Promise<void> {
+    for (const h of this.preLocks) await h(tx, approvalId);
   }
 
   // ───────────────────────── A1 / A2 ─────────────────────────
@@ -406,9 +479,17 @@ export class ApprovalService {
     tx: Tx,
     actor: Actor,
     approvalId: string,
-    input: { authMethod: 'password' | 'pin'; note: string | null; requestId?: string },
+    input: {
+      authMethod: 'password' | 'pin';
+      note: string | null;
+      requestId?: string;
+      /** 0.3.7 B-6: required for a `refund` (what the approver saw – destination, amount, state). */
+      expectedVersion?: number;
+    },
   ): Promise<{ row: ApprovalRow } | { escalatedTo: ApproverRole; row: ApprovalRow }> {
+    await this.preLock(tx, approvalId);
     const row = await this.lockOpen(tx, approvalId);
+    assertExpectedVersion(row, input.expectedVersion);
     const role = approverRoleOf(actor.roles);
     if (!role) throw problem('FORBIDDEN_ACTION');
     this.assertNotSelf(row, actor, role);
@@ -516,9 +597,17 @@ export class ApprovalService {
     tx: Tx,
     actor: Actor,
     approvalId: string,
-    input: { authMethod: 'password' | 'pin'; reason: string; requestId?: string },
+    input: {
+      authMethod: 'password' | 'pin';
+      reason: string;
+      requestId?: string;
+      /** 0.3.7 B-6: required for a `refund`. */
+      expectedVersion?: number;
+    },
   ): Promise<ApprovalRow> {
+    await this.preLock(tx, approvalId);
     const row = await this.lockOpen(tx, approvalId);
+    assertExpectedVersion(row, input.expectedVersion);
     const role = approverRoleOf(actor.roles);
     if (!role) throw problem('FORBIDDEN_ACTION');
     this.assertNotSelf(row, actor, role);
@@ -602,8 +691,123 @@ export class ApprovalService {
     );
   }
 
+  // ───────────────────────── FOC life (0.3.7 D1 – BE-B folio sync S4-02/S4-18/S4-22) ─────────────────────────
+
+  /**
+   * BR-434 / BR-433 / BR-315 (g): the folio sync moves an APPROVED foc / special_discount between applied,
+   * dormant, suspended and cancelled (erd 4.6 CHECKs: cancel reason ⇔ cancelled). The audit `folio.foc_*` is
+   * written by the caller (it knows the amounts and the stay). No-op when nothing changes.
+   */
+  async setFocState(
+    tx: Tx,
+    approvalId: string,
+    next: { focState: FocState; focCancelReason?: FocCancelReason | null },
+  ): Promise<void> {
+    const { now } = await this.context(tx);
+    await tx.query(
+      `UPDATE approval_request SET foc_state = $2, foc_cancel_reason = $3, updated_at = $4, version = version + 1
+        WHERE id = $1 AND type IN ('foc', 'special_discount') AND status = 'approved'
+          AND (foc_state IS DISTINCT FROM $2 OR foc_cancel_reason IS DISTINCT FROM $3)`,
+      [
+        approvalId,
+        next.focState,
+        next.focState === 'cancelled' ? (next.focCancelReason ?? null) : null,
+        now,
+      ],
+    );
+  }
+
+  /** 0060: the key of a request on a room / extra-person line moves to another date (BR-434 (2)). */
+  async setFocKeyDate(tx: Tx, approvalId: string, serviceDate: string): Promise<void> {
+    await tx.query(
+      `UPDATE approval_request SET foc_service_date = $2
+        WHERE id = $1 AND type IN ('foc', 'special_discount')
+          AND foc_service_date IS DISTINCT FROM $2::date`,
+      [approvalId, serviceDate],
+    );
+  }
+
+  /** S4-18: the line of a PENDING request was re-written – "Dòng đã đổi: old → new, khi duyệt sẽ áp X". */
+  async setLineChange(tx: Tx, approvalId: string, change: LineChange): Promise<void> {
+    const { now } = await this.context(tx);
+    await tx.query(
+      `UPDATE approval_request SET line_change = $2, updated_at = $3, version = version + 1
+        WHERE id = $1 AND type IN ('foc', 'special_discount') AND status IN ('pending', 'escalated')`,
+      [approvalId, JSON.stringify(change), now],
+    );
+  }
+
+  /**
+   * BR-434 (S4-18) / BR-315 (g): the server cancels a PENDING foc / special_discount by itself – no line left
+   * (night dropped without a counterpart), booking cancelled, booking no-show. `cancelled` (never `rejected`),
+   * audit `approval.cancelled`, hooks (the FOC line → rejected), the requester and everyone who was asked to
+   * decide get `approval_cancelled`; nothing counts against a monthly limit. Returns null when the request was
+   * no longer open.
+   */
+  async autoCancel(
+    tx: Tx,
+    approvalId: string,
+    reason: AutoCancelReason,
+    requestId?: string,
+  ): Promise<ApprovalRow | null> {
+    const { rows: cur } = await tx.query<ApprovalRow>(
+      `SELECT * FROM approval_request WHERE id = $1 FOR UPDATE`,
+      [approvalId],
+    );
+    const row = cur[0];
+    if (!row || (row.status !== 'pending' && row.status !== 'escalated')) return null;
+    const { now } = await this.context(tx);
+    const { rows } = await tx.query<ApprovalRow>(
+      `UPDATE approval_request SET status = 'cancelled', auto_cancel_reason = $2, decision_note = $3,
+          updated_at = $4, version = version + 1
+        WHERE id = $1 RETURNING *`,
+      [row.id, reason, `auto: ${reason}`, now],
+    );
+    const cancelled = rows[0] as ApprovalRow;
+    await this.audit.record(tx, {
+      category: MONEY_CATEGORY(row.type),
+      action: 'approval.cancelled',
+      entityType: 'approval_request',
+      entityId: row.id,
+      ...(row.target_code ? { entityCode: row.target_code } : {}),
+      before: { status: row.status },
+      after: { status: 'cancelled', type: row.type, amountVnd: row.amount_vnd },
+      reason: `auto: ${reason}`,
+      ...(requestId ? { requestId } : {}),
+    });
+    await this.runHooks(tx, cancelled);
+    // The requester + every account that was asked to decide (approval_requested inbox rows).
+    const { rows: asked } = await tx.query<{ user_id: string }>(
+      `SELECT DISTINCT user_id FROM staff_notification
+        WHERE kind = 'approval_requested' AND ref_type = 'approval_request' AND ref_id = $1`,
+      [row.id],
+    );
+    const userIds = [...new Set([row.requested_by, ...asked.map((a) => a.user_id)])];
+    await this.outbox(tx, cancelled, `approval_cancelled:${row.id}`, {
+      kind: 'approval_cancelled',
+      reason,
+      userIds,
+    });
+    if (this.events) {
+      await this.events.notify(
+        tx,
+        {
+          kind: 'approval_cancelled',
+          userIds,
+          refType: 'approval_request',
+          refId: row.id,
+          ...(row.target_code ? { refCode: row.target_code } : {}),
+        },
+        now,
+        { push: false },
+      );
+    }
+    return cancelled;
+  }
+
   /** A6: only the requester (x-scope own → someone else's id is 404), only while `pending`. */
   async cancel(tx: Tx, actor: Actor, approvalId: string, requestId?: string): Promise<ApprovalRow> {
+    await this.preLock(tx, approvalId);
     const { rows } = await tx.query<ApprovalRow>(
       `SELECT * FROM approval_request WHERE id = $1 AND requested_by = $2 FOR UPDATE`,
       [approvalId, actor.userId],
@@ -784,7 +988,22 @@ export class ApprovalService {
       requester = byId.get(row.requested_by) ?? '';
       approver = row.approver_id ? (byId.get(row.approver_id) ?? null) : null;
     }
-    return toApprovalDto(row, tz, requester ?? '', approver ?? null, remainingMonthlyVnd);
+    const views = await this.focViews(tx, [row]);
+    return toApprovalDto(
+      row,
+      tz,
+      requester ?? '',
+      approver ?? null,
+      remainingMonthlyVnd,
+      views.get(row.id),
+    );
+  }
+
+  /** FocView of the foc / special_discount rows (one folio computation per folio – list pages). */
+  async focViews(tx: Tx, rows: readonly ApprovalRow[]): Promise<ReadonlyMap<string, FocView>> {
+    const foc = rows.filter((r) => r.type === 'foc' || r.type === 'special_discount');
+    if (!this.focView || foc.length === 0) return new Map();
+    return this.focView(tx, foc);
   }
 
   // ───────────────────────── helpers ─────────────────────────
@@ -877,10 +1096,24 @@ export class ApprovalService {
     const monthStart = `${today.slice(0, 7)}-01`;
     const [y, m] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
     const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    // BR-433 v0.3.5/v0.3.6 (S4-18): a foc / special_discount counts while it is ALIVE – applied or dormant in a
+    // stay not settled yet (its approved amount); once the folio is settled, what it really applied (S4-23 split
+    // by approval order). Suspended (no-show), cancelled by rule, pending, rejected, auto-cancelled: nothing.
     const { rows } = await tx.query<{ total: string | number | null }>(
-      `SELECT COALESCE(SUM(amount_vnd), 0) AS total FROM approval_request
-        WHERE approver_id = $1 AND status = 'approved' AND ($2::boolean IS NULL OR self_applied = $2)
-          AND type = ANY($3::text[]) AND decided_at >= $4 AND decided_at < $5`,
+      `SELECT COALESCE(SUM(
+           CASE WHEN a.type NOT IN ('foc', 'special_discount') THEN a.amount_vnd
+                WHEN a.foc_state IS NULL OR a.foc_state NOT IN ('applied', 'dormant') THEN 0
+                WHEN f.status IS NOT NULL AND f.status <> 'open' THEN COALESCE((
+                  SELECT -SUM(l.amount_vnd) FROM folio_line l
+                   WHERE (l.approval_request_id = a.id OR l.id = a.folio_line_id)
+                     AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+                     AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)), 0)
+                ELSE a.amount_vnd END), 0) AS total
+         FROM approval_request a
+         LEFT JOIN folio_line o ON o.id = a.folio_line_id AND a.type IN ('foc', 'special_discount')
+         LEFT JOIN folio f ON f.id = o.folio_id
+        WHERE a.approver_id = $1 AND a.status = 'approved' AND ($2::boolean IS NULL OR a.self_applied = $2)
+          AND a.type = ANY($3::text[]) AND a.decided_at >= $4 AND a.decided_at < $5`,
       [
         userId,
         scope === 'all' ? null : scope === 'self',
@@ -987,19 +1220,43 @@ export class ApprovalService {
   }
 }
 
+/**
+ * 0.3.7 B-6 (CỔNG – BE-B + FE-A one PR): a `refund` is decided on the version the approver saw – missing → 422
+ * REQUIRED, another version (destination changed / reopened meanwhile – SEC F8) → 412 VERSION_CONFLICT with
+ * `currentVersion`, nothing written. Other types: optional, checked when given.
+ */
+export function assertExpectedVersion(row: ApprovalRow, expected: number | undefined): void {
+  if (expected === undefined) {
+    if (row.type === 'refund') {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'expectedVersion', code: 'REQUIRED' }],
+      });
+    }
+    return;
+  }
+  if (expected !== row.version) {
+    throw problem('VERSION_CONFLICT', { extras: { currentVersion: row.version } });
+  }
+}
+
 export function toApprovalDto(
   row: ApprovalRow,
   tz: string,
   requesterName: string,
   approverName: string | null,
   remainingMonthlyVnd: number | null,
+  focView?: FocView,
 ): ApprovalDto {
+  const focType = row.type === 'foc' || row.type === 'special_discount';
+  // 0.3.7 D1: the CURRENT FOC line of the request (follows the re-posted line); before the folio module answers,
+  // the line it was made with.
+  const lineId = focView?.folioLineId ?? row.folio_line_id;
   return {
     id: row.id,
     type: row.type,
     status: row.status,
     ...(row.target_code ? { reservationCode: row.target_code } : {}),
-    ...(row.folio_line_id ? { folioLineId: row.folio_line_id } : {}),
+    ...(lineId ? { folioLineId: lineId } : {}),
     amountVnd: row.amount_vnd,
     reasonCode: row.reason_code,
     ...(row.reason_note ? { reasonNote: row.reason_note } : {}),
@@ -1028,5 +1285,18 @@ export function toApprovalDto(
         }
       : {}),
     ...(row.type === 'refund' ? { refundedVnd: Number(row.refunded_vnd ?? 0) } : {}),
+    // 0.3.7 D1 FOC life (BR-434 v0.3.5): only foc / special_discount.
+    ...(focType && focView ? { effectiveAmountVnd: focView.effectiveAmountVnd } : {}),
+    ...(focType && row.status === 'approved' && row.foc_state ? { focState: row.foc_state } : {}),
+    ...(focType && row.foc_state === 'cancelled' && row.foc_cancel_reason
+      ? { focCancelReason: row.foc_cancel_reason as FocCancelReason }
+      : {}),
+    ...(focType
+      ? { lineChangedNote: (row.line_change as LineChange | null | undefined) ?? null }
+      : {}),
+    ...(row.status === 'cancelled' && row.auto_cancel_reason
+      ? { autoCancelReason: row.auto_cancel_reason as AutoCancelReason }
+      : {}),
+    version: row.version,
   };
 }

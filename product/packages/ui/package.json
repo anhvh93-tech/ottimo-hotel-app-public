@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "5.2.8",
+    "@fontsource/jetbrains-mono": "5.2.8",
     "@fontsource/lora": "5.2.8"
   }
 }

@@ -127,16 +127,19 @@ describe('H02 navigation by role (US-001 AC1, US-002, rbac §3)', () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it('later-sprint screens render the "coming later" state, not a blank page', async () => {
+  it('Sprint 4: Buồng phòng / Bảo trì are built – no "coming later" state left in the menu', async () => {
     renderApp('/housekeeping', 'qa.fd');
-    expect(await screen.findByText('Màn này đang được làm')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Việc buồng phòng hôm nay' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Màn này đang được làm')).not.toBeInTheDocument();
   });
 
-  it('Hôm nay shows "being built", never the "no guests today" empty state (FB-R2-UXD-FE-02)', async () => {
+  it('Hôm nay (Sprint 4) shows today\'s data, never the "no guests today" empty state while there is some (FB-R2-UXD-FE-02)', async () => {
     renderApp('/today', 'qa.fdl');
-    expect(await screen.findByText('Màn này đang được làm')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^Khách đến \(\d+\)$/ })).toBeInTheDocument();
+    expect(screen.queryByText('Màn này đang được làm')).not.toBeInTheDocument();
     expect(screen.queryByText('Hôm nay không có việc theo giờ')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Mở sơ đồ phòng' })).toHaveAttribute('href', '/rack');
   });
 
   it('offline → read-only bar under the header', async () => {

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
+import { useStaffRoomLabel } from '../../app/rooms';
 import { useLiveReload } from '../../app/live';
 import { STATUS_KEY, STATUS_TONE, channelName, dayMonth } from '../../app/reservations';
 import { Page, Topbar } from '../../components/AppShell';
@@ -43,6 +44,8 @@ function ReservationsList({ openId }: { openId: string | null }) {
   const { roles } = useSession();
   const { online } = useOnline();
   const catalog = useCatalog(propertyId);
+  // BR-012 / DS 11.3 (S4-49 B3): staff see "401 · The Pine".
+  const roomText = useStaffRoomLabel(propertyId);
   const navigate = useNavigate();
   const fd = roles.some((r) => FD_PLUS.includes(r));
   const [filter, setFilter] = useState<Filter>('active');
@@ -184,7 +187,13 @@ function ReservationsList({ openId }: { openId: string | null }) {
                         {r.code}
                       </button>
                     </td>
-                    <td>{r.roomNo ?? <Chip tone="bad">{t('rsv.conflict_chip')}</Chip>}</td>
+                    <td>
+                      {r.roomNo ? (
+                        roomText(r.roomNo)
+                      ) : (
+                        <Chip tone="bad">{t('rsv.conflict_chip')}</Chip>
+                      )}
+                    </td>
                     <td>{r.guestDisplayName}</td>
                     <td>
                       {dayMonth(r.arrivalDate)} → {dayMonth(r.departureDate)}

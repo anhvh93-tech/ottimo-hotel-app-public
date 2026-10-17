@@ -137,15 +137,24 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     expect(document.activeElement?.id).toBe('doc-doc-k2');
   });
 
-  it('"Gắn người": the person is required (nothing pre-selected), people with a document are locked; the PATCH sends partyMemberId with the full fields → label and banner gone', async () => {
+  it('"Gắn người" (0.3.7 S4-39): person required, nothing pre-selected, people with a document locked; the PATCH sends ONLY partyMemberId – no step-up read', async () => {
     const { reg } = setupRemoved();
+    mockControl.stay.stepUpUntil.clear();
     const sent = recordWrites();
+    const reads: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET' && /\/sensitive|\/images\//.test(request.url))
+        reads.push(request.url);
+    });
     const { user } = renderApp(`/registration/${reg.id}`, 'qa.fd');
     await screen.findAllByText(tv('reg.link.pending_chip', { time: due() }));
+    // The row says the slot the guest used – the number the party-removal box asks about.
+    expect(within(rowOf('Trần Thị Bích')).getByText(/Khách 3/)).toBeInTheDocument();
     await user.click(
       within(rowOf('Trần Thị Bích')).getByRole('button', { name: tv('reg.link.action') }),
     );
-    const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    const dlg = await screen.findByRole('dialog', { name: tv('reg.link.action') });
+    expect(within(dlg).getByText(tv('reg.link.dialog_help'))).toBeInTheDocument();
     const pick = await within(dlg).findByLabelText(fieldRe('reg.link.member'));
     await waitFor(() => expect(pick).toBeEnabled());
     expect(pick).toHaveValue('');
@@ -157,28 +166,20 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
       ['Trần Thị Bích', false],
       [tv('reg.link.has_doc', { name: 'Lê Văn Cường' }), true],
     ]);
-    // Fields come pre-filled from the step-up read – nothing to type again.
-    expect(within(dlg).getByLabelText(fieldRe('checkin.docs.field.doc_no'))).toHaveValue(
-      '079287654321',
-    );
-    await user.click(within(dlg).getByRole('button', { name: tv('ci.manual_save') }));
+    await user.click(within(dlg).getByRole('button', { name: tv('reg.link.action') }));
     expect(pick).toHaveAccessibleDescription(new RegExp(esc(tv('common.required'))));
-    expect(sent.filter((s) => s.method === 'PATCH')).toHaveLength(0);
+    expect(sent.filter((x) => x.method === 'PATCH')).toHaveLength(0);
 
     await user.selectOptions(pick, 'm-b');
-    await user.click(within(dlg).getByRole('button', { name: tv('ci.manual_save') }));
+    await user.click(within(dlg).getByRole('button', { name: tv('reg.link.action') }));
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: tv('ci.manual_title') })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('dialog', { name: tv('reg.link.action') })).not.toBeInTheDocument(),
     );
-    const patch = sent.find((s) => s.method === 'PATCH')!;
+    const patch = sent.find((x) => x.method === 'PATCH')!;
     expect(patch.path).toMatch(/\/documents\/doc-k3$/);
     await waitFor(() => expect(patch.body).toBeDefined());
-    expect(patch.body).toMatchObject({
-      partyMemberId: 'm-b',
-      docType: 'cccd',
-      fullNameOnDoc: 'Trần Thị Bích',
-      docNumber: '079287654321',
-    });
+    expect(patch.body).toEqual({ partyMemberId: 'm-b' });
+    expect(reads).toEqual([]);
     expect(
       await screen.findByText(tv('reg.link.linked_toast', { name: 'Trần Thị Bích' })),
     ).toBeInTheDocument();
@@ -191,7 +192,7 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     expect(within(rowOf('Trần Thị Bích')).getByText(tv('guest.chip.doc_ok'))).toBeInTheDocument();
   });
 
-  it('a guest-link document of a person who already left (no free person): help says why, saving is not blocked', async () => {
+  it('a guest-link document of a person who already left (no free person): help says why, nothing to send', async () => {
     const { r, reg } = setupRemoved();
     mockControl.stay.party.set(r.id, [
       { id: 'm-booker', role: 'booker', displayName: 'Gia đình anh Hưng', priceAgeBand: 'adult' },
@@ -202,12 +203,13 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     await user.click(
       within(rowOf('Trần Thị Bích')).getByRole('button', { name: tv('reg.link.action') }),
     );
-    const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    const dlg = await screen.findByRole('dialog', { name: tv('reg.link.action') });
     const pick = await within(dlg).findByLabelText(fieldRe('reg.link.member'));
     await waitFor(() =>
       expect(pick).toHaveAccessibleDescription(tv('reg.link.no_member', { time: due() })),
     );
     expect(pick).not.toBeRequired();
+    expect(within(dlg).getByRole('button', { name: tv('reg.link.action') })).toBeDisabled();
   });
 
   it('a guest-link document that does not wait: "Người trong đoàn" is offered but optional', async () => {
@@ -229,8 +231,41 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     expect(sent.find((s) => s.method === 'PATCH')!.body).not.toHaveProperty('partyMemberId');
   });
 
-  it('"Nhập tay" with the number of a waiting document → 409 PARTY_DUPLICATE → guidance + "Mở giấy tờ chờ gắn người"', async () => {
+  it('"Nhập tay" with the number of a waiting document → 409 DOCUMENT_UNCLAIMED_EXISTS → opens exactly that document (0.3.7 S4-39)', async () => {
     const { reg } = setupRemoved();
+    const { user } = renderApp(`/registration/${reg.id}`, 'qa.fd');
+    await screen.findAllByText(tv('reg.link.pending_chip', { time: due() }));
+    await user.click(screen.getAllByRole('button', { name: tv('checkin.docs.manual') })[0]!);
+    const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // The number of "Khách 3" (doc-k3) – before 0.3.7 the box went to the FIRST waiting one (doc-k2).
+    await user.type(
+      within(dlg).getByLabelText(fieldRe('checkin.docs.field.doc_no')),
+      '079287654321',
+    );
+    await user.type(
+      within(dlg).getByLabelText(fieldRe('checkin.docs.field.full_name')),
+      'Tran Thi Bich',
+    );
+    await user.click(within(dlg).getByRole('button', { name: tv('ci.manual_save') }));
+    expect(
+      await within(dlg).findByText(tv('reg.link.dup_unclaimed', { n: 3 })),
+    ).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: tv('reg.link.open_pending') }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: tv('ci.manual_title') })).not.toBeInTheDocument(),
+    );
+    const link = await screen.findByRole('dialog', { name: tv('reg.link.action') });
+    expect(within(link).getByText(/Khách 3 · Trần Thị Bích/)).toBeInTheDocument();
+    expect(reg.documents.filter((d) => d.docNumber === '079287654321')).toHaveLength(1);
+  });
+
+  it('older server (409 PARTY_DUPLICATE without an id) → guidance + "Mở giấy tờ chờ gắn người"', async () => {
+    const { reg } = setupRemoved();
+    server.use(
+      http.post('*/v1/properties/:p/registrations/:id/documents', () =>
+        HttpResponse.json({ code: 'PARTY_DUPLICATE', status: 409 }, { status: 409 }),
+      ),
+    );
     const { user } = renderApp(`/registration/${reg.id}`, 'qa.fd');
     await screen.findAllByText(tv('reg.link.pending_chip', { time: due() }));
     await user.click(screen.getAllByRole('button', { name: tv('checkin.docs.manual') })[0]!);
@@ -245,11 +280,7 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     );
     await user.click(within(dlg).getByRole('button', { name: tv('ci.manual_save') }));
     expect(await within(dlg).findByText(tv('reg.link.dup_pending'))).toBeInTheDocument();
-    expect(within(dlg).queryByText(tv('error.PARTY_DUPLICATE'))).not.toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: tv('reg.link.open_pending') }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: tv('ci.manual_title') })).not.toBeInTheDocument(),
-    );
     await waitFor(() => expect(document.activeElement?.id).toBe('doc-doc-k2'));
   });
 

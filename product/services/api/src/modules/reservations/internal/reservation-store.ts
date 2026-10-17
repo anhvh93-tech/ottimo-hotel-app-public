@@ -76,6 +76,10 @@ export interface ReservationRow {
   deposit_shortfall_accepted_at: Date | null;
   deposit_shortfall_accepted_by_name: string | null;
   deposit_shortfall_reason: string | null;
+  // 0055 (BR-012 (4), BR-429): the guest was told the concrete room – `inventory_optimize` only while false.
+  room_disclosed_to_guest: boolean;
+  // 0059 (BR-424, BR-429 (c) – S4-05): origin room of the OTA difference; NULL = never moved (first room).
+  origin_room_id: string | null;
   created_at: Date;
   created_by: string | null;
   updated_at: Date;
@@ -95,6 +99,7 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   r.checkout_mode,
   r.checkin_room_status_before, r.early_departure_notice_at, r.party_version, r.created_at, r.created_by,
   r.updated_at, r.version, r.deposit_shortfall_vnd, r.deposit_shortfall_accepted_at, r.deposit_shortfall_reason,
+  r.room_disclosed_to_guest, r.origin_room_id,
   (SELECT su.display_name FROM app_user su WHERE su.id = r.deposit_shortfall_accepted_by)
     AS deposit_shortfall_accepted_by_name`;
 

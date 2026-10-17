@@ -232,6 +232,48 @@
       "when": 1792236144862,
       "tag": "0055_s4_contract_037",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792240590000,
+      "tag": "0056_housekeeping_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792241000000,
+      "tag": "0057_guest_document_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792242000000,
+      "tag": "0058_guest_request",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792242500000,
+      "tag": "0059_s4_move_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792243000000,
+      "tag": "0060_foc_key_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792243500000,
+      "tag": "0061_item_name_i18n",
+      "breakpoints": true
     }
   ]
 }

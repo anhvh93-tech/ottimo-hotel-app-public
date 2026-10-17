@@ -259,9 +259,18 @@
 - **X1**: nhập bù không có lý do → chặn. **X2**: giờ thực tế quá mốc `offline_backfill_max_hours` → cần MGR+.
 - **Quy tắc**: BR-402, 414, 603, 905, 906. Phần kỹ thuật bản đọc offline: ARC/UXD.
 
+## UC-34 – Xử lý yêu cầu đặt phòng từ website (phương án A – US-155)
+- **Tác nhân**: Khách tiềm năng (form website / nút "Đặt ngay" của fanpage); FD, FDL, MGR, OWN; SAL (yêu cầu chưa giao + của mình). **Kích hoạt**: yêu cầu mới vào hàng chờ "Yêu cầu từ website" (SM-18 WR0). **Tiền điều kiện**: form đang bật (US-155 AC4); người xử lý có quyền S35.
+- **Hậu điều kiện**: yêu cầu `converted` (đơn giữ chỗ/đảm bảo kênh `direct`, nguồn `website` + nguồn phụ, dữ liệu liên hệ trên yêu cầu đã xóa) **hoặc** `declined` kèm mã lý do **hoặc** `spam`.
+- **Luồng chính**: (1) Nhân viên "Nhận xử lý" (WR1) trước hạn trả lời; (2) kiểm phòng trống theo hạng + ngày, sức chứa, số đêm tối thiểu, cửa sổ bán; (3) liên hệ khách qua kênh khách chọn bằng tài khoản cơ sở (Zalo OA chính; khách chưa nhắn OA → gọi và mời nhắn OA kèm mã); (4) chọn/tạo hồ sơ khách qua bộ chọn khách (không tự gộp); (5) lưu báo giá có liên kết yêu cầu, gửi văn bản báo giá; (6) khách đồng ý → giữ chỗ từ báo giá (WR6 – yêu cầu `converted`); (7) gửi VietQR cọc → xác nhận cọc (B4) → `confirmed`.
+- **A1**: ngày đến là hôm nay → không giữ chỗ được; khách chuyển cọc → FD+ tạo đơn đảm bảo có liên kết (WR6). **A2**: hết phòng → đề xuất hạng khác cùng ngày → cùng hạng ngày gần → hai căn nối tiếp. **A3**: người khác nên làm → "Trả lại hàng chờ" (WR2). **A4**: khách nhắn lại sau khi đã đóng, còn hạn lưu → "Mở lại" (WR5). **A5**: ở ≥ 28 đêm → báo giá dài hạn/HĐ giấy (EP19 mục 12 Q-W05).
+- **X1**: hai người cùng nhận → người sau bị từ chối (409/412), danh sách làm mới. **X2**: khách không trả lời sau số lần liên hệ BR-915 → đóng `guest_unreachable`. **X3**: rác/người nhận nói không gửi → spam (WR4), không liên hệ thêm. **X4**: không ai xử lý quá hạn không hoạt động → hệ thống tự đóng `stale` (WR7); quá hạn lưu → xóa dữ liệu liên hệ (SEC C-2).
+- **Quy tắc**: BR-110, 112, 113, 302, 305, 911–915, 951, 971, 972, 978. **Đặc tả**: `specs/EP19-website-requests.md`. **Trạng thái**: `state-machines.md` SM-18. **Quyền**: `rbac-matrix.md` S35, A64–A68.
+
 ## Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 30 use case, truy vết P/SM/BR/US | BA |
 | 15/10/2026 | 1 (bước 4) | Ngày nghiệp vụ; UC-04 A2/X1 tách theo kênh + UC-04b gán căn; UC-05 A3 khôi phục no-show theo SQ-1; UC-10 A2 một link/đơn; UC-11 thiết bị được cấp, B9a, chặn đơn chưa gán; UC-12 hạn khai báo NN; UC-27 FOC tự áp; UC-28 2FA, đổi mật khẩu lần đầu, khóa, đổi người nhanh, thu hồi phiên; UC-30 → US-133/134; thêm UC-31 đơn nhóm, UC-32 đóng ca, UC-33 mất mạng | BA |
 | 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |
+| 17/10/2026 | 2 (Sprint 4 – luồng LP-v1) | Thêm **UC-34** "Xử lý yêu cầu đặt phòng từ website" (US-155 phương án A – FB-INV-002 ý 3; SM-18, rbac S35/A64–A68, `specs/EP19-website-requests.md`) theo đề nghị ARC `openapi-0.3.7.md` 12.5 | BA |

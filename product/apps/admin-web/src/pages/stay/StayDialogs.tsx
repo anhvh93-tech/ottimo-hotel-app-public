@@ -28,6 +28,7 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { GuestPicker } from '../../components/GuestPicker';
 import { FilePicker, MoneyField, amountOf, useSubmit, useUnsavedLabels } from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
+import { unclaimedSlots } from '../registration/partyDocs';
 
 export interface StayDialogProps {
   reservation: Reservation;
@@ -1128,13 +1129,66 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
     }
   };
   const [reduce, setReduce] = useState<{ n: number; version: number } | null>(null);
-  const remove = async (memberId: string) => {
-    const adult = p?.members?.find((m) => m.id === memberId)?.priceAgeBand === 'adult';
-    const out = await del.submit((idem) =>
-      api.removePartyMember(R, memberId, p?.version ?? r.version, idem),
+  // S4-39 (0.3.7, SEC-BE-53 main option; BUG-R2-085/090): a person without a linked ID leaves while IDs the
+  // guest sent through the link wait unlinked → the desk says which "Khách n" slot was theirs, or "none".
+  // Known from the masked registration when it can be read; otherwise the server asks (422 + personIndexes).
+  const [slots, setSlots] = useState<number[] | null>(null);
+  const [slot, setSlot] = useState<number | 'none' | null>(null);
+  useEffect(() => {
+    setSlots(null);
+    setSlot(null);
+    if (!removing || !r.registrationId) return;
+    let stale = false;
+    api.getRegistration({ propertyId, registrationId: r.registrationId }).then(
+      (g) => {
+        if (stale) return;
+        const linked = g.data.documents.some((d) => d.partyMemberId === removing);
+        const free = unclaimedSlots(g.data);
+        setSlots(!linked && free.length ? free : null);
+      },
+      () => undefined,
     );
+    return () => {
+      stale = true;
+    };
+  }, [removing, propertyId, r.registrationId]);
+  const slotMissing = !!slots && slot === null;
+  const remove = async (memberId: string) => {
+    if (slotMissing) return;
+    const adult = p?.members?.find((m) => m.id === memberId)?.priceAgeBand === 'adult';
+    let failed: unknown = null;
+    const out = await del.submit((idem) =>
+      api
+        .removePartyMember(
+          R,
+          memberId,
+          p?.version ?? r.version,
+          idem,
+          slots ? (slot ?? undefined) : undefined,
+        )
+        .catch((e: unknown) => {
+          failed = e;
+          throw e;
+        }),
+    );
+    if (out === undefined) {
+      const asked =
+        isApiError(failed) &&
+        failed.fieldErrors.some(
+          (fe) => fe.field.replace(/^(body|query)\./, '') === 'guestUploadPersonIndex',
+        );
+      if (asked) {
+        // The server knows the slots: ask in this box, keep it open (nothing was removed).
+        const idx = (failed as { problem: { personIndexes?: unknown } }).problem.personIndexes;
+        if (Array.isArray(idx) && idx.length) setSlots(idx.map(Number));
+        setSlot(null);
+        del.reset();
+        return;
+      }
+      setRemoving(null);
+      return;
+    }
     setRemoving(null);
-    if (out === undefined) return;
     party.reload();
     // EP03-05 4.7: removing a person may lower the guest count – ask, never change it silently.
     if (adult) {
@@ -1334,9 +1388,56 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
           keepLabel={t('confirm.keep')}
           confirmLabel={t('party.remove')}
           busy={del.busy}
+          confirmDisabled={slotMissing}
+          confirmHelpId={slotMissing ? `${ids}-slot-why` : undefined}
           onKeep={() => setRemoving(null)}
           onConfirm={() => void remove(removing)}
-        />
+        >
+          {slots ? (
+            <fieldset className="fieldset-plain stack">
+              <legend className="label-h">
+                {t('party.slot_question', { name: nameOf(removing) })}
+              </legend>
+              {slots.map((n) => (
+                <label key={n} className="check">
+                  <input
+                    type="radio"
+                    name={`${ids}-slot`}
+                    checked={slot === n}
+                    onChange={() => setSlot(n)}
+                  />
+                  {t('guest.oci.person_n', { n })}
+                </label>
+              ))}
+              <label className="check">
+                <input
+                  type="radio"
+                  name={`${ids}-slot`}
+                  checked={slot === 'none'}
+                  onChange={() => setSlot('none')}
+                />
+                {t('party.slot_none')}
+              </label>
+              <p className="li-s">{t('party.slot_help')}</p>
+              {r.registrationId ? (
+                // Compare the photos through the existing C3 route (H14, step-up, auto-hide).
+                <a
+                  className="li-s"
+                  href={`/registration/${r.registrationId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('party.slot_compare')}
+                </a>
+              ) : null}
+              {slotMissing ? (
+                <p className="li-s" id={`${ids}-slot-why`}>
+                  {t('party.slot_required')}
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
+        </ConfirmDialog>
       ) : null}
       {reduce ? (
         <ConfirmDialog

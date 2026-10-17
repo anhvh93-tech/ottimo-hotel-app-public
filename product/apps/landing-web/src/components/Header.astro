@@ -1,0 +1,72 @@
+---
+// Sticky header (mock v1.1 section 0). The language switch is plain links to the same page in each published
+// language, always visible on phone and desktop (ADR-014 3.2 point 5); clicking one stores the choice.
+import type { Copy } from '../content/types';
+import { LANGS, LANG_NAME, pathFor } from '../lib/i18n';
+import Monogram from './Monogram.astro';
+
+interface Props {
+  t: Copy;
+  slug: string;
+  /** '' on the home page (in-page anchors); the home path elsewhere (404). */
+  home: string;
+}
+
+const { t, slug, home } = Astro.props;
+const desktopNav = [
+  ['#rooms', t.nav.rooms],
+  ['#amenities', t.nav.amenities],
+  ['#location', t.nav.location],
+  ['#faq', t.nav.faq],
+] as const;
+const mobileNav = [
+  ['#rooms', t.nav.rooms],
+  ['#why', t.nav.why],
+  ['#amenities', t.nav.amenities],
+  ['#location', t.nav.location],
+  ['#faq', t.nav.faq],
+  ['#contact', t.nav.book],
+] as const;
+---
+
+<header class="site-h">
+  <div class="wrap h-row">
+    <a class="brand" href={`${home}#top`}>
+      <Monogram />
+      <span class="brand-div" aria-hidden="true"></span>
+      <span class="wm"><span class="wm-name">OTTIMO</span> <span class="wm-sub">Boutique Stay</span></span>
+    </a>
+    <nav class="nav-d" aria-label={t.nav.label}>
+      {desktopNav.map(([hash, label]) => <a href={`${home}${hash}`}>{label}</a>)}
+    </nav>
+    <div class="h-tools">
+      <div class="lang" role="group" aria-label={t.langSwitch.label}>
+        {
+          LANGS.map((l) => (
+            <a
+              href={pathFor(l, slug)}
+              hreflang={l}
+              lang={l}
+              data-set-lang={l}
+              aria-current={l === t.lang ? 'page' : undefined}
+            >
+              {l.toUpperCase()}
+              <span class="sr"> – {LANG_NAME[l]}</span>
+            </a>
+          ))
+        }
+      </div>
+      <a class="btn btn-primary btn-sm only-d" href={`${home}#contact`}>{t.nav.book}</a>
+      <details class="menu">
+        <summary aria-label={t.nav.menu}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="1.5" fill="none"></path>
+          </svg>
+        </summary>
+        <nav class="menu-panel" aria-label={t.nav.mobileLabel}>
+          {mobileNav.map(([hash, label]) => <a href={`${home}${hash}`}>{label}</a>)}
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>

@@ -42,8 +42,16 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(window.location.pathname).toBe('/');
     expect(window.location.href).not.toContain(MOCK_TOKENS.ok);
 
-    expect(await screen.findByRole('heading', { name: 'Xin chào, Anna' })).toBeInTheDocument();
+    // G2 (DS 11.2): English greeting on every page language, Vietnamese support line, booking code in mono.
+    expect(
+      await screen.findByRole('heading', { name: 'Welcome to OTTIMO, Anna.' }),
+    ).toHaveAttribute('lang', 'en');
+    expect(screen.getByText('Chúc bạn có một kỳ nghỉ an yên.')).toBeInTheDocument();
+    expect(screen.getByText('OTM-0150')).toHaveClass('gw-code');
     expect(screen.getByText(/19\/10 → 22\/10 · 3 đêm/)).toBeInTheDocument();
+    // G3 / BR-012: room name (Lora) – never the room number
+    expect(screen.getByText('The Bloom')).toHaveClass('gw-room-name');
+    expect(document.body.textContent).not.toMatch(/\b103\b/);
     expect(screen.getByText('Hiện ở đây vào ngày nhận phòng (19/10).')).toBeInTheDocument();
     // ĐK-6: no bill tab, no door code block content
     expect(screen.queryByText('Hóa đơn')).not.toBeInTheDocument();
@@ -101,7 +109,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
     await user.click(screen.getByRole('button', { name: 'Gửi thủ tục' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Xong! Hẹn gặp bạn ngày 19/10' }),
+      await screen.findByRole('heading', { name: 'Thủ tục đã xong. Hẹn gặp bạn ngày 19/10.' }),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Phòng sẵn sàng từ 14:00. Lễ tân sẽ giao mã cửa khi bạn đến.'),
@@ -130,7 +138,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(screen.queryByRole('button', { name: 'Làm thủ tục trước' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Xem lại' }));
     expect(
-      await screen.findByRole('heading', { name: 'Xong! Hẹn gặp bạn ngày 19/10' }),
+      await screen.findByRole('heading', { name: 'Thủ tục đã xong. Hẹn gặp bạn ngày 19/10.' }),
     ).toBeInTheDocument();
 
     // ĐK-1 + ĐK-3: no level-2 call, nothing kept on the device.
@@ -261,6 +269,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
 
   it('non-Vietnamese page lists the passport first', async () => {
     mockControl.state.locale = 'en';
+    mockControl.state.localeChosen = true; // the guest picked English in an earlier session
     const { user } = openLink();
     await user.click(await screen.findByRole('button', { name: 'Online check-in' }));
     await user.click(await screen.findByRole('button', { name: /I've read this|I have read/ }));
@@ -299,7 +308,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }));
     await user.click(await screen.findByRole('radio', { name: /Tôi đồng ý OTTIMO lưu ảnh/ }));
     await user.click(screen.getByRole('button', { name: 'Gửi thủ tục' }));
-    await screen.findByRole('heading', { name: 'Xong! Hẹn gặp bạn ngày 19/10' });
+    await screen.findByRole('heading', { name: 'Thủ tục đã xong. Hẹn gặp bạn ngày 19/10.' });
     expect(mockControl.state.oci.deferredPeople).toEqual([2]);
     expect(screen.getByText('1 khách bổ sung giấy tờ tại quầy.')).toBeInTheDocument();
 
@@ -382,6 +391,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
 
   it('RU page: legal text is the approved EN in one lang="en" block, evidence says en (decision-log 17/10)', async () => {
     mockControl.state.locale = 'ru';
+    mockControl.state.localeChosen = true; // the guest picked Russian in an earlier session
     const ru = (k: string, a?: Record<string, string | number>) => translateGuest('ru', k, a);
     const en = (k: string, a?: Record<string, string | number>) => translateGuest('en', k, a);
     const { user } = openLink();

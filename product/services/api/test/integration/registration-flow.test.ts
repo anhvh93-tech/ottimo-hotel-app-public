@@ -1253,7 +1253,15 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     const fake = {
       memberForDocument: async (_tx: unknown, input: Record<string, unknown>) => {
         calls.push(input);
-        return input.fullNameOnDoc === 'Lý Thị Hoa' ? memberId : null;
+        return input.fullNameOnDoc === 'Lý Thị Hoa'
+          ? {
+              memberId,
+              guestId: null,
+              via: 'member_name_dob' as const,
+              overCount: false,
+              possibleReturningGuest: false,
+            }
+          : null;
       },
     };
     // BE-A's DocumentPartyPort is handed to RegistrationPartyLink at module init; the test stands in for it.
@@ -1287,7 +1295,8 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
         isMinor: false,
         nationalityCode: 'VNM',
       });
-      expect(calls[0]!.docNumberHmac).toMatch(/^[0-9a-f]{64}$/);
+      // 0.3.7 (erd 4.4): the v1 document key of a guest profile – another domain than doc_number_hmac.
+      expect(calls[0]!.guestDocKey).toMatch(/^v1:[0-9a-f]{64}$/);
       const docs = second.json().documents as Array<{
         docNumberLast4: string;
         partyMemberId?: string;
@@ -1656,7 +1665,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     expect(imgs[0]).toMatchObject({ delete_after: null, deleted_at: null });
   });
 
-  it('Re-verification Major b (A-38) → BUG-R2-083: removing a person never destroys an unlinked guest upload by position – it waits 24 h for the desk, then J16 removes it', async () => {
+  it('Re-verification Major b (A-38) → BUG-R2-083 / S4-39: removing a person never destroys a guest upload by position – the desk says which slot was theirs (422 REQUIRED without it), that slot goes at once', async () => {
     const { reservationId } = await seedStay(db, t, ids, { adults: 2 });
     const memberId = await db.withContext(t.ctx(), async (tx) => {
       const guestId = await seedGuestRow(db, t, { name: 'Trịnh Thị Oanh' });
@@ -1704,14 +1713,24 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
           )
         ).rows[0]!.party_version,
     );
-    const removed = await staff(
-      fa,
-      tok('fd'),
-      device,
-      'DELETE',
-      `${P(t)}/reservations/${reservationId}/party/${memberId}`,
-      { ifMatch: partyVersion },
-    );
+    const remove = (choice?: string) =>
+      staff(
+        fa,
+        tok('fd'),
+        device,
+        'DELETE',
+        `${P(t)}/reservations/${reservationId}/party/${memberId}${choice ? `?guestUploadPersonIndex=${choice}` : ''}`,
+        { ifMatch: partyVersion },
+      );
+    // 0.3.7 (S4-39): an open guest-link slot exists and the person has no linked document → the slot answer
+    // is required (numbers only in the Problem).
+    const missing = await remove();
+    expect(missing.statusCode).toBe(422);
+    expect(missing.json()).toMatchObject({
+      errors: [{ field: 'guestUploadPersonIndex', code: 'REQUIRED' }],
+      personIndexes: [2],
+    });
+    const removed = await remove('2');
     expect(removed.statusCode, removed.body).toBe(204);
     await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
     const state = () =>
@@ -1735,14 +1754,12 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
             )
           ).rows,
       );
-    // BUG-R2-083 (SEC-BE-53 fallback): "Khách 2" is linked to nobody – it may not be the removed person's.
-    const deadline = new Date(T0.getTime() + 24 * 3_600_000);
+    // The desk said "Khách 2" was the removed person's: destroyed at once (DEK, file); "Khách 1" untouched.
     expect(await state()).toEqual([
       { person_index: 1, removed: false, deleted: false, destroyed: false, delete_after: null },
-      { person_index: 2, removed: false, deleted: false, destroyed: false, delete_after: deadline },
+      expect.objectContaining({ person_index: 2, removed: true, deleted: true, destroyed: true }),
     ]);
     const store = fa.app.get<BlobStore>(BLOB_STORE);
-    expect(await store.get(before[1]!.blob_key)).not.toBeNull();
     // The head count of the declaration follows the booking (the in-house person left: 2 → 1).
     const reg = await db.withContext(
       t.ctx(),
@@ -1755,23 +1772,6 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
         ).rows[0]!.required_count,
     );
     expect(reg).toBe(1);
-    // Nobody linked it within 24 h → J16 removes it like a removed person's document.
-    fa.clock.set(new Date(deadline.getTime() + 60_000));
-    await db.withContext(t.ctx(), (tx) =>
-      fa.app.get(RetentionService).run(tx, 'Asia/Ho_Chi_Minh', { force: true }),
-    );
-    await fa.app.get(EncryptedBlobService).sweepAfterCommit(t.ctx());
-    expect(
-      (await state()).map((r) => ({
-        person_index: r.person_index,
-        removed: r.removed,
-        deleted: r.deleted,
-        destroyed: r.destroyed,
-      })),
-    ).toEqual([
-      { person_index: 1, removed: false, deleted: false, destroyed: false },
-      { person_index: 2, removed: true, deleted: true, destroyed: true },
-    ]);
     expect(await store.get(before[1]!.blob_key)).toBeNull();
     expect(await store.get(before[0]!.blob_key)).not.toBeNull();
   });

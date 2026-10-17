@@ -62,6 +62,8 @@ export interface DocRow {
   fields_purge_after: Date | null;
   purged_at: Date | null;
   removed_at: Date | null;
+  /** 0.3.7 nhóm D A.6 (0057): name + date of birth match a profile outside the booking (BR-952). */
+  possible_returning_guest: boolean;
   enc: Record<EncColumn, Buffer | null>;
 }
 
@@ -117,7 +119,8 @@ export const REG_COLUMNS = `id, reservation_id, status, kind, required_count, su
 
 const DOC_COLUMNS = `id, registration_id, reservation_id, party_member_id, person_index, doc_type, is_main,
   is_foreigner, is_minor_data, full_name_on_doc, nationality_code, gender, doc_number_last4, doc_number_hmac,
-  check_results, capture_method, data_key_id, fields_purge_after, purged_at, removed_at, ${ENC_LIST.map(([, c]) => c).join(', ')}`;
+  check_results, capture_method, data_key_id, fields_purge_after, purged_at, removed_at, possible_returning_guest,
+  ${ENC_LIST.map(([, c]) => c).join(', ')}`;
 
 type RawDoc = Omit<DocRow, 'enc'> & Record<EncColumn, Buffer | null>;
 
@@ -159,6 +162,22 @@ export async function documentsOf(tx: Tx, registrationId: string): Promise<DocRo
     `SELECT ${DOC_COLUMNS} FROM guest_document
       WHERE registration_id = $1 AND removed_at IS NULL ORDER BY created_at, id`,
     [registrationId],
+  );
+  return rows.map(toDoc);
+}
+
+/** SEC-BE-57: documents retired (removed) but not yet destroyed whose deadline has come (J16). */
+export async function retiredDocumentsDue(
+  tx: Tx,
+  registrationId: string,
+  now: Date,
+): Promise<DocRow[]> {
+  const { rows } = await tx.query<RawDoc>(
+    `SELECT ${DOC_COLUMNS} FROM guest_document
+      WHERE registration_id = $1 AND removed_at IS NOT NULL AND purged_at IS NULL
+        AND COALESCE(fields_purge_after, removed_at) <= $2
+      ORDER BY created_at, id FOR UPDATE`,
+    [registrationId, now],
   );
   return rows.map(toDoc);
 }
@@ -229,6 +248,23 @@ export function isUnclaimed(
     d.person_index !== null &&
     d.person_index >= 2 &&
     d.fields_purge_after !== null &&
+    d.removed_at === null
+  );
+}
+
+/**
+ * 0.3.7 (S4-39): a live guest-link slot "Khách n" (n ≥ 2) not linked to any party member – the slots
+ * `removePartyMember` asks about (`guestUploadPersonIndex`) and the 0.3.6 fallback puts on a deadline. Slot 1
+ * is the person who received the link (the booker side), never asked about.
+ */
+export function isOpenGuestSlot(
+  d: Pick<DocRow, 'capture_method' | 'party_member_id' | 'person_index' | 'removed_at'>,
+): boolean {
+  return (
+    d.capture_method === 'guest_upload' &&
+    d.party_member_id === null &&
+    d.person_index !== null &&
+    d.person_index >= 2 &&
     d.removed_at === null
   );
 }

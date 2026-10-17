@@ -1,19 +1,24 @@
 import {
+  deriveIdempotencyKey,
   isApiError,
   type CancelReasonCode,
   type CancellationQuote,
+  type MovePreview,
   type MoveReasonCode,
+  type Payment,
   type PaymentMethod,
   type Reservation,
   type ReservationStatus,
   type Room,
+  type VietQrResult,
 } from '@ottimo/api-client';
 import { formatInstant, hasKey, useI18n } from '@ottimo/i18n';
-import { Alert, Button, ConfirmDialog, Field, Modal } from '@ottimo/ui';
+import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal } from '@ottimo/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
-import { timeHHmm } from '../../app/dates';
+import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
+import { monoArgs } from '../../app/mono';
 import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
@@ -31,6 +36,18 @@ import { isRetryable, useWrite } from '../../app/useWrite';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { DepositQr, pendingDepositQr } from './DepositQr';
+import { DepositNotices } from './DepositNotices';
+import { MovePreviewBox } from './MovePreviewBox';
+import {
+  ServiceLinesPicker,
+  keepIncomplete,
+  retainLinesOf,
+  serviceLinesOfFolio,
+  type KeepState,
+  type ServiceLine,
+} from './ServiceLines';
+import { FilePicker, useSubmit } from '../stay/common';
 
 export interface DialogBase {
   reservation: Reservation;
@@ -164,7 +181,7 @@ export function CancelDialog(
   props: DialogBase & { canPostpone: boolean; onPostpone: () => void; ota: boolean },
 ) {
   const { reservation: r, ota } = props;
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
@@ -178,30 +195,51 @@ export function CancelDialog(
   const [quoteError, setQuoteError] = useState<unknown>(null);
   const [previewTick, setPreviewTick] = useState(0);
   const [touched, setTouched] = useState(false);
+  // S4-08: service lines kept (with a reason) – the dry run and the write get the same list.
+  const [keep, setKeep] = useState<KeepState>({});
+  const retainLines = retainLinesOf(keep);
   const hold = r.status === 'hold';
   const penaltyVnd = ota && penalty.trim() ? parseVnd(penalty) : undefined;
-  const previewInput = useDebounced(`${reason}|${penaltyVnd ?? ''}|${previewTick}`, 300);
+  const inputNow = JSON.stringify({
+    rc: reason,
+    pen: penaltyVnd ?? null,
+    keep: retainLines,
+    tick: previewTick,
+  });
+  const previewInput = useDebounced(inputNow, 300);
+  /** The dry run the dialog shows answers exactly what will be sent (S4-08: same `retainLines`). */
+  const [quoteFor, setQuoteFor] = useState('');
 
   useEffect(() => {
     let stale = false;
-    const [rc, pen] = previewInput.split('|');
+    const q = JSON.parse(previewInput) as {
+      rc: string;
+      pen: number | null;
+      keep: Array<{ lineId: string; reason: string }>;
+    };
     setQuoteError(null);
     api
       .cancelReservationPreview(
         { propertyId, reservationId: r.id },
         {
-          reasonCode: (rc || (ota ? 'ota_cancelled' : 'guest_changed_mind')) as CancelReasonCode,
-          otaPenaltyVnd: ota && pen ? Number(pen) : undefined,
+          reasonCode: (q.rc || (ota ? 'ota_cancelled' : 'guest_changed_mind')) as CancelReasonCode,
+          otaPenaltyVnd: ota && q.pen ? q.pen : undefined,
+          retainLines: q.keep.length ? q.keep : undefined,
         },
       )
       .then(
-        (res) => !stale && setQuote(res.data.cancellation),
+        (res) => {
+          if (stale) return;
+          setQuote(res.data.cancellation);
+          setQuoteFor(previewInput);
+        },
         (e: unknown) => !stale && setQuoteError(e),
       );
     return () => {
       stale = true;
     };
   }, [previewInput, propertyId, r.id, ota]);
+  const quoteCurrent = !!quote && quoteFor === inputNow;
 
   const room = r.segments?.[0]?.roomNo ?? '–';
   const from = dayMonth(r.arrivalDate);
@@ -225,11 +263,12 @@ export function CancelDialog(
   const confirm = async () => {
     setTouched(true);
     if (
-      !quote ||
+      !quoteCurrent ||
       !reason ||
       (reason === 'other' && note.trim().length < 3) ||
       penaltyError ||
-      penaltyFeeError
+      penaltyFeeError ||
+      keepIncomplete(keep)
     )
       return;
     const out = await act.run((version, idem) =>
@@ -240,6 +279,7 @@ export function CancelDialog(
           note: note.trim() || undefined,
           otaPenaltyVnd: penaltyVnd ?? undefined,
           otaPenaltyChannelFeeVnd: penaltyVnd ? (penaltyFeeVnd ?? undefined) : undefined,
+          retainLines: retainLines.length ? retainLines : undefined,
         },
         version,
         idem,
@@ -298,31 +338,17 @@ export function CancelDialog(
       confirmLabel={hold ? t('cancel.confirm') : t('drawer.action.cancel_booking')}
       busy={act.busy}
       busyLabel={act.busyLabel}
-      confirmDisabled={!quote || act.locked}
-      confirmHelpId={!quote ? helpId : undefined}
+      confirmDisabled={!quoteCurrent || act.locked}
+      confirmHelpId={!quoteCurrent ? helpId : undefined}
       onKeep={props.onClose}
       onConfirm={() => void confirm()}
     >
       {hold ? <p className="li-s">{t('cancel.fee_none')}</p> : null}
-      {!quote && !quoteError ? (
-        <p className="li-s" id={helpId} role="status">
-          {t('cancel.preview_loading')}
+      {quote?.refundRequestVnd && quote.refundRequestVnd !== quote.refundableVnd ? (
+        <p className="li-s">
+          {t('cancel.refund_request', { amount: money(quote.refundRequestVnd) })}
         </p>
       ) : null}
-      {quoteError ? (
-        <Alert
-          tone="warn"
-          id={helpId}
-          actions={
-            <Button size="sm" onClick={() => setPreviewTick((n) => n + 1)}>
-              {t('common.retry')}
-            </Button>
-          }
-        >
-          {t('cancel.preview_failed')}
-        </Alert>
-      ) : null}
-      {act.errorView()}
       <Field label={t('cancel.reason')} required error={reasonError}>
         {(p) => (
           <select
@@ -393,6 +419,38 @@ export function CancelDialog(
           )}
         </Field>
       ) : null}
+      {/* FE-S4-15 (DS 6.1): consequence → reason (changes the dry run) → service lines → summary. */}
+      {quote?.serviceLines?.length ? (
+        <ServiceLinesPicker
+          lines={quote.serviceLines}
+          keep={keep}
+          onChange={setKeep}
+          showErrors={touched}
+          summary={{
+            reversedVnd: quote.serviceReversedVnd,
+            retainedVnd: quote.serviceRetainedVnd,
+          }}
+        />
+      ) : null}
+      {!quote && !quoteError ? (
+        <p className="li-s" id={helpId} role="status">
+          {t('cancel.preview_loading')}
+        </p>
+      ) : null}
+      {quoteError ? (
+        <Alert
+          tone="warn"
+          id={helpId}
+          actions={
+            <Button size="sm" onClick={() => setPreviewTick((n) => n + 1)}>
+              {t('common.retry')}
+            </Button>
+          }
+        >
+          {t('cancel.preview_failed')}
+        </Alert>
+      ) : null}
+      {act.errorView()}
       {props.canPostpone && !hold ? (
         <Button size="sm" variant="ghost" onClick={props.onPostpone}>
           {t('drawer.action.postpone')}
@@ -415,7 +473,7 @@ const METHODS: Array<{ value: PaymentMethod; key: string }> = [
  * written – a fresh Idempotency-Key is used for the next amount).
  */
 export function DepositDialog(props: DialogBase) {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
@@ -430,25 +488,90 @@ export function DepositDialog(props: DialogBase) {
   const value = parseVnd(amount) ?? 0;
   const amountError = touched && !(value > 0) ? t('field_error.amount_not_positive') : undefined;
   const ref = r.code.replace(/-/g, '');
+  // S4-28: the deposit VietQR waiting on the folio (created at H12 and sent to the guest) or created here.
+  const [pending, setPending] = useState<Payment | null>(null);
+  const [qr, setQr] = useState<VietQrResult | null>(null);
+  /** The QR payment already marked received (`confirmPaymentReceived`) – a retry only confirms the deposit. */
+  const [qrReceived, setQrReceived] = useState<string | null>(null);
+  const [qrExpired, setQrExpired] = useState(false);
+  const qrAct = useSubmit();
+  useEffect(() => {
+    let stale = false;
+    api.getFolio({ propertyId, folioId: r.folioId }).then(
+      (f) => !stale && setPending(pendingDepositQr(f.data.payments)),
+      () => undefined, // no folio read → the dialog still records the deposit by hand
+    );
+    return () => {
+      stale = true;
+    };
+  }, [propertyId, r.folioId]);
+  const qrPayment = qr?.payment ?? pending;
+  const viaQr = method === 'vietqr' && !!qrPayment && value === qrPayment.amountVnd;
+
+  /**
+   * US-120 / SM-12: money in on the QR the guest paid → `confirmPaymentReceived` (pending → succeeded,
+   * "chờ đối soát"), then B4 with `existingPaymentId` – never a second payment beside a QR left to expire.
+   */
+  const submitViaQr = async (paymentId: string) => {
+    let version: number | undefined;
+    if (qrReceived !== paymentId) {
+      let failed: unknown = null;
+      const ok = await qrAct.submit((idem) =>
+        api.confirmPaymentReceived({ propertyId }, paymentId, {}, idem).catch((e: unknown) => {
+          failed = e;
+          throw e;
+        }),
+      );
+      if (!ok) {
+        // 409 INVALID_TRANSITION carries the PAYMENT state: already received → go on with B4;
+        // expired → the money is recorded by hand (next press), the QR is gone.
+        const state =
+          isApiError(failed) && failed.code === 'INVALID_TRANSITION'
+            ? (failed.problem as { currentState?: string }).currentState
+            : undefined;
+        if (state === 'expired') {
+          qrAct.reset();
+          setQr(null);
+          setPending(null);
+          setQrExpired(true);
+        }
+        if (state !== 'succeeded') return undefined;
+        qrAct.reset();
+      }
+      setQrReceived(paymentId);
+      // The payment moved the booking's version (balance) – B4 needs the fresh If-Match.
+      version = (await props.reload())?.version;
+    }
+    return act.run((v, idem) =>
+      api.confirmDeposit(
+        { propertyId, reservationId: r.id },
+        { existingPaymentId: paymentId },
+        version ?? v,
+        idem,
+      ),
+    );
+  };
 
   const submit = async () => {
     setTouched(true);
     if (!(value > 0)) return;
-    const out = await act.run((version, idem) =>
-      api.confirmDeposit(
-        { propertyId, reservationId: r.id },
-        {
-          payment: {
-            type: 'deposit',
-            method,
-            amountVnd: value,
-            posAuthCode: method === 'card_pos' ? posCode.trim() || undefined : undefined,
-          },
-        },
-        version,
-        idem,
-      ),
-    );
+    const out = viaQr
+      ? await submitViaQr(qrPayment!.id)
+      : await act.run((version, idem) =>
+          api.confirmDeposit(
+            { propertyId, reservationId: r.id },
+            {
+              payment: {
+                type: 'deposit',
+                method,
+                amountVnd: value,
+                posAuthCode: method === 'card_pos' ? posCode.trim() || undefined : undefined,
+              },
+            },
+            version,
+            idem,
+          ),
+        );
     if (!out) return;
     if (out.data.status === 'hold') {
       // Partial (A-13): stay open with the new balance; refresh the drawer behind.
@@ -494,14 +617,34 @@ export function DepositDialog(props: DialogBase) {
           <div className="price-big">
             {vnd(need)} {t('common.vnd_unit')}
           </div>
-          <div className="li-s">{t('pay.qr_note', { ref })}</div>
+          <div className="li-s">{monoArgs(t, 'pay.qr_note', { ref }, ['ref'])}</div>
         </div>
       </div>
+      {/* FE-B – BUG-R2-081: what the CTV / sale reported (0.3.7 add. 1 `depositNotices`). */}
+      <DepositNotices reservation={r} />
+      {method === 'vietqr' && missing > 0 && !qrReceived ? (
+        <div className="mb-12">
+          <DepositQr
+            reservation={r}
+            pending={qr ? null : pending}
+            onQr={(x) => {
+              setQr(x);
+              setAmount(vnd(x.payment.amountVnd));
+            }}
+          />
+        </div>
+      ) : null}
       {paidBefore > 0 && missing > 0 ? (
         <Alert tone="warn" role="status">
           {t('error.DEPOSIT_INSUFFICIENT', { required: vnd(need), paid: vnd(paidBefore) })}
         </Alert>
       ) : null}
+      {qrExpired ? (
+        <Alert tone="warn" role="status">
+          {t('dep.qr_expired')}
+        </Alert>
+      ) : null}
+      {qrAct.view()}
       {act.errorView({ required: need, paid: paidBefore + value })}
       <div className="g-2">
         <Field
@@ -553,6 +696,9 @@ export function DepositDialog(props: DialogBase) {
         </Field>
       ) : null}
       {value > 0 && value < missing ? <p className="li-s">{t('rsv.deposit_partial')}</p> : null}
+      {method === 'vietqr' && qrPayment && value > 0 && !viaQr ? (
+        <p className="li-s">{t('dep.qr_amount_differs', { amount: money(qrPayment.amountVnd) })}</p>
+      ) : null}
       {method === 'bank_transfer' || method === 'vietqr' ? (
         <p className="li-s">{t('rsv.reconcile_note')}</p>
       ) : null}
@@ -649,30 +795,43 @@ const MOVE_REASONS: MoveReasonCode[] = [
 type MoveReason = MoveReasonCode;
 const MOVE_NOTE_REQUIRED: MoveReason[] = ['other', 'force_majeure'];
 const moveReasonKey = (c: MoveReason) => `move.reason.${c}`;
+/** ESC-019 A / BR-429: who asked for the move decides the price – guest → new room's rate, else kept. */
+const MOVE_GROUPS: Array<{ key: string; codes: MoveReason[] }> = [
+  { key: 'move.group_guest', codes: ['guest_request'] },
+  {
+    key: 'move.group_ottimo',
+    codes: ['property_fault', 'overbooking', 'upgrade', 'inventory_optimize', 'force_majeure'],
+  },
+  { key: 'move.group_other', codes: ['other'] },
+];
 
 /**
- * B7 (US-024 AC1) / B8 postpone (MGR+). Reason from the DOM list when UXD labels exist (`upgrade`
- * FDL+, `overbooking` only for conflict bookings, `force_majeure` only when postponing); until then a
- * free-text reason (`other` + note). OTA keeps its dates.
+ * B7 (US-024 AC1, AC5–AC7) / B8 postpone (MGR+). S4-21 (ESC-019 A, BR-429 v0.3.5): every change is
+ * priced by the server BEFORE saving (`previewMoveReservation` – same calc as the write). Reasons are
+ * grouped "khách xin" (new room's rate) / "OTTIMO đổi" (rate kept); a guest asking for another room
+ * must be told the new amount – the box "Đã báo khách số tiền mới" is required and the save sends
+ * `applyDifference` + `expectedDeltaVnd` = the figure shown (409 SURCHARGE_CHANGED → check again).
+ * `inventory_optimize` only while the room was not disclosed to the guest (BR-012 (4)); `upgrade` FDL+,
+ * `overbooking` only for conflict bookings, `force_majeure` only when postponing. OTA keeps its dates.
  */
 export function MoveDialog(
   props: DialogBase & { rooms: Room[]; ota: boolean; postpone?: boolean },
 ) {
   const { reservation: r, rooms, ota, postpone } = props;
-  const { t } = useI18n();
+  const { t, money } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const toast = useToast();
   const act = useAction(props);
+  const ids = useId();
   const lead = roles.some((x) => x === 'owner' || x === 'manager' || x === 'front_desk_lead');
   const mgr = roles.some((x) => x === 'owner' || x === 'manager');
   const listReady = MOVE_REASONS.every((c) => hasKey(moveReasonKey(c)));
-  const reasons = MOVE_REASONS.filter(
-    (c) =>
-      (c !== 'upgrade' || lead) &&
-      (c !== 'overbooking' || r.conflictState === 'open' || !!r.capacityConflict) &&
-      (c !== 'force_majeure' || (postpone && mgr)),
-  );
+  const allowed = (c: MoveReason) =>
+    (c !== 'upgrade' || lead) &&
+    (c !== 'overbooking' || r.conflictState === 'open' || !!r.capacityConflict) &&
+    (c !== 'force_majeure' || (postpone && mgr)) &&
+    (c !== 'inventory_optimize' || !r.roomDisclosedToGuest);
   const currentRoom = r.segments?.[0]?.roomId ?? '';
   const [roomId, setRoomId] = useState(currentRoom ?? '');
   const [arrival, setArrival] = useState(r.arrivalDate);
@@ -680,6 +839,9 @@ export function MoveDialog(
   const [reason, setReason] = useState<MoveReason>(listReady ? 'guest_request' : 'other');
   const [note, setNote] = useState('');
   const [touched, setTouched] = useState(false);
+  const [told, setTold] = useState(false);
+  /** 409 SURCHARGE_CHANGED: the amount the server now computes (shown until the box is ticked again). */
+  const [changedTo, setChangedTo] = useState<number | null>(null);
   /** A-20: OTA moved into a smaller room → warning + reason, saved with capacityConflict. */
   const [capReason, setCapReason] = useState('');
   const capWarn =
@@ -691,42 +853,124 @@ export function MoveDialog(
     touched && needNote && note.trim().length < 3
       ? t('field_error.reason_required')
       : act.fields.note;
-  const suggestions = suggestionsOf(act.error).filter((s) => !s.upgrade);
 
-  const submit = async (override?: string) => {
-    setTouched(true);
-    if (needNote && note.trim().length < 3) return;
-    if (capWarn && capReason.trim().length < 3) return;
-    const target = override ?? roomId;
-    if (override) setRoomId(override);
-    const out = await act.run((version, idem) =>
-      api.moveReservation(
+  // ---- S4-21: price check before saving (debounced; same inputs as the write) ----
+  const roomChanged = !postpone && !!roomId && roomId !== currentRoom;
+  const datesChanged = arrival !== r.arrivalDate || departure !== r.departureDate;
+  const changed = roomChanged || datesChanged;
+  const [tick, setTick] = useState(0);
+  const input = useDebounced(
+    JSON.stringify({ roomId, arrival, departure, reason, postpone: !!postpone, tick }),
+    300,
+  );
+  const [preview, setPreview] = useState<MovePreview | null>(null);
+  const [previewError, setPreviewError] = useState<unknown>(null);
+  const [previewFor, setPreviewFor] = useState('');
+  useEffect(() => {
+    const q = JSON.parse(input) as {
+      roomId: string;
+      arrival: string;
+      departure: string;
+      reason: MoveReason;
+      postpone: boolean;
+    };
+    const roomMoved = !q.postpone && !!q.roomId && q.roomId !== currentRoom;
+    const datesMoved = q.arrival !== r.arrivalDate || q.departure !== r.departureDate;
+    // FE-S4-08: the last result stays on screen (dimmed) until the new one is in – `current` decides.
+    setPreviewError(null);
+    setTold(false);
+    if (!roomMoved && !datesMoved) return;
+    let stale = false;
+    api
+      .previewMoveReservation(
         { propertyId, reservationId: r.id },
         {
-          roomId: target !== currentRoom ? target : undefined,
-          arrivalDate: arrival !== r.arrivalDate ? arrival : undefined,
-          departureDate: departure !== r.departureDate ? departure : undefined,
-          mode: postpone ? 'postpone_instead_of_cancel' : 'change',
-          reasonCode: reason,
-          note: note.trim() || undefined,
-          capacityWarningAckReason: capReason.trim() || undefined,
+          roomId: roomMoved ? q.roomId : undefined,
+          arrivalDate: q.arrival !== r.arrivalDate ? q.arrival : undefined,
+          departureDate: q.departure !== r.departureDate ? q.departure : undefined,
+          mode: q.postpone ? 'postpone_instead_of_cancel' : 'change',
+          reasonCode: q.reason,
         },
-        version,
-        idem,
-      ),
-    );
-    if (out) {
-      toast(
-        t('rsv.toast.moved', {
-          code: r.code,
-          room: out.data.segments?.[0]?.roomNo ?? '',
-          from: dayMonth(out.data.arrivalDate),
-          to: dayMonth(out.data.departureDate),
-        }),
+      )
+      .then(
+        (res) => {
+          if (stale) return;
+          setPreview(res.data);
+          setPreviewFor(input);
+        },
+        (e: unknown) => !stale && setPreviewError(e),
       );
-      props.onDone(out.data);
+    return () => {
+      stale = true;
+    };
+  }, [input, propertyId, r.id, r.arrivalDate, r.departureDate, currentRoom]);
+  const current =
+    preview !== null &&
+    previewFor ===
+      JSON.stringify({ roomId, arrival, departure, reason, postpone: !!postpone, tick });
+  // BR-429 (d) / BR-414: a guest asking for another room is told the new amount before saving.
+  const needTold = reason === 'guest_request' && roomChanged;
+  const suggestions = suggestionsOf(previewError ?? act.error).filter((s) => !s.upgrade);
+  const whyLocked = !changed
+    ? null
+    : !current
+      ? previewError
+        ? null
+        : t('move.save_needs_preview')
+      : needTold && !told
+        ? t('move.save_needs_told')
+        : null;
+  const canSave = !act.locked && (!changed || (current && (!needTold || told)));
+
+  const submit = async () => {
+    setTouched(true);
+    if (!canSave) return;
+    if (needNote && note.trim().length < 3) return;
+    if (capWarn && capReason.trim().length < 3) return;
+    let failed: unknown = null;
+    const out = await act.run((version, idem) =>
+      api
+        .moveReservation(
+          { propertyId, reservationId: r.id },
+          {
+            roomId: roomChanged ? roomId : undefined,
+            arrivalDate: arrival !== r.arrivalDate ? arrival : undefined,
+            departureDate: departure !== r.departureDate ? departure : undefined,
+            mode: postpone ? 'postpone_instead_of_cancel' : 'change',
+            reasonCode: reason,
+            note: note.trim() || undefined,
+            capacityWarningAckReason: capReason.trim() || undefined,
+            applyDifference: needTold ? true : undefined,
+            expectedDeltaVnd: needTold && preview ? preview.folioDeltaVnd : undefined,
+          },
+          version,
+          idem,
+        )
+        .catch((e: unknown) => {
+          failed = e;
+          throw e;
+        }),
+    );
+    if (!out) {
+      if (isApiError(failed) && failed.code === 'SURCHARGE_CHANGED') {
+        // The price moved since the guest was told: check again, tell again, tick again.
+        const now = (failed.problem as { surchargeVnd?: number }).surchargeVnd;
+        setChangedTo(typeof now === 'number' ? now : null);
+        setTick((n) => n + 1);
+      }
+      return;
     }
+    toast(
+      t('rsv.toast.moved', {
+        code: r.code,
+        room: out.data.segments?.[0]?.roomNo ?? '',
+        from: dayMonth(out.data.arrivalDate),
+        to: dayMonth(out.data.departureDate),
+      }),
+    );
+    props.onDone(out.data);
   };
+  const surchargeChanged = isApiError(act.error) && act.error.code === 'SURCHARGE_CHANGED';
   return (
     <Modal
       open
@@ -736,12 +980,19 @@ export function MoveDialog(
       closeLabel={t('common.close')}
       footer={
         <>
+          {whyLocked ? (
+            <span className="li-s" id={`${ids}-why`}>
+              {whyLocked}
+            </span>
+          ) : null}
           <Button onClick={props.onClose}>{t('common.cancel')}</Button>
           <Button
             variant="pri"
             busy={act.busy}
             busyLabel={act.busyLabel}
             disabled={act.locked}
+            aria-disabled={!canSave || undefined}
+            aria-describedby={whyLocked ? `${ids}-why` : undefined}
             onClick={() => void submit()}
           >
             {t('rsv.move_submit')}
@@ -777,18 +1028,15 @@ export function MoveDialog(
             )}
           </Field>
         </Alert>
+      ) : surchargeChanged ? (
+        <Alert tone="warn" role="alert">
+          {changedTo !== null
+            ? t('move.delta_changed', { amount: money(changedTo) })
+            : act.errorView()}
+        </Alert>
       ) : (
         act.errorView()
       )}
-      {suggestions.length ? (
-        <div className="conflict-list">
-          {suggestions.map((s) => (
-            <Button key={s.roomId} size="sm" onClick={() => void submit(s.roomId)}>
-              {t('bk.use_room', { room: s.roomNo })}
-            </Button>
-          ))}
-        </div>
-      ) : null}
       {!postpone ? (
         <Field label={t('booking.field.room')}>
           {(p) => (
@@ -850,11 +1098,18 @@ export function MoveDialog(
               value={reason}
               onChange={(e) => setReason(e.target.value as MoveReason)}
             >
-              {reasons.map((c) => (
-                <option key={c} value={c}>
-                  {t(moveReasonKey(c))}
-                </option>
-              ))}
+              {MOVE_GROUPS.map((grp) => {
+                const codes = grp.codes.filter(allowed);
+                return codes.length ? (
+                  <optgroup key={grp.key} label={t(grp.key)}>
+                    {codes.map((c) => (
+                      <option key={c} value={c}>
+                        {t(moveReasonKey(c))}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null;
+              })}
             </select>
           )}
         </Field>
@@ -872,7 +1127,58 @@ export function MoveDialog(
           )}
         </Field>
       ) : null}
-      <p className="li-s">{t('rsv.move_price_note')}</p>
+      {!changed ? (
+        <p className="li-s">
+          {reason === 'guest_request'
+            ? t(ota ? 'move.basis.ota' : 'move.basis.new_room_rate')
+            : t('move.basis.keep_booked_rate')}
+        </p>
+      ) : current ? (
+        <MovePreviewBox preview={preview!} ota={ota} />
+      ) : preview && !previewError ? (
+        <MovePreviewBox preview={preview} ota={ota} stale />
+      ) : previewError ? (
+        <>
+          <Alert
+            tone="bad"
+            actions={
+              isApiError(previewError) && previewError.status < 500 ? undefined : (
+                <Button size="sm" onClick={() => setTick((n) => n + 1)}>
+                  {t('common.retry')}
+                </Button>
+              )
+            }
+          >
+            {isApiError(previewError) && previewError.status < 500
+              ? rsvErrorText(t, previewError, { roomNo: undefined, canSeeGuest: true })
+              : t('move.preview_failed')}
+          </Alert>
+          {suggestions.length ? (
+            <div className="conflict-list">
+              {suggestions.map((s) => (
+                <Button key={s.roomId} size="sm" onClick={() => setRoomId(s.roomId)}>
+                  {t('bk.use_room', { room: s.roomNo })}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="li-s" role="status">
+          {t('move.preview_loading')}
+        </p>
+      )}
+      {current && needTold ? (
+        <Checkbox
+          checked={told}
+          onChange={(v) => {
+            setTold(v);
+            if (v) setChangedTo(null);
+          }}
+        >
+          {t('move.told_guest')} *
+        </Checkbox>
+      ) : null}
     </Modal>
   );
 }
@@ -892,16 +1198,41 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
   const [contact, setContact] = useState('');
   const [detail, setDetail] = useState('');
   const helpId = useId();
+  const linesId = useId();
   const note = [contact ? t(contact) : '', detail.trim()].filter(Boolean).join(' – ');
-  const ready = note.length >= 3;
   const room = r.segments?.[0]?.roomNo ?? '–';
   const ota = r.paymentModel !== 'direct';
   const availableFrom = problemOf(act.error)?.availableFrom;
+  // S4-08 (BR-309 also on no-show): service lines from the folio (no dry run) – kept ones need a reason.
+  const [lines, setLines] = useState<ServiceLine[] | null>(null);
+  const [linesError, setLinesError] = useState(false);
+  const [linesTick, setLinesTick] = useState(0);
+  const [keep, setKeep] = useState<KeepState>({});
+  const [touched, setTouched] = useState(false);
+  useEffect(() => {
+    let stale = false;
+    setLinesError(false);
+    api.getFolio({ propertyId, folioId: r.folioId }).then(
+      (f) => !stale && setLines(serviceLinesOfFolio(f.data, todayLocal())),
+      () => !stale && setLinesError(true),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [propertyId, r.folioId, linesTick]);
+  const ready = note.length >= 3 && lines !== null;
 
   const submit = async () => {
-    if (!ready) return;
+    setTouched(true);
+    if (!ready || keepIncomplete(keep)) return;
+    const retainLines = retainLinesOf(keep);
     const out = await act.run((version, idem) =>
-      api.markNoShow({ propertyId, reservationId: r.id }, note, version, idem),
+      api.markNoShow(
+        { propertyId, reservationId: r.id },
+        { contactAttemptNote: note, retainLines: retainLines.length ? retainLines : undefined },
+        version,
+        idem,
+      ),
     );
     if (out) {
       toast(t('rsv.toast.no_show', { code: r.code }));
@@ -931,7 +1262,7 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
       busy={act.busy}
       busyLabel={act.busyLabel}
       confirmDisabled={!ready || act.locked}
-      confirmHelpId={!ready ? helpId : undefined}
+      confirmHelpId={note.length < 3 ? helpId : lines === null ? linesId : undefined}
       onKeep={props.onClose}
       onConfirm={() => void submit()}
     >
@@ -970,7 +1301,27 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
           />
         )}
       </Field>
-      {!ready ? (
+      {/* FE-S4-13 (DS 7, C1): loading and failure are said, and the locked button points to them. */}
+      {linesError ? (
+        <Alert
+          tone="warn"
+          id={linesId}
+          actions={
+            <Button size="sm" onClick={() => setLinesTick((n) => n + 1)}>
+              {t('common.retry')}
+            </Button>
+          }
+        >
+          {t('svc.load_failed')}
+        </Alert>
+      ) : lines === null ? (
+        <p className="li-s" role="status" id={linesId}>
+          {t('svc.loading')}
+        </p>
+      ) : lines.length ? (
+        <ServiceLinesPicker lines={lines} keep={keep} onChange={setKeep} showErrors={touched} />
+      ) : null}
+      {note.length < 3 ? (
         <p className="li-s" id={helpId}>
           {t('field_error.reason_required')}
         </p>
@@ -1245,8 +1596,9 @@ export function AssignRoomDialog(
 }
 
 /**
- * A53 – CTV: "Báo đã chuyển cọc" (US-086 AC4); FD / sale confirm with B4 afterwards. No receipt image
- * field in R2 (0.3.5 A-17: `attachmentId` is rejected until file upload is reviewed – Sprint 3).
+ * A53 – CTV: "Báo đã chuyển cọc" (US-086 AC4); FD / sale confirm with B4 afterwards. S4-30: with the receipt
+ * photo (`attachmentId`, accepted since 0.3.6 – SEC I1). The desk reads it back in "Xác nhận cọc"
+ * (`Reservation.depositNotices[]`, 0.3.7 add. 1 – BUG-R2-081, `DepositNotices.tsx`).
  */
 export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onDone' | 'onClose'>) {
   const { reservation: r } = props;
@@ -1258,23 +1610,47 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
   const busy = write.busy;
   const [amount, setAmount] = useState(r.depositRequiredVnd ? vnd(r.depositRequiredVnd) : '');
   const [note, setNote] = useState('');
+  // S4-30 (US-086 AC4): the receipt photo goes with the report (`uploadAttachment purpose=deposit_receipt`,
+  // the same click's key derived for the upload) – the file stays in memory only.
+  const [receipt, setReceipt] = useState<File | null>(null);
   const [error, setError] = useState<unknown>(null);
+  // FB-R2-UXD-FE-S4-17: the photo upload failed (network / 5xx) – amount and photo are still here.
+  const [uploadFailed, setUploadFailed] = useState(false);
   const value = parseVnd(amount) ?? 0;
   const submit = async () => {
     if (!(value > 0) || busy) return;
     setError(null);
+    setUploadFailed(false);
+    let atUpload = false;
     try {
-      await write.run((idem) =>
-        api.createDepositNotice(
+      await write.run(async (idem) => {
+        atUpload = !!receipt;
+        const attachmentId = receipt
+          ? (
+              await api.uploadAttachment(
+                { propertyId },
+                receipt,
+                'deposit_receipt',
+                deriveIdempotencyKey(idem, 'attachment'),
+                r.id,
+              )
+            ).data.id
+          : undefined;
+        atUpload = false;
+        return api.createDepositNotice(
           { propertyId, reservationId: r.id },
-          { amountVnd: value, note: note.trim() || undefined },
+          { amountVnd: value, note: note.trim() || undefined, attachmentId },
           idem,
-        ),
-      );
+        );
+      });
       toast(t('drawer.deposit_notice.sent', { time: timeHHmm(new Date()) }));
       props.onDone();
     } catch (e) {
-      if (!isRetryable(e)) setError(e);
+      if (isRetryable(e)) return;
+      // A rejected file (422 FILE_REJECTED) keeps its own sentence; anything else at the upload step is
+      // "photo not sent – try again".
+      setUploadFailed(atUpload && !(isApiError(e) && e.status === 422));
+      setError(e);
     }
   };
   return (
@@ -1300,7 +1676,11 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
       }
     >
       {write.notice}
-      {error ? <Alert tone="bad">{rsvErrorText(t, error)}</Alert> : null}
+      {error ? (
+        <Alert tone="bad">
+          {uploadFailed ? t('rsv.receipt_upload_failed') : rsvErrorText(t, error)}
+        </Alert>
+      ) : null}
       <Field label={t('rsv.amount_sent')} required>
         {(p) => (
           <div className="input-affix">
@@ -1326,6 +1706,8 @@ export function DepositNoticeDialog(props: Pick<DialogBase, 'reservation' | 'onD
           />
         )}
       </Field>
+      <FilePicker label={t('rsv.attach_receipt')} file={receipt} onChange={setReceipt} />
+      <p className="help muted">{t('rsv.receipt_help')}</p>
       <p className="help muted">{t('drawer.deposit_notice.help')}</p>
     </Modal>
   );

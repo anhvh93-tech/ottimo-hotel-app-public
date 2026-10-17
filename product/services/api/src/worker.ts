@@ -12,6 +12,11 @@ import { AuditService } from './modules/audit/public/audit.service';
 import { ParameterService } from './modules/platform/public/parameter.service';
 import { registrationWorkerJobs } from './modules/registration/public/worker-jobs';
 import { reservationWorkerJobs } from './modules/reservations/public/worker-jobs';
+import { EventsService } from './modules/events/public/events.service';
+import { holdReminderJob } from './modules/reporting/public/hold-reminder-job';
+import { guestRequestSlaJob } from './modules/guest-portal/public/guest-request-jobs';
+import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
+import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
@@ -36,6 +41,16 @@ async function main(): Promise<void> {
     registry.register(job);
   // J24 payment.expire (BE-A, Sprint 3): pending VietQR past expires_at → expired.
   registry.register(paymentExpiryJob(audit));
+  // J2 hold.remind (BE-D, Sprint 4): reminder before a hold expires (US-085 AC2, BR-303).
+  registry.register(holdReminderJob(new EventsService(), parameters));
+  // J10 guest_request.sla (BE-D, Sprint 4): request still `new` after its reply deadline (US-110 AC2, BR-811).
+  registry.register(guestRequestSlaJob(new EventsService()));
+  // J8 hk.daily + J11 work_order.sla (BE-C, Sprint 4): stay-over cleaning, carry-over, R5, work-order deadlines.
+  for (const job of housekeepingWorkerJobs({ parameters, events: new EventsService() }))
+    registry.register(job);
+  // J25 guest.document_profile_anonymize (BE-C, Sprint 4 – T05): `document` profiles without P05.
+  for (const job of guestsWorkerJobs({ clock: rt.clock, audit, parameters }))
+    registry.register(job);
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
   log('info', 'worker started', { jobs: registry.keys() });
 

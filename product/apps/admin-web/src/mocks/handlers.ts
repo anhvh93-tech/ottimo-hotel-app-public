@@ -11,6 +11,8 @@ import {
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
 import { nameSearchKey, normalizePhone } from '../app/validation';
+import { createDashboardMock } from './dashboard';
+import { createOpsMock } from './ops';
 import { createReservationMock } from './reservations';
 import { createStayMock } from './stay';
 import {
@@ -77,12 +79,33 @@ const stay = createStayMock({
   rsv: () => reservations,
 });
 
+// Sprint 4 FE-B (EP07/EP08/EP14/EP09 Desk): housekeeping, work orders + room blocks, guest requests, minibar.
+const ops = createOpsMock({
+  guard: (request, allowed, opts) => guard(request, allowed, opts),
+  problem: (status, code, extra) => problem(status, code, extra),
+  db: () => db,
+  rsv: () => reservations.state,
+  roomStatus: () => stay.state.roomStatus,
+  attachments: () => stay.state.attachments,
+});
+
+// Sprint 4 FE-B (EP01 – H03/H24): KPI, arrivals/departures, "Cần chú ý" computed from the mocks above.
+const dashboard = createDashboardMock({
+  guard: (request, allowed) => guard(request, allowed),
+  problem: (status, code, extra) => problem(status, code, extra),
+  db: () => db,
+  rsv: () => reservations.state,
+  extra: () => [...stay.registrationAttention(), ...ops.attentionItems()],
+});
+
 /** Reset state between tests / from the browser console (`__ottimoMock.reset()`). */
 export const mockControl = {
   reset() {
     db = makeDb();
     reservations.reset();
     stay.reset();
+    ops.reset();
+    dashboard.reset();
     persist();
   },
   failNext(
@@ -106,6 +129,14 @@ export const mockControl = {
   /** Sprint 3 mock state (folios, payments, approvals, registrations…) for tests. */
   get stay() {
     return stay.state;
+  },
+  /** Sprint 4 EP01 mock (stored "Cần chú ý" events) for tests / the H24 SSE simulation. */
+  get dashboard() {
+    return dashboard;
+  },
+  /** Sprint 4 Desk ops mock (work orders, blocks, tasks, requests, minibar meta) for tests. */
+  get ops() {
+    return ops.state;
   },
 };
 
@@ -345,6 +376,9 @@ export const handlers = [
       return validation([{ field: 'Idempotency-Key', code: 'VALIDATION_FAILED' }]);
     return undefined;
   }),
+  // EP01 first: its `GET …/attention` (full BR-907 list, incl. the stay item) wins over the S3 one in stay.ts.
+  ...dashboard.handlers,
+  ...ops.handlers,
   ...stay.handlers,
   ...reservations.handlers,
   // ---------- auth (S01) ----------

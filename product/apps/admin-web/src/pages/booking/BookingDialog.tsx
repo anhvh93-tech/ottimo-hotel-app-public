@@ -147,6 +147,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestError, setRequestError] = useState<unknown>(null);
   const [conflict, setConflict] = useState<unknown>(null);
+  /**
+   * BUG-R2-076 (P-S4-2): a room picked from a conflict / min-stay suggestion is NOT booked at once – its
+   * per-night prices and total (server `calculateQuote` for that room) are shown first, one click creates.
+   */
+  const [useRoom, setUseRoom] = useState<string | null>(null);
   const [rateWarn, setRateWarn] = useState(false);
   /** 0.3.5 A-20: OTA booking above the room maximum → warning + reason, saved with capacityConflict. */
   const [capWarn, setCapWarn] = useState<{ room: string; max: string; n: number } | null>(null);
@@ -566,10 +571,68 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       busy={busy !== null}
       onUseRoom={(roomId) => {
         set({ roomId });
-        void submit(undefined, { roomId });
+        setUseRoom(roomId);
       }}
       onSaveUnassigned={() => setAskUnassigned(true)}
     />
+  ) : null;
+
+  // BUG-R2-076: the suggested room's price before creating (direct/agent: server price of THAT room;
+  // OTA: the amounts the desk typed – a room change does not reprice an OTA booking).
+  const picked = useRoom && useRoom === form.roomId ? room : undefined;
+  const pickedPriced = !!picked && (!directLike || calc?.roomId === picked.id);
+  const pickedNights = !picked
+    ? []
+    : directLike
+      ? (calc?.nightlyRates ?? []).map((n) => ({ date: n.date, amountVnd: n.amountVnd }))
+      : rateList.map((r) => ({ date: r.date, amountVnd: parseVnd(r.raw) ?? 0 }));
+  const pickedTotal = directLike
+    ? (calc?.totalVnd ?? 0)
+    : pickedNights.reduce((a, n) => a + n.amountVnd, 0);
+  const useRoomView = picked ? (
+    <Alert
+      tone="info"
+      role="status"
+      title={t('bk.use_room_check', { room: picked.roomNo })}
+      actions={
+        <Button
+          size="sm"
+          variant="pri"
+          busy={busy === 'create'}
+          disabled={busy !== null || !pickedPriced}
+          onClick={() => void submit(undefined, { roomId: picked.id })}
+        >
+          {t('bk.use_room_confirm', { room: picked.roomNo })}
+        </Button>
+      }
+    >
+      {pickedPriced ? (
+        <table className="sum">
+          <tbody>
+            {pickedNights.map((n) => (
+              <tr key={n.date}>
+                <td>{dayMonth(n.date)}</td>
+                <td className="r num">{vnd(n.amountVnd)}</td>
+              </tr>
+            ))}
+            {directLike && calc?.extraPersonFeeVnd ? (
+              <tr>
+                <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? 0, nights })}</td>
+                <td className="r num">{vnd(calc.extraPersonFeeVnd)}</td>
+              </tr>
+            ) : null}
+            <tr className="total">
+              <td>{t('bk.total')}</td>
+              <td className="r num">
+                {vnd(pickedTotal)} {t('common.vnd_unit')}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      ) : (
+        <p className="li-s">{t('bk.use_room_pricing', { room: picked.roomNo })}</p>
+      )}
+    </Alert>
   ) : null;
 
   const reasonText = (reason?: string) =>
@@ -654,7 +717,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {rsvErrorText(t, requestError, { canSeeGuest: true, roomNo: room?.roomNo, locale })}
           </Alert>
         ) : null}
-        {conflictView}
+        {conflictView ?? useRoomView}
         {longStay ? (
           <Alert
             tone="info"
@@ -768,7 +831,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                   set({ roomId: x.roomId });
                   setMinStay(null);
                   setMinStaySuggest([]);
-                  void submit(undefined, { roomId: x.roomId });
+                  setUseRoom(x.roomId);
                 }}
               >
                 {t('bk.use_room_orphan', { room: x.roomNo })}

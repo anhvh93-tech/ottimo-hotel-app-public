@@ -8,20 +8,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
-import { problem } from '../../../shared/problem';
+import { ProblemError, problem } from '../../../shared/problem';
 import { type LocalDate, type LocalTime, addDays, businessDate } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
-import {
-  applyNightDiscount,
-  applyPct,
-  losDiscountPct,
-  nightDates,
-} from '../../reservations/public/pricing';
+import { applyPct, nightDates } from '../../reservations/public/pricing';
+import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
   type BookingContext,
+  type BookingMovePlan,
   Fields,
   MGR_PLUS,
   type ReservationRow,
@@ -33,6 +30,7 @@ import {
   insertSegment,
   liveNightRows,
   loadReservation,
+  moveCauseOf,
   outboxAvailability,
   recordChange,
   recordTransition,
@@ -711,6 +709,10 @@ export class StayService {
     const workOrderId = f.uuid('workOrderId', false);
     const vacated = f.bool('oldRoomVacated') ?? true;
     const applyDifference = f.bool('applyDifference') ?? false;
+    // 0.3.7 (S4-09, BR-424 v0.3.6): "khách đồng ý – chỉ chuyển tới hết đơn gốc".
+    const stayScope =
+      f.enumOf('stayScope', ['whole_stay', 'until_parent_departure'] as const, false) ??
+      'whole_stay';
     const expectedDelta = body.expectedDeltaVnd;
     if (
       expectedDelta !== undefined &&
@@ -742,7 +744,20 @@ export class StayService {
         stays.push(await loadReservation(tx, cid, ctx.actor, { forUpdate: !dryRun }));
       }
     }
-    const moving = stays.filter((b) => b.departure_date > from);
+    const withNights = stays.filter((b) => b.departure_date > from);
+    const childStays = withNights.filter((b) => b.id !== row.id);
+    // S4-09: the child bookings (extension nights) stay in the old room; the guest moves back to it on the
+    // first night of the children (`returnToRoomDate`). A stay without such nights has nothing to keep back.
+    if (stayScope === 'until_parent_departure' && childStays.length === 0) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'stayScope', code: 'NOT_ALLOWED' }],
+      });
+    }
+    const parentOnly = stayScope === 'until_parent_departure';
+    const moving = parentOnly ? withNights.filter((b) => b.id === row.id) : withNights;
+    const returnToRoomDate = parentOnly
+      ? childStays.map((b) => b.arrival_date).sort()[0]
+      : undefined;
     const segsOf = new Map<string, SegmentRow[]>();
     for (const b of moving) {
       segsOf.set(
@@ -768,123 +783,97 @@ export class StayService {
       });
     }
     const status = await this.s.roomStatus.of(tx, newRoom.id, ctx.today);
-    // Free up to the effective departure – the child nights included (never left behind silently).
-    const to = eff.departureDate;
+    // Free up to the effective departure – the child nights included (never left behind silently) – or, when
+    // the guest agreed to move only until the end of the primary booking (S4-09), up to that departure.
+    const to = parentOnly ? row.departure_date : eff.departureDate;
     const ownSegIds = allSegs.map((s) => s.id);
     if (!(await this.s.occupancy.isFree(tx, newRoom.id, from, to, ownSegIds))) {
-      throw await this.s.occupancy.unavailable(
+      const err = await this.s.occupancy.unavailable(
         tx,
         { roomId: newRoom.id, from, to, persons: this.s.counted(row), exclude: ownSegIds },
         { withNames: true },
       );
+      // 0.3.7 (S4-09): the new room is free until the end of the primary booking → the desk can ask the guest.
+      const parentOnlyAvailable =
+        !parentOnly &&
+        childStays.length > 0 &&
+        (await this.s.occupancy.isFree(tx, newRoom.id, from, row.departure_date, ownSegIds));
+      throw parentOnlyAvailable
+        ? new ProblemError(err.code, {
+            ...err.options,
+            extras: { ...(err.options.extras ?? {}), parentOnlyAvailable: true },
+          })
+        : err;
     }
     if (status !== 'VI' && status !== 'VC') {
       throw problem('ROOM_NOT_READY', { extras: { roomNo: newRoom.room_no, roomStatus: status } });
     }
 
-    // Prices of the nights moved (BR-424), booking by booking: fault → keep; guest request → new room calendar
-    // (direct/agent re-tiered D-8); OTA guest request → OTA price kept, positive difference collected at the desk
-    // (DOM S3-15: direct(new room) − direct(old room) per night, one line per night – B16 reverses dropped ones).
-    const plans: Array<{
-      b: ReservationRow;
-      ota: boolean;
-      nights: Array<{ date: LocalDate; oldRateVnd: number; newRateVnd: number }>;
-      otaDiffs: Array<{ date: LocalDate; amountVnd: number }>;
-      roomDelta: number;
-      feeChanges: Array<{ date: LocalDate; feeVnd: number; count: number }>;
-      extraDelta: number;
-      pct: number;
-      tiered: boolean;
-    }> = [];
-    for (const b of moving) {
-      const dates = nightDates(b.arrival_date > from ? b.arrival_date : from, b.departure_date);
-      const kept = await this.s.stay.pricedNights(tx, b);
-      const ota = b.channel_group === 'ota';
-      const tiered = !ota && !b.external_contract && b.channel_group !== 'internal';
-      const roomOfNight = (date: LocalDate) =>
-        (segsOf.get(b.id) ?? []).find((s) => s.from_date <= date && s.to_date > date)?.room_id ??
-        oldRoom.id;
-      let pct = 0;
-      const nights: Array<{ date: LocalDate; oldRateVnd: number; newRateVnd: number }> = [];
-      const otaDiffs: Array<{ date: LocalDate; amountVnd: number }> = [];
-      for (const n of kept.filter((k) => dates.includes(k.date))) {
-        let next = n.amountVnd;
-        if (cause === 'guest_request' && (tiered || ota)) {
-          const direct = await this.s.directRate(tx, ctx, newRoom.id, n.date);
-          if (tiered) {
-            pct = losDiscountPct(kept.length, ctx.params.losTiers);
-            next = applyNightDiscount([direct.rateVnd], pct, ctx.params.nightRateUnit)[0] as number;
-          } else {
-            const before = await this.s.directRate(tx, ctx, roomOfNight(n.date), n.date);
-            const diff = Math.max(0, direct.rateVnd - before.rateVnd);
-            if (diff > 0) otaDiffs.push({ date: n.date, amountVnd: diff });
-          }
-        }
-        nights.push({
-          date: n.date,
-          oldRateVnd: n.amountVnd,
-          newRateVnd: ota ? n.amountVnd : next,
-        });
+    // Money of the nights moved – ONE calculation for dryRun and the write (OpenAPI 0.3.7 D1, ARC 10.4; S4-04,
+    // S4-05, S4-07), booking by booking (primary + in-house children): fault → booked prices kept, BR-110 fee
+    // min(old, new); guest request → new room calendar (direct/agent, D-8 re-tier), fee of the new room; OTA guest
+    // request → OTA price kept, difference against the ORIGIN room per night, reversed and re-posted (BR-424).
+    // The write plans again under the locks (rooms, then folio) and compares with the amount the desk showed.
+    const plan = async (): Promise<BookingMovePlan[]> => {
+      const out: BookingMovePlan[] = [];
+      for (const b of moving) {
+        out.push(
+          await this.s.stay.planMove(tx, ctx, {
+            row: b,
+            flow: 'B14',
+            cause: moveCauseOf(cause as string),
+            fromDate: from,
+            arrival: b.arrival_date,
+            departure: b.departure_date,
+            newRoom,
+          }),
+        );
       }
-      // BR-110 per night (DOM S3-13): guest request → base of the new room; property fault → min(old, new) (an
-      // OTTIMO fault never makes the guest pay more).
-      const party = {
-        adults: b.adults,
-        children6to11: b.children_6_11,
-        childrenUnder6: b.children_under_6,
+      return out;
+    };
+    const previewOf = (plans: BookingMovePlan[]) => {
+      const ota = plans.some(
+        (p) => moving.find((b) => b.id === p.reservationId)?.channel_group === 'ota',
+      );
+      // Folio change the guest sees: lines − FOC that follows (BE-B allocation) – the write re-plans the same.
+      const delta = plans.reduce((a, p) => a + p.folioDeltaVnd, 0);
+      return {
+        delta,
+        preview: {
+          nights: plans
+            .flatMap((p) =>
+              p.nights.map((n) => ({
+                date: n.date,
+                oldRateVnd: n.oldGrossVnd ?? n.newGrossVnd,
+                newRateVnd: n.newGrossVnd,
+              })),
+            )
+            .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+          folioDeltaVnd: delta,
+          ...(ota ? { roomChangeDifferenceVnd: plans.reduce((a, p) => a + p.diffNewVnd, 0) } : {}),
+          losDiscountPct: plans.find((p) => p.losPct > 0)?.losPct ?? 0,
+          extraGuestKitTransfer: oldExtra > 0 && newExtra > 0,
+          newRoomStatus: status,
+          stayScope,
+          ...(returnToRoomDate ? { returnToRoomDate } : {}),
+        },
       };
-      const current = new Map((await this.s.stay.nightFees(tx, b)).map((x) => [x.date, x]));
-      const inNew = this.s.stay.nightExtra(ctx, b, party, newRoom.base_occupancy);
-      const feeChanges: Array<{ date: LocalDate; feeVnd: number; count: number }> = [];
-      let extraDelta = 0;
-      for (const n of nights) {
-        const was = current.get(n.date);
-        const before = was?.feeVnd ?? 0;
-        // property_fault: min(old room, new room) – the count printed follows the fee kept.
-        const keepOld = cause === 'property_fault' && before <= inNew.feeVnd;
-        const fee = keepOld ? before : inNew.feeVnd;
-        feeChanges.push({
-          date: n.date,
-          feeVnd: fee,
-          count: keepOld ? (was?.count ?? 0) : inNew.count,
-        });
-        extraDelta += fee - before;
-      }
-      plans.push({
-        b,
-        ota,
-        nights,
-        otaDiffs,
-        roomDelta: nights.reduce((a, x) => a + x.newRateVnd - x.oldRateVnd, 0),
-        feeChanges,
-        extraDelta,
-        pct,
-        tiered,
-      });
-    }
-    const otaDifference = plans.reduce(
-      (a, p) => a + p.otaDiffs.reduce((s, d) => s + d.amountVnd, 0),
-      0,
-    );
-    const delta = plans.reduce(
-      (a, p) =>
-        a + (p.ota ? p.otaDiffs.reduce((s, d) => s + d.amountVnd, 0) : p.roomDelta) + p.extraDelta,
-      0,
-    );
+    };
     const newExtra = Math.max(0, this.s.counted(row) - newRoom.base_occupancy);
     const oldExtra = Math.max(0, this.s.counted(row) - oldRoom.base_occupancy);
-    const preview = {
-      nights: plans
-        .flatMap((p) => p.nights)
-        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
-      folioDeltaVnd: delta,
-      ...(plans.some((p) => p.ota) ? { roomChangeDifferenceVnd: otaDifference } : {}),
-      losDiscountPct: plans.find((p) => p.tiered && p.pct > 0)?.pct ?? 0,
-      extraGuestKitTransfer: oldExtra > 0 && newExtra > 0,
-      newRoomStatus: status,
-    };
-    if (dryRun) return { preview };
+    if (dryRun) return { preview: previewOf(await plan()).preview };
 
+    // ── writes (lock order: reservation → rooms ascending → folio) ──
+    await this.s.occupancy.lockRooms(tx, [
+      ...new Set([
+        oldRoom.id,
+        newRoom.id,
+        ...allSegs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
+      ]),
+    ]);
+    await this.s.stay.lockFolio(tx, row);
+    const plans = await plan();
+    const { delta } = previewOf(plans);
     if (delta !== 0) {
       if (!applyDifference) {
         throw problem('VALIDATION_FAILED', {
@@ -898,20 +887,12 @@ export class StayService {
         });
       }
     }
-
-    // ── writes (lock order: reservation → rooms ascending → folio) ──
-    await this.s.occupancy.lockRooms(tx, [
-      ...new Set([
-        oldRoom.id,
-        newRoom.id,
-        ...allSegs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
-      ]),
-    ]);
     await this.s.stay.assertCapacityStable(tx, [newRoom]);
     const released: Array<{ roomId: string | null; from: LocalDate; to: LocalDate }> = [];
     for (const p of plans) {
+      const b = moving.find((x) => x.id === p.reservationId) as ReservationRow;
       const segOfNight = new Map<LocalDate, string>();
-      for (const sg of segsOf.get(p.b.id) ?? []) {
+      for (const sg of segsOf.get(b.id) ?? []) {
         const start = sg.from_date > from ? sg.from_date : from;
         if (sg.room_id === newRoom.id) {
           for (const d of nightDates(start, sg.to_date)) segOfNight.set(d, sg.id);
@@ -923,7 +904,7 @@ export class StayService {
             { segmentId: sg.id },
             { roomId: newRoom.id, from: sg.from_date, to: sg.to_date },
             ctx.now,
-            { withNames: true, persons: this.s.counted(p.b), excludeSegmentIds: [sg.id] },
+            { withNames: true, persons: this.s.counted(b), excludeSegmentIds: [sg.id] },
           );
           await tx.query(
             `UPDATE reservation_segment SET room_id = $2, change_reason_code = $3, change_note = $4, updated_at = $5
@@ -937,13 +918,13 @@ export class StayService {
             { segmentId: sg.id },
             { roomId: sg.room_id ?? oldRoom.id, from: sg.from_date, to: from },
             ctx.now,
-            { withNames: true, persons: this.s.counted(p.b), excludeSegmentIds: [sg.id] },
+            { withNames: true, persons: this.s.counted(b), excludeSegmentIds: [sg.id] },
           );
           await tx.query(
             'UPDATE reservation_segment SET to_date = $2, updated_at = $3 WHERE id = $1',
             [sg.id, from, ctx.now],
           );
-          const newSegId = await insertSegment(tx, p.b.id, newRoom.id, from, sg.to_date, ctx.now);
+          const newSegId = await insertSegment(tx, b.id, newRoom.id, from, sg.to_date, ctx.now);
           await tx.query(
             'UPDATE reservation_segment SET change_reason_code = $2, change_note = $3 WHERE id = $1',
             [newSegId, cause, reason],
@@ -958,39 +939,14 @@ export class StayService {
               segmentId: newSegId,
               now: ctx.now,
             },
-            { withNames: true, persons: this.s.counted(p.b) },
+            { withNames: true, persons: this.s.counted(b) },
           );
           for (const d of nightDates(from, sg.to_date)) segOfNight.set(d, newSegId);
         }
         released.push({ roomId: sg.room_id, from: start, to: sg.to_date });
       }
-      for (const n of p.nights) {
-        await tx.query(
-          `UPDATE stay_night SET reservation_segment_id = COALESCE($3::uuid, reservation_segment_id), room_id = $4,
-                  room_revenue_gross_vnd = $5::bigint, room_revenue_vnd = $5::bigint - discount_vnd,
-                  calendar_rate_vnd = CASE WHEN $6::boolean THEN $7::bigint ELSE calendar_rate_vnd END,
-                  updated_at = $8
-            WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
-          [
-            p.b.id,
-            n.date,
-            segOfNight.get(n.date) ?? null,
-            newRoom.id,
-            n.newRateVnd,
-            n.newRateVnd !== n.oldRateVnd,
-            n.newRateVnd,
-            ctx.now,
-          ],
-        );
-      }
-      // Moved nights carry their own BR-110 fee (folio sync posts one line per night).
-      await this.s.stay.setNightFees(tx, p.b.id, p.feeChanges, ctx.now);
-      if (p.roomDelta !== 0 && !p.ota) {
-        await tx.query(
-          `UPDATE reservation SET total_room_vnd = total_room_vnd + $2 WHERE id = $1`,
-          [p.b.id, p.roomDelta],
-        );
-      }
+      // The planned nights exactly (price, calendar, BR-110 fee/count/base), total and origin room.
+      await this.s.stay.writeMovedNights(tx, ctx, b, p, segOfNight);
     }
     for (const b of [row, ...moving.filter((x) => x.id !== row.id)]) {
       await tx.query(
@@ -1021,7 +977,7 @@ export class StayService {
         requestId: ctx.requestId,
       });
     }
-    const children = plans.filter((p) => p.b.id !== row.id);
+    const children = plans.filter((p) => p.reservationId !== row.id);
     await this.audit.record(tx, {
       category: 'state',
       action: 'reservation.room_changed',
@@ -1032,23 +988,39 @@ export class StayService {
       after: {
         roomNo: newRoom.room_no,
         reasonCode: cause,
-        ...(children.length > 0 ? { childBookings: children.map((p) => p.b.code) } : {}),
+        stayScope,
+        ...(returnToRoomDate ? { returnToRoomDate } : {}),
+        ...(children.length > 0
+          ? {
+              childBookings: children.map(
+                (p) => moving.find((b) => b.id === p.reservationId)?.code,
+              ),
+            }
+          : {}),
       },
       ...(reason ? { reason } : {}),
       ...this.s.req(ctx),
     });
     for (const p of plans) {
-      const own =
-        (p.ota ? p.otaDiffs.reduce((s, d) => s + d.amountVnd, 0) : p.roomDelta) + p.extraDelta;
-      if (own === 0) continue;
+      if (p.folioDeltaVnd === 0 && p.linesDeltaVnd === 0 && p.diffLinesToReverse.length === 0)
+        continue;
+      const b = moving.find((x) => x.id === p.reservationId) as ReservationRow;
+      const ota = b.channel_group === 'ota';
       await this.audit.recordMoney(tx, {
         action: 'reservation.room_change_repriced',
         entityType: 'reservation',
-        entityId: p.b.id,
-        entityCode: p.b.code,
+        entityId: b.id,
+        entityCode: b.code,
+        before: {
+          totalRoomVnd: b.total_room_vnd,
+          extraPersonVnd: p.feeOldVnd,
+          roomChangeDifferenceVnd: p.diffOldVnd,
+        },
         after: {
-          totalRoomVnd: p.b.total_room_vnd + (p.ota ? 0 : p.roomDelta),
-          nightlyRates: p.nights.map((n) => ({ date: n.date, amountVnd: n.newRateVnd })),
+          totalRoomVnd: b.total_room_vnd + (ota ? 0 : p.roomNewVnd - p.roomOldVnd),
+          extraPersonVnd: p.feeNewVnd,
+          roomChangeDifferenceVnd: p.diffNewVnd,
+          nightlyRates: p.nights.map((n) => ({ date: n.date, amountVnd: n.newGrossVnd })),
           rateSource: 'room_change',
         },
         ...(reason ? { reason } : {}),
@@ -1058,31 +1030,15 @@ export class StayService {
     const fresh = await loadReservation(tx, row.id, ctx.actor);
     if (row.folio_id) {
       for (const p of plans) {
-        if (p.ota && p.otaDiffs.length > 0) {
-          // DOM S3-15 / BR-424: allocated to its night (one line per night – B16 reverses the dropped ones).
-          await this.s.folios.postLines(
-            tx,
-            row.folio_id,
-            p.otaDiffs.map((d) => ({
-              reservationId: p.b.id,
-              category: 'room_change_difference' as const,
-              // DOM S3-15: room revenue (BR-904), not "other".
-              revenueGroup: 'room' as const,
-              chargeCode: 'room_change_difference',
-              description: `room_change ${oldRoom.room_no}->${newRoom.room_no}`,
-              quantity: 1,
-              unitPriceVnd: d.amountVnd,
-              amountVnd: d.amountVnd,
-              serviceDate: d.date,
-              source: 'manual' as const,
-              labelParams: { from: oldRoom.room_no, to: newRoom.room_no },
-            })),
-            { userId: ctx.actor.userId, reservationCode: p.b.code, ...this.s.req(ctx) },
-          );
-        }
-        if (!p.b.external_contract) {
-          const b = p.b.id === row.id ? fresh : await loadReservation(tx, p.b.id, ctx.actor);
-          await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, b), {
+        const b = moving.find((x) => x.id === p.reservationId) as ReservationRow;
+        // S4-05 / BR-424 v0.3.5: against the origin room, reversed then re-posted – never cumulative.
+        await this.s.stay.repostDifferences(tx, ctx, b, p, {
+          from: oldRoom.room_no,
+          to: newRoom.room_no,
+        });
+        if (!b.external_contract) {
+          const fb = b.id === row.id ? fresh : await loadReservation(tx, b.id, ctx.actor);
+          await this.s.folios.resyncStay(tx, await this.s.stay.confirmedStay(tx, fb), {
             userId: ctx.actor.userId,
             ...this.s.req(ctx),
           });
@@ -1120,11 +1076,80 @@ export class StayService {
     await this.s.events.publish(tx, 'reservation.changed', row.id);
     await this.s.stay.emit(tx, 'stay_changed', fresh, 'in_house', 'B14', newRoom.id);
     for (const p of children) {
-      const child = await loadReservation(tx, p.b.id, ctx.actor);
+      const child = await loadReservation(tx, p.reservationId, ctx.actor);
       await this.s.events.publish(tx, 'reservation.changed', child.id);
       await this.s.stay.emit(tx, 'stay_changed', child, 'in_house', 'B14', newRoom.id);
     }
     return { row: fresh };
+  }
+
+  /**
+   * 0.3.7 D1 (S4-09, BR-424 v0.3.6 (3)): "khách đã chuyển về căn cũ" (`updateReservation.roomReturnRecorded`) on
+   * the CHILD booking, on its arrival day, after a `changeRoom stayScope = until_parent_departure`: the room of the
+   * primary booking's last night → `VD` + check-out cleaning ("khách đến hôm nay" first when someone arrives
+   * there today), the child's room → `OC`; the door access is handed over again (BR-511). Once; no late-checkout
+   * surcharge (same stay). 409 INVALID_TRANSITION otherwise.
+   */
+  async recordRoomReturn(
+    tx: Tx,
+    input: { reservationId: string; userId: string; roles: readonly string[]; requestId?: string },
+  ): Promise<void> {
+    const ctx = await this.s.stay.context(
+      tx,
+      { userId: input.userId, roles: input.roles },
+      input.requestId,
+    );
+    const child = await loadReservation(tx, input.reservationId, ctx.actor, { forUpdate: true });
+    const refuse = () =>
+      problem('INVALID_TRANSITION', {
+        extras: { currentState: child.status },
+        detail:
+          'room return: the in-house child booking starting today, after a move until the primary departure',
+      });
+    const [ret] = await roomReturnsOn(tx, ctx.today, child.id);
+    if (!ret || ret.recorded) throw refuse();
+    const parent = await loadReservation(tx, ret.parentReservationId, ctx.actor);
+    const moved = await this.roomOf(tx, ret.movedRoomId);
+    const back = await this.roomOf(tx, ret.returnRoomId);
+    await this.s.roomStatus.set(tx, moved.id, 'VD', {
+      today: ctx.today,
+      now: ctx.now,
+      event: 'B14',
+      reason: 'room_return',
+    });
+    await this.s.roomStatus.set(tx, back.id, 'OC', {
+      today: ctx.today,
+      now: ctx.now,
+      event: 'B14',
+    });
+    const arrival = await this.s.sameDayArrival(tx, moved.id, ctx.today, child.id);
+    await this.s.createTask(tx, ctx, {
+      roomId: moved.id,
+      reservationId: parent.id,
+      type: 'checkout_clean',
+      dueDate: ctx.today,
+      rank: arrival ? TASK_RANK.arrivalToday : TASK_RANK.checkoutNoArrival,
+      note: 'room_return',
+    });
+    // BR-424-05 `minibarCheckNewRoom`: the moved room is left like a check-out – a checkout count already taken
+    // for the primary booking gets its refill task (same port as B18; no count yet → HK counts at the clean).
+    await this.s.ports.minibar.onCheckedOut(tx, parent.id, moved.id);
+    await tx.query(
+      `UPDATE reservation SET door_access_handed_over_at = NULL, door_access_handed_over_by = NULL WHERE id = $1`,
+      [child.id],
+    );
+    await recordChange(tx, child.id, 'room_return', moved.room_no, back.room_no, ctx.now, null);
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'reservation.room_returned',
+      entityType: 'reservation',
+      entityId: child.id,
+      entityCode: child.code,
+      before: { roomNo: moved.room_no },
+      after: { roomNo: back.room_no },
+      ...this.s.req(ctx),
+    });
+    await this.s.events.publish(tx, 'reservation.changed', child.id);
   }
 
   /** BR-812 (4) on B14: open kit → moved; prepared kit → transfer (or collect when no longer needed). */

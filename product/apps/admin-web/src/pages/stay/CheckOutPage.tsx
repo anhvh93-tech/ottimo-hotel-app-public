@@ -16,8 +16,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
-import { timeHHmm } from '../../app/dates';
+import { timeHHmm, todayLocal } from '../../app/dates';
 import { hasLineKey, lineLabel } from '../../app/folio';
+import { Code, monoArgs } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
@@ -50,9 +51,9 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
  * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
  */
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
-  const { t, vnd, money } = useI18n();
+  const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, property } = useSession();
   const rules = useRules(propertyId, roles);
   const { online, since } = useOnline();
   const toast = useToast();
@@ -88,6 +89,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     'refund_request',
   );
   const [overReason, setOverReason] = useState('');
+  // S4-26 (US-038 AC3, BR-525, A19): OWN/MGR may complete with a balance left as a debt (due date + reason).
+  const [debtOn, setDebtOn] = useState(false);
+  const [debtDue, setDebtDue] = useState('');
+  const [debtReason, setDebtReason] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [bill, setBill] = useState<Bill | null>(null);
   const [done, setDone] = useState<{ billNo: string } | null>(null);
@@ -209,6 +214,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const balance = Math.max(0, (s?.balanceDueVnd ?? 0) + extraNightVnd + lateDelta - credit0);
   const credit = Math.max(0, credit0 - extraNightVnd - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
+  const today = todayLocal(property?.timezone);
+  const debtActive = mgr && debtOn && balance > 0;
+  const debtDuePast = !!debtDue && debtDue < today;
+  const debtReady = !!debtDue && !debtDuePast && debtReason.trim().length >= 3;
   const reload = () => {
     sum.reload();
     res.reload();
@@ -265,6 +274,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       // E05-11: after the last late tier the check-out itself adds one night at this rate.
       extraNight: extraNightNeeded ? { rateVnd: extraNightVnd } : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
+      // S4-26: only OWN/MGR (FD/FDL → 403 on the server too); only while something is left to collect.
+      debt: debtActive ? { dueDate: debtDue, reason: debtReason.trim() } : undefined,
     };
     const caught: { error?: unknown } = {};
     const out = await act.submit((idem) =>
@@ -298,7 +309,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
-  const lateWhy = lateRaise && !lateTold ? t('ci.told_guest') : null;
+  // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
+  const lateWhy = lateRaise && !lateTold ? t('co.go_bill_needs_told') : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
     if (!priced) {
@@ -434,7 +446,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     body = (
       <div className="card stack" role="status">
         <b>{t('checkout.done')}</b>
-        <p>{t('co.done_tasks', { bill: done.billNo })}</p>
+        <p>{monoArgs(t, 'co.done_tasks', { bill: done.billNo }, ['bill'])}</p>
         <div className="row wrap">
           <Button icon="printer" onClick={() => void openBill()}>
             {t('co.preview_bill')}
@@ -635,7 +647,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {lateAct.view()}
         {/* The amount and its tick are on this step now (KB7) – the "use Trả muộn" hint only before any fee. */}
         {!r.agreedCheckoutTime && lateNew === 0 ? (
-          <p className="li-s">{t('co.late_switch_hint')}</p>
+          // S4-48: the standard check-out time comes from BookingRules (BR-401), not a fixed 12:00.
+          <p className="li-s">{t('co.late_switch_hint_time', { time: rules.checkoutTime })}</p>
         ) : null}
         <h3 className="label-h">{t('co.extras_title')}</h3>
         <div className="row wrap">
@@ -672,6 +685,51 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <p className="li-s">{t('co.recon_explain')}</p>
           {balance > 0 ? <p className="li-s">{t('co.partial_hint')}</p> : null}
         </section>
+        {mgr && balance > 0 ? (
+          <section className="card stack" aria-label={t('co.debt_toggle')}>
+            <Switch checked={debtOn} onChange={setDebtOn}>
+              {t('co.debt_toggle')}
+            </Switch>
+            {debtOn ? (
+              <>
+                <p className="li-s">{t('co.debt_help', { amount: money(balance) })}</p>
+                <div className="g-2">
+                  <Field
+                    label={t('co.debt_due')}
+                    required
+                    error={
+                      debtDuePast
+                        ? t('co.debt_due_past')
+                        : (act.fields['debt.dueDate'] ?? act.fields.debt)
+                    }
+                  >
+                    {(p) => (
+                      <input
+                        {...p}
+                        type="date"
+                        className="input"
+                        min={today}
+                        value={debtDue}
+                        onChange={(e) => setDebtDue(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label={t('co.debt_reason')} required error={act.fields['debt.reason']}>
+                    {(p) => (
+                      <input
+                        {...p}
+                        className="input"
+                        maxLength={500}
+                        value={debtReason}
+                        onChange={(e) => setDebtReason(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                </div>
+              </>
+            ) : null}
+          </section>
+        ) : null}
         {credit > 0 ? (
           <section className="card stack" aria-labelledby={`${ids}-over`}>
             <h3 className="label-h" id={`${ids}-over`}>
@@ -782,14 +840,21 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const whyLocked = extraUnavailable
     ? t('checkout.extra_night_unavailable')
     : lateRaise && !lateTold
-      ? t('ci.told_guest')
-      : credit > 0 && overReason.trim().length < 3
-        ? t('checkout.overpay.needs_reason')
-        : null;
+      ? t('checkout.complete_needs_told')
+      : debtActive && !debtReady
+        ? t('co.debt_needs')
+        : credit > 0 && overReason.trim().length < 3
+          ? t('checkout.overpay.needs_reason')
+          : null;
+  const completeLabel = debtActive
+    ? t('co.complete_debt', { amount: money(balance) })
+    : balance === 0 && (s?.paidVnd ?? 0) > 0
+      ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+      : t('checkout.complete');
   const blocked = whyLocked !== null;
   return (
     <>
-      <Topbar title={t('checkout.title', { room, guest })} sub={r.code} />
+      <Topbar title={t('checkout.title', { room, guest })} sub={<Code>{r.code}</Code>} />
       <Page>
         {!online ? (
           <Alert tone="warn" icon="offline">
@@ -873,11 +938,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                   busyLabel={act.busyLabel}
                   onClick={() => !blocked && setConfirm(true)}
                 >
-                  {act.label(
-                    balance === 0 && (s?.paidVnd ?? 0) > 0
-                      ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
-                      : t('checkout.complete'),
-                  )}
+                  {act.label(completeLabel)}
                 </Button>
               </>
             )}
@@ -891,9 +952,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           body={t('co.effect_status')}
           keepLabel={t('confirm.keep')}
           confirmLabel={
-            balance === 0
-              ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
-              : t('checkout.complete')
+            debtActive
+              ? completeLabel
+              : balance === 0
+                ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+                : t('checkout.complete')
           }
           busy={act.busy}
           busyLabel={act.busyLabel}
@@ -904,6 +967,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             <li>{t('co.effect_bill')}</li>
             <li>{t('co.effect_door', { room })}</li>
             {r.extraGuestCount ? <li>{t('co.effect_kit_note')}</li> : null}
+            {debtActive ? (
+              <li>{t('co.debt_effect', { amount: money(balance), date: date(debtDue) })}</li>
+            ) : null}
           </ul>
           {act.view()}
         </ConfirmDialog>
@@ -1000,7 +1066,10 @@ export function BillDialog({
                 {L('bill.no')} <span className="mono">{bill.billNo}</span>
               </div>
               <div className="li-s">
-                {t('bill.issued_at', { time: dateTime(new Date().toISOString()) })}
+                {/* 0.3.7 add. 1: a reprint shows when the folio was settled, never the print time. */}
+                {t('bill.issued_at', {
+                  time: dateTime(bill.settledAt ?? new Date().toISOString()),
+                })}
               </div>
             </>
           ) : (

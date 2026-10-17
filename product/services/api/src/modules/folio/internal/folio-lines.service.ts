@@ -29,6 +29,7 @@ import { ATTACHMENT_USAGE, type AttachmentUsage } from '../../payments/public/at
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { publishEvent } from '../../platform/public/staff-notify';
 import { applyPct } from '../../reservations/public/pricing';
+import { StayNightPricingPort } from '../../reservations/public/stay-night-pricing';
 import { FolioService } from '../public/folio.service';
 
 export interface ChargeCatalogItem {
@@ -73,6 +74,9 @@ export class FolioLinesService {
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(ATTACHMENT_USAGE) private readonly attachments: AttachmentUsage,
+    // S4-35 part B (BE-B; part A BE-A): the ONE way to change the price of a stay night from the folio (required:
+    // a wiring mistake fails at start-up, never as a 404 on a night line).
+    @Inject(StayNightPricingPort) private readonly nightPricing: StayNightPricingPort,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
@@ -362,6 +366,56 @@ export class FolioLinesService {
         errors: [{ field: 'newUnitPriceVnd', code: 'AMOUNT_NOT_POSITIVE' }],
       });
     }
+    // S4-35 part B (OpenAPI 0.3.7 D1 adjustFolioLine; ARC D1 #14, BR-429 (g)): a night-derived line (room /
+    // extra_person) of a booking still synced (hold/confirmed/in_house) changes the NIGHT first – the stay night's
+    // price through StayNightPricingPort.setNightRate (BE-A: it locks the booking, so this runs before the folio
+    // lock – order reservation → folio), then the line is reversed and re-posted at the amount the port returns
+    // and the reductions of the key are recomputed (BR-434, S4-23). Only the price: newQuantity / voidLine → 422
+    // NOT_ALLOWED (a night leaves the stay through B7/B8/B16).
+    const { rows: pre } = await tx.query<{
+      category: FolioLineCategory;
+      reservation_id: string | null;
+      service_date: string | null;
+      folio_id: string;
+    }>(
+      `SELECT category, reservation_id, service_date::text AS service_date, folio_id FROM folio_line WHERE id = $1`,
+      [lineId],
+    );
+    const target = pre[0];
+    let night: { amountVnd: number } | null = null;
+    if (
+      target &&
+      target.folio_id === folioId &&
+      (target.category === 'room' || target.category === 'extra_person') &&
+      target.reservation_id &&
+      statusOf
+    ) {
+      const status = await statusOf(target.reservation_id);
+      if (status === 'hold' || status === 'confirmed' || status === 'in_house') {
+        if (input.newUnitPriceVnd === undefined) {
+          throw problem('VALIDATION_FAILED', {
+            errors: [
+              {
+                field: input.newQuantity !== undefined ? 'newQuantity' : 'voidLine',
+                code: 'NOT_ALLOWED',
+              },
+            ],
+            detail: 'a night line only takes a new price – change the nights through the stay',
+          });
+        }
+        if (!target.service_date) throw problem('NOT_FOUND');
+        const r = await this.nightPricing.setNightRate(tx, {
+          reservationId: target.reservation_id,
+          serviceDate: target.service_date,
+          category: target.category,
+          unitPriceVnd: input.newUnitPriceVnd,
+          userId: actor.userId,
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+        night = { amountVnd: r.lineAmountVnd };
+      }
+    }
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
     if (folio.version !== version) {
@@ -405,31 +459,9 @@ export class FolioLinesService {
     ) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: line.line_state } });
     }
-    // FB-R2-ARC-BE-S3-14 (interim until reservations exposes a night-rate port): a line DERIVED from the sold
-    // nights (room, extra_person) of a booking still synced (hold/confirmed/in_house) cannot be changed here –
-    // the next night sync would silently undo it. Change the stay (price/people) through reservations instead.
-    if (
-      (line.category === 'room' || line.category === 'extra_person') &&
-      line.reservation_id &&
-      statusOf
-    ) {
-      const status = await statusOf(line.reservation_id);
-      if (status === 'hold' || status === 'confirmed' || status === 'in_house') {
-        const field =
-          input.newUnitPriceVnd !== undefined
-            ? 'newUnitPriceVnd'
-            : input.newQuantity !== undefined
-              ? 'newQuantity'
-              : 'voidLine';
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field, code: 'NOT_ALLOWED' }],
-          detail: 'night-derived line of a booking still in stay – change the stay instead',
-        });
-      }
-    }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
-    if (input.newUnitPriceVnd !== undefined && !managers) {
+    if (input.newUnitPriceVnd !== undefined && !managers && !night) {
       if (line.category === 'room') {
         // A31: FD/FDL change a night price only inside BR-105 floor–ceiling (of the line's price).
         const { today } = await this.today(tx);
@@ -464,7 +496,12 @@ export class FolioLinesService {
       ...(stayCode ? { reservationCode: stayCode } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     };
-    await this.folios.reverseLine(tx, line.id, reason, actorInfo, { allowSettled: true });
+    // The replacement is posted first, then the reductions of its key are recomputed once (BR-434).
+    await this.folios.reverseLine(tx, line.id, reason, actorInfo, {
+      allowSettled: true,
+      skipReductionSync: true,
+    });
+    const newAmount = night ? night.amountVnd : Math.round(qty * price);
     if (!input.voidLine && qty > 0) {
       await this.folios.insertLine(tx, {
         folioId: folio.id,
@@ -472,9 +509,9 @@ export class FolioLinesService {
         category: line.category,
         revenueGroup: line.revenue_group,
         description: line.description,
-        quantity: qty,
-        unitPriceVnd: price,
-        amountVnd: Math.round(qty * price),
+        quantity: night ? 1 : qty,
+        unitPriceVnd: night ? night.amountVnd : price,
+        amountVnd: newAmount,
         serviceDate: line.service_date,
         stayNightId: line.stay_night_id,
         source: 'manual',
@@ -497,11 +534,15 @@ export class FolioLinesService {
           category: line.category,
           amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
         },
-        after: { category: line.category, amountVnd: Math.round(qty * price) },
+        after: { category: line.category, amountVnd: newAmount },
         reason,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
+    await this.folios.syncReductions(tx, folio.id, {
+      userId: actor.userId,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
     await this.bump(tx, folio.id, this.clock.now());
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);

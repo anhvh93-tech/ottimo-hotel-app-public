@@ -339,7 +339,8 @@ describe("FE-S3-04 / S3-12 – check-out: a late surcharge needs the desk's deci
     await user.click(go);
     // Still on step 2: the button says why, the box to tick is right here.
     expect(go).toHaveAttribute('aria-disabled', 'true');
-    expect(go).toHaveAccessibleDescription(tv('ci.told_guest'));
+    // S4-48 / BUG-R2-088: "Tick … to enable Continue" (not the box label again).
+    expect(go).toHaveAccessibleDescription(tv('co.go_bill_needs_told'));
     expect(screen.queryByRole('button', { name: /hoàn tất|Hoàn tất/ })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('checkbox', { name: `${tv('ci.told_guest')} *` }));
     await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));

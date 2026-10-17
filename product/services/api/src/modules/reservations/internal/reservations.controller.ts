@@ -301,6 +301,26 @@ export class ReservationsController {
     return out;
   }
 
+  /** 0.3.7 (ESC-019 A, S4-21): the money of a move before it is saved – same checks, same plan, READ ONLY. */
+  @Get('reservations/:reservationId/move-preview')
+  @Operation('previewMoveReservation')
+  previewMove(
+    @Req() req: GuardedRequest,
+    @Param('reservationId') reservationId: string,
+    @Query('roomId') roomId?: string,
+    @Query('arrivalDate') arrivalDate?: string,
+    @Query('departureDate') departureDate?: string,
+    @Query('mode') mode?: string,
+    @Query('reasonCode') reasonCode?: string,
+  ) {
+    const id = pathId(reservationId);
+    const query: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries({ roomId, arrivalDate, departureDate, mode, reasonCode })) {
+      if (v !== undefined) query[k] = v;
+    }
+    return this.read(req, (tx, ctx) => this.reservations.previewMove(tx, ctx, id, query));
+  }
+
   @Post('reservations/:reservationId/actions/move')
   @Operation('moveReservation')
   move(

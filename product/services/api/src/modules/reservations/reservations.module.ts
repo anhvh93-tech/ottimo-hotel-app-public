@@ -19,6 +19,7 @@ import { RackService } from './internal/rack.service';
 import { ReservationsController } from './internal/reservations.controller';
 import { ReservationsService, SYSTEM_ACTOR } from './internal/reservations.service';
 import { RoomBlocksService } from './internal/room-blocks.service';
+import { RoomBlockPort } from './public/room-block.port';
 import { ReservationSalesAdapter } from './internal/sales-port.adapter';
 import { OccupancyService } from './public/occupancy.service';
 import { PricingService } from './public/pricing.service';
@@ -26,6 +27,7 @@ import { ReservationHooks } from './public/reservation-hooks';
 import { ReservationCapacityCheck } from './public/room-capacity-check';
 import { RESERVATION_SALES_PORT } from './public/sales-port';
 import { StayNightAllocationService } from './public/stay-night-allocation';
+import { StayNightPricingPort } from './public/stay-night-pricing';
 import { ReservationStayPort } from './public/stay-port';
 import { ReservationReadPort } from './public/read-port';
 
@@ -77,6 +79,10 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     ReservationStayPort,
     // Review S3 (ARC-BE-S3-16): DB-only reads for modules that must not depend on ReservationsService.
     ReservationReadPort,
+    // 0.3.7 D1 (S4-35 part A): the folio's adjustFolioLine re-prices a stay night through this port only.
+    StayNightPricingPort,
+    // 0.3.7 nhóm H (BE-C): OOO blocks of a work order (O1 with createWorkOrder, O4/O5 when it closes).
+    RoomBlockPort,
   ],
   exports: [
     ReservationStayPort,
@@ -87,7 +93,9 @@ defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
     MoneyBridge,
     RESERVATION_SALES_PORT,
     StayNightAllocationService,
+    StayNightPricingPort,
     ROOM_CAPACITY_CHECK,
+    RoomBlockPort,
   ],
 })
 export class ReservationsModule implements OnModuleInit {

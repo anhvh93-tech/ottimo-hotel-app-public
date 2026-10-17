@@ -1,6 +1,6 @@
 # Sơ đồ trạng thái – OTTIMO Desk
 
-- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: 0.2.3 (R2 Sprint 2: trả lời ARC Q-B1, Q-B2; R4 kiểm không đạt; SM-15 tự ghi đã nhận). 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
+- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: **0.2.4** (17/10, R2 Sprint 4: **SM-18 mới** – yêu cầu đặt phòng từ website WR0–WR7, US-155, OpenAPI 0.3.7 bổ sung 2; mã sự kiện WR; mục 18–20 cũ dời thành 19–21). 0.2.3 (R2 Sprint 2: trả lời ARC Q-B1, Q-B2; R4 kiểm không đạt; SM-15 tự ghi đã nhận). 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
 - Nguồn: `business-rules.md` (mã **BR-xxx** – nguồn sự thật duy nhất cho mọi con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `security/data-risk-assessment.md` (**SEC**), `PRD.md`, `03-backlog/backlog.md` (**US-xxx**), `rbac-matrix.md` (mã vai).
 - Tài liệu này **không chép con số nghiệp vụ**. Mọi mốc giờ, hạn, tỷ lệ, hạn mức đều là tham số trong `business-rules.md` mục 13, ghi bằng mã BR.
 - Đọc cùng: `rbac-matrix.md` (vai được phép), `business-processes.md` (quy trình), `use-cases.md` (UC-xx).
@@ -53,6 +53,7 @@
 | SM-15 | Yêu cầu từ app khách | `new`, `acknowledged`, `in_progress`, `done`, `declined` | 15 |
 | SM-16 | Nhóm đơn (đoàn nhiều căn) | `open`, `closed` | 16 |
 | SM-17 | Ca làm việc (đóng ca) | `open`, `closing`, `closed` | 17 |
+| SM-18 | Yêu cầu đặt phòng từ website (US-155 – không phải đơn, không giữ phòng) | `new`, `in_progress`, `converted`, `declined`, `spam` | 18 |
 
 Tên trạng thái đơn theo decision-log 15/10/2026 (DOM, BR-301). Ánh xạ từ prototype: `cf`→`confirmed`, `in`→`in_house`, `out`→`checked_out`, `cx`→`cancelled`; `ooo` của prototype **không còn là trạng thái đơn** mà là SM-02.
 
@@ -540,7 +541,39 @@ Ca bị bỏ quên (`open` quá số giờ tham số `shift_max_hours`) → "C�
 
 ---
 
-## 18. Mã sự kiện (máy đọc – FB-R1-ARC-BA-10)
+## 18. SM-18 – Yêu cầu đặt phòng từ website
+
+Đối tượng: `website_booking_request` (erd 4.14, module `public-site`) – yêu cầu khách gửi từ form website/nút "Đặt ngay" của fanpage (US-155, **phương án A** – INV chốt 17/10, FB-INV-002 ý 3). Yêu cầu **không** phải đơn, **không** giữ phòng, không có tiền; chuyển thành giữ chỗ/đơn chỉ qua luồng có sẵn (SM-08 báo giá → SM-01 B1, hoặc SM-01 B2). Hợp đồng: OpenAPI 0.3.7 bổ sung 2 (`transitionWebsiteBookingRequest`, `WebsiteBookingRequest`); đặc tả màn: `specs/EP19-website-requests.md`; quyền: `rbac-matrix.md` S35, A64–A68. Mã chuyển do BA chốt (thay "WR1–WR7 đề xuất" của ARC – giữ nguyên số, thêm WR0 cho lúc tạo).
+
+| Trạng thái | Nghĩa | Kết thúc? | Trường C2 (tên, SĐT, email, lời nhắn) |
+|---|---|---|---|
+| `new` | Mới vào hàng chờ, **chưa ai nhận** (`assignedUserId` rỗng) | Không | Có |
+| `in_progress` | Có người phụ trách (`assignedUserId` bắt buộc – CHECK DB); có thể đã gắn báo giá (`quoteId`) | Không | Có |
+| `converted` | Đã thành giữ chỗ hoặc đơn (`reservationId` bắt buộc) | **Có** – không mở lại | Xóa **ngay** trong cùng giao dịch (dữ liệu đã ở hồ sơ khách) |
+| `declined` | Đóng không thành đơn, có mã lý do (`declineReasonCode`, gồm `stale` do hệ thống) | Có thể mở lại (WR5) trong hạn | Xóa sau `retention.web_request_declined_days` |
+| `spam` | Rác/giả danh – không liên hệ thêm, không tạo hồ sơ | Có thể mở lại (WR5) trong hạn (đánh dấu nhầm) | Xóa **cả bản ghi** sau `retention.web_request_spam_days` |
+
+| # | Từ → Đến | Sự kiện | Điều kiện (server kiểm) | Ai | Hệ quả |
+|---|---|---|---|---|---|
+| WR0 | [*] → `new` | Khách gửi form (`createWebsiteBookingRequest`) | Origin landing, form token hợp lệ một lần, ô bẫy trống, đồng ý + phiên bản thông báo, giới hạn IP/liên hệ/trần cơ sở (SEC C-2, C-3, ARC-02…08); lần thứ 4/ngày cùng SĐT → **không** tạo bản ghi, `duplicateCount + 1` trên bản gần nhất | Khách (công khai, không đăng nhập) | `refCode`, `replyBy`, `subSource` suy từ UTM/tên miền giới thiệu (một lần); thông báo `website_request_new` (FDL, FD, SAL); "Cần chú ý" `website_request_new` (FD+); SSE `website_request.changed` |
+| WR1 | `new` → `in_progress` | Nhận xử lý (`claim`) | Yêu cầu chưa giao; `If-Match` đúng phiên bản (hai người bấm cùng lúc → người sau 412/409) | FD+; SAL (yêu cầu chưa giao); SYS khi `saveQuote` kèm `websiteBookingRequestId` lúc yêu cầu còn `new` (giao cho người lưu báo giá) | `assignedUserId`, `claimedAt`; rời mục "Cần chú ý" khi không còn `new` |
+| WR2 | `in_progress` → `new` | Trả lại hàng chờ (`release`) | – | Người đang giữ; OWN/MGR/FDL với yêu cầu người khác (rbac ghi chú 43) | Bỏ giao; quay lại hàng chờ, `replyBy` **không** đổi (quá hạn vẫn tô quá hạn) |
+| WR3 | `new`, `in_progress` → `declined` | Từ chối (`decline`) kèm mã lý do | `reasonCode` bắt buộc, ∈ danh sách EP19 mục 6 (trừ `stale`); `other` → `note` 3–300 bắt buộc; `note` không chứa số thẻ/số giấy tờ | FD+; SAL (yêu cầu giao cho mình) | Nhân viên đã tự báo khách qua kênh khách chọn **trước** khi bấm (hệ thống không gửi gì); dữ liệu vẫn giữ tới hạn lưu |
+| WR4 | `new`, `in_progress` → `spam` | Đánh dấu spam (`mark-spam`) | Theo dấu hiệu BR-914 (5) | FD+; SAL (yêu cầu giao cho mình) | Không liên hệ thêm, không tạo hồ sơ khách; đếm spam/tuần (điều kiện bật tầng chống spam 2 – ADR-014 4.4) |
+| WR5 | `declined`, `spam` → `in_progress` | Mở lại (`reopen`) – khách nhắn lại, đóng nhầm | Trường C2 **chưa** xóa (`piiPurgedAt` rỗng) **và** chưa quá `retention.web_request_max_age_days` từ lúc tạo; mở lại không kéo dài hạn tuổi tối đa | FD+; SAL (yêu cầu mình đã từ chối) | Giao cho người mở; xóa mã lý do cũ khỏi trạng thái hiện tại (giữ trong lịch sử) |
+| WR6 | `new`, `in_progress` → `converted` | Chuyển thành giữ chỗ/đơn | Gọi từ `createHoldFromQuote` (báo giá có `websiteBookingRequestId`) hoặc `createReservation` kèm `websiteBookingRequestId` (FD+) – cùng giao dịch với B1/B2 | SYS (theo lệnh của người tạo giữ chỗ/đơn) | Đơn kênh `direct`, `directSource = website`, `directSubSource` = nguồn phụ của yêu cầu; `reservationId`, `convertedAt`; **xóa C2** ngay; yêu cầu rời hàng chờ |
+| WR7 | `new`, `in_progress` → `declined` | Tự đóng vì không hoạt động (job `web_request.stale`, 06:05) | Không hoạt động (`last_activity_at`) quá `retention.web_request_stale_days` | SYS | `declineReasonCode = stale` (client gửi `stale` → 422 `NOT_IN_LIST`) |
+
+Ngoại lệ và lỗi:
+- Sai trạng thái → 409 `INVALID_TRANSITION` (`currentState`); phiên bản lệch → 412 `VERSION_CONFLICT`; thiếu `If-Match` → 428; ngoài phạm vi (SAL với yêu cầu người khác) → 404; vai không có quyền (CTV, HK, MT) → 403.
+- `converted` là cuối: giữ chỗ sau đó hết hạn/hủy (SM-01 B5/B6/B10) **không** đưa yêu cầu về lại; khách hỏi lại → nhân viên làm báo giá mới từ hồ sơ khách (không cần yêu cầu).
+- Giữ chỗ/đơn tạo từ báo giá có liên kết khi yêu cầu đã `declined`/`spam`/`converted` → vẫn tạo với nguồn `website`, yêu cầu **không** đổi (`createHoldFromQuote`); lưu báo giá mới gắn yêu cầu ở các trạng thái đó → 409 (`saveQuote`).
+- **Hạn lưu chạy theo thời gian, không chờ chuyển trạng thái** (SEC C-2, ARC-03; job `web_request.purge` 03:10): `declined` → xóa C2 sau `retention.web_request_declined_days`; `spam` → xóa cả bản ghi sau `retention.web_request_spam_days`; mọi trạng thái trừ `converted` → xóa C2 khi tới `retention.web_request_max_age_days` từ lúc tạo (đang `new`/`in_progress` thì WR7 trước). Sau khi xóa C2 bản ghi còn số liệu không định danh (ngày, số khách, hạng, ngôn ngữ, nguồn phụ, UTM, trạng thái, mã lý do, mốc thời gian) cho DATA (US-158).
+- Mỗi chuyển ghi `state_transition` + `audit_event category='state'` (không ghi C2) và phát SSE `website_request.changed`.
+
+---
+
+## 19. Mã sự kiện (máy đọc – FB-R1-ARC-BA-10) – *trước v0.2.4 là mục 18 (OpenAPI `AllowedAction` còn ghi "mục 18")*
 
 Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `packages/contracts/src/state-machines/*.ts`. ARC khớp tên hiện có theo bảng này ở bước 4; tên khác bảng → ARC gửi danh sách để BA cập nhật.
 
@@ -572,8 +605,13 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | A4 | `escalate` | A5 | `reject` | A6 | `cancel_approval` |
 | G1 | `create_group` | G2 | `allocate_group_deposit` | G3 | `cancel_group_member` |
 | C1 | `open_shift` | C3 | `close_shift` | – | `reconcile_payment` (SM-12 đối soát) |
+| WR0 | `submit_website_request` | WR1 | `claim_website_request` | WR2 | `release_website_request` |
+| WR3 | `decline_website_request` | WR4 | `mark_website_request_spam` | WR5 | `reopen_website_request` |
+| WR6 | `convert_website_request` | WR7 | `expire_website_request` | – | – |
 
-## 19. Câu hỏi đã được trả lời (lưu vết)
+SM-18: `AllowedAction.action` (đoạn đường dẫn) = `claim`, `release`, `decline`, `mark-spam`, `reopen` (OpenAPI 0.3.7 bổ sung 2); `event` = mã cột bên; WR0, WR6, WR7 không có trong `allowedActions` (khách/hệ thống).
+
+## 20. Câu hỏi đã được trả lời (lưu vết)
 | # | Câu hỏi | Trả lời (người quyết) | Đã áp vào |
 |---|---|---|---|
 | SQ-1 | Khôi phục no-show – ai làm khi chỉ có người trực đêm? | FD/FDL tự làm khi đủ 3 điều kiện; còn lại MGR+ (DOM) | B12, K12, rbac A10, 5.1 |
@@ -583,7 +621,7 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | SQ-5 | Trạng thái buồng là bảng riêng có lịch sử? | Có – ARC đã thiết kế trong ERD | SM-03 |
 | B17 | Hoàn tác nhận phòng nhầm | DOM xác nhận: MGR+, cùng ngày nghiệp vụ, chưa có dòng folio mới | B17 |
 
-## 20. Lịch sử thay đổi
+## 21. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
 | 15/10/2026 | 1 (đợt 2) | Bản đầu: 15 máy trạng thái, bảng chuyển có điều kiện + vai | BA |
@@ -592,4 +630,5 @@ Dùng làm tên hành động trong `allowedActions` của OpenAPI và trong `pa
 | 16/10/2026 | 1 (bước 5) | BUG-R1-019: mọi chỗ ghi mốc "06:00" / "00:00–05:59" của ngày nghiệp vụ dẫn **BR-010** (tham số `business_day_rollover`, mặc định 06:00); không đổi nghiệp vụ | BA |
 | 16/10/2026 | 2 (Đợt 0) | **SM-16 G4** (và G3) chốt một nguồn = **rbac A23/A05/A06** (khớp OpenAPI 0.3): thêm/bớt đơn khỏi nhóm FD+, SAL/CTV phạm vi của mình (CTV chỉ đơn `hold`); bỏ ghi "FD+" cũ – theo đề nghị ARC (w1-report). B1 ghi rõ cách tính sức chứa (ESC-014). B2 + SM-14: việc HK chuẩn bị/chuyển/thu hồi bộ đồ dùng thêm (BR-812) | BA |
 | 16/10/2026 | 2 (Sprint 2) | Trả lời ARC Q-B1 (SM-12 `pending → succeeded` thêm SAL cọc đơn của mình) và Q-B2 (K6 khai báo `mixed` – `sent` khi mọi khối có mã); R4 ghi rõ kết quả kiểm không đạt; SM-15 việc/phiếu sinh lúc tạo yêu cầu + tự ghi "đã nhận" – theo specs EP07-08, EP14 | BA |
+| 17/10/2026 | 2 (Sprint 4 – luồng LP, US-155) | v0.2.4: **SM-18 mới** – yêu cầu đặt phòng từ website (phương án A – INV 17/10): 5 trạng thái, chuyển WR0–WR7 chốt theo đề xuất ARC (OpenAPI 0.3.7 bổ sung 2, erd 4.14) + WR0 lúc tạo, ai được chuyển (khớp rbac S35, A64–A68), ngoại lệ, hạn lưu theo thời gian (SEC C-2); mã sự kiện WR0–WR7. Mục 18 "Mã sự kiện" dời thành **19** (OpenAPI `AllowedAction` còn trỏ "mục 18" – báo ARC), 19 → 20, 20 → 21 | BA |
 | 17/10/2026 | 2 (Sprint 3 – Phản hồi & sửa) | B18: cửa sổ sau nửa đêm + "Trả phòng – tính thêm 1 đêm" (BR-416 v0.3.4, S3-9), chỉ yêu cầu tiền chặn (S3-10), số dư thừa (BR-522); B16 theo BR-428 v0.3.4; SM-10 A6: SYS hủy yêu cầu vận hành `superseded` | BA |

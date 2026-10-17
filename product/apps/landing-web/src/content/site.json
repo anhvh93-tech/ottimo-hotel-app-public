@@ -1,0 +1,31 @@
+{
+  "$comment": "Single source for the facts the landing publishes (ADR-014 4.2, 5). Values from the e-brochure 2026 and INV 17/10 (ESC-020, FB-INV-002). No room count anywhere (FB-INV-002 point 1). Swap zaloUrl for the verified Zalo OA link with no UI change (US-151 AC2, ESC-021). The email must be a shared mailbox on the OTTIMO domain, never a personal one; leave it empty to hide every email link. facebookUrl is a plain link (no Facebook plugin/SDK – SEC C-1). features.bookingRequest stays false until the booking-request endpoint exists (ARC/BE) and the SEC/legal conditions of US-155 AC4 are met.",
+  "name": "OTTIMO Boutique Stay",
+  "tagline": "A refined stay inspired by the calm spirit of Dalat.",
+  "checkinTime": "14:00",
+  "checkoutTime": "12:00",
+  "phone": {
+    "e164": "+84844440909",
+    "local": "08.4444.0909",
+    "international": "+84 84 444 0909"
+  },
+  "contact": {
+    "zaloUrl": "https://zalo.me/0844440909",
+    "whatsappNumber": "84844440909",
+    "telegramUrl": "https://t.me/+84844440909",
+    "viberUrl": "viber://chat?number=%2B84844440909",
+    "email": "booking@ottimo.vn"
+  },
+  "address": {
+    "street": "30/3 Triệu Việt Vương",
+    "ward": "Phường Xuân Hương",
+    "city": "Đà Lạt",
+    "region": "Lâm Đồng",
+    "country": "VN"
+  },
+  "mapUrl": "https://maps.app.goo.gl/oYos42G5YvUEcDCc6",
+  "facebookUrl": "https://www.facebook.com/profile.php?id=100091335431646",
+  "features": {
+    "bookingRequest": false
+  }
+}

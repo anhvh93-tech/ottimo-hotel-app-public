@@ -1,0 +1,113 @@
+---
+// Page shell (ADR-014 2.4, 3.3, 5): language-specific <head> (title, description, canonical, hreflang + x-default,
+// Open Graph, JSON-LD), self-hosted fonts, one external CSS file and one external module script – nothing inline
+// except the JSON-LD data block, nothing from another origin.
+import loraLatin400 from '@fontsource/lora/files/lora-latin-400-normal.woff2?url';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import LangSuggest from '../components/LangSuggest.astro';
+import StickyBar from '../components/StickyBar.astro';
+import { photo, srcset } from '../content/photos';
+import type { Copy } from '../content/types';
+import {
+  INDEXABLE,
+  LANGS,
+  OG_IMAGE,
+  OG_LOCALE,
+  THEME_COLOR,
+  absoluteUrl,
+  alternatesFor,
+  pathFor,
+} from '../lib/i18n';
+import { homeJsonLd, jsonForScript } from '../lib/seo';
+import '../styles/landing.css';
+
+interface Props {
+  t: Copy;
+  slug?: string;
+  title: string;
+  description: string;
+  /** Published page (home): canonical, hreflang, JSON-LD, hero preload. False for 404. */
+  published?: boolean;
+}
+
+const { t, slug = '', title, description, published = true } = Astro.props;
+const lang = t.lang;
+const pageUrl = absoluteUrl(pathFor(lang, slug));
+const home = published ? '' : pathFor(lang);
+const robots = INDEXABLE && published ? 'index, follow' : 'noindex, nofollow';
+const ogImage = absoluteUrl(OG_IMAGE.path);
+const hero = photo('hero-facade-dusk');
+const heroPhone = hero.widths.filter((w) => w <= 960);
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content={THEME_COLOR} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={loraLatin400} as="font" type="font/woff2" crossorigin />
+    {
+      published && (
+        <>
+          <link
+            rel="preload"
+            as="image"
+            type="image/avif"
+            fetchpriority="high"
+            media="(max-width: 767px)"
+            imagesrcset={srcset(hero, 'avif', heroPhone)}
+            imagesizes="100vw"
+          />
+          <link
+            rel="preload"
+            as="image"
+            type="image/avif"
+            fetchpriority="high"
+            media="(min-width: 768px)"
+            imagesrcset={srcset(hero, 'avif', hero.widths)}
+            imagesizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
+          />
+          <link rel="canonical" href={pageUrl} />
+          {alternatesFor(slug).map((a) => (
+            <link rel="alternate" hreflang={a.hreflang} href={a.href} />
+          ))}
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content="OTTIMO Boutique Stay" />
+          <meta property="og:title" content={title} />
+          <meta property="og:description" content={description} />
+          <meta property="og:url" content={pageUrl} />
+          <meta property="og:image" content={ogImage} />
+          <meta property="og:image:width" content={String(OG_IMAGE.width)} />
+          <meta property="og:image:height" content={String(OG_IMAGE.height)} />
+          <meta property="og:image:alt" content={t.meta.ogImageAlt} />
+          <meta property="og:locale" content={OG_LOCALE[lang]} />
+          {LANGS.filter((l) => l !== lang).map((l) => (
+            <meta property="og:locale:alternate" content={OG_LOCALE[l]} />
+          ))}
+          <meta name="twitter:card" content="summary_large_image" />
+          <script type="application/ld+json" set:html={jsonForScript(homeJsonLd(t, pageUrl))} />
+        </>
+      )
+    }
+  </head>
+  <body id="top">
+    <a class="skip" href="#main">{t.skip}</a>
+    <Header t={t} slug={slug} home={home} />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer t={t} home={home} />
+    <StickyBar t={t} />
+    <LangSuggest lang={lang} slug={slug} />
+    <script>
+      import '../scripts/main';
+    </script>
+  </body>
+</html>

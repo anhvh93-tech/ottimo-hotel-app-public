@@ -2,6 +2,8 @@
 node_modules
 dist
 .turbo
+# Astro generated types (apps/landing-web)
+.astro
 coverage
 pnpm-lock.yaml
 # Owned by other roles, not formatted by CI in R1 (docs/design are Vietnamese prose & prototypes)

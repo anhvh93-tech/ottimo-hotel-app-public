@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '@ottimo/api-client';
 import { problemText } from '../app/problem';
 import { pickCheckin, pickStayLevel1, type GuestStayRaw, type OnlineCheckin } from '../app/api';
-import { browserLocale, shownLocale, shortDate, translateGuest } from '../app/i18n';
+import { browserLocale, shownLocale, shortDate, supportLocale, translateGuest } from '../app/i18n';
 import { readLink, safeMapUrl, telHref } from '../app/link';
 import { cleanNote, containsCardNumber } from '../app/validation';
 import { etaSlots, slotOf } from '../checkin/eta';
@@ -79,10 +79,19 @@ describe('i18n VI/EN/RU', () => {
     expect(shownLocale('ru', 'guest.oci.consent')).toBe('en');
     expect(shownLocale('vi', 'guest.oci.consent')).toBe('vi');
   });
-  it('browser default: en* → EN, ru* → RU, else VI', () => {
+  it('browser default (P-S4-10): vi* → VI, ru* → RU, anything else → EN', () => {
+    expect(browserLocale(['vi-VN'])).toBe('vi');
+    expect(browserLocale(['vi'])).toBe('vi');
+    expect(browserLocale(['ru-RU'])).toBe('ru');
     expect(browserLocale(['en-US'])).toBe('en');
-    expect(browserLocale(['ru'])).toBe('ru');
-    expect(browserLocale(['fr-FR'])).toBe('vi');
+    expect(browserLocale(['fr-FR'])).toBe('en');
+    expect(browserLocale(['ko-KR', 'vi-VN'])).toBe('en'); // first preference only
+    expect(browserLocale([])).toBe('en');
+  });
+  it('support line language under an English brand moment (DS 11.2)', () => {
+    expect(supportLocale('en')).toBe('vi');
+    expect(supportLocale('vi')).toBe('vi');
+    expect(supportLocale('ru')).toBe('ru');
   });
   it('short dates', () => {
     expect(shortDate('vi', '2026-10-19')).toBe('19/10');

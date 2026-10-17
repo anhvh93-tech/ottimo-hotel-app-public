@@ -761,18 +761,64 @@ export async function addLine(
   });
 }
 
-/** Approve an approval request with the approver's login password (R2 – no PIN). */
+/** `ApprovalRequest.version` as the viewer's queue shows it (listApprovalRequests, newest first). */
+export async function approvalVersion(
+  ctx: APIRequestContext,
+  viewer: StaffSession,
+  approvalId: string,
+): Promise<number | undefined> {
+  let cursor: string | undefined;
+  for (let page = 0; page < 30; page++) {
+    const r = await call<{
+      data: Array<{ id: string; version?: number }>;
+      page?: { nextCursor?: string | null };
+    }>(ctx, 'GET', p3(EP3.listApprovalRequests, viewer), {
+      session: viewer,
+      query: { limit: 100, cursor },
+    });
+    if (r.status !== 200) return undefined;
+    const hit = r.body.data.find((a) => a.id === approvalId);
+    if (hit) return hit.version;
+    cursor = r.body.page?.nextCursor ?? undefined;
+    if (!cursor) return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Approve an approval request with the approver's login password (R2 – no PIN).
+ * 0.3.7 B-6: a `refund` must carry `expectedVersion` (the version the approver is looking at). A case that is not
+ * about B-6 approves what it just read: on 422 `expectedVersion:REQUIRED` the harness reads the version from the
+ * approver's queue and sends once more (annotation `harness`). Cases about B-6 call approveRequest themselves.
+ */
 export async function approve(
   ctx: APIRequestContext,
   approver: StaffSession,
   approvalId: string,
   note = 'E2E duyệt',
 ): Promise<ApiResult<Record<string, unknown> & ProblemFields>> {
-  return call(ctx, 'POST', p3(EP3.approveRequest, approver, { approvalId }), {
-    session: approver,
-    idempotencyKey: true,
-    body: { authMethod: 'password', secret: SEED_PASSWORD, note },
-  });
+  const send = (extra: Record<string, unknown> = {}) =>
+    call<Record<string, unknown> & ProblemFields>(
+      ctx,
+      'POST',
+      p3(EP3.approveRequest, approver, { approvalId }),
+      {
+        session: approver,
+        idempotencyKey: true,
+        body: { authMethod: 'password', secret: SEED_PASSWORD, note, ...extra },
+      },
+    );
+  const r = await send();
+  const needsVersion =
+    r.status === 422 &&
+    (r.body.errors ?? []).some((e) => e.field === 'expectedVersion' && e.code === 'REQUIRED');
+  if (!needsVersion) return r;
+  const version = await approvalVersion(ctx, approver, approvalId);
+  if (version === undefined) return r;
+  autoDecision(
+    `approveRequest ${approvalId}: expectedVersion ${version} (B-6, phiên bản đang xem)`,
+  );
+  return send({ expectedVersion: version });
 }
 
 // ───────────────────────── guest portal (ADR-006) ─────────────────────────
@@ -987,15 +1033,27 @@ export interface CheckInBody {
   addPriorNight?: boolean;
   priorNightRateVnd?: number;
   requestFocForSurcharge?: Record<string, unknown>;
+  /** 0.3.7 (BUG-R2-038): khoản thu trong B9 (`PaymentCreate`, `type = charge`) */
+  payment?: Record<string, unknown>;
 }
 
-/** checkIn from the trusted desk device, If-Match = current version. */
+/**
+ * checkIn from the trusted desk device, If-Match = current version.
+ * Harness defaults for a case that is not about the subject (visible as annotation `harness`):
+ *  - surcharge decision (0.3.6, DOM S3-12): an early check-in with a surcharge > 0 needs an explicit decision
+ *    (422 SURCHARGE_DECISION_REQUIRED) – the desk default is to post what previewCheckIn shows;
+ *  - payment (0.3.7, BUG-R2-038 / BR-402 v0.3.6): `balance_paid` is checked AFTER the early-check-in surcharge /
+ *    B9a night is posted. When the room is already paid and only that new line is missing (409
+ *    CHECKIN_CONDITIONS_NOT_MET [balance_paid], preview `balanceDueVnd` 0 and `amountDueAtCheckinVnd` > 0), the
+ *    harness collects exactly `amountDueAtCheckinVnd` in cash in the same B9 (`checkIn.payment`).
+ *    A case about money passes its own `payment`, or `autoPay: false` to see the 409 itself.
+ */
 export async function checkIn(
   ctx: APIRequestContext,
   s: StaffSession,
   reservationId: string,
   body: CheckInBody = {},
-  opts: { device?: boolean; idempotencyKey?: string } = {},
+  opts: { device?: boolean; idempotencyKey?: string; autoPay?: boolean } = {},
 ): Promise<ApiResult<Reservation & ProblemFields>> {
   const o = opts.device === false ? { session: s } : dev(s);
   const send = async (b: CheckInBody) => {
@@ -1007,10 +1065,8 @@ export async function checkIn(
       body: { cardsIssued: 1, houseRulesSent: true, ...b },
     });
   };
-  const r = await send(body);
-  // 0.3.6 (DOM S3-12, BUG-R2-039 fixed): an early check-in with a surcharge > 0 needs an explicit decision
-  // (422 SURCHARGE_DECISION_REQUIRED). A case whose body says nothing about the surcharge (it is not the subject)
-  // takes the desk default: post the amount previewCheckIn shows for the same time (typed, else server time).
+  let sent: CheckInBody = body;
+  let r = await send(sent);
   if (r.status === 422 && !opts.idempotencyKey && noDecision(body) && decisionRequired(r.body)) {
     const time = body.checkinTime ?? (await serverLocalTime(ctx));
     const pv = await preview(ctx, s, reservationId, time);
@@ -1020,7 +1076,24 @@ export async function checkIn(
     };
     if ((early?.amountVnd ?? 0) > 0 && !early?.addsPreviousNight) {
       autoDecision(`checkIn ${time}: applyEarlySurcharge ${early.amountVnd}`);
-      return send({ ...body, applyEarlySurcharge: true, expectedSurchargeVnd: early.amountVnd });
+      sent = { ...body, applyEarlySurcharge: true, expectedSurchargeVnd: early.amountVnd };
+      r = await send(sent);
+    }
+  }
+  if (
+    opts.autoPay !== false &&
+    !opts.idempotencyKey &&
+    !('payment' in sent) &&
+    r.status === 409 &&
+    (r.body as ProblemFields).code === 'CHECKIN_CONDITIONS_NOT_MET' &&
+    unmetOf(r).join(',') === 'balance_paid'
+  ) {
+    const time = sent.checkinTime ?? (await serverLocalTime(ctx));
+    const pv = await preview(ctx, s, reservationId, time);
+    const due = pv.body.amountDueAtCheckinVnd;
+    if (typeof due === 'number' && due > 0 && pv.body.balanceDueVnd === 0) {
+      autoDecision(`checkIn ${time}: payment ${due} (phụ thu/đêm B9a sắp ghi – BR-402 v0.3.6)`);
+      r = await send({ ...sent, payment: { type: 'charge', method: 'cash', amountVnd: due } });
     }
   }
   return r;

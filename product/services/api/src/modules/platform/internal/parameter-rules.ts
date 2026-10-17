@@ -252,7 +252,34 @@ export async function checkStructuredParameter(
       }
       return;
     }
+    case 'property_map_url': {
+      // S4-51 / P-S4-7 (BE-D, 0058): the guest app opens this link – https on the SEC E14-08 hosts only
+      // (OpenAPI GuestStay.property.mapUrl: "kiểm khi OWN lưu (422 NOT_IN_LIST)").
+      if (!isAllowedMapUrl(value)) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'value', code: 'NOT_IN_LIST' }] });
+      }
+      return;
+    }
     default:
       await checkTimeOrder(key, value, other);
+  }
+}
+
+/** SEC E14-08: https, no credentials/port, exact host (www.google.com only under /maps). */
+export function isAllowedMapUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try {
+    const u = new URL(value.trim());
+    if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
+    if (
+      ['maps.google.com', 'maps.app.goo.gl', 'maps.apple.com', 'www.openstreetmap.org'].includes(
+        u.hostname,
+      )
+    ) {
+      return true;
+    }
+    return u.hostname === 'www.google.com' && u.pathname.startsWith('/maps');
+  } catch {
+    return false;
   }
 }

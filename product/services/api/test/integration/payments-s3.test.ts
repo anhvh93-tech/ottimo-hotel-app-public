@@ -168,6 +168,12 @@ describe.skipIf(!HAS_DB)(
               )
           ).id,
       );
+    /** 0.3.7 B-6: the version the approver sees (required for a refund decision). */
+    const ver = async (id: string) => ({
+      expectedVersion: Number(
+        (await q('SELECT version FROM approval_request WHERE id = $1', [id]))[0]!.version,
+      ),
+    });
     const q = (sql: string, args: unknown[] = []) =>
       db.withContext(t.ctx(), async (tx) => (await tx.query(sql, args)).rows);
 
@@ -865,6 +871,7 @@ describe.skipIf(!HAS_DB)(
         'POST',
         `${P(t)}/approval-requests/${r.id}/actions/approve`,
         {
+          ...(await ver(r.id)),
           authMethod: 'password',
           secret: TEST_PASSWORD,
         },
@@ -997,8 +1004,9 @@ describe.skipIf(!HAS_DB)(
       );
       for (const x of idem) expect(String(x.body)).not.toContain('0071000123457');
 
-      const approve = () =>
+      const approve = async () =>
         c('owner').send('POST', `${P(t)}/approval-requests/${r.id}/actions/approve`, {
+          ...(await ver(r.id)),
           authMethod: 'password',
           secret: TEST_PASSWORD,
         });
@@ -1136,6 +1144,7 @@ describe.skipIf(!HAS_DB)(
         'POST',
         `${P(t)}/approval-requests/${r.json().id}/actions/approve`,
         {
+          ...(await ver(r.json().id)),
           authMethod: 'password',
           secret: TEST_PASSWORD,
         },
@@ -1298,6 +1307,7 @@ describe.skipIf(!HAS_DB)(
         'POST',
         `${P(t)}/approval-requests/${line.approvalRequestId}/actions/approve`,
         {
+          ...(await ver(line.approvalRequestId)),
           authMethod: 'password',
           secret: TEST_PASSWORD,
         },
@@ -1676,8 +1686,9 @@ describe.skipIf(!HAS_DB)(
       expect(res.json().status).toBe('confirmed');
       return { b, amount };
     };
-    const approveAs = (who: string, id: string) =>
+    const approveAs = async (who: string, id: string) =>
       c(who).send('POST', `${P(t)}/approval-requests/${id}/actions/approve`, {
+        ...(await ver(id)),
         authMethod: 'password',
         secret: TEST_PASSWORD,
       });
@@ -2179,6 +2190,7 @@ describe.skipIf(!HAS_DB)(
         ).statusCode,
       ).toBe(200);
       const rej = await c('mgr').send('POST', `${P(t)}/approval-requests/${r2.id}/actions/reject`, {
+        ...(await ver(r2.id)),
         authMethod: 'password',
         secret: TEST_PASSWORD,
         reason: 'Khách đổi ý',
@@ -2265,21 +2277,77 @@ describe.skipIf(!HAS_DB)(
       }
     });
 
-    it('ARC-BE-S3-14 (interim): a room / extra-person line of a booking still in stay is not adjusted at the folio (422 NOT_ALLOWED)', async () => {
+    it('S4-35 part B (0.3.7 D1, replaces ARC-BE-S3-14 interim): a night line of a booking in stay takes a new price through setNightRate – out of BR-105 → 422, quantity/void → 422 NOT_ALLOWED, the FOC of the night follows min(approved, new line)', async () => {
       await atT0();
       const b = await booking();
-      const f = await folio(b);
-      const room = (f.lines as Array<{ id: string; category: string }>).find(
-        (l) => l.category === 'room',
-      )!;
-      const res = await c('mgr').send(
+      let f = await folio(b);
+      type L = {
+        id: string;
+        category: string;
+        amountVnd: number;
+        serviceDate: string;
+        lineState: string;
+        reversalOfId?: string;
+        relatedLineId?: string;
+      };
+      const live = (x: { lines: L[] }) => {
+        const rev = new Set(x.lines.map((l) => l.reversalOfId).filter(Boolean));
+        return x.lines.filter((l) => l.lineState === 'posted' && !l.reversalOfId && !rev.has(l.id));
+      };
+      const room = live(f).find((l) => l.category === 'room')!;
+      const adjust = async (lineId: string, body: Record<string, unknown>) => {
+        const cur = await folio(b);
+        return c('mgr').send(
+          'POST',
+          `${P(t)}/folios/${b.folioId}/lines/${lineId}/adjustments`,
+          { reason: 'Giá thỏa thuận', ...body },
+          { 'if-match': `"${cur.version}"` },
+        );
+      };
+      const low = await adjust(room.id, { newUnitPriceVnd: 1_000 });
+      expect(low.statusCode, low.body).toBe(422);
+      expect(low.json().code).toBe('RATE_OUT_OF_RANGE');
+      const qty = await adjust(room.id, { newQuantity: 2 });
+      expect(qty.statusCode).toBe(422);
+      expect(qty.json().errors).toEqual([{ field: 'newQuantity', code: 'NOT_ALLOWED' }]);
+      // FOC 100 % on the night (approved), then the night price is lowered: FOC = the new line, the night stays free.
+      const foc = await c('fd').send('POST', `${P(t)}/folios/${b.folioId}/lines/${room.id}/foc`, {
+        kind: 'foc',
+        amountVnd: room.amountVnd,
+        reasonCode: 'service_recovery',
+      });
+      expect(foc.statusCode, foc.body).toBe(201);
+      const ap = await c('owner').send(
         'POST',
-        `${P(t)}/folios/${b.folioId}/lines/${room.id}/adjustments`,
-        { newUnitPriceVnd: 1_000, reason: 'Giảm giá đêm' },
-        { 'if-match': `"${f.version}"` },
+        `${P(t)}/approval-requests/${foc.json().id}/actions/approve`,
+        {
+          authMethod: 'password',
+          secret: TEST_PASSWORD,
+        },
       );
-      expect(res.statusCode, res.body).toBe(422);
-      expect(res.json().errors).toEqual([{ field: 'newUnitPriceVnd', code: 'NOT_ALLOWED' }]);
+      expect(ap.statusCode, ap.body).toBe(200);
+      const ok = await adjust(room.id, { newUnitPriceVnd: room.amountVnd - 50_000 });
+      expect(ok.statusCode, ok.body).toBe(201);
+      f = await folio(b);
+      const night = live(f).find(
+        (l) => l.category === 'room' && l.serviceDate === room.serviceDate,
+      )!;
+      expect(night.id).not.toBe(room.id);
+      expect(night.amountVnd).toBeLessThan(room.amountVnd);
+      const red = live(f).filter((l) => l.category === 'foc' && l.relatedLineId === night.id);
+      expect(red.map((l) => -l.amountVnd)).toEqual([night.amountVnd]);
+      // Back up: the FOC comes back to the approved amount (BR-434 – never from the FOC line still there).
+      const back = await adjust(night.id, { newUnitPriceVnd: room.amountVnd });
+      expect(back.statusCode, back.body).toBe(201);
+      f = await folio(b);
+      const night2 = live(f).find(
+        (l) => l.category === 'room' && l.serviceDate === room.serviceDate,
+      )!;
+      expect(
+        live(f)
+          .filter((l) => l.category === 'foc' && l.relatedLineId === night2.id)
+          .map((l) => -l.amountVnd),
+      ).toEqual([Math.min(room.amountVnd, night2.amountVnd)]);
     });
 
     it('DOM BE-21: folio and bill lines carry labelKey/labelParams – never a technical code to print', async () => {
@@ -2653,8 +2721,14 @@ describe.skipIf(!HAS_DB)(
           WHERE type = 'refund' AND target_id = $1 AND status IN ('pending', 'escalated', 'approved')`,
         [b.id],
       );
-      expect(Number(asked[0]!.total)).toBeLessThanOrEqual(Math.max(before.depositPaidVnd, 500_000));
-      expect(Number(asked[0]!.total)).toBe(500_000 + after.refundableVnd);
+      // S4-06 (BR-522 v0.3.4, Sprint 4): the cancellation requests ONE refund for the whole overpayment left after
+      // the fee (deposit part + the stay prepaid as `charge`) – never again what the open 500.000 asks back.
+      const f = (await folio(b)).totals as { creditVnd: number; unhandledCreditVnd: number };
+      const created = (done.json().cancellation as { refundRequestVnd: number }).refundRequestVnd;
+      expect(Number(asked[0]!.total)).toBe(500_000 + created);
+      expect(Number(asked[0]!.total)).toBe(f.creditVnd);
+      expect(f.unhandledCreditVnd).toBe(0);
+      expect(created).toBe((after as { refundRequestVnd?: number }).refundRequestVnd);
     });
     it('Re-verification 17/10 (VER-BE-S3-01): cancellation fee on the deposit nobody asked back, never above the booking value – 0 % and 50 % tiers with an excess deposit and an open refund', async () => {
       const excessBooking = async () => {

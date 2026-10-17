@@ -27,6 +27,11 @@ interface Scenario {
   retentionDays: number | null;
   /** Simulate a server bug that leaks level-2 keys – the client must drop them (ĐK-2). */
   leakLevel2: boolean;
+  /** ESC-016 A fee the server works out for "Dọn phòng thêm" (0 = make-up clean, free). */
+  cleaningFee: number;
+  cleaningFeeReason: 'second_full_clean' | 'long_stay_adhoc' | null;
+  /** Next createGuestRequest fails with this field code (then clears). */
+  requestFail?: 'FEE_NOT_ACCEPTED' | 'RATE_LIMITED' | 'CARD_NUMBER_DETECTED';
   requiredPeople: number;
   latencyMs: number;
 }
@@ -34,11 +39,15 @@ interface Scenario {
 interface State {
   session: boolean;
   locale: Schemas['Locale'];
+  /** The guest picked the language in an earlier session of this booking (`setGuestLocale`). */
+  localeChosen: boolean;
   oci: OnlineCheckin;
   consents: Schemas['ConsentInput'][];
   uploads: { personIndex: number; docType: string; images: number; bytes: number }[];
   notes: string[];
   calls: string[];
+  requests: Schemas['GuestRequestForGuest'][];
+  requestBodies: unknown[];
 }
 
 const scenario: Scenario = {
@@ -50,6 +59,8 @@ const scenario: Scenario = {
   latencyMs: 0,
   noticeVersion: 'privacy-2026-10-v1',
   retentionDays: 30,
+  cleaningFee: 100_000,
+  cleaningFeeReason: 'second_full_clean',
 };
 
 function freshOci(required: number): OnlineCheckin {
@@ -64,12 +75,15 @@ function freshOci(required: number): OnlineCheckin {
 
 const state: State = {
   session: false,
-  locale: 'vi',
+  locale: 'en',
+  localeChosen: false,
   oci: freshOci(2),
   consents: [],
   uploads: [],
   notes: [],
   calls: [],
+  requests: [],
+  requestBodies: [],
 };
 
 export const mockControl = {
@@ -86,15 +100,21 @@ export const mockControl = {
       latencyMs: 0,
       noticeVersion: 'privacy-2026-10-v1',
       retentionDays: 30,
+      cleaningFee: 100_000,
+      cleaningFeeReason: 'second_full_clean',
+      requestFail: undefined,
       ...patch,
     });
     state.session = false;
-    state.locale = 'vi';
+    state.locale = 'en';
+    state.localeChosen = false;
     state.oci = freshOci(scenario.requiredPeople);
     state.consents = [];
     state.uploads = [];
     state.notes = [];
     state.calls = [];
+    state.requests = [];
+    state.requestBodies = [];
   },
   /** Pretend a session cookie already exists (page reloaded after the token was exchanged). */
   openSession() {
@@ -135,7 +155,9 @@ function stayBody() {
     reservationCode: 'OTM-0150',
     status: inHouse ? 'in_house' : 'confirmed',
     stayType: 'short',
-    roomNo: '103',
+    // 0.3.7 (BR-012): name + public room type; the server no longer sends roomNo to guests.
+    roomName: 'The Bloom',
+    publicRoomType: 'Standard Studio · Garden View',
     arrivalDate: '2026-10-19',
     departureDate: '2026-10-22',
     checkinTime: '14:00',
@@ -143,14 +165,15 @@ function stayBody() {
     property: {
       name: 'OTTIMO Boutique Stay',
       address: '12 Đường Mẫu, Phường 3, Đà Lạt',
-      mapUrl: 'https://maps.google.com/?q=OTTIMO+Da+Lat',
+      // Google Maps pin INV sent 17/10 (P-S4-7) – one source for guest-web, landing and messages.
+      mapUrl: 'https://maps.app.goo.gl/oYos42G5YvUEcDCc6',
       phone: '+84 000 000 000',
     },
     houseRules:
       state.locale === 'vi'
         ? 'Không hút thuốc trong căn (phí vệ sinh 1.000.000 đ).\nGiữ yên lặng sau 22:00.'
         : 'No smoking inside the unit (cleaning fee 1,000,000 VND).\nQuiet hours after 22:00.',
-    wifi: inHouse ? { ssid: 'OTTIMO-103', password: 'mock-wifi-pass' } : null,
+    wifi: inHouse ? { ssid: 'OTTIMO-Guest', password: 'mock-wifi-pass' } : null,
     onlineCheckinAvailable: !(scenario.closed || inHouse),
   };
   if (scenario.leakLevel2) {
@@ -197,6 +220,15 @@ export const handlers = [
     if (!Object.values(MOCK_TOKENS).includes(token as never))
       return problem(401, 'GUEST_LINK_INVALID');
     state.session = true;
+    // 0.3.7 bổ sung 1 #12 (P-S4-10): guest's earlier choice → (profile: none in the mock) → Accept-Language
+    // first tag: vi* → vi, ru* → ru, anything else / missing → en.
+    if (!state.localeChosen) {
+      const first = (request.headers.get('accept-language') ?? '')
+        .split(',')[0]!
+        .trim()
+        .toLowerCase();
+      state.locale = first.startsWith('vi') ? 'vi' : first.startsWith('ru') ? 'ru' : 'en';
+    }
     // ĐK-1: always level 1, no OTP offer, no level-2 expiry.
     return HttpResponse.json({
       level: 1,
@@ -204,8 +236,9 @@ export const handlers = [
       stayEnded: scenario.stayEnded,
       verification: { emailOtpAvailable: false, locked: false },
       guestFirstName: 'Anna',
-      roomNo: '103',
+      roomName: 'The Bloom',
       locale: state.locale,
+      localeChosenByGuest: state.localeChosen,
       expiresAt: '2026-10-23T12:00:00+07:00',
       level2ExpiresAt: null,
     });
@@ -227,6 +260,7 @@ export const handlers = [
       });
     }
     state.locale = locale;
+    state.localeChosen = true;
     return new HttpResponse(null, { status: 204 });
   }),
 
@@ -367,6 +401,113 @@ export const handlers = [
     state.oci.currentStep = 'done';
     state.oci.completedAt = '2026-10-16T20:10:00+07:00';
     return HttpResponse.json(oci());
+  }),
+
+  // US-109/US-110 (H23) – OpenAPI 0.3.7 listMyRequests / listGuestRequestOptions / createGuestRequest.
+  http.get('/v1/guest/request-options', async () => {
+    const g = await guard('listGuestRequestOptions');
+    if (g) return g;
+    const inHouse = scenario.inHouse;
+    const front = (type: string) => ({
+      type,
+      available: true,
+      unavailableReason: null,
+      feeVnd: null,
+      feeReason: null,
+      noteRequired: type === 'other',
+    });
+    const hk = (type: string, fee: number | null, reason: string | null) =>
+      inHouse
+        ? {
+            type,
+            available: true,
+            unavailableReason: null,
+            feeVnd: fee,
+            feeReason: reason,
+            noteRequired: false,
+            lastFullCleanTime: reason === 'second_full_clean' ? '10:15' : null,
+          }
+        : {
+            type,
+            available: false,
+            unavailableReason: 'not_in_house',
+            feeVnd: null,
+            feeReason: null,
+            noteRequired: false,
+          };
+    return HttpResponse.json({
+      data: [
+        hk(
+          'extra_cleaning',
+          scenario.cleaningFee,
+          scenario.cleaningFee ? scenario.cleaningFeeReason : null,
+        ),
+        hk('amenities', 0, null),
+        inHouse
+          ? {
+              type: 'report_issue',
+              available: true,
+              unavailableReason: null,
+              feeVnd: null,
+              feeReason: null,
+              noteRequired: true,
+            }
+          : {
+              type: 'report_issue',
+              available: false,
+              unavailableReason: 'not_in_house',
+              feeVnd: null,
+              feeReason: null,
+              noteRequired: true,
+            },
+        front('transport_tour'),
+        front('late_checkout'),
+        front('other'),
+      ],
+    });
+  }),
+
+  http.get('/v1/guest/requests', async () => {
+    const g = await guard('listMyRequests');
+    if (g) return g;
+    return HttpResponse.json({ data: state.requests }, { headers: noStore });
+  }),
+
+  http.post('/v1/guest/requests', async ({ request }) => {
+    const g = await guard('createGuestRequest');
+    if (g) return g;
+    if (!request.headers.get('idempotency-key')) return problem(400, 'IDEMPOTENCY_KEY_REQUIRED');
+    const body = (await request.json()) as { type: string; note?: string; feeAccepted?: boolean };
+    state.requestBodies.push(body);
+    const fail = scenario.requestFail;
+    scenario.requestFail = undefined;
+    if (fail === 'RATE_LIMITED') return problem(429, 'RATE_LIMITED');
+    if (fail)
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: fail === 'FEE_NOT_ACCEPTED' ? 'feeAccepted' : 'note', code: fail }],
+      });
+    const fee = body.type === 'extra_cleaning' && scenario.inHouse ? scenario.cleaningFee : 0;
+    if (fee > 0 && body.feeAccepted !== true) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'feeAccepted', code: 'FEE_NOT_ACCEPTED' }],
+      });
+    }
+    if (body.note && CARD_RE.test(body.note)) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
+    }
+    const created = {
+      id: `req-${state.requests.length + 1}`,
+      type: body.type as Schemas['GuestRequestType'],
+      note: body.note,
+      status: 'new' as const,
+      statusLabel: state.locale === 'vi' ? 'Đã gửi' : 'Sent',
+      feeVnd: fee > 0 ? fee : null,
+      createdAt: '2026-10-19T20:10:00+07:00',
+    };
+    state.requests = [created, ...state.requests];
+    return HttpResponse.json(created, { status: 201 });
   }),
 
   // ĐK-1 tripwires: guest-web must never call these in R2.

@@ -57,6 +57,8 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     await user.click(within(box).getByRole('button', { name: 'Hủy đơn' }));
     expect(within(box).getByText('Bắt buộc')).toBeInTheDocument();
     await user.selectOptions(within(box).getByLabelText(/Lý do hủy/), 'found_other');
+    // S4-08: the button waits for the dry run of exactly what will be sent (reason included).
+    await waitFor(() => expect(within(box).getByRole('button', { name: 'Hủy đơn' })).toBeEnabled());
     await user.click(within(box).getByRole('button', { name: 'Hủy đơn' }));
     expect(
       await screen.findByText(tv('rsv.toast.cancelled', { code: 'OTM-0159' })),
@@ -78,6 +80,8 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
     // A-19: reason from the DOM list; "other" needs a note.
     await user.selectOptions(within(dlg).getByLabelText(/^Lý do đổi/), 'other');
     await user.type(within(dlg).getByLabelText(/^Ghi chú/), 'Khách xin căn tầng thấp');
+    // S4-21: the change is priced by the server before it can be saved.
+    await within(dlg).findByRole('region', { name: tv('move.preview_title') });
     await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(
       await within(dlg).findByText(/Dữ liệu vừa được người khác thay đổi/),
@@ -105,9 +109,14 @@ describe('H11 Chi tiết đơn (US-020, 021, 024, 085, 086, 087, 136)', () => {
       within(dlg).getByRole('option', { name: /^302 / }),
     );
     await user.selectOptions(within(dlg).getByLabelText(/^Lý do đổi/), 'guest_request');
-    await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
+    // S4-21: the price check runs the same server checks – the conflict shows before saving.
     expect(await within(dlg).findByText(/Căn 302 đã có đơn của Olga Ivanova/)).toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: 'Dùng căn 402' }));
+    await within(dlg).findByRole('region', { name: tv('move.preview_title') });
+    // OTA + guest request: the OTA price stays, the desk collects the difference (BR-424) – told first.
+    expect(within(dlg).getByText(tv('move.basis.ota'))).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('checkbox', { name: /Đã báo khách số tiền mới/ }));
+    await user.click(within(dlg).getByRole('button', { name: 'Lưu thay đổi' }));
     expect(await screen.findByText(/^Đã đổi OTM-0\d+/)).toBeInTheDocument();
     expect(
       mockControl.rsv.reservations.find((r) => r.guestName === 'Tanaka Yui')!.segments![0]!.roomNo,

@@ -32,9 +32,15 @@ export const MONEY_TYPES: ReadonlySet<ApprovalType> = new Set([
   'refund',
 ]);
 
-/** Lowest role that may decide a request type (rbac 5.1). */
+/**
+ * Lowest role that may decide a request type (rbac 5.1, A36 ²⁵). BUG-R2-104 (BE-B, S4): a special discount goes
+ * "through the same approval mechanism" as a FOC (BR-431) – the lead decides it within the lead's limits
+ * (BR-433, oracle BR-433-03 / BR-434-11); above them it escalates as any FOC does.
+ */
 export function minRoleFor(type: ApprovalType): ApproverRole {
-  return type === 'foc' || type === 'checkin_room_not_ready' ? 'front_desk_lead' : 'manager';
+  return type === 'foc' || type === 'special_discount' || type === 'checkin_room_not_ready'
+    ? 'front_desk_lead'
+    : 'manager';
 }
 
 export type Amount = number | 'unlimited';

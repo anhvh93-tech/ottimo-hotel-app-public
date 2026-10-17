@@ -20,6 +20,7 @@ import { Operation } from '../../src/shared/http/operation';
 import { UnitOfWork, applyResult } from '../../src/shared/http/unit-of-work';
 import { problem } from '../../src/shared/problem';
 import TestSupport from '../../src/test-support';
+import { withDevClockLock } from '../helpers/dev-clock-lock';
 import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
 
 interface Reply {
@@ -127,7 +128,7 @@ describe.skipIf(!HAS_DB)(
       await app.getHttpAdapter().getInstance().ready();
     });
     afterAll(async () => {
-      await clock.reset();
+      await withDevClockLock(() => clock.reset());
       await clock.stop();
       await app?.close();
       await db.close();
@@ -343,7 +344,11 @@ describe.skipIf(!HAS_DB)(
         ).toBe(200);
       });
 
+      // S4-20: dev_clock is shared with platform.test.ts (other vitest worker) – serialized by the lock.
       it('sets, advances and resets the shared clock; each call is audited', async () => {
+        await withDevClockLock(() => clockSteps());
+      });
+      async function clockSteps() {
         const h = {
           cookie: cookie('owner'),
           'x-test-token': token,
@@ -367,16 +372,25 @@ describe.skipIf(!HAS_DB)(
         );
         expect(audit.rows.length).toBeGreaterThanOrEqual(4);
         expect(audit.rows.every((r) => r.action === 'test.clock_changed')).toBe(true);
-      });
+      }
 
+      // S4-20: both runs must see the SAME business date and slot – the clock is pinned (frozen, under the
+      // dev_clock lock so no other file moves it in between) and the slot is passed explicitly.
       it('runs a job now through the exactly-once runner; unknown job → 404', async () => {
         const h = { cookie: cookie('owner'), 'x-test-token': token };
-        const first = await post(`${T}/jobs/log.partitions/run`, {}, h);
-        expect(first.statusCode).toBe(200);
-        expect(['done', 'skipped_already_ran']).toContain(first.json().status);
-        expect((await post(`${T}/jobs/log.partitions/run`, {}, h)).json().status).toBe(
-          'skipped_already_ran',
-        );
+        await withDevClockLock(async () => {
+          await clock.set(new Date('2026-10-16T03:30:00+07:00'));
+          await clock.freeze();
+          try {
+            const run = () => post(`${T}/jobs/log.partitions/run`, { slot: '03:00' }, h);
+            const first = await run();
+            expect(first.statusCode, first.body).toBe(200);
+            expect(['done', 'skipped_already_ran']).toContain(first.json().status);
+            expect((await run()).json().status).toBe('skipped_already_ran');
+          } finally {
+            await clock.reset();
+          }
+        });
         expect((await post(`${T}/jobs/nope/run`, {}, h)).statusCode).toBe(404);
       });
 

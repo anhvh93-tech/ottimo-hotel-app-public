@@ -18,6 +18,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { CLOCK_ENABLED, runJobIfAny } from '../support/clock.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 import { GUEST_ORIGIN } from '../support/env.js';
 import {
   EP,
@@ -228,46 +229,63 @@ test.describe(
         },
       );
 
+      // BUG-R2-064 (S4-24): mỗi phần lỗi đã biết là một ca riêng, test.fail ở DÒNG ĐẦU (knownBug), dựng dữ liệu trong
+      // precondition – hỏng ở đó là đỏ thật. Kỳ vọng giữ như R2 Sprint 3; khi S4-11 (0.3.7 nhóm D mục A: Guest.source,
+      // possibleReturningGuest, id_doc_hmac chỉ khi P05) vào, QA viết lại kỳ vọng (a)(b) theo hợp đồng mới cùng PR đó.
       test(
-        'TC-L3-032 US-043/AC3 [A · TB]',
+        'TC-L3-032 (a) US-043/AC3 người 2 trùng số giấy tờ với hồ sơ có sẵn → gắn hồ sơ đó (BUG-R2-033 a) [A · TB]',
         { annotation: [story('US-043/AC3'), eps('addGuestDocument, listParty')] },
         async ({ request }) => {
-          await requireEndpoints(request, 'TC-L3-032', [EP3.addGuestDocument, EP3.listParty]);
-          const fd = await sessionOrSkip(request, 'qa.fd');
-          const c = await s2Context(request);
-          const today = await stackToday(request);
-          // hồ sơ KH có sẵn G: lần ở trước đã khai giấy tờ số N (người đứng tên)
-          const prev = await farStay(request, c, fd, today, { adults: 1, doc: false });
-          const known = vnDoc(prev.guestName);
-          const kd = await addDocument(request, fd, prev.regId, known);
-          expect(kd.status, JSON.stringify(kd.body)).toBe(201);
-          const prevBooker = (await getReservation(request, fd, prev.res.id)).body.booker as
-            { id?: string } | undefined;
-          // đơn mới 2 khách (người đứng tên khác)
-          const st = await farStay(request, c, fd, today, { adults: 2 });
-          const before = await partyOf(request, fd, st.res.id);
-          // (a) người thứ 2 trùng số giấy tờ N với hồ sơ G, không chọn partyMemberId
+          knownBug('BUG-R2-033');
+          const { fd, st, known, prevBooker } = await precondition(
+            'hồ sơ KH có giấy tờ từ lần ở trước + đơn mới 2 khách',
+            async () => {
+              await requireEndpoints(request, 'TC-L3-032', [EP3.addGuestDocument, EP3.listParty]);
+              const fd = await sessionOrSkip(request, 'qa.fd');
+              const c = await s2Context(request);
+              const today = await stackToday(request);
+              // hồ sơ KH có sẵn G: lần ở trước đã khai giấy tờ số N (người đứng tên)
+              const prev = await farStay(request, c, fd, today, { adults: 1, doc: false });
+              const known = vnDoc(prev.guestName);
+              const kd = await addDocument(request, fd, prev.regId, known);
+              expect(kd.status, JSON.stringify(kd.body)).toBe(201);
+              const prevBooker = (await getReservation(request, fd, prev.res.id)).body.booker as
+                { id?: string } | undefined;
+              // đơn mới 2 khách (người đứng tên khác)
+              const st = await farStay(request, c, fd, today, { adults: 2 });
+              return { fd, st, known, prevBooker };
+            },
+          );
+          // (a) người thứ 2 trùng số giấy tờ N với hồ sơ G, không chọn partyMemberId. Gốc (QA 17/10): cổng khớp
+          // (frontdesk/internal/document-party.port.ts) chỉ so guest.id_doc_hmac mà không chỗ nào ghi cột này.
           const a = await addDocument(request, fd, st.regId, { ...known, isMain: false });
           expect(a.status, JSON.stringify(a.body)).toBe(201);
           const docA = a.body.documents.find((d) => !d.isMain);
           expect(docA).toBeTruthy();
-          // (a) vòng sửa 2 có cổng khớp theo số giấy tờ (frontdesk/internal/document-party.port.ts) nhưng chỉ so với
-          // guest.id_doc_hmac – không chỗ nào ghi cột này (giấy tờ người đứng tên lần trước không gắn chỉ mục vào
-          // hồ sơ) → không bao giờ khớp. QA kiểm lại 17/10 trên cây làm việc sau e3959ec: vẫn trượt.
-          test.fail(
-            true,
-            'BUG-R2-033 (a): khớp hồ sơ theo số giấy tờ không xảy ra – guest.id_doc_hmac không được ghi ở đâu (chỉ đọc ở document-party.port.ts:79/85)',
-          );
           expect(docA!.partyMemberId, 'giấy tờ được gắn với một người trong đơn').toBeTruthy();
           const after = await partyOf(request, fd, st.res.id);
           const memberA = after.members?.find((m) => m.id === docA!.partyMemberId);
           expect(memberA?.guest?.id, 'khớp hồ sơ có sẵn theo số giấy tờ (BR-951)').toBe(
             prevBooker?.id,
           );
-          // (b) không khớp ai → người mới quan hệ "Chưa rõ" – còn chờ ARC/PO (ORC 17/10): giữ test.fail cho phần này
-          test.fail(
-            true,
-            'BUG-R2-033 (b): không khớp ai → chưa tạo người quan hệ "Chưa rõ" (BR-951) – chờ ARC/PO chốt',
+        },
+      );
+
+      test(
+        'TC-L3-032 (b) US-043/AC3 người 2 không khớp ai → người mới quan hệ "Chưa rõ" (BUG-R2-033 b) [A · TB]',
+        { annotation: [story('US-043/AC3'), eps('addGuestDocument, listParty')] },
+        async ({ request }) => {
+          // BUG-R2-033 (b) đã xanh trên cây làm việc 17/10 20:18 (BE-C S4-11) – ca phải đạt; phần (a) vẫn mở
+
+          const { fd, st, before } = await precondition(
+            'đơn mới 2 khách có giấy tờ người đứng tên',
+            async () => {
+              await requireEndpoints(request, 'TC-L3-032', [EP3.addGuestDocument, EP3.listParty]);
+              const fd = await sessionOrSkip(request, 'qa.fd');
+              const c = await s2Context(request);
+              const st = await farStay(request, c, fd, await stackToday(request), { adults: 2 });
+              return { fd, st, before: await partyOf(request, fd, st.res.id) };
+            },
           );
           const b = await addDocument(
             request,

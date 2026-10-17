@@ -401,6 +401,10 @@ dialog.dlg .modal{max-width:none;max-height:calc(100vh - 48px);overflow:auto}
 .sum td.r{text-align:right;font-variant-numeric:tabular-nums}
 .sum tr.total td{border-bottom:0;border-top:2px solid var(--line-strong);font-weight:600;padding-top:8px}
 .sum tr.sub td{color:var(--muted);font-size:.8125rem}
+/* v0.4.1a (s4-UXD 17/10): bảng .sum có thead (tính thử đổi căn theo đêm) – tiêu đề cột như .table th, cột số canh phải, số không xuống dòng giữa chừng */
+.sum th{text-align:left;font-size:.75rem;font-weight:600;color:var(--muted);padding:4px 0 6px;border-bottom:1px solid var(--line)} /* không viết hoa: giữ "(đ)" đúng ký hiệu */
+.sum th+th,.sum td+td{padding-left:12px}
+.sum th.r,.sum td.r{text-align:right;white-space:nowrap}
 .quote-text{white-space:pre-wrap;font-size:.875rem;background:var(--surface-2);border-radius:var(--r-md);padding:12px;border:1px solid var(--line)}
 .qr{width:120px;height:120px;background:conic-gradient(var(--ink) 25%,var(--surface) 0 50%,var(--ink) 0 75%,var(--surface) 0) 0 0/20px 20px;border:8px solid var(--surface);outline:1px solid var(--line-strong);border-radius:var(--r-sm);flex:none}
 

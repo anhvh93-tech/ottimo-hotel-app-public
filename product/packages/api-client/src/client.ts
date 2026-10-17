@@ -18,6 +18,12 @@ export interface RequestOptions {
   form?: FormData;
   /** Read the 2xx body as a Blob (images – never JSON-parsed, never cached: fetch `cache: 'no-store'`). */
   blob?: boolean;
+  /**
+   * 0.3.7 (ARC 11.3 (9), 11.5 #13): the APP's language for labels the server translates (checklist of
+   * `getInspectionChecklist`, `listInspections`, `recordInspection`) – sent as `Accept-Language`, so a VI
+   * browser with the PWA set to EN gets EN labels. Absent → no header (the browser's own is not forced).
+   */
+  acceptLanguage?: 'vi' | 'en' | 'ru';
 }
 
 export interface ApiResult<T> {
@@ -83,6 +89,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       }
       if (req.ifMatch !== undefined) headers['If-Match'] = `"${req.ifMatch}"`;
       if (req.idempotencyKey) headers['Idempotency-Key'] = req.idempotencyKey;
+      if (req.acceptLanguage) headers['Accept-Language'] = req.acceptLanguage;
 
       let res: Response;
       try {

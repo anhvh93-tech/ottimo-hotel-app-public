@@ -1,0 +1,25 @@
+---
+// 404 page per language (served by Caddy by path prefix – ADR-014 1.4). Never indexed, no hreflang.
+import type { Copy } from '../content/types';
+import Base from '../layouts/Base.astro';
+import { pathFor } from '../lib/i18n';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+---
+
+<Base t={t} title={t.notFound.title} description={t.meta.description} published={false}>
+  <section class="sec nf" aria-labelledby="nf-h">
+    <div class="wrap">
+      <p class="label">404</p>
+      <h1 id="nf-h">{t.notFound.heading}</h1>
+      <p class="lead">{t.notFound.body}</p>
+      <div class="actions">
+        <a class="btn btn-primary" href={pathFor(t.lang)}>{t.notFound.back}</a>
+      </div>
+    </div>
+  </section>
+</Base>

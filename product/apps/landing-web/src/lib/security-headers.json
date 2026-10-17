@@ -1,0 +1,10 @@
+{
+  "$comment": "Response headers of the landing origin (ADR-014 1.4). Production sets them in infra/caddy/Caddyfile.prod (OPS); this copy feeds `astro preview` and the Playwright test server so CSP violations show up before deploy. upgrade-insecure-requests is added only on HTTPS origins (local tests run on plain HTTP).",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'; worker-src 'none'",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin"
+}

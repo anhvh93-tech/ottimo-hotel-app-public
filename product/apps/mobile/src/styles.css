@@ -1,0 +1,271 @@
+/* OTTIMO Staff layout only – every component style comes from @ottimo/ui (hifi.css, DS v0.4.1, `.hk`
+   density 6.18). Values are tokens or on the 4px grid. */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+}
+.staff-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--bg);
+}
+.staff-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+.staff-app .m-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+.staff-app .m-body {
+  flex: 1;
+  /* The document scrolls (sticky header / action bar / tab bar), not the body box (hifi.css: overflow auto). */
+  overflow: visible;
+  padding: 12px 16px 24px;
+}
+.staff-app .m-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.staff-app .m-nav a:focus-visible,
+.staff-app h1:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.staff-app h1[tabindex='-1']:focus:not(:focus-visible) {
+  outline: none;
+}
+/* Back = chevron of the DS icon set pointing left. */
+.hk-back .ico {
+  transform: rotate(180deg);
+}
+.hk-back {
+  flex: none;
+}
+.hk-top-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+/* Room number big, room name under it (DS 11.3 – PWA "401 / The Pine", name ≥ 16 px). */
+.hk-roomno {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 52px;
+}
+.hk-roomno .rm-name {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.hk-card.rowlink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.hk-card.rowlink .grow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hk-list > li + li {
+  margin-top: 12px;
+}
+.hk-stack > * + * {
+  margin-top: 12px;
+}
+.hk-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+.qpill {
+  text-decoration: none;
+}
+.qpill.review {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+.qpill.review .ico {
+  color: var(--bad);
+}
+/* Primary action pinned in the thumb zone (DS 6.18). */
+.staff-app .wiz-foot.hk-foot {
+  /* hifi.css .wiz-foot is a flex row with space-between – as a grid that would shrink the tracks. */
+  justify-content: stretch;
+  position: sticky;
+  bottom: 64px;
+  z-index: 4;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+.staff-app .wiz-foot.hk-foot > .btn {
+  width: 100%;
+}
+.staff-app .wiz-foot.hk-foot.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.staff-app .wiz-foot.hk-foot .hk-why {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.staff-app:has(.hk-foot) .toast-dock.app {
+  /* Above the pinned primary button, never on top of it. */
+  bottom: calc(160px + env(safe-area-inset-bottom));
+}
+.toast-dock.app {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  max-width: 576px;
+  margin: 0 auto;
+  z-index: 20;
+}
+.hk-steps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.hk-h2 {
+  font-size: 1.1875rem;
+  margin: 0;
+}
+.hk-info p + p {
+  margin-top: 4px;
+}
+.hk-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.photo .photo-x {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+}
+.d-block {
+  display: block;
+}
+.hk-pass {
+  display: flex;
+  gap: 8px;
+}
+.hk-pass .input {
+  flex: 1;
+  min-width: 0;
+}
+.hk-brand {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  margin: 0;
+}
+.hk-brand-sub {
+  font-family: var(--sans);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  font-size: 0.75em;
+  color: var(--muted);
+}
+/* Codes (WO-00001) in JetBrains Mono – DS 3 `mono`, 16 px on the phone. */
+.staff-app .mono {
+  font-family: var(--mono);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.gw-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.hk-choice-txt {
+  font-weight: 600;
+}
+.hk-choice-txt .li-s {
+  font-weight: 400;
+}
+/* Bell + unread badge (in-app inbox). */
+.hk-bell {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink);
+}
+.hk-badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--bad);
+  color: var(--ink-inverse);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+button.hk-card.rowlink {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.hk-notif.unread {
+  border-left: 6px solid var(--oak-ink);
+}
+.hk-notif:not(.unread) b {
+  font-weight: 500;
+}
+/* Work order photos (getAttachment – object URLs, revoked on close). */
+.photo.hk-photo {
+  overflow: hidden;
+  padding: 0;
+}
+.photo.hk-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hk-conflicts {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.mb-12 {
+  margin-bottom: 12px;
+}

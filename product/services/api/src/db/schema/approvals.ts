@@ -14,6 +14,7 @@ import {
   bigint,
   boolean,
   check,
+  date,
   foreignKey,
   index,
   jsonb,
@@ -119,6 +120,9 @@ export const approvalRequest = pgTable(
     lineChange: jsonb('line_change'),
     // Why the server cancelled a pending request by itself (only on status = cancelled).
     autoCancelReason: text('auto_cancel_reason'),
+    // 0060 (BE-B S4-02/S4-18): current service date of the FOC KEY of a request on a room / extra-person line
+    // (BR-434 (1)–(3): moves with the nights, also while dormant/pending). NULL for other lines.
+    focServiceDate: date('foc_service_date', { mode: 'string' }),
     ...auditColumns(),
   },
   (t) => [
@@ -226,6 +230,11 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_auto_cancel_reason_check',
       sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded') AND ${t.status} = 'cancelled')`,
+    ),
+    // 0060 (BE-B S4-02): the key date exists only on foc / special_discount requests.
+    check(
+      'approval_request_foc_service_date_check',
+      sql`${t.focServiceDate} IS NULL OR ${t.type} IN ('foc', 'special_discount')`,
     ),
     index('approval_request_queue_idx').on(t.propertyId, t.status, t.requestedAt.desc()),
     index('approval_request_requester_idx').on(t.propertyId, t.requestedBy, t.requestedAt.desc()),

@@ -180,6 +180,8 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     totalRoomVnd: row.total_room_vnd,
     conflictState: row.conflict_state,
     capacityConflict: row.capacity_conflict_at !== null,
+    // 0.3.7 D1 (BR-012 (4)): the guest was told the concrete room (FD+ – x-visible-to).
+    roomDisclosedToGuest: row.room_disclosed_to_guest,
     ...(d.requestedGroup
       ? { requestedRoomGroupId: d.requestedGroup.id, requestedRoomGroupCode: d.requestedGroup.code }
       : {}),

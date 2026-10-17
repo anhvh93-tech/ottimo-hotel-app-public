@@ -16,6 +16,18 @@ import {
 
 type Schemas = components['schemas'];
 export type GuestSession = Schemas['GuestSession'];
+export type GuestRequest = Schemas['GuestRequestForGuest'];
+export type GuestRequestType = Schemas['GuestRequestType'];
+export interface GuestRequestOption {
+  type: GuestRequestType;
+  available: boolean;
+  unavailableReason?:
+    'outside_service_hours' | 'not_in_house' | 'paid_limit_reached' | 'not_offered' | null;
+  feeVnd?: number | null;
+  feeReason?: 'second_full_clean' | 'long_stay_adhoc' | null;
+  lastFullCleanTime?: string | null;
+  noteRequired: boolean;
+}
 export type GuestStayRaw = Schemas['GuestStay'];
 export type OnlineCheckin = Schemas['OnlineCheckin'];
 export type DocType = Schemas['DocType'];
@@ -27,8 +39,13 @@ export type CheckinStep = OnlineCheckin['currentStep'];
 /**
  * Level-1 view of GuestStay (SEC ĐK-2). Built by whitelisting keys, so a server bug that leaked
  * `guestFullName` / `doorCode` would still never reach React state or the DOM.
+ * BR-012 (1) (0.3.7): the guest sees the room NAME, never the room number – `roomNo` is not copied even
+ * if an older server still sends it.
  */
-export type GuestStay = Omit<GuestStayRaw, 'guestFullName' | 'doorCode' | 'doorCodeAvailableFrom'>;
+export type GuestStay = Omit<
+  GuestStayRaw,
+  'guestFullName' | 'doorCode' | 'doorCodeAvailableFrom' | 'roomNo'
+>;
 
 export function pickStayLevel1(raw: GuestStayRaw): GuestStay {
   const p = raw.property ?? {};
@@ -36,7 +53,8 @@ export function pickStayLevel1(raw: GuestStayRaw): GuestStay {
     reservationCode: raw.reservationCode,
     status: raw.status,
     stayType: raw.stayType,
-    roomNo: raw.roomNo ?? null,
+    roomName: raw.roomName ?? null,
+    publicRoomType: raw.publicRoomType ?? null,
     arrivalDate: raw.arrivalDate,
     departureDate: raw.departureDate,
     checkinTime: raw.checkinTime,
@@ -69,16 +87,38 @@ export function pickCheckin(raw: OnlineCheckin): OnlineCheckin {
   return out as OnlineCheckin;
 }
 
-/** GuestSession keys used by the page (ĐK-2) – `verification` is ignored (ĐK-1: no level-2 buttons). */
+/**
+ * GuestSession keys used by the page (ĐK-2) – `verification` is ignored (ĐK-1: no level-2 buttons);
+ * `roomNo` is dropped (BR-012 – deprecated in 0.3.7), the room name comes with the stay.
+ */
 export function pickSession(raw: GuestSession): GuestSession {
   return {
     level: 1,
     reservationCode: raw.reservationCode,
     stayEnded: raw.stayEnded,
     guestFirstName: raw.guestFirstName,
-    roomNo: raw.roomNo,
+    roomName: raw.roomName ?? null,
+    publicRoomType: raw.publicRoomType ?? null,
     locale: raw.locale,
+    localeChosenByGuest: raw.localeChosenByGuest === true,
     expiresAt: raw.expiresAt,
+  };
+}
+
+/** Level-1 keys of a guest request (SM-15) – whitelisted like the stay. */
+export function pickRequest(raw: GuestRequest): GuestRequest {
+  return {
+    id: raw.id,
+    type: raw.type,
+    note: raw.note,
+    status: raw.status,
+    statusLabel: raw.statusLabel,
+    autoReply: raw.autoReply,
+    declinedReasonCode: raw.declinedReasonCode,
+    replyNote: raw.replyNote,
+    feeVnd: raw.feeVnd ?? null,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
   };
 }
 
@@ -97,11 +137,17 @@ async function withRetry<T>(run: () => Promise<T>): Promise<T> {
 }
 
 export const guestApi = {
-  openSession: async (token: string) =>
+  /**
+   * The server picks the session language (0.3.7 bổ sung 1 #12, P-S4-10): the guest's own earlier choice →
+   * booking profile → `Accept-Language`. We send the browser's first preference already reduced to the
+   * same rule (`vi*` → vi, `ru*` → ru, else en) – the result the server would reach, and testable.
+   */
+  openSession: async (token: string, browserLanguage: Schemas['Locale']) =>
     pickSession(
       (
         await client.request<GuestSession>('POST', '/v1/guest/sessions', {
           body: { token },
+          acceptLanguage: browserLanguage,
           local: true,
         })
       ).data,
@@ -125,6 +171,29 @@ export const guestApi = {
         (
           await client.request<ResponseOf<'recordGuestConsent'>>('POST', '/v1/guest/consents', {
             body,
+          })
+        ).data,
+      ),
+    ),
+  // US-109 (H23): requests of this stay + the options with the fee the server works out for THIS guest now
+  // (ESC-016 A) – the page never computes a fee itself (DS 6.19).
+  listRequests: async () =>
+    (await client.request<{ data: GuestRequest[] }>('GET', '/v1/guest/requests')).data.data.map(
+      pickRequest,
+    ),
+  listRequestOptions: async () =>
+    (await client.request<{ data: GuestRequestOption[] }>('GET', '/v1/guest/request-options')).data
+      .data,
+  createRequest: (
+    body: { type: GuestRequestType; note?: string; feeAccepted?: boolean },
+    idempotencyKey: string,
+  ) =>
+    withRetry(async () =>
+      pickRequest(
+        (
+          await client.request<GuestRequest>('POST', '/v1/guest/requests', {
+            body,
+            idempotencyKey,
           })
         ).data,
       ),

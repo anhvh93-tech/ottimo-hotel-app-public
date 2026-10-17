@@ -38,15 +38,11 @@ import {
   nightsOf,
   noticeDays,
 } from '../public/pricing';
-import {
-  type PriceResult,
-  type PricedNight,
-  type PricingParams,
-  PricingService,
-} from '../public/pricing.service';
+import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import { MoneyBridge } from './money-bridge';
+import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
 import { FDL_PLUS, FD_PLUS, MGR_PLUS, allowedActions, hasAny } from './allowed-actions';
 import { type BookingContext, bookingContext } from './booking-context';
 import { syncExtraGuestKit } from './extra-guest-kit';
@@ -57,7 +53,6 @@ import {
   type ReservationRow,
   type SegmentRow,
   activeSegments,
-  datesOutside,
   insertNights,
   insertSegment,
   isOwn,
@@ -117,8 +112,69 @@ const MOVE_REASONS = [
   'force_majeure',
   'other',
 ] as const;
+type MoveReason = (typeof MOVE_REASONS)[number];
+
+/** Parsed body of `moveReservation` (= query of `previewMoveReservation`). */
+interface MoveInput {
+  roomId: string | undefined;
+  arrival: LocalDate | undefined;
+  departure: LocalDate | undefined;
+  mode: 'change' | 'postpone_instead_of_cancel';
+  reasonCode: MoveReason;
+  note: string | undefined;
+  capacityAck: string | undefined;
+  resolution: 'reassigned_same_group' | 'upgraded' | undefined;
+  applyDifference: boolean;
+  expectedDeltaVnd: number | undefined;
+}
+
+/** A checked move with its money plan (ARC 10.4: the preview and the write share it). */
+interface PreparedMove {
+  seg: SegmentRow;
+  rm: RoomInfo;
+  from: LocalDate;
+  to: LocalDate;
+  roomChanges: boolean;
+  overCapacity: boolean;
+  plan: BookingMovePlan;
+  /** Change of the folio the guest sees (room + BR-110 fee + OTA difference − FOC that follows). */
+  folioDeltaVnd: number;
+  warnings: Array<{ code: string; field?: string }>;
+}
+
 /** Holds handled per J1 run (SEC-BE-24) – technical batch size; the next tick takes the rest. */
 const HOLD_EXPIRY_BATCH = 100;
+
+/**
+ * 0.3.7 D1 S4-08 (BE-B): `retainLines[{lineId, reason}]` of cancelReservation / markNoShow – shape only here
+ * (≤ 50 items, uuid, reason ≤ 500); the folio checks the lines and the reason length (closeStayPreview).
+ */
+function retainLinesOf(f: Fields, raw: unknown): Array<{ lineId: string; reason: string }> {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    f.add('retainLines', 'VALIDATION_FAILED');
+    return [];
+  }
+  if (raw.length > 50) f.add('retainLines', 'VALUE_OUT_OF_RANGE');
+  const out: Array<{ lineId: string; reason: string }> = [];
+  raw.slice(0, 50).forEach((item, i) => {
+    const it = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+    if (typeof it.lineId !== 'string' || !isUuid(it.lineId)) {
+      f.add(
+        `retainLines[${i}].lineId`,
+        typeof it.lineId === 'undefined' ? 'REQUIRED' : 'VALIDATION_FAILED',
+      );
+      return;
+    }
+    const reason = typeof it.reason === 'string' ? it.reason : '';
+    if (reason.length > 500) {
+      f.add(`retainLines[${i}].reason`, 'TOO_LONG');
+      return;
+    }
+    out.push({ lineId: it.lineId, reason });
+  });
+  return out;
+}
 
 /** Error code for job reports – never a message with data (SR-LOG-04). */
 function errorCode(err: unknown): string {
@@ -182,6 +238,16 @@ export class ReservationsService {
     @Inject(LeadsService) private readonly leads: LeadsService,
   ) {}
 
+  /** ONE calculation of a room move – B7/B7a/B8 here, B14 through the stay port (ARC 10.4, S4-04/05/07/21). */
+  readonly planner: MovePlanner = new MovePlanner({
+    room: (tx, id) => this.room(tx, id),
+    roomListPrices: (tx, id) => this.listPrices(tx, id),
+    nightExtra: (ctx, row, party, base) => this.nightExtra(ctx, row, party, base),
+    parameter: (tx, key, asOf) => this.params.get(tx, key, asOf),
+    differenceLines: (tx, row) => this.money.differenceLines(tx, row),
+    reductions: (tx, row, nights) => this.money.previewReductions(tx, row, nights),
+  });
+
   context(tx: Tx, actor: Actor, requestId?: string): Promise<BookingContext> {
     return bookingContext(tx, this.property, this.pricing, actor, requestId);
   }
@@ -224,10 +290,15 @@ export class ReservationsService {
     return rows[0] ?? null;
   }
 
-  /** Full Reservation JSON for the caller (allowedActions by state AND role). */
+  /**
+   * Full Reservation JSON for the caller (allowedActions by state AND role) – getReservation: also the deposit
+   * notices (0.3.7 bổ sung 1 – required here, may be absent from action responses; the serializer drops
+   * `note` (D12c) / `createdByName` (D27) for SAL/CTV).
+   */
   async dto(tx: Tx, ctx: BookingContext, id: string): Promise<Record<string, unknown>> {
     const row = await loadReservation(tx, id, ctx.actor);
-    return this.dtoOf(tx, ctx, row);
+    const out = await this.dtoOf(tx, ctx, row);
+    return { ...out, depositNotices: await this.hooks.depositNotices(tx, row.id) };
   }
 
   async dtoOf(tx: Tx, ctx: BookingContext, row: ReservationRow): Promise<Record<string, unknown>> {
@@ -610,7 +681,11 @@ export class ReservationsService {
     }
     if (conflict) {
       await tx.query('UPDATE reservation_segment SET room_id = NULL WHERE id = $1', [segmentId]);
-      await tx.query(`UPDATE reservation SET conflict_state = 'open' WHERE id = $1`, [id]);
+      // 0.3.7 D1 (BR-012 (4), ARC assumption (a)): a conflict booking has no room the guest was told.
+      await tx.query(
+        `UPDATE reservation SET conflict_state = 'open', room_disclosed_to_guest = false WHERE id = $1`,
+        [id],
+      );
       await this.openIncident(tx, ctx, { id, code, from, to, roomId: rm.id });
     } else if (capacityAck) {
       // DOM D-1 / A-20: OTA over capacity – kept in its room, flagged, "Cần chú ý" (push FD/FDL/MGR).
@@ -1063,10 +1138,43 @@ export class ReservationsService {
     if (doorHandedOver !== undefined && doorHandedOver !== true) {
       f.add('doorAccessHandedOver', 'NOT_IN_LIST');
     }
+    // 0.3.7 D1 (BR-012 (4)): "đã báo căn cho khách" – only `true` (one way), FD+, before check-in.
+    const disclosed = body.roomDisclosedToGuest;
+    if (disclosed !== undefined && disclosed !== true) f.add('roomDisclosedToGuest', 'NOT_IN_LIST');
+    // 0.3.7 D1 (S4-09, BR-424 v0.3.6): "khách đã chuyển về căn cũ" – only `true`, once, on the child booking.
+    const returned = body.roomReturnRecorded;
+    if (returned !== undefined && returned !== true) f.add('roomReturnRecorded', 'NOT_IN_LIST');
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
     if (!['hold', 'confirmed', 'in_house'].includes(row.status)) throw this.invalid(row);
+    if (returned === true) {
+      if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
+      await this.hooks.roomReturn(tx, {
+        reservationId: row.id,
+        userId: ctx.actor.userId,
+        roles: ctx.actor.roles,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
+    if (disclosed === true) {
+      if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
+      if (row.status !== 'hold' && row.status !== 'confirmed') throw this.invalid(row);
+      if (!row.room_disclosed_to_guest) {
+        await tx.query('UPDATE reservation SET room_disclosed_to_guest = true WHERE id = $1', [
+          row.id,
+        ]);
+        await this.audit.record(tx, {
+          category: 'state',
+          action: 'reservation.room_disclosed',
+          entityType: 'reservation',
+          entityId: row.id,
+          entityCode: row.code,
+          after: { roomDisclosedToGuest: true },
+          ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+        });
+      }
+    }
     if (doorHandedOver === true) {
       if (!hasAny(ctx.actor.roles, FD_PLUS)) throw problem('FORBIDDEN_ACTION');
       if (row.status !== 'in_house' || row.door_access_handed_over_at !== null) {
@@ -1220,6 +1328,22 @@ export class ReservationsService {
           : null;
         await this.repriceExtraPersons(tx, ctx, row, next, baseOccupancy, booked);
       }
+    } else if (repriced && otaBooking && beforeCheckin && !seg.room_id) {
+      // S4-07 / BUG-R2-058 (d): a conflict booking without a room has no standard occupancy yet – keep the OTA
+      // guest count (what the OTA priced) so the fee is charged when the room is assigned (B7a/B7 plan), instead
+      // of the new head count silently becoming the OTA count.
+      const booked =
+        partySource === 'ota_modification'
+          ? next
+          : ((row.pricing_snapshot as { bookedParty?: typeof next }).bookedParty ?? {
+              adults: row.adults,
+              children6to11: row.children_6_11,
+              childrenUnder6: row.children_under_6,
+            });
+      await tx.query(
+        `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
+        [row.id, JSON.stringify({ bookedParty: booked })],
+      );
     }
     if (closerUserId && closerUserId !== row.closer_user_id) {
       // SEC-BE-26: the closer decides who earns the commission – a money event.
@@ -1385,12 +1509,22 @@ export class ReservationsService {
         }),
       ],
     );
+    const current = await this.nightFees(tx, row);
     if (ota) {
       // Each night of its room (a booking may already carry own fees) – the bill prints the people charged.
       const bases = await this.nightBases(tx, row.id);
-      const fees = (await this.nightFees(tx, row)).map((n) => {
+      const fees = current.map((n) => {
         const base = bases.get(n.date) ?? baseOccupancy;
         const e = extraPersons(party, Math.max(base, otaCount), rates);
+        return { date: n.date, feeVnd: e.perNightVnd, count: e.extraCount };
+      });
+      await this.setNightFees(tx, row.id, fees, ctx.now);
+    } else if (charged && current.some((n) => n.own)) {
+      // S4-07: nights that carry their own fee (moved to another room – BR-429) are priced on THEIR base
+      // (`nightBases`: the room's, or the higher one an OTTIMO move kept) – the booking-level fee would not reach them.
+      const bases = await this.nightBases(tx, row.id);
+      const fees = current.map((n) => {
+        const e = extraPersons(party, bases.get(n.date) ?? baseOccupancy, rates);
         return { date: n.date, feeVnd: e.perNightVnd, count: e.extraCount };
       });
       await this.setNightFees(tx, row.id, fees, ctx.now);
@@ -2007,13 +2141,23 @@ export class ReservationsService {
     }
   }
 
-  /** Base occupancy of the room of each night (active segments). */
+  /**
+   * Standard occupancy pricing the BR-110 fee of each night: the room's (active segments), unless an OTTIMO move
+   * kept a higher one on the night (0059 `extra_person_base` – S4-07: the guest never pays more because OTTIMO
+   * moved them, also when the people change afterwards).
+   */
   async nightBases(tx: Tx, reservationId: string): Promise<Map<LocalDate, number>> {
     const out = new Map<LocalDate, number>();
     for (const s of await activeSegments(tx, reservationId)) {
       if (s.base_occupancy === null) continue;
       for (const d of nightDates(s.from_date, s.to_date)) out.set(d, s.base_occupancy);
     }
+    const { rows } = await tx.query<{ date: string; base: number }>(
+      `SELECT stay_date::text AS date, extra_person_base AS base FROM stay_night
+        WHERE reservation_id = $1 AND night_state <> 'void' AND extra_person_base IS NOT NULL`,
+      [reservationId],
+    );
+    for (const r of rows) if (out.has(r.date)) out.set(r.date, r.base);
     return out;
   }
 
@@ -2404,6 +2548,8 @@ export class ReservationsService {
       f.add('otaPenaltyChannelFeeVnd', 'NOT_ALLOWED');
     }
     if (reasonCode && !USER_CANCEL_REASONS.includes(reasonCode)) f.add('reasonCode', 'NOT_IN_LIST');
+    // 0.3.7 D1 S4-08 (BE-B): service lines the desk keeps (validated against the folio by closeStayPreview).
+    const retainLines = retainLinesOf(f, body.retainLines);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: !dryRun });
     if (!dryRun && expectedVersion !== null) this.assertVersion(row, expectedVersion);
@@ -2418,15 +2564,28 @@ export class ReservationsService {
       f.add('reasonCode', 'NOT_IN_LIST');
     if (otaPenalty !== undefined && row.channel_group !== 'ota')
       f.add('otaPenaltyVnd', 'OTA_PENALTY_OTA_ONLY');
-    // Re-verification 17/10 (Minor): a penalty above the value of the booking is a typing error.
+    // Re-verification 17/10 (Minor) + S4-37 (BE-B, round-5 MONEY note): a penalty above what the OTA booking is
+    // worth is a typing error. The OTA penalty comes out of the OTA room amount only – the BR-110 extra-person fee
+    // is paid at the desk, never through the OTA (otherwise the prepaid `ota_collect` = penalty could exceed what
+    // the OTA really collected).
     if (otaPenalty !== undefined && row.channel_group === 'ota') {
-      const snap = row.pricing_snapshot as { extraPersonFeeVnd?: number };
-      const value = Number(row.total_room_vnd ?? 0) + Number(snap.extraPersonFeeVnd ?? 0);
-      if (otaPenalty > value) f.add('otaPenaltyVnd', 'VALUE_OUT_OF_RANGE');
+      if (otaPenalty > Number(row.total_room_vnd ?? 0))
+        f.add('otaPenaltyVnd', 'VALUE_OUT_OF_RANGE');
     }
     f.done();
 
-    const quote = await this.cancellationQuote(tx, ctx, row, otaPenalty);
+    const policy = await this.cancellationQuote(tx, ctx, row, otaPenalty);
+    // S4-08 + S4-06 (BE-B): services reversed / kept and the refund request – the SAME calculation for the dry
+    // run and the write (FolioService.closeStayPreview).
+    const close = row.folio_id
+      ? await this.money.closeStayPreview(tx, row, {
+          retainLines,
+          feeVnd: Number(policy.retainedVnd ?? 0),
+          feeCategory: 'cancellation_fee',
+          today: ctx.today,
+        })
+      : null;
+    const quote: Record<string, unknown> = { ...policy, ...(close ?? {}) };
     if (dryRun) return { row, cancellation: quote };
 
     const segs = await activeSegments(tx, row.id);
@@ -2474,20 +2633,6 @@ export class ReservationsService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    let refundApprovalRequestId: string | undefined;
-    const refundable = Number(quote.refundableVnd ?? 0);
-    if (refundable > 0) {
-      const req = await this.approvals.submit(tx, ctx.actor, {
-        type: 'refund',
-        amountVnd: refundable,
-        reasonCode: reasonCode as string,
-        ...(note ? { reasonNote: note } : {}),
-        targetType: 'reservation',
-        targetId: row.id,
-        targetCode: row.code,
-      });
-      refundApprovalRequestId = req.id;
-    }
     if (Number(quote.depositPaidVnd ?? 0) > 0 || otaPenalty !== undefined) {
       await this.audit.recordMoney(tx, {
         action: 'reservation.cancellation_fee',
@@ -2536,9 +2681,22 @@ export class ReservationsService {
         ...(otaPenaltyFee !== undefined ? { channelFeeActualVnd: otaPenaltyFee } : {}),
         reason: reasonCode as string,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+        services: { retainLines },
       },
       ctx.actor.userId,
     );
+    // S4-06 (BE-B, BR-522): AFTER the folio is closed (fee posted, services reversed) – ONE refund request for
+    // the overpayment left (the deposit part BR-309 refunds + other money paid, OTA money excluded).
+    const refund = await this.money.closeStayCredit(
+      tx,
+      row,
+      reasonCode as string,
+      ctx.actor,
+      ctx.requestId,
+      note ?? null,
+    );
+    const refundApprovalRequestId = refund?.id;
+    quote.refundRequestVnd = refund && refund.id ? refund.amountVnd : 0;
     // SM-09: a cancelled hold sends its lead back to `quoted` (B5).
     if (row.status === 'hold') await this.leads.onHoldEnded(tx, row.quote_id);
     await this.hooks.emit(
@@ -2634,23 +2792,18 @@ export class ReservationsService {
     return { depositPaid: paid, open, base, bookingValue, cap: Math.min(base, bookingValue) };
   }
 
-  // ─────────────────────────── B7 / B8 – move ───────────────────────────
+  // ─────────────────────────── B7 / B8 – move (one calculation for the preview and the write) ───────────────────────────
 
-  async move(
-    tx: Tx,
-    ctx: BookingContext,
-    id: string,
-    expectedVersion: number,
-    body: Record<string, unknown>,
-  ): Promise<ReservationRow> {
+  /** Body of `moveReservation` / query of `previewMoveReservation` (same fields, same checks). */
+  private moveInput(body: Record<string, unknown>, preview: boolean): MoveInput {
     const f = new Fields(body);
     const roomId = f.uuid('roomId', false);
-    const newArrival = f.date('arrivalDate', false);
-    const newDeparture = f.date('departureDate', false);
+    const arrival = f.date('arrivalDate', false);
+    const departure = f.date('departureDate', false);
     const mode =
       f.enumOf('mode', ['change', 'postpone_instead_of_cancel'] as const, false) ?? 'change';
-    const reasonCode = f.enumOf('reasonCode', MOVE_REASONS, true);
-    const noteRequired = reasonCode === 'other' || reasonCode === 'force_majeure';
+    const reasonCode = f.enumOf('reasonCode', MOVE_REASONS, true) as MoveReason;
+    const noteRequired = !preview && (reasonCode === 'other' || reasonCode === 'force_majeure');
     const note = f.text('note', 500, { required: noteRequired, min: noteRequired ? 3 : 0 });
     const capacityAck = f.text('capacityWarningAckReason', 500, { min: 3 });
     const resolution = f.enumOf(
@@ -2658,39 +2811,79 @@ export class ReservationsService {
       ['reassigned_same_group', 'upgraded'] as const,
       false,
     );
-    if (!roomId && !newArrival && !newDeparture) f.add('roomId', 'REQUIRED');
+    const applyDifference = f.bool('applyDifference') ?? false;
+    const raw = body.expectedDeltaVnd;
+    let expectedDeltaVnd: number | undefined;
+    if (raw !== undefined && raw !== null) {
+      if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
+        f.add('expectedDeltaVnd', 'AMOUNT_INVALID');
+      } else {
+        expectedDeltaVnd = raw;
+      }
+    }
+    if (!roomId && !arrival && !departure) f.add('roomId', 'REQUIRED');
     f.done();
-    const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
-    this.assertVersion(row, expectedVersion);
+    return {
+      roomId,
+      arrival,
+      departure,
+      mode,
+      reasonCode,
+      note,
+      capacityAck,
+      resolution,
+      applyDifference,
+      expectedDeltaVnd,
+    };
+  }
+
+  /**
+   * Checks of B7/B8 (BR-309, BR-312, BR-316, BR-429, A-19, A-20) and the money plan – the SAME function for the
+   * preview (read-only, `mode = preview`: warnings instead of "reason required" errors, no locks) and the write
+   * (after the reservation lock: rooms then folio locked BEFORE the plan, lock order reservation → rooms → folio).
+   */
+  private async prepareMove(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    m: MoveInput,
+    mode: 'preview' | 'write',
+  ): Promise<PreparedMove> {
+    const f = new Fields({});
+    const warnings: Array<{ code: string; field?: string }> = [];
     if (row.status !== 'confirmed') throw this.invalid(row);
-    if (row.external_contract && (newArrival || newDeparture)) {
+    if (row.external_contract && (m.arrival || m.departure)) {
       f.add('arrivalDate', 'VALIDATION_FAILED');
     }
-    if (row.channel_group === 'ota' && (newArrival || newDeparture))
+    if (row.channel_group === 'ota' && (m.arrival || m.departure))
       f.add('arrivalDate', 'OTA_DATES_LOCKED');
-    if (row.conflict_state === 'open' && !resolution) f.add('overbookingResolution', 'REQUIRED');
+    if (row.conflict_state === 'open' && !m.resolution) f.add('overbookingResolution', 'REQUIRED');
     // A-19 rules: `overbooking` only for a flagged booking; `force_majeure` only as B8 (MGR+ below).
     if (
-      reasonCode === 'overbooking' &&
+      m.reasonCode === 'overbooking' &&
       row.conflict_state !== 'open' &&
       !row.capacity_conflict_at
     ) {
       f.add('reasonCode', 'NOT_IN_LIST');
     }
-    if (reasonCode === 'force_majeure' && mode !== 'postpone_instead_of_cancel') {
+    if (m.reasonCode === 'force_majeure' && m.mode !== 'postpone_instead_of_cancel') {
+      f.add('reasonCode', 'NOT_IN_LIST');
+    }
+    // 0.3.7 D1 (BR-429, BR-012 (4)): rearranging rooms is only for a guest who was not told the room yet.
+    if (m.reasonCode === 'inventory_optimize' && row.room_disclosed_to_guest) {
       f.add('reasonCode', 'NOT_IN_LIST');
     }
     f.done();
-    if (reasonCode === 'upgrade' && !hasAny(ctx.actor.roles, FDL_PLUS)) {
+    if (m.reasonCode === 'upgrade' && !hasAny(ctx.actor.roles, FDL_PLUS)) {
       throw problem('FORBIDDEN_ACTION', { detail: 'upgrade needs FDL+ (BR-316 (3))' });
     }
-    const from = newArrival ?? row.arrival_date;
-    const to = newDeparture ?? row.departure_date;
+    const from = m.arrival ?? row.arrival_date;
+    const to = m.departure ?? row.departure_date;
     const p = ctx.params;
     if (to <= from) f.add('departureDate', 'DATE_ORDER');
-    if ((newArrival || newDeparture) && from < ctx.today) f.add('arrivalDate', 'DATE_IN_PAST');
+    if ((m.arrival || m.departure) && from < ctx.today) f.add('arrivalDate', 'DATE_IN_PAST');
     f.done();
-    if (mode === 'postpone_instead_of_cancel') {
+    if (m.mode === 'postpone_instead_of_cancel') {
       // B8 (BR-309): MGR+, direct/agent, once, within reschedule_window_months of the old arrival.
       if (!hasAny(ctx.actor.roles, MGR_PLUS)) throw problem('FORBIDDEN_ACTION');
       if (row.channel_group !== 'direct' && row.channel_group !== 'agent') throw this.invalid(row);
@@ -2712,7 +2905,7 @@ export class ReservationsService {
       }
     }
     const seg = await singleSegment(tx, row.id);
-    const targetRoomId = roomId ?? seg.room_id;
+    const targetRoomId = m.roomId ?? seg.room_id;
     if (!targetRoomId) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'REQUIRED' }] });
     }
@@ -2722,22 +2915,192 @@ export class ReservationsService {
     // A-20: OTA over capacity → warning + reason (flag kept); a room that fits clears the flag.
     const overCapacity = row.adults + row.children_6_11 > rm.max_occupancy;
     if (overCapacity && row.channel_group === 'ota') {
-      if (!capacityAck && !row.capacity_conflict_at) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
-          extras: { roomNo: rm.room_no, max: rm.max_occupancy },
-        });
+      if (!m.capacityAck && !row.capacity_conflict_at) {
+        if (mode === 'preview') {
+          warnings.push({ code: 'CAPACITY_EXCEEDED_WARNING', field: 'roomId' });
+        } else {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: 'roomId', code: 'CAPACITY_EXCEEDED_WARNING' }],
+            extras: { roomNo: rm.room_no, max: rm.max_occupancy },
+          });
+        }
       }
     } else {
       this.assertCapacity(rm, { adults: row.adults, children6to11: row.children_6_11 });
     }
     await this.assertSellable(tx, rm, from, to);
     if (row.conflict_state === 'open') {
-      await this.assertResolution(tx, ctx, row, rm, resolution as string);
+      await this.assertResolution(tx, ctx, row, rm, m.resolution as string);
+    }
+    const roomChanges = targetRoomId !== seg.room_id;
+    // BR-429 (b): `other` keeps the booked prices, so a move to a room priced higher today is an upgrade – FDL+.
+    if (
+      m.reasonCode === 'other' &&
+      roomChanges &&
+      seg.room_id &&
+      !hasAny(ctx.actor.roles, FDL_PLUS)
+    ) {
+      const dates = nightDates(from, to);
+      const [now, next] = [
+        await this.planner.directTotal(tx, ctx, seg.room_id, dates),
+        await this.planner.directTotal(tx, ctx, targetRoomId, dates),
+      ];
+      if (next > now) {
+        throw problem('FORBIDDEN_ACTION', {
+          detail: 'other to a room priced higher needs FDL+ (BR-429 (b))',
+        });
+      }
+    }
+    if (mode === 'write') {
+      // Lock order: reservation (done) → rooms ascending → folio; the plan is read under these locks.
+      await this.occupancy.lockRooms(tx, [targetRoomId, ...(seg.room_id ? [seg.room_id] : [])]);
+      await this.money.lockFolio(tx, row);
+    }
+    // Inventory first (preview and write alike – a taken night is a 409 before any money question); the write
+    // keeps the inventory constraint as the race guard.
+    if (!(await this.occupancy.isFree(tx, targetRoomId, from, to, [seg.id]))) {
+      throw await this.occupancy.unavailable(
+        tx,
+        {
+          roomId: targetRoomId,
+          from,
+          to,
+          persons: countedPersons({
+            adults: row.adults,
+            children6to11: row.children_6_11,
+            childrenUnder6: 0,
+          }),
+          exclude: [seg.id],
+        },
+        { withNames: true },
+      );
+    }
+    const requested =
+      row.conflict_state === 'open' && !seg.room_id
+        ? {
+            room: await this.requestedRoom(tx, row.id),
+            upgraded: m.resolution === 'upgraded',
+          }
+        : undefined;
+    const plan = await this.planner.planBooking(tx, ctx, {
+      row,
+      flow: 'B7',
+      cause: row.conflict_state === 'open' && !seg.room_id ? 'ottimo' : moveCauseOf(m.reasonCode),
+      fromDate: from < row.arrival_date ? from : row.arrival_date,
+      arrival: from,
+      departure: to,
+      newRoom: roomChanges ? rm : null,
+      requested,
+    });
+    return {
+      seg,
+      rm,
+      from,
+      to,
+      roomChanges,
+      overCapacity,
+      plan,
+      folioDeltaVnd: plan.folioDeltaVnd,
+      warnings,
+    };
+  }
+
+  /** previewMoveReservation (0.3.7, ESC-019 A; S4-21): the move's money, nothing written (READ ONLY tx). */
+  async previewMove(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    query: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const m = this.moveInput(query, true);
+    const row = await loadReservation(tx, id, ctx.actor);
+    const pm = await this.prepareMove(tx, ctx, row, m, 'preview');
+    const { plan } = pm;
+    const depositPaid = row.folio_id ? await this.money.depositPaid(tx, row) : 0;
+    const balance = row.folio_id ? await this.money.balanceDue(tx, row) : 0;
+    const credit = row.folio_id ? await this.money.credit(tx, row) : 0;
+    const name = await this.roomName(tx, pm.rm.id);
+    const ota = row.channel_group === 'ota';
+    return {
+      pricingBasis: plan.basis,
+      roomId: pm.rm.id,
+      roomNo: pm.rm.room_no,
+      roomName: name,
+      arrivalDate: pm.from,
+      departureDate: pm.to,
+      nights: plan.nights.map((n) => ({
+        date: n.date,
+        oldRateVnd: n.oldGrossVnd,
+        newRateVnd: n.newGrossVnd,
+        ...(ota && plan.basis === 'new_room_rate' ? { roomChangeDifferenceVnd: n.diffVnd } : {}),
+        ...(n.focVnd > 0 ? { focVnd: n.focVnd } : {}),
+        ...(n.pendingFocVnd > 0 ? { pendingFocVnd: n.pendingFocVnd } : {}),
+        ...(n.suggestedRateVnd !== undefined ? { suggestedRateVnd: n.suggestedRateVnd } : {}),
+      })),
+      ...(plan.removed.length > 0 ? { removedNights: plan.removed.map((r) => r.date) } : {}),
+      roomTotalOldVnd: plan.roomOldVnd,
+      roomTotalNewVnd: plan.roomNewVnd,
+      extraPersonOldVnd: plan.feeOldVnd,
+      extraPersonNewVnd: plan.feeNewVnd,
+      ...(ota ? { roomChangeDifferenceVnd: plan.diffNewVnd } : {}),
+      folioDeltaVnd: pm.folioDeltaVnd,
+      losDiscountPct: plan.losPct,
+      depositPaidVnd: depositPaid,
+      // BR-429 (e): the deposit never changes; what is left is due at check-in, a surplus goes to BR-522.
+      balanceDueAfterVnd: Math.max(0, balance - credit + pm.folioDeltaVnd),
+      warnings: [
+        ...pm.warnings,
+        ...plan.nights.flatMap((n, i) =>
+          n.manualRepriced ? [{ code: 'MANUAL_RATE_REPRICED', field: `nights[${i}]` }] : [],
+        ),
+      ],
+    };
+  }
+
+  async move(
+    tx: Tx,
+    ctx: BookingContext,
+    id: string,
+    expectedVersion: number,
+    body: Record<string, unknown>,
+  ): Promise<ReservationRow> {
+    const m = this.moveInput(body, false);
+    const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
+    this.assertVersion(row, expectedVersion);
+    const pm = await this.prepareMove(tx, ctx, row, m, 'write');
+    const { seg, rm, from, to, plan } = pm;
+    const targetRoomId = rm.id;
+    const reasonCode = m.reasonCode;
+    const note = m.note;
+    // BR-429 (d) / BR-414: a guest-requested move to another room is saved only with "Đã báo khách số tiền mới"
+    // and the amount the desk showed (the SAME plan – a stale preview → 409, never a silent other amount).
+    // OTTIMO's causes keep the prices: `applyDifference` / `expectedDeltaVnd` are ignored (0.3.7 contract). A guest
+    // request that only changes the dates may still send the amount shown – then it must match.
+    const told = reasonCode === 'guest_request' && pm.roomChanges && !row.external_contract;
+    const checkShown =
+      reasonCode === 'guest_request' &&
+      m.expectedDeltaVnd !== undefined &&
+      m.expectedDeltaVnd !== pm.folioDeltaVnd;
+    if (told || checkShown) {
+      if (told && !m.applyDifference) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'applyDifference', code: 'REQUIRED' }],
+          extras: { folioDeltaVnd: pm.folioDeltaVnd },
+        });
+      }
+      if (told && m.expectedDeltaVnd === undefined) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'expectedDeltaVnd', code: 'REQUIRED' }],
+          extras: { folioDeltaVnd: pm.folioDeltaVnd },
+        });
+      }
+      if (m.expectedDeltaVnd !== pm.folioDeltaVnd) {
+        throw problem('SURCHARGE_CHANGED', {
+          extras: { surchargeVnd: pm.folioDeltaVnd, folioDeltaVnd: pm.folioDeltaVnd },
+        });
+      }
     }
 
-    // Lock order: reservation (done) → rooms ascending.
-    await this.occupancy.lockRooms(tx, [targetRoomId, ...(seg.room_id ? [seg.room_id] : [])]);
     await this.assertCapacityStable(tx, [rm]);
     const persons = countedPersons({
       adults: row.adults,
@@ -2765,87 +3128,92 @@ export class ReservationsService {
       [seg.id, targetRoomId, from, to, reasonCode, note ?? null, ctx.now],
     );
 
-    // Nights (BR-106 + DOM D-8 / A-22): dropped nights void; kept nights keep their agreed CALENDAR price,
-    // new nights take today's calendar; then the BR-107 tier of the FINAL number of nights is applied again
-    // to every calendar-priced night (direct/agent only – OTA/internal prices have no tier).
+    // Nights exactly as planned (BR-106/107/429, DOM D-8): dropped nights void, kept nights re-priced/re-roomed,
+    // new nights sold – price, calendar, BR-110 fee and its base from the plan.
     let totalRoom = row.total_room_vnd;
-    if (!row.external_contract) {
-      const dropped = datesOutside(row.arrival_date, row.departure_date, from, to);
-      if (dropped.length) await voidNights(tx, row.id, 'date_change', ctx.now, dropped);
-      await tx.query(
-        'UPDATE stay_night SET room_id = $2, updated_at = $3 WHERE reservation_id = $1 AND night_state <> $4',
-        [row.id, targetRoomId, ctx.now, 'void'],
+    if (plan.removed.length) {
+      await voidNights(
+        tx,
+        row.id,
+        'date_change',
+        ctx.now,
+        plan.removed.map((r) => r.date),
       );
-      const added = datesOutside(from, to, row.arrival_date, row.departure_date);
-      await this.retierNights(tx, ctx, row, rm, from, to, added, seg.id, targetRoomId);
+    }
+    await this.writePlannedNights(tx, ctx, row, plan, seg.id);
+    if (!row.external_contract) {
       const live = await liveNights(tx, row.id);
       totalRoom = live.reduce((sum, n) => sum + n.amountVnd, 0);
     }
-    const postpone = mode === 'postpone_instead_of_cancel';
+    const postpone = m.mode === 'postpone_instead_of_cancel';
+    const disclose = reasonCode === 'guest_request' && pm.roomChanges;
     await tx.query(
       `UPDATE reservation SET arrival_date = $2, departure_date = $3, total_room_vnd = $4,
               reschedule_count = reschedule_count + $5, conflict_state = CASE WHEN conflict_state = 'open' THEN 'resolved' ELSE conflict_state END,
+              room_disclosed_to_guest = room_disclosed_to_guest OR $7,
+              origin_room_id = COALESCE(origin_room_id, $8::uuid),
               updated_at = $6, version = version + 1
         WHERE id = $1`,
-      [row.id, from, to, totalRoom, postpone ? 1 : 0, ctx.now],
+      [row.id, from, to, totalRoom, postpone ? 1 : 0, ctx.now, disclose, plan.originRoomId],
     );
     if (row.conflict_state === 'open')
-      await this.resolveIncident(tx, ctx, row.id, resolution as string);
-    if (overCapacity && row.channel_group === 'ota') {
-      await this.setCapacityConflict(tx, ctx, row, capacityAck ?? row.capacity_ack_reason ?? '');
+      await this.resolveIncident(tx, ctx, row.id, m.resolution as string);
+    if (pm.overCapacity && row.channel_group === 'ota') {
+      await this.setCapacityConflict(tx, ctx, row, m.capacityAck ?? row.capacity_ack_reason ?? '');
     } else if (row.capacity_conflict_at) {
       await this.clearCapacityConflict(tx, row.id);
     }
     if (from !== row.arrival_date)
-      await recordChange(
-        tx,
-        row.id,
-        'arrival_date',
-        row.arrival_date,
-        from,
-        ctx.now,
-        reasonCode as string,
-      );
+      await recordChange(tx, row.id, 'arrival_date', row.arrival_date, from, ctx.now, reasonCode);
     if (to !== row.departure_date)
-      await recordChange(
-        tx,
-        row.id,
-        'departure_date',
-        row.departure_date,
-        to,
-        ctx.now,
-        reasonCode as string,
-      );
+      await recordChange(tx, row.id, 'departure_date', row.departure_date, to, ctx.now, reasonCode);
     if (targetRoomId !== seg.room_id)
-      await recordChange(
-        tx,
-        row.id,
-        'room',
-        seg.room_no,
-        rm.room_no,
-        ctx.now,
-        reasonCode as string,
-      );
+      await recordChange(tx, row.id, 'room', seg.room_no, rm.room_no, ctx.now, reasonCode);
     await recordTransition(tx, {
       reservationId: row.id,
       code: row.code,
       from: 'confirmed',
       to: 'confirmed',
       event: postpone ? 'B8' : row.conflict_state === 'open' ? 'B7a' : 'B7',
-      reasonCode: reasonCode as string,
+      reasonCode,
       reasonNote: note ?? null,
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    if (totalRoom !== row.total_room_vnd) {
+    if (plan.basis === 'new_room_rate' && pm.folioDeltaVnd !== 0) {
+      // 0.3.7 (ESC-019 A): a guest-requested move re-priced the booking – money log with the reason.
+      await this.audit.recordMoney(tx, {
+        action: 'reservation.room_change_repriced',
+        entityType: 'reservation',
+        entityId: row.id,
+        entityCode: row.code,
+        before: {
+          totalRoomVnd: row.total_room_vnd,
+          roomNo: seg.room_no,
+          extraPersonVnd: plan.feeOldVnd,
+          roomChangeDifferenceVnd: plan.diffOldVnd,
+        },
+        after: {
+          totalRoomVnd: totalRoom,
+          roomNo: rm.room_no,
+          extraPersonVnd: plan.feeNewVnd,
+          roomChangeDifferenceVnd: plan.diffNewVnd,
+          folioDeltaVnd: pm.folioDeltaVnd,
+          nightlyRates: plan.nights.map((n) => ({ date: n.date, amountVnd: n.newGrossVnd })),
+          rateSource: 'room_change',
+        },
+        reason: reasonCode,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    } else if (totalRoom !== row.total_room_vnd || plan.feeNewVnd !== plan.feeOldVnd) {
       await this.audit.recordMoney(tx, {
         action: 'reservation.repriced',
         entityType: 'reservation',
         entityId: row.id,
         entityCode: row.code,
-        before: { totalRoomVnd: row.total_room_vnd },
-        after: { totalRoomVnd: totalRoom },
-        reason: reasonCode as string,
+        before: { totalRoomVnd: row.total_room_vnd, extraPersonVnd: plan.feeOldVnd },
+        after: { totalRoomVnd: totalRoom, extraPersonVnd: plan.feeNewVnd },
+        reason: reasonCode,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
     }
@@ -2859,6 +3227,23 @@ export class ReservationsService {
       ],
       postpone ? 'reservation.postponed' : 'reservation.moved',
     );
+    // S4-05 / BR-429 (c): OTA difference against the origin room – reversed then re-posted (guest request).
+    if (plan.diffLinesToReverse.length > 0 || plan.nights.some((n) => n.diffVnd !== n.oldDiffVnd)) {
+      await this.money.repostDifferences(
+        tx,
+        row,
+        plan.diffLinesToReverse,
+        plan.nights
+          .filter((n) => n.diffVnd > 0)
+          .map((n) => ({
+            date: n.date,
+            amountVnd: n.diffVnd,
+            from: seg.room_no ?? '',
+            to: rm.room_no,
+          })),
+        { userId: ctx.actor.userId, requestId: ctx.requestId },
+      );
+    }
     // BR-434 (DOM 17/10, S4-14): where an approved FOC goes is decided by the folio sync from the DATES (old
     // live night lines vs the new nights) – the same rule for every flow, nothing to pass from here.
     await this.money.resynced(
@@ -2875,107 +3260,215 @@ export class ReservationsService {
   }
 
   /**
-   * DOM D-8 / A-22: insert the `added` nights and re-tier BR-107 over the final [from, to) for direct/agent
-   * bookings. Kept nights keep `calendar_rate_vnd` (older rows without it: their gross); nights entered with
-   * an explicit (manual) rate keep their price.
+   * Writes the nights of a move plan exactly (B7/B7a/B8 – the B14 writer applies the same plan per night):
+   * kept nights get their room, gross (discount kept), calendar and BR-110 fee/count/base; new nights are sold
+   * at the planned price; the snapshot remembers the BR-107 % and which prices were typed.
    */
-  private async retierNights(
+  private async writePlannedNights(
     tx: Tx,
     ctx: BookingContext,
     row: ReservationRow,
-    rm: RoomInfo,
-    from: LocalDate,
-    to: LocalDate,
-    added: LocalDate[],
+    plan: BookingMovePlan,
     segmentId: string,
-    roomId: string,
   ): Promise<void> {
-    const p = ctx.params;
-    const group = row.channel_group;
-    const tiered = group === 'direct' || group === 'agent';
-    const kept = await liveNightRows(tx, row.id);
-    const snapNights = new Map(
-      (
-        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
-      ).map((n) => [n.date, n.source]),
-    );
-    let newNights: PricedNight[] = [];
+    const added = plan.nights.filter((n) => n.added);
     if (added.length) {
-      const priced = this.pricing.price(p, {
-        room: {
-          roomId: rm.id,
-          groupCode: rm.group_code,
-          baseOccupancy: rm.base_occupancy,
-          listPrices: await this.listPrices(tx, rm.id),
-        },
-        channelGroup: group,
-        arrival: from,
-        departure: to,
-        party: {
-          adults: row.adults,
-          children6to11: row.children_6_11,
-          childrenUnder6: row.children_under_6,
-        },
-      });
-      newNights = priced.nights.filter((n) => added.includes(n.date));
-    }
-    const pct = tiered ? losDiscountPct(nightsOf(from, to), p.losTiers) : 0;
-    const unit =
-      (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ?? p.nightRateUnit;
-    if (tiered) {
-      for (const n of kept) {
-        if (snapNights.get(n.date) === 'manual') continue;
-        const calendar = n.calendarVnd ?? n.grossVnd;
-        const amount = applyNightDiscount([calendar], pct, unit)[0] as number;
-        if (amount !== n.grossVnd || n.calendarVnd === null) {
-          await tx.query(
-            `UPDATE stay_night SET room_revenue_gross_vnd = $2, room_revenue_vnd = $2 - discount_vnd,
-                    calendar_rate_vnd = $3, updated_at = $4 WHERE id = $1`,
-            [n.id, amount, calendar, ctx.now],
-          );
-        }
-      }
-      newNights = newNights.map((n) => {
-        const calendar = n.calendarVnd ?? n.amountVnd;
-        return {
-          ...n,
-          calendarVnd: calendar,
-          amountVnd: applyNightDiscount([calendar], pct, unit)[0] as number,
-        };
-      });
-    }
-    if (newNights.length) {
       await insertNights(
         tx,
         {
           reservationId: row.id,
           segmentId,
-          roomId,
+          roomId: added[0]?.roomId ?? null,
           channelId: row.channel_id,
           stayType: row.stay_type,
           state: 'sold',
           isComplimentary: row.is_complimentary,
           now: ctx.now,
         },
-        newNights,
+        added.map((n) => ({
+          date: n.date,
+          amountVnd: n.newGrossVnd,
+          source: n.manual ? 'manual' : 'calendar',
+          ...(n.calendarVnd !== null ? { calendarVnd: n.calendarVnd } : {}),
+        })),
       );
     }
+    for (const n of plan.nights) {
+      await tx.query(
+        `UPDATE stay_night SET room_id = $3, reservation_segment_id = $4,
+                room_revenue_gross_vnd = $5::bigint, room_revenue_vnd = $5::bigint - discount_vnd,
+                calendar_rate_vnd = $6::bigint,
+                extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
+                extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,
+                extra_person_base = CASE WHEN $10::boolean THEN $9::smallint ELSE extra_person_base END,
+                updated_at = $11
+          WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
+        [
+          row.id,
+          n.date,
+          n.roomId,
+          segmentId,
+          n.newGrossVnd,
+          n.calendarVnd,
+          n.feeVnd,
+          n.feeCount,
+          n.feeBase,
+          n.roomChanged || n.added,
+          ctx.now,
+        ],
+      );
+    }
+    if (row.external_contract) return;
     const live = await liveNightRows(tx, row.id);
+    const prior = new Map(
+      (
+        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
+      ).map((n) => [n.date, n.source]),
+    );
+    const planned = new Map(plan.nights.map((n) => [n.date, n]));
+    // Source of each night: typed price kept → manual; re-priced from a calendar → calendar; else as booked.
+    const sourceOf = (date: string): string => {
+      const n = planned.get(date);
+      if (!n) return prior.get(date) ?? 'calendar';
+      if (n.manual) return 'manual';
+      if (n.added || prior.get(date) === 'manual') return 'calendar';
+      return prior.get(date) ?? 'calendar';
+    };
     await tx.query(
       `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
       [
         row.id,
         JSON.stringify({
-          losDiscountPct: pct,
+          losDiscountPct: plan.losPct,
           nights: live.map((n) => ({
             date: n.date,
             amountVnd: n.grossVnd,
-            source: snapNights.get(n.date) ?? 'calendar',
+            source: sourceOf(n.date),
             ...(n.calendarVnd !== null ? { calendarVnd: n.calendarVnd } : {}),
           })),
         }),
       ],
     );
+  }
+
+  /** Lock order reservation → rooms → folio (B14 locks its rooms, then this, then plans). */
+  lockFolio(tx: Tx, row: ReservationRow): Promise<void> {
+    return this.money.lockFolio(tx, row);
+  }
+
+  /**
+   * B14 writer of one booking's plan (the B7 writer is `writePlannedNights`): each moved night gets its new room,
+   * segment, gross (discount kept), calendar and BR-110 fee/count/base exactly as planned; `total_room_vnd`
+   * follows the room nights; the origin room is stored on the first move (BR-424).
+   */
+  async writeMovedNights(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    plan: BookingMovePlan,
+    segmentOf: ReadonlyMap<string, string>,
+  ): Promise<void> {
+    for (const n of plan.nights) {
+      await tx.query(
+        `UPDATE stay_night SET reservation_segment_id = COALESCE($3::uuid, reservation_segment_id), room_id = $4,
+                room_revenue_gross_vnd = $5::bigint, room_revenue_vnd = $5::bigint - discount_vnd,
+                calendar_rate_vnd = $6::bigint,
+                extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
+                extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,
+                extra_person_base = CASE WHEN $10::boolean THEN $9::smallint ELSE extra_person_base END,
+                updated_at = $11
+          WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
+        [
+          row.id,
+          n.date,
+          segmentOf.get(n.date) ?? null,
+          n.roomId,
+          n.newGrossVnd,
+          n.calendarVnd,
+          n.feeVnd,
+          n.feeCount,
+          n.feeBase,
+          n.roomChanged,
+          ctx.now,
+        ],
+      );
+    }
+    const roomDelta =
+      row.channel_group === 'ota' || row.external_contract ? 0 : plan.roomNewVnd - plan.roomOldVnd;
+    await tx.query(
+      `UPDATE reservation SET total_room_vnd = total_room_vnd + $2,
+              origin_room_id = COALESCE(origin_room_id, $3::uuid)
+        WHERE id = $1`,
+      [row.id, roomDelta, plan.originRoomId],
+    );
+    if (roomDelta !== 0 && !row.external_contract) {
+      const manual = new Set(plan.nights.filter((x) => x.manual).map((x) => x.date));
+      const prior = new Map(
+        (
+          (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ??
+          []
+        ).map((x) => [x.date, x.source]),
+      );
+      const moved = new Set(plan.nights.map((x) => x.date));
+      const live = await liveNightRows(tx, row.id);
+      await tx.query(
+        `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
+        [
+          row.id,
+          JSON.stringify({
+            nights: live.map((x) => ({
+              date: x.date,
+              amountVnd: x.grossVnd,
+              source: manual.has(x.date)
+                ? 'manual'
+                : moved.has(x.date)
+                  ? 'calendar'
+                  : (prior.get(x.date) ?? 'calendar'),
+              ...(x.calendarVnd !== null ? { calendarVnd: x.calendarVnd } : {}),
+            })),
+          }),
+        ],
+      );
+    }
+  }
+
+  /** S4-05 (BR-424 v0.3.5): reverse the live OTA differences from the move night, post the planned ones. */
+  async repostPlannedDifferences(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    plan: BookingMovePlan,
+    labels: { from: string; to: string },
+  ): Promise<void> {
+    const post = plan.nights.filter((n) => n.diffVnd > 0);
+    if (plan.diffLinesToReverse.length === 0 && post.length === 0) return;
+    await this.money.repostDifferences(
+      tx,
+      row,
+      plan.diffLinesToReverse,
+      post.map((n) => ({ date: n.date, amountVnd: n.diffVnd, ...labels })),
+      { userId: ctx.actor.userId, requestId: ctx.requestId },
+    );
+  }
+
+  /** Requested room of an open conflict (BR-312) – base of the "old" fee and the origin when upgraded. */
+  private async requestedRoom(tx: Tx, reservationId: string): Promise<RoomInfo | null> {
+    const { rows } = await tx.query<{ requested_room_id: string | null }>(
+      `SELECT requested_room_id FROM overbooking_incident WHERE reservation_id = $1 AND status = 'open'
+        ORDER BY detected_at DESC LIMIT 1`,
+      [reservationId],
+    );
+    const id = rows[0]?.requested_room_id;
+    return id ? this.room(tx, id) : null;
+  }
+
+  /** BR-012: display name of a room (null = not named yet). */
+  async roomName(tx: Tx, roomId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ name: string | null }>(
+      'SELECT name FROM room WHERE id = $1',
+      [roomId],
+    );
+    return rows[0]?.name ?? null;
   }
 
   /** BR-312 (4): a room of another group is an upgrade – FDL+ only, and must be declared as such. */
@@ -3059,7 +3552,23 @@ export class ReservationsService {
     await this.assertSellable(tx, rm, row.arrival_date, row.departure_date);
     const seg = await singleSegment(tx, row.id);
     await this.occupancy.lockRooms(tx, [rm.id]);
+    await this.money.lockFolio(tx, row);
     await this.assertCapacityStable(tx, [rm]);
+    // S4-07 (BR-429 v0.3.4): B7a is OTTIMO's choice – prices kept, BR-110 fee per night = min(fee in the room the
+    // OTA guest booked, fee in the assigned room); the SAME plan as B7 (ARC 10.4).
+    const plan = await this.planner.planBooking(tx, ctx, {
+      row,
+      flow: 'B7',
+      cause: 'ottimo',
+      fromDate: row.arrival_date,
+      arrival: row.arrival_date,
+      departure: row.departure_date,
+      newRoom: rm,
+      requested: {
+        room: await this.requestedRoom(tx, row.id),
+        upgraded: resolution === 'upgraded',
+      },
+    });
     await this.occupancy.claim(
       tx,
       {
@@ -3077,14 +3586,24 @@ export class ReservationsService {
         WHERE id = $1`,
       [seg.id, rm.id, note ?? null, ctx.now],
     );
+    await this.writePlannedNights(tx, ctx, row, plan, seg.id);
     await tx.query(
-      `UPDATE stay_night SET room_id = $2, updated_at = $3 WHERE reservation_id = $1 AND night_state <> 'void'`,
-      [row.id, rm.id, ctx.now],
+      `UPDATE reservation SET conflict_state = 'resolved', origin_room_id = COALESCE(origin_room_id, $3::uuid),
+              updated_at = $2, version = version + 1 WHERE id = $1`,
+      [row.id, ctx.now, plan.originRoomId],
     );
-    await tx.query(
-      `UPDATE reservation SET conflict_state = 'resolved', updated_at = $2, version = version + 1 WHERE id = $1`,
-      [row.id, ctx.now],
-    );
+    if (plan.feeNewVnd !== plan.feeOldVnd) {
+      await this.audit.recordMoney(tx, {
+        action: 'reservation.repriced',
+        entityType: 'reservation',
+        entityId: row.id,
+        entityCode: row.code,
+        before: { extraPersonVnd: plan.feeOldVnd },
+        after: { extraPersonVnd: plan.feeNewVnd },
+        reason: resolution as string,
+        ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      });
+    }
     await this.resolveIncident(tx, ctx, row.id, resolution as string);
     await recordChange(tx, row.id, 'room', null, rm.room_no, ctx.now, resolution as string);
     await recordTransition(tx, {
@@ -3104,6 +3623,13 @@ export class ReservationsService {
       tx,
       [{ roomId: rm.id, from: row.arrival_date, to: row.departure_date }],
       'reservation.assigned',
+    );
+    // The BR-110 lines of the assigned room (collected at the desk – never in "Đã thu qua OTA").
+    await this.money.resynced(
+      tx,
+      await this.confirmedStay(tx, after),
+      ctx.actor.userId,
+      ctx.requestId,
     );
     await this.hooks.emit(tx, this.event('transitioned', after, 'confirmed', 'B7a', rm.id));
     return after;
@@ -3226,6 +3752,8 @@ export class ReservationsService {
   ): Promise<ReservationRow> {
     const f = new Fields(body);
     const contact = f.text('contactAttemptNote', 500, { required: true, min: 3 });
+    // 0.3.7 D1 S4-08 (BE-B): service lines the desk keeps (BR-309 applies to no-show too).
+    const retainLines = retainLinesOf(f, body.retainLines);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
     this.assertVersion(row, expectedVersion);
@@ -3270,6 +3798,15 @@ export class ReservationsService {
     // request asks back, never above the booking value; OTA → reported on the channel (kept 0).
     const retainable = await this.retainableDeposit(tx, row);
     const kept = row.channel_group === 'ota' ? 0 : retainable.cap;
+    // S4-08 (BE-B): checks `retainLines` against the folio (422 before anything is committed).
+    if (row.folio_id) {
+      await this.money.closeStayPreview(tx, row, {
+        retainLines,
+        feeVnd: kept,
+        feeCategory: 'no_show_fee',
+        today: ctx.today,
+      });
+    }
     if (kept > 0) {
       await this.audit.recordMoney(tx, {
         action: 'reservation.no_show_deposit_retained',
@@ -3280,19 +3817,8 @@ export class ReservationsService {
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
     }
-    if (row.channel_group === 'ota') {
-      await outboxStaffPush(
-        tx,
-        {
-          kind: 'ota_no_show_report',
-          roles: ['front_desk', 'front_desk_lead'],
-          refType: 'reservation',
-          refId: row.id,
-          refCode: row.code,
-        },
-        `ota_no_show:${row.id}:${ctx.now.getTime()}`,
-      );
-    }
+    // US-136 AC2/AC4 (BE-D, 0.3.7 D1): `no_show_marked` + "Cần chú ý" `ota_no_show_report` come from the
+    // 'transitioned' hook (reporting/no-show-notices) in this transaction – no second push here.
     const after = await loadReservation(tx, row.id, ctx.actor);
     const seg = segs[0];
     await this.syncKit(tx, ctx, after, seg?.room_id ?? null, seg?.base_occupancy ?? null);
@@ -3313,9 +3839,12 @@ export class ReservationsService {
         retainedKind: kept > 0 ? 'no_show_fee' : null,
         reason: 'no_show',
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+        services: { retainLines },
       },
       ctx.actor.userId,
     );
+    // S4-06 (BE-B, BR-522): money left on the folio of a no-show → ONE refund request + "Cần chú ý".
+    await this.money.closeStayCredit(tx, row, 'no_show', ctx.actor, ctx.requestId);
     await this.hooks.emit(
       tx,
       this.event('transitioned', after, 'confirmed', 'B11', seg?.room_id ?? null),
@@ -3444,17 +3973,8 @@ export class ReservationsService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
-    await outboxStaffPush(
-      tx,
-      {
-        kind: 'no_show_restored',
-        roles: ['manager'],
-        refType: 'reservation',
-        refId: row.id,
-        refCode: row.code,
-      },
-      `no_show_restored:${row.id}:${ctx.now.getTime()}`,
-    );
+    // US-136 AC4/AC5 (BE-D): `no_show_restored` (OWN + MGR, not the restorer) and the `revoke` line come from
+    // the 'transitioned' hook (reporting/no-show-notices) – no second push here.
     const after = await loadReservation(tx, row.id, ctx.actor);
     const base = roomId ? ((await this.room(tx, roomId))?.base_occupancy ?? null) : null;
     await this.syncKit(tx, ctx, after, roomId, base);
