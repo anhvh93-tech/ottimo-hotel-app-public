@@ -17,7 +17,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
-import { addDays, dayMonth, suggestionsOf } from '../../app/reservations';
+import { addDays, currentSegment, dayMonth, suggestionsOf } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { useCatalog } from '../../app/catalog';
@@ -56,7 +56,8 @@ export interface StayDialogProps {
 }
 
 const OWN_MGR = ['owner', 'manager'];
-const roomOf = (r: Reservation) => r.segments?.[0]?.roomNo ?? '';
+// K11-03: the room of today (after a mid-stay B14 `segments[0]` is the room left).
+const roomOf = (r: Reservation) => currentSegment(r.segments, todayLocal())?.roomNo ?? '';
 const guestOf = (r: Reservation) => r.booker?.displayName ?? '';
 
 /** H15 15.2 Gia hạn (B13, US-028): consecutive free nights only, default rate, OTA → child booking. */

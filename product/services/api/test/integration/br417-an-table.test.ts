@@ -633,6 +633,18 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
     'AN-10': async (row) => {
       const w = await world();
       const r = await an10(w, '2029-07-02');
+      // DOM r5-6: the OTTIMO move of the whole stay is recorded on the child too; the S4-09 move only on the primary.
+      const moves = await w.q<{ who: string; reason: string }>(
+        `SELECT CASE WHEN c.reservation_id = $1 THEN 'primary' ELSE 'child' END AS who, c.reason
+           FROM reservation_change c WHERE c.reservation_id = ANY($2::uuid[]) AND c.field = 'room'
+          ORDER BY c.changed_at, who`,
+        [r.ota.id, [r.ota.id, r.child]],
+      );
+      expect(moves).toEqual([
+        { who: 'primary', reason: 'guest_request' },
+        { who: 'child', reason: 'property_fault' },
+        { who: 'primary', reason: 'property_fault' },
+      ]);
       const o = await w.options(r.ota, '2029-07-05');
       rowNight(row, o.nights[0]);
       expect(o.currentBookingRateVnd).toBe(row.currentBookingRateVnd);
@@ -938,6 +950,23 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
       const b = await w.direct('202', mon, day(mon, 3), 650_000);
       await w.stayIn(b, '202', mon);
       await w.b14(b.id, '401', day(mon, 1), 'property_fault');
+      // DOM r5-3 (18/10): after an OTTIMO move S4-35 takes a price within both rooms – 520.000 is under both floors.
+      await w.at(`${day(mon, 2)}T09:00:00+07:00`);
+      const f = (await w.c.fd!.get(`${P(w.t)}/folios/${b.folioId}`)).json();
+      const [line] = await w.q<{ id: string }>(
+        `SELECT id FROM folio_line WHERE folio_id = $1 AND category = 'room' AND service_date = $2
+            AND line_state = 'posted' AND reversal_of_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM folio_line x WHERE x.reversal_of_id = folio_line.id)`,
+        [b.folioId, day(mon, 2)],
+      );
+      const low = await w.c.mgr!.send(
+        'POST',
+        `${P(w.t)}/folios/${b.folioId}/lines/${line!.id}/adjustments`,
+        { newUnitPriceVnd: 520_000, reason: 'Giá thỏa thuận lại với khách' },
+        { 'if-match': `"${f.version}"` },
+      );
+      expect(low.statusCode, low.body).toBe(422);
+      expect(low.json()).toMatchObject({ code: 'RATE_OUT_OF_RANGE', min: 530_000, max: 2_630_000 });
       await w.typeNight(b, day(mon, 2), 700_000);
       // Typed while the room bought was 202 (the origin): no anchor needed.
       expect(await w.sourceOf(b, day(mon, 2))).toEqual({ source: 'manual', anchor: null });
@@ -1251,24 +1280,34 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
       expect(row.movePlannerEqualsB13).toBe(true);
     },
     'AN-47': async () => {
-      // Guest requests in the planner: the new room's calendar per night (no agreed price carried); a date move
-      // keeping the room keeps its nights and prices the added one at the current calendar.
+      // DOM r5-5 (18/10, appendix 5A AN-47 rewritten): (a) a guest request that CHANGES the room leaves the table – the
+      // new room's current calendar per night, no agreed price carried; (b) a guest request that only moves /
+      // extends the dates keeps the room (even one OTTIMO chose): not a room change, the added nights go through
+      // the table (min with the room bought). Numbers from the BR-417 text (T7 of r4rate).
       const w = await world();
       const mon = '2030-02-04';
       const a = await w.direct('202', mon, day(mon, 2), 650_000);
-      const b = await w.direct('203', mon, day(mon, 2), 650_000);
       await w.at(`${day(mon, -20)}T10:00:00+07:00`);
       const pa = await w.move(a, {
         roomId: w.ids.rooms['302'] as string,
         reasonCode: 'guest_request',
       });
       expect(pa.nights.map((n: any) => n.newRateVnd)).toEqual([917_000, 917_000]);
-      await w.move(b, { departureDate: day(mon, 3), reasonCode: 'guest_request' });
-      expect([
-        await w.grossOn(b, mon),
-        await w.grossOn(b, day(mon, 1)),
-        await w.grossOn(b, day(mon, 2)),
-      ]).toEqual([650_000, 650_000, 792_000]);
+      // (b) 202 → B7 property_fault 401, then the guest asks 3 more nights (Wed, Thu, Fri): +2.495.000.
+      const w2 = await world();
+      const b = await w2.direct('202', '2028-06-05', '2028-06-07');
+      await w2.at('2028-05-15T10:00:00+07:00');
+      await w2.move(b, { roomId: w2.ids.rooms['401'] as string, reasonCode: 'property_fault' });
+      const pb = await w2.move(b, { departureDate: '2028-06-10', reasonCode: 'guest_request' });
+      expect(pb.folioDeltaVnd).toBe(792_000 + 792_000 + 911_000);
+      expect(await w2.roomTotal(b)).toBe(4 * 792_000 + 911_000);
+      // 302 → 101 (OTTIMO), then one more Wednesday night: min(917.000, 667.000) = 667.000.
+      const c = await w2.direct('302', '2028-06-12', '2028-06-14');
+      await w2.at('2028-05-15T10:00:00+07:00');
+      await w2.move(c, { roomId: w2.ids.rooms['101'] as string, reasonCode: 'property_fault' });
+      const pc = await w2.move(c, { departureDate: '2028-06-15', reasonCode: 'guest_request' });
+      expect(pc.folioDeltaVnd).toBe(667_000);
+      expect(await w2.roomTotal(c)).toBe(2 * 917_000 + 667_000);
     },
   };
 

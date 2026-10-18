@@ -622,3 +622,40 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
   - đêm của đơn con không đổi (đơn OTA không có đêm tham chiếu).
 - **r5-5** – AN-47: khách xin dời ngày (B7) ở căn OTTIMO xếp → đêm thêm lấy lịch căn đang ở, không min nữa. Khác oracle T7 cũ của critic (r4rate).
 - **r5-6** – Đơn liền trước của một đơn con: đơn có ngày đi = ngày đến của đơn con (B13), không có thì đơn có ngày đến = ngày đi của đơn con (B9a), không có nữa thì đơn gốc. Chỉ nhận các thay đổi trước lúc đơn con được tạo.
+
+## 18. Vòng sửa 5b (kiểm đích danh #11 – `reviews/s4-money-recheck5b.md`; DOM chốt r5-3, r5-5, r5-6)
+
+### 18.1 K11-01 – B18 đọc số dư khi folio chưa khóa (P1, hồi quy 4c)
+- **Lỗi:** từ 4c, đơn khóa `FOR NO KEY UPDATE`. Lệnh folio (thêm dòng, sửa dòng, FOC, thu tiền, phí yêu cầu khách) khóa folio trước, sau đó chỉ lấy `KEY SHARE` trên đơn, nên không còn phải chờ B18. B18 đọc số dư rồi mới khóa folio ở `settle`. Vì vậy một dòng có thể commit vào giữa hai bước: trả phòng `desk` khi folio còn nợ, khoản nợ không vào danh sách công nợ (A19).
+- **Sửa `checkOut`:** khóa folio (`FolioService.lock`) ngay sau `lockRooms`, trước kiểm minibar, `pendingApprovals`, `resyncOtaCollect`, số dư, nợ và tiền thừa. Thứ tự khóa theo ARC 16.19: L1 đơn → L2 căn → L3 folio; theo "quy tắc đọc", mọi quyết định theo số dư đứng sau L3.
+- **Rà các lệnh khác của BE-A quyết định theo số dư:**
+  - B9: khóa folio sau `lockRooms`, trước `balance_paid`;
+  - B16: `lockFolio` sau `lockRooms`, trước khi trần hoàn theo tiền thừa;
+  - hủy (B10, khi ghi): khóa căn và folio **trước** khi tính phí theo số đã cọc. Trước đây phí được quyết khi chưa khóa folio, nên một khoản thu chen vào sẽ thoát phí và được hoàn trọn;
+  - no-show (B11): khóa folio sau `lockRooms`, trước khi tính phí giữ cọc;
+  - B14 và B7 đã khóa folio từ trước.
+  - `postFee` khi HK xong việc và dòng damage `pending_approval` là bên **ghi** folio (khóa folio trước khi ghi). Sau bản sửa, chúng hoặc vào trước B18 (B18 trả 409), hoặc chờ B18 xong rồi thành dòng `post_checkout`.
+- **Test** (`s438r5-money`, ca K11-01):
+  - đối chứng tuần tự: dòng trước → 409 `BALANCE_DUE`; B18 trước → dòng `post_checkout`;
+  - ép xen: B18 dừng sau bước đọc số dư (khóa `SHARE` dòng khách, `touchLastStay`), rồi `addFolioLine` 150.000 hoặc `adjustFolioLine` 100.000 → 250.000. Lệnh folio không được trả lời khi B18 đang dừng; B18 200; dòng là `post_checkout`; không mất nợ;
+  - đua tự nhiên 8 vòng, không `finalPayment`: chỉ ra một trong hai kết quả tuần tự;
+  - B9 ‖ dòng: chỉ ra kết quả tuần tự.
+- **Đối chứng trên bản sao:** bỏ dòng khóa folio thì ca ép xen ra đúng hình K11-01: `desk`, `settled`, nợ 150.000, dòng không `post_checkout`.
+
+### 18.2 K11-07 – ca đua "deadlock class" (P3)
+- `s438r4-money`: thêm oracle tiền cho nhánh B18 cũ. Thêm nhánh B18 số dư 0, không `finalPayment` ‖ dòng 120.000, 6 vòng. Kết quả chỉ được là một trong hai thứ tự tuần tự (409 `BALANCE_DUE` + nợ 120.000 + folio `open`, hoặc 200 + 1 dòng `post_checkout`). Bỏ khóa folio thì ca đỏ.
+
+### 18.3 DOM chốt (phụ lục 5A, decision-log)
+- **r5-5 SỬA:** B7 khách xin dời hoặc kéo dài ngày mà giữ căn, kể cả căn OTTIMO xếp, không phải đổi căn. Đêm thêm vẫn đi qua bảng (min). Chỉ khách xin **đổi căn** mới ra ngoài bảng. MovePlanner đã sửa. AN-47 test theo số mới:
+  - đổi căn → lịch 302 từng đêm;
+  - 202 → B7 sự cố 401 → khách thêm 3 đêm: **+2.495.000**;
+  - 302 → 101 → thêm thứ Tư: **667.000**.
+- **r5-6 đồng ý có điều kiện:** B14 cả lượt ghi đổi căn trên từng đơn có đêm từ ngày đổi (đơn gốc và đơn con); S4-09 chỉ ghi trên đơn gốc. AN-10 kiểm thêm thứ tự bản ghi: đơn gốc `guest_request`, sau đó đơn con và đơn gốc cùng `property_fault`. Kết quả vẫn 911.000.
+- **r5-3 đồng ý:** AN-25 kiểm thêm 520.000 → 422 `RATE_OUT_OF_RANGE` (`min` 530.000, `max` 2.630.000); 700.000 được nhận.
+
+### 18.4 Ổn định test
+- Ca 167 (412 sau mật khẩu) và 166 trước đây chờ "có bất kỳ backend nào chờ khóa" trên cả database. Khi nhiều tệp test chạy song song, ca có thể nhả khóa quá sớm. Nay chờ đúng backend bị chặn sau giao dịch giữ khóa của chính ca đó (`pg_blocking_pids`).
+
+### 18.5 Kiểm máy
+- Vitest api toàn bộ trên DB mới (cây chung sau `3bd4ac4`): **2837/2837** (89 tệp). tsc, eslint, prettier sạch.
+- Không tự sinh lại `openapi.yaml`/generated (ARC đang làm). Không commit.

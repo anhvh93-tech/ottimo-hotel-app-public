@@ -2752,6 +2752,16 @@ export class ReservationsService {
         f.add('otaPenaltyVnd', 'VALUE_OUT_OF_RANGE');
     }
     f.done();
+    // K11-01 (ARC 16.19): the write locks reservation → rooms → folio BEFORE the fee is decided on what was paid
+    // (a payment committed in between would otherwise escape the fee and be refunded whole).
+    const segs = await activeSegments(tx, row.id);
+    if (!dryRun) {
+      await this.occupancy.lockRooms(
+        tx,
+        segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
+      );
+      await this.money.lockFolio(tx, row);
+    }
 
     const policy = await this.cancellationQuote(tx, ctx, row, otaPenalty);
     // S4-08 + S4-06 (BE-B): services reversed / kept and the refund request – the SAME calculation for the dry
@@ -2767,11 +2777,6 @@ export class ReservationsService {
     const quote: Record<string, unknown> = { ...policy, ...(close ?? {}) };
     if (dryRun) return { row, cancellation: quote };
 
-    const segs = await activeSegments(tx, row.id);
-    await this.occupancy.lockRooms(
-      tx,
-      segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
-    );
     for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, ctx.now);
     const voidedIds = await voidNights(
       tx,
@@ -4125,6 +4130,8 @@ export class ReservationsService {
       tx,
       segs.flatMap((s) => (s.room_id ? [s.room_id] : [])),
     );
+    // K11-01 (ARC 16.19): reservation → rooms → folio before the fee is decided on the deposit paid.
+    await this.money.lockFolio(tx, row);
     for (const s of segs) await this.occupancy.release(tx, { segmentId: s.id }, ctx.now);
     const voidedIds = await voidNights(tx, row.id, 'no_show', ctx.now);
     await tx.query(

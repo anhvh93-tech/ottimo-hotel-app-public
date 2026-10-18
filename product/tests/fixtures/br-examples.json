@@ -6207,11 +6207,11 @@
           },
           {
             "an": "AN-47",
-            "condition": "MovePlanner – khách xin đổi căn/đổi ngày (BR-429 (a), (g))",
-            "ckmToCdt": "– → –",
-            "referenceOrGkm": "–",
-            "price": "ngoài bảng: lịch hiện hành căn mới từng đêm, không mang thỏa thuận; dời ngày giữ căn: đêm giữ giữ giá, đêm thêm lấy giá hiện hành",
-            "settledCase": "BR-429 (a)"
+            "condition": "MovePlanner – khách xin (B7/B8 `guest_request`): (a) có đổi căn → ngoài bảng; (b) chỉ dời/kéo dài ngày, giữ căn (kể cả căn OTTIMO đã xếp) → đêm thêm theo bảng (bước 1–4) – sửa 18/10, DOM r5-5",
+            "ckmToCdt": "(a) căn mới → căn mới; (b) 202 → 401",
+            "referenceOrGkm": "(a) –; (b) – / lịch 202",
+            "settledCase": "BR-429 (a), (b1'); T7 (r4rate)",
+            "see": "BR-417-20 (pendingFix BUG-R2-AN47) – số oracle ở đó"
           }
         ]
       },
@@ -6343,6 +6343,48 @@
         ]
       },
       "note": "AN-22, AN-43; AN-35 = R5-02 (ca B, DOM chốt): 1.000.000, tổng 3.667.000 – cần cả 161 và 162. Nguồn: `business-rules.md` phụ lục 5A của BR-417 (DOM 18/10, vòng sửa 5) – bảng là nguồn duy nhất cho giá gợi ý đêm thêm; BE-A viết test riêng cho từng dòng AN."
+    },
+    {
+      "id": "BR-417-20",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A AN-47 – DOM r5-5 18/10) Khách xin dời/kéo dài ngày GIỮ căn (kể cả căn OTTIMO đã xếp) không phải đổi căn: CKM giữ nguyên, đêm thêm theo bảng (min); chỉ khách xin ĐỔI căn mới ra ngoài bảng",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn, trần từng căn)",
+        "cases": [
+          {
+            "key": "a",
+            "steps": "Đơn trực tiếp 202 thỏa thuận 650.000 × 2 đêm (thứ Hai–thứ Tư); khách xin đổi sang 302 (B7 `guest_request`)"
+          },
+          {
+            "key": "b_T7",
+            "steps": "Đơn 202 (lịch) thứ Hai–thứ Tư; B7 sự cố `property_fault` sang 401 (OTTIMO xếp); khách xin thêm 3 đêm thứ Tư, thứ Năm, thứ Sáu (B7 `guest_request`, giữ 401)"
+          },
+          {
+            "key": "b_302to101",
+            "steps": "Đơn 302 (lịch) thứ Hai–thứ Tư; B7 sự cố sang 101; khách xin thêm 1 đêm thứ Tư (giữ 101)"
+          }
+        ]
+      },
+      "expected": {
+        "a": {
+          "rule": "ngoài bảng: lịch hiện hành căn mới từng đêm, không mang thỏa thuận (BR-429 (a), (g))",
+          "newNightsVnd": [917000, 917000]
+        },
+        "b_T7": {
+          "formula": "min(792.000; 1.042.000) × 2 + min(911.000; 1.198.000)",
+          "folioDeltaVnd": 2495000,
+          "notCalendarVnd": 3282000,
+          "deskRangeVnd": [530000, 2630000]
+        },
+        "b_302to101": {
+          "formula": "min(917.000; 667.000)",
+          "folioDeltaVnd": 667000
+        }
+      },
+      "note": "Thay oracle T7 cũ (lịch 401: 1.042.000 × 2 + 1.198.000 = 3.282.000). Nguồn: `business-rules.md` phụ lục 5A AN-47 và làm rõ r5-5 (DOM 18/10). Dòng AN-47 trong BR-417-16 chỉ trỏ tới đây để bảng 47 dòng trong test của BE-A (`br417-an-table.test.ts`) giữ nguyên. Khi BE-A sửa xong: gỡ pendingFix (QA), có thể chuyển hẳn AN-47 sang dòng này và thêm BR-417-20 vào SOURCES (BE-A). · 18/10 (vòng 5b): QA bỏ pendingFix – TC-L4-141 (API, `e2e/api/round5b.s5.api.spec.ts`) chạy thật khớp trên cây chung 3bd4ac4 + 5b (api-dist16): T7 +2.495.000, 302 → 101 +667.000, (a) 302 lịch [917.000, 917.000]."
     },
     {
       "id": "BR-421-01",
@@ -8811,6 +8853,39 @@
       "note": "Mã HEAD (đọc mã): (c) cơ sở phí = 700.000 − 700.000 = 0 → phí 0, khách được hoàn 700.000"
     },
     {
+      "id": "BR-522-06",
+      "br": "BR-522",
+      "case": "(v0.3.8, 18/10 – K11-06 / BUG-R2-176) Đơn đã đóng (`cancelled`, `no_show`) không nhận dòng phí tay: `addFolioLine` 409 `INVALID_TRANSITION` với mọi vai; folio và yêu cầu hoàn giữ nguyên; chi đủ cọc → đã hoàn",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "direct",
+        "depositPaidVnd": 2000000,
+        "cancelReasonCode": "found_other",
+        "refundRequestVnd": 2000000,
+        "manualLine": {
+          "category": "fnb",
+          "description": "Nước cam",
+          "quantity": 1,
+          "unitPriceVnd": 90000
+        },
+        "roles": ["front_desk", "front_desk_lead", "manager", "owner"]
+      },
+      "expected": {
+        "addFolioLineStatus": 409,
+        "addFolioLineCode": "INVALID_TRANSITION",
+        "folioTotalsUnchanged": true,
+        "refundRequestVnd": 2000000,
+        "refundRequestStatusBeforePayout": "pending",
+        "payoutVnd": 2000000,
+        "refundOutcome": "refunded",
+        "refundedVnd": 2000000,
+        "systemLinesStillPosted": ["phí hủy", "giữ cọc no-show", "đảo/ghi lại khi khôi phục B12"]
+      },
+      "note": "Nguồn: `business-rules.md` BR-522 (18/10 – K11-06), `reviews/s4-money-recheck5b.md` K11-06 hướng (a). Không còn trạng thái cũ: dư thừa 1.910.000, chi tối đa 1.910.000, yêu cầu kẹt `approved`. \"refunded\" = chi đủ số yêu cầu (`refunded_vnd` = số yêu cầu); dòng `approval_request` vẫn `approved` theo SM-10. Void/sửa dòng có lý do (BR-008) giữ như hiện hành. Từ R3: mọi thay đổi folio của đơn đã đóng chạy lại `refundPlan`. pendingFix tới khi bản sửa của BE-B/BE-A vào cây chung và CI xanh. · 18/10 (vòng 5b): QA bỏ pendingFix – TC-L4-140 (API) chạy thật khớp trên api-dist16: FD/FDL/MGR/OWN 409 INVALID_TRANSITION (`currentState` cancelled), folio giữ, yêu cầu 2.000.000, chi đủ → `refundedVnd` 2.000.000."
+    },
+    {
       "id": "BR-523-01",
       "br": "BR-523",
       "case": "1.080.000 gồm VAT 8%",
@@ -9729,6 +9804,71 @@
         }
       },
       "note": "DOM chốt R9 18/10 (`business-rules.md` ghi chú dưới bảng mục 9): không hủy việc bổ sung khi lượt ở tiếp (kỳ `carry`, việc giữ mở); xong việc khi lượt đang ở căn → kỳ `refill`, mốc = số theo hệ thống + số nạp; B13 sau lần đếm có tính tiền sinh việc ngay; (t) \"có tính tiền\" xét theo số lượng đã dùng của món có giá, không theo tiền sau FOC. Ca b3, twoItems, samePeriodUse, s409Agoda: critic `reviews/s4-money-recheck4.md`; ca r9_*: ví dụ của DOM (202, bia 35.000 định mức 2, snack 30.000 định mức 1). Sửa 18/10: ca 16 (BE-B 14 – hủy việc, 100.000) nay giữ việc T1 mở, vẫn 100.000. Mọi ca đạt: BE-B cài DOM R9 (gộp #10/#11) – E2E TC-L4-127…131 đạt không `knownBug` (18/10), `minibar-m1` 23/23 (recheck5)."
+    },
+    {
+      "id": "BR-703-03",
+      "br": "BR-703",
+      "case": "(v0.3.8, 18/10 – BR-703 ghi chú 7, K11-09; ca 29 của ARC 16.4) Lần đếm dùng cho B18: tủ căn lượt đang ở phải đếm trong ngày nghiệp vụ của B18 (ngày đi), sau mốc R9; lần đếm \"dùng 0\" soạn trước B13 rồi gửi sau B13 không đủ → B18 đòi đếm lại",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "beerUnitVnd": 35000,
+        "beerStandardQty": 2,
+        "steps": "Ngày đi cũ 09:00–10:00: lễ tân soạn lần đếm dùng 0; B13 gia hạn 1 đêm; gửi lần đếm (201); đêm gia hạn khách uống 1 bia; hôm sau (ngày đi mới) B18",
+        "leftRoomException": "Tủ căn đã rời (B14): mọi lần đếm sống sau mốc đều được, không lọc ngày (giữ R9)"
+      },
+      "expected": {
+        "countBeforeB13Accepted": true,
+        "b18BlockedWithoutSameDayCount": true,
+        "blocker": "minibar_not_checked",
+        "uncheckedReason": "not_today",
+        "latestCheckBeforeRecount": null,
+        "recountRemaining": {
+          "bia": 1
+        },
+        "minibarVnd": 35000,
+        "minibarVndWithoutRule": 0
+      },
+      "note": "Nguồn: `business-rules.md` BR-703 ghi chú 7 (DOM 18/10 – K11-09), `reviews/s4-money-recheck5b.md` K11-09 (Note, không phải lỗi mã ở #11; quy tắc mới). Sửa mốc R9, không đổi `periodId`. `uncheckedReason` theo ARC 16.19 bổ sung (`minibarUncheckedRooms[].reason`). pendingFix tới khi bản cài của BE-B vào cây chung và CI xanh. · 18/10 (vòng 5b): QA bỏ pendingFix – TC-L4-139 (clock) chạy thật khớp trên api-dist16: B18 409 MINIBAR_NOT_CHECKED, `not_today`, `latestCheck` null, đếm trong ngày → 35.000."
+    },
+    {
+      "id": "BR-703-04",
+      "br": "BR-703",
+      "case": "(v0.3.8, 18/10 – K11-03 / BUG-R2-173; ARC 16.19 K11-03, (ac) viết lại, (ah), ca 30 của 16.4) Lần đếm phải định danh được tủ: lần đếm soạn với `periodId: null` trước B14 nhận 409 rồi tải lại; ghi đúng tủ căn cũ",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "toRoomNo": "203",
+        "stay": "d0–d2 (2 đêm), tủ 202 chưa nạp",
+        "beerUnitVnd": 35000,
+        "steps": "d1 09:00 GET tủ 202 (`roomId` 202) → `periodId` null; 09:05 lễ tân khác B14 202 → 203 (B14 ghi nhận tủ 202 bằng lần nạp `check_in`); 09:06 đếm bia dùng 1, `roomId` 202, `periodId: null`; d2 đếm 203 dùng 0, B18"
+      },
+      "expected": {
+        "firstStatus": 409,
+        "firstCode": "MINIBAR_PERIOD_CHANGED",
+        "firstWritesNothing": true,
+        "reloadPeriodIdIsCheckInFill": true,
+        "secondStatus": 201,
+        "countedRoomNo": "202",
+        "minibarVnd": 35000,
+        "refillTasks": [
+          {
+            "roomNo": "202",
+            "items": {
+              "bia": 1
+            }
+          }
+        ],
+        "room203CountedByThis": false,
+        "periodIdWithoutRoomIdStatus": 422,
+        "periodIdWithoutRoomIdCode": "REQUIRED",
+        "b18Status": 200
+      },
+      "note": "Thay oracle của kiểm lại 5b (`reviews/s4-money-recheck5b.md` K11-03: '09:06 … → 201' ngay) bằng '409 → tải lại → 201' theo ARC 16.19 bổ sung 2 (ah) và ca 30 (B14 ghi nhận tủ căn cũ bằng `check_in`, nên `null` soạn trước B14 là kỳ đã đổi). Có `periodId` (kể cả null) mà vắng `roomId` → 422 `REQUIRED` (ARC 16.19 K11-03 – thay câu '409, không ghi' của kiểm lại 5b). E2E: TC-L4-137 (API), TC-L4-138 (Desk H16)."
     },
     {
       "id": "BR-705-01",

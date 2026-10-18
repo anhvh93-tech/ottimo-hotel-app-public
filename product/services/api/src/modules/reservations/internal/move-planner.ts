@@ -466,10 +466,12 @@ export class MovePlanner {
           if (!target) throw new Error(`night ${date} of ${row.code} has no room to price`);
           let fresh = await this.calendar(tx, ctx, cache, target, date, group);
           priceSource = 'calendar';
-          if (!repriceToNewRoom && input.cause === 'ottimo') {
-            // BR-417 appendix 5A (AN-46, BR-429 (b1')): a night an OTTIMO operation adds is priced like B13 – what the
-            // guest bought (reference night of an agreed stay, else the bought room's calendar), min with the
-            // night's room when OTTIMO chose another one. A guest request takes the current calendar (AN-47).
+          if (!repriceToNewRoom && !(input.cause === 'guest' && roomChanged)) {
+            // BR-417 appendix 5A (AN-46, AN-47 (b) – DOM r5-5, 18/10): a night added by an OTTIMO operation, or by a
+            // guest request that keeps the room (dates only – even a room OTTIMO chose: not a room change, the room
+            // bought stays), is priced like B13 – what the guest bought (reference night of an agreed stay, else
+            // the bought room's calendar), min with the night's room when it is another one. Only a guest request
+            // that changes the room leaves the table (AN-47 (a): the new room's current calendar).
             const bought = boughtBefore ?? oldRoom ?? target;
             const nightRate = {
               rateVnd: fresh,

@@ -387,7 +387,8 @@ describe('DOM (e) / M-1 – minibar theo tủ (lượt × căn)', () => {
     await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
-    expect(counts.sent[1]!.roomId).toBeUndefined();
+    // K11-03: the cabinet of today is named too (never "absent = the room assigned now").
+    expect(counts.sent[1]!.roomId).toBe(r.segments![0]!.roomId);
     expect(
       await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
     ).toBeInTheDocument();

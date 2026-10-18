@@ -49,6 +49,30 @@ export function addDays(date: string, n: number): string {
 /** dd/mm for compact rack / list labels. */
 export const dayMonth = (date: string) => formatLocalDate(date).slice(0, 5);
 
+/** One room segment of a stay (`Reservation.segments[]`). */
+export interface StaySegment {
+  roomId: string | null;
+  roomNo?: string | null;
+  fromDate: string;
+  toDate: string;
+}
+/**
+ * K11-03 (ARC 16.19): the room the stay is in TODAY – the segment with `fromDate ≤ today < toDate`, never
+ * `segments[0]` (after a mid-stay B14 that is the room left). On the departure day (today = last `toDate`,
+ * the post-midnight window included) or later → the last segment; before arrival → the first one.
+ */
+export function currentSegment<S extends StaySegment>(
+  segments: readonly S[] | undefined,
+  today: string,
+): S | undefined {
+  if (!segments?.length) return undefined;
+  const sorted = [...segments].sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+  return (
+    sorted.find((s) => s.fromDate <= today && today < s.toDate) ??
+    (today >= sorted[sorted.length - 1]!.fromDate ? sorted[sorted.length - 1] : sorted[0])
+  );
+}
+
 /** Remaining h / m until an instant (hold countdown, US-085). Negative → 0. */
 export function remaining(untilIso: string | undefined, now = Date.now()) {
   if (!untilIso) return null;

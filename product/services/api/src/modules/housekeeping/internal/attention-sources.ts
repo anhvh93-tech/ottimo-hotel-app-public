@@ -10,6 +10,7 @@
  *   reported, never corrected automatically (a BR-424-05 return room is waited for until the next morning).
  * `params` keys are kept only when the events allow-list knows them (ATTENTION_PARAM_KEYS – BE-D).
  */
+import { Logger } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { addDays } from '../../../shared/time';
 import { roomReturnsOn } from '../../reservations/public/room-return';
@@ -43,20 +44,35 @@ interface OpenWo {
   parts_expected_date: string | null;
 }
 
+/** Technical cap of the work orders read for "Cần chú ý" – applied AFTER the filter (BUG-R2-170 sweep). */
+const WO_ATTENTION_CAP = 500;
+const log = new Logger('HousekeepingAttention');
+
 export function housekeepingAttentionSources(): AttentionSource[] {
-  const openWorkOrders = async (tx: Tx): Promise<OpenWo[]> =>
-    (
-      await tx.query<OpenWo>(
-        `SELECT w.id, w.code, rm.room_no, w.severity, w.status, w.accepted_at, w.ack_due_at, w.resolve_due_at,
-                w.paused_at, w.parts_expected_date::text AS parts_expected_date
-           FROM work_order w JOIN room rm ON rm.id = w.room_id
-          WHERE w.status IN ('new', 'in_progress', 'waiting_parts')
-          ORDER BY w.created_at, w.id LIMIT 200`,
-      )
-    ).rows;
+  // BUG-R2-170 sweep: only the open work orders that raise an item now – high, past a running deadline (same
+  // conditions as `isOverdue`, re-checked below) or past their parts date – filtered in SQL BEFORE the cap.
+  // It was "the 200 oldest open ones, then filter": a new high / overdue work order fell out behind them.
+  const openWorkOrders = async (tx: Tx, now: Date, today: string): Promise<OpenWo[]> => {
+    const { rows } = await tx.query<OpenWo>(
+      `SELECT w.id, w.code, rm.room_no, w.severity, w.status, w.accepted_at, w.ack_due_at, w.resolve_due_at,
+              w.paused_at, w.parts_expected_date::text AS parts_expected_date
+         FROM work_order w JOIN room rm ON rm.id = w.room_id
+        WHERE w.status IN ('new', 'in_progress', 'waiting_parts')
+          AND (w.severity = 'high'
+               OR (w.ack_due_at <= $1 AND w.accepted_at IS NULL)
+               OR (w.resolve_due_at <= $1 AND w.paused_at IS NULL)
+               OR (w.status = 'waiting_parts' AND w.parts_expected_date < $2::date))
+        ORDER BY w.created_at DESC, w.id DESC LIMIT $3`,
+      [now, today, WO_ATTENTION_CAP],
+    );
+    if (rows.length >= WO_ATTENTION_CAP) {
+      log.warn(`work orders for attention capped at ${WO_ATTENTION_CAP}: oldest left out`);
+    }
+    return rows;
+  };
 
   const highOpen: AttentionSource = async (tx, ctx) =>
-    (await openWorkOrders(tx))
+    (await openWorkOrders(tx, ctx.now, ctx.today))
       .filter((w) => w.severity === 'high')
       .map((w): AttentionItem => ({
         kind: 'work_order_high_open',
@@ -69,7 +85,7 @@ export function housekeepingAttentionSources(): AttentionSource[] {
       }));
 
   const overdue: AttentionSource = async (tx, ctx) =>
-    (await openWorkOrders(tx))
+    (await openWorkOrders(tx, ctx.now, ctx.today))
       .filter(
         (w) =>
           isOverdue(w, ctx.now) ||

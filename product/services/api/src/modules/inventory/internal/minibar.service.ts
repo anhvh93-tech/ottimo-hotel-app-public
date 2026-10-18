@@ -34,9 +34,11 @@ import {
   fridgeItems,
   isCurrentPeriod,
   lockFridge,
+  lockFridgeParents,
   lockStayBookings,
   primaryOf,
   registerFridge,
+  stayIsInRoom,
   stayRooms,
 } from './fridge';
 import { reconcileRefillTasks } from './refill-tasks';
@@ -50,6 +52,7 @@ interface CheckRow {
   refill_task_id: string | null;
   replaces_check_id: string | null;
   replaced_by_check_id?: string | null;
+  business_date?: string;
 }
 
 interface StayInfo {
@@ -185,7 +188,7 @@ export class MinibarService {
   ): Promise<CheckRow | null> {
     const { rows } = await tx.query<CheckRow>(
       `SELECT id, mode, checked_at, created_at, total_vnd, refill_task_id, replaces_check_id,
-              replaced_by_check_id FROM minibar_check
+              replaced_by_check_id, business_date::text AS business_date FROM minibar_check
         WHERE reservation_id = $1 AND room_id = $2 AND mode = 'checkout'
           AND fill_id IS NOT DISTINCT FROM $3::uuid
           ${opts.live ? 'AND replaced_by_check_id IS NULL' : ''}
@@ -261,10 +264,20 @@ export class MinibarService {
     const hist =
       desk && s.folioId ? await this.history(tx, s.folioId, prev) : new Map<string, ItemHistory>();
     // ARC R9: latestCheck = the live count after the latest mark of the fridge (its current period; a count
-    // made stale when the stay went on is no longer "counted") – null = to count again; never filtered by day.
-    const latest = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { live: true });
+    // made stale when the stay went on is no longer "counted") – null = to count again. K11-09 (DOM BR-703 note 7,
+    // ARC 16.19 bổ sung): for the fridge of the room the stay is in, only a count of today's business day.
+    let latest = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { live: true });
+    if (
+      latest &&
+      latest.business_date !== today &&
+      (await stayIsInRoom(tx, fr.primaryId, fr.roomId, today))
+    ) {
+      latest = null;
+    }
     return {
       ...(fr.roomNo ? { roomNo: fr.roomNo } : {}),
+      // ARC 16.19 K11-03: the fridge this standard describes (periodId belongs to it) – sent back as `roomId`.
+      roomId: fr.roomId,
       // ARC 16.16 bổ sung 2 (ab): sent back in MinibarCheckInput.periodId (null = no fill yet).
       periodId: fillId,
       items: items.map((i) => {
@@ -342,13 +355,18 @@ export class MinibarService {
     if (input.mode === 'stayover') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
     }
+    // ARC 16.19 K11-03: a count sent with `periodId` (an id or null) names its fridge – `roomId` is required.
+    if (input.periodId !== undefined && !input.roomId) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'REQUIRED' }] });
+    }
     const { today, tz, now } = await this.businessToday(tx);
     const s = await this.stay(tx, actor.roles, reservationId, input.mode, today, input.roomId);
     if (!s.folioId || !s.roomId)
       throw problem('INVALID_TRANSITION', { extras: { currentState: s.status } });
+    // Read before the locks: only for an early 422/409 – everything is read again under the locks (16.19).
     const fr = await this.fridgeOf(tx, s, input.roomId, today);
-    // ARC 16.16 bổ sung 2 (ab): a count prepared on another period than the fridge's now (a refill done, the stay
-    // went on) → 409, nothing written – the client reloads and counts again. Early here, final under the lock.
+    // ARC 16.16 bổ sung 2 (ab) / 16.19 (ac): a count prepared on another period of THAT fridge (a refill done, the
+    // stay went on, a first fill written since) → 409, nothing written – the client reloads and counts again.
     const assertPeriod = async () => {
       if (input.periodId === undefined) return;
       if (!(await isCurrentPeriod(tx, fr.primaryId, fr.roomId, input.periodId))) {
@@ -356,23 +374,23 @@ export class MinibarService {
       }
     };
     await assertPeriod();
-    // Early 422 on what the fridge holds now (no lock yet – checked again below under the fridge lock).
     const at = input.performedAt ?? now;
     this.assertCountLines(input, (await fridgeItems(tx, fr.primaryId, fr.roomId)).items, at, now);
 
-    // ARC-BE-S3-25: lock first, then check the state. The folio lock serialises with B18 (check-out locks
-    // the folio before settling); the booking lock of lockForDeposit is not used – it applies the desk scope
-    // and HK counts minibars outside it. S4-13 order (reservation → folio): the bookings of the folio first, NO KEY
-    // UPDATE like the booking changes (lockStayBookings – ARC 16.16 bổ sung 2, 40P01 found by the race tests).
+    // Lock order (ARC 16.19 – the one source; K11-04, K11-07): L1 the bookings of the folio KEY SHARE → L2 the
+    // fridge's room KEY SHARE → L3 the folio (lockForPosting; B18 locks it right after its rooms, before any
+    // balance or blocker read – K11-01) → L4 the open refill tasks of the fridge → L5 the fridge. The booking
+    // lock of lockForDeposit is not used – it applies the desk scope and HK counts minibars outside it.
     await lockStayBookings(tx, s.folioId);
+    await lockFridgeParents(tx, fr.primaryId, fr.roomId);
     await this.folios.lockForPosting(tx, s.folioId);
+    // K11-05: the stay, the room it is in and the fridge are read again under L3 – a B14 committed while this
+    // count waited moved the stay: without `roomId` the count was meant for the room it was in → 409 (reload).
     const fresh = await this.port().stayInfo(tx, s.id);
     if (fresh?.status !== 'in_house')
       throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
-    // ARC 16.16 bổ sung: folio → fridge. The period (latest fill) and its latest count are read only under the
-    // fridge lock – a refill done (onRefillDone) or a stay going on (onStayContinued) committed meanwhile closed
-    // the period read above: the count is checked against the period in force, as if the two ran one after the
-    // other.
+    if (!input.roomId && fresh.roomId !== fr.roomId) throw problem('MINIBAR_PERIOD_CHANGED');
+    const currentRoomId = fresh.roomId;
     const lock = await lockFridge(tx, fr.primaryId, fr.roomId, { refillTasks: true });
     await assertPeriod();
     // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.
@@ -548,7 +566,8 @@ export class MinibarService {
     // the open task to this count (need = used − done), used 0 cancels it; a new task only for the fridge of a
     // room the stay has left (R9, BR-703-01 – counted like a check-out) or when the replaced count had one.
     await reconcileRefillTasks(tx, lock, {
-      create: fr.roomId !== s.roomId || !!prev?.refill_task_id,
+      // K11-05: "a room the stay has left" judged on the room read under the locks.
+      create: fr.roomId !== currentRoomId || !!prev?.refill_task_id,
       now,
       today,
       events: this.events,

@@ -150,11 +150,13 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     }
     // S4-13: a decision on a foc / special_discount locks the bookings of the folio, then the folio, BEFORE the
     // request row – the same order as a night re-sync / cancellation (reservation → folio → approval_request), so
-    // neither deadlocks and the later one reads what the earlier one wrote (BR-434).
+    // neither deadlocks and the later one reads what the earlier one wrote (BR-434). ARC 16.19 (K11-01 review):
+    // `damage_pricing` too – an approved damage line becomes a posted charge; without the folio lock it could slip
+    // in after B18 read the balance under its folio lock.
     this.approvals.onBeforeDecide(async (tx, approvalId) => {
       const { rows } = await tx.query<{ folio_id: string }>(
         `SELECT l.folio_id FROM approval_request a JOIN folio_line l ON l.id = a.folio_line_id
-          WHERE a.id = $1 AND a.type IN ('foc', 'special_discount')`,
+          WHERE a.id = $1 AND a.type IN ('foc', 'special_discount', 'damage_pricing')`,
         [approvalId],
       );
       if (rows[0]) await this.folios.lockStay(tx, rows[0].folio_id);

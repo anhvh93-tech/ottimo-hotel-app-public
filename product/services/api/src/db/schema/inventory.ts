@@ -119,6 +119,11 @@ export const minibarFill = pgTable(
       sql`${t.source} IN ('check_in', 'refill', 'backfill', 'carry')`,
     ),
     index('minibar_fill_fridge_idx').on(t.propertyId, t.reservationId, t.roomId, t.filledAt),
+    // 0069 (K11-02, ARC 16.19): ONE `check_in` fill per fridge – the copy-on-write of a catalogue change and the
+    // first count of the fridge write it with ON CONFLICT DO NOTHING and read the winner back.
+    uniqueIndex('minibar_fill_check_in_key')
+      .on(t.reservationId, t.roomId)
+      .where(sql`${t.source} = 'check_in'`),
   ],
 );
 

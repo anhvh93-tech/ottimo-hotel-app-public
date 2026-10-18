@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
-import { addDays } from '../app/reservations';
+import { addDays, currentSegment } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, tv } from '../test/render';
 
@@ -15,9 +15,14 @@ function stayWithChild() {
   child.status = 'in_house';
   child.parentReservationId = kim.id;
   child.roomId = kim.roomId;
-  child.segments = kim.segments?.map((s) => ({ ...s }));
   child.arrivalDate = kim.departureDate;
   child.departureDate = addDays(kim.departureDate, 2);
+  // The child's own nights, in Kim's room.
+  child.segments = kim.segments?.map((s) => ({
+    ...s,
+    fromDate: child.arrivalDate,
+    toDate: child.departureDate,
+  }));
   child.nightlyRates = [0, 1].map((i) => ({
     date: addDays(kim.departureDate, i),
     amountVnd: 700_000,
@@ -49,8 +54,11 @@ describe('H15 Đổi phòng – whole stay from the primary booking', () => {
     await user.click(
       within(dlg).getByRole('button', { name: tv('stay.change_submit', { room: '202' }) }),
     );
-    await waitFor(() => expect(res('Kim Seo-yeon').segments?.[0]?.roomNo).toBe('202'));
-    expect(res('Trần Quốc Bảo').segments?.[0]?.roomNo).toBe('202');
+    // K11-03: the nights before today stay in 402 – the room of today is 202 (one segment more).
+    const roomToday = (g: string) => currentSegment(res(g).segments, todayLocal())?.roomNo;
+    await waitFor(() => expect(roomToday('Kim Seo-yeon')).toBe('202'));
+    // The child's nights (all after today) are in 202.
+    expect(currentSegment(res('Trần Quốc Bảo').segments, child.arrivalDate)?.roomNo).toBe('202');
   });
 
   it('new room busy before the effective departure → conflicting nights + the suggested room', async () => {

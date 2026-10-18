@@ -1162,9 +1162,10 @@ test.describe(
       await settle(request, k, sb, '09:00', price('snack'));
     });
 
-    test('TC-L4-124 (A) BUG-R2-144 / BR-703-02 `s409Agoda`: đơn Agoda có đơn con gia hạn; khách xin đổi tạm (B14 `until_parent_departure`) → tủ căn gốc đếm 2 bia → HK xong việc bổ sung → ghi khách về căn gốc (`roomReturnRecorded`) mở kỳ mới → B18 đòi đếm lại tủ căn gốc; kỳ sau 1 bia → minibar 105.000, dòng 70.000 giữ; xem trước B18 = lệnh ghi', async ({
+    test('TC-L4-124 (A) BUG-R2-144 / BR-703-02 `s409Agoda`: đơn Agoda có đơn con gia hạn; khách xin đổi tạm (B14 `until_parent_departure`) → tủ căn gốc đếm 2 bia → HK xong việc bổ sung → ghi khách về căn gốc (`roomReturnRecorded`) mở kỳ mới → B18 đòi đếm lại tủ căn gốc; kỳ sau 1 bia → minibar 105.000, dòng 70.000 giữ; xem trước B18 = lệnh ghi; ngày đi tủ căn gốc phải đếm lại trong ngày (BR-703 ghi chú 7), tủ căn tạm đã rời thì không', async ({
       request,
     }) => {
+      knownBug('BUG-R2-178');
       needClock('TC-L4-124');
       const { D, st, child, origin, temp } = await precondition(
         'Agoda 2 đêm căn gốc + 1 đêm con (B13), đang ở',
@@ -1287,8 +1288,28 @@ test.describe(
           'đã đếm đủ mọi tủ',
         )
         .toBe('[]');
-      // ngày đi của đơn con: B18 thu đúng số xem trước
+      // ngày đi của đơn con: BR-703 ghi chú 7 (K11-09) – tủ căn đang ở phải đếm trong ngày đi → lần đếm D+2 không đủ
+      // (`not_today`); đếm lại cùng số (còn 1/2) → giữ dòng (R6), không dòng mới; tủ căn tạm đã rời không phải đếm lại
       k = await moveTo(request, addDays(D, 3), '09:00');
+      const s2 = await checkoutSummary(request, k.fd, st.res.id, { checkoutTime: '09:00' });
+      expect
+        .soft(
+          ((s2.body as unknown as Json).minibarUncheckedRooms ?? []) as Json[],
+          'tủ căn gốc đếm hôm trước → đòi đếm lại trong ngày đi (not_today)',
+        )
+        .toEqual([expect.objectContaining({ roomId: origin.id, reason: 'not_today' })]);
+      await counted(
+        request,
+        k.fd,
+        st.res.id,
+        { bia: 1 },
+        { roomId: origin.id },
+        'ngày đi: đếm lại tủ căn gốc cùng số',
+      );
+      const f3 = await getFolio(request, k.fd, st.res.folioId!);
+      expect
+        .soft(minibarGross(f3), 'đếm lại cùng số → giữ dòng, minibar vẫn 105.000')
+        .toBe(3 * price('bia'));
       const sum3 = await checkoutSummary(request, k.fd, st.res.id, { checkoutTime: '09:00' });
       const due = Number(
         (sum3.body as unknown as Json).amountDueAtCheckoutVnd ?? sum3.body.balanceDueVnd,

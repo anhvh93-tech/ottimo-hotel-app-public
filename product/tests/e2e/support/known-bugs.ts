@@ -11,7 +11,10 @@
 import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
-export const OPEN: Readonly<Record<string, string>> = {};
+export const OPEN: Readonly<Record<string, string>> = {
+  'BUG-R2-178':
+    'K11-09: tủ căn tạm đã rời (đơn gốc S4-09 + đơn con B13) bị coi là căn đang ở → B18 đòi đếm lại (BE-B, `stayIsInRoom`)',
+};
 
 function fixedByEnv(): Set<string> {
   return new Set(

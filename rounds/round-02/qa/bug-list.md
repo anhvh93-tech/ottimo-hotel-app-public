@@ -8,10 +8,10 @@
 | Mức | Số lỗi | Open | Fixed | Deferred | Closed |
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
-| P1 | 57 | 4 | 2 | 0 | 51 |
-| P2 | 53 | 12 | 1 | 1 | 39 |
-| P3 | 49 | 22 | 1 | 0 | 26 |
-| **Tổng** | **169** | **38** | **4** | **1** | **126** |
+| P1 | 61 | 3 | 7 | 0 | 51 |
+| P2 | 56 | 14 | 2 | 1 | 39 |
+| P3 | 51 | 21 | 4 | 0 | 26 |
+| **Tổng** | **178** | **38** | **13** | **1** | **126** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -193,17 +193,26 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | **BUG-R2-156** | **P1** | S4-38 lượt 4 – DOM (Gaps T19, T1/T2): sau OTTIMO đổi căn, giá min phải kẹp theo sàn–trần của **căn khách mua**, không kẹp lên sàn căn mới: 667.000 thay 740.000; MovePlanner và B13 cùng một số (oracle BR-417-13) | BE-A | **Closed** 18/10 – kiểm lại lần 5 S4-38 (`reviews/s4-money-recheck5.md`) xác nhận ĐÃ SỬA, 0 hồi quy; bản sửa ở gộp #10 `ce90d19`, CI xanh (1.907 E2E) – mục 11.18 |
 | **BUG-R2-157** | **P1** | S4-38 lượt 4 – DOM (Gaps F4/F5): khóa bậc hoàn khi dời ngày muộn phải áp cả lý do `other`; bất khả kháng dời rồi hủy → hoàn 0 (oracle BR-309-16) | BE-A | **Closed** 18/10 – kiểm lại lần 5 S4-38 (`reviews/s4-money-recheck5.md`) xác nhận ĐÃ SỬA, 0 hồi quy; bản sửa ở gộp #10 `ce90d19`, CI xanh (1.907 E2E) – mục 11.18 |
 | **BUG-R2-158** | **P1** | S4-38 lượt 5 – R5MINI-01 (**hồi quy vòng sửa 4**): lễ tân ‖ HK đếm cùng lúc một tủ chưa có lần nạp → hai lần nạp `check_in`, hai lần đếm sống, thu 140.000 thay 70.000 | BE-B (+ QA ca chính thức, ARC) | **Fixed** ở gộp #11 `f04052d` (`record()` lấy `lockFridge` trước `registerFridge`) – chờ BE-B đưa ca A1 (hai thứ tự) vào test chính thức rồi đóng |
-| **BUG-R2-159** | **P1** | S4-38 lượt 5 – R5OLD-01 + R5MINI-04: đếm lại tủ căn cũ trong cùng kỳ sinh việc bổ sung thứ hai; HK xong cả hai khi khách đã về → `onRefillDone` cộng mốc hai lần (mốc bia 4 trên định mức 2): thu 175.000 thay 105.000 / 140.000 thay 70.000 | BE-B (+ ARC R9, DOM một câu) | Open |
-| **BUG-R2-160** | **P1** | S4-38 lượt 5 – R5RATE-01: S4-09 khách đổi tạm rồi về căn cũ, sau đó OTTIMO đổi căn → căn ở tạm vẫn bị coi là căn khách mua: 767.000 thay 911.000 (thiếu 144.000/đêm) hoặc 1.055.000 (thừa 144.000) | BE-A (+ DOM/ARC) | Open |
-| **BUG-R2-161** | **P1** | S4-38 lượt 5 – R5RATE-02: OTTIMO đổi căn đúng đêm ngày đặc biệt → mất giá thỏa thuận, đêm thêm lấy lịch căn mua: 911.000 thay 650.000 (thừa 261.000) | BE-A (+ DOM) | Open |
-| **BUG-R2-162** | **P1** | S4-38 lượt 5 – R5RATE-03 (nâng từ P2): B13 ghi đêm mặc định trùng lịch thành đêm `calendar` → mất giá thỏa thuận cho đêm thêm sau (cùng một đêm hai giá: 911.000 / 792.000) | BE-A (+ ARC 16.6 (a)(2)) | Open |
-| BUG-R2-163 | P2 | S4-38 lượt 5 – R5MINI-02 (hạ từ P1): so "việc xong sau lần đếm" trộn giờ làm (`done_at`) với giờ xử lý (`created_at`) → kỳ `carry` thay `refill`, thu thiếu 35.000 (HK offline) | BE-B (+ BE-C, ARC 16.16 (x)) | Open – sửa cùng 159 |
-| BUG-R2-164 | P2 | S4-38 lượt 5 – R5MINI-03: 0066 trên dữ liệu đếm bằng 365486f (tủ chưa có lần nạp, `fill_id` NULL) → mọi lần đếm lại ghi thêm dòng, thu thừa 70.000 (tính vào G1 tới khi có bản sửa) | BE-B (+ OPS/DATA, ARC 16.3) | Open – migration 0067 hoặc `registerFridge` nhận lần đếm NULL |
-| BUG-R2-165 | P3 | S4-38 lượt 5 – R5LATE-01 (**SEC phải xem**, BE-64 còn sót): lỗi khuôn các trường B18 khác và 422 `VALUE_OUT_OF_RANGE` của `requestFoc` trả **sau** mật khẩu (sai → 401 và đếm) | BE-A (SEC kiểm lại BE-64; ARC) | Open – SEC quyết |
-| BUG-R2-166 | P3 | S4-38 lượt 5 – R5LATE-02 (**SEC phải xem**): bước 0 không thấy key đang chạy thật – gửi lại cùng `Idempotency-Key` khi B18 đầu còn trong giao dịch → mật khẩu vẫn bị thử và đếm | BE-A; SEC chọn cách | Open – SEC quyết |
-| BUG-R2-167 | P3 | S4-38 lượt 5 – R5LATE-03 (**SEC phải quyết**): mật khẩu người xác nhận kiểm đúng nhưng B18 bị từ chối sau đó (409/412/403/422) → không thông báo, không audit; bộ đếm của quản lý bị xóa về 0 | SEC quyết; BE-A nếu sửa | Open – SEC quyết |
+| **BUG-R2-159** | **P1** | S4-38 lượt 5 – R5OLD-01 + R5MINI-04: đếm lại tủ căn cũ trong cùng kỳ sinh việc bổ sung thứ hai; HK xong cả hai khi khách đã về → `onRefillDone` cộng mốc hai lần (mốc bia 4 trên định mức 2): thu 175.000 thay 105.000 / 140.000 thay 70.000 | BE-B (+ ARC R9, DOM một câu) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| **BUG-R2-160** | **P1** | S4-38 lượt 5 – R5RATE-01: S4-09 khách đổi tạm rồi về căn cũ, sau đó OTTIMO đổi căn → căn ở tạm vẫn bị coi là căn khách mua: 767.000 thay 911.000 (thiếu 144.000/đêm) hoặc 1.055.000 (thừa 144.000) | BE-A (+ DOM/ARC) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| **BUG-R2-161** | **P1** | S4-38 lượt 5 – R5RATE-02: OTTIMO đổi căn đúng đêm ngày đặc biệt → mất giá thỏa thuận, đêm thêm lấy lịch căn mua: 911.000 thay 650.000 (thừa 261.000) | BE-A (+ DOM) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| **BUG-R2-162** | **P1** | S4-38 lượt 5 – R5RATE-03 (nâng từ P2): B13 ghi đêm mặc định trùng lịch thành đêm `calendar` → mất giá thỏa thuận cho đêm thêm sau (cùng một đêm hai giá: 911.000 / 792.000) | BE-A (+ ARC 16.6 (a)(2)) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| **BUG-R2-163** | **P1** | S4-38 lượt 5 – R5MINI-02 (hạ từ P1; nâng lại **P1** theo critic kiểm lại 5b): so "việc xong sau lần đếm" trộn giờ làm (`done_at`) với giờ xử lý (`created_at`) → kỳ `carry` thay `refill`, thu thiếu 35.000 (HK offline) | BE-B (+ BE-C, ARC 16.16 (x)) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| BUG-R2-164 | P2 | S4-38 lượt 5 – R5MINI-03: 0066 trên dữ liệu đếm bằng 365486f (tủ chưa có lần nạp, `fill_id` NULL) → mọi lần đếm lại ghi thêm dòng, thu thừa 70.000 (tính vào G1 tới khi có bản sửa) | BE-B (+ OPS/DATA, ARC 16.3) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| BUG-R2-165 | P3 | S4-38 lượt 5 – R5LATE-01 (**SEC phải xem**, BE-64 còn sót): lỗi khuôn các trường B18 khác và 422 `VALUE_OUT_OF_RANGE` của `requestFoc` trả **sau** mật khẩu (sai → 401 và đếm) | BE-A (SEC kiểm lại BE-64; ARC) | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| BUG-R2-166 | P3 | S4-38 lượt 5 – R5LATE-02 (**SEC phải xem**): bước 0 không thấy key đang chạy thật – gửi lại cùng `Idempotency-Key` khi B18 đầu còn trong giao dịch → mật khẩu vẫn bị thử và đếm | BE-A; SEC chọn cách | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
+| BUG-R2-167 | P3 | S4-38 lượt 5 – R5LATE-03 (**SEC phải quyết**): mật khẩu người xác nhận kiểm đúng nhưng B18 bị từ chối sau đó (409/412/403/422) → không thông báo, không audit; bộ đếm của quản lý bị xóa về 0 | SEC quyết; BE-A nếu sửa | **Fixed** ở gộp #12 `3bd4ac4` – chờ kiểm lại lần 6 |
 | **BUG-R2-168** | **P1** | (nhãn tạm ARC-16.16-ab) ARC 16.16 bổ sung 2 (ab): lần đếm minibar soạn trên kỳ cũ, danh sách món và mốc trùng kỳ mới, bị áp vào kỳ mới sau lần nạp → tính thừa 70.000 | BE-B (4c) + FE-A (đợt 15) | **Fixed** ở gộp #11 `f04052d` (`periodId`, 409 `MINIBAR_PERIOD_CHANGED`, Desk nhắc đếm lại + khóa mới); QA kiểm lại đạt TC-L4-132. Đóng khi CI của gộp #11 xanh |
 | BUG-R2-169 | P2 | (nhãn tạm ARC-16.16-deadlock) Lệnh folio chạy song song với B7/B13/B14/B18 treo rồi lỗi 40P01 do khóa đơn `FOR UPDATE` chặn kiểm FK | BE-A (mục 16) + BE-B (`lockStay`) | **Fixed** ở gộp #11 `f04052d` (`FOR NO KEY UPDATE`); QA chạy lại bộ clock/desk-clock có B13/B18 không treo (mục 11.17). Đóng khi CI của gộp #11 xanh |
+| BUG-R2-170 | P2 | (nhãn tạm QA-VS5-01) Danh sách "Cần khai báo" và "Cần chú ý" (khai báo quá hạn) bỏ sót khách mới khi hồ sơ mở vượt `OPEN_CAP` = 1.000 (giới hạn đặt trước bộ lọc đơn đang ở, xếp cũ trước) | BE-C | Open – BE-C đang sửa |
+| **BUG-R2-171** | **P1** | (K11-01, hồi quy #11) B18 đọc số dư khi chưa khóa folio; `addFolioLine`/`adjustFolioLine` chen vào → folio `settled` còn nợ, `checkout_mode = desk`, không ghi công nợ | BE-A (+ ARC) | Open |
+| **BUG-R2-172** | **P1** | (K11-02) Copy-on-write khi OWN tạo/sửa món minibar không lấy khóa tủ; chen với lần đếm đầu của tủ chưa nạp → hai lần nạp `check_in`, tính trùng (thu thừa 70.000) | BE-B (+ BE-D, ARC) | Open |
+| **BUG-R2-173** | **P1** | (K11-03) Lần đếm minibar không định danh được tủ: (a) `periodId: null` + vắng `roomId`, B14 xen giữa → ghi vào tủ căn mới; (b) Desk lấy `segments[0]` làm căn hiện tại → 70.000 cho 1 bia, B18 kẹt | FE-A + BE-B (+ ARC) | Open |
+| BUG-R2-174 | P2 | (K11-04) Deadlock 40P01 giữa lần đếm (`record()`) và B13/B14/B18 qua dòng `room` | BE-B (+ ARC) | Open – sửa cùng vòng 5 |
+| BUG-R2-175 | P2 | (K11-05) `record()` xác định tủ và `s.roomId` trước khi khóa, không đọc lại sau khóa → mất việc bổ sung hoặc sinh việc sớm khi B14 chen vào | BE-B (+ ARC) | Open – sửa cùng vòng 5 |
+| BUG-R2-176 | P3 | (K11-06) Đơn `cancelled`/`no_show` vẫn nhận dòng phí tay; dư thừa giảm dưới yêu cầu hoàn đã tạo, yêu cầu kẹt `approved` | BE-B (folio) / BE-A (`refundPlan`) | Open – DOM đã chốt (BR-522 18/10), oracle BR-522-06 |
+| BUG-R2-177 | P3 | (K11-07) Ca "deadlock class" của BE-A chỉ kiểm khác 500; chú thích `record()` nói B18 khóa folio trước khi chốt | BE-A (test), BE-B (chú thích) | Open – sửa cùng 171 |
+| BUG-R2-178 | P2 | (số QA đề xuất – ORC xác nhận) K11-09: lượt có đơn gốc đổi tạm S4-09 (`until_parent_departure`) và đơn con B13 – ngày đi tủ **căn tạm đã rời** bị coi là "căn đang ở" (`stayIsInRoom` lấy đoạn cuối của MỌI đơn `in_house` trong lượt) → `minibarUncheckedRooms` thêm căn tạm lý do `not_today`, B18 409 `MINIBAR_NOT_CHECKED` tới khi đếm lại tủ căn đã rời | BE-B | Open – E2E TC-L4-124 `knownBug` |
 
 ## 2. Chi tiết
 
@@ -1593,12 +1602,45 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
 - **Sửa ca kiểm (không do mã):** TC-L4-124: đồng hồ ảo đứng yên ở 10:00 nên lần đếm và lần HK bấm xong cùng một thời điểm xử lý. Theo ARC 16.17 mục 2, việc chỉ tính là xong sau lần đếm khi `occurred_at` > `created_at`, nên kỳ mới thành `carry` và gửi bia ra 422 `NOT_IN_LIST`. Đã dời đồng hồ sang 10:30 trước khi HK bấm; ca đạt. TC-L3-001: stack dùng lại có căn `OC` vì còn đơn ở ngày ảo xa, nên `arrivalToday` giờ chọn căn VC/VI trước; cả tệp đạt 6/6.
 - **Ca mới:** TC-L4-134 (H09 sửa đêm giữa → `edited` [false, true, false], gợi ý gia hạn 650.000), TC-L4-135 (B18 ‖ HK: 409 → 200 cùng Idempotency-Key, minibar 70.000 một lần, một khoản thu), TC-L4-136 (giá đêm thêm ngoài sàn/trần → lỗi ở ô, khóa "Bill & thu tiền"). Cả 3 ca đạt **2 lần liên tiếp** (`e2e/ui-clock/an-rates.s5.spec.ts`). Ghi chú TC-L4-135: 409 của lần gửi đầu được trả ở tầng mạng (route.fulfill), vì từ trình duyệt không tạo được cuộc đua khóa một cách ổn định. HK vẫn bấm xong việc thật trên máy chủ trước lần gửi lại. Khi chạy đua thật (không chặn), B18 đạt 200 ngay lần đầu.
 - **Superseded:** `scratchpad/qa-s4/s438-superseded.json` +9 ca (tổng 271 superseded, 37 giữ). Gồm `mb-r5` 12, 13/14; `r4mini` B3, B6; `y-r4mini-0-1` Y1b, Y3: người kiểm đánh dấu việc HK "xong" bằng SQL, không qua `complete`, nên không có `state_transition`. Gồm thêm Z1, Z2b, V4: các ca này khẳng định lỗi cũ 159/163.
-- **Lỗi mới do mã – nhãn tạm QA-VS5-01, chờ ORC cấp số:** xem chi tiết dưới. TC-L3-004, TC-L3-044, TC-L3-046 (clock) hỏng trên stack QA. Lượt chạy rộng đầu tiên lúc ~07:12 vẫn đạt; lượt cuối hỏng vì số hồ sơ khai báo "mở" đã vượt 1.000. Đây không phải hồi quy của vòng sửa 5, và CI dùng stack mới nên không đỏ.
+- **Lỗi mới do mã – nhãn tạm QA-VS5-01, ORC cấp số BUG-R2-170 (mục 11.21):** xem chi tiết dưới. TC-L3-004, TC-L3-044, TC-L3-046 (clock) hỏng trên stack QA. Lượt chạy rộng đầu tiên lúc ~07:12 vẫn đạt; lượt cuối hỏng vì số hồ sơ khai báo "mở" đã vượt 1.000. Đây không phải hồi quy của vòng sửa 5, và CI dùng stack mới nên không đỏ.
 
-#### QA-VS5-01 (đề xuất P2) – Danh sách "Cần khai báo" và "Cần chú ý" (khai báo quá hạn) bỏ sót khách mới khi số hồ sơ mở vượt `OPEN_CAP` = 1.000
+#### BUG-R2-170 (nhãn tạm QA-VS5-01; P2, BE-C) – Danh sách "Cần khai báo" và "Cần chú ý" (khai báo quá hạn) bỏ sót khách mới khi số hồ sơ mở vượt `OPEN_CAP` = 1.000
 - Vai sửa: BE phụ trách module registration (+ ARC, vì có giả định FB-S3-15 (e)). Môi trường: `ottimo-qa-s4`, api-dist15 (cây `8819c2d`); mã có từ trước Sprint 4 D (`21b175c`).
 - **Nguyên nhân (đọc mã):** `registration.service.ts` `list()` (view `action_needed`), `openDeclarations()`, `staysNotClosed()` và các truy vấn khác lấy `… ORDER BY id LIMIT OPEN_CAP` (1.000), xếp theo id tăng dần (uuidv7, tức cũ trước). Bộ lọc "đơn đang ở / đến hôm nay" chạy **sau** giới hạn. Giả định trong chú thích là "open registrations of a property are tens of rows". Giả định này sai: hồ sơ ở trạng thái `partial`/`sent`/`review`… vẫn "mở" sau khi khách trả phòng hoặc đơn bị hủy.
 - **Tái hiện:** trên stack QA có 1.214 hồ sơ mở: 719 đơn `in_house` (dữ liệu ca kiểm), 478 `checked_out`, 16 `cancelled`, 1 `confirmed`. Hồ sơ thứ 1.000 tạo lúc 2057-01-29; hồ sơ mới nhất (2062-06-19) nằm ngoài giới hạn. Ca TC-L3-004: nhận phòng khách nước ngoài, `regRow(…, 'action_needed')` → không thấy, dù `getRegistration` có hạn đúng. TC-L3-044: tương tự (VN – BR-602). TC-L3-046: J5 chạy xong nhưng "Cần chú ý" không có `registration_overdue` của đơn.
 - **Ảnh hưởng:** 10 căn ở mức ~3.000 lượt/năm. Nếu một phần hồ sơ không về `confirmed`/`void` sau khi khách đi, sau vài tháng tới một năm danh sách khai báo lưu trú và cảnh báo quá hạn sẽ **im lặng** bỏ sót đúng những khách mới nhất (BR-602/603, nghĩa vụ pháp lý). Không có lỗi hay cảnh báo nào cho người dùng.
 - **Đề xuất sửa (BE/ARC chọn):** (1) chỉ coi là "mở" khi đơn còn `in_house`/`confirmed`. Có thể đóng hoặc `void` hồ sơ khi B18/B17/hủy, hoặc giữ cột trạng thái đơn trong module registration. (2) Nếu vẫn giữ giới hạn, lọc trước rồi mới giới hạn, xếp mới trước, và ghi cảnh báo khi chạm trần. (3) Thêm test số lượng lớn (hơn 1.000 hồ sơ mở cũ + 1 đơn mới phải hiện).
 - **Trên stack QA:** không sửa hàng loạt DB (luật ORC). Ba ca trên sẽ còn đỏ ở `ottimo-qa-s4` tới khi dựng DB mới hoặc có bản sửa.
+
+### 11.21 Gộp #12 `3bd4ac4` – cấp số kiểm lại 5b, trạng thái, oracle vòng 5b (QA, 18/10 ~07:50)
+- **Cấp số (ORC):** QA-VS5-01 → **BUG-R2-170** (P2, BE-C đang sửa). Các mục kiểm đích danh #11 (`reviews/s4-money-recheck5b.md`): K11-01 → **171** (P1, BE-A), K11-02 → **172** (P1, BE-B), K11-03 → **173** (P1, FE-A + BE-B), K11-04 → **174** (P2), K11-05 → **175** (P2), K11-06 → **176** (P3), K11-07 → **177** (P3). K11-08 và K11-09 là Note, không cấp số: K11-08 chờ ARC quyết bắt buộc `periodId` trước khi MOB làm màn đếm HK; K11-09 thành quy tắc mới BR-703 ghi chú 7 (DOM 18/10).
+- **Trạng thái:** BUG-R2-163 nâng **P1** theo critic. BUG-R2-159…167 → **Fixed** ở gộp #12 `3bd4ac4`, chờ kiểm lại lần 6, đóng khi CI của #12 xanh và lượt 6 không tái hiện.
+- **Oracle (`br-examples.json`):**
+  - **BR-417-20**: AN-47 theo DOM r5-5. T7 = **+2.495.000** = min(792.000; 1.042.000) × 2 + min(911.000; 1.198.000), không còn 3.282.000. 302 → 101 = **667.000**. Khách xin đổi căn thì ra ngoài bảng (302: 917.000 × 2). Dòng có `pendingFix` **BUG-R2-AN47** (nhãn tạm của ORC) tới khi BE-A sửa xong. Dòng AN-47 trong BR-417-16 chỉ trỏ sang BR-417-20, để bảng 47 dòng trong `br417-an-table.test.ts` của BE-A giữ nguyên.
+  - **BR-522-06** (K11-06, `pendingFix` BUG-R2-176): cọc 2.000.000, hủy `found_other`, yêu cầu hoàn 2.000.000. Ghi dòng F&B 90.000 → 409 `INVALID_TRANSITION` với mọi vai, folio giữ nguyên. Chi đủ 2.000.000 → `refunded`.
+  - **BR-703-03** (K11-09 – ca 29 của ARC 16.4, `pendingFix` K11-09): 202, ngày đi cũ đếm dùng 0, B13 thêm 1 đêm, khách uống 1 bia. Hôm sau B18 chặn `minibar_not_checked` (lý do `not_today`) tới khi đếm trong ngày. Đếm còn 1/2 → **35.000**; không có quy tắc thì thu 0.
+  - `validate-fixtures`: 0 lỗi.
+- **Bảng tổng sau cập nhật:** 177 lỗi; Open 37, Fixed 13 (158, 159…167, 168, 169 và một P3 cũ), Deferred 1, Closed 126. P1 Open 3 (171…173) → G7 chưa đạt.
+
+### 11.22 Vòng sửa 5b – Kiểm thử trước gộp #13 trên cây chung `3bd4ac4` + 5b (QA, 18/10 ~07:50–08:35)
+- **Stack:** `ottimo-qa-s4` dựng lại từ cây chung (api-dist16 + admin-web `index-DhFFuGAk.js`, migration tới 0069), chạy theo `clock-lock.txt`. Kịch bản dựng lại lưu ở `scratchpad/qa-s4/rebuild.sh`.
+- **Chạy rộng lần đầu:** clock 134 đạt / 1 hỏng / 2 bỏ qua; desk-clock **31/31**; desk-chromium **51 đạt / 2 bỏ qua**. **TC-L3-004/044/046 đạt lại** – BUG-R2-170 (BE-C mục 12) đã sửa trên cây chung, dù stack vẫn còn hơn 1.000 hồ sơ mở.
+- **TC-L4-124 hỏng – vừa do ca kiểm, vừa do mã:**
+  - (1) Do ca kiểm: quy tắc mới BR-703 ghi chú 7 (K11-09) đòi tủ căn đang ở đếm trong ngày đi. QA đã sửa ca: ngày đi đọc xem trước, đếm lại tủ căn gốc cùng số (giữ dòng), rồi mới B18.
+  - (2) Do mã – **BUG-R2-178** (đề xuất P2, BE-B): ngày đi, `minibarUncheckedRooms` còn có **tủ căn tạm 301 đã rời** (lý do `not_today`), nên B18 vẫn 409.
+  - DB: đơn gốc OTM-02682 `in_house` 03→05 có đoạn 301 (04→05); đơn con OTM-02683 `in_house` 202 (05→06). `stayIsInRoom` lấy "đoạn cuối tới hôm nay của **một** đơn `in_house` bất kỳ" của lượt, nên đoạn 301 của đơn gốc bị coi là căn đang ở.
+  - Đề xuất sửa: căn đang ở = đoạn còn hiệu lực hôm nay (`from ≤ hôm nay < to`). Ngày đi thì lấy đoạn kết thúc hôm nay của đơn đi hôm nay. Đơn gốc đã qua ngày đi thì không tính.
+  - Cách xử lý tạm ở quầy: đếm lại tủ căn đã rời. Rủi ro tiền: căn đó có thể đã có khách mới.
+  - TC-L4-124 nay chạy với `knownBug('BUG-R2-178')` và `OPEN` có mục này. BE-B sửa xong thì xóa dòng trong `OPEN`.
+- **Ca mới (đều đạt):**
+  - TC-L4-137: K11-03 API, ca 30. Lần đếm vắng `roomId` → 422; gửi `roomId` 202 + `periodId: null` → 409 → tải lại → 201, ghi đúng tủ 202, 1 việc {bia: 1}, B18 35.000.
+  - TC-L4-138: Desk H16, hai tủ. Lệnh 1 `roomId` 202 có `periodId`, lệnh 2 `roomId` căn mới, minibar đúng một dòng 35.000.
+  - TC-L4-139: K11-09, `not_today`. B18 409 rồi đếm trong ngày → 35.000.
+  - TC-L4-140: K11-06. Bốn vai đều 409 `INVALID_TRANSITION`, folio giữ, chi đủ 2.000.000.
+  - TC-L4-141: AN-47. T7 +2.495.000, 302 → 101 +667.000, đổi căn theo lịch 302.
+- **Oracle:**
+  - Gỡ `pendingFix` của BR-417-20 (AN-47), BR-522-06 (176) và BR-703-03 (K11-09): ca chạy thật khớp.
+  - Thêm **BR-703-04** (K11-03): "409 → tải lại → 201" thay "201 ngay" của kiểm lại 5b, theo ARC (ah) và ca 30. Có `periodId` mà vắng `roomId` → 422 `REQUIRED`.
+  - `validate-fixtures` 0 lỗi; `gen_traceability --strict` mã 0 (519 TC).
+- **Lượt cuối (sau khi sửa ca):** clock **137 đạt** (gồm TC-L4-124 hỏng đúng chỗ của BUG-R2-178, có `knownBug`), 2 bỏ qua; desk-clock **32/32**; tệp API mới đạt 2/2, chạy 2 lần; desk-chromium 51 đạt (lượt đầu, không đổi ca).
+- **Bảng tổng sau cập nhật:** 178 lỗi; Open 38, Fixed 13, Deferred 1, Closed 126. BUG-R2-170, 173 (phần Desk + API), 176 kiểm đạt E2E trên cây chung, chờ gộp #13 để chuyển Fixed.

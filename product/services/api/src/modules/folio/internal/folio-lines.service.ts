@@ -174,7 +174,20 @@ export class FolioLinesService {
     folioId: string,
     input: FolioLineCreateInput,
     stay: { reservationId: string; code: string; arrivalDate: LocalDate; departureDate: LocalDate },
+    /** Status of the booking (reservations stayInfo) – read under the folio lock (K11-06). */
+    statusOf?: (reservationId: string) => Promise<string | null>,
   ): Promise<void> {
+    // ARC 16.19 lock order: L1 the bookings of the folio KEY SHARE → L3 the folio; the booking's state is read after.
+    await tx.query('SELECT id FROM reservation WHERE folio_id = $1 ORDER BY id FOR KEY SHARE', [
+      folioId,
+    ]);
+    await this.folios.lockForPosting(tx, folioId, { allowPostCheckout: true });
+    // K11-06 (DOM BR-522 18/10, ARC 16.19 bổ sung): a closed booking (cancelled / no-show) takes no manual line,
+    // whatever the role – its refund request is the surplus (system lines and void/adjust stay as they are).
+    const status = statusOf ? await statusOf(stay.reservationId) : null;
+    if (status === 'cancelled' || status === 'no_show') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: status } });
+    }
     const errors: FieldError[] = [];
     const catalog = await this.catalog(tx);
     const item = input.chargeCode ? catalog.find((c) => c.code === input.chargeCode) : undefined;

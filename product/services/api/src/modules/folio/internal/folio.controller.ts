@@ -266,6 +266,7 @@ export class FolioController {
         folio.id,
         input,
         stay,
+        async (rid) => (await this.reservations?.stayInfo(tx, rid))?.status ?? null,
       );
       const fresh = (await this.folios.get(tx, folio.id)) as FolioRow;
       return { status: 201, body: await this.folioBody(tx, fresh) };

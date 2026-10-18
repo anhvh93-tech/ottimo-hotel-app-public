@@ -300,3 +300,30 @@
   - `services/api/src/modules/housekeeping/public/{worker-jobs,room-status.service}.ts`;
   - `services/api/test/integration/housekeeping-s4.test.ts`.
 
+
+## 12. Vòng sửa 5b – BUG-R2-170 (QA-VS5-01, P2): danh sách khai báo bỏ sót khách mới khi hồ sơ mở vượt 1.000
+- **Gốc:** `list()` (`action_needed`, `needs_update`), `openDeclarations()` (J5 + "Cần chú ý" `registration_due`/`registration_overdue`), `staysNotClosed()`, `visaExpiringReservations()` lấy `ORDER BY id LIMIT 1000` (cũ trước) **rồi mới** lọc theo đơn (đọc qua cổng stay-view của BE-A). Hồ sơ vẫn "mở" sau khi trả phòng/hủy, nên khi quá 1.000 thì khách mới nhất rơi khỏi danh sách.
+- **Sửa (`registration.service.ts`):**
+  - Hàm chung `scanRegistrations`: đọc hồ sơ **mới trước**, trang 500 dòng (keyset `id <`), mỗi trang đọc đơn qua stay-view rồi lọc **mọi** dòng. Không còn giới hạn trước bộ lọc.
+  - Lọc sớm trong SQL bằng cột của chính module (giữ ARC FB-S3-15 (e)): hồ sơ có `actual_checkout_at` (hook B18 ghi trong giao dịch trả phòng của BE-A; `checked_out` là trạng thái cuối) bị loại khỏi `action_needed`, `staysNotClosed`, `visaExpiring`. `openDeclarations` giữ lượt trả phòng trong `id_image_unconfirmed_max_days` + 1 ngày (cảnh báo quá hạn sau trả phòng vẫn cần). Không lọc theo `stay_ended_at` vì J16 có thể đánh dấu một đơn còn `in_house`.
+  - Thứ tự giữ nguyên hợp đồng: `action_needed` xếp theo ngày đến tăng dần (lâu nhất trước, cần xử lý trước), con trỏ `[arrivalDate, id]`; "còn nữa" = `page.nextCursor` có sẵn. **Không cần đổi `openapi.yaml`.**
+  - Trần kỹ thuật `SCAN_MAX` = 20.000 dòng đọc/lần (rất xa mức 10 căn ~3.000 lượt/năm). Chạm trần thì ghi log cảnh báo (chỉ số đếm) và bỏ dòng **cũ nhất**, không bỏ dòng mới.
+  - J16 `scheduleEndedStays`: trần đi qua 2.000 → `SCAN_MAX` + log khi chạm. Lý do: mỗi giờ đi lại từ đầu, các lượt còn ở được đọc lại, nên trần 2.000 có thể chặn mãi lượt mới đã kết thúc.
+- **Rà cùng kiểu, đã sửa:** housekeeping `attention-sources.ts` lấy 200 phiếu sửa chữa mở cũ nhất rồi mới lọc cao/quá hạn. Nay lọc trong SQL trước (cao, quá hạn tiếp nhận/xử lý như `isOverdue`, chờ vật tư quá ngày), trần 500 sau bộ lọc + log.
+- **Rà, không cùng kiểu (giữ nguyên):** `unclaimedDocumentStays` (mọi điều kiện đã ở SQL trước trần); `retention.service` (lô 500 `FOR UPDATE SKIP LOCKED`, lượt sau làm tiếp); `c3-log` và `inspectionRows` (phân trang keyset); các `LIMIT 1` tra một dòng.
+- **Chỉ mục:** dùng `registration_property_status_idx (property_id, status, deadline_at)` có sẵn. EXPLAIN trên DB thử (2.430 hồ sơ mở/cơ sở): Bitmap Index Scan, 0,23 ms/trang 500 dòng. Gọi `action_needed` đủ 8 trang (721 dòng) ~14 ms/lần. `work_order_status_idx` phủ truy vấn phiếu. Không thêm migration (tránh đụng số 0069 BE-B đang làm).
+- **Test mới** `test/integration/registration-open-cap.test.ts` (5 ca), dữ liệu như stack QA: 1.214 hồ sơ mở cũ (719 đang ở, 478 đã trả – 30 trong đó không có `actual_checkout_at` như dữ liệu trước hook, 16 hủy ở `sent`, 1 `confirmed` chưa đến) + 1 khách nhận phòng hôm nay qua cổng check-in:
+  - TC-L3-004/044: `action_needed` mọi trang có khách mới (hạn 21:00, `before_deadline_today`), đủ 719 + 2 dòng, không dòng đã kết thúc, đúng thứ tự, không trùng giữa trang;
+  - TC-L3-046: "Cần chú ý" `registration_due` → J5 nhắc 1 lần → `registration_overdue` có khách mới (đếm 720);
+  - `needs_update`: 1.215 dòng có khách mới;
+  - housekeeping: 520 phiếu thấp cũ + 1 phiếu cao mới + 1 phiếu quá hạn mới → cả hai có trong "Cần chú ý".
+  - Đối chứng: chạy test với mã cũ (HEAD) → 4/5 ca đỏ; với bản sửa → 5/5 xanh.
+- Vitest api toàn bộ, DB riêng `ottimo_test_bec_170` mới: **90/90 tệp, 2849/2849**. `tsc`, eslint, prettier các tệp của BE-C: sạch. Không chạy codegen, không commit.
+- Tệp:
+  - `services/api/src/modules/registration/internal/registration.service.ts`;
+  - `services/api/src/modules/housekeeping/internal/attention-sources.ts`;
+  - `services/api/test/integration/registration-open-cap.test.ts` (mới).
+- **Giả định:** `registration.actual_checkout_at` chỉ được ghi ở B18 (`checkout.service` gọi `onCheckedOut` trong cùng giao dịch đặt `checked_out`), và không có luồng hoàn tác trả phòng. Nếu BE-A thêm "hoàn tác trả phòng" thì hook đó phải xóa `actual_checkout_at` của hồ sơ.
+- **Ghi chú cho BE-A (thấp, không sửa vì là tệp của BE-A):** `reservations/public/stay-view.ts` `activeRootBookings` lấy `ORDER BY id LIMIT 2000` rồi registration mới lọc "chưa có hồ sơ". Nếu một cơ sở có hơn 2.000 đơn đang mở, đơn mới nhất không được J16 tạo hồ sơ bù. Bình thường hồ sơ đã được hook `created` tạo, nên đây chỉ là lưới an toàn.
+- **Gợi ý cho ARC (không bắt buộc):** nếu muốn FE biết khi chạm `SCAN_MAX`, có thể thêm cờ `truncated` vào `PageInfo` của `listRegistrations`. Hiện chỉ có log máy chủ; với quy mô OTTIMO không thể chạm trần.
+- **Trên stack QA `ottimo-qa-s4`:** dựng lại api từ cây có bản sửa là đủ, không cần sửa DB. TC-L3-004/044/046 sẽ thấy khách mới vì `regRow` đã đọc mọi trang.

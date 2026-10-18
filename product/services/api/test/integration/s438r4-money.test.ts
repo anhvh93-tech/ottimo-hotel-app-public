@@ -1144,5 +1144,80 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
       if (r.statusCode === 409) expect(r.json().code, r.body).not.toBe('CONCURRENT_UPDATE');
     }
     expect(statuses).not.toContain(500);
+    // K11-07 (money oracle, not only "no 500"): a desk check-out never leaves the folio owing for a line that is not
+    // a post-checkout charge; a refused B18 leaves the stay in house.
+    const money = async (x: Booking) => {
+      const [r] = await q<{ status: string; mode: string | null; folio: string }>(
+        `SELECT r.status, r.checkout_mode AS mode, f.status AS folio FROM reservation r
+           JOIN folio f ON f.id = r.folio_id WHERE r.id = $1`,
+        [x.id],
+      );
+      const late = await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM folio_line WHERE folio_id = $1 AND category = 'fnb' AND post_checkout
+            AND reversal_of_id IS NULL`,
+        [x.folioId],
+      );
+      return { ...r!, due: (await totals(x)).balanceDueVnd, postCheckoutLines: Number(late[0]!.n) };
+    };
+    const m1 = await money(b);
+    if (out.statusCode === 200) {
+      expect(m1.status).toBe('checked_out');
+      if (m1.due > 0) expect(m1.postCheckoutLines, JSON.stringify(m1)).toBeGreaterThan(0);
+    } else {
+      expect(m1.status, JSON.stringify(m1)).toBe('in_house');
+    }
+    // K11-07 / K11-01: B18 with a zero balance and NO finalPayment (no payment locks the folio for it) ‖ a line.
+    for (let i = 0; i < 6; i += 1) {
+      const arrival = plus('2030-08-05', i * 7); // Mondays (no minimum stay)
+      const departure = plus(arrival, 1);
+      await at('2030-07-20T10:00:00+07:00');
+      const z = await direct('301', arrival, departure, 600_000);
+      await stayIn(z, '301', arrival);
+      const owe = (await totals(z)).balanceDueVnd;
+      if (owe > 0) {
+        expect(
+          (
+            await c.fd!.send('POST', url(`/folios/${z.folioId}/payments`), {
+              type: 'charge',
+              method: 'cash',
+              amountVnd: owe,
+            })
+          ).statusCode,
+        ).toBe(201);
+      }
+      await at(`${departure}T10:00:00+07:00`);
+      const v = (await get(z.id)).version;
+      const [o, l] = await Promise.all([
+        c.fd!.send(
+          'POST',
+          url(`/reservations/${z.id}/actions/check-out`),
+          { checkoutTime: '10:00' },
+          { 'if-match': `"${v}"` },
+        ),
+        c.fd!.send('POST', url(`/folios/${z.folioId}/lines`), {
+          category: 'fnb',
+          description: 'Nước',
+          quantity: 1,
+          unitPriceVnd: 120_000,
+          serviceDate: departure,
+        }),
+      ]);
+      const m = await money(z);
+      const seen = JSON.stringify({ b18: o.statusCode, line: l.statusCode, ...m });
+      expect(l.statusCode, seen).toBe(201);
+      if (o.statusCode === 200) {
+        // B18 first: the line is a post-checkout charge (BR-427 c).
+        expect([m.status, m.mode, m.postCheckoutLines], seen).toEqual(['checked_out', 'desk', 1]);
+      } else {
+        // The line first: B18 refuses on the balance – the stay stays in house, the folio open.
+        expect([o.statusCode, o.json().code, m.status, m.folio, m.due], seen).toEqual([
+          409,
+          'BALANCE_DUE',
+          'in_house',
+          'open',
+          120_000,
+        ]);
+      }
+    }
   });
 });

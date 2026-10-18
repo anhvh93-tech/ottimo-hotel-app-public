@@ -1384,6 +1384,8 @@ export class StayService {
     await this.s.occupancy.lockRooms(tx, [
       ...new Set([...segs.values()].flat().flatMap((x) => (x.room_id ? [x.room_id] : []))),
     ]);
+    // K11-01 (ARC 16.19): reservation → rooms → folio before the refund is capped by the folio's credit.
+    await this.s.stay.lockFolio(tx, row);
     const released: Array<{ roomId: string | null; from: LocalDate; to: LocalDate }> = [];
     for (const p of parts) {
       for (const sg of segs.get(p.b.id) ?? []) {

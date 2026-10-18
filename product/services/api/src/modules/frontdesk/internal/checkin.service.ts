@@ -690,8 +690,11 @@ export class CheckinService {
       return { approval };
     }
 
-    // ── writes ──
+    // ── writes (lock order: reservation → room → folio) ──
     await this.s.occupancy.lockRooms(tx, [room.id]);
+    // K11-01 (ARC 16.19): the folio before BR-402 (2) is judged on it (`balance_paid`) – a folio command committed
+    // between that read and the check-in would otherwise let the guest in owing it.
+    if (row.folio_id) await this.s.folios.lock(tx, row.folio_id);
     let arrival = row.arrival_date;
     if (addPriorNight && e.priorNight && priorUsed !== undefined) {
       arrival = await this.addPriorNight(

@@ -124,7 +124,7 @@ export interface FrontdeskMinibarPort {
       roomId: string;
       roomNo: string;
       /** ARC 16.14 (BE-B): `CheckoutSummary.minibarUncheckedRooms[].reason`. */
-      reason?: 'never_counted' | 'stay_continued' | 'new_fill';
+      reason?: 'never_counted' | 'stay_continued' | 'new_fill' | 'not_today';
     }>
   >;
   /**

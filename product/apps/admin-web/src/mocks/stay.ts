@@ -6,6 +6,7 @@
 import type { AttentionItem, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
+import { currentSegment } from '../app/reservations';
 import type { MockFolioPort, MockReservation, MockServiceLine } from './reservations';
 import { MOCK_PASSWORD, type MockUser } from './seed';
 
@@ -462,7 +463,7 @@ export function createStayMock(ctx: Ctx) {
         description: 'room_night',
         ...labelFor(
           { category: 'room', description: 'room_night', serviceDate: nr.date },
-          r.segments?.[0]?.roomNo,
+          currentSegment(r.segments, nr.date)?.roomNo,
         ),
         serviceDate: nr.date,
         quantity: 1,
@@ -798,7 +799,7 @@ export function createStayMock(ctx: Ctx) {
           description: 'room_night',
           ...labelFor(
             { category: 'room', description: 'room_night', serviceDate: nr.date },
-            r.segments?.[0]?.roomNo,
+            currentSegment(r.segments, nr.date)?.roomNo,
           ),
           serviceDate: nr.date,
           quantity: 1,
@@ -1194,15 +1195,27 @@ export function createStayMock(ctx: Ctx) {
   }
 
   // ---------- minibar M-1 (0.3.7 add. 4): one cabinet per (stay, room) ----------
-  const currentCabinet = (r: MockReservation) => ({
-    roomId: r.segments?.[0]?.roomId ?? r.roomId ?? '',
-    roomNo: r.segments?.[0]?.roomNo ?? roomOf(r)?.roomNo ?? '',
-  });
+  // K11-03: the cabinet of the room the stay is in today (segments split by B14), never `segments[0]`.
+  const currentCabinet = (r: MockReservation) => {
+    const seg = currentSegment(r.segments, today());
+    return {
+      roomId: seg?.roomId ?? r.roomId ?? '',
+      roomNo: seg?.roomNo ?? roomOf(r)?.roomNo ?? '',
+    };
+  };
   const cabKey = (r: MockReservation, roomId: string) => `${r.id}:${roomId}`;
   const periodOf = (r: MockReservation, roomId: string) =>
     st.minibarPeriods.get(cabKey(r, roomId)) ?? 0;
-  /** `MinibarStandard.periodId`: `null` while the cabinet has had no refill (period 0). */
-  const periodIdOf = (period: number) => (period > 0 ? uid(95_000 + period) : null);
+  /**
+   * `MinibarStandard.periodId`: `null` while the cabinet has had no refill (period 0); otherwise an id of THAT
+   * cabinet's fill (another cabinet's period never matches – ARC 16.19 (ac)).
+   */
+  const periodIdOf = (roomId: string, period: number) =>
+    period > 0
+      ? uid(
+          95_000 + period * 1_000 + ([...roomId].reduce((a, c) => a + c.charCodeAt(0), 0) % 1_000),
+        )
+      : null;
   /**
    * `CheckoutSummary.minibarUncheckedRooms`: earlier rooms, then the room assigned now, with no `checkout` count after
    * their last mark (refill or the stay entering the room again – BUG-R2-144; extension after the count – DOM (b)).
@@ -1300,7 +1313,7 @@ export function createStayMock(ctx: Ctx) {
       serviceDate: today(),
       ...line,
     };
-    Object.assign(l, labelFor(l, r.segments?.[0]?.roomNo));
+    Object.assign(l, labelFor(l, currentSegment(r.segments, l.serviceDate ?? today())?.roomNo));
     folioOf(r).lines.push(l);
     folioOf(r).version += 1;
     syncReservation(r);
@@ -1393,7 +1406,7 @@ export function createStayMock(ctx: Ctx) {
       id: reg.id,
       reservationId: r.id,
       reservationCode: r.code,
-      roomNo: r.segments?.[0]?.roomNo ?? undefined,
+      roomNo: currentSegment(r.segments, today())?.roomNo ?? undefined,
       guestDisplayName: r.guestName,
       arrivalDate: r.arrivalDate,
       kind: isForeign(r) ? 'foreigner_temp_residence' : 'vn_citizen_stay',
@@ -1990,7 +2003,11 @@ export function createStayMock(ctx: Ctx) {
       }
       r.departureDate = addDays(r.departureDate, body.nights);
       r.nights = (r.nights ?? 0) + body.nights;
-      if (r.segments?.[0]) r.segments[0].toDate = r.departureDate;
+      // The stay goes on in the room of its last segment (after a B14 there are several).
+      const lastSeg = [...(r.segments ?? [])]
+        .sort((a, b) => a.fromDate.localeCompare(b.fromDate))
+        .at(-1);
+      if (lastSeg) lastSeg.toDate = r.departureDate;
       // BUG-R2-144 / DOM (b): a cabinet counted for the old departure is counted again before B18.
       if (st.minibarChecks.has(r.id)) st.minibarRecount.add(cabKey(r, currentCabinet(r).roomId));
       bump(r);
@@ -2045,7 +2062,7 @@ export function createStayMock(ctx: Ctx) {
             return rsv().remember(key, 202, a);
           }
           return problem(409, 'LATE_CHECKOUT_CONFLICT', {
-            roomNo: r.segments?.[0]?.roomNo,
+            roomNo: currentSegment(r.segments, today())?.roomNo,
             guest: arrival.guestName,
             eta: arrival.etaTime ?? '14:00',
           });
@@ -2191,13 +2208,15 @@ export function createStayMock(ctx: Ctx) {
         enterCabinet(r, room.id, room.roomNo);
         for (const o of stay) {
           o.roomId = room.id;
+          // Like the server (K11-03): the nights before the move stay in the room left – one segment more, the
+          // room of today is the new one (B14 back to an earlier room adds a third segment, no merge).
+          const start = from > o.arrivalDate ? from : o.arrivalDate;
+          const kept = (o.segments ?? [])
+            .filter((g) => g.fromDate < start)
+            .map((g) => ({ ...g, toDate: g.toDate > start ? start : g.toDate }));
           o.segments = [
-            {
-              roomId: room.id,
-              roomNo: room.roomNo,
-              fromDate: o.arrivalDate,
-              toDate: o.departureDate,
-            },
+            ...kept,
+            { roomId: room.id, roomNo: room.roomNo, fromDate: start, toDate: o.departureDate },
           ];
           if (o !== r) bump(o);
         }
@@ -2438,8 +2457,9 @@ export function createStayMock(ctx: Ctx) {
       // DOM (e): the four folio fields are FD+ only (HK sees no money of the folio).
       const fd = has(x.g.roles, FD_PLUS);
       return json({
+        roomId: cab.roomId,
         roomNo: cab.roomNo,
-        periodId: periodIdOf(cab.period),
+        periodId: periodIdOf(cab.roomId, cab.period),
         items: MINIBAR.map((m) => {
           const last = latest?.find((l) => l.itemId === m.itemId);
           const lastUsed = last ? m.standardQty - last.remainingQty : null;
@@ -2484,11 +2504,14 @@ export function createStayMock(ctx: Ctx) {
         periodId?: string | null;
         lines: Array<{ itemId: string; remainingQty: number }>;
       };
+      // ARC 16.19 (K11-03): a count with `periodId` names its cabinet – absent `roomId` → 422 REQUIRED.
+      if (body.periodId !== undefined && !body.roomId)
+        return validation([{ field: 'roomId', code: 'REQUIRED' }]);
       // R1: the room assigned now (absent) or an earlier room of this stay; any other room → NOT_IN_LIST.
       const cab = cabinetOf(r, body.roomId);
       if (!cab) return validation([{ field: 'roomId', code: 'NOT_IN_LIST' }]);
       // ARC 16.16 (ab): counted on a period that has since changed (refill) → nothing written.
-      if (body.periodId !== undefined && body.periodId !== periodIdOf(cab.period))
+      if (body.periodId !== undefined && body.periodId !== periodIdOf(cab.roomId, cab.period))
         return problem(409, 'MINIBAR_PERIOD_CHANGED');
       const errors: Array<{ field: string; code: string }> = [];
       if (MINIBAR.some((m) => !body.lines.some((l) => l.itemId === m.itemId)))
@@ -3393,7 +3416,7 @@ export function createStayMock(ctx: Ctx) {
           taxCode: '••••••••••',
         },
         guestDisplayName: r.guestName,
-        roomNo: r.segments?.[0]?.roomNo,
+        roomNo: currentSegment(r.segments, today())?.roomNo,
         arrivalDate: r.arrivalDate,
         departureDate: r.departureDate,
         lines: f.lines.filter((l) => l.lineState === 'posted'),
@@ -3845,7 +3868,7 @@ export function createStayMock(ctx: Ctx) {
         value
           ? { label: `reg.field.${key}`, value, ...(valueKey ? { valueKey } : {}) }
           : { label: `reg.field.${key}`, value: '', valueKey: 'reg.value.empty' };
-      const roomNo = r.segments?.[0]?.roomNo ?? '';
+      const roomNo = currentSegment(r.segments, today())?.roomNo ?? '';
       const people = reg.documents.map((d) => {
         const gender = d.gender
           ? f('gender', GENDER[d.gender], `reg.value.gender.${d.gender}`)
@@ -4189,7 +4212,11 @@ export function createStayMock(ctx: Ctx) {
         count: found.length,
         reservationIds: found.map((f) => f.r.id),
         roomNos: [
-          ...new Set(found.map((f) => f.r.segments?.[0]?.roomNo).filter((x): x is string => !!x)),
+          ...new Set(
+            found
+              .map((f) => currentSegment(f.r.segments, today())?.roomNo)
+              .filter((x): x is string => !!x),
+          ),
         ],
         dueAt: first.due,
         ...(found.length === 1 ? { refCode: first.r.code } : {}),

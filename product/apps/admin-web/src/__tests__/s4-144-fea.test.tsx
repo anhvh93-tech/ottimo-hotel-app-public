@@ -6,6 +6,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api, setCsrfToken } from '../app/api';
 import { todayLocal } from '../app/dates';
+import { currentSegment } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { PROPERTY_ID } from '../mocks/seed';
@@ -40,6 +41,13 @@ const countUsing = (used: number) =>
     itemId: m.itemId,
     remainingQty: m.itemId === coke.itemId ? m.standardQty - used : m.standardQty,
   }));
+/** ARC 16.19: a count names its cabinet and period – those of the standard read for the room of today. */
+const cab = async (R: { propertyId: string; reservationId: string }) => {
+  const r = mockControl.rsv.reservations.find((x) => x.id === R.reservationId)!;
+  const roomId = currentSegment(r.segments, todayLocal())!.roomId!;
+  const std = (await api.getMinibarStandard(R, roomId)).data;
+  return { roomId: std.roomId ?? roomId, periodId: std.periodId ?? null };
+};
 const cokeLines = (folioId: string) =>
   mockControl.stay.folios
     .get(folioId)!
@@ -60,7 +68,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     ]);
     await api.recordMinibarCheck(
       R,
-      { mode: 'checkout', lines: countUsing(2) },
+      { mode: 'checkout', ...(await cab(R)), lines: countUsing(2) },
       newIdempotencyKey(),
     );
     expect(cokeLines(r.folioId)).toHaveLength(1);
@@ -106,7 +114,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     setCsrfToken(mockControl.db.csrf);
     await api.recordMinibarCheck(
       R,
-      { mode: 'checkout', lines: countUsing(2) },
+      { mode: 'checkout', ...(await cab(R)), lines: countUsing(2) },
       newIdempotencyKey(),
     );
     await api.changeRoom(
@@ -122,7 +130,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     );
     await api.recordMinibarCheck(
       R,
-      { mode: 'checkout', lines: countUsing(0) },
+      { mode: 'checkout', ...(await cab(R)), lines: countUsing(0) },
       newIdempotencyKey(),
     );
     mockControl.stay.roomStatus['201'] = 'VC';
@@ -156,7 +164,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
-    expect(counts.sent[0]!.roomId).toBeUndefined();
+    expect(counts.sent[0]!.roomId).toBe(r201.id);
     const lines = counts.sent[0]!.lines as Array<{ itemId: string; remainingQty: number }>;
     expect(lines.find((l) => l.itemId === coke.itemId)!.remainingQty).toBe(coke.standardQty - 1);
     // The 2 of the first period stay; the new period adds 1 – never reversed, never counted twice.
@@ -377,5 +385,119 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
       await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
     ).toBeInTheDocument();
     expect(screen.queryByText(tv('co.minibar_period_changed_title'))).toBeNull();
+  });
+});
+
+describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = đoạn hôm nay (ARC 16.19)', () => {
+  it('B14 giữa lượt 402 → 202: H16 đếm tủ 402 gửi `roomId` 402, rồi tủ 202 gửi `roomId` 202; GET luôn có `roomId`; tiền đúng tủ, B18 không kẹt minibar', async () => {
+    at('11:00');
+    const kim = res('Kim Seo-yeon');
+    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
+    mockControl.stay.roomStatus['202'] = 'VC';
+    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
+    const r402 = mockControl.db.rooms.find((x) => x.roomNo === '402')!;
+    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
+    mockControl.signInAs('qa.fd');
+    setCsrfToken(mockControl.db.csrf);
+    await api.changeRoom(
+      R,
+      {
+        newRoomId: r202.id,
+        cause: 'property_fault',
+        reason: 'Máy lạnh hỏng',
+        effectiveDate: todayLocal(),
+      },
+      res('Kim Seo-yeon').version,
+      newIdempotencyKey(),
+    );
+    // Two segments now: `segments[0]` is the room LEFT; the room of today is 202.
+    expect(res('Kim Seo-yeon').segments![0]!.roomNo).toBe('402');
+    expect(currentSegment(res('Kim Seo-yeon').segments, todayLocal())!.roomNo).toBe('202');
+
+    const counts = capture('POST', /\/minibar-checks$/);
+    const reads: Array<string | null> = [];
+    const onRead = ({ request }: { request: Request }) => {
+      const url = new URL(request.url);
+      if (request.method === 'GET' && /\/minibar-standard$/.test(url.pathname))
+        reads.push(url.searchParams.get('roomId'));
+    };
+    server.events.on('request:start', onRead);
+    const { user } = renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+    const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
+    const old = within(group).getByRole('button', {
+      name: tv('co.minibar_cabinet_old', { room: '402' }),
+    });
+    await waitFor(() => expect(old).toHaveAttribute('aria-pressed', 'true'));
+    // The guest drank one Coca-Cola in 402.
+    const row = (
+      await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
+    ).closest('tr')!;
+    await waitFor(() => expect(within(row).getAllByRole('cell')[2]!.textContent).toBe('0'));
+    await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
+    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(counts.sent.length).toBe(1));
+    expect(counts.sent[0]).toMatchObject({ roomId: r402.id });
+    const here = within(group).getByRole('button', {
+      name: tv('co.minibar_cabinet_room', { room: '202' }),
+    });
+    await waitFor(() => expect(here).toHaveAttribute('aria-pressed', 'true'));
+    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(counts.sent.length).toBe(2));
+    counts.stop();
+    server.events.removeListener('request:start', onRead);
+    expect(counts.sent[1]).toMatchObject({ roomId: r202.id });
+    // Every read named its cabinet.
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every((x) => x === r402.id || x === r202.id)).toBe(true);
+    // 25.000 for the one Coca-Cola, in 402's cabinet; no cabinet left to count.
+    const lines = mockControl.stay.folios
+      .get(kim.folioId)!
+      .lines.filter((l) => l.category === 'minibar' && l.lineState === 'posted');
+    expect(lines.map((l) => [l.cabinetRoomId, l.amountVnd])).toEqual([[r402.id, 25_000]]);
+    expect(
+      await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
+    ).toBeInTheDocument();
+    expect((await api.getCheckoutSummary(R)).data.minibarUncheckedRooms).toBeUndefined();
+  });
+
+  it('Drawer sau B14 giữa lượt hiện căn hôm nay (202), không phải `segments[0]` (402)', async () => {
+    const kim = res('Kim Seo-yeon');
+    res('Nguyễn Văn An').status = 'cancelled';
+    mockControl.stay.roomStatus['202'] = 'VC';
+    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
+    mockControl.signInAs('qa.fd');
+    setCsrfToken(mockControl.db.csrf);
+    await api.changeRoom(
+      { propertyId: PROPERTY_ID, reservationId: kim.id },
+      {
+        newRoomId: r202.id,
+        cause: 'property_fault',
+        reason: 'Máy lạnh hỏng',
+        effectiveDate: todayLocal(),
+      },
+      res('Kim Seo-yeon').version,
+      newIdempotencyKey(),
+    );
+    renderApp(`/reservations/${kim.id}`, 'qa.fd');
+    const d = await screen.findByRole('dialog', { name: 'Kim Seo-yeon' });
+    const dt = await within(d).findByText(tv('booking.field.room'));
+    expect(dt.nextElementSibling?.textContent).toMatch(/^202/);
+  });
+
+  it('máy chủ: có `periodId` mà vắng `roomId` → 422 REQUIRED; GET trả `roomId` của tủ', async () => {
+    at('11:00');
+    const r = res('Phạm Huy');
+    const R = { propertyId: PROPERTY_ID, reservationId: r.id };
+    mockControl.signInAs('qa.fd');
+    setCsrfToken(mockControl.db.csrf);
+    const std = (await api.getMinibarStandard(R, r.segments![0]!.roomId!)).data;
+    expect(std.roomId).toBe(r.segments![0]!.roomId);
+    await expect(
+      api.recordMinibarCheck(
+        R,
+        { mode: 'checkout', periodId: null, lines: countUsing(1) } as never,
+        newIdempotencyKey(),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 });

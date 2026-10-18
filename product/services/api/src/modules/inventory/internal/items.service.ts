@@ -230,7 +230,9 @@ export class ItemsService {
 
   private async row(tx: Tx, id: string, lock = false): Promise<ItemRow> {
     const { rows } = await tx.query<ItemRow>(
-      `SELECT ${COLUMNS} FROM item WHERE id = $1 AND kind = 'minibar'${lock ? ' FOR UPDATE' : ''}`,
+      // ARC 16.19 L0: NO KEY UPDATE – the key never changes, and the KEY SHARE of an FK check (a count's or a
+      // fill's line on this item) must never wait on a catalogue edit (K11-02).
+      `SELECT ${COLUMNS} FROM item WHERE id = $1 AND kind = 'minibar'${lock ? ' FOR NO KEY UPDATE' : ''}`,
       [id],
     );
     const r = rows[0];

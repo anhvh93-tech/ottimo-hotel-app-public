@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../app/api';
-import { addDays } from '../app/reservations';
+import { addDays, currentSegment } from '../app/reservations';
 import { todayLocal } from '../app/dates';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -274,7 +274,9 @@ describe('ARC 16.17 bổ sung (af) – B13/B14/B18 gặp 409 CONCURRENT_UPDATE: 
     await user.click(
       within(dlg).getByRole('button', { name: tv('stay.change_submit', { room: '202' }) }),
     );
-    await waitFor(() => expect(res('Kim Seo-yeon').segments?.[0]?.roomNo).toBe('202'));
+    await waitFor(() =>
+      expect(currentSegment(res('Kim Seo-yeon').segments, todayLocal())?.roomNo).toBe('202'),
+    );
     sent.stop();
     const writes = sent.keys.slice(before);
     expect(writes).toHaveLength(2);

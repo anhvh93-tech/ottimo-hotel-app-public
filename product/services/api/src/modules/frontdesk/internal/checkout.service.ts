@@ -407,7 +407,7 @@ export class CheckoutService {
     Array<{
       roomId: string;
       roomNo: string;
-      reason?: 'never_counted' | 'stay_continued' | 'new_fill';
+      reason?: 'never_counted' | 'stay_continued' | 'new_fill' | 'not_today';
     }>
   > {
     const port = this.s.ports.minibar;
@@ -555,6 +555,12 @@ export class CheckoutService {
     );
     const fee = decided ? lateFee : null;
     await this.s.occupancy.lockRooms(tx, [d.rm.id]);
+    // K11-01 (hồi quy 4c – ARC 16.19): lock order reservation → room → folio, the folio BEFORE every decision B18
+    // takes on it (minibar, pending approvals, OTA resync, balance → 409 BALANCE_DUE / debt, overpayment). The
+    // booking lock is FOR NO KEY UPDATE, so a folio command (line, adjustment, FOC, payment, guest-request fee –
+    // folio first, then only KEY SHARE on the booking) is no longer queued behind B18: without this lock it could
+    // commit between the balance read and `settle` – a desk check-out owing money, outside the debt list (A19).
+    await this.s.folios.lock(tx, folioId);
 
     // ── E05-11: "check out – charge one more night" (BR-416 v0.3.4, DOM S3-9) ──
     if (d.extraNight && extraNight !== null) {

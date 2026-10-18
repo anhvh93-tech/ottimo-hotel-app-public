@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { hasLineKey, lineLabel } from '../../app/folio';
+import { currentSegment } from '../../app/reservations';
 import { Code, monoArgs } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
@@ -73,6 +74,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const { roles, property } = useSession();
+  const today = todayLocal(property?.timezone);
   const rules = useRules(propertyId, roles);
   const { online, since } = useOnline();
   const toast = useToast();
@@ -85,6 +87,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     [propertyId, reservationId],
   );
   const r = res.state.data;
+  // K11-03 (ARC 16.19): the room the stay is in today – never `segments[0]` (the room left after a mid-stay B14).
+  const here = r ? currentSegment(r.segments, today) : undefined;
+  const hereRoomId = here?.roomId ?? undefined;
   const [step, setStep] = useState(0);
   const [time, setTime] = useState('');
   const qTime = useDebounced(time, 300);
@@ -96,9 +101,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
   // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
   const [cabinet, setCabinet] = useState<string | undefined>(undefined);
+  // K11-03: the cabinet on screen is always named – read and written with its `roomId` (ARC 16.19).
+  const countingRoomId = cabinet ?? hereRoomId;
   const std = useResource(
-    async () => (await api.getMinibarStandard(R, cabinet)).data,
-    [propertyId, reservationId, cabinet],
+    async () =>
+      countingRoomId
+        ? (await api.getMinibarStandard(R, countingRoomId)).data
+        : // the reservation (and so the room of today) is not known yet – no unnamed read
+          new Promise<never>(() => undefined),
+    [propertyId, reservationId, countingRoomId],
   );
   const [left, setLeft] = useState<Record<string, number>>({});
   const [lateTold, setLateTold] = useState(false);
@@ -210,13 +221,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
   useEffect(() => {
     // Only once the reservation is here – before that every cabinet would look like an earlier room.
-    const here = r?.segments?.[0]?.roomId;
-    if (!here) return;
-    const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== here);
+    if (!hereRoomId) return;
+    const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== hereRoomId);
     if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
     // first summary / reservation only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s?.minibarUncheckedRooms, r?.segments]);
+  }, [s?.minibarUncheckedRooms, hereRoomId]);
 
   // ARC 0.3.7 bổ sung 4 (S4-38, BR-416-04/05): at a typed extra-night rate the amount due is the server's too –
   // the cap of a check-out VietQR at that rate (422 AMOUNT_EXCEEDS_BALANCE `max`; nothing is written), never
@@ -291,8 +301,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       </>
     );
 
-  const room = r.segments?.[0]?.roomNo ?? '';
-  const currentRoomId = r.segments?.[0]?.roomId ?? '';
+  const room = here?.roomNo ?? '';
+  const currentRoomId = hereRoomId ?? '';
   // The choice of cabinet only when the stay has more than one to count (B14 mid-stay).
   const cabinets = (() => {
     const list = [...(s?.minibarUncheckedRooms ?? [])];
@@ -408,7 +418,6 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       ? 0
       : Math.max(0, credit0 - extraNightVnd - lateFeeNet - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
-  const today = todayLocal(property?.timezone);
   const debtActive = mgr && debtOn && balance > 0;
   const debtDuePast = !!debtDue && debtDue < today;
   const debtReady = !!debtDue && !debtDuePast && debtReason.trim().length >= 3;
@@ -428,7 +437,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       else setStep(1);
       return;
     }
+    // K11-03: the cabinet on screen, by name – never "absent = the room assigned now" (a B14 since would move
+    // the count to another cabinet). Only on the standard read for that very cabinet.
     const counted = cabinet;
+    if (!countingRoomId || std.state.status !== 'ready') return;
     const caught: { error?: unknown } = {};
     const out = await minibarAct.submit((idem) =>
       api
@@ -436,9 +448,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           R,
           {
             mode: 'checkout',
-            roomId: counted,
-            // ARC 16.16 (ab): the period this count was made in – a refill since then → 409, nothing written.
-            periodId: std.state.data?.periodId,
+            // ARC 16.19: the cabinet and period of the standard the figures were typed on (`MinibarStandard.roomId`
+            // – read for `countingRoomId`); a refill or another cabinet since then → 409, nothing written.
+            roomId: std.state.data?.roomId ?? countingRoomId,
+            periodId: std.state.data?.periodId ?? null,
             lines: items.map((i) => ({
               itemId: i.itemId,
               remainingQty: left[i.itemId] ?? i.standardQty,
@@ -733,7 +746,6 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     const adjusted = (std.state.data?.items ?? []).filter((i) => i.adjustedAfterLastCheck);
     // BUG-R2-144 / ARC 16.14: the cabinet being counted is due again (`stay_continued` – back in the room or
     // extended after the count; `new_fill` – a new refill period); any other value but `never_counted` too.
-    const countingRoomId = cabinet ?? currentRoomId;
     const countingRoomNo =
       toCount.find((c) => c.roomId === countingRoomId)?.roomNo ??
       cabinets.find((c) => c.roomId === countingRoomId)?.roomNo ??

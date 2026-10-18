@@ -427,3 +427,47 @@ K3 và bước (c) của 0067 chỉ xét việc `source = 'system'` (ARC đồng
 **Tệp vòng 5**:
 - Tạo: `src/modules/inventory/internal/refill-tasks.ts`, `src/db/migrations/0067_minibar_fill_backfill_unfilled.sql`, `src/db/migrations/meta/0067_snapshot.json`.
 - Sửa: `src/db/migrations/meta/_journal.json`, `src/modules/inventory/internal/{fridge,minibar.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`, `test/integration/minibar-m1.test.ts` (ca 21–28, K1–K3, `refillDone` qua API); tài liệu này; `01-decisions/decision-log.md`.
+
+## 18. Vòng sửa 5b – kiểm lại tiền lần 5b (`reviews/s4-money-recheck5b.md`; ARC `openapi-0.3.7.md` 16.19 và 16.19 bổ sung; DOM 18/10 BR-522, BR-703 ghi chú 7), 18/10
+
+Trước khi #12 (`3bd4ac4`) commit, tôi soạn bản sửa trên bản sao riêng của cây chung. Sau commit thì áp vào cây chung bằng script (`scratchpad/beb-s4/apply5b*.py`).
+
+| Mã | Cách sửa | Kiểm chứng (oracle tiền + đối chứng tuần tự) |
+|---|---|---|
+| **K11-02** (P1) – migration **0069** `0069_minibar_fill_check_in_key.sql` (snapshot sinh qua thư mục tạm, journal idx 46 sau 0068; `drizzle-kit generate` báo "No schema changes") | Kiểm dữ liệu trước: tủ có > 1 lần nạp `check_in` → `RAISE` kèm danh sách, không tự sửa. Sau đó tạo `CREATE UNIQUE INDEX minibar_fill_check_in_key ON minibar_fill (reservation_id, room_id) WHERE source = 'check_in'`. Schema drizzle khai báo cùng chỉ mục. `writeFill` ghi bằng `INSERT … ON CONFLICT (reservation_id, room_id) WHERE source = 'check_in' DO NOTHING RETURNING id`; không có dòng trả về thì đọc lại lần nạp thắng. Cả `registerFridge` (đường đếm) và copy-on-write (đường danh mục) đều qua hàm này. L0: `items.service.ts` (tệp BE-D) khóa món bằng `FOR NO KEY UPDATE`, nên phép kiểm FK `KEY SHARE` của dòng đếm/lần nạp không phải chờ lần sửa danh mục | Lần đếm đầu của HK (bia dùng 2, `periodId: null`, `roomId`) ‖ OWN `POST /items`, ép **cả hai thứ tự** bằng khóa dòng món bia: hai lệnh 201, **1** `check_in`, 1 lần đếm sống, tóm tắt không chặn minibar, **70.000**, B18 200, **1** việc `{bia: 2}` |
+| **K11-03** (P1) – hợp đồng 16.19 | Có `periodId` (kể cả `null`) mà vắng `roomId` → 422 `REQUIRED` (`field: roomId`). `isCurrentPeriod` theo (ac) mới: `null` chỉ khớp khi tủ **chưa có** lần nạp nào; `periodId` là id thì phải đúng lần nạp mới nhất của **chính tủ đó**. Sai thì 409. `MinibarStandard.roomId` = tủ của bản chuẩn (trường sẽ hiện ra khi ARC sinh lại generated) | Ca (ab)/(ac): 422 `REQUIRED`; `null` lần đầu 201, `null` lần hai 409; đúng `periodId` 201; id lạ 409, không ghi. Ca K11-03: soạn tủ 202 (`null`), bàn khác B14 202 → 203 (B14 ghi lần nạp tủ 202) → 409; tải lại → 201 vào **tủ 202**, 35.000, việc `{bia: 1}` sinh ngay; hôm sau B18 đòi tủ 203 (`never_counted`); tổng **35.000**; K1–K4 = 0 |
+| **K11-04** (P2) | `record()` theo thứ tự 16.19: L1 đơn của folio `KEY SHARE` (`lockStayBookings`) → L2 căn của tủ `KEY SHARE` (`lockFridgeParents`, tách khỏi `lockFridge`) → L3 `lockForPosting` → L4 các việc bổ sung đang mở → L5 tủ. `lockFridge` chỉ còn L4 (tùy chọn) và L5. `onRefillDone`: việc (L4, đã giữ) → L1/L2 → L5 (E2) | B18 ‖ đếm lại cùng tủ, B18 trước (ép bằng khóa tủ): đếm chờ ở căn, không 40P01. B18 200 thu **35.000**; lần đếm muộn trả 409 và không đổi gì. Các ca đua cũ (mục 15–17) xanh |
+| **K11-05** (P2) | Dưới L3: đọc lại lượt, căn hiện tại và tủ. Vắng `roomId` mà căn đã đổi trong lúc chờ → 409 `MINIBAR_PERIOD_CHANGED`. Cờ `create` của `reconcileRefillTasks` xét theo căn đọc dưới khóa | Đếm vắng `roomId`/`periodId` (client cũ) chờ trong lúc B14 301 → 302 commit (ép bằng khóa tủ) → 409, **0** lần đếm, minibar 0 (không lặng lẽ ghi vào tủ sai) |
+| **K11-06** (P3, DOM BR-522) | `addFolioLine`: L1 đơn `KEY SHARE` → L3 folio, rồi đọc trạng thái đơn → `cancelled`/`no_show` trả 409 `INVALID_TRANSITION` (`currentState`) cho **mọi vai**. Dòng hệ thống và void/sửa giữ nguyên | `approvals-refund-payout`: cọc, hủy `found_other`; FD, MGR, OWN thêm F&B 90.000 → 409, totals giữ, yêu cầu hoàn = số cọc; chi đủ → `refunded_vnd` = số cọc (SM-10 giữ `approved`) |
+| **K11-07** (P3) | Chú thích `record()` viết lại theo thứ tự khóa thật | – |
+| **K11-09** (DOM BR-703 ghi chú 7) – ca 29 | `checkoutStatus`/`uncheckedRooms`/`standard().latestCheck`: tủ **căn đang ở** cần lần đếm có `business_date` = ngày nghiệp vụ hiện tại; tủ căn đã rời giữ quy tắc cũ. `reason` thêm `not_today` (kiểu ở `ports.ts` và `checkout.service.ts` của BE-A, chỉ đổi kiểu) | Lần đếm "dùng 0" soạn trước B13, gửi sau B13 → hôm sau B18 chặn, `reason: not_today`, `latestCheck` null; đếm 1 bia → **35.000**, không phải 0 |
+| **K4** | Thêm vào `invariants()` của `minibar-m1`: lần đếm sống có dùng món, chưa gắn việc, của tủ lượt đã rời hoặc lượt `checked_out` | = 0 cùng K1–K3 ở ca 21, 22, 24, 27, K11-03 |
+
+**Rà theo quy tắc đọc 16.19 (ORC):**
+- **`postFee`** (phí HK khi xong việc; `guest-request-lifecycle.ts`, BE-D): **an toàn**. Hàm chỉ ghi dòng qua `FolioService.postLines`. Hàm này khóa folio (L3) trước, rồi mới đọc trạng thái folio (`open` / trong cửa sổ sau trả phòng) để quyết định. Không đọc số dư. Lưu ý cho ARC: đường này giữ việc HK (L4) rồi mới lấy folio (L3). Hiện chưa có vòng chờ, vì không đường nào giữ folio rồi chờ việc `guest_request`; nên ghi thành ngoại lệ có tên.
+- **Dòng damage**:
+  - Tạo dòng (`addFolioLine` category `damage`): **an toàn**, nay L1 → L3 ngay đầu lệnh.
+  - Duyệt giá (`onDamageDecided`): **đã sửa**. Trước đây đường duyệt khóa yêu cầu (L4) rồi chuyển dòng `pending_approval` → `posted` mà không khóa folio. Tôi thêm `damage_pricing` vào hook `onBeforeDecide` (`folio.module.ts`), như FOC: L1 → L3 trước yêu cầu.
+  - Test: MGR duyệt damage 400.000 ‖ B18 không thu tiền, duyệt trước (ép bằng khóa dòng folio) → B18 thấy dòng đã ghi, 409 `BALANCE_DUE`, folio `open`, nợ 400.000, đơn vẫn `in_house`. Không có hook thì lệnh duyệt không chờ folio, nên ca hỏng.
+
+**Test người kiểm** (`k11period`, `q-k11period-1-*`, `q-k11lock-1-*`, chạy trên bản sao riêng): 51/60 đỏ. Phần lớn do hợp đồng mới: 23 ca gửi `periodId` mà vắng `roomId` nên nay nhận 422. Một số đầu dò chờ khóa ở chỗ cũ (folio, dòng món) trong khi thứ tự mới chờ ở căn. Các ca bị cắt giữa chừng thì sinh lỗi kết nối `25P03`. **QA cần cập nhật các ca này theo 16.19 trước khi kiểm lại lần 6.** Các ca tương ứng của tôi (kèm oracle tiền) đã có trong `minibar-m1`.
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`, cây chung sau `3bd4ac4`, có cả phần đang làm của BE-A/ARC): `@ottimo/api` **2.844/2.844 xanh, 89/89 tệp**; `minibar-m1` 45/45; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm; `drizzle-kit generate` "No schema changes". Không tự sinh generated. Không commit.
+
+**Giả định:**
+- (ah) (ac) theo 16.19 làm ví dụ K11-03 của ARC đổi kết quả. B14 rời căn gọi `registerFridge`, nên tủ căn cũ có `check_in`. Lần đếm soạn với `null` trước B14 vì thế nhận 409 và phải tải lại (ARC ghi 201). Tôi chọn đúng hợp đồng (ac). ARC xem.
+- (ai) `checkoutStatus` không lấy L5 khi đọc. Trong B18, mọi bên ghi tủ đã bị khóa căn `FOR UPDATE` của B18 chặn từ L2 (ARC 16.19). Đường tóm tắt trả phòng chỉ để hiển thị.
+- (aj) `FolioService.lockStay` (FOC, damage) giữ L1 `FOR NO KEY UPDATE`, không đổi sang `KEY SHARE` như bảng 16.19 ghi. Đổi thì quyết định FOC và lệnh hủy đơn đang giữ `stay_night` không còn tuần tự ở L1, mở lại deadlock S4-13. ARC xem.
+- (ak) Phần ngày của K11-09 dùng cột `minibar_check.business_date`. Cột này ghi đúng ngày nghiệp vụ của `created_at` lúc đếm.
+
+**Tệp vòng 5b:**
+- Tạo:
+  - `src/db/migrations/0069_minibar_fill_check_in_key.sql`, `src/db/migrations/meta/0069_snapshot.json`
+- Sửa – BE-B:
+  - `src/db/migrations/meta/_journal.json`, `src/db/schema/inventory.ts`
+  - `src/modules/inventory/internal/{fridge,minibar.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`
+  - `src/modules/folio/internal/{folio-lines.service,folio.controller}.ts`, `src/modules/folio/folio.module.ts`
+  - `test/integration/{minibar-m1,approvals-refund-payout}.test.ts`
+- Sửa – module khác (chỉ những dòng ghi ở đây):
+  - `src/modules/inventory/internal/items.service.ts` (BE-D, L0 `FOR NO KEY UPDATE`)
+  - `src/modules/frontdesk/public/ports.ts`, `src/modules/frontdesk/internal/checkout.service.ts` (BE-A, kiểu `reason` thêm `not_today`)

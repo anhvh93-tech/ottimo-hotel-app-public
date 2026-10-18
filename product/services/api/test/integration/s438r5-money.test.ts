@@ -12,7 +12,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Database } from '../../src/db/database';
+import { type Database, SET_CONTEXT_SQL } from '../../src/db/database';
 import { NoGuestAccessPort } from '../../src/modules/frontdesk/internal/default-ports';
 import { FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
 import {
@@ -263,6 +263,25 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 5 – lateFeeInsteadOfNigh
     },
     ...top,
   });
+
+  /**
+   * Backends waiting behind `holder` (directly, or behind one that waits on it) – this test's own lock chain only
+   * (other test files run on the same database at the same time).
+   */
+  const blockedBehind = async (holder: number, n: number) => {
+    for (let i = 0; i < 200; i += 1) {
+      const [w] = await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM pg_stat_activity a
+          WHERE $1 = ANY (pg_blocking_pids(a.pid))
+             OR EXISTS (SELECT 1 FROM pg_stat_activity b
+                         WHERE $1 = ANY (pg_blocking_pids(b.pid)) AND b.pid = ANY (pg_blocking_pids(a.pid)))`,
+        [holder],
+      );
+      if (Number(w!.n) >= n) return Number(w!.n);
+      await new Promise((r) => setTimeout(r, 15));
+    }
+    return 0;
+  };
 
   // ───────────────────────────── BUG-R2-165 – BE-64: every body field before the password ─────────────────────────────
 
@@ -525,14 +544,14 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 5 – lateFeeInsteadOfNigh
     const v = (await get(b.id)).version as number;
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    let held!: () => void;
-    const isHeld = new Promise<void>((r) => (held = r));
+    let held!: (pid: number) => void;
+    const isHeld = new Promise<number>((r) => (held = r));
     const holder = db.withContext(t.ctx(), async (tx) => {
       await tx.query('UPDATE reservation SET version = version + 1 WHERE id = $1', [b.id]);
-      held();
+      held((await tx.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid);
       await gate;
     });
-    await isHeld;
+    const holderPid = await isHeld;
     const pending = step(
       '412 after the password',
       () => act(b.id, 'check-out', lateFeeBody(TEST_PASSWORD), 'fd', `"${v}"`),
@@ -540,13 +559,7 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 5 – lateFeeInsteadOfNigh
       'VERSION_CONFLICT',
       1,
     );
-    for (let i = 0; i < 100; i++) {
-      const [w] = await q<{ n: number }>(
-        `SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()`,
-      );
-      if (Number(w!.n) > 0) break;
-      await new Promise((r) => setTimeout(r, 20));
-    }
+    expect(await blockedBehind(holderPid, 1), 'B18 waits on the booking lock').toBeGreaterThan(0);
     release();
     await holder;
     await pending;
@@ -608,26 +621,17 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 5 – lateFeeInsteadOfNigh
         'idempotency-key': key,
         'if-match': v,
       });
-    const waiting = async (n: number) => {
-      for (let i = 0; i < 150; i++) {
-        const [w] = await q<{ n: number }>(
-          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()`,
-        );
-        if (Number(w!.n) >= n) return Number(w!.n);
-        await new Promise((r) => setTimeout(r, 20));
-      }
-      return 0;
-    };
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    let held!: () => void;
-    const isHeld = new Promise<void>((r) => (held = r));
+    let held!: (pid: number) => void;
+    const isHeld = new Promise<number>((r) => (held = r));
     const holder = db.withContext(t.ctx(), async (tx) => {
       await tx.query('SELECT id FROM reservation WHERE id = $1 FOR UPDATE', [b.id]);
-      held();
+      held((await tx.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid);
       await gate;
     });
-    await isHeld;
+    const holderPid = await isHeld;
+    const waiting = (n: number) => blockedBehind(holderPid, n);
     const first = send(TEST_PASSWORD);
     expect(await waiting(1)).toBeGreaterThan(0);
     // Accepted (SEC 12.2): the key in progress is not visible yet – a wrong password is a real failed try.
@@ -664,4 +668,266 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 5 – lateFeeInsteadOfNigh
     );
     expect(money.length).toBe(1);
   });
+
+  // ───────────────────────────── K11-01 – B18 holds the folio before its balance decision ─────────────────────────────
+
+  /** A paid one-night stay in house, balance 0, on its departure morning (10:05 – no late charge). */
+  const readyForB18 = async (room: string, arrival: string) => {
+    await at(`${arrival.slice(0, 8)}01T10:00:00+07:00`);
+    const dep = new Date(Date.parse(`${arrival}T00:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const b = await direct(room, arrival, dep, 500_000);
+    await stayIn(b, room, arrival);
+    const due = (await totals(b)).balanceDueVnd;
+    if (due > 0) {
+      const r = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: due,
+      });
+      expect(r.statusCode, r.body).toBe(201);
+    }
+    await at(`${dep}T10:05:00+07:00`);
+    expect((await totals(b)).balanceDueVnd).toBe(0);
+    return { b, dep };
+  };
+  const b18NoPayment = async (b: Booking) =>
+    c.fd!.send(
+      'POST',
+      url(`/reservations/${b.id}/actions/check-out`),
+      { checkoutTime: '10:05' },
+      {
+        'if-match': `"${(await get(b.id)).version}"`,
+      },
+    );
+  const addFnb = (b: Booking, date: string, price: number) =>
+    c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
+      category: 'fnb',
+      description: 'Đồ ăn gọi phòng',
+      quantity: 1,
+      unitPriceVnd: price,
+      serviceDate: date,
+    });
+  /** The money end state; `lost` = a desk check-out with a settled folio owing for a line that is NOT post-checkout. */
+  const endState = async (b: Booking) => {
+    const [r] = await q<{ status: string; mode: string | null; folio: string }>(
+      `SELECT r.status, r.checkout_mode AS mode, f.status AS folio FROM reservation r JOIN folio f ON f.id = r.folio_id
+        WHERE r.id = $1`,
+      [b.id],
+    );
+    const [last] = await q<{ pc: boolean }>(
+      `SELECT post_checkout AS pc FROM folio_line WHERE folio_id = $1 AND category = 'fnb' AND reversal_of_id IS NULL
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [b.folioId],
+    );
+    const due = (await totals(b)).balanceDueVnd;
+    const lost =
+      r!.status === 'checked_out' &&
+      r!.mode === 'desk' &&
+      r!.folio === 'settled' &&
+      due > 0 &&
+      last?.pc === false;
+    return { ...r!, due, postCheckout: last?.pc ?? null, lost };
+  };
+  /** SHARE lock on the booker's guest row (own connection): B18 waits on it in `touchLastStay`, after its balance read. */
+  const parkB18 = async () => {
+    const conn = await db.pool.connect();
+    const mon = await db.pool.connect();
+    await conn.query('BEGIN');
+    const ctx = t.ctx();
+    await conn.query(SET_CONTEXT_SQL, [
+      ctx.organizationId ?? '',
+      ctx.propertyId ?? '',
+      ctx.userId ?? '',
+      ctx.actorType,
+      '20000ms',
+      '30000ms',
+    ]);
+    await conn.query('SELECT id FROM guest WHERE id = $1 FOR SHARE', [guest]);
+    const pid = (await conn.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!.pid;
+    const blocked = async () =>
+      (
+        await mon.query<{ query: string }>(
+          'SELECT query FROM pg_stat_activity WHERE $1 = ANY (pg_blocking_pids(pid))',
+          [pid],
+        )
+      ).rows.map((x) => x.query);
+    return {
+      untilParked: async () => {
+        for (let i = 0; i < 200; i += 1) {
+          if ((await blocked()).some((x) => /UPDATE guest SET last_stay_checkout_at/.test(x)))
+            return true;
+          await new Promise((r) => setTimeout(r, 15));
+        }
+        return false;
+      },
+      release: async () => {
+        await conn.query('COMMIT');
+        conn.release();
+        mon.release();
+      },
+    };
+  };
+
+  it('K11-01 (4c regression, ARC 16.19): a folio line / adjustment sent while B18 sits after its balance read waits for B18 (B18 holds the folio) and lands as a post-checkout charge – never a desk check-out owing money; sequential controls; natural race 8 rounds without finalPayment', async () => {
+    // Sequential controls.
+    const s1 = await readyForB18('101', '2030-05-07');
+    expect((await addFnb(s1.b, s1.dep, 150_000)).statusCode).toBe(201);
+    const r1 = await b18NoPayment(s1.b);
+    expect([r1.statusCode, r1.json().code]).toEqual([409, 'BALANCE_DUE']);
+    const s2 = await readyForB18('102', '2030-05-07');
+    expect((await b18NoPayment(s2.b)).statusCode).toBe(200);
+    expect((await addFnb(s2.b, s2.dep, 150_000)).statusCode).toBe(201);
+    expect(await endState(s2.b)).toMatchObject({
+      status: 'checked_out',
+      postCheckout: true,
+      lost: false,
+    });
+    // Forced interleave: B18 parked after its balance read, then the folio command.
+    const forced = async (
+      room: string,
+      arrival: string,
+      cmd: (b: Booking, dep: string) => Promise<any>,
+    ) => {
+      const s = await readyForB18(room, arrival);
+      const park = await parkB18();
+      const out = b18NoPayment(s.b);
+      let answeredWhileParked = false;
+      let res: Promise<any> | undefined;
+      try {
+        expect(await park.untilParked(), 'B18 reached touchLastStay').toBe(true);
+        res = cmd(s.b, s.dep);
+        answeredWhileParked = await Promise.race([
+          res.then(() => true),
+          new Promise<boolean>((r) => setTimeout(() => r(false), 1_500)),
+        ]);
+      } finally {
+        await park.release();
+      }
+      const [o, r] = await Promise.all([out, res!]);
+      return {
+        b18: o.statusCode,
+        cmd: r.statusCode,
+        answeredWhileParked,
+        end: await endState(s.b),
+      };
+    };
+    const add = await forced('103', '2030-05-14', (b, dep) => addFnb(b, dep, 150_000));
+    expect(add.answeredWhileParked, JSON.stringify(add)).toBe(false);
+    expect(add).toMatchObject({
+      b18: 200,
+      cmd: 201,
+      end: { status: 'checked_out', postCheckout: true, lost: false },
+    });
+    const adjust = await (async () => {
+      const s = await readyForB18('202', '2030-05-28');
+      expect((await addFnb(s.b, s.dep, 100_000)).statusCode).toBe(201);
+      const due = (await totals(s.b)).balanceDueVnd;
+      expect(
+        (
+          await c.fd!.send('POST', url(`/folios/${s.b.folioId}/payments`), {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: due,
+          })
+        ).statusCode,
+      ).toBe(201);
+      const [line] = await q<{ id: string }>(
+        `SELECT id FROM folio_line WHERE folio_id = $1 AND category = 'fnb' ORDER BY created_at DESC LIMIT 1`,
+        [s.b.folioId],
+      );
+      const park = await parkB18();
+      const out = b18NoPayment(s.b);
+      let res: Promise<any> | undefined;
+      let answered = false;
+      try {
+        expect(await park.untilParked()).toBe(true);
+        const v = (await c.fd!.get(url(`/folios/${s.b.folioId}`))).json().version;
+        res = c.fd!.send(
+          'POST',
+          url(`/folios/${s.b.folioId}/lines/${line!.id}/adjustments`),
+          { newUnitPriceVnd: 250_000, reason: 'Khách gọi thêm món' },
+          { 'if-match': `"${v}"` },
+        );
+        answered = await Promise.race([
+          res.then(() => true),
+          new Promise<boolean>((r) => setTimeout(() => r(false), 1_500)),
+        ]);
+      } finally {
+        await park.release();
+      }
+      const [o, r] = await Promise.all([out, res!]);
+      return { b18: o.statusCode, cmd: r.statusCode, answered, end: await endState(s.b) };
+    })();
+    expect(adjust.answered, JSON.stringify(adjust)).toBe(false);
+    expect(adjust.b18).toBe(200);
+    expect(adjust.end.lost, JSON.stringify(adjust)).toBe(false);
+    // Natural race, no parking: B18 (balance 0, no finalPayment) ‖ addFolioLine 120.000.
+    const tally: Record<string, number> = {};
+    const rooms = ['301', '302', '401', '402', '101', '102', '103', '203'];
+    for (let i = 0; i < rooms.length; i += 1) {
+      const arrival = new Date(Date.UTC(2030, 6, 2 + i * 7)).toISOString().slice(0, 10);
+      const s = await readyForB18(rooms[i]!, arrival);
+      const version = (await get(s.b.id)).version;
+      const [o, l] = await Promise.all([
+        c.fd!.send(
+          'POST',
+          url(`/reservations/${s.b.id}/actions/check-out`),
+          { checkoutTime: '10:05' },
+          {
+            'if-match': `"${version}"`,
+          },
+        ),
+        addFnb(s.b, s.dep, 120_000),
+      ]);
+      const e = await endState(s.b);
+      const key = `B18 ${o.statusCode} / line ${l.statusCode} / ${e.status} / due ${e.due} / postCheckout ${e.postCheckout}`;
+      tally[key] = (tally[key] ?? 0) + 1;
+      expect(e.lost, key).toBe(false);
+      // Either order of a serial run: 409 BALANCE_DUE (in house, owes the line) or 200 + a post-checkout line.
+      if (o.statusCode === 200) expect(e.postCheckout, key).toBe(true);
+      else
+        expect([o.statusCode, o.json().code, e.status, e.due], key).toEqual([
+          409,
+          'BALANCE_DUE',
+          'in_house',
+          120_000,
+        ]);
+    }
+    expect(Object.keys(tally).length).toBeGreaterThan(0);
+  }, 180_000);
+
+  it('K11-01 B9 (ARC 16.19): check-in holds the folio before `balance_paid` – a line sent while it runs waits and is judged with it', async () => {
+    // Sequential: a line before B9 makes the balance due → CHECKIN_CONDITIONS_NOT_MET; the folio lock is taken
+    // after the room lock (reservation → room → folio) like B18.
+    await at('2030-08-01T10:00:00+07:00');
+    const b = await direct('301', '2030-08-06', '2030-08-08', 500_000);
+    await at('2030-08-06T15:00:00+07:00');
+    await ready('301');
+    const pv = (
+      await c.fd!.get(url(`/reservations/${b.id}/check-in-preview?checkinTime=15:00`))
+    ).json();
+    const due = pv.amountDueAtCheckinVnd as number;
+    const [ci, line] = await Promise.all([
+      act(b.id, 'check-in', {
+        cardsIssued: 1,
+        houseRulesSent: true,
+        checkinTime: '15:00',
+        ...(due > 0 ? { payment: { type: 'charge', method: 'cash', amountVnd: due } } : {}),
+      }),
+      addFnb(b, '2030-08-06', 90_000),
+    ]);
+    const after = (await get(b.id)).status as string;
+    const owed = (await totals(b)).balanceDueVnd;
+    // Serial outcomes only: the line first → 409 (not in house); B9 first → in house, owing the line (in-house charge).
+    if (ci.statusCode === 200) expect([after, owed]).toEqual(['in_house', 90_000]);
+    else
+      expect([ci.statusCode, ci.json().code, after]).toEqual([
+        409,
+        'CHECKIN_CONDITIONS_NOT_MET',
+        'confirmed',
+      ]);
+    expect(line.statusCode).toBe(201);
+  }, 60_000);
 });

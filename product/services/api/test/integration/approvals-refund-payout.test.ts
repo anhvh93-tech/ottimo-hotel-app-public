@@ -354,4 +354,68 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
     expect(ok.statusCode, ok.body).toBe(200);
     expect(ok.json().status).toBe('rejected');
   });
+
+  it('K11-06 (DOM BR-522 18/10, ARC 16.19 bổ sung): a cancelled booking takes no manual folio line – FD, MGR and OWN get 409 INVALID_TRANSITION, the folio and the refund request (the deposit) do not move; paid out in full (refunded)', async () => {
+    const body = {
+      roomId: ids.rooms['202'],
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      arrivalDate: '2027-01-18',
+      departureDate: '2027-01-25',
+      adults: 2,
+      bookerGuestId: guest,
+      paymentModel: 'direct',
+    };
+    let created = await c.fd!.send('POST', url('/reservations'), {
+      ...body,
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: DEPOSIT },
+    });
+    let deposit = DEPOSIT;
+    if (created.statusCode === 422 && created.json().code === 'DEPOSIT_INSUFFICIENT') {
+      deposit = created.json().depositRequiredVnd as number;
+      created = await c.fd!.send('POST', url('/reservations'), {
+        ...body,
+        initialPayment: { type: 'deposit', method: 'cash', amountVnd: deposit },
+      });
+    }
+    expect(created.statusCode, created.body).toBe(201);
+    const booking = created.json();
+    const cancel = await c.fd!.send(
+      'POST',
+      url(`/reservations/${booking.id}/actions/cancel`),
+      { reasonCode: 'found_other', note: 'Khách báo qua Zalo' },
+      { 'if-match': `"${booking.version}"` },
+    );
+    expect(cancel.statusCode, cancel.body).toBe(200);
+    const approvalId = cancel.json().cancellation.refundApprovalRequestId as string;
+    const folioOf = async () => (await c.mgr!.get(url(`/folios/${booking.folioId}`))).json();
+    const before = (await folioOf()).totals;
+    for (const who of ['fd', 'mgr', 'own']) {
+      const f = await c.mgr!.get(url(`/folios/${booking.folioId}`));
+      const r = await c[who]!.send(
+        'POST',
+        url(`/folios/${booking.folioId}/lines`),
+        { category: 'fnb', description: 'Nước cam', quantity: 1, unitPriceVnd: 90_000 },
+        { 'if-match': f.headers.etag as string },
+      );
+      expect(r.statusCode, `${who} ${r.body}`).toBe(409);
+      expect(r.json()).toMatchObject({ code: 'INVALID_TRANSITION', currentState: 'cancelled' });
+    }
+    expect((await folioOf()).totals).toEqual(before);
+    expect(await sees('mgr', approvalId)).toMatchObject({ amountVnd: deposit, status: 'pending' });
+    expect((await destination('fd', approvalId, { method: 'cash' })).statusCode).toBe(200);
+    expect((await approve('mgr', approvalId)).statusCode).toBe(200);
+    const paid = await payOut('fdl', 'execute-cash-refund', approvalId, booking.id, deposit);
+    expect(paid.statusCode, paid.body).toBe(201);
+    const [row] = (
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query<{ status: string; refunded_vnd: number }>(
+          'SELECT status, refunded_vnd FROM approval_request WHERE id = $1',
+          [approvalId],
+        ),
+      )
+    ).rows;
+    // fully paid out = "refunded" (refunded_vnd = amount; the row stays approved – SM-10)
+    expect(row).toMatchObject({ status: 'approved', refunded_vnd: deposit });
+  });
 });

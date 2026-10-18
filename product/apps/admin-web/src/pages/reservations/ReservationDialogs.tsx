@@ -23,6 +23,7 @@ import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
   addDays,
+  currentSegment,
   currentStateOf,
   dayMonth,
   problemOf,
@@ -877,7 +878,7 @@ export function MoveDialog(
     (c !== 'overbooking' || r.conflictState === 'open' || !!r.capacityConflict) &&
     (c !== 'force_majeure' || (postpone && mgr)) &&
     (c !== 'inventory_optimize' || !r.roomDisclosedToGuest);
-  const currentRoom = r.segments?.[0]?.roomId ?? '';
+  const currentRoom = currentSegment(r.segments, todayLocal())?.roomId ?? '';
   const [roomId, setRoomId] = useState(currentRoom ?? '');
   const [arrival, setArrival] = useState(r.arrivalDate);
   const [departure, setDeparture] = useState(r.departureDate);
@@ -1015,7 +1016,7 @@ export function MoveDialog(
     toast(
       t('rsv.toast.moved', {
         code: r.code,
-        room: out.data.segments?.[0]?.roomNo ?? '',
+        room: currentSegment(out.data.segments, todayLocal())?.roomNo ?? '',
         from: dayMonth(out.data.arrivalDate),
         to: dayMonth(out.data.departureDate),
       }),

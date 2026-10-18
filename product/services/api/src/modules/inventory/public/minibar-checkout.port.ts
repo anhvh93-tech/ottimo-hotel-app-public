@@ -26,6 +26,7 @@ import {
   fridgeItems,
   latestFill,
   lockFridge,
+  lockFridgeParents,
   lockStayFolio,
   primaryOf,
   refillFillItems,
@@ -48,7 +49,10 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
 
   /**
    * The fridge (stay × room – mô hình M-1, R1/R9) needs a count when it holds a chargeable item (its latest fill,
-   * else the catalogue now – R3), and is checked when a live `checkout` count of THAT fridge exists.
+   * else the catalogue now – R3), and is checked when a live `checkout` count of THAT fridge exists in its current
+   * period – for the fridge of the room the stay is in, a count of TODAY's business day (B18's – K11-09, DOM BR-703
+   * note 7, ARC 16.19 bổ sung); the fridge of a room left keeps any live count after the mark (R9). Inside B18 the
+   * fridge's writers are kept out by B18's room lock (L2 FOR UPDATE against their KEY SHARE – ARC 16.19).
    */
   async checkoutStatus(
     tx: Tx,
@@ -56,16 +60,35 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     roomId: string,
   ): Promise<MinibarCheckoutStatus> {
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
+    const st = await this.fridgeState(tx, primaryId, roomId);
+    return { required: st.required, checked: st.checked };
+  }
+
+  private async fridgeState(
+    tx: Tx,
+    primaryId: string,
+    roomId: string,
+  ): Promise<{ required: boolean; checked: boolean; live: boolean }> {
     const { fill, items } = await fridgeItems(tx, primaryId, roomId);
     // ARC R9 (BUG-R2-144): "counted" = a live count AFTER the latest mark – in the current period (a new period
     // opens when the stay goes on in a counted fridge; a count made stale is not live).
-    const { rows } = await tx.query<{ checked: boolean }>(
-      `SELECT EXISTS (SELECT 1 FROM minibar_check WHERE reservation_id = $1 AND room_id = $2
-                        AND mode = 'checkout' AND replaced_by_check_id IS NULL
-                        AND fill_id IS NOT DISTINCT FROM $3::uuid) AS checked`,
+    const { rows } = await tx.query<{ business_date: string }>(
+      `SELECT business_date::text AS business_date FROM minibar_check
+        WHERE reservation_id = $1 AND room_id = $2 AND mode = 'checkout' AND replaced_by_check_id IS NULL
+          AND fill_id IS NOT DISTINCT FROM $3::uuid
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
       [primaryId, roomId, fill?.id ?? null],
     );
-    return { required: items.some((i) => i.priceVnd !== null), checked: !!rows[0]?.checked };
+    const live = rows[0];
+    let checked = !!live;
+    if (live) {
+      const today = await this.today(tx, this.clock.now());
+      // K11-09: the room the stay is in → the count must be of the departure day (business day of B18).
+      if (live.business_date !== today && (await stayIsInRoom(tx, primaryId, roomId, today))) {
+        checked = false;
+      }
+    }
+    return { required: items.some((i) => i.priceVnd !== null), checked, live: !!live };
   }
 
   /**
@@ -236,6 +259,7 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     if (!task.reservationId || !task.refillItems || task.refillItems.length === 0) return;
     const primaryId = (await primaryOf(tx, task.reservationId)) ?? task.reservationId;
     // ARC 16.16 bổ sung: HK task (locked by setTaskStatus) → fridge; the fill and the latest count are read after.
+    await lockFridgeParents(tx, primaryId, task.roomId); // E2: L4 (held) → L1/L2 KEY SHARE → L5
     await lockFridge(tx, primaryId, task.roomId);
     // ARC 16.17 I2: only the LIVE task of a period (a live count – a stale one included – points to it) refills;
     // a task left on a replaced count adds nothing to a mark (BUG-R2-159).
@@ -296,7 +320,7 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     Array<{
       roomId: string;
       roomNo: string;
-      reason: 'never_counted' | 'stay_continued' | 'new_fill';
+      reason: 'never_counted' | 'stay_continued' | 'new_fill' | 'not_today';
     }>
   > {
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
@@ -305,11 +329,16 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     const out: Array<{
       roomId: string;
       roomNo: string;
-      reason: 'never_counted' | 'stay_continued' | 'new_fill';
+      reason: 'never_counted' | 'stay_continued' | 'new_fill' | 'not_today';
     }> = [];
     for (const room of await stayRooms(tx, primaryId, businessDate(now, tz, rollover))) {
-      const st = await this.checkoutStatus(tx, primaryId, room.roomId);
+      const st = await this.fridgeState(tx, primaryId, room.roomId);
       if (!st.required || st.checked) continue;
+      // K11-09 (ARC 16.19 bổ sung): counted in the current period, but not on the departure day.
+      if (st.live) {
+        out.push({ ...room, reason: 'not_today' });
+        continue;
+      }
       // R2: a fridge counted before and not counted now = the stay went on in it (a later period is written by
       // onStayContinued, or by onRefillDone while the stay is back in the room / extended; a stale count only by
       // onStayContinued); `new_fill` belongs to R3's mid-stay refill without such an event.

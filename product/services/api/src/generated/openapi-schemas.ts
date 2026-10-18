@@ -2181,6 +2181,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
     MinibarStandard: {
       k: 'object',
       props: {
+        roomId: { s: { k: 'ref', name: 'Uuid' } },
         roomNo: { s: { k: 'scalar' } },
         periodId: { s: { k: 'union', of: [{ k: 'ref', name: 'Uuid' }, { k: 'scalar' }] } },
         items: {

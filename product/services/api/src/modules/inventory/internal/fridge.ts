@@ -31,17 +31,12 @@ export interface FridgeFill {
 }
 
 /**
- * ARC 16.16 bổ sung (race record ‖ onRefillDone): ONE lock per fridge (stay × room) – a transaction-level advisory
- * lock (no UPDATE right needed, HK included). Every path that changes a fridge (record, onRefillDone,
- * onStayContinued, onCheckedOut) takes it, then reads the latest fill and the latest count. Order: booking → folio →
- * refill tasks → fridge (counts, desk), HK task → fridge (refill done); nothing locks a booking, a folio or a HK
- * task after a fridge, except reconcileRefillTasks writing a task with NOWAIT (16.17 – 409 retry, never a wait).
- * The FK parents a fridge write references (the primary booking, the room) are taken `FOR KEY SHARE` FIRST: a
- * booking change (B13/B14/B18) holds them and then waits for this fridge, while a writer holding the fridge would
- * wait on its FK check of `minibar_fill` / `minibar_check` – 40P01 found by the race test. Callers that already
- * hold them (the booking changes) do not wait. `refillTasks` (record() only – it holds no room lock): the open
- * refill tasks of the fridge `FOR UPDATE` too, before the fridge – HK holds its task, then waits for the fridge
- * (16.17 race test, 40P01). Re-entrant in the same transaction.
+ * L5 of the lock order (ARC 16.19 – the one source): ONE lock per fridge (stay × room), a transaction-level
+ * advisory lock. Every path that changes a fridge takes it, then reads the latest fill and the latest count.
+ * Before it, by path: record() – L1 bookings KEY SHARE, L2 room KEY SHARE (lockFridgeParents), L3 folio, L4 the
+ * open refill tasks of the fridge (`refillTasks` – here); B13/B14/B18 (onStayContinued/onCheckedOut) – L1, L2
+ * FOR UPDATE, L3 already held, tasks written afterwards with NOWAIT only (E1); onRefillDone – the HK task (L4) held
+ * by setTaskStatus, then L1/L2 KEY SHARE, then here (E2). Re-entrant in the same transaction.
  */
 export async function lockFridge(
   tx: Tx,
@@ -49,8 +44,6 @@ export async function lockFridge(
   roomId: string,
   opts: { refillTasks?: boolean } = {},
 ): Promise<FridgeLock> {
-  await tx.query('SELECT id FROM reservation WHERE id = $1 FOR KEY SHARE', [primaryId]);
-  await tx.query('SELECT id FROM room WHERE id = $1 FOR KEY SHARE', [roomId]);
   if (opts.refillTasks) {
     await tx.query(
       `SELECT id FROM hk_task
@@ -69,14 +62,23 @@ export async function lockFridge(
 }
 
 /**
- * S4-13 order (reservation → folio) for a count, which is not a booking use case: the bookings of the folio
- * `FOR NO KEY UPDATE` in id order, before the folio – the lock the booking changes take (BE-A, ARC 16.16 bổ sung 2):
- * a count and a B13/B14/B18 of the stay are serialised at the booking, before any folio, room or fridge lock
- * (a count holding the folio, then waiting on its FK check of the room held by B13, which waits for the folio,
- * was a 40P01). It never blocks an FK check (KEY SHARE) nor a plain read.
+ * L1/L2 (ARC 16.19) for the paths that are not a booking change: the primary booking and the fridge's room
+ * `FOR KEY SHARE` – the FK parents of the fridge's writes. record() takes them BEFORE the folio (K11-04: B13/B14/
+ * B18 hold the room `FOR UPDATE` and then wait for the folio – a count holding the folio and asking for the room
+ * afterwards was a 40P01); onRefillDone after its task (E2). No wait when the caller holds them.
+ */
+export async function lockFridgeParents(tx: Tx, primaryId: string, roomId: string): Promise<void> {
+  await tx.query('SELECT id FROM reservation WHERE id = $1 FOR KEY SHARE', [primaryId]);
+  await tx.query('SELECT id FROM room WHERE id = $1 FOR KEY SHARE', [roomId]);
+}
+
+/**
+ * L1 of a count (ARC 16.19 – "giữ đơn đứng yên"): the bookings of the folio `FOR KEY SHARE` in id order, before the
+ * room and the folio. Booking changes take them `FOR NO KEY UPDATE` (compatible): a count is serialised with
+ * B13/B14/B18 at L2 (their room `FOR UPDATE` against the count's room `KEY SHARE`).
  */
 export async function lockStayBookings(tx: Tx, folioId: string): Promise<void> {
-  await tx.query('SELECT id FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE', [
+  await tx.query('SELECT id FROM reservation WHERE folio_id = $1 ORDER BY id FOR KEY SHARE', [
     folioId,
   ]);
 }
@@ -173,10 +175,15 @@ export async function writeFill(
   },
 ): Promise<string> {
   const id = uuidv7();
-  await tx.query(
+  // K11-02 (0069 `minibar_fill_check_in_key`, ARC 16.19): ONE `check_in` fill per fridge. The copy-on-write of a
+  // catalogue change does not take the fridge lock – two writers of the first fill (a first count ‖ OWN's item
+  // change) meet on the unique index: the second waits for the first, writes nothing and reads the winner back.
+  const { rows: inserted } = await tx.query<{ id: string }>(
     `INSERT INTO minibar_fill (id, organization_id, property_id, reservation_id, room_id, source, filled_at,
        created_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (reservation_id, room_id) WHERE source = 'check_in' DO NOTHING
+     RETURNING id`,
     [
       id,
       tx.ctx.organizationId,
@@ -189,6 +196,14 @@ export async function writeFill(
       f.now,
     ],
   );
+  if (!inserted[0]) {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT id FROM minibar_fill WHERE reservation_id = $1 AND room_id = $2 AND source = 'check_in'`,
+      [f.primaryId, f.roomId],
+    );
+    if (!rows[0]) throw new Error('minibar_fill check_in conflict without a visible row');
+    return rows[0].id;
+  }
   for (const it of f.items) {
     await tx.query(
       `INSERT INTO minibar_fill_line (id, organization_id, property_id, fill_id, item_id, qty,
@@ -251,10 +266,11 @@ export async function stayIsInRoom(
 }
 
 /**
- * ARC 16.16 bổ sung 2 (ab) – optimistic check of a count: is `periodId` (MinibarStandard.periodId the client
- * prepared it on) the period of the fridge now? `null` = the fridge had no fill then: still true while its only
- * fill is the `check_in` fill written since for that same level (registerFridge / copy-on-write – R2), false once a
- * refill or a stay going on opened another period.
+ * ARC 16.16 bổ sung 2 (ab), 16.19 K11-03 ((ac) rewritten) – optimistic check of a count on the fridge
+ * (stay, `roomId`): is `periodId` (MinibarStandard.periodId the client prepared it on) the period of THAT fridge
+ * now? `null` = that fridge had no fill when the count was prepared: true only while it still has none (any fill
+ * since – the first count of another device, the copy-on-write of a catalogue change, a `carry`/`refill` – → false,
+ * 409). Never "the period of the room the stay is in now" (K11-03 (a)).
  */
 export async function isCurrentPeriod(
   tx: Tx,
@@ -263,14 +279,7 @@ export async function isCurrentPeriod(
   periodId: string | null,
 ): Promise<boolean> {
   const fill = await latestFill(tx, primaryId, roomId);
-  if (periodId !== null) return fill?.id === periodId;
-  if (!fill) return true;
-  if (fill.source !== 'check_in') return false;
-  const { rows } = await tx.query<{ n: number }>(
-    'SELECT count(*)::int AS n FROM minibar_fill WHERE reservation_id = $1 AND room_id = $2',
-    [primaryId, roomId],
-  );
-  return (rows[0]?.n ?? 0) === 1;
+  return periodId === null ? !fill : fill?.id === periodId;
 }
 
 /**

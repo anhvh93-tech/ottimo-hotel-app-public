@@ -3,7 +3,7 @@
  * Every method runs in the caller's transaction. C3 access is logged with C3AccessGate/AuditService in the
  * same transaction, BEFORE any C3 value is returned (SR-C3-07).
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import { type Tx, pgCode } from '../../../db/database';
@@ -177,8 +177,31 @@ const SUMMARY_OF: Partial<Record<ImageDeleteReason, string>> = {
 };
 
 const OPEN_STATUSES: readonly string[] = ['none', 'pre', 'partial', 'review'];
-/** Technical cap of open registrations read for one list (a 10-room property has tens). */
+/**
+ * Technical cap of `unclaimedDocumentStays` – every condition is in SQL BEFORE the cap (a property has a
+ * handful of bookings with documents waiting for the desk).
+ */
 const OPEN_CAP = 1000;
+/** "Cần khai báo" (`action_needed`): declarations not confirmed yet (`sent` waits for the portal's answer). */
+const ACTION_NEEDED_STATUSES: readonly string[] = [
+  'none',
+  'pre',
+  'partial',
+  'review',
+  'scanned',
+  'sent',
+];
+/**
+ * BUG-R2-170: lists of open declarations read the registrations NEWEST FIRST, one page of SCAN_PAGE at a time
+ * with the booking facts of the page, and filter EVERY row read – never "the first OPEN_CAP rows by id, then
+ * filter": a record stays open after the checkout / cancellation, so the newest guests fell out of "Cần khai
+ * báo" and "Cần chú ý" once a property had 1,000 of them. SCAN_MAX bounds one read far above a 10-room
+ * property (≈ 3,000 stays a year, most left out in SQL already); reaching it is logged and leaves out the
+ * OLDEST rows, never the newest.
+ */
+const SCAN_PAGE = 500;
+const SCAN_MAX = 20_000;
+const log = new Logger('RegistrationService');
 const VOIDABLE: readonly string[] = ['none', 'pre', 'partial', 'review', 'scanned'];
 const AFTER_CONFIRMED: readonly string[] = ['confirmed', 'needs_update', 'updated'];
 
@@ -242,6 +265,51 @@ export class RegistrationService {
 
   private async publish(tx: Tx, registrationId: string): Promise<void> {
     await this.events?.publish(tx, 'registration.changed', registrationId);
+  }
+
+  /**
+   * BUG-R2-170: every registration matching `where` – SQL on `registration x`, registration-owned columns only
+   * (ARC FB-S3-15 (e)), parameters from `$3` – newest first, in pages of SCAN_PAGE; each page's bookings are
+   * read through BE-A's stay view and `pick` keeps a row (non-null) or not. The booking filter therefore runs
+   * on every candidate BEFORE any bound (SCAN_MAX – logged, leaves out the oldest).
+   */
+  private async scanRegistrations<T>(
+    tx: Tx,
+    label: string,
+    where: string,
+    params: readonly unknown[],
+    pick: (reg: RegRow, stay: StayView | null) => T | null,
+  ): Promise<T[]> {
+    const out: T[] = [];
+    let cursor: string | null = null;
+    for (let read = 0; ;) {
+      const page: { rows: RegRow[] } = await tx.query<RegRow>(
+        `SELECT ${REG_COLUMNS} FROM registration x
+          WHERE (${where}) AND ($1::uuid IS NULL OR x.id < $1::uuid)
+          ORDER BY x.id DESC LIMIT $2`,
+        [cursor, SCAN_PAGE, ...params],
+      );
+      const rows = page.rows;
+      if (rows.length === 0) break;
+      read += rows.length;
+      const stays = await readStays(
+        tx,
+        rows.map((r) => r.reservation_id),
+        SYSTEM_ACTOR,
+      );
+      for (const reg of rows) {
+        const kept = pick(reg, stays.get(reg.reservation_id) ?? null);
+        if (kept !== null) out.push(kept);
+      }
+      if (rows.length < SCAN_PAGE) break;
+      if (read >= SCAN_MAX) {
+        // Counts only (SEC A5): no booking, no guest.
+        log.warn(`registration scan "${label}" stopped after ${read} rows: older rows not read`);
+        break;
+      }
+      cursor = rows[rows.length - 1]?.id ?? null;
+    }
+    return out;
   }
 
   // ───────────────────────── K1: one record per root booking ─────────────────────────
@@ -1388,7 +1456,9 @@ export class RegistrationService {
     opts: { batch?: number; max?: number } = {},
   ): Promise<{ scheduled: number; errors: string[] }> {
     const batch = opts.batch ?? 100;
-    const max = opts.max ?? 2000;
+    // BUG-R2-170 sweep: the walk restarts from the oldest every hour and stays still running are read again
+    // each time, so a bound of 2,000 could keep the newest ended stays out for good – same bound as the lists.
+    const max = opts.max ?? SCAN_MAX;
     const c = await this.ctx(tx);
     const checkout = await this.params
       .get<string>(tx, 'checkout_time', c.today)
@@ -1447,6 +1517,9 @@ export class RegistrationService {
         if (err) out.errors.push(`registration ${r.id}: ${err.name}`);
       }
       if (rows.length < batch) break;
+      if (seen >= max) {
+        log.warn(`J16 ended-stay walk stopped after ${seen} registrations: newer rows not read`);
+      }
     }
     return out;
   }
@@ -1461,26 +1534,23 @@ export class RegistrationService {
     const checkout = await this.params
       .get<string>(tx, 'checkout_time', c.today)
       .catch(() => '12:00');
-    const { rows } = await tx.query<{ reservation_id: string }>(
-      `SELECT x.reservation_id FROM registration x
-        WHERE x.status <> 'void'
-          AND EXISTS (SELECT 1 FROM document_image i WHERE i.registration_id = x.id AND i.deleted_at IS NULL)
-        ORDER BY x.id LIMIT $1`,
-      [OPEN_CAP],
-    );
-    const stays = await readStays(
+    // BUG-R2-170: filter on the booking BEFORE any bound. A record whose stay was checked out (B18 hook, in
+    // BE-A's checkout transaction) is never "not closed" – left out in SQL.
+    const stays = await this.scanRegistrations(
       tx,
-      rows.map((r) => r.reservation_id),
-      SYSTEM_ACTOR,
+      'stays-not-closed',
+      `x.status <> 'void' AND x.actual_checkout_at IS NULL
+        AND EXISTS (SELECT 1 FROM document_image i WHERE i.registration_id = x.id AND i.deleted_at IS NULL)`,
+      [],
+      (_reg, s) =>
+        s &&
+        !s.parentReservationId &&
+        ['hold', 'confirmed', 'in_house'].includes(s.status) &&
+        atLocal(s.effectiveDepartureDate, checkout, c.tz).getTime() < c.now.getTime()
+          ? s
+          : null,
     );
-    return [...stays.values()]
-      .filter(
-        (s) =>
-          !s.parentReservationId &&
-          ['hold', 'confirmed', 'in_house'].includes(s.status) &&
-          atLocal(s.effectiveDepartureDate, checkout, c.tz).getTime() < c.now.getTime(),
-      )
-      .sort((a, b) => (a.departureDate < b.departureDate ? -1 : 1));
+    return stays.sort((a, b) => (a.departureDate < b.departureDate ? -1 : 1));
   }
 
   private async scheduleAfterStay(tx: Tx, reg: RegRow, endedAt: Date): Promise<void> {
@@ -1979,9 +2049,10 @@ export class RegistrationService {
 
   /**
    * listRegistrations without reading the reservations tables (ARC FB-S3-15 (e)): candidate registrations
-   * come from this module, booking facts through BE-A's stay-view port. Open registrations of a property are
-   * tens of rows, so the "action needed" filter + order by arrival run in memory over at most OPEN_CAP rows;
-   * `all` pages by registration id (keyset in SQL). Read-only (no backfill here – J16 does it).
+   * come from this module, booking facts through BE-A's stay-view port. `action_needed` / `needs_update`: the
+   * booking filter runs on EVERY candidate (BUG-R2-170 – `scanRegistrations`, no cap before the filter), then
+   * the order by arrival and the keyset page in memory; `all` pages by registration id (keyset in SQL).
+   * Read-only (no backfill here – J16 does it).
    */
   async list(
     tx: Tx,
@@ -2009,32 +2080,25 @@ export class RegistrationService {
         keys: rows.map((r) => [r.id, r.id]),
       };
     }
-    const statuses =
-      view === 'needs_update'
-        ? ['needs_update']
-        : ['none', 'pre', 'partial', 'review', 'scanned', 'sent'];
-    const { rows } = await tx.query<RegRow>(
-      `SELECT ${REG_COLUMNS} FROM registration WHERE status = ANY($1::text[]) ORDER BY id LIMIT $2`,
-      [statuses, OPEN_CAP],
-    );
-    const stays = await readStays(
+    // needs_update: every one (a K9 after the checkout is still to send). action_needed: in house, or confirmed
+    // and arriving today or earlier; a record whose stay was checked out (B18 hook, in BE-A's checkout
+    // transaction – `checked_out` is final) can be neither, so it is left out in SQL.
+    const found = await this.scanRegistrations(
       tx,
-      rows.map((r) => r.reservation_id),
-      SYSTEM_ACTOR,
+      `list ${view}`,
+      view === 'needs_update'
+        ? `x.status = 'needs_update'`
+        : `x.status = ANY($3::text[]) AND x.actual_checkout_at IS NULL`,
+      view === 'needs_update' ? [] : [ACTION_NEEDED_STATUSES],
+      (reg, stay) =>
+        view === 'needs_update' ||
+        (!!stay &&
+          (stay.status === 'in_house' ||
+            (stay.status === 'confirmed' && stay.arrivalDate <= c.today)))
+          ? { reg, stay, key: [stay?.arrivalDate ?? '9999-12-31', reg.id] as [string, string] }
+          : null,
     );
-    const visible = rows
-      .map((reg) => ({ reg, stay: stays.get(reg.reservation_id) ?? null }))
-      .filter(
-        ({ stay }) =>
-          view === 'needs_update' ||
-          (!!stay &&
-            (stay.status === 'in_house' ||
-              (stay.status === 'confirmed' && stay.arrivalDate <= c.today))),
-      )
-      .map((x) => ({
-        ...x,
-        key: [x.stay?.arrivalDate ?? '9999-12-31', x.reg.id] as [string, string],
-      }))
+    const visible = found
       .sort((a, b) =>
         a.key[0] < b.key[0] ? -1 : a.key[0] > b.key[0] ? 1 : a.key[1] < b.key[1] ? -1 : 1,
       )
@@ -2800,28 +2864,30 @@ export class RegistrationService {
   ): Promise<Array<{ reg: RegRow; stay: StayView; deadlineAt: Date | null }>> {
     const c = await this.ctx(tx);
     const params = await this.deadlineParams(tx, c.today).catch(() => null);
-    const { rows } = await tx.query<RegRow>(
-      `SELECT ${REG_COLUMNS} FROM registration
-        WHERE status IN ('none', 'pre', 'partial', 'review', 'scanned') AND NOT legal_hold
-        ORDER BY id LIMIT $1`,
-      [OPEN_CAP],
+    // BUG-R2-170: the booking filter runs on every candidate (newest first), never after a cap. Left out in
+    // SQL: a record checked out (B18 hook) longer ago than id_image_unconfirmed_max_days + 1 day – no caller
+    // uses it (J5: in house / arriving; "Cần chú ý" overdue: checked out within those days).
+    const keep = await this.params
+      .get<number>(tx, 'id_image_unconfirmed_max_days', c.today)
+      .catch(() => 7);
+    const since = new Date(
+      c.now.getTime() - ((typeof keep === 'number' && keep > 0 ? keep : 7) + 1) * 86_400_000,
     );
-    const stays = await readStays(
+    return this.scanRegistrations(
       tx,
-      rows.map((r) => r.reservation_id),
-      SYSTEM_ACTOR,
+      'open declarations',
+      `x.status IN ('none', 'pre', 'partial', 'review', 'scanned') AND NOT x.legal_hold
+        AND (x.actual_checkout_at IS NULL OR x.actual_checkout_at >= $3)`,
+      [since],
+      (reg, stay) => {
+        if (!stay || stay.parentReservationId) return null;
+        if (!['confirmed', 'in_house', 'checked_out'].includes(stay.status)) return null;
+        const arrived = reg.actual_checkin_at ?? stay.actualCheckinAt;
+        const deadlineAt =
+          arrived && params ? registrationDeadline(arrived, c.tz, reg.kind, params).at : null;
+        return { reg, stay, deadlineAt };
+      },
     );
-    const out: Array<{ reg: RegRow; stay: StayView; deadlineAt: Date | null }> = [];
-    for (const reg of rows) {
-      const stay = stays.get(reg.reservation_id);
-      if (!stay || stay.parentReservationId) continue;
-      if (!['confirmed', 'in_house', 'checked_out'].includes(stay.status)) continue;
-      const arrived = reg.actual_checkin_at ?? stay.actualCheckinAt;
-      const deadlineAt =
-        arrived && params ? registrationDeadline(arrived, c.tz, reg.kind, params).at : null;
-      out.push({ reg, stay, deadlineAt });
-    }
-    return out;
   }
 
   /**
@@ -2833,23 +2899,23 @@ export class RegistrationService {
    */
   async visaExpiringReservations(tx: Tx): Promise<StayView[]> {
     const c = await this.ctx(tx);
-    const { rows } = await tx.query<{ reservation_id: string }>(
-      `SELECT DISTINCT x.reservation_id FROM guest_document d JOIN registration x ON x.id = d.registration_id
-        WHERE d.is_foreigner AND d.removed_at IS NULL AND d.purged_at IS NULL AND x.status <> 'void'
-          AND NOT (d.party_member_id IS NULL AND d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
-          AND d.visa_alert_on IS NOT NULL AND d.visa_alert_on <= $1::date
-          AND d.check_results @> '[{"code":"visa_valid_through_departure","result":"fail"}]'::jsonb
-        LIMIT $2`,
-      [c.today, OPEN_CAP],
-    );
-    const stays = await readStays(
+    // BUG-R2-170: the booking filter (in house / to arrive) runs on every candidate, never after a cap; a
+    // record checked out (B18 hook – the hook also clears visa_alert_on) is left out in SQL.
+    const stays = await this.scanRegistrations(
       tx,
-      rows.map((r) => r.reservation_id),
-      SYSTEM_ACTOR,
+      'visa expiring',
+      `x.status <> 'void' AND x.actual_checkout_at IS NULL
+        AND EXISTS (SELECT 1 FROM guest_document d
+                     WHERE d.registration_id = x.id AND d.is_foreigner AND d.removed_at IS NULL
+                       AND d.purged_at IS NULL
+                       AND NOT (d.party_member_id IS NULL AND d.person_index >= 2
+                                AND d.fields_purge_after IS NOT NULL)
+                       AND d.visa_alert_on IS NOT NULL AND d.visa_alert_on <= $3::date
+                       AND d.check_results @> '[{"code":"visa_valid_through_departure","result":"fail"}]'::jsonb)`,
+      [c.today],
+      (_reg, s) => (s && (s.status === 'in_house' || s.status === 'confirmed') ? s : null),
     );
-    return [...stays.values()]
-      .filter((s) => s.status === 'in_house' || s.status === 'confirmed')
-      .sort((a, b) => (a.code < b.code ? -1 : 1));
+    return stays.sort((a, b) => (a.code < b.code ? -1 : 1));
   }
 
   /**

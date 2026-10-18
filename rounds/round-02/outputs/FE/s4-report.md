@@ -693,6 +693,17 @@ Từ vòng sửa 5 máy chủ suy nguồn đêm từ việc Desk **có gửi** g
 
 ---
 
+## Phần FE-A – đợt 17: K11-03 (P1) – lần đếm minibar luôn định danh tủ, căn hiện tại theo đoạn hôm nay (ARC 16.19) (18/10/2026, vòng sửa 5b, sau `3bd4ac4`)
+
+Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` làm căn hiện tại; sau B14 giữa lượt, chọn tủ căn cũ thì gửi vắng `roomId` → lần đếm ghi vào tủ căn mới (70.000 cho 1 bia, B18 kẹt `MINIBAR_NOT_CHECKED`).
+
+- **Căn hiện tại** = `currentSegment(segments, hôm nay)` (`app/reservations.ts`): đoạn `fromDate ≤ hôm nay < toDate`; ngày đi (kể cả cửa sổ sau nửa đêm) → đoạn cuối (giả định (a), ORC chấp nhận); trước ngày đến → đoạn đầu. Dùng ở H16 (`CheckOutPage.tsx`: tự chọn tủ, tiêu đề, hộp xác nhận), các hộp lưu trú (`StayDialogs.tsx` `roomOf` – cả danh sách căn đích của Đổi phòng), Drawer (`ReservationDrawer.tsx` – dòng Căn, cảnh báo sức chứa), hộp Dời/đổi căn (`ReservationDialogs.tsx` MoveDialog). H13 (`CheckInPage`) giữ `segments[0]` (B9 là đoạn đầu); DepositDialog (FE-B) không đụng.
+- **H16 bước 1**: `countingRoomId = tủ đang hiển thị ?? căn hôm nay`. GET `minibar-standard` **luôn** có `roomId` (chưa có đơn thì chưa đọc). Lần đếm gửi `roomId` = `MinibarStandard.roomId` (tủ của bản chuẩn đã soạn; vắng → `countingRoomId`) và `periodId` của bản chuẩn đó (vắng → `null`); chỉ gửi khi bản chuẩn đã về (`ready`). 409 `MINIBAR_PERIOD_CHANGED` (cả "lần nạp không thuộc tủ") giữ cách đợt 15. `reason` `not_today` → "cần đếm lại" (nhánh "mọi giá trị khác `never_counted`" đã có từ đợt 14).
+- **Mock** (`mocks/stay.ts`): B14 cắt đoạn đang ở tại ngày hiệu lực, thêm đoạn căn mới (về lại căn cũ = đoạn thứ ba, không gộp); B13 kéo dài đoạn cuối; `currentCabinet`, nhãn dòng đêm (theo ngày của đêm), nhãn dòng mới, phiếu đăng ký, bill, xung đột trả muộn đều theo đoạn hôm nay; `minibar-standard` trả `roomId`; lần đếm có `periodId` mà vắng `roomId` → 422 `REQUIRED`; `periodId` riêng từng tủ (lần nạp tủ khác không bao giờ khớp).
+- Kiểm thử: `s4-144-fea.test.tsx` thêm 3 ca (B14 402 → 202 giữa lượt: H16 đếm 402 gửi `roomId` 402, rồi 202 gửi `roomId` 202, mọi GET có `roomId`, 1 lon = 25.000 ở tủ 402, tóm tắt không còn tủ chưa đếm; Drawer hiện 202; 422 `REQUIRED` khi vắng `roomId`, GET trả `roomId`). Sửa ca cũ đọc `segments[0]` sau B14 hoặc chờ `roomId` vắng (`change-room.test.tsx` – dữ liệu đơn con thật hơn, `s4-416-fea`, `s4-418-fea`); lời gọi API trong test gửi đủ `roomId`/`periodId` (bắt buộc theo api-client mới). admin-web **356/356**, `tsc`, eslint, prettier xanh. E2E (QA – `ui-clock` chưa có ca B14 rồi H16) chờ BE-B.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).
