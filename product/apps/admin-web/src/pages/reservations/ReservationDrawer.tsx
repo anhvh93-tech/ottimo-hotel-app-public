@@ -16,6 +16,7 @@ import {
   rsvErrorText,
 } from '../../app/reservations';
 import { lineLabel, signed } from '../../app/folio';
+import { DebtCollectDialog } from '../stay/DebtCollectDialog';
 import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
@@ -67,6 +68,7 @@ type Open =
   | 'undo'
   | 'party'
   | 'refund'
+  | 'debt'
   | 'folio'
   | 'bill'
   | null;
@@ -298,6 +300,12 @@ export function ReservationDrawer({
           {allowed.get('restore_no_show')?.requiresApproval
             ? t('drawer.action.request_restore')
             : t('drawer.action.restore_no_show')}
+        </Button>
+      ) : null}
+      {fd && r.status === 'checked_out' && (r.balanceDueVnd ?? 0) > 0 ? (
+        // ARC 16.26 (BR-525 G-4): a debt left at check-out is collected on the settled folio (FD+).
+        <Button variant="pri" onClick={() => setOpen('debt')}>
+          {t('debt.collect')}
         </Button>
       ) : null}
       {allowed.has('undo_check_in') ? (
@@ -761,6 +769,13 @@ export function ReservationDrawer({
       ) : null}
       {r && open === 'party' ? (
         <PartyDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'debt' ? (
+        <DebtCollectDialog
+          reservationId={r.id}
+          onClose={() => setOpen(null)}
+          onDone={() => done()}
+        />
       ) : null}
       {r && open === 'refund' && folio ? (
         <RefundRequestDialog

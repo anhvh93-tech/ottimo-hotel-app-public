@@ -8,32 +8,38 @@ body {
   margin: 0;
   background: var(--bg);
 }
+/*
+ * Layout (same fix as the staff PWA, CI TC-X-079 axe target-size 18/10): header, scrolling body, action bar and tab
+ * bar are stacked, never on top of each other – the hi-fi model (hifi.css `.m-body{overflow:auto}`). Before, the
+ * document scrolled under a sticky tab bar: a link or button half under it left < 24 px to tap (WCAG 2.5.8) –
+ * at 360 × 800 the home page already failed on load.
+ */
 .guest-app {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
   max-width: 560px;
   margin: 0 auto;
   background: var(--bg);
 }
-.guest-app .m-top {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+.guest-app > *,
+.guest-app main > * {
+  flex: none;
 }
-.guest-app main {
+.guest-app > main {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.guest-app .m-body {
-  overflow: visible;
+.guest-app main > .m-body,
+.guest-app > main.m-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-.guest-app .wiz-foot,
-.guest-app .m-nav {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
+.guest-app .wiz-foot {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 .guest-app .m-nav {

@@ -602,7 +602,7 @@ export interface paths {
      *     Danh sách theo vai như cũ (FD không nhận mục tiền/FOC – AC6); HK/MT không gọi operation này (thông báo + SSE riêng).
      *     **0.3.7 bổ sung 1 (BE-D s4 2.5 – ghi rõ cách server đã cài)**:
      *     - **Lọc theo vai ở server** (US-012 AC6, US-003 AC4, rbac S02 ghi chú 1 – client không lọc thêm): chỉ **OWN** – `foc_threshold`, `security_alert`, `data_quality` của kiểm DATA
-     *       (`params.check` không bắt đầu bằng `registration_`); **MGR+** – `reconcile_overdue`; **FD+** (OWN/MGR/FDL/FD) – mọi loại còn lại, gồm `data_quality` kiểm khai báo
+     *       (`params.check` không bắt đầu bằng `registration_`); **MGR+** – `reconcile_overdue`, `checkout_debt` (0.3.7 bổ sung 4, BR-525); **FD+** (OWN/MGR/FDL/FD) – mọi loại còn lại, gồm `data_quality` kiểm khai báo
      *       (`registration_*` – lễ tân xử lý, S4-39) và `closed_reservation_credit`.
      *     - **Thứ tự**: `critical` → `warning` → `info`, rồi `dueAt` tăng dần (mục không có `dueAt` xếp sau), rồi `kind`, `refCode`.
      *     - Mục `source = event`: `count` = 1, `dueAt` = **lúc sinh mục** (không phải hạn), `reservationIds` = đơn liên quan, có `eventId`. Nút "Đã xử lý" chỉ cho mục `event`
@@ -970,7 +970,9 @@ export interface paths {
      *     - (c) Đơn **OTA** `guest_request`: giá OTA và "Đã thu qua OTA" giữ nguyên; mỗi đêm dòng `room_change_difference` = max(0, giá Trực tiếp hiện hành căn mới − căn **gốc**), căn gốc
      *       như BR-424 (căn gán đầu tiên, không tính nâng hạng do OTTIMO); đổi nhiều lần → đảo rồi ghi lại, không cộng dồn; đổi xuống → 0, không hoàn tiền OTA. Doanh thu phòng (BR-904),
      *       thu tại quầy muộn nhất khi nhận phòng.
-     *     - Chỉ đổi ngày, giữ căn: như cũ với mọi lý do (đêm giữ giữ giá, đêm thêm theo giá hiện hành, BR-107 tính lại).
+     *     - Chỉ đổi/kéo dài ngày, giữ căn (mọi lý do): đêm giữ giữ giá; **đêm thêm theo BR-417 phụ lục 5A** – khách xin AN-47 (b), OTTIMO đổi căn kèm thêm đêm AN-46, **cùng hàm với B13**
+     *       (căn khách mua, đêm tham chiếu của đơn thỏa thuận, min, kẹp sàn–trần); BR-107 tính lại. **0.3.7 bổ sung 4 (r5-5, G-1, BUG-R2-195)**: thay câu cũ "đêm thêm theo giá hiện hành"
+     *       và "đơn thỏa thuận lễ tân nhập lại" (B7 không có ô giá từng đêm). Khách xin **có đổi căn** (a) vẫn ngoài bảng: lịch hiện hành căn mới từng đêm (AN-47 (a)).
      *     - (e) Cọc đã thu **không đổi**, không đòi cọc bổ sung; phần còn lại thu khi nhận phòng (BR-305); tổng mới thấp hơn số đã thu → phần thừa theo BR-522. Đơn giữ trạng thái.
      *     - (f) Phụ thu người theo BR-429 (khách yêu cầu: định mức căn mới; do OTTIMO: min từng đêm); FOC/giảm giá đặc biệt đã duyệt đi theo = min(số đã duyệt, giá mới) (BR-434);
      *       hoa hồng theo tiền phòng mới (BR-903).
@@ -2282,7 +2284,14 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Ghi nhận một lần thu (cọc, thu khi nhận/trả, OTA thu hộ) – giao dịch `succeeded` (US-119; A33). Không nhận dữ liệu thẻ. */
+    /**
+     * Ghi nhận một lần thu (cọc, thu khi nhận/trả, OTA thu hộ) – giao dịch `succeeded` (US-119; A33). Không nhận dữ liệu thẻ.
+     * @description **0.3.7 bổ sung 4 – thu công nợ sau trả phòng (BR-525, ARC 16.26)**: folio `settled`/`closed` mặc định → 409 `FOLIO_LOCKED`. **Ngoại lệ duy nhất**: đơn có **công nợ mở**
+     *     (ghi lúc B18 `checkOut.debt`, hoặc tự ghi khi đảo khoản thu – G-4) và `type = charge` → được ghi (FD+, không SAL/CTV), số tiền ≤ còn phải thu (vượt → 422 `AMOUNT_EXCEEDS_BALANCE`,
+     *     `max`); folio **giữ** `settled`/`closed`, hóa đơn đã xuất không đổi, audit `money` `payment.recorded` kèm `debtCollection: true`. Thứ tự khóa (16.19): mọi đơn của folio
+     *     `NO KEY UPDATE` → folio → giao dịch. Thu đủ (còn phải thu = 0) trong cùng giao dịch → công nợ đóng (mục "Cần chú ý" `checkout_debt` tự hết) và gọi cổng hoa hồng "đã thu đủ".
+     *     Thu một phần → công nợ còn mở với số còn lại. `type` khác `charge` trên folio đã khóa → 409 `FOLIO_LOCKED` như cũ.
+     */
     post: operations['recordPayment'];
     delete?: never;
     options?: never;
@@ -2570,7 +2579,14 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Đảo giao dịch ghi sai (không xóa) – MGR+ (US-119 AC3; A34) */
+    /**
+     * Đảo giao dịch ghi sai (không xóa) – MGR+ (US-119 AC3; A34)
+     * @description **0.3.7 bổ sung 4 (BR-525 G-4 – DOM 18/10, BUG-R2-200; ARC 16.25)**: thứ tự khóa (16.19): mọi đơn của folio `FOR NO KEY UPDATE` theo id → folio → giao dịch → yêu cầu hoàn.
+     *     Folio `settled` (đơn chính `checked_out`) mà việc đảo làm **tăng** còn phải thu và số sau > 0 → **trong cùng giao dịch**: tự ghi công nợ của khách (cùng cấu trúc công nợ lúc trả phòng –
+     *     `checkOut.debt`; lý do = `reason`; hạn = tham số `debt_default_due_days`), audit `reservation.debt_on_checkout`, thông báo `debt_recorded` (OWN + MGR), mục "Cần chú ý" `checkout_debt`.
+     *     Không ghi dòng phí; folio giữ `settled`, hóa đơn đã xuất không đổi. Sau **mọi** lần đảo: chạy lại kế hoạch hoàn (BR-522) – yêu cầu hoàn mở vượt dư thừa tự hủy (`autoCancelReason`
+     *     = `superseded`). Hoa hồng đã "đạt" không tính lại [chờ DOM].
+     */
     post: operations['reversePayment'];
     delete?: never;
     options?: never;
@@ -5325,7 +5341,8 @@ export interface components {
         | 'guest_request_overdue'
         | 'ota_no_show_report'
         | 'closed_reservation_credit'
-        | 'website_request_new';
+        | 'website_request_new'
+        | 'checkout_debt';
       /**
        * @description computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)
        * @enum {string}
@@ -5355,6 +5372,7 @@ export interface components {
        *     |---|---|---|
        *     | `foc_threshold` (BR-435, US-012 AC8; `computed`, `warning`) | `check` = `foc_pct_of_room_revenue` → `pct` (FOC lũy kế tháng ÷ doanh thu phòng lũy kế × 100, 1 chữ số thập phân; **vắng** khi doanh thu phòng = 0 – hiện "–"), `threshold` (= `foc_alert_pct_of_room_revenue`); `check` = `foc_count_per_approver` → `count` (số FOC đã duyệt trong kỳ của **một** người duyệt, gồm tự áp BR-436), `max` (= `foc_alert_count_per_approver`) – mỗi người vượt ngưỡng một dòng, **không** nêu tên: `link` = `/approvals?type=foc&month=YYYY-MM&approverId=<id>`. Kỳ = ngày 1 tháng nghiệp vụ → hôm nay | chỉ OWN |
        *     | `reconcile_overdue` | `count`, `oldestDays` | MGR+ |
+       *     | `checkout_debt` (0.3.7 bổ sung 4, BR-525 G-4; `computed`) – đơn `checked_out` còn công nợ mở (ghi lúc trả phòng hoặc tự ghi khi đảo khoản thu sau trả phòng); `warning`, `critical` khi đã quá hạn; `dueAt` = hạn công nợ sớm nhất; `refCode` = mã đơn khi `count` = 1; **không** số tiền; tự hết khi folio không còn phải thu (thu đủ, FOC/xóa nợ BR-433) | `count` | MGR+ |
        *     | `no_show_call`, `no_show_mark` | `count`, `time` (`HH:mm` – `no_show_call_time` / `no_show_mark_time`) | FD+ |
        *     | `registration_due` | `count`, `deadline` (hạn sớm nhất – thời điểm ISO hoặc `HH:mm`) | FD+ |
        *     | `capacity_conflict`, `overbooking`, `unassigned_with_free_room`, `hold_expiring`, `room_ooo`, `extra_guest_kit_overdue`, `registration_overdue`, `guest_request_overdue` | `count` | FD+ |
@@ -7864,7 +7882,9 @@ export interface components {
     StaffNotification: {
       id: components['schemas']['Uuid'];
       /**
-       * @description 0.3.6 (A-36): `online_checkin_completed` (FD đang trực – "Khách {refCode} đã làm thủ tục trước – đến lúc {eta}", EP06 8.3; refType `reservation`);
+       * @description **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0; gửi **OWN + MGR**
+       *     (trừ người đảo); refType `reservation`, `refCode` = mã đơn; không số tiền, không tên khách.
+       *     0.3.6 (A-36): `online_checkin_completed` (FD đang trực – "Khách {refCode} đã làm thủ tục trước – đến lúc {eta}", EP06 8.3; refType `reservation`);
        *     `payment_disputed` (OWN + MGR khác người ghi – SEC F5; refType `payment`); `deposit_shortfall_accepted` (OWN – B-29); `receiving_account_changed`
        *     (mọi OWN/MGR – SEC F3; refType `property`); `refund_ready` (MGR+ – yêu cầu hoàn đã duyệt và có nơi nhận; refType `approval_request`).
        *     **0.3.7**: `refund_ready` nơi nhận tiền mặt gửi thêm FD/FDL đang trực **khác người tạo** (người tạo không được tự chi – S4-42). Nhóm H (B-08, BA E07-08): `work_order_new` (MT),
@@ -7914,7 +7934,8 @@ export interface components {
         | 'website_request_cap_reached'
         | 'website_request_overdue'
         | 'website_request_linked_hold'
-        | 'public_booking_toggled';
+        | 'public_booking_toggled'
+        | 'debt_recorded';
       /** @enum {string} */
       refType?:
         | 'reservation'

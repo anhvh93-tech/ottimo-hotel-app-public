@@ -15,6 +15,7 @@ import { useOnline } from '../../hooks/useOnline';
 import type { ResourceState } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
+import { DebtCollectDialog } from '../stay/DebtCollectDialog';
 import { useNewKeys } from './useDashboard';
 
 /** "66,7%" (VI) / "66.7%" (EN), one decimal; `null` (no sellable room tonight) → "–" (Q-15). */
@@ -130,6 +131,12 @@ export function AttentionBlock({
   const lines = useAttentionLines(state.data);
   const { fresh, announce } = useNewKeys(lines?.map((l) => l.key));
   const [closing, setClosing] = useState<AttentionLine | null>(null);
+  // ARC 16.26: "Thu công nợ" on a `checkout_debt` line of one booking (FD+).
+  const { roles } = useSession();
+  const fdPlus = roles.some((r) =>
+    ['owner', 'manager', 'front_desk_lead', 'front_desk'].includes(r),
+  );
+  const [collecting, setCollecting] = useState<string | null>(null);
 
   let body;
   if (!lines && state.status === 'error')
@@ -185,6 +192,14 @@ export function AttentionBlock({
             <Button size="sm" disabled={!online} onClick={() => setClosing(l)}>
               {t(l.resolveLabel)}
             </Button>
+          ) : l.collectDebtId && fdPlus ? (
+            <Button
+              size="sm"
+              disabled={!online}
+              onClick={() => setCollecting(l.collectDebtId ?? null)}
+            >
+              {t('debt.collect')}
+            </Button>
           ) : null;
           // H24 (phone): the whole row is the link; H03: card with "Mở" + "Đã xử lý" buttons.
           return rowLinks && l.to ? (
@@ -218,6 +233,16 @@ export function AttentionBlock({
       <span className="sr-only" role="status" aria-live="polite">
         {announce ? t('ov.sse_new_announce') : ''}
       </span>
+      {collecting ? (
+        <DebtCollectDialog
+          reservationId={collecting}
+          onClose={() => setCollecting(null)}
+          onDone={() => {
+            setCollecting(null);
+            onReload();
+          }}
+        />
+      ) : null}
       {closing ? (
         <ResolveDialog
           line={closing}

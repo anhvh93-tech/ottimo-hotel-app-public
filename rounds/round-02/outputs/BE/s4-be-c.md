@@ -485,3 +485,11 @@
   - MOB/QA: E2E hay app HK nào đang so họ tên đầy đủ thì phải đổi sang tên gọi.
   - Hợp đồng nên ghi rõ thêm: `guestDisplayName` của `nextArrival` với HK là tên gọi (ARC).
 - Kiểm tra: tsc, eslint, prettier sạch; `housekeeping-s4`, `housekeeping-s4-arc`, `module-boundaries`: 34/34 đạt. Không commit.
+
+## 19. BUG-R2-199 (P3, phần BE-C của BUG-R2-163 – kiểm lại tiền lần 6)
+- `transitionHkTask`: `start`, `complete` hay `cancel` có `performedAt` sớm hơn `hk_task.created_at` quá 5 phút (cùng mức lệch đồng hồ S4-01) → 422 `VALIDATION_FAILED`, `errors[]` `performedAt` / `PERFORMED_AT_OUT_OF_RANGE`.
+- Test: ca BUG-R2-199 trong `housekeeping-s4-arc.test.ts`:
+  - `start`/`complete`/`cancel` sớm 15–20' → 422;
+  - sớm 3' → nhận;
+  - sau đó `complete`/`cancel` đúng giờ → 200.
+- Vitest api toàn bộ, DB mới: **96 tệp đạt / 1 bỏ qua; 2896 ca đạt / 2 bỏ qua**. `tsc`, eslint, prettier sạch. Không commit.

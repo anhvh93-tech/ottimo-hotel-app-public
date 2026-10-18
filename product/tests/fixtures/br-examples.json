@@ -6202,7 +6202,8 @@
             "deskRangeVnd": [530000, 2630000],
             "settledCase": "BR-417-13, T19",
             "moveThreeNightsVnd": [667000, 667000, 667000],
-            "movePlannerEqualsB13": true
+            "movePlannerEqualsB13": true,
+            "seeAgreed": "BR-417-21 (đơn thỏa thuận ở lần đổi căn đầu tiên – pendingFix BUG-R2-195)"
           },
           {
             "an": "AN-47",
@@ -6210,7 +6211,7 @@
             "ckmToCdt": "(a) căn mới → căn mới; (b) 202 → 401",
             "referenceOrGkm": "(a) –; (b) – / lịch 202",
             "settledCase": "BR-429 (a), (b1'); T7 (r4rate)",
-            "see": "BR-417-20 (pendingFix BUG-R2-AN47) – số oracle ở đó"
+            "see": "BR-417-20 – số oracle ở đó (pendingFix đã gỡ ở vòng 5b, TC-L4-141). Biến thể đơn thỏa thuận chưa đổi căn: BR-417-21 (pendingFix BUG-R2-195)"
           }
         ]
       },
@@ -6384,6 +6385,183 @@
         }
       },
       "note": "Thay oracle T7 cũ (lịch 401: 1.042.000 × 2 + 1.198.000 = 3.282.000). Nguồn: `business-rules.md` phụ lục 5A AN-47 và làm rõ r5-5 (DOM 18/10). Dòng AN-47 trong BR-417-16 chỉ trỏ tới đây để bảng 47 dòng trong test của BE-A (`br417-an-table.test.ts`) giữ nguyên. Khi BE-A sửa xong: gỡ pendingFix (QA), có thể chuyển hẳn AN-47 sang dòng này và thêm BR-417-20 vào SOURCES (BE-A). · 18/10 (vòng 5b): QA bỏ pendingFix – TC-L4-141 (API, `e2e/api/round5b.s5.api.spec.ts`) chạy thật khớp trên cây chung 3bd4ac4 + 5b (api-dist16): T7 +2.495.000, 302 → 101 +667.000, (a) 302 lịch [917.000, 917.000]."
+    },
+    {
+      "id": "BR-417-21",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A AN-46, AN-47 (b) – 18/10 recheck6, BUG-R2-195) Biến thể đơn THỎA THUẬN ở lần đổi căn đầu tiên: MovePlanner (B7) lấy đêm tham chiếu như B13 (căn gốc = căn hiện tại khi đơn chưa từng đổi căn), không lấy lịch căn khách mua",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn, trần từng căn)",
+        "cases": [
+          {
+            "key": "A",
+            "an": "AN-47 (b)",
+            "alias": "MP-1",
+            "steps": "Trực tiếp 202 thỏa thuận 650.000 × 2 đêm, 01–03/10/2029 (thứ Hai–thứ Tư); B7 `guest_request` đi 04/10, giữ 202 (thêm đêm thứ Tư)"
+          },
+          {
+            "key": "B",
+            "an": "AN-46",
+            "alias": "MP-2",
+            "steps": "Cùng đơn A; B7 `property_fault` 202 → 401 kèm thêm 1 đêm (thứ Tư); ghi với `expectedDeltaVnd` = số xem trước"
+          },
+          {
+            "key": "C",
+            "an": "AN-47 (b)",
+            "alias": "MP-3",
+            "steps": "Trực tiếp 102 thỏa thuận 900.000 × 2 đêm (thứ Hai–thứ Tư); B7 `guest_request` thêm 1 đêm, giữ 102"
+          },
+          {
+            "key": "D",
+            "an": "AN-47 (b)",
+            "steps": "Trực tiếp 202 thỏa thuận 650.000 × 2 đêm 12–14/11; B7 `guest_request` dời cả kỳ 13–15/11, giữ 202"
+          },
+          {
+            "key": "E",
+            "an": "AN-46",
+            "steps": "Trực tiếp 102 thỏa thuận 900.000 × 2 đêm; B7 `property_fault` 102 → 401 kèm thêm 1 đêm"
+          },
+          {
+            "key": "F",
+            "an": "AN-46 / AN-47 (b) – đối chứng",
+            "steps": "Trực tiếp 202 thỏa thuận 650.000; OTTIMO 202 → 203 rồi → 202 (B7 sự cố); sau đó khách xin thêm 1 đêm (B7 `guest_request`, giữ 202)"
+          }
+        ]
+      },
+      "expected": {
+        "A": {
+          "addedNightVnd": 650000,
+          "previewEqualsFolioDeltaEqualsWritten": true,
+          "folioBeforeVnd": 1300000,
+          "folioAfterVnd": 1950000,
+          "wrongObservedVnd": 792000
+        },
+        "B": {
+          "formula": "min(650.000; 1.042.000)",
+          "addedNightVnd": 650000,
+          "writeStatus": 200,
+          "twinB13SameNightVnd": 650000,
+          "currentBookingRateVnd": 650000,
+          "deskRangeVnd": [530000, 2630000],
+          "wrongObservedVnd": 792000
+        },
+        "C": {
+          "addedNightVnd": 900000,
+          "wrongObservedVnd": 750000
+        },
+        "D": {
+          "addedNightVnd": 650000,
+          "folioDeltaVnd": 0
+        },
+        "E": {
+          "formula": "min(900.000; 1.042.000)",
+          "addedNightVnd": 900000,
+          "wrongObservedVnd": 792000
+        },
+        "F": {
+          "addedNightVnd": 650000,
+          "controlAlreadyGreen": true
+        },
+        "invariant": "MovePlanner = B13 trên cùng trạng thái (BR-417-13 sameInMovePlannerAndB13, AN-46); xem trước = trần QR = ghi"
+      },
+      "note": "Nguồn: `reviews/s4-money-recheck6.md` (bảng Major-fix-now, critic `r6critic/rate-min.test.ts`); `business-rules.md` phụ lục 5A dòng AN-46, AN-47 (b) và phần đối chiếu \"195 (MP-1, MP-2, MP-3, E, D) → AN-46, AN-47 (b), AN-48\". `wrongObservedVnd` = số của 723179b (để test của BE-A thấy rõ trước/sau). Đối chứng đang xanh: MP-4 650.000; F 650.000; MP-c lịch 792.000; AN-47 (a) 917.000. Ngày của C và E theo cùng tuần với A [GIẢ ĐỊNH QA] – không đổi số (thứ Hai–thứ Tư). Gỡ pendingFix khi bản sửa BE-A vào cây chung và lượt kiểm lại 7 xanh."
+    },
+    {
+      "id": "BR-417-22",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A AN-48 – DOM 18/10, G-2, BUG-R2-195) MovePlanner – khách xin dời đến SỚM hơn, giữ căn, đơn thỏa thuận: đêm thêm ở đầu đơn lấy đêm nhập tay sớm nhất sau ngày đến mới (như B9a), không lấy lịch",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn, trần từng căn)",
+        "channel": "direct",
+        "roomNo": "202",
+        "agreedNightVnd": 650000,
+        "nights": ["2029-10-01", "2029-10-02"],
+        "arrival": "2029-10-01",
+        "departure": "2029-10-03",
+        "cases": [
+          {
+            "key": "earlier",
+            "steps": "B7 `guest_request` đến 30/09/2029 (Chủ nhật), đi giữ 03/10, giữ 202"
+          },
+          {
+            "key": "shiftWhole",
+            "steps": "B7 `guest_request` dời cả kỳ 01–03/10 → 30/09–02/10, giữ 202"
+          },
+          {
+            "key": "ottimoTo401",
+            "steps": "B7 OTTIMO (`property_fault`) 202 → 401 kèm đến sớm 30/09"
+          }
+        ]
+      },
+      "expected": {
+        "earlier": {
+          "addedNightDate": "2029-09-30",
+          "addedNightVnd": 650000,
+          "notCalendarVnd": 792000,
+          "folioBeforeVnd": 1300000,
+          "folioAfterVnd": 1950000,
+          "sameAsB9aSameNight": true,
+          "deskRangeVnd": [530000, 1900000]
+        },
+        "shiftWhole": {
+          "night0930Vnd": 650000,
+          "folioDeltaVnd": 0
+        },
+        "ottimoTo401": {
+          "formula": "min(650.000; 1.042.000)",
+          "addedNightVnd": 650000,
+          "deskRangeVnd": [530000, 2630000]
+        }
+      },
+      "note": "Nguồn: `business-rules.md` phụ lục 5A AN-48 (DOM 18/10, G-2 của `reviews/s4-money-recheck6.md` (bảng Major-fix-now, critic `r6critic/rate-min.test.ts`); recheck6 seq 57, 136, 175) và ghi chú 11 (bước 3 theo vị trí đêm thêm: đầu → sớm nhất sau, cuối → muộn nhất trước). Gỡ pendingFix cùng BUG-R2-195."
+    },
+    {
+      "id": "BR-417-23",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A AN-49 – DOM 18/10, G-3) Đơn OTA vào làn ngay lúc đặt, B7a gán lần đầu: `reassigned_same_group` → CKM = căn được gán; `upgraded` → CKM = căn xin lúc đặt (ngoại lệ của AN-17)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn, trần từng căn)",
+        "addedNightWeekday": "thứ Tư",
+        "cases": [
+          {
+            "key": "a",
+            "assignReason": "reassigned_same_group",
+            "requestedRoomNo": "101",
+            "assignedRoomNo": "102"
+          },
+          {
+            "key": "b",
+            "assignReason": "upgraded",
+            "requestedRoomNo": "203",
+            "assignedRoomNo": "401"
+          }
+        ]
+      },
+      "expected": {
+        "a": {
+          "ckmToCdt": "102 → 102",
+          "addedNightVnd": 750000,
+          "currentBookingRateIsNull": true,
+          "deskRangeVnd": [530000, 1900000]
+        },
+        "b": {
+          "ckmToCdt": "203 → 401",
+          "formula": "min(792.000; 1.042.000)",
+          "addedNightVnd": 792000,
+          "currentBookingRateVnd": 792000,
+          "deskRangeVnd": [530000, 2630000]
+        }
+      },
+      "note": "Nguồn: `business-rules.md` phụ lục 5A AN-49 và bước 1 \"Ngoại lệ (18/10 – G-3)\"; recheck6 G-3 ghi mã 723179b đã ra đúng hai số này → không pendingFix. AN-13 không đổi."
     },
     {
       "id": "BR-421-01",
@@ -8924,6 +9102,427 @@
         ]
       },
       "qaAssumption": "Tổng tiền phòng 2.460.000 lấy từ ví dụ BR-309 (cùng đơn 3 đêm, cọc 700.000)"
+    },
+    {
+      "id": "BR-525-01",
+      "br": "BR-525",
+      "case": "(v0.3.8, 18/10 – G-4) MGR đảo khoản thu sau trả phòng (folio `settled`) làm còn phải thu > 0 → trong cùng giao dịch tự ghi công nợ đúng số còn phải thu, báo OWN + MGR, mở \"Cần chú ý\"; không dòng `post_checkout`, folio giữ `settled`",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "b18PaymentsVnd": {
+          "cash": 900000,
+          "bankTransfer": 100000
+        },
+        "b18TotalPaidVnd": 1000000,
+        "folioStatusAfterB18": "settled",
+        "reversal": {
+          "by": "manager",
+          "paymentVnd": 100000,
+          "reason": "Chuyển khoản không về"
+        },
+        "thenGuestPaysVnd": 100000
+      },
+      "expected": {
+        "afterReversal": {
+          "amountDueVnd": 100000,
+          "debtVnd": 100000,
+          "debtReason": "Chuyển khoản không về",
+          "debtDueDate": "hạn công nợ mặc định – số ngày ở BR-525-05",
+          "notified": ["owner", "manager"],
+          "attentionOpen": true,
+          "postCheckoutLines": 0,
+          "folioStatus": "settled",
+          "invoiceUnchanged": true
+        },
+        "afterGuestPays": {
+          "debtVnd": 0,
+          "debtClosed": true,
+          "attentionOpen": false
+        },
+        "noDebtWhenDueNotPositive": true
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, DOM; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH) và `reviews/s4-money-recheck6.md` (bảng Major-fix-now, critic `r6critic/rate-min.test.ts`) GAP-DOM G-4 (723179b: đảo 100.000 sau B18 để folio `settled`, còn phải thu 100.000, `checkout_mode = desk`, không công nợ, không \"Cần chú ý\"). Đảo làm dư thừa nhỏ hơn yêu cầu hoàn đang mở → chạy lại `refundPlan` (BR-522) – chưa có số, không kiểm ở dòng này. Gỡ pendingFix khi BE-B + BE-A sửa xong và CI xanh. · 18/10 (QA): BE-B đã gỡ pendingFix (test `reversal-debt-g4` khẳng định không còn pendingFix); số ngày của hạn mặc định tách sang BR-525-05 (pendingFix BUG-R2-200)."
+    },
+    {
+      "id": "BR-525-02",
+      "case": "(v0.3.8, 18/10 – G-4 (ii), ARC 16.25) Công nợ khi đảo = PHẦN TĂNG do việc đảo, không phải toàn bộ còn phải thu: đang có minibar 70.000 phát sinh sau trả phòng (còn trong 24 giờ, đường link riêng) → đảo 100.000 → công nợ 100.000; quá 24 giờ minibar thành công nợ → tổng 170.000",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "amountDueAfterB18Vnd": 0,
+        "postCheckoutLine": {
+          "at": "2026-11-16T15:00:00+07:00",
+          "category": "minibar",
+          "amountVnd": 70000,
+          "paymentLinkSent": true
+        },
+        "reversal": {
+          "at": "2026-11-16T17:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 100000
+        },
+        "postCheckoutUnpaidCheckAt": "2026-11-17T15:00:00+07:00"
+      },
+      "expected": {
+        "afterReversal": {
+          "amountDueVnd": 170000,
+          "debtAddedVnd": 100000,
+          "debtOpenVnd": 100000,
+          "notDebtVnd": 170000,
+          "postCheckoutWithin24hVnd": 70000
+        },
+        "after24h": {
+          "debtAddedVnd": 70000,
+          "debtOpenVnd": 170000
+        },
+        "invariant": "Σ công nợ đang mở + khoản phát sinh sau trả phòng còn trong 24 giờ = còn phải thu của folio",
+        "formula": "max(0, còn phải thu sau đảo) − max(0, còn phải thu trước đảo) = 170.000 − 70.000"
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-03",
+      "case": "(v0.3.8, 18/10 – G-4 (ii)) Folio đang thừa 30.000, MGR đảo 100.000 → công nợ 70.000 (phần tăng của còn phải thu > 0)",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "pendingFix": "BUG-R2-200",
+      "input": {
+        "folioStatus": "settled",
+        "balanceBeforeVnd": -30000,
+        "reversal": {
+          "by": "manager",
+          "paymentVnd": 100000
+        }
+      },
+      "expected": {
+        "amountDueAfterVnd": 70000,
+        "debtAddedVnd": 70000,
+        "formula": "max(0, 70.000) − max(0, −30.000) = 70.000",
+        "debtDueDays": 3
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 ~13:05 (QA): giữ pendingFix – chưa có ca chạy thật cho folio đang thừa (công thức \"phần tăng\" đã có ca đảo lần hai của BE-A); thêm ca rồi gỡ."
+    },
+    {
+      "id": "BR-525-04",
+      "case": "(v0.3.8, 18/10 – G-4 (iii), BR-903) Hoa hồng CTV `earned` lúc B18 bị đảo khoản thu làm còn phải thu > 0 → về `projected` (có audit); đạt lại ở sự kiện thu xong công nợ",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "channel": "ctv",
+        "commissionVnd": 416400,
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "reversal": {
+          "at": "2026-11-17T10:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 100000
+        },
+        "debtPaid": {
+          "at": "2026-11-19T10:00:00+07:00",
+          "amountVnd": 100000
+        }
+      },
+      "expected": {
+        "afterB18": {
+          "commissionStatus": "earned",
+          "earnedOn": "2026-11-16"
+        },
+        "afterReversal": {
+          "commissionStatus": "projected",
+          "commissionVnd": 416400,
+          "audit": true
+        },
+        "afterDebtPaid": {
+          "commissionStatus": "earned",
+          "earnedOn": "2026-11-19",
+          "commissionVnd": 416400
+        },
+        "paidCommissionPolicy": "hoa hồng đã `paid` không tự trừ ở R2 – PO chốt R3"
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. Giờ đảo/thu 10:00 là [GIẢ ĐỊNH QA] – ví dụ BR chỉ ghi ngày. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-05",
+      "br": "BR-525",
+      "case": "(v0.3.8, 18/10 – G-4 (i), ARC 16.25) Hạn trả mặc định của công nợ ghi khi đảo = `debt_default_due_days` = 3 ngày kể từ lúc ghi công nợ (khớp mốc cảnh báo đỏ quá hạn 3 ngày của BR-207)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtRecordedOn": "2026-11-17",
+        "param": "debt_default_due_days",
+        "paramValue": 3
+      },
+      "expected": {
+        "debtVnd": 100000,
+        "debtDueDate": "2026-11-20",
+        "debtDueDays": 3,
+        "overdueCriticalAfter": "2026-11-20",
+        "editableByManagerPerDebt": true
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 (i) và mục 13 tham số `debt_default_due_days` = 3 ([GIẢ ĐỊNH – chờ INV xác nhận] – DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.25. Ngày ghi công nợ 17/11 là [GIẢ ĐỊNH QA] (BR không ghi ngày cho ví dụ này). Mã cây chung 18/10 12:29 (BE-A `CheckoutService.debtAfterReversal`, `s4-be-a.md` 21.3) đặt hạn = ngày nghiệp vụ + 7 → chưa khớp; gỡ pendingFix khi BE-A/BE-B đổi sang tham số 3 ngày và xác nhận. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-06",
+      "case": "(18/10 – ARC 16.26, BR-525 thu công nợ) Đảo ngày 17/11 tạo công nợ 100.000; khách trả đủ ngày 19/11 (FD, tiền mặt) → 201, công nợ đóng trong cùng giao dịch, folio giữ `settled`, hóa đơn không đổi, mục \"Cần chú ý\" `checkout_debt` hết",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "reversalAt": "2026-11-17T10:00:00+07:00",
+        "collect": {
+          "at": "2026-11-19T10:00:00+07:00",
+          "by": "front_desk",
+          "type": "charge",
+          "method": "cash",
+          "amountVnd": 100000
+        }
+      },
+      "expected": {
+        "status": 201,
+        "paymentAmountVnd": 100000,
+        "auditDebtCollection": true,
+        "amountDueAfterVnd": 0,
+        "debtOpenVnd": 0,
+        "debtSettled": true,
+        "folioStatus": "settled",
+        "invoiceUnchanged": true,
+        "attentionCheckoutDebtOpen": false
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. Giờ 10:00 là [GIẢ ĐỊNH QA]. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-07",
+      "case": "(18/10 – BR-525 thu công nợ (b)) Thu một phần: công nợ 100.000 hạn 19/11, FD thu 60.000 tiền mặt ngày 18/11 → còn nợ 40.000, công nợ vẫn mở, GIỮ hạn cũ 19/11 (không tính lại hạn), mục \"Cần chú ý\" còn",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "debtDueDate": "2026-11-19",
+        "collect": {
+          "at": "2026-11-18T10:00:00+07:00",
+          "by": "front_desk",
+          "type": "charge",
+          "method": "cash",
+          "amountVnd": 60000
+        }
+      },
+      "expected": {
+        "status": 201,
+        "amountDueAfterVnd": 40000,
+        "debtOpenVnd": 40000,
+        "debtSettled": false,
+        "debtDueDate": "2026-11-19",
+        "attentionCheckoutDebtOpen": true,
+        "folioStatus": "settled"
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-08",
+      "case": "(18/10 – ARC 16.26) Thu vượt số còn phải thu: công nợ 100.000, ghi thu 150.000 → 422 `AMOUNT_EXCEEDS_BALANCE` (trường `amountVnd`, `max` 100.000), không ghi gì",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "collect": {
+          "by": "front_desk",
+          "type": "charge",
+          "method": "cash",
+          "amountVnd": 150000
+        }
+      },
+      "expected": {
+        "status": 422,
+        "code": "VALIDATION_FAILED",
+        "fieldError": {
+          "field": "amountVnd",
+          "code": "AMOUNT_EXCEEDS_BALANCE"
+        },
+        "maxVnd": 100000,
+        "paymentsWritten": 0,
+        "debtOpenVnd": 100000
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-09",
+      "case": "(18/10 – BR-525 thu công nợ (a), A33) Vai thu công nợ: FD trở lên được (201); SAL (chỉ ghi cọc của mình) và CTV → 403, không ghi gì. Xóa nợ chỉ MGR trở lên (BR-433)",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "collect": {
+          "type": "charge",
+          "method": "cash",
+          "amountVnd": 100000
+        },
+        "roles": {
+          "allowed": ["front_desk", "front_desk_lead", "manager", "owner"],
+          "refused": ["sales_staff", "collaborator"]
+        }
+      },
+      "expected": {
+        "allowedStatus": 201,
+        "refusedStatus": 403,
+        "refusedWritesNothing": true,
+        "writeOffRoles": ["manager", "owner"]
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-10",
+      "case": "(18/10 – BR-525 thu công nợ (d)) Hoa hồng đạt lại khi thu đủ VÀ khoản chuyển khoản đã đối soát: nợ 100.000, FD thu 60.000 tiền mặt 18/11, khách chuyển khoản 40.000 ngày 19/11, MGR đối soát 20/11 → hoa hồng CTV 416.400 `earned` ngày 20/11 (không phải 19/11)",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "channel": "ctv",
+        "commissionVnd": 416400,
+        "debtDueDate": "2026-11-19",
+        "payments": [
+          {
+            "at": "2026-11-18T10:00:00+07:00",
+            "method": "cash",
+            "amountVnd": 60000
+          },
+          {
+            "at": "2026-11-19T10:00:00+07:00",
+            "method": "bank_transfer",
+            "amountVnd": 40000
+          }
+        ],
+        "reconciledAt": "2026-11-20T10:00:00+07:00"
+      },
+      "expected": {
+        "after1811": {
+          "debtOpenVnd": 40000,
+          "debtDueDate": "2026-11-19",
+          "commissionStatus": "projected"
+        },
+        "after1911": {
+          "debtOpenVnd": 0,
+          "debtSettled": true,
+          "commissionStatus": "projected",
+          "reason": "chuyển khoản chưa đối soát"
+        },
+        "after2011": {
+          "commissionStatus": "earned",
+          "earnedOn": "2026-11-20",
+          "commissionVnd": 416400
+        }
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. Giờ 10:00 là [GIẢ ĐỊNH QA]. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-11",
+      "case": "(18/10 – ARC 16.25/16.26) Mục \"Cần chú ý\" `checkout_debt`: có khi đơn `checked_out` còn công nợ (MGR+ thấy, `params` chỉ `count`, không số tiền; `critical` khi quá hạn), tự hết trong cùng giao dịch khi thu đủ",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-525-01 (B18 16/11 thu 1.000.000; MGR đảo 100.000 chuyển khoản không về)",
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "debtDueDate": "2026-11-19",
+        "checks": [
+          {
+            "at": "2026-11-18T10:00:00+07:00",
+            "viewer": "manager"
+          },
+          {
+            "at": "2026-11-20T10:00:00+07:00",
+            "viewer": "manager",
+            "note": "quá hạn"
+          },
+          {
+            "viewer": "front_desk"
+          }
+        ],
+        "collect": {
+          "type": "charge",
+          "method": "cash",
+          "amountVnd": 100000
+        }
+      },
+      "expected": {
+        "beforeDue": {
+          "present": true,
+          "severity": "warning",
+          "paramsKeys": ["count"],
+          "noMoneyInItem": true
+        },
+        "overdue": {
+          "present": true,
+          "severity": "critical"
+        },
+        "frontDeskSees": false,
+        "afterFullPayment": {
+          "present": false
+        }
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. Ai thấy mục (MGR+) theo `s4-be-a.md` 21.3 và ARC 16.25. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
+    },
+    {
+      "id": "BR-525-12",
+      "case": "(18/10 – ARC 16.26) Folio đã khóa mà đơn KHÔNG có công nợ mở → `recordPayment` `charge` 409 `FOLIO_LOCKED` như cũ; `type` khác `charge` trên folio khóa → 409 `FOLIO_LOCKED`",
+      "br": "BR-525",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "folioStatus": "settled",
+        "amountDueVnd": 0,
+        "debtOpen": false,
+        "attempts": [
+          {
+            "type": "charge",
+            "method": "cash",
+            "amountVnd": 50000
+          },
+          {
+            "type": "deposit",
+            "method": "cash",
+            "amountVnd": 50000
+          }
+        ]
+      },
+      "expected": {
+        "status": 409,
+        "code": "FOLIO_LOCKED",
+        "paymentsWritten": 0
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 \"Thu công nợ sau trả phòng\" (a)–(d) (DOM 18/10), `outputs/ARC/openapi-0.3.7.md` 16.26, `openapi.yaml` `recordPayment` (0.3.7 bổ sung 4). Năm 2026 theo quy ước. Gỡ pendingFix khi BE-B/BE-A/FE-A xong và xác nhận ra đúng số. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17."
     },
     {
       "id": "BR-526-01",

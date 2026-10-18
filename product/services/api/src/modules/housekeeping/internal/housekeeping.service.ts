@@ -1083,6 +1083,9 @@ export class HousekeepingService {
     }
     if (
       !performedAtInRange(performedAt, c.now) ||
+      // BUG-R2-199 (BUG-R2-163, kiểm lại tiền 6): no action on a task before the task existed (start, complete,
+      // cancel – same 5' clock skew as S4-01).
+      performedBefore(performedAt, t.created_at) ||
       // ARC S4-05: never done before it was started (same device clock as `started_at`).
       (action === 'complete' && t.started_at && performedBefore(performedAt, t.started_at))
     ) {

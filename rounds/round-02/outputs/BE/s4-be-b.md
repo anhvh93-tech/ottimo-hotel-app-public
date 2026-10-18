@@ -525,3 +525,74 @@ Trước khi #12 (`3bd4ac4`) commit, tôi soạn bản sửa trên bản sao ri�
   - Đếm lại chỉ 1 bia → `[{ bia, 1, itemName }]`.
 - **Kiểm chứng:** `@ottimo/api` **2.895/2.895 xanh** (96 tệp, 1 tệp bỏ qua) trên DB mới; `minibar-m1` 49/49; tsc, eslint, prettier xanh. Không commit.
 - **Tệp:** `src/modules/inventory/internal/refill-tasks.ts`, `test/integration/minibar-m1.test.ts`.
+
+## 23. Trước cổng QC – BUG-R2-196, 197, 198 (phần cấu trúc + refund), G-4 / BR-525 (BUG-R2-200), 18/10
+
+| Việc | Cách cài | Kiểm chứng |
+|---|---|---|
+| **BUG-R2-196** (K11-08, ARC đã bỏ câu "vắng cả hai" ở K11-03) | `minibar.controller.ts` `checkSchema`: `roomId` bắt buộc; `periodId` bắt buộc, được phép `null`. Thiếu một trong hai, kể cả thiếu cả hai, → 422 `REQUIRED` với mọi vai (zod, trước mọi đọc). `record()`: kiểu `roomId: string; periodId: string \| null` bắt buộc; bỏ nhánh "có `periodId` mà vắng `roomId`" và nhánh "vắng `roomId` thì lấy căn đang gán"; `assertPeriod` luôn so (`null` chỉ khớp tủ chưa có lần nạp – (ac)) | `minibar-m1`: ca "client cũ" (FD vắng cả hai, HK chỉ `roomId`) nay 422, minibar giữ 70.000; K11-05 viết lại: soạn trước B14 → 409 `MINIBAR_PERIOD_CHANGED` → tải lại → 201 ghi tủ 301 + 1 việc; ca đua A1 nay `[201, 409]`. Sửa helper gửi `roomId`/`periodId` ở `payments-s3`, `s438-beb`, `minibar-catalog-s4-bed` |
+| **BUG-R2-197** (R6FIX-01, ARC 16.17 mục 3 bổ sung) | Migration **0071** `minibar_double_count_check` (viết tay, không đổi schema – snapshot là bản sao 0070, `drizzle-kit generate` báo "No schema changes"). **Không sửa dữ liệu** (chính sách 0067): chạy K1 và K1b, khác 0 → `RAISE EXCEPTION` kèm danh sách tủ (mã đơn, số căn, từng lần đếm sống với id, kỳ hoặc "no period", số tiền). Tắt RLS chỉ khi đọc (`minibar_check`, `reservation`, `room` – thiếu `room` thì không RAISE được) | `minibar-m1` ca BUG-R2-197 hai pha mô phỏng dữ liệu ce90d19: chủ sở hữu chèn lần đếm thiếu kỳ (bản sao dòng của lần đếm đúng) → K1b = 1, 0071 RAISE có mã đơn, `room 401`, cả hai id; đánh dấu lần đếm thiếu kỳ đã bị thay → K1b = 0, 0071 qua, B18 minibar đúng 70.000. Ca 0067 chạy 0071 làm đối chứng |
+| **BUG-R2-198** (ARC 16.19 bổ sung 4) – phần cấu trúc | `ApprovalService.onBeforeDecide(types: ApprovalType \| readonly ApprovalType[], hook: PreLockHook)` – preLock **theo loại**; dạng cũ `onBeforeDecide(hook)` giữ lại (deprecated, chạy cho mọi loại, không được tính là đã khai). `decisionHooks()` liệt kê mọi loại có `onDecided` và cờ đã khai preLock. preLock chạy trên **mọi** đường quyết định: approve, reject, cancel, `autoCancel`, `cancelSuperseded` (đọc id mở không khóa → preLock từng yêu cầu → rồi mới `FOR UPDATE`). Khai: `foc`/`special_discount`/`damage_pricing` (folio – `lockStay`), **`refund` → L3 folio** (`RefundsService.lockFolioOf`; `lock()` của chi hoàn cũng đi qua nó: folio → yêu cầu) | `reversal-debt-g4`: (1) ca cấu trúc – `refund`, `foc`, `special_discount`, `damage_pricing` có preLock; loại thiếu chỉ được nằm trong danh sách còn nợ `late_checkout_conflict`, `no_show_restore` (BE-A, đang dùng dạng cũ), `quote_extension` (BE-D/BE-A); loại mới có `onDecided` mà không khai → đỏ. (2) refund approve/reject/cancel: một giao dịch giữ folio → quyết định chờ, dòng yêu cầu vẫn khóa được `NOWAIT` (chưa bị khóa) → nhả → 200. Đột biến bỏ preLock `refund` (chạy trên cây, đã trả lại) → 3 ca đỏ |
+| **G-4 / BR-525** (DOM 18/10, BUG-R2-200, oracle BR-525-01) | `PaymentsService.reverse()`: thứ tự khóa L1 **mọi đơn của folio `FOR NO KEY UPDATE`** theo id (`FolioService.lockStay` – công nợ được ghi lên các đơn này) → L3 folio → L4 giao dịch → L4 yêu cầu hoàn. Đơn chính `checked_out`: đọc còn phải thu trước và sau khi đảo (dưới khóa); **chỉ khi việc đảo làm tăng số phải thu và số sau > 0** mới gọi cổng của BE-A **`ReservationHooks.debtAfterReversal(tx, { folioId, paymentId, reason, actor, requestId })`** trong cùng giao dịch (BE-A: `checkout_mode = debt`, lý do = lý do đảo, hạn mặc định, `debt_recorded` cho OWN + MGR, "Cần chú ý" `checkout_debt` tính lúc đọc). Không dòng `post_checkout`, folio giữ `settled`, số bill không đổi. Audit `payment.reversed` thêm `after.debtVnd`. Mọi lần đảo (mọi trạng thái đơn): dư thừa còn lại < yêu cầu hoàn đang mở → `FolioService.reconcileRefundsAfterReversal` chạy lại refundPlan (yêu cầu chờ duyệt tự hủy `superseded`, tạo lại một yêu cầu đúng số nếu còn dư; yêu cầu đã duyệt không đụng – SM-10); đơn hủy/no-show hết dư → đóng `closed_reservation_credit`. `reopenStayCredit` dùng chung hàm `refundsDownToCredit` | `reversal-debt-g4` (B18 thật qua HTTP; spy đứng trước handler thật của BE-A): BR-525-01 – đảo chuyển khoản 100.000 → công nợ **100.000** (`checkout_mode debt`, lý do, hạn > ngày đi), OWN nhận `debt_recorded` (MGR đảo không nhận), "Cần chú ý" có mã đơn, trong lúc gọi folio vẫn `settled` và 0 dòng `post_checkout`, số dòng và số bill không đổi; khách trả 100.000 → dư 0, mục biến mất; đảo một khoản thu dư → dư 0, không công nợ. Đảo lần hai → công nợ = toàn bộ số phải thu, lý do/hạn đầu giữ nguyên. Handler lỗi sau khi ghi → 500, không dòng đảo, không công nợ, không thông báo (cùng giao dịch). refundPlan: dư 120.000 dưới yêu cầu 200.000 → hủy `superseded` + yêu cầu 120.000 mới. **Ca đua** (mỗi thứ tự ép bằng khóa folio = chạy tuần tự cùng thứ tự; oracle: dư, số dư, công nợ từng lần gọi = số phải thu trong chính giao dịch đó, yêu cầu hoàn, mã trạng thái): đảo ‖ khách trả 100.000; đảo tiền mặt ‖ đảo chuyển khoản; đảo 80.000 ‖ MGR duyệt hoàn 200.000 (preLock `refund`). 0 lỗi 500, 0 deadlock |
+
+**Truy vấn K1b cho OPS/DATA** (vai bỏ qua RLS – `ottimo_owner` với RLS tắt như 0071, hoặc superuser của OPS; kết quả phải rỗng trước khi chạy 0071 trên dữ liệu thật):
+
+```sql
+WITH live AS (
+  SELECT c.id, c.reservation_id, c.room_id, c.fill_id, c.total_vnd, c.created_at, r.status, r.code
+    FROM minibar_check c JOIN reservation r ON r.id = c.reservation_id
+   WHERE c.mode = 'checkout' AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id)
+)
+SELECT code, room_id, count(*) AS live_counts,
+       string_agg(format('%s (%s, %s VND)', id, COALESCE(fill_id::text, 'no period'), total_vnd), ', '
+                  ORDER BY created_at, id) AS counts
+  FROM live
+ GROUP BY code, reservation_id, room_id
+HAVING count(*) > 1 AND bool_or(fill_id IS NULL);   -- K1b; K1 = live AND status = 'in_house' AND fill_id IS NULL
+```
+
+Mỗi dòng xử lý tay theo ARC 16.17 mục 3 bổ sung (đảo dòng folio của lần đếm thiếu kỳ có lý do, đánh dấu nó bị lần đếm đúng thay, hủy việc bổ sung thừa, K1/K1b/K2/K3 = 0) và ghi decision-log. DB demo/test không có dữ liệu thật thì dựng lại.
+
+**Chữ ký gửi ORC:**
+- BE-A/BE-D khai preLock: `this.approvals.onBeforeDecide('late_checkout_conflict', hook)`, `onBeforeDecide('no_show_restore', hook)`, `onBeforeDecide('quote_extension', hook)` – `hook: (tx: Tx, approvalId: string) => Promise<void>`, chạy trước `approval_request FOR UPDATE` trên mọi đường quyết định. Xong thì bỏ loại đó khỏi `PRELOCK_OWED` trong `test/integration/reversal-debt-g4.test.ts`.
+- G-4: tôi gọi đúng cổng BE-A đã cài (`reservations/public/reservation-hooks.ts` `DebtAfterReversalInput`), không lập cổng riêng.
+
+**Giả định BE-B (G-4):**
+- (a) Chỉ gọi cổng công nợ khi việc đảo làm **tăng** số phải thu. Đảo khoản chi hoàn hoặc khoản thu dư không gọi, kể cả khi đơn đang có nợ khác (khoản phát sinh sau trả phòng còn trong hạn 24 giờ không bị đổi thành công nợ sớm).
+- (b) refundPlan chạy lại sau **mọi** lần đảo, không chỉ sau B18 (cùng bất biến BR-522: yêu cầu hoàn mở ≤ dư thừa). Lý do tự hủy dùng `superseded` có sẵn – ARC có thể thêm lý do riêng (`payment_reversed`) nếu muốn hiện khác.
+- (c) Hoa hồng đã "đạt" lúc B18 không bị đổi lại khi đảo (BR-903 không nói) – DOM xem nếu cần.
+- (d) Hạn công nợ mặc định do BE-A đặt (hằng số 7 ngày, [GIẢ ĐỊNH BE-A]); `checkout_debt`, `debt_recorded`, 0072 cần ARC đưa vào hợp đồng.
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4c`, cây chung có phần đang làm của BE-A gồm 0072 và handler công nợ): `@ottimo/api` **2.917/2.917 xanh** (98 tệp, 1 tệp bỏ qua); `reversal-debt-g4` 9/9; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm. Không commit.
+
+**Tệp mục 23:**
+- `src/modules/inventory/internal/{minibar.controller,minibar.service}.ts`
+- `src/db/migrations/0071_minibar_double_count_check.sql`, `meta/0071_snapshot.json`, `meta/_journal.json` (idx 48)
+- `src/modules/approvals/public/approval.service.ts`, `src/modules/folio/folio.module.ts`, `src/modules/payments/payments.module.ts`, `src/modules/payments/internal/{refunds,payments}.service.ts`, `src/modules/folio/public/folio.service.ts`
+- `test/integration/{minibar-m1,payments-s3,s438-beb,minibar-catalog-s4-bed,reversal-debt-g4}.test.ts` (`reversal-debt-g4` mới)
+- tài liệu này
+
+**23 bổ sung (ORC 18/10, sau handback):**
+- **`quote_extension` – preLock theo loại** (module sales): `QuotesService.lockForExtensionDecision` khóa `quote` trước dòng yêu cầu trên mọi đường quyết định. Các đường báo giá (Q2 giữ chỗ, Q3 rút, Q4 gia hạn) đều khóa `quote` trước. `PRELOCK_OWED` nay **rỗng**; test cấu trúc đòi cả 7 loại có preLock. `sales.test` "extendQuote": một giao dịch giữ `quote` thì lệnh duyệt phải chờ, còn dòng yêu cầu vẫn khóa được `NOWAIT`. Thử bỏ preLock này thì 2 ca đỏ.
+- **Số công nợ = phần tăng** (DOM 18/10, khớp BE-A): `reverse()` đọc còn phải thu **trước** khi ghi dòng đảo (dưới L3) và truyền `dueBeforeVnd`. BE-A ghi công nợ = max(0, sau) − max(0, trước) và trả `debtVnd`. Audit `payment.reversed.after.debtVnd` là phần tăng. Ca "đơn đang nợ": lần đảo thứ hai chỉ cộng thêm khoản tiền mặt.
+- **Hoa hồng (BR-903, G-4 (3))**: đảo xong mà đơn đã trả phòng còn nợ thì `FolioService.unearnCommissions` chuyển các hoa hồng `earned`/`payable` của mọi đơn trên folio về `projected` (`recognized_at` = NULL). Audit `commission.projected` ghi `before.status` và lý do đảo. Thao tác này chạy trong cùng giao dịch, khóa sau folio. `paid` giữ nguyên. Khi khách trả hết nợ, `recordPayment` gọi `tryEarnCommissions` và hoa hồng đạt lại với ngày trả. Test: sale 3 % đạt lúc B18, đảo → `projected`, trả sáng hôm sau → `earned` ghi ngày đó; `payable` → `projected`; `paid` không đổi. Ca đua "đảo ‖ khách trả" có thêm trạng thái hoa hồng trong oracle.
+- **Oracle BR-525-01**: test G-4 đọc thẳng `tests/fixtures/br-examples.json` (khoản chuyển khoản, lý do, `afterReversal`, `notified` OWN + MGR – MGR thứ hai nhận, MGR đảo thì không, `afterGuestPays`, `noDebtWhenDueNotPositive`). Đã gỡ `pendingFix: BUG-R2-200` bằng cách xóa đúng một dòng; `validate-fixtures` 0 lỗi.
+- **Lỗ hổng báo ORC/DOM (không sửa ở đây)**: `recordPayment` trên folio `settled` sau hạn 24 giờ (`post_checkout_window_until`), hoặc folio `closed`, trả 409 `FOLIO_LOCKED` (`lockForPosting`, đúng câu hợp đồng). Như vậy công nợ (B18 hoặc G-4) **không thu được sau 24 giờ**, và hoa hồng không đạt lại được. Ví dụ của ORC (đảo 17/11, trả 19/11) sẽ ra 409. Đề xuất: cho phép **khoản thu** (không phải dòng phí) tới đúng số còn phải thu trên folio của đơn đang có công nợ, kể cả khi đã hết hạn hoặc `closed`. Việc này cần DOM chốt và ARC sửa hợp đồng. Test hiện thu trong hạn 24 giờ.
+- **Kiểm chứng**: `@ottimo/api` **2.920/2.920 xanh** (98 tệp, 1 tệp bỏ qua) trên DB mới; tsc, eslint, prettier xanh. Không commit.
+- **Tệp thêm**: `src/modules/sales/{sales.module.ts,internal/quotes.service.ts}`, `test/integration/sales.test.ts`, `product/tests/fixtures/br-examples.json` (gỡ 1 dòng).
+
+**23 bổ sung 2 – ARC 16.26 thu công nợ sau trả phòng (DOM 18/10 đồng ý, kèm điều kiện đối soát):**
+- **Nhánh thu nợ trong `recordPayment`**:
+  - Áp dụng khi: đơn `checked_out`, folio `settled` (kể cả đã hết hạn) hoặc `closed`, và `ReservationHooks.openDebt(tx, folioId)` của BE-A khác `null`.
+  - Thứ tự khóa: L1 đơn chính (`scopedReservation`), rồi mọi đơn của folio `NO KEY UPDATE` (`lockStay`), rồi L3 folio, rồi L4 khoản thu.
+  - Ràng buộc: chỉ `type = charge` (khác → 422 `NOT_IN_LIST`); FD trở lên (SAL/CTV → 403); tối đa bằng số còn phải thu (vượt → 422 `AMOUNT_EXCEEDS_BALANCE` + `max`, kể cả khi có `note`).
+  - Folio, hóa đơn và các dòng giữ nguyên. Audit `payment.recorded` có `debtCollection: true`.
+  - Thu đủ → gọi `ReservationHooks.debtSettled` trong cùng giao dịch: công nợ đóng, mục `checkout_debt` hết. Thu một phần → công nợ còn mở, giữ hạn cũ.
+  - Không có công nợ mở → 409 `FOLIO_LOCKED` như trước. `PaymentService.recordInTx` nhận thêm chế độ `debtCollection`.
+- **"Cổng hoa hồng đã thu đủ"**: hoa hồng do module folio của BE-B ghi (`FolioService.tryEarnCommissions`), nên không lập `CommissionPort` riêng. `recordPayment` và đối soát (`applyReconciliation`) đã gọi hàm này. Điều kiện mới theo DOM: khoản thu ghi **sau** giờ trả phòng (`created_at > actual_checkout_at`) còn `pending`/`disputed` thì hoa hồng chưa đạt; hoa hồng đạt khi khoản đó được đối soát xong.
+- **Test** (`reversal-debt-g4`, 14 ca):
+  - Ví dụ ORC: đạt ngày D (B18), đảo D+1, thu D+3 sau hạn → 201; công nợ đóng, mục chú ý hết, hoa hồng đạt lại ghi ngày D+3. Các ca từ chối: thu vượt → 422 `max` 100.000; `deposit` → 422; SAL → 403; công nợ đã đóng → 409.
+  - Ví dụ DOM: 60.000 tiền mặt → còn nợ 40.000, hạn giữ nguyên; 40.000 chuyển khoản → công nợ đóng, hoa hồng vẫn `projected`; MGR đối soát ngày D+4 → hoa hồng `earned` ghi ngày D+4.
+  - Ca đua: hai lễ tân cùng thu 100.000 (một 201, một 409); thu nợ ‖ MGR đảo khoản tiền mặt (công nợ mở lại). Mỗi ca so với chạy tuần tự cùng thứ tự.
+- **Kiểm chứng**: `@ottimo/api` 2.924/2.925 trên DB mới. Ca đỏ duy nhất là ca ARC 16.26 trong `s4-recheck6-be-a` của BE-A: nó gọi thẳng `debtSettled` sau khi thu đủ, trong khi nay `recordPayment` đã tự đóng công nợ. BE-A đã sửa ca này trên cây chung; chạy lại tệp đó 11/11 xanh. tsc, eslint, prettier xanh. Không commit.
+- **Tệp**: `src/modules/payments/{internal/payments.service.ts,public/payment.service.ts,payments.module.ts}`, `src/modules/folio/public/folio.service.ts`, `test/integration/reversal-debt-g4.test.ts`.

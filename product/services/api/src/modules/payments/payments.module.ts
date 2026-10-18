@@ -39,6 +39,10 @@ defineAuditEntity('payment', [
   'receivedAmountVnd',
   // PO 17/10 (SEC-37): an OWN approved and paid the same transfer refund ("OWN tự duyệt và chi").
   'ownSelfApprovedAndPaid',
+  // BR-525 (G-4): the debt a reversal after check-out left (folio balance due, recorded by the front desk).
+  'debtVnd',
+  // ARC 16.26 (BR-525): a receipt collecting the debt of a checked-out stay.
+  'debtCollection',
 ]);
 defineAuditEntity('deposit_notice', ['amountVnd', 'status']);
 // Refund destination events (no C3: method and the last 4 digits only – D15 masked).
@@ -63,6 +67,10 @@ export class PaymentsModule implements OnModuleInit {
 
   onModuleInit(): void {
     this.approvals.onDecided('refund', (tx, row) => this.refunds.onDecided(tx, row));
+    // ARC 16.19 bổ sung 4 (BUG-R2-198): a refund decision reads the folio's surplus – L3 folio before L4.
+    this.approvals.onBeforeDecide('refund', (tx, approvalId) =>
+      this.refunds.lockFolioOf(tx, approvalId),
+    );
     // FB-R2-ARC-BE-S3-15 b: "Cần chú ý" reconcile_overdue is computed by this module.
     this.events?.registerAttentionSource(reconcileOverdueSource);
     // 0.3.7 bổ sung 1 (ARC 11.3 (2)): Reservation.depositNotices[] – reservations reads this module's table through

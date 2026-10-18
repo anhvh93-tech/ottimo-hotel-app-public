@@ -810,3 +810,107 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
 - **D-A7-2:** mã đã làm tròn đúng – `divideRoundVnd`/`applyPct` làm tròn nửa lên tới đơn vị tham số (`rounding.night_rate` và `rounding.fee` = 1.000). Áp cho ngày lẻ, phụ thu nhận sớm/trả muộn (BR-411/412/413) và hoàn trả sớm (BR-428). Test: 9.410.000 ÷ 30 → 314.000.
 - **Oracle:** `br-examples.json` không có số nào đổi. Không tìm thấy 27.926.000 trong fixture của QA/DATA; nếu DATA có oracle OTM-0108 ngoài repo thì số đúng là 28.230.000.
 
+
+## 21. Kiểm lại tiền lần 6 – BUG-R2-198, BUG-R2-195 (+ AN-48, AN-49), G-4 / BR-525 (`reviews/s4-money-recheck6.md`; ARC 16.19 bổ sung 4; DOM 18/10)
+
+### 21.1 BUG-R2-198 – quyết định yêu cầu khóa đơn trước dòng yêu cầu (P2)
+- **`late_checkout_conflict`:** `StayService.lockForLateCheckoutDecision` khóa đơn đích `FOR NO KEY UPDATE` (L1) trước `approval_request` (L4). `onDecided` của loại này chỉ ghi đơn, không ghi phụ thu hay căn, nên chỉ cần L1.
+- **`no_show_restore`:** `ReservationsService.lockForRestoreDecision` khóa đúng thứ tự `restoreNoShow` dùng: đơn (L1) → căn của đơn `FOR UPDATE` (L2, đọc sau L1) → folio (L3) → rồi mới tới L4.
+- Cả hai đăng ký theo loại bằng khung mới của BE-B: `approvals.onBeforeDecide('<loại>', hook)`. Hook có chữ ký `(tx, approvalId)` và tự lọc theo loại. Khung chạy hook ở approve, reject, cancel, `autoCancel` và `cancelSuperseded`; B18 đang giữ L1/L3 nên không phải chờ.
+- **`quote_extension`: không bị lỗi này.** `onExtensionDecided` chỉ khóa và ghi `quote`, không chạm đơn giữ chỗ hay folio. Không đường nào giữ `quote` rồi chờ một `approval_request` đã có: `extend` đọc `pendingFor` không khóa và chỉ thêm dòng mới. Vì vậy không có vòng chờ.
+  - Module sales là của BE-B (Sprint 2), không thuộc BE-A. Để `quote_extension` qua được test cấu trúc `decisionHooks()`, BE-B khai một preLock khóa `quote`, hoặc ARC ghi loại này là ngoại lệ.
+  - BE-A không sửa module sales.
+- **`PRELOCK_OWED`** (`reversal-debt-g4.test.ts` của BE-B): đã xóa `late_checkout_conflict` và `no_show_restore` theo yêu cầu ORC. Chỉ còn `quote_extension`, kèm ghi chú kết quả rà ở trên.
+  - Prettier đã định dạng lại tệp này. Tệp còn chưa được track; chỉ đổi định dạng, không đổi logic.
+- **Test** `test/integration/s4-recheck6-be-a.test.ts`, 6 ca:
+  - `decisionHooks()` có preLock cho cả hai loại.
+  - **Ép thứ tự bằng khóa thật:** một giao dịch test giữ đơn (cả hai loại), căn hoặc folio (`no_show_restore`). Quyết định phải đứng chờ, và trong lúc chờ, dòng yêu cầu vẫn khóa được bằng `NOWAIT`. Chạy với approve, reject, cancel.
+  - **B18/B13 xếp trước:** giữ folio để B18/B13 dừng ở L3 khi đã cầm L1 và L2, rồi gửi quyết định (approve, reject, cancel × B18; approve × B13). Không deadlock. Quyết định nhận 409 `INVALID_TRANSITION`. Tiền bằng khi chỉ chạy lệnh đó.
+  - **Đua tự nhiên 6 lượt** (B18 × approve 3 lượt, B18 × reject, B13 × approve, B13 × cancel): chỉ ra kết quả tuần tự, không lần nào 409 `CONCURRENT_UPDATE`.
+  - **approve `no_show_restore` ‖ MGR B12 trực tiếp, 3 lượt:** khôi phục đúng một lần, 2 × 792.000.
+- **Oracle** (theo recheck6): B18 trước → đơn `checked_out`, yêu cầu `cancelled`, 917.000, due 0. Quyết định trước → B18 nhận 412, agreed 14:00, due 0. B13 trước → 2 đêm 1.834.000, due 917.000. Reject/cancel trước → agreed để trống, yêu cầu `rejected`/`cancelled`.
+- **Đột biến** (bỏ hai preLock, chạy trên bản sao): 4/5 ca đỏ. Ca đua tự nhiên tái hiện 409 `CONCURRENT_UPDATE`.
+  - Ca approve ‖ B12 vẫn xanh khi bỏ preLock: hai lệnh không tạo vòng chờ, ca này chỉ làm oracle.
+  - Vòng thật của `no_show_restore` cần thêm đường `refund` (yêu cầu hoàn bị `autoCancel`). Đường này dựa vào preLock `refund` của BE-B (L3).
+
+### 21.2 BUG-R2-195 + AN-48 (G-2) – MovePlanner lấy đêm tham chiếu như B13 (P1)
+- **Một cách dự phòng chung:** thêm `stayRooms(view, roomNow)` vào `reservations/public/added-night-price.ts`. Lượt chưa từng đổi căn và chưa lưu căn gốc dùng căn đang ở làm căn gốc (mốc của đêm gõ lúc đặt) và làm CKM.
+  - B13/B9a/B18 (`StaySupport.addedNightContext`) và MovePlanner cùng gọi hàm này. MovePlanner không còn truyền `null`.
+- **Phía tìm đêm tham chiếu theo vị trí** (DOM G-2): `referenceSide(nights, d)`.
+  - Đêm thêm trước đêm đầu của lượt (trước thao tác) → `after`: đêm gõ sớm nhất sau `d`.
+  - Các trường hợp còn lại → `before`: đêm gõ muộn nhất trước `d`.
+  - MovePlanner dùng hàm này. B9a/B13 vẫn ra cùng kết quả.
+- **AN-49 (G-3):** mã đã đúng, không sửa. Test xác nhận: (a) 102 ra 750.000, keep `null`, khoảng 530.000–1.900.000; (b) 203 → 401 ra 792.000, keep 792.000, khoảng 530.000–2.630.000.
+- **Test** `br417-an-table.test.ts` đọc oracle BR-417-21, -22, -23 của QA:
+  - A: 650.000, folio 1.300.000 → 1.950.000.
+  - MP-2: 650.000, bằng B13 trên cùng trạng thái; `currentBookingRateVnd` 650.000; khoảng 530.000–2.630.000.
+  - MP-3: 900.000. D: chênh 0. E: 900.000. F: 650.000.
+  - AN-48 đến sớm: 30/09 ra 650.000, không ra lịch 792.000; folio 1.950.000; bằng B9a, khoảng 530.000–1.900.000.
+  - AN-48 dời cả kỳ: chênh 0. AN-48 OTTIMO → 401: 650.000.
+- **Đột biến:** trả lại `?? null` → BR-417-21 và -22 đỏ (792.000 thay 650.000). Bỏ `referenceSide` → AN-48 đỏ.
+- Đã gỡ `pendingFix: BUG-R2-195` ở BR-417-21 và BR-417-22 bằng `unpend.py`.
+- **Chưa chạy:** fuzz `r6rate` hai seed (chưa có trong cây chung – việc QA/T9).
+
+### 21.3 G-4 / BR-525 – công nợ khi đảo khoản thu sau trả phòng (BUG-R2-200, cùng BE-B)
+- **Cổng:** `ReservationHooks.debtAfterReversal(tx, { folioId, paymentId, reason, dueBeforeVnd, actor, requestId? })` → `{ recorded, reservationId, debtVnd, balanceDueVnd, dueDate }`.
+  - Frontdesk cung cấp cổng này (`CheckoutService.debtAfterReversal`). BE-B đã gọi nó trong `reversePayment`, đúng chữ ký trên.
+  - Bên gọi phải giữ sẵn L1 (`FolioService.lockStay`) → L3. Cổng tự đọc số dư dưới các khóa đó.
+- **Số tiền nợ (DOM 18/10):** chỉ phần tăng do việc đảo: `debtVnd` = max(0, còn phải thu sau) − max(0, `dueBeforeVnd`).
+  - `dueBeforeVnd` do BE-B đọc dưới L3 trước khi ghi việc đảo. Cổng tự đọc số "sau".
+  - Ví dụ DOM: minibar 70.000 ghi sau trả phòng (còn trong hạn) rồi đảo 100.000 → nợ **100.000**, không phải 170.000. Folio đang thừa 30.000 rồi đảo 100.000 → nợ **70.000**.
+  - BE-A đã sửa chỗ gọi của BE-B trong `payments.service.ts`: truyền `dueBeforeVnd: dueBefore` và dùng `debt.debtVnd` cho `payment.reversed.after.debtVnd`. Đây là sửa 2 dòng trong module của BE-B, **cần BE-B xem lại**.
+- **Việc cổng làm** khi đơn chính đã `checked_out` và `debtVnd` > 0:
+  - Các đơn đã trả phòng của lượt chuyển sang `checkout_mode = debt`. Hạn = ngày nghiệp vụ + tham số `debt_default_due_days`. Lý do = lý do đảo. Hạn và lý do đã có thì giữ.
+  - Ghi nhật ký đổi `checkout_mode` và audit tiền `reservation.debt_on_checkout` (`debtVnd`, `balanceDueVnd`, `dueDate`). Đã thêm `debtVnd` vào danh sách trường audit cho phép.
+  - Gửi thông báo `debt_recorded` tới OWN và MGR, trừ người đảo. Phát SSE `reservation.changed`.
+  - Không ghi dòng `post_checkout`; folio và bill giữ nguyên.
+  - Đơn chưa trả phòng, hoặc việc đảo không làm tăng số phải thu → `recorded: false`.
+- **"Cần chú ý" `checkout_debt`:** tính lúc đọc, chỉ MGR+ thấy, `params` chỉ có `count`.
+  - Gồm đơn `checkout_mode = debt` mà folio còn phải thu.
+  - Mức `critical` khi đã quá hạn, còn lại `warning`. `dueAt` = hạn sớm nhất. Có `refCode` khi chỉ có 1 đơn.
+  - Mục mất khi thu đủ hoặc khi MGR FOC/xóa nợ.
+  - Lọc SQL lấy tập rộng hơn (dòng posted > khoản thu của chính khách), rồi `FolioService.balance` quyết định.
+  - Công nợ ghi lúc B18 (A19) cũng hiện ở mục này – đúng BR-525 "cảnh báo quá hạn".
+- **Migration `0072_debt_recorded_notification`** thêm `debt_recorded` vào CHECK `staff_notification_kind_check`. Kèm schema, `0072_snapshot.json` (= 0071 + loại mới) và journal. ARC đã nhận số 0072.
+- **Tham số `debt_default_due_days`** (migration **0073**, ORC cấp số): khóa trong danh mục tham số, kiểu `int`, OWN/MGR sửa được, BR-525.
+  - Mặc định **3** (DOM 18/10, [GIẢ ĐỊNH – chờ INV]). Biên 1–30, bằng biên hạn nợ gõ ở B18.
+  - Cơ sở chưa có dòng `config_parameter` thì dùng mặc định. Không đổi schema; `0073_snapshot.json` = 0072.
+  - Đã bỏ hằng số trong mã. Quản lý vẫn sửa được hạn của từng khoản khi ghi nợ ở B18.
+  - `schema-parity` xanh. `drizzle-kit generate` báo "No schema changes".
+- **Test** (`s4-recheck6-be-a`, đọc BR-525-01), đi đúng đường HTTP `reversePayment` của BE-B:
+  - Đảo 100.000 → nợ 100.000, hạn +3, lý do "Chuyển khoản không về", 0 dòng `post_checkout`, folio `settled`, `billNo` không đổi.
+  - OWN được báo, MGR đã đảo không bị báo. FD không thấy mục. Khách chuyển lại 100.000 → mục đóng.
+  - Ca biên: đơn đang ở → không có nợ. Số dư 0 → cổng trả `recorded: false`. Đảo lần hai (100.000 rồi 50.000) → nợ ghi 100.000 rồi 50.000, tổng phải thu 150.000, giữ hạn 28/03, quá hạn → `critical`.
+  - Hai ví dụ số tiền của DOM: 100.000 (có minibar 70.000 sau trả phòng) và 70.000 (folio thừa 30.000). Cổng gọi trực tiếp với `dueBeforeVnd` = số hiện có → `recorded: false`.
+  - Tham số: danh mục (mặc định 3, biên 1–30, OWN/MGR); MGR đặt 31 → 422 `PARAM_OUT_OF_RANGE`; đặt 10 → khoản nợ sau đó có hạn +10.
+  - `pendingFix: BUG-R2-200` của BR-525-01 để BE-B/QA gỡ (sửa chung).
+- **Cần ARC/UXD:**
+  - Thêm `checkout_debt` vào `AttentionItem.kind` (bảng khóa `params`: `count`; người thấy MGR+).
+  - Thêm `debt_recorded` vào `StaffNotification.kind` (OWN + MGR, `refType` = `reservation`).
+  - UXD viết chuỗi cho hai loại này.
+  - ARC thêm `debt_default_due_days` vào danh sách tham số (erd 9 / 9.1a: biên 1–30).
+
+### 21.3b ARC 16.26 – thu công nợ sau trả phòng (cổng cho BE-B)
+- **`ReservationHooks.openDebt(tx, folioId)`** → `{ reservationId, reservationCode, reservationIds, dueDate, balanceDueVnd }`, hoặc `null`.
+  - Có công nợ mở khi đơn chính `checked_out`, `checkout_mode = debt`, chưa đóng (`debt_settled_at` trống) và folio còn phải thu.
+  - Bên gọi giữ sẵn L1 → L3, như `reversePayment`; số dư đọc dưới các khóa đó.
+  - `balanceDueVnd` là trần của khoản thu nợ.
+- **`ReservationHooks.debtSettled(tx, { folioId, paymentId, actor, requestId? })`** → `{ settled, reservationIds, balanceDueVnd }`.
+  - Folio hết nợ → ghi `debt_settled_at` lên các đơn đang nợ, audit trạng thái `reservation.debt_settled`, phát SSE.
+  - Còn nợ (mới thu một phần), hoặc đã đóng từ trước → `settled: false`, không đổi gì.
+- `debtAfterReversal` ghi nợ mới thì xóa `debt_settled_at`, tức mở lại công nợ. Mục `checkout_debt` chỉ lấy công nợ chưa đóng.
+- **Migration `0074_debt_settled_at`**: thêm cột `reservation.debt_settled_at` và CHECK `reservation_debt_settled_check` (chỉ đơn có `checkout_mode = debt` mới có giá trị).
+  - Kèm schema, `0074_snapshot.json` và journal.
+  - Số **0074 do BE-A đề xuất – ORC xác nhận hoặc đổi số.**
+- BE-B đã gọi hai cổng này trong nhánh thu nợ của `recordPayment`, đúng chữ ký trên.
+- **Test** (`s4-recheck6-be-a`):
+  - Chưa đảo → không có công nợ mở. Đảo 100.000 → công nợ mở 100.000, hạn theo tham số.
+  - Thu 50.000 → còn 50.000, `debtSettled` trả `settled: false`.
+  - Thu nốt 50.000 qua `recordPayment` → công nợ đóng (`debt_settled_at` = lúc thu, 1 audit), `openDebt` trả `null`, mục "Cần chú ý" hết; gọi lại `debtSettled` không đổi gì.
+  - Đảo khoản 50.000 còn lại → công nợ mở lại 50.000, giữ hạn cũ, mục hiện lại.
+
+### 21.4 Kiểm máy
+- **Vitest api toàn bộ, DB mới `ottimo_test_bea_r6i`** (sau 16.26): 2925/2927 xanh, 98/99 tệp; 2 ca bỏ qua là bộ đo hiệu năng.
+- `drizzle-kit generate` báo "No schema changes"; `schema-parity` xanh.
+- tsc, eslint sạch. Prettier sạch trên các tệp BE-A sửa.
+- Không commit.

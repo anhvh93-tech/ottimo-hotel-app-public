@@ -1,18 +1,19 @@
 /**
  * "Cần chú ý" items computed from booking/inventory/housekeeping state (erd BE-ARC-06 – not stored):
  * capacity_conflict (A-20), overbooking (BR-312), no_show_call / no_show_mark (BR-311), hold_expiring
- * (BR-303 `hold_expiry_reminder_hours`), extra_guest_kit_overdue (BR-812), room_ooo (SM-02).
+ * (BR-303 `hold_expiry_reminder_hours`), extra_guest_kit_overdue (BR-812), room_ooo (SM-02), checkout_debt (BR-525).
  * Codes, counts, booking ids and room numbers only (SEC J). `count` is the full count (`count(*) OVER ()` –
  * ARC-BE-S3-23.4); the id/room lists are capped at LIST_CAP. Child bookings (B9a / OTA extension) are never
  * arrivals of their own (ARC B-1 #5 b).
  */
 import type { Tx } from '../../../db/database';
-import { atLocal, type LocalTime } from '../../../shared/time';
+import { atLocal, type LocalDate, type LocalTime } from '../../../shared/time';
 import type {
   AttentionItem,
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
+import type { FolioService } from '../../folio/public/folio.service';
 import { businessMinutes } from '../public/stay-rules';
 
 /** Technical cap of the ids/room numbers listed in one item (the UI shows a summary). */
@@ -181,6 +182,56 @@ async function roomsOoo(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionI
       params: { count: rows.length },
     },
   ];
+}
+
+/**
+ * BR-525 (18/10 – G-4): "Cần chú ý" `checkout_debt` (MGR+, computed) – checked-out stays whose debt is still open:
+ * `checkout_mode = debt` (B18 debt, A19, or a receipt reversed after check-out – CheckoutService.debtAfterReversal)
+ * not settled (`debt_settled_at`, ARC 16.26) and the folio still owes money. Gone as soon as the money is in, or MGR
+ * FOCs / writes it off (BR-433). `critical`
+ * once a due date has passed (BR-525 "cảnh báo quá hạn"), else `warning`; `dueAt` = the earliest due date (start
+ * of that business day). The SQL keeps the folios whose posted lines exceed their own receipts (a superset of
+ * `balanceDueVnd > 0` – OTA money only lowers it), then the folio module's balance decides (one computation).
+ */
+export function checkoutDebtSource(folios: Pick<FolioService, 'balance'>): AttentionSource {
+  return async (tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> => {
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      folio_id: string;
+      due: LocalDate | null;
+    }>(
+      `SELECT r.id, r.code, r.folio_id, r.debt_due_date::text AS due FROM reservation r
+        WHERE r.checkout_mode = 'debt' AND r.status = 'checked_out' AND r.parent_reservation_id IS NULL
+          AND r.debt_settled_at IS NULL
+          AND (SELECT COALESCE(sum(l.amount_vnd), 0) FROM folio_line l
+                WHERE l.folio_id = r.folio_id AND l.line_state = 'posted')
+            > (SELECT COALESCE(sum(p.amount_vnd), 0) FROM payment p
+                WHERE p.folio_id = r.folio_id AND p.status = 'succeeded' AND p.reversal_of_id IS NULL
+                  AND p.type <> 'security_deposit' AND p.method <> 'ota_collect')
+        ORDER BY r.debt_due_date NULLS LAST, r.id LIMIT $1`,
+      [LIST_CAP],
+    );
+    const open: typeof rows = [];
+    for (const r of rows) {
+      if ((await folios.balance(tx, r.folio_id)).balanceDueVnd > 0) open.push(r);
+    }
+    if (open.length === 0) return [];
+    const dues = open.map((r) => r.due).filter((d): d is LocalDate => d !== null);
+    const earliest = dues.length > 0 ? dues.reduce((a, b) => (b < a ? b : a)) : null;
+    return [
+      {
+        kind: 'checkout_debt',
+        source: 'computed',
+        severity: earliest !== null && earliest < ctx.today ? 'critical' : 'warning',
+        count: open.length,
+        ...(earliest ? { dueAt: ctx.iso(atLocal(earliest, '00:00', ctx.tz)) } : {}),
+        reservationIds: open.map((r) => r.id),
+        ...(open.length === 1 ? { refCode: open[0]!.code } : {}),
+        params: { count: open.length },
+      },
+    ];
+  };
 }
 
 export const FRONTDESK_ATTENTION_SOURCES: AttentionSource[] = [

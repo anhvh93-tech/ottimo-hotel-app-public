@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockControl } from '../mocks/handlers';
 import { setOnline, start } from './helpers';
 
 // Canvas is not available in jsdom: compression is a pass-through here.
@@ -137,5 +138,49 @@ describe('H20 room screen – info card only when it has something to say', () =
     await waitFor(() =>
       expect(document.querySelector('.hk-info')).toHaveTextContent(/Có khách đến hôm nay/),
     );
+  });
+});
+
+describe('CI TC-X-079 (axe target-size, 18/10) – no button can sit half under a bar', () => {
+  const css = readFileSync(join(SRC, 'styles.css'), 'utf8');
+  const hifi = readFileSync(
+    join(SRC, '..', '..', '..', 'design', 'hifi', 'assets', 'hifi.css'),
+    'utf8',
+  );
+
+  it('header, screen body, action bar and tab bar are stacked: only the body scrolls, no sticky/fixed bar', () => {
+    expect(rule(css, '.staff-app')).toMatchObject({ height: '100dvh', 'flex-direction': 'column' });
+    expect(rule(css, '.staff-main')).toMatchObject({ flex: '1', 'min-height': '0' });
+    expect(rule(css, '.staff-main > :not(.m-body)')).toMatchObject({ flex: 'none' });
+    expect(rule(css, '.staff-app .m-body')).toMatchObject({
+      flex: '1',
+      'min-height': '0',
+      'overflow-y': 'auto',
+    });
+    expect(rule(css, '.staff-app .m-nav')).toMatchObject({ flex: 'none' });
+    for (const sel of ['.staff-app .m-top', '.staff-app .m-nav', '.staff-app .wiz-foot.hk-foot']) {
+      expect(rule(css, sel).position, sel).toBeUndefined();
+    }
+    // The only fixed layer is the toast dock (it holds its own buttons, above the tab bar).
+    const positioned = [...css.matchAll(/([^{}]+)\{[^}]*position:\s*(sticky|fixed)/g)].map((m) =>
+      m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
+    );
+    expect(positioned).toEqual(['.toast-dock.app']);
+  });
+
+  it('every action of a task card is a DS button: ≥ 48 px high in the `.hk` density (≥ 44 px – DS 6.18)', async () => {
+    expect(hifi).toMatch(/\.hk \.btn,\.hk \.btn\.sm\{min-height:48px/);
+    expect(hifi).toMatch(/\.hk \.icon-btn\{width:48px;height:48px/);
+    mockControl.state.tasks.find((x) => x.roomNo === '202')!.type = 'priority_clean'; // an urgent card
+    await start();
+    await screen.findByRole('article', { name: 'Căn 202, The Valley' });
+    const acts = [...document.querySelectorAll<HTMLElement>('.hk-card .acts > *')];
+    expect(acts.length).toBeGreaterThan(4);
+    expect(document.querySelector('.hk-card.urgent .acts > button')).not.toBeNull();
+    for (const el of acts) {
+      expect(el.classList.contains('btn'), el.outerHTML.slice(0, 80)).toBe(true);
+      expect(el.classList.contains('sm'), el.outerHTML.slice(0, 80)).toBe(false);
+    }
+    expect(document.querySelector('.staff-app')).toHaveClass('hk');
   });
 });

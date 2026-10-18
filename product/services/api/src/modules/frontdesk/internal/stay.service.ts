@@ -667,6 +667,25 @@ export class StayService {
     return { r, arrival, alternativeRoomAvailable, standard, rollover };
   }
 
+  /**
+   * BUG-R2-198 (ARC 16.19 bổ sung 4 – L1 before L4): pre-lock of a decision on `late_checkout_conflict` (approve /
+   * reject / cancel – ApprovalService.onBeforeDecide, one pre-lock covers the three). B18 / B13 hold the booking
+   * and then supersede the request (L1 → L4); the decision took the request first and deadlocked with them
+   * (40P01). `onLateCheckoutDecided` writes the booking only (no fee, no room) → L1 NO KEY UPDATE is all it needs.
+   */
+  async lockForLateCheckoutDecision(tx: Tx, approvalId: string): Promise<void> {
+    const { rows } = await tx.query<{ target_id: string }>(
+      `SELECT target_id FROM approval_request
+        WHERE id = $1 AND type = 'late_checkout_conflict' AND target_type = 'reservation'
+          AND target_id IS NOT NULL`,
+      [approvalId],
+    );
+    const target = rows[0]?.target_id;
+    if (target) {
+      await tx.query('SELECT id FROM reservation WHERE id = $1 FOR NO KEY UPDATE', [target]);
+    }
+  }
+
   /** Approval hook of `late_checkout_conflict` (SM-10): approved → the requested time becomes the agreed one. */
   async onLateCheckoutDecided(tx: Tx, request: ApprovalRow): Promise<void> {
     if (!request.target_id) return;

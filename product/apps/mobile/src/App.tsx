@@ -243,6 +243,9 @@ function Shell({
     if (shownKey.current === key) return;
     shownKey.current = key;
     mainRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    // The screen body scrolls, not the document (styles.css – tab bar never covers a button).
+    const body = mainRef.current?.querySelector<HTMLElement>('.m-body');
+    if (body) body.scrollTop = 0;
     document.documentElement.scrollTop = 0;
   }, [key]);
 

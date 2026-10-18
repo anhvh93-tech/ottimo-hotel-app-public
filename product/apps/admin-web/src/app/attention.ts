@@ -19,6 +19,8 @@ export interface AttentionLine {
   tone: 'urgent' | 'soon' | 'info';
   /** Desk route that handles it; none → static row. */
   to?: string;
+  /** ARC 16.26: `checkout_debt` of one booking – the reservation whose debt "Thu công nợ" collects. */
+  collectDebtId?: string;
   /** `source=event` items closed by hand (`resolveAttentionEvent`) – label key of the button. */
   resolveLabel?: string;
   /** Note required to close (critical items – EP01 3.2). */
@@ -62,6 +64,7 @@ const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
   deposit_after_cancel: 'bill',
   closed_reservation_credit: 'bill',
   reconcile_overdue: 'bill',
+  checkout_debt: 'bill',
   no_show_call: 'clock',
   no_show_mark: 'clock',
   ota_no_show_report: 'globe',
@@ -75,6 +78,8 @@ const AUTO_CLOSE = new Set([
   'overbooking',
   'unassigned_with_free_room',
   'closed_reservation_credit',
+  // ARC 16.26: ends when the debt is collected (or waived) – "Thu công nợ" instead of "Đã xử lý".
+  'checkout_debt',
 ]);
 /** Only the owner closes these (EP01 3.2). */
 const OWNER_CLOSE = new Set(['data_quality', 'security_alert']);
@@ -101,6 +106,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   let args: Record<string, string | number> = { n };
   let sub: string | undefined;
   let to: string | undefined = rsv;
+  let collectDebtId: string | undefined;
 
   switch (item.kind) {
     case 'room_ooo':
@@ -171,6 +177,13 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       args = { n: Number(p.count ?? n), days: str(p.oldestDays) };
       to = '/audit';
       break;
+    case 'checkout_debt':
+      // ARC 16.26 (BR-525 G-4): checked-out stays with an open debt; one booking → its code, "Thu công nợ" (FD+).
+      args = { n };
+      sub = n === 1 && code ? code : undefined;
+      to = rsv ?? '/reservations';
+      collectDebtId = item.reservationIds?.length === 1 ? item.reservationIds[0] : undefined;
+      break;
     case 'ota_no_show_report':
       key = p.action === 'revoke' ? 'attn.ota_no_show_revoke' : 'attn.ota_no_show_report';
       args = { code, channel: ctx.channel(str(p.channel)) };
@@ -228,6 +241,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
     icon: ICON[item.kind] ?? 'alert',
     tone: TONE[item.severity],
     to,
+    collectDebtId,
     resolveLabel: mayClose
       ? item.kind === 'ota_no_show_report'
         ? 'attn.reported_channel'

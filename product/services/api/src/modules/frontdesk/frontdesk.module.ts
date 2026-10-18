@@ -21,7 +21,7 @@ import { ApprovalsModule } from '../approvals/approvals.module';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
 import { ReservationHooks } from '../reservations/public/reservation-hooks';
-import { FRONTDESK_ATTENTION_SOURCES } from './internal/attention-sources';
+import { FRONTDESK_ATTENTION_SOURCES, checkoutDebtSource } from './internal/attention-sources';
 import { CheckinService } from './internal/checkin.service';
 import { CheckoutService } from './internal/checkout.service';
 import {
@@ -56,6 +56,7 @@ defineAuditEntity('reservation', [
   'lateSurchargeVnd',
   'tierPct',
   'checkoutMode',
+  'debtVnd',
   'balanceDueVnd',
   'dueDate',
   'replyType',
@@ -178,10 +179,23 @@ export class FrontdeskModule implements OnModuleInit {
       await this.ports.guestAccess.revokeAllForReservation(tx, e.reservationId, reason);
       await this.events.publish(tx, 'reservation.changed', e.reservationId);
     });
+    // BUG-R2-198 (ARC 16.19 bổ sung 4 – L1 before L4): a decision on `late_checkout_conflict` locks the booking
+    // BEFORE the request row (StayService.lockForLateCheckoutDecision).
+    this.approvals.onBeforeDecide('late_checkout_conflict', (tx, approvalId) =>
+      this.stays.lockForLateCheckoutDecision(tx, approvalId),
+    );
     this.approvals.onDecided('late_checkout_conflict', (tx, request) =>
       this.stays.onLateCheckoutDecided(tx, request),
     );
     for (const source of FRONTDESK_ATTENTION_SOURCES) this.events.registerAttentionSource(source);
+    // BR-525 (18/10 – G-4): open guest debts (MGR+), and the debt a receipt reversed after B18 leaves – payments
+    // (BE-B `reversePayment`) calls the port in the reversal's transaction.
+    this.events.registerAttentionSource(checkoutDebtSource(this.support.folios));
+    this.hooks.provideDebtAfterReversal((tx, input) => this.checkout.debtAfterReversal(tx, input));
+    // ARC 16.26: collecting the debt after check-out – payments `recordPayment` (debt branch) asks for the open debt
+    // and closes it when the folio owes nothing.
+    this.hooks.provideOpenDebt((tx, folioId) => this.checkout.openDebt(tx, folioId));
+    this.hooks.provideDebtSettled((tx, input) => this.checkout.debtSettled(tx, input));
     // J24 payment.expire (VietQR shown at check-in/check-out – jobs are BE-A's, s3-contract 4.1).
     const j24 = paymentExpiryJob(this.audit);
     if (!this.jobs.get(j24.key)) this.jobs.register(j24);

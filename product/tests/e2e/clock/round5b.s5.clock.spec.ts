@@ -5,6 +5,8 @@
 // - TC-L4-139: K11-09 – BR-703 ghi chú 7 (ca 29 của 16.4): tủ căn đang ở phải đếm trong ngày nghiệp vụ của B18; lần
 //   đếm "dùng 0" soạn trước B13 gửi sau B13 không đủ → B18 đòi đếm lại (`not_today`), uống 1 bia → 35.000. Oracle
 //   BR-703-03.
+// - TC-L4-145: BUG-R2-196 (recheck6 R6MISC-01, ARC 16.19 K11-08): `roomId` và `periodId` bắt buộc với mọi vai – vắng cả
+//   hai hoặc chỉ có `roomId` → 422 `REQUIRED`, không ghi lần đếm.
 // Project "clock" (tuần tự, 1 worker). Mỗi ca dùng ngày ảo riêng (virtualDay).
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
@@ -370,6 +372,56 @@ test.describe(
         Number(exp.minibarVnd),
       );
       expect(Number(exp.minibarVndWithoutRule)).toBe(0);
+    });
+
+    test('TC-L4-145 (A) BUG-R2-196 / ARC 16.19 K11-08 (hợp đồng `required: [mode, lines, roomId, periodId]`): lễ tân và buồng phòng gửi lần đếm vắng cả `roomId` lẫn `periodId`, hoặc chỉ có `roomId` → 422 `REQUIRED`, không ghi lần đếm; đủ hai trường → 201, 35.000', async ({
+      request,
+    }) => {
+      needClock('TC-L4-145');
+      const D = virtualDay(realToday, 2);
+      await at(request, D, '14:00');
+      cleanRooms();
+      const c = await s2Context(request);
+      let fd = await sessionOrSkip(request, 'qa.fd');
+      const st = await inHouse(request, c, fd, {
+        room: room(c, '101'),
+        alternatives: c.rooms,
+        arrival: D,
+        nights: 1,
+      });
+      const d1 = addDays(D, 1);
+      await at(request, d1, '09:00');
+      fd = await sessionOrSkip(request, 'qa.fd'); // phiên cũ hết hạn khi tua đồng hồ
+      const hk = await sessionOrSkip(request, 'qa.hk');
+      const t0 = await std(request, fd, st.res.id, st.room.id);
+      const body = countBody(t0, { bia: 1 });
+      const fieldsOf = (r: ApiResult<Json & ProblemFields>) => JSON.stringify(r.body.errors ?? []);
+      for (const [who, s] of [
+        ['FD', fd],
+        ['HK', hk],
+      ] as const) {
+        const none = await sendCount(request, s, st.res.id, body);
+        expect(none.status, `${who} vắng cả hai: ${JSON.stringify(none.body)}`).toBe(422);
+        expect(fieldsOf(none), `${who}: roomId REQUIRED`).toMatch(/"roomId"[^}]*"REQUIRED"/);
+        const roomOnly = await sendCount(request, s, st.res.id, { ...body, roomId: st.room.id });
+        expect(roomOnly.status, `${who} chỉ có roomId: ${JSON.stringify(roomOnly.body)}`).toBe(422);
+        expect(fieldsOf(roomOnly), `${who}: periodId REQUIRED`).toMatch(
+          /"periodId"[^}]*"REQUIRED"/,
+        );
+      }
+      expect(
+        (await std(request, fd, st.res.id, st.room.id)).latestCheck ?? null,
+        'không ghi lần đếm nào',
+      ).toBeNull();
+      const ok = await sendCount(request, fd, st.res.id, {
+        ...body,
+        roomId: st.room.id,
+        periodId: t0.periodId ?? null,
+      });
+      expect(ok.status, `đủ hai trường: ${JSON.stringify(ok.body).slice(0, 300)}`).toBe(201);
+      expect((await std(request, fd, st.res.id, st.room.id)).latestCheck?.totalVnd).toBe(
+        BIA.salePriceVnd,
+      );
     });
   },
 );

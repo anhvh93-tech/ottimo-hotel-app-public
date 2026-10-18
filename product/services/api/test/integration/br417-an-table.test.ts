@@ -5,6 +5,8 @@
  * table's own dates) through HTTP the way the Desk works: preview → the amount shown → the write (B9a, B13, B18,
  * B14, B7, B7a, B12, K12, S4-35, S4-09). A row the R2 commands cannot reach (AN-14: a guest request into the lane;
  * AN-36: the generic "no reference night") runs on the shared functions themselves.
+ * Recheck 6 (18/10): BUG-R2-195 (BR-417-21 A–F), AN-48 (BR-417-22, G-2: the side of the reference night follows the
+ * position of the added night) and AN-49 (BR-417-23, G-3) – their own oracles, read the same way.
  * ARC 16.18: night sources by the operation (`default` / `manual` + `anchorRoomId`), `NightRate.edited`.
  * Fake clock and FAKE data only.
  */
@@ -109,7 +111,7 @@ const day = (from: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table AN-01…AN-47', () => {
+describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table AN-01…AN-49', () => {
   let db: Database;
   let fa: FeatureApp;
 
@@ -1323,6 +1325,170 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
       await S[row.an]!(row);
     }, 120_000);
   }
+
+  // ───────────── BUG-R2-195 (recheck6), AN-48 (G-2), AN-49 (G-3) – oracles BR-417-21 / -22 / -23 ─────────────
+
+  const oracle = (id: string) => {
+    const ex = FIXTURE.examples.find((e) => e.id === id) as any;
+    if (!ex) throw new Error(`oracle ${id} missing`);
+    return ex.expected as Record<string, any>;
+  };
+  /** Agreed `room` at `rate` × 2 from Monday `mon`; folio total before any move. */
+  const agreedPair = async (w: W, room: string, mon: string, rate: number) => {
+    const b = await w.direct(room, mon, day(mon, 2), rate);
+    await w.at(`${day(mon, -20)}T10:00:00+07:00`);
+    return { b, before: (await w.totals(b)).totalVnd };
+  };
+  /** The night `date` of a move preview. */
+  const planned = (pv: any, date: string) => {
+    const n = pv.nights.find((x: any) => x.date === date);
+    expect(n, `night ${date} in the preview`).toBeTruthy();
+    return n;
+  };
+
+  it('BUG-R2-195 (BR-417-21 A/B/C/D/E/F – AN-46, AN-47 (b)): MovePlanner prices the night it adds to an agreed stay that never changed room from its reference night, as B13 – preview = folio delta = write', async () => {
+    const want = oracle('BR-417-21');
+    const mon = '2029-10-01';
+    // A (MP-1): guest asks one more night, keeps 202 → 650.000; folio 1.300.000 → 1.950.000.
+    const wa = await world();
+    const a = await agreedPair(wa, '202', mon, 650_000);
+    expect(a.before).toBe(want.A.folioBeforeVnd);
+    const pa = await wa.move(a.b, { departureDate: day(mon, 3), reasonCode: 'guest_request' });
+    expect(planned(pa, day(mon, 2)).newRateVnd).toBe(want.A.addedNightVnd);
+    expect(pa.folioDeltaVnd).toBe(want.A.addedNightVnd);
+    expect(await wa.grossOn(a.b, day(mon, 2))).toBe(want.A.addedNightVnd);
+    expect((await wa.totals(a.b)).totalVnd).toBe(want.A.folioAfterVnd);
+    // B (MP-2): OTTIMO 202 → 401 with one more night → min(650.000; 1.042.000); the write takes the amount shown.
+    const wb = await world();
+    const b = await agreedPair(wb, '202', mon, 650_000);
+    const pb = await wb.move(b.b, {
+      roomId: wb.ids.rooms['401'] as string,
+      departureDate: day(mon, 3),
+      reasonCode: 'property_fault',
+    });
+    expect(planned(pb, day(mon, 2)).newRateVnd).toBe(want.B.addedNightVnd);
+    expect(pb.folioDeltaVnd).toBe(want.B.addedNightVnd);
+    expect(await wb.grossOn(b.b, day(mon, 2))).toBe(want.B.addedNightVnd);
+    // … the same state priced by B13 (twin a week later: moved to 401, then extended): the same night price.
+    const twin = await agreedPair(wb, '202', day(mon, 7), 650_000);
+    await wb.move(twin.b, { roomId: wb.ids.rooms['401'] as string, reasonCode: 'property_fault' });
+    await wb.stayIn(twin.b, '401', day(mon, 7));
+    const o = await wb.options(twin.b, day(mon, 8));
+    expect(o.nights[0].defaultRateVnd).toBe(want.B.twinB13SameNightVnd);
+    expect(o.currentBookingRateVnd).toBe(want.B.currentBookingRateVnd);
+    expect([o.nights[0].floorVnd, o.nights[0].ceilingVnd]).toEqual(want.B.deskRangeVnd);
+    // C (MP-3): 102 agreed 900.000, guest asks one more night → 900.000.
+    const wc = await world();
+    const cc = await agreedPair(wc, '102', mon, 900_000);
+    const pc = await wc.move(cc.b, { departureDate: day(mon, 3), reasonCode: 'guest_request' });
+    expect(planned(pc, day(mon, 2)).newRateVnd).toBe(want.C.addedNightVnd);
+    expect(pc.folioDeltaVnd).toBe(want.C.addedNightVnd);
+    // D: the whole stay one day later, keeps 202 (12–14/11 → 13–15/11): added night 650.000, delta 0.
+    const wd = await world();
+    const d = await agreedPair(wd, '202', '2029-11-12', 650_000);
+    const pd = await wd.move(d.b, {
+      arrivalDate: '2029-11-13',
+      departureDate: '2029-11-15',
+      reasonCode: 'guest_request',
+    });
+    expect(planned(pd, '2029-11-14').newRateVnd).toBe(want.D.addedNightVnd);
+    expect(pd.folioDeltaVnd).toBe(want.D.folioDeltaVnd);
+    expect((await wd.totals(d.b)).totalVnd).toBe(d.before);
+    // E: 102 agreed 900.000, OTTIMO → 401 with one more night → min(900.000; 1.042.000).
+    const we = await world();
+    const e = await agreedPair(we, '102', mon, 900_000);
+    const pe = await we.move(e.b, {
+      roomId: we.ids.rooms['401'] as string,
+      departureDate: day(mon, 3),
+      reasonCode: 'property_fault',
+    });
+    expect(planned(pe, day(mon, 2)).newRateVnd).toBe(want.E.addedNightVnd);
+    expect(pe.folioDeltaVnd).toBe(want.E.addedNightVnd);
+    // F (control): OTTIMO 202 → 203 → 202, then the guest asks one more night → 650.000.
+    const wf = await world();
+    const f = await agreedPair(wf, '202', mon, 650_000);
+    await wf.move(f.b, { roomId: wf.ids.rooms['203'] as string, reasonCode: 'property_fault' });
+    await wf.move(f.b, { roomId: wf.ids.rooms['202'] as string, reasonCode: 'property_fault' });
+    const pf = await wf.move(f.b, { departureDate: day(mon, 3), reasonCode: 'guest_request' });
+    expect(planned(pf, day(mon, 2)).newRateVnd).toBe(want.F.addedNightVnd);
+    expect(pf.folioDeltaVnd).toBe(want.F.addedNightVnd);
+  }, 240_000);
+
+  it('AN-48 (BR-417-22, G-2 – BUG-R2-195): MovePlanner moving the arrival of an agreed stay EARLIER takes the earliest typed night after the added night (as B9a), not the calendar; the whole stay earlier → delta 0; OTTIMO → 401 with the earlier arrival → min', async () => {
+    const want = oracle('BR-417-22');
+    const mon = '2029-10-01';
+    const sun = '2029-09-30';
+    // earlier: arrival 30/09, departure kept → 650.000 (not the Sunday calendar 792.000); 1.300.000 → 1.950.000.
+    const w1 = await world();
+    const a = await agreedPair(w1, '202', mon, 650_000);
+    expect(a.before).toBe(want.earlier.folioBeforeVnd);
+    const pa = await w1.move(a.b, { arrivalDate: sun, reasonCode: 'guest_request' });
+    const night = planned(pa, sun);
+    expect(night.oldRateVnd, 'an added night').toBeNull();
+    expect(night.newRateVnd).toBe(want.earlier.addedNightVnd);
+    expect(night.newRateVnd).not.toBe(want.earlier.notCalendarVnd);
+    expect(pa.folioDeltaVnd).toBe(want.earlier.addedNightVnd);
+    expect(await w1.grossOn(a.b, sun)).toBe(want.earlier.addedNightVnd);
+    expect((await w1.totals(a.b)).totalVnd).toBe(want.earlier.folioAfterVnd);
+    // … B9a on the same night of the same stay (twin a week later, 04:30): the same price and range.
+    expect(want.earlier.sameAsB9aSameNight).toBe(true);
+    const twin = await agreedPair(w1, '202', day(mon, 7), 650_000);
+    const b9 = await w1.b9a(twin.b, '202', day(mon, 7));
+    expect(b9.def).toBe(want.earlier.addedNightVnd);
+    expect(b9.range).toEqual(want.earlier.deskRangeVnd);
+    // shiftWhole: 01–03/10 → 30/09–02/10 → the night 30/09 650.000, delta 0.
+    const w2 = await world();
+    const s2 = await agreedPair(w2, '202', mon, 650_000);
+    const ps = await w2.move(s2.b, {
+      arrivalDate: sun,
+      departureDate: day(mon, 1),
+      reasonCode: 'guest_request',
+    });
+    expect(planned(ps, sun).newRateVnd).toBe(want.shiftWhole.night0930Vnd);
+    expect(ps.folioDeltaVnd).toBe(want.shiftWhole.folioDeltaVnd);
+    expect((await w2.totals(s2.b)).totalVnd).toBe(s2.before);
+    // ottimoTo401: OTTIMO 202 → 401 with the arrival 30/09 → min(650.000; 1.042.000).
+    const w3 = await world();
+    const s3 = await agreedPair(w3, '202', mon, 650_000);
+    const p3 = await w3.move(s3.b, {
+      roomId: w3.ids.rooms['401'] as string,
+      arrivalDate: sun,
+      reasonCode: 'property_fault',
+    });
+    expect(planned(p3, sun).newRateVnd).toBe(want.ottimoTo401.addedNightVnd);
+    expect(p3.folioDeltaVnd).toBe(want.ottimoTo401.addedNightVnd);
+    expect(await w3.grossOn(s3.b, sun)).toBe(want.ottimoTo401.addedNightVnd);
+  }, 240_000);
+
+  it('AN-49 (BR-417-23, G-3): an OTA booking in the lane from booking, B7a assigns it – `reassigned_same_group` → the room bought is the room assigned (102: 750.000, keep null); `upgraded` → the room asked for at booking (203 → 401: min 792.000, keep 792.000)', async () => {
+    const want = oracle('BR-417-23');
+    const cases: Array<['a' | 'b', string, string, string, 'reassigned_same_group' | 'upgraded']> =
+      [
+        ['a', '101', '102', '2030-04-01', 'reassigned_same_group'],
+        ['b', '203', '401', '2030-04-08', 'upgraded'],
+      ];
+    for (const [key, asked, assigned, mon, resolution] of cases) {
+      const w = await world();
+      await w.direct(asked, mon, day(mon, 2));
+      const y = await w.agoda(asked, mon, day(mon, 2), 1_600_000, { allowUnassigned: true });
+      expect((await w.get(y.id)).conflictState, `${key} in the lane from booking`).toBe('open');
+      await w.at(`${day(mon, -20)}T10:00:00+07:00`);
+      const as = await w.act(
+        y.id,
+        'assign-room',
+        { roomId: w.ids.rooms[assigned], resolution },
+        'fdl',
+      );
+      expect(as.statusCode, as.body).toBe(200);
+      await w.stayIn(y, assigned, mon);
+      const o = await w.options(y, day(mon, 1));
+      expect(o.nights[0].defaultRateVnd, `AN-49 (${key})`).toBe(want[key].addedNightVnd);
+      expect([o.nights[0].floorVnd, o.nights[0].ceilingVnd]).toEqual(want[key].deskRangeVnd);
+      expect(o.currentBookingRateVnd).toBe(
+        want[key].currentBookingRateIsNull ? null : want[key].currentBookingRateVnd,
+      );
+    }
+  }, 240_000);
 
   it('0068 (ARC 16.18): an open stay written before the sources – the S4-35 night typed after a guest move gets the room bought then, the B13 default written `manual` becomes `default`, the booking nights stay typed; B18 then takes the typed 800.000', async () => {
     expect(BACKFILL_0068).toBeDefined();

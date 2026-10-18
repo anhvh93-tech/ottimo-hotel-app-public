@@ -109,6 +109,9 @@ export async function vday(
 
 export interface MinibarStd {
   roomNo?: string;
+  /** Tủ đang mô tả và kỳ của nó (null = tủ chưa có lần nạp) – lần đếm gửi lại đúng hai trường này (BUG-R2-196). */
+  roomId?: string;
+  periodId?: string | null;
   items: Array<{
     itemId: string;
     itemName: string;
@@ -123,9 +126,11 @@ export async function minibarStandard(
   ctx: APIRequestContext,
   s: StaffSession,
   reservationId: string,
+  roomId?: string,
 ): Promise<MinibarStd> {
   const r = await call<MinibarStd>(ctx, 'GET', p3(EP3.getMinibarStandard, s, { reservationId }), {
     session: s,
+    ...(roomId ? { query: { roomId } } : {}),
   });
   expect(r.status, `getMinibarStandard: ${JSON.stringify(r.body)}`).toBe(200);
   return r.body;
@@ -157,7 +162,9 @@ export interface MinibarCheckResult {
 
 /**
  * recordMinibarCheck với số đã dùng theo mã DS-E (`used`, mặc định 0 = không dùng gì) – đủ mọi món tủ chuẩn.
- * `raw` ghi đè danh sách dòng (ca kiểm lỗi 422).
+ * `raw` ghi đè danh sách dòng (ca kiểm lỗi 422). Thân luôn có `roomId` + `periodId` của bản chuẩn vừa đọc như Desk
+ * (hợp đồng `required: [mode, lines, roomId, periodId]`, ARC 16.19 K11-08 – BUG-R2-196: thiếu → 422); `roomId` chọn
+ * tủ (mặc định tủ căn đang gán).
  */
 export async function minibarCheck(
   ctx: APIRequestContext,
@@ -167,11 +174,12 @@ export async function minibarCheck(
   opts: {
     mode?: 'checkout' | 'stayover';
     raw?: Array<{ itemId: string; remainingQty: number }>;
+    roomId?: string;
   } = {},
 ): Promise<ApiResult<MinibarCheckResult & ProblemFields>> {
+  const std = await minibarStandard(ctx, s, reservationId, opts.roomId);
   let lines = opts.raw;
   if (!lines) {
-    const std = await minibarStandard(ctx, s, reservationId);
     const usedById = new Map(Object.entries(used).map(([code, n]) => [itemIdOf(std, code), n]));
     lines = std.items.map((i) => ({
       itemId: i.itemId,
@@ -181,7 +189,12 @@ export async function minibarCheck(
   return call(ctx, 'POST', p3(EP3.recordMinibarCheck, s, { reservationId }), {
     session: s,
     idempotencyKey: true,
-    body: { mode: opts.mode ?? 'checkout', lines },
+    body: {
+      mode: opts.mode ?? 'checkout',
+      roomId: opts.roomId ?? std.roomId,
+      periodId: std.periodId ?? null,
+      lines,
+    },
   });
 }
 

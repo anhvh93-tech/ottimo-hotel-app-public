@@ -124,6 +124,11 @@ export class ReservationsModule implements OnModuleInit {
     ]) {
       if (!this.jobs.get(job.key)) this.jobs.register(job);
     }
+    // BUG-R2-198 (ARC 16.19 bổ sung 4): the decision locks booking → room → folio BEFORE the request row (L4), the
+    // order of every booking command – restoreNoShow below no longer takes L1–L3 after L4.
+    this.approvals.onBeforeDecide('no_show_restore', (tx, approvalId) =>
+      this.reservations.lockForRestoreDecision(tx, approvalId),
+    );
     // SM-10 → B12: the manager approved a restore outside the BR-315 conditions (US-136 AC5).
     this.approvals.onDecided('no_show_restore', async (tx, request) => {
       if (request.status !== 'approved' || !request.target_id) return;

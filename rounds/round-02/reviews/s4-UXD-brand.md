@@ -184,6 +184,14 @@ Cũng sửa `folio.void_minibar_foc` (N-1): câu cũ 46 từ trong một câu. N
   - Giữ `crm.f_id_doc`.
   - Sửa `crm.f_id_doc_help`: gọi tên màn theo menu "Giấy tờ & khai báo" (`nav.registration`) và thêm "trên máy quầy đã cấp" – số đầy đủ chỉ mở trên máy được cấp (US-142).
   - Sinh lại 2856 chuỗi + 8 mẫu; `check_hifi.py` 25/25.
+- **UXD viết – công nợ sau trả phòng (ARC 16.25, BR-525 G-4)**, nhóm mới trong `gen_strings.py`:
+  - `attn.checkout_debt` – "Công nợ sau trả phòng chưa thu: {n} đơn" / "Unpaid debt after check-out: {n} booking(s)". MGR+, chỉ dùng `{n}` = `count`, Desk tra `attn.<kind>`.
+  - `staff.notif.k.debt_recorded` – "Khoản thu sau trả phòng vừa bị đảo – đơn còn công nợ" / "A payment was reversed after check-out – the booking now has a debt". Gửi OWN + MGR; không số tiền, không tên khách; mã đơn hiện riêng như các thông báo khác.
+  - Sinh lại 2858 chuỗi + 8 mẫu; `check_hifi.py` 25/25.
+- **FE-A đợt 22 – hộp "Thu công nợ" (ARC 16.26, BR-525 G-4)** (6 khóa `debt.*`): duyệt, sửa 1.
+  - `debt.collect_help`: "hóa đơn đã xuất" → "phiếu thanh toán đã cấp" / "guest folio". "Hóa đơn" chỉ dùng cho hóa đơn GTGT (content-guide 3.1).
+  - Giữ 5 khóa còn lại; cách viết khớp `co.debt_*` và `recon.cash_received_toast`.
+  - Sinh lại 2864 chuỗi + 8 mẫu; `check_hifi.py` 25/25; không còn nhóm chờ UXD.
 
 ---
 
@@ -370,6 +378,21 @@ Không có thẻ mới cho FE ở mục D.
   - phần chưa đo chạy thật của G8.2 (mục B).
 - Tự MOB phát hiện và đã sửa: thẻ trống có viền ở màn căn 101 (`.card.hk-info` render khi không có nội dung) – UXD đồng ý.
 - Giả định MOB 7.5 (chip nhiều dòng giữ dạng viên thuốc): **UXD đồng ý**, giữ `--r-pill`.
+
+### G.1 Ký lại sau đổi bố cục PWA + guest-web (MOB 8.7, sửa axe TC-X-079) – 18/10
+
+- Thay đổi: khung `100dvh`, các thanh xếp chồng, chỉ `.m-body` cuộn, bỏ `sticky`. Tệp `apps/mobile/src/styles.css`, `App.tsx`; `apps/guest-web/src/styles.css` – chưa commit lúc xem.
+- UXD đo lại trên mock (vite riêng ở cổng 5197/5198, đã tắt sau khi đo):
+  - màn: PWA Việc của tôi, Các căn, căn 101, Báo sự cố; guest-web Lưu trú, form H23;
+  - khổ 360×800 và 390×844, sáng + tối – **24 lượt**;
+  - mỗi lượt: axe `color-contrast` + đủ luật mức critical/serious, quét màu ngoài token, đo vị trí các thanh.
+- Kết quả:
+  - **0** lỗi tương phản, **0** lỗi critical/serious, **0** màu ngoài token;
+  - không cuộn ngang; tài liệu không cuộn, chỉ thân trang cuộn;
+  - đầu trang, thân, thanh nút, thanh tab nối tiếp nhau không chồng: ví dụ 360 px căn 101: đầu 0–73, thân 73–654, thanh nút 654–735, tab 735–800;
+  - chế độ tối áp ở PWA; guest-web giữ sáng;
+  - xem ảnh: thẻ việc gấp, nút "Bắt đầu dọn", chuông có khung, trang khách (lời chào Lora, tên phòng, Wi-Fi mono) hiện đủ, không bị che.
+- **G8.3: vẫn ĐẠT – UXD ký lại**, áp cho commit có thay đổi bố cục MOB 8.7. Không có thẻ mới.
 
 ## H. Desk trên điện thoại – thanh dưới (UXR S4 P-02, FE-B) – xem thật 18/10
 

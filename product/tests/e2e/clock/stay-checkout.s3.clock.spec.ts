@@ -3153,7 +3153,8 @@ test.describe(
                 p3(EP3.listPayments, m),
                 {
                   session: m,
-                  query: { reconciliation: 'pending', method: 'bank_transfer' },
+                  // limit tối đa: stack dùng lại có > 50 khoản chuyển khoản chờ đối soát (mặc định 50/trang)
+                  query: { reconciliation: 'pending', method: 'bank_transfer', limit: 100 },
                 },
               );
               return { m, row: l.body.data.find((x) => x.id === late.body.id)! };

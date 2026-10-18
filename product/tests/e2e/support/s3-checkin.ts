@@ -358,12 +358,13 @@ export async function checkOutStay(
   extra: Record<string, unknown> = {},
 ): Promise<ApiResult<Record<string, unknown> & ProblemFields>> {
   const pid = propertyIdOf(s);
-  const std = await call<{ items: Array<{ itemId: string; standardQty: number }> }>(
-    ctx,
-    'GET',
-    `/v1/properties/${pid}/reservations/${reservationId}/minibar-standard`,
-    { session: s },
-  );
+  const std = await call<{
+    roomId?: string;
+    periodId?: string | null;
+    items: Array<{ itemId: string; standardQty: number }>;
+  }>(ctx, 'GET', `/v1/properties/${pid}/reservations/${reservationId}/minibar-standard`, {
+    session: s,
+  });
   if (std.status === 200 && std.body.items.length > 0) {
     const m = await call(
       ctx,
@@ -372,8 +373,11 @@ export async function checkOutStay(
       {
         session: s,
         idempotencyKey: true,
+        // tủ + kỳ của bản chuẩn vừa đọc (BUG-R2-196: thiếu `roomId`/`periodId` → 422)
         body: {
           mode: 'checkout',
+          roomId: std.body.roomId,
+          periodId: std.body.periodId ?? null,
           lines: std.body.items.map((i) => ({ itemId: i.itemId, remainingQty: i.standardQty })),
         },
       },

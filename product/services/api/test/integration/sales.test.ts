@@ -607,11 +607,51 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
         (await ext('sal2', salQuote2.id, salQuote2.version, { reason: 'abc' })).statusCode,
       ).toBe(404);
       await setPassword(db, t, 'mgr');
-      const approve = await Client.of(fa, t, 'mgr').send(
-        'POST',
-        `${P(t)}/approval-requests/${req.json().id}/actions/approve`,
-        { authMethod: 'password', secret: TEST_PASSWORD },
-      );
+      // BUG-R2-198 (ARC 16.19 bổ sung 4): the decision locks the quote BEFORE the request row – while another
+      // transaction holds the quote, the approval waits and the request row can still be locked (NOWAIT).
+      const holder = await db.pool.connect();
+      let pending: ReturnType<Client['send']> | undefined;
+      try {
+        await holder.query('BEGIN');
+        await holder.query(
+          `SELECT set_config('app.organization_id', $1, true), set_config('app.property_id', $2, true)`,
+          [t.organizationId, t.propertyIds[0]],
+        );
+        await holder.query('SELECT id FROM quote WHERE id = $1 FOR UPDATE', [salQuote2.id]);
+        const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0]!
+          .pid;
+        pending = Client.of(fa, t, 'mgr').send(
+          'POST',
+          `${P(t)}/approval-requests/${req.json().id}/actions/approve`,
+          { authMethod: 'password', secret: TEST_PASSWORD },
+        );
+        let waits = 0;
+        for (let i = 0; i < 200 && waits === 0; i += 1) {
+          waits = (
+            await holder.query<{ n: number }>(
+              'SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1 = ANY (pg_blocking_pids(pid))',
+              [pid],
+            )
+          ).rows[0]!.n;
+          if (waits === 0) await new Promise((r) => setTimeout(r, 15));
+        }
+        expect(waits, 'the approval waits on the quote').toBe(1);
+        const free = await db.withContext(t.ctx(), async (tx) => {
+          try {
+            await tx.query('SELECT id FROM approval_request WHERE id = $1 FOR UPDATE NOWAIT', [
+              req.json().id,
+            ]);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        expect(free, 'request row not locked yet').toBe(true);
+      } finally {
+        await holder.query('ROLLBACK');
+        holder.release();
+      }
+      const approve = await pending!;
       expect(approve.statusCode, approve.body).toBe(200);
       const after = (await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${salQuote2.id}`)).json();
       expect(after).toMatchObject({ status: 'active', expiresAt: '2026-10-24T00:00:00.000+07:00' });

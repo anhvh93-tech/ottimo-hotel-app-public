@@ -80,6 +80,7 @@ async function countFridge(
   used: Record<string, number>,
 ): Promise<void> {
   const std = await call<{
+    periodId?: string | null;
     items: Array<{ itemId: string; itemName: string; standardQty: number }>;
   }>(request, 'GET', p3(EP3.getMinibarStandard, s, { reservationId }), {
     session: s,
@@ -93,7 +94,7 @@ async function countFridge(
   const r = await call(request, 'POST', p3(EP3.recordMinibarCheck, s, { reservationId }), {
     session: s,
     idempotencyKey: true,
-    body: { mode: 'checkout', roomId, lines },
+    body: { mode: 'checkout', roomId, periodId: std.body.periodId ?? null, lines },
   });
   expect(r.status, `recordMinibarCheck: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(201);
 }

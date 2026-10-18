@@ -251,3 +251,26 @@ Mã guest-web không phải sửa trong đợt này.
   - Mock trả `{ itemId, itemName, quantity }` như server.
   - Test: ca giao diện có tên / không tên, và ca `refillText()` (cả trường hợp thiếu tên một món).
   - PWA **105/105**, `tsc`, ESLint 0 lỗi, Prettier sạch.
+
+### 8.7 Lỗi gấp CI – TC-X-079 axe `target-size` (serious) trên PWA H19 360×800 (run 39098618660, `1695876`)
+- **Gốc lỗi** (tái hiện bằng axe 4.13 + Chromium):
+  - Trước đây cả trang cuộn, còn thanh tab (`.m-nav`) và thanh nút (`.hk-foot`) dính đáy, đè lên nội dung. Nút nào nằm vắt qua mép thanh thì phần còn bấm được chỉ còn < 24 px, axe báo "partially obscured".
+  - Nút lỗi là nút chính của thẻ việc gấp ("Bắt đầu dọn"). Bản thân nút không nhỏ (56 px); lỗi chỉ hiện khi nút rơi đúng mép thanh.
+  - Đợt UXR làm thẻ cao hơn (chip xuống dòng…), nên ở dữ liệu CI nút rơi đúng mép. Thêm đệm 20–60 px phía trên là tái hiện được.
+  - Chạy cùng phép thử thì **guest-web cũng có lỗi này** (thanh tab dính đáy): ở 360×800 trang chủ đã lỗi ngay khi tải. 6/23 lượt quét đỏ.
+- **Sửa**, theo mô hình hi-fi (`hifi.css` `.m-body{overflow:auto}`):
+  - Khung app cao `100dvh`. Đầu trang, thân trang, thanh nút, thanh tab xếp chồng theo chiều dọc, không đè nhau. Chỉ `.m-body` cuộn.
+  - Bỏ hết `position: sticky` của `.m-top`, `.m-nav`, `.hk-foot`. Đổi màn thì đưa thân trang về đầu.
+  - Áp cho PWA (`apps/mobile/src/styles.css`, `App.tsx`) và guest-web (`apps/guest-web/src/styles.css`).
+  - Mọi nút trong `.acts` vẫn là `btn` mật độ `.hk` (cao ≥ 48 px), không dùng `sm`.
+- **Kiểm:**
+  - Quét axe WCAG 2.2 AA ở 360×800 và 390×844, mọi màn PWA (HK, MT, FDL), mỗi màn 2–9 vị trí cuộn: **142 lượt, 0 critical/serious**.
+  - guest-web (trang chủ, yêu cầu, form H23, thông tin, bước nhận phòng): **23 lượt, 0**.
+  - Script và ảnh ở `/private/tmp/claude-501/-Users-anhvh-Library-Application-Support-Claude-scratch-workspaces-00554cf2-3678-4864-82b0-830aaeaa97bd-4c0caebe-be05-49c5-a5a2-5bf357fddc6a-scratch-2026-10-15-c4f0d4/36df3adc-c586-471c-a039-340d2b696728/scratchpad/` (`axe-pwa-sweep.mjs`, `axe-gw-sweep.mjs`, `shots/uxr/layout-*.png`).
+- **Test mới** (`s4-brand.test.tsx` của 2 app):
+  - luật bố cục: khung `100dvh`, chỉ thân trang cuộn, không còn thanh sticky/fixed; PWA chỉ còn khối toast là fixed;
+  - mọi nút `.acts` trên thẻ việc là `btn` cao ≥ 48 px, có thẻ gấp.
+- **Kết quả chạy:** PWA **107/107**, guest-web **66/66**, `tsc` 0 lỗi, ESLint 0 lỗi (2 cảnh báo cũ của MSW), Prettier sạch. Không commit.
+- **Việc của người khác:**
+  - QA chạy lại TC-X-079 trên CI.
+  - Đề nghị QA đưa phép quét "nhiều vị trí cuộn" vào bộ e2e UI (a13), để bắt loại lỗi phụ thuộc chiều cao nội dung này.

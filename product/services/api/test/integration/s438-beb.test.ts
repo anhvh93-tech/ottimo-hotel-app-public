@@ -315,8 +315,11 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect(r.statusCode, r.body).toBe(200);
   };
   const minibarCheck = async (b: Booking, used: Record<string, number>) => {
+    const std = (await c.fd!.get(url(`/reservations/${b.id}/minibar-standard`))).json();
     const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
+      roomId: std.roomId,
+      periodId: std.periodId ?? null,
       lines: DS_E.minibarItems.map((m) => ({
         itemId: items[m.code],
         remainingQty: m.standardQtyPerRoom - (used[m.code] ?? 0),
@@ -529,6 +532,8 @@ describe.skipIf(!HAS_DB)('S4-38 fixes (BE-B): FOC-01, FOC-03, FOC-04, CANCEL-03,
     expect(std.statusCode, std.body).toBe(200);
     const r = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
+      roomId: std.json().roomId,
+      periodId: std.json().periodId ?? null,
       lines: (std.json().items as Array<{ itemId: string; standardQty: number }>).map((i) => ({
         itemId: i.itemId,
         remainingQty:

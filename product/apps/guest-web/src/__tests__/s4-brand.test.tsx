@@ -42,3 +42,20 @@ describe('FB-R2-UXD-MOB-S4-02 – guest-web icon buttons are DS buttons', () => 
     expect(found.filter((b) => !/(^|\s)btn(\s|$)/.test(b.cls))).toEqual([]);
   });
 });
+
+describe('CI TC-X-079 (axe target-size, 18/10) – no link or button can sit half under a bar', () => {
+  const css = readFileSync(join(SRC, 'styles.css'), 'utf8');
+  const block = (selector: string) => {
+    const esc = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|\\n|,\\n)${esc}(?:,\\n[^{]*)?\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  };
+
+  it('header, page body, action bar and tab bar are stacked: only the page body scrolls, no sticky/fixed bar', () => {
+    expect(block('.guest-app')).toMatch(/height:\s*100dvh/);
+    expect(block('.guest-app > main')).toMatch(/min-height:\s*0/);
+    const body = block('.guest-app main > .m-body');
+    expect(body).toMatch(/overflow-y:\s*auto/);
+    expect(body).toMatch(/min-height:\s*0/);
+    expect(css).not.toMatch(/position:\s*(sticky|fixed)/);
+  });
+});

@@ -83,7 +83,8 @@ test.describe(
         dow: weekday(Object.keys(booked)[0]!),
         nights: rates.length,
         span: rates.length + 1,
-        rate: rates[0]!,
+        // đơn LỊCH GIÁ (BR-429-12: 792.000 = lịch 202 ngày thường, không gõ giá). Gõ `nightlyRates` sẽ thành đơn thỏa
+        // thuận → đêm thêm theo đêm tham chiếu 792.000, chênh 0 (AN-47 (b), BUG-R2-195) – không phải ví dụ này.
       });
       expect(totalOf(await getFolio(request, fd, b.folioId), 'room')).toBe(
         rates.reduce((a, x) => a + x, 0),

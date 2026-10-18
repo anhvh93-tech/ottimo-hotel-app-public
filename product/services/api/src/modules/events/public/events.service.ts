@@ -113,7 +113,9 @@ export type AttentionKind =
   | 'guest_request_overdue'
   // 0.3.7 bổ sung D1: US-136 AC2/AC5 (event, `params.action` report|revoke) and S4-06 (event, BE-B).
   | 'ota_no_show_report'
-  | 'closed_reservation_credit';
+  | 'closed_reservation_credit'
+  // BR-525 (18/10 – G-4, BE-A): open guest debts of checked-out stays (B18 debt or a receipt reversed after it).
+  | 'checkout_debt';
 
 /**
  * B-21 / SEC J: the ONLY `params` keys an item of a kind may carry (counts, codes, room numbers, dates –
@@ -142,13 +144,14 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
   ota_no_show_report: ['action', 'channel'],
   ooo_ending_work_open: ['roomNo', 'endDate'],
   guest_request_overdue: ['count'],
+  checkout_debt: ['count'],
 };
 
 /**
  * Who sees an item of `listAttentionItems` (EP01 3.1; rbac S02 note 1; US-012 AC6, US-003 AC4) – filtered on the
  * server, never in the client:
  * - OWN only: `foc_threshold` (BR-435), `security_alert`, `data_quality` of the DATA checks (J17 R-04/R-05/R-06a);
- * - MGR+: `reconcile_overdue` (money – FDL/FD ✖);
+ * - MGR+: `reconcile_overdue` (money – FDL/FD ✖), `checkout_debt` (BR-525 – the debt is OWN/MGR's, A19);
  * - FD+: everything else, including `data_quality` whose `check` is a registration check
  *   (`registration_stay_not_closed`, `registration_party_docs_unlinked` – the desk links/closes them, S4-39)
  *   and `closed_reservation_credit` (S4-06 – OWN/MGR/FDL/FD like `deposit_after_cancel`).
@@ -159,6 +162,7 @@ export function attentionAudience(item: Pick<AttentionItem, 'kind' | 'params'>):
     case 'security_alert':
       return OWNER_ONLY;
     case 'reconcile_overdue':
+    case 'checkout_debt':
       return MGR_PLUS;
     case 'data_quality': {
       const check = item.params?.check;

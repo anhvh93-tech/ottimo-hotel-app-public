@@ -3173,6 +3173,17 @@ export function createStayMock(ctx: Ctx) {
       const key = `pay:${request.headers.get('idempotency-key')}`;
       const hit = rsv().state.idempotency.get(key);
       if (hit) return json(hit.body, hit.status);
+      // ARC 16.26 (BR-525 G-4): a settled folio takes only debt collection – `charge`, FD+, ≤ what is still due.
+      if (f.status === 'settled') {
+        const due = totals(r).balanceDueVnd;
+        if (body.type !== 'charge' || due <= 0) return problem(409, 'FOLIO_LOCKED');
+        if (!has(g.roles, FD_PLUS)) return problem(403, 'FORBIDDEN_ACTION');
+        if (Number(body.amountVnd) > due)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+            max: due,
+          });
+      }
       const p = recordPay(r, body, g);
       bump(r);
       return rsv().remember(key, 201, p);

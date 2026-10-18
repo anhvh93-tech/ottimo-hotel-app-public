@@ -15,7 +15,8 @@
  *   transfer; fully paid → the account DEK is destroyed in the same transaction (T09).
  * Both pay-outs: approved request, amount ≤ approved − paid AND ≤ received − refunded of the folio (server),
  * negative `refund` payment pointing at the request, money audit, `payment.changed` + `reservation.changed`.
- * Lock order: approval_request (FOR UPDATE) → folio (FOR UPDATE).
+ * Lock order (ARC 16.19, BUG-R2-198): the folio of the refund (L3) → approval_request (L4) – `lock()` takes the folio
+ * first, and the decision paths do the same through the preLock (`lockFolioOf`).
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -196,7 +197,20 @@ export class RefundsService {
 
   // ───────────── destination (A43 / A47) ─────────────
 
+  /** L3 of a refund request: the folio of its booking, locked BEFORE the request (16.19). No row → nothing. */
+  async lockFolioOf(tx: Tx, approvalId: string): Promise<void> {
+    const { rows } = await tx.query<{ folio_id: string | null }>(
+      `SELECT CASE WHEN a.target_type = 'folio' THEN a.target_id ELSE r.folio_id END AS folio_id
+         FROM approval_request a
+         LEFT JOIN reservation r ON a.target_type = 'reservation' AND r.id = a.target_id
+        WHERE a.id = $1 AND a.type = 'refund'`,
+      [approvalId],
+    );
+    if (rows[0]?.folio_id) await this.folios.lock(tx, rows[0].folio_id);
+  }
+
   async lock(tx: Tx, approvalId: string): Promise<RefundRow> {
+    await this.lockFolioOf(tx, approvalId);
     const { rows } = await tx.query<RefundRow>(
       `SELECT * FROM approval_request WHERE id = $1 AND type = 'refund' FOR UPDATE`,
       [approvalId],

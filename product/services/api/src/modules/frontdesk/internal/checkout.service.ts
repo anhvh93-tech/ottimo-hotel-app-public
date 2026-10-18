@@ -47,6 +47,13 @@ import {
   recordChange,
   recordTransition,
 } from '../../reservations/public/stay-port';
+import type {
+  DebtAfterReversalInput,
+  DebtAfterReversalResult,
+  DebtSettledInput,
+  DebtSettledResult,
+  OpenDebt,
+} from '../../reservations/public/reservation-hooks';
 import type { LateCheckoutResult } from '../public/stay-rules';
 import { StayService } from './stay.service';
 import { StaySupport, TASK_RANK } from './stay-support';
@@ -143,6 +150,193 @@ export class CheckoutService {
     @Inject(PaymentService) private readonly payments: PaymentService,
     @Inject(DocumentProfileService) private readonly profiles: DocumentProfileService,
   ) {}
+
+  /**
+   * BR-525 (18/10 – G-4): a receipt of a checked-out stay was reversed (payments `reversePayment`, MGR+) and the
+   * reversal raised what is left to collect → the guest's debt for what it added (DOM 18/10: max(0, after) −
+   * max(0, before) – a post-checkout charge still in its window, or a credit, is not part of it), in the
+   * reversal's transaction: the stay's
+   * checked-out bookings get `checkout_mode = debt` (a due date and a reason they already have are kept – an
+   * existing B18 debt only grows), the change log and the money audit `reservation.debt_on_checkout`, the
+   * notification `debt_recorded` to OWN + MGR (not the person who reversed) and the booking's SSE. "Cần chú ý"
+   * `checkout_debt` is computed (attention-sources) and goes when the folio owes nothing (paid, FOC, written off).
+   * Lock order (ARC 16.19): the caller holds the bookings (L1 NO KEY UPDATE – re-taken here without waiting) and
+   * the folio (L3); the balance is read here, under them.
+   */
+  async debtAfterReversal(tx: Tx, input: DebtAfterReversalInput): Promise<DebtAfterReversalResult> {
+    const none = (balanceDueVnd: number): DebtAfterReversalResult => ({
+      recorded: false,
+      reservationId: null,
+      debtVnd: 0,
+      balanceDueVnd,
+      dueDate: null,
+    });
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      status: string;
+      parent_reservation_id: string | null;
+      checkout_mode: string | null;
+      debt_due_date: LocalDate | null;
+    }>(
+      `SELECT id, code, status, parent_reservation_id, checkout_mode, debt_due_date::text AS debt_due_date
+         FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE`,
+      [input.folioId],
+    );
+    const primary = rows.find((r) => r.parent_reservation_id === null) ?? rows[0];
+    if (!primary || primary.status !== 'checked_out') return none(0);
+    const balance = await this.s.folios.balance(tx, input.folioId);
+    // DOM 18/10 (BR-525 G-4): only what the reversal added – max(0, after) − max(0, before).
+    const debtVnd =
+      Math.max(0, balance.balanceDueVnd) - Math.max(0, Math.trunc(input.dueBeforeVnd));
+    if (debtVnd <= 0) return none(balance.balanceDueVnd);
+    const ctx = await this.s.stay.context(
+      tx,
+      { userId: input.actor.userId, roles: [...input.actor.roles] },
+      input.requestId,
+    );
+    // BR-525 G-4 "hạn = hạn công nợ mặc định": parameter `debt_default_due_days` (0073 catalogue, default 3 – DOM
+    // 18/10 [GIẢ ĐỊNH – chờ INV], OWN/MGR, 1–30 like the B18 debt) – days after the business date.
+    const dueDate =
+      primary.debt_due_date ??
+      addDays(ctx.today, await this.s.param<number>(tx, ctx, 'debt_default_due_days'));
+    const reason = input.reason.slice(0, 500);
+    const out = rows.filter((r) => r.status === 'checked_out');
+    await tx.query(
+      `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = COALESCE(debt_due_date, $2::date),
+              debt_reason = COALESCE(debt_reason, $3), debt_settled_at = NULL, updated_at = $4,
+              version = version + 1
+        WHERE id = ANY($1::uuid[])`,
+      [out.map((r) => r.id), dueDate, reason, ctx.now],
+    );
+    for (const r of out) {
+      if (r.checkout_mode !== 'debt') {
+        await recordChange(tx, r.id, 'checkout_mode', r.checkout_mode, 'debt', ctx.now, reason);
+      }
+    }
+    await this.audit.recordMoney(tx, {
+      action: 'reservation.debt_on_checkout',
+      entityType: 'reservation',
+      entityId: primary.id,
+      entityCode: primary.code,
+      before: { checkoutMode: primary.checkout_mode },
+      after: { checkoutMode: 'debt', debtVnd, balanceDueVnd: balance.balanceDueVnd, dueDate },
+      reason,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+    await this.s.events.notify(
+      tx,
+      {
+        kind: 'debt_recorded',
+        roles: ['owner', 'manager'],
+        excludeUserIds: [input.actor.userId],
+        refType: 'reservation',
+        refId: primary.id,
+        refCode: primary.code,
+      },
+      ctx.now,
+    );
+    await this.s.events.publish(tx, 'reservation.changed', primary.id);
+    return {
+      recorded: true,
+      reservationId: primary.id,
+      debtVnd,
+      balanceDueVnd: balance.balanceDueVnd,
+      dueDate,
+    };
+  }
+
+  /**
+   * ARC 16.26 (BR-525 G-4): the OPEN debt of the folio's stay – primary booking `checked_out`, `checkout_mode =
+   * debt`, not settled, folio still owing. The caller (payments, debt-collection branch of `recordPayment`) holds
+   * the bookings (L1) and the folio (L3); the bookings are re-taken here without waiting, the balance read under
+   * them. null = no open debt.
+   */
+  async openDebt(tx: Tx, folioId: string): Promise<OpenDebt | null> {
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      status: string;
+      parent_reservation_id: string | null;
+      checkout_mode: string | null;
+      debt_due_date: LocalDate | null;
+      debt_settled_at: Date | null;
+    }>(
+      `SELECT id, code, status, parent_reservation_id, checkout_mode, debt_due_date::text AS debt_due_date,
+              debt_settled_at
+         FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE`,
+      [folioId],
+    );
+    const primary = rows.find((r) => r.parent_reservation_id === null) ?? rows[0];
+    if (
+      !primary ||
+      primary.status !== 'checked_out' ||
+      primary.checkout_mode !== 'debt' ||
+      primary.debt_settled_at !== null ||
+      !primary.debt_due_date
+    ) {
+      return null;
+    }
+    const balance = await this.s.folios.balance(tx, folioId);
+    if (balance.balanceDueVnd <= 0) return null;
+    return {
+      reservationId: primary.id,
+      reservationCode: primary.code,
+      reservationIds: rows
+        .filter((r) => r.status === 'checked_out' && r.checkout_mode === 'debt')
+        .map((r) => r.id),
+      dueDate: primary.debt_due_date,
+      balanceDueVnd: balance.balanceDueVnd,
+    };
+  }
+
+  /**
+   * ARC 16.26 (BR-525 G-4): a debt receipt was written (payments, same transaction and locks). The folio owes
+   * nothing any more → the stay's open debt is closed: `debt_settled_at` on its debt bookings, the state audit
+   * `reservation.debt_settled` (receipt id, no amount of the guest beyond the money audit of the receipt), the
+   * booking's SSE; "Cần chú ý" `checkout_debt` drops it. Still owing (a part paid) → nothing changes.
+   */
+  async debtSettled(tx: Tx, input: DebtSettledInput): Promise<DebtSettledResult> {
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      parent_reservation_id: string | null;
+    }>(
+      `SELECT id, code, parent_reservation_id FROM reservation
+        WHERE folio_id = $1 AND status = 'checked_out' AND checkout_mode = 'debt' AND debt_settled_at IS NULL
+        ORDER BY id FOR NO KEY UPDATE`,
+      [input.folioId],
+    );
+    const balance = await this.s.folios.balance(tx, input.folioId);
+    if (rows.length === 0 || balance.balanceDueVnd > 0) {
+      return { settled: false, reservationIds: [], balanceDueVnd: balance.balanceDueVnd };
+    }
+    const ctx = await this.s.stay.context(
+      tx,
+      { userId: input.actor.userId, roles: [...input.actor.roles] },
+      input.requestId,
+    );
+    const ids = rows.map((r) => r.id);
+    await tx.query(
+      `UPDATE reservation SET debt_settled_at = $2, updated_at = $2, version = version + 1
+        WHERE id = ANY($1::uuid[])`,
+      [ids, ctx.now],
+    );
+    const primary = rows.find((r) => r.parent_reservation_id === null) ?? rows[0]!;
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'reservation.debt_settled',
+      entityType: 'reservation',
+      entityId: primary.id,
+      entityCode: primary.code,
+      before: { checkoutMode: 'debt', balanceDueVnd: balance.balanceDueVnd },
+      after: { checkoutMode: 'debt', balanceDueVnd: 0 },
+      reason: `payment ${input.paymentId}`,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+    await this.s.events.publish(tx, 'reservation.changed', primary.id);
+    return { settled: true, reservationIds: ids, balanceDueVnd: balance.balanceDueVnd };
+  }
 
   /** Post-midnight window at `at` for a stay leaving on `departure` (DOM S3-9 b). */
   private postMidnight(

@@ -175,6 +175,9 @@ interface StdItem {
   adjustedAfterLastCheck?: boolean;
 }
 interface Std {
+  /** tủ + kỳ của bản chuẩn – lần đếm gửi lại đúng hai trường này (BUG-R2-196) */
+  roomId?: string;
+  periodId?: string | null;
   items: StdItem[];
   latestCheck?: { totalVnd?: number } | null;
 }
@@ -229,7 +232,8 @@ async function count(
     idempotencyKey: true,
     body: {
       mode: 'checkout',
-      ...(o.roomId ? { roomId: o.roomId } : {}),
+      roomId: o.roomId ?? t.body.roomId,
+      periodId: t.body.periodId ?? null,
       lines: [...lines].map(([itemId, remainingQty]) => ({ itemId, remainingQty })),
     },
   });

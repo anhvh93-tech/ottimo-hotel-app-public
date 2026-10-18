@@ -347,6 +347,22 @@ export class QuotesService {
     return { status: 200, body: this.dto((await this.row(tx, c, id)) as QuoteRow, timezone, now) };
   }
 
+  /**
+   * BUG-R2-198 (ARC 16.19 bổ sung 4) – preLock of `quote_extension`: the quote its onDecided may extend, locked
+   * BEFORE the request row on every decision path (approve, reject, cancel, autoCancel). The quote paths (Q2
+   * create-hold, Q3 withdraw, Q4 extend) take the quote first too, so no path holds the request then waits for
+   * the quote. The hook touches nothing else (no booking, no folio – a converted quote is not extended).
+   */
+  async lockForExtensionDecision(tx: Tx, approvalId: string): Promise<void> {
+    const { rows } = await tx.query<{ target_id: string | null }>(
+      `SELECT target_id FROM approval_request
+        WHERE id = $1 AND type = 'quote_extension' AND target_type = 'quote'`,
+      [approvalId],
+    );
+    const quoteId = rows[0]?.target_id;
+    if (quoteId) await tx.query('SELECT id FROM quote WHERE id = $1 FOR UPDATE', [quoteId]);
+  }
+
   /** SM-10 hook for `quote_extension`: approved → Q4 on the quote (if still expired). */
   async onExtensionDecided(tx: Tx, request: ApprovalRow): Promise<void> {
     if (request.status !== 'approved' || request.target_type !== 'quote' || !request.target_id)

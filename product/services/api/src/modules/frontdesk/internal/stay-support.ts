@@ -19,6 +19,7 @@ import {
   type SourcedNight,
   addedNightPrice,
   referenceNightRate,
+  stayRooms,
 } from '../../reservations/public/added-night-price';
 import { PricingService } from '../../reservations/public/pricing.service';
 import {
@@ -242,8 +243,8 @@ export class StaySupport {
     const view = minApplies
       ? await this.stay.boughtRoom(tx, holder.id)
       : { boughtRoomId: null, originRoomId: null };
-    const originRoomId = view.originRoomId ?? roomId;
-    const boughtRoomId = view.boughtRoomId ?? originRoomId;
+    // BUG-R2-195: the one fallback shared with MovePlanner (never moved, no stored origin → the room now).
+    const { originRoomId, boughtRoomId } = stayRooms(view, roomId);
     const agreed =
       (row.channel_group === 'direct' || row.channel_group === 'agent') &&
       !row.external_contract &&

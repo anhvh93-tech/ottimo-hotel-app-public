@@ -3165,6 +3165,20 @@ g("R2 Sprint 4 – FE-A đợt 21: H06 4 số cuối giấy tờ (BUG-R2-179) (U
     ("crm.f_id_doc_help", "Chỉ hiện khi khách đồng ý để OTTIMO ghi nhớ. Số đầy đủ chỉ xem ở màn Giấy tờ & khai báo, trên máy quầy đã cấp.", "Shown only if the guest agreed to be remembered. The full number is only on the IDs & registration screen, on an approved desk computer.", None, "Gợi ý dưới dòng 4 số cuối. UXD 18/10: tên màn theo nav.registration, thêm điều kiện máy quầy đã cấp (US-142)"),
 ])
 
+g("R2 Sprint 4 – UXD: công nợ sau trả phòng (ARC 16.25, BR-525 G-4; UXD viết 18/10 – s4-UXD-brand)", [
+    ("attn.checkout_debt", "Công nợ sau trả phòng chưa thu: {n} đơn", "Unpaid debt after check-out: {n} booking(s)", None, "AttentionItem.kind checkout_debt – MGR+; {n} ← count (Desk tra attn.<kind> với {n}). Không số tiền. warning; critical khi quá hạn (mức hiện bằng viền + icon, không đổi câu). Mở đơn khi count = 1"),
+    ("staff.notif.k.debt_recorded", "Khoản thu sau trả phòng vừa bị đảo – đơn còn công nợ", "A payment was reversed after check-out – the booking now has a debt", None, "StaffNotification.kind debt_recorded – gửi OWN + MGR (trừ người đảo); refType reservation, refCode hiện riêng như các thông báo khác. Không số tiền, không tên khách (ARC 16.25)"),
+])
+
+g("R2 Sprint 4 – FE-A đợt 22: thu công nợ sau trả phòng (ARC 16.26, BR-525 G-4) (UXD duyệt 18/10 – s4-UXD-brand, sửa 1)", [
+    ("debt.collect", "Thu công nợ", "Collect debt", None, "Nút ở drawer đơn đã trả phòng còn nợ và ở mục Cần chú ý checkout_debt (FD+)"),
+    ("debt.collect_title", "Thu công nợ · {code}", "Collect debt · {code}", None, "Tiêu đề hộp"),
+    ("debt.collect_help", "Còn phải thu {amount}. Thu đủ hoặc một phần; phiếu thanh toán đã cấp giữ nguyên.", "{amount} still due. Collect all or part of it; the guest folio already issued stays as it is.", None, "Đầu hộp – recordPayment type=charge trên folio đã khóa. UXD 18/10: \"Hóa đơn\" chỉ dùng cho hóa đơn GTGT – bill đưa khách là \"Phiếu thanh toán\" / \"Guest folio\" (content-guide 3.1)"),
+    ("debt.collect_max", "Tối đa {amount}", "Up to {amount}", None, "Gợi ý ô số tiền – trần = còn phải thu"),
+    ("debt.collect_submit", "Ghi nhận đã thu {amount}", "Record {amount} received", None, "Nút chính của hộp"),
+    ("debt.collected_toast", "Đã thu {amount} công nợ của {code}.", "{amount} of debt collected for {code}.", None, "Sau khi thu"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

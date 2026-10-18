@@ -153,14 +153,17 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     // neither deadlocks and the later one reads what the earlier one wrote (BR-434). ARC 16.19 (K11-01 review):
     // `damage_pricing` too – an approved damage line becomes a posted charge; without the folio lock it could slip
     // in after B18 read the balance under its folio lock.
-    this.approvals.onBeforeDecide(async (tx, approvalId) => {
-      const { rows } = await tx.query<{ folio_id: string }>(
-        `SELECT l.folio_id FROM approval_request a JOIN folio_line l ON l.id = a.folio_line_id
+    this.approvals.onBeforeDecide(
+      ['foc', 'special_discount', 'damage_pricing'],
+      async (tx, approvalId) => {
+        const { rows } = await tx.query<{ folio_id: string }>(
+          `SELECT l.folio_id FROM approval_request a JOIN folio_line l ON l.id = a.folio_line_id
           WHERE a.id = $1 AND a.type IN ('foc', 'special_discount', 'damage_pricing')`,
-        [approvalId],
-      );
-      if (rows[0]) await this.folios.lockStay(tx, rows[0].folio_id);
-    });
+          [approvalId],
+        );
+        if (rows[0]) await this.folios.lockStay(tx, rows[0].folio_id);
+      },
+    );
     // 0.3.7 D1: ApprovalRequest.effectiveAmountVnd + current FOC line (same plan as the write).
     this.approvals.provideFocView((tx, rows) => this.folios.focViews(tx, rows));
     // US-032 AC4 / BR-512: damage outside the table, priced by MGR+.

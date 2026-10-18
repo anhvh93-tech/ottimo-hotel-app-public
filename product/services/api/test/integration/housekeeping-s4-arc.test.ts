@@ -227,6 +227,39 @@ describe.skipIf(!HAS_DB)('housekeeping – ARC review Sprint 4 (S4-01/02/03/05/0
     });
   });
 
+  it('BUG-R2-199 (BUG-R2-163): start / complete / cancel with a device time before the task was created → 422 performedAt; within the 5 min clock skew → accepted', async () => {
+    // Tasks created at NOW − 40' (server time).
+    const created = new Date(NOW.getTime() - 40 * MIN);
+    const mk = async (type: string) => {
+      const id = await task('202', type, { assigned: 'hk' });
+      await q('UPDATE hk_task SET created_at = $2 WHERE id = $1', [id, created]);
+      return id;
+    };
+    const act = (
+      id: string,
+      action: string,
+      performedAt: string,
+      body: Record<string, unknown> = {},
+    ) => call('hk', 'POST', `/hk-tasks/${id}/actions/${action}`, { performedAt, ...body });
+    const refused = [{ field: 'performedAt', code: 'PERFORMED_AT_OUT_OF_RANGE' }];
+    const a = await mk('adhoc_clean');
+    const early = await act(a, 'start', ago(60)); // 20' before the task existed
+    expect(early.statusCode).toBe(422);
+    expect(early.json().errors).toEqual(refused);
+    const earlyDone = await act(a, 'complete', ago(50));
+    expect(earlyDone.statusCode).toBe(422);
+    expect(earlyDone.json().errors).toEqual(refused);
+    expect((await act(a, 'start', ago(43))).statusCode).toBe(200); // 3' before: clock skew
+    expect((await act(a, 'complete', ago(30))).statusCode).toBe(200);
+    const b = await mk('stayover_clean');
+    const earlyCancel = await act(b, 'cancel', ago(55), { cancelReasonCode: 'dnd' });
+    expect(earlyCancel.statusCode).toBe(422);
+    expect(earlyCancel.json().errors).toEqual(refused);
+    expect((await act(b, 'cancel', ago(20), { cancelReasonCode: 'dnd' })).statusCode).toBe(200);
+    const [row] = await q<{ status: string }>('SELECT status FROM hk_task WHERE id = $1', [b]);
+    expect(row?.status).toBe('cancelled');
+  });
+
   // ───────────────────────── S4-02 ─────────────────────────
 
   it('S4-02 (2): finish_cleaning naming a minibar refill task → 422 taskId NOT_IN_LIST, nothing written', async () => {

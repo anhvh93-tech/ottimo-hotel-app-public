@@ -41,5 +41,9 @@ export class SalesModule implements OnModuleInit {
     this.approvals.onDecided('quote_extension', (tx, row) =>
       this.quotes.onExtensionDecided(tx, row),
     );
+    // BUG-R2-198 (ARC 16.19 bổ sung 4): the quote before the request row, on every decision path.
+    this.approvals.onBeforeDecide('quote_extension', (tx, approvalId) =>
+      this.quotes.lockForExtensionDecision(tx, approvalId),
+    );
   }
 }

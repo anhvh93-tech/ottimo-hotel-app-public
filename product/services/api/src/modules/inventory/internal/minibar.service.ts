@@ -346,19 +346,16 @@ export class MinibarService {
       mode: 'checkout' | 'stayover';
       lines: Array<{ itemId: string; remainingQty: number }>;
       performedAt: Date | null;
-      roomId?: string;
-      /** ARC 16.16 bổ sung 2 (ab): MinibarStandard.periodId the count was prepared on; absent = not compared. */
-      periodId?: string | null;
+      /** BUG-R2-196: the fridge counted (MinibarStandard.roomId) – required. */
+      roomId: string;
+      /** ARC 16.16 bổ sung 2 (ab) / 16.19 (ac): MinibarStandard.periodId the count was prepared on – required. */
+      periodId: string | null;
     },
   ): Promise<Record<string, unknown>> {
     // DOM BE-29: a mid-stay count (US-033, R3) would charge the same missing items again at checkout – no refill
     // task, no baseline after a refill (BR-702/703). Closed until US-033.
     if (input.mode === 'stayover') {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'mode', code: 'NOT_IN_LIST' }] });
-    }
-    // ARC 16.19 K11-03: a count sent with `periodId` (an id or null) names its fridge – `roomId` is required.
-    if (input.periodId !== undefined && !input.roomId) {
-      throw problem('VALIDATION_FAILED', { errors: [{ field: 'roomId', code: 'REQUIRED' }] });
     }
     const { today, tz, now } = await this.businessToday(tx);
     const s = await this.stay(tx, actor.roles, reservationId, input.mode, today, input.roomId);
@@ -369,7 +366,6 @@ export class MinibarService {
     // ARC 16.16 bổ sung 2 (ab) / 16.19 (ac): a count prepared on another period of THAT fridge (a refill done, the
     // stay went on, a first fill written since) → 409, nothing written – the client reloads and counts again.
     const assertPeriod = async () => {
-      if (input.periodId === undefined) return;
       if (!(await isCurrentPeriod(tx, fr.primaryId, fr.roomId, input.periodId))) {
         throw problem('MINIBAR_PERIOD_CHANGED');
       }
@@ -385,12 +381,10 @@ export class MinibarService {
     await lockStayBookings(tx, s.folioId);
     await lockFridgeParents(tx, fr.primaryId, fr.roomId);
     await this.folios.lockForPosting(tx, s.folioId);
-    // K11-05: the stay, the room it is in and the fridge are read again under L3 – a B14 committed while this
-    // count waited moved the stay: without `roomId` the count was meant for the room it was in → 409 (reload).
+    // K11-05: the stay and the room it is in are read again under L3 (the fridge is named by `roomId`).
     const fresh = await this.port().stayInfo(tx, s.id);
     if (fresh?.status !== 'in_house')
       throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
-    if (!input.roomId && fresh.roomId !== fr.roomId) throw problem('MINIBAR_PERIOD_CHANGED');
     // BUG-R2-178: the room the STAY is in (a B13 / S4-09 child included), read under L3.
     const currentRoomId = (await currentRoomOfStay(tx, fr.primaryId, today)) ?? fresh.roomId;
     const lock = await lockFridge(tx, fr.primaryId, fr.roomId, { refillTasks: true });

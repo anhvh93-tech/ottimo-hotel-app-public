@@ -1556,8 +1556,15 @@ describe.skipIf(!HAS_DB)(
           itemId: items[m.code],
           remainingQty: left[m.code] ?? m.standardQtyPerRoom,
         }));
-      const record = (who: string, body: Record<string, unknown>) =>
-        c(who).send('POST', `${P(t)}/reservations/${b.id}/minibar-checks`, body);
+      // BUG-R2-196: every count names its fridge and its period (the desk's GET minibar-standard).
+      const record = async (who: string, body: Record<string, unknown>) => {
+        const std = (await c('fd').get(`${P(t)}/reservations/${b.id}/minibar-standard`)).json();
+        return c(who).send('POST', `${P(t)}/reservations/${b.id}/minibar-checks`, {
+          roomId: std.roomId,
+          periodId: std.periodId ?? null,
+          ...body,
+        });
+      };
       expect((await record('hk', { mode: 'checkout', lines: all() })).statusCode).toBe(404);
       fa.clock.set(new Date(`${r!.d}T02:00:00.000Z`));
       await refreshSessions(db, t, fa.clock.now());
@@ -2452,8 +2459,15 @@ describe.skipIf(!HAS_DB)(
       await atT0();
       const b = await booking();
       await inHouse(b);
-      const record = (who: string, body: Record<string, unknown>) =>
-        c(who).send('POST', `${P(t)}/reservations/${b.id}/minibar-checks`, body);
+      // BUG-R2-196: every count names its fridge and its period (the desk's GET minibar-standard).
+      const record = async (who: string, body: Record<string, unknown>) => {
+        const std = (await c('fd').get(`${P(t)}/reservations/${b.id}/minibar-standard`)).json();
+        return c(who).send('POST', `${P(t)}/reservations/${b.id}/minibar-checks`, {
+          roomId: std.roomId,
+          periodId: std.periodId ?? null,
+          ...body,
+        });
+      };
       const all = (left: Record<string, number>) =>
         Object.entries(items).map(([code, itemId]) => ({
           itemId,

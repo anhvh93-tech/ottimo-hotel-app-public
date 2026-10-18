@@ -9,7 +9,8 @@
  * - a `disputed` result never reverses by itself (MGR+ decides – reversePayment).
  * ESC-017 A (SEC F6): when a receipt recorded by a sale/CTV becomes `reconciled`, that person's projected
  * commission on the booking becomes `earned` once none of their receipts on the folio is still pending/disputed.
- * Lock order: reservation (port) → folio → payment.
+ * Lock order: reservation (port) → folio → payment; reversePayment: every booking of the folio (FolioService.lockStay,
+ * BR-525 G-4 debt) → folio → payment → refund requests.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -36,6 +37,7 @@ import {
   receivingAccountInEffect,
 } from '../../platform/public/receiving-account';
 import { notifyStaff, publishEvent } from '../../platform/public/staff-notify';
+import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import {
   RESERVATION_SALES_PORT,
   type ReservationSalesPort,
@@ -162,11 +164,21 @@ export class PaymentsService {
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
+    @Optional() @Inject(ReservationHooks) private readonly hooks?: ReservationHooks,
   ) {}
 
   private port(): ReservationSalesPort {
     if (!this.reservations) throw new Error('reservations module not wired');
     return this.reservations;
+  }
+
+  /**
+   * BR-525 (G-4): the debt owner (front desk – `ReservationHooks.debtAfterReversal`, BE-A). A reversal that leaves
+   * a debt is refused when nobody records it (never an untracked debt – the hooks throw when no handler is bound).
+   */
+  private debtOwner(): ReservationHooks {
+    if (!this.hooks) throw new Error('reservation hooks not wired (BR-525 G-4 debt)');
+    return this.hooks;
   }
 
   private async rollover(tx: Tx, tz: string, now: Date): Promise<string> {
@@ -255,14 +267,38 @@ export class PaymentsService {
       r.status === 'hold' && r.depositRequiredVnd !== undefined
         ? Math.max(0, r.depositRequiredVnd - (await this.folios.depositPaid(tx, folioId)))
         : undefined;
+    // ARC 16.26 (BR-525): a checked-out stay with an open debt – the folio (`settled` after its window, or
+    // `closed`) takes a `charge` from FD+ up to the amount due. L1: the primary (scopedReservation) then every
+    // booking of the folio `NO KEY UPDATE` by id, L3 the folio (`lockStay`), L4 the receipt – as reversePayment.
+    let debtCollection = false;
+    if (r.status === 'checked_out') {
+      const folio = await this.folios.lockStay(tx, folioId);
+      // The front desk owns the debt (ReservationHooks.openDebt – BE-A): null = none → FOLIO_LOCKED as before.
+      if (folio && folio.status !== 'open') {
+        debtCollection = (await this.debtOwner().openDebt(tx, folioId)) !== null;
+      }
+    }
     const row = await this.payments.recordInTx(tx, actor, folioId, raw, {
       reservationId: r.id,
       reservationCode: r.code,
       channelGroup: raw.method === 'ota_collect' ? await this.channelGroup(tx, r.id) : null,
       reservationCreatedAt: meta.created_at,
       ...(holdCap !== undefined ? { outstandingCapVnd: holdCap } : {}),
+      ...(debtCollection ? { debtCollection: true } : {}),
     });
-    // Debt paid after checkout (BR-525) can be the last condition of SM-11 `earned` (BE-15).
+    // Paid in full → the debt is closed in the same transaction (front desk – "Cần chú ý" checkout_debt goes);
+    // a part payment leaves it open with what is left (its due date unchanged).
+    if (debtCollection && (await this.folios.balance(tx, folioId)).balanceDueVnd <= 0) {
+      await this.debtOwner().debtSettled(tx, {
+        folioId,
+        paymentId: row.id,
+        actor: { userId: actor.userId, roles: actor.roles },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    // Debt paid after checkout (BR-525) can be the last condition of SM-11 `earned` (BE-15) – the commission
+    // "paid in full" step (FolioService.tryEarnCommissions): DOM 18/10, a receipt recorded after check-out counts
+    // once confirmed (a transfer waits for its reconciliation, which runs this again).
     if (r.status === 'checked_out') await this.tryEarn(tx, r.id, actor.requestId);
     await this.changed(tx, row, r.id);
     return row;
@@ -736,6 +772,19 @@ export class PaymentsService {
 
   // ───────────── reversePayment (2.5, A34) ─────────────
 
+  /**
+   * BR-525 (G-4, DOM 18/10 – BUG-R2-200): a reversal on a checked-out stay that leaves "còn phải thu" > 0 records
+   * the debt of the stay in the SAME transaction through `ReservationHooks.debtAfterReversal` (front desk – BE-A:
+   * debt = what the reversal added, max(0, due after) − max(0, due before); reason = the reversal reason, default
+   * due date; OWN + MGR told; "Cần chú ý" `checkout_debt` until the folio owes nothing). Owed again → the stay's
+   * earned / payable commissions go back to `projected` (BR-903, G-4 (3)); recordPayment earns them again. No folio line is posted
+   * (no `post_checkout` fee – the charges did not change, only a receipt went away); the folio stays `settled` /
+   * `closed` and its bill is unchanged. Due ≤ 0 after the reversal → no debt. On any booking, an overpayment that
+   * fell below the open refund requests runs refundPlan again (BR-522).
+   * Lock order (ARC 16.19): L1 every booking of the folio `FOR NO KEY UPDATE`, id order (`FolioService.lockStay` –
+   * the debt is written on them) → L3 folio → L4 payment → L4 refund requests (refundPlan). Every decision (status,
+   * due before / after) is read under these locks.
+   */
   async reverse(
     tx: Tx,
     actor: PaymentActor,
@@ -743,10 +792,20 @@ export class PaymentsService {
     reasonRaw: unknown,
   ): Promise<PaymentRowLite> {
     const reason = requireReason('reason', reasonRaw);
-    const p = await this.lockPayment(tx, paymentId);
+    const current = (await this.payments.row(tx, paymentId)) as
+      (PaymentRowLite & { folio_id: string }) | null;
+    if (!current) throw problem('NOT_FOUND');
+    const folio = await this.folios.lockStay(tx, current.folio_id);
+    if (!folio) throw problem('NOT_FOUND');
+    const p = (await this.payments.row(tx, paymentId, { forUpdate: true })) as PaymentRowLite & {
+      folio_id: string;
+    };
     if (p.status !== 'succeeded' || p.reversal_of_id) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: p.status } });
     }
+    const stay = await this.port().stayInfo(tx, folio.primary_reservation_id);
+    const checkedOut = stay?.status === 'checked_out';
+    const dueBefore = checkedOut ? (await this.folios.balance(tx, p.folio_id)).balanceDueVnd : 0;
     const now = this.clock.now();
     const id = uuidv7();
     const code = await this.docNumbers.allocate(tx, 'payment');
@@ -773,13 +832,60 @@ export class PaymentsService {
     const resCode = p.reservation_id
       ? (await this.port().ownership(tx, p.reservation_id))?.code
       : undefined;
+    let debtVnd = 0;
+    if (checkedOut && stay) {
+      // Only a reversal that RAISED what is owed records (or grows) the debt: the increase is
+      // max(0, due after) − max(0, due before) (`balanceDueVnd` is never negative) – reversing a refund pay-out,
+      // or a receipt the overpayment covers, leaves no new debt (BR-525 "còn phải thu ≤ 0 → không có công nợ").
+      // The front desk records the debt = that increase (DOM 18/10): it reads the due after under our locks and
+      // takes `dueBeforeVnd` (read here under L3 before the reversal was written).
+      const dueAfter = (await this.folios.balance(tx, p.folio_id)).balanceDueVnd;
+      if (dueAfter > 0) {
+        // BR-903 (G-4 (3)): owed again → earned / payable commissions back to projected (paid untouched).
+        await this.folios.unearnCommissions(tx, {
+          folioId: p.folio_id,
+          reservationCode: stay.code,
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+      if (dueAfter - dueBefore > 0) {
+        const debt = await this.debtOwner().debtAfterReversal(tx, {
+          folioId: p.folio_id,
+          paymentId: p.id,
+          reason,
+          // BE-A 18/10 (DOM: debt = only what the reversal added) – the port takes the increase over this.
+          dueBeforeVnd: dueBefore,
+          actor: { userId: actor.userId, roles: actor.roles },
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+        if (debt.recorded) debtVnd = debt.debtVnd;
+      }
+    }
+    if (stay) {
+      await this.folios.reconcileRefundsAfterReversal(tx, {
+        folioId: p.folio_id,
+        reservationId: stay.id,
+        reservationCode: stay.code,
+        reservationStatus: stay.status,
+        actor: { userId: actor.userId, roles: actor.roles },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
     await this.audit.recordMoney(tx, {
       action: 'payment.reversed',
       entityType: 'payment',
       entityId: p.id,
       entityCode: resCode ?? p.code,
       before: { status: 'succeeded', amountVnd: p.amount_vnd },
-      after: { status: 'reversed', code, amountVnd: -p.amount_vnd, method: p.method, type: p.type },
+      after: {
+        status: 'reversed',
+        code,
+        amountVnd: -p.amount_vnd,
+        method: p.method,
+        type: p.type,
+        ...(debtVnd > 0 ? { debtVnd } : {}),
+      },
       reason,
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });

@@ -775,6 +775,17 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 22: "Thu công nợ" sau trả phòng (ARC 16.26, BR-525 G-4) (18/10/2026)
+
+- **Hộp `DebtCollectDialog`** (`pages/stay/DebtCollectDialog.tsx`, mới): đọc đơn + folio, "Còn phải thu {số}" (hóa đơn đã xuất giữ nguyên), số tiền mặc định = còn phải thu, tối đa bằng số đó (vượt → báo ở ô, nút khóa; 422 `AMOUNT_EXCEEDS_BALANCE` + `max` của máy chủ cũng hiện), thu từng phần; tiền mặt / chuyển khoản (mã giao dịch) / POS (mã chuẩn chi) – VietQR cho công nợ là R3. Gọi `recordPayment` `type = charge` trên folio đã khóa.
+- **Drawer** đơn `checked_out` còn phải thu > 0: nút "Thu công nợ" (FD+); thu xong tải lại đơn và folio.
+- **"Cần chú ý" `checkout_debt`** (`app/attention.ts`, `dashboard/parts.tsx`): câu `attn.checkout_debt` (trước đây rơi vào câu chung `attn.other`), mã đơn khi một đơn, mở đơn; một đơn → nút "Thu công nợ" (FD+) thay "Đã xử lý" (mục tự hết khi thu đủ); thu xong tải lại danh sách.
+- **Mock**: folio `settled` chỉ nhận `charge` khi còn nợ (khác → 409 `FOLIO_LOCKED`), SAL/CTV → 403, vượt → 422 `AMOUNT_EXCEEDS_BALANCE` + `max`.
+- **Chuỗi**: 6 khóa `debt.*` – nhóm "FE-A đợt 22", chờ UXD duyệt.
+- Kiểm thử: `s4-debt-fea.test.tsx` (mới, 3 ca: drawer FD thu một phần, vượt bị chặn, còn nợ vẫn có nút; mục chú ý MGR thu đủ; SAL không thấy nút). admin-web **447/447**, `tsc`, eslint, prettier xanh.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

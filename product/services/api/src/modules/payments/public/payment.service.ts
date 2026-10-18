@@ -52,6 +52,8 @@ export interface ManualPaymentInput {
   /** Role of the recorder in the property (A-40 snapshot, persisted). */
   recordedByRole?: string | null;
   attachmentId?: string | null;
+  /** ARC 16.26 (BR-525): a debt collected after check-out – flagged in the money audit (`debtCollection`). */
+  debtCollection?: boolean;
   requestId?: string;
 }
 
@@ -267,6 +269,7 @@ export class PaymentService {
         status: 'succeeded',
         reconciliation,
         ...(role ? { recordedByRole: role } : {}),
+        ...(p.debtCollection ? { debtCollection: true } : {}),
       },
       ...(p.requestId ? { requestId: p.requestId } : {}),
     });
@@ -301,6 +304,12 @@ export class PaymentService {
       fieldPrefix?: string;
       /** What the booking owes when it is not the folio balance (a hold: its missing deposit – BR-305). */
       outstandingCapVnd?: number;
+      /**
+       * ARC 16.26 (BR-525): collecting the open debt of a checked-out stay – the folio may be `settled` (window
+       * over) or `closed` and stays so; `charge` only, FD+; at most the amount due (no "thu dư" with a note).
+       * The caller holds L1 (every booking of the folio) and checked the open debt with the front desk.
+       */
+      debtCollection?: boolean;
     },
   ): Promise<PaymentRowLite> {
     const folios = this.need(this.folios, 'FolioService');
@@ -316,8 +325,17 @@ export class PaymentService {
     // A47 / US-119 AC4: a sale records deposits of their own bookings only (scope own_deposit_only).
     if (!desk && raw.type !== 'deposit') throw problem('FORBIDDEN_ACTION');
 
-    const folio = await folios.lockForPosting(tx, folioId, { allowPostCheckout: true });
-    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    if (ctx.debtCollection && (!desk || raw.type !== 'charge')) {
+      if (!desk) throw problem('FORBIDDEN_ACTION');
+      throw problem('VALIDATION_FAILED', { errors: [{ field: f('type'), code: 'NOT_IN_LIST' }] });
+    }
+    const folio = ctx.debtCollection
+      ? await folios.lock(tx, folioId)
+      : await folios.lockForPosting(tx, folioId, { allowPostCheckout: true });
+    if (!folio) throw problem('NOT_FOUND');
+    if (ctx.debtCollection ? folio.status === 'open' : folio.status === 'closed') {
+      throw problem('FOLIO_LOCKED');
+    }
     const now = this.clock.now();
     const tz = await folios.timezone(tx);
     const at = receivedAt ?? now;
@@ -348,8 +366,8 @@ export class PaymentService {
     }
     const owed = ctx.outstandingCapVnd ?? (await folios.balance(tx, folio.id)).balanceDueVnd;
     if (raw.amountVnd > owed) {
-      if (!desk) {
-        // BR-527: a sale never records more than the booking still owes.
+      if (!desk || ctx.debtCollection) {
+        // BR-527: a sale never records more than the booking still owes; ARC 16.26: a debt collection neither.
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: f('amountVnd'), code: 'AMOUNT_EXCEEDS_BALANCE' }],
           extras: { max: owed },
@@ -384,6 +402,7 @@ export class PaymentService {
       ...(desk ? {} : { reconciliation: 'pending' as const }),
       recordedByRole: role,
       attachmentId: raw.attachmentId ?? null,
+      ...(ctx.debtCollection ? { debtCollection: true } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
     if (raw.attachmentId) {

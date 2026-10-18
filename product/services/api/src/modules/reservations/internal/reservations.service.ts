@@ -4291,6 +4291,37 @@ export class ReservationsService {
 
   // ─────────────────────────── B12 – restore no-show ───────────────────────────
 
+  /**
+   * BUG-R2-198 (ARC 16.19 bổ sung 4): pre-lock of a decision on a `no_show_restore` request (approve / reject /
+   * cancel – ApprovalService.onBeforeDecide runs it BEFORE the request row, L4). Takes what an approved restore
+   * (`restoreNoShow`) will take, in its order: L1 the booking NO KEY UPDATE → L2 its room FOR UPDATE → L3 its
+   * folio. The room is read after L1 (only a booking command moves it). A restore that ends in the unassigned
+   * lane or moves the stay locks no more than this; a reject / cancel only waits as long as a restore would.
+   */
+  async lockForRestoreDecision(tx: Tx, approvalId: string): Promise<void> {
+    const { rows } = await tx.query<{ target_id: string }>(
+      `SELECT target_id FROM approval_request
+        WHERE id = $1 AND type = 'no_show_restore' AND target_type = 'reservation' AND target_id IS NOT NULL`,
+      [approvalId],
+    );
+    const id = rows[0]?.target_id;
+    if (!id) return;
+    const { rows: booking } = await tx.query<{ folio_id: string }>(
+      'SELECT folio_id FROM reservation WHERE id = $1 FOR NO KEY UPDATE',
+      [id],
+    );
+    if (!booking[0]) return;
+    const { rows: seg } = await tx.query<{ room_id: string }>(
+      `SELECT room_id FROM reservation_segment WHERE reservation_id = $1 AND room_id IS NOT NULL`,
+      [id],
+    );
+    await this.occupancy.lockRooms(
+      tx,
+      seg.map((s) => s.room_id),
+    );
+    await this.money.lockFolio(tx, booking[0]);
+  }
+
   async restoreNoShow(
     tx: Tx,
     ctx: BookingContext,

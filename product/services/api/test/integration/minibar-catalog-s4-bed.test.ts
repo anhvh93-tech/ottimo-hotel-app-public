@@ -22,6 +22,20 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
   let t: TestTenant;
   let ids: BookingIds;
   const tok = (u: string) => t.users[u]!.sessionToken;
+  /** BUG-R2-196: a count names its fridge and the period it was prepared on (the desk's GET minibar-standard). */
+  const fridgeOf = async (reservationId: string) => {
+    const r = await staff(
+      fa,
+      tok('fd'),
+      null,
+      'GET',
+      `${P(t)}/reservations/${reservationId}/minibar-standard`,
+    );
+    return {
+      roomId: r.json().roomId as string,
+      periodId: (r.json().periodId ?? null) as string | null,
+    };
+  };
   const items: Record<string, { id: string; version: number }> = {};
   let x: { reservationId: string; code: string };
   let y: { reservationId: string; code: string };
@@ -213,6 +227,7 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
       {
         json: {
           mode: 'checkout',
+          ...(await fridgeOf(x.reservationId)),
           lines: [
             { itemId: items.nuoc!.id, remainingQty: 0 },
             { itemId: items.coca!.id, remainingQty: 1 },
@@ -264,6 +279,7 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
       {
         json: {
           mode: 'checkout',
+          ...(await fridgeOf(y.reservationId)),
           lines: [
             { itemId: items.nuoc!.id, remainingQty: 2 },
             { itemId: items.coca!.id, remainingQty: 0 },
@@ -293,6 +309,7 @@ describe.skipIf(!HAS_DB)('US-066 minibar catalogue + US-003 AC2 (BE-D Sprint 4)'
       {
         json: {
           mode: 'checkout',
+          ...(await fridgeOf(z.reservationId)),
           lines: [
             { itemId: items.nuoc!.id, remainingQty: 2 },
             { itemId: items.coca!.id, remainingQty: 0 },

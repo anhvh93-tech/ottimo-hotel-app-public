@@ -148,6 +148,8 @@ export const reservation = pgTable(
     checkoutMode: text('checkout_mode'),
     debtDueDate: date('debt_due_date', { mode: 'string' }),
     debtReason: text('debt_reason'),
+    // 0074 (ARC 16.26, BR-525 G-4): the open debt was paid in full (NULL = open / no debt).
+    debtSettledAt: instant('debt_settled_at'),
     earlyDepartureNoticeAt: instant('early_departure_notice_at'),
     // B15 conflict sent for approval (late_checkout_conflict): applied as agreed_checkout_time when approved.
     lateCheckoutRequestedTime: time('late_checkout_requested_time'),
@@ -246,6 +248,10 @@ export const reservation = pgTable(
     check(
       'reservation_debt_check',
       sql`(${t.debtDueDate} IS NULL AND ${t.debtReason} IS NULL) OR (${t.checkoutMode} = 'debt' AND ${t.debtDueDate} IS NOT NULL AND ${t.debtReason} IS NOT NULL)`,
+    ),
+    check(
+      'reservation_debt_settled_check',
+      sql`${t.debtSettledAt} IS NULL OR ${t.checkoutMode} = 'debt'`,
     ),
     check(
       'reservation_room_status_before_check',

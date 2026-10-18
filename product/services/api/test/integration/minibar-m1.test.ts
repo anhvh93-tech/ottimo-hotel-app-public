@@ -318,13 +318,15 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
   /** Checkout count: `used` per item code over the items of the FRIDGE (GET minibar-standard). */
   const countRaw = async (b: Booking, used: Record<string, number>, roomId?: string) => {
     const std = await standard(b, roomId);
+    // BUG-R2-196: every count names its fridge and the period it was prepared on (the Desk sends both).
     return c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
       lines: std.items.map((i) => ({
         itemId: i.itemId,
         remainingQty: i.standardQty - (used[codeOf[i.itemId] ?? ''] ?? 0),
       })),
-      ...(roomId ? { roomId } : {}),
+      roomId: std.roomId ?? roomId,
+      periodId: std.periodId ?? null,
     });
   };
   const count = async (b: Booking, used: Record<string, number>, roomId?: string) => {
@@ -545,6 +547,7 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       mode: 'checkout',
       lines: [],
       roomId: ids.rooms['302'],
+      periodId: null,
     });
     expect(r.statusCode).toBe(422);
     expect(r.json().errors).toContainEqual({ field: 'roomId', code: 'NOT_IN_LIST' });
@@ -751,6 +754,8 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(std.items.some((i) => i.itemId === created.json().id)).toBe(false);
     const bad = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
+      roomId: std.roomId,
+      periodId: std.periodId ?? null,
       lines: [
         ...std.items.map((i) => ({ itemId: i.itemId, remainingQty: i.standardQty })),
         { itemId: created.json().id, remainingQty: 0 },
@@ -877,6 +882,8 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     const own = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
       lines: [],
+      roomId: ids.rooms['401'],
+      periodId: null,
     });
     expect(own.statusCode).toBe(404);
   });
@@ -1322,24 +1329,28 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     c.hk!.send('POST', url(`/hk-tasks/${taskId}/actions/complete`), {
       performedAt: new Date(iso).toISOString(),
     });
+  type Prepared = Array<{ itemId: string; remainingQty: number }> & {
+    prepared?: { periodId: string | null; roomId: string };
+  };
+  /** Sends a count – by default with the fridge and period it was PREPARED on (linesNow), like the Desk. */
   const sendCount =
-    (
-      b: Booking,
-      lines: Array<{ itemId: string; remainingQty: number }>,
-      period?: { periodId: string | null; roomId?: string },
-    ) =>
-    () =>
+    (b: Booking, lines: Prepared, period?: { periodId?: string | null; roomId?: string }) => () =>
       c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
         mode: 'checkout',
-        lines,
-        ...(period ?? {}),
+        lines: [...lines],
+        ...(period ?? lines.prepared ?? {}),
       });
-  /** Lines of a checkout count on the fridge's CURRENT period: `used` per code. */
-  const linesNow = async (b: Booking, used: Record<string, number>) =>
-    (await standard(b)).items.map((i) => ({
-      itemId: i.itemId,
-      remainingQty: i.standardQty - (used[codeOf[i.itemId] ?? ''] ?? 0),
-    }));
+  /** Lines of a checkout count on the fridge's CURRENT period (`used` per code), with that fridge and period. */
+  const linesNow = async (b: Booking, used: Record<string, number>): Promise<Prepared> => {
+    const std = await standard(b);
+    return Object.assign(
+      std.items.map((i) => ({
+        itemId: i.itemId,
+        remainingQty: i.standardQty - (used[codeOf[i.itemId] ?? ''] ?? 0),
+      })),
+      { prepared: { periodId: std.periodId ?? null, roomId: std.roomId as string } },
+    );
+  };
   /** B13 after 2 beers counted: T1 (2 bia) + a `carry` period (beer mark 0). */
   const extendedAfterBeers = async (room: string, from: string, to: string) => {
     const { b } = await inHouse(room, from, to);
@@ -1350,7 +1361,7 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     return { b, t1: t1! };
   };
 
-  it('race – refill done ‖ count, the refill first: the count prepared on the `carry` period meets the refill period under the lock → 422 MINIBAR_ITEMS_INCOMPLETE as in sequence (not a count in a closed period); recount → 100.000', async () => {
+  it('race – refill done ‖ count, the refill first: the count prepared on the `carry` period meets the refill period under the lock → 409 MINIBAR_PERIOD_CHANGED as in sequence (not a count in a closed period); recount → 100.000', async () => {
     const { b, t1 } = await extendedAfterBeers('301', '2029-09-10', '2029-09-11');
     const lines = await linesNow(b, { snack: 1 });
     await at('2029-09-11T10:00:00+07:00');
@@ -1359,8 +1370,8 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       sendCount(b, lines),
     ]);
     expect(done!.statusCode, done!.body).toBe(200);
-    expect(counted!.statusCode, counted!.body).toBe(422);
-    expect(JSON.stringify(counted!.json().errors)).toContain('MINIBAR_ITEMS_INCOMPLETE');
+    expect(counted!.statusCode, counted!.body).toBe(409);
+    expect(counted!.json().code).toBe('MINIBAR_PERIOD_CHANGED');
     // = the refill alone: mark bia 0 + 2, snack 1 – and the new period is not counted
     expect((await lastFill(b, '301')).marks).toMatchObject({ bia: 2, snack: 1 });
     expect((await blockers(b)).blockers ?? []).toContain('minibar_not_checked');
@@ -1484,7 +1495,7 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(await minibarAmounts(b)).toEqual([35_000, 35_000]);
   });
 
-  it("(ab)/(ac) ARC 16.19 K11-03: periodId without roomId → 422 REQUIRED; null on a fridge never filled → 201, then null again (the fridge has its fill now) → 409; the fridge's periodId → 201; an unknown periodId → 409, nothing written; no periodId → not compared (201)", async () => {
+  it("(ab)/(ac) ARC 16.19 K11-03, BUG-R2-196: periodId without roomId → 422 REQUIRED; null on a fridge never filled → 201, then null again (the fridge has its fill now) → 409; the fridge's periodId → 201; an unknown periodId → 409, nothing written; no periodId (FD) or roomId only (HK) → 422 REQUIRED, nothing written", async () => {
     const { b } = await inHouse('101', '2029-10-15', '2029-10-16');
     await at('2029-10-16T09:00:00+07:00');
     const room = ids.rooms['101']!;
@@ -1522,9 +1533,28 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(unknown.statusCode, unknown.body).toBe(409);
     expect(unknown.json().code).toBe('MINIBAR_PERIOD_CHANGED');
     expect(await checkRows(b)).toBe(checks2);
-    const legacy = await sendCount(b, await linesNow(b, { bia: 2, snack: 1 }))();
-    expect(legacy.statusCode, legacy.body).toBe(201);
-    expect((await mb(b)).gross).toBe(100_000);
+    // BUG-R2-196: no more "absent = not compared / the room the booking is in" – both fields are required.
+    const legacyLines = [...(await linesNow(b, { bia: 2, snack: 1 }))];
+    const legacy = await c.fd!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      lines: legacyLines,
+    });
+    expect(legacy.statusCode, legacy.body).toBe(422);
+    expect(legacy.json().errors).toEqual(
+      expect.arrayContaining([
+        { field: 'roomId', code: 'REQUIRED' },
+        { field: 'periodId', code: 'REQUIRED' },
+      ]),
+    );
+    const roomOnly = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      lines: legacyLines,
+      roomId: room,
+    });
+    expect(roomOnly.statusCode, roomOnly.body).toBe(422);
+    expect(roomOnly.json().errors).toEqual([{ field: 'periodId', code: 'REQUIRED' }]);
+    expect(await checkRows(b)).toBe(checks2);
+    expect((await mb(b)).gross).toBe(70_000);
   });
 
   it('(ab) idempotency: a 409 MINIBAR_PERIOD_CHANGED rolls back – no completed key is kept; the SAME Idempotency-Key with the new count → 201 (not 422 IDEMPOTENCY_KEY_REUSED), then replayed', async () => {
@@ -1605,7 +1635,7 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       )
     ).map((r) => r.source);
 
-  it('BUG-R2-158 (A1): desk ‖ HK count a never-filled fridge at the same time (2 beers, departure day), both orders → one `check_in` fill, one live count, 70.000; latestCheck = B18 = 70.000; one task {bia: 2}', async () => {
+  it('BUG-R2-158 (A1), 16.19 (ac): desk ‖ HK count a never-filled fridge at the same time (2 beers, departure day, both prepared with periodId null), both orders → the first 201, the second 409 MINIBAR_PERIOD_CHANGED; one `check_in` fill, one live count, 70.000; latestCheck = B18 = 70.000; one task {bia: 2}', async () => {
     const cases = [
       { room: '102', from: '2030-01-02', to: '2030-01-03', first: 'fd' },
       { room: '401', from: '2030-01-09', to: '2030-01-10', first: 'hk' },
@@ -1618,7 +1648,8 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       const send = (who: 'fd' | 'hk') => () =>
         c[who]!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
           mode: 'checkout',
-          lines,
+          lines: [...lines],
+          ...lines.prepared,
         });
       const res = await interleaved(
         fridgeKey(b, k.room),
@@ -1627,7 +1658,9 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
       expect(
         res.map((r) => r.statusCode),
         res.map((r) => r.body).join(' | '),
-      ).toEqual([201, 201]);
+      ).toEqual([201, 409]);
+      // 16.19 (ac): both were prepared on the fridge without a fill – the second meets the first one's fill
+      expect(res[1]!.json().code).toBe('MINIBAR_PERIOD_CHANGED');
       expect(await fillsOf(b), k.room).toEqual(['check_in']);
       expect(await liveCountRows(b), k.room).toBe(1);
       expect((await mb(b)).gross, k.room).toBe(70_000);
@@ -1702,6 +1735,8 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(data67).toHaveLength(4);
     await asOwner(data67);
     expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0, k4: 0 });
+    // BUG-R2-197: data counted by 365486f only (never re-counted on ce90d19) → 0071 finds nothing to RAISE
+    await asOwner(migrationData('0071_minibar_double_count_check.sql'));
     expect(await fillsOf(b)).toEqual(['backfill']);
     const [fill] = await q<{ id: string; filled_at: Date }>(
       'SELECT id, filled_at FROM minibar_fill WHERE reservation_id = $1',
@@ -1793,6 +1828,7 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     const r = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
       mode: 'checkout',
       roomId,
+      periodId: std.json().periodId ?? null,
       lines: (std.json().items as Array<{ itemId: string; standardQty: number }>).map((i) => ({
         itemId: i.itemId,
         remainingQty: i.standardQty - (used[codeOf[i.itemId] ?? ''] ?? 0),
@@ -2075,10 +2111,11 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0, k4: 0 });
   });
 
-  it('K11-05 (ARC 16.19): a count without roomId/periodId (old client) waits while a B14 301 → 302 commits → the room is read again under the folio lock → 409 MINIBAR_PERIOD_CHANGED, nothing written (it was meant for 301); in sequence it would count 302 – never the wrong fridge silently', async () => {
+  it('K11-05 (ARC 16.19): a count of the 301 fridge (roomId 301, periodId null) waits while a B14 301 → 302 commits – B14 registered the 301 fill, so the count prepared before it is refused 409 MINIBAR_PERIOD_CHANGED, nothing written; reloaded → 201 into 301, and the stay having left 301 (read under the folio lock) its refill task is raised at once', async () => {
     const { b } = await inHouse('301', '2030-03-25', '2030-03-27');
     await at('2030-03-26T10:00:00+07:00');
     const lines = await linesNow(b, { bia: 1 });
+    expect(lines.prepared).toEqual({ periodId: null, roomId: ids.rooms['301'] });
     await vacant('302');
     const body = {
       newRoomId: ids.rooms['302'],
@@ -2097,6 +2134,11 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(counted!.json().code).toBe('MINIBAR_PERIOD_CHANGED');
     expect(await checkRows(b)).toBe(0);
     expect((await mb(b)).gross).toBe(0);
+    await count(b, { bia: 1 }, ids.rooms['301']);
+    expect((await mb(b)).gross).toBe(35_000);
+    expect(await refills(b, '301')).toEqual([
+      { id: expect.any(String), status: 'open', items: { bia: 1 } },
+    ]);
   });
 
   it('K11-04 (ARC 16.19): B18 ‖ a re-count of the same fridge, B18 first (forced on the fridge lock) → the count waits on the room (KEY SHARE before the folio), no 40P01; B18 settles 35.000, the late count is refused with 409 and changes nothing – as in sequence', async () => {
@@ -2436,6 +2478,67 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect((await hkTask())?.refillItems).toEqual([
       { itemId: items.bia, quantity: 1, itemName: bia!.name },
     ]);
+  });
+
+  it('BUG-R2-197 (0071, ARC 16.17 mục 3 bổ sung): a fridge damaged on ce90d19 – the 365486f count without a period and its re-count in the check_in period, both live (B18 would charge twice) → K1b finds it, 0071 RAISEs with the booking code, the room and both counts; handled by hand (the count without a period marked replaced) → K1b = 0, 0071 passes, B18 70.000', async () => {
+    const { b, roomTotal } = await inHouse('401', '2031-05-19', '2031-05-20');
+    await at('2031-05-20T09:00:00+07:00');
+    await count(b, { bia: 2 }); // the re-count of ce90d19, in the check_in period
+    const [right] = await q<{ id: string }>(
+      'SELECT id FROM minibar_check WHERE reservation_id = $1',
+      [b.id],
+    );
+    const stale = uuidv7();
+    // phase 1–2: the count 365486f wrote without a period, still live after ce90d19's re-count
+    await asOwner([
+      {
+        sql: `INSERT INTO minibar_check (id, organization_id, property_id, reservation_id, room_id, mode,
+                business_date, checked_by, checked_at, total_vnd, created_at)
+              SELECT $2, organization_id, property_id, reservation_id, room_id, mode, business_date, checked_by,
+                     checked_at - interval '1 hour', total_vnd, created_at - interval '1 hour'
+                FROM minibar_check WHERE id = $1`,
+        params: [right!.id, stale],
+      },
+      {
+        sql: `INSERT INTO minibar_check_line (id, organization_id, property_id, check_id, item_id, standard_qty,
+                remaining_qty, unit_price_vnd_snapshot, unit_cost_vnd_snapshot, amount_vnd)
+              SELECT gen_random_uuid(), organization_id, property_id, $2, item_id, standard_qty, remaining_qty,
+                     unit_price_vnd_snapshot, unit_cost_vnd_snapshot, amount_vnd
+                FROM minibar_check_line WHERE check_id = $1`,
+        params: [right!.id, stale],
+      },
+    ]);
+    const k1b = async () =>
+      q(
+        `SELECT reservation_id, room_id, count(*) FROM minibar_check
+          WHERE mode = 'checkout' AND (replaced_by_check_id IS NULL OR replaced_by_check_id = id)
+          GROUP BY 1, 2 HAVING count(*) > 1 AND bool_or(fill_id IS NULL)`,
+      );
+    expect(await k1b()).toHaveLength(1);
+    // phase 3: 0071 as shipped (its data statement under the tenant's RLS) → RAISE with the list
+    const data71 = migrationData('0071_minibar_double_count_check.sql');
+    expect(data71).toHaveLength(1);
+    const err = await asOwner(data71).then(
+      () => null,
+      (e: Error) => e.message,
+    );
+    expect(err).toContain('0071');
+    expect(err).toContain(b.code);
+    expect(err).toContain('room 401');
+    expect(err).toContain(stale);
+    expect(err).toContain(right!.id);
+    // handled by hand (ARC 16.17 mục 3): the count without a period is replaced by the right one
+    await asOwner([
+      {
+        sql: 'UPDATE minibar_check SET replaced_by_check_id = $2 WHERE id = $1',
+        params: [stale, right!.id],
+      },
+    ]);
+    expect(await k1b()).toHaveLength(0);
+    await asOwner(data71);
+    await at('2031-05-20T11:00:00+07:00');
+    expect((await checkout(b, '11:00')).status).toBe(200);
+    expect((await totals(b)).totalVnd).toBe(roomTotal + 70_000);
   });
 
   it('ARC 16.14: FolioLine.chargeCode – a minibar line carries the item code, the adjustFolioLine replacement keeps it; B13 after a count → minibarUncheckedRooms reason stay_continued', async () => {

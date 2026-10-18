@@ -1255,6 +1255,17 @@ export class FolioService implements FolioStaySync {
     if (!folio) return 0;
     const m = moneyPosition(await this.lines(tx, folio.id), await this.payments(tx, folio.id));
     if (m.balanceDueVnd > 0) return 0;
+    // DOM 18/10 (BR-525 / BR-903, ARC 16.26): money received AFTER the check-out (a debt collected, a post-checkout
+    // charge paid) counts once confirmed – a transfer still pending / disputed holds the commission until its
+    // reconciliation (which runs this again: applyReconciliation → tryEarn).
+    const { rows: unconfirmed } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM payment p JOIN reservation r ON r.id = $1
+        WHERE p.folio_id = $2 AND p.status = 'succeeded' AND p.reversal_of_id IS NULL AND p.amount_vnd > 0
+          AND p.reconciliation IN ('pending', 'disputed')
+          AND r.actual_checkout_at IS NOT NULL AND p.created_at > r.actual_checkout_at`,
+      [stay.reservationId, folio.id],
+    );
+    if ((unconfirmed[0]?.n ?? 0) > 0) return 0;
     const { rows: due } = await tx.query<{ id: string; amount_vnd: number; payee_user_id: string }>(
       `SELECT c.id, c.amount_vnd, c.payee_user_id FROM commission c
         WHERE c.reservation_id = $1 AND c.status = 'projected'
@@ -1283,6 +1294,47 @@ export class FolioService implements FolioStaySync {
       });
     }
     return due.length;
+  }
+
+  /**
+   * BR-903 / BR-525 (DOM 18/10 – G-4 (3)): a commission is earned only while the stay owes nothing. A receipt
+   * reversed after check-out that leaves money owed sends the `earned` / `payable` commissions of the stay's
+   * bookings back to `projected` (recognized_at cleared); `tryEarnCommissions` earns them again – with the date of
+   * that moment – once the debt is paid (recordPayment on the checked-out stay). `paid` is never touched in R2
+   * (taking it back from a later pay-out is PO's call for R3). Caller holds L1 → L3 (reversePayment); the
+   * commission rows are locked after the folio, as in tryEarnCommissions. Returns the commissions sent back.
+   */
+  async unearnCommissions(
+    tx: Tx,
+    input: { folioId: string; reservationCode: string; reason: string; requestId?: string },
+  ): Promise<number> {
+    const { rows } = await tx.query<{ id: string; status: string; amount_vnd: number }>(
+      `SELECT c.id, c.status, c.amount_vnd FROM commission c
+        WHERE c.status IN ('earned', 'payable')
+          AND c.reservation_id IN (SELECT r.id FROM reservation r WHERE r.folio_id = $1)
+        ORDER BY c.id FOR UPDATE OF c`,
+      [input.folioId],
+    );
+    const now = this.clock.now();
+    for (const c of rows) {
+      await tx.query(
+        `UPDATE commission SET status = 'projected', recognized_at = NULL, updated_at = $2,
+            version = version + 1
+          WHERE id = $1`,
+        [c.id, now],
+      );
+      await this.audit.recordMoney(tx, {
+        action: 'commission.projected',
+        entityType: 'commission',
+        entityId: c.id,
+        entityCode: input.reservationCode,
+        before: { status: c.status, amountVnd: c.amount_vnd },
+        after: { status: 'projected', amountVnd: c.amount_vnd },
+        reason: input.reason,
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+      });
+    }
+    return rows.length;
   }
 
   /** Folio of a booking (folio.primary_reservation_id is unique). */
@@ -2756,27 +2808,7 @@ export class FolioService implements FolioStaySync {
       requestId?: string;
     },
   ): Promise<void> {
-    const b = await this.balance(tx, input.folioId);
-    const open = await this.openRefunds(tx, input.folioId, { lock: true });
-    const total = open.reduce((a, r) => a + r.remainingVnd, 0);
-    if (total > Math.max(0, b.rawCreditVnd)) {
-      const approvals = this.requireApprovals();
-      const plan = refundPlan(b.rawCreditVnd, open);
-      for (const id of plan.cancelIds) {
-        await approvals.autoCancel(tx, id, 'no_show_restored', input.requestId);
-      }
-      if (plan.createVnd > 0) {
-        await approvals.submit(tx, input.actor, {
-          type: 'refund',
-          amountVnd: plan.createVnd,
-          reasonCode: 'overpayment',
-          targetType: 'reservation',
-          targetId: input.reservationId,
-          targetCode: input.reservationCode,
-          ...(input.requestId ? { requestId: input.requestId } : {}),
-        });
-      }
-    }
+    await this.refundsDownToCredit(tx, input, 'no_show_restored');
     if (this.events) {
       await this.events.resolveAttention(
         tx,
@@ -2785,6 +2817,80 @@ export class FolioService implements FolioStaySync {
         'no-show restored (B12)',
       );
     }
+  }
+
+  /**
+   * BR-525 (G-4) / BR-522 – a receipt was reversed (`reversePayment`, any booking status): when the overpayment
+   * left is now below what the open refund requests of the folio still ask, the same refundPlan as a cancellation
+   * runs again – the pending ones are auto-cancelled (`superseded`: replaced by a request of the right amount;
+   * requester told) and, only if some overpayment is left, ONE request of that amount is made (SM-10: the amount
+   * of a request never changes; approved requests are never touched). A cancelled / no-show booking left with no
+   * overpayment closes its "Cần chú ý" closed_reservation_credit (nothing to pay back – the same rule as a
+   * refund paid out). Caller holds L3 folio (ARC 16.19); the requests are locked here (L4).
+   */
+  async reconcileRefundsAfterReversal(
+    tx: Tx,
+    input: {
+      folioId: string;
+      reservationId: string;
+      reservationCode: string;
+      reservationStatus: string;
+      actor: { userId: string; roles: readonly string[] };
+      requestId?: string;
+    },
+  ): Promise<{ cancelledIds: string[]; createdId: string | null }> {
+    const out = await this.refundsDownToCredit(tx, input, 'superseded');
+    if (
+      this.events &&
+      (input.reservationStatus === 'cancelled' || input.reservationStatus === 'no_show') &&
+      (await this.balance(tx, input.folioId)).rawCreditVnd <= 0
+    ) {
+      await this.events.resolveAttention(
+        tx,
+        `closed_reservation_credit:${input.reservationId}`,
+        this.clock.now(),
+        'receipt reversed – nothing to pay back (BR-522)',
+      );
+    }
+    return out;
+  }
+
+  /** refundPlan when the open refund requests ask more than the overpayment (reopenStayCredit, reversal). */
+  private async refundsDownToCredit(
+    tx: Tx,
+    input: {
+      folioId: string;
+      reservationId: string;
+      reservationCode: string;
+      actor: { userId: string; roles: readonly string[] };
+      requestId?: string;
+    },
+    cancelReason: 'no_show_restored' | 'superseded',
+  ): Promise<{ cancelledIds: string[]; createdId: string | null }> {
+    const b = await this.balance(tx, input.folioId);
+    const open = await this.openRefunds(tx, input.folioId, { lock: true });
+    const total = open.reduce((a, r) => a + r.remainingVnd, 0);
+    if (total <= Math.max(0, b.rawCreditVnd)) return { cancelledIds: [], createdId: null };
+    const approvals = this.requireApprovals();
+    const plan = refundPlan(b.rawCreditVnd, open);
+    const cancelledIds: string[] = [];
+    for (const id of plan.cancelIds) {
+      if (await approvals.autoCancel(tx, id, cancelReason, input.requestId)) cancelledIds.push(id);
+    }
+    let createdId: string | null = null;
+    if (plan.createVnd > 0) {
+      const row = await approvals.submit(tx, input.actor, {
+        type: 'refund',
+        amountVnd: plan.createVnd,
+        reasonCode: 'overpayment',
+        targetType: 'reservation',
+        targetId: input.reservationId,
+        targetCode: input.reservationCode,
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+      });
+      createdId = row.id;
+    }
+    return { cancelledIds, createdId };
   }
 
   /**

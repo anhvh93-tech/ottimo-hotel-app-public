@@ -29,10 +29,11 @@ const checkSchema = z.object({
     )
     .max(100),
   performedAt: z.string().max(40).optional(),
-  // 0.3.7 bổ sung 4 (mô hình minibar M-1, R1/R9): the fridge – absent = the room the booking is in now.
-  roomId: z.string().regex(UUID).optional(),
-  // ARC 16.16 bổ sung 2 (ab): the period (MinibarStandard.periodId) the count was prepared on – null = no fill yet.
-  periodId: z.string().regex(UUID).nullable().optional(),
+  // BUG-R2-196 (ARC 16.19 K11-03/K11-08, contract `required: [mode, lines, roomId, periodId]`): the fridge and the
+  // period the count was prepared on (MinibarStandard.roomId / periodId – null = that fridge had no fill yet) are
+  // REQUIRED for every role – no more "absent = the room the booking is in / not compared".
+  roomId: z.string().regex(UUID),
+  periodId: z.string().regex(UUID).nullable(),
 });
 
 function principal(req: GuardedRequest) {
@@ -72,8 +73,8 @@ export class MinibarController {
           mode: input.mode,
           lines: input.lines,
           performedAt,
-          ...(input.roomId ? { roomId: input.roomId } : {}),
-          ...(input.periodId !== undefined ? { periodId: input.periodId } : {}),
+          roomId: input.roomId,
+          periodId: input.periodId,
         },
       ),
     }));

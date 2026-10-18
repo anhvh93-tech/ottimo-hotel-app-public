@@ -45,6 +45,8 @@ import type { BookingContext } from './booking-context';
 import {
   addedNightPrice,
   referenceNightRate,
+  referenceSide,
+  stayRooms,
   type SourcedNight,
 } from '../public/added-night-price';
 import {
@@ -432,9 +434,20 @@ export class MovePlanner {
     const repostDiff = ota && basis === 'new_room_rate';
     const origin = await this.originRoom(tx, row, input);
     // BR-417 appendix 5A step 1 (AN-46, BR-429 (b1') – DOM 18/10 vòng sửa 5): the room the guest bought before this
-    // change, over the whole stay; an OTTIMO operation never changes it (null = never moved: the room now).
+    // change, over the whole stay; an OTTIMO operation never changes it. BUG-R2-195: the SAME fallback as B13
+    // (`stayRooms`) – a stay never moved, without a stored origin, has the room it is in now as origin (the anchor
+    // of the nights typed at booking) and as the room bought; `null` here lost the reference night of every agreed
+    // stay that had never changed room.
     const stayView = tiered ? await stayRoomHistory(tx, row.id) : null;
-    const boughtBefore = stayView ? boughtRoomOf(stayView.history, stayView.originRoomId) : null;
+    const rooms = stayView
+      ? stayRooms(
+          {
+            boughtRoomId: boughtRoomOf(stayView.history, stayView.originRoomId),
+            originRoomId: stayView.originRoomId,
+          },
+          currentRoomId,
+        )
+      : null;
     // Step 3: an agreed stay (typed at booking) prices from its reference night – the typed nights with their source.
     const agreed =
       (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource ===
@@ -479,7 +492,7 @@ export class MovePlanner {
             // bought stays), is priced like B13 – what the guest bought (reference night of an agreed stay, else
             // the bought room's calendar), min with the night's room when it is another one. Only a guest request
             // that changes the room leaves the table (AN-47 (a): the new room's current calendar).
-            const bought = boughtBefore ?? oldRoom ?? target;
+            const bought = rooms?.boughtRoomId ?? oldRoom ?? target;
             const nightRate = {
               rateVnd: fresh,
               ...(await this.bounds(tx, ctx, cache, target, date)),
@@ -496,13 +509,15 @@ export class MovePlanner {
               night: nightRate,
               sameRoom: bought === target,
               special: special(date),
+              // G-2 (AN-48): an added night before the stay's first night (arrival moved earlier) takes the
+              // earliest typed night after it – like B9a; after the stay, the latest before it – like B13.
               referenceVnd: agreed
                 ? referenceNightRate(
                     sourced,
                     date,
-                    'before',
+                    referenceSide(sourced, date),
                     bought,
-                    stayView?.originRoomId ?? null,
+                    rooms?.originRoomId ?? null,
                     special,
                   )
                 : null,

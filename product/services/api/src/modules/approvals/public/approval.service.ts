@@ -254,7 +254,9 @@ export interface ApprovalContext {
 @Injectable()
 export class ApprovalService {
   private readonly hooks = new Map<ApprovalType, DecidedHook[]>();
-  private readonly preLocks: PreLockHook[] = [];
+  private readonly preLocks = new Map<ApprovalType, PreLockHook[]>();
+  /** Hooks registered without types (older form – they filter by type themselves); not counted as declared. */
+  private readonly untypedPreLocks: PreLockHook[] = [];
   private focView: FocViewProvider | null = null;
   /** Per-transaction memo: time zone/today and foc_limits are read once per request (FB-R2-ARC-BE-06). */
   private readonly perTx = new WeakMap<
@@ -276,13 +278,34 @@ export class ApprovalService {
   }
 
   /**
-   * S4-13 (BE-B): a hook that locks what the decision will change BEFORE the request row is locked – the folio
-   * module locks the folio of a foc / special_discount request, so a decision and a night re-sync (reservation
-   * → folio → approval_request) always take the locks in the same order and the later one reads the result of
-   * the earlier one (BR-434 "thao tác xong sau đọc lại trạng thái của thao tác xong trước").
+   * S4-13 / ARC 16.19 bổ sung 4 (BUG-R2-198): the preLock of a request type – it locks what that type's
+   * onDecided hook will change (booking L1, room L2, folio L3 – 16.19) BEFORE the request row (L4) is locked, on
+   * every decision path (approve, reject, cancel, autoCancel, cancelSuperseded). Every type whose onDecided writes
+   * outside the approvals module MUST declare one (`decisionHooks()` – checked by a test). Runs with no lock on
+   * the request (its type is read plainly); a caller already holding those locks (B18) does not wait.
    */
-  onBeforeDecide(hook: PreLockHook): void {
-    this.preLocks.push(hook);
+  onBeforeDecide(types: ApprovalType | readonly ApprovalType[], hook: PreLockHook): void;
+  /** @deprecated declare the types – an untyped hook runs for every type and is not counted by decisionHooks(). */
+  onBeforeDecide(hook: PreLockHook): void;
+  onBeforeDecide(
+    types: ApprovalType | readonly ApprovalType[] | PreLockHook,
+    hook?: PreLockHook,
+  ): void {
+    if (typeof types === 'function') {
+      this.untypedPreLocks.push(types);
+      return;
+    }
+    for (const type of typeof types === 'string' ? [types] : types) {
+      this.preLocks.set(type, [...(this.preLocks.get(type) ?? []), hook as PreLockHook]);
+    }
+  }
+
+  /** BUG-R2-198: every type with an onDecided hook and whether it declared its preLock (structural test). */
+  decisionHooks(): Array<{ type: ApprovalType; preLock: boolean }> {
+    return [...this.hooks.keys()].sort().map((type) => ({
+      type,
+      preLock: (this.preLocks.get(type)?.length ?? 0) > 0,
+    }));
   }
 
   /** OpenAPI 0.3.7 D1: the folio module provides effectiveAmountVnd / the current FOC line (FocView). */
@@ -291,7 +314,14 @@ export class ApprovalService {
   }
 
   private async preLock(tx: Tx, approvalId: string): Promise<void> {
-    for (const h of this.preLocks) await h(tx, approvalId);
+    const { rows } = await tx.query<{ type: ApprovalType }>(
+      'SELECT type FROM approval_request WHERE id = $1',
+      [approvalId],
+    );
+    const type = rows[0]?.type;
+    if (!type) return;
+    for (const h of this.preLocks.get(type) ?? []) await h(tx, approvalId);
+    for (const h of this.untypedPreLocks) await h(tx, approvalId);
   }
 
   // ───────────────────────── A1 / A2 ─────────────────────────
@@ -764,6 +794,7 @@ export class ApprovalService {
     reason: AutoCancelReason,
     requestId?: string,
   ): Promise<ApprovalRow | null> {
+    await this.preLock(tx, approvalId); // 16.19 bổ sung 4: L1–L3 of the hook before L4
     const { rows: cur } = await tx.query<ApprovalRow>(
       `SELECT * FROM approval_request WHERE id = $1 FOR UPDATE`,
       [approvalId],
@@ -865,6 +896,15 @@ export class ApprovalService {
       requestId?: string;
     },
   ): Promise<ApprovalRow[]> {
+    // 16.19 bổ sung 4: the preLock of each open request first (B18 holds L1/L3 already – no wait), then L4.
+    const { rows: ids } = await tx.query<{ id: string }>(
+      `SELECT id FROM approval_request
+        WHERE target_type = $1 AND target_id = $2 AND type = ANY($3::text[])
+          AND status IN ('pending', 'escalated')
+        ORDER BY requested_at, id`,
+      [input.targetType, input.targetId, [...input.types]],
+    );
+    for (const r of ids) await this.preLock(tx, r.id);
     const { rows: open } = await tx.query<ApprovalRow>(
       `SELECT * FROM approval_request
         WHERE target_type = $1 AND target_id = $2 AND type = ANY($3::text[])

@@ -79,6 +79,8 @@ test.describe(
       await useVirtualDevice(request, await setClock(request, vnTime(departure, '11:30')));
       fd = await sessionOrSkip(request, 'qa.fd');
       const std = await call<{
+        roomId?: string;
+        periodId?: string | null;
         items: Array<{ itemId: string; standardQty: number; isFree: boolean }>;
       }>(request, 'GET', p3(EP3.getMinibarStandard, fd, { reservationId: st.res.id }), {
         session: fd,
@@ -93,6 +95,8 @@ test.describe(
             idempotencyKey: true,
             body: {
               mode: 'checkout',
+              roomId: std.body.roomId,
+              periodId: std.body.periodId ?? null,
               lines: std.body.items.map((i) => ({ itemId: i.itemId, remainingQty: i.standardQty })),
             },
           },

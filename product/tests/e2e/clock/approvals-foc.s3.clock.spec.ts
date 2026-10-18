@@ -413,6 +413,9 @@ async function fillFdlMonth(
 }
 
 interface MinibarStd {
+  /** tủ + kỳ của bản chuẩn – lần đếm gửi lại đúng hai trường này (BUG-R2-196) */
+  roomId?: string;
+  periodId?: string | null;
   items: Array<{
     itemId: string;
     itemName: string;
@@ -450,6 +453,8 @@ async function minibarCheck(
     idempotencyKey: true,
     body: {
       mode,
+      roomId: std.roomId,
+      periodId: std.periodId ?? null,
       lines: items.map((i) => ({
         itemId: i.itemId,
         remainingQty: i.standardQty - (used[i.itemId] ?? 0),

@@ -27,9 +27,49 @@ export interface SourcedNight {
 }
 
 /**
+ * Step 1 – ONE fallback for every command (BUG-R2-195: MovePlanner passed `null` while B13 passed the room now): a
+ * stay that has never moved and stored no origin has the room it is in now (`roomNow`) as origin room – the
+ * anchor of the nights typed at booking – and as the room bought. `view` = `stayRoomHistory` read as
+ * `{ boughtRoomOf(history, originRoomId), originRoomId }`.
+ */
+export function stayRooms(
+  view: { boughtRoomId: string | null; originRoomId: string | null },
+  roomNow: string,
+): { boughtRoomId: string; originRoomId: string };
+export function stayRooms(
+  view: { boughtRoomId: string | null; originRoomId: string | null },
+  roomNow: string | null,
+): { boughtRoomId: string | null; originRoomId: string | null };
+export function stayRooms(
+  view: { boughtRoomId: string | null; originRoomId: string | null },
+  roomNow: string | null,
+): { boughtRoomId: string | null; originRoomId: string | null } {
+  const originRoomId = view.originRoomId ?? roomNow;
+  return { originRoomId, boughtRoomId: view.boughtRoomId ?? originRoomId };
+}
+
+/**
+ * Step 3 (DOM 18/10 – G-2, AN-48): which side the reference night is searched on is set by WHERE the added night
+ * sits in the stay, not by the command – before the first night of the stay (B9a, MovePlanner moving the arrival
+ * earlier) → `after` (the earliest typed night after it); otherwise (B13, B18, MovePlanner extending or moving
+ * later) → `before` (the latest typed night before it). `nights` = the stay's nights before the operation.
+ */
+export function referenceSide(
+  nights: ReadonlyArray<{ date: LocalDate }>,
+  addedDate: LocalDate,
+): 'before' | 'after' {
+  const first = nights.reduce<LocalDate | null>(
+    (min, n) => (min === null || n.date < min ? n.date : min),
+    null,
+  );
+  return first !== null && addedDate < first ? 'after' : 'before';
+}
+
+/**
  * Step 3 – the reference night: the TYPED night (`manual`: at booking, S4-35, typed at B9a/B13/B18 – also the
- * suggested or calendar number) closest to the added night (`before`: the latest before it – B13/B18/MovePlanner;
- * `after`: the earliest after it – B9a), not on a special date, typed while the room bought was `boughtRoomId`
+ * suggested or calendar number) closest to the added night (`before`: the latest before it – B13/B18/MovePlanner
+ * extending; `after`: the earliest after it – B9a, MovePlanner moving the arrival earlier – `referenceSide`), not on
+ * a special date, typed while the room bought was `boughtRoomId`
  * (AN-34: the night need not be in the current room; AN-07: a guest move unbinds it). Default, calendar and
  * special-date nights are skipped (AN-22, AN-33, AN-35). Returns its typed price, null = none.
  */
