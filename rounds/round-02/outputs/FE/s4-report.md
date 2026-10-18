@@ -786,6 +786,17 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 23: "Xóa nợ" (ARC 16.27 R7LOCK-02, DOM 18/10 BR-525) (18/10/2026)
+
+- **`DebtWriteOffDialog`** (`pages/stay/DebtCollectDialog.tsx`): chọn khoản folio (dòng còn miễn được – `canAskFoc`), số mặc định và tối đa = min(phần còn lại của dòng, còn phải thu), lý do bắt buộc (≥ 3); gọi `requestFoc` `kind = foc`, `reasonCode = debt_write_off`. Kết quả `pending` (MGR vượt giá 1 đêm – BR-433) → "Đã gửi xóa nợ … – chờ chủ đầu tư duyệt"; áp ngay → "Đã xóa nợ …". MGR thấy câu hạn mức trong hộp. Xong tải lại drawer / mục chú ý.
+- **Nút "Xóa nợ"** (OWN/MGR) cạnh "Thu công nợ" ở drawer đơn đã trả phòng còn nợ và ở mục "Cần chú ý" `checkout_debt`.
+- Lý do `debt_write_off` có nhãn "Xóa công nợ" ở dòng folio/bill (`FOC_REASON`) và nhật ký tiền (`auditReasonText`).
+- **Mock**: `requestFoc` `debt_write_off` – chỉ folio đã chốt còn nợ (khác → 409 `FOLIO_LOCKED`), `kind ≠ foc` → 422 `NOT_ALLOWED`, FD → 403, thiếu lý do → 422 `REASON_REQUIRED`, vượt → 422 `AMOUNT_EXCEEDS_BALANCE` + `max`; MGR tới giá 1 đêm áp ngay, vượt → chờ duyệt; OWN áp ngay.
+- **Chuỗi**: 10 khóa (`debt.write_off*`, `foc.r_debt_write_off`) – nhóm "FE-A đợt 22", chờ UXD duyệt.
+- Kiểm thử: `s4-debt-fea.test.tsx` thêm 2 ca (MGR xóa trong giá 1 đêm – thân `requestFoc` đúng, cần lý do; MGR vượt → chờ duyệt; FD không thấy nút). admin-web **449/449**, `tsc`, eslint, prettier xanh.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

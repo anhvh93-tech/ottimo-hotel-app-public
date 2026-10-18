@@ -14,6 +14,8 @@ export const FOC_REASON: Record<string, string> = {
   service_recovery: 'foc.r_recovery',
   long_stay_guest: 'foc.r_long',
   other: 'foc.r_other',
+  // ARC 16.27: a debt written off after check-out (FOC on the settled folio).
+  debt_write_off: 'foc.r_debt_write_off',
 };
 
 /** Approval request type → label (Cần duyệt, nhật ký tiền `approval.approved`). */

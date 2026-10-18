@@ -1,11 +1,14 @@
 // Thu công nợ sau trả phòng (BR-525 "Thu công nợ" (a)–(d), DOM 18/10; ARC 16.25–16.26; `recordPayment` 0.3.7 bổ sung 4) –
-// ca API trên ngày ảo (project "clock"). Oracle BR-525-06…BR-525-12 (`pendingFix` BUG-R2-200).
+// ca API trên ngày ảo (project "clock"). Oracle BR-525-06…BR-525-15, BR-427-02.
 // - TC-L4-146: đảo khoản chuyển khoản sau trả phòng → công nợ; thu đủ hôm sau nữa → 201, folio giữ `settled`, hết nợ, mục
 //   "Cần chú ý" `checkout_debt` hết (BR-525-06, BR-525-11).
 // - TC-L4-147: công nợ ghi lúc trả phòng; thu một phần → còn nợ đúng số còn lại, giữ hạn cũ (BR-525-07); thu nốt → hết.
 // - TC-L4-148: thu vượt → 422 `AMOUNT_EXCEEDS_BALANCE`; SAL, CTV → 403; hết nợ thì folio khóa lại → 409 `FOLIO_LOCKED`
 //   (BR-525-08, BR-525-09, BR-525-12).
-// Hoa hồng đạt lại khi thu đủ và đã đối soát (BR-525-10) cần đơn CTV + đối soát – kiểm ở tích hợp BE-A/BE-B.
+// - TC-L4-149: J15 `folio.close` ở trả phòng + 24 giờ ± 1 phút với khoản phát sinh 70.000 chưa thu (BR-525-13, R7LOCK-01).
+// - TC-L4-150: J15 bỏ qua folio còn yêu cầu hoàn mở (BR-427-02).
+// - TC-L4-151: xóa công nợ bằng FOC `debt_write_off` – vai, ghi chú, trần, `kind`, MGR vượt giá 1 đêm chờ OWN (BR-525-15).
+// Hoa hồng (BR-525-10, BR-525-14: 408.400) cần đơn CTV + đối soát – kiểm ở tích hợp BE-A/BE-B.
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   call,
@@ -15,7 +18,7 @@ import {
   type ApiResult,
   type StaffSession,
 } from '../support/api.js';
-import { needClock, resetClock, setClock } from '../support/clock.js';
+import { needClock, resetClock, runJob, setClock } from '../support/clock.js';
 import { precondition } from '../support/known-bugs.js';
 import {
   addDays,
@@ -28,9 +31,11 @@ import {
 import {
   EP3,
   addLine,
+  approve,
   cleanRooms,
   getFolio,
   inHouse,
+  liveLines,
   p3,
   readyRooms,
   recordPayment,
@@ -71,7 +76,8 @@ async function debtItem(request: APIRequestContext) {
 async function debtStay(
   request: APIRequestContext,
   via: 'reversal' | 'checkout',
-): Promise<{ A: string; st: Stay }> {
+  amountVnd = DEBT,
+): Promise<{ A: string; st: Stay; lineId: string }> {
   const A = virtualDay(realToday, 6);
   await at(request, A, '14:00');
   cleanRooms();
@@ -84,7 +90,7 @@ async function debtStay(
     category: 'fnb',
     description: 'Tiec nho',
     quantity: 1,
-    unitPriceVnd: DEBT,
+    unitPriceVnd: amountVnd,
     serviceDate: A,
   });
   expect(line.status, `addFolioLine: ${JSON.stringify(line.body).slice(0, 200)}`).toBe(201);
@@ -93,7 +99,7 @@ async function debtStay(
     const pay = await recordPayment(request, fd, st.res.folioId!, {
       type: 'charge',
       method: 'bank_transfer',
-      amountVnd: DEBT,
+      amountVnd,
     });
     expect(pay.status, `chuyển khoản: ${JSON.stringify(pay.body).slice(0, 200)}`).toBe(201);
     transferId = String(pay.body.id);
@@ -127,8 +133,8 @@ async function debtStay(
   }
   fd = await sessionOrSkip(request, 'qa.fd'); // phiên cũ hết hạn khi tua đồng hồ
   const f = await getFolio(request, fd, st.res.folioId!);
-  expect(f.totals.balanceDueVnd, 'còn phải thu sau trả phòng = công nợ').toBe(DEBT);
-  return { A, st };
+  expect(f.totals.balanceDueVnd, 'còn phải thu sau trả phòng = công nợ').toBe(amountVnd);
+  return { A, st, lineId: liveLines(line.body, 'fnb').at(-1)!.id };
 }
 
 function collect(
@@ -260,6 +266,189 @@ test.describe(
         );
         expect(r.body.code).toBe(String((locked.expected as Json).code));
       }
+    });
+
+    test('TC-L4-149 (A) BR-525-13 / BR-427 (d) R7LOCK-01: trả phòng đủ lúc 10:00, 15:00 ghi khoản phát sinh 70.000 chưa thu; J15 `folio.close` lúc 09:59 hôm sau → chưa gì (folio `settled`, không công nợ); 10:01 → folio `closed`, công nợ 70.000, mục "Cần chú ý" mở; thu 70.000 → 201, mục hết', async ({
+      request,
+    }) => {
+      needClock('TC-L4-149');
+      const ex = oracle('BR-525-13');
+      const exp = ex.expected as Json;
+      const A = virtualDay(realToday, 6);
+      const st = await precondition(
+        'đơn 1 đêm, B18 đủ 10:00, 15:00 khoản phát sinh 70.000',
+        async () => {
+          await at(request, A, '14:00');
+          cleanRooms();
+          const c = await s2Context(request);
+          let fd = await sessionOrSkip(request, 'qa.fd');
+          const [rm] = await readyRooms(request, fd, c.rooms);
+          expect(rm, 'một căn sẵn sàng').toBeTruthy();
+          const st = await inHouse(request, c, fd, { room: rm!, arrival: A, nights: 1 });
+          await at(request, addDays(A, 1), '10:00');
+          fd = await sessionOrSkip(request, 'qa.fd');
+          expect((await minibarCheck(request, fd, st.res.id)).status).toBe(201);
+          const out = await checkOut(request, fd, st.res.id, { checkoutTime: '10:00' });
+          expect(out.status, `B18: ${JSON.stringify(out.body).slice(0, 300)}`).toBe(200);
+          await at(request, addDays(A, 1), '15:00');
+          fd = await sessionOrSkip(request, 'qa.fd');
+          const add = await addLine(request, fd, st.res.folioId!, {
+            category: 'fnb',
+            description: 'Phat sinh sau tra phong',
+            quantity: 1,
+            unitPriceVnd: Number(((ex.input as Json).postCheckoutLine as Json).amountVnd),
+            serviceDate: addDays(A, 1),
+          });
+          expect(add.status, `khoản sau trả phòng: ${JSON.stringify(add.body).slice(0, 300)}`).toBe(
+            201,
+          );
+          return st;
+        },
+      );
+      const due = Number(((ex.input as Json).postCheckoutLine as Json).amountVnd);
+      const count0 = (await debtItem(request))?.count ?? 0;
+      // 1 phút trước mốc
+      await at(request, addDays(A, 2), '09:59');
+      await runJob(request, 'folio.close');
+      let fd = await sessionOrSkip(request, 'qa.fd');
+      const f0 = await getFolio(request, fd, st.res.folioId!);
+      expect(f0.status, 'trước mốc: folio còn mở cửa sổ').toBe(
+        String((exp.before as Json).folioStatus),
+      );
+      expect((await debtItem(request))?.count ?? 0, 'trước mốc: chưa công nợ').toBe(count0);
+      // 1 phút sau mốc
+      await at(request, addDays(A, 2), '10:01');
+      await runJob(request, 'folio.close');
+      fd = await sessionOrSkip(request, 'qa.fd');
+      const f1 = await getFolio(request, fd, st.res.folioId!);
+      expect(f1.status, 'hết cửa sổ: folio đóng').toBe(String((exp.after as Json).folioStatus));
+      expect(f1.totals.balanceDueVnd, 'công nợ = còn phải thu').toBe(due);
+      const item = await debtItem(request);
+      expect(item?.count ?? 0, 'mục `checkout_debt` thêm đơn này').toBe(count0 + 1);
+      // `dueAt` của mục gộp = hạn SỚM NHẤT mọi công nợ – chỉ so khi trước đó không có công nợ nào
+      if (count0 === 0 && item?.dueAt)
+        expect.soft(String(item.dueAt), 'hạn +3 ngày').toContain(addDays(A, 5));
+      const paid = await collect(request, fd, st, due);
+      expect(paid.status, `thu công nợ sau J15: ${JSON.stringify(paid.body).slice(0, 300)}`).toBe(
+        201,
+      );
+      expect((await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd).toBe(0);
+      expect((await debtItem(request))?.count ?? 0, 'mục hết').toBe(count0);
+    });
+
+    test('TC-L4-150 (A) BR-427-02 / R7LOCK-01: trả phòng thừa 30.000 → yêu cầu hoàn 30.000 chờ chi; hết cửa sổ 24 giờ, J15 bỏ qua folio này (giữ `settled`, không công nợ)', async ({
+      request,
+    }) => {
+      needClock('TC-L4-150');
+      const ex = oracle('BR-427-02');
+      const credit = Number((ex.input as Json).creditVnd);
+      const A = virtualDay(realToday, 4);
+      const st = await precondition('đơn 1 đêm trả thừa 30.000, B18 tạo yêu cầu hoàn', async () => {
+        await at(request, A, '14:00');
+        cleanRooms();
+        const c = await s2Context(request);
+        let fd = await sessionOrSkip(request, 'qa.fd');
+        const [rm] = await readyRooms(request, fd, c.rooms);
+        expect(rm, 'một căn sẵn sàng').toBeTruthy();
+        const st = await inHouse(request, c, fd, { room: rm!, arrival: A, nights: 1 });
+        const extra = await recordPayment(request, fd, st.res.folioId!, {
+          type: 'charge',
+          method: 'cash',
+          amountVnd: credit,
+          note: 'Khach tra thua de hoan',
+        });
+        expect(extra.status, `thu thừa: ${JSON.stringify(extra.body).slice(0, 300)}`).toBe(201);
+        await at(request, addDays(A, 1), '10:00');
+        fd = await sessionOrSkip(request, 'qa.fd');
+        expect((await minibarCheck(request, fd, st.res.id)).status).toBe(201);
+        const out = await checkOut(request, fd, st.res.id, {
+          checkoutTime: '10:00',
+          overpaymentHandling: { mode: 'refund_request', reason: 'Hoan tien khach tra thua' },
+        });
+        expect(out.status, `B18 kèm yêu cầu hoàn: ${JSON.stringify(out.body).slice(0, 300)}`).toBe(
+          200,
+        );
+        return st;
+      });
+      await at(request, addDays(A, 2), '10:01');
+      await runJob(request, 'folio.close');
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const f = await getFolio(request, fd, st.res.folioId!);
+      expect(f.status, 'J15 bỏ qua folio còn yêu cầu hoàn mở').toBe(
+        String((ex.expected as Json).folioStatusAfterJ15),
+      );
+      expect(f.totals.balanceDueVnd, 'không có công nợ').toBeLessThanOrEqual(0);
+    });
+
+    test('TC-L4-151 (A) BR-525-15 / R7LOCK-02: xóa công nợ bằng FOC `debt_write_off` – FD → 403; MGR thiếu ghi chú → 422 `REASON_REQUIRED`; vượt còn phải thu → 422 `AMOUNT_EXCEEDS_BALANCE`; `kind` khác `foc` → 422; MGR xóa 2.000.000 (vượt giá 1 đêm) → chờ OWN, công nợ giữ nguyên; OWN duyệt → hết nợ; folio không còn công nợ → 409 `FOLIO_LOCKED`', async ({
+      request,
+    }) => {
+      test.slow();
+      needClock('TC-L4-151');
+      const ex = oracle('BR-525-15');
+      const exp = ex.expected as Json;
+      const big = 2_000_000; // > giá 1 đêm của mọi căn DS-E (BR-433: MGR tự áp tới giá 1 đêm)
+      const { A, st, lineId } = await precondition('đơn 1 đêm, B18 MGR ghi công nợ 2.000.000', () =>
+        debtStay(request, 'checkout', big),
+      );
+      await at(request, addDays(A, 2), '10:00');
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      const mgr = await sessionOrSkip(request, 'qa.mgr');
+      const owner = await sessionOrSkip(request, 'qa.owner');
+      const wo = (s: StaffSession, body: Json) =>
+        call<Json & ProblemFields>(
+          request,
+          'POST',
+          p3(EP3.requestFoc, s, { folioId: st.res.folioId!, lineId }),
+          {
+            session: s,
+            idempotencyKey: true,
+            body: { kind: 'foc', reasonCode: 'debt_write_off', ...body },
+          },
+        );
+      const byFd = await wo(fd, { amountVnd: 100_000, note: 'Khong thu duoc' });
+      expect(byFd.status, `FD: ${JSON.stringify(byFd.body).slice(0, 200)}`).toBe(
+        Number((exp.frontDesk as Json).status),
+      );
+      const noNote = await wo(mgr, { amountVnd: 100_000 });
+      expect(noNote.status, `thiếu ghi chú: ${JSON.stringify(noNote.body).slice(0, 200)}`).toBe(
+        422,
+      );
+      expect(JSON.stringify(noNote.body)).toContain(String((exp.noNote as Json).code));
+      const tooMuch = await wo(mgr, { amountVnd: big + 1, note: 'Khong thu duoc' });
+      expect(tooMuch.status, `vượt: ${JSON.stringify(tooMuch.body).slice(0, 200)}`).toBe(422);
+      expect(JSON.stringify(tooMuch.body)).toContain('AMOUNT_EXCEEDS_BALANCE');
+      const other = await wo(mgr, {
+        kind: 'special_discount',
+        amountVnd: 100_000,
+        note: 'Khong thu duoc',
+      });
+      expect(other.status, `kind khác: ${JSON.stringify(other.body).slice(0, 200)}`).toBe(422);
+      expect(JSON.stringify(other.body)).toContain('NOT_ALLOWED');
+      expect(
+        (await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd,
+        'chưa ghi gì',
+      ).toBe(big);
+      // MGR vượt giá 1 đêm → chờ OWN
+      const pending = await wo(mgr, { amountVnd: big, note: 'No kho doi' });
+      expect(
+        pending.status,
+        `MGR vượt hạn mức: ${JSON.stringify(pending.body).slice(0, 300)}`,
+      ).toBe(201);
+      expect(pending.body.status, 'chờ duyệt').toBe('pending');
+      expect(pending.body.requiredRole).toBe('owner');
+      expect(
+        (await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd,
+        'công nợ giữ nguyên khi chờ',
+      ).toBe(big);
+      const ok = await approve(request, owner, String(pending.body.id), 'Dong y xoa no');
+      expect(ok.status, `OWN duyệt: ${JSON.stringify(ok.body).slice(0, 300)}`).toBe(200);
+      expect((await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd, 'hết nợ').toBe(0);
+      const again = await wo(mgr, { amountVnd: 1_000, note: 'Khong thu duoc' });
+      expect(again.status, `không còn công nợ: ${JSON.stringify(again.body).slice(0, 200)}`).toBe(
+        Number((exp.noOpenDebt as Json).status),
+      );
+      expect(again.body.code).toBe(String((exp.noOpenDebt as Json).code));
     });
   },
 );

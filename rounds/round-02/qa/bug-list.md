@@ -9,9 +9,9 @@
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
 | P1 | 64 | 0 | 3 | 0 | 61 |
-| P2 | 71 | 8 | 12 | 1 | 50 |
+| P2 | 72 | 9 | 12 | 1 | 50 |
 | P3 | 55 | 16 | 3 | 0 | 36 |
-| **Tổng** | **200** | **24** | **18** | **1** | **157** |
+| **Tổng** | **201** | **25** | **18** | **1** | **157** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -235,6 +235,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-198 | P2 | Kiểm lại lần 6 – R6LOCK-01: duyệt/từ chối/hủy yêu cầu `late_checkout_conflict` khóa `approval_request` (L4) trước đơn (L1); song song với B18/B13 → 40P01, 409 `CONCURRENT_UPDATE`. Không lệch tiền. Trái ARC 16.19 | BE-A (frontdesk preLock) + BE-B (`ApprovalService`) + ARC | **Fixed** 18/10 ~13:05 trên cây chưa gộp (preLock theo loại – `ApprovalService.decisionHooks`): `s4-recheck6-be-a` 6 ca 198 + `reversal-debt-g4` cấu trúc/refund xanh; E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Closed khi CI #17 xanh và lượt 7 chạy `r6lock/approval-order` |
 | BUG-R2-199 | P3 | Kiểm lại lần 6 – R6MISC-02 (phần BE-C của 163): HK `start`/`complete` nhận `performedAt` sớm hơn lúc việc được tạo → 200 (đúng 422 `PERFORMED_AT_OUT_OF_RANGE`, ARC 16.17 mục 2). Không ảnh hưởng tiền | BE-C | **Fixed** 18/10 ~13:05 trên cây chưa gộp: `housekeeping-s4-arc` "BUG-R2-199" xanh (422 `performedAt` trước lúc tạo việc); E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Closed khi CI #17 xanh |
 | BUG-R2-200 | P2 | Kiểm lại lần 6 – GAP-DOM G-4, BR-525 (DOM 18/10): MGR đảo khoản thu sau B18 (folio `settled`) làm còn phải thu > 0 → không ghi công nợ, không báo OWN/MGR, không "Cần chú ý" (folio `settled` còn nợ 100.000, `checkout_mode = desk`). **Có lệch tiền** (khoản nợ không được theo dõi) | BE-B (folio/`reversePayment`) + BE-A (công nợ) | **Fixed** 18/10 ~13:05 trên cây chưa gộp (BE-B `reversePayment` + nhánh thu nợ `recordPayment`, BE-A 0073/0074 `debt_default_due_days` = 3, `openDebt`/`debtSettled`, FE-A "Thu công nợ"): TC-L4-146…148, TC-X-081 đạt; `reversal-debt-g4`, `s4-recheck6-be-a` xanh; gỡ `pendingFix` BR-525-02, 04…12 (còn BR-525-03 – chưa có ca chạy thật cho folio đang thừa). Closed khi CI #17 xanh |
+| BUG-R2-201 | P2 | (số QA đề xuất – ORC xác nhận) SM-13 lệch mã: folio `closed` "chỉ MGR+ điều chỉnh, có lý do", nhưng `adjustFolioLine` trả 409 `FOLIO_LOCKED` cho mọi vai khi folio `closed` (`folio-lines.service.ts`, có từ Sprint 3). Trước R7 folio không bao giờ `closed` nên chưa lộ; nay J15 đóng folio sau 24 giờ → quản lý không sửa được dòng tính sai sau khi đóng (chỉ còn FOC `debt_write_off` khi có công nợ) | BE-B (+ ARC/BA chốt SM-13) | Open – TC-L4-068 `knownBug` (E2E trước gộp #18) |
 
 ## 2. Chi tiết
 
@@ -1794,4 +1795,23 @@ Căn cứ: `reviews/s4-money-recheck6.md` (723179b), mục "Trạng thái mã", 
 - **Tích hợp BE** (QA tự chạy, CSDL riêng `ottimo_test_qa_r17` trên postgres QA): 9 tệp, 241/241 xanh. Gồm `move-pricing`, `br417-an-table`, `s4-recheck6-be-a`, `reversal-debt-g4`, `minibar-m1`, `housekeeping-s4-arc`, `payments-s3`, `minibar-catalog-s4-bed`, `sales`.
 - **Trạng thái:** 195, 197, 198, 199, 200 → **Fixed** (196 đã Fixed). Đóng khi CI #17 xanh và lượt kiểm lại 7 xanh.
 - **Sửa test khác:** TC-L4-069 đọc `listPayments` với `limit` 100. Lý do: trên CSDL dùng lại có hơn 50 khoản chuyển khoản chờ đối soát, chỉ là lỗi môi trường.
+
+### 11.29 Kiểm lại tiền lần 7 – R7LOCK-01/02, R7MIG-01; E2E trước gộp #18 (QA, 18/10 ~14:30–15:00)
+
+- **Oracle:**
+  - BR-525-02: mốc 24 giờ tính từ lúc trả phòng (17/11 10:00, không phải 15:00); folio `closed`; hạn 20/11.
+  - Thêm BR-525-13 (J15 lúc trả phòng + 24 giờ ± 1 phút, công nợ 70.000 hạn +3), BR-525-14 (xóa 100.000 trên dòng tiền phòng → hoa hồng 408.400; trên minibar giữ 416.400), BR-525-15 (MGR vượt giá 1 đêm chờ OWN; FD 403; thiếu ghi chú, vượt trần, `kind` khác → 422; không còn nợ → 409), BR-427-02 (J15 bỏ qua folio còn yêu cầu hoàn mở).
+  - Số đã được kiểm (E2E dưới đây + tích hợp BE `s4-recheck6-be-a`, `reversal-debt-g4`, `foc-debt-write-off-s4-bed`, `minibar-m1`: 84/84 trên CSDL riêng `ottimo_test_qa_r18`) nên không gắn `pendingFix`.
+- **E2E mới:**
+  - TC-L4-149 (J15 24 giờ ± 1 phút), TC-L4-150 (J15 bỏ qua folio còn yêu cầu hoàn), TC-L4-151 (xóa công nợ – vai, ghi chú, trần, `kind`, MGR vượt hạn mức chờ OWN, hết nợ thì 409).
+  - TC-X-082: Desk "Xóa công nợ" – lễ tân không có nút, quản lý chọn khoản và ghi chú, `requestFoc` `debt_write_off` 201 `approved`; có axe.
+- **Stack:** dựng lại từ cây chung (`cc02fba` + vòng sửa 7, migration tới 0075) trên CSDL mới `ottimo_qa24`.
+- **E2E trước gộp #18 (retries 0):**
+  - api + desk-chromium: 269 đạt, 6 bỏ qua, 1 hỏng. Ca hỏng TC-L2-097 không hiện bản tính thử khi máy tải nặng; chạy lại cả tệp 6/6 đạt → chập chờn.
+  - clock: 149 đạt, 2 hỏng. Đều đã xử lý:
+    - TC-L4-149: kiểm `dueAt` của mục gộp sai cách. Đã sửa: chỉ so khi trước đó không có công nợ nào.
+    - TC-L4-068: kỳ vọng cũ "F2 không tự đóng" đổi theo R7LOCK-01 (F2 đóng kèm công nợ 50.000). Phần "MGR điều chỉnh dòng trên folio `closed`" đỏ do mã → **BUG-R2-201**, `knownBug`.
+  - desk-clock: 42/42.
+  - Chạy lại TC-L4-068 và TC-L4-149: đạt (068 đỏ đúng chỗ khi `E2E_FIXED_BUGS=BUG-R2-201`).
+- `OPEN` = {BUG-R2-201}.
 

@@ -3157,6 +3157,69 @@ export function createStayMock(ctx: Ctx) {
       if (!f || !line) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
       const body = (await request.json()) as Body;
+      // ARC 16.27 (R7LOCK-02, BR-525): writing a debt off after check-out – the one FOC a settled folio takes.
+      if (body.reasonCode === 'debt_write_off') {
+        const due = totals(r).balanceDueVnd;
+        if (f.status !== 'settled' || due <= 0) return problem(409, 'FOLIO_LOCKED');
+        if (String(body.kind ?? 'foc') !== 'foc')
+          return validation([{ field: 'kind', code: 'NOT_ALLOWED' }]);
+        if (!has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+        if (String(body.note ?? '').trim().length < 3)
+          return validation([{ field: 'note', code: 'REASON_REQUIRED' }]);
+        const reversed = new Set(f.lines.map((l) => l.reversalOfId).filter(Boolean));
+        const used = f.lines
+          .filter(
+            (l) =>
+              l.relatedLineId === line.id &&
+              ['foc', 'discount'].includes(l.category) &&
+              (l.lineState === 'posted' || l.lineState === 'pending_approval') &&
+              !reversed.has(l.id),
+          )
+          .reduce((a, l) => a + Math.abs(l.amountVnd), 0);
+        const max = Math.max(0, Math.min(line.amountVnd - used, due));
+        const amount = Number(body.amountVnd);
+        if (!(amount > 0)) return validation([{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
+        if (amount > max)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+            max,
+          });
+        // BR-433: a manager waives up to one night (mock: the room's list price); above → the owner approves.
+        const night = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+        const applied = g.roles.includes('owner') || amount <= night;
+        const a: MockApproval = {
+          id: uid(89_000 + next()),
+          type: 'foc',
+          status: applied ? 'approved' : 'pending',
+          reservationCode: r.code,
+          folioId: f.id,
+          folioLineId: line.id,
+          amountVnd: amount,
+          reasonCode: 'debt_write_off',
+          reasonNote: String(body.note).trim(),
+          requestedBy: g.user.displayName,
+          requestedByUserId: g.user.id,
+          requestedAt: nowIso(),
+          ...(applied
+            ? { approverName: g.user.displayName, approverUserId: g.user.id, decidedAt: nowIso() }
+            : {}),
+        };
+        st.approvals.push(a);
+        addLine(
+          r,
+          {
+            category: 'foc',
+            amountVnd: -amount,
+            description: `foc ${line.id}`,
+            labelParams: { reason: 'debt_write_off' },
+            lineState: applied ? 'posted' : 'pending_approval',
+            relatedLineId: line.id,
+            approvalRequestId: a.id,
+          },
+          g.user.displayName,
+        );
+        return json(approvalView(a), 201);
+      }
       const out = focRequest(r, line, body, g);
       return out instanceof Response ? out : json(approvalView(out), 201);
     }),

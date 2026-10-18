@@ -63,6 +63,9 @@ export const FOC_REASON_CODES = [
   'service_recovery',
   'long_stay_guest',
   'other',
+  // ARC 16.27 (2), R7LOCK-02 (DOM 18/10, BR-525): writing a debt off after check-out – FolioFocService only
+  // accepts it on a settled / closed folio with an open debt (OWN/MGR, `kind = foc`, note).
+  'debt_write_off',
 ] as const;
 
 export interface Actor {

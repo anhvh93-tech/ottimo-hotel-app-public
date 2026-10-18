@@ -950,6 +950,7 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
       settled: false,
       reservationIds: [],
       balanceDueVnd: 50_000,
+      outcome: null,
     });
     expect(await openDebt()).toMatchObject({ balanceDueVnd: 50_000 });
     expect(await settledAt()).toBeNull();
@@ -966,11 +967,133 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     expect(await openDebt()).toBeNull();
     expect((await debtItem('mgr'))?.reservationIds ?? []).not.toContain(b.id);
     // Calling it again changes nothing (already closed).
-    expect(await settled(rest)).toEqual({ settled: false, reservationIds: [], balanceDueVnd: 0 });
+    expect(await settled(rest)).toEqual({
+      settled: false,
+      reservationIds: [],
+      balanceDueVnd: 0,
+      outcome: null,
+    });
     // A new reversal (the 50.000 transfer) re-opens the debt; its first due date stays.
     await reverse(transferIds[1]!);
     expect(await settledAt()).toBeNull();
     expect(await openDebt()).toMatchObject({ dueDate: day(d1, days), balanceDueVnd: 50_000 });
     expect((await debtItem('mgr'))?.reservationIds ?? []).toContain(b.id);
+  }, 120_000);
+  it('ARC 16.27 (R7LOCK-01 + R7LOCK-02): J15 – window over with 70.000 owed (minibar found after check-out) and no debt → debtOnCheckout records ONE debt of 70.000 due +3 (out 16/11 → 17/11 → due 20/11), audit, OWN + MGR told, checkout_debt; a second call records nothing; MGR writes it off through requestFoc `debt_write_off`: a part → openDebt 40.000, still open; to 0 → openDebt null, the debt closed as written_off', async () => {
+    const SYSTEM = { userId: '00000000-0000-0000-0000-000000000000', roles: ['owner'] };
+    const hooks = fa.app.get(ReservationHooks);
+    const folios = fa.app.get(FolioService);
+    const d0 = '2032-11-15';
+    const { b } = await paidByTransfer(d0);
+    // Minibar 70.000 found at 15:00, inside the 24-hour window.
+    await at('2032-11-16T15:00:00+07:00');
+    const late = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
+      category: 'fnb',
+      description: 'Minibar phát sinh sau trả phòng',
+      quantity: 1,
+      unitPriceVnd: 70_000,
+      serviceDate: '2032-11-16',
+    });
+    expect(late.statusCode, late.body).toBe(201);
+    const [minibar] = await q<{ id: string; revenue_group: string }>(
+      `SELECT id, revenue_group FROM folio_line WHERE folio_id = $1 AND post_checkout AND amount_vnd = 70000`,
+      [b.folioId],
+    );
+    // J15 (BE-B) at 17/11 10:01 – its own transaction, system context, L1 → L3 first.
+    await at('2032-11-17T10:01:00+07:00');
+    const job = <T>(fn: (tx: any) => Promise<T>) =>
+      db.withContext(t.ctx(), async (tx) => {
+        await folios.lockStay(tx, b.folioId);
+        return fn(tx);
+      });
+    const close = () =>
+      job((tx) =>
+        hooks.debtOnCheckout(tx, {
+          folioId: b.folioId,
+          reason: 'post_checkout_unpaid',
+          dueDays: 3,
+          actor: SYSTEM,
+        }),
+      );
+    expect(await close()).toEqual({
+      recorded: true,
+      reservationId: b.id,
+      debtVnd: 70_000,
+      balanceDueVnd: 70_000,
+      dueDate: '2032-11-20',
+    });
+    expect(await debtOf(b)).toEqual({
+      status: 'checked_out',
+      mode: 'debt',
+      due: '2032-11-20',
+      reason: 'post_checkout_unpaid',
+    });
+    expect(await debtAuditAfter(b)).toEqual([
+      { checkoutMode: 'debt', debtVnd: 70_000, balanceDueVnd: 70_000, dueDate: '2032-11-20' },
+    ]);
+    const told = (
+      await q<{ user_id: string }>(
+        `SELECT user_id FROM staff_notification WHERE kind = 'debt_recorded' AND ref_id = $1`,
+        [b.id],
+      )
+    ).map((x) => x.user_id);
+    expect(told).toEqual(expect.arrayContaining([t.users.own!.id, t.users.mgr!.id]));
+    expect((await debtItem('mgr'))?.reservationIds ?? []).toContain(b.id);
+    // The debt is open: J15 run again records nothing.
+    expect(await close()).toMatchObject({ recorded: false, debtVnd: 0, balanceDueVnd: 70_000 });
+    // R7LOCK-02: MGR writes the minibar line off – `requestFoc` `debt_write_off` (BE-B; self-applied within the
+    // price of one night), which calls debtSettled itself when the folio owes nothing.
+    const writeOff = async (amountVnd: number) => {
+      const r = await c.mgr!.send('POST', url(`/folios/${b.folioId}/lines/${minibar!.id}/foc`), {
+        kind: 'foc',
+        amountVnd,
+        reasonCode: 'debt_write_off',
+        note: 'Khách không liên lạc được',
+        authMethod: 'password',
+        secret: TEST_PASSWORD,
+      });
+      expect(r.statusCode, r.body).toBe(201);
+      expect(r.json()).toMatchObject({ status: 'approved', reasonCode: 'debt_write_off' });
+      return r.json().id as string;
+    };
+    const openDebt = () => job((tx) => hooks.openDebt(tx, b.folioId));
+    const settledAt = async () =>
+      (
+        await q<{ at: Date | null }>(
+          'SELECT debt_settled_at AS at FROM reservation WHERE id = $1',
+          [b.id],
+        )
+      )[0]!.at;
+    await at('2032-11-17T10:05:00+07:00');
+    const part = await writeOff(30_000);
+    expect(await openDebt()).toMatchObject({
+      reservationId: b.id,
+      balanceDueVnd: 40_000,
+      dueDate: '2032-11-20',
+    });
+    expect(await settledAt()).toBeNull();
+    // debtSettled on a debt still owed changes nothing.
+    expect(
+      await job((tx) =>
+        hooks.debtSettled(tx, {
+          folioId: b.folioId,
+          paymentId: part,
+          outcome: 'written_off',
+          actor: { userId: t.users.mgr!.id, roles: ['manager'] },
+        }),
+      ),
+    ).toEqual({ settled: false, reservationIds: [], balanceDueVnd: 40_000, outcome: null });
+    await writeOff(40_000);
+    expect((await totals(b)).balanceDueVnd).toBe(0);
+    expect(await openDebt()).toBeNull();
+    expect(await settledAt()).toEqual(new Date('2032-11-17T10:05:00+07:00'));
+    const [settledAudit] = await q<{ after: any }>(
+      `SELECT after FROM audit_event WHERE action = 'reservation.debt_settled' AND entity_id = $1`,
+      [b.id],
+    );
+    expect(settledAudit!.after).toMatchObject({ debtOutcome: 'written_off', balanceDueVnd: 0 });
+    expect((await debtItem('mgr'))?.reservationIds ?? []).not.toContain(b.id);
+    // Nothing owed any more: J15 records nothing.
+    expect(await close()).toMatchObject({ recorded: false, balanceDueVnd: 0 });
   }, 120_000);
 });

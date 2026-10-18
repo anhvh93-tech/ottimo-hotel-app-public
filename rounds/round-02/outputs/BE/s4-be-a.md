@@ -909,8 +909,24 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
   - Thu nốt 50.000 qua `recordPayment` → công nợ đóng (`debt_settled_at` = lúc thu, 1 audit), `openDebt` trả `null`, mục "Cần chú ý" hết; gọi lại `debtSettled` không đổi gì.
   - Đảo khoản 50.000 còn lại → công nợ mở lại 50.000, giữ hạn cũ, mục hiện lại.
 
+### 21.3c ARC 16.27 – công nợ khi hết cửa sổ sau trả phòng (J15) và xóa nợ (vòng sửa 7)
+- **`ReservationHooks.debtOnCheckout(tx, { folioId, reason, dueDays?, actor, requestId? })`**, gửi BE-B qua ORC.
+  - Kết quả cùng dạng với cổng G-4: `{ recorded, reservationId, debtVnd, balanceDueVnd, dueDate }`.
+  - Bên gọi giữ sẵn L1 (mọi đơn của folio) → L3. Folio còn phải thu và chưa có công nợ mở → mọi khoản còn nợ gộp thành **một** công nợ, cùng cấu trúc B18:
+    - `checkout_mode = debt`; hạn = ngày nghiệp vụ + `dueDays`, không truyền thì đọc tham số `debt_default_due_days`; lý do = mã job (`post_checkout_unpaid`);
+    - audit tiền `reservation.debt_on_checkout`, thông báo `debt_recorded` tới OWN + MGR, mục `checkout_debt`.
+  - Đã có công nợ mở, hoặc không còn phải thu → `recorded: false`.
+- Ba đường ghi nợ (đảo khoản thu, J15, và về sau B18) dùng chung một hàm `writeDebt`.
+- **Xóa nợ:** `debtSettled` nhận thêm `outcome: 'paid' | 'written_off'` (mặc định `paid`).
+  - Audit `reservation.debt_settled` ghi `debtOutcome`; kết quả trả thêm `outcome`.
+  - BE-B gọi với `outcome: 'written_off'` khi FOC `debt_write_off` đưa số còn phải thu về 0.
+- **Test** theo ví dụ DOM (trả phòng 16/11 10:00, minibar 70.000 ghi lúc 15:00, J15 chạy 17/11 10:01):
+  - Công nợ 70.000, hạn 20/11; có audit; OWN + MGR được báo; mục "Cần chú ý" mở. Chạy J15 lần hai → không ghi thêm.
+  - Xóa 30.000 → `openDebt` còn 40.000, `debtSettled` không đóng. Xóa nốt 40.000 → `openDebt` trả `null`, `debtSettled` đóng nợ với `written_off`, mục hết. Chạy J15 lại → không ghi gì.
+  - Test đã chuyển sang gọi `requestFoc` `debt_write_off` thật của BE-B (MGR, tự duyệt trong mức giá 1 đêm). Đường này tự gọi `debtSettled` khi folio về 0.
+
 ### 21.4 Kiểm máy
-- **Vitest api toàn bộ, DB mới `ottimo_test_bea_r6i`** (sau 16.26): 2925/2927 xanh, 98/99 tệp; 2 ca bỏ qua là bộ đo hiệu năng.
+- **Vitest api toàn bộ, DB mới `ottimo_test_bea_r6l`** (sau 16.27, xóa nợ qua `requestFoc` thật): 2932/2934 xanh, 98/99 tệp; 2 ca bỏ qua là bộ đo hiệu năng.
 - `drizzle-kit generate` báo "No schema changes"; `schema-parity` xanh.
 - tsc, eslint sạch. Prettier sạch trên các tệp BE-A sửa.
 - Không commit.

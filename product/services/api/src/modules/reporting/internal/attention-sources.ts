@@ -23,6 +23,9 @@
  *       Above `foc_alert_count_per_approver` → one line per approver: params {check: foc_count_per_approver,
  *       count, max}; the approver is NOT named in params – `link` opens the approvals list filtered on that
  *       approver (an id, not a name).
+ *   (c) ARC 16.27 (2) / BR-525 (DOM 18/10): a FOC with reason `debt_write_off` (writing a debt off after check-out)
+ *       is NOT a free service to a staying guest – it is left out of (a) (its line, and the reversal of it) and
+ *       of (b). The FOC report shows it apart (BE-B / DATA – not this module).
  */
 import type { Tx } from '../../../db/database';
 import { type LocalTime, atLocal } from '../../../shared/time';
@@ -87,6 +90,9 @@ function pct1(part: number, whole: number): number {
   return Math.round((part * 1000) / whole) / 10;
 }
 
+/** FOC reason that writes a debt off after check-out (ARC 16.27) – outside the BR-435 alert. */
+export const DEBT_WRITE_OFF_REASON = 'debt_write_off';
+
 /** FOC / special-discount states that are ALIVE (BR-433 quota set – BR-435 v0.3.8 counts the same). */
 export const LIVE_REDUCTION_STATES = ['applied', 'dormant'] as const;
 
@@ -124,10 +130,13 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
            WHERE l.line_state = 'posted' AND COALESCE(o.category, l.category) IN ('foc', 'discount')
              AND COALESCE(o.service_date, l.service_date,
                           ((l.posted_at AT TIME ZONE $3) - $4::interval)::date)
-                 BETWEEN $1 AND $2) AS reduction_vnd,
+                 BETWEEN $1 AND $2
+             AND NOT EXISTS (SELECT 1 FROM approval_request a
+                              WHERE a.id = COALESCE(o.approval_request_id, l.approval_request_id)
+                                AND a.reason_code = $5)) AS reduction_vnd,
          (SELECT COALESCE(SUM(room_revenue_vnd), 0) FROM stay_night
            WHERE night_state = 'sold' AND stay_date BETWEEN $1 AND $2) AS room_vnd`,
-      [monthStart, ctx.today, ctx.tz, rollover],
+      [monthStart, ctx.today, ctx.tz, rollover, DEBT_WRITE_OFF_REASON],
     );
     const check = focValueCheck(
       Number(rows[0]?.reduction_vnd ?? 0),
@@ -153,11 +162,17 @@ export const focThreshold: AttentionSource = async (tx: Tx, ctx: AttentionSource
     const { rows } = await tx.query<{ approver_id: string; n: number }>(
       `SELECT approver_id, count(*)::int AS n FROM approval_request
         WHERE type IN ('foc', 'special_discount') AND status = 'approved'
-          AND foc_state = ANY($4::text[]) AND approver_id IS NOT NULL
+          AND foc_state = ANY($4::text[]) AND approver_id IS NOT NULL AND reason_code <> $5
           AND decided_at >= $1 AND decided_at <= $2
         GROUP BY approver_id HAVING count(*) > $3
         ORDER BY count(*) DESC, approver_id`,
-      [atLocal(monthStart, rollover, ctx.tz), ctx.now, countLimit, [...LIVE_REDUCTION_STATES]],
+      [
+        atLocal(monthStart, rollover, ctx.tz),
+        ctx.now,
+        countLimit,
+        [...LIVE_REDUCTION_STATES],
+        DEBT_WRITE_OFF_REASON,
+      ],
     );
     for (const r of rows) {
       if (!focCountAlert(r.n, countLimit)) continue;

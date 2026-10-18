@@ -1735,8 +1735,10 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(data67).toHaveLength(4);
     await asOwner(data67);
     expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0, k4: 0 });
-    // BUG-R2-197: data counted by 365486f only (never re-counted on ce90d19) → 0071 finds nothing to RAISE
+    // BUG-R2-197: data counted by 365486f only (never re-counted on ce90d19) → 0071 finds nothing to RAISE; 0075
+    // (R7MIG-01) finds every count with a period already → nothing to write
     await asOwner(migrationData('0071_minibar_double_count_check.sql'));
+    await asOwner(migrationData('0075_minibar_period_backfill_all.sql'));
     expect(await fillsOf(b)).toEqual(['backfill']);
     const [fill] = await q<{ id: string; filled_at: Date }>(
       'SELECT id, filled_at FROM minibar_fill WHERE reservation_id = $1',
@@ -2508,12 +2510,9 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
         params: [right!.id, stale],
       },
     ]);
-    const k1b = async () =>
-      q(
-        `SELECT reservation_id, room_id, count(*) FROM minibar_check
-          WHERE mode = 'checkout' AND (replaced_by_check_id IS NULL OR replaced_by_check_id = id)
-          GROUP BY 1, 2 HAVING count(*) > 1 AND bool_or(fill_id IS NULL)`,
-      );
+    // The check_in fill the re-count wrote is written AFTER the count without a period – still that count's period
+    // (ARC 16.27 (3) revised: check_in is always the first period of the fridge, whatever its times).
+    const k1b = async () => k1bPrime(b);
     expect(await k1b()).toHaveLength(1);
     // phase 3: 0071 as shipped (its data statement under the tenant's RLS) → RAISE with the list
     const data71 = migrationData('0071_minibar_double_count_check.sql');
@@ -2536,8 +2535,104 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     ]);
     expect(await k1b()).toHaveLength(0);
     await asOwner(data71);
+    // 0075 gives the replaced count its period (check_in, the first period) – no backfill, K1 = 0
+    await asOwner(migrationData('0075_minibar_period_backfill_all.sql'));
+    expect(await fillsOf(b)).toEqual(['check_in']);
+    expect(await invariants()).toMatchObject({ k1: 0 });
     await at('2031-05-20T11:00:00+07:00');
     expect((await checkout(b, '11:00')).status).toBe(200);
+    expect((await totals(b)).totalVnd).toBe(roomTotal + 70_000);
+  });
+
+  /**
+   * K1b′ (ARC 16.27 (3) revised 18/10): live counts of a fridge in ONE period – the period of a count without one =
+   * the latest carry / refill / backfill written before it, else the fridge's check_in (always its first period),
+   * as 0071/0075 compute it.
+   */
+  const k1bPrime = async (b?: Booking) =>
+    q(
+      `WITH live AS (
+         SELECT c.id, c.reservation_id, c.room_id,
+                COALESCE(c.fill_id, (
+                  SELECT f.id FROM minibar_fill f
+                   WHERE f.reservation_id = c.reservation_id AND f.room_id = c.room_id
+                     AND f.source IN ('carry', 'refill', 'backfill') AND f.created_at <= c.created_at
+                   ORDER BY f.created_at DESC, f.id DESC LIMIT 1), (
+                  SELECT f.id FROM minibar_fill f
+                   WHERE f.reservation_id = c.reservation_id AND f.room_id = c.room_id AND f.source = 'check_in'
+                   LIMIT 1)) AS period
+           FROM minibar_check c
+          WHERE c.mode = 'checkout' AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id)
+            AND ($1::uuid IS NULL OR c.reservation_id = $1))
+       SELECT reservation_id, room_id, period FROM live GROUP BY 1, 2, 3 HAVING count(*) > 1`,
+      [b?.id ?? null],
+    );
+
+  it('R7MIG-01 (0075, ARC 16.27 (3), three phases): a 365486f count (no period) → the old app (ce90d19) opens the next period `carry` from it at B13 → 0067 skipped the fridge (it has a fill), K1 = 1 → the new 0071 passes (no double count), 0075 back-fills the period before the carry, K1 = K1b′ = 0; the desk counts the carry period and B18 bills the beers ONCE', async () => {
+    const { b, roomTotal } = await inHouse('302', '2031-05-25', '2031-05-27');
+    await at('2031-05-26T09:00:00+07:00');
+    await count(b, { bia: 2 });
+    const [t1] = await q<{ id: string; created_at: Date }>(
+      'SELECT id, created_at FROM minibar_check WHERE reservation_id = $1',
+      [b.id],
+    );
+    await asOwner([
+      // phase 1 – the shape 365486f left: no fill, the count without a period
+      { sql: 'UPDATE minibar_check SET fill_id = NULL WHERE reservation_id = $1', params: [b.id] },
+      {
+        sql: `DELETE FROM minibar_fill_line WHERE fill_id IN (SELECT id FROM minibar_fill WHERE reservation_id = $1)`,
+        params: [b.id],
+      },
+      { sql: 'DELETE FROM minibar_fill WHERE reservation_id = $1', params: [b.id] },
+      // phase 2 – ce90d19's openNextPeriod at B13 (fridge without fill, latest count charged, no refill done):
+      // a `carry` fill now, mark = what that count left, same prices
+      {
+        sql: `WITH f AS (
+                INSERT INTO minibar_fill (id, organization_id, property_id, reservation_id, room_id, source,
+                  filled_at, created_by, created_at)
+                SELECT gen_random_uuid(), organization_id, property_id, reservation_id, room_id, 'carry',
+                       created_at + interval '3 hours', NULL, created_at + interval '3 hours'
+                  FROM minibar_check WHERE id = $1
+                RETURNING id)
+              INSERT INTO minibar_fill_line (id, organization_id, property_id, fill_id, item_id, qty,
+                unit_price_vnd_snapshot, unit_cost_vnd_snapshot)
+              SELECT gen_random_uuid(), l.organization_id, l.property_id, f.id, l.item_id, l.remaining_qty,
+                     l.unit_price_vnd_snapshot, l.unit_cost_vnd_snapshot
+                FROM f, minibar_check_line l WHERE l.check_id = $1`,
+        params: [t1!.id],
+      },
+    ]);
+    expect(await fillsOf(b)).toEqual(['carry']);
+    expect(await invariants()).toMatchObject({ k1: 1 });
+    expect(await k1bPrime(b)).toHaveLength(0);
+    // phase 3 – the new 0071 (K1b′ only) passes, 0075 back-fills
+    await asOwner(migrationData('0071_minibar_double_count_check.sql'));
+    const data75 = migrationData('0075_minibar_period_backfill_all.sql');
+    expect(data75).toHaveLength(4);
+    await asOwner(data75);
+    expect(await fillsOf(b)).toEqual(['backfill', 'carry']);
+    const [bf] = await q<{ id: string; filled_at: Date; created_at: Date }>(
+      `SELECT id, filled_at, created_at FROM minibar_fill WHERE reservation_id = $1 AND source = 'backfill'`,
+      [b.id],
+    );
+    expect(bf!.created_at.getTime()).toBe(t1!.created_at.getTime() - 1);
+    expect(
+      (
+        await q<{ fill_id: string }>('SELECT fill_id FROM minibar_check WHERE id = $1', [t1!.id])
+      )[0]!.fill_id,
+    ).toBe(bf!.id);
+    expect(await invariants()).toMatchObject({ k1: 0 });
+    expect(await k1bPrime()).toHaveLength(0);
+    // 0075 again: nothing left to do
+    await asOwner(data75);
+    expect(await fillsOf(b)).toEqual(['backfill', 'carry']);
+    // departure: the carry period is counted (the 2 beers already gone – used 0 from its mark) → B18 bills 70.000 once
+    await at('2031-05-27T09:00:00+07:00');
+    expect((await count(b, {})).totalVnd).toBe(0);
+    expect(await minibarAmounts(b)).toEqual([70_000]);
+    await at('2031-05-27T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
     expect((await totals(b)).totalVnd).toBe(roomTotal + 70_000);
   });
 

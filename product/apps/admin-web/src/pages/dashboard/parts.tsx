@@ -15,7 +15,7 @@ import { useOnline } from '../../hooks/useOnline';
 import type { ResourceState } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
-import { DebtCollectDialog } from '../stay/DebtCollectDialog';
+import { DebtCollectDialog, DebtWriteOffDialog } from '../stay/DebtCollectDialog';
 import { useNewKeys } from './useDashboard';
 
 /** "66,7%" (VI) / "66.7%" (EN), one decimal; `null` (no sellable room tonight) → "–" (Q-15). */
@@ -137,6 +137,9 @@ export function AttentionBlock({
     ['owner', 'manager', 'front_desk_lead', 'front_desk'].includes(r),
   );
   const [collecting, setCollecting] = useState<string | null>(null);
+  // ARC 16.27: "Xóa nợ" (OWN/MGR) beside it.
+  const ownMgr = roles.some((r) => r === 'owner' || r === 'manager');
+  const [writingOff, setWritingOff] = useState<string | null>(null);
 
   let body;
   if (!lines && state.status === 'error')
@@ -193,13 +196,25 @@ export function AttentionBlock({
               {t(l.resolveLabel)}
             </Button>
           ) : l.collectDebtId && fdPlus ? (
-            <Button
-              size="sm"
-              disabled={!online}
-              onClick={() => setCollecting(l.collectDebtId ?? null)}
-            >
-              {t('debt.collect')}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                disabled={!online}
+                onClick={() => setCollecting(l.collectDebtId ?? null)}
+              >
+                {t('debt.collect')}
+              </Button>
+              {ownMgr ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!online}
+                  onClick={() => setWritingOff(l.collectDebtId ?? null)}
+                >
+                  {t('debt.write_off')}
+                </Button>
+              ) : null}
+            </>
           ) : null;
           // H24 (phone): the whole row is the link; H03: card with "Mở" + "Đã xử lý" buttons.
           return rowLinks && l.to ? (
@@ -233,6 +248,16 @@ export function AttentionBlock({
       <span className="sr-only" role="status" aria-live="polite">
         {announce ? t('ov.sse_new_announce') : ''}
       </span>
+      {writingOff ? (
+        <DebtWriteOffDialog
+          reservationId={writingOff}
+          onClose={() => setWritingOff(null)}
+          onDone={() => {
+            setWritingOff(null);
+            onReload();
+          }}
+        />
+      ) : null}
       {collecting ? (
         <DebtCollectDialog
           reservationId={collecting}

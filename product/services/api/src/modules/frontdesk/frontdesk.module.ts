@@ -57,6 +57,7 @@ defineAuditEntity('reservation', [
   'tierPct',
   'checkoutMode',
   'debtVnd',
+  'debtOutcome',
   'balanceDueVnd',
   'dueDate',
   'replyType',
@@ -196,6 +197,8 @@ export class FrontdeskModule implements OnModuleInit {
     // and closes it when the folio owes nothing.
     this.hooks.provideOpenDebt((tx, folioId) => this.checkout.openDebt(tx, folioId));
     this.hooks.provideDebtSettled((tx, input) => this.checkout.debtSettled(tx, input));
+    // ARC 16.27: J15 `folio.close` turns what is still owed after the window into one debt.
+    this.hooks.provideDebtOnCheckout((tx, input) => this.checkout.debtOnCheckout(tx, input));
     // J24 payment.expire (VietQR shown at check-in/check-out – jobs are BE-A's, s3-contract 4.1).
     const j24 = paymentExpiryJob(this.audit);
     if (!this.jobs.get(j24.key)) this.jobs.register(j24);

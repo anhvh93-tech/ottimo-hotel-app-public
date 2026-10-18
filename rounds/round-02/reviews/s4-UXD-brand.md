@@ -192,6 +192,14 @@ Cũng sửa `folio.void_minibar_foc` (N-1): câu cũ 46 từ trong một câu. N
   - `debt.collect_help`: "hóa đơn đã xuất" → "phiếu thanh toán đã cấp" / "guest folio". "Hóa đơn" chỉ dùng cho hóa đơn GTGT (content-guide 3.1).
   - Giữ 5 khóa còn lại; cách viết khớp `co.debt_*` và `recon.cash_received_toast`.
   - Sinh lại 2864 chuỗi + 8 mẫu; `check_hifi.py` 25/25; không còn nhóm chờ UXD.
+- **FE-A đợt 23 – hộp "Xóa công nợ" (`DebtWriteOffDialog`, ARC 16.27, BR-433)** (10 khóa): duyệt, sửa 9.
+  - FE-A ghi 10 khóa chung vào nhóm đợt 22 đã duyệt. UXD tách ra nhóm "FE-A đợt 23" riêng để còn truy được.
+  - Thống nhất **"công nợ"**: "Xóa nợ" → "Xóa công nợ" ở cả 9 khóa `debt.write_off*`, khớp `co.debt_*`, `debt.collect*`, `foc.r_debt_write_off`.
+  - **"phiếu thanh toán"** thay "hóa đơn đã xuất" (`debt.write_off_help`; EN "guest folio").
+  - `debt.write_off_pending` "… – chờ **chủ đầu tư** duyệt" = `role.owner` (OWN), đúng BR-433; thêm "yêu cầu" vì đây là yêu cầu gửi đi chứ chưa áp.
+  - Giữ `foc.r_debt_write_off`.
+  - Sinh lại 2874 chuỗi + 8 mẫu; `check_hifi.py` 25/25.
+  - **Cần FE-A:** `s4-debt-fea.test.tsx:151, 198` so tên nút bằng chữ viết cứng `/^Xóa nợ /`, nên 2 ca đỏ. Đổi sang so theo khóa (`tv('debt.write_off_submit', …)`).
 
 ---
 

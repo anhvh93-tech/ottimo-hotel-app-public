@@ -16,7 +16,7 @@ import {
   rsvErrorText,
 } from '../../app/reservations';
 import { lineLabel, signed } from '../../app/folio';
-import { DebtCollectDialog } from '../stay/DebtCollectDialog';
+import { DebtCollectDialog, DebtWriteOffDialog } from '../stay/DebtCollectDialog';
 import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
@@ -69,6 +69,7 @@ type Open =
   | 'party'
   | 'refund'
   | 'debt'
+  | 'write_off'
   | 'folio'
   | 'bill'
   | null;
@@ -306,6 +307,14 @@ export function ReservationDrawer({
         // ARC 16.26 (BR-525 G-4): a debt left at check-out is collected on the settled folio (FD+).
         <Button variant="pri" onClick={() => setOpen('debt')}>
           {t('debt.collect')}
+        </Button>
+      ) : null}
+      {roles.some((x) => x === 'owner' || x === 'manager') &&
+      r.status === 'checked_out' &&
+      (r.balanceDueVnd ?? 0) > 0 ? (
+        // ARC 16.27 (R7LOCK-02): OWN/MGR write the debt off – a FOC `debt_write_off` on a line they pick.
+        <Button variant="ghost" onClick={() => setOpen('write_off')}>
+          {t('debt.write_off')}
         </Button>
       ) : null}
       {allowed.has('undo_check_in') ? (
@@ -769,6 +778,13 @@ export function ReservationDrawer({
       ) : null}
       {r && open === 'party' ? (
         <PartyDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'write_off' ? (
+        <DebtWriteOffDialog
+          reservationId={r.id}
+          onClose={() => setOpen(null)}
+          onDone={() => done()}
+        />
       ) : null}
       {r && open === 'debt' ? (
         <DebtCollectDialog

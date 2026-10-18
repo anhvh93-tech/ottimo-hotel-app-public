@@ -18,6 +18,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { needClock, resetClock, runJob, runJobIfAny } from '../support/clock.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 import {
   EP,
   action,
@@ -2705,12 +2706,14 @@ test.describe(
           ],
         },
         async ({ request }) => {
+          knownBug('BUG-R2-201');
           // Tiền điều kiện: Folio F1 settled ⏱ 15/10 11:40, còn phải thu 0; folio F2 settled, còn phải thu
           //   50.000, không ghi công nợ
           // Bước: ⏱ ngay trước và ngay sau hết thời hạn phát sinh BR-427 ▶ job đóng folio; qa.fd thêm dòng vào
           //   F1; qa.mgr điều chỉnh F1 có lý do
           // Kỳ vọng: Trước hạn: F1 settled, FD ghi phát sinh sau trả phòng nhanh được; sau hạn: F1 closed, FD
-          //   thêm dòng → 409 FOLIO_LOCKED, MGR điều chỉnh có lý do được; F2 không tự closed, vào "Cần chú ý"
+          //   thêm dòng → 409 FOLIO_LOCKED, MGR điều chỉnh có lý do được (SM-13); F2 closed, 50.000 thành công nợ,
+          //   vào "Cần chú ý" `checkout_debt` (R7LOCK-01 – thay "F2 không tự closed")
           // Quy tắc: SM-13 settled→closed, BR-427
           needClock('TC-L4-068');
           await requireEndpoints(request, 'TC-L4-068', [
@@ -2755,45 +2758,45 @@ test.describe(
           expect(late.status, JSON.stringify(late.body)).toBe(201);
           expect(late.body.status).toBe('settled');
           await payBalance(request, fd, s1.res.folioId!);
-          // ngay sau hạn: FD thêm dòng → 409 FOLIO_LOCKED; MGR điều chỉnh có lý do được
-          await at(request, new Date(windowEnd + 60_000).toISOString());
-          const job = await runJobIfAny(request, 'folio.close');
-          fd = await fresh(request, 'qa.fd');
-          const locked = await addLine(request, fd, s1.res.folioId!, {
-            category: 'fnb',
-            description: 'Them sau han',
-            quantity: 1,
-            unitPriceVnd: 10000,
-            serviceDate: D1,
-          });
-          expectProblem(locked, 409, 'FOLIO_LOCKED');
-          const mgr = await fresh(request, 'qa.mgr');
-          const f1 = await getFolio(request, mgr, s1.res.folioId!);
-          const target = liveLines(f1, 'fnb')[0]!;
+          // ngay sau hạn (R7LOCK-01, ARC 16.27, DOM BR-427 (d) 18/10): J15 đóng F1 (hết nợ) và cả F2 – khoản 50.000 chưa
+          // thu thành công nợ (trước đây F2 "không tự đóng"); FD thêm dòng → 409 FOLIO_LOCKED
+          const { mgr, target } = await precondition(
+            'J15 sau hạn: F1 closed, FD 409; F2 closed kèm công nợ 50.000, "Cần chú ý" checkout_debt',
+            async () => {
+              await at(request, new Date(windowEnd + 60_000).toISOString());
+              const job = await runJobIfAny(request, 'folio.close');
+              expect(job, 'J15 folio.close đăng ký trên build').not.toBeNull();
+              fd = await fresh(request, 'qa.fd');
+              const locked = await addLine(request, fd, s1.res.folioId!, {
+                category: 'fnb',
+                description: 'Them sau han',
+                quantity: 1,
+                unitPriceVnd: 10000,
+                serviceDate: D1,
+              });
+              expectProblem(locked, 409, 'FOLIO_LOCKED');
+              const mgr = await fresh(request, 'qa.mgr');
+              expect((await getFolio(request, mgr, s1.res.folioId!)).status).toBe('closed');
+              const f2 = await getFolio(request, mgr, s2.res.folioId!);
+              expect(f2.status, 'F2 đóng kèm công nợ (R7LOCK-01)').toBe('closed');
+              expect(f2.totals.balanceDueVnd, 'công nợ = khoản chưa thu').toBe(50000);
+              const att = await call<{ data: Array<{ kind: string }> }>(
+                request,
+                'GET',
+                `/v1/properties/${propertyIdOf(mgr)}/attention`,
+                { session: mgr },
+              );
+              expect(att.body.data.some((x) => x.kind === 'checkout_debt')).toBe(true);
+              const f1 = await getFolio(request, mgr, s1.res.folioId!);
+              return { mgr, target: liveLines(f1, 'fnb')[0]! };
+            },
+          );
+          // SM-13: folio `closed` – "chỉ MGR+ điều chỉnh, có lý do" (BUG-R2-201: mã trả 409 FOLIO_LOCKED)
           const adj = await adjustLine(request, mgr, s1.res.folioId!, target.id, {
             newUnitPriceVnd: 30000,
             reason: 'Giam gia mon an theo khieu nai',
           });
           expect(adj.status, JSON.stringify(adj.body)).toBe(201);
-          expect(
-            (await getFolio(request, mgr, s2.res.folioId!)).status,
-            'F2 còn nợ không tự đóng',
-          ).not.toBe('closed');
-          // J15 folio.close (SM-13 settled→closed, F2 vào "Cần chú ý") chưa đăng ký trên build
-          test.skip(
-            job === null,
-            'J15 folio.close chưa đăng ký trên build – F1 closed / F2 vào "Cần chú ý" chưa kiểm được (phần cửa sổ BR-427 đã kiểm ở trên)',
-          );
-          expect((await getFolio(request, mgr, s1.res.folioId!)).status).toBe('closed');
-          const att = await call<{ data: Array<{ reservationIds?: string[] }> }>(
-            request,
-            'GET',
-            `/v1/properties/${propertyIdOf(mgr)}/attention`,
-            { session: mgr },
-          );
-          expect(att.body.data.some((x) => (x.reservationIds ?? []).includes(s2.res.id))).toBe(
-            true,
-          );
         },
       );
       test(

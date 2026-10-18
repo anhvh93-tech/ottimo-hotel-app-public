@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Database, Tx } from '../../src/db/database';
+import { JobRunner } from '../../src/jobs/job-runner';
 import { ApprovalService } from '../../src/modules/approvals/public/approval.service';
 import { FolioService } from '../../src/modules/folio/public/folio.service';
 import {
@@ -136,6 +137,7 @@ const ROLES = {
   fd: ['front_desk'],
   owner: ['owner'],
   sal: ['sales_staff'],
+  ctv: ['collaborator'],
 };
 const ROOMS = ['101', '102', '103', '201', '202', '203', '301', '302'];
 /** The transfer of the oracle's B18 money (900.000 cash + 100.000 transfer) – the receipt reversed. */
@@ -231,7 +233,7 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
    */
   const checkedOutStay = async (
     beforeCheckout?: (b: Booking) => Promise<void>,
-    opts: { closer?: boolean } = {},
+    opts: { closer?: boolean; ctv?: boolean } = {},
   ): Promise<Stay & { departure: string }> => {
     const k = seq++;
     const roomNo = ROOMS[k % ROOMS.length]!;
@@ -240,11 +242,17 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
     await at('2026-10-20T10:00:00+07:00');
     const body = {
       roomId: ids.rooms[roomNo],
-      channelId: ids.channels.direct,
-      // A sale closed it (3 % staff commission, BR-903) – or a phone booking without commission.
-      ...(opts.closer
-        ? { directSource: 'sales_staff', closerUserId: t.users.sal!.id }
-        : { directSource: 'zalo_phone' }),
+      // A CTV booking (8 % agent commission), a sale closed it (3 % staff commission, BR-903) – or a phone booking
+      // without commission.
+      ...(opts.ctv
+        ? { channelId: ids.channels.collaborator, closerUserId: t.users.ctv!.id }
+        : opts.closer
+          ? {
+              channelId: ids.channels.direct,
+              directSource: 'sales_staff',
+              closerUserId: t.users.sal!.id,
+            }
+          : { channelId: ids.channels.direct, directSource: 'zalo_phone' }),
       adults: 2,
       bookerGuestId: guest,
       paymentModel: 'direct',
@@ -339,7 +347,14 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
         .map((x) => [sym(x.result.debtVnd), sym(x.dueInTxVnd)]),
       checkoutMode: r.mode as string,
       debtReason: r.reason as string | null,
-      debtDue: r.due as string | null,
+      // Days from the departure (runs use different dates): the default due date counts from the business day.
+      debtDue:
+        r.due && (s as Stay & { departure?: string }).departure
+          ? Math.round(
+              (Date.parse(r.due) - Date.parse((s as Stay & { departure: string }).departure)) /
+                86_400_000,
+            )
+          : (r.due as string | null),
       debtSettled: r.settled as boolean,
       refunds,
       commissions: (await commissions(s)).map((x) => x.status),
@@ -401,7 +416,14 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
               pending[pending.length - 1]!.then((r) => `${r.statusCode} ${r.body}`),
               new Promise<string>((r) => setTimeout(() => r('pending'), 50)),
             ]);
-            throw new Error(`step ${pending.length} never waited (${done})`);
+            const act = await holder.query(
+              `SELECT pid, state, wait_event_type, wait_event, pg_blocking_pids(pid) AS by, left(query, 160) AS q,
+                      backend_xid::text AS xid, xact_start
+                 FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()`,
+            );
+            throw new Error(
+              `step ${pending.length} never waited (${done}) holder ${pid} pool ${db.pool.totalCount}/${db.pool.idleCount}/${db.pool.waitingCount} ${JSON.stringify(act.rows)}`,
+            );
           }
           await new Promise((r) => setTimeout(r, 20));
         }
@@ -458,7 +480,8 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
       checkoutMode: 'debt',
       debtReason: ex.debtReason,
     });
-    expect(o.debtDue! > s.departure).toBe(true); // "hạn công nợ mặc định" – after the business day
+    // "hạn công nợ mặc định": `debt_default_due_days` (3) from the business day of the reversal (the departure day)
+    expect(o.debtDue).toBe(3);
     expect((await folio(s.folioId)).billNo).toBe(s.billNo); // invoiceUnchanged
     expect(await lineCount(s.folioId)).toBe(lines);
     const [audit] = await q(
@@ -739,6 +762,205 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
     );
   });
 
+  // ───────────── ARC 16.27 (1) R7LOCK-01: J15 `folio.close` – what is owed after the window becomes one debt ─────────────
+
+  const runJ15 = async () => {
+    const runner = fa.app.get(JobRunner, { strict: false });
+    const p = (await runner.listProperties()).find((x) => x.propertyId === t.propertyIds[0])!;
+    const out = await runner.runOnce('folio.close', p);
+    expect(out.stats.failed, JSON.stringify(out.stats)).toBe(0);
+    return out.stats as { closed: number; closedWithDebt: number; waitingRefund: number };
+  };
+  /** FD posts a charge found after check-out (BR-427 (c)) on the settled folio – inside its window. */
+  const lateCharge = async (s: Booking, amountVnd: number, departure: string) => {
+    const r = await c.fd!.send('POST', url(`/folios/${s.folioId}/lines`), {
+      category: 'fnb',
+      description: 'Minibar phát hiện sau trả phòng',
+      quantity: 1,
+      unitPriceVnd: amountVnd,
+      serviceDate: departure,
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    return (r.json().lines as any[]).find((l) => l.category === 'fnb' && l.amountVnd === amountVnd)
+      .id as string;
+  };
+  const openDebtOf = (s: Booking) =>
+    db.withContext(t.ctx(), (tx) => fa.app.get(ReservationHooks).openDebt(tx, s.folioId));
+
+  it('J15 (DOM example): out D 11:00, 70.000 found at 15:00 and not paid → D+1 10:59 still settled; D+1 11:01 ONE debt of 70.000 due in 3 days, OWN + MGR told, folio closed (bill kept); again → nothing; a paid folio closes without debt; an open refund waits; then FD collects 70.000 → debt closed', async () => {
+    const s = await checkedOutStay();
+    const paid = await checkedOutStay();
+    const { s: refunding } = await withOpenRefund();
+    await at(`${s.departure}T15:00:00+07:00`);
+    await lateCharge(s, 70_000, s.departure);
+    await at(`${addDays(s.departure, 1)}T10:59:00+07:00`);
+    await runJ15();
+    expect((await folio(s.folioId)).status).toBe('settled');
+    await at(`${addDays(s.departure, 1)}T11:01:00+07:00`);
+    await runJ15();
+    expect(await folio(s.folioId)).toMatchObject({ status: 'closed', billNo: s.billNo });
+    expect((await folio(paid.folioId)).status).toBe('closed');
+    expect((await folio(refunding.folioId)).status).toBe('settled'); // waits for its refund
+    expect(await openDebtOf(s)).toMatchObject({
+      reservationId: s.id,
+      balanceDueVnd: 70_000,
+      dueDate: addDays(addDays(s.departure, 1), 3),
+    });
+    expect(await openDebtOf(paid)).toBeNull();
+    expect(await outcome(s)).toMatchObject({
+      dueVnd: 70_000,
+      checkoutMode: 'debt',
+      debtReason: 'post_checkout_unpaid',
+      debtSettled: false,
+    });
+    const told = await q(
+      `SELECT user_id FROM staff_notification WHERE kind = 'debt_recorded' AND ref_id = $1`,
+      [s.id],
+    );
+    expect(told.map((x) => x.user_id).sort()).toEqual(
+      [t.users.owner!.id, t.users.mgr!.id, t.users.mgr2!.id].sort(),
+    );
+    const [closedAudit] = await q(
+      `SELECT after FROM audit_event WHERE action = 'folio.closed' AND entity_id = $1`,
+      [s.folioId],
+    );
+    expect(closedAudit.after).toMatchObject({ status: 'closed', balanceDueVnd: 70_000 });
+    // Idempotent: nothing more to close, no second debt.
+    const again = await runJ15();
+    expect(again.closedWithDebt).toBe(0);
+    expect(
+      await q(`SELECT 1 FROM staff_notification WHERE kind = 'debt_recorded' AND ref_id = $1`, [
+        s.id,
+      ]),
+    ).toHaveLength(told.length);
+    // Collected on the closed folio (ARC 16.26) → the debt closes; the folio stays closed.
+    const col = await collect(s, 70_000)();
+    expect(col.statusCode, col.body).toBe(201);
+    expect(await outcome(s)).toMatchObject({ dueVnd: 0, debtSettled: true, folioStatus: 'closed' });
+  });
+
+  // ───────────── ARC 16.27 (2) R7LOCK-02: writing the debt off – FOC `debt_write_off` ─────────────
+
+  const writeOff = (
+    s: Booking,
+    lineId: string,
+    amountVnd: number,
+    o: { who?: string; kind?: string; note?: string | null; auth?: boolean } = {},
+  ) =>
+    c[o.who ?? 'mgr']!.send('POST', url(`/folios/${s.folioId}/lines/${lineId}/foc`), {
+      kind: o.kind ?? 'foc',
+      amountVnd,
+      reasonCode: 'debt_write_off',
+      ...(o.note === null ? {} : { note: o.note ?? 'Khách không liên lạc được' }),
+      ...(o.auth === false ? {} : { authMethod: 'password', secret: TEST_PASSWORD }),
+    });
+  const roomLineOf = async (s: Booking) =>
+    ((await folio(s.folioId)).lines as any[]).find(
+      (l) => l.category === 'room' && l.lineState === 'posted' && !l.reversalOfId,
+    ).id as string;
+
+  it('BR-525 / BR-903 (DOM oracle): CTV 8 % stay, transfer 100.000 reversed (debt 100.000, commission back to projected); MGR writes 100.000 off on a ROOM line → self-applied, debt closed `written_off`, commission base − 100.000 (−8.000) and earned at the write-off; folio settled, bill kept', async () => {
+    const s = await checkedOutStay(undefined, { ctv: true });
+    const [c0] = await commissions(s);
+    expect(c0).toMatchObject({ status: 'earned' });
+    expect((await reverse(s.transferId)()).statusCode).toBe(200);
+    expect((await commissions(s)).map((x) => x.status)).toEqual(['projected']);
+    await at(`${addDays(s.departure, 1)}T09:00:00+07:00`);
+    const w = await writeOff(s, await roomLineOf(s), TRANSFER);
+    expect(w.statusCode, w.body).toBe(201);
+    expect(w.json()).toMatchObject({ status: 'approved', reasonCode: 'debt_write_off' });
+    expect(await outcome(s)).toMatchObject({
+      dueVnd: 0,
+      creditVnd: 0,
+      debtSettled: true,
+      folioStatus: 'settled',
+    });
+    expect((await folio(s.folioId)).billNo).toBe(s.billNo);
+    const [c1] = await commissions(s);
+    expect(c1).toMatchObject({ status: 'earned', amount: c0.amount - 8_000 });
+    expect(new Date(c1.recognized_at).toISOString()).toBe(
+      new Date(`${addDays(s.departure, 1)}T09:00:00+07:00`).toISOString(),
+    );
+    const [settledAudit] = await q(
+      `SELECT after, reason FROM audit_event WHERE action = 'reservation.debt_settled' AND entity_id = $1`,
+      [s.id],
+    );
+    expect(JSON.stringify(settledAudit)).toContain('written_off');
+    const [line] = await q(
+      `SELECT post_checkout FROM folio_line WHERE approval_request_id = $1 AND line_state = 'posted'`,
+      [w.json().id],
+    );
+    expect(line).toEqual({ post_checkout: true });
+  });
+
+  it('R7LOCK-02 rules: on a minibar-type line the commission base stays; above the price of one night MGR waits for OWN; FD 403, special_discount 422, no note 422, over the due 422 max, no debt 409, open folio 422', async () => {
+    const s = await checkedOutStay(undefined, { closer: true });
+    const [c0] = await commissions(s);
+    await at(`${s.departure}T15:00:00+07:00`);
+    const small = await lateCharge(s, 70_000, s.departure);
+    const big = await lateCharge(s, 5_000_000, s.departure);
+    // nothing to write off yet (no debt – the window is still open)
+    expect((await writeOff(s, small, 70_000)).json().code).toBe('FOLIO_LOCKED');
+    await at(`${addDays(s.departure, 1)}T11:01:00+07:00`);
+    await runJ15();
+    expect(await openDebtOf(s)).toMatchObject({ balanceDueVnd: 5_070_000 });
+    expect((await writeOff(s, small, 70_000, { who: 'fd', auth: false })).statusCode).toBe(403);
+    expect((await writeOff(s, small, 70_000, { kind: 'special_discount' })).json().errors).toEqual([
+      { field: 'kind', code: 'NOT_ALLOWED' },
+    ]);
+    expect((await writeOff(s, small, 70_000, { note: null })).json().errors).toEqual([
+      { field: 'note', code: 'REASON_REQUIRED' },
+    ]);
+    const over = await writeOff(s, small, 70_001);
+    expect(over.json()).toMatchObject({
+      errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+      max: 70_000,
+    });
+    // minibar-type line: written off, commission base unchanged, debt still open with 5.000.000
+    const w1 = await writeOff(s, small, 70_000);
+    expect(w1.json().status, w1.body).toBe('approved');
+    expect((await commissions(s))[0]).toMatchObject({ amount: c0.amount });
+    expect(await openDebtOf(s)).toMatchObject({ balanceDueVnd: 5_000_000 });
+    // 5.000.000 > the price of one night → pending OWN (BR-433), the debt stays open until OWN approves
+    const w2 = await writeOff(s, big, 5_000_000);
+    expect(w2.statusCode, w2.body).toBe(201);
+    expect(w2.json()).toMatchObject({ status: 'pending', requiredRole: 'owner' });
+    expect(await openDebtOf(s)).toMatchObject({ balanceDueVnd: 5_000_000 });
+    const ok = await c.owner!.send(
+      'POST',
+      url(`/approval-requests/${w2.json().id}/actions/approve`),
+      {
+        authMethod: 'password',
+        secret: TEST_PASSWORD,
+      },
+    );
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(await openDebtOf(s)).toBeNull();
+    expect(await outcome(s)).toMatchObject({ dueVnd: 0, debtSettled: true, folioStatus: 'closed' });
+    expect((await commissions(s))[0]).toMatchObject({ status: 'earned', amount: c0.amount });
+    // no debt any more → 409; an open folio → 422 (nothing to write off)
+    expect((await writeOff(s, await roomLineOf(s), 1_000)).json().code).toBe('FOLIO_LOCKED');
+    const { b: open } = await (async () => {
+      await at('2026-10-20T10:00:00+07:00');
+      const r = await c.fd!.send('POST', url('/reservations'), {
+        roomId: ids.rooms['401'],
+        channelId: ids.channels.direct,
+        directSource: 'zalo_phone',
+        adults: 2,
+        bookerGuestId: guest,
+        paymentModel: 'direct',
+        arrivalDate: '2027-02-10',
+        departureDate: '2027-02-12',
+        initialPayment: { type: 'deposit', method: 'cash', amountVnd: 1_000_000 },
+      });
+      expect(r.statusCode, r.body).toBe(201);
+      return { b: r.json() as Booking };
+    })();
+    expect((await writeOff(open, await roomLineOf(open), 1_000)).json().errors).toEqual([
+      { field: 'reasonCode', code: 'NOT_ALLOWED' },
+    ]);
+  });
+
   // ───────────── races (ARC 16.19): each forced order = the same steps one after the other ─────────────
 
   const pairs: Array<{
@@ -812,6 +1034,46 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
       setup: async () => {
         const s = await inDebt();
         return { s, steps: [collect(s, TRANSFER), reverse(s.cashId, 'Tiền giả')] };
+      },
+    },
+  );
+
+  pairs.push(
+    {
+      name: 'R7LOCK-02: MGR writes the debt of 100.000 off ‖ FD collects 100.000 (one 201, the other 409 – debt closed once)',
+      setup: async () => {
+        const s = await inDebt();
+        const room = await roomLineOf(s);
+        return { s, steps: [() => writeOff(s, room, TRANSFER), collect(s, TRANSFER)] };
+      },
+    },
+    {
+      name: 'R7LOCK-01: J15 at the end of the window ‖ FD records 70.000 on the folio (before the debt → 409; after → collected)',
+      setup: async () => {
+        const s = await checkedOutStay();
+        await at(`${s.departure}T15:00:00+07:00`);
+        await lateCharge(s, 70_000, s.departure);
+        // every other folio whose window is over is closed first – the race is on this folio only
+        await at(`${addDays(s.departure, 1)}T10:59:00+07:00`);
+        await runJ15();
+        await at(`${addDays(s.departure, 1)}T11:01:00+07:00`);
+        // J15's unit for one folio (its own transaction, as the job runs it – folio-close-job.ts)
+        const j15 = async (): Promise<Res> => {
+          const hooks = fa.app.get(ReservationHooks);
+          const out = await db.withContext(t.ctx(), (one) =>
+            fa.app.get(FolioService).closeAfterWindow(one, s.folioId, fa.clock.now(), {
+              recordDebt: (folioId) =>
+                hooks.debtOnCheckout(one, {
+                  folioId,
+                  reason: 'post_checkout_unpaid',
+                  actor: { userId: '00000000-0000-0000-0000-000000000000', roles: ['owner'] },
+                }),
+              hasOpenDebt: async (folioId) => (await hooks.openDebt(one, folioId)) !== null,
+            }),
+          );
+          return { statusCode: 200, body: out, json: () => out } as unknown as Res;
+        };
+        return { s, steps: [j15, collect(s, 70_000)] };
       },
     },
   );

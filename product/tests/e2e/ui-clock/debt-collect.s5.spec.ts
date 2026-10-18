@@ -1,5 +1,6 @@
 // "Thu công nợ" trên Desk (ARC 16.26, BR-525 thu công nợ (a)–(b); FE-A `DebtCollectDialog`) với API thật, ngày ảo
-// (project desk-clock). Oracle BR-525-07, BR-525-08 (`pendingFix` BUG-R2-200). Phần API: `e2e/clock/debt-collect.s5.clock.spec.ts`.
+// (project desk-clock). Oracle BR-525-07, BR-525-08; "Xóa công nợ" (R7LOCK-02, ARC 16.27, FE-A `DebtWriteOffDialog`) – BR-525-15.
+// Phần API: `e2e/clock/debt-collect.s5.clock.spec.ts`.
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { needSeedPassword, sessionOrSkip, stackToday } from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
@@ -11,6 +12,7 @@ import {
   cleanRooms,
   getFolio,
   inHouse,
+  liveLines,
   readyRooms,
   useVirtualDevice,
   virtualDay,
@@ -41,7 +43,9 @@ async function at(request: APIRequestContext, date: string, hhmm: string): Promi
 }
 
 /** Đơn 1 đêm (đến A, đi A+1): dòng F&B 100.000 chưa thu, B18 A+1 MGR ghi công nợ hạn A+4. */
-async function debtStay(request: APIRequestContext): Promise<{ A: string; st: Stay }> {
+async function debtStay(
+  request: APIRequestContext,
+): Promise<{ A: string; st: Stay; lineId: string }> {
   const A = virtualDay(realToday, 6);
   await at(request, A, '14:00');
   cleanRooms();
@@ -67,7 +71,7 @@ async function debtStay(request: APIRequestContext): Promise<{ A: string; st: St
     debt: { dueDate: addDays(A, 4), reason: 'Khach hen chuyen khoan' },
   });
   expect(out.status, `B18 ghi công nợ: ${JSON.stringify(out.body).slice(0, 300)}`).toBe(200);
-  return { A, st };
+  return { A, st, lineId: liveLines(line.body, 'fnb').at(-1)!.id };
 }
 
 test.describe(
@@ -141,6 +145,82 @@ test.describe(
           amountVnd: f1.totals.balanceDueVnd,
         });
         expect((await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd).toBe(0);
+        await expect(open, 'hết nợ → không còn nút').toHaveCount(0, { timeout: 15_000 });
+      } finally {
+        await page.context().close();
+      }
+    });
+
+    test('TC-X-082 (E) BR-525-15 / R7LOCK-02 FE-A: "Xóa công nợ" chỉ OWN/MGR – lễ tân có "Thu công nợ" nhưng không có nút xóa; quản lý mở hộp, chọn khoản 100.000, chưa ghi chú thì nút xóa tắt; ghi chú → `requestFoc` `debt_write_off` 201 tự áp (≤ giá 1 đêm), hết nợ, nút mất + axe', async ({
+      browser,
+      request,
+    }) => {
+      test.slow();
+      needClock('TC-X-082');
+      const { A, st, lineId } = await precondition('đơn 1 đêm, B18 MGR ghi công nợ 100.000', () =>
+        debtStay(request),
+      );
+      await at(request, addDays(A, 2), '10:00');
+      const fdPage = await desk(browser, 'qa.fd', vnTime(addDays(A, 2), '10:05'));
+      try {
+        await fdPage.goto(`${WEB_URL}/reservations/${st.res.id}`);
+        await expect(
+          fdPage.getByRole('button', { name: t('debt.collect'), exact: true }),
+        ).toBeVisible({ timeout: 20_000 });
+        await expect(
+          fdPage.getByRole('button', { name: t('debt.write_off'), exact: true }),
+          'lễ tân không có nút xóa công nợ',
+        ).toHaveCount(0);
+      } finally {
+        await fdPage.context().close();
+      }
+      const page = await desk(browser, 'qa.mgr', vnTime(addDays(A, 2), '10:10'));
+      try {
+        const focs = recordWrites(page, 'POST', /\/folios\/[^/]+\/lines\/[^/]+\/foc$/);
+        await page.goto(`${WEB_URL}/reservations/${st.res.id}`);
+        const open = page.getByRole('button', { name: t('debt.write_off'), exact: true });
+        await expect(open, 'nút "Xóa công nợ" của quản lý').toBeVisible({ timeout: 20_000 });
+        await open.click();
+        const dlg = page.getByRole('dialog', {
+          name: new RegExp(`^${esc(stem('debt.write_off_title'))}`),
+        });
+        await expect(dlg).toBeVisible({ timeout: 15_000 });
+        await expect(
+          dlg.getByText(t('debt.write_off_limit')),
+          'MGR thấy câu hạn mức',
+        ).toBeVisible();
+        const submit = dlg.getByRole('button', {
+          name: new RegExp(`^${esc(stem('debt.write_off_submit'))}`),
+        });
+        await expect(submit, 'chưa chọn khoản').toBeDisabled();
+        await dlg
+          .locator('label')
+          .filter({ hasText: /100[.,]000/ })
+          .getByRole('radio')
+          .first()
+          .check();
+        await expect(
+          dlg.getByRole('textbox', { name: new RegExp(`^${esc(t('co.amount'))}`) }),
+        ).toHaveValue(/100[.,]000/);
+        await expect(submit, 'chưa ghi chú').toBeDisabled();
+        await dlg
+          .getByLabel(new RegExp(`^${esc(t('debt.write_off_note'))}`))
+          .fill('Khach khong lien lac duoc');
+        await expect(submit).toBeEnabled();
+        await scan(page, test.info(), 'H11-debt-write-off');
+        await submit.click();
+        const w = await waitWrite(focs, 'requestFoc debt_write_off', 201);
+        expect(w.request).toMatchObject({
+          kind: 'foc',
+          reasonCode: 'debt_write_off',
+          amountVnd: DEBT,
+        });
+        expect(w.path, 'đúng khoản đã chọn').toContain(lineId);
+        expect((JSON.parse(w.body) as Json).status, 'MGR tự áp (≤ giá 1 đêm)').toBe('approved');
+        const fd = await sessionOrSkip(request, 'qa.fd');
+        expect((await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd, 'hết nợ').toBe(
+          0,
+        );
         await expect(open, 'hết nợ → không còn nút').toHaveCount(0, { timeout: 15_000 });
       } finally {
         await page.context().close();

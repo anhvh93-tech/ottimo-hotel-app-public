@@ -292,6 +292,7 @@ export class PaymentsService {
       await this.debtOwner().debtSettled(tx, {
         folioId,
         paymentId: row.id,
+        outcome: 'paid',
         actor: { userId: actor.userId, roles: actor.roles },
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });

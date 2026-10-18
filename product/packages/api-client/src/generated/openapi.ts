@@ -2264,6 +2264,12 @@ export interface paths {
      *     **0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-307 v0.3.4)**: không FOC / giảm giá đặc biệt trên dòng `room` của đơn `paymentModel = ota_prepaid` → 422 `FOC_NOT_ALLOWED_OTA_PREPAID`
      *     (`field` = `kind`). Bù sự cố cho khách OTA trả trước bằng FOC trên khoản phát sinh, đêm bù, hoặc hoàn tiền thật (`createRefundRequest`, BR-522).
      *     Đơn `ota_pay_at_property`: FOC như kênh Trực tiếp. "Đã thu qua OTA" (`ota_collect`) = tổng dòng tiền phòng OTA **trước** FOC, đồng bộ cùng giao dịch mỗi lần ghi/sửa/đảo dòng.
+     *     **0.3.7 bổ sung 4 – xóa công nợ sau trả phòng (R7LOCK-02, DOM 18/10 BR-525; ARC 16.27)**: folio `settled`/`closed` mặc định → 409 `FOLIO_LOCKED`. **Ngoại lệ duy nhất**: đơn có
+     *     **công nợ mở** và `reasonCode = debt_write_off` – chỉ `kind = foc` (khác → 422 `NOT_ALLOWED`), chỉ **OWN/MGR** (FD/FDL → 403 `FORBIDDEN_ACTION`), `note` bắt buộc (≥ 3 – thiếu 422
+     *     `REASON_REQUIRED`); số ≤ min(giá trị còn lại của dòng sau FOC khác, còn phải thu) – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); hạn mức BR-433: MGR tự áp tới giá 1 đêm
+     *     (`nightRateBasis`), vượt → yêu cầu chờ **OWN** duyệt (luồng duyệt thường). Dòng FOC ghi là bút toán sau chốt (folio và hóa đơn đã xuất giữ nguyên). Áp xong còn phải thu về 0 → công nợ
+     *     đóng (`debt_settled_at`, lý do `written_off`), "Cần chú ý" `checkout_debt` tự hết. Báo cáo FOC tách riêng mã `debt_write_off`. Hoa hồng (BR-903): FOC `debt_write_off` trên dòng
+     *     **tiền phòng** trừ vào cơ sở hoa hồng, "đạt" lúc xóa nợ (CTV 8 %, xóa 100.000 → 408.400 thay 416.400); trên minibar/hư hỏng/phụ thu không đổi cơ sở. Thứ tự khóa như FOC (16.19).
      */
     post: operations['requestFoc'];
     delete?: never;
@@ -5372,7 +5378,7 @@ export interface components {
        *     |---|---|---|
        *     | `foc_threshold` (BR-435, US-012 AC8; `computed`, `warning`) | `check` = `foc_pct_of_room_revenue` → `pct` (FOC lũy kế tháng ÷ doanh thu phòng lũy kế × 100, 1 chữ số thập phân; **vắng** khi doanh thu phòng = 0 – hiện "–"), `threshold` (= `foc_alert_pct_of_room_revenue`); `check` = `foc_count_per_approver` → `count` (số FOC đã duyệt trong kỳ của **một** người duyệt, gồm tự áp BR-436), `max` (= `foc_alert_count_per_approver`) – mỗi người vượt ngưỡng một dòng, **không** nêu tên: `link` = `/approvals?type=foc&month=YYYY-MM&approverId=<id>`. Kỳ = ngày 1 tháng nghiệp vụ → hôm nay | chỉ OWN |
        *     | `reconcile_overdue` | `count`, `oldestDays` | MGR+ |
-       *     | `checkout_debt` (0.3.7 bổ sung 4, BR-525 G-4; `computed`) – đơn `checked_out` còn công nợ mở (ghi lúc trả phòng hoặc tự ghi khi đảo khoản thu sau trả phòng); `warning`, `critical` khi đã quá hạn; `dueAt` = hạn công nợ sớm nhất; `refCode` = mã đơn khi `count` = 1; **không** số tiền; tự hết khi folio không còn phải thu (thu đủ, FOC/xóa nợ BR-433) | `count` | MGR+ |
+       *     | `checkout_debt` (0.3.7 bổ sung 4, BR-525 G-4; `computed`) – đơn `checked_out` còn công nợ mở (ghi lúc trả phòng, tự ghi khi đảo khoản thu sau trả phòng, hoặc J15 `folio.close` tự ghi cho phát sinh sau trả phòng chưa thu – R7LOCK-01); hết khi thu đủ (`recordPayment` thu nợ) hoặc xóa nợ (FOC `reasonCode = debt_write_off`, `requestFoc`); `warning`, `critical` khi đã quá hạn; `dueAt` = hạn công nợ sớm nhất; `refCode` = mã đơn khi `count` = 1; **không** số tiền; tự hết khi folio không còn phải thu (thu đủ, FOC/xóa nợ BR-433) | `count` | MGR+ |
        *     | `no_show_call`, `no_show_mark` | `count`, `time` (`HH:mm` – `no_show_call_time` / `no_show_mark_time`) | FD+ |
        *     | `registration_due` | `count`, `deadline` (hạn sớm nhất – thời điểm ISO hoặc `HH:mm`) | FD+ |
        *     | `capacity_conflict`, `overbooking`, `unassigned_with_free_room`, `hold_expiring`, `room_ooo`, `extra_guest_kit_overdue`, `registration_overdue`, `guest_request_overdue` | `count` | FD+ |
@@ -6029,9 +6035,17 @@ export interface components {
       /** @enum {string} */
       kind: 'foc' | 'special_discount';
       amountVnd: components['schemas']['MoneyVnd'];
-      /** @enum {string} */
+      /**
+       * @description 0.3.7 bổ sung 4 (R7LOCK-02, DOM 18/10 BR-525): `debt_write_off` = **xóa công nợ** sau trả phòng – chỉ `kind = foc`, chỉ OWN/MGR, `note` bắt buộc; xem `requestFoc`
+       * @enum {string}
+       */
       reasonCode:
-        'regular_vip' | 'room_ready_no_impact' | 'service_recovery' | 'long_stay_guest' | 'other';
+        | 'regular_vip'
+        | 'room_ready_no_impact'
+        | 'service_recovery'
+        | 'long_stay_guest'
+        | 'other'
+        | 'debt_write_off';
       note?: string;
       /**
        * @description 0.3.3 (BE-A, US-007 AC6, BR-436): xác nhận lại của **chính người gửi** khi yêu cầu được **tự áp** trong hạn mức của vai (FD tự áp FOC minibar).
@@ -7882,7 +7896,7 @@ export interface components {
     StaffNotification: {
       id: components['schemas']['Uuid'];
       /**
-       * @description **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0; gửi **OWN + MGR**
+       * @description **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0, hoặc khi J15 đóng folio còn phát sinh sau trả phòng chưa thu (R7LOCK-01 – hết 24 giờ kể từ trả phòng); gửi **OWN + MGR**
        *     (trừ người đảo); refType `reservation`, `refCode` = mã đơn; không số tiền, không tên khách.
        *     0.3.6 (A-36): `online_checkin_completed` (FD đang trực – "Khách {refCode} đã làm thủ tục trước – đến lúc {eta}", EP06 8.3; refType `reservation`);
        *     `payment_disputed` (OWN + MGR khác người ghi – SEC F5; refType `payment`); `deposit_shortfall_accepted` (OWN – B-29); `receiving_account_changed`

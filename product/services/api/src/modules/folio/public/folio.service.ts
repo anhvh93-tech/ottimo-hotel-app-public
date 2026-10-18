@@ -1240,6 +1240,57 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * J15 `folio.close` for ONE folio (ARC 16.27 (1), BR-427 (d), BR-525 – DOM 18/10), in the job's transaction of
+   * this folio: L1 every booking of the folio `NO KEY UPDATE` → L3 the folio (`lockStay`), then everything is read
+   * under the locks. A `settled` folio whose post-checkout window (check-out + `post_checkout_charge_hours`, one
+   * window for the whole folio) is over: still owed and no open debt → the front desk records ONE debt
+   * (`debtOnCheckout`, reason `post_checkout_unpaid`, default due days, system actor) – the same structure as at B18
+   * – then the folio is `closed` (the bill stays as settled; R3 e-invoice). A folio with an open refund request
+   * waits (a refund pay-out needs a folio that is not closed – it closes on a later run once paid). Idempotent: not
+   * `settled` or window not over → nothing. Returns what happened.
+   */
+  async closeAfterWindow(
+    tx: Tx,
+    folioId: string,
+    now: Date,
+    debts: {
+      recordDebt(folioId: string): Promise<{ recorded: boolean }>;
+      hasOpenDebt(folioId: string): Promise<boolean>;
+    },
+  ): Promise<'closed' | 'closed_with_debt' | 'waiting_refund' | 'skipped'> {
+    const folio = await this.lockStay(tx, folioId);
+    const until = folio?.post_checkout_window_until ?? null;
+    if (!folio || folio.status !== 'settled' || !until || until.getTime() > now.getTime()) {
+      return 'skipped';
+    }
+    const b = await this.balance(tx, folioId);
+    if (b.openRefundVnd > 0) return 'waiting_refund';
+    let debt = false;
+    if (b.balanceDueVnd > 0) {
+      const r = await debts.recordDebt(folioId);
+      // Never a closed folio owing money outside the debt list (A19): no debt recorded and none open → stop here.
+      if (!r.recorded && !(await debts.hasOpenDebt(folioId))) {
+        throw new Error(`J15: folio ${folioId} owes money and no debt was recorded`);
+      }
+      debt = true;
+    }
+    await tx.query(
+      `UPDATE folio SET status = 'closed', closed_at = $2, updated_at = $2, version = version + 1 WHERE id = $1`,
+      [folioId, now],
+    );
+    await this.audit.record(tx, {
+      category: 'state',
+      action: 'folio.closed',
+      entityType: 'folio',
+      entityId: folioId,
+      entityCode: folio.bill_no ?? folioId,
+      before: { status: 'settled' },
+      after: { status: 'closed', balanceDueVnd: b.balanceDueVnd },
+    });
+    return debt ? 'closed_with_debt' : 'closed';
+  }
+
+  /**
    * SM-11 `projected → earned` (BR-903 + BR-527, DOM S3-3 / BE-15): a short-stay commission is earned when
    * ALL hold – the booking is `checked_out`, its folio owes nothing, and no receipt recorded by the payee on
    * the folio is still `pending`/`disputed`. Called at the LAST of those events: B18 (reservation hook),

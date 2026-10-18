@@ -3275,6 +3275,21 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `debt.collect_submit` | Ghi nhận đã thu {amount} | Record {amount} received | ⟨chừa chỗ⟩ | Nút chính của hộp |
 | `debt.collected_toast` | Đã thu {amount} công nợ của {code}. | {amount} of debt collected for {code}. | ⟨chừa chỗ⟩ | Sau khi thu |
 
+#### R2 Sprint 4 – FE-A đợt 23: xóa công nợ – DebtWriteOffDialog (ARC 16.27, BR-433) (UXD duyệt 18/10 – s4-UXD-brand: thống nhất "công nợ", "phiếu thanh toán", "chủ đầu tư" = OWN; sửa 9)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `debt.write_off` | Xóa công nợ | Write off debt | ⟨chừa chỗ⟩ | ARC 16.27 – nút OWN/MGR cạnh Thu công nợ (drawer, Cần chú ý) |
+| `debt.write_off_title` | Xóa công nợ · {code} | Write off debt · {code} | ⟨chừa chỗ⟩ | Tiêu đề hộp |
+| `debt.write_off_help` | Còn phải thu {amount}. Chọn khoản để xóa công nợ; khoản này ghi là miễn phí sau khi chốt folio, phiếu thanh toán đã cấp giữ nguyên. | {amount} still due. Choose the charge to write off; it is posted as a waiver after settlement, and the guest folio already issued stays as it is. | ⟨chừa chỗ⟩ | requestFoc reasonCode=debt_write_off |
+| `debt.write_off_limit` | Quản lý xóa công nợ tới giá 1 đêm; vượt mức này cần chủ đầu tư duyệt. | A manager can write off up to one night's rate; above that, the owner approves. | ⟨chừa chỗ⟩ | BR-433 – chỉ hiện với MGR |
+| `debt.write_off_line` | Khoản xóa công nợ | Charge to write off | ⟨chừa chỗ⟩ | Nhóm chọn dòng folio (dòng tiền phòng ảnh hưởng hoa hồng – BR-903) |
+| `debt.write_off_note` | Lý do xóa công nợ | Reason for the write-off | ⟨chừa chỗ⟩ | Ghi chú bắt buộc (≥ 3 ký tự) |
+| `debt.write_off_submit` | Xóa công nợ {amount} | Write off {amount} | ⟨chừa chỗ⟩ | Nút chính |
+| `debt.write_off_done` | Đã xóa công nợ {amount} của {code}. | {amount} written off for {code}. | ⟨chừa chỗ⟩ | Sau khi áp |
+| `debt.write_off_pending` | Đã gửi yêu cầu xóa công nợ {amount} của {code} – chờ chủ đầu tư duyệt. | Write-off request of {amount} for {code} sent – awaiting the owner's approval. | ⟨chừa chỗ⟩ | MGR vượt giá 1 đêm (BR-433) |
+| `foc.r_debt_write_off` | Xóa công nợ | Debt written off | ⟨chừa chỗ⟩ | Lý do FOC debt_write_off – dòng folio, nhật ký tiền |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

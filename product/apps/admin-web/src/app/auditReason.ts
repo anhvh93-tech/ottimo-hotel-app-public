@@ -35,6 +35,7 @@ const CODE_KEYS: Record<string, string> = {
   room_ready_no_impact: 'foc.r_room_ready',
   service_recovery: 'foc.r_recovery',
   long_stay_guest: 'foc.r_long',
+  debt_write_off: 'foc.r_debt_write_off',
 };
 
 export function auditReasonText(t: T, e: AuditEvent): string {

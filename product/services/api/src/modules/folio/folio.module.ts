@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../clock';
 import { DATABASE, Database } from '../../db/database';
+import { JobRegistry } from '../../jobs/job-runner';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
@@ -22,6 +23,7 @@ import { FolioController } from './internal/folio.controller';
 import { BillService } from './internal/bill.service';
 import { FolioFocService } from './internal/foc.service';
 import { FolioLinesService } from './internal/folio-lines.service';
+import { folioCloseJob } from './public/folio-close-job';
 import { FolioService } from './public/folio.service';
 import { resyncMinibarFocOnce } from './public/minibar-foc-resync';
 
@@ -109,6 +111,7 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
     @Inject(DATABASE) private readonly db: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(JobRegistry) private readonly jobs: JobRegistry,
   ) {}
 
   /**
@@ -170,5 +173,8 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     this.approvals.onDecided('damage_pricing', (tx, row) =>
       this.lineService.onDamageDecided(tx, row),
     );
+    // J15 `folio.close` (ARC 16.27 (1)): window over → what is owed becomes one debt, the folio is closed.
+    const j15 = folioCloseJob(this.db, this.folios, this.hooks);
+    if (!this.jobs.get(j15.key)) this.jobs.register(j15);
   }
 }

@@ -133,3 +133,82 @@ describe('ARC 16.26 – Thu công nợ sau trả phòng', () => {
     expect(screen.queryByRole('button', { name: tv('debt.collect') })).toBeNull();
   });
 });
+
+describe('ARC 16.27 – Xóa nợ (OWN/MGR, FOC debt_write_off)', () => {
+  /** The main button of the box, whatever amount it shows (by its string key – UXD may reword it). */
+  const submitName = new RegExp(
+    `^${esc(tv('debt.write_off_submit', { amount: '§' })).replace('§', '.+')}$`,
+  );
+  it('MGR: chọn dòng, số mặc định = min(dòng, còn nợ), ghi chú bắt buộc → requestFoc debt_write_off; trong giá 1 đêm áp ngay', async () => {
+    const { r, due } = withDebt();
+    const sent = capture(/\/lines\/[^/]+\/foc$/);
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
+    const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
+    await user.click(await within(d).findByRole('button', { name: tv('debt.write_off') }));
+    const box = await screen.findByRole('dialog', {
+      name: tv('debt.write_off_title', { code: r.code }),
+    });
+    expect(await within(box).findByText(tv('debt.write_off_limit'))).toBeInTheDocument();
+    await user.click(within(box).getByRole('radio', { name: /300\.000/ }));
+    const amount = within(box).getByLabelText(new RegExp(`^${esc(tv('co.amount'))}\\s*\\*?$`));
+    expect(amount).toHaveValue(Math.min(300_000, due).toLocaleString('vi-VN'));
+    const submit = within(box).getByRole('button', { name: submitName });
+    expect(submit).toBeDisabled(); // note required
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
+      'Khách khiếu nại dịch vụ',
+    );
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    const value = Math.min(300_000, due);
+    expect(
+      await screen.findByText(tv('debt.write_off_done', { amount: money(value), code: r.code })),
+    ).toBeInTheDocument();
+    sent.stop();
+    expect(sent.sent[0]).toMatchObject({
+      kind: 'foc',
+      amountVnd: value,
+      reasonCode: 'debt_write_off',
+      note: 'Khách khiếu nại dịch vụ',
+    });
+  });
+
+  it('MGR vượt giá 1 đêm → "chờ chủ đầu tư duyệt"; FD không thấy nút', async () => {
+    const { r } = withDebt();
+    const f = mockControl.stay.folios.get(r.folioId)!;
+    // A bigger unpaid charge than one night's price.
+    f.lines.push({
+      id: 'debt-big',
+      category: 'damage',
+      description: 'damage',
+      quantity: 1,
+      unitPriceVnd: 2_000_000,
+      amountVnd: 2_000_000,
+      lineState: 'posted',
+      postedAt: new Date().toISOString(),
+    });
+    r.balanceDueVnd = (r.balanceDueVnd ?? 0) + 2_000_000;
+    const { user, unmount } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
+    const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
+    await user.click(await within(d).findByRole('button', { name: tv('debt.write_off') }));
+    const box = await screen.findByRole('dialog', {
+      name: tv('debt.write_off_title', { code: r.code }),
+    });
+    await user.click(await within(box).findByRole('radio', { name: /2\.000\.000/ }));
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
+      'Xóa theo chỉ đạo',
+    );
+    await user.click(within(box).getByRole('button', { name: submitName }));
+    expect(
+      await screen.findByText(
+        tv('debt.write_off_pending', { amount: money(2_000_000), code: r.code }),
+      ),
+    ).toBeInTheDocument();
+    unmount();
+    renderApp(`/reservations/${r.id}`, 'qa.fd');
+    await screen.findByRole('dialog', { name: 'Ngọc Anh' });
+    await screen.findByRole('button', { name: tv('debt.collect') });
+    expect(screen.queryByRole('button', { name: tv('debt.write_off') })).toBeNull();
+  });
+});

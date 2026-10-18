@@ -417,3 +417,16 @@ Phát bằng `EventsService.openAttention(tx, { kind: 'closed_reservation_credit
   - `services/api/test/integration/guest-requests-s4-fix-bed.test.ts`
   - `services/api/test/integration/kpi-ac5a-s4-bed.test.ts`
   - `services/api/test/guest-portal-boundaries.test.ts`
+
+### 7.11 ARC 16.27 / BR-525 – FOC `debt_write_off` ra khỏi cảnh báo BR-435 (ORC giao 18/10)
+- `reporting/internal/attention-sources.ts` `focThreshold`: FOC có lý do `debt_write_off` (xóa công nợ sau trả phòng) **không** tính vào:
+  - (a) giá trị giảm so với `foc_alert_pct_of_room_revenue`. Bỏ cả dòng FOC và dòng đảo của nó, nhận theo `approval_request.reason_code` của dòng gốc;
+  - (b) số lần duyệt của mỗi người duyệt.
+- **Báo cáo FOC** (tách riêng mã này) **không thuộc module của BE-D**. R2 chưa có endpoint báo cáo FOC K-18; danh sách `/approvals?type=foc` là của BE-B. ARC 16.27 giao phần này cho BE-B và DATA.
+- Test `test/integration/foc-debt-write-off-s4-bed.test.ts` (2 ca):
+  - X = 100.000 `service_recovery` dưới 15 %, 1 lần duyệt → không có dòng cảnh báo;
+  - thêm W = 400.000 → có cả dòng giá trị và dòng số lần;
+  - W đổi lý do thành `debt_write_off` → không còn dòng nào;
+  - ở mức 5 %: dòng giá trị quay lại với pct = X / R.
+- Đổi lý do của W bằng vai `ottimo_owner`, vì vai app không có quyền UPDATE `reason_code`; đường xóa nợ thật của BE-B cần folio có công nợ. `dashboard-s4-bed`, `be-d-s4-units`, `module-boundaries` xanh; `tsc` sạch.
+- **Câu hỏi cho DATA/DOM:** mẫu số K-06 là doanh thu phòng **thực** (Σ `stay_night.room_revenue_vnd`, đã trừ FOC gắn đêm). Nếu đường xóa nợ của BE-B cũng trừ vào `stay_night`, mẫu số nhỏ đi nên tỷ lệ FOC vẫn bị phồng nhẹ. Có cần cộng lại phần xóa nợ vào mẫu số không? BE-D chưa đổi.

@@ -115,6 +115,26 @@ export interface DebtAfterReversalInput {
   actor: { userId: string; roles: readonly string[] };
   requestId?: string;
 }
+/**
+ * ARC 16.27 (R7LOCK-01, BR-427 (d)): J15 `folio.close` (BE-B) – the post-checkout window is over, the folio still
+ * owes money and the stay has no open debt → everything owed becomes one debt (B18 structure), then the job closes
+ * the folio. Lock order: the caller holds L1 (every booking of the folio) → L3 (folio).
+ */
+export interface DebtOnCheckoutInput {
+  folioId: string;
+  /** The debt reason – the job's code (`post_checkout_unpaid`). */
+  reason: string;
+  /** Days to the due date from the business date; absent → parameter `debt_default_due_days` (default 3). */
+  dueDays?: number;
+  /** The job's system actor (excluded from nobody: a system user receives no inbox row). */
+  actor: { userId: string; roles: readonly string[] };
+  requestId?: string;
+}
+export type DebtOnCheckoutHandler = (
+  tx: Tx,
+  input: DebtOnCheckoutInput,
+) => Promise<DebtRecordedResult>;
+
 export interface DebtAfterReversalResult {
   recorded: boolean;
   /** The primary booking of the stay carrying the debt (null = no debt recorded). */
@@ -125,6 +145,9 @@ export interface DebtAfterReversalResult {
   balanceDueVnd: number;
   dueDate: LocalDate | null;
 }
+/** What a debt port wrote (G-4 reversal, J15): the same shape. */
+export type DebtRecordedResult = DebtAfterReversalResult;
+
 export type DebtAfterReversalHandler = (
   tx: Tx,
   input: DebtAfterReversalInput,
@@ -155,8 +178,10 @@ export type OpenDebtReader = (tx: Tx, folioId: string) => Promise<OpenDebt | nul
  */
 export interface DebtSettledInput {
   folioId: string;
-  /** The receipt that paid the debt (audit reference). */
+  /** The receipt that paid the debt, or the FOC line that wrote it off (audit reference). */
   paymentId: string;
+  /** ARC 16.27 (R7LOCK-02): `written_off` when an OWN/MGR FOC `debt_write_off` brought it to 0 (default `paid`). */
+  outcome?: 'paid' | 'written_off';
   actor: { userId: string; roles: readonly string[] };
   requestId?: string;
 }
@@ -165,6 +190,8 @@ export interface DebtSettledResult {
   /** The bookings whose debt was closed (empty when not settled). */
   reservationIds: string[];
   balanceDueVnd: number;
+  /** How it was closed (null when not settled). */
+  outcome: 'paid' | 'written_off' | null;
 }
 export type DebtSettledHandler = (tx: Tx, input: DebtSettledInput) => Promise<DebtSettledResult>;
 
@@ -178,6 +205,7 @@ export class ReservationHooks {
   private amountDueHandler: AmountDueHandler | null = null;
   private debtAfterReversalHandler: DebtAfterReversalHandler | null = null;
   private openDebtReader: OpenDebtReader | null = null;
+  private debtOnCheckoutHandler: DebtOnCheckoutHandler | null = null;
   private debtSettledHandler: DebtSettledHandler | null = null;
 
   on(kind: ReservationEventKind, hook: ReservationHook): void {
@@ -256,6 +284,19 @@ export class ReservationHooks {
       throw new Error('debt-after-reversal handler not wired (frontdesk module)');
     }
     return this.debtAfterReversalHandler(tx, input);
+  }
+
+  /** ARC 16.27: provided by the front desk module (see DebtOnCheckoutInput). */
+  provideDebtOnCheckout(handler: DebtOnCheckoutHandler): void {
+    this.debtOnCheckoutHandler = handler;
+  }
+
+  /** ARC 16.27: J15 `folio.close` – what is still owed after the window becomes one debt. */
+  async debtOnCheckout(tx: Tx, input: DebtOnCheckoutInput): Promise<DebtRecordedResult> {
+    if (!this.debtOnCheckoutHandler) {
+      throw new Error('debt-on-checkout handler not wired (frontdesk module)');
+    }
+    return this.debtOnCheckoutHandler(tx, input);
   }
 
   /** ARC 16.26: provided by the front desk module (see OpenDebt). */

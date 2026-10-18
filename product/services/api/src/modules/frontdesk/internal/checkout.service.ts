@@ -50,10 +50,23 @@ import {
 import type {
   DebtAfterReversalInput,
   DebtAfterReversalResult,
+  DebtOnCheckoutInput,
+  DebtRecordedResult,
   DebtSettledInput,
   DebtSettledResult,
   OpenDebt,
 } from '../../reservations/public/reservation-hooks';
+
+/** A booking of a folio as the debt ports read it (under L1). */
+interface DebtRow {
+  id: string;
+  code: string;
+  status: string;
+  parent_reservation_id: string | null;
+  checkout_mode: string | null;
+  debt_due_date: LocalDate | null;
+  debt_settled_at: Date | null;
+}
 import type { LateCheckoutResult } from '../public/stay-rules';
 import { StayService } from './stay.service';
 import { StaySupport, TASK_RANK } from './stay-support';
@@ -200,15 +213,100 @@ export class CheckoutService {
     const dueDate =
       primary.debt_due_date ??
       addDays(ctx.today, await this.s.param<number>(tx, ctx, 'debt_default_due_days'));
-    const reason = input.reason.slice(0, 500);
+    return this.writeDebt(tx, ctx, rows, primary, {
+      dueDate,
+      keep: true,
+      reason: input.reason,
+      debtVnd,
+      balanceDueVnd: balance.balanceDueVnd,
+      actorUserId: input.actor.userId,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+  }
+
+  /**
+   * ARC 16.27 (R7LOCK-01, BR-427 (d), BR-525): J15 `folio.close` (payments/folio – BE-B) found the post-checkout
+   * window over with money still owed and no open debt → everything owed becomes ONE debt, the B18 structure: the
+   * stay's checked-out bookings `checkout_mode = debt`, due = business date + `dueDays` (the job passes
+   * `debt_default_due_days`; absent → the parameter is read here), reason = the job's code; money audit
+   * `reservation.debt_on_checkout`, `debt_recorded` to OWN + MGR, "Cần chú ý" `checkout_debt`. A debt still open →
+   * `recorded: false` (it follows what is owed). Lock order as reversePayment: the caller holds L1 (every booking of
+   * the folio) → L3 (folio); the balance is read here under them.
+   */
+  async debtOnCheckout(tx: Tx, input: DebtOnCheckoutInput): Promise<DebtRecordedResult> {
+    const { rows } = await tx.query<DebtRow>(
+      `SELECT id, code, status, parent_reservation_id, checkout_mode, debt_due_date::text AS debt_due_date,
+              debt_settled_at
+         FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE`,
+      [input.folioId],
+    );
+    const primary = rows.find((r) => r.parent_reservation_id === null) ?? rows[0];
+    const balance = await this.s.folios.balance(tx, input.folioId);
+    const none: DebtRecordedResult = {
+      recorded: false,
+      reservationId: null,
+      debtVnd: 0,
+      balanceDueVnd: balance.balanceDueVnd,
+      dueDate: null,
+    };
+    if (!primary || primary.status !== 'checked_out' || balance.balanceDueVnd <= 0) return none;
+    if (primary.checkout_mode === 'debt' && primary.debt_settled_at === null) return none;
+    const ctx = await this.s.stay.context(
+      tx,
+      { userId: input.actor.userId, roles: [...input.actor.roles] },
+      input.requestId,
+    );
+    const days = input.dueDays ?? (await this.s.param<number>(tx, ctx, 'debt_default_due_days'));
+    return this.writeDebt(tx, ctx, rows, primary, {
+      dueDate: addDays(ctx.today, days),
+      keep: false,
+      reason: input.reason,
+      debtVnd: balance.balanceDueVnd,
+      balanceDueVnd: balance.balanceDueVnd,
+      actorUserId: input.actor.userId,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+  }
+
+  /**
+   * One way to write a debt (B18 structure) for every path that records one by itself (G-4 reversal, J15): the
+   * stay's checked-out bookings `checkout_mode = debt` + due date + reason (`keep`: a due date / reason they
+   * already have stay – a debt that only grows), the debt (re)opened, change log, money audit
+   * `reservation.debt_on_checkout`, `debt_recorded` to OWN + MGR (not the actor), the booking's SSE.
+   */
+  private async writeDebt(
+    tx: Tx,
+    ctx: BookingContext,
+    rows: ReadonlyArray<{ id: string; code: string; status: string; checkout_mode: string | null }>,
+    primary: { id: string; code: string; checkout_mode: string | null },
+    d: {
+      dueDate: LocalDate;
+      keep: boolean;
+      reason: string;
+      debtVnd: number;
+      balanceDueVnd: number;
+      actorUserId: string;
+      requestId?: string;
+    },
+  ): Promise<DebtRecordedResult> {
+    const reason = d.reason.slice(0, 500);
     const out = rows.filter((r) => r.status === 'checked_out');
     await tx.query(
-      `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = COALESCE(debt_due_date, $2::date),
-              debt_reason = COALESCE(debt_reason, $3), debt_settled_at = NULL, updated_at = $4,
-              version = version + 1
-        WHERE id = ANY($1::uuid[])`,
-      [out.map((r) => r.id), dueDate, reason, ctx.now],
+      d.keep
+        ? `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = COALESCE(debt_due_date, $2::date),
+                  debt_reason = COALESCE(debt_reason, $3), debt_settled_at = NULL, updated_at = $4,
+                  version = version + 1
+            WHERE id = ANY($1::uuid[])`
+        : `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = $2::date, debt_reason = $3,
+                  debt_settled_at = NULL, updated_at = $4, version = version + 1
+            WHERE id = ANY($1::uuid[])`,
+      [out.map((r) => r.id), d.dueDate, reason, ctx.now],
     );
+    const { rows: after } = await tx.query<{ due: LocalDate }>(
+      'SELECT debt_due_date::text AS due FROM reservation WHERE id = $1',
+      [primary.id],
+    );
+    const dueDate = after[0]?.due ?? d.dueDate;
     for (const r of out) {
       if (r.checkout_mode !== 'debt') {
         await recordChange(tx, r.id, 'checkout_mode', r.checkout_mode, 'debt', ctx.now, reason);
@@ -220,16 +318,16 @@ export class CheckoutService {
       entityId: primary.id,
       entityCode: primary.code,
       before: { checkoutMode: primary.checkout_mode },
-      after: { checkoutMode: 'debt', debtVnd, balanceDueVnd: balance.balanceDueVnd, dueDate },
+      after: { checkoutMode: 'debt', debtVnd: d.debtVnd, balanceDueVnd: d.balanceDueVnd, dueDate },
       reason,
-      ...(input.requestId ? { requestId: input.requestId } : {}),
+      ...(d.requestId ? { requestId: d.requestId } : {}),
     });
     await this.s.events.notify(
       tx,
       {
         kind: 'debt_recorded',
         roles: ['owner', 'manager'],
-        excludeUserIds: [input.actor.userId],
+        excludeUserIds: [d.actorUserId],
         refType: 'reservation',
         refId: primary.id,
         refCode: primary.code,
@@ -240,8 +338,8 @@ export class CheckoutService {
     return {
       recorded: true,
       reservationId: primary.id,
-      debtVnd,
-      balanceDueVnd: balance.balanceDueVnd,
+      debtVnd: d.debtVnd,
+      balanceDueVnd: d.balanceDueVnd,
       dueDate,
     };
   }
@@ -308,8 +406,14 @@ export class CheckoutService {
       [input.folioId],
     );
     const balance = await this.s.folios.balance(tx, input.folioId);
+    const outcome = input.outcome ?? 'paid';
     if (rows.length === 0 || balance.balanceDueVnd > 0) {
-      return { settled: false, reservationIds: [], balanceDueVnd: balance.balanceDueVnd };
+      return {
+        settled: false,
+        reservationIds: [],
+        balanceDueVnd: balance.balanceDueVnd,
+        outcome: null,
+      };
     }
     const ctx = await this.s.stay.context(
       tx,
@@ -330,12 +434,12 @@ export class CheckoutService {
       entityId: primary.id,
       entityCode: primary.code,
       before: { checkoutMode: 'debt', balanceDueVnd: balance.balanceDueVnd },
-      after: { checkoutMode: 'debt', balanceDueVnd: 0 },
-      reason: `payment ${input.paymentId}`,
+      after: { checkoutMode: 'debt', balanceDueVnd: 0, debtOutcome: outcome },
+      reason: `${outcome === 'written_off' ? 'write-off' : 'payment'} ${input.paymentId}`,
       ...(input.requestId ? { requestId: input.requestId } : {}),
     });
     await this.s.events.publish(tx, 'reservation.changed', primary.id);
-    return { settled: true, reservationIds: ids, balanceDueVnd: balance.balanceDueVnd };
+    return { settled: true, reservationIds: ids, balanceDueVnd: balance.balanceDueVnd, outcome };
   }
 
   /** Post-midnight window at `at` for a stay leaving on `departure` (DOM S3-9 b). */

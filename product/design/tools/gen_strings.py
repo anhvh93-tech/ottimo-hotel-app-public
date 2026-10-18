@@ -3179,6 +3179,19 @@ g("R2 Sprint 4 – FE-A đợt 22: thu công nợ sau trả phòng (ARC 16.26, B
     ("debt.collected_toast", "Đã thu {amount} công nợ của {code}.", "{amount} of debt collected for {code}.", None, "Sau khi thu"),
 ])
 
+g("R2 Sprint 4 – FE-A đợt 23: xóa công nợ – DebtWriteOffDialog (ARC 16.27, BR-433) (UXD duyệt 18/10 – s4-UXD-brand: thống nhất \"công nợ\", \"phiếu thanh toán\", \"chủ đầu tư\" = OWN; sửa 9)", [
+    ("debt.write_off", "Xóa công nợ", "Write off debt", None, "ARC 16.27 – nút OWN/MGR cạnh Thu công nợ (drawer, Cần chú ý)"),
+    ("debt.write_off_title", "Xóa công nợ · {code}", "Write off debt · {code}", None, "Tiêu đề hộp"),
+    ("debt.write_off_help", "Còn phải thu {amount}. Chọn khoản để xóa công nợ; khoản này ghi là miễn phí sau khi chốt folio, phiếu thanh toán đã cấp giữ nguyên.", "{amount} still due. Choose the charge to write off; it is posted as a waiver after settlement, and the guest folio already issued stays as it is.", None, "requestFoc reasonCode=debt_write_off"),
+    ("debt.write_off_limit", "Quản lý xóa công nợ tới giá 1 đêm; vượt mức này cần chủ đầu tư duyệt.", "A manager can write off up to one night's rate; above that, the owner approves.", None, "BR-433 – chỉ hiện với MGR"),
+    ("debt.write_off_line", "Khoản xóa công nợ", "Charge to write off", None, "Nhóm chọn dòng folio (dòng tiền phòng ảnh hưởng hoa hồng – BR-903)"),
+    ("debt.write_off_note", "Lý do xóa công nợ", "Reason for the write-off", None, "Ghi chú bắt buộc (≥ 3 ký tự)"),
+    ("debt.write_off_submit", "Xóa công nợ {amount}", "Write off {amount}", None, "Nút chính"),
+    ("debt.write_off_done", "Đã xóa công nợ {amount} của {code}.", "{amount} written off for {code}.", None, "Sau khi áp"),
+    ("debt.write_off_pending", "Đã gửi yêu cầu xóa công nợ {amount} của {code} – chờ chủ đầu tư duyệt.", "Write-off request of {amount} for {code} sent – awaiting the owner's approval.", None, "MGR vượt giá 1 đêm (BR-433)"),
+    ("foc.r_debt_write_off", "Xóa công nợ", "Debt written off", None, "Lý do FOC debt_write_off – dòng folio, nhật ký tiền"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

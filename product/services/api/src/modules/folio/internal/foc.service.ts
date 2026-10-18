@@ -20,8 +20,17 @@ import {
   type ApprovalRow,
   ApprovalService,
 } from '../../approvals/public/approval.service';
+import { ReservationHooks } from '../../reservations/public/reservation-hooks';
+import { applyPct } from '../../reservations/public/pricing';
 import { FolioService, OTA_COVERED } from '../public/folio.service';
 import { keyKindOf } from '../public/reductions';
+
+/**
+ * ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): the FOC reason that writes a debt off after check-out – the ONLY
+ * request on a `settled` / `closed` folio, and only while the stay has an open debt.
+ */
+export const DEBT_WRITE_OFF = 'debt_write_off';
+const WRITE_OFF_ROLES = ['owner', 'manager'];
 
 export interface FocInput {
   kind: 'foc' | 'special_discount';
@@ -54,6 +63,7 @@ export class FolioFocService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioService) private readonly folios: FolioService,
+    @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
   ) {}
 
   async request(
@@ -67,7 +77,28 @@ export class FolioFocService {
     // S4-13 lock order (bookings → folio): a self-applied request moves stay_night like a decision.
     const folio = await this.folios.lockStay(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    // ARC 16.27 (2): `debt_write_off` is the one exception to a settled / closed folio – with an open debt of the
+    // stay (front desk, read under L1 → L3), `kind = foc`, OWN/MGR, a note, at most what is still owed.
+    const writeOff = input.reasonCode === DEBT_WRITE_OFF;
+    if (folio.status !== 'open') {
+      if (!writeOff || (await this.hooks.openDebt(tx, folio.id)) === null) {
+        throw problem('FOLIO_LOCKED');
+      }
+      if (!actor.roles.some((r) => WRITE_OFF_ROLES.includes(r))) throw problem('FORBIDDEN_ACTION');
+      if (input.kind !== 'foc') {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_ALLOWED' }] });
+      }
+      if (!input.note || input.note.trim().length < 3) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+        });
+      }
+    } else if (writeOff) {
+      // Nothing to write off while the folio is open (no debt yet) – the ordinary FOC reasons apply.
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'reasonCode', code: 'NOT_ALLOWED' }],
+      });
+    }
     const line = await this.line(tx, lineId);
     if (!line || line.folio_id !== folio.id) throw problem('NOT_FOUND');
     if (
@@ -106,7 +137,16 @@ export class FolioFocService {
     // S4-23 (6): line − (what is applied now + what pending requests ask) on the key (FolioService – the same
     // rule as the desk's requestFocForSurcharge, S4-25).
     const remaining = await this.folios.reductionHeadroomVnd(tx, line.id);
-    if (input.amountVnd > remaining) {
+    if (writeOff) {
+      // Never a write-off that leaves an overpayment: min(what the line still allows, what is owed).
+      const max = Math.min(remaining, (await this.folios.balance(tx, folio.id)).balanceDueVnd);
+      if (input.amountVnd > max) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+          extras: { max },
+        });
+      }
+    } else if (input.amountVnd > remaining) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
         extras: { max: remaining },
@@ -133,6 +173,8 @@ export class FolioFocService {
       relatedLineId: line.id,
       // Bill label "Miễn phí · {reason}" (BR-434, DOM BE-21).
       labelParams: { reason: input.reasonCode },
+      // ARC 16.27 (2): a write-off is an entry after the bill was closed (bill and folio state unchanged).
+      ...(writeOff ? { postCheckout: true } : {}),
     });
     await this.audit.recordMoney(tx, {
       action: 'folio.foc_requested',
@@ -173,7 +215,90 @@ export class FolioFocService {
     if (keyKindOf(line.category) === 'night' && line.service_date) {
       await this.approvals.setFocKeyDate(tx, row.id, line.service_date);
     }
+    // Self-applied (MGR within the price of one night, OWN): submit already ran onDecided → afterWriteOff.
     return row;
+  }
+
+  /**
+   * ARC 16.27 (2), after a `debt_write_off` FOC is posted (self-applied, or approved by OWN – same transaction,
+   * locks L1 → L3 held: lockStay / preLock): BR-903 – on a ROOM line the amount written off leaves the commission
+   * base of the booking (CTV 8 %: 100.000 off → 408.400 instead of 416.400; `paid` untouched – R3), on minibar /
+   * damage / surcharge lines the base stays; the folio owes nothing any more → the debt is closed `written_off`
+   * (front desk) and the commission is earned now (FolioService.tryEarnCommissions).
+   */
+  private async afterWriteOff(tx: Tx, request: ApprovalRow): Promise<void> {
+    if (request.reason_code !== DEBT_WRITE_OFF || !request.folio_line_id) return;
+    const { rows } = await tx.query<{
+      folio_id: string;
+      category: string;
+      reservation_id: string | null;
+      applied: string | number;
+    }>(
+      `SELECT f.folio_id, r.category, r.reservation_id,
+              (SELECT COALESCE(-sum(x.amount_vnd), 0) FROM folio_line x
+                WHERE x.approval_request_id = $1 AND x.line_state = 'posted'
+                  AND NOT EXISTS (SELECT 1 FROM folio_line y WHERE y.reversal_of_id = x.id)) AS applied
+         FROM folio_line f JOIN folio_line r ON r.id = f.related_line_id
+        WHERE f.id = $2`,
+      [request.id, request.folio_line_id],
+    );
+    const w = rows[0];
+    if (!w) return;
+    const applied = Number(w.applied);
+    const folio = await this.folios.get(tx, w.folio_id);
+    if (!folio) return;
+    if (w.category === 'room' && applied > 0) {
+      const { rows: cs } = await tx.query<{
+        id: string;
+        status: string;
+        rate_pct_snapshot: string;
+        base_amount_vnd: number;
+        amount_vnd: number;
+      }>(
+        `SELECT id, status, rate_pct_snapshot, base_amount_vnd, amount_vnd FROM commission
+          WHERE reservation_id IN ($1, $2) AND status IN ('projected', 'earned', 'payable')
+          ORDER BY id FOR UPDATE`,
+        [folio.primary_reservation_id, w.reservation_id ?? folio.primary_reservation_id],
+      );
+      for (const c of cs) {
+        const base = Math.max(0, Number(c.base_amount_vnd) - applied);
+        const amount = applyPct(base, Number(c.rate_pct_snapshot), 1);
+        await tx.query(
+          `UPDATE commission SET base_amount_vnd = $2, amount_vnd = $3, updated_at = $4, version = version + 1
+            WHERE id = $1`,
+          [c.id, base, amount, this.clock.now()],
+        );
+        await this.audit.recordMoney(tx, {
+          action: 'commission.projected',
+          entityType: 'commission',
+          entityId: c.id,
+          ...(request.target_code ? { entityCode: request.target_code } : {}),
+          before: {
+            status: c.status,
+            baseVnd: Number(c.base_amount_vnd),
+            amountVnd: Number(c.amount_vnd),
+          },
+          after: { status: c.status, baseVnd: base, amountVnd: amount },
+          reason: 'debt written off on a room line (BR-903, BR-525)',
+        });
+      }
+    }
+    if ((await this.folios.balance(tx, w.folio_id)).balanceDueVnd > 0) return;
+    await this.hooks.debtSettled(tx, {
+      folioId: w.folio_id,
+      paymentId: request.folio_line_id,
+      outcome: 'written_off',
+      actor: {
+        userId: request.approver_id ?? request.requested_by,
+        roles: [request.approver_role_snapshot ?? 'manager'],
+      },
+    });
+    const own = request.target_code ?? '';
+    await this.folios.tryEarnCommissions(tx, {
+      reservationId: folio.primary_reservation_id,
+      reservationCode: own,
+      status: 'checked_out',
+    });
   }
 
   /** SM-10 decision hook (approved / rejected / cancelled) for `foc` and `special_discount`. */
@@ -194,6 +319,8 @@ export class FolioFocService {
         userId: request.approver_id,
         ...(request.target_code ? { reservationCode: request.target_code } : {}),
       });
+      // ARC 16.27 (2): a write-off OWN approved above the manager's limit.
+      await this.afterWriteOff(tx, request);
       return;
     }
     if (request.status !== 'rejected' && request.status !== 'cancelled') return;
